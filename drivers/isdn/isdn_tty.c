@@ -2859,8 +2859,8 @@ isdn_tty_get_msnstr(char *n, char **p)
 	int limit = ISDN_MSNLEN - 1;
 
 	while (((*p[0] >= '0' && *p[0] <= '9') ||
-	       /* Why a comma ??? */
-	       (*p[0] == ',')) &&
+		/* Why a comma ??? */
+		(*p[0] == ',') || (*p[0] == ':')) &&
 		(limit--))
 		*n++ = *p[0]++;
 	*n = '\0';
