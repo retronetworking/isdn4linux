@@ -24,6 +24,11 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.8  1999/10/08 22:09:34  armin
+ * Some fixes of cards interface handling.
+ * Bugfix of NULL pointer occurence.
+ * Changed a few log outputs.
+ *
  * Revision 1.7  1999/09/26 14:17:53  armin
  * Improved debug and log via readstat()
  *
@@ -465,7 +470,7 @@ eicon_io_transmit(eicon_card *ccard) {
                 save_flags(flags);
                 cli();
 		if (scom) {
-			if (ram_inb(ccard, &com->Req)) {
+			if ((ram_inb(ccard, &com->Req)) || (ccard->ReadyInt)) {
 				if (!ccard->ReadyInt) {
 					tmp = ram_inb(ccard, &com->ReadyInt) + 1;
 					ram_outb(ccard, &com->ReadyInt, tmp);
@@ -561,7 +566,8 @@ eicon_io_transmit(eicon_card *ccard) {
 			chan->e.busy = 1;
 	               	eicon_log(ccard, dlev, "eicon: Req=%d Id=%x Ch=%d Len=%d Ref=%d\n", 
 					reqbuf->Req, 
-					ram_inb(ccard, &ReqOut->ReqId),
+					(scom) ? ram_inb(ccard, &com->ReqId) :
+						ram_inb(ccard, &ReqOut->ReqId),
 					reqbuf->ReqCh, reqbuf->XBuffer.length,
 					chan->e.ref); 
 		  }
@@ -749,6 +755,7 @@ eicon_irq(int irq, void *dev_id, struct pt_regs *regs) {
 			if (ccard->ReadyInt) {
 				ccard->ReadyInt--;
 				ram_outb(ccard, &com->Rc, 0);
+				eicon_schedule_tx(ccard);
 			}
 		} else {
 			skb = alloc_skb(sizeof(eicon_RC), GFP_ATOMIC);
