@@ -7,6 +7,9 @@
  *              Fritz Elfert
  *
  * $Log$
+ * Revision 1.13  1996/12/08 19:51:17  keil
+ * bugfixes from Pekka Sarnila
+ *
  * Revision 1.12  1996/11/26 20:20:03  keil
  * fixed warning while compile
  *
@@ -51,6 +54,8 @@
 extern long mod_use_count_;
 #endif MODULE
 
+const	char	*l4_revision        = "$Revision$";
+
 extern struct IsdnCard cards[];
 extern int      nrcards;
 extern int      drid;
@@ -62,15 +67,28 @@ static int      init_ds(int chan, int incoming);
 static void     release_ds(int chan);
 static char    *strcpyupto(char *dest, char *src, char upto);
 
-static struct Fsm callcfsm =
-{NULL, 0, 0},   lcfsm =
-{NULL, 0, 0};
+static struct Fsm callcfsm = {NULL, 0, 0},
+                  lcfsm    = {NULL, 0, 0};
 
 struct Channel *chanlist;
 static int      chancount = 0;
 unsigned int    debugflags = 0;
 
-#define TMR_DCHAN_EST 2000
+/* Flags for remembering action done in l4 */
+
+#define  FLG_START_D	0x0001
+#define  FLG_ESTAB_D	0x0002
+#define  FLG_CALL_SEND	0x0004
+#define  FLG_CALL_REC	0x0008
+#define  FLG_START_B	0x0010
+#define  FLG_CONNECT_B	0x0020
+#define  FLG_LL_DCONN	0x0040
+#define  FLG_LL_BCONN	0x0080
+#define  FLG_DISC_SEND	0x0100
+
+#define  SETBIT(flg, item)  flg |= item
+#define  RESBIT(flg, item)  flg &= (~item)
+
 
 static void
 stat_debug(struct Channel *chanp, char *s)
@@ -78,86 +96,83 @@ stat_debug(struct Channel *chanp, char *s)
 	char            tmp[100], tm[32];
 
 	jiftime(tm, jiffies);
-	sprintf(tmp, "%s Channel %d HL->LL %s\n", tm, chanp->chan, s);
+	sprintf(tmp, "%s Channel %d LL->HL %s\n", tm, chanp->chan, s);
 	HiSax_putstatus(tmp);
 }
 
 
 enum {
-        ST_NULL,           /*  0 inactive                                               */
-        ST_OUT,            /*  1 outgoing, awaiting SETUP confirm                       */
-        ST_CLEAR,          /*  2 call release, awaiting RELEASE confirm                 */
-        ST_OUT_W,          /*  3 outgoing, awaiting d-channel establishment             */
-        ST_REL_W,          /*  4 awaiting d-channel release                             */
-        ST_IN_W,           /*  5 incoming, awaiting d-channel establishment             */
-        ST_IN,             /*  6 incoming call received                                 */
-        ST_IN_SETUP,       /*  7 incoming, SETUP response sent                          */
-        ST_IN_DACT,        /*  8 incoming connected, no b-channel prot.                 */
-        ST_OUT_ESTB,       /* 10 outgoing connected, awaiting b-channel prot. estbl.    */
-        ST_ACTIVE,         /* 11 active, b channel prot. established                    */
-        ST_BC_HANGUP,      /* 12 call clear. (initiator), awaiting b channel prot. rel. */
-        ST_PRO_W,          /* 13 call clear. (initiator), DISCONNECT req. sent          */
-        ST_ANT_W,          /* 14 call clear. (receiver), awaiting DISCONNECT ind.       */
-        ST_DISC_BC_HANGUP, /* 15 d channel gone, wait for b channel deactivation        */
-	ST_OUT_W_HANGUP,   /* 16 Outgoing waiting for D-Channel hangup received         */
-        ST_D_ERR,          /* 17 d channel released while active                        */
+        ST_NULL,             /*  0 inactive */
+        ST_OUT_WAIT_D,       /*  1 outgoing, awaiting d-channel establishment */
+        ST_IN_WAIT_D,        /*  2 incoming, awaiting d-channel establishment */
+        ST_OUT_DIAL,         /*  3 outgoing, SETUP send; awaiting confirm */
+        ST_IN_WAIT_LL,       /*  4 incoming call received; wait for LL confirm */
+        ST_IN_ALERT_SEND,    /*  5 incoming call received; ALERT send */
+        ST_IN_WAIT_CONN_ACK, /*  6 incoming CONNECT send; awaiting CONN_ACK */
+        ST_WAIT_BCONN,       /*  7 CONNECT/CONN_ACK received, awaiting b-channel prot. estbl. */
+        ST_ACTIVE,           /*  8 active, b channel prot. established */
+        ST_WAIT_BRELEASE,    /*  9 call clear. (initiator), awaiting b channel prot. rel. */
+        ST_WAIT_BREL_DISC,   /* 10 call clear. (receiver), DISCONNECT req. received */
+        ST_WAIT_DCOMMAND,    /* 11 call clear. (receiver), awaiting DCHANNEL message */
+        ST_WAIT_DRELEASE,    /* 12 DISCONNECT sent, awaiting RELEASE */
+        ST_WAIT_D_REL_CNF,   /* 13 RELEASE sent, awaiting RELEASE confirm */
+        ST_WAIT_DSHUTDOWN,   /*  14 awaiting d-channel shutdown */
 };
 
-#define STATE_COUNT (ST_D_ERR+1)
+#define STATE_COUNT (ST_WAIT_DSHUTDOWN +1)
 
 static char    *strState[] =
 {
         "ST_NULL",
-        "ST_OUT",
-        "ST_CLEAR",
-        "ST_OUT_W",
-        "ST_REL_W",
-        "ST_IN_W",
-        "ST_IN",
-        "ST_IN_SETUP",
-        "ST_IN_DACT",
-        "ST_OUT_ESTB",
+        "ST_OUT_WAIT_D",
+        "ST_IN_WAIT_D",
+        "ST_OUT_DIAL",
+        "ST_IN_WAIT_LL",
+        "ST_IN_ALERT_SEND",
+        "ST_IN_WAIT_CONN_ACK",
+        "ST_WAIT_BCONN",
         "ST_ACTIVE",
-        "ST_BC_HANGUP",
-        "ST_PRO_W",
-        "ST_ANT_W",
-        "ST_DISC_BC_HANGUP",
-        "ST_OUT_W_HANGUP",
-        "ST_D_ERR",
+        "ST_WAIT_BRELEASE",
+        "ST_WAIT_BREL_DISC",
+        "ST_WAIT_DCOMMAND",
+        "ST_WAIT_DRELEASE",
+        "ST_WAIT_D_REL_CNF",
+        "ST_WAIT_DSHUTDOWN",
 };
 
 enum {
         EV_DIAL,           /*  0 */
         EV_SETUP_CNF,      /*  1 */
         EV_ACCEPTB,        /*  2 */
-        EV_DISCONNECT_CNF, /*  5 */
-        EV_DISCONNECT_IND, /*  6 */
-        EV_RELEASE_CNF,    /*  7 */
-        EV_DLEST,          /*  8 */
-        EV_DLRL,           /*  9 */
-        EV_SETUP_IND,      /* 10 */
-        EV_RELEASE_IND,    /* 11 */
-        EV_ACCEPTD,        /* 12 */
-        EV_SETUP_CMPL_IND, /* 13 */
-        EV_BC_EST,         /* 14 */
-        EV_WRITEBUF,       /* 15 */
-        EV_DATAIN,         /* 16 */
-        EV_HANGUP,         /* 17 */
-        EV_BC_REL,         /* 18 */
-        EV_CINF,           /* 19 */
-        EV_SUSPEND,        /* 20 */
-        EV_RESUME,         /* 21 */
-        EV_ICALL_TIMER,    /* 22 */
+        EV_DISCONNECT_IND, /*  3 */
+        EV_RELEASE_CNF,    /*  4 */
+        EV_DLEST,          /*  5 */
+        EV_DLRL,           /*  6 */
+        EV_SETUP_IND,      /*  7 */
+        EV_RELEASE_IND,    /*  8 */
+        EV_ACCEPTD,        /*  9 */
+        EV_SETUP_CMPL_IND, /* 10 */
+        EV_BC_EST,         /* 11 */
+        EV_WRITEBUF,       /* 12 */
+        EV_DATAIN,         /* 13 */
+        EV_HANGUP,         /* 14 */
+        EV_BC_REL,         /* 15 */
+        EV_CINF,           /* 16 */
+        EV_SUSPEND,        /* 17 */
+        EV_RESUME,         /* 18 */
+	EV_NOSETUP_RSP,    /* 19 */
+	EV_SETUP_ERR,      /* 20 */
+	EV_CONNECT_ERR,    /* 21 */
+	EV_RELEASE_ERR,    /* 22 */
 };
 
-#define EVENT_COUNT (EV_ICALL_TIMER+1)
+#define EVENT_COUNT (EV_RELEASE_ERR +1)
 
 static char    *strEvent[] =
 {
         "EV_DIAL",
         "EV_SETUP_CNF",
         "EV_ACCEPTB",
-        "EV_DISCONNECT_CNF",
         "EV_DISCONNECT_IND",
         "EV_RELEASE_CNF",
         "EV_DLEST",
@@ -174,7 +189,10 @@ static char    *strEvent[] =
         "EV_CINF",
         "EV_SUSPEND",
         "EV_RESUME",
-        "EV_ICALL_TIMER",
+	"EV_NOSETUP_RSP",
+	"EV_SETUP_ERR",
+	"EV_CONNECT_ERR",
+	"EV_RELEASE_ERR",
 };
 
 enum {
@@ -249,7 +267,7 @@ my_atoi(char *s)
  * Dial out
  */
 static void
-r1(struct FsmInst *fi, int event, void *arg)
+l4_prep_dialout(struct FsmInst *fi, int event, void *arg)
 {
         isdn_ctrl      *ic = arg;
         struct Channel *chanp = fi->userdata;
@@ -274,7 +292,6 @@ r1(struct FsmInst *fi, int event, void *arg)
         chanp->l2_active_protocol = chanp->l2_protocol;
         chanp->incoming = 0;
         chanp->lc_b.l2_start = !0;
-
         switch (chanp->l2_active_protocol) {
           case (ISDN_PROTO_L2_X75I):
                   chanp->lc_b.l2_establish = !0;
@@ -284,151 +301,95 @@ r1(struct FsmInst *fi, int event, void *arg)
                   chanp->lc_b.l2_establish = 0;
                   break;
           default:
-                  printk(KERN_WARNING "r1 unknown protocol\n");
+                  printk(KERN_WARNING "l4_prep_dialout unknown protocol\n");
                   break;
         }
-
-        FsmChangeState(fi, ST_OUT_W);
+        FsmChangeState(fi, ST_OUT_WAIT_D);
+        SETBIT(chanp->Flags, FLG_START_D);
+        if (chanp->leased) {
+        	chanp->is.ma.manl1(&chanp->is, PH_DEACTIVATE, NULL);
+        	chanp->lc_d.l2_establish = 0;
+        }
         FsmEvent(&chanp->lc_d.lcfi, EV_LC_ESTABLISH, NULL);
 }
 
 static void
-ll_hangup(struct Channel *chanp, int bchantoo)
+l4_do_dialout(struct FsmInst *fi, int event, void *arg)
 {
+        struct Channel *chanp = fi->userdata;
+
+        FsmChangeState(fi, ST_OUT_DIAL);
+        if (chanp->leased) {
+        	chanp->para.bchannel = (chanp->chan & 1) +1;
+        	FsmEvent(&chanp->fi, EV_SETUP_CNF, NULL);
+	} else {
+		SETBIT(chanp->Flags, FLG_ESTAB_D);
+        	chanp->para.callref = chanp->outcallref;
+        	chanp->outcallref++;
+        	if (chanp->outcallref == 128)
+                	chanp->outcallref = 64;
+        	chanp->is.l4.l4l3(&chanp->is, CC_SETUP_REQ, NULL);
+        	SETBIT(chanp->Flags, FLG_CALL_SEND);
+        }
+}
+
+static void
+l4_init_bchan_out(struct FsmInst *fi, int event, void *arg)
+{
+        struct Channel *chanp = fi->userdata;
         isdn_ctrl       ic;
 
-        if (bchantoo) {
-                if (chanp->debug & 1)
-                        stat_debug(chanp, "STAT_BHUP");
-                ic.driver = drid;
-                ic.command = ISDN_STAT_BHUP;
-                ic.arg = chanp->chan;
-                iif.statcallb(&ic);
-        }
+        FsmChangeState(fi, ST_WAIT_BCONN);
+	SETBIT(chanp->Flags, FLG_LL_DCONN);
         if (chanp->debug & 1)
-                stat_debug(chanp, "STAT_DHUP");
+                stat_debug(chanp, "STAT_DCONN");
         ic.driver = drid;
-        ic.command = ISDN_STAT_DHUP;
+        ic.command = ISDN_STAT_DCONN;
+        ic.arg = chanp->chan;
+        iif.statcallb(&ic);
+        init_ds(chanp->chan, 0);
+	SETBIT(chanp->Flags, FLG_START_B);
+        FsmEvent(&chanp->lc_b.lcfi, EV_LC_ESTABLISH, NULL);
+}
+
+
+static void
+l4_go_active(struct FsmInst *fi, int event, void *arg)
+{
+        struct Channel *chanp = fi->userdata;
+        isdn_ctrl       ic;
+
+        FsmChangeState(fi, ST_ACTIVE);
+        chanp->data_open = !0;
+	SETBIT(chanp->Flags, FLG_CONNECT_B);
+        if (chanp->debug & 1)
+                stat_debug(chanp, "STAT_BCONN");
+	SETBIT(chanp->Flags, FLG_LL_BCONN);
+        ic.driver = drid;
+        ic.command = ISDN_STAT_BCONN;
         ic.arg = chanp->chan;
         iif.statcallb(&ic);
 }
 
+/* incomming call */
+
 static void
-r2(struct FsmInst *fi, int event, void *arg)
+l4_start_dchan(struct FsmInst *fi, int event, void *arg)
 {
         struct Channel *chanp = fi->userdata;
 
-        chanp->is.l4.l4l3(&chanp->is, CC_RELEASE_REQ, NULL);
-
-        FsmChangeState(fi, ST_CLEAR);
-        ll_hangup(chanp, 0);
-}
-
-
-static void
-r2_1(struct FsmInst *fi, int event, void *arg)
-{
-        struct Channel *chanp = fi->userdata;
-
-        FsmChangeState(fi, ST_OUT_W_HANGUP);
-        chanp->is.l4.l4l3(&chanp->is, CC_REJECT_REQ, NULL);
-}
-
-
-static void
-r2_2(struct FsmInst *fi, int event, void *arg)
-{
-        struct Channel *chanp = fi->userdata;
-
-        FsmChangeState(fi, ST_REL_W);
-        FsmEvent(&chanp->lc_d.lcfi, EV_LC_RELEASE, NULL);
-        ll_hangup(chanp, 0);
-}
-
-
-static void
-r2_3(struct FsmInst *fi, int event, void *arg)
-{
-        struct Channel *chanp = fi->userdata;
-
-        FsmChangeState(fi, ST_REL_W);
-        FsmEvent(&chanp->lc_d.lcfi, EV_LC_FLUSH, NULL);
-        ll_hangup(chanp, 0);
-}
-
-
-static void
-r2_4(struct FsmInst *fi, int event, void *arg)
-{
-        struct Channel *chanp = fi->userdata;
-
-        FsmChangeState(fi, ST_OUT_W_HANGUP);
-        chanp->is.l4.l4l3(&chanp->is, CC_DISCONNECT_REQ, NULL);
-}
-
-
-static void
-r3(struct FsmInst *fi, int event, void *arg)
-{
-        struct Channel *chanp = fi->userdata;
-
-        FsmEvent(&chanp->lc_d.lcfi, EV_LC_RELEASE, NULL);
-        FsmChangeState(fi, ST_REL_W);
-}
-
-
-static void
-r3_1(struct FsmInst *fi, int event, void *arg)
-{
-        struct Channel *chanp = fi->userdata;
-
-	chanp->is.l4.l4l3(&chanp->is,CC_DLRL,NULL); 
-	
-        FsmChangeState(fi, ST_NULL);
-        ll_hangup(chanp, 0);
-}
-
-static void
-r4(struct FsmInst *fi, int event, void *arg)
-{
-	struct Channel *chanp=fi->userdata;  
-  
-        chanp->is.l4.l4l3(&chanp->is,CC_DLRL,NULL);                                  
-        FsmChangeState(fi, ST_NULL);
-}
-
-static void
-r5(struct FsmInst *fi, int event, void *arg)
-{
-        struct Channel *chanp = fi->userdata;
-
-        chanp->para.callref = chanp->outcallref;
-
-        chanp->outcallref++;
-        if (chanp->outcallref == 128)
-                chanp->outcallref = 64;
-
-        chanp->is.l4.l4l3(&chanp->is, CC_SETUP_REQ, NULL);
-
-        FsmChangeState(fi, ST_OUT);
-}
-
-static void
-r6(struct FsmInst *fi, int event, void *arg)
-{
-        struct Channel *chanp = fi->userdata;
-
-        FsmChangeState(fi, ST_IN_W);
+        FsmChangeState(fi, ST_IN_WAIT_D);
+        SETBIT(chanp->Flags, FLG_START_D);
         FsmEvent(&chanp->lc_d.lcfi, EV_LC_ESTABLISH, NULL);
 }
 
 static void
-r7(struct FsmInst *fi, int event, void *arg)
+l4_deliver_call(struct FsmInst *fi, int event, void *arg)
 {
         struct Channel *chanp = fi->userdata;
         isdn_ctrl       ic;
         int		ret;
-        char		txt[32];	       
+        char		txt[32];
 
         /*
          * Report incoming calls only once to linklevel, use CallFlags
@@ -436,7 +397,9 @@ r7(struct FsmInst *fi, int event, void *arg)
          * and resetted if a interface  answered the STAT_ICALL.
          */
         if ((chanp->sp) &&(chanp->sp->CallFlags==3)) {
-                FsmChangeState(fi, ST_IN);
+                FsmChangeState(fi, ST_IN_WAIT_LL);
+        	SETBIT(chanp->Flags, FLG_ESTAB_D);
+        	SETBIT(chanp->Flags, FLG_CALL_REC);
                 if (chanp->debug & 1)
                         stat_debug(chanp, "STAT_ICALL");
                 ic.driver = drid;
@@ -455,48 +418,59 @@ r7(struct FsmInst *fi, int event, void *arg)
                 }
                 if (ret) /* if a interface knows this call, reset the CallFlag
 			  * to avoid a second Call report to the linklevel */
-                	chanp->sp->CallFlags &= ~(chanp->chan+1); 
+                	chanp->sp->CallFlags &= ~(chanp->chan+1);
                 switch(ret) {
                   case 1: /* OK, anybody likes this call */
+                	FsmChangeState(fi, ST_IN_ALERT_SEND);
                   	chanp->is.l4.l4l3(&chanp->is, CC_ALERTING_REQ, NULL);
                 	break;
-                  case 2: /* Rejecting Call ,nothing to do here */
+                  case 2: /* Rejecting Call */
+        		RESBIT(chanp->Flags, FLG_CALL_REC);
                   	break;
                   case 0: /* OK, nobody likes this call */
                   default: /* statcallb problems */
-                	chanp->is.l4.l4l3(&chanp->is,CC_DLRL,NULL);
+        		RESBIT(chanp->Flags, FLG_CALL_REC);
+                	chanp->is.l4.l4l3(&chanp->is,CC_IGNORE,NULL);
+                	FsmChangeState(fi, ST_WAIT_DSHUTDOWN);
+        		RESBIT(chanp->Flags, FLG_ESTAB_D);
                 	FsmEvent(&chanp->lc_d.lcfi, EV_LC_RELEASE, NULL);
-                	FsmChangeState(fi, ST_REL_W);
                 	break;
                 }
         } else {
-                	chanp->is.l4.l4l3(&chanp->is,CC_DLRL,NULL);
+                	chanp->is.l4.l4l3(&chanp->is,CC_IGNORE, NULL);
+        		RESBIT(chanp->Flags, FLG_CALL_REC);
+                	FsmChangeState(fi, ST_WAIT_DSHUTDOWN);
+        		RESBIT(chanp->Flags, FLG_ESTAB_D);
                 	FsmEvent(&chanp->lc_d.lcfi, EV_LC_RELEASE, NULL);
-                	FsmChangeState(fi, ST_REL_W);
         }
 }
 
 static void
-r8(struct FsmInst *fi, int event, void *arg)
+l4_send_dconnect(struct FsmInst *fi, int event, void *arg)
 {
         struct Channel *chanp = fi->userdata;
 
-        FsmChangeState(fi, ST_IN_SETUP);
+        FsmChangeState(fi, ST_IN_WAIT_CONN_ACK);
         chanp->is.l4.l4l3(&chanp->is, CC_SETUP_RSP, NULL);
-
 }
 
 static void
-r9(struct FsmInst *fi, int event, void *arg)
+l4_init_bchan_in(struct FsmInst *fi, int event, void *arg)
 {
         struct Channel *chanp = fi->userdata;
+        isdn_ctrl       ic;
 
-        FsmChangeState(fi, ST_IN_DACT);
-
+        FsmChangeState(fi, ST_WAIT_BCONN);
+	SETBIT(chanp->Flags, FLG_LL_DCONN);
+        if (chanp->debug & 1)
+                stat_debug(chanp, "STAT_DCONN");
+        ic.driver = drid;
+        ic.command = ISDN_STAT_DCONN;
+        ic.arg = chanp->chan;
+        iif.statcallb(&ic);
         chanp->l2_active_protocol = chanp->l2_protocol;
         chanp->incoming = !0;
         chanp->lc_b.l2_start = 0;
-
         switch (chanp->l2_active_protocol) {
           case (ISDN_PROTO_L2_X75I):
                   chanp->lc_b.l2_establish = !0;
@@ -509,210 +483,282 @@ r9(struct FsmInst *fi, int event, void *arg)
                   printk(KERN_WARNING "r9 unknown protocol\n");
                   break;
         }
-
         init_ds(chanp->chan, !0);
-
+        SETBIT(chanp->Flags, FLG_START_B);
         FsmEvent(&chanp->lc_b.lcfi, EV_LC_ESTABLISH, NULL);
 }
 
+/* Call clearing */
+
 static void
-r10(struct FsmInst *fi, int event, void *arg)
+l4_reject_call(struct FsmInst *fi, int event, void *arg)
 {
         struct Channel *chanp = fi->userdata;
 
-        FsmChangeState(fi, ST_OUT_ESTB);
-
-        init_ds(chanp->chan, 0);
-        FsmEvent(&chanp->lc_b.lcfi, EV_LC_ESTABLISH, NULL);
-
+        FsmChangeState(fi, ST_WAIT_DRELEASE);
+	chanp->para.cause = 0x15; /* Call Rejected */
+        chanp->is.l4.l4l3(&chanp->is, CC_REJECT_REQ, NULL);
+	SETBIT(chanp->Flags, FLG_DISC_SEND);
 }
 
 static void
-r12(struct FsmInst *fi, int event, void *arg)
+l4_cancel_call(struct FsmInst *fi, int event, void *arg)
 {
         struct Channel *chanp = fi->userdata;
         isdn_ctrl       ic;
 
-        FsmChangeState(fi, ST_ACTIVE);
-        chanp->data_open = !0;
-
-        if (chanp->debug & 1)
-                stat_debug(chanp, "STAT_DCONN");
-        ic.driver = drid;
-        ic.command = ISDN_STAT_DCONN;
-        ic.arg = chanp->chan;
-        iif.statcallb(&ic);
-
-        if (chanp->debug & 1)
-                stat_debug(chanp, "STAT_BCONN");
-        ic.driver = drid;
-        ic.command = ISDN_STAT_BCONN;
-        ic.arg = chanp->chan;
-        iif.statcallb(&ic);
-        
-}
-
-static void
-r15(struct FsmInst *fi, int event, void *arg)
-{
-        struct Channel *chanp = fi->userdata;
-
-        chanp->data_open = 0;
-        FsmChangeState(fi, ST_BC_HANGUP);
-        FsmEvent(&chanp->lc_b.lcfi, EV_LC_RELEASE, NULL);
-}
-
-static void
-r16(struct FsmInst *fi, int event, void *arg)
-{
-        struct Channel *chanp = fi->userdata;
-
-        release_ds(chanp->chan);
-
-        FsmChangeState(fi, ST_PRO_W);
+	if (chanp->Flags & FLG_LL_BCONN) {
+        	if (chanp->debug & 1)
+                	stat_debug(chanp, "STAT_BHUP");
+		RESBIT(chanp->Flags, FLG_LL_BCONN);
+        	ic.driver = drid;
+        	ic.command = ISDN_STAT_BHUP;
+        	ic.arg = chanp->chan;
+        	iif.statcallb(&ic);
+        }
+	if (chanp->Flags & FLG_START_B) {
+		release_ds(chanp->chan);
+        	RESBIT(chanp->Flags, FLG_START_B);
+	}
+        FsmChangeState(fi, ST_WAIT_DRELEASE);
+        chanp->para.cause = 0x10; /* Normal Call Clearing */
         chanp->is.l4.l4l3(&chanp->is, CC_DISCONNECT_REQ, NULL);
+	SETBIT(chanp->Flags, FLG_DISC_SEND);
 }
 
 static void
-r17(struct FsmInst *fi, int event, void *arg)
+l4_shutdown_d(struct FsmInst *fi, int event, void *arg)
 {
         struct Channel *chanp = fi->userdata;
 
-        chanp->data_open = 0;
-        release_ds(chanp->chan);
-
-        FsmChangeState(fi, ST_ANT_W);
-}
-
-
-static void
-r17_1(struct FsmInst *fi, int event, void *arg)
-{
-        struct Channel *chanp = fi->userdata;
-
-        chanp->data_open = 0;
-        release_ds(chanp->chan);
-
-	chanp->is.l4.l4l3(&chanp->is,CC_DLRL,NULL); 
-	
-	FsmEvent(&chanp->lc_d.lcfi,EV_LC_RELEASE,NULL); 
-	
-        FsmChangeState(fi, ST_NULL);
-        
-        ll_hangup(chanp,!0); 
+	RESBIT(chanp->Flags, FLG_DISC_SEND);
+        RESBIT(chanp->Flags, FLG_ESTAB_D);
+        RESBIT(chanp->Flags, FLG_CALL_REC);
+        RESBIT(chanp->Flags, FLG_CALL_SEND);
+        FsmChangeState(fi, ST_WAIT_DSHUTDOWN);
+        FsmEvent(&chanp->lc_d.lcfi, EV_LC_RELEASE, NULL);
 }
 
 static void
-r18(struct FsmInst *fi, int event, void *arg)
+l4_flush_d(struct FsmInst *fi, int event, void *arg)
 {
         struct Channel *chanp = fi->userdata;
 
-        FsmChangeState(fi, ST_REL_W);
+        FsmChangeState(fi, ST_WAIT_DSHUTDOWN);
         FsmEvent(&chanp->lc_d.lcfi, EV_LC_FLUSH, NULL);
-
-        ll_hangup(chanp, !0);
+        RESBIT(chanp->Flags, FLG_ESTAB_D);
+        RESBIT(chanp->Flags, FLG_CALL_REC);
+        RESBIT(chanp->Flags, FLG_CALL_SEND);
 }
 
 static void
-r19(struct FsmInst *fi, int event, void *arg)
+l4_go_null(struct FsmInst *fi, int event, void *arg)
 {
-        struct Channel *chanp = fi->userdata;
+	struct Channel *chanp=fi->userdata;
 
-        FsmChangeState(fi, ST_CLEAR);
-
-        chanp->is.l4.l4l3(&chanp->is, CC_RELEASE_REQ, NULL);
-
-        ll_hangup(chanp, !0);
-}
-
-static void
-r20(struct FsmInst *fi, int event, void *arg)
-{
-        struct Channel *chanp = fi->userdata;
-        
-        chanp->is.l4.l4l3(&chanp->is,CC_DLRL,NULL); 
-        
-        FsmEvent(&chanp->lc_d.lcfi,EV_LC_RELEASE,NULL); 
-
+	chanp->Flags = 0;
         FsmChangeState(fi, ST_NULL);
-
-        ll_hangup(chanp, 0);
 }
 
-
 static void
-r21(struct FsmInst *fi, int event, void *arg)
+l4_disconn_bchan(struct FsmInst *fi, int event, void *arg)
 {
         struct Channel *chanp = fi->userdata;
 
         chanp->data_open = 0;
-        FsmChangeState(fi, ST_DISC_BC_HANGUP);
+        FsmChangeState(fi, ST_WAIT_BRELEASE);
+        RESBIT(chanp->Flags, FLG_CONNECT_B);
         FsmEvent(&chanp->lc_b.lcfi, EV_LC_RELEASE, NULL);
 }
 
 static void
-r22(struct FsmInst *fi, int event, void *arg)
+l4_send_d_disc(struct FsmInst *fi, int event, void *arg)
 {
         struct Channel *chanp = fi->userdata;
+        isdn_ctrl       ic;
 
-        release_ds(chanp->chan);
 
-        FsmChangeState(fi, ST_CLEAR);
-
-        chanp->is.l4.l4l3(&chanp->is, CC_RELEASE_REQ, NULL);
-
-        ll_hangup(chanp, !0);
-}
-
-static void
-r23(struct FsmInst *fi, int event, void *arg)
-{
-        struct Channel *chanp = fi->userdata;
-
-        release_ds(chanp->chan);
-
-        FsmChangeState(fi, ST_PRO_W);
+        FsmChangeState(fi, ST_WAIT_DRELEASE);
+	if (chanp->Flags & FLG_LL_BCONN) {
+        	if (chanp->debug & 1)
+                	stat_debug(chanp, "STAT_BHUP");
+		RESBIT(chanp->Flags, FLG_LL_BCONN);
+        	ic.driver = drid;
+        	ic.command = ISDN_STAT_BHUP;
+        	ic.arg = chanp->chan;
+        	iif.statcallb(&ic);
+        }
+        if (chanp->Flags & FLG_START_B) {
+        	release_ds(chanp->chan);
+		RESBIT(chanp->Flags, FLG_START_B);
+	}
+	if (chanp->Flags & FLG_LL_DCONN) {
+        	if (chanp->debug & 1)
+                	stat_debug(chanp, "STAT_DHUP");
+		RESBIT(chanp->Flags, FLG_LL_DCONN);
+        	ic.driver = drid;
+        	ic.command = ISDN_STAT_DHUP;
+        	ic.arg = chanp->chan;
+        	iif.statcallb(&ic);
+        }
+        chanp->para.cause = 0x10; /* Normal Call Clearing */
         chanp->is.l4.l4l3(&chanp->is, CC_DISCONNECT_REQ, NULL);
+	SETBIT(chanp->Flags, FLG_DISC_SEND);
 }
 
 static void
-r23_1(struct FsmInst *fi, int event, void *arg)
+l4_released_bchan(struct FsmInst *fi, int event, void *arg)
 {
         struct Channel *chanp = fi->userdata;
+        isdn_ctrl       ic;
 
+        FsmChangeState(fi, ST_WAIT_DCOMMAND);
+        chanp->data_open = 0;
+	if (chanp->Flags & FLG_LL_BCONN) {
+        	if (chanp->debug & 1)
+                	stat_debug(chanp, "STAT_BHUP");
+		RESBIT(chanp->Flags, FLG_LL_BCONN);
+        	ic.driver = drid;
+        	ic.command = ISDN_STAT_BHUP;
+        	ic.arg = chanp->chan;
+        	iif.statcallb(&ic);
+        }
         release_ds(chanp->chan);
-
-	chanp->is.l4.l4l3(&chanp->is, CC_DLRL,NULL); 
-	
-	FsmEvent(&chanp->lc_d.lcfi, EV_LC_RELEASE,NULL); 
-	
-        FsmChangeState(fi, ST_NULL);
-        
-        ll_hangup(chanp,!0); 
+	RESBIT(chanp->Flags, FLG_START_B);
 }
 
+
 static void
-r24(struct FsmInst *fi, int event, void *arg)
+l4_release_bchan(struct FsmInst *fi, int event, void *arg)
 {
         struct Channel *chanp = fi->userdata;
 
         chanp->data_open = 0;
-        FsmChangeState(fi, ST_D_ERR);
+        FsmChangeState(fi, ST_WAIT_BREL_DISC);
+        RESBIT(chanp->Flags, FLG_CONNECT_B);
         FsmEvent(&chanp->lc_b.lcfi, EV_LC_RELEASE, NULL);
 }
 
 static void
-r25(struct FsmInst *fi, int event, void *arg)
+l4_received_d_rel(struct FsmInst *fi, int event, void *arg)
 {
         struct Channel *chanp = fi->userdata;
+        isdn_ctrl       ic;
 
-        release_ds(chanp->chan);
-        FsmChangeState(fi, ST_NULL);
-        ll_hangup(chanp, !0);
+        chanp->data_open = 0;
+        FsmChangeState(fi, ST_WAIT_DSHUTDOWN);
+	if (chanp->Flags & FLG_CONNECT_B) {
+		chanp->lc_b.l2_establish = 0; /* direct reset in lc_b.lcfi */
+        	FsmEvent(&chanp->lc_b.lcfi, EV_LC_RELEASE, NULL);
+        	RESBIT(chanp->Flags, FLG_CONNECT_B);
+        }
+        if (chanp->Flags & FLG_LL_BCONN) {
+        	if (chanp->debug & 1)
+                	stat_debug(chanp, "STAT_BHUP");
+        	ic.driver = drid;
+        	ic.command = ISDN_STAT_BHUP;
+        	ic.arg = chanp->chan;
+        	iif.statcallb(&ic);
+        	RESBIT(chanp->Flags, FLG_LL_BCONN);
+        }
+        if (chanp->Flags & FLG_START_B) {
+        	release_ds(chanp->chan);
+        	RESBIT(chanp->Flags, FLG_START_B);
+        }
+	if (chanp->Flags & FLG_LL_DCONN) {
+        	if (chanp->debug & 1)
+                	stat_debug(chanp, "STAT_DHUP");
+		RESBIT(chanp->Flags, FLG_LL_DCONN);
+        	ic.driver = drid;
+        	ic.command = ISDN_STAT_DHUP;
+        	ic.arg = chanp->chan;
+        	iif.statcallb(&ic);
+        }
+        FsmEvent(&chanp->lc_d.lcfi, EV_LC_FLUSH, NULL);
+        RESBIT(chanp->Flags, FLG_ESTAB_D);
+	RESBIT(chanp->Flags, FLG_DISC_SEND);
+        RESBIT(chanp->Flags, FLG_CALL_REC);
+        RESBIT(chanp->Flags, FLG_CALL_SEND);
 }
 
 static void
-r26(struct FsmInst *fi, int event, void *arg)
+l4_received_d_relcnf(struct FsmInst *fi, int event, void *arg)
+{
+        struct Channel *chanp = fi->userdata;
+        isdn_ctrl       ic;
+
+        chanp->data_open = 0;
+        FsmChangeState(fi, ST_WAIT_DSHUTDOWN);
+	if (chanp->Flags & FLG_CONNECT_B) {
+		chanp->lc_b.l2_establish = 0; /* direct reset in lc_b.lcfi */
+        	FsmEvent(&chanp->lc_b.lcfi, EV_LC_RELEASE, NULL);
+        	RESBIT(chanp->Flags, FLG_CONNECT_B);
+        }
+        if (chanp->Flags & FLG_LL_BCONN) {
+        	if (chanp->debug & 1)
+                	stat_debug(chanp, "STAT_BHUP");
+        	ic.driver = drid;
+        	ic.command = ISDN_STAT_BHUP;
+        	ic.arg = chanp->chan;
+        	iif.statcallb(&ic);
+        	RESBIT(chanp->Flags, FLG_LL_BCONN);
+        }
+        if (chanp->Flags & FLG_START_B) {
+        	release_ds(chanp->chan);
+        	RESBIT(chanp->Flags, FLG_START_B);
+        }
+	if (chanp->Flags & FLG_LL_DCONN) {
+        	if (chanp->debug & 1)
+                	stat_debug(chanp, "STAT_DHUP");
+		RESBIT(chanp->Flags, FLG_LL_DCONN);
+        	ic.driver = drid;
+        	ic.command = ISDN_STAT_DHUP;
+        	ic.arg = chanp->chan;
+        	iif.statcallb(&ic);
+        }
+        FsmEvent(&chanp->lc_d.lcfi, EV_LC_RELEASE, NULL);
+        RESBIT(chanp->Flags, FLG_ESTAB_D);
+	RESBIT(chanp->Flags, FLG_DISC_SEND);
+        RESBIT(chanp->Flags, FLG_CALL_REC);
+        RESBIT(chanp->Flags, FLG_CALL_SEND);
+}
+
+static void
+l4_received_d_disc(struct FsmInst *fi, int event, void *arg)
+{
+        struct Channel *chanp = fi->userdata;
+        isdn_ctrl       ic;
+
+        chanp->data_open = 0;
+        FsmChangeState(fi, ST_WAIT_D_REL_CNF);
+        if (chanp->Flags & FLG_LL_BCONN) {
+        	if (chanp->debug & 1)
+                	stat_debug(chanp, "STAT_BHUP");
+        	ic.driver = drid;
+        	ic.command = ISDN_STAT_BHUP;
+        	ic.arg = chanp->chan;
+        	iif.statcallb(&ic);
+        	RESBIT(chanp->Flags, FLG_LL_BCONN);
+        }
+        if (chanp->Flags & FLG_START_B) {
+        	release_ds(chanp->chan);
+        	RESBIT(chanp->Flags, FLG_START_B);
+        }
+	if (chanp->Flags & FLG_LL_DCONN) {
+        	if (chanp->debug & 1)
+                	stat_debug(chanp, "STAT_DHUP");
+		RESBIT(chanp->Flags, FLG_LL_DCONN);
+        	ic.driver = drid;
+        	ic.command = ISDN_STAT_DHUP;
+        	ic.arg = chanp->chan;
+        	iif.statcallb(&ic);
+        }
+        chanp->is.l4.l4l3(&chanp->is, CC_RELEASE_REQ, NULL);
+}
+
+/* processing charge info */
+static void
+l4_charge_info(struct FsmInst *fi, int event, void *arg)
 {
         struct Channel *chanp = fi->userdata;
         isdn_ctrl       ic;
@@ -724,69 +770,195 @@ r26(struct FsmInst *fi, int event, void *arg)
         iif.statcallb(&ic);
 }
 
+/* error procedures */
+
 static void
-r27(struct FsmInst *fi, int event, void *arg)
+l4_no_dchan(struct FsmInst *fi, int event, void *arg)
+{
+        struct Channel *chanp = fi->userdata;
+        isdn_ctrl       ic;
+
+        if (chanp->debug & 1)
+                stat_debug(chanp, "STAT_NODCH");
+        ic.driver = drid;
+        ic.command = ISDN_STAT_NODCH;
+        ic.arg = chanp->chan;
+        iif.statcallb(&ic);
+	chanp->Flags = 0;
+        FsmChangeState(fi, ST_NULL);
+        FsmEvent(&chanp->lc_d.lcfi, EV_LC_RELEASE, NULL);
+}
+
+static void
+l4_no_dchan_in(struct FsmInst *fi, int event, void *arg)
 {
         struct Channel *chanp = fi->userdata;
 
-         FsmEvent(&chanp->lc_d.lcfi, EV_LC_RELEASE, NULL);
-         FsmChangeState(fi, ST_REL_W);
+	chanp->is.l4.l4l3(&chanp->is, CC_DLRL, NULL);
+	chanp->Flags = 0;
+        FsmChangeState(fi, ST_NULL);
+        FsmEvent(&chanp->lc_d.lcfi, EV_LC_RELEASE, NULL);
 }
+
+static void
+l4_no_setup_rsp(struct FsmInst *fi, int event, void *arg)
+{
+        struct Channel *chanp = fi->userdata;
+        isdn_ctrl       ic;
+
+	chanp->Flags = 0;
+        FsmChangeState(fi, ST_NULL);
+        FsmEvent(&chanp->lc_d.lcfi, EV_LC_RELEASE, NULL);
+        if (chanp->debug & 1)
+                stat_debug(chanp, "STAT_DHUP");
+        ic.driver = drid;
+        ic.command = ISDN_STAT_DHUP;
+        ic.arg = chanp->chan;
+        iif.statcallb(&ic);
+}
+
+static void
+l4_setup_err(struct FsmInst *fi, int event, void *arg)
+{
+        struct Channel *chanp = fi->userdata;
+        isdn_ctrl       ic;
+
+        FsmChangeState(fi, ST_WAIT_DRELEASE);
+	if (chanp->Flags & FLG_LL_DCONN) {
+        	if (chanp->debug & 1)
+                	stat_debug(chanp, "STAT_DHUP");
+		RESBIT(chanp->Flags, FLG_LL_DCONN);
+        	ic.driver = drid;
+        	ic.command = ISDN_STAT_DHUP;
+        	ic.arg = chanp->chan;
+        	iif.statcallb(&ic);
+        }
+	SETBIT(chanp->Flags, FLG_DISC_SEND); /* DISCONN was sent from L3 */
+}
+
+static void
+l4_connect_err(struct FsmInst *fi, int event, void *arg)
+{
+        struct Channel *chanp = fi->userdata;
+        isdn_ctrl       ic;
+
+        FsmChangeState(fi, ST_WAIT_DRELEASE);
+	if (chanp->Flags & FLG_LL_DCONN) {
+        	if (chanp->debug & 1)
+                	stat_debug(chanp, "STAT_DHUP");
+		RESBIT(chanp->Flags, FLG_LL_DCONN);
+        	ic.driver = drid;
+        	ic.command = ISDN_STAT_DHUP;
+        	ic.arg = chanp->chan;
+        	iif.statcallb(&ic);
+        }
+	SETBIT(chanp->Flags, FLG_DISC_SEND); /* DISCONN was sent from L3 */
+}
+
+static void
+l4_active_dlrl(struct FsmInst *fi, int event, void *arg)
+{
+        struct Channel *chanp = fi->userdata;
+        isdn_ctrl       ic;
+
+        chanp->data_open = 0;
+        FsmChangeState(fi, ST_NULL);
+	if (chanp->Flags & FLG_CONNECT_B) {
+		chanp->lc_b.l2_establish = 0; /* direct reset in lc_b.lcfi */
+        	FsmEvent(&chanp->lc_b.lcfi, EV_LC_RELEASE, NULL);
+        	RESBIT(chanp->Flags, FLG_CONNECT_B);
+        }
+        if (chanp->Flags & FLG_LL_BCONN) {
+        	if (chanp->debug & 1)
+                	stat_debug(chanp, "STAT_BHUP");
+        	ic.driver = drid;
+        	ic.command = ISDN_STAT_BHUP;
+        	ic.arg = chanp->chan;
+        	iif.statcallb(&ic);
+        	RESBIT(chanp->Flags, FLG_LL_BCONN);
+        }
+        if (chanp->Flags & FLG_START_B) {
+        	release_ds(chanp->chan);
+        	RESBIT(chanp->Flags, FLG_START_B);
+        }
+	if (chanp->Flags & FLG_LL_DCONN) {
+        	if (chanp->debug & 1)
+                	stat_debug(chanp, "STAT_DHUP");
+		RESBIT(chanp->Flags, FLG_LL_DCONN);
+        	ic.driver = drid;
+        	ic.command = ISDN_STAT_DHUP;
+        	ic.arg = chanp->chan;
+        	iif.statcallb(&ic);
+        }
+	chanp->Flags = 0;
+        chanp->is.l4.l4l3(&chanp->is, CC_DLRL, NULL);
+        FsmEvent(&chanp->lc_d.lcfi, EV_LC_RELEASE, NULL);
+}
+
 
 static struct FsmNode fnlist[] =
 {
-        {ST_NULL,             EV_DIAL,                r1},
-        {ST_OUT_W,            EV_DLEST,               r5},
-        {ST_OUT_W,            EV_DLRL,                r20},
-        {ST_OUT_W,            EV_RELEASE_CNF,         r2_2 },   
-        {ST_OUT,              EV_DISCONNECT_IND,      r2},
-        {ST_OUT,              EV_SETUP_CNF,           r10},
-        {ST_OUT,              EV_HANGUP,              r2_1},
-        {ST_OUT,              EV_RELEASE_IND,         r20},
-        {ST_OUT,              EV_RELEASE_CNF,         r20},
-        {ST_OUT,              EV_DLRL,                r2_2},
-        {ST_OUT_W_HANGUP,     EV_RELEASE_CNF,         r2_2},
-        {ST_OUT_W_HANGUP,     EV_RELEASE_IND,         r2_3},
-        {ST_OUT_W_HANGUP,     EV_DLRL,                r20},
-        {ST_CLEAR,            EV_RELEASE_CNF,         r3},
-        {ST_CLEAR,            EV_DLRL,                r20},
-        {ST_REL_W,            EV_HANGUP,              r4},
-        {ST_REL_W,            EV_DLRL,                r4},
-        {ST_NULL,             EV_SETUP_IND,           r6},
-        {ST_IN_W,             EV_DLEST,               r7},
-        {ST_IN_W,             EV_DLRL,                r3_1},
-        {ST_IN,               EV_DLRL,                r3_1},
-        {ST_IN,               EV_HANGUP,              r2_1},
-        {ST_IN,               EV_RELEASE_IND,         r2_3},
-        {ST_IN,               EV_RELEASE_CNF,         r2_2},
-        {ST_IN,               EV_ACCEPTD,             r8},
-        {ST_IN,               EV_ICALL_TIMER,         r27},
-        {ST_IN_SETUP,         EV_HANGUP,              r2_4},
-        {ST_IN_SETUP,         EV_SETUP_CMPL_IND,      r9},
-        {ST_IN_SETUP,         EV_RELEASE_IND,         r2_3},
-        {ST_IN_SETUP,         EV_DISCONNECT_IND,      r2},
-        {ST_IN_SETUP,         EV_DLRL,                r20},
-        {ST_OUT_ESTB,         EV_BC_EST,              r12},
-        {ST_OUT_ESTB,         EV_BC_REL,              r23},
-        {ST_OUT_ESTB,         EV_DLRL,                r23_1},
-        {ST_IN_DACT,          EV_BC_EST,              r12},
-        {ST_IN_DACT,          EV_HANGUP,              r15},
-        {ST_IN_DACT,          EV_DISCONNECT_IND,      r21}, 
-        {ST_IN_DACT,          EV_BC_REL,              r17},
-        {ST_IN_DACT,          EV_DLRL,                r17_1},
-        {ST_ACTIVE,           EV_HANGUP,              r15},
-        {ST_ACTIVE,           EV_BC_REL,              r17},
-        {ST_ACTIVE,           EV_DISCONNECT_IND,      r21},
-        {ST_ACTIVE,           EV_DLRL,                r24},
-        {ST_ACTIVE,           EV_CINF,                r26},
-        {ST_ACTIVE,           EV_RELEASE_IND,         r17},
-        {ST_BC_HANGUP,        EV_BC_REL,              r16},
-        {ST_BC_HANGUP,        EV_DISCONNECT_IND,      r21},
-        {ST_PRO_W,            EV_RELEASE_IND,         r18},
-        {ST_PRO_W,            EV_HANGUP,              r18},
-        {ST_ANT_W,            EV_DISCONNECT_IND,      r19},
-        {ST_DISC_BC_HANGUP,   EV_BC_REL,              r22},
-        {ST_D_ERR,            EV_BC_REL,              r25},
+        {ST_NULL,             EV_DIAL,                l4_prep_dialout},
+        {ST_NULL,             EV_SETUP_IND,           l4_start_dchan},
+        {ST_OUT_WAIT_D,       EV_DLEST,               l4_do_dialout},
+        {ST_OUT_WAIT_D,       EV_DLRL,                l4_no_dchan},
+        {ST_IN_WAIT_D,        EV_DLEST,               l4_deliver_call},
+        {ST_IN_WAIT_D,        EV_DLRL,                l4_no_dchan_in},
+        {ST_OUT_DIAL,         EV_SETUP_CNF,           l4_init_bchan_out},
+        {ST_OUT_DIAL,         EV_HANGUP,              l4_cancel_call},
+        {ST_OUT_DIAL,         EV_DISCONNECT_IND,      l4_received_d_disc},
+        {ST_OUT_DIAL,         EV_RELEASE_IND,         l4_received_d_rel},
+        {ST_OUT_DIAL,         EV_RELEASE_CNF,         l4_received_d_relcnf},
+        {ST_OUT_DIAL,         EV_NOSETUP_RSP,         l4_no_setup_rsp},
+        {ST_OUT_DIAL,         EV_SETUP_ERR,           l4_setup_err},
+        {ST_IN_WAIT_LL,       EV_SETUP_CMPL_IND,      l4_init_bchan_in},
+        {ST_IN_WAIT_LL,       EV_ACCEPTD,             l4_send_dconnect},
+        {ST_IN_WAIT_LL,       EV_HANGUP,              l4_reject_call},
+        {ST_IN_WAIT_LL,       EV_DISCONNECT_IND,      l4_received_d_disc},
+        {ST_IN_WAIT_LL,       EV_RELEASE_IND,         l4_received_d_rel},
+        {ST_IN_WAIT_LL,       EV_RELEASE_CNF,         l4_received_d_relcnf},
+        {ST_IN_ALERT_SEND,    EV_SETUP_CMPL_IND,      l4_init_bchan_in},
+        {ST_IN_ALERT_SEND,    EV_ACCEPTD,             l4_send_dconnect},
+        {ST_IN_ALERT_SEND,    EV_HANGUP,              l4_send_d_disc},
+        {ST_IN_ALERT_SEND,    EV_DISCONNECT_IND,      l4_received_d_disc},
+        {ST_IN_ALERT_SEND,    EV_RELEASE_IND,         l4_received_d_rel},
+        {ST_IN_ALERT_SEND,    EV_RELEASE_CNF,         l4_received_d_relcnf},
+        {ST_IN_WAIT_CONN_ACK, EV_SETUP_CMPL_IND,      l4_init_bchan_in},
+        {ST_IN_WAIT_CONN_ACK, EV_HANGUP,              l4_send_d_disc},
+        {ST_IN_WAIT_CONN_ACK, EV_DISCONNECT_IND,      l4_received_d_disc},
+        {ST_IN_WAIT_CONN_ACK, EV_RELEASE_IND,         l4_received_d_rel},
+        {ST_IN_WAIT_CONN_ACK, EV_RELEASE_CNF,         l4_received_d_relcnf},
+        {ST_IN_WAIT_CONN_ACK, EV_CONNECT_ERR,         l4_connect_err},
+        {ST_WAIT_BCONN,       EV_BC_EST,              l4_go_active},
+        {ST_WAIT_BCONN,       EV_BC_REL,              l4_send_d_disc},
+        {ST_WAIT_BCONN,       EV_HANGUP,              l4_send_d_disc},
+        {ST_WAIT_BCONN,       EV_DISCONNECT_IND,      l4_received_d_disc},
+        {ST_WAIT_BCONN,       EV_RELEASE_IND,         l4_received_d_rel},
+        {ST_WAIT_BCONN,       EV_RELEASE_CNF,         l4_received_d_relcnf},
+        {ST_ACTIVE,           EV_CINF,                l4_charge_info},
+        {ST_ACTIVE,           EV_BC_REL,              l4_released_bchan},
+        {ST_ACTIVE,           EV_HANGUP,              l4_disconn_bchan},
+        {ST_ACTIVE,           EV_DISCONNECT_IND,      l4_release_bchan},
+        {ST_ACTIVE,           EV_RELEASE_CNF,         l4_received_d_relcnf},
+        {ST_ACTIVE,           EV_RELEASE_IND,         l4_received_d_rel},
+        {ST_ACTIVE,           EV_DLRL,                l4_active_dlrl},
+        {ST_WAIT_BRELEASE,    EV_BC_REL,              l4_send_d_disc},
+        {ST_WAIT_BRELEASE,    EV_DISCONNECT_IND,      l4_received_d_disc},
+        {ST_WAIT_BRELEASE,    EV_RELEASE_CNF,         l4_received_d_relcnf},
+        {ST_WAIT_BRELEASE,    EV_RELEASE_IND,         l4_received_d_rel},
+        {ST_WAIT_BREL_DISC,   EV_BC_REL,              l4_received_d_disc},
+        {ST_WAIT_BREL_DISC,   EV_RELEASE_CNF,         l4_received_d_relcnf},
+        {ST_WAIT_BREL_DISC,   EV_RELEASE_IND,         l4_received_d_rel},
+        {ST_WAIT_DCOMMAND,    EV_HANGUP,              l4_send_d_disc},
+        {ST_WAIT_DCOMMAND,    EV_DISCONNECT_IND,      l4_received_d_disc},
+        {ST_WAIT_DCOMMAND,    EV_RELEASE_CNF,         l4_received_d_relcnf},
+        {ST_WAIT_DCOMMAND,    EV_RELEASE_IND,         l4_received_d_rel},
+        {ST_WAIT_DRELEASE,    EV_RELEASE_IND,         l4_flush_d},
+        {ST_WAIT_DRELEASE,    EV_RELEASE_CNF,         l4_shutdown_d},
+        {ST_WAIT_DRELEASE,    EV_RELEASE_ERR,         l4_shutdown_d},
+        {ST_WAIT_D_REL_CNF,   EV_RELEASE_CNF,         l4_shutdown_d},
+        {ST_WAIT_D_REL_CNF,   EV_RELEASE_ERR,         l4_shutdown_d},
+        {ST_WAIT_DSHUTDOWN,   EV_DLRL,                l4_go_null},
 };
 
 #define FNCOUNT (sizeof(fnlist)/sizeof(struct FsmNode))
@@ -853,6 +1025,10 @@ lc_r4(struct FsmInst *fi, int event, void *arg)
         if (lf->l2_establish) {
                 FsmChangeState(fi, ST_LC_RELEASE_WAIT);
                 lf->st->ma.manl2(lf->st, DL_RELEASE, NULL);
+                /* This timer is for releasing the channel even
+                 * there is a hang in layer 2 ; 5 sec are a try
+                 */
+                 FsmAddTimer(&lf->act_timer, 5000, EV_LC_TIMER, NULL, 53);
         } else {
                 FsmChangeState(fi, ST_LC_NULL);
                 lf->st->ma.manl1(lf->st, PH_DEACTIVATE, NULL);
@@ -870,10 +1046,23 @@ lc_r4_1(struct FsmInst *fi, int event, void *arg)
 }
 
 static void
+lc_r5_1(struct FsmInst *fi, int event, void *arg)
+{
+        struct LcFsm   *lf = fi->userdata;
+
+        FsmChangeState(fi, ST_LC_RELEASE_WAIT);
+        /* This delay is needed for send out the UA frame before
+         * PH_DEACTIVATE the interface
+        */
+        FsmAddTimer(&lf->act_timer, 10, EV_LC_TIMER, NULL, 54);
+}
+
+static void
 lc_r5(struct FsmInst *fi, int event, void *arg)
 {
         struct LcFsm   *lf = fi->userdata;
 
+	FsmDelTimer(&lf->act_timer,54);
         FsmChangeState(fi, ST_LC_NULL);
         lf->st->ma.manl1(lf->st, PH_DEACTIVATE, NULL);
         lf->lccall(lf, LC_RELEASE, NULL);
@@ -889,10 +1078,11 @@ static struct FsmNode LcFnList[] =
         {ST_LC_ESTABLISH_WAIT,        EV_LC_RELEASE,          lc_r5},
         {ST_LC_CONNECTED,             EV_LC_FLUSH,            lc_r7},
         {ST_LC_CONNECTED,             EV_LC_RELEASE,          lc_r4},
-        {ST_LC_CONNECTED,             EV_LC_DL_RELEASE,       lc_r5},
+        {ST_LC_CONNECTED,             EV_LC_DL_RELEASE,       lc_r5_1},
         {ST_LC_FLUSH_WAIT,            EV_LC_DL_FLUSH,         lc_r4_1},
         {ST_LC_FLUSH_DELAY,           EV_LC_TIMER,            lc_r4},
         {ST_LC_RELEASE_WAIT,          EV_LC_DL_RELEASE,       lc_r5},
+        {ST_LC_RELEASE_WAIT,          EV_LC_TIMER,            lc_r5},
         {ST_LC_ACTIVATE_WAIT,         EV_LC_TIMER,            lc_r5},
         {ST_LC_ESTABLISH_WAIT,        EV_LC_DL_RELEASE,       lc_r5},
 };
@@ -1013,6 +1203,7 @@ ll_handler(struct PStack *st, int pr,
            struct BufHeader *ibh)
 {
         struct Channel *chanp = (struct Channel *) st->l4.userdata;
+        char            tmp[64], tm[32];
 
         switch (pr) {
           case (CC_DISCONNECT_IND):
@@ -1036,7 +1227,24 @@ ll_handler(struct PStack *st, int pr,
           case (CC_INFO_CHARGE):
                   FsmEvent(&chanp->fi, EV_CINF, NULL);
                   break;
+          case (CC_NOSETUP_RSP_ERR):
+                  FsmEvent(&chanp->fi, EV_NOSETUP_RSP, NULL);
+                  break;
+          case (CC_SETUP_ERR):
+                  FsmEvent(&chanp->fi, EV_SETUP_ERR, NULL);
+                  break;
+          case (CC_CONNECT_ERR):
+                  FsmEvent(&chanp->fi, EV_CONNECT_ERR, NULL);
+                  break;
+          case (CC_RELEASE_ERR):
+                  FsmEvent(&chanp->fi, EV_RELEASE_ERR, NULL);
+                  break;
+          default:
+                  jiftime(tm, jiffies);
+                  sprintf(tmp, "%s Channel %d L3->L4 unknown primitiv %d\n", tm, chanp->chan, pr);
+                  HiSax_putstatus(tmp);
         }
+
 }
 
 static void
@@ -1047,11 +1255,8 @@ init_is(int chan, unsigned int ces)
         char            tmp[128];
 
         setstack_HiSax(st, sp);
-
         st->l2.sap = 0;
-
         st->l2.tei = 255;
-
         st->l2.ces = ces;
         st->l2.extended = !0;
         st->l2.laptype = LAPD;
@@ -1065,18 +1270,15 @@ init_is(int chan, unsigned int ces)
                 st->l2.n200 = 4;          /* try 4 times        */
                 st->l2.t203 = 5000;       /* 5000 milliseconds  */
         }
-
         sprintf(tmp, "Channel %d q.921", chan);
         setstack_isdnl2(st, tmp);
         setstack_isdnl3(st, chan);
         st->l2.debug = 0xff;
         st->l4.userdata = chanlist + chan;
         st->l4.l2writewakeup = NULL;
-
         st->l3.l3l4 = ll_handler;
         st->l1.l1man = cc_l1man;
         st->l2.l2man = cc_l2man;
-
         st->pa = &chanlist[chan].para;
         HiSax_addlist(sp, st);
 }
@@ -1151,15 +1353,16 @@ init_chan(int chan, int cardnr, int hscx,
         struct IsdnCard *card = cards + cardnr;
         struct Channel *chanp = chanlist + chan;
 
-        chanp->sp = card->sp;
-        chanp->hscx = hscx;
-        chanp->chan = chan;
+        chanp->sp       = card->sp;
+        chanp->hscx     = hscx;
+        chanp->chan     = chan;
         chanp->incoming = 0;
-        chanp->debug = 0;
-	
+        chanp->debug    = 0;
+	chanp->Flags    = 0;
+	chanp->leased   = 0;
         init_is(chan, ces);
 
-        chanp->fi.fsm = &callcfsm;
+        chanp->fi.fsm   = &callcfsm;
         chanp->fi.state = ST_NULL;
         chanp->fi.debug = 0;
         chanp->fi.userdata = chanp;
@@ -1190,7 +1393,6 @@ init_chan(int chan, int cardnr, int hscx,
         chanp->lc_b.l2_start = !0;
         chanp->lc_b.lccall = lccall_b;
         FsmInitTimer(&chanp->lc_b.lcfi, &chanp->lc_b.act_timer);
-
         chanp->outcallref = 64;
         chanp->data_open = 0;
 }
@@ -1377,7 +1579,7 @@ command_debug(struct Channel *chanp, char *s)
         char            tmp[64], tm[32];
 
         jiftime(tm, jiffies);
-        sprintf(tmp, "%s Channel %d LL->HL %s\n", tm, chanp->chan, s);
+        sprintf(tmp, "%s Channel %d HL->LL %s\n", tm, chanp->chan, s);
         HiSax_putstatus(tmp);
 }
 
@@ -1386,7 +1588,7 @@ distr_debug(void)
 {
         int             i;
 
-        for (i = 0; i < chancount; i++) {  
+        for (i = 0; i < chancount; i++) {
                 chanlist[i].debug = debugflags & 1;
                 chanlist[i].fi.debug = debugflags & 2;
                 chanlist[i].is.l2.l2m.debug = debugflags & 8;
@@ -1515,6 +1717,10 @@ HiSax_command(isdn_ctrl * ic)
                     	    for (i = 0; i < *(unsigned int *)ic->num; i++)
                  	    	HiSax_mod_inc_use_count();
                  	    break;
+                    case (5): /* set card in leased mode */
+        		    chanlist[0].leased = 1;
+        		    chanlist[1].leased = 1;
+                 	    break;
 #ifdef MODULE
                     case (55):
                   	    mod_use_count_ &= 0xF0000000;
@@ -1529,27 +1735,27 @@ HiSax_command(isdn_ctrl * ic)
                         		num++;
                        	    	}
                        	    if (num) {
-                            	sprintf(tmp, "l1 debugging flags set to %x\n", 
+                            	sprintf(tmp, "l1 debugging flags set to %x\n",
                             		*(unsigned int *) ic->num);
                                 HiSax_putstatus(tmp);
 			        printk(KERN_DEBUG "HiSax: %s", tmp);
                        	    }
                             break;
-                    case (12):
+                    case (13):
                     	    num=0;
-        		    for (i = 0; i < chancount; i++) {  
+        		    for (i = 0; i < chancount; i++) {
                 		chanlist[i].is.l3.debug = *(unsigned int *)ic->num;
                 		chanlist[i].ds.l3.debug = *(unsigned int *)ic->num;
                 		num++;
         		    }
                        	    if (num) {
-                            	sprintf(tmp, "l3 debugging flags set to %x\n", 
+                            	sprintf(tmp, "l3 debugging flags set to %x\n",
                             		*(unsigned int *) ic->num);
                                 HiSax_putstatus(tmp);
 			        printk(KERN_DEBUG "HiSax: %s", tmp);
                        	    }
                        	    break;
-                    default:  
+                    default:
                     	    printk(KERN_DEBUG "HiSax: invalid ioclt %d\n",
                     	    	(int)ic->arg);
                     	    return (-EINVAL);
@@ -1583,7 +1789,7 @@ HiSax_writebuf(int id, int chan, const u_char * buf, int count, int user)
 		command_debug(chanp, "writebuf: channel not open");
 		return -EIO;
 	}
-	
+
         err = BufPoolGet(&ibh, st->l1.sbufpool, GFP_ATOMIC, st, 21);
         if (err)
                 /* Must return 0 here, since this is not an error
