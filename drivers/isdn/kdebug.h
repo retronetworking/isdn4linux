@@ -1,5 +1,5 @@
 /* $Id$
- *
+
  * Debugging utilities for Linux
  *
  * For debugging, include this file. If included more than once
@@ -31,6 +31,9 @@
  *   position x,y.
  *
  * $Log$
+ * Revision 1.1  1996/04/30 09:22:55  fritz
+ * Taken under CVS-control.
+ *
  *
  */
 
@@ -59,43 +62,55 @@ extern int dbg_cnt_y[10];
 extern char clibuf[256];
 #endif
 
-static __inline__ void put_ch(const char c) {
-  *scrpos++ = 0x0700+c;
+static __inline__ void
+put_ch(const char c)
+{
+	*scrpos++ = 0x0700 + c;
 }
 
-static __inline__ void put_str(char *s) {
-  for (;*s;put_ch(*s++)) ;
+static __inline__ void
+put_str(char *s)
+{
+	for (; *s; put_ch(*s++));
 }
 
-static __inline__ void gotovid(int x, int y) {
-  scrpos = screen_pos(fg_console,(y*LINEWIDTH)+x,1);
+static __inline__ void
+gotovid(int x, int y)
+{
+	scrpos = screen_pos(fg_console, (y * LINEWIDTH) + x, 1);
 }
 
-static __inline__ void gput_str(char *s, int x, int y) {
-  gotovid(x,y);
-  put_str(s);
+static __inline__ void
+gput_str(char *s, int x, int y)
+{
+	gotovid(x, y);
+	put_str(s);
 }
 
-static __inline__ void gput_ch(char c, int x, int y) {
-  gotovid(x,y);
-  put_ch(c);
+static __inline__ void
+gput_ch(char c, int x, int y)
+{
+	gotovid(x, y);
+	put_ch(c);
 }
 
-static __inline__ void wheel(int x, int y) {
-  gotovid(x,y);
-  switch ((char)(*scrpos & 0xff)) {
-    case '/':
-      *scrpos = 0x700+'-';
-      break;
-    case '-':
-      *scrpos = 0x700+'\\';
-      break;
-    case '\\':
-      *scrpos = 0x700+'|';
-      break;
-    default:
-      *scrpos = 0x700+'/';
-  }
+static __inline__ void
+wheel(int x, int y)
+{
+	gotovid(x, y);
+	switch ((char) (*scrpos & 0xff)) {
+		case '/':
+			*scrpos = 0x700 + '-';
+			break;
+		case '-':
+			*scrpos = 0x700 + '\\';
+			break;
+		case '\\':
+			*scrpos = 0x700 + '|';
+			break;
+		default:
+			*scrpos = 0x700 + '/';
+	}
 }
 
 #undef cli

@@ -1,9 +1,9 @@
 /* $Id$
- *
+
  * Linux ISDN subsystem, initialization for non-modularized drivers.
  *
  * Copyright 1994,95,96 by Fritz Elfert (fritz@wuemaus.franken.de)
- * 
+ *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation; either version 2, or (at your option)
@@ -16,10 +16,12 @@
  *
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software
- * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
+ * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.1  1996/04/20 16:04:03  fritz
+ * Initial revision
+ *
  */
 
 extern void isdn_cards_init(void);
-
