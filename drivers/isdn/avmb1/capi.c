@@ -6,6 +6,9 @@
  * Copyright 1996 by Carsten Paeth (calle@calle.in-berlin.de)
  *
  * $Log$
+ * Revision 1.29  2000/03/13 17:48:13  calle
+ * removed unused variable.
+ *
  * Revision 1.28  2000/03/08 17:06:33  calle
  * - changes for devfs and 2.3.49
  * - capifs now configurable (no need with devfs)
@@ -166,9 +169,10 @@
 #include <linux/netdevice.h>
 #include <linux/ppp_defs.h>
 #include <linux/if_ppp.h>
-#ifdef PPPIOCATTACH
+#undef CAPI_PPP_ON_RAW_DEVICE
+#ifdef CAPI_PPP_ON_RAW_DEVICE
 #include <linux/ppp_channel.h>
-#endif /* PPPIOCATTACH */
+#endif /* CAPI_PPP_ON_RAW_DEVICE */
 #endif /* CONFIG_PPP */
 #endif /* CONFIG_ISDN_CAPI_MIDDLEWARE */
 #include <linux/skbuff.h>
@@ -263,7 +267,7 @@ struct capiminor {
 	} *ackqueue;
 	int nack;
 
-#ifdef PPPIOCATTACH
+#ifdef CAPI_PPP_ON_RAW_DEVICE
 	/* interface to generic ppp layer */
 	struct ppp_channel	chan;
 	int			chan_connected;
@@ -707,7 +711,7 @@ int handle_recv_skb(struct capiminor *mp, struct sk_buff *skb)
 		mp->tty->ldisc.receive_buf(mp->tty, skb->data, 0, skb->len);
 		return 0;
 
-#ifdef PPPIOCATTACH
+#ifdef CAPI_PPP_ON_RAW_DEVICE
 	} else if (mp->chan_connected) {
 		if ((nskb = gen_data_b3_resp_for(mp, skb)) == 0) {
 			printk(KERN_ERR "capi: gen_data_b3_resp failed\n");
@@ -909,7 +913,7 @@ static void capi_signal(__u16 applid, void *param)
 #endif
 		kfree_skb(skb);
 		(void)capiminor_del_ack(mp, datahandle);
-#ifdef PPPIOCATTACH
+#ifdef CAPI_PPP_ON_RAW_DEVICE
 		if (mp->chan_connected) {
 			ppp_output_wakeup(&mp->chan);
 			return;
@@ -1464,7 +1468,7 @@ int capinc_raw_ioctl(struct inode *inode, struct file *file,
 		return -EINVAL;
 
 	switch (cmd) {
-#ifdef PPPIOCATTACH
+#ifdef CAPI_PPP_ON_RAW_DEVICE
 	case PPPIOCATTACH:
 		{
 			int retval, val;
