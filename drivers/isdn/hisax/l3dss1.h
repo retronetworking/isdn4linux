@@ -3,6 +3,9 @@
  *  DSS1 (Euro) D-channel protocol defines
  *
  * $Log$
+ * Revision 1.3.2.5  1999/05/09 21:39:57  keil
+ * Add COLP IEs
+ *
  * Revision 1.3.2.4  1999/04/22 21:11:39  werner
  * Added support for dss1 diversion services
  *
@@ -34,6 +37,7 @@
 #define T304	30000
 #define T305	30000
 #define T308	4000
+#define T309	40000
 #define T310	30000
 #define T313	4000
 #define T318	4000
