@@ -2,7 +2,7 @@
  *
   Copyright (c) Eicon Technology Corporation, 2000.
  *
-  This source file is supplied for the exclusive use with Eicon
+  This source file is supplied for the use with Eicon
   Technology Corporation's range of DIVA Server Adapters.
  *
   This program is free software; you can redistribute it and/or modify

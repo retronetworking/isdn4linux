@@ -3,7 +3,7 @@
  *
   Copyright (c) Eicon Networks, 2000.
  *
-  This source file is supplied for the exclusive use with
+  This source file is supplied for the use with
   Eicon Networks range of DIVA Server Adapters.
  *
   Eicon File Revision :    1.9
@@ -25,7 +25,7 @@
  */
 /*------------------------------------------------------------------*/
 /* File: message.c                                                  */
-/* Copyright (c) EICON Technology 1994-2000                         */
+/* Copyright (c) EICON Networks 1994-2001                           */
 /*                                                                  */
 /* Generic CAPI 2.0 to IDI code, should be OS independent           */
 /*------------------------------------------------------------------*/
@@ -128,6 +128,7 @@ static byte reset_b3_res(dword, word, DIVA_CAPI_ADAPTER   *, PLCI   *, APPL   *,
 static byte connect_b3_t90_a_res(dword, word, DIVA_CAPI_ADAPTER   *, PLCI   *, APPL   *, API_PARSE *);
 static byte select_b_req(dword, word, DIVA_CAPI_ADAPTER   *, PLCI   *, APPL   *, API_PARSE *);
 static byte manufacturer_req(dword, word, DIVA_CAPI_ADAPTER   *, PLCI   *, APPL   *, API_PARSE *);
+static byte manufacturer_res(dword, word, DIVA_CAPI_ADAPTER   *, PLCI   *, APPL   *, API_PARSE *);
 
 static word get_plci(DIVA_CAPI_ADAPTER   *);
 static void add_p(PLCI   *, byte, byte   *);
@@ -150,7 +151,7 @@ static byte AddInfo(byte   **, byte   **, byte   *, byte *);
 static byte getChannel(API_PARSE *);
 static void IndParse(PLCI   *, word *, byte   **, byte);
 static byte ie_compare(byte   *, byte *);
-static word find_cip(byte   *, byte   *);
+static word find_cip(DIVA_CAPI_ADAPTER   *, byte   *, byte   *);
 static word CPN_filter_ok(byte   *cpn,DIVA_CAPI_ADAPTER   *,word);
 
 /*
@@ -276,40 +277,41 @@ struct _ftable {
   {_CONNECT_B3_T90_ACTIVE_I|RESPONSE,   "ws",           connect_b3_t90_a_res},
   {_CONNECT_B3_T90_ACTIVE_I|RESPONSE,   "",             connect_b3_t90_a_res},
   {_SELECT_B_REQ,                       "s",            select_b_req},
-  {_MANUFACTURER_R,                     "dws",          manufacturer_req}
+  {_MANUFACTURER_R,                     "dws",          manufacturer_req},
+  {_MANUFACTURER_I|RESPONSE,            "",             manufacturer_res}
 };
 
-byte * cip_bc[29] = {
-  "",                           /* 0 */
-  "\x03\x80\x90\xa3",           /* 1 */
-  "\x02\x88\x90",               /* 2 */
-  "\x02\x89\x90",               /* 3 */
-  "\x03\x90\x90\xa3",           /* 4 */
-  "\x03\x91\x90\xa5",           /* 5 */
-  "\x02\x98\x90",               /* 6 */
-  "\x04\x88\xc0\xc6\xe6",       /* 7 */
-  "\x04\x88\x90\x21\x8f",       /* 8 */
-  "\x03\x91\x90\xa5",           /* 9 */
-  "",                           /* 10 */
-  "",                           /* 11 */
-  "",                           /* 12 */
-  "",                           /* 13 */
-  "",                           /* 14 */
-  "",                           /* 15 */
+byte * cip_bc[29][2] = {
+  { "",                     ""                     }, /* 0 */
+  { "\x03\x80\x90\xa3",     "\x03\x80\x90\xa2"     }, /* 1 */
+  { "\x02\x88\x90",         "\x02\x88\x90"         }, /* 2 */
+  { "\x02\x89\x90",         "\x02\x89\x90"         }, /* 3 */
+  { "\x03\x90\x90\xa3",     "\x03\x90\x90\xa2"     }, /* 4 */
+  { "\x03\x91\x90\xa5",     "\x03\x91\x90\xa5"     }, /* 5 */
+  { "\x02\x98\x90",         "\x02\x98\x90"         }, /* 6 */
+  { "\x04\x88\xc0\xc6\xe6", "\x04\x88\xc0\xc6\xe6" }, /* 7 */
+  { "\x04\x88\x90\x21\x8f", "\x04\x88\x90\x21\x8f" }, /* 8 */
+  { "\x03\x91\x90\xa5",     "\x03\x91\x90\xa5"     }, /* 9 */
+  { "",                     ""                     }, /* 10 */
+  { "",                     ""                     }, /* 11 */
+  { "",                     ""                     }, /* 12 */
+  { "",                     ""                     }, /* 13 */
+  { "",                     ""                     }, /* 14 */
+  { "",                     ""                     }, /* 15 */
 
-  "\x03\x80\x90\xa3",           /* 16 */
-  "\x03\x90\x90\xa3",           /* 17 */
-  "\x02\x88\x90",               /* 18 */
-  "\x02\x88\x90",               /* 19 */
-  "\x02\x88\x90",               /* 20 */
-  "\x02\x88\x90",               /* 21 */
-  "\x02\x88\x90",               /* 22 */
-  "\x02\x88\x90",               /* 23 */
-  "\x02\x88\x90",               /* 24 */
-  "\x02\x88\x90",               /* 25 */
-  "\x03\x91\x90\xa5",           /* 26 */
-  "\x03\x91\x90\xa5",           /* 27 */
-  "\x02\x88\x90"                /* 28 */
+  { "\x03\x80\x90\xa3",     "\x03\x80\x90\xa2"     }, /* 16 */
+  { "\x03\x90\x90\xa3",     "\x03\x90\x90\xa2"     }, /* 17 */
+  { "\x02\x88\x90",         "\x02\x88\x90"         }, /* 18 */
+  { "\x02\x88\x90",         "\x02\x88\x90"         }, /* 19 */
+  { "\x02\x88\x90",         "\x02\x88\x90"         }, /* 20 */
+  { "\x02\x88\x90",         "\x02\x88\x90"         }, /* 21 */
+  { "\x02\x88\x90",         "\x02\x88\x90"         }, /* 22 */
+  { "\x02\x88\x90",         "\x02\x88\x90"         }, /* 23 */
+  { "\x02\x88\x90",         "\x02\x88\x90"         }, /* 24 */
+  { "\x02\x88\x90",         "\x02\x88\x90"         }, /* 25 */
+  { "\x03\x91\x90\xa5",     "\x03\x91\x90\xa5"     }, /* 26 */
+  { "\x03\x91\x90\xa5",     "\x03\x91\x90\xa5"     }, /* 27 */
+  { "\x02\x88\x90",         "\x02\x88\x90"         }  /* 28 */
 };
 
 byte * cip_hlc[29] = {
@@ -693,7 +695,7 @@ void init_internal_command_queue (PLCI   *plci)
   word i;
 
   dbug (1, dprintf ("%s,%d: init_internal_command_queue",
-    (char   *)(FILE_), 764));
+    (char   *)(FILE_), 766));
 
   plci->internal_command = 0;
   for (i = 0; i < MAX_INTERNAL_COMMAND_LEVELS; i++)
@@ -706,7 +708,7 @@ void start_internal_command (dword Id, PLCI   *plci, t_std_internal_command comm
   word i;
 
   dbug (1, dprintf ("[%06lx] %s,%d: start_internal_command",
-    UnMapId (Id), (char   *)(FILE_), 777));
+    UnMapId (Id), (char   *)(FILE_), 779));
 
   if (plci->internal_command == 0)
   {
@@ -728,7 +730,7 @@ void next_internal_command (dword Id, PLCI   *plci)
   word i;
 
   dbug (1, dprintf ("[%06lx] %s,%d: next_internal_command",
-    UnMapId (Id), (char   *)(FILE_), 799));
+    UnMapId (Id), (char   *)(FILE_), 801));
 
   plci->internal_command = 0;
   plci->internal_command_queue[0] = 0;
@@ -941,7 +943,6 @@ static void ncci_remove (PLCI   *plci, word ncci, byte preserve_ncci)
       dbug(1,dprintf("NCCI mapping released %ld %08lx %02x %02x-%02x",
         ncci_mapping_bug, Id, preserve_ncci, a->ncci_ch[ncci], ncci));
       a->ch_ncci[a->ncci_ch[ncci]] = 0;
-      a->ch_flow_control[a->ncci_ch[ncci]] &= ~N_TX_FLOW_CONTROL_MASK;
       if (!preserve_ncci)
       {
         a->ncci_ch[ncci] = 0;
@@ -972,7 +973,6 @@ static void ncci_remove (PLCI   *plci, word ncci, byte preserve_ncci)
         dbug(1,dprintf("NCCI mapping released %ld %08lx %02x %02x-%02x",
           ncci_mapping_bug, Id, preserve_ncci, a->ncci_ch[ncci], ncci));
         a->ch_ncci[a->ncci_ch[ncci]] = 0;
-        a->ch_flow_control[a->ncci_ch[ncci]] &= ~N_TX_FLOW_CONTROL_MASK;
         if (!preserve_ncci)
         {
           a->ncci_ch[ncci] = 0;
@@ -1039,7 +1039,6 @@ void plci_remove(PLCI   * plci)
   plci->msg_in_read_pos = MSG_IN_QUEUE_SIZE;
   plci->msg_in_wrap_pos = MSG_IN_QUEUE_SIZE;
 
-  channel_flow_control_remove (plci);
   ncci_remove (plci, 0, FALSE);
 
   plci->channels = 0;
@@ -1268,7 +1267,7 @@ byte connect_req(dword Id, word Number, DIVA_CAPI_ADAPTER   * a, PLCI   * plci, 
           add_p(plci,LLI,"\x01\x01");
         }
         if(READ_WORD(parms[0].info)<29) {
-          add_p(plci,BC,cip_bc[READ_WORD(parms[0].info)]);
+          add_p(plci,BC,cip_bc[READ_WORD(parms[0].info)][a->u_law]);
           add_p(plci,HLC,cip_hlc[READ_WORD(parms[0].info)]);
         }
         add_p(plci,UID,"\x06\x43\x61\x70\x69\x32\x30");
@@ -2400,185 +2399,190 @@ byte connect_b3_req(dword Id, word Number, DIVA_CAPI_ADAPTER   * a, PLCI   * plc
   word w;
   word fax_control_bits, fax_feature_bits, fax_info_change;
   API_PARSE * ncpi;
-    API_PARSE fax_parms[8];
     byte pvc[2];
 
+    API_PARSE fax_parms[8];
   word i;
 
 
   dbug(1,dprintf("connect_b3_req"));
   if(plci)
   {
-    /* local reply if assign unsuccessfull
-       or B3 protocol allows only one layer 3 connection
-         and already connected
-           or B2 protocol not any LAPD
-             and connect_b3_req contradicts originate/answer direction */
-    if ((plci->NL.Id == 0)
-     || (((plci->B3_prot != B3_T90NL) && (plci->B3_prot != B3_ISO8208) && (plci->B3_prot != B3_X25_DCE))
-      && ((plci->channels != 0)
-       || (((plci->B2_prot != B2_LAPD) && (plci->B2_prot != B2_LAPD_FREE_SAPI_SEL))
-        && ((plci->call_dir & CALL_DIR_ANSWER) && !(plci->call_dir & CALL_DIR_FORCE_OUTG_NL))))))
-    {
-      dbug(1,dprintf("B3 already connected=%d or no NL.Id=0x%x, dir=%d",plci->channels,plci->NL.Id,plci->call_dir));
+    if ((plci->State == IDLE) || (plci->State == INC_DIS_PENDING))
       Info = _WRONG_STATE;
-      sendf(appl,                                                        
-            _CONNECT_B3_R|CONFIRM,
-            Id,
-            Number,
-            "w",Info);
-      return FALSE;
-    }
-    plci->requested_options_conn = 0;
-
-    req = N_CONNECT;
-    ncpi = &parms[0];
-    if(plci->B3_prot==2 || plci->B3_prot==3)
+    else
     {
-      if(ncpi->length>2)
+      /* local reply if assign unsuccessfull
+         or B3 protocol allows only one layer 3 connection
+           and already connected
+             or B2 protocol not any LAPD
+               and connect_b3_req contradicts originate/answer direction */
+      if ((plci->NL.Id == 0)
+       || (((plci->B3_prot != B3_T90NL) && (plci->B3_prot != B3_ISO8208) && (plci->B3_prot != B3_X25_DCE))
+        && ((plci->channels != 0)
+         || (((plci->B2_prot != B2_LAPD) && (plci->B2_prot != B2_LAPD_FREE_SAPI_SEL))
+          && ((plci->call_dir & CALL_DIR_ANSWER) && !(plci->call_dir & CALL_DIR_FORCE_OUTG_NL))))))
       {
-        /* check for PVC */
-        if(ncpi->info[2] || ncpi->info[3])
+        dbug(1,dprintf("B3 already connected=%d or no NL.Id=0x%x, dir=%d",plci->channels,plci->NL.Id,plci->call_dir));
+        Info = _WRONG_STATE;
+        sendf(appl,                                                        
+              _CONNECT_B3_R|CONFIRM,
+              Id,
+              Number,
+              "w",Info);
+        return FALSE;
+      }
+      plci->requested_options_conn = 0;
+
+      req = N_CONNECT;
+      ncpi = &parms[0];
+      if(plci->B3_prot==2 || plci->B3_prot==3)
+      {
+        if(ncpi->length>2)
         {
-          pvc[0] = ncpi->info[3];
-          pvc[1] = ncpi->info[2];
-          add_d(plci,2,pvc);
-          req = N_RESET;
-        }
-        else
-        {
-          if(ncpi->info[1] &1) req = N_CONNECT | N_D_BIT;
-          add_d(plci,(word)(ncpi->length-3),&ncpi->info[4]);
+          /* check for PVC */
+          if(ncpi->info[2] || ncpi->info[3])
+          {
+            pvc[0] = ncpi->info[3];
+            pvc[1] = ncpi->info[2];
+            add_d(plci,2,pvc);
+            req = N_RESET;
+          }
+          else
+          {
+            if(ncpi->info[1] &1) req = N_CONNECT | N_D_BIT;
+            add_d(plci,(word)(ncpi->length-3),&ncpi->info[4]);
+          }
         }
       }
-    }
-    else if(plci->B3_prot==5)
-    {
-      if ((plci->NL.Id & 0x1f) && !plci->nl_remove_pending)
+      else if(plci->B3_prot==5)
       {
-        fax_control_bits = READ_WORD(&((T30_INFO   *)plci->fax_connect_info_buffer)->control_bits_low);
-        fax_feature_bits = READ_WORD(&((T30_INFO   *)plci->fax_connect_info_buffer)->feature_bits_low);
-        if (!(fax_control_bits & T30_CONTROL_BIT_MORE_DOCUMENTS)
-         || (fax_feature_bits & T30_FEATURE_BIT_MORE_DOCUMENTS))
+        if ((plci->NL.Id & 0x1f) && !plci->nl_remove_pending)
         {
-          len = (byte)(&(((T30_INFO *) 0)->universal_6));
-          fax_info_change = FALSE;
-          if (ncpi->length >= 4)
+          fax_control_bits = READ_WORD(&((T30_INFO   *)plci->fax_connect_info_buffer)->control_bits_low);
+          fax_feature_bits = READ_WORD(&((T30_INFO   *)plci->fax_connect_info_buffer)->feature_bits_low);
+          if (!(fax_control_bits & T30_CONTROL_BIT_MORE_DOCUMENTS)
+           || (fax_feature_bits & T30_FEATURE_BIT_MORE_DOCUMENTS))
           {
-            w = READ_WORD(&ncpi->info[3]);
-            if ((w & 0x0001) != ((word)(((T30_INFO   *)(plci->fax_connect_info_buffer))->resolution & 0x0001)))
+            len = (byte)(&(((T30_INFO *) 0)->universal_6));
+            fax_info_change = FALSE;
+            if (ncpi->length >= 4)
             {
-              ((T30_INFO   *)(plci->fax_connect_info_buffer))->resolution =
-                (byte)((((T30_INFO   *)(plci->fax_connect_info_buffer))->resolution & ~T30_RESOLUTION_R8_0770_OR_200) |
-                ((w & 0x0001) ? T30_RESOLUTION_R8_0770_OR_200 : 0));
-              fax_info_change = TRUE;
-            }
-            fax_control_bits &= ~(T30_CONTROL_BIT_REQUEST_POLLING | T30_CONTROL_BIT_MORE_DOCUMENTS);
-            if (w & 0x0002)  /* Fax-polling request */
-              fax_control_bits |= T30_CONTROL_BIT_REQUEST_POLLING;
-            if ((w & 0x0004) /* Request to send / poll another document */
-             && (a->manufacturer_features & MANUFACTURER_FEATURE_FAX_MORE_DOCUMENTS))
-            {
-              fax_control_bits |= T30_CONTROL_BIT_MORE_DOCUMENTS;
-            }
-            if (ncpi->length >= 6)
-            {
-              w = READ_WORD(&ncpi->info[5]);
-              if (((byte) w) != ((T30_INFO   *)(plci->fax_connect_info_buffer))->data_format)
+              w = READ_WORD(&ncpi->info[3]);
+              if ((w & 0x0001) != ((word)(((T30_INFO   *)(plci->fax_connect_info_buffer))->resolution & 0x0001)))
               {
-                ((T30_INFO   *)(plci->fax_connect_info_buffer))->data_format = (byte) w;
+                ((T30_INFO   *)(plci->fax_connect_info_buffer))->resolution =
+                  (byte)((((T30_INFO   *)(plci->fax_connect_info_buffer))->resolution & ~T30_RESOLUTION_R8_0770_OR_200) |
+                  ((w & 0x0001) ? T30_RESOLUTION_R8_0770_OR_200 : 0));
                 fax_info_change = TRUE;
               }
-
-              if ((a->man_profile.private_options & (1L << PRIVATE_FAX_SUB_SEP_PWD))
-               && (READ_WORD(&ncpi->info[5]) & 0x8000)) /* Private SEP/SUB/PWD enable */
+              fax_control_bits &= ~(T30_CONTROL_BIT_REQUEST_POLLING | T30_CONTROL_BIT_MORE_DOCUMENTS);
+              if (w & 0x0002)  /* Fax-polling request */
+                fax_control_bits |= T30_CONTROL_BIT_REQUEST_POLLING;
+              if ((w & 0x0004) /* Request to send / poll another document */
+               && (a->manufacturer_features & MANUFACTURER_FEATURE_FAX_MORE_DOCUMENTS))
               {
-                plci->requested_options_conn |= (1L << PRIVATE_FAX_SUB_SEP_PWD);
+                fax_control_bits |= T30_CONTROL_BIT_MORE_DOCUMENTS;
               }
-              fax_control_bits &= ~(T30_CONTROL_BIT_ACCEPT_SUBADDRESS | T30_CONTROL_BIT_ACCEPT_SEL_POLLING |
-                T30_CONTROL_BIT_ACCEPT_PASSWORD);
-              if ((plci->requested_options_conn | plci->requested_options | a->requested_options_table[appl->Id-1])
-                & (1L << PRIVATE_FAX_SUB_SEP_PWD))
+              if (ncpi->length >= 6)
               {
-                if (api_parse (&ncpi->info[1], ncpi->length, "wwwwsss", fax_parms))
-                  Info = _WRONG_MESSAGE_FORMAT;
+                w = READ_WORD(&ncpi->info[5]);
+                if (((byte) w) != ((T30_INFO   *)(plci->fax_connect_info_buffer))->data_format)
+                {
+                  ((T30_INFO   *)(plci->fax_connect_info_buffer))->data_format = (byte) w;
+                  fax_info_change = TRUE;
+                }
+
+                if ((a->man_profile.private_options & (1L << PRIVATE_FAX_SUB_SEP_PWD))
+                 && (READ_WORD(&ncpi->info[5]) & 0x8000)) /* Private SEP/SUB/PWD enable */
+                {
+                  plci->requested_options_conn |= (1L << PRIVATE_FAX_SUB_SEP_PWD);
+                }
+                fax_control_bits &= ~(T30_CONTROL_BIT_ACCEPT_SUBADDRESS | T30_CONTROL_BIT_ACCEPT_SEL_POLLING |
+                  T30_CONTROL_BIT_ACCEPT_PASSWORD);
+                if ((plci->requested_options_conn | plci->requested_options | a->requested_options_table[appl->Id-1])
+                  & (1L << PRIVATE_FAX_SUB_SEP_PWD))
+                {
+                  if (api_parse (&ncpi->info[1], ncpi->length, "wwwwsss", fax_parms))
+                    Info = _WRONG_MESSAGE_FORMAT;
+                  else
+                  {
+                    fax_control_bits |= T30_CONTROL_BIT_ACCEPT_SUBADDRESS | T30_CONTROL_BIT_ACCEPT_PASSWORD;
+                    if (fax_control_bits & T30_CONTROL_BIT_ACCEPT_POLLING)
+                      fax_control_bits |= T30_CONTROL_BIT_ACCEPT_SEL_POLLING;
+                    w = fax_parms[4].length;
+                    if (w > 20)
+                      w = 20;
+                    ((T30_INFO   *)(plci->fax_connect_info_buffer))->station_id_len = (byte) w;
+                    for (i = 0; i < w; i++)
+                      ((T30_INFO   *)(plci->fax_connect_info_buffer))->station_id[i] = fax_parms[4].info[1+i];
+                    ((T30_INFO   *)(plci->fax_connect_info_buffer))->head_line_len = 0;
+                    len = (byte)(((T30_INFO *) 0)->station_id + 20);
+                    w = fax_parms[5].length;
+                    if (w > 20)
+                      w = 20;
+                    plci->fax_connect_info_buffer[len++] = (byte) w;
+                    for (i = 0; i < w; i++)
+                      plci->fax_connect_info_buffer[len++] = fax_parms[5].info[1+i];
+                    w = fax_parms[6].length;
+                    if (w > 20)
+                      w = 20;
+                    plci->fax_connect_info_buffer[len++] = (byte) w;
+                    for (i = 0; i < w; i++)
+                      plci->fax_connect_info_buffer[len++] = fax_parms[6].info[1+i];
+                  }
+                }
                 else
                 {
-                  fax_control_bits |= T30_CONTROL_BIT_ACCEPT_SUBADDRESS | T30_CONTROL_BIT_ACCEPT_PASSWORD;
-                  if (fax_control_bits & T30_CONTROL_BIT_ACCEPT_POLLING)
-                    fax_control_bits |= T30_CONTROL_BIT_ACCEPT_SEL_POLLING;
-                  w = fax_parms[4].length;
-                  if (w > 20)
-                    w = 20;
-                  ((T30_INFO   *)(plci->fax_connect_info_buffer))->station_id_len = (byte) w;
-                  for (i = 0; i < w; i++)
-                    ((T30_INFO   *)(plci->fax_connect_info_buffer))->station_id[i] = fax_parms[4].info[1+i];
-                  ((T30_INFO   *)(plci->fax_connect_info_buffer))->head_line_len = 0;
-                  len = (byte)(((T30_INFO *) 0)->station_id + 20);
-                  w = fax_parms[5].length;
-                  if (w > 20)
-                    w = 20;
-                  plci->fax_connect_info_buffer[len++] = (byte) w;
-                  for (i = 0; i < w; i++)
-                    plci->fax_connect_info_buffer[len++] = fax_parms[5].info[1+i];
-                  w = fax_parms[6].length;
-                  if (w > 20)
-                    w = 20;
-                  plci->fax_connect_info_buffer[len++] = (byte) w;
-                  for (i = 0; i < w; i++)
-                    plci->fax_connect_info_buffer[len++] = fax_parms[6].info[1+i];
+                  len = (byte)(&(((T30_INFO *) 0)->universal_6));
+                }
+                fax_info_change = TRUE;
+
+              }
+              if (fax_control_bits != READ_WORD(&((T30_INFO   *)plci->fax_connect_info_buffer)->control_bits_low))
+              {
+                WRITE_WORD (&((T30_INFO   *)plci->fax_connect_info_buffer)->control_bits_low, fax_control_bits);
+                fax_info_change = TRUE;
+              }
+            }
+            if (Info == GOOD)
+            {
+              plci->fax_connect_info_length = len;
+              if (fax_info_change)
+              {
+                if (fax_feature_bits & T30_FEATURE_BIT_MORE_DOCUMENTS)
+                {
+                  start_internal_command (Id, plci, fax_connect_info_command);
+                  return FALSE;
+                }
+                else
+                {
+                  start_internal_command (Id, plci, fax_adjust_b23_command);
+                  return FALSE;
                 }
               }
-              else
-              {
-                len = (byte)(&(((T30_INFO *) 0)->universal_6));
-              }
-              fax_info_change = TRUE;
-
-            }
-            if (fax_control_bits != READ_WORD(&((T30_INFO   *)plci->fax_connect_info_buffer)->control_bits_low))
-            {
-              WRITE_WORD (&((T30_INFO   *)plci->fax_connect_info_buffer)->control_bits_low, fax_control_bits);
-              fax_info_change = TRUE;
             }
           }
-          if (Info == GOOD)
-          {
-            plci->fax_connect_info_length = len;
-            if (fax_info_change)
-            {
-              if (fax_feature_bits & T30_FEATURE_BIT_MORE_DOCUMENTS)
-              {
-                start_internal_command (Id, plci, fax_connect_info_command);
-                return FALSE;
-              }
-              else
-              {
-                start_internal_command (Id, plci, fax_adjust_b23_command);
-                return FALSE;
-              }
-            }
-          }
+          else  Info = _WRONG_STATE;
         }
         else  Info = _WRONG_STATE;
       }
-      else  Info = _WRONG_STATE;
-    }
 
-    else if (plci->B3_prot == B3_RTP)
-    {
-      plci->internal_req_buffer[0] = ncpi->length + 1;
-      plci->internal_req_buffer[1] = UDATA_REQUEST_RTP_RECONFIGURE;
-      for (w = 0; w < ncpi->length; w++)
-        plci->internal_req_buffer[2+w] = ncpi->info[1+w];
-      start_internal_command (Id, plci, rtp_connect_b3_req_command);
-      return FALSE;
-    }
+      else if (plci->B3_prot == B3_RTP)
+      {
+        plci->internal_req_buffer[0] = ncpi->length + 1;
+        plci->internal_req_buffer[1] = UDATA_REQUEST_RTP_RECONFIGURE;
+        for (w = 0; w < ncpi->length; w++)
+          plci->internal_req_buffer[2+w] = ncpi->info[1+w];
+        start_internal_command (Id, plci, rtp_connect_b3_req_command);
+        return FALSE;
+      }
 
-    if(!Info)
-    {
-      nl_req_ncci(plci,req,0);
-      return 1;
+      if(!Info)
+      {
+        nl_req_ncci(plci,req,0);
+        return 1;
+      }
     }
   }
   else Info = _WRONG_IDENTIFIER;
@@ -3022,7 +3026,7 @@ byte select_b_req(dword Id, word Number, DIVA_CAPI_ADAPTER   * a, PLCI   * plci,
     for(i=0;i<7;i++) bp_parms[i].length = 0;
 
     /* check if no channel is open, no B3 connected only */
-    if((plci->State == IDLE) || plci->channels || plci->nl_remove_pending)
+    if((plci->State == IDLE) || (plci->State == INC_DIS_PENDING) || plci->channels || plci->nl_remove_pending)
     {
       Info = _WRONG_STATE;
     }
@@ -3440,6 +3444,11 @@ byte manufacturer_req(dword Id, word Number, DIVA_CAPI_ADAPTER   * a, PLCI   * p
   return FALSE;
 }
 
+byte manufacturer_res(dword Id, word Number, DIVA_CAPI_ADAPTER   * a, PLCI   * plci, APPL   * appl, API_PARSE * msg)
+{
+  dbug(1,dprintf("manufacturer_res"));
+  return FALSE;
+}
 
 /*------------------------------------------------------------------*/
 /* IDI callback function                                            */
@@ -3494,6 +3503,7 @@ void   callback(ENTITY   * e)
         a->FlowControlSkipTable[ch] = 0;
 
         a->ch_flow_control[ch] |= N_OK_FC_PENDING;
+        a->ch_flow_plci[ch] = plci->Id;
         plci->nl_req = 0;
       }
       else
@@ -3527,7 +3537,11 @@ void   callback(ENTITY   * e)
       else
       {
         if (req == N_XON)
+        {
           channel_x_on (plci, ch);
+          if (plci->internal_command)
+            control_rc (plci, req, rc, ch);
+        }
         else
         {
           channel_xmit_xon (plci);
@@ -3697,6 +3711,7 @@ void control_rc(PLCI   * plci, byte req, byte rc, byte ch)
     }
     if(!plci_remove_check(plci) && !plci->NL.Id && req==0xff)
     {
+      channel_flow_control_remove (plci);
       plci->nl_remove_pending = FALSE;
       dbug(1,dprintf("No remove pend=0x%x",rc));
     }
@@ -4342,7 +4357,6 @@ void sig_ind(PLCI   * plci)
      word multi_pi_id[]  = {PI,0};
      word multi_cornet_id[]  = {ESC_CORNET,0};
   byte   * cau;
-  byte * u;
   word ncci;
     byte SS_Ind[] = "\x05\x02\x00\x02\x00\x00"; /* Hold_Ind struct*/
     byte CF_Ind[] = "\x09\x02\x00\x06\x00\x00\x00\x00\x00\x00";
@@ -4441,17 +4455,11 @@ void sig_ind(PLCI   * plci)
     if(esc_law[0]){
       if(esc_law[2]){
         dbug(0,dprintf("u-Law selected"));
-        u = cip_bc[1];  u[3] = 0xa2;
-        u = cip_bc[4];  u[3] = 0xa2;
-        u = cip_bc[16]; u[3] = 0xa2;
-        u = cip_bc[17]; u[3] = 0xa2;
+        a->u_law = 1;
       }
       else {
         dbug(0,dprintf("a-Law selected"));
-        u = cip_bc[1];  u[3] = 0xa3;
-        u = cip_bc[4];  u[3] = 0xa3;
-        u = cip_bc[16]; u[3] = 0xa3;
-        u = cip_bc[17]; u[3] = 0xa3;
+        a->u_law = 0;
       }
       a->automatic_law = 4;
       if(plci==a->automatic_lawPLCI) {
@@ -4507,6 +4515,10 @@ void sig_ind(PLCI   * plci)
 
       if (a->manufacturer_features & MANUFACTURER_FEATURE_FAX_PAPER_FORMATS)
         a->man_profile.private_options |= 1L << PRIVATE_FAX_PAPER_FORMATS;
+
+
+      if (a->manufacturer_features & MANUFACTURER_FEATURE_VOWN)
+        a->man_profile.private_options |= 1L << PRIVATE_VOWN;
 
     }
     else
@@ -4798,7 +4810,7 @@ void sig_ind(PLCI   * plci)
           break;
         }
         WRITE_WORD(&SS_Ind[1],pty_cai[5]+3);
-      }
+      }      
       sendf(tplci->appl,_FACILITY_I,rId,0,"ws",3, SS_Ind);
       break;
 
@@ -5025,7 +5037,7 @@ void sig_ind(PLCI   * plci)
     break;
 
   case INDICATE_IND:
-    cip = find_cip(parms[4],parms[6]);
+    cip = find_cip(a,parms[4],parms[6]);
     cip_mask = 1L<<cip;
     dbug(1,dprintf("cip=%d,cip_mask=%lx",cip,cip_mask));
     clear_c_ind_mask (plci);
@@ -5815,6 +5827,11 @@ void nl_ind(PLCI   * plci)
     0x3600                 /* RTP_ERR_SSRC_OR_PAYLOAD_CHANGE    */
   };
 
+  static dword udata_forwarding_table[0x100 / sizeof(dword)] =
+  {
+    0x0020301e, 0x00000000, 0x00000000, 0x00000000,
+    0x00000000, 0x00000000, 0x00000000, 0x00000000
+  };
 
   ch = plci->NL.IndCh;
   a = plci->adapter;
@@ -5870,18 +5887,17 @@ void nl_ind(PLCI   * plci)
       {
         word conn_opt, ncpi_opt = 0x00;
 //      HexDump ("MDM N_UDATA:", plci->NL.RBuffer->length, data);
-        plci->ncpi_buffer[0] = 4;
 
         if (*data == DSP_UDATA_INDICATION_DCD_ON)
           plci->ncpi_state |= NCPI_MDM_DCD_ON_RECEIVED;
         if (*data == DSP_UDATA_INDICATION_CTS_ON)
           plci->ncpi_state |= NCPI_MDM_CTS_ON_RECEIVED;
 
-        data++;
-        data += 2; /* jump over time */
-        data++;
+        data++;    /* indication code */
+        data += 2; /* timestamp */
+        data++;    /* connected norm */
         conn_opt = READ_WORD(data);
-        data += 2;
+        data += 2; /* connected options */
 
         WRITE_WORD (&(plci->ncpi_buffer[1]), (word)(READ_DWORD(data) & 0x0000FFFF));
 
@@ -5901,8 +5917,8 @@ void nl_ind(PLCI   * plci)
         {
           ncpi_opt |= MDM_NCPI_COMPRESSED;
         }
-
         WRITE_WORD (&(plci->ncpi_buffer[3]), ncpi_opt);
+        plci->ncpi_buffer[0] = 4;
 
         plci->ncpi_state |= NCPI_VALID_CONNECT_B3_IND | NCPI_VALID_CONNECT_B3_ACT | NCPI_VALID_DISC_B3_IND;
       }
@@ -5920,7 +5936,7 @@ void nl_ind(PLCI   * plci)
     }
 
     if (!((plci->requested_options_conn | plci->requested_options | plci->adapter->requested_options_table[plci->appl->Id-1])
-        & (1L << PRIVATE_V18))
+        & ((1L << PRIVATE_V18) | (1L << PRIVATE_VOWN)))
      || !(ncpi_state & NCPI_MDM_DCD_ON_RECEIVED)
      || !(ncpi_state & NCPI_MDM_CTS_ON_RECEIVED))
 
@@ -5929,24 +5945,10 @@ void nl_ind(PLCI   * plci)
       return;
     }
   }
-
-  if( (((plci->NL.Ind &0x0f)==N_UDATA) || ((plci->NL.Ind &0x0f)==N_EDATA))
-  &&  ( (plci->B1_resource == 16)     /* Fax G3                */
-     || ((plci->B1_facilities != 0)
-      && ((plci->B1_resource != 0x11)
-       || ((plci->NL.Ind &0x0f) != N_UDATA)
-       || (plci->NL.RLength == 0)
-       || (plci->NL.RBuffer->P[0] == DTMF_UDATA_INDICATION_MODEM_CALLING_TONE)
-       || (plci->NL.RBuffer->P[0] == DTMF_UDATA_INDICATION_FAX_CALLING_TONE)
-       || (plci->NL.RBuffer->P[0] == DTMF_UDATA_INDICATION_ANSWER_TONE)
-       || (plci->NL.RBuffer->P[0] == DTMF_UDATA_INDICATION_DIGITS_RECEIVED)
-       || (plci->NL.RBuffer->P[0] == DTMF_UDATA_INDICATION_DIGITS_SENT)))
-
-     || (plci->B2_prot == B2_RTP)
-
-     || (plci->B2_prot == B2_V120_ASYNC)
-     || (plci->B2_prot == B2_V120_ASYNC_V42BIS)
-     || (plci->B2_prot == B2_V120_BIT_TRANSPARENT) ) )
+  if ((((plci->NL.Ind &0x0f) == N_EDATA)
+    && (plci->B1_resource == 16)) /* Fax G3 */
+   || (((plci->NL.Ind &0x0f) == N_UDATA)
+    && !(udata_forwarding_table[plci->NL.RBuffer->P[0] >> 5] & (1L << (plci->NL.RBuffer->P[0] & 0x1f)))))
   {
     if(plci->NL.complete != 2)
     {
@@ -5956,7 +5958,7 @@ void nl_ind(PLCI   * plci)
       plci->NL.RNum = 1;
       return;
     }
-    else if(plci->NL.complete==2 && (plci->B1_resource != 16) )
+    else if(plci->NL.complete==2 && ((plci->NL.Ind &0x0f) == N_UDATA))
     {
       switch(plci->RData[0].P[0])
       {
@@ -6051,17 +6053,20 @@ void nl_ind(PLCI   * plci)
         WRITE_WORD(&(plci->ncpi_buffer[1]),((T30_INFO   *)plci->NL.RBuffer->P)->rate_div_2400 * 2400);
         fax_feature_bits = READ_WORD(&((T30_INFO   *)plci->NL.RBuffer->P)->feature_bits_low);
         i = (((T30_INFO   *)plci->NL.RBuffer->P)->resolution & T30_RESOLUTION_R8_0770_OR_200) ? 0x0001 : 0x0000;
-        if (!(fax_feature_bits & T30_FEATURE_BIT_ECM))
-          i |= 0x8000; /* This is not an ECM connection */
-        if (fax_feature_bits & T30_FEATURE_BIT_T6_CODING)
-          i |= 0x4000; /* This is a connection with MMR compression */
-        if (fax_feature_bits & T30_FEATURE_BIT_2D_CODING)
-          i |= 0x2000; /* This is a connection with MR compression */
-        if (fax_feature_bits & T30_FEATURE_BIT_MORE_DOCUMENTS)
-          i |= 0x0004; /* More documents */
-        if (fax_feature_bits & T30_FEATURE_BIT_POLLING)
-          i |= 0x0002; /* Fax-polling indication */
-        dbug(1,dprintf("FAX Options %04x",i));
+        if (plci->B3_prot == 5)
+        {
+          if (!(fax_feature_bits & T30_FEATURE_BIT_ECM))
+            i |= 0x8000; /* This is not an ECM connection */
+          if (fax_feature_bits & T30_FEATURE_BIT_T6_CODING)
+            i |= 0x4000; /* This is a connection with MMR compression */
+          if (fax_feature_bits & T30_FEATURE_BIT_2D_CODING)
+            i |= 0x2000; /* This is a connection with MR compression */
+          if (fax_feature_bits & T30_FEATURE_BIT_MORE_DOCUMENTS)
+            i |= 0x0004; /* More documents */
+          if (fax_feature_bits & T30_FEATURE_BIT_POLLING)
+            i |= 0x0002; /* Fax-polling indication */
+        }
+        dbug(1,dprintf("FAX Options %04x %04x",fax_feature_bits,i));
         WRITE_WORD(&(plci->ncpi_buffer[3]),i);
         WRITE_WORD(&(plci->ncpi_buffer[5]),((T30_INFO   *)plci->NL.RBuffer->P)->data_format);
         plci->ncpi_buffer[7] = ((T30_INFO   *)plci->NL.RBuffer->P)->pages_low;
@@ -6689,7 +6694,8 @@ word add_b1(PLCI   * plci, API_PARSE * bp, word b_channel_info, word b1_faciliti
   word i;
 
     API_PARSE mdm_cfg_v18[4];
-  word j, n;
+  word j, n, w;
+  dword d;
 
 
   for(i=0;i<8;i++) bp_parms[i].length = 0;
@@ -6831,22 +6837,21 @@ word add_b1(PLCI   * plci, API_PARSE * bp, word b_channel_info, word b1_faciliti
         return (_WRONG_MESSAGE_FORMAT);
       }
         
-      cai[2] = 0; /* Bit rate for adaption */
-      /* Bit Rate */
+      cai[2] = 0; /* Bit rate for adaptation */
 
       dbug(1,dprintf("MDM Max Bit Rate:<%d>", READ_WORD(mdm_cfg[0].info)));
 
-      WRITE_WORD (&cai[13], 0);                          /* Min Tx */
-      WRITE_WORD (&cai[15], READ_WORD(mdm_cfg[0].info)); /* Max Tx */
-      WRITE_WORD (&cai[17], 0);                          /* Min Rx */
-      WRITE_WORD (&cai[19], READ_WORD(mdm_cfg[0].info)); /* Max Rx */
+      WRITE_WORD (&cai[13], 0);                          /* Min Tx speed */
+      WRITE_WORD (&cai[15], READ_WORD(mdm_cfg[0].info)); /* Max Tx speed */
+      WRITE_WORD (&cai[17], 0);                          /* Min Rx speed */
+      WRITE_WORD (&cai[19], READ_WORD(mdm_cfg[0].info)); /* Max Rx speed */
 
-      cai[3] = 0;
+      cai[3] = 0; /* Async framing parameters */
       switch (READ_WORD (mdm_cfg[2].info))
       {       /* Parity     */
       case 1: /* odd parity */
         cai[3] |= (DSP_CAI_ASYNC_PARITY_ENABLE | DSP_CAI_ASYNC_PARITY_ODD);
-        dbug(1, dprintf("MDM: odd parity"));
+        dbug(1,dprintf("MDM: odd parity"));
         break;
 
       case 2: /* even parity */
@@ -6855,7 +6860,7 @@ word add_b1(PLCI   * plci, API_PARSE * bp, word b_channel_info, word b1_faciliti
         break;
 
       default:
-        dbug(1, dprintf("MDM: no parity"));
+        dbug(1,dprintf("MDM: no parity"));
         break;
       }
 
@@ -6863,11 +6868,11 @@ word add_b1(PLCI   * plci, API_PARSE * bp, word b_channel_info, word b1_faciliti
       {       /* stop bits   */
       case 1: /* 2 stop bits */
         cai[3] |= DSP_CAI_ASYNC_TWO_STOP_BITS;
-        dbug(1, dprintf("MDM: 2 stop bits"));
+        dbug(1,dprintf("MDM: 2 stop bits"));
         break;
 
       default:
-        dbug(1, dprintf("MDM: 1 stop bit"));
+        dbug(1,dprintf("MDM: 1 stop bit"));
         break;
       }
 
@@ -6885,16 +6890,17 @@ word add_b1(PLCI   * plci, API_PARSE * bp, word b_channel_info, word b1_faciliti
 
       case 7:
         cai[3] |= DSP_CAI_ASYNC_CHAR_LENGTH_7;
-        dbug(1, dprintf("MDM: 7 bits"));
+        dbug(1,dprintf("MDM: 7 bits"));
         break;
 
       default:
-        dbug(1, dprintf("MDM: 8 bits"));
+        dbug(1,dprintf("MDM: 8 bits"));
         break;
       }
 
-      /* misc. options */
-      cai[7] = cai[8] = cai[9] = 0;
+      cai[7] = 0; /* Line taking options */
+      cai[8] = 0; /* Modulation negotiation options */
+      cai[9] = 0; /* Modulation options */
 
       if (((plci->call_dir & CALL_DIR_ORIGINATE) != 0) ^ ((plci->call_dir & CALL_DIR_OUT) != 0))
       {
@@ -6947,26 +6953,92 @@ word add_b1(PLCI   * plci, API_PARSE * bp, word b_channel_info, word b1_faciliti
       {
         plci->requested_options |= 1L << PRIVATE_V18;
       }
-      if ((plci->requested_options_conn | plci->requested_options | plci->adapter->requested_options_table[plci->appl->Id-1])
-        & (1L << PRIVATE_V18))
+      if ((plci->adapter->man_profile.private_options & (1L << PRIVATE_VOWN))
+       && (READ_WORD(mdm_cfg[5].info) & 0x4000)) /* Private VOWN enable */
       {
-        if (api_parse(&bp_parms[3].info[1],(word)bp_parms[3].length,"wwwwwwss", mdm_cfg))
-          return (_WRONG_MESSAGE_FORMAT);
-        if (api_parse(&mdm_cfg[7].info[1],(word)mdm_cfg[7].length,"sss", mdm_cfg_v18))
-          return (_WRONG_MESSAGE_FORMAT);
-        i = 27;
-        cai[i] = (byte)(mdm_cfg[6].length);
-        for (j = 1; j < ((word)(cai[i] + 1)); j++)
-          cai[i+j] = mdm_cfg[6].info[j];
-        i += cai[i] + 1;
-        for (n = 0; n < 3; n++)
+        plci->requested_options |= 1L << PRIVATE_VOWN;
+      }
+      if ((plci->requested_options_conn | plci->requested_options | plci->adapter->requested_options_table[plci->appl->Id-1])
+        & ((1L << PRIVATE_V18) | (1L << PRIVATE_VOWN)))
+      {
+        if (!api_parse(&bp_parms[3].info[1],(word)bp_parms[3].length,"wwwwwws", mdm_cfg))
         {
-          cai[i] = (byte)(mdm_cfg_v18[n].length);
-          for (j = 1; j < ((word)(cai[i] + 1)); j++)
-            cai[i+j] = mdm_cfg_v18[n].info[j];
-          i += cai[i] + 1;
+          i = 27;
+          if (mdm_cfg[6].length >= 4)
+          {
+            d = READ_DWORD(&mdm_cfg[6].info[1]);
+            cai[7] |= (byte) d;          /* line taking options */
+            cai[9] |= (byte)(d >> 8);    /* modulation options */
+            cai[++i] = (byte)(d >> 16);  /* vown modulation options */
+            cai[++i] = (byte)(d >> 24);
+            if (mdm_cfg[6].length >= 8)
+            {
+              d = READ_DWORD(&mdm_cfg[6].info[5]);
+              cai[10] |= (byte) d;        /* disabled modulations mask */
+              cai[11] |= (byte)(d >> 8);
+              if (mdm_cfg[6].length >= 12)
+              {
+                d = READ_DWORD(&mdm_cfg[6].info[9]);
+                cai[12] = (byte) d;          /* enabled modulations mask */
+                cai[++i] = (byte)(d >> 8);   /* vown enabled modulations */
+                cai[++i] = (byte)(d >> 16);
+                cai[++i] = (byte)(d >> 24);
+                cai[++i] = 0;
+                if (mdm_cfg[6].length >= 14)
+                {
+                  w = READ_WORD(&mdm_cfg[6].info[13]);
+                  if (w != 0)
+                    WRITE_WORD(&cai[13], w);  /* min tx speed */
+                  if (mdm_cfg[6].length >= 16)
+                  {
+                    w = READ_WORD(&mdm_cfg[6].info[15]);
+                    if (w != 0)
+                      WRITE_WORD(&cai[15], w);  /* max tx speed */
+                    if (mdm_cfg[6].length >= 18)
+                    {
+                      w = READ_WORD(&mdm_cfg[6].info[17]);
+                      if (w != 0)
+                        WRITE_WORD(&cai[17], w);  /* min rx speed */
+                      if (mdm_cfg[6].length >= 20)
+                      {
+                        w = READ_WORD(&mdm_cfg[6].info[19]);
+                        if (w != 0)
+                          WRITE_WORD(&cai[19], w);  /* max rx speed */
+                        if (mdm_cfg[6].length >= 22)
+                        {
+                          w = READ_WORD(&mdm_cfg[6].info[21]);
+                          cai[23] = (byte)(-((short) w));  /* transmit level */
+                          if (mdm_cfg[6].length >= 24)
+                          {
+                            w = READ_WORD(&mdm_cfg[6].info[23]);
+                            cai[22] |= (byte) w;        /* info options mask */
+                            cai[21] |= (byte)(w >> 8);  /* disabled symbol rates */
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+          cai[27] = i - 27;
+          i++;
+          if (!api_parse(&bp_parms[3].info[1],(word)bp_parms[3].length,"wwwwwwss", mdm_cfg))
+          {
+            if (!api_parse(&mdm_cfg[7].info[1],(word)mdm_cfg[7].length,"sss", mdm_cfg_v18))
+            {
+              for (n = 0; n < 3; n++)
+              {
+                cai[i] = (byte)(mdm_cfg_v18[n].length);
+                for (j = 1; j < ((word)(cai[i] + 1)); j++)
+                  cai[i+j] = mdm_cfg_v18[n].info[j];
+                i += cai[i] + 1;
+              }
+            }
+          }
+          cai[0] = (byte)(i - 1);
         }
-        cai[0] = (byte)(i - 1);
       }
 
     }
@@ -7279,27 +7351,27 @@ word add_b23(PLCI   * plci, API_PARSE * bp)
     dlc[5] = 0; /* modulo mode */
     dlc[6] = 0; /* window size */
     if (b2_config->length >= 7){
-       dlc[ 7] = 7; 
-       dlc[ 8] = 0; 
-       dlc[ 9] = b2_config_parms[0].info[0]; /* PIAFS protocol Speed configuration */
-       dlc[10] = b2_config_parms[1].info[0]; /* V.42bis P0 */
-       dlc[11] = b2_config_parms[1].info[1]; /* V.42bis P0 */
-       dlc[12] = b2_config_parms[2].info[0]; /* V.42bis P1 */
-       dlc[13] = b2_config_parms[2].info[1]; /* V.42bis P1 */
-       dlc[14] = b2_config_parms[3].info[0]; /* V.42bis P2 */
-       dlc[15] = b2_config_parms[3].info[1]; /* V.42bis P2 */
+      dlc[ 7] = 7; 
+      dlc[ 8] = 0; 
+      dlc[ 9] = b2_config_parms[0].info[0]; /* PIAFS protocol Speed configuration */
+      dlc[10] = b2_config_parms[1].info[0]; /* V.42bis P0 */
+      dlc[11] = b2_config_parms[1].info[1]; /* V.42bis P0 */
+      dlc[12] = b2_config_parms[2].info[0]; /* V.42bis P1 */
+      dlc[13] = b2_config_parms[2].info[1]; /* V.42bis P1 */
+      dlc[14] = b2_config_parms[3].info[0]; /* V.42bis P2 */
+      dlc[15] = b2_config_parms[3].info[1]; /* V.42bis P2 */
     }
     else /* default values, 64K, variable, no compression */
     {
-       dlc[ 7] = 7; 
-       dlc[ 8] = 0; 
-       dlc[ 9] = 0x03; /* PIAFS protocol Speed configuration */
-       dlc[10] = 0x03; /* V.42bis P0 */
-       dlc[11] = 0;    /* V.42bis P0 */
-       dlc[12] = 0;    /* V.42bis P1 */
-       dlc[13] = 0;    /* V.42bis P1 */
-       dlc[14] = 0;    /* V.42bis P2 */
-       dlc[15] = 0;    /* V.42bis P2 */
+      dlc[ 7] = 7; 
+      dlc[ 8] = 0; 
+      dlc[ 9] = 0x03; /* PIAFS protocol Speed configuration */
+      dlc[10] = 0x03; /* V.42bis P0 */
+      dlc[11] = 0;    /* V.42bis P0 */
+      dlc[12] = 0;    /* V.42bis P1 */
+      dlc[13] = 0;    /* V.42bis P1 */
+      dlc[14] = 0;    /* V.42bis P2 */
+      dlc[15] = 0;    /* V.42bis P2 */
     }
     dlc[ 0] = 15;
     add_p(plci, DLC, dlc);
@@ -7745,7 +7817,6 @@ void nl_req_ncci(PLCI   * plci, byte req, byte ncci)
   if (req == REMOVE)
   {
     plci->nl_remove_pending = TRUE;
-    channel_flow_control_remove (plci);
     ncci_remove (plci, 0, (byte)(ncci != 0));
     ncci = 0;
   }
@@ -8031,15 +8102,15 @@ byte ie_compare(byte   * ie1, byte * ie2)
   return TRUE;
 }
 
-word find_cip(byte   * bc, byte   * hlc)
+word find_cip(DIVA_CAPI_ADAPTER   * a, byte   * bc, byte   * hlc)
 {
   word i;
   word j;
 
-  for(i=9;i && !ie_compare(bc,cip_bc[i]);i--);
+  for(i=9;i && !ie_compare(bc,cip_bc[i][a->u_law]);i--);
 
   for(j=16;j<29 &&
-           (!ie_compare(bc,cip_bc[j]) || !ie_compare(hlc,cip_hlc[j])); j++);
+           (!ie_compare(bc,cip_bc[j][a->u_law]) || !ie_compare(hlc,cip_hlc[j])); j++);
   if(j==29) return i;
   return j;
 }
@@ -8597,7 +8668,7 @@ static void dtmf_enable_receiver (PLCI   *plci, byte enable_mask)
 
   dbug (1, dprintf ("[%06lx] %s,%d: dtmf_enable_receiver %02x",
     (dword)((plci->Id << 8) | UnMapController (plci->adapter->Id)),
-    (char   *)(FILE_), 8879, enable_mask));
+    (char   *)(FILE_), 8955, enable_mask));
 
   if (enable_mask != 0)
   {
@@ -8627,7 +8698,7 @@ static void dtmf_send_digits (PLCI   *plci, byte   *digit_buffer, word digit_cou
 
   dbug (1, dprintf ("[%06lx] %s,%d: dtmf_send_digits %d",
     (dword)((plci->Id << 8) | UnMapController (plci->adapter->Id)),
-    (char   *)(FILE_), 8909, digit_count));
+    (char   *)(FILE_), 8985, digit_count));
 
   plci->internal_req_buffer[0] = DTMF_UDATA_REQUEST_SEND_DIGITS;
   w = (plci->dtmf_send_pulse_ms == 0) ? 40 : plci->dtmf_send_pulse_ms;
@@ -8659,7 +8730,7 @@ static void dtmf_rec_clear_config (PLCI   *plci)
 
   dbug (1, dprintf ("[%06lx] %s,%d: dtmf_rec_clear_config",
     (dword)((plci->Id << 8) | UnMapController (plci->adapter->Id)),
-    (char   *)(FILE_), 8941));
+    (char   *)(FILE_), 9017));
 
   plci->dtmf_rec_active = 0;
   plci->dtmf_rec_pulse_ms = 0;
@@ -8672,7 +8743,7 @@ static void dtmf_send_clear_config (PLCI   *plci)
 
   dbug (1, dprintf ("[%06lx] %s,%d: dtmf_send_clear_config",
     (dword)((plci->Id << 8) | UnMapController (plci->adapter->Id)),
-    (char   *)(FILE_), 8954));
+    (char   *)(FILE_), 9030));
 
   plci->dtmf_send_requests = 0;
   plci->dtmf_send_pulse_ms = 0;
@@ -8684,7 +8755,7 @@ static void dtmf_prepare_switch (dword Id, PLCI   *plci)
 {
 
   dbug (1, dprintf ("[%06lx] %s,%d: dtmf_prepare_switch",
-    UnMapId (Id), (char   *)(FILE_), 8966));
+    UnMapId (Id), (char   *)(FILE_), 9042));
 
   while (plci->dtmf_send_requests != 0)
     dtmf_confirmation (Id, plci);
@@ -8695,7 +8766,7 @@ static word dtmf_save_config (dword Id, PLCI   *plci, byte Rc)
 {
 
   dbug (1, dprintf ("[%06lx] %s,%d: dtmf_save_config %02x %d",
-    UnMapId (Id), (char   *)(FILE_), 8977, Rc, plci->adjust_b_state));
+    UnMapId (Id), (char   *)(FILE_), 9053, Rc, plci->adjust_b_state));
 
   return (GOOD);
 }
@@ -8706,7 +8777,7 @@ static word dtmf_restore_config (dword Id, PLCI   *plci, byte Rc)
   word Info;
 
   dbug (1, dprintf ("[%06lx] %s,%d: dtmf_restore_config %02x %d",
-    UnMapId (Id), (char   *)(FILE_), 8988, Rc, plci->adjust_b_state));
+    UnMapId (Id), (char   *)(FILE_), 9064, Rc, plci->adjust_b_state));
 
   Info = GOOD;
   if (plci->B1_facilities & B1_FACILITY_DTMFR)
@@ -8727,7 +8798,7 @@ static word dtmf_restore_config (dword Id, PLCI   *plci, byte Rc)
       if ((Rc != OK) && (Rc != OK_FC))
       {
         dbug (1, dprintf ("[%06lx] %s,%d: Reenable DTMF receiver failed %02x",
-          UnMapId (Id), (char   *)(FILE_), 9009, Rc));
+          UnMapId (Id), (char   *)(FILE_), 9085, Rc));
         Info = _WRONG_STATE;
         break;
       }
@@ -8745,7 +8816,7 @@ static void dtmf_command (dword Id, PLCI   *plci, byte Rc)
     byte result[4];
 
   dbug (1, dprintf ("[%06lx] %s,%d: dtmf_command %02x %04x %04x %d %d %d %d",
-    UnMapId (Id), (char   *)(FILE_), 9027, Rc, plci->internal_command,
+    UnMapId (Id), (char   *)(FILE_), 9103, Rc, plci->internal_command,
     plci->dtmf_cmd, plci->dtmf_rec_pulse_ms, plci->dtmf_rec_pause_ms,
     plci->dtmf_send_pulse_ms, plci->dtmf_send_pause_ms));
 
@@ -8773,7 +8844,7 @@ static void dtmf_command (dword Id, PLCI   *plci, byte Rc)
       if (adjust_b_process (Id, plci, Rc) != GOOD)
       {
         dbug (1, dprintf ("[%06lx] %s,%d: Load DTMF failed",
-          UnMapId (Id), (char   *)(FILE_), 9055));
+          UnMapId (Id), (char   *)(FILE_), 9131));
         Info = _FACILITY_NOT_SUPPORTED;
         break;
       }
@@ -8792,7 +8863,7 @@ static void dtmf_command (dword Id, PLCI   *plci, byte Rc)
       if ((Rc != OK) && (Rc != OK_FC))
       {
         dbug (1, dprintf ("[%06lx] %s,%d: Enable DTMF receiver failed %02x",
-          UnMapId (Id), (char   *)(FILE_), 9074, Rc));
+          UnMapId (Id), (char   *)(FILE_), 9150, Rc));
         Info = _FACILITY_NOT_SUPPORTED;
         break;
       }
@@ -8847,7 +8918,7 @@ static void dtmf_command (dword Id, PLCI   *plci, byte Rc)
       if (adjust_b_process (Id, plci, Rc) != GOOD)
       {
         dbug (1, dprintf ("[%06lx] %s,%d: Unload DTMF failed",
-          UnMapId (Id), (char   *)(FILE_), 9129));
+          UnMapId (Id), (char   *)(FILE_), 9205));
         Info = _FACILITY_NOT_SUPPORTED;
         break;
       }
@@ -8874,7 +8945,7 @@ static void dtmf_command (dword Id, PLCI   *plci, byte Rc)
       if (adjust_b_process (Id, plci, Rc) != GOOD)
       {
         dbug (1, dprintf ("[%06lx] %s,%d: Load DTMF failed",
-          UnMapId (Id), (char   *)(FILE_), 9156));
+          UnMapId (Id), (char   *)(FILE_), 9232));
         Info = _FACILITY_NOT_SUPPORTED;
         break;
       }
@@ -8894,7 +8965,7 @@ static void dtmf_command (dword Id, PLCI   *plci, byte Rc)
       if ((Rc != OK) && (Rc != OK_FC))
       {
         dbug (1, dprintf ("[%06lx] %s,%d: Send DTMF digits failed %02x",
-          UnMapId (Id), (char   *)(FILE_), 9176, Rc));
+          UnMapId (Id), (char   *)(FILE_), 9252, Rc));
         if (plci->dtmf_send_requests != 0)
           (plci->dtmf_send_requests)--;
         Info = _FACILITY_NOT_SUPPORTED;
@@ -8918,7 +8989,7 @@ static byte dtmf_request (dword Id, word Number, DIVA_CAPI_ADAPTER   *a, PLCI   
     byte result[40];
 
   dbug (1, dprintf ("[%06lx] %s,%d: dtmf_request",
-    UnMapId (Id), (char   *)(FILE_), 9200));
+    UnMapId (Id), (char   *)(FILE_), 9276));
 
   Info = GOOD;
   result[0] = 2;
@@ -8926,13 +8997,13 @@ static byte dtmf_request (dword Id, word Number, DIVA_CAPI_ADAPTER   *a, PLCI   
   if (!(a->profile.Global_Options & GL_DTMF_SUPPORTED))
   {
     dbug (1, dprintf ("[%06lx] %s,%d: Facility not supported",
-      UnMapId (Id), (char   *)(FILE_), 9208));
+      UnMapId (Id), (char   *)(FILE_), 9284));
     Info = _FACILITY_NOT_SUPPORTED;
   }
   else if (api_parse (&msg[1].info[1], msg[1].length, "w", dtmf_parms))
   {
     dbug (1, dprintf ("[%06lx] %s,%d: Wrong message format",
-      UnMapId (Id), (char   *)(FILE_), 9214));
+      UnMapId (Id), (char   *)(FILE_), 9290));
     Info = _WRONG_MESSAGE_FORMAT;
   }
 
@@ -8943,7 +9014,7 @@ static byte dtmf_request (dword Id, word Number, DIVA_CAPI_ADAPTER   *a, PLCI   
         & (1L << PRIVATE_DTMF_TONE)))
     {
       dbug (1, dprintf ("[%06lx] %s,%d: DTMF unknown request %04x",
-        UnMapId (Id), (char   *)(FILE_), 9225, READ_WORD (dtmf_parms[0].info)));
+        UnMapId (Id), (char   *)(FILE_), 9301, READ_WORD (dtmf_parms[0].info)));
       WRITE_WORD (&result[1], DTMF_UNKNOWN_REQUEST);
     }
     else
@@ -8974,7 +9045,7 @@ static byte dtmf_request (dword Id, word Number, DIVA_CAPI_ADAPTER   *a, PLCI   
   else if (plci == NULL)
   {
     dbug (1, dprintf ("[%06lx] %s,%d: Wrong PLCI",
-      UnMapId (Id), (char   *)(FILE_), 9256));
+      UnMapId (Id), (char   *)(FILE_), 9332));
     Info = _WRONG_IDENTIFIER;
   }
   else
@@ -8983,7 +9054,7 @@ static byte dtmf_request (dword Id, word Number, DIVA_CAPI_ADAPTER   *a, PLCI   
      || !(plci->NL.Id & 0x1f) || plci->nl_remove_pending)
     {
       dbug (1, dprintf ("[%06lx] %s,%d: Wrong state",
-        UnMapId (Id), (char   *)(FILE_), 9265));
+        UnMapId (Id), (char   *)(FILE_), 9341));
       Info = _WRONG_STATE;
     }
     else
@@ -9004,7 +9075,7 @@ static byte dtmf_request (dword Id, word Number, DIVA_CAPI_ADAPTER   *a, PLCI   
           & (1L << PRIVATE_DTMF_TONE)))
         {
           dbug (1, dprintf ("[%06lx] %s,%d: DTMF unknown request %04x",
-            UnMapId (Id), (char   *)(FILE_), 9286, READ_WORD (dtmf_parms[0].info)));
+            UnMapId (Id), (char   *)(FILE_), 9362, READ_WORD (dtmf_parms[0].info)));
           WRITE_WORD (&result[1], DTMF_UNKNOWN_REQUEST);
           break;
         }
@@ -9015,7 +9086,7 @@ static byte dtmf_request (dword Id, word Number, DIVA_CAPI_ADAPTER   *a, PLCI   
          && !(a->manufacturer_features & MANUFACTURER_FEATURE_SOFTDTMF_RECEIVE))
         {
           dbug (1, dprintf ("[%06lx] %s,%d: Facility not supported",
-            UnMapId (Id), (char   *)(FILE_), 9297));
+            UnMapId (Id), (char   *)(FILE_), 9373));
           Info = _FACILITY_NOT_SUPPORTED;
           break;
         }
@@ -9044,7 +9115,7 @@ static byte dtmf_request (dword Id, word Number, DIVA_CAPI_ADAPTER   *a, PLCI   
           & (1L << PRIVATE_DTMF_TONE)))
         {
           dbug (1, dprintf ("[%06lx] %s,%d: DTMF unknown request %04x",
-            UnMapId (Id), (char   *)(FILE_), 9326, READ_WORD (dtmf_parms[0].info)));
+            UnMapId (Id), (char   *)(FILE_), 9402, READ_WORD (dtmf_parms[0].info)));
           WRITE_WORD (&result[1], DTMF_UNKNOWN_REQUEST);
           break;
         }
@@ -9053,7 +9124,7 @@ static byte dtmf_request (dword Id, word Number, DIVA_CAPI_ADAPTER   *a, PLCI   
         if (api_parse (&msg[1].info[1], msg[1].length, "wwws", dtmf_parms))
         {
           dbug (1, dprintf ("[%06lx] %s,%d: Wrong message format",
-            UnMapId (Id), (char   *)(FILE_), 9335));
+            UnMapId (Id), (char   *)(FILE_), 9411));
           Info = _WRONG_MESSAGE_FORMAT;
           break;
         }
@@ -9078,7 +9149,7 @@ static byte dtmf_request (dword Id, word Number, DIVA_CAPI_ADAPTER   *a, PLCI   
         if (j == DTMF_DIGIT_MAP_ENTRIES)
         {
           dbug (1, dprintf ("[%06lx] %s,%d: Incorrect DTMF digit %02x",
-            UnMapId (Id), (char   *)(FILE_), 9360, dtmf_parms[3].info[i]));
+            UnMapId (Id), (char   *)(FILE_), 9436, dtmf_parms[3].info[i]));
           WRITE_WORD (&result[1], DTMF_INCORRECT_DIGIT);
           break;
         }
@@ -9086,7 +9157,7 @@ static byte dtmf_request (dword Id, word Number, DIVA_CAPI_ADAPTER   *a, PLCI   
           sizeof(plci->dtmf_msg_number_queue) / sizeof(plci->dtmf_msg_number_queue[0]))
         {
           dbug (1, dprintf ("[%06lx] %s,%d: DTMF request overrun",
-            UnMapId (Id), (char   *)(FILE_), 9368));
+            UnMapId (Id), (char   *)(FILE_), 9444));
           Info = _WRONG_STATE;
           break;
         }
@@ -9096,7 +9167,7 @@ static byte dtmf_request (dword Id, word Number, DIVA_CAPI_ADAPTER   *a, PLCI   
 
       default:
         dbug (1, dprintf ("[%06lx] %s,%d: DTMF unknown request %04x",
-          UnMapId (Id), (char   *)(FILE_), 9378, plci->dtmf_cmd));
+          UnMapId (Id), (char   *)(FILE_), 9454, plci->dtmf_cmd));
         WRITE_WORD (&result[1], DTMF_UNKNOWN_REQUEST);
       }
     }
@@ -9114,7 +9185,7 @@ static void dtmf_confirmation (dword Id, PLCI   *plci)
     byte result[4];
 
   dbug (1, dprintf ("[%06lx] %s,%d: dtmf_confirmation",
-    UnMapId (Id), (char   *)(FILE_), 9396));
+    UnMapId (Id), (char   *)(FILE_), 9472));
 
   Info = GOOD;
   result[0] = 2;
@@ -9135,7 +9206,7 @@ static void dtmf_indication (dword Id, PLCI   *plci, byte   *msg, word length)
   word i, j, n;
 
   dbug (1, dprintf ("[%06lx] %s,%d: dtmf_indication",
-    UnMapId (Id), (char   *)(FILE_), 9417));
+    UnMapId (Id), (char   *)(FILE_), 9493));
 
   n = 0;
   for (i = 1; i < length; i++)
@@ -9187,7 +9258,7 @@ static void dtmf_parameter_write (PLCI   *plci)
 
   dbug (1, dprintf ("[%06lx] %s,%d: dtmf_parameter_write",
     (dword)((plci->Id << 8) | UnMapController (plci->adapter->Id)),
-    (char   *)(FILE_), 9469));
+    (char   *)(FILE_), 9545));
 
   parameter_buffer[0] = plci->dtmf_parameter_length + 1;
   parameter_buffer[1] = DSP_CTRL_SET_DTMF_PARAMETERS;
@@ -9204,7 +9275,7 @@ static void dtmf_parameter_clear_config (PLCI   *plci)
 
   dbug (1, dprintf ("[%06lx] %s,%d: dtmf_parameter_clear_config",
     (dword)((plci->Id << 8) | UnMapController (plci->adapter->Id)),
-    (char   *)(FILE_), 9486));
+    (char   *)(FILE_), 9562));
 
   plci->dtmf_parameter_length = 0;
 }
@@ -9214,7 +9285,7 @@ static void dtmf_parameter_prepare_switch (dword Id, PLCI   *plci)
 {
 
   dbug (1, dprintf ("[%06lx] %s,%d: dtmf_parameter_prepare_switch",
-    UnMapId (Id), (char   *)(FILE_), 9496));
+    UnMapId (Id), (char   *)(FILE_), 9572));
 
 }
 
@@ -9223,7 +9294,7 @@ static word dtmf_parameter_save_config (dword Id, PLCI   *plci, byte Rc)
 {
 
   dbug (1, dprintf ("[%06lx] %s,%d: dtmf_parameter_save_config %02x %d",
-    UnMapId (Id), (char   *)(FILE_), 9505, Rc, plci->adjust_b_state));
+    UnMapId (Id), (char   *)(FILE_), 9581, Rc, plci->adjust_b_state));
 
   return (GOOD);
 }
@@ -9234,7 +9305,7 @@ static word dtmf_parameter_restore_config (dword Id, PLCI   *plci, byte Rc)
   word Info;
 
   dbug (1, dprintf ("[%06lx] %s,%d: dtmf_parameter_restore_config %02x %d",
-    UnMapId (Id), (char   *)(FILE_), 9516, Rc, plci->adjust_b_state));
+    UnMapId (Id), (char   *)(FILE_), 9592, Rc, plci->adjust_b_state));
 
   Info = GOOD;
   if ((plci->B1_facilities & B1_FACILITY_DTMFR)
@@ -9256,7 +9327,7 @@ static word dtmf_parameter_restore_config (dword Id, PLCI   *plci, byte Rc)
       if ((Rc != OK) && (Rc != OK_FC))
       {
         dbug (1, dprintf ("[%06lx] %s,%d: Restore DTMF parameters failed %02x",
-          UnMapId (Id), (char   *)(FILE_), 9538, Rc));
+          UnMapId (Id), (char   *)(FILE_), 9614, Rc));
         Info = _WRONG_STATE;
         break;
       }
@@ -9422,13 +9493,13 @@ static void mixer_set_bchannel_id_esc (PLCI   *plci, byte bchannel_id)
         a->li_config.bri->plci_table[2 - plci->li_bchannel_id] = a->AdvSignalPLCI;
         dbug (1, dprintf ("[%06lx] %s,%d: adv_voice_set_bchannel_id_esc %d",
           (dword)((a->AdvSignalPLCI->Id << 8) | UnMapController (a->AdvSignalPLCI->adapter->Id)),
-          (char   *)(FILE_), 9704, a->AdvSignalPLCI->li_bchannel_id));
+          (char   *)(FILE_), 9780, a->AdvSignalPLCI->li_bchannel_id));
       }
     }
   }
   dbug (1, dprintf ("[%06lx] %s,%d: mixer_set_bchannel_id_esc %d %d",
     (dword)((plci->Id << 8) | UnMapController (plci->adapter->Id)),
-    (char   *)(FILE_), 9710, bchannel_id, plci->li_bchannel_id));
+    (char   *)(FILE_), 9786, bchannel_id, plci->li_bchannel_id));
 }
 
 
@@ -9470,13 +9541,13 @@ static void mixer_set_bchannel_id (PLCI   *plci, byte   *chi)
         a->li_config.bri->plci_table[2 - plci->li_bchannel_id] = a->AdvSignalPLCI;
         dbug (1, dprintf ("[%06lx] %s,%d: adv_voice_set_bchannel_id %d",
           (dword)((a->AdvSignalPLCI->Id << 8) | UnMapController (a->AdvSignalPLCI->adapter->Id)),
-          (char   *)(FILE_), 9752, a->AdvSignalPLCI->li_bchannel_id));
+          (char   *)(FILE_), 9828, a->AdvSignalPLCI->li_bchannel_id));
       }
     }
   }
   dbug (1, dprintf ("[%06lx] %s,%d: mixer_set_bchannel_id %d %d",
     (dword)((plci->Id << 8) | UnMapController (plci->adapter->Id)),
-    (char   *)(FILE_), 9758, ch, plci->li_bchannel_id));
+    (char   *)(FILE_), 9834, ch, plci->li_bchannel_id));
 }
 
 
@@ -9490,7 +9561,7 @@ static char hex_digit_table[0x10] = {'0','1','2','3','4','5','6','7','8','9','a'
   char hex_line[80];
 
   dbug (1, dprintf ("[%06lx] %s,%d: mixer_calculate_coefs",
-    (dword)(UnMapController (a->Id)), (char   *)(FILE_), 9772));
+    (dword)(UnMapController (a->Id)), (char   *)(FILE_), 9848));
 
   if (a->li_pri)
   {
@@ -9907,7 +9978,7 @@ static void mixer_write_channel_coefs (PLCI   *plci, byte sync)
 
   dbug (1, dprintf ("[%06lx] %s,%d: mixer_write_channel_coefs %d",
     (dword)((plci->Id << 8) | UnMapController (plci->adapter->Id)),
-    (char   *)(FILE_), 10189, sync));
+    (char   *)(FILE_), 10265, sync));
 
   a = plci->adapter;
   i = plci->li_bchannel_id - 1;
@@ -9996,7 +10067,7 @@ static void mixer_write_all_coefs (PLCI   *plci, word internal_command)
 
   dbug (1, dprintf ("[%06lx] %s,%d: mixer_write_all_coefs %04x",
     (dword)((plci->Id << 8) | UnMapController (plci->adapter->Id)),
-    (char   *)(FILE_), 10278, internal_command));
+    (char   *)(FILE_), 10354, internal_command));
 
   plci->li_write_command = internal_command;
   plci->li_write_channel = 0;
@@ -10013,7 +10084,7 @@ static byte mixer_write_coefs_process (dword Id, PLCI   *plci, byte Rc)
   byte ch_map[MIXER_CHANNELS_BRI];
 
   dbug (1, dprintf ("[%06x] %s,%d: mixer_write_coefs_process %02x %d",
-    UnMapId (Id), (char   *)(FILE_), 10295, Rc, plci->li_write_channel));
+    UnMapId (Id), (char   *)(FILE_), 10371, Rc, plci->li_write_channel));
 
   a = plci->adapter;
   i = plci->li_write_channel;
@@ -10022,7 +10093,7 @@ static byte mixer_write_coefs_process (dword Id, PLCI   *plci, byte Rc)
     if ((Rc != OK) && (Rc != OK_FC))
     {
       dbug (1, dprintf ("[%06lx] %s,%d: LI write coefs failed %02x",
-        UnMapId (Id), (char   *)(FILE_), 10304, Rc));
+        UnMapId (Id), (char   *)(FILE_), 10380, Rc));
       return (FALSE);
     }
   }
@@ -10163,7 +10234,7 @@ static void mixer_notify_update (PLCI   *plci, byte others, PLCI   *plci_b)
 
   dbug (1, dprintf ("[%06lx] %s,%d: mixer_notify_update %d",
     (dword)((plci->Id << 8) | UnMapController (plci->adapter->Id)),
-    (char   *)(FILE_), 10445, others));
+    (char   *)(FILE_), 10521, others));
 
   a = plci->adapter;
   if (a->profile.Global_Options & GL_LINE_INTERCONNECT_SUPPORTED)
@@ -10261,7 +10332,7 @@ static void mixer_notify_update (PLCI   *plci, byte others, PLCI   *plci_b)
           {
             dbug (1, dprintf ("[%06lx] %s,%d: Interconnect notify failed %06x %d",
               (dword)((plci->Id << 8) | UnMapController (plci->adapter->Id)),
-              (char   *)(FILE_), 10543,
+              (char   *)(FILE_), 10619,
               (dword)((notify_plci->Id << 8) | UnMapController (notify_plci->adapter->Id)), w));
           }
         }
@@ -10280,7 +10351,7 @@ static void mixer_clear_config (PLCI   *plci)
 
   dbug (1, dprintf ("[%06lx] %s,%d: mixer_clear_config",
     (dword)((plci->Id << 8) | UnMapController (plci->adapter->Id)),
-    (char   *)(FILE_), 10562));
+    (char   *)(FILE_), 10638));
 
   plci->li_requests = 0;
   plci->li_notify_update = FALSE;
@@ -10346,7 +10417,7 @@ static void mixer_prepare_switch (dword Id, PLCI   *plci)
 {
 
   dbug (1, dprintf ("[%06lx] %s,%d: mixer_prepare_switch",
-    UnMapId (Id), (char   *)(FILE_), 10628));
+    UnMapId (Id), (char   *)(FILE_), 10704));
 
   while (plci->li_requests != 0)
     mixer_indication (Id, plci);
@@ -10357,7 +10428,7 @@ static word mixer_save_config (dword Id, PLCI   *plci, byte Rc)
 {
 
   dbug (1, dprintf ("[%06lx] %s,%d: mixer_save_config %02x %d",
-    UnMapId (Id), (char   *)(FILE_), 10639, Rc, plci->adjust_b_state));
+    UnMapId (Id), (char   *)(FILE_), 10715, Rc, plci->adjust_b_state));
 
   return (GOOD);
 }
@@ -10370,7 +10441,7 @@ static word mixer_restore_config (dword Id, PLCI   *plci, byte Rc)
   word i;
 
   dbug (1, dprintf ("[%06lx] %s,%d: mixer_restore_config %02x %d",
-    UnMapId (Id), (char   *)(FILE_), 10652, Rc, plci->adjust_b_state));
+    UnMapId (Id), (char   *)(FILE_), 10728, Rc, plci->adjust_b_state));
 
   Info = GOOD;
   a = plci->adapter;
@@ -10399,7 +10470,7 @@ static word mixer_restore_config (dword Id, PLCI   *plci, byte Rc)
       if ((Rc != OK) && (Rc != OK_FC))
       {
         dbug (1, dprintf ("[%06lx] %s,%d: Restore mixer config failed %02x",
-          UnMapId (Id), (char   *)(FILE_), 10681, Rc));
+          UnMapId (Id), (char   *)(FILE_), 10757, Rc));
         Info = _WRONG_STATE;
         break;
       }
@@ -10419,7 +10490,7 @@ static void mixer_command (dword Id, PLCI   *plci, byte Rc)
     byte result[12];
 
   dbug (1, dprintf ("[%06lx] %s,%d: mixer_command %02x %04x %04x",
-    UnMapId (Id), (char   *)(FILE_), 10701, Rc, plci->internal_command,
+    UnMapId (Id), (char   *)(FILE_), 10777, Rc, plci->internal_command,
     plci->li_cmd));
 
   Info = GOOD;
@@ -10450,7 +10521,7 @@ static void mixer_command (dword Id, PLCI   *plci, byte Rc)
         if (adjust_b_process (Id, plci, Rc) != GOOD)
         {
           dbug (1, dprintf ("[%06lx] %s,%d: Load mixer failed",
-            UnMapId (Id), (char   *)(FILE_), 10732));
+            UnMapId (Id), (char   *)(FILE_), 10808));
           Info = _FACILITY_NOT_SUPPORTED;
           break;
         }
@@ -10480,7 +10551,7 @@ static void mixer_command (dword Id, PLCI   *plci, byte Rc)
         if (!mixer_write_coefs_process (Id, plci, Rc))
         {
           dbug (1, dprintf ("[%06lx] %s,%d: Write mixer coefs failed",
-            UnMapId (Id), (char   *)(FILE_), 10762));
+            UnMapId (Id), (char   *)(FILE_), 10838));
           if (plci->li_requests != 0)
             plci->li_requests--;
           Info = _FACILITY_NOT_SUPPORTED;
@@ -10500,7 +10571,7 @@ static void mixer_command (dword Id, PLCI   *plci, byte Rc)
         if (adjust_b_process (Id, plci, Rc) != GOOD)
         {
           dbug (1, dprintf ("[%06lx] %s,%d: Unload mixer failed",
-            UnMapId (Id), (char   *)(FILE_), 10782));
+            UnMapId (Id), (char   *)(FILE_), 10858));
           Info = _FACILITY_NOT_SUPPORTED;
           break;
         }
@@ -10549,20 +10620,20 @@ static byte mixer_request (dword Id, word Number, DIVA_CAPI_ADAPTER   *a, PLCI  
     byte result[28];
 
   dbug (1, dprintf ("[%06lx] %s,%d: mixer_request",
-    UnMapId (Id), (char   *)(FILE_), 10831));
+    UnMapId (Id), (char   *)(FILE_), 10907));
 
   Info = GOOD;
   result[0] = 0;
   if (!(a->profile.Global_Options & GL_LINE_INTERCONNECT_SUPPORTED))
   {
     dbug (1, dprintf ("[%06lx] %s,%d: Facility not supported",
-      UnMapId (Id), (char   *)(FILE_), 10838));
+      UnMapId (Id), (char   *)(FILE_), 10914));
     Info = _FACILITY_NOT_SUPPORTED;
   }
   else if (api_parse (&msg[1].info[1], msg[1].length, "ws", li_parms))
   {
     dbug (1, dprintf ("[%06lx] %s,%d: Wrong message format",
-      UnMapId (Id), (char   *)(FILE_), 10844));
+      UnMapId (Id), (char   *)(FILE_), 10920));
     Info = _WRONG_MESSAGE_FORMAT;
   }
   else
@@ -10591,7 +10662,7 @@ static byte mixer_request (dword Id, word Number, DIVA_CAPI_ADAPTER   *a, PLCI  
        || api_parse (&li_parms[1].info[1], li_parms[1].length, "dd", li_req_parms))
       {
         dbug (1, dprintf ("[%06lx] %s,%d: Wrong message format",
-          UnMapId (Id), (char   *)(FILE_), 10873));
+          UnMapId (Id), (char   *)(FILE_), 10949));
         Info = _WRONG_MESSAGE_FORMAT;
         break;
       }
@@ -10603,7 +10674,7 @@ static byte mixer_request (dword Id, word Number, DIVA_CAPI_ADAPTER   *a, PLCI  
       if (plci == NULL)
       {
         dbug (1, dprintf ("[%06lx] %s,%d: Wrong PLCI",
-          UnMapId (Id), (char   *)(FILE_), 10885));
+          UnMapId (Id), (char   *)(FILE_), 10961));
         Info = _WRONG_IDENTIFIER;
         break;
       }
@@ -10612,7 +10683,7 @@ static byte mixer_request (dword Id, word Number, DIVA_CAPI_ADAPTER   *a, PLCI  
        || (plci->li_bchannel_id == 0))
       {
         dbug (1, dprintf ("[%06lx] %s,%d: Wrong state",
-          UnMapId (Id), (char   *)(FILE_), 10894));
+          UnMapId (Id), (char   *)(FILE_), 10970));
         Info = _WRONG_STATE;
         break;
       }
@@ -10620,7 +10691,7 @@ static byte mixer_request (dword Id, word Number, DIVA_CAPI_ADAPTER   *a, PLCI  
         sizeof(plci->li_plci_b_queue) / sizeof(plci->li_plci_b_queue[0]))
       {
         dbug (1, dprintf ("[%06lx] %s,%d: LI request overrun",
-          UnMapId (Id), (char   *)(FILE_), 10902));
+          UnMapId (Id), (char   *)(FILE_), 10978));
         WRITE_WORD (&result[8], _REQUEST_NOT_ALLOWED_IN_THIS_STATE);
         break;
       }
@@ -10634,7 +10705,7 @@ static byte mixer_request (dword Id, word Number, DIVA_CAPI_ADAPTER   *a, PLCI  
         ((byte)(UnMapController (a->Id) & ~EXT_CONTROLLER)))
       {
         dbug (1, dprintf ("[%06lx] %s,%d: LI not on same ctrl %08lx",
-          UnMapId (Id), (char   *)(FILE_), 10916, plci->li_plci_b));
+          UnMapId (Id), (char   *)(FILE_), 10992, plci->li_plci_b));
         WRITE_WORD (&result[8], _WRONG_IDENTIFIER);
         break;
       }
@@ -10642,7 +10713,7 @@ static byte mixer_request (dword Id, word Number, DIVA_CAPI_ADAPTER   *a, PLCI  
        || (((plci->li_plci_b >> 8) & 0xff) > a->max_plci))
       {
         dbug (1, dprintf ("[%06lx] %s,%d: LI invalid second PLCI %08lx",
-          UnMapId (Id), (char   *)(FILE_), 10924, plci->li_plci_b));
+          UnMapId (Id), (char   *)(FILE_), 11000, plci->li_plci_b));
         WRITE_WORD (&result[8], _WRONG_IDENTIFIER);
         break;
       }
@@ -10652,7 +10723,7 @@ static byte mixer_request (dword Id, word Number, DIVA_CAPI_ADAPTER   *a, PLCI  
        || (plci_b->li_bchannel_id == 0))
       {
         dbug (1, dprintf ("[%06lx] %s,%d: LI peer in wrong state %08lx",
-          UnMapId (Id), (char   *)(FILE_), 10934, plci->li_plci_b));
+          UnMapId (Id), (char   *)(FILE_), 11010, plci->li_plci_b));
         WRITE_WORD (&result[8], _REQUEST_NOT_ALLOWED_IN_THIS_STATE);
         break;
       }
@@ -10660,7 +10731,7 @@ static byte mixer_request (dword Id, word Number, DIVA_CAPI_ADAPTER   *a, PLCI  
         (word)(plci_b->B1_facilities | B1_FACILITY_MIXER))) & B1_FACILITY_MIXER))
       {
         dbug (1, dprintf ("[%06lx] %s,%d: Interconnect peer cannot mix %d",
-          UnMapId (Id), (char   *)(FILE_), 10942, plci_b->B1_resource));
+          UnMapId (Id), (char   *)(FILE_), 11018, plci_b->B1_resource));
         WRITE_WORD (&result[8], _REQUEST_NOT_ALLOWED_IN_THIS_STATE);
         break;
       }
@@ -10807,7 +10878,7 @@ static byte mixer_request (dword Id, word Number, DIVA_CAPI_ADAPTER   *a, PLCI  
        || api_parse (&li_parms[1].info[1], li_parms[1].length, "d", li_req_parms))
       {
         dbug (1, dprintf ("[%06lx] %s,%d: Wrong message format",
-          UnMapId (Id), (char   *)(FILE_), 11089));
+          UnMapId (Id), (char   *)(FILE_), 11165));
         Info = _WRONG_MESSAGE_FORMAT;
         break;
       }
@@ -10819,7 +10890,7 @@ static byte mixer_request (dword Id, word Number, DIVA_CAPI_ADAPTER   *a, PLCI  
       if (plci == NULL)
       {
         dbug (1, dprintf ("[%06lx] %s,%d: Wrong PLCI",
-          UnMapId (Id), (char   *)(FILE_), 11101));
+          UnMapId (Id), (char   *)(FILE_), 11177));
         Info = _WRONG_IDENTIFIER;
         break;
       }
@@ -10828,7 +10899,7 @@ static byte mixer_request (dword Id, word Number, DIVA_CAPI_ADAPTER   *a, PLCI  
        || (plci->li_bchannel_id == 0))
       {
         dbug (1, dprintf ("[%06lx] %s,%d: Wrong state",
-          UnMapId (Id), (char   *)(FILE_), 11110));
+          UnMapId (Id), (char   *)(FILE_), 11186));
         Info = _WRONG_STATE;
         break;
       }
@@ -10836,7 +10907,7 @@ static byte mixer_request (dword Id, word Number, DIVA_CAPI_ADAPTER   *a, PLCI  
         sizeof(plci->li_plci_b_queue) / sizeof(plci->li_plci_b_queue[0]))
       {
         dbug (1, dprintf ("[%06lx] %s,%d: LI disc request overrun",
-          UnMapId (Id), (char   *)(FILE_), 11118));
+          UnMapId (Id), (char   *)(FILE_), 11194));
         WRITE_WORD (&result[8], _REQUEST_NOT_ALLOWED_IN_THIS_STATE);
         break;
       }
@@ -10847,7 +10918,7 @@ static byte mixer_request (dword Id, word Number, DIVA_CAPI_ADAPTER   *a, PLCI  
         ((byte)(UnMapController (a->Id) & ~EXT_CONTROLLER)))
       {
         dbug (1, dprintf ("[%06lx] %s,%d: LI disc not on same ctrl %08lx",
-          UnMapId (Id), (char   *)(FILE_), 11129, plci->li_plci_b));
+          UnMapId (Id), (char   *)(FILE_), 11205, plci->li_plci_b));
         WRITE_WORD (&result[8], _WRONG_IDENTIFIER);
         break;
       }
@@ -10855,7 +10926,7 @@ static byte mixer_request (dword Id, word Number, DIVA_CAPI_ADAPTER   *a, PLCI  
        || (((plci->li_plci_b >> 8) & 0xff) > a->max_plci))
       {
         dbug (1, dprintf ("[%06lx] %s,%d: LI disc invalid second PLCI %08lx",
-          UnMapId (Id), (char   *)(FILE_), 11137, plci->li_plci_b));
+          UnMapId (Id), (char   *)(FILE_), 11213, plci->li_plci_b));
         WRITE_WORD (&result[8], _WRONG_IDENTIFIER);
         break;
       }
@@ -10865,7 +10936,7 @@ static byte mixer_request (dword Id, word Number, DIVA_CAPI_ADAPTER   *a, PLCI  
        || (plci_b->li_bchannel_id == 0))
       {
         dbug (1, dprintf ("[%06lx] %s,%d: LI disc peer in wrong state %08lx",
-          UnMapId (Id), (char   *)(FILE_), 11147, plci->li_plci_b));
+          UnMapId (Id), (char   *)(FILE_), 11223, plci->li_plci_b));
         WRITE_WORD (&result[8], _REQUEST_NOT_ALLOWED_IN_THIS_STATE);
         break;
       }
@@ -10948,14 +11019,14 @@ static byte mixer_request (dword Id, word Number, DIVA_CAPI_ADAPTER   *a, PLCI  
        || (plci->li_bchannel_id == 0))
       {
         dbug (1, dprintf ("[%06lx] %s,%d: Wrong state",
-          UnMapId (Id), (char   *)(FILE_), 11230));
+          UnMapId (Id), (char   *)(FILE_), 11306));
         return (FALSE);
       }
       if (plci->li_requests >=
         sizeof(plci->li_plci_b_queue) / sizeof(plci->li_plci_b_queue[0]))
       {
         dbug (1, dprintf ("[%06lx] %s,%d: LI request overrun",
-          UnMapId (Id), (char   *)(FILE_), 11237));
+          UnMapId (Id), (char   *)(FILE_), 11313));
         return (FALSE);
       }
       plci->command = 0;
@@ -10976,7 +11047,7 @@ static byte mixer_request (dword Id, word Number, DIVA_CAPI_ADAPTER   *a, PLCI  
 
     default:
       dbug (1, dprintf ("[%06lx] %s,%d: LI unknown request %04x",
-        UnMapId (Id), (char   *)(FILE_), 11258, plci->li_cmd));
+        UnMapId (Id), (char   *)(FILE_), 11334, plci->li_cmd));
       Info = _FACILITY_NOT_SUPPORTED;
     }
   }
@@ -10992,7 +11063,7 @@ static void mixer_indication (dword Id, PLCI   *plci)
     byte result[8];
 
   dbug (1, dprintf ("[%06lx] %s,%d: mixer_indication",
-    UnMapId (Id), (char   *)(FILE_), 11274));
+    UnMapId (Id), (char   *)(FILE_), 11350));
 
   if (plci->li_requests != 0)
   {
@@ -11029,7 +11100,7 @@ static void mixer_remove (PLCI   *plci)
 
   dbug (1, dprintf ("[%06lx] %s,%d: mixer_remove",
     (dword)((plci->Id << 8) | UnMapController (plci->adapter->Id)),
-    (char   *)(FILE_), 11311));
+    (char   *)(FILE_), 11387));
 
   a = plci->adapter;
   if (a->profile.Global_Options & GL_LINE_INTERCONNECT_SUPPORTED)
@@ -11063,7 +11134,7 @@ static void ec_write_parameters (PLCI   *plci)
 
   dbug (1, dprintf ("[%06lx] %s,%d: ec_write_parameters",
     (dword)((plci->Id << 8) | UnMapController (plci->adapter->Id)),
-    (char   *)(FILE_), 11345));
+    (char   *)(FILE_), 11421));
 
   parameter_buffer[0] = 5;
   parameter_buffer[1] = DSP_CTRL_SET_LEC_PARAMETERS;
@@ -11082,7 +11153,7 @@ static void ec_clear_config (PLCI   *plci)
 
   dbug (1, dprintf ("[%06lx] %s,%d: ec_clear_config",
     (dword)((plci->Id << 8) | UnMapController (plci->adapter->Id)),
-    (char   *)(FILE_), 11364));
+    (char   *)(FILE_), 11440));
 
   plci->ec_idi_options = LEC_ENABLE_ECHO_CANCELLER |
     LEC_MANUAL_DISABLE | LEC_ENABLE_NONLINEAR_PROCESSING;
@@ -11094,7 +11165,7 @@ static void ec_prepare_switch (dword Id, PLCI   *plci)
 {
 
   dbug (1, dprintf ("[%06lx] %s,%d: ec_prepare_switch",
-    UnMapId (Id), (char   *)(FILE_), 11376));
+    UnMapId (Id), (char   *)(FILE_), 11452));
 
 }
 
@@ -11103,7 +11174,7 @@ static word ec_save_config (dword Id, PLCI   *plci, byte Rc)
 {
 
   dbug (1, dprintf ("[%06lx] %s,%d: ec_save_config %02x %d",
-    UnMapId (Id), (char   *)(FILE_), 11385, Rc, plci->adjust_b_state));
+    UnMapId (Id), (char   *)(FILE_), 11461, Rc, plci->adjust_b_state));
 
   return (GOOD);
 }
@@ -11114,7 +11185,7 @@ static word ec_restore_config (dword Id, PLCI   *plci, byte Rc)
   word Info;
 
   dbug (1, dprintf ("[%06lx] %s,%d: ec_restore_config %02x %d",
-    UnMapId (Id), (char   *)(FILE_), 11396, Rc, plci->adjust_b_state));
+    UnMapId (Id), (char   *)(FILE_), 11472, Rc, plci->adjust_b_state));
 
   Info = GOOD;
   if (plci->B1_facilities & B1_FACILITY_EC)
@@ -11135,7 +11206,7 @@ static word ec_restore_config (dword Id, PLCI   *plci, byte Rc)
       if ((Rc != OK) && (Rc != OK_FC))
       {
         dbug (1, dprintf ("[%06lx] %s,%d: Restore EC failed %02x",
-          UnMapId (Id), (char   *)(FILE_), 11417, Rc));
+          UnMapId (Id), (char   *)(FILE_), 11493, Rc));
         Info = _WRONG_STATE;
         break;
       }
@@ -11152,7 +11223,7 @@ static void ec_command (dword Id, PLCI   *plci, byte Rc)
     byte result[4];
 
   dbug (1, dprintf ("[%06lx] %s,%d: ec_command %02x %04x %04x %04x %d",
-    UnMapId (Id), (char   *)(FILE_), 11434, Rc, plci->internal_command,
+    UnMapId (Id), (char   *)(FILE_), 11510, Rc, plci->internal_command,
     plci->ec_cmd, plci->ec_idi_options, plci->ec_tail_length));
 
   Info = GOOD;
@@ -11175,7 +11246,7 @@ static void ec_command (dword Id, PLCI   *plci, byte Rc)
       if (adjust_b_process (Id, plci, Rc) != GOOD)
       {
         dbug (1, dprintf ("[%06lx] %s,%d: Load EC failed",
-          UnMapId (Id), (char   *)(FILE_), 11457));
+          UnMapId (Id), (char   *)(FILE_), 11533));
         Info = _FACILITY_NOT_SUPPORTED;
         break;
       }
@@ -11194,7 +11265,7 @@ static void ec_command (dword Id, PLCI   *plci, byte Rc)
       if ((Rc != OK) && (Rc != OK_FC))
       {
         dbug (1, dprintf ("[%06lx] %s,%d: Enable EC failed %02x",
-          UnMapId (Id), (char   *)(FILE_), 11476, Rc));
+          UnMapId (Id), (char   *)(FILE_), 11552, Rc));
         Info = _FACILITY_NOT_SUPPORTED;
         break;
       }
@@ -11223,7 +11294,7 @@ static void ec_command (dword Id, PLCI   *plci, byte Rc)
       if ((Rc != OK) && (Rc != OK_FC))
       {
         dbug (1, dprintf ("[%06lx] %s,%d: Disable EC failed %02x",
-          UnMapId (Id), (char   *)(FILE_), 11505, Rc));
+          UnMapId (Id), (char   *)(FILE_), 11581, Rc));
         Info = _FACILITY_NOT_SUPPORTED;
         break;
       }
@@ -11233,7 +11304,7 @@ static void ec_command (dword Id, PLCI   *plci, byte Rc)
       if (adjust_b_process (Id, plci, Rc) != GOOD)
       {
         dbug (1, dprintf ("[%06lx] %s,%d: Unload EC failed",
-          UnMapId (Id), (char   *)(FILE_), 11515));
+          UnMapId (Id), (char   *)(FILE_), 11591));
         Info = _FACILITY_NOT_SUPPORTED;
         break;
       }
@@ -11256,7 +11327,7 @@ static byte ec_request (dword Id, word Number, DIVA_CAPI_ADAPTER   *a, PLCI   *p
     byte result[4];
 
   dbug (1, dprintf ("[%06lx] %s,%d: ec_request",
-    UnMapId (Id), (char   *)(FILE_), 11538));
+    UnMapId (Id), (char   *)(FILE_), 11614));
 
   Info = GOOD;
   result[0] = 2;
@@ -11264,13 +11335,13 @@ static byte ec_request (dword Id, word Number, DIVA_CAPI_ADAPTER   *a, PLCI   *p
   if (!(a->man_profile.private_options & (1L << PRIVATE_ECHO_CANCELLER)))
   {
     dbug (1, dprintf ("[%06lx] %s,%d: Facility not supported",
-      UnMapId (Id), (char   *)(FILE_), 11546));
+      UnMapId (Id), (char   *)(FILE_), 11622));
     Info = _FACILITY_NOT_SUPPORTED;
   }
   else if (plci == NULL)
   {
     dbug (1, dprintf ("[%06lx] %s,%d: Wrong PLCI",
-      UnMapId (Id), (char   *)(FILE_), 11552));
+      UnMapId (Id), (char   *)(FILE_), 11628));
     Info = _WRONG_IDENTIFIER;
   }
   else
@@ -11279,7 +11350,7 @@ static byte ec_request (dword Id, word Number, DIVA_CAPI_ADAPTER   *a, PLCI   *p
      || !(plci->NL.Id & 0x1f) || plci->nl_remove_pending)
     {
       dbug (1, dprintf ("[%06lx] %s,%d: Wrong state",
-        UnMapId (Id), (char   *)(FILE_), 11561));
+        UnMapId (Id), (char   *)(FILE_), 11637));
       Info = _WRONG_STATE;
     }
     else
@@ -11287,7 +11358,7 @@ static byte ec_request (dword Id, word Number, DIVA_CAPI_ADAPTER   *a, PLCI   *p
       if (api_parse (&msg[1].info[1], msg[1].length, "w", ec_parms))
       {
         dbug (1, dprintf ("[%06lx] %s,%d: Wrong message format",
-          UnMapId (Id), (char   *)(FILE_), 11569));
+          UnMapId (Id), (char   *)(FILE_), 11645));
         Info = _WRONG_MESSAGE_FORMAT;
       }
       else
@@ -11339,7 +11410,7 @@ static byte ec_request (dword Id, word Number, DIVA_CAPI_ADAPTER   *a, PLCI   *p
 
         default:
           dbug (1, dprintf ("[%06lx] %s,%d: EC unknown request %04x",
-            UnMapId (Id), (char   *)(FILE_), 11621, plci->ec_cmd));
+            UnMapId (Id), (char   *)(FILE_), 11697, plci->ec_cmd));
           WRITE_WORD (&result[1], EC_UNSUPPORTED_OPERATION);
         }
       }
@@ -11356,7 +11427,7 @@ static void ec_indication (dword Id, PLCI   *plci, byte   *msg, word length)
     byte result[4];
 
   dbug (1, dprintf ("[%06lx] %s,%d: ec_indication",
-    UnMapId (Id), (char   *)(FILE_), 11638));
+    UnMapId (Id), (char   *)(FILE_), 11714));
 
   if (!(plci->ec_idi_options & LEC_MANUAL_DISABLE))
   {
@@ -11396,7 +11467,7 @@ static void adv_voice_write_coefs (PLCI   *plci, word write_command)
 
   dbug (1, dprintf ("[%06lx] %s,%d: adv_voice_write_coefs %d",
     (dword)((plci->Id << 8) | UnMapController (plci->adapter->Id)),
-    (char   *)(FILE_), 11678, write_command));
+    (char   *)(FILE_), 11754, write_command));
 
   a = plci->adapter;
   p = coef_buffer + 1;
@@ -11423,7 +11494,7 @@ static void adv_voice_write_coefs (PLCI   *plci, word write_command)
       a->li_config.bri->plci_table[0] = plci;
       dbug (1, dprintf ("[%06lx] %s,%d: adv_voice_set_bchannel_id %d",
         (dword)((plci->Id << 8) | UnMapController (plci->adapter->Id)),
-        (char   *)(FILE_), 11705, plci->li_bchannel_id));
+        (char   *)(FILE_), 11781, plci->li_bchannel_id));
     }
     else if ((a->li_config.bri->plci_table[0] != NULL) && (a->li_config.bri->plci_table[1] == NULL))
     {
@@ -11431,7 +11502,7 @@ static void adv_voice_write_coefs (PLCI   *plci, word write_command)
       a->li_config.bri->plci_table[1] = plci;
       dbug (1, dprintf ("[%06lx] %s,%d: adv_voice_set_bchannel_id %d",
         (dword)((plci->Id << 8) | UnMapController (plci->adapter->Id)),
-        (char   *)(FILE_), 11713, plci->li_bchannel_id));
+        (char   *)(FILE_), 11789, plci->li_bchannel_id));
     }
   }
   if ((plci->li_bchannel_id != 0) && !a->li_pri)
@@ -11546,7 +11617,7 @@ static void adv_voice_clear_config (PLCI   *plci)
 
   dbug (1, dprintf ("[%06lx] %s,%d: adv_voice_clear_config",
     (dword)((plci->Id << 8) | UnMapController (plci->adapter->Id)),
-    (char   *)(FILE_), 11828));
+    (char   *)(FILE_), 11904));
 
   a = plci->adapter;
   if ((plci->tel == ADV_VOICE) && (plci == a->AdvSignalPLCI))
@@ -11597,7 +11668,7 @@ static void adv_voice_prepare_switch (dword Id, PLCI   *plci)
 {
 
   dbug (1, dprintf ("[%06lx] %s,%d: adv_voice_prepare_switch",
-    UnMapId (Id), (char   *)(FILE_), 11879));
+    UnMapId (Id), (char   *)(FILE_), 11955));
 
 }
 
@@ -11606,7 +11677,7 @@ static word adv_voice_save_config (dword Id, PLCI   *plci, byte Rc)
 {
 
   dbug (1, dprintf ("[%06lx] %s,%d: adv_voice_save_config %02x %d",
-    UnMapId (Id), (char   *)(FILE_), 11888, Rc, plci->adjust_b_state));
+    UnMapId (Id), (char   *)(FILE_), 11964, Rc, plci->adjust_b_state));
 
   return (GOOD);
 }
@@ -11618,7 +11689,7 @@ static word adv_voice_restore_config (dword Id, PLCI   *plci, byte Rc)
   word Info;
 
   dbug (1, dprintf ("[%06lx] %s,%d: adv_voice_restore_config %02x %d",
-    UnMapId (Id), (char   *)(FILE_), 11900, Rc, plci->adjust_b_state));
+    UnMapId (Id), (char   *)(FILE_), 11976, Rc, plci->adjust_b_state));
 
   Info = GOOD;
   a = plci->adapter;
@@ -11641,7 +11712,7 @@ static word adv_voice_restore_config (dword Id, PLCI   *plci, byte Rc)
       if ((Rc != OK) && (Rc != OK_FC))
       {
         dbug (1, dprintf ("[%06lx] %s,%d: Restore voice config failed %02x",
-          UnMapId (Id), (char   *)(FILE_), 11923, Rc));
+          UnMapId (Id), (char   *)(FILE_), 11999, Rc));
         Info = _WRONG_STATE;
         break;
       }
@@ -11722,7 +11793,7 @@ static word get_b1_facilities (PLCI   * plci, byte b1_resource)
   }
   if ((b1_resource == 17) || (b1_resource == 18))
   {
-    if (plci->adapter->manufacturer_features & MANUFACTURER_FEATURE_V18)
+    if (plci->adapter->manufacturer_features & (MANUFACTURER_FEATURE_V18 | MANUFACTURER_FEATURE_VOWN))
       b1_facilities |= B1_FACILITY_DTMFX | B1_FACILITY_DTMFR;
   }
 /*
@@ -11831,7 +11902,7 @@ static byte add_b1_facilities (PLCI   * plci, byte b1_resource, word b1_faciliti
   }
   dbug (1, dprintf ("[%06lx] %s,%d: add_b1_facilities %d %04x %d %04x",
     (dword)((plci->Id << 8) | UnMapController (plci->adapter->Id)),
-    (char   *)(FILE_), 12214,
+    (char   *)(FILE_), 12290,
     b1_resource, b1_facilities, b, get_b1_facilities (plci, b)));
   return (b);
 }
@@ -11843,7 +11914,7 @@ static void adjust_b1_facilities (PLCI   *plci, byte new_b1_resource, word new_b
 
   dbug (1, dprintf ("[%06lx] %s,%d: adjust_b1_facilities %d %04x %04x",
     (dword)((plci->Id << 8) | UnMapController (plci->adapter->Id)),
-    (char   *)(FILE_), 12226, new_b1_resource, new_b1_facilities,
+    (char   *)(FILE_), 12302, new_b1_resource, new_b1_facilities,
     new_b1_facilities & get_b1_facilities (plci, new_b1_resource)));
 
   new_b1_facilities &= get_b1_facilities (plci, new_b1_resource);
@@ -11876,7 +11947,7 @@ static void adjust_b_clear (PLCI   *plci)
 
   dbug (1, dprintf ("[%06lx] %s,%d: adjust_b_clear",
     (dword)((plci->Id << 8) | UnMapController (plci->adapter->Id)),
-    (char   *)(FILE_), 12259));
+    (char   *)(FILE_), 12335));
 
   plci->adjust_b_restore = FALSE;
 }
@@ -11890,7 +11961,7 @@ static word adjust_b_process (dword Id, PLCI   *plci, byte Rc)
     API_PARSE bp[2];
 
   dbug (1, dprintf ("[%06lx] %s,%d: adjust_b_process %02x %d",
-    UnMapId (Id), (char   *)(FILE_), 12273, Rc, plci->adjust_b_state));
+    UnMapId (Id), (char   *)(FILE_), 12349, Rc, plci->adjust_b_state));
 
   Info = GOOD;
   switch (plci->adjust_b_state)
@@ -11911,7 +11982,7 @@ static word adjust_b_process (dword Id, PLCI   *plci, byte Rc)
       if (plci->adjust_b_facilities & ~get_b1_facilities (plci, b1_resource))
       {
         dbug (1, dprintf ("[%06lx] %s,%d: Adjust B nonsupported facilities %d %d %04x",
-          UnMapId (Id), (char   *)(FILE_), 12294,
+          UnMapId (Id), (char   *)(FILE_), 12370,
           plci->B1_resource, b1_resource, plci->adjust_b_facilities));
         Info = _WRONG_STATE;
         break;
@@ -11978,7 +12049,7 @@ static word adjust_b_process (dword Id, PLCI   *plci, byte Rc)
     if ((Rc != OK) && (Rc != OK_FC))
     {
       dbug (1, dprintf ("[%06lx] %s,%d: Adjust B remove failed %02x",
-        UnMapId (Id), (char   *)(FILE_), 12361, Rc));
+        UnMapId (Id), (char   *)(FILE_), 12437, Rc));
       Info = _WRONG_STATE;
       break;
     }
@@ -11989,7 +12060,6 @@ static word adjust_b_process (dword Id, PLCI   *plci, byte Rc)
         plci->internal_command = plci->adjust_b_command;
         break;
       }
-      plci->nl_remove_pending = FALSE;
     }
     plci->adjust_b_state = ADJUST_B_SAVE_EC_1;
   case ADJUST_B_SAVE_EC_1:
@@ -12038,7 +12108,7 @@ static word adjust_b_process (dword Id, PLCI   *plci, byte Rc)
       if (Info != GOOD)
       {
         dbug (1, dprintf ("[%06lx] %s,%d: Adjust B invalid L1 parameters %d %04x",
-          UnMapId (Id), (char   *)(FILE_), 12421,
+          UnMapId (Id), (char   *)(FILE_), 12496,
           plci->B1_resource, plci->adjust_b_facilities));
         break;
       }
@@ -12054,7 +12124,7 @@ static word adjust_b_process (dword Id, PLCI   *plci, byte Rc)
     if ((Rc != OK) && (Rc != OK_FC))
     {
       dbug (1, dprintf ("[%06lx] %s,%d: Adjust B switch failed %02x %d %04x",
-        UnMapId (Id), (char   *)(FILE_), 12437,
+        UnMapId (Id), (char   *)(FILE_), 12512,
         Rc, plci->B1_resource, plci->adjust_b_facilities));
       Info = _WRONG_STATE;
       break;
@@ -12109,7 +12179,7 @@ static word adjust_b_process (dword Id, PLCI   *plci, byte Rc)
       if (Info != GOOD)
       {
         dbug (1, dprintf ("[%06lx] %s,%d: Adjust B invalid L23 parameters %04x",
-          UnMapId (Id), (char   *)(FILE_), 12492, Info));
+          UnMapId (Id), (char   *)(FILE_), 12567, Info));
         break;
       }
       plci->internal_command = plci->adjust_b_command;
@@ -12124,7 +12194,7 @@ static word adjust_b_process (dword Id, PLCI   *plci, byte Rc)
     if ((Rc != OK) && (Rc != OK_FC) && (Rc != ASSIGN_OK))
     {
       dbug (1, dprintf ("[%06lx] %s,%d: Adjust B assign failed %02x",
-        UnMapId (Id), (char   *)(FILE_), 12507, Rc));
+        UnMapId (Id), (char   *)(FILE_), 12582, Rc));
       Info = _WRONG_STATE;
       break;
     }
@@ -12161,7 +12231,7 @@ static word adjust_b_process (dword Id, PLCI   *plci, byte Rc)
     if ((Rc != OK) && (Rc != OK_FC) && (Rc != 0))
     {
       dbug (1, dprintf ("[%06lx] %s,%d: Adjust B connect failed %02x",
-        UnMapId (Id), (char   *)(FILE_), 12544, Rc));
+        UnMapId (Id), (char   *)(FILE_), 12619, Rc));
       Info = _WRONG_STATE;
       break;
     }
@@ -12222,7 +12292,7 @@ static void adjust_b1_resource (dword Id, PLCI   *plci, API_SAVE   *bp_msg, word
 {
 
   dbug (1, dprintf ("[%06lx] %s,%d: adjust_b1_resource %d %04x",
-    UnMapId (Id), (char   *)(FILE_), 12605,
+    UnMapId (Id), (char   *)(FILE_), 12680,
     plci->B1_resource, b1_facilities));
 
   plci->adjust_b_parms_msg = bp_msg;
@@ -12235,7 +12305,7 @@ static void adjust_b1_resource (dword Id, PLCI   *plci, API_SAVE   *bp_msg, word
     plci->adjust_b_mode = ADJUST_B_MODE_SAVE | ADJUST_B_MODE_SWITCH_L1 | ADJUST_B_MODE_RESTORE;
   plci->adjust_b_state = ADJUST_B_START;
   dbug (1, dprintf ("[%06lx] %s,%d: Adjust B1 resource %d %04x...",
-    UnMapId (Id), (char   *)(FILE_), 12618,
+    UnMapId (Id), (char   *)(FILE_), 12693,
     plci->B1_resource, b1_facilities));
 }
 
@@ -12245,7 +12315,7 @@ static void adjust_b_restore (dword Id, PLCI   *plci, byte Rc)
   word internal_command;
 
   dbug (1, dprintf ("[%06lx] %s,%d: adjust_b_restore %02x %04x",
-    UnMapId (Id), (char   *)(FILE_), 12628, Rc, plci->internal_command));
+    UnMapId (Id), (char   *)(FILE_), 12703, Rc, plci->internal_command));
 
   internal_command = plci->internal_command;
   plci->internal_command = 0;
@@ -12263,7 +12333,7 @@ static void adjust_b_restore (dword Id, PLCI   *plci, byte Rc)
     if ((Rc != OK) && (Rc != OK_FC))
     {
       dbug (1, dprintf ("[%06lx] %s,%d: Adjust B enqueued failed %02x",
-        UnMapId (Id), (char   *)(FILE_), 12646, Rc));
+        UnMapId (Id), (char   *)(FILE_), 12721, Rc));
     }
     plci->adjust_b_parms_msg = NULL;
     plci->adjust_b_facilities = plci->B1_facilities;
@@ -12272,12 +12342,12 @@ static void adjust_b_restore (dword Id, PLCI   *plci, byte Rc)
     plci->adjust_b_mode = ADJUST_B_MODE_RESTORE;
     plci->adjust_b_state = ADJUST_B_START;
     dbug (1, dprintf ("[%06lx] %s,%d: Adjust B restore...",
-      UnMapId (Id), (char   *)(FILE_), 12655));
+      UnMapId (Id), (char   *)(FILE_), 12730));
   case ADJUST_B_RESTORE_2:
     if (adjust_b_process (Id, plci, Rc) != GOOD)
     {
       dbug (1, dprintf ("[%06lx] %s,%d: Adjust B restore failed",
-        UnMapId (Id), (char   *)(FILE_), 12660));
+        UnMapId (Id), (char   *)(FILE_), 12735));
     }
     if (plci->internal_command)
       break;
@@ -12292,7 +12362,7 @@ static void reset_b3_command (dword Id, PLCI   *plci, byte Rc)
   word internal_command;
 
   dbug (1, dprintf ("[%06lx] %s,%d: reset_b3_command %02x %04x",
-    UnMapId (Id), (char   *)(FILE_), 12675, Rc, plci->internal_command));
+    UnMapId (Id), (char   *)(FILE_), 12750, Rc, plci->internal_command));
 
   Info = GOOD;
   internal_command = plci->internal_command;
@@ -12308,13 +12378,13 @@ static void reset_b3_command (dword Id, PLCI   *plci, byte Rc)
     plci->adjust_b_mode = ADJUST_B_MODE_REMOVE_L23 | ADJUST_B_MODE_ASSIGN_L23 | ADJUST_B_MODE_CONNECT;
     plci->adjust_b_state = ADJUST_B_START;
     dbug (1, dprintf ("[%06lx] %s,%d: Reset B3...",
-      UnMapId (Id), (char   *)(FILE_), 12691));
+      UnMapId (Id), (char   *)(FILE_), 12766));
   case RESET_B3_COMMAND_1:
     Info = adjust_b_process (Id, plci, Rc);
     if (Info != GOOD)
     {
       dbug (1, dprintf ("[%06lx] %s,%d: Reset failed",
-        UnMapId (Id), (char   *)(FILE_), 12697));
+        UnMapId (Id), (char   *)(FILE_), 12772));
       break;
     }
     if (plci->internal_command)
@@ -12333,7 +12403,7 @@ static void select_b_command (dword Id, PLCI   *plci, byte Rc)
   byte esc_chi[3];
 
   dbug (1, dprintf ("[%06lx] %s,%d: select_b_command %02x %04x",
-    UnMapId (Id), (char   *)(FILE_), 12716, Rc, plci->internal_command));
+    UnMapId (Id), (char   *)(FILE_), 12791, Rc, plci->internal_command));
 
   Info = GOOD;
   internal_command = plci->internal_command;
@@ -12361,13 +12431,13 @@ static void select_b_command (dword Id, PLCI   *plci, byte Rc)
     }
     plci->adjust_b_state = ADJUST_B_START;
     dbug (1, dprintf ("[%06lx] %s,%d: Select B protocol...",
-      UnMapId (Id), (char   *)(FILE_), 12744));
+      UnMapId (Id), (char   *)(FILE_), 12819));
   case SELECT_B_COMMAND_1:
     Info = adjust_b_process (Id, plci, Rc);
     if (Info != GOOD)
     {
       dbug (1, dprintf ("[%06lx] %s,%d: Select B protocol failed",
-        UnMapId (Id), (char   *)(FILE_), 12750));
+        UnMapId (Id), (char   *)(FILE_), 12825));
       break;
     }
     if (plci->internal_command)
@@ -12391,7 +12461,7 @@ static void fax_connect_info_command (dword Id, PLCI   *plci, byte Rc)
   word internal_command;
 
   dbug (1, dprintf ("[%06lx] %s,%d: fax_connect_info_command %02x %04x",
-    UnMapId (Id), (char   *)(FILE_), 12774, Rc, plci->internal_command));
+    UnMapId (Id), (char   *)(FILE_), 12849, Rc, plci->internal_command));
 
   Info = GOOD;
   internal_command = plci->internal_command;
@@ -12418,7 +12488,7 @@ static void fax_connect_info_command (dword Id, PLCI   *plci, byte Rc)
     if ((Rc != OK) && (Rc != OK_FC))
     {
       dbug (1, dprintf ("[%06lx] %s,%d: FAX setting connect info failed %02x",
-        UnMapId (Id), (char   *)(FILE_), 12801, Rc));
+        UnMapId (Id), (char   *)(FILE_), 12876, Rc));
       Info = _WRONG_STATE;
       break;
     }
@@ -12442,7 +12512,7 @@ static void fax_adjust_b23_command (dword Id, PLCI   *plci, byte Rc)
   word internal_command;
 
   dbug (1, dprintf ("[%06lx] %s,%d: fax_adjust_b23_command %02x %04x",
-    UnMapId (Id), (char   *)(FILE_), 12825, Rc, plci->internal_command));
+    UnMapId (Id), (char   *)(FILE_), 12900, Rc, plci->internal_command));
 
   Info = GOOD;
   internal_command = plci->internal_command;
@@ -12458,13 +12528,13 @@ static void fax_adjust_b23_command (dword Id, PLCI   *plci, byte Rc)
     plci->adjust_b_mode = ADJUST_B_MODE_REMOVE_L23 | ADJUST_B_MODE_ASSIGN_L23;
     plci->adjust_b_state = ADJUST_B_START;
     dbug (1, dprintf ("[%06lx] %s,%d: FAX adjust B23...",
-      UnMapId (Id), (char   *)(FILE_), 12841));
+      UnMapId (Id), (char   *)(FILE_), 12916));
   case FAX_ADJUST_B23_COMMAND_1:
     Info = adjust_b_process (Id, plci, Rc);
     if (Info != GOOD)
     {
       dbug (1, dprintf ("[%06lx] %s,%d: FAX adjust failed",
-        UnMapId (Id), (char   *)(FILE_), 12847));
+        UnMapId (Id), (char   *)(FILE_), 12922));
       break;
     }
     if (plci->internal_command)
@@ -12491,7 +12561,7 @@ static void rtp_connect_b3_req_command (dword Id, PLCI   *plci, byte Rc)
   word internal_command;
 
   dbug (1, dprintf ("[%06lx] %s,%d: rtp_connect_b3_req_command %02x %04x",
-    UnMapId (Id), (char   *)(FILE_), 12874, Rc, plci->internal_command));
+    UnMapId (Id), (char   *)(FILE_), 12949, Rc, plci->internal_command));
 
   Info = GOOD;
   internal_command = plci->internal_command;
@@ -12514,7 +12584,7 @@ static void rtp_connect_b3_req_command (dword Id, PLCI   *plci, byte Rc)
     if ((Rc != OK) && (Rc != OK_FC))
     {
       dbug (1, dprintf ("[%06lx] %s,%d: RTP setting connect info failed %02x",
-        UnMapId (Id), (char   *)(FILE_), 12897, Rc));
+        UnMapId (Id), (char   *)(FILE_), 12972, Rc));
       Info = _WRONG_STATE;
       break;
     }
@@ -12544,7 +12614,7 @@ static void rtp_connect_b3_res_command (dword Id, PLCI   *plci, byte Rc)
   word internal_command;
 
   dbug (1, dprintf ("[%06lx] %s,%d: rtp_connect_b3_res_command %02x %04x",
-    UnMapId (Id), (char   *)(FILE_), 12927, Rc, plci->internal_command));
+    UnMapId (Id), (char   *)(FILE_), 13002, Rc, plci->internal_command));
 
   Info = GOOD;
   internal_command = plci->internal_command;
@@ -12567,7 +12637,7 @@ static void rtp_connect_b3_res_command (dword Id, PLCI   *plci, byte Rc)
     if ((Rc != OK) && (Rc != OK_FC))
     {
       dbug (1, dprintf ("[%06lx] %s,%d: RTP setting connect resp info failed %02x",
-        UnMapId (Id), (char   *)(FILE_), 12950, Rc));
+        UnMapId (Id), (char   *)(FILE_), 13025, Rc));
       Info = _WRONG_STATE;
       break;
     }
@@ -12599,7 +12669,7 @@ static void hold_save_command (dword Id, PLCI   *plci, byte Rc)
   word internal_command;
 
   dbug (1, dprintf ("[%06lx] %s,%d: hold_save_command %02x %04x",
-    UnMapId (Id), (char   *)(FILE_), 12982, Rc, plci->internal_command));
+    UnMapId (Id), (char   *)(FILE_), 13057, Rc, plci->internal_command));
 
   Info = GOOD;
   internal_command = plci->internal_command;
@@ -12617,13 +12687,13 @@ static void hold_save_command (dword Id, PLCI   *plci, byte Rc)
     plci->adjust_b_mode = ADJUST_B_MODE_SAVE | ADJUST_B_MODE_REMOVE_L23;
     plci->adjust_b_state = ADJUST_B_START;
     dbug (1, dprintf ("[%06lx] %s,%d: HOLD save...",
-      UnMapId (Id), (char   *)(FILE_), 13000));
+      UnMapId (Id), (char   *)(FILE_), 13075));
   case HOLD_SAVE_COMMAND_1:
     Info = adjust_b_process (Id, plci, Rc);
     if (Info != GOOD)
     {
       dbug (1, dprintf ("[%06lx] %s,%d: HOLD save failed",
-        UnMapId (Id), (char   *)(FILE_), 13006));
+        UnMapId (Id), (char   *)(FILE_), 13081));
       break;
     }
     if (plci->internal_command)
@@ -12640,7 +12710,7 @@ static void retrieve_restore_command (dword Id, PLCI   *plci, byte Rc)
   word internal_command;
 
   dbug (1, dprintf ("[%06lx] %s,%d: retrieve_restore_command %02x %04x",
-    UnMapId (Id), (char   *)(FILE_), 13023, Rc, plci->internal_command));
+    UnMapId (Id), (char   *)(FILE_), 13098, Rc, plci->internal_command));
 
   Info = GOOD;
   internal_command = plci->internal_command;
@@ -12656,13 +12726,13 @@ static void retrieve_restore_command (dword Id, PLCI   *plci, byte Rc)
     plci->adjust_b_mode = ADJUST_B_MODE_ASSIGN_L23 | ADJUST_B_MODE_USER_CONNECT | ADJUST_B_MODE_RESTORE;
     plci->adjust_b_state = ADJUST_B_START;
     dbug (1, dprintf ("[%06lx] %s,%d: RETRIEVE restore...",
-      UnMapId (Id), (char   *)(FILE_), 13039));
+      UnMapId (Id), (char   *)(FILE_), 13114));
   case RETRIEVE_RESTORE_COMMAND_1:
     Info = adjust_b_process (Id, plci, Rc);
     if (Info != GOOD)
     {
       dbug (1, dprintf ("[%06lx] %s,%d: RETRIEVE restore failed",
-        UnMapId (Id), (char   *)(FILE_), 13045));
+        UnMapId (Id), (char   *)(FILE_), 13120));
       break;
     }
     if (plci->internal_command)
@@ -12677,7 +12747,7 @@ static void init_b1_config (PLCI   *plci)
 
   dbug (1, dprintf ("[%06lx] %s,%d: init_b1_config",
     (dword)((plci->Id << 8) | UnMapController (plci->adapter->Id)),
-    (char   *)(FILE_), 13060));
+    (char   *)(FILE_), 13135));
 
   plci->B1_resource = 0;
   plci->B1_facilities = 0;
@@ -12703,7 +12773,7 @@ static void clear_b1_config (PLCI   *plci)
 
   dbug (1, dprintf ("[%06lx] %s,%d: clear_b1_config",
     (dword)((plci->Id << 8) | UnMapController (plci->adapter->Id)),
-    (char   *)(FILE_), 13086));
+    (char   *)(FILE_), 13161));
 
   adv_voice_clear_config (plci);
   adjust_b_clear (plci);

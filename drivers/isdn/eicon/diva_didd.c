@@ -41,7 +41,7 @@ static char *main_revision = "$Revision$";
 
 static char *DRIVERNAME = "Eicon DIVA - DIDD table (http://www.melware.net)";
 static char *DRIVERLNAME = "divadidd";
-static char *DRIVERRELEASE = "1.0beta8";
+static char *DRIVERRELEASE = "1.0";
 
 static char *dir_in_proc_net = "isdn";
 static char *main_proc_dir = "eicon";

@@ -56,7 +56,7 @@ typedef struct _diva_um_idi_os_context {
 
 static char *DRIVERNAME = "Eicon DIVA - User IDI (http://www.melware.net)";
 static char *DRIVERLNAME = "diva_idi";
-static char *DRIVERRELEASE = "1.0beta8";
+static char *DRIVERRELEASE = "1.0";
 
 #define DBG_MINIMUM  (DL_LOG + DL_FTL + DL_ERR)
 #define DBG_DEFAULT  (DBG_MINIMUM + DL_XLOG + DL_REG)

@@ -3,7 +3,7 @@
  *
   Copyright (c) Eicon Networks, 2000.
  *
-  This source file is supplied for the exclusive use with
+  This source file is supplied for the use with
   Eicon Networks range of DIVA Server Adapters.
  *
   Eicon File Revision :    1.9
@@ -25,7 +25,7 @@
  */
 /*------------------------------------------------------------------*/
 /* File: divacapi.h                                                 */
-/* Copyright (c) Eicon Technology Research  GmbH 1993 - 2000        */
+/* Copyright (c) Eicon Networks GmbH 1993 - 2001                    */
 /*                                                                  */
 /* common definitions for all modules of capi20                     */
 /*------------------------------------------------------------------*/
@@ -52,21 +52,20 @@
 #define IMPLEMENT_DTMF_TONE 1
 #define IMPLEMENT_PIAFS 1
 #define IMPLEMENT_FAX_PAPER_FORMATS 1
+#define IMPLEMENT_VOWN 1
 
 
 /*------------------------------------------------------------------*/
 /* Common API internal definitions                                  */
 /*------------------------------------------------------------------*/
 
-#define MAX_APPL           122
-
-
+#define MAX_APPL 240
+#define MAX_NCCI           127
 #define MSG_IN_QUEUE_SIZE  ((528 + 3) & 0xfffc)  /* must be multiple of 4 */
 
 #define MSG_IN_OVERHEAD    4
 
 #define MAX_NL_CHANNEL     255
-#define MAX_NCCI           127
 #define MAX_DATA_B3        8
 #define MAX_DATA_ACK       MAX_DATA_B3
 #define MAX_MULTI_IE       6
@@ -103,8 +102,6 @@ typedef struct manufacturer_profile_s MANUFACTURER_PROFILE;
 typedef struct fax_ncpi_s FAX_NCPI;
 typedef struct api_parse_s API_PARSE;
 typedef struct api_save_s API_SAVE;
-typedef struct li_config_bri_s LI_CONFIG_BRI;
-typedef struct li_config_pri_s LI_CONFIG_PRI;
 typedef struct msn_config_s MSN_CONFIG;
 typedef struct msn_config_max_s MSN_CONFIG_MAX;
 typedef struct msn_ld_s MSN_LD;
@@ -157,6 +154,15 @@ struct _DATA_ACK_DESC {
 };
 
 typedef void (* t_std_internal_command)(dword Id, PLCI   *plci, byte Rc);
+
+
+
+#define LI_PLCI_B_QUEUE_ENTRIES       16
+
+typedef struct li_config_bri_s LI_CONFIG_BRI;
+typedef struct li_config_pri_s LI_CONFIG_PRI;
+
+
 
 /************************************************************************/
 /* Don't forget to adapt dos.asm after changing the _APPL structure!!!! */
@@ -301,7 +307,7 @@ struct _PLCI {
   byte          li_channel_bits;
   byte          li_notify_update;
   dword         li_plci_b;
-  dword         li_plci_b_queue[16];
+  dword         li_plci_b_queue[LI_PLCI_B_QUEUE_ENTRIES];
 
 
   word          ec_cmd;
@@ -362,14 +368,17 @@ struct _DIVA_CAPI_ADAPTER {
   byte          scom_appl_disable;
   PLCI      *automatic_lawPLCI;
   byte          automatic_law;
+  byte          u_law;
 
   byte          adv_voice_coef_length;
   byte          adv_voice_coef_buffer[ADV_VOICE_COEF_BUFFER_SIZE];
+
   byte          li_pri;
   union {
     LI_CONFIG_BRI   *bri;
     LI_CONFIG_PRI   *pri;
   } li_config;
+
   byte adapter_disabled;
   byte group_optimization_enabled; /* use application groups if enabled */
   dword sdram_bar;
@@ -764,6 +773,7 @@ struct async_s {
 #define MANUFACTURER_FEATURE_DTMF_TONE            0x00200000L
 #define MANUFACTURER_FEATURE_FAX_PAPER_FORMATS    0x00400000L
 #define MANUFACTURER_FEATURE_OK_FC_LABEL          0x00800000L
+#define MANUFACTURER_FEATURE_VOWN                 0x01000000L
 
 /*------------------------------------------------------------------*/
 /* DTMF interface to IDI                                            */
@@ -1120,6 +1130,15 @@ struct li_config_pri_s {
 
 
 #define PRIVATE_FAX_PAPER_FORMATS      6
+
+
+
+/*------------------------------------------------------------------*/
+/* V.18 extension                                                   */
+/*------------------------------------------------------------------*/
+
+
+#define PRIVATE_VOWN                   7
 
 
 

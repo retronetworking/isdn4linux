@@ -3,7 +3,7 @@
  *
   Copyright (c) Eicon Networks, 2000.
  *
-  This source file is supplied for the exclusive use with
+  This source file is supplied for the use with
   Eicon Networks range of DIVA Server Adapters.
  *
   Eicon File Revision :    1.9
@@ -29,11 +29,9 @@
 #define DSP_UDATA_INDICATION_DCD_ON  0x02
 #define DSP_UDATA_INDICATION_CTS_OFF  0x03
 #define DSP_UDATA_INDICATION_CTS_ON  0x04
-/*
+/* =====================================================================
 DCD_OFF Message:
   <word> time of DCD off (sampled from counter at 8kHz)
-*/
-/* =====================================================================
 DCD_ON Message:
   <word> time of DCD on (sampled from counter at 8kHz)
   <byte> connected norm
@@ -42,8 +40,8 @@ DCD_ON Message:
   <word> roundtrip delay (ms)
   <dword> connected speed tx (bit/s)
   <dword> connected speed rx (bit/s)
- Size of this message == 19 bytes, but we will receive only 11
- ===================================================================== */
+  Size of this message == 19 bytes, but we will receive only 11
+  ===================================================================== */
 #define DSP_CONNECTED_NORM_UNSPECIFIED      0
 #define DSP_CONNECTED_NORM_V21              1
 #define DSP_CONNECTED_NORM_V23              2
@@ -79,6 +77,41 @@ DCD_ON Message:
 #define DSP_CONNECTED_NORM_BAUDOT_47        32
 #define DSP_CONNECTED_NORM_BAUDOT_50        33
 #define DSP_CONNECTED_NORM_DTMF             34
+#define DSP_CONNECTED_NORM_V18_RESERVED_13  35
+#define DSP_CONNECTED_NORM_V18_RESERVED_14  36
+#define DSP_CONNECTED_NORM_V18_RESERVED_15  37
+#define DSP_CONNECTED_NORM_VOWN             38
+#define DSP_CONNECTED_NORM_V23_OFF_HOOK     39
+#define DSP_CONNECTED_NORM_V23_ON_HOOK      40
+#define DSP_CONNECTED_NORM_VOWN_RESERVED_3  41
+#define DSP_CONNECTED_NORM_VOWN_RESERVED_4  42
+#define DSP_CONNECTED_NORM_VOWN_RESERVED_5  43
+#define DSP_CONNECTED_NORM_VOWN_RESERVED_6  44
+#define DSP_CONNECTED_NORM_VOWN_RESERVED_7  45
+#define DSP_CONNECTED_NORM_VOWN_RESERVED_8  46
+#define DSP_CONNECTED_NORM_VOWN_RESERVED_9  47
+#define DSP_CONNECTED_NORM_VOWN_RESERVED_10 48
+#define DSP_CONNECTED_NORM_VOWN_RESERVED_11 49
+#define DSP_CONNECTED_NORM_VOWN_RESERVED_12 50
+#define DSP_CONNECTED_NORM_VOWN_RESERVED_13 51
+#define DSP_CONNECTED_NORM_VOWN_RESERVED_14 52
+#define DSP_CONNECTED_NORM_VOWN_RESERVED_15 53
+#define DSP_CONNECTED_NORM_VOWN_RESERVED_16 54
+#define DSP_CONNECTED_NORM_VOWN_RESERVED_17 55
+#define DSP_CONNECTED_NORM_VOWN_RESERVED_18 56
+#define DSP_CONNECTED_NORM_VOWN_RESERVED_19 57
+#define DSP_CONNECTED_NORM_VOWN_RESERVED_20 58
+#define DSP_CONNECTED_NORM_VOWN_RESERVED_21 59
+#define DSP_CONNECTED_NORM_VOWN_RESERVED_22 60
+#define DSP_CONNECTED_NORM_VOWN_RESERVED_23 61
+#define DSP_CONNECTED_NORM_VOWN_RESERVED_24 62
+#define DSP_CONNECTED_NORM_VOWN_RESERVED_25 63
+#define DSP_CONNECTED_NORM_VOWN_RESERVED_26 64
+#define DSP_CONNECTED_NORM_VOWN_RESERVED_27 65
+#define DSP_CONNECTED_NORM_VOWN_RESERVED_28 66
+#define DSP_CONNECTED_NORM_VOWN_RESERVED_29 67
+#define DSP_CONNECTED_NORM_VOWN_RESERVED_30 68
+#define DSP_CONNECTED_NORM_VOWN_RESERVED_31 69
 #define DSP_CONNECTED_OPTION_TRELLIS             0x0001
 #define DSP_CONNECTED_OPTION_V42_TRANS           0x0002
 #define DSP_CONNECTED_OPTION_V42_LAPM            0x0004
@@ -94,16 +127,14 @@ DCD_ON Message:
 #define DSP_CONNECTED_OPTION_MASK_MNP            0x03c0
 #define DSP_CONNECTED_OPTION_MASK_ERROR_CORRECT  0x03e4
 #define DSP_CONNECTED_OPTION_MASK_COMPRESSION    0x0320
-#define dsp_connected_norm_is_v18(connected_norm)\
-  ((connected_norm >= DSP_CONNECTED_NORM_V18) && (connected_norm <= DSP_CONNECTED_NORM_DTMF))
 #define DSP_UDATA_INDICATION_DISCONNECT         5
 /*
 returns:
   <byte> cause
 */
 /* ==========================================================
-  DLC: B2 modem configuration
-  ========================================================== */
+    DLC: B2 modem configuration
+   ========================================================== */
 /*
 Fields in assign DLC information element for modem protocol V.42/MNP:
   <byte> length of information element
@@ -136,8 +167,8 @@ Fields in assign DLC information element for modem protocol V.42/MNP:
 #define DLC_MODEMPROT_BREAK_DESTRUCTIVE    0x03
 #define DLC_MODEMPROT_BREAK_CONFIG_MASK    0x03
 /* ==========================================================
-  CAI parameters used for the modem L1 configuration
-  ========================================================== */
+    CAI parameters used for the modem L1 configuration
+   ========================================================== */
 /*
 Fields in assign CAI information element:
   <byte> length of information element
@@ -236,6 +267,7 @@ Fields in assign CAI information element:
 #define DSP_CAI_MODEM_DISABLE_SPLIT_SPEED  0x04
 #define DSP_CAI_MODEM_DISABLE_TRELLIS      0x08
 #define DSP_CAI_MODEM_ALLOW_RDL_TEST_LOOP  0x10
+#define DSP_CAI_MODEM_DISABLE_FLUSH_TIMER  0x40
 #define DSP_CAI_MODEM_REVERSE_DIRECTION    0x80
 #define DSP_CAI_MODEM_DISABLE_V21          0x01
 #define DSP_CAI_MODEM_DISABLE_V23          0x02
@@ -274,36 +306,36 @@ Fields in assign CAI information element:
 #define DSP_CAI_MODEM_SPEAKER_VOLUME_MAX   0x0c
 #define DSP_CAI_MODEM_SPEAKER_VOLUME_MASK  0x0c
 /* ==========================================================
-  DCD/CTS State
-  ========================================================== */
+    DCD/CTS State
+   ========================================================== */
 #define MDM_WANT_CONNECT_B3_ACTIVE_I  0x01
-#define MDM_NCPI_VALID        0x02
+#define MDM_NCPI_VALID                0x02
 #define MDM_NCPI_CTS_ON_RECEIVED      0x04
 #define MDM_NCPI_DCD_ON_RECEIVED      0x08
 /* ==========================================================
-  CAPI NCPI Constants
-  ========================================================== */
-#define MDM_NCPI_ECM_V42     0x0001
-#define MDM_NCPI_ECM_MNP     0x0002
-#define MDM_NCPI_TRANSPARENT   0x0004
-#define MDM_NCPI_COMPRESSED    0x0010
+    CAPI NCPI Constants
+   ========================================================== */
+#define MDM_NCPI_ECM_V42              0x0001
+#define MDM_NCPI_ECM_MNP              0x0002
+#define MDM_NCPI_TRANSPARENT          0x0004
+#define MDM_NCPI_COMPRESSED           0x0010
 /* ==========================================================
-  CAPI B2 Config Constants
-  ========================================================== */
-#define MDM_B2_DISABLE_V42bis 0x0001
-#define MDM_B2_DISABLE_MNP  0x0002
-#define MDM_B2_DISABLE_TRANS 0x0004
-#define MDM_B2_DISABLE_V42  0x0008
-#define MDM_B2_DISABLE_COMP  0x0010
+    CAPI B2 Config Constants
+   ========================================================== */
+#define MDM_B2_DISABLE_V42bis         0x0001
+#define MDM_B2_DISABLE_MNP            0x0002
+#define MDM_B2_DISABLE_TRANS          0x0004
+#define MDM_B2_DISABLE_V42            0x0008
+#define MDM_B2_DISABLE_COMP           0x0010
 /* ==========================================================
-  CAPI B1 Config Constants
-  ========================================================== */
-#define MDM_CAPI_DISABLE_RETRAIN   0x0001
-#define MDM_CAPI_DISABLE_RING_TONE  0x0002
-#define MDM_CAPI_GUARD_1800      0x0004
-#define MDM_CAPI_GUARD_550      0x0008
-#define MDM_CAPI_NEG_V8        0x0003
-#define MDM_CAPI_NEG_V100       0x0002
-#define MDM_CAPI_NEG_MOD_CLASS    0x0001
-#define MDM_CAPI_NEG_DISABLED     0x0000
+    CAPI B1 Config Constants
+   ========================================================== */
+#define MDM_CAPI_DISABLE_RETRAIN      0x0001
+#define MDM_CAPI_DISABLE_RING_TONE    0x0002
+#define MDM_CAPI_GUARD_1800           0x0004
+#define MDM_CAPI_GUARD_550            0x0008
+#define MDM_CAPI_NEG_V8               0x0003
+#define MDM_CAPI_NEG_V100             0x0002
+#define MDM_CAPI_NEG_MOD_CLASS        0x0001
+#define MDM_CAPI_NEG_DISABLED         0x0000
 #endif

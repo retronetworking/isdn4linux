@@ -48,7 +48,7 @@ static eicon_card *cards = (eicon_card *) NULL;   /* glob. var , contains
 
 static char *DRIVERNAME = "Eicon Diva - native I4L Interface driver (http://www.melware.net)";
 static char *DRIVERLNAME = "diva2i4l";
-static char *DRIVERRELEASE = "1.0beta8";
+static char *DRIVERRELEASE = "1.0";
 static char *eicon_revision = "$Revision$";
 extern char *eicon_idi_revision;
 

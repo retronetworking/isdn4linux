@@ -57,7 +57,7 @@ static char *DRIVERNAME = "Eicon DIVA - CAPI Interface driver (http://www.melwar
 static char *DRIVERLNAME = "divacapi";
 #define DRRELMAJOR  1
 #define DRRELMINOR  0
-#define DRRELEXTRA  "beta8"
+#define DRRELEXTRA  ""
 static char DRIVERRELEASE[16];
 
 #define M_COMPANY "Eicon Networks"
@@ -958,7 +958,7 @@ diva_add_card(DESCRIPTOR *d)
   a->group_optimization_enabled = sync_req.xdi_capi_prms.info.group_optimization_enabled;
   a->request = DIRequest; /* card->d.request; */
   a->max_plci = card->d.channels + 30;
-  a->max_listen = 2;
+  a->max_listen = (card->d.channels > 2) ? 8 : 2;
   if (!(a->plci = (PLCI *) vmalloc(sizeof(PLCI) * a->max_plci))) {
     printk(KERN_ERR "%s: failed alloc plci struct.\n", DRIVERLNAME);
     memset(a, 0, sizeof(DIVA_CAPI_ADAPTER));

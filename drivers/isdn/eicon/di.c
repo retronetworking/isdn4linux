@@ -3,7 +3,7 @@
  *
   Copyright (c) Eicon Networks, 2000.
  *
-  This source file is supplied for the exclusive use with
+  This source file is supplied for the use with
   Eicon Networks range of DIVA Server Adapters.
  *
   Eicon File Revision :    1.9
@@ -236,7 +236,7 @@ void pr_out(ADAPTER * a)
              (byte)(a->ram_in(a, &PR_RAM->ReqInput) + ReqCount));
         /* if it is a 'unreturncoded' UREMOVE request, remove the  */
         /* Id from our table after sending the request             */
-  if(this->Req==UREMOVE && this->Id) {
+  if(this && (this->Req==UREMOVE) && this->Id) {
     Id = this->Id;
     e_no = a->IdTable[Id];
     free_entity(a, e_no);

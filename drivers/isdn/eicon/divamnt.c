@@ -60,6 +60,12 @@ extern void DIVA_DIDD_Read (void *, int);
 
 #define MAX_DESCRIPTORS  32
 
+int max_messages=100;
+
+MODULE_PARM(max_messages, "i");
+MODULE_PARM_DESC(max_messages, "Debug Buffer Size.");
+
+
 static dword notify_handle;
 static DESCRIPTOR DAdapter;
 static DESCRIPTOR MAdapter;
@@ -115,6 +121,7 @@ void add_to_q(int type, char* buf, unsigned int length)
 {
   struct sk_buff *skb;
   char *p;
+  int discarded = 0;
 
   if(!length)
     return;
@@ -128,11 +135,16 @@ void add_to_q(int type, char* buf, unsigned int length)
   p[length] = 10;
 
   skb_queue_tail(&msgq, skb);
-  while (skb_queue_len(&msgq) > 100) {
+  while (skb_queue_len(&msgq) > max_messages) {
       skb = skb_dequeue(&msgq);
       dev_kfree_skb(skb);
+      discarded = 1;
   }
   wake_up_interruptible(&msgwaitq);
+
+  if (discarded) {
+    printk(KERN_WARNING "%s: message discarded\n", DRIVERLNAME);
+  }
 }
 
 /*
@@ -290,12 +302,12 @@ remove_maint_proc(void)
 **  DIDD
 */
 static void
-didd_callback(void *context, DESCRIPTOR* adapter, int removal)
+*didd_callback(void *context, DESCRIPTOR* adapter, int removal)
 {
   if (adapter->type == IDI_DADAPTER)
   {
     printk(KERN_ERR "%s: Change in DAdapter ? Oops ?.\n", DRIVERLNAME);
-    return;
+    return(NULL);
   }
 
   if (adapter->type == IDI_DIMAINT)
@@ -312,7 +324,7 @@ didd_callback(void *context, DESCRIPTOR* adapter, int removal)
       DbgRegister("MAINT", DRIVERRELEASE, DBG_DEFAULT);
     }
   }
-  return;
+  return(NULL);
 }
 
 static int __init
@@ -383,10 +395,14 @@ maint_init(void)
   skb_queue_head_init(&msgq);
   init_waitqueue_head(&msgwaitq);
 
+  if (max_messages < 100)
+    max_messages = 100;
+
   printk(KERN_INFO "%s\n", DRIVERNAME);
   printk(KERN_INFO "%s: Rel:%s  Rev:", DRIVERLNAME, DRIVERRELEASE);
   strcpy(tmprev, main_revision);
   printk("%s  Build: %s\n", getrev(tmprev), DIVA_BUILD);
+  printk(KERN_INFO "%s: max_messages=%d\n", DRIVERLNAME, max_messages);
 
   DI_init(NULL, 0, 0, 0, 0, 0, 0);
 

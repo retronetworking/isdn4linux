@@ -3,7 +3,7 @@
  *
   Copyright (c) Eicon Networks, 2000.
  *
-  This source file is supplied for the exclusive use with
+  This source file is supplied for the use with
   Eicon Networks range of DIVA Server Adapters.
  *
   Eicon File Revision :    1.9
@@ -114,6 +114,8 @@ typedef struct _diva_xdi_get_logical_adapter_number {
   dword logical_adapter_number;
   dword controller;
 } diva_xdi_get_logical_adapter_number_s_t;
+/******************************************************************************/
+#define IDI_SYNC_REQ_UP1DM_OPERATION   0x96
 /******************************************************************************/
 #define IDI_SYNC_REQ_DIDD_REGISTER_ADAPTER_NOTIFY 0x01
 #define IDI_SYNC_REQ_DIDD_REMOVE_ADAPTER_NOTIFY  0x02

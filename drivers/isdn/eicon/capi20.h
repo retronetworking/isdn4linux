@@ -3,7 +3,7 @@
  *
   Copyright (c) Eicon Networks, 2000.
  *
-  This source file is supplied for the exclusive use with
+  This source file is supplied for the use with
   Eicon Networks range of DIVA Server Adapters.
  *
   Eicon File Revision :    1.9
@@ -26,7 +26,7 @@
 #ifndef _INC_CAPI20  
 /*------------------------------------------------------------------*/
 /* File: capi20.h                                                   */
-/* Copyright (c) Diehl ISDN GmbH 1993                               */
+/* Copyright (c) Eicon Networks 1993 - 2001                         */
 /*                                                                  */
 /* Commnon ISDN API 2.0 definitions                                 */
 /*------------------------------------------------------------------*/
@@ -448,6 +448,7 @@ struct _API_MSG {
 #define _OUT_OF_LISTEN                  0x2005
 #define _OUT_OF_FAX                     0x2006
 #define _WRONG_MESSAGE_FORMAT           0x2007
+#define _OUT_OF_INTERCONNECT_RESOURCES  0x2008
 /*------------------------------------------------------------------*/
 /* configuration error codes                                        */
 /*------------------------------------------------------------------*/
@@ -500,6 +501,10 @@ struct _API_MSG {
 #define _LI_LINE_NO_LONGER_AVAILABLE     0x3805
 #define _LI_INTERCONNECT_NOT_ESTABLISHED 0x3806
 #define _LI_LINES_NOT_COMPATIBLE         0x3807
+#define _LI2_USER_INITIATED              0x0000
+#define _LI2_PLCI_HAS_NO_BCHANNEL        0x3800
+#define _LI2_LINES_NOT_COMPATIBLE        0x3801
+#define _LI2_NOT_IN_SAME_INTERCONNECTION 0x3802
 /*------------------------------------------------------------------*/
 /* global options                                                   */
 /*------------------------------------------------------------------*/
@@ -574,9 +579,9 @@ struct _API_MSG {
 #define S_MWI_ACTIVATE            0x0013
 #define S_MWI_DEACTIVATE          0x0014
 #define S_CONF_BEGIN           0x0017
-#define S_CONF_ADD            0x0018
+#define S_CONF_ADD                0x0018
 #define S_CONF_SPLIT           0x0019
-#define S_CONF_DROP            0x001a
+#define S_CONF_DROP               0x001a
 #define S_CONF_ISOLATE           0x001b
 #define S_CONF_REATTACH           0x001c
 #define S_MWI_INDICATE            0x8014
@@ -604,24 +609,47 @@ struct _API_MSG {
 /*------------------------------------------------------------------*/
 /*  line interconnect definitions                                   */
 /*------------------------------------------------------------------*/
-#define LI_GET_SUPPORTED_SERVICES   0
-#define LI_REQ_CONNECT              1
-#define LI_REQ_DISCONNECT           2
-#define LI_IND_CONNECT_ACTIVE       1
-#define LI_IND_DISCONNECT           2
-#define LI_FLAG_CONFERENCE_A_B      ((dword) 0x00000001L)
-#define LI_FLAG_CONFERENCE_B_A      ((dword) 0x00000002L)
-#define LI_FLAG_MONITOR_A           ((dword) 0x00000004L)
-#define LI_FLAG_MONITOR_B           ((dword) 0x00000008L)
-#define LI_FLAG_ANNOUNCEMENT_A      ((dword) 0x00000010L)
-#define LI_FLAG_ANNOUNCEMENT_B      ((dword) 0x00000020L)
-#define LI_FLAG_MIX_A               ((dword) 0x00000040L)
-#define LI_FLAG_MIX_B               ((dword) 0x00000080L)
-#define LI_LOOP_SUPPORTED           ((dword) 0x00000001L)
-#define LI_MONITORING_SUPPORTED     ((dword) 0x00000002L)
-#define LI_ANNOUNCEMENTS_SUPPORTED  ((dword) 0x00000004L)
-#define LI_CONFERENCING_SUPPORTED   ((dword) 0x00000008L)
-#define LI_CROSS_CTRL_SUPPORTED     ((dword) 0x00000010L)
+#define LI_GET_SUPPORTED_SERVICES       0
+#define LI_REQ_CONNECT                  1
+#define LI_REQ_DISCONNECT               2
+#define LI_IND_CONNECT_ACTIVE           1
+#define LI_IND_DISCONNECT               2
+#define LI_FLAG_CONFERENCE_A_B          ((dword) 0x00000001L)
+#define LI_FLAG_CONFERENCE_B_A          ((dword) 0x00000002L)
+#define LI_FLAG_MONITOR_A               ((dword) 0x00000004L)
+#define LI_FLAG_MONITOR_B               ((dword) 0x00000008L)
+#define LI_FLAG_ANNOUNCEMENT_A          ((dword) 0x00000010L)
+#define LI_FLAG_ANNOUNCEMENT_B          ((dword) 0x00000020L)
+#define LI_FLAG_MIX_A                   ((dword) 0x00000040L)
+#define LI_FLAG_MIX_B                   ((dword) 0x00000080L)
+#define LI_CONFERENCING_SUPPORTED       ((dword) 0x00000001L)
+#define LI_MONITORING_SUPPORTED         ((dword) 0x00000002L)
+#define LI_ANNOUNCEMENTS_SUPPORTED      ((dword) 0x00000004L)
+#define LI_MIXING_SUPPORTED             ((dword) 0x00000008L)
+#define LI_CROSS_CONTROLLER_SUPPORTED   ((dword) 0x00000010L)
+#define LI2_GET_SUPPORTED_SERVICES      0
+#define LI2_REQ_CONNECT                 1
+#define LI2_REQ_DISCONNECT              2
+#define LI2_IND_CONNECT_ACTIVE          1
+#define LI2_IND_DISCONNECT              2
+#define LI2_FLAG_INTERCONNECT_A_B       ((dword) 0x00000001L)
+#define LI2_FLAG_INTERCONNECT_B_A       ((dword) 0x00000002L)
+#define LI2_FLAG_MONITOR_B              ((dword) 0x00000004L)
+#define LI2_FLAG_MIX_B                  ((dword) 0x00000008L)
+#define LI2_FLAG_MONITOR_X              ((dword) 0x00000010L)
+#define LI2_FLAG_MIX_X                  ((dword) 0x00000020L)
+#define LI2_FLAG_LOOP_B                 ((dword) 0x00000040L)
+#define LI2_FLAG_LOOP_PC                ((dword) 0x00000080L)
+#define LI2_FLAG_LOOP_X                 ((dword) 0x00000100L)
+#define LI2_CROSS_CONTROLLER_SUPPORTED  ((dword) 0x00000001L)
+#define LI2_ASYMMETRIC_SUPPORTED        ((dword) 0x00000002L)
+#define LI2_MONITORING_SUPPORTED        ((dword) 0x00000004L)
+#define LI2_MIXING_SUPPORTED            ((dword) 0x00000008L)
+#define LI2_REMOTE_MONITORING_SUPPORTED ((dword) 0x00000010L)
+#define LI2_REMOTE_MIXING_SUPPORTED     ((dword) 0x00000020L)
+#define LI2_B_LOOPING_SUPPORTED         ((dword) 0x00000040L)
+#define LI2_PC_LOOPING_SUPPORTED        ((dword) 0x00000080L)
+#define LI2_X_LOOPING_SUPPORTED         ((dword) 0x00000100L)
 /*------------------------------------------------------------------*/
 /* function prototypes                                              */
 /*------------------------------------------------------------------*/

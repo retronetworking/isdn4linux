@@ -1,4 +1,3 @@
-/* $Id$ */
 
 #ifndef __DIVA_USER_MODE_IDI_ADAPTER_H__
 #define __DIVA_USER_MODE_IDI_ADAPTER_H__

@@ -3,7 +3,7 @@
  *
   Copyright (c) Eicon Networks, 2000.
  *
-  This source file is supplied for the exclusive use with
+  This source file is supplied for the use with
   Eicon Networks range of DIVA Server Adapters.
  *
   Eicon File Revision :    1.9
@@ -154,6 +154,12 @@ struct _ISDN_ADAPTER {
  dword               ModemTransmitLevel ;
  dword               FaxOptions ;
  dword               FaxMaxSpeed ;
+ dword        UsEktsNumCallApp;
+ byte        UsEktsFeatAddConf;
+ byte        UsEktsFeatRemoveConf;
+ byte        UsEktsFeatCallTransfer;
+ byte        UsEktsFeatMsgWaiting;
+ dword               GenerateRingtone ;
  diva_os_spin_lock_t isr_spin_lock;
  diva_os_spin_lock_t data_spin_lock;
  diva_os_soft_isr_t req_soft_isr;

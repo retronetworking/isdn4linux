@@ -255,6 +255,7 @@ diva_os_atomic_decrement(diva_os_atomic_t* pv)
 #define IMPLEMENT_DTMF_TONE 1
 #define IMPLEMENT_PIAFS 1
 #define IMPLEMENT_FAX_PAPER_FORMATS 1
+#define IMPLEMENT_VOWN 1
 
 #if !defined(__i386__)
 #define READ_WORD(w) ( ((byte *)(w))[0] + \

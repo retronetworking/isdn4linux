@@ -3,7 +3,7 @@
  *
   Copyright (c) Eicon Networks, 2000.
  *
-  This source file is supplied for the exclusive use with
+  This source file is supplied for the use with
   Eicon Networks range of DIVA Server Adapters.
  *
   Eicon File Revision :    1.9
@@ -101,6 +101,12 @@
 #define DL_INDEX(x)  ((((x) >> 8) & 0x00FF) - 1)
 #define DLI_NAME(x)  ((x) & 0xFF00)
 /*
+ * Debug mask for kernel mode tracing, if set the output is also sent to
+ * the system debug function. Requires that the project is compiled
+ * with _KERNEL_DBG_PRINT_
+ */
+#define DL_TO_KERNEL    0x40000000
+/*
  * define low level macros for formatted & raw debugging
  */
 #define DBG_DECL(func) extern void  myDbgPrint_##func (char *, ...) ;
@@ -127,9 +133,33 @@ DBG_DECL(PRV0)
 DBG_DECL(PRV1)
 DBG_DECL(PRV2)
 DBG_DECL(PRV3)
+#ifdef  _KERNEL_DBG_PRINT_
+/*
+ * tracing to maint and kernel if selected in the trace mask.
+ */
+#define DBG_TEST(func,args) \
+{ if ( (myDriverDebugHandle.dbgMask) & (unsigned long)DL_##func ) \
+ { \
+        if ( (myDriverDebugHandle.dbgMask) & DL_TO_KERNEL ) \
+            DbgPrint args; DbgPrint ("\r\n"); \
+        myDbgPrint_##func args ; \
+} }
+#else
+/*
+ * Standard tracing to maint driver.
+ */
 #define DBG_TEST(func,args) \
 { if ( (myDriverDebugHandle.dbgMask) & (unsigned long)DL_##func ) \
  { myDbgPrint_##func args ; \
+} }
+#endif
+/*
+ * For event level debug use a separate define, the paramete are
+ * different and cause compiler errors on some systems.
+ */
+#define DBG_EVL_ID(args) \
+{ if ( (myDriverDebugHandle.dbgMask) & (unsigned long)DL_EVL ) \
+ { myDbgPrint_EVL args ; \
 } }
 #define DBG_LOG(args)  DBG_TEST(LOG, args)
 #define DBG_FTL(args)  DBG_TEST(FTL, args)
@@ -137,7 +167,7 @@ DBG_DECL(PRV3)
 #define DBG_TRC(args)  DBG_TEST(TRC, args)
 #define DBG_MXLOG(args)  DBG_TEST(MXLOG, args)
 #define DBG_FTL_MXLOG(args) DBG_TEST(FTL_MXLOG, args)
-#define DBG_EVL(args)  DBG_TEST(EVL, args)
+#define DBG_EVL(args)  DBG_EVL_ID(args)
 #define DBG_REG(args)  DBG_TEST(REG, args)
 #define DBG_MEM(args)  DBG_TEST(MEM, args)
 #define DBG_SPL(args)  DBG_TEST(SPL, args)

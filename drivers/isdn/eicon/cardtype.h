@@ -3,7 +3,7 @@
  *
   Copyright (c) Eicon Networks, 2000.
  *
-  This source file is supplied for the exclusive use with
+  This source file is supplied for the use with
   Eicon Networks range of DIVA Server Adapters.
  *
   Eicon File Revision :    1.9
@@ -93,7 +93,8 @@
 #define PROTTYPE_QSIG       21
 #define PROTTYPE_NI_EWSD    22 /* EWSD, Siemens, National ISDN   */
 #define PROTTYPE_5ESS_NI    23 /* 5ESS, Lucent, National ISDN    */
-#define PROTTYPE_MAXVAL     23
+#define PROTTYPE_T1CORNETN  24
+#define PROTTYPE_MAXVAL     24
 /*
  * Card type identifiers
  */
@@ -655,7 +656,7 @@ CARD_PROPERTIES CardProperties [ ] =
  4, 2,   16,  8,   0
 },
 { // 56 (DIVA Server PRI 2.0 PCI adapter enabled for Voice)
- "DIVA Server Voice PRI 2.0 PCI",  0xE019,  0x0200,
+ "DIVA Server Voice PRI PCI",  0xE019,  0x0200,
  IDI_ADAPTER_MAESTRA,FAMILY_MAESTRA, DI_V1x0 | DI_FAX3 | DI_MODEM | DI_VOICE_OVER_IP,
  CARD_MAEP,   CARD_I_NONE, BUS_PCI, CHIP_DSP,
  1, 30,  256,  8,   0

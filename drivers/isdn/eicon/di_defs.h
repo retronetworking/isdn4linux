@@ -3,7 +3,7 @@
  *
   Copyright (c) Eicon Networks, 2000.
  *
-  This source file is supplied for the exclusive use with
+  This source file is supplied for the use with
   Eicon Networks range of DIVA Server Adapters.
  *
   Eicon File Revision :    1.9
@@ -38,6 +38,7 @@ typedef struct get_name_s GET_NAME;
 typedef struct entity_s ENTITY;
 typedef struct buffers_s BUFFERS;
 typedef struct postcall_s POSTCALL;
+typedef struct get_para_s GET_PARA;
 #define BOARD_NAME_LENGTH 9
 #define IDI_CALL_LINK_T
 #define IDI_CALL_ENTITY_T
@@ -59,6 +60,15 @@ struct postcall_s {
   word      dummy;                             /* not used */
   void      (  * callback)(void   *);      /* call back */
   void    *context;                          /* context pointer */
+};
+#define REQ_PARA            0x0600   /* request command line parameters */
+#define REQ_PARA_LEN             1   /* number of data bytes */
+#define L1_STARTUP_DOWN_POS      0   /* '-y' command line parameter in......*/
+#define L1_STARTUP_DOWN_MSK   0x01   /* first byte position (index 0) with value 0x01 */
+struct get_para_s {
+  word  command;            /* command = 0x0600 */
+  byte  len;                /* max length of para field in bytes */
+  byte  para[REQ_PARA_LEN]; /* parameter field */
 };
 struct buffers_s {
   word PLength;

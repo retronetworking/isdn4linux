@@ -3,7 +3,7 @@
  *
   Copyright (c) Eicon Networks, 2000.
  *
-  This source file is supplied for the exclusive use with
+  This source file is supplied for the use with
   Eicon Networks range of DIVA Server Adapters.
  *
   Eicon File Revision :    1.9
@@ -230,6 +230,8 @@ struct dual
 #define INT_CUSTX_NIND 62 /* internal transfer ack                  */
 #define INT_CUSTXREJ_NIND 63 /* internal transfer rej               */
 #define INT_X5NI_CF_XFER  64 /* internal transfer OK indication     */
+#define VSWITCH_REQ 65        /* communication between protocol and */
+#define VSWITCH_IND 66        /* capifunctions for D-CH-switching   */
 /*------------------------------------------------------------------*/
 /* management service primitives                                    */
 /*------------------------------------------------------------------*/
@@ -307,6 +309,7 @@ struct dual
 /*------------------------------------------------------------------*/
 #define MSGTYPEIE        0x7a   /* Messagetype info element         */
 #define CRIE             0x7b   /* INFO info element                */
+#define VSWITCHIE        0xed   /* VSwitch info element             */
 #define CORNETIE         0xee   /* Cornet info element              */
 #define PROFILEIE        0xef   /* Profile info element             */
 /*------------------------------------------------------------------*/
@@ -435,5 +438,11 @@ Byte
   17 | X X X X X X X X  P2 - V42bis String Length, High Byte
 */
 #endif /* DIVA_IDI_PIAFS } */
+/* virtual switching definitions */
+#define VSJOIN         1
+#define VSTRANSPORT    2
+#define VSGETPARAMS    3
+#define VSCAD          1
+#define VSRXCPNAME     2
 #else
 #endif

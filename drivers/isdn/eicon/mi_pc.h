@@ -3,7 +3,7 @@
  *
   Copyright (c) Eicon Networks, 2000.
  *
-  This source file is supplied for the exclusive use with
+  This source file is supplied for the use with
   Eicon Networks range of DIVA Server Adapters.
  *
   Eicon File Revision :    1.9
@@ -140,7 +140,7 @@ struct mp_load {
 #define MQ2_DSP_JUNK_OFFSET             0x1000      /* DSP Data/Addr regs subboard offset     */
 #define MQ2_ISAC_DSP_RESET              0x0000      /* ISAC and DSP reset address offset      */
 #define MQ2_BOARD_ISAC_DSP_RESET        0x800000    /* ISAC and DSP reset address offset      */
-#define MQ2_MEMORY_SIZE                 0x00800000  /* 8MB code/data memory                   */
+#define MQ2_MEMORY_SIZE                 0x01000000  /* 8MB code/data memory                   */
 #define MQ2_CTRL_SIZE                   0x00008000  /* 32K memory mapped registers            */
 /*
  * Some useful constants for proper initialization of the GT6401x
