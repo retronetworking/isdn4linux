@@ -6,29 +6,32 @@
  *
  *
  * $Log$
- * Revision 1.6.2.11  1998/09/27 13:05:30  keil
- * Apply most changes from 2.1.X (HiSax 3.1)
+ * Revision 2.10  1998/11/15 23:54:21  keil
+ * changes from 2.0
  *
- * Revision 1.6.2.10  1998/05/27 18:04:50  keil
- * HiSax 3.0
+ * Revision 2.9  1998/08/13 23:36:12  keil
+ * HiSax 3.1 - don't work stable with current LinkLevel
  *
- * Revision 1.6.2.9  1998/04/08 21:58:39  keil
- * New init code
+ * Revision 2.8  1998/04/15 16:44:27  keil
+ * new init code
  *
- * Revision 1.6.2.8  1998/01/27 22:37:49  keil
+ * Revision 2.7  1998/02/02 13:29:37  keil
  * fast io
  *
- * Revision 1.6.2.7  1998/01/13 23:06:11  keil
- * really disable internal timer
+ * Revision 2.6  1998/01/13 23:09:46  keil
+ * really disable timer
  *
- * Revision 1.6.2.6  1998/01/02 06:49:01  calle
+ * Revision 2.5  1998/01/02 06:50:29  calle
  * Perodic timer of A1 now disabled, no need for linux driver.
  *
- * Revision 1.6.2.5  1997/11/15 18:50:41  keil
- * new common init function
+ * Revision 2.4  1997/11/08 21:35:42  keil
+ * new l1 init
  *
- * Revision 1.6.2.4  1997/10/17 22:13:29  keil
- * update to last hisax version
+ * Revision 2.3  1997/11/06 17:13:32  keil
+ * New 2.1 init code
+ *
+ * Revision 2.2  1997/10/29 18:55:48  keil
+ * changes for 2.1.60 (irq2dev_map)
  *
  * Revision 2.1  1997/07/27 21:47:13  keil
  * new interface structures

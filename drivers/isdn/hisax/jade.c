@@ -5,6 +5,10 @@
  * Author   Roland Klabunde (R.Klabunde@Berkom.de)
  *
  * $Log$
+ * Revision 1.2  1999/07/01 08:07:57  keil
+ * Initial version
+ *
+ *
  */
 
 
@@ -210,7 +214,7 @@ close_jadestate(struct BCState *bcs)
 	discard_queue(&bcs->rqueue);
 	discard_queue(&bcs->squeue);
 	if (bcs->tx_skb) {
-		dev_kfree_skb(bcs->tx_skb, FREE_WRITE);
+		idev_kfree_skb(bcs->tx_skb, FREE_WRITE);
 		bcs->tx_skb = NULL;
 		test_and_clear_bit(BC_FLG_BUSY, &bcs->Flag);
 	}

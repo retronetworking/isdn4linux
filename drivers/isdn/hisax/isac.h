@@ -6,11 +6,12 @@
  *
  *
  * $Log$
- * Revision 1.3.2.2  1997/11/15 19:01:14  keil
- * ipac changes
+ * Revision 1.5  1998/05/25 12:58:03  keil
+ * HiSax golden code from certification, Don't use !!!
+ * No leased lines, no X75, but many changes.
  *
- * Revision 1.3.2.1  1997/10/17 22:10:50  keil
- * new files on 2.0
+ * Revision 1.4  1997/10/29 19:09:34  keil
+ * new L1
  *
  * Revision 1.3  1997/07/27 21:37:41  keil
  * T3 implemented; supervisor l1timer; B-channel TEST_LOOP

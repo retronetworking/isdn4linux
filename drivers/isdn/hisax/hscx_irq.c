@@ -7,21 +7,31 @@
  * This is an include file for fast inline IRQ stuff
  *
  * $Log$
- * Revision 1.5.2.5  1998/11/03 00:06:39  keil
- * certification related changes
- * fixed logging for smaller stack use
+ * Revision 1.12  1999/07/01 08:11:42  keil
+ * Common HiSax version for 2.0, 2.1, 2.2 and 2.3 kernel
  *
- * Revision 1.5.2.4  1998/09/27 13:06:16  keil
- * Apply most changes from 2.1.X (HiSax 3.1)
+ * Revision 1.11  1998/11/15 23:54:49  keil
+ * changes from 2.0
  *
- * Revision 1.5.2.3  1998/06/24 14:43:56  keil
+ * Revision 1.10  1998/08/13 23:36:35  keil
+ * HiSax 3.1 - don't work stable with current LinkLevel
+ *
+ * Revision 1.9  1998/06/24 14:44:51  keil
  * Fix recovery of TX IRQ loss
  *
- * Revision 1.5.2.2  1998/05/27 18:05:36  keil
- * HiSax 3.0
+ * Revision 1.8  1998/04/10 10:35:22  paul
+ * fixed (silly?) warnings from egcs on Alpha.
  *
- * Revision 1.5.2.1  1997/10/17 22:10:46  keil
- * new files on 2.0
+ * Revision 1.7  1998/02/12 23:07:37  keil
+ * change for 2.1.86 (removing FREE_READ/FREE_WRITE from [dev]_kfree_skb()
+ *
+ * Revision 1.6  1997/10/29 19:01:07  keil
+ * changes for 2.1
+ *
+ * Revision 1.5  1997/10/01 09:21:35  fritz
+ * Removed old compatibility stuff for 2.0.X kernels.
+ * From now on, this code is for 2.1.X ONLY!
+ * Old stuff is still in the separate branch.
  *
  * Revision 1.4  1997/08/15 17:48:02  keil
  * cosmetic

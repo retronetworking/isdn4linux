@@ -1,6 +1,6 @@
 /* $Id$
 
-* saphir.c low level stuff for HST Saphir 1
+ * saphir.c low level stuff for HST Saphir 1
  *
  * Author     Karsten Keil (keil@isdn4linux.de)
  *
@@ -8,8 +8,10 @@
  *
  *
  * $Log$
-*
-*  
+ * Revision 1.2  1999/07/01 08:07:55  keil
+ * Initial version
+ *
+ *
  */
 
 

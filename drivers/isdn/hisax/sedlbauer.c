@@ -17,52 +17,32 @@
  *            Edgar Toernig
  *
  * $Log$
- * Revision 1.1.2.15  1998/11/03 00:07:32  keil
- * certification related changes
- * fixed logging for smaller stack use
+ * Revision 1.10  1999/07/01 08:12:09  keil
+ * Common HiSax version for 2.0, 2.1, 2.2 and 2.3 kernel
  *
- * Revision 1.1.2.14  1998/10/30 22:51:41  niemann
- * Added new card, Sedlbauer speed pci works now.
+ * Revision 1.9  1998/11/15 23:55:20  keil
+ * changes from 2.0
  *
- * Revision 1.1.2.13  1998/10/16 12:46:06  keil
- * fix pci detection for more as one card
+ * Revision 1.8  1998/08/13 23:34:51  keil
+ * starting speedfax+ (ISAR) support
  *
- * Revision 1.1.2.12  1998/10/13 18:38:53  keil
- * Fix PCI detection
+ * Revision 1.7  1998/04/15 16:44:33  keil
+ * new init code
  *
- * Revision 1.1.2.11  1998/10/13 10:27:30  keil
- * New cards, minor fixes
+ * Revision 1.6  1998/02/09 18:46:06  keil
+ * Support for Sedlbauer PCMCIA (Marcus Niemann)
  *
- * Revision 1.1.2.10  1998/10/11 19:33:52  niemann
- * Added new IPAC based cards.
- * Code cleanup and simplified (sedlbauer.c)
- *
- * Revision 1.1.2.9  1998/10/04 23:05:03  keil
- * ISAR works now
- *
- * Revision 1.1.2.8  1998/09/30 22:28:10  keil
- * more work for isar support
- *
- * Revision 1.1.2.7  1998/09/27 13:07:01  keil
- * Apply most changes from 2.1.X (HiSax 3.1)
- *
- * Revision 1.1.2.6  1998/09/12 18:44:06  niemann
- * Added new card: Sedlbauer ISDN-Controller PC/104
- *
- * Revision 1.1.2.5  1998/04/08 21:58:44  keil
- * New init code
- *
- * Revision 1.1.2.4  1998/02/09 11:21:17  keil
- * Sedlbauer PCMCIA support from Marcus Niemann
- *
- * Revision 1.1.2.3  1998/01/27 22:37:29  keil
+ * Revision 1.5  1998/02/02 13:29:45  keil
  * fast io
  *
- * Revision 1.1.2.2  1997/11/15 18:50:56  keil
- * new common init function
+ * Revision 1.4  1997/11/08 21:35:52  keil
+ * new l1 init
  *
- * Revision 1.1.2.1  1997/10/17 22:10:56  keil
- * new files on 2.0
+ * Revision 1.3  1997/11/06 17:09:28  keil
+ * New 2.1 init code
+ *
+ * Revision 1.2  1997/10/29 18:55:52  keil
+ * changes for 2.1.60 (irq2dev_map)
  *
  * Revision 1.1  1997/09/11 17:32:04  keil
  * new
@@ -99,7 +79,9 @@
 #include "isar.h"
 #include "isdnl1.h"
 #include <linux/pci.h>
+#ifndef COMPAT_HAS_NEW_PCI
 #include <linux/bios32.h>
+#endif
 
 extern const char *CardType[];
 
@@ -478,12 +460,10 @@ reset_sedlbauer(struct IsdnCardState *cs)
 			save_flags(flags);
 			sti();
 			current->state = TASK_INTERRUPTIBLE;
-			current->timeout = jiffies + 1;
-			schedule();
+			schedule_timeout((10*HZ)/1000);
 			writereg(cs->hw.sedl.adr, cs->hw.sedl.isac, IPAC_POTA2, 0x0);
 			current->state = TASK_INTERRUPTIBLE;
-			current->timeout = jiffies + 1;
-			schedule();
+			schedule_timeout((10*HZ)/1000);
 			writereg(cs->hw.sedl.adr, cs->hw.sedl.isac, IPAC_CONF, 0x0);
 			writereg(cs->hw.sedl.adr, cs->hw.sedl.isac, IPAC_ACFG, 0xff);
 			writereg(cs->hw.sedl.adr, cs->hw.sedl.isac, IPAC_AOE, 0x0);
@@ -495,12 +475,10 @@ reset_sedlbauer(struct IsdnCardState *cs)
 			save_flags(flags);
 			sti();
 			current->state = TASK_INTERRUPTIBLE;
-			current->timeout = jiffies + 1;
-			schedule();
+			schedule_timeout((10*HZ)/1000);
 			byteout(cs->hw.sedl.reset_off, 0);	/* Reset Off */
 			current->state = TASK_INTERRUPTIBLE;
-			current->timeout = jiffies + 1;
-			schedule();
+			schedule_timeout((10*HZ)/1000);
 			restore_flags(flags);
 		}
 	}
@@ -558,7 +536,11 @@ Sedl_card_msg(struct IsdnCardState *cs, int mt, void *arg)
 
 
 #ifdef SEDLBAUER_PCI
+#ifdef COMPAT_HAS_NEW_PCI
+static 	struct pci_dev *dev_sedl __initdata = NULL;
+#else
 static  int pci_index __initdata = 0;
+#endif
 #endif
 
 __initfunc(int
@@ -597,6 +579,25 @@ setup_sedlbauer(struct IsdnCard *card))
 /* Probe for Sedlbauer speed pci */
 #if SEDLBAUER_PCI
 #if CONFIG_PCI
+#ifdef COMPAT_HAS_NEW_PCI
+		if (!pci_present()) {
+			printk(KERN_ERR "FritzPCI: no PCI bus present\n");
+			return(0);
+		}
+		if ((dev_sedl = pci_find_device(PCI_VENDOR_SEDLBAUER,
+				PCI_SPEEDPCI_ID, dev_sedl))) {
+			cs->irq = dev_sedl->irq;
+			if (!cs->irq) {
+				printk(KERN_WARNING "Sedlbauer: No IRQ for PCI card found\n");
+				return(0);
+			}
+			cs->hw.sedl.cfg_reg = dev_sedl->base_address[0] &
+				PCI_BASE_ADDRESS_IO_MASK; 
+		} else {
+			printk(KERN_WARNING "Sedlbauer: No PCI card found\n");
+			return(0);
+		}
+#else
 		for (; pci_index < 255; pci_index++) {
 			unsigned char pci_bus, pci_device_fn;
 			unsigned int ioaddr;
@@ -617,14 +618,6 @@ setup_sedlbauer(struct IsdnCard *card))
 				printk(KERN_WARNING "Sedlbauer: No IO-Adr for PCI card found\n");
 				return(0);
 			}
-			cs->hw.sedl.bus = SEDL_BUS_PCI;
-			cs->hw.sedl.chip = SEDL_CHIP_IPAC;
-			cs->subtyp = SEDL_SPEED_PCI;
-			bytecnt = 256;
-			byteout(cs->hw.sedl.cfg_reg, 0xff);
-			byteout(cs->hw.sedl.cfg_reg, 0x00);
-			byteout(cs->hw.sedl.cfg_reg+ 2, 0xdd);
-			byteout(cs->hw.sedl.cfg_reg+ 5, 0x02);
 			break;
 		}	
 		if (pci_index == 255) {
@@ -632,6 +625,15 @@ setup_sedlbauer(struct IsdnCard *card))
 			return(0);
 		}
 		pci_index++;
+#endif /* COMPAT_HAS_NEW_PCI */
+		cs->hw.sedl.bus = SEDL_BUS_PCI;
+		cs->hw.sedl.chip = SEDL_CHIP_IPAC;
+		cs->subtyp = SEDL_SPEED_PCI;
+		bytecnt = 256;
+		byteout(cs->hw.sedl.cfg_reg, 0xff);
+		byteout(cs->hw.sedl.cfg_reg, 0x00);
+		byteout(cs->hw.sedl.cfg_reg+ 2, 0xdd);
+		byteout(cs->hw.sedl.cfg_reg+ 5, 0x02);
 #else
 		printk(KERN_WARNING "Sedlbauer: NO_PCI_BIOS\n");
 		return (0);

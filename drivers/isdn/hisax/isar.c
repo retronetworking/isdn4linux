@@ -6,18 +6,11 @@
  *
  *
  * $Log$
- * Revision 1.1.2.4  1998/11/03 00:06:44  keil
- * certification related changes
- * fixed logging for smaller stack use
+ * Revision 1.3  1999/07/01 08:11:45  keil
+ * Common HiSax version for 2.0, 2.1, 2.2 and 2.3 kernel
  *
- * Revision 1.1.2.3  1998/10/04 23:04:58  keil
- * ISAR works now
- *
- * Revision 1.1.2.2  1998/09/30 22:28:07  keil
- * more work for isar support
- *
- * Revision 1.1.2.1  1998/09/27 13:01:43  keil
- * Start support for ISAR based cards
+ * Revision 1.2  1998/11/15 23:54:53  keil
+ * changes from 2.0
  *
  * Revision 1.1  1998/08/13 23:33:47  keil
  * First version, only init

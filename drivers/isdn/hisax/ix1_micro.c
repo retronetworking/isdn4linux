@@ -11,17 +11,23 @@
  *              Beat Doebeli
  *
  * $Log$
- * Revision 1.3.2.7  1998/02/11 14:21:01  keil
- * cosmetic fixes
+ * Revision 2.7  1998/04/15 16:44:31  keil
+ * new init code
  *
- * Revision 1.3.2.6  1998/01/27 22:37:33  keil
+ * Revision 2.6  1998/02/11 17:28:09  keil
+ * Niccy PnP/PCI support
+ *
+ * Revision 2.5  1998/02/02 13:29:42  keil
  * fast io
  *
- * Revision 1.3.2.5  1997/11/15 18:50:51  keil
- * new common init function
+ * Revision 2.4  1997/11/08 21:35:50  keil
+ * new l1 init
  *
- * Revision 1.3.2.4  1997/10/17 22:14:09  keil
- * update to last hisax version
+ * Revision 2.3  1997/11/06 17:09:35  keil
+ * New 2.1 init code
+ *
+ * Revision 2.2  1997/10/29 18:55:51  keil
+ * changes for 2.1.60 (irq2dev_map)
  *
  * Revision 2.1  1997/07/27 21:47:09  keil
  * new interface structures

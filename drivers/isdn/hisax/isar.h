@@ -5,14 +5,11 @@
  *
  *
  * $Log$
- * Revision 1.1.2.3  1998/10/04 23:05:01  keil
- * ISAR works now
+ * Revision 1.3  1999/07/01 08:11:46  keil
+ * Common HiSax version for 2.0, 2.1, 2.2 and 2.3 kernel
  *
- * Revision 1.1.2.2  1998/09/30 22:28:09  keil
- * more work for isar support
- *
- * Revision 1.1.2.1  1998/09/27 13:01:44  keil
- * Start support for ISAR based cards
+ * Revision 1.2  1998/11/15 23:54:54  keil
+ * changes from 2.0
  *
  * Revision 1.1  1998/08/13 23:33:48  keil
  * First version, only init

@@ -3,8 +3,8 @@
  *  German 1TR6 D-channel protocol defines
  *
  * $Log$
- * Revision 1.1.2.1  1997/10/17 22:14:15  keil
- * update to last hisax version
+ * Revision 2.1  1998/08/13 23:36:48  keil
+ * HiSax 3.1 - don't work stable with current LinkLevel
  *
  * Revision 2.0  1997/07/27 21:15:47  keil
  * New Callref based layer3

@@ -5,16 +5,20 @@
  * Author     Karsten Keil (keil@temic-ech.spacenet.de)
  *
  *
+ *
  * $Log$
- * Revision 1.1.2.3  1998/05/27 18:04:50  keil
- * HiSax 3.0
+ * Revision 1.4  1999/07/01 08:11:18  keil
+ * Common HiSax version for 2.0, 2.1, 2.2 and 2.3 kernel
  *
- * Revision 1.1.2.2  1998/04/11 18:45:14  keil
- * New interface
+ * Revision 1.3  1998/05/25 12:57:39  keil
+ * HiSax golden code from certification, Don't use !!!
+ * No leased lines, no X75, but many changes.
  *
- * Revision 1.1.2.1  1997/11/15 18:57:38  keil
- * ARCOFI 2165 support
+ * Revision 1.2  1998/04/15 16:47:17  keil
+ * new interface
  *
+ * Revision 1.1  1997/10/29 18:51:20  keil
+ * New files
  *
  */
  

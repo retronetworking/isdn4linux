@@ -14,11 +14,8 @@
  *
  *
  * $Log$
- * Revision 1.5.2.2  1998/10/25 18:16:32  fritz
- * Replaced some read-only variables by defines.
- *
- * Revision 1.5.2.1  1997/10/17 22:14:20  keil
- * update to last hisax version
+ * Revision 1.7  1998/11/15 23:55:17  keil
+ * changes from 2.0
  *
  * Revision 1.6  1997/07/27 21:09:44  keil
  * move functions to isdnl3.c

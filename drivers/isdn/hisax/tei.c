@@ -11,27 +11,43 @@
  *              Fritz Elfert
  *
  * $Log$
- * Revision 1.8.2.8  1999/01/20 14:36:58  keil
- * Fixes for full CTS2 tests
+ * Revision 2.12  1999/07/01 08:12:11  keil
+ * Common HiSax version for 2.0, 2.1, 2.2 and 2.3 kernel
  *
- * Revision 1.8.2.7  1998/11/03 00:07:35  keil
- * certification related changes
- * fixed logging for smaller stack use
+ * Revision 2.11  1998/11/15 23:55:24  keil
+ * changes from 2.0
  *
- * Revision 1.8.2.6  1998/05/27 18:06:21  keil
+ * Revision 2.10  1998/05/25 14:08:10  keil
  * HiSax 3.0
+ * fixed X.75 and leased line to work again
+ * Point2Point and fixed TEI are runtime options now:
+ *    hisaxctrl <id> 7 1  set PTP
+ *    hisaxctrl <id> 8 <TEIVALUE *2 >
+ *    set fixed TEI to TEIVALUE (0-63)
  *
- * Revision 1.8.2.5  1998/03/07 23:15:38  tsbogend
+ * Revision 2.9  1998/05/25 12:58:23  keil
+ * HiSax golden code from certification, Don't use !!!
+ * No leased lines, no X75, but many changes.
+ *
+ * Revision 2.8  1998/03/07 22:57:07  tsbogend
  * made HiSax working on Linux/Alpha
  *
- * Revision 1.8.2.4  1998/01/27 22:43:49  keil
- * fixed MDL_ASSIGN_REQ
+ * Revision 2.7  1998/02/12 23:08:11  keil
+ * change for 2.1.86 (removing FREE_READ/FREE_WRITE from [dev]_kfree_skb()
  *
- * Revision 1.8.2.3  1997/11/15 18:54:20  keil
- * cosmetics
+ * Revision 2.6  1998/02/02 13:41:42  keil
+ * fix MDL_ASSIGN for PtP
  *
- * Revision 1.8.2.2  1997/10/17 22:14:23  keil
- * update to last hisax version
+ * Revision 2.5  1997/11/06 17:09:12  keil
+ * New 2.1 init code
+ *
+ * Revision 2.4  1997/10/29 19:04:46  keil
+ * changes for 2.1
+ *
+ * Revision 2.3  1997/10/01 09:21:43  fritz
+ * Removed old compatibility stuff for 2.0.X kernels.
+ * From now on, this code is for 2.1.X ONLY!
+ * Old stuff is still in the separate branch.
  *
  * Revision 2.2  1997/07/31 19:24:39  keil
  * fixed a warning

@@ -9,33 +9,47 @@
  *		../../../Documentation/isdn/HiSax.cert
  *
  * $Log$
- * Revision 1.7.2.9  1998/11/03 00:06:41  keil
- * certification related changes
- * fixed logging for smaller stack use
+ * Revision 1.19  1999/07/01 08:11:43  keil
+ * Common HiSax version for 2.0, 2.1, 2.2 and 2.3 kernel
  *
- * Revision 1.7.2.8  1998/09/27 13:06:18  keil
- * Apply most changes from 2.1.X (HiSax 3.1)
+ * Revision 1.18  1998/11/15 23:54:51  keil
+ * changes from 2.0
  *
- * Revision 1.7.2.7  1998/05/27 18:05:38  keil
- * HiSax 3.0
+ * Revision 1.17  1998/08/13 23:36:37  keil
+ * HiSax 3.1 - don't work stable with current LinkLevel
  *
- * Revision 1.7.2.6  1998/04/08 21:57:31  keil
- * New init code to fix problems during init if S0 is allready activ
+ * Revision 1.16  1998/05/25 12:58:01  keil
+ * HiSax golden code from certification, Don't use !!!
+ * No leased lines, no X75, but many changes.
  *
- * Revision 1.7.2.5  1998/03/07 23:15:24  tsbogend
+ * Revision 1.15  1998/04/15 16:45:32  keil
+ * new init code
+ *
+ * Revision 1.14  1998/04/10 10:35:26  paul
+ * fixed (silly?) warnings from egcs on Alpha.
+ *
+ * Revision 1.13  1998/03/07 22:57:01  tsbogend
  * made HiSax working on Linux/Alpha
  *
- * Revision 1.7.2.4  1998/02/09 11:24:06  keil
- * New leased line support (Read README.HiSax!)
+ * Revision 1.12  1998/02/12 23:07:40  keil
+ * change for 2.1.86 (removing FREE_READ/FREE_WRITE from [dev]_kfree_skb()
  *
- * Revision 1.7.2.3  1998/01/11 22:58:55  keil
- * new setstack interface
+ * Revision 1.11  1998/02/09 10:54:49  keil
+ * fixes for leased mode
  *
- * Revision 1.7.2.2  1997/11/15 18:54:23  keil
- * cosmetics
+ * Revision 1.10  1998/02/02 13:37:37  keil
+ * new init
  *
- * Revision 1.7.2.1  1997/10/17 22:10:49  keil
- * new files on 2.0
+ * Revision 1.9  1997/11/06 17:09:07  keil
+ * New 2.1 init code
+ *
+ * Revision 1.8  1997/10/29 19:00:03  keil
+ * new layer1,changes for 2.1
+ *
+ * Revision 1.7  1997/10/01 09:21:37  fritz
+ * Removed old compatibility stuff for 2.0.X kernels.
+ * From now on, this code is for 2.1.X ONLY!
+ * Old stuff is still in the separate branch.
  *
  * Revision 1.6  1997/08/15 17:47:08  keil
  * avoid oops because a uninitialised timer
@@ -643,7 +657,9 @@ initisac(struct IsdnCardState *cs))
 		cs->writeisac(cs, ISAC_MODE, 0xc9);
 	} else {
 		/* IOM 2 Mode */
-		cs->writeisac(cs, ISAC_ADF2, 0x80);
+		if (!cs->dc.isac.adf2)
+			cs->dc.isac.adf2 = 0x80;
+		cs->writeisac(cs, ISAC_ADF2, cs->dc.isac.adf2);
 		cs->writeisac(cs, ISAC_SQXR, 0x2f);
 		cs->writeisac(cs, ISAC_SPCR, 0x00);
 		cs->writeisac(cs, ISAC_STCR, 0x70);

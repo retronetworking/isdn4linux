@@ -7,6 +7,12 @@
  *		../../../Documentation/isdn/HiSax.cert
  *
  * $Log$
+ * Revision 2.1  1998/11/15 23:51:15  keil
+ * certification stuff
+ *
+ * Revision 1.2.2.1  1998/11/03 21:46:37  keil
+ * first version
+ *
  *
  */
  

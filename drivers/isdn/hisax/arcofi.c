@@ -7,21 +7,27 @@
  *
  *
  * $Log$
- * Revision 1.1.2.5  1998/09/30 22:20:03  keil
- * Cosmetics
+ * Revision 1.7  1999/07/01 08:11:17  keil
+ * Common HiSax version for 2.0, 2.1, 2.2 and 2.3 kernel
  *
- * Revision 1.1.2.4  1998/09/27 13:05:29  keil
- * Apply most changes from 2.1.X (HiSax 3.1)
+ * Revision 1.6  1998/09/30 22:21:56  keil
+ * cosmetics
  *
- * Revision 1.1.2.3  1998/05/27 18:04:48  keil
- * HiSax 3.0
+ * Revision 1.5  1998/09/27 12:52:57  keil
+ * cosmetics
  *
- * Revision 1.1.2.2  1998/04/11 18:45:13  keil
- * New interface
+ * Revision 1.4  1998/08/20 13:50:24  keil
+ * More support for hybrid modem (not working yet)
  *
- * Revision 1.1.2.1  1997/11/15 18:57:37  keil
- * ARCOFI 2165 support
+ * Revision 1.3  1998/05/25 12:57:38  keil
+ * HiSax golden code from certification, Don't use !!!
+ * No leased lines, no X75, but many changes.
  *
+ * Revision 1.2  1998/04/15 16:47:16  keil
+ * new interface
+ *
+ * Revision 1.1  1997/10/29 18:51:20  keil
+ * New files
  *
  */
  

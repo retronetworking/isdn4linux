@@ -2,7 +2,7 @@
 
  *  German 1TR6 D-channel protocol
  *
- * Author       Karsten Keil (keil@temic-ech.spacenet.de)
+ * Author       Karsten Keil (keil@isdn4linux.de)
  *
  *		This file is (c) under GNU PUBLIC LICENSE
  *		For changes and modifications please read
@@ -10,27 +10,31 @@
  *
  *
  * $Log$
- * Revision 1.11.2.7  1999/04/22 21:11:21  werner
- * Added support for dss1 diversion services
+ * Revision 2.9  1999/07/01 08:11:55  keil
+ * Common HiSax version for 2.0, 2.1, 2.2 and 2.3 kernel
  *
- * Revision 1.11.2.6  1998/11/03 00:07:10  keil
- * certification related changes
- * fixed logging for smaller stack use
+ * Revision 2.8  1998/11/15 23:55:08  keil
+ * changes from 2.0
  *
- * Revision 1.11.2.5  1998/10/25 18:16:21  fritz
- * Replaced some read-only variables by defines.
+ * Revision 2.7  1998/08/13 23:36:45  keil
+ * HiSax 3.1 - don't work stable with current LinkLevel
  *
- * Revision 1.11.2.4  1998/09/27 13:06:42  keil
- * Apply most changes from 2.1.X (HiSax 3.1)
- *
- * Revision 1.11.2.3  1998/05/27 18:06:04  keil
+ * Revision 2.6  1998/05/25 14:10:18  keil
  * HiSax 3.0
+ * X.75 and leased are working again.
  *
- * Revision 1.11.2.2  1997/11/15 18:54:12  keil
- * cosmetics
+ * Revision 2.5  1998/05/25 12:58:14  keil
+ * HiSax golden code from certification, Don't use !!!
+ * No leased lines, no X75, but many changes.
  *
- * Revision 1.11.2.1  1997/10/17 22:14:12  keil
- * update to last hisax version
+ * Revision 2.4  1998/02/12 23:07:57  keil
+ * change for 2.1.86 (removing FREE_READ/FREE_WRITE from [dev]_kfree_skb()
+ *
+ * Revision 2.3  1997/11/06 17:12:24  keil
+ * KERN_NOTICE --> KERN_INFO
+ *
+ * Revision 2.2  1997/10/29 19:03:00  keil
+ * changes for 2.1
  *
  * Revision 2.1  1997/08/03 15:28:09  keil
  * release L3 empty processes
@@ -807,7 +811,7 @@ up1tr6(struct PStack *st, int pr, void *arg)
 	}
 	if (skb->len < 4) {
 		if (st->l3.debug & L3_DEB_PROTERR) {
-			sprintf(tmp, "up1tr6 len only %ld", skb->len);
+			sprintf(tmp, "up1tr6 len only %d", skb->len);
 			l3_debug(st, tmp);
 		}
 		idev_kfree_skb(skb, FREE_READ);
@@ -815,7 +819,7 @@ up1tr6(struct PStack *st, int pr, void *arg)
 	}
 	if ((skb->data[0] & 0xfe) != PROTO_DIS_N0) {
 		if (st->l3.debug & L3_DEB_PROTERR) {
-			sprintf(tmp, "up1tr6%sunexpected discriminator %x message len %ld",
+			sprintf(tmp, "up1tr6%sunexpected discriminator %x message len %d",
 				(pr == (DL_DATA | INDICATION)) ? " " : "(broadcast) ",
 				skb->data[0], skb->len);
 			l3_debug(st, tmp);

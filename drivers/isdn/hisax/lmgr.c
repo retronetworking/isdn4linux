@@ -1,26 +1,26 @@
 /* $Id$
 
- * Author       Karsten Keil (keil@temic-ech.spacenet.de)
+ * Author       Karsten Keil (keil@isdn4linux.de)
  *
  *
  *  Layermanagement module
  *
  * $Log$
- * Revision 1.1.2.5  1998/11/03 00:07:21  keil
- * certification related changes
- * fixed logging for smaller stack use
+ * Revision 1.6  1999/07/01 08:12:04  keil
+ * Common HiSax version for 2.0, 2.1, 2.2 and 2.3 kernel
  *
- * Revision 1.1.2.4  1998/05/27 18:06:15  keil
- * HiSax 3.0
+ * Revision 1.5  1998/11/15 23:55:12  keil
+ * changes from 2.0
  *
- * Revision 1.1.2.3  1998/03/07 23:15:37  tsbogend
+ * Revision 1.4  1998/05/25 12:58:19  keil
+ * HiSax golden code from certification, Don't use !!!
+ * No leased lines, no X75, but many changes.
+ *
+ * Revision 1.3  1998/03/07 22:57:06  tsbogend
  * made HiSax working on Linux/Alpha
  *
- * Revision 1.1.2.2  1997/11/15 18:54:19  keil
- * cosmetics
- *
- * Revision 1.1.2.1  1997/10/17 22:10:53  keil
- * new files on 2.0
+ * Revision 1.2  1997/10/29 19:09:34  keil
+ * new L1
  *
  * Revision 1.1  1997/06/26 11:17:25  keil
  * first version

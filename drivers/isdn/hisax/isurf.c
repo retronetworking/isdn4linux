@@ -5,6 +5,10 @@
  * Author     Karsten Keil (keil@isdn4linux.de)
  *
  * $Log$
+ * Revision 1.2  1999/07/01 08:07:56  keil
+ * Initial version
+ *
+ *
  *
  */
 
@@ -138,12 +142,10 @@ reset_isurf(struct IsdnCardState *cs, u_char chips)
 	save_flags(flags);
 	sti();
 	current->state = TASK_INTERRUPTIBLE;
-	current->timeout = jiffies + 1;
-	schedule();
+	schedule_timeout((10*HZ)/1000);
 	byteout(cs->hw.isurf.reset, ISURF_ISAR_EA); /* Reset Off */
 	current->state = TASK_INTERRUPTIBLE;
-	current->timeout = jiffies + 1;
-	schedule();
+	schedule_timeout((10*HZ)/1000);
 	restore_flags(flags);
 }
 

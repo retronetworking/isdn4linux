@@ -15,60 +15,50 @@
  *
  *
  * $Log$
- * Revision 1.14.2.16  1998/11/05 21:13:55  keil
- * minor fixes
+ * Revision 2.13  1999/07/01 08:11:31  keil
+ * Common HiSax version for 2.0, 2.1, 2.2 and 2.3 kernel
  *
- * Revision 1.14.2.15  1998/11/03 00:06:14  keil
- * certification related changes
- * fixed logging for smaller stack use
+ * Revision 2.12  1998/11/15 23:54:35  keil
+ * changes from 2.0
  *
- * Revision 1.14.2.14  1998/10/25 19:43:58  fritz
- * Removed a compiler warning
+ * Revision 2.11  1998/08/20 13:50:34  keil
+ * More support for hybrid modem (not working yet)
  *
- * Revision 1.14.2.13  1998/10/25 17:47:48  fritz
- * Line power status only valid for ISA cards.
+ * Revision 2.10  1998/08/13 23:36:22  keil
+ * HiSax 3.1 - don't work stable with current LinkLevel
  *
- * Revision 1.14.2.12  1998/09/27 13:05:53  keil
- * Apply most changes from 2.1.X (HiSax 3.1)
+ * Revision 2.9  1998/05/25 12:57:48  keil
+ * HiSax golden code from certification, Don't use !!!
+ * No leased lines, no X75, but many changes.
  *
- * Revision 1.14.2.11  1998/05/27 18:05:14  keil
- * HiSax 3.0
+ * Revision 2.8  1998/04/15 16:41:42  keil
+ * QS3000 PCI support
+ * new init code
+ * new PCI init (2.1.94)
  *
- * Revision 1.14.2.10  1998/04/11 18:46:03  keil
- * QS3000PCI support, changes for arcofi
- *
- * Revision 1.14.2.9  1998/04/08 21:44:36  keil
- * new init; fix PCI for more as one card
- *
- * Revision 1.14.2.8  1998/03/07 23:15:15  tsbogend
+ * Revision 2.7  1998/03/07 22:56:58  tsbogend
  * made HiSax working on Linux/Alpha
  *
- * Revision 1.14.2.7  1998/01/27 22:37:36  keil
+ * Revision 2.6  1998/02/02 13:29:40  keil
  * fast io
  *
- * Revision 1.14.2.6  1998/01/11 22:57:10  keil
- * add PCMCIA maintainer Klaus
+ * Revision 2.5  1998/01/31 21:41:45  keil
+ * changes for newer 2.1 kernels
  *
- * Revision 1.14.2.5  1997/11/15 18:50:47  keil
- * new common init function
+ * Revision 2.4  1997/11/08 21:35:46  keil
+ * new l1 init
  *
- * Revision 1.14.2.4  1997/10/17 22:13:44  keil
- * update to last hisax version
+ * Revision 2.3  1997/11/06 17:15:09  keil
+ * New 2.1 init; PCMCIA wrapper changes
+ *
+ * Revision 2.2  1997/10/29 18:57:09  keil
+ * changes for 2.1.60, arcofi support
  *
  * Revision 2.1  1997/07/27 21:47:08  keil
  * new interface structures
  *
  * Revision 2.0  1997/06/26 11:02:40  keil
  * New Layer and card interface
- *
- * Revision 1.14  1997/04/13 19:53:25  keil
- * Fixed QS1000 init, change in IRQ check delay for SMP
- *
- * Revision 1.13  1997/04/07 22:58:07  keil
- * need include config.h
- *
- * Revision 1.12  1997/04/06 22:54:14  keil
- * Using SKB's
  *
  * old changes removed KKe
  *
@@ -83,7 +73,9 @@
 #include "hscx.h"
 #include "isdnl1.h"
 #include <linux/pci.h>
+#ifndef COMPAT_HAS_NEW_PCI
 #include <linux/bios32.h>
+#endif
 #include <linux/serial.h>
 #include <linux/serial_reg.h>
 
@@ -556,14 +548,11 @@ reset_elsa(struct IsdnCardState *cs)
 		sti();
 		writereg(cs->hw.elsa.ale, cs->hw.elsa.isac, IPAC_POTA2, 0x20);
 		current->state = TASK_INTERRUPTIBLE;
-		current->timeout = jiffies + (10 * HZ) / 1000;	/* Timeout 10ms */
-		schedule();
+		schedule_timeout((10*HZ)/1000); /* Timeout 10ms */
 		writereg(cs->hw.elsa.ale, cs->hw.elsa.isac, IPAC_POTA2, 0x00);
 		current->state = TASK_INTERRUPTIBLE;
-		current->timeout = jiffies + (10 * HZ) / 1000;	/* Timeout 10ms */
-		schedule();
 		writereg(cs->hw.elsa.ale, cs->hw.elsa.isac, IPAC_MASK, 0xc0);
-		schedule();
+		schedule_timeout((10*HZ)/1000); /* Timeout 10ms */
 		restore_flags(flags);
 		writereg(cs->hw.elsa.ale, cs->hw.elsa.isac, IPAC_ACFG, 0x0);
 		writereg(cs->hw.elsa.ale, cs->hw.elsa.isac, IPAC_AOE, 0x3c);
@@ -768,8 +757,7 @@ Elsa_card_msg(struct IsdnCardState *cs, int mt, void *arg)
 				byteout(cs->hw.elsa.ctrl, cs->hw.elsa.ctrl_reg);
 				byteout(cs->hw.elsa.timer, 0);
 				current->state = TASK_INTERRUPTIBLE;
-				current->timeout = jiffies + (110 * HZ) / 1000;		/* Timeout 110ms */
-				schedule();
+				schedule_timeout((110*HZ)/1000);
 				restore_flags(flags);
 				cs->hw.elsa.ctrl_reg &= ~ELSA_ENA_TIMER_INT;
 				byteout(cs->hw.elsa.ctrl, cs->hw.elsa.ctrl_reg);
@@ -906,7 +894,12 @@ probe_elsa(struct IsdnCardState *cs)
 	return (CARD_portlist[i]);
 }
 
+#ifdef COMPAT_HAS_NEW_PCI
+static 	struct pci_dev *dev_qs1000 __initdata = NULL;
+static 	struct pci_dev *dev_qs3000 __initdata = NULL;
+#else
 static 	int pci_index __initdata = 0;
+#endif
 
 int
 setup_elsa(struct IsdnCard *card)
@@ -1015,6 +1008,64 @@ setup_elsa(struct IsdnCard *card)
 		       cs->irq);
 	} else if (cs->typ == ISDN_CTYPE_ELSA_PCI) {
 #if CONFIG_PCI
+#ifdef COMPAT_HAS_NEW_PCI
+		if (!pci_present()) {
+			printk(KERN_ERR "Elsa: no PCI bus present\n");
+			return(0);
+		}
+		cs->subtyp = 0;
+		if ((dev_qs1000 = pci_find_device(PCI_VENDOR_ELSA, PCI_QS1000_ID,
+			 dev_qs1000))) {
+				cs->subtyp = ELSA_QS1000PCI;
+			cs->irq = dev_qs1000->irq;
+			cs->hw.elsa.cfg = dev_qs1000->base_address[1] & 
+				PCI_BASE_ADDRESS_IO_MASK;
+			cs->hw.elsa.base = dev_qs1000->base_address[3] & 
+				PCI_BASE_ADDRESS_IO_MASK;
+		} else if ((dev_qs3000 = pci_find_device(PCI_VENDOR_ELSA,
+			PCI_QS3000_ID, dev_qs3000))) {
+			cs->subtyp = ELSA_QS3000PCI;
+			cs->irq = dev_qs3000->irq;
+			cs->hw.elsa.cfg = dev_qs3000->base_address[1] & 
+				PCI_BASE_ADDRESS_IO_MASK;
+			cs->hw.elsa.base = dev_qs3000->base_address[3] & 
+				PCI_BASE_ADDRESS_IO_MASK;
+		} else {
+			printk(KERN_WARNING "Elsa: No PCI card found\n");
+			return(0);
+		}
+		if (!cs->irq) {
+			printk(KERN_WARNING "Elsa: No IRQ for PCI card found\n");
+			return(0);
+		}
+
+		if (!(cs->hw.elsa.base && cs->hw.elsa.cfg)) {
+			printk(KERN_WARNING "Elsa: No IO-Adr for PCI card found\n");
+			return(0);
+		}
+		cs->hw.elsa.ale  = cs->hw.elsa.base;
+		cs->hw.elsa.isac = cs->hw.elsa.base +1;
+		cs->hw.elsa.hscx = cs->hw.elsa.base +1; 
+		test_and_set_bit(HW_IPAC, &cs->HW_Flags);
+		cs->hw.elsa.timer = 0;
+		cs->hw.elsa.trig  = 0;
+		printk(KERN_INFO
+			"Elsa: %s defined at 0x%x/0x%x IRQ %d\n",
+			Elsa_Types[cs->subtyp],
+			cs->hw.elsa.base,
+			cs->hw.elsa.cfg,
+			cs->irq);
+		if ((cs->hw.elsa.cfg & 0xff) || (cs->hw.elsa.base & 0xf)) {
+			printk(KERN_WARNING "Elsa: You may have a wrong PCI bios\n");
+			printk(KERN_WARNING "Elsa: If your system hangs now, read\n");
+			printk(KERN_WARNING "Elsa: Documentation/isdn/README.HiSax\n");
+			printk(KERN_WARNING "Elsa: Waiting 5 sec to sync discs\n");
+			save_flags(flags);
+			sti();
+			HZDELAY(500);	/* wait 500*10 ms */
+			restore_flags(flags);
+		}
+#else
 		u_char pci_bus, pci_device_fn, pci_irq;
 		u_int pci_ioaddr;
 
@@ -1073,12 +1124,13 @@ setup_elsa(struct IsdnCard *card)
 		       cs->hw.elsa.base,
 		       cs->hw.elsa.cfg,
 		       cs->irq);
+#endif /* COMPAT_HAS_NEW_PCI */
 #else
 		printk(KERN_WARNING "Elsa: Elsa PCI and NO_PCI_BIOS\n");
 		printk(KERN_WARNING "Elsa: unable to config Elsa PCI\n");
 		return (0);
 #endif /* CONFIG_PCI */
-	} else
+	} else 
 		return (0);
 
 	switch (cs->subtyp) {

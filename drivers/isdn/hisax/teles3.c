@@ -11,23 +11,35 @@
  *              Beat Doebeli
  *
  * $Log$
- * Revision 1.11.2.9  1998/04/08 21:58:52  keil
- * New init code
+ * Revision 2.11  1999/07/01 08:12:14  keil
+ * Common HiSax version for 2.0, 2.1, 2.2 and 2.3 kernel
  *
- * Revision 1.11.2.8  1998/01/27 22:37:46  keil
+ * Revision 2.10  1999/02/15 14:37:15  cpetig
+ * oops, missed something in last commit
+ *
+ * Revision 2.9  1999/02/15 14:11:02  cpetig
+ * fixed a bug with Teles PCMCIA, it doesn't have a config register
+ *
+ * Revision 2.8  1998/04/15 16:44:30  keil
+ * new init code
+ *
+ * Revision 2.7  1998/02/02 13:29:48  keil
  * fast io
  *
- * Revision 1.11.2.7  1998/01/11 22:58:01  keil
- * make IRQ 9 working again
+ * Revision 2.6  1997/11/13 16:22:44  keil
+ * COMPAQ_ISA reset
  *
- * Revision 1.11.2.6  1997/12/01 22:35:43  keil
- * ID Byte for 16.3 version 1.1
+ * Revision 2.5  1997/11/12 15:01:25  keil
+ * COMPAQ_ISA changes
  *
- * Revision 1.11.2.5  1997/11/15 18:51:03  keil
- * new common init function
+ * Revision 2.4  1997/11/08 21:35:56  keil
+ * new l1 init
  *
- * Revision 1.11.2.4  1997/10/17 22:14:30  keil
- * update to last hisax version
+ * Revision 2.3  1997/11/06 17:09:33  keil
+ * New 2.1 init code
+ *
+ * Revision 2.2  1997/10/29 18:55:59  keil
+ * changes for 2.1.60 (irq2dev_map)
  *
  * Revision 2.1  1997/07/27 21:47:12  keil
  * new interface structures
@@ -213,15 +225,16 @@ release_ioregs(struct IsdnCardState *cs, int mask)
 void
 release_io_teles3(struct IsdnCardState *cs)
 {
-	if (cs->typ == ISDN_CTYPE_TELESPCMCIA)
+	if (cs->typ == ISDN_CTYPE_TELESPCMCIA) {
 		release_region(cs->hw.teles3.hscx[0], 97);
-	else {
-		if (cs->hw.teles3.cfg_reg)
+	} else {
+		if (cs->hw.teles3.cfg_reg) {
 			if (cs->typ == ISDN_CTYPE_COMPAQ_ISA) {
 				release_region(cs->hw.teles3.cfg_reg, 1);
 			} else {
 				release_region(cs->hw.teles3.cfg_reg, 8);
 			}
+		}
 		release_ioregs(cs, 0x7);
 	}
 }
@@ -396,12 +409,13 @@ setup_teles3(struct IsdnCard *card))
 			       CardType[cs->typ],
 			       cs->hw.teles3.isac + 32,
 			       cs->hw.teles3.isac + 64);
-			if (cs->hw.teles3.cfg_reg)
+			if (cs->hw.teles3.cfg_reg) {
 				if (cs->typ == ISDN_CTYPE_COMPAQ_ISA) {
 					release_region(cs->hw.teles3.cfg_reg, 1);
 				} else {
 					release_region(cs->hw.teles3.cfg_reg, 8);
 				}
+			}
 			return (0);
 		} else
 			request_region(cs->hw.teles3.isac + 32, 32, "HiSax isac");
@@ -411,12 +425,13 @@ setup_teles3(struct IsdnCard *card))
 			       CardType[cs->typ],
 			       cs->hw.teles3.hscx[0] + 32,
 			       cs->hw.teles3.hscx[0] + 64);
-			if (cs->hw.teles3.cfg_reg)
+			if (cs->hw.teles3.cfg_reg) {
 				if (cs->typ == ISDN_CTYPE_COMPAQ_ISA) {
 					release_region(cs->hw.teles3.cfg_reg, 1);
 				} else {
 					release_region(cs->hw.teles3.cfg_reg, 8);
 				}
+			}
 			release_ioregs(cs, 1);
 			return (0);
 		} else
@@ -427,12 +442,13 @@ setup_teles3(struct IsdnCard *card))
 			       CardType[cs->typ],
 			       cs->hw.teles3.hscx[1] + 32,
 			       cs->hw.teles3.hscx[1] + 64);
-			if (cs->hw.teles3.cfg_reg)
+			if (cs->hw.teles3.cfg_reg) {
 				if (cs->typ == ISDN_CTYPE_COMPAQ_ISA) {
 					release_region(cs->hw.teles3.cfg_reg, 1);
 				} else {
 					release_region(cs->hw.teles3.cfg_reg, 8);
 				}
+			}
 			release_ioregs(cs, 3);
 			return (0);
 		} else

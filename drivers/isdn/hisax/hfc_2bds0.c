@@ -6,33 +6,31 @@
  *
  *
  * $Log$
- * Revision 1.1.2.9  1998/11/03 00:06:24  keil
- * certification related changes
- * fixed logging for smaller stack use
+ * Revision 1.9  1999/07/01 08:11:35  keil
+ * Common HiSax version for 2.0, 2.1, 2.2 and 2.3 kernel
  *
- * Revision 1.1.2.8  1998/09/30 22:23:55  keil
+ * Revision 1.8  1998/11/15 23:54:40  keil
+ * changes from 2.0
+ *
+ * Revision 1.7  1998/09/30 22:24:45  keil
  * Fix missing line in setstack*
  *
- * Revision 1.1.2.7  1998/09/27 13:06:01  keil
- * Apply most changes from 2.1.X (HiSax 3.1)
+ * Revision 1.6  1998/08/13 23:36:26  keil
+ * HiSax 3.1 - don't work stable with current LinkLevel
  *
- * Revision 1.1.2.6  1998/06/27 22:54:07  keil
+ * Revision 1.5  1998/06/27 22:52:58  keil
  * make 16.3c working with 3.0
  *
- * Revision 1.1.2.5  1998/05/27 18:05:23  keil
- * HiSax 3.0
+ * Revision 1.4  1998/05/25 12:57:52  keil
+ * HiSax golden code from certification, Don't use !!!
+ * No leased lines, no X75, but many changes.
  *
- * Revision 1.1.2.4  1998/04/08 21:54:35  keil
- * Fix "ll_trans ..." message
+ * Revision 1.3  1998/02/12 23:07:22  keil
+ * change for 2.1.86 (removing FREE_READ/FREE_WRITE from [dev]_kfree_skb()
  *
- * Revision 1.1.2.3  1998/04/04 21:59:20  keil
- * Fixed B-channel access
+ * Revision 1.2  1998/02/02 13:26:13  keil
+ * New
  *
- * Revision 1.1.2.2  1998/01/27 22:40:35  keil
- * fixed IRQ latency, B-channel selection and more
- *
- * Revision 1.1.2.1  1998/01/11 22:54:00  keil
- * Teles 16.3c (HFC 2BDS0) first version
  *
  *
  */
@@ -991,7 +989,7 @@ hfc2bds0_interrupt(struct IsdnCardState *cs, u_char val)
 				del_timer(&cs->dbusytimer);
 			if (test_and_clear_bit(FLG_L1_DBUSY, &cs->HW_Flags))
 				sched_event_D(cs, D_CLEARBUSY);
-			if (cs->tx_skb)
+			if (cs->tx_skb) {
 				if (cs->tx_skb->len) {
 					if (!test_and_set_bit(FLG_LOCK_ATOMIC, &cs->HW_Flags)) {
 						hfc_fill_dfifo(cs);
@@ -1005,6 +1003,7 @@ hfc2bds0_interrupt(struct IsdnCardState *cs, u_char val)
 					cs->tx_cnt = 0;
 					cs->tx_skb = NULL;
 				}
+			}
 			if ((cs->tx_skb = skb_dequeue(&cs->sq))) {
 				cs->tx_cnt = 0;
 				if (!test_and_set_bit(FLG_LOCK_ATOMIC, &cs->HW_Flags)) {

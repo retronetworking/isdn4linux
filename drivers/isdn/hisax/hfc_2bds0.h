@@ -6,8 +6,9 @@
  *
  *
  * $Log$
- * Revision 1.1.2.1  1998/01/11 22:54:02  keil
- * Teles 16.3c (HFC 2BDS0) first version
+ * Revision 1.2  1998/02/02 13:26:15  keil
+ * New
+ *
  *
  *
  */

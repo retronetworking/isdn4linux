@@ -3,83 +3,72 @@
  *   Basic declarations, defines and prototypes
  *
  * $Log$
- * Revision 1.13.2.24  1999/05/24 21:51:09  werner
- * Changes related to new layer management.
+ * Revision 2.27  1999/07/01 08:11:38  keil
+ * Common HiSax version for 2.0, 2.1, 2.2 and 2.3 kernel
  *
- * Revision 1.13.2.23  1999/05/09 21:44:16  keil
- * New cards:Telekom A4T, Scitel Quadro
- * Thanks to Roland Klabunde (R.Klabunde@Berkom.de)
+ * Revision 2.26  1998/11/15 23:54:45  keil
+ * changes from 2.0
  *
- * Revision 1.13.2.22  1999/04/28 21:47:53  keil
- * Add HST Saphir support
+ * Revision 2.25  1998/09/30 22:28:42  keil
+ * More work for ISAR support
  *
- * Revision 1.13.2.21  1999/04/22 21:10:41  werner
- * Added support for dss1 diversion services
+ * Revision 2.24  1998/08/20 13:50:39  keil
+ * More support for hybrid modem (not working yet)
  *
+ * Revision 2.23  1998/08/13 23:36:31  keil
+ * HiSax 3.1 - don't work stable with current LinkLevel
  *
- * Revision 1.13.2.20  1998/11/29 15:34:12  keil
- * add Siemens I-Surf
- *
- * Revision 1.13.2.19  1998/11/05 21:11:17  keil
- * AVM PnP support
- *
- * Revision 1.13.2.18  1998/11/03 00:06:33  keil
- * certification related changes
- * fixed logging for smaller stack use
- *
- * Revision 1.13.2.17  1998/10/11 19:33:48  niemann
- * Added new IPAC based cards.
- * Code cleanup and simplified (sedlbauer.c)
- *
- * Revision 1.13.2.16  1998/10/04 23:04:54  keil
- * ISAR works now
- *
- * Revision 1.13.2.15  1998/09/30 22:28:04  keil
- * more work for isar support
- *
- * Revision 1.13.2.14  1998/09/27 13:06:09  keil
- * Apply most changes from 2.1.X (HiSax 3.1)
- *
- * Revision 1.13.2.13  1998/08/25 14:01:30  calle
- * Ported driver for AVM Fritz!Card PCI from the 2.1 tree.
- * I could not test it.
- *
- * Revision 1.13.2.12  1998/07/15 14:43:33  calle
+ * Revision 2.22  1998/07/15 15:01:28  calle
  * Support for AVM passive PCMCIA cards:
  *    A1 PCMCIA, FRITZ!Card PCMCIA and FRITZ!Card PCMCIA 2.0
  *
- * Revision 1.13.2.11  1998/05/27 18:05:30  keil
+ * Revision 2.21  1998/05/25 14:10:05  keil
  * HiSax 3.0
+ * X.75 and leased are working again.
  *
- * Revision 1.13.2.10  1998/04/11 18:43:16  keil
- * New cards
+ * Revision 2.20  1998/05/25 12:57:57  keil
+ * HiSax golden code from certification, Don't use !!!
+ * No leased lines, no X75, but many changes.
  *
- * Revision 1.13.2.9  1998/03/07 23:15:21  tsbogend
- * made HiSax working on Linux/Alpha
+ * Revision 2.19  1998/04/15 16:39:15  keil
+ * Add S0Box and Teles PCI support
  *
- * Revision 1.13.2.8  1998/02/11 14:23:10  keil
- * support for Dr Neuhaus Niccy PnP and PCI
+ * Revision 2.18  1998/03/26 07:10:04  paul
+ * The jumpmatrix table in struct Fsm was an array of "int". This is not
+ * large enough for pointers to functions on Linux/Alpha (instant crash
+ * on "insmod hisax). Now there is a typedef for the pointer to function.
+ * This also prevents warnings about "incompatible pointer types".
  *
- * Revision 1.13.2.7  1998/02/09 11:21:22  keil
- * Sedlbauer PCMCIA support from Marcus Niemann
+ * Revision 2.17  1998/03/19 13:18:43  keil
+ * Start of a CAPI like interface for supplementary Service
+ * first service: SUSPEND
  *
- * Revision 1.13.2.6  1998/02/03 23:16:12  keil
- * german AOC
+ * Revision 2.16  1998/03/09 23:19:25  keil
+ * Changes for PCMCIA
  *
- * Revision 1.13.2.5  1998/01/27 22:42:42  keil
- * changes for new teles 16.3c and dynalink ---> asuscom
+ * Revision 2.14  1998/02/11 17:28:04  keil
+ * Niccy PnP/PCI support
  *
- * Revision 1.13.2.4  1998/01/11 22:55:17  keil
- * 16.3c support
+ * Revision 2.13  1998/02/09 18:46:02  keil
+ * Support for Sedlbauer PCMCIA (Marcus Niemann)
  *
- * Revision 1.13.2.3  1997/11/27 12:31:59  keil
- * Working netjet driver
+ * Revision 2.12  1998/02/03 23:31:30  keil
+ * add AMD7930 support
  *
- * Revision 1.13.2.2  1997/11/15 18:55:43  keil
- * New init, new cards
+ * Revision 2.11  1998/02/02 13:33:00  keil
+ * New card support
  *
- * Revision 1.13.2.1  1997/10/17 22:13:51  keil
- * update to last hisax version
+ * Revision 2.10  1997/11/08 21:37:52  keil
+ * new l1 init;new Compaq card
+ *
+ * Revision 2.9  1997/11/06 17:09:09  keil
+ * New 2.1 init code
+ *
+ * Revision 2.8  1997/10/29 19:04:13  keil
+ * new L1; changes for 2.1
+ *
+ * Revision 2.7  1997/10/10 20:56:47  fritz
+ * New HL interface.
  *
  * Revision 2.6  1997/09/11 17:25:51  keil
  * Add new cards
@@ -434,6 +423,8 @@ struct hscx_hw {
 	int rcvidx;
 	int count;              /* Current skb sent count */
 	u_char *rcvbuf;         /* B-Channel receive Buffer */
+	u_char tsaxr0;
+	u_char tsaxr1;
 };
 
 struct isar_reg {
@@ -763,8 +754,20 @@ struct bkm_hw {
 	unsigned int jade_ale;
 	/* Scitel Quadro stuff */
 	unsigned int plx_adr;
-    unsigned int data_adr;
+	unsigned int data_adr;
 };	
+
+struct gazel_hw {
+	unsigned int cfg_reg;
+	unsigned int pciaddr[2];
+        signed   int ipac;
+	signed   int isac;
+	signed   int hscx[2];
+	signed   int isacfifo;
+	signed   int hscxfifo[2];
+	unsigned char timeslot;
+	unsigned char iom2;
+};
 
 #ifdef  CONFIG_HISAX_TESTEMU
 struct te_hw {
@@ -774,8 +777,13 @@ struct te_hw {
 	unsigned char *sfifo_e;
 	int sfifo_cnt;
 	unsigned int stat;
+#ifdef COMPAT_HAS_NEW_WAITQ
+	wait_queue_head_t rwaitq;
+	wait_queue_head_t swaitq;
+#else
 	struct wait_queue *rwaitq;
 	struct wait_queue *swaitq;
+#endif
 };
 #endif
 
@@ -795,10 +803,15 @@ struct isac_chip {
 	int mon_rxp;
 	struct arcofi_msg *arcofi_list;
 	struct timer_list arcofitimer;
+#ifdef COMPAT_HAS_NEW_WAITQ
+	wait_queue_head_t arcofi_wait;
+#else
 	struct wait_queue *arcofi_wait;
+#endif
 	u_char arcofi_bc;
 	u_char arcofi_state;
 	u_char mocr;
+	u_char adf2;
 };
 
 struct hfcd_chip {
@@ -840,7 +853,7 @@ struct IsdnCardState {
 		struct mic_hw mic;
 		struct njet_hw njet;
 		struct hfcD_hw hfcD;
-                struct hfcPCI_hw hfcpci;
+		struct hfcPCI_hw hfcpci;
 		struct ix1_hw niccy;
 		struct isurf_hw isurf;
 		struct saphir_hw saphir;
@@ -848,6 +861,7 @@ struct IsdnCardState {
 		struct te_hw te;
 #endif
 		struct bkm_hw ax;
+		struct gazel_hw gazel;
 	} hw;
 	int myid;
 	isdn_if iif;
@@ -875,7 +889,7 @@ struct IsdnCardState {
 	union {
 		struct isac_chip isac;
 		struct hfcd_chip hfcd;
-	        struct hfcpci_chip hfcpci;
+		struct hfcpci_chip hfcpci;
 	} dc;
 	u_char *rcvbuf;
 	int rcvidx;
@@ -926,8 +940,9 @@ struct IsdnCardState {
 #define  ISDN_CTYPE_HSTSAPHIR	31
 #define	 ISDN_CTYPE_BKM_A4T	32
 #define	 ISDN_CTYPE_SCT_QUADRO	33
-#define  ISDN_CTYPE_HFC_PCI     34
-#define  ISDN_CTYPE_COUNT	34
+#define  ISDN_CTYPE_GAZEL	34
+#define  ISDN_CTYPE_HFC_PCI	35
+#define  ISDN_CTYPE_COUNT	35
 
 
 #ifdef ISDN_CHIP_ISAC
@@ -1165,6 +1180,15 @@ struct IsdnCardState {
 #define CARD_SCT_QUADRO 0
 #endif
 
+#ifdef	CONFIG_HISAX_GAZEL
+#define  CARD_GAZEL 1
+#ifndef ISDN_CHIP_ISAC
+#define ISDN_CHIP_ISAC 1
+#endif
+#else
+#define  CARD_GAZEL  0
+#endif
+
 #define TEI_PER_CARD 0
 
 #ifdef CONFIG_HISAX_1TR6
@@ -1255,7 +1279,7 @@ void FsmDelTimer(struct FsmTimer *ft, int where);
 int jiftime(char *s, long mark);
 
 int HiSax_command(isdn_ctrl * ic);
-int HiSax_writebuf_skb(int id, int chan, struct sk_buff *skb);
+int HiSax_writebuf_skb(int id, int chan, int ack, struct sk_buff *skb);
 void HiSax_putstatus(struct IsdnCardState *cs, char *head, char *fmt, ...);
 void VHiSax_putstatus(struct IsdnCardState *cs, char *head, char *fmt, va_list args);
 void HiSax_reportcard(int cardnr);

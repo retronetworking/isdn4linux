@@ -6,8 +6,8 @@
  *
  *
  * $Log$
- * Revision 1.3.2.1  1997/10/17 22:10:45  keil
- * new files on 2.0
+ * Revision 1.4  1998/04/15 16:45:34  keil
+ * new init code
  *
  * Revision 1.3  1997/07/27 21:38:35  keil
  * new B-channel interface

@@ -8,14 +8,20 @@
  *
  *
  * $Log$
- * Revision 1.1.2.3  1998/06/18 23:10:26  keil
+ * Revision 1.6  1999/07/01 08:11:18  keil
+ * Common HiSax version for 2.0, 2.1, 2.2 and 2.3 kernel
+ *
+ * Revision 1.5  1998/11/15 23:54:19  keil
+ * changes from 2.0
+ *
+ * Revision 1.4  1998/06/18 23:18:20  keil
  * Support for new IPAC card
  *
- * Revision 1.1.2.2  1998/04/08 21:58:37  keil
- * New init code
+ * Revision 1.3  1998/04/15 16:46:53  keil
+ * new init code
  *
- * Revision 1.1.2.1  1998/01/27 22:34:02  keil
- * dynalink ----> asuscom
+ * Revision 1.2  1998/02/02 13:27:06  keil
+ * New
  *
  *
  */
@@ -287,15 +293,13 @@ reset_asuscom(struct IsdnCardState *cs)
 	save_flags(flags);
 	sti();
 	current->state = TASK_INTERRUPTIBLE;
-	current->timeout = jiffies + 1;
-	schedule();
+	schedule_timeout((10*HZ)/1000);
 	if (cs->subtyp == ASUS_IPAC)
 		writereg(cs->hw.asus.adr, cs->hw.asus.isac, IPAC_POTA2, 0x0);
 	else
 		byteout(cs->hw.asus.adr, 0);	/* Reset Off */
 	current->state = TASK_INTERRUPTIBLE;
-	current->timeout = jiffies + 1;
-	schedule();
+	schedule_timeout((10*HZ)/1000);
 	if (cs->subtyp == ASUS_IPAC) {
 		writereg(cs->hw.asus.adr, cs->hw.asus.isac, IPAC_CONF, 0x0);
 		writereg(cs->hw.asus.adr, cs->hw.asus.isac, IPAC_ACFG, 0xff);

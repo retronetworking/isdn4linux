@@ -2,7 +2,7 @@
 
  * EURO/DSS1 D-channel protocol
  *
- * Author       Karsten Keil (keil@temic-ech.spacenet.de)
+ * Author       Karsten Keil (keil@isdn4linux.de)
  *              based on the teles driver from Jan den Ouden
  *
  *		This file is (c) under GNU PUBLIC LICENSE
@@ -13,50 +13,41 @@
  *              Fritz Elfert
  *
  * $Log$
- * Revision 1.16.2.14  1999/05/09 21:39:45  keil
- * Add COLP IEs
+ * Revision 2.13  1999/07/01 08:11:58  keil
+ * Common HiSax version for 2.0, 2.1, 2.2 and 2.3 kernel
  *
- * Revision 1.16.2.13  1999/05/05 20:29:39  werner
- * changed keypad support (every called party with * or # assumed keypad)
- * added STAT callback for delivering display messages to HL
+ * Revision 2.12  1998/11/15 23:55:10  keil
+ * changes from 2.0
  *
- * Revision 1.16.2.12  1999/05/01 20:03:31  werner
- * added support for keypad protocol (K prefix in destnr)
+ * Revision 2.11  1998/08/13 23:36:51  keil
+ * HiSax 3.1 - don't work stable with current LinkLevel
  *
- * Revision 1.16.2.11  1999/04/28 21:49:07  keil
- * More CTS2 tests
- *
- * Revision 1.16.2.10  1999/04/22 21:11:27  werner
- * Added support for dss1 diversion services
- *
- *
- * Revision 1.16.2.9  1999/01/20 14:36:29  keil
- * Fixes for full CTS2 tests
- *
- * Revision 1.16.2.8  1998/11/03 00:07:14  keil
- * certification related changes
- * fixed logging for smaller stack use
- *
- * Revision 1.16.2.7  1998/10/25 18:16:25  fritz
- * Replaced some read-only variables by defines.
- *
- * Revision 1.16.2.6  1998/10/23 15:00:56  fritz
- * Eliminated a compiler warning.
- *
- * Revision 1.16.2.5  1998/09/27 13:06:48  keil
- * Apply most changes from 2.1.X (HiSax 3.1)
- *
- * Revision 1.16.2.4  1998/05/27 18:06:08  keil
+ * Revision 2.10  1998/05/25 14:10:20  keil
  * HiSax 3.0
+ * X.75 and leased are working again.
  *
- * Revision 1.16.2.3  1998/02/03 23:16:06  keil
- * german AOC
+ * Revision 2.9  1998/05/25 12:58:17  keil
+ * HiSax golden code from certification, Don't use !!!
+ * No leased lines, no X75, but many changes.
  *
- * Revision 1.16.2.2  1997/11/15 18:54:15  keil
- * cosmetics
+ * Revision 2.8  1998/03/19 13:18:47  keil
+ * Start of a CAPI like interface for supplementary Service
+ * first service: SUSPEND
  *
- * Revision 1.16.2.1  1997/10/17 22:14:16  keil
- * update to last hisax version
+ * Revision 2.7  1998/02/12 23:08:01  keil
+ * change for 2.1.86 (removing FREE_READ/FREE_WRITE from [dev]_kfree_skb()
+ *
+ * Revision 2.6  1998/02/03 23:26:35  keil
+ * V110 extensions from Thomas Pfeiffer
+ *
+ * Revision 2.5  1998/02/02 13:34:28  keil
+ * Support australian Microlink net and german AOCD
+ *
+ * Revision 2.4  1997/11/06 17:12:25  keil
+ * KERN_NOTICE --> KERN_INFO
+ *
+ * Revision 2.3  1997/10/29 19:03:01  keil
+ * changes for 2.1
  *
  * Revision 2.2  1997/08/07 17:44:36  keil
  * Fix RESTART

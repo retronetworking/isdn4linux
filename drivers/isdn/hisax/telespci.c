@@ -7,11 +7,21 @@
  *
  *
  * $Log$
- * Revision 1.1.2.2  1998/04/20 08:52:46  keil
- * Fix register offsets
+ * Revision 2.6  1999/07/01 08:12:15  keil
+ * Common HiSax version for 2.0, 2.1, 2.2 and 2.3 kernel
  *
- * Revision 1.1.2.1  1998/04/11 18:44:42  keil
- * New files
+ * Revision 2.5  1998/11/15 23:55:28  keil
+ * changes from 2.0
+ *
+ * Revision 2.4  1998/10/05 09:38:08  keil
+ * Fix register addressing
+ *
+ * Revision 2.3  1998/05/25 12:58:26  keil
+ * HiSax golden code from certification, Don't use !!!
+ * No leased lines, no X75, but many changes.
+ *
+ * Revision 2.1  1998/04/15 16:38:23  keil
+ * Add S0Box and Teles PCI support
  *
  *
  */
@@ -22,10 +32,11 @@
 #include "hscx.h"
 #include "isdnl1.h"
 #include <linux/pci.h>
+#ifndef COMPAT_HAS_NEW_PCI
 #include <linux/bios32.h>
+#endif
 
 extern const char *CardType[];
-
 const char *telespci_revision = "$Revision$";
 
 #define ZORAN_PO_RQ_PEN	0x02000000
@@ -270,7 +281,7 @@ telespci_interrupt(int intno, void *dev_id, struct pt_regs *regs)
 void
 release_io_telespci(struct IsdnCardState *cs)
 {
-	vfree((void *)cs->hw.teles0.membase);
+	iounmap((void *)cs->hw.teles0.membase);
 }
 
 static int
@@ -294,23 +305,48 @@ TelesPCI_card_msg(struct IsdnCardState *cs, int mt, void *arg)
 	return(0);
 }
 
+#ifdef COMPAT_HAS_NEW_PCI
+static 	struct pci_dev *dev_tel __initdata = NULL;
+#else
 static 	int pci_index __initdata = 0;
+#endif
 
 __initfunc(int
 setup_telespci(struct IsdnCard *card))
 {
-	int found=0;
 	struct IsdnCardState *cs = card->cs;
 	char tmp[64];
+#ifndef COMPAT_HAS_NEW_PCI
 	u_char pci_bus, pci_device_fn, pci_irq;
 	u_int pci_memaddr;
+	u_char found = 0;
+#endif
 
 	strcpy(tmp, telespci_revision);
 	printk(KERN_INFO "HiSax: Teles/PCI driver Rev. %s\n", HiSax_getrev(tmp));
 	if (cs->typ != ISDN_CTYPE_TELESPCI)
 		return (0);
-
 #if CONFIG_PCI
+#ifdef COMPAT_HAS_NEW_PCI
+	if (!pci_present()) {
+		printk(KERN_ERR "TelesPCI: no PCI bus present\n");
+		return(0);
+	}
+	if ((dev_tel = pci_find_device (0x11DE, 0x6120, dev_tel))) {
+		cs->irq = dev_tel->irq;
+		if (!cs->irq) {
+			printk(KERN_WARNING "Teles: No IRQ for PCI card found\n");
+			return(0);
+		}
+		cs->hw.teles0.membase = (u_int) ioremap(dev_tel->base_address[0],
+			PAGE_SIZE);
+		printk(KERN_INFO "Found: Zoran, base-address: 0x%lx, irq: 0x%x\n",
+			dev_tel->base_address[0], dev_tel->irq);
+	} else {
+		printk(KERN_WARNING "TelesPCI: No PCI card found\n");
+		return(0);
+	}
+#else
 	for (; pci_index < 0xff; pci_index++) {
 		if (pcibios_find_device (0x11DE, 0x6120,
 			pci_index, &pci_bus, &pci_device_fn)
@@ -333,8 +369,9 @@ setup_telespci(struct IsdnCard *card))
 		return(0);
 	}
 	pci_index++;
-	cs->hw.teles0.membase = (u_int) vremap(pci_memaddr, PAGE_SIZE);
 	cs->irq = pci_irq;
+	cs->hw.teles0.membase = (u_int) vremap(pci_memaddr, PAGE_SIZE);
+#endif /* COMPAT_HAS_NEW_PCI */
 #else
 	printk(KERN_WARNING "HiSax: Teles/PCI and NO_PCI_BIOS\n");
 	printk(KERN_WARNING "HiSax: Teles/PCI unable to config\n");

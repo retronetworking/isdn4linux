@@ -10,20 +10,26 @@
  *              Beat Doebeli
  *
  * $Log$
- * Revision 1.8.2.8  1998/03/07 23:15:40  tsbogend
+ * Revision 2.8  1998/04/15 16:44:28  keil
+ * new init code
+ *
+ * Revision 2.7  1998/03/07 22:57:08  tsbogend
  * made HiSax working on Linux/Alpha
  *
- * Revision 1.8.2.7  1998/02/03 23:17:16  keil
+ * Revision 2.6  1998/02/03 23:27:47  keil
  * IRQ 9
  *
- * Revision 1.8.2.6  1998/01/27 22:37:43  keil
+ * Revision 2.5  1998/02/02 13:29:47  keil
  * fast io
  *
- * Revision 1.8.2.5  1997/11/15 18:51:00  keil
- * new common init function
+ * Revision 2.4  1997/11/08 21:35:54  keil
+ * new l1 init
  *
- * Revision 1.8.2.4  1997/10/17 22:14:26  keil
- * update to last hisax version
+ * Revision 2.3  1997/11/06 17:09:31  keil
+ * New 2.1 init code
+ *
+ * Revision 2.2  1997/10/29 18:55:57  keil
+ * changes for 2.1.60 (irq2dev_map)
  *
  * Revision 2.1  1997/07/27 21:47:10  keil
  * new interface structures

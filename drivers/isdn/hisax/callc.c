@@ -11,52 +11,76 @@
  *              Fritz Elfert
  *
  * $Log$
- * Revision 1.30.2.15  1999/04/28 22:16:52  keil
+ * Revision 2.26  1999/07/01 08:11:21  keil
+ * Common HiSax version for 2.0, 2.1, 2.2 and 2.3 kernel
+ *
+ * Revision 2.25  1999/01/02 11:17:20  keil
+ * Changes for 2.2
+ *
+ * Revision 2.24  1998/11/15 23:54:24  keil
+ * changes from 2.0
+ *
+ * Revision 2.23  1998/09/30 22:21:57  keil
  * cosmetics
  *
- * Revision 1.30.2.14  1999/04/22 21:10:00  werner
- * Added support for dss1 diversion services
+ * Revision 2.22  1998/08/20 13:50:29  keil
+ * More support for hybrid modem (not working yet)
  *
+ * Revision 2.21  1998/08/13 23:36:15  keil
+ * HiSax 3.1 - don't work stable with current LinkLevel
  *
- * Revision 1.30.2.13  1998/11/05 21:13:32  keil
- * minor fixes
+ * Revision 2.20  1998/06/26 15:13:05  fritz
+ * Added handling of STAT_ICALL with incomplete CPN.
+ * Added AT&L for ttyI emulator.
+ * Added more locking stuff in tty_write.
  *
- * Revision 1.30.2.12  1998/11/03 00:05:51  keil
- * certification related changes
- * fixed logging for smaller stack use
- *
- * Revision 1.30.2.11  1998/09/30 22:20:05  keil
- * Cosmetics
- *
- * Revision 1.30.2.10  1998/09/27 13:05:35  keil
- * Apply most changes from 2.1.X (HiSax 3.1)
- *
- * Revision 1.30.2.9  1998/05/27 18:04:53  keil
+ * Revision 2.19  1998/05/25 14:08:06  keil
  * HiSax 3.0
+ * fixed X.75 and leased line to work again
+ * Point2Point and fixed TEI are runtime options now:
+ *    hisaxctrl <id> 7 1  set PTP
+ *    hisaxctrl <id> 8 <TEIVALUE *2 >
+ *    set fixed TEI to TEIVALUE (0-63)
  *
- * Revision 1.30.2.8  1998/04/11 18:48:26  keil
- * remove debug
+ * Revision 2.18  1998/05/25 12:57:40  keil
+ * HiSax golden code from certification, Don't use !!!
+ * No leased lines, no X75, but many changes.
  *
- * Revision 1.30.2.7  1998/04/08 21:51:50  keil
- * new debug
+ * Revision 2.17  1998/04/15 16:46:06  keil
+ * RESUME support
  *
- * Revision 1.30.2.6  1998/03/07 23:15:02  tsbogend
+ * Revision 2.16  1998/04/10 10:35:17  paul
+ * fixed (silly?) warnings from egcs on Alpha.
+ *
+ * Revision 2.15  1998/03/19 13:18:37  keil
+ * Start of a CAPI like interface for supplementary Service
+ * first service: SUSPEND
+ *
+ * Revision 2.14  1998/03/07 22:56:54  tsbogend
  * made HiSax working on Linux/Alpha
  *
- * Revision 1.30.2.5  1998/02/09 11:24:17  keil
- * New leased line support (Read README.HiSax!)
+ * Revision 2.13  1998/02/12 23:07:16  keil
+ * change for 2.1.86 (removing FREE_READ/FREE_WRITE from [dev]_kfree_skb()
  *
- * Revision 1.30.2.4  1998/01/27 22:46:00  keil
- * B-channel send delay now configurable
+ * Revision 2.12  1998/02/09 10:55:54  keil
+ * New leased line mode
  *
- * Revision 1.30.2.3  1998/01/11 23:21:03  keil
- * Missing callc state
+ * Revision 2.11  1998/02/02 13:35:19  keil
+ * config B-channel delay
  *
- * Revision 1.30.2.2  1997/11/15 18:54:31  keil
- * cosmetics
+ * Revision 2.10  1997/11/06 17:09:15  keil
+ * New 2.1 init code
  *
- * Revision 1.30.2.1  1997/10/17 22:13:32  keil
- * update to last hisax version
+ * Revision 2.9  1997/10/29 19:01:58  keil
+ * new LL interface
+ *
+ * Revision 2.8  1997/10/10 20:56:44  fritz
+ * New HL interface.
+ *
+ * Revision 2.7  1997/10/01 09:21:28  fritz
+ * Removed old compatibility stuff for 2.0.X kernels.
+ * From now on, this code is for 2.1.X ONLY!
+ * Old stuff is still in the separate branch.
  *
  * Revision 2.6  1997/09/11 17:26:58  keil
  * Open B-channel if here are incomming packets
@@ -91,9 +115,13 @@
 #include "../avmb1/capicmd.h"  /* this should be moved in a common place */
 
 #ifdef MODULE
+#ifdef COMPAT_HAS_NEW_SYMTAB
+#define MOD_USE_COUNT ( GET_USE_COUNT (&__this_module))
+#else
 extern long mod_use_count_;
 #define MOD_USE_COUNT mod_use_count_
-#endif				/* MODULE */
+#endif /* COMPAT_HAS_NEW_SYMTAB */
+#endif	/* MODULE */
 
 const char *lli_revision = "$Revision$";
 
@@ -587,18 +615,6 @@ lli_reject_req(struct FsmInst *fi, int event, void *arg)
 #endif
 }
 
-
-static void
-lli_go_null(struct FsmInst *fi, int event, void *arg)
-{
-	struct Channel *chanp = fi->userdata;
-
-	FsmChangeState(fi, ST_NULL);
-	chanp->Flags = 0;
-	FsmDelTimer(&chanp->drel_timer, 63);
-	chanp->cs->cardmsg(chanp->cs, MDL_INFO_REL, (void *) (long)chanp->chan);
-}
-
 static void
 lli_disconn_bchan(struct FsmInst *fi, int event, void *arg)
 {
@@ -923,12 +939,12 @@ release_b_st(struct Channel *chanp)
         if(test_and_clear_bit(FLG_START_B, &chanp->Flags)) {
                 chanp->bcs->BC_Close(chanp->bcs);
                 switch (chanp->l2_active_protocol) {
-                        case (ISDN_PROTO_L2_X75I):
-                                releasestack_isdnl2(st);
-                                break;
-                        case (ISDN_PROTO_L2_HDLC):
-                        case (ISDN_PROTO_L2_TRANS):
-  //                    case (ISDN_PROTO_L2_MODEM):
+			case (ISDN_PROTO_L2_X75I):
+				releasestack_isdnl2(st);
+				break;
+			case (ISDN_PROTO_L2_HDLC):
+			case (ISDN_PROTO_L2_TRANS):
+			case (ISDN_PROTO_L2_MODEM):
                                 releasestack_transl2(st);
                                 break;
                 }
@@ -1278,7 +1294,7 @@ ll_writewakeup(struct PStack *st, int len)
 	ic.driver = chanp->cs->myid;
 	ic.command = ISDN_STAT_BSENT;
 	ic.arg = chanp->chan;
-//	ic.parm.length = len;
+	ic.parm.length = len;
 	chanp->cs->iif.statcallb(&ic);
 }
 
@@ -1302,11 +1318,9 @@ init_b_st(struct Channel *chanp, int incoming)
 		case (ISDN_PROTO_L2_TRANS):
 			st->l1.mode = L1_MODE_TRANS;
 			break;
-#if 0
 		case (ISDN_PROTO_L2_MODEM):
 			st->l1.mode = L1_MODE_MODEM;
 			break;
-#endif
 	}
 	if (chanp->bcs->BC_SetStack(st, chanp->bcs))
 		return (-1);
@@ -1334,7 +1348,7 @@ init_b_st(struct Channel *chanp, int incoming)
 			break;
 		case (ISDN_PROTO_L2_HDLC):
 		case (ISDN_PROTO_L2_TRANS):
-//		case (ISDN_PROTO_L2_MODEM):
+		case (ISDN_PROTO_L2_MODEM):
 			st->l1.l1l2 = lltrans_handler;
 			st->lli.userdata = chanp;
 			st->lli.l1writewakeup = ll_writewakeup;
@@ -1435,7 +1449,6 @@ distr_debug(struct IsdnCardState *csta, int debugflags)
 		csta->debug &= ~DEB_DLOG_HEX;
 }
 
-#if 0
 static char tmpbuf[256];
 
 static void
@@ -1488,7 +1501,6 @@ lli_got_manufacturer(struct Channel *chanp, struct IsdnCardState *cs, capi_msg *
 		}
 	}
 }
-#endif
 
 int
 HiSax_command(isdn_ctrl * ic)
@@ -1562,7 +1574,6 @@ HiSax_command(isdn_ctrl * ic)
 				link_debug(chanp, 1, "HANGUP");
 			FsmEvent(&chanp->fi, EV_HANGUP, NULL);
 			break;
-#if 0
 		case (CAPI_PUT_MESSAGE):
 			chanp = csta->channel + ic->arg;
 			if (chanp->debug & 1)
@@ -1582,7 +1593,6 @@ HiSax_command(isdn_ctrl * ic)
 					break;
 			}
 			break;
-#endif
 		case (ISDN_CMD_LOCK):
 			HiSax_mod_inc_use_count();
 #ifdef MODULE
@@ -1761,7 +1771,7 @@ HiSax_command(isdn_ctrl * ic)
 }
 
 int
-HiSax_writebuf_skb(int id, int chan, struct sk_buff *skb)
+HiSax_writebuf_skb(int id, int chan, int ack, struct sk_buff *skb)
 {
 	struct IsdnCardState *csta = hisax_findcard(id);
 	struct Channel *chanp;
@@ -1795,13 +1805,14 @@ HiSax_writebuf_skb(int id, int chan, struct sk_buff *skb)
 			if (chanp->debug & 0x800)
 				link_debug(chanp, 1, "writebuf: no buffers for %d bytes", len);
 			return 0;
-		}
+		} else if (chanp->debug & 0x800)
+			link_debug(chanp, 1, "writebuf %d/%d/%d", len, chanp->bcs->tx_cnt,MAX_DATA_MEM);
 		save_flags(flags);
 		cli();
 		nskb = skb_clone(skb, GFP_ATOMIC);
 		if (nskb) {
-//			if (!ack)
-//				nskb->pkt_type = PACKET_NOACK;
+			if (!ack)
+				nskb->pkt_type = PACKET_NOACK;
 			if (chanp->l2_active_protocol == ISDN_PROTO_L2_X75I)
 				st->l3.l3l2(st, DL_DATA | REQUEST, nskb);
 			else {
@@ -1815,4 +1826,3 @@ HiSax_writebuf_skb(int id, int chan, struct sk_buff *skb)
 	}
 	return (len);
 }
-

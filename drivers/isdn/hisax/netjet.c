@@ -8,36 +8,32 @@
  *
  *
  * $Log$
- * Revision 1.1.2.10  1998/11/03 00:07:24  keil
- * certification related changes
- * fixed logging for smaller stack use
+ * Revision 1.9  1999/07/01 08:12:05  keil
+ * Common HiSax version for 2.0, 2.1, 2.2 and 2.3 kernel
  *
- * Revision 1.1.2.9  1998/09/30 22:24:02  keil
+ * Revision 1.8  1998/11/15 23:55:14  keil
+ * changes from 2.0
+ *
+ * Revision 1.7  1998/09/30 22:24:48  keil
  * Fix missing line in setstack*
  *
- * Revision 1.1.2.8  1998/09/27 13:06:56  keil
- * Apply most changes from 2.1.X (HiSax 3.1)
+ * Revision 1.6  1998/08/13 23:36:54  keil
+ * HiSax 3.1 - don't work stable with current LinkLevel
  *
- * Revision 1.1.2.7  1998/05/27 18:06:17  keil
- * HiSax 3.0
+ * Revision 1.5  1998/05/25 12:58:21  keil
+ * HiSax golden code from certification, Don't use !!!
+ * No leased lines, no X75, but many changes.
  *
- * Revision 1.1.2.6  1998/04/08 22:05:23  keil
- * Forgot PCI fix
+ * Revision 1.4  1998/04/15 16:42:35  keil
+ * new init code
+ * new PCI init (2.1.94)
  *
- * Revision 1.1.2.5  1998/04/08 21:49:29  keil
- * New init; fix PCI for more as one card
+ * Revision 1.3  1998/02/12 23:08:05  keil
+ * change for 2.1.86 (removing FREE_READ/FREE_WRITE from [dev]_kfree_skb()
  *
- * Revision 1.1.2.4  1998/01/27 22:37:27  keil
- * fast io
+ * Revision 1.2  1998/02/02 13:32:06  keil
+ * New
  *
- * Revision 1.1.2.3  1997/12/01 09:09:57  keil
- * IRQ bit clearing
- *
- * Revision 1.1.2.2  1997/11/27 12:32:01  keil
- * Working netjet driver
- *
- * Revision 1.1.2.1  1997/11/15 18:58:13  keil
- * new card
  *
  *
  */
@@ -49,7 +45,9 @@
 #include "hscx.h"
 #include "isdnl1.h"
 #include <linux/pci.h>
+#ifndef COMPAT_HAS_NEW_PCI
 #include <linux/bios32.h>
+#endif
 #include <linux/interrupt.h>
 #include <linux/ppp_defs.h>
 
@@ -1014,13 +1012,11 @@ reset_netjet(struct IsdnCardState *cs)
 	cs->hw.njet.ctrl_reg = 0xff;  /* Reset On */
 	byteout(cs->hw.njet.base + NETJET_CTRL, cs->hw.njet.ctrl_reg);
 	current->state = TASK_INTERRUPTIBLE;
-	current->timeout = jiffies + (10 * HZ) / 1000;	/* Timeout 10ms */
-	schedule();
+	schedule_timeout((10*HZ)/1000);	/* Timeout 10ms */
 	cs->hw.njet.ctrl_reg = 0x00;  /* Reset Off and status read clear */
 	byteout(cs->hw.njet.base + NETJET_CTRL, cs->hw.njet.ctrl_reg);
 	current->state = TASK_INTERRUPTIBLE;
-	current->timeout = jiffies + (10 * HZ) / 1000;	/* Timeout 10ms */
-	schedule();
+	schedule_timeout((10*HZ)/1000);	/* Timeout 10ms */
 	restore_flags(flags);
 	cs->hw.njet.auxd = 0;
 	cs->hw.njet.dmactrl = 0;
@@ -1065,9 +1061,11 @@ NETjet_card_msg(struct IsdnCardState *cs, int mt, void *arg)
 	return(0);
 }
 
-
-
-static 	int pci_index __initdata = 0;
+#ifdef COMPAT_HAS_NEW_PCI
+static 	struct pci_dev *dev_netjet __initdata = NULL;
+#else
+static  int pci_index __initdata = 0;
+#endif
 
 __initfunc(int
 setup_netjet(struct IsdnCard *card))
@@ -1076,15 +1074,40 @@ setup_netjet(struct IsdnCard *card))
 	struct IsdnCardState *cs = card->cs;
 	char tmp[64];
 #if CONFIG_PCI
+#ifndef COMPAT_HAS_NEW_PCI
 	u_char pci_bus, pci_device_fn, pci_irq;
 	u_int pci_ioaddr, found;
 #endif
-
+#endif
 	strcpy(tmp, NETjet_revision);
 	printk(KERN_INFO "HiSax: Traverse Tech. NETjet driver Rev. %s\n", HiSax_getrev(tmp));
 	if (cs->typ != ISDN_CTYPE_NETJET)
 		return(0);
+	test_and_clear_bit(FLG_LOCK_ATOMIC, &cs->HW_Flags);
 #if CONFIG_PCI
+#ifdef COMPAT_HAS_NEW_PCI
+	if (!pci_present()) {
+		printk(KERN_ERR "Netjet: no PCI bus present\n");
+		return(0);
+	}
+	if ((dev_netjet = pci_find_device(PCI_VENDOR_TRAVERSE_TECH,
+		PCI_NETJET_ID,  dev_netjet))) {
+		cs->irq = dev_netjet->irq;
+		if (!cs->irq) {
+			printk(KERN_WARNING "NETjet: No IRQ for PCI card found\n");
+			return(0);
+		}
+		cs->hw.njet.base = dev_netjet->base_address[0]
+			& PCI_BASE_ADDRESS_IO_MASK; 
+		if (!cs->hw.njet.base) {
+			printk(KERN_WARNING "NETjet: No IO-Adr for PCI card found\n");
+			return(0);
+		}
+	} else {
+		printk(KERN_WARNING "NETjet: No PCI card found\n");
+		return(0);
+	}
+#else
 	found = 0;
 	for (; pci_index < 0xff; pci_index++) {
 		if (pcibios_find_device(PCI_VENDOR_TRAVERSE_TECH,
@@ -1092,7 +1115,7 @@ setup_netjet(struct IsdnCard *card))
 			== PCIBIOS_SUCCESSFUL)
 			found = 1;
 		else
-			break;
+			continue;
 		/* get IRQ */
 		pcibios_read_config_byte(pci_bus, pci_device_fn,
 			PCI_INTERRUPT_LINE, &pci_irq);
@@ -1116,11 +1139,11 @@ setup_netjet(struct IsdnCard *card))
 		printk(KERN_WARNING "NETjet: No IO-Adr for PCI card found\n");
 		return(0);
 	}
-	pci_ioaddr &= ~3; /* remove io/mem flag */
-	cs->hw.njet.base = pci_ioaddr; 
-	cs->hw.njet.auxa = pci_ioaddr + NETJET_AUXDATA;
-	cs->hw.njet.isac = pci_ioaddr | NETJET_ISAC_OFF;
+	cs->hw.njet.base = pci_ioaddr & PCI_BASE_ADDRESS_IO_MASK; 
 	cs->irq = pci_irq;
+#endif /* COMPAT_HAS_NEW_PCI */
+	cs->hw.njet.auxa = cs->hw.njet.base + NETJET_AUXDATA;
+	cs->hw.njet.isac = cs->hw.njet.base | NETJET_ISAC_OFF;
 	bytecnt = 256;
 #else
 	printk(KERN_WARNING "NETjet: NO_PCI_BIOS\n");

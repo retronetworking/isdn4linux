@@ -1,15 +1,19 @@
 /* $Id$
 
  * $Log$
- * Revision 1.3.2.3  1998/11/03 00:07:08  keil
- * certification related changes
- * fixed logging for smaller stack use
+ * Revision 2.4  1999/07/01 08:11:54  keil
+ * Common HiSax version for 2.0, 2.1, 2.2 and 2.3 kernel
  *
- * Revision 1.3.2.2  1998/05/27 18:06:02  keil
+ * Revision 2.3  1998/11/15 23:55:06  keil
+ * changes from 2.0
+ *
+ * Revision 2.2  1998/05/25 14:10:17  keil
  * HiSax 3.0
+ * X.75 and leased are working again.
  *
- * Revision 1.3.2.1  1997/10/17 22:14:08  keil
- * update to last hisax version
+ * Revision 2.1  1998/05/25 12:58:13  keil
+ * HiSax golden code from certification, Don't use !!!
+ * No leased lines, no X75, but many changes.
  *
  * Revision 2.0  1997/07/27 21:15:42  keil
  * New Callref based layer3

@@ -5,15 +5,19 @@
  *
  *
  * $Log$
+ * Revision 1.2  1999/07/01 08:07:58  keil
+ * Initial version
+ *
+ *
  */
 
 /* All Registers original Siemens Spec  */
 #ifndef	__JADE_H__
 #define	__JADE_H__
 
-/* Special registers for access to indirect accessible JADE regs	*/
-#define	DIRECT_IO_JADE	0x0000		/* Jade direct io access area	*/
-#define	COMM_JADE  		0x0040		/* Jade communication area 		*/	   	
+/* Special registers for access to indirect accessible JADE regs */
+#define	DIRECT_IO_JADE	0x0000	/* Jade direct io access area */
+#define	COMM_JADE	0x0040	/* Jade communication area */	   	
 
 /********************************************************************/
 /* JADE-HDLC registers         									    */
@@ -23,7 +27,7 @@
 
 #define	jade_HDLC_STAR	   				0x20				   /* R */
 	#define	jadeSTAR_XDOV				0x80
-	#define	jadeSTAR_XFW 				0x40		/* Does not work*/
+	#define	jadeSTAR_XFW 				0x40 /* Does not work*/
 	#define	jadeSTAR_XCEC 				0x20
 	#define	jadeSTAR_RCEC				0x10
 	#define	jadeSTAR_BSY 				0x08
@@ -32,7 +36,7 @@
 	#define	jadeSTAR_STX				0x01
 
 #define	jade_HDLC_XCMD	   				0x20				   /* W */
-	#define	jadeXCMD_XF					0x80
+	#define	jadeXCMD_XF				0x80
 	#define	jadeXCMD_XME				0x40
 	#define	jadeXCMD_XRES				0x20
 	#define	jadeXCMD_STX				0x01
@@ -41,8 +45,8 @@
     #define	jadeRSTA_VFR				0x80
     #define	jadeRSTA_RDO				0x40
     #define	jadeRSTA_CRC				0x20
-	#define	jadeRSTA_RAB				0x10
-	#define	jadeRSTA_MASK			   	0xF0
+    #define	jadeRSTA_RAB				0x10
+    #define	jadeRSTA_MASK			   	0xF0
 
 #define	jade_HDLC_MODE					0x22				   /* RW*/
     #define	jadeMODE_TMO				0x80
@@ -50,7 +54,7 @@
     #define	jadeMODE_XAC				0x20
     #define	jadeMODE_TLP				0x10
     #define	jadeMODE_ERFS				0x02
-	#define	jadeMODE_ETFS				0x01
+    #define	jadeMODE_ETFS				0x01
 
 #define	jade_HDLC_RBCH					0x24				   /* R */
 
@@ -77,7 +81,7 @@
     #define	jadeCCR1_RFDIS				0x20
     #define	jadeCCR1_XCS0				0x10
     #define	jadeCCR1_XCONT				0x08
-	#define	jadeCCR1_XFDIS				0x04
+    #define	jadeCCR1_XFDIS				0x04
 
 #define	jade_HDLC_TSAR					0x28				   /* RW*/
 #define	jade_HDLC_TSAX					0x29				   /* RW*/
@@ -96,13 +100,13 @@
 #define jade_INT            			0x75
     #define jadeINT_HDLC1   			0x02
     #define jadeINT_HDLC2   			0x01
-    #define	jadeINT_DSP					0x04
+    #define jadeINT_DSP				0x04
 #define jade_INTR            			0x70
 
 /********************************************************************/
 /* Indirect accessible JADE registers of common interest		   	*/
 /********************************************************************/
-#define	jade_CHIPVERSIONNR				0x00		/* Does not work*/
+#define	jade_CHIPVERSIONNR				0x00 /* Does not work*/
 
 #define	jade_HDLCCNTRACCESS				0x10		
 	#define	jadeINDIRECT_HAH1			0x02

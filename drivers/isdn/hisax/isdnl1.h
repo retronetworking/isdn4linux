@@ -1,23 +1,24 @@
 /* $Id$
 
  * $Log$
- * Revision 1.4.2.6  1998/09/30 22:20:04  keil
- * Cosmetics
+ * Revision 2.8  1998/11/15 23:54:59  keil
+ * changes from 2.0
  *
- * Revision 1.4.2.5  1998/09/27 13:06:28  keil
- * Apply most changes from 2.1.X (HiSax 3.1)
+ * Revision 2.7  1998/09/30 22:21:55  keil
+ * cosmetics
  *
- * Revision 1.4.2.4  1998/05/27 18:05:49  keil
- * HiSax 3.0
+ * Revision 2.6  1998/05/25 12:58:06  keil
+ * HiSax golden code from certification, Don't use !!!
+ * No leased lines, no X75, but many changes.
  *
- * Revision 1.4.2.3  1997/12/01 09:09:08  keil
- * more l1 debug
+ * Revision 2.5  1998/02/02 13:36:58  keil
+ * more debug
  *
- * Revision 1.4.2.2  1997/11/15 18:50:40  keil
- * new common init function
+ * Revision 2.4  1997/11/08 21:35:49  keil
+ * new l1 init
  *
- * Revision 1.4.2.1  1997/10/17 22:13:58  keil
- * update to last hisax version
+ * Revision 2.3  1997/10/29 19:07:53  keil
+ * changes for 2.1
  *
  * Revision 2.2  1997/07/30 17:11:09  keil
  * L1deactivated exported

@@ -6,6 +6,10 @@
  *
  *
  * $Log$
+ * Revision 1.2  1999/07/01 08:16:03  keil
+ * teles3c ---> hfcscard
+ *
+ *
  *
  */
 
@@ -72,15 +76,13 @@ reset_hfcs(struct IsdnCardState *cs)
 	save_flags(flags);
 	sti();
 	current->state = TASK_INTERRUPTIBLE;
-	current->timeout = jiffies + 3;
-	schedule();
+	schedule_timeout((30*HZ)/1000);
 	cs->hw.hfcD.cirm = 0;
 	if (cs->typ == ISDN_CTYPE_TELES3C)
 		cs->hw.hfcD.cirm |= HFCD_MEM8K;
 	cs->BC_Write_Reg(cs, HFCD_DATA, HFCD_CIRM, cs->hw.hfcD.cirm);	/* Reset Off */
 	current->state = TASK_INTERRUPTIBLE;
-	current->timeout = jiffies + 1;
-	schedule();
+	schedule_timeout((10*HZ)/1000);
 	if (cs->typ == ISDN_CTYPE_TELES3C)
 		cs->hw.hfcD.cirm |= HFCD_INTB;
 	else if (cs->typ == ISDN_CTYPE_ACERP10)
@@ -130,8 +132,7 @@ hfcs_card_msg(struct IsdnCardState *cs, int mt, void *arg)
 			save_flags(flags);
 			sti();
 			current->state = TASK_INTERRUPTIBLE;
-			current->timeout = jiffies + (80*HZ)/1000;
-			schedule();
+			schedule_timeout((80*HZ)/1000);
 			cs->hw.hfcD.ctmt |= HFCD_TIM800;
 			cs->BC_Write_Reg(cs, HFCD_DATA, HFCD_CTMT, cs->hw.hfcD.ctmt); 
 			cs->BC_Write_Reg(cs, HFCD_DATA, HFCD_MST_MODE, cs->hw.hfcD.mst_m);

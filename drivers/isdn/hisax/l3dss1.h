@@ -3,20 +3,18 @@
  *  DSS1 (Euro) D-channel protocol defines
  *
  * $Log$
- * Revision 1.3.2.5  1999/05/09 21:39:57  keil
- * Add COLP IEs
+ * Revision 1.7  1999/07/01 08:12:02  keil
+ * Common HiSax version for 2.0, 2.1, 2.2 and 2.3 kernel
  *
- * Revision 1.3.2.4  1999/04/22 21:11:39  werner
- * Added support for dss1 diversion services
+ * Revision 1.6  1998/03/19 13:18:50  keil
+ * Start of a CAPI like interface for supplementary Service
+ * first service: SUSPEND
  *
- * Revision 1.3.2.3  1998/05/27 18:06:14  keil
- * HiSax 3.0
+ * Revision 1.5  1998/02/02 13:34:30  keil
+ * Support australian Microlink net and german AOCD
  *
- * Revision 1.3.2.2  1998/02/03 23:16:10  keil
- * german AOC
- *
- * Revision 1.3.2.1  1997/10/17 22:10:52  keil
- * new files on 2.0
+ * Revision 1.4  1997/10/29 19:07:54  keil
+ * changes for 2.1
  *
  * Revision 1.3  1997/08/07 17:44:37  keil
  * Fix RESTART

@@ -7,17 +7,20 @@
  *              Fritz Elfert
  *
  * $Log$
- * Revision 1.4.2.4  1998/05/27 18:05:21  keil
- * HiSax 3.0
+ * Revision 1.10  1998/11/15 23:54:39  keil
+ * changes from 2.0
  *
- * Revision 1.4.2.3  1998/03/07 23:15:20  tsbogend
+ * Revision 1.9  1998/03/26 07:10:02  paul
+ * The jumpmatrix table in struct Fsm was an array of "int". This is not
+ * large enough for pointers to functions on Linux/Alpha (instant crash
+ * on "insmod hisax). Now there is a typedef for the pointer to function.
+ * This also prevents warnings about "incompatible pointer types".
+ *
+ * Revision 1.8  1998/03/07 22:56:59  tsbogend
  * made HiSax working on Linux/Alpha
  *
- * Revision 1.4.2.2  1997/11/15 18:54:29  keil
- * cosmetics
- *
- * Revision 1.4.2.1  1997/10/17 22:13:49  keil
- * update to last hisax version
+ * Revision 1.7  1997/11/06 17:09:13  keil
+ * New 2.1 init code
  *
  * Revision 1.6  1997/07/27 21:42:25  keil
  * proof Fsm routines

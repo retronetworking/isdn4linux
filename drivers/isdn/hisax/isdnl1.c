@@ -15,66 +15,81 @@
  *
  *
  * $Log$
- * Revision 1.15.2.20  1999/01/20 14:36:49  keil
- * Fixes for full CTS2 tests
+ * Revision 2.32  1999/07/01 08:11:47  keil
+ * Common HiSax version for 2.0, 2.1, 2.2 and 2.3 kernel
  *
- * Revision 1.15.2.19  1998/11/03 00:06:48  keil
- * certification related changes
- * fixed logging for smaller stack use
+ * Revision 2.31  1998/11/15 23:54:56  keil
+ * changes from 2.0
  *
- * Revision 1.15.2.18  1998/09/30 22:26:35  keil
+ * Revision 2.30  1998/09/30 22:27:00  keil
  * Add init of l1.Flags
  *
- * Revision 1.15.2.17  1998/09/27 23:54:17  keil
+ * Revision 2.29  1998/09/27 23:54:43  keil
  * cosmetics
  *
- * Revision 1.15.2.16  1998/09/27 13:06:22  keil
- * Apply most changes from 2.1.X (HiSax 3.1)
+ * Revision 2.28  1998/09/27 12:52:23  keil
+ * Fix against segfault, if the driver cannot allocate an IRQ channel
  *
- * Revision 1.15.2.15  1998/09/12 18:44:00  niemann
- * Added new card: Sedlbauer ISDN-Controller PC/104
+ * Revision 2.27  1998/08/13 23:36:39  keil
+ * HiSax 3.1 - don't work stable with current LinkLevel
  *
- * Revision 1.15.2.14  1998/08/25 14:01:35  calle
- * Ported driver for AVM Fritz!Card PCI from the 2.1 tree.
- * I could not test it.
- *
- * Revision 1.15.2.13  1998/07/15 14:43:37  calle
+ * Revision 2.26  1998/07/15 15:01:31  calle
  * Support for AVM passive PCMCIA cards:
  *    A1 PCMCIA, FRITZ!Card PCMCIA and FRITZ!Card PCMCIA 2.0
  *
- * Revision 1.15.2.12  1998/05/27 18:05:43  keil
+ * Revision 2.25  1998/05/25 14:10:09  keil
  * HiSax 3.0
+ * X.75 and leased are working again.
  *
- * Revision 1.15.2.11  1998/05/26 10:36:51  keil
- * fixes from certification
+ * Revision 2.24  1998/05/25 12:58:04  keil
+ * HiSax golden code from certification, Don't use !!!
+ * No leased lines, no X75, but many changes.
  *
- * Revision 1.15.2.10  1998/04/11 18:47:45  keil
- * Fixed bug which was overwriting nrcards
+ * Revision 2.22  1998/04/15 16:40:13  keil
+ * Add S0Box and Teles PCI support
+ * Fix cardnr overwrite bug
+ *
+ * Revision 2.21  1998/04/10 10:35:28  paul
+ * fixed (silly?) warnings from egcs on Alpha.
+ *
+ * Revision 2.20  1998/03/09 23:19:27  keil
+ * Changes for PCMCIA
+ *
+ * Revision 2.18  1998/02/12 23:07:42  keil
+ * change for 2.1.86 (removing FREE_READ/FREE_WRITE from [dev]_kfree_skb()
+ *
+ * Revision 2.17  1998/02/11 17:28:07  keil
+ * Niccy PnP/PCI support
+ *
+ * Revision 2.16  1998/02/09 18:46:08  keil
+ * Support for Sedlbauer PCMCIA (Marcus Niemann)
+ *
+ * Revision 2.15  1998/02/09 10:54:51  keil
+ * fixes for leased mode
+ *
+ * Revision 2.14  1998/02/03 23:31:31  keil
+ * add AMD7930 support
+ *
+ * Revision 2.13  1998/02/02 13:33:02  keil
  * New card support
  *
- * Revision 1.15.2.9  1998/04/08 21:52:00  keil
- * new debug
+ * Revision 2.12  1998/01/31 21:41:48  keil
+ * changes for newer 2.1 kernels
  *
- * Revision 1.15.2.8  1998/03/07 23:15:26  tsbogend
- * made HiSax working on Linux/Alpha
+ * Revision 2.11  1997/11/12 15:01:23  keil
+ * COMPAQ_ISA changes
  *
- * Revision 1.15.2.7  1998/02/11 14:23:14  keil
- * support for Dr Neuhaus Niccy PnP and PCI
+ * Revision 2.10  1997/11/08 21:35:48  keil
+ * new l1 init
  *
- * Revision 1.15.2.6  1998/02/09 11:24:11  keil
- * New leased line support (Read README.HiSax!)
+ * Revision 2.9  1997/11/06 17:09:18  keil
+ * New 2.1 init code
  *
- * Revision 1.15.2.5  1998/01/27 22:33:55  keil
- * dynalink ----> asuscom
+ * Revision 2.8  1997/10/29 19:00:05  keil
+ * new layer1,changes for 2.1
  *
- * Revision 1.15.2.4  1998/01/11 22:55:20  keil
- * 16.3c support
- *
- * Revision 1.15.2.3  1997/11/15 18:50:34  keil
- * new common init function
- *
- * Revision 1.15.2.2  1997/10/17 22:13:54  keil
- * update to last hisax version
+ * Revision 2.7  1997/10/10 20:56:50  fritz
+ * New HL interface.
  *
  * Revision 2.6  1997/09/12 10:05:16  keil
  * ISDN_CTRL_DEBUG define
@@ -243,9 +258,11 @@ void
 L1deactivated(struct IsdnCardState *cs)
 {
 	struct PStack *st;
+	int i=0;
 
 	st = cs->stlist;
 	while (st) {
+		printk(KERN_WARNING"st %d %lx\n",i++,(ulong)st);
 		if (test_bit(FLG_L1_DBUSY, &cs->HW_Flags))
 			st->l1.l1l2(st, PH_PAUSE | CONFIRM, NULL);
 		st->l1.l1l2(st, PH_DEACTIVATE | INDICATION, NULL);

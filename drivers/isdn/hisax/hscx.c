@@ -6,40 +6,49 @@
  *
  *
  * $Log$
- * Revision 1.3.2.11  1998/11/05 21:14:01  keil
- * minor fixes
+ * Revision 1.17  1999/07/01 08:11:41  keil
+ * Common HiSax version for 2.0, 2.1, 2.2 and 2.3 kernel
  *
- * Revision 1.3.2.10  1998/11/03 00:06:37  keil
- * certification related changes
- * fixed logging for smaller stack use
+ * Revision 1.16  1998/11/15 23:54:48  keil
+ * changes from 2.0
  *
- * Revision 1.3.2.9  1998/09/27 13:06:14  keil
- * Apply most changes from 2.1.X (HiSax 3.1)
+ * Revision 1.15  1998/08/20 13:50:42  keil
+ * More support for hybrid modem (not working yet)
  *
- * Revision 1.3.2.8  1998/09/15 15:25:04  keil
- * Repair HSCX init
+ * Revision 1.14  1998/08/13 23:36:33  keil
+ * HiSax 3.1 - don't work stable with current LinkLevel
  *
- * Revision 1.3.2.7  1998/06/26 22:02:55  keil
+ * Revision 1.13  1998/06/26 22:03:28  keil
  * send flags between hdlc frames
  *
- * Revision 1.3.2.6  1998/06/09 18:26:32  keil
+ * Revision 1.12  1998/06/09 18:26:01  keil
  * PH_DEACTIVATE B-channel every time signaled to higher layer
  *
- * Revision 1.3.2.5  1998/05/27 18:05:34  keil
+ * Revision 1.11  1998/05/25 14:10:07  keil
  * HiSax 3.0
+ * X.75 and leased are working again.
  *
- * Revision 1.3.2.4  1998/04/08 21:57:04  keil
- * Fix "lltrans ..." message
- * New init code to fix problems during init if S0 is allready activ
+ * Revision 1.10  1998/05/25 12:57:59  keil
+ * HiSax golden code from certification, Don't use !!!
+ * No leased lines, no X75, but many changes.
  *
- * Revision 1.3.2.3  1997/11/27 12:30:55  keil
- * cosmetic changes
+ * Revision 1.9  1998/04/15 16:45:33  keil
+ * new init code
  *
- * Revision 1.3.2.2  1997/11/15 18:54:25  keil
- * cosmetics
+ * Revision 1.8  1998/03/19 13:16:24  keil
+ * fix the correct release of the hscx
  *
- * Revision 1.3.2.1  1997/10/17 22:10:44  keil
- * new files on 2.0
+ * Revision 1.7  1998/02/12 23:07:36  keil
+ * change for 2.1.86 (removing FREE_READ/FREE_WRITE from [dev]_kfree_skb()
+ *
+ * Revision 1.6  1998/02/02 13:41:12  keil
+ * new init
+ *
+ * Revision 1.5  1997/11/06 17:09:34  keil
+ * New 2.1 init code
+ *
+ * Revision 1.4  1997/10/29 19:01:06  keil
+ * changes for 2.1
  *
  * Revision 1.3  1997/07/27 21:38:34  keil
  * new B-channel interface
@@ -104,12 +113,12 @@ modehscx(struct BCState *bcs, int mode, int bc)
 
 	if (bc == 0) {
 		cs->BC_Write_Reg(cs, hscx, HSCX_TSAX,
-			      test_bit(HW_IOM1, &cs->HW_Flags) ? 0x7 : 0x2f);
+			      test_bit(HW_IOM1, &cs->HW_Flags) ? 0x7 : bcs->hw.hscx.tsaxr0);
 		cs->BC_Write_Reg(cs, hscx, HSCX_TSAR,
-			      test_bit(HW_IOM1, &cs->HW_Flags) ? 0x7 : 0x2f);
+			      test_bit(HW_IOM1, &cs->HW_Flags) ? 0x7 : bcs->hw.hscx.tsaxr0);
 	} else {
-		cs->BC_Write_Reg(cs, hscx, HSCX_TSAX, 0x3);
-		cs->BC_Write_Reg(cs, hscx, HSCX_TSAR, 0x3);
+		cs->BC_Write_Reg(cs, hscx, HSCX_TSAX, bcs->hw.hscx.tsaxr1);
+		cs->BC_Write_Reg(cs, hscx, HSCX_TSAR, bcs->hw.hscx.tsaxr1);
 	}
 	switch (mode) {
 		case (L1_MODE_NULL):
@@ -295,6 +304,10 @@ inithscx(struct IsdnCardState *cs))
 	cs->bcs[1].BC_Close = close_hscxstate;
 	cs->bcs[0].hw.hscx.hscx = 0;
 	cs->bcs[1].hw.hscx.hscx = 1;
+	cs->bcs[0].hw.hscx.tsaxr0 = 0x2f;
+	cs->bcs[0].hw.hscx.tsaxr1 = 3;
+	cs->bcs[1].hw.hscx.tsaxr0 = 0x2f;
+	cs->bcs[1].hw.hscx.tsaxr1 = 3;
 	modehscx(cs->bcs, 0, 0);
 	modehscx(cs->bcs + 1, 0, 0);
 }

@@ -11,33 +11,33 @@
  *              Fritz Elfert
  *
  * $Log$
- * Revision 1.10.2.10  1999/05/24 21:51:07  werner
- * Changes related to new layer management.
+ * Revision 2.9  1999/07/01 08:11:53  keil
+ * Common HiSax version for 2.0, 2.1, 2.2 and 2.3 kernel
  *
- * Revision 1.10.2.9  1999/04/28 21:49:17  keil
- * More CTS2 tests
+ * Revision 2.8  1998/11/15 23:55:04  keil
+ * changes from 2.0
  *
- * Revision 1.10.2.8  1999/04/22 21:11:15  werner
- * Added support for dss1 diversion services
- *
- * Revision 1.10.2.7  1999/01/20 14:36:37  keil
- * Fixes for full CTS2 tests
- *
- * Revision 1.10.2.6  1998/11/03 00:07:06  keil
- * certification related changes
- * fixed logging for smaller stack use
- *
- * Revision 1.10.2.5  1998/09/27 13:06:39  keil
- * Apply most changes from 2.1.X (HiSax 3.1)
- *
- * Revision 1.10.2.4  1998/05/27 18:05:59  keil
+ * Revision 2.7  1998/05/25 14:10:15  keil
  * HiSax 3.0
+ * X.75 and leased are working again.
  *
- * Revision 1.10.2.3  1997/11/15 18:54:09  keil
- * cosmetics
+ * Revision 2.6  1998/05/25 12:58:11  keil
+ * HiSax golden code from certification, Don't use !!!
+ * No leased lines, no X75, but many changes.
  *
- * Revision 1.10.2.2  1997/10/17 22:14:05  keil
- * update to last hisax version
+ * Revision 2.5  1998/02/12 23:07:52  keil
+ * change for 2.1.86 (removing FREE_READ/FREE_WRITE from [dev]_kfree_skb()
+ *
+ * Revision 2.4  1997/11/06 17:09:25  keil
+ * New 2.1 init code
+ *
+ * Revision 2.3  1997/10/29 19:07:53  keil
+ * changes for 2.1
+ *
+ * Revision 2.2  1997/10/01 09:21:41  fritz
+ * Removed old compatibility stuff for 2.0.X kernels.
+ * From now on, this code is for 2.1.X ONLY!
+ * Old stuff is still in the separate branch.
  *
  * Revision 2.1  1997/08/03 14:36:32  keil
  * Implement RESTART procedure
@@ -485,15 +485,15 @@ lc_connect(struct FsmInst *fi, int event, void *arg)
 static void
 lc_connected(struct FsmInst *fi, int event, void *arg)
 {
-       struct PStack *st = fi->userdata;
-       struct sk_buff *skb = arg;
+	struct PStack *st = fi->userdata;
+	struct sk_buff *skb = arg;
 
-       FsmDelTimer(&st->l3.l3m_timer, 51);
-       FsmChangeState(fi, ST_L3_LC_ESTAB);
-       while ((skb = skb_dequeue(&st->l3.squeue))) {
-               st->l3.l3l2(st, DL_DATA | REQUEST, skb);
-       }
-       l3ml3p(st, DL_ESTABLISH | CONFIRM);
+	FsmDelTimer(&st->l3.l3m_timer, 51);
+	FsmChangeState(fi, ST_L3_LC_ESTAB);
+	while ((skb = skb_dequeue(&st->l3.squeue))) {
+		st->l3.l3l2(st, DL_DATA | REQUEST, skb);
+	}
+	l3ml3p(st, DL_ESTABLISH | CONFIRM);
 }
 
 static void

@@ -5,94 +5,80 @@
  *
  *
  * $Log$
- * Revision 1.15.2.30  1999/05/09 21:44:09  keil
- * New cards:Telekom A4T, Scitel Quadro
- * Thanks to Roland Klabunde (R.Klabunde@Berkom.de)
+ * Revision 2.24  1999/07/01 08:11:26  keil
+ * Common HiSax version for 2.0, 2.1, 2.2 and 2.3 kernel
  *
- * Revision 1.15.2.29  1999/04/28 21:47:59  keil
- * Add HST Saphir support
+ * Revision 2.23  1999/02/17 10:53:02  cpetig
+ * Added Hisax_closecard to exported symbols.
+ * As indicated by Oliver Schoett <os@sdm.de>.
  *
- * Revision 1.15.2.28  1999/04/22 21:10:17  werner
- * Added support for dss1 diversion services
+ * If anyone is annoyed by exporting symbols deep inside the code, please
+ * contact me.
  *
- * Revision 1.15.2.25  1998/11/29 15:34:07  keil
- * add Siemens I-Surf
+ * Revision 2.22  1999/02/04 21:41:53  keil
+ * Fix printk msg
  *
- * Revision 1.15.2.24  1998/11/11 13:37:53  keil
- * fix typo
+ * Revision 2.21  1999/02/04 10:48:52  keil
+ * Fix readstat bug
  *
- * Revision 1.15.2.23  1998/11/11 11:04:36  keil
- * update version
+ * Revision 2.20  1998/11/15 23:54:28  keil
+ * changes from 2.0
  *
- * Revision 1.15.2.22  1998/11/08 13:00:56  niemann
- * Added doc for Sedlbauer ISDN cards,
- * added info for downloading firmware (Sedlbauer speed fax+)
+ * Revision 2.19  1998/08/13 23:36:18  keil
+ * HiSax 3.1 - don't work stable with current LinkLevel
  *
- * Revision 1.15.2.21  1998/11/05 21:13:46  keil
- * minor fixes
+ * Revision 2.18  1998/07/30 21:01:37  niemann
+ * Fixed Sedlbauer Speed Fax PCMCIA missing isdnl3new
  *
- * Revision 1.15.2.20  1998/11/04 11:50:32  fritz
- * Make compile with modversions enabled.
- *
- * Revision 1.15.2.19  1998/11/03 00:06:05  keil
- * certification related changes
- * fixed logging for smaller stack use
- *
- * Revision 1.15.2.18  1998/10/13 10:27:26  keil
- * New cards, minor fixes
- *
- * Revision 1.15.2.17  1998/10/11 19:31:31  niemann
- * Fixed problems with CONFIG_MODVERSIONS for sedlbauer cards
- *
- * Revision 1.15.2.16  1998/09/27 13:05:48  keil
- * Apply most changes from 2.1.X (HiSax 3.1)
- *
- * Revision 1.15.2.15  1998/09/12 18:43:56  niemann
- * Added new card: Sedlbauer ISDN-Controller PC/104
- *
- * Revision 1.15.2.14  1998/08/25 14:01:27  calle
- * Ported driver for AVM Fritz!Card PCI from the 2.1 tree.
- * I could not test it.
- *
- * Revision 1.15.2.13  1998/07/30 20:51:24  niemann
- * Fixed Sedlbauer Speed Card PCMCIA missing isdnl3new
- *
- * Revision 1.15.2.12  1998/07/15 14:43:29  calle
+ * Revision 2.17  1998/07/15 15:01:26  calle
  * Support for AVM passive PCMCIA cards:
  *    A1 PCMCIA, FRITZ!Card PCMCIA and FRITZ!Card PCMCIA 2.0
  *
- * Revision 1.15.2.11  1998/05/27 18:05:07  keil
+ * Revision 2.16  1998/05/25 14:10:03  keil
  * HiSax 3.0
+ * X.75 and leased are working again.
  *
- * Revision 1.15.2.10  1998/04/11 18:43:13  keil
- * New cards
+ * Revision 2.15  1998/05/25 12:57:43  keil
+ * HiSax golden code from certification, Don't use !!!
+ * No leased lines, no X75, but many changes.
  *
- * Revision 1.15.2.9  1998/03/07 23:15:12  tsbogend
- * made HiSax working on Linux/Alpha
+ * Revision 2.14  1998/04/15 16:38:25  keil
+ * Add S0Box and Teles PCI support
  *
- * Revision 1.15.2.8  1998/02/11 19:21:37  keil
- * fix typo
+ * Revision 2.13  1998/03/09 23:19:23  keil
+ * Changes for PCMCIA
  *
- * Revision 1.15.2.7  1998/02/11 14:23:08  keil
- * support for Dr Neuhaus Niccy PnP and PCI
+ * Revision 2.12  1998/02/11 17:28:02  keil
+ * Niccy PnP/PCI support
  *
- * Revision 1.15.2.6  1998/02/09 11:21:19  keil
- * Sedlbauer PCMCIA support from Marcus Niemann
+ * Revision 2.11  1998/02/09 21:26:13  keil
+ * fix export module for 2.1
  *
- * Revision 1.15.2.5  1998/01/27 23:28:48  keil
- * v2.8
+ * Revision 2.10  1998/02/09 18:46:05  keil
+ * Support for Sedlbauer PCMCIA (Marcus Niemann)
  *
- * Revision 1.15.2.4  1998/01/27 22:33:53  keil
- * dynalink ----> asuscom
+ * Revision 2.9  1998/02/03 23:31:28  keil
+ * add AMD7930 support
  *
- * Revision 1.15.2.3  1998/01/11 22:55:15  keil
- * 16.3c support
+ * Revision 2.8  1998/02/02 13:32:59  keil
+ * New card support
  *
- * Revision 1.15.2.2  1997/11/15 18:55:46  keil
- * New init, new cards
+ * Revision 2.7  1998/01/31 21:41:44  keil
+ * changes for newer 2.1 kernels
  *
- * Revision 1.15.2.1  1997/10/17 22:13:40  keil
- * update to last hisax version
+ * Revision 2.6  1997/11/08 21:35:43  keil
+ * new l1 init
+ *
+ * Revision 2.5  1997/11/06 17:15:08  keil
+ * New 2.1 init; PCMCIA wrapper changes
+ *
+ * Revision 2.4  1997/10/29 19:07:52  keil
+ * changes for 2.1
+ *
+ * Revision 2.3  1997/10/01 09:21:33  fritz
+ * Removed old compatibility stuff for 2.0.X kernels.
+ * From now on, this code is for 2.1.X ONLY!
+ * Old stuff is still in the separate branch.
  *
  * Revision 2.2  1997/09/11 17:24:46  keil
  * Add new cards
@@ -114,7 +100,6 @@
 #include "hisax.h"
 #include <linux/module.h>
 #include <linux/kernel_stat.h>
-#define kstat_irqs( PAR ) kstat.interrupts[PAR]
 #include <linux/tqueue.h>
 #include <linux/interrupt.h>
 #define HISAX_STATUS_BUFSIZE 4096
@@ -161,8 +146,9 @@
  *   30 ACER P10                p0=irq p1=iobase (from isapnp setup)   
  *   31 HST Saphir              p0=irq  p1=iobase
  *   32 Telekom A4T             none
- *   33 Scitel Quadro			p0=subcontroller (4*S0, subctrl 1...4)
- *   34 HFC 2BDS0 PCI           none
+ *   33 Scitel Quadro		p0=subcontroller (4*S0, subctrl 1...4)
+ *   34	Gazel ISDN cards
+ *   35 HFC 2BDS0 PCI           none
  * protocol can be either ISDN_PTYPE_EURO or ISDN_PTYPE_1TR6 or ISDN_PTYPE_NI1
  *
  *
@@ -176,22 +162,26 @@ const char *CardType[] =
  "Compaq ISA", "NETjet", "Teles PCI", "Sedlbauer Speed Star (PCMCIA)",
  "AMD 7930", "NICCY", "S0Box", "AVM A1 (PCMCIA)", "AVM Fritz PnP/PCI",
  "Sedlbauer Speed Fax +", "Siemens I-Surf", "Acer P10", "HST Saphir",
- "Telekom A4T", "Scitel Quadro","HFC 2BDS0 PCI",
+ "Telekom A4T", "Scitel Quadro", "Gazel", "HFC 2BDS0 PCI",
 };
+
+void HiSax_closecard(int cardnr);
 
 #ifdef CONFIG_HISAX_ELSA
 #define DEFAULT_CARD ISDN_CTYPE_ELSA
 #define DEFAULT_CFG {0,0,0,0}
 int elsa_init_pcmcia(void*, int, int*, int);
+#ifdef COMPAT_HAS_NEW_SYMTAB
+EXPORT_SYMBOL(elsa_init_pcmcia);
+#else
 static struct symbol_table hisax_syms_elsa = {
 #include <linux/symtab_begin.h>
 	X(elsa_init_pcmcia),
 #include <linux/symtab_end.h>
 };
-void register_elsa_symbols(void) {
-	register_symtab(&hisax_syms_elsa);
-}
-#endif
+#endif /* COMPAT_HAS_NEW_SYMTAB */
+#endif /* CONFIG_HISAX_ELSA */
+
 #ifdef CONFIG_HISAX_AVM_A1
 #undef DEFAULT_CARD
 #undef DEFAULT_CFG
@@ -205,17 +195,17 @@ void register_elsa_symbols(void) {
 #define DEFAULT_CARD ISDN_CTYPE_A1_PCMCIA
 #define DEFAULT_CFG {11,0x170,0,0}
 int avm_a1_init_pcmcia(void*, int, int*, int);
-void HiSax_closecard(int cardnr);
+#ifdef COMPAT_HAS_NEW_SYMTAB
+EXPORT_SYMBOL(avm_a1_init_pcmcia);
+#else
 static struct symbol_table hisax_syms_avm_a1= {
 #include <linux/symtab_begin.h>
 	X(avm_a1_init_pcmcia),
 	X(HiSax_closecard),
 #include <linux/symtab_end.h>
 };
-void register_avm_a1_symbols(void) {
-	register_symtab(&hisax_syms_avm_a1);
-}
-#endif
+#endif /* COMPAT_HAS_NEW_SYMTAB */
+#endif /* CONFIG_HISAX_AVM_A1_PCMCIA */
 
 #ifdef CONFIG_HISAX_FRITZPCI
 #undef DEFAULT_CARD
@@ -286,12 +276,16 @@ void register_avm_a1_symbols(void) {
 #define DEFAULT_CARD ISDN_CTYPE_SEDLBAUER
 #define DEFAULT_CFG {11,0x270,0,0}
 int sedl_init_pcmcia(void*, int, int*, int);
+#ifdef COMPAT_HAS_NEW_SYMTAB
+EXPORT_SYMBOL(sedl_init_pcmcia);
+#else
 static struct symbol_table hisax_syms_sedl= {
 #include <linux/symtab_begin.h>
 	X(sedl_init_pcmcia),
 #include <linux/symtab_end.h>
 };
-#endif
+#endif /* COMPAT_HAS_NEW_SYMTAB */
+#endif /* CONFIG_HISAX_SEDLBAUER */
 
 #ifdef CONFIG_HISAX_SPORTSTER
 #undef DEFAULT_CARD
@@ -371,6 +365,13 @@ static struct symbol_table hisax_syms_sedl= {
 #define DEFAULT_CFG {1,0x0,0,0}
 #endif
 
+#ifdef CONFIG_HISAX_GAZEL
+#undef DEFAULT_CARD
+#undef DEFAULT_CFG
+#define DEFAULT_CARD ISDN_CTYPE_GAZEL
+#define DEFAULT_CFG {15,0x180,0,0}
+#endif
+
 #ifdef CONFIG_HISAX_1TR6
 #define DEFAULT_PROTO ISDN_PTYPE_1TR6
 #define DEFAULT_PROTO_NAME "1TR6"
@@ -448,7 +449,7 @@ static int mem[] HISAX_INITDATA =
 {0, 0, 0, 0, 0, 0, 0, 0};
 static char *id HISAX_INITDATA = HiSaxID;
 
-#if (LINUX_VERSION_CODE > 0x020111)
+#ifdef COMPAT_HAS_NEW_SYMTAB
 MODULE_AUTHOR("Karsten Keil");
 MODULE_PARM(type, "1-8i");
 MODULE_PARM(protocol, "1-8i");
@@ -460,7 +461,7 @@ MODULE_PARM(id, "s");
 MODULE_PARM(io0, "1-8i");
 MODULE_PARM(io1, "1-8i");
 #endif /* CONFIG_HISAX_16_3 */
-#endif /* (LINUX_VERSION_CODE > 0x020111) */
+#endif /* COMPAT_HAS_NEW_SYMTAB */
 #endif /* MODULE */
 
 int nrcards;
@@ -669,6 +670,10 @@ extern int setup_bkm_a4t(struct IsdnCard *card);
 
 #if	CARD_SCT_QUADRO
 extern int setup_sct_quadro(struct IsdnCard *card);
+#endif
+
+#if CARD_GAZEL
+extern int setup_gazel(struct IsdnCard *card);
 #endif
 
 /*
@@ -943,8 +948,7 @@ HISAX_INITFUNC(static int init_card(struct IsdnCardState *cs))
 		sti();
 		current->state = TASK_INTERRUPTIBLE;
 		/* Timeout 10ms */
-		current->timeout = jiffies + (10 * HZ) / 1000;
-		schedule();
+		schedule_timeout((10*HZ)/1000);
 		restore_flags(flags);
 		printk(KERN_INFO "%s: IRQ %d count %d\n", CardType[cs->typ],
 			cs->irq, kstat_irqs(cs->irq));
@@ -1189,6 +1193,11 @@ checkcard(int cardnr, char *id, int *busy_flag))
     			ret = setup_sct_quadro(card);
 			break;
 #endif
+#if CARD_GAZEL
+ 		case ISDN_CTYPE_GAZEL:
+ 			ret = setup_gazel(card);
+ 			break;
+#endif
 		default:
 			printk(KERN_WARNING
 				"HiSax: Support for %s Card not selected\n",
@@ -1341,11 +1350,13 @@ HiSax_reportcard(int cardnr)
 		cs->bcs[0].mode, cs->bcs[0].channel);
 	printk(KERN_DEBUG "HiSax: bcs 1 mode %d ch%d\n",
 		cs->bcs[1].mode, cs->bcs[1].channel);
+	printk(KERN_DEBUG "HiSax: cs setstack_d 0x%lX\n", (ulong) cs->setstack_d);
 	printk(KERN_DEBUG "HiSax: cs stl 0x%lX\n", (ulong) & (cs->stlist));
 	stptr = cs->stlist;
 	while (stptr != NULL) {
 		printk(KERN_DEBUG "HiSax: dst%d 0x%lX\n", i, (ulong) stptr);
 		printk(KERN_DEBUG "HiSax: dst%d stp 0x%lX\n", i, (ulong) stptr->l1.stlistp);
+		printk(KERN_DEBUG "HiSax: dst%d l1.l1hw 0x%lX\n", i, (ulong) stptr->l1.l1hw);
 		printk(KERN_DEBUG "HiSax:   tei %d sapi %d\n",
 		       stptr->l2.tei, stptr->l2.sap);
 		printk(KERN_DEBUG "HiSax:      man 0x%lX\n", (ulong) stptr->ma.layer);
@@ -1385,21 +1396,27 @@ HiSax_init(void))
 #ifdef CONFIG_HISAX_ELSA
 	if (type[0] == ISDN_CTYPE_ELSA_PCMCIA) {
 		/* we have exported  and return in this case */
-		register_elsa_symbols();
+#ifndef COMPAT_HAS_NEW_SYMTAB
+		register_symtab(&hisax_syms_elsa);
+#endif
 		return 0;
 	}
 #endif
 #ifdef CONFIG_HISAX_SEDLBAUER
 	if (type[0] == ISDN_CTYPE_SEDLBAUER_PCMCIA) {
 		/* we have to export  and return in this case */
+#ifndef COMPAT_HAS_NEW_SYMTAB
 		register_symtab(&hisax_syms_sedl);
+#endif
 		return 0;
 	}
 #endif
 #ifdef CONFIG_HISAX_AVM_A1_PCMCIA
 	if (type[0] == ISDN_CTYPE_A1_PCMCIA) {
 		/* we have to export  and return in this case */
-		register_avm_a1_symbols();
+#ifndef COMPAT_HAS_NEW_SYMTAB
+		register_symtab(&hisax_syms_avm_a1);
+#endif
 		return 0;
 	}
 #endif
@@ -1464,6 +1481,7 @@ HiSax_init(void))
 			case ISDN_CTYPE_S0BOX:
 			case ISDN_CTYPE_FRITZPCI:
 			case ISDN_CTYPE_HSTSAPHIR:
+			case ISDN_CTYPE_GAZEL:
 				cards[i].para[0] = irq[i];
 				cards[i].para[1] = io[i];
 				break;
@@ -1507,12 +1525,13 @@ HiSax_init(void))
 	Isdnl1New();
 	if (HiSax_inithardware(NULL)) {
 		/* Install only, if at least one card found */
-		/* No symbols to export, hide all symbols */
-
 #ifdef MODULE
+#ifndef COMPAT_HAS_NEW_SYMTAB
+		/* No symbols to export, hide all symbols */
 		register_symtab(NULL);
 		printk(KERN_INFO "HiSax: module installed\n");
-#endif
+#endif /* COMPAT_HAS_NEW_SYMTAB */
+#endif /* MODULE */
 		return (0);
 	} else {
 		Isdnl1Free();

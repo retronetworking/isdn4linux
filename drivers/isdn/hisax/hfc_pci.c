@@ -3,7 +3,7 @@
  * hfc_pci.c     low level driver for CCD´s hfc-pci based cards
  *
  * Author     Werner Cornelius (werner@isdn4linux.de)
- *            based on existing driver for CCD hfc ISA cards      
+ *            based on existing driver for CCD hfc ISA cards
  *
  * Copyright 1999  by Werner Cornelius (werner@isdn4linux.de)
  * Copyright 1999  by Karsten Keil (keil@isdn4linux.de)
@@ -23,6 +23,12 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.3  1999/07/01 09:43:19  keil
+ * removed additional schedules in timeouts
+ *
+ * Revision 1.2  1999/07/01 08:07:51  keil
+ * Initial version
+ *
  *
  *
  */
@@ -32,13 +38,16 @@
 #include "hfc_pci.h"
 #include "isdnl1.h"
 #include <linux/pci.h>
+#ifndef COMPAT_HAS_NEW_PCI
 #include <linux/bios32.h>
+#endif
 #include <linux/interrupt.h>
 
 extern const char *CardType[];
 
 static const char *hfcpci_revision = "$Revision$";
 
+#if CONFIG_PCI
 /*****************************/
 /* release D- and B-channels */
 /*****************************/
@@ -62,70 +71,63 @@ void
 release_io_hfcpci(struct IsdnCardState *cs)
 {
 #if CONFIG_PCI
-	pcibios_write_config_word(cs->hw.hfcpci.pci_bus, cs->hw.hfcpci.pci_device_fn, PCI_COMMAND, 0); /* disabe memory mapped ports + busmaster */
-#endif CONFIG_PCI        
+	pcibios_write_config_word(cs->hw.hfcpci.pci_bus, cs->hw.hfcpci.pci_device_fn, PCI_COMMAND, 0);	/* disabe memory mapped ports + busmaster */
+#endif	/* CONFIG_PCI */
 	releasehfcpci(cs);
 	del_timer(&cs->hw.hfcpci.timer);
 	kfree(cs->hw.hfcpci.share_start);
-        cs->hw.hfcpci.share_start = NULL;
-        vfree(cs->hw.hfcpci.pci_io);
+	cs->hw.hfcpci.share_start = NULL;
+	vfree(cs->hw.hfcpci.pci_io);
 }
 
 /********************************************************************************/
 /* function called to reset the HFC PCI chip. A complete software reset of chip */
 /* and fifos is done.                                                           */
-/********************************************************************************/  
+/********************************************************************************/
 static void
 reset_hfcpci(struct IsdnCardState *cs)
 {
 	long flags;
 
-#if CONFIG_PCI
-	pcibios_write_config_word(cs->hw.hfcpci.pci_bus, cs->hw.hfcpci.pci_device_fn, PCI_COMMAND, PCI_ENA_MEMIO); /* enable memory mapped ports, disable busmaster */
-#endif CONFIG_PCI        
-
+	pcibios_write_config_word(cs->hw.hfcpci.pci_bus, cs->hw.hfcpci.pci_device_fn, PCI_COMMAND, PCI_ENA_MEMIO);	/* enable memory mapped ports, disable busmaster */
 	printk(KERN_INFO "HFC_PCI: resetting card\n");
-#if CONFIG_PCI
-	pcibios_write_config_word(cs->hw.hfcpci.pci_bus, cs->hw.hfcpci.pci_device_fn, PCI_COMMAND, PCI_ENA_MEMIO+PCI_ENA_MASTER); /* enable memory ports + busmaster */
-#endif CONFIG_PCI        
-	Write_hfc(cs, HFCPCI_CIRM, HFCPCI_RESET ); /* Reset On */
+	pcibios_write_config_word(cs->hw.hfcpci.pci_bus, cs->hw.hfcpci.pci_device_fn, PCI_COMMAND, PCI_ENA_MEMIO + PCI_ENA_MASTER);	/* enable memory ports + busmaster */
+	Write_hfc(cs, HFCPCI_CIRM, HFCPCI_RESET);	/* Reset On */
 	save_flags(flags);
 	sti();
 	current->state = TASK_INTERRUPTIBLE;
-	current->timeout = jiffies + 3;
-	schedule();
+	schedule_timeout((30 * HZ) / 1000);	/* Timeout 30ms */
 	Write_hfc(cs, HFCPCI_CIRM, 0);	/* Reset Off */
 	current->state = TASK_INTERRUPTIBLE;
-	current->timeout = jiffies + 2;
-	schedule();
+	schedule_timeout((20 * HZ) / 1000);	/* Timeout 20ms */
 	if (Read_hfc(cs, HFCPCI_STATUS) & 2)
-	  printk(KERN_WARNING "HFC-PCI init bit busy\n");
+		printk(KERN_WARNING "HFC-PCI init bit busy\n");
 
-	cs->hw.hfcpci.fifo_en = 0x30; /* only D fifos enabled */
-        Write_hfc(cs, HFCPCI_FIFO_EN, cs->hw.hfcpci.fifo_en);
+	cs->hw.hfcpci.fifo_en = 0x30;	/* only D fifos enabled */
+	Write_hfc(cs, HFCPCI_FIFO_EN, cs->hw.hfcpci.fifo_en);
 
-        Write_hfc(cs, HFCPCI_CLKDEL, 0x0e); /* ST-Bit delay for TE-Mode */
-	Write_hfc(cs, HFCPCI_SCTRL_E, HFCPCI_AUTO_AWAKE); /* S/T Auto awake */
+	Write_hfc(cs, HFCPCI_CLKDEL, 0x0e);	/* ST-Bit delay for TE-Mode */
+	Write_hfc(cs, HFCPCI_SCTRL_E, HFCPCI_AUTO_AWAKE);	/* S/T Auto awake */
 	cs->hw.hfcpci.ctmt = HFCPCI_TIM3_125 | HFCPCI_AUTO_TIMER;
 	Write_hfc(cs, HFCPCI_CTMT, cs->hw.hfcpci.ctmt);
 
 	cs->hw.hfcpci.int_m2 = HFCPCI_IRQ_ENABLE;
 	cs->hw.hfcpci.int_m1 = HFCPCI_INTS_B1TRANS | HFCPCI_INTS_B2TRANS |
-		HFCPCI_INTS_DTRANS | HFCPCI_INTS_B1REC | HFCPCI_INTS_B2REC |
-		HFCPCI_INTS_DREC | HFCPCI_INTS_L1STATE | HFCPCI_CLTIMER;
+	    HFCPCI_INTS_DTRANS | HFCPCI_INTS_B1REC | HFCPCI_INTS_B2REC |
+	    HFCPCI_INTS_DREC | HFCPCI_INTS_L1STATE | HFCPCI_CLTIMER;
 	Write_hfc(cs, HFCPCI_INT_M1, cs->hw.hfcpci.int_m1);
 	Write_hfc(cs, HFCPCI_INT_M2, cs->hw.hfcpci.int_m2);
 
-        /* Clear already pending ints */ 
-        if (Read_hfc(cs, HFCPCI_INT_S1));
+	/* Clear already pending ints */
+	if (Read_hfc(cs, HFCPCI_INT_S1));
 	if (Read_hfc(cs, HFCPCI_INT_S2));
 
-	Write_hfc(cs, HFCPCI_STATES, HFCPCI_LOAD_STATE | 2); /* HFC ST 2 */
+	Write_hfc(cs, HFCPCI_STATES, HFCPCI_LOAD_STATE | 2);	/* HFC ST 2 */
 	udelay(10);
-	Write_hfc(cs, HFCPCI_STATES, 2); /* HFC ST 2 */
-	cs->hw.hfcpci.mst_m = HFCPCI_MASTER; /* HFC Master Mode */
+	Write_hfc(cs, HFCPCI_STATES, 2);	/* HFC ST 2 */
+	cs->hw.hfcpci.mst_m = HFCPCI_MASTER;	/* HFC Master Mode */
 
-	Write_hfc(cs, HFCPCI_MST_MODE, cs->hw.hfcpci.mst_m); 
+	Write_hfc(cs, HFCPCI_MST_MODE, cs->hw.hfcpci.mst_m);
 	cs->hw.hfcpci.sctrl = 0;
 	Write_hfc(cs, HFCPCI_SCTRL, cs->hw.hfcpci.sctrl);
 	restore_flags(flags);
@@ -139,9 +141,9 @@ hfcpci_Timer(struct IsdnCardState *cs)
 {
 	cs->hw.hfcpci.timer.expires = jiffies + 75;
 	/* WD RESET */
-/*	WriteReg(cs, HFCD_DATA, HFCD_CTMT, cs->hw.hfcpci.ctmt | 0x80);
-	add_timer(&cs->hw.hfcpci.timer);
-*/
+/*      WriteReg(cs, HFCD_DATA, HFCD_CTMT, cs->hw.hfcpci.ctmt | 0x80);
+   add_timer(&cs->hw.hfcpci.timer);
+ */
 }
 
 
@@ -170,44 +172,46 @@ hfcpci_sched_event(struct BCState *bcs, int event)
 /************************************************/
 /* select a b-channel entry matching and active */
 /************************************************/
-static 
-struct BCState *Sel_BCS(struct IsdnCardState *cs, int channel)
+static
+struct BCState *
+Sel_BCS(struct IsdnCardState *cs, int channel)
 {
 	if (cs->bcs[0].mode && (cs->bcs[0].channel == channel))
-		return(&cs->bcs[0]);
+		return (&cs->bcs[0]);
 	else if (cs->bcs[1].mode && (cs->bcs[1].channel == channel))
-		return(&cs->bcs[1]);
+		return (&cs->bcs[1]);
 	else
-		return(NULL);
+		return (NULL);
 }
 
 /*********************************************/
 /* read a complete B-frame out of the buffer */
 /*********************************************/
 static struct sk_buff
-*hfcpci_empty_fifo(struct BCState *bcs, bzfifo_type *bz, u_char *bdata, int count)
+*
+hfcpci_empty_fifo(struct BCState *bcs, bzfifo_type * bz, u_char * bdata, int count)
 {
-	u_char *ptr,*ptr1, new_f2;
+	u_char *ptr, *ptr1, new_f2;
 	struct sk_buff *skb;
 	struct IsdnCardState *cs = bcs->cs;
 	int flags, total, maxlen, new_z2;
-        z_type *zp;
-	
+	z_type *zp;
+
 	save_flags(flags);
 	sti();
 	if ((cs->debug & L1_DEB_HSCX) && !(cs->debug & L1_DEB_HSCX_FIFO))
 		debugl1(cs, "hfcpci_empty_fifo");
-        zp = &bz->za[bz->f2]; /* point to Z-Regs */
-	new_z2 = zp->z2 + count; /* new position in fifo */
+	zp = &bz->za[bz->f2];	/* point to Z-Regs */
+	new_z2 = zp->z2 + count;	/* new position in fifo */
 	if (new_z2 >= (B_FIFO_SIZE + B_SUB_VAL))
-	  new_z2 -= B_FIFO_SIZE; /* buffer wrap */
+		new_z2 -= B_FIFO_SIZE;	/* buffer wrap */
 	new_f2 = (bz->f2 + 1) & MAX_B_FRAMES;
 	if ((count > HSCX_BUFMAX + 3) || (count < 4) ||
-	   (*(bdata+(zp->z1 - B_SUB_VAL)))) {
+	    (*(bdata + (zp->z1 - B_SUB_VAL)))) {
 		if (cs->debug & L1_DEB_WARN)
 			debugl1(cs, "hfcpci_empty_fifo: incoming packet invalid length %d or crc", count);
-                        bz->za[new_f2].z2 = new_z2;
-			bz->f2 = new_f2; /* next buffer */
+		bz->za[new_f2].z2 = new_z2;
+		bz->f2 = new_f2;	/* next buffer */
 		skb = NULL;
 	} else if (!(skb = dev_alloc_skb(count - 3)))
 		printk(KERN_WARNING "HFCPCI: receive out of memory\n");
@@ -217,23 +221,23 @@ static struct sk_buff
 		count -= 3;
 		ptr = skb_put(skb, count);
 
-		if (zp->z1 >= zp->z2) 
-		  maxlen = count; /* complete transfer */
+		if (zp->z1 >= zp->z2)
+			maxlen = count;		/* complete transfer */
 		else
-		  maxlen = B_FIFO_SIZE + B_SUB_VAL - zp->z2; /* maximum */
+			maxlen = B_FIFO_SIZE + B_SUB_VAL - zp->z2;	/* maximum */
 
-		ptr1 = bdata + (zp->z2 - B_SUB_VAL); /* start of data */
-		memcpy(ptr, ptr1, maxlen); /* copy data */
+		ptr1 = bdata + (zp->z2 - B_SUB_VAL);	/* start of data */
+		memcpy(ptr, ptr1, maxlen);	/* copy data */
 		count -= maxlen;
 
-		if (count) { /* rest remaining */
-		  ptr += maxlen; 
-		  ptr1 = bdata; /* start of buffer */
-		  memcpy(ptr, ptr1, count); /* rest */
+		if (count) {	/* rest remaining */
+			ptr += maxlen;
+			ptr1 = bdata;	/* start of buffer */
+			memcpy(ptr, ptr1, count);	/* rest */
 		}
-                bz->za[new_f2].z2 = new_z2;
-		bz->f2 = new_f2; /* next buffer */
-		
+		bz->za[new_f2].z2 = new_z2;
+		bz->f2 = new_f2;	/* next buffer */
+
 	}
 	restore_flags(flags);
 	return (skb);
@@ -243,23 +247,24 @@ static struct sk_buff
 /* D-channel receive procedure */
 /*******************************/
 static
-int receive_dmsg(struct IsdnCardState *cs)
+int
+receive_dmsg(struct IsdnCardState *cs)
 {
 	struct sk_buff *skb;
 	int maxlen;
-	int rcnt,total;
-	int count=5;
+	int rcnt, total;
+	int count = 5;
 	u_char *ptr, *ptr1;
 	dfifo_type *df;
-        z_type *zp;
+	z_type *zp;
 
-	df = &((fifo_area *)(cs->hw.hfcpci.fifos))->d_chan.d_rx;
+	df = &((fifo_area *) (cs->hw.hfcpci.fifos))->d_chan.d_rx;
 	if (test_and_set_bit(FLG_LOCK_ATOMIC, &cs->HW_Flags)) {
 		debugl1(cs, "rec_dmsg blocked");
-		return(1);
+		return (1);
 	}
 	while (((df->f1 & D_FREG_MASK) != (df->f2 & D_FREG_MASK)) && count--) {
-	        zp = &df->za[df->f2 & D_FREG_MASK];
+		zp = &df->za[df->f2 & D_FREG_MASK];
 		rcnt = zp->z1 - zp->z2;
 		if (rcnt < 0)
 			rcnt += D_FIFO_SIZE;
@@ -269,33 +274,33 @@ int receive_dmsg(struct IsdnCardState *cs)
 				df->f1, df->f2, zp->z1, zp->z2, rcnt);
 
 		if ((rcnt > MAX_DFRAME_LEN + 3) || (rcnt < 4) ||
-		     (df->data[zp->z1])) {
+		    (df->data[zp->z1])) {
 			if (cs->debug & L1_DEB_WARN)
 				debugl1(cs, "empty_fifo hfcpci paket inv. len %d or crc %d", rcnt, df->data[zp->z1]);
-			df->f2 = ((df->f2 + 1) & MAX_D_FRAMES) | (MAX_D_FRAMES + 1); /* next buffer */
-                        df->za[df->f2 & D_FREG_MASK].z2 = (zp->z2 + rcnt) & (D_FIFO_SIZE - 1);
+			df->f2 = ((df->f2 + 1) & MAX_D_FRAMES) | (MAX_D_FRAMES + 1);	/* next buffer */
+			df->za[df->f2 & D_FREG_MASK].z2 = (zp->z2 + rcnt) & (D_FIFO_SIZE - 1);
 		} else if ((skb = dev_alloc_skb(rcnt - 3))) {
 			SET_SKB_FREE(skb);
 			total = rcnt;
 			rcnt -= 3;
 			ptr = skb_put(skb, rcnt);
 
-			if (zp->z1 >= zp->z2) 
-			  maxlen = rcnt; /* complete transfer */
+			if (zp->z1 >= zp->z2)
+				maxlen = rcnt;	/* complete transfer */
 			else
-			  maxlen = D_FIFO_SIZE - zp->z2; /* maximum */
+				maxlen = D_FIFO_SIZE - zp->z2;	/* maximum */
 
-			ptr1 = df->data + zp->z2; /* start of data */
-			memcpy(ptr, ptr1, maxlen); /* copy data */
+			ptr1 = df->data + zp->z2;	/* start of data */
+			memcpy(ptr, ptr1, maxlen);	/* copy data */
 			rcnt -= maxlen;
 
-			if (rcnt) { /* rest remaining */
-			  ptr += maxlen;
-			  ptr1 = df->data; /* start of buffer */
-			  memcpy(ptr, ptr1, rcnt); /* rest */
+			if (rcnt) {	/* rest remaining */
+				ptr += maxlen;
+				ptr1 = df->data;	/* start of buffer */
+				memcpy(ptr, ptr1, rcnt);	/* rest */
 			}
-			df->f2 = ((df->f2 + 1) & MAX_D_FRAMES) | (MAX_D_FRAMES + 1); /* next buffer */
-                        df->za[df->f2 & D_FREG_MASK].z2 = (zp->z2 + total) & (D_FIFO_SIZE - 1);
+			df->f2 = ((df->f2 + 1) & MAX_D_FRAMES) | (MAX_D_FRAMES + 1);	/* next buffer */
+			df->za[df->f2 & D_FREG_MASK].z2 = (zp->z2 + total) & (D_FIFO_SIZE - 1);
 
 			skb_queue_tail(&cs->rq, skb);
 			sched_event_D_pci(cs, D_RCVBUFREADY);
@@ -303,8 +308,8 @@ int receive_dmsg(struct IsdnCardState *cs)
 			printk(KERN_WARNING "HFC-PCI: D receive out of memory\n");
 	}
 	test_and_clear_bit(FLG_LOCK_ATOMIC, &cs->HW_Flags);
-	return(1);
-} 
+	return (1);
+}
 
 /**********************************/
 /* B-channel main receive routine */
@@ -319,23 +324,22 @@ main_rec_hfcpci(struct BCState *bcs)
 	struct sk_buff *skb;
 	bzfifo_type *bz;
 	u_char *bdata;
-        z_type *zp;
+	z_type *zp;
 
 
 	save_flags(flags);
 	if (bcs->channel) {
-	  bz = &((fifo_area *)(cs->hw.hfcpci.fifos))->b_chans.rxbz_b2;
-	  bdata = ((fifo_area *)(cs->hw.hfcpci.fifos))->b_chans.rxdat_b2;
+		bz = &((fifo_area *) (cs->hw.hfcpci.fifos))->b_chans.rxbz_b2;
+		bdata = ((fifo_area *) (cs->hw.hfcpci.fifos))->b_chans.rxdat_b2;
+	} else {
+		bz = &((fifo_area *) (cs->hw.hfcpci.fifos))->b_chans.rxbz_b1;
+		bdata = ((fifo_area *) (cs->hw.hfcpci.fifos))->b_chans.rxdat_b1;
 	}
-        else {
-	  bz = &((fifo_area *)(cs->hw.hfcpci.fifos))->b_chans.rxbz_b1;
-	  bdata = ((fifo_area *)(cs->hw.hfcpci.fifos))->b_chans.rxdat_b1;
-	}  
-    Begin:
+      Begin:
 	count--;
 	cli();
 	if (test_and_set_bit(FLG_LOCK_ATOMIC, &cs->HW_Flags)) {
-		debugl1(cs,"rec_data %d blocked", bcs->channel);
+		debugl1(cs, "rec_data %d blocked", bcs->channel);
 		restore_flags(flags);
 		return;
 	}
@@ -344,13 +348,13 @@ main_rec_hfcpci(struct BCState *bcs)
 		if (cs->debug & L1_DEB_HSCX)
 			debugl1(cs, "hfcpci rec %d f1(%d) f2(%d)",
 				bcs->channel, bz->f1, bz->f2);
-	        zp = &bz->za[bz->f2];
+		zp = &bz->za[bz->f2];
 
 		rcnt = zp->z1 - zp->z2;
 		if (rcnt < 0)
 			rcnt += B_FIFO_SIZE;
 		rcnt++;
- 		if (cs->debug & L1_DEB_HSCX)
+		if (cs->debug & L1_DEB_HSCX)
 			debugl1(cs, "hfcpci rec %d z1(%x) z2(%x) cnt(%d)",
 				bcs->channel, zp->z1, zp->z2, rcnt);
 		if ((skb = hfcpci_empty_fifo(bcs, bz, bdata, rcnt))) {
@@ -360,9 +364,9 @@ main_rec_hfcpci(struct BCState *bcs)
 			hfcpci_sched_event(bcs, B_RCVBUFREADY);
 		}
 		rcnt = bz->f1 - bz->f2;
-		if (rcnt<0)
+		if (rcnt < 0)
 			rcnt += MAX_B_FRAMES + 1;
-		if (rcnt>1)
+		if (rcnt > 1)
 			receive = 1;
 		else
 			receive = 0;
@@ -370,7 +374,7 @@ main_rec_hfcpci(struct BCState *bcs)
 		receive = 0;
 	test_and_clear_bit(FLG_LOCK_ATOMIC, &cs->HW_Flags);
 	if (count && receive)
-		goto Begin;	
+		goto Begin;
 	restore_flags(flags);
 	return;
 }
@@ -385,32 +389,31 @@ hfcpci_fill_dfifo(struct IsdnCardState *cs)
 	int fcnt;
 	int count, new_z1, maxlen;
 	dfifo_type *df;
-        u_char *src, *dst, new_f1; 
+	u_char *src, *dst, new_f1;
 
 	if (!cs->tx_skb)
 		return;
 	if (cs->tx_skb->len <= 0)
 		return;
 
-	df = &((fifo_area *)(cs->hw.hfcpci.fifos))->d_chan.d_tx;
+	df = &((fifo_area *) (cs->hw.hfcpci.fifos))->d_chan.d_tx;
 
 	if (cs->debug & L1_DEB_ISAC)
 		debugl1(cs, "hfcpci_fill_Dfifo f1(%d) f2(%d) z1(f1)(%x)",
 			df->f1, df->f2,
 			df->za[df->f1 & D_FREG_MASK].z1);
-	fcnt = df->f1 - df->f2; /* frame count actually buffered */ 
+	fcnt = df->f1 - df->f2;	/* frame count actually buffered */
 	if (fcnt < 0)
-	  fcnt += (MAX_D_FRAMES + 1); /* if wrap around */
+		fcnt += (MAX_D_FRAMES + 1);	/* if wrap around */
 	if (fcnt > (MAX_D_FRAMES - 1)) {
 		if (cs->debug & L1_DEB_ISAC)
 			debugl1(cs, "hfcpci_fill_Dfifo more as 14 frames");
 		return;
 	}
-
-        /* now determine free bytes in FIFO buffer */
-        count = df->za[df->f1 & D_FREG_MASK].z2 - df->za[df->f1 & D_FREG_MASK].z1;
-        if (count <= 0) 
-	  count += D_FIFO_SIZE; /* count now contains available bytes */
+	/* now determine free bytes in FIFO buffer */
+	count = df->za[df->f1 & D_FREG_MASK].z2 - df->za[df->f1 & D_FREG_MASK].z1;
+	if (count <= 0)
+		count += D_FIFO_SIZE;	/* count now contains available bytes */
 
 	if (cs->debug & L1_DEB_ISAC)
 		debugl1(cs, "hfcpci_fill_Dfifo count(%ld/%d)",
@@ -420,27 +423,27 @@ hfcpci_fill_dfifo(struct IsdnCardState *cs)
 			debugl1(cs, "hfcpci_fill_Dfifo no fifo mem");
 		return;
 	}
-	count = cs->tx_skb->len; /* get frame len */
+	count = cs->tx_skb->len;	/* get frame len */
 	new_z1 = (df->za[df->f1 & D_FREG_MASK].z1 + count) & (D_FIFO_SIZE - 1);
 	new_f1 = ((df->f1 + 1) & D_FREG_MASK) | (D_FREG_MASK + 1);
-	src = cs->tx_skb->data; /* source pointer */
+	src = cs->tx_skb->data;	/* source pointer */
 	dst = df->data + df->za[df->f1 & D_FREG_MASK].z1;
-        maxlen = D_FIFO_SIZE - df->za[df->f1 & D_FREG_MASK].z1; /* end fifo */
+	maxlen = D_FIFO_SIZE - df->za[df->f1 & D_FREG_MASK].z1;		/* end fifo */
 	if (maxlen > count)
-	  maxlen = count; /* limit size */
-        memcpy(dst,src,maxlen); /* first copy */
+		maxlen = count;	/* limit size */
+	memcpy(dst, src, maxlen);	/* first copy */
 
-	count -= maxlen; /* remaining bytes */
+	count -= maxlen;	/* remaining bytes */
 	if (count) {
-	  dst = df->data; /* start of buffer */
-	  src += maxlen; /* new position */
-	  memcpy(dst,src,count);
-	}  
+		dst = df->data;	/* start of buffer */
+		src += maxlen;	/* new position */
+		memcpy(dst, src, count);
+	}
 	save_flags(flags);
 	cli();
-	df->za[new_f1 & D_FREG_MASK].z1 = new_z1; /* for next buffer */
-	df->za[df->f1 & D_FREG_MASK].z1 = new_z1; /* new pos actual buffer */
-	df->f1 = new_f1; /* next frame */
+	df->za[new_f1 & D_FREG_MASK].z1 = new_z1;	/* for next buffer */
+	df->za[df->f1 & D_FREG_MASK].z1 = new_z1;	/* new pos actual buffer */
+	df->f1 = new_f1;	/* next frame */
 	restore_flags(flags);
 
 	idev_kfree_skb(cs->tx_skb, FREE_WRITE);
@@ -455,7 +458,7 @@ static void
 hfcpci_fill_fifo(struct BCState *bcs)
 {
 	struct IsdnCardState *cs = bcs->cs;
-	int flags,maxlen, fcnt;
+	int flags, maxlen, fcnt;
 	int count, new_z1;
 	bzfifo_type *bz;
 	u_char *bdata;
@@ -466,37 +469,35 @@ hfcpci_fill_fifo(struct BCState *bcs)
 	if (bcs->tx_skb->len <= 0)
 		return;
 
-        save_flags(flags);
+	save_flags(flags);
 	sti();
 
 	if (bcs->channel) {
-	  bz = &((fifo_area *)(cs->hw.hfcpci.fifos))->b_chans.txbz_b2;
-	  bdata = ((fifo_area *)(cs->hw.hfcpci.fifos))->b_chans.txdat_b2;
+		bz = &((fifo_area *) (cs->hw.hfcpci.fifos))->b_chans.txbz_b2;
+		bdata = ((fifo_area *) (cs->hw.hfcpci.fifos))->b_chans.txdat_b2;
+	} else {
+		bz = &((fifo_area *) (cs->hw.hfcpci.fifos))->b_chans.txbz_b1;
+		bdata = ((fifo_area *) (cs->hw.hfcpci.fifos))->b_chans.txdat_b1;
 	}
-        else {
-	  bz = &((fifo_area *)(cs->hw.hfcpci.fifos))->b_chans.txbz_b1;
-	  bdata = ((fifo_area *)(cs->hw.hfcpci.fifos))->b_chans.txdat_b1;
-	}  
 
- 	if (cs->debug & L1_DEB_HSCX)
+	if (cs->debug & L1_DEB_HSCX)
 		debugl1(cs, "hfcpci_fill_fifo %d f1(%d) f2(%d) z1(f1)(%x)",
 			bcs->channel, bz->f1, bz->f2,
 			bz->za[bz->f1].z1);
 
-	fcnt = bz->f1 - bz->f2; /* frame count actually buffered */ 
+	fcnt = bz->f1 - bz->f2;	/* frame count actually buffered */
 	if (fcnt < 0)
-	  fcnt += (MAX_B_FRAMES + 1); /* if wrap around */
+		fcnt += (MAX_B_FRAMES + 1);	/* if wrap around */
 	if (fcnt > (MAX_B_FRAMES - 1)) {
 		if (cs->debug & L1_DEB_HSCX)
 			debugl1(cs, "hfcpci_fill_Bfifo more as 14 frames");
 		restore_flags(flags);
 		return;
 	}
-
-        /* now determine free bytes in FIFO buffer */
-        count = bz->za[bz->f1].z2 - bz->za[bz->f1].z1;
-        if (count <= 0) 
-	  count += B_FIFO_SIZE; /* count now contains available bytes */
+	/* now determine free bytes in FIFO buffer */
+	count = bz->za[bz->f1].z2 - bz->za[bz->f1].z1;
+	if (count <= 0)
+		count += B_FIFO_SIZE;	/* count now contains available bytes */
 
 	if (cs->debug & L1_DEB_HSCX)
 		debugl1(cs, "hfcpci_fill_fifo %d count(%ld/%d),%lx",
@@ -508,35 +509,34 @@ hfcpci_fill_fifo(struct BCState *bcs)
 			debugl1(cs, "hfcpci_fill_fifo no fifo mem");
 		restore_flags(flags);
 		return;
-	}	
-
-	count = bcs->tx_skb->len; /* get frame len */
-	new_z1 = bz->za[bz->f1].z1 + count; /* new buffer Position */
-	if (new_z1 >= (B_FIFO_SIZE+B_SUB_VAL))
-	  new_z1 -= B_FIFO_SIZE; /* buffer wrap */
+	}
+	count = bcs->tx_skb->len;	/* get frame len */
+	new_z1 = bz->za[bz->f1].z1 + count;	/* new buffer Position */
+	if (new_z1 >= (B_FIFO_SIZE + B_SUB_VAL))
+		new_z1 -= B_FIFO_SIZE;	/* buffer wrap */
 
 	new_f1 = ((bz->f1 + 1) & MAX_B_FRAMES);
-	src = bcs->tx_skb->data; /* source pointer */
+	src = bcs->tx_skb->data;	/* source pointer */
 	dst = bdata + (bz->za[bz->f1].z1 - B_SUB_VAL);
-        maxlen = (B_FIFO_SIZE + B_SUB_VAL) - bz->za[bz->f1].z1; /* end fifo */
+	maxlen = (B_FIFO_SIZE + B_SUB_VAL) - bz->za[bz->f1].z1;		/* end fifo */
 	if (maxlen > count)
-	  maxlen = count; /* limit size */
-        memcpy(dst,src,maxlen); /* first copy */
+		maxlen = count;	/* limit size */
+	memcpy(dst, src, maxlen);	/* first copy */
 
-	count -= maxlen; /* remaining bytes */
+	count -= maxlen;	/* remaining bytes */
 	if (count) {
-	  dst = bdata; /* start of buffer */
-	  src += maxlen; /* new position */
-	  memcpy(dst,src,count);
-	}  
+		dst = bdata;	/* start of buffer */
+		src += maxlen;	/* new position */
+		memcpy(dst, src, count);
+	}
 	bcs->tx_cnt -= bcs->tx_skb->len;
 	if (bcs->st->lli.l1writewakeup &&
-	  (PACKET_NOACK != bcs->tx_skb->pkt_type))
-	   bcs->st->lli.l1writewakeup(bcs->st, bcs->tx_skb->len);
+	    (PACKET_NOACK != bcs->tx_skb->pkt_type))
+		bcs->st->lli.l1writewakeup(bcs->st, bcs->tx_skb->len);
 
 	cli();
-	bz->za[new_f1].z1 = new_z1; /* for next buffer */
-	bz->f1 = new_f1; /* next frame */
+	bz->za[new_f1].z1 = new_z1;	/* for next buffer */
+	bz->f1 = new_f1;	/* next frame */
 	restore_flags(flags);
 
 	idev_kfree_skb(bcs->tx_skb, FREE_WRITE);
@@ -547,14 +547,14 @@ hfcpci_fill_fifo(struct BCState *bcs)
 
 /*********************/
 /* Interrupt handler */
-/*********************/ 
+/*********************/
 static void
 hfcpci_interrupt(int intno, void *dev_id, struct pt_regs *regs)
 {
 	struct IsdnCardState *cs = dev_id;
-       	u_char exval;
-       	struct BCState *bcs;
-	int count=15;
+	u_char exval;
+	struct BCState *bcs;
+	int count = 15;
 	long flags;
 	u_char val, stat;
 
@@ -562,21 +562,20 @@ hfcpci_interrupt(int intno, void *dev_id, struct pt_regs *regs)
 		printk(KERN_WARNING "HFC-PCI: Spurious interrupt!\n");
 		return;
 	}
-
-	if ((HFCPCI_ANYINT | HFCPCI_NBUSY) & 
-		(stat = Read_hfc(cs, HFCPCI_STATUS))) {
+	if ((HFCPCI_ANYINT | HFCPCI_NBUSY) &
+	    (stat = Read_hfc(cs, HFCPCI_STATUS))) {
 		val = Read_hfc(cs, HFCPCI_INT_S1);
 		if (cs->debug & L1_DEB_ISAC)
 			debugl1(cs, "HFC-PCI: stat(%02x) s1(%02x)", stat, val);
-	} else 
-                return;   
+	} else
+		return;
 
 	if (cs->debug & L1_DEB_ISAC)
 		debugl1(cs, "HFC-PCI irq %x %s", val,
 			test_bit(FLG_LOCK_ATOMIC, &cs->HW_Flags) ?
 			"locked" : "unlocked");
 	val &= cs->hw.hfcpci.int_m1;
-	if (val & 0x40) { /* TE state machine irq */
+	if (val & 0x40) {	/* TE state machine irq */
 		exval = Read_hfc(cs, HFCPCI_STATES) & 0xf;
 		if (cs->debug & L1_DEB_ISAC)
 			debugl1(cs, "ph_state chg %d->%d", cs->dc.hfcpci.ph_state,
@@ -595,25 +594,25 @@ hfcpci_interrupt(int intno, void *dev_id, struct pt_regs *regs)
 		}
 		if (cs->hw.hfcpci.int_s1 & 0x18) {
 			exval = val;
-			val =  cs->hw.hfcpci.int_s1;
+			val = cs->hw.hfcpci.int_s1;
 			cs->hw.hfcpci.int_s1 = exval;
-		}	
+		}
 		if (val & 0x08) {
-			if (!(bcs=Sel_BCS(cs, 0))) {
+			if (!(bcs = Sel_BCS(cs, 0))) {
 				if (cs->debug)
 					debugl1(cs, "hfcpci spurious 0x08 IRQ");
-			} else 
+			} else
 				main_rec_hfcpci(bcs);
 		}
 		if (val & 0x10) {
-			if (!(bcs=Sel_BCS(cs, 1))) {
+			if (!(bcs = Sel_BCS(cs, 1))) {
 				if (cs->debug)
 					debugl1(cs, "hfcpci spurious 0x10 IRQ");
-			} else 
+			} else
 				main_rec_hfcpci(bcs);
 		}
 		if (val & 0x01) {
-			if (!(bcs=Sel_BCS(cs, 0))) {
+			if (!(bcs = Sel_BCS(cs, 0))) {
 				if (cs->debug)
 					debugl1(cs, "hfcpci spurious 0x01 IRQ");
 			} else {
@@ -622,14 +621,14 @@ hfcpci_interrupt(int intno, void *dev_id, struct pt_regs *regs)
 						hfcpci_fill_fifo(bcs);
 						test_and_clear_bit(FLG_LOCK_ATOMIC, &cs->HW_Flags);
 					} else
-						debugl1(cs,"fill_data %d blocked", bcs->channel);
+						debugl1(cs, "fill_data %d blocked", bcs->channel);
 				} else {
 					if ((bcs->tx_skb = skb_dequeue(&bcs->squeue))) {
 						if (!test_and_set_bit(FLG_LOCK_ATOMIC, &cs->HW_Flags)) {
 							hfcpci_fill_fifo(bcs);
 							test_and_clear_bit(FLG_LOCK_ATOMIC, &cs->HW_Flags);
 						} else
-							debugl1(cs,"fill_data %d blocked", bcs->channel);
+							debugl1(cs, "fill_data %d blocked", bcs->channel);
 					} else {
 						hfcpci_sched_event(bcs, B_XMTBUFREADY);
 					}
@@ -637,7 +636,7 @@ hfcpci_interrupt(int intno, void *dev_id, struct pt_regs *regs)
 			}
 		}
 		if (val & 0x02) {
-			if (!(bcs=Sel_BCS(cs, 1))) {
+			if (!(bcs = Sel_BCS(cs, 1))) {
 				if (cs->debug)
 					debugl1(cs, "hfcpci spurious 0x02 IRQ");
 			} else {
@@ -646,14 +645,14 @@ hfcpci_interrupt(int intno, void *dev_id, struct pt_regs *regs)
 						hfcpci_fill_fifo(bcs);
 						test_and_clear_bit(FLG_LOCK_ATOMIC, &cs->HW_Flags);
 					} else
-						debugl1(cs,"fill_data %d blocked", bcs->channel);
+						debugl1(cs, "fill_data %d blocked", bcs->channel);
 				} else {
 					if ((bcs->tx_skb = skb_dequeue(&bcs->squeue))) {
 						if (!test_and_set_bit(FLG_LOCK_ATOMIC, &cs->HW_Flags)) {
 							hfcpci_fill_fifo(bcs);
 							test_and_clear_bit(FLG_LOCK_ATOMIC, &cs->HW_Flags);
 						} else
-							debugl1(cs,"fill_data %d blocked", bcs->channel);
+							debugl1(cs, "fill_data %d blocked", bcs->channel);
 					} else {
 						hfcpci_sched_event(bcs, B_XMTBUFREADY);
 					}
@@ -668,7 +667,7 @@ hfcpci_interrupt(int intno, void *dev_id, struct pt_regs *regs)
 				del_timer(&cs->dbusytimer);
 			if (test_and_clear_bit(FLG_L1_DBUSY, &cs->HW_Flags))
 				sched_event_D_pci(cs, D_CLEARBUSY);
-			if (cs->tx_skb)
+			if (cs->tx_skb) {
 				if (cs->tx_skb->len) {
 					if (!test_and_set_bit(FLG_LOCK_ATOMIC, &cs->HW_Flags)) {
 						hfcpci_fill_dfifo(cs);
@@ -682,6 +681,7 @@ hfcpci_interrupt(int intno, void *dev_id, struct pt_regs *regs)
 					cs->tx_cnt = 0;
 					cs->tx_skb = NULL;
 				}
+			}
 			if ((cs->tx_skb = skb_dequeue(&cs->sq))) {
 				cs->tx_cnt = 0;
 				if (!test_and_set_bit(FLG_LOCK_ATOMIC, &cs->HW_Flags)) {
@@ -693,12 +693,12 @@ hfcpci_interrupt(int intno, void *dev_id, struct pt_regs *regs)
 			} else
 				sched_event_D_pci(cs, D_XMTBUFREADY);
 		}
-      afterXPR:
+	      afterXPR:
 		if (cs->hw.hfcpci.int_s1 && count--) {
 			val = cs->hw.hfcpci.int_s1;
 			cs->hw.hfcpci.int_s1 = 0;
 			if (cs->debug & L1_DEB_ISAC)
-				debugl1(cs, "HFC-PCI irq %x loop %d", val, 15-count);
+				debugl1(cs, "HFC-PCI irq %x loop %d", val, 15 - count);
 		} else
 			val = 0;
 		restore_flags(flags);
@@ -718,7 +718,7 @@ hfcpci_dbusy_timer(struct IsdnCardState *cs)
 			debugl1(cs, "D-Channel Busy");
 		test_and_set_bit(FLG_L1_DBUSY, &cs->HW_Flags);
 		stptr = cs->stlist;
-		
+
 		while (stptr != NULL) {
 			stptr->l1.l1l2(stptr, PH_PAUSE | INDICATION, NULL);
 			stptr = stptr->next;
@@ -735,7 +735,7 @@ HFCPCI_l1hw(struct PStack *st, int pr, void *arg)
 {
 	struct IsdnCardState *cs = (struct IsdnCardState *) st->l1.hardware;
 	struct sk_buff *skb = arg;
-	
+
 	switch (pr) {
 		case (PH_DATA | REQUEST):
 			if (cs->debug & DEB_DLOG_HEX)
@@ -798,9 +798,9 @@ HFCPCI_l1hw(struct PStack *st, int pr, void *arg)
 				test_and_set_bit(FLG_L1_PULL_REQ, &st->l1.Flags);
 			break;
 		case (HW_RESET | REQUEST):
-			Write_hfc(cs, HFCPCI_STATES, HFCPCI_LOAD_STATE | 3); /* HFC ST 3 */
+			Write_hfc(cs, HFCPCI_STATES, HFCPCI_LOAD_STATE | 3);	/* HFC ST 3 */
 			udelay(6);
-			Write_hfc(cs, HFCPCI_STATES, 3); /* HFC ST 2 */
+			Write_hfc(cs, HFCPCI_STATES, 3);	/* HFC ST 2 */
 			cs->hw.hfcpci.mst_m |= HFCPCI_MASTER;
 			Write_hfc(cs, HFCPCI_MST_MODE, cs->hw.hfcpci.mst_m);
 			Write_hfc(cs, HFCPCI_STATES, HFCPCI_ACTIVATE | HFCPCI_DO_ACTION);
@@ -866,12 +866,12 @@ static void
 hfcpci_send_data(struct BCState *bcs)
 {
 	struct IsdnCardState *cs = bcs->cs;
-	
+
 	if (!test_and_set_bit(FLG_LOCK_ATOMIC, &cs->HW_Flags)) {
 		hfcpci_fill_fifo(bcs);
 		test_and_clear_bit(FLG_LOCK_ATOMIC, &cs->HW_Flags);
 	} else
-		debugl1(cs,"send_data %d blocked", bcs->channel);
+		debugl1(cs, "send_data %d blocked", bcs->channel);
 }
 
 /***************************************************************/
@@ -928,7 +928,7 @@ mode_hfcpci(struct BCState *bcs, int mode, int bc)
 	}
 	Write_hfc(cs, HFCPCI_FIFO_EN, cs->hw.hfcpci.fifo_en);
 	Write_hfc(cs, HFCPCI_SCTRL, cs->hw.hfcpci.sctrl);
-	Write_hfc(cs, HFCPCI_SCTRL_R, cs->hw.hfcpci.sctrl & (SCTRL_B1_ENA+SCTRL_B2_ENA));
+	Write_hfc(cs, HFCPCI_SCTRL_R, cs->hw.hfcpci.sctrl & (SCTRL_B1_ENA + SCTRL_B2_ENA));
 	Write_hfc(cs, HFCPCI_CTMT, cs->hw.hfcpci.ctmt);
 	Write_hfc(cs, HFCPCI_CONNECT, cs->hw.hfcpci.conn);
 }
@@ -951,8 +951,8 @@ hfcpci_l2l1(struct PStack *st, int pr, void *arg)
 				restore_flags(flags);
 			} else {
 				st->l1.bcs->tx_skb = skb;
-/*				test_and_set_bit(BC_FLG_BUSY, &st->l1.bcs->Flag);
-*/				st->l1.bcs->cs->BC_Send_Data(st->l1.bcs);
+/*                              test_and_set_bit(BC_FLG_BUSY, &st->l1.bcs->Flag);
+ */ st->l1.bcs->cs->BC_Send_Data(st->l1.bcs);
 				restore_flags(flags);
 			}
 			break;
@@ -963,8 +963,8 @@ hfcpci_l2l1(struct PStack *st, int pr, void *arg)
 			}
 			save_flags(flags);
 			cli();
-/*			test_and_set_bit(BC_FLG_BUSY, &st->l1.bcs->Flag);
-*/			st->l1.bcs->tx_skb = skb;
+/*                      test_and_set_bit(BC_FLG_BUSY, &st->l1.bcs->Flag);
+ */ st->l1.bcs->tx_skb = skb;
 			st->l1.bcs->cs->BC_Send_Data(st->l1.bcs);
 			restore_flags(flags);
 			break;
@@ -1050,11 +1050,11 @@ setstack_2b(struct PStack *st, struct BCState *bcs)
 static void
 hfcpci_bh(struct IsdnCardState *cs)
 {
-/*	struct PStack *stptr;
-*/
+/*      struct PStack *stptr;
+ */
 	if (!cs)
 		return;
-#if 0	
+#if 0
 	if (test_and_clear_bit(D_CLEARBUSY, &cs->event)) {
 		if (cs->debug)
 			debugl1(cs, "D-Channel Busy cleared");
@@ -1097,25 +1097,25 @@ hfcpci_bh(struct IsdnCardState *cs)
 /* Alloc memory send data for queues */
 /*************************************/
 __initfunc(unsigned int
-*init_send_hfcpci(int cnt))
+	   *init_send_hfcpci(int cnt))
 {
 	int i, *send;
 
 	if (!(send = kmalloc(cnt * sizeof(unsigned int), GFP_ATOMIC))) {
 		printk(KERN_WARNING
 		       "HiSax: No memory for hfcpci.send\n");
-		return(NULL);
+		return (NULL);
 	}
 	for (i = 0; i < cnt; i++)
 		send[i] = 0x1fff;
-	return(send);
+	return (send);
 }
 
 /********************************/
 /* called for card init message */
 /********************************/
 __initfunc(void
-inithfcpci(struct IsdnCardState *cs))
+	   inithfcpci(struct IsdnCardState *cs))
 {
 	cs->setstack_d = setstack_hfcpci;
 	cs->dbusytimer.function = (void *) hfcpci_dbusy_timer;
@@ -1154,47 +1154,53 @@ hfcpci_card_msg(struct IsdnCardState *cs, int mt, void *arg)
 	switch (mt) {
 		case CARD_RESET:
 			reset_hfcpci(cs);
-			return(0);
+			return (0);
 		case CARD_RELEASE:
 			release_io_hfcpci(cs);
-			return(0);
+			return (0);
 		case CARD_SETIRQ:
 			cs->hw.hfcpci.timer.expires = jiffies + 75;
 			add_timer(&cs->hw.hfcpci.timer);
-			return(request_irq(cs->irq, &hfcpci_interrupt,
-					I4L_IRQ_FLAG | SA_SHIRQ, "HiSax", cs));
+			return (request_irq(cs->irq, &hfcpci_interrupt,
+				  I4L_IRQ_FLAG | SA_SHIRQ, "HiSax", cs));
 		case CARD_INIT:
 			inithfcpci(cs);
 			save_flags(flags);
 			sti();
 			current->state = TASK_INTERRUPTIBLE;
-			current->timeout = jiffies + (80*HZ)/1000;
-			schedule();
-                        /* now switch timer interrupt off */ 
-                        cs->hw.hfcpci.int_m1 &= ~HFCPCI_INTS_TIMER; 
+			schedule_timeout((80 * HZ) / 1000);	/* Timeout 80ms */
+			/* now switch timer interrupt off */
+			cs->hw.hfcpci.int_m1 &= ~HFCPCI_INTS_TIMER;
 			Write_hfc(cs, HFCPCI_INT_M1, cs->hw.hfcpci.int_m1);
 			/* reinit mode reg */
 			Write_hfc(cs, HFCPCI_MST_MODE, cs->hw.hfcpci.mst_m);
 			restore_flags(flags);
-			return(0);
+			return (0);
 		case CARD_TEST:
-			return(0);
+			return (0);
 	}
-	return(0);
+	return (0);
 }
 
 
 /* this variable is used as card index when more than one cards are present */
-static  int pci_index __initdata = 0;
+#ifdef COMPAT_HAS_NEW_PCI
+static struct pci_dev *dev_hfcpci __initdata = NULL;
+#else
+static int pci_index __initdata = 0;
+#endif
+
+#endif				/* CONFIG_PCI */
 
 __initfunc(int
-setup_hfcpci(struct IsdnCard *card))
+	   setup_hfcpci(struct IsdnCard *card))
 {
 	struct IsdnCardState *cs = card->cs;
 	char tmp[64];
 
 	strcpy(tmp, hfcpci_revision);
 	printk(KERN_INFO "HiSax: HFC-PCI driver Rev. %s\n", HiSax_getrev(tmp));
+#if CONFIG_PCI
 	cs->hw.hfcpci.int_s1 = 0;
 #if 0
 	cs->hw.hfcpci.send = NULL;
@@ -1204,60 +1210,79 @@ setup_hfcpci(struct IsdnCard *card))
 	cs->dc.hfcpci.ph_state = 0;
 	cs->hw.hfcpci.fifo = 255;
 	if (cs->typ == ISDN_CTYPE_HFC_PCI) {
-#if CONFIG_PCI
+#ifdef COMPAT_HAS_NEW_PCI
+		if (!pci_present()) {
+			printk(KERN_ERR "HFC-PCI: no PCI bus present\n");
+			return (0);
+		}
+		if ((dev_hfcpci = pci_find_device(PCI_VENDOR_CCD,
+					  PCI_CCD_PCI_ID, dev_hfcpci))) {
+			cs->hw.hfcpci.pci_bus = dev_hfcpci->bus->number;
+			cs->hw.hfcpci.pci_device_fn = dev_hfcpci->devfn;
+			cs->irq = dev_hfcpci->irq;
+			if (!cs->irq) {
+				printk(KERN_WARNING "HFC-PCI: No IRQ for PCI card found\n");
+				return (0);
+			}
+			cs->hw.hfcpci.pci_io = (char *)
+			    dev_hfcpci->base_address[1];
+		} else {
+			printk(KERN_WARNING "HFC-PCI: No PCI card found\n");
+			return (0);
+		}
+#else
 		for (; pci_index < 255; pci_index++) {
-                       unsigned char irq;
+			unsigned char irq;
 
-			if (pcibios_find_device (PCI_VENDOR_CCD,
+			if (pcibios_find_device(PCI_VENDOR_CCD,
 						PCI_CCD_PCI_ID, pci_index,
 						&cs->hw.hfcpci.pci_bus, &cs->hw.hfcpci.pci_device_fn) != 0) {
 				continue;
 			}
 			pcibios_read_config_byte(cs->hw.hfcpci.pci_bus, cs->hw.hfcpci.pci_device_fn,
-					PCI_INTERRUPT_LINE, &irq);
-                        cs->irq = irq;
+					       PCI_INTERRUPT_LINE, &irq);
+			cs->irq = irq;
 
-			pcibios_read_config_dword(cs->hw.hfcpci.pci_bus, cs->hw.hfcpci.pci_device_fn,
-					PCI_BASE_ADDRESS_1, (void *) &cs->hw.hfcpci.pci_io);
-			if (!cs->hw.hfcpci.pci_io) {
-				printk(KERN_WARNING "HFC-PCI: No IO-Mem for PCI card found\n");
-				return(0);
-			}
-			/* Allocate memory for FIFOS */
-                        /* Because the HFC-PCI needs a 32K physical alignment, we */
-			/* need to allocate the double mem and align the address */
-			if(!((void *)cs->hw.hfcpci.share_start = kmalloc(65536, GFP_KERNEL))) {
-			  printk(KERN_WARNING "HFC-PCI: Error allocating memory for FIFO!\n");
-			  return 0;
-			}
-			(ulong)cs->hw.hfcpci.fifos = (((ulong)cs->hw.hfcpci.share_start) & ~0x7FFF) + 0x8000;
-			
-			pcibios_write_config_dword(cs->hw.hfcpci.pci_bus, cs->hw.hfcpci.pci_device_fn, 0x80, (int) cs->hw.hfcpci.fifos);
-			
-			cs->hw.hfcpci.pci_io = vremap((ulong)cs->hw.hfcpci.pci_io, 256);
-
-			printk(KERN_INFO
-			       "HFC-PCI: defined at mem 0x%x fifo 0x%x IRQ %d HZ %d\n",                             
-			       (u_int) cs->hw.hfcpci.pci_io,
-			       (u_int) cs->hw.hfcpci.fifos,
-			       cs->irq, HZ);
-                        /* At this point the needed PCI config is done */
-			/* registers and fifos are still not enabled */
+			pcibios_read_config_dword(cs->hw.hfcpci.pci_bus,
+				cs->hw.hfcpci.pci_device_fn, PCI_BASE_ADDRESS_1,
+				(void *) &cs->hw.hfcpci.pci_io);
 			break;
-		}	
+		}
 		if (pci_index == 255) {
 			printk(KERN_WARNING "HFC-PCI: No card found\n");
-			return(0);
+			return (0);
 		}
 		pci_index++;
-#else
-		printk(KERN_WARNING "HFC-PCI: NO_PCI_BIOS\n");
-		return (0);
-#endif /* CONFIG_PCI */
+#endif				/* COMPAT_HAS_NEW_PCI */
+		if (!cs->hw.hfcpci.pci_io) {
+			printk(KERN_WARNING "HFC-PCI: No IO-Mem for PCI card found\n");
+			return (0);
+		}
+		/* Allocate memory for FIFOS */
+		/* Because the HFC-PCI needs a 32K physical alignment, we */
+		/* need to allocate the double mem and align the address */
+		if (!((void *) cs->hw.hfcpci.share_start = kmalloc(65536, GFP_KERNEL))) {
+			printk(KERN_WARNING "HFC-PCI: Error allocating memory for FIFO!\n");
+			return 0;
+		}
+		(ulong) cs->hw.hfcpci.fifos =
+		    (((ulong) cs->hw.hfcpci.share_start) & ~0x7FFF) + 0x8000;
+		pcibios_write_config_dword(cs->hw.hfcpci.pci_bus,
+				       cs->hw.hfcpci.pci_device_fn, 0x80,
+					   (u_int) virt_to_bus(cs->hw.hfcpci.fifos));
+		cs->hw.hfcpci.pci_io = ioremap((ulong) cs->hw.hfcpci.pci_io, 256);
+		printk(KERN_INFO
+		 "HFC-PCI: defined at mem %#x fifo %#x(%#x) IRQ %d HZ %d\n",
+		       (u_int) cs->hw.hfcpci.pci_io,
+		       (u_int) cs->hw.hfcpci.fifos,
+		       (u_int) virt_to_bus(cs->hw.hfcpci.fifos),
+		       cs->irq, HZ);
+		/* At this point the needed PCI config is done */
+		/* registers and fifos are still not enabled */
 	} else
-	    return (0); /* no valid card type */
+		return (0);	/* no valid card type */
 
- 
+
 	cs->readisac = NULL;
 	cs->writeisac = NULL;
 	cs->readisacfifo = NULL;
@@ -1271,9 +1296,9 @@ setup_hfcpci(struct IsdnCard *card))
 
 	reset_hfcpci(cs);
 	cs->cardmsg = &hfcpci_card_msg;
-	return (1); 
+	return (1);
+#else
+	printk(KERN_WARNING "HFC-PCI: NO_PCI_BIOS\n");
+	return (0);
+#endif				/* CONFIG_PCI */
 }
-
-
-
-

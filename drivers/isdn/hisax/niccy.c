@@ -8,15 +8,17 @@
  * Thanks to Dr. Neuhaus and SAGEM for informations
  *
  * $Log$
- * Revision 1.1.2.3  1998/04/08 22:05:26  keil
- * Forgot PCI fix
+ * Revision 1.5  1999/07/01 08:12:07  keil
+ * Common HiSax version for 2.0, 2.1, 2.2 and 2.3 kernel
  *
- * Revision 1.1.2.2  1998/04/08 21:48:23  keil
- * New init; working Niccy PCI
+ * Revision 1.4  1998/04/16 19:16:48  keil
+ * need config.h
  *
- * Revision 1.1.2.1  1998/02/11 14:23:20  keil
- * support for Dr Neuhaus Niccy PnP and PCI
+ * Revision 1.3  1998/04/15 16:42:59  keil
+ * new init code
  *
+ * Revision 1.2  1998/02/11 17:31:04  keil
+ * new file
  *
  */
 
@@ -28,7 +30,9 @@
 #include "hscx.h"
 #include "isdnl1.h"
 #include <linux/pci.h>
+#ifndef COMPAT_HAS_NEW_PCI
 #include <linux/bios32.h>
+#endif
 
 extern const char *CardType[];
 const char *niccy_revision = "$Revision$";
@@ -263,7 +267,11 @@ niccy_card_msg(struct IsdnCardState *cs, int mt, void *arg)
 	return(0);
 }
 
-static 	int pci_index __initdata = 0;
+#ifdef COMPAT_HAS_NEW_PCI
+static 	struct pci_dev *niccy_dev __initdata = NULL;
+#else
+static  int pci_index __initdata = 0;
+#endif
 
 __initfunc(int
 setup_niccy(struct IsdnCard *card))
@@ -305,8 +313,38 @@ setup_niccy(struct IsdnCard *card))
 			request_region(cs->hw.niccy.isac_ale, 2, "niccy addr");
 	} else {
 #if CONFIG_PCI
-		u_char pci_bus, pci_device_fn, pci_irq;
 		u_int pci_ioaddr;
+#ifdef COMPAT_HAS_NEW_PCI
+		if (!pci_present()) {
+			printk(KERN_ERR "Niccy: no PCI bus present\n");
+			return(0);
+		}
+		cs->subtyp = 0;
+		if ((niccy_dev = pci_find_device(PCI_VENDOR_DR_NEUHAUS,
+			   PCI_NICCY_ID, niccy_dev))) {
+			/* get IRQ */
+			if (!niccy_dev->irq) {
+				printk(KERN_WARNING "Niccy: No IRQ for PCI card found\n");
+				return(0);
+			}
+			cs->irq = niccy_dev->irq;
+			if (!niccy_dev->base_address[0]) {
+				printk(KERN_WARNING "Niccy: No IO-Adr for PCI cfg found\n");
+				return(0);
+			}
+			cs->hw.niccy.cfg_reg = niccy_dev->base_address[0] & PCI_BASE_ADDRESS_IO_MASK;
+			if (!niccy_dev->base_address[1]) {
+				printk(KERN_WARNING "Niccy: No IO-Adr for PCI card found\n");
+				return(0);
+			}
+			pci_ioaddr = niccy_dev->base_address[1] & PCI_BASE_ADDRESS_IO_MASK;
+			cs->subtyp = NICCY_PCI;
+		} else {
+			printk(KERN_WARNING "Niccy: No PCI card found\n");
+			return(0);
+		}
+#else
+		u_char pci_bus, pci_device_fn, pci_irq;
 
 		cs->subtyp = 0;
 		for (; pci_index < 0xff; pci_index++) {
@@ -315,7 +353,7 @@ setup_niccy(struct IsdnCard *card))
 			   == PCIBIOS_SUCCESSFUL)
 				cs->subtyp = NICCY_PCI;
 			else
-				break;
+				continue;
 			/* get IRQ */
 			pcibios_read_config_byte(pci_bus, pci_device_fn,
 				PCI_INTERRUPT_LINE, &pci_irq);
@@ -347,13 +385,13 @@ setup_niccy(struct IsdnCard *card))
 			printk(KERN_WARNING "Niccy: No IO-Adr for PCI card found\n");
 			return(0);
 		}
-		
 		pci_ioaddr &= ~3; /* remove io/mem flag */
+		cs->irq = pci_irq;
+#endif /* COMPAT_HAS_NEW_PCI */
 		cs->hw.niccy.isac = pci_ioaddr + ISAC_PCI_DATA;
 		cs->hw.niccy.isac_ale = pci_ioaddr + ISAC_PCI_ADDR;
 		cs->hw.niccy.hscx = pci_ioaddr + HSCX_PCI_DATA;
 		cs->hw.niccy.hscx_ale = pci_ioaddr + HSCX_PCI_ADDR;
-		cs->irq = pci_irq;
 		if (check_region((cs->hw.niccy.isac), 4)) {
 			printk(KERN_WARNING
 				"HiSax: %s data port %x-%x already in use\n",
