@@ -21,6 +21,10 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.57  1998/08/31 21:10:01  he
+ * new ioctl IIOCNETGPN for /dev/isdninfo (get network interface'
+ *     peer phone number)
+ *
  * Revision 1.56  1998/07/26 18:46:52  armin
  * Added silence detection in voice receive mode.
  *
@@ -228,6 +232,7 @@
 #define isdn_h
 
 #include <linux/ioctl.h>
+
 
 #define ISDN_TTY_MAJOR    43
 #define ISDN_TTYAUX_MAJOR 44
