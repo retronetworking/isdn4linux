@@ -1,5 +1,5 @@
 /* $Id$
- *
+
  * Author       Karsten Keil (keil@temic-ech.spacenet.de)
  *              based on the teles driver from Jan den Ouden
  *
@@ -7,6 +7,9 @@
  *              Fritz Elfert
  *
  * $Log$
+ * Revision 1.3  1997/01/21 22:31:12  keil
+ * new statemachine; L3 timers
+ *
  * Revision 1.2  1996/11/05 19:42:04  keil
  * using config.h
  *
@@ -21,16 +24,16 @@
 #include "isdnl3.h"
 #include <linux/config.h>
 
-const	char	*l3_revision        = "$Revision$";
+const char *l3_revision = "$Revision$";
 
 void
 l3_debug(struct PStack *st, char *s)
 {
-        char            str[256], tm[32];
+	char str[256], tm[32];
 
-        jiftime(tm, jiffies);
-        sprintf(str, "%s Channel %d l3 %s\n", tm, st->l3.channr, s);
-        HiSax_putstatus(str);
+	jiftime(tm, jiffies);
+	sprintf(str, "%s Channel %d l3 %s\n", tm, st->l3.channr, s);
+	HiSax_putstatus(str);
 }
 
 
@@ -41,7 +44,7 @@ newl3state(struct PStack *st, int state)
 	char tmp[80];
 
 	if (st->l3.debug & L3_DEB_STATE) {
-		sprintf(tmp,"newstate  %d --> %d",st->l3.state, state);
+		sprintf(tmp, "newstate  %d --> %d", st->l3.state, state);
 		l3_debug(st, tmp);
 	}
 	st->l3.state = state;
@@ -50,7 +53,7 @@ newl3state(struct PStack *st, int state)
 static void
 L3ExpireTimer(struct L3Timer *t)
 {
-        t->st->l4.l4l3(t->st, t->event, NULL);
+	t->st->l4.l4l3(t->st, t->event, NULL);
 }
 
 void
@@ -65,7 +68,7 @@ L3InitTimer(struct PStack *st, struct L3Timer *t)
 void
 L3DelTimer(struct L3Timer *t)
 {
-	long            flags;
+	long flags;
 
 	save_flags(flags);
 	cli();
@@ -76,7 +79,7 @@ L3DelTimer(struct L3Timer *t)
 
 int
 L3AddTimer(struct L3Timer *t,
-	    int millisec, int event)
+	   int millisec, int event)
 {
 	if (t->tl.next) {
 		printk(KERN_WARNING "L3AddTimer: timer already active!\n");
@@ -90,12 +93,14 @@ L3AddTimer(struct L3Timer *t,
 }
 
 void
-StopAllL3Timer(struct PStack *st) {
+StopAllL3Timer(struct PStack *st)
+{
 	L3DelTimer(&st->l3.timer);
 }
 
 static void
-no_l3_proto(struct PStack *st, int pr, void *arg) {
+no_l3_proto(struct PStack *st, int pr, void *arg)
+{
 	struct BufHeader *ibh = arg;
 
 	l3_debug(st, "no protocol");
@@ -104,21 +109,21 @@ no_l3_proto(struct PStack *st, int pr, void *arg) {
 }
 
 #ifdef	CONFIG_HISAX_EURO
-extern	void setstack_dss1(struct PStack *st);
+extern void setstack_dss1(struct PStack *st);
 #endif
 
 #ifdef	CONFIG_HISAX_1TR6
-extern	void setstack_1tr6(struct PStack *st);
+extern void setstack_1tr6(struct PStack *st);
 #endif
 
 void
 setstack_isdnl3(struct PStack *st, int chan)
 {
-	char	tmp[64];
+	char tmp[64];
 
 
-	st->l3.debug   = L3_DEB_WARN;
-	st->l3.channr  = chan;
+	st->l3.debug = L3_DEB_WARN;
+	st->l3.channr = chan;
 	L3InitTimer(st, &st->l3.timer);
 
 #ifdef	CONFIG_HISAX_EURO
@@ -132,13 +137,19 @@ setstack_isdnl3(struct PStack *st, int chan)
 	} else
 #endif
 	{
-		sprintf(tmp,"protocol %s not supported",
-			(st->protocol==ISDN_PTYPE_1TR6)?"1tr6":"euro");
-		l3_debug(st,tmp);
+		sprintf(tmp, "protocol %s not supported",
+		    (st->protocol == ISDN_PTYPE_1TR6) ? "1tr6" : "euro");
+		l3_debug(st, tmp);
 		st->l4.l4l3 = no_l3_proto;
 		st->l2.l2l3 = no_l3_proto;
 		st->protocol = -1;
 	}
-	st->l3.state   = 0;
+	st->l3.state = 0;
 	st->l3.callref = 0;
+}
+
+void
+releasestack_isdnl3(struct PStack *st)
+{
+	StopAllL3Timer(st);
 }

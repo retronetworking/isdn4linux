@@ -7,6 +7,9 @@
  *              Fritz Elfert
  *
  * $Log$
+ * Revision 1.15  1997/01/27 16:00:38  keil
+ * D-channel shutdown delay; improved callback
+ *
  * Revision 1.14  1997/01/21 22:16:39  keil
  * new statemachine; leased line support; cleanup for 2.0
  *
@@ -1002,6 +1005,7 @@ static struct FsmNode fnlist[] =
 
 
 
+
 #define FNCOUNT (sizeof(fnlist)/sizeof(struct FsmNode))
 
 static void
@@ -1128,6 +1132,7 @@ static struct FsmNode LcFnList[] =
 	{ST_LC_ESTABLISH_WAIT,	EV_LC_DL_RELEASE,	lc_r5},
 };
 /* *INDENT-ON* */
+
 
 
 
@@ -1476,6 +1481,7 @@ release_is(int chan)
 	struct PStack *st = &chanlist[chan].is;
 
 	releasestack_isdnl2(st);
+	releasestack_isdnl3(st);
 	HiSax_rmlist(st->l1.hardware, st);
 	BufQueueRelease(&st->l2.i_queue);
 }
@@ -1485,8 +1491,13 @@ CallcFreeChan(void)
 {
 	int i;
 
-	for (i = 0; i < chancount; i++)
+	for (i = 0; i < chancount; i++) {
+		FsmDelTimer(&chanlist[i].drel_timer, 74);
+		FsmDelTimer(&chanlist[i].dial_timer, 75);
+		FsmDelTimer(&chanlist[i].lc_b.act_timer, 76);
+		FsmDelTimer(&chanlist[i].lc_d.act_timer, 77);
 		release_is(i);
+	}
 	Sfree((void *) chanlist);
 }
 
