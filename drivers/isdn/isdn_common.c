@@ -21,6 +21,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.80  1999/07/07 10:14:00  detabc
+ * remove unused messages
+ *
  * Revision 1.79  1999/07/05 23:51:30  werner
  * Allow limiting of available HiSax B-chans per card. Controlled by hisaxctrl
  * hisaxctrl id 10 <nr. of chans 0-2>
@@ -1001,6 +1004,11 @@ isdn_status_callback(isdn_ctrl * c)
 			break;
 		case CAPI_PUT_MESSAGE:
 			return(isdn_capi_rec_hl_msg(&c->parm.cmsg));
+#ifdef CONFIG_ISDN_AUDIO
+		case ISDN_STAT_AUDIO:
+			isdn_tty_stat_callback(i, c);
+			break;
+#endif
 #ifdef CONFIG_ISDN_DIVERSION
 	        case ISDN_STAT_PROT:
 	        case ISDN_STAT_REDIR:

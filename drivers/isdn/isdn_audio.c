@@ -21,6 +21,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.13  1999/04/12 12:33:09  fritz
+ * Changes from 2.0 tree.
+ *
  * Revision 1.12  1998/07/26 18:48:43  armin
  * Added silence detection in voice receive mode.
  *
@@ -708,15 +711,50 @@ isdn_audio_calc_silence(modem_info * info, unsigned char *buf, int len, int fmt)
 }
 
 void
-isdn_audio_eval_silence(modem_info * info)
+isdn_audio_put_dle_code(modem_info * info, u_char code)
 {
-	silence_state *s = info->silence_state;
 	struct sk_buff *skb;
 	unsigned long flags;
 	int di;
 	int ch;
-	char what;
 	char *p;
+
+	skb = dev_alloc_skb(2);
+	if (!skb) {
+		printk(KERN_WARNING
+		  "isdn_audio: Could not alloc skb for ttyI%d\n",
+		       info->line);
+		return;
+	}
+	p = (char *) skb_put(skb, 2);
+	p[0] = 0x10;
+	p[1] = code;
+	if (skb_headroom(skb) < sizeof(isdn_audio_skb)) {
+		printk(KERN_WARNING
+		       "isdn_audio: insufficient skb_headroom, dropping\n");
+		kfree_skb(skb);
+		return;
+	}
+	ISDN_AUDIO_SKB_DLECOUNT(skb) = 0;
+	ISDN_AUDIO_SKB_LOCK(skb) = 0;
+	save_flags(flags);
+	cli();
+	di = info->isdn_driver;
+	ch = info->isdn_channel;
+	__skb_queue_tail(&dev->drv[di]->rpqueue[ch], skb);
+	dev->drv[di]->rcvcount[ch] += 2;
+	restore_flags(flags);
+	/* Schedule dequeuing */
+	if ((dev->modempoll) && (info->rcvsched))
+		isdn_timer_ctrl(ISDN_TIMER_MODEMREAD, 1);
+	wake_up_interruptible(&dev->drv[di]->rcv_waitq[ch]);
+}
+
+void
+isdn_audio_eval_silence(modem_info * info)
+{
+	silence_state *s = info->silence_state;
+	char what;
 
 	what = ' ';
 
@@ -731,28 +769,6 @@ isdn_audio_eval_silence(modem_info * info)
 		if ((what == 's') || (what == 'q')) {
 			printk(KERN_DEBUG "ttyI%d: %s\n", info->line,
 				(what=='s') ? "silence":"quiet");
-			skb = dev_alloc_skb(2);
-			p = (char *) skb_put(skb, 2);
-			p[0] = 0x10;
-			p[1] = what;
-			if (skb_headroom(skb) < sizeof(isdn_audio_skb)) {
-				printk(KERN_WARNING
-				       "isdn_audio: insufficient skb_headroom, dropping\n");
-				kfree_skb(skb);
-				return;
-			}
-			ISDN_AUDIO_SKB_DLECOUNT(skb) = 0;
-			ISDN_AUDIO_SKB_LOCK(skb) = 0;
-			save_flags(flags);
-			cli();
-			di = info->isdn_driver;
-			ch = info->isdn_channel;
-			__skb_queue_tail(&dev->drv[di]->rpqueue[ch], skb);
-			dev->drv[di]->rcvcount[ch] += 2;
-			restore_flags(flags);
-			/* Schedule dequeuing */
-			if ((dev->modempoll) && (info->rcvsched))
-				isdn_timer_ctrl(ISDN_TIMER_MODEMREAD, 1);
-			wake_up_interruptible(&dev->drv[di]->rcv_waitq[ch]);
+			isdn_audio_put_dle_code(info, what);
 		} 
 }

@@ -19,6 +19,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.7  1999/04/12 12:33:11  fritz
+ * Changes from 2.0 tree.
+ *
  * Revision 1.6  1998/07/26 18:48:44  armin
  * Added silence detection in voice receive mode.
  *
@@ -71,3 +74,4 @@ dtmf_state *isdn_audio_dtmf_init(dtmf_state *);
 extern void isdn_audio_calc_silence(modem_info *, unsigned char *, int, int);
 extern void isdn_audio_eval_silence(modem_info *);
 silence_state *isdn_audio_silence_init(silence_state *);
+extern void isdn_audio_put_dle_code(modem_info *, u_char);

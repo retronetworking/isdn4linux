@@ -20,6 +20,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.66  1999/07/07 10:13:46  detabc
+ * remove unused messages
+ *
  * Revision 1.65  1999/07/04 21:01:59  werner
  * Added support for keypad and display (ported from 2.0)
  *
@@ -297,7 +300,6 @@ static int isdn_tty_edit_at(const char *, int, modem_info *, int);
 static void isdn_tty_check_esc(const u_char *, u_char, int, int *, int *, int);
 static void isdn_tty_modem_reset_regs(modem_info *, int);
 static void isdn_tty_cmd_ATA(modem_info *);
-static void isdn_tty_at_cout(char *, modem_info *);
 static void isdn_tty_flush_buffer(struct tty_struct *);
 static void isdn_tty_modem_result(int, modem_info *);
 #ifdef CONFIG_ISDN_AUDIO
@@ -317,62 +319,6 @@ static int si2bit[8] =
 
 char *isdn_tty_revision = "$Revision$";
 
-#define DLE 0x10
-#define ETX 0x03
-#define DC4 0x14
-
-/*
- * Definition of some special Registers of AT-Emulator
- */
-#define REG_RINGATA   0
-#define REG_RINGCNT   1
-#define REG_ESC       2
-#define REG_CR        3
-#define REG_LF        4
-#define REG_BS        5
-
-#define REG_WAITC     7
-
-#define REG_RESP     12
-#define BIT_RESP      1
-#define REG_RESPNUM  12
-#define BIT_RESPNUM   2
-#define REG_ECHO     12
-#define BIT_ECHO      4
-#define REG_DCD      12
-#define BIT_DCD       8
-#define REG_CTS      12
-#define BIT_CTS      16
-#define REG_DTRR     12
-#define BIT_DTRR     32
-#define REG_DSR      12
-#define BIT_DSR      64
-#define REG_CPPP     12
-#define BIT_CPPP    128
-
-#define REG_T70      13
-#define BIT_T70       2
-#define BIT_T70_EXT  32
-#define REG_DTRHUP   13
-#define BIT_DTRHUP    4
-#define REG_RESPXT   13
-#define BIT_RESPXT    8
-#define REG_CIDONCE  13
-#define BIT_CIDONCE  16
-#define REG_RUNG     13
-#define BIT_RUNG     64
-#define REG_RESRXT   13
-#define BIT_RESRXT  128
-
-#define REG_L2PROT   14
-#define REG_L3PROT   15
-#define REG_PSIZE    16
-#define REG_WSIZE    17
-#define REG_SI1      18
-#define REG_SI2      19
-#define REG_SI1I     20
-#define REG_PLAN     21
-#define REG_SCREEN   22
 
 /* isdn_tty_try_read() is called from within isdn_tty_rcv_skb()
  * to stuff incoming data directly into a tty's flip-buffer. This
@@ -508,7 +454,7 @@ isdn_tty_rcv_skb(int i, int di, int channel, struct sk_buff *skb)
 #ifdef CONFIG_ISDN_AUDIO
 	ifmt = 1;
 	
-	if (info->vonline)
+	if ((info->vonline) && (!info->emu.vpar[4]))
 		isdn_audio_calc_dtmf(info, skb->data, skb->len, ifmt);
 	if ((info->vonline & 1) && (info->emu.vpar[1]))
 		isdn_audio_calc_silence(info, skb->data, skb->len, ifmt);
@@ -1004,6 +950,8 @@ isdn_tty_modem_hup(modem_info * info, int local)
 	}
 #ifdef CONFIG_ISDN_AUDIO
 	info->vonline = 0;
+	info->emu.vpar[4] = 0;
+	info->emu.vpar[5] = 8;
 	if (info->dtmf_state) {
 		kfree(info->dtmf_state);
 		info->dtmf_state = NULL;
@@ -2185,6 +2133,7 @@ isdn_tty_reset_profile(atemu * m)
 	m->profile[18] = 4;
 	m->profile[19] = 0;
 	m->profile[20] = 0;
+	m->profile[23] = 0;
 	m->pmsn[0] = '\0';
 	m->plmsn[0] = '\0';
 }
@@ -2197,6 +2146,8 @@ isdn_tty_modem_reset_vpar(atemu * m)
 	m->vpar[1] = 0;         /* Silence detection level (0 = none      ) */
 	m->vpar[2] = 70;        /* Silence interval        (7 sec.        ) */
 	m->vpar[3] = 2;         /* Compression type        (1 = ADPCM-2   ) */
+	m->vpar[4] = 0;		/* DTMF detection level    (0 = softcode  ) */
+	m->vpar[5] = 8;		/* DTMF interval           (8 * 5 ms.     ) */
 }
 #endif
 
@@ -2513,7 +2464,8 @@ isdn_tty_stat_callback(int i, isdn_ctrl * c)
 				printk(KERN_DEBUG "tty_STAT_DISPLAY ttyI%d\n", info->line);
 #endif
 				/* Signal display to tty-device */
-				if ((info->emu.mdmreg[13] & 128) && !(info->emu.mdmreg[12] & 2)) {
+				if ((info->emu.mdmreg[REG_DISPLAY] & BIT_DISPLAY) && 
+					!(info->emu.mdmreg[REG_RESPNUM] & BIT_RESPNUM)) {
 				  isdn_tty_at_cout("\r\n", info);
 				  isdn_tty_at_cout("DISPLAY: ", info);
 				  isdn_tty_at_cout(c->parm.display, info);
@@ -2618,6 +2570,20 @@ isdn_tty_stat_callback(int i, isdn_ctrl * c)
 					}
 				}
 				return 1;
+#ifdef CONFIG_ISDN_AUDIO
+			case ISDN_STAT_AUDIO:
+				if (TTY_IS_ACTIVE(info)) {
+					switch(c->parm.num[0]) {
+						case ISDN_AUDIO_DTMF:
+							if (info->vonline) {
+								isdn_audio_put_dle_code(info,
+									c->parm.num[1]);
+							}
+							break;
+					}
+				}
+				break;
+#endif
 		}
 	}
 	return 0;
@@ -2627,13 +2593,13 @@ isdn_tty_stat_callback(int i, isdn_ctrl * c)
  Modem-Emulator-Routines
  *********************************************************************/
 
-#define cmdchar(c) ((c>' ')&&(c<=0x7f))
+#define cmdchar(c) ((c>=' ')&&(c<=0x7f))
 
 /*
  * Put a message from the AT-emulator into receive-buffer of tty,
  * convert CR, LF, and BS to values in modem-registers 3, 4 and 5.
  */
-static void
+void
 isdn_tty_at_cout(char *msg, modem_info * info)
 {
 	struct tty_struct *tty;
@@ -2853,7 +2819,7 @@ isdn_tty_modem_result(int code, modem_info * info)
 					break;
 				case 2:
 					/* Append CPN, if enabled */
-					if ((m->mdmreg[REG_RESRXT] & BIT_RESRXT)) {
+					if ((m->mdmreg[REG_CPN] & BIT_CPN)) {
 						sprintf(s, "/%s", m->cpn);
 						isdn_tty_at_cout(s, info);
 					}
@@ -2960,7 +2926,7 @@ isdn_tty_getdial(char *p, char *q,int cnt)
 	int limit=39;	/* MUST match the size in isdn_tty_parse to avoid
 				buffer overflow */
 
-	while (strchr("0123456789,#.*WPTS-", *p) && *p && --cnt>0) {
+	while (strchr(" 0123456789,#.*WPTS-", *p) && *p && --cnt>0) {
 		if ((*p >= '0' && *p <= '9') || ((*p == 'S') && first) ||
 		    (*p == '*') || (*p == '#'))
 			*q++ = *p;
@@ -3014,6 +2980,9 @@ isdn_tty_report(modem_info * info)
 			break;
 		case ISDN_PROTO_L2_MODEM:
 			isdn_tty_at_cout("modem", info);
+			break;
+		case ISDN_PROTO_L2_FAX:
+			isdn_tty_at_cout("fax", info);
 			break;
 		default:
 			isdn_tty_at_cout("unknown", info);
@@ -3115,7 +3084,7 @@ isdn_tty_cmd_ATand(char **p, modem_info * info)
 			p[0]++;
 			i = 0;
 			while ((strchr("0123456789,*[]?;", *p[0])) &&
-			       (i < ISDN_LMSNLEN))
+			       (i < ISDN_LMSNLEN) && *p[0])
 				m->lmsn[i++] = *p[0]++;
 			m->lmsn[i] = '\0';
 			break;
@@ -3271,7 +3240,7 @@ isdn_tty_cmd_ATS(char **p, modem_info * info)
 	int bval;
 
 	mreg = isdn_getnum(p);
-	if (mreg < 0 || mreg > ISDN_MODEM_ANZREG)
+	if (mreg < 0 || mreg >= ISDN_MODEM_ANZREG)
 		PARSE_ERROR1;
 	switch (*p[0]) {
 		case '=':
@@ -3541,8 +3510,9 @@ static int
 isdn_tty_cmd_PLUSV(char **p, modem_info * info)
 {
 	atemu *m = &info->emu;
+	isdn_ctrl cmd;
 	static char *vcmd[] =
-	{"NH", "IP", "LS", "RX", "SD", "SM", "TX", NULL};
+	{"NH", "IP", "LS", "RX", "SD", "SM", "TX", "DD", NULL};
 	int i;
 	int par1;
 	int par2;
@@ -3718,9 +3688,9 @@ isdn_tty_cmd_PLUSV(char **p, modem_info * info)
 								   info);
 							isdn_tty_at_cout("4;ADPCM;4;0;(8000)\r\n",
 								   info);
-							isdn_tty_at_cout("5;ALAW;8;0;(8000)",
+							isdn_tty_at_cout("5;ALAW;8;0;(8000)\r\n",
 								   info);
-							isdn_tty_at_cout("6;ULAW;8;0;(8000)",
+							isdn_tty_at_cout("6;ULAW;8;0;(8000)\r\n",
 								   info);
 							break;
 						default:
@@ -3759,6 +3729,52 @@ isdn_tty_cmd_PLUSV(char **p, modem_info * info)
 			isdn_tty_modem_result(1, info);
 			return 0;
 			break;
+		case 7:
+			/* AT+VDD - DTMF detection */
+			switch (*p[0]) {
+				case '?':
+					p[0]++;
+					sprintf(rs, "\r\n<%d>,<%d>",
+						m->vpar[4],
+						m->vpar[5]);
+					isdn_tty_at_cout(rs, info);
+					break;
+				case '=':
+					p[0]++;
+					if ((*p[0]>='0') && (*p[0]<='9')) {
+						if (info->online != 1)
+							PARSE_ERROR1;
+						par1 = isdn_getnum(p);
+						if ((par1 < 0) || (par1 > 15))
+							PARSE_ERROR1;
+						if (*p[0] != ',')
+							PARSE_ERROR1;
+						p[0]++;
+						par2 = isdn_getnum(p);
+						if ((par2 < 0) || (par2 > 255))
+							PARSE_ERROR1;
+						m->vpar[4] = par1;
+						m->vpar[5] = par2;
+						cmd.driver = info->isdn_driver;
+						cmd.command = ISDN_CMD_AUDIO;
+						cmd.arg = info->isdn_channel + (ISDN_AUDIO_SETDD << 8);
+						cmd.parm.num[0] = par1;
+						cmd.parm.num[1] = par2;
+						isdn_command(&cmd);
+						break;
+					} else
+					if (*p[0] == '?') {
+						p[0]++;
+						isdn_tty_at_cout("\r\n<0-15>,<0-255>",
+							info);
+						break;
+					} else
+					PARSE_ERROR1;
+					break;
+				default:
+					PARSE_ERROR1;
+			}
+			break;
 		default:
 			PARSE_ERROR1;
 	}
@@ -3781,6 +3797,9 @@ isdn_tty_parse_at(modem_info * info)
 #endif
 	for (p = &m->mdmcmd[2]; *p;) {
 		switch (*p) {
+			case ' ':
+				p++;
+				break;
 			case 'A':
 				/* A - Accept incoming call */
 				p++;
@@ -3988,7 +4007,7 @@ isdn_tty_edit_at(const char *p, int count, modem_info * info, int user)
 				eb[1] = 0;
 				isdn_tty_at_cout(eb, info);
 			}
-			if (m->mdmcmdl >= 2)
+			if ((m->mdmcmdl >= 2) && (!(strncmp(m->mdmcmd, "AT", 2))))
 				isdn_tty_parse_at(info);
 			m->mdmcmdl = 0;
 			continue;
@@ -4014,15 +4033,16 @@ isdn_tty_edit_at(const char *p, int count, modem_info * info, int user)
 				switch (m->mdmcmdl) {
 					case 0:
 						if (c == 'A')
-							m->mdmcmd[m->mdmcmdl++] = c;
+							m->mdmcmd[m->mdmcmdl] = c;
 						break;
 					case 1:
 						if (c == 'T')
-							m->mdmcmd[m->mdmcmdl++] = c;
+							m->mdmcmd[m->mdmcmdl] = c;
 						break;
 					default:
-						m->mdmcmd[m->mdmcmdl++] = c;
+						m->mdmcmd[m->mdmcmdl] = c;
 				}
+				m->mdmcmd[++m->mdmcmdl] = 0;
 			}
 		}
 	}

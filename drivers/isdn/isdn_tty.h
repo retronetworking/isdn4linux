@@ -20,6 +20,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.13  1999/04/12 12:33:46  fritz
+ * Changes from 2.0 tree.
+ *
  * Revision 1.12  1999/03/02 12:04:51  armin
  * -added ISDN_STAT_ADDCH to increase supported channels after
  *  register_isdn().
@@ -69,6 +72,68 @@
  *
  */
 
+
+#define DLE 0x10
+#define ETX 0x03
+#define DC4 0x14
+
+
+/*
+ * Definition of some special Registers of AT-Emulator
+ */
+#define REG_RINGATA   0
+#define REG_RINGCNT   1
+#define REG_ESC       2
+#define REG_CR        3
+#define REG_LF        4
+#define REG_BS        5
+
+#define REG_WAITC     7
+
+#define REG_RESP     12
+#define BIT_RESP      1
+#define REG_RESPNUM  12
+#define BIT_RESPNUM   2
+#define REG_ECHO     12
+#define BIT_ECHO      4
+#define REG_DCD      12
+#define BIT_DCD       8
+#define REG_CTS      12
+#define BIT_CTS      16
+#define REG_DTRR     12
+#define BIT_DTRR     32
+#define REG_DSR      12
+#define BIT_DSR      64
+#define REG_CPPP     12
+#define BIT_CPPP    128
+
+#define REG_T70      13
+#define BIT_T70       2
+#define BIT_T70_EXT  32
+#define REG_DTRHUP   13
+#define BIT_DTRHUP    4
+#define REG_RESPXT   13
+#define BIT_RESPXT    8
+#define REG_CIDONCE  13
+#define BIT_CIDONCE  16
+#define REG_RUNG     13
+#define BIT_RUNG     64
+#define REG_DISPLAY  13
+#define BIT_DISPLAY 128
+
+#define REG_L2PROT   14
+#define REG_L3PROT   15
+#define REG_PSIZE    16
+#define REG_WSIZE    17
+#define REG_SI1      18
+#define REG_SI2      19
+#define REG_SI1I     20
+#define REG_PLAN     21
+#define REG_SCREEN   22
+
+#define REG_CPN      23
+#define BIT_CPN       1
+
 extern void isdn_tty_modem_escape(void);
 extern void isdn_tty_modem_ring(void);
 extern void isdn_tty_carrier_timeout(void);
@@ -80,3 +145,4 @@ extern void isdn_tty_cleanup_xmit(modem_info *);
 extern int isdn_tty_stat_callback(int, isdn_ctrl *);
 extern int isdn_tty_rcv_skb(int, int, int, struct sk_buff *);
 extern int isdn_tty_capi_facility(capi_msg *cm); 
+extern void isdn_tty_at_cout(char *, modem_info *);
