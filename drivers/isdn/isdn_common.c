@@ -1711,8 +1711,16 @@ isdn_open(struct inode *ino, struct file *filep)
 			goto out;
 		}
 	}
-	if (!dev->channels)
+	if (!dev->channels) {
+		printk(KERN_WARNING "no channels in open minor(%d)\n",
+			minor);
+		if (minor == ISDN_MINOR_CTRL) {
+			printk(KERN_WARNING "allways open isdnctrl0\n");
+			isdn_lock_drivers(); /* will do nothing */
+			retval = 0;
+		}
 		goto out;
+	}
 	if (minor <= ISDN_MINOR_BMAX) {
 		printk(KERN_WARNING "isdn_open minor %d obsolete!\n", minor);
 		drvidx = isdn_minor2drv(minor);
