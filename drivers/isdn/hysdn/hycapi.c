@@ -43,6 +43,9 @@
 
 static char hycapi_revision[]="$Revision$";
 
+static unsigned int capi_enable = 0xffffffff; 
+MODULE_PARM(capi_enable, "i");
+
 typedef struct _hycapi_appl {
 	unsigned int ctrl_mask;
 	capi_register_params rp;
@@ -792,6 +795,9 @@ hycapi_capi_create(hysdn_card *card)
 #ifdef HYCAPI_PRINTFNAMES
 	printk(KERN_NOTICE "hycapi_capi_create\n");        
 #endif
+	if((capi_enable & (1 << card->myid)) == 0) {
+		return 1;
+	}
 	if (!card->hyctrlinfo) {
 		cinfo = (hycapictrl_info *) kmalloc(sizeof(hycapictrl_info), GFP_ATOMIC);
 		if (!cinfo) {
