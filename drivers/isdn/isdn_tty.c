@@ -20,6 +20,10 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.75  1999/10/08 18:59:32  armin
+ * Bugfix of too small MSN buffer and checking phone number
+ * in isdn_tty_getdial()
+ *
  * Revision 1.74  1999/09/04 06:20:04  keil
  * Changes from kernel set_current_state()
  *
@@ -1111,8 +1115,8 @@ isdn_tty_suspend(char *id, modem_info * info, atemu * m)
 	printk(KERN_DEBUG "Msusp ttyI%d\n", info->line);
 #endif
 	l = strlen(id);
-	if ((info->isdn_driver >= 0) && l) {
-		cmd.parm.cmsg.Length = l+17;
+	if ((info->isdn_driver >= 0)) {
+		cmd.parm.cmsg.Length = l+18;
 		cmd.parm.cmsg.Command = CAPI_FACILITY;
 		cmd.parm.cmsg.Subcommand = CAPI_REQ;
 		cmd.parm.cmsg.adr.Controller = info->isdn_driver + 1;
@@ -1150,10 +1154,6 @@ isdn_tty_resume(char *id, modem_info * info, atemu * m)
 	int l;
 
 	l = strlen(id);
-	if (!l) {
-		isdn_tty_modem_result(4, info);
-		return;
-	}
 	for (j = 7; j >= 0; j--)
 		if (m->mdmreg[REG_SI1] & (1 << j)) {
 			si = bit2si[j];
@@ -1207,7 +1207,7 @@ isdn_tty_resume(char *id, modem_info * info, atemu * m)
 		isdn_command(&cmd);
 		cmd.driver = info->isdn_driver;
 		cmd.arg = info->isdn_channel;
-		cmd.parm.cmsg.Length = l+17;
+		cmd.parm.cmsg.Length = l+18;
 		cmd.parm.cmsg.Command = CAPI_FACILITY;
 		cmd.parm.cmsg.Subcommand = CAPI_REQ;
 		cmd.parm.cmsg.adr.Controller = info->isdn_driver + 1;

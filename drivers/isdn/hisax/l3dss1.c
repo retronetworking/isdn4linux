@@ -13,6 +13,9 @@
  *              Fritz Elfert
  *
  * $Log$
+ * Revision 2.19  1999/08/25 16:55:23  keil
+ * Fix for test case TC10011
+ *
  * Revision 2.18  1999/08/11 20:54:39  keil
  * High layer compatibility is valid in SETUP
  *
@@ -2517,14 +2520,13 @@ l3dss1_suspend_req(struct l3_process *pc, u_char pr, void *arg)
 	u_char *msg = pc->chan->setup.phone;
 
 	MsgHead(p, pc->callref, MT_SUSPEND);
-
-	*p++ = IE_CALL_ID;
 	l = *msg++;
 	if (l && (l <= 10)) {	/* Max length 10 octets */
+		*p++ = IE_CALL_ID;
 		*p++ = l;
 		for (i = 0; i < l; i++)
 			*p++ = *msg++;
-	} else {
+	} else if (l) {
 		l3_debug(pc->st, "SUS wrong CALL_ID len %d", l);
 		return;
 	}
@@ -2593,13 +2595,13 @@ l3dss1_resume_req(struct l3_process *pc, u_char pr, void *arg)
 
 	MsgHead(p, pc->callref, MT_RESUME);
 
-	*p++ = IE_CALL_ID;
 	l = *msg++;
 	if (l && (l <= 10)) {	/* Max length 10 octets */
+		*p++ = IE_CALL_ID;
 		*p++ = l;
 		for (i = 0; i < l; i++)
 			*p++ = *msg++;
-	} else {
+	} else if (l) {
 		l3_debug(pc->st, "RES wrong CALL_ID len %d", l);
 		return;
 	}

@@ -11,6 +11,9 @@
  *              Fritz Elfert
  *
  * $Log$
+ * Revision 2.37  1999/09/20 19:49:47  keil
+ * Fix wrong init of PStack
+ *
  * Revision 2.36  1999/09/20 12:13:13  keil
  * Fix hang if no protocol was selected
  *
@@ -1517,7 +1520,6 @@ capi_debug(struct Channel *chanp, capi_msg *cm)
 {
 	char *t = tmpbuf;
 
-	t += sprintf(tmpbuf, "%d CAPIMSG", chanp->chan);
 	t += QuickHex(t, (u_char *)cm, (cm->Length>50)? 50: cm->Length);
 	t--;
 	*t= 0;
@@ -1534,20 +1536,16 @@ lli_got_fac_req(struct Channel *chanp, capi_msg *cm) {
 		return;
 	switch(cm->para[3]) {
 		case 4: /* Suspend */
-			if (cm->para[5]) {
-				strncpy(chanp->setup.phone, &cm->para[5], cm->para[5] +1);
-				FsmEvent(&chanp->fi, EV_SUSPEND, cm);
-			}
+			strncpy(chanp->setup.phone, &cm->para[5], cm->para[5] +1);
+			FsmEvent(&chanp->fi, EV_SUSPEND, cm);
 			break;
 		case 5: /* Resume */
-			if (cm->para[5]) {
-				strncpy(chanp->setup.phone, &cm->para[5], cm->para[5] +1);
-				if (chanp->fi.state == ST_NULL) {
-					FsmEvent(&chanp->fi, EV_RESUME, cm);
-				} else {
-					FsmDelTimer(&chanp->dial_timer, 72);
-					FsmAddTimer(&chanp->dial_timer, 80, EV_RESUME, cm, 73);
-				}
+			strncpy(chanp->setup.phone, &cm->para[5], cm->para[5] +1);
+			if (chanp->fi.state == ST_NULL) {
+				FsmEvent(&chanp->fi, EV_RESUME, cm);
+			} else {
+				FsmDelTimer(&chanp->dial_timer, 72);
+				FsmAddTimer(&chanp->dial_timer, 80, EV_RESUME, cm, 73);
 			}
 			break;
 	}
