@@ -20,6 +20,11 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.55  1998/06/17 19:50:55  he
+ * merged with 2.1.10[34] (cosmetics and udelay() -> mdelay())
+ * brute force fix to avoid Ugh's in isdn_tty_write()
+ * cleaned up some dead code
+ *
  * Revision 1.54  1998/06/07 00:20:13  fritz
  * abc cleanup.
  *
@@ -313,8 +318,6 @@ char *isdn_tty_revision = "$Revision$";
 #define REG_CPPP     12
 #define BIT_CPPP    128
 
-#define REG_DELXMT   13
-#define BIT_DELXMT    1
 #define REG_T70      13
 #define BIT_T70       2
 #define BIT_T70_EXT  32
@@ -592,8 +595,9 @@ isdn_tty_tint(modem_info * info)
 					   info->isdn_channel, 1, skb)) == len) {
 		struct tty_struct *tty = info->tty;
 		info->send_outstanding++;
-		info->msr |= UART_MSR_CTS;
-		info->lsr |= UART_LSR_TEMT;
+/* Fritz DEBUG */
+		info->msr &= ~UART_MSR_CTS;
+		info->lsr &= ~UART_LSR_TEMT;
 		if ((tty->flags & (1 << TTY_DO_WRITE_WAKEUP)) &&
 		    tty->ldisc.write_wakeup)
 			(tty->ldisc.write_wakeup) (tty);
@@ -726,7 +730,6 @@ isdn_tty_senddown(modem_info * info)
 	int audio_len;
 #endif
 	struct sk_buff *skb;
-	unsigned long flags;
 
 #ifdef CONFIG_ISDN_AUDIO
 	if (info->vonline & 4) {
@@ -741,18 +744,20 @@ isdn_tty_senddown(modem_info * info)
 		}
 	}
 #endif
-	save_flags(flags);
-	cli();
-	if (!(buflen = info->xmit_count)) {
-		restore_flags(flags);
+	if (!(buflen = info->xmit_count))
 		return;
-	}
-	if ((info->emu.mdmreg[REG_CTS] & BIT_CTS) != 0)
+ 	if ((info->emu.mdmreg[REG_CTS] & BIT_CTS) != 0)
 		info->msr &= ~UART_MSR_CTS;
-	info->lsr &= ~UART_LSR_TEMT;
+	info->lsr &= ~UART_LSR_TEMT;	
+	/* info->xmit_count is modified here and in isdn_tty_write().
+	 * So we return here if isdn_tty_write() is in the
+	 * critical section.
+	 */
+	atomic_inc(&info->xmit_lock);
+	if (!(atomic_dec_and_test(&info->xmit_lock)))
+		return;
 	if (info->isdn_driver < 0) {
 		info->xmit_count = 0;
-		restore_flags(flags);
 		return;
 	}
 	skb_res = dev->drv[info->isdn_driver]->interface->hl_hdrlen + 4;
@@ -766,7 +771,6 @@ isdn_tty_senddown(modem_info * info)
 	skb = dev_alloc_skb(skb_res + buflen);
 #endif
 	if (!skb) {
-		restore_flags(flags);
 		printk(KERN_WARNING
 		       "isdn_tty: Out of memory in ttyI%d senddown\n",
 		       info->line);
@@ -775,7 +779,6 @@ isdn_tty_senddown(modem_info * info)
 	skb_reserve(skb, skb_res);
 	memcpy(skb_put(skb, buflen), info->xmit_buf, buflen);
 	info->xmit_count = 0;
-	restore_flags(flags);
 #ifdef CONFIG_ISDN_AUDIO
 	if (info->vonline & 2) {
 		/* For now, ifmt is fixed to 1 (alaw), since this
@@ -1036,12 +1039,12 @@ isdn_tty_suspend(char *id, modem_info * info, atemu * m)
 		cmd.parm.cmsg.adr.Controller = info->isdn_driver + 1;
 		cmd.parm.cmsg.para[0] = 3; /* 16 bit 0x0003 suplementary service */
 		cmd.parm.cmsg.para[1] = 0;
-		cmd.parm.cmsg.para[2] = l+3;
+		cmd.parm.cmsg.para[2] = l + 3;
 		cmd.parm.cmsg.para[3] = 4; /* 16 bit 0x0004 Suspend */
 		cmd.parm.cmsg.para[4] = 0;
 		cmd.parm.cmsg.para[5] = l;
 		strncpy(&cmd.parm.cmsg.para[6], id, l);
-		cmd.command =CAPI_PUT_MESSAGE;
+		cmd.command = CAPI_PUT_MESSAGE;
 		cmd.driver = info->isdn_driver;
 		cmd.arg = info->isdn_channel;
 		isdn_command(&cmd);
@@ -1130,7 +1133,7 @@ isdn_tty_resume(char *id, modem_info * info, atemu * m)
 		cmd.parm.cmsg.para[4] = 0;
 		cmd.parm.cmsg.para[5] = l;
 		strncpy(&cmd.parm.cmsg.para[6], id, l);
-		cmd.command =CAPI_PUT_MESSAGE;
+		cmd.command = CAPI_PUT_MESSAGE;
 /*		info->dialing = 1;
 		strcpy(dev->num[i], n);
 		isdn_info_update();
@@ -1299,28 +1302,14 @@ isdn_tty_write(struct tty_struct *tty, int from_user, const u_char * buf, int co
 {
 	int c;
 	int total = 0;
-	u_char * tmp = NULL;
-	ulong flags;
 	modem_info *info = (modem_info *) tty->driver_data;
 
 	if (isdn_tty_paranoia_check(info, tty->device, "isdn_tty_write"))
 		return 0;
 	if (!tty)
 		return 0;
-	/* brute force method to fix user space access with interrupts off */
-	if(from_user) {
-		tmp = kmalloc(count,GFP_KERNEL);
-		if ( ! tmp ) return -ENOMEM;
-		if( copy_from_user(tmp,buf,count) ){
-			kfree(tmp);
-			return -EFAULT;
-		}
-		buf = tmp;
-		from_user = 0;
-	}
-	/* however, is turning of interrupts really necessary ? */
-	save_flags(flags);
-	cli();
+	/* See isdn_tty_senddown() */
+	atomic_inc(&info->xmit_lock);
 	while (1) {
 		c = MIN(count, info->xmit_size - info->xmit_count);
 		if (info->isdn_driver >= 0)
@@ -1379,10 +1368,6 @@ isdn_tty_write(struct tty_struct *tty, int from_user, const u_char * buf, int co
 			} else
 #endif
 				info->xmit_count += c;
-			if (m->mdmreg[REG_DELXMT] & BIT_DELXMT) {
-				isdn_tty_senddown(info);
-				isdn_tty_tint(info);
-			}
 		} else {
 			info->msr |= UART_MSR_CTS;
 			info->lsr |= UART_LSR_TEMT;
@@ -1402,8 +1387,7 @@ isdn_tty_write(struct tty_struct *tty, int from_user, const u_char * buf, int co
 	}
 	if ((info->xmit_count) || (skb_queue_len(&info->xmit_queue)))
 		isdn_timer_ctrl(ISDN_TIMER_MODEMXMIT, 1);
-	restore_flags(flags);
-	if( tmp ) kfree(tmp);
+	atomic_dec(&info->xmit_lock);
 	return total;
 }
 
@@ -2306,7 +2290,7 @@ isdn_tty_stat_callback(int i, isdn_ctrl * c)
                         case ISDN_STAT_CINF:
                                 printk(KERN_DEBUG "CHARGEINFO on ttyI%d: %ld %s\n", info->line, c->arg, c->parm.num);
                                 info->emu.charge = (unsigned) simple_strtoul(c->parm.num, &e, 10);
-                                if (e == c->parm.num)
+                                if (e == (char *)c->parm.num)
 					info->emu.charge = 0;
 				
                                 break;			

@@ -21,6 +21,11 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.53  1998/06/17 19:51:51  he
+ * merged with 2.1.10[34] (cosmetics and udelay() -> mdelay())
+ * brute force fix to avoid Ugh's in isdn_tty_write()
+ * cleaned up some dead code
+ *
  * Revision 1.52  1998/06/12 11:42:18  detabc
  * cleanup abc
  *
@@ -691,6 +696,7 @@ typedef struct modem_info {
   int                   xmit_count;      /* # of chars in xmit_buf         */
   unsigned char         *xmit_buf;       /* transmit buffer                */
   struct sk_buff_head   xmit_queue;      /* transmit queue                 */
+  atomic_t              xmit_lock;       /* Semaphore for isdn_tty_write   */
 #ifdef CONFIG_ISDN_AUDIO
   int                   vonline;         /* Voice-channel status           */
 					 /* Bit 0 = recording              */
