@@ -6,6 +6,9 @@
  * Copyright 1996 by Carsten Paeth (calle@calle.in-berlin.de)
  *
  * $Log$
+ * Revision 1.22  1999/11/13 21:27:16  keil
+ * remove KERNELVERSION
+ *
  * Revision 1.21  1999/09/10 17:24:18  calle
  * Changes for proposed standard for CAPI2.0:
  * - AK148 "Linux Exention"
@@ -125,6 +128,9 @@
 #include <linux/poll.h>
 #include <linux/capi.h>
 #include <linux/kernelcapi.h>
+#ifdef HAVE_DEVFS_FS
+#include <linux/devfs_fs_kernel.h>
+#endif /* HAVE_DEVFS_FS */
 
 #include <linux/isdn_compat.h>
 #include "capiutil.h"
@@ -625,14 +631,40 @@ int capi_init(void)
 	}
 #endif
 
-	if (register_chrdev(capi_major, "capi20", &capi_fops)) {
+	if (devfs_register_chrdev(capi_major, "capi20", &capi_fops)) {
 		printk(KERN_ERR "capi20: unable to get major %d\n", capi_major);
 		return -EIO;
 	}
+#ifdef HAVE_DEVFS_FS
+	devfs_register (NULL, "isdn/capi20", 0, DEVFS_FL_DEFAULT,
+			capi_major, 0, S_IFCHR | S_IRUSR | S_IWUSR, 0, 0,
+			&capi_fops, NULL);
+	devfs_register_series (NULL, "isdn/capi20.0%u", 10, DEVFS_FL_DEFAULT,
+			       capi_major, 1,
+			       S_IFCHR | S_IRUSR | S_IWUSR, 0, 0,
+			       &capi_fops, NULL);
+	devfs_register_series (NULL, "isdn/capi20.1%u", 10, DEVFS_FL_DEFAULT,
+			       capi_major, 11,
+			       S_IFCHR | S_IRUSR | S_IWUSR, 0, 0,
+			       &capi_fops, NULL);
+#endif
 	printk(KERN_NOTICE "capi20: started up with major %d\n", capi_major);
 
 	if ((capifuncs = attach_capi_interface(&cuser)) == 0) {
-		unregister_chrdev(capi_major, "capi20");
+		devfs_unregister_chrdev(capi_major, "capi20");
+#ifdef HAVE_DEVFS_FS
+		devfs_unregister(devfs_find_handle(NULL, "capi20", 0,
+						   capi_major, 0,
+						   DEVFS_SPECIAL_CHR, 0));
+		for (j = 0; j < 10; j++) {
+			char devname[32];
+
+			sprintf(devname, "isdn/capi20.0%i", j);
+			devfs_unregister(devfs_find_handle(NULL, devname, 0, capi_major, j + 1, DEVFS_SPECIAL_CHR, 0));
+			sprintf (devname, "isdn/capi20.1%i", j);
+			devfs_unregister(devfs_find_handle(NULL, devname, 0, capi_major, j + 11, DEVFS_SPECIAL_CHR, 0));
+		}
+#endif
 		return -EIO;
 	}
 	(void)proc_init();
@@ -642,8 +674,22 @@ int capi_init(void)
 #ifdef MODULE
 void cleanup_module(void)
 {
+#ifdef HAVE_DEVFS_FS
+	int i;
+	char devname[32];
+
+#endif
 	(void)proc_exit();
-	unregister_chrdev(capi_major, "capi20");
+	devfs_unregister_chrdev(capi_major, "capi20");
+#ifdef HAVE_DEVFS_FS
+	devfs_unregister(devfs_find_handle(NULL, "isdn/capi20", 0, capi_major, 0, DEVFS_SPECIAL_CHR, 0));
+	for (i = 0; i < 10; i++) {
+		sprintf (devname, "isdn/capi20.0%i", i);
+		devfs_unregister(devfs_find_handle(NULL, devname, 0, capi_major, i + 1, DEVFS_SPECIAL_CHR, 0));
+		sprintf (devname, "isdn/capi20.1%i", i);
+		devfs_unregister(devfs_find_handle(NULL, devname, 0, capi_major, i + 11, DEVFS_SPECIAL_CHR, 0));
+	}
+#endif
 	(void) detach_capi_interface(&cuser);
 }
 

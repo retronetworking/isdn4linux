@@ -21,6 +21,10 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.109  2000/02/25 11:29:17  paul
+ * changed chargetime to ulong from int (after about 20 days the "chargetime of
+ * ipppX is now 1234" message displays a negative number on alpha).
+ *
  * Revision 1.108  2000/02/15 12:54:01  kai
  * set TX timeout back to 2 secs for 2.2.x, just to be safe
  *
@@ -490,7 +494,7 @@
  * Instead I chose to add isdn_net_started() which gives the state of the 
  * master in case of slaves.
  * I'm still not sure if this is how it's supposed to be done this way
- * because it uses test_bit(LINK_STATE_START, &dev->state) which might be 
+ * because it uses netif_running(dev) which might be 
  * considered private to the network layer. However, it works for now.
  * Alternative: set a flag in _open() and clear it in _close() 
  *
@@ -516,7 +520,7 @@ static int __inline__ isdn_net_started(isdn_net_dev *n)
 #ifdef COMPAT_NO_SOFTNET
 	return dev->start;
 #else
-	return test_bit(LINK_STATE_START, &dev->state);
+	return netif_running(dev);
 #endif
 }
 

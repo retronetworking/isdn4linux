@@ -6,12 +6,16 @@
  * (c) Copyright 2000 by Carsten Paeth (calle@calle.in-berlin.de)
  * 
  * $Log$
+ * Revision 1.2  2000/01/25 14:44:47  calle
+ * typo in b1pciv4_detect().
+ *
  * Revision 1.1  2000/01/25 14:36:43  calle
  * common function for  T1 PCI and B1 PCI V4.
  *
  *
  */
 
+#include <linux/config.h>
 #include <linux/module.h>
 #include <linux/kernel.h>
 #include <linux/skbuff.h>
