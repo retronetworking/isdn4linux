@@ -8,7 +8,7 @@ objdump --disassemble -r $1 | awk '
 {print $0 "," fname}
 ' | \
 grep esp | \
-grep subl | grep -v ')' | cut -c35- | \
+grep subl | grep -v ')' | cut '-d$' -f2- | \
 awk -F , '{print $1 " " $3}' | \
 while read LEN FNAME ; do
 	printf '%4d %s\n' $LEN $FNAME
