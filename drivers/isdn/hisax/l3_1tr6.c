@@ -6,6 +6,9 @@
  *
  *
  * $Log$
+ * Revision 1.4  1996/10/30 10:18:01  keil
+ * bugfixes in debugging output
+ *
  * Revision 1.3  1996/10/27 22:15:37  keil
  * bugfix reject handling
  *
@@ -407,7 +410,6 @@ l3_1tr6_disconn_req(struct PStack *st, byte pr, void *arg)
 {
 	struct BufHeader *dibh;
 	byte             *p;
-        byte             rejflg;
 
 	BufPoolGet(&dibh, st->l1.sbufpool, GFP_ATOMIC, (void *) st, 21);
 	p = DATAPTR(dibh);
@@ -416,12 +418,10 @@ l3_1tr6_disconn_req(struct PStack *st, byte pr, void *arg)
 	MsgHead(p, st->l3.callref, MT_N1_DISC, PROTO_DIS_N1);
 
         if ((st->l3.state & 0xfe) == 6) {
-                rejflg = 1;
                 *p++ = WE0_cause;       /* Anruf abweisen                */
                 *p++ = 0x01;            /* Laenge = 1                    */
                 *p++ = CAUSE_CallRejected;
         } else {
-                rejflg = 0;
                 *p++ = WE0_cause;
                 *p++ = 0x0;             /* Laenge = 0 normales Ausloesen */
         }
@@ -453,7 +453,7 @@ static struct stateentry downstl[] =
          	SBIT(10)| SBIT(12)| SBIT(19),
         	CC_DLRL, l3_1tr6_reset},
 	{SBIT(6),
-		CC_REJECT_REQ, l3_1tr6_reset},
+		CC_REJECT_REQ, l3_1tr6_disconn_req},
 	{SBIT(6)|SBIT(7),
 		CC_SETUP_RSP, l3_1tr6_conn},
 	{SBIT(6),
