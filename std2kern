@@ -49,8 +49,16 @@ else
   for i in include/linux/isdn*.h ; do
     $DOCP $i $KERNELDIR/$i
   done
-  for i in Documentation/isdn/* ; do
+  for i in Documentation/isdn/CREDITS Documentation/isdn/README* \
+           Documentation/isdn/*.FAQ Documentation/isdn/INTERFACE ; do
     $DOCP $i $KERNELDIR/$i
   done
+  for i in drivers/isdn/Config.in ; do
+    $DOCP $i $KERNELDIR/$i
+  done
+  for i in drivers/isdn/Makefile drivers/isdn/icn/Makefile \
+           drivers/isdn/teles/Makefile drivers/isdn/hisax/Makefile \
+           drivers/isdn/pcbit/Makefile ; do
+    $DOCP $i.kernel $KERNELDIR/$i
+  done
 fi
-
