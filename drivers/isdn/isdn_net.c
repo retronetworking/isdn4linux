@@ -21,6 +21,16 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.48.2.6  1998/04/18 17:55:09  detabc
+ * dropp packets if call's are disabled (only abc-extension)
+ * add secure callback (only abc-extension)
+ * this means: if you are the callback-out-side and the remote
+ * dont reject the call ?????
+ * in this case the connection is ok !!! but you pay the connection !!!!
+ * now this will be a configerror and the connection will be dropped .
+ * also a new call will be disabled for 4 hours.
+ * incouming-calls are still possible.
+ *
  * Revision 1.48.2.5  1998/04/16 19:24:51  keil
  * Fix from vger (tx max qlength)
  *
@@ -265,58 +275,19 @@ char *isdn_net_revision = "$Revision$";
 static void
 isdn_net_unreachable(struct device *dev, struct sk_buff *skb, char *reason)
 {
-#ifndef CONFIG_ISDN_WITH_ABC
-	int i = 0;
-#endif
+	int i ;
 
-#ifdef CONFIG_ISDN_WITH_ABC
-	isdn_net_local *lp = (isdn_net_local *) dev->priv;
-	struct sk_buff *nskb = NULL;
-
-	if(lp->abc_flags & ABC_ABCROUTER) {
-
-		if(*lp->abc_rx_key && skb->len > 2) {
-
-			abc_simple_decrypt(skb->data + 2,skb->len - 2,lp->abc_rx_key);
-			nskb = abc_get_uncomp(skb);
-			abc_simple_crypt(skb->data + 2,skb->len - 2,lp->abc_rx_key);
-			skb = nskb;
- 
-		} else skb = nskb = abc_get_uncomp(skb);
-	}
-
-	if(reason != NULL) {
+	if(skb != NULL) {
 
 		printk(KERN_DEBUG "isdn_net: %s: %s, send ICMP\n",
-	       dev->name, reason);
-	}
-#else
-	printk(KERN_DEBUG "isdn_net: %s: %s, send ICMP\n",
-	       dev->name, reason);
-#endif
-	icmp_send(skb, ICMP_DEST_UNREACH, ICMP_HOST_UNREACH, 0
-#if (LINUX_VERSION_CODE < 0x02010f)	/* 2.1.15 */
-		  ,dev
-#endif
-	    );
-#ifdef CONFIG_ISDN_WITH_ABC
-	if(nskb != NULL)
-		kfree_skb(nskb,FREE_READ);
-#else
-	/* FIXME: do we have to decompress and/or decrypt the other queued skbs ? */
+			   dev->name, (reason != NULL) ? reason : "reason unknown");
 
-	/*
-	** detlef
-	** I think the &dev->buffs are managed by the kernel device-driver ???
-	** and i will see the paket the first time only behind the driver.
-	** My compress etc. will not give back a paket to the driver
-	** so no compressed or crypted paket can be in the buffs-queue ????
-	** 
-	** I think so
-	**
-	** please tell me if I am wrong
-	** 
-	*/
+		icmp_send(skb, ICMP_DEST_UNREACH, ICMP_HOST_UNREACH, 0
+#if (LINUX_VERSION_CODE < 0x02010f)	/* 2.1.15 */
+			  ,dev
+#endif
+			);
+	}
 
 	for(i = 0; i < DEV_NUMBUFFS; i++) {
 		struct sk_buff *skb;
@@ -330,7 +301,6 @@ isdn_net_unreachable(struct device *dev, struct sk_buff *skb, char *reason)
 				dev_kfree_skb(skb, FREE_WRITE);
         	}
 	}
-#endif /* CONFIG_ISDN_WITH_ABC */
 }
 
 static void
@@ -402,6 +372,9 @@ isdn_net_unbind_channel(isdn_net_local * lp)
 #ifdef CONFIG_ISDN_WITH_ABC
 		if(lp->abc_call_disabled < 1)
 			lp->abc_call_disabled = jiffies + HZ ;
+		
+		abc_clear_tx_que(lp);
+		lp->abc_delayed_hangup = 0;
 #endif
 	if (lp->first_skb) {
 		dev_kfree_skb(lp->first_skb, FREE_WRITE);
@@ -452,6 +425,7 @@ isdn_net_autohup()
 		if(l->magic != ISDN_NET_MAGIC) {
 
 			printk(KERN_WARNING ": autohup-dev device wrong magicnr\n");
+			p = (isdn_net_dev *) p->next;
 			continue;
 		}
 #endif
@@ -469,19 +443,14 @@ isdn_net_autohup()
 
 			if(l->abc_flags & (ABC_ABCROUTER | ABC_MUST_DISCON)) {
 
-				ulong flags;
 				int must_hangup = 0;
 
 				if(l->abc_flags & ABC_MUST_DISCON) {
 
 					l->abc_flags &= ~ABC_MUST_DISCON;
 					must_hangup = 1;
-				}
 
-				if( l->abc_flags && ABC_ABCROUTER)  {
-
-					save_flags(flags);
-					cli();
+				} else if(l->abc_flags & ABC_ABCROUTER)  {
 
 					if(l->abc_rem_disconnect != 0 && 
 						l->abc_rem_disconnect < jiffies) {
@@ -496,34 +465,10 @@ isdn_net_autohup()
 
 						must_hangup = 1;
 
-					} else {
+					} else if(l->abc_nextkeep < jiffies) {
 
-						if(l->abc_nextkeep < jiffies)
-							l->abc_flags |= ABC_MUSTKEEP;
-
-						if(l->abc_flags & ABC_MUSTFIRST) {
-
-							restore_flags(flags);
-							abc_first_senden(&p->dev,l);
-							cli();
-						}
-
-						if((l->flags & ISDN_NET_CONNECTED) && (!l->dialstate)) {
-
-							if( (!(l->abc_flags & ABC_MUSTFIRST) &&
-								(l->abc_flags & ABC_MUSTKEEP))) {
-
-								restore_flags(flags);
-								abc_keep_senden(&p->dev,l);
-								cli();
-							}
-						}
+						abc_keep_senden(&p->dev,l);
 					}
-
-					if ((jiffies - p->dev.trans_start) < (10 * HZ)) 
-						p->dev.tbusy = 0;
-
-					restore_flags(flags);
 				}
 
 				if(must_hangup) {
@@ -532,18 +477,44 @@ isdn_net_autohup()
 					p = (isdn_net_dev *) p->next;
 					continue;
 				}
+			}
 
-			} else if(p->dev.tbusy) {
+			if(	(l->flags & ISDN_NET_CONNECTED) && 
+				(!l->dialstate)					&&
+				l->isdn_device > -1 			&& 
+				l->isdn_channel > -1) 			{
 
-				ulong flags;
+				int i = 0;
 
-				save_flags(flags);
-				cli();
-					
-				if ((jiffies - p->dev.trans_start) < (10 * HZ))
-					p->dev.tbusy = 0;
+				for(; i < ABC_ANZ_TX_QUE && 
+					skb_queue_len(l->abc_tx_que + i) < 1;i++);
 
-				restore_flags(flags);
+				if(i < ABC_ANZ_TX_QUE)
+					isdn_net_send_skb(&p->dev,l,NULL);
+			}
+
+			if (p->dev.tbusy && (jiffies - p->dev.trans_start) < (20 * HZ)) 
+				clear_bit(0, (void *) &(p->dev.tbusy));
+			
+			if(	l->abc_delayed_hangup > 0 &&
+				(l->abc_delayed_hangup < jiffies ||
+				(l->abc_last_traffic + ABC_DELAYED_TRAFFICHANGUP_WAIT) 
+					< jiffies)) {
+
+				if(dev->net_verbose > 1) {
+
+					printk(KERN_DEBUG
+					"abc_delayed_hangup %s: %lu %lu %lu\n",
+						l->name,
+						l->abc_delayed_hangup,
+						l->abc_last_traffic + ABC_DELAYED_TRAFFICHANGUP_WAIT,
+						jiffies);
+				}
+
+				isdn_net_hangup(&p->dev);
+				p = (isdn_net_dev *) p->next;
+				l->abc_delayed_hangup = 0;
+				continue;
 			}
 #endif
 			if ((l->onhtime) && (l->huptimer > l->onhtime))
@@ -705,8 +676,6 @@ isdn_net_stat_callback(int idx, int cmd)
 #ifdef CONFIG_ISDN_WITH_ABC
 			case ISDN_STAT_BHUP:
 
-				lp->abc_bchan_is_up = 0;
-
 				if(dev->net_verbose > 1)  {
 
 					printk(KERN_INFO "%s: %d get bchannel hangup\n",
@@ -721,8 +690,9 @@ isdn_net_stat_callback(int idx, int cmd)
 				/* Either D-Channel-hangup or error during dialout */
 				if ((!lp->dialstate) && (lp->flags & ISDN_NET_CONNECTED)) {
 #ifdef CONFIG_ISDN_WITH_ABC
-					lp->abc_bchan_is_up = 0;
 					lp->abc_first_disp = 0;
+					abc_clear_tx_que(lp);
+					lp->abc_delayed_hangup = 0;
 #endif
 					lp->flags &= ~ISDN_NET_CONNECTED;
 					if (lp->first_skb) {
@@ -791,15 +761,13 @@ isdn_net_stat_callback(int idx, int cmd)
 						printk(KERN_DEBUG "isdn_net: chargetime of %s now %d\n",
 						lp->name, lp->chargetime);
 #ifdef CONFIG_ISDN_WITH_ABC
-						lp->abc_flags &= 
-							~(ABC_MUSTFIRST | ABC_MUSTKEEP | ABC_WRONG_DSP);
+						lp->abc_flags &= ~ABC_WRONG_DSP;
 						lp->abc_nextkeep = 0;
 						lp->abc_rem_disconnect = 0;
-						lp->abc_bchan_is_up = 1;
+						abc_clear_tx_que(lp);
 
 						if(lp->abc_flags & ABC_ABCROUTER) {
 
-							lp->abc_flags |= ABC_MUSTFIRST;
 							lp->abc_life_to = ABC_DST_LIFETIME;
 							abc_first_senden(&p->dev,lp);
 						}
@@ -949,7 +917,7 @@ isdn_net_dial(void)
 							lp->pre_device,
 							lp->pre_channel)) < 0) {
 
-							printk(KERN_WARNING 
+							printk(KERN_DEBUG
 							"ABC_REDIAL: No channel for %s\n",
 							lp->name);
 
@@ -985,8 +953,7 @@ isdn_net_dial(void)
 				cli();
 				p->local.dial = p->local.phone[1];
 #ifdef CONFIG_ISDN_WITH_ABC
-				p->local.abc_flags &= 
-					~(ABC_MUSTFIRST | ABC_MUSTKEEP | ABC_WRONG_DSP);
+				p->local.abc_flags &=  ~ABC_WRONG_DSP;
 				p->local.abc_life_to = 0;
 				p->local.abc_nextkeep = 0;
 #endif
@@ -1045,7 +1012,10 @@ isdn_net_dial(void)
 					isdn_net_hangup(&p->dev);
 					break;
 				}
-
+#ifndef CONFIG_ISDN_WITH_ABC
+				abc_clear_tx_que(&p->local);
+				p->local.abc_delayed_hangup = 0;
+#endif
 				cmd.driver = p->local.isdn_device;
 				cmd.command = ISDN_CMD_SETL2;
 				cmd.arg = p->local.isdn_channel + (p->local.l2_proto << 8);
@@ -1384,6 +1354,7 @@ isdn_net_hangup(struct device *d)
 		(void) dev->drv[cmd.driver]->interface->command(&cmd);
 #ifdef CONFIG_ISDN_WITH_ABC
 		lp->abc_first_disp = 0;
+		abc_clear_tx_que(lp);
 
 		printk(KERN_INFO "%s: Charge %ld Chargesum is %d\n",
 			lp->name,
@@ -1416,6 +1387,11 @@ isdn_net_log_packet(u_char * buf, isdn_net_local * lp)
 	int data_ofs;
 	ip_ports *ipp;
 	char addinfo[100];
+
+#ifdef CONFIG_ISDN_WITH_ABC
+	if(lp != NULL)
+		lp->abc_first_disp = 1;
+#endif
 
 	addinfo[0] = '\0';
 	switch (lp->p_encap) {
@@ -1492,6 +1468,107 @@ isdn_net_log_packet(u_char * buf, isdn_net_local * lp)
  * Return: 0 on success, !0 on failure.
  * Side-effects: ndev->tbusy is cleared on success.
  */
+
+#ifdef CONFIG_ISDN_WITH_ABC
+int
+isdn_net_send_skb(struct device *ndev, isdn_net_local * lp,
+		  struct sk_buff *skb)
+{
+	int qnr = 0;
+	int retw = 0;
+	struct sk_buff_head *tq;
+	struct sk_buff_head *etq;
+	struct sk_buff *s = NULL;
+
+	if(skb != NULL) {
+
+		lp->abc_snd_want_bytes += skb->len;
+
+		if(lp->abc_flags & ABC_ABCROUTER) {
+
+			if((s = abc_snd_data(ndev,skb)) != NULL) {
+
+				int i = isdn_dc2minor( lp->isdn_device,lp->isdn_channel);
+
+				if(i > -1) 
+					dev->obytes[i] += skb->len - s->len;
+
+				dev_kfree_skb(skb,FREE_WRITE);
+
+			} else retw = 1;
+
+			skb = s;
+		}
+	}
+
+	if(skb != NULL) {
+
+		u_int l = (u_int)skb->len;
+
+		qnr  = 1;
+
+		if(l > 64) 
+			qnr++;
+
+		if(l > 128) 
+			qnr++;
+
+		if(l > 512) 
+			qnr++;
+		
+		if(l > 1024) 
+			qnr++;
+
+		if(qnr >= ABC_ANZ_TX_QUE) 
+			qnr  = ABC_ANZ_TX_QUE - 1;
+
+		abc_put_tx_que(lp,qnr,0,skb);
+	}
+
+	tq = lp->abc_tx_que;
+	etq = lp->abc_tx_que + ABC_ANZ_TX_QUE;
+	s = NULL;
+
+	for(qnr = 0; tq < etq && s == NULL;tq++,qnr++) {
+
+		while((s = skb_dequeue(tq)) != NULL) {
+
+			int len = s->len;     /* save len */
+
+			int ret = isdn_writebuf_skb_stub( 
+							lp->isdn_device,
+							lp->isdn_channel,
+							s);
+
+			if(qnr)
+				lp->abc_last_traffic = jiffies;
+
+			if (ret >= 0) {
+
+				lp->abc_snd_real_bytes += len;
+				lp->abc_snd_want_bytes += 2;
+				lp->transcount += len;
+				continue;
+			} 
+			
+			if(ret < 0) {
+
+				dev_kfree_skb(s, FREE_WRITE);
+				lp->stats.tx_errors++;
+				break;
+			}
+
+			abc_put_tx_que(lp,qnr,1,s);
+			break;
+		}
+	}
+
+	clear_bit(0, (void *) &(ndev->tbusy));
+	return(retw);
+}
+
+#else
+
 int
 isdn_net_send_skb(struct device *ndev, isdn_net_local * lp,
 		  struct sk_buff *skb)
@@ -1499,18 +1576,6 @@ isdn_net_send_skb(struct device *ndev, isdn_net_local * lp,
 	int ret;
 	int len = skb->len;     /* save len */
 
-#ifdef CONFIG_ISDN_WITH_ABC
-
-	if(lp->abc_flags & ABC_ABCROUTER) {
-
-		if(lp->abc_flags & ABC_MUSTFIRST) 
-			abc_first_senden(ndev,lp);
-
-		if(lp->abc_flags & ABC_MUSTKEEP) 
-			abc_keep_senden(ndev,lp);
-	}
-
-#endif 
 	ret = isdn_writebuf_skb_stub(lp->isdn_device, lp->isdn_channel, skb);
 	if (ret == len) {
 		lp->transcount += len;
@@ -1525,6 +1590,7 @@ isdn_net_send_skb(struct device *ndev, isdn_net_local * lp,
 	}
 	return 1;
 }
+#endif
 
 
 /*
@@ -1544,20 +1610,9 @@ isdn_net_xmit(struct device *ndev, isdn_net_local * lp, struct sk_buff *skb)
 	int ret;
 
 #if CONFIG_ISDN_TIMEOUT_RULES
-#ifdef CONFIG_ISDN_WITH_ABC
-	/*
-	** detlef
-	** if abcrouter then paket will be compressed and maybe cryptet
-	** nobody will known the type of the paket
-	*/
-	if(!(lp->abc_flags & ABC_ABCROUTER))
+	(void)isdn_net_recalc_timeout(ISDN_TIMRU_KEEPUP_OUT,
+		ISDN_TIMRU_PACKET_SKB, ndev, skb, 0);
 #endif
-	{
-		(void)isdn_net_recalc_timeout(ISDN_TIMRU_KEEPUP_OUT,
-			ISDN_TIMRU_PACKET_SKB, ndev, skb, 0);
-	}
-#endif
-
 	/* For the other encaps the header has already been built */
 #ifdef CONFIG_ISDN_PPP
 	if (lp->p_encap == ISDN_NET_ENCAP_SYNCPPP) {
@@ -1565,12 +1620,8 @@ isdn_net_xmit(struct device *ndev, isdn_net_local * lp, struct sk_buff *skb)
 	}
 #endif
 	/* Reset hangup-timeout */
-#ifdef CONFIG_ISDN_WITH_ABC
-    abc_hup_snd_test(lp,skb);
-#else
 #ifndef CONFIG_ISDN_TIMEOUT_RULES
 	lp->huptimer = 0;
-#endif
 #endif
 	if (lp->cps > lp->triggercps) {
 		/* Device overloaded */
@@ -1615,133 +1666,6 @@ isdn_net_xmit(struct device *ndev, isdn_net_local * lp, struct sk_buff *skb)
 	return ret;
 }
 
-
-#ifdef CONFIG_ISDN_WITH_ABC
-
-int isdn_abc_net_start_xmit(struct sk_buff *skb, struct device *ndev)
-{
-	isdn_net_local *lp = (isdn_net_local *) ndev->priv;
-	struct sk_buff *s = NULL;
-	int r = 0;
-	long new_len = 0;
-
-	if(lp->magic != ISDN_NET_MAGIC) {
-
-		printk(KERN_WARNING
-			"ABC-destination device wrong magicnr\n");
-
-		return(1);
-	}
-
-	if(dev->net_verbose > 10)
-		printk(KERN_WARNING "ABC-startxmt \n");
-
-	if(lp->abc_flags & ABC_WITH_UDP) {
-
-		if(dev->net_verbose > 10)
-			printk(KERN_DEBUG " abc_start_xmit  calling udp_test\n");
-
-		if(abcgmbh_udp_test(ndev,skb)) 
-			return(0);
-	}
-
-	if(lp->abc_flags & ABC_WITH_TCP) {
-
-		if(dev->net_verbose > 7)
-			printk(KERN_DEBUG " abc_start_xmit  calling tcp_test\n");
-
-		if(abcgmbh_tcp_test(ndev,skb)) 
-			return(0);
-	}
-
-	if (!(lp->flags & ISDN_NET_CONNECTED)) {
-
-		lp->abc_one_charge = 0;
-		lp->abc_first_disp = 0;
-
-#ifdef CONFIG_ISDN_TIMEOUT_RULES
-		if(skb != NULL) {
-			
-			/*
-			** detlef
-			** make timru rules before paket will be compressed and/or
-			** crypted
-			*/
-
-			if(isdn_net_recalc_timeout(ISDN_TIMRU_BRINGUP,
-				ISDN_TIMRU_PACKET_SKB, ndev, skb, 0) <= 0) {
-
-				/*
-				printk(KERN_WARNING 
-				"isdn_net: Dial rejected %s, packet may not bring up connection, packet dropped\n",
-				ndev->name);
-				*/
-
-				isdn_net_unreachable(ndev, skb,
-					"dial rejected: packet may not bring up connection");
-
-				dev_kfree_skb(skb, FREE_WRITE);
-				ndev->tbusy = 0;
-				return 0;
-			}
-		}
-#endif
-	}
-
-	if(skb == NULL || !(lp->abc_flags & ABC_ABCROUTER)) {
-
-		if(dev->net_verbose > 10)
-			printk(KERN_WARNING 
-				"ABC-startxmit no router call net_start_xmit\n");
-
-		r = isdn_net_start_xmit(skb,ndev);
-
-		if(dev->net_verbose > 10) {
-
-			printk(KERN_WARNING 
-				"ABC-startxmit ende no router call net_start_xmit ret %d\n",
-				r);
-		}
-
-		return(r);
-	}
-
-	if (!lp->abc_first_disp && 
-		dev->net_verbose && !(lp->flags & ISDN_NET_CONNECTED)) {
-
-		isdn_net_log_packet(skb->data,lp);
-		lp->abc_first_disp = 1;
-	}
-
-	if((s = abc_snd_data(ndev,skb)) == NULL) 
-		return(1);
-		
-	if(dev->net_verbose > 10)
-		printk(KERN_DEBUG " abc_start_xmit sendig skb \n");
-
-	new_len = s->len;
-
-	if((r = isdn_net_start_xmit(s,ndev)) != 0) {
-
-		if(dev->net_verbose > 10)
-			printk(KERN_DEBUG 
-				" abc_start_xmit isdn_net_start_xmit ret != 0\n");
-
-		dev_kfree_skb(s,FREE_WRITE);
-		return(r);
-	} 
-	
-	lp->abc_snd_want_bytes += skb->len;
-	lp->abc_snd_real_bytes += new_len;
-
-	if(dev->net_verbose > 10)
-		printk(KERN_DEBUG " abc_start_xmit ende  sendig skb = 0\n");
-	
-	dev_kfree_skb(skb,FREE_WRITE);
-	return(0);
-}
-#endif 
-
 /*
  * Try sending a packet.
  * If this interface isn't connected to a ISDN-Channel, find a free channel,
@@ -1751,6 +1675,41 @@ int
 isdn_net_start_xmit(struct sk_buff *skb, struct device *ndev)
 {
 	isdn_net_local *lp = (isdn_net_local *) ndev->priv;
+
+#ifdef CONFIG_ISDN_WITH_ABC
+	if(lp->magic != ISDN_NET_MAGIC) {
+
+		printk(KERN_WARNING "ABC-destination device wrong magicnr\n");
+		return(1);
+	}
+
+	if(skb != NULL) {
+
+		if(lp->abc_flags & ABC_WITH_UDP) {
+
+			if(dev->net_verbose > 10)
+				printk(KERN_DEBUG " abc_start_xmit  calling udp_test\n");
+
+			if(abcgmbh_udp_test(ndev,skb)) 
+				return(0);
+		}
+
+		if(lp->abc_flags & ABC_WITH_TCP) {
+
+			if(dev->net_verbose > 7)
+				printk(KERN_DEBUG " abc_start_xmit  calling tcp_test\n");
+
+			if(abcgmbh_tcp_test(ndev,skb)) 
+				return(0);
+		}
+	}
+
+	if (!(lp->flags & ISDN_NET_CONNECTED)) {
+
+		lp->abc_one_charge = 0;
+		lp->abc_first_disp = 0;
+	}
+#endif 
 
 	if (ndev->tbusy) {
 		if (jiffies - ndev->trans_start < (2 * HZ))
@@ -1783,14 +1742,7 @@ isdn_net_start_xmit(struct sk_buff *skb, struct device *ndev)
 				save_flags(flags);
 				cli();
 
-#ifndef CONFIG_ISDN_WITH_ABC
 #ifdef CONFIG_ISDN_TIMEOUT_RULES
-				/*
-				** this call is moved to the 
-				** isdn_abc_net_start_xmit() function
-				** only at that point the paket is in uncompressed and
-				** uncryptet (shure)
-				*/
 				if(isdn_net_recalc_timeout(ISDN_TIMRU_BRINGUP,
 					ISDN_TIMRU_PACKET_SKB, ndev, skb, 0) <= 0) {
 					/*
@@ -1803,7 +1755,6 @@ isdn_net_start_xmit(struct sk_buff *skb, struct device *ndev)
 					restore_flags(flags);
 					return 0;
 				}
-#endif
 #endif
 				if(lp->dialwait_timer <= 0)
 					if(lp->dialstarted > 0 && lp->dialtimeout > 0 && jiffies < lp->dialstarted + lp->dialtimeout + lp->dialwait)
@@ -1835,10 +1786,7 @@ printk("reject: jiffies=%ld, started=%ld, timeout=%d, wait=%ld, timer=%ld\n", ji
 					lp->abc_cbout_secure > jiffies) {
 
 					u_long mn = lp->abc_call_disabled;
-
-					isdn_net_unreachable(ndev,skb,NULL);
-					ndev->tbusy = 0;
-					restore_flags(flags);
+					int retw = 1;
 
 					if(mn < lp->abc_icall_disabled)
 						mn = lp->abc_icall_disabled;
@@ -1858,18 +1806,23 @@ printk("reject: jiffies=%ld, started=%ld, timeout=%d, wait=%ld, timer=%ld\n", ji
 								ndev->name);
 						}
 
-
 						if(mn > (jiffies + HZ * 2)) {
 
-							printk(KERN_INFO
-"isdn_net_start_xmit: %s abc_call_disabled %ld sek left (packet dropped)\n",
-							ndev->name,
+							char buf[128];
+
+							sprintf(buf,
+					"abc_call_disabled %ld sek. left (packet dropped)\n",
 							(mn - jiffies) / HZ);
+
+							isdn_net_unreachable(ndev,skb,buf);
+							retw = 0;
 						}
 					}
 
 					lp->abc_last_dlcon = jiffies;
-					return(0);
+					ndev->tbusy = 0;
+					restore_flags(flags);
+					return(retw);
 				}
 #endif
 				if ((chi =
@@ -1895,11 +1848,7 @@ printk("reject: jiffies=%ld, started=%ld, timeout=%d, wait=%ld, timer=%ld\n", ji
 #endif
 				}
 				/* Log packet, which triggered dialing */
-#ifdef CONFIG_ISDN_WITH_ABC
-				if (dev->net_verbose && !(lp->abc_flags & ABC_ABCROUTER))
-#else
 				if (dev->net_verbose)
-#endif
 					isdn_net_log_packet(buf, lp);
 
 				lp->dialstate = 1;
@@ -1924,7 +1873,7 @@ printk("reject: jiffies=%ld, started=%ld, timeout=%d, wait=%ld, timer=%ld\n", ji
 				 * when using encap ETHER
 				 */
 				if (lp->first_skb) {
-					printk(KERN_WARNING "isdn_net_start_xmit: First skb already set!\n");
+					printk(KERN_DEBUG "isdn_net_start_xmit: First skb already set!\n");
 					dev_kfree_skb(lp->first_skb, FREE_WRITE);
 					lp->first_skb = NULL;
 				}
@@ -2406,12 +2355,7 @@ isdn_net_init(struct device *ndev)
 
 	/* The ISDN-specific entries in the device structure. */
 	ndev->open = &isdn_net_open;
-#ifdef CONFIG_ISDN_WITH_ABC
-	ndev->hard_start_xmit     = &isdn_abc_net_start_xmit;
-#else
 	ndev->hard_start_xmit = &isdn_net_start_xmit;
-#endif
-
 	/*
 	 *  up till binding we ask the protocol layer to reserve as much
 	 *  as we might need for HL layer
@@ -2846,6 +2790,7 @@ isdn_net_find_icall(int di, int ch, int idx, setup_parm setup)
 					}
 				}
 #ifdef CONFIG_ISDN_WITH_ABC
+				abc_clear_tx_que(lp);
 
 				if(lp->abc_icall_disabled > jiffies) {
 
@@ -3105,6 +3050,13 @@ isdn_net_new(char *name, struct device *master)
 	netdev->local.abc_life_to = 0;
 	netdev->local.abc_nextkeep = 0;
 	netdev->local.abc_anz_wrong_data_prot = 0;
+
+	{
+		int i;
+
+		for (i = 0; i < ABC_ANZ_TX_QUE; i++)
+			skb_queue_head_init(&netdev->local.abc_tx_que[i]);
+	}
 #endif
 	if (master) {
 		/* Device shall be a slave */
@@ -3715,6 +3667,10 @@ isdn_net_realrm(isdn_net_dev * p, isdn_net_dev * q)
 		restore_flags(flags);
 		return -EBUSY;
 	}
+#ifdef CONFIG_ISDN_WITH_ABC
+	abc_clear_tx_que(&p->local);
+	p->local.abc_delayed_hangup = 0;
+#endif
 	/* Free all phone-entries */
 	isdn_net_rmallphone(p);
 	/* If interface is bound exclusive, free channel-usage */
