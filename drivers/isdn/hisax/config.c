@@ -5,6 +5,10 @@
  *
  *
  * $Log$
+ * Revision 1.15.2.32  1999/07/01 10:29:50  keil
+ * Version is the same as outside isdn4kernel_2_0 branch,
+ * only version numbers are different
+ *
  * Revision 2.24  1999/07/01 08:11:26  keil
  * Common HiSax version for 2.0, 2.1, 2.2 and 2.3 kernel
  *
@@ -494,9 +498,9 @@ HiSaxVersion(void))
 
 	printk(KERN_INFO "HiSax: Linux Driver for passive ISDN cards\n");
 #ifdef MODULE
-	printk(KERN_INFO "HiSax: Version 3.1a (module)\n");
+	printk(KERN_INFO "HiSax: Version 3.2 (module)\n");
 #else
-	printk(KERN_INFO "HiSax: Version 3.1a (kernel)\n");
+	printk(KERN_INFO "HiSax: Version 3.2 (kernel)\n");
 #endif
 	strcpy(tmp, l1_revision);
 	printk(KERN_INFO "HiSax: Layer1 Revision %s\n", HiSax_getrev(tmp));
