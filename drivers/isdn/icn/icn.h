@@ -19,6 +19,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.5  1995/01/29  23:36:50  fritz
+ * Minor cleanup.
+ *
  * Revision 1.4  1995/01/09  07:41:20  fritz
  * Added GPL-Notice
  *
@@ -46,6 +49,8 @@
 #ifdef __KERNEL__
 /* Kernel includes */
 
+#include <linux/config.h>
+#include <linux/module.h>
 #include <linux/version.h>
 #include <linux/errno.h>
 #include <linux/fs.h>
@@ -54,7 +59,6 @@
 #include <asm/io.h>
 #include <linux/kernel.h>
 #include <linux/signal.h>
-#include <linux/module.h>
 #include <linux/malloc.h>
 #include <linux/mm.h>
 #include <linux/mman.h>
@@ -90,13 +94,13 @@ char kernel_version[] = UTS_RELEASE;
 #define ICN_BOOT_TIMEOUT1  100   /* Delay for Boot-download (jiffies)   */
 #define ICN_CHANLOCK_DELAY  10   /* Delay for Channel-mapping (jiffies) */
 
-#define ICN_TIMER_BCREAD 5       /* B-Channel poll-cycle                */
+#define ICN_TIMER_BCREAD 3       /* B-Channel poll-cycle                */
 #define ICN_TIMER_DCREAD 50      /* D-Channel poll-cycle                */
 
 #define ICN_CODE_STAGE1 4096     /* Size of bootcode                    */
 #define ICN_CODE_STAGE2 65536    /* Size of protocol-code               */
 
-#define ICN_MAX_SQUEUE 20        /* Max. length of sendbuffer-chain     */
+#define ICN_MAX_SQUEUE 65536     /* Max. outstanding send-data          */
 #define ICN_FRAGSIZE (250)       /* Max. size of send-fragments         */
 #define ICN_BCH 2                /* Number of supported channels        */
 
@@ -104,6 +108,7 @@ char kernel_version[] = UTS_RELEASE;
 typedef struct pqueue {
   char   *next;
   short   length;
+  short   size;
   u_char *rptr;
   u_char  buffer[1];
 } pqueue;
@@ -113,6 +118,7 @@ typedef struct icn_devt {
   unsigned short   port;                /* Base-port-adress                 */
   union icn_shmt *shmem;                /* Pointer to memory-mapped-buffers */
   int              myid;                /* Driver-Nr. assigned by linklevel */
+  int              rvalid;              /* IO-portregion has been requested */
   unsigned short   flags;               /* Statusflags                      */
   struct timer_list st_timer;           /* Timer for Status-Polls           */
   struct timer_list rb_timer;           /* Timer for B-Channel-Polls        */
