@@ -7,6 +7,10 @@
  * Beat Doebeli         log all D channel traffic
  * 
  * $Log$
+ * Revision 1.11  1996/06/14 03:30:37  fritz
+ * Added recovery from EXIR 40 interrupt.
+ * Some cleanup.
+ *
  * Revision 1.10  1996/06/11 14:57:20  hipp
  * minor changes to ensure, that SKBs are sent in the right order
  *
@@ -1075,6 +1079,13 @@ checkcard(int cardnr)
 	byte            cfval, val;
 	struct IsdnCard *card = cards + cardnr;
 
+        if (card->membase)
+                if ((unsigned long)card->membase < 0x10000) {
+                        (unsigned long)card->membase <<= 4;
+                        printk(KERN_INFO
+                               "Teles membase configured DOSish, assuming 0x%lx\n",
+                               (unsigned long)card->membase);
+                }
         if (!card->iobase) {
                 if (card->membase) {
                         printk(KERN_NOTICE
@@ -1082,7 +1093,7 @@ checkcard(int cardnr)
                                (long) card->membase, card->interrupt,
                                (card->protocol == ISDN_PTYPE_1TR6) ?
                                "1TR6" : "EDSS1");
-                        printk(KERN_INFO "HSCX version A: %x B:%x\n",
+                        printk(KERN_INFO "HSCX version A:%x B:%x\n",
                                readhscx_0(card->membase, 0, HSCX_VSTR) & 0xf,
                                readhscx_0(card->membase, 1, HSCX_VSTR) & 0xf);
                 }
