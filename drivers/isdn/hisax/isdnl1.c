@@ -15,6 +15,9 @@
  *
  *
  * $Log$
+ * Revision 2.33  1999/07/09 13:34:33  keil
+ * remove debug code
+ *
  * Revision 2.32  1999/07/01 08:11:47  keil
  * Common HiSax version for 2.0, 2.1, 2.2 and 2.3 kernel
  *
@@ -258,7 +261,6 @@ void
 L1deactivated(struct IsdnCardState *cs)
 {
 	struct PStack *st;
-	int i=0;
 
 	st = cs->stlist;
 	while (st) {
