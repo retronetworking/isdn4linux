@@ -7,6 +7,9 @@
  *
  *
  * $Log$
+ * Revision 1.3.2.1  2000/03/03 13:11:32  kai
+ * changed L1_MODE_... to B1_MODE_... using constants defined in CAPI
+ *
  * Revision 1.3  1999/07/12 21:04:52  keil
  * fix race in IRQ handling
  * added watchdog for lost IRQs
@@ -408,7 +411,6 @@ Bchan_open(struct BCState *bcs)
 		      (void *) &Bchan_recv_callback, (void *) bcs);
 
 	bcs->event = 0;
-	bcs->tx_cnt = 0;
 	return (0);
 }
 

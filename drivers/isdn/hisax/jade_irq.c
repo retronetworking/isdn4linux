@@ -5,6 +5,10 @@
  * Author   Roland Klabunde (R.Klabunde@Berkom.de)
  *
  * $Log$
+ * Revision 1.3.2.2  2000/03/03 15:26:23  kai
+ * remove the layer-breaking writewakeup callbacks and use PH_DATA / DL_DATA
+ * | CONFIRM instead
+ *
  * Revision 1.3.2.1  2000/03/03 13:11:32  kai
  * changed L1_MODE_... to B1_MODE_... using constants defined in CAPI
  *
@@ -114,7 +118,6 @@ jade_fill_fifo(struct BCState *bcs)
 	cli();
 	ptr = bcs->tx_skb->data;
 	skb_pull(bcs->tx_skb, count);
-	bcs->tx_cnt -= count;
 	bcs->hw.hscx.count += count;
 	WRITEJADEFIFO(cs, bcs->hw.hscx.hscx, ptr, count);
 	WriteJADECMDR(cs, bcs->hw.hscx.hscx, jade_HDLC_XCMD, more ? jadeXCMD_XF : (jadeXCMD_XF|jadeXCMD_XME));
@@ -235,7 +238,6 @@ jade_int_main(struct IsdnCardState *cs, u_char val, int jade)
 			 */
 			if (bcs->tx_skb) {
 			   	skb_push(bcs->tx_skb, bcs->hw.hscx.count);
-				bcs->tx_cnt += bcs->hw.hscx.count;
 				bcs->hw.hscx.count = 0;
 			}
 			WriteJADECMDR(cs, bcs->hw.hscx.hscx, jade_HDLC_XCMD, jadeXCMD_XRES);

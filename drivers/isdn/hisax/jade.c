@@ -5,6 +5,9 @@
  * Author   Roland Klabunde (R.Klabunde@Berkom.de)
  *
  * $Log$
+ * Revision 1.3.2.1  2000/03/03 13:11:32  kai
+ * changed L1_MODE_... to B1_MODE_... using constants defined in CAPI
+ *
  * Revision 1.3  2000/02/26 00:35:13  keil
  * Fix skb freeing in interrupt context
  *
@@ -249,7 +252,6 @@ open_jadestate(struct IsdnCardState *cs, struct BCState *bcs)
 	test_and_clear_bit(BC_FLG_BUSY, &bcs->Flag);
 	bcs->event = 0;
 	bcs->hw.hscx.rcvidx = 0;
-	bcs->tx_cnt = 0;
 	return (0);
 }
 

@@ -12,6 +12,10 @@
  *
  *
  * $Log$
+ * Revision 1.19.2.2  2000/03/03 15:26:22  kai
+ * remove the layer-breaking writewakeup callbacks and use PH_DATA / DL_DATA
+ * | CONFIRM instead
+ *
  * Revision 1.19.2.1  2000/03/03 13:11:32  kai
  * changed L1_MODE_... to B1_MODE_... using constants defined in CAPI
  *
@@ -508,7 +512,6 @@ Memhscx_fill_fifo(struct BCState *bcs)
 	cli();
 	p = ptr = bcs->tx_skb->data;
 	skb_pull(bcs->tx_skb, count);
-	bcs->tx_cnt -= count;
 	bcs->hw.hscx.count += count;
 	while(cnt--)
 		memwritereg(cs->hw.diva.cfg_reg, bcs->hw.hscx.hscx ? 0x40 : 0,
@@ -629,7 +632,6 @@ Memhscx_int_main(struct IsdnCardState *cs, u_char val)
 				 */
 				if (bcs->tx_skb) {
 					skb_push(bcs->tx_skb, bcs->hw.hscx.count);
-					bcs->tx_cnt += bcs->hw.hscx.count;
 					bcs->hw.hscx.count = 0;
 				}
 				MemWriteHSCXCMDR(cs, bcs->hw.hscx.hscx, 0x01);
@@ -656,7 +658,6 @@ Memhscx_int_main(struct IsdnCardState *cs, u_char val)
 				 */
 				if (bcs->tx_skb) {
 					skb_push(bcs->tx_skb, bcs->hw.hscx.count);
-					bcs->tx_cnt += bcs->hw.hscx.count;
 					bcs->hw.hscx.count = 0;
 				}
 				MemWriteHSCXCMDR(cs, bcs->hw.hscx.hscx, 0x01);

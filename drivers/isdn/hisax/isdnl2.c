@@ -11,6 +11,10 @@
  *              Fritz Elfert
  *
  * $Log$
+ * Revision 2.20.2.2  2000/03/03 16:01:08  kai
+ * completed the transparent layer 2 implementation. Therefore,
+ * no special case in callc.c is necessary any more.
+ *
  * Revision 2.20.2.1  2000/03/03 15:26:23  kai
  * remove the layer-breaking writewakeup callbacks and use PH_DATA / DL_DATA
  * | CONFIRM instead
@@ -286,8 +290,6 @@ inline static void
 enqueue_super(struct PStack *st,
 	      struct sk_buff *skb)
 {
-	if (test_bit(FLG_LAPB, &st->l2.flag))
-		st->l1.bcs->tx_cnt += skb->len;
 	st->l2.l2l1(st, PH_DATA | REQUEST, skb);
 }
 
@@ -1025,8 +1027,6 @@ invoke_retransmission(struct PStack *st, unsigned int nr)
 				p1 = (l2->vs - l2->va) % 8;
 			}
 			p1 = (p1 + l2->sow) % l2->window;
-			if (test_bit(FLG_LAPB, &l2->flag))
-				st->l1.bcs->tx_cnt += l2->windowar[p1]->len + l2headersize(l2, 0);
 			skb_queue_head(&l2->i_queue, l2->windowar[p1]);
 			l2->windowar[p1] = NULL;
 		}
@@ -1101,8 +1101,6 @@ l2_feed_i_if_reest(struct FsmInst *fi, int event, void *arg)
 	struct PStack *st = fi->userdata;
 	struct sk_buff *skb = arg;
 
-	if (test_bit(FLG_LAPB, &st->l2.flag))
-		st->l1.bcs->tx_cnt += skb->len + l2headersize(&st->l2, 0);
 	if (!test_bit(FLG_L3_INIT, &st->l2.flag))
 		skb_queue_tail(&st->l2.i_queue, skb);
 	else
@@ -1115,8 +1113,6 @@ l2_feed_i_pull(struct FsmInst *fi, int event, void *arg)
 	struct PStack *st = fi->userdata;
 	struct sk_buff *skb = arg;
 
-	if (test_bit(FLG_LAPB, &st->l2.flag))
-		st->l1.bcs->tx_cnt += skb->len + l2headersize(&st->l2, 0);
 	skb_queue_tail(&st->l2.i_queue, skb);
 	st->l2.l2l1(st, PH_PULL | REQUEST, NULL);
 }
@@ -1127,8 +1123,6 @@ l2_feed_iqueue(struct FsmInst *fi, int event, void *arg)
 	struct PStack *st = fi->userdata;
 	struct sk_buff *skb = arg;
 
-	if (test_bit(FLG_LAPB, &st->l2.flag))
-		st->l1.bcs->tx_cnt += skb->len + l2headersize(&st->l2, 0);
 	skb_queue_tail(&st->l2.i_queue, skb);
 }
 
@@ -1883,7 +1877,7 @@ transl2_l1l2(struct PStack *st, int pr, void *arg)
 {
 	switch (pr) {
 	case (PH_DATA | INDICATION):
-		st->l2.l2l3(st, DL_UNIT_DATA | INDICATION, arg); 
+		st->l2.l2l3(st, DL_DATA | INDICATION, arg); 
 		break;
 	case (PH_DATA | CONFIRM):
 		st->l2.l2l3(st, DL_DATA | CONFIRM, arg);

@@ -6,6 +6,10 @@
  *
  *
  * $Log$
+ * Revision 1.13.2.2  2000/03/03 15:26:23  kai
+ * remove the layer-breaking writewakeup callbacks and use PH_DATA / DL_DATA
+ * | CONFIRM instead
+ *
  * Revision 1.13.2.1  2000/03/03 13:11:32  kai
  * changed L1_MODE_... to B1_MODE_... using constants defined in CAPI
  *
@@ -365,7 +369,6 @@ hfc_fill_fifo(struct BCState *bcs)
 		struct sk_buff *sav_skb;
 
 		count =  bcs->tx_skb->len;
-		bcs->tx_cnt -= count;
 		sav_skb = bcs->tx_skb;
 		bcs->tx_skb = NULL;
 		if (bcs->mode != B1_MODE_TRANS) {
@@ -598,7 +601,6 @@ open_hfcstate(struct IsdnCardState *cs, struct BCState *bcs)
 	bcs->tx_skb = NULL;
 	test_and_clear_bit(BC_FLG_BUSY, &bcs->Flag);
 	bcs->event = 0;
-	bcs->tx_cnt = 0;
 	return (0);
 }
 

@@ -6,6 +6,10 @@
  *
  *
  * $Log$
+ * Revision 1.10.2.2  2000/03/03 15:26:23  kai
+ * remove the layer-breaking writewakeup callbacks and use PH_DATA / DL_DATA
+ * | CONFIRM instead
+ *
  * Revision 1.10.2.1  2000/03/03 13:11:32  kai
  * changed L1_MODE_... to B1_MODE_... using constants defined in CAPI
  *
@@ -711,7 +715,6 @@ isar_fill_fifo(struct BCState *bcs)
 		}
 	}
 	skb_pull(bcs->tx_skb, count);
-	bcs->tx_cnt -= count;
 	bcs->hw.isar.txcnt += count;
 	switch (bcs->mode) {
 		case B1_MODE_NULL:
@@ -1668,7 +1671,6 @@ open_isarstate(struct IsdnCardState *cs, struct BCState *bcs)
 		debugl1(cs, "openisar clear BC_FLG_BUSY");
 	bcs->event = 0;
 	bcs->hw.isar.rcvidx = 0;
-	bcs->tx_cnt = 0;
 	bcs->hw.isar.ftimer.function = (void *) ftimer_handler;
 	bcs->hw.isar.ftimer.data = (long) bcs;
 	init_timer(&bcs->hw.isar.ftimer);

@@ -7,6 +7,10 @@
  * Thanks to Traverse Technologie Australia for documents and informations
  *
  * $Log$
+ * Revision 1.18.2.2  2000/03/03 15:26:23  kai
+ * remove the layer-breaking writewakeup callbacks and use PH_DATA / DL_DATA
+ * | CONFIRM instead
+ *
  * Revision 1.18.2.1  2000/03/03 13:11:32  kai
  * changed L1_MODE_... to B1_MODE_... using constants defined in CAPI
  *
@@ -414,7 +418,6 @@ static int make_raw_data(struct BCState *bcs) {
 		bcs->hw.tiger.sendbuf[s_cnt++] = 0xff;	// NJ<->NJ thoughput bug fix
 	}
 	bcs->hw.tiger.sendcnt = s_cnt;
-	bcs->tx_cnt -= bcs->tx_skb->len;
 	bcs->hw.tiger.sp = bcs->hw.tiger.sendbuf;
 	return(0);
 }
@@ -909,7 +912,6 @@ open_tigerstate(struct IsdnCardState *cs, struct BCState *bcs)
 	bcs->hw.tiger.sendcnt = 0;
 	test_and_clear_bit(BC_FLG_BUSY, &bcs->Flag);
 	bcs->event = 0;
-	bcs->tx_cnt = 0;
 	return (0);
 }
 

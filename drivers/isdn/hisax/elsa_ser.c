@@ -693,7 +693,6 @@ setstack_elsa(struct PStack *st, struct BCState *bcs)
 			test_and_clear_bit(BC_FLG_BUSY, &bcs->Flag);
 			bcs->event = 0;
 			bcs->hw.hscx.rcvidx = 0;
-			bcs->tx_cnt = 0;
 			bcs->cs->hw.elsa.bcs = bcs;
 			st->l2.l2l1 = modem_l2l1;
 			break;

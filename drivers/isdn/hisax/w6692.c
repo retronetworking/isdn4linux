@@ -8,6 +8,10 @@
  *              This file is (c) under GNU PUBLIC LICENSE
  *
  * $Log$
+ * Revision 1.2.2.2  2000/03/03 15:26:24  kai
+ * remove the layer-breaking writewakeup callbacks and use PH_DATA / DL_DATA
+ * | CONFIRM instead
+ *
  * Revision 1.2.2.1  2000/03/03 13:11:32  kai
  * changed L1_MODE_... to B1_MODE_... using constants defined in CAPI
  *
@@ -303,7 +307,6 @@ W6692B_fill_fifo(struct BCState *bcs)
 	cli();
 	ptr = bcs->tx_skb->data;
 	skb_pull(bcs->tx_skb, count);
-	bcs->tx_cnt -= count;
 	bcs->hw.w6692.count += count;
 	WRITEW6692BFIFO(cs, bcs->hw.w6692.bchan, ptr, count);
 	cs->BC_Write_Reg(cs, bcs->hw.w6692.bchan, W_B_CMDR, W_B_CMDR_RACT | W_B_CMDR_XMS | (more ? 0 : W_B_CMDR_XME));
@@ -410,7 +413,6 @@ W6692B_interrupt(struct IsdnCardState *cs, u_char bchan)
 			 */
 			if (bcs->tx_skb) {
 				skb_push(bcs->tx_skb, bcs->hw.w6692.count);
-				bcs->tx_cnt += bcs->hw.w6692.count;
 				bcs->hw.w6692.count = 0;
 			}
 			cs->BC_Write_Reg(cs, bcs->hw.w6692.bchan, W_B_CMDR, W_B_CMDR_XRST | W_B_CMDR_RACT);
@@ -871,7 +873,6 @@ open_w6692state(struct IsdnCardState *cs, struct BCState *bcs)
 	test_and_clear_bit(BC_FLG_BUSY, &bcs->Flag);
 	bcs->event = 0;
 	bcs->hw.w6692.rcvidx = 0;
-	bcs->tx_cnt = 0;
 	return (0);
 }
 

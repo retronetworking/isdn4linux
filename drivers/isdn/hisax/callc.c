@@ -11,6 +11,10 @@
  *              Fritz Elfert
  *
  * $Log$
+ * Revision 2.40.2.3  2000/03/03 16:01:08  kai
+ * completed the transparent layer 2 implementation. Therefore,
+ * no special case in callc.c is necessary any more.
+ *
  * Revision 2.40.2.2  2000/03/03 15:26:22  kai
  * remove the layer-breaking writewakeup callbacks and use PH_DATA / DL_DATA
  * | CONFIRM instead
@@ -1262,6 +1266,7 @@ init_chan(int chan, struct IsdnCardState *csta)
 		chanp->d_st = csta->channel->d_st;
 	}
 	chanp->data_open = 0;
+	chanp->tx_cnt = 0;
 }
 
 int
@@ -1351,6 +1356,7 @@ lldata_handler(struct PStack *st, int pr, void *arg)
 			break;
       	        case (DL_DATA | CONFIRM):
 		        /* the original length of the skb is saved in priority */
+			chanp->tx_cnt -= skb->priority;
 			if (skb->pkt_type != PACKET_NOACK)
 				ll_writewakeup(chanp, skb->priority);
 			break;
@@ -1376,6 +1382,7 @@ init_b_st(struct Channel *chanp, int incoming)
 	struct IsdnCardState *cs = chanp->cs;
 	char tmp[16];
 
+	chanp->tx_cnt = 0;
 	st->l1.hardware = cs;
 	if (chanp->leased)
 		st->l1.bc = chanp->chan & 1;
@@ -1466,8 +1473,10 @@ leased_l1l2(struct PStack *st, int pr, void *arg)
 			idev_kfree_skb(skb, FREE_READ);
 			break;
       	        case (PH_DATA | CONFIRM):
+		        /* the original length of the skb is saved in priority */
+			chanp->tx_cnt -= skb->priority;
 			if (skb->pkt_type != PACKET_NOACK)
-				ll_writewakeup(chanp, skb->len);
+				ll_writewakeup(chanp, skb->priority);
 			break;
 		case (PH_ACTIVATE | INDICATION):
 		case (PH_ACTIVATE | CONFIRM):
@@ -1896,7 +1905,7 @@ HiSax_writebuf_skb(int id, int chan, int ack, struct sk_buff *skb)
 		return -EINVAL;
 	}
 	if (len) {
-		if ((len + chanp->bcs->tx_cnt) > MAX_DATA_MEM) {
+		if ((len + chanp->tx_cnt) > MAX_DATA_MEM) {
 			/* Must return 0 here, since this is not an error
 			 * but a temporary lack of resources.
 			 */
@@ -1904,11 +1913,12 @@ HiSax_writebuf_skb(int id, int chan, int ack, struct sk_buff *skb)
 				link_debug(chanp, 1, "writebuf: no buffers for %d bytes", len);
 			return 0;
 		} else if (chanp->debug & 0x800)
-			link_debug(chanp, 1, "writebuf %d/%d/%d", len, chanp->bcs->tx_cnt,MAX_DATA_MEM);
+			link_debug(chanp, 1, "writebuf %d/%d/%d", len, chanp->tx_cnt,MAX_DATA_MEM);
 		save_flags(flags);
 		cli();
 		nskb = skb_clone(skb, GFP_ATOMIC);
 		if (nskb) {
+			chanp->tx_cnt += nskb->len;
 			if (!ack)
 				nskb->pkt_type = PACKET_NOACK;
 			/* I'm misusing the priority field here to save the length of the
@@ -1917,12 +1927,7 @@ HiSax_writebuf_skb(int id, int chan, int ack, struct sk_buff *skb)
 			   --KG
 			*/
                         nskb->priority = nskb->len;
-			if (chanp->l2_active_protocol == ISDN_PROTO_L2_X75I)
-				st->l3.l3l2(st, DL_DATA | REQUEST, nskb);
-			else {
-				chanp->bcs->tx_cnt += len;
-				st->l2.l2l1(st, PH_DATA | REQUEST, nskb);
-			}
+			st->l3.l3l2(st, DL_DATA | REQUEST, nskb);
 			idev_kfree_skb(skb, FREE_WRITE);
 		} else
 			len = 0;

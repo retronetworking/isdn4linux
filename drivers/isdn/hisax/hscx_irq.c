@@ -7,6 +7,10 @@
  * This is an include file for fast inline IRQ stuff
  *
  * $Log$
+ * Revision 1.14.2.2  2000/03/03 15:26:23  kai
+ * remove the layer-breaking writewakeup callbacks and use PH_DATA / DL_DATA
+ * | CONFIRM instead
+ *
  * Revision 1.14.2.1  2000/03/03 13:11:32  kai
  * changed L1_MODE_... to B1_MODE_... using constants defined in CAPI
  *
@@ -160,7 +164,6 @@ hscx_fill_fifo(struct BCState *bcs)
 	cli();
 	ptr = bcs->tx_skb->data;
 	skb_pull(bcs->tx_skb, count);
-	bcs->tx_cnt -= count;
 	bcs->hw.hscx.count += count;
 	WRITEHSCXFIFO(cs, bcs->hw.hscx.hscx, ptr, count);
 	WriteHSCXCMDR(cs, bcs->hw.hscx.hscx, more ? 0x8 : 0xa);
@@ -294,7 +297,6 @@ hscx_int_main(struct IsdnCardState *cs, u_char val)
 				 */
 				if (bcs->tx_skb) {
 					skb_push(bcs->tx_skb, bcs->hw.hscx.count);
-					bcs->tx_cnt += bcs->hw.hscx.count;
 					bcs->hw.hscx.count = 0;
 				}
 				WriteHSCXCMDR(cs, bcs->hw.hscx.hscx, 0x01);
@@ -324,7 +326,6 @@ hscx_int_main(struct IsdnCardState *cs, u_char val)
 #endif
 				if (bcs->tx_skb) {
 					skb_push(bcs->tx_skb, bcs->hw.hscx.count);
-					bcs->tx_cnt += bcs->hw.hscx.count;
 					bcs->hw.hscx.count = 0;
 				}
 				WriteHSCXCMDR(cs, bcs->hw.hscx.hscx, 0x01);

@@ -7,6 +7,10 @@
  *
  *
  * $Log$
+ * Revision 1.15.2.2  2000/03/03 15:26:22  kai
+ * remove the layer-breaking writewakeup callbacks and use PH_DATA / DL_DATA
+ * | CONFIRM instead
+ *
  * Revision 1.15.2.1  2000/03/03 13:11:32  kai
  * changed L1_MODE_... to B1_MODE_... using constants defined in CAPI
  *
@@ -485,7 +489,6 @@ HDLC_irq(struct BCState *bcs, u_int stat) {
 		 */
 		if (bcs->tx_skb) {
 			skb_push(bcs->tx_skb, bcs->hw.hdlc.count);
-			bcs->tx_cnt += bcs->hw.hdlc.count;
 			bcs->hw.hdlc.count = 0;
 //			hdlc_sched_event(bcs, B_XMTBUFREADY);
 			if (bcs->cs->debug & L1_DEB_WARN)
@@ -663,7 +666,6 @@ open_hdlcstate(struct IsdnCardState *cs, struct BCState *bcs)
 	test_and_clear_bit(BC_FLG_BUSY, &bcs->Flag);
 	bcs->event = 0;
 	bcs->hw.hdlc.rcvidx = 0;
-	bcs->tx_cnt = 0;
 	return (0);
 }
 

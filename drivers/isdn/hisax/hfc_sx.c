@@ -22,6 +22,10 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.4.2.2  2000/03/03 15:26:23  kai
+ * remove the layer-breaking writewakeup callbacks and use PH_DATA / DL_DATA
+ * | CONFIRM instead
+ *
  * Revision 1.4.2.1  2000/03/03 13:11:32  kai
  * changed L1_MODE_... to B1_MODE_... using constants defined in CAPI
  *
@@ -638,7 +642,6 @@ hfcsx_fill_fifo(struct BCState *bcs)
 		       (bcs->mode == B1_MODE_TRANS) ? 
 		       HFCSX_BTRANS_THRESHOLD : 0)) {
 
-		bcs->tx_cnt -= bcs->tx_skb->len;
 		bcs->st->l1.l1l2(bcs->st, PH_DATA | CONFIRM, bcs->tx_skb);
 		idev_kfree_skb_any(bcs->tx_skb, FREE_WRITE);
 		bcs->tx_skb = NULL;
@@ -1346,7 +1349,6 @@ open_hfcsxstate(struct IsdnCardState *cs, struct BCState *bcs)
 	bcs->tx_skb = NULL;
 	test_and_clear_bit(BC_FLG_BUSY, &bcs->Flag);
 	bcs->event = 0;
-	bcs->tx_cnt = 0;
 	return (0);
 }
 

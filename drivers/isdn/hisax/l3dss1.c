@@ -13,6 +13,9 @@
  *              Fritz Elfert
  *
  * $Log$
+ * Revision 2.23  2000/02/26 01:38:14  keil
+ * Fixes for V.110 encoding LLC from Jens Jakobsen
+ *
  * Revision 2.22  2000/01/20 19:44:20  keil
  * Fixed uninitialiesed location
  * Fixed redirecting number IE in Setup
@@ -3006,6 +3009,8 @@ dss1up(struct PStack *st, int pr, void *arg)
 			l3_msg(st, pr, arg);
 			return;
 			break;
+		case (DL_DATA | CONFIRM):
+			return; // ignore
                 default:
                         printk(KERN_ERR "HiSax dss1up unknown pr=%04x\n", pr);
                         return;

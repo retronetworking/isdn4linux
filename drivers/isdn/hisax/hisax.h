@@ -3,6 +3,10 @@
  *   Basic declarations, defines and prototypes
  *
  * $Log$
+ * Revision 2.41.2.3  2000/03/03 15:26:23  kai
+ * remove the layer-breaking writewakeup callbacks and use PH_DATA / DL_DATA
+ * | CONFIRM instead
+ *
  * Revision 2.41.2.2  2000/03/03 13:11:32  kai
  * changed L1_MODE_... to B1_MODE_... using constants defined in CAPI
  *
@@ -601,7 +605,6 @@ struct BCState {
 	int mode;
 	int Flag;
 	struct IsdnCardState *cs;
-	int tx_cnt;		/* B-Channel transmit counter */
 	struct sk_buff *tx_skb; /* B-Channel transmit Buffer */
 	struct sk_buff_head rqueue;	/* B-Channel receive Queue */
 	struct sk_buff_head squeue;	/* B-Channel send Queue */
@@ -646,6 +649,7 @@ struct Channel {
 	setup_parm setup;	/* from isdnif.h numbers and Serviceindicator */
 	int Flags;		/* for remembering action done in l4 */
 	int leased;
+	int tx_cnt;
 };
 
 struct elsa_hw {
