@@ -3,6 +3,9 @@
  *   Basic declarations, defines and prototypes
  *
  * $Log$
+ * Revision 1.9  1997/01/27 23:18:44  keil
+ * prototype for releasestack_isdnl3
+ *
  * Revision 1.8  1997/01/27 16:02:37  keil
  * new cards, callc timers, HZDELAY macro, HiSax_getrev prototype
  *
@@ -376,6 +379,41 @@ struct HscxState {
 #endif
 };
 
+struct LcFsm {
+	struct FsmInst lcfi;
+	int type;
+	struct Channel *ch;
+	void (*lccall) (struct LcFsm *, int, void *);
+	struct PStack *st;
+	int l2_establish;
+	int l2_start;
+	struct FsmTimer act_timer;
+	char debug_id[32];
+};
+
+struct Channel {
+	struct PStack ds, is;
+	struct IsdnCardState *sp;
+	int hscx;
+	int chan;
+	int incoming;
+	struct FsmInst fi;
+	struct LcFsm lc_d, lc_b;
+	struct Param para;
+	struct FsmTimer drel_timer, dial_timer;
+	int debug;
+#ifdef DEBUG_MAGIC
+	int magic;		/* 301272 */
+#endif
+	int l2_protocol, l2_active_protocol;
+	int l2_primitive, l2_headersize;
+	int data_open;
+	int outcallref;
+	int impair;
+	int Flags;		/* for remembering action done in l4 */
+	int leased;
+};
+
 struct IsdnCardState {
 #ifdef DEBUG_MAGIC
 	int magic;
@@ -389,6 +427,12 @@ struct IsdnCardState {
 	unsigned int isac;
 	unsigned int hscx[2];
 	unsigned int counter;
+	int	     myid;
+	isdn_if	     iif;
+	byte	*status_buf;
+	byte    *status_read;
+	byte    *status_write;
+	byte    *status_end;
 	struct BufHeader *mon_rx, *mon_tx;
 	int mon_rxp, mon_txp, mon_flg;
 	void (*ph_command) (struct IsdnCardState *, unsigned int);
@@ -396,6 +440,7 @@ struct IsdnCardState {
 	void (*hscx_fill_fifo) (struct HscxState *);
 	void (*isac_fill_fifo) (struct IsdnCardState *);
 	struct BufPool sbufpool, rbufpool, smallpool;
+	struct Channel channel[2];
 	struct PStack *stlist;
 	struct BufHeader *xmtibh, *rcvibh;
 	int rcvptr, sendptr;
@@ -469,7 +514,6 @@ struct IsdnCard {
 	int typ;
 	int protocol;		/* EDSS1 or 1TR6 */
 	unsigned int para[3];
-	int id;
 	struct IsdnCardState *sp;
 };
 
@@ -503,15 +547,13 @@ void HiSax_closehardware(void);
 
 void setstack_HiSax(struct PStack *st, struct IsdnCardState *sp);
 unsigned int randomces(void);
-void setstack_isdnl3(struct PStack *st, int chan);
+void setstack_isdnl3(struct PStack *st, struct Channel *chanp );
 void HiSax_addlist(struct IsdnCardState *sp, struct PStack *st);
 void releasestack_isdnl2(struct PStack *st);
 void releasestack_isdnl3(struct PStack *st);
 void HiSax_rmlist(struct IsdnCardState *sp, struct PStack *st);
 void newcallref(struct PStack *st);
 
-int ll_init(void);
-void ll_stop(void), ll_unload(void);
 int setstack_hscx(struct PStack *st, struct HscxState *hs);
 byte *findie(byte * p, int size, byte ie, int wanted_set);
 int getcallref(byte * p);
@@ -527,13 +569,9 @@ void FsmDelTimer(struct FsmTimer *ft, int where);
 int FsmTimerRunning(struct FsmTimer *ft);
 void jiftime(char *s, long mark);
 
-void CallcNew(void);
-void CallcFree(void);
-int CallcNewChan(void);
-void CallcFreeChan(void);
 int HiSax_command(isdn_ctrl * ic);
 int HiSax_writebuf(int id, int chan, const u_char * buf, int count, int user);
-void HiSax_putstatus(char *buf);
+void HiSax_putstatus(struct IsdnCardState *csta, char *buf);
 void HiSax_reportcard(int cardnr);
 int ListLength(struct BufHeader *ibh);
 int QuickHex(char *txt, byte * p, int cnt);
@@ -545,40 +583,7 @@ void releasestack_transl2(struct PStack *st);
 void close_hscxstate(struct HscxState *);
 void setstack_tei(struct PStack *st);
 
-struct LcFsm {
-	struct FsmInst lcfi;
-	int type;
-	struct Channel *ch;
-	void (*lccall) (struct LcFsm *, int, void *);
-	struct PStack *st;
-	int l2_establish;
-	int l2_start;
-	struct FsmTimer act_timer;
-	char debug_id[32];
-};
 
-struct Channel {
-	struct PStack ds, is;
-	struct IsdnCardState *sp;
-	int hscx;
-	int chan;
-	int incoming;
-	struct FsmInst fi;
-	struct LcFsm lc_d, lc_b;
-	struct Param para;
-	struct FsmTimer drel_timer, dial_timer;
-	int debug;
-#ifdef DEBUG_MAGIC
-	int magic;		/* 301272 */
-#endif
-	int l2_protocol, l2_active_protocol;
-	int l2_primitive, l2_headersize;
-	int data_open;
-	int outcallref;
-	int impair;
-	int Flags;		/* for remembering action done in l4 */
-	int leased;
-};
 
 
 #define PART_SIZE(order,bpps) (( (PAGE_SIZE<<order) -\
@@ -590,8 +595,14 @@ struct Channel {
 
 #define HZDELAY(jiffs) {int tout = jiffs; while (tout--) udelay(1000000/HZ);}
 
+int ll_run(struct IsdnCardState *csta);
+void ll_stop(struct IsdnCardState *csta);
+void CallcNew(void);
+void CallcFree(void);
+int CallcNewChan(struct IsdnCardState *csta);
+void CallcFreeChan(struct IsdnCardState *csta);
 void Isdnl2New(void);
 void Isdnl2Free(void);
-void TeiNew(void);
-void TeiFree(void);
+void init_tei(struct IsdnCardState *sp, int protocol);
+void release_tei(struct IsdnCardState *sp);
 char *HiSax_getrev(const char *revision);

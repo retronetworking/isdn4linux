@@ -7,6 +7,9 @@
  *              Fritz Elfert
  *
  * $Log$
+ * Revision 1.5  1997/01/27 15:57:51  keil
+ * cosmetics
+ *
  * Revision 1.4  1997/01/21 22:32:44  keil
  * Tei verify request
  *
@@ -86,103 +89,103 @@ mdl_unit_data_ind(struct PStack *st, unsigned int ri, byte mt, byte ai)
 	char tmp[64];
 
 	switch (mt) {
-	case (2):
-		tces = ri;
-		if (st->l3.debug) {
-			sprintf(tmp, "identity assign ces %d ai %d", tces, ai);
-			st->l2.l2m.printdebug(&st->l2.l2m, tmp);
-		}
-		if ((otsp = findces(st, tces))) {
+		case (2):
+			tces = ri;
 			if (st->l3.debug) {
-				sprintf(tmp, "ces %d --> tei %d", tces, ai);
+				sprintf(tmp, "identity assign ces %d ai %d", tces, ai);
 				st->l2.l2m.printdebug(&st->l2.l2m, tmp);
 			}
-			otsp->ma.teil2(otsp, MDL_ASSIGN, (void *) (int) ai);
-		}
-		break;
-	case (3):
-		tces = ri;
-		if (st->l3.debug) {
-			sprintf(tmp, "identity denied for ces %d ai %d", tces, ai);
-			st->l2.l2m.printdebug(&st->l2.l2m, tmp);
-		}
-		if ((otsp = findces(st, tces))) {
-			if (st->l3.debug) {
-				sprintf(tmp, "ces %d denied tei %d", tces, ai);
-				st->l2.l2m.printdebug(&st->l2.l2m, tmp);
-			}
-			otsp->l2.tei = 255;
-			otsp->l2.ces = randomces();
-			otsp->ma.teil2(otsp, MDL_REMOVE, 0);
-		}
-		break;
-	case (4):
-		if (st->l3.debug) {
-			sprintf(tmp, "checking identity for %d", ai);
-			st->l2.l2m.printdebug(&st->l2.l2m, tmp);
-		}
-		if (ai == 0x7f) {
-			ptr = *(st->l1.stlistp);
-			while (ptr) {
-				if ((ptr->l2.tei & 0x7f) != 0x7f) {
-					if (st->l3.debug) {
-						sprintf(tmp, "check response for ces %d with tei %d",
-						ptr->l2.ces, ptr->l2.tei);
-						st->l2.l2m.printdebug(&st->l2.l2m, tmp);
-					}
-					/* send identity check response (user->network) */
-					mdl_unit_data_res(st, ptr->l2.ces, 5, ptr->l2.tei);
+			if ((otsp = findces(st, tces))) {
+				if (st->l3.debug) {
+					sprintf(tmp, "ces %d --> tei %d", tces, ai);
+					st->l2.l2m.printdebug(&st->l2.l2m, tmp);
 				}
-				ptr = ptr->next;
+				otsp->ma.teil2(otsp, MDL_ASSIGN, (void *) (int) ai);
 			}
-		} else {
-			otsp = findtei(st, ai);
-			if (!otsp)
-				break;
+			break;
+		case (3):
+			tces = ri;
 			if (st->l3.debug) {
-				sprintf(tmp, "check response for ces %d with tei %d",
-					otsp->l2.ces, otsp->l2.tei);
+				sprintf(tmp, "identity denied for ces %d ai %d", tces, ai);
 				st->l2.l2m.printdebug(&st->l2.l2m, tmp);
 			}
-			/* send identity check response (user->network) */
-			mdl_unit_data_res(st, otsp->l2.ces, 5, otsp->l2.tei);
-		}
-		break;
-	case (6):
-		if (st->l3.debug) {
-			sprintf(tmp, "removal for %d", ai);
-			st->l2.l2m.printdebug(&st->l2.l2m, tmp);
-		}
-		if (ai == 0x7f) {
-			ptr = *(st->l1.stlistp);
-			while (ptr) {
-				if ((ptr->l2.tei & 0x7f) != 0x7f) {
-					if (st->l3.debug) {
-						sprintf(tmp, "rem ces %d with tei %d",
-						ptr->l2.ces, ptr->l2.tei);
-						st->l2.l2m.printdebug(&st->l2.l2m, tmp);
-					}
-					ptr->ma.teil2(ptr, MDL_REMOVE, 0);
+			if ((otsp = findces(st, tces))) {
+				if (st->l3.debug) {
+					sprintf(tmp, "ces %d denied tei %d", tces, ai);
+					st->l2.l2m.printdebug(&st->l2.l2m, tmp);
 				}
-				ptr = ptr->next;
+				otsp->l2.tei = 255;
+				otsp->l2.ces = randomces();
+				otsp->ma.teil2(otsp, MDL_REMOVE, 0);
 			}
-		} else {
-			otsp = findtei(st, ai);
-			if (!otsp)
-				break;
+			break;
+		case (4):
 			if (st->l3.debug) {
-				sprintf(tmp, "rem ces %d with tei %d",
-					otsp->l2.ces, otsp->l2.tei);
+				sprintf(tmp, "checking identity for %d", ai);
 				st->l2.l2m.printdebug(&st->l2.l2m, tmp);
 			}
-			otsp->ma.teil2(otsp, MDL_REMOVE, 0);
-		}
-		break;
-	default:
-		if (st->l3.debug) {
-			sprintf(tmp, "message unknown %d ai %d", mt, ai);
-			st->l2.l2m.printdebug(&st->l2.l2m, tmp);
-		}
+			if (ai == 0x7f) {
+				ptr = *(st->l1.stlistp);
+				while (ptr) {
+					if ((ptr->l2.tei & 0x7f) != 0x7f) {
+						if (st->l3.debug) {
+							sprintf(tmp, "check response for ces %d with tei %d",
+								ptr->l2.ces, ptr->l2.tei);
+							st->l2.l2m.printdebug(&st->l2.l2m, tmp);
+						}
+						/* send identity check response (user->network) */
+						mdl_unit_data_res(st, ptr->l2.ces, 5, ptr->l2.tei);
+					}
+					ptr = ptr->next;
+				}
+			} else {
+				otsp = findtei(st, ai);
+				if (!otsp)
+					break;
+				if (st->l3.debug) {
+					sprintf(tmp, "check response for ces %d with tei %d",
+					     otsp->l2.ces, otsp->l2.tei);
+					st->l2.l2m.printdebug(&st->l2.l2m, tmp);
+				}
+				/* send identity check response (user->network) */
+				mdl_unit_data_res(st, otsp->l2.ces, 5, otsp->l2.tei);
+			}
+			break;
+		case (6):
+			if (st->l3.debug) {
+				sprintf(tmp, "removal for %d", ai);
+				st->l2.l2m.printdebug(&st->l2.l2m, tmp);
+			}
+			if (ai == 0x7f) {
+				ptr = *(st->l1.stlistp);
+				while (ptr) {
+					if ((ptr->l2.tei & 0x7f) != 0x7f) {
+						if (st->l3.debug) {
+							sprintf(tmp, "rem ces %d with tei %d",
+								ptr->l2.ces, ptr->l2.tei);
+							st->l2.l2m.printdebug(&st->l2.l2m, tmp);
+						}
+						ptr->ma.teil2(ptr, MDL_REMOVE, 0);
+					}
+					ptr = ptr->next;
+				}
+			} else {
+				otsp = findtei(st, ai);
+				if (!otsp)
+					break;
+				if (st->l3.debug) {
+					sprintf(tmp, "rem ces %d with tei %d",
+					     otsp->l2.ces, otsp->l2.tei);
+					st->l2.l2m.printdebug(&st->l2.l2m, tmp);
+				}
+				otsp->ma.teil2(otsp, MDL_REMOVE, 0);
+			}
+			break;
+		default:
+			if (st->l3.debug) {
+				sprintf(tmp, "message unknown %d ai %d", mt, ai);
+				st->l2.l2m.printdebug(&st->l2.l2m, tmp);
+			}
 	}
 }
 
@@ -195,37 +198,37 @@ tei_handler(struct PStack *st,
 	char tmp[32];
 
 	switch (pr) {
-	case (MDL_ASSIGN):
-		data = (unsigned int) ibh;
-		if (st->l3.debug) {
-			sprintf(tmp, "ces %d assign request", data);
-			st->l2.l2m.printdebug(&st->l2.l2m, tmp);
-		}
-		mdl_unit_data_res(st, data, 1, 127);
-		break;
-	case (MDL_VERIFY):
-		data = (unsigned int) ibh;
-		if (st->l3.debug) {
-			sprintf(tmp, "%d id verify request", data);
-			st->l2.l2m.printdebug(&st->l2.l2m, tmp);
-		}
-		mdl_unit_data_res(st, 0, 7, data);
-		break;
-	case (DL_UNIT_DATA):
-		bp = DATAPTR(ibh);
-		bp += 3;
-		if (bp[0] != 0xf) {
-			/* wrong management entity identifier, ignore */
-			/* shouldn't ibh be released??? */
-			printk(KERN_WARNING "tei handler wrong entity id %x\n", bp[0]);
+		case (MDL_ASSIGN):
+			data = (unsigned int) ibh;
+			if (st->l3.debug) {
+				sprintf(tmp, "ces %d assign request", data);
+				st->l2.l2m.printdebug(&st->l2.l2m, tmp);
+			}
+			mdl_unit_data_res(st, data, 1, 127);
+			break;
+		case (MDL_VERIFY):
+			data = (unsigned int) ibh;
+			if (st->l3.debug) {
+				sprintf(tmp, "%d id verify request", data);
+				st->l2.l2m.printdebug(&st->l2.l2m, tmp);
+			}
+			mdl_unit_data_res(st, 0, 7, data);
+			break;
+		case (DL_UNIT_DATA):
+			bp = DATAPTR(ibh);
+			bp += 3;
+			if (bp[0] != 0xf) {
+				/* wrong management entity identifier, ignore */
+				/* shouldn't ibh be released??? */
+				printk(KERN_WARNING "tei handler wrong entity id %x\n", bp[0]);
+				BufPoolRelease(ibh);
+				break;
+			}
+			mdl_unit_data_ind(st, (bp[1] << 8) | bp[2], bp[3], bp[4] >> 1);
 			BufPoolRelease(ibh);
 			break;
-		}
-		mdl_unit_data_ind(st, (bp[1] << 8) | bp[2], bp[3], bp[4] >> 1);
-		BufPoolRelease(ibh);
-		break;
-	default:
-		break;
+		default:
+			break;
 	}
 }
 
@@ -258,31 +261,20 @@ setstack_tei(struct PStack *st)
 	st->l2.l2tei = tei_l2tei;
 }
 
-static void
+void
 init_tei(struct IsdnCardState *sp, int protocol)
 {
 	struct PStack *st;
 	char tmp[128];
 
-#define DIRTY_HACK_AGAINST_SIGSEGV 0
-
 	st = (struct PStack *) Smalloc(sizeof(struct PStack), GFP_KERNEL,
 				       "struct PStack");
-
-#if DIRTY_HACK_AGAINST_SIGSEGV
-	sp->teistack = st;	/* struct is not initialized yet */
-	sp->teistack->protocol = protocol;	/* struct is not initialized yet */
-#endif				/* DIRTY_HACK_AGAINST_SIGSEGV    */
-
-
 	setstack_HiSax(st, sp);
-
 	st->l2.extended = !0;
 	st->l2.laptype = LAPD;
 	st->l2.window = 1;
 	st->l2.orig = !0;
 	st->protocol = protocol;
-
 /*
  * the following is not necessary for tei mng. (broadcast only)
  */
@@ -296,8 +288,7 @@ init_tei(struct IsdnCardState *sp, int protocol)
 	sprintf(tmp, "Card %d tei", sp->cardnr + 1);
 	setstack_isdnl2(st, tmp);
 	st->l2.debug = 0;
-/* SGY  st->l3.debug = 0; */
-	st->l3.debug = 0xff;
+	st->l3.debug = 0;
 
 	st->ma.manl2(st, MDL_NOTEIPROC, NULL);
 
@@ -310,31 +301,11 @@ init_tei(struct IsdnCardState *sp, int protocol)
 	sp->teistack = st;
 }
 
-static void
+void
 release_tei(struct IsdnCardState *sp)
 {
 	struct PStack *st = sp->teistack;
 
 	HiSax_rmlist(sp, st);
 	Sfree((void *) st);
-}
-
-void
-TeiNew(void)
-{
-	int i;
-
-	for (i = 0; i < nrcards; i++)
-		if (cards[i].sp)
-			init_tei(cards[i].sp, cards[i].protocol);
-}
-
-void
-TeiFree(void)
-{
-	int i;
-
-	for (i = 0; i < nrcards; i++)
-		if (cards[i].sp)
-			release_tei(cards[i].sp);
 }

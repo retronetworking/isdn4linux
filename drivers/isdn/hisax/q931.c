@@ -1,6 +1,6 @@
 /* $Id$
- *
- * q931.c	code to decode ITU Q.931 call control messages
+
+ * q931.c       code to decode ITU Q.931 call control messages
  *
  * Author       Jan den Ouden
  *
@@ -14,6 +14,9 @@
  *
  *
  * $Log$
+ * Revision 1.3  1997/01/21 22:24:59  keil
+ * cleanups
+ *
  * Revision 1.2  1996/10/27 22:12:45  keil
  * reporting unknown level 3 protocol ids
  *
@@ -28,11 +31,11 @@
 #include "hisax.h"
 #include "l3_1tr6.h"
 
-byte           *
+byte *
 findie(byte * p, int size, byte ie, int wanted_set)
 {
-	int             l, codeset, maincodeset;
-	byte           *pend = p + size;
+	int l, codeset, maincodeset;
+	byte *pend = p + size;
 
 	/* skip protocol discriminator, callref and message type */
 	p++;
@@ -69,8 +72,8 @@ findie(byte * p, int size, byte ie, int wanted_set)
 void
 iecpy(byte * dest, byte * iestart, int ieoffset)
 {
-	byte           *p;
-	int             l;
+	byte *p;
+	int l;
 
 	p = iestart + ieoffset + 2;
 	l = iestart[1] - ieoffset;
@@ -92,8 +95,8 @@ getcallref(byte * p)
  */
 static
 struct MessageType {
-	byte            nr;
-	char           *descr;
+	byte nr;
+	char *descr;
 } mtlist[] = {
 
 	{
@@ -261,7 +264,7 @@ int fac_1tr6_len = (sizeof(fac_1tr6) / sizeof(struct MessageType));
 static int
 prbits(char *dest, byte b, int start, int len)
 {
-	char           *dp = dest;
+	char *dp = dest;
 
 	b = b << (8 - start);
 	while (len--) {
@@ -275,7 +278,7 @@ prbits(char *dest, byte b, int start, int len)
 }
 
 static
-byte           *
+byte *
 skipext(byte * p)
 {
 	while (!(*p++ & 0x80));
@@ -291,9 +294,9 @@ skipext(byte * p)
 
 static
 struct CauseValue {
-	byte            nr;
-	char           *edescr;
-	char           *ddescr;
+	byte nr;
+	char *edescr;
+	char *ddescr;
 } cvlist[] = {
 
 	{
@@ -505,9 +508,9 @@ static
 int
 prcause(char *dest, byte * p)
 {
-	byte           *end;
-	char           *dp = dest;
-	int             i, cause;
+	byte *end;
+	char *dp = dest;
+	int i, cause;
 
 	end = p + p[1] + 1;
 	p += 2;
@@ -582,7 +585,7 @@ int cause_1tr6_len = (sizeof(cause_1tr6) / sizeof(struct MessageType));
 static int
 prcause_1tr6(char *dest, byte * p)
 {
-	char           *dp = dest;
+	char *dp = dest;
 	int i, cause;
 
 	p++;
@@ -615,7 +618,8 @@ prcause_1tr6(char *dest, byte * p)
 }
 
 static int
-prchident(char *dest, byte * p) {
+prchident(char *dest, byte * p)
+{
 	char *dp = dest;
 
 	p += 2;
@@ -626,9 +630,10 @@ prchident(char *dest, byte * p) {
 }
 
 static int
-prcalled(char *dest, byte * p) {
-	int             l;
-	char           *dp = dest;
+prcalled(char *dest, byte * p)
+{
+	int l;
+	char *dp = dest;
 
 	p++;
 	l = *p++ - 1;
@@ -642,9 +647,10 @@ prcalled(char *dest, byte * p) {
 	return (dp - dest);
 }
 static int
-prcalling(char *dest, byte * p) {
-	int             l;
-	char           *dp = dest;
+prcalling(char *dest, byte * p)
+{
+	int l;
+	char *dp = dest;
 
 	p++;
 	l = *p++ - 1;
@@ -670,7 +676,7 @@ static
 int
 prbearer(char *dest, byte * p)
 {
-	char           *dp = dest, ch;
+	char *dp = dest, ch;
 
 	p += 2;
 	dp += sprintf(dp, "    octet 3  ");
@@ -714,10 +720,11 @@ prbearer(char *dest, byte * p)
 }
 
 static int
-general(char *dest, byte * p) {
-	char           *dp = dest;
-	char            ch = ' ';
-	int             l, octet = 3;
+general(char *dest, byte * p)
+{
+	char *dp = dest;
+	char ch = ' ';
+	int l, octet = 3;
 
 	p++;
 	l = *p++;
@@ -740,7 +747,8 @@ general(char *dest, byte * p) {
 }
 
 static int
-prcharge(char *dest, byte * p) {
+prcharge(char *dest, byte * p)
+{
 	char *dp = dest;
 	int l;
 
@@ -756,7 +764,8 @@ prcharge(char *dest, byte * p) {
 	return (dp - dest);
 }
 static int
-prtext(char *dest, byte * p) {
+prtext(char *dest, byte * p)
+{
 	char *dp = dest;
 	int l;
 
@@ -770,10 +779,11 @@ prtext(char *dest, byte * p) {
 	return (dp - dest);
 }
 static int
-display(char *dest, byte * p) {
-	char           *dp = dest;
-	char            ch = ' ';
-	int             l, octet = 3;
+display(char *dest, byte * p)
+{
+	char *dp = dest;
+	char ch = ' ';
+	int l, octet = 3;
 
 	p++;
 	l = *p++;
@@ -800,8 +810,8 @@ display(char *dest, byte * p) {
 int
 prfacility(char *dest, byte * p)
 {
-	char           *dp = dest;
-	int             l, l2;
+	char *dp = dest;
+	int l, l2;
 
 	p++;
 	l = *p++;
@@ -829,9 +839,9 @@ prfacility(char *dest, byte * p)
 
 static
 struct InformationElement {
-	byte            nr;
-	char           *descr;
-	int             (*f) (char *, byte *);
+	byte nr;
+	char *descr;
+	int (*f) (char *, byte *);
 } ielist[] = {
 
 	{
@@ -966,51 +976,60 @@ static struct InformationElement we_6[] =
 };
 static int we_6_len = (sizeof(we_6) / sizeof(struct InformationElement));
 
-int QuickHex(char *txt, byte *p, int cnt)
+int
+QuickHex(char *txt, byte * p, int cnt)
 {
-	register int  i;
-	register char *t=txt;
+	register int i;
+	register char *t = txt;
 	register byte w;
 
-	for (i=0;i<cnt;i++) {
+	for (i = 0; i < cnt; i++) {
 		*t++ = ' ';
-		w = (p[i]>>4)&0x0f;
-		if (w<10) *t++ = '0'+w;
-		else *t++ = 'A'-10 +w;
-		w = p[i]&0x0f;
-		if (w<10) *t++ = '0'+w;
-		else *t++ = 'A'-10 +w;
+		w = (p[i] >> 4) & 0x0f;
+		if (w < 10)
+			*t++ = '0' + w;
+		else
+			*t++ = 'A' - 10 + w;
+		w = p[i] & 0x0f;
+		if (w < 10)
+			*t++ = '0' + w;
+		else
+			*t++ = 'A' - 10 + w;
 	}
-	*t++=0;
-	return(t - txt);
+	*t++ = 0;
+	return (t - txt);
 }
 
 void
-LogFrame(struct IsdnCardState *sp, byte * buf, int size) {
-	char           *dp;
+LogFrame(struct IsdnCardState *sp, byte * buf, int size)
+{
+	char *dp;
 
-	if (size<1) return;
-	dp = sp-> dlogspace;
-	if (size<4096/3 -10) {
+	if (size < 1)
+		return;
+	dp = sp->dlogspace;
+	if (size < 4096 / 3 - 10) {
 		dp += sprintf(dp, "HEX:");
 		dp += QuickHex(dp, buf, size);
 		dp--;
 		*dp++ = '\n';
-		*dp=0;
+		*dp = 0;
 	} else
 		sprintf(dp, "LogFrame: warning Frame too big (%d)\n",
 			size);
-	HiSax_putstatus(sp->dlogspace);
+	HiSax_putstatus(sp, sp->dlogspace);
 }
 
 void
-dlogframe(struct IsdnCardState *sp, byte * buf, int size, char *comment) {
-	byte           *bend = buf + size;
-	char           *dp;
-	unsigned char   pd, cr_l, cr, mt;
+dlogframe(struct IsdnCardState *sp, byte * buf, int size, char *comment)
+{
+	byte *bend = buf + size;
+	char *dp;
+	unsigned char pd, cr_l, cr, mt;
 	int i, cs = 0, cs_old = 0, cs_fest = 0;
 
-	if (size<1) return;
+	if (size < 1)
+		return;
 	/* display header */
 	dp = sp->dlogspace;
 	dp += sprintf(dp, "%s\n", comment);
@@ -1031,12 +1050,12 @@ dlogframe(struct IsdnCardState *sp, byte * buf, int size, char *comment) {
 			/* display message type if it exists */
 			if (i == mt_n0_len)
 				dp += sprintf(dp, "callref %d %s size %d unknown message type N0 %x!\n",
-					cr & 0x7f, (cr & 0x80)?"called":"caller",
-					size, mt);
+					      cr & 0x7f, (cr & 0x80) ? "called" : "caller",
+					      size, mt);
 			else
 				dp += sprintf(dp, "callref %d %s size %d message type %s\n",
-					cr & 0x7f, (cr & 0x80)?"called":"caller",
-					size, mt_n0[i].descr);
+					      cr & 0x7f, (cr & 0x80) ? "called" : "caller",
+					      size, mt_n0[i].descr);
 		} else {	/* N1 */
 			for (i = 0; i < mt_n1_len; i++)
 				if (mt_n1[i].nr == mt)
@@ -1044,12 +1063,12 @@ dlogframe(struct IsdnCardState *sp, byte * buf, int size, char *comment) {
 			/* display message type if it exists */
 			if (i == mt_n1_len)
 				dp += sprintf(dp, "callref %d %s size %d unknown message type N1 %x!\n",
-					cr & 0x7f, (cr & 0x80)?"called":"caller",
-					size, mt);
+					      cr & 0x7f, (cr & 0x80) ? "called" : "caller",
+					      size, mt);
 			else
 				dp += sprintf(dp, "callref %d %s size %d message type %s\n",
-					cr & 0x7f, (cr & 0x80)?"called":"caller",
-					size, mt_n1[i].descr);
+					      cr & 0x7f, (cr & 0x80) ? "called" : "caller",
+					      size, mt_n1[i].descr);
 		}
 
 		/* display each information element */
@@ -1057,28 +1076,28 @@ dlogframe(struct IsdnCardState *sp, byte * buf, int size, char *comment) {
 			/* Is it a single octet information element? */
 			if (*buf & 0x80) {
 				switch ((*buf >> 4) & 7) {
-				  case 1:
-					dp += sprintf(dp, "  Shift %x\n", *buf & 0xf);
-					cs_old = cs;
-					cs = *buf & 7;
-					cs_fest = *buf & 8;
-					break;
-				  case 3:
-					dp += sprintf(dp, "  Congestion level %x\n", *buf & 0xf);
-					break;
-				  case 2:
-					if (*buf == 0xa0) {
-						dp += sprintf(dp, "  More data\n");
+					case 1:
+						dp += sprintf(dp, "  Shift %x\n", *buf & 0xf);
+						cs_old = cs;
+						cs = *buf & 7;
+						cs_fest = *buf & 8;
 						break;
-					}
-					if (*buf == 0xa1) {
-						dp += sprintf(dp, "  Sending complete\n");
-					}
-					break;
-				  /* fall through */
-				  default:
-					dp += sprintf(dp, "  Reserved %x\n", *buf);
-					break;
+					case 3:
+						dp += sprintf(dp, "  Congestion level %x\n", *buf & 0xf);
+						break;
+					case 2:
+						if (*buf == 0xa0) {
+							dp += sprintf(dp, "  More data\n");
+							break;
+						}
+						if (*buf == 0xa1) {
+							dp += sprintf(dp, "  Sending complete\n");
+						}
+						break;
+						/* fall through */
+					default:
+						dp += sprintf(dp, "  Reserved %x\n", *buf);
+						break;
 				}
 				buf++;
 				continue;
@@ -1132,40 +1151,40 @@ dlogframe(struct IsdnCardState *sp, byte * buf, int size, char *comment) {
 		/* display message type if it exists */
 		if (i == MTSIZE)
 			dp += sprintf(dp, "callref %d %s size %d unknown message type %x!\n",
-				cr & 0x7f, (cr & 0x80)?"called":"caller",
-				size, mt);
+			    cr & 0x7f, (cr & 0x80) ? "called" : "caller",
+				      size, mt);
 		else
 			dp += sprintf(dp, "callref %d %s size %d message type %s\n",
-				cr & 0x7f, (cr & 0x80)?"called":"caller",
-				size, mtlist[i].descr);
+			    cr & 0x7f, (cr & 0x80) ? "called" : "caller",
+				      size, mtlist[i].descr);
 
 		/* display each information element */
 		while (buf < bend) {
 			/* Is it a single octet information element? */
 			if (*buf & 0x80) {
 				switch ((*buf >> 4) & 7) {
-				  case 1:
-					dp += sprintf(dp, "  Shift %x\n", *buf & 0xf);
-					break;
-				  case 3:
-					dp += sprintf(dp, "  Congestion level %x\n", *buf & 0xf);
-					break;
-				  case 5:
-					dp += sprintf(dp, "  Repeat indicator %x\n", *buf & 0xf);
-					break;
-				  case 2:
-					if (*buf == 0xa0) {
-						dp += sprintf(dp, "  More data\n");
+					case 1:
+						dp += sprintf(dp, "  Shift %x\n", *buf & 0xf);
 						break;
-					}
-					if (*buf == 0xa1) {
-						dp += sprintf(dp, "  Sending complete\n");
-					}
-					break;
-				  /* fall through */
-				  default:
-					dp += sprintf(dp, "  Reserved %x\n", *buf);
-					break;
+					case 3:
+						dp += sprintf(dp, "  Congestion level %x\n", *buf & 0xf);
+						break;
+					case 5:
+						dp += sprintf(dp, "  Repeat indicator %x\n", *buf & 0xf);
+						break;
+					case 2:
+						if (*buf == 0xa0) {
+							dp += sprintf(dp, "  More data\n");
+							break;
+						}
+						if (*buf == 0xa1) {
+							dp += sprintf(dp, "  Sending complete\n");
+						}
+						break;
+						/* fall through */
+					default:
+						dp += sprintf(dp, "  Reserved %x\n", *buf);
+						break;
 				}
 				buf++;
 				continue;
@@ -1189,5 +1208,5 @@ dlogframe(struct IsdnCardState *sp, byte * buf, int size, char *comment) {
 		dp += sprintf(dp, "Unknown protocol %x!", buf[0]);
 	}
 	dp += sprintf(dp, "\n");
-	HiSax_putstatus(sp->dlogspace);
+	HiSax_putstatus(sp, sp->dlogspace);
 }
