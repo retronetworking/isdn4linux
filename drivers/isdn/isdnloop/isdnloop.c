@@ -19,6 +19,12 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.4  1998/02/24 21:39:05  he
+ * L2_PROT_X25DTE / DCE
+ * additional state 17 and new internal signal messages "BCON_I"
+ * (for reliable connect confirmation primitive as needed by x.25 upper layer)
+ * Changes for new LL-HL interface
+ *
  * Revision 1.3  1998/02/20 17:33:30  fritz
  * Changes for recent kernels.
  *
@@ -32,6 +38,7 @@
  *
  */
 
+#include <linux/config.h>
 #include "isdnloop.h"
 
 static char
