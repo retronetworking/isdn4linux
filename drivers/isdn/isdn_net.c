@@ -21,6 +21,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.112  2000/03/04 16:20:42  detabc
+ * copy frames before rewriting frame's saddr
+ *
  * Revision 1.111  2000/02/28 22:28:24  he
  * moved tx_timeout warning messages in old (2.2.x) branch where it really only
  * indicates problems.
@@ -494,19 +497,6 @@
  * for masters and slaves. However, only master interface are registered to 
  * the network layer, and therefore, it only makes sense to call netif_* 
  * functions on them.
- *
- * The old code abused the slaves dev->start to remember the corresponding 
- * master's interface state (ifup'ed or not). This does not work with SOFTNET 
- * any more, because there's now dev->start anymore.
- * Instead I chose to add isdn_net_started() which gives the state of the 
- * master in case of slaves.
- * I'm still not sure if this is how it's supposed to be done this way
- * because it uses netif_running(dev) which might be 
- * considered private to the network layer. However, it works for now.
- * Alternative: set a flag in _open() and clear it in _close() 
- *
- * I left some dead code around in #if 0 which I'm not absolutely sure about.
- * If no problems turn up, it should be removed later
  *
  * --KG
  */
@@ -4054,20 +4044,7 @@ isdn_net_realrm(isdn_net_dev * p, isdn_net_dev * q)
 
 	save_flags(flags);
 	cli();
-#if 0
-	if (p->local->master) {
-		/* If it's a slave, it may be removed even if it is busy. However
-		 * it has to be hung up first.
-		 *
-		 * Why? It can't be added when the master is up, why should it be 
-		 * possible to remove it? --KG
-		 */
-		isdn_net_hangup(&p->dev);
-#ifdef COMPAT_NO_SOFTNET
-		p->dev.start = 0;
-#endif
-	}
-#endif
+
 	if (isdn_net_started(p)) {
 		restore_flags(flags);
 		return -EBUSY;
