@@ -5,6 +5,9 @@
  *
  *
  * $Log$
+ * Revision 1.15  1997/04/06 22:57:24  keil
+ * Hisax version 2.1
+ *
  * Revision 1.14  1997/03/25 23:11:22  keil
  * US NI-1 protocol
  *
@@ -65,16 +68,18 @@
  * { type, protocol, p0, p1, p2, NULL }
  *
  * type
- *    1 Teles 16.0      p0=irq p1=membase p2=iobase
- *    2 Teles  8.0      p0=irq p1=membase
- *    3 Teles 16.3      p0=irq p1=iobase
- *    4 Creatix PNP     p0=irq p1=IO0 (ISAC)  p2=IO1 (HSCX)
- *    5 AVM A1 (Fritz)  p0=irq p1=iobase
- *    6 ELSA PC         [p0=iobase] or nothing (autodetect)
- *    7 ELSA Quickstep  p0=irq p1=iobase
- *      ELSA PCMCIA     p0=irq p1=iobase
- *    8 Teles PCMCIA    p0=irq p1=iobase
- *    9 ITK ix1-micro   p0=irq p1=iobase
+ *    1 Teles 16.0       p0=irq p1=membase p2=iobase
+ *    2 Teles  8.0       p0=irq p1=membase
+ *    3 Teles 16.3       p0=irq p1=iobase
+ *    4 Creatix PNP      p0=irq p1=IO0 (ISAC)  p2=IO1 (HSCX)
+ *    5 AVM A1 (Fritz)   p0=irq p1=iobase
+ *    6 ELSA PC          [p0=iobase] or nothing (autodetect)
+ *    7 ELSA Quickstep   p0=irq p1=iobase
+ *    8 Teles PCMCIA     p0=irq p1=iobase
+ *    9 ITK ix1-micro    p0=irq p1=iobase
+ *   10 ELSA PCMCIA      p0=irq p1=iobase
+ *   11 Eicon.Diehl Diva p0=irq p1=iobase
+ *   12 Dynalink         p0=irq p1=iobase
  *
  *
  * protocol can be either ISDN_PTYPE_EURO or ISDN_PTYPE_1TR6 or ISDN_PTYPE_NI1
@@ -82,13 +87,9 @@
  *
  */
 
-#ifdef CONFIG_HISAX_ELSA_PCC
+#ifdef CONFIG_HISAX_ELSA
 #define DEFAULT_CARD ISDN_CTYPE_ELSA
 #define DEFAULT_CFG {0,0,0}
-#endif
-#ifdef CONFIG_HISAX_ELSA_PCMCIA
-#define DEFAULT_CARD ISDN_CTYPE_ELSA_QS1000
-#define DEFAULT_CFG {3,0x2f8,0}
 #endif
 #ifdef CONFIG_HISAX_AVM_A1
 #undef DEFAULT_CARD
@@ -114,6 +115,20 @@
 #undef DEFAULT_CFG
 #define DEFAULT_CARD ISDN_CTYPE_IX1MICROR2
 #define DEFAULT_CFG {5,0x390,0}
+#endif
+
+#ifdef CONFIG_HISAX_DYNALINK
+#undef DEFAULT_CARD
+#undef DEFAULT_CFG
+#define DEFAULT_CARD ISDN_CTYPE_DYNALINK
+#define DEFAULT_CFG {5,0x200,0}
+#endif
+
+#ifdef CONFIG_HISAX_DIEHLDIVA
+#undef DEFAULT_CARD
+#undef DEFAULT_CFG
+#define DEFAULT_CARD ISDN_CTYPE_DIEHLDIVA
+#define DEFAULT_CFG {0,0x0,0}
 #endif
 
 #ifdef CONFIG_HISAX_1TR6
@@ -316,7 +331,7 @@ HiSax_init(void)
 	r += sprintf(r, "%s", HiSax_getrev(tmp));
 
 	printk(KERN_NOTICE "HiSax: Driver for Siemens chip set ISDN cards\n");
-	printk(KERN_NOTICE "HiSax: Version 2.1\n");
+	printk(KERN_NOTICE "HiSax: Version 2.2\n");
 	printk(KERN_NOTICE "HiSax: Revisions %s\n", rev);
 
 #ifdef MODULE
@@ -340,12 +355,6 @@ HiSax_init(void)
 				cards[i].para[1] = mem[i];
 				break;
 
-			case ISDN_CTYPE_16_3:
-			case ISDN_CTYPE_TELESPCMCIA:
-				cards[i].para[0] = irq[i];
-				cards[i].para[1] = io[i];
-				break;
-
 #ifdef CONFIG_HISAX_16_3	/* For Creatix/Teles PnP */
 			case ISDN_CTYPE_PNP:
 				cards[i].para[0] = irq[i];
@@ -353,24 +362,20 @@ HiSax_init(void)
 				cards[i].para[2] = io1[i];
 				break;
 #endif
-			case ISDN_CTYPE_A1:
-				cards[i].para[0] = irq[i];
-				cards[i].para[1] = io[i];
-				break;
-
 			case ISDN_CTYPE_ELSA:
 				cards[i].para[0] = io[i];
 				break;
-			case ISDN_CTYPE_ELSA_QS1000:
-				cards[i].para[0] = irq[i];
-				cards[i].para[1] = io[i];
-				break;
-
+			case ISDN_CTYPE_16_3:
+			case ISDN_CTYPE_TELESPCMCIA:
+			case ISDN_CTYPE_A1:
+			case ISDN_CTYPE_ELSA_PNP:
+			case ISDN_CTYPE_ELSA_PCMCIA:
 			case ISDN_CTYPE_IX1MICROR2:
+			case ISDN_CTYPE_DIEHLDIVA:
+			case ISDN_CTYPE_DYNALINK:
 				cards[i].para[0] = irq[i];
 				cards[i].para[1] = io[i];
 				break;
-
 		}
 	}
 	if (!nzproto) {
@@ -391,6 +396,7 @@ HiSax_init(void)
 
 	CallcNew();
 	Isdnl2New();
+	TeiNew();
 	if (HiSax_inithardware()) {
 		/* Install only, if at least one card found */
 		/* No symbols to export, hide all symbols */
@@ -405,6 +411,7 @@ HiSax_init(void)
 #endif
 		return (0);
 	} else {
+		TeiFree();
 		Isdnl2Free();
 		CallcFree();
 		return -EIO;
