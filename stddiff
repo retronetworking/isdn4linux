@@ -111,8 +111,8 @@ else
 	for i in include/linux/*.h ; do
 		dodiff $i $KERNELDIR/$i
 	done
-	README=`echo Documentation/isdn/README* | grep -v '.sc'`
-	for i in Documentation/isdn/CREDITS $README Documentation/isdn/*.FAQ \
+	for i in Documentation/isdn/CREDITS Documentation/isdn/README* \
+		Documentation/isdn/*.FAQ \
 		Documentation/isdn/INTERFACE Documentation/isdn/HiSax*; do
 		dodiff $i $KERNELDIR/$i
 	done

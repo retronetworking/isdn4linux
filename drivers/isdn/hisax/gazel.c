@@ -6,6 +6,9 @@
  *              based on source code from Karsten Keil
  *
  * $Log$
+ * Revision 2.1  1999/07/08 21:26:17  keil
+ * new card
+ *
  * Revision 1.0  1999/28/06
  * Initial revision
  *
@@ -452,6 +455,13 @@ Gazel_card_msg(struct IsdnCardState *cs, int mt, void *arg)
 			return (0);
 		case CARD_INIT:
 			inithscxisac(cs, 1);
+			if ((cs->subtyp==R647)||(cs->subtyp==R685)) {
+				int i;
+				for (i=0;i<(2+MAX_WAITING_CALLS);i++) {
+					cs->bcs[i].hw.hscx.tsaxr0 = 0x1f;
+					cs->bcs[i].hw.hscx.tsaxr1 = 0x23;
+				}
+			}
 			return (0);
 		case CARD_TEST:
 			return (0);
@@ -524,8 +534,6 @@ reserve_regions(struct IsdnCard *card, struct IsdnCardState *cs)
 static int
 setup_gazelisa(struct IsdnCard *card, struct IsdnCardState *cs)
 {
-	int i;
-	
 	printk(KERN_INFO "Gazel: ISA PnP card automatic recognition\n");
 	// we got an irq parameter, assume it is an ISA card
 	// R742 decodes address even in not started...
@@ -550,19 +558,14 @@ setup_gazelisa(struct IsdnCard *card, struct IsdnCardState *cs)
 		case R647:
 			printk(KERN_INFO "Gazel: Card ISA R647/R648 found\n");
 			cs->dc.isac.adf2 = 0x87;
-			for (i=0;i<(2+MAX_WAITING_CALLS);i++) {
-				cs->bcs[i].hw.hscx.tsaxr0 = 0x1f;
-				cs->bcs[i].hw.hscx.tsaxr1 = 0x23;
-			}
 			printk(KERN_INFO
-			    "Gazel: config irq:%d isac:0x%X  cfg:0x%X\n",
-			cs->irq, cs->hw.gazel.isac, cs->hw.gazel.cfg_reg);
+				"Gazel: config irq:%d isac:0x%X  cfg:0x%X\n",
+				cs->irq, cs->hw.gazel.isac, cs->hw.gazel.cfg_reg);
 			printk(KERN_INFO
-			       "Gazel: hscx A:0x%X  hscx B:0x%X\n",
-			     cs->hw.gazel.hscx[0], cs->hw.gazel.hscx[1]);
+				"Gazel: hscx A:0x%X  hscx B:0x%X\n",
+				cs->hw.gazel.hscx[0], cs->hw.gazel.hscx[1]);
 
 			break;
-
 		case R742:
 			printk(KERN_INFO "Gazel: Card ISA R742 found\n");
 			test_and_set_bit(HW_IPAC, &cs->HW_Flags);
@@ -586,7 +589,7 @@ setup_gazelpci(struct IsdnCardState *cs)
 {
 	u_int pci_ioaddr0 = 0, pci_ioaddr1 = 0;
 	u_char pci_irq = 0, found;
-	u_int nbseek, seekcard, i;
+	u_int nbseek, seekcard;
 
 	printk(KERN_WARNING "Gazel: PCI card automatic recognition\n");
 
@@ -670,10 +673,6 @@ setup_gazelpci(struct IsdnCardState *cs)
 			printk(KERN_INFO "Gazel: Card PCI R685 found\n");
 			cs->subtyp = R685;
 			cs->dc.isac.adf2 = 0x87;
-			for (i=0;i<(2+MAX_WAITING_CALLS);i++) {
-				cs->bcs[i].hw.hscx.tsaxr0 = 0x1f;
-				cs->bcs[i].hw.hscx.tsaxr1 = 0x23;
-			}
 			printk(KERN_INFO
 			    "Gazel: config irq:%d isac:0x%X  cfg:0x%X\n",
 			cs->irq, cs->hw.gazel.isac, cs->hw.gazel.cfg_reg);
