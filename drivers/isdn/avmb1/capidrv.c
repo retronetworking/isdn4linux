@@ -6,6 +6,9 @@
  * Copyright 1997 by Carsten Paeth (calle@calle.in-berlin.de)
  *
  * $Log$
+ * Revision 1.23  1999/07/09 15:05:44  keil
+ * compat.h is now isdn_compat.h
+ *
  * Revision 1.22  1999/07/06 07:24:14  calle
  * Bugfix: call to kfree_skb in capidrv_signal was too early,
  *         thanks to Lars Heete <hel@admin.de>.
@@ -2080,7 +2083,7 @@ static void enable_dchannel_trace(capidrv_contr *card)
 	avmversion[1] |= (version.minormanuversion >> 4) & 0x0f;
 	avmversion[2] |= version.minormanuversion & 0x0f;
 
-        if (avmversion[0] > 3 || (avmversion[0] == 3 && avmversion[1] > 6)) {
+        if (avmversion[0] > 3 || (avmversion[0] == 3 && avmversion[1] > 5)) {
 		printk(KERN_INFO "%s: D2 trace enabled\n", card->name);
 		capi_fill_MANUFACTURER_REQ(&cmdcmsg, global.appid,
 					   card->msgid++,
@@ -2132,7 +2135,7 @@ static void disable_dchannel_trace(capidrv_contr *card)
 	avmversion[1] |= (version.minormanuversion >> 4) & 0x0f;
 	avmversion[2] |= version.minormanuversion & 0x0f;
 
-        if (avmversion[0] > 3 || (avmversion[0] == 3 && avmversion[1] > 6)) {
+        if (avmversion[0] > 3 || (avmversion[0] == 3 && avmversion[1] > 5)) {
 		printk(KERN_INFO "%s: D2 trace disabled\n", card->name);
 	} else {
 		printk(KERN_INFO "%s: D3 trace disabled\n", card->name);
