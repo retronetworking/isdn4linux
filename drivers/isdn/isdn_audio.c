@@ -21,6 +21,17 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.14  1999/07/11 17:14:06  armin
+ * Added new layer 2 and 3 protocols for Fax and DSP functions.
+ * Moved "Add CPN to RING message" to new register S23,
+ * "Display message" is now correct on register S13 bit 7.
+ * New audio command AT+VDD implemented (deactivate DTMF decoder and
+ * activate possible existing hardware/DSP decoder).
+ * Moved some tty defines to .h file.
+ * Made whitespace possible in AT command line.
+ * Some AT-emulator output bugfixes.
+ * First Fax G3 implementations.
+ *
  * Revision 1.13  1999/04/12 12:33:09  fritz
  * Changes from 2.0 tree.
  *
@@ -268,7 +279,18 @@ static char dtmf_matrix[4][4] =
 	{'*', '0', '#', 'D'}
 };
 
+
 #if ((CPU == 386) || (CPU == 486) || (CPU == 586))
+/* egcs 2.95 complain about illegal asm statement:
+   isdn_audio.c:292: Invalid `asm' statement:
+   isdn_audio.c:292: fixed or forbidden register 2 (cx) was spilled for class CREG.
+   so I removed it, before we send patch to linus ...
+   calle
+*/
+#undef ISDN_AUDIO_OPTIMIZE_ON_X386_WITH_ASM_IF_GCC_ALLOW_IT
+#endif
+
+#ifdef ISDN_AUDIO_OPTIMIZE_ON_X386_WITH_ASM_IF_GCC_ALLOW_IT
 static inline void
 isdn_audio_tlookup(const void *table, void *buff, unsigned long n)
 {
