@@ -47,6 +47,7 @@ Dynalink IS64PH (OEM version of ASUSCOM NETWORK INC. ISDNLink 128K adapter)
 HFC-2BS0 based cards (TeleInt SA1)
 Sedlbauer Speed Card (Speed Win, Teledat 100)
 Sedlbauer Speed Star (PCMCIA)
+Sedlbauer ISDN-Controller PC/104
 USR Sportster internal TA (compatible Stollmann tina-pp V3)
 ith Kommunikationstechnik GmbH MIC 16 ISA card 
 Traverse Technologie NETjet PCI S0 card
@@ -156,15 +157,13 @@ Card types:
    24   Dr. Neuhaus Niccy PnP    irq, io0, io1 (from isapnp setup)
    24   Dr. Neuhaus Niccy PCI    no parameter
    25   Teles S0Box              irq, io (of the used lpt port)
-   26   AVM A1 PCMCIA (Fritz)    irq, io (set with card manager)
+   26   AVM A1 PCMCIA (Fritz!)   irq, io (set with card manager)
    27   AVM PCI (Fritz!PCI)      no parameter
    28   Sedlbauer Speed Fax+     irq, io
 
         
 At the moment IRQ sharing is only possible with PCI cards. Please make sure
 that your IRQ is free and enabled for ISA use.
-Note: For using the ELSA PCMCIA you need the cardmanager under MSDOS for
-enabling at the moment, then boot linux with loadlin.
 
 
 Examples for module loading
@@ -250,7 +249,7 @@ Card types:
    24   Dr. Neuhaus Niccy PnP   ONLY WORKS AS A MODULE !
    24   Dr. Neuhaus Niccy PCI   no parameter
    25   Teles S0Box             irq, io (of the used lpt port)
-   26   AVM A1 PCMCIA (Fritz)   irq, io (set with card manager)
+   26   AVM A1 PCMCIA (Fritz!)  irq, io (set with card manager)
    27   AVM PCI (Fritz!PCI)     no parameter
    28   Sedlbauer Speed Fax+    ONLY WORKS AS A MODULE !
 
@@ -386,7 +385,8 @@ Special thanks to:
 	Firma ith Kommunikationstechnik GmbH
 	Firma Traverse Technologie Australia
 	Firma Medusa GmbH  (www.medusa.de).
-        
+	Firma Quant-X Austria for sponsoring a DEC Alpha board+CPU
+         
         My girl friend and partner in life Ute for her patience with me.
 
 
