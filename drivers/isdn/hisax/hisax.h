@@ -3,6 +3,9 @@
  *   Basic declarations, defines and prototypes
  *
  * $Log$
+ * Revision 2.30  1999/07/14 12:38:38  werner
+ * Added changes for echo channel handling
+ *
  * Revision 2.29  1999/07/12 21:05:14  keil
  * fix race in IRQ handling
  * added watchdog for lost IRQs
@@ -318,6 +321,7 @@ struct Layer1 {
 #define FLG_ESTAB_PEND	13
 #define FLG_PTP		14
 #define FLG_FIXED_TEI	15
+#define FLG_L2BLOCK	16
 
 struct Layer2 {
 	int tei;

@@ -11,6 +11,9 @@
  *              Fritz Elfert
  *
  * $Log$
+ * Revision 2.17  1999/07/01 08:11:50  keil
+ * Common HiSax version for 2.0, 2.1, 2.2 and 2.3 kernel
+ *
  * Revision 2.16  1998/11/15 23:55:01  keil
  * changes from 2.0
  *
@@ -160,6 +163,19 @@ static char *strL2Event[] =
 static int l2addrsize(struct Layer2 *l2);
 
 static void
+set_peer_busy(struct Layer2 *l2) {
+	test_and_set_bit(FLG_PEER_BUSY, &l2->flag);
+	if (skb_queue_len(&l2->i_queue) || skb_queue_len(&l2->ui_queue))
+		test_and_set_bit(FLG_L2BLOCK, &l2->flag);
+}
+
+static void
+clear_peer_busy(struct Layer2 *l2) {
+	if (test_and_clear_bit(FLG_PEER_BUSY, &l2->flag))
+		test_and_clear_bit(FLG_L2BLOCK, &l2->flag);
+}
+
+static void
 InitWin(struct Layer2 *l2)
 {
 	int i;
@@ -216,7 +232,7 @@ clear_exception(struct Layer2 *l2)
 	test_and_clear_bit(FLG_ACK_PEND, &l2->flag);
 	test_and_clear_bit(FLG_REJEXC, &l2->flag);
 	test_and_clear_bit(FLG_OWN_BUSY, &l2->flag);
-	test_and_clear_bit(FLG_PEER_BUSY, &l2->flag);
+	clear_peer_busy(l2);
 }
 
 inline int
@@ -1023,10 +1039,10 @@ l2_st7_got_super(struct FsmInst *fi, int event, void *arg)
 
 	skb_pull(skb, l2addrsize(l2));
 	if (IsRNR(skb->data, st)) {
-		test_and_set_bit(FLG_PEER_BUSY, &l2->flag);
+		set_peer_busy(l2);
 		typ = RNR;
 	} else
-		test_and_clear_bit(FLG_PEER_BUSY, &l2->flag);
+		clear_peer_busy(l2);
 	if (IsREJ(skb->data, st))
 		typ = REJ;
 
@@ -1373,10 +1389,10 @@ l2_st8_got_super(struct FsmInst *fi, int event, void *arg)
 	skb_pull(skb, l2addrsize(l2));
 
 	if (IsRNR(skb->data, st)) {
-		test_and_set_bit(FLG_PEER_BUSY, &l2->flag);
+		set_peer_busy(l2);
 		rnr = 1;
 	} else
-		test_and_clear_bit(FLG_PEER_BUSY, &l2->flag);
+		clear_peer_busy(l2);
 
 	if (test_bit(FLG_MOD128, &l2->flag)) {
 		PollFlag = (skb->data[1] & 0x1) == 0x1;

@@ -5,6 +5,9 @@
  *
  *
  * $Log$
+ * Revision 2.28  1999/07/14 12:38:36  werner
+ * Added changes for echo channel handling
+ *
  * Revision 2.27  1999/07/12 21:05:00  keil
  * fix race in IRQ handling
  * added watchdog for lost IRQs
@@ -505,9 +508,9 @@ HiSaxVersion(void))
 
 	printk(KERN_INFO "HiSax: Linux Driver for passive ISDN cards\n");
 #ifdef MODULE
-	printk(KERN_INFO "HiSax: Version 3.2a (module)\n");
+	printk(KERN_INFO "HiSax: Version 3.3 (module)\n");
 #else
-	printk(KERN_INFO "HiSax: Version 3.2a (kernel)\n");
+	printk(KERN_INFO "HiSax: Version 3.3 (kernel)\n");
 #endif
 	strcpy(tmp, l1_revision);
 	printk(KERN_INFO "HiSax: Layer1 Revision %s\n", HiSax_getrev(tmp));

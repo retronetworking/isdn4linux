@@ -8,6 +8,10 @@
  *
  *
  * $Log$
+ * Revision 1.12  1999/07/12 21:05:04  keil
+ * fix race in IRQ handling
+ * added watchdog for lost IRQs
+ *
  * Revision 1.11  1999/07/01 08:11:29  keil
  * Common HiSax version for 2.0, 2.1, 2.2 and 2.3 kernel
  *
@@ -887,7 +891,7 @@ setup_diva(struct IsdnCard *card))
 		val = readreg(cs->hw.diva.cfg_reg + DIVA_IPAC_ADR,
 			cs->hw.diva.cfg_reg + DIVA_IPAC_DATA, IPAC_ID);
 		printk(KERN_INFO "Diva: IPAC version %x\n", val);
-		if (val == 1) {
+		if ((val == 1) || (val==2)) {
 			cs->subtyp = DIVA_IPAC_ISA;
 			cs->hw.diva.ctrl = 0;
 			cs->hw.diva.isac = card->para[1] + DIVA_IPAC_DATA;
