@@ -1,21 +1,38 @@
-
 HiSax is a Linux hardware level driver for passive ISDN cards with Siemens
 chipset (ISAC_S 2085/2086/2186 HSCX SAB 82525). It is based on the Teles
 driver from Jan den Ouden.
 It is meant to be used with isdn4linux, an ISDN Link-level module for Linux 
 written by Fritz Elfert.
 
+    This program is free software; you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation; either version 2 of the License, or
+    (at your option) any later version.
+
+    This program is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with this program; if not, write to the Free Software
+    Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
+
+
 Supported Cards
 ---------------
 
 Teles 8.0/16.0/16.3 and compatible
-Creatix PnP S0
+Teles S0/PCMCIA
+Creatix PnP S0 
 AVM A1 (Fritz)
 ELSA Microlink PCC-16 PCF PCF-Pro PCC-8
 ELSA Quickstep 1000
+ITK ix1-micro Rev.2
 
 Note: PCF PCF-Pro only the ISDN part is supported yet
       PCC-8 not tested yet
+      Teles PCMCIA is EXPERIMENTAL
 
 If you know other passive cards with the Siemens chipset, please let me know.
 To use the PNP cards you need the isapnptools.
@@ -28,6 +45,8 @@ The driver can be build direct into the kernel or as module.
 The HiSax driver can be configured using the command line feature
 while loading the kernel with LILO or LOADLIN or, if built as a module,
 using insmod/modprobe with parameters.
+Please note: All PnP cards need config with isapnp and will work only as
+module.
 
 As Module
 ---------
@@ -60,7 +79,7 @@ which the preceding card does not. For instance, if a Teles 16.0 card
 is listed after a Teles 16.3 card, a dummy mem=0 parameter must be
 specified for the 16.3. Instead of a dummy value, the parameter can
 also be skipped by simply omitting the value. For example:
-mem=,0xd0000. See example 4 below.
+mem=,0xd0000. See example 6 below.
 
 The Creatix/Teles PnP cards uses io1= and io2= instead of io= for specifying 
 the I/O addresses of the ISAC and HSCX chips, respectively.
@@ -77,7 +96,9 @@ Card types:
     6   ELSA PCC/PCF cards       io or nothing for autodetect (the iobase is
                                  only required, if you have more than one ELSA
                                  card in your PC)
-    7   ELSA Quickstep 1000	 io, irq  (from isapnp setup)
+    7   ELSA Quickstep 1000	 irq, io  (from isapnp setup)
+    8   Teles 16.3 PCMCIA     	 irq, io
+    9   ITK ix1-micro Rev.2      irq, io
         
 At the moment IRQ sharing is not possible. Please make sure that your IRQ
 is free and enabled for ISA use.
@@ -85,29 +106,32 @@ is free and enabled for ISA use.
 Examples for module loading
 
 1. Teles 16.3, Euro ISDN, I/O base 280 hex, IRQ 10
-modprobe hisax type=3 protocol=2 io=0x280 irq=10
+   modprobe hisax type=3 protocol=2 io=0x280 irq=10
 
 2. Teles 16.0, 1TR6 ISDN, I/O base d80 hex, IRQ 5, Memory d0000 hex
-modprobe hisax protocol=1 type=1 io=0xd80 mem=0xd0000 irq=5
+   modprobe hisax protocol=1 type=1 io=0xd80 mem=0xd0000 irq=5
 
 3. Fritzcard, Euro ISDN, I/O base 340 hex, IRQ 10 and ELSA PCF, Euro ISDN
-modprobe hisax type=5,6 protocol=2,2 io=0x340 irq=10
+   modprobe hisax type=5,6 protocol=2,2 io=0x340 irq=10
 
 4. Any ELSA  PCC/PCF card  Euro ISDN
-modprobe hisax type=6 protocol=2
+   modprobe hisax type=6 protocol=2
 
 5. Teles 16.3 PnP, Euro ISDN, with isapnp configured 
-isapnp config:  (INT 0 (IRQ 10 (MODE +E)))
-		(IO 0 (BASE 0x0580))
-                (IO 1 (BASE 0x0180))
-modprobe hisax type=4 protocol=2 io0=0x580 io1=0x180
+   isapnp config:  (INT 0 (IRQ 10 (MODE +E)))
+ 		   (IO 0 (BASE 0x0580))
+                   (IO 1 (BASE 0x0180))
+   modprobe hisax type=4 protocol=2 io0=0x580 io1=0x180
 
 6. Teles 16.3, Euro ISDN, I/O base 280 hex, IRQ 12 and
    Teles 16.0, 1TR6, IRQ 5, Memory d0000 hex
-modprobe hisax type=3,1 protocol=2,1 io=0x280 mem=0,0xd0000
+   modprobe hisax type=3,1 protocol=2,1 io=0x280 mem=0,0xd0000
 
-Please note the dummy 0 memory address for the Teles 16.3 in the last
-example as placeholder.
+   Please note the dummy 0 memory address for the Teles 16.3 in the last 
+   example as placeholder.
+
+7. Teles PCMCIA EURO 180 hex IRQ 15 (default values)
+   modprobe hisax io=8,2,15,0x180
 
 
 LILO/LOADLIN with driver compiled direct into the kernel:
@@ -117,9 +141,9 @@ hisax=typ1,dp1,pa_1,pb_1,pc_1[,typ2,dp2,pa_2 ... ,pa_n,pb_n,pc_n][,idstring]
 where
      typ1 = Cardtype of 1st card. (default: depends on kernel settings)
      dp1  = D-channel protocol of 1st card. 1=1TR6, 2=EDSS1 (default: 2)
-     pa_1 = 1. parameter (depend on the cardtype) (default: 15 (irq))
-     pb_1 = 2. parameter (depend on the cardtype) (default: 0xD0000)                                    
-     pc_1 = 3. parameter (depend on the cardtype) (default: 0xD80)                                      
+     pa_1 = 1. parameter (depend on the cardtype)
+     pb_1 = 2. parameter (depend on the cardtype)
+     pc_1 = 3. parameter (depend on the cardtype)
 
      typ2,dp2,pa_2,pb_2,pc_2 = Parameters of second card   (defaults: none)
      typn,dpn,pa_n,pb_n,pc_n = Parameters of n'th card (up to 16 cards are supported)
@@ -128,8 +152,19 @@ where
                 when using a Line-monitor. (default: HiSax)
                 idstring must start with a character!
 
-Card types: see under Modules.
+Card types:
        
+   typ  
+    1 	Teles 16.0     		pa=irq	pb=membase	pc=iobase
+    2 	Teles  8.0      	pa=irq	pb=membase
+    3 	Teles 16.3      	pa=irq	pb=iobase
+    4 	Creatix/Teles PNP     	ONLY WORK AS MODULE !
+    5 	AVM A1 (Fritz)  	pa=irq	pb=iobase
+    6 	ELSA PCC/PCF cards      pa=iobase or nothing for autodetect 
+    7   ELSA Quickstep 1000	ONLY WORK AS MODULE !
+    8   Teles S0 PCMCIA    	pa=irq  pb=iobase
+    9   ITK ix1-micro Rev.2     pa=irq  pb=iobase
+
 
 Running
 -------
@@ -227,8 +262,11 @@ Special thanks to:
         Emil Stephan for the name HiSax which is a mix of HSCX and ISAC.
 
         Fritz Elfert, Jan den Ouden, Michael Hipp, Michael Wein, 
-        Andreas Kool, Pekka Sarnila, Sim Yskes, Johan Myrre'en 
-        and more people, who are hunting bugs
+        Andreas Kool, Pekka Sarnila, Sim Yskes, Johan Myrre'en,
+	Klaus-Peter Nischke (ITK AG), Christof Petig, Werner Fehn,
+	Volker Schmidt
+        and more people, who are hunting bugs (If I forgot somebody, please
+	send me a mail). 
 
         Firma ELSA GmbH
         
@@ -239,3 +277,55 @@ Enjoy,
 
 Karsten Keil   
 keil@temic-ech.spacenet.de
+
+Appendix: PCMCIA driver
+-----------------------
+
+Up to now, the Teles PCMCIA driver is a complete hack. I had no
+documentation about the card - it might destroy your hardware (though mine
+at last works fine).
+
+Second I'm working on a module for linux pcmcia services, this version
+clearly assumes some (unrealistic) facts about your hardware:
+  - you MUST have an i82365
+  - Teles PCMCIA MUST be in slot 0 (the upper one) and the ONLY card
+    (since you can't use cardmgr, there's no use for a second one)
+  - ports 0x180-0x1e0 must be free, it uses IRQ 15
+
+The following program will initialize the PCMCIA chip to the values I probed
+inside Windows95 (native Teles driver).
+
+----------------------------------------------------------------------
+#include <asm/io.h>
+#define inportb(x) inb(x)
+#define outportb(x,v) outb(v,x)
+#define BASE 0x180
+#define NUM 97
+#define CARD 0x3e0
+#define i365(x) ( outportb(CARD,x), inportb(CARD+1) )
+#define i365w(x,y) ( outportb(CARD,x), outportb(CARD+1,y) )
+
+void main(int argc,char **argv)
+{  int i;
+   static unsigned char i365_cont[]=
+   { 0x83,0x7f,0xf5,0x6f, 0x00,0x08,0x60,0x00, 
+     0x80,0x01,0xe0,0x01, 0xff,0xff,0xff,0xff,
+     0xd0,0x00,0xd0,0x00, 0x30,0x7f,0x00,0x0f,
+     0xff,0x07,0xff,0x07, 0x00,0x00,0x00,0xff
+   };
+
+   ioperm(BASE,NUM,1); ioperm(CARD,2,1);
+   for (i=0;i<32;i++)
+   {  if (i365_cont[i]==i365(i)) continue;
+      outportb(CARD+1,i365_cont[i]);
+   }
+
+   outportb(BASE+0x18,0x41); 
+   /* enable the teles card and its IRQ */
+   /* this was found by brute force */
+}
+------------------------------------------------------------------------
+
+If you want to wait for the PCMCIA services driver ... I finish my diploma
+about end of February 1997 ... please be patient with me 
+    Christof Petig (ea0141@uni-wuppertal.de)
