@@ -18,6 +18,10 @@ ifeq ($(CONFIG_ISDN),y)
   ifdef CONFIG_ISDN_PPP
     L_OBJS += isdn_ppp.o
   endif
+  ifdef CONFIG_ISDN_X25
+    L_OBJS += isdn_x25iface.o
+    L_OBJS += isdn_concap.o
+  endif
   ifdef CONFIG_ISDN_AUDIO
     L_OBJS += isdn_audio.o
   endif
@@ -30,6 +34,10 @@ else
     ifdef CONFIG_ISDN_PPP
       O_OBJS += isdn_ppp.o
     endif
+    ifdef CONFIG_ISDN_X25
+      O_OBJS += isdn_x25iface.o
+      O_OBJS += isdn_concap.o
+    endif  
     ifdef CONFIG_ISDN_AUDIO
       O_OBJS += isdn_audio.o
     endif
@@ -47,7 +55,7 @@ else
 endif
 
 ifeq ($(CONFIG_ISDN_DRV_ICN),y)
-  L_OBJS += icn/icn.o
+  L_OBJS += icn/icn_obj.o
   SUB_DIRS += icn
   MOD_SUB_DIRS += icn
 else
