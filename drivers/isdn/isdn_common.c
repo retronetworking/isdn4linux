@@ -41,7 +41,6 @@
 #include <linux/isdn_divertif.h>
 #endif CONFIG_ISDN_DIVERSION
 #include "isdn_v110.h"
-#include "isdn_cards.h"
 #ifdef HAVE_DEVFS_FS
 #include <linux/devfs_fs_kernel.h>
 #endif /* HAVE_DEVFS_FS */
