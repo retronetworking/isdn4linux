@@ -11,6 +11,9 @@
  *
  *
  * $Log$
+ * Revision 1.15.2.9  1998/04/08 21:52:00  keil
+ * new debug
+ *
  * Revision 1.15.2.8  1998/03/07 23:15:26  tsbogend
  * made HiSax working on Linux/Alpha
  *
@@ -80,6 +83,14 @@ extern int setup_teles0(struct IsdnCard *card);
 extern int setup_teles3(struct IsdnCard *card);
 #endif
 
+#if CARD_S0BOX
+extern int setup_s0box(struct IsdnCard *card);
+#endif
+
+#if CARD_TELESPCI
+extern int setup_telespci(struct IsdnCard *card);
+#endif
+
 #if CARD_AVM_A1
 extern int setup_avm_a1(struct IsdnCard *card);
 #endif
@@ -139,7 +150,7 @@ const char *CardType[] =
  "Elsa PCMCIA", "Eicon.Diehl Diva", "ISDNLink", "TeleInt", "Teles 16.3c", 
  "Sedlbauer Speed Card", "USR Sportster", "ith mic Linux", "Elsa PCI",
  "Compaq ISA", "NETjet", "Teles PCI", "Sedlbauer Speed Star (PCMCIA)",
- "AMD 7930", "NICCY"
+ "AMD 7930", "NICCY", "S0Box"
 };
 
 extern struct IsdnCard cards[];
@@ -222,24 +233,6 @@ static inline struct IsdnCardState
 	return (NULL);
 }
 
-/*
- *  Debug the wrong driver id
- */
-void
-hisax_debug_driver_id(int driverid)
-{
-	int i;
-
-	printk(KERN_ERR"HiSax: nrcards=%d\n", nrcards);
-	for (i = 0; i < nrcards; i++) {
-		if (cards[i].cs) {
-			printk(KERN_ERR"HiSax: card %d cs=%lx id=%d\n",
-				i, (long)cards[i].cs, cards[i].cs->myid);
-		} else
-			printk(KERN_ERR"HiSax: card %d cs=00000000\n",i);
-	}
-}
-
 int
 HiSax_readstatus(u_char * buf, int len, int user, int id, int channel)
 {
@@ -260,7 +253,6 @@ HiSax_readstatus(u_char * buf, int len, int user, int id, int channel)
 	} else {
 		printk(KERN_ERR
 		 "HiSax: if_readstatus called with invalid driverId %d!\n", id);
-		hisax_debug_driver_id(id);
 		return -ENODEV;
 	}
 }
@@ -774,6 +766,16 @@ checkcard(int cardnr, char *id, int *busy_flag))
 			ret = setup_teles3(card);
 			break;
 #endif
+#if CARD_S0BOX
+		case ISDN_CTYPE_S0BOX:
+			ret = setup_s0box(card);
+			break;
+#endif
+#if CARD_TELESPCI
+		case ISDN_CTYPE_TELESPCI:
+			ret = setup_telespci(card);
+			break;
+#endif
 #if CARD_AVM_A1
 		case ISDN_CTYPE_A1:
 			ret = setup_avm_a1(card);
@@ -1042,7 +1044,7 @@ l2cmd(u_char cmd)
 	}
 }
 
-static char tmp[20];
+static char tmp[24];
 
 char *
 l2frames(u_char * ptr)
