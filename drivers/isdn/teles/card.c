@@ -7,6 +7,9 @@
  * Beat Doebeli         log all D channel traffic
  * 
  * $Log$
+ * Revision 1.13  1996/07/18 11:21:24  jdenoud
+ * Use small buffers for incoming audio data
+ *
  * Revision 1.12  1996/06/24 17:16:52  fritz
  * Added check for misconfigured membase.
  *
@@ -56,6 +59,7 @@
 
 #define __NO_VERSION__
 #include "teles.h"
+#include "proto.h"
 
 #define INCLUDE_INLINE_FUNCS
 #include <linux/tqueue.h>
@@ -933,6 +937,12 @@ process_rcv(struct IsdnCardState *sp)
 		if (broadc && sp->dlogflag && (!(ptr[0] >> 2)))
 			dlogframe(sp, ptr + 3, ibh->datasize - 3,
 				  "Q.931 frame network->user broadcast");
+
+		/* throw away unknwon frame types */
+		if (!(ptr[3]==PROTO_EURO || ((ptr[3]&0xfe)==PROTO_DIS_N0))) {
+			BufPoolRelease(ibh);
+			continue;
+		}
 
 		if (broadc) {
 			while (stptr != NULL) {

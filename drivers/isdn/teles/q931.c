@@ -14,6 +14,9 @@
  *
  * 
  * $Log$
+ * Revision 1.5  1996/06/03 20:03:40  fritz
+ * Fixed typos.
+ *
  * Revision 1.4  1996/05/17 03:46:17  fritz
  * General cleanup.
  *
@@ -32,6 +35,7 @@
 
 #define __NO_VERSION__
 #include "teles.h"
+#include "proto.h"
 #include "l3_1TR6.h"
 
 byte           *
@@ -1080,7 +1084,7 @@ dlogframe(struct IsdnCardState *sp, byte * buf, int size, char *comment) {
 			}
 			buf += buf[1] + 2;
 		}
-	} else {	/* EURO */
+	} else if (buf[0]==PROTO_EURO) {	/* EURO */
 		/* locate message type */
 		for (i = 0; i < MTSIZE; i++)
 			if (mtlist[i].nr == buf[3])
@@ -1141,6 +1145,8 @@ dlogframe(struct IsdnCardState *sp, byte * buf, int size, char *comment) {
 			buf += buf[1] + 2;
 		}
 	}
+	else dp += sprintf(dp,"Unnown frame type %.2x, ignored\n",buf[0]);
+
 	dp += sprintf(dp, "\n");
 	teles_putstatus(sp->dlogspace);
 }

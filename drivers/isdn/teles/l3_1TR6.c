@@ -1,6 +1,10 @@
 /* $Id$
  *
  * $Log$
+ * Revision 1.4  1996/06/06 14:22:28  fritz
+ * Changed level of "non-digital call..." message, since
+ * with audio support, this is quite normal.
+ *
  * Revision 1.3  1996/04/30 21:54:42  isdn4dev
  * SPV, callback , remove some debugging code  Karsten Keil
  *
@@ -14,6 +18,8 @@
  *
  *
  */
+
+#include	"proto.h"
 
 static void
 l3_1TR6_message(struct PStack *st, int mt, int pd)
