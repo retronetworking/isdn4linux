@@ -6,6 +6,9 @@
  * (c) Copyright 1999 by Carsten Paeth (calle@calle.in-berlin.de)
  * 
  * $Log$
+ * Revision 1.16  2000/04/21 12:38:42  calle
+ * Bugfix: error in proc_ functions, begin-off => off-begin
+ *
  * Revision 1.15  2000/04/06 15:01:25  calle
  * Bugfix: crash in capidrv.c when reseting a capi controller.
  * - changed code order on remove of controller.
@@ -1103,7 +1106,7 @@ static int driver_read_proc(char *page, char **start, off_t off,
 	if (len < off) 
            return 0;
 	*eof = 1;
-	*start = page - off;
+	*start = page + off;
 	return ((count < len-off) ? count : len-off);
 }
 
