@@ -21,6 +21,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.37  1997/03/02 14:29:18  fritz
+ * More ttyI related cleanup.
+ *
  * Revision 1.36  1997/02/28 02:32:40  fritz
  * Cleanup: Moved some tty related stuff from isdn_common.c
  *          to isdn_tty.c
@@ -1025,7 +1028,6 @@ isdn_set_allcfg(char *src)
 	int ret;
 	int i;
 	ulong flags;
-	char buf[1024];
 	isdn_net_ioctl_cfg cfg;
 	isdn_net_ioctl_phone phone;
 
@@ -1040,8 +1042,8 @@ isdn_set_allcfg(char *src)
 	copy_from_user((char *) &i, src, sizeof(int));
 	src += sizeof(int);
 	while (i) {
-		char *c;
-		char *c2;
+		int phone_len;
+		int out_flag;
 
 		if ((ret = verify_area(VERIFY_READ, (void *) src, sizeof(cfg)))) {
 			restore_flags(flags);
@@ -1057,49 +1059,31 @@ isdn_set_allcfg(char *src)
 			restore_flags(flags);
 			return ret;
 		}
-		if ((ret = verify_area(VERIFY_READ, (void *) src, sizeof(buf)))) {
-			restore_flags(flags);
-			return ret;
-		}
-		copy_from_user(buf, src, sizeof(buf));
-		src += sizeof(buf);
-		c = buf;
-		while (*c) {
-			if ((c2 = strchr(c, ' ')))
-				*c2++ = '\0';
-			strcpy(phone.phone, c);
-			strcpy(phone.name, cfg.name);
-			phone.outgoing = 0;
-			if ((ret = isdn_net_addphone(&phone))) {
+		phone_len = out_flag = 0;
+		while (out_flag < 2) {
+			if ((ret = verify_area(VERIFY_READ, src, 1))) {
 				restore_flags(flags);
 				return ret;
 			}
-			if (c2)
-				c = c2;
-			else
-				c += strlen(c);
-		}
-		if ((ret = verify_area(VERIFY_READ, (void *) src, sizeof(buf)))) {
-			restore_flags(flags);
-			return ret;
-		}
-		copy_from_user(buf, src, sizeof(buf));
-		src += sizeof(buf);
-		c = buf;
-		while (*c) {
-			if ((c2 = strchr(c, ' ')))
-				*c2++ = '\0';
-			strcpy(phone.phone, c);
-			strcpy(phone.name, cfg.name);
-			phone.outgoing = 1;
-			if ((ret = isdn_net_addphone(&phone))) {
-				restore_flags(flags);
-				return ret;
+			GET_USER(phone.phone[phone_len], src++);
+			if ((phone.phone[phone_len] == ' ') ||
+			    (phone.phone[phone_len] == '\0')) {
+				if (phone_len) {
+					phone.phone[phone_len] = '\0';
+					strcpy(phone.name, cfg.name);
+					phone.outgoing = out_flag;
+					if ((ret = isdn_net_addphone(&phone))) {
+						restore_flags(flags);
+						return ret;
+					}
+				} else
+					out_flag++;
+				phone_len = 0;
 			}
-			if (c2)
-				c = c2;
-			else
-				c += strlen(c);
+			if (++phone_len >= sizeof(phone.phone))
+				printk(KERN_WARNING
+				       "%s: IIOCSETSET phone number too long, ignored\n",
+				       cfg.name);
 		}
 		i--;
 	}
@@ -1175,12 +1159,22 @@ isdn_ioctl(struct inode *inode, struct file *file, uint cmd, ulong arg)
 	int drvidx;
 	int chidx;
 	int ret;
+	int i;
+	char *p;
 	char *s;
-	char name[10];
-	char bname[21];
-	isdn_ioctl_struct iocts;
-	isdn_net_ioctl_phone phone;
-	isdn_net_ioctl_cfg cfg;
+	union iocpar {
+	  char name[10];
+	  char bname[22];
+	  isdn_ioctl_struct iocts;
+	  isdn_net_ioctl_phone phone;
+	  isdn_net_ioctl_cfg cfg;
+	} iocpar ;
+
+#define name  iocpar.name
+#define bname iocpar.bname
+#define iocts iocpar.iocts
+#define phone iocpar.phone
+#define cfg   iocpar.cfg
 
 	if (minor == ISDN_MINOR_STATUS) {
 		switch (cmd) {
@@ -1240,9 +1234,9 @@ isdn_ioctl(struct inode *inode, struct file *file, uint cmd, ulong arg)
 			case IIOCNETASL:
 				/* Add a slave to a network-interface */
 				if (arg) {
-					if ((ret = verify_area(VERIFY_READ, (void *) arg, sizeof(bname))))
+					if ((ret = verify_area(VERIFY_READ, (void *) arg, sizeof(bname)-1)))
 						return ret;
-					copy_from_user(bname, (char *) arg, sizeof(bname));
+					copy_from_user(bname, (char *) arg, sizeof(bname)-1);
 				} else
 					return -EINVAL;
 				if ((s = isdn_net_newslave(bname))) {
@@ -1458,14 +1452,11 @@ isdn_ioctl(struct inode *inode, struct file *file, uint cmd, ulong arg)
 			case IIOCGETMAP:
 				/* Set/Get MSN->EAZ-Mapping for a driver */
 				if (arg) {
-					int i;
-					char *p;
-					char nstring[255];
 
-					if ((ret = verify_area(VERIFY_READ, (void *) arg,
-					     sizeof(isdn_ioctl_struct))))
+					if ((ret = copy_from_user((char *) &iocts,
+								  (char *) arg,
+								  sizeof(isdn_ioctl_struct))))
 						return ret;
-					copy_from_user((char *) &iocts, (char *) arg, sizeof(isdn_ioctl_struct));
 					if (strlen(iocts.drvid)) {
 						drvidx = -1;
 						for (i = 0; i < ISDN_MAX_DRIVERS; i++)
@@ -1478,28 +1469,45 @@ isdn_ioctl(struct inode *inode, struct file *file, uint cmd, ulong arg)
 					if (drvidx == -1)
 						return -ENODEV;
 					if (cmd == IIOCSETMAP) {
-						if ((ret = verify_area(VERIFY_READ, (void *) iocts.arg, 255)))
-							return ret;
-						copy_from_user(nstring, (char *) iocts.arg, 255);
-						memset(dev->drv[drvidx]->msn2eaz, 0,
-						       sizeof(dev->drv[drvidx]->msn2eaz));
-						p = strtok(nstring, ",");
+						int loop = 1;
+
+						p = (char *)iocts.arg;
 						i = 0;
-						while ((p) && (i < 10)) {
-							strcpy(dev->drv[drvidx]->msn2eaz[i++], p);
-							p = strtok(NULL, ",");
+						while (loop) {
+							int j = 0;
+
+							while (1) {
+								if ((ret = verify_area(VERIFY_READ, p, 1)))
+									return ret;
+								GET_USER(bname[j],p++);
+								switch (bname[j]) {
+									case '\0':
+										loop = 0;
+										/* Fall through */
+									case ',':
+										if (j) {
+											bname[j] = '\0';
+											strcpy(dev->drv[drvidx]->msn2eaz[i], bname);
+										}
+										j = ISDN_MSNLEN;
+								}
+								if (j >= ISDN_MSNLEN)
+									break;
+							}
+							if (++i > 9)
+								break;
 						}
 					} else {
-						p = nstring;
-						for (i = 0; i < 10; i++)
-							p += sprintf(p, "%s%s",
-								     strlen(dev->drv[drvidx]->msn2eaz[i]) ?
-								     dev->drv[drvidx]->msn2eaz[i] : "-",
-								     (i < 9) ? "," : "\0");
-						if ((ret = verify_area(VERIFY_WRITE, (void *) iocts.arg,
-						   strlen(nstring) + 1)))
-							return ret;
-						copy_to_user((char *) iocts.arg, nstring, strlen(nstring) + 1);
+						p = (char *) iocts.arg;
+						for (i = 0; i < 10; i++) {
+							sprintf(bname, "%s%s",
+								strlen(dev->drv[drvidx]->msn2eaz[i]) ?
+								dev->drv[drvidx]->msn2eaz[i] : "-",
+								(i < 9) ? "," : "\0");
+							if ((ret = copy_to_user(p, bname, strlen(bname)+1)))
+								return ret;
+							p += strlen(bname);
+						}
 					}
 					return 0;
 				} else
@@ -1558,6 +1566,12 @@ isdn_ioctl(struct inode *inode, struct file *file, uint cmd, ulong arg)
 		return (isdn_ppp_ioctl(minor - ISDN_MINOR_PPP, file, cmd, arg));
 #endif
 	return -ENODEV;
+
+#undef name
+#undef bname
+#undef iocts
+#undef phone
+#undef cfg
 }
 
 /*
