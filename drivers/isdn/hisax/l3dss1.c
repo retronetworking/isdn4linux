@@ -619,12 +619,13 @@ l3dss1_message_cause(struct l3_process *pc, u_char mt, u_char cause)
 }
 
 static void
-l3dss1_status_send(struct l3_process *pc, u_char pr, void *arg)
+l3dss1_status_send(struct l3_process *pc, u_char pr, u_char cause)
 {
 	MsgDeclare(16);
 
+	pc->para.cause = cause;
 	MsgXHead(pc->callref, MT_STATUS);
-	MsgCause(0, pc->para.cause);
+	MsgCause(0, cause);
 	MsgCallState(pc->state);
 	MsgSend();
 }
@@ -867,8 +868,7 @@ l3dss1_check_messagetype_validity(struct l3_process *pc, int mt, void *arg)
 		default:
 			if (pc->debug & (L3_DEB_CHECK | L3_DEB_WARN))
 				l3_debug(pc->st, "l3dss1_check_messagetype_validity mt(%x) fail", mt);
-			pc->para.cause = CAU_MESSAGE_TYPE_NON_EXISTENT;
-			l3dss1_status_send(pc, 0, NULL);
+			l3dss1_status_send(pc, 0, CAU_MESSAGE_TYPE_NON_EXISTENT);
 			return(1);
 	}
 	return(0);
@@ -883,16 +883,13 @@ l3dss1_std_ie_err(struct l3_process *pc, int ret) {
 		case 0: 
 			break;
 		case ERR_IE_COMPREHENSION:
-			pc->para.cause = CAU_MANDATORY_IE_MISSING;
-			l3dss1_status_send(pc, 0, NULL);
+			l3dss1_status_send(pc, 0, CAU_MANDATORY_IE_MISSING);
 			break;
 		case ERR_IE_UNRECOGNIZED:
-			pc->para.cause = CAU_IE_NON_EXISTENT;
-			l3dss1_status_send(pc, 0, NULL);
+			l3dss1_status_send(pc, 0, CAU_IE_NON_EXISTENT);
 			break;
 		case ERR_IE_LENGTH:
-			pc->para.cause = CAU_INVALID_IE_CONTENTS;
-			l3dss1_status_send(pc, 0, NULL);
+			l3dss1_status_send(pc, 0, CAU_INVALID_IE_CONTENTS);
 			break;
 		case ERR_IE_SEQUENCE:
 		default:
@@ -1564,8 +1561,7 @@ l3dss1_call_proc(struct l3_process *pc, u_char pr, void *arg)
 		if ((0 == id) || ((3 == id) && (0x10 == pc->para.moderate))) {
 			if (pc->debug & L3_DEB_WARN)
 				l3_debug(pc->st, "setup answer with wrong chid %x", id);
-			pc->para.cause = CAU_INVALID_IE_CONTENTS;
-			l3dss1_status_send(pc, pr, NULL);
+			l3dss1_status_send(pc, pr, CAU_INVALID_IE_CONTENTS);
 			return;
 		}
 		pc->para.bchannel = id;
@@ -1573,10 +1569,9 @@ l3dss1_call_proc(struct l3_process *pc, u_char pr, void *arg)
 		if (pc->debug & L3_DEB_WARN)
 			l3_debug(pc->st, "setup answer wrong chid (ret %d)", id);
 		if (id == -1)
-			pc->para.cause = CAU_MANDATORY_IE_MISSING;
+			l3dss1_status_send(pc, pr, CAU_MANDATORY_IE_MISSING);
 		else
-			pc->para.cause = CAU_INVALID_IE_CONTENTS;
-		l3dss1_status_send(pc, pr, NULL);
+			l3dss1_status_send(pc, pr, CAU_INVALID_IE_CONTENTS);
 		return;
 	}
 	/* Now we are on none mandatory IEs */
@@ -1603,8 +1598,7 @@ l3dss1_setup_ack(struct l3_process *pc, u_char pr, void *arg)
 		if ((0 == id) || ((3 == id) && (0x10 == pc->para.moderate))) {
 			if (pc->debug & L3_DEB_WARN)
 				l3_debug(pc->st, "setup answer with wrong chid %x", id);
-			pc->para.cause = CAU_INVALID_IE_CONTENTS;
-			l3dss1_status_send(pc, pr, NULL);
+			l3dss1_status_send(pc, pr, CAU_INVALID_IE_CONTENTS);
 			return;
 		}
 		pc->para.bchannel = id;
@@ -1612,10 +1606,9 @@ l3dss1_setup_ack(struct l3_process *pc, u_char pr, void *arg)
 		if (pc->debug & L3_DEB_WARN)
 			l3_debug(pc->st, "setup answer wrong chid (ret %d)", id);
 		if (id == -1)
-			pc->para.cause = CAU_MANDATORY_IE_MISSING;
+			l3dss1_status_send(pc, pr, CAU_MANDATORY_IE_MISSING);
 		else
-			pc->para.cause = CAU_INVALID_IE_CONTENTS;
-		l3dss1_status_send(pc, pr, NULL);
+			l3dss1_status_send(pc, pr, CAU_INVALID_IE_CONTENTS);
 		return;
 	}
 	/* Now we are on none mandatory IEs */
@@ -2036,12 +2029,13 @@ l3dss1_progress(struct l3_process *pc, u_char pr, void *arg)
 {
 	struct sk_buff *skb = arg;
 	int err = 0;
+	u_char cause = NO_CAUSE;
 	u_char *p;
 
 	if ((p = findie(skb->data, skb->len, IE_PROGRESS, 0))) {
 		if (p[1] != 2) {
 			err = 1;
-			pc->para.cause = CAU_INVALID_IE_CONTENTS;
+			cause = CAU_INVALID_IE_CONTENTS;
 		} else if (p[2] & 0x60) {
 			switch (p[2]) {
 				case 0x80:
@@ -2060,24 +2054,24 @@ l3dss1_progress(struct l3_process *pc, u_char pr, void *arg)
 							break;
 						default:
 							err = 2;
-							pc->para.cause = CAU_INVALID_IE_CONTENTS;
+							cause = CAU_INVALID_IE_CONTENTS;
 							break;
 					}
 					break;
 				default:
 					err = 3;
-					pc->para.cause = CAU_INVALID_IE_CONTENTS;
+					cause = CAU_INVALID_IE_CONTENTS;
 					break;
 			}
 		}
 	} else {
-		pc->para.cause = CAU_MANDATORY_IE_MISSING;
+		cause = CAU_MANDATORY_IE_MISSING;
 		err = 4;
 	}
 	if (err) {	
 		if (pc->debug & L3_DEB_WARN)
 			l3_debug(pc->st, "progress error %d", err);
-		l3dss1_status_send(pc, pr, NULL);
+		l3dss1_status_send(pc, pr, cause);
 		return;
 	}
 	/* Now we are on none mandatory IEs */
@@ -2092,13 +2086,14 @@ static void
 l3dss1_notify(struct l3_process *pc, u_char pr, void *arg)
 {
 	struct sk_buff *skb = arg;
+	u_char cause = NO_CAUSE;
 	int err = 0;
 	u_char *p;
 
 	if ((p = findie(skb->data, skb->len, IE_NOTIFY, 0))) {
 		if (p[1] != 1) {
 			err = 1;
-			pc->para.cause = CAU_INVALID_IE_CONTENTS;
+			cause = CAU_INVALID_IE_CONTENTS;
 		} else {
 			switch (p[2]) {
 				case 0x80:
@@ -2106,19 +2101,19 @@ l3dss1_notify(struct l3_process *pc, u_char pr, void *arg)
 				case 0x82:
 					break;
 				default:
-					pc->para.cause = CAU_INVALID_IE_CONTENTS;
+					cause = CAU_INVALID_IE_CONTENTS;
 					err = 2;
 					break;
 			}
 		}
 	} else {
-		pc->para.cause = CAU_MANDATORY_IE_MISSING;
+		cause = CAU_MANDATORY_IE_MISSING;
 		err = 3;
 	}
 	if (err) {	
 		if (pc->debug & L3_DEB_WARN)
 			l3_debug(pc->st, "notify error %d", err);
-		l3dss1_status_send(pc, pr, NULL);
+		l3dss1_status_send(pc, pr, cause);
 		return;
 	}
 	/* Now we are on none mandatory IEs */
@@ -2137,8 +2132,7 @@ l3dss1_status_enq(struct l3_process *pc, u_char pr, void *arg)
 
 	ret = check_infoelements(pc, skb, ie_STATUS_ENQUIRY);
 	l3dss1_std_ie_err(pc, ret);
-	pc->para.cause = CAU_RESPONSE_TO_STATUS_ENQUIRY;
-        l3dss1_status_send(pc, pr, NULL);
+        l3dss1_status_send(pc, pr, CAU_RESPONSE_TO_STATUS_ENQUIRY);
 }
 
 static void
@@ -2523,8 +2517,7 @@ l3dss1_status(struct l3_process *pc, u_char pr, void *arg)
 		if (pc->debug & L3_DEB_WARN)
 			l3_debug(pc->st, "STATUS error(%d/%d)",ret,cause);
 		tmp = pc->para.cause;
-		pc->para.cause = cause;
-		l3dss1_status_send(pc, 0, NULL);
+		l3dss1_status_send(pc, 0, cause);
 		if (cause == CAU_IE_NON_EXISTENT)
 			pc->para.cause = tmp;
 		else
@@ -2599,10 +2592,9 @@ l3dss1_suspend_rej(struct l3_process *pc, u_char pr, void *arg)
 		if (pc->debug & L3_DEB_WARN)
 			l3_debug(pc->st, "SUSP_REJ get_cause ret(%d)",ret);
 		if (ret < 0) 
-			pc->para.cause = CAU_MANDATORY_IE_MISSING;
+			l3dss1_status_send(pc, pr, CAU_MANDATORY_IE_MISSING);
 		else
-			pc->para.cause = CAU_INVALID_IE_CONTENTS;
-		l3dss1_status_send(pc, pr, NULL);
+			l3dss1_status_send(pc, pr, CAU_INVALID_IE_CONTENTS);
 		return;
 	}
 	ret = check_infoelements(pc, skb, ie_SUSPEND_REJECT);
@@ -2642,16 +2634,14 @@ l3dss1_resume_ack(struct l3_process *pc, u_char pr, void *arg)
 		if ((0 == id) || ((3 == id) && (0x10 == pc->para.moderate))) {
 			if (pc->debug & L3_DEB_WARN)
 				l3_debug(pc->st, "resume ack with wrong chid %x", id);
-			pc->para.cause = CAU_INVALID_IE_CONTENTS;
-			l3dss1_status_send(pc, pr, NULL);
+			l3dss1_status_send(pc, pr, CAU_INVALID_IE_CONTENTS);
 			return;
 		}
 		pc->para.bchannel = id;
 	} else if (1 == pc->state) {
 		if (pc->debug & L3_DEB_WARN)
 			l3_debug(pc->st, "resume ack without chid (ret %d)", id);
-		pc->para.cause = CAU_MANDATORY_IE_MISSING;
-		l3dss1_status_send(pc, pr, NULL);
+		l3dss1_status_send(pc, pr, CAU_MANDATORY_IE_MISSING);
 		return;
 	}
 	ret = check_infoelements(pc, skb, ie_RESUME_ACKNOWLEDGE);
@@ -2676,10 +2666,9 @@ l3dss1_resume_rej(struct l3_process *pc, u_char pr, void *arg)
 		if (pc->debug & L3_DEB_WARN)
 			l3_debug(pc->st, "RES_REJ get_cause ret(%d)",ret);
 		if (ret < 0) 
-			pc->para.cause = CAU_MANDATORY_IE_MISSING;
+			l3dss1_status_send(pc, pr, CAU_MANDATORY_IE_MISSING);
 		else
-			pc->para.cause = CAU_INVALID_IE_CONTENTS;
-		l3dss1_status_send(pc, pr, NULL);
+			l3dss1_status_send(pc, pr, CAU_INVALID_IE_CONTENTS);
 		return;
 	}
 	ret = check_infoelements(pc, skb, ie_RESUME_REJECT);
@@ -2770,9 +2759,7 @@ static void
 l3dss1_dl_reest_status(struct l3_process *pc, u_char pr, void *arg)
 {
 	l3pc_deltimer(pc);
- 
- 	pc->para.cause = CAU_NORMAL_UNSPECIFIED; /* normal, unspecified */
-	l3dss1_status_send(pc, 0, NULL);
+ 	l3dss1_status_send(pc, 0, CAU_NORMAL_UNSPECIFIED);
 }
 
 /* *INDENT-OFF* */
@@ -3114,8 +3101,7 @@ dss1up(struct PStack *st, int pr, void *arg)
 				proc->state, mt);
 		}
 		if ((MT_RELEASE_COMPLETE != mt) && (MT_RELEASE != mt)) {
-			proc->para.cause = CAU_MSG_NOT_COMPATIBLE_WITH_CALL_STATE;
-			l3dss1_status_send(proc, pr, skb);
+			l3dss1_status_send(proc, pr, CAU_MSG_NOT_COMPATIBLE_WITH_CALL_STATE);
 		}
 	} else {
 		if (st->l3.debug & L3_DEB_STATE) {
