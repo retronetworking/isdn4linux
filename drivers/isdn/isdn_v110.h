@@ -19,6 +19,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.1  1998/02/20 17:32:11  fritz
+ * First checkin (not yet completely functionable).
+ *
  */
 #ifndef _isdn_v110_h_
 #define _isdn_v110_h_
@@ -38,5 +41,6 @@ extern struct sk_buff *isdn_v110_encode(isdn_v110_stream *, struct sk_buff *);
 extern struct sk_buff *isdn_v110_decode(isdn_v110_stream *, struct sk_buff *);
 
 extern int isdn_v110_stat_callback(int, isdn_ctrl *);
+extern void isdn_v110_close(isdn_v110_stream * v);
 
 #endif

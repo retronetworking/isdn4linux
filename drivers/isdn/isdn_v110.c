@@ -19,6 +19,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.2  1998/02/22 19:44:25  fritz
+ * Bugfixes and improvements regarding V.110, V.110 now running.
+ *
  * Revision 1.1  1998/02/20 17:32:09  fritz
  * First checkin (not yet completely functionable).
  *
@@ -145,7 +148,7 @@ isdn_v110_open(unsigned char key, int hdrlen, int maxsize)
 }
 
 /* isdn_v110_close frees private V.110 data structures */
-static void
+void
 isdn_v110_close(isdn_v110_stream * v)
 {
 	if (v == NULL)
