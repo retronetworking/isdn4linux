@@ -19,6 +19,10 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.10  1996/06/11 14:50:29  hipp
+ * Lot of changes and bugfixes.
+ * New scheme to resend packets to busy LL devices.
+ *
  * Revision 1.9  1996/05/18 01:37:01  fritz
  * Added spelling corrections and some minor changes
  * to stay in sync with kernel.
@@ -932,7 +936,7 @@ int isdn_ppp_xmit(struct sk_buff *skb, struct device *dev)
          * therefore its first bytes are already initialized. In this case
          * send it immediately ...
          */
-        if (*((unsigned long *)skb->data) != 0) {
+        if (*((u32 *)skb->data) != 0) {
 	  printk(KERN_ERR "%s: Whoops .. packet resend should no longer happen!\n",dev->name);
           return (isdn_net_send_skb(dev , lp , skb));
         }
