@@ -78,6 +78,10 @@ Example for loading and starting a BRI card with E-DSS1 Protocol.
 
 	eiconctrl [-d DriverId] load etsi
 
+Example for a BRI card with E-DSS1 Protocol with PtP configuration.
+
+	eiconctrl [-d DriverId] load etsi -n -t0 -s1
+
 
 Example for loading and starting a PRI card with E-DSS1 Protocol.
 
