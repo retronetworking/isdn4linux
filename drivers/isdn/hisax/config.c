@@ -5,6 +5,9 @@
  *
  *
  * $Log$
+ * Revision 1.15.2.16  1998/09/27 13:05:48  keil
+ * Apply most changes from 2.1.X (HiSax 3.1)
+ *
  * Revision 1.15.2.15  1998/09/12 18:43:56  niemann
  * Added new card: Sedlbauer ISDN-Controller PC/104
  *
@@ -220,16 +223,11 @@ void register_avm_a1_symbols(void) {
 #define DEFAULT_CARD ISDN_CTYPE_SEDLBAUER
 #define DEFAULT_CFG {11,0x270,0,0}
 int sedl_init_pcmcia(void*, int, int*, int);
-#ifdef MODULE
 static struct symbol_table hisax_syms_sedl= {
 #include <linux/symtab_begin.h>
 	X(sedl_init_pcmcia),
 #include <linux/symtab_end.h>
 };
-void register_sedl_symbols(void) {
-	register_symtab(&hisax_syms_sedl);
-}
-#endif
 #endif
 
 #ifdef CONFIG_HISAX_SPORTSTER
@@ -485,6 +483,7 @@ HiSax_init(void))
 #ifdef CONFIG_HISAX_SEDLBAUER
 	if (type[0] == ISDN_CTYPE_SEDLBAUER_PCMCIA) {
 		/* we have to export  and return in this case */
+		register_symtab(&hisax_syms_sedl);
 		return 0;
 	}
 #endif
@@ -672,9 +671,12 @@ int elsa_init_pcmcia(void *pcm_iob, int pcm_irq, int *busy_flag, int prot)
 	return (0);
 }
 #endif
+#endif
+
 #ifdef CONFIG_HISAX_SEDLBAUER
 int sedl_init_pcmcia(void *pcm_iob, int pcm_irq, int *busy_flag, int prot)
 {
+#ifdef MODULE
 	int i;
 	int nzproto = 0;
 
@@ -717,10 +719,12 @@ int sedl_init_pcmcia(void *pcm_iob, int pcm_irq, int *busy_flag, int prot)
 	TeiNew();
 	HiSax_inithardware(busy_flag);
 	printk(KERN_NOTICE "HiSax: module installed\n");
+#endif
 	return (0);
 }
 #endif
 
+#ifdef MODULE
 #ifdef CONFIG_HISAX_AVM_A1_PCMCIA
 int avm_a1_init_pcmcia(void *pcm_iob, int pcm_irq, int *busy_flag, int prot)
 {
