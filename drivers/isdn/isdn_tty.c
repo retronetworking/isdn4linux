@@ -20,6 +20,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.59  1998/08/20 13:50:15  keil
+ * More support for hybrid modem (not working yet)
+ *
  * Revision 1.58  1998/07/26 18:48:45  armin
  * Added silence detection in voice receive mode.
  *
@@ -2084,8 +2087,7 @@ isdn_tty_close(struct tty_struct *tty, struct file *filp)
 		timeout = jiffies + HZ;
 		while (!(info->lsr & UART_LSR_TEMT)) {
 			current->state = TASK_INTERRUPTIBLE;
-			current->timeout = jiffies + 20;
-			schedule();
+			schedule_timeout(20);
 			if (jiffies > timeout)
 				break;
 		}
@@ -2101,8 +2103,7 @@ isdn_tty_close(struct tty_struct *tty, struct file *filp)
 	tty->closing = 0;
 	if (info->blocked_open) {
 		current->state = TASK_INTERRUPTIBLE;
-		current->timeout = jiffies + 50;
-		schedule();
+		schedule_timeout(50);
 		wake_up_interruptible(&info->open_wait);
 	}
 	info->flags &= ~(ISDN_ASYNC_NORMAL_ACTIVE | ISDN_ASYNC_CALLOUT_ACTIVE |
