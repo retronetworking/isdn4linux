@@ -6,6 +6,9 @@
  * Copyright 1996 by Carsten Paeth (calle@calle.in-berlin.de)
  *
  * $Log$
+ * Revision 1.1.2.8  1998/03/04 17:32:33  calle
+ * Changes for T1.
+ *
  * Revision 1.1.2.7  1998/02/27 15:38:29  calle
  * T1 running with slow link.
  *
@@ -114,14 +117,12 @@ typedef struct avmb1_extcarddef {
 
 #ifdef __KERNEL__
 
-#define	AVMB1_PORTLEN	0x1f
+#define	AVMB1_PORTLEN		0x1f
 
-#define AVM_MAXVERSION	8
-#define AVM_NBCHAN	2
+#define AVM_MAXVERSION		8
 
-#define AVM_NAPPS	30
-#define AVM_NPLCI	5
-#define AVM_NNCCI	6
+#define AVM_NAPPS		30
+#define AVM_NNCCI_PER_CHANNEL	4
 
 /*
  * Main driver data
@@ -133,6 +134,7 @@ typedef struct avmb1_card {
 	unsigned short port;
 	unsigned irq;
 	int cardtype;
+	int cardnr; /* for T1-HEMA */
 	volatile unsigned short cardstate;
 	int interrupt;
 	int blocked;
