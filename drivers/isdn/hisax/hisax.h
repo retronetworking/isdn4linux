@@ -3,6 +3,10 @@
  *   Basic declarations, defines and prototypes
  *
  * $Log$
+ * Revision 1.13.2.23  1999/05/09 21:44:16  keil
+ * New cards:Telekom A4T, Scitel Quadro
+ * Thanks to Roland Klabunde (R.Klabunde@Berkom.de)
+ *
  * Revision 1.13.2.22  1999/04/28 21:47:53  keil
  * Add HST Saphir support
  *
@@ -187,7 +191,8 @@
 #define CC_T304		0x0384
 #define CC_T305		0x0385
 #define CC_T308_1	0x0388
-#define CC_T308_2	0x0389
+#define CC_T308_2	0x038A
+#define CC_T309         0x0309
 #define CC_T310		0x0390
 #define CC_T313		0x0393
 #define CC_T318		0x0398
@@ -198,7 +203,6 @@
 #define CC_RESUME_ERR	0x03E3
 #define CC_CONNECT_ERR	0x03E4
 #define CC_RELEASE_ERR	0x03E5
-#define CC_DLRL		0x03F0
 #define CC_RESTART	0x03F4
 #define CC_TDSS1_IO     0x13F4    /* DSS1 IO user timer */
 
@@ -340,8 +344,10 @@ struct Layer2 {
 
 struct Layer3 {
 	void (*l3l4) (struct PStack *, int, void *);
+        void (*l3ml3) (struct PStack *, int, void *);
 	void (*l3l2) (struct PStack *, int, void *);
 	struct FsmInst l3m;
+        struct FsmTimer l3m_timer;
 	struct sk_buff_head squeue;
 	struct l3_process *proc;
 	struct l3_process *global;
