@@ -20,6 +20,10 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.3  1997/09/25 17:25:38  fritz
+ * Support for adding cards at runtime.
+ * Support for new Firmware.
+ *
  * Revision 1.2  1997/09/24 23:11:44  fritz
  * Optimized IRQ load and polling-mode.
  *
@@ -359,6 +363,7 @@ isa_send(act2000_card * card)
 {
 	unsigned long flags;
 	struct sk_buff *skb;
+	actcapi_msg *msg;
 	int l;
 
         if (test_and_set_bit(ACT2000_LOCK_TX, (void *) &card->ilock) != 0)
@@ -367,8 +372,16 @@ isa_send(act2000_card * card)
 		save_flags(flags);
 		cli();
 		if (!(card->sbuf)) {
-			if ((card->sbuf = skb_dequeue(&card->sndq)))
+			if ((card->sbuf = skb_dequeue(&card->sndq))) {
 				card->ack_msg = card->sbuf->data;
+				msg = (actcapi_msg *)card->sbuf->data;
+				if ((msg->hdr.cmd.cmd == 0x86) &&
+				    (msg->hdr.cmd.subcmd == 0)   ) {
+					/* Save flags in message */
+					card->need_b3ack = msg->msg.data_b3_req.flags;
+					msg->msg.data_b3_req.flags = 0;
+				}
+			}
 		}
 		restore_flags(flags);
 		if (!(card->sbuf)) {
@@ -392,13 +405,16 @@ isa_send(act2000_card * card)
 			skb_pull(skb, 1);
 			l++;
 		}
-		if ((((actcapi_msg *)card->ack_msg)->hdr.cmd.cmd == 0x86) &&
-		    (((actcapi_msg *)card->ack_msg)->hdr.cmd.subcmd == 0)   ) {
+		msg = (actcapi_msg *)card->ack_msg;
+		if ((msg->hdr.cmd.cmd == 0x86) &&
+		    (msg->hdr.cmd.subcmd == 0)   ) {
 			/*
 			 * If it's user data, reset data-ptr
 			 * and put skb into ackq.
 			 */
 			skb->data = card->ack_msg;
+			/* Restore flags in message */
+			msg->msg.data_b3_req.flags = card->need_b3ack;
 			skb_queue_tail(&card->ackq, skb);
 		} else
 			dev_kfree_skb(skb, FREE_WRITE);

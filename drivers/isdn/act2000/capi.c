@@ -21,6 +21,10 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.4  1997/09/25 17:25:39  fritz
+ * Support for adding cards at runtime.
+ * Support for new Firmware.
+ *
  * Revision 1.3  1997/09/24 19:44:14  fritz
  * Added MSN mapping support, some cleanup.
  *
@@ -607,12 +611,13 @@ actcapi_data_b3_ind(act2000_card *card, struct sk_buff *skb) {
  * ncci and blocknr are matching.
  * Decrement queued-bytes counter.
  */
-static void
+static int
 handle_ack(act2000_card *card, act2000_chan *chan, __u8 blocknr) {
 	unsigned long flags;
 	struct sk_buff *skb;
 	struct sk_buff *tmp;
 	struct actcapi_msg *m;
+	int ret;
 
 	save_flags(flags);
 	cli();
@@ -620,7 +625,7 @@ handle_ack(act2000_card *card, act2000_chan *chan, __u8 blocknr) {
 	restore_flags(flags);
         if (!skb) {
 		printk(KERN_WARNING "act2000: handle_ack nothing found!\n");
-		return;
+		return 0;
 	}
         tmp = skb;
         while (1) {
@@ -630,10 +635,12 @@ handle_ack(act2000_card *card, act2000_chan *chan, __u8 blocknr) {
 			/* found corresponding DATA_B3_REQ */
                         skb_unlink(tmp);
 			chan->queued -= m->msg.data_b3_req.datalen;
+			if (m->msg.data_b3_req.flags)
+				ret = m->msg.data_b3_req.datalen;
 			dev_kfree_skb(tmp, FREE_WRITE);
 			if (chan->queued < 0)
 				chan->queued = 0;
-                        return;
+                        return ret;
                 }
 		save_flags(flags);
 		cli();
@@ -642,7 +649,7 @@ handle_ack(act2000_card *card, act2000_chan *chan, __u8 blocknr) {
                 if ((tmp == skb) || (tmp == NULL)) {
 			/* reached end of queue */
 			printk(KERN_WARNING "act2000: handle_ack nothing found!\n");
-                        return;
+                        return 0;
 		}
         }
 }
@@ -654,6 +661,7 @@ actcapi_dispatch(act2000_card *card)
 	actcapi_msg *msg;
 	__u16 ccmd;
 	int chan;
+	int len;
 	act2000_chan *ctmp;
 	isdn_ctrl cmd;
 	char tmp[170];
@@ -675,11 +683,15 @@ actcapi_dispatch(act2000_card *card)
 					if (msg->msg.data_b3_conf.info != 0)
 						printk(KERN_WARNING "act2000: DATA_B3_CONF: %04x\n",
 						       msg->msg.data_b3_conf.info);
-					handle_ack(card, &card->bch[chan], msg->msg.data_b3_conf.blocknr);
-					cmd.driver = card->myid;
-					cmd.command = ISDN_STAT_BSENT;
-					cmd.arg = chan;
-					card->interface.statcallb(&cmd);
+					len = handle_ack(card, &card->bch[chan],
+							 msg->msg.data_b3_conf.blocknr);
+					if (len) {
+						cmd.driver = card->myid;
+						cmd.command = ISDN_STAT_BSENT;
+						cmd.arg = chan;
+						cmd.parm.length = len;
+						card->interface.statcallb(&cmd);
+					}
 				}
 				break;
 			case 0x0201:

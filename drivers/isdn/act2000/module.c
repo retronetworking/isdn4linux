@@ -20,6 +20,10 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.4  1997/09/25 17:25:43  fritz
+ * Support for adding cards at runtime.
+ * Support for new Firmware.
+ *
  * Revision 1.3  1997/09/24 23:11:45  fritz
  * Optimized IRQ load and polling-mode.
  *
@@ -332,7 +336,8 @@ act2000_command(act2000_card * card, isdn_ctrl * c)
 			cli();
 			if (chan->fsm_state != ACT2000_STATE_NULL) {
 				restore_flags(flags);
-				printk(KERN_WARNING "Dial on Non-NULL channel\n");
+				printk(KERN_WARNING "Dial on channel with state %d\n",
+					chan->fsm_state);
 				return -EBUSY;
 			}
 			if (card->ptype == ISDN_PTYPE_EURO)
@@ -464,7 +469,7 @@ act2000_command(act2000_card * card, isdn_ctrl * c)
 }
 
 static int
-act2000_sendbuf(act2000_card *card, int channel, struct sk_buff *skb)
+act2000_sendbuf(act2000_card *card, int channel, int ack, struct sk_buff *skb)
 {
         struct sk_buff *xmit_skb;
         int len;
@@ -490,9 +495,14 @@ act2000_sendbuf(act2000_card *card, int channel, struct sk_buff *skb)
 		}
 		skb_reserve(xmit_skb, 19);
 		memcpy(skb_put(xmit_skb, len), skb->data, len);
-		dev_kfree_skb(skb, FREE_WRITE);
-	} else
-		xmit_skb = skb;
+	} else {
+		xmit_skb = skb_clone(skb, GFP_ATOMIC);
+		if (!xmit_skb) {
+			printk(KERN_WARNING "act2000_sendbuf: Out of memory\n");
+			return 0;
+		}
+	}
+	dev_kfree_skb(skb, FREE_WRITE);
 	msg = (actcapi_msg *)skb_push(xmit_skb, 19);
 	msg->hdr.len = 19 + len;
 	msg->hdr.applicationID = 1;
@@ -502,7 +512,7 @@ act2000_sendbuf(act2000_card *card, int channel, struct sk_buff *skb)
 	msg->msg.data_b3_req.datalen = len;
 	msg->msg.data_b3_req.blocknr = (msg->hdr.msgnum & 0xff);
 	msg->msg.data_b3_req.fakencci = MAKE_NCCI(chan->plci, 0, chan->ncci);
-	msg->msg.data_b3_req.flags = 0;
+	msg->msg.data_b3_req.flags = ack; /* Will be set to 0 on actual sending */
 	actcapi_debug_msg(xmit_skb, 1);
         chan->queued += len;
 	skb_queue_tail(&card->sndq, xmit_skb);
@@ -625,14 +635,14 @@ if_readstatus(u_char * buf, int len, int user, int id, int channel)
 }
 
 static int
-if_sendbuf(int id, int channel, struct sk_buff *skb)
+if_sendbuf(int id, int channel, int ack, struct sk_buff *skb)
 {
         act2000_card *card = act2000_findcard(id);
 	
         if (card) {
                 if (!card->flags & ACT2000_FLAGS_RUNNING)
                         return -ENODEV;
-		return (act2000_sendbuf(card, channel, skb));
+		return (act2000_sendbuf(card, channel, ack, skb));
         }
         printk(KERN_ERR
                "act2000: if_sendbuf called with invalid driverId!\n");

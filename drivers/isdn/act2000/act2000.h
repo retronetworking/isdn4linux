@@ -20,6 +20,10 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.4  1997/09/25 17:25:37  fritz
+ * Support for adding cards at runtime.
+ * Support for new Firmware.
+ *
  * Revision 1.3  1997/09/24 23:11:43  fritz
  * Optimized IRQ load and polling-mode.
  *
@@ -186,6 +190,7 @@ typedef struct act2000_card {
 	struct sk_buff_head sndq;        /* Send-Message queue               */
 	struct sk_buff_head ackq;        /* Data-Ack-Message queue           */
 	u_char *ack_msg;                 /* Ptr to User Data in User skb     */
+	__u16 need_b3ack;                /* Flag: Need ACK for current skb   */
 	struct sk_buff *sbuf;            /* skb which is currently sent      */
 	struct timer_list ptimer;        /* Poll timer                       */
 	struct tq_struct snd_tq;         /* Task struct for xmit bh          */
