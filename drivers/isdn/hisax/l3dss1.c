@@ -13,6 +13,9 @@
  *              Fritz Elfert
  *
  * $Log$
+ * Revision 2.25  2000/04/27 10:31:01  keil
+ * implement overlap receiving
+ *
  * Revision 2.24  2000/03/19 15:26:35  kai
  * changed keypad to use specified bearer, instead of always a-law
  *
@@ -809,6 +812,9 @@ check_infoelements(struct l3_process *pc, struct sk_buff *skb, int *checklist)
 	u_char *p, ie;
 	int l, newpos, oldpos;
 	int err_seq = 0, err_len = 0, err_compr = 0, err_ureg = 0;
+	u_char codeset = 0;
+	u_char old_codeset = 0;
+	u_char codelock = 1;
 	
 	p = skb->data;
 	/* skip cr */
@@ -817,20 +823,34 @@ check_infoelements(struct l3_process *pc, struct sk_buff *skb, int *checklist)
 	p += l;
 	mt = *p++;
 	oldpos = 0;
-/* shift codeset procedure not implemented in the moment */
 	while ((p - skb->data) < skb->len) {
-		if ((newpos = ie_in_set(pc, *p, cl))) {
-			if (newpos > 0) {
-				if (newpos < oldpos)
-					err_seq++;
-				else
-					oldpos = newpos;
-			}
-		} else {
-			if (ie_in_set(pc, *p, comp_required))
-				err_compr++;
+		if ((*p & 0xf0) == 0x90) { /* shift codeset */
+			old_codeset = codeset;
+			codeset = *p & 7;
+			if (*p & 0x08)
+				codelock = 0;
 			else
-				err_ureg++;
+				codelock = 1;
+			if (pc->debug & L3_DEB_CHECK)
+				l3_debug(pc->st, "check IE shift%scodeset %d->%d",
+					codelock ? " locking ": " ", old_codeset, codeset);
+			p++;
+			continue;
+		}
+		if (!codeset) { /* only codeset 0 */
+			if ((newpos = ie_in_set(pc, *p, cl))) {
+				if (newpos > 0) {
+					if (newpos < oldpos)
+						err_seq++;
+					else
+						oldpos = newpos;
+				}
+			} else {
+				if (ie_in_set(pc, *p, comp_required))
+					err_compr++;
+				else
+					err_ureg++;
+			}
 		}
 		ie = *p++;
 		if (ie & 0x80) {
@@ -840,12 +860,19 @@ check_infoelements(struct l3_process *pc, struct sk_buff *skb, int *checklist)
 			p += l;
 			l += 2;
 		}
-		if (l > getmax_ie_len(ie))
+		if (!codeset && (l > getmax_ie_len(ie)))
 			err_len++;
+		if (!codelock) {
+			if (pc->debug & L3_DEB_CHECK)
+				l3_debug(pc->st, "check IE shift back codeset %d->%d",
+					codeset, old_codeset);
+			codeset = old_codeset;
+			codelock = 1;
+		}
 	}
 	if (err_compr | err_ureg | err_len | err_seq) {
 		if (pc->debug & L3_DEB_CHECK)
-			l3_debug(pc->st, "check_infoelements mt %x %d/%d/%d/%d",
+			l3_debug(pc->st, "check IE MT(%x) %d/%d/%d/%d",
 				mt, err_compr, err_ureg, err_len, err_seq);
 		if (err_compr)
 			return(ERR_IE_COMPREHENSION);
@@ -2024,7 +2051,7 @@ l3dss1_progress(struct l3_process *pc, u_char pr, void *arg)
 		if (p[1] != 2) {
 			err = 1;
 			pc->para.cause = 100;
-		} else if (p[2] & 0x60) {
+		} else if (!(p[2] & 0x70)) {
 			switch (p[2]) {
 				case 0x80:
 				case 0x81:
