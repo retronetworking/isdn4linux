@@ -341,8 +341,8 @@ config HISAX_HFC_SX
 #      bool '  TESTEMULATOR (EXPERIMENTAL)' CONFIG_HISAX_TESTEMU
 
 config HISAX_ENTERNOW_PCI
-	bool "Formula-n enter:now PCI card (EXPERIMENTAL)"
-	depends on PCI && EXPERIMENTAL
+	bool "Formula-n enter:now PCI card"
+	depends on PCI
 	help
 	  This enables HiSax support for the Formula-n enter:now PCI
 	  ISDN card.
@@ -408,12 +408,6 @@ config HISAX_FRITZ_CLASSIC
 	help
 	  This enables the driver for the AVM Fritz!Card classic, formerly
 	  known as AVM A1.
-
-config HISAX_HFCPCI
-	tristate "HFC PCI support (EXPERIMENTAL)"
-	depends on PCI && EXPERIMENTAL
-	help
-	  This enables the driver for CCD HFC PCI based cards.
 
 endif
 

@@ -14,13 +14,14 @@
  *
  */
 
+#define __NO_VERSION__
 #include <linux/module.h>
 #include <linux/init.h>
 #include "hisax.h"
 
 #define FSM_TIMER_DEBUG 0
 
-int
+int __init
 FsmNew(struct Fsm *fsm, struct FsmNode *fnlist, int fncount)
 {
 	int i;

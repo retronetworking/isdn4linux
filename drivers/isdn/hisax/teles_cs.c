@@ -1,23 +1,30 @@
-/*
- * PCMCIA client driver for AVM A1 / Fritz!PCMCIA
- *
- * Author       Carsten Paeth
- * Copyright    1998-2001 by Carsten Paeth <calle@calle.in-berlin.de>
- * 
- * This software may be used and distributed according to the terms
- * of the GNU General Public License, incorporated herein by reference.
- *
- */
+/* $Id$ */
+/*======================================================================
 
-#include <linux/module.h>
+    A teles S0 PCMCIA client driver
 
+    Based on skeleton by David Hinds, dhinds@allegro.stanford.edu
+    Written by Christof Petig, christof.petig@wtal.de
+    
+    Also inspired by ELSA PCMCIA driver 
+    by Klaus Lichtenwalder <Lichtenwalder@ACM.org>
+    
+    Extentions to new hisax_pcmcia by Karsten Keil
+
+    minor changes to be compatible with kernel 2.4.x
+    by Jan.Schubert@GMX.li
+
+======================================================================*/
 
 #include <linux/kernel.h>
+#include <linux/module.h>
+#include <linux/init.h>
 #include <linux/sched.h>
 #include <linux/ptrace.h>
 #include <linux/slab.h>
 #include <linux/string.h>
 #include <linux/timer.h>
+#include <linux/ioport.h>
 #include <asm/io.h>
 #include <asm/system.h>
 
@@ -25,15 +32,9 @@
 #include <pcmcia/cs_types.h>
 #include <pcmcia/cs.h>
 #include <pcmcia/cistpl.h>
+#include <pcmcia/cisreg.h>
 #include <pcmcia/ds.h>
-
-MODULE_DESCRIPTION("ISDN4Linux: PCMCIA client driver for AVM A1/Fritz!PCMCIA cards");
-MODULE_AUTHOR("Carsten Paeth");
-MODULE_LICENSE("GPL");
-
-int avm_a1_init_pcmcia(void *pcm_iob, int pcm_irq, int *busy_flag, int prot);
-void HiSax_closecard(int cardnr);
-
+#include <pcmcia/bus_ops.h>
 
 /*
    All the PCMCIA modules use PCMCIA_DEBUG to control debugging.  If
@@ -47,21 +48,25 @@ static int pc_debug = PCMCIA_DEBUG;
 MODULE_PARM(pc_debug, "i");
 #define DEBUG(n, args...) if (pc_debug>(n)) printk(KERN_DEBUG args);
 static char *version =
-"avma1_cs.c 1.00 1998/01/23 10:00:00 (Carsten Paeth)";
+"teles_cs.c 2.10 2002/07/30 22:23:34 kkeil";
 #else
 #define DEBUG(n, args...)
 #endif
+
+MODULE_LICENSE("GPL");
 
 /*====================================================================*/
 
 /* Parameters that can be set with 'insmod' */
 
-static int default_irq_list[11] = { 15, 13, 12, 11, 10, 9, 7, 5, 4, 3, -1 };
-static int irq_list[11] = { -1 };
-static int isdnprot = 2;
+/* Bit map of interrupts to choose from */
+/* This means pick from 15, 14, 12, 11, 10, 9, 7, 6, 5, 4, and 3 */
 
-MODULE_PARM(irq_list, "1-11i");
-MODULE_PARM(isdnprot, "1-4i");
+static u_long irq_mask = 0xdeb8;
+MODULE_PARM(irq_mask, "i");
+
+static int protocol = 2;	/* EURO-ISDN Default */
+MODULE_PARM(protocol, "i");
 
 /*====================================================================*/
 
@@ -70,13 +75,13 @@ MODULE_PARM(isdnprot, "1-4i");
    It will be called by Card Services when an appropriate card status
    event is received.  The config() and release() entry points are
    used to configure or release a socket, in response to card insertion
-   and ejection events.  They are invoked from the skeleton event
+   and ejection events.  They are invoked from the teles event
    handler.
 */
 
-static void avma1cs_config(dev_link_t *link);
-static void avma1cs_release(u_long arg);
-static int avma1cs_event(event_t event, int priority,
+static void teles_config(dev_link_t *link);
+static void teles_release(u_long arg);
+static int teles_event(event_t event, int priority,
 			  event_callback_args_t *args);
 
 /*
@@ -85,8 +90,15 @@ static int avma1cs_event(event_t event, int priority,
    needed to manage one actual PCMCIA card.
 */
 
-static dev_link_t *avma1cs_attach(void);
-static void avma1cs_detach(dev_link_t *);
+static dev_link_t *teles_attach(void);
+static void teles_detach(dev_link_t *);
+
+/*
+   You'll also need to prototype all the functions that will actually
+   be used to talk to your device.  See 'pcmem_cs' for a good example
+   of a fully self-sufficient driver; the other drivers rely more or
+   less on other parts of the kernel.
+*/
 
 /*
    The dev_info variable is the "key" that is used to match up this
@@ -94,10 +106,10 @@ static void avma1cs_detach(dev_link_t *);
    database.
 */
 
-static dev_info_t dev_info = "avma1_cs";
+static dev_info_t dev_info = "teles_cs";
 
 /*
-   A linked list of "instances" of the skeleton device.  Each actual
+   A linked list of "instances" of the teles device.  Each actual
    PCMCIA card corresponds to one device instance, and is described
    by one dev_link_t structure (defined in ds.h).
 
@@ -127,6 +139,8 @@ static dev_link_t *dev_list = NULL;
    
 typedef struct local_info_t {
     dev_node_t	node;
+    int		busy;
+    int		id;
 } local_info_t;
 
 /*====================================================================*/
@@ -139,7 +153,7 @@ static void cs_error(client_handle_t handle, int func, int ret)
 
 /*======================================================================
 
-    avma1cs_attach() creates an "instance" of the driver, allocating
+    teles_attach() creates an "instance" of the driver, allocating
     local data structures for one device.  The device is registered
     with Card Services.
 
@@ -149,44 +163,35 @@ static void cs_error(client_handle_t handle, int func, int ret)
     
 ======================================================================*/
 
-static dev_link_t *avma1cs_attach(void)
+static dev_link_t *teles_attach(void)
 {
     client_reg_t client_reg;
     dev_link_t *link;
     local_info_t *local;
-    int ret, i;
-    
-    DEBUG(0, "avma1cs_attach()\n");
+    int ret;
+
+    DEBUG(0, "teles_attach()\n");    
 
     /* Initialize the dev_link_t structure */
     link = kmalloc(sizeof(struct dev_link_t), GFP_KERNEL);
     memset(link, 0, sizeof(struct dev_link_t));
-    link->release.function = &avma1cs_release;
+    link->release.function = &teles_release;
     link->release.data = (u_long)link;
 
     /* The io structure describes IO port mapping */
-    link->io.NumPorts1 = 16;
-    link->io.Attributes1 = IO_DATA_PATH_WIDTH_8;
-    link->io.NumPorts2 = 16;
-    link->io.Attributes2 = IO_DATA_PATH_WIDTH_16;
+    link->io.NumPorts1 = 96;
+    link->io.Attributes1 = IO_DATA_PATH_WIDTH_AUTO;
     link->io.IOAddrLines = 5;
 
     /* Interrupt setup */
     link->irq.Attributes = IRQ_TYPE_EXCLUSIVE;
-    link->irq.Attributes = IRQ_TYPE_DYNAMIC_SHARING|IRQ_FIRST_SHARED;
-
     link->irq.IRQInfo1 = IRQ_INFO2_VALID|IRQ_LEVEL_ID;
-    if (irq_list[0] != -1) {
-	    for (i = 0; i < 10 && irq_list[i] > 0; i++)
-	       link->irq.IRQInfo2 |= 1 << irq_list[i];
-    } else {
-	    for (i = 0; i < 10 && default_irq_list[i] > 0; i++)
-	       link->irq.IRQInfo2 |= 1 << default_irq_list[i];
-    }
+    link->irq.IRQInfo2 = irq_mask;
     
     /* General socket configuration */
     link->conf.Attributes = CONF_ENABLE_IRQ;
     link->conf.Vcc = 50;
+    link->conf.Vpp1 = link->conf.Vpp2 = 50;
     link->conf.IntType = INT_MEMORY_AND_IO;
     link->conf.ConfigIndex = 1;
     link->conf.Present = PRESENT_OPTION;
@@ -200,23 +205,23 @@ static dev_link_t *avma1cs_attach(void)
     link->next = dev_list;
     dev_list = link;
     client_reg.dev_info = &dev_info;
-    client_reg.Attributes = INFO_IO_CLIENT | INFO_CARD_SHARE;
+    client_reg.Attributes = INFO_IO_CLIENT;
     client_reg.EventMask =
 	CS_EVENT_CARD_INSERTION | CS_EVENT_CARD_REMOVAL |
 	CS_EVENT_RESET_PHYSICAL | CS_EVENT_CARD_RESET |
 	CS_EVENT_PM_SUSPEND | CS_EVENT_PM_RESUME;
-    client_reg.event_handler = &avma1cs_event;
+    client_reg.event_handler = &teles_event;
     client_reg.Version = 0x0210;
     client_reg.event_callback_args.client_data = link;
     ret = CardServices(RegisterClient, &link->handle, &client_reg);
     if (ret != 0) {
 	cs_error(link->handle, RegisterClient, ret);
-	avma1cs_detach(link);
+	teles_detach(link);
 	return NULL;
     }
 
     return link;
-} /* avma1cs_attach */
+} /* teles_attach */
 
 /*======================================================================
 
@@ -227,11 +232,11 @@ static dev_link_t *avma1cs_attach(void)
 
 ======================================================================*/
 
-static void avma1cs_detach(dev_link_t *link)
+static void teles_detach(dev_link_t *link)
 {
     dev_link_t **linkp;
 
-    DEBUG(0, "avma1cs_detach(0x%p)\n", link);
+    DEBUG(0,"teles_detach(0x%p)\n", link);
     
     /* Locate device structure */
     for (linkp = &dev_list; *linkp; linkp = &(*linkp)->next)
@@ -247,7 +252,7 @@ static void avma1cs_detach(dev_link_t *link)
     */
     if (link->state & DEV_CONFIG) {
 #ifdef PCMCIA_DEBUG
-	printk(KERN_DEBUG "avma1_cs: detach postponed, '%s' "
+	printk(KERN_DEBUG "teles_cs: detach postponed, '%s' "
 	       "still locked\n", link->dev->dev_name);
 #endif
 	link->state |= DEV_STALE_LINK;
@@ -265,211 +270,164 @@ static void avma1cs_detach(dev_link_t *link)
     }
     kfree(link);
     
-} /* avma1cs_detach */
+} /* teles_detach */
 
 /*======================================================================
 
-    avma1cs_config() is scheduled to run after a CARD_INSERTION event
+    teles_config() is scheduled to run after a CARD_INSERTION event
     is received, to configure the PCMCIA socket, and to make the
     ethernet device available to the system.
     
 ======================================================================*/
 
-static int get_tuple(int fn, client_handle_t handle, tuple_t *tuple,
-		     cisparse_t *parse)
-{
-    int i;
-    i = CardServices(fn, handle, tuple);
-    if (i != CS_SUCCESS) return i;
-    i = CardServices(GetTupleData, handle, tuple);
-    if (i != CS_SUCCESS) return i;
-    return CardServices(ParseTuple, handle, tuple, parse);
-}
+#define CS_CHECK(fn, args...) \
+while ((last_ret=CardServices(last_fn=(fn),args))!=0) goto cs_failed
 
-#define first_tuple(a, b, c) get_tuple(GetFirstTuple, a, b, c)
-#define next_tuple(a, b, c) get_tuple(GetNextTuple, a, b, c)
+struct IsdnCard {
+	int typ;
+	int protocol;
+	unsigned int para[4];
+	void *cs;
+};
+extern int hisax_init_pcmcia(void *, int *, struct IsdnCard *);
+extern void HiSax_closecard(int);
 
-static void avma1cs_config(dev_link_t *link)
+static void teles_config(dev_link_t *link)
 {
     client_handle_t handle;
     tuple_t tuple;
     cisparse_t parse;
-    cistpl_cftable_entry_t *cf = &parse.cftable_entry;
     local_info_t *dev;
-    int i;
-    u_char buf[64];
-    char devname[128];
-    int busy = 0;
-    
+    int i=0,j,last_ret,last_fn;
+    u_char buf[255];
+    struct IsdnCard cs = {8,2,{0,0,0,0}, NULL};
     handle = link->handle;
     dev = link->priv;
 
-    DEBUG(0, "avma1cs_config(0x%p)\n", link);
+    DEBUG(0, "teles_config(0x%p)\n", link);
 
     /*
        This reads the card's CONFIG tuple to find its configuration
        registers.
     */
-    do {
-	tuple.DesiredTuple = CISTPL_CONFIG;
-	i = CardServices(GetFirstTuple, handle, &tuple);
-	if (i != CS_SUCCESS) break;
-	tuple.TupleData = buf;
-	tuple.TupleDataMax = 64;
-	tuple.TupleOffset = 0;
-	i = CardServices(GetTupleData, handle, &tuple);
-	if (i != CS_SUCCESS) break;
-	i = CardServices(ParseTuple, handle, &tuple, &parse);
-	if (i != CS_SUCCESS) break;
-	link->conf.ConfigBase = parse.config.base;
-    } while (0);
-    if (i != CS_SUCCESS) {
-	cs_error(link->handle, ParseTuple, i);
-	link->state &= ~DEV_CONFIG_PENDING;
-	return;
-    }
+    tuple.DesiredTuple = CISTPL_CONFIG;
+    CS_CHECK(GetFirstTuple, handle, &tuple);
+    tuple.TupleData = buf;
+    tuple.TupleDataMax = sizeof buf;
+    tuple.TupleOffset = 0;
+    CS_CHECK(GetTupleData, handle, &tuple);
+    CS_CHECK(ParseTuple, handle, &tuple, &parse);
+    link->conf.ConfigBase = parse.config.base;
+    /* link->conf.Present= parse.config.rmask[0]; */
     
+/* card accepts the following codes
+   CISTPL_DEVICE CISTPL_NO_LINK CISTPL_VERS_1 CISTPL_CONFIG 
+   CISTPL_CFTABLE_ENTRY CISTPL_FUNCID CISTPL_END */
+
     /* Configure card */
     link->state |= DEV_CONFIG;
 
-    do {
-
-	tuple.Attributes = 0;
-	tuple.TupleData = buf;
-	tuple.TupleDataMax = 254;
-	tuple.TupleOffset = 0;
-	tuple.DesiredTuple = CISTPL_VERS_1;
-
-	devname[0] = 0;
-	if( !first_tuple(handle, &tuple, &parse) && parse.version_1.ns > 1 ) {
-	    strncpy(devname,parse.version_1.str + parse.version_1.ofs[1], 
-			sizeof(devname));
+    /*
+       Try allocating IO ports.  This tries a few fixed addresses.
+       If you want, you can also read the card's config table to
+       pick addresses -- see the serial driver for an example.
+    */
+    for (j = 0; j < 0x400; j += 0x80) {
+        /* TODO: Check for presence of card! */
+	/* The '^0x300' is so that we probe 0x300-0x3ff first, then
+	   0x200-0x2ff, and so on, because this seems safer */
+	link->io.BasePort1 = j^0x300;
+	i = CardServices(RequestIO, link->handle, &link->io);
+	if (i == CS_SUCCESS) break;
 	}
-	/*
-         * find IO port
-         */
-	tuple.TupleData = (cisdata_t *)buf;
-	tuple.TupleOffset = 0; tuple.TupleDataMax = 255;
-	tuple.Attributes = 0;
-	tuple.DesiredTuple = CISTPL_CFTABLE_ENTRY;
-	i = first_tuple(handle, &tuple, &parse);
-	while (i == CS_SUCCESS) {
-	    if (cf->io.nwin > 0) {
-		link->conf.ConfigIndex = cf->index;
-		link->io.BasePort1 = cf->io.win[0].base;
-		link->io.NumPorts1 = cf->io.win[0].len;
-		link->io.NumPorts2 = 0;
-                printk(KERN_INFO "avma1_cs: testing i/o %#x-%#x\n",
-			link->io.BasePort1,
-		        link->io.BasePort1+link->io.NumPorts1 - 1);
-		i = CardServices(RequestIO, link->handle, &link->io);
-		if (i == CS_SUCCESS) goto found_port;
-	    }
-	    i = next_tuple(handle, &tuple, &parse);
-	}
-
-found_port:
-	if (i != CS_SUCCESS) {
-	    cs_error(link->handle, RequestIO, i);
-	    break;
-	}
+    if (i != CS_SUCCESS) {
+	cs_error(link->handle, RequestIO, i);
+	goto failed;
+    }
+    
+    /*
+       Now allocate an interrupt line.  Note that this does not
+       actually assign a handler to the interrupt.
+    */
+    CS_CHECK(RequestIRQ, link->handle, &link->irq);
 	
-	/*
-	 * allocate an interrupt line
-	 */
-	i = CardServices(RequestIRQ, link->handle, &link->irq);
-	if (i != CS_SUCCESS) {
-	    cs_error(link->handle, RequestIRQ, i);
-	    CardServices(ReleaseIO, link->handle, &link->io);
-	    break;
-	}
-	
-	/*
-         * configure the PCMCIA socket
-	  */
-	i = CardServices(RequestConfiguration, link->handle, &link->conf);
-	if (i != CS_SUCCESS) {
-	    cs_error(link->handle, RequestConfiguration, i);
-	    CardServices(ReleaseIO, link->handle, &link->io);
-	    CardServices(ReleaseIRQ, link->handle, &link->irq);
-	    break;
-	}
+    /*
+       This actually configures the PCMCIA socket -- setting up
+       the I/O windows and the interrupt mapping.
+    */
+    CS_CHECK(RequestConfiguration, link->handle, &link->conf);
 
-    } while (0);
+    outb(0x41,link->io.BasePort1+0x18); /* activate card & irq */
 
     /* At this point, the dev_node_t structure(s) should be
        initialized and arranged in a linked list at link->dev. */
-
-    strcpy(dev->node.dev_name, "A1");
+    sprintf(dev->node.dev_name, "teles0");
     dev->node.major = 45;
     dev->node.minor = 0;
     link->dev = &dev->node;
     
     link->state &= ~DEV_CONFIG_PENDING;
-    /* If any step failed, release any partially configured state */
-    if (i != 0) {
-	avma1cs_release((u_long)link);
-	return;
-    }
+    printk(KERN_DEBUG "teles device loaded\n");
+    release_region(link->io.BasePort1,96);  /* will be reallocated by hisax */
+    cs.protocol=protocol;
+    cs.para[0]=link->irq.AssignedIRQ;
+    cs.para[1]=link->io.BasePort1;
+    dev->id=hisax_init_pcmcia(link,&dev->busy,&cs);
+    if (dev->id <0)
+    	goto failed;
+    return;
 
-    printk(KERN_NOTICE "avma1_cs: checking at i/o %#x, irq %d\n",
-				link->io.BasePort1, link->irq.AssignedIRQ);
+cs_failed:
+    cs_error(link->handle, last_fn, last_ret);
+failed:
+    teles_release((u_long)link);
 
-    if (avm_a1_init_pcmcia((void *)(int)link->io.BasePort1,
-                           link->irq.AssignedIRQ,
-                           &busy, isdnprot) != 0) {
-       printk(KERN_ERR "avma1_cs: failed to initialize AVM A1 PCMCIA %d at i/o %#x\n", i, link->io.BasePort1);
-       return;
-    }
-
-    i = 0; /* no returncode for cardnr :-( */
-
-    dev->node.minor = i;
-
-} /* avma1cs_config */
+} /* teles_config */
 
 /*======================================================================
 
-    After a card is removed, avma1cs_release() will unregister the net
+    After a card is removed, teles_release() will unregister the net
     device, and release the PCMCIA configuration.  If the device is
     still open, this will be postponed until it is closed.
     
 ======================================================================*/
 
-static void avma1cs_release(u_long arg)
+static void teles_release(u_long arg)
 {
     dev_link_t *link = (dev_link_t *)arg;
     local_info_t *local = link->priv;
 
-    DEBUG(0, "avma1cs_release(0x%p)\n", link);
+    DEBUG(0, "teles_release(0x%p)\n", link);
 
     /*
        If the device is currently in use, we won't release until it
        is actually closed.
     */
+    if (local->id >= 0) {
+    	HiSax_closecard(local->id);
+    	local->id = -1;
+    }
     if (link->open) {
-	DEBUG(1, "avma1_cs: release postponed, '%s' still open\n",
+    	DEBUG(1, "teles_cs: release postponed, '%s' still open\n",
 	      link->dev->dev_name);
 	link->state |= DEV_STALE_CONFIG;
 	return;
     }
 
-    /* no unregister function with hisax */
-    HiSax_closecard(local->node.minor);
-
     /* Unlink the device chain */
     link->dev = NULL;
     
     /* Don't bother checking to see if these succeed or not */
+    CardServices(ReleaseWindow, link->win);
     CardServices(ReleaseConfiguration, link->handle);
     CardServices(ReleaseIO, link->handle, &link->io);
     CardServices(ReleaseIRQ, link->handle, &link->irq);
     link->state &= ~DEV_CONFIG;
     
     if (link->state & DEV_STALE_LINK)
-	avma1cs_detach(link);
+	teles_detach(link);
     
-} /* avma1cs_release */
+} /* teles_release */
 
 /*======================================================================
 
@@ -485,24 +443,24 @@ static void avma1cs_release(u_long arg)
     
 ======================================================================*/
 
-static int avma1cs_event(event_t event, int priority,
+static int teles_event(event_t event, int priority,
 			  event_callback_args_t *args)
 {
     dev_link_t *link = args->client_data;
 
-    DEBUG(1, "avma1cs_event(0x%06x)\n", event);
+    DEBUG(1, "teles_event(0x%06x)\n", event);
     
     switch (event) {
     case CS_EVENT_CARD_REMOVAL:
 	link->state &= ~DEV_PRESENT;
+	((local_info_t*)link->priv)->busy = 1;
 	if (link->state & DEV_CONFIG) {
-	    link->release.expires =  jiffies + HZ/20;
-	    add_timer(&link->release);
+	    mod_timer(&link->release, jiffies + HZ/20);
 	}
 	break;
     case CS_EVENT_CARD_INSERTION:
 	link->state |= DEV_PRESENT | DEV_CONFIG_PENDING;
-	avma1cs_config(link);
+	teles_config(link);
 	break;
     case CS_EVENT_PM_SUSPEND:
 	link->state |= DEV_SUSPEND;
@@ -517,36 +475,35 @@ static int avma1cs_event(event_t event, int priority,
     case CS_EVENT_CARD_RESET:
 	if (link->state & DEV_CONFIG)
 	    CardServices(RequestConfiguration, link->handle, &link->conf);
+	outb(0x41,link->io.BasePort1+0x18); /* re-activate card & irq ??? */
 	break;
     }
     return 0;
-} /* avma1cs_event */
+} /* teles_event */
 
 /*====================================================================*/
 
-static int __init init_avma1_cs(void)
+int init_module(void)
 {
     servinfo_t serv;
     DEBUG(0, "%s\n", version);
     CardServices(GetCardServicesInfo, &serv);
     if (serv.Revision != CS_RELEASE_CODE) {
-        printk(KERN_NOTICE "avma1_cs: Card Services release "
-               "does not match!\n");
-        return -1;
+	printk(KERN_NOTICE "teles: Card Services release "
+	       "does not match!\n");
+	return -1;
     }
-    register_pccard_driver(&dev_info, &avma1cs_attach, &avma1cs_detach);
+    register_pcmcia_driver(&dev_info, &teles_attach, &teles_detach);
     return 0;
 }
 
-static void __exit exit_avma1_cs(void)
+void cleanup_module(void)
 {
-    DEBUG(0, "avma1_cs: unloading\n");
-    unregister_pccard_driver(&dev_info);
-    while (dev_list != NULL)
+    DEBUG(0, "teles_cs: unloading\n");
+    unregister_pcmcia_driver(&dev_info);
+    while (dev_list != NULL) {
 	if (dev_list->state & DEV_CONFIG)
-	    avma1cs_release((u_long)dev_list);
-        avma1cs_detach(dev_list);
+	    teles_release((u_long)dev_list);
+	teles_detach(dev_list);
+    }
 }
-
-module_init(init_avma1_cs);
-module_exit(exit_avma1_cs);

@@ -294,10 +294,10 @@ static void usb_d_out(struct st5481_adapter *adapter, int buf_nr)
 {
 	struct st5481_d_out *d_out = &adapter->d_out;
 	struct urb *urb;
-	unsigned int num_packets;
-	int len, buf_size, bytes_sent, packet_offset;
+	unsigned int num_packets, packet_offset;
+	int len, buf_size, bytes_sent;
 	struct sk_buff *skb;
-	struct usb_iso_packet_descriptor *desc;
+	struct iso_packet_descriptor *desc;
 
 	if (d_out->fsm.state != ST_DOUT_NORMAL)
 		return;
@@ -313,15 +313,15 @@ static void usb_d_out(struct st5481_adapter *adapter, int buf_nr)
 	buf_size = NUM_ISO_PACKETS_D * SIZE_ISO_PACKETS_D_OUT;
 	
 	if (skb) {
-		len = hdlc_encode(&d_out->hdlc_state, 
-				  skb->data, skb->len, &bytes_sent,
-				  urb->transfer_buffer, buf_size);
+		len = isdnhdlc_encode(&d_out->hdlc_state,
+				      skb->data, skb->len, &bytes_sent,
+				      urb->transfer_buffer, buf_size);
 		skb_pull(skb,bytes_sent);
 	} else {
 		// Send flags or idle
-		len = hdlc_encode(&d_out->hdlc_state, 
-				  NULL, 0, &bytes_sent,
-				  urb->transfer_buffer, buf_size);
+		len = isdnhdlc_encode(&d_out->hdlc_state,
+				      NULL, 0, &bytes_sent,
+				      urb->transfer_buffer, buf_size);
 	}
 	
 	if (len < buf_size) {
@@ -341,7 +341,7 @@ static void usb_d_out(struct st5481_adapter *adapter, int buf_nr)
 		desc = &urb->iso_frame_desc[num_packets];
 		desc->offset = packet_offset;
 		desc->length = SIZE_ISO_PACKETS_D_OUT;
-		if (len - packet_offset < (int)desc->length)
+		if (len - packet_offset < desc->length)
 			desc->length = len - packet_offset;
 		num_packets++;
 		packet_offset += desc->length;
@@ -356,10 +356,10 @@ static void usb_d_out(struct st5481_adapter *adapter, int buf_nr)
 
 	DBG_ISO_PACKET(0x20,urb);
 
-	if (usb_submit_urb(urb, GFP_KERNEL) < 0) {
+	if (usb_submit_urb(urb) < 0) {
 		// There is another URB queued up
-		urb->transfer_flags = URB_ISO_ASAP;
-		SUBMIT_URB(urb, GFP_KERNEL);
+		urb->transfer_flags = USB_ISO_ASAP;
+		SUBMIT_URB(urb);
 	}	
 }
 
@@ -370,7 +370,7 @@ static void fifo_reseted(void *context)
 	FsmEvent(&adapter->d_out.fsm, EV_DOUT_RESETED, NULL);
 }
 
-static void usb_d_out_complete(struct urb *urb, struct pt_regs *regs)
+static void usb_d_out_complete(struct urb *urb)
 {
 	struct st5481_adapter *adapter = urb->context;
 	struct st5481_d_out *d_out = &adapter->d_out;
@@ -382,7 +382,7 @@ static void usb_d_out_complete(struct urb *urb, struct pt_regs *regs)
 	test_and_clear_bit(buf_nr, &d_out->busy);
 
 	if (urb->status < 0) {
-		if (urb->status != -ENOENT) {
+		if (urb->status != USB_ST_URB_KILLED) {
 			WARN("urb status %d",urb->status);
 			if (d_out->busy == 0) {
 				st5481_usb_pipe_reset(adapter, EP_D_OUT | USB_DIR_OUT, fifo_reseted, adapter);
@@ -413,7 +413,7 @@ static void dout_start_xmit(struct FsmInst *fsm, int event, void *arg)
 
 	DBG(2,"len=%d",skb->len);
 
-	hdlc_out_init(&d_out->hdlc_state, 1, 0);
+	isdnhdlc_out_init(&d_out->hdlc_state, 1, 0);
 
 	if (test_and_set_bit(buf_nr, &d_out->busy)) {
 		WARN("ep %d urb %d busy %#lx", EP_D_OUT, buf_nr, d_out->busy);
@@ -422,9 +422,9 @@ static void dout_start_xmit(struct FsmInst *fsm, int event, void *arg)
 	urb = d_out->urb[buf_nr];
 
 	DBG_SKB(0x10, skb);
-	len = hdlc_encode(&d_out->hdlc_state, 
-			  skb->data, skb->len, &bytes_sent,
-			  urb->transfer_buffer, 16);
+	len = isdnhdlc_encode(&d_out->hdlc_state,
+			      skb->data, skb->len, &bytes_sent,
+			      urb->transfer_buffer, 16);
 	skb_pull(skb, bytes_sent);
 
 	if(len < 16)
@@ -447,10 +447,10 @@ static void dout_start_xmit(struct FsmInst *fsm, int event, void *arg)
 
 	// Prepare the URB
 	urb->dev = adapter->usb_dev;
-	urb->transfer_flags = URB_ISO_ASAP;
+	urb->transfer_flags = USB_ISO_ASAP;
 
 	DBG_ISO_PACKET(0x20,urb);
-	SUBMIT_URB(urb, GFP_KERNEL);
+	SUBMIT_URB(urb);
 }
 
 static void dout_short_fifo(struct FsmInst *fsm, int event, void *arg)
@@ -652,22 +652,22 @@ static void ph_disconnect(struct st5481_adapter *adapter)
 static int __devinit st5481_setup_d_out(struct st5481_adapter *adapter)
 {
 	struct usb_device *dev = adapter->usb_dev;
-	struct usb_host_interface *altsetting;
-	struct usb_host_endpoint *endpoint;
+	struct usb_interface_descriptor *altsetting;
+	struct usb_endpoint_descriptor *endpoint;
 	struct st5481_d_out *d_out = &adapter->d_out;
 
 	DBG(2,"");
 
-	altsetting = &(dev->config->interface[0]->altsetting[3]);
+	altsetting = &(dev->config->interface[0].altsetting[3]);
 
 	// Allocate URBs and buffers for the D channel out
 	endpoint = &altsetting->endpoint[EP_D_OUT-1];
 
 	DBG(2,"endpoint address=%02x,packet size=%d",
-	    endpoint->desc.bEndpointAddress,endpoint->desc.wMaxPacketSize);
+	    endpoint->bEndpointAddress,endpoint->wMaxPacketSize);
 
 	return st5481_setup_isocpipes(d_out->urb, dev, 
-				      usb_sndisocpipe(dev, endpoint->desc.bEndpointAddress),
+				      usb_sndisocpipe(dev, endpoint->bEndpointAddress),
 				      NUM_ISO_PACKETS_D, SIZE_ISO_PACKETS_D_OUT,
 				      NUM_ISO_PACKETS_D * SIZE_ISO_PACKETS_D_OUT,
 				      usb_d_out_complete, adapter);
