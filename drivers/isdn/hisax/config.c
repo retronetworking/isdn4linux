@@ -5,6 +5,9 @@
  *
  *
  * $Log$
+ * Revision 2.31  1999/08/25 16:47:43  keil
+ * Support new __setup; allow to add FEATURES after register_isdn
+ *
  * Revision 2.30  1999/08/05 20:43:14  keil
  * ISAR analog modem support
  *
@@ -552,8 +555,8 @@ HiSax_mod_inc_use_count(void)
 #else
 #ifdef COMPAT_HAS_NEW_SETUP
 #define MAX_ARG	(HISAX_MAX_CARDS*5)
-__initfunc(int
-HiSax_setup(char *line))
+static int __init
+HiSax_setup(char *line)
 {
 	int i, j, argc;
 	int ints[MAX_ARG + 1];

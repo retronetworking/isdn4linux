@@ -19,6 +19,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.58  1999/08/25 16:44:17  keil
+ * Support for new __setup function
+ *
  * Revision 1.57  1999/07/06 16:15:30  detabc
  * remove unused messages
  *
@@ -1848,7 +1851,7 @@ icn_addcard(int port, char *id1, char *id2)
 #else
 #ifdef COMPAT_HAS_NEW_SETUP
 #include <linux/init.h>
-int
+static int __init
 icn_setup(char *line)
 {
 	char *p, *str;
