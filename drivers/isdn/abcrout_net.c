@@ -23,6 +23,11 @@
  * detlef@abcbtx.de
  * detlef wengorz
  * $Log$
+ * Revision 1.1.2.3  1998/03/20 12:25:50  detabc
+ * Insert the timru recalc_timeout function in the abc_test_receive() function.
+ * The timru function will be called after decrypt and decompress is done.
+ * Note! Received pakets will be in same cases queued.
+ *
  * Revision 1.1.2.2  1998/03/08 11:35:06  detabc
  * Add cvs header-controls an remove unused funktions
  *
@@ -2553,21 +2558,6 @@ int abcgmbh_udp_test(struct device *ndev,struct sk_buff *sp)
 						if( free_all_tm())
 							return(1);
 
-					} else if( udata[0] == 0x2e) {
-
-						/*
-						** hier die verbindung trennen,
-						** aber ACHTUNG: erst nach dem dieses
-						** paket transferriert wurde.
-						**
-						** das dient dazu, dass alle router
-						** einer verbindungskette die verbindung
-						** SOFORT abbauen.
-						**
-						** dieses paket wird dann am zielrechner
-						** einfach verworfen
-						*/
-
 					} else if( udata[0] == 0x28) {
 
 						transbuf[0] = transbuf[1] = 0x29;
@@ -2587,9 +2577,28 @@ int abcgmbh_udp_test(struct device *ndev,struct sk_buff *sp)
 							transbuf,
 							2);
 
-					} else if( udata[0] == 0x2c) {
+					} else if( *udata == 0x2c || *udata == 0x2e ) {
 
-						transbuf[0] = transbuf[1] = 0x2d;
+						int isfull = 0;
+
+						if(*udata == 0x2e) {
+
+							isfull = 1;
+							lp->abc_call_disabled = 0;
+							lp->abc_icall_disabled = 0;
+							lp->abc_cbout_secure = 0;
+							lp->abc_last_disp_disabled = 0;
+							lp->abc_dlcon_cnt = 0;
+							transbuf[0] = transbuf[1] = 0x2f;
+
+							if(dev->net_verbose > 1) {
+
+								printk(KERN_DEBUG
+									"%s: resetting abc_disable counters\n",
+									lp->name);
+							}
+
+						} else transbuf[0] = transbuf[1] = 0x2d;
 
 						/*
 						** verbindung soll wenn diese seite der caller ist
