@@ -20,6 +20,11 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.9  1997/10/01 09:20:25  fritz
+ * Removed old compatibility stuff for 2.0.X kernels.
+ * From now on, this code is for 2.1.X ONLY!
+ * Old stuff is still in the separate branch.
+ *
  * Revision 1.8  1997/03/02 14:29:16  fritz
  * More ttyI related cleanup.
  *
@@ -595,7 +600,7 @@ isdn_audio_eval_dtmf(modem_info * info)
 			if (skb_headroom(skb) < sizeof(isdn_audio_skb)) {
 				printk(KERN_WARNING
 				       "isdn_audio: insufficient skb_headroom, dropping\n");
-				kfree_skb(skb, FREE_READ);
+				kfree_skb(skb);
 				return;
 			}
 			ISDN_AUDIO_SKB_DLECOUNT(skb) = 0;
@@ -612,7 +617,7 @@ isdn_audio_eval_dtmf(modem_info * info)
 				isdn_timer_ctrl(ISDN_TIMER_MODEMREAD, 1);
 			wake_up_interruptible(&dev->drv[di]->rcv_waitq[ch]);
 		} else
-			kfree_skb(skb, FREE_READ);
+			kfree_skb(skb);
 		s->last = what;
 	}
 }
