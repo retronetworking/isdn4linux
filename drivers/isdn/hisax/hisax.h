@@ -3,6 +3,9 @@
  *   Basic declarations, defines and prototypes
  *
  * $Log$
+ * Revision 2.3  1997/07/31 11:50:17  keil
+ * ONE TEI and FIXED TEI handling
+ *
  * Revision 2.2  1997/07/30 17:13:02  keil
  * more changes for 'One TEI per card'
  *
@@ -562,6 +565,7 @@ struct IsdnCardState {
 			 | CARD_TELEINT)
 
 #define TEI_PER_CARD 0
+
 #ifdef CONFIG_HISAX_1TR6
 #undef TEI_PER_CARD
 #define TEI_PER_CARD 1
@@ -576,6 +580,13 @@ struct IsdnCardState {
 #undef TEI_FIXED
 #endif
 
+#undef PTP_DATA_LINK
+
+#ifdef PTP_DATA_LINK
+#undef TEI_FIXED
+#define TEI_FIXED 0
+#define LAYER2_WATCHING
+#endif
 
 struct IsdnCard {
 	int typ;
