@@ -21,6 +21,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.56  1998/02/25 17:49:42  he
+ * Changed return codes caused be failing copy_{to,from}_user to -EFAULT
+ *
  * Revision 1.55  1998/02/23 19:38:22  fritz
  * Corrected check for modified feature-flags.
  *
@@ -1126,9 +1129,11 @@ isdn_net_adjust_hdr(struct sk_buff *skb, struct device *dev)
 	if (!skb)
 		return;
 	if (lp->p_encap == ISDN_NET_ENCAP_ETHER) {
-		ulong pullsize = (ulong)skb->nh.raw - (ulong)skb->data - ETH_HLEN;
-		if (pullsize)
+		int pullsize = (ulong)skb->nh.raw - (ulong)skb->data - ETH_HLEN;
+		if (pullsize > 0) {
+			printk(KERN_DEBUG "isdn_net: Pull junk %d\n", pullsize);
 			skb_pull(skb, pullsize);
+		}
 	}
 }
 
