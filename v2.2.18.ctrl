@@ -63,3 +63,4 @@
 #define COMPAT_NEED_PCI_IDS
 #undef COMPAT_HAS_SCHEDULE_TASK
 
+#define in_irq(dummy) (local_irq_count[smp_processor_id()] != 0)
