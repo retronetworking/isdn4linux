@@ -6,6 +6,9 @@
  * Copyright 1996 by Carsten Paeth (calle@calle.in-berlin.de)
  *
  * $Log$
+ * Revision 1.38  2000/07/24 08:49:09  calle
+ * - Bugfix: capiminor_del_all_ack completely wrong :-(
+ *
  * Revision 1.37  2000/07/20 10:22:27  calle
  * - Made procfs function cleaner and removed variable "begin".
  *
@@ -177,6 +180,7 @@
  *
  */
 
+#include <linux/config.h>
 #include <linux/module.h>
 #include <linux/errno.h>
 #include <linux/kernel.h>
@@ -187,6 +191,7 @@
 #include <linux/fs.h>
 #include <linux/signal.h>
 #include <linux/mm.h>
+#include <linux/smp_lock.h>
 #include <linux/timer.h>
 #include <linux/wait.h>
 #ifdef CONFIG_ISDN_CAPI_MIDDLEWARE
@@ -1323,6 +1328,7 @@ capi_release(struct inode *inode, struct file *file)
 {
 	struct capidev *cdev = (struct capidev *)file->private_data;
 
+	lock_kernel();
 	capincci_free(cdev, 0xffffffff);
 	capidev_free(cdev);
 	file->private_data = NULL;
@@ -1331,6 +1337,7 @@ capi_release(struct inode *inode, struct file *file)
 #ifdef _DEBUG_REFCOUNT
 	printk(KERN_DEBUG "capi_release %d\n", GET_USE_COUNT(THIS_MODULE));
 #endif
+	unlock_kernel();
 	return 0;
 }
 
@@ -1554,11 +1561,13 @@ capinc_raw_release(struct inode *inode, struct file *file)
 	struct capiminor *mp = (struct capiminor *)file->private_data;
 
 	if (mp) {
+		lock_kernel();
 		mp->file = 0;
 		if (mp->nccip == 0) {
 			capiminor_free(mp);
 			file->private_data = NULL;
 		}
+		unlock_kernel();
 	}
 
 #ifdef _DEBUG_REFCOUNT
@@ -2240,7 +2249,7 @@ int capi_init(void)
 		devfs_unregister_chrdev(capi_rawmajor, "capi/r%d");
 #endif /* CONFIG_ISDN_CAPI_MIDDLEWARE */
 #ifdef HAVE_DEVFS_FS
-		devfs_unregister(devfs_find_handle(NULL, "capi20", 0,
+		devfs_unregister(devfs_find_handle(NULL, "capi20",
 						   capi_major, 0,
 						   DEVFS_SPECIAL_CHR, 0));
 #endif
@@ -2266,7 +2275,7 @@ int capi_init(void)
 		for (j = 0; j < CAPINC_NR_PORTS; j++) {
 			char devname[32];
 			sprintf(devname, "capi/r%u", j);
-			devfs_unregister(devfs_find_handle(NULL, devname, 0, capi_rawmajor, j, DEVFS_SPECIAL_CHR, 0));
+			devfs_unregister(devfs_find_handle(NULL, devname, capi_rawmajor, j, DEVFS_SPECIAL_CHR, 0));
 		}
 #endif
 		capinc_tty_exit();
@@ -2274,7 +2283,7 @@ int capi_init(void)
 		(void) detach_capi_interface(&cuser);
 		devfs_unregister_chrdev(capi_major, "capi20");
 #ifdef HAVE_DEVFS_FS
-		devfs_unregister(devfs_find_handle(NULL, "capi20", 0,
+		devfs_unregister(devfs_find_handle(NULL, "capi20",
 						   capi_major, 0,
 						   DEVFS_SPECIAL_CHR, 0));
 #endif
@@ -2307,7 +2316,7 @@ void cleanup_module(void)
 
 	devfs_unregister_chrdev(capi_major, "capi20");
 #ifdef HAVE_DEVFS_FS
-	devfs_unregister(devfs_find_handle(NULL, "isdn/capi20", 0, capi_major, 0, DEVFS_SPECIAL_CHR, 0));
+	devfs_unregister(devfs_find_handle(NULL, "isdn/capi20", capi_major, 0, DEVFS_SPECIAL_CHR, 0));
 #endif
 
 #ifdef CONFIG_ISDN_CAPI_MIDDLEWARE
@@ -2317,7 +2326,7 @@ void cleanup_module(void)
 	for (j = 0; j < CAPINC_NR_PORTS; j++) {
 		char devname[32];
 		sprintf(devname, "capi/r%u", j);
-		devfs_unregister(devfs_find_handle(NULL, devname, 0, capi_rawmajor, j, DEVFS_SPECIAL_CHR, 0));
+		devfs_unregister(devfs_find_handle(NULL, devname, capi_rawmajor, j, DEVFS_SPECIAL_CHR, 0));
 	}
 #endif
 #endif
