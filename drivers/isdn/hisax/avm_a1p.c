@@ -8,6 +8,9 @@
  * Author       Carsten Paeth (calle@calle.in-berlin.de)
  *
  * $Log$
+ * Revision 2.5  1999/09/01 08:26:34  calle
+ * Patch from Daniel Beichl <dani@ecomag.net> to make A1 PCMCIA work again.
+ *
  * Revision 2.4  1999/07/12 21:04:55  keil
  * fix race in IRQ handling
  * added watchdog for lost IRQs
@@ -233,9 +236,11 @@ AVM_card_msg(struct IsdnCardState *cs, int mt, void *arg)
 	switch (mt) {
 		case CARD_RESET:
 			byteout(cs->hw.avm.cfg_reg+ASL0_OFFSET,0x00);
-			HZDELAY(HZ / 5 + 1);
+			set_current_state(TASK_UNINTERRUPTIBLE);
+			schedule_timeout((100*HZ)/1000); // wait 100 ms
 			byteout(cs->hw.avm.cfg_reg+ASL0_OFFSET,ASL0_W_RESET);
-			HZDELAY(HZ / 5 + 1);
+			set_current_state(TASK_UNINTERRUPTIBLE);
+			schedule_timeout((100*HZ)/1000); // wait 100 ms
 			byteout(cs->hw.avm.cfg_reg+ASL0_OFFSET,0x00);
 			return 0;
 
@@ -287,9 +292,11 @@ setup_avm_a1_pcmcia(struct IsdnCard *card))
         sti();
 
 	byteout(cs->hw.avm.cfg_reg+ASL0_OFFSET,0x00);
-	HZDELAY(HZ / 5 + 1);
+	set_current_state(TASK_UNINTERRUPTIBLE);
+	schedule_timeout((200*HZ)/1000); // wait 200 ms
 	byteout(cs->hw.avm.cfg_reg+ASL0_OFFSET,ASL0_W_RESET);
-	HZDELAY(HZ / 5 + 1);
+	set_current_state(TASK_UNINTERRUPTIBLE);
+	schedule_timeout((200*HZ)/1000); // wait 200 ms
 	byteout(cs->hw.avm.cfg_reg+ASL0_OFFSET,0x00);
 
 	byteout(cs->hw.avm.cfg_reg+ASL0_OFFSET, ASL0_W_TDISABLE|ASL0_W_TRESET);

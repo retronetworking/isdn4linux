@@ -11,6 +11,10 @@
  *              Beat Doebeli
  *
  * $Log$
+ * Revision 2.8  1999/07/12 21:05:19  keil
+ * fix race in IRQ handling
+ * added watchdog for lost IRQs
+ *
  * Revision 2.7  1998/04/15 16:44:31  keil
  * new init code
  *
@@ -252,7 +256,8 @@ ix1_reset(struct IsdnCardState *cs)
 	sti();
 	while (cnt--) {
 		byteout(cs->hw.ix1.cfg_reg + SPECIAL_PORT_OFFSET, 1);
-		HZDELAY(1);	/* wait >=10 ms */
+		set_current_state(TASK_UNINTERRUPTIBLE);
+		schedule_timeout((10*HZ)/1000); // wait 10 ms
 	}
 	byteout(cs->hw.ix1.cfg_reg + SPECIAL_PORT_OFFSET, 0);
 	restore_flags(flags);

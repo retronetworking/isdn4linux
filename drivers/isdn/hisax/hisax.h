@@ -3,6 +3,9 @@
  *   Basic declarations, defines and prototypes
  *
  * $Log$
+ * Revision 2.41  2000/02/26 00:35:13  keil
+ * Fix skb freeing in interrupt context
+ *
  * Revision 2.40  2000/01/20 19:51:46  keil
  * Fix AddTimer message
  * Change CONFIG defines
@@ -1436,8 +1439,6 @@ int discard_queue(struct sk_buff_head *q);
 void setstack_isac(struct PStack *st, struct IsdnCardState *cs);
 #endif	/* ISDN_CHIP_ISAC */
 #endif	/* __KERNEL__ */
-
-#define HZDELAY(jiffs) {int tout = jiffs; while (tout--) udelay(1000000/HZ);}
 
 int ll_run(struct IsdnCardState *cs, int addfeatures);
 void ll_stop(struct IsdnCardState *cs);

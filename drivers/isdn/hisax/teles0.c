@@ -10,6 +10,9 @@
  *              Beat Doebeli
  *
  * $Log$
+ * Revision 2.11  1999/12/23 15:09:32  keil
+ * change email
+ *
  * Revision 2.10  1999/11/14 23:37:03  keil
  * new ISA memory mapped IO
  *
@@ -272,14 +275,18 @@ reset_teles0(struct IsdnCardState *cs)
 		}
 		cfval |= ((cs->hw.teles0.phymem >> 9) & 0xF0);
 		byteout(cs->hw.teles0.cfg_reg + 4, cfval);
-		HZDELAY(HZ / 10 + 1);
+		set_current_state(TASK_UNINTERRUPTIBLE);
+		schedule_timeout((100*HZ)/1000); // wait 100 ms
 		byteout(cs->hw.teles0.cfg_reg + 4, cfval | 1);
-		HZDELAY(HZ / 10 + 1);
+		set_current_state(TASK_UNINTERRUPTIBLE);
+		schedule_timeout((100*HZ)/1000); // wait 100 ms
 	}
 	writeb(0, cs->hw.teles0.membase + 0x80); mb();
-	HZDELAY(HZ / 5 + 1);
+	set_current_state(TASK_UNINTERRUPTIBLE);
+	schedule_timeout((200*HZ)/1000); // wait 200 ms
 	writeb(1, cs->hw.teles0.membase + 0x80); mb();
-	HZDELAY(HZ / 5 + 1);
+	set_current_state(TASK_UNINTERRUPTIBLE);
+	schedule_timeout((200*HZ)/1000); // wait 200 ms
 	restore_flags(flags);
 	return(0);
 }

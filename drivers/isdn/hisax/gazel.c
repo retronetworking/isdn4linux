@@ -6,6 +6,12 @@
  *              based on source code from Karsten Keil
  *
  * $Log$
+ * Revision 2.6  1999/08/22 20:27:03  calle
+ * backported changes from kernel 2.3.14:
+ * - several #include "config.h" gone, others come.
+ * - "struct device" changed to "struct net_device" in 2.3.14, added a
+ *   define in isdn_compat.h for older kernel versions.
+ *
  * Revision 2.5  1999/08/11 21:01:26  keil
  * new PCI codefix
  *
@@ -386,9 +392,11 @@ reset_gazel(struct IsdnCardState *cs)
 			save_flags(flags);
 			cli();
 			writereg(addr, 0, 0);
-			HZDELAY(10);
+			set_current_state(TASK_UNINTERRUPTIBLE);
+			schedule_timeout((100*HZ)/1000); // wait 100 ms
 			writereg(addr, 0, 1);
-			HZDELAY(2);
+			set_current_state(TASK_UNINTERRUPTIBLE);
+			schedule_timeout((20*HZ)/1000); // wait 20 ms
 			restore_flags(flags);
 			break;
 		case R685:
@@ -396,9 +404,11 @@ reset_gazel(struct IsdnCardState *cs)
 			plxcntrl |= (RESET_9050 + RESET_GAZEL);
 			outl(plxcntrl, addr + PLX_CNTRL);
 			plxcntrl &= ~(RESET_9050 + RESET_GAZEL);
-			HZDELAY(4);
+			set_current_state(TASK_UNINTERRUPTIBLE);
+			schedule_timeout((40*HZ)/1000); // wait 40 ms
 			outl(plxcntrl, addr + PLX_CNTRL);
-			HZDELAY(10);
+			set_current_state(TASK_UNINTERRUPTIBLE);
+			schedule_timeout((100*HZ)/1000); // wait 100 ms
 			outb(INT_ISAC_EN + INT_HSCX_EN + INT_PCI_EN, addr + PLX_INCSR);
 			break;
 		case R753:
@@ -407,9 +417,11 @@ reset_gazel(struct IsdnCardState *cs)
 			outl(plxcntrl, addr + PLX_CNTRL);
 			plxcntrl &= ~(RESET_9050 + RESET_GAZEL);
 			WriteISAC(cs, IPAC_POTA2 - 0x80, 0x20);
-			HZDELAY(4);
+			set_current_state(TASK_UNINTERRUPTIBLE);
+			schedule_timeout((40*HZ)/1000); // wait 40 ms
 			outl(plxcntrl, addr + PLX_CNTRL);
-			HZDELAY(10);
+			set_current_state(TASK_UNINTERRUPTIBLE);
+			schedule_timeout((100*HZ)/1000); // wait 100 ms
 			WriteISAC(cs, IPAC_POTA2 - 0x80, 0x00);
 			WriteISAC(cs, IPAC_ACFG - 0x80, 0xff);
 			WriteISAC(cs, IPAC_AOE - 0x80, 0x0);
@@ -420,7 +432,8 @@ reset_gazel(struct IsdnCardState *cs)
 			break;
 		case R742:
 			WriteISAC(cs, IPAC_POTA2 - 0x80, 0x20);
-			HZDELAY(4);
+			set_current_state(TASK_UNINTERRUPTIBLE);
+			schedule_timeout((40*HZ)/1000); // wait 40 ms
 			WriteISAC(cs, IPAC_POTA2 - 0x80, 0x00);
 			WriteISAC(cs, IPAC_ACFG - 0x80, 0xff);
 			WriteISAC(cs, IPAC_AOE - 0x80, 0x0);

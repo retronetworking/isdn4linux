@@ -11,6 +11,9 @@
  *              Beat Doebeli
  *
  * $Log$
+ * Revision 2.15  2000/02/03 16:40:10  keil
+ * Fix teles pcmcia
+ *
  * Revision 2.14  1999/12/23 15:09:32  keil
  * change email
  *
@@ -281,24 +284,30 @@ reset_teles3(struct IsdnCardState *cs)
 			save_flags(flags);
 			byteout(cs->hw.teles3.cfg_reg + 4, irqcfg);
 			sti();
-			HZDELAY(HZ / 10 + 1);
+			set_current_state(TASK_UNINTERRUPTIBLE);
+			schedule_timeout((100*HZ)/1000); // wait 100 ms
 			byteout(cs->hw.teles3.cfg_reg + 4, irqcfg | 1);
-			HZDELAY(HZ / 10 + 1);
+			set_current_state(TASK_UNINTERRUPTIBLE);
+			schedule_timeout((100*HZ)/1000); // wait 100 ms
 			restore_flags(flags);
 		} else if (cs->typ == ISDN_CTYPE_COMPAQ_ISA) {
 			save_flags(flags);
 			byteout(cs->hw.teles3.cfg_reg, 0xff);
-			HZDELAY(2);
+			set_current_state(TASK_UNINTERRUPTIBLE);
+			schedule_timeout((20*HZ)/1000); // wait 20 ms
 			byteout(cs->hw.teles3.cfg_reg, 0x00);
-			HZDELAY(2);
+			set_current_state(TASK_UNINTERRUPTIBLE);
+			schedule_timeout((20*HZ)/1000); // wait 20 ms
 			restore_flags(flags);
 		} else {
 			/* Reset off for 16.3 PnP , thanks to Georg Acher */
 			save_flags(flags);
 			byteout(cs->hw.teles3.isac + 0x3c, 0);
-			HZDELAY(2);
+			set_current_state(TASK_UNINTERRUPTIBLE);
+			schedule_timeout((20*HZ)/1000); // wait 20 ms
 			byteout(cs->hw.teles3.isac + 0x3c, 1);
-			HZDELAY(2);
+			set_current_state(TASK_UNINTERRUPTIBLE);
+			schedule_timeout((20*HZ)/1000); // wait 20 ms
 			restore_flags(flags);
 		}
 	}

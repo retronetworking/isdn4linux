@@ -14,6 +14,9 @@
  *
  *
  * $Log$
+ * Revision 1.7  1998/11/15 23:55:17  keil
+ * changes from 2.0
+ *
  * Revision 1.6  1997/07/27 21:09:44  keil
  * move functions to isdnl3.c
  *
@@ -198,6 +201,7 @@ struct MessageType mt_n1[] =
 
 #define MT_N1_LEN (sizeof(mt_n1) / sizeof(struct MessageType))
 
+#if 0
 static struct MessageType fac_1tr6[] =
 {
 	{FAC_Sperre, "Sperre"},
@@ -221,6 +225,7 @@ static struct MessageType fac_1tr6[] =
 	{FAC_Umleitung, "Umleitung"}
 };
 #define FAC_1TR6_LEN (sizeof(fac_1tr6) / sizeof(struct MessageType))
+#endif
 
 static int
 prbits(char *dest, u_char b, int start, int len)

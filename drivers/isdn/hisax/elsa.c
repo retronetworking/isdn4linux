@@ -14,6 +14,10 @@
  *              for ELSA PCMCIA support
  *
  * $Log$
+ * Revision 2.20  1999/12/19 13:09:42  keil
+ * changed TASK_INTERRUPTIBLE into TASK_UNINTERRUPTIBLE for
+ * signal proof delays
+ *
  * Revision 2.19  1999/09/04 06:20:06  keil
  * Changes from kernel set_current_state()
  *
@@ -1088,7 +1092,7 @@ setup_elsa(struct IsdnCard *card)
 		if (!(cs->hw.elsa.base && cs->hw.elsa.cfg)) {
 			printk(KERN_WARNING "Elsa: No IO-Adr for PCI card found\n");
 			return(0);
-		}
+		} 
 		if ((cs->hw.elsa.cfg & 0xff) || (cs->hw.elsa.base & 0xf)) {
 			printk(KERN_WARNING "Elsa: You may have a wrong PCI bios\n");
 			printk(KERN_WARNING "Elsa: If your system hangs now, read\n");
@@ -1096,7 +1100,8 @@ setup_elsa(struct IsdnCard *card)
 			printk(KERN_WARNING "Elsa: Waiting 5 sec to sync discs\n");
 			save_flags(flags);
 			sti();
-			HZDELAY(500);	/* wait 500*10 ms */
+ 			set_current_state(TASK_UNINTERRUPTIBLE);
+ 			schedule_timeout(5*HZ); // wait 5 s
 			restore_flags(flags);
 		}
 #else
@@ -1237,7 +1242,8 @@ setup_elsa(struct IsdnCard *card)
 		}
 		save_flags(flags);
 		sti();
-		HZDELAY(1);	/* wait >=10 ms */
+		set_current_state(TASK_UNINTERRUPTIBLE);
+		schedule_timeout((10*HZ)/1000); // wait >= 10ms
 		restore_flags(flags);
 		if (TimerRun(cs)) {
 			printk(KERN_WARNING "Elsa: timer do not run down\n");

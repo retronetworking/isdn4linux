@@ -6,6 +6,10 @@
  *
  *
  * $Log$
+ * Revision 2.11  1999/07/12 21:04:54  keil
+ * fix race in IRQ handling
+ * added watchdog for lost IRQs
+ *
  * Revision 2.10  1998/11/15 23:54:21  keil
  * changes from 2.0
  *
@@ -320,18 +324,23 @@ setup_avm_a1(struct IsdnCard *card))
 	save_flags(flags);
 	byteout(cs->hw.avm.cfg_reg, 0x0);
 	sti();
-	HZDELAY(HZ / 5 + 1);
+	set_current_state(TASK_UNINTERRUPTIBLE);
+	schedule_timeout((200*HZ)/1000); // wait 200ms
 	byteout(cs->hw.avm.cfg_reg, 0x1);
-	HZDELAY(HZ / 5 + 1);
+	set_current_state(TASK_UNINTERRUPTIBLE);
+	schedule_timeout((200*HZ)/1000); // wait 200ms
 	byteout(cs->hw.avm.cfg_reg, 0x0);
-	HZDELAY(HZ / 5 + 1);
+	set_current_state(TASK_UNINTERRUPTIBLE);
+	schedule_timeout((200*HZ)/1000); // wait 200ms
 	val = cs->irq;
 	if (val == 9)
 		val = 2;
 	byteout(cs->hw.avm.cfg_reg + 1, val);
-	HZDELAY(HZ / 5 + 1);
+	set_current_state(TASK_UNINTERRUPTIBLE);
+	schedule_timeout((200*HZ)/1000); // wait 200ms
 	byteout(cs->hw.avm.cfg_reg, 0x0);
-	HZDELAY(HZ / 5 + 1);
+	set_current_state(TASK_UNINTERRUPTIBLE);
+	schedule_timeout((200*HZ)/1000); // wait 200ms
 	restore_flags(flags);
 
 	val = bytein(cs->hw.avm.cfg_reg);
