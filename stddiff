@@ -84,7 +84,7 @@ else
 	for i in drivers/isdn/icn/icn.[ch] ; do
 		dodiff $i $KERNELDIR/$i
 	done
-	for i in drivers/isdn/hisax/*.[ch] ; do
+	for i in drivers/isdn/hisax/*.[ch] drivers/isdn/hisax/md5sums.asc ; do
 		dodiff $i $KERNELDIR/$i
 	done
 	for i in drivers/isdn/avmb1/*.[ch] ; do
