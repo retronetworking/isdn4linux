@@ -283,7 +283,7 @@ else
 	  fi
     fi
   fi
-  for i in drivers/isdn/eicon/*.[ch] ; do
+  for i in drivers/isdn/eicon/*.[ch] drivers/isdn/eicon/md5sums.asc ; do
     $DOCP $i $KERNELDIR/$i
   done
   for i in include/linux/*.h ; do
