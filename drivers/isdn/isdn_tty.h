@@ -85,7 +85,10 @@
 
 #define REG_CPN      23
 #define BIT_CPN       1
+#define REG_CPNFCON  23
 #define BIT_CPNFCON   2
+#define REG_CDN      23
+#define BIT_CDN       4
 
 /* defines for result codes */
 #define RESULT_OK		0
