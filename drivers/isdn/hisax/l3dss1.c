@@ -2639,6 +2639,21 @@ l3dss1_suspend_rej(struct l3_process *pc, u_char pr, void *arg)
 }
 
 static void
+l3dss1_info_req(struct l3_process *pc, u_char pr, void *arg)
+{
+	MsgDeclare(64);
+	struct info_req_parm *info_req = arg;
+
+	l3pc_deltimer(pc); // T304
+	MsgXHead(pc->callref, MT_INFORMATION);
+	MsgAdd(info_req->sending_complete);
+	MsgAdd(info_req->keypad_facility);
+	MsgAdd(info_req->called_party_number);
+	MsgSend();
+	l3pc_addtimer(pc, T304, CC_T304);
+}
+
+static void
 l3dss1_x_resume_req(struct l3_process *pc, u_char pr, void *arg)
 {
 	MsgDeclare(32);
@@ -2815,6 +2830,8 @@ static struct stateentry downstatelist[] =
 	 CC_RESUME | REQUEST, l3dss1_resume_req},
 	{SBIT(0),
 	 CC_X_RESUME | REQUEST, l3dss1_x_resume_req},
+	{SBIT(2),
+	 CC_INFO | REQUEST, l3dss1_info_req},
 	{SBIT(1) | SBIT(2) | SBIT(3) | SBIT(4) | SBIT(6) | SBIT(7) | SBIT(8) | SBIT(9) | SBIT(10),
 	 CC_DISCONNECT | REQUEST, l3dss1_disconnect_req},
 	{SBIT(1) | SBIT(2) | SBIT(3) | SBIT(4) | SBIT(6) | SBIT(7) | SBIT(8) | SBIT(9) | SBIT(10),
@@ -3251,7 +3268,7 @@ setstack_dss1(struct PStack *st)
 	char tmp[64];
 	int i;
 
-	st->l3.debug = 0;
+	st->l3.debug = L3_DEB_WARN;
 	st->l3.l4l3 = dss1down;
 	st->l3.l4l3_proto = l3dss1_cmd_global;
 	st->l3.l2l3 = dss1up;

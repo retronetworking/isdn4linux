@@ -82,6 +82,7 @@
 #define CC_RESUME	0x0304
 #define CC_X_RESUME	0x030C
 #define CC_MORE_INFO	0x0310
+#define CC_INFO         0x0314
 #define CC_IGNORE	0x0320
 #define CC_REJECT	0x0324
 #define CC_SETUP_COMPL	0x0330

@@ -1727,7 +1727,9 @@ isdnl2_l3l2(struct PStack *st, int pr, void *arg)
 				st->l2.l2l1(st, PH_ACTIVATE, NULL);
 			}
 		case (PH_ACTIVATE | REQUEST):
-			st->l2.l2l1(st, PH_ACTIVATE, NULL);
+			if (!test_bit(FLG_L1_ACTIV, &st->l2.flag)) {
+				st->l2.l2l1(st, PH_ACTIVATE, NULL);
+			}
 			break;
 		case (DL_RELEASE | REQUEST):
 			if (test_bit(FLG_LAPB, &st->l2.flag)) {

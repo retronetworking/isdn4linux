@@ -31,7 +31,7 @@ void plciConstr(struct Plci *plci, struct Contr *contr, __u32 adrPLCI)
 void plciDestr(struct Plci *plci)
 {
 	if (plci->l4_pc.l3pc) {
-		int_error();
+		// FIXME: we need to kill l3_process, actually
 		plci->l4_pc.l3pc->l4pc = 0;
 	}
 	HiSax_mod_dec_use_count(plci->contr->cs);

@@ -98,6 +98,7 @@ __u16 cstruct2IE(__u8 *cstruct, __u8 IE, __u8 *dest)
 
 __u16 cmsg2setup_req(_cmsg *cmsg, struct setup_req_parm *parm)
 {
+	memset(parm, 0, sizeof(struct setup_req_parm));
 	if (CIPValue2setup(cmsg->CIPValue, parm))
 		goto err;
 	if (cstruct2IE(cmsg->CalledPartyNumber, IE_CALLED_PN, parm->called_party_number))
@@ -119,8 +120,21 @@ __u16 cmsg2setup_req(_cmsg *cmsg, struct setup_req_parm *parm)
 	return CapiIllMessageParmCoding;
 }
 
+__u16 cmsg2info_req(_cmsg *cmsg, struct info_req_parm *parm)
+{
+	memset(parm, 0, sizeof(struct info_req_parm));
+	if (cstruct2IE(cmsg->Keypadfacility, IE_KEYPAD, parm->keypad_facility))
+		goto err;
+	if (cstruct2IE(cmsg->CalledPartyNumber, IE_CALLED_PN, parm->called_party_number))
+		goto err;
+	return 0;
+ err:
+	return CapiIllMessageParmCoding;
+}
+
 __u16 cmsg2alerting_req(_cmsg *cmsg, struct alerting_req_parm *parm)
 {
+	memset(parm, 0, sizeof(struct alerting_req_parm));
 	if (cstruct2IE(cmsg->Useruserdata, IE_USER_USER, parm->user_user))
 		goto err;
 	return 0;
@@ -289,7 +303,6 @@ static void plci_connect_req(struct FsmInst *fi, int event, void *arg)
 	FsmChangeState(fi, ST_PLCI_P_0_1);
 	test_and_set_bit(PLCI_FLAG_OUTGOING, &plci->flags);
 
-	memset(&setup_req, 0, sizeof(struct setup_req_parm));
 	if ((Info = cmsg2setup_req(cmsg, &setup_req))) {
 		goto answer;
 	}
@@ -361,7 +374,6 @@ static void plci_alert_req(struct FsmInst *fi, int event, void *arg)
 	if (test_and_set_bit(PLCI_FLAG_ALERTING, &plci->flags)) {
 		Info = 0x0003; // other app is already alerting
 	} else {
-		memset(&alerting_req, 0, sizeof(struct alerting_req_parm));
 		Info = cmsg2alerting_req(cmsg, &alerting_req);
 		if (Info == 0) {
 			p_L4L3(&plci->l4_pc, CC_ALERTING | REQUEST, &alerting_req); 
@@ -437,12 +449,7 @@ static void plci_connect_active_ind(struct FsmInst *fi, int event, void *arg)
 	struct Cplci *cplci = fi->userdata;
 
 	FsmChangeState(fi, ST_PLCI_P_ACT);
-	cplci->ncci = cplciNewNcci(cplci);
-	if (!cplci->ncci) {
-		int_error();
-		return;
-	}
-	ncciLinkUp(cplci->ncci);
+	cplciLinkUp(cplci);
 }
 
 static void plci_connect_active_resp(struct FsmInst *fi, int event, void *arg)
@@ -458,7 +465,6 @@ static void plci_disconnect_req(struct FsmInst *fi, int event, void *arg)
 
 	FsmChangeState(fi, ST_PLCI_P_5);
 	
-
 	if (!plci) {
 		int_error();
 		return;
@@ -467,21 +473,20 @@ static void plci_disconnect_req(struct FsmInst *fi, int event, void *arg)
 	cmsg->Reason = 0; // disconnect initiated
 	cplciRecvCmsg(cplci, cmsg);
 
-	if (cplci->ncci) {
-		ncciLinkDown(cplci->ncci);
+	cplciLinkDown(cplci);
+
+	if (cplci->cause[0]) { // FIXME
+		p_L4L3(&cplci->plci->l4_pc, CC_RELEASE | REQUEST, 0);
+	} else {
+		memset(&disconnect_req, 0, sizeof(struct disconnect_req_parm));
+		memcpy(&disconnect_req.cause, "\x08\x02\x80\x90", 4); // normal call clearing
+		p_L4L3(&plci->l4_pc, CC_X_DISCONNECT | REQUEST, &disconnect_req);
 	}
-	memset(&disconnect_req, 0, sizeof(struct disconnect_req_parm));
-	memcpy(&disconnect_req.cause, "\x08\x02\x80\x90", 4); // normal call clearing
-	p_L4L3(&plci->l4_pc, CC_X_DISCONNECT | REQUEST, &disconnect_req);
 }
 
 static void plci_suspend_conf(struct FsmInst *fi, int event, void *arg)
 {
-	struct Cplci *cplci = fi->userdata;
-
 	FsmChangeState(fi, ST_PLCI_P_5);
-	if (cplci->ncci)
-		ncciLinkDown(cplci->ncci);
 }
 
 static void plci_resume_conf(struct FsmInst *fi, int event, void *arg)
@@ -490,12 +495,7 @@ static void plci_resume_conf(struct FsmInst *fi, int event, void *arg)
 	struct Cplci *cplci = fi->userdata;
 
 	FsmChangeState(fi, ST_PLCI_P_ACT);
-	cplci->ncci = cplciNewNcci(cplci);
-	if (!cplci->ncci) {
-		int_error();
-		return;
-	}
-	ncciLinkUp(cplci->ncci);
+	cplciLinkUp(cplci);
 }
 
 static void plci_disconnect_ind(struct FsmInst *fi, int event, void *arg)
@@ -534,7 +534,7 @@ static void plci_cc_setup_conf_err(struct FsmInst *fi, int event, void *arg)
 	_cmsg cmsg;
 
 	cplciCmsgHeader(cplci, &cmsg, CAPI_DISCONNECT, CAPI_IND);
-	cmsg.Reason = 0;
+	cmsg.Reason = CapiProtocolErrorLayer3;
 	FsmEvent(&cplci->plci_m, EV_PLCI_DISCONNECT_IND, &cmsg);
 	cplciRecvCmsg(cplci, &cmsg);
 }
@@ -548,9 +548,11 @@ static void plci_cc_setup_ind(struct FsmInst *fi, int event, void *arg)
 	memset(&cmsg, 0, sizeof(_cmsg));
 	cplciCmsgHeader(cplci, &cmsg, CAPI_CONNECT, CAPI_IND);
 	
+	// FIXME: CW
+
 	cmsg.CIPValue               = q931CIPValue(skb);
 	cmsg.CalledPartyNumber      = q931IE(skb, IE_CALLED_PN);
-	cmsg.CallingPartyNumber     = q931IE(skb, IE_CALLING_PN);
+	cmsg.CallingPartyNumber     = q931IE(skb, IE_CALLING_PN); // FIXME screen
 	cmsg.CalledPartySubaddress  = q931IE(skb, IE_CALLED_SUB);
 	cmsg.CallingPartySubaddress = q931IE(skb, IE_CALLING_SUB);
 	cmsg.BC                     = q931IE(skb, IE_BEARER);
@@ -583,11 +585,10 @@ static void plci_cc_disconnect_ind(struct FsmInst *fi, int event, void *arg)
 	if (cause)
 		memcpy(cplci->cause, cause, 3);
 	
-// FIXME: if not early B3-Connect
-	if (cplci->ncci) {
-		ncciLinkDown(cplci->ncci);
+	if (!cplci->appl->listen.InfoMask & CAPI_INFOMASK_EARLYB3) {
+		cplciLinkDown(cplci);
+		p_L4L3(&cplci->plci->l4_pc, CC_RELEASE | REQUEST, 0);
 	}
-	p_L4L3(&cplci->plci->l4_pc, CC_RELEASE | REQUEST, 0);
 }
 
 static void plci_cc_release_ind(struct FsmInst *fi, int event, void *arg)
@@ -599,18 +600,20 @@ static void plci_cc_release_ind(struct FsmInst *fi, int event, void *arg)
 	
 	plciDetachCplci(cplci->plci, cplci);
 
-	if (cplci->ncci) {
-		ncciLinkDown(cplci->ncci);
-	}
+	cplciLinkDown(cplci);
+
 	cplciCmsgHeader(cplci, &cmsg, CAPI_DISCONNECT, CAPI_IND);
-	if (skb)
+	if (skb) {
 		cause = q931IE(skb, IE_CAUSE);
-	if (cause) {
-		cmsg.Reason = 0x3400 | cause[2];
-	} else if (cplci->cause[0]) {
-		cmsg.Reason = 0x3400 | cplci->cause[2];
+		if (cause) {
+			cmsg.Reason = 0x3400 | cause[2];
+		} else if (cplci->cause[0]) { // cause from CC_DISCONNECT IND
+			cmsg.Reason = 0x3400 | cplci->cause[2];
+		} else {
+			cmsg.Reason = 0;
+		}
 	} else {
-		cmsg.Reason = 0;
+		cmsg.Reason = CapiProtocolErrorLayer1;
 	}
 	FsmEvent(&cplci->plci_m, EV_PLCI_DISCONNECT_IND, &cmsg);
 	cplciRecvCmsg(cplci, &cmsg);
@@ -691,6 +694,8 @@ static void plci_cc_suspend_conf(struct FsmInst *fi, int event, void *arg)
 	struct Cplci *cplci = fi->userdata;
 	_cmsg cmsg;
 
+	cplciLinkDown(cplci);
+
 	plci_suspend_reply(cplci, CapiSuccess);
 	
 	plciDetachCplci(cplci->plci, cplci);
@@ -763,6 +768,20 @@ static void plci_select_b_protocol_req(struct FsmInst *fi, int event, void *arg)
 
 static void plci_info_req_overlap(struct FsmInst *fi, int event, void *arg)
 {
+	struct Cplci *cplci = fi->userdata;
+	struct Plci *plci = cplci->plci;
+	_cmsg *cmsg = arg;
+	__u16 Info;
+	struct info_req_parm info_req;
+
+	Info = cmsg2info_req(cmsg, &info_req);
+	if (Info == CapiSuccess) {
+		p_L4L3(&plci->l4_pc, CC_INFO | REQUEST, &info_req);
+	}
+	
+	capi_cmsg_answer(cmsg);
+	cmsg->Info = Info;
+	cplciRecvCmsg(cplci, cmsg);
 }
 
 static void plci_info_req(struct FsmInst *fi, int event, void *arg)
@@ -872,7 +891,6 @@ void cplciDestr(struct Cplci *cplci)
  		plciDetachCplci(cplci->plci, cplci);
 	}
 	if (cplci->ncci) {
-		int_error();
 		ncciDestr(cplci->ncci);
 		kfree(cplci->ncci);
 	}
@@ -907,6 +925,7 @@ void cplci_l3l4(struct Cplci *cplci, int pr, void *arg)
 		FsmEvent(&cplci->plci_m, EV_PLCI_CC_SETUP_COMPL_IND, arg); 
 		break;
 	case CC_DISCONNECT | INDICATION:
+		cplciInfoIndMsg(cplci, CAPI_INFOMASK_EARLYB3, arg);
 		cplciInfoIndIE(cplci, IE_CAUSE, CAPI_INFOMASK_CAUSE, arg);
 		cplciInfoIndIE(cplci, IE_DISPLAY, CAPI_INFOMASK_DISPLAY, arg);
 		cplciInfoIndIE(cplci, IE_USER_USER, CAPI_INFOMASK_USERUSER, arg);
@@ -995,6 +1014,9 @@ void cplciSendMessage(struct Cplci *cplci, struct sk_buff *skb)
 	capi_message2cmsg(&cmsg, skb->data);
 
 	switch (CMSGCMD(&cmsg)) {
+	case CAPI_INFO_REQ:
+		retval = FsmEvent(&cplci->plci_m, EV_PLCI_INFO_REQ, &cmsg);
+		break;
 	case CAPI_ALERT_REQ:
 		retval = FsmEvent(&cplci->plci_m, EV_PLCI_ALERT_REQ, &cmsg);
 		break;
@@ -1027,6 +1049,29 @@ void cplciSendMessage(struct Cplci *cplci, struct sk_buff *skb)
 		}
 	}
 	idev_kfree_skb(skb, FREE_READ);
+}
+
+void cplciLinkUp(struct Cplci *cplci)
+{
+	if (cplci->ncci)
+		return;
+
+	cplci->ncci = kmalloc(sizeof(struct Ncci), GFP_ATOMIC);
+	if (!cplci->ncci) {
+		int_error();
+		return;
+	}
+	ncciConstr(cplci->ncci, cplci);
+	ncciLinkUp(cplci->ncci);
+}
+
+void cplciLinkDown(struct Cplci *cplci)
+{
+	if (!cplci->ncci) {
+		int_error();
+		return;
+	}
+	ncciLinkDown(cplci->ncci);
 }
 
 int cplciFacSuspendReq(struct Cplci *cplci, struct FacReqParm *facReqParm,
@@ -1126,6 +1171,11 @@ void cplciInfoIndIE(struct Cplci *cplci, unsigned char ie, __u32 mask, void *arg
 	iep = q931IE(skb, ie);
 	if (!iep)
 		return;
+	if (ie == IE_PROGRESS && cplci->appl->listen.InfoMask & CAPI_INFOMASK_EARLYB3) {
+		if (iep[0] == 0x02 && iep[2] == 0x88) { // in-band information available
+			cplciLinkUp(cplci);
+		}
+	}
 
 	cplciCmsgHeader(cplci, &cmsg, CAPI_INFO, CAPI_IND);
 	cmsg.InfoNumber = ie;
@@ -1143,24 +1193,4 @@ void init_cplci(void)
 	FsmNew(&plci_fsm, fn_plci_list, FN_PLCI_COUNT);
 }
 
-struct Ncci *cplciNewNcci(struct Cplci* cplci)
-{
-	struct Ncci *ncci;
-	
-	ncci = kmalloc(sizeof(struct Ncci), GFP_ATOMIC);
-	if (!ncci) {
-		int_error();
-		return 0;
-	}
-	ncciConstr(ncci, cplci);
-	cplci->ncci = ncci;
-	return ncci;
-}
-
-void cplciDelNcci(struct Cplci *cplci)
-{
-	ncciDestr(cplci->ncci);
-	kfree(cplci->ncci);
-	cplci->ncci = 0;
-}
 

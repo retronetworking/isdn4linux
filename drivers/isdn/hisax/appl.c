@@ -52,18 +52,6 @@ void applSendMessage(struct Appl *appl, struct sk_buff *skb)
 
 	// for NCCI state machine
 	case CAPI_DATA_B3_REQ:
-		cplci = applAdr2cplci(appl, CAPIMSG_CONTROL(skb->data));
-		if (!cplci) {
-			contrAnswerMessage(appl->contr, skb, CapiIllContrPlciNcci);
-			goto free;
-		}
-		if (!cplci->ncci) {
-			int_error();
-			contrAnswerMessage(appl->contr, skb, CapiIllContrPlciNcci);
-			goto free;
-		}
-		ncciSendMessage(cplci->ncci, skb);
-		break;
 	case CAPI_DATA_B3_RESP:
 	case CAPI_CONNECT_B3_REQ:
 	case CAPI_CONNECT_B3_RESP:
@@ -83,6 +71,7 @@ void applSendMessage(struct Appl *appl, struct sk_buff *skb)
 		ncciSendMessage(cplci->ncci, skb);
 		break;
 	// for PLCI state machine
+	case CAPI_INFO_REQ:
 	case CAPI_ALERT_REQ:
 	case CAPI_CONNECT_RESP:
 	case CAPI_CONNECT_ACTIVE_RESP:

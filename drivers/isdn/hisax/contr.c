@@ -37,6 +37,12 @@ void contrDestr(struct Contr *contr)
 {
 	int i;
 
+	for (i = 0; i < CAPI_MAXAPPL; i++) {
+		if (contr->appls[i]) {
+			applDestr(contr->appls[i]);
+			kfree(contr->appls[i]);
+		}
+	}
 	for (i = 0; i < CAPI_MAXPLCI; i++) {
 		if (contr->plcis[i]) {
 			plciDestr(contr->plcis[i]);

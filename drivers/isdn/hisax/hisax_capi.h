@@ -168,7 +168,7 @@ struct DummyProcess * contrId2DummyPc    (struct Contr* contr, __u16 invokeId);
 //#define CAPI_INFOMASK_CHARGE    (0x0040)
 //#define CAPI_INFOMASK_CALLEDPN  (0x0080)
 #define CAPI_INFOMASK_CHANNELID (0x0100)
-//#define CAPI_INFOMASK_EARLYB3   (0x0200)
+#define CAPI_INFOMASK_EARLYB3   (0x0200)
 //#define CAPI_INFOMASK_REDIRECT  (0x0400)
 
 struct Listen {
@@ -238,8 +238,8 @@ struct Plci {
 	struct Contr  *contr;
 	__u32 adrPLCI;
 	int flags;
-	int                    nAppl;
-	struct Cplci           *cplcis[CAPI_MAXAPPL];
+	int nAppl;
+	struct Cplci *cplcis[CAPI_MAXAPPL];
 };
 
 void plciConstr(struct Plci *plci, struct Contr *contr, __u32 adrPLCI);
@@ -261,7 +261,9 @@ struct Cplci {
 	struct Ncci *ncci;
 	struct Contr *contr;
 	struct FsmInst plci_m;
-	u_char cause[3];
+	u_char cause[3]; // we may get a cause from l3 DISCONNECT message
+   	                 // which we'll need send in DISCONNECT_IND caused by
+	                 // l3 RELEASE message
 	struct Bprotocol Bprotocol;
 };
 
@@ -273,10 +275,10 @@ void cplciSendMessage(struct Cplci *cplci, struct sk_buff *skb);
 void cplciClearOtherApps(struct Cplci *cplci);
 void cplciInfoIndMsg(struct Cplci *cplci,  __u32 mask, void *arg);
 void cplciInfoIndIE(struct Cplci *cplci, unsigned char ie, __u32 mask, void *arg);
-struct Ncci *cplciNewNcci(struct Cplci* cplci);
-void cplciDelNcci(struct Cplci* cplci);
 void cplciRecvCmsg(struct Cplci *cplci, _cmsg *cmsg);
 void cplciCmsgHeader(struct Cplci *cplci, _cmsg *cmsg, __u8 cmd, __u8 subcmd);
+void cplciLinkUp(struct Cplci *cplci);
+void cplciLinkDown(struct Cplci *cplci);
 int cplciFacSuspendReq(struct Cplci *cplci, struct FacReqParm *facReqParm,
 		       struct FacConfParm *facConfParm);
 int cplciFacResumeReq(struct Cplci *cplci, struct FacReqParm *facReqParm,
@@ -287,9 +289,9 @@ int cplciFacResumeReq(struct Cplci *cplci, struct FacReqParm *facReqParm,
 
 struct Ncci {
 	struct Layer4 l4; // derived from Layer 4
-	struct Cplci  *cplci;
 	__u32 adrNCCI;
 	struct Contr *contr;
+	struct Cplci *cplci;
 	struct Appl *appl;
 	struct FsmInst ncci_m;
 	int window;

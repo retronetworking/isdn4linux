@@ -145,14 +145,12 @@ static void ncci_connect_b3_resp(struct FsmInst *fi, int event, void *arg)
 
 static void ncci_connect_b3_conf(struct FsmInst *fi, int event, void *arg)
 {
-	struct Ncci *ncci = fi->userdata;
 	_cmsg *cmsg = arg;
   
 	if (cmsg->Info == 0) {
 		FsmChangeState(fi, ST_NCCI_N_2);
 	} else {
 		FsmChangeState(fi, ST_NCCI_N_0);
-		cplciDelNcci(ncci->cplci);
 	}
 }
 
@@ -204,10 +202,7 @@ static void ncci_disconnect_b3_ind(struct FsmInst *fi, int event, void *arg)
 
 static void ncci_disconnect_b3_resp(struct FsmInst *fi, int event, void *arg)
 {
-	struct Ncci *ncci = fi->userdata;
-
 	FsmChangeState(fi, ST_NCCI_N_0);
-	cplciDelNcci(ncci->cplci);
 }
 
 static void ncci_n0_dl_establish_ind_conf(struct FsmInst *fi, int event, void *arg)
@@ -255,7 +250,8 @@ static void ncci_select_b_protocol(struct FsmInst *fi, int event, void *arg)
 {
 	struct Ncci *ncci = fi->userdata;
 
-	ncciReleaseSt(ncci);
+	if (ncci->l4.st)
+		ncciReleaseSt(ncci);
 	ncciInitSt(ncci);
 }
 
@@ -327,8 +323,7 @@ void ncciConstr(struct Ncci *ncci, struct Cplci *cplci)
 		ncci->window = CAPI_MAXDATAWINDOW;
 	}
 
-	cplci->contr->ctrl->new_ncci(cplci->contr->ctrl, cplci->appl->ApplId, 
-				     ncci->adrNCCI, ncci->window);
+
 }
 
 void ncciInitSt(struct Ncci *ncci)
@@ -367,17 +362,22 @@ void ncciReleaseSt(struct Ncci *ncci)
 	}
 	release_st(ncci->l4.st);
 	kfree(ncci->l4.st);
+	ncci->l4.st = 0;
 }
 
 void ncciLinkUp(struct Ncci *ncci)
 {
+	ncci->contr->ctrl->new_ncci(ncci->contr->ctrl, ncci->appl->ApplId, 
+				    ncci->adrNCCI, ncci->window);
 	ncciInitSt(ncci);
 }
 
 void ncciLinkDown(struct Ncci *ncci)
 {
-	ncciReleaseSt(ncci);
+	if (ncci->l4.st)
+		ncciReleaseSt(ncci);
 	FsmEvent(&ncci->ncci_m, EV_NCCI_DL_DOWN_IND, 0);
+	
 }
 
 __u16 ncciSelectBprotocol(struct Ncci *ncci)
@@ -391,8 +391,11 @@ __u16 ncciSelectBprotocol(struct Ncci *ncci)
 
 void ncciDestr(struct Ncci *ncci)
 {
-	ncci->cplci->contr->ctrl->free_ncci(ncci->cplci->contr->ctrl, 
-					    ncci->cplci->appl->ApplId, ncci->adrNCCI);
+	if (ncci->l4.st)
+		ncciReleaseSt(ncci);
+	if (ncci->appl)
+		ncci->contr->ctrl->free_ncci(ncci->contr->ctrl, 
+					     ncci->appl->ApplId, ncci->adrNCCI);
 }
 
 void ncciDataInd(struct Ncci *ncci, int pr, void *arg)
@@ -408,7 +411,7 @@ void ncciDataInd(struct Ncci *ncci, int pr, void *arg)
 	}
 
 	if (i == CAPI_MAXDATAWINDOW) {
-		int_error();
+		// FIXME: trigger flow control if supported by L2 protocol
 		dev_kfree_skb(skb);
 		return;
 	}
@@ -417,7 +420,7 @@ void ncciDataInd(struct Ncci *ncci, int pr, void *arg)
 		printk(KERN_DEBUG "HiSax: only %d bytes headroom, need %d\n",
 		       skb_headroom(skb), 22);
 		nskb = skb_realloc_headroom(skb, 22);
-		idev_kfree_skb(skb, FREE_READ);
+		dev_kfree_skb(skb);
 		if (!nskb) {
 			int_error();
 			return;
@@ -430,17 +433,17 @@ void ncciDataInd(struct Ncci *ncci, int pr, void *arg)
 	
 	skb_push(nskb, 22);
 	*((__u16*) nskb->data) = 22;
-	*((__u16*)(nskb->data+2)) = ncci->cplci->appl->ApplId;
+	*((__u16*)(nskb->data+2)) = ncci->appl->ApplId;
 	*((__u8*) (nskb->data+4)) = CAPI_DATA_B3;
 	*((__u8*) (nskb->data+5)) = CAPI_IND;
-	*((__u16*)(nskb->data+6)) = ncci->cplci->appl->MsgId++;
+	*((__u16*)(nskb->data+6)) = ncci->appl->MsgId++;
 	*((__u32*)(nskb->data+8)) = ncci->adrNCCI;
 	*((__u32*)(nskb->data+12)) = (__u32)(nskb->data + 22);
 	*((__u16*)(nskb->data+16)) = nskb->len - 22;
 	*((__u16*)(nskb->data+18)) = i;
 	*((__u16*)(nskb->data+20)) = 0;
-	ncci->cplci->contr->ctrl->handle_capimsg(ncci->cplci->contr->ctrl, 
-						 ncci->cplci->appl->ApplId, nskb);
+	ncci->contr->ctrl->handle_capimsg(ncci->contr->ctrl, 
+					  ncci->appl->ApplId, nskb);
 }
 
 void ncciDataReq(struct Ncci *ncci, struct sk_buff *skb)
@@ -469,7 +472,7 @@ void ncciDataReq(struct Ncci *ncci, struct sk_buff *skb)
 	return;
 
  fail:
-	idev_kfree_skb(skb, FREE_READ);
+	dev_kfree_skb(skb);
 }
 
 void ncciDataConf(struct Ncci *ncci, int pr, void *arg)
@@ -512,7 +515,7 @@ void ncciDataResp(struct Ncci *ncci, struct sk_buff *skb)
 	}
 	ncci->recv_skb_handles[i] = 0;
 
-	idev_kfree_skb(skb, FREE_READ);
+	dev_kfree_skb(skb);
 }
 
 void ncciSendMessage(struct Ncci *ncci, struct sk_buff *skb)
@@ -528,7 +531,7 @@ void ncciSendMessage(struct Ncci *ncci, struct sk_buff *skb)
 		} else {
 			contrAnswerMessage(ncci->cplci->contr, skb, 
 					   CapiMessageNotSupportedInCurrentState);
-			idev_kfree_skb(skb, FREE_READ);
+			dev_kfree_skb(skb);
 		}
 		goto out;
 	case CAPI_DATA_B3_RESP:
@@ -563,7 +566,7 @@ void ncciSendMessage(struct Ncci *ncci, struct sk_buff *skb)
 					   CapiMessageNotSupportedInCurrentState);
 		}
 	}
-	idev_kfree_skb(skb, FREE_READ);
+	dev_kfree_skb(skb);
  out:
 }
 
@@ -584,7 +587,7 @@ void ncci_l3l4(struct Ncci *ncci, int pr, void *arg)
 		if (ncci->ncci_m.state == ST_NCCI_N_ACT) {
 			ncciDataInd(ncci, pr, arg);
 		} else {
-			idev_kfree_skb(skb, FREE_READ);
+			dev_kfree_skb(skb);
 		}
 		break;
 	case DL_DATA | CONFIRM: 
