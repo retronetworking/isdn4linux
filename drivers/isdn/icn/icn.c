@@ -19,6 +19,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.51  1998/03/07 22:29:55  fritz
+ * Adapted Detlef's chenges for 2.1.
+ *
  * Revision 1.50  1998/03/07 17:41:54  detabc
  * add d-channel connect and disconnect support statcallback
  * from icn low-level to link->level
@@ -236,10 +239,10 @@ icn_free_queue(icn_card * card, int channel)
 	cli();
 	card->xlen[channel] = 0;
 	card->sndcount[channel] = 0;
-	if (card->xskb[channel]) {
+	if ((skb = card->xskb[channel])) {
 		card->xskb[channel] = NULL;
 		restore_flags(flags);
-		dev_kfree_skb(card->xskb[channel]);
+		dev_kfree_skb(skb);
 	} else
 		restore_flags(flags);
 }
@@ -533,6 +536,11 @@ icn_pollbchan_send(int channel, icn_card * card)
 					cmd.parm.length = card->xlen[channel];
 					card->interface.statcallb(&cmd);
 				}
+			} else {
+				save_flags(flags);
+				cli();
+				card->xskb[channel] = skb;
+				restore_flags(flags);
 			}
 			card->xmit_lock[channel] = 0;
 			if (!icn_trymaplock_channel(card, mch))
