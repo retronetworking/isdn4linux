@@ -40,6 +40,7 @@ DIVA Server family
 ------------------
 - DIVA Server BRI/PCI 2M
 - DIVA Server PRI/PCI 2M (9M 23M 30M)
+- DIVA Server 4BRI/PCI
 	supported functions of onboard DSPs:
 	- analog modem
 	- fax group 2/3 (Fax Class 2 commands)
