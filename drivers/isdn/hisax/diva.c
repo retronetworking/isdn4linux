@@ -1115,7 +1115,6 @@ setup_diva(struct IsdnCard *card)
 			cs->hw.diva.cfg_reg =
 				(ulong) ioremap(pci_resource_start_mem(dev_diva202, 1), 4096);
 //######################################################################        
-  		} else {
 		} else {
 			printk(KERN_WARNING "Diva: No PCI card found\n");
 			return(0);
