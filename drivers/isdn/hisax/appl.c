@@ -88,6 +88,7 @@ void applSendMessage(struct Appl *appl, struct sk_buff *skb)
 	case CAPI_CONNECT_ACTIVE_RESP:
 	case CAPI_DISCONNECT_REQ:
 	case CAPI_DISCONNECT_RESP:
+	case CAPI_SELECT_B_PROTOCOL_REQ:
 		cplci = applAdr2cplci(appl, CAPIMSG_CONTROL(skb->data));
 		if (!cplci) {
 			contrAnswerMessage(appl->contr, skb, CapiIllContrPlciNcci);

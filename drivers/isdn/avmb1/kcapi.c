@@ -6,6 +6,9 @@
  * (c) Copyright 1999 by Carsten Paeth (calle@calle.in-berlin.de)
  * 
  * $Log$
+ * Revision 1.12.2.3  2000/04/08 14:29:09  kai
+ * *** empty log message ***
+ *
  * Revision 1.12.2.1  2000/03/03 17:14:12  kai
  * Merged changes from the main tree
  *
@@ -1244,7 +1247,7 @@ static __u16 capi_put_message(__u16 applid, struct sk_buff *skb)
 	cmd = CAPIMSG_COMMAND(skb->data);
         subcmd = CAPIMSG_SUBCOMMAND(skb->data);
 
-	if (cmd == CAPI_DATA_B3 && subcmd== CAPI_REQ) {
+	if (cmd == CAPI_DATA_B3 && subcmd == CAPI_REQ) {
 	    	if ((np = find_ncci(APPL(applid), CAPIMSG_NCCI(skb->data))) != 0
 	            && mq_enqueue(np, CAPIMSG_MSGID(skb->data)) == 0)
 			return CAPI_SENDQUEUEFULL;
@@ -1254,7 +1257,11 @@ static __u16 capi_put_message(__u16 applid, struct sk_buff *skb)
 	} else {
 		CARD(contr)->nsentctlpkt++;
 		APPL(applid)->nsentctlpkt++;
-	        if (CARD(contr)->traceflag) showctl |= 2;
+		if (cmd == CAPI_DATA_B3 && subcmd == CAPI_RESP) {
+			if (CARD(contr)->traceflag > 2) showctl |= 2;
+		} else {
+			if (CARD(contr)->traceflag) showctl |= 2;
+		}
 	}
 	showctl |= (CARD(contr)->traceflag & 1);
 	if (showctl & 2) {

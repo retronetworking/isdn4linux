@@ -179,22 +179,8 @@ int capiEncodeFacConfStruct(__u8 *dest, struct FacConfParm *facConfParm)
 		p += capiEncodeWord(p, facConfParm->u.GetSupportedServices.SupplementaryServiceInfo);
 		p += capiEncodeDWord(p, facConfParm->u.GetSupportedServices.SupportedServices);
 		break;
-	case 0x0001:
-	case 0x0002:
-	case 0x0003:
-	case 0x0004:
-	case 0x0005:
-	case 0x0006:
-	case 0x0007:
-	case 0x0008:
-	case 0x0009:
-	case 0x000a:
-	case 0x000b:
-	case 0x000c:
-		p += capiEncodeWord(p, facConfParm->u.Info.SupplementaryServiceInfo);
-		break;
 	default:
-		int_error();
+		p += capiEncodeWord(p, facConfParm->u.Info.SupplementaryServiceInfo);
 	}
 	dest[0] = p - &dest[1];
 	return p - dest;

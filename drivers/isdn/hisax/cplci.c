@@ -89,7 +89,7 @@ __u16 CalledPartyNumber2setup(__u8 *CPN, struct setup_req_parm *parm)
 	len = CPN[0];
 	if (len == 0)
 		return 0;
-	if (len > 23)
+	if (len > 23 - 2)
 		return CapiIllMessageParmCoding;
 	parm->called_party_number[0] = IE_CALLED_PN; 
 	memcpy(parm->called_party_number + 1, CPN, len + 1); 
@@ -105,7 +105,7 @@ __u16 CallingPartyNumber2setup(__u8 *CGN, struct setup_req_parm *parm)
 	len = CGN[0];
 	if (len == 0)
 		return 0;
-	if (len > 24)
+	if (len > 24 - 2)
 		return CapiIllMessageParmCoding;
 	parm->calling_party_number[0] = IE_CALLING_PN; 
 	memcpy(parm->calling_party_number + 1, CGN, len + 1); 
@@ -121,7 +121,7 @@ __u16 CalledPartySubaddress2setup(__u8 *SA, struct setup_req_parm *parm)
 	len = SA[0];
 	if (len == 0)
 		return 0;
-	if (len > 23)
+	if (len > 23 - 2)
 		return CapiIllMessageParmCoding;
 	parm->called_party_subaddress[0] = IE_CALLED_SUB; 
 	memcpy(parm->called_party_subaddress + 1, SA, len + 1); 
@@ -137,10 +137,58 @@ __u16 CallingPartySubaddress2setup(__u8 *SA, struct setup_req_parm *parm)
 	len = SA[0];
 	if (len == 0)
 		return 0;
-	if (len > 23)
+	if (len > 23 - 2)
 		return CapiIllMessageParmCoding;
 	parm->calling_party_subaddress[0] = IE_CALLING_SUB; 
 	memcpy(parm->calling_party_subaddress + 1, SA, len + 1); 
+	return 0;
+}
+
+__u16 BC2setup(__u8 *BC, struct setup_req_parm *parm)
+{
+	int len;
+
+	if (!BC)
+		return 0;
+	len = BC[0];
+	if (len == 0)
+		return 0;
+	if (len > 13 - 2)
+		return CapiIllMessageParmCoding;
+	parm->bearer_capability[0] = IE_BEARER; 
+	memcpy(parm->bearer_capability + 1, BC, len + 1); 
+	return 0;
+}
+
+__u16 LLC2setup(__u8 *LLC, struct setup_req_parm *parm)
+{
+	int len;
+
+	if (!LLC)
+		return 0;
+	len = LLC[0];
+	if (len == 0)
+		return 0;
+	if (len > 16 - 2)
+		return CapiIllMessageParmCoding;
+	parm->low_layer_compatibility[0] = IE_LLC; 
+	memcpy(parm->low_layer_compatibility + 1, LLC, len + 1); 
+	return 0;
+}
+
+__u16 HLC2setup(__u8 *HLC, struct setup_req_parm *parm)
+{
+	int len;
+
+	if (!HLC)
+		return 0;
+	len = HLC[0];
+	if (len == 0)
+		return 0;
+	if (len > 4 - 2)
+		return CapiIllMessageParmCoding;
+	parm->high_layer_compatibility[0] = IE_HLC; 
+	memcpy(parm->high_layer_compatibility + 1, HLC, len + 1); 
 	return 0;
 }
 
@@ -153,7 +201,7 @@ __u16 UserUser2alerting_req(__u8 *UU, struct alerting_req_parm *parm)
 	len = UU[0];
 	if (len == 0)
 		return 0;
-	if (len > 129)
+	if (len > 131 - 2)
 		return CapiIllMessageParmCoding;
 	parm->user_user[0] = IE_USER_USER; 
 	memcpy(parm->user_user + 1, UU, len + 1); 
@@ -179,7 +227,15 @@ __u16 cmsg2setup_req(_cmsg *cmsg, struct setup_req_parm *parm)
 	Info = CallingPartySubaddress2setup(cmsg->CallingPartySubaddress, parm);
 	if (Info)
 		return Info;
-// FIXME BC LLC HLC
+	Info = BC2setup(cmsg->BC, parm);
+	if (Info)
+		return Info;
+	Info = LLC2setup(cmsg->LLC, parm);
+	if (Info)
+		return Info;
+	Info = HLC2setup(cmsg->HLC, parm);
+	if (Info)
+		return Info;
 	return 0;
 }
 
@@ -228,11 +284,13 @@ enum {
 	ST_PLCI_P_ACT,
 	ST_PLCI_P_5,
 	ST_PLCI_P_6,
+	ST_PLCI_P_RES,
 }
 
-const ST_PLCI_COUNT = ST_PLCI_P_6 + 1;
+const ST_PLCI_COUNT = ST_PLCI_P_RES + 1;
 
-static char *str_st_plci[] = {	"ST_PLCI_P_0",
+static char *str_st_plci[] = {	
+	"ST_PLCI_P_0",
 	"ST_PLCI_P_0_1",
 	"ST_PLCI_P_1",
 	"ST_PLCI_P_2",
@@ -241,6 +299,7 @@ static char *str_st_plci[] = {	"ST_PLCI_P_0",
 	"ST_PLCI_P_ACT",
 	"ST_PLCI_P_5",
 	"ST_PLCI_P_6",
+	"ST_PLCI_P_RES",
 }; 
 
 enum {
@@ -258,6 +317,10 @@ enum {
 	EV_PLCI_DISCONNECT_REQ,
 	EV_PLCI_DISCONNECT_IND,
 	EV_PLCI_DISCONNECT_RESP,
+	EV_PLCI_SUSPEND_REQ,
+	EV_PLCI_SUSPEND_CONF,
+	EV_PLCI_RESUME_REQ,
+	EV_PLCI_RESUME_CONF,
 	EV_PLCI_CC_SETUP_IND,
 	EV_PLCI_CC_SETUP_CONF_ERR,
 	EV_PLCI_CC_SETUP_CONF,
@@ -265,8 +328,11 @@ enum {
 	EV_PLCI_CC_DISCONNECT_IND,
 	EV_PLCI_CC_RELEASE_IND,
 	EV_PLCI_CC_RELEASE_PROC_IND,
+	EV_PLCI_CC_NOTIFY_IND,
+	EV_PLCI_CC_SUSPEND_ERR,
 	EV_PLCI_CC_SUSPEND_CONF,
-	EV_PLCI_SUSPEND_CONF,
+	EV_PLCI_CC_RESUME_ERR,
+	EV_PLCI_CC_RESUME_CONF,
 	EV_PLCI_CC_REJECT_IND,
 }
 
@@ -287,6 +353,10 @@ static char* str_ev_plci[] = {
 	"EV_PLCI_DISCONNECT_REQ",
 	"EV_PLCI_DISCONNECT_IND",
 	"EV_PLCI_DISCONNECT_RESP",
+	"EV_PLCI_SUSPEND_REQ",
+	"EV_PLCI_SUSPEND_CONF",
+	"EV_PLCI_RESUME_REQ",
+	"EV_PLCI_RESUME_CONF",
 	"EV_PLCI_CC_SETUP_IND",
 	"EV_PLCI_CC_SETUP_CONF_ERR",
 	"EV_PLCI_CC_SETUP_CONF",
@@ -294,8 +364,11 @@ static char* str_ev_plci[] = {
 	"EV_PLCI_CC_DISCONNECT_IND",
 	"EV_PLCI_CC_RELEASE_IND",
 	"EV_PLCI_CC_RELEASE_PROC_IND",
+	"EV_PLCI_CC_NOTIFY_IND",
+	"EV_PLCI_CC_SUSPEND_ERR",
 	"EV_PLCI_CC_SUSPEND_CONF",
-	"EV_PLCI_SUSPEND_CONF",
+	"EV_PLCI_CC_RESUME_ERR",
+	"EV_PLCI_CC_RESUME_CONF",
 	"EV_PLCI_CC_REJECT_IND",
 };
 
@@ -375,6 +448,29 @@ static void plci_connect_conf(struct FsmInst *fi, int event, void *arg)
 static void plci_connect_ind(struct FsmInst *fi, int event, void *arg)
 {
 	FsmChangeState(fi, ST_PLCI_P_2);
+}
+
+static void plci_suspend_req(struct FsmInst *fi, int event, void *arg)
+{
+	struct Cplci *cplci = fi->userdata;
+	struct Plci *plci = cplci->plci;
+	struct suspend_req_parm *suspend_req = arg;
+
+	p_L4L3(&plci->l4_pc, CC_X_SUSPEND | REQUEST, suspend_req); 
+}
+
+static void plci_resume_req(struct FsmInst *fi, int event, void *arg)
+{
+	struct Cplci *cplci = fi->userdata;
+	struct Plci *plci = cplci->plci;
+	struct resume_req_parm *resume_req = arg;
+	
+	// we already sent CONF with Info = SuppInfo = 0
+
+	FsmChangeState(fi, ST_PLCI_P_RES);
+
+	plciNewCrReq(plci);
+	p_L4L3(&plci->l4_pc, CC_X_RESUME | REQUEST, resume_req);
 }
 
 static void plci_alert_req(struct FsmInst *fi, int event, void *arg)
@@ -514,6 +610,20 @@ static void plci_suspend_conf(struct FsmInst *fi, int event, void *arg)
 		ncciLinkDown(cplci->ncci);
 }
 
+static void plci_resume_conf(struct FsmInst *fi, int event, void *arg)
+{
+	// facility_ind Resume: Reason = 0
+	struct Cplci *cplci = fi->userdata;
+
+	FsmChangeState(fi, ST_PLCI_P_ACT);
+	cplci->ncci = cplciNewNcci(cplci);
+	if (!cplci->ncci) {
+		int_error();
+		return;
+	}
+	ncciLinkUp(cplci->ncci);
+}
+
 static void plci_disconnect_ind(struct FsmInst *fi, int event, void *arg)
 {
 	FsmChangeState(fi, ST_PLCI_P_6);
@@ -634,7 +744,113 @@ static void plci_cc_release_ind(struct FsmInst *fi, int event, void *arg)
 	cplciRecvCmsg(cplci, &cmsg);
 }
 
+static void plci_cc_notify_ind(struct FsmInst *fi, int event, void *arg)
+{
+	struct Cplci *cplci = fi->userdata;
+	struct sk_buff *skb = arg;
+	unsigned char *notify;
+	_cmsg cmsg;
+	__u8 tmp[10], *p;
+
+	notify = q931IE(skb, IE_NOTIFY);
+	if (!notify)
+		return;
+
+	if (notify[0] != 1) // len != 1
+		return;
+
+	switch (notify[1]) {
+	case 0x80: // user suspended
+	case 0x81: // user resumed
+		if (!(cplci->appl->NotificationMask & SuppServiceTP))
+			break;
+		cplciCmsgHeader(cplci, &cmsg, CAPI_FACILITY, CAPI_IND);
+		p = &tmp[1];
+		p += capiEncodeWord(p, 0x8002 + (notify[1] & 1)); // Suspend/Resume Notification
+		*p++ = 0; // empty struct
+		tmp[0] = p - &tmp[1];
+		cmsg.FacilitySelector = 0x0003;
+		cmsg.FacilityIndicationParameter = tmp;
+		cplciRecvCmsg(cplci, &cmsg);
+		break;
+	}
+
+}
+
+static void plci_suspend_reply(struct Cplci *cplci, __u16 SuppServiceReason)
+{
+	_cmsg cmsg;
+	__u8 tmp[10], *p;
+
+	cplciCmsgHeader(cplci, &cmsg, CAPI_FACILITY, CAPI_IND);
+	p = &tmp[1];
+	p += capiEncodeWord(p, 0x0004); // Suspend
+	p += capiEncodeFacIndSuspend(p, SuppServiceReason);
+	tmp[0] = p - &tmp[1];
+	cmsg.FacilitySelector = 0x0003;
+	cmsg.FacilityIndicationParameter = tmp;
+	cplciRecvCmsg(cplci, &cmsg);
+
+	if (SuppServiceReason == CapiSuccess)
+		FsmEvent(&cplci->plci_m, EV_PLCI_SUSPEND_CONF, &cmsg);
+}
+
+static void plci_cc_suspend_err(struct FsmInst *fi, int event, void *arg)
+{
+	struct Cplci *cplci = fi->userdata;
+	struct sk_buff *skb = arg;
+	unsigned char *cause = 0;
+	__u16 SuppServiceReason;
+	
+	if (skb) { // reject from network
+		cause = q931IE(skb, IE_CAUSE);
+		if (cause)
+			SuppServiceReason = 0x3400 | cause[2];
+		else
+			SuppServiceReason = CapiProtocolErrorLayer3;
+	} else { // timeout
+		SuppServiceReason = CapiTimeOut;
+	}
+	plci_suspend_reply(cplci, SuppServiceReason);
+}
+
 static void plci_cc_suspend_conf(struct FsmInst *fi, int event, void *arg)
+{
+	struct Cplci *cplci = fi->userdata;
+	_cmsg cmsg;
+
+	plci_suspend_reply(cplci, CapiSuccess);
+	
+	plciDetachCplci(cplci->plci, cplci);
+
+	cplciCmsgHeader(cplci, &cmsg, CAPI_DISCONNECT, CAPI_IND);
+	FsmEvent(&cplci->plci_m, EV_PLCI_DISCONNECT_IND, &cmsg);
+	cplciRecvCmsg(cplci, &cmsg);
+}
+
+static void plci_cc_resume_err(struct FsmInst *fi, int event, void *arg)
+{
+	struct Cplci *cplci = fi->userdata;
+	struct sk_buff *skb = arg;
+	unsigned char *cause = 0;
+	_cmsg cmsg;
+	
+	cplciCmsgHeader(cplci, &cmsg, CAPI_DISCONNECT, CAPI_IND);
+	if (skb) { // reject from network
+		plciDetachCplci(cplci->plci, cplci);
+		cause = q931IE(skb, IE_CAUSE);
+		if (cause)
+			cmsg.Reason = 0x3400 | cause[2];
+		else
+			cmsg.Reason = 0;
+	} else { // timeout
+		cmsg.Reason = CapiProtocolErrorLayer1;
+	}
+	FsmEvent(&cplci->plci_m, EV_PLCI_DISCONNECT_IND, &cmsg);
+	cplciRecvCmsg(cplci, &cmsg);
+}
+
+static void plci_cc_resume_conf(struct FsmInst *fi, int event, void *arg)
 {
 	struct Cplci *cplci = fi->userdata;
 	_cmsg cmsg;
@@ -642,20 +858,49 @@ static void plci_cc_suspend_conf(struct FsmInst *fi, int event, void *arg)
 	
 	cplciCmsgHeader(cplci, &cmsg, CAPI_FACILITY, CAPI_IND);
 	p = &tmp[1];
-	p += capiEncodeWord(p, 0x0004); // Suspend
+	p += capiEncodeWord(p, 0x0005); // Suspend
 	p += capiEncodeFacIndSuspend(p, CapiSuccess);
 	tmp[0] = p - &tmp[1];
 	cmsg.FacilitySelector = 0x0003;
 	cmsg.FacilityIndicationParameter = tmp;
 	contrRecvCmsg(cplci->contr, &cmsg);
 
-	FsmEvent(&cplci->plci_m, EV_PLCI_SUSPEND_CONF, &cmsg);
-	
-	plciDetachCplci(cplci->plci, cplci);
+	FsmEvent(&cplci->plci_m, EV_PLCI_RESUME_CONF, &cmsg);
+}
 
-	cplciCmsgHeader(cplci, &cmsg, CAPI_DISCONNECT, CAPI_IND);
-	FsmEvent(&cplci->plci_m, EV_PLCI_DISCONNECT_IND, &cmsg);
-	cplciRecvCmsg(cplci, &cmsg);
+static void plci_select_b_protocol_req(struct FsmInst *fi, int event, void *arg)
+{
+	struct Cplci *cplci = fi->userdata;
+	struct Ncci *ncci = cplci->ncci;
+	struct StackParams sp;
+	int bchannel, retval;
+	_cmsg *cmsg = arg;
+	__u16 Info = 0;
+
+	Info = cplciCheckBprotocol(cplci, cmsg);
+
+	if (!ncci) {
+		int_error();
+		return;
+	}
+	if (!ncci->l4.st) {
+ 		int_error();
+		return;
+	}
+	release_st(ncci->l4.st);
+	memset(ncci->l4.st, 0, sizeof(struct PStack));
+	bchannel = cplci->plci->l4_pc.l3pc->para.bchannel - 1;
+	sp.b1_mode = cplci->Bprotocol.B1protocol;
+	sp.b2_mode = cplci->Bprotocol.B2protocol;
+	sp.b3_mode = cplci->Bprotocol.B3protocol;
+	sp.headroom = 22; // reserve space for DATA_B3 IND message in skb's
+	retval = init_st(&ncci->l4, cplci->contr->cs, &sp, bchannel);
+
+	// FIXME: phActivate?
+
+	capi_cmsg_answer(cmsg);
+	cmsg->Info = Info;
+	cplciRecvCmsg(cplci, cmsg);
 }
 
 static void plci_info_req_overlap(struct FsmInst *fi, int event, void *arg)
@@ -670,6 +915,7 @@ static struct FsmNode fn_plci_list[] =
 {
   {ST_PLCI_P_0,                EV_PLCI_CONNECT_REQ,           plci_connect_req},
   {ST_PLCI_P_0,                EV_PLCI_CONNECT_IND,           plci_connect_ind},
+  {ST_PLCI_P_0,                EV_PLCI_RESUME_REQ,            plci_resume_req},
   {ST_PLCI_P_0,                EV_PLCI_CC_SETUP_IND,          plci_cc_setup_ind},
 
   {ST_PLCI_P_0_1,              EV_PLCI_CONNECT_CONF,          plci_connect_conf},
@@ -703,15 +949,24 @@ static struct FsmNode fn_plci_list[] =
   {ST_PLCI_P_ACT,              EV_PLCI_DISCONNECT_REQ,        plci_disconnect_req},
   {ST_PLCI_P_ACT,              EV_PLCI_DISCONNECT_IND,        plci_disconnect_ind},
   {ST_PLCI_P_ACT,              EV_PLCI_INFO_REQ,              plci_info_req},
+  {ST_PLCI_P_ACT,              EV_PLCI_SELECT_B_PROTOCOL_REQ, plci_select_b_protocol_req},
+  {ST_PLCI_P_ACT,              EV_PLCI_SUSPEND_REQ,           plci_suspend_req},
+  {ST_PLCI_P_ACT,              EV_PLCI_SUSPEND_CONF,          plci_suspend_conf},
   {ST_PLCI_P_ACT,              EV_PLCI_CC_DISCONNECT_IND,     plci_cc_disconnect_ind},
   {ST_PLCI_P_ACT,              EV_PLCI_CC_RELEASE_IND,        plci_cc_release_ind},
+  {ST_PLCI_P_ACT,              EV_PLCI_CC_NOTIFY_IND,         plci_cc_notify_ind},
+  {ST_PLCI_P_ACT,              EV_PLCI_CC_SUSPEND_ERR,        plci_cc_suspend_err},
   {ST_PLCI_P_ACT,              EV_PLCI_CC_SUSPEND_CONF,       plci_cc_suspend_conf},
-  {ST_PLCI_P_ACT,              EV_PLCI_SUSPEND_CONF,          plci_suspend_conf},
 
   {ST_PLCI_P_5,                EV_PLCI_DISCONNECT_IND,        plci_disconnect_ind},
   {ST_PLCI_P_5,                EV_PLCI_CC_RELEASE_IND,        plci_cc_release_ind},
 
   {ST_PLCI_P_6,                EV_PLCI_DISCONNECT_RESP,       plci_disconnect_resp},
+
+  {ST_PLCI_P_RES,              EV_PLCI_RESUME_CONF,           plci_resume_conf},
+  {ST_PLCI_P_RES,              EV_PLCI_DISCONNECT_IND,        plci_disconnect_ind},
+  {ST_PLCI_P_RES,              EV_PLCI_CC_RESUME_ERR,         plci_cc_resume_err},
+  {ST_PLCI_P_RES,              EV_PLCI_CC_RESUME_CONF,        plci_cc_resume_conf},
 
 #if 0
   {ST_PLCI_P_0,                EV_PLCI_FACILITY_IND,          plci_facility_ind_p_0_off_hook},
@@ -731,7 +986,6 @@ static struct FsmNode fn_plci_list[] =
 
   {ST_PLCI_P_4,                EV_PLCI_FACILITY_IND,          plci_facility_ind_on_hook},
 
-  {ST_PLCI_P_ACT,              EV_PLCI_SELECT_B_PROTOCOL_REQ, plci_select_b_protocol_req},
   {ST_PLCI_P_ACT,              EV_PLCI_FACILITY_IND,          plci_facility_ind_on_hook},
 
   {ST_PLCI_P_5,                EV_PLCI_FACILITY_IND,          plci_facility_ind_on_hook},
@@ -857,6 +1111,18 @@ void cplci_l3l4(struct Cplci *cplci, int pr, void *arg)
 	case CC_SUSPEND | CONFIRM:
 		FsmEvent(&cplci->plci_m, EV_PLCI_CC_SUSPEND_CONF, arg); 
 		break;
+	case CC_SUSPEND_ERR:
+		FsmEvent(&cplci->plci_m, EV_PLCI_CC_SUSPEND_ERR, arg); 
+		break;
+	case CC_RESUME | CONFIRM:
+		FsmEvent(&cplci->plci_m, EV_PLCI_CC_RESUME_CONF, arg); 
+		break;
+	case CC_RESUME_ERR:
+		FsmEvent(&cplci->plci_m, EV_PLCI_CC_RESUME_ERR, arg); 
+		break;
+	case CC_NOTIFY | INDICATION:
+		FsmEvent(&cplci->plci_m, EV_PLCI_CC_NOTIFY_IND, arg); 
+		break;
 	default:
 		cplciDebug(cplci, LL_DEB_WARN, 
 			   "cplci_handle_call_control: pr 0x%x not handled", pr);
@@ -889,6 +1155,9 @@ void cplciSendMessage(struct Cplci *cplci, struct sk_buff *skb)
 	case CAPI_CONNECT_ACTIVE_RESP:
 		retval = FsmEvent(&cplci->plci_m, EV_PLCI_CONNECT_ACTIVE_RESP, &cmsg);
 		break;
+	case CAPI_SELECT_B_PROTOCOL_REQ:
+		retval = FsmEvent(&cplci->plci_m, EV_PLCI_SELECT_B_PROTOCOL_REQ, &cmsg);
+		break;
 	default:
 		int_error();
 		retval = -1;
@@ -900,6 +1169,51 @@ void cplciSendMessage(struct Cplci *cplci, struct sk_buff *skb)
 		}
 	}
 	idev_kfree_skb(skb, FREE_READ);
+}
+
+int cplciFacSuspendReq(struct Cplci *cplci, struct FacReqParm *facReqParm,
+		     struct FacConfParm *facConfParm)
+{
+	struct suspend_req_parm suspend_req;
+	__u8 *CallIdentity;
+
+	CallIdentity = facReqParm->u.Suspend.CallIdentity;
+	if (CallIdentity[0] > 8) 
+		return CapiIllMessageParmCoding;
+	
+	suspend_req.call_identity[0] = IE_CALL_ID;
+	memcpy(&suspend_req.call_identity[1], CallIdentity, CallIdentity[0] + 1);
+	
+	if (FsmEvent(&cplci->plci_m, EV_PLCI_SUSPEND_REQ, &suspend_req)) {
+		// no routine
+		facConfParm->u.Info.SupplementaryServiceInfo = 
+			CapiRequestNotAllowedInThisState;
+	} else {
+		facConfParm->u.Info.SupplementaryServiceInfo = CapiSuccess;
+	}
+	return CapiSuccess;
+}
+
+int cplciFacResumeReq(struct Cplci *cplci, struct FacReqParm *facReqParm,
+		     struct FacConfParm *facConfParm)
+{
+	struct resume_req_parm resume_req;
+	int len;
+	__u8 *CallIdentity;
+
+	CallIdentity = facReqParm->u.Resume.CallIdentity;
+	len = CallIdentity[0];
+	if (len > 8) {
+		applDelCplci(cplci->appl, cplci);
+		return CapiIllMessageParmCoding;
+	}
+	
+	resume_req.call_identity[0] = IE_CALL_ID;
+	memcpy(&resume_req.call_identity[1], CallIdentity, len + 1);
+	FsmEvent(&cplci->plci_m, EV_PLCI_RESUME_REQ, &resume_req);
+
+	facConfParm->u.Info.SupplementaryServiceInfo = CapiSuccess;
+	return CapiSuccess;
 }
 
 void cplciClearOtherApps(struct Cplci *cplci)

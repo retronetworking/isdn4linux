@@ -2630,10 +2630,23 @@ l3dss1_suspend_rej(struct l3_process *pc, u_char pr, void *arg)
 		return;
 	}
 	l3pc_deltimer(pc);
-	p_L3L4(pc, CC_SUSPEND_ERR, 0);
+	p_L3L4(pc, CC_SUSPEND_ERR, skb);
 	l3pc_newstate(pc, 10);
 	if (ret) /* STATUS for none mandatory IE errors after actions are taken */
 		l3dss1_std_ie_err(pc, ret);
+}
+
+static void
+l3dss1_x_resume_req(struct l3_process *pc, u_char pr, void *arg)
+{
+	MsgDeclare(32);
+	struct resume_req_parm *resume_req = arg;
+
+	MsgXHead(pc->callref, MT_RESUME);
+	MsgAdd(resume_req->call_identity);
+	MsgSend();
+	l3pc_newstate(pc, 17);
+	l3pc_addtimer(pc, T318, CC_T318);
 }
 
 static void
@@ -2704,7 +2717,7 @@ l3dss1_resume_rej(struct l3_process *pc, u_char pr, void *arg)
 		return;
 	}
 	l3pc_deltimer(pc);
-	p_L3L4(pc, CC_RESUME_ERR, 0);
+	p_L3L4(pc, CC_RESUME_ERR, skb);
 	l3pc_newstate(pc, 0);
 	if (ret) /* STATUS for none mandatory IE errors after actions are taken */
 		l3dss1_std_ie_err(pc, ret);
@@ -2798,6 +2811,8 @@ static struct stateentry downstatelist[] =
 	 CC_X_SETUP | REQUEST, l3dss1_x_setup_req},
 	{SBIT(0),
 	 CC_RESUME | REQUEST, l3dss1_resume_req},
+	{SBIT(0),
+	 CC_X_RESUME | REQUEST, l3dss1_x_resume_req},
 	{SBIT(1) | SBIT(2) | SBIT(3) | SBIT(4) | SBIT(6) | SBIT(7) | SBIT(8) | SBIT(9) | SBIT(10),
 	 CC_DISCONNECT | REQUEST, l3dss1_disconnect_req},
 	{SBIT(1) | SBIT(2) | SBIT(3) | SBIT(4) | SBIT(6) | SBIT(7) | SBIT(8) | SBIT(9) | SBIT(10),

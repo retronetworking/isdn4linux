@@ -6,6 +6,9 @@
  * (c) Copyright 1997 by Carsten Paeth (calle@calle.in-berlin.de)
  * 
  * $Log$
+ * Revision 1.5.2.3  2000/04/10 23:09:16  kai
+ * cleanup - part one
+ *
  * Revision 1.5.2.2  2000/03/27 22:18:49  kai
  * more merging, doesn't work
  *
@@ -204,6 +207,14 @@ typedef enum {
 	CapiSupplementaryServiceNotSupported            = 0x300e,
 	CapiRequestNotAllowedInThisState                = 0x3010,
 } SUPPLEMENTARY_SERVICE_INFO;
+
+typedef enum {
+	CapiProtocolErrorLayer1         = 0x3301,
+	CapiProtocolErrorLayer2         = 0x3302,
+	CapiProtocolErrorLayer3         = 0x3303,
+	CapiTimeOut                     = 0x3303, // SuppServiceReason
+	CapiCallGivenToOtherApplication = 0x3304,
+} CAPI_REASON;
 
 #endif				/* __KERNEL__ */
 

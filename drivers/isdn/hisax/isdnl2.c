@@ -301,7 +301,7 @@ iframe_error(struct PStack *st, struct sk_buff *skb)
 		return 'L';
 
 
-	if (skb->len < i)
+	if (skb->len <= i)
 		return 'N';
 
 	if ((skb->len - i) > st->l2.maxlen)

@@ -63,6 +63,10 @@ struct FacReqSuspend {
 	__u8 *CallIdentity;
 };
 
+struct FacReqResume {
+	__u8 *CallIdentity;
+};
+
 struct FacReqCFActivate {
 	__u32 Handle;
 	__u16 Procedure;
@@ -90,6 +94,7 @@ struct FacReqParm {
 	union {
 		struct FacReqListen Listen;
 		struct FacReqSuspend Suspend;
+		struct FacReqResume Resume;
 		struct FacReqCFActivate CFActivate;
 		struct FacReqCFDeactivate CFDeactivate;
 		struct FacReqCFInterrogateParameters CFInterrogateParameters;
@@ -272,8 +277,10 @@ struct Ncci *cplciNewNcci(struct Cplci* cplci);
 void cplciDelNcci(struct Cplci* cplci);
 void cplciRecvCmsg(struct Cplci *cplci, _cmsg *cmsg);
 void cplciCmsgHeader(struct Cplci *cplci, _cmsg *cmsg, __u8 cmd, __u8 subcmd);
-int cplciFacSuspend(struct Cplci *cplci, struct FacReqParm *facReqParm,
-		    struct FacConfParm *facConfParm);
+int cplciFacSuspendReq(struct Cplci *cplci, struct FacReqParm *facReqParm,
+		       struct FacConfParm *facConfParm);
+int cplciFacResumeReq(struct Cplci *cplci, struct FacReqParm *facReqParm,
+		      struct FacConfParm *facConfParm);
 
 // ---------------------------------------------------------------------------
 // struct Ncci

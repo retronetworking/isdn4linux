@@ -244,7 +244,7 @@ static void ncci_dl_down_ind(struct FsmInst *fi, int event, void *arg)
 	_cmsg cmsg;
 
 	ncciCmsgHeader(ncci, &cmsg, CAPI_DISCONNECT_B3, CAPI_IND);
-	cmsg.Reason_B3 = 0x3301;
+	cmsg.Reason_B3 = CapiProtocolErrorLayer1;
 	FsmEvent(&ncci->ncci_m, EV_NCCI_DISCONNECT_B3_IND, &cmsg);
 	ncciRecvCmsg(ncci, &cmsg);
 }
@@ -354,6 +354,7 @@ void ncciDestr(struct Ncci *ncci)
 		return;
 	}
 	release_st(ncci->l4.st);
+	// FIXME: kfree (st) ?
 	ncci->cplci->contr->ctrl->free_ncci(ncci->cplci->contr->ctrl, 
 					    ncci->cplci->appl->ApplId, ncci->adrNCCI);
 }

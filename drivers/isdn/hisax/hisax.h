@@ -80,6 +80,7 @@
 #define CC_SETUP	0x0300
 #define CC_X_SETUP	0x0308
 #define CC_RESUME	0x0304
+#define CC_X_RESUME	0x030C
 #define CC_MORE_INFO	0x0310
 #define CC_IGNORE	0x0320
 #define CC_REJECT	0x0324
@@ -94,7 +95,7 @@
 #define CC_X_DISCONNECT	0x0364
 #define CC_RELEASE	0x0368
 #define CC_SUSPEND	0x0370
-#define CC_X_SUSPEND	0x037A
+#define CC_X_SUSPEND	0x037C
 #define CC_PROCEED_SEND 0x0374
 #define CC_REDIR        0x0378
 #define CC_T303		0x0383
