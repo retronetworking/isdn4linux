@@ -21,6 +21,11 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.14  1996/06/11 14:54:08  hipp
+ * minor bugfix in isdn_net_send_skb
+ * changes in BSENT callback handler for syncPPP
+ * added lp->sav_skb stuff
+ *
  * Revision 1.13  1996/06/06 14:25:44  fritz
  * Changed loglevel of "incoming ... without OAD" message, since
  * with audio support this is quite normal.
@@ -133,9 +138,9 @@ isdn_net_open(struct device *dev)
 	isdn_net_reset(dev);
 	dev->start = 1;
 	/* Fill in the MAC-level header. */
-	for (i = 0; i < ETH_ALEN - sizeof(ulong); i++)
+	for (i = 0; i < ETH_ALEN - sizeof(u32); i++)
 		dev->dev_addr[i] = 0xfc;
-	memcpy(&(dev->dev_addr[i]), &dev->pa_addr, sizeof(ulong));
+	memcpy(&(dev->dev_addr[i]), &dev->pa_addr, sizeof(u32));
 
         /* If this interface has slaves, start them also */
 
@@ -1260,7 +1265,7 @@ isdn_net_header(struct sk_buff *skb, struct device *dev, unsigned short type,
                          * guaranteed to be invalid. Need that to check
                          * for already compressed packets in isdn_ppp_xmit().
                          */
-                        *((unsigned long *)skb_push(skb, len)) = 0;
+                        *((u32 *)skb_push(skb, len)) = 0;
                         break;
 #endif
 	}
@@ -1270,7 +1275,7 @@ isdn_net_header(struct sk_buff *skb, struct device *dev, unsigned short type,
 /* We don't need to send arp, because we have point-to-point connections. */
 
 static int
-isdn_net_rebuild_header(void *buff, struct device *dev, ulong dst,
+isdn_net_rebuild_header(void *buff, struct device *dev, u32 dst,
                         struct sk_buff *skb)
 {
 	isdn_net_local *lp = dev->priv;
