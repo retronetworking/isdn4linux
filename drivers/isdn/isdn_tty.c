@@ -20,6 +20,10 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.84  2000/02/16 15:10:14  paul
+ * If a ttyI has no open FDs, don't connect incoming calls to it.
+ * (Hangup on close of last FD is still to be done.)
+ *
  * Revision 1.83  2000/02/16 14:59:33  paul
  * translated ISDN_MODEM_ANZREG to ISDN_MODEM_NUMREG for english speakers;
  * used defines for result codes;
@@ -1501,6 +1505,7 @@ isdn_tty_write(struct tty_struct *tty, int from_user, const u_char * buf, int co
 	int c;
 	int total = 0;
 	modem_info *info = (modem_info *) tty->driver_data;
+	atemu *m = &info->emu;
 
 	if (isdn_tty_paranoia_check(info, tty->device, "isdn_tty_write"))
 		return 0;
@@ -1521,8 +1526,6 @@ isdn_tty_write(struct tty_struct *tty, int from_user, const u_char * buf, int co
 		    || (info->vonline & 3)
 #endif
 			) {
-			atemu *m = &info->emu;
-
 #ifdef CONFIG_ISDN_AUDIO
 			if (!info->vonline)
 #endif
@@ -1604,9 +1607,14 @@ isdn_tty_write(struct tty_struct *tty, int from_user, const u_char * buf, int co
 		count -= c;
 		total += c;
 	}
-	if ((info->xmit_count) || (skb_queue_len(&info->xmit_queue)))
-		isdn_timer_ctrl(ISDN_TIMER_MODEMXMIT, 1);
 	atomic_dec(&info->xmit_lock);
+	if ((info->xmit_count) || (skb_queue_len(&info->xmit_queue))) {
+		if (m->mdmreg[REG_DXMT] & BIT_DXMT) {
+			isdn_tty_senddown(info);
+			isdn_tty_tint(info);
+		}
+		isdn_timer_ctrl(ISDN_TIMER_MODEMXMIT, 1);
+	}
 	if (from_user)
 		up(&info->write_sem);
 	return total;

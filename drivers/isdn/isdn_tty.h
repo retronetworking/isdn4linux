@@ -20,6 +20,11 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.19  2000/02/16 14:59:33  paul
+ * translated ISDN_MODEM_ANZREG to ISDN_MODEM_NUMREG for english speakers;
+ * used defines for result codes;
+ * fixed RING ... RUNG problem (no empty lines in between).
+ *
  * Revision 1.18  2000/01/20 19:55:33  keil
  * Add FAX Class 1 support
  *
@@ -135,6 +140,8 @@
 #define REG_CPPP     12
 #define BIT_CPPP    128
 
+#define REG_DXMT     13
+#define BIT_DXMT      1
 #define REG_T70      13
 #define BIT_T70       2
 #define BIT_T70_EXT  32
