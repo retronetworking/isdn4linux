@@ -6,6 +6,9 @@
  * (c) Copyright 1997 by Carsten Paeth (calle@calle.in-berlin.de)
  * 
  * $Log$
+ * Revision 1.4.2.5  1997/12/07 19:59:54  calle
+ * more changes for M1/T1/B1 + config
+ *
  * Revision 1.4.2.4  1997/11/26 16:57:20  calle
  * more changes for B1/M1/T1.
  *
@@ -799,7 +802,7 @@ static int capi_manufacturer(unsigned int cmd, void *data)
 				printk(KERN_DEBUG "b1capi: loading config to contr %d\n",
 				   			ldef.contr);
 		   	}
-			if ((rc = B1_load_config(card->port, &ldef.t4file))) {
+			if ((rc = B1_load_config(card->port, &ldef.t4config))) {
 				B1_reset(card->port);
 				printk(KERN_ERR "b1capi: failed to load config!!\n");
 				card->cardstate = CARD_DETECTED;
