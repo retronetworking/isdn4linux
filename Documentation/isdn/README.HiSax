@@ -30,17 +30,20 @@ ELSA Microlink PCC-16, PCF, PCF-Pro, PCC-8
 ELSA Quickstep 1000
 ELSA PCMCIA
 ITK ix1-micro Rev.2
+Eicon.Diehl Diva 2.0 ISA and PCI (S0 and U interface, no PRO version)
+Eicon.Diehl Diva Piccola
+Dynalink IS64PH
 
 Note: PCF, PCF-Pro: up to now, only the ISDN part is supported
       PCC-8: not tested yet
       Teles PCMCIA is EXPERIMENTAL
+      Eicon.Diehl Diva Piccola not tested yet
+      Eicon.Diehl Diva U interface not tested
 
 If you know other passive cards with the Siemens chipset, please let me know.
 To use the PNP cards you need the isapnptools.
 You can combine any card, if there is no conflict between the ressources
-(io, mem, irq), with one exception: The ELSA PCMCIA cannot work with an other
-non PCMCIA ELSA card at the same time. You cannot select ELSA ISA and ELSA
-PCMCIA support at the same time during kernel config.
+(io, mem, irq).
 
 
 Configuring the driver
@@ -113,10 +116,13 @@ Card types:
     6   ELSA PCC/PCF cards       io or nothing for autodetect (the iobase is
                                  required only if you have more than one ELSA
                                  card in your PC)
-    7   ELSA Quickstep 1000	 irq, io  (from isapnp setup)
-    7   ELSA PCMCIA		 irq, io  (set with card manager)
+    7   ELSA Quickstep 1000      irq, io  (from isapnp setup)
     8   Teles 16.3 PCMCIA     	 irq, io
     9   ITK ix1-micro Rev.2      irq, io
+   10   ELSA PCMCIA		 irq, io  (set with card manager)
+   11   Eicon.Diehl Diva ISA PnP irq, io
+   11   Eicon.Diehl Diva PCI     no parameter
+   12   Dynalink IS64PH          irq, io  (from isapnp setup)
         
 At the moment IRQ sharing is not possible. Please make sure that your IRQ
 is free and enabled for ISA use.
@@ -181,16 +187,19 @@ where
 Card types:
        
   type  
-    1 	Teles 16.0     		pa=irq	pb=membase	pc=iobase
-    2 	Teles  8.0      	pa=irq	pb=membase
-    3 	Teles 16.3      	pa=irq	pb=iobase
+    1 	Teles 16.0     	        pa=irq  pb=membase  pc=iobase
+    2 	Teles  8.0              pa=irq  pb=membase
+    3 	Teles 16.3              pa=irq  pb=iobase
     4 	Creatix/Teles PNP     	ONLY WORKS AS A MODULE !
-    5 	AVM A1 (Fritz)  	pa=irq	pb=iobase
+    5 	AVM A1 (Fritz)          pa=irq  pb=iobase
     6 	ELSA PCC/PCF cards      pa=iobase or nothing for autodetect
-    7   ELSA Quickstep 1000	ONLY WORKS AS A MODULE !
-    7   ELSA PCMCIA		irq, io  (set with card manager)
-    8   Teles S0 PCMCIA    	pa=irq  pb=iobase
+    7   ELSA Quickstep 1000     ONLY WORKS AS A MODULE !
+    8   Teles S0 PCMCIA         pa=irq  pb=iobase
     9   ITK ix1-micro Rev.2     pa=irq  pb=iobase
+   10   ELSA PCMCIA             irq, io  (set with card manager)
+   11   Eicon.Diehl Diva ISAPnP ONLY WORKS AS A MODULE !
+   11   Eicon.Diehl Diva PCI    no parameter
+   12   Dynalink IS64PH         ^ONLY WORKS AS A MODULE !
 
 
 Running the driver
@@ -305,6 +314,8 @@ Special thanks to:
 	send me a mail). 
 
         Firma ELSA GmbH
+        Firma Eicon.Diehl GmbH
+        Firma Dynalink
         
         My girl friend and partner in life Ute for her patience with me.
 
