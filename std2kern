@@ -12,6 +12,7 @@ docpd() {
     if $NOTEST ; then
         echo Copying $1 ...
 	mkdir -p `dirname $2`
+	rm -rf $2 # unlink first
         cp $1 $2
     else
         echo $1 was changed
@@ -28,6 +29,7 @@ docp() {
     if $NOTEST ; then
         echo Copying $1 ...
 	mkdir -p `dirname $2`
+	rm -rf $2 # unlink first
         cp $1 $2
     else
         echo $1 was changed
@@ -55,6 +57,7 @@ docpuni() {
 				echo "Processing $1 ... copying original"
 			fi
 			mkdir -p `dirname $2`
+			rm -rf $2 # unlink first
 			cp $1 $2
 		else
 			if $VERBOSE ; then
@@ -80,6 +83,7 @@ docpuni() {
 				echo "Processing $1 ... copying modified"
 			fi
 			mkdir -p `dirname $2`
+			rm -rf $2 # unlink first
 			cp $TMPNAME $2
 		else
 			if $VERBOSE ; then
