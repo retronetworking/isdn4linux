@@ -6,6 +6,9 @@
  *
  *
  * $Log$
+ * Revision 1.3.2.3  1997/11/27 12:30:55  keil
+ * cosmetic changes
+ *
  * Revision 1.3.2.2  1997/11/15 18:54:25  keil
  * cosmetics
  *
@@ -24,6 +27,7 @@
 #define __NO_VERSION__
 #include "hisax.h"
 #include "hscx.h"
+#include "isac.h"
 #include "isdnl1.h"
 #include <linux/interrupt.h>
 
@@ -210,7 +214,7 @@ hscx_manl1(struct PStack *st, int pr,
 			break;
 		case (PH_DEACTIVATE_REQ):
 			if (!test_bit(BC_FLG_BUSY, &st->l1.bcs->Flag))
-				modehscx(st->l1.bcs, 0, 0);
+				modehscx(st->l1.bcs, 0, st->l1.bc);
 			test_and_clear_bit(BC_FLG_ACTIV, &st->l1.bcs->Flag);
 			break;
 	}
@@ -226,25 +230,27 @@ setstack_hscx(struct PStack *st, struct BCState *bcs)
 	st->ma.manl1 = hscx_manl1;
 	setstack_manager(st);
 	bcs->st = st;
+	st->l1.Flags = 0;
 	return (0);
 }
 
 HISAX_INITFUNC(void
 clear_pending_hscx_ints(struct IsdnCardState *cs))
 {
-	int val;
+	int val, eval;
 	char tmp[64];
 
 	val = cs->BC_Read_Reg(cs, 1, HSCX_ISTA);
 	sprintf(tmp, "HSCX B ISTA %x", val);
 	debugl1(cs, tmp);
 	if (val & 0x01) {
-		val = cs->BC_Read_Reg(cs, 1, HSCX_EXIR);
-		sprintf(tmp, "HSCX B EXIR %x", val);
+		eval = cs->BC_Read_Reg(cs, 1, HSCX_EXIR);
+		sprintf(tmp, "HSCX B EXIR %x", eval);
 		debugl1(cs, tmp);
-	} else if (val & 0x02) {
-		val = cs->BC_Read_Reg(cs, 0, HSCX_EXIR);
-		sprintf(tmp, "HSCX A EXIR %x", val);
+	}
+	if (val & 0x02) {
+		eval = cs->BC_Read_Reg(cs, 0, HSCX_EXIR);
+		sprintf(tmp, "HSCX A EXIR %x", eval);
 		debugl1(cs, tmp);
 	}
 	val = cs->BC_Read_Reg(cs, 0, HSCX_ISTA);
@@ -256,10 +262,9 @@ clear_pending_hscx_ints(struct IsdnCardState *cs))
 	val = cs->BC_Read_Reg(cs, 0, HSCX_STAR);
 	sprintf(tmp, "HSCX A STAR %x", val);
 	debugl1(cs, tmp);
+	/* disable all IRQ */
 	cs->BC_Write_Reg(cs, 0, HSCX_MASK, 0xFF);
 	cs->BC_Write_Reg(cs, 1, HSCX_MASK, 0xFF);
-	cs->BC_Write_Reg(cs, 0, HSCX_MASK, 0);
-	cs->BC_Write_Reg(cs, 1, HSCX_MASK, 0);
 }
 
 HISAX_INITFUNC(void 
@@ -271,4 +276,23 @@ inithscx(struct IsdnCardState *cs))
 	cs->bcs[1].BC_Close = close_hscxstate;
 	modehscx(cs->bcs, 0, 0);
 	modehscx(cs->bcs + 1, 0, 0);
+}
+
+HISAX_INITFUNC(void 
+inithscxisac(struct IsdnCardState *cs, int part))
+{
+	if (part & 1) {
+		clear_pending_isac_ints(cs);
+		clear_pending_hscx_ints(cs);
+		initisac(cs);
+		inithscx(cs);
+	}
+	if (part & 2) {
+		/* Reenable all IRQ */
+		cs->writeisac(cs, ISAC_MASK, 0);
+		cs->BC_Write_Reg(cs, 0, HSCX_MASK, 0);
+		cs->BC_Write_Reg(cs, 1, HSCX_MASK, 0);
+		/* RESET Receiver and Transmitter */
+		cs->writeisac(cs, ISAC_CMDR, 0x41);
+	}
 }
