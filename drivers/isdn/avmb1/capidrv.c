@@ -6,6 +6,9 @@
  * Copyright 1997 by Carsten Paeth (calle@calle.in-berlin.de)
  *
  * $Log$
+ * Revision 1.15  1999/05/25 21:26:16  calle
+ * Include CAPI-Channelallocation (leased lines) from the 2.0 tree.
+ *
  * Revision 1.14  1999/05/22 07:55:06  calle
  * Added *V110* to AVM B1 driver.
  *
@@ -1902,6 +1905,9 @@ static int if_sendbuf(int id, int channel, int doack, struct sk_buff *skb)
 		       card->contrnr, id);
 		return 0;
 	}
+	if (debugmode > 1)
+		printk(KERN_DEBUG "capidrv-%d: sendbuf len=%d skb=%p doack=%d\n",
+					card->contrnr, len, skb, doack);
 	bchan = &card->bchans[channel % card->nbchan];
 	nccip = bchan->nccip;
 	if (!nccip || nccip->state != ST_NCCI_ACTIVE) {
@@ -1931,9 +1937,9 @@ static int if_sendbuf(int id, int channel, int doack, struct sk_buff *skb)
 		        (void)capidrv_del_ack(nccip, datahandle);
 			return 0;
 		}
-#if 0
-		printk(KERN_DEBUG "capidrv-%d: only %d bytes headroom\n",
-		       card->contrnr, skb_headroom(skb));
+#if 1
+		printk(KERN_DEBUG "capidrv-%d: only %d bytes headroom, need %d\n",
+		       card->contrnr, skb_headroom(skb), msglen);
 #endif
 		memcpy(skb_put(nskb, msglen), sendcmsg.buf, msglen);
 		memcpy(skb_put(nskb, skb->len), skb->data, skb->len);
@@ -1953,6 +1959,7 @@ static int if_sendbuf(int id, int channel, int doack, struct sk_buff *skb)
 			nccip->datahandle++;
 			return len;
 		}
+		skb_pull(skb, msglen);
 	        (void)capidrv_del_ack(nccip, datahandle);
 		return errcode == CAPI_SENDQUEUEFULL ? 0 : -1;
 	}
