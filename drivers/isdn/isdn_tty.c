@@ -1182,8 +1182,6 @@ isdn_tty_write(struct tty_struct *tty, int from_user, const u_char * buf, int co
 
 	if (isdn_tty_paranoia_check(info, tty->device, "isdn_tty_write"))
 		return 0;
-	if (!tty)
-		return 0;
 	if (from_user)
 		down(&info->write_sem);
 	/* See isdn_tty_senddown() */
