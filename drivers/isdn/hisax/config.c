@@ -379,7 +379,7 @@ MODULE_PARM(io1, "1-8i");
 #endif /* IO0_IO1 */
 #endif /* MODULE */
 
-static int nrcards;
+int nrcards;
 
 extern char *l1_revision;
 extern char *l2_revision;
