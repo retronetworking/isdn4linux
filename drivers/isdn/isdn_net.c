@@ -21,6 +21,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.20  1996/08/29 20:06:03  fritz
+ * Bugfix: Transmission timeout had been much to low.
+ *
  * Revision 1.19  1996/08/12 16:24:32  hipp
  * removed some (now) obsolete functions for syncPPP in rebuild_header etc.
  *
@@ -663,7 +666,6 @@ isdn_net_log_packet(u_char * buf, isdn_net_local * lp)
         u_char *p = buf;
 	unsigned short proto = ETH_P_IP;
         int data_ofs;
-        int len;
 	ip_ports *ipp;
 	char addinfo[100];
 
@@ -1712,9 +1714,14 @@ isdn_net_find_icall(int di, int ch, int idx, char *num)
 					       eaz);
 					/* if this interface is dialing, it does it probably on a different
 					   device, so free this device */
-					if ((p->local.dialstate == 4) || (p->local.dialstate == 12))
+					if ((p->local.dialstate == 4) || (p->local.dialstate == 12)) {
+#ifdef CONFIG_ISDN_PPP
+						if(lp->p_encap == ISDN_NET_ENCAP_SYNCPPP)
+							isdn_ppp_free(lp);
+#endif
 						isdn_free_channel(p->local.isdn_device, p->local.isdn_channel,
 							 ISDN_USAGE_NET);
+					}
 					dev->usage[idx] &= ISDN_USAGE_EXCLUSIVE;
 					dev->usage[idx] |= ISDN_USAGE_NET;
 					strcpy(dev->num[idx], nr);
@@ -1895,6 +1902,8 @@ isdn_net_new(char *name, struct device *master)
 	netdev->local.exclusive = -1;
 	netdev->local.ppp_slot = -1;
 	netdev->local.pppbind = -1;
+	netdev->local.sav_skb = NULL;
+	netdev->local.first_skb = NULL;
 	netdev->local.l2_proto = ISDN_PROTO_L2_X75I;
 	netdev->local.l3_proto = ISDN_PROTO_L3_TRANS;
 	netdev->local.slavedelay = 10 * HZ;
@@ -1970,10 +1979,15 @@ int isdn_net_setcfg(isdn_net_ioctl_cfg * cfg)
                         }
 #ifndef CONFIG_ISDN_PPP
                 if (cfg->p_encap == ISDN_NET_ENCAP_SYNCPPP) {
-                        printk(KERN_WARNING "%s: SyncPPP not configured\n",
+                        printk(KERN_WARNING "%s: SyncPPP support not configured\n",
                                p->local.name);
                         return -EINVAL;
                 }
+#else
+                if (cfg->p_encap == ISDN_NET_ENCAP_SYNCPPP) {
+			p->dev.type = ARPHRD_PPP; /* change ARP type */
+			p->dev.addr_len = 0;
+		}
 #endif
 		if (strlen(cfg->drvid)) {
 			/* A bind has been requested ... */
