@@ -78,7 +78,7 @@ ulong DebugVar;
 
 spinlock_t eicon_lock;
 
-DESCRIPTOR idi_d[16];
+DESCRIPTOR idi_d[32];
 
 /* Parameters to be set by insmod */
 #ifdef CONFIG_ISDN_DRV_EICON_ISA
@@ -400,9 +400,13 @@ eicon_command(eicon_card * card, isdn_ctrl * c)
 					if (((c->arg - EICON_IOCTL_DIA_OFFSET)==DIA_IOCTL_START) && (!ret)) {
 						if (card->type != EICON_CTYPE_MAESTRAQ) {
 							DIVA_DIDD_Read(idi_d, sizeof(idi_d));
-                                                        for(idi_length = 0; idi_length < 16; idi_length++)
+                                                        for(idi_length = 0; idi_length < 32; idi_length++) {
                                                           if (idi_d[idi_length].type == 0) break;
-                                                        if (idi_length < 1) break;
+                                                        }
+                                                        if ((idi_length < 1) || (idi_length >= 32)) {
+					                  eicon_log(card, 1, "eicon: invalid idi table length.\n");
+                                                          break;
+                                                        }
 							card->d = &idi_d[idi_length - 1];
 							card->flags |= EICON_FLAGS_LOADED;
 							card->flags |= EICON_FLAGS_RUNNING;
@@ -423,9 +427,12 @@ eicon_command(eicon_card * card, isdn_ctrl * c)
 						} else {
 							int i;
 							DIVA_DIDD_Read(idi_d, sizeof(idi_d));
-                                                        for(idi_length = 0; idi_length < 16; idi_length++)
+                                                        for(idi_length = 0; idi_length < 32; idi_length++)
                                                           if (idi_d[idi_length].type == 0) break;
-                                                        if (idi_length < 1) break;
+                                                        if ((idi_length < 1) || (idi_length >= 32)) {
+					                  eicon_log(card, 1, "eicon: invalid idi table length.\n");
+                                                          break;
+                                                        }
         						for(i = 3; i >= 0; i--) {
 								if (!(card = eicon_findnpcicard(dstart.card_id - i)))
 									return -EINVAL;

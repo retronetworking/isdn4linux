@@ -81,10 +81,20 @@ card_t	DivasCards[MAX_CARDS];
 dia_config_t *DivasConfig(card_t *, dia_config_t *);
 
 static
-DESCRIPTOR DIDD_Table[16];
+DESCRIPTOR DIDD_Table[32];
 
 void    DIVA_DIDD_Read( DESCRIPTOR *table, int tablelength )
 {
+        if (tablelength > sizeof(DIDD_Table))
+          tablelength = sizeof(DIDD_Table);
+
+        bzero(table, tablelength);
+
+        if(tablelength % sizeof(DESCRIPTOR)) {
+          tablelength /= sizeof(DESCRIPTOR);
+          tablelength *= sizeof(DESCRIPTOR);
+        }
+
         if (tablelength > 0)
           bcopy((caddr_t)DIDD_Table, (caddr_t)table, tablelength);
 
@@ -105,7 +115,7 @@ void 	DIVA_DIDD_Write(DESCRIPTOR *table, int tablelength)
 static
 void    init_idi_tab(void)
 {
-    DESCRIPTOR d[16];
+    DESCRIPTOR d[32];
 
     bzero(d, sizeof(d));
 
@@ -654,7 +664,7 @@ int DivasCardLoad(dia_load_t *load)
 
 static int idi_register(card_t *card, byte channels)
 {
-    DESCRIPTOR d[16];
+    DESCRIPTOR d[32];
     int length, num_entities;
 
 	DPRINTF(("divas: registering card with IDI"));
