@@ -6,6 +6,11 @@
  * (c) Copyright 1997 by Carsten Paeth (calle@calle.in-berlin.de)
  * 
  * $Log$
+ * Revision 1.3  1997/10/01 09:21:14  fritz
+ * Removed old compatibility stuff for 2.0.X kernels.
+ * From now on, this code is for 2.1.X ONLY!
+ * Old stuff is still in the separate branch.
+ *
  * Revision 1.2  1997/05/18 09:24:13  calle
  * added verbose disconnect reason reporting to avmb1.
  * some fixes in capi20 interface.
@@ -96,13 +101,13 @@ int b1pci_init(void)
 		printk(KERN_INFO
 			"b1pci: PCI BIOS reports AVM-B1 at i/o %#x, irq %d\n",
 			ioaddr, irq);
-		if ((rc = avmb1_probecard(ioaddr, irq)) != 0) {
+		if ((rc = avmb1_probecard(ioaddr, irq, AVM_CARDTYPE_B1)) != 0) {
 		        printk(KERN_ERR
 			"b1pci: no AVM-B1 at i/o %#x, irq %d detected\n",
 			ioaddr, irq);
 			return rc;
 		}
-		if ((rc = avmb1_addcard(ioaddr, irq)) != 0)
+		if ((rc = avmb1_addcard(ioaddr, irq, AVM_CARDTYPE_B1)) != 0)
 			return rc;
 	}
 	return 0;
