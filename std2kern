@@ -138,7 +138,7 @@ else
     $DOCP $i $KERNELDIR/$i
   done
   for i in Documentation/isdn/CREDITS Documentation/isdn/README* \
-           Documentation/isdn/*.FAQ Documentation/isdn/INTERFACE \
+           Documentation/isdn/*.FAQ Documentation/isdn/INTERFACE* \
            Documentation/isdn/HiSax* Documentation/isdn/00-INDEX ; do
     $DOCP $i $KERNELDIR/$i
   done

@@ -30,6 +30,8 @@ The command set is known as Class 2 (not Class 2.0) and
 can be activated by AT+FCLASS=2
 
 
+The interface between the link-level-module and the hardware-level driver
+is described in the files INTERFACE.fax and INTERFACE.
 
 Armin
 mac@melware.de
