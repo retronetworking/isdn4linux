@@ -21,6 +21,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.14  1999/04/12 12:33:18  fritz
+ * Changes from 2.0 tree.
+ *
  * Revision 1.13  1999/03/02 12:04:47  armin
  * -added ISDN_STAT_ADDCH to increase supported channels after
  *  register_isdn().
@@ -115,6 +118,6 @@ extern int isdn_writebuf_skb_stub(int, int, int, struct sk_buff *);
 extern int register_isdn(isdn_if * i);
 extern int isdn_wildmat(char *, char *);
 extern int isdn_add_channels(driver *, int, int, int);
-#if defined(ISDN_DEBUG_NET_DUMP) || defined(ISDN_DEBUG_MODEM_DUMP) || defined(CONFIG_ISDN_TIMEOUT_RULES)
+#if defined(ISDN_DEBUG_NET_DUMP) || defined(ISDN_DEBUG_MODEM_DUMP)
 extern void isdn_dumppkt(char *, u_char *, int, int);
 #endif

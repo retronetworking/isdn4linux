@@ -21,6 +21,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.62  1999/04/12 13:16:54  fritz
+ * Changes from 2.0 tree.
+ *
  * Revision 1.61  1999/03/02 11:43:21  armin
  * Added variable to store connect-message of Modem.
  * Added Timer-define for RegS7 (Wait for Carrier).
@@ -519,28 +522,6 @@ typedef struct {
   char num[ISDN_MSNLEN];
 } isdn_net_phone;
 
-#ifdef CONFIG_ISDN_TIMEOUT_RULES
-#include <linux/isdn_timru.h>
-
-struct isdn_timeout_rules {
-	isdn_timeout_rule	*timru[ISDN_TIMRU_NUM_CHECK][ISDN_TIMRU_NUM_PROTFAM];
-	int			defaults[ISDN_TIMRU_NUM_CHECK];
-};
-#endif
-
-#ifdef CONFIG_ISDN_BUDGET
-#include <linux/isdn_budget.h>
-
-typedef struct {
-	int		amount,			/* usable amount */
-			used,			/* used so far */
-			period,			/* length of period */
-			notified;		/* flag: notified user about low budget */
-	time_t	period_started,	/* when did the current period start? */
-			last_check;		/* last time checked */
-}	isdn_budget;
-#endif
-
 /*
    Principles when extending structures for generic encapsulation protocol
    ("concap") support:
@@ -628,12 +609,6 @@ typedef struct isdn_net_local_s {
   ulong					dialstarted;	/* jiffies of first dialing-attempt */
   ulong					dialwait_timer;	/* jiffies of earliest next dialing-attempt */
   int					huptimeout;		/* How long will the connection be up? (seconds) */
-#ifdef CONFIG_ISDN_TIMEOUT_RULES
-  struct isdn_timeout_rules	*timeout_rules;
-#endif
-#ifdef CONFIG_ISDN_BUDGET
-  isdn_budget	budget [ISDN_BUDGET_NUM_BUDGET];
-#endif
 #ifdef CONFIG_ISDN_X25
   struct concap_device_ops *dops;      /* callbacks used by encapsulator   */
 #endif

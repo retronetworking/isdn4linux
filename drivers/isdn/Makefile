@@ -25,12 +25,6 @@ ifeq ($(CONFIG_ISDN),y)
   ifdef CONFIG_ISDN_AUDIO
     L_OBJS += isdn_audio.o
   endif
-  ifdef CONFIG_ISDN_TIMEOUT_RULES
-    L_OBJS += isdn_timru.o
-  endif
-  ifdef CONFIG_ISDN_BUDGET
-    L_OBJS += isdn_budget.o
-  endif
 else
   ifeq ($(CONFIG_ISDN),m)
     M_OBJS += isdn.o
@@ -48,12 +42,6 @@ else
     ifdef CONFIG_ISDN_AUDIO
       O_OBJS += isdn_audio.o
     endif
-  ifdef CONFIG_ISDN_TIMEOUT_RULES
-    O_OBJS += isdn_timru.o
-  endif
-  ifdef CONFIG_ISDN_BUDGET
-    O_OBJS += isdn_budget.o
-  endif
   endif
 endif
 

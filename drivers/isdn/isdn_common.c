@@ -21,6 +21,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.74  1999/04/12 13:16:45  fritz
+ * Changes from 2.0 tree.
+ *
  * Revision 1.73  1999/04/12 12:33:15  fritz
  * Changes from 2.0 tree.
  *
@@ -390,7 +393,7 @@ isdn_MOD_DEC_USE_COUNT(void)
 		}
 }
 
-#if defined(ISDN_DEBUG_NET_DUMP) || defined(ISDN_DEBUG_MODEM_DUMP) || defined(CONFIG_ISDN_TIMEOUT_RULES)
+#if defined(ISDN_DEBUG_NET_DUMP) || defined(ISDN_DEBUG_MODEM_DUMP)
 void
 isdn_dumppkt(char *s, u_char * p, int len, int dumplen)
 {
@@ -1345,12 +1348,6 @@ isdn_ioctl(struct inode *inode, struct file *file, uint cmd, ulong arg)
 		isdn_ioctl_struct iocts;
 		isdn_net_ioctl_phone phone;
 		isdn_net_ioctl_cfg cfg;
-#ifdef CONFIG_ISDN_TIMEOUT_RULES
-		isdn_ioctl_timeout_rule	timru;
-#endif /* CONFIG_ISDN_TIMEOUT_RULES */
-#ifdef CONFIG_ISDN_BUDGET
-		isdn_ioctl_budget	budget;
-#endif /* CONFIG_ISDN_BUDGET */
 	} iocpar;
 
 #define name  iocpar.name
@@ -1358,13 +1355,6 @@ isdn_ioctl(struct inode *inode, struct file *file, uint cmd, ulong arg)
 #define iocts iocpar.iocts
 #define phone iocpar.phone
 #define cfg   iocpar.cfg
-#ifdef CONFIG_ISDN_TIMEOUT_RULES
-#	define	timru	iocpar.timru
-#endif /* CONFIG_ISDN_TIMEOUT_RULES */
-#ifdef CONFIG_ISDN_BUDGET
-#	define	budget	iocpar.budget
-#endif /* CONFIG_ISDN_BUDGET */
-
 
 	if (minor == ISDN_MINOR_STATUS) {
 		switch (cmd) {
@@ -1561,57 +1551,6 @@ isdn_ioctl(struct inode *inode, struct file *file, uint cmd, ulong arg)
 					return -EFAULT;
 				return isdn_net_force_hangup(name);
 				break;
-#ifdef CONFIG_ISDN_TIMEOUT_RULES
-			case IIOCNETARU:
-				/* Add a rule to a network-interface */
-				if (arg) {
-					if(copy_from_user((char *) &timru, (char *) arg, sizeof(timru)))
-						return -EFAULT;
-					return(isdn_timru_ioctl_add_rule(&timru));
-				} else
-					return(-EINVAL);
-			case IIOCNETDRU:
-				/* Delete a rule from a network-interface */
-				if (arg) {
-					if(copy_from_user((char *) &timru, (char *) arg, sizeof(timru)))
-						return -EFAULT;
-					return(isdn_timru_ioctl_del_rule(&timru));
-				} else
-					return(-EINVAL);
-			case IIOCNETGRU:
-				/* Get a rule of a network-interface */
-				if (arg) {
-					if(copy_from_user((char *)&timru, (char *)arg, sizeof(timru)))
-						return -EFAULT;
-
-					if((ret = isdn_timru_ioctl_get_rule(&timru)))
-						return(ret);
-
-					if(copy_to_user((char *)arg, (char *)&timru, sizeof(timru)))
-						return -EFAULT;
-
-					return(0);
-				} else
-					return(-EINVAL);
-#endif /* CONFIG_ISDN_TIMEOUT_RULES */
-
-#ifdef CONFIG_ISDN_BUDGET
-			case IIOCNETBUD:
-				/* handle budget-accounting of a network-interface */
-				if (arg) {
-					if(copy_from_user((char *)&budget, (char *)arg, sizeof(budget)))
-						return -EFAULT;
-
-					if((ret = isdn_budget_ioctl(&budget)))
-						return(ret);
-
-					if(copy_to_user((char *)arg, (char *)&budget, sizeof(budget)))
-						return -EFAULT;
-
-					return(0);
-				} else
-					return(-EINVAL);
-#endif /* CONFIG_ISDN_BUDGET */
 #endif                          /* CONFIG_NETDEVICES */
 			case IIOCSETVER:
 				dev->net_verbose = arg;
