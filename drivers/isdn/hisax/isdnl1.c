@@ -11,6 +11,9 @@
  *
  *
  * $Log$
+ * Revision 2.3  1997/08/01 11:16:40  keil
+ * cosmetics
+ *
  * Revision 2.2  1997/07/30 17:11:08  keil
  * L1deactivated exported
  *
@@ -628,6 +631,8 @@ checkcard(int cardnr, char *id)
 	cs->protocol = card->protocol;
 	cs->l1timer.function = (void *) L1_timer_handler;
 	cs->l1timer.data = (long) cs;
+	init_timer(&cs->l1timer);
+	init_timer(&cs->t3);
 
 	if ((card->typ > 0) && (card->typ < 31)) {
 		if (!((1 << card->typ) & SUPORTED_CARDS)) {
@@ -760,7 +765,6 @@ checkcard(int cardnr, char *id)
 		       "HiSax: No memory for isac rcvbuf\n");
 		return (1);
 	}
-	init_timer(&cs->l1timer);
 	cs->rcvidx = 0;
 	cs->tx_skb = NULL;
 	cs->tx_cnt = 0;

@@ -6,6 +6,9 @@
  *
  *
  * $Log$
+ * Revision 1.5  1997/08/07 17:48:49  keil
+ * fix wrong parenthesis
+ *
  * Revision 1.4  1997/07/30 17:11:59  keil
  * fixed Timer3
  *
@@ -58,7 +61,9 @@ L1_T3_handler(struct IsdnCardState *cs)
 void
 initisac(struct IsdnCardState *cs)
 {
-	cs->writeisac(cs, ISAC_MASK, 0xff);
+	cs->t3.function = (void *) L1_T3_handler;
+	cs->t3.data = (long) cs;
+  	cs->writeisac(cs, ISAC_MASK, 0xff);
 	if (cs->HW_Flags & HW_IOM1) {
 		/* IOM 1 Mode */
 		cs->writeisac(cs, ISAC_ADF2, 0x0);
@@ -76,9 +81,6 @@ initisac(struct IsdnCardState *cs)
 		cs->writeisac(cs, ISAC_TIMR, 0x00);
 		cs->writeisac(cs, ISAC_ADF1, 0x00);
 	}
-	cs->t3.function = (void *) L1_T3_handler;
-	cs->t3.data = (long) cs;
-	init_timer(&cs->t3);
 	ph_command(cs, ISAC_CMD_RS);
 	cs->writeisac(cs, ISAC_MASK, 0x0);
 }
