@@ -21,6 +21,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.15  1999/04/18 14:06:50  fritz
+ * Removed TIMRU stuff.
+ *
  * Revision 1.14  1999/04/12 12:33:18  fritz
  * Changes from 2.0 tree.
  *
@@ -112,7 +115,11 @@ extern char *isdn_map_eaz2msn(char *msn, int di);
 extern void isdn_timer_ctrl(int tf, int onoff);
 extern void isdn_unexclusive_channel(int di, int ch);
 extern int isdn_getnum(char **);
+#ifdef COMPAT_HAS_NEW_WAITQ
+extern int isdn_readbchan(int, int, u_char *, u_char *, int, wait_queue_head_t *);
+#else
 extern int isdn_readbchan(int, int, u_char *, u_char *, int, struct wait_queue**);
+#endif
 extern int isdn_get_free_channel(int, int, int, int, int);
 extern int isdn_writebuf_skb_stub(int, int, int, struct sk_buff *);
 extern int register_isdn(isdn_if * i);

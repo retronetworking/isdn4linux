@@ -19,6 +19,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.47  1999/04/18 14:06:59  fritz
+ * Removed TIMRU stuff.
+ *
  * Revision 1.46  1999/04/12 12:33:35  fritz
  * Changes from 2.0 tree.
  *
@@ -427,7 +430,9 @@ isdn_ppp_wakeup_daemon(isdn_net_local * lp)
 
 	ippp_table[lp->ppp_slot]->state = IPPP_OPEN | IPPP_CONNECT | IPPP_NOBLOCK;
 
+#ifndef COMPAT_HAS_NEW_WAITQ
 	if (ippp_table[lp->ppp_slot]->wq)
+#endif
 		wake_up_interruptible(&ippp_table[lp->ppp_slot]->wq);
 }
 
@@ -445,7 +450,11 @@ isdn_ppp_closewait(int slot)
 		return 0;
 	is = ippp_table[slot];
 
+#ifdef COMPAT_HAS_NEW_WAITQ
+	if (is->state)
+#else
 	if (is->state && is->wq)
+#endif
 		wake_up_interruptible(&is->wq);
 
 	is->state = IPPP_CLOSEWAIT;
@@ -510,7 +519,11 @@ isdn_ppp_open(int min, struct file *file)
 	is->mru = 1524;         /* MRU, default 1524 */
 	is->maxcid = 16;        /* VJ: maxcid */
 	is->tk = current;
+#ifdef COMPAT_HAS_NEW_WAITQ
+	init_waitqueue_head(&is->wq);
+#else
 	is->wq = NULL;          /* read() wait queue */
+#endif
 	is->first = is->rq + NUM_RCV_BUFFS - 1;	/* receive queue */
 	is->last = is->rq;
 	is->minor = min;
@@ -878,7 +891,9 @@ isdn_ppp_fill_rq(unsigned char *buf, int len, int proto, int slot)
 	is->last = bl->next;
 	restore_flags(flags);
 
+#ifndef COMPAT_HAS_NEW_WAITQ
 	if (is->wq)
+#endif
 		wake_up_interruptible(&is->wq);
 
 	return len;

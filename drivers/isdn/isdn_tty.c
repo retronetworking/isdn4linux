@@ -20,6 +20,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.63  1999/04/12 12:33:39  fritz
+ * Changes from 2.0 tree.
+ *
  * Revision 1.62  1999/03/02 12:04:48  armin
  * -added ISDN_STAT_ADDCH to increase supported channels after
  *  register_isdn().
@@ -1860,8 +1863,12 @@ isdn_tty_set_termios(struct tty_struct *tty, struct termios *old_termios)
 static int
 isdn_tty_block_til_ready(struct tty_struct *tty, struct file *filp, modem_info * info)
 {
+#ifdef COMPAT_HAS_NEW_WAITQ
+	DECLARE_WAITQUEUE(wait, NULL);
+#else
 	struct wait_queue wait =
 	{current, NULL};
+#endif
 	int do_clocal = 0;
 	unsigned long flags;
 	int retval;
@@ -2284,7 +2291,11 @@ isdn_tty_modem_init(void)
 	}
 	for (i = 0; i < ISDN_MAX_CHANNELS; i++) {
 		info = &m->info[i];
+#ifdef COMPAT_HAS_NEW_WAITQ
+		init_MUTEX(&info->write_sem);
+#else
 		info->write_sem = MUTEX;
+#endif
 		sprintf(info->last_cause, "0000");
 		sprintf(info->last_num, "none");
 		info->last_dir = 0;
@@ -2301,9 +2312,14 @@ isdn_tty_modem_init(void)
 		info->blocked_open = 0;
 		info->callout_termios = m->cua_modem.init_termios;
 		info->normal_termios = m->tty_modem.init_termios;
+#ifdef COMPAT_HAS_NEW_WAITQ
+		init_waitqueue_head(&info->open_wait);
+		init_waitqueue_head(&info->close_wait);
+#else
 		info->open_wait = 0;
 		info->close_wait = 0;
 		info->isdn_driver = -1;
+#endif
 		info->isdn_channel = -1;
 		info->drv_index = -1;
 		info->xmit_size = ISDN_SERIAL_XMIT_SIZE;

@@ -21,6 +21,11 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.76  1999/06/29 16:16:44  calle
+ * Let ISDN_CMD_UNLOAD work with open isdn devices without crash again.
+ * Also right unlocking (ISDN_CMD_UNLOCK) is done now.
+ * isdnlog should check returncode of read(2) calls.
+ *
  * Revision 1.75  1999/04/18 14:06:47  fritz
  * Removed TIMRU stuff.
  *
@@ -949,7 +954,9 @@ isdn_status_callback(isdn_ctrl * c)
 				isdn_free_queue(&dev->drv[di]->rpqueue[i]);
 			kfree(dev->drv[di]->rpqueue);
 			kfree(dev->drv[di]->rcv_waitq);
+#ifndef COMPAT_HAS_NEW_WAITQ
 			kfree(dev->drv[di]->snd_waitq);
+#endif
 			kfree(dev->drv[di]);
 			dev->drv[di] = NULL;
 			dev->drvid[di][0] = '\0';
@@ -995,7 +1002,11 @@ isdn_getnum(char **p)
  * of the mapping (di,ch)<->minor, happen during the sleep? --he 
  */
 int
+#ifdef COMPAT_HAS_NEW_WAITQ
+isdn_readbchan(int di, int channel, u_char * buf, u_char * fp, int len, wait_queue_head_t *sleep)
+#else
 isdn_readbchan(int di, int channel, u_char * buf, u_char * fp, int len, struct wait_queue **sleep)
+#endif
 {
 	int left;
 	int count;
@@ -2134,6 +2145,9 @@ isdn_add_channels(driver *d, int drvidx, int n, int adding)
 	int j, k, m;
 	ulong flags;
 
+#ifdef COMPAT_HAS_NEW_WAITQ
+	init_waitqueue_head(&d->st_waitq);
+#endif
 	if (d->flags & DRV_FLAG_RUNNING)
 		return -1;
 	if (n < 1)
@@ -2184,8 +2198,14 @@ isdn_add_channels(driver *d, int drvidx, int n, int adding)
 
 	if ((adding) && (d->rcv_waitq))
 		kfree(d->rcv_waitq);
+#ifdef COMPAT_HAS_NEW_WAITQ
+	d->rcv_waitq = (wait_queue_head_t *)
+		kmalloc(sizeof(wait_queue_head_t) * 2 * m, GFP_KERNEL);
+	if (!d->rcv_waitq) {
+#else
 	if (!(d->rcv_waitq = (struct wait_queue **)
 	      kmalloc(sizeof(struct wait_queue *) * m, GFP_KERNEL))) {
+#endif
 		printk(KERN_WARNING "register_isdn: Could not alloc rcv_waitq\n");
 		if (!adding) {
 			kfree(d->rpqueue);
@@ -2194,6 +2214,13 @@ isdn_add_channels(driver *d, int drvidx, int n, int adding)
 		}
 		return -1;
 	}
+#ifdef COMPAT_HAS_NEW_WAITQ
+	d->snd_waitq = d->rcv_waitq + m;
+	for (j = 0; j < m; j++) {
+		init_waitqueue_head(&d->rcv_waitq[m]);
+		init_waitqueue_head(&d->snd_waitq[m]);
+	}
+#else
 	memset((char *) d->rcv_waitq, 0, sizeof(struct wait_queue *) * m);
 
 	if ((adding) && (d->snd_waitq))
@@ -2210,6 +2237,7 @@ isdn_add_channels(driver *d, int drvidx, int n, int adding)
 		return -1;
 	}
 	memset((char *) d->snd_waitq, 0, sizeof(struct wait_queue *) * m);
+#endif
 
 	dev->channels += n;
 	save_flags(flags);
@@ -2337,12 +2365,21 @@ isdn_init(void)
 	memset((char *) dev, 0, sizeof(isdn_dev));
 	init_timer(&dev->timer);
 	dev->timer.function = isdn_timer_funct;
+#ifdef COMPAT_HAS_NEW_WAITQ
+	init_MUTEX(&dev->sem);
+	init_waitqueue_head(&dev->info_waitq);
+#else
 	dev->sem = MUTEX;
+#endif
 	for (i = 0; i < ISDN_MAX_CHANNELS; i++) {
 		dev->drvmap[i] = -1;
 		dev->chanmap[i] = -1;
 		dev->m_idx[i] = -1;
 		strcpy(dev->num[i], "???");
+#ifdef COMPAT_HAS_NEW_WAITQ
+		init_waitqueue_head(&dev->mdm.info[i].open_wait);
+		init_waitqueue_head(&dev->mdm.info[i].close_wait);
+#endif
 	}
 	if (register_chrdev(ISDN_MAJOR, "isdn", &isdn_fops)) {
 		printk(KERN_WARNING "isdn: Could not register control devices\n");
