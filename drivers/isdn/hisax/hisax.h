@@ -3,6 +3,10 @@
  *   Basic declarations, defines and prototypes
  *
  * $Log$
+ * Revision 2.29  1999/07/12 21:05:14  keil
+ * fix race in IRQ handling
+ * added watchdog for lost IRQs
+ *
  * Revision 2.28  1999/07/05 23:51:46  werner
  * Allow limiting of available HiSax B-chans per card. Controlled by hisaxctrl
  * hisaxctrl id 10 <nr. of chans 0-2>
@@ -700,9 +704,13 @@ struct hfcPCI_hw {
 	unsigned char int_m2;
 	unsigned char int_s1;
 	unsigned char sctrl;
+        unsigned char sctrl_r;
+        unsigned char sctrl_e;
+        unsigned char trm;
 	unsigned char stat;
 	unsigned char fifo;
         unsigned char fifo_en;
+        unsigned char bswapped;
   /*	unsigned int *send; */
 	unsigned char pci_bus;
         unsigned char pci_device_fn;
@@ -844,6 +852,7 @@ struct IsdnCardState {
 	int HW_Flags;
 	int *busy_flag;
         int chanlimit; /* limited number of B-chans to use */
+        int logecho; /* log echo if supported by card */
 	union {
 		struct elsa_hw elsa;
 		struct teles0_hw teles0;
@@ -1113,6 +1122,7 @@ struct IsdnCardState {
 
 #ifdef	CONFIG_HISAX_HFC_PCI
 #define  CARD_HFC_PCI 1
+extern int hfcpci_set_echo(struct IsdnCardState *, int);
 #else
 #define  CARD_HFC_PCI 0
 #endif

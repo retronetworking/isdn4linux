@@ -5,6 +5,10 @@
  *
  *
  * $Log$
+ * Revision 2.27  1999/07/12 21:05:00  keil
+ * fix race in IRQ handling
+ * added watchdog for lost IRQs
+ *
  * Revision 2.26  1999/07/08 21:27:17  keil
  * version 3.2
  *
@@ -1000,6 +1004,7 @@ checkcard(int cardnr, char *id, int *busy_flag))
 	memset(cs, 0, sizeof(struct IsdnCardState));
 	card->cs = cs;
 	cs->chanlimit = 2; /* maximum B-channel number */
+	cs->logecho = 0; /* No echo logging */
 	cs->cardnr = cardnr;
 	cs->debug = L1_DEB_WARN;
 	cs->HW_Flags = 0;
