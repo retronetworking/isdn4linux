@@ -8,6 +8,9 @@
  * Thanks to Dr. Neuhaus and SAGEM for informations
  *
  * $Log$
+ * Revision 1.8  1999/08/11 21:01:33  keil
+ * new PCI codefix
+ *
  * Revision 1.7  1999/08/10 16:02:04  calle
  * struct pci_dev changed in 2.3.13. Made the necessary changes.
  *
@@ -229,11 +232,14 @@ static void
 niccy_reset(struct IsdnCardState *cs)
 {
 	int val, nval;
-	
-	val = inl(cs->hw.niccy.cfg_reg + PCI_IRQ_CTRL_REG);
-	nval = val | PCI_IRQ_ENABLE;
-	outl(nval, cs->hw.niccy.cfg_reg + PCI_IRQ_CTRL_REG);
 
+	if (cs->subtyp == NICCY_PCI) {
+		int val;
+
+		val = inl(cs->hw.niccy.cfg_reg + PCI_IRQ_CTRL_REG);
+		val |= PCI_IRQ_ENABLE;
+		outl(val, cs->hw.niccy.cfg_reg + PCI_IRQ_CTRL_REG);
+	}
 	inithscxisac(cs, 3);
 }
 
