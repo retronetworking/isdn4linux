@@ -19,6 +19,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.3  1996/04/30 09:33:10  fritz
+ * Removed compatibility-macros.
+ *
  * Revision 1.2  1996/04/20 16:35:11  fritz
  * Changed isdn_ppp_receive to use sk_buff as parameter.
  * Added definition of isdn_ppp_dial_slave and ippp_table.
@@ -40,6 +43,7 @@ extern int  isdn_ppp_xmit(struct sk_buff *, struct device *);
 extern void isdn_ppp_receive(isdn_net_dev *, isdn_net_local *, struct sk_buff *);
 extern int  isdn_ppp_dev_ioctl(struct device *, struct ifreq *, int);
 extern void isdn_ppp_free_mpqueue(isdn_net_dev *);
+extern void isdn_ppp_free_sqqueue(isdn_net_dev *);
 extern int  isdn_ppp_select(int, struct file *, int, select_table *);
 extern int  isdn_ppp_ioctl(int, struct file *, unsigned int, unsigned long);
 extern void isdn_ppp_release(int, struct file *);

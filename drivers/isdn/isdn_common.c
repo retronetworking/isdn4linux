@@ -21,6 +21,12 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.7  1996/05/02 03:55:17  fritz
+ * Bugfixes:
+ *  - B-channel connect message for modem devices
+ *    sometimes did not result in a CONNECT-message.
+ *  - register_isdn did not check for driverId-conflicts.
+ *
  * Revision 1.6  1996/04/30 20:57:21  fritz
  * Commit test
  *
@@ -907,7 +913,7 @@ static int isdn_select(struct inode *inode, struct file *file, int type, select_
 			return 0;
 		}
 	}
-	if (minor <= ISDN_MINOR_CTRLMAX)
+	if (minor >= ISDN_MINOR_CTRL && minor <= ISDN_MINOR_CTRLMAX) {
 		if (drvidx < 0)
 			return -ENODEV;
 		if (dev->drv[drvidx]->stavail)
@@ -918,6 +924,7 @@ static int isdn_select(struct inode *inode, struct file *file, int type, select_
                         return 0;
                 }
 		return 1;
+	 }
 #ifdef CONFIG_ISDN_PPP
 	if (minor <= ISDN_MINOR_PPPMAX)
 		return (isdn_ppp_select(minor - ISDN_MINOR_PPP, file, type, st));
@@ -1228,8 +1235,15 @@ static int isdn_ioctl(struct inode *inode, struct file *file, uint cmd, ulong ar
                                 memcpy_fromfs(name,(char*)arg,sizeof(name));
                                 return isdn_ppp_dial_slave(name);
                         case IIOCNETDLN:
-                                /* remove one link from bundle; removed for i4l 0.7.1  */
-                                return 2;
+                                if(arg) {
+                                        if ((ret = verify_area(VERIFY_READ,
+                                                               (void*)arg,
+                                                               sizeof(name))))
+                                                return ret;
+                                } else
+                                        return -EINVAL;
+                                memcpy_fromfs(name,(char*)arg,sizeof(name));
+                                return isdn_ppp_hangup_slave(name);
 #endif
                         case IIOCNETHUP:
                                 /* Force hangup of a network-interface */

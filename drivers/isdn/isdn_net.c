@@ -21,6 +21,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.8  1996/04/30 21:04:40  fritz
+ * Test commit
+ *
  * Revision 1.7  1996/04/30 11:10:42  fritz
  * Added Michael's ippp-bind patch.
  *
@@ -83,6 +86,8 @@ static int isdn_net_wildmat(char *s, char *p);
 static int isdn_net_start_xmit(struct sk_buff *, struct device *);
 static int isdn_net_xmit(struct device *, isdn_net_local *, struct sk_buff *);
  
+extern void dev_purge_queues(struct device *dev);	/* move this to net/core/dev.c */
+
 char *isdn_net_revision = "$Revision$";
 
  /*
@@ -143,6 +148,32 @@ isdn_net_bind_channel(isdn_net_local * lp, int idx)
 	lp->isdn_channel = dev->chanmap[idx];
         dev->rx_netdev[idx] = lp->netdev;
         dev->st_netdev[idx] = lp->netdev;
+        restore_flags(flags);
+}
+
+/*
+ * unbind a net-interface (resets interface after an error)
+ */
+static void
+isdn_net_unbind_channel(isdn_net_local * lp)
+{
+	ulong flags;
+
+	save_flags(flags);
+	cli();
+        if (lp->first_skb) {
+                dev_kfree_skb(lp->first_skb,FREE_WRITE);
+                lp->first_skb = NULL;
+        }
+	dev_purge_queues(&lp->netdev->dev);
+	lp->dialstate = 0;
+	dev->rx_netdev[isdn_dc2minor(lp->isdn_device,lp->isdn_channel)] = NULL;
+	dev->st_netdev[isdn_dc2minor(lp->isdn_device,lp->isdn_channel)] = NULL;
+	isdn_free_channel(lp->isdn_device, lp->isdn_channel, ISDN_USAGE_NET);
+	lp->flags &= ~ISDN_NET_CONNECTED;
+	lp->isdn_device = -1;
+	lp->isdn_channel = -1;
+
         restore_flags(flags);
 }
 
@@ -236,6 +267,8 @@ isdn_net_stat_callback(int idx, int cmd)
 				/* Either D-Channel-hangup or error during dialout */
 				if ((!lp->dialstate) && (lp->flags & ISDN_NET_CONNECTED)) {
 					lp->flags &= ~ISDN_NET_CONNECTED;
+					if(lp->first_skb)
+						dev_kfree_skb(lp->first_skb,FREE_WRITE);
 					isdn_free_channel(lp->isdn_device, lp->isdn_channel,
                                                           ISDN_USAGE_NET);
 #ifdef CONFIG_ISDN_PPP
@@ -545,6 +578,7 @@ isdn_net_hangup(struct device *d)
                 dev_kfree_skb(lp->first_skb,FREE_WRITE);
                 lp->first_skb = NULL;
         }
+	dev_purge_queues(d);
 	if (lp->flags & ISDN_NET_CONNECTED) {
 		printk(KERN_INFO "isdn_net: local hangup %s\n", lp->name);
 		lp->dialstate = 0;
@@ -699,8 +733,10 @@ isdn_net_xmit(struct device *ndev, isdn_net_local *lp, struct sk_buff *skb)
 
 	/* For the other encaps the header has already been built */
 #ifdef CONFIG_ISDN_PPP
-	if (lp->p_encap == ISDN_NET_ENCAP_SYNCPPP)
-		return (isdn_ppp_xmit(skb, ndev));
+	if (lp->p_encap == ISDN_NET_ENCAP_SYNCPPP) {
+		ndev->tbusy = ret = isdn_ppp_xmit(skb, ndev);
+		return ret;
+	}
 #endif		
 	/* Reset hangup-timeout */
 	lp->huptimer = 0;
@@ -759,7 +795,6 @@ isdn_net_start_xmit(struct sk_buff *skb, struct device *ndev)
 {
 	isdn_net_local *lp = (isdn_net_local *) ndev->priv;
 
-
 	if (ndev->tbusy) {
 		if (jiffies - ndev->trans_start < 20)
 			return 1;
@@ -799,6 +834,8 @@ isdn_net_start_xmit(struct sk_buff *skb, struct device *ndev)
                                                "isdn_net_start_xmit: No channel for %s\n",
                                                ndev->name);
 					restore_flags(flags);
+		/* we probably should drop the skb here and return 0 to omit
+		   'socket destroy delayed' messages */
 					return 1;
 				}
                                 /* Log packet, which triggered dialing */
@@ -809,15 +846,18 @@ isdn_net_start_xmit(struct sk_buff *skb, struct device *ndev)
 				/* Connect interface with channel */
 				isdn_net_bind_channel(lp, chi);
 #ifdef CONFIG_ISDN_PPP
-				if (lp->p_encap == ISDN_NET_ENCAP_SYNCPPP)
+				if (lp->p_encap == ISDN_NET_ENCAP_SYNCPPP) {
+					/* no 'first_skb' handling for syncPPP */
 					if (isdn_ppp_bind(lp) < 0) {
-						lp->dialstate = 0;
-						isdn_free_channel(lp->isdn_device,
-                                                                  lp->isdn_channel,
-                                                                  ISDN_USAGE_NET);
+						lp->first_skb = skb;	/* net_unbind will free skb */
+						isdn_net_unbind_channel(lp);
                                                 restore_flags(flags);
-						return 1;
+						return 0;	/* STN (skb to nirvana) ;) */
 					}
+	                                isdn_net_dial();	/* Initiate dialing */
+					restore_flags(flags);
+					return 1;	/* let upper layer requeue skb packet */
+				}
 #endif
                                 /* remember first skb to speed up arp
                                  * when using encap ETHER
@@ -1634,9 +1674,7 @@ isdn_net_find_icall(int di, int ch, int idx, char *num)
 #ifdef CONFIG_ISDN_PPP
 						if (lp->p_encap == ISDN_NET_ENCAP_SYNCPPP)
 							if (isdn_ppp_bind(lp) < 0) {
-								isdn_free_channel(p->local.isdn_device, p->local.isdn_channel,
-									     ISDN_USAGE_NET);
-								lp->dialstate = 0;
+								isdn_net_unbind_channel(lp);
 								restore_flags(flags);
 								return 0;
 							}
@@ -1684,9 +1722,7 @@ isdn_net_find_icall(int di, int ch, int idx, char *num)
 #ifdef CONFIG_ISDN_PPP
 					if (lp->p_encap == ISDN_NET_ENCAP_SYNCPPP)
 						if (isdn_ppp_bind(lp) < 0) {
-							isdn_free_channel(p->local.isdn_device, p->local.isdn_channel,
-							 ISDN_USAGE_NET);
-							lp->dialstate = 0;
+							isdn_net_unbind_channel(lp);
 							restore_flags(flags);
 							return 0;
 						}
@@ -1750,9 +1786,9 @@ int isdn_net_force_dial_lp(isdn_net_local * lp)
 #ifdef CONFIG_ISDN_PPP
 			if (lp->p_encap == ISDN_NET_ENCAP_SYNCPPP)
 				if (isdn_ppp_bind(lp) < 0) {
-					lp->dialstate = 0;
-					isdn_free_channel(lp->isdn_device, lp->isdn_channel, ISDN_USAGE_NET);
-					return 1;
+					isdn_net_unbind_channel(lp);
+					restore_flags(flags);
+					return -EAGAIN;
 				}
 #endif
 			/* Initiate dialing */
@@ -2296,7 +2332,7 @@ static int isdn_net_realrm(isdn_net_dev * p, isdn_net_dev * q)
 	restore_flags(flags);
 
 #ifdef CONFIG_ISDN_PPP
-	isdn_ppp_free_mpqueue(p);
+	isdn_ppp_free_mpqueue(p);	/* still necessary? */
 #endif
 	kfree(p);
 
@@ -2350,6 +2386,26 @@ int isdn_net_rmall(void)
 	restore_flags(flags);
 	return 0;
 }
+
+/* 
+ * helper function to flush device queues
+ * the better place would be net/core/dev.c
+ */
+void dev_purge_queues(struct device *dev)
+{
+	int i;
+	for(i=0;i<DEV_NUMBUFFS;i++) {
+		struct sk_buff *skb;
+		while((skb=skb_dequeue(&dev->buffs[i])))
+			if(skb->free)
+				kfree_skb(skb,FREE_WRITE);
+        }
+	
+}
+
+
+
+
 
 
 
