@@ -12,14 +12,12 @@ struct Channel {
 	struct IsdnCardState *cs;
 	int chan;
 	int tx_cnt;
-	int incoming;
 	struct FsmInst fi;
 	int l2_protocol, l2_active_protocol;
 	int l3_protocol;
 	int data_open;
 	struct l4_process l4pc;
 	setup_parm setup;	/* from isdnif.h numbers and Serviceindicator */
-	int Flags;		/* for remembering action done in l4 */
 	int leased;
 	int debug;
 };

@@ -1718,18 +1718,15 @@ isdnl2_l3l2(struct PStack *st, int pr, void *arg)
 			}
 			break;
 		case (DL_ESTABLISH | REQUEST):
+			test_and_set_bit(FLG_ORIG, &st->l2.flag);
 			if (test_bit(FLG_L1_ACTIV, &st->l2.flag)) {
-				if (test_bit(FLG_LAPD, &st->l2.flag) ||
-					test_bit(FLG_ORIG, &st->l2.flag)) {
-					FsmEvent(&st->l2.l2m, EV_L2_DL_ESTABLISH_REQ, arg);
-				}
+				FsmEvent(&st->l2.l2m, EV_L2_DL_ESTABLISH_REQ, arg);
 			} else {
-				if (test_bit(FLG_LAPD, &st->l2.flag) ||
-					test_bit(FLG_ORIG, &st->l2.flag)) {
-					test_and_set_bit(FLG_ESTAB_PEND, &st->l2.flag);
-				}
+				test_and_set_bit(FLG_ESTAB_PEND, &st->l2.flag);
 				st->l2.l2l1(st, PH_ACTIVATE, NULL);
 			}
+		case (PH_ACTIVATE | REQUEST):
+			st->l2.l2l1(st, PH_ACTIVATE, NULL);
 			break;
 		case (DL_RELEASE | REQUEST):
 			if (test_bit(FLG_LAPB, &st->l2.flag)) {
