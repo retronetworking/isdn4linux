@@ -66,19 +66,6 @@ hisax_findcard(int driverid)
 	return (struct IsdnCardState *) 0;
 }
 
-int
-discard_queue(struct sk_buff_head *q)
-{
-	struct sk_buff *skb;
-	int ret=0;
-
-	while ((skb = skb_dequeue(q))) {
-		dev_kfree_skb(skb);
-		ret++;
-	}
-	return(ret);
-}
-
 static void
 link_debug(struct Channel *chanp, int direction, char *fmt, ...)
 {

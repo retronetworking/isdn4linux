@@ -41,10 +41,8 @@ static void
 isdnloop_free_queue(isdnloop_card * card, int channel)
 {
 	struct sk_buff_head *queue = &card->bqueue[channel];
-	struct sk_buff *skb;
 
-	while ((skb = skb_dequeue(queue)))
-		dev_kfree_skb(skb);
+	skb_queue_purge(queue);
 	card->sndcount[channel] = 0;
 }
 
@@ -1574,11 +1572,8 @@ isdnloop_exit(void)
 	}
 	card = cards;
 	while (card) {
-		struct sk_buff *skb;
-
 		last = card;
-		while ((skb = skb_dequeue(&card->dqueue)))
-			dev_kfree_skb(skb);
+		skb_queue_purge(&card->dqueue);
 		card = card->next;
 		kfree(last);
 	}

@@ -1136,14 +1136,12 @@ static __u16 capi_register(capi_register_params * rparam, __u16 * applidp)
 
 static __u16 capi_release(__u16 applid)
 {
-	struct sk_buff *skb;
 	int i;
 
 	if (!VALID_APPLID(applid) || APPL(applid)->releasing)
 		return CAPI_ILLAPPNR;
 	APPL(applid)->releasing++;
-	while ((skb = skb_dequeue(&APPL(applid)->recv_queue)) != 0)
-		kfree_skb(skb);
+	skb_queue_purge(&APPL(applid)->recv_queue);
 	for (i = 0; i < CAPI_MAXCONTR; i++) {
 		if (cards[i].cardstate != CARD_RUNNING)
 			continue;

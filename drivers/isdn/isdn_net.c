@@ -413,9 +413,7 @@ isdn_net_unbind_channel(isdn_net_local * lp)
 	lp->dw_abc_inuse_secure = 0;
 	dwabc_bsd_free(lp);
 #endif
-	while ((skb = skb_dequeue(&lp->super_tx_queue))) {
-		kfree_skb(skb);
-	}
+	skb_queue_purge(&lp->super_tx_queue);
 	if (!lp->master) {	/* reset only master device */
 		/* Moral equivalent of dev_purge_queues():
 		   BEWARE! This chunk of code cannot be called from hardware

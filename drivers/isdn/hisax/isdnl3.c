@@ -404,7 +404,7 @@ releasestack_isdnl3(struct PStack *st)
 		st->l3.global = NULL;
 	}
 	FsmDelTimer(&st->l3.l3m_timer, 54);
-	discard_queue(&st->l3.squeue);
+	skb_queue_purge(&st->l3.squeue);
 }
 
 void
@@ -520,7 +520,7 @@ lc_release_ind(struct FsmInst *fi, int event, void *arg)
 
 	FsmDelTimer(&st->l3.l3m_timer, 52);
 	FsmChangeState(fi, ST_L3_LC_REL);
-	discard_queue(&st->l3.squeue);
+	skb_queue_purge(&st->l3.squeue);
 	l3ml3p(st, DL_RELEASE | INDICATION);
 }
 
@@ -530,7 +530,7 @@ lc_release_cnf(struct FsmInst *fi, int event, void *arg)
 	struct PStack *st = fi->userdata;
 
 	FsmChangeState(fi, ST_L3_LC_REL);
-	discard_queue(&st->l3.squeue);
+	skb_queue_purge(&st->l3.squeue);
 	l3ml3p(st, DL_RELEASE | CONFIRM);
 }
 

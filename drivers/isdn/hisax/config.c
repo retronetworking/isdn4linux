@@ -848,8 +848,8 @@ closecard(int cardnr)
 		csta->bcs->BC_Close(csta->bcs);
 	}
 
-	discard_queue(&csta->rq);
-	discard_queue(&csta->sq);
+	skb_queue_purge(&csta->rq);
+	skb_queue_purge(&csta->sq);
 	if (csta->rcvbuf) {
 		kfree(csta->rcvbuf);
 		csta->rcvbuf = NULL;

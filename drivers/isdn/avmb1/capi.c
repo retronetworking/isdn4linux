@@ -286,7 +286,6 @@ struct capiminor *capiminor_alloc(__u16 applid, __u32 ncci)
 void capiminor_free(struct capiminor *mp)
 {
 	struct capiminor **pp;
-	struct sk_buff *skb;
 
 	pp = &minors;
 	while (*pp) {
@@ -294,12 +293,9 @@ void capiminor_free(struct capiminor *mp)
 			*pp = (*pp)->next;
 			if (mp->ttyskb) kfree_skb(mp->ttyskb);
 			mp->ttyskb = 0;
-			while ((skb = skb_dequeue(&mp->recvqueue)) != 0)
-				kfree_skb(skb);
-			while ((skb = skb_dequeue(&mp->inqueue)) != 0)
-				kfree_skb(skb);
-			while ((skb = skb_dequeue(&mp->outqueue)) != 0)
-				kfree_skb(skb);
+			skb_queue_purge(&mp->recvqueue);
+			skb_queue_purge(&mp->inqueue);
+			skb_queue_purge(&mp->outqueue);
 			capiminor_del_all_ack(mp);
 #ifdef COMPAT_HAS_kmem_cache
 			kmem_cache_free(capiminor_cachep, mp);
@@ -457,15 +453,12 @@ static struct capidev *capidev_alloc(struct file *file)
 static void capidev_free(struct capidev *cdev)
 {
 	struct capidev **pp;
-	struct sk_buff *skb;
 
 	if (cdev->applid)
 		(*capifuncs->capi_release) (cdev->applid);
 	cdev->applid = 0;
 
-	while ((skb = skb_dequeue(&cdev->recvqueue)) != 0) {
-		kfree_skb(skb);
-	}
+	skb_queue_purge(&cdev->recvqueue);
 	
 	pp=&capidev_openlist;
 	while (*pp && *pp != cdev) pp = &(*pp)->next;

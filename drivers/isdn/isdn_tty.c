@@ -307,18 +307,13 @@ isdn_tty_rcv_skb(int i, int di, int channel, struct sk_buff *skb)
 void
 isdn_tty_cleanup_xmit(modem_info * info)
 {
-	struct sk_buff *skb;
 	unsigned long flags;
 
 	save_flags(flags);
 	cli();
-	if (skb_queue_len(&info->xmit_queue))
-		while ((skb = skb_dequeue(&info->xmit_queue)))
-			kfree_skb(skb);
+	skb_queue_purge(&info->xmit_queue);
 #ifdef CONFIG_ISDN_AUDIO
-	if (skb_queue_len(&info->dtmf_queue))
-		while ((skb = skb_dequeue(&info->dtmf_queue)))
-			kfree_skb(skb);
+	skb_queue_purge(&info->dtmf_queue);
 #endif
 	restore_flags(flags);
 }
