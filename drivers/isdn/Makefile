@@ -65,7 +65,7 @@ obj-y					+= $(subobj-y)
 
 # The global Rules.make.
 
-include $(TOPDIR)/Rules.make
+include $(TOPDIR)/drivers/isdn/Rules.make
 
 # Link rules for multi-part drivers.
 

@@ -14,7 +14,6 @@
 #undef COMPAT_HAS_ISA_IOREMAP
 #define net_device device
 #define set_current_state(sta) current->state = sta
-#undef COMPAT_HAS_pci_find_subsys
 #undef COMPAT_HAS_kmem_cache
 #undef COMPAT_d_alloc_root_one_parameter
 #undef COMPAT_HAS_init_special_inode
@@ -63,3 +62,4 @@
 
 #define COMPAT_NEED_PCI_IDS
 #undef COMPAT_HAS_SCHEDULE_TASK
+

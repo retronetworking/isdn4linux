@@ -6,6 +6,10 @@
  * Copyright 1996 by Carsten Paeth (calle@calle.in-berlin.de)
  *
  * $Log$
+ * Revision 1.44.6.2  2000/12/14 23:04:12  kai
+ * Makefile changes and the like for 2.4.0-test13-pre1
+ * No compatiblity code for older kernels yet, but note the branch
+ *
  * Revision 1.45  2000/12/02 19:47:29  kai
  * Change the Makefiles to new style.
  * There may be problems there that I missed, so this shouldn't go into
@@ -242,10 +246,10 @@
 #include <linux/capi.h>
 #include <linux/kernelcapi.h>
 #include <linux/init.h>
+#include <linux/isdn_compat.h>
 #ifdef HAVE_DEVFS_FS
 #include <linux/devfs_fs_kernel.h>
 #endif /* HAVE_DEVFS_FS */
-#include <linux/isdn_compat.h>
 #include "capiutil.h"
 #include "capicmd.h"
 #if defined(CONFIG_ISDN_CAPI_CAPIFS) || defined(CONFIG_ISDN_CAPI_CAPIFS_MODULE)

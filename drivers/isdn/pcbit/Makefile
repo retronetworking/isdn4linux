@@ -24,7 +24,7 @@ obj-	:=
 
 obj-$(CONFIG_ISDN_DRV_PCBIT)	+= pcbit.o
 
-include $(TOPDIR)/Rules.make
+include $(TOPDIR)/drivers/isdn/Rules.make
 
 # Link rules for multi-part drivers.
 

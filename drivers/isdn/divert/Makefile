@@ -26,7 +26,7 @@ obj-	:=
 
 obj-m	+= dss1_divert.o
 
-include $(TOPDIR)/Rules.make
+include $(TOPDIR)/drivers/isdn/Rules.make
 
 # Link rules for multi-part drivers.
 

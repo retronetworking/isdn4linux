@@ -8,18 +8,26 @@ VERBOSE=false
 NOTEST=true
 
 docpd() {
-  if ! cmp -s $1 $2 ; then
-    if $NOTEST ; then
-        echo Copying $1 ...
-	mkdir -p `dirname $2`
-	rm -rf $2 # unlink first
-        cp $1 $2
-    else
-        echo $1 was changed
+  BASENAME=`basename $2`; 
+  if [ "$BASENAME" = "Makefile" ] ; then
+    if [ $VERSION -gt 3 -o $PATCHLEVEL -gt 3 ]; then
+      rm -f $2
+      cat $1 | sed -e "s/drivers\/isdn\/Rules\.make/Rules\.make/" > $2
     fi
   else
-    if $VERBOSE ; then
-	    echo $2 is up to date, NOT converted
+    if ! cmp -s $1 $2 ; then
+      if $NOTEST ; then
+          echo Copying $1 ...
+	  mkdir -p `dirname $2`
+  	  rm -f $2 # unlink first
+          cp $1 $2
+      else
+          echo $1 was changed
+      fi
+    else
+      if $VERBOSE ; then
+	      echo $2 is up to date, NOT converted
+      fi
     fi
   fi
 }
@@ -29,7 +37,7 @@ docp() {
     if $NOTEST ; then
         echo Copying $1 ...
 	mkdir -p `dirname $2`
-	rm -rf $2 # unlink first
+	rm -f $2 # unlink first
         cp $1 $2
     else
         echo $1 was changed
@@ -252,19 +260,13 @@ else
   for i in drivers/isdn/isdnloop/*.[ch] ; do
     $DOCP $i $KERNELDIR/$i
   done
-  for i in drivers/isdn/hysdn/*.[ch] drivers/isdn/hysdn/Makefile ; do
+  for i in drivers/isdn/hysdn/*.[ch] ; do
     $DOCP $i $KERNELDIR/$i
   done
   if [ ! -d $KERNELDIR/drivers/isdn/divert ] ; then
     mkdir $KERNELDIR/drivers/isdn/divert
   fi
-  for i in drivers/isdn/divert/*.[ch] drivers/isdn/divert/Makefile ; do
-    $DOCP $i $KERNELDIR/$i
-  done
-  if [ ! -d $KERNELDIR/drivers/isdn/hysdn ] ; then
-    mkdir $KERNELDIR/drivers/isdn/hysdn
-  fi
-  for i in drivers/isdn/hysdn/*.[ch] drivers/isdn/hysdn/Makefile ; do
+  for i in drivers/isdn/divert/*.[ch] ; do
     $DOCP $i $KERNELDIR/$i
   done
   if [ -f $KERNELDIR/Documentation/Configure.help ] ; then
@@ -277,16 +279,6 @@ else
     grep -q CONFIG_ISDN_DRV_EICON $KERNELDIR/Documentation/Configure.help
     if [ $? != 0 ] ; then
       patch -d $KERNELDIR/Documentation < Documentation/Configure.help.eicon.diff
-    fi
-  fi
-  if $NOTEST ; then
-    if [ -f $KERNELDIR/Documentation/Configure.help ] ; then
-      grep -q CONFIG_ISDN_WITH_ABC $KERNELDIR/Documentation/Configure.help
-      if [ $? != 0 ] ; then
-	  if [ -f  Documentation/Configure.help.dwabc.diff ] ; then
-            patch -d $KERNELDIR/Documentation < Documentation/Configure.help.dwabc.diff
-	  fi
-      fi
     fi
   fi
   for i in drivers/isdn/eicon/*.[ch] ; do
@@ -322,14 +314,17 @@ else
 		$DOCP $i $KERNELDIR/$i
 	fi
   done
-  for i in drivers/isdn/Makefile drivers/isdn/icn/Makefile \
+  for i in drivers/isdn/Makefile \
+	   drivers/isdn/icn/Makefile \
            drivers/isdn/hisax/Makefile \
-           drivers/isdn/pcbit/Makefile drivers/isdn/sc/Makefile \
+           drivers/isdn/pcbit/Makefile \
+	   drivers/isdn/sc/Makefile \
            drivers/isdn/act2000/Makefile \
            drivers/isdn/isdnloop/Makefile \
            drivers/isdn/eicon/Makefile \
            drivers/isdn/divert/Makefile \
-           drivers/isdn/avmb1/Makefile; do
+           drivers/isdn/avmb1/Makefile \
+           drivers/isdn/hysdn/Makefile; do
 	if [ -f $i.kernel ] ; then
 		if $UNIQUE ; then
 			docpd $i.kernel $KERNELDIR/$i

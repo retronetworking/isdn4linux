@@ -19,4 +19,4 @@ obj-	:=
 
 obj-$(CONFIG_ISDN_DRV_ICN)	+= icn.o
 
-include $(TOPDIR)/Rules.make
+include $(TOPDIR)/drivers/isdn/Rules.make

@@ -31,7 +31,7 @@ obj-	:=
 
 obj-$(CONFIG_HYSDN)	+= hysdn.o
 
-include $(TOPDIR)/Rules.make
+include $(TOPDIR)/drivers/isdn/Rules.make
 
 # Link rules for multi-part drivers.
 

@@ -64,8 +64,6 @@ extern char *eicon_idi_revision;
 extern int do_ioctl(struct inode *pDivasInode, struct file *pDivasFile,
 			unsigned int command, unsigned long arg);
 extern void eicon_pci_init_conf(eicon_card *card);
-void mod_inc_use_count(void);
-void mod_dec_use_count(void);
 
 #ifdef MODULE
 #define MOD_USE_COUNT (GET_USE_COUNT (&__this_module))
@@ -1184,7 +1182,7 @@ eicon_registercard(eicon_card * card)
         return 0;
 }
 
-static void 
+static void __exit
 unregister_card(eicon_card * card)
 {
         isdn_ctrl cmd;
@@ -1390,17 +1388,6 @@ eicon_init(void)
 		printk(KERN_INFO "Eicon: %d card%s added\n", card_count, 
                        (card_count>1)?"s":"");
         return 0;
-}
-
-
-void mod_inc_use_count(void)
-{
-        MOD_INC_USE_COUNT;
-}
-
-void mod_dec_use_count(void)
-{
-        MOD_DEC_USE_COUNT;
 }
 
 #ifdef CONFIG_ISDN_DRV_EICON_PCI

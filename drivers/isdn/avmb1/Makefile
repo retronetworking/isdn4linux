@@ -38,7 +38,7 @@ obj-$(CONFIG_ISDN_DRV_AVMB1_C4)		+= c4.o b1.o
 
 # The global Rules.make.
 
-include $(TOPDIR)/Rules.make
+include $(TOPDIR)/drivers/isdn/Rules.make
 
 # Link rules for multi-part drivers.
 

@@ -21,5 +21,5 @@ obj-	:=
 
 obj-$(CONFIG_ISDN_DRV_LOOP)	+= isdnloop.o
 
-include $(TOPDIR)/Rules.make
+include $(TOPDIR)/drivers/isdn/Rules.make
 
