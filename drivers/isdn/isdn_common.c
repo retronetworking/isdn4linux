@@ -21,6 +21,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.40  1997/03/08 08:13:51  fritz
+ * Bugfix: IIOCSETMAP (Set mapping) was broken.
+ *
  * Revision 1.39  1997/03/07 01:32:54  fritz
  * Added proper ifdef's for CONFIG_ISDN_AUDIO
  *
@@ -194,8 +197,7 @@
 #include "isdn_cards.h"
 
 /* Debugflags */
-#undef  ISDN_DEBUG_STATCALLB
-#define NEW_ISDN_TIMER_CTRL
+#undef ISDN_DEBUG_STATCALLB
 
 isdn_dev *dev = (isdn_dev *) 0;
 
@@ -316,9 +318,6 @@ isdn_timer_funct(ulong dummy)
 		save_flags(flags);
 		cli();
 		del_timer(&dev->timer);
-#ifndef NEW_ISDN_TIMER_CTRL
-		dev->timer.function = isdn_timer_funct;
-#endif
 		dev->timer.expires = jiffies + ISDN_TIMER_RES;
 		add_timer(&dev->timer);
 		restore_flags(flags);
@@ -341,20 +340,11 @@ isdn_timer_ctrl(int tf, int onoff)
 		dev->tflags |= tf;
 	else
 		dev->tflags &= ~tf;
-#ifdef NEW_ISDN_TIMER_CTRL
 	if (dev->tflags) {
 		if (!del_timer(&dev->timer))	/* del_timer is 1, when active */
 			dev->timer.expires = jiffies + ISDN_TIMER_RES;
 		add_timer(&dev->timer);
 	}
-#else
-	if (dev->tflags) {
-		del_timer(&dev->timer);
-		dev->timer.function = isdn_timer_funct;
-		dev->timer.expires = jiffies + ISDN_TIMER_RES;
-		add_timer(&dev->timer);
-	}
-#endif
 	restore_flags(flags);
 }
 
@@ -443,7 +433,7 @@ isdn_status_callback(isdn_ctrl * c)
 			if (i < 0)
 				return -1;
 #ifdef ISDN_DEBUG_STATCALLB
-			printk(KERN_DEBUG "ICALL (net): %d %ld %s\n", di, c->arg, c->num);
+			printk(KERN_DEBUG "ICALL (net): %d %ld %s\n", di, c->arg, c->parm.num);
 #endif
 			if (dev->global_flags & ISDN_GLOBAL_STOPPED) {
 				cmd.driver = di;
@@ -510,7 +500,7 @@ isdn_status_callback(isdn_ctrl * c)
 			if (i < 0)
 				return -1;
 #ifdef ISDN_DEBUG_STATCALLB
-			printk(KERN_DEBUG "CINF: %ld %s\n", c->arg, c->num);
+			printk(KERN_DEBUG "CINF: %ld %s\n", c->arg, c->parm.num);
 #endif
 			if (dev->global_flags & ISDN_GLOBAL_STOPPED)
 				return 0;
@@ -519,7 +509,7 @@ isdn_status_callback(isdn_ctrl * c)
 			break;
 		case ISDN_STAT_CAUSE:
 #ifdef ISDN_DEBUG_STATCALLB
-			printk(KERN_DEBUG "CAUSE: %ld %s\n", c->arg, c->num);
+			printk(KERN_DEBUG "CAUSE: %ld %s\n", c->arg, c->parm.num);
 #endif
 			printk(KERN_INFO "isdn: %s,ch%ld cause: %s\n",
 			       dev->drvid[di], c->arg, c->parm.num);
@@ -2101,10 +2091,8 @@ isdn_init(void)
 		return -EIO;
 	}
 	memset((char *) dev, 0, sizeof(isdn_dev));
-#ifdef NEW_ISDN_TIMER_CTRL
 	init_timer(&dev->timer);
 	dev->timer.function = isdn_timer_funct;
-#endif
 	for (i = 0; i < ISDN_MAX_CHANNELS; i++) {
 		dev->drvmap[i] = -1;
 		dev->chanmap[i] = -1;
