@@ -13,6 +13,10 @@
  *              Fritz Elfert
  *
  * $Log$
+ * Revision 1.16.2.13  1999/05/05 20:29:39  werner
+ * changed keypad support (every called party with * or # assumed keypad)
+ * added STAT callback for delivering display messages to HL
+ *
  * Revision 1.16.2.12  1999/05/01 20:03:31  werner
  * added support for keypad protocol (K prefix in destnr)
  *
@@ -656,7 +660,8 @@ static int ie_ALERTING[] = {IE_BEARER, IE_FACILITY, IE_PROGRESS, IE_DISPLAY,
 static int ie_CALL_PROCEEDING[] = {IE_BEARER, IE_CHANNEL_ID | IE_MANDATORY_1,
 		IE_FACILITY, IE_PROGRESS, IE_DISPLAY, IE_HLC, -1};
 static int ie_CONNECT[] = {IE_BEARER, IE_CHANNEL_ID | IE_MANDATORY_1, 
-		IE_FACILITY, IE_PROGRESS, IE_DISPLAY, IE_DATE, IE_LLC, IE_HLC, IE_USER_USER, -1};
+		IE_FACILITY, IE_PROGRESS, IE_DISPLAY, IE_DATE, IE_CONNECT_PN,
+		IE_CONNECT_SUB, IE_LLC, IE_HLC, IE_USER_USER, -1};
 static int ie_CONNECT_ACKNOWLEDGE[] = {IE_DISPLAY, -1};
 static int ie_DISCONNECT[] = {IE_CAUSE | IE_MANDATORY, IE_FACILITY,
 		IE_PROGRESS, IE_DISPLAY, IE_USER_USER, -1};
@@ -799,7 +804,7 @@ check_infoelements(struct l3_process *pc, struct sk_buff *skb, int *checklist)
 				err_ureg++;
 		}
 		ie = *p++;
-		if (newpos > 0) {
+		if (newpos >= 0) {
 			l = *p++;
 			p += l;
 			l += 2;
@@ -1580,6 +1585,7 @@ l3dss1_connect(struct l3_process *pc, u_char pr, void *arg)
 	L3DelTimer(&pc->timer);	/* T310 */
 	newl3state(pc, 10);
 	pc->para.chargeinfo = 0;
+	/* here should inserted COLP handling KKe */
 	if (ret)
 		l3dss1_std_ie_err(pc, ret);
 	pc->st->l3.l3l4(pc->st, CC_SETUP | CONFIRM, pc);

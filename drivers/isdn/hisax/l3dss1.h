@@ -3,6 +3,9 @@
  *  DSS1 (Euro) D-channel protocol defines
  *
  * $Log$
+ * Revision 1.3.2.4  1999/04/22 21:11:39  werner
+ * Added support for dss1 diversion services
+ *
  * Revision 1.3.2.3  1998/05/27 18:06:14  keil
  * HiSax 3.0
  *
@@ -89,6 +92,8 @@
 #define IE_PACK_SIZE	0x46
 #define IE_CUG		0x47
 #define	IE_REV_CHARGE	0x4a
+#define IE_CONNECT_PN	0x4c
+#define IE_CONNECT_SUB	0x4d
 #define IE_CALLING_PN	0x6c
 #define IE_CALLING_SUB	0x6d
 #define IE_CALLED_PN	0x70
