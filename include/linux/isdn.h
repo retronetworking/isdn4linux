@@ -841,8 +841,10 @@ extern size_t isdn_dw_abc_lcr_readstat(char *,size_t);
 extern ulong isdn_dw_abc_lcr_call_number(isdn_net_local *,isdn_ctrl *);
 extern void isdn_dw_abc_lcr_open(void);
 extern void isdn_dw_abc_lcr_close(void);
-extern void isdn_dw_abc_lcr_ioctl(ulong);
+extern int isdn_dw_abc_lcr_ioctl(ulong);
 extern void isdn_dw_abc_lcr_clear(isdn_net_local *);
+extern int isdn_dw_abc_lcr_lock(void);
+extern void isdn_dw_abc_lcr_ulock(void);
 #endif
 #ifdef CONFIG_ISDN_WITH_ABC_UDP_CHECK
 extern int dw_abc_udp_test(struct sk_buff *skb,struct net_device *ndev); 

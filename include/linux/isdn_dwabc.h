@@ -26,6 +26,54 @@
 
 #ifdef __KERNEL__
 #include <linux/types.h>
+#include <linux/kernel.h>
+#include <linux/sched.h>
+#include <linux/smp.h>
+#include <linux/spinlock.h>
+#include <linux/errno.h>
+
+
+typedef struct ISDN_DWSPINLOCK {
+
+	spinlock_t 	spin;
+	short  		owner;
+	short		my_flags;
+	ulong 		irq_flags;
+
+} ISDN_DWSPINLOCK;
+
+#define ISDN_DWSPIN_UNLOCKED				\
+	(ISDN_DWSPINLOCK) {						\
+		spin: 		SPIN_LOCK_UNLOCKED,		\
+		owner:		-1,						\
+		my_flags:	0,						\
+		irq_flags:	0,						\
+	}
+
+#define ISDN_DWSPIN_INIT(x)			\
+			do { *(x) = ISDN_DWSPIN_UNLOCKED; } while(0);
+
+static __inline__ int isdn_dwspin_trylock(ISDN_DWSPINLOCK *spin)
+{
+	if(!spin_trylock(&spin->spin)) {
+
+		if(spin->owner == smp_processor_id())
+			return(-EAGAIN);
+
+		spin_lock(&spin->spin);
+	}
+
+	spin->owner = smp_processor_id();
+	return(0);
+}
+
+static __inline__ void isdn_dwspin_unlock(ISDN_DWSPINLOCK *spin)
+{
+	spin->owner = -1;
+	spin_unlock(&spin->spin);
+}
+
+
 #else
 #include <sys/types.h>
 #endif

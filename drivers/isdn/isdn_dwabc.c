@@ -34,6 +34,7 @@ static char *dwabcrevison = "$Revision$";
 
 #include <asm/semaphore.h>
 #define CONFIG_ISDN_WITH_ABC_NEED_DWSJIFFIES 	1
+#include <linux/list.h>
 #include <linux/isdn.h>
 #include "isdn_common.h"
 #include "isdn_net.h"
@@ -75,7 +76,6 @@ struct PSH {
 #include <linux/isdn_ppp.h>
 extern struct isdn_ppp_compressor *isdn_ippp_comp_head;
 #define ipc_head isdn_ippp_comp_head
-static struct isdn_ppp_comp_data BSD_COMP_INIT_DATA;
 #ifndef CI_BSD_COMPRESS
 #define CI_BSD_COMPRESS 21
 #endif
@@ -96,44 +96,37 @@ static struct timer_list dw_abc_timer;
 
 
 #ifdef CONFIG_ISDN_WITH_ABC_LCR_SUPPORT
-static struct semaphore lcr_sema;
-#define LCR_LOCK() down(&lcr_sema)
-#define LCR_I_LOCK() down_interruptible(&lcr_sema)
-#define LCR_ULOCK() up(&lcr_sema)
+static ISDN_DWSPINLOCK lcr_spin = ISDN_DWSPIN_UNLOCKED;
+#define LCR_LOCK() isdn_dwspin_trylock(&lcr_spin)
+#define LCR_ULOCK() isdn_dwspin_unlock(&lcr_spin)
 
 typedef struct ISDN_DW_ABC_LCR {
 
-	struct ISDN_DW_ABC_LCR *lcr_prev;
-	struct ISDN_DW_ABC_LCR *lcr_next;
+	struct list_head dll;
 	char lcr_printbuf[64 + ISDN_MSNLEN + ISDN_MSNLEN];
 	char *lcr_poin;
 	char *lcr_epoin;
 
 } ISDN_DW_ABC_LCR;
 
-static ISDN_DW_ABC_LCR *first_lcr			= NULL;
-static ISDN_DW_ABC_LCR *last_lcr			= NULL;
-
-static int lcr_open_count					= 0;
-static volatile u_long lcr_call_counter		= 0;
-static long lcr_requests					= 0;
+static LIST_HEAD(lcr_dll);
+static atomic_t lcr_open_count		=	ATOMIC_INIT(0);
+static volatile  ulong lcr_call_counter	= 0;
 
 #endif
 
 #ifdef CONFIG_ISDN_WITH_ABC_IPV4_TCP_KEEPALIVE
 
 static short 	deadloop					= 0;
-
-static struct semaphore ipv4keep_sema;
-#define TKAL_LOCK 	down(&ipv4keep_sema)
-#define TKAL_ULOCK 	up(&ipv4keep_sema)
+static ISDN_DWSPINLOCK ipv4keep_spin = ISDN_DWSPIN_UNLOCKED;
+#define TKAL_LOCK 	isdn_dwspin_trylock(&ipv4keep_spin)
+#define TKAL_ULOCK 	isdn_dwspin_unlock(&ipv4keep_spin)
 
 struct TCPM {
+	struct list_head dll;
 	u_short         tcpm_srcport;
 	u_short         tcpm_dstport;
 	u_short         tcpm_window;
-	struct TCPM    *tcpm_prev;
-	struct TCPM    *tcpm_next;
 	u_long          tcpm_srcadr;
 	u_long          tcpm_dstadr;
 	u_long          tcpm_seqnr;
@@ -146,9 +139,8 @@ static u_long   last_police		= 0;
 
 #define MAX_MMA 16
 static void    *MMA[MAX_MMA];
-static struct TCPM *tcp_first	= NULL;
-static struct TCPM *tcp_last	= NULL;
-static struct TCPM *tcp_free	= NULL;
+static LIST_HEAD(tcp_dll);
+static LIST_HEAD(tcp_free_dll);
 #endif
 
 #ifdef CONFIG_ISDN_WITH_ABC_LCR_SUPPORT
@@ -164,103 +156,117 @@ static int myjiftime(char *p,u_long nj)
 
 static void dw_lcr_clear_all(void)
 {
+	struct list_head *lh;
 
-	ISDN_DW_ABC_LCR *p;
+	if(!LCR_LOCK()) {
 
-	LCR_LOCK();
+		while((lh = lcr_dll.next) != &lcr_dll) {
 
-	while((p = first_lcr) != NULL) {
-
-		first_lcr = p->lcr_next;
-		kfree(p);
-	}
-
-	last_lcr = NULL;
-	lcr_requests = 0;
-	LCR_ULOCK();
-}
-
-void isdn_dw_abc_lcr_open(void) { lcr_open_count++; }
-
-void isdn_dw_abc_lcr_close(void) 
-{ 
-	lcr_open_count--;
-
-	if(lcr_open_count < 1) {
-
-		lcr_open_count = 0;
-		dw_lcr_clear_all();
-	}
-}
-
-
-size_t isdn_dw_abc_lcr_readstat(char *buf,size_t count) 
-{
-	size_t r = 0;
-
-	if(buf != NULL && count > 0 && !LCR_I_LOCK()) {
-
-		ISDN_DW_ABC_LCR *p;
-
-		while(count > 0 && (p = first_lcr) != NULL) {
-
-			if(p->lcr_poin < p->lcr_epoin) {
-
-				size_t  n = p->lcr_epoin - p->lcr_poin;
-
-				if(n > count)
-					n = count;
-
-				copy_to_user(buf,p->lcr_poin,n);
-				p->lcr_poin += n;
-				count -= n;
-				buf += n;
-				r += n;
-			}
-
-			if(p->lcr_poin < p->lcr_epoin) 
-				break;
-
-			if((first_lcr = p->lcr_next) != NULL)
-				first_lcr->lcr_prev = NULL;
-			else
-				last_lcr = NULL;
-
+			ISDN_DW_ABC_LCR *p = list_entry(lh,ISDN_DW_ABC_LCR,dll);
+			list_del(&p->dll);
 			kfree(p);
-			lcr_requests--;
 		}
 
 		LCR_ULOCK();
 	}
+}
 
-	return(r);
+void isdn_dw_abc_lcr_open(void) 
+{ atomic_inc(&lcr_open_count); }
+
+void isdn_dw_abc_lcr_close(void) 
+{ 
+	if(atomic_dec_and_test(&lcr_open_count))
+		dw_lcr_clear_all();
+}
+
+int isdn_dw_abc_lcr_lock(void) 
+{ return(LCR_LOCK()); }
+
+void isdn_dw_abc_lcr_ulock(void) 
+{ LCR_ULOCK(); }
+
+
+size_t isdn_dw_abc_lcr_readstat(char *buf,size_t count) 
+{
+	size_t  retw = 0;
+
+	while(buf != NULL && count > 0) {
+
+		struct list_head *lh = NULL;
+		ISDN_DW_ABC_LCR *p = NULL;
+		char *dp = NULL;
+		size_t  n;
+
+		if((n = LCR_LOCK())) {
+
+			if(!retw)
+				retw = n;
+
+			break;
+		}
+
+
+		while((lh = lcr_dll.next) != &lcr_dll) {
+
+			p = list_entry(lh,ISDN_DW_ABC_LCR,dll);
+
+			if(p->lcr_poin >= p->lcr_epoin) {
+
+				list_del(&p->dll);
+				kfree(p);
+				p = NULL;
+
+			} else break;
+		}
+
+		if(p == NULL) {
+				
+			LCR_ULOCK();
+			break;
+		}
+
+		n = p->lcr_epoin - p->lcr_poin;
+
+		if(n > count)
+			n = count;
+
+		dp = p->lcr_poin;
+		p->lcr_poin += n;
+		retw += n;
+		LCR_ULOCK();
+		copy_to_user(buf,dp,n);
+		buf += n;
+	}
+
+	return(retw);
+}
+
+
+static void isdn_dw_abc_lcr_clear_helper(isdn_net_local *lp)
+{
+	if(lp != NULL) {
+
+		void *a,*b;
+
+		a = lp->dw_abc_lcr_cmd;  
+		b = lp->dw_abc_lcr_io;
+		lp->dw_abc_lcr_io = NULL;
+		lp->dw_abc_lcr_cmd = NULL;
+		lp->dw_abc_lcr_callid = 
+		lp->dw_abc_lcr_start_request =
+		lp->dw_abc_lcr_end_request = 0;
+		
+		if(a) kfree(a);
+		if(b) kfree(b);
+	}
 }
 
 void isdn_dw_abc_lcr_clear(isdn_net_local *lp)
 {
-
-	if(lp != NULL) {
-
-		u_long flags;
-		void *a,*b;
-
-		save_flags(flags);
-		cli();
-
-		a = lp->dw_abc_lcr_cmd;  
-		b = lp->dw_abc_lcr_io;
-
-		lp->dw_abc_lcr_io = NULL;
-		lp->dw_abc_lcr_cmd = NULL;
-
-		lp->dw_abc_lcr_callid = 
-		lp->dw_abc_lcr_start_request =
-		lp->dw_abc_lcr_end_request = 0;
-
-		restore_flags(flags);
-		
-		if(a) kfree(a);
-		if(b) kfree(b);
+	if(!LCR_LOCK()) {
+		isdn_dw_abc_lcr_clear_helper(lp);
+		LCR_ULOCK();
 	}
 }
 
@@ -269,41 +275,36 @@ u_long isdn_dw_abc_lcr_call_number( isdn_net_local *lp,isdn_ctrl *call_cmd)
 {
 	u_long mid = 0;
 
-	isdn_dw_abc_lcr_clear(lp);
+	if(LCR_LOCK())
+		return(0);
 
-	if(lcr_requests < 100 && lp != NULL && lcr_open_count > 0 && call_cmd != NULL) {
+	isdn_dw_abc_lcr_clear_helper(lp);
 
-		u_long flags = 0;
+	if( atomic_read(&lcr_open_count) > 0 && 
+		lp != NULL 						&& 
+		call_cmd != NULL) {
+
 		ISDN_DW_ABC_LCR  *lc = NULL;
 		int ab = 0;
-
-		save_flags(flags);
-		cli();
 
 		if((lp->dw_abc_lcr_cmd = 
 			( isdn_ctrl *)kmalloc(sizeof(isdn_ctrl),GFP_ATOMIC)) == NULL) {
 
-			restore_flags(flags);
+no_mem_out:;
+			isdn_dw_abc_lcr_clear_helper(lp);
+			LCR_ULOCK();
 			printk(KERN_DEBUG "%s %d : LCR no memory\n",__FILE__,__LINE__);
 			return(0);
 		}
 
 		memcpy(lp->dw_abc_lcr_cmd,call_cmd,sizeof(*call_cmd));
-
-		if(!(++lcr_call_counter))
-			lcr_call_counter++;
-
-		lp->dw_abc_lcr_callid = mid = lcr_call_counter++;
+		while(!(lp->dw_abc_lcr_callid = mid = lcr_call_counter++));
+		
 		lp->dw_abc_lcr_end_request = lp->dw_abc_lcr_start_request = jiffies;
 		lp->dw_abc_lcr_end_request += HZ * 3;
 
-		restore_flags(flags);
-
-		if((lc = (ISDN_DW_ABC_LCR  *)kmalloc(sizeof(*lc),GFP_KERNEL)) == NULL) {
-
-			printk(KERN_DEBUG "%s %d : LCR no memory\n",__FILE__,__LINE__);
-			return(0);
-		}
+		if((lc = (ISDN_DW_ABC_LCR  *)kmalloc(sizeof(*lc),GFP_KERNEL)) == NULL)
+			goto no_mem_out;
 
 		lc->lcr_poin = lc->lcr_epoin = lc->lcr_printbuf;
 		lc->lcr_epoin += myjiftime(lc->lcr_epoin,jiffies);
@@ -318,43 +319,29 @@ u_long isdn_dw_abc_lcr_call_number( isdn_net_local *lp,isdn_ctrl *call_cmd)
 		lc->lcr_epoin += strlen(lc->lcr_epoin);
 		ab = lc->lcr_epoin - lc->lcr_poin;
 
-		LCR_LOCK();
-
-		if((lc->lcr_prev = last_lcr) != NULL) 
-			lc->lcr_prev->lcr_next = lc;
-		else
-			first_lcr = lc;
-
-		lc->lcr_next = NULL;
-		last_lcr = lc;
-		lcr_requests++;
+		list_add_tail(&lc->dll,&lcr_dll);
 		LCR_ULOCK();
 
 		if(ab > 0) {
 
-			save_flags(flags);
-			cli();
-
 			if(dev->drv[0] != NULL ) {
 
 				dev->drv[0]->stavail += ab;
-				restore_flags(flags);
 				wake_up_interruptible(&dev->drv[0]->st_waitq);
-
-			} else restore_flags(flags);
+			}
 		}
-	}
+
+	} else LCR_ULOCK();
 
 	return(mid);
 }
 
 
-void isdn_dw_abc_lcr_ioctl(u_long arg)
+int isdn_dw_abc_lcr_ioctl(u_long arg)
 {
 	struct ISDN_DWABC_LCR_IOCTL	i;
 	int need = sizeof(struct ISDN_DWABC_LCR_IOCTL); 
 	isdn_net_dev *p; 
-	u_long flags;
 
 	memset(&i,0,sizeof(struct ISDN_DWABC_LCR_IOCTL));
 	copy_from_user(&i,(char *)arg,sizeof(int));
@@ -365,47 +352,48 @@ void isdn_dw_abc_lcr_ioctl(u_long arg)
 	if(need > 0) 
 		copy_from_user(&i,(char *)arg,need);
 
-	 save_flags(flags);
-	 cli();
+	 if(LCR_LOCK())
+	 	return(-EAGAIN);
+
 	 p = dev->netdev; 
 
 	 for(;p ; p = p->next) {
 
 	 	isdn_net_local *lp = p->local;
 
-	 	if(lp->dw_abc_lcr_callid == i.lcr_ioctl_callid &&
-			lp->dw_abc_lcr_cmd != NULL) {
+	 	if(	lp->dw_abc_lcr_callid != i.lcr_ioctl_callid)
+			continue;
 
-			if(lp->dw_abc_lcr_io == NULL) {
+		if(lp->dw_abc_lcr_cmd == NULL) 
+			continue;
 
-				lp->dw_abc_lcr_io = (struct ISDN_DWABC_LCR_IOCTL *)
-					kmalloc(sizeof(struct ISDN_DWABC_LCR_IOCTL),GFP_ATOMIC);
-			}
+		if(lp->dw_abc_lcr_io == NULL)
+			lp->dw_abc_lcr_io = (struct ISDN_DWABC_LCR_IOCTL *)
+				kmalloc(sizeof(struct ISDN_DWABC_LCR_IOCTL),GFP_ATOMIC);
 
-			if(lp->dw_abc_lcr_io == NULL) {
+		if(lp->dw_abc_lcr_io == NULL) {
 
-				printk(KERN_DEBUG "%s %d : no memory\n",__FILE__,__LINE__);
+			printk(KERN_DEBUG "%s %d : no memory\n",__FILE__,__LINE__);
+			continue;
+		}
 
-			} else {
+		memcpy(lp->dw_abc_lcr_io,&i,sizeof(struct ISDN_DWABC_LCR_IOCTL));
 
-				memcpy(lp->dw_abc_lcr_io,&i,sizeof(struct ISDN_DWABC_LCR_IOCTL));
-				if(i.lcr_ioctl_flags & DWABC_LCR_FLG_NEWNUMBER) {
+		if(i.lcr_ioctl_flags & DWABC_LCR_FLG_NEWNUMBER) {
 
-					char *xx = i.lcr_ioctl_nr;
-					char *exx = xx + sizeof(i.lcr_ioctl_nr);
-					char *d = lp->dw_abc_lcr_cmd->parm.setup.phone;
-					char *ed = 
-						d + sizeof(lp->dw_abc_lcr_cmd->parm.setup.phone) - 1;
+			char *xx = i.lcr_ioctl_nr;
+			char *exx = xx + sizeof(i.lcr_ioctl_nr);
+			char *d = lp->dw_abc_lcr_cmd->parm.setup.phone;
+			char *ed = d + sizeof(lp->dw_abc_lcr_cmd->parm.setup.phone) - 1;
 
-					while(d < ed && xx < exx && *xx) *(d++) = *(xx++);
-					while(d < ed) *(d++) = 0;
-					*d = 0;
-				}
-			}
+			while(d < ed && xx < exx && *xx) *(d++) = *(xx++);
+			while(d < ed) *(d++) = 0;
+			*d = 0;
 		}
 	 }
 
-	 restore_flags(flags);
+	 LCR_ULOCK();
+	 return(0);
 }
 
 #endif
@@ -600,23 +588,12 @@ static char    *ipnr2buf(u_long ipadr)
 
 #if CONFIG_ISDN_WITH_ABC_IPV4_TCP_KEEPALIVE
 
-static __inline void free_tcpm(struct TCPM *fb)
+static __inline__ void free_tcpm(struct TCPM *fb)
 {
 	if (fb != NULL) {
 
-		if (fb->tcpm_prev != NULL)
-			fb->tcpm_prev->tcpm_next = fb->tcpm_next;
-		else
-			tcp_first = fb->tcpm_next;
-
-		if (fb->tcpm_next != NULL)
-			fb->tcpm_next->tcpm_prev = fb->tcpm_prev;
-		else
-			tcp_last = fb->tcpm_prev;
-
-		fb->tcpm_next = tcp_free;
-		tcp_free = fb;
-		fb->tcpm_prev = NULL;
+		list_del(&fb->dll);
+		list_add_tail(&fb->dll,&tcp_free_dll);
 	}
 }
 
@@ -645,43 +622,36 @@ static void     ip4keepalive_get_memory(void)
 	enb = nb + anz;
 	MMA[shl] = (void *) nb;
 
-	for (; nb < enb; nb++) {
-
-		nb->tcpm_next = tcp_free;
-		tcp_free = nb;
-	}
+	for (; nb < enb; nb++) 
+		list_add_tail(&nb->dll,&tcp_free_dll);
 }
 
 static __inline struct TCPM *get_free_tm(void)
 {
 	struct TCPM    *nb;
+	struct list_head *lh = NULL;
 
-	if ((nb = tcp_free) == NULL) {
+	if(list_empty(&tcp_free_dll)) {
 
 		if(MMA[MAX_MMA - 1] == NULL) 
 			ip4keepalive_get_memory();
-
-		if ((nb = tcp_free) == NULL) {
-
-			if ((nb = tcp_last) == NULL) 
-				return (NULL);
-
-			free_tcpm(nb);
-
-			if ((nb = tcp_free) == NULL) 
-				return (NULL);
-		}
 	}
 
-	tcp_free = nb->tcpm_next;
+	if(list_empty(&tcp_free_dll)) {
 
-	if ((nb->tcpm_next = tcp_first) != NULL)
-		tcp_first->tcpm_prev = nb;
-	else
-		tcp_last = nb;
+		if(!list_empty(&tcp_dll))
+			lh = tcp_dll.prev;
 
-	nb->tcpm_prev = NULL;
-	tcp_first = nb;
+	} else lh = tcp_free_dll.next;
+
+	if(lh == NULL)
+		return(NULL);
+
+	list_del(lh);
+	nb = list_entry(lh,struct TCPM,dll);
+	memset((void *) nb, 0, sizeof(*nb));
+	list_add(&nb->dll,&tcp_dll);
+	
 	return (nb);
 }
 
@@ -720,18 +690,18 @@ static int  isdn_tcpipv4_test(struct net_device *ndev, struct iphdr *ip, struct 
 
 	if (next_police < jiffies || last_police > jiffies) {
 
+		struct list_head *lh = NULL;
 		next_police = last_police = jiffies;
 		next_police += HZ * 60;
-		nb = tcp_first;
 
-		for (shl=0;nb != NULL && shl < secure;shl++) {
+		for(lh = tcp_dll.next,shl=0; lh != &tcp_dll && shl < secure;shl++) {
 
-			struct TCPM    *b = nb;
+			nb = list_entry(lh,struct TCPM,dll);
+			lh = lh->next;
 
-			nb = nb->tcpm_next;
-
-			if (b->tcpm_time > jiffies || ((jiffies - b->tcpm_time) > (HZ * 3600 * 12)))
-				free_tcpm(b);
+			if (nb->tcpm_time > jiffies || 
+				((jiffies - nb->tcpm_time) > (HZ * 3600 * 12)))
+				free_tcpm(nb);
 		}
 
 		if(shl >= secure) {
@@ -766,27 +736,34 @@ static int  isdn_tcpipv4_test(struct net_device *ndev, struct iphdr *ip, struct 
 		return (0);
 	}
 
-	if(ndev == NULL) {
+	nb = NULL;
 
-		for (nb = tcp_first,shl = 0; nb != NULL && shl < secure &&
-			 ((nb->tcpm_srcadr ^ ip->daddr) ||
-			  (nb->tcpm_dstadr ^ ip->saddr) ||
-			  (nb->tcpm_srcport ^ tcp->dest) ||
-			  (nb->tcpm_dstport ^ tcp->source)); nb = nb->tcpm_next,shl++) ;
+	{
+		struct list_head *lh = NULL;
 
-	} else {
+		shl = 0;
 
-		for (nb = tcp_first,shl = 0; nb != NULL && shl < secure &&
-			 ((nb->tcpm_srcadr ^ ip->saddr) ||
-			  (nb->tcpm_dstadr ^ ip->daddr) ||
-			  (nb->tcpm_srcport ^ tcp->source) ||
-			  (nb->tcpm_dstport ^ tcp->dest)); nb = nb->tcpm_next,shl++) ;
-	}
+		list_for_each(lh,&tcp_dll) {
 
-	if(shl >= secure) {
+			if(shl++ >= secure)
+				break;
 
-		printk(KERN_WARNING "ip_isdn_tcp_keepalive: search deadloop\n");
-		deadloop = 1;
+			nb = list_entry(lh,struct TCPM,dll);
+
+			 if(!((nb->tcpm_srcadr ^ ip->saddr) ||
+		  		(nb->tcpm_dstadr ^ ip->daddr) ||
+		  		(nb->tcpm_srcport ^ tcp->source) ||
+		  		(nb->tcpm_dstport ^ tcp->dest)))
+				break;
+
+			nb = NULL;
+		}
+
+		if(shl >= secure) {
+
+			printk(KERN_WARNING "ip_isdn_tcp_keepalive: search deadloop\n");
+			deadloop = 1;
+		}
 	}
 
 #ifdef KEEPALIVE_VERBOSE
@@ -811,7 +788,7 @@ static int  isdn_tcpipv4_test(struct net_device *ndev, struct iphdr *ip, struct 
 #endif
 	if (nb == NULL) {
 
-		if (!ndev || !tcp->ack || tcp->fin || tcp->rst || tcp->syn || tcp->urg) {
+		if(!tcp->ack || tcp->fin || tcp->rst || tcp->syn || tcp->urg) {
 			
 
 #ifdef KEEPALIVE_VERBOSE
@@ -856,20 +833,6 @@ static int  isdn_tcpipv4_test(struct net_device *ndev, struct iphdr *ip, struct 
 		}
 #endif
 		return (0);
-	}
-
-	if(ndev == NULL) {
-
-		/*
-		** we receive a frame from the peer
-		** in most case the local-side will respond with a frame
-		** if the respons-frame is a keealive-response
-		** then we cannot local answer (peer will drop the connection)
-		** so we update only the time-step 
-		*/
-
-		nb->tcpm_time = jiffies;
-		return(0);
 	}
 
 	if (!tcp->ack || tcp->fin || tcp->rst || tcp->urg) {
@@ -1026,53 +989,40 @@ static int  isdn_tcpipv4_test(struct net_device *ndev, struct iphdr *ip, struct 
 	nb->tcpm_window = tcp->window;
 	nb->tcpm_time = jiffies;
 
-	if (nb->tcpm_prev != NULL) {
-
-		nb->tcpm_prev->tcpm_next = nb->tcpm_next;
-
-		if (nb->tcpm_next != NULL)
-			nb->tcpm_next->tcpm_prev = nb->tcpm_prev;
-		else
-			tcp_last = nb->tcpm_prev;
-
-		if ((nb->tcpm_next = tcp_first) != NULL)
-			nb->tcpm_next->tcpm_prev = nb;
-		else
-			tcp_last = nb;
-
-		tcp_first = nb;
-		nb->tcpm_prev = NULL;
-	}
+	list_del(&nb->dll);
+	list_add(&nb->dll,&tcp_dll);
 
 	return (retw);
 }
 
 static void isdn_tcp_keepalive_init(void)
 {
-	TKAL_LOCK;
-	tcp_first = NULL;
-	tcp_last = NULL;
-	tcp_free = NULL;
-	next_police = 0;
-	last_police = 0;
-	deadloop = 0;
-	memset(MMA,0,sizeof(MMA));
-	TKAL_ULOCK;
+	if(!TKAL_LOCK) {
+
+		INIT_LIST_HEAD(&tcp_dll);
+		INIT_LIST_HEAD(&tcp_free_dll);
+		next_police = last_police = 0;
+		deadloop = 0;
+		memset(MMA,0,sizeof(MMA));
+		TKAL_ULOCK;
+
+	} else printk(KERN_INFO "isdn keepalive_init can't lcok\n");
 }
 
 static void isdn_tcp_keepalive_done(void)
 {
 	int shl;
 
-	TKAL_LOCK;
-	tcp_first = NULL;
-	tcp_last = NULL;
-	tcp_free = NULL;
-	next_police = 0;
-	last_police = 0;
-	for (shl = 0; shl < MAX_MMA && MMA[shl] != NULL; shl++) kfree(MMA[shl]);
-	memset(MMA,0,sizeof(MMA));
-	TKAL_ULOCK;
+	if(!TKAL_LOCK) {
+
+		INIT_LIST_HEAD(&tcp_dll);
+		INIT_LIST_HEAD(&tcp_free_dll);
+		next_police = last_police = 0;
+		for (shl = 0; shl < MAX_MMA && MMA[shl] != NULL; shl++) kfree(MMA[shl]);
+		memset(MMA,0,sizeof(MMA));
+		TKAL_ULOCK;
+
+	} else printk(KERN_INFO "isdn keepalive_done can't lcok\n");
 }
 #endif
 
@@ -1083,14 +1033,10 @@ struct sk_buff *isdn_dw_abc_ip4_keepalive_test(struct net_device *ndev,struct sk
 	struct iphdr *ip;
 	isdn_net_local *lp = NULL;
 
-	if(ndev == NULL) {
-#ifndef CONFIG_ISDN_WITH_ABC_IPV4_TCP_KEEPALIVE
+	if(ndev == NULL || skb == NULL)
 		return(skb);
-#endif
-	} else lp = (isdn_net_local *)ndev->priv;
 
-	if (skb == NULL)
-		return(skb);
+	lp = (isdn_net_local *)ndev->priv;
 
 	if(ntohs(skb->protocol) != ETH_P_IP) {
 
@@ -1132,7 +1078,7 @@ struct sk_buff *isdn_dw_abc_ip4_keepalive_test(struct net_device *ndev,struct sk
 	}
 
 #ifdef CONFIG_ISDN_WITH_ABC_IPV4_DYNADDR
-	if(ndev != NULL && ndev->ip_ptr != NULL && (lp->dw_abc_flags & ISDN_DW_ABC_FLAG_DYNADDR)) {
+	if(ndev->ip_ptr != NULL && (lp->dw_abc_flags & ISDN_DW_ABC_FLAG_DYNADDR)) {
 
 		struct in_device *indev = (struct in_device *)ndev->ip_ptr;
 		struct in_ifaddr *ifaddr = NULL;
@@ -1164,7 +1110,7 @@ struct sk_buff *isdn_dw_abc_ip4_keepalive_test(struct net_device *ndev,struct sk
 #endif
 
 #ifdef CONFIG_ISDN_WITH_ABC_IPV4_TCP_KEEPALIVE
-	if(lp != NULL && (lp->dw_abc_flags & ISDN_DW_ABC_FLAG_NO_TCP_KEEPALIVE)) 
+	if((lp->dw_abc_flags & ISDN_DW_ABC_FLAG_NO_TCP_KEEPALIVE)) 
 		return(skb);
 
 	if (rklen < sizeof(struct tcphdr)) {
@@ -1195,14 +1141,15 @@ struct sk_buff *isdn_dw_abc_ip4_keepalive_test(struct net_device *ndev,struct sk
 		return(skb);
 	}
 
-	{
-		int retw = 0;
-		TKAL_LOCK;
-		retw = isdn_tcpipv4_test(ndev,ip,skb);
-		TKAL_ULOCK;
+	rklen = 0;
 
-		return(retw ? NULL : skb);
+	if(!TKAL_LOCK) {
+
+		rklen = isdn_tcpipv4_test(ndev,ip,skb);
+		TKAL_ULOCK;
 	}
+
+	return(rklen ? NULL : skb);
 #else
 	return(skb);
 #endif
@@ -1211,26 +1158,6 @@ struct sk_buff *isdn_dw_abc_ip4_keepalive_test(struct net_device *ndev,struct sk
 
 void isdn_dw_abc_init_func(void)
 {
-
-#ifdef COMPAT_HAS_NEW_WAITQ
-#ifdef CONFIG_ISDN_WITH_ABC_LCR_SUPPORT
-	init_MUTEX(&lcr_sema);
-#endif
-#ifdef CONFIG_ISDN_WITH_ABC_IPV4_TCP_KEEPALIVE
-	init_MUTEX(&ipv4keep_sema);
-#endif
-#else
-#ifdef CONFIG_ISDN_WITH_ABC_LCR_SUPPORT
-	lcr_sema = MUTEX;
-#endif
-#ifdef CONFIG_ISDN_WITH_ABC_IPV4_TCP_KEEPALIVE
-	ipv4keep_sema = MUTEX;
-#endif
-#endif
-
-#ifdef CONFIG_ISDN_WITH_ABC_LCR_SUPPORT
-	lcr_open_count = 0;
-#endif
 
 #ifdef CONFIG_ISDN_WITH_ABC_IPV4_TCP_KEEPALIVE
 	isdn_tcp_keepalive_init();
@@ -1880,7 +1807,7 @@ void dwabc_bsd_free(isdn_net_local *lp)
 			if(!(c = (struct isdn_ppp_compressor *)lp->dw_abc_bsd_compressor)) {
 
 				printk(KERN_WARNING
-					"%s: PANIC: freeing bsd compressmemory without compressor\n",
+				"%s: PANIC: freeing bsd compressmemory without compressor\n",
 					lp->name);
 
 			} else {
@@ -1889,7 +1816,9 @@ void dwabc_bsd_free(isdn_net_local *lp)
 				if(lp->dw_abc_bsd_stat_tx) (*c->free)(lp->dw_abc_bsd_stat_tx);
 
 				if(dev->net_verbose > 2)
-					printk(KERN_INFO "%s: free bsd compress-memory\n",lp->name);
+					printk(KERN_INFO
+						"%s: free bsd compress-memory\n",
+						lp->name);
 			}
 		}
 
@@ -1932,90 +1861,119 @@ int dwabc_bsd_init(isdn_net_local *lp)
 
 		if(lp->p_encap == ISDN_NET_ENCAP_RAWIP) {
 
-			if(lp->dw_abc_flags & ISDN_DW_ABC_FLAG_BSD_COMPRESS) {
+			void *rx = NULL;
+			void *tx = NULL;
+			struct isdn_ppp_comp_data *cp = NULL;
+			struct isdn_ppp_compressor *c = NULL;
 
-				ulong flags = 0;
-				struct isdn_ppp_compressor *c = ipc_head;
+			if(lp->dw_abc_flags & ISDN_DW_ABC_FLAG_BSD_COMPRESS) do {
 
-				save_flags(flags);
-				cli();
-				for(;c != NULL && c->num != CI_BSD_COMPRESS; c = c->next);
+				for(c = ipc_head ;
+					c != NULL && c->num != CI_BSD_COMPRESS; c = c->next);
 
 				if(c == NULL) {
 
-					printk(KERN_INFO "%s: Module isdn_bsdcompress not loaded\n",lp->name);
-					r = -1;
-				
-				} else {
+					printk(KERN_INFO
+						"%s: Module isdn_bsdcompress not loaded\n",
+						lp->name);
 
-					void *rx = NULL;
-					void *tx = NULL;
-					struct isdn_ppp_comp_data *cp = &BSD_COMP_INIT_DATA;
-
-					memset(cp,0,sizeof(*cp));
-					cp->num = CI_BSD_COMPRESS;
-					cp->optlen = 1;
-					
-					/*
-					** set BSD_VERSION 1 and 12 bits compressmode
-					*/
-					*cp->options = (1 << 5) | 12;
-
-					if((rx = (*c->alloc)(cp)) == NULL) {
-
-						printk(KERN_INFO "%s: allocation of bsd rx-memory failed\n",lp->name);
-						r = -1;
-
-					} else if(!(*c->init)(rx,cp,0,1)) {
-
-						printk(KERN_INFO "%s: init of bsd rx-stream  failed\n",lp->name);
-						(*c->free)(rx);
-						rx = NULL;
-					}
-
-					if(rx != NULL) {
-
-						cp->flags = IPPP_COMP_FLAG_XMIT;
-						
-						if((tx = (*c->alloc)(cp)) == NULL) {
-
-							printk(KERN_INFO
-								"%s: allocation of bsd tx-memory failed\n",lp->name);
-							r = -1;
-
-						} else if(!(*c->init)(tx,cp,0,1)) {
-
-							printk(KERN_INFO "%s: init of bsd tx-stream  failed\n",lp->name);
-							(*c->free)(tx);
-							tx = NULL;
-						}
-					}
-
-					if(tx != NULL) {
-
-						lp->dw_abc_bsd_compressor = (void *)c;
-						lp->dw_abc_bsd_stat_rx = rx;
-						lp->dw_abc_bsd_stat_tx = tx;
-						r = 0;
-
-						if(dev->net_verbose > 2)
-							printk(KERN_INFO "%s: bsd compress-memory and init ok\n",lp->name);
-					}
+					break;
 				}
 
-				restore_flags(flags);
+				cp = (struct isdn_ppp_comp_data *)
+					kmalloc(sizeof(struct isdn_ppp_comp_data),GFP_ATOMIC);
+
+				if(cp == NULL) {
+
+					printk(KERN_INFO
+						"%s: allocation of isdn_ppp_comp_data failed\n",
+						lp->name);
+
+					break;
+				}
+
+				memset(cp,0,sizeof(*cp));
+				cp->num = CI_BSD_COMPRESS;
+				cp->optlen = 1;
+					
+				/*
+				** set BSD_VERSION 1 and 12 bits compressmode
+				*/
+				*cp->options = (1 << 5) | 12;
+
+				if((rx = (*c->alloc)(cp)) == NULL) {
+
+					printk(KERN_INFO
+						"%s: allocation of bsd rx-memory failed\n",
+						lp->name);
+
+					break;
+				}
+					
+				if(!(*c->init)(rx,cp,0,1)) {
+
+					printk(KERN_INFO 
+						"%s: init of bsd rx-stream  failed\n",lp->name);
+
+					break;
+				}
+
+				cp->flags = IPPP_COMP_FLAG_XMIT;
+						
+				if((tx = (*c->alloc)(cp)) == NULL) {
+
+					printk(KERN_INFO
+						"%s: allocation of bsd tx-memory failed\n",
+						lp->name);
+
+					break;
+				}
+
+				if(!(*c->init)(tx,cp,0,1)) {
+
+					printk(KERN_INFO
+						"%s: init of bsd tx-stream  failed\n",
+						lp->name);
+
+					break;
+				}
+
+				lp->dw_abc_bsd_compressor = (void *)c;
+				lp->dw_abc_bsd_stat_rx = rx;
+				lp->dw_abc_bsd_stat_tx = tx;
+				rx = tx = NULL;
+				r = 0;
+
+				if(dev->net_verbose > 2)
+					printk(KERN_INFO
+						"%s: bsd compress-memory and init ok\n",
+						lp->name);
+
+			} while(0);
+
+			if(cp != NULL)
+				kfree(cp);
+
+			if(c != NULL) {
+
+				if(tx != NULL) (*c->free)(tx);
+				if(rx != NULL) (*c->free)(rx);
 			}
 
 		} else if(lp->dw_abc_flags & ISDN_DW_ABC_FLAG_BSD_COMPRESS) {
 		
-			printk(KERN_INFO "%s: bsd-compress only with encapsulation rawip allowed\n",lp->name);
+			printk(KERN_INFO
+				"%s: bsd-compress only with encapsulation rawip allowed\n",
+				lp->name);
 		}
 	}
 
 	return(r);
 }
 
-struct sk_buff *dwabc_bsd_compress(isdn_net_local *lp,struct sk_buff *skb,struct net_device *ndev)
+struct sk_buff *dwabc_bsd_compress(	isdn_net_local *lp,
+									struct sk_buff *skb,
+									struct net_device *ndev)
 {
 	if(lp != NULL && lp->p_encap == ISDN_NET_ENCAP_RAWIP 	&& 
 		(lp->dw_abc_flags & ISDN_DW_ABC_FLAG_BSD_COMPRESS)	&&
@@ -2023,8 +1981,12 @@ struct sk_buff *dwabc_bsd_compress(isdn_net_local *lp,struct sk_buff *skb,struct
 
 		if(lp->dw_abc_bsd_stat_tx != NULL && lp->dw_abc_bsd_compressor) {
 
-			struct isdn_ppp_compressor *cp = (struct isdn_ppp_compressor *)lp->dw_abc_bsd_compressor;
-			struct sk_buff *nskb = (struct sk_buff *)dev_alloc_skb(skb->len * 2 + ndev->hard_header_len);
+			struct isdn_ppp_compressor *cp = 
+				(struct isdn_ppp_compressor *)lp->dw_abc_bsd_compressor;
+
+			struct sk_buff *nskb = (struct sk_buff *)
+				dev_alloc_skb(skb->len * 2 + ndev->hard_header_len);
+
 			int l = 0;
 
 			if(nskb == NULL) {
@@ -2049,18 +2011,23 @@ struct sk_buff *dwabc_bsd_compress(isdn_net_local *lp,struct sk_buff *skb,struct
 
 					dev_kfree_skb(skb);
 					skb = nskb;
-					sqnr = ((*(u_char *)skb->data) << 8) + ((u_char)skb->data[1]);
+					sqnr = ((*(u_char *)skb->data) << 8) + 
+							((u_char)skb->data[1]);
 
 					if(sqnr > 65500)
-						(void)(*cp->reset)(lp->dw_abc_bsd_stat_tx,0,0,NULL,0,NULL);
+						(void)(*cp->reset)
+							(lp->dw_abc_bsd_stat_tx,0,0,NULL,0,NULL);
 				}
 			}
 		}
 	}
+
 	return(skb);
 }
 
-struct sk_buff *dwabc_bsd_rx_pkt(isdn_net_local *lp,struct sk_buff *skb,struct net_device *ndev)
+struct sk_buff *dwabc_bsd_rx_pkt(	isdn_net_local *lp,
+									struct sk_buff *skb,
+									struct net_device *ndev)
 {
 	struct sk_buff *r = skb;
 
@@ -2068,7 +2035,8 @@ struct sk_buff *dwabc_bsd_rx_pkt(isdn_net_local *lp,struct sk_buff *skb,struct n
 		(lp->dw_abc_flags & ISDN_DW_ABC_FLAG_BSD_COMPRESS)) { 
 
 		unsigned char *p = (unsigned char *)skb->data;
-		struct isdn_ppp_compressor *cp = (struct isdn_ppp_compressor *)lp->dw_abc_bsd_compressor;
+		struct isdn_ppp_compressor *cp = 
+			(struct isdn_ppp_compressor *)lp->dw_abc_bsd_compressor;
 
 		if(*p == DWBSD_PKT_SWITCH) {
 
@@ -2076,9 +2044,11 @@ struct sk_buff *dwabc_bsd_rx_pkt(isdn_net_local *lp,struct sk_buff *skb,struct n
 
 				if((lp->dw_abc_remote_version = p[1]) < 0x2) {
 
-					printk(KERN_INFO "%s: I can't really talk witk remote version 0x%x\n"
+					printk(KERN_INFO 
+						"%s: I can't really talk witk remote version 0x%x\n"
 						"Please upgrade remote or disable rawip-compression\n",
-						lp->name,p[1]);
+						lp->name,
+						p[1]);
 				}
 
 				lp->dw_abc_if_flags |= ISDN_DW_ABC_IFFLAG_BSDAKTIV;
@@ -2088,8 +2058,10 @@ struct sk_buff *dwabc_bsd_rx_pkt(isdn_net_local *lp,struct sk_buff *skb,struct n
 					(void)(*cp->reset)(lp->dw_abc_bsd_stat_tx,0,0,NULL,0,NULL);
 
 				if(dev->net_verbose > 2)
-					printk(KERN_INFO "%s: receive comm-header rem-version 0x%02x\n",
-						lp->name,lp->dw_abc_remote_version);
+					printk(KERN_INFO 
+						"%s: receive comm-header rem-version 0x%02x\n",
+						lp->name,
+						lp->dw_abc_remote_version);
 
 				return(NULL);
 			}
@@ -2098,7 +2070,8 @@ struct sk_buff *dwabc_bsd_rx_pkt(isdn_net_local *lp,struct sk_buff *skb,struct n
 
 			struct sk_buff *nskb = NULL;
 
-			if(test_and_set_bit(ISDN_DW_ABC_BITLOCK_RECEIVE,&lp->dw_abc_bitlocks)) {
+			if(test_and_set_bit(ISDN_DW_ABC_BITLOCK_RECEIVE,
+				&lp->dw_abc_bitlocks)) {
 
 				printk(KERN_INFO "%s: bsd-decomp called recursivly\n",lp->name);
 				dev_kfree_skb(skb);
@@ -2106,7 +2079,8 @@ struct sk_buff *dwabc_bsd_rx_pkt(isdn_net_local *lp,struct sk_buff *skb,struct n
 				return(NULL);
 			} 
 			
-			nskb = (struct sk_buff *)dev_alloc_skb(2048 + ndev->hard_header_len);
+			nskb = (struct sk_buff *)
+				dev_alloc_skb(2048 + ndev->hard_header_len);
 
 			if(nskb != NULL) {
 
@@ -2120,7 +2094,8 @@ struct sk_buff *dwabc_bsd_rx_pkt(isdn_net_local *lp,struct sk_buff *skb,struct n
 				if(!sqnr && cp && lp->dw_abc_bsd_stat_rx)
 					(void)(*cp->reset)(lp->dw_abc_bsd_stat_rx,0,0,NULL,0,NULL);
 
-				if((l = (*cp->decompress)(lp->dw_abc_bsd_stat_rx,skb,nskb,NULL)) < 1 || l>8000) {
+				if((l = (*cp->decompress)
+					(lp->dw_abc_bsd_stat_rx,skb,nskb,NULL)) < 1 || l>8000) {
 
 					printk(KERN_INFO "%s: abc-decomp failed\n",lp->name);
 					dev_kfree_skb(nskb);

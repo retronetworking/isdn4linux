@@ -1342,8 +1342,7 @@ isdn_ioctl(struct inode *inode, struct file *file, uint cmd, ulong arg)
 				return(-EINVAL);
 			case IIOCNETLCR:
 #ifdef CONFIG_ISDN_WITH_ABC_LCR_SUPPORT
-				isdn_dw_abc_lcr_ioctl(arg);			
-				return(0);
+				return(isdn_dw_abc_lcr_ioctl(arg));
 #else
 				printk(KERN_INFO "INFO: ISDN_ABC_LCR_SUPPORT not enabled\n");
 				return -ENODEV;

@@ -855,34 +855,43 @@ isdn_net_dial(void)
 				 * retry-counter.
 				 */
 #ifdef CONFIG_ISDN_WITH_ABC_LCR_SUPPORT
-				if(	lp->dw_abc_lcr_cmd != NULL &&
-					lp->dw_abc_lcr_start_request != lp->dw_abc_lcr_end_request) {
+				if(!isdn_dw_abc_lcr_lock()) {
 
-					if(	lp->dw_abc_lcr_io == NULL 				&& 
-						lp->dw_abc_lcr_start_request <= jiffies &&
-						lp->dw_abc_lcr_end_request > jiffies) {
-						
-						anymore = 1;
-						break;
-					}
+					if(	lp->dw_abc_lcr_cmd != NULL 		&&
+						lp->dw_abc_lcr_start_request 	!= 
+						lp->dw_abc_lcr_end_request) {
 
-					if(lp->dw_abc_lcr_io != NULL) {
-
-						if(lp->dw_abc_lcr_io->lcr_ioctl_flags & 
-							DWABC_LCR_FLG_DISABLE) {
-
-							isdn_net_hangup(&p->dev);
+						if(	lp->dw_abc_lcr_io == NULL 				&& 
+							lp->dw_abc_lcr_start_request <= jiffies &&
+							lp->dw_abc_lcr_end_request > jiffies) {
+							
+							isdn_dw_abc_lcr_ulock();
+							anymore = 1;
 							break;
 						}
 
-						if(lp->dw_abc_lcr_io->lcr_ioctl_flags & 
-							DWABC_LCR_FLG_NEWHUPTIME) {
-							lp->onhtime = lp->dw_abc_lcr_io->lcr_ioctl_onhtime;
+						if(lp->dw_abc_lcr_io != NULL) {
+
+							if(lp->dw_abc_lcr_io->lcr_ioctl_flags & 
+								DWABC_LCR_FLG_DISABLE) {
+
+								isdn_dw_abc_lcr_ulock();
+								isdn_net_hangup(&p->dev);
+								break;
+							}
+
+							if(lp->dw_abc_lcr_io->lcr_ioctl_flags & 
+								DWABC_LCR_FLG_NEWHUPTIME) {
+								lp->onhtime = lp->dw_abc_lcr_io->lcr_ioctl_onhtime;
+							}
 						}
+
+						memcpy(&cmd,lp->dw_abc_lcr_cmd,sizeof(cmd));
+						isdn_dw_abc_lcr_ulock();
+						goto dw_abc_lcr_next_click;
 					}
 
-					memcpy(&cmd,lp->dw_abc_lcr_cmd,sizeof(cmd));
-					goto dw_abc_lcr_next_click;
+					isdn_dw_abc_lcr_ulock();
 				}
 #endif
 				if(dev->global_flags & ISDN_GLOBAL_STOPPED || (ISDN_NET_DIALMODE(*lp) == ISDN_NET_DM_OFF)) {
@@ -2489,16 +2498,13 @@ isdn_net_receive(struct net_device *ndev, struct sk_buff *skb)
 			return;
 	}
 
-#ifdef CONFIG_ISDN_WITH_ABC_CONN_ERROR
+#ifdef CONFIG_ISDN_WITH_ABC
 #ifdef CONFIG_ISDN_WITH_ABC_RCV_NO_HUPTIMER
 	if(olp->dw_abc_flags & ISDN_DW_ABC_FLAG_RCV_NO_HUPTIMER) {
+
 		lp->huptimer = lp_huptimer;
 		olp->huptimer = olp_huptimer;
 	}
-#endif
-#ifdef CONFIG_ISDN_WITH_ABC_IPV4_TCP_KEEPALIVE  
-	if(!(lp->dw_abc_flags & ISDN_DW_ABC_FLAG_NO_TCP_KEEPALIVE))
-		(void)isdn_dw_abc_ip4_keepalive_test(NULL,skb);
 #endif
 #endif
 	netif_rx(skb);
