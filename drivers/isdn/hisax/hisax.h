@@ -3,6 +3,9 @@
  *   Basic declarations, defines and prototypes
  *
  * $Log$
+ * Revision 2.9  1997/11/06 17:09:09  keil
+ * New 2.1 init code
+ *
  * Revision 2.8  1997/10/29 19:04:13  keil
  * new L1; changes for 2.1
  *
@@ -158,6 +161,12 @@
 #define CC_CONNECT_ERR		72
 #define CC_RELEASE_ERR		73
 
+#define CARD_RESET	0x1001
+#define CARD_SETIRQ	0x1002
+#define CARD_INIT	0x1003
+#define CARD_RELEASE	0x1004
+#define CARD_TEST	0x1005
+
 #ifdef __KERNEL__
 
 #define MAX_DFRAME_LEN	260
@@ -167,6 +176,9 @@
 #define MAX_HEADER_LEN	4
 #define MAX_WINDOW	8
 #define MAX_MON_FRAME	32
+
+/* #define I4L_IRQ_FLAG SA_INTERRUPT */
+#define I4L_IRQ_FLAG    0
 
 /*
  * Statemachine
@@ -548,7 +560,7 @@ struct IsdnCardState {
 	u_char (*BC_Read_Reg) (struct IsdnCardState *, int, u_char);
 	void   (*BC_Write_Reg) (struct IsdnCardState *, int, u_char, u_char);
 	void   (*BC_Send_Data) (struct BCState *);
-	void   (*cardmsg) (struct IsdnCardState *, int, void *);
+	int    (*cardmsg) (struct IsdnCardState *, int, void *);
 	void   (*l1cmd) (struct IsdnCardState *, int, void *);
 	struct Channel channel[2];
 	struct BCState bcs[2];
@@ -597,8 +609,9 @@ struct IsdnCardState {
 #define  ISDN_CTYPE_SPORTSTER	16
 #define  ISDN_CTYPE_MIC		17
 #define  ISDN_CTYPE_ELSA_PCI	18
+#define  ISDN_CTYPE_COMPAQ_ISA	19
 
-#define  ISDN_CTYPE_COUNT	18
+#define  ISDN_CTYPE_COUNT	19
 
 #ifdef ISDN_CHIP_ISAC
 #undef ISDN_CHIP_ISAC
@@ -618,7 +631,7 @@ struct IsdnCardState {
 
 #ifdef	CONFIG_HISAX_16_3
 #define  CARD_TELES3 (1<< ISDN_CTYPE_16_3) | (1<< ISDN_CTYPE_PNP) | \
-		     (1<< ISDN_CTYPE_TELESPCMCIA)
+		     (1<< ISDN_CTYPE_TELESPCMCIA) | (1<< ISDN_CTYPE_COMPAQ_ISA)
 #ifndef ISDN_CHIP_ISAC
 #define ISDN_CHIP_ISAC 1
 #endif
@@ -745,7 +758,7 @@ struct IsdnCardState {
 struct IsdnCard {
 	int typ;
 	int protocol;		/* EDSS1 or 1TR6 */
-	unsigned int para[3];
+	unsigned int para[4];
 	struct IsdnCardState *cs;
 };
 
