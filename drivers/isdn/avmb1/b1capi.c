@@ -6,6 +6,9 @@
  * (c) Copyright 1997 by Carsten Paeth (calle@calle.in-berlin.de)
  * 
  * $Log$
+ * Revision 1.11  1998/03/29 16:05:58  calle
+ * changes from 2.0 tree merged.
+ *
  * Revision 1.4.2.18  1998/03/20 20:34:37  calle
  * port valid check now only for T1, because of the PCI and PCMCIA cards.
  *
@@ -586,7 +589,7 @@ int avmb1_registercard(int port, int irq, int cardtype, int allocio)
 				 SA_SHIRQ, card->name, card)) != 0) {
 		printk(KERN_ERR "b1capi: unable to get IRQ %d (irqval=%d).\n",
 		       irq, irqval);
-		release_region((unsigned short) port, AVMB1_PORTLEN);
+		release_region(port, AVMB1_PORTLEN);
 		return -EBUSY;
 	}
 
@@ -641,7 +644,7 @@ int avmb1_detectcard(int port, int irq, int cardtype)
 
 int avmb1_probecard(int port, int irq, int cardtype)
 {
-	if (check_region((unsigned short) port, AVMB1_PORTLEN)) {
+	if (check_region(port, AVMB1_PORTLEN)) {
 		printk(KERN_WARNING
 		       "b1capi: ports 0x%03x-0x%03x in use.\n",
 		       port, port + AVMB1_PORTLEN);

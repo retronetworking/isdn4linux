@@ -6,6 +6,9 @@
  * (c) Copyright 1997 by Carsten Paeth (calle@calle.in-berlin.de)
  * 
  * $Log$
+ * Revision 1.7  1998/03/29 16:06:00  calle
+ * changes from 2.0 tree merged.
+ *
  * Revision 1.1.2.10  1998/03/20 20:34:41  calle
  * port valid check now only for T1, because of the PCI and PCMCIA cards.
  *
@@ -223,7 +226,7 @@ extern int showcapimsgs;
 #define B1_STAT1(cardtype)  (0x80E00000l)
 
 
-static inline unsigned char b1outp(unsigned short base,
+static inline unsigned char b1outp(unsigned int base,
 				   unsigned short offset,
 				   unsigned char value)
 {
@@ -231,34 +234,34 @@ static inline unsigned char b1outp(unsigned short base,
 	return inb(base + B1_ANALYSE);
 }
 
-static inline void t1outp(unsigned short base,
+static inline void t1outp(unsigned int base,
 			  unsigned short offset,
 			  unsigned char value)
 {
 	outb(value, base + offset);
 }
 
-static inline unsigned char t1inp(unsigned short base,
+static inline unsigned char t1inp(unsigned int base,
 			          unsigned short offset)
 {
 	return inb(base + offset);
 }
 
-static inline int B1_isfastlink(unsigned short base)
+static inline int B1_isfastlink(unsigned int base)
 {
 	return (inb(base + T1_IDENT) & ~0x82) == 1;
 }
-static inline unsigned char B1_fifostatus(unsigned short base)
+static inline unsigned char B1_fifostatus(unsigned int base)
 {
 	return inb(base + T1_FIFOSTAT);
 }
 
-static inline int B1_rx_full(unsigned short base)
+static inline int B1_rx_full(unsigned int base)
 {
 	return inb(base + B1_INSTAT) & 0x1;
 }
 
-static inline unsigned char B1_get_byte(unsigned short base)
+static inline unsigned char B1_get_byte(unsigned int base)
 {
 	unsigned long i = jiffies + 1 * HZ;	/* maximum wait time 1 sec */
 	while (!B1_rx_full(base) && i > jiffies);
@@ -268,7 +271,7 @@ static inline unsigned char B1_get_byte(unsigned short base)
 	return 0;
 }
 
-static inline unsigned int B1_get_word(unsigned short base)
+static inline unsigned int B1_get_word(unsigned int base)
 {
 	unsigned int val = 0;
 	val |= B1_get_byte(base);
@@ -278,18 +281,18 @@ static inline unsigned int B1_get_word(unsigned short base)
 	return val;
 }
 
-static inline int B1_tx_empty(unsigned short base)
+static inline int B1_tx_empty(unsigned int base)
 {
 	return inb(base + B1_OUTSTAT) & 0x1;
 }
 
-static inline void B1_put_byte(unsigned short base, unsigned char val)
+static inline void B1_put_byte(unsigned int base, unsigned char val)
 {
 	while (!B1_tx_empty(base));
 	b1outp(base, B1_WRITE, val);
 }
 
-static inline void B1_put_word(unsigned short base, unsigned int val)
+static inline void B1_put_word(unsigned int base, unsigned int val)
 {
 	B1_put_byte(base, val & 0xff);
 	B1_put_byte(base, (val >> 8) & 0xff);
@@ -297,7 +300,7 @@ static inline void B1_put_word(unsigned short base, unsigned int val)
 	B1_put_byte(base, (val >> 24) & 0xff);
 }
 
-static inline unsigned int B1_get_slice(unsigned short base,
+static inline unsigned int B1_get_slice(unsigned int base,
 					unsigned char *dp)
 {
 	unsigned int len, i;
@@ -352,7 +355,7 @@ static inline unsigned int B1_get_slice(unsigned short base,
 	return len;
 }
 
-static inline void B1_put_slice(unsigned short base,
+static inline void B1_put_slice(unsigned int base,
 				unsigned char *dp, unsigned int len)
 {
 	unsigned i = len;
@@ -385,7 +388,7 @@ static inline void B1_put_slice(unsigned short base,
 	}
 }
 
-static void b1_wr_reg(unsigned short base,
+static void b1_wr_reg(unsigned int base,
                       unsigned int reg,
 		      unsigned int value)
 {
@@ -394,7 +397,7 @@ static void b1_wr_reg(unsigned short base,
         B1_put_word(base, value);
 }
 
-static inline unsigned int b1_rd_reg(unsigned short base,
+static inline unsigned int b1_rd_reg(unsigned int base,
                                      unsigned int reg)
 {
 	B1_put_byte(base, READ_REGISTER);
@@ -403,14 +406,14 @@ static inline unsigned int b1_rd_reg(unsigned short base,
 	
 }
 
-static inline void b1_set_test_bit(unsigned short base,
+static inline void b1_set_test_bit(unsigned int base,
 				   int cardtype,
 				   int onoff)
 {
     b1_wr_reg(base, B1_STAT0(cardtype), onoff ? 0x21 : 0x20);
 }
 
-static inline int b1_get_test_bit(unsigned short base,
+static inline int b1_get_test_bit(unsigned int base,
                                   int cardtype)
 {
     return (b1_rd_reg(base, B1_STAT0(cardtype)) & 0x01) != 0;
@@ -492,7 +495,7 @@ int B1_valid_port(unsigned port, int cardtype)
    }
 }
 
-void B1_setinterrupt(unsigned short base,
+void B1_setinterrupt(unsigned int base,
 			         unsigned irq, int cardtype)
 {
 	switch (cardtype) {
@@ -510,17 +513,17 @@ void B1_setinterrupt(unsigned short base,
 	 }
 }
 
-unsigned char B1_disable_irq(unsigned short base)
+unsigned char B1_disable_irq(unsigned int base)
 {
 	return b1outp(base, B1_INSTAT, 0x00);
 }
 
-void T1_disable_irq(unsigned short base)
+void T1_disable_irq(unsigned int base)
 {
       t1outp(base, T1_IRQMASTER, 0x00);
 }
 
-void B1_reset(unsigned short base)
+void B1_reset(unsigned int base)
 {
 	b1outp(base, B1_RESET, 0);
 	udelay(55 * 2 * 1000);	/* 2 TIC's */
@@ -532,7 +535,7 @@ void B1_reset(unsigned short base)
 	udelay(55 * 2 * 1000);	/* 2 TIC's */
 }
 
-void T1_reset(unsigned short base)
+void T1_reset(unsigned int base)
 {
         /* reset T1 Controller */
         B1_reset(base);
@@ -544,7 +547,7 @@ void T1_reset(unsigned short base)
 	t1outp(base, T1_RESETBOARD, 0xf);
 }
 
-int B1_detect(unsigned short base, int cardtype)
+int B1_detect(unsigned int base, int cardtype)
 {
 	int onoff, i;
 
@@ -590,7 +593,7 @@ int B1_detect(unsigned short base, int cardtype)
 	return 0;
 }
 
-int T1_detectandinit(unsigned short base, unsigned irq, int cardnr)
+int T1_detectandinit(unsigned int base, unsigned irq, int cardnr)
 {
 	unsigned char cregs[8];
 	unsigned char reverse_cardnr;
@@ -662,7 +665,7 @@ int T1_detectandinit(unsigned short base, unsigned irq, int cardnr)
 
 extern int loaddebug;
 
-int B1_load_t4file(unsigned short base, avmb1_t4file * t4file)
+int B1_load_t4file(unsigned int base, avmb1_t4file * t4file)
 {
 	/*
 	 * Data is in user space !!!
@@ -701,7 +704,7 @@ int B1_load_t4file(unsigned short base, avmb1_t4file * t4file)
 	return 0;
 }
 
-int B1_load_config(unsigned short base, avmb1_t4file * config)
+int B1_load_config(unsigned int base, avmb1_t4file * config)
 {
 	/*
 	 * Data is in user space !!!
@@ -757,7 +760,7 @@ int B1_load_config(unsigned short base, avmb1_t4file * config)
 	return 0;
 }
 
-int B1_loaded(unsigned short base)
+int B1_loaded(unsigned int base)
 {
 	int i;
 	unsigned char ans;
@@ -807,7 +810,7 @@ static inline void parse_version(avmb1_card * card)
  * ------------------------------------------------------------------- 
  */
 
-void B1_send_init(unsigned short port,
+void B1_send_init(unsigned int port,
 	     unsigned int napps, unsigned int nncci, unsigned int cardnr)
 {
 	unsigned long flags;
@@ -821,7 +824,7 @@ void B1_send_init(unsigned short port,
 	restore_flags(flags);
 }
 
-void B1_send_register(unsigned short port,
+void B1_send_register(unsigned int port,
 		      __u16 appid, __u32 nmsg,
 		      __u32 nb3conn, __u32 nb3blocks, __u32 b3bsize)
 {
@@ -838,7 +841,7 @@ void B1_send_register(unsigned short port,
 	restore_flags(flags);
 }
 
-void B1_send_release(unsigned short port,
+void B1_send_release(unsigned int port,
 		     __u16 appid)
 {
 	unsigned long flags;
@@ -850,7 +853,7 @@ void B1_send_release(unsigned short port,
 	restore_flags(flags);
 }
 
-void B1_send_message(unsigned short port, struct sk_buff *skb)
+void B1_send_message(unsigned int port, struct sk_buff *skb)
 {
 	unsigned long flags;
 	__u16 len = CAPIMSG_LEN(skb->data);
