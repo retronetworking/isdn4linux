@@ -21,6 +21,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.15  1996/06/16 17:42:54  tsbogend
+ * fixed problem with IP addresses on Linux/Alpha (long is 8 byte there)
+ *
  * Revision 1.14  1996/06/11 14:54:08  hipp
  * minor bugfix in isdn_net_send_skb
  * changes in BSENT callback handler for syncPPP
@@ -616,39 +619,20 @@ isdn_net_hangup(struct device *d)
 {
 	isdn_net_local *lp = (isdn_net_local *) d->priv;
 	isdn_ctrl cmd;
-	ulong flags;
 
-	save_flags(flags);
-	cli();
-        if (lp->first_skb) {
-                dev_kfree_skb(lp->first_skb,FREE_WRITE);
-                lp->first_skb = NULL;
-        }
-	if(lp->sav_skb) {
-		dev_kfree_skb(lp->sav_skb,FREE_WRITE);
-		lp->sav_skb = NULL;
-	}
-	dev_purge_queues(d);
 	if (lp->flags & ISDN_NET_CONNECTED) {
 		printk(KERN_INFO "isdn_net: local hangup %s\n", lp->name);
-		lp->dialstate = 0;
-                dev->rx_netdev[isdn_dc2minor(lp->isdn_device,lp->isdn_channel)] = NULL;
-                dev->st_netdev[isdn_dc2minor(lp->isdn_device,lp->isdn_channel)] = NULL;
-		isdn_free_channel(lp->isdn_device, lp->isdn_channel, ISDN_USAGE_NET);
 #ifdef CONFIG_ISDN_PPP
 		isdn_ppp_free(lp);
 #endif
-		lp->flags &= ~ISDN_NET_CONNECTED;
 		cmd.driver = lp->isdn_device;
 		cmd.command = ISDN_CMD_HANGUP;
 		cmd.arg = lp->isdn_channel;
 		(void) dev->drv[cmd.driver]->interface->command(&cmd);
 		printk(KERN_INFO "%s: Chargesum is %d\n", lp->name, lp->charge);
 		isdn_all_eaz(lp->isdn_device, lp->isdn_channel);
-		lp->isdn_device = -1;
-		lp->isdn_channel = -1;
 	}
-	restore_flags(flags);
+        isdn_net_unbind_channel(lp);
 }
 
 typedef struct {
@@ -764,6 +748,13 @@ isdn_net_send_skb(struct device *ndev, isdn_net_local *lp,
 		clear_bit(0, (void *)&(ndev->tbusy));
 		return 0;
 	}
+        if (ret < 0) {
+                skb->free = 1;
+                dev_kfree_skb(skb, FREE_WRITE);
+                lp->stats.tx_errors++;
+                clear_bit(0, (void *)&(ndev->tbusy));
+                return 0;
+        }
 	return 1;
 }                                      
 	
@@ -1275,7 +1266,7 @@ isdn_net_header(struct sk_buff *skb, struct device *dev, unsigned short type,
 /* We don't need to send arp, because we have point-to-point connections. */
 
 static int
-isdn_net_rebuild_header(void *buff, struct device *dev, u32 dst,
+isdn_net_rebuild_header(void *buff, struct device *dev, unsigned long dst,
                         struct sk_buff *skb)
 {
 	isdn_net_local *lp = dev->priv;
@@ -1290,8 +1281,8 @@ isdn_net_rebuild_header(void *buff, struct device *dev, u32 dst,
                 
                 if(eth->h_proto != htons(ETH_P_IP)) {
                         printk(KERN_WARNING
-                               "isdn_net_rebuild_header: Don't know how to resolve type %d addresses?\n",
-                               (int)eth->h_proto);
+                               "isdn_net: %s don't know how to resolve type %d addresses?\n",
+                               dev->name, (int)eth->h_proto);
                         memcpy(eth->h_source, dev->dev_addr, dev->addr_len);
                         return 0;
                 }
@@ -1299,7 +1290,7 @@ isdn_net_rebuild_header(void *buff, struct device *dev, u32 dst,
                  *      Try to get ARP to resolve the header.
                  */
 #ifdef CONFIG_INET       
-                ret = arp_find((unsigned char *)&(eth->h_dest), dst, dev, dev->pa_addr,skb)? 1 : 0;
+                ret = arp_find(eth->h_dest, dst, dev, dev->pa_addr, skb)? 1 : 0;
 #endif  
         }
 	return ret;
@@ -2058,6 +2049,7 @@ int isdn_net_setcfg(isdn_net_ioctl_cfg * cfg)
 			p->local.exclusive = -1;
 			if ((p->local.pre_device != -1) && (cfg->exclusive == -1)) {
 				isdn_unexclusive_channel(p->local.pre_device, p->local.pre_channel);
+                                isdn_free_channel(p->local.pre_device, p->local.pre_channel,ISDN_USAGE_NET);
 				drvidx = -1;
 				chidx = -1;
 			}
@@ -2083,7 +2075,7 @@ int isdn_net_setcfg(isdn_net_ioctl_cfg * cfg)
 			p->local.flags &= ~ISDN_NET_CBHUP;
 		switch (cfg->callback) {
                         case 0:
-                                p->local.flags &= ~(ISDN_NET_CALLBACK&ISDN_NET_CBOUT);
+                                p->local.flags &= ~(ISDN_NET_CALLBACK|ISDN_NET_CBOUT);
                                 break;
                         case 1:
                                 p->local.flags |= ISDN_NET_CALLBACK;
@@ -2150,7 +2142,9 @@ int isdn_net_getcfg(isdn_net_ioctl_cfg * cfg)
 		cfg->secure = (p->local.flags & ISDN_NET_SECURE) ? 1 : 0;
 		cfg->callback = 0;
                 if (p->local.flags & ISDN_NET_CALLBACK)
-                        cfg->callback = (p->local.flags & ISDN_NET_CBOUT)?2:1;
+                        cfg->callback = 1;
+                if (p->local.flags & ISDN_NET_CBOUT)
+                        cfg->callback = 2;
 		cfg->cbhup = (p->local.flags & ISDN_NET_CBHUP) ? 1 : 0;
 		cfg->chargehup = (p->local.hupflags & 4) ? 1 : 0;
 		cfg->ihup = (p->local.hupflags & 8) ? 1 : 0;
