@@ -21,6 +21,13 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.15  1996/05/31 01:10:54  fritz
+ * Bugfixes:
+ *   Lowlevel modules did not get locked correctly.
+ *   Did show wrong revision when initializing.
+ *   Minor fixes in ioctl code.
+ *   sk_buff did not get freed, if error in writebuf_stub.
+ *
  * Revision 1.14  1996/05/18 01:36:55  fritz
  * Added spelling corrections and some minor changes
  * to stay in sync with kernel.
@@ -1706,7 +1713,7 @@ int isdn_get_free_channel(int usage, int l2_proto, int l3_proto, int pre_dev
                                                 cmd.driver = i;
                                                 cmd.arg = 0;
                                                 cmd.command = ISDN_CMD_LOCK;
-                                                (void) dev->drv[i]->interface->command(&cmd);
+                                                (void) dev->drv[d]->interface->command(&cmd);
 						restore_flags(flags);
 						return i;
 					} else {
@@ -1717,7 +1724,7 @@ int isdn_get_free_channel(int usage, int l2_proto, int l3_proto, int pre_dev
                                                         cmd.driver = i;
                                                         cmd.arg = 0;
                                                         cmd.command = ISDN_CMD_LOCK;
-                                                        (void) dev->drv[i]->interface->command(&cmd);
+                                                        (void) dev->drv[d]->interface->command(&cmd);
 							restore_flags(flags);
 							return i;
 						}
