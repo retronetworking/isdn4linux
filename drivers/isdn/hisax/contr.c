@@ -266,7 +266,6 @@ static void contr_l3l4(struct PStack *st, int pr, void *arg)
 	struct l3_process *pc;
 	struct Plci *plci;
 
-	hdebug();
 	switch (pr) {
 	case CC_NEW_CR | INDICATION:
 		pc = arg;

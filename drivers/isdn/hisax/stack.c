@@ -2,7 +2,8 @@
 #include "stack.h"
 
 static int
-init_st_1(struct PStack *st, int b1_mode, struct IsdnCardState *cs, int bchannel)
+init_st_1(struct PStack *st, int b1_mode, struct IsdnCardState *cs, int bchannel, 
+	  unsigned int headroom)
 {
 	st->l1.mode = b1_mode;
 	st->l1.hardware = cs;
@@ -16,7 +17,7 @@ init_st_1(struct PStack *st, int b1_mode, struct IsdnCardState *cs, int bchannel
 	case CHANNEL_B2:
 		if (cs->bcs[bchannel].BC_SetStack(st, &cs->bcs[bchannel]))
 			return -1;
-		cs->bcs[bchannel].headroom = 22; /* needed for CAPI only, FIXME */
+		cs->bcs[bchannel].headroom = headroom;
 		st->l1.bcs->conmsg = NULL;
 		break;
 	default:
@@ -145,7 +146,7 @@ init_st(struct Layer4 *l4, struct IsdnCardState *cs, struct StackParams *sp,
 	st = l4->st;
 	st->l4 = l4;
 	st->next = NULL;
-	ret = init_st_1(st, sp->b1_mode, cs, bchannel);
+	ret = init_st_1(st, sp->b1_mode, cs, bchannel, sp->headroom);
 	if (ret) return ret;
 	ret = init_st_2(st, sp->b2_mode);
 	if (ret) return ret;

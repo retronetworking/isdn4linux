@@ -129,6 +129,7 @@ new_b_st(struct Channel *chanp)
 		return 0;
 	}
 	sp.b3_mode = B3_MODE_TRANS;
+	sp.headroom = 0;
 	bchannel = chanp->leased ? chanp->chan & 1 : chanp->l4pc.l3pc->para.bchannel - 1;
 	chanp->l4.l3l4 = lldata_handler;
 	init_st(&chanp->l4, cs, &sp, bchannel);

@@ -604,7 +604,7 @@ l3dss1_message(struct l3_process *pc, u_char mt)
 {
 	MsgDeclare(4);
 
-        MsgXHead(pc->callref, MT_RELEASE);	
+        MsgXHead(pc->callref, mt);	
 	MsgSend();
 }
 
@@ -1865,7 +1865,6 @@ l3dss1_setup(struct l3_process *pc, u_char pr, void *arg)
 	l3pc_newstate(pc, 6);
 	if (err) /* STATUS for none mandatory IE errors after actions are taken */
 		l3dss1_std_ie_err(pc, err);
-	hdebug();
 	pc->st->l4->l3l4(pc->st, CC_NEW_CR | INDICATION, pc);
 	if (!pc->l4pc) { // no l4 process available
 		pc->para.cause = CAU_USER_BUSY;
@@ -2928,7 +2927,7 @@ global_handler(struct PStack *st, int mt, struct sk_buff *skb)
 				pc->state, mt);
 		}
 		MsgXHead(pc->callref, MT_STATUS);
-		MsgCause(0, CAU_INVALID_CALL_REFERENCE); // ??? FIXME
+		MsgCause(0, CAU_INVALID_CALL_REFERENCE);
 		MsgCallState(pc->state);
 		MsgSend();
 	} else {
@@ -3201,7 +3200,7 @@ setstack_dss1(struct PStack *st)
 	char tmp[64];
 	int i;
 
-	st->l3.debug = 0xffff; // FIXME
+	st->l3.debug = 0;
 	st->l3.l4l3 = dss1down;
 	st->l3.l4l3_proto = l3dss1_cmd_global;
 	st->l3.l2l3 = dss1up;

@@ -125,6 +125,7 @@ struct StackParams {
 	int b1_mode;
 	int b2_mode;
 	int b3_mode;
+	unsigned int headroom;
 };
 
 int init_st(struct Layer4 *l4, struct IsdnCardState *cs, struct StackParams *sp, 

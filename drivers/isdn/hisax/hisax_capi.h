@@ -20,6 +20,7 @@ void init_cplci(void);
 void init_ncci(void);
 
 #define CAPIMSG_REQ_DATAHANDLE(m)	(m[18] | (m[19]<<8))
+#define CAPIMSG_RESP_DATAHANDLE(m)	(m[12] | (m[13]<<8))
 
 #define CMSGCMD(cmsg) CAPICMD((cmsg)->Command, (cmsg)->Subcommand)
 
@@ -185,7 +186,8 @@ struct Ncci {
 		struct sk_buff *skb; 
 		__u16 DataHandle;
 		__u16 MsgId;
-	} skb_handles[CAPI_MAXDATAWINDOW];
+	} xmit_skb_handles[CAPI_MAXDATAWINDOW];
+	struct sk_buff *recv_skb_handles[CAPI_MAXDATAWINDOW];
 };
 
 void ncciConstr(struct Ncci *ncci, struct Cplci *cplci);

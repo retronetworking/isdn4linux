@@ -5,8 +5,6 @@
 #include "isdnl3.h"
 #include "l3dss1.h"
 
-// FIXME: If nobody answers an incoming call, the plci will stay forever...
-
 #define plciDebug(plci, lev, fmt, args...) \
         debug(lev, plci->contr->cs, "", fmt, ## args)
 

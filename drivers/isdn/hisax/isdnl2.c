@@ -1264,7 +1264,8 @@ l2_pull_iqueue(struct FsmInst *fi, int event, void *arg)
 		       p1);
 		idev_kfree_skb(l2->windowar[p1], FREE_WRITE);
 	}
-	l2->windowar[p1] = skb_clone(skb, GFP_ATOMIC);
+	l2->windowar[p1] = skb;
+	skb = skb_clone(skb, GFP_ATOMIC);
 
 	i = sethdraddr(&st->l2, header, CMD);
 
