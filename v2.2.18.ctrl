@@ -61,3 +61,4 @@
 #define __devinitdata
 
 #define COMPAT_NEED_PCI_IDS
+#undef COMPAT_HAS_SCHEDULE_TASK

@@ -73,6 +73,7 @@
 #define COMPAT_HAS_init_special_inode
 #define COMPAT_d_alloc_root_one_parameter
 #define HAVE_DEVFS_FS
+#define COMPAT_HAS_SCHEDULE_TASK
 
 #endif
 

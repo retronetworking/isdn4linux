@@ -71,3 +71,4 @@
 #define init_MUTEX_LOCKED(x) *(x)=MUTEX_LOCKED
 
 #define COMPAT_NEED_PCI_IDS
+#undef COMPAT_HAS_SCHEDULE_TASK
