@@ -6,6 +6,12 @@
  * (c) Copyright 1999 by Carsten Paeth (calle@calle.in-berlin.de)
  * 
  * $Log$
+ * Revision 1.2  1999/07/05 15:09:54  calle
+ * - renamed "appl_release" to "appl_released".
+ * - version und profile data now cleared on controller reset
+ * - extended /proc interface, to allow driver and controller specific
+ *   informations to include by driver hackers.
+ *
  * Revision 1.1  1999/07/01 15:26:44  calle
  * complete new version (I love it):
  * + new hardware independed "capi_driver" interface that will make it easy to:
@@ -166,7 +172,7 @@ static void t1_handle_interrupt(avmcard * card)
 			MsgLen = t1_get_slice(card->port, card->msgbuf);
 			DataB3Len = t1_get_slice(card->port, card->databuf);
 
-			if (!(skb = dev_alloc_skb(DataB3Len + MsgLen))) {
+			if (!(skb = alloc_skb(DataB3Len+MsgLen, GFP_ATOMIC))) {
 				printk(KERN_ERR "t1isa: incoming packet dropped\n");
 			} else {
 				memcpy(skb_put(skb, MsgLen), card->msgbuf, MsgLen);
@@ -180,7 +186,7 @@ static void t1_handle_interrupt(avmcard * card)
 
 			ApplId = (unsigned) b1_get_word(card->port);
 			MsgLen = t1_get_slice(card->port, card->msgbuf);
-			if (!(skb = dev_alloc_skb(MsgLen))) {
+			if (!(skb = alloc_skb(MsgLen, GFP_ATOMIC))) {
 				printk(KERN_ERR "t1isa: incoming packet dropped\n");
 			} else {
 				memcpy(skb_put(skb, MsgLen), card->msgbuf, MsgLen);

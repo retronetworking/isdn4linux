@@ -6,6 +6,22 @@
  * Copyright 1996 by Carsten Paeth (calle@calle.in-berlin.de)
  *
  * $Log$
+ * Revision 1.17  1999/07/01 15:26:30  calle
+ * complete new version (I love it):
+ * + new hardware independed "capi_driver" interface that will make it easy to:
+ *   - support other controllers with CAPI-2.0 (i.e. USB Controller)
+ *   - write a CAPI-2.0 for the passive cards
+ *   - support serial link CAPI-2.0 boxes.
+ * + wrote "capi_driver" for all supported cards.
+ * + "capi_driver" (supported cards) now have to be configured with
+ *   make menuconfig, in the past all supported cards where included
+ *   at once.
+ * + new and better informations in /proc/capi/
+ * + new ioctl to switch trace of capi messages per controller
+ *   using "avmcapictrl trace [contr] on|off|...."
+ * + complete testcircle with all supported cards and also the
+ *   PCMCIA cards (now patch for pcmcia-cs-3.0.13 needed) done.
+ *
  * Revision 1.16  1999/07/01 08:22:57  keil
  * compatibility macros now in <linux/isdn_compat.h>
  *
@@ -220,7 +236,7 @@ static ssize_t capi_write(struct file *file, const char *buf,
 	skb = alloc_skb(count, GFP_USER);
 
 	if ((retval = copy_from_user(skb_put(skb, count), buf, count))) {
-		dev_kfree_skb(skb);
+		kfree_skb(skb);
 		return retval;
 	}
 	cmd = CAPIMSG_COMMAND(skb->data);
@@ -229,11 +245,11 @@ static ssize_t capi_write(struct file *file, const char *buf,
 	if (cmd == CAPI_DATA_B3 && subcmd == CAPI_REQ) {
 		__u16 dlen = CAPIMSG_DATALEN(skb->data);
 		if (mlen + dlen != count) {
-			dev_kfree_skb(skb);
+			kfree_skb(skb);
 			return -EINVAL;
 		}
 	} else if (mlen != count) {
-		dev_kfree_skb(skb);
+		kfree_skb(skb);
 		return -EINVAL;
 	}
 	CAPIMSG_SETAPPID(skb->data, cdev->applid);
@@ -241,7 +257,7 @@ static ssize_t capi_write(struct file *file, const char *buf,
 	cdev->errcode = (*capifuncs->capi_put_message) (cdev->applid, skb);
 
 	if (cdev->errcode) {
-		dev_kfree_skb(skb);
+		kfree_skb(skb);
 		return -EIO;
 	}
 	if (cmd == CAPI_DATA_B3 && subcmd == CAPI_REQ)

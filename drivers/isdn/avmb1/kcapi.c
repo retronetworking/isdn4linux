@@ -6,6 +6,12 @@
  * (c) Copyright 1999 by Carsten Paeth (calle@calle.in-berlin.de)
  * 
  * $Log$
+ * Revision 1.2  1999/07/05 15:09:52  calle
+ * - renamed "appl_release" to "appl_released".
+ * - version und profile data now cleared on controller reset
+ * - extended /proc interface, to allow driver and controller specific
+ *   informations to include by driver hackers.
+ *
  * Revision 1.1  1999/07/01 15:26:42  calle
  * complete new version (I love it):
  * + new hardware independed "capi_driver" interface that will make it easy to:
@@ -893,8 +899,8 @@ static int driver_read_proc(char *page, char **start, off_t off,
 	struct capi_driver *driver = (struct capi_driver *)data;
 	int len = 0;
 
-	len += sprintf(page+len, "name: %s\n", driver->name);
-	len += sprintf(page+len, "revision: %s\n", driver->revision);
+	len += sprintf(page+len, "%-16s %s\n", "name", driver->name);
+	len += sprintf(page+len, "%-16s %s\n", "revision", driver->revision);
 
 	if (len < off) 
            return 0;

@@ -6,6 +6,12 @@
  * (c) Copyright 1999 by Carsten Paeth (calle@calle.in-berlin.de)
  * 
  * $Log$
+ * Revision 1.2  1999/07/05 15:09:47  calle
+ * - renamed "appl_release" to "appl_released".
+ * - version und profile data now cleared on controller reset
+ * - extended /proc interface, to allow driver and controller specific
+ *   informations to include by driver hackers.
+ *
  * Revision 1.1  1999/07/01 15:26:23  calle
  * complete new version (I love it):
  * + new hardware independed "capi_driver" interface that will make it easy to:
@@ -451,7 +457,7 @@ void b1_handle_interrupt(avmcard * card)
 		MsgLen = b1_get_slice(card->port, card->msgbuf);
 		DataB3Len = b1_get_slice(card->port, card->databuf);
 
-		if (!(skb = dev_alloc_skb(DataB3Len + MsgLen))) {
+		if (!(skb = alloc_skb(DataB3Len + MsgLen, GFP_ATOMIC))) {
 			printk(KERN_ERR "%s: incoming packet dropped\n",
 					card->name);
 		} else {
@@ -466,7 +472,7 @@ void b1_handle_interrupt(avmcard * card)
 
 		ApplId = (unsigned) b1_get_word(card->port);
 		MsgLen = b1_get_slice(card->port, card->msgbuf);
-		if (!(skb = dev_alloc_skb(MsgLen))) {
+		if (!(skb = alloc_skb(MsgLen, GFP_ATOMIC))) {
 			printk(KERN_ERR "%s: incoming packet dropped\n",
 					card->name);
 		} else {
@@ -556,9 +562,9 @@ int b1ctl_read_proc(char *page, char **start, off_t off,
 	int len = 0;
 	char *s;
 
-	len += sprintf(page+len, "name: %s\n", card->name);
-	len += sprintf(page+len, "port: 0x%x\n", card->port);
-	len += sprintf(page+len, "irq: %d\n", card->irq);
+	len += sprintf(page+len, "%-16s %s\n", "name", card->name);
+	len += sprintf(page+len, "%-16s 0x%x\n", "io", card->port);
+	len += sprintf(page+len, "%-16s %d\n", "irq", card->irq);
 	switch (card->cardtype) {
 	case avm_b1isa: s = "B1 ISA"; break;
 	case avm_b1pci: s = "B1 PCI"; break;
@@ -569,20 +575,21 @@ int b1ctl_read_proc(char *page, char **start, off_t off,
 	case avm_t1pci: s = "T1 PCI"; break;
 	default: s = "???"; break;
 	}
-	len += sprintf(page+len, "type: %s\n", s);
+	len += sprintf(page+len, "%-16s %s\n", "type", s);
 	if (card->cardtype == avm_t1isa)
-	   len += sprintf(page+len, "cardnr: %d\n", card->cardnr);
+	   len += sprintf(page+len, "%-16s %d\n", "cardnr", card->cardnr);
 	if ((s = card->version[VER_DRIVER]) != 0)
-	   len += sprintf(page+len, "ver_driver: %s\n", s);
+	   len += sprintf(page+len, "%-16s %s\n", "ver_driver", s);
 	if ((s = card->version[VER_CARDTYPE]) != 0)
-	   len += sprintf(page+len, "ver_cardtype: %s\n", s);
+	   len += sprintf(page+len, "%-16s %s\n", "ver_cardtype", s);
 	if ((s = card->version[VER_SERIAL]) != 0)
-	   len += sprintf(page+len, "ver_serial: %s\n", s);
+	   len += sprintf(page+len, "%-16s %s\n", "ver_serial", s);
 
 	if (card->cardtype != avm_m1) {
         	flag = ((__u8 *)(ctrl->profile.manu))[3];
         	if (flag)
-			len += sprintf(page+len, "protocol:%s%s%s%s%s%s%s\n",
+			len += sprintf(page+len, "%-16s%s%s%s%s%s%s%s\n",
+			"protocol",
 			(flag & 0x01) ? " DSS1" : "",
 			(flag & 0x02) ? " CT1" : "",
 			(flag & 0x04) ? " VN3" : "",
@@ -595,14 +602,15 @@ int b1ctl_read_proc(char *page, char **start, off_t off,
 	if (card->cardtype != avm_m1) {
         	flag = ((__u8 *)(ctrl->profile.manu))[5];
 		if (flag)
-			len += sprintf(page+len, "linetype:%s%s%s%s\n",
+			len += sprintf(page+len, "%-16s%s%s%s%s\n",
+			"linetype",
 			(flag & 0x01) ? " point to point" : "",
 			(flag & 0x02) ? " point to multipoint" : "",
 			(flag & 0x08) ? " leased line without D-channel" : "",
 			(flag & 0x04) ? " leased line with D-channel" : ""
 			);
 	}
-	len += sprintf(page+len, "cardname: %s\n", card->cardname);
+	len += sprintf(page+len, "%-16s %s\n", "cardname", card->cardname);
 
 	if (len < off) 
            return 0;
