@@ -443,9 +443,6 @@ static void plci_connect_active_ind(struct FsmInst *fi, int event, void *arg)
 		return;
 	}
 	ncciLinkUp(cplci->ncci);
-	if (!test_bit(PLCI_FLAG_OUTGOING, &cplci->plci->flags)) {
-		ncciPhActivate(cplci->ncci);
-	}
 }
 
 static void plci_connect_active_resp(struct FsmInst *fi, int event, void *arg)
@@ -523,10 +520,8 @@ static void plci_cc_setup_conf(struct FsmInst *fi, int event, void *arg)
 	memset(&cmsg, 0, sizeof(_cmsg));
 	cplciCmsgHeader(cplci, &cmsg, CAPI_CONNECT_ACTIVE, CAPI_IND);
 	if (skb) {
-#if 0
-		cmsg.ConnectedNumber        = q931ConnectedNumber(skb);
-		cmsg.ConnectedSubaddress    = q931ConnectedSubaddress(skb);
-#endif
+		cmsg.ConnectedNumber        = q931IE(skb, IE_CONNECT_PN);
+		cmsg.ConnectedSubaddress    = q931IE(skb, IE_CONNECT_SUB);
 		cmsg.LLC                    = q931IE(skb, IE_LLC);
 	}
 	FsmEvent(fi, EV_PLCI_CONNECT_ACTIVE_IND, &cmsg);
@@ -749,10 +744,8 @@ static void plci_select_b_protocol_req(struct FsmInst *fi, int event, void *arg)
 {
 	struct Cplci *cplci = fi->userdata;
 	struct Ncci *ncci = cplci->ncci;
-	struct StackParams sp;
-	int bchannel, retval;
 	_cmsg *cmsg = arg;
-	__u16 Info = 0;
+	__u16 Info;
 
 	Info = cplciCheckBprotocol(cplci, cmsg);
 
@@ -760,20 +753,8 @@ static void plci_select_b_protocol_req(struct FsmInst *fi, int event, void *arg)
 		int_error();
 		return;
 	}
-	if (!ncci->l4.st) {
- 		int_error();
-		return;
-	}
-	release_st(ncci->l4.st);
-	memset(ncci->l4.st, 0, sizeof(struct PStack));
-	bchannel = cplci->plci->l4_pc.l3pc->para.bchannel - 1;
-	sp.b1_mode = cplci->Bprotocol.B1protocol;
-	sp.b2_mode = cplci->Bprotocol.B2protocol;
-	sp.b3_mode = cplci->Bprotocol.B3protocol;
-	sp.headroom = 22; // reserve space for DATA_B3 IND message in skb's
-	retval = init_st(&ncci->l4, cplci->contr->cs, &sp, bchannel);
 
-	// FIXME: phActivate?
+	Info = ncciSelectBprotocol(ncci);
 
 	capi_cmsg_answer(cmsg);
 	cmsg->Info = Info;

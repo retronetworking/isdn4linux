@@ -42,6 +42,7 @@ enum {
 	EV_NCCI_DISCONNECT_B3_IND,
 	EV_NCCI_DISCONNECT_B3_CONF,
 	EV_NCCI_DISCONNECT_B3_RESP,
+	EV_NCCI_SELECT_B_PROTOCOL,
 	EV_NCCI_DL_ESTABLISH_IND,
 	EV_NCCI_DL_ESTABLISH_CONF,
 	EV_NCCI_DL_RELEASE_IND,
@@ -65,6 +66,7 @@ static char* str_ev_ncci[] = {
 	"EV_NCCI_DISCONNECT_B3_IND",
 	"EV_NCCI_DISCONNECT_B3_CONF",
 	"EV_NCCI_DISCONNECT_B3_RESP",
+	"EV_NCCI_SELECT_B_PROTOCOL",
 	"EV_NCCI_DL_ESTABLISH_IND",
 	"EV_NCCI_DL_ESTABLISH_CONF",
 	"EV_NCCI_DL_RELEASE_IND",
@@ -249,10 +251,19 @@ static void ncci_dl_down_ind(struct FsmInst *fi, int event, void *arg)
 	ncciRecvCmsg(ncci, &cmsg);
 }
 
+static void ncci_select_b_protocol(struct FsmInst *fi, int event, void *arg)
+{
+	struct Ncci *ncci = fi->userdata;
+
+	ncciReleaseSt(ncci);
+	ncciInitSt(ncci);
+}
+
 static struct FsmNode fn_ncci_list[] =
 {
   {ST_NCCI_N_0,       EV_NCCI_CONNECT_B3_REQ,            ncci_connect_b3_req},
   {ST_NCCI_N_0,       EV_NCCI_CONNECT_B3_IND,            ncci_connect_b3_ind},
+  {ST_NCCI_N_0,       EV_NCCI_SELECT_B_PROTOCOL,         ncci_select_b_protocol},
   {ST_NCCI_N_0,       EV_NCCI_DL_ESTABLISH_CONF,         ncci_n0_dl_establish_ind_conf},
   {ST_NCCI_N_0,       EV_NCCI_DL_ESTABLISH_IND,          ncci_n0_dl_establish_ind_conf},
 
@@ -320,7 +331,7 @@ void ncciConstr(struct Ncci *ncci, struct Cplci *cplci)
 				     ncci->adrNCCI, ncci->window);
 }
 
-void ncciLinkUp(struct Ncci *ncci)
+void ncciInitSt(struct Ncci *ncci)
 {
 	struct StackParams sp;
 	int bchannel, retval;
@@ -338,23 +349,48 @@ void ncciLinkUp(struct Ncci *ncci)
 	sp.b3_mode = cplci->Bprotocol.B3protocol;
 	sp.headroom = 22; // reserve space for DATA_B3 IND message in skb's
 	retval = init_st(&ncci->l4, cplci->contr->cs, &sp, bchannel);
-	if (retval)
+	if (retval) {
 		int_error();
+		return;
+	}
+	if (sp.b2_mode != B2_MODE_TRANS || !test_bit(PLCI_FLAG_OUTGOING, &cplci->plci->flags)) {
+		// listen for e.g. SABME
+		L4L3(&ncci->l4, PH_ACTIVATE | REQUEST, 0);
+	}
 }
 
-void ncciPhActivate(struct Ncci *ncci)
+void ncciReleaseSt(struct Ncci *ncci)
 {
-	L4L3(&ncci->l4, PH_ACTIVATE | REQUEST, 0);
-}
-
-void ncciDestr(struct Ncci *ncci)
-{
-	if (!ncci->l4.st) {
+ 	if (!ncci->l4.st) {
  		int_error();
 		return;
 	}
 	release_st(ncci->l4.st);
-	// FIXME: kfree (st) ?
+	kfree(ncci->l4.st);
+}
+
+void ncciLinkUp(struct Ncci *ncci)
+{
+	ncciInitSt(ncci);
+}
+
+void ncciLinkDown(struct Ncci *ncci)
+{
+	ncciReleaseSt(ncci);
+	FsmEvent(&ncci->ncci_m, EV_NCCI_DL_DOWN_IND, 0);
+}
+
+__u16 ncciSelectBprotocol(struct Ncci *ncci)
+{
+	int retval;
+	retval = FsmEvent(&ncci->ncci_m, EV_NCCI_SELECT_B_PROTOCOL, 0);
+	if (retval)
+		return CapiMessageNotSupportedInCurrentState;
+	return CapiSuccess;
+}
+
+void ncciDestr(struct Ncci *ncci)
+{
 	ncci->cplci->contr->ctrl->free_ncci(ncci->cplci->contr->ctrl, 
 					    ncci->cplci->appl->ApplId, ncci->adrNCCI);
 }
@@ -477,11 +513,6 @@ void ncciDataResp(struct Ncci *ncci, struct sk_buff *skb)
 	ncci->recv_skb_handles[i] = 0;
 
 	idev_kfree_skb(skb, FREE_READ);
-}
-
-void ncciLinkDown(struct Ncci *ncci)
-{
-	FsmEvent(&ncci->ncci_m, EV_NCCI_DL_DOWN_IND, 0);
 }
 
 void ncciSendMessage(struct Ncci *ncci, struct sk_buff *skb)

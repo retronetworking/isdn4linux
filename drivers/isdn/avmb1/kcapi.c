@@ -6,9 +6,6 @@
  * (c) Copyright 1999 by Carsten Paeth (calle@calle.in-berlin.de)
  * 
  * $Log$
- * Revision 1.12.2.4  2000/04/16 11:00:26  kai
- * TP works
- *
  * Revision 1.12.2.3  2000/04/08 14:29:09  kai
  * *** empty log message ***
  *

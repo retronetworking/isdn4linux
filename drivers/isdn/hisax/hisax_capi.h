@@ -306,8 +306,10 @@ void ncciDestr(struct Ncci *ncci);
 void ncciSendMessage(struct Ncci *ncci, struct sk_buff *skb);
 void ncci_l3l4(struct Ncci *ncci, int pr, void *arg);
 void ncciLinkUp(struct Ncci *ncci);
-void ncciPhActivate(struct Ncci *ncci);
 void ncciLinkDown(struct Ncci *ncci);
+void ncciInitSt(struct Ncci *ncci);
+void ncciReleaseSt(struct Ncci *ncci);
+__u16 ncciSelectBprotocol(struct Ncci *ncci);
 void ncciRecvCmsg(struct Ncci *ncci, _cmsg *cmsg);
 void ncciCmsgHeader(struct Ncci *ncci, _cmsg *cmsg, __u8 cmd, __u8 subcmd);
 
