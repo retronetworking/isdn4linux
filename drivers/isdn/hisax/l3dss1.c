@@ -13,6 +13,9 @@
  *              Fritz Elfert
  *
  * $Log$
+ * Revision 1.16.2.10  1999/04/22 21:11:27  werner
+ * Added support for dss1 diversion services
+ *
  *
  * Revision 1.16.2.9  1999/01/20 14:36:29  keil
  * Fixes for full CTS2 tests
@@ -73,14 +76,14 @@ const char *dss1_revision = "$Revision$";
 #define EXT_BEARER_CAPS 1
 
 #define	MsgHead(ptr, cref, mty) \
- 	*ptr++ = 0x8; \
-        if (cref == -1) { \
-          *ptr++ = 0x0; \
-	} else {\
- 	*ptr++ = 0x1; \
- 	*ptr++ = cref^0x80; \
-        } \
- 	*ptr++ = mty
+	*ptr++ = 0x8; \
+	if (cref == -1) { \
+		*ptr++ = 0x0; \
+	} else { \
+		*ptr++ = 0x1; \
+		*ptr++ = cref^0x80; \
+	} \
+	*ptr++ = mty
 
 
 /**********************************************/
@@ -88,30 +91,30 @@ const char *dss1_revision = "$Revision$";
 /* Only a return value != 0 is valid          */
 /**********************************************/
 static unsigned char new_invoke_id(struct PStack *p)
-{ unsigned char retval;
-  int flags,i;
+{
+	unsigned char retval;
+	int flags,i;
   
-  i = 32; /* maximum search depth */
+	i = 32; /* maximum search depth */
 
-  save_flags(flags);
-  cli();
+	save_flags(flags);
+	cli();
 
-  retval = p->prot.dss1.last_invoke_id + 1; /* try new id */
-  while ((i) && (p->prot.dss1.invoke_used[retval >> 3] == 0xFF))
-   { p->prot.dss1.last_invoke_id = (retval & 0xF8) + 8;
-     i--;
-   }  
-  if (i)
-   { while (p->prot.dss1.invoke_used[retval >> 3] & (1 << (retval & 7)))
-       retval++; 
-   }
-  else
-    retval = 0;
-  p->prot.dss1.last_invoke_id = retval;
-  p->prot.dss1.invoke_used[retval >> 3] |= (1 << (retval & 7));
-  restore_flags(flags);
+	retval = p->prot.dss1.last_invoke_id + 1; /* try new id */
+	while ((i) && (p->prot.dss1.invoke_used[retval >> 3] == 0xFF)) {
+		p->prot.dss1.last_invoke_id = (retval & 0xF8) + 8;
+		i--;
+	}  
+	if (i) {
+		while (p->prot.dss1.invoke_used[retval >> 3] & (1 << (retval & 7)))
+		retval++; 
+	} else
+		retval = 0;
+	p->prot.dss1.last_invoke_id = retval;
+	p->prot.dss1.invoke_used[retval >> 3] |= (1 << (retval & 7));
+	restore_flags(flags);
 
-  return(retval);  
+	return(retval);  
 } /* new_invoke_id */
 
 /*************************/
@@ -274,12 +277,12 @@ l3dss1_parse_facility(struct PStack *st, struct l3_process *pc,
 	int qd_len = 0;
 	unsigned char nlen = 0, ilen, cp_tag;
 	int ident, id;
-        ulong err_ret;
+	ulong err_ret;
 
-        if (pc) 
-	  st = pc->st; /* valid Stack */
-        else
-	  if ((!st) || (cr >= 0)) return; /* neither pc nor st specified */
+	if (pc) 
+		st = pc->st; /* valid Stack */
+	else
+		if ((!st) || (cr >= 0)) return; /* neither pc nor st specified */
 
 	p++;
 	qd_len = *p++;
@@ -978,9 +981,9 @@ l3dss1_release_req(struct l3_process *pc, u_char pr, void *arg)
 	StopAllL3Timer(pc);
 	newl3state(pc, 19);
 	if (!pc->prot.dss1.uus1_data[0]) 
-          l3dss1_message(pc, MT_RELEASE);
-        else
-          l3dss1_msg_with_uus(pc, MT_RELEASE);
+		l3dss1_message(pc, MT_RELEASE);
+	else
+		l3dss1_msg_with_uus(pc, MT_RELEASE);
 	L3AddTimer(&pc->timer, T308, CC_T308_1);
 }
 
@@ -1499,14 +1502,6 @@ l3dss1_disconnect(struct l3_process *pc, u_char pr, void *arg)
 	u_char cause = 0;
 
 	StopAllL3Timer(pc);
-
-	ret = check_infoelements(pc, skb, ie_FACILITY);
-	if ((ret) && (ERR_IE_COMPREHENSION != ret))
-	   l3dss1_std_ie_err(pc, ret);
-        else
-          { if ((p = findie(skb->data, skb->len, IE_FACILITY, 0))) 
-	      l3dss1_parse_facility(pc->st, pc, pc->callref, p);
-	  }
 	if ((ret = l3dss1_get_cause(pc, skb))) {
 		if (pc->debug & L3_DEB_WARN)
 			l3_debug(pc->st, "DISC get_cause ret(%d)", ret);
@@ -1515,17 +1510,25 @@ l3dss1_disconnect(struct l3_process *pc, u_char pr, void *arg)
 		else if (ret > 0)
 			cause = 100;
 	} 
+	if ((p = findie(skb->data, skb->len, IE_FACILITY, 0)))
+		l3dss1_parse_facility(pc->st, pc, pc->callref, p);
 	ret = check_infoelements(pc, skb, ie_DISCONNECT);
 	if (ERR_IE_COMPREHENSION == ret)
 		cause = 96;
 	else if ((!cause) && (ERR_IE_UNRECOGNIZED == ret))
 		cause = 99;
+	ret = pc->state;
 	newl3state(pc, 12);
 	if (cause)
 		newl3state(pc, 19);
-	pc->st->l3.l3l4(pc->st, CC_DISCONNECT | INDICATION, pc);
-	if (cause)
+	if (11 != ret)
+		pc->st->l3.l3l4(pc->st, CC_DISCONNECT | INDICATION, pc);
+	else if (!cause)
+		l3dss1_release_req(pc, pr, NULL);
+	if (cause) {
 		l3dss1_message_cause(pc, MT_RELEASE, cause);
+		L3AddTimer(&pc->timer, T308, CC_T308_1);
+	}
 }
 
 static void
@@ -1871,17 +1874,9 @@ l3dss1_release(struct l3_process *pc, u_char pr, void *arg)
 			l3_debug(pc->st, "REL get_cause ret(%d)", ret);
 	} else if (ret<0)
 		pc->para.cause = NO_CAUSE;
-	
-        ret = check_infoelements(pc, skb, ie_FACILITY);
-	if ((ret) & (ERR_IE_COMPREHENSION != ret))
-	   l3dss1_std_ie_err(pc, ret);
-        else
-	 { if ((p = findie(skb->data, skb->len, IE_FACILITY, 0))) 
-            { ret = 0;
-	      l3dss1_parse_facility(pc->st, pc, pc->callref, p);
-            }
-	 }
-
+	if ((p = findie(skb->data, skb->len, IE_FACILITY, 0))) {
+		l3dss1_parse_facility(pc->st, pc, pc->callref, p);
+	}
 	if ((ret<0) && (pc->state != 11))
 		cause = 96;
 	else if (ret>0)
@@ -1905,10 +1900,10 @@ l3dss1_alert_req(struct l3_process *pc, u_char pr,
 		 void *arg)
 {
 	newl3state(pc, 7);
-        if (!pc->prot.dss1.uus1_data[0]) 
-          l3dss1_message(pc, MT_ALERTING);
-        else
-	  l3dss1_msg_with_uus(pc, MT_ALERTING); 
+	if (!pc->prot.dss1.uus1_data[0]) 
+		l3dss1_message(pc, MT_ALERTING);
+	else
+		l3dss1_msg_with_uus(pc, MT_ALERTING); 
 }
 
 static void
@@ -1917,7 +1912,7 @@ l3dss1_proceed_req(struct l3_process *pc, u_char pr,
 {
 	newl3state(pc, 9);
 	l3dss1_message(pc, MT_CALL_PROCEEDING);
-        pc->st->l3.l3l4(pc->st, CC_PROCEED_SEND | INDICATION, pc); 
+	pc->st->l3.l3l4(pc->st, CC_PROCEED_SEND | INDICATION, pc); 
 }
 
 static void
@@ -2033,7 +2028,7 @@ l3dss1_status_enq(struct l3_process *pc, u_char pr, void *arg)
 	*p++ = IE_CAUSE;
 	*p++ = 0x2;
 	*p++ = 0x80;
-	*p++ = 0x9E;		/* answer status enquire */
+	*p++ = 30 | 0x80;		/* answer status enquire */
 
 	*p++ = 0x14;		/* CallState */
 	*p++ = 0x1;
@@ -2456,7 +2451,7 @@ l3dss1_facility(struct l3_process *pc, u_char pr, void *arg)
 		u_char *p;
 		if ((p = findie(skb->data, skb->len, IE_FACILITY, 0)))
 			l3dss1_parse_facility(pc->st, pc, pc->callref, p);
-	  }
+	}
 }
 
 static void
@@ -2699,8 +2694,8 @@ static struct stateentry downstatelist[] =
 	 CC_IGNORE | REQUEST, l3dss1_reset},
 	{SBIT(6),
 	 CC_REJECT | REQUEST, l3dss1_reject_req},
-        {SBIT(6),
-         CC_PROCEED_SEND | REQUEST, l3dss1_proceed_req},
+	{SBIT(6),
+	 CC_PROCEED_SEND | REQUEST, l3dss1_proceed_req},
 	{SBIT(6) | SBIT(9),
 	 CC_ALERTING | REQUEST, l3dss1_alert_req},
 	{SBIT(6) | SBIT(7) | SBIT(9),
@@ -2742,7 +2737,7 @@ static struct stateentry datastatelist[] =
 {
 	{ALL_STATES,
 	 MT_STATUS_ENQUIRY, l3dss1_status_enq},
-	{ALL_STATES | SBIT(9),
+	{ALL_STATES,
 	 MT_FACILITY, l3dss1_facility},
 	{SBIT(19),
 	 MT_STATUS, l3dss1_release_ind},
@@ -2766,10 +2761,10 @@ static struct stateentry datastatelist[] =
 	{SBIT(1) | SBIT(2) | SBIT(3) | SBIT(4) | SBIT(7) | SBIT(8) | SBIT(9) | SBIT(10) | SBIT(11) | SBIT(12) | SBIT(15) /* | SBIT(17) | SBIT(19)*/,
 	 MT_RELEASE, l3dss1_release},
 	{SBIT(19),  MT_RELEASE, l3dss1_release_ind},
-	{SBIT(1) | SBIT(2) | SBIT(3) | SBIT(4) | SBIT(7) | SBIT(8) | SBIT(9) | SBIT(10) | SBIT(15),
+	{SBIT(1) | SBIT(2) | SBIT(3) | SBIT(4) | SBIT(7) | SBIT(8) | SBIT(9) | SBIT(10) | SBIT(11) | SBIT(15),
 	 MT_DISCONNECT, l3dss1_disconnect},
-	{SBIT(11),
-	 MT_DISCONNECT, l3dss1_release_req},
+//	{SBIT(11),
+//	 MT_DISCONNECT, l3dss1_release_req},
 	{SBIT(19),
 	 MT_DISCONNECT, l3dss1_dummy},
 	{SBIT(1) | SBIT(2) | SBIT(3) | SBIT(4),
@@ -2827,7 +2822,7 @@ global_handler(struct PStack *st, int mt, struct sk_buff *skb)
 		*p++ = IE_CAUSE;
 		*p++ = 0x2;
 		*p++ = 0x80;
-		*p++ = 0x51;		/* invalid cr */
+		*p++ = 81 |0x80;	/* invalid cr */
 		*p++ = 0x14;		/* CallState */
 		*p++ = 0x1;
 		*p++ = proc->state & 0x3f;
@@ -2850,7 +2845,7 @@ dss1up(struct PStack *st, int pr, void *arg)
 {
 	int i, mt, cr, cause, callState;
 	char *ptr;
-        u_char *p;
+	u_char *p;
 	struct sk_buff *skb = arg;
 	struct l3_process *proc;
 
@@ -2901,13 +2896,13 @@ dss1up(struct PStack *st, int pr, void *arg)
 		idev_kfree_skb(skb, FREE_READ);
 		return;
 	} else if (cr == -1) {	/* Dummy Callref */
-                if (mt == MT_FACILITY)
-                 if ((p = findie(skb->data, skb->len, IE_FACILITY, 0)))
-		  { l3dss1_parse_facility(st, NULL, 
-                           (pr == (DL_DATA | INDICATION)) ? -1 : -2, p); 
-  		    idev_kfree_skb(skb, FREE_READ);
-                    return;  
-                  }
+		if (mt == MT_FACILITY)
+			if ((p = findie(skb->data, skb->len, IE_FACILITY, 0))) {
+				l3dss1_parse_facility(st, NULL, 
+					(pr == (DL_DATA | INDICATION)) ? -1 : -2, p); 
+				idev_kfree_skb(skb, FREE_READ);
+				return;  
+			}
 		if (st->l3.debug & L3_DEB_WARN)
 			l3_debug(st, "dss1up dummy Callref (no facility msg or ie)");
 		idev_kfree_skb(skb, FREE_READ);
@@ -3040,10 +3035,10 @@ dss1down(struct PStack *st, int pr, void *arg)
 		return;
 	}
 
-        if ( pr == (CC_TDSS1_IO | REQUEST))
-	  { l3dss1_io_timer(proc); /* timer expires */ 
-            return;
-         }  
+	if ( pr == (CC_TDSS1_IO | REQUEST)) {
+		l3dss1_io_timer(proc); /* timer expires */ 
+		return;
+	}  
 
 	for (i = 0; i < DOWNSLLEN; i++)
 		if ((pr == downstatelist[i].primitive) &&
@@ -3051,7 +3046,7 @@ dss1down(struct PStack *st, int pr, void *arg)
 			break;
 	if (i == DOWNSLLEN) {
 		if (st->l3.debug & L3_DEB_STATE) {
-			l3_debug(st, "dss1down state %d prim %d unhandled",
+			l3_debug(st, "dss1down state %d prim %x unhandled",
 				proc->state, pr);
 		}
 	} else {
@@ -3067,17 +3062,17 @@ void
 setstack_dss1(struct PStack *st)
 {
 	char tmp[64];
-        int i;
+	int i;
 
 	st->lli.l4l3 = dss1down;
-        st->lli.l4l3_proto = l3dss1_cmd_global;
+	st->lli.l4l3_proto = l3dss1_cmd_global;
 	st->l2.l2l3 = dss1up;
 	st->l3.N303 = 1;
-        st->prot.dss1.last_invoke_id = 0;
-        st->prot.dss1.invoke_used[0] = 1; /* Bit 0 must always be set to 1 */
-        i = 1;
-        while (i < 32) 
-          st->prot.dss1.invoke_used[i++] = 0;   
+	st->prot.dss1.last_invoke_id = 0;
+	st->prot.dss1.invoke_used[0] = 1; /* Bit 0 must always be set to 1 */
+	i = 1;
+	while (i < 32) 
+		st->prot.dss1.invoke_used[i++] = 0;   
 
 	if (!(st->l3.global = kmalloc(sizeof(struct l3_process), GFP_ATOMIC))) {
 		printk(KERN_ERR "HiSax can't get memory for dss1 global CR\n");
@@ -3088,7 +3083,7 @@ setstack_dss1(struct PStack *st)
 		st->l3.global->debug = L3_DEB_WARN;
 		st->l3.global->st = st;
 		st->l3.global->N303 = 1;
-                st->l3.global->prot.dss1.invoke_id = 0; 
+		st->l3.global->prot.dss1.invoke_id = 0; 
 
 		L3InitTimer(st->l3.global, &st->l3.global->timer);
 	}

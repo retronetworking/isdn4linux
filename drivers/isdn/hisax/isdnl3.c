@@ -11,6 +11,9 @@
  *              Fritz Elfert
  *
  * $Log$
+ * Revision 1.10.2.8  1999/04/22 21:11:15  werner
+ * Added support for dss1 diversion services
+ *
  * Revision 1.10.2.7  1999/01/20 14:36:37  keil
  * Fixes for full CTS2 tests
  *
@@ -159,18 +162,15 @@ findie(u_char * p, int size, u_char ie, int wanted_set)
 int
 getcallref(u_char * p)
 {
-	int l, m = 1, cr = 0;
+	int l, cr = 0;
 
 	p++;			/* prot discr */
-	if (*p & 0xf0)		/* wrong callref */
+	if (*p & 0xfe)		/* wrong callref BRI only 1 octet*/
 		return(-2);
 	l = 0xf & *p++;		/* callref length */
 	if (!l)			/* dummy CallRef */
 		return(-1);
-	while (l--) {
-		cr += m * (*p++);
-		m *= 8;
-	}
+	cr = *p++;
 	return (cr);
 }
 
@@ -265,8 +265,8 @@ no_l3_proto(struct PStack *st, int pr, void *arg)
 static int
 no_l3_proto_spec(struct PStack *st, isdn_ctrl *ic)
 {
-        printk(KERN_WARNING "HiSax: no specific protocol handler for proto %lu\n",ic->arg & 0xFF);
-        return(-1);
+	printk(KERN_WARNING "HiSax: no specific protocol handler for proto %lu\n",ic->arg & 0xFF);
+	return(-1);
 }
 
 #ifdef	CONFIG_HISAX_EURO
@@ -337,7 +337,7 @@ release_l3_process(struct l3_process *p)
 				pp->next = np->next;
 			else
 				p->st->l3.proc = np->next;
-                        kfree(p);
+			kfree(p);
 			return;
 		}
 		pp = np;
@@ -362,7 +362,7 @@ setstack_l3dc(struct PStack *st, struct Channel *chanp)
 	st->l3.l3m.userint = 0;
 	st->l3.l3m.printdebug = l3m_debug;
 	strcpy(st->l3.debug_id, "L3DC ");
-        st->lli.l4l3_proto = no_l3_proto_spec;
+	st->lli.l4l3_proto = no_l3_proto_spec;
 
 #ifdef	CONFIG_HISAX_EURO
 	if (st->protocol == ISDN_PTYPE_EURO) {
