@@ -142,7 +142,7 @@ Examples for module loading
    isapnp config:  (INT 0 (IRQ 10 (MODE +E)))
  		   (IO 0 (BASE 0x0580))
                    (IO 1 (BASE 0x0180))
-   modprobe hisax type=4 protocol=2 io0=0x580 io1=0x180
+   modprobe hisax type=4 protocol=2 irq=10 io0=0x580 io1=0x180
 
 6. Teles 16.3, Euro ISDN, I/O base 280 hex, IRQ 12 and
    Teles 16.0, 1TR6, IRQ 5, Memory d0000 hex
