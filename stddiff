@@ -84,7 +84,7 @@ else
 	for i in drivers/isdn/icn/icn.[ch] ; do
 		dodiff $i $KERNELDIR/$i
 	done
-	for i in drivers/isdn/hisax/*.[ch] ; do
+	for i in drivers/isdn/hisax/*.[ch] drivers/isdn/hisax/md5sums.asc ; do
 		dodiff $i $KERNELDIR/$i
 	done
 	for i in drivers/isdn/avmb1/*.[ch] ; do
@@ -104,7 +104,7 @@ else
 	done
 	README=`echo Documentation/isdn/README* | grep -v '.sc'`
 	for i in Documentation/isdn/CREDITS $README Documentation/isdn/*.FAQ \
-		Documentation/isdn/INTERFACE ; do
+		Documentation/isdn/INTERFACE Documentation/isdn/HiSax*; do
 		dodiff $i $KERNELDIR/$i
 	done
 	for i in drivers/isdn/Config.in ; do

@@ -95,7 +95,7 @@ else
   for i in drivers/isdn/pcbit/*.[ch] ; do
     $DOCP $i $KERNELDIR/$i
   done
-  for i in drivers/isdn/hisax/*.[ch] ; do
+  for i in drivers/isdn/hisax/*.[ch] drivers/isdn/hisax/md5sums.asc ; do
     $DOCP $i $KERNELDIR/$i
   done
   for i in drivers/isdn/sc/*.[ch] ; do
@@ -118,7 +118,7 @@ else
   done
   for i in Documentation/isdn/CREDITS Documentation/isdn/README* \
            Documentation/isdn/*.FAQ Documentation/isdn/INTERFACE \
-           Documentation/isdn/00-INDEX ; do
+           Documentation/isdn/HiSax* Documentation/isdn/00-INDEX ; do
     $DOCP $i $KERNELDIR/$i
   done
   for i in drivers/isdn/Config.in ; do
