@@ -63,7 +63,8 @@ obj-$(CONFIG_HISAX_ST5481_CS)		+= st5481_usb.o
 
 MD5FILES 	:= isac.c isdnl1.c isdnl2.c isdnl3.c \
 		   tei.c callc.c cert.c l3dss1.c l3_1tr6.c \
-		   elsa.c diva.c sedlbauer.c
+		   elsa.c diva.c sedlbauer.c hfc_pci.c \
+		   hfc_usbr.c hfc_usb.c
 CERT := $(shell md5sum -c md5sums.asc >> /dev/null;echo $$?)
 CFLAGS_cert.o := -DCERTIFICATION=$(CERT)
 
@@ -73,3 +74,5 @@ include $(TOPDIR)/drivers/isdn/Rules.make
 
 hisax.o: $(hisax-objs)
 	$(LD) -r -o $@ $(hisax-objs)
+
+

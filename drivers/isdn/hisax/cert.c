@@ -20,6 +20,8 @@ certification_check(int output) {
 		printk(KERN_INFO "HiSax: Approved with ELSA Microlink PCI cards\n");
 		printk(KERN_INFO "HiSax: Approved with Eicon Technology Diva 2.01 PCI cards\n");
 		printk(KERN_INFO "HiSax: Approved with Sedlbauer Speedfax + cards\n");
+		printk(KERN_INFO "HiSax: Approved with HFC-S PCI A based cards\n");
+		printk(KERN_INFO "HiSax: Approved with HFC-S USB based USB TAs\n");
 	}
 	return(0);
 #endif
