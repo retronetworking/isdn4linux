@@ -3,6 +3,9 @@
  *   Basic declarations, defines and prototypes
  *
  * $Log$
+ * Revision 2.7  1997/10/10 20:56:47  fritz
+ * New HL interface.
+ *
  * Revision 2.6  1997/09/11 17:25:51  keil
  * Add new cards
  *
@@ -24,9 +27,6 @@
  * Revision 2.0  1997/06/26 11:06:27  keil
  * New card and L1 interface.
  * Eicon.Diehl Diva and Dynalink IS64PH support
- *
- * Revision 1.13  1997/04/06 22:54:12  keil
- * Using SKB's
  *
  * old changes removed KKe
  *
@@ -51,11 +51,42 @@
 #include <linux/isdnif.h>
 #include <linux/tty.h>
 
-#define PH_ACTIVATE	1
-#define PH_DATA		2
-#define PH_DEACTIVATE	3
-#define PH_TEST_LOOP	4
-#define MDL_ASSIGN	5
+#define PH_ACTIVATE_REQ	0x0010
+#define PH_ACTIVATE_CNF	0x0011
+#define PH_ACTIVATE_IND	0x0012
+#define PH_DEACTIVATE_REQ 0x0020
+#define PH_DEACTIVATE_CNF 0x0021
+#define PH_DEACTIVATE_IND 0x0022
+#define PH_DEACT_REQ	0x0024
+#define PH_DEACT_CNF	0x0025
+#define PH_DEACT_IND	0x0026
+#define PH_TESTLOOP_REQ	0x0030
+#define PH_PAUSE_CNF	0x0035
+#define PH_PAUSE_IND	0x0036
+#define PH_PULL_REQ	0x0038
+#define PH_PULL_CNF	0x0039
+#define	PH_PULL_IND	0x003A
+#define PH_DATA_REQ	0x0040
+#define PH_DATA_IND	0x0042
+
+#define PH_INFO3_REQ	0x0008
+#define PH_INFO2_IND	0x000A
+#define PH_ENABLE_REQ	0x0004
+#define PH_RSYNC_IND	0x0006
+#define PH_RESET_REQ	0x0000
+#define PH_RESET_IND	0x0002
+#define PH_POWERUP_CNF	0x0003
+#define PH_ACTIV_REQ	0x000C
+#define PH_I4_P8_IND	0x000D
+#define PH_I4_P10_IND	0x000F
+
+#define MDL_ASSIGN_REQ	0x0050
+#define MDL_ASSIGN_IND	0x0052
+#define MDL_REMOVE_REQ	0x0054
+#define MDL_ERROR_REQ	0x0058
+#define MDL_ERROR_IND	0x005A
+#define CARD_AUX_IND	0x005E
+
 #define DL_UNIT_DATA	6
 #define CC_ESTABLISH	7
 #define DL_ESTABLISH	8
@@ -101,18 +132,12 @@
 #define LC_ESTABLISH	47
 #define LC_RELEASE	48
 
-#define PH_REQUEST_PULL	49
-#define PH_PULL_ACK	50
-#define	PH_DATA_PULLED	51
 #define CC_INFO_CHARGE	52
 
 #define CC_MORE_INFO	53
 #define CC_IGNORE	54
 #define CC_RESTART	55
 
-#define MDL_REMOVE	56
-#define MDL_VERIFY	57
-#define MDL_ERROR	58
 
 #define CC_T303		60
 #define CC_T304		61
@@ -131,16 +156,18 @@
 
 #ifdef __KERNEL__
 
-#define MAX_DFRAME_LEN	 260
+#define MAX_DFRAME_LEN	260
 #define HSCX_BUFMAX	4096
 #define MAX_DATA_SIZE	(HSCX_BUFMAX - 4)
-#define MAX_DATA_MEM    (HSCX_BUFMAX * 2)
+#define MAX_DATA_MEM	(HSCX_BUFMAX + 64)
 #define MAX_HEADER_LEN	4
 #define MAX_WINDOW	8
+#define MAX_MON_FRAME	32
 
 /*
  * Statemachine
  */
+
 struct Fsm {
 	int *jumpmatrix;
 	int state_count, event_count;
@@ -174,39 +201,51 @@ struct L3Timer {
 	int event;
 };
 
+#define FLG_L1_ACTIVATING	1
+#define FLG_L1_ACTIVATED	2
+#define FLG_L1_DEACTTIMER	3
+#define FLG_L1_ACTTIMER		4
+#define FLG_L1_T3RUN		5
+#define FLG_L1_PULL_REQ		6
+
 struct Layer1 {
 	void *hardware;
 	struct BCState *bcs;
 	struct PStack **stlistp;
-	int act_state;
+	int Flags;
+	struct FsmInst l1m;
+	struct FsmTimer	timer;
 	void (*l1l2) (struct PStack *, int, void *);
 	void (*l1man) (struct PStack *, int, void *);
 	void (*l1tei) (struct PStack *, int, void *);
-	int mode, bc, requestpull;
+	int mode, bc;
 };
 
 #define GROUP_TEI	127
 #define TEI_SAPI	63
 #define CTRL_SAPI	0
+#define PACKET_NOACK	250
 
 /* Layer2 Flags */
 
-#define FLG_LAPB	0x0001
-#define FLG_LAPD	0x0002
-#define FLG_ORIG	0x0004
-#define FLG_MOD128	0x0008
-#define FLG_PEND_REL	0x0010
-#define FLG_L3_INIT	0x0020 
-#define FLG_T200_RUN	0x0040 
-#define FLG_ACK_PEND	0x0100
-#define FLG_REJEXC	0x0200
-#define FLG_OWN_BUSY	0x0400
-#define FLG_PEER_BUSY	0x0800
+#define FLG_LAPB	0
+#define FLG_LAPD	1
+#define FLG_ORIG	2
+#define FLG_MOD128	3
+#define FLG_PEND_REL	4
+#define FLG_L3_INIT	5 
+#define FLG_T200_RUN	6 
+#define FLG_ACK_PEND	7
+#define FLG_REJEXC	8
+#define FLG_OWN_BUSY	9
+#define FLG_PEER_BUSY	10
+#define FLG_DCHAN_BUSY	11
 
 struct Layer2 {
 	int tei;
 	int tei_wanted;
 	int sap;
+	int maxlen;
 	unsigned int flag;
 	int vs, va, vr;
 	int rc;
@@ -238,8 +277,8 @@ struct Layer3 {
 struct LLInterface {
 	void (*l4l3) (struct PStack *, int, void *);
 	void *userdata;
-	void (*l1writewakeup) (struct PStack *);
-	void (*l2writewakeup) (struct PStack *);
+	void (*l1writewakeup) (struct PStack *, int);
+	void (*l2writewakeup) (struct PStack *, int);
 };
 
 
@@ -302,13 +341,13 @@ struct hfcB_hw {
 	struct sk_buff *tx_skb; /* B-Channel transmit Buffer */
 };
 
-#define BC_FLG_INIT	0x01
-#define BC_FLG_ACTIV	0x02
-#define BC_FLG_BUSY	0x04
+#define BC_FLG_INIT	1
+#define BC_FLG_ACTIV	2
+#define BC_FLG_BUSY	3
 
-#define L1_MODE_NULL     0
-#define L1_MODE_TRANS    1
-#define L1_MODE_HDLC     2
+#define L1_MODE_NULL	0
+#define L1_MODE_TRANS	1
+#define L1_MODE_HDLC	2
 
 struct BCState {
 	int channel;
@@ -447,14 +486,30 @@ struct sedl_hw {
 	unsigned int res_off;
 };
 
+struct spt_hw {
+	unsigned int cfg_reg;
+	unsigned int isac;
+	unsigned int hscx[2];
+	unsigned char res_irq;
+};	
 
-#define HW_IOM1	1
-#define FLG_TWO_DCHAN 0x10
+struct mic_hw {
+	unsigned int cfg_reg;
+	unsigned int adr;
+	unsigned int isac;
+	unsigned int hscx;
+};
 
-#define FLG_L1TIMER       0xf00
-#define FLG_L1TIMER_ACT   0x100
-#define FLG_L1TIMER_DEACT 0x200
-#define FLG_L1TIMER_DBUSY 0x400
+
+#define HW_IOM1		0
+#define HW_IPAC		1
+#define FLG_TWO_DCHAN	4
+#define FLG_L1_DBUSY	5
+#define FLG_DBUSY_TIMER 6
+#define HW_MON0_RX_END	8
+#define HW_MON1_RX_END	9
+#define HW_MON0_TX_END	10
+#define HW_MON1_TX_END	11
 
 struct IsdnCardState {
 	unsigned char typ;
@@ -472,6 +527,8 @@ struct IsdnCardState {
 		struct dyna_hw dyna;
 		struct hfc_hw hfc;
 		struct sedl_hw sedl;
+		struct spt_hw spt;
+		struct mic_hw mic;
 	} hw;
 	int myid;
 	isdn_if iif;
@@ -487,6 +544,7 @@ struct IsdnCardState {
 	void   (*BC_Write_Reg) (struct IsdnCardState *, int, u_char, u_char);
 	void   (*BC_Send_Data) (struct BCState *);
 	void   (*cardmsg) (struct IsdnCardState *, int, void *);
+	void   (*l1cmd) (struct IsdnCardState *, int, void *);
 	struct Channel channel[2];
 	struct BCState bcs[2];
 	struct PStack *stlist;
@@ -496,16 +554,19 @@ struct IsdnCardState {
 	int tx_cnt;
 	int event;
 	struct tq_struct tqueue;
-	struct timer_list t3;
-	struct timer_list l1timer;
-	int ph_active;
+	struct timer_list dbusytimer;
 	struct sk_buff_head rq, sq; /* D-channel queues */
-	int cardnr;
 	int ph_state;
+	int cardnr;
 	int dlogflag;
 	char *dlogspace;
 	int debug;
-	unsigned int CallFlags;
+	u_char *mon_tx;
+	u_char *mon_rx;
+	int mon_txp;
+	int mon_txc;
+	int mon_rxp;
+	u_char mocr;
 };
 
 #define  MON0_RX	1
@@ -530,11 +591,20 @@ struct IsdnCardState {
 #define  ISDN_CTYPE_SEDLBAUER	15
 #define  ISDN_CTYPE_SPORTSTER	16
 #define  ISDN_CTYPE_MIC		17
+#define  ISDN_CTYPE_ELSA_PCI	18
 
-#define  ISDN_CTYPE_COUNT	17
+#define  ISDN_CTYPE_COUNT	18
+
+#ifdef ISDN_CHIP_ISAC
+#undef ISDN_CHIP_ISAC
+#endif
+
 
 #ifdef	CONFIG_HISAX_16_0
 #define  CARD_TELES0 (1<< ISDN_CTYPE_16_0) | (1<< ISDN_CTYPE_8_0)
+#ifndef ISDN_CHIP_ISAC
+#define ISDN_CHIP_ISAC 1
+#endif
 #else
 #define  CARD_TELES0  0
 #endif
@@ -542,19 +612,28 @@ struct IsdnCardState {
 #ifdef	CONFIG_HISAX_16_3
 #define  CARD_TELES3 (1<< ISDN_CTYPE_16_3) | (1<< ISDN_CTYPE_PNP) | \
 		     (1<< ISDN_CTYPE_TELESPCMCIA)
+#ifndef ISDN_CHIP_ISAC
+#define ISDN_CHIP_ISAC 1
+#endif
 #else
 #define  CARD_TELES3  0
 #endif
 
 #ifdef	CONFIG_HISAX_AVM_A1
 #define  CARD_AVM_A1 (1<< ISDN_CTYPE_A1)
+#ifndef ISDN_CHIP_ISAC 
+#define ISDN_CHIP_ISAC 1
+#endif
 #else
 #define  CARD_AVM_A1  0
 #endif
 
 #ifdef	CONFIG_HISAX_ELSA
 #define  CARD_ELSA (1<< ISDN_CTYPE_ELSA) | (1<< ISDN_CTYPE_ELSA_PNP) | \
-		   (1<< ISDN_CTYPE_ELSA_PCMCIA)
+		   (1<< ISDN_CTYPE_ELSA_PCMCIA) | (1<< ISDN_CTYPE_ELSA_PCI)
+#ifndef ISDN_CHIP_ISAC
+#define ISDN_CHIP_ISAC 1
+#endif
 #else
 #define  CARD_ELSA  0
 #endif
@@ -562,39 +641,71 @@ struct IsdnCardState {
 
 #ifdef	CONFIG_HISAX_IX1MICROR2
 #define	CARD_IX1MICROR2 (1 << ISDN_CTYPE_IX1MICROR2)
+#ifndef ISDN_CHIP_ISAC
+#define ISDN_CHIP_ISAC 1
+#endif
 #else
 #define CARD_IX1MICROR2 0
 #endif
 
 #ifdef  CONFIG_HISAX_DIEHLDIVA
 #define CARD_DIEHLDIVA (1 << ISDN_CTYPE_DIEHLDIVA)
+#ifndef ISDN_CHIP_ISAC
+#define ISDN_CHIP_ISAC 1
+#endif
 #else
 #define CARD_DIEHLDIVA 0
 #endif
 
 #ifdef  CONFIG_HISAX_DYNALINK
 #define CARD_DYNALINK (1 << ISDN_CTYPE_DYNALINK)
+#ifndef ISDN_CHIP_ISAC
+#define ISDN_CHIP_ISAC 1
+#endif
 #else
 #define CARD_DYNALINK 0
 #endif
 
 #ifdef  CONFIG_HISAX_TELEINT
 #define CARD_TELEINT (1 << ISDN_CTYPE_TELEINT)
+#ifndef ISDN_CHIP_ISAC
+#define ISDN_CHIP_ISAC 1
+#endif
 #else
 #define CARD_TELEINT 0
 #endif
 
 #ifdef  CONFIG_HISAX_SEDLBAUER
 #define CARD_SEDLBAUER (1 << ISDN_CTYPE_SEDLBAUER)
+#ifndef ISDN_CHIP_ISAC
+#define ISDN_CHIP_ISAC 1
+#endif
 #else
 #define CARD_SEDLBAUER 0
 #endif
 
+#ifdef  CONFIG_HISAX_SPORTSTER
+#define CARD_SPORTSTER (1 << ISDN_CTYPE_SPORTSTER)
+#ifndef ISDN_CHIP_ISAC
+#define ISDN_CHIP_ISAC 1
+#endif
+#else
+#define CARD_SPORTSTER 0
+#endif
 
+#ifdef  CONFIG_HISAX_MIC
+#define CARD_MIC (1 << ISDN_CTYPE_MIC)
+#ifndef ISDN_CHIP_ISAC
+#define ISDN_CHIP_ISAC 1
+#endif
+#else
+#define CARD_MIC 0
+#endif
 
 #define  SUPORTED_CARDS  (CARD_TELES0 | CARD_TELES3 | CARD_AVM_A1 | CARD_ELSA \
 			 | CARD_IX1MICROR2 | CARD_DIEHLDIVA | CARD_DYNALINK \
-			 | CARD_TELEINT | CARD_SEDLBAUER)
+			 | CARD_TELEINT | CARD_SEDLBAUER | CARD_SPORTSTER \
+			 | CARD_MIC)
 
 #define TEI_PER_CARD 0
 
@@ -631,7 +742,7 @@ void setstack_isdnl2(struct PStack *st, char *debug_id);
 int HiSax_inithardware(void);
 void HiSax_closehardware(void);
 
-void setstack_HiSax(struct PStack *st, struct IsdnCardState *sp);
+void setstack_HiSax(struct PStack *st, struct IsdnCardState *cs);
 unsigned int random_ri(void);
 void setstack_isdnl3(struct PStack *st, struct Channel *chanp);
 void HiSax_addlist(struct IsdnCardState *sp, struct PStack *st);
@@ -667,8 +778,10 @@ void setstack_transl2(struct PStack *st);
 void releasestack_transl2(struct PStack *st);
 void setstack_tei(struct PStack *st);
 void setstack_manager(struct PStack *st);
-
-#endif				/* __KERNEL__ */
+#ifdef ISDN_CHIP_ISAC
+void setstack_isac(struct PStack *st, struct IsdnCardState *cs);
+#endif	/* ISDN_CHIP_ISAC */
+#endif	/* __KERNEL__ */
 
 #define HZDELAY(jiffs) {int tout = jiffs; while (tout--) udelay(1000000/HZ);}
 
@@ -678,6 +791,8 @@ void CallcNew(void);
 void CallcFree(void);
 int CallcNewChan(struct IsdnCardState *csta);
 void CallcFreeChan(struct IsdnCardState *csta);
+void Isdnl1New(void);
+void Isdnl1Free(void);
 void Isdnl2New(void);
 void Isdnl2Free(void);
 void init_tei(struct IsdnCardState *sp, int protocol);
