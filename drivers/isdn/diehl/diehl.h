@@ -20,6 +20,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.2  1998/06/13 10:55:16  armin
+ * Added first PCI parts. STILL UNUSABLE
+ *
  * Revision 1.1  1998/06/04 10:23:32  fritz
  * First check in. YET UNUSABLE!
  *
@@ -36,6 +39,7 @@
 #define DIEHL_IOCTL_LOADBOOT  4
 #define DIEHL_IOCTL_ADDCARD   5
 #define DIEHL_IOCTL_GETTYPE   6
+#define DIEHL_IOCTL_LOADPRI   7 
 
 #define DIEHL_IOCTL_TEST     98
 #define DIEHL_IOCTL_DEBUGVAR 99
@@ -119,7 +123,8 @@ typedef struct {
           unsigned char spid[32];
         } l[2];
         unsigned long protocol_len;
-        unsigned long dsp_code_len;
+	unsigned int  dsp_code_num;
+        unsigned long dsp_code_len[9];
         unsigned char code[1]; /* Rest (protocol- and dsp code) will be allocated */
 } diehl_pci_codebuf;
 

@@ -20,6 +20,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.2  1998/06/13 10:56:02  armin
+ * Added first PCI parts. STILL UNUSABLE
+ *
  * Revision 1.1  1998/06/04 10:23:37  fritz
  * First check in. YET UNUSABLE!
  *
@@ -300,6 +303,17 @@ diehl_command(diehl_card * card, isdn_ctrl * c)
 							ret = -ENODEV;
 					}
 					return ret;
+#if CONFIG_PCI
+				case DIEHL_IOCTL_LOADPRI:
+                                                if (card->bus == DIEHL_BUS_PCI) {  
+                                                        ret = diehl_pci_load(
+                                                                &(card->hwif.pci),
+                                                                &(((diehl_codebuf *)a)->pci));
+                                                        if (!ret)
+                                                                card->flags |= DIEHL_FLAGS_LOADED;
+                                                        return ret;
+						} else return -ENODEV;
+#endif
 #if 0
 				case DIEHL_IOCTL_SETMSN:
 					if ((ret = copy_from_user(tmp, (char *)a, sizeof(tmp))))
@@ -763,14 +777,15 @@ diehl_alloccard(int type, int membase, int irq, char *id)
                                 card->bus = DIEHL_BUS_PCI;
                                 card->hwif.pci.card = (void *)card;
                                 card->hwif.pci.shmem = (diehl_pci_shmem *)pcic->shmem;
-				card->hwif.pci.PCIreg = (void *)pcic->PCIreg;
-				card->hwif.pci.PCIram = (void *)pcic->PCIram;
-				card->hwif.pci.PCIcfg = (void *)pcic->PCIcfg;
+				card->hwif.pci.PCIreg = pcic->PCIreg;
+				card->hwif.pci.PCIram = pcic->PCIram;
+				card->hwif.pci.PCIcfg = pcic->PCIcfg;
                                 card->hwif.pci.master = 1;
                                 card->hwif.pci.mvalid = pcic->mvalid;
                                 card->hwif.pci.ivalid = 0;
                                 card->hwif.pci.irq = irq;
                                 card->hwif.pci.type = type;
+				card->flags = 0;
                                 card->nchannels = 30;
 				break;
 #endif
