@@ -1,12 +1,15 @@
 /* $Id$
 
- * arcofi.h   Ansteuerung ARCOFI 2165
+ * arcofi.c   Ansteuerung ARCOFI 2165
  *
  * Author     Karsten Keil (keil@temic-ech.spacenet.de)
  *
  *
  *
  * $Log$
+ * Revision 1.5  1998/09/27 12:52:57  keil
+ * cosmetics
+ *
  * Revision 1.4  1998/08/20 13:50:24  keil
  * More support for hybrid modem (not working yet)
  *

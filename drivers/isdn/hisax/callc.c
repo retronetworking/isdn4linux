@@ -7,6 +7,9 @@
  *              Fritz Elfert
  *
  * $Log$
+ * Revision 2.22  1998/08/20 13:50:29  keil
+ * More support for hybrid modem (not working yet)
+ *
  * Revision 2.21  1998/08/13 23:36:15  keil
  * HiSax 3.1 - don't work stable with current LinkLevel
  *
@@ -1342,7 +1345,7 @@ dchan_l3l4(struct PStack *st, int pr, void *arg)
 		default:
 			if (chanp->debug & 0x800) {
 				jiftime(tm, jiffies);
-				sprintf(tmp, "%s Channel %d L3->L4 unknown primitiv %d\n",
+				sprintf(tmp, "%s Channel %d L3->L4 unknown primitiv %x\n",
 					tm, chanp->chan, pr);
 				HiSax_putstatus(chanp->cs, tmp);
 			}
@@ -1522,7 +1525,7 @@ lldata_handler(struct PStack *st, int pr, void *arg)
 			FsmEvent(&chanp->fi, EV_BC_REL, NULL);
 			break;
 		default:
-			printk(KERN_WARNING "lldata_handler unknown primitive %d\n",
+			printk(KERN_WARNING "lldata_handler unknown primitive %x\n",
 			       pr);
 			break;
 	}
@@ -1552,7 +1555,7 @@ lltrans_handler(struct PStack *st, int pr, void *arg)
 			FsmEvent(&chanp->fi, EV_BC_REL, NULL);
 			break;
 		default:
-			printk(KERN_WARNING "lltrans_handler unknown primitive %d\n",
+			printk(KERN_WARNING "lltrans_handler unknown primitive %x\n",
 			       pr);
 			break;
 	}
@@ -1649,7 +1652,7 @@ leased_l4l3(struct PStack *st, int pr, void *arg)
 		case (DL_RELEASE | REQUEST):
 			break;
 		default:
-			printk(KERN_WARNING "transd_l4l3 unknown primitive %d\n",
+			printk(KERN_WARNING "transd_l4l3 unknown primitive %x\n",
 			       pr);
 			break;
 	}
@@ -1684,7 +1687,7 @@ leased_l1l2(struct PStack *st, int pr, void *arg)
 			break;
 		default:
 			printk(KERN_WARNING
-				"transd_l1l2 unknown primitive %d\n", pr);
+				"transd_l1l2 unknown primitive %x\n", pr);
 			break;
 	}
 }

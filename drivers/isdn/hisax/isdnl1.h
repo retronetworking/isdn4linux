@@ -1,6 +1,10 @@
 /* $Id$
 
  * $Log$
+ * Revision 2.6  1998/05/25 12:58:06  keil
+ * HiSax golden code from certification, Don't use !!!
+ * No leased lines, no X75, but many changes.
+ *
  * Revision 2.5  1998/02/02 13:36:58  keil
  * more debug
  *
@@ -50,7 +54,7 @@
 #define B_RCVBUFREADY 0
 #define B_XMTBUFREADY 1
 
-extern void debugl1(struct IsdnCardState *sp, char *msg);
+extern void debugl1(struct IsdnCardState *cs, char *msg);
 extern void DChannel_proc_xmt(struct IsdnCardState *cs);
 extern void DChannel_proc_rcv(struct IsdnCardState *cs);
 extern void l1_msg(struct IsdnCardState *cs, int pr, void *arg);
