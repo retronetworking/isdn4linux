@@ -6,6 +6,11 @@
  * (c) Copyright 1997 by Carsten Paeth (calle@calle.in-berlin.de)
  * 
  * $Log$
+ * Revision 1.2.2.1  1997/11/26 10:46:57  calle
+ * prepared for M1 (Mobile) and T1 (PMX) cards.
+ * prepared to set configuration after load to support other D-channel
+ * protocols, point-to-point and leased lines.
+ *
  * Revision 1.2  1997/05/18 09:24:13  calle
  * added verbose disconnect reason reporting to avmb1.
  * some fixes in capi20 interface.
@@ -104,7 +109,7 @@ int b1pci_init(void)
 			ioaddr, irq);
 			return rc;
 		}
-		if ((rc = avmb1_addcard(ioaddr, irq, AVM_CARDTYPE_B1)) != 0)
+		if ((rc = avmb1_addcard(ioaddr, irq, AVM_CARDTYPE_B1)) < 0)
 			return rc;
 	}
 	return 0;
