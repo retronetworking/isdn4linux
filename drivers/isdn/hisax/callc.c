@@ -11,6 +11,9 @@
  *              Fritz Elfert
  *
  * $Log$
+ * Revision 2.24  1998/11/15 23:54:24  keil
+ * changes from 2.0
+ *
  * Revision 2.23  1998/09/30 22:21:57  keil
  * cosmetics
  *
@@ -106,7 +109,7 @@
 #include "../avmb1/capicmd.h"  /* this should be moved in a common place */
 
 #ifdef MODULE
-#define MOD_USE_COUNT ((&__this_module)->usecount)
+#define MOD_USE_COUNT ( GET_USE_COUNT (&__this_module))
 #endif				/* MODULE */
 
 const char *lli_revision = "$Revision$";
@@ -1862,7 +1865,7 @@ HiSax_command(isdn_ctrl * ic)
 			HiSax_mod_inc_use_count();
 #ifdef MODULE
 			if (csta->channel[0].debug & 0x400)
-				HiSax_putstatus(csta, "   LOCK ", "modcnt %lx",
+				HiSax_putstatus(csta, "   LOCK ", "modcnt %x",
 					MOD_USE_COUNT);
 #endif				/* MODULE */
 			break;
@@ -1870,7 +1873,7 @@ HiSax_command(isdn_ctrl * ic)
 			HiSax_mod_dec_use_count();
 #ifdef MODULE
 			if (csta->channel[0].debug & 0x400)
-				HiSax_putstatus(csta, " UNLOCK ", "modcnt %lx",
+				HiSax_putstatus(csta, " UNLOCK ", "modcnt %x",
 					MOD_USE_COUNT);
 #endif				/* MODULE */
 			break;
@@ -1971,7 +1974,8 @@ HiSax_command(isdn_ctrl * ic)
 					break;
 #ifdef MODULE
 				case (55):
-					MOD_USE_COUNT = 0;
+					while ( MOD_USE_COUNT > 0)
+						MOD_DEC_USE_COUNT;
 					HiSax_mod_inc_use_count();
 					break;
 #endif				/* MODULE */
