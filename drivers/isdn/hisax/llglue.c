@@ -7,6 +7,9 @@
  *              Fritz Elfert
  *
  * $Log$
+ * Revision 1.2  1996/10/22 23:14:07  fritz
+ * Changes for compatibility to 2.0.X and 2.1.X kernels.
+ *
  * Revision 1.1  1996/10/13 20:04:56  keil
  * Initial revision
  *
@@ -14,6 +17,7 @@
  */
 #define __NO_VERSION__
 #include "hisax.h"
+#include <linux/config.h>
 #include <linux/malloc.h>
 #include <linux/timer.h>
 

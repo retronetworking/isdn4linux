@@ -3,6 +3,9 @@
  *   Basic declarations, defines and prototypes
  *
  * $Log$
+ * Revision 1.2  1996/10/27 22:21:52  keil
+ * CallFlags for broadcast messages
+ *
  * Revision 1.1  1996/10/13 20:03:46  keil
  * Initial revision
  *
@@ -10,7 +13,7 @@
  *
  */
 #include <linux/module.h>
-#include <linux/autoconf.h>
+#include <linux/config.h>
 #include <linux/version.h>
 #include <linux/errno.h>
 #include <linux/fs.h>

@@ -7,12 +7,16 @@
  *              Fritz Elfert
  *
  * $Log$
+ * Revision 1.1  1996/10/13 20:04:54  keil
+ * Initial revision
+ *
  *
  *
  */
 #define __NO_VERSION__
 #include "hisax.h"
 #include "isdnl3.h"
+#include <linux/config.h>
 
 void
 l3_debug(struct PStack *st, char *s)
