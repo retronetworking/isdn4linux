@@ -6,6 +6,10 @@
  * Copyright 1997 by Carsten Paeth (calle@calle.in-berlin.de)
  *
  * $Log$
+ * Revision 1.6  1997/10/11 10:25:55  calle
+ * New interface for lowlevel drivers. BSENT with nr. of bytes sent,
+ * allow sending without ACK.
+ *
  * Revision 1.5  1997/10/01 09:21:16  fritz
  * Removed old compatibility stuff for 2.0.X kernels.
  * From now on, this code is for 2.1.X ONLY!
@@ -134,7 +138,14 @@ struct capidrv_contr {
 	} *bchans;
 
 	struct capidrv_plci *plci_list;
+
+	/* for q931 data */
+	__u8  q931_buf[4096];
+	__u8 *q931_read;
+	__u8 *q931_write;
+	__u8 *q931_end;
 };
+
 
 struct capidrv_data {
 	__u16 appid;
@@ -152,6 +163,8 @@ typedef struct capidrv_bchan capidrv_bchan;
 
 static capidrv_data global;
 static struct capi_interface *capifuncs;
+
+static void handle_q931_data(capidrv_contr *card, int send, __u8 *data, __u16 len);
 
 /* -------- convert functions ---------------------------------------- */
 
@@ -733,6 +746,22 @@ static void handle_controller(_cmsg * cmsg)
 		break;
 
 	case CAPI_MANUFACTURER_IND:	/* Controller */
+		if (   cmsg->ManuID == 0x214D5641
+		    && cmsg->Class == 0
+		    && cmsg->Function == 1) {
+		   __u8  *data = cmsg->ManuData+3;
+		   __u16  len = cmsg->ManuData[0];
+		   if (len == 255) {
+		      len = (cmsg->ManuData[1] | (cmsg->ManuData[2] << 8));
+		      data += 2;
+		   }
+		   len -= 2;
+		   if ((*(data-2) & 0x0f) == 0x02) {
+		      handle_q931_data(card, (*(data-1) & 0x2) ? 1 : 0,
+		                             data, len);
+		      break;
+		   }
+		}
 		goto ignored;
 	case CAPI_MANUFACTURER_CONF:	/* Controller */
 		goto ignored;
@@ -1257,6 +1286,53 @@ static void capidrv_signal(__u16 applid, __u32 dummy)
 
 /* ------------------------------------------------------------------- */
 
+#define PUTBYTE_TO_STATUS(card, byte) \
+	do { \
+		*(card)->q931_write++ = (byte); \
+        	if ((card)->q931_write > (card)->q931_end) \
+	  		(card)->q931_write = (card)->q931_buf; \
+	} while (0)
+
+static void handle_q931_data(capidrv_contr *card,
+			     int send, __u8 *data, __u16 len)
+{
+    long flags;
+    __u8 *p, *end;
+    isdn_ctrl cmd;
+
+    if (!len) {
+       printk(KERN_DEBUG "avmb1_q931_data: len == %d\n", len);
+       return;
+    }
+
+    save_flags(flags);
+    cli();
+
+    PUTBYTE_TO_STATUS(card, 'D');
+    PUTBYTE_TO_STATUS(card, '3');
+    PUTBYTE_TO_STATUS(card, send ? '>' : '<');
+    PUTBYTE_TO_STATUS(card, ':');
+
+    for (p = data, end = data+len; p < end; p++) {
+       __u8 w;
+       PUTBYTE_TO_STATUS(card, ' ');
+       w = (*p >> 4) & 0xf;
+       PUTBYTE_TO_STATUS(card, (w < 10) ? '0'+w : 'A'-10+w);
+       w = *p & 0xf;
+       PUTBYTE_TO_STATUS(card, (w < 10) ? '0'+w : 'A'-10+w);
+    }
+    PUTBYTE_TO_STATUS(card, '\n');
+
+    restore_flags(flags);
+    
+    cmd.command = ISDN_STAT_STAVAIL;
+    cmd.driver = card->myid;
+    cmd.arg = len*3+5;
+    card->interface.statcallb(&cmd);
+}
+
+/* ------------------------------------------------------------------- */
+
 static _cmsg cmdcmsg;
 
 static int capidrv_ioctl(isdn_ctrl * c, capidrv_contr * card)
@@ -1592,6 +1668,30 @@ static int if_sendbuf(int id, int channel, int doack, struct sk_buff *skb)
 	}
 }
 
+static int if_readstat(__u8 *buf, int len, int user, int id, int channel)
+{
+	capidrv_contr *card = findcontrbydriverid(id);
+	int count;
+	__u8 *p;
+
+	if (!card) {
+		printk(KERN_ERR "capidrv: if_readstat called with invalid driverId %d!\n",
+		       id);
+		return -ENODEV;
+	}
+
+	for (p=buf, count=0; count < len; p++, count++) {
+	        if (user)
+	                put_user(*card->q931_read++, p);
+	        else
+	                *p = *card->q931_read++;
+	        if (card->q931_read > card->q931_end)
+	                card->q931_read = card->q931_buf;
+	}
+	return count;
+
+}
+
 static int capidrv_addcontr(__u16 contr, struct capi_profile *profp)
 {
 	capidrv_contr *card;
@@ -1621,7 +1721,7 @@ static int capidrv_addcontr(__u16 contr, struct capi_profile *profp)
 	card->interface.command = if_command;
 	card->interface.writebuf_skb = if_sendbuf;
 	card->interface.writecmd = 0;
-	card->interface.readstat = 0;
+	card->interface.readstat = if_readstat;
 	card->interface.features = ISDN_FEATURE_L2_X75I |
 	    ISDN_FEATURE_L2_X75UI |
 	    ISDN_FEATURE_L2_X75BUI |
@@ -1634,6 +1734,9 @@ static int capidrv_addcontr(__u16 contr, struct capi_profile *profp)
 	card->next = global.contr_list;
 	global.contr_list = card;
 	global.ncontr++;
+	card->q931_read = card->q931_buf;
+	card->q931_write = card->q931_buf;
+	card->q931_end = card->q931_buf + sizeof(card->q931_buf) - 1;
 
 	if (!register_isdn(&card->interface)) {
 		global.contr_list = global.contr_list->next;
@@ -1668,6 +1771,15 @@ static int capidrv_addcontr(__u16 contr, struct capi_profile *profp)
 
 	printk(KERN_INFO "%s: now up (%d B channels)\n",
 		card->name, card->nbchan);
+
+        capi_fill_MANUFACTURER_REQ(&cmdcmsg, global.appid,
+				   card->msgid++,
+				   contr,
+				   0x214D5641,  /* ManuID */
+				   0,           /* Class */
+				   1,           /* Function */
+				   (_cstruct)"\004\002\003\000\000");
+	send_message(card, &cmdcmsg);
 
 	return 0;
 }
