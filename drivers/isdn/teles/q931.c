@@ -11,6 +11,9 @@
  * Beat Doebeli         cause texts, display information element
  * 
  * $Log$
+ * Revision 1.1  1996/04/13 10:27:49  fritz
+ * Initial revision
+ *
  *
  */
 
@@ -269,7 +272,7 @@ struct CauseValue {
 		0x1d, "Facility rejected", ""
 	},
 	{
-		0x1e, "Response to Status enuiry", ""
+		0x1e, "Response to Status enquiry", ""
 	},
 	{
 		0x1f, "Normal, unspecified", ""
@@ -317,7 +320,7 @@ struct CauseValue {
 		0x37, "Incoming calls barred within CUG", ""
 	},
 	{
-		0x39, "Bearer capability not auhorized", ""
+		0x39, "Bearer capability not authorized", ""
 	},
 	{
 		0x3a, "Bearer capability not presently available", ""
@@ -856,7 +859,7 @@ dlogframe(struct IsdnCardState *sp, byte * buf, int size, char *comment)
 			if (*buf == ielist[i].nr)
 				break;
 
-		/* When not found, give apropriate msg */
+		/* When not found, give appropriate msg */
 		if (i != IESIZE) {
 			dp += sprintf(dp, "  %s\n", ielist[i].descr);
 			dp += ielist[i].f(dp, buf);
