@@ -12,8 +12,6 @@ obj-$(CONFIG_HISAX_ELSA_CS)		+= elsa_cs.o
 obj-$(CONFIG_HISAX_AVM_A1_CS)		+= avma1_cs.o
 obj-$(CONFIG_HISAX_ST5481)		+= hisax_st5481.o
 obj-$(CONFIG_HISAX_FRITZ_PCIPNP)        += hisax_isac.o hisax_fcpcipnp.o
-obj-$(CONFIG_HISAX_FRITZ_CLASSIC)       += hisax_isac.o hisax_hscx.o hisax_fcclassic.o
-obj-$(CONFIG_HISAX_FRITZ_PCIPNP)        += hisax_hfcpci.o
 
 
 # Multipart objects.

@@ -30,16 +30,13 @@ static inline u_char
 readreg(unsigned int ale, unsigned long adr, u_char off)
 {
 	register u_int ret;
-	long flags;
 	unsigned int *po = (unsigned int *) adr;	/* Postoffice */
-	save_flags(flags);
-	cli();
+
 	*po = (GCS_2 | PO_WRITE | off);
 	__WAITI20__(po);
 	*po = (ale | PO_READ);
 	__WAITI20__(po);
 	ret = *po;
-	restore_flags(flags);
 	return ((unsigned char) ret);
 }
 
@@ -47,7 +44,6 @@ readreg(unsigned int ale, unsigned long adr, u_char off)
 static inline void
 readfifo(unsigned int ale, unsigned long adr, u_char off, u_char * data, int size)
 {
-	/* fifo read without cli because it's allready done  */
 	int i;
 	for (i = 0; i < size; i++)
 		*data++ = readreg(ale, adr, off);
@@ -57,22 +53,17 @@ readfifo(unsigned int ale, unsigned long adr, u_char off, u_char * data, int siz
 static inline void
 writereg(unsigned int ale, unsigned long adr, u_char off, u_char data)
 {
-	long flags;
 	unsigned int *po = (unsigned int *) adr;	/* Postoffice */
-	save_flags(flags);
-	cli();
 	*po = (GCS_2 | PO_WRITE | off);
 	__WAITI20__(po);
 	*po = (ale | PO_WRITE | data);
 	__WAITI20__(po);
-	restore_flags(flags);
 }
 
 
 static inline void
 writefifo(unsigned int ale, unsigned long adr, u_char off, u_char * data, int size)
 {
-	/* fifo write without cli because it's allready done  */
 	int i;
 
 	for (i = 0; i < size; i++)
@@ -134,17 +125,15 @@ WriteJADE(struct IsdnCardState *cs, int jade, u_char offset, u_char value)
 
 #include "jade_irq.c"
 
-static void
+static irqreturn_t
 bkm_interrupt(int intno, void *dev_id, struct pt_regs *regs)
 {
 	struct IsdnCardState *cs = dev_id;
 	u_char val = 0;
+	u_long flags;
 	I20_REGISTER_FILE *pI20_Regs;
 
-	if (!cs) {
-		printk(KERN_WARNING "HiSax: Telekom A4T: Spurious interrupt!\n");
-		return;
-	}
+	spin_lock_irqsave(&cs->lock, flags);
 	pI20_Regs = (I20_REGISTER_FILE *) (cs->hw.ax.base);
 
 	/* ISDN interrupt pending? */
@@ -170,6 +159,11 @@ bkm_interrupt(int intno, void *dev_id, struct pt_regs *regs)
 		}
 		/* Reenable ISDN interrupt */
 		pI20_Regs->i20IntCtrl |= intISDN;
+		spin_unlock_irqrestore(&cs->lock, flags);
+		return IRQ_HANDLED;
+	} else {
+		spin_unlock_irqrestore(&cs->lock, flags);
+		return IRQ_NONE;
 	}
 }
 
@@ -228,25 +222,33 @@ reset_bkm(struct IsdnCardState *cs)
 static int
 BKM_card_msg(struct IsdnCardState *cs, int mt, void *arg)
 {
+	u_long flags;
+
 	switch (mt) {
 		case CARD_RESET:
 			/* Disable ints */
+			spin_lock_irqsave(&cs->lock, flags);
 			enable_bkm_int(cs, 0);
 			reset_bkm(cs);
+			spin_unlock_irqrestore(&cs->lock, flags);
 			return (0);
 		case CARD_RELEASE:
 			/* Sanity */
+			spin_lock_irqsave(&cs->lock, flags);
 			enable_bkm_int(cs, 0);
 			reset_bkm(cs);
+			spin_unlock_irqrestore(&cs->lock, flags);
 			release_io_bkm(cs);
 			return (0);
 		case CARD_INIT:
+			spin_lock_irqsave(&cs->lock, flags);
 			clear_pending_isac_ints(cs);
 			clear_pending_jade_ints(cs);
 			initisac(cs);
 			initjade(cs);
 			/* Enable ints */
 			enable_bkm_int(cs, 1);
+			spin_unlock_irqrestore(&cs->lock, flags);
 			return (0);
 		case CARD_TEST:
 			return (0);
@@ -274,10 +276,6 @@ setup_bkm_a4t(struct IsdnCard *card)
 		return (0);
 
 #if CONFIG_PCI
-	if (!pci_present()) {
-		printk(KERN_ERR "bkm_a4t: no PCI bus present\n");
-		return (0);
-	}
 	while ((dev_a4t = pci_find_device(PCI_VENDOR_ID_ZORAN,
 		PCI_DEVICE_ID_ZORAN_36120, dev_a4t))) {
 		u16 sub_sys;
@@ -328,7 +326,7 @@ setup_bkm_a4t(struct IsdnCard *card)
 	printk(KERN_INFO "HiSax: %s: Card configured at 0x%lX IRQ %d\n",
 	       CardType[card->typ], cs->hw.ax.base, cs->irq);
 
-	reset_bkm(cs);
+	setup_isac(cs);
 	cs->readisac = &ReadISAC;
 	cs->writeisac = &WriteISAC;
 	cs->readisacfifo = &ReadISACfifo;

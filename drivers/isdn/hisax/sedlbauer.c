@@ -796,6 +796,7 @@ ready:
 						"Sedlbauer: wrong ISAR version (ret = %d)\n", ver);
 				else
 					break;
+				reset_sedlbauer(cs);
 				bytecnt--;
 			}
 			if (!bytecnt) {

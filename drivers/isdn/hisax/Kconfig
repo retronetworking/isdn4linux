@@ -402,13 +402,6 @@ config HISAX_FRITZ_PCIPNP
 	  (the latter also needs you to select "ISA Plug and Play support"
 	  from the menu "Plug and Play configuration")
 
-config HISAX_FRITZ_CLASSIC
-	tristate "AVM Fritz!Card classic support (EXPERIMENTAL)"
-	depends on ISA && EXPERIMENTAL
-	help
-	  This enables the driver for the AVM Fritz!Card classic, formerly
-	  known as AVM A1.
-
 endif
 
 endmenu
