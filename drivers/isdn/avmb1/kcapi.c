@@ -6,6 +6,10 @@
  * (c) Copyright 1999 by Carsten Paeth (calle@calle.in-berlin.de)
  * 
  * $Log$
+ * Revision 1.10  1999/10/26 15:30:32  calle
+ * Generate error message if user want to add card, but driver module is
+ * not loaded.
+ *
  * Revision 1.9  1999/10/11 22:04:12  keil
  * COMPAT_NEED_UACCESS (no include in isdn_compat.h)
  *
@@ -702,9 +706,9 @@ static void controllercb_handle_capimsg(struct capi_ctr * card,
 	if (cmd == CAPI_DATA_B3 && subcmd == CAPI_IND) {
 		card->nrecvdatapkt++;
 	        if (card->traceflag > 2) showctl |= 2;
-	        if (card->traceflag) showctl |= 2;
 	} else {
 		card->nrecvctlpkt++;
+	        if (card->traceflag) showctl |= 2;
 	}
 	showctl |= (card->traceflag & 1);
 	if (showctl & 2) {
