@@ -22,6 +22,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.2  1996/01/04 02:46:16  fritz
+ * Changed copying policy to GPL.
+ *
  * Revision 1.1  1995/12/18  18:22:52  fritz
  * Initial revision
  *
@@ -35,8 +38,8 @@
 #include <unistd.h>
 #include <sys/ioctl.h>
 
-#include <isdn.h>
-#include <isdnif.h>
+#include <linux/isdn.h>
+#include <linux/isdnif.h>
 
 typedef unsigned char uchar;
 int mem_fd;
@@ -196,7 +199,7 @@ dumpNetDev(ulong devaddr) {
     printf("Net-Device @%08lx:\n",nda);
     printf("dev. :\n");
     printf("  start        = %d\n",ndev->dev.start);
-    printf("  tbusy        = %d\n",ndev->dev.tbusy);
+    printf("  tbusy        = %ld\n",ndev->dev.tbusy);
     printf("  interrupt    = %d\n",ndev->dev.interrupt);
     printf("local. :\n");
     printf("  name         = \"%s\"\n",ndev->local.name);
@@ -251,8 +254,8 @@ main(int argc, char *argv[], char *envp[]) {
   
   printf ("\nDebugger for isdn and icn Modules\n");
   f = open("/dev/isdnctrl",O_RDONLY);
-  if (ioctl(f,ISDN_IOCTL_DEBUGVAR,&kaddr)) {
-    perror("ioctl ISDN_IOCTL_DEBUGVAR");
+  if (ioctl(f,IIOCDBGVAR,&kaddr)) {
+    perror("ioctl IIOCDBGVAR");
     exit(-1);
   }
   close(f);
