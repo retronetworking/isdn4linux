@@ -19,6 +19,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.58  1999/10/30 13:13:01  keil
+ * Henners isdn_ppp_skb_push:under fix
+ *
  * Revision 1.57  1999/10/05 22:47:17  he
  * Removed dead ISDN_SYNCPPP_READDRESS code (obsoleted by sysctl_ip_dynaddr
  * and network address translation)
@@ -2256,18 +2259,20 @@ static void isdn_ppp_ccp_xmit_reset(struct ippp_struct *is, int proto,
 {
 	struct sk_buff *skb;
 	unsigned char *p;
-	int count;
+	int count, hl;
 	unsigned long flags;
 	int cnt = 0;
 	isdn_net_local *lp = is->lp;
 
 	/* Alloc large enough skb */
-	skb = alloc_skb(len + 32,GFP_ATOMIC);
+	hl = dev->drv[lp->isdn_device]->interface->hl_hdrlen;
+	skb = alloc_skb(len + hl + 16,GFP_ATOMIC);
 	if(!skb) {
 		printk(KERN_WARNING
 		       "ippp: CCP cannot send reset - out of memory\n");
 		return;
 	}
+	skb_reserve(skb, hl);
 
 	/* We may need to stuff an address and control field first */
 	if(!(is->pppcfg & SC_COMP_AC)) {
@@ -2702,7 +2707,7 @@ static struct sk_buff *isdn_ppp_compress(struct sk_buff *skb_in,int *proto,
 	}
 
 	/* Allow for at least 150 % expansion (for now) */
-	skb_out = alloc_skb(skb_in->len + skb_in->len/2 + 48 +
+	skb_out = alloc_skb(skb_in->len + skb_in->len/2 + 32 +
 		skb_headroom(skb_in), GFP_ATOMIC);
 	if(!skb_out)
 		return skb_in;

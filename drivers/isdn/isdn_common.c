@@ -21,6 +21,10 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.91  1999/10/28 22:48:45  armin
+ * Bugfix: isdn_free_channel() now frees the channel,
+ * even when the usage of the ttyI has changed.
+ *
  * Revision 1.90  1999/10/27 21:21:17  detabc
  * Added support for building logically-bind-group's per interface.
  * usefull for outgoing call's with more then one isdn-card.
@@ -2232,8 +2236,33 @@ isdn_writebuf_skb_stub(int drvidx, int chan, int ack, struct sk_buff *skb)
 		/* V.110 must always be acknowledged */
 		ack = 1;
 		ret = dev->drv[drvidx]->interface->writebuf_skb(drvidx, chan, ack, nskb);
-	} else
-		ret = dev->drv[drvidx]->interface->writebuf_skb(drvidx, chan, ack, skb);
+	} else {
+		int hl = dev->drv[drvidx]->interface->hl_hdrlen;
+
+		if( skb_headroom(skb) < hl ){
+			/* 
+			 * This should only occur when new HL driver with
+			 * increased hl_hdrlen was loaded after netdevice
+			 * was created and connected to the new driver.
+			 *
+			 * The V.110 branch (re-allocates on its own) does
+			 * not need this
+			 */
+			struct sk_buff * skb_tmp;
+
+			skb_tmp = skb_realloc_headroom(skb, hl);
+			printk(KERN_DEBUG "isdn_writebuf_skb_stub: reallocating headroom%s\n", skb_tmp ? "" : " failed");
+			if (!skb_tmp) return -ENOMEM; /* 0 better? */
+			ret = dev->drv[drvidx]->interface->writebuf_skb(drvidx, chan, ack, skb_tmp);
+			if( ret > 0 ){
+				dev_kfree_skb(skb);
+			} else {
+				dev_kfree_skb(skb_tmp);
+			}
+		} else {
+			ret = dev->drv[drvidx]->interface->writebuf_skb(drvidx, chan, ack, skb);
+		}
+	}
 	if (ret > 0) {
 		dev->obytes[idx] += ret;
 		if (dev->v110[idx]) {
