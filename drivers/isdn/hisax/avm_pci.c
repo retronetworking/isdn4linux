@@ -7,6 +7,9 @@
  *
  *
  * $Log$
+ * Revision 1.5  1998/11/27 12:56:45  keil
+ * forgot to update setup function name
+ *
  * Revision 1.4  1998/11/15 23:53:19  keil
  * Fritz!PnP; changes from 2.0
  *
@@ -797,6 +800,7 @@ setup_avm_pcipnp(struct IsdnCard *card))
 				return(0);
 			}
 			cs->hw.avm.isac = cs->hw.avm.cfg_reg + 0x10;
+			cs->subtyp = AVM_FRITZ_PCI;
 		} else {
 			printk(KERN_WARNING "FritzPCI: No PCI card found\n");
 			return(0);
@@ -836,6 +840,8 @@ setup_avm_pcipnp(struct IsdnCard *card))
 		break;
 	  default:
 	  	printk(KERN_WARNING "AVM unknown subtype %d\n", cs->subtyp);
+		outb(0, cs->hw.avm.cfg_reg + 2);
+		release_region(cs->hw.avm.cfg_reg, 32);
 	  	return(0);
 	}
 	printk(KERN_INFO "HiSax: %s config irq:%d base:0x%X\n",
