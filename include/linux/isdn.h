@@ -21,6 +21,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.12  1996/06/03 19:55:08  fritz
+ * Fixed typos.
+ *
  * Revision 1.11  1996/05/31 01:37:47  fritz
  * Minor changes, due to changes in isdn_tty.c
  *
@@ -451,10 +454,11 @@ typedef struct modem_info {
   int                   xmit_count;      /* # of chars in xmit_buf         */
   unsigned char         *xmit_buf;       /* transmit buffer                */
   struct sk_buff_head   xmit_queue;      /* transmit queue                 */
+  struct sk_buff_head   dtmf_queue;      /* queue for dtmf results         */
   struct tty_struct 	*tty;            /* Pointer to corresponding tty   */
   atemu                 emu;             /* AT-emulator data               */
-  void                  *adpcms;         /* state for adpcm decompression  */
-  void                  *adpcmr;         /* state for adpcm compression    */
+  void                  *audio_ss;       /* state for adpcm and dtmf       */
+  void                  *audio_sr;       /* state for adpcm and dtmf       */
   struct termios	normal_termios;  /* For saving termios structs     */
   struct termios	callout_termios;
   struct wait_queue	*open_wait;
