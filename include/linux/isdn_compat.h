@@ -168,7 +168,7 @@ typedef struct wait_queue *wait_queue_head_t;
 #define PCI_DEVICE_ID_EICON_MAESTRAQ_U	0xe013
 #define PCI_DEVICE_ID_EICON_MAESTRAP	0xe014
  
-#define PCI_VENDOR_ID_CCD		0x1385
+#define PCI_VENDOR_ID_CCD		0x1397
 #define PCI_DEVICE_ID_CCD_2BD0	        0x2BD0
 #define PCI_DEVICE_ID_CCD_B000	        0xB000
 #define PCI_DEVICE_ID_CCD_B006	        0xB006

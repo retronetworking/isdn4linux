@@ -24,6 +24,7 @@
 
 #include <linux/config.h>
 #include <linux/module.h>
+#include <linux/init.h>
 #include <linux/version.h>
 #include <linux/poll.h>
 #include <linux/vmalloc.h>
@@ -2358,11 +2359,14 @@ register_isdn(isdn_if * i)
  *****************************************************************************
  */
 
-extern int printk(const char *fmt,...);
+/* dummy isdn_init for the time being. remove when not called
+   from drivers/char/mem.c anymore
+*/
 
-#ifdef MODULE
-#define isdn_init init_module
-#endif
+int isdn_init(void) 
+{
+	return 0;
+}
 
 static char *
 isdn_getrev(const char *revision)
@@ -2474,8 +2478,7 @@ static void isdn_cleanup_devfs(void)
 /*
  * Allocate and initialize all data, register modem-devices
  */
-int
-isdn_init(void)
+static int __init init_isdn(void)
 {
 	int i;
 	char tmprev[50];
@@ -2560,12 +2563,10 @@ isdn_init(void)
 	return 0;
 }
 
-#ifdef MODULE
 /*
  * Unload module
  */
-void
-cleanup_module(void)
+static void __exit exit_isdn(void)
 {
 	int flags;
 	int i;
@@ -2614,4 +2615,6 @@ cleanup_module(void)
 	isdn_dw_abc_release_func();
 #endif
 }
-#endif
+
+module_init(init_isdn);
+module_exit(exit_isdn);
