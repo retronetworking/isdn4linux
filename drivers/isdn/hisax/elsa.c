@@ -8,6 +8,9 @@
  *
  *
  * $Log$
+ * Revision 1.9  1997/03/04 15:57:39  keil
+ * bugfix IRQ reset Quickstep, ELSA PC changes, some stuff for new cards
+ *
  * Revision 1.8  1997/01/27 15:51:48  keil
  * SMP proof,cosmetics
  *
@@ -898,7 +901,7 @@ static void
 elsa_interrupt(int intno, void *dev_id, struct pt_regs *regs)
 {
 	struct IsdnCardState *sp;
-	byte val, sval, stat = 0;
+	byte val, sval;
 
 	sp = (struct IsdnCardState *) irq2dev_map[intno];
 
@@ -920,13 +923,11 @@ elsa_interrupt(int intno, void *dev_id, struct pt_regs *regs)
       Start_HSCX:
 	if (val) {
 		hscx_int_main(sp, val);
-		stat |= 1;
 	}
 	val = readisac(sp->cfg_reg, ISAC_ISTA);
       Start_ISAC:
 	if (val) {
 		isac_interrupt(sp, val);
-		stat |= 2;
 	}
 	sval = bytein(sp->cfg_reg + CARD_CONFIG);
 	if (!TimerRun(sp))
@@ -944,17 +945,16 @@ elsa_interrupt(int intno, void *dev_id, struct pt_regs *regs)
 			debugl1(sp, "ISAC IntStat after IntRoutine");
 		goto Start_ISAC;
 	}
-	if (stat & 1) {
-		writehscx(sp->cfg_reg, 0, HSCX_MASK, 0xFF);
-		writehscx(sp->cfg_reg, 1, HSCX_MASK, 0xFF);
-		writehscx(sp->cfg_reg, 0, HSCX_MASK, 0x0);
-		writehscx(sp->cfg_reg, 1, HSCX_MASK, 0x0);
+	writehscx(sp->cfg_reg, 0, HSCX_MASK, 0xFF);
+	writehscx(sp->cfg_reg, 1, HSCX_MASK, 0xFF);
+	writeisac(sp->cfg_reg, ISAC_MASK, 0xFF);
+	if (sp->subtyp == ELSA_QS1000) {
+		byteout(sp->cfg_reg + CARD_START_TIMER, 0);
+		byteout(sp->cfg_reg + CARD_TRIG_IRQ, 0xff);
 	}
-	if (stat & 2) {
-		writeisac(sp->cfg_reg, ISAC_MASK, 0xFF);
-		writeisac(sp->cfg_reg, ISAC_MASK, 0x0);
-	}
-	byteout(sp->cfg_reg + CARD_TRIG_IRQ, 0xff);
+	writehscx(sp->cfg_reg, 0, HSCX_MASK, 0x0);
+	writehscx(sp->cfg_reg, 1, HSCX_MASK, 0x0);
+	writeisac(sp->cfg_reg, ISAC_MASK, 0x0);
 }
 
 
@@ -1121,6 +1121,7 @@ initelsa(struct IsdnCardState *sp)
 	printk(KERN_INFO "Elsa: IRQ %d count %d\n", sp->irq, irq_cnt);
 	clear_pending_ints(sp);
 	ret = get_irq(sp->cardnr, &elsa_interrupt);
+	byteout(sp->cfg_reg + CARD_TRIG_IRQ, 0xff);
 	if (ret) {
 		initisac(sp);
 		sp->modehscx(sp->hs, 0, 0);
