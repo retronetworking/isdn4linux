@@ -21,6 +21,10 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.79  1999/07/05 23:51:30  werner
+ * Allow limiting of available HiSax B-chans per card. Controlled by hisaxctrl
+ * hisaxctrl id 10 <nr. of chans 0-2>
+ *
  * Revision 1.78  1999/07/05 20:21:15  werner
  * changes to use diversion sources for all kernel versions.
  * removed static device, only proc filesystem used
@@ -77,16 +81,6 @@
  * brute force fix to avoid Ugh's in isdn_tty_write()
  * cleaned up some dead code
  *
- * Revision 1.65  1998/06/07 00:20:00  fritz
- * abc cleanup.
- *
- * Revision 1.64  1998/06/02 12:10:03  detabc
- * wegen einer einstweiliger verfuegung gegen DW ist zur zeit
- * die abc-extension bis zur klaerung der rechtslage nicht verfuegbar
- *
- * Revision 1.63  1998/05/03 17:40:38  detabc
- * Include abc-extension-support for >= 2.1.x Kernels in
- * isdn_net.c and isdn_common.c. alpha-test OK and running !
  *
  * Revision 1.62  1998/04/14 16:28:43  he
  * Fixed user space access with interrupts off and remaining

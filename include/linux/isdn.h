@@ -21,6 +21,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.66  1999/07/01 08:35:37  keil
+ * compatibility to 2.3
+ *
  * Revision 1.65  1999/06/10 11:51:27  paul
  * fixed comment for NET_DV
  *
@@ -69,25 +72,7 @@
  * brute force fix to avoid Ugh's in isdn_tty_write()
  * cleaned up some dead code
  *
- * Revision 1.52  1998/06/12 11:42:18  detabc
- * cleanup abc
  *
- * Revision 1.51  1998/06/02 12:10:30  detabc
- * wegen einer einstweiliger verfuegung gegen DW ist zur zeit
- * die abc-extension bis zur klaerung der rechtslage nicht verfuegbar
- *
- * Revision 1.50  1998/05/05 23:11:51  detabc
- * add Item to stop icmp-unreach (max. 6 times of dialwait delay)
- *
- * Revision 1.49  1998/05/03 17:45:00  detabc
- * Add Item to send icmp-host-unreach to all packets
- *
- * Revision 1.48  1998/04/26 19:58:14  detabc
- * include the new abc-extension-items from 2.0.xx kernels
- * remove some unused code
- *
- * Revision 1.47  1998/04/21 18:00:25  detabc
- * Add items for secure-callback (abc-extension only)
  *
  * Revision 1.46  1998/04/14 16:28:59  he
  * Fixed user space access with interrupts off and remaining
@@ -103,12 +88,6 @@
  * Revision 1.43  1998/03/09 17:46:44  he
  * merged in 2.1.89 changes
  *
- * Revision 1.42  1998/03/08 13:53:46  detabc
- * add ABC-variables in structur isdn_devt
- *
- * Revision 1.41  1998/03/08 13:14:37  detabc
- * abc-extension support for kernels > 2.1.x
- * first try (sorry experimental)
  *
  * Revision 1.40  1998/03/08 01:08:29  fritz
  * Increased NET_DV because of TIMRU

@@ -20,6 +20,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.65  1999/07/04 21:01:59  werner
+ * Added support for keypad and display (ported from 2.0)
+ *
  * Revision 1.64  1999/07/01 08:30:00  keil
  * compatibility to 2.3 kernel
  *
@@ -64,24 +67,12 @@
  * brute force fix to avoid Ugh's in isdn_tty_write()
  * cleaned up some dead code
  *
- * Revision 1.54  1998/06/07 00:20:13  fritz
- * abc cleanup.
  *
- * Revision 1.53  1998/06/02 12:10:16  detabc
- * wegen einer einstweiliger verfuegung gegen DW ist zur zeit
- * die abc-extension bis zur klaerung der rechtslage nicht verfuegbar
  *
  * Revision 1.52  1998/03/19 13:18:21  keil
  * Start of a CAPI like interface for supplementary Service
  * first service: SUSPEND
  *
- * Revision 1.51  1998/03/08 14:26:11  detabc
- * change kfree_skb to dev_kfree_skb
- * remove SET_SKB_FREE
- *
- * Revision 1.50  1998/03/08 13:14:28  detabc
- * abc-extension support for kernels > 2.1.x
- * first try (sorry experimental)
  *
  * Revision 1.49  1998/03/08 00:01:59  fritz
  * Bugfix: Lowlevel module usage and channel usage were not
