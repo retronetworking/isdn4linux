@@ -21,6 +21,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.26  1996/10/23 23:05:36  fritz
+ * Bugfix: Divide by zero in isdn_net_autohup()
+ *
  * Revision 1.25  1996/10/22 23:13:58  fritz
  * Changes for compatibility to 2.0.X and 2.1.X kernels.
  *
@@ -272,7 +275,6 @@ isdn_net_autohup()
 			l->cps = 0;
 		else
 			l->cps = l->transcount / (jiffies - last_jiffies);
-		last_jiffies = jiffies;
 		l->transcount = 0;
 		if (dev->net_verbose > 3)
 			printk(KERN_DEBUG "%s: %d bogocps\n", l->name, l->cps);
@@ -293,6 +295,7 @@ isdn_net_autohup()
 		}
 		p = (isdn_net_dev *) p->next;
 	}
+	last_jiffies = jiffies;
         isdn_timer_ctrl(ISDN_TIMER_NETHANGUP,anymore);
 	restore_flags(flags);
 }
