@@ -46,19 +46,14 @@ static inline u_char
 readreg(unsigned int ale, unsigned int adr, u_char off)
 {
 	register u_char ret;
-	long flags;
-	save_flags(flags);
-	cli();
 	wordout(ale, off);
 	ret = wordin(adr) & 0xFF;
-	restore_flags(flags);
 	return (ret);
 }
 
 static inline void
 readfifo(unsigned int ale, unsigned int adr, u_char off, u_char * data, int size)
 {
-	/* fifo read without cli because it's allready done  */
 	int i;
 	wordout(ale, off);
 	for (i = 0; i < size; i++)
@@ -69,18 +64,13 @@ readfifo(unsigned int ale, unsigned int adr, u_char off, u_char * data, int size
 static inline void
 writereg(unsigned int ale, unsigned int adr, u_char off, u_char data)
 {
-	long flags;
-	save_flags(flags);
-	cli();
 	wordout(ale, off);
 	wordout(adr, data);
-	restore_flags(flags);
 }
 
 static inline void
 writefifo(unsigned int ale, unsigned int adr, u_char off, u_char * data, int size)
 {
-	/* fifo write without cli because it's allready done  */
 	int i;
 	wordout(ale, off);
 	for (i = 0; i < size; i++)
@@ -150,19 +140,19 @@ set_ipac_active(struct IsdnCardState *cs, u_int active)
 
 #include "hscx_irq.c"
 
-static void
+static irqreturn_t
 bkm_interrupt_ipac(int intno, void *dev_id, struct pt_regs *regs)
 {
 	struct IsdnCardState *cs = dev_id;
 	u_char ista, val, icnt = 5;
+	u_long flags;
 
-	if (!cs) {
-		printk(KERN_WARNING "HiSax: Scitel Quadro: Spurious interrupt!\n");
-		return;
-	}
+	spin_lock_irqsave(&cs->lock, flags);
 	ista = readreg(cs->hw.ax.base, cs->hw.ax.data_adr, IPAC_ISTA);
-	if (!(ista & 0x3f)) /* not this IPAC */
-		return;
+	if (!(ista & 0x3f)) { /* not this IPAC */
+		spin_unlock_irqrestore(&cs->lock, flags);
+		return IRQ_NONE;
+	}
       Start_IPAC:
 	if (cs->debug & L1_DEB_IPAC)
 		debugl1(cs, "IPAC ISTA %02X", ista);
@@ -199,8 +189,9 @@ bkm_interrupt_ipac(int intno, void *dev_id, struct pt_regs *regs)
 		       sct_quadro_subtypes[cs->subtyp]);
 	writereg(cs->hw.ax.base, cs->hw.ax.data_adr, IPAC_MASK, 0xFF);
 	writereg(cs->hw.ax.base, cs->hw.ax.data_adr, IPAC_MASK, 0xC0);
+	spin_unlock_irqrestore(&cs->lock, flags);
+	return IRQ_HANDLED;
 }
-
 
 void
 release_io_sct_quadro(struct IsdnCardState *cs)
@@ -236,25 +227,33 @@ reset_bkm(struct IsdnCardState *cs)
 static int
 BKM_card_msg(struct IsdnCardState *cs, int mt, void *arg)
 {
+	u_long flags;
+
 	switch (mt) {
 		case CARD_RESET:
+			spin_lock_irqsave(&cs->lock, flags);
 			/* Disable ints */
 			set_ipac_active(cs, 0);
 			enable_bkm_int(cs, 0);
 			reset_bkm(cs);
+			spin_unlock_irqrestore(&cs->lock, flags);
 			return (0);
 		case CARD_RELEASE:
 			/* Sanity */
+			spin_lock_irqsave(&cs->lock, flags);
 			set_ipac_active(cs, 0);
 			enable_bkm_int(cs, 0);
+			spin_unlock_irqrestore(&cs->lock, flags);
 			release_io_sct_quadro(cs);
 			return (0);
 		case CARD_INIT:
+			spin_lock_irqsave(&cs->lock, flags);
 			cs->debug |= L1_DEB_IPAC;
 			set_ipac_active(cs, 1);
 			inithscxisac(cs, 3);
 			/* Enable ints */
 			enable_bkm_int(cs, 1);
+			spin_unlock_irqrestore(&cs->lock, flags);
 			return (0);
 		case CARD_TEST:
 			return (0);
@@ -265,13 +264,11 @@ BKM_card_msg(struct IsdnCardState *cs, int mt, void *arg)
 int __init
 sct_alloc_io(u_int adr, u_int len)
 {
-	if (check_region(adr, len)) {
+	if (!request_region(adr, len, "scitel")) {
 		printk(KERN_WARNING
 			"HiSax: Scitel port %#x-%#x already in use\n",
 			adr, adr + len);
 		return (1);
-	} else {
-		request_region(adr, len, "scitel");
 	}
 	return(0);
 }
@@ -314,10 +311,6 @@ setup_sct_quadro(struct IsdnCard *card)
 		(sub_vendor_id != PCI_VENDOR_ID_BERKOM)))
 		return (0);
 	if (cs->subtyp == SCT_1) {
-		if (!pci_present()) {
-			printk(KERN_ERR "bkm_a4t: no PCI bus present\n");
-			return (0);
-		}
 		while ((dev_a8 = pci_find_device(PCI_VENDOR_ID_PLX,
 			PCI_DEVICE_ID_PLX_9050, dev_a8))) {
 			
@@ -343,20 +336,17 @@ setup_sct_quadro(struct IsdnCard *card)
 		}
 #ifdef ATTEMPT_PCI_REMAPPING
 /* HACK: PLX revision 1 bug: PLX address bit 7 must not be set */
-		pcibios_read_config_byte(pci_bus, pci_device_fn,
-			PCI_REVISION_ID, &pci_rev_id);
+		pci_read_config_byte(dev_a8, PCI_REVISION_ID, &pci_rev_id);
 		if ((pci_ioaddr1 & 0x80) && (pci_rev_id == 1)) {
 			printk(KERN_WARNING "HiSax: %s (%s): PLX rev 1, remapping required!\n",
 				CardType[card->typ],
 				sct_quadro_subtypes[cs->subtyp]);
 			/* Restart PCI negotiation */
-			pcibios_write_config_dword(pci_bus, pci_device_fn,
-				PCI_BASE_ADDRESS_1, (u_int) - 1);
+			pci_write_config_dword(dev_a8, PCI_BASE_ADDRESS_1, (u_int) - 1);
 			/* Move up by 0x80 byte */
 			pci_ioaddr1 += 0x80;
 			pci_ioaddr1 &= PCI_BASE_ADDRESS_IO_MASK;
-			pcibios_write_config_dword(pci_bus, pci_device_fn,
-				PCI_BASE_ADDRESS_1, pci_ioaddr1);
+			pci_write_config_dword(dev_a8, PCI_BASE_ADDRESS_1, pci_ioaddr1);
 			dev_a8->resource[ 1].start = pci_ioaddr1;
 		}
 #endif /* End HACK */
@@ -367,11 +357,11 @@ setup_sct_quadro(struct IsdnCard *card)
 		       sct_quadro_subtypes[cs->subtyp]);
 		return (0);
 	}
-	pcibios_read_config_dword(pci_bus, pci_device_fn, PCI_BASE_ADDRESS_1, &pci_ioaddr1);
-	pcibios_read_config_dword(pci_bus, pci_device_fn, PCI_BASE_ADDRESS_2, &pci_ioaddr2);
-	pcibios_read_config_dword(pci_bus, pci_device_fn, PCI_BASE_ADDRESS_3, &pci_ioaddr3);
-	pcibios_read_config_dword(pci_bus, pci_device_fn, PCI_BASE_ADDRESS_4, &pci_ioaddr4);
-	pcibios_read_config_dword(pci_bus, pci_device_fn, PCI_BASE_ADDRESS_5, &pci_ioaddr5);
+	pci_read_config_dword(dev_a8, PCI_BASE_ADDRESS_1, &pci_ioaddr1);
+	pci_read_config_dword(dev_a8, PCI_BASE_ADDRESS_2, &pci_ioaddr2);
+	pci_read_config_dword(dev_a8, PCI_BASE_ADDRESS_3, &pci_ioaddr3);
+	pci_read_config_dword(dev_a8, PCI_BASE_ADDRESS_4, &pci_ioaddr4);
+	pci_read_config_dword(dev_a8, PCI_BASE_ADDRESS_5, &pci_ioaddr5);
 	if (!pci_ioaddr1 || !pci_ioaddr2 || !pci_ioaddr3 || !pci_ioaddr4 || !pci_ioaddr5) {
 		printk(KERN_WARNING "HiSax: %s (%s): No IO base address(es)\n",
 		       CardType[card->typ],

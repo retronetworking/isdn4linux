@@ -845,7 +845,7 @@ static void closecard(int cardnr)
 	ll_unload(csta);
 }
 
-static int __devinit init_card(struct IsdnCardState *cs)
+static int init_card(struct IsdnCardState *cs)
 {
 	int 	irq_cnt, cnt = 3, ret;
 
@@ -887,7 +887,7 @@ static int __devinit init_card(struct IsdnCardState *cs)
 	return 3;
 }
 
-static int __devinit checkcard(int cardnr, char *id, int *busy_flag)
+static int checkcard(int cardnr, char *id, int *busy_flag, struct module *lockowner)
 {
 	int ret = 0;
 	struct IsdnCard *card = cards + cardnr;
@@ -941,7 +941,7 @@ static int __devinit checkcard(int cardnr, char *id, int *busy_flag)
 	cs->status_end = cs->status_buf + HISAX_STATUS_BUFSIZE - 1;
 	cs->typ = card->typ;
 #ifdef MODULE
-	cs->iif.owner = THIS_MODULE;
+	cs->iif.owner = lockowner;
 #endif
 	strcpy(cs->iif.id, id);
 	cs->iif.channels = 2;
@@ -1245,7 +1245,7 @@ int __devinit HiSax_inithardware(int *busy_flag)
 			else
 				sprintf(ids, "%s%d", id, i);
 		}
-		if (checkcard(i, ids, busy_flag)) {
+		if (checkcard(i, ids, busy_flag, THIS_MODULE)) {
 			foundcards++;
 			i++;
 		} else {
@@ -1727,7 +1727,7 @@ int __devinit hisax_init_pcmcia(void *pcm_iob, int *busy_flag,
 		sprintf(ids, "HiSax%d", nrcards);
 	else
 		sprintf(ids, "HiSax");
-	if (!checkcard(nrcards, ids, busy_flag)) {
+	if (!checkcard(nrcards, ids, busy_flag, THIS_MODULE)) {
 		return -1;
 	}
 	ret = nrcards;
@@ -1769,7 +1769,7 @@ int hisax_register(struct hisax_d_if *hisax_d_if, struct hisax_b_if *b_if[],
 	cards[i].protocol = protocol;
 	sprintf(id, "%s%d", name, i);
 	nrcards++;
-	retval = checkcard(i, id, 0);
+	retval = checkcard(i, id, 0, hisax_d_if->owner);
 	if (retval == 0) { // yuck
 		cards[i].typ = 0;
 		nrcards--;

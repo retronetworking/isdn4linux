@@ -36,8 +36,9 @@ struct fritz_bcs {
 	} ctrl;
 	u_int stat;
 	int rcvidx;
+	int fifo_size;
 	u_char rcvbuf[HSCX_BUFMAX]; /* B-Channel receive Buffer */
-
+	
 	int tx_cnt;		    /* B-Channel transmit counter */
 	struct sk_buff *tx_skb;     /* B-Channel transmit Buffer */
 };

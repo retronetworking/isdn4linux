@@ -44,7 +44,9 @@
 
 #ifdef CONFIG_HISAX_DEBUG
 static int debug = 0;
+/* static int hdlcfifosize = 32; */
 MODULE_PARM(debug, "i");
+/* MODULE_PARM(hdlcfifosize, "i"); */
 #endif
 
 MODULE_AUTHOR("Kai Germaschewski <kai.germaschewski@gmx.de>/Karsten Keil <kkeil@suse.de>");
@@ -128,12 +130,12 @@ MODULE_LICENSE("GPL");
 #define  HDLC_STAT_RDO		0x10
 #define  HDLC_STAT_CRCVFRRAB	0x0E
 #define  HDLC_STAT_CRCVFR	0x06
-#define  HDLC_STAT_RML_MASK	0x3f00
+#define  HDLC_STAT_RML_MASK	0xff00
 
 #define  HDLC_CMD_XRS		0x80
 #define  HDLC_CMD_XME		0x01
 #define  HDLC_CMD_RRS		0x20
-#define  HDLC_CMD_XML_MASK	0x3f00
+#define  HDLC_CMD_XML_MASK	0xff00
 
 #define  AVM_HDLC_FIFO_1        0x10
 #define  AVM_HDLC_FIFO_2        0x18
@@ -381,7 +383,6 @@ static void hdlc_fill_fifo(struct fritz_bcs *bcs)
 	struct fritz_adapter *adapter = bcs->adapter;
 	struct sk_buff *skb = bcs->tx_skb;
 	int count;
-	int fifo_size = 32;
 	unsigned long flags;
 	unsigned char *p;
 
@@ -391,8 +392,8 @@ static void hdlc_fill_fifo(struct fritz_bcs *bcs)
 		BUG();
 
 	bcs->ctrl.sr.cmd &= ~HDLC_CMD_XME;
-	if (bcs->tx_skb->len > fifo_size) {
-		count = fifo_size;
+	if (bcs->tx_skb->len > bcs->fifo_size) {
+		count = bcs->fifo_size;
 	} else {
 		count = bcs->tx_skb->len;
 		if (bcs->mode != L1_MODE_TRANS)
@@ -402,7 +403,7 @@ static void hdlc_fill_fifo(struct fritz_bcs *bcs)
 	p = bcs->tx_skb->data;
 	skb_pull(bcs->tx_skb, count);
 	bcs->tx_cnt += count;
-	bcs->ctrl.sr.xml = ((count == fifo_size) ? 0 : count);
+	bcs->ctrl.sr.xml = ((count == bcs->fifo_size) ? 0 : count);
 
 	switch (adapter->type) {
 	case AVM_FRITZ_PCI:
@@ -483,7 +484,7 @@ static inline void hdlc_rpr_irq(struct fritz_bcs *bcs, u32 stat)
 
 	len = (stat & HDLC_STAT_RML_MASK) >> 8;
 	if (len == 0)
-		len = 32;
+		len = bcs->fifo_size;
 
 	hdlc_empty_fifo(bcs, len);
 
@@ -511,6 +512,7 @@ static inline void hdlc_rpr_irq(struct fritz_bcs *bcs, u32 stat)
 static inline void hdlc_xdu_irq(struct fritz_bcs *bcs)
 {
 	struct fritz_adapter *adapter = bcs->adapter;
+	
 
 	/* Here we lost an TX interrupt, so
 	 * restart transmitting the whole frame.
@@ -519,14 +521,17 @@ static inline void hdlc_xdu_irq(struct fritz_bcs *bcs)
 	bcs->ctrl.sr.cmd |= HDLC_CMD_XRS;
 	adapter->write_ctrl(bcs, 1);
 	bcs->ctrl.sr.cmd &= ~HDLC_CMD_XRS;
-	adapter->write_ctrl(bcs, 1);
 
 	if (!bcs->tx_skb) {
 		DBG(0x10, "XDU without skb");
+		adapter->write_ctrl(bcs, 1);
 		return;
 	}
-	skb_push(bcs->tx_skb, bcs->tx_cnt);
-	bcs->tx_cnt = 0;
+	/* only hdlc restarts the frame, transparent mode must continue */
+	if (bcs->mode == L1_MODE_HDLC) {
+		skb_push(bcs->tx_skb, bcs->tx_cnt);
+		bcs->tx_cnt = 0;
+	}
 }
 
 static inline void hdlc_xpr_irq(struct fritz_bcs *bcs)
@@ -557,6 +562,8 @@ static void hdlc_irq_one(struct fritz_bcs *bcs, u32 stat)
 	if (stat & HDLC_INT_XDU) {
 		DBG(0x10, "XDU");
 		hdlc_xdu_irq(bcs);
+		hdlc_xpr_irq(bcs);
+		return;
 	}
 	if (stat & HDLC_INT_XPR) {
 		DBG(0x10, "XPR");
@@ -587,6 +594,7 @@ static void modehdlc(struct fritz_bcs *bcs, int mode)
 	if (bcs->mode == mode)
 		return;
 
+	bcs->fifo_size = 32;
 	bcs->ctrl.ctrl = 0;
 	bcs->ctrl.sr.cmd  = HDLC_CMD_XRS | HDLC_CMD_RRS;
 	switch (mode) {
@@ -599,10 +607,11 @@ static void modehdlc(struct fritz_bcs *bcs, int mode)
 		bcs->rcvidx = 0;
 		bcs->tx_cnt = 0;
 		bcs->tx_skb = NULL;
-		if (mode == L1_MODE_TRANS)
+		if (mode == L1_MODE_TRANS) {
 			bcs->ctrl.sr.mode = HDLC_MODE_TRANS;
-		else
+		} else {
 			bcs->ctrl.sr.mode = HDLC_MODE_ITF_FLG;
+		}
 		adapter->write_ctrl(bcs, 5);
 		bcs->ctrl.sr.cmd = HDLC_CMD_XRS;
 		adapter->write_ctrl(bcs, 1);
@@ -658,9 +667,10 @@ fcpci2_irq(int intno, void *dev, struct pt_regs *regs)
 	DBG(2, "STATUS0 %#x", val);
 	if (val & AVM_STATUS0_IRQ_ISAC)
 		isacsx_irq(&adapter->isac);
-
 	if (val & AVM_STATUS0_IRQ_HDLC)
 		hdlc_irq(adapter);
+	if (val & AVM_STATUS0_IRQ_ISAC)
+		isacsx_irq(&adapter->isac);
 	return IRQ_HANDLED;
 }
 
@@ -841,7 +851,7 @@ new_adapter(void)
 
 	memset(adapter, 0, sizeof(struct fritz_adapter));
 
-	SET_MODULE_OWNER(&adapter->isac.hisax_d_if);
+	adapter->isac.hisax_d_if.owner = THIS_MODULE;
 	adapter->isac.hisax_d_if.ifc.priv = &adapter->isac;
 	adapter->isac.hisax_d_if.ifc.l2l1 = isac_d_l2l1;
 	
