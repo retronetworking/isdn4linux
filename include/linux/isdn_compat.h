@@ -83,8 +83,18 @@ static inline unsigned long copy_to_user(void *to, const void *from, unsigned lo
 #define test_and_set_bit set_bit
 #endif
 
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2,1,45)
+#define MINOR_PART(f)	MINOR(f->f_inode->i_rdev)
+#else
+#define MINOR_PART(f)   MINOR(f->f_dentry->d_inode->i_rdev)
+#endif
+
 #if LINUX_VERSION_CODE < KERNEL_VERSION(2,1,81)
 #define kstat_irqs( PAR ) kstat.interrupts[PAR]
+#endif
+
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2,1,89)
+#define poll_wait(f,wq,w) poll_wait((wq),(w))
 #endif
 
 #if LINUX_VERSION_CODE > KERNEL_VERSION(2,1,91)
@@ -94,6 +104,10 @@ static inline unsigned long copy_to_user(void *to, const void *from, unsigned lo
 #else
 #define get_pcibase(ps, nr) ps->resource[nr].start
 #endif
+#endif
+
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,1,118)
+#define FILEOP_HAS_FLUSH
 #endif
 
 #if LINUX_VERSION_CODE < KERNEL_VERSION(2,1,127)
