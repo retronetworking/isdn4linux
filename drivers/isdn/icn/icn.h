@@ -19,6 +19,10 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.6  1995/02/20  03:49:22  fritz
+ * Fixed ICN_MAX_SQUEUE to correctly reflect outstanding bytes, not number
+ * of buffers.
+ *
  * Revision 1.5  1995/01/29  23:36:50  fritz
  * Minor cleanup.
  *
@@ -104,39 +108,6 @@ char kernel_version[] = UTS_RELEASE;
 #define ICN_FRAGSIZE (250)       /* Max. size of send-fragments         */
 #define ICN_BCH 2                /* Number of supported channels        */
 
-/* Sendbuffer-queue-element */
-typedef struct pqueue {
-  char   *next;
-  short   length;
-  short   size;
-  u_char *rptr;
-  u_char  buffer[1];
-} pqueue;
-
-typedef struct icn_devt *icn_devptr;
-typedef struct icn_devt {
-  unsigned short   port;                /* Base-port-adress                 */
-  union icn_shmt *shmem;                /* Pointer to memory-mapped-buffers */
-  int              myid;                /* Driver-Nr. assigned by linklevel */
-  int              rvalid;              /* IO-portregion has been requested */
-  unsigned short   flags;               /* Statusflags                      */
-  struct timer_list st_timer;           /* Timer for Status-Polls           */
-  struct timer_list rb_timer;           /* Timer for B-Channel-Polls        */
-  int              channel;             /* Currently mapped Channel         */
-  int              chanlock;            /* Semaphore for Channel-Mapping    */
-  u_char           rcvbuf[ICN_BCH][4096]; /* B-Channel-Receive-Buffers      */
-  int              rcvidx[ICN_BCH];     /* Index for above buffers          */
-  isdn_if          interface;           /* Interface to upper layer         */
-  int              iptr;                /* Index to imsg-buffer             */
-  char             imsg[40];            /* Internal buf for status-parsing  */
-  char             msg_buf[2048];       /* Buffer for status-messages       */
-  char             *msg_buf_write;      /* Writepointer for statusbuffer    */
-  char             *msg_buf_read;       /* Readpointer for statusbuffer     */
-  char             *msg_buf_end;        /* Pointer to end of statusbuffer   */
-  int              sndcount[ICN_BCH];   /* Byte-counters for B-Ch.-send     */
-  pqueue           *spqueue[ICN_BCH];   /* Pointers to start of Send-Queue  */
-} icn_dev;
-
 /* type-definitions for accessing the mmap-io-areas */
 
 #define SHM_DCTL_OFFSET (0)      /* Offset to data-controlstructures in shm */
@@ -144,7 +115,7 @@ typedef struct icn_devt {
 #define SHM_CBUF_OFFSET (0x200)  /* Offset to comm-buffers in shm           */
 #define SHM_DBUF_OFFSET (0x2000) /* Offset to data-buffers in shm           */
 
-typedef struct icn_frag {
+typedef struct {
   unsigned char length;              /* Bytecount of fragment (max 250)     */
   unsigned char endflag;             /* 0=last frag., 0xff=frag. continued  */
   unsigned char data[ICN_FRAGSIZE]; /* The data                            */
@@ -152,7 +123,7 @@ typedef struct icn_frag {
   char          unused[0x100-ICN_FRAGSIZE-2];
 } frag_buf;
 
-typedef union icn_shmt {
+typedef union {
   struct {
     unsigned char  scns;             /* Index to free SendFrag.             */
     unsigned char  scnr;             /* Index to active SendFrag   READONLY */
@@ -162,25 +133,62 @@ typedef union icn_shmt {
     unsigned short fuell1;           /* Internal Buf Bytecount              */ 
   } data_control;
   struct {
-    char          unused[SHM_CCTL_OFFSET];
-    unsigned char iopc_i;            /* Read-Ptr Status-Queue      READONLY */
-    unsigned char iopc_o;            /* Write-Ptr Status-Queue              */
-    unsigned char pcio_i;            /* Write-Ptr Command-Queue             */
-    unsigned char pcio_o;            /* Read-Ptr Command Queue     READONLY */
+    char           unused[SHM_CCTL_OFFSET];
+    unsigned char  iopc_i;            /* Read-Ptr Status-Queue      READONLY */
+    unsigned char  iopc_o;            /* Write-Ptr Status-Queue              */
+    unsigned char  pcio_i;            /* Write-Ptr Command-Queue             */
+    unsigned char  pcio_o;            /* Read-Ptr Command Queue     READONLY */
   } comm_control;
   struct {
-    char          unused[SHM_CBUF_OFFSET];
-    unsigned char pcio_buf[0x100];   /* Ring-Buffer Command-Queue           */
-    unsigned char iopc_buf[0x100];   /* Ring-Buffer Status-Queue            */
+    char           unused[SHM_CBUF_OFFSET];
+    unsigned char  pcio_buf[0x100];   /* Ring-Buffer Command-Queue           */
+    unsigned char  iopc_buf[0x100];   /* Ring-Buffer Status-Queue            */
   } comm_buffers;
-
   struct {
-    char          unused[SHM_DBUF_OFFSET];
-    frag_buf receive_buf[0x10];
-    frag_buf send_buf[0x10];
+    char           unused[SHM_DBUF_OFFSET];
+    frag_buf       receive_buf[0x10];
+    frag_buf       send_buf[0x10];
   } data_buffers;
-
 } icn_shmem;
+
+/* Sendbuffer-queue-element */
+typedef struct {
+  char   *next;
+  short   length;
+  short   size;
+  u_char *rptr;
+  u_char  buffer[1];
+} pqueue;
+
+typedef struct {
+  unsigned short   port;                /* Base-port-adress                 */
+  icn_shmem        *shmem;              /* Pointer to memory-mapped-buffers */
+  int              myid;                /* Driver-Nr. assigned by linklevel */
+  int              rvalid;              /* IO-portregion has been requested */
+  unsigned short   flags;               /* Statusflags                      */
+  struct timer_list st_timer;           /* Timer for Status-Polls           */
+  struct timer_list rb_timer;           /* Timer for B-Channel-Polls        */
+  int              channel;             /* Currently mapped Channel         */
+  int              chanlock;            /* Semaphore for Channel-Mapping    */
+  u_char           rcvbuf[ICN_BCH][4096]; /* B-Channel-Receive-Buffers      */
+  int              rcvidx[ICN_BCH];     /* Index for above buffers          */
+  int              l2_proto[ICN_BCH];   /* Current layer-2-protocol         */
+  isdn_if          interface;           /* Interface to upper layer         */
+  int              iptr;                /* Index to imsg-buffer             */
+  char             imsg[40];            /* Internal buf for status-parsing  */
+  char             msg_buf[2048];       /* Buffer for status-messages       */
+  char             *msg_buf_write;      /* Writepointer for statusbuffer    */
+  char             *msg_buf_read;       /* Readpointer for statusbuffer     */
+  char             *msg_buf_end;        /* Pointer to end of statusbuffer   */
+  int              sndcount[ICN_BCH];   /* Byte-counters for B-Ch.-send     */
+  pqueue           *spqueue[ICN_BCH];   /* Pointers to start of Send-Queue  */
+#ifdef DEBUG_RCVCALLBACK
+  int              akt_pending[ICN_BCH];
+  int              max_pending[ICN_BCH];
+#endif
+} icn_dev;
+
+typedef icn_dev *icn_devptr;
 
 static icn_dev *dev = (icn_dev *)0;
 
