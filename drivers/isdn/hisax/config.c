@@ -5,6 +5,9 @@
  *
  *
  * $Log$
+ * Revision 2.6  1997/11/08 21:35:43  keil
+ * new l1 init
+ *
  * Revision 2.5  1997/11/06 17:15:08  keil
  * New 2.1 init; PCMCIA wrapper changes
  *
@@ -201,23 +204,23 @@ static char HiSaxID[96] HISAX_INITDATA = "\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0
 char *HiSax_id HISAX_INITDATA = HiSaxID;
 #ifdef MODULE
 /* Variables for insmod */
-int type[] HISAX_INITDATA =
+static int type[] HISAX_INITDATA =
 {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
-int protocol[] HISAX_INITDATA =
+static int protocol[] HISAX_INITDATA =
 {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
-int io[] HISAX_INITDATA =
+static int io[] HISAX_INITDATA =
 {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
 #ifdef CONFIG_HISAX_16_3	/* For Creatix/Teles PnP */
-int io0[] HISAX_INITDATA =
+static int io0[] HISAX_INITDATA =
 {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
-int io1[] HISAX_INITDATA =
+static int io1[] HISAX_INITDATA =
 {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
 #endif
-int irq[] HISAX_INITDATA =
+static int irq[] HISAX_INITDATA =
 {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
-int mem[] HISAX_INITDATA =
+static int mem[] HISAX_INITDATA =
 {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
-char *id HISAX_INITDATA = HiSaxID;
+static char *id HISAX_INITDATA = HiSaxID;
 
 MODULE_AUTHOR("Karsten Keil");
 MODULE_PARM(type, "1-16i");

@@ -11,6 +11,9 @@
  *
  *
  * $Log$
+ * Revision 2.11  1997/11/12 15:01:23  keil
+ * COMPAQ_ISA changes
+ *
  * Revision 2.10  1997/11/08 21:35:48  keil
  * new l1 init
  *
@@ -62,6 +65,11 @@ const char *l1_revision = "$Revision$";
 #include "hisax.h"
 #include "isdnl1.h"
 #include <linux/kernel_stat.h>
+#if (LINUX_VERSION_CODE < 0x020150) /* 2.1.80 */
+#define kstat_irqs( PAR ) kstat.interrupts( (PAR) )
+#endif
+
+
 
 #if CARD_TELES0
 extern int setup_teles0(struct IsdnCard *card);
@@ -575,7 +583,7 @@ HISAX_INITFUNC(static int init_card(struct IsdnCardState *cs))
 
 	save_flags(flags);
 	cli();
-	irq_cnt = kstat.interrupts[cs->irq];
+	irq_cnt = kstat_irqs(cs->irq);
 	printk(KERN_INFO "%s: IRQ %d count %d\n", CardType[cs->typ], cs->irq,
 		irq_cnt);
 	if (cs->cardmsg(cs, CARD_SETIRQ, NULL)) {
@@ -592,8 +600,8 @@ HISAX_INITFUNC(static int init_card(struct IsdnCardState *cs))
 		schedule();
 		restore_flags(flags);
 		printk(KERN_INFO "%s: IRQ %d count %d\n", CardType[cs->typ],
-			cs->irq, kstat.interrupts[cs->irq]);
-		if (kstat.interrupts[cs->irq] == irq_cnt) {
+			cs->irq, kstat_irqs(cs->irq));
+		if (kstat_irqs(cs->irq) == irq_cnt) {
 			printk(KERN_WARNING
 			       "%s: IRQ(%d) getting no interrupts during init %d\n",
 			       CardType[cs->typ], cs->irq, 4 - cnt);

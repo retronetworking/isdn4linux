@@ -1,5 +1,12 @@
 L_OBJS :=
 M_OBJS :=
+LX_OBJS :=
+MX_OBJS :=
+O_OBJS :=
+OX_OBJS :=
+L_TARGET :=
+O_TARGET :=
+
 O_OBJS := isdnl1.o tei.o isdnl2.o isdnl3.o \
           lmgr.o q931.o callc.o fsm.o
 
