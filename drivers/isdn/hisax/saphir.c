@@ -8,6 +8,10 @@
  *
  *
  * $Log$
+ * Revision 1.5  1999/12/19 13:09:42  keil
+ * changed TASK_INTERRUPTIBLE into TASK_UNINTERRUPTIBLE for
+ * signal proof delays
+ *
  * Revision 1.4  1999/09/04 06:20:06  keil
  * Changes from kernel set_current_state()
  *
@@ -158,14 +162,12 @@ saphir_interrupt(int intno, void *dev_id, struct pt_regs *regs)
 		isac_interrupt(cs, val);
 	val = readreg(cs->hw.saphir.ale, cs->hw.saphir.hscx, HSCX_ISTA + 0x40);
 	if (val) {
-		if (cs->debug & L1_DEB_HSCX)
-			debugl1(cs, "HSCX IntStat after IntRoutine");
+		debugl1(L1_DEB_HSCX, cs, "HSCX IntStat after IntRoutine");
 		goto Start_HSCX;
 	}
 	val = readreg(cs->hw.saphir.ale, cs->hw.saphir.isac, ISAC_ISTA);
 	if (val) {
-		if (cs->debug & L1_DEB_ISAC)
-			debugl1(cs, "ISAC IntStat after IntRoutine");
+		debugl1(L1_DEB_ISAC, cs, "ISAC IntStat after IntRoutine");
 		goto Start_ISAC;
 	}
 	/* Watchdog */

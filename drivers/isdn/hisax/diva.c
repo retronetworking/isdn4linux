@@ -371,8 +371,7 @@ diva_irq_ipac_isa(int intno, void *dev_id, struct pt_regs *regs)
 	}
 	ista = readreg(cs->hw.diva.isac_adr, cs->hw.diva.isac, IPAC_ISTA);
 Start_IPACISA:
-	if (cs->debug & L1_DEB_IPAC)
-		debugl1(cs, "IPAC ISTA %02X", ista);
+	debugl1(L1_DEB_ISAC, cs, "IPAC ISTA %02X", ista);
 	if (ista & 0x0f) {
 		val = readreg(cs->hw.diva.isac_adr, cs->hw.diva.isac, HSCX_ISTA + 0x40);
 		if (ista & 0x01)
@@ -453,11 +452,10 @@ Memhscx_empty_fifo(struct BCState *bcs, int count)
 	int cnt;
 
 	if ((cs->debug & L1_DEB_HSCX) && !(cs->debug & L1_DEB_HSCX_FIFO))
-		debugl1(cs, "hscx_empty_fifo");
+		debugl1(L1_DEB_HSCX, cs, "hscx_empty_fifo");
 
 	if (bcs->hw.hscx.rcvidx + count > HSCX_BUFMAX) {
-		if (cs->debug & L1_DEB_WARN)
-			debugl1(cs, "hscx_empty_fifo: incoming packet too large");
+		debugl1(L1_DEB_WARN, cs, "hscx_empty_fifo: incoming packet too large");
 		MemWriteHSCXCMDR(cs, bcs->hw.hscx.hscx, 0x80);
 		bcs->hw.hscx.rcvidx = 0;
 		return;
@@ -478,7 +476,7 @@ Memhscx_empty_fifo(struct BCState *bcs, int count)
 		t += sprintf(t, "hscx_empty_fifo %c cnt %d",
 			     bcs->hw.hscx.hscx ? 'B' : 'A', count);
 		QuickHex(t, ptr, count);
-		debugl1(cs, bcs->blog);
+		debugl1(L1_DEB_HSCX_FIFO, cs, bcs->blog);
 	}
 }
 
@@ -493,7 +491,7 @@ Memhscx_fill_fifo(struct BCState *bcs)
 
 
 	if ((cs->debug & L1_DEB_HSCX) && !(cs->debug & L1_DEB_HSCX_FIFO))
-		debugl1(cs, "hscx_fill_fifo");
+		debugl1(L1_DEB_HSCX, cs, "hscx_fill_fifo");
 
 	if (!bcs->tx_skb)
 		return;
@@ -524,7 +522,7 @@ Memhscx_fill_fifo(struct BCState *bcs)
 		t += sprintf(t, "hscx_fill_fifo %c cnt %d",
 			     bcs->hw.hscx.hscx ? 'B' : 'A', count);
 		QuickHex(t, ptr, count);
-		debugl1(cs, bcs->blog);
+		debugl1(L1_DEB_HSCX_FIFO, cs, bcs->blog);
 	}
 }
 
@@ -544,15 +542,12 @@ Memhscx_interrupt(struct IsdnCardState *cs, u_char val, u_char hscx)
 		r = MemReadHSCX(cs, hscx, HSCX_RSTA);
 		if ((r & 0xf0) != 0xa0) {
 			if (!(r & 0x80))
-				if (cs->debug & L1_DEB_WARN)
-					debugl1(cs, "HSCX invalid frame");
+				debugl1(L1_DEB_WARN, cs, "HSCX invalid frame");
 			if ((r & 0x40) && (bcs->mode != B1_MODE_NULL))
-				if (cs->debug & L1_DEB_WARN)
-					debugl1(cs, "HSCX RDO mode=%d",
-						bcs->mode);
+				debugl1(L1_DEB_WARN, cs, "HSCX RDO mode=%d",
+					bcs->mode);
 			if (!(r & 0x20))
-				if (cs->debug & L1_DEB_WARN)
-					debugl1(cs, "HSCX CRC error");
+				debugl1(L1_DEB_WARN, cs, "HSCX CRC error");
 			MemWriteHSCXCMDR(cs, hscx, 0x80);
 		} else {
 			count = MemReadHSCX(cs, hscx, HSCX_RBCL) & (
@@ -561,8 +556,7 @@ Memhscx_interrupt(struct IsdnCardState *cs, u_char val, u_char hscx)
 				count = fifo_size;
 			Memhscx_empty_fifo(bcs, count);
 			if ((count = bcs->hw.hscx.rcvidx - 1) > 0) {
-				if (cs->debug & L1_DEB_HSCX_FIFO)
-					debugl1(cs, "HX Frame %d", count);
+				debugl1(L1_DEB_HSCX_FIFO, cs, "HX Frame %d", count);
 				if (!(skb = dev_alloc_skb(count)))
 					printk(KERN_WARNING "HSCX: receive out of memory\n");
 				else {
@@ -635,15 +629,13 @@ Memhscx_int_main(struct IsdnCardState *cs, u_char val)
 					bcs->hw.hscx.count = 0;
 				}
 				MemWriteHSCXCMDR(cs, bcs->hw.hscx.hscx, 0x01);
-				if (cs->debug & L1_DEB_WARN)
-					debugl1(cs, "HSCX B EXIR %x Lost TX", exval);
+				debugl1(L1_DEB_WARN, cs, "HSCX B EXIR %x Lost TX", exval);
 			}
-		} else if (cs->debug & L1_DEB_HSCX)
-			debugl1(cs, "HSCX B EXIR %x", exval);
+		} else
+			debugl1(L1_DEB_HSCX, cs, "HSCX B EXIR %x", exval);
 	}
 	if (val & 0xf8) {
-		if (cs->debug & L1_DEB_HSCX)
-			debugl1(cs, "HSCX B interrupt %x", val);
+		debugl1(L1_DEB_HSCX, cs, "HSCX B interrupt %x", val);
 		Memhscx_interrupt(cs, val, 1);
 	}
 	if (val & 0x02) {
@@ -661,16 +653,14 @@ Memhscx_int_main(struct IsdnCardState *cs, u_char val)
 					bcs->hw.hscx.count = 0;
 				}
 				MemWriteHSCXCMDR(cs, bcs->hw.hscx.hscx, 0x01);
-				if (cs->debug & L1_DEB_WARN)
-					debugl1(cs, "HSCX A EXIR %x Lost TX", exval);
+				debugl1(L1_DEB_WARN, cs, "HSCX A EXIR %x Lost TX", exval);
 			}
-		} else if (cs->debug & L1_DEB_HSCX)
-			debugl1(cs, "HSCX A EXIR %x", exval);
+		} else
+			debugl1(L1_DEB_HSCX, cs, "HSCX A EXIR %x", exval);
 	}
 	if (val & 0x04) {
 		exval = MemReadHSCX(cs, 0, HSCX_ISTA);
-		if (cs->debug & L1_DEB_HSCX)
-			debugl1(cs, "HSCX A interrupt %x", exval);
+		debugl1(L1_DEB_HSCX, cs, "HSCX A interrupt %x", exval);
 		Memhscx_interrupt(cs, exval, 0);
 	}
 }
@@ -694,8 +684,7 @@ diva_irq_ipac_pci(int intno, void *dev_id, struct pt_regs *regs)
 	*cfg = PITA_INT0_STATUS; /* Reset pending INT0 */
 	ista = memreadreg(cs->hw.diva.cfg_reg, IPAC_ISTA);
 Start_IPACPCI:
-	if (cs->debug & L1_DEB_IPAC)
-		debugl1(cs, "IPAC ISTA %02X", ista);
+	debugl1(L1_DEB_IPAC, cs, "IPAC ISTA %02X", ista);
 	if (ista & 0x0f) {
 		val = memreadreg(cs->hw.diva.cfg_reg, HSCX_ISTA + 0x40);
 		if (ista & 0x01)

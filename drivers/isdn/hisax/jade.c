@@ -91,12 +91,8 @@ modejade(struct BCState *bcs, int mode, int bc)
     struct IsdnCardState *cs = bcs->cs;
     int jade = bcs->hw.hscx.hscx;
 
-    if (cs->debug & L1_DEB_HSCX) {
-	char tmp[40];
-	sprintf(tmp, "jade %c mode %d ichan %d",
-		'A' + jade, mode, bc);
-	debugl1(cs, tmp);
-    }
+    debugl1(L1_DEB_HSCX, cs, "jade %c mode %d ichan %d",
+	    'A' + jade, mode, bc);
     bcs->mode = mode;
     bcs->channel = bc;
 	
@@ -281,16 +277,16 @@ clear_pending_jade_ints(struct IsdnCardState *cs))
 
 	val = cs->BC_Read_Reg(cs, 1, jade_HDLC_ISR);
 	sprintf(tmp, "jade B ISTA %x", val);
-	debugl1(cs, tmp);
+	debugl1(L1_DEB_WARN, cs, tmp);
 	val = cs->BC_Read_Reg(cs, 0, jade_HDLC_ISR);
 	sprintf(tmp, "jade A ISTA %x", val);
-	debugl1(cs, tmp);
+	debugl1(L1_DEB_WARN, cs, tmp);
 	val = cs->BC_Read_Reg(cs, 1, jade_HDLC_STAR);
 	sprintf(tmp, "jade B STAR %x", val);
-	debugl1(cs, tmp);
+	debugl1(L1_DEB_WARN, cs, tmp);
 	val = cs->BC_Read_Reg(cs, 0, jade_HDLC_STAR);
 	sprintf(tmp, "jade A STAR %x", val);
-	debugl1(cs, tmp);
+	debugl1(L1_DEB_WARN, cs, tmp);
 	/* Unmask ints */
 	cs->BC_Write_Reg(cs, 0, jade_HDLC_IMR, 0xF8);
 	cs->BC_Write_Reg(cs, 1, jade_HDLC_IMR, 0xF8);

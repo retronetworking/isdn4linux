@@ -264,9 +264,8 @@ hdlc_sched_event(struct BCState *bcs, int event)
 void
 write_ctrl(struct BCState *bcs, int which) {
 
-	if (bcs->cs->debug & L1_DEB_HSCX)
-		debugl1(bcs->cs, "hdlc %c wr%x ctrl %x",
-			'A' + bcs->channel, which, bcs->hw.hdlc.ctrl.ctrl);
+	debugl1(L1_DEB_HSCX, bcs->cs, "hdlc %c wr%x ctrl %x",
+		'A' + bcs->channel, which, bcs->hw.hdlc.ctrl.ctrl);
 	if (bcs->cs->subtyp == AVM_FRITZ_PCI) {
 		WriteHDLCPCI(bcs->cs, bcs->channel, HDLC_STATUS, bcs->hw.hdlc.ctrl.ctrl);
 	} else {
@@ -288,9 +287,8 @@ modehdlc(struct BCState *bcs, int mode, int bc)
 	struct IsdnCardState *cs = bcs->cs;
 	int hdlc = bcs->channel;
 
-	if (cs->debug & L1_DEB_HSCX)
-		debugl1(cs, "hdlc %c mode %d --> %d ichan %d --> %d",
-			'A' + hdlc, bcs->mode, mode, hdlc, bc);
+	debugl1(L1_DEB_HSCX, cs, "hdlc %c mode %d --> %d ichan %d --> %d",
+		'A' + hdlc, bcs->mode, mode, hdlc, bc);
 	bcs->hw.hdlc.ctrl.ctrl = 0;
 	switch (mode) {
 		case (-1): /* used for init */
@@ -341,10 +339,9 @@ hdlc_empty_fifo(struct BCState *bcs, int count)
 	struct IsdnCardState *cs = bcs->cs;
 
 	if ((cs->debug & L1_DEB_HSCX) && !(cs->debug & L1_DEB_HSCX_FIFO))
-		debugl1(cs, "hdlc_empty_fifo %d", count);
+		debugl1(L1_DEB_HSCX, cs, "hdlc_empty_fifo %d", count);
 	if (bcs->hw.hdlc.rcvidx + count > HSCX_BUFMAX) {
-		if (cs->debug & L1_DEB_WARN)
-			debugl1(cs, "hdlc_empty_fifo: incoming packet too large");
+		debugl1(L1_DEB_WARN, cs, "hdlc_empty_fifo: incoming packet too large");
 		return;
 	}
 	ptr = (u_int *) p = bcs->hw.hdlc.rcvbuf + bcs->hw.hdlc.rcvidx;
@@ -370,7 +367,7 @@ hdlc_empty_fifo(struct BCState *bcs, int count)
 		t += sprintf(t, "hdlc_empty_fifo %c cnt %d",
 			     bcs->channel ? 'B' : 'A', count);
 		QuickHex(t, p, count);
-		debugl1(cs, bcs->blog);
+		debugl1(L1_DEB_HSCX_FIFO, cs, bcs->blog);
 	}
 }
 
@@ -384,7 +381,7 @@ hdlc_fill_fifo(struct BCState *bcs)
 	u_int *ptr;
 
 	if ((cs->debug & L1_DEB_HSCX) && !(cs->debug & L1_DEB_HSCX_FIFO))
-		debugl1(cs, "hdlc_fill_fifo");
+		debugl1(L1_DEB_HSCX, cs, "hdlc_fill_fifo");
 	if (!bcs->tx_skb)
 		return;
 	if (bcs->tx_skb->len <= 0)
@@ -399,7 +396,7 @@ hdlc_fill_fifo(struct BCState *bcs)
 			bcs->hw.hdlc.ctrl.sr.cmd |= HDLC_CMD_XME;
 	}
 	if ((cs->debug & L1_DEB_HSCX) && !(cs->debug & L1_DEB_HSCX_FIFO))
-		debugl1(cs, "hdlc_fill_fifo %d/%ld", count, bcs->tx_skb->len);
+		debugl1(L1_DEB_HSCX, cs, "hdlc_fill_fifo %d/%ld", count, bcs->tx_skb->len);
 	ptr = (u_int *) p = bcs->tx_skb->data;
 	skb_pull(bcs->tx_skb, count);
 	bcs->hw.hdlc.count += count;
@@ -424,7 +421,7 @@ hdlc_fill_fifo(struct BCState *bcs)
 		t += sprintf(t, "hdlc_fill_fifo %c cnt %d",
 			     bcs->channel ? 'B' : 'A', count);
 		QuickHex(t, p, count);
-		debugl1(cs, bcs->blog);
+		debugl1(L1_DEB_HSCX_FIFO, cs, bcs->blog);
 	}
 }
 
@@ -443,14 +440,10 @@ HDLC_irq(struct BCState *bcs, u_int stat) {
 	int len;
 	struct sk_buff *skb;
 
-	if (bcs->cs->debug & L1_DEB_HSCX)
-		debugl1(bcs->cs, "ch%d stat %#x", bcs->channel, stat);
+	debugl1(L1_DEB_HSCX, bcs->cs, "ch%d stat %#x", bcs->channel, stat);
 	if (stat & HDLC_INT_RPR) {
 		if (stat & HDLC_STAT_RDO) {
-			if (bcs->cs->debug & L1_DEB_HSCX)
-				debugl1(bcs->cs, "RDO");
-			else
-				debugl1(bcs->cs, "ch%d stat %#x", bcs->channel, stat);
+			debugl1(L1_DEB_HSCX, bcs->cs, "RDO");
 			bcs->hw.hdlc.ctrl.sr.xml = 0;
 			bcs->hw.hdlc.ctrl.sr.cmd |= HDLC_CMD_RRS;
 			write_ctrl(bcs, 1);
@@ -475,9 +468,9 @@ HDLC_irq(struct BCState *bcs, u_int stat) {
 					hdlc_sched_event(bcs, B_RCVBUFREADY);
 				} else {
 					if (bcs->cs->debug & L1_DEB_HSCX)
-						debugl1(bcs->cs, "invalid frame");
+						debugl1(L1_DEB_HSCX, bcs->cs, "invalid frame");
 					else
-						debugl1(bcs->cs, "ch%d invalid frame %#x", bcs->channel, stat);
+						debugl1(L1_DEB_WARN, bcs->cs, "ch%d invalid frame %#x", bcs->channel, stat);
 					bcs->hw.hdlc.rcvidx = 0;
 				}
 			}
@@ -491,10 +484,9 @@ HDLC_irq(struct BCState *bcs, u_int stat) {
 			skb_push(bcs->tx_skb, bcs->hw.hdlc.count);
 			bcs->hw.hdlc.count = 0;
 //			hdlc_sched_event(bcs, B_XMTBUFREADY);
-			if (bcs->cs->debug & L1_DEB_WARN)
-				debugl1(bcs->cs, "ch%d XDU", bcs->channel);
-		} else if (bcs->cs->debug & L1_DEB_WARN)
-			debugl1(bcs->cs, "ch%d XDU without skb", bcs->channel);
+			debugl1(L1_DEB_WARN, bcs->cs, "ch%d XDU", bcs->channel);
+		} else
+			debugl1(L1_DEB_WARN, bcs->cs, "ch%d XDU without skb", bcs->channel);
 		bcs->hw.hdlc.ctrl.sr.xml = 0;
 		bcs->hw.hdlc.ctrl.sr.cmd |= HDLC_CMD_XRS;
 		write_ctrl(bcs, 1);
@@ -542,8 +534,7 @@ HDLC_irq_main(struct IsdnCardState *cs)
 	}
 	if (stat & HDLC_INT_MASK) {
 		if (!(bcs = Sel_BCS(cs, 0))) {
-			if (cs->debug)
-				debugl1(cs, "hdlc spurious channel 0 IRQ");
+			debugl1(L1_DEB_WARN, cs, "hdlc spurious channel 0 IRQ");
 		} else
 			HDLC_irq(bcs, stat);
 	}
@@ -556,8 +547,7 @@ HDLC_irq_main(struct IsdnCardState *cs)
 	}
 	if (stat & HDLC_INT_MASK) {
 		if (!(bcs = Sel_BCS(cs, 1))) {
-			if (cs->debug)
-				debugl1(cs, "hdlc spurious channel 1 IRQ");
+			debugl1(L1_DEB_WARN, cs, "hdlc spurious channel 1 IRQ");
 		} else
 			HDLC_irq(bcs, stat);
 	}
@@ -690,26 +680,26 @@ clear_pending_hdlc_ints(struct IsdnCardState *cs))
 
 	if (cs->subtyp == AVM_FRITZ_PCI) {
 		val = ReadHDLCPCI(cs, 0, HDLC_STATUS);
-		debugl1(cs, "HDLC 1 STA %x", val);
+		debugl1(L1_DEB_WARN, cs, "HDLC 1 STA %x", val);
 		val = ReadHDLCPCI(cs, 1, HDLC_STATUS);
-		debugl1(cs, "HDLC 2 STA %x", val);
+		debugl1(L1_DEB_WARN, cs, "HDLC 2 STA %x", val);
 	} else {
 		val = ReadHDLCPnP(cs, 0, HDLC_STATUS);
-		debugl1(cs, "HDLC 1 STA %x", val);
+		debugl1(L1_DEB_WARN, cs, "HDLC 1 STA %x", val);
 		val = ReadHDLCPnP(cs, 0, HDLC_STATUS + 1);
-		debugl1(cs, "HDLC 1 RML %x", val);
+		debugl1(L1_DEB_WARN, cs, "HDLC 1 RML %x", val);
 		val = ReadHDLCPnP(cs, 0, HDLC_STATUS + 2);
-		debugl1(cs, "HDLC 1 MODE %x", val);
+		debugl1(L1_DEB_WARN, cs, "HDLC 1 MODE %x", val);
 		val = ReadHDLCPnP(cs, 0, HDLC_STATUS + 3);
-		debugl1(cs, "HDLC 1 VIN %x", val);
+		debugl1(L1_DEB_WARN, cs, "HDLC 1 VIN %x", val);
 		val = ReadHDLCPnP(cs, 1, HDLC_STATUS);
-		debugl1(cs, "HDLC 2 STA %x", val);
+		debugl1(L1_DEB_WARN, cs, "HDLC 2 STA %x", val);
 		val = ReadHDLCPnP(cs, 1, HDLC_STATUS + 1);
-		debugl1(cs, "HDLC 2 RML %x", val);
+		debugl1(L1_DEB_WARN, cs, "HDLC 2 RML %x", val);
 		val = ReadHDLCPnP(cs, 1, HDLC_STATUS + 2);
-		debugl1(cs, "HDLC 2 MODE %x", val);
+		debugl1(L1_DEB_WARN, cs, "HDLC 2 MODE %x", val);
 		val = ReadHDLCPnP(cs, 1, HDLC_STATUS + 3);
-		debugl1(cs, "HDLC 2 VIN %x", val);
+		debugl1(L1_DEB_WARN, cs, "HDLC 2 VIN %x", val);
 	}
 }
 

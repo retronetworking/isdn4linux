@@ -15,6 +15,10 @@
  *
  *
  * $Log$
+ * Revision 2.37  2000/01/20 19:51:46  keil
+ * Fix AddTimer message
+ * Change CONFIG defines
+ *
  * Revision 2.36  1999/08/25 16:50:57  keil
  * Fix bugs which cause 2.3.14 hangs (waitqueue init)
  *
@@ -228,11 +232,13 @@ static char *strL1Event[] =
 };
 
 void
-debugl1(struct IsdnCardState *cs, char *fmt, ...)
+debugl1(int level, struct IsdnCardState *cs, char *fmt, ...)
 {
 	va_list args;
 	char tmp[8];
 	
+	if (!(cs->debug & level))
+		return;
 	va_start(args, fmt);
 	sprintf(tmp, "Card%d ", cs->cardnr + 1);
 	VHiSax_putstatus(cs, tmp, fmt, args);
@@ -312,17 +318,16 @@ DChannel_proc_rcv(struct IsdnCardState *cs)
 			FsmEvent(&stptr->l1.l1m, EV_TIMER_ACT, NULL);	
 	while ((skb = skb_dequeue(&cs->rq))) {
 #ifdef L2FRAME_DEBUG		/* psa */
-		if (cs->debug & L1_DEB_LAPD)
-			Logl2Frame(cs, skb, "PH_DATA", 1);
+		Logl2Frame(cs, skb, "PH_DATA", 1);
 #endif
 		stptr = cs->stlist;
 		if (skb->len<3) {
-			debugl1(cs, "D-channel frame too short(%d)",skb->len);
+			debugl1(L1_DEB_WARN, cs, "D-channel frame too short(%d)",skb->len);
 			idev_kfree_skb(skb, FREE_READ);
 			return;
 		}
 		if ((skb->data[0] & 1) || !(skb->data[1] &1)) {
-			debugl1(cs, "D-channel frame wrong EA0/EA1");
+			debugl1(L1_DEB_WARN, cs, "D-channel frame wrong EA0/EA1");
 			idev_kfree_skb(skb, FREE_READ);
 			return;
 		}
@@ -373,7 +378,7 @@ BChannel_proc_xmt(struct BCState *bcs)
 	struct PStack *st = bcs->st;
 
 	if (test_bit(BC_FLG_BUSY, &bcs->Flag)) {
-		debugl1(bcs->cs, "BC_BUSY Error");
+		debugl1(L1_DEB_WARN, bcs->cs, "BC_BUSY Error");
 		return;
 	}
 
@@ -527,12 +532,15 @@ Logl2Frame(struct IsdnCardState *cs, struct sk_buff *skb, char *buf, int dir)
 {
 	u_char *ptr;
 
+	if (!(cs->debug & L1_DEB_LAPD)) 
+		return;
+
 	ptr = skb->data;
 
 	if (ptr[0] & 1 || !(ptr[1] & 1))
-		debugl1(cs, "Address not LAPD");
+		debugl1(L1_DEB_LAPD, cs, "Address not LAPD");
 	else
-		debugl1(cs, "%s %s: %s%c (sapi %d, tei %d)",
+		debugl1(L1_DEB_LAPD, cs, "%s %s: %s%c (sapi %d, tei %d)",
 			(dir ? "<-" : "->"), buf, l2frames(ptr),
 			((ptr[0] & 2) >> 1) == dir ? 'C' : 'R', ptr[0] >> 2, ptr[1] >> 1);
 }
@@ -798,9 +806,8 @@ dch_l2l1(struct PStack *st, int pr, void *arg)
 			st->l1.l1hw(st, pr, arg);
 			break;
 		case (PH_ACTIVATE | REQUEST):
-			if (cs->debug)
-				debugl1(cs, "PH_ACTIVATE_REQ %s",
-					strL1DState[st->l1.l1m.state]);
+			debugl1(L1_DEB_WARN, cs, "PH_ACTIVATE_REQ %s",
+				strL1DState[st->l1.l1m.state]);
 			if (test_bit(FLG_L1_ACTIVATED, &st->l1.Flags))
 				st->l1.l1l2(st, PH_ACTIVATE | CONFIRM, NULL);
 			else {
@@ -810,16 +817,15 @@ dch_l2l1(struct PStack *st, int pr, void *arg)
 			break;
 		case (PH_TESTLOOP | REQUEST):
 			if (1 & (long) arg)
-				debugl1(cs, "PH_TEST_LOOP B1");
+				debugl1(L1_DEB_WARN, cs, "PH_TEST_LOOP B1");
 			if (2 & (long) arg)
-				debugl1(cs, "PH_TEST_LOOP B2");
+				debugl1(L1_DEB_WARN, cs, "PH_TEST_LOOP B2");
 			if (!(3 & (long) arg))
-				debugl1(cs, "PH_TEST_LOOP DISABLED");
+				debugl1(L1_DEB_WARN, cs, "PH_TEST_LOOP DISABLED");
 			st->l1.l1hw(st, HW_TESTLOOP | REQUEST, arg);
 			break;
 		default:
-			if (cs->debug)
-				debugl1(cs, "dch_l2l1 msg %04X unhandled", pr);
+			debugl1(L1_DEB_WARN, cs, "dch_l2l1 msg %04X unhandled", pr);
 			break;
 	}
 }
@@ -855,8 +861,7 @@ l1_msg(struct IsdnCardState *cs, int pr, void *arg) {
 				FsmEvent(&st->l1.l1m, EV_INFO4_IND, arg);
 				break;
 			default:
-				if (cs->debug)
-					debugl1(cs, "l1msg %04X unhandled", pr);
+				debugl1(L1_DEB_WARN, cs, "l1msg %04X unhandled", pr);
 				break;
 		}
 		st = st->next;

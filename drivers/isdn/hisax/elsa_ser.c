@@ -128,7 +128,7 @@ static void change_speed(struct IsdnCardState *cs, int baud)
 	cs->hw.elsa.IER |= UART_IER_MSI;
 	serial_outp(cs, UART_IER, cs->hw.elsa.IER);
 
-	debugl1(cs,"modem quot=0x%x", quot);
+	debugl1(L1_DEB_WARN, cs,"modem quot=0x%x", quot);
 	save_flags(flags);
 	cli();
 	serial_outp(cs, UART_LCR, cval | UART_LCR_DLAB);/* set DLAB */
@@ -347,7 +347,7 @@ static inline void receive_chars(struct IsdnCardState *cs,
 
 		t += sprintf(t, "modem read cnt %d", cs->hw.elsa.rcvcnt);
 		QuickHex(t, cs->hw.elsa.rcvbuf, cs->hw.elsa.rcvcnt);
-		debugl1(cs, tmp);
+		debugl1(L1_DEB_WARN, cs, tmp);
 	}
 	cs->hw.elsa.rcvcnt = 0;
 }
@@ -356,7 +356,7 @@ static inline void transmit_chars(struct IsdnCardState *cs, int *intr_done)
 {
 	int count;
 	
-	debugl1(cs, "transmit_chars: p(%x) cnt(%x)", cs->hw.elsa.transp, 
+	debugl1(L1_DEB_WARN, cs, "transmit_chars: p(%x) cnt(%x)", cs->hw.elsa.transp, 
 		cs->hw.elsa.transcnt);
 	
 	if (cs->hw.elsa.transcnt <= 0) {
@@ -466,7 +466,7 @@ static void rs_interrupt_elsa(int irq, struct IsdnCardState *cs)
 
 	do {
 		status = serial_inp(cs, UART_LSR);
-		debugl1(cs,"rs LSR %02x", status);
+		debugl1(L1_DEB_WARN, cs,"rs LSR %02x", status);
 #ifdef SERIAL_DEBUG_INTR
 		printk("status = %x...", status);
 #endif
@@ -479,10 +479,10 @@ static void rs_interrupt_elsa(int irq, struct IsdnCardState *cs)
 			break;
 		}
 		iir = serial_inp(cs, UART_IIR);
-		debugl1(cs,"rs IIR %02x", iir);
+		debugl1(L1_DEB_WARN, cs,"rs IIR %02x", iir);
 		if ((iir & 0xf) == 0) {
 			msr = serial_inp(cs, UART_MSR);
-			debugl1(cs,"rs MSR %02x", msr);
+			debugl1(L1_DEB_WARN, cs,"rs MSR %02x", msr);
 		}
 	} while (!(iir & UART_IIR_NO_INT));
 #ifdef SERIAL_DEBUG_INTR
@@ -566,43 +566,43 @@ modem_set_init(struct IsdnCardState *cs) {
 	timeout = 1000;
 	while(timeout-- && cs->hw.elsa.transcnt)
 		udelay(1000);
-	debugl1(cs, "msi tout=%d", timeout);
+	debugl1(L1_DEB_WARN, cs, "msi tout=%d", timeout);
 	udelay(RCV_DELAY);
 	modem_write_cmd(cs, MInit_2, strlen(MInit_2));
 	timeout = 1000;
 	while(timeout-- && cs->hw.elsa.transcnt)
 		udelay(1000);
-	debugl1(cs, "msi tout=%d", timeout);
+	debugl1(L1_DEB_WARN, cs, "msi tout=%d", timeout);
 	udelay(RCV_DELAY);
 	modem_write_cmd(cs, MInit_3, strlen(MInit_3));
 	timeout = 1000;
 	while(timeout-- && cs->hw.elsa.transcnt)
 		udelay(1000);
-	debugl1(cs, "msi tout=%d", timeout);
+	debugl1(L1_DEB_WARN, cs, "msi tout=%d", timeout);
 	udelay(RCV_DELAY);
 	modem_write_cmd(cs, MInit_4, strlen(MInit_4));
 	timeout = 1000;
 	while(timeout-- && cs->hw.elsa.transcnt)
 		udelay(1000);
-	debugl1(cs, "msi tout=%d", timeout);
+	debugl1(L1_DEB_WARN, cs, "msi tout=%d", timeout);
 	udelay(RCV_DELAY );
 	modem_write_cmd(cs, MInit_5, strlen(MInit_5));
 	timeout = 1000;
 	while(timeout-- && cs->hw.elsa.transcnt)
 		udelay(1000);
-	debugl1(cs, "msi tout=%d", timeout);
+	debugl1(L1_DEB_WARN, cs, "msi tout=%d", timeout);
 	udelay(RCV_DELAY);
 	modem_write_cmd(cs, MInit_6, strlen(MInit_6));
 	timeout = 1000;
 	while(timeout-- && cs->hw.elsa.transcnt)
 		udelay(1000);
-	debugl1(cs, "msi tout=%d", timeout);
+	debugl1(L1_DEB_WARN, cs, "msi tout=%d", timeout);
 	udelay(RCV_DELAY);
 	modem_write_cmd(cs, MInit_7, strlen(MInit_7));
 	timeout = 1000;
 	while(timeout-- && cs->hw.elsa.transcnt)
 		udelay(1000);
-	debugl1(cs, "msi tout=%d", timeout);
+	debugl1(L1_DEB_WARN, cs, "msi tout=%d", timeout);
 	udelay(RCV_DELAY);
 	restore_flags(flags);
 }
@@ -619,7 +619,7 @@ modem_set_dial(struct IsdnCardState *cs, int outgoing) {
 	timeout = 1000;
 	while(timeout-- && cs->hw.elsa.transcnt)
 		udelay(1000);
-	debugl1(cs, "msi tout=%d", timeout);
+	debugl1(L1_DEB_WARN, cs, "msi tout=%d", timeout);
 	udelay(RCV_DELAY);
 	if (outgoing)
 		modem_write_cmd(cs, MInit_dialout, strlen(MInit_dialout));
@@ -628,7 +628,7 @@ modem_set_dial(struct IsdnCardState *cs, int outgoing) {
 	timeout = 1000;
 	while(timeout-- && cs->hw.elsa.transcnt)
 		udelay(1000);
-	debugl1(cs, "msi tout=%d", timeout);
+	debugl1(L1_DEB_WARN, cs, "msi tout=%d", timeout);
 	udelay(RCV_DELAY);
 	restore_flags(flags);
 }

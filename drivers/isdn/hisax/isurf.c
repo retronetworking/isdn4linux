@@ -5,6 +5,10 @@
  * Author     Karsten Keil (keil@isdn4linux.de)
  *
  * $Log$
+ * Revision 1.8  1999/12/19 13:09:42  keil
+ * changed TASK_INTERRUPTIBLE into TASK_UNINTERRUPTIBLE for
+ * signal proof delays
+ *
  * Revision 1.7  1999/11/14 23:37:03  keil
  * new ISA memory mapped IO
  *
@@ -125,14 +129,12 @@ isurf_interrupt(int intno, void *dev_id, struct pt_regs *regs)
 		isac_interrupt(cs, val);
 	val = readb(cs->hw.isurf.isar + ISAR_IRQBIT);
 	if ((val & ISAR_IRQSTA) && --cnt) {
-		if (cs->debug & L1_DEB_HSCX)
-			debugl1(cs, "ISAR IntStat after IntRoutine");
+		debugl1(L1_DEB_HSCX, cs, "ISAR IntStat after IntRoutine");
 		goto Start_ISAR;
 	}
 	val = readb(cs->hw.isurf.isac + ISAC_ISTA);
 	if (val && --cnt) {
-		if (cs->debug & L1_DEB_ISAC)
-			debugl1(cs, "ISAC IntStat after IntRoutine");
+		debugl1(L1_DEB_ISAC, cs, "ISAC IntStat after IntRoutine");
 		goto Start_ISAC;
 	}
 	if (!cnt)

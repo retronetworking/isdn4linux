@@ -8,6 +8,10 @@
  *
  *
  * $Log$
+ * Revision 1.8  1999/07/12 21:05:20  keil
+ * fix race in IRQ handling
+ * added watchdog for lost IRQs
+ *
  * Revision 1.7  1998/04/15 16:44:32  keil
  * new init code
  *
@@ -174,14 +178,12 @@ mic_interrupt(int intno, void *dev_id, struct pt_regs *regs)
 		isac_interrupt(cs, val);
 	val = readreg(cs->hw.mic.adr, cs->hw.mic.hscx, HSCX_ISTA + 0x40);
 	if (val) {
-		if (cs->debug & L1_DEB_HSCX)
-			debugl1(cs, "HSCX IntStat after IntRoutine");
+		debugl1(L1_DEB_HSCX, cs, "HSCX IntStat after IntRoutine");
 		goto Start_HSCX;
 	}
 	val = readreg(cs->hw.mic.adr, cs->hw.mic.isac, ISAC_ISTA);
 	if (val) {
-		if (cs->debug & L1_DEB_ISAC)
-			debugl1(cs, "ISAC IntStat after IntRoutine");
+		debugl1(L1_DEB_ISAC, cs, "ISAC IntStat after IntRoutine");
 		goto Start_ISAC;
 	}
 	writereg(cs->hw.mic.adr, cs->hw.mic.hscx, HSCX_MASK, 0xFF);

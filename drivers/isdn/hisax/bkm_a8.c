@@ -7,6 +7,10 @@
  * Author       Roland Klabunde (R.Klabunde@Berkom.de)
  *
  * $Log$
+ * Revision 1.9  1999/12/19 13:09:41  keil
+ * changed TASK_INTERRUPTIBLE into TASK_UNINTERRUPTIBLE for
+ * signal proof delays
+ *
  * Revision 1.8  1999/09/04 06:20:05  keil
  * Changes from kernel set_current_state()
  *
@@ -209,8 +213,7 @@ bkm_interrupt_ipac(int intno, void *dev_id, struct pt_regs *regs)
 	ista = readreg(cs->hw.ax.base, cs->hw.ax.data_adr, IPAC_ISTA);
 
       Start_IPAC:
-	if (cs->debug & L1_DEB_IPAC)
-		debugl1(cs, "IPAC ISTA %02X", ista);
+	debugl1(L1_DEB_IPAC, cs, "IPAC ISTA %02X", ista);
 	if (ista & 0x0f) {
 		val = readreg(cs->hw.ax.base, cs->hw.ax.data_adr, HSCX_ISTA + 0x40);
 		if (ista & 0x01)

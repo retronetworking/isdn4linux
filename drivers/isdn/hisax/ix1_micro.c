@@ -11,6 +11,10 @@
  *              Beat Doebeli
  *
  * $Log$
+ * Revision 2.8.2.1  2000/03/03 13:03:33  kai
+ * now we use schedule_timeout() instead of the huge
+ * udelay() when we have to wait a long time.
+ *
  * Revision 2.8  1999/07/12 21:05:19  keil
  * fix race in IRQ handling
  * added watchdog for lost IRQs
@@ -219,14 +223,12 @@ ix1micro_interrupt(int intno, void *dev_id, struct pt_regs *regs)
 		isac_interrupt(cs, val);
 	val = readreg(cs->hw.ix1.hscx_ale, cs->hw.ix1.hscx, HSCX_ISTA + 0x40);
 	if (val) {
-		if (cs->debug & L1_DEB_HSCX)
-			debugl1(cs, "HSCX IntStat after IntRoutine");
+		debugl1(L1_DEB_HSCX, cs, "HSCX IntStat after IntRoutine");
 		goto Start_HSCX;
 	}
 	val = readreg(cs->hw.ix1.isac_ale, cs->hw.ix1.isac, ISAC_ISTA);
 	if (val) {
-		if (cs->debug & L1_DEB_ISAC)
-			debugl1(cs, "ISAC IntStat after IntRoutine");
+		debugl1(L1_DEB_ISAC, cs, "ISAC IntStat after IntRoutine");
 		goto Start_ISAC;
 	}
 	writereg(cs->hw.ix1.hscx_ale, cs->hw.ix1.hscx, HSCX_MASK, 0xFF);

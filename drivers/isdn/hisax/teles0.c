@@ -10,6 +10,10 @@
  *              Beat Doebeli
  *
  * $Log$
+ * Revision 2.11.2.1  2000/03/03 13:03:33  kai
+ * now we use schedule_timeout() instead of the huge
+ * udelay() when we have to wait a long time.
+ *
  * Revision 2.11  1999/12/23 15:09:32  keil
  * change email
  *
@@ -206,14 +210,12 @@ teles0_interrupt(int intno, void *dev_id, struct pt_regs *regs)
 	count++;
 	val = readhscx(cs->hw.teles0.membase, 1, HSCX_ISTA);
 	if (val && count < 5) {
-		if (cs->debug & L1_DEB_HSCX)
-			debugl1(cs, "HSCX IntStat after IntRoutine");
+		debugl1(L1_DEB_HSCX, cs, "HSCX IntStat after IntRoutine");
 		goto Start_HSCX;
 	}
 	val = readisac(cs->hw.teles0.membase, ISAC_ISTA);
 	if (val && count < 5) {
-		if (cs->debug & L1_DEB_ISAC)
-			debugl1(cs, "ISAC IntStat after IntRoutine");
+		debugl1(L1_DEB_ISAC, cs, "ISAC IntStat after IntRoutine");
 		goto Start_ISAC;
 	}
 	writehscx(cs->hw.teles0.membase, 0, HSCX_MASK, 0xFF);

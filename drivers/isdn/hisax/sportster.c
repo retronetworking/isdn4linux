@@ -7,6 +7,9 @@
  * Thanks to Christian "naddy" Weisgerber (3Com, US Robotics) for documentation
  *
  * $Log$
+ * Revision 1.12  1999/12/23 15:09:32  keil
+ * change email
+ *
  * Revision 1.11  1999/12/19 13:09:42  keil
  * changed TASK_INTERRUPTIBLE into TASK_UNINTERRUPTIBLE for
  * signal proof delays
@@ -149,14 +152,12 @@ sportster_interrupt(int intno, void *dev_id, struct pt_regs *regs)
 		isac_interrupt(cs, val);
 	val = READHSCX(cs, 1, HSCX_ISTA);
 	if (val) {
-		if (cs->debug & L1_DEB_HSCX)
-			debugl1(cs, "HSCX IntStat after IntRoutine");
+		debugl1(L1_DEB_HSCX, cs, "HSCX IntStat after IntRoutine");
 		goto Start_HSCX;
 	}
 	val = ReadISAC(cs, ISAC_ISTA);
 	if (val) {
-		if (cs->debug & L1_DEB_ISAC)
-			debugl1(cs, "ISAC IntStat after IntRoutine");
+		debugl1(L1_DEB_ISAC, cs, "ISAC IntStat after IntRoutine");
 		goto Start_ISAC;
 	}
 	/* get a new irq impulse if there any pending */

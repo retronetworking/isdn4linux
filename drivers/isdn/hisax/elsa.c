@@ -14,6 +14,10 @@
  *              for ELSA PCMCIA support
  *
  * $Log$
+ * Revision 2.20.2.1  2000/03/03 13:03:33  kai
+ * now we use schedule_timeout() instead of the huge
+ * udelay() when we have to wait a long time.
+ *
  * Revision 2.20  1999/12/19 13:09:42  keil
  * changed TASK_INTERRUPTIBLE into TASK_UNINTERRUPTIBLE for
  * signal proof delays
@@ -401,7 +405,7 @@ elsa_interrupt(int intno, void *dev_id, struct pt_regs *regs)
 	if (cs->hw.elsa.MFlag) {
 		val = serial_inp(cs, UART_IIR);
 		if (!(val & UART_IIR_NO_INT)) {
-			debugl1(cs,"IIR %02x", val);
+			debugl1(L1_DEB_WARN, cs,"IIR %02x", val);
 			rs_interrupt_elsa(intno, cs);
 		}
 	}
@@ -418,15 +422,13 @@ elsa_interrupt(int intno, void *dev_id, struct pt_regs *regs)
 	}
 	val = readreg(cs->hw.elsa.ale, cs->hw.elsa.hscx, HSCX_ISTA + 0x40);
 	if (val && icnt) {
-		if (cs->debug & L1_DEB_HSCX)
-			debugl1(cs, "HSCX IntStat after IntRoutine");
+		debugl1(L1_DEB_HSCX, cs, "HSCX IntStat after IntRoutine");
 		icnt--;
 		goto Start_HSCX;
 	}
 	val = readreg(cs->hw.elsa.ale, cs->hw.elsa.isac, ISAC_ISTA);
 	if (val && icnt) {
-		if (cs->debug & L1_DEB_ISAC)
-			debugl1(cs, "ISAC IntStat after IntRoutine");
+		debugl1(L1_DEB_ISAC, cs, "ISAC IntStat after IntRoutine");
 		icnt--;
 		goto Start_ISAC;
 	}
@@ -479,15 +481,14 @@ elsa_interrupt_ipac(int intno, void *dev_id, struct pt_regs *regs)
 	if (cs->hw.elsa.MFlag) {
 		val = serial_inp(cs, UART_IIR);
 		if (!(val & UART_IIR_NO_INT)) {
-			debugl1(cs,"IIR %02x", val);
+			debugl1(L1_DEB_WARN, cs,"IIR %02x", val);
 			rs_interrupt_elsa(intno, cs);
 		}
 	}
 #endif
 	ista = readreg(cs->hw.elsa.ale, cs->hw.elsa.isac, IPAC_ISTA);
 Start_IPAC:
-	if (cs->debug & L1_DEB_IPAC)
-		debugl1(cs, "IPAC ISTA %02X", ista);
+	debugl1(L1_DEB_IPAC, cs, "IPAC ISTA %02X", ista);
 	if (ista & 0x0f) {
 		val = readreg(cs->hw.elsa.ale, cs->hw.elsa.hscx, HSCX_ISTA + 0x40);
 		if (ista & 0x01)
@@ -627,43 +628,42 @@ check_arcofi(struct IsdnCardState *cs)
 
 	if (!cs->dc.isac.mon_tx)
 		if (!(cs->dc.isac.mon_tx=kmalloc(MAX_MON_FRAME, GFP_ATOMIC))) {
-			if (cs->debug & L1_DEB_WARN)
-				debugl1(cs, "ISAC MON TX out of buffers!");
+			debugl1(L1_DEB_WARN, cs, "ISAC MON TX out of buffers!");
 			return(0);
 		}
 	cs->dc.isac.arcofi_bc = 0;
 	arcofi_fsm(cs, ARCOFI_START, &ARCOFI_VERSION);
 	interruptible_sleep_on(&cs->dc.isac.arcofi_wait);
 	if (!test_and_clear_bit(FLG_ARCOFI_ERROR, &cs->HW_Flags)) {
-			debugl1(cs, "Arcofi response received %d bytes", cs->dc.isac.mon_rxp);
+			debugl1(L1_DEB_WARN, cs, "Arcofi response received %d bytes", cs->dc.isac.mon_rxp);
 			p = cs->dc.isac.mon_rx;
 			t = tmp;
 			t += sprintf(tmp, "Arcofi data");
 			QuickHex(t, p, cs->dc.isac.mon_rxp);
-			debugl1(cs, tmp);
+			debugl1(L1_DEB_WARN, cs, tmp);
 			if ((cs->dc.isac.mon_rxp == 2) && (cs->dc.isac.mon_rx[0] == 0xa0)) {
 				switch(cs->dc.isac.mon_rx[1]) {
 					case 0x80:
-						debugl1(cs, "Arcofi 2160 detected");
+						debugl1(L1_DEB_WARN, cs, "Arcofi 2160 detected");
 						arcofi_present = 1;
 						break;
 					case 0x82:
-						debugl1(cs, "Arcofi 2165 detected");
+						debugl1(L1_DEB_WARN, cs, "Arcofi 2165 detected");
 						arcofi_present = 2;
 						break;
 					case 0x84:
-						debugl1(cs, "Arcofi 2163 detected");
+						debugl1(L1_DEB_WARN, cs, "Arcofi 2163 detected");
 						arcofi_present = 3;
 						break;
 					default:
-						debugl1(cs, "unknown Arcofi response");
+						debugl1(L1_DEB_WARN, cs, "unknown Arcofi response");
 						break;
 				}
 			} else
-				debugl1(cs, "undefined Monitor response");
+				debugl1(L1_DEB_WARN, cs, "undefined Monitor response");
 			cs->dc.isac.mon_rxp = 0;
 	} else if (cs->dc.isac.mon_tx) {
-		debugl1(cs, "Arcofi not detected");
+		debugl1(L1_DEB_WARN, cs, "Arcofi not detected");
 	}
 	if (arcofi_present) {
 		if (cs->subtyp==ELSA_QS1000) {

@@ -1,6 +1,9 @@
 /* $Id$
 
  * $Log$
+ * Revision 2.8  1998/11/15 23:54:59  keil
+ * changes from 2.0
+ *
  * Revision 2.7  1998/09/30 22:21:55  keil
  * cosmetics
  *
@@ -41,7 +44,7 @@
 #define B_RCVBUFREADY 0
 #define B_XMTBUFREADY 1
 
-extern void debugl1(struct IsdnCardState *cs, char *fmt, ...);
+extern void debugl1(int level, struct IsdnCardState *cs, char *fmt, ...);
 extern void DChannel_proc_xmt(struct IsdnCardState *cs);
 extern void DChannel_proc_rcv(struct IsdnCardState *cs);
 extern void l1_msg(struct IsdnCardState *cs, int pr, void *arg);

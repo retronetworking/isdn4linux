@@ -17,6 +17,9 @@
  *            Edgar Toernig
  *
  * $Log$
+ * Revision 1.20  2000/01/20 19:47:45  keil
+ * Add Fax Class 1 support
+ *
  * Revision 1.19  1999/12/19 13:09:42  keil
  * changed TASK_INTERRUPTIBLE into TASK_UNINTERRUPTIBLE for
  * signal proof delays
@@ -370,14 +373,12 @@ sedlbauer_interrupt(int intno, void *dev_id, struct pt_regs *regs)
 		isac_interrupt(cs, val);
 	val = readreg(cs->hw.sedl.adr, cs->hw.sedl.hscx, HSCX_ISTA + 0x40);
 	if (val) {
-		if (cs->debug & L1_DEB_HSCX)
-			debugl1(cs, "HSCX IntStat after IntRoutine");
+		debugl1(L1_DEB_HSCX, cs, "HSCX IntStat after IntRoutine");
 		goto Start_HSCX;
 	}
 	val = readreg(cs->hw.sedl.adr, cs->hw.sedl.isac, ISAC_ISTA);
 	if (val) {
-		if (cs->debug & L1_DEB_ISAC)
-			debugl1(cs, "ISAC IntStat after IntRoutine");
+		debugl1(L1_DEB_ISAC, cs, "ISAC IntStat after IntRoutine");
 		goto Start_ISAC;
 	}
 	writereg(cs->hw.sedl.adr, cs->hw.sedl.hscx, HSCX_MASK, 0xFF);
@@ -400,8 +401,7 @@ sedlbauer_interrupt_ipac(int intno, void *dev_id, struct pt_regs *regs)
 	}
 	ista = readreg(cs->hw.sedl.adr, cs->hw.sedl.isac, IPAC_ISTA);
 Start_IPAC:
-	if (cs->debug & L1_DEB_IPAC)
-		debugl1(cs, "IPAC ISTA %02X", ista);
+	debugl1(L1_DEB_IPAC, cs, "IPAC ISTA %02X", ista);
 	if (ista & 0x0f) {
 		val = readreg(cs->hw.sedl.adr, cs->hw.sedl.hscx, HSCX_ISTA + 0x40);
 		if (ista & 0x01)
@@ -456,14 +456,12 @@ sedlbauer_interrupt_isar(int intno, void *dev_id, struct pt_regs *regs)
 		isac_interrupt(cs, val);
 	val = readreg(cs->hw.sedl.adr, cs->hw.sedl.hscx, ISAR_IRQBIT);
 	if ((val & ISAR_IRQSTA) && --cnt) {
-		if (cs->debug & L1_DEB_HSCX)
-			debugl1(cs, "ISAR IntStat after IntRoutine");
+		debugl1(L1_DEB_HSCX, cs, "ISAR IntStat after IntRoutine");
 		goto Start_ISAR;
 	}
 	val = readreg(cs->hw.sedl.adr, cs->hw.sedl.isac, ISAC_ISTA);
 	if (val && --cnt) {
-		if (cs->debug & L1_DEB_ISAC)
-			debugl1(cs, "ISAC IntStat after IntRoutine");
+		debugl1(L1_DEB_ISAC, cs, "ISAC IntStat after IntRoutine");
 		goto Start_ISAC;
 	}
 	if (!cnt)

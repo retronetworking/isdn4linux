@@ -7,6 +7,9 @@
  *
  *
  * $Log$
+ * Revision 1.10  1999/12/23 15:09:32  keil
+ * change email
+ *
  * Revision 1.9  1999/12/19 13:09:41  keil
  * changed TASK_INTERRUPTIBLE into TASK_UNINTERRUPTIBLE for
  * signal proof delays
@@ -80,10 +83,9 @@ send_arcofi(struct IsdnCardState *cs) {
 }
 
 int
-arcofi_fsm(struct IsdnCardState *cs, int event, void *data) {
-	if (cs->debug & L1_DEB_MONITOR) {
-		debugl1(cs, "arcofi state %d event %d", cs->dc.isac.arcofi_state, event);
-	}
+arcofi_fsm(struct IsdnCardState *cs, int event, void *data) 
+{
+	debugl1(L1_DEB_MONITOR, cs, "arcofi state %d event %d", cs->dc.isac.arcofi_state, event);
 	if (event == ARCOFI_TIMEOUT) {
 		cs->dc.isac.arcofi_state = ARCOFI_NOP;
 		test_and_set_bit(FLG_ARCOFI_ERROR, &cs->HW_Flags);
@@ -135,7 +137,7 @@ arcofi_fsm(struct IsdnCardState *cs, int event, void *data) {
 			}
 			break;
 		default:
-			debugl1(cs, "Arcofi unknown state %x", cs->dc.isac.arcofi_state);
+			debugl1(L1_DEB_WARN, cs, "Arcofi unknown state %x", cs->dc.isac.arcofi_state);
 			return(2);
 	}
 	return(0);

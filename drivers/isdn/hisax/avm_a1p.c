@@ -8,6 +8,10 @@
  * Author       Carsten Paeth (calle@calle.in-berlin.de)
  *
  * $Log$
+ * Revision 2.5.2.1  2000/03/03 13:03:33  kai
+ * now we use schedule_timeout() instead of the huge
+ * udelay() when we have to wait a long time.
+ *
  * Revision 2.5  1999/09/01 08:26:34  calle
  * Patch from Daniel Beichl <dani@ecomag.net> to make A1 PCMCIA work again.
  *
@@ -209,8 +213,7 @@ avm_a1p_interrupt(int intno, void *dev_id, struct pt_regs *regs)
 		return;
 	}
 	while ((sval = (~bytein(cs->hw.avm.cfg_reg+ASL0_OFFSET) & ASL0_R_IRQPENDING))) {
-		if (cs->debug & L1_DEB_INTSTAT)
-			debugl1(cs, "avm IntStatus %x", sval);
+		debugl1(L1_DEB_INTSTAT, cs, "avm IntStatus %x", sval);
 		if (sval & ASL0_R_HSCX) {
                         val = ReadHSCX(cs, 1, HSCX_ISTA);
 			if (val)

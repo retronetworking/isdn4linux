@@ -6,6 +6,10 @@
  *
  *
  * $Log$
+ * Revision 1.6  1999/12/19 13:09:42  keil
+ * changed TASK_INTERRUPTIBLE into TASK_UNINTERRUPTIBLE for
+ * signal proof delays
+ *
  * Revision 1.5  1999/09/04 06:20:06  keil
  * Changes from kernel set_current_state()
  *
@@ -45,12 +49,10 @@ hfcs_interrupt(int intno, void *dev_id, struct pt_regs *regs)
 	if ((HFCD_ANYINT | HFCD_BUSY_NBUSY) & 
 		(stat = cs->BC_Read_Reg(cs, HFCD_DATA, HFCD_STAT))) {
 		val = cs->BC_Read_Reg(cs, HFCD_DATA, HFCD_INT_S1);
-		if (cs->debug & L1_DEB_ISAC)
-			debugl1(cs, "HFCS: stat(%02x) s1(%02x)", stat, val);
+		debugl1(L1_DEB_ISAC, cs, "HFCS: stat(%02x) s1(%02x)", stat, val);
 		hfc2bds0_interrupt(cs, val);
 	} else {
-		if (cs->debug & L1_DEB_ISAC)
-			debugl1(cs, "HFCS: irq_no_irq stat(%02x)", stat);
+		debugl1(L1_DEB_ISAC, cs, "HFCS: irq_no_irq stat(%02x)", stat);
 	}
 }
 
@@ -123,8 +125,7 @@ hfcs_card_msg(struct IsdnCardState *cs, int mt, void *arg)
 {
 	long flags;
 
-	if (cs->debug & L1_DEB_ISAC)
-		debugl1(cs, "HFCS: card_msg %x", mt);
+	debugl1(L1_DEB_ISAC, cs, "HFCS: card_msg %x", mt);
 	switch (mt) {
 		case CARD_RESET:
 			reset_hfcs(cs);

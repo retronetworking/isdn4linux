@@ -6,6 +6,10 @@
  *
  *
  * $Log$
+ * Revision 2.11.2.1  2000/03/03 13:03:33  kai
+ * now we use schedule_timeout() instead of the huge
+ * udelay() when we have to wait a long time.
+ *
  * Revision 2.11  1999/07/12 21:04:54  keil
  * fix race in IRQ handling
  * added watchdog for lost IRQs
@@ -167,8 +171,8 @@ avm_a1_interrupt(int intno, void *dev_id, struct pt_regs *regs)
 		if (!(sval & AVM_A1_STAT_TIMER)) {
 			byteout(cs->hw.avm.cfg_reg, 0x1E);
 			sval = bytein(cs->hw.avm.cfg_reg);
-		} else if (cs->debug & L1_DEB_INTSTAT)
-			debugl1(cs, "avm IntStatus %x", sval);
+		} else
+			debugl1(L1_DEB_INTSTAT, cs, "avm IntStatus %x", sval);
 		if (!(sval & AVM_A1_STAT_HSCX)) {
 			val = readreg(cs->hw.avm.hscx[1], HSCX_ISTA);
 			if (val)

@@ -108,11 +108,10 @@ hscx_empty_fifo(struct BCState *bcs, int count)
 	long flags;
 
 	if ((cs->debug & L1_DEB_HSCX) && !(cs->debug & L1_DEB_HSCX_FIFO))
-		debugl1(cs, "hscx_empty_fifo");
+		debugl1(L1_DEB_HSCX, cs, "hscx_empty_fifo");
 
 	if (bcs->hw.hscx.rcvidx + count > HSCX_BUFMAX) {
-		if (cs->debug & L1_DEB_WARN)
-			debugl1(cs, "hscx_empty_fifo: incoming packet too large");
+		debugl1(L1_DEB_WARN, cs, "hscx_empty_fifo: incoming packet too large");
 		WriteHSCXCMDR(cs, bcs->hw.hscx.hscx, 0x80);
 		bcs->hw.hscx.rcvidx = 0;
 		return;
@@ -130,7 +129,7 @@ hscx_empty_fifo(struct BCState *bcs, int count)
 		t += sprintf(t, "hscx_empty_fifo %c cnt %d",
 			     bcs->hw.hscx.hscx ? 'B' : 'A', count);
 		QuickHex(t, ptr, count);
-		debugl1(cs, bcs->blog);
+		debugl1(L1_DEB_HSCX_FIFO, cs, bcs->blog);
 	}
 }
 
@@ -145,7 +144,7 @@ hscx_fill_fifo(struct BCState *bcs)
 
 
 	if ((cs->debug & L1_DEB_HSCX) && !(cs->debug & L1_DEB_HSCX_FIFO))
-		debugl1(cs, "hscx_fill_fifo");
+		debugl1(L1_DEB_HSCX, cs, "hscx_fill_fifo");
 
 	if (!bcs->tx_skb)
 		return;
@@ -174,7 +173,7 @@ hscx_fill_fifo(struct BCState *bcs)
 		t += sprintf(t, "hscx_fill_fifo %c cnt %d",
 			     bcs->hw.hscx.hscx ? 'B' : 'A', count);
 		QuickHex(t, ptr, count);
-		debugl1(cs, bcs->blog);
+		debugl1(L1_DEB_HSCX_FIFO, cs, bcs->blog);
 	}
 }
 
@@ -194,23 +193,19 @@ hscx_interrupt(struct IsdnCardState *cs, u_char val, u_char hscx)
 		r = READHSCX(cs, hscx, HSCX_RSTA);
 		if ((r & 0xf0) != 0xa0) {
 			if (!(r & 0x80)) {
-				if (cs->debug & L1_DEB_WARN)
-					debugl1(cs, "HSCX invalid frame");
+				debugl1(L1_DEB_WARN, cs, "HSCX invalid frame");
 #ifdef ERROR_STATISTIC
 				bcs->err_inv++;
 #endif
 			}
 			if ((r & 0x40) && (bcs->mode != B1_MODE_NULL)) {
-				if (cs->debug & L1_DEB_WARN)
-					debugl1(cs, "HSCX RDO mode=%d",
-						bcs->mode);
+				debugl1(L1_DEB_WARN, cs, "HSCX RDO mode=%d", bcs->mode);
 #ifdef ERROR_STATISTIC
 				bcs->err_rdo++;
 #endif
 			}
 			if (!(r & 0x20)) {
-				if (cs->debug & L1_DEB_WARN)
-					debugl1(cs, "HSCX CRC error");
+				debugl1(L1_DEB_WARN, cs, "HSCX CRC error");
 #ifdef ERROR_STATISTIC
 				bcs->err_crc++;
 #endif
@@ -223,8 +218,7 @@ hscx_interrupt(struct IsdnCardState *cs, u_char val, u_char hscx)
 				count = fifo_size;
 			hscx_empty_fifo(bcs, count);
 			if ((count = bcs->hw.hscx.rcvidx - 1) > 0) {
-				if (cs->debug & L1_DEB_HSCX_FIFO)
-					debugl1(cs, "HX Frame %d", count);
+				debugl1(L1_DEB_HSCX_FIFO, cs, "HX Frame %d", count);
 				if (!(skb = dev_alloc_skb(count)))
 					printk(KERN_WARNING "HSCX: receive out of memory\n");
 				else {
@@ -300,15 +294,13 @@ hscx_int_main(struct IsdnCardState *cs, u_char val)
 					bcs->hw.hscx.count = 0;
 				}
 				WriteHSCXCMDR(cs, bcs->hw.hscx.hscx, 0x01);
-				if (cs->debug & L1_DEB_WARN)
-					debugl1(cs, "HSCX B EXIR %x Lost TX", exval);
+				debugl1(L1_DEB_WARN, cs, "HSCX B EXIR %x Lost TX", exval);
 			}
-		} else if (cs->debug & L1_DEB_HSCX)
-			debugl1(cs, "HSCX B EXIR %x", exval);
+		} else
+			debugl1(L1_DEB_HSCX, cs, "HSCX B EXIR %x", exval);
 	}
 	if (val & 0xf8) {
-		if (cs->debug & L1_DEB_HSCX)
-			debugl1(cs, "HSCX B interrupt %x", val);
+		debugl1(L1_DEB_HSCX, cs, "HSCX B interrupt %x", val);
 		hscx_interrupt(cs, val, 1);
 	}
 	if (val & 0x02) {
@@ -329,16 +321,14 @@ hscx_int_main(struct IsdnCardState *cs, u_char val)
 					bcs->hw.hscx.count = 0;
 				}
 				WriteHSCXCMDR(cs, bcs->hw.hscx.hscx, 0x01);
-				if (cs->debug & L1_DEB_WARN)
-					debugl1(cs, "HSCX A EXIR %x Lost TX", exval);
+				debugl1(L1_DEB_WARN, cs, "HSCX A EXIR %x Lost TX", exval);
 			}
-		} else if (cs->debug & L1_DEB_HSCX)
-			debugl1(cs, "HSCX A EXIR %x", exval);
+		} else
+			debugl1(L1_DEB_HSCX, cs, "HSCX A EXIR %x", exval);
 	}
 	if (val & 0x04) {
 		exval = READHSCX(cs, 0, HSCX_ISTA);
-		if (cs->debug & L1_DEB_HSCX)
-			debugl1(cs, "HSCX A interrupt %x", exval);
+		debugl1(L1_DEB_HSCX, cs, "HSCX A interrupt %x", exval);
 		hscx_interrupt(cs, exval, 0);
 	}
 }

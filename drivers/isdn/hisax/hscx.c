@@ -97,9 +97,8 @@ modehscx(struct BCState *bcs, int mode, int bc)
 	struct IsdnCardState *cs = bcs->cs;
 	int hscx = bcs->hw.hscx.hscx;
 
-	if (cs->debug & L1_DEB_HSCX)
-		debugl1(cs, "hscx %c mode %d ichan %d",
-			'A' + hscx, mode, bc);
+	debugl1(L1_DEB_HSCX, cs, "hscx %c mode %d ichan %d",
+		'A' + hscx, mode, bc);
 	bcs->mode = mode;
 	bcs->channel = bc;
 	cs->BC_Write_Reg(cs, hscx, HSCX_XAD1, 0xFF);
@@ -280,21 +279,21 @@ clear_pending_hscx_ints(struct IsdnCardState *cs))
 	int val, eval;
 
 	val = cs->BC_Read_Reg(cs, 1, HSCX_ISTA);
-	debugl1(cs, "HSCX B ISTA %x", val);
+	debugl1(L1_DEB_WARN, cs, "HSCX B ISTA %x", val);
 	if (val & 0x01) {
 		eval = cs->BC_Read_Reg(cs, 1, HSCX_EXIR);
-		debugl1(cs, "HSCX B EXIR %x", eval);
+		debugl1(L1_DEB_WARN, cs, "HSCX B EXIR %x", eval);
 	}
 	if (val & 0x02) {
 		eval = cs->BC_Read_Reg(cs, 0, HSCX_EXIR);
-		debugl1(cs, "HSCX A EXIR %x", eval);
+		debugl1(L1_DEB_WARN, cs, "HSCX A EXIR %x", eval);
 	}
 	val = cs->BC_Read_Reg(cs, 0, HSCX_ISTA);
-	debugl1(cs, "HSCX A ISTA %x", val);
+	debugl1(L1_DEB_WARN, cs, "HSCX A ISTA %x", val);
 	val = cs->BC_Read_Reg(cs, 1, HSCX_STAR);
-	debugl1(cs, "HSCX B STAR %x", val);
+	debugl1(L1_DEB_WARN, cs, "HSCX B STAR %x", val);
 	val = cs->BC_Read_Reg(cs, 0, HSCX_STAR);
-	debugl1(cs, "HSCX A STAR %x", val);
+	debugl1(L1_DEB_WARN, cs, "HSCX A STAR %x", val);
 	/* disable all IRQ */
 	cs->BC_Write_Reg(cs, 0, HSCX_MASK, 0xFF);
 	cs->BC_Write_Reg(cs, 1, HSCX_MASK, 0xFF);

@@ -10,6 +10,9 @@
  *
  *
  * $Log$
+ * Revision 2.10  2000/01/20 19:42:01  keil
+ * Fixed uninitialiesed location
+ *
  * Revision 2.9  1999/07/01 08:11:55  keil
  * Common HiSax version for 2.0, 2.1, 2.2 and 2.3 kernel
  *
@@ -809,6 +812,8 @@ up1tr6(struct PStack *st, int pr, void *arg)
 			l3_msg(st, pr, arg);
 			return;
 			break;
+		case (DL_DATA | CONFIRM):
+			return; // ignore
 	}
 	if (skb->len < 4) {
 		if (st->l3.debug & L3_DEB_PROTERR) {

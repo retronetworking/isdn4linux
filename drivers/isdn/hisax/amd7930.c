@@ -175,7 +175,7 @@ Bchan_fill_fifo(struct BCState *bcs, struct sk_buff *skb)
 			     bcs->channel ? 'B' : 'A', skb->len);
 		if (cs->debug & L1_DEB_HSCX_FIFO)
 			QuickHex(t, skb->data, skb->len);
-		debugl1(cs, tmp);
+		debugl1(L1_DEB_HSCX_FIFO, cs, tmp);
 	}
 
 	if (bcs->mode == B1_MODE_HDLC) {
@@ -203,12 +203,9 @@ Bchan_mode(struct BCState *bcs, int mode, int bc)
 {
 	struct IsdnCardState *cs = bcs->cs;
 
-	if (cs->debug & L1_DEB_HSCX) {
-		char tmp[40];
-		sprintf(tmp, "AMD 7930 mode %d bchan %d/%d",
-			mode, bc, bcs->channel);
-		debugl1(cs, tmp);
-	}
+	debugl1(L1_DEB_HSCX, cs, "AMD 7930 mode %d bchan %d/%d",
+		mode, bc, bcs->channel);
+
 	bcs->mode = mode;
 }
 
@@ -291,12 +288,11 @@ Bchan_rcv_bh(struct BCState *bcs)
 	if (cs->debug & L1_DEB_HSCX) {
 		char tmp[1024];
 
-		sprintf(tmp, "amd7930_Bchan_rcv (%d/%d)",
+		debugl1(L1_DEB_HSCX, cs, "amd7930_Bchan_rcv (%d/%d)",
 			hw->rv_buff_in, hw->rv_buff_out);
-		debugl1(cs, tmp);
 		QuickHex(tmp, hw->rv_buff + hw->rv_buff_out,
 			 RCV_BUFSIZE/RCV_BUFBLKS);
-		debugl1(cs, tmp);
+		debugl1(L1_DEB_HSCX, cs, tmp);
 	}
 
 	do {
@@ -310,7 +306,7 @@ Bchan_rcv_bh(struct BCState *bcs)
 
 					t += sprintf(t, "amd7930_Bchan_rcv %c cnt %d", bcs->channel ? 'B' : 'A', len);
 					QuickHex(t, hw->rv_skb->tail, len);
-					debugl1(cs, tmp);
+					debugl1(L1_DEB_HSCX_FIFO, cs, tmp);
 				}
 
 				if (len > HSCX_BUFMAX/2) {
@@ -510,7 +506,7 @@ amd7930_drecv_callback(void *arg, int error, unsigned int count)
 		t += sprintf(t, "amd7930 Drecv cnt %d", count);
 		if (error) t += sprintf(t, " ERR %x", error);
 		QuickHex(t, cs->rcvbuf, count);
-		debugl1(cs, tmp);
+		debugl1(L1_DEB_ISAC_FIFO, cs, tmp);
 	}
 
 	amd7930_drecv(0, cs->rcvbuf, MAX_DFRAME_LEN,
@@ -534,7 +530,7 @@ amd7930_dxmit_callback(void *arg, int error)
 		t += sprintf(t, "amd7930 Dxmit cnt %d", cs->tx_skb->len);
 		if (error) t += sprintf(t, " ERR %x", error);
 		QuickHex(t, cs->tx_skb->data, cs->tx_skb->len);
-		debugl1(cs, tmp);
+		debugl1(L1_DEB_ISAC_FIFO, cs, tmp);
 	}
 
 	cs->tx_skb = NULL;
@@ -557,8 +553,7 @@ amd7930_Dchan_l2l1(struct PStack *st, int pr, void *arg)
 			if (cs->tx_skb) {
 				skb_queue_tail(&cs->sq, skb);
 #ifdef L2FRAME_DEBUG		/* psa */
-				if (cs->debug & L1_DEB_LAPD)
-					Logl2Frame(cs, skb, "PH_DATA Queued", 0);
+				Logl2Frame(cs, skb, "PH_DATA Queued", 0);
 #endif
 			} else {
 				if ((cs->dlogflag) && (!(skb->data[2] & 1))) {
@@ -571,8 +566,7 @@ amd7930_Dchan_l2l1(struct PStack *st, int pr, void *arg)
 				cs->tx_skb = skb;
 				cs->tx_cnt = 0;
 #ifdef L2FRAME_DEBUG		/* psa */
-				if (cs->debug & L1_DEB_LAPD)
-					Logl2Frame(cs, skb, "PH_DATA", 0);
+				Logl2Frame(cs, skb, "PH_DATA", 0);
 #endif
 				amd7930_dxmit(0, skb->data, skb->len,
 					      &amd7930_dxmit_callback, cs);
@@ -580,8 +574,7 @@ amd7930_Dchan_l2l1(struct PStack *st, int pr, void *arg)
 			break;
 		case (PH_PULL_IND):
 			if (cs->tx_skb) {
-				if (cs->debug & L1_DEB_WARN)
-					debugl1(cs, " l2l1 tx_skb exist this shouldn't happen");
+				debugl1(L1_DEB_WARN, cs, " l2l1 tx_skb exist this shouldn't happen");
 				skb_queue_tail(&cs->sq, skb);
 				break;
 			}
@@ -594,16 +587,14 @@ amd7930_Dchan_l2l1(struct PStack *st, int pr, void *arg)
 			cs->tx_skb = skb;
 			cs->tx_cnt = 0;
 #ifdef L2FRAME_DEBUG		/* psa */
-			if (cs->debug & L1_DEB_LAPD)
-				Logl2Frame(cs, skb, "PH_DATA_PULLED", 0);
+			Logl2Frame(cs, skb, "PH_DATA_PULLED", 0);
 #endif
 			amd7930_dxmit(0, cs->tx_skb->data, cs->tx_skb->len,
 				      &amd7930_dxmit_callback, cs);
 			break;
 		case (PH_PULL_REQ):
 #ifdef L2FRAME_DEBUG		/* psa */
-			if (cs->debug & L1_DEB_LAPD)
-				debugl1(cs, "-> PH_REQUEST_PULL");
+			debugl1(L1_DEB_LAPD, cs, "-> PH_REQUEST_PULL");
 #endif
 			if (!cs->tx_skb) {
 				test_and_clear_bit(FLG_L1_PULL_REQ, &st->l1.Flags);
@@ -666,11 +657,7 @@ amd7930_liu_callback(struct IsdnCardState *cs)
 	if (!cs)
 		return;
 
-	if (cs->debug & L1_DEB_ISAC) {
-		char tmp[32];
-		sprintf(tmp, "amd7930_liu state %d", amd7930_get_liu_state(0));
-		debugl1(cs, tmp);
-	}
+	debugl1(L1_DEB_ISAC, cs, "amd7930_liu state %d", amd7930_get_liu_state(0));
 
 	task.sync = 0;
 	task.routine = (void *) &amd7930_new_ph;
@@ -685,11 +672,7 @@ amd7930_l1cmd(struct IsdnCardState *cs, int msg, void *arg)
 	u_char val;
 	char tmp[32];
 	
-	if (cs->debug & L1_DEB_ISAC) {
-		char tmp[32];
-		sprintf(tmp, "amd7930_l1cmd msg %x", msg);
-		debugl1(cs, tmp);
-	}
+	debugl1(L1_DEB_ISAC, cs, "amd7930_l1cmd msg %x", msg);
 
 	switch(msg) {
 		case PH_RESET_REQ:
@@ -706,10 +689,7 @@ amd7930_l1cmd(struct IsdnCardState *cs, int msg, void *arg)
 		case PH_TESTLOOP_REQ:
 			break;
 		default:
-			if (cs->debug & L1_DEB_WARN) {
-				sprintf(tmp, "amd7930_l1cmd unknown %4x", msg);
-				debugl1(cs, tmp);
-			}
+			debugl1(L1_DEB_WARN, cs, "amd7930_l1cmd unknown %4x", msg);
 			break;
 	}
 }

@@ -63,11 +63,10 @@ jade_empty_fifo(struct BCState *bcs, int count)
 	long flags;
 
 	if ((cs->debug & L1_DEB_HSCX) && !(cs->debug & L1_DEB_HSCX_FIFO))
-		debugl1(cs, "jade_empty_fifo");
+		debugl1(L1_DEB_HSCX, cs, "jade_empty_fifo");
 
 	if (bcs->hw.hscx.rcvidx + count > HSCX_BUFMAX) {
-		if (cs->debug & L1_DEB_WARN)
-			debugl1(cs, "jade_empty_fifo: incoming packet too large");
+		debugl1(L1_DEB_WARN, cs, "jade_empty_fifo: incoming packet too large");
 		WriteJADECMDR(cs, bcs->hw.hscx.hscx, jade_HDLC_RCMD, jadeRCMD_RMC);
 		bcs->hw.hscx.rcvidx = 0;
 		return;
@@ -85,7 +84,7 @@ jade_empty_fifo(struct BCState *bcs, int count)
 		t += sprintf(t, "jade_empty_fifo %c cnt %d",
 			     bcs->hw.hscx.hscx ? 'B' : 'A', count);
 		QuickHex(t, ptr, count);
-		debugl1(cs, bcs->blog);
+		debugl1(L1_DEB_HSCX_FIFO, cs, bcs->blog);
 	}
 }
 
@@ -99,7 +98,7 @@ jade_fill_fifo(struct BCState *bcs)
 	long flags;
 
 	if ((cs->debug & L1_DEB_HSCX) && !(cs->debug & L1_DEB_HSCX_FIFO))
-		debugl1(cs, "jade_fill_fifo");
+		debugl1(L1_DEB_HSCX, cs, "jade_fill_fifo");
 
 	if (!bcs->tx_skb)
 		return;
@@ -128,7 +127,7 @@ jade_fill_fifo(struct BCState *bcs)
 		t += sprintf(t, "jade_fill_fifo %c cnt %d",
 			     bcs->hw.hscx.hscx ? 'B' : 'A', count);
 		QuickHex(t, ptr, count);
-		debugl1(cs, bcs->blog);
+		debugl1(L1_DEB_HSCX_FIFO, cs, bcs->blog);
 	}
 }
 
@@ -150,14 +149,11 @@ jade_interrupt(struct IsdnCardState *cs, u_char val, u_char jade)
 		r = READJADE(cs, i_jade, jade_HDLC_RSTA);
 		if ((r & 0xf0) != 0xa0) {
 			if (!(r & 0x80))
-				if (cs->debug & L1_DEB_WARN)
-					debugl1(cs, "JADE %s invalid frame", (jade ? "B":"A"));
+				debugl1(L1_DEB_WARN, cs, "JADE %s invalid frame", (jade ? "B":"A"));
 			if ((r & 0x40) && (bcs->mode != B1_MODE_NULL))
-				if (cs->debug & L1_DEB_WARN)
-					debugl1(cs, "JADE %c RDO mode=%d", 'A'+jade, bcs->mode);
+				debugl1(L1_DEB_WARN, cs, "JADE %c RDO mode=%d", 'A'+jade, bcs->mode);
 			if (!(r & 0x20))
-				if (cs->debug & L1_DEB_WARN)
-					debugl1(cs, "JADE %c CRC error", 'A'+jade);
+				debugl1(L1_DEB_WARN, cs, "JADE %c CRC error", 'A'+jade);
 			WriteJADECMDR(cs, jade, jade_HDLC_RCMD, jadeRCMD_RMC);
 		} else {
 			count = READJADE(cs, i_jade, jade_HDLC_RBCL) & 0x1F;
@@ -165,8 +161,7 @@ jade_interrupt(struct IsdnCardState *cs, u_char val, u_char jade)
 				count = fifo_size;
 			jade_empty_fifo(bcs, count);
 			if ((count = bcs->hw.hscx.rcvidx - 1) > 0) {
-				if (cs->debug & L1_DEB_HSCX_FIFO)
-					debugl1(cs, "HX Frame %d", count);
+				debugl1(L1_DEB_HSCX_FIFO, cs, "HX Frame %d", count);
 				if (!(skb = dev_alloc_skb(count)))
 					printk(KERN_WARNING "JADE %s receive out of memory\n", (jade ? "B":"A"));
 				else {
@@ -241,13 +236,11 @@ jade_int_main(struct IsdnCardState *cs, u_char val, int jade)
 				bcs->hw.hscx.count = 0;
 			}
 			WriteJADECMDR(cs, bcs->hw.hscx.hscx, jade_HDLC_XCMD, jadeXCMD_XRES);
-			if (cs->debug & L1_DEB_WARN)
-				debugl1(cs, "JADE %c EXIR %x Lost TX", 'A'+jade, val);
+			debugl1(L1_DEB_WARN, cs, "JADE %c EXIR %x Lost TX", 'A'+jade, val);
 		}
 	}
 	if (val & (jadeISR_RME|jadeISR_RPF|jadeISR_XPR)) {
-		if (cs->debug & L1_DEB_HSCX)
-			debugl1(cs, "JADE %c interrupt %x", 'A'+jade, val);
+		debugl1(L1_DEB_HSCX, cs, "JADE %c interrupt %x", 'A'+jade, val);
 		jade_interrupt(cs, val, jade);
 	}
 }

@@ -1922,13 +1922,13 @@ HiSax_writebuf_skb(int id, int chan, int ack, struct sk_buff *skb)
 			if (!ack)
 				nskb->pkt_type = PACKET_NOACK;
 			/* I'm misusing the priority field here to save the length of the
-			   original skb.
-			   Since the skb is cloned, this should be okay.
-			   --KG
-			*/
+			 * original skb.
+			 * Since the skb is cloned, this should be okay.
+			 * --KG
+			 */
                         nskb->priority = nskb->len;
 			st->l3.l3l2(st, DL_DATA | REQUEST, nskb);
-			idev_kfree_skb(skb, FREE_WRITE);
+			idev_kfree_skb_any(skb, FREE_WRITE);
 		} else
 			len = 0;
 		restore_flags(flags);
