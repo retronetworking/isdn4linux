@@ -21,6 +21,11 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.48.2.16  1998/06/09 12:24:40  cal
+ * Changed default of local netdev flags: ISDN_NET_STOPPED is default now,
+ * so autodial is suppressed for that device until it is switched on using
+ * 'isdnctrl status dev-name on'.
+ *
  * Revision 1.48.2.15  1998/06/07 13:47:51  fritz
  * ABC cleanup
  *
@@ -1742,7 +1747,7 @@ isdn_net_init(struct device *ndev)
 	ndev->pa_alen = 4;
 
 	/* for clients with MPPP maybe higher values better */
-	ndev->tx_queue_len = 5;
+	ndev->tx_queue_len = 30;
 
 	for (i = 0; i < ETH_ALEN; i++)
 		ndev->broadcast[i] = 0xff;
