@@ -57,9 +57,10 @@ const char *Sedlbauer_revision = "$Revision$";
 const char *Sedlbauer_Types[] =
 	{"None", "speed card/win", "speed star", "speed fax+",
 	"speed win II / ISDN PC/104", "speed star II", "speed pci",
-	"speed fax+ pyramid", "speed fax+ pci"};
+	"speed fax+ pyramid", "speed fax+ pci", "HST Saphir III"};
 
 #define PCI_SUBVENDOR_SPEEDFAX_PYRAMID	0x51
+#define PCI_SUBVENDOR_HST_SAPHIR3	0x52
 #define PCI_SUBVENDOR_SEDLBAUER_PCI	0x53
 #define PCI_SUBVENDOR_SPEEDFAX_PCI	0x54
 #define PCI_SUB_ID_SEDLBAUER		0x01
@@ -72,6 +73,7 @@ const char *Sedlbauer_Types[] =
 #define SEDL_SPEED_PCI   	6
 #define SEDL_SPEEDFAX_PYRAMID	7
 #define SEDL_SPEEDFAX_PCI	8
+#define HST_SAPHIR3		9
 
 #define SEDL_CHIP_TEST		0
 #define SEDL_CHIP_ISAC_HSCX	1
@@ -604,6 +606,9 @@ setup_sedlbauer(struct IsdnCard *card)
 		} else if (sub_vendor_id == PCI_SUBVENDOR_SPEEDFAX_PCI) {
 			cs->hw.sedl.chip = SEDL_CHIP_ISAC_ISAR;
 			cs->subtyp = SEDL_SPEEDFAX_PCI;
+		} else if (sub_vendor_id == PCI_SUBVENDOR_HST_SAPHIR3) {
+			cs->hw.sedl.chip = SEDL_CHIP_IPAC;
+			cs->subtyp = HST_SAPHIR3;
 		} else if (sub_vendor_id == PCI_SUBVENDOR_SEDLBAUER_PCI) {
 			cs->hw.sedl.chip = SEDL_CHIP_IPAC;
 			cs->subtyp = SEDL_SPEED_PCI;
@@ -617,8 +622,8 @@ setup_sedlbauer(struct IsdnCard *card)
 		cs->hw.sedl.reset_off = SEDL_ISAR_PCI_ISAR_RESET_OFF;
 		byteout(cs->hw.sedl.cfg_reg, 0xff);
 		byteout(cs->hw.sedl.cfg_reg, 0x00);
-		byteout(cs->hw.sedl.cfg_reg+ 2, 0xdd);
-		byteout(cs->hw.sedl.cfg_reg+ 5, 0x02);
+		byteout(cs->hw.sedl.cfg_reg +2, 0xdd);
+		byteout(cs->hw.sedl.cfg_reg +5, 0x02);
 		byteout(cs->hw.sedl.cfg_reg +3, cs->hw.sedl.reset_on);
 		save_flags(flags);
 		sti();
