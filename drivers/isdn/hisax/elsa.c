@@ -11,6 +11,9 @@
  *
  *
  * $Log$
+ * Revision 1.14.2.13  1998/10/25 17:47:48  fritz
+ * Line power status only valid for ISA cards.
+ *
  * Revision 1.14.2.12  1998/09/27 13:05:53  keil
  * Apply most changes from 2.1.X (HiSax 3.1)
  *
@@ -733,7 +736,7 @@ elsa_led_handler(struct IsdnCardState *cs)
 static int
 Elsa_card_msg(struct IsdnCardState *cs, int mt, void *arg)
 {
-	int pwr, len, ret = 0;
+	int len, ret = 0;
 	u_char *msg;
 	long flags;
 
@@ -845,7 +848,7 @@ Elsa_card_msg(struct IsdnCardState *cs, int mt, void *arg)
 			break;
 	}
 	if (cs->typ == ISDN_CTYPE_ELSA) {
-		pwr = bytein(cs->hw.elsa.ale);
+		int pwr = bytein(cs->hw.elsa.ale);
 		if (pwr & 0x08)
 			cs->hw.elsa.status |= ELSA_BAD_PWR;
 		else
