@@ -29,6 +29,10 @@ ifeq ($(CONFIG_HISAX_ELSA_PCC),y)
 	 O_OBJS += elsa.o
 endif
 
+ifeq ($(CONFIG_HISAX_ELSA_PCMCIA),y)
+	 O_OBJS += elsa.o
+endif
+
 ifeq ($(CONFIG_HISAX_IX1MICROR2),y)
 	 O_OBJS += ix1_micro.o
 endif
