@@ -21,6 +21,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.108  2000/02/15 12:54:01  kai
+ * set TX timeout back to 2 secs for 2.2.x, just to be safe
+ *
  * Revision 1.107  2000/02/13 09:52:05  kai
  * increased TX_TIMEOUT to 20sec
  *
@@ -851,7 +854,7 @@ isdn_net_autohup()
 							isdn_net_hangup(&p->dev);
 						} else if (jiffies - l->chargetime > l->chargeint) {
 							printk(KERN_DEBUG
-							       "isdn_net: %s: chtime = %d, chint = %d\n",
+							       "isdn_net: %s: chtime = %lu, chint = %d\n",
 							       l->name, l->chargetime, l->chargeint);
 							isdn_net_hangup(&p->dev);
 						}
@@ -1034,7 +1037,7 @@ isdn_net_stat_callback(int idx, isdn_ctrl *c)
 						 * we correct the timestamp here.
 						 */
 						lp->chargetime = jiffies;
-						printk(KERN_DEBUG "isdn_net: chargetime of %s now %d\n",
+						printk(KERN_DEBUG "isdn_net: chargetime of %s now %lu\n",
 						lp->name, lp->chargetime);
 
 						/* reset dial-timeout */
@@ -1081,7 +1084,7 @@ isdn_net_stat_callback(int idx, isdn_ctrl *c)
 				if (lp->hupflags & ISDN_WAITCHARGE)
 					lp->hupflags |= ISDN_HAVECHARGE;
 				lp->chargetime = jiffies;
-				printk(KERN_DEBUG "isdn_net: Got CINF chargetime of %s now %d\n",
+				printk(KERN_DEBUG "isdn_net: Got CINF chargetime of %s now %lu\n",
 				       lp->name, lp->chargetime);
 				return 1;
 		}
@@ -3229,7 +3232,7 @@ isdn_net_find_icall(int di, int ch, int idx, setup_parm setup)
 					if(sp != NULL) {
 
 						printk(KERN_DEBUG
-"%s: call from %s -> %s (drv %d chan %d duplicatet with %s) \n",
+"%s: call from %s -> %s (drv %d chan %d duplicated with %s) \n",
 							lp->name, nr, eaz,di,ch,
 							sp->local->name	);
 

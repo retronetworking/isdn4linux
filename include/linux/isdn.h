@@ -21,6 +21,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.92  2000/02/17 13:15:56  keil
+ * fix backward compatibility for 2.2
+ *
  * Revision 1.91  2000/02/16 14:56:27  paul
  * translated ISDN_MODEM_ANZREG to ISDN_MODEM_NUMREG for english speakers
  *
@@ -710,7 +713,7 @@ typedef struct isdn_net_local_s {
                                        /*   0 = Transparent                */
   int                    huptimer;     /* Timeout-counter for auto-hangup  */
   int                    charge;       /* Counter for charging units       */
-  int                    chargetime;   /* Timer for Charging info          */
+  ulong                  chargetime;   /* Timer for Charging info          */
   int                    hupflags;     /* Flags for charge-unit-hangup:    */
 				       /* bit0: chargeint is invalid       */
 				       /* bit1: Getting charge-interval    */
