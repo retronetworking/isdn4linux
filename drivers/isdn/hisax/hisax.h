@@ -907,7 +907,7 @@ struct IsdnCardState {
 		struct bkm_hw ax;
 		struct gazel_hw gazel;
 		struct w6692_hw w6692;
-		struct hisax_if *hisax_if;
+		struct hisax_d_if *hisax_d_if;
 	} hw;
 	int myid;
 	isdn_if iif;
