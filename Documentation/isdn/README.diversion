@@ -61,10 +61,13 @@ Table of contents
    number and subaddress, callers number and subaddress and whether the rule
    matches to all filtered calls or only those when all B-channel resources
    are exhausted.
-   Actions that may be invoked by a rule are ignore, reject, direct divert,
-   or delayed divert of a call.
+   Actions that may be invoked by a rule are ignore, proceed, reject, 
+   direct divert or delayed divert of a call.
    All incoming calls matching a rule except the ignore rule a reported and
-   logged as ASCII via the proc filesystem (/proc/net/isdn/divert). 
+   logged as ASCII via the proc filesystem (/proc/net/isdn/divert). If proceed
+   is selected the call will be held in a proceeding state (without ringing)
+   for a certain amount of time to let an external program or client decide
+   how to handle the call. 
             
 
 2. Required hard- and software
@@ -111,7 +114,10 @@ Table of contents
    The divert file in the proc system may be opened more than once, so in 
    conjunction with inetd and a small remote client on other machines inside
    your network incoming calls and reactions by the module may be shown on 
-   every listening machine.      
+   every listening machine. 
+   If a call is reported as proceeding an external program or client may 
+   specify during a certain amount of time (normally 4 to 10 seconds) what
+   to do with that call.      
    To unload the module all open files to the device in the proc system must
    be closed. Otherwise the module (and isdn.o) may not be unloaded. 
 
