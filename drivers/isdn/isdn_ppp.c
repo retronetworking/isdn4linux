@@ -1950,7 +1950,7 @@ isdn_ppp_hangup_slave(char *name)
 		return 1;
 	lp = ndev->local;
 	if (!(lp->flags & ISDN_NET_CONNECTED))
-#if CONFIG_ISDN_WITH_ABC_IPTABLES_NETFILTER
+#ifdef CONFIG_ISDN_WITH_ABC_IPTABLES_NETFILTER
 	{
 		dwisdn_nfw_send(lp,1);
 		return 5;
