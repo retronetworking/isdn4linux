@@ -1950,8 +1950,15 @@ isdn_ppp_hangup_slave(char *name)
 	sdev = lp->slave;
 	while (sdev) {
 		isdn_net_local *mlp = (isdn_net_local *) sdev->priv;
-		if ((mlp->flags & ISDN_NET_CONNECTED))
+
+		if (mlp->slave) { /* find last connected link in chain */
+			isdn_net_local *nlp = (isdn_net_local *) mlp->slave->priv;
+
+			if (!(nlp->flags & ISDN_NET_CONNECTED))
+				break;
+		} else if (mlp->flags & ISDN_NET_CONNECTED)
 			break;
+		
 		sdev = mlp->slave;
 	}
 	if (!sdev)
