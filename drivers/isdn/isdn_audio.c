@@ -21,6 +21,10 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.16  1999/08/06 12:47:35  calle
+ * Using __GNUC__ == 2 && __GNUC_MINOR__ < 95 how to define
+ *   ISDN_AUDIO_OPTIMIZE_ON_X386_WITH_ASM_IF_GCC_ALLOW_IT
+ *
  * Revision 1.15  1999/08/06 12:02:52  calle
  * egcs 2.95 complain about invalid asm statement:
  *    "fixed or forbidden register 2 (cx) was spilled for class CREG."
@@ -290,7 +294,7 @@ static char dtmf_matrix[4][4] =
  * egcs 2.95 complain about invalid asm statement:
  * "fixed or forbidden register 2 (cx) was spilled for class CREG."
  */
-#if ((CPU == 386) || (CPU == 486) || (CPU == 586)) || defined(__GNUC__)
+#if ((CPU == 386) || (CPU == 486) || (CPU == 586)) && defined(__GNUC__)
 #if __GNUC__ == 2 && __GNUC_MINOR__ < 95
 #define ISDN_AUDIO_OPTIMIZE_ON_X386_WITH_ASM_IF_GCC_ALLOW_IT
 #endif
