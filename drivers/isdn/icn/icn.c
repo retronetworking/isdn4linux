@@ -19,6 +19,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.28  1996/06/28 17:02:53  fritz
+ * replaced memcpy_fromfs_toio.
+ *
  * Revision 1.27  1996/06/25 18:38:59  fritz
  * Fixed function name in error message.
  *
@@ -672,9 +675,7 @@ static void icn_polldchan(unsigned long data)
 /* Append a packet to the transmit buffer-queue.
  * Parameters:
  *   channel = Number of B-channel
- *   buffer  = pointer to packet
- *   len     = size of packet (max 4000)
- *   user    = 1 = call from userproc, 0 = call from kernel
+ *   skb     = pointer to sk_buff
  *   card    = pointer to card-struct
  * Return:
  *   Number of bytes transferred, -E??? on error
@@ -684,6 +685,7 @@ static int icn_sendbuf(int channel, struct sk_buff *skb, icn_card * card)
 {
         int len = skb->len;
         unsigned long flags;
+        struct sk_buff *nskb;
 
         if (len > 4000) {
                 printk(KERN_WARNING
@@ -697,13 +699,25 @@ static int icn_sendbuf(int channel, struct sk_buff *skb, icn_card * card)
                         return 0;
                 save_flags(flags);
                 cli();
+                nskb = skb_clone(skb, GFP_ATOMIC);
+                if (nskb) {
+                        skb_queue_tail(&card->spqueue[channel], nskb);
+                        dev_kfree_skb(skb, FREE_WRITE);
+                } else
+                        len = 0;
                 card->sndcount[channel] += len;
-                skb_queue_tail(&card->spqueue[channel], skb);
                 restore_flags(flags);
         }
         return len;
 }
 
+/*
+ * Check card's status after starting the bootstrap loader.
+ * On entry, the card's shared memory has already to be mapped.
+ * Return:
+ *   0 on success (Boot loader ready)
+ *   -EIO on failure (timeout)
+ */
 static int icn_check_loader(int cardnumber)
 {
         int timer = 0;
@@ -1152,7 +1166,19 @@ static int icn_command(isdn_ctrl * c, icn_card * card)
                         case ICN_IOCTL_GETDOUBLE:
                                 return (int) card->doubleS0;
                         case ICN_IOCTL_DEBUGVAR:
-                                return (ulong) card;
+				if ((i = verify_area(VERIFY_WRITE,
+                                                    (void *) a,
+                                                    sizeof(ulong) * 2)))
+                                        return i;
+                                memcpy_tofs((char *)a,
+                                            (char *)&card, sizeof(ulong));
+				a += sizeof(ulong);
+				{
+                                        ulong l = (ulong)&dev;
+                                        memcpy_tofs((char *)a,
+                                                    (char *)&l, sizeof(ulong));
+                                }
+                                return 0;
                         case ICN_IOCTL_LOADBOOT:
                                 icn_stopcard(card);
                                 return (icn_loadboot((u_char *) a, card));
@@ -1620,7 +1646,7 @@ void cleanup_module(void)
                 }
                 card = card->next;
         }
-        card = card;
+        card = cards;
         while (card) {
                 last = card;
                 card = card->next;
