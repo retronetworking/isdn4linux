@@ -7,6 +7,9 @@
  *
  *
  * $Log$
+ * Revision 1.1.2.1  1998/04/11 18:44:42  keil
+ * New files
+ *
  *
  */
 #define __NO_VERSION__
@@ -49,7 +52,7 @@ readisac(unsigned int adr, u_char off)
 	ZORAN_WAIT_NOBUSY;
 	
 	/* set address for ISAC */
-	writel(WRITE_ADDR_ISAC | (off-0x20), adr + 0x200);
+	writel(WRITE_ADDR_ISAC | off, adr + 0x200);
 	ZORAN_WAIT_NOBUSY;
 	
 	/* read data from ISAC */
@@ -66,7 +69,7 @@ writeisac(unsigned int adr, u_char off, u_char data)
 	ZORAN_WAIT_NOBUSY;
 	
 	/* set address for ISAC */
-	writel(WRITE_ADDR_ISAC | (off-0x20), adr + 0x200);
+	writel(WRITE_ADDR_ISAC | off, adr + 0x200);
 	ZORAN_WAIT_NOBUSY;
 
 	/* write data to ISAC */
@@ -81,7 +84,7 @@ readhscx(unsigned int adr, int hscx, u_char off)
 
 	ZORAN_WAIT_NOBUSY;
 	/* set address for HSCX */
-	writel(WRITE_ADDR_HSCX | ((hscx ? 0x40:0) + (off & 0x1f)), adr + 0x200);
+	writel(WRITE_ADDR_HSCX | ((hscx ? 0x40:0) + off), adr + 0x200);
 	ZORAN_WAIT_NOBUSY;
 	
 	/* read data from HSCX */
@@ -97,7 +100,7 @@ writehscx(unsigned int adr, int hscx, u_char off, u_char data)
 
 	ZORAN_WAIT_NOBUSY;
 	/* set address for HSCX */
-	writel(WRITE_ADDR_HSCX | ((hscx ? 0x40:0) + (off & 0x1f)), adr + 0x200);
+	writel(WRITE_ADDR_HSCX | ((hscx ? 0x40:0) + off), adr + 0x200);
 	ZORAN_WAIT_NOBUSY;
 
 	/* write data to HSCX */
