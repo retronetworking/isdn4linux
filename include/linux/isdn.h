@@ -21,6 +21,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.70  1999/07/31 12:59:58  armin
+ * Added tty fax capabilities.
+ *
  * Revision 1.69  1999/07/13 20:47:53  werner
  * added channel bit ISDN_USAGE_DISABLED for limiting b-channel access.
  *
@@ -390,9 +393,6 @@ typedef struct {
 
 #ifdef __KERNEL__
 
-#ifndef STANDALONE
-#include <linux/config.h>
-#endif
 #include <linux/errno.h>
 #include <linux/fs.h>
 #include <linux/major.h>
@@ -577,13 +577,13 @@ typedef struct isdn_net_local_s {
   ulong                  sqfull_stamp; /* Start-Time of overload           */
   ulong                  slavedelay;   /* Dynamic bundling delaytime       */
   int                    triggercps;   /* BogoCPS needed for trigger slave */
-  struct device          *srobin;      /* Ptr to Master device for slaves  */
+  struct net_device      *srobin;      /* Ptr to Master device for slaves  */
   isdn_net_phone         *phone[2];    /* List of remote-phonenumbers      */
 				       /* phone[0] = Incoming Numbers      */
 				       /* phone[1] = Outgoing Numbers      */
   isdn_net_phone         *dial;        /* Pointer to dialed number         */
-  struct device          *master;      /* Ptr to Master device for slaves  */
-  struct device          *slave;       /* Ptr to Slave device for masters  */
+  struct net_device      *master;      /* Ptr to Master device for slaves  */
+  struct net_device      *slave;       /* Ptr to Slave device for masters  */
   struct isdn_net_local_s *next;       /* Ptr to next link in bundle       */
   struct isdn_net_local_s *last;       /* Ptr to last link in bundle       */
   struct isdn_net_dev_s  *netdev;      /* Ptr to netdev                    */
@@ -595,7 +595,7 @@ typedef struct isdn_net_local_s {
 				    struct hh_cache *hh);
                                        /* Ptr to orig. header_cache_update */
   void                   (*org_hcu)(struct hh_cache *,
-				    struct device *,
+				    struct net_device *,
                                     unsigned char *);
   int  pppbind;                        /* ippp device for bindings         */
   int					dialtimeout;	/* How long shall we try on dialing? (jiffies) */
@@ -616,7 +616,7 @@ typedef struct isdn_net_dev_s {
   isdn_net_local *local;
   isdn_net_local *queue;
   void           *next;                /* Pointer to next isdn-interface   */
-  struct device   dev;	       /* interface to upper levels        */
+  struct net_device dev;               /* interface to upper levels        */
 #ifdef CONFIG_ISDN_PPP
   struct mpqueue *mp_last; 
   struct ippp_bundle ib;
@@ -806,10 +806,10 @@ typedef struct isdn_module {
 	int (*command)(isdn_ctrl *);
 	int (*receive_callback)(int, int, struct sk_buff *);
 	int (*writebuf_skb)(int, int, int, struct sk_buff *);
-	int (*net_start_xmit)(struct sk_buff *, struct device *);
-	int (*net_receive)(struct device *, struct sk_buff *);
-	int (*net_open)(struct device *);
-	int (*net_close)(struct device *);
+	int (*net_start_xmit)(struct sk_buff *, struct net_device *);
+	int (*net_receive)(struct net_device *, struct sk_buff *);
+	int (*net_open)(struct net_device *);
+	int (*net_close)(struct net_device *);
 	int priority;
 } isdn_module;
 

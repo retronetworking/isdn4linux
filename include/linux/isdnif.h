@@ -22,6 +22,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.29  1999/07/31 13:00:02  armin
+ * Added tty fax capabilities.
+ *
  * Revision 1.28  1999/07/13 20:57:48  werner
  * added callback ISDN_STAT_DISCH for limiting b-channel resources.
  *
@@ -131,6 +134,7 @@
 #ifndef isdnif_h
 #define isdnif_h
 
+#include <linux/config.h>
 #include <linux/isdn_compat.h>
 
 /*
