@@ -10,11 +10,12 @@ export-objs	:= config.o
 
 # Multipart objects.
 
-list-multi	:= hisax.o
+list-multi	:= hisax.o hfc_usb.o
 hisax-objs	:= config.o isdnl1.o tei.o isdnl2.o isdnl3.o \
 		   lmgr.o q931.o callc.o fsm.o cert.o
 
 # Optional parts of multipart objects.
+hfc_usb-objs := hfc_usb_l1.o
 
 hisax-objs-$(CONFIG_HISAX_EURO) += l3dss1.o
 hisax-objs-$(CONFIG_HISAX_NI1) += l3ni1.o
@@ -41,6 +42,7 @@ hisax-objs-$(CONFIG_HISAX_NETJET_U) += nj_u.o netjet.o icc.o
 hisax-objs-$(CONFIG_HISAX_HFCS) += hfcscard.o hfc_2bds0.o
 hisax-objs-$(CONFIG_HISAX_HFC_PCI) += hfc_pci.o
 hisax-objs-$(CONFIG_HISAX_HFC_SX) += hfc_sx.o
+hisax-objs-$(CONFIG_HISAX_HFC_USB) += hfc_usbr.o
 hisax-objs-$(CONFIG_HISAX_NICCY) += niccy.o isac.o arcofi.o hscx.o
 hisax-objs-$(CONFIG_HISAX_ISURF) += isurf.o isac.o arcofi.o isar.o
 hisax-objs-$(CONFIG_HISAX_HSTSAPHIR) += saphir.o isac.o arcofi.o hscx.o
@@ -55,6 +57,7 @@ hisax-objs += $(sort $(hisax-objs-y))
 # Each configuration option enables a list of files.
 
 obj-$(CONFIG_ISDN_DRV_HISAX)	+= hisax.o
+obj-$(CONFIG_HISAX_HFC_USB)	+= hfc_usb.o
 obj-$(CONFIG_HISAX_SEDLBAUER_CS)	+= sedlbauer_cs.o
 obj-$(CONFIG_HISAX_ELSA_CS)	+= elsa_cs.o
 
@@ -70,3 +73,15 @@ include $(TOPDIR)/drivers/isdn/Rules.make
 
 hisax.o: $(hisax-objs)
 	$(LD) -r -o $@ $(hisax-objs)
+
+hfc_usb.o: $(hfc_usb-objs)
+	$(LD) -r -o $@ $(hfc_usb-objs)
+
+MD5FILES += isac.c isdnl1.c isdnl2.c isdnl3.c \
+	    tei.c callc.c cert.c l3dss1.c l3_1tr6.c \
+	    elsa.c diva.c sedlbauer.c
+
+CERT = $(shell md5sum -c md5sums.asc >> /dev/null;echo $$?)
+
+cert.o:	$(MD5FILES) md5sums.asc
+	$(CC) $(CFLAGS) $(EXTRA_CFLAGS) -D CERTIFICATION=$(CERT) -c -o cert.o cert.c
