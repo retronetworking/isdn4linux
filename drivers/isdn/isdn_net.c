@@ -21,6 +21,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.48.2.23  1998/10/25 17:42:18  fritz
+ * Bugfix: added missing reset of connect-flag.
+ *
  * Revision 1.48.2.22  1998/10/25 15:48:13  fritz
  * Misc bugfixes and adaptions to new HiSax
  *
@@ -625,23 +628,24 @@ isdn_net_stat_callback(int idx, isdn_ctrl *c)
 							dev_kfree_skb(lp->sav_skb, FREE_WRITE);
 							lp->sav_skb = NULL;
 						}
-					}
-					lp->flags &= ~ISDN_NET_CONNECTED;
-					isdn_free_channel(lp->isdn_device, lp->isdn_channel,
-							  ISDN_USAGE_NET);
+						lp->flags &= ~ISDN_NET_CONNECTED;
+						isdn_free_channel(lp->isdn_device, lp->isdn_channel,
+							  	ISDN_USAGE_NET);
 #ifdef CONFIG_ISDN_PPP
-					isdn_ppp_free(lp);
+						isdn_ppp_free(lp);
 #endif
-					isdn_all_eaz(lp->isdn_device, lp->isdn_channel);
+						isdn_all_eaz(lp->isdn_device, lp->isdn_channel);
+						lp->isdn_device = -1;
+						lp->isdn_channel = -1;
+						dev->st_netdev[idx] = NULL;
+						dev->rx_netdev[idx] = NULL;
+					} else {
+						lp->dialstate = 3;
+					}
 					printk(KERN_INFO "%s: remote %s\n", lp->name,
 						lp->dialstate?"abort":"hangup");
 					printk(KERN_INFO "%s: Chargesum is %d\n", lp->name,
 						lp->charge);
-					lp->isdn_device = -1;
-					lp->isdn_channel = -1;
-					dev->st_netdev[idx] = NULL;
-					dev->rx_netdev[idx] = NULL;
-					lp->dialstate = 0;
 					return 1;
 				}
 				break;
