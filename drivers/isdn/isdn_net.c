@@ -21,6 +21,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.113  2000/03/16 15:46:37  kai
+ * a little bugfix and cosmetic changes
+ *
  * Revision 1.112  2000/03/04 16:20:42  detabc
  * copy frames before rewriting frame's saddr
  *
@@ -1091,20 +1094,6 @@ isdn_net_stat_callback(int idx, isdn_ctrl *c)
 		}
 	}
 	return 0;
-}
-
-/*
- * Check, if a number contains wildcard-characters, in which case it
- * is for incoming purposes only.
- */
-static int
-isdn_net_checkwild(char *num)
-{
-	return ((strchr(num, '?')) ||
-		(strchr(num, '*')) ||
-		(strchr(num, '[')) ||
-		(strchr(num, ']')) ||
-		(strchr(num, '^')));
 }
 
 /*
@@ -3861,8 +3850,6 @@ isdn_net_addphone(isdn_net_ioctl_phone * phone)
 	isdn_net_dev *p = isdn_net_findif(phone->name);
 	isdn_net_phone *n;
 
-	if (isdn_net_checkwild(phone->phone) && (phone->outgoing & 1))
-		return -EINVAL;
 	if (p) {
 		if (!(n = (isdn_net_phone *) kmalloc(sizeof(isdn_net_phone), GFP_KERNEL)))
 			return -ENOMEM;
