@@ -19,15 +19,8 @@
 #include <linux/pci.h>
 #include <linux/interrupt.h>
 #include <linux/ppp_defs.h>
+#include <asm/io.h>
 #include "netjet.h"
-
-#ifndef bus_to_virt
-#define bus_to_virt (u_int *)
-#endif
-
-#ifndef virt_to_bus
-#define virt_to_bus (u_int)
-#endif
 
 const char *NETjet_revision = "$Revision$";
 

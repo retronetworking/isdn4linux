@@ -91,7 +91,6 @@ search_cards(void)
 					     akt_pcidev)) != NULL) {
 		if (pci_enable_device(akt_pcidev))
 			continue;
-		pci_set_master(akt_pcidev);
 
 		if (!(card = kmalloc(sizeof(hysdn_card), GFP_KERNEL))) {
 			printk(KERN_ERR "HYSDN: unable to alloc device mem \n");
