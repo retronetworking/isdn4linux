@@ -10,6 +10,9 @@
  *
  *
  * $Log$
+ * Revision 2.9  1999/07/01 08:11:55  keil
+ * Common HiSax version for 2.0, 2.1, 2.2 and 2.3 kernel
+ *
  * Revision 2.8  1998/11/15 23:55:08  keil
  * changes from 2.0
  *
@@ -696,6 +699,7 @@ l3_1tr6_dl_release(struct l3_process *pc, u_char pr, void *arg)
 {
         newl3state(pc, 0);
         pc->para.cause = 0x1b;          /* Destination out of order */
+        pc->para.loc = 0;
         pc->st->l3.l3l4(pc->st, CC_RELEASE | INDICATION, pc);
         release_l3_process(pc);
 }
