@@ -147,10 +147,10 @@ typedef struct {
 #include <linux/wait.h>
 #include <linux/delay.h>
 #include <linux/ctype.h>
+#include <linux/pci.h>
 
 #include <linux/isdn.h>
 #include <linux/isdnif.h>
-
 #include <linux/isdn_compat.h>
 
 typedef struct {
