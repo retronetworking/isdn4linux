@@ -1,3 +1,4 @@
+
 /* $Id$
 
  * Linux ISDN subsystem, abc-extension releated funktions.
@@ -22,6 +23,8 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.17  2000/03/04 16:20:41  detabc
+ * copy frames before rewriting frame's saddr
  *
  * Revision 1.16  2000/02/06 21:49:59  detabc
  * add rewriting of socket's and frame's saddr for udp-ipv4 dynip-connections.

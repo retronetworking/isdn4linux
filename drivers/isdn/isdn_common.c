@@ -21,6 +21,13 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.100  2000/03/03 16:37:11  kai
+ * incorporated some cosmetic changes from the official kernel tree back
+ * into CVS
+ *
+ * Revision 1.99  2000/02/26 01:00:52  keil
+ * changes from 2.3.47
+ *
  * Revision 1.98  2000/02/16 14:56:27  paul
  * translated ISDN_MODEM_ANZREG to ISDN_MODEM_NUMREG for english speakers
  *
@@ -2119,17 +2126,13 @@ isdn_close(struct inode *ino, struct file *filep)
 
 static struct file_operations isdn_fops =
 {
-	isdn_lseek,
-	isdn_read,
-	isdn_write,
-	NULL,                   /* isdn_readdir */
-	isdn_poll,              /* isdn_poll */
-	isdn_ioctl,             /* isdn_ioctl */
-	NULL,                   /* isdn_mmap */
-	isdn_open,
-	NULL,			/* flush */
-	isdn_close,
-	NULL                    /* fsync */
+	llseek:		isdn_lseek,
+	read:		isdn_read,
+	write:		isdn_write,
+	poll:		isdn_poll,
+	ioctl:		isdn_ioctl,
+	open:		isdn_open,
+	release:	isdn_close,
 };
 
 char *
