@@ -228,8 +228,11 @@ README for the ISDN-subsystem
                                       8 = V.110, 19200 baud
                                       9 = V.110, 38400 baud
                                      10 = Analog Modem (only if hardware supports this)
-             15   0         Layer-3 protocol: (at the moment always 0)
+                                     11 = Fax G3 (only if hardware supports this)
+             15   0         Layer-3 protocol:
                                       0 = transparent
+                                      1 = transparent with audio features (e.g. DSP)
+                                      2 = Fax G3 (S14 has to be set to 11)
              16   250       Send-Packet-size/16
              17   8         Window-size (not yet implemented)
              18   4         Bit coded register, Service-Octet-1 to accept,
@@ -258,6 +261,9 @@ README for the ISDN-subsystem
                             Set on incoming call (during RING) to
                             octet 3a of calling party number IE (Screening info)
                             See section 4.5.10 of ITU Q.931
+             23   0         Bit coded register:
+                            Bit 0:    0 = Add CPN to RING message off
+                                      1 = Add CPN to RING message on
 
   Last but not least a (at the moment fairly primitive) device to request
   the line-status (/dev/isdninfo) is made available.
