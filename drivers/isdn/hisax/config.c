@@ -5,6 +5,10 @@
  *
  *
  * $Log$
+ * Revision 1.2  1996/10/23 11:58:48  fritz
+ * Changed default setup to reflect user's selection of supported
+ * cards/protocols.
+ *
  * Revision 1.1  1996/10/13 20:04:51  keil
  * Initial revision
  *
@@ -38,19 +42,19 @@
 
 #ifdef CONFIG_HISAX_ELSA_PCC
 #define DEFAULT_CARD ISDN_CTYPE_ELSA
-#define DEFAULT_CFG {15,0xd0000,0xd80}
+#define DEFAULT_CFG {0,0,0}
 #endif
 #ifdef CONFIG_HISAX_AVM_A1
 #undef DEFAULT_CARD
 #undef DEFAULT_CFG
 #define DEFAULT_CARD ISDN_CTYPE_A1
-#define DEFAULT_CFG {15,0xd0000,0xd80}
+#define DEFAULT_CFG {10,0x340,0}
 #endif
 #ifdef CONFIG_HISAX_16_3
 #undef DEFAULT_CARD
 #undef DEFAULT_CFG
 #define DEFAULT_CARD ISDN_CTYPE_16_3
-#define DEFAULT_CFG {15,0x0,0xd80}
+#define DEFAULT_CFG {15,0x180,0}
 #endif
 #ifdef CONFIG_HISAX_16_0
 #undef DEFAULT_CARD
