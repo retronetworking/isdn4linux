@@ -7,6 +7,9 @@
  *              Fritz Elfert
  *
  * $Log$
+ * Revision 2.2  1997/07/31 11:48:18  keil
+ * experimental REJECT after ALERTING
+ *
  * Revision 2.1  1997/07/30 17:12:59  keil
  * more changes for 'One TEI per card'
  *
@@ -464,16 +467,20 @@ lli_deliver_call(struct FsmInst *fi, int event, void *arg)
 				chanp->d_st->lli.l4l3(chanp->d_st, CC_IGNORE, chanp->proc);
 				chanp->cs->cardmsg(chanp->cs, MDL_INFO_REL, (void *) chanp->chan);
 				FsmChangeState(fi, ST_NULL);
+#ifndef LAYER2_WATCHING
 				if (chanp->Flags & FLG_ESTAB_D)
 					FsmRestartTimer(&chanp->drel_timer, DREL_TIMER_VALUE, EV_SHUTDOWN_D, NULL, 61);
+#endif
 				break;
 		}
 	} else {
 		chanp->d_st->lli.l4l3(chanp->d_st, CC_IGNORE, chanp->proc);
 		chanp->cs->cardmsg(chanp->cs, MDL_INFO_REL, (void *) chanp->chan);
 		FsmChangeState(fi, ST_NULL);
+#ifndef LAYER2_WATCHING
 		if (chanp->Flags & FLG_ESTAB_D)
 			FsmRestartTimer(&chanp->drel_timer, DREL_TIMER_VALUE, EV_SHUTDOWN_D, NULL, 62);
+#endif
 	}
 }
 
@@ -582,6 +589,9 @@ lli_shutdown_d(struct FsmInst *fi, int event, void *arg)
 	struct Channel *chanp = fi->userdata;
 
 	FsmDelTimer(&chanp->drel_timer, 62);
+#ifdef LAYER2_WATCHING
+	FsmChangeState(fi, ST_NULL);
+#else
 	if (!(chanp->cs->HW_Flags & FLG_TWO_DCHAN)) {
 		if (chanp->chan) {
 			if (chanp->cs->channel[0].fi.state != ST_NULL)
@@ -594,6 +604,7 @@ lli_shutdown_d(struct FsmInst *fi, int event, void *arg)
 	FsmChangeState(fi, ST_WAIT_DSHUTDOWN);
 	RESBIT(chanp->Flags, FLG_ESTAB_D);
 	FsmEvent(&chanp->lc_d->lcfi, EV_LC_RELEASE, NULL);
+#endif
 }
 
 static void
@@ -614,7 +625,9 @@ lli_timeout_d(struct FsmInst *fi, int event, void *arg)
 	}
 	FsmChangeState(fi, ST_NULL);
 	chanp->Flags = FLG_ESTAB_D;
+#ifndef LAYER2_WATCHING
 	FsmAddTimer(&chanp->drel_timer, DREL_TIMER_VALUE, EV_SHUTDOWN_D, NULL, 60);
+#endif
 	chanp->cs->cardmsg(chanp->cs, MDL_INFO_REL, (void *) chanp->chan);
 }
 
