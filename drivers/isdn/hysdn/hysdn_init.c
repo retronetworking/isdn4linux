@@ -20,6 +20,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.2  2000/05/17 11:41:30  ualbrecht
+ * CAPI 2.0 support added
+ *
  * Revision 1.1  2000/02/10 19:45:18  werner
  *
  * Initial release
@@ -241,9 +244,16 @@ init_module(void)
 void
 cleanup_module(void)
 {
-
+#ifdef CONFIG_HYSDN_CAPI
+	hysdn_card *card;
+#endif /* CONFIG_HYSDN_CAPI */
 	stop_cards();
 #ifdef CONFIG_HYSDN_CAPI
+	card = card_root;	/* first in chain */
+	while (card) {
+		hycapi_capi_release(card);
+		card = card->next;	/* remove card from chain */
+	}			/* while card */
 	hycapi_cleanup();
 #endif /* CONFIG_HYSDN_CAPI */
 	hysdn_procconf_release();
