@@ -3,6 +3,9 @@
  *   Basic declarations, defines and prototypes
  *
  * $Log$
+ * Revision 1.13.2.16  1998/10/04 23:04:54  keil
+ * ISAR works now
+ *
  * Revision 1.13.2.15  1998/09/30 22:28:04  keil
  * more work for isar support
  *
@@ -586,6 +589,8 @@ struct sedl_hw {
 	unsigned int reset_on;
 	unsigned int reset_off;
 	struct isar_reg isar;
+	unsigned int chip;
+	unsigned int bus;
 };
 
 struct spt_hw {
