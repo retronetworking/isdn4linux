@@ -19,6 +19,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.62.2.9  2000/04/08 17:17:21  kai
+ * rewrite of MPPP code by semyon@ariel.com
+ *
  * Revision 1.62.2.8  2000/03/20 14:39:44  kai
  * merged LL changes from main tree
  *
@@ -351,11 +354,7 @@ static int isdn_ppp_mp_init( isdn_net_local * lp, ippp_bundle * add_to );
 static void isdn_ppp_mp_receive(isdn_net_dev * net_dev, isdn_net_local * lp, 
 							struct sk_buff *skb);
 static void isdn_ppp_mp_cleanup( isdn_net_local * lp );
-
 static int isdn_ppp_bundle(struct ippp_struct *, int unit);
-
-#define MP_LOCK(b)	down(&(b)->lock)
-#define MP_UNLOCK(b)	up(&(b)->lock)
 #endif	/* CONFIG_ISDN_MPP */
 
 char *isdn_ppp_revision = "$Revision$";
@@ -411,7 +410,7 @@ isdn_ppp_free(isdn_net_local * lp)
 	cli();
 
 #ifdef CONFIG_ISDN_MPP
- 	MP_LOCK(lp->netdev->pb);
+// 	spin_lock(&lp->netdev->pb->lock); // unnecessary because of save_flags
 #endif 
 	isdn_net_rm_from_bundle(lp);
 #ifdef CONFIG_ISDN_MPP
@@ -419,7 +418,7 @@ isdn_ppp_free(isdn_net_local * lp)
  			isdn_ppp_mp_cleanup(lp);
  	
  	lp->netdev->pb->ref_ct--;
- 	MP_UNLOCK(lp->netdev->pb);
+// 	spin_unlock(&lp->netdev->pb->lock);
  	
 #endif /* CONFIG_ISDN_MPP */
 
@@ -1011,6 +1010,10 @@ isdn_ppp_read(int min, struct file *file, char *buf, int count)
 	if ((r = verify_area(VERIFY_WRITE, (void *) buf, count)))
 		return r;
 
+	if (is->debug & 0x2)
+		printk(KERN_DEBUG "isdn_ppp_read: minor: %d\n",
+				MINOR(file->f_dentry->d_inode->i_rdev));
+
 	save_flags(flags);
 	cli();
 
@@ -1049,6 +1052,10 @@ isdn_ppp_write(int min, struct file *file, const char *buf, int count)
 
 	if (!(is->state & IPPP_CONNECT))
 		return 0;
+
+	if (is->debug & 0x2)
+		printk(KERN_DEBUG "isdn_ppp_write: minor: %d\n",
+				MINOR(file->f_dentry->d_inode->i_rdev));
 
 	lp = is->lp;
 
@@ -1610,8 +1617,7 @@ static int isdn_ppp_mp_bundle_array_init(void)
 		return -ENOMEM;
 	memset(isdn_ppp_bundle_arr, 0, sz);
 	for( i = 0; i < ISDN_MAX_CHANNELS; i++ ) 
-		init_MUTEX(&isdn_ppp_bundle_arr[i].lock);
-//		isdn_ppp_bundle_arr[i].lock = MUTEX;
+		spin_lock_init(&isdn_ppp_bundle_arr[i].lock);
 	return 0;
 }
 
@@ -1665,8 +1671,11 @@ static void isdn_ppp_mp_receive(isdn_net_dev * net_dev, isdn_net_local * lp,
 	isdn_mppp_stats * stats;
 	struct sk_buff * newfrag, * frag, * start, *nextf;
 	u32 newseq, minseq, thisseq;
+	unsigned long flags;
     
-    	MP_LOCK(net_dev->pb);
+	// don't know if we're always in interrupt, so better
+	// use irq_save
+	spin_lock_irqsave(&net_dev->pb->lock, flags); 
     	mp = net_dev->pb;
         stats = &mp->stats;
 	
@@ -1690,8 +1699,7 @@ static void isdn_ppp_mp_receive(isdn_net_dev * net_dev, isdn_net_local * lp,
 	} else if( MP_LT(newseq, mp->seq) ) {
 		stats->frame_drops++;
 		isdn_ppp_mp_free_skb(mp, skb);
-		MP_UNLOCK(mp);
-		return;
+		goto out;
 	}
 	
 	/* find the minimum received sequence number over all links */
@@ -1858,7 +1866,8 @@ static void isdn_ppp_mp_receive(isdn_net_dev * net_dev, isdn_net_local * lp,
 		}
 	}
 	
-	MP_UNLOCK(mp);
+ out:
+	spin_unlock_irqrestore(&net_dev->pb->lock, flags); 
 }
 
 static void isdn_ppp_mp_cleanup( isdn_net_local * lp )
@@ -1876,16 +1885,13 @@ static void isdn_ppp_mp_cleanup( isdn_net_local * lp )
 static u32 isdn_ppp_mp_get_seq( int short_seq, 
 					struct sk_buff * skb, u32 last_seq )
 {
-   u32 seq;
-   int flags = skb->data[0] & (MP_BEGIN_FRAG | MP_END_FRAG);
+	u32 seq;
+	int flags = skb->data[0] & (MP_BEGIN_FRAG | MP_END_FRAG);
    
-   	if( !short_seq )
-	{
+   	if( !short_seq ) {
 		seq = ntohl(*(u32*)skb->data) & MP_LONGSEQ_MASK;
 		skb_push(skb,1);
-	}
-	else
-	{
+	} else {
 		/* convert 12-bit short seq number to 24-bit long one 
 	 	*/
 		seq = ntohs(*(u16*)skb->data) & MP_SHORTSEQ_MASK;
@@ -1988,6 +1994,7 @@ static void isdn_ppp_mp_print_recv_pkt( int slot, struct sk_buff * skb )
 static int
 isdn_ppp_bundle(struct ippp_struct *is, int unit)
 {
+	unsigned int flags;
   	char ifn[IFNAMSIZ + 1];
   	isdn_net_dev *p;
   	isdn_net_local *lp,
@@ -2004,7 +2011,7 @@ isdn_ppp_bundle(struct ippp_struct *is, int unit)
 	
   	isdn_timer_ctrl(ISDN_TIMER_IPPP, 1);	/* enable timer for ippp/MP */
   
- 	MP_LOCK(p->pb);
+	spin_lock_irqsave(&p->pb->lock, flags);
  
   	nlp = is->lp;
   
@@ -2013,11 +2020,11 @@ isdn_ppp_bundle(struct ippp_struct *is, int unit)
  	if( nlp->ppp_slot < 0 || nlp->ppp_slot >= ISDN_MAX_CHANNELS ||
  		lp->ppp_slot < 0 || lp->ppp_slot >= ISDN_MAX_CHANNELS )
 	{
- 		MP_UNLOCK(p->pb);
  		printk(KERN_ERR "ippp_bundle: binding to invalid slot %d\n",
 		       nlp->ppp_slot < 0 || nlp->ppp_slot >= ISDN_MAX_CHANNELS ? 
 		       nlp->ppp_slot : lp->ppp_slot );
- 		return -EINVAL;
+ 		rc = -EINVAL;
+		goto out;
  	}
  	
 	isdn_net_add_to_bundle(p, nlp);
@@ -2031,8 +2038,8 @@ isdn_ppp_bundle(struct ippp_struct *is, int unit)
 		(SC_MP_PROT | SC_REJ_MP_PROT | SC_OUT_SHORT_SEQ | SC_IN_SHORT_SEQ);
  	rc = isdn_ppp_mp_init(nlp, p->pb);
 	
- 	MP_UNLOCK(p->pb);
-	
+ out:
+ 	spin_unlock_irqrestore(&p->pb->lock, flags);
  	return rc;
 }
 

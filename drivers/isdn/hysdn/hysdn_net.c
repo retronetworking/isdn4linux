@@ -24,6 +24,10 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.3  2000/02/14 19:24:12  werner
+ *
+ * Removed superflous file
+ *
  * Revision 1.2  2000/02/13 17:32:19  werner
  *
  * Added support for new network layer of 2.3.43 and 44 kernels and tested driver.
@@ -35,7 +39,6 @@
  *
  */
 
-#include <linux/config.h>
 #define __NO_VERSION__
 #include <linux/module.h>
 #include <linux/version.h>

@@ -724,7 +724,7 @@ VHiSax_putstatus(struct IsdnCardState *cs, char *head, char *fmt, va_list args)
 	} else {
 		p = fmt;
 	}
-#ifdef XCONFIG_HISAX_LLI
+#ifdef CONFIG_HISAX_LLI
 	if (cs->c_if)
 		callcIfPutStatus(cs->c_if, p);
 	else 

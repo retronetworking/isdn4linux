@@ -55,6 +55,9 @@
 
 #define COMPAT_NEED_MPPP_DEFS
 
+#define COMPAT_HAVE_READ_LOCK_KERNEL
+#define COMPAT_HAVE_WRITE_LOCK_KERNEL
+#define COMPAT_HAVE_POLL_LOCK_KERNEL
 #define spin_lock_bh(lock)
 #define spin_unlock_bh(lock)
 #define init_MUTEX(lock) *(lock) = MUTEX

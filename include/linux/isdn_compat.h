@@ -164,6 +164,9 @@ static inline unsigned long copy_to_user(void *to, const void *from, unsigned lo
 #endif
 
 #if LINUX_VERSION_CODE < KERNEL_VERSION(2,3,1)
+#define COMPAT_HAVE_READ_LOCK_KERNEL
+#define COMPAT_HAVE_WRITE_LOCK_KERNEL
+#define COMPAT_HAVE_POLL_LOCK_KERNEL
 #define spin_lock_bh(lock)
 #define spin_unlock_bh(lock)
 #define init_MUTEX(lock) *(lock) = MUTEX

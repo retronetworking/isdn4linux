@@ -585,7 +585,7 @@ static void plci_cc_disconnect_ind(struct FsmInst *fi, int event, void *arg)
 	if (cause)
 		memcpy(cplci->cause, cause, 3);
 	
-	if (!cplci->appl->listen.InfoMask & CAPI_INFOMASK_EARLYB3) {
+	if (!(cplci->appl->listen.InfoMask & CAPI_INFOMASK_EARLYB3)) {
 		cplciLinkDown(cplci);
 		p_L4L3(&cplci->plci->l4_pc, CC_RELEASE | REQUEST, 0);
 	}
