@@ -23,6 +23,10 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.11  1999/12/05 16:06:08  detabc
+ * add resethandling for rawip-compression.
+ * at now all B2-Protocols are usable with rawip-compression
+ *
  * Revision 1.10  1999/12/04 15:05:25  detabc
  * bugfix abc-rawip-bsdcompress with channel-bundeling
  *
@@ -98,6 +102,8 @@ static char *dwabcrevison = "$Revision$";
 #include <linux/isdn.h>
 #include "isdn_common.h"
 
+
+
 #ifdef CONFIG_ISDN_WITH_ABC_IPV4_TCP_KEEPALIVE
 #include <linux/skbuff.h>
 #include <net/ip.h>
@@ -110,6 +116,8 @@ static char *dwabcrevison = "$Revision$";
 #include <net/udp.h>
 #include <net/checksum.h>
 #include <linux/isdn_dwabc.h>
+
+volatile u_long dwsjiffies;
 
 #if CONFIG_ISDN_WITH_ABC_RAWIPCOMPRESS && CONFIG_ISDN_PPP
 #include <linux/isdn_ppp.h>
@@ -130,9 +138,6 @@ static struct isdn_ppp_comp_data BSD_COMP_INIT_DATA;
 #define VERBLEVEL (dev->net_verbose > 2)
 
 static struct timer_list dw_abc_timer;
-static volatile short dw_abc_timer_running = 0;
-static volatile short dw_abc_timer_need = 0;
-
 
 #ifdef CONFIG_ISDN_WITH_ABC_LCR_SUPPORT
 static struct semaphore lcr_sema;
@@ -188,22 +193,6 @@ static struct TCPM *tcp_first = NULL;
 static struct TCPM *tcp_last = NULL;
 static struct TCPM *tcp_free = NULL;
 #endif
-
-
-/***********************************
-currently unused
-static void start_timer(void)
-{
-	dw_abc_timer_need = 1;
-
-	if(!dw_abc_timer_running) {
-
-		dw_abc_timer_running = 1;
-		add_timer(&dw_abc_timer);
-	}
-}
-*************************************/
-
 
 #ifdef CONFIG_ISDN_WITH_ABC_LCR_SUPPORT
 
@@ -610,13 +599,16 @@ void isdn_dw_clear_if(ulong pm,isdn_net_local *lp)
 
 static void dw_abc_timer_func(u_long dont_need_yet)
 {
-
-	if(dw_abc_timer_need) {
-
-		dw_abc_timer.expires = jiffies + DWABC_TMRES;
-		add_timer(&dw_abc_timer);
+	static int recu = 0;
 	
-	} else dw_abc_timer_running = 0;
+	dw_abc_timer.expires = jiffies + DWABC_TMRES;
+	add_timer(&dw_abc_timer);
+	dwsjiffies++;
+
+	if(test_and_set_bit(0,&recu))
+		return;
+
+	clear_bit(0,&recu);
 }
 
 
@@ -1113,6 +1105,9 @@ static void isdn_tcp_keepalive_done(void)
 }
 #endif
 
+#if CONFIG_ISDN_WITH_ABC_IPV4_DYNADDR
+#endif
+
 #if CONFIG_ISDN_WITH_ABC_IPV4_TCP_KEEPALIVE || CONFIG_ISDN_WITH_ABC_IPV4_DYNADDR
 int isdn_dw_abc_ip4_keepalive_test(struct net_device *ndev,struct sk_buff *skb)
 {
@@ -1178,7 +1173,7 @@ int isdn_dw_abc_ip4_keepalive_test(struct net_device *ndev,struct sk_buff *skb)
 					ipnr2buf(ip->daddr),
 					ipnr2buf(ipaddr));
 #endif
-			if(ip->saddr ^ ipaddr) {
+			if((ip->saddr ^ ipaddr)) {
 
 				isdn_net_log_skb_dwabc(skb,lp,"isdn_dynaddr drop");
 				return(1);
@@ -1277,13 +1272,13 @@ void isdn_dw_abc_init_func(void)
 
 	init_timer(&dw_abc_timer);
 	dw_abc_timer.function = dw_abc_timer_func;
-	dw_abc_timer_running = 0;
 
 	printk( KERN_INFO
 		"abc-extension %s\n"
 		"written by\nDetlef Wengorz <detlefw@isdn4linux.de>\n"
 		"Thanks for test's etc. to:\n"
 		"Mario Schugowski <mario@mediatronix.de>\n"
+		"For more details see http://i4l.mediatronix.de\n"
 		"Installed options:\n"
 #ifdef CONFIG_ISDN_WITH_ABC_CALLB
 		"CONFIG_ISDN_WITH_ABC_CALLB\n"
@@ -1326,19 +1321,20 @@ void isdn_dw_abc_init_func(void)
 #endif
 		"loaded\n",
 		dwabcrevison);
+
+		dw_abc_timer.expires = jiffies + DWABC_TMRES;
+		add_timer(&dw_abc_timer);
 }
 
 void isdn_dw_abc_release_func(void)
 {
 	del_timer(&dw_abc_timer);
-	dw_abc_timer_running = 1;
 #ifdef CONFIG_ISDN_WITH_ABC_LCR_SUPPORT
 	dw_lcr_clear_all();
 #endif
 #ifdef CONFIG_ISDN_WITH_ABC_IPV4_TCP_KEEPALIVE
 	isdn_tcp_keepalive_done();
 #endif
-
 	printk( KERN_INFO
 		"abc-extension %s\n"
 		"Thanks for test's etc. to:\n"
@@ -1397,15 +1393,19 @@ void isdn_dwabc_test_phone(isdn_net_local *lp)
 				case 'u':	lp->dw_abc_flags |= ISDN_DW_ABC_FLAG_NO_UDP_CHECK;			break;
 				case 'h':	lp->dw_abc_flags |= ISDN_DW_ABC_FLAG_NO_UDP_HANGUP;			break;
 				case 'd':	lp->dw_abc_flags |= ISDN_DW_ABC_FLAG_NO_UDP_DIAL;			break;
-				case 'X':	lp->dw_abc_flags |= ISDN_DW_ABC_FLAG_RCV_NO_HUPTIMER;		break;
 				case 'c':	lp->dw_abc_flags |= ISDN_DW_ABC_FLAG_NO_CH_EXTINUSE;		break;
 				case 'e':   lp->dw_abc_flags |= ISDN_DW_ABC_FLAG_NO_CONN_ERROR;			break;
+				case 'l':   lp->dw_abc_flags |= ISDN_DW_ABC_FLAG_NO_LCR;				break;
+
+				case 'x':
+				case 'X':	lp->dw_abc_flags |= ISDN_DW_ABC_FLAG_RCV_NO_HUPTIMER;		break;
 
 				case 'D':	lp->dw_abc_flags |= ISDN_DW_ABC_FLAG_DYNADDR;				break;
 				case 'B':	lp->dw_abc_flags |= ISDN_DW_ABC_FLAG_BSD_COMPRESS;			break;
 
 				case '"':
 				case ' ':
+				case '\t':
 				case '\'':	break;
 
 				default:	
@@ -1423,6 +1423,55 @@ void isdn_dwabc_test_phone(isdn_net_local *lp)
 
 
 #ifdef CONFIG_ISDN_WITH_ABC_ICALL_BIND 
+void isdn_dw_abc_free_lch_with_pch(int di,int ch)
+{
+	if(di >= 0 && di < ISDN_MAX_DRIVERS && ch >= 0) {
+
+		driver *d = dev->drv[di];
+
+		if(d != NULL) {
+
+			u_char *p = d->dwabc_lchmap;
+			u_char *ep = d->dwabc_lchmap + ISDN_DW_ABC_MAX_CH_P_RIVER;
+			ch++;
+
+			for(;p < ep;p++) {
+
+				if(*p == ch)
+					*p = 0;
+			}
+		}
+	}
+}
+
+
+
+static void dwabc_check_lchmap(void)
+{
+	if(dev->dwabc_lch_check > jiffies || (dev->dwabc_lch_check + HZ) < jiffies) {
+		int i;
+		dev->dwabc_lch_check = jiffies;
+
+		for(i = 0; i < ISDN_MAX_CHANNELS; i++) {
+
+			int di = dev->drvmap[i];
+			driver *p;
+
+			if(di < 0 || di >= ISDN_MAX_DRIVERS)
+				continue;
+
+			if((p = dev->drv[di]) == NULL)
+				continue;
+
+			if(p->dwabc_lch_use < jiffies && (p->dwabc_lch_use + HZ) < jiffies)
+				continue;
+
+			if(USG_NONE(dev->usage[i])) 
+				isdn_dw_abc_free_lch_with_pch(di,dev->chanmap[i]);
+		}
+	}
+}
+
 
 static int get_driverid(isdn_net_local *lp,char *name,char *ename,ulong *bits)
 {
@@ -1484,11 +1533,19 @@ static int get_driverid(isdn_net_local *lp,char *name,char *ename,ulong *bits)
 int isdn_dwabc_check_icall_bind(isdn_net_local *lp,int di,int ch)
 {
 	int ret = 0;
+	short isset = 0;
 
-	if(lp != NULL && lp->pre_device < 0 && lp->pre_channel < 0 && di >= 0 && di < 30) {
+	dwabc_check_lchmap();
+
+	if(di < 0 || di >= ISDN_MAX_DRIVERS)
+		return(0);
+
+	if(lp != NULL && lp->pre_device < 0 && lp->pre_channel < 0 && 
+		di >= 0 && di < ISDN_MAX_DRIVERS) {
 
 		isdn_net_phone *h = lp->phone[0];
 		int secure = 0;
+		short sd = 0;
 
 		for(;h != NULL && secure < 1000;secure++,h = h->next) {
 
@@ -1506,16 +1563,57 @@ int isdn_dwabc_check_icall_bind(isdn_net_local *lp,int di,int ch)
 
 			ret = -1;
 			p++;
+			sd = 0;
 
-			if(p < ep && (*p == '<' || *p == '>'))
+			if(p < ep && (*p == '<' || *p == '>')) {
+
+				sd = (*p == '<');
 				p++;
+			}
 
 			if(get_driverid(lp,p,ep,&bits) == di) {
 
-				if((bits & (1L << ch))) {
+				driver *dri = dev->drv[di];
 
-					ret = 0;
-					break;
+				if(dri != NULL) {
+
+					int shl = 0;
+
+					if(sd) for(shl = dri->channels - 1; 
+							ret != 0 && shl >= 0; shl--) {
+
+						if(shl >= ISDN_DW_ABC_MAX_CH_P_RIVER)
+							continue;
+
+						if(bits & (1L << shl)) {
+
+							if(!dri->dwabc_lchmap[shl]) {
+
+								dri->dwabc_lchmap[shl] = ch + 1;
+								dri->dwabc_lch_use = jiffies;
+								isset = 1;
+								ret = 0;
+							}
+						}
+
+					} else for(shl = 0;
+								ret != 0 && shl < ISDN_DW_ABC_MAX_CH_P_RIVER &&
+								shl < dri->channels	;shl++) {
+
+						if(bits & (1L << shl)) {
+
+							if(!dri->dwabc_lchmap[shl]) {
+
+								dri->dwabc_lchmap[shl] = ch + 1;
+								dri->dwabc_lch_use = jiffies;
+								isset = 1;
+								ret = 0;
+							}
+						}
+					}
+
+					if(!ret)
+						break;
 				}
 			}
 		}
@@ -1527,6 +1625,26 @@ int isdn_dwabc_check_icall_bind(isdn_net_local *lp,int di,int ch)
 				di,
 				ch,
 				"not allowed for this interface and channel");
+		}
+	}
+
+	if(!ret && !isset && ch >= 0) {
+
+		driver *dri = dev->drv[di];
+
+		if(dri != NULL) {
+
+			int shl;
+
+			for(shl = 0; shl < ISDN_DW_ABC_MAX_CH_P_RIVER && shl < dri->channels;shl++) {
+
+				if(!dri->dwabc_lchmap[shl]) {
+
+					dri->dwabc_lchmap[shl] = ch + 1;
+					dri->dwabc_lch_use = jiffies;
+					break;
+				}
+			}
 		}
 	}
 
@@ -1542,6 +1660,7 @@ int dwabc_isdn_get_net_free_channel(isdn_net_local *lp)
 
 		isdn_net_phone *h = lp->phone[0];
 		int secure = 0;
+		dwabc_check_lchmap();
 
 		for(;retw < 0 && h != NULL && secure < 1000;secure++,h = h->next) {
 
@@ -1551,6 +1670,7 @@ int dwabc_isdn_get_net_free_channel(isdn_net_local *lp)
 			int shl		=	0;
 			ulong bits	=	0;
 			short down  = 	0;
+			driver *dri = NULL;
 
 			for(;p < ep && *p && (*p <= ' ' || *p == '"' || *p == '\'');p++);
 
@@ -1566,37 +1686,68 @@ int dwabc_isdn_get_net_free_channel(isdn_net_local *lp)
 				p++;
 			}
 
-			if((di = get_driverid(lp,p,ep,&bits)) < 0)
+			if((di = get_driverid(lp,p,ep,&bits)) < 0 || di >= ISDN_MAX_DRIVERS)
 				continue;
 
-			if(down) for(shl = 31; shl >= 0  && retw < 0; shl--) {
+			if((dri = dev->drv[di]) == NULL)
+				continue;
+
+			if(down) for(shl = dri->channels -1 ; shl >= 0  && retw < 0; shl--) {
+
+				if(shl >=  ISDN_DW_ABC_MAX_CH_P_RIVER)
+					continue;
 
 				if(bits & (1L << shl)) {
+
+					if(dri->dwabc_lchmap[shl])
+						continue;
 
 					if(isdn_dc2minor(di,shl) < 0)
 						continue;
 
-					retw = isdn_get_free_channel(
+					if((retw = isdn_get_free_channel(
 							ISDN_USAGE_NET,
 							lp->l2_proto,
 							lp->l3_proto,
 							di,
-							shl);
+							9999)) >= 0) {
+
+						int c = dev->chanmap[retw];
+
+						if(c >= 0) {
+
+							dri->dwabc_lchmap[shl] = c + 1;
+							dri->dwabc_lch_use = jiffies;
+						}
+					}
 				}
 
-			} else for(shl = 0; shl < 32 && retw < 0; shl++) {
+			} else for(shl = 0; shl < ISDN_DW_ABC_MAX_CH_P_RIVER && 
+							retw < 0 && shl < dri->channels; shl++) {
 
 				if(bits & (1L << shl)) {
+
+					if(dri->dwabc_lchmap[shl])
+						continue;
 
 					if(isdn_dc2minor(di,shl) < 0)
 						break;
 
-					retw = isdn_get_free_channel(
+					if((retw = isdn_get_free_channel(
 							ISDN_USAGE_NET,
 							lp->l2_proto,
 							lp->l3_proto,
 							di,
-							shl);
+							9999)) >= 0) {
+
+						int c = dev->chanmap[retw];
+
+						if(c >= 0) {
+
+							dri->dwabc_lchmap[shl] = c + 1;
+							dri->dwabc_lch_use = jiffies;
+						}
+					}
 				}
 			}
 		}
@@ -1610,6 +1761,36 @@ int dwabc_isdn_get_net_free_channel(isdn_net_local *lp)
 				lp->l3_proto,
 				lp->pre_device,
 				lp->pre_channel);
+
+		if(retw >= 0) {
+
+			int di = dev->drvmap[retw];
+			int ch = dev->chanmap[retw];
+
+			if(di >= 0 && di < ISDN_MAX_DRIVERS && ch >= 0) {
+
+				driver *dri = dev->drv[di];
+
+				if(dri != NULL) {
+
+					int i;
+
+					for(i = 0; i < dri->channels && i < ISDN_DW_ABC_MAX_CH_P_RIVER;i++) {
+
+						if(!dri->dwabc_lchmap[i]) {
+
+							dri->dwabc_lchmap[i] = ch + 1;
+							dri->dwabc_lch_use = jiffies;
+							break;
+						}
+					}
+				}
+			}
+		}
+
+	} else if(retw < 0 && lp != NULL) {
+
+		printk(KERN_INFO "%s: No free locical Channel found\n",lp->name);
 	}
 
 	return(retw);

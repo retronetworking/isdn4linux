@@ -21,6 +21,10 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.86  1999/12/05 16:06:09  detabc
+ * add resethandling for rawip-compression.
+ * at now all B2-Protocols are usable with rawip-compression
+ *
  * Revision 1.85  1999/11/30 11:29:06  detabc
  * add a on the fly frame-counter and limit
  *
@@ -377,6 +381,7 @@
 #define ISDN_DW_ABC_FLAG_NO_CH_EXTINUSE		0x00000040L
 #define ISDN_DW_ABC_FLAG_NO_CONN_ERROR		0x00000080L
 #define ISDN_DW_ABC_FLAG_BSD_COMPRESS		0x00000100L
+#define ISDN_DW_ABC_FLAG_NO_LCR				0x00000200L
 
 #define ISDN_DW_ABC_IFFLAG_NODCHAN			0x00000001L
 #define ISDN_DW_ABC_IFFLAG_BSDAKTIV			0x00000002L
@@ -385,6 +390,7 @@
 #define ISDN_DW_ABC_BITLOCK_SEND			0
 #define ISDN_DW_ABC_BITLOCK_RECEIVE			1
 
+#define ISDN_DW_ABC_MAX_CH_P_RIVER			(32)
 #endif
 
 
@@ -1000,6 +1006,10 @@ typedef struct {
 	struct wait_queue  **snd_waitq;       /* Wait-Queue for B-Channel-Send's  */
 #endif
 	char               msn2eaz[10][ISDN_MSNLEN];  /* Mapping-Table MSN->EAZ   */
+#ifdef CONFIG_ISDN_WITH_ABC_ICALL_BIND
+	u_char   dwabc_lchmap[ISDN_DW_ABC_MAX_CH_P_RIVER]; /* locically channelmap */
+	u_long 	dwabc_lch_use;				/* lasttime a locical chanelmap was set */
+#endif
 } driver;
 
 /* Main driver-data */
@@ -1043,6 +1053,9 @@ typedef struct isdn_devt {
 	isdn_v110_stream  *v110[ISDN_MAX_CHANNELS];  /* V.110 private data         */
 	struct semaphore  sem;                       /* serialize list access*/
 	isdn_module       *modules;
+#ifdef CONFIG_ISDN_WITH_ABC_ICALL_BIND
+	u_long 			dwabc_lch_check;			/* lasttime a locical chanelmap checked */
+#endif
 } isdn_dev;
 
 extern isdn_dev *dev;
@@ -1068,6 +1081,7 @@ extern void		isdn_dw_abc_lcr_open(void);
 extern void		isdn_dw_abc_lcr_close(void);
 extern void		isdn_dw_abc_lcr_ioctl(u_long);
 extern void 	isdn_dw_abc_lcr_clear(isdn_net_local *);
+extern void		isdn_dw_abc_free_lch_with_pch(int,int);
 #endif
 #ifdef CONFIG_ISDN_WITH_ABC_UDP_CHECK
 extern int dw_abc_udp_test(struct sk_buff *skb,struct net_device *ndev); 

@@ -21,6 +21,10 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.101  1999/12/05 16:06:08  detabc
+ * add resethandling for rawip-compression.
+ * at now all B2-Protocols are usable with rawip-compression
+ *
  * Revision 1.100  1999/12/04 15:05:25  detabc
  * bugfix abc-rawip-bsdcompress with channel-bundeling
  *
@@ -1288,7 +1292,8 @@ isdn_net_dial(void)
 					** if callback-out we dont need 
 					** low-cost-routing LCR
 					*/
-				    if(!(lp->flags & ISDN_NET_CBOUT)) {
+				    if(!(lp->flags & ISDN_NET_CBOUT) &&
+						!(lp->dw_abc_flags & ISDN_DW_ABC_FLAG_NO_LCR)) {
 
 						isdn_dw_abc_lcr_call_number(lp,&cmd);
 						
@@ -2950,13 +2955,6 @@ isdn_net_find_icall(int di, int ch, int idx, setup_parm setup)
 				}
 			}
 #endif
-#ifdef CONFIG_ISDN_WITH_ABC_ICALL_BIND 
-			if(isdn_dwabc_check_icall_bind(lp,di,ch)) {
-
-				p = (isdn_net_dev *) p->next;
-				continue;
-			}
-#endif
 #endif
 			if (dev->usage[idx] & ISDN_USAGE_EXCLUSIVE) {
 				if ((lp->pre_channel != ch) ||
@@ -3187,6 +3185,14 @@ isdn_net_find_icall(int di, int ch, int idx, setup_parm setup)
 						restore_flags(flags);
 						return 3;
 					}}
+#endif
+#ifdef CONFIG_ISDN_WITH_ABC
+#ifdef CONFIG_ISDN_WITH_ABC_ICALL_BIND 
+					if(isdn_dwabc_check_icall_bind(lp,di,ch)) {
+						restore_flags(flags);
+						return 3;
+					}
+#endif
 #endif
 					printk(KERN_DEBUG "%s: call from %s -> %s accepted\n", lp->name, nr,
 					       eaz);
