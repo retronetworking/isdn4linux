@@ -21,6 +21,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.16  1999/09/04 13:44:19  armin
+ * Fix of V.42 analog Modem negotiation handling.
+ *
  * Revision 1.15  1999/08/28 21:32:50  armin
  * Prepared for fax related functions.
  * Now compilable without errors/warnings.
@@ -439,10 +442,19 @@ idi_hangup(eicon_card *card, eicon_chan *chan)
 int
 idi_connect_res(eicon_card *card, eicon_chan *chan)
 {
-  chan->fsm_state = EICON_STATE_IWAIT;
-  idi_do_req(card, chan, CALL_RES, 0);
-  idi_do_req(card, chan, ASSIGN, 1);
-  return(0);
+	chan->fsm_state = EICON_STATE_IWAIT;
+	idi_do_req(card, chan, CALL_RES, 0);
+	
+	/* check if old NetID has been removed */
+	if (chan->e.B2Id) {
+		if (DebugVar & 1)
+			printk(KERN_WARNING "idi_err: Ch%d: Old NetID %x was not removed.\n",
+				chan->No, chan->e.B2Id);
+		idi_do_req(card, chan, REMOVE, 1);
+	}
+
+	idi_do_req(card, chan, ASSIGN, 1);
+	return(0);
 }
 
 int
@@ -1202,7 +1214,6 @@ idi_handle_ind(eicon_card *ccard, struct sk_buff *skb)
 				chan->queued = 0;
 				chan->waitq = 0;
 				chan->waitpq = 0;
-				chan->fsm_state = EICON_STATE_NULL;
 				if (message.e_cau[0] & 0x7f) {
 					cmd.driver = ccard->myid;
 					cmd.arg = chan->No;
@@ -1212,15 +1223,23 @@ idi_handle_ind(eicon_card *ccard, struct sk_buff *skb)
 					ccard->interface.statcallb(&cmd);
 				}
 				chan->cause[0] = 0; 
-				cmd.driver = ccard->myid;
-				cmd.arg = chan->No;
-				cmd.command = ISDN_STAT_DHUP;
-				ccard->interface.statcallb(&cmd);
-				eicon_idi_listen_req(ccard, chan);
 #ifdef CONFIG_ISDN_TTY_FAX
 				if (!chan->e.B2Id)
 					chan->fax = 0;
 #endif
+				if ((chan->fsm_state == EICON_STATE_ACTIVE) ||
+				    (chan->fsm_state == EICON_STATE_WMCONN)) {
+					chan->fsm_state = EICON_STATE_NULL;
+				} else {
+					if (chan->e.B2Id)
+						idi_do_req(ccard, chan, REMOVE, 1);
+					chan->fsm_state = EICON_STATE_NULL;
+					cmd.driver = ccard->myid;
+					cmd.arg = chan->No;
+					cmd.command = ISDN_STAT_DHUP;
+					ccard->interface.statcallb(&cmd);
+					eicon_idi_listen_req(ccard, chan);
+				}
 				break;
 			case INDICATE_IND:
 				if (DebugVar & 8)
@@ -1319,6 +1338,15 @@ idi_handle_ind(eicon_card *ccard, struct sk_buff *skb)
 					cmd.command = ISDN_STAT_DCONN;
 					cmd.arg = chan->No;
 					ccard->interface.statcallb(&cmd);
+
+					/* check if old NetID has been removed */
+					if (chan->e.B2Id) {
+						if (DebugVar & 1)
+							printk(KERN_WARNING "idi_err: Ch%d: Old NetID %x was not removed.\n",
+								chan->No, chan->e.B2Id);
+						idi_do_req(ccard, chan, REMOVE, 1);
+					}
+
 					idi_do_req(ccard, chan, ASSIGN, 1); 
 					idi_do_req(ccard, chan, IDI_N_CONNECT, 1);
 #ifdef CONFIG_ISDN_TTY_FAX
@@ -1422,6 +1450,7 @@ idi_handle_ind(eicon_card *ccard, struct sk_buff *skb)
 					cmd.command = ISDN_STAT_BHUP;
 					cmd.arg = chan->No;
 					ccard->interface.statcallb(&cmd);
+					chan->fsm_state = EICON_STATE_NULL;
 				}
 #ifdef CONFIG_ISDN_TTY_FAX
 				chan->fax = 0;
