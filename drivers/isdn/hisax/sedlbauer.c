@@ -15,6 +15,9 @@
  *            Edgar Toernig
  *
  * $Log$
+ * Revision 1.1.2.7  1998/09/27 13:07:01  keil
+ * Apply most changes from 2.1.X (HiSax 3.1)
+ *
  * Revision 1.1.2.6  1998/09/12 18:44:06  niemann
  * Added new card: Sedlbauer ISDN-Controller PC/104
  *
@@ -395,6 +398,8 @@ reset_sedlbauer(struct IsdnCardState *cs)
 {
 	long flags;
 
+	printk(KERN_INFO "Sedlbauer %s: resetting card\n",
+		Sedlbauer_Types[cs->subtyp]);
 	if (cs->subtyp != SEDL_SPEED_STAR) {
 		if (cs->subtyp == SEDL_SPEED_PC104)
 			writereg(cs->hw.sedl.adr, cs->hw.sedl.isac, IPAC_POTA2, 0x20);
@@ -556,6 +561,7 @@ setup_sedlbauer(struct IsdnCard *card))
                 cs->writeisacfifo = &WriteISACfifo_IPAC;
                 printk(KERN_INFO "Sedlbauer %s: IPAC version %x\n",
 			Sedlbauer_Types[cs->subtyp], val);
+		reset_sedlbauer(cs);
 	} else {
 		cs->readisac = &ReadISAC;
 		cs->writeisac = &WriteISAC;
@@ -581,10 +587,8 @@ setup_sedlbauer(struct IsdnCard *card))
 				release_io_sedlbauer(cs);
 				return (0);
 			}
+			reset_sedlbauer(cs);
 		}
 	}
-	printk(KERN_INFO "Sedlbauer %s: resetting card\n",
-			Sedlbauer_Types[cs->subtyp]);
-	reset_sedlbauer(cs);
 	return (1);
 }

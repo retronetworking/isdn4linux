@@ -3,6 +3,9 @@
  *   Basic declarations, defines and prototypes
  *
  * $Log$
+ * Revision 1.13.2.14  1998/09/27 13:06:09  keil
+ * Apply most changes from 2.1.X (HiSax 3.1)
+ *
  * Revision 1.13.2.13  1998/08/25 14:01:30  calle
  * Ported driver for AVM Fritz!Card PCI from the 2.1 tree.
  * I could not test it.
@@ -361,6 +364,13 @@ struct hscx_hw {
 	u_char *rcvbuf;         /* B-Channel receive Buffer */
 };
 
+struct isar_hw {
+	int dpath;
+	int rcvidx;
+	int txcnt;
+	u_char *rcvbuf;         /* B-Channel receive Buffer */
+};
+
 struct hdlc_hw {
 	u_int ctrl;
 	u_int stat;
@@ -439,6 +449,7 @@ struct BCState {
 	union {
 		struct hscx_hw hscx;
 		struct hdlc_hw hdlc;
+		struct isar_hw isar;
 		struct hfcB_hw hfc;
 		struct tiger_hw tiger;
 		struct amd7930_hw  amd7930;
@@ -561,6 +572,11 @@ struct sedl_hw {
 	unsigned int isar;
 	unsigned int reset_on;
 	unsigned int reset_off;
+	volatile u_char bstat;
+	volatile u_char iis;
+	volatile u_char cmsb;
+	volatile u_char clsb;
+	volatile u_char par[8];
 };
 
 struct spt_hw {

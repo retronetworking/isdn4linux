@@ -5,6 +5,9 @@
  *
  *
  * $Log$
+ * Revision 1.1.2.1  1998/09/27 13:01:44  keil
+ * Start support for ISAR based cards
+ *
  * Revision 1.1  1998/08/13 23:33:48  keil
  * First version, only init
  *
@@ -35,6 +38,7 @@
 #define ISAR_IIS_FIRM	0x1f
 #define ISAR_IIS_STDSP  0x09
 #define ISAR_IIS_DIAG	0x25
+#define ISAR_IIS_GSTEV	0x0
 
 #define ISAR_CTRL_SWVER	0x10
 #define ISAR_CTRL_STST	0x40
@@ -42,9 +46,6 @@
 #define ISAR_MSG_HWVER	{0x20, 0, 1}
 
 extern int ISARVersion(struct IsdnCardState *cs, char *s);
-extern int sendmsg(struct IsdnCardState *cs, u_char his, u_char creg,
-			u_char len, u_char *msg);
-extern int receivemsg(struct IsdnCardState *cs, u_char *his, u_char *creg,
-			u_char *len, u_char *msg);
 extern int isar_load_firmware(struct IsdnCardState *cs, u_char *buf);
 extern void isar_int_main(struct IsdnCardState *cs);
+extern void initisar(struct IsdnCardState *cs);
