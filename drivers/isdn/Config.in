@@ -120,7 +120,7 @@ dep_tristate 'Eicon active card support' CONFIG_ISDN_DRV_EICON $CONFIG_ISDN
 if [ "$CONFIG_ISDN_DRV_EICON" != "n" ]; then
    if [ "$CONFIG_ISDN_DRV_EICON_STANDALONE" != "y" ]; then
       if [ "$CONFIG_PCI" = "y" ]; then
-         bool '    Eicon PCI DIVA Server BRI/PRI support' CONFIG_ISDN_DRV_EICON_PCI
+         bool '    Eicon PCI DIVA Server BRI/PRI/4BRI support' CONFIG_ISDN_DRV_EICON_PCI
       fi
       bool '    Eicon S,SX,SCOM,Quadro,S2M support' CONFIG_ISDN_DRV_EICON_ISA
    fi
