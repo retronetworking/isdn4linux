@@ -226,7 +226,7 @@ static char dtmf_matrix[4][4] =
 };
 
 static inline void
-isdn_audio_tlookup(const void *table, void *buff, unsigned long n)
+isdn_audio_tlookup(const u_char *table, u_char *buff, unsigned long n)
 {
 #ifdef __i386__
 	unsigned long d0, d1, d2, d3;
