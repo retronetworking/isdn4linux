@@ -27,6 +27,10 @@
 #include "capicmd.h"
 #include "capiutil.h"
 
+#if BITS_PER_LONG != 32
+#error FIXME: driver requires 32-bit platform
+#endif
+
 static char *revision = "$Revision$";
 
 /* ------------------------------------------------------------- */
