@@ -594,7 +594,6 @@ int diva_os_schedule_soft_isr(diva_os_soft_isr_t * psoft_isr)
 
 int diva_os_cancel_soft_isr(diva_os_soft_isr_t * psoft_isr)
 {
-	flush_scheduled_work();
 	return (0);
 }
 
