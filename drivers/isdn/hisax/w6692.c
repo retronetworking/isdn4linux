@@ -8,6 +8,10 @@
  *              This file is (c) under GNU PUBLIC LICENSE
  *
  * $Log$
+ * Revision 1.5  2000/06/18 16:15:56  keil
+ * - 2.4 PCI changes
+ * - Changes for Power PC with BIG ENDIAN
+ *
  * Revision 1.4  2000/03/16 23:24:11  werner
  *
  * Fixed an additional location
@@ -266,7 +270,7 @@ W6692B_empty_fifo(struct BCState *bcs, int count)
 	if (bcs->hw.w6692.rcvidx + count > HSCX_BUFMAX) {
 		if (cs->debug & L1_DEB_WARN)
 			debugl1(cs, "W6692B_empty_fifo: incoming packet too large");
-		cs->BC_Write_Reg(cs, bcs->hw.w6692.bchan, W_B_CMDR, W_B_CMDR_RACK | W_B_CMDR_RACT);
+		cs->BC_Write_Reg(cs, bcs->channel, W_B_CMDR, W_B_CMDR_RACK | W_B_CMDR_RACT);
 		bcs->hw.w6692.rcvidx = 0;
 		return;
 	}
@@ -274,14 +278,14 @@ W6692B_empty_fifo(struct BCState *bcs, int count)
 	bcs->hw.w6692.rcvidx += count;
 	save_flags(flags);
 	cli();
-	READW6692BFIFO(cs, bcs->hw.w6692.bchan, ptr, count);
-	cs->BC_Write_Reg(cs, bcs->hw.w6692.bchan, W_B_CMDR, W_B_CMDR_RACK | W_B_CMDR_RACT);
+	READW6692BFIFO(cs, bcs->channel, ptr, count);
+	cs->BC_Write_Reg(cs, bcs->channel, W_B_CMDR, W_B_CMDR_RACK | W_B_CMDR_RACT);
 	restore_flags(flags);
 	if (cs->debug & L1_DEB_HSCX_FIFO) {
 		char *t = bcs->blog;
 
 		t += sprintf(t, "W6692B_empty_fifo %c cnt %d",
-			     bcs->hw.w6692.bchan ? 'B' : 'A', count);
+			     bcs->channel + '1', count);
 		QuickHex(t, ptr, count);
 		debugl1(cs, bcs->blog);
 	}
@@ -317,14 +321,14 @@ W6692B_fill_fifo(struct BCState *bcs)
 	skb_pull(bcs->tx_skb, count);
 	bcs->tx_cnt -= count;
 	bcs->hw.w6692.count += count;
-	WRITEW6692BFIFO(cs, bcs->hw.w6692.bchan, ptr, count);
-	cs->BC_Write_Reg(cs, bcs->hw.w6692.bchan, W_B_CMDR, W_B_CMDR_RACT | W_B_CMDR_XMS | (more ? 0 : W_B_CMDR_XME));
+	WRITEW6692BFIFO(cs, bcs->channel, ptr, count);
+	cs->BC_Write_Reg(cs, bcs->channel, W_B_CMDR, W_B_CMDR_RACT | W_B_CMDR_XMS | (more ? 0 : W_B_CMDR_XME));
 	restore_flags(flags);
 	if (cs->debug & L1_DEB_HSCX_FIFO) {
 		char *t = bcs->blog;
 
 		t += sprintf(t, "W6692B_fill_fifo %c cnt %d",
-			     bcs->hw.w6692.bchan ? 'B' : 'A', count);
+			     bcs->channel + '1', count);
 		QuickHex(t, ptr, count);
 		debugl1(cs, bcs->blog);
 	}
@@ -335,13 +339,11 @@ W6692B_interrupt(struct IsdnCardState *cs, u_char bchan)
 {
 	u_char val;
 	u_char r;
-	struct BCState *bcs = cs->bcs;
+	struct BCState *bcs;
 	struct sk_buff *skb;
 	int count;
 
-	if (bcs->channel != bchan)
-	  bcs++; /* hardware bchan must match ! */
-
+	bcs = (cs->bcs->channel == bchan) ? cs->bcs : (cs->bcs+1);
 	val = cs->BC_Read_Reg(cs, bchan, W_B_EXIR);
 	debugl1(cs, "W6692B chan %d B_EXIR 0x%02X", bchan, val);
 
@@ -430,7 +432,7 @@ W6692B_interrupt(struct IsdnCardState *cs, u_char bchan)
 				bcs->tx_cnt += bcs->hw.w6692.count;
 				bcs->hw.w6692.count = 0;
 			}
-			cs->BC_Write_Reg(cs, bcs->hw.w6692.bchan, W_B_CMDR, W_B_CMDR_XRST | W_B_CMDR_RACT);
+			cs->BC_Write_Reg(cs, bchan, W_B_CMDR, W_B_CMDR_XRST | W_B_CMDR_RACT);
 			if (cs->debug & L1_DEB_WARN)
 				debugl1(cs, "W6692 B EXIR %x Lost TX", val);
 		}
@@ -755,18 +757,16 @@ dbusy_timer_handler(struct IsdnCardState *cs)
 }
 
 static void
-W6692Bmode(struct BCState *bcs, int mode, int bc)
+W6692Bmode(struct BCState *bcs, int mode, int bchan)
 {
 	struct IsdnCardState *cs = bcs->cs;
-	int bchan = bc;
-
-	bcs->hw.w6692.bchan = bc;
 
 	if (cs->debug & L1_DEB_HSCX)
 		debugl1(cs, "w6692 %c mode %d ichan %d",
-			'1' + bchan, mode, bc);
+			'1' + bchan, mode, bchan);
 	bcs->mode = mode;
-	bcs->channel = bc;
+	bcs->channel = bchan;
+	bcs->hw.w6692.bchan = bchan;
 
 	switch (mode) {
 		case (L1_MODE_NULL):
@@ -942,8 +942,6 @@ HISAX_INITFUNC(void initW6692(struct IsdnCardState *cs, int part))
 		cs->bcs[1].BC_SetStack = setstack_w6692;
 		cs->bcs[0].BC_Close = close_w6692state;
 		cs->bcs[1].BC_Close = close_w6692state;
-		cs->bcs[0].hw.w6692.bchan = 0;
-		cs->bcs[1].hw.w6692.bchan = 1;
 		W6692Bmode(cs->bcs, 0, 0);
 		W6692Bmode(cs->bcs + 1, 0, 0);
 	}
