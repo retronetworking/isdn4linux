@@ -7,6 +7,7 @@ struct hdlc_vars {
 	int data_bits;
 	int ffbit_shift; // encoding only
 	int state;
+	int dstpos;
 
 	int data_received:1; // set if transferring data
 	int dchannel:1; // set if D channel (send idle instead of flags)

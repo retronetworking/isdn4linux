@@ -84,6 +84,7 @@ hdlc_rcv_init(struct hdlc_vars *hdlc, int do_adapt56)
 	hdlc->cbin = 0;
 	hdlc->shift_reg = 0;
 	hdlc->ffvalue = 0;
+	hdlc->dstpos = 0;
 }
 
 void 
@@ -159,7 +160,7 @@ hdlc_decode(struct hdlc_vars *hdlc, const unsigned char *src, int slen, int *cou
 	};
 
 	static const unsigned char fast_abort[]={
-		0x00,0x00,0x80,0xc0,0xe0,0xf0,0xf8,0xfc,0xfe
+		0x00,0x00,0x80,0xc0,0xe0,0xf0,0xf8,0xfc,0xfe,0xff
 	};
 
 	*count = slen;
@@ -234,7 +235,7 @@ hdlc_decode(struct hdlc_vars *hdlc, const unsigned char *src, int slen, int *cou
 				case 7:
 					if(hdlc->data_received) {
 						// bad frame
-						status = status | HDLC_FRAMING_ERROR;
+						status = HDLC_FRAMING_ERROR;
 					}
 					if(!hdlc->do_adapt56){
 						if(hdlc->cbin==fast_abort[hdlc->bit_shift+1]){
@@ -260,12 +261,12 @@ hdlc_decode(struct hdlc_vars *hdlc, const unsigned char *src, int slen, int *cou
 					if(hdlc->data_received){
 						if(hdlc->crc != 0xf0b8){
 							// crc error
-							status |= HDLC_CRC_ERROR;
+							status = HDLC_CRC_ERROR;
 						} else {
 							// remove CRC
-							status -= 2;
+							hdlc->dstpos -= 2;
 							// good frame
-							status |= HDLC_END_OF_FRAME;
+							status = hdlc->dstpos | HDLC_END_OF_FRAME;
 						}
 					}
 					hdlc->crc = 0xffff;
@@ -294,6 +295,7 @@ hdlc_decode(struct hdlc_vars *hdlc, const unsigned char *src, int slen, int *cou
 				hdlc->hdlc_bits1 = 0;
 			}
 			if (status & 0xF000) {
+				hdlc->dstpos = 0;
 				*count -= slen;
 				hdlc->cbin <<= 1;
 				hdlc->bit_shift--;
@@ -308,11 +310,11 @@ hdlc_decode(struct hdlc_vars *hdlc, const unsigned char *src, int slen, int *cou
 				hdlc->crc = (hdlc->crc>>8)^crc16_tab[cval];
 				// good byte received
 				if (dsize--) {
-					*dst++ = hdlc->shift_reg;
-					status++;
+					dst[hdlc->dstpos++] = hdlc->shift_reg;
 				} else {
 					// frame too long
-					status |= HDLC_LENGTH_ERROR;
+					status = HDLC_LENGTH_ERROR;
+					hdlc->dstpos = 0;
 				}
 			}
 			hdlc->cbin <<= 1;
@@ -344,7 +346,7 @@ hdlc_decode(struct hdlc_vars *hdlc, const unsigned char *src, int slen, int *cou
 		}
 	}
 	*count -= slen;
-	return status;
+	return 0;
 }
 
 /*

@@ -835,16 +835,14 @@ usb_b_in_complete(struct urb *urb)
 			len = 0;
 		} else {
 			status = hdlc_decode(hw->hdlc_state_in, ptr, len, &count,
-					     hw->rcvbuf + hw->rcvidx, HSCX_BUFMAX - hw->rcvidx);
+					     hw->rcvbuf, HSCX_BUFMAX);
 			ptr += count;
 			len -= count;
 		}
 		
-		count = status & 0x0FFF;
 		if (status & HDLC_END_OF_FRAME) {
 			// Good frame received
-			count += hw->rcvidx;
-			hw->rcvidx = 0;
+			count = status & 0x0FFF;
 			DBG(4,"B%d,count=%d",bcs->channel+1,count);
 			DUMP_PACKET(0x10, hw->rcvbuf, count);
 			if (bcs->cs->debug & L1_DEB_HSCX_FIFO)
@@ -858,21 +856,14 @@ usb_b_in_complete(struct urb *urb)
 			st5481B_sched_event(bcs, B_RCVBUFREADY);
 		} else if (status & HDLC_CRC_ERROR) {
 			WARN("CRC error");
-			DUMP_PACKET(4, hw->rcvbuf, count+hw->rcvidx+2);
 #ifdef ERROR_STATISTIC
 			++bcs->err_crc;
 #endif		
-			hw->rcvidx = 0;
 		} else if (status & (HDLC_FRAMING_ERROR | HDLC_LENGTH_ERROR)) {
 			WARN("framing/length error");
-			DUMP_PACKET(4, hw->rcvbuf, count+hw->rcvidx+2);
 #ifdef ERROR_STATISTIC
 			++bcs->err_inv;
 #endif
-			hw->rcvidx = 0;
-		} else {
-			// Good frame received
-			hw->rcvidx += count;
 		}
 	}
 
@@ -1035,14 +1026,12 @@ usb_d_in_complete(struct urb *urb)
 	ptr = urb->transfer_buffer;
 	while (len > 0) {
 		status = hdlc_decode(hw->hdlc_state_in, ptr, len, &count,
-				     cs->rcvbuf + cs->rcvidx, MAX_DFRAME_LEN_L1 - cs->rcvidx);
+				     cs->rcvbuf, MAX_DFRAME_LEN_L1);
 		ptr += count;
 		len -= count;
 		
-		count = status & 0x0FFF;
 		if (status & HDLC_END_OF_FRAME) {
-			count += cs->rcvidx;
-			cs->rcvidx = 0;
+			count = status & 0x0FFF;
 			DBG(2,"count=%d",count);
 			DUMP_PACKET(0x10, cs->rcvbuf, count);
 			// Good frame received
@@ -1055,25 +1044,18 @@ usb_d_in_complete(struct urb *urb)
 			st5481_sched_event(cs, D_RCVBUFREADY);
 		} else if (status & HDLC_CRC_ERROR) {
 			WARN("CRC error");
-			DUMP_PACKET(2, cs->rcvbuf, count+cs->rcvidx+2);
 			if (cs->debug & L1_DEB_WARN)
 				debugl1(cs, "st5481 CRC error");
 #ifdef ERROR_STATISTIC
 			cs->err_crc++;
 #endif
-			cs->rcvidx = 0;
 		} else if (status & (HDLC_FRAMING_ERROR | HDLC_LENGTH_ERROR)) {
 			WARN("framing/length error");
-			DUMP_PACKET(2, cs->rcvbuf, count+cs->rcvidx+2);
 			if (cs->debug & L1_DEB_WARN)
 				debugl1(cs, "st5481 framing/length error");
 #ifdef ERROR_STATISTIC
 			cs->err_rx++;
 #endif
-			cs->rcvidx = 0;
-		} else {
-			// Good frame received
-			cs->rcvidx += count;
 		}
 	}
 
