@@ -22,6 +22,13 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.20  1997/05/27 15:18:06  fritz
+ * Added changes for recent 2.1.x kernels:
+ *   changed return type of isdn_close
+ *   queue_task_* -> queue_task
+ *   clear/set_bit -> test_and_... where apropriate.
+ *   changed type of hard_header_cache parameter.
+ *
  * Revision 1.19  1997/03/25 23:13:56  keil
  * NI-1 US protocol
  *
@@ -159,6 +166,13 @@
 #define ISDN_STAT_NODCH   268    /* Signal no D-Channel                   */
 #define ISDN_STAT_ADDCH   269    /* Add more Channels                     */
 #define ISDN_STAT_CAUSE   270    /* Cause-Message                         */
+#define ISDN_STAT_L1ERR   271    /* Signal Layer-1 Error                  */
+
+/*
+ * Values for errcode field
+ */
+#define ISDN_STAT_L1ERR_SEND 1
+#define ISDN_STAT_L1ERR_RECV 2
 
 /*
  * Values for feature-field of interface-struct.
@@ -197,6 +211,8 @@ typedef struct {
   int   command;                 /* Command or Status (see above)         */
   ulong arg;                     /* Additional Data                       */
   union {
+	ulong errcode;               /* Type of error with STAT_L1ERR         */
+	int   length;                /* Amount of bytes sent with STAT_BSENT  */
 	char  num[50];               /* Additional Data                       */
 	setup_parm setup;
   } parm;
@@ -231,19 +247,6 @@ typedef struct {
    */
   unsigned short hl_hdrlen;
 
-  /* Receive-Callback
-   * Parameters:
-   *             int    Driver-ID
-   *             int    local channel-number (0 ...)
-   *             u_char pointer to received data (in Kernel-Space, volatile)
-   *             int    length of data
-   *
-   * NOTE: This callback is obsolete, and will be removed when all
-   *       current LL-drivers support rcvcall_skb. Do NOT use for new
-   *       drivers.
-   */
-  void (*rcvcallb)(int, int, u_char*, int);
-
   /*
    * Receive-Callback using sk_buff's
    * Parameters:
@@ -262,6 +265,7 @@ typedef struct {
    *                   num     = depending on status-type.
    */
   int (*statcallb)(isdn_ctrl*);
+
   /* Send command
    * Parameters:
    *             isdn_ctrl*
@@ -271,31 +275,16 @@ typedef struct {
    *                   num     = depending on command.
    */
   int (*command)(isdn_ctrl*);
-  /* Send Data
-   * Parameters:
-   *             int    driverId
-   *             int    local channel-number (0 ...)
-   *             u_char pointer to data
-   *             int    length of data
-   *             int    Flag: 0 = Call form Kernel-Space (use memcpy,
-   *                              no schedule allowed) 
-   *                          1 = Data is in User-Space (use memcpy_fromfs,
-   *                              may schedule)
-   *
-   * NOTE: This call is obsolete, and will be removed when all
-   *       current LL-drivers support writebuf_skb. Do NOT use for new
-   *       drivers.
-   */
-  int (*writebuf)(int, int, const u_char*, int, int);
 
   /*
    * Send data using sk_buff's
    * Parameters:
    *             int                    driverId
    *             int                    local channel-number (0...)
+   *             int                    Flag: Need ACK for this packet.
    *             struct sk_buff *skb    Data to send
    */
-  int (*writebuf_skb) (int, int, struct sk_buff *);
+  int (*writebuf_skb) (int, int, int, struct sk_buff *);
 
   /* Send raw D-Channel-Commands
    * Parameters:
@@ -309,6 +298,7 @@ typedef struct {
    *             int    local channel-number (0 ...)
    */
   int (*writecmd)(const u_char*, int, int, int, int);
+
   /* Read raw Status replies
    *             u_char pointer data (volatile)
    *             int    length of buffer
@@ -320,6 +310,7 @@ typedef struct {
    *             int    local channel-number (0 ...)
    */
   int (*readstat)(u_char*, int, int, int, int);
+
   char id[20];
 } isdn_if;
 
@@ -332,8 +323,7 @@ typedef struct {
  *              supporting sk_buff's should set this to 0.
  * command      Address of Command-Handler.
  * features     Bitwise coded Features of this driver. (use ISDN_FEATURE_...)
- * writebuf     Address of Send-Command-Handler. OBSOLETE do NOT use anymore.
- * writebuf_skb Address of Skbuff-Send-Handler. (NULL if not supported)
+ * writebuf_skb Address of Skbuff-Send-Handler.
  * writecmd        "    "  D-Channel  " which accepts raw D-Ch-Commands.
  * readstat        "    "  D-Channel  " which delivers raw Status-Data.
  *
@@ -341,72 +331,16 @@ typedef struct {
  *
  * channels      Driver-ID assigned to this driver. (Must be used on all
  *               subsequent callbacks.
- * rcvcallb      Address of handler for received data. OBSOLETE, do NOT use anymore.
- * rcvcallb_skb  Address of handler for received Skbuff's. (NULL if not supp.)
+ * rcvcallb_skb  Address of handler for received Skbuff's.
  * statcallb        "    "     "    for status-changes.
  *
  */
 extern int register_isdn(isdn_if*);
 
-/* Compatibility Linux-2.0.X <-> Linux-2.1.X */
-
 #ifndef LINUX_VERSION_CODE
 #include <linux/version.h>
 #endif
-#if (LINUX_VERSION_CODE < 0x020100)
-#include <linux/mm.h>
-
-static inline unsigned long copy_from_user(void *to, const void *from, unsigned long n)
-{
-	int i;
-	if ((i = verify_area(VERIFY_READ, from, n)) != 0)
-		return i;
-	memcpy_fromfs(to, from, n);
-	return 0;
-}
-
-static inline unsigned long copy_to_user(void *to, const void *from, unsigned long n)
-{
-	int i;
-	if ((i = verify_area(VERIFY_WRITE, to, n)) != 0)
-		return i;
-	memcpy_tofs(to, from, n);
-	return 0;
-}
-
-#define GET_USER(x, addr) ( x = get_user(addr) )
-#define RWTYPE int
-#define LSTYPE int
-#define RWARG int
-#define LSARG off_t
-#else
 #include <asm/uaccess.h>
-#define GET_USER get_user
-#define PUT_USER put_user
-#define RWTYPE long
-#define LSTYPE long long
-#define RWARG unsigned long
-#define LSARG long long
-#endif
-
-#if (LINUX_VERSION_CODE < 0x02010F)
-#define SET_SKB_FREE(x) ( x->free = 1 )
-#else
-#define SET_SKB_FREE(x)
-#endif
-
-#if (LINUX_VERSION_CODE < 0x02011F)
-#define CLOSETYPE void
-#define CLOSEVAL
-#else
-#define CLOSETYPE int
-#define CLOSEVAL (0)
-#endif
-
-#if (LINUX_VERSION_CODE < 0x020125)
-#define test_and_clear_bit clear_bit
-#define test_and_set_bit set_bit
-#endif
 
 #endif /* __KERNEL__ */
 #endif /* isdnif_h */

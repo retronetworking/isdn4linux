@@ -21,6 +21,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.33  1997/08/21 14:44:22  fritz
+ * Moved triggercps to end of struct for backwards-compatibility.
+ *
  * Revision 1.32  1997/08/21 09:49:46  fritz
  * Increased NET_DV
  *
@@ -190,12 +193,13 @@
 #define IIOCDRVCTL  _IO('I',128)
 
 /* Packet encapsulations for net-interfaces */
-#define ISDN_NET_ENCAP_ETHER     0
-#define ISDN_NET_ENCAP_RAWIP     1
-#define ISDN_NET_ENCAP_IPTYP     2
-#define ISDN_NET_ENCAP_CISCOHDLC 3
-#define ISDN_NET_ENCAP_SYNCPPP   4
-#define ISDN_NET_ENCAP_UIHDLC    5
+#define ISDN_NET_ENCAP_ETHER      0
+#define ISDN_NET_ENCAP_RAWIP      1
+#define ISDN_NET_ENCAP_IPTYP      2
+#define ISDN_NET_ENCAP_CISCOHDLC  3 /* Without SLARP and keepalive */
+#define ISDN_NET_ENCAP_SYNCPPP    4
+#define ISDN_NET_ENCAP_UIHDLC     5
+#define ISDN_NET_ENCAP_CISCOHDLCK 6 /* With SLARP and keepalive    */
 
 /* Facility which currently uses an ISDN-channel */
 #define ISDN_USAGE_NONE       0
@@ -327,21 +331,23 @@ typedef struct {
                              ((x & ISDN_USAGE_MASK)==ISDN_USAGE_VOICE)     )
 
 /* Timer-delays and scheduling-flags */
-#define ISDN_TIMER_RES       3                     /* Main Timer-Resolution  */
-#define ISDN_TIMER_02SEC     (HZ/(ISDN_TIMER_RES+1)/5) /* Slow-Timer1 .2 sec */
-#define ISDN_TIMER_1SEC      (HZ/(ISDN_TIMER_RES+1)) /* Slow-Timer2 1 sec   */
-#define ISDN_TIMER_RINGING   5 /* tty RINGs = ISDN_TIMER_1SEC * this factor */
-#define ISDN_TIMER_MODEMREAD 1
-#define ISDN_TIMER_MODEMPLUS 2
-#define ISDN_TIMER_MODEMRING 4
-#define ISDN_TIMER_MODEMXMIT 8
-#define ISDN_TIMER_NETDIAL   16
-#define ISDN_TIMER_NETHANGUP 32
-#define ISDN_TIMER_IPPP      64
+#define ISDN_TIMER_RES         3                         /* Main Timer-Resolution   */
+#define ISDN_TIMER_02SEC       (HZ/(ISDN_TIMER_RES+1)/5) /* Slow-Timer1 .2 sec      */
+#define ISDN_TIMER_1SEC        (HZ/(ISDN_TIMER_RES+1))   /* Slow-Timer2 1 sec       */
+#define ISDN_TIMER_RINGING     5 /* tty RINGs = ISDN_TIMER_1SEC * this factor       */
+#define ISDN_TIMER_KEEPINT    10 /* Cisco-Keepalive = ISDN_TIMER_1SEC * this factor */
+#define ISDN_TIMER_MODEMREAD   1
+#define ISDN_TIMER_MODEMPLUS   2
+#define ISDN_TIMER_MODEMRING   4
+#define ISDN_TIMER_MODEMXMIT   8
+#define ISDN_TIMER_NETDIAL    16 
+#define ISDN_TIMER_NETHANGUP  32
+#define ISDN_TIMER_IPPP       64 
+#define ISDN_TIMER_KEEPALIVE 128 /* Cisco-Keepalive */
 #define ISDN_TIMER_FAST      (ISDN_TIMER_MODEMREAD | ISDN_TIMER_MODEMPLUS | \
                               ISDN_TIMER_MODEMXMIT)
 #define ISDN_TIMER_SLOW      (ISDN_TIMER_MODEMRING | ISDN_TIMER_NETHANGUP | \
-                              ISDN_TIMER_NETDIAL)
+                              ISDN_TIMER_NETDIAL | ISDN_TIMER_KEEPALIVE)
 
 /* Timeout-Values for isdn_net_dial() */
 #define ISDN_TIMER_DTIMEOUT10 (10*HZ/(ISDN_TIMER_02SEC*(ISDN_TIMER_RES+1)))
@@ -436,30 +442,18 @@ typedef struct isdn_net_local_s {
   struct isdn_net_dev_s  *netdev;      /* Ptr to netdev                    */
   struct sk_buff         *first_skb;   /* Ptr to skb that triggers dialing */
   struct sk_buff         *sav_skb;     /* Ptr to skb, rejected by LL-driver*/
-#if (LINUX_VERSION_CODE < 0x02010F)
-                                       /* Ptr to orig. header_cache_bind   */
-  void                   (*org_hcb)(struct hh_cache **,
-				    struct device *,
-                                    unsigned short, 
-				    __u32);
-#else
-#if (LINUX_VERSION_CODE < 0x2011E)
-                                       /* Ptr to orig. hard_header_cache   */
-  int                    (*org_hhc)(struct dst_entry *dst,
-				    struct dst_entry *neigh,
-				    struct hh_cache *hh);
-#else
                                        /* Ptr to orig. hard_header_cache   */
   int                    (*org_hhc)(struct dst_entry *dst,
 				    struct neighbour *neigh,
 				    struct hh_cache *hh);
-#endif
-#endif
                                        /* Ptr to orig. header_cache_update */
   void                   (*org_hcu)(struct hh_cache *,
 				    struct device *,
                                     unsigned char *);
   int  pppbind;                        /* ippp device for bindings         */
+  int  cisco_loop;                     /* Loop counter for Cisco-SLARP     */
+  ulong cisco_myseq;                   /* Local keepalive seq. for Cisco   */
+  ulong cisco_yourseq;                 /* Remote keepalive seq. for Cisco  */
 } isdn_net_local;
 
 #ifdef CONFIG_ISDN_PPP
@@ -476,7 +470,7 @@ struct ippp_bundle {
 
 /* the interface itself */
 typedef struct isdn_net_dev_s {
-  isdn_net_local  local;
+  isdn_net_local *local;
   isdn_net_local *queue;
   void           *next;                /* Pointer to next isdn-interface   */
   struct device   dev;	               /* interface to upper levels        */

@@ -21,6 +21,11 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.46  1997/10/01 09:20:27  fritz
+ * Removed old compatibility stuff for 2.0.X kernels.
+ * From now on, this code is for 2.1.X ONLY!
+ * Old stuff is still in the separate branch.
+ *
  * Revision 1.45  1997/08/21 23:11:41  fritz
  * Added changes for kernels >= 2.1.45
  *
@@ -288,6 +293,7 @@ isdn_dc2minor(int di, int ch)
 static int isdn_timer_cnt1 = 0;
 static int isdn_timer_cnt2 = 0;
 static int isdn_timer_cnt3 = 0;
+static int isdn_timer_cnt4 = 0;
 
 static void
 isdn_timer_funct(ulong dummy)
@@ -316,6 +322,11 @@ isdn_timer_funct(ulong dummy)
 				isdn_timer_cnt3 = 0;
 				if (tf & ISDN_TIMER_MODEMRING)
 					isdn_tty_modem_ring();
+			}
+			if (++isdn_timer_cnt4 > ISDN_TIMER_KEEPINT) {
+				isdn_timer_cnt4 = 0;
+				if (tf & ISDN_TIMER_KEEPALIVE)
+					isdn_net_slarp_out();
 			}
 #if (defined CONFIG_ISDN_PPP) && (defined CONFIG_ISDN_MPP)
 			if (tf & ISDN_TIMER_IPPP)
@@ -417,7 +428,7 @@ isdn_status_callback(isdn_ctrl * c)
 				return -1;
 			if (dev->global_flags & ISDN_GLOBAL_STOPPED)
 				return 0;
-			if (isdn_net_stat_callback(i, c->command))
+			if (isdn_net_stat_callback(i, c))
 				return 0;
 			if (isdn_tty_stat_callback(i, c))
 				return 0;
@@ -515,7 +526,7 @@ isdn_status_callback(isdn_ctrl * c)
 			if (dev->global_flags & ISDN_GLOBAL_STOPPED)
 				return 0;
 			if (strcmp(c->parm.num, "0"))
-				isdn_net_stat_callback(i, c->command);
+				isdn_net_stat_callback(i, c);
 			break;
 		case ISDN_STAT_CAUSE:
 #ifdef ISDN_DEBUG_STATCALLB
@@ -534,7 +545,7 @@ isdn_status_callback(isdn_ctrl * c)
 			if (dev->global_flags & ISDN_GLOBAL_STOPPED)
 				return 0;
 			/* Find any net-device, waiting for D-channel setup */
-			if (isdn_net_stat_callback(i, c->command))
+			if (isdn_net_stat_callback(i, c))
 				break;
 			/* Find any ttyI, waiting for D-channel setup */
 			if (isdn_tty_stat_callback(i, c)) {
@@ -556,7 +567,7 @@ isdn_status_callback(isdn_ctrl * c)
 			dev->drv[di]->flags &= ~(1 << (c->arg));
 			isdn_info_update();
 			/* Signal hangup to network-devices */
-			if (isdn_net_stat_callback(i, c->command))
+			if (isdn_net_stat_callback(i, c))
 				break;
 			if (isdn_tty_stat_callback(i, c))
 				break;
@@ -572,7 +583,7 @@ isdn_status_callback(isdn_ctrl * c)
 				return 0;
 			dev->drv[di]->flags |= (1 << (c->arg));
 			isdn_info_update();
-			if (isdn_net_stat_callback(i, c->command))
+			if (isdn_net_stat_callback(i, c))
 				break;
 			if (isdn_tty_stat_callback(i, c))
 				break;
@@ -598,7 +609,7 @@ isdn_status_callback(isdn_ctrl * c)
 #endif
 			if (dev->global_flags & ISDN_GLOBAL_STOPPED)
 				return 0;
-			if (isdn_net_stat_callback(i, c->command))
+			if (isdn_net_stat_callback(i, c))
 				break;
 			if (isdn_tty_stat_callback(i, c))
 				break;
@@ -629,6 +640,8 @@ isdn_status_callback(isdn_ctrl * c)
 			isdn_info_update();
 			restore_flags(flags);
 			return 0;
+		case ISDN_STAT_L1ERR:
+			break;
 		default:
 			return -1;
 	}
@@ -1084,28 +1097,30 @@ isdn_get_allcfg(char *dest)
 	cli();
 	p = dev->netdev;
 	while (p) {
+		isdn_net_local *lp = p->local;
+
 		if ((ret = verify_area(VERIFY_WRITE, (void *) dest, sizeof(cfg) + 200))) {
 			restore_flags(flags);
 			return ret;
 		}
-		strcpy(cfg.eaz, p->local.msn);
-		cfg.exclusive = p->local.exclusive;
-		if (p->local.pre_device >= 0) {
-			sprintf(cfg.drvid, "%s,%d", dev->drvid[p->local.pre_device],
-				p->local.pre_channel);
+		strcpy(cfg.eaz, lp->msn);
+		cfg.exclusive = lp->exclusive;
+		if (lp->pre_device >= 0) {
+			sprintf(cfg.drvid, "%s,%d", dev->drvid[lp->pre_device],
+				lp->pre_channel);
 		} else
 			cfg.drvid[0] = '\0';
-		cfg.onhtime = p->local.onhtime;
-		cfg.charge = p->local.charge;
-		cfg.l2_proto = p->local.l2_proto;
-		cfg.l3_proto = p->local.l3_proto;
-		cfg.p_encap = p->local.p_encap;
-		cfg.secure = (p->local.flags & ISDN_NET_SECURE) ? 1 : 0;
-		cfg.callback = (p->local.flags & ISDN_NET_CALLBACK) ? 1 : 0;
-		cfg.chargehup = (p->local.hupflags & ISDN_CHARGEHUP) ? 1 : 0;
-		cfg.ihup = (p->local.hupflags & ISDN_INHUP) ? 1 : 0;
-		cfg.chargeint = p->local.chargeint;
-		if (copy_to_user(dest, p->local.name, 10)) {
+		cfg.onhtime = lp->onhtime;
+		cfg.charge = lp->charge;
+		cfg.l2_proto = lp->l2_proto;
+		cfg.l3_proto = lp->l3_proto;
+		cfg.p_encap = lp->p_encap;
+		cfg.secure = (lp->flags & ISDN_NET_SECURE) ? 1 : 0;
+		cfg.callback = (lp->flags & ISDN_NET_CALLBACK) ? 1 : 0;
+		cfg.chargehup = (lp->hupflags & ISDN_CHARGEHUP) ? 1 : 0;
+		cfg.ihup = (lp->hupflags & ISDN_INHUP) ? 1 : 0;
+		cfg.chargeint = lp->chargeint;
+		if (copy_to_user(dest, lp->name, 10)) {
 			restore_flags(flags);
 			return -EFAULT;
 		}
@@ -1115,14 +1130,14 @@ isdn_get_allcfg(char *dest)
 			return -EFAULT;
 		}
 		dest += sizeof(cfg);
-		strcpy(phone.name, p->local.name);
+		strcpy(phone.name, lp->name);
 		phone.outgoing = 0;
 		if ((ret = isdn_net_getphones(&phone, dest)) < 0) {
 			restore_flags(flags);
 			return ret;
 		} else
 			dest += ret;
-		strcpy(phone.name, p->local.name);
+		strcpy(phone.name, lp->name);
 		phone.outgoing = 1;
 		if ((ret = isdn_net_getphones(&phone, dest)) < 0) {
 			restore_flags(flags);
@@ -1795,31 +1810,6 @@ isdn_unexclusive_channel(int di, int ch)
 }
 
 /*
- * receive callback handler for drivers not supporting sk_buff's.
- * Parameters:
- *
- * di      = Driver-Index.
- * channel = Number of B-Channel (0...)
- * buf     = pointer to packet-data
- * len     = Length of packet-data
- *
- */
-static void
-isdn_receive_callback(int drvidx, int chan, u_char * buf, int len)
-{
-	struct sk_buff *skb;
-
-	if (dev->global_flags & ISDN_GLOBAL_STOPPED)
-		return;
-	skb = dev_alloc_skb(len);
-	if (skb) {
-		memcpy(skb_put(skb, len), buf, len);
-		isdn_receive_skb_callback(drvidx, chan, skb);
-	} else
-		printk(KERN_WARNING "isdn: rcv alloc_skb failed, packet dropped.\n");
-}
-
-/*
  *  writebuf replacement for SKB_ABLE drivers
  */
 static int
@@ -1827,59 +1817,36 @@ isdn_writebuf_stub(int drvidx, int chan, const u_char * buf, int len,
 		   int user)
 {
 	int ret;
+	int hl = dev->drv[drvidx]->interface->hl_hdrlen;
+	struct sk_buff *skb = alloc_skb(hl + len, GFP_ATOMIC);
 
-	if (dev->drv[drvidx]->interface->writebuf)
-		ret = dev->drv[drvidx]->interface->writebuf(drvidx, chan, buf,
-							    len, user);
-	else {
-		struct sk_buff *skb;
+	if (!skb)
+		return 0;
+	skb_reserve(skb, hl);
+	if (user)
+		copy_from_user(skb_put(skb, len), buf, len);
+	else
+		memcpy(skb_put(skb, len), buf, len);
 
-		skb = alloc_skb(dev->drv[drvidx]->interface->hl_hdrlen + len,
-				GFP_ATOMIC);
-		if (skb == NULL)
-			return 0;
-
-		skb_reserve(skb, dev->drv[drvidx]->interface->hl_hdrlen);
-
-		if (user)
-			copy_from_user(skb_put(skb, len), buf, len);
-		else
-			memcpy(skb_put(skb, len), buf, len);
-
-		ret = dev->drv[drvidx]->interface->writebuf_skb(drvidx,
-							      chan, skb);
-		if (ret <= 0)
-			kfree_skb(skb, FREE_WRITE);
-	}
+	ret = dev->drv[drvidx]->interface->writebuf_skb(drvidx, chan, 1, skb);
+	if (ret <= 0)
+		kfree_skb(skb, FREE_WRITE);
 	if (ret > 0)
 		dev->obytes[isdn_dc2minor(drvidx, chan)] += ret;
 	return ret;
 }
 
 /*
- * writebuf_skb replacement for NON SKB_ABLE drivers
- * If lowlevel-device does not support supports skbufs, use
- * standard send-routine, else sind directly.
- *
  * Return: length of data on success, -ERRcode on failure.
  */
-
 int
-isdn_writebuf_skb_stub(int drvidx, int chan, struct sk_buff *skb)
+isdn_writebuf_skb_stub(int drvidx, int chan, int ack, struct sk_buff *skb)
 {
 	int ret;
-	int len = skb->len;     /* skb pointer no longer valid after free */
 
-	if (dev->drv[drvidx]->interface->writebuf_skb)
-		ret = dev->drv[drvidx]->interface->
-		    writebuf_skb(drvidx, chan, skb);
-	else {
-		if ((ret = dev->drv[drvidx]->interface->
-		  writebuf(drvidx, chan, skb->data, skb->len, 0)) == len)
-			dev_kfree_skb(skb, FREE_WRITE);
-	}
+	ret = dev->drv[drvidx]->interface->writebuf_skb(drvidx, chan, ack, skb);
 	if (ret > 0)
-		dev->obytes[isdn_dc2minor(drvidx, chan)] += len;
+		dev->obytes[isdn_dc2minor(drvidx, chan)] += ret;
 	return ret;
 }
 
@@ -1908,7 +1875,7 @@ register_isdn(isdn_if * i)
 		       ISDN_MAX_CHANNELS);
 		return 0;
 	}
-	if ((!i->writebuf_skb) && (!i->writebuf)) {
+	if (!i->writebuf_skb) {
 		printk(KERN_WARNING "register_isdn: No write routine given.\n");
 		return 0;
 	}
@@ -1976,7 +1943,6 @@ register_isdn(isdn_if * i)
 	i->channels = drvidx;
 
 	i->rcvcallb_skb = isdn_receive_skb_callback;
-	i->rcvcallb = isdn_receive_callback;
 	i->statcallb = isdn_status_callback;
 	if (!strlen(i->id))
 		sprintf(i->id, "line%d", drvidx);

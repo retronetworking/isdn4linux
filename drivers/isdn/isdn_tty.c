@@ -20,6 +20,11 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.42  1997/10/01 09:20:49  fritz
+ * Removed old compatibility stuff for 2.0.X kernels.
+ * From now on, this code is for 2.1.X ONLY!
+ * Old stuff is still in the separate branch.
+ *
  * Revision 1.41  1997/05/27 15:17:31  fritz
  * Added changes for recent 2.1.x kernels:
  *   changed return type of isdn_close
@@ -472,7 +477,7 @@ isdn_tty_tint(modem_info * info)
 		return;
 	len = skb->len;
 	if ((slen = isdn_writebuf_skb_stub(info->isdn_driver,
-					   info->isdn_channel, skb)) == len) {
+					   info->isdn_channel, 1, skb)) == len) {
 		struct tty_struct *tty = info->tty;
 		info->send_outstanding++;
 		info->msr |= UART_MSR_CTS;

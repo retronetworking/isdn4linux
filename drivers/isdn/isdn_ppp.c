@@ -19,6 +19,11 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.30  1997/10/01 09:20:38  fritz
+ * Removed old compatibility stuff for 2.0.X kernels.
+ * From now on, this code is for 2.1.X ONLY!
+ * Old stuff is still in the separate branch.
+ *
  * Revision 1.29  1997/08/21 23:11:44  fritz
  * Added changes for kernels >= 2.1.45
  *
@@ -281,7 +286,7 @@ isdn_ppp_bind(isdn_net_local * lp)
 		char exclusive[ISDN_MAX_CHANNELS];	/* exclusive flags */
 		memset(exclusive, 0, ISDN_MAX_CHANNELS);
 		while (net_dev) {	/* step through net devices to find exclusive minors */
-			isdn_net_local *lp = &net_dev->local;
+			isdn_net_local *lp = net_dev->local;
 			if (lp->pppbind >= 0)
 				exclusive[lp->pppbind] = 1;
 			net_dev = net_dev->next;
@@ -862,7 +867,7 @@ isdn_ppp_write(int min, struct file *file, const char *buf, int count)
 				printk(KERN_DEBUG "ppp xmit: len %d\n", (int) skb->len);
 				isdn_ppp_frame_log("xmit", skb->data, skb->len, 32);
 			}
-			if ((cnt = isdn_writebuf_skb_stub(lp->isdn_device, lp->isdn_channel, skb)) != count) {
+			if ((cnt = isdn_writebuf_skb_stub(lp->isdn_device, lp->isdn_channel, 1, skb)) != count) {
 				if (lp->sav_skb) {
 					dev_kfree_skb(lp->sav_skb, FREE_WRITE);
 					printk(KERN_INFO "isdn_ppp_write: freeing sav_skb (%d,%d)!\n", cnt, count);
@@ -948,9 +953,9 @@ void isdn_ppp_receive(isdn_net_dev * net_dev, isdn_net_local * lp, struct sk_buf
 		printk(KERN_DEBUG "ippp_receive: len: %d\n", (int) skb->len);
 		isdn_ppp_frame_log("receive", skb->data, skb->len, 32);
 	}
-	if (net_dev->local.master) {
+	if (net_dev->local->master) {
 		printk(KERN_WARNING "isdn_ppp_receice: net_dev != master\n");
-		net_dev = ((isdn_net_local *) net_dev->local.master->priv)->netdev;
+		net_dev = ((isdn_net_local *) net_dev->local->master->priv)->netdev;
 	}
 	if (skb->data[0] == 0xff && skb->data[1] == 0x03)
 		skb_pull(skb, 2);
@@ -1157,9 +1162,9 @@ isdn_ppp_push_higher(isdn_net_dev * net_dev, isdn_net_local * lp, struct sk_buff
 		case PPP_VJC_UNCOMP:
 			if (is->debug & 0x20)
 				printk(KERN_DEBUG "isdn_ppp: VJC_UNCOMP\n");
-			if (slhc_remember(ippp_table[net_dev->local.ppp_slot]->slcomp, skb->data, skb->len) <= 0) {
+			if (slhc_remember(ippp_table[net_dev->local->ppp_slot]->slcomp, skb->data, skb->len) <= 0) {
 				printk(KERN_WARNING "isdn_ppp: received illegal VJC_UNCOMP frame!\n");
-				net_dev->local.stats.rx_dropped++;
+				net_dev->local->stats.rx_dropped++;
 				dev_kfree_skb(skb, 0 /* FREE_READ */ );
 				return;
 			}
@@ -1182,7 +1187,7 @@ isdn_ppp_push_higher(isdn_net_dev * net_dev, isdn_net_local * lp, struct sk_buff
 
 				if (!skb) {
 					printk(KERN_WARNING "%s: Memory squeeze, dropping packet.\n", dev->name);
-					net_dev->local.stats.rx_dropped++;
+					net_dev->local->stats.rx_dropped++;
 					dev_kfree_skb(skb_old, 0 /* FREE_READ */ );
 					return;
 				}
@@ -1190,7 +1195,7 @@ isdn_ppp_push_higher(isdn_net_dev * net_dev, isdn_net_local * lp, struct sk_buff
 				skb_put(skb, skb_old->len + 40);
 				memcpy(skb->data, skb_old->data, skb_old->len);
 				skb->mac.raw = skb->data;
-				pkt_len = slhc_uncompress(ippp_table[net_dev->local.ppp_slot]->slcomp,
+				pkt_len = slhc_uncompress(ippp_table[net_dev->local->ppp_slot]->slcomp,
 						skb->data, skb_old->len);
 				dev_kfree_skb(skb_old, 0 /* FREE_READ */ );
 				if (pkt_len < 0) {
@@ -1218,7 +1223,7 @@ isdn_ppp_push_higher(isdn_net_dev * net_dev, isdn_net_local * lp, struct sk_buff
 	}
 
 	netif_rx(skb);
-	/* net_dev->local.stats.rx_packets++; *//* done in isdn_net.c */
+	/* net_dev->local->stats.rx_packets++; *//* done in isdn_net.c */
 	/* Reset hangup-timer */
 	lp->huptimer = 0;
 
@@ -1689,7 +1694,7 @@ isdn_ppp_cleanup_sqqueue(isdn_net_dev * net_dev, isdn_net_local * lp, long min_s
 		if (q->sqno_start != net_dev->ib.next_num) {
 			printk(KERN_DEBUG "ippp: MP, stepping over missing frame: %ld\n", net_dev->ib.next_num);
 #ifdef CONFIG_ISDN_PPP_VJ
-			slhc_toss(ippp_table[net_dev->local.ppp_slot]->slcomp);
+			slhc_toss(ippp_table[net_dev->local->ppp_slot]->slcomp);
 #endif
 		}
 		proto = isdn_ppp_strip_proto(q->skb);
@@ -1741,7 +1746,7 @@ isdn_ppp_cleanup_mpqueue(isdn_net_dev * dev, long min_sqno)
 #ifdef CONFIG_ISDN_PPP_VJ
 	/* did we free a stale frame ? */
 	if (toss)
-		slhc_toss(ippp_table[dev->local.ppp_slot]->slcomp);
+		slhc_toss(ippp_table[dev->local->ppp_slot]->slcomp);
 #endif
 }
 
@@ -1761,7 +1766,7 @@ isdn_ppp_timer_timeout(void)
 	*qn;
 
 	while (net_dev) {
-		isdn_net_local *lp = &net_dev->local;
+		isdn_net_local *lp = net_dev->local;
 		if (net_dev->ib.modify || lp->master) {	/* interface locked or slave? */
 			net_dev = net_dev->next;
 			continue;
@@ -1907,7 +1912,7 @@ isdn_ppp_dial_slave(char *name)
 
 	if (!(ndev = isdn_net_findif(name)))
 		return 1;
-	lp = &ndev->local;
+	lp = ndev->local;
 	if (!(lp->flags & ISDN_NET_CONNECTED))
 		return 5;
 
@@ -1938,7 +1943,7 @@ isdn_ppp_hangup_slave(char *name)
 
 	if (!(ndev = isdn_net_findif(name)))
 		return 1;
-	lp = &ndev->local;
+	lp = ndev->local;
 	if (!(lp->flags & ISDN_NET_CONNECTED))
 		return 5;
 
