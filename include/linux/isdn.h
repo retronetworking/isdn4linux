@@ -21,6 +21,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.91  2000/02/16 14:56:27  paul
+ * translated ISDN_MODEM_ANZREG to ISDN_MODEM_NUMREG for english speakers
+ *
  * Revision 1.90  2000/02/06 21:50:00  detabc
  * add rewriting of socket's and frame's saddr for udp-ipv4 dynip-connections.
  * Include checksum-recompute of ip- and udp-header's.
@@ -1120,5 +1123,36 @@ extern int dwabc_isdn_get_net_free_channel(isdn_net_local *);
 /* Utility-Macros */
 #define MIN(a,b) ((a<b)?a:b)
 #define MAX(a,b) ((a>b)?a:b)
+
+#ifdef COMPAT_NO_SOFTNET
+/*
+ * Tell upper layers that the network device is ready to xmit more frames.
+ */
+static void __inline__ netif_wake_queue(struct net_device * dev)
+{
+	dev->tbusy = 0;
+	mark_bh(NET_BH);
+}
+
+/*
+ * called during net_device open()
+ */
+static void __inline__ netif_start_queue(struct net_device * dev)
+{
+	dev->tbusy = 0;
+	/* actually, we never use the interrupt flag at all */
+	dev->interrupt = 0;
+	dev->start = 1;
+}
+
+/*
+ * Ask upper layers to temporarily cease passing us more xmit frames.
+ */
+static void __inline__ netif_stop_queue(struct net_device * dev)
+{
+	dev->tbusy = 1;
+}
+#endif /* COMPAT_NO_SOFTNET */
+
 #endif /* __KERNEL__ */
 #endif /* isdn_h */
