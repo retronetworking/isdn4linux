@@ -39,6 +39,7 @@
 #define pci_resource_start_mem(pdev, nr) ((pdev)->base_address[nr] & PCI_BASE_ADDRESS_MEM_MASK)
 #define pci_get_sub_vendor(pdev, id)	pci_read_config_word(pdev, PCI_SUBSYSTEM_VENDOR_ID, &id)
 #define pci_get_sub_system(pdev, id)	pci_read_config_word(pdev, PCI_SUBSYSTEM_ID, &id)
+#define pci_set_master(pdev) do { } while (0)
 
 #define __exit
 #define net_device device
@@ -100,7 +101,9 @@ static inline int pci_enable_device(struct pci_dev *dev)
 
 #define PCI_ANY_ID (~0)
 
-static struct pci_dev * pci_find_subsys(unsigned int vendor, unsigned int device,
+/* as this is included multiple times, we make it inline */
+
+static inline struct pci_dev * pci_find_subsys(unsigned int vendor, unsigned int device,
 					unsigned int ss_vendor, unsigned int ss_device,
 					struct pci_dev *from)
 {
@@ -160,6 +163,9 @@ typedef struct wait_queue *wait_queue_head_t;
 #define init_waitqueue_entry(q,p)		((q)->task)=(p)
 #endif /* COMPAT_HAS_NEW_WAITQ */
 
+#define PCI_VENDOR_ID_ABOCOM		0x13D1
+#define PCI_DEVICE_ID_ABOCOM_2BD1       0x2BD1
+
 #ifdef COMPAT_NEED_PCI_IDS
 
 #define PCI_ANY_ID (~0)
@@ -199,9 +205,6 @@ typedef struct wait_queue *wait_queue_head_t;
 #define PCI_DEVICE_ID_CCD_B00B	        0xB00B
 #define PCI_DEVICE_ID_CCD_B00C	        0xB00C
 #define PCI_DEVICE_ID_CCD_B100	        0xB100
-
-#define PCI_VENDOR_ID_ABOCOM		0x13D1
-#define PCI_DEVICE_ID_ABOCOM_2BD1       0x2BD1
 
 #define PCI_VENDOR_ID_ASUSTEK           0x1043   
 #define PCI_DEVICE_ID_ASUSTEK_0675      0x0675

@@ -887,6 +887,7 @@ setup_diva(struct IsdnCard *card)
 			PCI_DEVICE_ID_EICON_DIVA201, dev_diva201))) {
 			if (pci_enable_device(dev_diva201))
 				return(0);
+			pci_set_master(dev_diva201);
 			cs->subtyp = DIVA_IPAC_PCI;
 			cs->irq = dev_diva201->irq;
 			cs->hw.diva.pci_cfg =

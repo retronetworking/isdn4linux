@@ -1745,6 +1745,7 @@ setup_hfcpci(struct IsdnCard *card)
 			if (tmp_hfcpci) {
 				if (pci_enable_device(tmp_hfcpci))
 					continue;
+				pci_set_master(tmp_hfcpci);
 				if ((card->para[0]) && (card->para[0] != (get_pcibase(tmp_hfcpci, 0) & PCI_BASE_ADDRESS_IO_MASK)))
 					continue;
 				else

@@ -89,10 +89,10 @@ search_cards(void)
 	card_last = NULL;
 	while ((akt_pcidev = pci_find_device(PCI_VENDOR_ID_HYPERCOPE, PCI_DEVICE_ID_HYPERCOPE_PLX,
 					     akt_pcidev)) != NULL) {
-#ifndef COMPAT_HAS_2_2_PCI
 		if (pci_enable_device(akt_pcidev))
 			continue;
-#endif
+		pci_set_master(akt_pcidev);
+
 		if (!(card = kmalloc(sizeof(hysdn_card), GFP_KERNEL))) {
 			printk(KERN_ERR "HYSDN: unable to alloc device mem \n");
 			return;

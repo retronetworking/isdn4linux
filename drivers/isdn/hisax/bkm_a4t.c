@@ -298,6 +298,7 @@ setup_bkm_a4t(struct IsdnCard *card)
 		if ((sub_sys == PCI_DEVICE_ID_BERKOM_A4T) && (sub_vendor == PCI_VENDOR_ID_BERKOM)) {
 			if (pci_enable_device(dev_a4t))
 				return(0);
+			pci_set_master(dev_a4t);
 			found = 1;
 			pci_memaddr = pci_resource_start_mem(dev_a4t, 0);
 			cs->irq = dev_a4t->irq;
