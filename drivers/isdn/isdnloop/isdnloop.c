@@ -1542,7 +1542,11 @@ isdnloop_init(void)
 	} else
 		strcpy(rev, " ??? ");
 	printk(KERN_NOTICE "isdnloop-ISDN-driver Rev%s\n", rev);
-	return (isdnloop_addcard(isdnloop_id));
+
+	if (isdnloop_id)
+		return (isdnloop_addcard(isdnloop_id));
+
+	return 0;
 }
 
 static void __exit
