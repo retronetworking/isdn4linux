@@ -5,6 +5,9 @@
  *
  *
  * $Log$
+ * Revision 2.7  1998/01/31 21:41:44  keil
+ * changes for newer 2.1 kernels
+ *
  * Revision 2.6  1997/11/08 21:35:43  keil
  * new l1 init
  *
@@ -56,13 +59,15 @@
  *    9 ITK ix1-micro    p0=irq p1=iobase
  *   10 ELSA PCMCIA      p0=irq p1=iobase
  *   11 Eicon.Diehl Diva p0=irq p1=iobase
- *   12 Dynalink         p0=irq p1=iobase
+ *   12 Asuscom ISDNLink p0=irq p1=iobase
  *   13 Teleint          p0=irq p1=iobase
+ *   14 Teles 16.3c      p0=irq p1=iobase
  *   15 Sedlbauer speed  p0=irq p1=iobase
  *   16 USR Sportster internal  p0=irq  p1=iobase
  *   17 MIC card                p0=irq  p1=iobase
  *   18 ELSA Quickstep 1000PCI  no parameter
  *   19 Compaq ISDN S0 ISA card p0=irq  p1=IO0 (HSCX)  p2=IO1 (ISAC) p3=IO2
+ *   20 Travers Technologies NETjet PCI card
  *
  *
  * protocol can be either ISDN_PTYPE_EURO or ISDN_PTYPE_1TR6 or ISDN_PTYPE_NI1
@@ -72,7 +77,7 @@
 
 #ifdef CONFIG_HISAX_ELSA
 #define DEFAULT_CARD ISDN_CTYPE_ELSA
-#define DEFAULT_CFG {0,0,0}
+#define DEFAULT_CFG {0,0,0,0}
 int elsa_init_pcmcia(void*, int, int*, int);
 EXPORT_SYMBOL(elsa_init_pcmcia);
 #endif
@@ -80,68 +85,82 @@ EXPORT_SYMBOL(elsa_init_pcmcia);
 #undef DEFAULT_CARD
 #undef DEFAULT_CFG
 #define DEFAULT_CARD ISDN_CTYPE_A1
-#define DEFAULT_CFG {10,0x340,0}
+#define DEFAULT_CFG {10,0x340,0,0}
 #endif
 #ifdef CONFIG_HISAX_16_3
 #undef DEFAULT_CARD
 #undef DEFAULT_CFG
 #define DEFAULT_CARD ISDN_CTYPE_16_3
-#define DEFAULT_CFG {15,0x180,0}
+#define DEFAULT_CFG {15,0x180,0,0}
 #endif
 #ifdef CONFIG_HISAX_16_0
 #undef DEFAULT_CARD
 #undef DEFAULT_CFG
 #define DEFAULT_CARD ISDN_CTYPE_16_0
-#define DEFAULT_CFG {15,0xd0000,0xd80}
+#define DEFAULT_CFG {15,0xd0000,0xd80,0}
 #endif
 
 #ifdef CONFIG_HISAX_IX1MICROR2
 #undef DEFAULT_CARD
 #undef DEFAULT_CFG
 #define DEFAULT_CARD ISDN_CTYPE_IX1MICROR2
-#define DEFAULT_CFG {5,0x390,0}
+#define DEFAULT_CFG {5,0x390,0,0}
 #endif
 
 #ifdef CONFIG_HISAX_DIEHLDIVA
 #undef DEFAULT_CARD
 #undef DEFAULT_CFG
 #define DEFAULT_CARD ISDN_CTYPE_DIEHLDIVA
-#define DEFAULT_CFG {0,0x0,0}
+#define DEFAULT_CFG {0,0x0,0,0}
 #endif
 
-#ifdef CONFIG_HISAX_DYNALINK
+#ifdef CONFIG_HISAX_ASUSCOM
 #undef DEFAULT_CARD
 #undef DEFAULT_CFG
-#define DEFAULT_CARD ISDN_CTYPE_DYNALINK
-#define DEFAULT_CFG {5,0x200,0}
+#define DEFAULT_CARD ISDN_CTYPE_ASUSCOM
+#define DEFAULT_CFG {5,0x200,0,0}
 #endif
 
 #ifdef CONFIG_HISAX_TELEINT
 #undef DEFAULT_CARD
 #undef DEFAULT_CFG
 #define DEFAULT_CARD ISDN_CTYPE_TELEINT
-#define DEFAULT_CFG {5,0x300,0}
+#define DEFAULT_CFG {5,0x300,0,0}
 #endif
 
 #ifdef CONFIG_HISAX_SEDLBAUER
 #undef DEFAULT_CARD
 #undef DEFAULT_CFG
 #define DEFAULT_CARD ISDN_CTYPE_SEDLBAUER
-#define DEFAULT_CFG {11,0x270,0}
+#define DEFAULT_CFG {11,0x270,0,0}
 #endif
 
 #ifdef CONFIG_HISAX_SPORTSTER
 #undef DEFAULT_CARD
 #undef DEFAULT_CFG
 #define DEFAULT_CARD ISDN_CTYPE_SPORTSTER
-#define DEFAULT_CFG {7,0x268,0}
+#define DEFAULT_CFG {7,0x268,0,0}
 #endif
 
 #ifdef CONFIG_HISAX_MIC
 #undef DEFAULT_CARD
 #undef DEFAULT_CFG
 #define DEFAULT_CARD ISDN_CTYPE_MIC
-#define DEFAULT_CFG {12,0x3e0,0}
+#define DEFAULT_CFG {12,0x3e0,0,0}
+#endif
+
+#ifdef CONFIG_HISAX_NETJET
+#undef DEFAULT_CARD
+#undef DEFAULT_CFG
+#define DEFAULT_CARD ISDN_CTYPE_NETJET
+#define DEFAULT_CFG {0,0,0,0}
+#endif
+
+#ifdef CONFIG_HISAX_TELES3C
+#undef DEFAULT_CARD
+#undef DEFAULT_CFG
+#define DEFAULT_CARD ISDN_CTYPE_TELES3C
+#define DEFAULT_CFG {5,0x500,0,0}
 #endif
 
 #ifdef CONFIG_HISAX_1TR6
@@ -175,7 +194,7 @@ EXPORT_SYMBOL(elsa_init_pcmcia);
   NULL, \
 }
 
-#define EMPTY_CARD	{0, DEFAULT_PROTO, {0, 0, 0}, NULL}
+#define EMPTY_CARD	{0, DEFAULT_PROTO, {0, 0, 0, 0}, NULL}
 
 struct IsdnCard cards[] =
 {
@@ -223,15 +242,15 @@ static int mem[] HISAX_INITDATA =
 static char *id HISAX_INITDATA = HiSaxID;
 
 MODULE_AUTHOR("Karsten Keil");
-MODULE_PARM(type, "1-16i");
-MODULE_PARM(protocol, "1-16i");
-MODULE_PARM(io, "1-16i");
-MODULE_PARM(irq, "1-16i");
-MODULE_PARM(mem, "1-16i");
+MODULE_PARM(type, "1-3i");
+MODULE_PARM(protocol, "1-2i");
+MODULE_PARM(io, "1-8i");
+MODULE_PARM(irq, "1-2i");
+MODULE_PARM(mem, "1-12i");
 MODULE_PARM(id, "s");
 #ifdef CONFIG_HISAX_16_3	/* For Creatix/Teles PnP */
-MODULE_PARM(io0, "1-16i");
-MODULE_PARM(io1, "1-16i");
+MODULE_PARM(io0, "1-8i");
+MODULE_PARM(io1, "1-8i");
 #endif
 
 #endif
@@ -277,7 +296,7 @@ HiSaxVersion(void))
 	r += sprintf(r, "%s", HiSax_getrev(tmp));
 
 	printk(KERN_INFO "HiSax: Driver for Siemens chip set ISDN cards\n");
-	printk(KERN_INFO "HiSax: Version 2.7\n");
+	printk(KERN_INFO "HiSax: Version 2.8\n");
 	printk(KERN_INFO "HiSax: Revisions %s\n", rev);
 }
 
@@ -402,15 +421,17 @@ HiSax_init(void))
 			case ISDN_CTYPE_ELSA_PCMCIA:
 			case ISDN_CTYPE_IX1MICROR2:
 			case ISDN_CTYPE_DIEHLDIVA:
-			case ISDN_CTYPE_DYNALINK:
+			case ISDN_CTYPE_ASUSCOM:
 			case ISDN_CTYPE_TELEINT:
 			case ISDN_CTYPE_SEDLBAUER:
 			case ISDN_CTYPE_SPORTSTER:
 			case ISDN_CTYPE_MIC:
+			case ISDN_CTYPE_TELES3C:
 				cards[i].para[0] = irq[i];
 				cards[i].para[1] = io[i];
 				break;
 			case ISDN_CTYPE_ELSA_PCI:
+			case ISDN_CTYPE_NETJET:
 				break;
 		}
 	}

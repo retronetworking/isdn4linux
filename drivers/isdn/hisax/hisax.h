@@ -3,6 +3,9 @@
  *   Basic declarations, defines and prototypes
  *
  * $Log$
+ * Revision 2.10  1997/11/08 21:37:52  keil
+ * new l1 init;new Compaq card
+ *
  * Revision 2.9  1997/11/06 17:09:09  keil
  * New 2.1 init code
  *
@@ -67,6 +70,7 @@
 #define PH_DEACT_REQ	0x0024
 #define PH_DEACT_CNF	0x0025
 #define PH_DEACT_IND	0x0026
+#define PH_DEACT_ACK	0x0027
 #define PH_TESTLOOP_REQ	0x0030
 #define PH_PAUSE_CNF	0x0035
 #define PH_PAUSE_IND	0x0036
@@ -173,6 +177,7 @@
 #define HSCX_BUFMAX	4096
 #define MAX_DATA_SIZE	(HSCX_BUFMAX - 4)
 #define MAX_DATA_MEM	(HSCX_BUFMAX + 64)
+#define RAW_BUFMAX	(((HSCX_BUFMAX*6)/5) + 5)
 #define MAX_HEADER_LEN	4
 #define MAX_WINDOW	8
 #define MAX_MON_FRAME	32
@@ -357,9 +362,35 @@ struct hfcB_hw {
 	struct sk_buff *tx_skb; /* B-Channel transmit Buffer */
 };
 
+struct tiger_hw {
+	struct sk_buff *tx_skb; /* B-Channel transmit Buffer */
+	u_int *send;
+	u_int *s_irq;
+	u_int *s_end;
+	u_int *sendp;
+	u_int *rec;
+	int free;
+	u_char *rcvbuf;
+	u_char *sendbuf;
+	u_char *sp;
+	int sendcnt;
+	u_int s_tot;
+	u_int r_bitcnt;
+	u_int r_tot;
+	u_int r_err;
+	u_int r_fcs;
+	u_char r_state;
+	u_char r_one;
+	u_char r_val;
+	u_char s_state;
+};
+
 #define BC_FLG_INIT	1
 #define BC_FLG_ACTIV	2
 #define BC_FLG_BUSY	3
+#define BC_FLG_NOFRAME	4
+#define BC_FLG_HALF	5
+#define BC_FLG_EMPTY	6
 
 #define L1_MODE_NULL	0
 #define L1_MODE_TRANS	1
@@ -380,7 +411,8 @@ struct BCState {
 	void (*BC_Close) (struct BCState *);
 	union {
 		struct hscx_hw hscx;
-		struct hfcB_hw  hfc;
+		struct hfcB_hw hfc;
+		struct tiger_hw tiger;
 	} hw;
 };
 
@@ -474,7 +506,7 @@ struct diva_hw {
 	u_char ctrl_reg;
 };	
 
-struct dyna_hw {
+struct asus_hw {
 	unsigned int cfg_reg;
 	unsigned int adr;
 	unsigned int isac;
@@ -482,6 +514,7 @@ struct dyna_hw {
 	unsigned int u7;
 	unsigned int pots;
 };
+
 
 struct hfc_hw {
 	unsigned int addr;
@@ -516,12 +549,45 @@ struct mic_hw {
 	unsigned int hscx;
 };
 
+struct njet_hw {
+	unsigned int base;
+	unsigned int isac;
+	unsigned int auxa;
+	unsigned char auxd;
+	unsigned char dmactrl;
+	unsigned char ctrl_reg;
+	unsigned char irqmask0;
+	unsigned char irqstat0;
+	unsigned char last_is0;
+};
+
+struct hfcD_hw {
+	unsigned int addr;
+	unsigned int bfifosize;
+	unsigned int dfifosize;
+	unsigned char cirm;
+	unsigned char ctmt;
+	unsigned char cip;
+	unsigned char conn;
+	unsigned char mst_m;
+	unsigned char int_m1;
+	unsigned char int_m2;
+	unsigned char int_s1;
+	unsigned char sctrl;
+	unsigned char stat;
+	unsigned char fifo;
+	unsigned char f1;
+	unsigned char f2;
+	unsigned int *send;
+	struct timer_list timer;
+};
 
 #define HW_IOM1		0
 #define HW_IPAC		1
 #define FLG_TWO_DCHAN	4
 #define FLG_L1_DBUSY	5
 #define FLG_DBUSY_TIMER 6
+#define FLG_LOCK_ATOMIC 7
 #define HW_MON0_RX_END	8
 #define HW_MON1_RX_END	9
 #define HW_MON0_TX_END	10
@@ -541,11 +607,13 @@ struct IsdnCardState {
 		struct avm_hw avm;
 		struct ix1_hw ix1;
 		struct diva_hw diva;
-		struct dyna_hw dyna;
+		struct asus_hw asus;
 		struct hfc_hw hfc;
 		struct sedl_hw sedl;
 		struct spt_hw spt;
 		struct mic_hw mic;
+		struct njet_hw njet;
+		struct hfcD_hw hfcD;
 	} hw;
 	int myid;
 	isdn_if iif;
@@ -584,6 +652,7 @@ struct IsdnCardState {
 	int mon_txc;
 	int mon_rxp;
 	u_char mocr;
+	void   (*setstack_d) (struct PStack *, struct IsdnCardState *);
 };
 
 #define  MON0_RX	1
@@ -601,17 +670,18 @@ struct IsdnCardState {
 #define  ISDN_CTYPE_TELESPCMCIA	8
 #define  ISDN_CTYPE_IX1MICROR2	9
 #define  ISDN_CTYPE_ELSA_PCMCIA	10
-#define  ISDN_CTYPE_DIEHLDIVA   11
-#define  ISDN_CTYPE_DYNALINK    12
+#define  ISDN_CTYPE_DIEHLDIVA	11
+#define  ISDN_CTYPE_ASUSCOM	12
 #define  ISDN_CTYPE_TELEINT	13
-#define  ISDN_CTYPE_16_3C	14
+#define  ISDN_CTYPE_TELES3C	14
 #define  ISDN_CTYPE_SEDLBAUER	15
 #define  ISDN_CTYPE_SPORTSTER	16
 #define  ISDN_CTYPE_MIC		17
 #define  ISDN_CTYPE_ELSA_PCI	18
 #define  ISDN_CTYPE_COMPAQ_ISA	19
+#define  ISDN_CTYPE_NETJET	20
 
-#define  ISDN_CTYPE_COUNT	19
+#define  ISDN_CTYPE_COUNT	20
 
 #ifdef ISDN_CHIP_ISAC
 #undef ISDN_CHIP_ISAC
@@ -681,13 +751,13 @@ struct IsdnCardState {
 #define CARD_DIEHLDIVA 0
 #endif
 
-#ifdef  CONFIG_HISAX_DYNALINK
-#define CARD_DYNALINK (1 << ISDN_CTYPE_DYNALINK)
+#ifdef  CONFIG_HISAX_ASUSCOM
+#define CARD_ASUSCOM (1 << ISDN_CTYPE_ASUSCOM)
 #ifndef ISDN_CHIP_ISAC
 #define ISDN_CHIP_ISAC 1
 #endif
 #else
-#define CARD_DYNALINK 0
+#define CARD_ASUSCOM 0
 #endif
 
 #ifdef  CONFIG_HISAX_TELEINT
@@ -726,10 +796,25 @@ struct IsdnCardState {
 #define CARD_MIC 0
 #endif
 
+#ifdef  CONFIG_HISAX_NETJET
+#define CARD_NETJET (1 << ISDN_CTYPE_NETJET)
+#ifndef ISDN_CHIP_ISAC
+#define ISDN_CHIP_ISAC 1
+#endif
+#else
+#define CARD_NETJET 0
+#endif
+
+#ifdef	CONFIG_HISAX_TELES3C
+#define  CARD_TELES3C (1<< ISDN_CTYPE_TELES3C)
+#else
+#define  CARD_TELES3C  0
+#endif
+
 #define  SUPORTED_CARDS  (CARD_TELES0 | CARD_TELES3 | CARD_AVM_A1 | CARD_ELSA \
-			 | CARD_IX1MICROR2 | CARD_DIEHLDIVA | CARD_DYNALINK \
+			 | CARD_IX1MICROR2 | CARD_DIEHLDIVA | CARD_ASUSCOM \
 			 | CARD_TELEINT | CARD_SEDLBAUER | CARD_SPORTSTER \
-			 | CARD_MIC)
+			 | CARD_MIC | CARD_NETJET | CARD_TELES3C)
 
 #define TEI_PER_CARD 0
 
@@ -741,6 +826,14 @@ struct IsdnCardState {
 #ifdef CONFIG_HISAX_EURO
 #undef TEI_PER_CARD
 #define TEI_PER_CARD 1
+#define HISAX_EURO_SENDCOMPLETE 1
+#ifdef	CONFIG_HISAX_ML
+#undef HISAX_EURO_SENDCOMPLETE
+#endif
+#undef HISAX_DE_AOC
+#ifdef CONFIG_DE_AOC
+#define HISAX_DE_AOC 1
+#endif
 #endif
 
 #if TEI_PER_CARD

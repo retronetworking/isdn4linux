@@ -28,6 +28,7 @@ ISAC_OBJ :=
 ARCOFI_OBJ :=
 HSCX_OBJ :=
 HFC_OBJ :=
+HFC_2BDS0 :=
 
 ifeq ($(CONFIG_HISAX_16_0),y)
 	 O_OBJS += teles0.o
@@ -66,8 +67,8 @@ ifeq ($(CONFIG_HISAX_DIEHLDIVA),y)
 	 HSCX_OBJ := hscx.o
 endif
 
-ifeq ($(CONFIG_HISAX_DYNALINK),y)
-	 O_OBJS += dynalink.o
+ifeq ($(CONFIG_HISAX_ASUSCOM),y)
+	 O_OBJS += asuscom.o
 	 ISAC_OBJ := isac.o
 	 HSCX_OBJ := hscx.o
 endif
@@ -96,8 +97,19 @@ ifeq ($(CONFIG_HISAX_MIC),y)
 	 HSCX_OBJ := hscx.o
 endif
 
+ifeq ($(CONFIG_HISAX_NETJET),y)
+	 O_OBJS += netjet.o
+	 ISAC_OBJ := isac.o
+endif
 
-O_OBJS += $(ISAC_OBJ) $(HSCX_OBJ) $(HFC_OBJ) $(ARCOFI_OBJ)
+ifeq ($(CONFIG_HISAX_TELES3C),y)
+	 O_OBJS += teles3c.o
+	 HFC_2BDS0 := hfc_2bds0.o
+endif
+
+
+
+O_OBJS += $(ISAC_OBJ) $(HSCX_OBJ) $(HFC_OBJ) $(HFC_2BDS0) $(ARCOFI_OBJ)
 OX_OBJS += config.o
 
 O_TARGET :=

@@ -11,6 +11,9 @@
  *
  *
  * $Log$
+ * Revision 2.12  1998/01/31 21:41:48  keil
+ * changes for newer 2.1 kernels
+ *
  * Revision 2.11  1997/11/12 15:01:23  keil
  * COMPAQ_ISA changes
  *
@@ -95,8 +98,8 @@ extern int setup_ix1micro(struct IsdnCard *card);
 extern	int  setup_diva(struct IsdnCard *card);
 #endif
 
-#if CARD_DYNALINK
-extern int setup_dynalink(struct IsdnCard *card);
+#if CARD_ASUSCOM
+extern int setup_asuscom(struct IsdnCard *card);
 #endif
 
 #if CARD_TELEINT
@@ -115,6 +118,14 @@ extern int setup_sportster(struct IsdnCard *card);
 extern int setup_mic(struct IsdnCard *card);
 #endif
 
+#if CARD_NETJET
+extern int setup_netjet(struct IsdnCard *card);
+#endif
+
+#if CARD_TELES3C
+extern int setup_t163c(struct IsdnCard *card);
+#endif
+
 #define HISAX_STATUS_BUFSIZE 4096
 #define ISDN_CTRL_DEBUG 1
 #define INCLUDE_INLINE_FUNCS
@@ -125,7 +136,7 @@ const char *CardType[] =
  "AVM A1", "Elsa ML", "Elsa Quickstep", "Teles PCMCIA", "ITK ix1-micro Rev.2",
  "Elsa PCMCIA", "Eicon.Diehl Diva", "ISDNLink", "TeleInt", "Teles 16.3c", 
  "Sedlbauer Speed Card", "USR Sportster", "ith mic Linux", "Elsa PCI",
- "Compaq ISA"
+ "Compaq ISA", "NETjet"
 };
 
 extern struct IsdnCard cards[];
@@ -538,6 +549,8 @@ init_bcstate(struct IsdnCardState *cs,
 	bcs->tqueue.sync = 0;
 	bcs->tqueue.routine = (void *) (void *) BChannel_bh;
 	bcs->tqueue.data = bcs;
+	bcs->BC_SetStack = NULL;
+	bcs->BC_Close = NULL;
 	bcs->Flag = 0;
 }
 
@@ -546,9 +559,11 @@ closecard(int cardnr)
 {
 	struct IsdnCardState *csta = cards[cardnr].cs;
 	struct sk_buff *skb;
-
-	csta->bcs->BC_Close(csta->bcs + 1);
-	csta->bcs->BC_Close(csta->bcs);
+	
+	if (csta->bcs->BC_Close != NULL) { 
+		csta->bcs->BC_Close(csta->bcs + 1);
+		csta->bcs->BC_Close(csta->bcs);
+	}
 
 	if (csta->rcvbuf) {
 		kfree(csta->rcvbuf);
@@ -573,6 +588,7 @@ closecard(int cardnr)
 		csta->mon_tx = NULL;
 	}
 	csta->cardmsg(csta, CARD_RELEASE, NULL);
+	del_timer(&csta->dbusytimer);
 	ll_unload(csta);
 }
 
@@ -620,8 +636,6 @@ HISAX_INITFUNC(static int init_card(struct IsdnCardState *cs))
 	restore_flags(flags);
 	return(3);
 }
-
-
 
 HISAX_INITFUNC(static int
 checkcard(int cardnr, char *id, int *busy_flag))
@@ -761,9 +775,9 @@ checkcard(int cardnr, char *id, int *busy_flag))
 			ret = setup_diva(card);
 			break;
 #endif
-#if CARD_DYNALINK
-		case ISDN_CTYPE_DYNALINK:
-			ret = setup_dynalink(card);
+#if CARD_ASUSCOM
+		case ISDN_CTYPE_ASUSCOM:
+			ret = setup_asuscom(card);
 			break;
 #endif
 #if CARD_TELEINT
@@ -784,6 +798,16 @@ checkcard(int cardnr, char *id, int *busy_flag))
 #if CARD_MIC
 		case ISDN_CTYPE_MIC:
 			ret = setup_mic(card);
+			break;
+#endif
+#if CARD_NETJET
+		case ISDN_CTYPE_NETJET:
+			ret = setup_netjet(card);
+			break;
+#endif
+#if CARD_TELES3C
+		case ISDN_CTYPE_TELES3C:
+			ret = setup_t163c(card);
 			break;
 #endif
 		default:
@@ -905,7 +929,7 @@ HiSax_closehardware(void)
 	TeiFree();
 	Isdnl2Free();
 	CallcFree();
- 	restore_flags(flags);
+	restore_flags(flags);
 }
 
 void
@@ -1159,6 +1183,7 @@ l1_timer_deact(struct FsmInst *fi, int event, void *arg)
 	test_and_clear_bit(FLG_L1_DEACTTIMER, &st->l1.Flags);
 	test_and_clear_bit(FLG_L1_ACTIVATED, &st->l1.Flags);
 	L1deactivated(cs);
+	cs->l1cmd(cs, PH_DEACT_ACK, NULL);
 }
 
 static void
@@ -1314,12 +1339,8 @@ setstack_HiSax(struct PStack *st, struct IsdnCardState *cs)
 	FsmInitTimer(&st->l1.l1m, &st->l1.timer);
 	setstack_tei(st);
 	setstack_manager(st);
-
 	st->l1.stlistp = &(cs->stlist);
 	st->ma.manl1 = dch_manl1;
 	st->l1.Flags = 0;
-#ifdef ISDN_CHIP_ISAC
-	setstack_isac(st, cs);
-#endif
+	cs->setstack_d(st, cs);
 }
-
