@@ -28,9 +28,6 @@ ifeq ($(CONFIG_ISDN),y)
       L_OBJS += isdn_ttyfax.o
     endif
   endif
-  ifdef CONFIG_ISDN_WITH_ABC
-    L_OBJS += isdn_dwabc.o
-  endif
 else
   ifeq ($(CONFIG_ISDN),m)
     M_OBJS += isdn.o
@@ -50,9 +47,6 @@ else
       ifdef CONFIG_ISDN_TTY_FAX
         O_OBJS += isdn_ttyfax.o
       endif
-    endif
-    ifdef CONFIG_ISDN_WITH_ABC
-      O_OBJS += isdn_dwabc.o
     endif
   endif
 endif
