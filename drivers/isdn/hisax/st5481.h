@@ -219,13 +219,13 @@ enum {
 #define L1_EVENT_COUNT (EV_TIMER3 + 1)
 
 #define ERR(format, arg...) \
-printk(KERN_ERR "%s:%s: " format "\n" , __FILE__,  __FUNCTION__, ## arg)
+printk(KERN_ERR "%s:%s: " format "\n" , __FILE__,  __FUNCTION__ , ## arg)
 
 #define WARN(format, arg...) \
-printk(KERN_WARNING "%s:%s: " format "\n" , __FILE__,  __FUNCTION__, ## arg)
+printk(KERN_WARNING "%s:%s: " format "\n" , __FILE__,  __FUNCTION__ , ## arg)
 
 #define INFO(format, arg...) \
-printk(KERN_INFO "%s:%s: " format "\n" , __FILE__,  __FUNCTION__, ## arg)
+printk(KERN_INFO "%s:%s: " format "\n" , __FILE__,  __FUNCTION__ , ## arg)
 
 #include "isdnhdlc.h"
 #include "fsm.h"
