@@ -78,6 +78,10 @@
 #define BIT_CPNFCON   2
 #define REG_CDN      23
 #define BIT_CDN       4
+#define REG_ALERT    23
+#define BIT_ALERT     8
+#define REG_PROCEED  23
+#define BIT_PROCEED  16
 
 /* defines for result codes */
 #define RESULT_OK		0
@@ -93,6 +97,7 @@
 #define RESULT_NO_MSN_EAZ	10
 #define RESULT_VCON		11
 #define RESULT_RUNG		12
+#define RESULT_PROCEEDING	13
 
 #ifdef ISDN_TTY_FCLASS1
 #define TTY_IS_FCLASS1(info) \

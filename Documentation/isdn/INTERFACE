@@ -781,3 +781,22 @@ Description of the Interface between Linklevel and Hardwarelevel
       arg         = channel-number, locally to the driver. (starting with 0)
       parm        = unused.
 
+  ISDN_STAT_ALERT:
+
+    With this call, the HL-driver signals the receive of an ALERTING message to the LL.
+
+    Parameter:
+      driver      = driver-Id
+      command     = ISDN_STAT_ALERT
+      arg         = channel-number, locally to the driver. (starting with 0)
+
+  ISDN_STAT_PROCEED:
+
+    With this call, the HL-driver signals the receive of an CALL PROCEEDING message
+    to the LL.
+
+    Parameter:
+      driver      = driver-Id
+      command     = ISDN_STAT_PROCEED
+      arg         = channel-number, locally to the driver. (starting with 0)
+

@@ -278,6 +278,12 @@ README for the ISDN-subsystem
                                       1 = Add CPN to FCON message on
                             Bit 2:    0 = Add CDN to RING/FCON message off
                                       1 = Add CDN to RING/FCON message on
+                            Bit 3:    0 = Do not signal RINGING
+                                      1 = Signal RINGING if ALERT was received
+                            Bit 4:    0 = Do not signal PROCEEDING
+                                      1 = Signal PROCEEDING if CALL PROCEEDING
+                                          was received
+
 
   Last but not least a (at the moment fairly primitive) device to request
   the line-status (/dev/isdninfo) is made available.
