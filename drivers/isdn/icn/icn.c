@@ -19,6 +19,10 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.7  1995/02/20  03:48:03  fritz
+ * Added support of new request_region-function.
+ * Minor bugfixes.
+ *
  * Revision 1.6  1995/01/31  15:48:45  fritz
  * Added Cause-Messages to be signaled to upper layers.
  * Added Revision-Info on load.
@@ -44,6 +48,9 @@
 
 #include "icn.h"
 
+/*
+ * Verbose bootcode- and protocol-downloading.
+ */
 #undef BOOT_DEBUG
 
 /* If defined, no bootcode- and protocol-downloading is supported and
@@ -182,18 +189,24 @@ maprelease_channel(int channel) {
 
 /* Get Data from the B-Channel, assemble fragmented packets and put them
  * into receive-queue. Wake up any B-Channel-reading processes.
- * This routine is called via timer-callback initiated from pollcard().
+ * This routine is called via timer-callback from pollbchan().
  * It schedules itself while any B-Channel is open.
  */
 
+#ifdef DEBUG_RCVCALLBACK
+static int max_pending[2] = {0,0};
+#endif
+
 static void
-pollbchan_work(int channel) {
+pollbchan_receive(int channel) {
   int eflag;
   int cnt;
-  int left;
   int flags;
-  pqueue *p;
-  isdn_ctrl cmd;
+#ifdef DEBUG_RCVCALLBACK
+  int rcv_pending1;
+  int rcv_pending2;
+  int akt_pending;
+#endif
 
   if (trymaplock_channel(channel)) {
     while (rbavl) {
@@ -213,16 +226,52 @@ pollbchan_work(int channel) {
       if (!eflag) {
 	save_flags(flags);
 	cli();
+#ifdef DEBUG_RCVCALLBACK
+	rcv_pending1 =
+	  (dev->shmem->data_control.ecnr>dev->shmem->data_control.ecns)?
+	  0xf-dev->shmem->data_control.ecnr+dev->shmem->data_control.ecns:
+	  dev->shmem->data_control.ecns-dev->shmem->data_control.ecnr;
+#endif
 	dev->interface.rcvcallb(dev->myid,channel,dev->rcvbuf[channel],
 				dev->rcvidx[channel]);
 	dev->rcvidx[channel] = 0;
+#ifdef DEBUG_RCVCALLBACK
+	rcv_pending2 =
+	  (dev->shmem->data_control.ecnr>dev->shmem->data_control.ecns)?
+	  0xf-dev->shmem->data_control.ecnr+dev->shmem->data_control.ecns:
+	  dev->shmem->data_control.ecns-dev->shmem->data_control.ecnr;
+	akt_pending = rcv_pending2 - rcv_pending1;
+	if (akt_pending>max_pending[channel]) {
+	  max_pending[channel]=akt_pending;
+	  printk("ICN_DEBUG: pend: %d %d\n",max_pending[0],max_pending[1]);
+	}
+#endif
 	restore_flags(flags);
       }
       if (!trymaplock_channel(channel)) break;
     }
     maprelease_channel(0);
   }
-  eflag = 0;
+}
+
+/* Send data-packet to B-Channel, split it up into fragments of
+ * ICN_FRAGSIZE length. If last fragment is sent out, signal
+ * success to upper layers via statcallb with ISDN_STAT_BSENT argument.
+ * This routine is called via timer-callback from pollbchan() or
+ * directly from sendbuf().
+ */
+
+static void
+pollbchan_send(int channel) {
+  int eflag = 0;
+  int cnt;
+  int left;
+  int flags;
+  pqueue *p;
+  isdn_ctrl cmd;
+
+  if (!dev->sndcount[channel])
+    return;
   if (trymaplock_channel(channel)) {
     while (sbfree && dev->sndcount[channel]) {
       left = dev->spqueue[channel]->length;
@@ -252,8 +301,13 @@ pollbchan_work(int channel) {
     cmd.driver  = dev->myid;
     cmd.arg     = channel;
     dev->interface.statcallb(&cmd);
-  } 
+  }
 }
+
+/* Send/Receive Data to/from the B-Channel.
+ * This routine is called via timer-callback.
+ * It schedules itself while any B-Channel is open.
+ */
 
 static void
 pollbchan(unsigned long dummy) {
@@ -261,9 +315,11 @@ pollbchan(unsigned long dummy) {
 
   dev->flags |= ICN_FLAGS_RBTIMER;
   if (dev->flags & ICN_FLAGS_B1ACTIVE)
-    pollbchan_work(0);
+    pollbchan_receive(0);
+    pollbchan_send(0);
   if (dev->flags & ICN_FLAGS_B2ACTIVE)
-    pollbchan_work(1);
+    pollbchan_receive(1);
+    pollbchan_send(1);
   if (dev->flags & (ICN_FLAGS_B1ACTIVE | ICN_FLAGS_B2ACTIVE)) {
     /* schedule b-channel polling again */
     save_flags(flags);
@@ -395,6 +451,14 @@ pollcard(unsigned long dummy) {
 	    dev->interface.statcallb(&cmd);
 	    continue;
 	  }
+	  if (!strncmp(p,"DSCA_I",6)) {
+	    cmd.command = ISDN_STAT_ICALL;
+	    cmd.driver  = dev->myid;
+	    cmd.arg     = ch-1;
+	    strcpy(cmd.num,p+6);
+	    dev->interface.statcallb(&cmd);
+	    continue;
+	  }
 	  if (!strncmp(p,"NO D-CHAN",9)) {
 	    cmd.command = ISDN_STAT_NODCH;
 	    cmd.driver  = dev->myid;
@@ -478,6 +542,7 @@ sendbuf(int channel, u_char *buffer, int len, int user) {
     }
     dev->sndcount[channel] += len;
     restore_flags(flags);
+    pollbchan_send(channel);
   }
   return len;
 }
@@ -656,7 +721,7 @@ writecmd (u_char *buf, int len, int user) {
 	  dev->msg_buf_write = dev->msg_buf;
 	ocount++;
       }
-      /* No checks for buffer overflow for raw-status-device*/
+      /* No checks for buffer overflow of raw-status-device*/
       if (dev->msg_buf_write>dev->msg_buf_end)
 	dev->msg_buf_write = dev->msg_buf;
       ocount++;
@@ -746,9 +811,17 @@ command (isdn_ctrl *c) {
       break;
     case ISDN_CMD_DIAL:
       if ((c->arg & 255)<ICN_BCH) {
+	char *p = c->num;
 	a = c->arg;
-	sprintf(cbuf,"%02d;DCAL_R%s,07,00,%d\n",(int)(a&255)+1,c->num,
-	(int)(a>>8));
+	if (*p == 's' || *p == 'S') {
+	  /* Dial for SPV */
+	  p++;
+	  sprintf(cbuf,"%02d;DSCA_R%s,07,00,%d\n",(int)(a&255)+1,p,
+	  (int)(a>>8));
+	} else
+	  /* Normal Dial */
+	  sprintf(cbuf,"%02d;DCAL_R%s,07,00,%d\n",(int)(a&255)+1,p,
+	  (int)(a>>8));
 	i = writecmd(cbuf,strlen(cbuf),0);
       }
       break;
@@ -787,6 +860,37 @@ command (isdn_ctrl *c) {
 	i = writecmd(cbuf,strlen(cbuf),0);
       }
       break;
+    case ISDN_CMD_SETL2:
+      if ((c->arg & 255)<ICN_BCH) {
+	a = c->arg;
+	switch (a >> 8) {
+	  case ISDN_PROTO_L2_X75I:
+	    sprintf(cbuf,"%02d;BX75\n",(int)(a&255)+1);
+	    break;
+#ifdef HASHDLC
+	  case ISDN_PROTO_L2_HDLC:
+	    sprintf(cbuf,"%02d;BTRA\n",(int)(a&255)+1);
+	    break;
+#endif
+	  default:
+	    return -EINVAL;
+	}
+	i = writecmd(cbuf,strlen(cbuf),0);
+	dev->l2_proto[a&255] = (a >> 8);
+      }
+      break;
+    case ISDN_CMD_GETL2:
+      if ((c->arg & 255)<ICN_BCH)
+	return dev->l2_proto[c->arg&255];
+      else
+	return -ENODEV;
+    case ISDN_CMD_SETL3:
+      return 0;
+    case ISDN_CMD_GETL3:
+      if ((c->arg & 255)<ICN_BCH)
+	return ISDN_PROTO_L3_TRANS;
+      else
+	return -ENODEV;
     case ISDN_CMD_GETEAZ:
       break;
     case ISDN_CMD_SETSIL:
@@ -826,10 +930,14 @@ init_module( void) {
   dev->interface.writecmd  = writecmd;
   dev->interface.readstat  = readstatus;
   dev->interface.features  = ISDN_FEATURE_L2_X75I |
+#ifdef HASHDLC
+                             ISDN_FEATURE_L2_HDLC |
+#endif
                              ISDN_FEATURE_L3_TRANS ;
   dev->msg_buf_write       = dev->msg_buf;
   dev->msg_buf_read        = dev->msg_buf;
   dev->msg_buf_end         = &dev->msg_buf[sizeof(dev->msg_buf)-1];
+  memset((char *)dev->l2_proto,ISDN_PROTO_L2_X75I,sizeof(dev->l2_proto));
   if (!register_isdn(&dev->interface)) {
     printk(KERN_WARNING "icn: Unable to register\n");
     kfree(dev);
