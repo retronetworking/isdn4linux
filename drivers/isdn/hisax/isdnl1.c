@@ -11,6 +11,9 @@
  *
  *
  * $Log$
+ * Revision 2.4  1997/08/15 17:47:09  keil
+ * avoid oops because a uninitialised timer
+ *
  * Revision 2.3  1997/08/01 11:16:40  keil
  * cosmetics
  *
@@ -79,6 +82,10 @@ const char *l1_revision = "$Revision$";
 #include "teleint.h"
 #endif
 
+#if CARD_SEDLBAUER
+#include "sedlbauer.h"
+#endif
+
 /* #define I4L_IRQ_FLAG SA_INTERRUPT */
 #define I4L_IRQ_FLAG    0
 
@@ -89,10 +96,9 @@ const char *l1_revision = "$Revision$";
 #include <linux/interrupt.h>
 
 const char *CardType[] =
-{"No Card", "Teles 16.0", "Teles 8.0", "Teles 16.3",
- "Creatix/Teles PnP", "AVM A1", "Elsa ML",
- "Elsa Quickstep", "Teles PCMCIA",
- "ITK ix1-micro Rev.2", "Elsa PCMCIA", "Eicon.Diehl Diva", "ISDNLink"
+{"No Card", "Teles 16.0", "Teles 8.0", "Teles 16.3", "Creatix/Teles PnP",
+ "AVM A1", "Elsa ML", "Elsa Quickstep", "Teles PCMCIA", "ITK ix1-micro Rev.2",
+ "Elsa PCMCIA", "Eicon.Diehl Diva", "ISDNLink", "TeleInt", "Teles 16.3c", "Sedlbauer Speed Card"
 };
 
 extern struct IsdnCard cards[];
@@ -143,7 +149,7 @@ HiSax_readstatus(u_char * buf, int len, int user, int id, int channel)
 void
 HiSax_putstatus(struct IsdnCardState *csta, char *buf)
 {
-#if 1
+#if ISDN_CTRL_DEBUG
 	long flags;
 	int len, count, i;
 	u_char *p;
@@ -597,6 +603,11 @@ closecard(int cardnr)
 			release_io_TeleInt(cards + cardnr);
 			break;
 #endif
+#if CARD_SEDLBAUER
+		case ISDN_CTYPE_SEDLBAUER:
+			release_io_sedlbauer(cards + cardnr);
+			break;
+#endif
 		default:
 			break;
 	}
@@ -750,6 +761,11 @@ checkcard(int cardnr, char *id)
 			ret = setup_TeleInt(card);
 			break;
 #endif
+#if CARD_SEDLBAUER
+		case ISDN_CTYPE_SEDLBAUER:
+			ret = setup_sedlbauer(card);
+			break;
+#endif
 		default:
 			printk(KERN_WARNING "HiSax: Unknown Card Typ %d\n",
 			       card->typ);
@@ -828,6 +844,11 @@ checkcard(int cardnr, char *id)
 #if CARD_TELEINT
 		case ISDN_CTYPE_TELEINT:
 			ret = initTeleInt(cs);
+			break;
+#endif
+#if CARD_SEDLBAUER
+		case ISDN_CTYPE_SEDLBAUER:
+			ret = initsedlbauer(cs);
 			break;
 #endif
 		default:

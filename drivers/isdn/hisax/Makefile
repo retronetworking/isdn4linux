@@ -69,6 +69,13 @@ ifeq ($(CONFIG_HISAX_TELEINT),y)
 	 HFC_OBJ := hfc_2bs0.o
 endif
 
+ifeq ($(CONFIG_HISAX_SEDLBAUER),y)
+	 O_OBJS += sedlbauer.o
+	 ISAC_OBJ := isac.o
+	 HSCX_OBJ := hscx.o
+endif
+
+
 O_OBJS += config.o $(ISAC_OBJ) $(HSCX_OBJ) $(HFC_OBJ)
 
 O_TARGET :=

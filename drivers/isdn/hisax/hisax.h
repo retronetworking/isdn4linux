@@ -3,6 +3,9 @@
  *   Basic declarations, defines and prototypes
  *
  * $Log$
+ * Revision 2.5  1997/08/03 14:36:31  keil
+ * Implement RESTART procedure
+ *
  * Revision 2.4  1997/07/31 19:25:20  keil
  * PTP_DATA_LINK support
  *
@@ -289,10 +292,10 @@ struct hscx_hw {
 	struct sk_buff *tx_skb; /* B-Channel transmit Buffer */
 };
 
-struct hfc_hw {
-	int rcvidx;
-	int count;              /* Current skb sent count */
-	u_char *rcvbuf;         /* B-Channel receive Buffer */
+struct hfcB_hw {
+	unsigned int *send;
+	int f1;
+	int f2;
 	struct sk_buff *tx_skb; /* B-Channel transmit Buffer */
 };
 
@@ -319,7 +322,7 @@ struct BCState {
 	void (*BC_Close) (struct BCState *);
 	union {
 		struct hscx_hw hscx;
-		struct hfc_hw  hfc;
+		struct hfcB_hw  hfc;
 	} hw;
 };
 
@@ -422,14 +425,24 @@ struct dyna_hw {
 	unsigned int pots;
 };
 
-struct ti_hw {
-	unsigned int data;
-	unsigned int stat;
+struct hfc_hw {
+	unsigned int addr;
+	unsigned int fifosize;
 	unsigned char cirm;
 	unsigned char ctmt;
 	unsigned char cip;
+	u_char isac_spcr;
+	struct timer_list timer;
 };
 
+struct sedl_hw {
+	unsigned int cfg_reg;
+	unsigned int adr;
+	unsigned int isac;
+	unsigned int hscx;
+	unsigned int res_on;
+	unsigned int res_off;
+};
 
 
 #define HW_IOM1	1
@@ -454,7 +467,8 @@ struct IsdnCardState {
 		struct ix1_hw ix1;
 		struct diva_hw diva;
 		struct dyna_hw dyna;
-		struct ti_hw ti;
+		struct hfc_hw hfc;
+		struct sedl_hw sedl;
 	} hw;
 	int myid;
 	isdn_if iif;
@@ -509,8 +523,12 @@ struct IsdnCardState {
 #define  ISDN_CTYPE_DIEHLDIVA   11
 #define  ISDN_CTYPE_DYNALINK    12
 #define  ISDN_CTYPE_TELEINT	13
+#define  ISDN_CTYPE_16_3C	14
+#define  ISDN_CTYPE_SEDLBAUER	15
+#define  ISDN_CTYPE_SPORTSTER	16
+#define  ISDN_CTYPE_MIC		17
 
-#define  ISDN_CTYPE_COUNT	13
+#define  ISDN_CTYPE_COUNT	17
 
 #ifdef	CONFIG_HISAX_16_0
 #define  CARD_TELES0 (1<< ISDN_CTYPE_16_0) | (1<< ISDN_CTYPE_8_0)
@@ -563,11 +581,17 @@ struct IsdnCardState {
 #define CARD_TELEINT 0
 #endif
 
+#ifdef  CONFIG_HISAX_SEDLBAUER
+#define CARD_SEDLBAUER (1 << ISDN_CTYPE_SEDLBAUER)
+#else
+#define CARD_SEDLBAUER 0
+#endif
+
 
 
 #define  SUPORTED_CARDS  (CARD_TELES0 | CARD_TELES3 | CARD_AVM_A1 | CARD_ELSA \
 			 | CARD_IX1MICROR2 | CARD_DIEHLDIVA | CARD_DYNALINK \
-			 | CARD_TELEINT)
+			 | CARD_TELEINT | CARD_SEDLBAUER)
 
 #define TEI_PER_CARD 0
 

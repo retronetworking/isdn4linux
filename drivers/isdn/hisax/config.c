@@ -5,6 +5,9 @@
  *
  *
  * $Log$
+ * Revision 2.1  1997/07/27 21:41:35  keil
+ * version change
+ *
  * Revision 2.0  1997/06/26 11:06:28  keil
  * New card and L1 interface.
  * Eicon.Diehl Diva and Dynalink IS64PH support
@@ -85,6 +88,7 @@
  *   11 Eicon.Diehl Diva p0=irq p1=iobase
  *   12 Dynalink         p0=irq p1=iobase
  *   13 Teleint          p0=irq p1=iobase
+ *   15 Sedlbauer speed  p0=irq p1=iobase
  *
  *
  * protocol can be either ISDN_PTYPE_EURO or ISDN_PTYPE_1TR6 or ISDN_PTYPE_NI1
@@ -141,6 +145,13 @@
 #undef DEFAULT_CFG
 #define DEFAULT_CARD ISDN_CTYPE_DYNALINK
 #define DEFAULT_CFG {5,0x300,0}
+#endif
+
+#ifdef CONFIG_HISAX_SEDLBAUER
+#undef DEFAULT_CARD
+#undef DEFAULT_CFG
+#define DEFAULT_CARD ISDN_CTYPE_DYNALINK
+#define DEFAULT_CFG {11,0x270,0}
 #endif
 
 #ifdef CONFIG_HISAX_1TR6
@@ -343,7 +354,7 @@ HiSax_init(void)
 	r += sprintf(r, "%s", HiSax_getrev(tmp));
 
 	printk(KERN_NOTICE "HiSax: Driver for Siemens chip set ISDN cards\n");
-	printk(KERN_NOTICE "HiSax: Version 2.3\n");
+	printk(KERN_NOTICE "HiSax: Version 2.4\n");
 	printk(KERN_NOTICE "HiSax: Revisions %s\n", rev);
 
 #ifdef MODULE
@@ -386,6 +397,7 @@ HiSax_init(void)
 			case ISDN_CTYPE_DIEHLDIVA:
 			case ISDN_CTYPE_DYNALINK:
 			case ISDN_CTYPE_TELEINT:
+			case ISDN_CTYPE_SEDLBAUER:
 				cards[i].para[0] = irq[i];
 				cards[i].para[1] = io[i];
 				break;
