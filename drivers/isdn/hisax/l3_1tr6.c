@@ -6,6 +6,9 @@
  *
  *
  * $Log$
+ * Revision 1.5  1996/12/08 19:55:17  keil
+ * change CC_REJECT_REQ routine
+ *
  * Revision 1.4  1996/10/30 10:18:01  keil
  * bugfixes in debugging output
  *
@@ -452,7 +455,7 @@ static struct stateentry downstl[] =
         {SBIT(1)| SBIT(2)| SBIT(3)| SBIT(4)| SBIT(6)| SBIT(7)| SBIT(8)|
          	SBIT(10)| SBIT(12)| SBIT(19),
         	CC_DLRL, l3_1tr6_reset},
-	{SBIT(6),
+	{SBIT(1)| SBIT(3)| SBIT(4)| SBIT(6),
 		CC_REJECT_REQ, l3_1tr6_disconn_req},
 	{SBIT(6)|SBIT(7),
 		CC_SETUP_RSP, l3_1tr6_conn},

@@ -9,6 +9,9 @@
  *              Fritz Elfert
  *
  * $Log$
+ * Revision 1.6  1996/12/08 22:59:16  keil
+ * fixed calling party number without octet 3a
+ *
  * Revision 1.5  1996/12/08 19:53:31  keil
  * fixes from Pekka Sarnila
  *
@@ -351,7 +354,10 @@ l3s18_6(struct PStack *st, byte pr, void *arg)
 	*p++ = IE_CAUSE;
 	*p++ = 0x2;
 	*p++ = 0x80;
-	*p++ = 0x95;  /* Call rejected */
+	if (st->l3.state == 6) 
+		*p++ = 0x95;  /* Call rejected */
+	else
+		*p++ = 0x90; /* normal Call clearing */
 
 	dibh->datasize = p - DATAPTR(dibh);
 	st->l3.l3l2(st, DL_DATA, dibh);
@@ -419,7 +425,7 @@ static struct stateentry downstatelist[] =
         {SBIT(1)| SBIT(3)| SBIT(4)| SBIT(6)| SBIT(7)| SBIT(8)| SBIT(10)|
         	SBIT(19),
         	CC_DLRL,l3s13},
-        {SBIT(6),
+        {SBIT(1)| SBIT(3)| SBIT(4)| SBIT(6),
         	CC_REJECT_REQ,l3s18_6},
         {SBIT(6),
         	CC_ALERTING_REQ,l3s20},
