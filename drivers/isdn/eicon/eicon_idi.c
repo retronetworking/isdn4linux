@@ -21,6 +21,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.2  1999/01/04 13:19:29  armin
+ * Channel status with listen-request wrong - fixed.
+ *
  * Revision 1.1  1999/01/01 18:09:41  armin
  * First checkin of new eicon driver.
  * DIVA-Server BRI/PCI and PRI/PCI are supported.
@@ -34,6 +37,7 @@
 #include "eicon_idi.h"
 
 #undef IDI_DEBUG
+#undef EICON_FULL_SERVICE_OKTETT
 
 char *diehl_idi_revision = "$Revision$";
 
@@ -45,10 +49,15 @@ eicon_manifbuf *manbuf;
   schedule_timeout(j);                 \
 }
 
-static char BC_Speech[3] = { 0x80, 0x90, 0xa3 };
-static char BC_31khz[3] =  { 0x90, 0x90, 0xa3 };
-static char BC_64k[2] =    { 0x88, 0x90 };
-static char BC_video[3] =  { 0x91, 0x90, 0xa5 };
+static char BC_Speech[3] = 	{ 0x80, 0x90, 0xa3 };
+static char BC_31khz[3] =  	{ 0x90, 0x90, 0xa3 };
+static char BC_64k[2] =    	{ 0x88, 0x90 };
+static char BC_video[3] =  	{ 0x91, 0x90, 0xa5 };
+
+#ifdef EICON_FULL_SERVICE_OKTETT
+static char HLC_telephony[2] =	{ 0x91, 0x81 };
+static char HLC_faxg3[2] =  	{ 0x91, 0x84 };
+#endif
 
 int eicon_idi_manage_assign(diehl_card *card);
 int eicon_idi_manage_remove(diehl_card *card);
@@ -377,13 +386,34 @@ diehl_idi_listen_req(diehl_card *card, diehl_chan *chan)
 }
 
 unsigned char
-idi_si2bc(int si1, int si2, char *bc)
+idi_si2bc(int si1, int si2, char *bc, char *hlc)
 {
+  hlc[0] = 0;
   switch(si1) {
 	case 1:
-		bc[0] = 0x90;
-		bc[1] = 0x90;
-		bc[2] = 0xa3;
+		bc[0] = 0x90;		/* 3,1 kHz audio */
+		bc[1] = 0x90;		/* 64 kbit/s */
+		bc[2] = 0xa3;		/* G.711 A-law */
+#ifdef EICON_FULL_SERVICE_OKTETT
+		if (si2 == 1) {
+			bc[0] = 0x80;	/* Speech */
+			hlc[0] = 2;	/* hlc len */
+			hlc[1] = 91;	/* first hic */
+			hlc[2] = 81;	/* Telephony */
+		}
+#endif
+		return(3);
+	case 2:
+		bc[0] = 0x90;		/* 3,1 kHz audio */
+		bc[1] = 0x90;		/* 64 kbit/s */
+		bc[2] = 0xa3;		/* G.711 A-law */
+#ifdef EICON_FULL_SERVICE_OKTETT
+		if (si2 == 2) {
+			hlc[0] = 2;	/* hlc len */
+			hlc[1] = 91;	/* first hic */
+			hlc[2] = 84;	/* Fax Gr.2/3 */
+		}
+#endif
 		return(3);
 	case 5:
 	case 7:
@@ -427,6 +457,7 @@ idi_connect_req(diehl_card *card, diehl_chan *chan, char *phone,
 	int i;
 	unsigned char tmp;
 	unsigned char bc[5];
+	unsigned char hlc[5];
         struct sk_buff *skb;
         struct sk_buff *skb2;
 	diehl_pci_REQ *reqbuf;
@@ -461,11 +492,17 @@ idi_connect_req(diehl_card *card, diehl_chan *chan, char *phone,
 	for(i=0; i<strlen(eazmsn);i++) 
 		reqbuf->XBuffer.P[l++] = eazmsn[i];
 
-	if ((tmp = idi_si2bc(si1, si2, bc)) > 0) {
+	if ((tmp = idi_si2bc(si1, si2, bc, hlc)) > 0) {
 		reqbuf->XBuffer.P[l++] = BC;
 		reqbuf->XBuffer.P[l++] = tmp;
 		for(i=0; i<tmp;i++) 
 			reqbuf->XBuffer.P[l++] = bc[i];
+		if ((tmp=hlc[0])) {
+			reqbuf->XBuffer.P[l++] = HLC;
+			reqbuf->XBuffer.P[l++] = tmp;
+			for(i=1; i<=tmp;i++) 
+				reqbuf->XBuffer.P[l++] = hlc[i];
+		}
 	}
 	reqbuf->XBuffer.P[l++] = ESC;
 	reqbuf->XBuffer.P[l++] = 2;
@@ -765,15 +802,24 @@ idi_IndParse(diehl_pci_card *card, diehl_chan *chan, idi_ind_message *message, u
 }
 
 void
-idi_bc2si(unsigned char *bc, unsigned char *si1, unsigned char *si2)
+idi_bc2si(unsigned char *bc, unsigned char *hlc, unsigned char *si1, unsigned char *si2)
 {
   si1[0] = 0;
   si2[0] = 0;
   if (memcmp(bc, BC_Speech, 3) == 0) {		/* Speech */
 	si1[0] = 1;
+#ifdef EICON_FULL_SERVICE_OKTETT
+	si2[0] = 1;
+#endif
   }
   if (memcmp(bc, BC_31khz, 3) == 0) {		/* 3.1kHz audio */
 	si1[0] = 1;
+#ifdef EICON_FULL_SERVICE_OKTETT
+	si2[0] = 2;
+  	if (memcmp(hlc, HLC_faxg3, 2) == 0) {	/* Fax Gr.2/3 */
+		si1[0] = 2;
+	}
+#endif
   }
   if (memcmp(bc, BC_64k, 2) == 0) {		/* unrestricted 64 kbits */
 	si1[0] = 7;
@@ -837,7 +883,7 @@ idi_handle_ind(diehl_pci_card *card, struct sk_buff *skb)
   				printk(KERN_DEBUG"idi_ind: Indicate_Ind\n");
 #endif
 				chan->fsm_state = DIEHL_STATE_ICALL;
-				idi_bc2si(message.bc, &chan->si1, &chan->si2);
+				idi_bc2si(message.bc, message.hlc, &chan->si1, &chan->si2);
 				strcpy(chan->cpn, message.cpn);
 				if (strlen(message.dsa)) {
 					strcat(chan->cpn, ".");
