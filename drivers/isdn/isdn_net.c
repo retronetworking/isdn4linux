@@ -21,6 +21,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.9  1996/05/06 11:34:57  hipp
+ * fixed a few bugs
+ *
  * Revision 1.8  1996/04/30 21:04:40  fritz
  * Test commit
  *
@@ -1689,15 +1692,6 @@ isdn_net_find_icall(int di, int ch, int idx, char *num)
 				} else {
 					printk(KERN_DEBUG "%s: call from %s -> %s accepted\n", lp->name, nr,
 					       eaz);
-#if 0
-/* why is this a CONFIG_ISDN_PPP feature ??? */
-#ifdef CONFIG_ISDN_PPP
-					if (p->local.isdn_device != -1) {
-						isdn_free_channel(p->local.isdn_device, p->local.isdn_channel,
-							 ISDN_USAGE_NET);
-					}
-#endif
-#endif
 					/* if this interface is dialing, it does it probably on a different
 					   device, so free this device */
 					if ((p->local.dialstate == 4) || (p->local.dialstate == 12))
