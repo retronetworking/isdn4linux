@@ -3,63 +3,118 @@
 KERNELDIR=/usr/src/linux
 
 PATCHLEVEL=`head -3 $KERNELDIR/Makefile | grep PATCHLEVEL | awk '{print $3}'`
-KERNFIRST=no
-
-if [ "$1" = "-r" ]; then
-  KERNFIRST=yes
-  shift
-fi
+KERNFIRST=false
 
 dodiff() {
-  if [ "$KERNFIRST" = "yes" ]; then
+  if $KERNFIRST ; then
     diff -u $2 $1
   else
     diff -u $1 $2
   fi
 }
 
+#
+# Print usage and exit
+#
+usage() {
+	cat<<EOM
+
+	stddiff is used for generating diffs of the cvs-tree
+		versus the kernel-tree.
+
+	stddiff [-r] [-h] [-k DIR] [files ...]
+
+	Options:
+
+	-h      This Text.
+	-r      Reverse direction (kernel versus cvs).
+	-k DIR  Kerneltree is in DIR instead of /usr/src/linux
+
+	Without any files given, within the whole tree, the "right"
+	files are diffed. When any files are given in the commandline,
+	only those are diffed.
+
+EOM
+	exit
+}
+
+#
+# Check, if argument is a linux kernel dir
+#
+checkkernel() {
+	if [ -f $1/Makefile ] ; then
+		if [ "`grep ^vmlinux: $1/Makefile | grep vmlinux`" != "" ] ; then
+			return 0
+		fi
+	fi
+	echo "The given argument does not look like a kernel dir"
+	exit 1
+}
+
+while getopts :rhk: a ; do
+	case $a in
+		\?) case $OPTARG in
+			k)  echo "-k requires Kernel directory parameter"
+					;;
+			*)  echo "Unknown option: -$OPTARG"
+				echo "Try stddiff -h"
+				;;
+			esac
+			exit 1
+			;;
+		k)  checkkernel $OPTARG
+			KERNELDIR=$OPTARG
+			;;
+		r)  KERNFIRST=true
+			;;
+		h)  usage
+			;;
+	esac
+done
+shift `expr $OPTIND - 1`
+
 if [ $# != 0 ]; then
-  for i in $* ; do
-    dodiff $i $KERNELDIR/$i
-  done
+	for i in $* ; do
+		dodiff $i $KERNELDIR/$i
+	done
 else
-  for i in drivers/isdn/isdn_*.[ch] ; do
-    dodiff $i $KERNELDIR/$i
-  done
-  for i in drivers/isdn/icn/icn.[ch] ; do
-    dodiff $i $KERNELDIR/$i
-  done
-  for i in drivers/isdn/teles/*.[ch] ; do
-    dodiff $i $KERNELDIR/$i
-  done
-  if [ $PATCHLEVEL -gt 0 ] ; then
-    for i in drivers/isdn/hisax/*.[ch] ; do
-      dodiff $i $KERNELDIR/$i
-    done
-    for i in drivers/isdn/sc/*.[ch] ; do
-      dodiff $i $KERNELDIR/$i
-    done
-  fi
-  for i in drivers/isdn/pcbit/*.[ch] ; do
-    dodiff $i $KERNELDIR/$i
-  done
-  for i in include/linux/isdn*.h ; do
-    dodiff $i $KERNELDIR/$i
-  done
-  README=Documentation/isdn/README*
-  if [ $PATCHLEVEL -eq 0 ] ; then
-    README=`echo Documentation/isdn/README* | grep -v '.sc'`
-  fi
-  for i in Documentation/isdn/CREDITS $README Documentation/isdn/*.FAQ Documentation/isdn/INTERFACE ; do
-    dodiff $i $KERNELDIR/$i
-  done
-  for i in drivers/isdn/Config.in ; do
-    dodiff $i $KERNELDIR/$i
-  done
-  for i in drivers/isdn/Makefile drivers/isdn/icn/Makefile \
-           drivers/isdn/teles/Makefile drivers/isdn/hisax/Makefile \
-           drivers/isdn/pcbit/Makefile ; do
-    dodiff $i.kernel $KERNELDIR/$i
-  done
+	for i in drivers/isdn/isdn_*.[ch] ; do
+		dodiff $i $KERNELDIR/$i
+	done
+	for i in drivers/isdn/icn/icn.[ch] ; do
+		dodiff $i $KERNELDIR/$i
+	done
+	for i in drivers/isdn/teles/*.[ch] ; do
+		dodiff $i $KERNELDIR/$i
+	done
+	for i in drivers/isdn/hisax/*.[ch] ; do
+		dodiff $i $KERNELDIR/$i
+	done
+	for i in drivers/isdn/sc/*.[ch] ; do
+		dodiff $i $KERNELDIR/$i
+	done
+	for i in drivers/isdn/pcbit/*.[ch] ; do
+		dodiff $i $KERNELDIR/$i
+	done
+	for i in include/linux/isdn*.h ; do
+		dodiff $i $KERNELDIR/$i
+	done
+	README=`echo Documentation/isdn/README* | grep -v '.sc'`
+	for i in Documentation/isdn/CREDITS $README Documentation/isdn/*.FAQ \
+		Documentation/isdn/INTERFACE ; do
+		dodiff $i $KERNELDIR/$i
+	done
+	for i in drivers/isdn/Config.in ; do
+		dodiff $i $KERNELDIR/$i
+	done
+	for i in drivers/isdn/Makefile drivers/isdn/icn/Makefile \
+		drivers/isdn/teles/Makefile drivers/isdn/hisax/Makefile \
+		drivers/isdn/pcbit/Makefile ; do
+		if [ -f $i.kernel ] ; then
+    		dodiff $i.kernel $KERNELDIR/$i
+		else
+    		dodiff $i $KERNELDIR/$i
+		fi
+	done
 fi
 

@@ -22,11 +22,36 @@ docp() {
 }
 
 #
+# Print usage and exit
+#
+usage() {
+	cat<<EOM
+
+	std2kern is used for updating your kernel-tree from within
+	this directory.
+
+	std2kern [-d] [-h] [-k DIR] [files ...]
+
+	Options:
+
+	-h	This Text.
+	-d	Copy depends on file-compare instead on modification date.
+	-k DIR	Kerneltree is in DIR instead of /usr/src/linux
+
+	Without any files given, within the whole tree, the "right"
+	files are copied. When any files are given in the commandline,
+	only those are copied.
+
+EOM
+	exit
+}
+
+#
 # Check, if argument is a linux kernel dir
 #
 checkkernel() {
 	if [ -f $1/Makefile ] ; then
-		if [ "`grep do-it-all $1/Makefile | grep vmlinux`" != "" ] ; then
+		if [ "`grep ^vmlinux: $1/Makefile | grep vmlinux`" != "" ] ; then
 			return 0
 		fi
 	fi
@@ -34,12 +59,13 @@ checkkernel() {
 	exit 1
 }
 
-while getopts :dk: a ; do
+while getopts :dhk: a ; do
 	case $a in
 		\?)	case $OPTARG in
 				k)	echo "-k requires Kernel directory parameter"
 					;;
 				*)  echo "Unknown option: -$OPTARG"
+					echo "Try std2kern -h"
 					;;
 			esac
 			exit 1
@@ -48,6 +74,9 @@ while getopts :dk: a ; do
 			KERNELDIR=$OPTARG
 			;;
 		d)	DOCP=docpd
+			;;
+		h)	usage
+			;;
 	esac
 done
 shift `expr $OPTIND - 1`
@@ -93,6 +122,10 @@ else
            drivers/isdn/teles/Makefile drivers/isdn/hisax/Makefile \
            drivers/isdn/pcbit/Makefile drivers/isdn/sc/Makefile \
            drivers/isdn/avmb1/Makefile; do
-    $DOCP $i.kernel $KERNELDIR/$i
+	if [ -f $i.kernel ] ; then
+    	$DOCP $i.kernel $KERNELDIR/$i
+	else
+    	$DOCP $i $KERNELDIR/$i
+	fi
   done
 fi

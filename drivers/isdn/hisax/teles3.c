@@ -11,6 +11,9 @@
  *              Beat Doebeli
  *
  * $Log$
+ * Revision 1.8  1997/02/23 18:43:55  fritz
+ * Added support for Teles-Vision.
+ *
  * Revision 1.7  1997/01/28 22:48:33  keil
  * fixes for Teles PCMCIA (Christof Petig)
  *
@@ -814,21 +817,35 @@ int
 initteles3(struct IsdnCardState *sp)
 {
 	int ret;
+	int loop = 0;
 	char tmp[40];
 
 	sp->counter = kstat.interrupts[sp->irq];
 	sprintf(tmp, "IRQ %d count %d", sp->irq, sp->counter);
 	debugl1(sp, tmp);
+	sp->counter += 2;
 	clear_pending_ints(sp);
 	ret = get_irq(sp->cardnr, &teles3_interrupt);
 	if (ret) {
 		initisac(sp);
 		sp->modehscx(sp->hs, 0, 0);
+		writereg(sp->hscx[sp->hs->hscx], HSCX_CMDR, 0x01);
 		sp->modehscx(sp->hs + 1, 0, 0);
-		sprintf(tmp, "IRQ %d count %d", sp->irq,
-			kstat.interrupts[sp->irq]);
+		writereg(sp->hscx[(sp->hs + 1)->hscx], HSCX_CMDR, 0x01);
+		while (loop++ < 10) {
+			/* At least 3 irqs must happen
+			 * (one from HSCX A, one from HSCX B, 3rd from ISAC)
+			 */
+			if (kstat.interrupts[sp->irq] > sp->counter)
+				break;
+			current->state = TASK_INTERRUPTIBLE;
+			current->timeout = jiffies + 1;
+			schedule();
+		}
+		sprintf(tmp, "IRQ %d count %d loop %d", sp->irq,
+			kstat.interrupts[sp->irq], loop);
 		debugl1(sp, tmp);
-		if (kstat.interrupts[sp->irq] == sp->counter) {
+		if (kstat.interrupts[sp->irq] <= sp->counter) {
 			printk(KERN_WARNING
 			       "Teles3: IRQ(%d) getting no interrupts during init\n",
 			       sp->irq);

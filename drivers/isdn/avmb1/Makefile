@@ -11,6 +11,9 @@
 # parent makes..
 #
 # $Log$
+# Revision 1.1  1997/03/05 21:26:14  fritz
+# Renamed, according naming conventions in CVS tree.
+#
 # Revision 1.1  1997/03/04 21:50:26  calle
 # Frirst version in isdn4linux
 #

@@ -1,13 +1,11 @@
-MODULES=icn.o
-CFLAGS=$(MCFLAGS) -I../$(INCLUDES)
-all: $(MODULES)
+L_OBJS :=
+M_OBJS :=
 
-icn.o:	icn.c icn.h ../$(INCLUDES)/linux/isdnif.h
-	$(CC) $(CFLAGS) -c icn.c
+ifeq ($(CONFIG_ISDN_DRV_ICN),y)
+  L_OBJS += icn.o
+else
+  M_OBJS += icn.o
+endif
 
-install: all
-	install -o root -g root -m 0644 $(MODULES) $(KERNELDIR)/modules
-
-clean:
-	rm -f *.[iso] *~ core
+include $(TOPDIR)/Rules.make
 

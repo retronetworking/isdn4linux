@@ -1,15 +1,17 @@
-CFLAGS=$(MCFLAGS) -I../$(INCLUDES)
-OBJS=mod.o card.o config.o buffers.o tei.o isdnl2.o isdnl3.o llglue.o \
-     q931.o callc.o fsm.o
+L_OBJS :=
+M_OBJS :=
+O_OBJS := mod.o card.o config.o buffers.o tei.o isdnl2.o isdnl3.o \
+llglue.o q931.o callc.o fsm.o
 
-all:	teles.o
+O_TARGET :=
+ifeq ($(CONFIG_ISDN_DRV_TELES),y)
+  O_TARGET += teles.o
+else
+  ifeq ($(CONFIG_ISDN_DRV_TELES),m)
+    O_TARGET += teles.o
+    M_OBJS += teles.o
+  endif
+endif
 
-isdnl3.o: l3_1TR6.c l3_1TR6.h isdnl3.c
-
-$(OBJS): teles.h
-
-teles.o: $(OBJS)
-	ld -r -o teles.o $(OBJS)
-
-clean:
-	rm -f *.[iso] *~ core
+include $(TOPDIR)/Rules.make
+ 
