@@ -5,7 +5,7 @@
  * Author       BeWan Systems
  *              based on source code from Karsten Keil
  *
- * This file is (c) under GNU PUBLIC LICENSE
+ * This file is (c) under GNU General Public License
  *
  */
 #include <linux/config.h>

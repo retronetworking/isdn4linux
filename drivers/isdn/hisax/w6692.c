@@ -5,7 +5,7 @@
  * Author       Petr Novak <petr.novak@i.cz>
  *              (based on HiSax driver by Karsten Keil)
  *
- *              This file is (c) under GNU PUBLIC LICENSE
+ *              This file is (c) under GNU General Public License
  *
  */
 

@@ -6,7 +6,7 @@
  *
  * Thanks to  ASUSCOM NETWORK INC. Taiwan and  Dynalink NL for informations
  *
- * This file is (c) under GNU PUBLIC LICENSE
+ * This file is (c) under GNU General Public License
  *
  */
 

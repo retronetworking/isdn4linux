@@ -6,7 +6,7 @@
  *
  * Thanks to Traverse Technologie Australia for documents and informations
  *
- * This file is (c) under GNU PUBLIC LICENSE
+ * This file is (c) under GNU General Public License
  *
  */
 
@@ -16,6 +16,7 @@
 #include "isac.h"
 #include "hscx.h"
 #include "isdnl1.h"
+#include <linux/pci.h>
 #include <linux/interrupt.h>
 #include <linux/ppp_defs.h>
 #include <asm/io.h>

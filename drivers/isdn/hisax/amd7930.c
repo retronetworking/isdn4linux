@@ -14,7 +14,7 @@
  *
  * The code is unreliable enough to be consider alpha
  *
- * This file is (c) under GNU PUBLIC LICENSE
+ * This file is (c) under GNU General Public License
  *
  * Advanced Micro Devices' Am79C30A is an ISDN/audio chip used in the
  * SparcStation 1+.  The chip provides microphone and speaker interfaces

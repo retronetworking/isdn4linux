@@ -16,7 +16,7 @@
 // Will Scales - beta tester extraordinaire
 // Brett Whittacre - beta tester and remote devel system in Vegas
 //
-// This file is (c) under GNU PUBLIC LICENSE
+// This file is (c) under GNU General Public License
 //
 //-----------------------------------------------------------------------------
 #define __NO_VERSION__
@@ -372,12 +372,12 @@ l3ni1_parse_facility(struct PStack *st, struct l3_process *pc,
                            return; 
                          }   
                         if ((pc->prot.ni1.invoke_id) && (pc->prot.ni1.invoke_id == id))
-                          { /* Diversion successfull */
+                          { /* Diversion successful */
                             free_invoke_id(st,pc->prot.ni1.invoke_id);
                             pc->prot.ni1.remote_result = 0; /* success */     
                             pc->prot.ni1.invoke_id = 0;
                             pc->redir_result = pc->prot.ni1.remote_result; 
-                            st->l3.l3l4(st, CC_REDIR | INDICATION, pc);                                  } /* Diversion successfull */
+                            st->l3.l3l4(st, CC_REDIR | INDICATION, pc);                                  } /* Diversion successful */
                         else
                           l3_debug(st,"return error unknown identifier");
 			break;
@@ -1973,7 +1973,7 @@ static void l3ni1_redir_req(struct l3_process *pc, u_char pr, void *arg)
         MsgHead(p, pc->callref, MT_FACILITY);
 
         for (subp = pc->chan->setup.phone; (*subp) && (*subp != '.'); subp++) len_phone++; /* len of phone number */
-        if (*subp++ == '.') len_sub = strlen(subp) + 2; /* length including info subadress element */ 
+        if (*subp++ == '.') len_sub = strlen(subp) + 2; /* length including info subaddress element */ 
 
 	*p++ = 0x1c;   /* Facility info element */
         *p++ = len_phone + len_sub + 2 + 2 + 8 + 3 + 3; /* length of element */
@@ -1999,7 +1999,7 @@ static void l3ni1_redir_req(struct l3_process *pc, u_char pr, void *arg)
 	 *p++ = pc->chan->setup.phone[l];
 
         if (len_sub)
-	  { *p++ = 0x04; /* called party subadress */
+	  { *p++ = 0x04; /* called party subaddress */
             *p++ = len_sub - 2;
             while (*subp) *p++ = *subp++;
           }

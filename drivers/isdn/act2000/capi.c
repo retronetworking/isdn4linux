@@ -128,7 +128,7 @@ actcapi_chkhdr(act2000_card * card, actcapi_msghdr *hdr)
 	        m->hdr.cmd.cmd = c; \
 	        m->hdr.cmd.subcmd = s; \
 	        m->hdr.msgnum = actcapi_nextsmsg(card); \
-	} \
+	} else m = NULL;\
 }
 
 #define ACTCAPI_CHKSKB if (!skb) { \

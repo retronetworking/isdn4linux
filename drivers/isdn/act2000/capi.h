@@ -44,7 +44,7 @@ typedef struct actcapi_msgdsc {
 	char *description;
 } actcapi_msgdsc;
 
-/* CAPI Adress */
+/* CAPI Address */
 typedef struct actcapi_addr {
 	__u8 len;                            /* Length of element            */
 	__u8 tnp;                            /* Type/Numbering Plan          */

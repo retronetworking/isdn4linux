@@ -6,6 +6,9 @@
  * (c) Copyright 1999 by Carsten Paeth (calle@calle.in-berlin.de)
  * 
  * $Log$
+ * Revision 1.12.6.1  2001/02/13 11:43:29  kai
+ * more compatility changes for 2.2.19
+ *
  * Revision 1.12  2000/11/23 20:45:14  kai
  * fixed module_init/exit stuff
  * Note: compiled-in kernel doesn't work pre 2.2.18 anymore.
@@ -33,7 +36,7 @@
  * - fixed problem with memory mapping if address is not aligned
  *
  * Revision 1.6  2000/01/25 14:37:39  calle
- * new message after successfull detection including card revision and
+ * new message after successful detection including card revision and
  * used resources.
  *
  * Revision 1.5  1999/11/05 16:38:01  calle

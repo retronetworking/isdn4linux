@@ -290,7 +290,7 @@ int deflect_extern_action(u_char cmd, ulong callid, char *to_nr)
 /* insert a new rule before idx */
 /********************************/
 int insertrule(int idx, divert_rule *newrule)
-{ struct deflect_struc *ds,*ds1;
+{ struct deflect_struc *ds,*ds1=NULL;
   int flags;
 
   if (!(ds = (struct deflect_struc *) kmalloc(sizeof(struct deflect_struc), 

@@ -2,7 +2,7 @@
  *
  * stuff for the serial modem on ELSA cards
  *
- * This file is (c) under GNU PUBLIC LICENSE
+ * This file is (c) under GNU General Public License
  *
  */
 #include <linux/config.h>

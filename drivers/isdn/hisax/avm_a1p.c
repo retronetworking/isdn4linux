@@ -7,7 +7,7 @@
  *
  * Author       Carsten Paeth (calle@calle.in-berlin.de)
  *
- *  This file is (c) under GNU PUBLIC LICENSE
+ *  This file is (c) under GNU General Public License
  */
 #define __NO_VERSION__
 #include <linux/init.h>

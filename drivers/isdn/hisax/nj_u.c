@@ -1,6 +1,6 @@
 /* $Id$ 
  *
- * This file is (c) under GNU PUBLIC LICENSE
+ * This file is (c) under GNU General Public License
  *
  */
 

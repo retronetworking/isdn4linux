@@ -42,7 +42,7 @@
 #endif
 #ifdef CONFIG_ISDN_DIVERSION
 #include <linux/isdn_divertif.h>
-#endif CONFIG_ISDN_DIVERSION
+#endif /* CONFIG_ISDN_DIVERSION */
 #include "isdn_v110.h"
 #ifdef HAVE_DEVFS_FS
 #include <linux/devfs_fs_kernel.h>
@@ -71,7 +71,7 @@ extern char *isdn_v110_revision;
 
 #ifdef CONFIG_ISDN_DIVERSION
 static isdn_divert_if *divert_if; /* = NULL */
-#endif CONFIG_ISDN_DIVERSION
+#endif /* CONFIG_ISDN_DIVERSION */
 
 
 static int isdn_writebuf_stub(int, int, const u_char *, int, int);
@@ -523,7 +523,7 @@ isdn_status_callback(isdn_ctrl * c)
                                          if (divert_if)
                  	                  if ((retval = divert_if->stat_callback(c))) 
 					    return(retval); /* processed */
-#endif CONFIG_ISDN_DIVERSION                        
+#endif /* CONFIG_ISDN_DIVERSION */                       
 					if ((!retval) && (dev->drv[di]->flags & DRV_FLAG_REJBUS)) {
 						/* No tty responding */
 						cmd.driver = di;
@@ -596,7 +596,7 @@ isdn_status_callback(isdn_ctrl * c)
 #ifdef CONFIG_ISDN_DIVERSION
                         if (divert_if)
                          divert_if->stat_callback(c); 
-#endif CONFIG_ISDN_DIVERSION
+#endif /* CONFIG_ISDN_DIVERSION */
 			break;
 		case ISDN_STAT_DISPLAY:
 #ifdef ISDN_DEBUG_STATCALLB
@@ -606,7 +606,7 @@ isdn_status_callback(isdn_ctrl * c)
 #ifdef CONFIG_ISDN_DIVERSION
                         if (divert_if)
                          divert_if->stat_callback(c); 
-#endif CONFIG_ISDN_DIVERSION
+#endif /* CONFIG_ISDN_DIVERSION */
 			break;
 		case ISDN_STAT_DCONN:
 			if (i < 0)
@@ -648,7 +648,7 @@ isdn_status_callback(isdn_ctrl * c)
 #ifdef CONFIG_ISDN_DIVERSION
                         if (divert_if)
                          divert_if->stat_callback(c); 
-#endif CONFIG_ISDN_DIVERSION
+#endif /* CONFIG_ISDN_DIVERSION */
 			break;
 			break;
 		case ISDN_STAT_BCONN:
@@ -779,7 +779,7 @@ isdn_status_callback(isdn_ctrl * c)
 	        case ISDN_STAT_REDIR:
                         if (divert_if)
                           return(divert_if->stat_callback(c));
-#endif CONFIG_ISDN_DIVERSION
+#endif /* CONFIG_ISDN_DIVERSION */
 		default:
 			return -1;
 	}
@@ -2248,7 +2248,7 @@ int DIVERT_REG_NAME(isdn_divert_if *i_div)
 
 EXPORT_SYMBOL(DIVERT_REG_NAME);
 
-#endif CONFIG_ISDN_DIVERSION
+#endif /* CONFIG_ISDN_DIVERSION */
 
 
 EXPORT_SYMBOL(register_isdn);

@@ -92,7 +92,7 @@ dep_tristate       'IBM Active 2000 support' CONFIG_ISDN_DRV_ACT2000 $CONFIG_ISD
 bool               'Eicon active card support' CONFIG_ISDN_DRV_EICON
 if [ "$CONFIG_ISDN_DRV_EICON" != "n" ]; then
    if [ "$CONFIG_ISDN_DRV_EICON_OLD" != "y" ]; then
-      dep_tristate '  Build Eicon driver type standalone' CONFIG_ISDN_DRV_EICON_DIVAS $CONFIG_ISDN
+      dep_tristate '  Build Eicon driver type standalone' CONFIG_ISDN_DRV_EICON_DIVAS $CONFIG_ISDN $CONFIG_PCI
    fi
    if [ "$CONFIG_ISDN_DRV_EICON_DIVAS" != "y" ]; then
       dep_tristate '  Legacy Eicon driver' CONFIG_ISDN_DRV_EICON_OLD $CONFIG_ISDN

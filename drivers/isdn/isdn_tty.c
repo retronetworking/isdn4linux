@@ -3781,7 +3781,7 @@ isdn_tty_parse_at(modem_info * info)
                                                 sprintf(ds, "\r\n%d", info->emu.charge);
                                                 isdn_tty_at_cout(ds, info);
                                                 break;
-					default:
+					default:;
 				}
 				break;
 #ifdef DUMMY_HAYES_AT

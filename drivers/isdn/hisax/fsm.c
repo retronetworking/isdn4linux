@@ -6,7 +6,7 @@
  * Thanks to    Jan den Ouden
  *              Fritz Elfert
  *
- * This file is (c) under GNU PUBLIC LICENSE
+ * This file is (c) under GNU General Public License
  *
  */
 #define __NO_VERSION__

@@ -868,7 +868,7 @@ icn_loadboot(u_char * buffer, icn_card * card)
 	SLEEP(1);
 	memcpy_toio(dev.shmem, codebuf, ICN_CODE_STAGE1);	/* Copy code        */
 #ifdef BOOT_DEBUG
-	printk(KERN_DEBUG "Bootloader transfered\n");
+	printk(KERN_DEBUG "Bootloader transferred\n");
 #endif
 	if (card->doubleS0) {
 		SLEEP(1);
@@ -884,7 +884,7 @@ icn_loadboot(u_char * buffer, icn_card * card)
 		SLEEP(1);
 		memcpy_toio(dev.shmem, codebuf, ICN_CODE_STAGE1);	/* Copy code        */
 #ifdef BOOT_DEBUG
-		printk(KERN_DEBUG "Bootloader transfered\n");
+		printk(KERN_DEBUG "Bootloader transferred\n");
 #endif
 	}
 	kfree(codebuf);

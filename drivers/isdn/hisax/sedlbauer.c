@@ -16,7 +16,7 @@
  *            Sedlbauer AG for informations
  *            Edgar Toernig
  *
- * This file is (c) under GNU PUBLIC LICENSE
+ * This file is (c) under GNU General Public License
  *
  */
 

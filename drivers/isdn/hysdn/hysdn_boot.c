@@ -93,7 +93,7 @@ DecryptBuf(struct boot_data *boot, int cnt)
 
 /********************************************************************************/
 /* pof_handle_data executes the required actions dependant on the active record */
-/* id. If successfull 0 is returned, a negative value shows an error.           */
+/* id. If successful 0 is returned, a negative value shows an error.           */
 /********************************************************************************/
 static int
 pof_handle_data(hysdn_card * card, int datlen)

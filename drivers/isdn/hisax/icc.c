@@ -10,7 +10,7 @@
 // Communication Controler PEB 2070 based on the ISAC routines
 // written by Karsten Keil.
 //
-// This file is (c) under GNU PUBLIC LICENSE
+// This file is (c) under GNU General Public License
 //
 //-----------------------------------------------------------------------------
 
