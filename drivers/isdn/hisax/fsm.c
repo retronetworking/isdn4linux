@@ -7,6 +7,9 @@
  *              Fritz Elfert
  *
  * $Log$
+ * Revision 1.8  1998/03/07 22:56:59  tsbogend
+ * made HiSax working on Linux/Alpha
+ *
  * Revision 1.7  1997/11/06 17:09:13  keil
  * New 2.1 init code
  *
@@ -41,18 +44,18 @@ FsmNew(struct Fsm *fsm,
 {
 	int i;
 
-	fsm->jumpmatrix = (long *)
-	    kmalloc(sizeof (long *) * fsm->state_count * fsm->event_count, GFP_KERNEL);
-	memset(fsm->jumpmatrix, 0, sizeof (long *) * fsm->state_count * fsm->event_count);
+	fsm->jumpmatrix = (FSMFNPTR *)
+		kmalloc(sizeof (FSMFNPTR) * fsm->state_count * fsm->event_count, GFP_KERNEL);
+	memset(fsm->jumpmatrix, 0, sizeof (FSMFNPTR) * fsm->state_count * fsm->event_count);
 
 	for (i = 0; i < fncount; i++) 
 		if ((fnlist[i].state>=fsm->state_count) || (fnlist[i].event>=fsm->event_count)) {
 			printk(KERN_ERR "FsmNew Error line %d st(%ld/%ld) ev(%ld/%ld)\n",
-				i,fnlist[i].state,fsm->state_count,
-				fnlist[i].event,fsm->event_count);
+				i,(long)fnlist[i].state,(long)fsm->state_count,
+				(long)fnlist[i].event,(long)fsm->event_count);
 		} else		
 			fsm->jumpmatrix[fsm->state_count * fnlist[i].event +
-				fnlist[i].state] = (long) fnlist[i].routine;
+				fnlist[i].state] = (FSMFNPTR) fnlist[i].routine;
 }
 
 void
@@ -64,15 +67,15 @@ FsmFree(struct Fsm *fsm)
 int
 FsmEvent(struct FsmInst *fi, int event, void *arg)
 {
-	void (*r) (struct FsmInst *, int, void *);
+	FSMFNPTR r;
 	char str[80];
 
 	if ((fi->state>=fi->fsm->state_count) || (event >= fi->fsm->event_count)) {
 		printk(KERN_ERR "FsmEvent Error st(%ld/%ld) ev(%d/%ld)\n",
-			fi->state,fi->fsm->state_count,event,fi->fsm->event_count);
+			(long)fi->state,(long)fi->fsm->state_count,event,(long)fi->fsm->event_count);
 		return(1);
 	}
-	r = (void (*)) fi->fsm->jumpmatrix[fi->fsm->state_count * event + fi->state];
+	r = fi->fsm->jumpmatrix[fi->fsm->state_count * event + fi->state];
 	if (r) {
 		if (fi->debug) {
 			sprintf(str, "State %s Event %s",

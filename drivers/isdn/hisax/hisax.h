@@ -3,6 +3,10 @@
  *   Basic declarations, defines and prototypes
  *
  * $Log$
+ * Revision 2.17  1998/03/19 13:18:43  keil
+ * Start of a CAPI like interface for supplementary Service
+ * first service: SUSPEND
+ *
  * Revision 2.16  1998/03/09 23:19:25  keil
  * Changes for PCMCIA
  *
@@ -209,8 +213,12 @@
  * Statemachine
  */
 
+struct FsmInst;
+
+typedef void (* FSMFNPTR)(struct FsmInst *, int, void *);
+
 struct Fsm {
-	int *jumpmatrix;
+	FSMFNPTR *jumpmatrix;
 	int state_count, event_count;
 	char **strEvent, **strState;
 };
