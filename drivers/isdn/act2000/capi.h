@@ -2,7 +2,7 @@
  *
  * ISDN lowlevel-module for the IBM ISDN-S0 Active 2000.
  *
- * Copyright 1997 by Fritz Elfert (fritz@wuemaus.franken.de)
+ * Copyright 1998 by Fritz Elfert (fritz@isdn4linux.de)
  * Thanks to Friedemann Baitinger and IBM Germany
  *
  * This program is free software; you can redistribute it and/or modify
@@ -20,6 +20,11 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.4  1997/10/01 09:21:04  fritz
+ * Removed old compatibility stuff for 2.0.X kernels.
+ * From now on, this code is for 2.1.X ONLY!
+ * Old stuff is still in the separate branch.
+ *
  * Revision 1.3  1997/09/25 17:25:41  fritz
  * Support for adding cards at runtime.
  * Support for new Firmware.

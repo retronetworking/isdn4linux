@@ -3,7 +3,7 @@
  * ISDN lowlevel-module for the IBM ISDN-S0 Active 2000.
  *        CAPI encoder/decoder
  *
- * Copyright 1997 by Fritz Elfert (fritz@wuemaus.franken.de)
+ * Copyright 1998 by Fritz Elfert (fritz@isdn4linux.de)
  * Thanks to Friedemann Baitinger and IBM Germany
  *
  * This program is free software; you can redistribute it and/or modify
@@ -21,6 +21,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.7  1998/02/23 23:35:41  fritz
+ * Eliminated some compiler warnings.
+ *
  * Revision 1.6  1998/02/12 23:06:50  keil
  * change for 2.1.86 (removing FREE_READ/FREE_WRITE from [dev]_kfree_skb()
  *
