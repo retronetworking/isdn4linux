@@ -7,6 +7,9 @@
  *              Fritz Elfert
  *
  * $Log$
+ * Revision 1.3  1996/11/05 19:39:12  keil
+ * X.75 bugfixes Thank to Martin Maurer
+ *
  * Revision 1.2  1996/10/30 10:20:58  keil
  * X.75 answer of SABMX fixed to response address (AVM X.75 problem)
  *
@@ -18,6 +21,7 @@
  */
 #define __NO_VERSION__
 #include "hisax.h"
+#include "isdnl2.h"
 
 #define TIMER_1 2000
 
@@ -117,9 +121,9 @@ discard_i_queue(struct PStack *st)
 }
 
 int
-l2headersize(struct Layer2 *tsp, int UI)
+l2headersize(struct Layer2 *tsp, int ui)
 {
-	return ((tsp->extended && (!UI) ? 2 : 1) + (tsp->laptype == LAPD ? 2 : 1));
+	return ((tsp->extended && (!ui) ? 2 : 1) + (tsp->laptype == LAPD ? 2 : 1));
 }
 
 int
@@ -213,10 +217,10 @@ l2s2(struct FsmInst *fi, int event, void *arg)
 	byte           *ptr;
 	int             i;
 
-	i = sethdraddr(&(st->l2), ibh, 0);
+	i = sethdraddr(&(st->l2), ibh, CMD);
 	ptr = DATAPTR(ibh);
 	ptr += i;
-	*ptr = 0x3;
+	*ptr = UI;
 
 	enqueue_ui(st, ibh);
 }
@@ -248,11 +252,11 @@ establishlink(struct FsmInst *fi)
 
 	if (BufPoolGet(&ibh, st->l1.smallpool, GFP_ATOMIC, (void *) st, 15))
 		return;
-	i = sethdraddr(&st->l2, ibh, 0);
+	i = sethdraddr(&st->l2, ibh, CMD);
 	ptr = DATAPTR(ibh);
 	ptr += i;
 	if (st->l2.extended)
-		*ptr = 0x7f;
+		*ptr = SABME | 0x10;
 	else
 		*ptr = 0x3f;
 	ibh->datasize = i + 1;
@@ -293,10 +297,10 @@ l2s13(struct FsmInst *fi, int event, void *arg)
 
 	if (BufPoolGet(&ibh, st->l1.smallpool, GFP_ATOMIC, (void *) st, 9))
 		return;
-	i = sethdraddr(&(st->l2), ibh, 0);
+	i = sethdraddr(&(st->l2), ibh, CMD);
 	ptr = DATAPTR(ibh);
 	ptr += i;
-	*ptr = 0x53;
+	*ptr = DISC | 0x10;
 	ibh->datasize = i + 1;
 	enqueue_super(st, ibh);
 
@@ -310,9 +314,13 @@ l2s12(struct FsmInst *fi, int event, void *arg)
 	struct PStack  *st = fi->userdata;
 	struct BufHeader *ibh = arg;
 	byte           *ptr;
-	int             i;
+	int             i, p;
 
+	ptr = DATAPTR(ibh);
+	ptr += l2addrsize(&(st->l2));
+	p = (*ptr) & 0x10;
 	BufPoolRelease(ibh);
+
 	st->l2.vs = 0;
 	st->l2.va = 0;
 	st->l2.vr = 0;
@@ -326,10 +334,10 @@ l2s12(struct FsmInst *fi, int event, void *arg)
 
 	if (BufPoolGet(&ibh, st->l1.smallpool, GFP_ATOMIC, (void *) st, 10))
 		return;
-	i = sethdraddr(&(st->l2), ibh, !0);
+	i = sethdraddr(&(st->l2), ibh, RSP);
 	ptr = DATAPTR(ibh);
 	ptr += i;
-	*ptr = 0x73;
+	*ptr = UA | p;
 	ibh->datasize = i + 1;
 	enqueue_super(st, ibh);
 
@@ -361,15 +369,46 @@ l2s14(struct FsmInst *fi, int event, void *arg)
 
 	if (BufPoolGet(&ibh, st->l1.smallpool, GFP_ATOMIC, (void *) st, 11))
 		return;
-	i = sethdraddr(&(st->l2), ibh, 0);
+	i = sethdraddr(&(st->l2), ibh, RSP);
 	ptr = DATAPTR(ibh);
 	ptr += i;
-	*ptr = 0x63 | (p ? 0x10 : 0x0);
+	*ptr = UA | p;
 	ibh->datasize = i + 1;
 	enqueue_super(st, ibh);
 
       noresponse:
 	st->l2.l2man(st, DL_RELEASE, NULL);
+
+}
+
+static void
+l2s14_1(struct FsmInst *fi, int event, void *arg)
+{
+	struct PStack  *st = fi->userdata;
+	struct BufHeader *ibh = arg;
+	struct Channel *chanp = st->l4.userdata;
+	byte           *ptr;
+	int             i, p;
+
+	ptr = DATAPTR(ibh);
+	ptr += l2addrsize(&(st->l2));
+	p = (*ptr) & 0x10;
+	BufPoolRelease(ibh);
+
+	if ((chanp->impair == 1) && (st->l2.laptype == LAPB))
+		goto noresponse;
+
+	if (BufPoolGet(&ibh, st->l1.smallpool, GFP_ATOMIC, (void *) st, 11))
+		return;
+	i = sethdraddr(&(st->l2), ibh, RSP);
+	ptr = DATAPTR(ibh);
+	ptr += i;
+	*ptr = DM | (p ? 0x10 : 0x0);
+
+	ibh->datasize = i + 1;
+	enqueue_super(st, ibh);
+
+      noresponse:
 
 }
 
@@ -426,12 +465,46 @@ l2s15(struct FsmInst *fi, int event, void *arg)
 }
 
 static void
+enquiry_response(struct PStack *st)
+{
+	struct BufHeader *ibh2;
+	int             i;
+	byte           *ptr;
+	struct Layer2  *l2;
+
+	l2 = &st->l2;
+	if (!BufPoolGet(&ibh2, st->l1.smallpool, GFP_ATOMIC, (void *) st, 16)) {
+		i = sethdraddr(l2, ibh2, RSP);
+		ptr = DATAPTR(ibh2);
+		ptr += i;
+
+		if (l2->extended) {
+			*ptr++ = RR;
+			*ptr++ = (l2->vr << 1) | 0x1;
+			i += 2;
+		} else {
+			*ptr++ = (l2->vr << 5) | 0x1 | 0x10;
+			i += 1;
+		}
+		ibh2->datasize = i;
+		enqueue_super(st, ibh2);
+	}
+}
+
+static void
+nrerrorrecovery(struct FsmInst *fi)
+{
+  /* should log error here */
+        establishlink(fi);
+}
+
+static void
 l2s6(struct FsmInst *fi, int event, void *arg)
 {
 	struct PStack  *st = fi->userdata;
 	struct Channel *chanp = st->l4.userdata;
 	struct BufHeader *ibh = arg;
-	int             p, i, seq, rsp;
+	int             p, seq, rsp;
 	byte           *ptr;
 	struct Layer2  *l2;
 
@@ -462,26 +535,11 @@ l2s6(struct FsmInst *fi, int event, void *arg)
 	if ((chanp->impair == 4) && (st->l2.laptype == LAPB))
 		goto noresp;
 
-	if ((!rsp) && p) {
-		if (!BufPoolGet(&ibh, st->l1.smallpool, GFP_ATOMIC, (void *) st, 12)) {
-			i = sethdraddr(l2, ibh, !0);
-			ptr = DATAPTR(ibh);
-			ptr += i;
+	if ((!rsp) && p)
+	        enquiry_response(st);
 
-			if (l2->extended) {
-				*ptr++ = 0x1;
-				*ptr++ = (l2->vr << 1) | (p ? 1 : 0);
-				i += 2;
-			} else {
-				*ptr++ = (l2->vr << 5) | 0x1 | (p ? 0x10 : 0x0);
-				i += 1;
-			}
-			ibh->datasize = i;
-			enqueue_super(st, ibh);
-		}
-	}
       noresp:
-	if (legalnr(st, seq))
+	if (legalnr(st, seq)) {
 		if (seq == st->l2.vs) {
 			setva(st, seq);
 			FsmDelTimer(&st->l2.t200_timer, 7);
@@ -503,6 +561,14 @@ l2s6(struct FsmInst *fi, int event, void *arg)
 			if (st->l2.i_queue.head)
 				st->l2.l2l1(st, PH_REQUEST_PULL, NULL);
 		}
+	}
+	else
+	      nrerrorrecovery(fi);
+
+	if ((fi->userint & LC_FLUSH_WAIT) && rsp && !l2->i_queue.head) {
+	        fi->userint &= ~LC_FLUSH_WAIT;
+	        st->l2.l2man(st, DL_FLUSH, NULL);
+	}
 }
 
 static void
@@ -515,7 +581,7 @@ l2s7(struct FsmInst *fi, int event, void *arg)
 	struct IsdnCardState *sp = st->l1.hardware;
 	char            str[64];
 
-	i = sethdraddr(&st->l2, ibh, 0);
+	i = sethdraddr(&st->l2, ibh, CMD);
 	ptr = DATAPTR(ibh);
 
 	if (st->l2.laptype == LAPD)
@@ -530,8 +596,8 @@ l2s7(struct FsmInst *fi, int event, void *arg)
 	st->l2.l2l1(st, PH_REQUEST_PULL, NULL);
 }
 
-static void
-l2s8(struct FsmInst *fi, int event, void *arg)
+static int
+icommandreceived(struct FsmInst *fi, int event, void *arg, int *nr)
 {
 	struct PStack  *st = fi->userdata;
 	struct Channel *chanp = st->l4.userdata;
@@ -540,7 +606,7 @@ l2s8(struct FsmInst *fi, int event, void *arg)
 	struct BufHeader *ibh2;
 	struct IsdnCardState *sp = st->l1.hardware;
 	struct Layer2  *l2 = &(st->l2);
-	int             i, p, seq, nr, wasok;
+	int             i, p, seq, wasok;
 	char            str[64];
 
 	ptr = DATAPTR(ibh);
@@ -548,11 +614,11 @@ l2s8(struct FsmInst *fi, int event, void *arg)
 	if (l2->extended) {
 		p = (ptr[1] & 0x1) == 0x1;
 		seq = ptr[0] >> 1;
-		nr = (ptr[1] >> 1) & 0x7f;
+		*nr = (ptr[1] >> 1) & 0x7f;
 	} else {
 		p = (ptr[0] & 0x10);
 		seq = (ptr[0] >> 1) & 0x7;
-		nr = (ptr[0] >> 5) & 0x7;
+		*nr = (ptr[0] >> 5) & 0x7;
 	}
 
 	if (l2->vr == seq) {
@@ -574,12 +640,12 @@ l2s8(struct FsmInst *fi, int event, void *arg)
 			goto noRR;
 
 		if (!BufPoolGet(&ibh2, st->l1.smallpool, GFP_ATOMIC, (void *) st, 13)) {
-			i = sethdraddr(&(st->l2), ibh2, !0);
+			i = sethdraddr(&(st->l2), ibh2, RSP);
 			ptr = DATAPTR(ibh2);
 			ptr += i;
 
 			if (l2->extended) {
-				*ptr++ = 0x1;
+				*ptr++ = RR;
 				*ptr++ = (l2->vr << 1) | (p ? 1 : 0);
 				i += 2;
 			} else {
@@ -600,12 +666,12 @@ l2s8(struct FsmInst *fi, int event, void *arg)
 		} else {
 			st->l2.rejexp = !0;
 			if (!BufPoolGet(&ibh2, st->l1.smallpool, GFP_ATOMIC, (void *) st, 14)) {
-				i = sethdraddr(&(st->l2), ibh2, p);
+				i = sethdraddr(&(st->l2), ibh2, RSP);
 				ptr = DATAPTR(ibh2);
 				ptr += i;
 
 				if (l2->extended) {
-					*ptr++ = 0x9;
+					*ptr++ = REJ;
 					*ptr++ = (l2->vr << 1) | (p ? 1 : 0);
 					i += 2;
 				} else {
@@ -618,7 +684,20 @@ l2s8(struct FsmInst *fi, int event, void *arg)
 		}
 	}
 
-	if (legalnr(st, nr))
+	return wasok;
+
+}
+
+static void
+l2s8(struct FsmInst *fi, int event, void *arg)
+{
+	struct PStack  *st = fi->userdata;
+	struct BufHeader *ibh = arg;
+	int             nr, wasok;
+
+	wasok = icommandreceived(fi, event, arg, &nr);
+
+	if (legalnr(st, nr)) {
 		if (nr == st->l2.vs) {
 			setva(st, nr);
 			FsmDelTimer(&st->l2.t200_timer, 10);
@@ -640,9 +719,33 @@ l2s8(struct FsmInst *fi, int event, void *arg)
 			if (st->l2.i_queue.head)
 				st->l2.l2l1(st, PH_REQUEST_PULL, NULL);
 		}
+	}
+	else
+	      nrerrorrecovery(fi);
+  
 	if (wasok)
-		st->l2.l2l3(st, DL_DATA, ibh);
+	        st->l2.l2l3(st, DL_DATA, ibh);
+}
 
+static void
+l2s8_1(struct FsmInst *fi, int event, void *arg)
+{
+	struct PStack  *st = fi->userdata;
+	struct BufHeader *ibh = arg;
+	int             nr, wasok;
+
+	wasok = icommandreceived(fi, event, arg, &nr);
+
+	if (legalnr(st, nr)) {
+			setva(st, nr);
+			if (st->l2.i_queue.head)
+				st->l2.l2l1(st, PH_REQUEST_PULL, NULL);
+	}
+	else
+	      nrerrorrecovery(fi);
+  
+	if (wasok)
+	        st->l2.l2l3(st, DL_DATA, ibh);
 }
 
 static void
@@ -652,33 +755,6 @@ l2s17(struct FsmInst *fi, int event, void *arg)
 
 	st->l2.tei = (int) arg;
 	establishlink(fi);
-}
-
-static void
-enquiry_response(struct PStack *st)
-{
-	struct BufHeader *ibh2;
-	int             i;
-	byte           *ptr;
-	struct Layer2  *l2;
-
-	l2 = &st->l2;
-	if (!BufPoolGet(&ibh2, st->l1.smallpool, GFP_ATOMIC, (void *) st, 16)) {
-		i = sethdraddr(&(st->l2), ibh2, !0);
-		ptr = DATAPTR(ibh2);
-		ptr += i;
-
-		if (l2->extended) {
-			*ptr++ = 0x1;
-			*ptr++ = (l2->vr << 1) | 0x1;
-			i += 2;
-		} else {
-			*ptr++ = (l2->vr << 5) | 0x1 | 0x10;
-			i += 1;
-		}
-		ibh2->datasize = i;
-		enqueue_super(st, ibh2);
-	}
 }
 
 static void
@@ -777,11 +853,11 @@ l2s20(struct FsmInst *fi, int event, void *arg)
 		if (BufPoolGet(&ibh, st->l1.smallpool, GFP_ATOMIC, (void *) st, 15))
 			return;
 
-		i = sethdraddr(&st->l2, ibh, 0);
+		i = sethdraddr(&st->l2, ibh, CMD);
 		ptr = DATAPTR(ibh);
 		ptr += i;
 		if (st->l2.extended)
-			*ptr = 0x7f;
+			*ptr = SABME | 0x10;
 		else
 			*ptr = 0x3f;
 		ibh->datasize = i + 1;
@@ -815,10 +891,10 @@ l2s21(struct FsmInst *fi, int event, void *arg)
 		if (BufPoolGet(&ibh, st->l1.smallpool, GFP_ATOMIC, (void *) st, 15))
 			return;
 
-		i = sethdraddr(&st->l2, ibh, 0);
+		i = sethdraddr(&st->l2, ibh, CMD);
 		ptr = DATAPTR(ibh);
 		ptr += i;
-		*ptr = 0x53;
+		*ptr = DISC | 0x10;
 		ibh->datasize = i + 1;
 		enqueue_super(st, ibh);
 	      nodisc:
@@ -853,7 +929,7 @@ l2s22(struct FsmInst *fi, int event, void *arg)
 
 	if (l2->extended) {
 		*ptr++ = l2->vs << 1;
-		*ptr++ = (l2->vr << 1) | 0x1;
+		*ptr++ = l2->vr << 1;
 		l2->vs = (l2->vs + 1) % 128;
 	} else {
 		*ptr++ = (l2->vr << 5) | (l2->vs << 1);
@@ -870,9 +946,9 @@ l2s22(struct FsmInst *fi, int event, void *arg)
 
 		st->l2.t200_running = !0;
 	}
+
 	if (l2->i_queue.head && cansend(st))
 		st->l2.l2l1(st, PH_REQUEST_PULL, NULL);
-
 }
 
 static void
@@ -883,10 +959,10 @@ transmit_enquiry(struct PStack *st)
 
 	if (!BufPoolGet(&ibh, st->l1.smallpool, GFP_ATOMIC, (void *) st, 12)) {
 		ptr = DATAPTR(ibh);
-		ptr += sethdraddr(&st->l2, ibh, 0);
+		ptr += sethdraddr(&st->l2, ibh, CMD);
 
 		if (st->l2.extended) {
-			*ptr++ = 0x1;
+			*ptr++ = RR;
 			*ptr++ = (st->l2.vr << 1) | 1;
 		} else {
 			*ptr++ = (st->l2.vr << 5) | 0x11;
@@ -960,6 +1036,13 @@ l2s24(struct FsmInst *fi, int event, void *arg)
 					l2m_debug(&st->l2.l2m, "FAT 11");
 
 			invoke_retransmission(st, seq);
+
+			if (l2->i_queue.head && cansend(st))
+			        st->l2.l2l1(st, PH_REQUEST_PULL, NULL);
+			else if (fi->userint & LC_FLUSH_WAIT) {
+			        fi->userint &= ~LC_FLUSH_WAIT;
+			        st->l2.l2man(st, DL_FLUSH, NULL);
+			}
 		}
 	} else {
 		if (!rsp && p)
@@ -986,7 +1069,7 @@ l2s26(struct FsmInst *fi, int event, void *arg)
 	struct PStack  *st = fi->userdata;
 
 	if (st->l2.rc == st->l2.n200) {
-		l2s13(fi, event, NULL);
+	        establishlink(fi);
 	} else {
 		st->l2.rc++;
 		transmit_enquiry(st);
@@ -1004,19 +1087,16 @@ l2s27(struct FsmInst *fi, int event, void *arg)
 	ptr = DATAPTR(ibh);
 	ptr += l2addrsize(&st->l2);
 
-	if (st->l2.extended)
-		p = ptr[1] & 0x1;
-	else
-		p = ptr[0] & 0x10;
+	p = ptr[0] & 0x10;
 
 	BufPoolRelease(ibh);
 
 	if (BufPoolGet(&ibh, st->l1.smallpool, GFP_ATOMIC, (void *) st, 10))
 		return;
-	i = sethdraddr(&st->l2, ibh, 0);
+	i = sethdraddr(&st->l2, ibh, RSP);
 	ptr = DATAPTR(ibh);
 	ptr += i;
-	*ptr = 0x63 | p;
+	*ptr = UA | p;
 	ibh->datasize = i + 1;
 	enqueue_super(st, ibh);
 
@@ -1042,6 +1122,18 @@ l2s27(struct FsmInst *fi, int event, void *arg)
 	if (est)
 		st->l2.l2man(st, DL_ESTABLISH, NULL);
 
+}
+
+static void
+l2s27_1(struct FsmInst *fi, int event, void *arg)
+{
+	struct PStack  *st = fi->userdata;
+
+	FsmChangeState(fi, ST_L2_7);
+	l2s27(fi,event,arg);
+
+	if (st->l2.i_queue.head && cansend(st))
+		st->l2.l2l1(st, PH_REQUEST_PULL, NULL);
 }
 
 static void
@@ -1072,26 +1164,26 @@ l2s28(struct FsmInst *fi, int event, void *arg)
 static int
 IsUI(byte * data, int ext)
 {
-	return ((data[0] & 0xef) == 0x3);
+	return ((data[0] & 0xef) == UI);
 }
 
 static int
 IsUA(byte * data, int ext)
 {
-	return ((data[0] & 0xef) == 0x63);
+	return ((data[0] & 0xef) == UA);
 }
 
 static int
 IsDISC(byte * data, int ext)
 {
-	return ((data[0] & 0xef) == 0x43);
+	return ((data[0] & 0xef) == DISC);
 }
 
 static int
 IsRR(byte * data, int ext)
 {
 	if (ext)
-		return (data[0] == 0x1);
+		return (data[0] == RR);
 	else
 		return ((data[0] & 0xf) == 1);
 }
@@ -1105,26 +1197,26 @@ IsI(byte * data, int ext)
 static int
 IsSABMX(byte * data, int ext)
 {
-	return (ext ? data[0] == 0x7f : data[0] == 0x3f);
+	return (ext ? (data[0] & ~0x10) == SABME : data[0] == 0x3f);
 }
 
 static int
 IsREJ(byte * data, int ext)
 {
-	return (ext ? data[0] == 0x9 : (data[0] & 0xf) == 0x9);
+	return (ext ? data[0] == REJ : (data[0] & 0xf) == 0x9);
 }
 
 static int
 IsFRMR(byte * data, int ext)
 {
-	return ((data[0] & 0xef) == 0x87);
+	return ((data[0] & 0xef) == FRMR);
 }
 
 static int
 IsRNR(byte * data, int ext)
 {
 	if (ext)
-		return (data[0] == 0x5);
+		return (data[0] == RNR);
 	else
 		return ((data[0] & 0xf) == 5);
 }
@@ -1140,11 +1232,13 @@ static struct FsmNode L2FnList[] =
 	{ST_L2_7, EV_L2_DL_DATA, l2s7},
 	{ST_L2_7, EV_L2_DL_RELEASE, l2s13},
 	{ST_L2_7, EV_L2_ACK_PULL, l2s22},
+	{ST_L2_8, EV_L2_DL_DATA, l2s7},
 	{ST_L2_8, EV_L2_DL_RELEASE, l2s13},
 
 	{ST_L2_1, EV_L2_UI, l2s3},
 	{ST_L2_4, EV_L2_UI, l2s3},
 	{ST_L2_4, EV_L2_SABMX, l2s12},
+	{ST_L2_4, EV_L2_DISC, l2s14_1},
 	{ST_L2_5, EV_L2_UA, l2s5},
 	{ST_L2_6, EV_L2_UA, l2s15},
 	{ST_L2_7, EV_L2_UI, l2s3},
@@ -1155,8 +1249,11 @@ static struct FsmNode L2FnList[] =
 	{ST_L2_7, EV_L2_SABMX, l2s27},
 	{ST_L2_7, EV_L2_FRMR, l2s28},
 	{ST_L2_8, EV_L2_RR, l2s24},
+	{ST_L2_8, EV_L2_REJ, l2s24},
+	{ST_L2_8, EV_L2_SABMX, l2s27_1},
 	{ST_L2_8, EV_L2_DISC, l2s14},
 	{ST_L2_8, EV_L2_FRMR, l2s28},
+	{ST_L2_8, EV_L2_I, l2s8_1},
 
 	{ST_L2_5, EV_L2_T200, l2s20},
 	{ST_L2_6, EV_L2_T200, l2s21},
@@ -1240,6 +1337,9 @@ isdnl2_manl2(struct PStack *st, int pr,
 	  case (MDL_NOTEIPROC):
 		  FsmEvent(&st->l2.l2m, EV_L2_MDL_NOTEIPROC, NULL);
 		  break;
+	  case (DL_FLUSH):
+	          (&st->l2.l2m)->userint |= LC_FLUSH_WAIT;
+		  break;
 	}
 }
 
@@ -1291,6 +1391,7 @@ setstack_isdnl2(struct PStack *st, char *debug_id)
 	st->l2.l2m.state = ST_L2_1;
 	st->l2.l2m.debug = 0;
 	st->l2.l2m.userdata = st;
+	st->l2.l2m.userint = 0;
 	st->l2.l2m.printdebug = l2m_debug;
 	strcpy(st->l2.debug_id, debug_id);
 
