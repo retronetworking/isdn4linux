@@ -20,6 +20,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.48  1998/03/07 12:28:15  tsbogend
+ * fixed kernel unaligned traps on Linux/Alpha
+ *
  * Revision 1.47  1998/02/22 19:44:14  fritz
  * Bugfixes and improvements regarding V.110, V.110 now running.
  *
@@ -2231,11 +2234,7 @@ isdn_tty_stat_callback(int i, isdn_ctrl * c)
 						sprintf(info->last_cause, "0000");
 						isdn_tty_modem_result(6, info);
 					}
-					info->msr &= ~UART_MSR_DCD;
-					if (info->online) {
-						isdn_tty_modem_result(3, info);
-						info->online = 0;
-					}
+					isdn_tty_modem_hup(info, 0);
 					return 1;
 				}
 				break;
