@@ -2,7 +2,7 @@ I4LVERSION=2.1.88
 
 KERNELDIR = /usr/src/linux
 
-########## NOTHING TO CHANGE BELOW ################
+######### NOTHING TO CHANGE BELOW ################
 .EXPORT_ALL_VARIABLES:
 
 CONFIG_SHELL := $(shell if [ -x "$$BASH" ]; then echo $$BASH; \
