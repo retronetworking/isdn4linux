@@ -19,6 +19,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.26  1997/02/14 12:23:16  fritz
+ * Added support for new insmod parameter handling.
+ *
  * Revision 1.25  1997/02/10 10:10:31  fritz
  * Changes for Kernel 2.1.X compatibility.
  * Enhanced initialization, can recover from
@@ -300,7 +303,6 @@ static char *icn_id = "\0";
 static char *icn_id2 = "\0";
 
 #ifdef MODULE
-#if (LINUX_VERSION_CODE > 0x020111)
 MODULE_AUTHOR("Fritz Elfert");
 MODULE_PARM(portbase, "i");
 MODULE_PARM_DESC(portbase, "Port adress of first card");
@@ -310,7 +312,6 @@ MODULE_PARM(icn_id, "s");
 MODULE_PARM_DESC(icn_id, "ID-String of first card");
 MODULE_PARM(icn_id2, "s");
 MODULE_PARM_DESC(icn_id2, "ID-String of first card, second S0 (4B only)");
-#endif
 #endif
 
 #endif                          /* __KERNEL__ */

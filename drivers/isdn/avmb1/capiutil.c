@@ -7,6 +7,9 @@
  * Rewritten for Linux 1996 by Carsten Paeth (calle@calle.in-berlin.de)
  *
  * $Log$
+ * Revision 1.4  1997/08/10 07:43:55  calle
+ * forgot to export symbol capi_info2str for 2.1.x
+ *
  * Revision 1.3  1997/05/18 09:24:18  calle
  * added verbose disconnect reason reporting to avmb1.
  * some fixes in capi20 interface.
@@ -935,7 +938,6 @@ char *capi_cmsg2str(_cmsg * cmsg)
 }
 
 
-#ifdef HAS_NEW_SYMTAB
 EXPORT_SYMBOL(capi_cmsg2message);
 EXPORT_SYMBOL(capi_message2cmsg);
 EXPORT_SYMBOL(capi_cmsg_header);
@@ -943,28 +945,11 @@ EXPORT_SYMBOL(capi_cmd2str);
 EXPORT_SYMBOL(capi_cmsg2str);
 EXPORT_SYMBOL(capi_message2str);
 EXPORT_SYMBOL(capi_info2str);
-#else
-static struct symbol_table capifunc_syms =
-{
-#include <linux/symtab_begin.h>
-	X(capi_cmsg2message),
-	X(capi_message2cmsg),
-	X(capi_cmsg_header),
-	X(capi_cmd2str),
-	X(capi_cmsg2str),
-	X(capi_message2str),
-	X(capi_info2str),
-#include <linux/symtab_end.h>
-};
-#endif
 
 #ifdef MODULE
 
 int init_module(void)
 {
-#ifndef HAS_NEW_SYMTAB
-	register_symtab(&capifunc_syms);
-#endif
 	return 0;
 }
 

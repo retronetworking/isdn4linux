@@ -20,6 +20,13 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.41  1997/05/27 15:17:31  fritz
+ * Added changes for recent 2.1.x kernels:
+ *   changed return type of isdn_close
+ *   queue_task_* -> queue_task
+ *   clear/set_bit -> test_and_... where apropriate.
+ *   changed type of hard_header_cache parameter.
+ *
  * Revision 1.40  1997/03/24 22:55:27  fritz
  * Added debug code for status callbacks.
  *
@@ -268,7 +275,6 @@ isdn_tty_try_read(modem_info * info, struct sk_buff *skb)
 					if (info->emu.mdmreg[12] & 128)
 						tty->flip.flag_buf_ptr[len - 1] = 0xff;
 					queue_task(&tty->flip.tqueue, &tq_timer);
-					SET_SKB_FREE(skb);
 					kfree_skb(skb, FREE_READ);
 					return 1;
 				}
@@ -364,7 +370,6 @@ isdn_tty_rcv_skb(int i, int di, int channel, struct sk_buff *skb)
 #endif
 		) {
 		/* If Modem not listening, drop data */
-		SET_SKB_FREE(skb);
 		kfree_skb(skb, FREE_READ);
 		return 1;
 	}
@@ -376,7 +381,6 @@ isdn_tty_rcv_skb(int i, int di, int channel, struct sk_buff *skb)
 	if (skb_headroom(skb) < sizeof(isdn_audio_skb)) {
 		printk(KERN_WARNING
 		       "isdn_audio: insufficient skb_headroom, dropping\n");
-		SET_SKB_FREE(skb);
 		kfree_skb(skb, FREE_READ);
 		return 1;
 	}
@@ -447,16 +451,12 @@ isdn_tty_cleanup_xmit(modem_info * info)
 	save_flags(flags);
 	cli();
 	if (skb_queue_len(&info->xmit_queue))
-		while ((skb = skb_dequeue(&info->xmit_queue))) {
-			SET_SKB_FREE(skb);
+		while ((skb = skb_dequeue(&info->xmit_queue)))
 			kfree_skb(skb, FREE_WRITE);
-		}
 #ifdef CONFIG_ISDN_AUDIO
 	if (skb_queue_len(&info->dtmf_queue))
-		while ((skb = skb_dequeue(&info->dtmf_queue))) {
-			SET_SKB_FREE(skb);
+		while ((skb = skb_dequeue(&info->dtmf_queue)))
 			kfree_skb(skb, FREE_WRITE);
-		}
 #endif
 	restore_flags(flags);
 }
@@ -485,7 +485,6 @@ isdn_tty_tint(modem_info * info)
 	}
 	if (slen < 0) {
 		/* Error: no channel, already shutdown, or wrong parameter */
-		SET_SKB_FREE(skb);
 		dev_kfree_skb(skb, FREE_WRITE);
 		return;
 	}
@@ -583,7 +582,7 @@ isdn_tty_end_vrx(const char *buf, int c, int from_user)
 
 	while (c--) {
 		if (from_user)
-			GET_USER(ch, buf);
+			get_user(ch, buf);
 		else
 			ch = *buf;
 		if ((ch != 0x11) && (ch != 0x13))
@@ -703,7 +702,6 @@ isdn_tty_senddown(modem_info * info)
 		}
 	}
 #endif                          /* CONFIG_ISDN_AUDIO */
-	SET_SKB_FREE(skb);
 	if (info->emu.mdmreg[13] & 2)
 		/* Add T.70 simplified header */
 		memcpy(skb_push(skb, 4), "\1\0\1\0", 4);
@@ -1297,7 +1295,7 @@ isdn_tty_set_modem_info(modem_info * info, uint cmd, uint * value)
 	uint arg;
 	int pre_dtr;
 
-	GET_USER(arg, (uint *) value);
+	get_user(arg, (uint *) value);
 	switch (cmd) {
 		case TIOCMBIS:
 #ifdef ISDN_DEBUG_MODEM_IOCTL
@@ -1407,7 +1405,7 @@ isdn_tty_ioctl(struct tty_struct *tty, struct file *file,
 			error = verify_area(VERIFY_READ, (void *) arg, sizeof(long));
 			if (error)
 				return error;
-			GET_USER(arg, (ulong *) arg);
+			get_user(arg, (ulong *) arg);
 			tty->termios->c_cflag =
 			    ((tty->termios->c_cflag & ~CLOCAL) |
 			     (arg ? CLOCAL : 0));
@@ -3250,7 +3248,7 @@ isdn_tty_edit_at(const char *p, int count, modem_info * info, int user)
 
 	for (cnt = count; cnt > 0; p++, cnt--) {
 		if (user)
-			GET_USER(c, p);
+			get_user(c, p);
 		else
 			c = *p;
 		total++;

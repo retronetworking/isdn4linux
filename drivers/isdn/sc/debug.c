@@ -29,13 +29,8 @@
 
 #define NULL	0x0
 
-#if LINUX_VERSION_CODE < 66363	/* Linux 1.3.59 there was a change to interrupts */
-	#define REQUEST_IRQ(a,b,c,d,e) request_irq(a,b,c,d)
-	#define FREE_IRQ(a,b) free_irq(a)
-#else
-	#define REQUEST_IRQ(a,b,c,d,e) request_irq(a,b,c,d,e)
-	#define FREE_IRQ(a,b) free_irq(a,b)
-#endif
+#define REQUEST_IRQ(a,b,c,d,e) request_irq(a,b,c,d,e)
+#define FREE_IRQ(a,b) free_irq(a,b)
 
 inline char *strcpy(char *, const char *);
 

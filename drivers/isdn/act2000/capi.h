@@ -20,6 +20,10 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.3  1997/09/25 17:25:41  fritz
+ * Support for adding cards at runtime.
+ * Support for new Firmware.
+ *
  * Revision 1.2  1997/09/24 19:44:15  fritz
  * Added MSN mapping support, some cleanup.
  *
@@ -374,7 +378,7 @@ actcapi_nextsmsg(act2000_card *card)
 	restore_flags(flags);
 	return n;
 }
-#undef DEBUG_MSG
+#define DEBUG_MSG
 #undef DEBUG_DATA_MSG
 #undef DEBUG_DUMP_SKB
 

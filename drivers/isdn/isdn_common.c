@@ -21,6 +21,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.45  1997/08/21 23:11:41  fritz
+ * Added changes for kernels >= 2.1.45
+ *
  * Revision 1.44  1997/05/27 15:17:23  fritz
  * Added changes for recent 2.1.x kernels:
  *   changed return type of isdn_close
@@ -200,9 +203,7 @@
 #define __NO_VERSION__
 #include <linux/module.h>
 #include <linux/version.h>
-#if (LINUX_VERSION_CODE >= 0x020117)
 #include <asm/poll.h>
-#endif
 #include <linux/isdn.h>
 #include "isdn_common.h"
 #include "isdn_tty.h"
@@ -260,13 +261,6 @@ isdn_dumppkt(char *s, u_char * p, int len, int dumplen)
 }
 #endif
 
-static __inline void
-isdn_trash_skb(struct sk_buff *skb, int rw)
-{
-	SET_SKB_FREE(skb);
-	kfree_skb(skb, rw);
-}
-
 static void
 isdn_free_queue(struct sk_buff_head *queue)
 {
@@ -277,7 +271,7 @@ isdn_free_queue(struct sk_buff_head *queue)
 	cli();
 	if (skb_queue_len(queue))
 		while ((skb = skb_dequeue(queue)))
-			isdn_trash_skb(skb, FREE_READ);
+			kfree_skb(skb, FREE_READ);
 	restore_flags(flags);
 }
 
@@ -374,7 +368,7 @@ isdn_receive_skb_callback(int di, int channel, struct sk_buff *skb)
 	int i;
 
 	if ((i = isdn_dc2minor(di, channel)) == -1) {
-		isdn_trash_skb(skb, FREE_READ);
+		kfree_skb(skb, FREE_READ);
 		return;
 	}
 	/* Update statistics */
@@ -383,13 +377,12 @@ isdn_receive_skb_callback(int di, int channel, struct sk_buff *skb)
 	if (isdn_net_rcv_skb(i, skb))
 		return;
 	/* No network-device found, deliver to tty or raw-channel */
-	SET_SKB_FREE(skb);
 	if (skb->len) {
 		if (isdn_tty_rcv_skb(i, di, channel, skb))
 			return;
 		wake_up_interruptible(&dev->drv[di]->rcv_waitq[channel]);
 	} else
-		isdn_trash_skb(skb, FREE_READ);
+		kfree_skb(skb, FREE_READ);
 }
 
 void
@@ -752,7 +745,7 @@ isdn_readbchan(int di, int channel, u_char * buf, u_char * fp, int len, int user
 			ISDN_AUDIO_SKB_LOCK(skb) = 0;
 #endif
 			skb = skb_dequeue(&dev->drv[di]->rpqueue[channel]);
-			isdn_trash_skb(skb, FREE_READ);
+			kfree_skb(skb, FREE_READ);
 		} else {
 			/* Not yet emptied this buff, so it
 			 * must stay in the queue, for further calls
@@ -848,8 +841,8 @@ isdn_info_update(void)
 	wake_up_interruptible(&(dev->info_waitq));
 }
 
-static RWTYPE
-isdn_read(struct inode *inode, struct file *file, char *buf, RWARG count)
+static long
+isdn_read(struct inode *inode, struct file *file, char *buf, unsigned long count)
 {
 	uint minor = MINOR(inode->i_rdev);
 	int len = 0;
@@ -922,14 +915,14 @@ isdn_read(struct inode *inode, struct file *file, char *buf, RWARG count)
 	return -ENODEV;
 }
 
-static LSTYPE
-isdn_lseek(struct inode *inode, struct file *file, LSARG offset, int orig)
+static long long
+isdn_lseek(struct inode *inode, struct file *file, long long offset, int orig)
 {
 	return -ESPIPE;
 }
 
-static RWTYPE
-isdn_write(struct inode *inode, struct file *file, const char *buf, RWARG count)
+static long
+isdn_write(struct inode *inode, struct file *file, const char *buf, unsigned long count)
 {
 	uint minor = MINOR(inode->i_rdev);
 	int drvidx;
@@ -973,41 +966,6 @@ isdn_write(struct inode *inode, struct file *file, const char *buf, RWARG count)
 	return -ENODEV;
 }
 
-#if (LINUX_VERSION_CODE < 0x020117)
-static int
-isdn_select(struct inode *inode, struct file *file, int type, select_table * st)
-{
-	uint minor = MINOR(inode->i_rdev);
-	int drvidx = isdn_minor2drv(minor - ISDN_MINOR_CTRL);
-
-	if (minor == ISDN_MINOR_STATUS) {
-		if (file->private_data)
-			return 1;
-		else {
-			if (st)
-				select_wait(&(dev->info_waitq), st);
-			return 0;
-		}
-	}
-	if (minor >= ISDN_MINOR_CTRL && minor <= ISDN_MINOR_CTRLMAX) {
-		if (drvidx < 0)
-			return -ENODEV;
-		if (dev->drv[drvidx]->stavail)
-			return 1;
-		else {
-			if (st)
-				select_wait(&(dev->drv[drvidx]->st_waitq), st);
-			return 0;
-		}
-		return 1;
-	}
-#ifdef CONFIG_ISDN_PPP
-	if (minor <= ISDN_MINOR_PPPMAX)
-		return (isdn_ppp_select(minor - ISDN_MINOR_PPP, file, type, st));
-#endif
-	return -ENODEV;
-}
-#else
 static unsigned int
 isdn_poll(struct file *file, poll_table * wait)
 {
@@ -1046,7 +1004,6 @@ isdn_poll(struct file *file, poll_table * wait)
 	printk(KERN_ERR "isdn_common: isdn_poll 2 -> what the hell\n");
 	return POLLERR;
 }
-#endif
 
 static int
 isdn_set_allcfg(char *src)
@@ -1087,7 +1044,7 @@ isdn_set_allcfg(char *src)
 				restore_flags(flags);
 				return ret;
 			}
-			GET_USER(phone.phone[phone_len], src++);
+			get_user(phone.phone[phone_len], src++);
 			if ((phone.phone[phone_len] == ' ') ||
 			    (phone.phone[phone_len] == '\0')) {
 				if (phone_len) {
@@ -1487,7 +1444,7 @@ isdn_ioctl(struct inode *inode, struct file *file, uint cmd, ulong arg)
 							while (1) {
 								if ((ret = verify_area(VERIFY_READ, p, 1)))
 									return ret;
-								GET_USER(bname[j], p++);
+								get_user(bname[j], p++);
 								switch (bname[j]) {
 									case '\0':
 										loop = 0;
@@ -1646,7 +1603,7 @@ isdn_open(struct inode *ino, struct file *filep)
 	return -ENODEV;
 }
 
-static CLOSETYPE
+static int
 isdn_close(struct inode *ino, struct file *filep)
 {
 	uint minor = MINOR(ino->i_rdev);
@@ -1664,39 +1621,39 @@ isdn_close(struct inode *ino, struct file *filep)
 				else
 					dev->infochain = (infostruct *) (p->next);
 				kfree(p);
-				return CLOSEVAL;
+				return 0;
 			}
 			q = p;
 			p = (infostruct *) (p->next);
 		}
 		printk(KERN_WARNING "isdn: No private data while closing isdnctrl\n");
-		return CLOSEVAL;
+		return 0;
 	}
 	if (minor < ISDN_MINOR_CTRL) {
 		drvidx = isdn_minor2drv(minor);
 		if (drvidx < 0)
-			return CLOSEVAL;
+			return 0;
 		c.command = ISDN_CMD_UNLOCK;
 		c.driver = drvidx;
 		(void) dev->drv[drvidx]->interface->command(&c);
-		return CLOSEVAL;
+		return 0;
 	}
 	if (minor <= ISDN_MINOR_CTRLMAX) {
 		drvidx = isdn_minor2drv(minor - ISDN_MINOR_CTRL);
 		if (drvidx < 0)
-			return CLOSEVAL;
+			return 0;
 		if (dev->profd == current)
 			dev->profd = NULL;
 		c.command = ISDN_CMD_UNLOCK;
 		c.driver = drvidx;
 		(void) dev->drv[drvidx]->interface->command(&c);
-		return CLOSEVAL;
+		return 0;
 	}
 #ifdef CONFIG_ISDN_PPP
 	if (minor <= ISDN_MINOR_PPPMAX)
 		isdn_ppp_release(minor - ISDN_MINOR_PPP, filep);
 #endif
-	return CLOSEVAL;
+	return 0;
 }
 
 static struct file_operations isdn_fops =
@@ -1705,11 +1662,7 @@ static struct file_operations isdn_fops =
 	isdn_read,
 	isdn_write,
 	NULL,                   /* isdn_readdir */
-#if (LINUX_VERSION_CODE < 0x020117)
-	isdn_select,            /* isdn_select */
-#else
 	isdn_poll,              /* isdn_poll */
-#endif
 	isdn_ioctl,             /* isdn_ioctl */
 	NULL,                   /* isdn_mmap */
 	isdn_open,
@@ -1887,7 +1840,6 @@ isdn_writebuf_stub(int drvidx, int chan, const u_char * buf, int len,
 			return 0;
 
 		skb_reserve(skb, dev->drv[drvidx]->interface->hl_hdrlen);
-		SET_SKB_FREE(skb);
 
 		if (user)
 			copy_from_user(skb_put(skb, len), buf, len);
@@ -2130,8 +2082,6 @@ isdn_init(void)
 		return -EIO;
 	}
 #endif                          /* CONFIG_ISDN_PPP */
-
-	isdn_export_syms();
 
 	strcpy(irev, isdn_revision);
 	strcpy(trev, isdn_tty_revision);

@@ -19,6 +19,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.46  1997/08/21 22:38:33  fritz
+ * Fixed a typo.
+ *
  * Revision 1.45  1997/06/21 10:42:06  fritz
  * Added availability to select leased mode on only one channel.
  *
@@ -1785,11 +1788,7 @@ icn_init(void)
 	dev.firstload = 1;
 
 	/* No symbols to export, hide all symbols */
-#if (LINUX_VERSION_CODE < 0x020111)
-	register_symtab(NULL);
-#else
 	EXPORT_NO_SYMBOLS;
-#endif
 
 	if ((p = strchr(revision, ':'))) {
 		strcpy(rev, p + 1);

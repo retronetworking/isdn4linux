@@ -7,6 +7,9 @@
  *              Fritz Elfert
  *
  * $Log$
+ * Revision 2.2  1997/07/31 11:49:05  keil
+ * Eroor handling for no TEI assign
+ *
  * Revision 2.1  1997/07/27 21:34:38  keil
  * cosmetics
  *
@@ -306,7 +309,6 @@ send_uframe(struct PStack *st, u_char cmd, u_char cr)
 		printk(KERN_WARNING "isdl2 can't alloc sbbuff for send_uframe\n");
 		return;
 	}
-	SET_SKB_FREE(skb);
 	memcpy(skb_put(skb, i), tmp, i);
 	enqueue_super(st, skb);
 }
@@ -656,7 +658,6 @@ enquiry_cr(struct PStack *st, u_char typ, u_char cr, u_char pf)
 		printk(KERN_WARNING "isdl2 can't alloc sbbuff for enquiry_cr\n");
 		return;
 	}
-	SET_SKB_FREE(skb);
 	memcpy(skb_put(skb, i), tmp, i);
 	enqueue_super(st, skb);
 }
@@ -1043,7 +1044,6 @@ l2_pull_iqueue(struct FsmInst *fi, int event, void *arg)
 		"isdl2 pull_iqueue skb header(%d/%d) too short\n", i, p1);
 		oskb = skb;
 		skb = alloc_skb(oskb->len + i, GFP_ATOMIC);
-		SET_SKB_FREE(skb);
 		memcpy(skb_put(skb, i), header, i);
 		memcpy(skb_put(skb, oskb->len), oskb->data, oskb->len);
 		FreeSkb(oskb);

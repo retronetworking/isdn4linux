@@ -6,6 +6,9 @@
  * Copyright 1996 by Carsten Paeth (calle@calle.in-berlin.de)
  *
  * $Log$
+ * Revision 1.5  1997/08/21 23:11:55  fritz
+ * Added changes for kernels >= 2.1.45
+ *
  * Revision 1.4  1997/05/27 15:17:50  fritz
  * Added changes for recent 2.1.x kernels:
  *   changed return type of isdn_close
@@ -45,9 +48,7 @@
 #include <linux/timer.h>
 #include <linux/wait.h>
 #include <linux/skbuff.h>
-#if (LINUX_VERSION_CODE >= 0x020117)
 #include <asm/poll.h>
-#endif
 #include <linux/capi.h>
 #include <linux/kernelcapi.h>
 
@@ -56,17 +57,13 @@
 #include "capicmd.h"
 #include "capidev.h"
 
-#ifdef HAS_NEW_SYMTAB
 MODULE_AUTHOR("Carsten Paeth (calle@calle.in-berlin.de)");
-#endif
 
 /* -------- driver information -------------------------------------- */
 
 int capi_major = 68;		/* allocated */
 
-#ifdef HAS_NEW_SYMTAB
 MODULE_PARM(capi_major, "i");
-#endif
 
 /* -------- global variables ---------------------------------------- */
 
@@ -96,27 +93,14 @@ static void capi_signal(__u16 applid, __u32 minor)
 
 /* -------- file_operations ----------------------------------------- */
 
-#if LINUX_VERSION_CODE < 0x020100
-static int capi_lseek(struct inode *inode, struct file *file,
-		      off_t offset, int origin)
-{
-	return -ESPIPE;
-}
-#else
 static long long capi_llseek(struct inode *inode, struct file *file,
 			     long long offset, int origin)
 {
 	return -ESPIPE;
 }
-#endif
 
-#if LINUX_VERSION_CODE < 0x020100
-static int capi_read(struct inode *inode, struct file *file,
-		     char *buf, int count)
-#else
 static long capi_read(struct inode *inode, struct file *file,
 		      char *buf, unsigned long count)
-#endif
 {
 	unsigned int minor = MINOR(inode->i_rdev);
 	struct capidev *cdev;
@@ -164,13 +148,8 @@ static long capi_read(struct inode *inode, struct file *file,
 	return copied;
 }
 
-#if LINUX_VERSION_CODE < 0x020100
-static int capi_write(struct inode *inode, struct file *file,
-		      const char *buf, int count)
-#else
 static long capi_write(struct inode *inode, struct file *file,
 		       const char *buf, unsigned long count)
-#endif
 {
 	unsigned int minor = MINOR(inode->i_rdev);
 	struct capidev *cdev;
@@ -215,40 +194,6 @@ static long capi_write(struct inode *inode, struct file *file,
 	return count;
 }
 
-#if (LINUX_VERSION_CODE < 0x020117)
-static int capi_select(struct inode *inode, struct file *file,
-		       int sel_type, select_table * wait)
-{
-	unsigned int minor = MINOR(inode->i_rdev);
-	struct capidev *cdev;
-
-	if (!minor || minor > CAPI_MAXMINOR || !capidevs[minor].is_registered)
-		return -ENODEV;
-
-	cdev = &capidevs[minor];
-
-	switch (sel_type) {
-	case SEL_IN:
-		if (!skb_queue_empty(&cdev->recv_queue))
-			return 1;
-		/* fall througth */
-	case SEL_EX:
-		/* error conditions ? */
-
-		select_wait(&cdev->recv_wait, wait);
-		return 0;
-	case SEL_OUT:
-		/* 
-		   if (!queue_full())
-		   return 1;
-		   select_wait(&cdev->send_wait, wait);
-		   return 0;
-		 */
-		return 1;
-	}
-	return 1;
-}
-#else
 static unsigned int
 capi_poll(struct file *file, poll_table * wait)
 {
@@ -270,7 +215,6 @@ capi_poll(struct file *file, poll_table * wait)
 		mask |= POLLIN | POLLRDNORM;
 	return mask;
 }
-#endif
 
 static int capi_ioctl(struct inode *inode, struct file *file,
 		      unsigned int cmd, unsigned long arg)
@@ -452,7 +396,7 @@ static int capi_open(struct inode *inode, struct file *file)
 	return 0;
 }
 
-static CLOSETYPE
+static int
 capi_release(struct inode *inode, struct file *file)
 {
 	unsigned int minor = MINOR(inode->i_rdev);
@@ -461,7 +405,7 @@ capi_release(struct inode *inode, struct file *file)
 
 	if (minor >= CAPI_MAXMINOR || !capidevs[minor].is_open) {
 		printk(KERN_ERR "capi20: release minor %d ???\n", minor);
-		return CLOSEVAL;
+		return 0;
 	}
 	cdev = &capidevs[minor];
 
@@ -479,24 +423,16 @@ capi_release(struct inode *inode, struct file *file)
 	cdev->is_open = 0;
 
 	MOD_DEC_USE_COUNT;
-	return CLOSEVAL;
+	return 0;
 }
 
 static struct file_operations capi_fops =
 {
-#if LINUX_VERSION_CODE < 0x020100
-	capi_lseek,
-#else
 	capi_llseek,
-#endif
 	capi_read,
 	capi_write,
 	NULL,			/* capi_readdir */
-#if (LINUX_VERSION_CODE < 0x020117)
-	capi_select,
-#else
 	capi_poll,
-#endif
 	capi_ioctl,
 	NULL,			/* capi_mmap */
 	capi_open,

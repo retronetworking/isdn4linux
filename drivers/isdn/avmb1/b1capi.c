@@ -6,6 +6,10 @@
  * (c) Copyright 1997 by Carsten Paeth (calle@calle.in-berlin.de)
  * 
  * $Log$
+ * Revision 1.5  1997/07/12 08:22:26  calle
+ * Correct bug in CARD_NR macro, so now more than one card will work.
+ * Allow card reset, even if card is in running state.
+ *
  *
  * Revision 1.4  1997/05/27 15:17:45  fritz
  * Added changes for recent 2.1.x kernels:
@@ -58,13 +62,11 @@ int irq = 15;
 int showcapimsgs = 0;		/* used in lli.c */
 int loaddebug = 0;
 
-#ifdef HAS_NEW_SYMTAB
 MODULE_AUTHOR("Carsten Paeth <calle@calle.in-berlin.de>");
 MODULE_PARM(portbase, "i");
 MODULE_PARM(irq, "2-15i");
 MODULE_PARM(showcapimsgs, "0-3i");
 MODULE_PARM(loaddebug, "0-1i");
-#endif
 
 /* ------------------------------------------------------------- */
 
@@ -876,23 +878,10 @@ int detach_capi_interface(struct capi_interface_user *userp)
 /* -------- Init & Cleanup ------------------------------------- */
 /* ------------------------------------------------------------- */
 
-#ifdef HAS_NEW_SYMTAB
 EXPORT_SYMBOL(attach_capi_interface);
 EXPORT_SYMBOL(detach_capi_interface);
 EXPORT_SYMBOL(avmb1_addcard);
 EXPORT_SYMBOL(avmb1_probecard);
-#else
-static struct symbol_table capidev_syms =
-{
-#include <linux/symtab_begin.h>
-	X(attach_capi_interface),
-	X(detach_capi_interface),
-	X(avmb1_addcard),
-	X(avmb1_probecard),
-#include <linux/symtab_end.h>
-};
-#endif
-
 
 /*
  * init / exit functions
@@ -907,11 +896,6 @@ int avmb1_init(void)
 	char *p;
 	char rev[10];
 
-
-#ifndef HAS_NEW_SYMTAB
-	/* No symbols to export, hide all symbols */
-	register_symtab(&capidev_syms);
-#endif
 	skb_queue_head_init(&recv_queue);
 	/* init_bh(CAPI_BH, do_capi_bh); */
 

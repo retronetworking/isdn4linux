@@ -6,6 +6,10 @@
  * (c) Copyright 1997 by Carsten Paeth (calle@calle.in-berlin.de)
  * 
  * $Log$
+ * Revision 1.2  1997/07/13 12:22:42  calle
+ * bug fix for more than one controller in connect_req.
+ * debugoutput now with contrnr.
+ *
  *
  * Revision 1.1  1997/03/04 21:50:28  calle
  * Frirst version in isdn4linux
@@ -508,7 +512,6 @@ void B1_handle_interrupt(avmb1_card * card)
 		if (!(skb = dev_alloc_skb(DataB3Len + MsgLen))) {
 			printk(KERN_ERR "b1lli: incoming packet dropped\n");
 		} else {
-			SET_SKB_FREE(skb);
 			memcpy(skb_put(skb, MsgLen), card->msgbuf, MsgLen);
 			memcpy(skb_put(skb, DataB3Len), card->databuf, DataB3Len);
 			CAPIMSG_SETDATA(skb->data, skb->data + MsgLen);
@@ -540,7 +543,6 @@ void B1_handle_interrupt(avmb1_card * card)
 		if (!(skb = dev_alloc_skb(MsgLen))) {
 			printk(KERN_ERR "b1lli: incoming packet dropped\n");
 		} else {
-			SET_SKB_FREE(skb);
 			memcpy(skb_put(skb, MsgLen), card->msgbuf, MsgLen);
 			avmb1_handle_capimsg(card, ApplId, skb);
 		}

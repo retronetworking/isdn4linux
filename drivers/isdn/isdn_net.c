@@ -21,6 +21,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.49  1997/08/21 14:38:13  fritz
+ * Bugfix: Did not compile without SyncPPP.
+ *
  * Revision 1.48  1997/06/22 11:57:15  fritz
  * Added ability to adjust slave triggerlevel.
  *
@@ -234,11 +237,7 @@ isdn_net_unreachable(struct device *dev, struct sk_buff *skb, char *reason)
 {
 	printk(KERN_DEBUG "isdn_net: %s: %s, send ICMP\n",
 	       dev->name, reason);
-	icmp_send(skb, ICMP_DEST_UNREACH, ICMP_HOST_UNREACH, 0
-#if (LINUX_VERSION_CODE < 0x02010f)	/* 2.1.15 */
-		  ,dev
-#endif
-	    );
+	icmp_send(skb, ICMP_DEST_UNREACH, ICMP_HOST_UNREACH, 0);
 }
 
 static void
@@ -1384,38 +1383,6 @@ isdn_net_header(struct sk_buff *skb, struct device *dev, unsigned short type,
 }
 
 /* We don't need to send arp, because we have point-to-point connections. */
-#if (LINUX_VERSION_CODE < 0x02010F)
-static int
-isdn_net_rebuild_header(void *buff, struct device *dev, unsigned long dst,
-			struct sk_buff *skb)
-{
-	isdn_net_local *lp = dev->priv;
-	int ret = 0;
-
-	if (lp->p_encap == ISDN_NET_ENCAP_ETHER) {
-		struct ethhdr *eth = (struct ethhdr *) buff;
-
-		/*
-		 *      Only ARP/IP is currently supported
-		 */
-
-		if (eth->h_proto != htons(ETH_P_IP)) {
-			printk(KERN_WARNING
-			       "isdn_net: %s don't know how to resolve type %d addresses?\n",
-			       dev->name, (int) eth->h_proto);
-			memcpy(eth->h_source, dev->dev_addr, dev->addr_len);
-			return 0;
-		}
-		/*
-		 *      Try to get ARP to resolve the header.
-		 */
-#ifdef CONFIG_INET
-		ret = arp_find(eth->h_dest, dst, dev, dev->pa_addr, skb) ? 1 : 0;
-#endif
-	}
-	return ret;
-}
-#else
 static int
 isdn_net_rebuild_header(struct sk_buff *skb)
 {
@@ -1446,7 +1413,7 @@ isdn_net_rebuild_header(struct sk_buff *skb)
 	}
 	return ret;
 }
-#endif
+
 /*
  * Interface-setup. (called just after registering a new interface)
  */
@@ -1467,21 +1434,13 @@ isdn_net_init(struct device *ndev)
 		return -ENODEV;
 	}
 	ether_setup(ndev);
-#if (LINUX_VERSION_CODE < 0x02010F)
-	lp->org_hcb = ndev->header_cache_bind;
-#else
 	lp->org_hhc = ndev->hard_header_cache;
-#endif
 	lp->org_hcu = ndev->header_cache_update;
 
 	/* Setup the generic properties */
 
 	ndev->hard_header = NULL;
-#if (LINUX_VERSION_CODE < 0x02010F)
-	ndev->header_cache_bind = NULL;
-#else
 	ndev->hard_header_cache = NULL;
-#endif
 	ndev->header_cache_update = NULL;
 	ndev->mtu = 1500;
 	ndev->flags = IFF_NOARP;
@@ -2261,29 +2220,17 @@ isdn_net_setcfg(isdn_net_ioctl_cfg * cfg)
 		if (cfg->p_encap != p->local.p_encap) {
 			if (cfg->p_encap == ISDN_NET_ENCAP_RAWIP) {
 				p->dev.hard_header = NULL;
-#if (LINUX_VERSION_CODE < 0x02010F)
-				p->dev.header_cache_bind = NULL;
-#else
 				p->dev.hard_header_cache = NULL;
-#endif
 				p->dev.header_cache_update = NULL;
 				p->dev.flags = IFF_NOARP;
 			} else {
 				p->dev.hard_header = isdn_net_header;
 				if (cfg->p_encap == ISDN_NET_ENCAP_ETHER) {
-#if (LINUX_VERSION_CODE < 0x02010F)
-					p->dev.header_cache_bind = p->local.org_hcb;
-#else
 					p->dev.hard_header_cache = p->local.org_hhc;
-#endif
 					p->dev.header_cache_update = p->local.org_hcu;
 					p->dev.flags = IFF_BROADCAST | IFF_MULTICAST;
 				} else {
-#if (LINUX_VERSION_CODE < 0x02010F)
-					p->dev.header_cache_bind = NULL;
-#else
 					p->dev.hard_header_cache = NULL;
-#endif
 					p->dev.header_cache_update = NULL;
 					p->dev.flags = IFF_NOARP;
 				}

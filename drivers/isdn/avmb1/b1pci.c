@@ -6,6 +6,11 @@
  * (c) Copyright 1997 by Carsten Paeth (calle@calle.in-berlin.de)
  * 
  * $Log$
+ * Revision 1.2  1997/05/18 09:24:13  calle
+ * added verbose disconnect reason reporting to avmb1.
+ * some fixes in capi20 interface.
+ * changed info messages for B1-PCI
+ *
  * Revision 1.1  1997/03/30 17:10:42  calle
  * added support for AVM-B1-PCI card.
  *
@@ -33,9 +38,7 @@ static char *revision = "$Revision$";
 
 /* ------------------------------------------------------------- */
 
-#ifdef HAS_NEW_SYMTAB
 MODULE_AUTHOR("Carsten Paeth <calle@calle.in-berlin.de>");
-#endif
 
 /* ------------------------------------------------------------- */
 

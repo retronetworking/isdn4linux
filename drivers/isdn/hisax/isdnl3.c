@@ -7,6 +7,9 @@
  *              Fritz Elfert
  *
  * $Log$
+ * Revision 2.1  1997/08/03 14:36:32  keil
+ * Implement RESTART procedure
+ *
  * Revision 2.0  1997/07/27 21:15:42  keil
  * New Callref based layer3
  *
@@ -171,7 +174,6 @@ l3_alloc_skb(int len)
 		printk(KERN_WARNING "HiSax: No skb for D-channel\n");
 		return (NULL);
 	}
-	SET_SKB_FREE(skb);
 	skb_reserve(skb, MAX_HEADER_LEN);
 	return (skb);
 }

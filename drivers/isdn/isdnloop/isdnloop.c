@@ -19,6 +19,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.1  1997/03/24 23:02:04  fritz
+ * Added isdnloop driver.
+ *
  */
 
 #include "isdnloop.h"
@@ -1508,11 +1511,7 @@ isdnloop_init(void)
 	char rev[10];
 
 	/* No symbols to export, hide all symbols */
-#if (LINUX_VERSION_CODE < 0x020111)
-	register_symtab(NULL);
-#else
 	EXPORT_NO_SYMBOLS;
-#endif
 
 	if ((p = strchr(revision, ':'))) {
 		strcpy(rev, p + 1);

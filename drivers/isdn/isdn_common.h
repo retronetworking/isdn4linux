@@ -21,6 +21,11 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.6  1997/02/28 02:32:44  fritz
+ * Cleanup: Moved some tty related stuff from isdn_common.c
+ *          to isdn_tty.c
+ * Bugfix:  Bisync protocol did not behave like documented.
+ *
  * Revision 1.5  1997/02/10 10:05:45  fritz
  * More changes for Kernel 2.1.X
  * Symbol information moved to isdn_syms.c
@@ -66,11 +71,6 @@ extern int isdn_readbchan(int, int, u_char *, u_char *, int, int);
 extern int isdn_get_free_channel(int, int, int, int, int);
 extern int isdn_writebuf_skb_stub(int, int, struct sk_buff *);
 extern int register_isdn(isdn_if * i);
-#if (LINUX_VERSION_CODE < 0x020111)
-extern void isdn_export_syms(void);
-#else
-#define isdn_export_syms()
-#endif
 #if defined(ISDN_DEBUG_NET_DUMP) || defined(ISDN_DEBUG_MODEM_DUMP)
 extern void isdn_dumppkt(char *, u_char *, int, int);
 #endif

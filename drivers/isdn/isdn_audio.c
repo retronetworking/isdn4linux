@@ -20,6 +20,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.8  1997/03/02 14:29:16  fritz
+ * More ttyI related cleanup.
+ *
  * Revision 1.7  1997/02/03 22:44:11  fritz
  * Reformatted according CodingStyle
  *
@@ -528,7 +531,6 @@ isdn_audio_goertzel(int *sample, modem_info * info)
 		       info->line);
 		return;
 	}
-	SET_SKB_FREE(skb);
 	result = (int *) skb_put(skb, sizeof(int) * NCOEFF);
 	for (k = 0; k < NCOEFF; k++) {
 		sk = sk1 = sk2 = 0;

@@ -5,6 +5,9 @@
  *
  *
  * $Log$
+ * Revision 2.2  1997/09/11 17:24:46  keil
+ * Add new cards
+ *
  * Revision 2.1  1997/07/27 21:41:35  keil
  * version change
  *
@@ -232,7 +235,6 @@ int mem[] =
 {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
 char *id = HiSaxID;
 
-#if (LINUX_VERSION_CODE > 0x020111)
 MODULE_AUTHOR("Karsten Keil");
 MODULE_PARM(type, "1-16i");
 MODULE_PARM(protocol, "1-16i");
@@ -243,7 +245,6 @@ MODULE_PARM(id, "s");
 #ifdef CONFIG_HISAX_16_3	/* For Creatix/Teles PnP */
 MODULE_PARM(io0, "1-16i");
 MODULE_PARM(io1, "1-16i");
-#endif
 #endif
 
 #endif
@@ -427,11 +428,7 @@ HiSax_init(void)
 		/* No symbols to export, hide all symbols */
 
 #ifdef MODULE
-#if (LINUX_VERSION_CODE < 0x020111)
-		register_symtab(NULL);
-#else
 		EXPORT_NO_SYMBOLS;
-#endif
 		printk(KERN_NOTICE "HiSax: module installed\n");
 #endif
 		return (0);

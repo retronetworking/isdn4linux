@@ -17,6 +17,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.3  1997/02/16 01:02:47  fritz
+ * Added GPL-Header, Id and Log
+ *
  */
 #include <linux/config.h>
 #include <linux/module.h>
@@ -27,26 +30,5 @@
 #endif
 #include "isdn_common.h"
 
-#if (LINUX_VERSION_CODE < 0x020111)
-static int has_exported;
-
-static struct symbol_table isdn_syms = {
-#include <linux/symtab_begin.h>
-        X(register_isdn),
-#include <linux/symtab_end.h>
-};
-
-void
-isdn_export_syms(void)
-{
-	if (has_exported)
-		return;
-        register_symtab(&isdn_syms);
-        has_exported = 1;
-}
-
-#else
-
 EXPORT_SYMBOL(register_isdn);
 
-#endif

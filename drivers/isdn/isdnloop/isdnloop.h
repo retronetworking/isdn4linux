@@ -19,6 +19,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.1  1997/03/24 23:02:05  fritz
+ * Added isdnloop driver.
+ *
  */
 
 #ifndef isdnloop_h
@@ -120,11 +123,9 @@ static isdnloop_card *cards = (isdnloop_card *) 0;
 static char *isdnloop_id = "\0";
 
 #ifdef MODULE
-#if (LINUX_VERSION_CODE > 0x020111)
 MODULE_AUTHOR("Fritz Elfert");
 MODULE_PARM(isdnloop_id, "s");
 MODULE_PARM_DESC(isdnloop_id, "ID-String of first card");
-#endif
 #endif
 
 #endif                          /* __KERNEL__ */

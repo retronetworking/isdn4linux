@@ -6,6 +6,9 @@
  *
  *
  * $Log$
+ * Revision 1.6  1997/08/15 17:47:08  keil
+ * avoid oops because a uninitialised timer
+ *
  * Revision 1.5  1997/08/07 17:48:49  keil
  * fix wrong parenthesis
  *
@@ -320,7 +323,6 @@ isac_interrupt(struct IsdnCardState *cs, u_char val)
 				if (!(skb = alloc_skb(count, GFP_ATOMIC)))
 					printk(KERN_WARNING "Elsa: D receive out of memory\n");
 				else {
-					SET_SKB_FREE(skb);
 					memcpy(skb_put(skb, count), cs->rcvbuf, count);
 					skb_queue_tail(&cs->rq, skb);
 				}

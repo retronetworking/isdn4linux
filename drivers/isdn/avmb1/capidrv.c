@@ -6,6 +6,10 @@
  * Copyright 1997 by Carsten Paeth (calle@calle.in-berlin.de)
  *
  * $Log$
+ * Revision 1.4  1997/07/13 12:22:43  calle
+ * bug fix for more than one controller in connect_req.
+ * debugoutput now with contrnr.
+ *
  * Revision 1.3  1997/05/18 09:24:15  calle
  * added verbose disconnect reason reporting to avmb1.
  * some fixes in capi20 interface.
@@ -51,10 +55,8 @@
 static char *revision = "$Revision$";
 int debugmode = 0;
 
-#ifdef HAS_NEW_SYMTAB
 MODULE_AUTHOR("Carsten Paeth <calle@calle.in-berlin.de>");
 MODULE_PARM(debugmode, "i");
-#endif
 
 /* -------- type definitions ----------------------------------------- */
 
@@ -419,7 +421,6 @@ static void send_message(capidrv_contr * card, _cmsg * cmsg)
 	capi_cmsg2message(cmsg, cmsg->buf);
 	len = CAPIMSG_LEN(cmsg->buf);
 	skb = dev_alloc_skb(len);
-        SET_SKB_FREE(skb);
 	memcpy(skb_put(skb, len), cmsg->buf, len);
 	(*capifuncs->capi_put_message) (global.appid, skb);
 }
@@ -1511,7 +1512,6 @@ static int if_sendbuf(int id, int channel, struct sk_buff *skb)
 		printk(KERN_DEBUG "capidrv: only %d bytes headroom\n",
 		       skb_headroom(skb));
 #endif
-                SET_SKB_FREE(nskb);
 		memcpy(skb_put(nskb, msglen), sendcmsg.buf, msglen);
 		memcpy(skb_put(nskb, skb->len), skb->data, skb->len);
 		errcode = (*capifuncs->capi_put_message) (global.appid, nskb);
@@ -1693,11 +1693,6 @@ int capidrv_init(void)
 
 	if (!capifuncs)
 		return -EIO;
-
-#ifndef HAS_NEW_SYMTAB
-	/* No symbols to export, hide all symbols */
-	register_symtab(NULL);
-#endif
 
 	if ((p = strchr(revision, ':'))) {
 		strcpy(rev, p + 1);

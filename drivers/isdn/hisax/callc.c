@@ -7,6 +7,9 @@
  *              Fritz Elfert
  *
  * $Log$
+ * Revision 2.6  1997/09/11 17:26:58  keil
+ * Open B-channel if here are incomming packets
+ *
  * Revision 2.5  1997/08/07 17:46:05  keil
  * Fix Incomming Call without broadcast
  *
@@ -36,12 +39,7 @@
 #include "hisax.h"
 
 #ifdef MODULE
-#if (LINUX_VERSION_CODE < 0x020111)
-extern long mod_use_count_;
-#define MOD_USE_COUNT mod_use_count_
-#else
 #define MOD_USE_COUNT ((&__this_module)->usecount)
-#endif
 #endif				/* MODULE */
 
 const char *lli_revision = "$Revision$";
@@ -1953,11 +1951,7 @@ HiSax_command(isdn_ctrl * ic)
 					break;
 #ifdef MODULE
 				case (55):
-#if (LINUX_VERSION_CODE < 0x020111)
-					MOD_USE_COUNT = MOD_VISITED;
-#else
 					MOD_USE_COUNT = 0;
-#endif
 					HiSax_mod_inc_use_count();
 					break;
 #endif				/* MODULE */
