@@ -21,10 +21,15 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.1  1996/01/10 20:55:07  fritz
+ * Initial revision
+ *
  */
 
 #ifndef isdn_h
 #define isdn_h
+
+#include <linux/ioctl.h>
 
 #define ISDN_TTY_MAJOR    43
 #define ISDN_TTYAUX_MAJOR 44
@@ -45,37 +50,36 @@
 #define ISDN_MINOR_PPPMAX   (3*ISDN_MAX_CHANNELS-1)
 #define ISDN_MINOR_STATUS   128
 
-#define ISDN_IOCTL_DRVIOCTL     0x100  /* Offset to add for Device-ioctl */
-#define ISDN_IOCTL_NET_ADDIF        1
-#define ISDN_IOCTL_NET_DELIF        2
-#define ISDN_IOCTL_NET_SETCFG       3
-#define ISDN_IOCTL_NET_GETCFG       4
-#define ISDN_IOCTL_NET_ADDNUM       5
-#define ISDN_IOCTL_NET_DELNUM       6
-#define ISDN_IOCTL_NET_GETNUM       7
-#define ISDN_IOCTL_GET_SETUP        8
-#define ISDN_IOCTL_SET_SETUP        9
-#define ISDN_IOCTL_SET_VERBOSE     10
-#define ISDN_IOCTL_NET_HANGUP      11
-#define ISDN_IOCTL_SET_GLOBALSTOP  12
-#define ISDN_IOCTL_SET_BUSREJECT   13
-#define ISDN_IOCTL_PROFILESIG      14
-#define ISDN_IOCTL_PROFILEGET      15
-#define ISDN_IOCTL_PROFILESET      16
-#define ISDN_IOCTL_GETMAPPING      17
-#define ISDN_IOCTL_SETMAPPING      18
-#define ISDN_IOCTL_NET_ADDSLAVE    19
-#define ISDN_IOCTL_NET_DIAL        20
-#define ISDN_IOCTL_DEBUGVAR        21
+/* New ioctl-codes */
+#define IIOCNETAIF  _IO('I',1)
+#define IIOCNETDIF  _IO('I',2)
+#define IIOCNETSCF  _IO('I',3)
+#define IIOCNETGCF  _IO('I',4)
+#define IIOCNETANM  _IO('I',5)
+#define IIOCNETDNM  _IO('I',6)
+#define IIOCNETGNM  _IO('I',7)
+#define IIOCGETSET  _IO('I',8)
+#define IIOCSETSET  _IO('I',9)
+#define IIOCSETVER  _IO('I',10)
+#define IIOCNETHUP  _IO('I',11)
+#define IIOCSETGST  _IO('I',12)
+#define IIOCSETBRJ  _IO('I',13)
+#define IIOCSIGPRF  _IO('I',14)
+#define IIOCGETPRF  _IO('I',15)
+#define IIOCSETPRF  _IO('I',16)
+#define IIOCGETMAP  _IO('I',17)
+#define IIOCSETMAP  _IO('I',18)
+#define IIOCNETASL  _IO('I',19)
+#define IIOCNETDIL  _IO('I',20)
 
-#define ISDN_IOCTL_NET_ADD_LINK    32
-#define ISDN_IOCTL_NET_REMOVE_LINK 33
+#define IIOCNETALN  _IO('I',32)
+#define IIOCNETDLN  _IO('I',33)
 
-#ifdef  ISDN_DEBUG_MODEM_SENDOPT
-#define ISDN_IOCTL_GETMAX    98
-#define ISDN_IOCTL_RESETMAX  99
-#endif
+#define IIOCDBGVAR  _IO('I',127)
 
+#define IIOCDRVCTL  _IO('I',128)
+
+/* Packet encapsulations for net-interfaces */
 #define ISDN_NET_ENCAP_ETHER     0
 #define ISDN_NET_ENCAP_RAWIP     1
 #define ISDN_NET_ENCAP_IPTYP     2
@@ -133,6 +137,7 @@ typedef struct {
 } isdn_net_ioctl_cfg;
 
 #ifdef __KERNEL__
+
 #include <linux/config.h>
 #include <linux/errno.h>
 #include <linux/fs.h>
@@ -164,7 +169,6 @@ typedef struct {
 #  include "/usr/src/linux/drivers/net/slhc.h"
 #endif
 
-#include <linux/ioctl.h>
 #include <linux/ppp_defs.h>
 #include <linux/if_ppp.h>
 #include <linux/if_pppvar.h>
@@ -173,6 +177,8 @@ typedef struct {
 #endif
 
 #include <linux/isdnif.h>
+
+#define ISDN_DRVIOCTL_MASK       0x7f  /* Mask for Device-ioctl */
 
 /* Until now unused */
 #define ISDN_SERVICE_VOICE 1
@@ -304,6 +310,7 @@ struct ippp_bundle {
   long next_num;                      /* we wanna see this seq.-number next */
   struct sqqueue *sq;
   int modify:1;                       /* set to 1 while modifying sqqueue   */
+  int bundled:1;                      /* bundle active ?                    */
 };
 #endif
 
@@ -420,10 +427,7 @@ struct sqqueue {
   struct sqqueue *next;
   int sqno_start;
   int sqno_end;
-  int freebuf; 
-  char *buf;
-  int b;
-  int pkt_len;
+  struct sk_buff *skb;
   long timer;
 };
   
@@ -431,8 +435,7 @@ struct mpqueue {
   struct mpqueue *next;
   struct mpqueue *last;
   int    sqno;
-  u_char *buf;
-  int pktlen;
+  struct sk_buff *skb;
   int BEbyte;
   unsigned long time;
 }; 
@@ -534,6 +537,15 @@ typedef struct isdn_devt {
   char              drvid[ISDN_MAX_DRIVERS][20];/* Driver-ID                 */
   struct task_struct *profd;                   /* For iprofd                 */
   modem             mdm;		       /* tty-driver-data            */
+  isdn_net_dev      *rx_netdev[ISDN_MAX_CHANNELS]; /* rx netdev-pointers     */
+  isdn_net_dev      *st_netdev[ISDN_MAX_CHANNELS]; /* stat netdev-pointers   */
+  struct sk_buff    *first_skb;          /* Ptr to skb that triggers dialing */
+                                         /* Ptr to orig. header_cache_bind   */
+  void              (*org_hcb)(struct hh_cache **, struct device *,
+                               unsigned short, __u32);
+                                         /* Ptr to orig. header_cache_update */
+  void              (*org_hcu)(struct hh_cache *, struct device *,
+                               unsigned char *);
 } isdn_dev;
 
 extern isdn_dev *dev;
