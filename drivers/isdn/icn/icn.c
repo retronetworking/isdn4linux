@@ -19,6 +19,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.42  1997/03/05 21:13:18  fritz
+ * Bugfix: sndcount was not reset on hangup.
+ *
  * Revision 1.41  1997/02/24 23:34:29  fritz
  * Bugfix in Layer1 error-recovery.
  *
@@ -536,6 +539,7 @@ static icn_stat icn_stat_table[] =
 };
 /* *INDENT-ON* */
 
+
 /*
  * Check Statusqueue-Pointer from isdn-cards.
  * If there are new status-replies from the interface, check
@@ -584,24 +588,28 @@ icn_parse_status(u_char * status, int channel, icn_card * card)
 			break;
 		case 3:
 			{
-				char *s = strtok(status + 6, ",");
-				strncpy(cmd.parm.setup.phone, s, sizeof(cmd.parm.setup.phone));
-				s = strtok(NULL, ",");
-				if (!strlen(s))
+				char *t = status + 6;
+				char *s = strpbrk(t, ",");
+
+				*s++ = '\0';
+				strncpy(cmd.parm.setup.phone, t,
+					sizeof(cmd.parm.setup.phone));
+				s = strpbrk(t = s, ",");
+				*s++ = '\0';
+				if (!strlen(t))
 					cmd.parm.setup.si1 = 0;
 				else
-					cmd.parm.setup.si1 = simple_strtoul(s, NULL, 10);
-				s = strtok(NULL, ",");
-				if (!strlen(s))
+					cmd.parm.setup.si1 =
+					    simple_strtoul(t, NULL, 10);
+				s = strpbrk(t = s, ",");
+				*s++ = '\0';
+				if (!strlen(t))
 					cmd.parm.setup.si2 = 0;
 				else
-					cmd.parm.setup.si2 = simple_strtoul(s, NULL, 10);
-				s = strtok(NULL, ",");
-				if (s)
-					strncpy(cmd.parm.setup.eazmsn, s,
-					  sizeof(cmd.parm.setup.eazmsn));
-				else
-					cmd.parm.setup.eazmsn[0] = '\0';
+					cmd.parm.setup.si2 =
+					    simple_strtoul(t, NULL, 10);
+				strncpy(cmd.parm.setup.eazmsn, s,
+					sizeof(cmd.parm.setup.eazmsn));
 			}
 			cmd.parm.setup.plan = 0;
 			cmd.parm.setup.screen = 0;
