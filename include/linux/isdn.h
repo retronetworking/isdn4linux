@@ -21,6 +21,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.31.2.11  1998/07/15 15:04:19  calle
+ * make isdn4k-utils compile again.
+ *
  * Revision 1.31.2.10  1998/06/07 13:48:30  fritz
  * ABC cleanup
  *
@@ -669,6 +672,7 @@ typedef struct modem_info {
   void                  *adpcms;         /* state for adpcm decompression  */
   void                  *adpcmr;         /* state for adpcm compression    */
   void                  *dtmf_state;     /* state for dtmf decoder         */
+  void			*silence_state;	 /* state for silence detection	   */
 #endif
   struct tty_struct 	*tty;            /* Pointer to corresponding tty   */
   atemu                 emu;             /* AT-emulator data               */
