@@ -248,13 +248,13 @@ void	next_req(ADAPTER * a)
 /*
  * IDI request function for active cards
  */
-
 static
 void	request(card_t *card, ENTITY *e)
 {
 	word	*special_req;
 	int		i;
 	int		ipl;
+
 
 	if (card->log_types & DIVAS_LOG_IDI)
 	{
