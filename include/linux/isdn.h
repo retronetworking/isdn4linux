@@ -21,6 +21,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.31.2.20  1999/07/07 10:31:28  detabc
+ * remove unused messages
+ *
  * Revision 1.31.2.19  1999/07/01 11:10:06  keil
  * changes for compatibility
  *
@@ -264,6 +267,7 @@
 #define ISDN_USAGE_VOICE      4
 #define ISDN_USAGE_FAX        5
 #define ISDN_USAGE_MASK       7 /* Mask to get plain usage */
+#define ISDN_USAGE_DISABLED  32 /* This bit is set, if channel is disabled */
 #define ISDN_USAGE_EXCLUSIVE 64 /* This bit is set, if channel is exclusive */
 #define ISDN_USAGE_OUTGOING 128 /* This bit is set, if channel is outgoing  */
 

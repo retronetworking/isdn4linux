@@ -22,6 +22,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.20.2.5  1999/07/01 11:10:13  keil
+ * changes for compatibility
+ *
  * Revision 1.20.2.4  1999/05/05 19:28:45  werner
  * added new stat message for DISPLAY
  *
@@ -282,6 +285,9 @@ typedef struct
 #define ISDN_STAT_PROT    273    /* protocol IO specific callback         */
 #define ISDN_STAT_DISPLAY 274    /* deliver a received display message    */
 #define ISDN_STAT_L1ERR   275    /* Signal Layer-1 Error                  */
+#define ISDN_STAT_FAXIND  276    /* FAX indications from HL-driver        */
+#define ISDN_STAT_AUDIO   277    /* DTMF, DSP indications                 */
+#define ISDN_STAT_DISCH   278    /* Disable/Enable channel usage          */
 
 /*
  * Values for feature-field of interface-struct.
