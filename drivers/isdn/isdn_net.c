@@ -21,6 +21,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.12  1996/06/05 02:36:45  fritz
+ * Minor bugfixes by M. Hipp.
+ *
  * Revision 1.11  1996/05/18 01:36:59  fritz
  * Added spelling corrections and some minor changes
  * to stay in sync with kernel.
@@ -1487,7 +1490,7 @@ isdn_net_find_icall(int di, int ch, int idx, char *num)
 	if (num[0] == ',') {
 		nr[0] = '0';
 		strncpy(&nr[1], num, 30);
-		printk(KERN_WARNING "isdn_net: Incoming call without OAD, assuming '0'\n");
+		printk(KERN_INFO "isdn_net: Incoming call without OAD, assuming '0'\n");
 	} else
 		strncpy(nr, num, 30);
 	s = strtok(nr, ",");
