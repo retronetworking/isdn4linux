@@ -15,7 +15,6 @@
  *
  */
 
-#define __NO_VERSION__
 #include <linux/config.h>
 #include "hisax.h"
 #include "arcofi.h"

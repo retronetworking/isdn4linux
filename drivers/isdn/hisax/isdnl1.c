@@ -17,7 +17,6 @@
 
 const char *l1_revision = "$Revision$";
 
-#define __NO_VERSION__
 #include "hisax.h"
 #include "isdnl1.h"
 

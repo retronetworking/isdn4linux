@@ -20,6 +20,15 @@
 #define HISAX_STATUS_BUFSIZE 4096
 #define INCLUDE_INLINE_FUNCS
 
+#ifdef MODULE
+#ifdef COMPAT_HAS_NEW_SYMTAB
+#define MOD_USE_COUNT ( GET_USE_COUNT (&__this_module))
+#else
+extern long mod_use_count_;
+#define MOD_USE_COUNT mod_use_count_
+#endif /* COMPAT_HAS_NEW_SYMTAB */
+#endif	/* MODULE */
+
 /*
  * This structure array contains one entry per card. An entry looks
  * like this:
@@ -446,15 +455,25 @@ HiSaxVersion(void))
 }
 
 void
-HiSax_mod_dec_use_count(void)
+HiSax_mod_dec_use_count(struct IsdnCardState *cs)
 {
+#ifdef MODULE
 	MOD_DEC_USE_COUNT;
+	if (cs->channel[0].debug & 0x400)
+		HiSax_putstatus(cs, "   UNLOCK ", "modcnt %lx",
+				MOD_USE_COUNT);
+#endif
 }
 
 void
-HiSax_mod_inc_use_count(void)
+HiSax_mod_inc_use_count(struct IsdnCardState *cs)
 {
+#ifdef MODULE
 	MOD_INC_USE_COUNT;
+	if (cs->channel[0].debug & 0x400)
+		HiSax_putstatus(cs, "   LOCK ", "modcnt %lx",
+				MOD_USE_COUNT);
+#endif
 }
 
 #ifdef MODULE

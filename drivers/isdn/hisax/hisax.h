@@ -4,7 +4,6 @@
  *
  */
 #include <linux/config.h>
-#include <linux/module.h>
 #include <linux/version.h>
 #include <linux/errno.h>
 #include <linux/fs.h>
@@ -1320,3 +1319,6 @@ char *HiSax_getrev(const char *revision);
 void TeiNew(void);
 void TeiFree(void);
 int certification_check(int output);
+
+void HiSax_mod_dec_use_count(struct IsdnCardState *cs);
+void HiSax_mod_inc_use_count(struct IsdnCardState *cs);

@@ -39,7 +39,6 @@
 
 #define SEDLBAUER_PCI 1
 
-#define __NO_VERSION__
 #include <linux/config.h>
 #include "hisax.h"
 #include "isac.h"

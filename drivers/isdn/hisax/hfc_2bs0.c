@@ -6,7 +6,6 @@
  *
  */
 
-#define __NO_VERSION__
 #include "hisax.h"
 #include "hfc_2bs0.h"
 #include "isac.h"

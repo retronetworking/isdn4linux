@@ -9,7 +9,6 @@
  */
 
 
-#define __NO_VERSION__
 #include "hisax.h"
 #include "isac.h"
 #include "hscx.h"

@@ -7,7 +7,7 @@
  *              Fritz Elfert
  *
  */
-#define __NO_VERSION__
+
 #include "hisax.h"
 
 #define FSM_TIMER_DEBUG 0

@@ -5,7 +5,7 @@
  * Author       Karsten Keil (keil@isdn4linux.de)
  *
  */
-#define __NO_VERSION__
+
 #include "hisax.h"
 #include "hfc_2bds0.h"
 #include "isdnl1.h"

@@ -11,7 +11,6 @@
  *              Fritz Elfert
  *
  */
-#define __NO_VERSION__
 #include "hisax.h"
 #include "isdnl2.h"
 #include <linux/random.h>

@@ -12,25 +12,13 @@
  *
  */
 
-#define __NO_VERSION__
 #include "hisax.h"
 #include "../avmb1/capicmd.h"  /* this should be moved in a common place */
-
-#ifdef MODULE
-#ifdef COMPAT_HAS_NEW_SYMTAB
-#define MOD_USE_COUNT ( GET_USE_COUNT (&__this_module))
-#else
-extern long mod_use_count_;
-#define MOD_USE_COUNT mod_use_count_
-#endif /* COMPAT_HAS_NEW_SYMTAB */
-#endif	/* MODULE */
 
 const char *lli_revision = "$Revision$";
 
 extern struct IsdnCard cards[];
 extern int nrcards;
-extern void HiSax_mod_dec_use_count(void);
-extern void HiSax_mod_inc_use_count(void);
 
 static int init_b_st(struct Channel *chanp, int incoming);
 static void release_b_st(struct Channel *chanp);
@@ -1534,20 +1522,10 @@ HiSax_command(isdn_ctrl * ic)
 			}
 			break;
 		case (ISDN_CMD_LOCK):
-			HiSax_mod_inc_use_count();
-#ifdef MODULE
-			if (csta->channel[0].debug & 0x400)
-				HiSax_putstatus(csta, "   LOCK ", "modcnt %lx",
-					MOD_USE_COUNT);
-#endif				/* MODULE */
+			HiSax_mod_inc_use_count(csta);
 			break;
 		case (ISDN_CMD_UNLOCK):
-			HiSax_mod_dec_use_count();
-#ifdef MODULE
-			if (csta->channel[0].debug & 0x400)
-				HiSax_putstatus(csta, " UNLOCK ", "modcnt %lx",
-					MOD_USE_COUNT);
-#endif				/* MODULE */
+			HiSax_mod_dec_use_count(csta);
 			break;
 		case (ISDN_CMD_IOCTL):
 			switch (ic->arg) {
@@ -1574,11 +1552,11 @@ HiSax_command(isdn_ctrl * ic)
 					break;
 				case (3):
 					for (i = 0; i < *(unsigned int *) ic->parm.num; i++)
-						HiSax_mod_dec_use_count();
+						HiSax_mod_dec_use_count(csta);
 					break;
 				case (4):
 					for (i = 0; i < *(unsigned int *) ic->parm.num; i++)
-						HiSax_mod_inc_use_count();
+						HiSax_mod_inc_use_count(csta);
 					break;
 				case (5):	/* set card in leased mode */
 					num = *(unsigned int *) ic->parm.num;
@@ -1645,12 +1623,6 @@ HiSax_command(isdn_ctrl * ic)
 					chanp->d_st->lli.l4l3(chanp->d_st,
 						DL_ESTABLISH | REQUEST, NULL);
 					break;
-#ifdef MODULE
-				case (55):
-					MOD_USE_COUNT = 0;
-					HiSax_mod_inc_use_count();
-					break;
-#endif				/* MODULE */
 				case (11):
 					num = csta->debug & DEB_DLOG_HEX;
 					csta->debug = *(unsigned int *) ic->parm.num;

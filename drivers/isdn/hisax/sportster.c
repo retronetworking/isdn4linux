@@ -7,7 +7,6 @@
  * Thanks to Christian "naddy" Weisgerber (3Com, US Robotics) for documentation
  *
  */
-#define __NO_VERSION__
 #include "hisax.h"
 #include "isac.h"
 #include "hscx.h"

@@ -6,7 +6,6 @@
  *
  */
 
-#define __NO_VERSION__
 #include "hisax.h"
 #include "isar.h"
 #include "isdnl1.h"

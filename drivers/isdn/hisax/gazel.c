@@ -6,8 +6,8 @@
  *              based on source code from Karsten Keil
  *
  */
+
 #include <linux/config.h>
-#define __NO_VERSION__
 #include "hisax.h"
 #include "isac.h"
 #include "hscx.h"
