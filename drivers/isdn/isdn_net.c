@@ -2817,11 +2817,7 @@ isdn_net_init(struct net_device *ndev)
 	ndev->addr_len = ETH_ALEN;
 
 	/* for clients with MPPP maybe higher values better */
-#ifdef CONFIG_ISDN_WITH_ABC
-	ndev->tx_queue_len = 256;
-#else
 	ndev->tx_queue_len = 30;
-#endif
 
 	for (i = 0; i < ETH_ALEN; i++)
 		ndev->broadcast[i] = 0xff;
