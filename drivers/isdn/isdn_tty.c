@@ -20,6 +20,10 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.30  1997/02/18 09:41:05  fritz
+ * Added support for bitwise access to modem registers (ATSx.y=n, ATSx.y?).
+ * Beautified output of AT&V.
+ *
  * Revision 1.29  1997/02/16 12:11:51  fritz
  * Added S13,Bit4 option.
  *
@@ -664,9 +668,9 @@ isdn_tty_modem_hup(modem_info * info, int local)
 	printk(KERN_DEBUG "Mhup ttyI%d\n", info->line);
 #endif
 	info->rcvsched = 0;
-	info->online = 0;
 	if (info->online || info->vonline)
 		info->last_lhup = local;
+	info->online = 0;
 	isdn_tty_flush_buffer(info->tty);
 	if (info->vonline & 1) {
 		/* voice-recording, add DLE-ETX */
@@ -694,10 +698,12 @@ isdn_tty_modem_hup(modem_info * info, int local)
 	info->msr &= ~(UART_MSR_DCD | UART_MSR_RI);
 	info->lsr |= UART_LSR_TEMT;
 	if (info->isdn_driver >= 0) {
-		cmd.driver = info->isdn_driver;
-		cmd.command = ISDN_CMD_HANGUP;
-		cmd.arg = info->isdn_channel;
-		dev->drv[info->isdn_driver]->interface->command(&cmd);
+		if (local) {
+			cmd.driver = info->isdn_driver;
+			cmd.command = ISDN_CMD_HANGUP;
+			cmd.arg = info->isdn_channel;
+			dev->drv[info->isdn_driver]->interface->command(&cmd);
+		}
 		isdn_all_eaz(info->isdn_driver, info->isdn_channel);
 		info->emu.mdmreg[1] = 0;
 		usage = (info->emu.mdmreg[20] == 1) ?
