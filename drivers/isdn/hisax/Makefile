@@ -15,9 +15,6 @@ hisax-objs	:= config.o isdnl1.o tei.o isdnl2.o isdnl3.o \
 		   lmgr.o q931.o callc.o fsm.o cert.o
 
 # Optional parts of multipart objects.
-hfcusb-mods-$(CONFIG_HISAX_HFC_USB) := hfc_usb.o
-st5481usb-mods-$(CONFIG_HISAX_ST5481) := st5481_usb.o
-
 hisax-objs-$(CONFIG_HISAX_EURO) += l3dss1.o
 hisax-objs-$(CONFIG_HISAX_NI1) += l3ni1.o
 hisax-objs-$(CONFIG_HISAX_1TR6) += l3_1tr6.o
@@ -56,16 +53,13 @@ hisax-objs-$(CONFIG_HISAX_ST5481) += st5481.o st5481_hdlc.o
 
 hisax-objs += $(sort $(hisax-objs-y))
 
-# insert hfc usb module into obj-m
-
-obj-m += $(hfcusb-mods-y)	
-obj-m += $(st5481usb-mods-y)
-
 # Each configuration option enables a list of files.
 
-obj-$(CONFIG_ISDN_DRV_HISAX)	+= hisax.o
+obj-$(CONFIG_ISDN_DRV_HISAX)		+= hisax.o
 obj-$(CONFIG_HISAX_SEDLBAUER_CS)	+= sedlbauer_cs.o
-obj-$(CONFIG_HISAX_ELSA_CS)	+= elsa_cs.o
+obj-$(CONFIG_HISAX_ELSA_CS)		+= elsa_cs.o
+obj-$(CONFIG_HISAX_HFC_USB_CS)		+= hfc_usb.o
+obj-$(CONFIG_HISAX_ST5481_CS)		+= st5481_usb.o
 
 MD5FILES 	:= isac.c isdnl1.c isdnl2.c isdnl3.c \
 		   tei.c callc.c cert.c l3dss1.c l3_1tr6.c \

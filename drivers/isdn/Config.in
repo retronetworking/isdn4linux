@@ -110,19 +110,23 @@ if [ "$CONFIG_ISDN_DRV_HISAX" != "n" ]; then
       if [ "$ARCH" = "sparc" -o "$ARCH" = "sparc64" ]; then
 	 bool '  Am7930' CONFIG_HISAX_AMD7930
       fi
-      if [ "$CONFIG_MODULES" != "n" ]; then
-       if [ "CONFIG_USB" != "n" ]; then	
-      	bool '  Colognechip HFC-USB support' CONFIG_HISAX_HFC_USB 
-       fi	
-      fi
-      if [ "$CONFIG_MODULES" != "n" ]; then
-       if [ "CONFIG_USB" != "n" ]; then	
-        bool '  ST5481 USB ISDN modem' CONFIG_HISAX_ST5481
-       fi
-      fi	
    fi
    dep_tristate 'Sedlbauer PCMCIA cards' CONFIG_HISAX_SEDLBAUER_CS $CONFIG_PCMCIA
    dep_tristate 'ELSA PCMCIA MicroLink cards' CONFIG_HISAX_ELSA_CS $CONFIG_PCMCIA
+   dep_tristate 'Colognechip HFC-USB support' CONFIG_HISAX_HFC_USB_CS $CONFIG_HISAX $CONFIG_USB
+   dep_tristate 'ST5481 USB ISDN modem' CONFIG_HISAX_ST5481_CS $CONFIG_HISAX $CONFIG_USB
+   if [ "$CONFIG_HISAX_SEDLBAUER_CS" != "n" ]; then
+      define_bool CONFIG_HISAX_SEDLBAUER y
+   fi
+   if [ "$CONFIG_HISAX_ELSA_CS" != "n" ]; then
+      define_bool CONFIG_HISAX_ELSA y
+   fi
+   if [ "$CONFIG_HISAX_HFC_USB_CS" != "n" ]; then
+      define_bool CONFIG_HISAX_HFC_USB y
+   fi
+   if [ "$CONFIG_HISAX_ST5481_CS" != "n" ]; then
+      define_bool CONFIG_HISAX_ST5481 y
+   fi
 fi
 endmenu
 
