@@ -5,6 +5,9 @@
  *
  *
  * $Log$
+ * Revision 2.38  1999/10/14 20:25:28  keil
+ * add a statistic for error monitoring
+ *
  * Revision 2.37  1999/09/20 12:11:08  keil
  * Fix hang if no protocol was selected
  *
@@ -513,10 +516,10 @@ MODULE_PARM(io, "1-8i");
 MODULE_PARM(irq, "1-8i");
 MODULE_PARM(mem, "1-8i");
 MODULE_PARM(id, "s");
-#ifdef CONFIG_HISAX_16_3	/* For Creatix/Teles PnP */
+#ifdef IO0_IO1
 MODULE_PARM(io0, "1-8i");
 MODULE_PARM(io1, "1-8i");
-#endif /* CONFIG_HISAX_16_3 */
+#endif /* IO0_IO1 */
 #endif /* COMPAT_HAS_NEW_SYMTAB */
 #endif /* MODULE */
 
@@ -550,9 +553,9 @@ HiSaxVersion(void))
 
 	printk(KERN_INFO "HiSax: Linux Driver for passive ISDN cards\n");
 #ifdef MODULE
-	printk(KERN_INFO "HiSax: Version 3.3a (module)\n");
+	printk(KERN_INFO "HiSax: Version 3.3b (module)\n");
 #else
-	printk(KERN_INFO "HiSax: Version 3.3a (kernel)\n");
+	printk(KERN_INFO "HiSax: Version 3.3b (kernel)\n");
 #endif
 	strcpy(tmp, l1_revision);
 	printk(KERN_INFO "HiSax: Layer1 Revision %s\n", HiSax_getrev(tmp));
