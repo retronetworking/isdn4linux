@@ -19,6 +19,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.4  1995/01/09  07:41:20  fritz
+ * Added GPL-Notice
+ *
  * Revision 1.3  1995/01/04  05:14:20  fritz
  * removed include of linux/asm/string.h for compiling with Linux 1.1.76
  *
@@ -31,6 +34,7 @@
  */
 
 #ifndef icn_h
+#define icn_h
 
 #define ICN_IOCTL_SETMMIO   0
 #define ICN_IOCTL_GETMMIO   1
@@ -143,7 +147,6 @@ typedef struct icn_frag {
 } frag_buf;
 
 typedef union icn_shmt {
-
   struct {
     unsigned char  scns;             /* Index to free SendFrag.             */
     unsigned char  scnr;             /* Index to active SendFrag   READONLY */
@@ -152,7 +155,6 @@ typedef union icn_shmt {
     char           unused[6];
     unsigned short fuell1;           /* Internal Buf Bytecount              */ 
   } data_control;
-
   struct {
     char          unused[SHM_CCTL_OFFSET];
     unsigned char iopc_i;            /* Read-Ptr Status-Queue      READONLY */
@@ -160,7 +162,6 @@ typedef union icn_shmt {
     unsigned char pcio_i;            /* Write-Ptr Command-Queue             */
     unsigned char pcio_o;            /* Read-Ptr Command Queue     READONLY */
   } comm_control;
-
   struct {
     char          unused[SHM_CBUF_OFFSET];
     unsigned char pcio_buf[0x100];   /* Ring-Buffer Command-Queue           */
