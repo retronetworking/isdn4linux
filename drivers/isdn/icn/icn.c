@@ -19,6 +19,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.60  1999/08/31 11:20:32  paul
+ * various spelling corrections (new checksums may be needed, Karsten!)
+ *
  * Revision 1.59  1999/08/28 22:10:55  keil
  * __setup function should be static
  *
@@ -545,12 +548,10 @@ icn_pollbchan_send(int channel, icn_card * card)
 			if (!skb->len) {
 				save_flags(flags);
 				cli();
-				if (card->xskb[channel]) {
+				if (card->xskb[channel])
 					card->xskb[channel] = NULL;
-					restore_flags(flags);
-					dev_kfree_skb(skb);
-				} else
-					restore_flags(flags);
+				restore_flags(flags);
+				dev_kfree_skb(skb);
 				if (card->xlen[channel]) {
 					cmd.command = ISDN_STAT_BSENT;
 					cmd.driver = card->myid;
