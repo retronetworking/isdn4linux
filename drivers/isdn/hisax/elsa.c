@@ -6,8 +6,14 @@
  *
  * Thanks to    Elsa GmbH for documents and informations
  *
+ *              Klaus Lichtenwalder (Klaus.Lichtenwalder@WebForum.DE)
+ *              for ELSA PCMCIA support
+ *
  *
  * $Log$
+ * Revision 1.14.2.5  1997/11/15 18:50:47  keil
+ * new common init function
+ *
  * Revision 1.14.2.4  1997/10/17 22:13:44  keil
  * update to last hisax version
  *
