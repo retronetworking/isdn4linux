@@ -21,6 +21,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.70  1999/01/15 19:58:54  he
+ * removed compatibiltity macro
+ *
  * Revision 1.69  1998/09/07 21:59:58  he
  * flush method for 2.1.118 and above
  * updated IIOCTLNETGPN
@@ -975,7 +978,8 @@ isdn_readbchan(int di, int channel, u_char * buf, u_char * fp, int len, struct w
 
 			dflag = 0;
 			count_pull = count_put = 0;
-			while ((count_pull < skb->len) && (left-- > 0)) {
+			while ((count_pull < skb->len) && (left > 0)) {
+				left--;
 				if (dev->drv[di]->DLEflag & DLEmask) {
 					*cp++ = DLE;
 					dev->drv[di]->DLEflag &= ~DLEmask;
