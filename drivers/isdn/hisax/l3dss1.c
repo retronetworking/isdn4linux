@@ -9,6 +9,9 @@
  *              Fritz Elfert
  *
  * $Log$
+ * Revision 1.1  1996/10/13 20:04:55  keil
+ * Initial revision
+ *
  *
  *
  */
@@ -317,6 +320,29 @@ l3s18(struct PStack *st, byte pr, void *arg)
 }
 
 static void
+l3s18_6(struct PStack *st, byte pr, void *arg)
+{
+	struct BufHeader *dibh;
+	byte           *p;
+
+	BufPoolGet(&dibh, st->l1.sbufpool, GFP_ATOMIC, (void *) st, 21);
+	p = DATAPTR(dibh);
+	p += st->l2.ihsize;
+
+	MsgHead(p, st->l3.callref, MT_RELEASE_COMPLETE);
+
+	*p++ = IE_CAUSE;
+	*p++ = 0x2;
+	*p++ = 0x80;
+	*p++ = 0x95;  /* Call rejected */
+
+	dibh->datasize = p - DATAPTR(dibh);
+	st->l3.l3l2(st, DL_DATA, dibh);
+	newl3state(st, 0);
+	st->l3.l3l4(st, CC_RELEASE_IND, NULL);
+}
+
+static void
 l3s19(struct PStack *st, byte pr, void *arg)
 {
 	struct BufHeader *ibh = arg;
@@ -344,7 +370,7 @@ l3s21(struct PStack *st, byte pr, void *arg)
 
 	BufPoolRelease(dibh);
 
-	BufPoolGet(&dibh, st->l1.sbufpool, GFP_ATOMIC, (void *) st, 20);
+	BufPoolGet(&dibh, st->l1.sbufpool, GFP_ATOMIC, (void *) st, 22);
 	p = DATAPTR(dibh);
 	p += st->l2.ihsize;
 
@@ -368,7 +394,7 @@ static struct stateentry downstatelist[] =
 {
         {SBIT(0),
         	CC_SETUP_REQ,l3s5},
-        {SBIT(1)| SBIT(3)| SBIT(4)| SBIT(6)| SBIT(7)| SBIT(8)| SBIT(10),
+        {SBIT(1)| SBIT(3)| SBIT(4)| SBIT(7)| SBIT(8)| SBIT(10),
         	CC_DISCONNECT_REQ,l3s18},
         {SBIT(1)| SBIT(3)| SBIT(4)| SBIT(6)| SBIT(7)| SBIT(8)| SBIT(10)| 
         	SBIT(11)| SBIT(12),
@@ -376,6 +402,8 @@ static struct stateentry downstatelist[] =
         {SBIT(1)| SBIT(3)| SBIT(4)| SBIT(6)| SBIT(7)| SBIT(8)| SBIT(10)|
         	SBIT(19),
         	CC_DLRL,l3s13},
+        {SBIT(6),
+        	CC_DISCONNECT_REQ,l3s18_6},
         {SBIT(6),
         	CC_ALERTING_REQ,l3s20},
         {SBIT(6)| SBIT(7),

@@ -6,6 +6,9 @@
  *
  *
  * $Log$
+ * Revision 1.2  1996/10/13 23:08:56  keil
+ * added missing state for callback reject
+ *
  * Revision 1.1  1996/10/13 20:04:55  keil
  * Initial revision
  *
@@ -409,7 +412,7 @@ l3_1tr6_disconn_req(struct PStack *st, byte pr, void *arg)
 
 	MsgHead(p, st->l3.callref, MT_N1_DISC, PROTO_DIS_N1);
 
-        if (st->l3.state == 7) {
+        if ((st->l3.state & 0xfe) == 6) {
                 rejflg = 1;
                 *p++ = WE0_cause;       /* Anruf abweisen                */
                 *p++ = 0x01;            /* Laenge = 1                    */
