@@ -21,6 +21,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.76  1999/09/14 10:16:21  keil
+ * change ABC include
+ *
  * Revision 1.75  1999/09/13 23:25:17  he
  * serialized xmitting frames from isdn_ppp and BSENT statcallb
  *
@@ -300,11 +303,19 @@
 #undef CONFIG_ISDN_WITH_ABC_CALLB
 #undef CONFIG_ISDN_WITH_ABC_UDP_CHECK
 #undef CONFIG_ISDN_WITH_ABC_UDP_CHECK_HANGUP
+#undef CONFIG_ISDN_WITH_ABC_UDP_CHECK_DIAL
 #undef CONFIG_ISDN_WITH_ABC_OUTGOING_EAZ
-#undef CONFIG_ISDN_WITH_ABC_CALL_CHECK_SYNCRO
 #undef CONFIG_ISDN_WITH_ABC_LCR_SUPPORT
+#undef CONFIG_ISDN_WITH_ABC_IPV4_TCP_KEEPALIVE
+#undef CONFIG_ISDN_WITH_ABC_IPV4_DYNADDR
 #else
 #include <linux/isdn_dwabc.h>
+#define ISDN_DW_ABC_FLAG_NO_TCP_KEEPALIVE	0x00000001L
+#define ISDN_DW_ABC_FLAG_NO_UDP_CHECK		0x00000002L
+#define ISDN_DW_ABC_FLAG_NO_UDP_HANGUP		0x00000004L
+#define ISDN_DW_ABC_FLAG_NO_UDP_DIAL		0x00000008L
+#define ISDN_DW_ABC_FLAG_DYNADDR			0x00000010L
+
 extern void isdn_dw_abc_init_func(void);
 extern void isdn_dw_abc_release_func(void);
 #endif
@@ -644,14 +655,15 @@ typedef struct isdn_net_local_s {
   ulong cisco_myseq;                   /* Local keepalive seq. for Cisco   */
   ulong cisco_yourseq;                 /* Remote keepalive seq. for Cisco  */
 #ifdef CONFIG_ISDN_WITH_ABC
-	int dw_abc_old_onhtime;
+  ulong dw_abc_flags;
+  int   dw_abc_old_onhtime;
 #ifdef CONFIG_ISDN_WITH_ABC_OUTGOING_EAZ
   char	dw_out_msn[ISDN_MSNLEN]; /* eaz for outgoing call if *out_msn != 0 */
 #endif
 #ifdef CONFIG_ISDN_WITH_ABC_LCR_SUPPORT
-  u_long 				dw_abc_lcr_callid;
-  u_long 				dw_abc_lcr_start_request;
-  u_long 				dw_abc_lcr_end_request;
+  ulong 				dw_abc_lcr_callid;
+  ulong 				dw_abc_lcr_start_request;
+  ulong 				dw_abc_lcr_end_request;
   isdn_ctrl 			*dw_abc_lcr_cmd;
   struct ISDN_DWABC_LCR_IOCTL	*dw_abc_lcr_io;
 #endif
@@ -938,12 +950,14 @@ typedef struct isdn_devt {
 extern isdn_dev *dev;
 
 #ifdef CONFIG_ISDN_WITH_ABC
+extern void	isdn_net_unreachable(struct net_device *,struct sk_buff *,char *);
 extern void isdn_net_hangup(struct net_device *d);
 extern void isdn_dw_clear_if(ulong pm,isdn_net_local *);
+extern void	isdn_dwabc_test_phone(isdn_net_local *);
 
 #ifdef CONFIG_ISDN_WITH_ABC_LCR_SUPPORT
 extern size_t	isdn_dw_abc_lcr_readstat(char *,size_t);
-extern u_long	isdn_dw_abc_lcr_call_number(isdn_net_local *,isdn_ctrl *);
+extern ulong	isdn_dw_abc_lcr_call_number(isdn_net_local *,isdn_ctrl *);
 extern void		isdn_dw_abc_lcr_open(void);
 extern void		isdn_dw_abc_lcr_close(void);
 extern void		isdn_dw_abc_lcr_ioctl(u_long);
@@ -953,8 +967,11 @@ extern void 	isdn_dw_abc_lcr_clear(isdn_net_local *);
 #ifdef CONFIG_ISDN_WITH_ABC_UDP_CHECK
 extern int dw_abc_udp_test(struct sk_buff *skb,struct net_device *ndev); 
 #endif
-
+#if CONFIG_ISDN_WITH_ABC_IPV4_TCP_KEEPALIVE || CONFIG_ISDN_WITH_ABC_IPV4_DYNADDR
+int isdn_dw_abc_ip4_keepalive_test(struct net_device *ndev,struct sk_buff *skb);
 #endif
+#endif
+
 
 /* Utility-Macros */
 #define MIN(a,b) ((a<b)?a:b)

@@ -82,15 +82,17 @@ if [ "$CONFIG_EXPERIMENTAL" != "n" ]; then
 
 	if [ "$CONFIG_ISDN_WITH_ABC" != "n" ]; then
 		bool 'Use D-Channel-Callback with Channel in use check' 	CONFIG_ISDN_WITH_ABC_CALLB
-		bool 'Use Phonenumber and EAZ for async-calls'				CONFIG_ISDN_WITH_ABC_CALL_CHECK_SYNCRO
+		bool 'Enable Outgoing-EAZ-Support'      					CONFIG_ISDN_WITH_ABC_OUTGOING_EAZ
+		bool 'Enable LCR-Support (need isdnlog)'    				CONFIG_ISDN_WITH_ABC_LCR_SUPPORT
+		bool 'TCP keepalive detect and response (ip4 only)'			CONFIG_ISDN_WITH_ABC_IPV4_TCP_KEEPALIVE
+		bool 'Drop frames s_addr != iface_addr  (ip4 only)'			CONFIG_ISDN_WITH_ABC_IPV4_DYNADDR
+
 		bool 'Enable UDP-Info-Support' 								CONFIG_ISDN_WITH_ABC_UDP_CHECK
 
 		if [ "$CONFIG_ISDN_WITH_ABC_UDP_CHECK" != "n" ]; then
 			bool 'Enable Hangup-Support with UDP-INFO' 				CONFIG_ISDN_WITH_ABC_UDP_CHECK_HANGUP
 		fi
 
-		bool 'Enable Outgoing-EAZ-Support'      CONFIG_ISDN_WITH_ABC_OUTGOING_EAZ
-		bool 'Enable LCR-Support (need isdnlog)'      CONFIG_ISDN_WITH_ABC_LCR_SUPPORT
 	fi
 fi
 

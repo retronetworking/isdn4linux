@@ -21,6 +21,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.92  1999/09/13 23:25:17  he
+ * serialized xmitting frames from isdn_ppp and BSENT statcallb
+ *
  * Revision 1.91  1999/09/12 16:19:39  detabc
  * added abc features
  * low cost routing for net-interfaces (only the HL side).
@@ -388,7 +391,11 @@ char *isdn_net_revision = "$Revision$";
   * Code for raw-networking over ISDN
   */
 
+#ifdef CONFIG_ISDN_WITH_ABC
+void
+#else
 static void
+#endif
 isdn_net_unreachable(struct net_device *dev, struct sk_buff *skb, char *reason)
 {
 
@@ -1021,7 +1028,7 @@ dw_abc_lcr_next_click:;
 						strcpy(dev->num[i], cmd.parm.setup.phone);
 						isdn_info_update();
 					}
-#ifdef CONFIG_ISDN_WITH_ABC_OUTGOING_EAZ 
+#ifdef CONFIG_ISDN_WITH_ABC
 					printk(KERN_INFO "%s: dialing %d %s -> %s...\n", lp->name,
 					       lp->dialretry, 
 						   cmd.parm.setup.eazmsn,
@@ -1406,11 +1413,23 @@ isdn_net_start_xmit(struct sk_buff *skb, struct net_device *ndev)
 #ifdef CONFIG_ISDN_X25
 	struct concap_proto * cprot = lp -> netdev -> cprot;
 #endif
-#ifdef CONFIG_ISDN_WITH_ABC_UDP_CHECK
-	if(dw_abc_udp_test(skb,ndev)) {
-		dev_kfree_skb(skb);
-		return 0;
+#ifdef CONFIG_ISDN_WITH_ABC
+#if CONFIG_ISDN_WITH_ABC_IPV4_TCP_KEEPALIVE || CONFIG_ISDN_WITH_ABC_IPV4_DYNADDR
+	if(!(lp->dw_abc_flags & ISDN_DW_ABC_FLAG_NO_TCP_KEEPALIVE)) {
+		if(isdn_dw_abc_ip4_keepalive_test(ndev,skb)) {
+			dev_kfree_skb(skb);
+			return(0);
+		}
 	}
+#endif
+#ifdef CONFIG_ISDN_WITH_ABC_UDP_CHECK
+	if(!(lp->dw_abc_flags & ISDN_DW_ABC_FLAG_NO_UDP_CHECK)) {
+		if(dw_abc_udp_test(skb,ndev)) {
+			dev_kfree_skb(skb);
+			return 0;
+		}
+	}
+#endif
 #endif
 	if (ndev->tbusy) {
 		if (jiffies - ndev->trans_start < (2 * HZ))
@@ -1872,6 +1891,10 @@ isdn_net_receive(struct net_device *ndev, struct sk_buff *skb)
 			return;
 	}
 
+#ifdef CONFIG_ISDN_WITH_ABC_IPV4_TCP_KEEPALIVE  
+	if(!(lp->dw_abc_flags & ISDN_DW_ABC_FLAG_NO_TCP_KEEPALIVE))
+		(void)isdn_dw_abc_ip4_keepalive_test(NULL,skb);
+#endif
 	netif_rx(skb);
 	return;
 }
@@ -2245,7 +2268,6 @@ isdn_net_find_icall(int di, int ch, int idx, setup_parm setup)
 #endif
 #ifdef CONFIG_ISDN_WITH_ABC_CALLB
 			{
-#ifdef CONFIG_ISDN_WITH_ABC_CALL_CHECK_SYNCRO
 			int use_this_call = 0;
 
 			if(!(lp->flags & ISDN_NET_CBOUT) && ((lp->dialstate == 4) || (lp->dialstate == 12))) {
@@ -2270,12 +2292,8 @@ isdn_net_find_icall(int di, int ch, int idx, setup_parm setup)
 
 				use_this_call = 1;
 			}
-#endif
 			
-			if(
-#ifdef CONFIG_ISDN_WITH_ABC_CALL_CHECK_SYNCRO
-				use_this_call || 
-#endif
+			if( use_this_call || 
 				((lp->flags & ISDN_NET_CBOUT) && (lp->flags & ISDN_NET_CONNECTED))) {
 
 				/*
@@ -3125,9 +3143,8 @@ isdn_net_addphone(isdn_net_ioctl_phone * phone)
 		strcpy(n->num, phone->phone);
 		n->next = p->local->phone[phone->outgoing & 1];
 		p->local->phone[phone->outgoing & 1] = n;
-#ifdef CONFIG_ISDN_WITH_ABC_OUTGOING_EAZ
-		if(*(phone->phone) == '>')
-			strncpy(p->local->dw_out_msn,phone->phone + 1,ISDN_MSNLEN - 1);
+#ifdef CONFIG_ISDN_WITH_ABC
+		isdn_dwabc_test_phone(p->local);
 #endif
 		return 0;
 	}
@@ -3209,10 +3226,6 @@ isdn_net_delphone(isdn_net_ioctl_phone * phone)
 	int flags;
 
 	if (p) {
-#ifdef CONFIG_ISDN_WITH_ABC_OUTGOING_EAZ
-		if(*(phone->phone) == '>')
-			*p->local->dw_out_msn = 0;
-#endif
 		save_flags(flags);
 		cli();
 		n = p->local->phone[inout];
@@ -3226,6 +3239,9 @@ isdn_net_delphone(isdn_net_ioctl_phone * phone)
 				else
 					p->local->phone[inout] = n->next;
 				kfree(n);
+#ifdef CONFIG_ISDN_WITH_ABC
+				isdn_dwabc_test_phone(p->local);
+#endif
 				restore_flags(flags);
 				return 0;
 			}
@@ -3261,6 +3277,9 @@ isdn_net_rmallphone(isdn_net_dev * p)
 		p->local->phone[i] = NULL;
 	}
 	p->local->dial = NULL;
+#ifdef CONFIG_ISDN_WITH_ABC
+	isdn_dwabc_test_phone(p->local);
+#endif
 	restore_flags(flags);
 	return 0;
 }
