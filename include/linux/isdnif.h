@@ -26,6 +26,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.22  1998/01/31 22:14:12  keil
+ * changes for 2.1.82
+ *
  * Revision 1.21  1997/10/09 21:28:13  fritz
  * New HL<->LL interface:
  *   New BSENT callback with nr. of bytes included.
@@ -118,22 +121,28 @@
 #define ISDN_PTYPE_EURO      2   /* EDSS1-protocol       */
 #define ISDN_PTYPE_LEASED    3   /* for leased lines     */
 #define ISDN_PTYPE_NI1       4   /* US NI-1 protocol     */
+#define ISDN_PTYPE_MAX       7   /* Max. 8 Protocols     */
 
 /*
  * Values for Layer-2-protocol-selection
  */
-#define ISDN_PROTO_L2_X75I   0   /* X75/LAPB with I-Frames      */
-#define ISDN_PROTO_L2_X75UI  1   /* X75/LAPB with UI-Frames     */
-#define ISDN_PROTO_L2_X75BUI 2   /* X75/LAPB with UI-Frames     */
-#define ISDN_PROTO_L2_HDLC   3   /* HDLC                        */
-#define ISDN_PROTO_L2_TRANS  4   /* Transparent (Voice)         */
-#define ISDN_PROTO_L2_X25DTE 5   /* X25/LAPB DTE mode           */
-#define ISDN_PROTO_L2_X25DCE 6   /* X25/LAPB DCE mode           */
+#define ISDN_PROTO_L2_X75I   0   /* X75/LAPB with I-Frames            */
+#define ISDN_PROTO_L2_X75UI  1   /* X75/LAPB with UI-Frames           */
+#define ISDN_PROTO_L2_X75BUI 2   /* X75/LAPB with UI-Frames           */
+#define ISDN_PROTO_L2_HDLC   3   /* HDLC                              */
+#define ISDN_PROTO_L2_TRANS  4   /* Transparent (Voice)               */
+#define ISDN_PROTO_L2_X25DTE 5   /* X25/LAPB DTE mode                 */
+#define ISDN_PROTO_L2_X25DCE 6   /* X25/LAPB DCE mode                 */
+#define ISDN_PROTO_L2_V11096 7   /* V.110 bitrate adaption 9600 Baud  */
+#define ISDN_PROTO_L2_V11019 8   /* V.110 bitrate adaption 19200 Baud */
+#define ISDN_PROTO_L2_V11038 9   /* V.110 bitrate adaption 38400 Baud */
+#define ISDN_PROTO_L2_MAX    15  /* Max. 16 Protocols                 */
 
 /*
  * Values for Layer-3-protocol-selection
  */
 #define ISDN_PROTO_L3_TRANS  0   /* Transparent                 */
+#define ISDN_PROTO_L3_MAX    7   /* Max. 8 Protocols            */
 
 #ifdef __KERNEL__
 
@@ -143,7 +152,7 @@
  * Commands from linklevel to lowlevel
  *
  */
-#define ISDN_CMD_IOCTL   0       /* Perform ioctl                         */
+#define ISDN_CMD_IOCTL    0       /* Perform ioctl                         */
 #define ISDN_CMD_DIAL     1       /* Dial out                              */
 #define ISDN_CMD_ACCEPTD  2       /* Accept an incoming call on D-Chan.    */
 #define ISDN_CMD_ACCEPTB  3       /* Request B-Channel connect.            */
@@ -201,15 +210,27 @@
 #define ISDN_FEATURE_L2_TRANS   (0x0001 << ISDN_PROTO_L2_TRANS)
 #define ISDN_FEATURE_L2_X25DTE  (0x0001 << ISDN_PROTO_L2_X25DTE)
 #define ISDN_FEATURE_L2_X25DCE  (0x0001 << ISDN_PROTO_L2_X25DCE)
+#define ISDN_FEATURE_L2_V11096  (0x0001 << ISDN_PROTO_L2_V11096)
+#define ISDN_FEATURE_L2_V11019  (0x0001 << ISDN_PROTO_L2_V11019)
+#define ISDN_FEATURE_L2_V11038  (0x0001 << ISDN_PROTO_L2_V11038)
+
+#define ISDN_FEATURE_L2_MASK    (0x0FFFF) /* Max. 16 protocols */
+#define ISDN_FEATURE_L2_SHIFT   (0)
 
 /* Layer 3 */
-#define ISDN_FEATURE_L3_TRANS   (0x0100 << ISDN_PROTO_L3_TRANS)
+#define ISDN_FEATURE_L3_TRANS   (0x10000 << ISDN_PROTO_L3_TRANS)
+
+#define ISDN_FEATURE_L3_MASK    (0x0FF0000) /* Max. 8 Protocols */
+#define ISDN_FEATURE_L3_SHIFT   (16)
 
 /* Signaling */
-#define ISDN_FEATURE_P_UNKNOWN  (0x1000 << ISDN_PTYPE_UNKNOWN)
-#define ISDN_FEATURE_P_1TR6     (0x1000 << ISDN_PTYPE_1TR6)
-#define ISDN_FEATURE_P_EURO     (0x1000 << ISDN_PTYPE_EURO)
-#define ISDN_FEATURE_P_NI1      (0x1000 << ISDN_PTYPE_NI1)
+#define ISDN_FEATURE_P_UNKNOWN  (0x1000000 << ISDN_PTYPE_UNKNOWN)
+#define ISDN_FEATURE_P_1TR6     (0x1000000 << ISDN_PTYPE_1TR6)
+#define ISDN_FEATURE_P_EURO     (0x1000000 << ISDN_PTYPE_EURO)
+#define ISDN_FEATURE_P_NI1      (0x1000000 << ISDN_PTYPE_NI1)
+
+#define ISDN_FEATURE_P_MASK     (0x0FF000000) /* Max. 8 Protocols */
+#define ISDN_FEATURE_P_SHIFT    (24)
 
 typedef struct setup_parm {
     char phone[32];         /* Remote Phone-Number */
