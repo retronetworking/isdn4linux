@@ -21,6 +21,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.84  1999/07/25 16:21:10  keil
+ * fix number matching
+ *
  * Revision 1.83  1999/07/13 21:02:05  werner
  * Added limit possibilty of driver b_channel resources (ISDN_STAT_DISCH)
  *
@@ -1121,7 +1124,7 @@ isdn_readbchan(int di, int channel, u_char * buf, u_char * fp, int len, struct w
 		if (ISDN_AUDIO_SKB_LOCK(skb))
 			break;
 		ISDN_AUDIO_SKB_LOCK(skb) = 1;
-		if (ISDN_AUDIO_SKB_DLECOUNT(skb)) {
+		if ((ISDN_AUDIO_SKB_DLECOUNT(skb)) || (dev->drv[di]->DLEflag & (1 << channel))) {
 			char *p = skb->data;
 			unsigned long DLEmask = (1 << channel);
 
