@@ -2,6 +2,9 @@
 #include "callc.h"
 #include "l4l3if.h"
 #include "stack.h"
+#include "l3dss1.h"
+#include "asn1_comp.h"
+#include "asn1.h"
 
 #define contrDebug(contr, lev, fmt, args...) \
         debug(lev, contr->cs, "Contr ", fmt, ## args)
@@ -43,6 +46,12 @@ void contrDestr(struct Contr *contr)
 			kfree(contr->plcis[i]);
 		}
 	}
+	for (i = 0; i < CAPI_MAXDUMMYPCS; i++) {
+		if (contr->dummy_pcs[i]) {
+			dummyPcDestr(contr->dummy_pcs[i]);
+			kfree(contr->dummy_pcs[i]);
+		}
+	}
 	di->detach_ctr(contr->ctrl);
 }
 
@@ -70,7 +79,7 @@ void contrRun(struct Contr *contr)
 	memset(&ctrl->profile, 0, sizeof(struct capi_profile));
 	ctrl->profile.ncontroller = 1;
 	ctrl->profile.nbchannel = 2;
-	ctrl->profile.goptions = 0x1; // internal controller supported
+	ctrl->profile.goptions = 0x11; // internal controller, supplementary services
 	ctrl->profile.support1 = 3; // HDLC, TRANS
 	ctrl->profile.support2 = 3; // X75SLP, TRANS
 	ctrl->profile.support3 = 1; // TRANS
@@ -191,6 +200,277 @@ void contrD2Trace(struct Contr *contr, u_char *buf, int len)
 	}
 }
 
+void dummyProcessTimeout(unsigned long arg);
+
+void dummyPcConstr(struct DummyProcess *dummy_pc, struct Contr *contr, __u16 invokeId)
+{
+	memset(dummy_pc, 0, sizeof(struct DummyProcess));
+	dummy_pc->contr = contr;
+	dummy_pc->invokeId = invokeId;
+}
+
+void dummyPcDestr(struct DummyProcess *dummy_pc)
+{
+	del_timer(&dummy_pc->tl);
+}
+
+void dummyPcAddTimer(struct DummyProcess *dummy_pc, int msec)
+{
+	dummy_pc->tl.function = dummyProcessTimeout;
+	dummy_pc->tl.data = (unsigned long) dummy_pc;
+	init_timer(&dummy_pc->tl);
+	dummy_pc->tl.expires = jiffies + (msec * HZ) / 1000;
+	add_timer(&dummy_pc->tl);
+}
+
+struct DummyProcess *contrNewDummyPc(struct Contr* contr, __u16 invokeId)
+{	
+	struct DummyProcess *dummy_pc;
+	int i;
+
+	for (i = 0; i < CAPI_MAXDUMMYPCS; i++) {
+		if (!contr->dummy_pcs[i])
+			break;
+	}
+	if (i == CAPI_MAXDUMMYPCS)
+		return 0;
+	dummy_pc = kmalloc(sizeof(struct DummyProcess), GFP_ATOMIC);
+	if (!dummy_pc) {
+		int_error();
+		return 0;
+	}
+	contr->dummy_pcs[i] = dummy_pc;
+	dummyPcConstr(dummy_pc, contr, invokeId);
+
+	return dummy_pc;
+}
+
+void contrDelDummyPc(struct Contr* contr, struct DummyProcess *dummy_pc)
+{
+	int i;
+
+	for (i = 0; i < CAPI_MAXDUMMYPCS; i++) {
+		if (contr->dummy_pcs[i] == dummy_pc)
+			break;
+	}
+	if (i == CAPI_MAXDUMMYPCS) {
+		int_error();
+		return;
+	}
+	contr->dummy_pcs[i] = 0;
+	dummyPcDestr(dummy_pc);
+	kfree(dummy_pc);
+}
+
+struct DummyProcess *contrId2DummyPc(struct Contr* contr, __u16 invokeId)
+{
+	int i;
+
+	for (i = 0; i < CAPI_MAXDUMMYPCS; i++) {
+		if (contr->dummy_pcs[i])
+			if (contr->dummy_pcs[i]->invokeId == invokeId) 
+				break;
+	}
+	if (i == CAPI_MAXDUMMYPCS)
+		return 0;
+	
+	return contr->dummy_pcs[i];
+}
+
+void dummyProcessTimeout(unsigned long arg)
+{
+	struct DummyProcess *dummy_pc = (struct DummyProcess *) arg;
+	struct Contr* contr = dummy_pc->contr;
+	struct Appl *appl;
+	__u8 tmp[10], *p;
+	_cmsg cmsg;
+
+
+	printk("EXPIRE !!!!!!!!!!!!!!!!!!!!!!!!\n");
+	del_timer(&dummy_pc->tl);
+
+	appl = contrId2appl(contr, dummy_pc->ApplId);
+	if (!appl)
+		return;
+	
+	capi_cmsg_header(&cmsg, dummy_pc->ApplId, CAPI_FACILITY, CAPI_IND, 
+			 appl->MsgId++, contr->adrController);
+	p = &tmp[1];
+	p += capiEncodeWord(p, dummy_pc->Function);
+	p += capiEncodeFacIndCFact(p, 0x3303, dummy_pc->Handle);
+	tmp[0] = p - &tmp[1];
+	cmsg.FacilityIndicationParameter = tmp;
+	contrRecvCmsg(contr, &cmsg);
+	contrDelDummyPc(contr, dummy_pc);
+}
+
+void printPublicPartyNumber(struct PublicPartyNumber *publicPartyNumber)
+{
+	printk("(%d) %s\n", publicPartyNumber->publicTypeOfNumber, 
+	       publicPartyNumber->numberDigits);
+}
+
+void printPartyNumber(struct PartyNumber *partyNumber)
+{
+	switch (partyNumber->type) {
+	case 0: 
+		printk("unknown %s\n", partyNumber->p.unknown);
+		break;
+	case 1:
+		printPublicPartyNumber(&partyNumber->p.publicPartyNumber);
+		break;
+	}
+}
+
+void printServedUserNr(struct ServedUserNr *servedUserNr)
+{
+	if (servedUserNr->all) {
+		printk("all\n");
+	} else {
+		printPartyNumber(&servedUserNr->partyNumber);
+	}
+}
+
+void printAddress(struct Address *address)
+{
+	printPartyNumber(&address->partyNumber);
+	if (address->partySubaddress[0]) {
+		printk("sub %s\n", address->partySubaddress);
+	}
+}
+
+void contrDummyFacility(struct Contr *contr, struct sk_buff *skb)
+{
+	struct Appl *appl;
+	__u8 tmp[128];
+        int ie_len;
+	_cmsg cmsg;
+	struct asn1_parm parm;
+        __u8 *p, *end;
+	struct DummyProcess *dummy_pc;
+
+        p = findie(skb->data, skb->len, IE_FACILITY, 0);
+        if (!p) {
+		int_error();
+                return;
+	}
+        p++;
+        ie_len = *p++;
+        end = p + ie_len;
+        if (end > skb->data + skb->len) {
+                int_error();
+                return;
+        }
+
+        if (*p++ != 0x91) { // Supplementary Service Applications
+		int_error();
+                return;
+        }
+	ParseComponent(&parm, p, end);
+	switch (parm.comp) {
+	case invoke:
+		printk("invokeId %d\n", parm.c.inv.invokeId);
+		printk("operationValue %d\n", parm.c.inv.operationValue);
+		switch (parm.c.inv.operationValue) {
+		case 0x0009: 
+			printk("procedure %d basicService %d\n", parm.c.inv.o.actNot.procedure,
+			       parm.c.inv.o.actNot.basicService);
+			printServedUserNr(&parm.c.inv.o.actNot.servedUserNr);
+			printAddress(&parm.c.inv.o.actNot.address);
+
+			appl = contrId2appl(contr, 1); // FIXME !!!!!!!!!!!!!!!!!!!
+			if (!appl)
+				return;
+			
+			capi_cmsg_header(&cmsg, 1/**/, CAPI_FACILITY, CAPI_IND, 
+					 appl->MsgId++, contr->adrController);
+			p = &tmp[1];
+			p += capiEncodeWord(p, 0x8006);
+			p += capiEncodeFacIndCFNotAct(p, &parm.c.inv.o.actNot);
+			tmp[0] = p - &tmp[1];
+			cmsg.FacilityIndicationParameter = tmp;
+			contrRecvCmsg(contr, &cmsg);
+			break;
+		case 0x000a: 
+			printk("procedure %d basicService %d\n", parm.c.inv.o.deactNot.procedure,
+			       parm.c.inv.o.deactNot.basicService);
+			printServedUserNr(&parm.c.inv.o.deactNot.servedUserNr);
+
+			appl = contrId2appl(contr, 1); // FIXME !!!!!!!!!!!!!!!!!!!
+			if (!appl)
+				return;
+			
+			capi_cmsg_header(&cmsg, 1/**/, CAPI_FACILITY, CAPI_IND, 
+					 appl->MsgId++, contr->adrController);
+			p = &tmp[1];
+			p += capiEncodeWord(p, 0x8007);
+			p += capiEncodeFacIndCFNotDeact(p, &parm.c.inv.o.deactNot);
+			tmp[0] = p - &tmp[1];
+			cmsg.FacilityIndicationParameter = tmp;
+			contrRecvCmsg(contr, &cmsg);
+			break;
+		default:
+			int_error();
+		}
+		break;
+	case returnResult:
+		dummy_pc = contrId2DummyPc(contr, parm.c.retResult.invokeId);
+		if (!dummy_pc)
+			return;
+
+		appl = contrId2appl(contr, dummy_pc->ApplId);
+		if (!appl)
+			return;
+
+		capi_cmsg_header(&cmsg, dummy_pc->ApplId, CAPI_FACILITY, CAPI_IND, 
+				 appl->MsgId++, contr->adrController);
+		p = &tmp[1];
+		p += capiEncodeWord(p, dummy_pc->Function);
+		p += capiEncodeFacIndCFact(p, 0, dummy_pc->Handle);
+		tmp[0] = p - &tmp[1];
+		cmsg.FacilityIndicationParameter = tmp;
+		contrRecvCmsg(contr, &cmsg);
+		contrDelDummyPc(contr, dummy_pc);
+		break;
+	case returnError:
+		dummy_pc = contrId2DummyPc(contr, parm.c.retResult.invokeId);
+		if (!dummy_pc)
+			return;
+
+		appl = contrId2appl(contr, dummy_pc->ApplId);
+		if (!appl)
+			return;
+
+		capi_cmsg_header(&cmsg, dummy_pc->ApplId, CAPI_FACILITY, CAPI_IND, 
+				 appl->MsgId++, contr->adrController);
+		p = &tmp[1];
+		p += capiEncodeWord(p, dummy_pc->Function);
+		p += capiEncodeFacIndCFact(p, 0x3600 | (parm.c.retError.errorValue &0xff), 
+				       dummy_pc->Handle);
+		tmp[0] = p - &tmp[1];
+		cmsg.FacilityIndicationParameter = tmp;
+		contrRecvCmsg(contr, &cmsg);
+		contrDelDummyPc(contr, dummy_pc);
+		break;
+	default:
+		int_error();
+	}
+}
+
+void contrDummyInd(struct Contr *contr, struct sk_buff *skb)
+{
+	__u8 mt;
+
+	mt = skb->data[2];
+	switch (mt) {
+	case MT_FACILITY:
+		contrDummyFacility(contr, skb);
+		break;
+	default:
+		int_error();
+	}
+}
+
 void contrRecvCmsg(struct Contr *contr, _cmsg *cmsg)
 {
 	struct sk_buff *skb;
@@ -277,7 +557,7 @@ static void contr_l3l4(struct PStack *st, int pr, void *arg)
 		plciNewCrInd(plci, pc);
 		break;
 	case CC_DUMMY | INDICATION:
-		
+		contrDummyInd(contr, arg);
 		break;
 	default:
 		contrDebug(contr, LL_DEB_WARN, __FUNCTION__ ": unknown pr %#x", pr);

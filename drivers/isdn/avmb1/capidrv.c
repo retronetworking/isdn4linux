@@ -194,7 +194,7 @@
 #include "capidrv.h"
 
 static char *revision = "$Revision$";
-static int debugmode = 0;
+int debugmode = 0;
 
 MODULE_AUTHOR("Carsten Paeth <calle@calle.in-berlin.de>");
 MODULE_PARM(debugmode, "i");
@@ -302,7 +302,6 @@ typedef struct capidrv_bchan capidrv_bchan;
 /* -------- data definitions ----------------------------------------- */
 
 static capidrv_data global;
-static spinlock_t global_lock = SPIN_LOCK_UNLOCKED;
 static struct capi_interface *capifuncs;
 
 static void handle_dtrace_data(capidrv_contr *card,
@@ -462,27 +461,33 @@ static inline __u8 cip2si2(__u16 cipval)
 
 static inline capidrv_contr *findcontrbydriverid(int driverid)
 {
-    	unsigned long flags;
-	capidrv_contr *p;
+	capidrv_contr *p = global.contr_list;
+    	long flags;
 
-	spin_lock_irqsave(&global_lock, flags);
-	for (p = global.contr_list; p; p = p->next)
+        save_flags(flags);
+        cli();
+	while (p) {
 		if (p->myid == driverid)
 			break;
-	spin_unlock_irqrestore(&global_lock, flags);
+		p = p->next;
+	}
+	restore_flags(flags);
 	return p;
 }
 
 static capidrv_contr *findcontrbynumber(__u32 contr)
 {
-	unsigned long flags;
 	capidrv_contr *p = global.contr_list;
+	long flags;
 
-	spin_lock_irqsave(&global_lock, flags);
-	for (p = global.contr_list; p; p = p->next)
+	save_flags(flags);
+	cli();
+	while (p) {
 		if (p->contrnr == contr)
 			break;
-	spin_unlock_irqrestore(&global_lock, flags);
+		p = p->next;
+	}
+	restore_flags(flags);
 	return p;
 }
 
@@ -959,11 +964,13 @@ static void handle_controller(_cmsg * cmsg)
 		      len = (cmsg->ManuData[1] | (cmsg->ManuData[2] << 8));
 		      data += 2;
 		   }
+
 		   len -= 2;
 		   layer = ((*(data-1)) << 8) | *(data-2);
 		   if (layer & 0x300)
-			direction = (layer & 0x200) ? 0 : 1;
-		   else direction = (layer & 0x800) ? 0 : 1;
+			   direction = (layer & 0x200) ? 0 : 1;
+		   else 
+			   direction = (layer & 0x800) ? 0 : 1;
 		   if (layer & 0x0C00) {
 		   	if ((layer & 0xff) == 0x80) {
 		           handle_dtrace_data(card, direction, 1, data, len);
@@ -1570,41 +1577,47 @@ static void capidrv_signal(__u16 applid, void *dummy)
 static void handle_dtrace_data(capidrv_contr *card,
 			     int send, int level2, __u8 *data, __u16 len)
 {
-    	__u8 *p, *end;
-    	isdn_ctrl cmd;
+    long flags;
+    __u8 *p, *end;
+    isdn_ctrl cmd;
 
-    	if (!len) {
-		printk(KERN_DEBUG "capidrv-%d: avmb1_q931_data: len == %d\n",
+    if (!len) {
+       printk(KERN_DEBUG "capidrv-%d: avmb1_q931_data: len == %d\n",
 				card->contrnr, len);
-		return;
-	}
+       return;
+    }
 
-	if (level2) {
-		PUTBYTE_TO_STATUS(card, 'D');
-		PUTBYTE_TO_STATUS(card, '2');
-        	PUTBYTE_TO_STATUS(card, send ? '>' : '<');
-        	PUTBYTE_TO_STATUS(card, ':');
-	} else {
-        	PUTBYTE_TO_STATUS(card, 'D');
-        	PUTBYTE_TO_STATUS(card, '3');
-        	PUTBYTE_TO_STATUS(card, send ? '>' : '<');
-        	PUTBYTE_TO_STATUS(card, ':');
-    	}
+    save_flags(flags);
+    cli();
 
-	for (p = data, end = data+len; p < end; p++) {
-		__u8 w;
-		PUTBYTE_TO_STATUS(card, ' ');
-		w = (*p >> 4) & 0xf;
-		PUTBYTE_TO_STATUS(card, (w < 10) ? '0'+w : 'A'-10+w);
-		w = *p & 0xf;
-		PUTBYTE_TO_STATUS(card, (w < 10) ? '0'+w : 'A'-10+w);
-	}
-	PUTBYTE_TO_STATUS(card, '\n');
+    if (level2) {
+        PUTBYTE_TO_STATUS(card, 'D');
+        PUTBYTE_TO_STATUS(card, '2');
+        PUTBYTE_TO_STATUS(card, send ? '>' : '<');
+        PUTBYTE_TO_STATUS(card, ':');
+    } else {
+        PUTBYTE_TO_STATUS(card, 'D');
+        PUTBYTE_TO_STATUS(card, '3');
+        PUTBYTE_TO_STATUS(card, send ? '>' : '<');
+        PUTBYTE_TO_STATUS(card, ':');
+    }
 
-	cmd.command = ISDN_STAT_STAVAIL;
-	cmd.driver = card->myid;
-	cmd.arg = len*3+5;
-	card->interface.statcallb(&cmd);
+    for (p = data, end = data+len; p < end; p++) {
+       __u8 w;
+       PUTBYTE_TO_STATUS(card, ' ');
+       w = (*p >> 4) & 0xf;
+       PUTBYTE_TO_STATUS(card, (w < 10) ? '0'+w : 'A'-10+w);
+       w = *p & 0xf;
+       PUTBYTE_TO_STATUS(card, (w < 10) ? '0'+w : 'A'-10+w);
+    }
+    PUTBYTE_TO_STATUS(card, '\n');
+
+    restore_flags(flags);
+    
+    cmd.command = ISDN_STAT_STAVAIL;
+    cmd.driver = card->myid;
+    cmd.arg = len*3+5;
+    card->interface.statcallb(&cmd);
 }
 
 /* ------------------------------------------------------------------- */
@@ -2009,8 +2022,8 @@ static int if_command(isdn_ctrl * c)
 		return capidrv_command(c, card);
 
 	printk(KERN_ERR
-	     "capidrv: if_command %d called with invalid driverId %d!\n",
-						c->command, c->driver);
+	     "capidrv-%d: if_command %d called with invalid driverId %d!\n",
+	       card->contrnr, c->command, c->driver);
 	return -ENODEV;
 }
 
@@ -2116,25 +2129,13 @@ static int if_readstat(__u8 *buf, int len, int user, int id, int channel)
 
 }
 
-static void enable_dchannel_trace(capidrv_contr *card)
+static void enable_dchannel_trace_avm(capidrv_contr *card)
 {
-        __u8 manufacturer[CAPI_MANUFACTURER_LEN];
-        capi_version version;
 	__u16 contr = card->contrnr;
 	__u16 errcode;
+        capi_version version;
 	__u16 avmversion[3];
 
-        errcode = (*capifuncs->capi_get_manufacturer)(contr, manufacturer);
-        if (errcode != CAPI_NOERROR) {
-	   printk(KERN_ERR "%s: can't get manufacturer (0x%x)\n",
-			card->name, errcode);
-	   return;
-	}
-	if (strstr(manufacturer, "AVM") == 0) {
-	   printk(KERN_ERR "%s: not from AVM, no d-channel trace possible (%s)\n",
-			card->name, manufacturer);
-	   return;
-	}
         errcode = (*capifuncs->capi_get_version)(contr, &version);
         if (errcode != CAPI_NOERROR) {
 	   printk(KERN_ERR "%s: can't get version (0x%x)\n",
@@ -2144,7 +2145,7 @@ static void enable_dchannel_trace(capidrv_contr *card)
 	avmversion[0] = (version.majormanuversion >> 4) & 0x0f;
 	avmversion[1] = (version.majormanuversion << 4) & 0xf0;
 	avmversion[1] |= (version.minormanuversion >> 4) & 0x0f;
-	avmversion[2] |= version.minormanuversion & 0x0f;
+	avmversion[2] = version.minormanuversion & 0x0f;
 
         if (avmversion[0] > 3 || (avmversion[0] == 3 && avmversion[1] > 5)) {
 		printk(KERN_INFO "%s: D2 trace enabled\n", card->name);
@@ -2168,13 +2169,26 @@ static void enable_dchannel_trace(capidrv_contr *card)
 	send_message(card, &cmdcmsg);
 }
 
-static void disable_dchannel_trace(capidrv_contr *card)
+static void enable_dchannel_trace_i4l(capidrv_contr *card)
+{
+	__u16 contr = card->contrnr;
+
+	printk(KERN_INFO "%s: D2 trace enabled\n", card->name);
+	capi_fill_MANUFACTURER_REQ(&cmdcmsg, global.appid,
+				   card->msgid++,
+				   contr,
+				   0x214D5641,  /* ManuID */
+				   0,           /* Class */
+				   1,           /* Function */
+				   (_cstruct)"\004\200\014\000\000");
+	send_message(card, &cmdcmsg);
+}
+
+static void enable_dchannel_trace(capidrv_contr *card)
 {
         __u8 manufacturer[CAPI_MANUFACTURER_LEN];
-        capi_version version;
 	__u16 contr = card->contrnr;
 	__u16 errcode;
-	__u16 avmversion[3];
 
         errcode = (*capifuncs->capi_get_manufacturer)(contr, manufacturer);
         if (errcode != CAPI_NOERROR) {
@@ -2182,11 +2196,26 @@ static void disable_dchannel_trace(capidrv_contr *card)
 			card->name, errcode);
 	   return;
 	}
-	if (strstr(manufacturer, "AVM") == 0) {
-	   printk(KERN_ERR "%s: not from AVM, no d-channel trace possible (%s)\n",
-			card->name, manufacturer);
-	   return;
+	if (strstr(manufacturer, "AVM")) {
+		enable_dchannel_trace_avm(card);
+		return;
+	} else if (strstr(manufacturer, "ISDN4Linux")) {
+		enable_dchannel_trace_i4l(card);
+		return;
 	}
+	printk(KERN_ERR "%s: no d-channel trace possible (%s)\n",
+	       card->name, manufacturer);
+	return;
+
+}
+
+static void disable_dchannel_trace_avm(capidrv_contr *card)
+{
+        capi_version version;
+	__u16 contr = card->contrnr;
+	__u16 errcode;
+	__u16 avmversion[3];
+
         errcode = (*capifuncs->capi_get_version)(contr, &version);
         if (errcode != CAPI_NOERROR) {
 	   printk(KERN_ERR "%s: can't get version (0x%x)\n",
@@ -2211,6 +2240,46 @@ static void disable_dchannel_trace(capidrv_contr *card)
 				   1,           /* Function */
 				   (_cstruct)"\004\000\000\000\000");
 	send_message(card, &cmdcmsg);
+}
+
+static void disable_dchannel_trace_i4l(capidrv_contr *card)
+{
+	__u16 contr = card->contrnr;
+
+	printk(KERN_INFO "%s: D2 trace disabled\n", card->name);
+	capi_fill_MANUFACTURER_REQ(&cmdcmsg, global.appid,
+				   card->msgid++,
+				   contr,
+				   0x214D5641,  /* ManuID */
+				   0,           /* Class */
+				   1,           /* Function */
+				   (_cstruct)"\004\000\000\000\000");
+	send_message(card, &cmdcmsg);
+}
+
+static void disable_dchannel_trace(capidrv_contr *card)
+{
+        __u8 manufacturer[CAPI_MANUFACTURER_LEN];
+	__u16 contr = card->contrnr;
+	__u16 errcode;
+
+        errcode = (*capifuncs->capi_get_manufacturer)(contr, manufacturer);
+        if (errcode != CAPI_NOERROR) {
+	   printk(KERN_ERR "%s: can't get manufacturer (0x%x)\n",
+			card->name, errcode);
+	   return;
+	}
+	if (strstr(manufacturer, "AVM")) {
+		disable_dchannel_trace_avm(card);
+		return;
+	} else if (strstr(manufacturer, "ISDN4Linux")) {
+		disable_dchannel_trace_i4l(card);
+		return;
+	}
+	printk(KERN_ERR "%s: no d-channel trace possible (%s)\n",
+	       card->name, manufacturer);
+	return;
+
 }
 
 static void send_listen(capidrv_contr *card)
@@ -2303,11 +2372,12 @@ static int capidrv_addcontr(__u16 contr, struct capi_profile *profp)
 	}
 	card->myid = card->interface.channels;
 
-	spin_lock_irqsave(&global_lock, flags);
+	save_flags(flags);
+	cli();
 	card->next = global.contr_list;
 	global.contr_list = card;
 	global.ncontr++;
-	spin_unlock_irqrestore(&global_lock, flags);
+	restore_flags(flags);
 
 	memset(card->bchans, 0, sizeof(capidrv_bchan) * card->nbchan);
 	for (i = 0; i < card->nbchan; i++) {
@@ -2338,22 +2408,25 @@ static int capidrv_addcontr(__u16 contr, struct capi_profile *profp)
 static int capidrv_delcontr(__u16 contr)
 {
 	capidrv_contr **pp, *card;
-	unsigned long flags;
 	isdn_ctrl cmd;
+	long flags;
+	int i;
 
-	spin_lock_irqsave(&global_lock, flags);
-	for (card = global.contr_list; card; card = card->next) {
-		if (card->contrnr == contr)
+	save_flags(flags);
+	cli();
+	for (pp = &global.contr_list; *pp; pp = &(*pp)->next) {
+		if ((*pp)->contrnr == contr)
 			break;
 	}
-	if (!card) {
-		spin_unlock_irqrestore(&global_lock, flags);
+	if (!*pp) {
+		restore_flags(flags);
 		printk(KERN_ERR "capidrv: delcontr: no contr %u\n", contr);
 		return -1;
 	}
-	spin_unlock_irqrestore(&global_lock, flags);
-
-	del_timer(&card->listentimer);
+	card = *pp;
+	*pp = (*pp)->next;
+	global.ncontr--;
+	restore_flags(flags);
 
 	if (debugmode)
 		printk(KERN_DEBUG "capidrv-%d: id=%d unloading\n",
@@ -2363,50 +2436,27 @@ static int capidrv_delcontr(__u16 contr)
 	cmd.driver = card->myid;
 	card->interface.statcallb(&cmd);
 
-	while (card->nbchan) {
+	for (i = 0; i < card->nbchan; i++) {
 
 		cmd.command = ISDN_STAT_DISCH;
 		cmd.driver = card->myid;
-		cmd.arg = card->nbchan-1;
+		cmd.arg = i;
 	        cmd.parm.num[0] = 0;
-		if (debugmode)
-			printk(KERN_DEBUG "capidrv-%d: id=%d disable chan=%ld\n",
-					card->contrnr, card->myid, cmd.arg);
 		card->interface.statcallb(&cmd);
 
-		if (card->bchans[card->nbchan-1].nccip)
-			free_ncci(card, card->bchans[card->nbchan-1].nccip);
-		if (card->bchans[card->nbchan-1].plcip)
-			free_plci(card, card->bchans[card->nbchan-1].plcip);
+		if (card->bchans[i].nccip)
+			free_ncci(card, card->bchans[i].nccip);
+		if (card->bchans[i].plcip)
+			free_plci(card, card->bchans[i].plcip);
 		if (card->plci_list)
 			printk(KERN_ERR "capidrv: bug in free_plci()\n");
-		card->nbchan--;
 	}
 	kfree(card->bchans);
-	card->bchans = 0;
-
-	if (debugmode)
-		printk(KERN_DEBUG "capidrv-%d: id=%d isdn unload\n",
-					card->contrnr, card->myid);
+	del_timer(&card->listentimer);
 
 	cmd.command = ISDN_STAT_UNLOAD;
 	cmd.driver = card->myid;
 	card->interface.statcallb(&cmd);
-
-	if (debugmode)
-		printk(KERN_DEBUG "capidrv-%d: id=%d remove contr from list\n",
-					card->contrnr, card->myid);
-
-	spin_lock_irqsave(&global_lock, flags);
-	for (pp = &global.contr_list; *pp; pp = &(*pp)->next) {
-		if (*pp == card) {
-			*pp = (*pp)->next;
-			card->next = 0;
-			global.ncontr--;
-			break;
-		}
-	}
-	spin_unlock_irqrestore(&global_lock, flags);
 
 	kfree(card);
 
@@ -2564,10 +2614,12 @@ int capidrv_init(void)
 #ifdef MODULE
 void cleanup_module(void)
 {
+	capidrv_contr *card, *next;
+	long flags;
 	char rev[10];
 	char *p;
 
-	if ((p = strchr(revision, ':')) != 0) {
+	if ((p = strchr(revision, ':'))) {
 		strcpy(rev, p + 1);
 		p = strchr(rev, '$');
 		*p = 0;
@@ -2575,10 +2627,21 @@ void cleanup_module(void)
 		strcpy(rev, " ??? ");
 	}
 
+	for (card = global.contr_list; card; card = next) {
+		next = card->next;
+		disable_dchannel_trace(card);
+	}
+
+    	save_flags(flags);
+    	cli();
+	for (card = global.contr_list; card; card = next) {
+		next = card->next;
+		capidrv_delcontr(card->contrnr);
+	}
+	restore_flags(flags);
+
 	(void) (*capifuncs->capi_release) (global.appid);
-
 	detach_capi_interface(&cuser);
-
 	proc_exit();
 
 	printk(KERN_NOTICE "capidrv: Rev%s: unloaded\n", rev);

@@ -2,6 +2,7 @@
 #include "callc.h"
 #include "l4l3if.h"
 #include "l3dss1.h"
+#include "asn1_enc.h"
 
 #define applDebug(appl, lev, fmt, args...) \
         debug(lev, appl->contr->cs, "", fmt, ## args)
@@ -120,6 +121,8 @@ void applSendMessage(struct Appl *appl, struct sk_buff *skb)
 	case CAPI_FACILITY_REQ:
 		applFacilityReq(appl, skb);
 		break;
+	case CAPI_FACILITY_RESP:
+		goto free;
 	case CAPI_MANUFACTURER_REQ:
 		applManufacturerReq(appl, skb);
 		break;
@@ -194,12 +197,12 @@ void applGetSupportedServices(struct Appl *appl, _cmsg *cmsg)
 {
 	capi_cmsg_answer(cmsg);
 	cmsg->Info = 0x0000;
-	cmsg->FacilityConfirmationParameter = "\x09\x00\x00\x06\x00\x00\x00\x00\x00\x00";
+	cmsg->FacilityConfirmationParameter = "\x09\x00\x00\x06\x00\x00\x10\x00\x00\x00";
 	// 0x09 struct len
 	//   0x0000 Function GetSupportedServices
 	//   0x06   struct len
 	//     0x0000      success
-	//     0x000000000 Supported Services
+	//     0x000010000 Supported Services
 	contrRecvCmsg(appl->contr, cmsg);
 }
 
@@ -222,27 +225,34 @@ void applFacListen(struct Appl *appl, _cmsg *cmsg)
 	contrRecvCmsg(appl->contr, cmsg);
 }
 
-#include "asn1_x.c"
+static __u16 lastInvokeId = 0;
 
 void applFacCFActivate(struct Appl *appl, _cmsg *cmsg)
 {
         __u8 tmp[255], t2[255];
-	__u8 *p, *pp;
-	__u32 invokeId;
+	__u8 *p;
+	__u32 handle;
 	__u16 procedure;
 	__u16 basicService;
 	__u8 *servedUserNumber, *forwardedToNumber, *forwardedToSubaddress;
 	struct sk_buff *skb;
+	struct DummyProcess *dummy_pc;
 	int len;
+
+	lastInvokeId = (lastInvokeId + 1) & 0xffff;
+
+	dummy_pc = contrNewDummyPc(appl->contr, lastInvokeId);
+	if (!dummy_pc) {
+		int_error(); // FIXME
+		return;
+	}
 
 	p = cmsg->FacilityRequestParameter + 4;
 
-	
-
-	invokeId = *p++;
-	invokeId |= *p++ << 8;
-	invokeId |= *p++ << 16;
-	invokeId |= *p++ << 24;
+	handle = *p++;
+	handle |= *p++ << 8;
+	handle |= *p++ << 16;
+	handle |= *p++ << 24;
 
 	procedure = *p++;
 	procedure |= *p++ << 8;
@@ -268,7 +278,7 @@ void applFacCFActivate(struct Appl *appl, _cmsg *cmsg)
 
 	p = &tmp[6];
 
-	len = encodeInt(t2, invokeId);
+	len = encodeInt(t2, lastInvokeId);
 	memcpy(p, t2, len); p += len;
 
 	len = encodeInt(t2, 0x07); // activationDiversion
@@ -286,18 +296,18 @@ void applFacCFActivate(struct Appl *appl, _cmsg *cmsg)
 	skb_reserve(skb, 16);
 	memcpy(skb_put(skb, len), tmp, len); \
 
-	for (pp = tmp; pp < p; pp++) {
-		printk("%02x ", *pp);
-	}
-	printk("\n");
-
 	L4L3(&appl->contr->l4, CC_DUMMY | REQUEST, skb);
 	
+	dummy_pc->Handle = handle;
+	dummy_pc->Function = 0x0009;
+	dummy_pc->ApplId = appl->ApplId;
+	dummyPcAddTimer(dummy_pc, 4000);
+
 	capi_cmsg_answer(cmsg);
 	cmsg->Info = 0x0000;
 	cmsg->FacilityConfirmationParameter = "\x05\x09\x00\x02\x00\x00";
 	// 0x05 struct len
-	//   0x0000 Function CFActivate
+	//   0x0009 Function CFActivate
 	//   0x02   struct len
 	//     0x0000      success
 	contrRecvCmsg(appl->contr, cmsg);
@@ -306,20 +316,29 @@ void applFacCFActivate(struct Appl *appl, _cmsg *cmsg)
 void applFacCFDeactivate(struct Appl *appl, _cmsg *cmsg)
 {
         __u8 tmp[255], t2[255];
-	__u8 *p, *pp;
-	__u32 invokeId;
+	__u8 *p;
+	__u32 handle;
 	__u16 procedure;
 	__u16 basicService;
 	__u8 *servedUserNumber;
 	struct sk_buff *skb;
+	struct DummyProcess *dummy_pc;
 	int len;
+
+	lastInvokeId = (lastInvokeId + 1) & 0xffff;
+
+	dummy_pc = contrNewDummyPc(appl->contr, lastInvokeId);
+	if (!dummy_pc) {
+		int_error(); // FIXME
+		return;
+	}
 
 	p = cmsg->FacilityRequestParameter + 4;
 
-	invokeId = *p++;
-	invokeId |= *p++ << 8;
-	invokeId |= *p++ << 16;
-	invokeId |= *p++ << 24;
+	handle = *p++;
+	handle |= *p++ << 8;
+	handle |= *p++ << 16;
+	handle |= *p++ << 24;
 
 	procedure = *p++;
 	procedure |= *p++ << 8;
@@ -339,7 +358,7 @@ void applFacCFDeactivate(struct Appl *appl, _cmsg *cmsg)
 
 	p = &tmp[6];
 
-	len = encodeInt(t2, invokeId);
+	len = encodeInt(t2, lastInvokeId);
 	memcpy(p, t2, len); p += len;
 
 	len = encodeInt(t2, 0x08); // dectivationDiversion
@@ -356,13 +375,12 @@ void applFacCFDeactivate(struct Appl *appl, _cmsg *cmsg)
 	skb_reserve(skb, 16);
 	memcpy(skb_put(skb, len), tmp, len); \
 
-	for (pp = tmp; pp < p; pp++) {
-		printk("%02x ", *pp);
-	}
-	printk("\n");
-
 	L4L3(&appl->contr->l4, CC_DUMMY | REQUEST, skb);
-	
+
+	dummy_pc->Handle = handle;
+	dummy_pc->Function = 0x000a;
+	dummy_pc->ApplId = appl->ApplId;
+
 	capi_cmsg_answer(cmsg);
 	cmsg->Info = 0x0000;
 	cmsg->FacilityConfirmationParameter = "\x05\x0a\x00\x02\x00\x00";

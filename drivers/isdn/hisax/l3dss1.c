@@ -41,17 +41,17 @@ const char *dss1_revision = "$Revision$";
 		*__p++ = 0x0; \
 	} else { \
 		*__p++ = 0x1; \
-		*__p++ = (cref)^0x80; \
+		*__p++ = (__u8)(cref)^0x80; \
 	} \
 	*__p++ = (mty)
 
 #define MsgAdd(msg) do { \
-        if (msg[0]) { \
-		if (msg[0] & 0x80) { \
-			*__p++ = msg[0]; \
+        if ((msg)[0]) { \
+		if ((msg)[0] & 0x80) { \
+			*__p++ = (msg)[0]; \
 		} else { \
-			memcpy(__p, msg, msg[1] + 2); \
-			__p += msg[1] + 2; \
+			memcpy(__p, (msg), (msg)[1] + 2); \
+			__p += (msg)[1] + 2; \
 		} \
         } \
 	} while (0)
@@ -1483,6 +1483,23 @@ l3dss1_gen_setup_req(struct l3_process *pc, u_char pr, void *arg)
 // ==========================================================================
 // handle messages from call control
 // ==========================================================================
+
+static void
+l3dss1_dummy_req(struct PStack *st, u_char pr, void *arg)
+{
+	MsgDeclare(255); // FIXME
+	struct sk_buff *skb = arg;
+	
+	MsgXHead(-1, skb->data[0]);
+	MsgAdd(&skb->data[1]);
+	__l = __p - __tmp;
+	if ((__skb = l3_alloc_skb(__l))) {
+	        memcpy(skb_put(__skb, __l), __tmp, __l);
+	        l3_msg(st, DL_DATA | REQUEST, __skb);
+        }
+
+	dev_kfree_skb(skb);
+}
 
 // ==========================================================================
 // outgoing
@@ -2995,6 +3012,7 @@ dss1up(struct PStack *st, int pr, void *arg)
 		idev_kfree_skb(skb, FREE_READ);
 		return;
 	} else if (cr == -1) {	/* Dummy Callref */
+		st->l4->l3l4(st, CC_DUMMY | INDICATION, skb);
 		if (mt == MT_FACILITY)
 			if ((p = findie(skb->data, skb->len, IE_FACILITY, 0))) {
 				l3dss1_parse_facility(st, NULL, 
@@ -3160,6 +3178,9 @@ dss1down(struct PStack *st, int pr, void *arg)
 			proc->l4pc = l4pc;
 			l4pc->l3pc = proc;
 		}
+		break;
+	case CC_DUMMY | REQUEST:
+		l3dss1_dummy_req(st, pr, arg);
 		break;
 	default:
 		int_error();

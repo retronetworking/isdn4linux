@@ -8,6 +8,7 @@
 #include "../avmb1/capiutil.h"
 #include "../avmb1/capicmd.h"
 #include "../avmb1/capilli.h"
+#include "asn1.h"
 
 // ---------------------------------------------------------------------------
 // common stuff
@@ -25,6 +26,7 @@ void init_ncci(void);
 #define CMSGCMD(cmsg) CAPICMD((cmsg)->Command, (cmsg)->Subcommand)
 
 #define CAPI_MAXPLCI 5
+#define CAPI_MAXDUMMYPCS 16
 
 struct Bprotocol {
 	__u16 B1protocol;
@@ -33,6 +35,19 @@ struct Bprotocol {
 };
 
 __u16 q931CIPValue(struct sk_buff *skb);
+
+struct DummyProcess {
+	__u16 invokeId;
+	__u16 Function;  
+	__u32 Handle;
+	__u16 ApplId;
+	struct Contr *contr;
+	struct timer_list tl;
+};
+
+void dummyPcConstr(struct DummyProcess *dummy_pc, struct Contr *contr, __u16 invokeId);
+void dummyPcDestr(struct DummyProcess *dummy_pc);
+void dummyPcAddTimer(struct DummyProcess *dummy_pc, int msec);
 
 // ---------------------------------------------------------------------------
 // struct Contr
@@ -47,6 +62,7 @@ struct Contr {
 	char msgbuf[128];
 	struct Plci *plcis[CAPI_MAXPLCI];
 	struct Appl *appls[CAPI_MAXAPPL];
+	struct DummyProcess *dummy_pcs[CAPI_MAXDUMMYPCS];
 };
 
 int contrConstr(struct Contr *contr, struct IsdnCardState *cs, char *id, int protocol);
@@ -64,6 +80,8 @@ struct Plci *contrNewPlci(struct Contr *contr);
 struct Appl *contrId2appl(struct Contr *contr, __u16 ApplId);
 struct Plci *contrAdr2plci(struct Contr *contr, __u32 adr);
 void contrDelPlci(struct Contr *contr, struct Plci *plci);
+struct DummyProcess *contrNewDummyPc(struct Contr* contr, __u16 invokeId);
+struct DummyProcess *contrId2DummyPc(struct Contr* contr, __u16 invokeId);
 
 // ---------------------------------------------------------------------------
 // struct Listen
@@ -218,8 +236,10 @@ L4L3(struct Layer4 *l4, int pr, void *arg)
 	l4->st->l3.l4l3(l4->st, pr, arg);
 }
 
-
-
-
+int capiEncodeWord(__u8 *dest, __u16 i);
+int capiEncodeDWord(__u8 *dest, __u32 i);
+int capiEncodeFacIndCFact(__u8 *dest, __u16 SupplementaryServiceReason, __u32 Handle);
+int capiEncodeFacIndCFNotAct(__u8 *dest, struct ActDivNotification *actNot);
+int capiEncodeFacIndCFNotDeact(__u8 *dest, struct DeactDivNotification *deactNot);
 
 #endif

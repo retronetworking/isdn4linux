@@ -580,8 +580,6 @@ int __init capifs_init(void)
 	char *p;
 	int err;
 
-	MOD_INC_USE_COUNT;
-
 	if ((p = strchr(revision, ':'))) {
 		strcpy(rev, p + 1);
 		p = strchr(rev, '$');
@@ -590,16 +588,13 @@ int __init capifs_init(void)
 		strcpy(rev, "1.0");
 
 	err = register_filesystem(&capifs_fs_type);
-	if (err) {
-		MOD_DEC_USE_COUNT;
+	if (err)
 		return err;
-	}
 #ifdef MODULE
         printk(KERN_NOTICE "capifs: Rev%s: loaded\n", rev);
 #else
 	printk(KERN_NOTICE "capifs: Rev%s: started\n", rev);
 #endif
-	MOD_DEC_USE_COUNT;
 	return 0;
 }
 

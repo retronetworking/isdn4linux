@@ -174,10 +174,9 @@
 #include <linux/netdevice.h>
 #include <linux/ppp_defs.h>
 #include <linux/if_ppp.h>
-#undef CAPI_PPP_ON_RAW_DEVICE
-#ifdef CAPI_PPP_ON_RAW_DEVICE
+#ifdef PPPIOCATTACH
 #include <linux/ppp_channel.h>
-#endif /* CAPI_PPP_ON_RAW_DEVICE */
+#endif /* PPPIOCATTACH */
 #endif /* CONFIG_PPP */
 #endif /* CONFIG_ISDN_CAPI_MIDDLEWARE */
 #include <linux/skbuff.h>
@@ -272,7 +271,7 @@ struct capiminor {
 	} *ackqueue;
 	int nack;
 
-#ifdef CAPI_PPP_ON_RAW_DEVICE
+#ifdef PPPIOCATTACH
 	/* interface to generic ppp layer */
 	struct ppp_channel	chan;
 	int			chan_connected;
@@ -400,17 +399,16 @@ struct capiminor *capiminor_alloc(__u16 applid, __u32 ncci)
 	struct capiminor *mp, **pp;
         unsigned int minor = 0;
 
-	MOD_INC_USE_COUNT;
 #ifdef COMPAT_HAS_kmem_cache
 	mp = (struct capiminor *)kmem_cache_alloc(capiminor_cachep, GFP_ATOMIC);
 #else
 	mp = (struct capiminor *)kmalloc(sizeof(struct capiminor), GFP_ATOMIC);
 #endif
 	if (!mp) {
-		MOD_DEC_USE_COUNT;
 		printk(KERN_ERR "capi: can't alloc capiminor\n");
 		return 0;
 	}
+	MOD_INC_USE_COUNT;
 #ifdef _DEBUG_REFCOUNT
 	printk(KERN_DEBUG "capiminor_alloc %d\n", GET_USE_COUNT(THIS_MODULE));
 #endif
@@ -717,7 +715,7 @@ int handle_recv_skb(struct capiminor *mp, struct sk_buff *skb)
 		mp->tty->ldisc.receive_buf(mp->tty, skb->data, 0, skb->len);
 		return 0;
 
-#ifdef CAPI_PPP_ON_RAW_DEVICE
+#ifdef PPPIOCATTACH
 	} else if (mp->chan_connected) {
 		if ((nskb = gen_data_b3_resp_for(mp, skb)) == 0) {
 			printk(KERN_ERR "capi: gen_data_b3_resp failed\n");
@@ -919,7 +917,7 @@ static void capi_signal(__u16 applid, void *param)
 #endif
 		kfree_skb(skb);
 		(void)capiminor_del_ack(mp, datahandle);
-#ifdef CAPI_PPP_ON_RAW_DEVICE
+#ifdef PPPIOCATTACH
 		if (mp->chan_connected) {
 			ppp_output_wakeup(&mp->chan);
 			return;
@@ -1474,7 +1472,7 @@ int capinc_raw_ioctl(struct inode *inode, struct file *file,
 		return -EINVAL;
 
 	switch (cmd) {
-#ifdef CAPI_PPP_ON_RAW_DEVICE
+#ifdef PPPIOCATTACH
 	case PPPIOCATTACH:
 		{
 			int retval, val;

@@ -17,7 +17,10 @@ ifeq ($(CONFIG_HISAX_LLI),y)
 endif
 
 ifeq ($(CONFIG_HISAX_CAPI),y)
-        O_OBJS += capi.o contr.o listen.o appl.o plci.o cplci.o ncci.o
+        O_OBJS += capi.o contr.o listen.o appl.o plci.o cplci.o ncci.o \
+	asn1.o asn1_aoc.o asn1_comp.o asn1_generic.o asn1_diversion.o \
+	asn1_basic_service.o asn1_address.o asn1_enc.o \
+	capi_enc.o
 endif
 
 ifeq ($(CONFIG_HISAX_EURO),y)

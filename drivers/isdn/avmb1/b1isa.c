@@ -266,9 +266,6 @@ int b1isa_init(void)
 {
 	struct capi_driver *driver = &b1isa_driver;
 	char *p;
-	int retval = 0;
-
-	MOD_INC_USE_COUNT;
 
 	if ((p = strchr(revision, ':'))) {
 		strncpy(driver->revision, p + 1, sizeof(driver->revision));
@@ -283,10 +280,9 @@ int b1isa_init(void)
 	if (!di) {
 		printk(KERN_ERR "%s: failed to attach capi_driver\n",
 				driver->name);
-		retval = -EIO;
+		return -EIO;
 	}
-	MOD_DEC_USE_COUNT;
-	return retval;
+	return 0;
 }
 
 #ifdef MODULE
