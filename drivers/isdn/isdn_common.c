@@ -963,7 +963,7 @@ isdnstatus_open(struct inode *ino, struct file *filep)
 	return 0;
 }
 
-static int
+static void
 isdnstatus_close(struct inode *ino, struct file *filep)
 {
 	struct isdnstatus_dev *p = filep->private_data;
