@@ -20,6 +20,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.2  1997/09/24 23:11:44  fritz
+ * Optimized IRQ load and polling-mode.
+ *
  * Revision 1.1  1997/09/23 18:00:05  fritz
  * New driver for IBM Active 2000.
  *
@@ -483,7 +486,7 @@ isa_download(act2000_card * card, act2000_ddef * cb)
                         if (isa_writeb(card, *b++)) {
                                 printk(KERN_WARNING
                                        "act2000: loader timed out"
-                                       "len=%d c=%d\n", length, c);
+                                       " len=%d c=%d\n", length, c);
                                 kfree(buf);
                                 return -ETIME;
                         }

@@ -20,6 +20,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.3  1997/09/24 23:11:43  fritz
+ * Optimized IRQ load and polling-mode.
+ *
  * Revision 1.2  1997/09/24 19:44:12  fritz
  * Added MSN mapping support, some cleanup.
  *
@@ -60,6 +63,7 @@
 
 /* Struct for adding new cards */
 typedef struct act2000_cdef {
+	int bus;
         int port;
         int irq;
         char id[10];

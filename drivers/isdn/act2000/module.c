@@ -20,6 +20,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.3  1997/09/24 23:11:45  fritz
+ * Optimized IRQ load and polling-mode.
+ *
  * Revision 1.2  1997/09/24 19:44:17  fritz
  * Added MSN mapping support, some cleanup.
  *
@@ -58,6 +61,8 @@ MODULE_PARM(act_bus,  "i");
 MODULE_PARM(act_port, "i");
 MODULE_PARM(act_irq,  "i");
 MODULE_PARM(act_id,   "s");
+
+static int act2000_addcard(int, int, int, char *);
 
 static act2000_chan *
 find_channel(act2000_card *card, int channel)
@@ -256,7 +261,8 @@ static int
 act2000_command(act2000_card * card, isdn_ctrl * c)
 {
         ulong a;
-        struct act2000_chan *chan;
+        act2000_chan *chan;
+	act2000_cdef cdef;
 	isdn_ctrl cmd;
 	char tmp[17];
 	int ret;
@@ -302,6 +308,12 @@ act2000_command(act2000_card * card, isdn_ctrl * c)
 						return ret;
 					if (card->flags & ACT2000_FLAGS_RUNNING)
 						return(actcapi_manufacturer_req_msn(card));
+					return 0;
+				case ACT2000_IOCTL_ADDCARD:
+					if ((ret = copy_from_user(&cdef, (char *)a, sizeof(cdef))))
+						return ret;
+					if (act2000_addcard(cdef.bus, cdef.port, cdef.irq, cdef.id))
+						return -EIO;
 					return 0;
 				case ACT2000_IOCTL_TEST:
 					if (!(card->flags & ACT2000_FLAGS_RUNNING))
@@ -722,116 +734,109 @@ unregister_card(act2000_card * card)
         cmd.driver = card->myid;
         card->interface.statcallb(&cmd);
         switch (card->bus) {
-        case ACT2000_BUS_ISA:
-                isa_release(card);
-                break;
-        case ACT2000_BUS_MCA:
-        case ACT2000_BUS_PCMCIA:
-        default:
-                printk(KERN_WARNING
-                       "act2000: Invalid BUS type %d\n",
-                       card->bus);
-                break;
+		case ACT2000_BUS_ISA:
+			isa_release(card);
+			break;
+		case ACT2000_BUS_MCA:
+		case ACT2000_BUS_PCMCIA:
+		default:
+			printk(KERN_WARNING
+			       "act2000: Invalid BUS type %d\n",
+			       card->bus);
+			break;
         }
 }
 
-#if 0
 static int
-act2000_addcard(int bus, int port, int irq, int proto, char *id)
+act2000_addcard(int bus, int port, int irq, char *id)
 {
-        ulong flags;
-        act2000_card *card;
+	act2000_card *p;
+	act2000_card *q = NULL;
+	int initialized;
+	int added = 0;
+	int failed = 0;
+	int i;
 
-        save_flags(flags);
-        cli();
-        /*
-           if (!(card = act2000_initcard(port, id))) {
-           restore_flags(flags);
-           return -EIO;
-           }
-           restore_flags(flags);
-         */
-        printk(KERN_INFO
-               "act2000: %s added\n",
-               card->interface.id);
-        return 0;
-}
-#endif
-
-#ifdef MODULE
-#define act2000_init init_module
-#endif
-
-int
-act2000_init(void)
-{
-        act2000_card *p = cards;
-        act2000_card *q = NULL;
-        int anycard = 0;
-        int found;
-
-        printk(KERN_INFO "IBM Active 2000 ISDN driver\n");
-        if (!cards) {
-                /* No cards defined via kernel-commandline */
-		if (!act_bus)
-			act_bus = ACT2000_BUS_ISA;
-                if (act_port != -1) {
-                        /* Port defined via insmod parameters */
-                        act2000_alloccard(act_bus, act_port, act_irq, act_id);
-                } else {
-                        int i;
-                        /* no port defined, perform autoprobing */
-                        for (i = 0; i < ISA_NRPORTS; i++)
-                                if (isa_detect(isa_ports[i])) {
-                                        act2000_alloccard(act_bus, isa_ports[i], act_irq, "\0");
-                                        printk(KERN_INFO
-                                               "act2000: Detected ISA card at port 0x%x\n",
-                                               isa_ports[i]);
-                                }
-                        /* TODO: Scanning for PCMCIA and MCA cards */
-                }
-        }
-        p = cards;
-        while (p) {
-                found = 0;
-                switch (p->bus) {
+	if (!bus)
+		bus = ACT2000_BUS_ISA;
+	if (port != -1) {
+		/* Port defined, do fixed setup */
+		act2000_alloccard(bus, port, irq, id);
+	} else {
+		/* No port defined, perform autoprobing.
+		 * This may result in more than one card detected.
+		 */
+		switch (bus) {
 			case ACT2000_BUS_ISA:
-				if (isa_detect(p->port)) {
-					if (act2000_registercard(p))
-						break;
-					if (isa_config_port(p, p->port)) {
-						printk(KERN_WARNING
-						       "act2000: Could not request port\n");
-						unregister_card(p);
-						break;
-					}
-					if (isa_config_irq(p, p->irq)) {
+				for (i = 0; i < ISA_NRPORTS; i++)
+					if (isa_detect(isa_ports[i])) {
 						printk(KERN_INFO
-						       "act2000: Could not request irq\n");
-						/* Fall back to polled operation */
-						p->irq = 0;
+						       "act2000: Detected ISA card at port 0x%x\n",
+						       isa_ports[i]);
+						act2000_alloccard(bus, isa_ports[i], irq, id);
 					}
-					printk(KERN_INFO
-					       "act2000: ISA"
-					       "-type card at port "
-					       "0x%04x ",
-					       p->port);
-					if (p->irq)
-						printk("irq %d\n", p->irq);
-					else
-						printk("polled\n");
-					found = 1;
-				}
 				break;
 			case ACT2000_BUS_MCA:
 			case ACT2000_BUS_PCMCIA:
 			default:
 				printk(KERN_WARNING
-				       "act2000: init: Invalid BUS type %d\n",
-				       p->bus);
-                }
-                if (found) {
-                        anycard++;
+				       "act2000: addcard: Invalid BUS type %d\n",
+				       bus);
+		}
+	}
+	if (!cards)
+		return 1;
+        p = cards;
+        while (p) {
+		initialized = 0;
+		if (!p->interface.statcallb) {
+			/* Not yet registered.
+			 * Try to register and activate it.
+			 */
+			added++;
+			switch (p->bus) {
+				case ACT2000_BUS_ISA:
+					if (isa_detect(p->port)) {
+						if (act2000_registercard(p))
+							break;
+						if (isa_config_port(p, p->port)) {
+							printk(KERN_WARNING
+							       "act2000: Could not request port 0x%04x\n",
+							       p->port);
+							unregister_card(p);
+							p->interface.statcallb = NULL;
+							break;
+						}
+						if (isa_config_irq(p, p->irq)) {
+							printk(KERN_INFO
+							       "act2000: No IRQ available, fallback to polling\n");
+							/* Fall back to polled operation */
+							p->irq = 0;
+						}
+						printk(KERN_INFO
+						       "act2000: ISA"
+						       "-type card at port "
+						       "0x%04x ",
+						       p->port);
+						if (p->irq)
+							printk("irq %d\n", p->irq);
+						else
+							printk("polled\n");
+						initialized = 1;
+					}
+					break;
+				case ACT2000_BUS_MCA:
+				case ACT2000_BUS_PCMCIA:
+				default:
+					printk(KERN_WARNING
+					       "act2000: addcard: Invalid BUS type %d\n",
+					       p->bus);
+			}
+		} else
+			/* Card already initialized */
+			initialized = 1;
+                if (initialized) {
+			/* Init OK, next card ... */
                         q = p;
                         p = p->next;
                 } else {
@@ -848,13 +853,28 @@ act2000_init(void)
                                 kfree(p);
                                 p = cards;
                         }
+			failed++;
                 }
-        }
-        if (!anycard)
+	}
+        return (added - failed);
+}
+
+#define DRIVERNAME "IBM Active 2000 ISDN driver"
+
+#ifdef MODULE
+#define act2000_init init_module
+#endif
+
+int
+act2000_init(void)
+{
+        printk(KERN_INFO "%s\n", DRIVERNAME);
+        if (!cards)
+		act2000_addcard(act_bus, act_port, act_irq, act_id);
+        if (!cards)
                 printk(KERN_INFO "act2000: No cards defined yet\n");
         /* No symbols to export, hide all symbols */
         EXPORT_NO_SYMBOLS;
-	
         return 0;
 }
 
@@ -864,7 +884,6 @@ cleanup_module(void)
 {
         act2000_card *card = cards;
         act2000_card *last;
-        /*                                                                                                                                                                                                      act2000_stopallcards(); */
         while (card) {
                 unregister_card(card);
 		del_timer(&card->ptimer);
@@ -877,20 +896,21 @@ cleanup_module(void)
 		act2000_clear_msn(last);
                 kfree(last);
         }
-        printk(KERN_INFO "IBM act2000 driver unloaded\n");
+        printk(KERN_INFO "%s unloaded\n", DRIVERNAME);
 }
 
 #else
 void
 act2000_setup(char *str, int *ints)
 {
-        int i, j, argc;
+        int i, j, argc, port, irq, bus;
 	
         argc = ints[0];
         i = 1;
         if (argc)
                 while (argc) {
-                        port = irq = proto = bus = -1;
+                        port = irq = -1;
+			bus = 0;
                         if (argc) {
                                 bus = ints[i];
                                 i++;
@@ -906,18 +926,7 @@ act2000_setup(char *str, int *ints)
                                 i++;
                                 argc--;
                         }
-                        switch (bus) {
-				case ACT2000_BUS_ISA:
-					act2000_alloccard(bus, port, irq, idstr);
-					break;
-				case ACT2000_BUS_MCA:
-				case ACT2000_BUS_PCMCIA:
-				default:
-					printk(KERN_WARNING
-					       "act2000: Unknown BUS type %d\n",
-					       bus);
-					break;
-                        }
+			act2000_addcard(bus, port, irq, idstr);
 		}
 }
 #endif

@@ -21,6 +21,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.3  1997/09/24 19:44:14  fritz
+ * Added MSN mapping support, some cleanup.
+ *
  * Revision 1.2  1997/09/23 19:41:24  fritz
  * Disabled Logging of DATA_B3_IND/RESP/REQ/CONF Messages.
  *
@@ -33,8 +36,9 @@
 #include "act2000.h"
 #include "capi.h"
 
-static actcapi_msgdsc valid_imsg[] = {
-	{{ 0x86, 0x02}, "DATA_B3_IND"},       /* This MUST be the first entry!!! */
+static actcapi_msgdsc valid_msg[] = {
+	{{ 0x86, 0x02}, "DATA_B3_IND"},       /* DATA_B3_IND/CONF must be first because of speed!!! */
+	{{ 0x86, 0x01}, "DATA_B3_CONF"},
 	{{ 0x02, 0x01}, "CONNECT_CONF"},
 	{{ 0x02, 0x02}, "CONNECT_IND"},
 	{{ 0x09, 0x01}, "CONNECT_INFO_CONF"},
@@ -56,12 +60,12 @@ static actcapi_msgdsc valid_imsg[] = {
 	{{ 0x84, 0x01}, "DISCONNECT_B3_CONF"},
 	{{ 0x84, 0x02}, "DISCONNECT_B3_IND"},
 	{{ 0x85, 0x01}, "GET_B3_PARAMS_CONF"},
-	{{ 0x86, 0x01}, "DATA_B3_CONF"},
 	{{ 0x01, 0x01}, "RESET_B3_CONF"},
 	{{ 0x01, 0x02}, "RESET_B3_IND"},
 	/* {{ 0x87, 0x02, "HANDSET_IND"}, not implemented */
 	{{ 0xff, 0x01}, "MANUFACTURER_CONF"},
 	{{ 0xff, 0x02}, "MANUFACTURER_IND"},
+#ifdef DEBUG_MSG
 	/* Requests */
 	{{ 0x01, 0x00}, "RESET_B3_REQ"},
 	{{ 0x02, 0x00}, "CONNECT_REQ"},
@@ -95,12 +99,14 @@ static actcapi_msgdsc valid_imsg[] = {
 /* CAPI 2.0 */
 	{{ 0x05, 0x80}, "LISTEN_REQ (CAPI 2.0)"},
 #endif
+#endif
 	{{ 0x00, 0x00}, NULL},
 };
-#define num_valid_imsg (sizeof(valid_imsg)/sizeof(actcapi_msgdsc))
+#define num_valid_msg (sizeof(valid_msg)/sizeof(actcapi_msgdsc))
+#define num_valid_imsg 27 /* MANUFACTURER_IND */
 
 /*
- * Check for a valid CAPI message.
+ * Check for a valid incoming CAPI message.
  * Return:
  *   0 = Invalid message
  *   1 = Valid message, no B-Channel-data
@@ -116,8 +122,8 @@ actcapi_chkhdr(act2000_card * card, actcapi_msghdr *hdr)
 	if (hdr->len < 9)
 		return 0;
 	for (i = 0; i < num_valid_imsg; i++)
-		if ((hdr->cmd.cmd == valid_imsg[i].cmd.cmd) &&
-		    (hdr->cmd.subcmd == valid_imsg[i].cmd.subcmd)) {
+		if ((hdr->cmd.cmd == valid_msg[i].cmd.cmd) &&
+		    (hdr->cmd.subcmd == valid_msg[i].cmd.subcmd)) {
 			return (i?1:2);
 		}
 	return 0;
@@ -924,7 +930,8 @@ actcapi_dispatch(act2000_card *card)
 						printk(KERN_WARNING "act2000: %s\n", tmp);
 					else {
 						printk(KERN_DEBUG "act2000: %s\n", tmp);
-						if (!strncmp(tmp, "INFO: Trace buffer con", 22)) {
+						if ((!strncmp(tmp, "INFO: Trace buffer con", 22)) ||
+						    (!strncmp(tmp, "INFO: Compile Date/Tim", 22))) {
 							card->flags |= ACT2000_FLAGS_RUNNING;
 							cmd.command = ISDN_STAT_RUN;
 							cmd.driver = card->myid;
@@ -1032,10 +1039,10 @@ actcapi_debug_msg(struct sk_buff *skb, int direction)
 #ifdef DEBUG_DUMP_SKB
 	dump_skb(skb);
 #endif
-	for (i = 0; i < num_valid_imsg; i++)
-		if ((msg->hdr.cmd.cmd == valid_imsg[i].cmd.cmd) &&
-		    (msg->hdr.cmd.subcmd == valid_imsg[i].cmd.subcmd)) {
-			descr = valid_imsg[i].description;
+	for (i = 0; i < num_valid_msg; i++)
+		if ((msg->hdr.cmd.cmd == valid_msg[i].cmd.cmd) &&
+		    (msg->hdr.cmd.subcmd == valid_msg[i].cmd.subcmd)) {
+			descr = valid_msg[i].description;
 			break;
 		}
 	printk(KERN_DEBUG "%s %s msg\n", direction?"Outgoing":"Incoming", descr);
@@ -1050,14 +1057,14 @@ actcapi_debug_msg(struct sk_buff *skb, int direction)
 			printk(KERN_DEBUG " BLOCK = 0x%02x\n",
 			       msg->msg.data_b3_ind.blocknr);
 			break;
-		case 1:
+		case 2:
 			/* CONNECT CONF */
 			printk(KERN_DEBUG " PLCI = 0x%04x\n",
 			       msg->msg.connect_conf.plci);
 			printk(KERN_DEBUG " Info = 0x%04x\n",
 			       msg->msg.connect_conf.info);
 			break;
-		case 2:
+		case 3:
 			/* CONNECT IND */
 			printk(KERN_DEBUG " PLCI = 0x%04x\n",
 			       msg->msg.connect_ind.plci);
@@ -1071,20 +1078,20 @@ actcapi_debug_msg(struct sk_buff *skb, int direction)
 			       msg->msg.connect_ind.eaz);
 			actcapi_debug_caddr(&msg->msg.connect_ind.addr);
 			break;
-		case 4:
+		case 5:
 			/* CONNECT ACTIVE IND */
 			printk(KERN_DEBUG " PLCI = 0x%04x\n",
 			       msg->msg.connect_active_ind.plci);
 			actcapi_debug_caddr(&msg->msg.connect_active_ind.addr);
 			break;
-		case 7:
+		case 8:
 			/* LISTEN CONF */
 			printk(KERN_DEBUG " Contr = %d\n",
 			       msg->msg.listen_conf.controller);
 			printk(KERN_DEBUG " Info = 0x%04x\n",
 			       msg->msg.listen_conf.info);
 			break;
-		case 10:
+		case 11:
 			/* INFO IND */
 			printk(KERN_DEBUG " PLCI = 0x%04x\n",
 			       msg->msg.info_ind.plci);
@@ -1099,28 +1106,28 @@ actcapi_debug_msg(struct sk_buff *skb, int direction)
 				printk(KERN_DEBUG " D = '%s'\n", tmp);
 			}
 			break;
-		case 13:
+		case 14:
 			/* SELECT B2 PROTOCOL CONF */
 			printk(KERN_DEBUG " PLCI = 0x%04x\n",
 			       msg->msg.select_b2_protocol_conf.plci);
 			printk(KERN_DEBUG " Info = 0x%04x\n",
 			       msg->msg.select_b2_protocol_conf.info);
 			break;
-		case 14:
+		case 15:
 			/* SELECT B3 PROTOCOL CONF */
 			printk(KERN_DEBUG " PLCI = 0x%04x\n",
 			       msg->msg.select_b3_protocol_conf.plci);
 			printk(KERN_DEBUG " Info = 0x%04x\n",
 			       msg->msg.select_b3_protocol_conf.info);
 			break;
-		case 15:
+		case 16:
 			/* LISTEN B3 CONF */
 			printk(KERN_DEBUG " PLCI = 0x%04x\n",
 			       msg->msg.listen_b3_conf.plci);
 			printk(KERN_DEBUG " Info = 0x%04x\n",
 			       msg->msg.listen_b3_conf.info);
 			break;
-		case 17:
+		case 18:
 			/* CONNECT B3 IND */
 			printk(KERN_DEBUG " NCCI = 0x%04x\n",
 			       msg->msg.connect_b3_ind.ncci);
@@ -1128,7 +1135,7 @@ actcapi_debug_msg(struct sk_buff *skb, int direction)
 			       msg->msg.connect_b3_ind.plci);
 			actcapi_debug_ncpi(&msg->msg.connect_b3_ind.ncpi);
 			break;
-		case 18:
+		case 19:
 			/* CONNECT B3 ACTIVE IND */
 			printk(KERN_DEBUG " NCCI = 0x%04x\n",
 			       msg->msg.connect_b3_active_ind.ncci);
