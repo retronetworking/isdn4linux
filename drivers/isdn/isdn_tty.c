@@ -20,6 +20,17 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.67  1999/07/11 17:14:12  armin
+ * Added new layer 2 and 3 protocols for Fax and DSP functions.
+ * Moved "Add CPN to RING message" to new register S23,
+ * "Display message" is now correct on register S13 bit 7.
+ * New audio command AT+VDD implemented (deactivate DTMF decoder and
+ * activate possible existing hardware/DSP decoder).
+ * Moved some tty defines to .h file.
+ * Made whitespace possible in AT command line.
+ * Some AT-emulator output bugfixes.
+ * First Fax G3 implementations.
+ *
  * Revision 1.66  1999/07/07 10:13:46  detabc
  * remove unused messages
  *
@@ -3083,7 +3094,7 @@ isdn_tty_cmd_ATand(char **p, modem_info * info)
 			/* &L -Set Numbers to listen on */
 			p[0]++;
 			i = 0;
-			while ((strchr("0123456789,*[]?;", *p[0])) &&
+			while ((strchr("0123456789,-*[]?;", *p[0])) &&
 			       (i < ISDN_LMSNLEN) && *p[0])
 				m->lmsn[i++] = *p[0]++;
 			m->lmsn[i] = '\0';
