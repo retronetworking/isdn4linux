@@ -21,6 +21,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.5  1999/08/09 19:13:34  werner
+ * moved constant pci ids to pci id table
+ *
  * Revision 1.4  1999/08/08 10:17:33  werner
  * added new PCI vendor and card ids for Manufacturer 0x1043
  *
@@ -33,6 +36,14 @@
  *
  *
  */
+
+/*********************************************/
+/* thresholds for transparent B-channel mode */
+/* change mask and threshold simultaneously  */
+/*********************************************/
+#define HFCPCI_BTRANS_THRESHOLD 128
+#define HFCPCI_BTRANS_THRESMASK 0x00
+
 
 
 /* defines for PCI config */
