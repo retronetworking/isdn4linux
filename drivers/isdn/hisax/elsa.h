@@ -8,6 +8,9 @@
  *
  *
  * $Log$
+ * Revision 1.5  1997/03/04 15:58:13  keil
+ * ELSA PC changes, some stuff for new cards
+ *
  * Revision 1.4  1997/01/21 22:21:05  keil
  * Elsa Quickstep support
  *
@@ -22,7 +25,13 @@
  *
  *
 */
+#include <linux/config.h>
 
+#ifdef CONFIG_HISAX_ELSA_PCMCIA
+#define CARD_ISAC	1
+#define CARD_HSCX	2
+#define CARD_ALE	4
+#else
 #define CARD_ISAC	0
 #define CARD_ITAC	1
 #define CARD_HSCX	2
@@ -31,6 +40,7 @@
 #define CARD_CONFIG	5
 #define CARD_START_TIMER 6
 #define CARD_TRIG_IRQ	7
+#endif
 
 #define ELSA_PC      1
 #define ELSA_PCC8    2

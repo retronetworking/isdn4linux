@@ -5,6 +5,9 @@
  *
  *
  * $Log$
+ * Revision 1.12  1997/03/11 21:01:43  keil
+ * nzproto is only used with modules
+ *
  * Revision 1.11  1997/02/14 12:23:12  fritz
  * Added support for new insmod parameter handling.
  *
@@ -63,6 +66,7 @@
  *    5 AVM A1 (Fritz)  p0=irq p1=iobase
  *    6 ELSA PC         [p0=iobase] or nothing (autodetect)
  *    7 ELSA Quickstep  p0=irq p1=iobase
+ *      ELSA PCMCIA     p0=irq p1=iobase
  *    8 Teles PCMCIA    p0=irq p1=iobase
  *    9 ITK ix1-micro   p0=irq p1=iobase
  *
@@ -75,6 +79,10 @@
 #ifdef CONFIG_HISAX_ELSA_PCC
 #define DEFAULT_CARD ISDN_CTYPE_ELSA
 #define DEFAULT_CFG {0,0,0}
+#endif
+#ifdef CONFIG_HISAX_ELSA_PCMCIA
+#define DEFAULT_CARD ISDN_CTYPE_ELSA_QS1000
+#define DEFAULT_CFG {3,0x2f8,0}
 #endif
 #ifdef CONFIG_HISAX_AVM_A1
 #undef DEFAULT_CARD

@@ -3,6 +3,9 @@
  *   Basic declarations, defines and prototypes
  *
  * $Log$
+ * Revision 1.11  1997/02/11 01:36:02  keil
+ * New Param structure
+ *
  * Revision 1.10  1997/02/09 00:23:52  keil
  * new interface handling, one interface per card
  *
@@ -500,6 +503,15 @@ struct IsdnCardState {
 #define  CARD_ELSA (1<< ISDN_CTYPE_ELSA) | (1<< ISDN_CTYPE_ELSA_QS1000)
 #else
 #define  CARD_ELSA  0
+#endif
+
+#ifdef	CONFIG_HISAX_ELSA_PCMCIA
+#if CARD_ELSA
+#error "You can't use a ELSA ISA card and a ELSA PCMCIA card with the same driver"
+#else
+#undef CARD_ELSA
+#define CARD_ELSA (1<< ISDN_CTYPE_ELSA_QS1000)
+#endif
 #endif
 
 #ifdef	CONFIG_HISAX_IX1MICROR2
