@@ -5,6 +5,9 @@
  *
  *
  * $Log$
+ * Revision 1.15.2.25  1998/11/29 15:34:07  keil
+ * add Siemens I-Surf
+ *
  * Revision 1.15.2.24  1998/11/11 13:37:53  keil
  * fix typo
  *
@@ -618,15 +621,14 @@ static inline struct IsdnCardState
 int
 HiSax_readstatus(u_char * buf, int len, int user, int id, int channel)
 {
-	int count;
+	int count,cnt;
 	u_char *p = buf;
 	struct IsdnCardState *cs = hisax_findcard(id);
 
 	if (cs) {
 		if (len > HISAX_STATUS_BUFSIZE) {
-			printk(KERN_WARNING "HiSax: status overflow readstat %d/%d",
+			printk(KERN_WARNING "HiSax: status overflow readstat %d/%d\n",
 				len, HISAX_STATUS_BUFSIZE);
-			return -ENODEV;
 		}
 		count = cs->status_end - cs->status_read +1;
 		if (count >= len)
@@ -640,12 +642,18 @@ HiSax_readstatus(u_char * buf, int len, int user, int id, int channel)
 			cs->status_read = cs->status_buf;
 		p += count;
 		count = len - count;
-		if (count) {
-			if (user)
-				copy_to_user(p, cs->status_read, count);
+		while (count) {
+			if (count > HISAX_STATUS_BUFSIZE)
+				cnt = HISAX_STATUS_BUFSIZE;
 			else
-				memcpy(p, cs->status_read, count);
-			cs->status_read += count;
+				cnt = count;
+			if (user)
+				copy_to_user(p, cs->status_read, cnt);
+			else
+				memcpy(p, cs->status_read, cnt);
+			p += cnt;
+			cs->status_read += cnt % HISAX_STATUS_BUFSIZE;
+			count -= cnt;
 		}
 		return len;
 	} else {
