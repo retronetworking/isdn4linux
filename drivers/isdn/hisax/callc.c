@@ -7,6 +7,9 @@
  *              Fritz Elfert
  *
  * $Log$
+ * Revision 1.7  1996/11/06 15:13:51  keil
+ * typo 0x64 --->64 in debug code
+ *
  * Revision 1.6  1996/11/05 19:40:33  keil
  * X.75 windowsize
  *
@@ -737,6 +740,7 @@ static struct FsmNode fnlist[] =
         {ST_BC_HANGUP,        EV_BC_REL,              r16},
         {ST_BC_HANGUP,        EV_DISCONNECT_IND,      r21},
         {ST_PRO_W,            EV_RELEASE_IND,         r18},
+        {ST_PRO_W,            EV_HANGUP,              r18},
         {ST_ANT_W,            EV_DISCONNECT_IND,      r19},
         {ST_DISC_BC_HANGUP,   EV_BC_REL,              r22},
         {ST_D_ERR,            EV_BC_REL,              r25},
@@ -1523,7 +1527,7 @@ HiSax_writebuf(int id, int chan, const u_char * buf, int count, int user)
         ptr += i;
 
         if (user)
-                memcpy_fromfs(ptr, buf, count);
+                copy_from_user(ptr, buf, count);
         else
                 memcpy(ptr, buf, count);
         ibh->datasize = count + i;
