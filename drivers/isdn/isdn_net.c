@@ -21,6 +21,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.48.2.3  1998/03/16 09:55:51  cal
+ * Merged in TimRu-patches. Still needs validation in conjunction with ABC-patches.
+ *
  * Revision 1.48.2.2  1998/03/07 23:35:09  detabc
  * added the abc-extension to the linux isdn-kernel
  * for kernel-version 2.0.xx
@@ -249,7 +252,9 @@ char *isdn_net_revision = "$Revision$";
 static void
 isdn_net_unreachable(struct device *dev, struct sk_buff *skb, char *reason)
 {
-	int	i;
+#ifndef CONFIG_ISDN_WITH_ABC
+	int i = 0;
+#endif
 
 #ifdef CONFIG_ISDN_WITH_ABC
 	isdn_net_local *lp = (isdn_net_local *) dev->priv;
@@ -279,6 +284,19 @@ isdn_net_unreachable(struct device *dev, struct sk_buff *skb, char *reason)
 		kfree_skb(nskb,FREE_READ);
 #else
 	/* FIXME: do we have to decompress and/or decrypt the other queued skbs ? */
+
+	/*
+	** detlef
+	** I think the &dev->buffs are managed by the kernel device-driver ???
+	** and i will see the paket the first time only behind the driver.
+	** My compress etc. will not give back a paket to the driver
+	** so no compressed or crypted paket can be in the buffs-queue ????
+	** 
+	** I think so
+	**
+	** please tell me if I am wrong
+	** 
+	*/
 
 	for(i = 0; i < DEV_NUMBUFFS; i++) {
 		struct sk_buff *skb;
@@ -1433,16 +1451,6 @@ isdn_net_send_skb(struct device *ndev, isdn_net_local * lp,
 
 #ifdef CONFIG_ISDN_WITH_ABC
 
-/*************************
-	if(!lp->abc_flags) {
-
-		dev_kfree_skb(skb, FREE_WRITE);
-		lp->stats.tx_errors++;
-		clear_bit(0, (void *)&(ndev->tbusy));
-		return 0;
-	}
-*************************/
-
 	if(lp->abc_flags & ABC_ABCROUTER) {
 
 		if(lp->abc_flags & ABC_MUSTFIRST) 
@@ -1486,8 +1494,18 @@ isdn_net_xmit(struct device *ndev, isdn_net_local * lp, struct sk_buff *skb)
 	int ret;
 
 #if CONFIG_ISDN_TIMEOUT_RULES
-	(void)isdn_net_recalc_timeout(ISDN_TIMRU_KEEPUP_OUT,
-		ISDN_TIMRU_PACKET_SKB, ndev, skb, 0);
+#ifdef CONFIG_ISDN_WITH_ABC
+	/*
+	** detlef
+	** if abcrouter then paket will be compressed and maybe cryptet
+	** nobody will known the type of the paket
+	*/
+	if(!(lp->abc_flags & ABC_ABCROUTER))
+#endif
+	{
+		(void)isdn_net_recalc_timeout(ISDN_TIMRU_KEEPUP_OUT,
+			ISDN_TIMRU_PACKET_SKB, ndev, skb, 0);
+	}
 #endif
 
 	/* For the other encaps the header has already been built */
@@ -1590,6 +1608,34 @@ int isdn_abc_net_start_xmit(struct sk_buff *skb, struct device *ndev)
 
 		lp->abc_one_charge = 0;
 		lp->abc_first_disp = 0;
+
+#ifdef CONFIG_ISDN_TIMEOUT_RULES
+		if(skb != NULL) {
+			
+			/*
+			** detlef
+			** make timru rules before paket will be compressed and/or
+			** crypted
+			*/
+
+			if(isdn_net_recalc_timeout(ISDN_TIMRU_BRINGUP,
+				ISDN_TIMRU_PACKET_SKB, ndev, skb, 0) <= 0) {
+
+				/*
+				printk(KERN_WARNING 
+				"isdn_net: Dial rejected %s, packet may not bring up connection, packet dropped\n",
+				ndev->name);
+				*/
+
+				isdn_net_unreachable(ndev, skb,
+					"dial rejected: packet may not bring up connection");
+
+				dev_kfree_skb(skb, FREE_WRITE);
+				ndev->tbusy = 0;
+				return 0;
+			}
+		}
+#endif
 	}
 
 	if(skb == NULL || !(lp->abc_flags & ABC_ABCROUTER)) {
@@ -1600,10 +1646,12 @@ int isdn_abc_net_start_xmit(struct sk_buff *skb, struct device *ndev)
 
 		r = isdn_net_start_xmit(skb,ndev);
 
-		if(dev->net_verbose > 10)
+		if(dev->net_verbose > 10) {
+
 			printk(KERN_WARNING 
 				"ABC-startxmit ende no router call net_start_xmit ret %d\n",
 				r);
+		}
 
 		return(r);
 	}
@@ -1687,7 +1735,15 @@ isdn_net_start_xmit(struct sk_buff *skb, struct device *ndev)
 				save_flags(flags);
 				cli();
 
+#ifndef CONFIG_ISDN_WITH_ABC
 #ifdef CONFIG_ISDN_TIMEOUT_RULES
+				/*
+				** detlef
+				** this call is moved to the 
+				** isdn_abc_net_start_xmit() function
+				** only at that point the paket is in uncompressed and
+				** uncryptet (shure)
+				*/
 				if(isdn_net_recalc_timeout(ISDN_TIMRU_BRINGUP,
 					ISDN_TIMRU_PACKET_SKB, ndev, skb, 0) <= 0) {
 					/*
@@ -1700,6 +1756,7 @@ isdn_net_start_xmit(struct sk_buff *skb, struct device *ndev)
 					restore_flags(flags);
 					return 0;
 				}
+#endif
 #endif
 				if(lp->dialwait_timer <= 0)
 					if(lp->dialstarted > 0 && lp->dialtimeout > 0 && jiffies < lp->dialstarted + lp->dialtimeout + lp->dialwait)
@@ -2043,6 +2100,14 @@ isdn_net_receive(struct device *ndev, struct sk_buff *skb)
 	}
 
 #ifdef CONFIG_ISDN_TIMEOUT_RULES
+	/*
+	** detlef
+	** with abc-extension and abc-router (only with raw-ip) enabled
+	** the programflow will never reach this point.
+	** 
+	** the functioncall will be make in the file abcrout_net.c 
+	** behind decrypt and decompress 
+	*/
 	isdn_net_recalc_timeout(ISDN_TIMRU_KEEPUP_IN,
 		ISDN_TIMRU_PACKET_SKB, ndev, skb, 0);
 #endif
