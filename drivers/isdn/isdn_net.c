@@ -21,6 +21,14 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.48.2.10  1998/05/06 08:34:04  detabc
+ * change ICMP_HOST_UNREACH to ICMP_NET_UNREACH (only abc-ext.)
+ * set dev->tbusy to zero in isdn_net_unreachable() (only abc-ext.)
+ * drop all new packets and send ICMP_NET_UNREACH for
+ * min. dialwait to max. dialwait * 6 time. (only abc-ext.)
+ * change random-deliver of packets (small first) from all emcapsulation
+ * to only rawip with ABC-Router-Flag enabled.
+ *
  * Revision 1.48.2.9  1998/05/03 17:48:22  detabc
  * remove unused dev->tbusy = 1 line (only abc-extension)
  *
@@ -411,7 +419,6 @@ isdn_net_unbind_channel(isdn_net_local * lp)
 			lp->abc_call_disabled = jiffies + HZ ;
 		
 		abc_clear_tx_que(lp);
-		lp->abc_delayed_hangup = 0;
 #endif
 	if (lp->first_skb) {
 		dev_kfree_skb(lp->first_skb, FREE_WRITE);
@@ -502,7 +509,7 @@ isdn_net_autohup()
 
 						must_hangup = 1;
 
-					} else if(l->abc_nextkeep < jiffies) {
+					} else if(l->abc_nextkeep && l->abc_nextkeep < jiffies) {
 
 						abc_keep_senden(&p->dev,l);
 					}
@@ -729,7 +736,6 @@ isdn_net_stat_callback(int idx, int cmd)
 #ifdef CONFIG_ISDN_WITH_ABC
 					lp->abc_first_disp = 0;
 					abc_clear_tx_que(lp);
-					lp->abc_delayed_hangup = 0;
 #endif
 					lp->flags &= ~ISDN_NET_CONNECTED;
 					if (lp->first_skb) {
@@ -807,6 +813,7 @@ isdn_net_stat_callback(int idx, int cmd)
 
 							lp->abc_life_to = ABC_DST_LIFETIME;
 							abc_first_senden(&p->dev,lp);
+							lp->abc_nextkeep = jiffies + HZ * 20;
 						}
 #endif
 						/* Immediately send first skb to speed up arp */
@@ -1051,7 +1058,6 @@ isdn_net_dial(void)
 				}
 #ifdef CONFIG_ISDN_WITH_ABC
 				abc_clear_tx_que(&p->local);
-				p->local.abc_delayed_hangup = 0;
 #endif
 				cmd.driver = p->local.isdn_device;
 				cmd.command = ISDN_CMD_SETL2;
@@ -1580,7 +1586,7 @@ isdn_net_send_skb(struct device *ndev, isdn_net_local * lp,
 							lp->isdn_device,
 							lp->isdn_channel,
 							s);
-
+			
 			if(qnr)
 				lp->abc_last_traffic = jiffies;
 
@@ -3731,7 +3737,6 @@ isdn_net_realrm(isdn_net_dev * p, isdn_net_dev * q)
 	}
 #ifdef CONFIG_ISDN_WITH_ABC
 	abc_clear_tx_que(&p->local);
-	p->local.abc_delayed_hangup = 0;
 #endif
 	/* Free all phone-entries */
 	isdn_net_rmallphone(p);

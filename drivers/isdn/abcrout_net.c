@@ -27,6 +27,9 @@
  * Germany
  *
  * $Log$
+ * Revision 1.1.2.8  1998/05/06 08:31:47  detabc
+ * fixed a wrong response message in udp-control-packets
+ *
  * Revision 1.1.2.7  1998/04/27 12:01:06  detabc
  * *** empty log message ***
  *
@@ -883,6 +886,7 @@ int abc_keep_senden(struct device *ndev,isdn_net_local *lp)
 		return -1;
 	}
 	abc_put_tx_que(lp,0,0,skb);
+	lp->abc_nextkeep = jiffies + HZ * 20;
 
 	if(dev->net_verbose > 5)
 		printk(KERN_DEBUG " %s abc_keepal_send retw %d len %d\n",
@@ -963,6 +967,9 @@ int abc_test_rcvq(struct device *ndev)
 
 	if((a = skb_queue_len(&abc_receive_q)) < 1)
 		return(0);
+
+	if(dev->net_verbose > 1)
+		printk(KERN_DEBUG "abc_test_rcvq queue_len == %d\n",a);
 
 	for(a++;a > 0 && (skb = skb_dequeue(&abc_receive_q)) != NULL;a--) {
 
@@ -2598,6 +2605,8 @@ void abc_clear_tx_que(isdn_net_local *lp)
 		struct sk_buff_head *tq = lp->abc_tx_que;
 		struct sk_buff_head *etq = lp->abc_tx_que + ABC_ANZ_TX_QUE;
 
+		lp->abc_delayed_hangup = 0;
+
 		for(;tq < etq;tq++) {
 
 			struct sk_buff *skb = NULL;
@@ -2634,40 +2643,4 @@ void abc_put_tx_que(isdn_net_local *lp,int qnr,int top,struct sk_buff *skb)
 }
 
 
-#ifdef PACKEN_SCHON_OK
-
-int abc_comp_check(u_char **s_bufadr,u_char *pbuf, int len)
-{
-
-	u_short k;
-	int nlen;
-	int dlen;
-	u_char *p = *s_bufadr;
-
-	if(len < 80 || len > 1520)
-		return(len);
-
-	k = *(p++) & 0xFF;
-	k |= (*(p++) & 0xFF) << 8;
-	dlen = len -2;
-
-	if((k & ~ABCR_MAXBYTES) != ABCR_ISDATA)
-		return(len);
-
-	if((nlen = abcgmbh_pack(p,pbuf + 2,dlen)) < 1 || nlen >= dlen)
-		return(len);
-
-	p = pbuf;
-	k |= ABCR_BYTECOMP;
-
-	*(p++) = k & 0xFF;
-	*(p++) = (k >> 8) & 0xFF;
-	nlen += 2;
-
-	*s_bufadr = pbuf;
-	return(nlen);
-}
-
-#endif
-	
 #endif
