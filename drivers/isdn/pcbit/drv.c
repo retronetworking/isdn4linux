@@ -122,11 +122,11 @@ int pcbit_init_dev(int board, int mem_base, int irq)
 	dev->b1 = kmalloc(sizeof(struct pcbit_chan), GFP_KERNEL);
 	if (!dev->b1) {
 		printk("pcbit_init: couldn't malloc pcbit_chan struct\n");
-		kfree(dev);
 #ifdef COMPAT_HAS_ISA_IOREMAP
 		iounmap((unsigned char*)dev->sh_mem);
 		release_mem_region(dev->ph_mem, 4096);
 #endif
+		kfree(dev);
 		return -ENOMEM;
 	}
     
@@ -134,11 +134,11 @@ int pcbit_init_dev(int board, int mem_base, int irq)
 	if (!dev->b2) {
 		printk("pcbit_init: couldn't malloc pcbit_chan struct\n");
 		kfree(dev->b1);
-		kfree(dev);
 #ifdef COMPAT_HAS_ISA_IOREMAP
 		iounmap((unsigned char*)dev->sh_mem);
 		release_mem_region(dev->ph_mem, 4096);
 #endif
+		kfree(dev);
 		return -ENOMEM;
 	}
 
@@ -160,11 +160,11 @@ int pcbit_init_dev(int board, int mem_base, int irq)
 	{
 		kfree(dev->b1);
 		kfree(dev->b2);
-		kfree(dev);
 #ifdef COMPAT_HAS_ISA_IOREMAP
 		iounmap((unsigned char*)dev->sh_mem);
 		release_mem_region(dev->ph_mem, 4096);
 #endif
+		kfree(dev);
 		dev_pcbit[board] = NULL;
 		return -EIO;
 	}
@@ -184,11 +184,11 @@ int pcbit_init_dev(int board, int mem_base, int irq)
 		free_irq(irq, dev);
 		kfree(dev->b1);
 		kfree(dev->b2);
-		kfree(dev);
 #ifdef COMPAT_HAS_ISA_IOREMAP
 		iounmap((unsigned char*)dev->sh_mem);
 		release_mem_region(dev->ph_mem, 4096);
 #endif
+		kfree(dev);
 		dev_pcbit[board] = NULL;
 		return -EIO;
 	}
@@ -217,11 +217,11 @@ int pcbit_init_dev(int board, int mem_base, int irq)
 		free_irq(irq, dev);
 		kfree(dev->b1);
 		kfree(dev->b2);
-		kfree(dev);
 #ifdef COMPAT_HAS_ISA_IOREMAP
 		iounmap((unsigned char*)dev->sh_mem);
 		release_mem_region(dev->ph_mem, 4096);
 #endif
+		kfree(dev);
 		dev_pcbit[board] = NULL;
 		return -EIO;
 	}
@@ -257,11 +257,11 @@ void pcbit_terminate(int board)
 			del_timer(&dev->b2->fsm_timer);
 		kfree(dev->b1);
 		kfree(dev->b2);
-		kfree(dev);
 #ifdef COMPAT_HAS_ISA_IOREMAP
 		iounmap((unsigned char*)dev->sh_mem);
 		release_mem_region(dev->ph_mem, 4096);
 #endif
+		kfree(dev);
 	}
 }
 #endif
