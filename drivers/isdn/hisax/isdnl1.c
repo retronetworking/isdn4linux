@@ -895,7 +895,8 @@ setstack_HiSax(struct PStack *st, struct IsdnCardState *cs)
 	setstack_manager(st);
 	st->l1.stlistp = &(cs->stlist);
 	st->l2.l2l1  = dch_l2l1;
-	cs->setstack_d(st, cs);
+	if (cs->setstack_d)
+		cs->setstack_d(st, cs);
 }
 
 void
