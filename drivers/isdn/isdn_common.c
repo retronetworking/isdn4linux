@@ -21,6 +21,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.44.2.8  1998/11/05 22:11:43  fritz
+ * Changed mail-address.
+ *
  * Revision 1.44.2.7  1998/11/04 17:22:40  fritz
  * Replaced broken lowlevel-driver locking.
  *
@@ -278,6 +281,7 @@ isdn_MOD_INC_USE_COUNT(void)
 		cmd.arg = 0;
 		cmd.command = ISDN_CMD_LOCK;
 		isdn_command(&cmd);
+		dev->drv[i]->locks++;
 	}
 }
 
@@ -287,14 +291,16 @@ isdn_MOD_DEC_USE_COUNT(void)
 	int i;
 
 	MOD_DEC_USE_COUNT;
-	for (i = 0; i < dev->drivers; i++) {
-		isdn_ctrl cmd;
+	for (i = 0; i < dev->drivers; i++)
+		if (dev->drv[i]->locks > 0) {
+			isdn_ctrl cmd;
 
-		cmd.driver = i;
-		cmd.arg = 0;
-		cmd.command = ISDN_CMD_UNLOCK;
-		isdn_command(&cmd);
-	}
+			cmd.driver = i;
+			cmd.arg = 0;
+			cmd.command = ISDN_CMD_UNLOCK;
+			isdn_command(&cmd);
+			dev->drv[i]->locks--;
+		}
 }
 
 #if defined(ISDN_DEBUG_NET_DUMP) || defined(ISDN_DEBUG_MODEM_DUMP) || defined(CONFIG_ISDN_TIMEOUT_RULES)
