@@ -19,6 +19,12 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.55  1999/09/23 22:07:51  detabc
+ *
+ * make ipc_head common usable (for use compressor with raw-ip)
+ * add function before netif_rx(). needed for ipv4-tcp-keepalive-detect.
+ * ~
+ *
  * Revision 1.54  1999/09/13 23:25:17  he
  * serialized xmitting frames from isdn_ppp and BSENT statcallb
  *
@@ -2274,7 +2280,7 @@ static void isdn_ppp_ccp_xmit_reset(struct ippp_struct *is, int proto,
 	isdn_net_local *lp = is->lp;
 
 	/* Alloc large enough skb */
-	skb = dev_alloc_skb(len + 16);
+	skb = alloc_skb(len + 32,GFP_ATOMIC);
 	if(!skb) {
 		printk(KERN_WARNING
 		       "ippp: CCP cannot send reset - out of memory\n");
@@ -2714,7 +2720,7 @@ static struct sk_buff *isdn_ppp_compress(struct sk_buff *skb_in,int *proto,
 	}
 
 	/* Allow for at least 150 % expansion (for now) */
-	skb_out = dev_alloc_skb(skb_in->len + skb_in->len/2 + 32);
+	skb_out = alloc_skb(skb_in->len + skb_in->len/2 + 48,GFP_ATOMIC);
 	if(!skb_out)
 		return skb_in;
 
