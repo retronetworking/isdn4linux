@@ -6,6 +6,9 @@
  * (c) Copyright 1997 by Carsten Paeth (calle@calle.in-berlin.de)
  * 
  * $Log$
+ * Revision 1.12  1999/06/21 15:24:09  calle
+ * extend information in /proc.
+ *
  * Revision 1.11  1999/05/25 21:18:44  calle
  * - Made loading of firmware safer, will not longer go into endless loop,
  *   even if t4 file is corrupt or user load a non t4 file.
@@ -1104,7 +1107,7 @@ t1retry:
 		card->msgbuf[MsgLen--] = 0;
 		while (    MsgLen >= 0
 		       && (   card->msgbuf[MsgLen] == '\n'
-			   || card->msgbuf[MsgLen] == '\r')
+			   || card->msgbuf[MsgLen] == '\r'))
 			card->msgbuf[MsgLen--] = 0;
 		printk(KERN_INFO "b1lli(0x%x): DEBUG: %s\n",
 				card->port, card->msgbuf);
