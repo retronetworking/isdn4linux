@@ -41,13 +41,6 @@
 #define XBUSY  0x40
 #define RMORE  0x80
 
-/* buffer definition */
-#if 0
-typedef struct {
-  word length;          /* length of data/parameter field           */
-  byte P[270];          /* data/parameter field                     */
-} PBUFFER;
-#endif
         /* structure for all information we have to keep on a per   */
         /* adapater basis                                           */
 

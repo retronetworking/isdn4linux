@@ -448,18 +448,6 @@ void DivasOut(ADAPTER * a)
       }
     }
 
-#if 0
-    {
-    byte prot_str[4];
-    DivasPrintf("IDI:ReqLength:%d",length);
-    a->ram_in_buffer(a, (char *) 0x80, prot_str, 3);
-    prot_str[3] = 0;
-    if (!strcmp(prot_str, "TE_"))
-    {
-        DivasPrintf("IDI: !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!");
-    }
-    }
-#endif
     a->ram_outw(a, &ReqOut->XBuffer.length, length);
     a->ram_out(a, &ReqOut->ReqId, this->Id);
     a->ram_out(a, &ReqOut->ReqCh, this->ReqCh);
@@ -874,9 +862,6 @@ byte isdn_ind(ADAPTER * a,
       this->RCurrent = 0xff;
       this->Ind = Ind;
       this->complete = 2;
-#if 0
-      DivasPrintf("IDI:IndLength:%d", a->ram_inw(a, &RBuffer->length));
-#endif
       CALLBACK(a, this);
     }
     return 0;
