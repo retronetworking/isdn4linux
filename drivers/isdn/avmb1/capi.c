@@ -6,6 +6,9 @@
  * Copyright 1996 by Carsten Paeth (calle@calle.in-berlin.de)
  *
  * $Log$
+ * Revision 1.51  2001/03/15 15:48:04  kai
+ * compatibility changes from KERNEL_2_4
+ *
  * Revision 1.50  2001/03/15 09:03:32  kai
  * spelling fixes from KERNEL_2_4
  * compilation warning fixes from KERNEL_2_4
@@ -269,9 +272,6 @@
 #include "capicmd.h"
 #if defined(CONFIG_ISDN_CAPI_CAPIFS) || defined(CONFIG_ISDN_CAPI_CAPIFS_MODULE)
 #include "capifs.h"
-#endif
-#ifdef COMPAT_HAS_kmem_cache
-#include <linux/slab.h>
 #endif
 
 static char *revision = "$Revision$";

@@ -1205,7 +1205,12 @@ checkcard(int cardnr, char *id, int *busy_flag)
 		return (0);
 	}
 	init_tei(cs, cs->protocol);
-	CallcNewChan(cs);
+	ret = CallcNewChan(cs);
+	if (ret) {
+		closecard(cardnr);
+		restore_flags(flags);
+		return 0;
+	}
 	/* ISAR needs firmware download first */
 	if (!test_bit(HW_ISAR, &cs->HW_Flags))
 		ll_run(cs, 0);
