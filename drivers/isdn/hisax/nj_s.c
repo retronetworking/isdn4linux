@@ -5,6 +5,7 @@
 
 #define __NO_VERSION__
 #include <linux/config.h>
+#include <linux/init.h>
 #include "hisax.h"
 #include "isac.h"
 #include "isdnl1.h"
@@ -139,17 +140,16 @@ NETjet_S_card_msg(struct IsdnCardState *cs, int mt, void *arg)
 	return(0);
 }
 
-static 	struct pci_dev *dev_netjet __initdata = NULL;
+static struct pci_dev *dev_netjet __initdata;
 
-__initfunc(int
-setup_netjet_s(struct IsdnCard *card))
+int __init
+setup_netjet_s(struct IsdnCard *card)
 {
 	int bytecnt;
 	struct IsdnCardState *cs = card->cs;
 	char tmp[64];
 	long flags;
-#if CONFIG_PCI
-#endif
+
 #ifdef __BIG_ENDIAN
 #error "not running on big endian machines now"
 #endif

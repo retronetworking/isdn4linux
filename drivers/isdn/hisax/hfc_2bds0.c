@@ -8,6 +8,7 @@
  *
  */
 #define __NO_VERSION__
+#include <linux/init.h>
 #include "hisax.h"
 #include "hfc_2bds0.h"
 #include "isdnl1.h"
@@ -1155,8 +1156,8 @@ hfc_dbusy_timer(struct IsdnCardState *cs)
 #endif
 }
 
-__initfunc(unsigned int
-*init_send_hfcd(int cnt))
+unsigned int __init
+*init_send_hfcd(int cnt)
 {
 	int i, *send;
 
@@ -1170,8 +1171,8 @@ __initfunc(unsigned int
 	return(send);
 }
 
-__initfunc(void
-init2bds0(struct IsdnCardState *cs))
+void __init
+init2bds0(struct IsdnCardState *cs)
 {
 	cs->setstack_d = setstack_hfcd;
 	cs->dbusytimer.function = (void *) hfc_dbusy_timer;

@@ -33,6 +33,8 @@
 #define BIG_PHONE_NUMBERS
 #else
 #define __exit
+#define __devinit
+#define __devinitdata
 #endif
 
 #if LINUX_VERSION_CODE > KERNEL_VERSION(2,3,12)

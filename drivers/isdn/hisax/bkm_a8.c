@@ -12,6 +12,7 @@
 #define __NO_VERSION__
 
 #include <linux/config.h>
+#include <linux/init.h>
 #include "hisax.h"
 #include "isac.h"
 #include "ipac.h"
@@ -268,8 +269,8 @@ BKM_card_msg(struct IsdnCardState *cs, int mt, void *arg)
 	return (0);
 }
 
-__initfunc(int
-sct_alloc_io(u_int adr, u_int len))
+int __init
+sct_alloc_io(u_int adr, u_int len)
 {
 	if (check_region(adr, len)) {
 		printk(KERN_WARNING
@@ -282,17 +283,17 @@ sct_alloc_io(u_int adr, u_int len))
 	return(0);
 }
 
-static struct pci_dev *dev_a8 __initdata = NULL;
-static u16  sub_vendor_id __initdata = 0;
-static u16  sub_sys_id __initdata = 0;
-static u_char pci_bus __initdata = 0;
-static u_char pci_device_fn __initdata = 0;
-static u_char pci_irq __initdata = 0;
+static struct pci_dev *dev_a8 __initdata;
+static u16  sub_vendor_id __initdata;
+static u16  sub_sys_id __initdata;
+static u_char pci_bus __initdata;
+static u_char pci_device_fn __initdata;
+static u_char pci_irq __initdata;
 
 #endif /* CONFIG_PCI */
 
-__initfunc(int
-setup_sct_quadro(struct IsdnCard *card))
+int __init
+setup_sct_quadro(struct IsdnCard *card)
 {
 #if CONFIG_PCI
 	struct IsdnCardState *cs = card->cs;

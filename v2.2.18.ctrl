@@ -57,3 +57,5 @@
 #undef COMPAT_HAS_FILEOP_OWNER
 
 #define __exit
+#define __devinit
+#define __devinitdata

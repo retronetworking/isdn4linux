@@ -16,6 +16,7 @@
  */
 
 #define __NO_VERSION__
+#include <linux/init.h>
 #include <linux/config.h>
 #include "hisax.h"
 #include "arcofi.h"
@@ -865,10 +866,10 @@ probe_elsa(struct IsdnCardState *cs)
 	return (CARD_portlist[i]);
 }
 
-static 	struct pci_dev *dev_qs1000 __initdata = NULL;
-static 	struct pci_dev *dev_qs3000 __initdata = NULL;
+static 	struct pci_dev *dev_qs1000 __devinitdata = NULL;
+static 	struct pci_dev *dev_qs3000 __devinitdata = NULL;
 
-int
+int __devinit
 setup_elsa(struct IsdnCard *card)
 {
 	long flags;

@@ -12,6 +12,7 @@
  *
  */
 #define __NO_VERSION__
+#include <linux/init.h>
 #include "hisax.h"
 #include "../avmb1/capicmd.h"  /* this should be moved in a common place */
 
@@ -29,10 +30,8 @@ extern void HiSax_mod_inc_use_count(void);
 static int init_b_st(struct Channel *chanp, int incoming);
 static void release_b_st(struct Channel *chanp);
 
-static struct Fsm callcfsm =
-{NULL, 0, 0, NULL, NULL};
-
-static int chancount = 0;
+static struct Fsm callcfsm;
+static int chancount;
 
 /* experimental REJECT after ALERTING for CALLBACK to beat the 4s delay */
 #define ALERT_REJECT 0
@@ -781,7 +780,7 @@ lli_failure_a(struct FsmInst *fi, int event, void *arg)
 }
 
 /* *INDENT-OFF* */
-static struct FsmNode fnlist[] HISAX_INITDATA =
+static struct FsmNode fnlist[] __initdata =
 {
         {ST_NULL,               EV_DIAL,                lli_prep_dialout},
         {ST_NULL,               EV_RESUME,              lli_resume},
@@ -851,8 +850,8 @@ static struct FsmNode fnlist[] HISAX_INITDATA =
 
 #define FNCOUNT (sizeof(fnlist)/sizeof(struct FsmNode))
 
-HISAX_INITFUNC(void
-CallcNew(void))
+void __init
+CallcNew(void)
 {
 	callcfsm.state_count = STATE_COUNT;
 	callcfsm.event_count = EVENT_COUNT;

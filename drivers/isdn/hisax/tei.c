@@ -14,6 +14,7 @@
 #define __NO_VERSION__
 #include "hisax.h"
 #include "isdnl2.h"
+#include <linux/init.h>
 #include <linux/random.h>
 
 const char *tei_revision = "$Revision$";
@@ -28,9 +29,7 @@ const char *tei_revision = "$Revision$";
 
 #define TEI_ENTITY_ID	0xf
 
-static
-struct Fsm teifsm =
-{NULL, 0, 0, NULL, NULL};
+static struct Fsm teifsm;
 
 void tei_handler(struct PStack *st, u_char pr, struct sk_buff *skb);
 
@@ -430,7 +429,7 @@ release_tei(struct IsdnCardState *cs)
 	}
 }
 
-static struct FsmNode TeiFnList[] HISAX_INITDATA =
+static struct FsmNode TeiFnList[] __initdata =
 {
 	{ST_TEI_NOP, EV_IDREQ, tei_id_request},
 	{ST_TEI_NOP, EV_ASSIGN, tei_id_test_dup},
@@ -447,8 +446,8 @@ static struct FsmNode TeiFnList[] HISAX_INITDATA =
 
 #define TEI_FN_COUNT (sizeof(TeiFnList)/sizeof(struct FsmNode))
 
-HISAX_INITFUNC(void
-TeiNew(void))
+void __init
+TeiNew(void)
 {
 	teifsm.state_count = TEI_STATE_COUNT;
 	teifsm.event_count = TEI_EVENT_COUNT;

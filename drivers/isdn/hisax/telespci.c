@@ -9,6 +9,7 @@
  *
  */
 #define __NO_VERSION__
+#include <linux/init.h>
 #include <linux/config.h>
 #include "hisax.h"
 #include "isac.h"
@@ -280,10 +281,10 @@ TelesPCI_card_msg(struct IsdnCardState *cs, int mt, void *arg)
 	return(0);
 }
 
-static 	struct pci_dev *dev_tel __initdata = NULL;
+static struct pci_dev *dev_tel __initdata;
 
-__initfunc(int
-setup_telespci(struct IsdnCard *card))
+int __init
+setup_telespci(struct IsdnCard *card)
 {
 	struct IsdnCardState *cs = card->cs;
 	char tmp[64];
