@@ -21,6 +21,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.31.2.4  1998/04/08 21:42:25  keil
+ * Blocksize default 1024
+ *
  * Revision 1.31.2.3  1998/03/16 09:56:28  cal
  * Merged in TimRu-patches. Still needs validation in conjunction with ABC-patches.
  *
@@ -525,7 +528,6 @@ typedef struct isdn_net_local_s {
 	u_long  abc_icall_disabled;     /* incoming call disdabled to s     */
 	u_long  abc_nextkeep;           /* nextkeep at jiffies              */
 	u_long  abc_anz_wrong_data_prot;
-	u_long  abc_callback_retry;
 	u_long  abc_rem_disconnect;
 	short   abc_bchan_is_up;
 	short   abc_first_disp;         /* gesetzt wenn first pak displayed */
@@ -535,6 +537,8 @@ typedef struct isdn_net_local_s {
 	u_long	abc_rcv_real_bytes;
 	u_long  abc_last_dlcon;
 	u_long  abc_dlcon_cnt;
+	u_long	abc_cbout_secure;
+	u_long  abc_last_disp_disabled;
 	u_char  abc_rx_key[ISDN_MSNLEN];
   	u_char  abc_out_msn[ISDN_MSNLEN];  /* MSNs/EAZs for outgoing calls */
 #endif
@@ -594,6 +598,7 @@ extern int abc_test_incall(u_char *number);
 #define ABC_WITH_TCP    0x00000010
 #define ABC_NODCHAN		0x00000020
 #define ABC_WRONG_DSP	0x00000040
+#define ABC_MUST_DISCON	0x00000080
 
 extern int isdn_abc_net_send_skb(   struct device *,
                                     isdn_net_local *,
