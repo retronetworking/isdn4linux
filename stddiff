@@ -81,6 +81,9 @@ else
 	for i in drivers/isdn/isdn_*.[ch] ; do
 		dodiff $i $KERNELDIR/$i
 	done
+	for i in drivers/isdn/divert/*.[ch] ; do
+		dodiff $i $KERNELDIR/$i
+	done
 	for i in drivers/isdn/icn/icn.[ch] ; do
 		dodiff $i $KERNELDIR/$i
 	done
@@ -111,6 +114,7 @@ else
 		dodiff $i $KERNELDIR/$i
 	done
 	for i in drivers/isdn/Makefile drivers/isdn/icn/Makefile \
+		drivers/isdn/divert/Makefile \
 		drivers/isdn/sc/Makefile \
 		drivers/isdn/avmb1/Makefile \
 		drivers/isdn/hisax/Makefile \

@@ -134,7 +134,7 @@ else
            drivers/isdn/hisax/Makefile \
            drivers/isdn/isdnloop/Makefile \
            drivers/isdn/pcbit/Makefile drivers/isdn/sc/Makefile \
-           drivers/isdn/divert/Makefile drivers/isdn/divert/Makefile \
+           drivers/isdn/divert/Makefile \
            drivers/isdn/avmb1/Makefile; do
 	if [ -f $i.kernel ] ; then
     	$DOCP $i.kernel $KERNELDIR/$i
