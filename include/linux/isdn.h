@@ -21,6 +21,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.31.2.3  1998/03/16 09:56:28  cal
+ * Merged in TimRu-patches. Still needs validation in conjunction with ABC-patches.
+ *
  * Revision 1.31.2.2  1998/03/07 23:35:45  detabc
  * added the abc-extension to the linux isdn-kernel
  * for kernel-version 2.0.xx
@@ -627,7 +630,8 @@ extern void abc_simple_crypt(u_char *poin,int len,u_char *key);
 #define ISDN_ASYNC_PGRP_LOCKOUT       0x0200 /* Lock cua opens on pgrp       */
 #define ISDN_ASYNC_CALLOUT_NOHUP      0x0400 /* No hangup for cui            */
 #define ISDN_ASYNC_SPLIT_TERMIOS      0x0008 /* Sep. termios for dialin/out  */
-#define ISDN_SERIAL_XMIT_SIZE           4000 /* Maximum bufsize for write    */
+#define ISDN_SERIAL_XMIT_SIZE           1024 /* default bufsize for write    */
+#define ISDN_SERIAL_XMIT_MAX            4000 /* Maximum bufsize for write    */
 #define ISDN_SERIAL_TYPE_NORMAL            1
 #define ISDN_SERIAL_TYPE_CALLOUT           2
 

@@ -20,6 +20,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.41.2.4  1998/03/19 17:58:55  detabc
+ * remove 2 debug-messages (no longer needed) bug was fixed
+ *
  * Revision 1.41.2.3  1998/03/07 23:35:20  detabc
  * added the abc-extension to the linux isdn-kernel
  * for kernel-version 2.0.xx
@@ -1851,18 +1854,7 @@ isdn_tty_reset_profile(atemu * m)
 	m->profile[13] = 4;
 	m->profile[14] = ISDN_PROTO_L2_X75I;
 	m->profile[15] = ISDN_PROTO_L3_TRANS;
-#ifdef CONFIG_ISDN_WITH_ABC
 	m->profile[16] = ISDN_SERIAL_XMIT_SIZE / 16;
-
-	if(m->profile[16] > 64) {
-		/*
-		** this is better for WFW95 with Z-MODEM
-		*/
-		m->profile[16] = 64;
-	}
-#else
-	m->profile[16] = ISDN_SERIAL_XMIT_SIZE / 16;
-#endif
 	m->profile[17] = ISDN_MODEM_WINSIZE;
 	m->profile[18] = 4;
 	m->profile[19] = 0;
@@ -1994,7 +1986,7 @@ isdn_tty_modem_init(void)
 #ifdef CONFIG_ISDN_AUDIO
 		skb_queue_head_init(&info->dtmf_queue);
 #endif
-		if (!(info->xmit_buf = kmalloc(ISDN_SERIAL_XMIT_SIZE + 5, GFP_KERNEL))) {
+		if (!(info->xmit_buf = kmalloc(ISDN_SERIAL_XMIT_MAX + 5, GFP_KERNEL))) {
 			printk(KERN_ERR "Could not allocate modem xmit-buffer\n");
 			return -3;
 		}
@@ -2605,7 +2597,7 @@ isdn_tty_cmd_ATand(char **p, modem_info * info)
 			/* &B - Set Buffersize */
 			p[0]++;
 			i = isdn_getnum(p);
-			if ((i < 0) || (i > ISDN_SERIAL_XMIT_SIZE))
+			if ((i < 0) || (i > ISDN_SERIAL_XMIT_MAX))
 				PARSE_ERROR1;
 #ifdef CONFIG_ISDN_AUDIO
 			if ((m->mdmreg[18] & 1) && (i > VBUF))
@@ -2714,7 +2706,7 @@ isdn_tty_check_ats(int mreg, int mval, modem_info * info, atemu * m)
 				return 1;
 			break;
 		case 16:
-			if ((mval * 16) > ISDN_SERIAL_XMIT_SIZE)
+			if ((mval * 16) > ISDN_SERIAL_XMIT_MAX)
 				return 1;
 #ifdef CONFIG_ISDN_AUDIO
 			if ((m->mdmreg[18] & 1) && (mval > VBUFX))
