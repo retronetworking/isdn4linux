@@ -7,6 +7,9 @@
  *              Fritz Elfert
  *
  * $Log$
+ * Revision 2.9  1998/04/10 10:35:30  paul
+ * fixed (silly?) warnings from egcs on Alpha.
+ *
  * Revision 2.8  1998/03/07 22:57:04  tsbogend
  * made HiSax working on Linux/Alpha
  *
@@ -1492,7 +1495,7 @@ isdnl2_manl2(struct PStack *st, int pr, void *arg)
 		case (MDL_REMOVE_REQ):
 			FsmEvent(&st->l2.l2m, EV_L2_MDL_REMOVE, arg);
 			break;
-		case (MDL_ERROR_REQ):
+		case (MDL_ERROR_IND):
 			FsmEvent(&st->l2.l2m, EV_L2_MDL_ERROR, arg);
 			break;
 	}
