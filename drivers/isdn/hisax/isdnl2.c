@@ -11,6 +11,9 @@
  *              Fritz Elfert
  *
  * $Log$
+ * Revision 2.20  1999/08/25 16:52:04  keil
+ * Make gcc on AXP happy
+ *
  * Revision 2.19  1999/08/05 20:40:26  keil
  * Fix interlayer communication
  *
@@ -475,13 +478,10 @@ setva(struct PStack *st, unsigned int nr)
 		else
 			l2->va %= 8;
 		len = l2->windowar[l2->sow]->len;
-		if (PACKET_NOACK == l2->windowar[l2->sow]->pkt_type)
-			len = -1;
+		st->l2.l2l3(st, DL_DATA | CONFIRM, l2->windowar[l2->sow]);
 		idev_kfree_skb(l2->windowar[l2->sow], FREE_WRITE);
 		l2->windowar[l2->sow] = NULL;
 		l2->sow = (l2->sow + 1) % l2->window;
-		if (st->lli.l2writewakeup && (len >=0))
-			st->lli.l2writewakeup(st, len);
 	}
 }
 
@@ -1752,6 +1752,8 @@ isdnl2_l1l2(struct PStack *st, int pr, void *arg)
 			}
 			if (ret)
 				FreeSkb(skb);
+			break;
+	        case (PH_DATA | CONFIRM):
 			break;
 		case (PH_PULL | CONFIRM):
 			FsmEvent(&st->l2.l2m, EV_L2_ACK_PULL, arg);

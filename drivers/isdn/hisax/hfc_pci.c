@@ -23,6 +23,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.27.2.1  2000/03/03 13:11:32  kai
+ * changed L1_MODE_... to B1_MODE_... using constants defined in CAPI
+ *
  * Revision 1.27  2000/02/26 00:35:12  keil
  * Fix skb freeing in interrupt context
  *
@@ -777,11 +780,7 @@ hfcpci_fill_fifo(struct BCState *bcs)
 		src += maxlen;	/* new position */
 		memcpy(dst, src, count);
 	}
-	bcs->tx_cnt -= bcs->tx_skb->len;
-	if (bcs->st->lli.l1writewakeup &&
-	    (PACKET_NOACK != bcs->tx_skb->pkt_type))
-		bcs->st->lli.l1writewakeup(bcs->st, bcs->tx_skb->len);
-
+	bcs->st->l1.l1l2(bcs->st, PH_DATA | CONFIRM, bcs->tx_skb); 
 	cli();
 	bz->za[new_f1].z1 = new_z1;	/* for next buffer */
 	bz->f1 = new_f1;	/* next frame */

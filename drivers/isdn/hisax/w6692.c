@@ -8,6 +8,9 @@
  *              This file is (c) under GNU PUBLIC LICENSE
  *
  * $Log$
+ * Revision 1.2.2.1  2000/03/03 13:11:32  kai
+ * changed L1_MODE_... to B1_MODE_... using constants defined in CAPI
+ *
  * Revision 1.2  2000/02/26 00:35:13  keil
  * Fix skb freeing in interrupt context
  *
@@ -383,9 +386,7 @@ W6692B_interrupt(struct IsdnCardState *cs, u_char bchan)
 				W6692B_fill_fifo(bcs);
 				return;
 			} else {
-				if (bcs->st->lli.l1writewakeup &&
-				 (PACKET_NOACK != bcs->tx_skb->pkt_type))
-					bcs->st->lli.l1writewakeup(bcs->st, bcs->hw.w6692.count);
+				bcs->st->l1.l1l2(bcs->st, PH_DATA | CONFIRM, bcs->tx_skb);
 				idev_kfree_skb_irq(bcs->tx_skb, FREE_WRITE);
 				bcs->hw.w6692.count = 0;
 				bcs->tx_skb = NULL;

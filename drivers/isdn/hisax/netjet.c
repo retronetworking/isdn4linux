@@ -7,6 +7,9 @@
  * Thanks to Traverse Technologie Australia for documents and informations
  *
  * $Log$
+ * Revision 1.18.2.1  2000/03/03 13:11:32  kai
+ * changed L1_MODE_... to B1_MODE_... using constants defined in CAPI
+ *
  * Revision 1.18  2000/02/26 00:35:13  keil
  * Fix skb freeing in interrupt context
  *
@@ -734,9 +737,7 @@ static void write_raw(struct BCState *bcs, u_int *buf, int cnt) {
 			if (!bcs->tx_skb) {
 				debugl1(bcs->cs,"tiger write_raw: NULL skb s_cnt %d", s_cnt);
 			} else {
-				if (bcs->st->lli.l1writewakeup &&
-					(PACKET_NOACK != bcs->tx_skb->pkt_type))
-					bcs->st->lli.l1writewakeup(bcs->st, bcs->tx_skb->len);
+				bcs->st->l1.l1l2(bcs->st, PH_DATA | CONFIRM, bcs->tx_skb);
 				idev_kfree_skb_any(bcs->tx_skb, FREE_WRITE);
 				bcs->tx_skb = NULL;
 			}

@@ -11,6 +11,9 @@
  *              Fritz Elfert
  *
  * $Log$
+ * Revision 2.40.2.1  2000/03/03 13:11:32  kai
+ * changed L1_MODE_... to B1_MODE_... using constants defined in CAPI
+ *
  * Revision 2.40  1999/12/19 12:59:56  keil
  * fix leased line handling
  * and cosmetics
@@ -1212,7 +1215,6 @@ init_d_st(struct Channel *chanp)
 	setstack_isdnl2(st, tmp);
 	setstack_l3dc(st, chanp);
 	st->lli.userdata = chanp;
-	st->lli.l2writewakeup = NULL;
 	st->l3.l3l4 = dchan_l3l4;
 }
 
@@ -1316,6 +1318,20 @@ CallcFreeChan(struct IsdnCardState *csta)
 }
 
 static void
+ll_writewakeup(struct Channel *chanp, int len)
+{
+	isdn_ctrl ic;
+
+	if (chanp->debug & 1)
+		link_debug(chanp, 0, "STAT_BSENT");
+	ic.driver = chanp->cs->myid;
+	ic.command = ISDN_STAT_BSENT;
+	ic.arg = chanp->chan;
+	ic.parm.length = len;
+	chanp->cs->iif.statcallb(&ic);
+}
+
+static void
 lldata_handler(struct PStack *st, int pr, void *arg)
 {
 	struct Channel *chanp = (struct Channel *) st->lli.userdata;
@@ -1328,6 +1344,11 @@ lldata_handler(struct PStack *st, int pr, void *arg)
 			else {
 				idev_kfree_skb(skb, FREE_READ);
 			}
+			break;
+      	        case (DL_DATA | CONFIRM):
+		        /* the original length of the skb is saved in priority */
+			if (skb->pkt_type != PACKET_NOACK)
+				ll_writewakeup(chanp, skb->priority);
 			break;
 		case (DL_ESTABLISH | INDICATION):
 		case (DL_ESTABLISH | CONFIRM):
@@ -1359,6 +1380,11 @@ lltrans_handler(struct PStack *st, int pr, void *arg)
 				idev_kfree_skb(skb, FREE_READ);
 			}
 			break;
+      	        case (PH_DATA | CONFIRM):
+		        /* the original length of the skb is saved in priority */
+			if (skb->pkt_type != PACKET_NOACK)
+				ll_writewakeup(chanp, skb->priority);
+			break;
 		case (PH_ACTIVATE | INDICATION):
 		case (PH_ACTIVATE | CONFIRM):
 			FsmEvent(&chanp->fi, EV_BC_EST, NULL);
@@ -1372,19 +1398,6 @@ lltrans_handler(struct PStack *st, int pr, void *arg)
 				pr);
 			break;
 	}
-}
-
-static void
-ll_writewakeup(struct PStack *st, int len)
-{
-	struct Channel *chanp = st->lli.userdata;
-	isdn_ctrl ic;
-
-	ic.driver = chanp->cs->myid;
-	ic.command = ISDN_STAT_BSENT;
-	ic.arg = chanp->chan;
-	ic.parm.length = len;
-	chanp->cs->iif.statcallb(&ic);
 }
 
 static int
@@ -1434,8 +1447,6 @@ init_b_st(struct Channel *chanp, int incoming)
 			setstack_l3bc(st, chanp);
 			st->l2.l2l3 = lldata_handler;
 			st->lli.userdata = chanp;
-			st->lli.l1writewakeup = NULL;
-			st->lli.l2writewakeup = ll_writewakeup;
 			st->l2.l2m.debug = chanp->debug & 16;
 			st->l2.debug = chanp->debug & 64;
 			break;
@@ -1445,7 +1456,6 @@ init_b_st(struct Channel *chanp, int incoming)
 		case (ISDN_PROTO_L2_FAX):
 			st->l1.l1l2 = lltrans_handler;
 			st->lli.userdata = chanp;
-			st->lli.l1writewakeup = ll_writewakeup;
 			setstack_transl2(st);
 			setstack_l3bc(st, chanp);
 			break;
@@ -1488,6 +1498,10 @@ leased_l1l2(struct PStack *st, int pr, void *arg)
 		case (PH_DATA | INDICATION):
 			link_debug(chanp, 0, "leased line d-channel DATA");
 			idev_kfree_skb(skb, FREE_READ);
+			break;
+      	        case (PH_DATA | CONFIRM):
+			if (skb->pkt_type != PACKET_NOACK)
+				ll_writewakeup(chanp, skb->len);
 			break;
 		case (PH_ACTIVATE | INDICATION):
 		case (PH_ACTIVATE | CONFIRM):
@@ -1931,6 +1945,12 @@ HiSax_writebuf_skb(int id, int chan, int ack, struct sk_buff *skb)
 		if (nskb) {
 			if (!ack)
 				nskb->pkt_type = PACKET_NOACK;
+			/* I'm misusing the priority field here to save the length of the
+			   original skb.
+			   Since the skb is cloned, this should be okay.
+			   --KG
+			*/
+                        nskb->priority = nskb->len;
 			if (chanp->l2_active_protocol == ISDN_PROTO_L2_X75I)
 				st->l3.l3l2(st, DL_DATA | REQUEST, nskb);
 			else {

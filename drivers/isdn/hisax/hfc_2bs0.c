@@ -6,6 +6,9 @@
  *
  *
  * $Log$
+ * Revision 1.13.2.1  2000/03/03 13:11:32  kai
+ * changed L1_MODE_... to B1_MODE_... using constants defined in CAPI
+ *
  * Revision 1.13  2000/02/26 00:35:12  keil
  * Fix skb freeing in interrupt context
  *
@@ -359,19 +362,19 @@ hfc_fill_fifo(struct BCState *bcs)
 		debugl1(cs, "FIFO Send BUSY error");
 		printk(KERN_WARNING "HFC S FIFO channel %d BUSY Error\n", bcs->channel);
 	} else {
+		struct sk_buff *sav_skb;
+
 		count =  bcs->tx_skb->len;
 		bcs->tx_cnt -= count;
-		if (PACKET_NOACK == bcs->tx_skb->pkt_type)
-			count = -1;
-		idev_kfree_skb_any(bcs->tx_skb, FREE_WRITE);
+		sav_skb = bcs->tx_skb;
 		bcs->tx_skb = NULL;
 		if (bcs->mode != B1_MODE_TRANS) {
-		  WaitForBusy(cs);
-		  WaitNoBusy(cs);
-		  cs->BC_Read_Reg(cs, HFC_DATA, HFC_CIP | HFC_F1_INC | HFC_SEND | HFC_CHANNEL(bcs->channel));
+			WaitForBusy(cs);
+			WaitNoBusy(cs);
+			cs->BC_Read_Reg(cs, HFC_DATA, HFC_CIP | HFC_F1_INC | HFC_SEND | HFC_CHANNEL(bcs->channel));
 		}
-		if (bcs->st->lli.l1writewakeup && (count >= 0))
-			bcs->st->lli.l1writewakeup(bcs->st, count);
+		bcs->st->l1.l1l2(bcs->st, PH_DATA | CONFIRM, sav_skb);
+		idev_kfree_skb_any(sav_skb, FREE_WRITE);
 		test_and_clear_bit(BC_FLG_BUSY, &bcs->Flag);
 	}
 	restore_flags(flags);

@@ -3,6 +3,9 @@
  *   Basic declarations, defines and prototypes
  *
  * $Log$
+ * Revision 2.41.2.2  2000/03/03 13:11:32  kai
+ * changed L1_MODE_... to B1_MODE_... using constants defined in CAPI
+ *
  * Revision 2.41.2.1  2000/03/03 13:03:33  kai
  * now we use schedule_timeout() instead of the huge
  * udelay() when we have to wait a long time.
@@ -405,8 +408,6 @@ struct LLInterface {
 	void (*l4l3) (struct PStack *, int, void *);
         int  (*l4l3_proto) (struct PStack *, isdn_ctrl *);
 	void *userdata;
-	void (*l1writewakeup) (struct PStack *, int);
-	void (*l2writewakeup) (struct PStack *, int);
 };
 
 
