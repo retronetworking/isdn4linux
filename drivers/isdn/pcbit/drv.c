@@ -226,7 +226,6 @@ int pcbit_command(isdn_ctrl* ctl)
 	struct pcbit_dev  *dev;
 	struct pcbit_chan *chan;
 	struct callb_data info;
-	char *cp;
 
 	dev = finddev(ctl->driver);
 
@@ -245,14 +244,7 @@ int pcbit_command(isdn_ctrl* ctl)
 		break;
 	case ISDN_CMD_DIAL:
 		info.type = EV_USR_SETUP_REQ;
-		info.data.setup.CalledPN = (char *) &ctl->num;
-		cp = strchr(info.data.setup.CalledPN, ',');
-		if (cp)
-			*cp = 0;
-		else {
-			printk(KERN_DEBUG "DIAL: error in CalledPN\n");
-			return -1;
-		}		
+		info.data.setup.CalledPN = (char *) &ctl->parm.setup.phone;
 		pcbit_fsm_event(dev, chan, EV_USR_SETUP_REQ, &info);
 		break;
 	case ISDN_CMD_ACCEPTD:
@@ -280,7 +272,7 @@ int pcbit_command(isdn_ctrl* ctl)
 		pcbit_clear_msn(dev);
 		break;
 	case ISDN_CMD_SETEAZ:
-		pcbit_set_msn(dev, ctl->num);
+		pcbit_set_msn(dev, ctl->parm.num);
 		break;
 	case ISDN_CMD_SETL3:
 		if ((ctl->arg >> 8) != ISDN_PROTO_L3_TRANS)
@@ -944,7 +936,7 @@ static int pcbit_ioctl(isdn_ctrl* ctl)
 		return -ENODEV;
 	}
 
-	cmd = (struct pcbit_ioctl *) ctl->num;
+	cmd = (struct pcbit_ioctl *) ctl->parm.num;
 
 	switch(ctl->arg) {
 	case PCBIT_IOCTL_GETSTAT:
