@@ -7,6 +7,9 @@
  *              Fritz Elfert
  *
  * $Log$
+ * Revision 1.7  1997/04/06 22:54:03  keil
+ * Using SKB's
+ *
  * Revision 1.6  1997/02/09 00:25:12  keil
  * new interface handling, one interface per card
  *
@@ -269,7 +272,7 @@ init_tei(struct IsdnCardState *sp, int protocol)
 	struct PStack *st;
 	char tmp[128];
 
-	st = (struct PStack *) kmalloc(sizeof(struct PStack), GFP_KERNEL);
+	st = (struct PStack *) kmalloc(sizeof(struct PStack), GFP_ATOMIC);
 	setstack_HiSax(st, sp);
 	st->l2.extended = !0;
 	st->l2.laptype = LAPD;
