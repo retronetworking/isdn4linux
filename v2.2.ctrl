@@ -51,3 +51,5 @@
 #undef HAVE_DEVFS_FS
 #define devfs_register_chrdev(m,n,f) register_chrdev(m,n,f)
 #define devfs_unregister_chrdev(m,n) unregister_chrdev(m,n)
+
+#define COMPAT_NEED_MPPP_DEFS

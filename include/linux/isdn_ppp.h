@@ -30,9 +30,11 @@ struct pppcallinfo
 #define PPPIOCSCOMPRESSOR _IOW('t',135,int)
 #define PPPIOCGIFNAME      _IOR('t',136, char [IFNAMSIZ] )
 
+#ifdef COMPAT_NEED_MPPP_DEFS
 #define PPP_MP          0x003d
-#define PPP_LINK_COMP   0x00fb
-#define PPP_LINK_CCP    0x80fb
+#define PPP_COMPFRAG    0x00fb
+#define PPP_CCPFRAG     0x80fb
+#endif
 
 #define SC_MP_PROT       0x00000200
 #define SC_REJ_MP_PROT   0x00000400

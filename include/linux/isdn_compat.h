@@ -159,5 +159,9 @@ static inline unsigned long copy_to_user(void *to, const void *from, unsigned lo
 #define devfs_unregister_chrdev(m,n) unregister_chrdev(m,n)
 #endif
 
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2,3,99)
+#define COMPAT_NEED_MPPP_DEFS
+#endif
+
 #endif /* __KERNEL__ */
 #endif /* _LINUX_ISDN_COMPAT_H */
