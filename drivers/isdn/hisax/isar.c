@@ -1650,8 +1650,8 @@ close_isarstate(struct BCState *bcs)
 			kfree(bcs->hw.isar.rcvbuf);
 			bcs->hw.isar.rcvbuf = NULL;
 		}
-		discard_queue(&bcs->rqueue);
-		discard_queue(&bcs->squeue);
+		skb_queue_purge(&bcs->rqueue);
+		skb_queue_purge(&bcs->squeue);
 		if (bcs->tx_skb) {
 			dev_kfree_skb_any(bcs->tx_skb);
 			bcs->tx_skb = NULL;

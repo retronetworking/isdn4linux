@@ -238,20 +238,6 @@ int isdn_msncmp( const char * msn1, const char * msn2 )
 	return isdn_wildmat( TmpMsn1, TmpMsn2 );
 }
 
-static void
-isdn_free_queue(struct sk_buff_head *queue)
-{
-	struct sk_buff *skb;
-	unsigned long flags;
-
-	save_flags(flags);
-	cli();
-	if (skb_queue_len(queue))
-		while ((skb = skb_dequeue(queue)))
-			dev_kfree_skb(skb);
-	restore_flags(flags);
-}
-
 int
 isdn_dc2minor(int di, int ch)
 {
@@ -747,7 +733,7 @@ isdn_status_callback(isdn_ctrl * c)
 			kfree(dev->drv[di]->rcverr);
 			kfree(dev->drv[di]->rcvcount);
 			for (i = 0; i < dev->drv[di]->channels; i++)
-				isdn_free_queue(&dev->drv[di]->rpqueue[i]);
+				skb_queue_purge(&dev->drv[di]->rpqueue[i]);
 			kfree(dev->drv[di]->rpqueue);
 			kfree(dev->drv[di]->rcv_waitq);
 			kfree(dev->drv[di]);

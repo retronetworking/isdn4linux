@@ -642,8 +642,8 @@ W6692_l1hw(struct PStack *st, int pr, void *arg)
 			/* !!! not implemented yet */
 			break;
 		case (HW_DEACTIVATE | RESPONSE):
-			discard_queue(&cs->rq);
-			discard_queue(&cs->sq);
+			skb_queue_purge(&cs->rq);
+			skb_queue_purge(&cs->sq);
 			if (cs->tx_skb) {
 				dev_kfree_skb_any(cs->tx_skb);
 				cs->tx_skb = NULL;
@@ -816,8 +816,8 @@ close_w6692state(struct BCState *bcs)
 			kfree(bcs->blog);
 			bcs->blog = NULL;
 		}
-		discard_queue(&bcs->rqueue);
-		discard_queue(&bcs->squeue);
+		skb_queue_purge(&bcs->rqueue);
+		skb_queue_purge(&bcs->squeue);
 		if (bcs->tx_skb) {
 			dev_kfree_skb_any(bcs->tx_skb);
 			bcs->tx_skb = NULL;

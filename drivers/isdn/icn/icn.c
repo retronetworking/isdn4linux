@@ -51,8 +51,7 @@ icn_free_queue(icn_card * card, int channel)
 	struct sk_buff *skb;
 	unsigned long flags;
 
-	while ((skb = skb_dequeue(queue)))
-		dev_kfree_skb(skb);
+	skb_queue_purge(queue);
 	save_flags(flags);
 	cli();
 	card->xlen[channel] = 0;

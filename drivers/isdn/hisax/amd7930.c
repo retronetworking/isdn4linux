@@ -362,12 +362,8 @@ Bchan_close(struct BCState *bcs)
 	amd7930_bclose(0, bcs->channel);
 
 	if (test_bit(BC_FLG_INIT, &bcs->Flag)) {
-		while ((skb = skb_dequeue(&bcs->rqueue))) {
-			dev_kfree_skb(skb);
-		}
-		while ((skb = skb_dequeue(&bcs->squeue))) {
-			dev_kfree_skb(skb);
-		}
+		skb_queue_purge(&bcs->rqueue);
+		skb_queue_purge(&bcs->squeue);
 	}
 	test_and_clear_bit(BC_FLG_INIT, &bcs->Flag);
 }

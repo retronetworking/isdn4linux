@@ -73,12 +73,3 @@ include $(TOPDIR)/drivers/isdn/Rules.make
 
 hisax.o: $(hisax-objs)
 	$(LD) -r -o $@ $(hisax-objs)
-
-MD5FILES += isac.c isdnl1.c isdnl2.c isdnl3.c \
-	    tei.c callc.c cert.c l3dss1.c l3_1tr6.c \
-	    elsa.c diva.c sedlbauer.c
-
-CERT = $(shell md5sum -c md5sums.asc >> /dev/null;echo $$?)
-
-cert.o:	$(MD5FILES) md5sums.asc
-	$(CC) $(CFLAGS) $(EXTRA_CFLAGS) -D CERTIFICATION=$(CERT) -c -o cert.o cert.c
