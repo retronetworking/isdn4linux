@@ -21,6 +21,11 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.1  1999/01/01 18:09:41  armin
+ * First checkin of new eicon driver.
+ * DIVA-Server BRI/PCI and PRI/PCI are supported.
+ * Old diehl code is obsolete.
+ *
  *
  */
 
@@ -302,6 +307,7 @@ typedef struct {
 	unsigned short fsm_state;        /* Current D-Channel state     */
 	unsigned short eazmask;          /* EAZ-Mask for this Channel   */
 	unsigned int   queued;           /* User-Data Bytes in TX queue */
+	unsigned int   waitq;            /* User-Data Bytes in wait queue */
 	unsigned short plci;
 	unsigned short ncci;
 	unsigned char  l2prot;           /* Layer 2 protocol            */

@@ -21,6 +21,10 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.3  1999/01/05 14:49:34  armin
+ * Added experimental usage of full BC and HLC for
+ * speech, 3.1kHz audio, fax gr.2/3
+ *
  * Revision 1.2  1999/01/04 13:19:29  armin
  * Channel status with listen-request wrong - fixed.
  *
@@ -55,7 +59,7 @@ static char BC_64k[2] =    	{ 0x88, 0x90 };
 static char BC_video[3] =  	{ 0x91, 0x90, 0xa5 };
 
 #ifdef EICON_FULL_SERVICE_OKTETT
-static char HLC_telephony[2] =	{ 0x91, 0x81 };
+/* static char HLC_telephony[2] =	{ 0x91, 0x81 }; */
 static char HLC_faxg3[2] =  	{ 0x91, 0x84 };
 #endif
 
@@ -372,7 +376,7 @@ idi_do_req(diehl_card *card, diehl_chan *chan, int cmd, int layer)
 int
 diehl_idi_listen_req(diehl_card *card, diehl_chan *chan)
 {
-#ifdef IDI_DEBUG
+#if 0 
 	printk(KERN_DEBUG"idi: Listen_Req eazmask=0x%x Ch:%d\n", chan->eazmask, chan->No);
 #endif
 	if (!chan->e.D3Id) {
@@ -397,9 +401,9 @@ idi_si2bc(int si1, int si2, char *bc, char *hlc)
 #ifdef EICON_FULL_SERVICE_OKTETT
 		if (si2 == 1) {
 			bc[0] = 0x80;	/* Speech */
-			hlc[0] = 2;	/* hlc len */
-			hlc[1] = 91;	/* first hic */
-			hlc[2] = 81;	/* Telephony */
+			hlc[0] = 0x02;	/* hlc len */
+			hlc[1] = 0x91;	/* first hic */
+			hlc[2] = 0x81;	/* Telephony */
 		}
 #endif
 		return(3);
@@ -409,9 +413,9 @@ idi_si2bc(int si1, int si2, char *bc, char *hlc)
 		bc[2] = 0xa3;		/* G.711 A-law */
 #ifdef EICON_FULL_SERVICE_OKTETT
 		if (si2 == 2) {
-			hlc[0] = 2;	/* hlc len */
-			hlc[1] = 91;	/* first hic */
-			hlc[2] = 84;	/* Fax Gr.2/3 */
+			hlc[0] = 0x02;	/* hlc len */
+			hlc[1] = 0x91;	/* first hic */
+			hlc[2] = 0x84;	/* Fax Gr.2/3 */
 		}
 #endif
 		return(3);
@@ -848,8 +852,10 @@ idi_handle_ind(diehl_pci_card *card, struct sk_buff *skb)
 	}
 
 #ifdef IDI_DEBUG
+	if (ind->Ind != 8) {
         printk(KERN_INFO "idi:handle Ind=%d Id=%d Ch=%d MInd=%d MLen=%d Len=%d\n",
         ind->Ind,ind->IndId,ind->IndCh,ind->MInd,ind->MLength,ind->RBuffer.length);
+	}
 #endif
 
 	/* Signal Layer */
@@ -864,7 +870,7 @@ idi_handle_ind(diehl_pci_card *card, struct sk_buff *skb)
 					dev_kfree_skb(skb2);
 				}
 				chan->e.busy = 0;
-
+				chan->queued = 0;
 				chan->fsm_state = DIEHL_STATE_NULL;
 				cmd.driver = ccard->myid;
 				cmd.arg = chan->No;
@@ -1014,6 +1020,7 @@ idi_handle_ind(diehl_pci_card *card, struct sk_buff *skb)
   				printk(KERN_DEBUG"idi_ind: N_DISC\n");
 #endif
 				if (chan->e.B2Id) idi_do_req(ccard, chan, IDI_N_DISC_ACK, 1);
+				chan->queued = 0;
 				cmd.driver = ccard->myid;
 				cmd.command = ISDN_STAT_BHUP;
 				cmd.arg = chan->No;
@@ -1031,7 +1038,7 @@ idi_handle_ind(diehl_pci_card *card, struct sk_buff *skb)
 				cmd.driver = ccard->myid;
 				cmd.command = ISDN_STAT_BSENT;
 				cmd.arg = chan->No;
-				cmd.parm.length = chan->queued; 
+				cmd.parm.length = chan->waitq; 
 				ccard->interface.statcallb(&cmd);
 				break;
 			case IDI_N_DATA:
@@ -1068,11 +1075,20 @@ idi_handle_ack(diehl_pci_card *card, struct sk_buff *skb)
 	} 
 	else {
 		if ((chan = card->IdTable[ack->RcId]) != NULL) {
-#if 0
-			printk(KERN_DEBUG "idi_ack: ASSIGN_OK Id=%d Ch=%d Chan %d\n",
+#if 0 
+			printk(KERN_DEBUG "idi_ack: RC OK Id=%d Ch=%d Chan %d\n",
 			ack->RcId, ack->RcCh, chan->No);
 #endif
 			chan->e.busy = 0;
+
+			if (((chan->e.Req & 0x0f) == IDI_N_DATA) && (chan->e.ReqCh)) {
+#if 0 
+				printk(KERN_DEBUG"idi_ack: dec %d bytes from %d bytes of queue\n",
+						chan->waitq, chan->queued);
+#endif
+				chan->queued -= chan->waitq;
+				if (chan->queued < 0) chan->queued = 0;
+			}
 
 			if (chan->e.Req == REMOVE) {
 				card->IdTable[ack->RcId] = NULL;
@@ -1100,7 +1116,7 @@ idi_handle_ack(diehl_pci_card *card, struct sk_buff *skb)
 			}		
 #ifdef IDI_DEBUG
 			if (j > ccard->nchannels) {
-				printk(KERN_ERR"idi: stored ref %d not found\n", 
+				printk(KERN_ERR"idi: ref %d not found\n", 
 						ack->Reference);
 			}
 #endif
@@ -1127,7 +1143,9 @@ idi_send_data(diehl_card *card, diehl_chan *chan, int ack, struct sk_buff *skb)
 
         if (!len)
                 return 0;
-#ifdef IDI_DEBUG
+	if (chan->queued + len > 4000)
+		return 0;
+#if 0
 		printk(KERN_DEBUG"idi_send: Chan: %d   %d bytes  %s\n", chan->No, len, (ack)?"(ACK)":"");
 #endif
 	while(offset < len) {
@@ -1160,7 +1178,7 @@ idi_send_data(diehl_card *card, diehl_chan *chan, int ack, struct sk_buff *skb)
 
 		offset += plen;
 	}
-	chan->queued = len;
+	chan->queued += len;
         dev_kfree_skb(skb);
         return len;
 }

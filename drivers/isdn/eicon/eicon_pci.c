@@ -26,6 +26,11 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.1  1999/01/01 18:09:45  armin
+ * First checkin of new eicon driver.
+ * DIVA-Server BRI/PCI and PRI/PCI are supported.
+ * Old diehl code is obsolete.
+ *
  *
  */
 
@@ -661,6 +666,8 @@ diehl_pci_transmit(diehl_pci_card *card) {
 				else {
 					ram_outb(card, &ReqOut->ReqId, chan->e.B2Id); 
 					chan->e.ReqCh = 1;
+					if ((reqbuf->Req & 0x0f) == 0x08) /* Send Data */
+						chan->waitq = reqbuf->XBuffer.length;
 				}
 			} else {	/* It is an ASSIGN */
 				ram_outb(card, &ReqOut->ReqId, reqbuf->ReqId); 
