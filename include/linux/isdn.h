@@ -21,6 +21,10 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.93  2000/02/25 11:29:17  paul
+ * changed chargetime to ulong from int (after about 20 days the "chargetime of
+ * ipppX is now 1234" message displays a negative number on alpha).
+ *
  * Revision 1.92  2000/02/17 13:15:56  keil
  * fix backward compatibility for 2.2
  *
@@ -400,17 +404,17 @@
 #define ISDN_DW_ABC_FLAG_NO_UDP_CHECK		0x00000002L
 #define ISDN_DW_ABC_FLAG_NO_UDP_HANGUP		0x00000004L
 #define ISDN_DW_ABC_FLAG_NO_UDP_DIAL		0x00000008L
-#define ISDN_DW_ABC_FLAG_DYNADDR			0x00000010L
+#define ISDN_DW_ABC_FLAG_DYNADDR		0x00000010L
 #define ISDN_DW_ABC_FLAG_RCV_NO_HUPTIMER	0x00000020L
 #define ISDN_DW_ABC_FLAG_NO_CH_EXTINUSE		0x00000040L
 #define ISDN_DW_ABC_FLAG_NO_CONN_ERROR		0x00000080L
 #define ISDN_DW_ABC_FLAG_BSD_COMPRESS		0x00000100L
-#define ISDN_DW_ABC_FLAG_NO_LCR				0x00000200L
+#define ISDN_DW_ABC_FLAG_NO_LCR			0x00000200L
 #define ISDN_DW_ABC_FLAG_RW_SOCKADDR		0x00000400L
 #define ISDN_DW_ABC_FLAG_RWUDP_SOCKADDR		0x00000800L
 
-#define ISDN_DW_ABC_IFFLAG_NODCHAN			0x00000001L
-#define ISDN_DW_ABC_IFFLAG_BSDAKTIV			0x00000002L
+#define ISDN_DW_ABC_IFFLAG_NODCHAN		0x00000001L
+#define ISDN_DW_ABC_IFFLAG_BSDAKTIV		0x00000002L
 #define ISDN_DW_ABC_IFFLAG_RSTREMOTE		0x00000004L
 
 #define ISDN_DW_ABC_BITLOCK_SEND		0
@@ -477,7 +481,7 @@
 #define ISDN_USAGE_EXCLUSIVE 64 /* This bit is set, if channel is exclusive */
 #define ISDN_USAGE_OUTGOING 128 /* This bit is set, if channel is outgoing  */
 
-#define ISDN_MODEM_NUMREG    24  /* number of modem registers                 */
+#define ISDN_MODEM_NUMREG    24        /* Number of Modem-Registers        */
 #define ISDN_LMSNLEN         255 /* Length of tty's Listen-MSN string */
 #define ISDN_CMSGLEN	     50	 /* Length of CONNECT-Message to add for Modem */
 
@@ -585,6 +589,12 @@ typedef struct {
 #ifdef CONFIG_ISDN_X25
 #  include <linux/concap.h>
 #endif
+
+#ifdef HAVE_DEVFS_FS
+#ifdef CONFIG_DEVFS_FS
+#  include <linux/devfs_fs_kernel.h>
+#endif
+#endif /* HAVE_DEVFS_FS */
 
 #include <linux/isdnif.h>
 
@@ -1082,7 +1092,18 @@ typedef struct isdn_devt {
 	unsigned long     global_features;
 #ifdef CONFIG_ISDN_WITH_ABC_ICALL_BIND
 	u_long	          dwabc_lch_check;           /* lasttime a locical chanelmap checked */
+#endif 
+#ifdef HAVE_DEVFS_FS
+#ifdef CONFIG_DEVFS_FS
+	devfs_handle_t devfs_handle_isdninfo;
+	devfs_handle_t devfs_handle_isdnctrl;
+	devfs_handle_t devfs_handle_isdnX[ISDN_MAX_CHANNELS];
+	devfs_handle_t devfs_handle_isdnctrlX[ISDN_MAX_CHANNELS];
+#ifdef CONFIG_ISDN_PPP
+	devfs_handle_t devfs_handle_ipppX[ISDN_MAX_CHANNELS];
 #endif
+#endif /* CONFIG_DEVFS_FS */
+#endif /* HAVE_DEVFS_FS */
 } isdn_dev;
 
 extern isdn_dev *dev;
@@ -1126,7 +1147,6 @@ extern int dwabc_isdn_get_net_free_channel(isdn_net_local *);
 /* Utility-Macros */
 #define MIN(a,b) ((a<b)?a:b)
 #define MAX(a,b) ((a>b)?a:b)
-
 #ifdef COMPAT_NO_SOFTNET
 /*
  * Tell upper layers that the network device is ready to xmit more frames.
@@ -1156,6 +1176,5 @@ static void __inline__ netif_stop_queue(struct net_device * dev)
 	dev->tbusy = 1;
 }
 #endif /* COMPAT_NO_SOFTNET */
-
 #endif /* __KERNEL__ */
 #endif /* isdn_h */

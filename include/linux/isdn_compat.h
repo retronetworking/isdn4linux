@@ -61,9 +61,18 @@ static inline unsigned long copy_to_user(void *to, const void *from, unsigned lo
 #if LINUX_VERSION_CODE < KERNEL_VERSION(2,1,15)
 #define SET_SKB_FREE(x) ( x->free = 1 )
 #define idev_kfree_skb(a,b) dev_kfree_skb(a,b)
+#define idev_kfree_skb_irq(a,b) dev_kfree_skb(a,b)
+#define idev_kfree_skb_any(a,b) dev_kfree_skb(a,b)
 #else
 #define SET_SKB_FREE(x)
 #define idev_kfree_skb(a,b) dev_kfree_skb(a)
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2,3,43)
+#define idev_kfree_skb_irq(a,b) dev_kfree_skb(a)
+#define idev_kfree_skb_any(a,b) dev_kfree_skb(a)
+#else
+#define idev_kfree_skb_irq(a,b) dev_kfree_skb_irq(a)
+#define idev_kfree_skb_any(a,b) dev_kfree_skb_any(a)
+#endif
 #endif
 
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2,1,18)
@@ -137,6 +146,17 @@ static inline unsigned long copy_to_user(void *to, const void *from, unsigned lo
 
 #if LINUX_VERSION_CODE < KERNEL_VERSION(2,3,43)
 #define COMPAT_NO_SOFTNET
+#endif
+
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2,3,47)
+#define netif_running(d) test_bit(LINK_STATE_START, &d->state)
+#endif
+
+#if LINUX_VERSION_CODE > KERNEL_VERSION(2,3,45)
+#define HAVE_DEVFS_FS
+#else
+#define devfs_register_chrdev(m,n,f) register_chrdev(m,n,f)
+#define devfs_unregister_chrdev(m,n) unregister_chrdev(m,n)
 #endif
 
 #endif /* __KERNEL__ */
