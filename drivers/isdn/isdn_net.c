@@ -21,6 +21,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.84  1999/04/18 14:06:55  fritz
+ * Removed TIMRU stuff.
+ *
  * Revision 1.83  1999/04/12 12:33:23  fritz
  * Changes from 2.0 tree.
  *
@@ -2925,7 +2928,7 @@ isdn_net_getpeer(isdn_net_ioctl_phone *phone, isdn_net_ioctl_phone *peer)
 	/* for pre-bound channels, we need this extra check */
 	if ( strncmp(dev->num[idx],"???",3) == 0 ) return -ENOTCONN;
 	strncpy(phone->phone,dev->num[idx],ISDN_MSNLEN);
-	phone->outgoing=USG_OUTGOING(idx);
+	phone->outgoing=USG_OUTGOING(dev->num[idx]);
 	if ( copy_to_user(peer,phone,sizeof(*peer)) ) return -EFAULT;
 	return 0;
 }
