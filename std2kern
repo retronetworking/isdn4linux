@@ -104,6 +104,9 @@ else
   for i in drivers/isdn/avmb1/*.[ch] ; do
     $DOCP $i $KERNELDIR/$i
   done
+  for i in drivers/isdn/act2000/*.[ch] ; do
+    $DOCP $i $KERNELDIR/$i
+  done
   for i in include/linux/*.h ; do
     $DOCP $i $KERNELDIR/$i
   done
@@ -118,6 +121,7 @@ else
   for i in drivers/isdn/Makefile drivers/isdn/icn/Makefile \
            drivers/isdn/hisax/Makefile \
            drivers/isdn/pcbit/Makefile drivers/isdn/sc/Makefile \
+           drivers/isdn/act2000/Makefile \
            drivers/isdn/avmb1/Makefile; do
 	if [ -f $i.kernel ] ; then
     	$DOCP $i.kernel $KERNELDIR/$i
