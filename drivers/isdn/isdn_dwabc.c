@@ -20,6 +20,15 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.1  1999/09/12 16:19:39  detabc
+ * added abc features
+ * least cost routing for net-interfaces (only the HL side).
+ * need more implementation in the isdnlog-utility
+ * udp info support (first part).
+ * different EAZ on outgoing call's.
+ * more checks on D-Channel callbacks (double use of channels).
+ * tested and running with kernel 2.3.17
+ *
  *
  */
 
@@ -28,7 +37,7 @@
 
 #ifdef CONFIG_ISDN_WITH_ABC
 
-static char *dwabcrevison = "$ID:$";
+static char *dwabcrevison = "$Revision$";
 
 #include <asm/semaphore.h>
 #include <linux/isdn.h>
@@ -330,10 +339,11 @@ void isdn_dw_abc_lcr_ioctl(u_long arg)
 					char *xx = i.lcr_ioctl_nr;
 					char *exx = xx + sizeof(i.lcr_ioctl_nr);
 					char *d = lp->dw_abc_lcr_cmd->parm.setup.phone;
-					char *ed = d + ISDN_MSNLEN - 1;
+					char *ed = 
+						d + sizeof(lp->dw_abc_lcr_cmd->parm.setup.phone) - 1;
 
 					while(d < ed && xx < exx && *xx) *(d++) = *(xx++);
-					while(d < ed) *d = 0;
+					while(d < ed) *(d++) = 0;
 					*d = 0;
 				}
 			}
@@ -502,8 +512,7 @@ void isdn_dw_abc_init_func(void)
 	dw_abc_timer_running = 0;
 
 	printk( KERN_INFO
-		"abc-extension\n"
-		"Revison %s\n"
+		"abc-extension %s\n"
 		"written by\nDetlef Wengorz <detlefw@isdn4linux.de>\n"
 		"Installed options:\n"
 #ifdef CONFIG_ISDN_WITH_ABC_CALLB
@@ -534,7 +543,7 @@ void isdn_dw_abc_release_func(void)
 #endif
 
 	printk( KERN_INFO
-		"abc-extension Revison %s\n"
+		"abc-extension %s\n"
 		"written by\nDetlef Wengorz <detlefw@isdn4linux.de>\n"
 		"unloaded\n",
 		dwabcrevison);
