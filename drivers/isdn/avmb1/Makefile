@@ -11,6 +11,17 @@
 # parent makes..
 #
 # $Log$
+# Revision 1.9  2000/03/03 15:50:42  calle
+# - kernel CAPI:
+#   - Changed parameter "param" in capi_signal from __u32 to void *.
+#   - rewrote notifier handling in kcapi.c
+#   - new notifier NCCI_UP and NCCI_DOWN
+# - User CAPI:
+#   - /dev/capi20 is now a cloning device.
+#   - middleware extentions prepared.
+# - capidrv.c
+#   - locking of list operations and module count updates.
+#
 # Revision 1.8  2000/01/25 14:33:38  calle
 # - Added Support AVM B1 PCI V4.0 (tested with prototype)
 #   - splitted up t1pci.c into b1dma.c for common function with b1pciv4
@@ -82,10 +93,13 @@ MX_OBJS := # used as module
 O_TARGET := # used for .o targets (from O and OX objects)
 L_TARGET := # used for .a targets (from L and LX objects)
 
-ifeq ($(CONFIG_ISDN_DRV_AVMB1),y)
+ifeq ($(CONFIG_ISDN_CAPI),y)
   O_TARGET += avmb1.o
   OX_OBJS  += kcapi.o
   O_OBJS   += capi.o
+  ifdef CONFIG_ISDN_CAPI_MIDDLEWARE
+  	O_OBJS   += capifs.o
+  endif
   ifdef CONFIG_ISDN_DRV_AVMB1_B1ISA
   	O_OBJS   += b1isa.o
   endif
@@ -106,10 +120,13 @@ ifeq ($(CONFIG_ISDN_DRV_AVMB1),y)
   endif
   OX_OBJS  += capiutil.o capidrv.o b1.o b1dma.o
 else
-  ifeq ($(CONFIG_ISDN_DRV_AVMB1),m)
+  ifeq ($(CONFIG_ISDN_CAPI),m)
   	O_TARGET += kernelcapi.o
   	OX_OBJS  += kcapi.o
   	M_OBJS   += capi.o kernelcapi.o
+  	ifdef CONFIG_ISDN_CAPI_MIDDLEWARE
+  		M_OBJS   += capifs.o
+  	endif
   	ifdef CONFIG_ISDN_DRV_AVMB1_B1ISA
   		M_OBJS   += b1isa.o
   	endif
