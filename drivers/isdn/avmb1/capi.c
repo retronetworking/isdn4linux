@@ -6,6 +6,9 @@
  * Copyright 1996 by Carsten Paeth (calle@calle.in-berlin.de)
  *
  * $Log$
+ * Revision 1.39  2000/07/24 13:42:50  calle
+ * - lock_kernel/unlock_kernel for _release functions. (from 2.4)
+ *
  * Revision 1.38  2000/07/24 08:49:09  calle
  * - Bugfix: capiminor_del_all_ack completely wrong :-(
  *
@@ -1801,7 +1804,13 @@ int capinc_tty_chars_in_buffer(struct tty_struct *tty)
 int capinc_tty_ioctl(struct tty_struct *tty, struct file * file,
 		    unsigned int cmd, unsigned long arg)
 {
-	return -ENOIOCTLCMD;
+	int error = 0;
+	switch (cmd) {
+	default:
+		error = n_tty_ioctl (tty, file, cmd, arg);
+		break;
+	}
+	return error;
 }
 
 void capinc_tty_set_termios(struct tty_struct *tty, struct termios * old)
