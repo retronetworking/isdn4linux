@@ -20,6 +20,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.72  1999/07/31 12:59:45  armin
+ * Added tty fax capabilities.
+ *
  * Revision 1.71  1999/07/27 10:34:34  armin
  * Fixed last change. Did not compile with AUDIO support off.
  *
@@ -2396,8 +2399,8 @@ isdn_tty_modem_init(void)
 #else
 		info->open_wait = 0;
 		info->close_wait = 0;
-		info->isdn_driver = -1;
 #endif
+		info->isdn_driver = -1;
 		info->isdn_channel = -1;
 		info->drv_index = -1;
 		info->xmit_size = ISDN_SERIAL_XMIT_SIZE;
