@@ -20,6 +20,10 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.52  1998/03/19 13:18:21  keil
+ * Start of a CAPI like interface for supplementary Service
+ * first service: SUSPEND
+ *
  * Revision 1.51  1998/03/08 14:26:11  detabc
  * change kfree_skb to dev_kfree_skb
  * remove SET_SKB_FREE
@@ -242,6 +246,13 @@
 #define VBUF 0x3e0
 #define VBUFX (VBUF/16)
 #endif
+
+#undef CONFIG_ISDN_WITH_ABC
+/*
+** wegen einstweiliger verfuegung gegen DW ist zur zeit
+** die abc-extension bis zur klaerung der rechtslage nicht
+** im internet verfuegbar
+*/
 
 #define FIX_FILE_TRANSFER
 

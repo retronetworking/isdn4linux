@@ -27,6 +27,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.50  1998/05/05 23:11:51  detabc
+ * add Item to stop icmp-unreach (max. 6 times of dialwait delay)
+ *
  * Revision 1.49  1998/05/03 17:45:00  detabc
  * Add Item to send icmp-host-unreach to all packets
  *
@@ -380,6 +383,13 @@ typedef struct {
 #endif
 
 #include <linux/isdnif.h>
+#undef CONFIG_ISDN_WITH_ABC
+/*
+** wegen einstweiliger verfuegung gegen DW ist zur zeit
+** die abc-extension bis zur klaerung der rechtslage nicht
+** im internet verfuegbar
+*/
+
 
 #define ISDN_DRVIOCTL_MASK       0x7f  /* Mask for Device-ioctl */
 

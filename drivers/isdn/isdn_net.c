@@ -21,6 +21,11 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.66  1998/05/26 22:39:24  he
+ * sync'ed with 2.1.102 where appropriate (CAPABILITY changes)
+ * concap typo
+ * cleared dev.tbusy in isdn_net BCONN status callback
+ *
  * Revision 1.65  1998/05/22 10:01:11  detabc
  * in case of a icmp-unreach condition the tcp-keepalive-entrys
  * will be dropped from the internal double-link-list (only abc-extension).
@@ -298,6 +303,13 @@
 #include <linux/concap.h>
 #include "isdn_concap.h"
 #endif
+
+#undef CONFIG_ISDN_WITH_ABC
+/*
+** wegen einstweiliger verfuegung gegen DW ist zur zeit
+** die abc-extension bis zur klaerung der rechtslage nicht
+** im internet verfuegbar
+*/
 
 /* Prototypes */
 
