@@ -7,102 +7,16 @@
  *              Fritz Elfert
  *
  * $Log$
+ * Revision 2.1  1997/07/30 17:12:59  keil
+ * more changes for 'One TEI per card'
+ *
  * Revision 2.0  1997/07/27 21:12:21  keil
  * CRef based L3; new channel handling; many other stuff
  *
  * Revision 1.31  1997/06/26 11:09:23  keil
  * New managment and minor changes
  *
- * Revision 1.30  1997/05/29 10:40:43  keil
- * chanp->impair was uninitialised
- *
- * Revision 1.29  1997/04/23 20:09:49  fritz
- * Removed tmp, used by removed debugging code.
- *
- * Revision 1.28  1997/04/21 13:42:25  keil
- * Remove unneeded debug
- *
- * Revision 1.27  1997/04/16 14:21:01  keil
- * remove unused variable
- *
- * Revision 1.26  1997/04/13 19:55:21  keil
- * Changes in debugging code
- *
- * Revision 1.25  1997/04/06 22:54:08  keil
- * Using SKB's
- *
- * Revision 1.24  1997/03/05 11:28:03  keil
- * fixed undefined l2tei procedure
- * a layer1 release delete now the drel timer
- *
- * Revision 1.23  1997/03/04 23:07:42  keil
- * bugfix dial parameter
- *
- * Revision 1.22  1997/02/27 13:51:55  keil
- * Reset B-channel (dlc) statemachine in every release
- *
- * Revision 1.21  1997/02/19 09:24:27  keil
- * Bugfix: Hangup to LL if a ttyI rings
- *
- * Revision 1.20  1997/02/17 00:32:47  keil
- * Bugfix: No Busy reported to LL
- *
- * Revision 1.19  1997/02/14 12:23:10  fritz
- * Added support for new insmod parameter handling.
- *
- * Revision 1.18  1997/02/11 01:36:58  keil
- * Changed setup-interface (incoming and outgoing), cause reporting
- *
- * Revision 1.17  1997/02/09 00:23:10  keil
- * new interface handling, one interface per card
- * some changes in debug and leased line mode
- *
- * Revision 1.16  1997/01/27 23:17:03  keil
- * delete timers while unloading
- *
- * Revision 1.15  1997/01/27 16:00:38  keil
- * D-channel shutdown delay; improved callback
- *
- * Revision 1.14  1997/01/21 22:16:39  keil
- * new statemachine; leased line support; cleanup for 2.0
- *
- * Revision 1.13  1996/12/08 19:51:17  keil
- * bugfixes from Pekka Sarnila
- *
- * Revision 1.12  1996/11/26 20:20:03  keil
- * fixed warning while compile
- *
- * Revision 1.11  1996/11/26 18:43:17  keil
- * change ioctl 555 --> 55 (555 didn't work)
- *
- * Revision 1.10  1996/11/26 18:06:07  keil
- * fixed missing break statement,ioctl 555 reset modcount
- *
- * Revision 1.9  1996/11/18 20:23:19  keil
- * log writebuf channel not open changed
- *
- * Revision 1.8  1996/11/06 17:43:17  keil
- * more changes for 2.1.X;block fixed ST_PRO_W
- *
- * Revision 1.7  1996/11/06 15:13:51  keil
- * typo 0x64 --->64 in debug code
- *
- * Revision 1.6  1996/11/05 19:40:33  keil
- * X.75 windowsize
- *
- * Revision 1.5  1996/10/30 10:11:06  keil
- * debugging LOCK changed;ST_REL_W EV_HANGUP added
- *
- * Revision 1.4  1996/10/27 22:20:16  keil
- * alerting bugfixes
- * no static b-channel<->channel mapping
- *
- * Revision 1.2  1996/10/16 21:29:45  keil
- * compile bug as "not module"
- * Callback with euro
- *
- * Revision 1.1  1996/10/13 20:04:50  keil
- * Initial revision
+ * old logs removed /KKe
  *
  */
 
@@ -134,6 +48,9 @@ static struct Fsm lcfsm =
 {NULL, 0, 0, NULL, NULL};
 
 static int chancount = 0;
+
+/* experimental REJECT after ALERTING for CALLBACK to beat the 4s delay */ 
+#define ALERT_REJECT 1
 
 /* Flags for remembering action done in lli */
 
@@ -475,8 +392,12 @@ lli_start_dchan(struct FsmInst *fi, int event, void *arg)
 	FsmDelTimer(&chanp->drel_timer, 61);
 	if (event == EV_ACCEPTD)
 		SETBIT(chanp->Flags, FLG_DO_CONNECT);
-	else if (event == EV_HANGUP)
+	else if (event == EV_HANGUP) {
 		SETBIT(chanp->Flags, FLG_DO_HANGUP);
+#ifdef ALERT_REJECT		
+		SETBIT(chanp->Flags, FLG_DO_ALERT);
+#endif
+	} 
 	if (chanp->Flags & FLG_ESTAB_D) {
 		FsmEvent(fi, EV_DLEST, NULL);
 	} else if (!(chanp->Flags & FLG_START_D)) {
@@ -562,7 +483,19 @@ lli_do_action(struct FsmInst *fi, int event, void *arg)
 	struct Channel *chanp = fi->userdata;
 
 	SETBIT(chanp->Flags, FLG_ESTAB_D);
-	if (chanp->Flags & FLG_DO_HANGUP) {
+	if ((chanp->Flags & FLG_DO_CONNECT) && !(chanp->Flags & FLG_DO_HANGUP)) {
+		FsmChangeState(fi, ST_IN_WAIT_CONN_ACK);
+		RESBIT(chanp->Flags, FLG_DO_CONNECT);
+		RESBIT(chanp->Flags, FLG_DO_ALERT);
+		chanp->d_st->lli.l4l3(chanp->d_st, CC_SETUP_RSP, chanp->proc);
+	} else if (chanp->Flags & FLG_DO_ALERT) {
+		if (chanp->Flags & FLG_DO_HANGUP)
+			FsmRestartTimer(&chanp->drel_timer, 40, EV_HANGUP, NULL, 63);
+		FsmChangeState(fi, ST_IN_ALERT_SEND);
+		RESBIT(chanp->Flags, FLG_DO_ALERT);
+		SETBIT(chanp->Flags, FLG_CALL_ALERT);
+		chanp->d_st->lli.l4l3(chanp->d_st, CC_ALERTING_REQ, chanp->proc);
+	} else if (chanp->Flags & FLG_DO_HANGUP) {
 		FsmChangeState(fi, ST_WAIT_DRELEASE);
 		RESBIT(chanp->Flags, FLG_DO_HANGUP);
 		RESBIT(chanp->Flags, FLG_DO_CONNECT);
@@ -570,16 +503,6 @@ lli_do_action(struct FsmInst *fi, int event, void *arg)
 		chanp->proc->para.cause = 0x15;		/* Call Rejected */
 		chanp->d_st->lli.l4l3(chanp->d_st, CC_REJECT_REQ, chanp->proc);
 		SETBIT(chanp->Flags, FLG_DISC_SEND);
-	} else if (chanp->Flags & FLG_DO_CONNECT) {
-		FsmChangeState(fi, ST_IN_WAIT_CONN_ACK);
-		RESBIT(chanp->Flags, FLG_DO_CONNECT);
-		RESBIT(chanp->Flags, FLG_DO_ALERT);
-		chanp->d_st->lli.l4l3(chanp->d_st, CC_SETUP_RSP, chanp->proc);
-	} else if (chanp->Flags & FLG_DO_ALERT) {
-		FsmChangeState(fi, ST_IN_ALERT_SEND);
-		RESBIT(chanp->Flags, FLG_DO_ALERT);
-		SETBIT(chanp->Flags, FLG_CALL_ALERT);
-		chanp->d_st->lli.l4l3(chanp->d_st, CC_ALERTING_REQ, chanp->proc);
 	}
 }
 
@@ -739,7 +662,11 @@ lli_send_d_disc(struct FsmInst *fi, int event, void *arg)
 		release_b_st(chanp);
 		RESBIT(chanp->Flags, FLG_START_B);
 	}
-	chanp->proc->para.cause = 0x10;		/* Normal Call Clearing */
+	if (chanp->Flags & FLG_DO_HANGUP) {
+		RESBIT(chanp->Flags, FLG_DO_HANGUP);
+		chanp->proc->para.cause = 0x15;		/* Call Reject */
+	} else
+		chanp->proc->para.cause = 0x10;		/* Normal Call Clearing */
 	chanp->d_st->lli.l4l3(chanp->d_st, CC_DISCONNECT_REQ, chanp->proc);
 	SETBIT(chanp->Flags, FLG_DISC_SEND);
 }
