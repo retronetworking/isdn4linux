@@ -1,6 +1,6 @@
 I4LVERSION=2.0.28
 
-KERNELDIR = /usr/src/linux
+KERNELDIR =/usr/src/linux
 
 ######### NOTHING TO CHANGE BELOW ################
 .EXPORT_ALL_VARIABLES:
