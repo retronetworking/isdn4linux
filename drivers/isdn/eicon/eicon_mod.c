@@ -32,7 +32,7 @@
 
 #define DRIVERNAME "Eicon active ISDN driver"
 #define DRIVERRELEASE "2.0"
-#define DRIVERPATCH ".10"
+#define DRIVERPATCH ".11"
 
 
 #include <linux/config.h>
