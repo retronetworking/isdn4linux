@@ -21,6 +21,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.31.2.18  1999/04/22 21:12:12  werner
+ * Added support for dss1 diversion services
+ *
  * Revision 1.31.2.17  1998/11/05 22:13:28  fritz
  * Changed mail-address.
  *
@@ -201,6 +204,7 @@
 #ifndef isdn_h
 #define isdn_h
 
+#include <linux/isdn_compat.h>
 #include <linux/config.h>
 #include <linux/ioctl.h>
 

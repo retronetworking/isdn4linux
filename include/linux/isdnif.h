@@ -22,6 +22,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.20.2.4  1999/05/05 19:28:45  werner
+ * added new stat message for DISPLAY
+ *
  * Revision 1.20.2.3  1999/04/22 21:12:18  werner
  * Added support for dss1 diversion services
  *
@@ -105,6 +108,7 @@
 #ifndef isdnif_h
 #define isdnif_h
 
+#include <linux/isdn_compat.h>
 /*
  * Values for general protocol-selection
  */
@@ -113,6 +117,7 @@
 #define ISDN_PTYPE_EURO      2   /* EDSS1-protocol       */
 #define ISDN_PTYPE_LEASED    3   /* for leased lines     */
 #define ISDN_PTYPE_NI1       4   /* US NI-1 protocol     */
+#define ISDN_PTYPE_MAX       7   /* Max. 8 Protocols     */
 
 /*
  * Values for Layer-2-protocol-selection
@@ -122,6 +127,13 @@
 #define ISDN_PROTO_L2_X75BUI 2   /* X75/LAPB with UI-Frames     */
 #define ISDN_PROTO_L2_HDLC   3   /* HDLC                        */
 #define ISDN_PROTO_L2_TRANS  4   /* Transparent (Voice)         */
+#define ISDN_PROTO_L2_X25DTE 5   /* X25/LAPB DTE mode                 */
+#define ISDN_PROTO_L2_X25DCE 6   /* X25/LAPB DCE mode                 */
+#define ISDN_PROTO_L2_V11096 7   /* V.110 bitrate adaption 9600 Baud  */
+#define ISDN_PROTO_L2_V11019 8   /* V.110 bitrate adaption 19200 Baud */
+#define ISDN_PROTO_L2_V11038 9   /* V.110 bitrate adaption 38400 Baud */
+#define ISDN_PROTO_L2_MODEM  10  /* Analog Modem on Board */
+#define ISDN_PROTO_L2_MAX    15  /* Max. 16 Protocols                 */
 
 /*
  * Values for Layer-3-protocol-selection
@@ -243,7 +255,7 @@ typedef struct
 #define ISDN_CMD_ALERT   19       /* Alert after Proceeding                */
 #define ISDN_CMD_REDIR   20       /* Redir a incoming call                 */ 
 #define ISDN_CMD_PROT_IO 21       /* Protocol specific commands            */
-
+#define CAPI_PUT_MESSAGE 22       /* CAPI message send down or up          */
 
 /*
  * Status-Values delivered from lowlevel to linklevel via
@@ -269,6 +281,7 @@ typedef struct
 #define ISDN_STAT_REDIR   272    /* Redir result                          */ 
 #define ISDN_STAT_PROT    273    /* protocol IO specific callback         */
 #define ISDN_STAT_DISPLAY 274    /* deliver a received display message    */
+#define ISDN_STAT_L1ERR   275    /* Signal Layer-1 Error                  */
 
 /*
  * Values for feature-field of interface-struct.
@@ -279,15 +292,30 @@ typedef struct
 #define ISDN_FEATURE_L2_X75BUI  (0x0001 << ISDN_PROTO_L2_X75BUI)
 #define ISDN_FEATURE_L2_HDLC    (0x0001 << ISDN_PROTO_L2_HDLC)
 #define ISDN_FEATURE_L2_TRANS   (0x0001 << ISDN_PROTO_L2_TRANS)
+#define ISDN_FEATURE_L2_X25DTE  (0x0001 << ISDN_PROTO_L2_X25DTE)
+#define ISDN_FEATURE_L2_X25DCE  (0x0001 << ISDN_PROTO_L2_X25DCE)
+#define ISDN_FEATURE_L2_V11096  (0x0001 << ISDN_PROTO_L2_V11096)
+#define ISDN_FEATURE_L2_V11019  (0x0001 << ISDN_PROTO_L2_V11019)
+#define ISDN_FEATURE_L2_V11038  (0x0001 << ISDN_PROTO_L2_V11038)
+#define ISDN_FEATURE_L2_MODEM   (0x0001 << ISDN_PROTO_L2_MODEM)
+
+#define ISDN_FEATURE_L2_MASK    (0x0FFFF) /* Max. 16 protocols */
+#define ISDN_FEATURE_L2_SHIFT   (0)
 
 /* Layer 3 */
 #define ISDN_FEATURE_L3_TRANS   (0x0100 << ISDN_PROTO_L3_TRANS)
+
+#define ISDN_FEATURE_L3_MASK    (0x0FF0000) /* Max. 8 Protocols */
+#define ISDN_FEATURE_L3_SHIFT   (16)
 
 /* Signaling */
 #define ISDN_FEATURE_P_UNKNOWN  (0x1000 << ISDN_PTYPE_UNKNOWN)
 #define ISDN_FEATURE_P_1TR6     (0x1000 << ISDN_PTYPE_1TR6)
 #define ISDN_FEATURE_P_EURO     (0x1000 << ISDN_PTYPE_EURO)
 #define ISDN_FEATURE_P_NI1      (0x1000 << ISDN_PTYPE_NI1)
+
+#define ISDN_FEATURE_P_MASK     (0x0FF000000) /* Max. 8 Protocols */
+#define ISDN_FEATURE_P_SHIFT    (24)
 
 typedef struct setup_parm {
     char phone[32];         /* Remote Phone-Number    */
@@ -298,20 +326,45 @@ typedef struct setup_parm {
     unsigned char screen;   /* Screening info         */
 } setup_parm;
 
+/* CAPI structs */
+
+/* this is compatible to the old union size */
+#define MAX_CAPI_PARA_LEN 50
+
+typedef struct {
+	/* Header */
+	__u16 Length;
+	__u16 ApplId;
+	__u8 Command;
+	__u8 Subcommand;
+	__u16 Messagenumber;
+
+	/* Parameter */
+	union {
+		__u32 Controller;
+		__u32 PLCI;
+		__u32 NCCI;
+	} adr;
+	__u8 para[MAX_CAPI_PARA_LEN];
+} capi_msg;
+
 /*
  * Structure for exchanging above infos
  *
  */
 typedef struct {
-  int   driver;           /* Lowlevel-Driver-ID            */
-  int   command;          /* Command or Status (see above) */
-  ulong arg;              /* Additional Data               */
-  union {
-	char  num[50];    /* Additional Data               */
-        char  display[85];/* display message data          */ 
-	setup_parm setup; /* Data for call setup           */
-        dss1_cmd_stat dss1_io; /* DSS1 IO-parameter/result */
-  } parm;
+	int   driver;		/* Lowlevel-Driver-ID            */
+	int   command;		/* Command or Status (see above) */
+	ulong arg;		/* Additional Data               */
+	union {
+		ulong errcode;	/* Type of error with STAT_L1ERR         */
+		int length;	/* Amount of bytes sent with STAT_BSENT  */
+		u_char num[50];/* Additional Data			*/
+		setup_parm setup;/* For SETUP msg			*/
+		capi_msg cmsg;	/* For CAPI like messages		*/
+		char display[85];/* display message data          */ 
+		dss1_cmd_stat dss1_io; /* DSS1 IO-parameter/result */
+	} parm;
 } isdn_ctrl;
 
 /*
@@ -405,9 +458,10 @@ typedef struct {
    * Parameters:
    *             int                    driverId
    *             int                    local channel-number (0...)
+   *             int                    Flag: Need ACK for this packet.
    *             struct sk_buff *skb    Data to send
    */
-  int (*writebuf_skb) (int, int, struct sk_buff *);
+  int (*writebuf_skb) (int, int, int, struct sk_buff *);
 
   /* Send raw D-Channel-Commands
    * Parameters:
@@ -459,78 +513,6 @@ typedef struct {
  *
  */
 extern int register_isdn(isdn_if*);
-
-/* Compatibility Linux-2.0.X <-> Linux-2.1.X */
-
-#ifndef LINUX_VERSION_CODE
-#include <linux/version.h>
-#endif
-#if (LINUX_VERSION_CODE < 0x020100)
-#include <linux/mm.h>
-
-static inline unsigned long copy_from_user(void *to, const void *from, unsigned long n)
-{
-	int i;
-	if ((i = verify_area(VERIFY_READ, from, n)) != 0)
-		return i;
-	memcpy_fromfs(to, from, n);
-	return 0;
-}
-
-static inline unsigned long copy_to_user(void *to, const void *from, unsigned long n)
-{
-	int i;
-	if ((i = verify_area(VERIFY_WRITE, to, n)) != 0)
-		return i;
-	memcpy_tofs(to, from, n);
-	return 0;
-}
-
-#define GET_USER(x, addr) ( x = get_user(addr) )
-#ifdef __alpha__ /* needed for 2.0.x with alpha-patches */
-#define RWTYPE long
-#define LSTYPE long
-#define RWARG unsigned long
-#else
-#define RWTYPE int
-#define LSTYPE int
-#define RWARG int
-#endif
-#define LSARG off_t
-#else
-#include <asm/uaccess.h>
-#define GET_USER get_user
-#define PUT_USER put_user
-#define RWTYPE long
-#define LSTYPE long long
-#define RWARG unsigned long
-#define LSARG long long
-#endif
-
-#if (LINUX_VERSION_CODE < 0x02010F)
-#define SET_SKB_FREE(x) ( x->free = 1 )
-#define idev_kfree_skb(a,b) dev_kfree_skb(a,b)
-#else
-#define SET_SKB_FREE(x)
-#define idev_kfree_skb(a,b) dev_kfree_skb(a)
-#endif
-
-#if (LINUX_VERSION_CODE < 0x02011F)
-#define CLOSETYPE void
-#define CLOSEVAL
-#else
-#define CLOSETYPE int
-#define CLOSEVAL (0)
-#endif
-
-#if (LINUX_VERSION_CODE < 0x020125)
-#define test_and_clear_bit clear_bit
-#define test_and_set_bit set_bit
-#endif
-
-#if (LINUX_VERSION_CODE < 0x02017f)
-#define schedule_timeout(a) current->timeout = jiffies + (a); schedule ();
-#endif
 
 #endif /* __KERNEL__ */
 #endif /* isdnif_h */
