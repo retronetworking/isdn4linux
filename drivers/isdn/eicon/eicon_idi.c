@@ -1,7 +1,7 @@
 /* $Id$
  *
  * ISDN lowlevel-module for Eicon.Diehl active cards.
- *        IDI encoder/decoder
+ *        IDI interface 
  *
  * Copyright 1998,99 by Armin Schindler (mac@topmail.de)
  * Copyright 1999    Cytronics & Melware (cytronics-melware@topmail.de)
@@ -21,6 +21,10 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.4  1999/01/10 18:46:05  armin
+ * Bug with wrong values in HLC fixed.
+ * Bytes to send are counted and limited now.
+ *
  * Revision 1.3  1999/01/05 14:49:34  armin
  * Added experimental usage of full BC and HLC for
  * speech, 3.1kHz audio, fax gr.2/3
@@ -40,18 +44,11 @@
 #include "eicon.h"
 #include "eicon_idi.h"
 
-#undef IDI_DEBUG
 #undef EICON_FULL_SERVICE_OKTETT
 
 char *diehl_idi_revision = "$Revision$";
 
 eicon_manifbuf *manbuf;
-
-/* Macro for delay via schedule() */
-#define SLEEP(j) {                     \
-  current->state = TASK_INTERRUPTIBLE; \
-  schedule_timeout(j);                 \
-}
 
 static char BC_Speech[3] = 	{ 0x80, 0x90, 0xa3 };
 static char BC_31khz[3] =  	{ 0x90, 0x90, 0xa3 };
@@ -59,7 +56,9 @@ static char BC_64k[2] =    	{ 0x88, 0x90 };
 static char BC_video[3] =  	{ 0x91, 0x90, 0xa5 };
 
 #ifdef EICON_FULL_SERVICE_OKTETT
-/* static char HLC_telephony[2] =	{ 0x91, 0x81 }; */
+/* 
+static char HLC_telephony[2] =	{ 0x91, 0x81 }; 
+*/
 static char HLC_faxg3[2] =  	{ 0x91, 0x84 };
 #endif
 
@@ -135,62 +134,14 @@ idi_assign_req(diehl_pci_REQ *reqbuf, int signet, diehl_chan *chan)
 }
 
 int
-idi_indicate_req(diehl_pci_REQ *reqbuf)
+idi_put_req(diehl_pci_REQ *reqbuf, int rq, int signet)
 {
-	reqbuf->Req = INDICATE_REQ;
-	reqbuf->ReqCh = 0;
-	reqbuf->ReqId = 1;
-	reqbuf->XBuffer.length = 1;
-	reqbuf->XBuffer.P[0] = 0;
-	reqbuf->Reference = 0; /* Sig Entity */
-   return(0);
-}
-
-int
-idi_remove_req(diehl_pci_REQ *reqbuf, int signet)
-{
-	reqbuf->Req = REMOVE;
+	reqbuf->Req = rq;
 	reqbuf->ReqCh = 0;
 	reqbuf->ReqId = 1;
 	reqbuf->XBuffer.length = 1;
 	reqbuf->XBuffer.P[0] = 0;
 	reqbuf->Reference = signet;
-   return(0);
-}
-
-int
-idi_hangup_req(diehl_pci_REQ *reqbuf)
-{
-	reqbuf->Req = HANGUP;
-	reqbuf->ReqCh = 0;
-	reqbuf->ReqId = 1;
-	reqbuf->XBuffer.length = 1;
-	reqbuf->XBuffer.P[0] = 0;
-	reqbuf->Reference = 0; /* Sig Entity */
-   return(0);
-}
-
-int
-idi_reject_req(diehl_pci_REQ *reqbuf)
-{
-	reqbuf->Req = REJECT;
-	reqbuf->ReqCh = 0;
-	reqbuf->ReqId = 1;
-	reqbuf->XBuffer.length = 1;
-	reqbuf->XBuffer.P[0] = 0;
-	reqbuf->Reference = 0; /* Sig Entity */
-   return(0);
-}
-
-int
-idi_call_alert_req(diehl_pci_REQ *reqbuf)
-{
-	reqbuf->Req = CALL_ALERT;
-	reqbuf->ReqCh = 0;
-	reqbuf->ReqId = 1;
-	reqbuf->XBuffer.length = 1;
-	reqbuf->XBuffer.P[0] = 0;
-	reqbuf->Reference = 0; /* Sig Entity */
    return(0);
 }
 
@@ -207,8 +158,8 @@ idi_call_res_req(diehl_pci_REQ *reqbuf, diehl_chan *chan)
 	reqbuf->XBuffer.P[3] = 0;
 	reqbuf->XBuffer.P[4] = 0;
 	reqbuf->XBuffer.P[5] = 0;
-	reqbuf->XBuffer.P[6] = 32;
-	reqbuf->XBuffer.P[7] = 0;
+	reqbuf->XBuffer.P[6] = 0;
+	reqbuf->XBuffer.P[7] = 1;
 	switch(chan->l2prot) {
 		case ISDN_PROTO_L2_X75I:
 		case ISDN_PROTO_L2_X75UI:
@@ -234,70 +185,16 @@ idi_call_res_req(diehl_pci_REQ *reqbuf, diehl_chan *chan)
 			reqbuf->XBuffer.P[4] = 0;
 			break;
 		case ISDN_PROTO_L2_MODEM:
-			reqbuf->XBuffer.P[1] = 3;
 			reqbuf->XBuffer.P[2] = 0x10;
 			reqbuf->XBuffer.P[3] = 8;
 			reqbuf->XBuffer.P[4] = 0;
-			l = 6;
 			break;
 	}
 	reqbuf->XBuffer.P[8] = 0;
 	reqbuf->XBuffer.length = l;
 	reqbuf->Reference = 0; /* Sig Entity */
-#ifdef IDI_DEBUG
-	printk(KERN_DEBUG"idi: Call_Res\n");
-#endif
-   return(0);
-}
-
-int
-idi_n_connect_req(diehl_pci_REQ *reqbuf)
-{
-	reqbuf->Req = IDI_N_CONNECT;
-	reqbuf->ReqCh = 0;
-	reqbuf->ReqId = 1;
-	reqbuf->XBuffer.length = 1;
-	reqbuf->XBuffer.P[0] = 0;
-	reqbuf->Reference = 1; /* Net Entity */
-#ifdef IDI_DEBUG
-	printk(KERN_DEBUG"idi: N_Connect_Req\n");
-#endif
-   return(0);
-}
-
-int
-idi_n_connect_ack_req(diehl_pci_REQ *reqbuf)
-{
-	reqbuf->Req = IDI_N_CONNECT_ACK;
-	reqbuf->ReqCh = 0;
-	reqbuf->ReqId = 1;
-	reqbuf->XBuffer.length = 1;
-	reqbuf->XBuffer.P[0] = 0;
-	reqbuf->Reference = 1; /* Net Entity */
-   return(0);
-}
-
-int
-idi_n_disc_req(diehl_pci_REQ *reqbuf)
-{
-	reqbuf->Req = IDI_N_DISC;
-	reqbuf->ReqCh = 0;
-	reqbuf->ReqId = 1;
-	reqbuf->XBuffer.length = 1;
-	reqbuf->XBuffer.P[0] = 0;
-	reqbuf->Reference = 1; /* Net Entity */
-   return(0);
-}
-
-int
-idi_n_disc_ack_req(diehl_pci_REQ *reqbuf)
-{
-        reqbuf->Req = IDI_N_DISC_ACK;
-        reqbuf->ReqCh = 0;
-        reqbuf->ReqId = 1;
-        reqbuf->XBuffer.length = 1;
-        reqbuf->XBuffer.P[0] = 0;
-        reqbuf->Reference = 1; /* Net Entity */
+	if (DebugVar & 8)
+		printk(KERN_DEBUG"idi: Call_Res\n");
    return(0);
 }
 
@@ -313,7 +210,8 @@ idi_do_req(diehl_card *card, diehl_chan *chan, int cmd, int layer)
         skb2 = alloc_skb(sizeof(diehl_chan_ptr), GFP_ATOMIC);
 
         if ((!skb) || (!skb2)) {
-                printk(KERN_WARNING "idi: alloc_skb failed\n");
+		if (DebugVar & 1)
+                	printk(KERN_WARNING "idi: alloc_skb failed\n");
                 return -ENOMEM; 
 	}
 
@@ -321,9 +219,8 @@ idi_do_req(diehl_card *card, diehl_chan *chan, int cmd, int layer)
 	chan2->ptr = chan;
 
 	reqbuf = (diehl_pci_REQ *)skb_put(skb, 270 + sizeof(diehl_pci_REQ));
-#ifdef IDI_DEBUG
-	printk(KERN_DEBUG "idi: Request 0x%02x for Ch %d  (%s)\n", cmd, chan->No, (layer)?"Net":"Sig");
-#endif
+	if (DebugVar & 8)
+		printk(KERN_DEBUG "idi: Request 0x%02x for Ch %d  (%s)\n", cmd, chan->No, (layer)?"Net":"Sig");
 	if (layer) cmd |= 0x700;
 	switch(cmd) {
 		case ASSIGN:
@@ -332,37 +229,38 @@ idi_do_req(diehl_card *card, diehl_chan *chan, int cmd, int layer)
 			break;
 		case REMOVE:
 		case REMOVE|0x700:
-			idi_remove_req(reqbuf, layer);
+			idi_put_req(reqbuf, REMOVE, layer);
 			break;
 		case INDICATE_REQ:
-			idi_indicate_req(reqbuf);
+			idi_put_req(reqbuf, INDICATE_REQ, 0);
 			break;
 		case HANGUP:
-			idi_hangup_req(reqbuf);
+			idi_put_req(reqbuf, HANGUP, 0);
 			break;
 		case REJECT:
-			idi_reject_req(reqbuf);
+			idi_put_req(reqbuf, REJECT, 0);
 			break;
 		case CALL_ALERT:
-			idi_call_alert_req(reqbuf);
+			idi_put_req(reqbuf, CALL_ALERT, 0);
 			break;
 		case CALL_RES:
 			idi_call_res_req(reqbuf, chan);
 			break;
 		case IDI_N_CONNECT|0x700:
-			idi_n_connect_req(reqbuf);
+			idi_put_req(reqbuf, IDI_N_CONNECT, 1);
 			break;
 		case IDI_N_CONNECT_ACK|0x700:
-			idi_n_connect_ack_req(reqbuf);
+			idi_put_req(reqbuf, IDI_N_CONNECT_ACK, 1);
 			break;
 		case IDI_N_DISC|0x700:
-			idi_n_disc_req(reqbuf);
+			idi_put_req(reqbuf, IDI_N_DISC, 1);
 			break;
 		case IDI_N_DISC_ACK|0x700:
-			idi_n_disc_ack_req(reqbuf);
+			idi_put_req(reqbuf, IDI_N_DISC_ACK, 1);
 			break;
 		default:
-			printk(KERN_ERR "idi: Unknown request\n");
+			if (DebugVar & 1)
+				printk(KERN_ERR "idi: Unknown request\n");
 			return(-1);
 	}
 
@@ -372,13 +270,11 @@ idi_do_req(diehl_card *card, diehl_chan *chan, int cmd, int layer)
 	return(0);
 }
 
-
 int
 diehl_idi_listen_req(diehl_card *card, diehl_chan *chan)
 {
-#if 0 
-	printk(KERN_DEBUG"idi: Listen_Req eazmask=0x%x Ch:%d\n", chan->eazmask, chan->No);
-#endif
+	if (DebugVar & 16)
+		printk(KERN_DEBUG"idi: Listen_Req eazmask=0x%x Ch:%d\n", chan->eazmask, chan->No);
 	if (!chan->e.D3Id) {
 		idi_do_req(card, chan, ASSIGN, 0); 
 	}
@@ -438,9 +334,8 @@ idi_hangup(diehl_card *card, diehl_chan *chan)
 	if (chan->e.B2Id) idi_do_req(card, chan, REMOVE, 1);
 	idi_do_req(card, chan, HANGUP, 0);
 	chan->fsm_state = DIEHL_STATE_NULL;
-#ifdef IDI_DEBUG
-	printk(KERN_DEBUG"idi: Hangup\n");
-#endif
+	if (DebugVar & 8)
+		printk(KERN_DEBUG"idi: Hangup\n");
   return(0);
 }
 
@@ -471,7 +366,8 @@ idi_connect_req(diehl_card *card, diehl_chan *chan, char *phone,
         skb2 = alloc_skb(sizeof(diehl_chan_ptr), GFP_ATOMIC);
 
         if ((!skb) || (!skb2)) {
-                printk(KERN_WARNING "idi: alloc_skb failed\n");
+		if (DebugVar & 1)
+                	printk(KERN_WARNING "idi: alloc_skb failed\n");
                 return -ENOMEM; 
 	}
 
@@ -519,44 +415,42 @@ idi_connect_req(diehl_card *card, diehl_chan *chan, char *phone,
 	reqbuf->XBuffer.P[l++] = 0;
 	reqbuf->XBuffer.P[l++] = 0;
 	reqbuf->XBuffer.P[l++] = 0;
-	reqbuf->XBuffer.P[l++] = 32;
 	reqbuf->XBuffer.P[l++] = 0;
+	reqbuf->XBuffer.P[l++] = 1;
         switch(chan->l2prot) {
 		case ISDN_PROTO_L2_X75I:
 		case ISDN_PROTO_L2_X75UI:
 		case ISDN_PROTO_L2_X75BUI:
                 case ISDN_PROTO_L2_HDLC:
-                        reqbuf->XBuffer.P[l-5] = 5;
-                        reqbuf->XBuffer.P[l-6] = 1;
-			l -= 5;
+                        reqbuf->XBuffer.P[l-6] = 5;
+                        reqbuf->XBuffer.P[l-7] = 1;
+			l -= 5; 
                         break;
                 case ISDN_PROTO_L2_V11096:
-                        reqbuf->XBuffer.P[l-6] = 3;
-                        reqbuf->XBuffer.P[l-5] = 0x0d;
-                        reqbuf->XBuffer.P[l-4] = 5;
-                        reqbuf->XBuffer.P[l-3] = 0;
+                        reqbuf->XBuffer.P[l-7] = 3;
+                        reqbuf->XBuffer.P[l-6] = 0x0d;
+                        reqbuf->XBuffer.P[l-5] = 5;
+                        reqbuf->XBuffer.P[l-4] = 0;
                         l -= 3;
                         break;
                 case ISDN_PROTO_L2_V11019:
-                        reqbuf->XBuffer.P[l-6] = 3;
-                        reqbuf->XBuffer.P[l-5] = 0x0d;
-                        reqbuf->XBuffer.P[l-4] = 6;
-                        reqbuf->XBuffer.P[l-3] = 0;
+                        reqbuf->XBuffer.P[l-7] = 3;
+                        reqbuf->XBuffer.P[l-6] = 0x0d;
+                        reqbuf->XBuffer.P[l-5] = 6;
+                        reqbuf->XBuffer.P[l-4] = 0;
                         l -= 3;
                         break;
                 case ISDN_PROTO_L2_V11038:
-                        reqbuf->XBuffer.P[l-6] = 3;
-                        reqbuf->XBuffer.P[l-5] = 0x0d;
-                        reqbuf->XBuffer.P[l-4] = 7;
-                        reqbuf->XBuffer.P[l-3] = 0;
+                        reqbuf->XBuffer.P[l-7] = 3;
+                        reqbuf->XBuffer.P[l-6] = 0x0d;
+                        reqbuf->XBuffer.P[l-5] = 7;
+                        reqbuf->XBuffer.P[l-4] = 0;
                         l -= 3;
                         break;
                 case ISDN_PROTO_L2_MODEM:
-			reqbuf->XBuffer.P[l-6] = 3;
-			reqbuf->XBuffer.P[l-5] = 0x10;
-			reqbuf->XBuffer.P[l-4] = 8;
-			reqbuf->XBuffer.P[l-3] = 0;
-			l -= 3;
+			reqbuf->XBuffer.P[l-6] = 0x10;
+			reqbuf->XBuffer.P[l-5] = 8;
+			reqbuf->XBuffer.P[l-4] = 0;
                         break;
         }
 	
@@ -569,9 +463,8 @@ idi_connect_req(diehl_card *card, diehl_chan *chan, char *phone,
 	diehl_schedule_tx(card);
 
 	idi_do_req(card, chan, ASSIGN, 1); 
-#ifdef IDI_DEBUG
-  	printk(KERN_DEBUG"idi: Conn_Req %s -> %s\n",eazmsn,phone);
-#endif
+	if (DebugVar & 8)
+  		printk(KERN_DEBUG"idi: Conn_Req %s -> %s\n",eazmsn,phone);
    return(0);
 }
 
@@ -622,7 +515,7 @@ idi_IndParse(diehl_pci_card *card, diehl_chan *chan, idi_ind_message *message, u
 		code |= (codeset<<8);
 
 		switch(code) {
-			case CPN:
+			case OAD:
 				j = 1;
 				if (wlen) {
 					message->plan = buffer[pos++];
@@ -634,122 +527,196 @@ idi_IndParse(diehl_pci_card *card, diehl_chan *chan, idi_ind_message *message, u
 					}
 				}
 				for(i=0; i < wlen-j; i++) 
-					message->cpn[i] = buffer[pos++];
-#ifdef IDI_DEBUG
-				printk(KERN_DEBUG"idi: CPN=%s\n", message->cpn);
-#endif
-				break;
-			case OAD:
-				pos++;
-				for(i=0; i < wlen-1; i++) 
 					message->oad[i] = buffer[pos++];
-#ifdef IDI_DEBUG
-				printk(KERN_DEBUG"idi: OAD=(0x%02x) %s\n", (__u8)message->oad[0], message->oad + 1);
-#endif
+				if (DebugVar & 2)
+					printk(KERN_DEBUG"idi: OAD=(0x%02x,0x%02x) %s\n", 
+						message->plan, message->screen, message->oad);
+				break;
+			case RDN:
+				j = 1;
+				if (wlen) {
+					if (!(buffer[pos++] & 0x80)) {
+						pos++; 
+						j = 2;
+					}
+				}
+				for(i=0; i < wlen-j; i++) 
+					message->rdn[i] = buffer[pos++];
+				if (DebugVar & 2)
+					printk(KERN_DEBUG"idi: RDN= %s\n", 
+						message->rdn);
+				break;
+			case CPN:
+				for(i=0; i < wlen; i++) 
+					message->cpn[i] = buffer[pos++];
+				if (DebugVar & 2)
+					printk(KERN_DEBUG"idi: CPN=(0x%02x) %s\n", (__u8)message->cpn[0], message->cpn + 1);
 				break;
 			case DSA:
 				pos++;
 				for(i=0; i < wlen-1; i++) 
 					message->dsa[i] = buffer[pos++];
-#ifdef IDI_DEBUG
-				printk(KERN_DEBUG"idi: DSA=%s\n", message->dsa);
-#endif
+				if (DebugVar & 2)
+					printk(KERN_DEBUG"idi: DSA=%s\n", message->dsa);
 				break;
 			case OSA:
 				pos++;
 				for(i=0; i < wlen-1; i++) 
 					message->osa[i] = buffer[pos++];
-#ifdef IDI_DEBUG
-				printk(KERN_DEBUG"idi: OSA=%s\n", message->osa);
-#endif
+				if (DebugVar & 2)
+					printk(KERN_DEBUG"idi: OSA=%s\n", message->osa);
 				break;
 			case BC:
 				for(i=0; i < wlen; i++) 
 					message->bc[i] = buffer[pos++];
-#ifdef IDI_DEBUG
-				printk(KERN_DEBUG"idi: BC =%d %d %d %d %d\n", message->bc[0],
-					message->bc[1],message->bc[2],message->bc[3],message->bc[4]);
-#endif
+				if (DebugVar & 4)
+					printk(KERN_DEBUG"idi: BC = 0x%02x 0x%02x 0x%02x\n",
+						message->bc[0],message->bc[1],message->bc[2]);
 				break;
 			case 0x800|BC:
 				for(i=0; i < wlen; i++) 
 					message->e_bc[i] = buffer[pos++];
-#ifdef IDI_DEBUG
-				printk(KERN_DEBUG"idi: ESC/BC=%d\n", message->bc[0]);
-#endif
+				if (DebugVar & 4)
+					printk(KERN_DEBUG"idi: ESC/BC=%d\n", message->bc[0]);
 				break;
 			case LLC:
 				for(i=0; i < wlen; i++) 
 					message->llc[i] = buffer[pos++];
-#ifdef IDI_DEBUG
-				printk(KERN_DEBUG"idi: LLC=%d %d %d %d\n", message->llc[0],
-					message->llc[1],message->llc[2],message->llc[3]);
-#endif
+				if (DebugVar & 4)
+					printk(KERN_DEBUG"idi: LLC=%d %d %d %d\n", message->llc[0],
+						message->llc[1],message->llc[2],message->llc[3]);
 				break;
 			case HLC:
 				for(i=0; i < wlen; i++) 
 					message->hlc[i] = buffer[pos++];
-#ifdef IDI_DEBUG
-				printk(KERN_DEBUG"idi: HLC=%d %d %d %d\n", message->hlc[0],
-					message->hlc[1],message->hlc[2],message->hlc[3]);
-#endif
+				if (DebugVar & 4)
+					printk(KERN_DEBUG"idi: HLC=%x %x %x %x %x\n", 
+						message->hlc[0], message->hlc[1],
+						message->hlc[2], message->hlc[3], message->hlc[4]);
+				break;
+			case DSP:
+			case 0x600|DSP:
+				for(i=0; i < wlen; i++) 
+					message->display[i] = buffer[pos++];
+				if (DebugVar & 4)
+					printk(KERN_DEBUG"idi: Display: %s\n", 
+						message->display);
+				break;
+			case 0x600|KEY:
+				for(i=0; i < wlen; i++) 
+					message->keypad[i] = buffer[pos++];
+				if (DebugVar & 4)
+					printk(KERN_DEBUG"idi: Keypad: %s\n", 
+						message->keypad);
+				break;
+			case NI:
+			case 0x600|NI:
+				if (wlen) {
+					if (DebugVar & 4) {
+						switch(buffer[pos] & 127) {
+							case 0:
+								printk(KERN_DEBUG"idi: Ch%d User suspended.\n", chan->No);
+								break;
+							case 1:
+								printk(KERN_DEBUG"idi: Ch%d User resumed.\n", chan->No);
+								break;
+							case 2:
+								printk(KERN_DEBUG"idi: Ch%d Bearer service change.\n", chan->No);
+								break;
+							default:
+								printk(KERN_DEBUG"idi: Ch%d Unknown Notification %x.\n", 
+										chan->No, buffer[pos] & 127);
+						}
+					}
+					pos += wlen;
+				}
+				break;
+			case PI:
+			case 0x600|PI:
+				if (wlen > 1) {
+					if (DebugVar & 4) {
+						switch(buffer[pos+1] & 127) {
+							case 1:
+								printk(KERN_DEBUG"idi: Ch%d Call is not end-to-end ISDN.\n", chan->No);
+								break;
+							case 2:
+								printk(KERN_DEBUG"idi: Ch%d Destination address is non ISDN.\n", chan->No);
+								break;
+							case 3:
+								printk(KERN_DEBUG"idi: Ch%d Origination address is non ISDN.\n", chan->No);
+								break;
+							case 4:
+								printk(KERN_DEBUG"idi: Ch%d Call has returned to the ISDN.\n", chan->No);
+								break;
+							case 5:
+								printk(KERN_DEBUG"idi: Ch%d Interworking has occurred.\n", chan->No);
+								break;
+							case 8:
+								printk(KERN_DEBUG"idi: Ch%d In-band information available.\n", chan->No);
+								break;
+							default:
+								printk(KERN_DEBUG"idi: Ch%d Unknown Progress %x.\n", 
+										chan->No, buffer[pos+1] & 127);
+						}
+					}
+				}
+				pos += wlen;
 				break;
 			case CAU:
 				for(i=0; i < wlen; i++) 
 					message->cau[i] = buffer[pos++];
 				memcpy(&chan->cause, &message->cau, 2);
-#ifdef IDI_DEBUG
-				printk(KERN_DEBUG"idi: CAU=%d %d\n", 
-					message->cau[0],message->cau[1]);
-#endif
+				if (DebugVar & 4)
+					printk(KERN_DEBUG"idi: CAU=%d %d\n", 
+						message->cau[0],message->cau[1]);
 				break;
 			case 0x800|CAU:
 				for(i=0; i < wlen; i++) 
 					message->e_cau[i] = buffer[pos++];
-#ifdef IDI_DEBUG
-				printk(KERN_DEBUG"idi: ECAU=%d %d\n", 
-					message->e_cau[0],message->e_cau[1]);
-#endif
+				if (DebugVar & 4)
+					printk(KERN_DEBUG"idi: ECAU=%d %d\n", 
+						message->e_cau[0],message->e_cau[1]);
 				break;
 			case 0x800|CHI:
 				for(i=0; i < wlen; i++) 
 					message->e_chi[i] = buffer[pos++];
-#ifdef IDI_DEBUG
-				printk(KERN_DEBUG"idi: ESC/CHI=%d\n", 
-					message->e_cau[0]);
-#endif
+				if (DebugVar & 4)
+					printk(KERN_DEBUG"idi: ESC/CHI=%d\n", 
+						message->e_cau[0]);
 				break;
 			case 0x800|0x7a:
 				pos ++;
 				message->e_mt=buffer[pos++];
-#ifdef IDI_DEBUG
-				printk(KERN_DEBUG"idi: EMT=0x%x\n", message->e_mt);
-#endif
+				if (DebugVar & 2)
+					printk(KERN_DEBUG"idi: EMT=0x%x\n", message->e_mt);
 				break;
 			case DT:
 				for(i=0; i < wlen; i++) 
 					message->dt[i] = buffer[pos++];
+				if (DebugVar & 4)
+					printk(KERN_DEBUG"idi: DT: %02d.%02d.%02d %02d:%02d:%02d\n",
+						message->dt[2], message->dt[1], message->dt[0],
+						message->dt[3], message->dt[4], message->dt[5]);
 				break;
 			case 0x600|SIN:
 				for(i=0; i < wlen; i++) 
 					message->sin[i] = buffer[pos++];
-#ifdef IDI_DEBUG
-				printk(KERN_DEBUG"idi: SIN=%d %d\n", 
-					message->sin[0],message->sin[1]);
-#endif
+				if (DebugVar & 2)
+					printk(KERN_DEBUG"idi: SIN=%d %d\n", 
+						message->sin[0],message->sin[1]);
 				break;
 			case 0x600|CPS:
-#ifdef IDI_DEBUG
-				printk(KERN_DEBUG"idi: Called Party Status in ind\n");
-#endif
+				if (DebugVar & 2)
+					printk(KERN_DEBUG"idi: Called Party Status in ind\n");
 				pos += wlen;
 				break;
 			case 0x600|CIF:
-				memcpy(&cmd.parm.num, &buffer[pos], wlen);
-				cmd.parm.num[wlen] = 0;
-#ifdef IDI_DEBUG
-				printk(KERN_DEBUG"idi: CIF=%s\n", cmd.parm.num);
-#endif
+				for (i = 0; i < wlen; i++)
+					if (buffer[pos + i] != '0') break;
+				memcpy(&cmd.parm.num, &buffer[pos + i], wlen - i);
+				cmd.parm.num[wlen - i] = 0;
+				if (DebugVar & 2)
+					printk(KERN_DEBUG"idi: CIF=%s\n", cmd.parm.num);
 				pos += wlen;
 				cmd.driver = ccard->myid;
 				cmd.command = ISDN_STAT_CINF;
@@ -757,22 +724,20 @@ idi_IndParse(diehl_pci_card *card, diehl_chan *chan, idi_ind_message *message, u
 				ccard->interface.statcallb(&cmd);
 				break;
 			case 0x600|DATE:
-#ifdef IDI_DEBUG
-				printk(KERN_DEBUG"idi: Date in ind\n");
-#endif
+				if (DebugVar & 2)
+					printk(KERN_DEBUG"idi: Date in ind\n");
 				pos += wlen;
 				break;
-			case CHA:
-			case CHI:
-			case FTY:
-			case 0x600|FTY:
-			case PI:
-			case 0x600|PI:
-			case 0x628: 
 			case 0xe08: 
 			case 0xe7a: 
 			case 0xe04: 
-			case NI:
+			case 0xe00: 
+				/* *** TODO *** */
+			case CHA:
+				/* Charge advice */
+			case FTY:
+			case 0x600|FTY:
+			case CHI:
 			case 0x800:
 				/* Not yet interested in this */
 				pos += wlen;
@@ -780,26 +745,21 @@ idi_IndParse(diehl_pci_card *card, diehl_chan *chan, idi_ind_message *message, u
 			case 0x880:
 				/* Managment Information Element */
 				if (!manbuf) {
-					printk(KERN_WARNING"idi: manbuf not allocated\n");
+					if (DebugVar & 1)
+						printk(KERN_WARNING"idi: manbuf not allocated\n");
 				}
 				else {
 					memcpy(&manbuf->data[manbuf->pos], &buffer[pos], wlen);
 					manbuf->length[manbuf->count] = wlen;
 					manbuf->count++;
 					manbuf->pos += wlen;
-#if 0 
-					printk(KERN_DEBUG"idi: Manage-Data #%d, len: %d, Sum: %d\n", 
-							manbuf->count, wlen, manbuf->pos);
-					printk(KERN_DEBUG"idi: %x  %x  %x  %x  %x\n", 
-						buffer[pos], buffer[pos+1],buffer[pos+2],
-						buffer[pos+3], buffer[pos+4]);
-#endif
 				}
 				pos += wlen;
 				break;
 			default:
 				pos += wlen;
-				printk(KERN_WARNING"idi: unknown information element 0x%x in ind, len:%x\n", code, wlen);
+				if (DebugVar & 6)
+					printk(KERN_WARNING"idi: unknown information element 0x%x in ind, len:%x\n", code, wlen);
 		}
 	}
   }
@@ -837,7 +797,7 @@ void
 idi_handle_ind(diehl_pci_card *card, struct sk_buff *skb)
 {
 	int tmp;
-	int free_buff = 1;
+	int free_buff;
 	struct sk_buff *skb2;
         diehl_pci_IND *ind = (diehl_pci_IND *)skb->data;
 	diehl_chan *chan;
@@ -845,57 +805,60 @@ idi_handle_ind(diehl_pci_card *card, struct sk_buff *skb)
 	idi_ind_message message;
 	isdn_ctrl cmd;
 
+	if ((DebugVar & 128) || 
+	   ((DebugVar & 16) && (ind->Ind != 8))) {
+        	printk(KERN_DEBUG "idi:handle Ind=%d Id=%d Ch=%d MInd=%d MLen=%d Len=%d\n",
+		        ind->Ind,ind->IndId,ind->IndCh,ind->MInd,ind->MLength,ind->RBuffer.length);
+	}
+
 	if ((chan = card->IdTable[ind->IndId]) == NULL) {
-		printk(KERN_ERR "idi: Indication for unknown channel\n");
+		if (DebugVar & 1)
+			printk(KERN_ERR "idi: Indication for unknown channel Ind=%d Id=%d\n", ind->Ind, ind->IndId);
   		dev_kfree_skb(skb);
 		return;
 	}
-
-#ifdef IDI_DEBUG
-	if (ind->Ind != 8) {
-        printk(KERN_INFO "idi:handle Ind=%d Id=%d Ch=%d MInd=%d MLen=%d Len=%d\n",
-        ind->Ind,ind->IndId,ind->IndCh,ind->MInd,ind->MLength,ind->RBuffer.length);
-	}
-#endif
-
+	
+	free_buff = 1;
 	/* Signal Layer */
 	if (chan->e.D3Id == ind->IndId) {
 		idi_IndParse(card, chan, &message, ind->RBuffer.P, ind->RBuffer.length);
 		switch(ind->Ind) {
 			case HANGUP:
-#ifdef IDI_DEBUG
-  				printk(KERN_DEBUG"idi_ind: Hangup\n");
-#endif
+				if (DebugVar & 8)
+  					printk(KERN_DEBUG"idi_ind: Hangup\n");
 		                while((skb2 = skb_dequeue(&chan->e.X))) {
 					dev_kfree_skb(skb2);
 				}
 				chan->e.busy = 0;
 				chan->queued = 0;
+				chan->waitq = 0;
+				chan->waitpq = 0;
 				chan->fsm_state = DIEHL_STATE_NULL;
-				cmd.driver = ccard->myid;
-				cmd.arg = chan->No;
-				sprintf(cmd.parm.num,"E%02x%02x", 
-					chan->cause[0]&0x7f, message.e_cau[0]&0x7f); 
-				cmd.command = ISDN_STAT_CAUSE;
-				ccard->interface.statcallb(&cmd);
+				if (message.e_cau[0] & 0x7f) {
+					cmd.driver = ccard->myid;
+					cmd.arg = chan->No;
+					sprintf(cmd.parm.num,"E%02x%02x", 
+						chan->cause[0]&0x7f, message.e_cau[0]&0x7f); 
+					cmd.command = ISDN_STAT_CAUSE;
+					ccard->interface.statcallb(&cmd);
+				}
 				chan->cause[0] = 0; 
 				cmd.command = ISDN_STAT_DHUP;
 				ccard->interface.statcallb(&cmd);
-				if (chan->e.B2Id) idi_do_req(ccard, chan, REMOVE, 1);
+				/* if (chan->e.B2Id) idi_do_req(ccard, chan, REMOVE, 1); TODO */
 				diehl_idi_listen_req(ccard, chan);
 				break;
 			case INDICATE_IND:
-#ifdef IDI_DEBUG
-  				printk(KERN_DEBUG"idi_ind: Indicate_Ind\n");
-#endif
+				if (DebugVar & 8)
+  					printk(KERN_DEBUG"idi_ind: Indicate_Ind\n");
 				chan->fsm_state = DIEHL_STATE_ICALL;
 				idi_bc2si(message.bc, message.hlc, &chan->si1, &chan->si2);
-				strcpy(chan->cpn, message.cpn);
+				strcpy(chan->cpn, message.cpn + 1);
 				if (strlen(message.dsa)) {
 					strcat(chan->cpn, ".");
 					strcat(chan->cpn, message.dsa);
 				}
-				strcpy(chan->oad, message.oad + 1);
+				strcpy(chan->oad, message.oad);
 				try_stat_icall_again: 
 				cmd.driver = ccard->myid;
 				cmd.command = ISDN_STAT_ICALL;
@@ -912,24 +875,21 @@ idi_handle_ind(diehl_pci_card *card, struct sk_buff *skb)
 						idi_do_req(ccard, chan, HANGUP, 0);
 						break;
 					case 1: /* alert */
-#ifdef IDI_DEBUG
-  						printk(KERN_DEBUG"idi: Call Alert\n");
-#endif
+						if (DebugVar & 8)
+  							printk(KERN_DEBUG"idi: Call Alert\n");
 						if ((chan->fsm_state == DIEHL_STATE_ICALL) || (chan->fsm_state == DIEHL_STATE_ICALLW)) {
 							chan->fsm_state = DIEHL_STATE_ICALL;
 							idi_do_req(ccard, chan, CALL_ALERT, 0);
 						}
 						break;
 					case 2: /* reject */
-#ifdef IDI_DEBUG
-  						printk(KERN_DEBUG"idi: Call Reject\n");
-#endif
+						if (DebugVar & 8)
+  							printk(KERN_DEBUG"idi: Call Reject\n");
 						idi_do_req(ccard, chan, REJECT, 0);
 						break;
 					case 3: /* incomplete number */
-#ifdef IDI_DEBUG
-  						printk(KERN_DEBUG"idi: Incomplete Number\n");
-#endif
+						if (DebugVar & 8)
+  							printk(KERN_DEBUG"idi: Incomplete Number\n");
 					        switch(card->type) {
 					                case DIEHL_CTYPE_MAESTRAP:
 								chan->fsm_state = DIEHL_STATE_ICALLW;
@@ -941,9 +901,8 @@ idi_handle_ind(diehl_pci_card *card, struct sk_buff *skb)
 				}
 				break;
 			case INFO_IND:
-#ifdef IDI_DEBUG
-  				printk(KERN_DEBUG"idi_ind: Info_Ind\n");
-#endif
+				if (DebugVar & 8)
+  					printk(KERN_DEBUG"idi_ind: Info_Ind\n");
 				if ((chan->fsm_state == DIEHL_STATE_ICALLW) &&
 				    (message.cpn[0])) {
 					strcat(chan->cpn, message.cpn);
@@ -951,9 +910,8 @@ idi_handle_ind(diehl_pci_card *card, struct sk_buff *skb)
 				}
 				break;
 			case CALL_IND:
-#ifdef IDI_DEBUG
-  				printk(KERN_DEBUG"idi_ind: Call_Ind\n");
-#endif
+				if (DebugVar & 8)
+  					printk(KERN_DEBUG"idi_ind: Call_Ind\n");
 				if ((chan->fsm_state == DIEHL_STATE_ICALL) || (chan->fsm_state == DIEHL_STATE_IWAIT)) {
 					chan->fsm_state = DIEHL_STATE_IBWAIT;
 					cmd.driver = ccard->myid;
@@ -965,9 +923,8 @@ idi_handle_ind(diehl_pci_card *card, struct sk_buff *skb)
 				idi_hangup(ccard, chan);
 				break;
 			case CALL_CON:
-#ifdef IDI_DEBUG
-  				printk(KERN_DEBUG"idi_ind: Call_Con\n");
-#endif
+				if (DebugVar & 8)
+  					printk(KERN_DEBUG"idi_ind: Call_Con\n");
 				if (chan->fsm_state == DIEHL_STATE_OCALL) {
 					chan->fsm_state = DIEHL_STATE_OBWAIT;
 					cmd.driver = ccard->myid;
@@ -978,10 +935,13 @@ idi_handle_ind(diehl_pci_card *card, struct sk_buff *skb)
 				} else
 				idi_hangup(ccard, chan);
 				break;
+			case AOC_IND:
+				if (DebugVar & 8)
+  					printk(KERN_DEBUG"idi_ind: Advice of Charge\n");
+				break;
 			default:
-#ifdef IDI_DEBUG
-				printk(KERN_WARNING "idi: UNHANDLED SigIndication 0x%02x\n", ind->Ind);
-#endif
+				if (DebugVar & 8)
+					printk(KERN_WARNING "idi: UNHANDLED SigIndication 0x%02x\n", ind->Ind);
 		}
 	}
 	/* Network Layer */
@@ -995,9 +955,8 @@ idi_handle_ind(diehl_pci_card *card, struct sk_buff *skb)
 		else
 		switch(ind->Ind) {
 			case IDI_N_CONNECT_ACK:
-#ifdef IDI_DEBUG
-  				printk(KERN_DEBUG"idi_ind: N_Connect_Ack\n");
-#endif
+				if (DebugVar & 16)
+  					printk(KERN_DEBUG"idi_ind: N_Connect_Ack\n");
 				chan->fsm_state = DIEHL_STATE_ACTIVE;
 				cmd.driver = ccard->myid;
 				cmd.command = ISDN_STAT_BCONN;
@@ -1005,9 +964,8 @@ idi_handle_ind(diehl_pci_card *card, struct sk_buff *skb)
 				ccard->interface.statcallb(&cmd);
 				break; 
 			case IDI_N_CONNECT:
-#ifdef IDI_DEBUG
-  				printk(KERN_DEBUG"idi_ind: N_Connect\n");
-#endif
+				if (DebugVar & 16)
+  					printk(KERN_DEBUG"idi_ind: N_Connect\n");
 				if (chan->e.B2Id) idi_do_req(ccard, chan, IDI_N_CONNECT_ACK, 1);
 				chan->fsm_state = DIEHL_STATE_ACTIVE;
 				cmd.driver = ccard->myid;
@@ -1016,42 +974,68 @@ idi_handle_ind(diehl_pci_card *card, struct sk_buff *skb)
 				ccard->interface.statcallb(&cmd);
 				break; 
 			case IDI_N_DISC:
-#ifdef IDI_DEBUG
-  				printk(KERN_DEBUG"idi_ind: N_DISC\n");
-#endif
-				if (chan->e.B2Id) idi_do_req(ccard, chan, IDI_N_DISC_ACK, 1);
+				if (DebugVar & 16)
+  					printk(KERN_DEBUG"idi_ind: N_DISC\n");
+				/* if ((chan->e.B2Id) && (chan->fsm_state == DIEHL_STATE_ACTIVE)) { TODO */
+				if (chan->e.B2Id) {
+					idi_do_req(ccard, chan, IDI_N_DISC_ACK, 1);
+					idi_do_req(ccard, chan, REMOVE, 1);
+				}
 				chan->queued = 0;
+				chan->waitq = 0;
+				chan->waitpq = 0;
 				cmd.driver = ccard->myid;
 				cmd.command = ISDN_STAT_BHUP;
 				cmd.arg = chan->No;
 				ccard->interface.statcallb(&cmd);
 				break; 
 			case IDI_N_DISC_ACK:
-#ifdef IDI_DEBUG
-  				printk(KERN_DEBUG"idi_ind: N_DISC_ACK\n");
-#endif
+				if (DebugVar & 16)
+  					printk(KERN_DEBUG"idi_ind: N_DISC_ACK\n");
 				break; 
 			case IDI_N_DATA_ACK:
-#ifdef IDI_DEBUG
-  				printk(KERN_DEBUG"idi_ind: N_DATA_ACK\n");
-#endif
-				cmd.driver = ccard->myid;
-				cmd.command = ISDN_STAT_BSENT;
-				cmd.arg = chan->No;
-				cmd.parm.length = chan->waitq; 
-				ccard->interface.statcallb(&cmd);
+				if (DebugVar & 16)
+  					printk(KERN_DEBUG"idi_ind: N_DATA_ACK\n");
 				break;
 			case IDI_N_DATA:
 				skb_pull(skb, sizeof(diehl_pci_IND) - 1);
-				ccard->interface.rcvcallb_skb(ccard->myid, chan->No, skb);
-				free_buff = 0; 
+				if (DebugVar & 128)
+					printk(KERN_DEBUG"idi_rcv: Chan: %d   %d bytes\n", chan->No, skb->len);
+#if 0
+				/* TODO */
+                		if (chan->l2prot == ISDN_PROTO_L2_TRANS) {
+					int offset = 0;
+					int plen = 0;
+					/* split buffer, tty flip buffer is only 512 bytes */
+					while(offset < skb->len) {
+						plen = ((skb->len - offset) > 256) ? 256 : skb->len - offset;
+        					skb2 = alloc_skb(plen + MAX_HEADER_LEN, GFP_ATOMIC);
+		        			if (!skb2) {
+							if (DebugVar & 1)
+					        	        printk(KERN_WARNING "idi: alloc_skb failed\n");
+							break;
+	        				}
+						skb_reserve(skb2, MAX_HEADER_LEN);
+						memcpy(skb_put(skb2,plen), skb->data + offset, plen);
+						offset += plen;
+						ccard->interface.rcvcallb_skb(ccard->myid, chan->No, skb2);
+					}					
+				} else {
+#endif
+					ccard->interface.rcvcallb_skb(ccard->myid, chan->No, skb);
+					free_buff = 0; 
+#if 0
+				}
+#endif
 				break; 
 			default:
-				printk(KERN_WARNING "idi: UNHANDLED NetIndication 0x%02x\n", ind->Ind);
+				if (DebugVar & 8)
+					printk(KERN_WARNING "idi: UNHANDLED NetIndication 0x%02x\n", ind->Ind);
 		}
 	}
 	else {
-		printk(KERN_ERR "idi: Ind is neither SIG nor NET !\n");
+		if (DebugVar & 1)
+			printk(KERN_ERR "idi: Ind is neither SIG nor NET !\n");
 	}
    if (free_buff) dev_kfree_skb(skb);
 }
@@ -1063,39 +1047,66 @@ idi_handle_ack(diehl_pci_card *card, struct sk_buff *skb)
         diehl_pci_RC *ack = (diehl_pci_RC *)skb->data;
 	diehl_chan *chan;
 	diehl_card *ccard = (diehl_card *) card->card;
+	isdn_ctrl cmd;
 
 	if ((ack->Rc != ASSIGN_OK) && (ack->Rc != OK)) {
-#ifdef IDI_DEBUG
-		printk(KERN_ERR "eicon_handle_ack: Not OK: Rc=%d Id=%d Ch=%d\n",
-			ack->Rc, ack->RcId, ack->RcCh);
-#endif
-			if ((chan = card->IdTable[ack->RcId]) != NULL) {
-				chan->e.busy = 0;
-			}
+		if (DebugVar & 24)
+			printk(KERN_ERR "eicon_handle_ack: Not OK: Rc=%d Id=%d Ch=%d\n",
+				ack->Rc, ack->RcId, ack->RcCh);
+		if ((chan = card->IdTable[ack->RcId]) != NULL) {
+			chan->e.busy = 0;
+		}
 	} 
 	else {
 		if ((chan = card->IdTable[ack->RcId]) != NULL) {
-#if 0 
-			printk(KERN_DEBUG "idi_ack: RC OK Id=%d Ch=%d Chan %d\n",
-			ack->RcId, ack->RcCh, chan->No);
-#endif
-			chan->e.busy = 0;
+			if (ack->RcId != ((chan->e.ReqCh) ? chan->e.B2Id : chan->e.D3Id)) {
+				if (DebugVar & 16)
+					printk(KERN_DEBUG "idi_ack: RcId %d not equal to last %d\n", ack->RcId, (chan->e.ReqCh) ? chan->e.B2Id : chan->e.D3Id);
+			} else {	
+				if (chan->e.ReqCh) {
+					switch(chan->e.Req & 0x0f) {
+						case IDI_N_MDATA:
+						case IDI_N_DATA:
+							chan->queued -= chan->waitq;
+							if (chan->queued < 0) chan->queued = 0;
+							if ((chan->e.Req & 0x0f) == IDI_N_DATA) {
+								cmd.driver = ccard->myid;
+								cmd.command = ISDN_STAT_BSENT;
+								cmd.arg = chan->No;
+								cmd.parm.length = chan->waitpq;
+								chan->waitpq = 0;
+								ccard->interface.statcallb(&cmd);
+							}
+							break;
+						default:
+							if (DebugVar & 16)
+								printk(KERN_DEBUG "idi_ack: RC OK Id=%d Ch=%d Chan %d  (ref:%d)\n",
+									ack->RcId, ack->RcCh, chan->No, ack->Reference);
+					}
+				} 
+				else {
+					if (DebugVar & 16)
+						printk(KERN_DEBUG "idi_ack: RC OK Id=%d Ch=%d Chan %d  (ref:%d)\n",
+							ack->RcId, ack->RcCh, chan->No, ack->Reference);
+				}
 
-			if (((chan->e.Req & 0x0f) == IDI_N_DATA) && (chan->e.ReqCh)) {
-#if 0 
-				printk(KERN_DEBUG"idi_ack: dec %d bytes from %d bytes of queue\n",
-						chan->waitq, chan->queued);
-#endif
-				chan->queued -= chan->waitq;
-				if (chan->queued < 0) chan->queued = 0;
-			}
-
-			if (chan->e.Req == REMOVE) {
-				card->IdTable[ack->RcId] = NULL;
-				if (!chan->e.ReqCh) 
-					chan->e.D3Id = 0;
-				else
-					chan->e.B2Id = 0;
+				if (chan->e.Req == REMOVE) {
+					if (ack->Reference == chan->e.ref) {
+						card->IdTable[ack->RcId] = NULL;
+						if (DebugVar & 16)
+							printk(KERN_DEBUG "idi_ack: Removed : Id=%d Ch=%d Chan %d (%s)\n",
+								ack->RcId, ack->RcCh, chan->No, (chan->e.ReqCh)? "Net":"Sig");
+						if (!chan->e.ReqCh) 
+							chan->e.D3Id = 0;
+						else
+							chan->e.B2Id = 0;
+					}
+					else {
+						if (DebugVar & 16)
+							printk(KERN_DEBUG "remove_ack: Rc-Ref %d not equal to stored %d\n", ack->Reference, chan->e.ref);
+					}
+				}
+				chan->e.busy = 0;
 			}
 		}
 		else {
@@ -1107,21 +1118,18 @@ idi_handle_ack(diehl_pci_card *card, struct sk_buff *skb)
 						ccard->bch[j].e.B2Id  = ack->RcId;
 					card->IdTable[ack->RcId] = &ccard->bch[j];
 					ccard->bch[j].e.busy = 0;
-#ifdef IDI_DEBUG
-					printk(KERN_DEBUG"idi_ack: Id %d assigned to Ch %d (%s)\n",
+					if (DebugVar & 16)
+						printk(KERN_DEBUG"idi_ack: Id %d assigned to Ch %d (%s)\n",
 							ack->RcId, j, (ccard->bch[j].e.ReqCh)? "Net":"Sig");
-#endif
 					break;
 				}
 			}		
-#ifdef IDI_DEBUG
 			if (j > ccard->nchannels) {
-				printk(KERN_ERR"idi: ref %d not found\n", 
-						ack->Reference);
+				if (DebugVar & 24)
+					printk(KERN_DEBUG"idi: ref %d not found for Id %d\n", 
+						ack->Reference, ack->RcId);
 			}
-#endif
 		}
-
 	}
   dev_kfree_skb(skb);
   diehl_schedule_tx((diehl_card *)card->card);
@@ -1135,19 +1143,22 @@ idi_send_data(diehl_card *card, diehl_chan *chan, int ack, struct sk_buff *skb)
         diehl_pci_REQ *reqbuf;
         diehl_chan_ptr *chan2;
         int len, plen = 0, offset = 0;
+	unsigned long flags;
 
         if (chan->fsm_state != DIEHL_STATE_ACTIVE)
                 return -ENODEV;
 
         len = skb->len;
-
+	if (len > 2138)	/* too much for the shared memory */
+		return -1;
         if (!len)
                 return 0;
-	if (chan->queued + len > 4000)
+	if (chan->queued + len > ((chan->l2prot == ISDN_PROTO_L2_TRANS) ? 4000 : EICON_MAX_QUEUED))
 		return 0;
-#if 0
-		printk(KERN_DEBUG"idi_send: Chan: %d   %d bytes  %s\n", chan->No, len, (ack)?"(ACK)":"");
-#endif
+	if (DebugVar & 128)
+		printk(KERN_DEBUG"idi_send: Chan: %d   %d bytes\n", chan->No, len);
+	save_flags(flags);
+	cli();
 	while(offset < len) {
 
 		plen = ((len - offset) > 270) ? 270 : len - offset;
@@ -1156,7 +1167,9 @@ idi_send_data(diehl_card *card, diehl_chan *chan, int ack, struct sk_buff *skb)
         	skb2 = alloc_skb(sizeof(diehl_chan_ptr), GFP_ATOMIC);
 
 	        if ((!skb) || (!skb2)) {
-        	        printk(KERN_WARNING "idi: alloc_skb failed\n");
+			restore_flags(flags);
+			if (DebugVar & 1)
+	        	        printk(KERN_WARNING "idi: alloc_skb failed\n");
                 	return -ENOMEM;
 	        }
 
@@ -1164,8 +1177,12 @@ idi_send_data(diehl_card *card, diehl_chan *chan, int ack, struct sk_buff *skb)
         	chan2->ptr = chan;
 
 	        reqbuf = (diehl_pci_REQ *)skb_put(xmit_skb, plen + sizeof(diehl_pci_REQ));
-	        reqbuf->Req = IDI_N_DATA;
-		if (ack) reqbuf->Req |= 0x40;
+		if ((len - offset) > 270) {
+		        reqbuf->Req = IDI_N_MDATA;
+		} else {
+		        reqbuf->Req = IDI_N_DATA;
+			if (ack) reqbuf->Req |= N_D_BIT;
+		}	
         	reqbuf->ReqCh = 0;
 	        reqbuf->ReqId = 1;
 		memcpy(&reqbuf->XBuffer.P, skb->data + offset, plen);
@@ -1174,11 +1191,12 @@ idi_send_data(diehl_card *card, diehl_chan *chan, int ack, struct sk_buff *skb)
 
 		skb_queue_tail(&chan->e.X, xmit_skb);
 		skb_queue_tail(&card->sndq, skb2); 
-		diehl_schedule_tx(card);
 
 		offset += plen;
 	}
 	chan->queued += len;
+	restore_flags(flags);
+	diehl_schedule_tx(card);
         dev_kfree_skb(skb);
         return len;
 }
@@ -1200,7 +1218,8 @@ eicon_idi_manage_assign(diehl_card *card)
         skb2 = alloc_skb(sizeof(diehl_chan_ptr), GFP_ATOMIC);
 
         if ((!skb) || (!skb2)) {
-                printk(KERN_WARNING "idi: alloc_skb failed\n");
+		if (DebugVar & 1)
+			printk(KERN_WARNING "idi: alloc_skb failed\n");
                 return -ENOMEM;
         }
 
@@ -1208,9 +1227,6 @@ eicon_idi_manage_assign(diehl_card *card)
         chan2->ptr = chan;
 
         reqbuf = (diehl_pci_REQ *)skb_put(skb, 270 + sizeof(diehl_pci_REQ));
-#if 0
-        printk(KERN_DEBUG "idi: ASSIGN for Management (%d)\n", chan->No);
-#endif
 
         reqbuf->XBuffer.P[0] = 0;
         reqbuf->Req = ASSIGN;
@@ -1241,7 +1257,8 @@ eicon_idi_manage_remove(diehl_card *card)
         skb2 = alloc_skb(sizeof(diehl_chan_ptr), GFP_ATOMIC);
 
         if ((!skb) || (!skb2)) {
-                printk(KERN_WARNING "idi: alloc_skb failed\n");
+		if (DebugVar & 1)
+                	printk(KERN_WARNING "idi: alloc_skb failed\n");
                 return -ENOMEM;
         }
 
@@ -1249,9 +1266,6 @@ eicon_idi_manage_remove(diehl_card *card)
         chan2->ptr = chan;
 
         reqbuf = (diehl_pci_REQ *)skb_put(skb, 270 + sizeof(diehl_pci_REQ));
-#if 0
-        printk(KERN_DEBUG "idi: REMOVE for Management (%d)\n", chan->No);
-#endif
 
         reqbuf->Req = REMOVE;
         reqbuf->ReqCh = 0;
@@ -1302,7 +1316,8 @@ eicon_idi_manage(diehl_card *card, eicon_manifbuf *mb)
 	chan->fsm_state = 0;
 
 	if (!(manbuf = kmalloc(sizeof(eicon_manifbuf), GFP_KERNEL))) {
-                printk(KERN_WARNING "idi: alloc_manifbuf failed\n");
+		if (DebugVar & 1)
+                	printk(KERN_WARNING "idi: alloc_manifbuf failed\n");
 		chan->e.D3Id = 0;
 		return -ENOMEM;
 	}
@@ -1315,7 +1330,8 @@ eicon_idi_manage(diehl_card *card, eicon_manifbuf *mb)
         skb2 = alloc_skb(sizeof(diehl_chan_ptr), GFP_ATOMIC);
 
         if ((!skb) || (!skb2)) {
-                printk(KERN_WARNING "idi: alloc_skb failed\n");
+		if (DebugVar & 1)
+                	printk(KERN_WARNING "idi: alloc_skb failed\n");
 		kfree(manbuf);
 		chan->e.D3Id = 0;
                 return -ENOMEM;
@@ -1325,9 +1341,6 @@ eicon_idi_manage(diehl_card *card, eicon_manifbuf *mb)
         chan2->ptr = chan;
 
         reqbuf = (diehl_pci_REQ *)skb_put(skb, 270 + sizeof(diehl_pci_REQ));
-#if 0
-        printk(KERN_DEBUG "idi: Command for Management (%d)\n", chan->No);
-#endif
 
         reqbuf->XBuffer.P[l++] = ESC;
         reqbuf->XBuffer.P[l++] = 6;

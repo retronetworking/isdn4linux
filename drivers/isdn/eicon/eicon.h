@@ -21,6 +21,10 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.2  1999/01/10 18:46:04  armin
+ * Bug with wrong values in HLC fixed.
+ * Bytes to send are counted and limited now.
+ *
  * Revision 1.1  1999/01/01 18:09:41  armin
  * First checkin of new eicon driver.
  * DIVA-Server BRI/PCI and PRI/PCI are supported.
@@ -44,6 +48,7 @@
 
 #define DIEHL_IOCTL_MANIF    90 
 
+#define DIEHL_IOCTL_FREEIT   97
 #define DIEHL_IOCTL_TEST     98
 #define DIEHL_IOCTL_DEBUGVAR 99
 
@@ -65,6 +70,7 @@
 #define DIEHL_CTYPE_MASK         0x0f
 #define DIEHL_CTYPE_QUADRO_NR(n) (n<<4)
 
+#define MAX_HEADER_LEN 10
 
 /* Struct for adding new cards */
 typedef struct diehl_cdef {
@@ -174,7 +180,13 @@ typedef struct {
 #include <linux/isdnif.h>
 #include "eicon_isa.h"
 
-#endif
+/* Macro for delay via schedule() */
+#define SLEEP(j) {                     \
+  current->state = TASK_INTERRUPTIBLE; \
+  schedule_timeout(j);                 \
+}
+
+#endif /* KERNEL */
 
 
 #define DSP_COMBIFILE_FORMAT_IDENTIFICATION_SIZE 48
@@ -308,6 +320,7 @@ typedef struct {
 	unsigned short eazmask;          /* EAZ-Mask for this Channel   */
 	unsigned int   queued;           /* User-Data Bytes in TX queue */
 	unsigned int   waitq;            /* User-Data Bytes in wait queue */
+	unsigned int   waitpq;           /* User-Data Bytes in packet queue */
 	unsigned short plci;
 	unsigned short ncci;
 	unsigned char  l2prot;           /* Layer 2 protocol            */
@@ -352,7 +365,7 @@ typedef struct {
 #define DIEHL_STATE_ICALLW  14
 #define DIEHL_STATE_LISTEN  15
 
-#define DIEHL_MAX_QUEUED  8000 /* 2 * maxbuff */
+#define EICON_MAX_QUEUED  8000 /* 2 * maxbuff */
 
 #define DIEHL_LOCK_TX 0
 #define DIEHL_LOCK_RX 1
@@ -453,6 +466,7 @@ extern __inline__ void diehl_schedule_ack(diehl_card *card)
 
 extern char *diehl_find_eaz(diehl_card *, char);
 extern int diehl_addcard(int, int, int, char *);
+extern ulong DebugVar;
 
 #endif  /* __KERNEL__ */
 

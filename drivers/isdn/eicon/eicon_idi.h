@@ -21,6 +21,11 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.1  1999/01/01 18:09:42  armin
+ * First checkin of new eicon driver.
+ * DIVA-Server BRI/PCI and PRI/PCI are supported.
+ * Old diehl code is obsolete.
+ *
  *
  */
 
@@ -55,6 +60,7 @@
 #define FAC_REG_ACK 19  /* fac registration acknowledge             */
 #define FAC_REG_REJ 20  /* fac registration reject                  */
 #define CALL_COMPLETE 21/* send a CALL_PROC for incoming call       */
+#define AOC_IND       26/* Advice of Charge                         */
 
 #define IDI_N_MDATA         (0x01)
 #define IDI_N_CONNECT       (0x02)
@@ -89,8 +95,8 @@
 #define LLI 0x19                /* logical link id                  */
 #define CHA 0x1a                /* charge advice                    */
 #define FTY 0x1c
-#define PI  0x1e
-#define NI  0x27
+#define PI  0x1e		/* Progress Indicator		    */
+#define NI  0x27		/* Notification Indicator	    */
 #define DT  0x29                /* ETSI date/time                   */
 #define KEY 0x2c                /* keypad information element       */
 #define DSP 0x28                /* display                          */
@@ -98,6 +104,7 @@
 #define OSA 0x6d                /* origination sub-address          */
 #define CPN 0x70                /* called party number              */
 #define DSA 0x71                /* destination sub-address          */
+#define RDN 0x74		/* redirecting number		    */
 #define LLC 0x7c                /* low layer compatibility          */
 #define HLC 0x7d                /* high layer compatibility         */
 #define UUI 0x7e                /* user user information            */
@@ -132,6 +139,8 @@
 #define TIMER_INT               0xfe    /* timer interrupt          */
 #define OK                      0xff    /* command accepted         */
 
+/*------------------------------------------------------------------*/
+
 typedef struct {
 	char cpn[32];
 	char oad[32];
@@ -142,14 +151,17 @@ typedef struct {
 	__u8 sin[4];
 	__u8 chi[4];
 	__u8 e_chi[4];
-	__u8 bc[32];
-	__u8 e_bc[8];
- 	__u8 llc[5];
+	__u8 bc[12];
+	__u8 e_bc[12];
+ 	__u8 llc[18];
 	__u8 hlc[5];
 	__u8 cau[4];
 	__u8 e_cau[2];
 	__u8 e_mt;
-	char dt[32];
+	__u8 dt[6];
+	char display[83];
+	char keypad[35];
+	char rdn[32];
 } idi_ind_message;
 
 extern int idi_do_req(diehl_card *card, diehl_chan *chan, int cmd, int layer);

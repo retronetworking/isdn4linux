@@ -21,22 +21,17 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.1  1999/01/01 18:09:43  armin
+ * First checkin of new eicon driver.
+ * DIVA-Server BRI/PCI and PRI/PCI are supported.
+ * Old diehl code is obsolete.
+ *
  *
  */
 
 #include "eicon.h"
 #include "eicon_isa.h"
 
-/* Macro for delay via schedule() */
-#define SLEEP(j) {                     \
-  current->state = TASK_INTERRUPTIBLE; \
-  schedule_timeout(j);                 \
-}
-
-/* Hopefully, a separate resource-registration-scheme for shared-memory
- * will be introduced into the kernel. Until then, we use the normal
- * routines, designed for port-registration.
- */
 #define check_shmem   check_region
 #define release_shmem release_region
 #define request_shmem request_region
@@ -101,8 +96,8 @@ diehl_isa_irq(int irq, void *dev_id, struct pt_regs *regs) {
 	}
 	if ((tmp = readb(&com->Rc)) != 0) {
 		diehl_ack *ack;
-
-		printk("diehl_int: Rc=%d\n", tmp);
+		if (DebugVar & 64)
+			printk("diehl_int: Rc=%d\n", tmp);
 		skb = alloc_skb(sizeof(diehl_ack), GFP_ATOMIC);
 		ack = (diehl_ack *)skb_put(skb, sizeof(diehl_ack));
 		ack->ret = tmp;
@@ -118,7 +113,8 @@ diehl_isa_irq(int irq, void *dev_id, struct pt_regs *regs) {
 		int len = readw(&com->RBuffer.len);
 		diehl_indhdr *ind;
 
-		printk(KERN_DEBUG "eicon_ind Ind=%d\n", tmp);
+		if (DebugVar & 16)
+			printk(KERN_DEBUG "eicon_ind Ind=%d\n", tmp);
 		skb = alloc_skb(len+sizeof(diehl_indhdr), GFP_ATOMIC);
 		skb_reserve(skb, sizeof(diehl_indhdr));
 		ind = (diehl_indhdr *)skb_push(skb, sizeof(diehl_indhdr));
@@ -200,7 +196,8 @@ diehl_isa_transmit(diehl_isa_card *card) {
 		reqbuf = (diehl_req *)skb->data;
 		skb_pull(skb, sizeof(diehl_req));
 		if (skb->len > 269) {
-			printk(KERN_WARNING "eicon_isa_transmit: skb > 269 bytes!!!\n");
+			if (DebugVar & 1)
+				printk(KERN_WARNING "eicon_isa_transmit: skb > 269 bytes!!!\n");
 			writeb(0, &com->XLock);
 			return;
 		}

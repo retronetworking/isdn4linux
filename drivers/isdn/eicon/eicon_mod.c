@@ -26,6 +26,11 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.1  1999/01/01 18:09:44  armin
+ * First checkin of new eicon driver.
+ * DIVA-Server BRI/PCI and PRI/PCI are supported.
+ * Old diehl code is obsolete.
+ *
  *
  */
 
@@ -42,6 +47,12 @@ extern char *diehl_pci_revision;
 extern char *diehl_isa_revision;
 extern char *diehl_idi_revision;
 
+#ifdef MODULE
+#define MOD_USE_COUNT (GET_USE_COUNT (&__this_module))
+#endif
+
+ulong DebugVar;
+
 /* Parameters to be set by insmod */
 static int   type         = -1;
 static int   membase      = -1;
@@ -49,7 +60,7 @@ static int   irq          = -1;
 static char *id           = "\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0";
 
 MODULE_DESCRIPTION(             "Driver for Eicon.Diehl active ISDN cards");
-MODULE_AUTHOR(                  "Armin Schindler / Fritz Elfert");
+MODULE_AUTHOR(                  "Armin Schindler");
 MODULE_SUPPORTED_DEVICE(        "ISDN subsystem");
 MODULE_PARM_DESC(type,		"Type of first card");
 MODULE_PARM_DESC(membase,	"Base address, if ISA card");
@@ -92,7 +103,8 @@ find_channel(diehl_card *card, int channel)
 {
 	if ((channel >= 0) && (channel < card->nchannels))
         	return &(card->bch[channel]);
-	printk(KERN_WARNING "eicon: Invalid channel %d\n", channel);
+	if (DebugVar & 1)
+		printk(KERN_WARNING "eicon: Invalid channel %d\n", channel);
 	return NULL;
 }
 
@@ -192,9 +204,10 @@ diehl_set_msn(diehl_card *card, char *eazmsn)
 					card->msn_list = p->next;
 				restore_flags(flags);
 				kfree(p);
-				printk(KERN_DEBUG
-				       "Mapping for EAZ %c deleted\n",
-				       eazmsn[0]);
+				if (DebugVar & 8)
+					printk(KERN_DEBUG
+					       "Mapping for EAZ %c deleted\n",
+					       eazmsn[0]);
 				return 0;
 			}
 			q = p;
@@ -210,10 +223,11 @@ diehl_set_msn(diehl_card *card, char *eazmsn)
 			cli();
 			strcpy(p->msn, &eazmsn[1]);
 			restore_flags(flags);
-			printk(KERN_DEBUG
-			       "Mapping for EAZ %c changed to %s\n",
-			       eazmsn[0],
-			       &eazmsn[1]);
+			if (DebugVar & 8)
+				printk(KERN_DEBUG
+				       "Mapping for EAZ %c changed to %s\n",
+				       eazmsn[0],
+				       &eazmsn[1]);
 			return 0;
 		}
 		p = p->next;
@@ -229,10 +243,11 @@ diehl_set_msn(diehl_card *card, char *eazmsn)
 	cli();
 	card->msn_list = p;
 	restore_flags(flags);
-	printk(KERN_DEBUG
-	       "Mapping %c -> %s added\n",
-	       eazmsn[0],
-	       &eazmsn[1]);
+	if (DebugVar & 8)
+		printk(KERN_DEBUG
+		       "Mapping %c -> %s added\n",
+		       eazmsn[0],
+		       &eazmsn[1]);
 	return 0;
 }
 #endif
@@ -250,8 +265,9 @@ diehl_rcv_dispatch(struct diehl_card *card)
 #endif
 		case DIEHL_BUS_MCA:
 		default:
-			printk(KERN_WARNING
-			       "eicon_ack_dispatch: Illegal bustype %d\n", card->bus);
+			if (DebugVar & 1)
+				printk(KERN_WARNING
+				       "eicon_ack_dispatch: Illegal bustype %d\n", card->bus);
 	}
 }
 
@@ -268,8 +284,9 @@ diehl_ack_dispatch(struct diehl_card *card)
 #endif
 		case DIEHL_BUS_MCA:
 		default:
-			printk(KERN_WARNING
-			       "eicon_ack_dispatch: Illegal bustype %d\n", card->bus);
+			if (DebugVar & 1)
+				printk(KERN_WARNING
+			       		"eicon_ack_dispatch: Illegal bustype %d\n", card->bus);
 	}
 }
 
@@ -287,28 +304,11 @@ diehl_transmit(struct diehl_card *card)
 #endif
 		case DIEHL_BUS_MCA:
 		default:
-			printk(KERN_WARNING
-			       "eicon_transmit: Illegal bustype %d\n", card->bus);
+			if (DebugVar & 1)
+				printk(KERN_WARNING
+				       "eicon_transmit: Illegal bustype %d\n", card->bus);
 	}
 }
-
-#if 0
-static void
-diehl_receive(struct diehl_card *card)
-{
-	switch (card->bus) {
-		case DIEHL_BUS_ISA:
-			break;
-		case DIEHL_BUS_PCI:
-#if CONFIG_PCI
-#endif
-		case DIEHL_BUS_MCA:
-		default:
-			printk(KERN_WARNING
-			       "eicon_receive: Illegal bustype %d\n", card->bus);
-	}
-}
-#endif
 
 static int
 diehl_command(diehl_card * card, isdn_ctrl * c)
@@ -336,8 +336,9 @@ diehl_command(diehl_card * card, isdn_ctrl * c)
 							return card->hwif.pci.irq;
 #endif
 						default:
-							printk(KERN_WARNING
-							       "eicon: Illegal BUS type %d\n",
+							if (DebugVar & 1)
+								printk(KERN_WARNING
+								       "eicon: Illegal BUS type %d\n",
 							       card->bus);
 							ret = -ENODEV;
 					}
@@ -349,8 +350,9 @@ diehl_command(diehl_card * card, isdn_ctrl * c)
 							card->hwif.isa.irq = a;
 							return 0;
 						default:
-							printk(KERN_WARNING
-							       "eicon: Illegal BUS type %d\n",
+							if (DebugVar & 1)
+								printk(KERN_WARNING
+							      		"eicon: Illegal BUS type %d\n",
 							       card->bus);
 							ret = -ENODEV;
 					}					
@@ -364,8 +366,9 @@ diehl_command(diehl_card * card, isdn_ctrl * c)
 								card->flags |= DIEHL_FLAGS_LOADED;
 							break;
 						default:
-							printk(KERN_WARNING
-							       "eicon: Illegal BUS type %d\n",
+							if (DebugVar & 1)
+								printk(KERN_WARNING
+								       "eicon: Illegal BUS type %d\n",
 							       card->bus);
 							ret = -ENODEV;
 					}
@@ -423,6 +426,16 @@ diehl_command(diehl_card * card, isdn_ctrl * c)
 					if (diehl_addcard(cdef.type, cdef.membase, cdef.irq, cdef.id))
 						return -EIO;
 					return 0;
+				case DIEHL_IOCTL_DEBUGVAR:
+					DebugVar = a;
+					printk(KERN_DEBUG"eicon: Debug Value set to %ld\n", DebugVar);
+					return 0;
+#ifdef MODULE
+				case DIEHL_IOCTL_FREEIT:
+					while (MOD_USE_COUNT > 0) MOD_DEC_USE_COUNT;
+					MOD_INC_USE_COUNT;
+					return 0;
+#endif
 				default:
 					return -EINVAL;
 			}
@@ -436,8 +449,9 @@ diehl_command(diehl_card * card, isdn_ctrl * c)
 			cli();
 			if ((chan->fsm_state != DIEHL_STATE_NULL) && (chan->fsm_state != DIEHL_STATE_LISTEN)) {
 				restore_flags(flags);
-				printk(KERN_WARNING "Dial on channel with state %d\n",
-					chan->fsm_state);
+				if (DebugVar & 1)
+					printk(KERN_WARNING "Dial on channel %d with state %d\n",
+					chan->No, chan->fsm_state);
 				return -EBUSY;
 			}
 			if (card->ptype == ISDN_PTYPE_EURO)
@@ -524,7 +538,8 @@ diehl_command(diehl_card * card, isdn_ctrl * c)
 			if (!card->flags & DIEHL_FLAGS_RUNNING)
 				return -ENODEV;
 			if ((c->arg >> 8) != ISDN_PROTO_L3_TRANS) {
-				printk(KERN_WARNING "L3 protocol unknown\n");
+				if (DebugVar & 1)
+					printk(KERN_WARNING "L3 protocol unknown\n");
 				return -1;
 			}
 			if (!(chan = find_channel(card, c->arg & 0x1f)))
@@ -540,17 +555,20 @@ diehl_command(diehl_card * card, isdn_ctrl * c)
 		case ISDN_CMD_GETEAZ:
 			if (!card->flags & DIEHL_FLAGS_RUNNING)
 				return -ENODEV;
-			printk(KERN_DEBUG "eicon CMD_GETEAZ not implemented\n");
+			if (DebugVar & 1)
+				printk(KERN_DEBUG "eicon CMD_GETEAZ not implemented\n");
 			return 0;
 		case ISDN_CMD_SETSIL:
 			if (!card->flags & DIEHL_FLAGS_RUNNING)
 				return -ENODEV;
-			printk(KERN_DEBUG "eicon CMD_SETSIL not implemented\n");
+			if (DebugVar & 1)
+				printk(KERN_DEBUG "eicon CMD_SETSIL not implemented\n");
 			return 0;
 		case ISDN_CMD_GETSIL:
 			if (!card->flags & DIEHL_FLAGS_RUNNING)
 				return -ENODEV;
-			printk(KERN_DEBUG "eicon CMD_GETSIL not implemented\n");
+			if (DebugVar & 1)
+				printk(KERN_DEBUG "eicon CMD_GETSIL not implemented\n");
 			return 0;
 		case ISDN_CMD_LOCK:
 			MOD_INC_USE_COUNT;
@@ -760,7 +778,8 @@ diehl_alloccard(int type, int membase, int irq, char *id)
 				card->interface.features |=
 					ISDN_FEATURE_L2_V11096 |
 					ISDN_FEATURE_L2_V11019 |
-					ISDN_FEATURE_L2_V11038;
+					ISDN_FEATURE_L2_V11038 |
+					ISDN_FEATURE_L2_MODEM;
                                 card->hwif.pci.card = (void *)card;
 				card->hwif.pci.PCIreg = pcic->PCIreg;
 				card->hwif.pci.PCIcfg = pcic->PCIcfg;
@@ -779,7 +798,8 @@ diehl_alloccard(int type, int membase, int irq, char *id)
 				card->interface.features |=
 					ISDN_FEATURE_L2_V11096 |
 					ISDN_FEATURE_L2_V11019 |
-					ISDN_FEATURE_L2_V11038;
+					ISDN_FEATURE_L2_V11038 |
+					ISDN_FEATURE_L2_MODEM;
                                 card->hwif.pci.card = (void *)card;
                                 card->hwif.pci.shmem = (diehl_pci_shmem *)pcic->shmem;
 				card->hwif.pci.PCIreg = pcic->PCIreg;
@@ -842,8 +862,9 @@ diehl_registercard(diehl_card * card)
 #endif
 		case DIEHL_BUS_MCA:
 		default:
-			printk(KERN_WARNING
-			       "eicon_registercard: Illegal BUS type %d\n",
+			if (DebugVar & 1)
+				printk(KERN_WARNING
+				       "eicon_registercard: Illegal BUS type %d\n",
 			       card->bus);
 			return -1;
         }
@@ -858,6 +879,7 @@ diehl_registercard(diehl_card * card)
         return 0;
 }
 
+#ifdef MODULE
 static void
 unregister_card(diehl_card * card)
 {
@@ -877,12 +899,14 @@ unregister_card(diehl_card * card)
 #endif
 		case DIEHL_BUS_MCA:
 		default:
-			printk(KERN_WARNING
-			       "eicon: Invalid BUS type %d\n",
+			if (DebugVar & 1)
+				printk(KERN_WARNING
+				       "eicon: Invalid BUS type %d\n",
 			       card->bus);
 			break;
         }
 }
+#endif /* MODULE */
 
 static void
 diehl_freecard(diehl_card *card) {
@@ -924,8 +948,9 @@ diehl_addcard(int type, int membase, int irq, char *id)
 #endif
 				case DIEHL_BUS_MCA:
 				default:
-					printk(KERN_WARNING
-					       "eicon: addcard: Invalid BUS type %d\n",
+					if (DebugVar & 1)
+						printk(KERN_WARNING
+						       "eicon: addcard: Invalid BUS type %d\n",
 					       p->bus);
 			}
 		} else
@@ -958,14 +983,16 @@ diehl_addcard(int type, int membase, int irq, char *id)
 #define DRIVERNAME "Eicon active ISDN driver"
 
 #ifdef MODULE
-#define diehl_init init_module
+#define eicon_init init_module
 #endif
 
 int
-diehl_init(void)
+eicon_init(void)
 {
 	int tmp = 0;
 	char tmprev[50];
+
+	DebugVar = 1;
 
         printk(KERN_INFO "%s Rev: ", DRIVERNAME);
 	strcpy(tmprev, diehl_revision);
@@ -987,7 +1014,9 @@ diehl_init(void)
 	else
 		printk(KERN_INFO "eicon: %d card%s added\n", tmp, (tmp>1)?"s":"");
         /* No symbols to export, hide all symbols */
+
         EXPORT_NO_SYMBOLS;
+
         return 0;
 }
 
@@ -1012,9 +1041,9 @@ cleanup_module(void)
 
 #else
 void
-diehl_setup(char *str, int *ints)
+eicon_setup(char *str, int *ints)
 {
-        int i, j, argc, membase, irq, type;
+        int i, argc, membase, irq, type;
 	
         argc = ints[0];
         i = 1;

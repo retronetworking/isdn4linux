@@ -26,6 +26,10 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.2  1999/01/10 18:46:06  armin
+ * Bug with wrong values in HLC fixed.
+ * Bytes to send are counted and limited now.
+ *
  * Revision 1.1  1999/01/01 18:09:45  armin
  * First checkin of new eicon driver.
  * DIVA-Server BRI/PCI and PRI/PCI are supported.
@@ -39,28 +43,18 @@
 #include "eicon.h"
 #include "eicon_pci.h"
 
-/* Macro for delay via schedule() */
-#define SLEEP(j) {                     \
-  current->state = TASK_INTERRUPTIBLE; \
-  schedule_timeout(j);                 \
-}
 
 char *diehl_pci_revision = "$Revision$";
 
-
 #if CONFIG_PCI	         /* intire stuff is only for PCI */
 
+#undef DIEHL_PCI_DEBUG 
 
-
-#undef DIEHL_PCI_DEBUG  /* if you want diehl_pci more verbose */
-     
 
 int diehl_pci_find_card(char *ID)
 {
-
-  if (pci_present()) {
-    struct pci_dev *pdev = NULL;
-
+  if (pci_present()) { 
+    struct pci_dev *pdev = NULL;  
     int pci_nextindex=0, pci_cards=0, pci_akt=0; 
     int pci_type = PCI_MAESTRA;
     int NoMorePCICards = FALSE;
@@ -78,7 +72,10 @@ int diehl_pci_find_card(char *ID)
   for (pci_cards = 0; pci_cards < 0x0f; pci_cards++)
   {
   do {
-	if ((pdev = pci_find_device(PCI_VENDOR_EICON, pci_type, pdev))) {
+      if ((pdev = pci_find_device(PCI_VENDOR_EICON,          
+                                  pci_type,                  
+                                  pdev)))                    
+	{
               pci_nextindex++;
               break;
 	}
@@ -121,6 +118,7 @@ int diehl_pci_find_card(char *ID)
     case PCI_MAESTRA:
          printk(KERN_INFO "eicon_pci: DIVA Server BRI/PCI detected !\n");
           aparms->type = DIEHL_CTYPE_MAESTRA;
+
           aparms->irq = pdev->irq;
           preg = pdev->base_address[2] & 0xfffffffc;
           pcfg = pdev->base_address[1] & 0xffffff80;
@@ -355,7 +353,8 @@ diehl_pci_rcv_dispatch(diehl_pci_card *card) {
         diehl_chan *chan;
 
         if (!card) {
-                printk(KERN_WARNING "eicon_pci_rcv_dispatch: NULL card!\n");
+		if (DebugVar & 1)
+	                printk(KERN_WARNING "eicon_pci_rcv_dispatch: NULL card!\n");
                 return;
         }
 
@@ -363,7 +362,8 @@ diehl_pci_rcv_dispatch(diehl_pci_card *card) {
         	ind = (diehl_pci_IND *)skb->data;
 
         	if ((chan = card->IdTable[ind->IndId]) == NULL) {
-	                printk(KERN_ERR "eicon_pci: Indication for unknown channel\n");
+			if (DebugVar & 1)
+		                printk(KERN_ERR "eicon_pci: Indication for unknown channel Ind=%d Id=%d\n", ind->Ind, ind->IndId);
 	                dev_kfree_skb(skb);
 	                continue;
 	        }
@@ -384,7 +384,8 @@ diehl_pci_rcv_dispatch(diehl_pci_card *card) {
 		else {
 			if (!(skb2 = skb_dequeue(&chan->e.R))) {
 				chan->e.complete = 1;
-	                	printk(KERN_ERR "eicon_pci: buffer incomplete, but 0 in queue\n");
+				if (DebugVar & 1)
+	                		printk(KERN_ERR "eicon_pci: buffer incomplete, but 0 in queue\n");
 	                	dev_kfree_skb(skb);
 	                	dev_kfree_skb(skb2);
 				continue;	
@@ -423,7 +424,8 @@ diehl_pci_ack_dispatch(diehl_pci_card *card) {
         struct sk_buff *skb;
 
         if (!card) {
-                printk(KERN_WARNING "eicon_pci_ack_dispatch: NULL card!\n");
+		if (DebugVar & 1)
+			printk(KERN_WARNING "eicon_pci_ack_dispatch: NULL card!\n");
                 return;
         }
 	while((skb = skb_dequeue(&((diehl_card *)card->card)->rackq))) {
@@ -615,7 +617,8 @@ diehl_pci_transmit(diehl_pci_card *card) {
 	int ReqCount;
 
         if (!card) {
-                printk(KERN_WARNING "eicon_pci_transmit: NULL card!\n");
+		if (DebugVar & 1)
+                	printk(KERN_WARNING "eicon_pci_transmit: NULL card!\n");
                 return;
         }
         ram = (char *)card->PCIram;
@@ -638,9 +641,8 @@ diehl_pci_transmit(diehl_pci_card *card) {
                 if (!(ram_inb(card, &prram->ReqOutput) - ram_inb(card, &prram->ReqInput))) {
                         restore_flags(flags);
                         skb_queue_head(&((diehl_card *)card->card)->sndq, skb2);
-#ifdef DIEHL_PCI_DEBUG
-                        printk(KERN_INFO "eicon_pci: transmit: Not ready\n");
-#endif
+			if (DebugVar & 32)
+                        	printk(KERN_INFO "eicon_pci: transmit: Card not ready\n");
                         return;
                 }
 		restore_flags(flags);
@@ -666,36 +668,37 @@ diehl_pci_transmit(diehl_pci_card *card) {
 				else {
 					ram_outb(card, &ReqOut->ReqId, chan->e.B2Id); 
 					chan->e.ReqCh = 1;
-					if ((reqbuf->Req & 0x0f) == 0x08) /* Send Data */
+					if (((reqbuf->Req & 0x0f) == 0x08) ||
+					   ((reqbuf->Req & 0x0f) == 0x01)) { /* Send Data */
 						chan->waitq = reqbuf->XBuffer.length;
+						chan->waitpq += reqbuf->XBuffer.length;
+					}
 				}
 			} else {	/* It is an ASSIGN */
 				ram_outb(card, &ReqOut->ReqId, reqbuf->ReqId); 
-			 	chan->e.ref = ram_inw(card, &ReqOut->Reference); 
 				if (!reqbuf->Reference) 
 					chan->e.ReqCh = 0; 
 				 else
 					chan->e.ReqCh = 1; 
 			} 
+		 	chan->e.ref = ram_inw(card, &ReqOut->Reference);
 			chan->e.Req = reqbuf->Req;
 			ReqCount++; 
 			ram_outw(card, &prram->NextReq, ram_inw(card, &ReqOut->next)); 
 			chan->e.busy = 1; 
 			restore_flags(flags);
-#ifdef DIEHL_PCI_DEBUG
-	                printk(KERN_DEBUG "eicon_pci: Req=%x,Id=%x,Ch=%x Len=%x\n", reqbuf->Req, 
+			if (DebugVar & 32)
+	                	printk(KERN_DEBUG "eicon_pci: Req=%x,Id=%x,Ch=%x Len=%x\n", reqbuf->Req, 
 							ram_inb(card, &ReqOut->ReqId),
 							reqbuf->ReqCh, reqbuf->XBuffer.length); 
-#endif
 			dev_kfree_skb(skb);
 		 }
 		 dev_kfree_skb(skb2);
 		} 
 		else {
 		skb_queue_tail(&((diehl_card *)card->card)->sackq, skb2);
-#ifdef DIEHL_PCI_DEBUG
-                printk(KERN_INFO "eicon_pci: transmit: busy chan %d\n", chan->No); 
-#endif
+		if (DebugVar & 32)
+                	printk(KERN_INFO "eicon_pci: transmit: busy chan %d\n", chan->No); 
 		}
 	}
 	ram_outb(card, &prram->ReqInput, (__u8)(ram_inb(card, &prram->ReqInput) + ReqCount)); 
@@ -761,14 +764,16 @@ diehl_pci_irq(int irq, void *dev_id, struct pt_regs *regs) {
 	switch(card->type) {
 		case DIEHL_CTYPE_MAESTRAP:
 			if (!(readb(&ram[0x3fe]))) { /* card did not interrupt */
-				printk(KERN_DEBUG "eicon_pci: IRQ: card tells no interrupt!\n");
+				if (DebugVar & 1)
+					printk(KERN_DEBUG "eicon_pci: IRQ: card tells no interrupt!\n");
 				return;
 			} 
 			break;
 		case DIEHL_CTYPE_MAESTRA:
 			outw(0x3fe, card->PCIreg + M_ADDR);
 			if (!(inb(card->PCIreg + M_DATA))) { /* card did not interrupt */
-				printk(KERN_DEBUG "eicon_pci: IRQ: card tells no interrupt!\n");
+				if (DebugVar & 1)
+					printk(KERN_DEBUG "eicon_pci: IRQ: card tells no interrupt!\n");
 				return;
 			} 
 			break;
@@ -789,10 +794,9 @@ diehl_pci_irq(int irq, void *dev_id, struct pt_regs *regs) {
 				ack->RcId = ram_inb(card, &RcIn->RcId);
 				ack->RcCh = ram_inb(card, &RcIn->RcCh);
 				ack->Reference = ram_inw(card, &RcIn->Reference);
-#ifdef DIEHL_PCI_DEBUG
-                        	printk(KERN_INFO "eicon_pci: IRQ Rc=%d Id=%d Ch=%d Ref=%d\n",
-					Rc,ack->RcId,ack->RcCh,ack->Reference);
-#endif
+				if (DebugVar & 64)
+	                        	printk(KERN_INFO "eicon_pci: IRQ Rc=%d Id=%d Ch=%d Ref=%d\n",
+						Rc,ack->RcId,ack->RcCh,ack->Reference);
                         	ram_outb(card, &RcIn->Rc, 0);
 				 skb_queue_tail(&((diehl_card *)card->card)->rackq, skb);
 				 diehl_schedule_ack((diehl_card *)card->card);
@@ -821,10 +825,9 @@ diehl_pci_irq(int irq, void *dev_id, struct pt_regs *regs) {
 				ind->MInd  = ram_inb(card, &IndIn->MInd);
 				ind->MLength = ram_inw(card, &IndIn->MLength);
 				ind->RBuffer.length = len;
-#ifdef DIEHL_PCI_DEBUG
-	                        printk(KERN_INFO "eicon_pci: IRQ Ind=%d Id=%d Ch=%d MInd=%d MLen=%d Len=%d\n",
-				Ind,ind->IndId,ind->IndCh,ind->MInd,ind->MLength,len);
-#endif
+				if (DebugVar & 64)
+	                        	printk(KERN_INFO "eicon_pci: IRQ Ind=%d Id=%d Ch=%d MInd=%d MLen=%d Len=%d\n",
+					Ind,ind->IndId,ind->IndCh,ind->MInd,ind->MLength,len);
                                 ram_copyfromcard(card, &ind->RBuffer.P, &IndIn->RBuffer.P, len);
 				skb_queue_tail(&((diehl_card *)card->card)->rcvq, skb);
 				diehl_schedule_rx((diehl_card *)card->card);
