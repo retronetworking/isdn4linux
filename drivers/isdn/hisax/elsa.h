@@ -1,13 +1,19 @@
 /* $Id$
- *
+
  * elsa.h   Header for Elsa ISDN cards
  *
- * Author	Karsten Keil (keil@temic-ech.spacenet.de)
+ * Author       Karsten Keil (keil@temic-ech.spacenet.de)
  *
  * Thanks to    Elsa GmbH for documents and informations
  *
  *
  * $Log$
+ * Revision 2.0  1997/06/26 11:02:43  keil
+ * New Layer and card interface
+ *
+ * Revision 1.6  1997/03/23 21:45:48  keil
+ * Add support for ELSA PCMCIA
+ *
  * Revision 1.5  1997/03/04 15:58:13  keil
  * ELSA PC changes, some stuff for new cards
  *
@@ -24,23 +30,17 @@
  * Initial revision
  *
  *
-*/
-#include <linux/config.h>
-
-#ifdef CONFIG_HISAX_ELSA_PCMCIA
-#define CARD_ISAC	1
-#define CARD_HSCX	2
-#define CARD_ALE	4
-#else
-#define CARD_ISAC	0
-#define CARD_ITAC	1
-#define CARD_HSCX	2
-#define CARD_ALE	3
-#define CARD_CONTROL	4
-#define CARD_CONFIG	5
-#define CARD_START_TIMER 6
-#define CARD_TRIG_IRQ	7
-#endif
+ */
+#define ELSA_ISAC	0
+#define ELSA_ISAC_PCM	1
+#define ELSA_ITAC	1
+#define ELSA_HSCX	2
+#define ELSA_ALE	3
+#define ELSA_ALE_PCM	4
+#define ELSA_CONTROL	4
+#define ELSA_CONFIG	5
+#define ELSA_START_TIMER 6
+#define ELSA_TRIG_IRQ	7
 
 #define ELSA_PC      1
 #define ELSA_PCC8    2
@@ -50,6 +50,12 @@
 #define ELSA_PCMCIA  6
 #define ELSA_QS1000  7
 #define ELSA_QS3000  8
+#define ELSA_QS1000PCI 9
+
+/* PCI stuff */
+#define PCI_VENDOR_ELSA	0x1048
+#define PCI_QS1000_ID	0x1000
+
 
 /* ITAC Registeradressen (only Microlink PC) */
 #define ITAC_SYS	0x34
@@ -65,23 +71,27 @@
  ***                                                                    ***/
 
 /* Config-Register (Read) */
-#define TIMER_RUN       0x02    /* Bit 1 des Config-Reg     */
-#define TIMER_RUN_PCC8  0x01    /* Bit 0 des Config-Reg  bei PCC */
-#define IRQ_INDEX       0x38    /* Bit 3,4,5 des Config-Reg */
-#define IRQ_INDEX_PCC8  0x30    /* Bit 4,5 des Config-Reg */
-#define IRQ_INDEX_PC    0x0c    /* Bit 2,3 des Config-Reg */
+#define ELSA_TIMER_RUN       0x02	/* Bit 1 des Config-Reg     */
+#define ELSA_TIMER_RUN_PCC8  0x01	/* Bit 0 des Config-Reg  bei PCC */
+#define ELSA_IRQ_IDX       0x38	/* Bit 3,4,5 des Config-Reg */
+#define ELSA_IRQ_IDX_PCC8  0x30	/* Bit 4,5 des Config-Reg */
+#define ELSA_IRQ_IDX_PC    0x0c	/* Bit 2,3 des Config-Reg */
 
 /* Control-Register (Write) */
-#define LINE_LED        0x02    /* Bit 1 Gelbe LED */
-#define STAT_LED        0x08    /* Bit 3 Gruene LED */
-#define ISDN_RESET      0x20    /* Bit 5 Reset-Leitung */
-#define ENABLE_TIM_INT  0x80    /* Bit 7 Freigabe Timer Interrupt */
+#define ELSA_LINE_LED        0x02	/* Bit 1 Gelbe LED */
+#define ELSA_STAT_LED        0x08	/* Bit 3 Gruene LED */
+#define ELSA_ISDN_RESET      0x20	/* Bit 5 Reset-Leitung */
+#define ELSA_ENA_TIMER_INT   0x80	/* Bit 7 Freigabe Timer Interrupt */
 
 /* ALE-Register (Read) */
-#define HW_RELEASE      0x07    /* Bit 0-2 Hardwarerkennung */
-#define S0_POWER_BAD    0x08    /* Bit 3 S0-Bus Spannung fehlt */
+#define ELSA_HW_RELEASE      0x07	/* Bit 0-2 Hardwarerkennung */
+#define ELSA_S0_POWER_BAD    0x08	/* Bit 3 S0-Bus Spannung fehlt */
 
-extern	void elsa_report(struct IsdnCardState *sp);
-extern  void release_io_elsa(struct IsdnCard *card);
-extern	int  setup_elsa(struct IsdnCard *card);
-extern  int  initelsa(struct IsdnCardState *sp);
+/* Status Flags */
+#define ELSA_TIMER_AKTIV 1
+#define ELSA_BAD_PWR     2
+#define ELSA_ASSIGN      4
+
+extern void release_io_elsa(struct IsdnCard *card);
+extern int setup_elsa(struct IsdnCard *card);
+extern int initelsa(struct IsdnCardState *cs);

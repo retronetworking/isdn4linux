@@ -14,6 +14,12 @@
  *
  *
  * $Log$
+ * Revision 1.6  1997/07/27 21:09:44  keil
+ * move functions to isdnl3.c
+ *
+ * Revision 1.5  1997/04/06 22:56:43  keil
+ * Some cosmetic changes
+ *
  * Revision 1.4  1997/02/09 00:29:11  keil
  * new interface handling, one interface per card
  *
@@ -34,44 +40,6 @@
 #include "hisax.h"
 #include "l3_1tr6.h"
 
-u_char *
-findie(u_char * p, int size, u_char ie, int wanted_set)
-{
-	int l, codeset, maincodeset;
-	u_char *pend = p + size;
-
-	/* skip protocol discriminator, callref and message type */
-	p++;
-	l = (*p++) & 0xf;
-	p += l;
-	p++;
-	codeset = 0;
-	maincodeset = 0;
-	/* while there are bytes left... */
-	while (p < pend) {
-		if ((*p & 0xf0) == 0x90) {
-			codeset = *p & 0x07;
-			if (!(*p & 0x08))
-				maincodeset = codeset;
-		}
-		if (*p & 0x80)
-			p++;
-		else {
-			if (codeset == wanted_set) {
-				if (*p == ie)
-					return (p);
-				if (*p > ie)
-					return (NULL);
-			}
-			p++;
-			l = *p++;
-			p += l;
-			codeset = maincodeset;
-		}
-	}
-	return (NULL);
-}
-
 void
 iecpy(u_char * dest, u_char * iestart, int ieoffset)
 {
@@ -83,14 +51,6 @@ iecpy(u_char * dest, u_char * iestart, int ieoffset)
 	while (l--)
 		*dest++ = *p++;
 	*dest++ = '\0';
-}
-
-int
-getcallref(u_char * p)
-{
-	p++;			/* prot discr */
-	p++;			/* callref length */
-	return (*p);		/* assuming one-byte callref */
 }
 
 /*

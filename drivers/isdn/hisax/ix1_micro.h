@@ -8,6 +8,12 @@
  to the original file teles.c)
  *
  * $Log$
+ * Revision 2.0  1997/06/26 11:02:52  keil
+ * New Layer and card interface
+ *
+ * Revision 1.1  1997/01/27 15:42:48  keil
+ * first version
+ *
  *
  */
 
@@ -41,7 +47,6 @@
  */
 
 
-extern void ix1micro_report(struct IsdnCardState *sp);
 extern void release_io_ix1micro(struct IsdnCard *card);
 extern int setup_ix1micro(struct IsdnCard *card);
-extern int initix1micro(struct IsdnCardState *sp);
+extern int initix1micro(struct IsdnCardState *cs);

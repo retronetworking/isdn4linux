@@ -1,6 +1,18 @@
 /* $Id$
- *
+
  * $Log$
+ * Revision 2.2  1997/07/30 17:11:09  keil
+ * L1deactivated exported
+ *
+ * Revision 2.1  1997/07/27 21:43:58  keil
+ * new l1 interface
+ *
+ * Revision 2.0  1997/06/26 11:02:55  keil
+ * New Layer and card interface
+ *
+ * Revision 1.4  1997/04/06 22:55:52  keil
+ * Using SKB's
+ *
  * Revision 1.3  1996/12/08 19:41:55  keil
  * L2FRAME_DEBUG
  *
@@ -26,22 +38,32 @@
 #define	L1_DEB_HSCX		0x10
 #define	L1_DEB_HSCX_FIFO	0x20
 #define	L1_DEB_LAPD	        0x40
+#define	L1_DEB_IPAC	        0x80
 
+#define L1_F1 1
+#define L1_F2 2
+#define L1_F3 3
+#define L1_F4 4
+#define L1_F5 5
+#define L1_F6 6
+#define L1_F7 7
+#define L1_F8 8
 
-#define ISAC_RCVBUFREADY 0
-#define ISAC_XMTBUFREADY 1
-#define ISAC_PHCHANGE    2
+#define D_RCVBUFREADY	0
+#define D_XMTBUFREADY	1
+#define L1_PH_ACT	2
+#define L1_PH_DEACT	3
+#define D_CLEARBUSY	4
 
-#define HSCX_RCVBUFREADY 0
-#define HSCX_XMTBUFREADY 1
+#define B_RCVBUFREADY 0
+#define B_XMTBUFREADY 1
 
 extern void debugl1(struct IsdnCardState *sp, char *msg);
-extern char *HscxVersion(u_char v);
-extern char *ISACVersion(u_char v);
-extern void hscx_sched_event(struct HscxState *hsp, int event);
-extern void isac_sched_event(struct IsdnCardState *sp, int event);
-extern void isac_new_ph(struct IsdnCardState *sp);
 extern get_irq(int cardnr, void *routine);
+extern void L1activated(struct IsdnCardState *cs);
+extern void L1deactivated(struct IsdnCardState *cs);
+extern int L1act_wanted(struct IsdnCardState *cs);
+
 
 #ifdef L2FRAME_DEBUG
 extern void Logl2Frame(struct IsdnCardState *sp, struct sk_buff *skb, char *buf, int dir);
