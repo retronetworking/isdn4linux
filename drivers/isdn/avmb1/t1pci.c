@@ -6,6 +6,9 @@
  * (c) Copyright 1999 by Carsten Paeth (calle@calle.in-berlin.de)
  * 
  * $Log$
+ * Revision 1.1  1999/10/26 15:31:42  calle
+ * Added driver for T1-PCI card.
+ *
  *
  */
 
@@ -56,7 +59,7 @@ static struct capi_driver_interface *di;
 
 /* ------------------------------------------------------------- */
 
-static void t1pci_dispatch_tx(struct capi_ctr *ctrl);
+static void t1pci_dispatch_tx(avmcard *card);
 
 /* ------------------------------------------------------------- */
 
@@ -328,9 +331,8 @@ static int t1pci_detect(avmcard *card)
 
 /* ------------------------------------------------------------- */
 
-static void t1pci_dispatch_tx(struct capi_ctr *ctrl)
+static void t1pci_dispatch_tx(avmcard *card)
 {
-	avmcard *card = (avmcard *)(ctrl->driverdata);
 	avmcard_dmainfo *dma = card->dma;
 	unsigned long flags;
 	struct sk_buff *skb;
@@ -427,15 +429,16 @@ static void queue_pollack(avmcard *card)
 	skb_put(skb, (__u8 *)p - (__u8 *)skb->data);
 
 	skb_queue_tail(&card->dma->send_queue, skb);
-	t1pci_dispatch_tx(card->ctrl);
+	t1pci_dispatch_tx(card);
 }
 
 /* ------------------------------------------------------------- */
 
-static void t1pci_handle_rx(struct capi_ctr *ctrl)
+static void t1pci_handle_rx(avmcard *card)
 {
-	avmcard *card = (avmcard *)(ctrl->driverdata);
+	avmctrl_info *cinfo = &card->ctrlinfo[0];
 	avmcard_dmainfo *dma = card->dma;
+	struct capi_ctr *ctrl = cinfo->capi_ctrl;
 	struct sk_buff *skb;
 	void *p = dma->recvbuf+4;
 	__u32 ApplId, MsgLen, DataB3Len, NCCI, WindowSize;
@@ -458,7 +461,8 @@ static void t1pci_handle_rx(struct capi_ctr *ctrl)
 			CAPIMSG_SETLEN(card->msgbuf, 30);
 		}
 		if (!(skb = alloc_skb(DataB3Len+MsgLen, GFP_ATOMIC))) {
-			printk(KERN_ERR "t1pci: incoming packet dropped\n");
+			printk(KERN_ERR "%s: incoming packet dropped\n",
+					card->name);
 		} else {
 			memcpy(skb_put(skb, MsgLen), card->msgbuf, MsgLen);
 			memcpy(skb_put(skb, DataB3Len), card->databuf, DataB3Len);
@@ -471,7 +475,8 @@ static void t1pci_handle_rx(struct capi_ctr *ctrl)
 		ApplId = (unsigned) _get_word(&p);
 		MsgLen = _get_slice(&p, card->msgbuf);
 		if (!(skb = alloc_skb(MsgLen, GFP_ATOMIC))) {
-			printk(KERN_ERR "t1pci: incoming packet dropped\n");
+			printk(KERN_ERR "%s: incoming packet dropped\n",
+					card->name);
 		} else {
 			memcpy(skb_put(skb, MsgLen), card->msgbuf, MsgLen);
 			ctrl->handle_capimsg(ctrl, ApplId, skb);
@@ -513,12 +518,12 @@ static void t1pci_handle_rx(struct capi_ctr *ctrl)
 
 	case RECEIVE_INIT:
 
-		card->versionlen = _get_slice(&p, card->versionbuf);
-		b1_parse_version(card);
+		cinfo->versionlen = _get_slice(&p, cinfo->versionbuf);
+		b1_parse_version(cinfo);
 		printk(KERN_INFO "%s: %s-card (%s) now active\n",
 		       card->name,
-		       card->version[VER_CARDTYPE],
-		       card->version[VER_DRIVER]);
+		       cinfo->version[VER_CARDTYPE],
+		       cinfo->version[VER_DRIVER]);
 		ctrl->ready(ctrl);
 		break;
 
@@ -576,7 +581,7 @@ static void t1pci_handle_interrupt(avmcard *card)
 					virt_to_phys(recvbuf+4));
 			t1outmeml(card->mbase+AMCC_RXLEN, rxlen);
 		} else {
-			t1pci_handle_rx(card->ctrl);
+			t1pci_handle_rx(card);
 	   		card->dma->recvlen = 0;
 			t1outmeml(card->mbase+AMCC_RXPTR, virt_to_phys(recvbuf));
 			t1outmeml(card->mbase+AMCC_RXLEN, 4);
@@ -585,12 +590,12 @@ static void t1pci_handle_interrupt(avmcard *card)
 
 	if ((status & TX_TC_INT) != 0) {
 		card->csr &= ~EN_TX_TC_INT;
-	        t1pci_dispatch_tx(card->ctrl);
+	        t1pci_dispatch_tx(card);
 #if 1
 	} else if (card->csr & EN_TX_TC_INT) {
 		if (t1inmeml(card->mbase+AMCC_TXLEN) == 0) {
 			card->csr &= ~EN_TX_TC_INT;
-			t1pci_dispatch_tx(card->ctrl);
+			t1pci_dispatch_tx(card);
 		}
 #endif
 	}
@@ -604,11 +609,11 @@ static void t1pci_interrupt(int interrupt, void *devptr, struct pt_regs *regs)
 	card = (avmcard *) devptr;
 
 	if (!card) {
-		printk(KERN_WARNING "t1pci_interrupt: wrong device\n");
+		printk(KERN_WARNING "t1pci: interrupt: wrong device\n");
 		return;
 	}
 	if (card->interrupt) {
-		printk(KERN_ERR "t1pci_interrupt: reentering interrupt hander (%s)\n", card->name);
+		printk(KERN_ERR "%s: reentering interrupt hander\n", card->name);
 		return;
 	}
 
@@ -633,7 +638,8 @@ static int t1pci_loaded(avmcard *card)
 			break;
 	}
 	if (!b1_tx_empty(base)) {
-		printk(KERN_ERR "t1pci_loaded: tx err, corrupted t4 file ?\n");
+		printk(KERN_ERR "%s: t1pci_loaded: tx err, corrupted t4 file ?\n",
+				card->name);
 		return 0;
 	}
 	b1_put_byte(base, SEND_POLLACK);
@@ -642,11 +648,11 @@ static int t1pci_loaded(avmcard *card)
 			if ((ans = b1_get_byte(base)) == RECEIVE_POLLDWORD) {
 				return 1;
 			}
-			printk(KERN_ERR "t1pci_loaded: got 0x%x, firmware not running in dword mode\n", ans);
+			printk(KERN_ERR "%s: t1pci_loaded: got 0x%x, firmware not running in dword mode\n", card->name, ans);
 			return 0;
 		}
 	}
-	printk(KERN_ERR "t1pci_loaded: firmware not running\n");
+	printk(KERN_ERR "%s: t1pci_loaded: firmware not running\n", card->name);
 	return 0;
 }
 
@@ -669,23 +675,23 @@ static void t1pci_send_init(avmcard *card)
 	_put_byte(&p, SEND_INIT);
 	_put_word(&p, AVM_NAPPS);
 	_put_word(&p, AVM_NCCI_PER_CHANNEL*30);
-	_put_word(&p, card->ctrl->cnr - 1);
+	_put_word(&p, card->cardnr - 1);
 	skb_put(skb, (__u8 *)p - (__u8 *)skb->data);
 
 	skb_queue_tail(&card->dma->send_queue, skb);
-	t1pci_dispatch_tx(card->ctrl);
+	t1pci_dispatch_tx(card);
 }
 
 static int t1pci_load_firmware(struct capi_ctr *ctrl, capiloaddata *data)
 {
-	avmcard *card = (avmcard *)(ctrl->driverdata);
-	unsigned int port = card->port;
+	avmctrl_info *cinfo = (avmctrl_info *)(ctrl->driverdata);
+	avmcard *card = cinfo->card;
 	unsigned long flags;
 	int retval;
 
 	t1pci_reset(card);
 
-	if ((retval = b1_load_t4file(port, &data->firmware))) {
+	if ((retval = b1_load_t4file(card, &data->firmware))) {
 		t1pci_reset(card);
 		printk(KERN_ERR "%s: failed to load t4file!!\n",
 					card->name);
@@ -693,7 +699,7 @@ static int t1pci_load_firmware(struct capi_ctr *ctrl, capiloaddata *data)
 	}
 
 	if (data->configuration.len > 0 && data->configuration.data) {
-		if ((retval = b1_load_config(port, &data->configuration))) {
+		if ((retval = b1_load_config(card, &data->configuration))) {
 			t1pci_reset(card);
 			printk(KERN_ERR "%s: failed to load config!!\n",
 					card->name);
@@ -733,17 +739,19 @@ static int t1pci_load_firmware(struct capi_ctr *ctrl, capiloaddata *data)
 
 void t1pci_reset_ctr(struct capi_ctr *ctrl)
 {
-	avmcard *card = (avmcard *)(ctrl->driverdata);
+	avmctrl_info *cinfo = (avmctrl_info *)(ctrl->driverdata);
+	avmcard *card = cinfo->card;
 
  	t1pci_reset(card);
 
-	memset(card->version, 0, sizeof(card->version));
+	memset(cinfo->version, 0, sizeof(cinfo->version));
 	ctrl->reseted(ctrl);
 }
 
 static void t1pci_remove_ctr(struct capi_ctr *ctrl)
 {
-	avmcard *card = (avmcard *)(ctrl->driverdata);
+	avmctrl_info *cinfo = (avmctrl_info *)(ctrl->driverdata);
+	avmcard *card = cinfo->card;
 
  	t1pci_reset(card);
 
@@ -752,6 +760,8 @@ static void t1pci_remove_ctr(struct capi_ctr *ctrl)
 	iounmap((void *) (((unsigned long) card->mbase) & PAGE_MASK));
 	release_region(card->port, AVMB1_PORTLEN);
 	ctrl->driverdata = 0;
+	kfree(card->ctrlinfo);
+	kfree(card->dma);
 	kfree(card);
 
 	MOD_DEC_USE_COUNT;
@@ -764,7 +774,8 @@ void t1pci_register_appl(struct capi_ctr *ctrl,
 				__u16 appl,
 				capi_register_params *rp)
 {
-	avmcard *card = (avmcard *)(ctrl->driverdata);
+	avmctrl_info *cinfo = (avmctrl_info *)(ctrl->driverdata);
+	avmcard *card = cinfo->card;
 	struct sk_buff *skb;
 	int want = rp->level3cnt;
 	int nconn;
@@ -792,7 +803,7 @@ void t1pci_register_appl(struct capi_ctr *ctrl,
 	skb_put(skb, (__u8 *)p - (__u8 *)skb->data);
 
 	skb_queue_tail(&card->dma->send_queue, skb);
-	t1pci_dispatch_tx(card->ctrl);
+	t1pci_dispatch_tx(card);
 
 	ctrl->appl_registered(ctrl, appl);
 }
@@ -801,7 +812,8 @@ void t1pci_register_appl(struct capi_ctr *ctrl,
 
 void t1pci_release_appl(struct capi_ctr *ctrl, __u16 appl)
 {
-	avmcard *card = (avmcard *)(ctrl->driverdata);
+	avmctrl_info *cinfo = (avmctrl_info *)(ctrl->driverdata);
+	avmcard *card = cinfo->card;
 	struct sk_buff *skb;
 	void *p;
 
@@ -819,7 +831,7 @@ void t1pci_release_appl(struct capi_ctr *ctrl, __u16 appl)
 
 	skb_put(skb, (__u8 *)p - (__u8 *)skb->data);
 	skb_queue_tail(&card->dma->send_queue, skb);
-	t1pci_dispatch_tx(card->ctrl);
+	t1pci_dispatch_tx(card);
 }
 
 /* ------------------------------------------------------------- */
@@ -827,30 +839,35 @@ void t1pci_release_appl(struct capi_ctr *ctrl, __u16 appl)
 
 static void t1pci_send_message(struct capi_ctr *ctrl, struct sk_buff *skb)
 {
-	avmcard *card = (avmcard *)(ctrl->driverdata);
+	avmctrl_info *cinfo = (avmctrl_info *)(ctrl->driverdata);
+	avmcard *card = cinfo->card;
 	skb_queue_tail(&card->dma->send_queue, skb);
-	t1pci_dispatch_tx(card->ctrl);
+	t1pci_dispatch_tx(card);
 }
 
 /* ------------------------------------------------------------- */
 
 static char *t1pci_procinfo(struct capi_ctr *ctrl)
 {
-	avmcard *card = (avmcard *)(ctrl->driverdata);
-	if (!card)
+	avmctrl_info *cinfo = (avmctrl_info *)(ctrl->driverdata);
+
+	if (!cinfo)
 		return "";
-	sprintf(card->infobuf, "%s %s 0x%x %d 0x%lx",
-		card->cardname[0] ? card->cardname : "-",
-		card->version[VER_DRIVER] ? card->version[VER_DRIVER] : "-",
-		card->port, card->irq, card->membase
+	sprintf(cinfo->infobuf, "%s %s 0x%x %d 0x%lx",
+		cinfo->cardname[0] ? cinfo->cardname : "-",
+		cinfo->version[VER_DRIVER] ? cinfo->version[VER_DRIVER] : "-",
+		cinfo->card ? cinfo->card->port : 0x0,
+		cinfo->card ? cinfo->card->irq : 0,
+		cinfo->card ? cinfo->card->membase : 0
 		);
-	return card->infobuf;
+	return cinfo->infobuf;
 }
 
 static int t1pci_read_proc(char *page, char **start, off_t off,
         		int count, int *eof, struct capi_ctr *ctrl)
 {
-	avmcard *card = (avmcard *)(ctrl->driverdata);
+	avmctrl_info *cinfo = (avmctrl_info *)(ctrl->driverdata);
+	avmcard *card = cinfo->card;
 	unsigned long flags;
 	__u8 flag;
 	int len = 0;
@@ -869,16 +886,15 @@ static int t1pci_read_proc(char *page, char **start, off_t off,
 	case avm_m2: s = "M2"; break;
 	case avm_t1isa: s = "T1 ISA (HEMA)"; break;
 	case avm_t1pci: s = "T1 PCI"; break;
+	case avm_c4: s = "C4"; break;
 	default: s = "???"; break;
 	}
 	len += sprintf(page+len, "%-16s %s\n", "type", s);
-	if (card->cardtype == avm_t1isa)
-	   len += sprintf(page+len, "%-16s %d\n", "cardnr", card->cardnr);
-	if ((s = card->version[VER_DRIVER]) != 0)
+	if ((s = cinfo->version[VER_DRIVER]) != 0)
 	   len += sprintf(page+len, "%-16s %s\n", "ver_driver", s);
-	if ((s = card->version[VER_CARDTYPE]) != 0)
+	if ((s = cinfo->version[VER_CARDTYPE]) != 0)
 	   len += sprintf(page+len, "%-16s %s\n", "ver_cardtype", s);
-	if ((s = card->version[VER_SERIAL]) != 0)
+	if ((s = cinfo->version[VER_SERIAL]) != 0)
 	   len += sprintf(page+len, "%-16s %s\n", "ver_serial", s);
 
 	if (card->cardtype != avm_m1) {
@@ -906,7 +922,7 @@ static int t1pci_read_proc(char *page, char **start, off_t off,
 			(flag & 0x04) ? " leased line with D-channel" : ""
 			);
 	}
-	len += sprintf(page+len, "%-16s %s\n", "cardname", card->cardname);
+	len += sprintf(page+len, "%-16s %s\n", "cardname", cinfo->cardname);
 
 	save_flags(flags);
 	cli();
@@ -950,22 +966,33 @@ static int t1pci_add_card(struct capi_driver *driver, struct capicardparams *p)
 {
 	unsigned long page_offset, base;
 	avmcard *card;
+	avmctrl_info *cinfo;
 	int retval;
 
 	card = (avmcard *) kmalloc(sizeof(avmcard), GFP_ATOMIC);
 
 	if (!card) {
-		printk(KERN_WARNING "t1pci: no memory.\n");
+		printk(KERN_WARNING "%s: no memory.\n", driver->name);
 		return -ENOMEM;
 	}
 	memset(card, 0, sizeof(avmcard));
 	card->dma = (avmcard_dmainfo *) kmalloc(sizeof(avmcard_dmainfo), GFP_ATOMIC);
 	if (!card->dma) {
-		printk(KERN_WARNING "t1pci: no memory.\n");
+		printk(KERN_WARNING "%s: no memory.\n", driver->name);
 		kfree(card);
 		return -ENOMEM;
 	}
 	memset(card->dma, 0, sizeof(avmcard_dmainfo));
+        cinfo = (avmctrl_info *) kmalloc(sizeof(avmctrl_info), GFP_ATOMIC);
+	if (!cinfo) {
+		printk(KERN_WARNING "%s: no memory.\n", driver->name);
+		kfree(card->dma);
+		kfree(card);
+		return -ENOMEM;
+	}
+	memset(cinfo, 0, sizeof(avmctrl_info));
+	card->ctrlinfo = cinfo;
+	cinfo->card = card;
 	sprintf(card->name, "t1pci-%x", p->port);
 	card->port = p->port;
 	card->irq = p->irq;
@@ -974,8 +1001,10 @@ static int t1pci_add_card(struct capi_driver *driver, struct capicardparams *p)
 
 	if (check_region(card->port, AVMB1_PORTLEN)) {
 		printk(KERN_WARNING
-		       "t1pci: ports 0x%03x-0x%03x in use.\n",
-		       card->port, card->port + AVMB1_PORTLEN);
+		       "%s: ports 0x%03x-0x%03x in use.\n",
+		       driver->name, card->port, card->port + AVMB1_PORTLEN);
+	        kfree(card->ctrlinfo);
+		kfree(card->dma);
 		kfree(card);
 		return -EBUSY;
 	}
@@ -987,9 +1016,11 @@ static int t1pci_add_card(struct capi_driver *driver, struct capicardparams *p)
 	t1pci_reset(card);
 
 	if ((retval = t1pci_detect(card)) != 0) {
-		printk(KERN_NOTICE "t1pci: NO card at 0x%x (%d)\n",
-					card->port, retval);
+		printk(KERN_NOTICE "%s: NO card at 0x%x (%d)\n",
+					driver->name, card->port, retval);
                 iounmap((void *) (((unsigned long) card->mbase) & PAGE_MASK));
+	        kfree(card->ctrlinfo);
+		kfree(card->dma);
 		kfree(card);
 		return -EIO;
 	}
@@ -999,22 +1030,28 @@ static int t1pci_add_card(struct capi_driver *driver, struct capicardparams *p)
 
 	retval = request_irq(card->irq, t1pci_interrupt, SA_SHIRQ, card->name, card);
 	if (retval) {
-		printk(KERN_ERR "t1pci: unable to get IRQ %d.\n", card->irq);
+		printk(KERN_ERR "%s: unable to get IRQ %d.\n",
+				driver->name, card->irq);
                 iounmap((void *) (((unsigned long) card->mbase) & PAGE_MASK));
 		release_region(card->port, AVMB1_PORTLEN);
+	        kfree(card->ctrlinfo);
+		kfree(card->dma);
 		kfree(card);
 		return -EBUSY;
 	}
 
-	card->ctrl = di->attach_ctr(driver, card->name, card);
-	if (!card->ctrl) {
-		printk(KERN_ERR "t1pci: attach controller failed.\n");
+	cinfo->capi_ctrl = di->attach_ctr(driver, card->name, cinfo);
+	if (!cinfo->capi_ctrl) {
+		printk(KERN_ERR "%s: attach controller failed.\n", driver->name);
                 iounmap((void *) (((unsigned long) card->mbase) & PAGE_MASK));
 		free_irq(card->irq, card);
 		release_region(card->port, AVMB1_PORTLEN);
+	        kfree(card->ctrlinfo);
+		kfree(card->dma);
 		kfree(card);
 		return -EBUSY;
 	}
+	card->cardnr = cinfo->capi_ctrl->cnr;
 
 	skb_queue_head_init(&card->dma->send_queue);
 
@@ -1109,7 +1146,7 @@ int t1pci_init(void)
 	printk(KERN_ERR "%s: NO T1-PCI card detected\n", driver->name);
 	return -ESRCH;
 #else
-	printk(KERN_ERR "t1pci: kernel not compiled with PCI.\n");
+	printk(KERN_ERR "%s: kernel not compiled with PCI.\n", driver->name);
 	return -EIO;
 #endif
 }

@@ -6,6 +6,9 @@
  * (c) Copyright 1999 by Carsten Paeth (calle@calle.in-berlin.de)
  * 
  * $Log$
+ * Revision 1.17  1999/10/05 06:50:07  calle
+ * Forgot SA_SHIRQ as argument to request_irq.
+ *
  * Revision 1.16  1999/08/11 21:01:07  keil
  * new PCI codefix
  *
@@ -86,11 +89,11 @@ static void b1pci_interrupt(int interrupt, void *devptr, struct pt_regs *regs)
 	card = (avmcard *) devptr;
 
 	if (!card) {
-		printk(KERN_WARNING "b1_interrupt: wrong device\n");
+		printk(KERN_WARNING "b1pci: interrupt: wrong device\n");
 		return;
 	}
 	if (card->interrupt) {
-		printk(KERN_ERR "b1_interrupt: reentering interrupt hander (%s)\n", card->name);
+		printk(KERN_ERR "%s: reentering interrupt hander.\n", card->name);
 		return;
 	}
 
@@ -104,7 +107,8 @@ static void b1pci_interrupt(int interrupt, void *devptr, struct pt_regs *regs)
 
 static void b1pci_remove_ctr(struct capi_ctr *ctrl)
 {
-	avmcard *card = (avmcard *)(ctrl->driverdata);
+	avmctrl_info *cinfo = (avmctrl_info *)(ctrl->driverdata);
+	avmcard *card = cinfo->card;
 	unsigned int port = card->port;
 
 	b1_reset(port);
@@ -114,6 +118,7 @@ static void b1pci_remove_ctr(struct capi_ctr *ctrl)
 	free_irq(card->irq, card);
 	release_region(card->port, AVMB1_PORTLEN);
 	ctrl->driverdata = 0;
+	kfree(card->ctrlinfo);
 	kfree(card);
 
 	MOD_DEC_USE_COUNT;
@@ -123,15 +128,17 @@ static void b1pci_remove_ctr(struct capi_ctr *ctrl)
 
 static char *b1pci_procinfo(struct capi_ctr *ctrl)
 {
-	avmcard *card = (avmcard *)(ctrl->driverdata);
-	if (!card)
+	avmctrl_info *cinfo = (avmctrl_info *)(ctrl->driverdata);
+
+	if (!cinfo)
 		return "";
-	sprintf(card->infobuf, "%s %s 0x%x %d",
-		card->cardname[0] ? card->cardname : "-",
-		card->version[VER_DRIVER] ? card->version[VER_DRIVER] : "-",
-		card->port, card->irq
+	sprintf(cinfo->infobuf, "%s %s 0x%x %d",
+		cinfo->cardname[0] ? cinfo->cardname : "-",
+		cinfo->version[VER_DRIVER] ? cinfo->version[VER_DRIVER] : "-",
+		cinfo->card ? cinfo->card->port : 0x0,
+		cinfo->card ? cinfo->card->irq : 0
 		);
-	return card->infobuf;
+	return cinfo->infobuf;
 }
 
 /* ------------------------------------------------------------- */
@@ -139,15 +146,25 @@ static char *b1pci_procinfo(struct capi_ctr *ctrl)
 static int b1pci_add_card(struct capi_driver *driver, struct capicardparams *p)
 {
 	avmcard *card;
+	avmctrl_info *cinfo;
 	int retval;
 
 	card = (avmcard *) kmalloc(sizeof(avmcard), GFP_ATOMIC);
 
 	if (!card) {
-		printk(KERN_WARNING "b1pci: no memory.\n");
+		printk(KERN_WARNING "%s: no memory.\n", driver->name);
 		return -ENOMEM;
 	}
 	memset(card, 0, sizeof(avmcard));
+        cinfo = (avmctrl_info *) kmalloc(sizeof(avmctrl_info), GFP_ATOMIC);
+	if (!cinfo) {
+		printk(KERN_WARNING "%s: no memory.\n", driver->name);
+		kfree(card);
+		return -ENOMEM;
+	}
+	memset(cinfo, 0, sizeof(avmctrl_info));
+	card->ctrlinfo = cinfo;
+	cinfo->card = card;
 	sprintf(card->name, "b1pci-%x", p->port);
 	card->port = p->port;
 	card->irq = p->irq;
@@ -155,15 +172,17 @@ static int b1pci_add_card(struct capi_driver *driver, struct capicardparams *p)
 
 	if (check_region(card->port, AVMB1_PORTLEN)) {
 		printk(KERN_WARNING
-		       "b1pci: ports 0x%03x-0x%03x in use.\n",
-		       card->port, card->port + AVMB1_PORTLEN);
+		       "%s: ports 0x%03x-0x%03x in use.\n",
+		       driver->name, card->port, card->port + AVMB1_PORTLEN);
+	        kfree(card->ctrlinfo);
 		kfree(card);
 		return -EBUSY;
 	}
 	b1_reset(card->port);
 	if ((retval = b1_detect(card->port, card->cardtype)) != 0) {
-		printk(KERN_NOTICE "b1pci: NO card at 0x%x (%d)\n",
-					card->port, retval);
+		printk(KERN_NOTICE "%s: NO card at 0x%x (%d)\n",
+					driver->name, card->port, retval);
+	        kfree(card->ctrlinfo);
 		kfree(card);
 		return -EIO;
 	}
@@ -173,17 +192,21 @@ static int b1pci_add_card(struct capi_driver *driver, struct capicardparams *p)
 
 	retval = request_irq(card->irq, b1pci_interrupt, SA_SHIRQ, card->name, card);
 	if (retval) {
-		printk(KERN_ERR "b1pci: unable to get IRQ %d.\n", card->irq);
+		printk(KERN_ERR "%s: unable to get IRQ %d.\n",
+				driver->name, card->irq);
 		release_region(card->port, AVMB1_PORTLEN);
+	        kfree(card->ctrlinfo);
 		kfree(card);
 		return -EBUSY;
 	}
 
-	card->ctrl = di->attach_ctr(driver, card->name, card);
-	if (!card->ctrl) {
-		printk(KERN_ERR "b1pci: attach controller failed.\n");
+	cinfo->capi_ctrl = di->attach_ctr(driver, card->name, cinfo);
+	if (!cinfo->capi_ctrl) {
+		printk(KERN_ERR "%s: attach controller failed.\n",
+				driver->name);
 		free_irq(card->irq, card);
 		release_region(card->port, AVMB1_PORTLEN);
+	        kfree(card->ctrlinfo);
 		kfree(card);
 		return -EBUSY;
 	}
@@ -277,7 +300,7 @@ int b1pci_init(void)
 	printk(KERN_ERR "%s: NO B1-PCI card detected\n", driver->name);
 	return -ESRCH;
 #else
-	printk(KERN_ERR "b1pci: kernel not compiled with PCI.\n");
+	printk(KERN_ERR "%s: kernel not compiled with PCI.\n", driver->name);
 	return -EIO;
 #endif
 }

@@ -6,6 +6,12 @@
  * (c) Copyright 1999 by Carsten Paeth (calle@calle.in-berlin.de)
  * 
  * $Log$
+ * Revision 1.4  1999/08/22 20:26:24  calle
+ * backported changes from kernel 2.3.14:
+ * - several #include "config.h" gone, others come.
+ * - "struct device" changed to "struct net_device" in 2.3.14, added a
+ *   define in isdn_compat.h for older kernel versions.
+ *
  * Revision 1.3  1999/07/09 15:05:40  keil
  * compat.h is now isdn_compat.h
  *
@@ -86,7 +92,8 @@ static void b1isa_interrupt(int interrupt, void *devptr, struct pt_regs *regs)
 
 static void b1isa_remove_ctr(struct capi_ctr *ctrl)
 {
-	avmcard *card = (avmcard *)(ctrl->driverdata);
+	avmctrl_info *cinfo = (avmctrl_info *)(ctrl->driverdata);
+	avmcard *card = cinfo->card;
 	unsigned int port = card->port;
 
 	b1_reset(port);
@@ -95,6 +102,7 @@ static void b1isa_remove_ctr(struct capi_ctr *ctrl)
 	di->detach_ctr(ctrl);
 	free_irq(card->irq, card);
 	release_region(card->port, AVMB1_PORTLEN);
+	kfree(card->ctrlinfo);
 	kfree(card);
 
 	MOD_DEC_USE_COUNT;
@@ -104,6 +112,7 @@ static void b1isa_remove_ctr(struct capi_ctr *ctrl)
 
 static int b1isa_add_card(struct capi_driver *driver, struct capicardparams *p)
 {
+	avmctrl_info *cinfo;
 	avmcard *card;
 	int retval;
 
@@ -114,6 +123,15 @@ static int b1isa_add_card(struct capi_driver *driver, struct capicardparams *p)
 		return -ENOMEM;
 	}
 	memset(card, 0, sizeof(avmcard));
+        cinfo = (avmctrl_info *) kmalloc(sizeof(avmctrl_info), GFP_ATOMIC);
+	if (!cinfo) {
+		printk(KERN_WARNING "b1isa: no memory.\n");
+		kfree(card);
+		return -ENOMEM;
+	}
+	memset(cinfo, 0, sizeof(avmctrl_info));
+	card->ctrlinfo = cinfo;
+	cinfo->card = card;
 	sprintf(card->name, "b1isa-%x", p->port);
 	card->port = p->port;
 	card->irq = p->irq;
@@ -123,17 +141,20 @@ static int b1isa_add_card(struct capi_driver *driver, struct capicardparams *p)
 		printk(KERN_WARNING
 		       "b1isa: ports 0x%03x-0x%03x in use.\n",
 		       card->port, card->port + AVMB1_PORTLEN);
+	        kfree(card->ctrlinfo);
 		kfree(card);
 		return -EBUSY;
 	}
 	if (b1_irq_table[card->irq & 0xf] == 0) {
 		printk(KERN_WARNING "b1isa: irq %d not valid.\n", card->irq);
+	        kfree(card->ctrlinfo);
 		kfree(card);
 		return -EINVAL;
 	}
 	if (   card->port != 0x150 && card->port != 0x250
 	    && card->port != 0x300 && card->port != 0x340) {
 		printk(KERN_WARNING "b1isa: illegal port 0x%x.\n", card->port);
+	        kfree(card->ctrlinfo);
 		kfree(card);
 		return -EINVAL;
 	}
@@ -141,6 +162,7 @@ static int b1isa_add_card(struct capi_driver *driver, struct capicardparams *p)
 	if ((retval = b1_detect(card->port, card->cardtype)) != 0) {
 		printk(KERN_NOTICE "b1isa: NO card at 0x%x (%d)\n",
 					card->port, retval);
+	        kfree(card->ctrlinfo);
 		kfree(card);
 		return -EIO;
 	}
@@ -152,15 +174,17 @@ static int b1isa_add_card(struct capi_driver *driver, struct capicardparams *p)
 	if (retval) {
 		printk(KERN_ERR "b1isa: unable to get IRQ %d.\n", card->irq);
 		release_region(card->port, AVMB1_PORTLEN);
+	        kfree(card->ctrlinfo);
 		kfree(card);
 		return -EBUSY;
 	}
 
-	card->ctrl = di->attach_ctr(driver, card->name, card);
-	if (!card->ctrl) {
+	cinfo->capi_ctrl = di->attach_ctr(driver, card->name, cinfo);
+	if (!cinfo->capi_ctrl) {
 		printk(KERN_ERR "b1isa: attach controller failed.\n");
 		free_irq(card->irq, card);
 		release_region(card->port, AVMB1_PORTLEN);
+	        kfree(card->ctrlinfo);
 		kfree(card);
 		return -EBUSY;
 	}
@@ -171,15 +195,17 @@ static int b1isa_add_card(struct capi_driver *driver, struct capicardparams *p)
 
 static char *b1isa_procinfo(struct capi_ctr *ctrl)
 {
-	avmcard *card = (avmcard *)(ctrl->driverdata);
-	if (!card)
+	avmctrl_info *cinfo = (avmctrl_info *)(ctrl->driverdata);
+
+	if (!cinfo)
 		return "";
-	sprintf(card->infobuf, "%s %s 0x%x %d",
-		card->cardname[0] ? card->cardname : "-",
-		card->version[VER_DRIVER] ? card->version[VER_DRIVER] : "-",
-		card->port, card->irq
+	sprintf(cinfo->infobuf, "%s %s 0x%x %d",
+		cinfo->cardname[0] ? cinfo->cardname : "-",
+		cinfo->version[VER_DRIVER] ? cinfo->version[VER_DRIVER] : "-",
+		cinfo->card ? cinfo->card->port : 0x0,
+		cinfo->card ? cinfo->card->irq : 0
 		);
-	return card->infobuf;
+	return cinfo->infobuf;
 }
 
 /* ------------------------------------------------------------- */
