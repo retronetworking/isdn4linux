@@ -60,8 +60,8 @@ ifeq ($(CONFIG_HISAX_DIEHLDIVA),y)
 	 HSCX_OBJ := hscx.o
 endif
 
-ifeq ($(CONFIG_HISAX_DYNALINK),y)
-	 O_OBJS += dynalink.o
+ifeq ($(CONFIG_HISAX_ASUSCOM),y)
+	 O_OBJS += asuscom.o
 	 ISAC_OBJ := isac.o
 	 HSCX_OBJ := hscx.o
 endif

@@ -11,6 +11,9 @@
  *
  *
  * $Log$
+ * Revision 1.15.2.4  1998/01/11 22:55:20  keil
+ * 16.3c support
+ *
  * Revision 1.15.2.3  1997/11/15 18:50:34  keil
  * new common init function
  *
@@ -81,8 +84,8 @@ extern int setup_ix1micro(struct IsdnCard *card);
 extern	int  setup_diva(struct IsdnCard *card);
 #endif
 
-#if CARD_DYNALINK
-extern int setup_dynalink(struct IsdnCard *card);
+#if CARD_ASUSCOM
+extern int setup_asuscom(struct IsdnCard *card);
 #endif
 
 #if CARD_TELEINT
@@ -758,9 +761,9 @@ checkcard(int cardnr, char *id, int *busy_flag))
 			ret = setup_diva(card);
 			break;
 #endif
-#if CARD_DYNALINK
-		case ISDN_CTYPE_DYNALINK:
-			ret = setup_dynalink(card);
+#if CARD_ASUSCOM
+		case ISDN_CTYPE_ASUSCOM:
+			ret = setup_asuscom(card);
 			break;
 #endif
 #if CARD_TELEINT

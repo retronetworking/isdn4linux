@@ -22,7 +22,7 @@ if [ "$CONFIG_ISDN_DRV_HISAX" != "n" ]; then
     bool 'HiSax Support for Elsa cards' CONFIG_HISAX_ELSA
     bool 'HiSax Support for ITK ix1-micro Revision 2' CONFIG_HISAX_IX1MICROR2
     bool 'HiSax Support for Eicon.Diehl Diva cards' CONFIG_HISAX_DIEHLDIVA
-    bool 'HiSax Support for ASUSCOM cards' CONFIG_HISAX_DYNALINK
+    bool 'HiSax Support for ASUSCOM cards' CONFIG_HISAX_ASUSCOM
     bool 'HiSax Support for TELEINT cards' CONFIG_HISAX_TELEINT
     bool 'HiSax Support for Sedlbauer speed card' CONFIG_HISAX_SEDLBAUER
     bool 'HiSax Support for USR Sportster internal TA' CONFIG_HISAX_SPORTSTER

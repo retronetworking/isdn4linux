@@ -5,6 +5,9 @@
  *
  *
  * $Log$
+ * Revision 1.15.2.3  1998/01/11 22:55:15  keil
+ * 16.3c support
+ *
  * Revision 1.15.2.2  1997/11/15 18:55:46  keil
  * New init, new cards
  *
@@ -48,7 +51,7 @@
  *    9 ITK ix1-micro    p0=irq p1=iobase
  *   10 ELSA PCMCIA      p0=irq p1=iobase
  *   11 Eicon.Diehl Diva p0=irq p1=iobase
- *   12 Dynalink         p0=irq p1=iobase
+ *   12 Asuscom ISDNLink p0=irq p1=iobase
  *   13 Teleint          p0=irq p1=iobase
  *   14 Teles 16.3c      p0=irq p1=iobase
  *   15 Sedlbauer speed  p0=irq p1=iobase
@@ -112,10 +115,10 @@ void register_elsa_symbols(void) {
 #define DEFAULT_CFG {0,0x0,0,0}
 #endif
 
-#ifdef CONFIG_HISAX_DYNALINK
+#ifdef CONFIG_HISAX_ASUSCOM
 #undef DEFAULT_CARD
 #undef DEFAULT_CFG
-#define DEFAULT_CARD ISDN_CTYPE_DYNALINK
+#define DEFAULT_CARD ISDN_CTYPE_ASUSCOM
 #define DEFAULT_CFG {5,0x200,0,0}
 #endif
 
@@ -422,7 +425,7 @@ HiSax_init(void))
 			case ISDN_CTYPE_ELSA_PCMCIA:
 			case ISDN_CTYPE_IX1MICROR2:
 			case ISDN_CTYPE_DIEHLDIVA:
-			case ISDN_CTYPE_DYNALINK:
+			case ISDN_CTYPE_ASUSCOM:
 			case ISDN_CTYPE_TELEINT:
 			case ISDN_CTYPE_SEDLBAUER:
 			case ISDN_CTYPE_SPORTSTER:
