@@ -19,6 +19,12 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.52  1999/08/22 20:26:07  calle
+ * backported changes from kernel 2.3.14:
+ * - several #include "config.h" gone, others come.
+ * - "struct device" changed to "struct net_device" in 2.3.14, added a
+ *   define in isdn_compat.h for older kernel versions.
+ *
  * Revision 1.51  1999/08/18 16:19:17  hipp
  * applied MPPP-resize-headroom patch
  *
@@ -1109,7 +1115,7 @@ void isdn_ppp_receive(isdn_net_dev * net_dev, isdn_net_local * lp, struct sk_buf
 		isdn_ppp_frame_log("receive", skb->data, skb->len, 32,is->unit,lp->ppp_slot);
 	}
 	if (net_dev->local->master) {
-		printk(KERN_WARNING "isdn_ppp_receice: net_dev != master\n");
+		printk(KERN_WARNING "isdn_ppp_receive: net_dev != master\n");
 		net_dev = ((isdn_net_local *) net_dev->local->master->priv)->netdev;
 	}
 	if (skb->data[0] == 0xff && skb->data[1] == 0x03)

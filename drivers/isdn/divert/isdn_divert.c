@@ -20,6 +20,10 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.4  1999/08/25 20:02:21  werner
+ * Changed return values for stat_icall(w) from 3->4 and 4->5 because of conflicts
+ * with existing software definitions. (PtP incomplete called party number)
+ *
  * Revision 1.3  1999/08/22 20:26:35  calle
  * backported changes from kernel 2.3.14:
  * - several #include "config.h" gone, others come.
@@ -509,7 +513,7 @@ int isdn_divert_icall(isdn_ctrl *ic)
            if (cs->akt_state == DEFLECT_ALERT)
              { strcpy(cs->deflect_dest,dv->rule.to_nr);
                if (!cs->timer.expires)
-		 { strcpy(ic->parm.setup.eazmsn,"Testtext direkt");
+		 { strcpy(ic->parm.setup.eazmsn,"Testtext direct");
                    ic->parm.setup.screen = dv->rule.screen;
                    strcpy(ic->parm.setup.phone,dv->rule.to_nr);
                    cs->akt_state = DEFLECT_AUTODEL; /* delete after timeout */

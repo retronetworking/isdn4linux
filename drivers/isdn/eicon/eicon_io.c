@@ -24,6 +24,12 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.4  1999/08/22 20:26:47  calle
+ * backported changes from kernel 2.3.14:
+ * - several #include "config.h" gone, others come.
+ * - "struct device" changed to "struct net_device" in 2.3.14, added a
+ *   define in isdn_compat.h for older kernel versions.
+ *
  * Revision 1.3  1999/08/18 20:17:01  armin
  * Added XLOG function for all cards.
  * Bugfix of alloc_skb NULL pointer.
@@ -701,7 +707,7 @@ eicon_irq(int irq, void *dev_id, struct pt_regs *regs) {
 		case EICON_CTYPE_S2M:
 			if (!(readb(isa_card->intack))) { /* card did not interrupt */
 				if (DebugVar & 1)
-					printk(KERN_DEBUG "eicon: IRQ: card tells no interrupt!\n");
+					printk(KERN_DEBUG "eicon: IRQ: card reports no interrupt!\n");
 				return;
 			} 
 			break;
@@ -709,7 +715,7 @@ eicon_irq(int irq, void *dev_id, struct pt_regs *regs) {
 		case EICON_CTYPE_MAESTRAP:
 			if (!(readb(&ram[0x3fe]))) { /* card did not interrupt */
 				if (DebugVar & 1)
-					printk(KERN_DEBUG "eicon: IRQ: card tells no interrupt!\n");
+					printk(KERN_DEBUG "eicon: IRQ: card reports no interrupt!\n");
 				return;
 			} 
 			break;
@@ -717,7 +723,7 @@ eicon_irq(int irq, void *dev_id, struct pt_regs *regs) {
 			outw(0x3fe, pci_card->PCIreg + M_ADDR);
 			if (!(inb(pci_card->PCIreg + M_DATA))) { /* card did not interrupt */
 				if (DebugVar & 1)
-					printk(KERN_DEBUG "eicon: IRQ: card tells no interrupt!\n");
+					printk(KERN_DEBUG "eicon: IRQ: card reports no interrupt!\n");
 				return;
 			} 
 			break;

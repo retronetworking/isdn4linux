@@ -83,7 +83,7 @@ all: do-it-all
 unconf-error:
 	@echo ""
 	@echo "Cannot find configured kernel."
-	@echo "Make shure, you have our Kernel configured, and"
+	@echo "Make sure, you have our kernel configured, and"
 	@echo "the definition of KERNELDIR points to the proper location."
 	@echo ""
 

@@ -26,6 +26,10 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.11  1999/08/29 17:23:45  armin
+ * New setup compat.
+ * Bugfix if compile as not module.
+ *
  * Revision 1.10  1999/08/28 21:32:53  armin
  * Prepared for fax related functions.
  * Now compilable without errors/warnings.
@@ -1588,7 +1592,7 @@ int eicon_mca_probe(int slot,  /* slot-nr where the card was detected         */
 		cards->mca_slot = slot; 
 		/* card->io noch setzen  oder ?? */
 		if (DebugVar & 8)
-			printk("eicon_addcard: erfolgreich fuer slot: %d.\n", 
+			printk("eicon_addcard: successful for slot: %d.\n", 
 			cards->mca_slot+1);
 		return  0 ; /* eicon_addcard hat eine Karte zugefuegt */
 	} else {

@@ -6,6 +6,10 @@
  *
  *
  * $Log$
+ * Revision 1.5  1999/08/25 16:59:55  keil
+ * Make ISAR V32bis modem running
+ * Make LL->HL interface open for additional commands
+ *
  * Revision 1.4  1999/08/05 20:43:18  keil
  * ISAR analog modem support
  *
@@ -1018,8 +1022,8 @@ modeisar(struct BCState *bcs, int mode, int bc)
 					&bcs->hw.isar.reg->Flags))
 					bcs->hw.isar.dpath = 1;
 				else {
-					printk(KERN_WARNING"isar modeisar analog funktions only with DP1\n");
-					debugl1(cs, "isar modeisar analog funktions only with DP1");
+					printk(KERN_WARNING"isar modeisar analog works only with DP1\n");
+					debugl1(cs, "isar modeisar analog works only with DP1");
 					return(1);
 				}
 				break;
@@ -1219,7 +1223,7 @@ isar_auxcmd(struct IsdnCardState *cs, isdn_ctrl *ic) {
 						ll_run(cs, features);
 					break;
 				default:
-					printk(KERN_DEBUG "HiSax: invalid ioclt %d\n",
+					printk(KERN_DEBUG "HiSax: invalid ioctl %d\n",
 					       (int) ic->arg);
 					return(-EINVAL);
 			}

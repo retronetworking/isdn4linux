@@ -19,6 +19,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.59  1999/08/28 22:10:55  keil
+ * __setup function should be static
+ *
  * Revision 1.58  1999/08/25 16:44:17  keil
  * Support for new __setup function
  *
@@ -464,7 +467,7 @@ icn_pollbchan_receive(int channel, icn_card * card)
 			if (!eflag) {
 				if ((cnt = card->rcvidx[channel])) {
 					if (!(skb = dev_alloc_skb(cnt))) {
-						printk(KERN_WARNING "ïcn: receive out of memory\n");
+						printk(KERN_WARNING "icn: receive out of memory\n");
 						break;
 					}
 					memcpy(skb_put(skb, cnt), card->rcvbuf[channel], cnt);

@@ -6,6 +6,10 @@
  *
  *
  * $Log$
+ * Revision 1.9  1999/07/12 21:05:30  keil
+ * fix race in IRQ handling
+ * added watchdog for lost IRQs
+ *
  * Revision 1.8  1999/07/01 08:12:12  keil
  * Common HiSax version for 2.0, 2.1, 2.2 and 2.3 kernel
  *
@@ -60,7 +64,7 @@ readreg(unsigned int ale, unsigned int adr, u_char off)
 	while (ret && --max_delay)
 		ret = HFC_BUSY & bytein(ale);
 	if (!max_delay) {
-		printk(KERN_WARNING "TeleInt Busy not inaktive\n");
+		printk(KERN_WARNING "TeleInt Busy not inactive\n");
 		restore_flags(flags);
 		return (0);
 	}
@@ -82,7 +86,7 @@ readfifo(unsigned int ale, unsigned int adr, u_char off, u_char * data, int size
 		while (ret && --max_delay)
 			ret = HFC_BUSY & bytein(ale);
 		if (!max_delay) {
-			printk(KERN_WARNING "TeleInt Busy not inaktive\n");
+			printk(KERN_WARNING "TeleInt Busy not inactive\n");
 			return;
 		}
 		data[i] = bytein(adr);
@@ -104,7 +108,7 @@ writereg(unsigned int ale, unsigned int adr, u_char off, u_char data)
 	while (ret && --max_delay)
 		ret = HFC_BUSY & bytein(ale);
 	if (!max_delay) {
-		printk(KERN_WARNING "TeleInt Busy not inaktive\n");
+		printk(KERN_WARNING "TeleInt Busy not inactive\n");
 		restore_flags(flags);
 		return;
 	}
@@ -126,7 +130,7 @@ writefifo(unsigned int ale, unsigned int adr, u_char off, u_char * data, int siz
 		while (ret && --max_delay)
 			ret = HFC_BUSY & bytein(ale);
 		if (!max_delay) {
-			printk(KERN_WARNING "TeleInt Busy not inaktive\n");
+			printk(KERN_WARNING "TeleInt Busy not inactive\n");
 			return;
 		}
 		byteout(adr, data[i]);

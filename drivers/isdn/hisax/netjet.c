@@ -7,6 +7,9 @@
  * Thanks to Traverse Technologie Australia for documents and informations
  *
  * $Log$
+ * Revision 1.13  1999/08/11 21:01:31  keil
+ * new PCI codefix
+ *
  * Revision 1.12  1999/08/10 16:02:00  calle
  * struct pci_dev changed in 2.3.13. Made the necessary changes.
  *
@@ -553,7 +556,7 @@ static void read_raw(struct BCState *bcs, u_int *buf, int cnt){
 				if ((state == HDLC_FRAME_FOUND) &&
 					!(bitcnt & 7)) {
 					if ((bitcnt>>3)>=HSCX_BUFMAX) {
-						debugl1(bcs->cs, "tiger: frame to big");
+						debugl1(bcs->cs, "tiger: frame too big");
 						r_val=0; 
 						state=HDLC_FLAG_SEARCH;
 						bcs->hw.tiger.r_err++;

@@ -7,6 +7,9 @@
  * Rewritten for Linux 1996 by Carsten Paeth (calle@calle.in-berlin.de)
  *
  * $Log$
+ * Revision 1.9  1999/07/09 15:05:46  keil
+ * compat.h is now isdn_compat.h
+ *
  * Revision 1.8  1999/07/01 15:26:37  calle
  * complete new version (I love it):
  * + new hardware independed "capi_driver" interface that will make it easy to:
@@ -94,7 +97,7 @@ char *capi_info2str(__u16 reason)
 	case 0x1001:
 	   return "Too many applications";
 	case 0x1002:
-	   return "Logical block size to small, must be at least 128 Bytes";
+	   return "Logical block size too small, must be at least 128 Bytes";
 	case 0x1003:
 	   return "Buffer exceeds 64 kByte";
 	case 0x1004:
