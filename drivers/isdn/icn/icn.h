@@ -19,6 +19,13 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.20  1996/06/24 17:20:37  fritz
+ * Bugfixes in pollbchan_send():
+ *   - Using lock field of skbuff breaks networking.
+ *   - Added channel locking
+ *   - changed dequeuing scheme.
+ * Eliminated misc. compiler warnings.
+ *
  * Revision 1.19  1996/06/06 13:58:35  fritz
  * Changed code to be architecture independent
  *
@@ -149,7 +156,7 @@ typedef struct icn_cdef {
 #define ICN_BOOT_TIMEOUT1  100   /* Delay for Boot-download (jiffies)       */
 #define ICN_CHANLOCK_DELAY  10   /* Delay for Channel-mapping (jiffies)     */
 
-#define ICN_TIMER_BCREAD 3       /* B-Channel poll-cycle                    */
+#define ICN_TIMER_BCREAD 1       /* B-Channel poll-cycle                    */
 #define ICN_TIMER_DCREAD 50      /* D-Channel poll-cycle                    */
 
 #define ICN_CODE_STAGE1 4096     /* Size of bootcode                        */
