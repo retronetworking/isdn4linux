@@ -106,7 +106,7 @@ README for the ISDN-subsystem
                         driver may not be selected (see "Automatic
                         Assignment") however the size of outgoing packets
                         will be limited correctly.
-               AT&D0    Ignore DTR
+	       AT&D0    Ignore DTR
 	       AT&D2    DTR-low-edge: Hang up and return to 
                         command mode (default).
                AT&D3    Same as AT&D2 but also resets all registers.
