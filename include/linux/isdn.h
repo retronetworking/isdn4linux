@@ -364,7 +364,7 @@ typedef struct {
 typedef struct isdn_net_local_s {
   ulong                  magic;
   char                   name[10];     /* Name of device                   */
-  struct enet_statistics stats;        /* Ethernet Statistics              */
+  struct net_device_stats stats;       /* Ethernet Statistics              */
   int                    isdn_device;  /* Index to isdn-device             */
   int                    isdn_channel; /* Index to isdn-channel            */
   int			 ppp_slot;     /* PPPD device slot number          */
@@ -856,9 +856,10 @@ static void __inline__ netif_stop_queue(struct net_device * dev)
 {
 	dev->tbusy = 1;
 }
-#endif /* COMPAT_NO_SOFTNET */
 
+#endif /* COMPAT_NO_SOFTNET */
 #ifdef COMPAT_HAS_2_2_PCI 
+
 struct pci_dev;
 
 static int __inline__ pci_enable_device(struct pci_dev * pdev)
