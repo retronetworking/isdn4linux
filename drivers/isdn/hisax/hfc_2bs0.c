@@ -6,6 +6,10 @@
  *
  *
  * $Log$
+ * Revision 1.11  1999/11/21 12:41:18  werner
+ *
+ * Implemented full audio support
+ *
  * Revision 1.10  1999/10/14 20:25:28  keil
  * add a statistic for error monitoring
  *
@@ -384,65 +388,67 @@ main_irq_hfc(struct BCState *bcs)
 	count--;
 	cip = HFC_CIP | HFC_F1 | HFC_REC | HFC_CHANNEL(bcs->channel);
 	if ((cip & 0xc3) != (cs->hw.hfc.cip & 0xc3)) {
-	  cs->BC_Write_Reg(cs, HFC_STATUS, cip, cip);
-	  WaitForBusy(cs);
+		cs->BC_Write_Reg(cs, HFC_STATUS, cip, cip);
+		WaitForBusy(cs);
 	}
 	WaitNoBusy(cs);
+	receive = 0;
 	if (bcs->mode == L1_MODE_HDLC) {
-	  f1 = cs->BC_Read_Reg(cs, HFC_DATA, cip);
-	  cip = HFC_CIP | HFC_F2 | HFC_REC | HFC_CHANNEL(bcs->channel);
-	  WaitNoBusy(cs);
-	  f2 = cs->BC_Read_Reg(cs, HFC_DATA, cip);
+		f1 = cs->BC_Read_Reg(cs, HFC_DATA, cip);
+		cip = HFC_CIP | HFC_F2 | HFC_REC | HFC_CHANNEL(bcs->channel);
+		WaitNoBusy(cs);
+		f2 = cs->BC_Read_Reg(cs, HFC_DATA, cip);
+		if (f1 != f2) {
+			if (cs->debug & L1_DEB_HSCX)
+				debugl1(cs, "hfc rec %d f1(%d) f2(%d)",
+					bcs->channel, f1, f2);
+			receive = 1; 
+		}
 	}
-	if ((f1 != f2) || (bcs->mode == L1_MODE_TRANS)) {
-	  if (bcs->mode == L1_MODE_HDLC)
-	    if (cs->debug & L1_DEB_HSCX)
-	      debugl1(cs, "hfc rec %d f1(%d) f2(%d)",
-		      bcs->channel, f1, f2);
-	  WaitForBusy(cs);
-	  z1 = ReadZReg(bcs, HFC_Z1 | HFC_REC | HFC_CHANNEL(bcs->channel));
-	  z2 = ReadZReg(bcs, HFC_Z2 | HFC_REC | HFC_CHANNEL(bcs->channel));
-	  rcnt = z1 - z2;
-	  if (rcnt < 0)
-	    rcnt += cs->hw.hfc.fifosize;
-	  if ((bcs->mode == L1_MODE_HDLC) || (rcnt)) {
-	    rcnt++;
-	    if (cs->debug & L1_DEB_HSCX)
-	      debugl1(cs, "hfc rec %d z1(%x) z2(%x) cnt(%d)",
-		      bcs->channel, z1, z2, rcnt);
-/*              sti(); */
-	    if ((skb = hfc_empty_fifo(bcs, rcnt))) {
-	      skb_queue_tail(&bcs->rqueue, skb);
-	      hfc_sched_event(bcs, B_RCVBUFREADY);
-	    }
-	  }
-	  receive = 1;
-	} else
-	  receive = 0;
+	if (receive || (bcs->mode == L1_MODE_TRANS)) {
+		WaitForBusy(cs);
+		z1 = ReadZReg(bcs, HFC_Z1 | HFC_REC | HFC_CHANNEL(bcs->channel));
+		z2 = ReadZReg(bcs, HFC_Z2 | HFC_REC | HFC_CHANNEL(bcs->channel));
+		rcnt = z1 - z2;
+		if (rcnt < 0)
+			rcnt += cs->hw.hfc.fifosize;
+		if ((bcs->mode == L1_MODE_HDLC) || (rcnt)) {
+			rcnt++;
+			if (cs->debug & L1_DEB_HSCX)
+				debugl1(cs, "hfc rec %d z1(%x) z2(%x) cnt(%d)",
+					bcs->channel, z1, z2, rcnt);
+			/*              sti(); */
+			if ((skb = hfc_empty_fifo(bcs, rcnt))) {
+				skb_queue_tail(&bcs->rqueue, skb);
+				hfc_sched_event(bcs, B_RCVBUFREADY);
+			}
+		}
+		receive = 1;
+	}
 	restore_flags(flags);
 	udelay(1);
 	cli();
 	if (bcs->tx_skb) {
-	  transmit = 1;
-	  test_and_set_bit(BC_FLG_BUSY, &bcs->Flag);
-	  hfc_fill_fifo(bcs);
-	  if (test_bit(BC_FLG_BUSY, &bcs->Flag))
-	    transmit = 0;
+		transmit = 1;
+		test_and_set_bit(BC_FLG_BUSY, &bcs->Flag);
+		hfc_fill_fifo(bcs);
+		if (test_bit(BC_FLG_BUSY, &bcs->Flag))
+			transmit = 0;
 	} else {
-	  if ((bcs->tx_skb = skb_dequeue(&bcs->squeue))) {
-	    transmit = 1;
-	    test_and_set_bit(BC_FLG_BUSY, &bcs->Flag);
-	    hfc_fill_fifo(bcs);
-	    if (test_bit(BC_FLG_BUSY, &bcs->Flag))
-	      transmit = 0;
-	  } else {
-	    transmit = 0;
-	    hfc_sched_event(bcs, B_XMTBUFREADY);
-	  }
+		if ((bcs->tx_skb = skb_dequeue(&bcs->squeue))) {
+			transmit = 1;
+			test_and_set_bit(BC_FLG_BUSY, &bcs->Flag);
+			hfc_fill_fifo(bcs);
+			if (test_bit(BC_FLG_BUSY, &bcs->Flag))
+				transmit = 0;
+		} else {
+			transmit = 0;
+			hfc_sched_event(bcs, B_XMTBUFREADY);
+		}
 	}
 	restore_flags(flags);
 	if ((receive || transmit) && count)
-	  goto Begin;
+		goto Begin;
 	return;
 }
 
