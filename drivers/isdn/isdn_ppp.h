@@ -19,6 +19,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.4  1996/05/06 11:34:56  hipp
+ * fixed a few bugs
+ *
  * Revision 1.3  1996/04/30 09:33:10  fritz
  * Removed compatibility-macros.
  *
@@ -48,5 +51,13 @@ extern int  isdn_ppp_select(int, struct file *, int, select_table *);
 extern int  isdn_ppp_ioctl(int, struct file *, unsigned int, unsigned long);
 extern void isdn_ppp_release(int, struct file *);
 extern int  isdn_ppp_dial_slave(char *);
+extern void isdn_ppp_wakeup_daemon(isdn_net_local *);
 
 extern struct ippp_struct *ippp_table[ISDN_MAX_CHANNELS];
+
+#define IPPP_OPEN	0x01
+#define IPPP_CONNECT	0x02
+#define IPPP_CLOSEWAIT	0x04
+#define IPPP_NOBLOCK	0x08
+#define IPPP_ASSIGNED	0x10
+
