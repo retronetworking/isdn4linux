@@ -6,6 +6,10 @@
  * (c) Copyright 1997 by Carsten Paeth (calle@calle.in-berlin.de)
  * 
  * $Log$
+ * Revision 1.4  1999/09/10 17:24:19  calle
+ * Changes for proposed standard for CAPI2.0:
+ * - AK148 "Linux Exention"
+ *
  * Revision 1.3  1999/07/01 15:26:56  calle
  * complete new version (I love it):
  * + new hardware independed "capi_driver" interface that will make it easy to:
@@ -53,8 +57,17 @@ typedef struct kcapi_flagdef {
 	int flag;
 } kcapi_flagdef;
 
+typedef struct kcapi_carddef {
+	char		driver[32];
+	unsigned int	port;
+	unsigned	irq;
+	unsigned int	membase;
+	int		cardnr;
+} kcapi_carddef;
+
 /* new ioctls >= 10 */
 #define KCAPI_CMD_TRACE		10
+#define KCAPI_CMD_ADDCARD	11	/* add card to named driver */
 
 /* 
  * flag > 2 => trace also data
