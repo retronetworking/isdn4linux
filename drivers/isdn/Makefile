@@ -1,6 +1,6 @@
 SUB_DIRS     :=
 MOD_SUB_DIRS :=
-ALL_SUB_DIRS := icn pcbit hisax avmb1 divert
+ALL_SUB_DIRS := icn pcbit hisax avmb1 # divert
 
 L_OBJS :=
 LX_OBJS :=
