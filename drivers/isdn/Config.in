@@ -21,6 +21,7 @@ if [ "$CONFIG_ISDN_DRV_HISAX" != "n" ]; then
     bool 'HiSax Support for Elsa PCMCIA card' CONFIG_HISAX_ELSA_PCMCIA
     bool 'HiSax Support for ITK ix1-micro Revision 2' CONFIG_HISAX_IX1MICROR2
     bool 'HiSax Support for EURO/DSS1' CONFIG_HISAX_EURO
+    bool 'HiSax Support for US/NI-1' CONFIG_HISAX_NI1
     bool 'HiSax Support for german 1TR6' CONFIG_HISAX_1TR6
 fi
 if [ "$CONFIG_EXPERIMENTAL" != "n" ]; then

@@ -11,6 +11,9 @@
  *
  *
  * $Log$
+ * Revision 1.10  1997/03/13 14:45:05  keil
+ * using IRQ proof queue_task
+ *
  * Revision 1.9  1997/03/12 21:44:21  keil
  * change Interrupt routine from atomic quick to normal
  *
@@ -898,6 +901,9 @@ checkcard(int cardnr, char *id)
 #ifdef	CONFIG_HISAX_EURO
 	    ISDN_FEATURE_P_EURO |
 #endif
+#ifdef        CONFIG_HISAX_NI1
+          ISDN_FEATURE_P_NI1 |
+#endif
 	    0;
 
 	sp->iif.command = HiSax_command;
@@ -913,6 +919,7 @@ checkcard(int cardnr, char *id)
 	       (card->protocol == ISDN_PTYPE_1TR6) ? "1TR6" :
 	       (card->protocol == ISDN_PTYPE_EURO) ? "EDSS1" :
 	       (card->protocol == ISDN_PTYPE_LEASED) ? "LEASED" :
+             (card->protocol == ISDN_PTYPE_NI1) ? "NI1" :
 	       "NONE", sp->iif.id, sp->myid);
 	switch (card->typ) {
 #if CARD_TELES0

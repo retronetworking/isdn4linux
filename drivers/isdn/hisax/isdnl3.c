@@ -7,6 +7,9 @@
  *              Fritz Elfert
  *
  * $Log$
+ * Revision 1.8  1997/03/21 18:53:44  keil
+ * Report no protocol error to syslog too
+ *
  * Revision 1.7  1997/03/17 18:34:38  keil
  * fixed oops if no protocol selected during config
  *
@@ -119,6 +122,10 @@ no_l3_proto(struct PStack *st, int pr, void *arg)
 extern void setstack_dss1(struct PStack *st);
 #endif
 
+#ifdef        CONFIG_HISAX_NI1
+extern void setstack_ni1(struct PStack *st);
+#endif
+
 #ifdef	CONFIG_HISAX_1TR6
 extern void setstack_1tr6(struct PStack *st);
 #endif
@@ -137,6 +144,11 @@ setstack_isdnl3(struct PStack *st, struct Channel *chanp)
 		setstack_dss1(st);
 	} else
 #endif
+#ifdef        CONFIG_HISAX_NI1
+      if (st->protocol == ISDN_PTYPE_NI1) {
+              setstack_ni1(st);
+      } else
+#endif
 #ifdef	CONFIG_HISAX_1TR6
 	if (st->protocol == ISDN_PTYPE_1TR6) {
 		setstack_1tr6(st);
@@ -152,6 +164,7 @@ setstack_isdnl3(struct PStack *st, struct Channel *chanp)
 		sprintf(tmp, "protocol %s not supported",
 			(st->protocol == ISDN_PTYPE_1TR6) ? "1tr6" :
 			(st->protocol == ISDN_PTYPE_EURO) ? "euro" :
+                      (st->protocol == ISDN_PTYPE_NI1) ? "ni1" :
 			"unknown");
 		printk(KERN_WARNING "HiSax: %s\n", tmp);
 		l3_debug(st, tmp);

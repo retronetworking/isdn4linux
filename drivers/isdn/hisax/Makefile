@@ -9,6 +9,10 @@ ifeq ($(CONFIG_HISAX_EURO),y)
 	 O_OBJS += l3dss1.o
 endif
 
+ifeq ($(CONFIG_HISAX_NI1),y)
+       O_OBJS += l3ni1.o
+endif
+
 ifeq ($(CONFIG_HISAX_1TR6),y)
 	 O_OBJS += l3_1tr6.o
 endif

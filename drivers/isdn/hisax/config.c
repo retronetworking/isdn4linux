@@ -5,6 +5,9 @@
  *
  *
  * $Log$
+ * Revision 1.13  1997/03/23 21:45:49  keil
+ * Add support for ELSA PCMCIA
+ *
  * Revision 1.12  1997/03/11 21:01:43  keil
  * nzproto is only used with modules
  *
@@ -71,7 +74,7 @@
  *    9 ITK ix1-micro   p0=irq p1=iobase
  *
  *
- * protocol can be either ISDN_PTYPE_EURO or ISDN_PTYPE_1TR6
+ * protocol can be either ISDN_PTYPE_EURO or ISDN_PTYPE_1TR6 or ISDN_PTYPE_NI1
  *
  *
  */
@@ -119,6 +122,12 @@
 #define DEFAULT_PROTO ISDN_PTYPE_EURO
 #undef DEFAULT_PROTO_NAME
 #define DEFAULT_PROTO_NAME "EURO"
+#endif
+#ifdef CONFIG_HISAX_NI1
+#undef DEFAULT_PROTO
+#define DEFAULT_PROTO ISDN_PTYPE_NI1
+#undef DEFAULT_PROTO_NAME
+#define DEFAULT_PROTO_NAME "NI1"
 #endif
 #ifndef DEFAULT_PROTO
 #define DEFAULT_PROTO ISDN_PTYPE_UNKNOWN
