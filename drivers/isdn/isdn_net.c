@@ -21,6 +21,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.28  1996/10/27 20:49:06  keil
+ * bugfix to compile without MPP
+ *
  * Revision 1.27  1996/10/25 18:46:01  fritz
  * Another bugfix in isdn_net_autohup()
  *
@@ -267,10 +270,7 @@ isdn_net_autohup()
 {
 	isdn_net_dev *p = dev->netdev;
         int anymore;
-	ulong flags;
 
-	save_flags(flags);
-	cli();
         anymore = 0;
 	while (p) {
 		isdn_net_local *l = (isdn_net_local *) & (p->local);
@@ -300,7 +300,6 @@ isdn_net_autohup()
 	}
 	last_jiffies = jiffies;
         isdn_timer_ctrl(ISDN_TIMER_NETHANGUP,anymore);
-	restore_flags(flags);
 }
 
 /*
@@ -931,8 +930,8 @@ isdn_net_start_xmit(struct sk_buff *skb, struct device *ndev)
                                                 restore_flags(flags);
 						return 0;	/* STN (skb to nirvana) ;) */
 					}
-	                                isdn_net_dial();	/* Initiate dialing */
 					restore_flags(flags);
+	                                isdn_net_dial();	/* Initiate dialing */
 					return 1;	/* let upper layer requeue skb packet */
 				}
 #endif
@@ -946,9 +945,9 @@ isdn_net_start_xmit(struct sk_buff *skb, struct device *ndev)
                                 }
                                 lp->first_skb = skb;
 				/* Initiate dialing */
-				isdn_net_dial();
                                 ndev->tbusy = 0;
 				restore_flags(flags);
+				isdn_net_dial();
                                 return 0;
 			} else {
                                 /*
@@ -1859,8 +1858,8 @@ int isdn_net_force_dial_lp(isdn_net_local * lp)
 				}
 #endif
 			/* Initiate dialing */
-			isdn_net_dial();
 			restore_flags(flags);
+			isdn_net_dial();
 			return 0;
 		} else
 			return -EINVAL;
@@ -2324,16 +2323,11 @@ static int isdn_net_rmallphone(isdn_net_dev * p)
 int isdn_net_force_hangup(char *name)
 {
 	isdn_net_dev *p = isdn_net_findif(name);
-	int flags;
 	struct device *q;
 
 	if (p) {
-		save_flags(flags);
-		cli();
-		if (p->local.isdn_device < 0) {
-			restore_flags(flags);
+		if (p->local.isdn_device < 0)
 			return 1;
-		}
 		isdn_net_hangup(&p->dev);
 		q = p->local.slave;
 		/* If this interface has slaves, do a hangup for them also. */
@@ -2341,7 +2335,6 @@ int isdn_net_force_hangup(char *name)
 			isdn_net_hangup(q);
 			q = (((isdn_net_local *) q->priv)->slave);
 		}
-		restore_flags(flags);
 		return 0;
 	}
 	return -ENODEV;
