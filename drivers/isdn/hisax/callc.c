@@ -11,6 +11,9 @@
  *              Fritz Elfert
  *
  * $Log$
+ * Revision 2.36  1999/09/20 12:13:13  keil
+ * Fix hang if no protocol was selected
+ *
  * Revision 2.35  1999/09/04 06:20:05  keil
  * Changes from kernel set_current_state()
  *
@@ -1149,11 +1152,12 @@ init_PStack(struct PStack **stp) {
 static void
 init_d_st(struct Channel *chanp)
 {
-	struct PStack *st = chanp->d_st;
+	struct PStack *st;
 	struct IsdnCardState *cs = chanp->cs;
 	char tmp[16];
 
-	init_PStack(&st);
+	init_PStack(&chanp->d_st);
+	st = chanp->d_st;
 	st->next = NULL;
 	HiSax_addlist(cs, st);
 	setstack_HiSax(st, cs);
