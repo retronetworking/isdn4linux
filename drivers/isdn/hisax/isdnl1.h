@@ -1,6 +1,9 @@
 /* $Id$
 
  * $Log$
+ * Revision 1.4.2.1  1997/10/17 22:13:58  keil
+ * update to last hisax version
+ *
  * Revision 2.2  1997/07/30 17:11:09  keil
  * L1deactivated exported
  *
@@ -9,19 +12,6 @@
  *
  * Revision 2.0  1997/06/26 11:02:55  keil
  * New Layer and card interface
- *
- * Revision 1.4  1997/04/06 22:55:52  keil
- * Using SKB's
- *
- * Revision 1.3  1996/12/08 19:41:55  keil
- * L2FRAME_DEBUG
- *
- * Revision 1.2  1996/10/27 22:26:27  keil
- * ISAC/HSCX version functions
- *
- * Revision 1.1  1996/10/13 20:03:47  keil
- * Initial revision
- *
  *
  *
  */
@@ -40,29 +30,22 @@
 #define	L1_DEB_LAPD	        0x40
 #define	L1_DEB_IPAC	        0x80
 
-#define L1_F1 1
-#define L1_F2 2
-#define L1_F3 3
-#define L1_F4 4
-#define L1_F5 5
-#define L1_F6 6
-#define L1_F7 7
-#define L1_F8 8
 
 #define D_RCVBUFREADY	0
 #define D_XMTBUFREADY	1
-#define L1_PH_ACT	2
-#define L1_PH_DEACT	3
-#define D_CLEARBUSY	4
+#define D_L1STATECHANGE	2
+#define D_CLEARBUSY	3
+#define D_RX_MON0	4
+#define D_RX_MON1	5
+#define D_TX_MON0	6
+#define D_TX_MON1	7
 
 #define B_RCVBUFREADY 0
 #define B_XMTBUFREADY 1
 
 extern void debugl1(struct IsdnCardState *sp, char *msg);
-extern get_irq(int cardnr, void *routine);
-extern void L1activated(struct IsdnCardState *cs);
-extern void L1deactivated(struct IsdnCardState *cs);
-extern int L1act_wanted(struct IsdnCardState *cs);
+extern void DChannel_proc_xmt(struct IsdnCardState *cs);
+extern void DChannel_proc_rcv(struct IsdnCardState *cs);
 
 
 #ifdef L2FRAME_DEBUG

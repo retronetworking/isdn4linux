@@ -13,6 +13,9 @@
  *            Edgar Toernig
  *
  * $Log$
+ * Revision 1.1.2.1  1997/10/17 22:10:56  keil
+ * new files on 2.0
+ *
  * Revision 1.1  1997/09/11 17:32:04  keil
  * new
  *
@@ -20,13 +23,10 @@
  */
 
 #define __NO_VERSION__
-#include <linux/config.h>
 #include "hisax.h"
-#include "sedlbauer.h"
 #include "isac.h"
 #include "hscx.h"
 #include "isdnl1.h"
-#include <linux/kernel_stat.h>
 
 extern const char *CardType[];
 
@@ -34,6 +34,15 @@ const char *Sedlbauer_revision = "$Revision$";
 
 #define byteout(addr,val) outb_p(val,addr)
 #define bytein(addr) inb_p(addr)
+
+#define SEDL_RES_ON	0
+#define SEDL_RES_OFF	1
+#define SEDL_ISAC	2
+#define SEDL_HSCX	3
+#define SEDL_ADR	4
+
+/* CARD_ADR (Write) */
+#define SEDL_RESET      0x3	/* same as DOS driver */
 
 static inline u_char
 readreg(unsigned int ale, unsigned int adr, u_char off)
@@ -139,10 +148,8 @@ WriteHSCX(struct IsdnCardState *cs, int hscx, u_char offset, u_char value)
 static void
 sedlbauer_interrupt(int intno, void *dev_id, struct pt_regs *regs)
 {
-	struct IsdnCardState *cs;
+	struct IsdnCardState *cs = dev_id;
 	u_char val, stat = 0;
-
-	cs = (struct IsdnCardState *) irq2dev_map[intno];
 
 	if (!cs) {
 		printk(KERN_WARNING "Sedlbauer: Spurious interrupt!\n");
@@ -185,12 +192,12 @@ sedlbauer_interrupt(int intno, void *dev_id, struct pt_regs *regs)
 }
 
 void
-release_io_sedlbauer(struct IsdnCard *card)
+release_io_sedlbauer(struct IsdnCardState *cs)
 {
 	int bytecnt = 8;
 
-	if (card->cs->hw.sedl.cfg_reg)
-		release_region(card->cs->hw.sedl.cfg_reg, bytecnt);
+	if (cs->hw.sedl.cfg_reg)
+		release_region(cs->hw.sedl.cfg_reg, bytecnt);
 }
 
 static void
@@ -211,53 +218,40 @@ reset_sedlbauer(struct IsdnCardState *cs)
 	restore_flags(flags);
 }
 
-int
-initsedlbauer(struct IsdnCardState *cs)
-{
-	int ret, irq_cnt, cnt = 3;
-
-	irq_cnt = kstat.interrupts[cs->irq];
-	printk(KERN_INFO "Sedlbauer: IRQ %d count %d\n", cs->irq, irq_cnt);
-	ret = get_irq(cs->cardnr, &sedlbauer_interrupt);
-	while (ret && cnt) {
-		clear_pending_isac_ints(cs);
-		clear_pending_hscx_ints(cs);
-		initisac(cs);
-		inithscx(cs);
-		printk(KERN_INFO "Sedlbauer: IRQ %d count %d\n", cs->irq,
-		       kstat.interrupts[cs->irq]);
-		if (kstat.interrupts[cs->irq] == irq_cnt) {
-			printk(KERN_WARNING
-			       "Sedlbauer: IRQ(%d) getting no interrupts during init %d\n",
-			       cs->irq, 4 - cnt);
-			if (cnt == 1) {
-				irq2dev_map[cs->irq] = NULL;
-				free_irq(cs->irq, NULL);
-				return (0);
-			} else {
-				reset_sedlbauer(cs);
-				cnt--;
-			}
-		} else
-			cnt = 0;
-	}
-	return (ret);
-}
-
-static void
+static int
 Sedl_card_msg(struct IsdnCardState *cs, int mt, void *arg)
 {
+	switch (mt) {
+		case CARD_RESET:
+			reset_sedlbauer(cs);
+			return(0);
+		case CARD_RELEASE:
+			release_io_sedlbauer(cs);
+			return(0);
+		case CARD_SETIRQ:
+			return(request_irq(cs->irq, &sedlbauer_interrupt,
+					I4L_IRQ_FLAG, "HiSax", cs));
+		case CARD_INIT:
+			clear_pending_isac_ints(cs);
+			clear_pending_hscx_ints(cs);
+			initisac(cs);
+			inithscx(cs);
+			return(0);
+		case CARD_TEST:
+			return(0);
+	}
+	return(0);
 }
 
-int
-setup_sedlbauer(struct IsdnCard *card)
+__initfunc(int
+setup_sedlbauer(struct IsdnCard *card))
 {
 	int bytecnt;
 	struct IsdnCardState *cs = card->cs;
 	char tmp[64];
 
 	strcpy(tmp, Sedlbauer_revision);
-	printk(KERN_NOTICE "HiSax: Sedlbauer driver Rev. %s\n", HiSax_getrev(tmp));
+	printk(KERN_INFO "HiSax: Sedlbauer driver Rev. %s\n", HiSax_getrev(tmp));
 	if (cs->typ != ISDN_CTYPE_SEDLBAUER)
 		return (0);
 
@@ -299,7 +293,7 @@ setup_sedlbauer(struct IsdnCard *card)
 	if (HscxVersion(cs, "Sedlbauer:")) {
 		printk(KERN_WARNING
 		    "Sedlbauer: wrong HSCX versions check IO address\n");
-		release_io_sedlbauer(card);
+		release_io_sedlbauer(cs);
 		return (0);
 	}
 	return (1);

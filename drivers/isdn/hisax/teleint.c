@@ -6,6 +6,9 @@
  *
  *
  * $Log$
+ * Revision 1.1.2.1  1997/10/17 22:11:00  keil
+ * new files on 2.0
+ *
  * Revision 1.1  1997/09/11 17:32:32  keil
  * new
  *
@@ -13,13 +16,10 @@
  */
 
 #define __NO_VERSION__
-#include <linux/config.h>
 #include "hisax.h"
-#include "teleint.h"
 #include "isac.h"
 #include "hfc_2bs0.h"
 #include "isdnl1.h"
-#include <linux/kernel_stat.h>
 
 extern const char *CardType[];
 
@@ -175,10 +175,8 @@ WriteHFC(struct IsdnCardState *cs, int data, u_char reg, u_char value)
 static void
 TeleInt_interrupt(int intno, void *dev_id, struct pt_regs *regs)
 {
-	struct IsdnCardState *cs;
+	struct IsdnCardState *cs = dev_id;
 	u_char val, stat = 0;
-
-	cs = (struct IsdnCardState *) irq2dev_map[intno];
 
 	if (!cs) {
 		printk(KERN_WARNING "TeleInt: Spurious interrupt!\n");
@@ -220,12 +218,12 @@ TeleInt_Timer(struct IsdnCardState *cs)
 }
 
 void
-release_io_TeleInt(struct IsdnCard *card)
+release_io_TeleInt(struct IsdnCardState *cs)
 {
-	del_timer(&card->cs->hw.hfc.timer);
-	releasehfc(card->cs);
-	if (card->cs->hw.hfc.addr)
-		release_region(card->cs->hw.hfc.addr, 2);
+	del_timer(&cs->hw.hfc.timer);
+	releasehfc(cs);
+	if (cs->hw.hfc.addr)
+		release_region(cs->hw.hfc.addr, 2);
 }
 
 static void
@@ -249,55 +247,40 @@ reset_TeleInt(struct IsdnCardState *cs)
 	restore_flags(flags);
 }
 
-int
-initTeleInt(struct IsdnCardState *cs)
-{
-	int ret, irq_cnt, cnt = 3;
-
-	inithfc(cs);
-	irq_cnt = kstat.interrupts[cs->irq];
-	printk(KERN_INFO "TeleInt: IRQ %d count %d\n", cs->irq, irq_cnt);
-	ret = get_irq(cs->cardnr, &TeleInt_interrupt);
-	while (ret && cnt) {
-		clear_pending_isac_ints(cs);
-		initisac(cs);
-		cs->writeisac(cs, ISAC_SPCR, cs->hw.hfc.isac_spcr);
-		printk(KERN_INFO "TeleInt: IRQ %d count %d\n", cs->irq,
-		       kstat.interrupts[cs->irq]);
-		if (kstat.interrupts[cs->irq] == irq_cnt) {
-			printk(KERN_WARNING
-			       "TeleInt: IRQ(%d) getting no interrupts during init %d\n",
-			       cs->irq, 4 - cnt);
-			if (cnt == 1) {
-				irq2dev_map[cs->irq] = NULL;
-				free_irq(cs->irq, NULL);
-				return (0);
-			} else {
-				reset_TeleInt(cs);
-				cnt--;
-			}
-		} else {
-			cnt = 0;
-			cs->hw.hfc.timer.expires = jiffies + 1;
-			add_timer(&cs->hw.hfc.timer);
-		}
-	}
-	return (ret);
-}
-
-static void
+static int
 TeleInt_card_msg(struct IsdnCardState *cs, int mt, void *arg)
 {
+	switch (mt) {
+		case CARD_RESET:
+			reset_TeleInt(cs);
+			return(0);
+		case CARD_RELEASE:
+			release_io_TeleInt(cs);
+			return(0);
+		case CARD_SETIRQ:
+			return(request_irq(cs->irq, &TeleInt_interrupt,
+					I4L_IRQ_FLAG, "HiSax", cs));
+		case CARD_INIT:
+			inithfc(cs);
+			clear_pending_isac_ints(cs);
+			initisac(cs);
+			cs->hw.hfc.timer.expires = jiffies + 1;
+			add_timer(&cs->hw.hfc.timer);
+			return(0);
+		case CARD_TEST:
+			return(0);
+	}
+	return(0);
 }
 
-int
-setup_TeleInt(struct IsdnCard *card)
+__initfunc(int
+setup_TeleInt(struct IsdnCard *card))
 {
 	struct IsdnCardState *cs = card->cs;
 	char tmp[64];
 
 	strcpy(tmp, TeleInt_revision);
-	printk(KERN_NOTICE "HiSax: TeleInt driver Rev. %s\n", HiSax_getrev(tmp));
+	printk(KERN_INFO "HiSax: TeleInt driver Rev. %s\n", HiSax_getrev(tmp));
 	if (cs->typ != ISDN_CTYPE_TELEINT)
 		return (0);
 
@@ -346,7 +329,8 @@ setup_TeleInt(struct IsdnCard *card)
 			cs->hw.hfc.cirm |= HFC_INTF;
 			break;
 		default:
-			release_io_TeleInt(card);
+			printk(KERN_WARNING "TeleInt: wrong IRQ\n");
+			release_io_TeleInt(cs);
 			return (0);
 	}
 	byteout(cs->hw.hfc.addr | 1, cs->hw.hfc.cirm);

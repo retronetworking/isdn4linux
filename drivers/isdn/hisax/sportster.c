@@ -7,20 +7,28 @@
  * Thanks to Christian "naddy" Weisgerber (3Com, US Robotics) for documentation
  *
  * $Log$
+ * Revision 1.1.2.1  1997/10/17 22:10:58  keil
+ * new files on 2.0
+ *
  */
 #define __NO_VERSION__
 #include "hisax.h"
-#include "sportster.h"
 #include "isac.h"
 #include "hscx.h"
 #include "isdnl1.h"
-#include <linux/kernel_stat.h>
 
 extern const char *CardType[];
 const char *sportster_revision = "$Revision$";
 
 #define byteout(addr,val) outb_p(val,addr)
 #define bytein(addr) inb_p(addr)
+
+#define	 SPORTSTER_ISAC		0xC000
+#define	 SPORTSTER_HSCXA	0x0000
+#define	 SPORTSTER_HSCXB	0x4000
+#define	 SPORTSTER_RES_IRQ	0x8000
+#define	 SPORTSTER_RESET	0x80
+#define	 SPORTSTER_INTE		0x40
 
 static inline int
 calc_off(unsigned int base, unsigned int off)
@@ -92,10 +100,8 @@ WriteHSCX(struct IsdnCardState *cs, int hscx, u_char offset, u_char value)
 static void
 sportster_interrupt(int intno, void *dev_id, struct pt_regs *regs)
 {
-	struct IsdnCardState *cs;
+	struct IsdnCardState *cs = dev_id;
 	u_char val;
-
-	cs = (struct IsdnCardState *) irq2dev_map[intno];
 
 	if (!cs) {
 		printk(KERN_WARNING "Sportster: Spurious interrupt!\n");
@@ -126,13 +132,13 @@ sportster_interrupt(int intno, void *dev_id, struct pt_regs *regs)
 }
 
 void
-release_io_sportster(struct IsdnCard *card)
+release_io_sportster(struct IsdnCardState *cs)
 {
 	int i, adr;
 
-	byteout(card->cs->hw.spt.cfg_reg + SPORTSTER_RES_IRQ, 0);
+	byteout(cs->hw.spt.cfg_reg + SPORTSTER_RES_IRQ, 0);
 	for (i=0; i<64; i++) {
-		adr = card->cs->hw.spt.cfg_reg + i *1024;
+		adr = cs->hw.spt.cfg_reg + i *1024;
 		release_region(adr, 8);
 	}
 }
@@ -157,48 +163,35 @@ reset_sportster(struct IsdnCardState *cs)
 	restore_flags(flags);
 }
 
-static void
+static int
 Sportster_card_msg(struct IsdnCardState *cs, int mt, void *arg)
 {
-}
-
-int
-initsportster(struct IsdnCardState *cs)
-{
-	int ret, irq_cnt, cnt = 3;
-
-	irq_cnt = kstat.interrupts[cs->irq];
-	printk(KERN_INFO "Sportster: IRQ %d count %d\n", cs->irq, irq_cnt);
-	ret = get_irq(cs->cardnr, &sportster_interrupt);
-	cs->hw.spt.res_irq |= SPORTSTER_INTE; /* IRQ On */
-	byteout(cs->hw.spt.cfg_reg + SPORTSTER_RES_IRQ, cs->hw.spt.res_irq);
-	while (ret && cnt) {
-		clear_pending_isac_ints(cs);
-		clear_pending_hscx_ints(cs);
-		initisac(cs);
-		inithscx(cs);
-		printk(KERN_INFO "Sportster: IRQ %d count %d\n", cs->irq,
-		       kstat.interrupts[cs->irq]);
-		if (kstat.interrupts[cs->irq] == irq_cnt) {
-			printk(KERN_WARNING
-			       "Sportster: IRQ(%d) getting no interrupts during init %d\n",
-			       cs->irq, 4 - cnt);
-			if (cnt == 1) {
-				irq2dev_map[cs->irq] = NULL;
-				free_irq(cs->irq, NULL);
-				return (0);
-			} else {
-				reset_sportster(cs);
-				cnt--;
-			}
-		} else
-			cnt = 0;
+	switch (mt) {
+		case CARD_RESET:
+			reset_sportster(cs);
+			return(0);
+		case CARD_RELEASE:
+			release_io_sportster(cs);
+			return(0);
+		case CARD_SETIRQ:
+			return(request_irq(cs->irq, &sportster_interrupt,
+					I4L_IRQ_FLAG, "HiSax", cs));
+		case CARD_INIT:
+			clear_pending_isac_ints(cs);
+			clear_pending_hscx_ints(cs);
+			initisac(cs);
+			inithscx(cs);
+			cs->hw.spt.res_irq |= SPORTSTER_INTE; /* IRQ On */
+			byteout(cs->hw.spt.cfg_reg + SPORTSTER_RES_IRQ, cs->hw.spt.res_irq);
+			return(0);
+		case CARD_TEST:
+			return(0);
 	}
-	return (ret);
+	return(0);
 }
 
-int
-get_io_range(struct IsdnCardState *cs)
+__initfunc(int
+get_io_range(struct IsdnCardState *cs))
 {
 	int i, j, adr;
 	
@@ -223,14 +216,14 @@ get_io_range(struct IsdnCardState *cs)
 	}
 }
 
-int
-setup_sportster(struct IsdnCard *card)
+__initfunc(int
+setup_sportster(struct IsdnCard *card))
 {
 	struct IsdnCardState *cs = card->cs;
 	char tmp[64];
 
 	strcpy(tmp, sportster_revision);
-	printk(KERN_NOTICE "HiSax: USR Sportster driver Rev. %s\n", HiSax_getrev(tmp));
+	printk(KERN_INFO "HiSax: USR Sportster driver Rev. %s\n", HiSax_getrev(tmp));
 	if (cs->typ != ISDN_CTYPE_SPORTSTER)
 		return (0);
 
@@ -257,12 +250,13 @@ setup_sportster(struct IsdnCard *card)
 			break;
 		case 15:cs->hw.spt.res_irq = 7;
 			break;
-		default:release_io_sportster(card);
+		default:release_io_sportster(cs);
+			printk(KERN_WARNING "Sportster: wrong IRQ\n");
 			return(0);
 	}
 	reset_sportster(cs);
-	printk(KERN_NOTICE
-	       "HiSax: %s config irq:%d cfg:%x\n",
+	printk(KERN_INFO
+	       "HiSax: %s config irq:%d cfg:0x%X\n",
 	       CardType[cs->typ], cs->irq,
 	       cs->hw.spt.cfg_reg);
 
@@ -278,7 +272,7 @@ setup_sportster(struct IsdnCard *card)
 	if (HscxVersion(cs, "Sportster:")) {
 		printk(KERN_WARNING
 		       "Sportster: wrong HSCX versions check IO address\n");
-		release_io_sportster(card);
+		release_io_sportster(cs);
 		return (0);
 	}
 	return (1);
