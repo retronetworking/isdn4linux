@@ -6,6 +6,9 @@
  *
  *
  * $Log$
+ * Revision 2.7  1998/02/02 13:29:37  keil
+ * fast io
+ *
  * Revision 2.6  1998/01/13 23:09:46  keil
  * really disable timer
  *
@@ -214,10 +217,10 @@ AVM_card_msg(struct IsdnCardState *cs, int mt, void *arg)
 			return(request_irq(cs->irq, &avm_a1_interrupt,
 					I4L_IRQ_FLAG, "HiSax", cs));
 		case CARD_INIT:
-			clear_pending_isac_ints(cs);
-			clear_pending_hscx_ints(cs);
-			initisac(cs);
-			inithscx(cs);
+			inithscxisac(cs, 1);
+			byteout(cs->hw.avm.cfg_reg, 0x16);
+			byteout(cs->hw.avm.cfg_reg, 0x1E);
+			inithscxisac(cs, 2);
 			return(0);
 		case CARD_TEST:
 			return(0);
@@ -345,7 +348,6 @@ setup_avm_a1(struct IsdnCard *card))
 	val = bytein(cs->hw.avm.cfg_reg + 2);
 	printk(KERN_INFO "AVM A1: Byte at %x is %x\n",
 	       cs->hw.avm.cfg_reg + 2, val);
-	byteout(cs->hw.avm.cfg_reg, 0x1E);
 	val = bytein(cs->hw.avm.cfg_reg);
 	printk(KERN_INFO "AVM A1: Byte at %x is %x\n",
 	       cs->hw.avm.cfg_reg, val);

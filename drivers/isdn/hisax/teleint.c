@@ -6,6 +6,9 @@
  *
  *
  * $Log$
+ * Revision 1.5  1998/02/02 13:40:47  keil
+ * fast io
+ *
  * Revision 1.4  1997/11/08 21:35:53  keil
  * new l1 init
  *
@@ -270,6 +273,9 @@ TeleInt_card_msg(struct IsdnCardState *cs, int mt, void *arg)
 			inithfc(cs);
 			clear_pending_isac_ints(cs);
 			initisac(cs);
+			/* Reenable all IRQ */
+			cs->writeisac(cs, ISAC_MASK, 0);
+			cs->writeisac(cs, ISAC_CMDR, 0x41);
 			cs->hw.hfc.timer.expires = jiffies + 1;
 			add_timer(&cs->hw.hfc.timer);
 			return(0);

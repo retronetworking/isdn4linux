@@ -14,6 +14,9 @@
  *            Edgar Toernig
  *
  * $Log$
+ * Revision 1.6  1998/02/09 18:46:06  keil
+ * Support for Sedlbauer PCMCIA (Marcus Niemann)
+ *
  * Revision 1.5  1998/02/02 13:29:45  keil
  * fast io
  *
@@ -263,10 +266,7 @@ Sedl_card_msg(struct IsdnCardState *cs, int mt, void *arg)
 			return(request_irq(cs->irq, &sedlbauer_interrupt,
 					I4L_IRQ_FLAG, "HiSax", cs));
 		case CARD_INIT:
-			clear_pending_isac_ints(cs);
-			clear_pending_hscx_ints(cs);
-			initisac(cs);
-			inithscx(cs);
+			inithscxisac(cs, 3);
 			return(0);
 		case CARD_TEST:
 			return(0);

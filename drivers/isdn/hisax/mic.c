@@ -8,6 +8,9 @@
  *
  *
  * $Log$
+ * Revision 1.6  1998/02/17 15:39:57  keil
+ * fix reset problem
+ *
  * Revision 1.5  1998/02/02 13:29:43  keil
  * fast io
  *
@@ -217,10 +220,7 @@ mic_card_msg(struct IsdnCardState *cs, int mt, void *arg)
 					I4L_IRQ_FLAG, "HiSax", cs));
 		case CARD_INIT:
 			inithscx(cs); /* /RTSA := ISAC RST */
-			clear_pending_isac_ints(cs);
-			clear_pending_hscx_ints(cs);
-			initisac(cs);
-			inithscx(cs);
+			inithscxisac(cs, 3);
 			return(0);
 		case CARD_TEST:
 			return(0);

@@ -8,6 +8,9 @@
  *
  *
  * $Log$
+ * Revision 1.2  1998/02/02 13:27:06  keil
+ * New
+ *
  *
  */
 
@@ -221,10 +224,7 @@ Asus_card_msg(struct IsdnCardState *cs, int mt, void *arg)
 			return(request_irq(cs->irq, &asuscom_interrupt,
 					I4L_IRQ_FLAG, "HiSax", cs));
 		case CARD_INIT:
-			clear_pending_isac_ints(cs);
-			clear_pending_hscx_ints(cs);
-			initisac(cs);
-			inithscx(cs);
+			inithscxisac(cs, 3);
 			return(0);
 		case CARD_TEST:
 			return(0);
