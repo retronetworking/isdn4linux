@@ -6,6 +6,9 @@
  * Heavily based on devpts filesystem from H. Peter Anvin
  * 
  * $Log$
+ * Revision 1.8  2000/07/20 10:23:13  calle
+ * Include isdn_compat.h for people that don't use -p option of std2kern.
+ *
  * Revision 1.7  2000/06/18 16:09:54  keil
  * more changes for 2.4
  *
@@ -142,12 +145,20 @@ static int capifs_root_readdir(struct file *filp, void *dirent, filldir_t filldi
 	switch(nr)
 	{
 	case 0:
+#ifdef COMPAT_HAVE_NEW_FILLDIR
+		if (filldir(dirent, ".", 1, nr, inode->i_ino, DT_DIR) < 0)
+#else
 		if (filldir(dirent, ".", 1, nr, inode->i_ino) < 0)
+#endif
 			return 0;
 		filp->f_pos = ++nr;
 		/* fall through */
 	case 1:
+#ifdef COMPAT_HAVE_NEW_FILLDIR
+		if (filldir(dirent, "..", 2, nr, inode->i_ino, DT_DIR) < 0)
+#else
 		if (filldir(dirent, "..", 2, nr, inode->i_ino) < 0)
+#endif
 			return 0;
 		filp->f_pos = ++nr;
 		/* fall through */
@@ -159,7 +170,11 @@ static int capifs_root_readdir(struct file *filp, void *dirent, filldir_t filldi
 				char *p = numbuf;
 				if (np->type) *p++ = np->type;
 				sprintf(p, "%u", np->num);
+#ifdef COMPAT_HAVE_NEW_FILLDIR
+				if ( filldir(dirent, numbuf, strlen(numbuf), nr, nr, DT_UNKNOWN) < 0 )
+#else
 				if ( filldir(dirent, numbuf, strlen(numbuf), nr, nr) < 0 )
+#endif
 					return 0;
 			}
 			filp->f_pos = ++nr;

@@ -6,6 +6,9 @@
  * (c) Copyright 1999 by Carsten Paeth (calle@calle.in-berlin.de)
  * 
  * $Log$
+ * Revision 1.15  2000/08/08 09:24:19  calle
+ * calls to pci_enable_device surounded by #ifndef COMPAT_HAS_2_2_PCI
+ *
  * Revision 1.14  2000/08/04 12:20:08  calle
  * - Fix unsigned/signed warning in the right way ...
  *
@@ -66,8 +69,14 @@
 #include <linux/ioport.h>
 #include <linux/pci.h>
 #include <linux/capi.h>
+#ifdef COMPAT_HAS_2_2_PCI
+#include <linux/isdn.h>
+#endif
 #include <asm/io.h>
 #include <asm/uaccess.h>
+#ifndef COMPAT_NO_SOFTNET
+#include <linux/netdevice.h>
+#endif
 #include <linux/isdn_compat.h>
 #include "capicmd.h"
 #include "capiutil.h"
