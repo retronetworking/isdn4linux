@@ -6,6 +6,9 @@
  * Copyright 1996 by Carsten Paeth (calle@calle.in-berlin.de)
  *
  * $Log$
+ * Revision 1.7  1997/10/11 10:29:34  calle
+ * llseek() parameters changed in 2.1.56.
+ *
  * Revision 1.6  1997/10/01 09:21:15  fritz
  * Removed old compatibility stuff for 2.0.X kernels.
  * From now on, this code is for 2.1.X ONLY!
@@ -99,7 +102,7 @@ static void capi_signal(__u16 applid, __u32 minor)
 /* -------- file_operations ----------------------------------------- */
 
 static long long capi_llseek(
-#if (LINUX_VERSION_CODE < 0x020138)
+#if LINUX_VERSION_CODE < LinuxVersionCode(2,1,56)
 			     struct inode *inode,
 #endif
 			     struct file *file,
@@ -108,14 +111,27 @@ static long long capi_llseek(
 	return -ESPIPE;
 }
 
+#if LINUX_VERSION_CODE < LinuxVersionCode(2,1,60)
 static long capi_read(struct inode *inode, struct file *file,
 		      char *buf, unsigned long count)
 {
+#else
+static ssize_t capi_read(struct file *file, char *buf,
+		      size_t count, loff_t *ppos)
+{
+        struct inode *inode = file->f_dentry->d_inode;
+#endif
 	unsigned int minor = MINOR(inode->i_rdev);
 	struct capidev *cdev;
 	struct sk_buff *skb;
 	int retval;
 	size_t copied;
+
+#if LINUX_VERSION_CODE >= LinuxVersionCode(2,1,60)
+       if (ppos != &file->f_pos)
+		return -ESPIPE;
+#endif
+
 
 	if (!minor || minor > CAPI_MAXMINOR || !capidevs[minor].is_registered)
 		return -ENODEV;
@@ -157,9 +173,16 @@ static long capi_read(struct inode *inode, struct file *file,
 	return copied;
 }
 
+#if LINUX_VERSION_CODE < LinuxVersionCode(2,1,60)
 static long capi_write(struct inode *inode, struct file *file,
 		       const char *buf, unsigned long count)
 {
+#else
+static ssize_t capi_write(struct file *file, const char *buf,
+		       size_t count, loff_t *ppos)
+{
+        struct inode *inode = file->f_dentry->d_inode;
+#endif
 	unsigned int minor = MINOR(inode->i_rdev);
 	struct capidev *cdev;
 	struct sk_buff *skb;
@@ -167,6 +190,11 @@ static long capi_write(struct inode *inode, struct file *file,
 	__u8 cmd;
 	__u8 subcmd;
 	__u16 mlen;
+
+#if LINUX_VERSION_CODE >= LinuxVersionCode(2,1,60)
+       if (ppos != &file->f_pos)
+		return -ESPIPE;
+#endif
 
 	if (!minor || minor > CAPI_MAXMINOR || !capidevs[minor].is_registered)
 		return -ENODEV;

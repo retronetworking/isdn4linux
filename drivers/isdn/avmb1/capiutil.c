@@ -7,6 +7,11 @@
  * Rewritten for Linux 1996 by Carsten Paeth (calle@calle.in-berlin.de)
  *
  * $Log$
+ * Revision 1.5  1997/10/01 09:21:19  fritz
+ * Removed old compatibility stuff for 2.0.X kernels.
+ * From now on, this code is for 2.1.X ONLY!
+ * Old stuff is still in the separate branch.
+ *
  * Revision 1.4  1997/08/10 07:43:55  calle
  * forgot to export symbol capi_info2str for 2.1.x
  *
@@ -35,6 +40,7 @@
 #include <linux/kernel.h>
 #include <linux/mm.h>
 #include <asm/segment.h>
+#include <linux/config.h>
 
 #include "compat.h"
 #include "capiutil.h"
