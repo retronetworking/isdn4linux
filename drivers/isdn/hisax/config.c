@@ -5,6 +5,9 @@
  *
  *
  * $Log$
+ * Revision 2.44  2000/02/26 00:35:12  keil
+ * Fix skb freeing in interrupt context
+ *
  * Revision 2.43  2000/01/20 19:49:36  keil
  * Support teles 13.3c vendor version 2.1
  *
@@ -1541,7 +1544,7 @@ HiSax_reportcard(int cardnr, int sel)
 __initfunc(int
 HiSax_init(void))
 {
-	int i;
+	int i,j;
 
 #ifdef MODULE
 	int nzproto = 0;
@@ -1578,41 +1581,41 @@ HiSax_init(void))
 #ifdef MODULE
 	if (id)			/* If id= string used */
 		HiSax_id = id;
-	for (i = 0; i < HISAX_MAX_CARDS; i++) {
-		cards[i].typ = type[i];
+	for (i = j = 0; j < HISAX_MAX_CARDS; i++) {
+		cards[j].typ = type[i];
 		if (protocol[i]) {
-			cards[i].protocol = protocol[i];
+			cards[j].protocol = protocol[i];
 			nzproto++;
 		}
 		switch (type[i]) {
 			case ISDN_CTYPE_16_0:
-				cards[i].para[0] = irq[i];
-				cards[i].para[1] = mem[i];
-				cards[i].para[2] = io[i];
+				cards[j].para[0] = irq[i];
+				cards[j].para[1] = mem[i];
+				cards[j].para[2] = io[i];
 				break;
 
 			case ISDN_CTYPE_8_0:
-				cards[i].para[0] = irq[i];
-				cards[i].para[1] = mem[i];
+				cards[j].para[0] = irq[i];
+				cards[j].para[1] = mem[i];
 				break;
 
 #ifdef IO0_IO1
 			case ISDN_CTYPE_PNP:
 			case ISDN_CTYPE_NICCY:
-				cards[i].para[0] = irq[i];
-				cards[i].para[1] = io0[i];
-				cards[i].para[2] = io1[i];
+				cards[j].para[0] = irq[i];
+				cards[j].para[1] = io0[i];
+				cards[j].para[2] = io1[i];
 				break;
 			case ISDN_CTYPE_COMPAQ_ISA:
-				cards[i].para[0] = irq[i];
-				cards[i].para[1] = io0[i];
-				cards[i].para[2] = io1[i];
-				cards[i].para[3] = io[i];
+				cards[j].para[0] = irq[i];
+				cards[j].para[1] = io0[i];
+				cards[j].para[2] = io1[i];
+				cards[j].para[3] = io[i];
 				break;
 #endif
 			case ISDN_CTYPE_ELSA:
 			case ISDN_CTYPE_HFC_PCI:
-				cards[i].para[0] = io[i];
+				cards[j].para[0] = io[i];
 				break;
 			case ISDN_CTYPE_16_3:
 			case ISDN_CTYPE_TELESPCMCIA:
@@ -1636,13 +1639,13 @@ HiSax_init(void))
 			case ISDN_CTYPE_HSTSAPHIR:
 			case ISDN_CTYPE_GAZEL:
 		        case ISDN_CTYPE_HFC_SX:
-				cards[i].para[0] = irq[i];
-				cards[i].para[1] = io[i];
+				cards[j].para[0] = irq[i];
+				cards[j].para[1] = io[i];
 				break;
 			case ISDN_CTYPE_ISURF:
-				cards[i].para[0] = irq[i];
-				cards[i].para[1] = io[i];
-				cards[i].para[2] = mem[i];
+				cards[j].para[0] = irq[i];
+				cards[j].para[1] = io[i];
+				cards[j].para[2] = mem[i];
 				break;
 			case ISDN_CTYPE_ELSA_PCI:
 			case ISDN_CTYPE_NETJET:
@@ -1651,11 +1654,26 @@ HiSax_init(void))
 			case ISDN_CTYPE_W6692:
 				break;
 			case ISDN_CTYPE_BKM_A4T:
-	  		   	break;
+	  			break;
 			case ISDN_CTYPE_SCT_QUADRO:
-	          	cards[i].para[0] = irq[i];
+				if (irq[i]) {
+					cards[j].para[0] = irq[i];
+				} else {
+				        /* QUADRO is a 4 BRI card */
+					cards[j++].para[0] = 1;
+					cards[j].typ = ISDN_CTYPE_SCT_QUADRO; 
+					cards[j].protocol = protocol[i];
+					cards[j++].para[0] = 2;
+					cards[j].typ = ISDN_CTYPE_SCT_QUADRO; 
+					cards[j].protocol = protocol[i];
+					cards[j++].para[0] = 3;
+					cards[j].typ = ISDN_CTYPE_SCT_QUADRO; 
+					cards[j].protocol = protocol[i];
+					cards[j].para[0] = 4;
+				}
 				break;
 		}
+		j++;
 	}
 	if (!nzproto) {
 		printk(KERN_WARNING "HiSax: Warning - no protocol specified\n");
