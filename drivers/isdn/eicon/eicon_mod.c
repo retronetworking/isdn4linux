@@ -9,8 +9,6 @@
  * Thanks to    Eicon Technology GmbH & Co. oHG for
  *              documents, informations and hardware.
  *
- *              Deutsche Telekom AG for S2M support.
- *
  *		Deutsche Mailbox Saar-Lor-Lux GmbH
  *		for sponsoring and testing fax
  *		capabilities with Diva Server cards.
@@ -31,6 +29,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.25.2.4  2000/04/02 21:26:38  armin
+ * removes unnecessary #ifdef
+ *
  * Revision 1.25.2.3  2000/04/02 14:46:40  armin
  * Added spinlocks.
  *
@@ -138,8 +139,8 @@
  */
 
 #define DRIVERNAME "Eicon active ISDN driver"
-#define DRIVERRELEASE "2.00"
-#define DRIVERPATCH "b"
+#define DRIVERRELEASE "2.0"
+#define DRIVERPATCH ".1b"
 
 
 #include <linux/config.h>
