@@ -5,6 +5,9 @@
  *
  *
  * $Log$
+ * Revision 1.15.2.7  1998/02/11 14:23:08  keil
+ * support for Dr Neuhaus Niccy PnP and PCI
+ *
  * Revision 1.15.2.6  1998/02/09 11:21:19  keil
  * Sedlbauer PCMCIA support from Marcus Niemann
  *
@@ -188,7 +191,7 @@ void register_sedl_symbols(void) {
 #define DEFAULT_CFG {5,0x500,0,0}
 #endif
 
-#ifdef CONFIG_HISAX_NiCCY
+#ifdef CONFIG_HISAX_NICCY
 #undef DEFAULT_CARD
 #undef DEFAULT_CFG
 #define DEFAULT_CARD ISDN_CTYPE_NICCY
@@ -265,7 +268,7 @@ int io[] HISAX_INITDATA =
 #ifdef CONFIG_HISAX_16_3
 #define IO0_IO1
 #endif
-#ifdef CONFIG_HISAX_16_3
+#ifdef CONFIG_HISAX_NICCY
 #undef IO0_IO1
 #define IO0_IO1
 #endif
