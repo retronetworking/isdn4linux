@@ -21,6 +21,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.81  1999/01/15 16:36:52  he
+ * replaced icmp_send() by dst_link_failure()
+ *
  * Revision 1.80  1998/12/01 13:06:22  paul
  * Also huptimeout with dialmode == manual
  *
@@ -388,20 +391,6 @@ isdn_net_unreachable(struct device *dev, struct sk_buff *skb, char *reason)
 			   dev->name,
 			   (reason != NULL) ? reason : "reason unknown");
 	}
-#if 0
-	{
-		int	i;
-		for(i = 0; i < DEV_NUMBUFFS; i++) {
-			struct sk_buff *skb;
-
-			while((skb = skb_dequeue(&dev->buffs[i]))) {
-					if(ntohs(skb->protocol) == ETH_P_IP)
-						icmp_send(skb, ICMP_DEST_UNREACH, ICMP_HOST_UNREACH, 0);
-					dev_kfree_skb(skb);
-			}
-		}
-	}
-#endif
 }
 
 static void
@@ -765,6 +754,7 @@ isdn_net_stat_callback(int idx, isdn_ctrl *c)
 							 * With an empty lp->first_skb, we need to do this ourselves
 							 */
 							lp->netdev->dev.tbusy = 0;
+							mark_bh(NET_BH);
 #ifdef CONFIG_ISDN_TIMEOUT_RULES
 							/* recalc initial huptimeout,
 							   there is no packet to match the rules. */
@@ -3231,21 +3221,3 @@ isdn_net_rmall(void)
 	restore_flags(flags);
 	return 0;
 }
-
-#ifdef DEV_NUMBUFFS
-/*
- * helper function to flush device queues
- * the better place would be net/core/dev.c
- */
-static void
-dev_purge_queues(struct device *dev)
-{
-	int i;
-	for (i = 0; i < DEV_NUMBUFFS; i++) {
-		struct sk_buff *skb;
-		while ((skb = skb_dequeue(&dev->buffs[i])))
-			dev_kfree_skb(skb);
-	}
-
-}
-#endif
