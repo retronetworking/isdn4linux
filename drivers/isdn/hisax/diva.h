@@ -8,9 +8,11 @@
  *
  *
  * $Log$
+ * Revision 1.1  1997/09/18 17:11:21  keil
+ * first version
+ *
  *
 */
-#include <linux/config.h>
 
 #define DIVA_HSCX_DATA		0
 #define DIVA_HSCX_ADR		4

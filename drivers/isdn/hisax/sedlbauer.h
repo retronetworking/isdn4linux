@@ -13,10 +13,11 @@
  *              Edgar Toernig
  *
  * $Log$
+ * Revision 1.1  1997/09/11 17:32:05  keil
+ * new
+ *
  *
  */
-
-#include <linux/config.h>
 
 #define SEDL_RES_ON	0
 #define SEDL_RES_OFF	1

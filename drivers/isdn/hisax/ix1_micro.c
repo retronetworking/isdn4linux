@@ -11,6 +11,9 @@
  *              Beat Doebeli
  *
  * $Log$
+ * Revision 2.1  1997/07/27 21:47:09  keil
+ * new interface structures
+ *
  * Revision 2.0  1997/06/26 11:02:50  keil
  * New Layer and card interface
  *
@@ -177,12 +180,10 @@ WriteHSCX(struct IsdnCardState *cs, int hscx, u_char offset, u_char value)
 #include "hscx_irq.c"
 
 static void
-ix1micro_interrupt(int intno, void *dev_id, struct pt_regs *regs)
+ix1micro_interrupt(int intno, void *para, struct pt_regs *regs)
 {
-	struct IsdnCardState *cs;
+	struct IsdnCardState *cs = para;
 	u_char val, stat = 0;
-
-	cs = (struct IsdnCardState *) irq2dev_map[intno];
 
 	if (!cs) {
 		printk(KERN_WARNING "IX1: Spurious interrupt!\n");
@@ -284,7 +285,6 @@ initix1micro(struct IsdnCardState *cs)
 			       "ix1-Micro: IRQ(%d) getting no interrupts during init %d\n",
 			       cs->irq, 4 - cnt);
 			if (!(--cnt)) {
-				irq2dev_map[cs->irq] = NULL;
 				free_irq(cs->irq, NULL);
 				return (0);
 			} else

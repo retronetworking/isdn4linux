@@ -8,6 +8,9 @@
  *
  *
  * $Log$
+ * Revision 1.3  1997/08/01 11:16:33  keil
+ * cosmetics
+ *
  * Revision 1.2  1997/07/27 21:47:59  keil
  * new interface structures
  *
@@ -18,7 +21,6 @@
  */
 
 #define __NO_VERSION__
-#include <linux/config.h>
 #include "hisax.h"
 #include "dynalink.h"
 #include "isac.h"
@@ -135,12 +137,10 @@ WriteHSCX(struct IsdnCardState *cs, int hscx, u_char offset, u_char value)
 #include "hscx_irq.c"
 
 static void
-dynalink_interrupt(int intno, void *dev_id, struct pt_regs *regs)
+dynalink_interrupt(int intno, void *para, struct pt_regs *regs)
 {
-	struct IsdnCardState *cs;
+	struct IsdnCardState *cs = para;
 	u_char val, stat = 0;
-
-	cs = (struct IsdnCardState *) irq2dev_map[intno];
 
 	if (!cs) {
 		printk(KERN_WARNING "ISDNLink: Spurious interrupt!\n");
@@ -229,7 +229,6 @@ initdynalink(struct IsdnCardState *cs)
 			       "ISDNLink: IRQ(%d) getting no interrupts during init %d\n",
 			       cs->irq, 4 - cnt);
 			if (cnt == 1) {
-				irq2dev_map[cs->irq] = NULL;
 				free_irq(cs->irq, NULL);
 				return (0);
 			} else {

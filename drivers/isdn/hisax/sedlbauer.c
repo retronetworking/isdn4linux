@@ -13,11 +13,13 @@
  *            Edgar Toernig
  *
  * $Log$
+ * Revision 1.1  1997/09/11 17:32:04  keil
+ * new
+ *
  *
  */
 
 #define __NO_VERSION__
-#include <linux/config.h>
 #include "hisax.h"
 #include "sedlbauer.h"
 #include "isac.h"
@@ -134,12 +136,10 @@ WriteHSCX(struct IsdnCardState *cs, int hscx, u_char offset, u_char value)
 #include "hscx_irq.c"
 
 static void
-sedlbauer_interrupt(int intno, void *dev_id, struct pt_regs *regs)
+sedlbauer_interrupt(int intno, void *para, struct pt_regs *regs)
 {
-	struct IsdnCardState *cs;
+	struct IsdnCardState *cs = para;
 	u_char val, stat = 0;
-
-	cs = (struct IsdnCardState *) irq2dev_map[intno];
 
 	if (!cs) {
 		printk(KERN_WARNING "Sedlbauer: Spurious interrupt!\n");
@@ -228,7 +228,6 @@ initsedlbauer(struct IsdnCardState *cs)
 			       "Sedlbauer: IRQ(%d) getting no interrupts during init %d\n",
 			       cs->irq, 4 - cnt);
 			if (cnt == 1) {
-				irq2dev_map[cs->irq] = NULL;
 				free_irq(cs->irq, NULL);
 				return (0);
 			} else {

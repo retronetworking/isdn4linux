@@ -6,6 +6,9 @@
  *
  *
  * $Log$
+ * Revision 2.1  1997/07/27 21:47:13  keil
+ * new interface structures
+ *
  * Revision 2.0  1997/06/26 11:02:48  keil
  * New Layer and card interface
  *
@@ -118,13 +121,11 @@ WriteHSCX(struct IsdnCardState *cs, int hscx, u_char offset, u_char value)
 #include "hscx_irq.c"
 
 static void
-avm_a1_interrupt(int intno, void *dev_id, struct pt_regs *regs)
+avm_a1_interrupt(int intno, void *para, struct pt_regs *regs)
 {
-	struct IsdnCardState *cs;
+	struct IsdnCardState *cs = para;
 	u_char val, sval, stat = 0;
 	char tmp[32];
-
-	cs = (struct IsdnCardState *) irq2dev_map[intno];
 
 	if (!cs) {
 		printk(KERN_WARNING "AVM A1: Spurious interrupt!\n");
@@ -228,7 +229,6 @@ initavm_a1(struct IsdnCardState *cs)
 			printk(KERN_WARNING
 			       "AVM A1: IRQ(%d) getting no interrupts during init\n",
 			       cs->irq);
-			irq2dev_map[cs->irq] = NULL;
 			free_irq(cs->irq, NULL);
 			return (0);
 		}

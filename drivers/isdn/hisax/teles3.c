@@ -11,6 +11,9 @@
  *              Beat Doebeli
  *
  * $Log$
+ * Revision 2.1  1997/07/27 21:47:12  keil
+ * new interface structures
+ *
  * Revision 2.0  1997/06/26 11:02:46  keil
  * New Layer and card interface
  *
@@ -130,14 +133,12 @@ WriteHSCX(struct IsdnCardState *cs, int hscx, u_char offset, u_char value)
 #include "hscx_irq.c"
 
 static void
-teles3_interrupt(int intno, void *dev_id, struct pt_regs *regs)
+teles3_interrupt(int intno, void *para, struct pt_regs *regs)
 {
 #define MAXCOUNT 20
-	struct IsdnCardState *cs;
+	struct IsdnCardState *cs = para;
 	u_char val, stat = 0;
 	int count = 0;
-
-	cs = (struct IsdnCardState *) irq2dev_map[intno];
 
 	if (!cs) {
 		printk(KERN_WARNING "Teles: Spurious interrupt!\n");
@@ -294,7 +295,6 @@ initteles3(struct IsdnCardState *cs)
 			       "Teles3: IRQ(%d) getting no interrupts during init %d\n",
 			       cs->irq, 4 - cnt);
 			if (!(--cnt)) {
-				irq2dev_map[cs->irq] = NULL;
 				free_irq(cs->irq, NULL);
 				return (0);
 			} else

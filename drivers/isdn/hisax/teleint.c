@@ -6,11 +6,13 @@
  *
  *
  * $Log$
+ * Revision 1.1  1997/09/11 17:32:32  keil
+ * new
+ *
  *
  */
 
 #define __NO_VERSION__
-#include <linux/config.h>
 #include "hisax.h"
 #include "teleint.h"
 #include "isac.h"
@@ -170,12 +172,10 @@ WriteHFC(struct IsdnCardState *cs, int data, u_char reg, u_char value)
 }
 
 static void
-TeleInt_interrupt(int intno, void *dev_id, struct pt_regs *regs)
+TeleInt_interrupt(int intno, void *para, struct pt_regs *regs)
 {
-	struct IsdnCardState *cs;
+	struct IsdnCardState *cs = para;
 	u_char val, stat = 0;
-
-	cs = (struct IsdnCardState *) irq2dev_map[intno];
 
 	if (!cs) {
 		printk(KERN_WARNING "TeleInt: Spurious interrupt!\n");
@@ -266,7 +266,6 @@ initTeleInt(struct IsdnCardState *cs)
 			       "TeleInt: IRQ(%d) getting no interrupts during init %d\n",
 			       cs->irq, 4 - cnt);
 			if (cnt == 1) {
-				irq2dev_map[cs->irq] = NULL;
 				free_irq(cs->irq, NULL);
 				return (0);
 			} else {

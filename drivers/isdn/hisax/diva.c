@@ -8,6 +8,9 @@
  *
  *
  * $Log$
+ * Revision 1.1  1997/09/18 17:11:20  keil
+ * first version
+ *
  *
  */
 
@@ -131,13 +134,11 @@ WriteHSCX(struct IsdnCardState *cs, int hscx, u_char offset, u_char value)
 #include "hscx_irq.c"
 
 static void
-diva_interrupt(int intno, void *dev_id, struct pt_regs *regs)
+diva_interrupt(int intno, void *para, struct pt_regs *regs)
 {
-	struct IsdnCardState *cs;
+	struct IsdnCardState *cs = para;
 	u_char val, sval, stat = 0;
 	int cnt=8;
-
-	cs = (struct IsdnCardState *) irq2dev_map[intno];
 
 	if (!cs) {
 		printk(KERN_WARNING "Diva: Spurious interrupt!\n");
@@ -238,7 +239,6 @@ initdiva(struct IsdnCardState *cs)
 			       "Diva: IRQ(%d) getting no interrupts during init %d\n",
 			       cs->irq, 4 - cnt);
 			if (cnt == 1) {
-				irq2dev_map[cs->irq] = NULL;
 				free_irq(cs->irq, NULL);
 				return (0);
 			} else {
@@ -291,10 +291,10 @@ static void
 Diva_card_msg(struct IsdnCardState *cs, int mt, void *arg)
 {
 	switch (mt) {
-	  case MDL_REMOVE:
+	  case MDL_REMOVE_REQ:
 	  	cs->hw.diva.status = 0;
 		break;
-	  case MDL_ASSIGN:
+	  case MDL_ASSIGN_REQ:
 		cs->hw.diva.status |= DIVA_ASSIGN;
 		break;
 	  case MDL_INFO_SETUP:
