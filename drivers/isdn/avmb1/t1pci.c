@@ -6,6 +6,11 @@
  * (c) Copyright 1999 by Carsten Paeth (calle@calle.in-berlin.de)
  * 
  * $Log$
+ * Revision 1.19  2000/12/10 22:51:05  kai
+ * add pci_set_master
+ * ioremap is handling unaligned regions since
+ * at least 2.2.0
+ *
  * Revision 1.18  2000/12/07 00:09:53  kai
  * setup dependency on CONFIG_PCI for the PCI drivers
  * in Config.in
@@ -347,9 +352,9 @@ static int __init t1pci_init(void)
 		}
 		pci_set_master(dev);
 
-		param.port = pci_resource_start(dev, 1);
+		param.port = pci_resource_start_io(dev, 1);
  		param.irq = dev->irq;
-		param.membase = pci_resource_start(dev, 0);
+		param.membase = pci_resource_start_mem(dev, 0);
 
 		printk(KERN_INFO
 			"%s: PCI BIOS reports AVM-T1-PCI at i/o %#x, irq %d, mem %#x\n",
