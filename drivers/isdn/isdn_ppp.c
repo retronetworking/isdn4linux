@@ -19,6 +19,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.18  1996/10/22 23:14:00  fritz
+ * Changes for compatibility to 2.0.X and 2.1.X kernels.
+ *
  * Revision 1.17  1996/10/22 09:39:49  hipp
  * a few MP changes and bugfixes
  *
@@ -547,6 +550,17 @@ int isdn_ppp_ioctl(int min, struct file *file, unsigned int cmd, unsigned long a
 			return r;
 		is->debug = val;
 		break;
+	case PPPIOCSCOMPRESS:
+#if 0
+		{
+			struct ppp_option_data pod;
+			r = get_arg((void *) arg,&pod,sizeof(struct ppp_option_data));
+			if(r)
+				return r;
+			ippp_set_compression(is,&pod);
+		}
+#endif
+		break;
 	default:
 		break;
 	}
@@ -961,28 +975,6 @@ void isdn_ppp_receive(isdn_net_dev * net_dev, isdn_net_local * lp, struct sk_buf
 }
 
 /*
- * check sq-queue, whether we have still buffered the next packet(s)
- * or packets with a sqno less or equal to min_sqno
- * net_dev: master netdevice , lp: 'real' local connection
- */
-static void isdn_ppp_cleanup_sqqueue(isdn_net_dev *net_dev, isdn_net_local *lp,long min_sqno)
-{
-	struct sqqueue *q;
-
-	while ((q = net_dev->ib.sq) && (q->sqno_start == net_dev->ib.next_num || q->sqno_end <= min_sqno) ) {
-		if(q->sqno_start != net_dev->ib.next_num) {
-			printk(KERN_DEBUG "ippp: MP, stepping over missing frame: %ld\n",net_dev->ib.next_num);
-			slhc_toss(ippp_table[net_dev->local.ppp_slot]->slcomp);
-		}
-		isdn_ppp_push_higher(net_dev, lp, q->skb, -1);
-		net_dev->ib.sq = q->next;
-		net_dev->ib.next_num = q->sqno_end + 1;
-		kfree(q);
-	}
-}
-
-
-/*
  * push frame to higher layers
  * note: net_dev has to be master net_dev
  */
@@ -1279,6 +1271,8 @@ printk(KERN_DEBUG "readdressing %lx to %lx\n",ipfr->saddr,mdev->pa_addr);
 	return 0;
 }
 
+#ifdef CONFIG_ISDN_MPP
+
 void isdn_ppp_free_sqqueue(isdn_net_dev * p) 
 {
 	struct sqqueue *q = p->ib.sq;
@@ -1307,8 +1301,6 @@ void isdn_ppp_free_mpqueue(isdn_net_dev * p)
 		q = ql;
 	}
 }
-
-#ifdef CONFIG_ISDN_MPP
 
 static int isdn_ppp_bundle(struct ippp_struct *is, int unit)
 {
@@ -1364,7 +1356,6 @@ static void isdn_ppp_mask_queue(isdn_net_dev * dev, long mask)
 		q = q->next;
 	}
 }
-
 
 static int isdn_ppp_fill_mpqueue(isdn_net_dev * dev, struct sk_buff ** skb, int BEbyte, long *sqnop, int min_sqno)
 {
@@ -1494,9 +1485,31 @@ static int isdn_ppp_fill_mpqueue(isdn_net_dev * dev, struct sk_buff ** skb, int 
 }
 
 /*
+ * check sq-queue, whether we have still buffered the next packet(s)
+ * or packets with a sqno less or equal to min_sqno
+ * net_dev: master netdevice , lp: 'real' local connection
+ */
+static void isdn_ppp_cleanup_sqqueue(isdn_net_dev *net_dev, isdn_net_local *lp,long min_sqno)
+{
+	struct sqqueue *q;
+
+	while ((q = net_dev->ib.sq) && (q->sqno_start == net_dev->ib.next_num || q->sqno_end <= min_sqno) ) {
+		if(q->sqno_start != net_dev->ib.next_num) {
+			printk(KERN_DEBUG "ippp: MP, stepping over missing frame: %ld\n",net_dev->ib.next_num);
+#ifdef CONFIG_ISDN_PPP_VJ
+			slhc_toss(ippp_table[net_dev->local.ppp_slot]->slcomp);
+#endif
+		}
+		isdn_ppp_push_higher(net_dev, lp, q->skb, -1);
+		net_dev->ib.sq = q->next;
+		net_dev->ib.next_num = q->sqno_end + 1;
+		kfree(q);
+    }
+}
+
+/*
  * remove stale packets from list
  */
-
 static void isdn_ppp_cleanup_mpqueue(isdn_net_dev * dev, long min_sqno)
 {
 #ifdef CONFIG_ISDN_PPP_VJ
@@ -1746,4 +1759,14 @@ int isdn_ppp_hangup_slave(char *name)
 	return -1;
 #endif
 }
+
+#if 0
+static struct symbol_table isdn_ppp_syms = {
+#include <linux/symtab_begin.h>
+    X(isdn_ppp_register_compressor),
+    X(isdn_ppp_unregister_compressor),
+#include <linux/symtab_end.h>
+};
+#endif
+
 
