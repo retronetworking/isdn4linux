@@ -6,6 +6,9 @@
  * Copyright 1997 by Carsten Paeth (calle@calle.in-berlin.de)
  *
  * $Log$
+ * Revision 1.3.2.12  1998/09/11 15:37:11  calle
+ * Started with support for CAPI channel allocation/bundling.
+ *
  * Revision 1.3.2.11  1998/04/02 10:27:59  calle
  * version check for D2 trace was wrong :-(
  *
@@ -1833,9 +1836,11 @@ static int if_sendbuf(int id, int channel, struct sk_buff *skb)
 			dev_kfree_skb(skb, FREE_WRITE);
 			return len;
 		case CAPI_SENDQUEUEFULL:
+			skb_pull(skb, msglen);
 			dev_kfree_skb(nskb, FREE_WRITE);
 			return 0;
 		default:
+			skb_pull(skb, msglen);
 			return -1;
 		}
 	} else {
@@ -1845,8 +1850,10 @@ static int if_sendbuf(int id, int channel, struct sk_buff *skb)
 		case CAPI_NOERROR:
 			return len;
 		case CAPI_SENDQUEUEFULL:
+			skb_pull(skb, msglen);
 			return 0;
 		default:
+			skb_pull(skb, msglen);
 			return -1;
 		}
 	}
