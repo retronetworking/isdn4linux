@@ -24,6 +24,7 @@
 char *isdn_tty_revision = "$Revision$";
 
 #undef ISDN_TTY_STAT_DEBUG
+#define ISDN_DEBUG_MODEM_IOCTL
 
 #define __NO_VERSION__
 #include <linux/config.h>
@@ -1529,6 +1530,9 @@ isdn_tty_ioctl(struct tty_struct *tty, struct file *file,
 		return -ENODEV;
 	if (tty->flags & (1 << TTY_IO_ERROR))
 		return -EIO;
+#ifdef ISDN_DEBUG_MODEM_IOCTL
+	printk(KERN_DEBUG "ttyI%d ioctl cmd %#x\n", info->line, cmd);
+#endif
 	switch (cmd) {
 		case TCSBRK:   /* SVID version: non-zero arg --> no break */
 #ifdef ISDN_DEBUG_MODEM_IOCTL
@@ -1607,6 +1611,9 @@ isdn_tty_set_termios(struct tty_struct *tty, struct termios *old_termios)
 {
 	modem_info *info = (modem_info *) tty->driver_data;
 
+#ifdef ISDN_DEBUG_MODEM_IOCTL
+	printk(KERN_DEBUG "ttyI%d set_termios cmd %#x\n", info->line, cmd);
+#endif
 	if (!old_termios)
 		isdn_tty_change_speed(info);
 	else {

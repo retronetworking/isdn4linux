@@ -170,6 +170,8 @@ static inline unsigned long copy_to_user(void *to, const void *from, unsigned lo
 #define spin_lock_bh(lock)
 #define spin_unlock_bh(lock)
 #define init_MUTEX(lock) *(lock) = MUTEX
+#else
+#define COMPAT_HAVE_LINUX_SPINLOCK_H
 #endif
 
 #endif /* __KERNEL__ */

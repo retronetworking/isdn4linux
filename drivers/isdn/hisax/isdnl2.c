@@ -1798,6 +1798,11 @@ setstack_isdnl2(struct PStack *st, char *debug_id)
 static void
 transl2_l1l2(struct PStack *st, int pr, void *arg)
 {
+	if (!st->l3.l2l3) {
+		int_error();
+		return;
+	}
+
 	switch (pr) {
 	case (PH_DATA | INDICATION):
 		st->l3.l2l3(st, DL_DATA | INDICATION, arg); 

@@ -11,6 +11,9 @@
 # parent makes..
 #
 # $Log$
+# Revision 1.8.2.5  2000/04/08 14:29:08  kai
+# *** empty log message ***
+#
 # Revision 1.8.2.3  2000/03/17 14:05:48  calle
 # Merged changes from main tree.
 # - Bugfix: c4
@@ -172,6 +175,7 @@ else
   	O_TARGET += kernelcapi.o
   	OX_OBJS  += kcapi.o
   	M_OBJS   += capi.o kernelcapi.o
+	MX_OBJS  += capi_lib.o
   	ifdef CONFIG_ISDN_CAPIFS
   		MX_OBJS   += capifs.o
   	endif

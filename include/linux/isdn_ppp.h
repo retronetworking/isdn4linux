@@ -4,7 +4,11 @@
 #define _LINUX_ISDN_PPP_H
 
 #include <linux/config.h>
+#ifdef COMPAT_HAVE_LINUX_SPINLOCK_H
 #include <linux/spinlock.h>
+#else
+#include <asm/spinlock.h>
+#endif
 #include <linux/isdn_compat.h>
 
 #define CALLTYPE_INCOMING 0x1

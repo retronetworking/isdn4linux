@@ -1,7 +1,7 @@
 #ifndef __FSM_H__
 #define __FSM_H__
 
-#include "hisax.h"
+#include <linux/types.h>
 #include <linux/timer.h>
 
 /*

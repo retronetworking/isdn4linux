@@ -412,6 +412,7 @@ void ncciDataInd(struct Ncci *ncci, int pr, void *arg)
 
 	if (i == CAPI_MAXDATAWINDOW) {
 		// FIXME: trigger flow control if supported by L2 protocol
+		printk(KERN_INFO "HiSax: frame dropped\n");
 		dev_kfree_skb(skb);
 		return;
 	}
@@ -459,7 +460,6 @@ void ncciDataReq(struct Ncci *ncci, struct sk_buff *skb)
 			break;
 	}
 	if (i == ncci->window) {
-		int_error();
 		goto fail;
 	}
 

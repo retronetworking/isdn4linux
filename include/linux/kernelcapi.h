@@ -6,6 +6,9 @@
  * (c) Copyright 1997 by Carsten Paeth (calle@calle.in-berlin.de)
  * 
  * $Log$
+ * Revision 1.5.2.5  2000/04/16 21:00:21  kai
+ * *** empty log message ***
+ *
  * Revision 1.5.2.3  2000/04/10 23:09:16  kai
  * cleanup - part one
  *
@@ -66,6 +69,9 @@
  */
 #ifndef __KERNELCAPI_H__
 #define __KERNELCAPI_H__
+
+#include <linux/capi.h>
+#include <linux/skbuff.h>
 
 #define CAPI_MAXAPPL	20	/*
 				   * maximum number of applications 

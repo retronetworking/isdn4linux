@@ -1,3 +1,4 @@
+
 #include "hisax_capi.h"
 #include "l3dss1.h"
 #include "isdnl3.h"
@@ -161,9 +162,8 @@ __u16 cplciCheckBprotocol(struct Cplci *cplci, _cmsg *cmsg)
 
 // =============================================================== plci ===
 
-/*
- * PLCI state machine
- */
+// --------------------------------------------------------------------
+// PLCI state machine
 
 enum {
 	ST_PLCI_P_0,
@@ -880,7 +880,7 @@ void cplciConstr(struct Cplci *cplci, struct Appl *appl, struct Plci *plci)
 	cplci->contr = plci->contr;
 	cplci->plci_m.fsm        = &plci_fsm;
 	cplci->plci_m.state      = ST_PLCI_P_0;
-	cplci->plci_m.debug      = 1;
+	cplci->plci_m.debug      = 0;
 	cplci->plci_m.userdata   = cplci;
 	cplci->plci_m.printdebug = cplci_debug;
 }
@@ -959,20 +959,20 @@ void cplci_l3l4(struct Cplci *cplci, int pr, void *arg)
 	case CC_MORE_INFO | INDICATION:
 		cplciInfoIndMsg(cplci, CAPI_INFOMASK_PROGRESS, arg);
 		cplciInfoIndIE(cplci, IE_DISPLAY, CAPI_INFOMASK_DISPLAY, arg);
-		cplciInfoIndIE(cplci, IE_PROGRESS, CAPI_INFOMASK_PROGRESS, arg);
+		cplciInfoIndIE(cplci, IE_PROGRESS, CAPI_INFOMASK_PROGRESS | CAPI_INFOMASK_EARLYB3, arg);
 		cplciInfoIndIE(cplci, IE_CHANNEL_ID, CAPI_INFOMASK_CHANNELID, arg);
 		break;
 	case CC_PROCEEDING | INDICATION:
 		cplciInfoIndMsg(cplci, CAPI_INFOMASK_PROGRESS, arg);
 		cplciInfoIndIE(cplci, IE_DISPLAY, CAPI_INFOMASK_DISPLAY, arg);
-		cplciInfoIndIE(cplci, IE_PROGRESS, CAPI_INFOMASK_PROGRESS, arg);
+		cplciInfoIndIE(cplci, IE_PROGRESS, CAPI_INFOMASK_PROGRESS | CAPI_INFOMASK_EARLYB3, arg);
 		cplciInfoIndIE(cplci, IE_CHANNEL_ID, CAPI_INFOMASK_CHANNELID, arg);
 		break;
 	case CC_ALERTING | INDICATION:
 		cplciInfoIndMsg(cplci, CAPI_INFOMASK_PROGRESS, arg);
 		cplciInfoIndIE(cplci, IE_DISPLAY, CAPI_INFOMASK_DISPLAY, arg);
 		cplciInfoIndIE(cplci, IE_USER_USER, CAPI_INFOMASK_USERUSER, arg);	
-		cplciInfoIndIE(cplci, IE_PROGRESS, CAPI_INFOMASK_PROGRESS, arg);
+		cplciInfoIndIE(cplci, IE_PROGRESS, CAPI_INFOMASK_PROGRESS | CAPI_INFOMASK_EARLYB3, arg);
 		cplciInfoIndIE(cplci, IE_FACILITY, CAPI_INFOMASK_FACILITY, arg);
 		cplciInfoIndIE(cplci, IE_CHANNEL_ID, CAPI_INFOMASK_CHANNELID, arg);
 		break;
@@ -981,7 +981,7 @@ void cplci_l3l4(struct Cplci *cplci, int pr, void *arg)
 		cplciInfoIndIE(cplci, IE_CAUSE, CAPI_INFOMASK_CAUSE, arg);
 		cplciInfoIndIE(cplci, IE_DISPLAY, CAPI_INFOMASK_DISPLAY, arg);
 		cplciInfoIndIE(cplci, IE_USER_USER, CAPI_INFOMASK_USERUSER, arg);	
-		cplciInfoIndIE(cplci, IE_PROGRESS, CAPI_INFOMASK_PROGRESS, arg);
+		cplciInfoIndIE(cplci, IE_PROGRESS, CAPI_INFOMASK_PROGRESS | CAPI_INFOMASK_EARLYB3, arg);
 		break;
 	case CC_CHARGE | INDICATION:
 		break;
@@ -1068,7 +1068,6 @@ void cplciLinkUp(struct Cplci *cplci)
 void cplciLinkDown(struct Cplci *cplci)
 {
 	if (!cplci->ncci) {
-		int_error();
 		return;
 	}
 	ncciLinkDown(cplci->ncci);

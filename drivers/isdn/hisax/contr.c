@@ -17,7 +17,7 @@ int contrConstr(struct Contr *contr, struct IsdnCardState *cs, char *id, int pro
 	contr->l4.l3l4 = contr_l3l4;
 	contr->adrController = cs->cardnr + 1;
 	contr->cs = cs;
-	contr->cs->debug |= LL_DEB_STATE | LL_DEB_INFO | DEB_DLOG_HEX;
+//	contr->cs->debug |= LL_DEB_STATE | LL_DEB_INFO | DEB_DLOG_HEX;
 
 	contr->b3_mode = protocol + B3_MODE_CC;
 	if (contr->b3_mode != B3_MODE_DSS1 && contr->b3_mode != B3_MODE_LEASED) {

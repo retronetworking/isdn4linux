@@ -158,7 +158,14 @@ init_st(struct Layer4 *l4, struct IsdnCardState *cs, struct StackParams *sp,
 void
 release_st(struct PStack *st)
 {
+	unsigned flags;
+
+	save_flags(flags);
+	cli();
+
 	release_st_1(st);
 	release_st_2(st);
 	release_st_3(st);
+
+	restore_flags(flags);
 }

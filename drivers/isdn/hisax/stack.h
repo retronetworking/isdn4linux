@@ -1,6 +1,7 @@
 #ifndef __STACK_H__
 #define __STACK_H__
 
+#include "hisax.h"
 #include "fsm.h"
 
 struct IsdnCardState;

@@ -130,7 +130,7 @@ void listenConstr(struct Listen *listen, struct Contr *contr, __u16 ApplId)
 {
 	listen->listen_m.fsm = &listen_fsm;
 	listen->listen_m.state = ST_LISTEN_L_0;
-	listen->listen_m.debug = 1;
+	listen->listen_m.debug = 0;
 	listen->listen_m.userdata = listen;
 	listen->listen_m.printdebug = listen_debug;
 

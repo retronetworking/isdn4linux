@@ -6,6 +6,9 @@
  * Copyright 1997 by Carsten Paeth (calle@calle.in-berlin.de)
  *
  * $Log$
+ * Revision 1.29.2.5  2000/04/08 14:29:08  kai
+ * *** empty log message ***
+ *
  * Revision 1.29.2.3  2000/03/29 20:59:21  kai
  * added D-Channel trace via capi
  * little cleanup on callc.c
@@ -1758,7 +1761,7 @@ static int capidrv_command(isdn_ctrl * c, capidrv_contr * card)
 			bchan = &card->bchans[c->arg % card->nbchan];
 
 			if (bchan->plcip) {
-				printk(KERN_ERR "capidrv-%d: dail ch=%ld,\"%s,%d,%d,%s\" in use (plci=0x%x)\n",
+				printk(KERN_ERR "capidrv-%d: dial ch=%ld,\"%s,%d,%d,%s\" in use (plci=0x%x)\n",
 					card->contrnr,
 			        	c->arg, 
 				        c->parm.setup.phone,
