@@ -21,6 +21,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.50  1997/12/12 06:12:11  calle
+ * moved EXPORT_SYMBOL(register_isdn) from isdn_syms.c to isdn_common.c
+ *
  * Revision 1.49  1997/11/06 17:16:52  keil
  * Sync to 2.1.62 changes
  *
@@ -225,7 +228,7 @@
 #define __NO_VERSION__
 #include <linux/module.h>
 #include <linux/version.h>
-#include <asm/poll.h>
+#include <linux/poll.h>
 #include <linux/isdn.h>
 #include "isdn_common.h"
 #include "isdn_tty.h"
