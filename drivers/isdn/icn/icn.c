@@ -19,6 +19,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.24  1996/06/06 13:58:33  fritz
+ * Changed code to be architecture independent
+ *
  * Revision 1.23  1996/06/03 19:59:00  fritz
  * Fixed typos.
  *
@@ -104,6 +107,21 @@
  */
 
 #include "icn.h"
+
+/*
+ * there is no memcpy_fromfs_toio, so we use a very generic
+ * version. It might be good to generate a much better optimized
+ * routine for each hardware architecture
+ */
+static inline void memcpy_fromfs_toio(unsigned long to, void * from, unsigned long count)
+{
+    while (count) {
+	count--;
+	writeb(get_user((char *)from), to);
+	((char *) from)++;
+	to++;
+    }
+}
 
 /*
  * Verbose bootcode- and protocol-downloading.
@@ -309,7 +327,7 @@ static void icn_pollbchan_receive(int channel, icn_card *card)
 
         if (icn_trymaplock_channel(card,mch)) {
                 while (rbavl) {
-                        cnt = rbuf_l;
+                        cnt = readb(&rbuf_l);
                         if ((card->rcvidx[channel] + cnt) > 4000) {
                                 printk(KERN_WARNING 
                                        "icn: (%s) bogus packet on ch%d, dropping.\n",
@@ -319,9 +337,9 @@ static void icn_pollbchan_receive(int channel, icn_card *card)
                                 eflag = 0;
                         } else {
                                 memcpy_fromio(&card->rcvbuf[channel][card->rcvidx[channel]],
-                                              rbuf_d, cnt);
+                                              &rbuf_d, cnt);
                                 card->rcvidx[channel] += cnt;
-                                eflag = rbuf_f;
+                                eflag = readb(&rbuf_f);
                         }
                         rbnext;
                         icn_maprelease_channel(card, mch & 2);
@@ -375,10 +393,15 @@ static void icn_pollbchan_send(int channel, icn_card *card)
                         }
                         skb->lock = 1;
                         restore_flags(flags);
-                        cnt =
-                            (sbuf_l =
-                             (skb->len > ICN_FRAGSIZE) ? ((sbuf_f = 0xff), ICN_FRAGSIZE) : ((sbuf_f = 0), skb->len));
-                        memcpy(sbuf_d, skb->data, cnt);
+		        if (skb->len > ICN_FRAGSIZE) {
+			    writeb (0xff, &sbuf_f);
+			    cnt = ICN_FRAGSIZE;
+			} else {
+			    writeb (0x0, &sbuf_f);
+			    cnt = skb->len;
+			}
+		        writeb (cnt, &sbuf_l);		    
+                        memcpy_toio(&sbuf_d, skb->data, cnt);
                         skb_pull(skb, cnt);
                         card->sndcount[channel] -= cnt;
                         sbnext;        /* switch to next buffer        */
@@ -748,7 +771,6 @@ static int icn_loadboot(u_char * buffer, icn_card * card)
 {
         int ret;
         ulong flags;
-        unsigned char codebuf[ICN_CODE_STAGE1];
 
 #ifdef BOOT_DEBUG
         printk(KERN_DEBUG "icn_loadboot called, buffaddr=%08lx\n", (ulong) buffer);
@@ -801,8 +823,7 @@ static int icn_loadboot(u_char * buffer, icn_card * card)
         icn_lock_channel(card,0);                                  /* Lock Bank 0      */
         restore_flags(flags);
         SLEEP(1);
-        memcpy_fromfs(codebuf, buffer, ICN_CODE_STAGE1);           /* Copy code        */
-        memcpy_toio(dev.shmem, codebuf, ICN_CODE_STAGE1);
+        memcpy_fromfs_toio(dev.shmem, buffer, ICN_CODE_STAGE1);           /* Copy code        */
 #ifdef BOOT_DEBUG
         printk(KERN_DEBUG "Bootloader transfered\n");
 #endif
@@ -818,8 +839,7 @@ static int icn_loadboot(u_char * buffer, icn_card * card)
                 icn_lock_channel(card,2);                          /* Lock Bank 8     */
                 restore_flags(flags);
                 SLEEP(1);
-                memcpy_fromfs(codebuf, buffer, ICN_CODE_STAGE1);   /* Copy code        */
-                memcpy_toio(dev.shmem, codebuf, ICN_CODE_STAGE1);
+                memcpy_fromfs_toio(dev.shmem, buffer, ICN_CODE_STAGE1);   /* Copy code        */
 #ifdef BOOT_DEBUG
                 printk(KERN_DEBUG "Bootloader transfered\n");
 #endif
@@ -871,7 +891,7 @@ static int icn_loadproto(u_char * buffer, icn_card * card)
         while (left) {
                 if (sbfree) {                           /* If there is a free buffer...  */
                         cnt = MIN(256, left);
-                        memcpy_fromfs(&sbuf_l, p, cnt); /* copy data                     */
+                        memcpy_fromfs_toio(&sbuf_l, p, cnt); /* copy data                     */ 
                         sbnext;                         /* switch to next buffer         */
                         p += cnt;
                         left -= cnt;
@@ -889,7 +909,7 @@ static int icn_loadproto(u_char * buffer, icn_card * card)
                         schedule();
                 }
         }
-        sbuf_n = 0x20;
+        writeb (0x20, &sbuf_n);
         timer = 0;
         while (1) {
                 if (readb(&cmd_o) || readb(&cmd_i)) {
