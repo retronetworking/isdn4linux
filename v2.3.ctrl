@@ -8,6 +8,8 @@
 #define COMPAT_NEED_UACCESS
 #define SET_SKB_FREE(x)
 #define idev_kfree_skb(a,b) dev_kfree_skb(a)
+#define idev_kfree_skb_irq(a,b) dev_kfree_skb_irq(a)
+#define idev_kfree_skb_any(a,b) dev_kfree_skb_any(a)
 #define COMPAT_HAS_NEW_SYMTAB
 #define CLOSETYPE int
 #define CLOSEVAL (0)
@@ -18,7 +20,8 @@
 #define COMPAT_HAS_NEW_WAITQ
 #define COMPAT_HAS_NEW_SETUP
 #define COMPAT_HAS_ISA_IOREMAP
-#undef COMPAT_HAS_pci_find_subsys
+#define COMPAT_HAS_pci_find_subsys
+#define ISDN_TTY_FCLASS1
 
 #undef CONFIG_ISDN_WITH_ABC
 #undef CONFIG_ISDN_WITH_ABC_CALLB
@@ -37,3 +40,4 @@
 #undef CONFIG_ISDN_WITH_ABC_FRAME_LIMIT
 #define BIG_PHONE_NUMBERS
 #undef COMPAT_NO_SOFTNET
+#define HAVE_DEVFS_FS

@@ -8,6 +8,8 @@
 #define COMPAT_NEED_UACCESS
 #define SET_SKB_FREE(x)
 #define idev_kfree_skb(a,b) dev_kfree_skb(a)
+#define idev_kfree_skb_irq(a,b) dev_kfree_skb(a)
+#define idev_kfree_skb_any(a,b) dev_kfree_skb(a)
 #define COMPAT_HAS_NEW_SYMTAB
 #define CLOSETYPE int
 #define CLOSEVAL (0)
@@ -39,3 +41,6 @@
 #undef CONFIG_ISDN_WITH_ABC_RAWIPCOMPRESS
 #undef CONFIG_ISDN_WITH_ABC_FRAME_LIMIT
 #define COMPAT_NO_SOFTNET
+#undef HAVE_DEVFS_FS
+#define devfs_register_chrdev(m,n,f) register_chrdev(m,n,f)
+#define devfs_unregister_chrdev(m,n) unregister_chrdev(m,n)
