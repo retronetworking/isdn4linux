@@ -1,6 +1,9 @@
 /* $Id$
  *
  * $Log$
+ * Revision 1.13  1996/06/24 17:15:55  fritz
+ * corrected return code of teles_writebuf()
+ *
  * Revision 1.12  1996/06/12 16:15:33  fritz
  * Extended user-configurable debugging flags.
  *
@@ -1448,7 +1451,7 @@ teles_writebuf(int id, int chan, const u_char * buf, int count, int user)
         ptr += i;
 
         if (user)
-                memcpy_fromfs(ptr, buf, count);
+                copy_from_user(ptr, buf, count);
         else
                 memcpy(ptr, buf, count);
         ibh->datasize = count + i;

@@ -1,6 +1,9 @@
 /* $Id$
  *
  * $Log$
+ * Revision 1.6  1996/06/03 20:03:39  fritz
+ * Fixed typos.
+ *
  * Revision 1.5  1996/05/31 00:58:47  fritz
  * Errata: Reverted change from rev 1.4.
  *
@@ -44,7 +47,7 @@ teles_readstatus(byte * buf, int len, int user, int id, int channel)
 
 	for (p = buf, count = 0; count < len; p++, count++) {
 		if (user)
-			put_fs_byte(*teles_status_read++, p);
+			put_user(*teles_status_read++, p);
 		else
 			*p++ = *teles_status_read++;
 		if (teles_status_read > teles_status_end)

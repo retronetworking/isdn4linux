@@ -19,6 +19,16 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.17  1996/10/22 09:39:49  hipp
+ * a few MP changes and bugfixes
+ *
+ * Revision 1.16  1996/09/23 01:58:10  fritz
+ * Fix: With syncPPP encapsulation, discard LCP packets
+ *      when calculating hangup timeout.
+ *
+ * Revision 1.15  1996/09/07 12:50:12  hipp
+ * bugfixes (unknown device after failed dial attempt, minor bugs)
+ *
  * Revision 1.14  1996/08/12 16:26:47  hipp
  * code cleanup
  * changed connection management from minors to slots
@@ -166,7 +176,7 @@ int isdn_ppp_free(isdn_net_local *lp)
 	if( (is->state & IPPP_CONNECT) )
 		isdn_ppp_closewait(lp->ppp_slot);	/* force wakeup on ippp device */
 	else if(is->state & IPPP_ASSIGNED)
-		is->state = IPPP_OPEN;	/* fallback to 'OPEN but not ASSIGEND" staet */
+		is->state = IPPP_OPEN;	/* fallback to 'OPEN but not ASSIGEND' staet */
 		
 
 	if(is->debug & 0x1)
@@ -399,7 +409,7 @@ static int get_arg(void *b,void *val,int len)
 		len = sizeof(unsigned long); 
 	if ((r = verify_area(VERIFY_READ, (void *) b, len )))
 		 return r;
-	memcpy_fromfs((void *) val, b, len );
+	copy_from_user((void *) val, b, len );
 	return 0;
 }
 
@@ -412,12 +422,12 @@ static int set_arg(void *b, unsigned long val,void *str)
 	if(!str) {
 		if ((r = verify_area(VERIFY_WRITE, b, 4 )))
 			 return r;
-		memcpy_tofs(b, (void *) &val, 4 );
+		copy_to_user(b, (void *) &val, 4 );
 	}
 	else {
 		if ((r = verify_area(VERIFY_WRITE, b,val)))
 			return r;
-		memcpy_tofs(b,str,val);
+		copy_to_user(b,str,val);
 	}
 	return 0;
 }
@@ -671,7 +681,7 @@ int isdn_ppp_read(int min, struct file *file, char *buf, int count)
 	}
 	if (b->len < count)
 		count = b->len;
-	memcpy_tofs(buf, b->buf, count);
+	copy_to_user(buf, b->buf, count);
 	kfree(b->buf);
 	b->buf = NULL;
 	is->first = b;
@@ -688,6 +698,8 @@ int isdn_ppp_write(int min, struct file *file,  const char *buf, int count)
 {
 	isdn_net_local *lp;
 	struct ippp_struct *is;
+	int proto;
+	unsigned char protobuf[4];
 
 	is = file->private_data;
 
@@ -701,7 +713,15 @@ int isdn_ppp_write(int min, struct file *file,  const char *buf, int count)
 	if (!lp)
 		printk(KERN_DEBUG "isdn_ppp_write: lp == NULL\n");
 	else {
-		lp->huptimer = 0;
+                /*
+                 * Don't reset huptimer for
+                 * LCP packets. (Echo requests).
+                 */
+                copy_from_user(protobuf, buf, 4);
+                proto = PPP_PROTOCOL(protobuf);
+                if (proto != PPP_LCP)
+			lp->huptimer = 0;
+		
 		if (lp->isdn_device < 0 || lp->isdn_channel < 0)
 			return 0;
 
@@ -715,7 +735,7 @@ int isdn_ppp_write(int min, struct file *file,  const char *buf, int count)
 				return count;
 			}
 			skb->free = 1;
-			memcpy_fromfs(skb_put(skb, count), buf, count);
+			copy_from_user(skb_put(skb, count), buf, count);
 			if(is->debug & 0x40) {
 				printk(KERN_DEBUG "ppp xmit: len %ld\n",skb->len);
 				isdn_ppp_frame_log("xmit",skb->data,skb->len,32);
@@ -879,7 +899,7 @@ void isdn_ppp_receive(isdn_net_dev * net_dev, isdn_net_local * lp, struct sk_buf
 				sqno_end = sqno;
 
 			if(is->debug & 0x40)
-				printk(KERN_DEBUG "min_sqno: %ld sqno_end %ld next: %ld\n",min_sqno,sqno_end,net_dev->ib.next_num );
+				printk(KERN_DEBUG "min_sqno: %ld sqno_end %d next: %ld\n",min_sqno,sqno_end,net_dev->ib.next_num );
 
 			/*
 			 * MP buffer management .. reorders incoming packets ..
@@ -1605,7 +1625,7 @@ static int isdn_ppp_dev_ioctl_stats(int slot,struct ifreq *ifr,struct device *de
 		}
 #endif
 	}
-	memcpy_tofs (res, &t, sizeof (struct ppp_stats));
+	copy_to_user (res, &t, sizeof (struct ppp_stats));
 	return 0;
 
 }
@@ -1630,7 +1650,7 @@ int isdn_ppp_dev_ioctl(struct device *dev, struct ifreq *ifr, int cmd)
 			len = strlen(PPP_VERSION) + 1;
 			error = verify_area(VERIFY_WRITE, r, len);
 			if (!error)
-				memcpy_tofs(r, PPP_VERSION, len);
+				copy_to_user(r, PPP_VERSION, len);
 			break;
 		case SIOCGPPPSTATS:
 			error = isdn_ppp_dev_ioctl_stats (lp->ppp_slot, ifr, dev);

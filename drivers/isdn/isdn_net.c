@@ -21,6 +21,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.24  1996/10/11 13:57:40  fritz
+ * Bugfix: Error in BogoCPS calculation.
+ *
  * Revision 1.23  1996/09/23 01:58:08  fritz
  * Fix: With syncPPP encapsulation, discard LCP packets
  *      when calculating hangup timeout.
@@ -2229,19 +2232,19 @@ int isdn_net_getphones(isdn_net_ioctl_phone * phone, char *phones)
 	inout &= 1;
         for (n = p->local.phone[inout]; n; n = n->next) {
 		if (more) {
-			put_fs_byte(' ', phones++);
+			put_user(' ', phones++);
 			count++;
 		}
 		if ((ret = verify_area(VERIFY_WRITE, (void *) phones, strlen(n->num) + 1))) {
 			restore_flags(flags);
 			return ret;
 		}
-		memcpy_tofs(phones, n->num, strlen(n->num) + 1);
+		copy_to_user(phones, n->num, strlen(n->num) + 1);
 		phones += strlen(n->num);
 		count += strlen(n->num);
 		more = 1;
 	}
-        put_fs_byte(0,phones);
+        put_user(0,phones);
         count++;
 	restore_flags(flags);
 	return count;

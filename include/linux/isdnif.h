@@ -22,6 +22,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.9  1996/06/06 21:24:24  fritz
+ * Started adding support for suspend/resume.
+ *
  * Revision 1.8  1996/05/18 01:45:37  fritz
  * More spelling corrections.
  *
@@ -298,6 +301,27 @@ typedef struct {
  *
  */
 extern int register_isdn(isdn_if*);
+
+/* Compatibility Linux-2.0.X <-> Linux-2.1.X */
+
+#ifndef LINUX_VERSION_CODE
+#include <linux/version.h>
+#endif
+#if (LINUX_VERSION_CODE < 0x020100)
+#define copy_from_user memcpy_fromfs
+#define copy_to_user memcpy_tofs
+#define GET_USER(x, addr) ( x = get_user(addr) )
+typedef int RWTYPE;
+typedef int LSTYPE;
+typedef int RWARG;
+typedef int LSARG;
+#else
+#define GET_USER get_user
+typedef long RWTYPE;
+typedef long long LSTYPE;
+typedef unsigned long RWARG;
+typedef long long LSARG;
+#endif
 
 #endif /* __KERNEL__ */
 #endif /* isdnif_h */

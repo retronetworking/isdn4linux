@@ -7,6 +7,9 @@
  *              Fritz Elfert
  *
  * $Log$
+ * Revision 1.1  1996/10/13 20:04:56  keil
+ * Initial revision
+ *
  *
  */
 #define __NO_VERSION__
@@ -36,7 +39,7 @@ HiSax_readstatus(byte * buf, int len, int user, int id, int channel)
 
 	for (p = buf, count = 0; count < len; p++, count++) {
 		if (user)
-			put_fs_byte(*HiSax_status_read++, p);
+			put_user(*HiSax_status_read++, p);
 		else
 			*p++ = *HiSax_status_read++;
 		if (HiSax_status_read > HiSax_status_end)
