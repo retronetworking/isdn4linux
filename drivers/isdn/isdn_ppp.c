@@ -19,6 +19,11 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.49  1999/07/06 07:47:11  calle
+ * bugfix: dev_alloc_skb only reserve 16 bytes. We need to look at the
+ *  	hdrlen the driver want. So I changed dev_alloc_skb calls
+ *         to alloc_skb and skb_reserve.
+ *
  * Revision 1.48  1999/07/01 08:29:56  keil
  * compatibility to 2.3 kernel
  *
@@ -1347,7 +1352,7 @@ isdn_ppp_push_higher(isdn_net_dev * net_dev, isdn_net_local * lp, struct sk_buff
 			{
 				struct sk_buff *skb_old = skb;
 				int pkt_len;
-				skb = dev_alloc_skb(skb_old->len + 40);
+				skb = dev_alloc_skb(skb_old->len + 128);
 
 				if (!skb) {
 					printk(KERN_WARNING "%s: Memory squeeze, dropping packet.\n", dev->name);
@@ -1356,7 +1361,7 @@ isdn_ppp_push_higher(isdn_net_dev * net_dev, isdn_net_local * lp, struct sk_buff
 					return;
 				}
 				skb->dev = dev;
-				skb_put(skb, skb_old->len + 40);
+				skb_put(skb, skb_old->len + 128);
 				memcpy(skb->data, skb_old->data, skb_old->len);
 				skb->mac.raw = skb->data;
 				pkt_len = slhc_uncompress(ippp_table[net_dev->local->ppp_slot]->slcomp,
