@@ -1,6 +1,9 @@
 /* $Id$
  *
  * $Log$
+ * Revision 1.10  1996/06/06 21:24:21  fritz
+ * Started adding support for suspend/resume.
+ *
  * Revision 1.9  1996/05/31 12:23:57  jdenoud
  * Jan: added channel open check to teles_writebuf
  *
@@ -129,6 +132,8 @@ enum {
         EV_HANGUP,         /* 17 */
         EV_BC_REL,         /* 18 */
         EV_CINF,           /* 19 */
+        EV_SUSPEND,        /* 20 */
+        EV_RESUME,         /* 21 */
 };
 
 #define EVENT_COUNT (EV_CINF+1)
@@ -153,6 +158,8 @@ static char    *strEvent[] =
         "EV_HANGUP",
         "EV_BC_REL",
         "EV_CINF",
+        "EV_SUSPEND",
+        "EV_RESUME",
 };
 
 enum {
