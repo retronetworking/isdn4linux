@@ -17,6 +17,10 @@
  *            Edgar Toernig
  *
  * $Log$
+ * Revision 1.14  1999/08/11 20:59:22  keil
+ * new PCI codefix
+ * fix IRQ problem while unload
+ *
  * Revision 1.13  1999/08/10 16:02:08  calle
  * struct pci_dev changed in 2.3.13. Made the necessary changes.
  *
@@ -526,18 +530,9 @@ Sedl_card_msg(struct IsdnCardState *cs, int mt, void *arg)
 			return(0);
 		case CARD_TEST:
 			return(0);
-		case CARD_LOAD_FIRM:
-			if (cs->hw.sedl.chip == SEDL_CHIP_ISAC_ISAR) {
-				if (isar_load_firmware(cs, arg))
-					return(1);
-				else 
-					ll_run(cs);
-			}
-			return(0);
 	}
 	return(0);
 }
-
 
 #ifdef SEDLBAUER_PCI
 #ifdef COMPAT_HAS_NEW_PCI
@@ -739,7 +734,7 @@ setup_sedlbauer(struct IsdnCard *card))
 			cs->bcs[1].hw.isar.reg = &cs->hw.sedl.isar;
 			test_and_set_bit(HW_ISAR, &cs->HW_Flags);
 			cs->irq_func = &sedlbauer_interrupt_isar;
-	
+			cs->auxcmd = &isar_auxcmd;
 			ISACVersion(cs, "Sedlbauer:");
 		
 			cs->BC_Read_Reg = &ReadISAR;
