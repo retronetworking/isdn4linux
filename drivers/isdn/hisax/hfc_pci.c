@@ -23,6 +23,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.1.2.8  1999/08/08 10:18:50  werner
+ * added new PCI vendor and card ids for vendor 0x1043 (Asuscom ?)
+ *
  * Revision 1.1.2.7  1999/08/07 21:08:01  werner
  * Fixed another memcpy problem in fifo handling.
  * Thanks for debugging aid from Olaf Kordwittenborg.
@@ -67,6 +70,21 @@
 extern const char *CardType[];
 
 static const char *hfcpci_revision = "$Revision$";
+
+static const int CCD_VENDOR_IDS[] = { 
+	0x1043,   /* Asuscom  */
+	0x1051,   /* Motorola MC145575 */
+        0x1397,   /* CCD and Billion */
+	0,
+};
+
+static const int CCD_DEVICE_IDS[] = { 
+	0x675,    /* Asuscom  */
+	0x100,    /* Motorola MC145575 */
+        0x2BD0,   /* CCD and Billion */
+	0,
+};
+
 
 #if CONFIG_PCI
 /*****************************/
@@ -1424,6 +1442,10 @@ __initfunc(int
 {
 	struct IsdnCardState *cs = card->cs;
 	char tmp[64];
+	int i;
+#ifdef COMPAT_HAS_NEW_PCI
+        struct pci_dev *tmp_hfcpci = NULL;
+#endif
 
 	strcpy(tmp, hfcpci_revision);
 	printk(KERN_INFO "HiSax: HFC-PCI driver Rev. %s\n", HiSax_getrev(tmp));
@@ -1442,12 +1464,17 @@ __initfunc(int
 			printk(KERN_ERR "HFC-PCI: no PCI bus present\n");
 			return (0);
 		}
-                dev_hfcpci = pci_find_device(PCI_VENDOR_CCD2,PCI_CCD_PCI_ID2,
-					     dev_hfcpci);
-		if (!dev_hfcpci)
-		  dev_hfcpci = pci_find_device(PCI_VENDOR_CCD,PCI_CCD_PCI_ID,
+		i = 0;
+                while (CCD_VENDOR_IDS[i]) {
+		  tmp_hfcpci = pci_find_device(CCD_VENDOR_IDS[i],
+					       CCD_DEVICE_IDS[i],
 					       dev_hfcpci);
-		if (dev_hfcpci) {
+		  if (tmp_hfcpci) break;
+		  i++;
+		}  
+					      
+		if (tmp_hfcpci) {
+		        dev_hfcpci = tmp_hfcpci; /* old device */
 			cs->hw.hfcpci.pci_bus = dev_hfcpci->bus->number;
 			cs->hw.hfcpci.pci_device_fn = dev_hfcpci->devfn;
 			cs->irq = dev_hfcpci->irq;
@@ -1465,14 +1492,17 @@ __initfunc(int
 		for (; pci_index < 255; pci_index++) {
 			unsigned char irq;
 
-			if (pcibios_find_device(PCI_VENDOR_CCD,
-						PCI_CCD_PCI_ID, pci_index,
-						&cs->hw.hfcpci.pci_bus, &cs->hw.hfcpci.pci_device_fn) != 0) {
-			if (pcibios_find_device(PCI_VENDOR_CCD2,
-						PCI_CCD_PCI_ID2, pci_index,
-						&cs->hw.hfcpci.pci_bus, &cs->hw.hfcpci.pci_device_fn) != 0) 
-				continue;
+			i = 0;
+                        while (CCD_VENDOR_IDS[i]) {
+			  if (pcibios_find_device(CCD_VENDOR_IDS[i],
+						  CCD_DEVICE_IDS[i], pci_index,
+						  &cs->hw.hfcpci.pci_bus, &cs->hw.hfcpci.pci_device_fn) == 0) 
+			    break;
+			  i++;
 			}
+			if (!CCD_VENDOR_IDS[i]) 
+			  continue;
+
 			pcibios_read_config_byte(cs->hw.hfcpci.pci_bus, cs->hw.hfcpci.pci_device_fn,
 					       PCI_INTERRUPT_LINE, &irq);
 			cs->irq = irq;
@@ -1543,3 +1573,6 @@ __initfunc(int
 	return (0);
 #endif				/* CONFIG_PCI */
 }
+
+
+
