@@ -1371,89 +1371,65 @@ isdn_tty_get_lsr_info(modem_info * info, uint * value)
 
 
 static int
-isdn_tty_get_modem_info(modem_info * info, uint * value)
+isdn_tty_tiocmget(struct tty_struct *tty, struct file *file)
 {
-	u_char control,
-	 status;
-	uint result;
+	modem_info *info = (modem_info *) tty->driver_data;
+	u_char control, status;
+
+	if (isdn_tty_paranoia_check(info, tty->name, __FUNCTION__))
+		return -ENODEV;
+	if (tty->flags & (1 << TTY_IO_ERROR))
+		return -EIO;
+
+#ifdef ISDN_DEBUG_MODEM_IOCTL
+	printk(KERN_DEBUG "ttyI%d ioctl TIOCMGET\n", info->line);
+#endif
 
 	control = info->mcr;
 	status = info->msr;
-	result = ((control & UART_MCR_RTS) ? TIOCM_RTS : 0)
+	return ((control & UART_MCR_RTS) ? TIOCM_RTS : 0)
 	    | ((control & UART_MCR_DTR) ? TIOCM_DTR : 0)
 	    | ((status & UART_MSR_DCD) ? TIOCM_CAR : 0)
 	    | ((status & UART_MSR_RI) ? TIOCM_RNG : 0)
 	    | ((status & UART_MSR_DSR) ? TIOCM_DSR : 0)
 	    | ((status & UART_MSR_CTS) ? TIOCM_CTS : 0);
-	return put_user(result, (uint *) value);
 }
 
 static int
-isdn_tty_set_modem_info(modem_info * info, uint cmd, uint * value)
+isdn_tty_tiocmset(struct tty_struct *tty, struct file *file,
+		unsigned int set, unsigned int clear)
 {
-	uint arg;
-	int pre_dtr;
+	modem_info *info = (modem_info *) tty->driver_data;
 
-	if (get_user(arg, (uint *) value))
-		return -EFAULT;
-	switch (cmd) {
-		case TIOCMBIS:
+	if (isdn_tty_paranoia_check(info, tty->name, __FUNCTION__))
+		return -ENODEV;
+	if (tty->flags & (1 << TTY_IO_ERROR))
+		return -EIO;
+
 #ifdef ISDN_DEBUG_MODEM_IOCTL
-			printk(KERN_DEBUG "ttyI%d ioctl TIOCMBIS\n", info->line);
+	printk(KERN_DEBUG "ttyI%d ioctl TIOCMxxx: %x %x\n", info->line, set, clear);
 #endif
-			if (arg & TIOCM_RTS) {
-				info->mcr |= UART_MCR_RTS;
-			}
-			if (arg & TIOCM_DTR) {
-				info->mcr |= UART_MCR_DTR;
-				isdn_tty_modem_ncarrier(info);
-			}
-			break;
-		case TIOCMBIC:
-#ifdef ISDN_DEBUG_MODEM_IOCTL
-			printk(KERN_DEBUG "ttyI%d ioctl TIOCMBIC\n", info->line);
-#endif
-			if (arg & TIOCM_RTS) {
-				info->mcr &= ~UART_MCR_RTS;
-			}
-			if (arg & TIOCM_DTR) {
-				info->mcr &= ~UART_MCR_DTR;
-				if (info->emu.mdmreg[REG_DTRHUP] & BIT_DTRHUP) {
-					isdn_tty_modem_reset_regs(info, 0);
+
+	if (set & TIOCM_RTS)
+		info->mcr |= UART_MCR_RTS;
+	if (set & TIOCM_DTR) {
+		info->mcr |= UART_MCR_DTR;
+		isdn_tty_modem_ncarrier(info);
+	}
+
+	if (clear & TIOCM_RTS)
+		info->mcr &= ~UART_MCR_RTS;
+	if (clear & TIOCM_DTR) {
+		info->mcr &= ~UART_MCR_DTR;
+		if (info->emu.mdmreg[REG_DTRHUP] & BIT_DTRHUP) {
+			isdn_tty_modem_reset_regs(info, 0);
 #ifdef ISDN_DEBUG_MODEM_HUP
-					printk(KERN_DEBUG "Mhup in TIOCMBIC\n");
+			printk(KERN_DEBUG "Mhup in TIOCMSET\n");
 #endif
-					if (info->online)
-						info->ncarrier = 1;
-					isdn_tty_modem_hup(info, 1);
-				}
-			}
-			break;
-		case TIOCMSET:
-#ifdef ISDN_DEBUG_MODEM_IOCTL
-			printk(KERN_DEBUG "ttyI%d ioctl TIOCMSET\n", info->line);
-#endif
-			pre_dtr = (info->mcr & UART_MCR_DTR);
-			info->mcr = ((info->mcr & ~(UART_MCR_RTS | UART_MCR_DTR))
-				 | ((arg & TIOCM_RTS) ? UART_MCR_RTS : 0)
-			       | ((arg & TIOCM_DTR) ? UART_MCR_DTR : 0));
-			if (pre_dtr |= (info->mcr & UART_MCR_DTR)) {
-				if (!(info->mcr & UART_MCR_DTR)) {
-					if (info->emu.mdmreg[REG_DTRHUP] & BIT_DTRHUP) {
-						isdn_tty_modem_reset_regs(info, 0);
-#ifdef ISDN_DEBUG_MODEM_HUP
-						printk(KERN_DEBUG "Mhup in TIOCMSET\n");
-#endif
-						if (info->online)
-							info->ncarrier = 1;
-						isdn_tty_modem_hup(info, 1);
-					}
-				} else
-					isdn_tty_modem_ncarrier(info);
-			}
-			break;
-		default:
-			return -EINVAL;
+			if (info->online)
+				info->ncarrier = 1;
+			isdn_tty_modem_hup(info, 1);
+		}
 	}
 	return 0;
 }
@@ -1503,15 +1479,6 @@ isdn_tty_ioctl(struct tty_struct *tty, struct file *file,
 			    ((tty->termios->c_cflag & ~CLOCAL) |
 			     (arg ? CLOCAL : 0));
 			return 0;
-		case TIOCMGET:
-#ifdef ISDN_DEBUG_MODEM_IOCTL
-			printk(KERN_DEBUG "ttyI%d ioctl TIOCMGET\n", info->line);
-#endif
-			return isdn_tty_get_modem_info(info, (uint *) arg);
-		case TIOCMBIS:
-		case TIOCMBIC:
-		case TIOCMSET:
-			return isdn_tty_set_modem_info(info, cmd, (uint *) arg);
 		case TIOCSERGETLSR:	/* Get line status register */
 #ifdef ISDN_DEBUG_MODEM_IOCTL
 			printk(KERN_DEBUG "ttyI%d ioctl TIOCSERGETLSR\n", info->line);
@@ -1937,6 +1904,8 @@ static struct tty_operations modem_ops = {
 	.unthrottle = isdn_tty_unthrottle,
 	.set_termios = isdn_tty_set_termios,
 	.hangup = isdn_tty_hangup,
+	.tiocmget = isdn_tty_tiocmget,
+	.tiocmset = isdn_tty_tiocmset,
 };
 
 int
@@ -1958,7 +1927,7 @@ isdn_tty_modem_init(void)
 	m->tty_modem->subtype = SERIAL_TYPE_NORMAL;
 	m->tty_modem->init_termios = tty_std_termios;
 	m->tty_modem->init_termios.c_cflag = B9600 | CS8 | CREAD | HUPCL | CLOCAL;
-	m->tty_modem->flags = TTY_DRIVER_REAL_RAW;
+	m->tty_modem->flags = TTY_DRIVER_REAL_RAW | TTY_DRIVER_NO_DEVFS;
 	m->tty_modem->driver_name = "isdn_tty";
 	tty_set_operations(m->tty_modem, &modem_ops);
 	retval = tty_register_driver(m->tty_modem);

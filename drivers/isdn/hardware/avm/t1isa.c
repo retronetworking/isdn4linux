@@ -369,7 +369,7 @@ static void t1isa_remove(struct pci_dev *pdev)
 static u16 t1isa_send_message(struct capi_ctr *ctrl, struct sk_buff *skb);
 static char *t1isa_procinfo(struct capi_ctr *ctrl);
 
-static int __init t1isa_probe(struct pci_dev *pdev, int cardnr)
+static int t1isa_probe(struct pci_dev *pdev, int cardnr)
 {
 	avmctrl_info *cinfo;
 	avmcard *card;
@@ -536,7 +536,7 @@ static int t1isa_add_card(struct capi_driver *driver, capicardparams *data)
 			continue;
 
 		isa_dev[i].resource[0].start = data->port;
-		isa_dev[i].irq_resource[0].start = data->irq;
+		isa_dev[i].irq = data->irq;
 
 		if (t1isa_probe(&isa_dev[i], data->cardnr) == 0)
 			return 0;
@@ -568,7 +568,7 @@ static int __init t1isa_init(void)
 			break;
 
 		isa_dev[i].resource[0].start = io[i];
-		isa_dev[i].irq_resource[0].start = irq[i];
+		isa_dev[i].irq = irq[i];
 
 		if (t1isa_probe(&isa_dev[i], cardnr[i]) != 0)
 			return -ENODEV;

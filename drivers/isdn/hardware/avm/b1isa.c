@@ -60,7 +60,7 @@ static void b1isa_remove(struct pci_dev *pdev)
 
 static char *b1isa_procinfo(struct capi_ctr *ctrl);
 
-static int __init b1isa_probe(struct pci_dev *pdev)
+static int b1isa_probe(struct pci_dev *pdev)
 {
 	avmctrl_info *cinfo;
 	avmcard *card;
@@ -183,7 +183,7 @@ static int b1isa_add_card(struct capi_driver *driver, capicardparams *data)
 			continue;
 
 		isa_dev[i].resource[0].start = data->port;
-		isa_dev[i].irq_resource[0].start = data->irq;
+		isa_dev[i].irq = data->irq;
 
 		if (b1isa_probe(&isa_dev[i]) == 0)
 			return 0;
@@ -215,7 +215,7 @@ static int __init b1isa_init(void)
 			break;
 
 		isa_dev[i].resource[0].start = io[i];
-		isa_dev[i].irq_resource[0].start = irq[i];
+		isa_dev[i].irq = irq[i];
 
 		if (b1isa_probe(&isa_dev[i]) != 0)
 			return -ENODEV;
@@ -238,6 +238,7 @@ static void __exit b1isa_exit(void)
 
 		b1isa_remove(&isa_dev[i]);
 	}
+	unregister_capi_driver(&capi_driver_b1isa);
 }
 
 module_init(b1isa_init);
