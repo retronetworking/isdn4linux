@@ -1,10 +1,13 @@
 /* $Id$
-
-/* Stuff to support the concap_proto by isdn4linux. isdn4linux - specific
+ 
+ * Stuff to support the concap_proto by isdn4linux. isdn4linux - specific
  * stuff goes here. Stuff that depends only on the concap protocol goes to
  * another -- protocol specific -- source file.
  *
  * $Log$
+ * Revision 1.1  1998/01/31 22:27:57  keil
+ * New files from Henner Eisen for X.25 support
+ *
  */
 
 

@@ -1,5 +1,5 @@
 /* $Id$
-/* stuff needed to support the Linux X.25 PLP code on top of devices that
+ * stuff needed to support the Linux X.25 PLP code on top of devices that
  * can provide a lab_b service using the concap_proto mechanism.
  * This module supports a network interface wich provides lapb_sematics
  * -- as defined in ../../Documentation/networking/x25-iface.txt -- to
@@ -10,6 +10,9 @@
  * goes to another -- device related -- concap_proto support source file.
  *
  * $Log$
+ * Revision 1.1  1998/01/31 22:27:58  keil
+ * New files from Henner Eisen for X.25 support
+ *
  */
 
 /* #include <linux/isdn.h> */

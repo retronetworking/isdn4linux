@@ -1,5 +1,5 @@
 /* $Id$
-
+ */
 #ifndef _LINUX_ISDN_X25IFACE_H
 #define _LINUX_ISDN_X25IFACE_H
 
