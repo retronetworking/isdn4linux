@@ -6,6 +6,11 @@
  * Copyright 1996 by Carsten Paeth (calle@calle.in-berlin.de)
  *
  * $Log$
+ * Revision 1.1.2.1  1997/11/26 10:47:01  calle
+ * prepared for M1 (Mobile) and T1 (PMX) cards.
+ * prepared to set configuration after load to support other D-channel
+ * protocols, point-to-point and leased lines.
+ *
  * Revision 1.1  1997/03/04 21:27:32  calle
  * First version in isdn4linux
  *
@@ -42,6 +47,12 @@ typedef struct avmb1_resetdef {
 	int contr;
 } avmb1_resetdef;
 
+typedef struct avmb1_getdef {
+	int contr;
+	int cardtype;
+	int cardstate;
+} avmb1_getdef;
+
 /*
  * struct for adding new cards 
  */
@@ -65,10 +76,9 @@ typedef struct avmb1_extcarddef {
 #define AVMB1_RESETCARD		2	/* reset a card */
 #define	AVMB1_LOAD_AND_CONFIG	3	/* load image and config to card */
 #define	AVMB1_ADDCARD_WITH_TYPE	4	/* add a new card, with cardtype */
+#define AVMB1_GET_CARDINFO	5	/* get cardtype */
 
 
-
-#ifdef __KERNEL__
 
 /*
  * card states for startup
@@ -80,6 +90,8 @@ typedef struct avmb1_extcarddef {
 #define CARD_INITSTATE	4
 #define CARD_RUNNING	5
 #define CARD_ACTIVE	6
+
+#ifdef __KERNEL__
 
 #define	AVMB1_PORTLEN	0x1f
 

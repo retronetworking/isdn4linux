@@ -6,6 +6,11 @@
  * (c) Copyright 1997 by Carsten Paeth (calle@calle.in-berlin.de)
  * 
  * $Log$
+ * Revision 1.4.2.3  1997/11/26 10:46:52  calle
+ * prepared for M1 (Mobile) and T1 (PMX) cards.
+ * prepared to set configuration after load to support other D-channel
+ * protocols, point-to-point and leased lines.
+ *
  * Revision 1.4.2.2  1997/10/19 14:44:36  calle
  * fixed capi_get_version.
  *
@@ -712,6 +717,7 @@ static int capi_manufacturer(unsigned int cmd, void *data)
 	avmb1_loadandconfigdef ldef;
 	avmb1_extcarddef cdef;
 	avmb1_resetdef rdef;
+	avmb1_getdef gdef;
 	avmb1_card *card;
 	int rc;
 
@@ -859,6 +865,24 @@ static int capi_manufacturer(unsigned int cmd, void *data)
 
 		B1_reset(card->port);
 		B1_reset(card->port);
+
+		return 0;
+	case AVMB1_GET_CARDINFO:
+		if ((rc = copy_from_user((void *) &gdef, data,
+					 sizeof(avmb1_getdef))))
+			return rc;
+
+		if (!VALID_CARD(gdef.contr))
+			return -EINVAL;
+
+		card = CARD(gdef.contr);
+
+		gdef.cardstate = card->cardstate;
+		gdef.cardtype = card->cardtype;
+
+		if ((rc = copy_to_user(data, (void *) &gdef,
+					 sizeof(avmb1_getdef))))
+			return rc;
 
 		return 0;
 	}
