@@ -403,7 +403,6 @@ static void
 isdn_net_unbind_channel(isdn_net_local * lp)
 {
 	ulong flags;
-	struct sk_buff *skb;
 
 	save_flags(flags);
 	cli();
@@ -414,6 +413,7 @@ isdn_net_unbind_channel(isdn_net_local * lp)
 	dwabc_bsd_free(lp);
 #endif
 	skb_queue_purge(&lp->super_tx_queue);
+
 	if (!lp->master) {	/* reset only master device */
 		/* Moral equivalent of dev_purge_queues():
 		   BEWARE! This chunk of code cannot be called from hardware

@@ -38,7 +38,7 @@
  * address and size of an skb's data area, then waiting for a callback
  * to signal successful transmission of the packet.  A task is then
  * queued to notify the HiSax driver that another packet may be transmitted.
-*
+ *
  * D channel reception is quite simple, mainly because of:
  *   1) the slow speed of the D channel - 16 kbps, and
  *   2) the presence of an 8- or 32-byte (depending on chip version) FIFO
