@@ -168,6 +168,8 @@ struct capidev {
 
 /* -------- global variables ---------------------------------------- */
 
+static spinlock_t capi_list_lock = SPIN_LOCK_UNLOCKED;
+
 static struct capi_interface *capifuncs = 0;
 static struct capidev *capidev_openlist = 0;
 #ifdef CONFIG_ISDN_KCAPI_MIDDLEWARE
@@ -202,9 +204,11 @@ int capincci_add_ack(struct capiminor *mp, __u16 datahandle)
 	}
 	n->next = 0;
 	n->datahandle = datahandle;
+        spin_lock(&capi_list_lock);
 	for (pp = &mp->ackqueue; *pp; pp = &(*pp)->next) ;
 	*pp = n;
 	mp->nack++;
+        spin_unlock(&capi_list_lock);
 	return 0;
 }
 
@@ -212,6 +216,7 @@ int capiminor_del_ack(struct capiminor *mp, __u16 datahandle)
 {
 	struct datahandle_queue **pp, *p;
 
+        spin_lock(&capi_list_lock);
 	for (pp = &mp->ackqueue; *pp; pp = &(*pp)->next) {
  		if ((*pp)->datahandle == datahandle) {
 			p = *pp;
@@ -222,9 +227,11 @@ int capiminor_del_ack(struct capiminor *mp, __u16 datahandle)
 		        kfree(p);
 #endif
 			mp->nack--;
+                        spin_unlock(&capi_list_lock);
 			return 0;
 		}
 	}
+        spin_unlock(&capi_list_lock);
 	return -1;
 }
 
@@ -280,6 +287,7 @@ struct capiminor *capiminor_alloc(__u16 applid, __u32 ncci)
 	init_waitqueue_head(&mp->recvwait);
 	init_waitqueue_head(&mp->sendwait);
 
+        spin_lock(&capi_list_lock);
 	for (pp = &minors; *pp; pp = &(*pp)->next) {
 		if ((*pp)->minor < minor)
 			continue;
@@ -290,6 +298,7 @@ struct capiminor *capiminor_alloc(__u16 applid, __u32 ncci)
 	mp->minor = minor;
 	mp->next = *pp;
 	*pp = mp;
+        spin_unlock(&capi_list_lock);
 	return mp;
 }
 
@@ -298,6 +307,7 @@ void capiminor_free(struct capiminor *mp)
 	struct capiminor **pp;
 	struct sk_buff *skb;
 
+        spin_lock(&capi_list_lock);
 	pp = &minors;
 	while (*pp) {
 		if (*pp == mp) {
@@ -325,13 +335,16 @@ void capiminor_free(struct capiminor *mp)
 			pp = &(*pp)->next;
 		}
 	}
+        spin_unlock(&capi_list_lock);
 }
 
 struct capiminor *capiminor_find(unsigned int minor)
 {
 	struct capiminor *p;
+        spin_lock(&capi_list_lock);
 	for (p = minors; p && p->minor != minor; p = p->next)
 		;
+        spin_unlock(&capi_list_lock);
 	return p;
 }
 #endif /* CONFIG_ISDN_KCAPI_MIDDLEWARE */
@@ -373,68 +386,82 @@ static struct capincci *capincci_alloc(struct capidev *cdev, __u32 ncci)
 #endif
 	}
 #endif /* CONFIG_ISDN_KCAPI_MIDDLEWARE */
+        spin_lock(&capi_list_lock);
 	for (pp=&cdev->nccis; *pp; pp = &(*pp)->next)
 		;
 	*pp = np;
+        spin_unlock(&capi_list_lock);
         return np;
+}
+
+static struct capincci *find_and_remove_ncci(struct capidev *cdev, __u32 ncci)
+{
+        struct capincci *np = NULL, **pp;
+
+        spin_lock(&capi_list_lock);
+	pp = &cdev->nccis;
+	while (*pp) {
+		if (ncci == 0xffffffff || (*pp)->ncci == ncci) {
+                    np = *pp;
+                    *pp = (*pp)->next;
+                    break;
+                }
+                pp = &(*pp)->next;
+        }
+        spin_unlock(&capi_list_lock);
+        return(np);
 }
 
 static void capincci_free(struct capidev *cdev, __u32 ncci)
 {
-	struct capincci *np, **pp;
+	struct capincci *np;
 #ifdef CONFIG_ISDN_KCAPI_MIDDLEWARE
 	struct capiminor *mp;
 #endif /* CONFIG_ISDN_KCAPI_MIDDLEWARE */
 
-	pp=&cdev->nccis;
-	while (*pp) {
-		np = *pp;
-		if (ncci == 0xffffffff || np->ncci == ncci) {
-			*pp = (*pp)->next;
+	while ((np = find_and_remove_ncci(cdev, ncci))) {
 #ifdef CONFIG_ISDN_KCAPI_MIDDLEWARE
-			if ((mp = np->minorp) != 0) {
+		if ((mp = np->minorp) != 0) {
 #if defined(CONFIG_ISDN_KCAPI_CAPIFS) || defined(CONFIG_ISDN_KCAPI_CAPIFS_MODULE)
-				capifs_free_ncci('r', mp->minor);
-				capifs_free_ncci(0, mp->minor);
+			capifs_free_ncci('r', mp->minor);
+			capifs_free_ncci(0, mp->minor);
 #endif
-				if (mp->tty) {
-					mp->nccip = 0;
+			if (mp->tty) {
+				mp->nccip = 0;
 #ifdef _DEBUG_REFCOUNT
-					printk(KERN_DEBUG "reset mp->nccip\n");
+				printk(KERN_DEBUG "reset mp->nccip\n");
 #endif
-					tty_hangup(mp->tty);
-				} else if (mp->file) {
-					mp->nccip = 0;
+				tty_hangup(mp->tty);
+			} else if (mp->file) {
+				mp->nccip = 0;
 #ifdef _DEBUG_REFCOUNT
-					printk(KERN_DEBUG "reset mp->nccip\n");
+				printk(KERN_DEBUG "reset mp->nccip\n");
 #endif
-					wake_up_interruptible(&mp->recvwait);
-					wake_up_interruptible(&mp->sendwait);
-				} else {
-					capiminor_free(mp);
-				}
+				wake_up_interruptible(&mp->recvwait);
+				wake_up_interruptible(&mp->sendwait);
+			} else {
+				capiminor_free(mp);
 			}
+		}
 #endif /* CONFIG_ISDN_KCAPI_MIDDLEWARE */
 #ifdef COMPAT_HAS_kmem_cache
-			kmem_cache_free(capincci_cachep, np);
+		kmem_cache_free(capincci_cachep, np);
 #else
-			kfree(np);
+		kfree(np);
 #endif
-			if (*pp == 0) return;
-		} else {
-			pp = &(*pp)->next;
-		}
 	}
 }
 
-struct capincci *capincci_find(struct capidev *cdev, __u32 ncci)
+static struct capincci *capincci_find(struct capidev *cdev, __u32 ncci)
 {
 	struct capincci *p;
 
+        spin_lock(&capi_list_lock);
 	for (p=cdev->nccis; p ; p = p->next) {
 		if (p->ncci == ncci)
 			break;
 	}
+        spin_unlock(&capi_list_lock);
 	return p;
 }
 
@@ -458,9 +485,11 @@ static struct capidev *capidev_alloc(struct file *file)
 
 	skb_queue_head_init(&cdev->recvqueue);
 	init_waitqueue_head(&cdev->recvwait);
+        spin_lock(&capi_list_lock);
 	pp=&capidev_openlist;
 	while (*pp) pp = &(*pp)->next;
 	*pp = cdev;
+        spin_unlock(&capi_list_lock);
         return cdev;
 }
 
@@ -477,10 +506,12 @@ static void capidev_free(struct capidev *cdev)
 		kfree_skb(skb);
 	}
 	
+        spin_lock(&capi_list_lock);
 	pp=&capidev_openlist;
 	while (*pp && *pp != cdev) pp = &(*pp)->next;
 	if (*pp)
 		*pp = cdev->next;
+        spin_unlock(&capi_list_lock);
 
 #ifdef COMPAT_HAS_kmem_cache
 	kmem_cache_free(capidev_cachep, cdev);
@@ -492,10 +523,12 @@ static void capidev_free(struct capidev *cdev)
 static struct capidev *capidev_find(__u16 applid)
 {
 	struct capidev *p;
+        spin_lock(&capi_list_lock);
 	for (p=capidev_openlist; p; p = p->next) {
 		if (p->applid == applid)
 			break;
 	}
+        spin_unlock(&capi_list_lock);
 	return p;
 }
 
@@ -728,8 +761,10 @@ static void capi_signal(__u16 applid, void *param)
 		return;
 	}
 	ncci = CAPIMSG_CONTROL(skb->data);
+        spin_lock(&capi_list_lock);
 	for (np = cdev->nccis; np && np->ncci != ncci; np = np->next)
 		;
+        spin_unlock(&capi_list_lock);
 	if (!np) {
 		printk(KERN_ERR "BUG: capi_signal: ncci not found\n");
 		skb_queue_tail(&cdev->recvqueue, skb);
@@ -1816,6 +1851,7 @@ static int proc_capidev_read_proc(char *page, char **start, off_t off,
         struct capidev *cdev;
 	int len = 0;
 
+        spin_lock(&capi_list_lock);
 	for (cdev=capidev_openlist; cdev; cdev = cdev->next) {
 		len += sprintf(page+len, "%d %d %lu %lu %lu %lu\n",
 			cdev->minor,
@@ -1833,6 +1869,7 @@ static int proc_capidev_read_proc(char *page, char **start, off_t off,
 		}
 	}
 endloop:
+        spin_unlock(&capi_list_lock);
 	if (len < count)
 		*eof = 1;
 	if (len>count) len = count;
@@ -1851,6 +1888,7 @@ static int proc_capincci_read_proc(char *page, char **start, off_t off,
         struct capincci *np;
 	int len = 0;
 
+        spin_lock(&capi_list_lock);
 	for (cdev=capidev_openlist; cdev; cdev = cdev->next) {
 		for (np=cdev->nccis; np; np = np->next) {
 			len += sprintf(page+len, "%d 0x%x%s\n",
@@ -1865,12 +1903,14 @@ static int proc_capincci_read_proc(char *page, char **start, off_t off,
 				off -= len;
 				len = 0;
 			} else {
-				if (len-off > count)
+				if (len-off > count) {
 					goto endloop;
+                                }
 			}
 		}
 	}
 endloop:
+        spin_unlock(&capi_list_lock);
 	*start = page+off;
 	if (len < count)
 		*eof = 1;

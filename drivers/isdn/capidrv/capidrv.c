@@ -149,7 +149,7 @@ typedef struct capidrv_bchan capidrv_bchan;
 /* -------- data definitions ----------------------------------------- */
 
 static capidrv_data global;
-static spinlock_t global_lock = SPIN_LOCK_UNLOCKED;
+static spinlock_t global_lock;
 static struct capi_interface *capifuncs;
 
 static void handle_dtrace_data(capidrv_contr *card,
@@ -2360,6 +2360,7 @@ static int __init capidrv_init(void)
 
 	MOD_INC_USE_COUNT;
 
+        global_lock = SPIN_LOCK_UNLOCKED;
 	capifuncs = attach_capi_interface(&cuser);
 
 	if (!capifuncs) {
