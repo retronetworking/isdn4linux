@@ -28,122 +28,11 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
- * $Log$
- * Revision 1.25.2.5  2000/04/08 11:36:55  armin
- * changes from main tree and cleanup.
- *
- * Revision 1.25.2.4  2000/04/02 21:26:38  armin
- * removes unnecessary #ifdef
- *
- * Revision 1.25.2.3  2000/04/02 14:46:40  armin
- * Added spinlocks.
- *
- * Revision 1.25.2.2  2000/03/26 12:43:32  armin
- * Fixed wrong range of io region.
- *
- * Revision 1.25.2.1  2000/03/25 18:51:03  armin
- * First checkin of new eicon driver V2
- *
- * Revision 1.25  2000/02/22 16:26:40  armin
- * Fixed membase error message.
- * Fixed missing log buffer struct.
- *
- * Revision 1.24  2000/01/23 21:21:23  armin
- * Added new trace capability and some updates.
- * DIVA Server BRI now supports data for ISDNLOG.
- *
- * Revision 1.23  2000/01/20 19:55:34  keil
- * Add FAX Class 1 support
- *
- * Revision 1.22  1999/11/27 12:56:19  armin
- * Forgot some iomem changes for last ioremap compat.
- *
- * Revision 1.21  1999/11/25 11:35:10  armin
- * Microchannel fix from Erik Weber (exrz73@ibm.net).
- * Minor cleanup.
- *
- * Revision 1.20  1999/11/18 21:14:30  armin
- * New ISA memory mapped IO
- *
- * Revision 1.19  1999/11/12 13:21:44  armin
- * Bugfix of undefined reference with CONFIG_MCA
- *
- * Revision 1.18  1999/10/11 18:13:25  armin
- * Added fax capabilities for Eicon Diva Server cards.
- *
- * Revision 1.17  1999/10/08 22:09:34  armin
- * Some fixes of cards interface handling.
- * Bugfix of NULL pointer occurence.
- * Changed a few log outputs.
- *
- * Revision 1.16  1999/09/26 14:17:53  armin
- * Improved debug and log via readstat()
- *
- * Revision 1.15  1999/09/08 20:17:31  armin
- * Added microchannel patch from Erik Weber (exrz73@ibm.net).
- *
- * Revision 1.14  1999/09/06 07:29:35  fritz
- * Changed my mail-address.
- *
- * Revision 1.13  1999/09/04 17:37:59  armin
- * Removed not used define, did not work and caused error
- * in 2.3.16
- *
- * Revision 1.12  1999/08/31 11:20:14  paul
- * various spelling corrections (new checksums may be needed, Karsten!)
- *
- * Revision 1.11  1999/08/29 17:23:45  armin
- * New setup compat.
- * Bugfix if compile as not module.
- *
- * Revision 1.10  1999/08/28 21:32:53  armin
- * Prepared for fax related functions.
- * Now compilable without errors/warnings.
- *
- * Revision 1.9  1999/08/18 20:17:02  armin
- * Added XLOG function for all cards.
- * Bugfix of alloc_skb NULL pointer.
- *
- * Revision 1.8  1999/07/25 15:12:08  armin
- * fix of some debug logs.
- * enabled ISA-cards option.
- *
- * Revision 1.7  1999/07/11 17:16:27  armin
- * Bugfixes in queue handling.
- * Added DSP-DTMF decoder functions.
- * Reorganized ack_handler.
- *
- * Revision 1.6  1999/06/09 19:31:26  armin
- * Wrong PLX size for request_region() corrected.
- * Added first MCA code from Erik Weber.
- *
- * Revision 1.5  1999/04/01 12:48:35  armin
- * Changed some log outputs.
- *
- * Revision 1.4  1999/03/29 11:19:47  armin
- * I/O stuff now in seperate file (eicon_io.c)
- * Old ISA type cards (S,SX,SCOM,Quadro,S2M) implemented.
- *
- * Revision 1.3  1999/03/02 12:37:47  armin
- * Added some important checks.
- * Analog Modem with DSP.
- * Channels will be added to Link-Level after loading firmware.
- *
- * Revision 1.2  1999/01/24 20:14:21  armin
- * Changed and added debug stuff.
- * Better data sending. (still problems with tty's flip buffer)
- *
- * Revision 1.1  1999/01/01 18:09:44  armin
- * First checkin of new eicon driver.
- * DIVA-Server BRI/PCI and PRI/PCI are supported.
- * Old diehl code is obsolete.
- *
- *
  */
 
 #define DRIVERNAME "Eicon active ISDN driver"
 #define DRIVERRELEASE "2.0"
-#define DRIVERPATCH ".2b"
+#define DRIVERPATCH ".6"
 
 
 #include <linux/config.h>
@@ -154,6 +43,8 @@
 #endif /* CONFIG_MCA */
 
 #include "eicon.h"
+
+#include "../avmb1/capicmd.h"  /* this should be moved in a common place */
 
 #undef N_DATA
 #include "adapter.h"
@@ -638,8 +529,10 @@ eicon_command(eicon_card * card, isdn_ctrl * c)
 				break;
 			chan->l3prot = (c->arg >> 8);
 #ifdef CONFIG_ISDN_TTY_FAX
-			if (chan->l3prot == ISDN_PROTO_L3_FCLASS2)
+			if (chan->l3prot == ISDN_PROTO_L3_FCLASS2) {
 				chan->fax = c->parm.fax;
+				eicon_log(card, 128, "idi_cmd: Ch%d: SETL3 struct fax=0x%x\n",chan->No, chan->fax);
+			}
 #endif
 			return 0;
 		case ISDN_CMD_GETL3:
@@ -686,6 +579,23 @@ eicon_command(eicon_card * card, isdn_ctrl * c)
 			if (!(chan = find_channel(card, c->arg & 0x1f)))
 				break;
 			idi_audio_cmd(card, chan, c->arg >> 8, c->parm.num);
+			return 0;
+		case CAPI_PUT_MESSAGE:
+			if (!card->flags & EICON_FLAGS_RUNNING)
+				return -ENODEV;
+			if (!(chan = find_channel(card, c->arg & 0x1f)))
+				break;
+			if (c->parm.cmsg.Length < 8)
+				break;
+			switch(c->parm.cmsg.Command) {
+				case CAPI_FACILITY:
+					if (c->parm.cmsg.Subcommand == CAPI_REQ)
+						return(capipmsg(card, chan, &c->parm.cmsg));
+					break;
+				case CAPI_MANUFACTURER:
+				default:
+					break;
+			}
 			return 0;
         }
 	
@@ -817,7 +727,7 @@ if_sendbuf(int id, int channel, int ack, struct sk_buff *skb)
 			}
 			else
 #endif
-				ret = idi_send_data(card, chan, ack, skb, 1);
+				ret = idi_send_data(card, chan, ack, skb, 1, 1);
 			return (ret);
 		} else {
 			return -ENODEV;

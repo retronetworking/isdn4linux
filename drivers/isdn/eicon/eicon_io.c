@@ -23,53 +23,6 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
- * $Log$
- * Revision 1.10.2.2  2000/04/02 14:46:40  armin
- * Added spinlocks.
- *
- * Revision 1.10.2.1  2000/03/25 18:51:03  armin
- * First checkin of new eicon driver V2
- *
- * Revision 1.10  2000/01/23 21:21:23  armin
- * Added new trace capability and some updates.
- * DIVA Server BRI now supports data for ISDNLOG.
- *
- * Revision 1.9  1999/11/18 20:55:25  armin
- * Ready_Int fix of ISA cards.
- *
- * Revision 1.8  1999/10/08 22:09:34  armin
- * Some fixes of cards interface handling.
- * Bugfix of NULL pointer occurence.
- * Changed a few log outputs.
- *
- * Revision 1.7  1999/09/26 14:17:53  armin
- * Improved debug and log via readstat()
- *
- * Revision 1.6  1999/09/21 20:35:43  armin
- * added more error checking.
- *
- * Revision 1.5  1999/08/31 11:20:11  paul
- * various spelling corrections (new checksums may be needed, Karsten!)
- *
- * Revision 1.4  1999/08/22 20:26:47  calle
- * backported changes from kernel 2.3.14:
- * - several #include "config.h" gone, others come.
- * - "struct device" changed to "struct net_device" in 2.3.14, added a
- *   define in isdn_compat.h for older kernel versions.
- *
- * Revision 1.3  1999/08/18 20:17:01  armin
- * Added XLOG function for all cards.
- * Bugfix of alloc_skb NULL pointer.
- *
- * Revision 1.2  1999/07/25 15:12:05  armin
- * fix of some debug logs.
- * enabled ISA-cards option.
- *
- * Revision 1.1  1999/03/29 11:19:45  armin
- * I/O stuff now in seperate file (eicon_io.c)
- * Old ISA type cards (S,SX,SCOM,Quadro,S2M) implemented.
- *
- *
  */
 
 
@@ -350,7 +303,7 @@ eicon_io_transmit(eicon_card *ccard) {
 	if (!(skb2 = skb_dequeue(&ccard->sndq)))
 		quloop = 0; 
 	while(quloop) { 
-                spin_lock_irqsave(&eicon_lock, flags);
+		spin_lock_irqsave(&eicon_lock, flags);
 		switch (scom) {
 		  case 1:
 			if ((ram_inb(ccard, &com->Req)) || (ccard->ReadyInt)) {
@@ -385,7 +338,7 @@ eicon_io_transmit(eicon_card *ccard) {
 		  if ((reqbuf->Reference) && (chan->e.B2Id == 0) && (reqbuf->ReqId & 0x1f)) {
 			eicon_log(ccard, 16, "eicon: transmit: error Id=0 on %d (Net)\n", chan->No); 
 		  } else {
-                	spin_lock_irqsave(&eicon_lock, flags);
+			spin_lock_irqsave(&eicon_lock, flags);
 
 			switch (scom) {
 			  case 1:

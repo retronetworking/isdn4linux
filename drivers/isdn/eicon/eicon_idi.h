@@ -20,49 +20,6 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
- * $Log$
- * Revision 1.9  2000/01/23 21:21:23  armin
- * Added new trace capability and some updates.
- * DIVA Server BRI now supports data for ISDNLOG.
- *
- * Revision 1.8  1999/11/25 11:43:27  armin
- * Fixed statectrl and connect message.
- * X.75 fix and HDLC/transparent with autoconnect.
- * Minor cleanup.
- *
- * Revision 1.7  1999/08/22 20:26:46  calle
- * backported changes from kernel 2.3.14:
- * - several #include "config.h" gone, others come.
- * - "struct device" changed to "struct net_device" in 2.3.14, added a
- *   define in isdn_compat.h for older kernel versions.
- *
- * Revision 1.6  1999/07/25 15:12:04  armin
- * fix of some debug logs.
- * enabled ISA-cards option.
- *
- * Revision 1.5  1999/07/11 17:16:26  armin
- * Bugfixes in queue handling.
- * Added DSP-DTMF decoder functions.
- * Reorganized ack_handler.
- *
- * Revision 1.4  1999/03/29 11:19:44  armin
- * I/O stuff now in seperate file (eicon_io.c)
- * Old ISA type cards (S,SX,SCOM,Quadro,S2M) implemented.
- *
- * Revision 1.3  1999/03/02 12:37:45  armin
- * Added some important checks.
- * Analog Modem with DSP.
- * Channels will be added to Link-Level after loading firmware.
- *
- * Revision 1.2  1999/01/24 20:14:18  armin
- * Changed and added debug stuff.
- * Better data sending. (still problems with tty's flip buffer)
- *
- * Revision 1.1  1999/01/01 18:09:42  armin
- * First checkin of new eicon driver.
- * DIVA-Server BRI/PCI and PRI/PCI are supported.
- * Old diehl code is obsolete.
- *
  *
  */
 
@@ -80,10 +37,13 @@
 #define PI  0x1e                /* Progress Indicator               */
 #define NI  0x27                /* Notification Indicator           */
 
+#define CALL_HOLD	0x22
+#define CALL_HOLD_ACK	0x24
 
 /* defines for statectrl */
 #define WAITING_FOR_HANGUP	0x01
 #define HAVE_CONN_REQ		0x02
+#define IN_HOLD			0x04
 
 typedef struct {
 	char cpn[32];
@@ -160,8 +120,9 @@ extern int idi_connect_req(eicon_card *card, eicon_chan *chan, char *phone,
 extern void idi_handle_ack(eicon_card *card, struct sk_buff *skb);
 extern void idi_handle_ind(eicon_card *card, struct sk_buff *skb);
 extern int eicon_idi_manage(eicon_card *card, eicon_manifbuf *mb);
-extern int idi_send_data(eicon_card *card, eicon_chan *chan, int ack, struct sk_buff *skb, int que);
+extern int idi_send_data(eicon_card *card, eicon_chan *chan, int ack, struct sk_buff *skb, int que, int chk);
 extern void idi_audio_cmd(eicon_card *ccard, eicon_chan *chan, int cmd, u_char *value);
+extern int capipmsg(eicon_card *card, eicon_chan *chan, capi_msg *cm);
 #ifdef CONFIG_ISDN_TTY_FAX
 extern void idi_fax_cmd(eicon_card *card, eicon_chan *chan);
 extern int idi_faxdata_send(eicon_card *ccard, eicon_chan *chan, struct sk_buff *skb);
