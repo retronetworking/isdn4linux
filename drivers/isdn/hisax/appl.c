@@ -1,6 +1,7 @@
 #include "hisax_capi.h"
 #include "callc.h"
 #include "l4l3if.h"
+#include "l3dss1.h"
 
 #define applDebug(appl, lev, fmt, args...) \
         debug(lev, appl->contr->cs, "", fmt, ## args)
@@ -13,6 +14,7 @@ void applConstr(struct Appl *appl, struct Contr *contr, __u16 ApplId, capi_regis
 	appl->contr = contr;
 	appl->ApplId = ApplId;
 	appl->MsgId = 1;
+	appl->NotificationMask = 0;
 	memcpy(&appl->rp, rp, sizeof(capi_register_params));
 	listenConstr(&appl->listen, contr, ApplId);
 }
@@ -115,6 +117,9 @@ void applSendMessage(struct Appl *appl, struct sk_buff *skb)
 		break;
 
 	// other
+	case CAPI_FACILITY_REQ:
+		applFacilityReq(appl, skb);
+		break;
 	case CAPI_MANUFACTURER_REQ:
 		applManufacturerReq(appl, skb);
 		break;
@@ -133,6 +138,239 @@ void applSendMessage(struct Appl *appl, struct sk_buff *skb)
 
  free:
 	idev_kfree_skb(skb, FREE_READ);
+}
+
+void applFacilityReq(struct Appl *appl, struct sk_buff *skb)
+{
+	_cmsg cmsg;
+	capi_message2cmsg(&cmsg, skb->data);
+
+	switch (cmsg.FacilitySelector) {
+	case 0x0003: // SupplementaryServices
+		applSuppFacilityReq(appl, &cmsg);
+		break;
+	default:
+		int_error();
+	}
+	
+	idev_kfree_skb(skb, FREE_READ);
+}
+
+void applSuppFacilityReq(struct Appl *appl, _cmsg *cmsg)
+{
+	if (cmsg->FacilityRequestParameter[0] < 3) {
+		contrAnswerCmsg(appl->contr, cmsg, CapiIllMessageParmCoding);
+		return;
+	} // FIXME more checking
+	switch (*((__u16*)(cmsg->FacilityRequestParameter+1))) {
+	case 0x0000: // GetSupportedServices
+		applGetSupportedServices(appl, cmsg);
+		break;
+	case 0x0001: // Listen
+		applFacListen(appl, cmsg);
+		break;
+	case 0x0009: // CF Activate
+		applFacCFActivate(appl, cmsg);
+		break;
+	case 0x000a: // CF Deactivate
+		applFacCFDeactivate(appl, cmsg);
+		break;
+	default:
+		capi_cmsg_answer(cmsg);
+		cmsg->Info = 0x0000;
+		cmsg->FacilityConfirmationParameter = "\x05\x00\x00\x02\x0e\x30";
+		// 0x09 struct len
+		//   0xxxxx Function
+		//   0x02   struct len
+		//     0x300e      Facility not supported
+		cmsg->FacilityConfirmationParameter[1] = cmsg->FacilityRequestParameter[1];
+		cmsg->FacilityConfirmationParameter[2] = cmsg->FacilityRequestParameter[2];
+		contrRecvCmsg(appl->contr, cmsg);
+		return;
+	}
+}
+
+void applGetSupportedServices(struct Appl *appl, _cmsg *cmsg)
+{
+	capi_cmsg_answer(cmsg);
+	cmsg->Info = 0x0000;
+	cmsg->FacilityConfirmationParameter = "\x09\x00\x00\x06\x00\x00\x00\x00\x00\x00";
+	// 0x09 struct len
+	//   0x0000 Function GetSupportedServices
+	//   0x06   struct len
+	//     0x0000      success
+	//     0x000000000 Supported Services
+	contrRecvCmsg(appl->contr, cmsg);
+}
+
+void applFacListen(struct Appl *appl, _cmsg *cmsg)
+{
+	if (cmsg->FacilityRequestParameter[0] != 7) {
+		contrAnswerCmsg(appl->contr, cmsg, CapiIllMessageParmCoding);
+	}
+	if (cmsg->FacilityRequestParameter[3] != 4) {
+		contrAnswerCmsg(appl->contr, cmsg, CapiIllMessageParmCoding);
+	}
+	appl->NotificationMask = *((__u32*)(cmsg->FacilityRequestParameter+4));
+	capi_cmsg_answer(cmsg);
+	cmsg->Info = 0x0000;
+	cmsg->FacilityConfirmationParameter = "\x05\x01\x00\x02\x00\x00";
+	// 0x05 struct len
+	//   0x0001 Function Listen
+	//   0x02   struct len
+	//     0x0000      success
+	contrRecvCmsg(appl->contr, cmsg);
+}
+
+#include "asn1_x.c"
+
+void applFacCFActivate(struct Appl *appl, _cmsg *cmsg)
+{
+        __u8 tmp[255], t2[255];
+	__u8 *p, *pp;
+	__u32 invokeId;
+	__u16 procedure;
+	__u16 basicService;
+	__u8 *servedUserNumber, *forwardedToNumber, *forwardedToSubaddress;
+	struct sk_buff *skb;
+	int len;
+
+	p = cmsg->FacilityRequestParameter + 4;
+
+	
+
+	invokeId = *p++;
+	invokeId |= *p++ << 8;
+	invokeId |= *p++ << 16;
+	invokeId |= *p++ << 24;
+
+	procedure = *p++;
+	procedure |= *p++ << 8;
+
+	basicService = *p++;
+	basicService |= *p++ << 8;
+	
+	servedUserNumber = p;
+	p += *p + 1;
+	
+	forwardedToNumber = p;
+	p += *p + 1;
+	
+	forwardedToSubaddress = p;
+	p += *p + 1;
+	
+	tmp[0] = MT_FACILITY;
+	tmp[1] = IE_FACILITY;
+	tmp[2] = 0;     // length
+	tmp[3] = 0x91;  // remote operations protocol
+	tmp[4] = 0xa1;  // invoke component
+	tmp[5] = 0;     // length
+
+	p = &tmp[6];
+
+	len = encodeInt(t2, invokeId);
+	memcpy(p, t2, len); p += len;
+
+	len = encodeInt(t2, 0x07); // activationDiversion
+	memcpy(p, t2, len); p += len;
+
+	len = encodeActivationDiversion(t2, procedure, basicService, forwardedToNumber,
+					forwardedToSubaddress, servedUserNumber);
+	memcpy(p, t2, len); p += len;
+
+	tmp[5] = p - &tmp[6];
+	tmp[2] = p - &tmp[3];
+
+	len = p - tmp;
+	skb = alloc_skb(len+16, GFP_ATOMIC);
+	skb_reserve(skb, 16);
+	memcpy(skb_put(skb, len), tmp, len); \
+
+	for (pp = tmp; pp < p; pp++) {
+		printk("%02x ", *pp);
+	}
+	printk("\n");
+
+	L4L3(&appl->contr->l4, CC_DUMMY | REQUEST, skb);
+	
+	capi_cmsg_answer(cmsg);
+	cmsg->Info = 0x0000;
+	cmsg->FacilityConfirmationParameter = "\x05\x09\x00\x02\x00\x00";
+	// 0x05 struct len
+	//   0x0000 Function CFActivate
+	//   0x02   struct len
+	//     0x0000      success
+	contrRecvCmsg(appl->contr, cmsg);
+}
+
+void applFacCFDeactivate(struct Appl *appl, _cmsg *cmsg)
+{
+        __u8 tmp[255], t2[255];
+	__u8 *p, *pp;
+	__u32 invokeId;
+	__u16 procedure;
+	__u16 basicService;
+	__u8 *servedUserNumber;
+	struct sk_buff *skb;
+	int len;
+
+	p = cmsg->FacilityRequestParameter + 4;
+
+	invokeId = *p++;
+	invokeId |= *p++ << 8;
+	invokeId |= *p++ << 16;
+	invokeId |= *p++ << 24;
+
+	procedure = *p++;
+	procedure |= *p++ << 8;
+
+	basicService = *p++;
+	basicService |= *p++ << 8;
+	
+	servedUserNumber = p;
+	p += *p + 1;
+	
+	tmp[0] = MT_FACILITY;
+	tmp[1] = IE_FACILITY;
+	tmp[2] = 0;     // length
+	tmp[3] = 0x91;  // remote operations protocol
+	tmp[4] = 0xa1;  // invoke component
+	tmp[5] = 0;     // length
+
+	p = &tmp[6];
+
+	len = encodeInt(t2, invokeId);
+	memcpy(p, t2, len); p += len;
+
+	len = encodeInt(t2, 0x08); // dectivationDiversion
+	memcpy(p, t2, len); p += len;
+
+	len = encodeDeactivationDiversion(t2, procedure, basicService, servedUserNumber);
+	memcpy(p, t2, len); p += len;
+
+	tmp[5] = p - &tmp[6];
+	tmp[2] = p - &tmp[3];
+
+	len = p - tmp;
+	skb = alloc_skb(len+16, GFP_ATOMIC);
+	skb_reserve(skb, 16);
+	memcpy(skb_put(skb, len), tmp, len); \
+
+	for (pp = tmp; pp < p; pp++) {
+		printk("%02x ", *pp);
+	}
+	printk("\n");
+
+	L4L3(&appl->contr->l4, CC_DUMMY | REQUEST, skb);
+	
+	capi_cmsg_answer(cmsg);
+	cmsg->Info = 0x0000;
+	cmsg->FacilityConfirmationParameter = "\x05\x0a\x00\x02\x00\x00";
+	// 0x05 struct len
+	//   0x000a Function CFDeactivate
+	//   0x02   struct len
+	//     0x0000      success
+	contrRecvCmsg(appl->contr, cmsg);
 }
 
 struct Cplci *applNewCplci(struct Appl *appl, struct Plci *plci)

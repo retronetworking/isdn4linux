@@ -106,6 +106,7 @@
 #define CC_T313		0x0393
 #define CC_T318		0x0398
 #define CC_T319		0x0399
+#define CC_DUMMY        0x03C0
 #define CC_NOSETUP_RSP	0x03E0
 #define CC_SETUP_ERR	0x03E1
 #define CC_SUSPEND_ERR	0x03E2

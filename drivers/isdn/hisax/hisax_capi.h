@@ -106,6 +106,7 @@ struct Appl {
 	__u16                MsgId;
 	struct Listen        listen;
 	struct Cplci         *cplcis[CAPI_MAXPLCI];
+	__u32                NotificationMask;
 	int                  flags;
 	capi_register_params rp;
 };
@@ -114,6 +115,12 @@ void applConstr(struct Appl *appl, struct Contr *contr, __u16 ApplId, capi_regis
 void applDestr(struct Appl *appl);
 void applDebug(struct Appl *appl, __u32 level, char *fmt, ...);
 void applSendMessage(struct Appl *appl, struct sk_buff *skb);
+void applFacilityReq(struct Appl *appl, struct sk_buff *skb);
+void applSuppFacilityReq(struct Appl *appl, _cmsg *cmsg);
+void applGetSupportedServices(struct Appl *appl, _cmsg *cmsg);
+void applFacListen(struct Appl *appl, _cmsg *cmsg);
+void applFacCFActivate(struct Appl *appl, _cmsg *cmsg);
+void applFacCFDeactivate(struct Appl *appl, _cmsg *cmsg);
 void applManufacturerReq(struct Appl *appl, struct sk_buff *skb);
 void applD2Trace(struct Appl *appl, u_char *buf, int len);
 struct Cplci *applNewCplci(struct Appl *appl, struct Plci *plci);
