@@ -21,6 +21,13 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.122  2000/03/20 22:37:46  detabc
+ * modify abc-extension to work together with the new LL.
+ * remove abc frame-counter (is obsolete now).
+ * use the new lp->super_tx_queue for internal queueing (bsd-rawip-compress).
+ * modify isdn_net_xmit() and isdn_net_write_super().
+ * -- Kai, please have a look to this two function's. Thank's.
+ *
  * Revision 1.121  2000/03/19 15:27:53  kai
  * no known bugs left...
  *
@@ -1787,7 +1794,10 @@ void isdn_net_write_super(isdn_net_local *lp, struct sk_buff *skb)
 void isdn_net_write_super(isdn_net_local *lp, struct sk_buff *skb)
 {
 	if (in_interrupt()) {
-		printk("isdn BUG at %s:%d!\n", __FILE__, __LINE__);
+		// we can't grab the lock from irq context, 
+		// so we just queue the packet
+		skb_queue_tail(&lp->super_tx_queue, skb); 
+		queue_task(&lp->tqueue, &tq_immediate);
 		return;
 	}
 
