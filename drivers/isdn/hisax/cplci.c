@@ -400,8 +400,9 @@ static void plci_connect_resp(struct FsmInst *fi, int event, void *arg)
 {
 	struct Cplci *cplci = fi->userdata;
 	struct Plci *plci = cplci->plci;
-	_cmsg *cmsg = arg;
+	struct disconnect_req_parm disconnect_req;
 	unsigned char cause[4];
+	_cmsg *cmsg = arg;
 
 	switch (cmsg->Reject) {
 	case 0 : // accept
@@ -437,13 +438,9 @@ static void plci_connect_resp(struct FsmInst *fi, int event, void *arg)
 		if (plci->nAppl == 0) {
 			if (test_bit(PLCI_FLAG_ALERTING, &plci->flags)) { 
 				// if we already answered, we can't just ignore but must clear actively
-#if 0
 				memset(&disconnect_req, 0, sizeof(struct disconnect_req_parm));
 				memcpy(&disconnect_req.cause, cause, 4);
-				p_L4L3(&plci->l4_pc, CC_DISCONNECT | REQUEST, &disconnect_req);
-#endif
-				plci->l4_pc.l3pc->para.cause = cause[3];
-				p_L4L3(&plci->l4_pc, CC_DISCONNECT | REQUEST, 0);
+				p_L4L3(&plci->l4_pc, CC_X_DISCONNECT | REQUEST, &disconnect_req);
 			} else {
 				p_L4L3(&plci->l4_pc, CC_IGNORE | REQUEST, 0);
 			}
@@ -482,9 +479,7 @@ static void plci_disconnect_req(struct FsmInst *fi, int event, void *arg)
 {
 	struct Cplci *cplci = fi->userdata;
 	struct Plci *plci = cplci->plci;
-#if 0
 	struct disconnect_req_parm disconnect_req;
-#endif
 	_cmsg *cmsg = arg;
 
 	FsmChangeState(fi, ST_PLCI_P_5);
@@ -494,11 +489,6 @@ static void plci_disconnect_req(struct FsmInst *fi, int event, void *arg)
 		int_error();
 		return;
 	}
-#if 0
-	memset(&disconnect_req, 0, sizeof(struct disconnect_req_parm));
-	memcpy(&disconnect_req.cause, "\x08\x02\x80\x90", 4); // normal call clearing
-	p_L4L3(&plci->l4_pc, CC_DISCONNECT | REQUEST, &disconnect_req);
-#endif
 	capi_cmsg_answer(cmsg);
 	cmsg->Reason = 0; // disconnect initiated
 	cplciRecvCmsg(cplci, cmsg);
@@ -506,7 +496,9 @@ static void plci_disconnect_req(struct FsmInst *fi, int event, void *arg)
 	if (cplci->ncci) {
 		ncciLinkDown(cplci->ncci);
 	}
-	p_L4L3(&plci->l4_pc, CC_DISCONNECT | REQUEST, 0);
+	memset(&disconnect_req, 0, sizeof(struct disconnect_req_parm));
+	memcpy(&disconnect_req.cause, "\x08\x02\x80\x90", 4); // normal call clearing
+	p_L4L3(&plci->l4_pc, CC_X_DISCONNECT | REQUEST, &disconnect_req);
 }
 
 static void plci_disconnect_ind(struct FsmInst *fi, int event, void *arg)

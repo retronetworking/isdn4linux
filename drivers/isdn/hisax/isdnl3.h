@@ -52,6 +52,43 @@ struct alerting_req_parm {
 	unsigned char user_user[131];
 };
 
+struct info_req_parm {
+        unsigned char sending_complete[1];
+        unsigned char keypad_facility[34];
+        unsigned char called_party_number[23];
+};
+
+struct proceeding_req_parm {
+        unsigned char progress_indicator[4];
+};
+
+struct disconnect_req_parm {
+        unsigned char cause[32];
+        unsigned char facility[128];
+        unsigned char progress_indicator[4];
+        unsigned char user_user[131];
+};
+
+struct reject_req_parm {
+        unsigned char cause[32];
+        unsigned char facility[128];
+        unsigned char user_user[131];
+};
+
+struct release_complete_req_parm {
+        unsigned char cause[32];
+        unsigned char facility[128];
+        unsigned char user_user[131];
+};
+
+struct suspend_req_parm {
+        unsigned char call_identity[10];
+};
+
+struct resume_req_parm {
+        unsigned char call_identity[10];
+};
+
 struct Param {
 	u_char cause;
 	u_char loc;

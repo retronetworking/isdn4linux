@@ -99,6 +99,23 @@
 #define ERR_IE_LENGTH		-2
 #define ERR_IE_SEQUENCE		-3
 
+#define CAU_NORMAL_CALL_CLEARING               16
+#define CAU_USER_BUSY                          17
+#define CAU_CALL_REJECTED                      21
+#define CAU_DESTINATION_OUT_OF_ORDER           27
+#define CAU_RESPONSE_TO_STATUS_ENQUIRY         30
+#define CAU_NORMAL_UNSPECIFIED                 31
+#define CAU_TEMPORARY_FAILURE                  41
+#define CAU_INVALID_CALL_REFERENCE             81
+#define CAU_INCOMPATIBLE_DESTINATION           88
+#define CAU_MANDATORY_IE_MISSING               96
+#define CAU_MESSAGE_TYPE_NON_EXISTENT          97
+#define CAU_IE_NON_EXISTENT                    99
+#define CAU_INVALID_IE_CONTENTS                100
+#define CAU_MSG_NOT_COMPATIBLE_WITH_CALL_STATE 101
+#define CAU_RECOVERY_ON_TIMER_EXPIRY           102
+#define CAU_PROTOCOL_ERROR                     111
+
 #else /* only l3dss1_process */
 
 /* l3dss1 specific data in l3 process */
