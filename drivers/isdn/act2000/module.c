@@ -20,6 +20,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.8  1998/11/05 22:12:51  fritz
+ * Changed mail-address.
+ *
  * Revision 1.7  1998/02/12 23:06:52  keil
  * change for 2.1.86 (removing FREE_READ/FREE_WRITE from [dev]_kfree_skb()
  *
@@ -57,7 +60,7 @@ static unsigned short isa_ports[] =
 };
 #define ISA_NRPORTS (sizeof(isa_ports)/sizeof(unsigned short))
 
-act2000_card *cards = (act2000_card *) NULL;
+static act2000_card *cards = (act2000_card *) NULL;
 
 /* Parameters to be set by insmod */
 static int   act_bus  =  0;

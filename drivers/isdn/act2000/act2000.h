@@ -20,6 +20,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.6  1998/11/05 22:12:38  fritz
+ * Changed mail-address.
+ *
  * Revision 1.5  1997/10/09 22:22:59  fritz
  * New HL<->LL interface:
  *   New BSENT callback with nr. of bytes included.
@@ -212,8 +215,6 @@ typedef struct act2000_card {
         isdn_if interface;               /* Interface to upper layer         */
         char regname[35];                /* Name used for request_region     */
 } act2000_card;
-
-extern act2000_card *cards;
 
 extern __inline__ void act2000_schedule_tx(act2000_card *card)
 {
