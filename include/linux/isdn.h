@@ -1,3 +1,9 @@
+/* Changes for X.25 support:
+   Added ISDN_NET_ENCAP_X25IFACE macro.
+   Additional field in isdn_net_dev_s and isdn_net_local to support
+   generic encapsulation protocols. 
+*/
+
 /* $Id$
  *
  * Main header for the Linux ISDN subsystem (linklevel).
@@ -21,6 +27,16 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.34  1997/10/09 21:28:11  fritz
+ * New HL<->LL interface:
+ *   New BSENT callback with nr. of bytes included.
+ *   Sending without ACK.
+ *   New L1 error status (not yet in use).
+ *   Cleaned up obsolete structures.
+ * Implemented Cisco-SLARP.
+ * Changed local net-interface data to be dynamically allocated.
+ * Removed old 2.0 compatibility stuff.
+ *
  * Revision 1.33  1997/08/21 14:44:22  fritz
  * Moved triggercps to end of struct for backwards-compatibility.
  *
@@ -200,7 +216,8 @@
 #define ISDN_NET_ENCAP_SYNCPPP    4
 #define ISDN_NET_ENCAP_UIHDLC     5
 #define ISDN_NET_ENCAP_CISCOHDLCK 6 /* With SLARP and keepalive    */
-
+#define ISDN_NET_ENCAP_X25IFACE   7 /* Documentation/networking/x25-iface.txt*/
+#define ISDN_NET_ENCAP_MAX_ENCAP  ISDN_NET_ENCAP_X25IFACE
 /* Facility which currently uses an ISDN-channel */
 #define ISDN_USAGE_NONE       0
 #define ISDN_USAGE_RAW        1
@@ -301,6 +318,10 @@ typedef struct {
 #include <linux/isdn_ppp.h>
 #endif
 
+#ifdef CONFIG_ISDN_X25
+#  include <linux/concap.h>
+#endif
+
 #include <linux/isdnif.h>
 
 #define ISDN_DRVIOCTL_MASK       0x7f  /* Mask for Device-ioctl */
@@ -378,6 +399,15 @@ typedef struct {
   char num[ISDN_MSNLEN];
 } isdn_net_phone;
 
+/*
+   Principles when extending structures for generic encapsulation protocol
+   ("concap") support:
+   - Stuff which is hardware specific (here i4l-specific) goes in 
+     the netdev -> local structure (here: isdn_net_local)
+   - Stuff which is encapsulation protocol specific goes in the structure
+     which holds the linux device structure (here: isdn_net_device)
+*/
+
 /* Local interface-data */
 typedef struct isdn_net_local_s {
   ulong                  magic;
@@ -443,7 +473,10 @@ typedef struct isdn_net_local_s {
   struct sk_buff         *first_skb;   /* Ptr to skb that triggers dialing */
   struct sk_buff         *sav_skb;     /* Ptr to skb, rejected by LL-driver*/
                                        /* Ptr to orig. hard_header_cache   */
-  int                    (*org_hhc)(struct dst_entry *dst,
+  int                    (*org_hhc)(
+#if (LINUX_VERSION_CODE < 0x02014f) /* 2.1.79 */
+				    struct dst_entry *dst,
+#endif
 				    struct neighbour *neigh,
 				    struct hh_cache *hh);
                                        /* Ptr to orig. header_cache_update */
@@ -451,6 +484,9 @@ typedef struct isdn_net_local_s {
 				    struct device *,
                                     unsigned char *);
   int  pppbind;                        /* ippp device for bindings         */
+#ifdef CONFIG_ISDN_X25
+  struct concap_device_ops *dops;      /* callbacks used by encapsulator   */
+#endif
   int  cisco_loop;                     /* Loop counter for Cisco-SLARP     */
   ulong cisco_myseq;                   /* Local keepalive seq. for Cisco   */
   ulong cisco_yourseq;                 /* Remote keepalive seq. for Cisco  */
@@ -473,11 +509,15 @@ typedef struct isdn_net_dev_s {
   isdn_net_local *local;
   isdn_net_local *queue;
   void           *next;                /* Pointer to next isdn-interface   */
-  struct device   dev;	               /* interface to upper levels        */
+  struct device   dev;	       /* interface to upper levels        */
 #ifdef CONFIG_ISDN_PPP
   struct mpqueue *mp_last; 
   struct ippp_bundle ib;
 #endif
+#ifdef CONFIG_ISDN_X25
+  struct concap_proto  *cprot; /* connection oriented encapsulation protocol */
+#endif
+
 } isdn_net_dev;
 
 /*===================== End of ip-over-ISDN stuff ===========================*/

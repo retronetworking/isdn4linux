@@ -202,7 +202,7 @@ int sendmessage(int card,
 	 * wait for an empty slot in the queue
 	 */
 	while (!(inb(adapter[card]->ioport[FIFO_STATUS]) & WF_NOT_FULL))
-		SLOW_DOWN_IO;
+		udelay(1);
 
 	/*
 	 * Disable interrupts and map in shared memory

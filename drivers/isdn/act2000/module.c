@@ -20,6 +20,11 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.5  1997/10/09 22:23:04  fritz
+ * New HL<->LL interface:
+ *   New BSENT callback with nr. of bytes included.
+ *   Sending without ACK.
+ *
  * Revision 1.4  1997/09/25 17:25:43  fritz
  * Support for adding cards at runtime.
  * Support for new Firmware.
@@ -52,7 +57,7 @@ act2000_card *cards = (act2000_card *) NULL;
 static int   act_bus  =  0;
 static int   act_port = -1;  /* -1 = Autoprobe  */
 static int   act_irq  = -1;  /* -1 = Autoselect */
-static char *act_id   = "\0";
+static char *act_id   = "\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0";
 
 MODULE_DESCRIPTION(       "Driver for IBM Active 2000 ISDN card");
 MODULE_AUTHOR(            "Fritz Elfert");
@@ -936,7 +941,7 @@ act2000_setup(char *str, int *ints)
                                 i++;
                                 argc--;
                         }
-			act2000_addcard(bus, port, irq, idstr);
+			act2000_addcard(bus, port, irq, act_id);
 		}
 }
 #endif

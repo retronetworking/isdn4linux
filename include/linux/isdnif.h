@@ -1,3 +1,7 @@
+/* X25 changes:
+   Added constants ISDN_PROTO_L2_X25DTE/DCE and corresponding ISDN_FEATURE_..
+   */
+
 /* $Id$
  *
  * Linux ISDN subsystem
@@ -22,6 +26,16 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.21  1997/10/09 21:28:13  fritz
+ * New HL<->LL interface:
+ *   New BSENT callback with nr. of bytes included.
+ *   Sending without ACK.
+ *   New L1 error status (not yet in use).
+ *   Cleaned up obsolete structures.
+ * Implemented Cisco-SLARP.
+ * Changed local net-interface data to be dynamically allocated.
+ * Removed old 2.0 compatibility stuff.
+ *
  * Revision 1.20  1997/05/27 15:18:06  fritz
  * Added changes for recent 2.1.x kernels:
  *   changed return type of isdn_close
@@ -113,6 +127,8 @@
 #define ISDN_PROTO_L2_X75BUI 2   /* X75/LAPB with UI-Frames     */
 #define ISDN_PROTO_L2_HDLC   3   /* HDLC                        */
 #define ISDN_PROTO_L2_TRANS  4   /* Transparent (Voice)         */
+#define ISDN_PROTO_L2_X25DTE 5   /* X25/LAPB DTE mode           */
+#define ISDN_PROTO_L2_X25DCE 6   /* X25/LAPB DCE mode           */
 
 /*
  * Values for Layer-3-protocol-selection
@@ -183,6 +199,8 @@
 #define ISDN_FEATURE_L2_X75BUI  (0x0001 << ISDN_PROTO_L2_X75BUI)
 #define ISDN_FEATURE_L2_HDLC    (0x0001 << ISDN_PROTO_L2_HDLC)
 #define ISDN_FEATURE_L2_TRANS   (0x0001 << ISDN_PROTO_L2_TRANS)
+#define ISDN_FEATURE_L2_X25DTE  (0x0001 << ISDN_PROTO_L2_X25DTE)
+#define ISDN_FEATURE_L2_X25DCE  (0x0001 << ISDN_PROTO_L2_X25DCE)
 
 /* Layer 3 */
 #define ISDN_FEATURE_L3_TRANS   (0x0100 << ISDN_PROTO_L3_TRANS)
