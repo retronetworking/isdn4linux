@@ -21,6 +21,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.45  1997/06/10 16:24:22  hipp
+ * hard_header changes for syncPPP (now behaves like RAWIP)
+ *
  * Revision 1.44  1997/05/27 15:17:26  fritz
  * Added changes for recent 2.1.x kernels:
  *   changed return type of isdn_close
@@ -1341,8 +1344,12 @@ isdn_net_header(struct sk_buff *skb, struct device *dev, unsigned short type,
 			len = my_eth_header(skb, dev, type, daddr, saddr, plen);
 			break;
 		case ISDN_NET_ENCAP_SYNCPPP:
+			/* stick on a fake header to keep fragmentation code happy. */
+			len = IPPP_MAX_HEADER;
+			skb_push(skb,len);
+			break;
 		case ISDN_NET_ENCAP_RAWIP:
-			printk(KERN_WARNING "isdn_net_header called with RAW_IP/SYNCPPP!\n");
+			printk(KERN_WARNING "isdn_net_header called with RAW_IP!\n");
 			len = 0;
 			break;
 		case ISDN_NET_ENCAP_IPTYP:
@@ -2240,8 +2247,7 @@ isdn_net_setcfg(isdn_net_ioctl_cfg * cfg)
 			p->local.chargeint = cfg->chargeint * HZ;
 		}
 		if (cfg->p_encap != p->local.p_encap) {
-			if (cfg->p_encap == ISDN_NET_ENCAP_RAWIP || 
-			     cfg->p_encap == ISDN_NET_ENCAP_SYNCPPP) {
+			if (cfg->p_encap == ISDN_NET_ENCAP_RAWIP) {
 				p->dev.hard_header = NULL;
 #if (LINUX_VERSION_CODE < 0x02010F)
 				p->dev.header_cache_bind = NULL;
