@@ -8,6 +8,9 @@
  *
  *
  * $Log$
+ * Revision 1.6  1998/03/07 22:56:57  tsbogend
+ * made HiSax working on Linux/Alpha
+ *
  * Revision 1.5  1998/02/02 13:29:38  keil
  * fast io
  *
@@ -33,7 +36,6 @@
 #include "hscx.h"
 #include "isdnl1.h"
 #include <linux/pci.h>
-#include <linux/bios32.h>
 
 extern const char *CardType[];
 
@@ -304,10 +306,7 @@ Diva_card_msg(struct IsdnCardState *cs, int mt, void *arg)
 			return(request_irq(cs->irq, &diva_interrupt,
 					I4L_IRQ_FLAG, "HiSax", cs));
 		case CARD_INIT:
-			clear_pending_isac_ints(cs);
-			clear_pending_hscx_ints(cs);
-			initisac(cs);
-			inithscx(cs);
+			inithscxisac(cs, 3);
 			return(0);
 		case CARD_TEST:
 			return(0);
@@ -343,9 +342,8 @@ Diva_card_msg(struct IsdnCardState *cs, int mt, void *arg)
 	return(0);
 }
 
-
-
-static 	int pci_index __initdata = 0;
+static 	struct pci_dev *dev_diva __initdata = NULL;
+static 	struct pci_dev *dev_diva_u __initdata = NULL;
 
 __initfunc(int
 setup_diva(struct IsdnCard *card))
@@ -372,52 +370,47 @@ setup_diva(struct IsdnCard *card))
 		bytecnt = 8;
 	} else {
 #if CONFIG_PCI
-		u_char pci_bus, pci_device_fn, pci_irq;
-		u_int pci_ioaddr;
+		if (!pci_present()) {
+			printk(KERN_ERR "Diva: no PCI bus present\n");
+			return(0);
+		}
 
 		cs->subtyp = 0;
-		for (; pci_index < 0xff; pci_index++) {
-			if (pcibios_find_device(PCI_VENDOR_EICON_DIEHL,
-			   PCI_DIVA20_ID, pci_index, &pci_bus, &pci_device_fn)
-			   == PCIBIOS_SUCCESSFUL)
+		if ((dev_diva = pci_find_device(PCI_VENDOR_EICON_DIEHL,
+			PCI_DIVA20_ID, dev_diva))) {
 				cs->subtyp = DIVA_PCI;
-			else if (pcibios_find_device(PCI_VENDOR_EICON_DIEHL,
-			   PCI_DIVA20_ID, pci_index, &pci_bus, &pci_device_fn)
-			   == PCIBIOS_SUCCESSFUL)
-			   	cs->subtyp = DIVA_PCI;
-			else
-				break;
 			/* get IRQ */
-			pcibios_read_config_byte(pci_bus, pci_device_fn,
-				PCI_INTERRUPT_LINE, &pci_irq);
-
+			cs->irq = dev_diva->irq;
 			/* get IO address */
-			pcibios_read_config_dword(pci_bus, pci_device_fn,
-				PCI_BASE_ADDRESS_2, &pci_ioaddr);
-			if (cs->subtyp)
-				break;
-		}
-		if (!cs->subtyp) {
+			cs->hw.diva.cfg_reg = dev_diva->base_address[2]
+				& PCI_BASE_ADDRESS_IO_MASK;
+		} else if ((dev_diva_u = pci_find_device(PCI_VENDOR_EICON_DIEHL,
+			PCI_DIVA20_U_ID, dev_diva_u))) {
+			   	cs->subtyp = DIVA_PCI;
+			/* get IRQ */
+			cs->irq = dev_diva_u->irq;
+			/* get IO address */
+			cs->hw.diva.cfg_reg = dev_diva_u->base_address[2]
+				& PCI_BASE_ADDRESS_IO_MASK;
+		} else {
 			printk(KERN_WARNING "Diva: No PCI card found\n");
 			return(0);
 		}
-		if (!pci_irq) {
+
+		if (!cs->irq) {
 			printk(KERN_WARNING "Diva: No IRQ for PCI card found\n");
 			return(0);
 		}
 
-		if (!pci_ioaddr) {
+		if (!cs->hw.diva.cfg_reg) {
 			printk(KERN_WARNING "Diva: No IO-Adr for PCI card found\n");
 			return(0);
 		}
-		pci_ioaddr &= ~3; /* remove io/mem flag */
-		cs->hw.diva.cfg_reg = pci_ioaddr; 
-		cs->hw.diva.ctrl = pci_ioaddr + DIVA_PCI_CTRL;
-		cs->hw.diva.isac = pci_ioaddr + DIVA_PCI_ISAC_DATA;
-		cs->hw.diva.hscx = pci_ioaddr + DIVA_HSCX_DATA;
-		cs->hw.diva.isac_adr = pci_ioaddr + DIVA_PCI_ISAC_ADR;
-		cs->hw.diva.hscx_adr = pci_ioaddr + DIVA_HSCX_ADR;
-		cs->irq = pci_irq;
+		cs->hw.diva.ctrl = cs->hw.diva.cfg_reg + DIVA_PCI_CTRL;
+		cs->hw.diva.isac = cs->hw.diva.cfg_reg + DIVA_PCI_ISAC_DATA;
+		cs->hw.diva.hscx = cs->hw.diva.cfg_reg + DIVA_HSCX_DATA;
+		cs->hw.diva.isac_adr = cs->hw.diva.cfg_reg + DIVA_PCI_ISAC_ADR;
+		cs->hw.diva.hscx_adr = cs->hw.diva.cfg_reg + DIVA_HSCX_ADR;
 		bytecnt = 32;
 #else
 		printk(KERN_WARNING "Diva: cfgreg 0 and NO_PCI_BIOS\n");
