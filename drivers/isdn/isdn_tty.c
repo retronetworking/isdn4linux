@@ -2711,6 +2711,10 @@ isdn_tty_modem_result(int code, modem_info * info)
 			    if (!(m->mdmreg[REG_CIDONCE] & BIT_CIDONCE)) {
 				    isdn_tty_at_cout("\r\nCALLER NUMBER: ", info);
 				    isdn_tty_at_cout(dev->num[info->drv_index], info);
+				    if (m->mdmreg[REG_CDN] & BIT_CDN) {
+					    isdn_tty_at_cout("\r\nCALLED NUMBER: ", info);
+					    isdn_tty_at_cout(info->emu.cpn, info);
+				    }
 			    }
 			}
 			isdn_tty_at_cout("\r\n", info);
@@ -2736,6 +2740,10 @@ isdn_tty_modem_result(int code, modem_info * info)
 						isdn_tty_at_cout("\r\n", info);
 						isdn_tty_at_cout("CALLER NUMBER: ", info);
 						isdn_tty_at_cout(dev->num[info->drv_index], info);
+						if (m->mdmreg[REG_CDN] & BIT_CDN) {
+							isdn_tty_at_cout("\r\nCALLED NUMBER: ", info);
+							isdn_tty_at_cout(info->emu.cpn, info);
+						}
 					}
 					break;
 				case RESULT_NO_CARRIER:
