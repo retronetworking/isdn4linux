@@ -847,6 +847,7 @@ new_adapter(struct pci_dev *pdev)
 
 	adapter->pci_dev = pdev;
 
+	SET_MODULE_OWNER(&adapter->isac.hisax_d_if);
 	adapter->isac.hisax_d_if.ifc.priv = &adapter->isac;
 	adapter->isac.hisax_d_if.ifc.l2l1 = isac_d_l2l1;
 	

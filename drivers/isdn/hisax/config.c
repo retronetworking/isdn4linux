@@ -437,16 +437,6 @@ void __init HiSaxVersion(void)
 	certification_check(1);
 }
 
-void HiSax_mod_dec_use_count(void)
-{
-	MOD_DEC_USE_COUNT;
-}
-
-void HiSax_mod_inc_use_count(void)
-{
-	MOD_INC_USE_COUNT;
-}
-
 #ifndef MODULE
 #define MAX_ARG	(HISAX_MAX_CARDS*5)
 static int __init HiSax_setup(char *line)
@@ -2107,6 +2097,33 @@ static void EChannel_proc_rcv(struct hisax_d_if *d_if)
 						skb->len);
 		}
 		dev_kfree_skb_any(skb);
+	}
+}
+
+void HiSax_mod_dec_use_count(struct IsdnCardState *cs)
+{
+	struct module *mod;
+
+	if (cs && cs->cardmsg == hisax_cardmsg) {
+		mod = cs->hw.hisax_d_if->owner;
+		if (mod)
+			__MOD_DEC_USE_COUNT(mod);
+	} else {
+		MOD_DEC_USE_COUNT;
+	}
+}
+
+void HiSax_mod_inc_use_count(struct IsdnCardState *cs)
+{
+	struct module *mod;
+
+	if (cs && cs->cardmsg == hisax_cardmsg) {
+		mod = cs->hw.hisax_d_if->owner;
+		if (mod)
+		// hope we do win the race...
+			try_inc_mod_count(mod);
+	} else {
+		MOD_INC_USE_COUNT;
 	}
 }
 

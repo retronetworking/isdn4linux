@@ -65,7 +65,6 @@ static void * __devinit probe_st5481(struct usb_device *dev,
 	struct hisax_b_if *b_if[2];
 	int retval, i;
 
-	MOD_INC_USE_COUNT;
 	printk(KERN_INFO "st541: found adapter VendorId %04x, ProductId %04x, LEDs %d\n",
 	     dev->descriptor.idVendor, dev->descriptor.idProduct,
 	     number_of_leds);
@@ -78,6 +77,8 @@ static void * __devinit probe_st5481(struct usb_device *dev,
 
 	adapter->number_of_leds = number_of_leds;
 	adapter->usb_dev = dev;
+
+	SET_MODULE_OWNER(&adapter->hisax_d_if);
 	adapter->hisax_d_if.ifc.priv = adapter;
 	adapter->hisax_d_if.ifc.l2l1 = st5481_d_l2l1;
 
@@ -120,7 +121,6 @@ static void * __devinit probe_st5481(struct usb_device *dev,
  err_usb:
 	st5481_release_usb(adapter);
  err:
-	MOD_DEC_USE_COUNT;
 	return NULL;
 }
 
@@ -147,7 +147,6 @@ static void __devexit disconnect_st5481(struct usb_device *dev, void *arg)
 	hisax_unregister(&adapter->hisax_d_if);
 
 	kfree(adapter);
-	MOD_DEC_USE_COUNT;
 }
 
 /*

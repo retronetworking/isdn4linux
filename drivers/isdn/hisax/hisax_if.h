@@ -40,6 +40,7 @@ struct hisax_d_if {
 	struct hisax_if ifc;
 
 	// private to hisax
+	struct module *owner;
 	struct IsdnCardState *cs;
 	struct hisax_b_if *b_if[2];
 	struct sk_buff_head erq;
