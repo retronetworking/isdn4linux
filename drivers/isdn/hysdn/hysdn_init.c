@@ -23,6 +23,7 @@
 
 #include <linux/config.h>
 #include <linux/module.h>
+#include <linux/init.h>
 #include <linux/version.h>
 #include <linux/poll.h>
 #include <linux/vmalloc.h>
@@ -60,6 +61,17 @@ static struct {
 		0, 0
 	}			/* terminating entry */
 };
+
+#ifndef COMPAT_HAS_2_2_PCI
+static struct pci_device_id hysdn_pci_tbl[] __initdata = {
+	{PCI_VENDOR_ID_HYPERCOPE, PCI_DEVICE_ID_HYPERCOPE_PLX, PCI_ANY_ID, PCI_SUBDEVICE_ID_HYPERCOPE_METRO},
+	{PCI_VENDOR_ID_HYPERCOPE, PCI_DEVICE_ID_HYPERCOPE_PLX, PCI_ANY_ID, PCI_SUBDEVICE_ID_HYPERCOPE_CHAMP2},
+	{PCI_VENDOR_ID_HYPERCOPE, PCI_DEVICE_ID_HYPERCOPE_PLX, PCI_ANY_ID, PCI_SUBDEVICE_ID_HYPERCOPE_ERGO},
+	{PCI_VENDOR_ID_HYPERCOPE, PCI_DEVICE_ID_HYPERCOPE_PLX, PCI_ANY_ID, PCI_SUBDEVICE_ID_HYPERCOPE_OLD_ERGO},
+	{ }				/* Terminating entry */
+};
+MODULE_DEVICE_TABLE(pci, hysdn_pci_tbl);
+#endif
 
 /*********************************************************************/
 /* search_cards searches for available cards in the pci config data. */

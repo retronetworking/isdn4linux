@@ -6,6 +6,10 @@
  * (c) Copyright 1999 by Carsten Paeth (calle@calle.in-berlin.de)
  * 
  * $Log$
+ * Revision 1.13.2.1  2000/11/26 17:14:19  kai
+ * fix device ids
+ * also needs patches to include/linux/pci_ids.h
+ *
  * Revision 1.13  2000/11/23 20:45:14  kai
  * fixed module_init/exit stuff
  * Note: compiled-in kernel doesn't work pre 2.2.18 anymore.
@@ -86,6 +90,14 @@ static char *revision = "$Revision$";
 
 /* ------------------------------------------------------------- */
 
+#ifndef COMPAT_HAS_2_2_PCI
+static struct pci_device_id t1pci_pci_tbl[] __initdata = {
+	{ PCI_VENDOR_ID_AVM, PCI_DEVICE_ID_AVM_T1, PCI_ANY_ID, PCI_ANY_ID },
+	{ }				/* Terminating entry */
+};
+
+MODULE_DEVICE_TABLE(pci, t1pci_pci_tbl);
+#endif
 MODULE_AUTHOR("Carsten Paeth <calle@calle.in-berlin.de>");
 
 /* ------------------------------------------------------------- */
