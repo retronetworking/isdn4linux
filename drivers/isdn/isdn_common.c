@@ -21,6 +21,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.18  1996/06/06 14:51:51  fritz
+ * Changed to support DTMF decoding on audio playback also.
+ *
  * Revision 1.17  1996/06/05 02:24:10  fritz
  * Added DTMF decoder for audio mode.
  *
@@ -1875,17 +1878,18 @@ int isdn_writebuf_stub(int drvidx, int chan, const u_char *buf, int len,
 int isdn_writebuf_skb_stub(int drvidx, int chan, struct sk_buff * skb)
 {
         int ret;
+	int len = skb->len;	/* skb pointer no longer valid after free */
 
         if (dev->drv[drvidx]->interface->writebuf_skb) 
 		ret = dev->drv[drvidx]->interface->
 			writebuf_skb(drvidx, chan, skb);
 	else {
 		if ((ret = dev->drv[drvidx]->interface->
-                     writebuf(drvidx,chan,skb->data,skb->len,0)) == skb->len)
+                     writebuf(drvidx,chan,skb->data,skb->len,0)) == len)
 		        dev_kfree_skb(skb, FREE_WRITE);
         }
         if (ret > 0)
-                dev->obytes[isdn_dc2minor(drvidx,chan)] += skb->len;
+                dev->obytes[isdn_dc2minor(drvidx,chan)] += len;
         return ret;
 }
 
