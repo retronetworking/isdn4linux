@@ -21,6 +21,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.44.2.2  1998/03/16 09:55:44  cal
+ * Merged in TimRu-patches. Still needs validation in conjunction with ABC-patches.
+ *
  * Revision 1.44.2.1  1998/03/07 23:35:03  detabc
  * added the abc-extension to the linux isdn-kernel
  * for kernel-version 2.0.xx
@@ -228,6 +231,14 @@
 
 /* Debugflags */
 #undef ISDN_DEBUG_STATCALLB
+
+#undef CONFIG_ISDN_WITH_ABC
+/*
+** wegen einstweiliger verfuegung gegen DW ist zur zeit 
+** die abc-extension bis zur klaerung der rechtslage nicht 
+** im internet verfuegbar
+*/
+
 
 isdn_dev *dev = (isdn_dev *) 0;
 

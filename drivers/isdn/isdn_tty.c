@@ -20,6 +20,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.41.2.5  1998/04/08 21:42:35  keil
+ * Blocksize default 1024
+ *
  * Revision 1.41.2.4  1998/03/19 17:58:55  detabc
  * remove 2 debug-messages (no longer needed) bug was fixed
  *
@@ -221,6 +224,12 @@
 #define VBUFX (VBUF/16)
 #endif
 
+#undef CONFIG_ISDN_WITH_ABC
+/*
+** wegen einstweiliger verfuegung gegen DW ist zur zeit 
+** die abc-extension bis zur klaerung der rechtslage nicht 
+** im internet verfuegbar
+*/
 
 /* Prototypes */
 

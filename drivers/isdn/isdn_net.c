@@ -21,6 +21,11 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.48.2.13  1998/05/22 10:13:07  detabc
+ * in case of a icmp-unreach condition the tcp-keepalive-entrys
+ * will be dropped from the internal double-link-list (only abc-extension).
+ * send icmp unreach only if the skb->protocol == ETH_P_IP
+ *
  * Revision 1.48.2.12  1998/05/21 09:23:56  detabc
  * speedup abc-no-dchannel-redial
  *
@@ -290,6 +295,14 @@
 #ifdef CONFIG_ISDN_PPP
 #include "isdn_ppp.h"
 #endif
+
+
+#undef CONFIG_ISDN_WITH_ABC
+/*
+** wegen einstweiliger verfuegung gegen DW ist zur zeit 
+** die abc-extension bis zur klaerung der rechtslage nicht 
+** im internet verfuegbar
+*/
 
 /* Prototypes */
 
