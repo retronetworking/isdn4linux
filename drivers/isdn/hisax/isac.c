@@ -6,6 +6,9 @@
  *
  *
  * $Log$
+ * Revision 1.7.2.3  1998/01/11 22:58:55  keil
+ * new setstack interface
+ *
  * Revision 1.7.2.2  1997/11/15 18:54:23  keil
  * cosmetics
  *
@@ -655,9 +658,12 @@ clear_pending_isac_ints(struct IsdnCardState *cs))
 		val = cs->readisac(cs, ISAC_CIR0);
 		sprintf(tmp, "ISAC CIR0 %x", val);
 		debugl1(cs, tmp);
+		cs->ph_state = (val >> 2) & 0xf;
+	} else {
+		cs->ph_state = (cs->readisac(cs, ISAC_CIX0) >> 2) & 0xf;
 	}
+	isac_sched_event(cs, D_L1STATECHANGE);
 	cs->writeisac(cs, ISAC_MASK, 0xFF);
 	cs->writeisac(cs, ISAC_MASK, 0);
 	cs->writeisac(cs, ISAC_CMDR, 0x41);
 }
-

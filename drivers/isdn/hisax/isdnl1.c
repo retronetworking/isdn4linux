@@ -11,6 +11,9 @@
  *
  *
  * $Log$
+ * Revision 1.15.2.5  1998/01/27 22:33:55  keil
+ * dynalink ----> asuscom
+ *
  * Revision 1.15.2.4  1998/01/11 22:55:20  keil
  * 16.3c support
  *
@@ -122,7 +125,7 @@ const char *CardType[] =
  "AVM A1", "Elsa ML", "Elsa Quickstep", "Teles PCMCIA", "ITK ix1-micro Rev.2",
  "Elsa PCMCIA", "Eicon.Diehl Diva", "ISDNLink", "TeleInt", "Teles 16.3c", 
  "Sedlbauer Speed Card", "USR Sportster", "ith mic Linux", "Elsa PCI",
- "Compaq ISA", "NETjet"
+ "Compaq ISA", "NETjet","Reserved21","Sedlbauer Speed Star (PCMCIA)"
 };
 
 extern struct IsdnCard cards[];
@@ -264,7 +267,7 @@ HiSax_putstatus(struct IsdnCardState *csta, char *buf)
 }
 #else
 #define KDEBUG_DEF
-#include "kdebug.h"
+#include "../kdebug.h"
 
 static int DbgLineNr=0,DbgSequenzNr=1;
 
@@ -773,6 +776,7 @@ checkcard(int cardnr, char *id, int *busy_flag))
 #endif
 #if CARD_SEDLBAUER
 		case ISDN_CTYPE_SEDLBAUER:
+		case ISDN_CTYPE_SEDLBAUER_PCMCIA:
 			ret = setup_sedlbauer(card);
 			break;
 #endif
@@ -835,6 +839,7 @@ checkcard(int cardnr, char *id, int *busy_flag))
 	init_tei(cs, cs->protocol);
 	CallcNewChan(cs);
 	ll_run(cs);
+	cs->l1cmd(cs, PH_RESET_REQ, NULL);
 	restore_flags(flags);
 	return (1);
 }
@@ -1128,7 +1133,7 @@ l1_info4_ind(struct FsmInst *fi, int event, void *arg)
 	cs->l1cmd(cs, PH_INFO3_REQ, NULL);
 	if (test_and_clear_bit(FLG_L1_DEACTTIMER, &st->l1.Flags))
 		FsmDelTimer(&st->l1.timer, 4);
-	else {
+	if (!test_bit(FLG_L1_ACTIVATED, &st->l1.Flags)) {
 		if (test_and_clear_bit(FLG_L1_T3RUN, &st->l1.Flags))
 			FsmDelTimer(&st->l1.timer, 3);
 		FsmAddTimer(&st->l1.timer, 110, EV_TIMER_ACT, NULL, 2);
