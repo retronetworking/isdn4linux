@@ -20,6 +20,11 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.4  1996/04/20 16:39:54  fritz
+ * Changed all io to go through generic routines in isdn_common.c
+ * Fixed a real ugly bug in modem-emulator: 'ATA' had been accepted
+ * even when a call has been cancelled from the remote machine.
+ *
  * Revision 1.3  1996/02/11 02:12:32  fritz
  * Bugfixes according to similar fixes in standard serial.c of kernel.
  *
@@ -36,12 +41,17 @@
 #include <linux/isdn.h>
 #include "isdn_common.h"
 #include "isdn_tty.h"
+#ifdef CONFIG_ISDN_AUDIO
+#include "isdn_audio.h"
+#endif
 
 /* Prototypes */
 
 static int  isdn_tty_edit_at(const char *, int, modem_info *, int);
 static void isdn_tty_check_esc(const u_char *, u_char, int, int *, int *, int);
 static void isdn_tty_modem_reset_regs(atemu *, int);
+static int  isdn_tty_cmd_ATA(modem_info *);
+static void isdn_tty_at_cout(char *, modem_info *);
 
 /* Leave this unchanged unless you know what you do! */
 #define MODEM_PARANOIA_CHECK
@@ -49,6 +59,9 @@ static void isdn_tty_modem_reset_regs(atemu *, int);
 
 static char *isdn_ttyname_ttyI = "ttyI";
 static char *isdn_ttyname_cui  = "cui";
+static int bit2si[8] = {1,5,7,7,7,7,7,7};
+static int si2bit[8] = {4,1,4,4,4,4,4,4};
+                                
 char *isdn_tty_revision        = "$Revision$";
 
 int isdn_tty_try_read(int i, u_char * buf, int len)
@@ -131,6 +144,66 @@ void isdn_tty_readmodem(void)
 		isdn_timer_ctrl(ISDN_TIMER_MODEMREAD, 0);
 }
 
+static void isdn_tty_senddown(modem_info * info, int midx)
+{
+        struct tty_struct *tty = info->tty;
+        char *bufptr = info->xmit_buf;
+        int buflen = info->xmit_count;
+
+#ifdef CONFIG_ISDN_AUDIO
+        if (dev->mdm.vonline[midx]==2) {
+                /* voice conversion/decompression */
+                switch (dev->mdm.atmodem[midx].vpar[3]) {
+                        case 1:
+                        case 2:
+                                /* adpcm
+                                 * xmit_size is limited to 256 bytes
+                                 * so we take the rest of the buffer
+                                 * for decompressed data.
+                                 */
+                                buflen = isdn_audio_adpcm2lin(dev->mdm.atmodem[midx].adpcms,
+                                                              bufptr,
+                                                              bufptr+256,
+                                                              buflen);
+                                bufptr += 256;
+                                /* fall through */
+                        case 3:
+                                /* linear */
+                                isdn_audio_l2a(bufptr,buflen);
+                                /* fall through */
+                        case 4:
+                                /* a-law */
+                                break;
+                }
+        }
+#endif        /* CONFIG_ISDN_AUDIO */
+        if (dev->mdm.atmodem[midx].mdmreg[13] & 2) {
+                /* Add T.70 simplified header */
+#ifdef ISDN_DEBUG_MODEM_DUMP
+                isdn_dumppkt("T70pack3:", bufptr, buflen, 40);
+#endif
+                bufptr -= 4;
+                buflen += 4;
+                memcpy(bufptr, "\1\0\1\0", 4);
+#ifdef ISDN_DEBUG_MODEM_DUMP
+                isdn_dumppkt("T70pack4:", bufptr, buflen, 40);
+#endif
+        }
+        if (isdn_writebuf_stub(info->isdn_driver, info->isdn_channel,
+                               bufptr, buflen, 0) > 0) {
+                info->xmit_count = 0;
+                info->xmit_size = dev->mdm.atmodem[midx].mdmreg[16] * 16;
+#if FUTURE
+                info->send_outstanding++;
+                dev->mdm.msr[midx] &= ~UART_MSR_CTS;
+#endif
+                if ((tty->flags & (1 << TTY_DO_WRITE_WAKEUP)) &&
+                    tty->ldisc.write_wakeup)
+                        (tty->ldisc.write_wakeup) (tty);
+                wake_up_interruptible(&tty->write_wait);
+        }
+}
+
 /************************************************************
  *
  * Modem-functions
@@ -152,59 +225,79 @@ static void isdn_tty_dial(char *n, modem_info * info, atemu * m)
 		restore_flags(flags);
 		isdn_tty_modem_result(6, info);
 	} else {
-		if (strlen(m->msn)) {
-			info->isdn_driver = dev->drvmap[i];
-			info->isdn_channel = dev->chanmap[i];
-			info->drv_index = i;
-			dev->m_idx[i] = info->line;
-			dev->usage[i] |= ISDN_USAGE_OUTGOING;
-			isdn_info_update();
-			restore_flags(flags);
-			cmd.driver = info->isdn_driver;
-			cmd.arg = info->isdn_channel;
-			cmd.command = ISDN_CMD_CLREAZ;
-			dev->drv[info->isdn_driver]->interface->command(&cmd);
-			strcpy(cmd.num, isdn_map_eaz2msn(m->msn, info->isdn_driver));
-			cmd.driver = info->isdn_driver;
-			cmd.command = ISDN_CMD_SETEAZ;
-			dev->drv[info->isdn_driver]->interface->command(&cmd);
-			cmd.driver = info->isdn_driver;
-			cmd.command = ISDN_CMD_SETL2;
-			cmd.arg = info->isdn_channel + (m->mdmreg[14] << 8);
-			dev->drv[info->isdn_driver]->interface->command(&cmd);
-			cmd.driver = info->isdn_driver;
-			cmd.command = ISDN_CMD_SETL3;
-			cmd.arg = info->isdn_channel + (m->mdmreg[15] << 8);
-			dev->drv[info->isdn_driver]->interface->command(&cmd);
-			cmd.driver = info->isdn_driver;
-			cmd.arg = info->isdn_channel;
-			sprintf(cmd.num, "%s,%s,%d,%d", n, isdn_map_eaz2msn(m->msn, info->isdn_driver),
-				m->mdmreg[18], m->mdmreg[19]);
-			cmd.command = ISDN_CMD_DIAL;
-			dev->mdm.dialing[info->line] = 1;
-			strcpy(dev->num[i], n);
-			isdn_info_update();
-			dev->drv[info->isdn_driver]->interface->command(&cmd);
-		} else
-			restore_flags(flags);
+                int j, si,l2;
+                
+                si = 7;
+                l2 = m->mdmreg[14];
+                for (j=7;j>=0;j--)
+                        if (m->mdmreg[18] & (1<<j)) {
+                                si = bit2si[j];
+                                break;
+                        }
+                if ((m->mdmreg[18] & (1<<j)) != (1<<j))
+#ifdef CONFIG_ISDN_AUDIO
+                        if (si == 1) {
+                                l2 = 4;
+                                dev->usage[i] = ISDN_USAGE_VOICE;
+                        }
+#endif
+                info->isdn_driver = dev->drvmap[i];
+                info->isdn_channel = dev->chanmap[i];
+                info->drv_index = i;
+                dev->m_idx[i] = info->line;
+                dev->usage[i] |= ISDN_USAGE_OUTGOING;
+                isdn_info_update();
+                restore_flags(flags);
+                cmd.driver = info->isdn_driver;
+                cmd.arg = info->isdn_channel;
+                cmd.command = ISDN_CMD_CLREAZ;
+                dev->drv[info->isdn_driver]->interface->command(&cmd);
+                strcpy(cmd.num, isdn_map_eaz2msn(m->msn, info->isdn_driver));
+                cmd.driver = info->isdn_driver;
+                cmd.command = ISDN_CMD_SETEAZ;
+                dev->drv[info->isdn_driver]->interface->command(&cmd);
+                cmd.driver = info->isdn_driver;
+                cmd.command = ISDN_CMD_SETL2;
+                cmd.arg = info->isdn_channel + (l2 << 8);
+                dev->drv[info->isdn_driver]->interface->command(&cmd);
+                cmd.driver = info->isdn_driver;
+                cmd.command = ISDN_CMD_SETL3;
+                cmd.arg = info->isdn_channel + (m->mdmreg[15] << 8);
+                dev->drv[info->isdn_driver]->interface->command(&cmd);
+                cmd.driver = info->isdn_driver;
+                cmd.arg = info->isdn_channel;
+                sprintf(cmd.num, "%s,%s,%d,%d", n, isdn_map_eaz2msn(m->msn, info->isdn_driver),
+                        si, m->mdmreg[19]);
+                cmd.command = ISDN_CMD_DIAL;
+                dev->mdm.dialing[info->line] = 1;
+                strcpy(dev->num[i], n);
+                isdn_info_update();
+                dev->drv[info->isdn_driver]->interface->command(&cmd);
 	}
 }
 
 void isdn_tty_modem_hup(modem_info * info)
 {
 	isdn_ctrl cmd;
+        int usage;
 
         if (!info)
                 return;
         dev->mdm.rcvsched[info->line] = 0;
         dev->mdm.online[info->line] = 0;
+        if (dev->mdm.vonline[info->line]) {
+                dev->mdm.vonline[info->line] = 0;
+                kfree(dev->mdm.atmodem[info->line].adpcms);
+        }
 	if (info->isdn_driver >= 0) {
 		cmd.driver = info->isdn_driver;
 		cmd.command = ISDN_CMD_HANGUP;
 		cmd.arg = info->isdn_channel;
 		dev->drv[info->isdn_driver]->interface->command(&cmd);
 		isdn_all_eaz(info->isdn_driver, info->isdn_channel);
-		isdn_free_channel(info->isdn_driver, info->isdn_channel, ISDN_USAGE_MODEM);
+                usage = (dev->mdm.atmodem[info->line].mdmreg[20] == 1)?
+                        ISDN_USAGE_VOICE:ISDN_USAGE_MODEM;
+		isdn_free_channel(info->isdn_driver, info->isdn_channel, usage);
 	}
 	info->isdn_driver = -1;
 	info->isdn_channel = -1;
@@ -260,9 +353,9 @@ static void isdn_tty_change_speed(modem_info * info)
 #ifdef ISDN_DEBUG_MODEM_HUP
                 printk(KERN_DEBUG "Mhup in changespeed\n");
 #endif
-                isdn_tty_modem_hup(info);
 		if (dev->mdm.online[info->line])
 			isdn_tty_modem_result(3, info);
+                isdn_tty_modem_hup(info);
 		return;
 	}
 	/* byte size and parity */
@@ -353,7 +446,102 @@ static void isdn_tty_shutdown(modem_info * info)
 	restore_flags(flags);
 }
 
-static int isdn_tty_write(struct tty_struct *tty, int from_user, FOPS_CONST u_char * buf, int count)
+#ifdef CONFIG_ISDN_AUDIO
+
+#define DLE 0x10
+#define ETX 0x03
+
+int isdn_tty_handleDLEup(unsigned char *buf, int len)
+{
+        int count = 0;
+        char *p = buf;
+
+        while (len) {
+                if (*p == DLE) {
+                        memmove(p+1,p,len);
+                        count++;
+                        p++;
+                }
+                p++;
+                count++;
+                len--;
+        }
+        return count;
+}
+
+static int isdn_tty_handleDLEdown(modem_info *info, atemu *m, int len, int midx)
+{
+        unsigned char *p = &(info->xmit_buf[info->xmit_count]);
+        unsigned char *q = p;
+        int count = 0;
+
+        while (len>0) {
+                if (m->lastDLE) {
+                        m->lastDLE = 0;
+                } else {
+                        while ((len>0) && (*p != DLE)) {
+                                p++;
+                                count++;
+                                len--;
+                        }
+                        q = p + 1;
+                }
+                if (len>1)
+                        switch (*q) {
+                                case ETX:
+                                        /* End of data */
+                                        dev->mdm.vonline[midx] = 0;
+                                        isdn_tty_at_cout("\r\nVCON\r\n",info);
+                                        return count;
+                                case DLE:
+                                        /* Escape code */
+                                        if (p!=q)
+                                                memmove(p,q,len);
+                                        p++;
+                                        count++;
+                                        len--;
+                                        break;
+                                case 'q':
+                                case 's':
+                                        /* Silence */
+                                        len -= 2;
+                                        q++;
+                                        if (len)
+                                                memmove(p,q,len);
+                                        break;
+                        }
+                else
+                        m->lastDLE = 1;
+        }
+        if (len<0)
+                printk(KERN_WARNING "isdn_tty: len<0 in DLEdown\n");
+        return count;
+}
+
+static int isdn_tty_end_vrx(const char *buf, int c, int from_user)
+{
+	char tmpbuf[256];
+        char *p;
+
+        if (c > 256) {
+                printk(KERN_ERR "isdn_tty: (end_vrx) BUFFER OVERFLOW!!!\n");
+                return 1;
+        }
+	if (from_user) {
+		memcpy_fromfs(tmpbuf, buf, c);
+                p = tmpbuf;
+        } else
+                p = (char *)buf;
+        while (c--) {
+                if ((*p != 0x11) || (*p != 0x13))
+                        return 1;
+                p++;
+        }
+        return 0;
+}
+#endif        /* CONFIG_ISDN_AUDIO */
+
+static int isdn_tty_write(struct tty_struct *tty, int from_user, const u_char * buf, int count)
 {
 	int c, total = 0;
 	modem_info *info = (modem_info *) tty->driver_data;
@@ -369,76 +557,55 @@ static int isdn_tty_write(struct tty_struct *tty, int from_user, FOPS_CONST u_ch
 	while (1) {
 		c = MIN(count, info->xmit_size - info->xmit_count - 1);
 		if (info->isdn_driver >= 0) {
-#if 0
-			if (info->isdn_driver != 0) {
-				printk(KERN_DEBUG "FIDO: Zwei HW-Treiber geladen? Ansonsten ist was faul.\n");
-				break;
-			}
-			int drvidx = info->isdn_driver;
-			driver *driv = dev->drv[drvidx];
-			i = driv->maxbufsize;
-#else
 			i = dev->drv[info->isdn_driver]->maxbufsize;
-#endif
 			c = MIN(c, i);
 		}
 		if (c <= 0)
 			break;
 		i = info->line;
-		if (dev->mdm.online[i]) {
-			isdn_tty_check_esc(buf, dev->mdm.atmodem[i].mdmreg[2], c,
-				       &(dev->mdm.atmodem[i].pluscount),
-			     &(dev->mdm.atmodem[i].lastplus), from_user);
+                if ((dev->mdm.online[i]>1) ||
+                    (dev->mdm.vonline[i]==2)) {
+                        atemu *m = &dev->mdm.atmodem[i];
+
+                        printk(KERN_INFO "tty_write: %d to isdn o=%d vo=%d\n",c,
+                               dev->mdm.online[i],
+                               dev->mdm.vonline[i]);
+                        if (dev->mdm.vonline[i]!=2)
+                                isdn_tty_check_esc(buf, m->mdmreg[2], c,
+                                                   &(m->pluscount),
+                                                   &(m->lastplus),
+                                                   from_user);
 			if (from_user)
 				memcpy_fromfs(&(info->xmit_buf[info->xmit_count]), buf, c);
 			else
 				memcpy(&(info->xmit_buf[info->xmit_count]), buf, c);
-			info->xmit_count += c;
-			if (dev->mdm.atmodem[i].mdmreg[13] & 1) {
-				char *bufptr;
-				int buflen;
-#if 0
-				printk(KERN_DEBUG "WB1: %d\n", info->xmit_count);
+#ifdef CONFIG_ISDN_AUDIO
+                        if (dev->mdm.vonline[i]==2)
+                                info->xmit_count += isdn_tty_handleDLEdown(info,m,c,i);
+                        else
 #endif
-				bufptr = info->xmit_buf;
-				buflen = info->xmit_count;
-				if (dev->mdm.atmodem[i].mdmreg[13] & 2) {
-					/* Add T.70 simplified header */
-
-#ifdef ISDN_DEBUG_MODEM_DUMP
-					isdn_dumppkt("T70pack1:", bufptr, buflen, 40);
-#endif
-					bufptr -= 4;
-					buflen += 4;
-					memcpy(bufptr, "\1\0\1\0", 4);
-#ifdef ISDN_DEBUG_MODEM_DUMP
-					isdn_dumppkt("T70pack2:", bufptr, buflen, 40);
-#endif
-				}
-				if (isdn_writebuf_stub(info->isdn_driver, info->isdn_channel, bufptr,
-                                                       buflen, 0) > 0) {
-					info->xmit_count = 0;
-					info->xmit_size = dev->mdm.atmodem[i].mdmreg[16] * 16;
-#if FUTURE
-					info->send_outstanding++;
-					dev->mdm.msr[i] &= ~UART_MSR_CTS;
-#endif
-					if ((tty->flags & (1 << TTY_DO_WRITE_WAKEUP)) &&
-					    tty->ldisc.write_wakeup)
-						(tty->ldisc.write_wakeup) (tty);
-					wake_up_interruptible(&tty->write_wait);
-				}
-			}
+                                info->xmit_count += c;
+                                
+			if (m->mdmreg[13] & 1)
+                                isdn_tty_senddown(info,i);
 		} else {
-			if (dev->mdm.dialing[i]) {
-				dev->mdm.dialing[i] = 0;
-#ifdef ISDN_DEBUG_MODEM_HUP
-				printk(KERN_DEBUG "Mhup in isdn_tty_write\n");
+#ifdef CONFIG_ISDN_AUDIO
+                        if (dev->mdm.vonline[i]==1) {
+                                if (isdn_tty_end_vrx(buf, c, from_user)) {
+                                        dev->mdm.vonline[i] = 0;
+                                        isdn_tty_at_cout("\020\003\r\nVCON\r\n", info);
+                                }
+                        } else
 #endif
-				isdn_tty_modem_hup(info);
-				isdn_tty_modem_result(3, info);
-			} else
-				c = isdn_tty_edit_at(buf, c, info, from_user);
+                                if (dev->mdm.dialing[i]) {
+                                        dev->mdm.dialing[i] = 0;
+#ifdef ISDN_DEBUG_MODEM_HUP
+                                        printk(KERN_DEBUG "Mhup in isdn_tty_write\n");
+#endif
+                                        isdn_tty_modem_result(3, info);
+                                        isdn_tty_modem_hup(info);
+                                } else
+                                        c = isdn_tty_edit_at(buf, c, info, from_user);
 		}
 		buf += c;
 		count -= c;
@@ -611,9 +778,9 @@ static int isdn_tty_set_modem_info(modem_info * info, uint cmd, uint * value)
 #ifdef ISDN_DEBUG_MODEM_HUP
                         printk(KERN_DEBUG "Mhup in TIOCMBIC\n");
 #endif
-                        isdn_tty_modem_hup(info);
 			if (dev->mdm.online[info->line])
 				isdn_tty_modem_result(3, info);
+                        isdn_tty_modem_hup(info);
 		}
 		break;
 	case TIOCMSET:
@@ -625,9 +792,9 @@ static int isdn_tty_set_modem_info(modem_info * info, uint cmd, uint * value)
 #ifdef ISDN_DEBUG_MODEM_HUP
                         printk(KERN_DEBUG "Mhup in TIOCMSET\n");
 #endif
-                        isdn_tty_modem_hup(info);
 			if (dev->mdm.online[info->line])
 				isdn_tty_modem_result(3, info);
+                        isdn_tty_modem_hup(info);
 		}
 		break;
 	default:
@@ -1097,9 +1264,18 @@ static void isdn_tty_reset_profile(atemu * m)
 	m->profile[15] = ISDN_PROTO_L3_TRANS;
 	m->profile[16] = ISDN_SERIAL_XMIT_SIZE / 16;
 	m->profile[17] = ISDN_MODEM_WINSIZE;
-	m->profile[18] = 7;
+	m->profile[18] = 4;
 	m->profile[19] = 0;
+	m->profile[20] = 0;
 	m->pmsn[0] = '\0';
+}
+
+static void isdn_tty_modem_reset_vpar(atemu *m)
+{
+        m->vpar[0] = 2;  /* Voice-device            (2 = phone line) */
+        m->vpar[1] = 0;  /* Silence detection level (0 = none      ) */
+        m->vpar[2] = 70; /* Silence interval        (7 sec.        ) */
+        m->vpar[3] = 1;  /* Compression type        (1 = ADPCM-2   ) */
 }
 
 static void isdn_tty_modem_reset_regs(atemu * m, int force)
@@ -1108,6 +1284,7 @@ static void isdn_tty_modem_reset_regs(atemu * m, int force)
 		memcpy(m->mdmreg, m->profile, ISDN_MODEM_ANZREG);
 		memcpy(m->msn, m->pmsn, ISDN_MSNLEN);
 	}
+        isdn_tty_modem_reset_vpar(m);
 	m->mdmcmdl = 0;
 }
 
@@ -1263,8 +1440,8 @@ int isdn_tty_find_icall(int di, int ch, char *num)
 #endif
 		if ((!strcmp(isdn_map_eaz2msn(dev->mdm.atmodem[i].msn, di)
 			     ,eaz)) &&	/* EAZ is matching   */
-		    (dev->mdm.atmodem[i].mdmreg[18] == si1) &&	/* SI1 is matching   */
-		    (dev->mdm.atmodem[i].mdmreg[19] == si2)) {	/* SI2 is matching   */
+		    (dev->mdm.atmodem[i].mdmreg[18] & si2bit[si1]) &&     /* SI1 is matching      */
+		    ((dev->mdm.atmodem[i].mdmreg[19] == si2) || !si2)) {  /* SI2 is matching or 0 */
 			modem_info *info = &dev->mdm.info[i];
 			idx = isdn_dc2minor(di, ch);
 #ifdef ISDN_DEBUG_MODEM_ICALL
@@ -1282,8 +1459,9 @@ int isdn_tty_find_icall(int di, int ch, char *num)
 				info->drv_index = idx;
 				dev->m_idx[idx] = info->line;
 				dev->usage[idx] &= ISDN_USAGE_EXCLUSIVE;
-				dev->usage[idx] |= ISDN_USAGE_MODEM;
+				dev->usage[idx] |= (si1==1)?ISDN_USAGE_VOICE:ISDN_USAGE_MODEM;
 				strcpy(dev->num[idx], nr);
+                                dev->mdm.atmodem[i].mdmreg[20] = si2bit[si1];
 				isdn_info_update();
 				restore_flags(flags);
 				printk(KERN_INFO "isdn_tty: call from %s, -> RING on ttyI%d\n", nr,
@@ -1358,8 +1536,8 @@ static void isdn_tty_on_hook(modem_info * info)
 #ifdef ISDN_DEBUG_MODEM_HUP
 		printk(KERN_DEBUG "Mhup in isdn_tty_on_hook\n");
 #endif
-		isdn_tty_modem_hup(info);
 		isdn_tty_modem_result(3, info);
+		isdn_tty_modem_hup(info);
 	}
 }
 
@@ -1432,39 +1610,37 @@ void isdn_tty_modem_result(int code, modem_info * info)
 	static char *msg[] =
 	{"OK", "CONNECT", "RING", "NO CARRIER", "ERROR",
 	 "CONNECT 64000", "NO DIALTONE", "BUSY", "NO ANSWER",
-	 "RINGING", "NO MSN/EAZ"};
+	 "RINGING", "NO MSN/EAZ", "VCON"};
 	ulong flags;
 	char s[4];
 
 	switch (code) {
-	case 2:
-		m->mdmreg[1]++;	/* RING */
-		if (m->mdmreg[1] == m->mdmreg[0]) {
-			/* Accept incoming call */
-			isdn_ctrl cmd;
-			m->mdmreg[1] = 0;
-			dev->mdm.msr[info->line] &= ~UART_MSR_RI;
-			cmd.driver = info->isdn_driver;
-			cmd.arg = info->isdn_channel;
-			cmd.command = ISDN_CMD_ACCEPTD;
-			dev->drv[info->isdn_driver]->interface->command(&cmd);
-		}
-		break;
-	case 3:
-		/* NO CARRIER */
-		save_flags(flags);
-		cli();
-		dev->mdm.msr[info->line] &= ~(UART_MSR_DCD | UART_MSR_RI);
-		if ((info->flags & ISDN_ASYNC_CLOSING) || (!info->tty)) {
-			restore_flags(flags);
-			return;
-		}
-		restore_flags(flags);
-		break;
-	case 1:
-	case 5:
-		dev->mdm.online[info->line] = 1;
-		break;
+                case 2:
+                        m->mdmreg[1]++;	/* RING */
+                        if (m->mdmreg[1] == m->mdmreg[0])
+                                /* Automatically accept incoming call */
+                                isdn_tty_cmd_ATA(info);
+                        break;
+                case 3:
+                        /* NO CARRIER */
+                        save_flags(flags);
+                        cli();
+                        dev->mdm.msr[info->line] &= ~(UART_MSR_DCD | UART_MSR_RI);
+                        if ((info->flags & ISDN_ASYNC_CLOSING) || (!info->tty)) {
+                                restore_flags(flags);
+                                return;
+                        }
+                        restore_flags(flags);
+                        break;
+                case 1:
+                case 5:
+                        if (!dev->mdm.online[info->line])
+                                dev->mdm.online[info->line] = 2;
+                        break;
+                case 11:
+                        if (!dev->mdm.online[info->line])
+                                dev->mdm.online[info->line] = 1;
+                        break;
 	}
 	if (m->mdmreg[12] & 1) {
 		/* Show results */
@@ -1541,319 +1717,568 @@ static void isdn_tty_getdial(char *p, char *q)
 	*q = 0;
 }
 
+#define PARSE_ERROR { isdn_tty_modem_result(4, info); return; }
+#define PARSE_ERROR1 { isdn_tty_modem_result(4, info); return 1; }
+
+static int isdn_tty_cmd_ATand(char **p, modem_info * info)
+{
+        atemu *m = &dev->mdm.atmodem[info->line];
+        int i;
+        char rb[100];
+
+        switch (*p[0]) {
+                case 'B':
+                        /* &B - Set Buffersize */
+                        p[0]++;
+                        i = isdn_getnum(p);
+                        if ((i < 0) || (i > ISDN_SERIAL_XMIT_SIZE))
+                                PARSE_ERROR1;
+#ifdef CONFIG_ISDN_AUDIO
+                        if ((m->mdmreg[18] & 1) && (i > 256))
+                                PARSE_ERROR1;
+#endif
+                        m->mdmreg[16] = i / 16;
+                        break;
+                case 'D':
+                        /* &D - Set DCD-Low-behavior */
+                        p[0]++;
+                        switch (isdn_getnum(p)) {
+                                case 2:
+                                        m->mdmreg[12] &= ~32;
+                                        break;
+                                case 3:
+                                        m->mdmreg[12] |= 32;
+                                        break;
+                                default:
+                                        PARSE_ERROR1
+                        }
+                        break;
+                case 'E':
+                        /* &E -Set EAZ/MSN */
+                        p[0]++;
+                        isdn_tty_get_msnstr(m->msn, p);
+                        break;
+                case 'F':
+                        /* &F -Set Factory-Defaults */
+                        p[0]++;
+                        isdn_tty_reset_profile(m);
+                        isdn_tty_modem_reset_regs(m, 1);
+                        break;
+                case 'S':
+                        /* &S - Set Windowsize */
+                        p[0]++;
+                        i = isdn_getnum(p);
+                        if ((i > 0) && (i < 9))
+                                m->mdmreg[17] = i;
+                        else
+                                PARSE_ERROR1;
+                        break;
+                case 'V':
+                        /* &V - Show registers */
+                        p[0]++;
+                        for (i = 0; i < ISDN_MODEM_ANZREG; i++) {
+                                sprintf(rb, "S%d=%d%s", i, 
+                                        m->mdmreg[i], (i == 6) ? "\r\n" : " ");
+                                isdn_tty_at_cout(rb, info);
+                        }
+                        sprintf(rb, "\r\nEAZ/MSN: %s\r\n",
+                                strlen(m->msn) ? m->msn : "None");
+                        isdn_tty_at_cout(rb, info);
+                        break;
+                case 'W':
+                        /* &W - Write Profile */
+                        p[0]++;
+                        switch (*p[0]) {
+                                case '0':
+                                        p[0]++;
+                                        modem_write_profile(m);
+                                        break;
+                                default:
+                                        PARSE_ERROR1;
+                        }
+                        break;
+                case 'X':
+                        /* &X - Switch to BTX-Mode */
+                        p[0]++;
+                        switch (isdn_getnum(p)) {
+                                case 0:
+                                        m->mdmreg[13] &= ~2;
+                                        break;
+                                case 1:
+                                        m->mdmreg[13] |= 2;
+                                        m->mdmreg[14] = 0;
+                                        m->mdmreg[16] = 7;
+                                        m->mdmreg[18] = 4;
+                                        m->mdmreg[19] = 0;
+                                        break;
+                                default:
+                                        PARSE_ERROR1;
+                        }
+                        break;
+                default:
+                        PARSE_ERROR1;
+        }
+        return 0;
+}
+
+static int isdn_tty_cmd_ATS(char **p, modem_info * info)
+{
+        atemu *m = &dev->mdm.atmodem[info->line];
+        int mreg;
+        int mval;
+
+        mreg = isdn_getnum(p);
+        if (mreg < 0 || mreg > ISDN_MODEM_ANZREG)
+                PARSE_ERROR1;
+        switch (*p[0]) {
+                case '=':
+                        p[0]++;
+                        mval = isdn_getnum(p);
+                        if (mval < 0 || mval > 255)
+                                PARSE_ERROR1;
+                        switch (mreg) {
+                                /* Some plausibility checks */
+                                case 14:
+                                        if (mval > ISDN_PROTO_L2_TRANS)
+                                                PARSE_ERROR1;
+                                        break;
+                                case 16:
+                                        if ((mval * 16) > ISDN_SERIAL_XMIT_SIZE)
+                                                PARSE_ERROR1;
+#ifdef CONFIG_ISDN_AUDIO
+                                        if ((m->mdmreg[18] & 1) && (mval > 16))
+                                                PARSE_ERROR1;
+#endif
+                                        break;
+                        }
+                        m->mdmreg[mreg] = mval;
+                        break;
+                case '?':
+                        p[0]++;
+                        isdn_tty_show_profile(mreg, info);
+                        break;
+                default:
+                        PARSE_ERROR1;
+                        break;
+        }
+        return 0;
+}
+
+static int isdn_tty_cmd_ATA(modem_info * info)
+{
+        atemu *m = &dev->mdm.atmodem[info->line];
+        isdn_ctrl cmd;
+        int l2;
+
+        if (dev->mdm.msr[info->line] & UART_MSR_RI) {
+                /* Accept incoming call */
+                m->mdmreg[1] = 0;
+                dev->mdm.msr[info->line] &= ~UART_MSR_RI;
+                cmd.driver = info->isdn_driver;
+                cmd.command = ISDN_CMD_SETL2;
+                l2 = m->mdmreg[14];
+#ifdef CONFIG_ISDN_AUDIO
+                /* If more than one bit set in reg18, autoselect Layer2 */
+                if ((m->mdmreg[18] & m->mdmreg[20]) != m->mdmreg[18])
+                        if (m->mdmreg[20] == 1) l2 = 4;
+#endif
+                cmd.arg = info->isdn_channel + (l2 << 8);
+                dev->drv[info->isdn_driver]->interface->command(&cmd);
+                cmd.driver = info->isdn_driver;
+                cmd.command = ISDN_CMD_SETL3;
+                cmd.arg = info->isdn_channel + (m->mdmreg[15] << 8);
+                dev->drv[info->isdn_driver]->interface->command(&cmd);
+                cmd.driver = info->isdn_driver;
+                cmd.arg = info->isdn_channel;
+                cmd.command = ISDN_CMD_ACCEPTD;
+                dev->drv[info->isdn_driver]->interface->command(&cmd);
+        } else {
+                isdn_tty_modem_result(8, info);
+                return 1;
+        }
+        return 0;
+}
+
+#ifdef CONFIG_ISDN_AUDIO
+static int isdn_tty_cmd_PLUSV(char **p, modem_info * info)
+{
+        atemu *m = &dev->mdm.atmodem[info->line];
+        static char *vcmd[] = {"NH","IP","LS","RX","SD","SM","TX",NULL};
+        int i;
+	int par1;
+	int par2;
+	char rs[20];
+
+        i = 0;
+        while (vcmd[i]) {
+                if (!strncmp(vcmd[i],p[0],2)) {
+                        p[0] += 2;
+                        break;
+                }
+                i++;
+        }
+        switch (i) {
+                case 0:
+                        /* AT+VNH - Auto hangup feature */
+                        switch (*p[0]) {
+                                case '?':
+                                        p[0]++;
+                                        isdn_tty_at_cout("\r\n1", info);
+                                        break;
+                                case '=':
+                                        p[0]++;
+                                        switch (*p[0]) {
+                                                case '1':
+                                                        p[0]++;
+                                                        break;
+                                                case '?':
+                                                        p[0]++;
+                                                        isdn_tty_at_cout("\r\n1", info);
+                                                        break;
+                                                default:
+                                                        PARSE_ERROR1;
+                                        }
+                                        break;
+                                default:
+                                        PARSE_ERROR1;
+                        }
+                        break;
+                case 1:
+                        /* AT+VIP - Reset all voice parameters */
+                        isdn_tty_modem_reset_vpar(m);
+                        break;
+                case 2:
+                        /* AT+VLS - Select device */
+                        switch (*p[0]) {
+                                case '?':
+                                        p[0]++;
+                                        sprintf(rs,"\r\n%d",m->vpar[0]);
+                                        isdn_tty_at_cout(rs, info);
+                                        break;
+                                case '=':
+                                        p[0]++;
+                                        switch (*p[0]) {
+                                                case '0':
+                                                        p[0]++;
+                                                        m->vpar[0] = 0;
+                                                        break;
+                                                case '2':
+                                                        p[0]++;
+                                                        m->vpar[0] = 2;
+                                                        break;
+                                                case '?':
+                                                        p[0]++;
+                                                        isdn_tty_at_cout("\r\n0,2", info);
+                                                        break;
+                                                default:
+                                                        PARSE_ERROR1;
+                                        }
+                                        break;
+                                default:
+                                        PARSE_ERROR1;
+                        }
+                        break;
+                case 3:
+                        /* AT+VRX - Start recording */
+                        if (!m->vpar[0])
+                                PARSE_ERROR1;
+                        if (m->vpar[3] < 3) {
+                                m->adpcms = isdn_audio_adpcm_init(m->vpar[3]-1);
+                                if (!m->adpcms) {
+                                        printk(KERN_WARNING "isdn_tty: Couldn't malloc adpcm state\n");
+                                        PARSE_ERROR1;
+                                }
+                        }
+                        dev->mdm.vonline[info->line] = 1;
+                        isdn_tty_modem_result(1, info);
+                        break;
+                case 4:
+                        /* AT+VSD - Silence detection */
+                        switch (*p[0]) {
+                                case '?':
+                                        p[0]++;
+                                        sprintf(rs,"\r\n<%d>,<%d>",
+                                                m->vpar[1],
+                                                m->vpar[2]);
+                                        isdn_tty_at_cout(rs, info);
+                                        break;
+                                case '=':
+                                        p[0]++;
+                                        switch (*p[0]) {
+                                                case '0':
+                                                case '1':
+                                                case '2':
+                                                case '3':
+                                                        par1 = isdn_getnum(p);
+                                                        if ((par1 < 0) || (par1 > 31))
+                                                                PARSE_ERROR1;
+                                                        if (*p[0] != ',')
+                                                                PARSE_ERROR1;
+                                                        p[0]++;
+                                                        par2 = isdn_getnum(p);
+                                                        if ((par2 < 0) || (par2 > 255))
+                                                                PARSE_ERROR1;
+                                                        m->vpar[1] = par1;
+                                                        m->vpar[2] = par2;
+                                                        break;
+                                                case '?':
+                                                        p[0]++;
+                                                        isdn_tty_at_cout("\r\n<0-31>,<0-255>",
+                                                                         info);
+                                                        break;
+                                                default:
+                                                        PARSE_ERROR1;
+                                        }
+                                        break;
+                                default:
+                                        PARSE_ERROR1;
+                        }
+                        break;
+                case 5:
+                        /* AT+VSM - Select compression */
+                        switch (*p[0]) {
+                                case '?':
+                                        p[0]++;
+                                        sprintf(rs,"\r\n<%d>,<%d><8000>",
+                                                m->vpar[3],
+                                                m->vpar[1]);
+                                        isdn_tty_at_cout(rs, info);
+                                        break;
+                                case '=':
+                                        p[0]++;
+                                        switch (*p[0]) {
+                                                case '1':
+                                                case '2':
+                                                case '3':
+                                                case '4':
+                                                        par1 = isdn_getnum(p);
+                                                        if ((par1 < 1) || (par1 > 4))
+                                                                PARSE_ERROR1;
+                                                        m->vpar[3] = par1;
+                                                        break;
+                                                case '?':
+                                                        p[0]++;
+                                                        isdn_tty_at_cout("\r\n1;ADPCM;2;0;(8000)\r\n",
+                                                                         info);
+                                                        isdn_tty_at_cout("2;ADPCM;3;0;(8000)\r\n",
+                                                                         info);
+                                                        isdn_tty_at_cout("3;LINEAR;8;0;(8000)\r\n",
+                                                                         info);
+                                                        isdn_tty_at_cout("4;ALAW;8;0;(8000)",
+                                                                         info);
+                                                        break;
+                                                default:
+                                                        PARSE_ERROR1;
+                                        }
+                                        break;
+                                default:
+                                        PARSE_ERROR1;
+                        }
+                        break;
+                case 6:
+                        /* AT+VTX - Start sending */
+                        if (!m->vpar[0])
+                                PARSE_ERROR1;
+                        if (m->vpar[3] < 3) {
+                                m->adpcms = isdn_audio_adpcm_init(m->vpar[3]-1);
+                                if (!m->adpcms) {
+                                        printk(KERN_WARNING "isdn_tty: Couldn't malloc adpcm state\n");
+                                        PARSE_ERROR1;
+                                }
+                        }
+                        dev->mdm.vonline[info->line] = 2;
+                        isdn_tty_modem_result(1, info);
+                        break;
+                default:
+                        PARSE_ERROR1;
+        }
+        return 0;
+}
+#endif        /* CONFIG_ISDN_AUDIO */
+
 /*
  * Parse and perform an AT-command-line.
- *
- * Parameter:
- *   channel   index to line (minor-device)
  */
 static void isdn_tty_parse_at(modem_info * info)
 {
-	atemu *m = &dev->mdm.atmodem[info->line];
-	char *p;
-	int mreg;
-	int mval;
-	int i;
-	char rb[100];
-	char ds[40];
-	isdn_ctrl cmd;
+        atemu *m = &dev->mdm.atmodem[info->line];
+        char *p;
+        char ds[40];
 
 #ifdef ISDN_DEBUG_AT
-	printk(KERN_DEBUG "AT: '%s'\n", m->mdmcmd);
+        printk(KERN_DEBUG "AT: '%s'\n", m->mdmcmd);
 #endif
-	for (p = &m->mdmcmd[2]; *p;) {
-		switch (*p) {
-		case 'A':
-			/* A - Accept incoming call */
-			p++;
-                        if (dev->mdm.msr[info->line] & UART_MSR_RI) {
-#define FIDOBUG
-#ifdef FIDOBUG
-/* Variables fido... defined temporarily for finding a strange bug */
-				driver *fido_drv;
-				isdn_if *fido_if;
-				int fido_isdn_driver;
-				modem_info *fido_modem_info;
-				int (*fido_command) (isdn_ctrl *);
-#endif
-				/* Accept incoming call */
-				m->mdmreg[1] = 0;
-				dev->mdm.msr[info->line] &= ~UART_MSR_RI;
-				cmd.driver = info->isdn_driver;
-				cmd.command = ISDN_CMD_SETL2;
-				cmd.arg = info->isdn_channel + (m->mdmreg[14] << 8);
-				dev->drv[info->isdn_driver]->interface->command(&cmd);
-				cmd.driver = info->isdn_driver;
-				cmd.command = ISDN_CMD_SETL3;
-				cmd.arg = info->isdn_channel + (m->mdmreg[15] << 8);
-				dev->drv[info->isdn_driver]->interface->command(&cmd);
-				cmd.driver = info->isdn_driver;
-				cmd.arg = info->isdn_channel;
-				cmd.command = ISDN_CMD_ACCEPTD;
-#ifdef FIDOBUG
-				fido_modem_info = info;
-				fido_isdn_driver = fido_modem_info->isdn_driver;
-				fido_drv = dev->drv[fido_isdn_driver];
-				fido_if = fido_drv->interface;
-				fido_command = fido_if->command;
-				fido_command(&cmd);
-#else
-				dev->drv[info->isdn_driver]->interface->command(&cmd);
-#endif
-			} else {
-				isdn_tty_modem_result(8, info);
-				return;
-			}
-			break;
-		case 'D':
-			/* D - Dial */
-			isdn_tty_getdial(++p, ds);
-			p += strlen(p);
-			if (!strlen(m->msn))
-				isdn_tty_modem_result(10, info);
-			else if (strlen(ds))
-				isdn_tty_dial(ds, info, m);
-			else
-				isdn_tty_modem_result(4, info);
-			return;
-		case 'E':
-			/* E - Turn Echo on/off */
-			p++;
-			switch (*p) {
-			case '0':
-				p++;
-				m->mdmreg[12] &= ~4;
-				break;
-			case '1':
-				p++;
-				m->mdmreg[12] |= 4;
-				break;
-			default:
-				isdn_tty_modem_result(4, info);
-				return;
-			}
-			break;
-		case 'H':
-			/* H - On/Off-hook */
-			p++;
-			switch (*p) {
-			case '0':
-				p++;
-				isdn_tty_on_hook(info);
-				break;
-			case '1':
-				p++;
-				isdn_tty_off_hook();
-				break;
-			default:
-				isdn_tty_on_hook(info);
-				break;
-			}
-			break;
-		case 'I':
-			/* I - Information */
-			p++;
-			isdn_tty_at_cout("ISDN for Linux  (c) by Fritz Elfert\r\n", info);
-			switch (*p) {
-			case '0':
-			case '1':
-				p++;
-				break;
-			default:
-			}
-			break;
-		case 'O':
-			/* O - Go online */
-			p++;
-			if (dev->mdm.msr[info->line] & UART_MSR_DCD)	/* if B-Channel is up */
-				isdn_tty_modem_result(5, info);
-			else
-				isdn_tty_modem_result(3, info);
-			return;
-		case 'Q':
-			/* Q - Turn Emulator messages on/off */
-			p++;
-			switch (*p) {
-			case '0':
-				p++;
-				m->mdmreg[12] |= 1;
-				break;
-			case '1':
-				p++;
-				m->mdmreg[12] &= ~1;
-				break;
-			default:
-				isdn_tty_modem_result(4, info);
-				return;
-			}
-			break;
-		case 'S':
-			/* S - Set/Get Register */
-			p++;
-			mreg = isdn_getnum(&p);
-			if (mreg < 0 || mreg > ISDN_MODEM_ANZREG) {
-				isdn_tty_modem_result(4, info);
-				return;
-			}
-			switch (*p) {
-			case '=':
-				p++;
-				mval = isdn_getnum(&p);
-				if (mval >= 0 && mval <= 255) {
-					if ((mreg == 16) && ((mval * 16) > ISDN_SERIAL_XMIT_SIZE)) {
-						isdn_tty_modem_result(4, info);
-						return;
-					}
-					m->mdmreg[mreg] = mval;
-				} else {
-					isdn_tty_modem_result(4, info);
-					return;
-				}
-				break;
-			case '?':
-				p++;
-				isdn_tty_show_profile(mreg, info);
-				return;
-				break;
-			default:
-				isdn_tty_modem_result(4, info);
-				return;
-			}
-			break;
-		case 'V':
-			/* V - Numeric or ASCII Emulator-messages */
-			p++;
-			switch (*p) {
-			case '0':
-				p++;
-				m->mdmreg[12] |= 2;
-				break;
-			case '1':
-				p++;
-				m->mdmreg[12] &= ~2;
-				break;
-			default:
-				isdn_tty_modem_result(4, info);
-				return;
-			}
-			break;
-		case 'Z':
-			/* Z - Load Registers from Profile */
-			p++;
-			isdn_tty_modem_reset_regs(m, 1);
-			break;
-		case '+':
-			p++;
-			switch (*p) {
-			case 'F':
-				break;
-			}
-			break;
-		case '&':
-			p++;
-			switch (*p) {
-			case 'B':
-				/* &B - Set Buffersize */
-				p++;
-				i = isdn_getnum(&p);
-				if ((i < 0) || (i > ISDN_SERIAL_XMIT_SIZE)) {
-					isdn_tty_modem_result(4, info);
-					return;
-				}
-				m->mdmreg[16] = i / 16;
-				break;
-			case 'D':
-				/* &D - Set DCD-Low-behavior */
-				p++;
-				switch (isdn_getnum(&p)) {
-				case 2:
-					m->mdmreg[12] &= ~32;
-					break;
-				case 3:
-					m->mdmreg[12] |= 32;
-					break;
-				default:
-					isdn_tty_modem_result(4, info);
-					return;
-				}
-				break;
-			case 'E':
-				/* &E -Set EAZ/MSN */
-				p++;
-				isdn_tty_get_msnstr(m->msn, &p);
-				break;
-			case 'F':
-				/* &F -Set Factory-Defaults */
-				p++;
-				isdn_tty_reset_profile(m);
-				isdn_tty_modem_reset_regs(m, 1);
-				break;
-			case 'S':
-				/* &S - Set Windowsize */
-				p++;
-				i = isdn_getnum(&p);
-				if ((i > 0) && (i < 9))
-					m->mdmreg[17] = i;
-				else {
-					isdn_tty_modem_result(4, info);
-					return;
-				}
-				break;
-			case 'V':
-				/* &V - Show registers */
-				p++;
-				for (i = 0; i < ISDN_MODEM_ANZREG; i++) {
-					sprintf(rb, "S%d=%d%s", i, m->mdmreg[i], (i == 6) ? "\r\n" : " ");
-					isdn_tty_at_cout(rb, info);
-				}
-				sprintf(rb, "\r\nEAZ/MSN: %s\r\n", strlen(m->msn) ? m->msn : "None");
-				isdn_tty_at_cout(rb, info);
-				break;
-			case 'W':
-				/* &W - Write Profile */
-				p++;
-				switch (*p) {
-				case '0':
-					p++;
-					modem_write_profile(m);
-					break;
-				default:
-					isdn_tty_modem_result(4, info);
-					return;
-				}
-				break;
-			case 'X':
-				/* &X - Switch to BTX-Mode */
-				p++;
-				switch (*p) {
-				case '0':
-					p++;
-					m->mdmreg[13] &= ~2;
-					break;
-				case '1':
-					p++;
-					m->mdmreg[13] |= 2;
-					m->mdmreg[14] = 0;
-					m->mdmreg[16] = 7;
-					m->mdmreg[18] = 7;
-					m->mdmreg[19] = 0;
-					break;
-				default:
-					isdn_tty_modem_result(4, info);
-					return;
-				}
-				break;
-			default:
-				isdn_tty_modem_result(4, info);
-				return;
-			}
-			break;
-		default:
-			isdn_tty_modem_result(4, info);
-			return;
-		}
-	}
-	isdn_tty_modem_result(0, info);
+        for (p = &m->mdmcmd[2]; *p;) {
+                switch (*p) {
+                        case 'A':
+                                /* A - Accept incoming call */
+                                p++;
+                                if (isdn_tty_cmd_ATA(info))
+                                        return;
+                                break;
+                        case 'D':
+                                /* D - Dial */
+                                isdn_tty_getdial(++p, ds);
+                                p += strlen(p);
+                                if (!strlen(m->msn))
+                                        isdn_tty_modem_result(10, info);
+                                else if (strlen(ds))
+                                        isdn_tty_dial(ds, info, m);
+                                else
+                                        isdn_tty_modem_result(4, info);
+                                return;
+                        case 'E':
+                                /* E - Turn Echo on/off */
+                                p++;
+                                switch (isdn_getnum(&p)) {
+                                        case 0:
+                                                m->mdmreg[12] &= ~4;
+                                                break;
+                                        case 1:
+                                                m->mdmreg[12] |= 4;
+                                                break;
+                                        default:
+                                                PARSE_ERROR;
+                                }
+                                break;
+                        case 'H':
+                                /* H - On/Off-hook */
+                                p++;
+                                switch (*p) {
+                                        case '0':
+                                                p++;
+                                                isdn_tty_on_hook(info);
+                                                break;
+                                        case '1':
+                                                p++;
+                                                isdn_tty_off_hook();
+                                                break;
+                                        default:
+                                                isdn_tty_on_hook(info);
+                                                break;
+                                }
+                                break;
+                        case 'I':
+                                /* I - Information */
+                                p++;
+                                isdn_tty_at_cout("\r\nLinux ISDN", info);
+                                switch (*p) {
+                                        case '0':
+                                        case '1':
+                                                p++;
+                                                break;
+                                        default:
+                                }
+                                break;
+                        case 'O':
+                                /* O - Go online */
+                                p++;
+                                if (dev->mdm.msr[info->line] & UART_MSR_DCD)
+                                        /* if B-Channel is up */
+                                        isdn_tty_modem_result(5, info);
+                                else
+                                        isdn_tty_modem_result(3, info);
+                                return;
+                        case 'Q':
+                                /* Q - Turn Emulator messages on/off */
+                                p++;
+                                switch (isdn_getnum(&p)) {
+                                        case 0:
+                                                m->mdmreg[12] |= 1;
+                                                break;
+                                        case 1:
+                                                m->mdmreg[12] &= ~1;
+                                                break;
+                                        default:
+                                                PARSE_ERROR;
+                                }
+                                break;
+                        case 'S':
+                                /* S - Set/Get Register */
+                                p++;
+                                if (isdn_tty_cmd_ATS(&p, info))
+                                        return;
+                        case 'V':
+                                /* V - Numeric or ASCII Emulator-messages */
+                                p++;
+                                switch (isdn_getnum(&p)) {
+                                        case 0:
+                                                m->mdmreg[12] |= 2;
+                                                break;
+                                        case 1:
+                                                m->mdmreg[12] &= ~2;
+                                                break;
+                                        default:
+                                                PARSE_ERROR;
+                                }
+                                break;
+                        case 'Z':
+                                /* Z - Load Registers from Profile */
+                                p++;
+                                isdn_tty_modem_reset_regs(m, 1);
+                                break;
+#ifdef CONFIG_ISDN_AUDIO
+                        case '+':
+                                p++;
+                                switch (*p) {
+                                        case 'F':
+                                                if (strncmp(p,"FCLASS",6))
+                                                        PARSE_ERROR;
+                                                p += 6;
+                                                switch (*p) {
+                                                        case '?':
+                                                                p++;
+                                                                sprintf(ds,"\r\n%d",
+                                                                        (m->mdmreg[18]&1)?8:0);
+                                                                isdn_tty_at_cout(ds, info);
+                                                                break;
+                                                        case '=':
+                                                                p++;
+                                                                switch (*p) {
+                                                                        case '0':
+                                                                                p++;
+                                                                                m->mdmreg[18] = 4;
+                                                                                break;
+                                                                        case '8':
+                                                                                p++;
+                                                                                m->mdmreg[18] = 5;
+                                                                                m->mdmreg[16] = 16;
+                                                                                break;
+                                                                        case '?':
+                                                                                p++;
+                                                                                isdn_tty_at_cout("\r\n0,8",
+                                                                                                 info);
+                                                                                break;
+                                                                        default:
+                                                                                PARSE_ERROR;
+                                                                }
+                                                                break;
+                                                        default:
+                                                                PARSE_ERROR;
+                                                                
+                                                }
+                                                break;
+                                        case 'V':
+                                                if (!(m->mdmreg[18] & 1))
+                                                        PARSE_ERROR;
+                                                p++;
+                                                if (isdn_tty_cmd_PLUSV(&p, info))
+                                                        return;
+                                                break;
+                                }
+                                break;
+#endif        /* CONFIG_ISDN_AUDIO */
+                        case '&':
+                                p++;
+                                if (isdn_tty_cmd_ATand(&p, info))
+                                        return;
+                                break;
+                        default:
+                                isdn_tty_modem_result(4, info);
+                                return;
+                }
+        }
+        isdn_tty_modem_result(0, info);
 }
 
 /* Need own toupper() because standard-toupper is not available
@@ -1972,7 +2397,7 @@ void isdn_tty_modem_ring(void)
 	int midx;
 
 	for (i = 0; i < ISDN_MAX_CHANNELS; i++)
-		if (USG_MODEM(dev->usage[i]))
+		if (USG_MODEMORVOICE(dev->usage[i]))
 			if ((midx = dev->m_idx[i]) >= 0)
 				if (dev->mdm.msr[midx] & UART_MSR_RI) {
 					ton = 1;
@@ -1986,51 +2411,19 @@ void isdn_tty_modem_xmit(void)
 	int ton = 0;
 	int i;
 	int midx;
-	char *bufptr;
-	int buflen;
 
 	for (i = 0; i < ISDN_MAX_CHANNELS; i++)
-		if (USG_MODEM(dev->usage[i]))
+		if (USG_MODEMORVOICE(dev->usage[i]))
 			if ((midx = dev->m_idx[i]) >= 0)
-				if (dev->mdm.online[midx]) {
+				if ((dev->mdm.online[midx]>1) ||
+                                    (dev->mdm.vonline[midx]==2)) {
 					modem_info *info = &(dev->mdm.info[midx]);
 					ulong flags;
-
 					save_flags(flags);
 					cli();
 					if (info->xmit_count > 0) {
-						struct tty_struct *tty = info->tty;
 						ton = 1;
-#if 0
-						printk(KERN_DEBUG "WB2: %d\n", info->xmit_count);
-#endif
-						bufptr = info->xmit_buf;
-						buflen = info->xmit_count;
-						if (dev->mdm.atmodem[midx].mdmreg[13] & 2) {
-							/* Add T.70 simplified header */
-#ifdef ISDN_DEBUG_MODEM_DUMP
-							isdn_dumppkt("T70pack3:", bufptr, buflen, 40);
-#endif
-							bufptr -= 4;
-							buflen += 4;
-							memcpy(bufptr, "\1\0\1\0", 4);
-#ifdef ISDN_DEBUG_MODEM_DUMP
-							isdn_dumppkt("T70pack4:", bufptr, buflen, 40);
-#endif
-						}
-						if (isdn_writebuf_stub(info->isdn_driver, info->isdn_channel,
-                                                                       bufptr, buflen, 0) > 0) {
-							info->xmit_count = 0;
-							info->xmit_size = dev->mdm.atmodem[midx].mdmreg[16] * 16;
-#if FUTURE
-							info->send_outstanding++;
-							dev->mdm.msr[midx] &= ~UART_MSR_CTS;
-#endif
-							if ((tty->flags & (1 << TTY_DO_WRITE_WAKEUP)) &&
-							    tty->ldisc.write_wakeup)
-								(tty->ldisc.write_wakeup) (tty);
-							wake_up_interruptible(&tty->write_wait);
-						}
+                                                isdn_tty_senddown(info,midx);
 					}
 					restore_flags(flags);
 				}

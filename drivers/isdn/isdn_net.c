@@ -21,6 +21,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.7  1996/04/30 11:10:42  fritz
+ * Added Michael's ippp-bind patch.
+ *
  * Revision 1.6  1996/04/30 09:34:35  fritz
  * Removed compatibility-macros.
  *
@@ -2066,8 +2069,9 @@ int isdn_net_getcfg(isdn_net_ioctl_cfg * cfg)
 		cfg->l3_proto = p->local.l3_proto;
 		cfg->p_encap = p->local.p_encap;
 		cfg->secure = (p->local.flags & ISDN_NET_SECURE) ? 1 : 0;
-		cfg->callback = (p->local.flags & ISDN_NET_CALLBACK) ? 1 : 0;
-		cfg->callback = (p->local.flags & ISDN_NET_CBOUT) ? 2 : 0;
+		cfg->callback = 0;
+                if (p->local.flags & ISDN_NET_CALLBACK)
+                        cfg->callback = (p->local.flags & ISDN_NET_CBOUT)?2:1;
 		cfg->cbhup = (p->local.flags & ISDN_NET_CBHUP) ? 1 : 0;
 		cfg->chargehup = (p->local.hupflags & 4) ? 1 : 0;
 		cfg->ihup = (p->local.hupflags & 8) ? 1 : 0;

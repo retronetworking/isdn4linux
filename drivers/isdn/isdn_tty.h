@@ -20,6 +20,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.1  1996/01/10 21:39:22  fritz
+ * Initial revision
+ *
  */
 
 extern void  isdn_tty_modem_result(int, modem_info *);
@@ -31,6 +34,7 @@ extern int   isdn_tty_modem_init(void);
 extern void  isdn_tty_readmodem(void);
 extern int   isdn_tty_try_read(int, u_char *, int);
 extern int   isdn_tty_find_icall(int, int, char *);
+extern int   isdn_tty_handleDLEup(unsigned char *, int);
 #if FUTURE
 extern void  isdn_tty_bsent(int, int);
 #endif
