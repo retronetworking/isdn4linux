@@ -2,25 +2,39 @@
 
 KERNELDIR=/usr/src/linux
 
+KERNFIRST=no
+if [ "$1" = "-r" ]; then
+  KERNFIRST=yes
+  shift
+fi
+
+dodiff() {
+  if [ "$KERNFIRST" = "yes" ]; then
+    diff -u $2 $1
+  else
+    diff -u $1 $2
+  fi
+}
+
 if [ $# != 0 ]; then
   for i in $* ; do
-    diff -u $i $KERNELDIR/$i
+    dodiff $i $KERNELDIR/$i
   done
 else
   for i in drivers/isdn/isdn_*.[ch] ; do
-    diff -u $i $KERNELDIR/$i
+    dodiff $i $KERNELDIR/$i
   done
   for i in drivers/isdn/icn/icn.[ch] ; do
-    diff -u $i $KERNELDIR/$i
+    dodiff $i $KERNELDIR/$i
   done
   for i in drivers/isdn/teles/*.[ch] ; do
-    diff -u $i $KERNELDIR/$i
+    dodiff $i $KERNELDIR/$i
   done
   for i in drivers/isdn/pcbit/*.[ch] ; do
-    diff -u $i $KERNELDIR/$i
+    dodiff $i $KERNELDIR/$i
   done
   for i in include/linux/isdn*.h ; do
-    diff -u $i $KERNELDIR/$i
+    dodiff $i $KERNELDIR/$i
   done
 fi
 
