@@ -27,6 +27,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.35  1998/01/31 22:14:14  keil
+ * changes for 2.1.82
+ *
  * Revision 1.34  1997/10/09 21:28:11  fritz
  * New HL<->LL interface:
  *   New BSENT callback with nr. of bytes included.
@@ -474,9 +477,6 @@ typedef struct isdn_net_local_s {
   struct sk_buff         *sav_skb;     /* Ptr to skb, rejected by LL-driver*/
                                        /* Ptr to orig. hard_header_cache   */
   int                    (*org_hhc)(
-#if (LINUX_VERSION_CODE < 0x02014f) /* 2.1.79 */
-				    struct dst_entry *dst,
-#endif
 				    struct neighbour *neigh,
 				    struct hh_cache *hh);
                                        /* Ptr to orig. header_cache_update */
@@ -536,7 +536,8 @@ typedef struct isdn_net_dev_s {
 #define ISDN_ASYNC_PGRP_LOCKOUT       0x0200 /* Lock cua opens on pgrp       */
 #define ISDN_ASYNC_CALLOUT_NOHUP      0x0400 /* No hangup for cui            */
 #define ISDN_ASYNC_SPLIT_TERMIOS      0x0008 /* Sep. termios for dialin/out  */
-#define ISDN_SERIAL_XMIT_SIZE           4000 /* Maximum bufsize for write    */
+#define ISDN_SERIAL_XMIT_SIZE           1024 /* Default bufsize for write    */
+#define ISDN_SERIAL_XMIT_MAX            4000 /* Maximum bufsize for write    */
 #define ISDN_SERIAL_TYPE_NORMAL            1
 #define ISDN_SERIAL_TYPE_CALLOUT           2
 
@@ -558,18 +559,19 @@ typedef struct isdn_audio_skb {
 
 /* Private data of AT-command-interpreter */
 typedef struct atemu {
-  u_char              profile[ISDN_MODEM_ANZREG]; /* Modem-Regs. Profile 0 */
-  u_char              mdmreg[ISDN_MODEM_ANZREG];  /* Modem-Registers       */
-  char                pmsn[ISDN_MSNLEN]; /* EAZ/MSNs Profile 0             */
-  char                msn[ISDN_MSNLEN];/* EAZ/MSN                          */
+	u_char       profile[ISDN_MODEM_ANZREG]; /* Modem-Regs. Profile 0              */
+	u_char       mdmreg[ISDN_MODEM_ANZREG];  /* Modem-Registers                    */
+	char         pmsn[ISDN_MSNLEN];          /* EAZ/MSNs Profile 0                 */
+	char         msn[ISDN_MSNLEN];           /* EAZ/MSN                            */
 #ifdef CONFIG_ISDN_AUDIO
-  u_char              vpar[10];        /* Voice-parameters                 */
-  int                 lastDLE;         /* Flag for voice-coding: DLE seen  */
+	u_char       vpar[10];                   /* Voice-parameters                   */
+	int          lastDLE;                    /* Flag for voice-coding: DLE seen    */
 #endif
-  int                 mdmcmdl;         /* Length of Modem-Commandbuffer    */
-  int                 pluscount;       /* Counter for +++ sequence         */
-  int                 lastplus;        /* Timestamp of last +              */
-  char                mdmcmd[255];     /* Modem-Commandbuffer              */
+	int          mdmcmdl;                    /* Length of Modem-Commandbuffer      */
+	int          pluscount;                  /* Counter for +++ sequence           */
+	int          lastplus;                   /* Timestamp of last +                */
+	char         mdmcmd[255];                /* Modem-Commandbuffer                */
+	unsigned int charge;                     /* Charge units of current connection */
 } atemu;
 
 /* Private data (similar to async_struct in <linux/serial.h>) */
@@ -705,11 +707,38 @@ struct ippp_struct {
 
 /*======================== End of sync-ppp stuff ===========================*/
 
+/*======================== Start of V.110 stuff ============================*/
+#define V110_BUFSIZE 1024
+
+typedef struct {
+	int nbytes;                    /* 1 Matrixbyte -> nbytes in stream     */
+	int nbits;                     /* Number of used bits in streambyte    */
+	unsigned char key;             /* Bitmask in stream eg. 11 (nbits=2)   */
+	int decodelen;                 /* Amount of data in decodebuf          */
+	int encodelen;                 /* Amount of data in endecodebuf        */
+	int SyncInit;                  /* Number of sync frames to send        */
+	unsigned char *OnlineFrame;    /* Precalculated V110 idle frame        */
+	unsigned char *OfflineFrame;   /* Precalculated V110 sync Frame        */
+	int framelen;                  /* Length of sync/idle frames           */
+	unsigned long jiffies;
+	int skbuser;                   /* Number of unacked userdata skbs      */
+	int skbidle;                   /* Number of unacked idle/sync skbs     */
+	int introducer;                /* Local vars for decoder               */
+	int dbit;
+	unsigned char b;
+	int skbres;                    /* space to reserve in outgoing skb     */
+	int maxsize;                   /* maxbufsize of lowlevel driver        */
+	unsigned char decodebuf[V110_BUFSIZE]; /* incomplete V110 matrices     */
+	unsigned char encodebuf[V110_BUFSIZE]; /* incomplete V110 matrices     */
+} isdn_v110_stream;
+
+/*========================= End of V.110 stuff =============================*/
+
 /*======================= Start of general stuff ===========================*/
 
 typedef struct {
-  char *next;
-  char *private;
+	char *next;
+	char *private;
 } infostruct;
 
 /* Description of hardware-level-driver */
@@ -764,6 +793,9 @@ typedef struct isdn_devt {
   isdn_net_dev      *st_netdev[ISDN_MAX_CHANNELS]; /* stat netdev-pointers   */
   ulong             ibytes[ISDN_MAX_CHANNELS]; /* Statistics incoming bytes  */
   ulong             obytes[ISDN_MAX_CHANNELS]; /* Statistics outgoing bytes  */
+  int               v110emu[ISDN_MAX_CHANNELS];/* V.110 emulator-mode 0=none */
+  atomic_t          v110use[ISDN_MAX_CHANNELS];/* Usage-Semaphore for stream */
+  isdn_v110_stream  *v110[ISDN_MAX_CHANNELS];  /* V.110 private data         */
 } isdn_dev;
 
 extern isdn_dev *dev;
