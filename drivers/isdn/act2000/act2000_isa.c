@@ -20,6 +20,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.5  1998/02/12 23:06:47  keil
+ * change for 2.1.86 (removing FREE_READ/FREE_WRITE from [dev]_kfree_skb()
+ *
  * Revision 1.4  1997/10/09 22:23:00  fritz
  * New HL<->LL interface:
  *   New BSENT callback with nr. of bytes included.
@@ -80,9 +83,9 @@ isa_reset(unsigned short portbase)
         found = 0;
         if ((reg = inb(portbase + ISA_COR)) != 0xff) {
                 outb(reg | ISA_COR_RESET, portbase + ISA_COR);
-                udelay(10000);
+                mdelay(10);
                 outb(reg, portbase + ISA_COR);
-                udelay(10000);
+                mdelay(10);
 
                 for (i = 0; i < 16; i++) {
                         if (inb(portbase + ISA_ISR) & ISA_ISR_SERIAL)

@@ -19,6 +19,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.52  1998/05/20 19:29:58  tsbogend
+ * fixed bug introduced by changes for new BSENT callback
+ *
  * Revision 1.51  1998/03/07 22:29:55  fritz
  * Adapted Detlef's chenges for 2.1.
  *
@@ -1275,7 +1278,7 @@ icn_writecmd(const u_char * buf, int len, int user, icn_card * card)
 			icn_map_channel(lastmap_card, lastmap_channel);
 		restore_flags(flags);
 		if (len) {
-			udelay(1000);
+			mdelay(1);
 			if (loop++ > 20)
 				break;
 		} else

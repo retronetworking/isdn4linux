@@ -20,6 +20,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.54  1998/06/07 00:20:13  fritz
+ * abc cleanup.
+ *
  * Revision 1.53  1998/06/02 12:10:16  detabc
  * wegen einer einstweiliger verfuegung gegen DW ist zur zeit
  * die abc-extension bis zur klaerung der rechtslage nicht verfuegbar
@@ -1296,6 +1299,7 @@ isdn_tty_write(struct tty_struct *tty, int from_user, const u_char * buf, int co
 {
 	int c;
 	int total = 0;
+	u_char * tmp = NULL;
 	ulong flags;
 	modem_info *info = (modem_info *) tty->driver_data;
 
@@ -1303,6 +1307,18 @@ isdn_tty_write(struct tty_struct *tty, int from_user, const u_char * buf, int co
 		return 0;
 	if (!tty)
 		return 0;
+	/* brute force method to fix user space access with interrupts off */
+	if(from_user) {
+		tmp = kmalloc(count,GFP_KERNEL);
+		if ( ! tmp ) return -ENOMEM;
+		if( copy_from_user(tmp,buf,count) ){
+			kfree(tmp);
+			return -EFAULT;
+		}
+		buf = tmp;
+		from_user = 0;
+	}
+	/* however, is turning of interrupts really necessary ? */
 	save_flags(flags);
 	cli();
 	while (1) {
@@ -1387,6 +1403,7 @@ isdn_tty_write(struct tty_struct *tty, int from_user, const u_char * buf, int co
 	if ((info->xmit_count) || (skb_queue_len(&info->xmit_queue)))
 		isdn_timer_ctrl(ISDN_TIMER_MODEMXMIT, 1);
 	restore_flags(flags);
+	if( tmp ) kfree(tmp);
 	return total;
 }
 

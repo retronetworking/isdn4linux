@@ -19,6 +19,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.5  1998/04/14 20:59:32  he
+ * merged 2.1.94 changes
+ *
  * Revision 1.4  1998/02/24 21:39:05  he
  * L2_PROT_X25DTE / DCE
  * additional state 17 and new internal signal messages "BCON_I"
@@ -909,7 +912,7 @@ isdnloop_parse_cmd(isdnloop_card * card)
 					isdnloop_fake(card->rcard[ch - 1], buf, card->rch[ch - 1] + 1);
 					/* Fall through */
 				case 3:
-					/* si1 does not match, dont alert but start timer */
+					/* si1 does not match, don't alert but start timer */
 					isdnloop_start_ctimer(card, ch - 1);
 					break;
 				case 1:

@@ -6,6 +6,9 @@
  * (c) Copyright 1997 by Carsten Paeth (calle@calle.in-berlin.de)
  * 
  * $Log$
+ * Revision 1.7  1998/03/29 16:06:02  calle
+ * changes from 2.0 tree merged.
+ *
  * Revision 1.2.2.2  1998/01/23 16:49:30  calle
  * added functions for pcmcia cards,
  * avmb1_addcard returns now the controller number.
@@ -94,7 +97,7 @@ int b1pci_init(void)
 
 	printk(KERN_INFO "b1pci: revision %s\n", rev);
 
-	while (dev = pci_find_device(PCI_VENDOR_ID_AVM, PCI_DEVICE_ID_AVM_B1, dev)) {
+	while ((dev = pci_find_device(PCI_VENDOR_ID_AVM, PCI_DEVICE_ID_AVM_B1, dev))) {
 		unsigned int ioaddr = dev->base_address[1] & PCI_BASE_ADDRESS_IO_MASK;
 		unsigned int irq = dev->irq;
 		printk(KERN_INFO

@@ -21,6 +21,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.65  1998/06/07 00:20:00  fritz
+ * abc cleanup.
+ *
  * Revision 1.64  1998/06/02 12:10:03  detabc
  * wegen einer einstweiliger verfuegung gegen DW ist zur zeit
  * die abc-extension bis zur klaerung der rechtslage nicht verfuegbar
@@ -1184,143 +1187,6 @@ isdn_poll(struct file *file, poll_table * wait)
 	return POLLERR;
 }
 
-/* 
- * This accesses user space with interrupts off, but is not needed by
- * any of the isdn4k-util programs anyway. Thus, in contrast to your
- * first impression after looking at the code, fixing is trival!*/
-#if 0 
-static int
-isdn_set_allcfg(char *src)
-{
-	int ret;
-	int i;
-	ulong flags;
-	isdn_net_ioctl_cfg cfg;
-	isdn_net_ioctl_phone phone;
-
-	if ((ret = isdn_net_rmall()))
-		return ret;
-	if (copy_from_user((char *) &i, src, sizeof(int))) return -EFAULT;
-	save_flags(flags);
-	cli();
-	src += sizeof(int);
-	while (i) {
-		int phone_len;
-		int out_flag;
-
-		if (copy_from_user((char *) &cfg, src, sizeof(cfg))) {
-			restore_flags(flags);
-			return -EFAULT;
-		}
-		src += sizeof(cfg);
-		if (!isdn_net_new(cfg.name, NULL)) {
-			restore_flags(flags);
-			return -EIO;
-		}
-		if ((ret = isdn_net_setcfg(&cfg))) {
-			restore_flags(flags);
-			return ret;
-		}
-		phone_len = out_flag = 0;
-		while (out_flag < 2) {
-			if ((ret = verify_area(VERIFY_READ, src, 1))) {
-				restore_flags(flags);
-				return ret;
-			}
-			get_user(phone.phone[phone_len], src++);
-			if ((phone.phone[phone_len] == ' ') ||
-			    (phone.phone[phone_len] == '\0')) {
-				if (phone_len) {
-					phone.phone[phone_len] = '\0';
-					strcpy(phone.name, cfg.name);
-					phone.outgoing = out_flag;
-					if ((ret = isdn_net_addphone(&phone))) {
-						restore_flags(flags);
-						return ret;
-					}
-				} else
-					out_flag++;
-				phone_len = 0;
-			}
-			if (++phone_len >= sizeof(phone.phone))
-				printk(KERN_WARNING
-				       "%s: IIOCSETSET phone number too long, ignored\n",
-				       cfg.name);
-		}
-		i--;
-	}
-	restore_flags(flags);
-	return 0;
-}
-
-static int
-isdn_get_allcfg(char *dest)
-{
-	isdn_net_ioctl_cfg cfg;
-	isdn_net_ioctl_phone phone;
-	isdn_net_dev *p;
-	ulong flags;
-	int ret;
-
-	/* Walk through netdev-chain */
-	save_flags(flags);
-	cli();
-	p = dev->netdev;
-	while (p) {
-		isdn_net_local *lp = p->local;
-
-		if ((ret = verify_area(VERIFY_WRITE, (void *) dest, sizeof(cfg) + 200))) {
-			restore_flags(flags);
-			return ret;
-		}
-		strcpy(cfg.eaz, lp->msn);
-		cfg.exclusive = lp->exclusive;
-		if (lp->pre_device >= 0) {
-			sprintf(cfg.drvid, "%s,%d", dev->drvid[lp->pre_device],
-				lp->pre_channel);
-		} else
-			cfg.drvid[0] = '\0';
-		cfg.onhtime = lp->onhtime;
-		cfg.charge = lp->charge;
-		cfg.l2_proto = lp->l2_proto;
-		cfg.l3_proto = lp->l3_proto;
-		cfg.p_encap = lp->p_encap;
-		cfg.secure = (lp->flags & ISDN_NET_SECURE) ? 1 : 0;
-		cfg.callback = (lp->flags & ISDN_NET_CALLBACK) ? 1 : 0;
-		cfg.chargehup = (lp->hupflags & ISDN_CHARGEHUP) ? 1 : 0;
-		cfg.ihup = (lp->hupflags & ISDN_INHUP) ? 1 : 0;
-		cfg.chargeint = lp->chargeint;
-		if (copy_to_user(dest, lp->name, 10)) {
-			restore_flags(flags);
-			return -EFAULT;
-		}
-		dest += 10;
-		if (copy_to_user(dest, (char *) &cfg, sizeof(cfg))) {
-			restore_flags(flags);
-			return -EFAULT;
-		}
-		dest += sizeof(cfg);
-		strcpy(phone.name, lp->name);
-		phone.outgoing = 0;
-		if ((ret = isdn_net_getphones(&phone, dest)) < 0) {
-			restore_flags(flags);
-			return ret;
-		} else
-			dest += ret;
-		strcpy(phone.name, lp->name);
-		phone.outgoing = 1;
-		if ((ret = isdn_net_getphones(&phone, dest)) < 0) {
-			restore_flags(flags);
-			return ret;
-		} else
-			dest += ret;
-		put_user(0, dest);
-		p = p->next;
-	}
-	restore_flags(flags);
-	return 0;
-}
-#endif
 
 static int
 isdn_ioctl(struct inode *inode, struct file *file, uint cmd, ulong arg)
@@ -1631,24 +1497,6 @@ isdn_ioctl(struct inode *inode, struct file *file, uint cmd, ulong arg)
 					return -ENODEV;
 				dev->drv[drvidx]->reject_bus = iocts.arg;
 				return 0;
-#if 0
-			case IIOCGETSET:
-				/* Get complete setup (all network-interfaces and profile-
-				   settings of all tty-devices */
-				if (arg)
-					return (isdn_get_allcfg((char *) arg));
-				else
-					return -EINVAL;
-				break;
-			case IIOCSETSET:
-				/* Set complete setup (all network-interfaces and profile-
-				   settings of all tty-devices */
-				if (arg)
-					return (isdn_set_allcfg((char *) arg));
-				else
-					return -EINVAL;
-				break;
-#endif
 			case IIOCSIGPRF:
 				dev->profd = current;
 				return 0;

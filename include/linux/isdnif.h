@@ -1,7 +1,3 @@
-/* X25 changes:
-   Added constants ISDN_PROTO_L2_X25DTE/DCE and corresponding ISDN_FEATURE_..
-   */
-
 /* $Id$
  *
  * Linux ISDN subsystem
@@ -26,6 +22,10 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.24  1998/03/19 13:18:57  keil
+ * Start of a CAPI like interface for supplementary Service
+ * first service: SUSPEND
+ *
  * Revision 1.23  1998/02/20 17:36:52  fritz
  * Added L2-protocols for V.110, changed FEATURE-Flag-constants.
  *

@@ -1,9 +1,3 @@
-/* Changes for X.25 support:
-   Added ISDN_NET_ENCAP_X25IFACE macro.
-   Additional field in isdn_net_dev_s and isdn_net_local to support
-   generic encapsulation protocols. 
-*/
-
 /* $Id$
  *
  * Main header for the Linux ISDN subsystem (linklevel).
@@ -27,6 +21,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.52  1998/06/12 11:42:18  detabc
+ * cleanup abc
+ *
  * Revision 1.51  1998/06/02 12:10:30  detabc
  * wegen einer einstweiliger verfuegung gegen DW ist zur zeit
  * die abc-extension bis zur klaerung der rechtslage nicht verfuegbar

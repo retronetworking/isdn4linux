@@ -21,6 +21,11 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.69  1998/06/09 12:27:37  cal
+ * Changed default of local netdev flags: ISDN_NET_STOPPED is default now,
+ * so autodial is suppressed for that device until it is switched on using
+ * 'isdnctrl status dev-name on'.
+ *
  * Revision 1.68  1998/06/07 00:20:05  fritz
  * abc cleanup.
  *
@@ -297,9 +302,7 @@
 #include <linux/isdn.h>
 #include <net/arp.h>
 #include <net/icmp.h>
-#ifndef DEV_NUMBUFFS
 #include <net/pkt_sched.h>
-#endif
 #include <linux/inetdevice.h>
 #include "isdn_common.h"
 #include "isdn_net.h"
@@ -317,9 +320,6 @@ int isdn_net_force_dial_lp(isdn_net_local *);
 static int isdn_net_wildmat(char *s, char *p);
 static int isdn_net_start_xmit(struct sk_buff *, struct device *);
 static int isdn_net_xmit(struct device *, isdn_net_local *, struct sk_buff *);
-#ifdef DEV_NUMBUFFS
-static void dev_purge_queues(struct device *dev);	/* move this to net/core/dev.c */
-#endif
 
 char *isdn_net_revision = "$Revision$";
 
@@ -452,10 +452,6 @@ isdn_net_unbind_channel(isdn_net_local * lp)
 		dev_kfree_skb(lp->sav_skb);
 		lp->sav_skb = NULL;
 	}
-#ifdef DEV_NUMBUFFS
-	if (!lp->master)        /* purge only for master device */
-		dev_purge_queues(&lp->netdev->dev);
-#else
 	if (!lp->master) {	/* reset only master device */
 		/* Moral equivalent of dev_purge_queues():
 		   BEWARE! This chunk of code cannot be called from hardware
@@ -463,7 +459,6 @@ isdn_net_unbind_channel(isdn_net_local * lp)
 		 */
 		qdisc_reset(lp->netdev->dev.qdisc);
 	}
-#endif
 	lp->dialstate = 0;
 	dev->rx_netdev[isdn_dc2minor(lp->isdn_device, lp->isdn_channel)] = NULL;
 	dev->st_netdev[isdn_dc2minor(lp->isdn_device, lp->isdn_channel)] = NULL;
@@ -514,6 +509,7 @@ isdn_net_autohup()
 #else
  			if ((l->onhtime) && (l->huptimer > l->onhtime))
 #endif
+			{
 				if (l->hupflags & ISDN_MANCHARGE &&
 				    l->hupflags & ISDN_CHARGEHUP) {
 					while (jiffies - l->chargetime > l->chargeint)
@@ -537,7 +533,7 @@ isdn_net_autohup()
 						isdn_net_hangup(&p->dev);
 				} else if (l->hupflags & ISDN_INHUP)
 					isdn_net_hangup(&p->dev);
-
+			}
 #ifdef CONFIG_ISDN_BUDGET
 			if(isdn_net_budget(ISDN_BUDGET_CHECK_ONLINE, &p->dev)) {
 				isdn_net_hangup(&p->dev);
@@ -1979,11 +1975,6 @@ isdn_net_init(struct device *ndev)
 
 	for (i = 0; i < ETH_ALEN; i++)
 		ndev->broadcast[i] = 0xff;
-
-#ifdef DEV_NUMBUFFS
-	for (i = 0; i < DEV_NUMBUFFS; i++)
-		skb_queue_head_init(&ndev->buffs[i]);
-#endif
 
 	/* The ISDN-specific entries in the device structure. */
 	ndev->open = &isdn_net_open;
