@@ -75,9 +75,6 @@ include $(TOPDIR)/drivers/isdn/Rules.make
 
 # Link rules for multi-part drivers.
 
-hfc_usb.o: hfc_usb_l1.o
-	$(LD) -r -o $@ hfc_usb_l1.o
-
 hisax.o: $(hisax-objs)
 	$(LD) -r -o $@ $(hisax-objs)
 
