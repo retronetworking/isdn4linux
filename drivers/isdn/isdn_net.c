@@ -21,6 +21,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.48.2.22  1998/10/25 15:48:13  fritz
+ * Misc bugfixes and adaptions to new HiSax
+ *
  * Revision 1.48.2.21  1998/10/23 10:14:02  paul
  * Implementation of "dialmode" (successor of "status")
  * You also need current isdnctrl for this!
@@ -623,6 +626,7 @@ isdn_net_stat_callback(int idx, isdn_ctrl *c)
 							lp->sav_skb = NULL;
 						}
 					}
+					lp->flags &= ~ISDN_NET_CONNECTED;
 					isdn_free_channel(lp->isdn_device, lp->isdn_channel,
 							  ISDN_USAGE_NET);
 #ifdef CONFIG_ISDN_PPP
