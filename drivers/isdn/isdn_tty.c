@@ -20,6 +20,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.41.2.8  1998/08/22 16:43:07  armin
+ * Added silence detection in audio receive mode (AT+VSD).
+ *
  * Revision 1.41.2.7  1998/06/07 13:48:08  fritz
  * ABC cleanup
  *
@@ -831,20 +834,20 @@ isdn_tty_dial(char *n, modem_info * info, atemu * m)
 		cmd.driver = info->isdn_driver;
 		cmd.arg = info->isdn_channel;
 		cmd.command = ISDN_CMD_CLREAZ;
-		dev->drv[info->isdn_driver]->interface->command(&cmd);
+		isdn_command(&cmd);
 		strcpy(cmd.parm.num, isdn_map_eaz2msn(m->msn, info->isdn_driver));
 		cmd.driver = info->isdn_driver;
 		cmd.command = ISDN_CMD_SETEAZ;
-		dev->drv[info->isdn_driver]->interface->command(&cmd);
+		isdn_command(&cmd);
 		cmd.driver = info->isdn_driver;
 		cmd.command = ISDN_CMD_SETL2;
 		info->last_l2 = l2;
 		cmd.arg = info->isdn_channel + (l2 << 8);
-		dev->drv[info->isdn_driver]->interface->command(&cmd);
+		isdn_command(&cmd);
 		cmd.driver = info->isdn_driver;
 		cmd.command = ISDN_CMD_SETL3;
 		cmd.arg = info->isdn_channel + (m->mdmreg[15] << 8);
-		dev->drv[info->isdn_driver]->interface->command(&cmd);
+		isdn_command(&cmd);
 		cmd.driver = info->isdn_driver;
 		cmd.arg = info->isdn_channel;
 		sprintf(cmd.parm.setup.phone, "%s", n);
@@ -856,7 +859,7 @@ isdn_tty_dial(char *n, modem_info * info, atemu * m)
 		info->dialing = 1;
 		strcpy(dev->num[i], n);
 		isdn_info_update();
-		dev->drv[info->isdn_driver]->interface->command(&cmd);
+		isdn_command(&cmd);
 	}
 }
 
@@ -905,7 +908,7 @@ isdn_tty_modem_hup(modem_info * info, int local)
 			cmd.driver = info->isdn_driver;
 			cmd.command = ISDN_CMD_HANGUP;
 			cmd.arg = info->isdn_channel;
-			dev->drv[info->isdn_driver]->interface->command(&cmd);
+			isdn_command(&cmd);
 		}
 		isdn_all_eaz(info->isdn_driver, info->isdn_channel);
 		info->emu.mdmreg[1] = 0;
@@ -1976,9 +1979,11 @@ isdn_tty_modem_init(void)
  * Return Index to dev->mdm or -1 if none found.
  */
 int
-isdn_tty_find_icall(int di, int ch, setup_parm setup)
+isdn_tty_find_icall(int di, isdn_ctrl *c)
 {
 	char *eaz;
+	int ch = c->arg;
+	setup_parm setup = c->parm.setup;
 	int i;
 	int idx;
 	int si1;
@@ -2788,15 +2793,15 @@ isdn_tty_cmd_ATA(modem_info * info)
 		cmd.command = ISDN_CMD_SETL2;
 		cmd.arg = info->isdn_channel + (l2 << 8);
 		info->last_l2 = l2;
-		dev->drv[info->isdn_driver]->interface->command(&cmd);
+		isdn_command(&cmd);
 		cmd.driver = info->isdn_driver;
 		cmd.command = ISDN_CMD_SETL3;
 		cmd.arg = info->isdn_channel + (m->mdmreg[15] << 8);
-		dev->drv[info->isdn_driver]->interface->command(&cmd);
+		isdn_command(&cmd);
 		cmd.driver = info->isdn_driver;
 		cmd.arg = info->isdn_channel;
 		cmd.command = ISDN_CMD_ACCEPTD;
-		dev->drv[info->isdn_driver]->interface->command(&cmd);
+		isdn_command(&cmd);
 	} else
 		isdn_tty_modem_result(8, info);
 }

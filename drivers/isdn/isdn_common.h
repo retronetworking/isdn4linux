@@ -21,6 +21,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.6.2.1  1998/03/16 09:55:48  cal
+ * Merged in TimRu-patches. Still needs validation in conjunction with ABC-patches.
+ *
  * Revision 1.6  1997/02/28 02:32:44  fritz
  * Cleanup: Moved some tty related stuff from isdn_common.c
  *          to isdn_tty.c
@@ -60,6 +63,7 @@
 extern void isdn_MOD_INC_USE_COUNT(void);
 extern void isdn_MOD_DEC_USE_COUNT(void);
 extern void isdn_free_channel(int di, int ch, int usage);
+extern int isdn_command(isdn_ctrl *);
 extern void isdn_all_eaz(int di, int ch);
 extern int isdn_dc2minor(int di, int ch);
 extern void isdn_info_update(void);

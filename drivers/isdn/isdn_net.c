@@ -21,6 +21,10 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.48.2.21  1998/10/23 10:14:02  paul
+ * Implementation of "dialmode" (successor of "status")
+ * You also need current isdnctrl for this!
+ *
  * Revision 1.48.2.20  1998/08/03 15:52:00  paul
  * various changes from 2.0.3[45] kernel sources, as suggested by
  * Oliver.Lauer@coburg.baynet.de
@@ -454,9 +458,11 @@ isdn_net_unbind_channel(isdn_net_local * lp)
 	if (!lp->master)        /* purge only for master device */
 		dev_purge_queues(&lp->netdev->dev);
 	lp->dialstate = 0;
-	dev->rx_netdev[isdn_dc2minor(lp->isdn_device, lp->isdn_channel)] = NULL;
-	dev->st_netdev[isdn_dc2minor(lp->isdn_device, lp->isdn_channel)] = NULL;
-	isdn_free_channel(lp->isdn_device, lp->isdn_channel, ISDN_USAGE_NET);
+	if (lp->isdn_device != -1 && lp->isdn_device != -1) {
+		dev->rx_netdev[isdn_dc2minor(lp->isdn_device, lp->isdn_channel)] = NULL;
+		dev->st_netdev[isdn_dc2minor(lp->isdn_device, lp->isdn_channel)] = NULL;
+		isdn_free_channel(lp->isdn_device, lp->isdn_channel, ISDN_USAGE_NET);
+	}
 	lp->flags &= ~ISDN_NET_CONNECTED;
 	lp->isdn_device = -1;
 	lp->isdn_channel = -1;
@@ -560,12 +566,14 @@ isdn_net_autohup()
  * Return: 1 = Event handled, 0 = not for us or unknown Event.
  */
 int
-isdn_net_stat_callback(int idx, int cmd)
+isdn_net_stat_callback(int idx, isdn_ctrl *c)
 {
 	isdn_net_dev *p = dev->st_netdev[idx];
 
 	if (p) {
 		isdn_net_local *lp = &(p->local);
+		int cmd = c->command;
+
 		switch (cmd) {
 			case ISDN_STAT_BSENT:
 				/* A packet has successfully been sent out */
@@ -604,15 +612,16 @@ isdn_net_stat_callback(int idx, int cmd)
 				break;
 			case ISDN_STAT_DHUP:
 				/* Either D-Channel-hangup or error during dialout */
-				if ((!lp->dialstate) && (lp->flags & ISDN_NET_CONNECTED)) {
-					lp->flags &= ~ISDN_NET_CONNECTED;
-					if (lp->first_skb) {
-						dev_kfree_skb(lp->first_skb, FREE_WRITE);
-						lp->first_skb = NULL;
-					}
-					if (lp->sav_skb) {
-						dev_kfree_skb(lp->sav_skb, FREE_WRITE);
-						lp->sav_skb = NULL;
+				if (lp->flags & ISDN_NET_CONNECTED) {
+					if (!lp->dialstate) {
+						if (lp->first_skb) {
+							dev_kfree_skb(lp->first_skb, FREE_WRITE);
+							lp->first_skb = NULL;
+						}
+						if (lp->sav_skb) {
+							dev_kfree_skb(lp->sav_skb, FREE_WRITE);
+							lp->sav_skb = NULL;
+						}
 					}
 					isdn_free_channel(lp->isdn_device, lp->isdn_channel,
 							  ISDN_USAGE_NET);
@@ -620,13 +629,15 @@ isdn_net_stat_callback(int idx, int cmd)
 					isdn_ppp_free(lp);
 #endif
 					isdn_all_eaz(lp->isdn_device, lp->isdn_channel);
-					printk(KERN_INFO "%s: remote hangup\n", lp->name);
+					printk(KERN_INFO "%s: remote %s\n", lp->name,
+						lp->dialstate?"abort":"hangup");
 					printk(KERN_INFO "%s: Chargesum is %d\n", lp->name,
 						lp->charge);
 					lp->isdn_device = -1;
 					lp->isdn_channel = -1;
 					dev->st_netdev[idx] = NULL;
 					dev->rx_netdev[idx] = NULL;
+					lp->dialstate = 0;
 					return 1;
 				}
 				break;
@@ -778,10 +789,10 @@ isdn_net_dial(void)
 				cmd.driver = p->local.isdn_device;
 				cmd.arg = p->local.isdn_channel;
 				cmd.command = ISDN_CMD_CLREAZ;
-				dev->drv[p->local.isdn_device]->interface->command(&cmd);
+				isdn_command(&cmd);
 				sprintf(cmd.parm.num, "%s", isdn_map_eaz2msn(p->local.msn, cmd.driver));
 				cmd.command = ISDN_CMD_SETEAZ;
-				dev->drv[p->local.isdn_device]->interface->command(&cmd);
+				isdn_command(&cmd);
 				p->local.dialretry = 0;
 				anymore = 1;
 				p->local.dialstate++;
@@ -804,11 +815,11 @@ isdn_net_dial(void)
 				cmd.driver = p->local.isdn_device;
 				cmd.command = ISDN_CMD_SETL2;
 				cmd.arg = p->local.isdn_channel + (p->local.l2_proto << 8);
-				dev->drv[p->local.isdn_device]->interface->command(&cmd);
+				isdn_command(&cmd);
 				cmd.driver = p->local.isdn_device;
 				cmd.command = ISDN_CMD_SETL3;
 				cmd.arg = p->local.isdn_channel + (p->local.l3_proto << 8);
-				dev->drv[p->local.isdn_device]->interface->command(&cmd);
+				isdn_command(&cmd);
 				cmd.driver = p->local.isdn_device;
 				cmd.arg = p->local.isdn_channel;
 				save_flags(flags);
@@ -880,7 +891,8 @@ isdn_net_dial(void)
 					printk(KERN_DEBUG "dial: d=%d c=%d\n", p->local.isdn_device,
 					       p->local.isdn_channel);
 #endif
-					dev->drv[p->local.isdn_device]->interface->command(&cmd);
+					cmd.driver = p->local.isdn_device;
+					isdn_command(&cmd);
 				}
 				p->local.huptimer = 0;
 				p->local.outgoing = 1;
@@ -913,7 +925,7 @@ isdn_net_dial(void)
 				anymore = 1;
 				p->local.dtimer = 0;
 				p->local.dialstate++;
-				dev->drv[p->local.isdn_device]->interface->command(&cmd);
+				isdn_command(&cmd);
 				break;
 			case 6:
 				/* Wait for B- or D-Channel-connect. If timeout,
@@ -937,11 +949,11 @@ isdn_net_dial(void)
 				cmd.driver = p->local.isdn_device;
 				cmd.command = ISDN_CMD_SETL2;
 				cmd.arg = p->local.isdn_channel + (p->local.l2_proto << 8);
-				dev->drv[p->local.isdn_device]->interface->command(&cmd);
+				isdn_command(&cmd);
 				cmd.driver = p->local.isdn_device;
 				cmd.command = ISDN_CMD_SETL3;
 				cmd.arg = p->local.isdn_channel + (p->local.l3_proto << 8);
-				dev->drv[p->local.isdn_device]->interface->command(&cmd);
+				isdn_command(&cmd);
 
 				if (p->local.dtimer++ > ISDN_TIMER_DTIMEOUT15)
 					isdn_net_hangup(&p->dev);
@@ -955,7 +967,7 @@ isdn_net_dial(void)
 				cmd.driver = p->local.isdn_device;
 				cmd.arg = p->local.isdn_channel;
 				cmd.command = ISDN_CMD_ACCEPTB;
-				dev->drv[p->local.isdn_device]->interface->command(&cmd);
+				isdn_command(&cmd);
 				anymore = 1;
 				p->local.dtimer = 0;
 				p->local.dialstate++;
@@ -966,7 +978,7 @@ isdn_net_dial(void)
 #ifdef ISDN_DEBUG_NET_DIAL
 				printk(KERN_DEBUG "dialtimer4: %d\n", p->local.dtimer);
 #endif
-				if (p->local.dtimer++ > ISDN_TIMER_DTIMEOUT10)
+				if (p->local.dtimer++ > ISDN_TIMER_DTIMEOUT60)
 					isdn_net_hangup(&p->dev);
 				else
 					anymore = 1;
@@ -989,7 +1001,7 @@ isdn_net_dial(void)
 					cmd.driver = p->local.isdn_device;
 					cmd.command = ISDN_CMD_HANGUP;
 					cmd.arg = p->local.isdn_channel;
-					(void) dev->drv[cmd.driver]->interface->command(&cmd);
+					isdn_command(&cmd);
 					isdn_all_eaz(p->local.isdn_device, p->local.isdn_channel);
 				}
 				anymore = 1;
@@ -1018,12 +1030,14 @@ isdn_net_hangup(struct device *d)
 #ifdef CONFIG_ISDN_PPP
 		isdn_ppp_free(lp);
 #endif
-		cmd.driver = lp->isdn_device;
-		cmd.command = ISDN_CMD_HANGUP;
-		cmd.arg = lp->isdn_channel;
-		(void) dev->drv[cmd.driver]->interface->command(&cmd);
+		if ((lp->isdn_device != -1) && (lp->isdn_channel != -1)) {
+			cmd.driver = lp->isdn_device;
+			cmd.command = ISDN_CMD_HANGUP;
+			cmd.arg = lp->isdn_channel;
+			isdn_command(&cmd);
+			isdn_all_eaz(lp->isdn_device, lp->isdn_channel);
+		}
 		printk(KERN_INFO "%s: Chargesum is %d\n", lp->name, lp->charge);
-		isdn_all_eaz(lp->isdn_device, lp->isdn_channel);
 	}
 	isdn_net_unbind_channel(lp);
 }
@@ -1297,12 +1311,18 @@ printk("reject: jiffies=%ld, started=%ld, timeout=%d, wait=%ld, timer=%ld\n", ji
 				}
 
 				/* Grab a free ISDN-Channel */
-				if ((chi =
+				if (((chi =
 				     isdn_get_free_channel(ISDN_USAGE_NET,
 							   lp->l2_proto,
 							   lp->l3_proto,
 							   lp->pre_device,
-						 lp->pre_channel)) < 0) {
+						 lp->pre_channel)) < 0) &&
+				    ((chi =
+					 isdn_get_free_channel(ISDN_USAGE_NET,
+							   lp->l2_proto,
+							   lp->l3_proto,
+							   lp->pre_device,
+						 lp->pre_channel^1)) < 0)) {
 					restore_flags(flags);
 #if 0
 					printk(KERN_WARNING
@@ -1946,9 +1966,11 @@ isdn_net_swap_usage(int i1, int i2)
  *               4 = Wait cbdelay, then call back
  */
 int
-isdn_net_find_icall(int di, int ch, int idx, setup_parm setup)
+isdn_net_find_icall(int di, isdn_ctrl *c, int idx)
 {
 	char *eaz;
+	int ch = c->arg;
+	setup_parm setup = c->parm.setup;
 	int si1;
 	int si2;
 	int ematch;

@@ -21,6 +21,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.5  1997/02/10 20:12:47  fritz
+ * Changed interface for reporting incoming calls.
+ *
  * Revision 1.4  1997/02/03 23:16:48  fritz
  * Removed isdn_net_receive_callback prototype.
  *
@@ -46,13 +49,13 @@ extern char *isdn_net_new(char *, struct device *);
 extern char *isdn_net_newslave(char *);
 extern int isdn_net_rm(char *);
 extern int isdn_net_rmall(void);
-extern int isdn_net_stat_callback(int, int);
+extern int isdn_net_stat_callback(int, isdn_ctrl *);
 extern int isdn_net_setcfg(isdn_net_ioctl_cfg *);
 extern int isdn_net_getcfg(isdn_net_ioctl_cfg *);
 extern int isdn_net_addphone(isdn_net_ioctl_phone *);
 extern int isdn_net_getphones(isdn_net_ioctl_phone *, char *);
 extern int isdn_net_delphone(isdn_net_ioctl_phone *);
-extern int isdn_net_find_icall(int, int, int, setup_parm);
+extern int isdn_net_find_icall(int, isdn_ctrl *, int);
 extern void isdn_net_hangup(struct device *);
 extern void isdn_net_dial(void);
 extern void isdn_net_autohup(void);

@@ -21,6 +21,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.44.2.4  1998/06/07 13:47:44  fritz
+ * ABC cleanup
+ *
  * Revision 1.44.2.2  1998/03/16 09:55:44  cal
  * Merged in TimRu-patches. Still needs validation in conjunction with ABC-patches.
  *
@@ -409,6 +412,15 @@ isdn_receive_skb_callback(int di, int channel, struct sk_buff *skb)
 		isdn_trash_skb(skb, FREE_READ);
 }
 
+/*
+ * Intercept command from Linklevel to Lowlevel.
+ */
+int
+isdn_command(isdn_ctrl *cmd)
+{
+	return dev->drv[cmd->driver]->interface->command(cmd);
+}
+
 void
 isdn_all_eaz(int di, int ch)
 {
@@ -420,7 +432,7 @@ isdn_all_eaz(int di, int ch)
 	cmd.arg = ch;
 	cmd.command = ISDN_CMD_SETEAZ;
 	cmd.parm.num[0] = '\0';
-	(void) dev->drv[di]->interface->command(&cmd);
+	isdn_command(&cmd);
 }
 
 static int
@@ -441,7 +453,7 @@ isdn_status_callback(isdn_ctrl * c)
 				return -1;
 			if (dev->global_flags & ISDN_GLOBAL_STOPPED)
 				return 0;
-			if (isdn_net_stat_callback(i, c->command))
+			if (isdn_net_stat_callback(i, c))
 				return 0;
 			if (isdn_tty_stat_callback(i, c))
 				return 0;
@@ -473,27 +485,27 @@ isdn_status_callback(isdn_ctrl * c)
 				cmd.driver = di;
 				cmd.arg = c->arg;
 				cmd.command = ISDN_CMD_HANGUP;
-				dev->drv[di]->interface->command(&cmd);
+				isdn_command(&cmd);
 				return 0;
 			}
 			/* Try to find a network-interface which will accept incoming call */
 			cmd.driver = di;
 			cmd.arg = c->arg;
 			cmd.command = ISDN_CMD_LOCK;
-			dev->drv[di]->interface->command(&cmd);
-			r = isdn_net_find_icall(di, c->arg, i, c->parm.setup);
+			isdn_command(&cmd);
+			r = isdn_net_find_icall(di, c, i);
 			switch (r) {
 				case 0:
 					/* No network-device replies.
 					 * Try ttyI's
 					 */
-					if (isdn_tty_find_icall(di, c->arg, c->parm.setup) >= 0)
+					if (isdn_tty_find_icall(di, c) >= 0)
 						retval = 1;
 					else if (dev->drv[di]->reject_bus) {
 						cmd.driver = di;
 						cmd.arg = c->arg;
 						cmd.command = ISDN_CMD_HANGUP;
-						dev->drv[di]->interface->command(&cmd);
+						isdn_command(&cmd);
 						retval = 2;
 					}
 					break;
@@ -503,7 +515,7 @@ isdn_status_callback(isdn_ctrl * c)
 					cmd.driver = di;
 					cmd.arg = c->arg;
 					cmd.command = ISDN_CMD_ACCEPTD;
-					dev->drv[di]->interface->command(&cmd);
+					isdn_command(&cmd);
 					retval = 1;
 					break;
 				case 2:	/* For calling back, first reject incoming call ... */
@@ -513,7 +525,7 @@ isdn_status_callback(isdn_ctrl * c)
 					cmd.driver = di;
 					cmd.arg = c->arg;
 					cmd.command = ISDN_CMD_HANGUP;
-					dev->drv[di]->interface->command(&cmd);
+					isdn_command(&cmd);
 					if (r == 3)
 						break;
 					/* Fall through */
@@ -526,7 +538,7 @@ isdn_status_callback(isdn_ctrl * c)
 				cmd.driver = di;
 				cmd.arg = c->arg;
 				cmd.command = ISDN_CMD_UNLOCK;
-				dev->drv[di]->interface->command(&cmd);
+				isdn_command(&cmd);
 			}
 			return retval;
 			break;
@@ -539,7 +551,7 @@ isdn_status_callback(isdn_ctrl * c)
 			if (dev->global_flags & ISDN_GLOBAL_STOPPED)
 				return 0;
 			if (strcmp(c->parm.num, "0"))
-				isdn_net_stat_callback(i, c->command);
+				isdn_net_stat_callback(i, c);
 			break;
 		case ISDN_STAT_CAUSE:
 #ifdef ISDN_DEBUG_STATCALLB
@@ -558,14 +570,14 @@ isdn_status_callback(isdn_ctrl * c)
 			if (dev->global_flags & ISDN_GLOBAL_STOPPED)
 				return 0;
 			/* Find any net-device, waiting for D-channel setup */
-			if (isdn_net_stat_callback(i, c->command))
+			if (isdn_net_stat_callback(i, c))
 				break;
 			/* Find any ttyI, waiting for D-channel setup */
 			if (isdn_tty_stat_callback(i, c)) {
 				cmd.driver = di;
 				cmd.arg = c->arg;
 				cmd.command = ISDN_CMD_ACCEPTB;
-				dev->drv[di]->interface->command(&cmd);
+				isdn_command(&cmd);
 				break;
 			}
 			break;
@@ -580,7 +592,7 @@ isdn_status_callback(isdn_ctrl * c)
 			dev->drv[di]->flags &= ~(1 << (c->arg));
 			isdn_info_update();
 			/* Signal hangup to network-devices */
-			if (isdn_net_stat_callback(i, c->command))
+			if (isdn_net_stat_callback(i, c))
 				break;
 			if (isdn_tty_stat_callback(i, c))
 				break;
@@ -596,7 +608,7 @@ isdn_status_callback(isdn_ctrl * c)
 				return 0;
 			dev->drv[di]->flags |= (1 << (c->arg));
 			isdn_info_update();
-			if (isdn_net_stat_callback(i, c->command))
+			if (isdn_net_stat_callback(i, c))
 				break;
 			if (isdn_tty_stat_callback(i, c))
 				break;
@@ -622,7 +634,7 @@ isdn_status_callback(isdn_ctrl * c)
 #endif
 			if (dev->global_flags & ISDN_GLOBAL_STOPPED)
 				return 0;
-			if (isdn_net_stat_callback(i, c->command))
+			if (isdn_net_stat_callback(i, c))
 				break;
 			if (isdn_tty_stat_callback(i, c))
 				break;
@@ -1637,7 +1649,7 @@ isdn_ioctl(struct inode *inode, struct file *file, uint cmd, ulong arg)
 					c.command = ISDN_CMD_IOCTL;
 					c.arg = cmd;
 					memcpy(c.parm.num, (char *) &iocts.arg, sizeof(ulong));
-					ret = dev->drv[drvidx]->interface->command(&c);
+					ret = isdn_command(&c);
 					memcpy((char *) &iocts.arg, c.parm.num, sizeof(ulong));
 					if ((copy_to_user((char *) arg, &iocts, sizeof(isdn_ioctl_struct))))
 						return -EFAULT;
@@ -1699,7 +1711,7 @@ isdn_open(struct inode *ino, struct file *filep)
 			return -ENODEV;
 		c.command = ISDN_CMD_LOCK;
 		c.driver = drvidx;
-		(void) dev->drv[drvidx]->interface->command(&c);
+		isdn_command(&c);
 		MOD_INC_USE_COUNT;
 		return 0;
 	}
@@ -1710,7 +1722,7 @@ isdn_open(struct inode *ino, struct file *filep)
 		c.command = ISDN_CMD_LOCK;
 		c.driver = drvidx;
 		MOD_INC_USE_COUNT;
-		(void) dev->drv[drvidx]->interface->command(&c);
+		isdn_command(&c);
 		return 0;
 	}
 #ifdef CONFIG_ISDN_PPP
@@ -1756,7 +1768,7 @@ isdn_close(struct inode *ino, struct file *filep)
 			return CLOSEVAL;
 		c.command = ISDN_CMD_UNLOCK;
 		c.driver = drvidx;
-		(void) dev->drv[drvidx]->interface->command(&c);
+		isdn_command(&c);
 		return CLOSEVAL;
 	}
 	if (minor <= ISDN_MINOR_CTRLMAX) {
@@ -1767,7 +1779,7 @@ isdn_close(struct inode *ino, struct file *filep)
 			dev->profd = NULL;
 		c.command = ISDN_CMD_UNLOCK;
 		c.driver = drvidx;
-		(void) dev->drv[drvidx]->interface->command(&c);
+		isdn_command(&c);
 		return CLOSEVAL;
 	}
 #ifdef CONFIG_ISDN_PPP
@@ -1842,7 +1854,7 @@ isdn_get_free_channel(int usage, int l2_proto, int l3_proto, int pre_dev
 						cmd.driver = d;
 						cmd.arg = 0;
 						cmd.command = ISDN_CMD_LOCK;
-						(void) dev->drv[d]->interface->command(&cmd);
+						isdn_command(&cmd);
 						restore_flags(flags);
 						return i;
 					} else {
@@ -1853,7 +1865,7 @@ isdn_get_free_channel(int usage, int l2_proto, int l3_proto, int pre_dev
 							cmd.driver = d;
 							cmd.arg = 0;
 							cmd.command = ISDN_CMD_LOCK;
-							(void) dev->drv[d]->interface->command(&cmd);
+							isdn_command(&cmd);
 							restore_flags(flags);
 							return i;
 						}
@@ -1891,7 +1903,7 @@ isdn_free_channel(int di, int ch, int usage)
 			cmd.arg = ch;
 			cmd.command = ISDN_CMD_UNLOCK;
 			restore_flags(flags);
-			(void) dev->drv[di]->interface->command(&cmd);
+			isdn_command(&cmd);
 			return;
 		}
 	restore_flags(flags);
