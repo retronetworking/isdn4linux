@@ -1491,7 +1491,6 @@ static int capi_manufacturer(unsigned int cmd, void *data)
 		if (copy_from_user(&cdef, data, sizeof(cdef)))
 			return -EFAULT;
 
-		printk("cdef.contr %d\n", cdef.contr);
 		if (!VALID_CARD(cdef.contr))
 			return -ENODEV;
 

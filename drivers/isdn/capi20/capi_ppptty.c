@@ -23,12 +23,11 @@
 #include <net/capi/capi.h>
 #include <net/capi/command.h>
 #include "capi.h"
-// for __exit
 #include <linux/isdn_compat.h>
 
 // ----------------------------------------------------------------------
 
-#define CAPINC_NR_PORTS 256
+#define CAPI_PPPTTY_NR_PORTS 256
 
 #define CAPI_MAX_BLKSIZE	2048
 
@@ -121,7 +120,7 @@ capi_ppptty_recv(struct capincci *np, struct sk_buff *skb)
 // ------------------------------------------------------ sending -------
 
 static int
-capinc_tty_write_room(struct tty_struct *tty)
+capi_ppptty_write_room(struct tty_struct *tty)
 {
 	struct capi_ppptty *cp = tty->driver_data;
 
@@ -136,7 +135,7 @@ capinc_tty_write_room(struct tty_struct *tty)
 }
 
 static int
-capinc_tty_write(struct tty_struct * tty, int from_user,
+capi_ppptty_write(struct tty_struct * tty, int from_user,
 		 const unsigned char *buf, int count)
 {
 	struct capi_ppptty *cp = tty->driver_data;
@@ -153,7 +152,7 @@ capinc_tty_write(struct tty_struct * tty, int from_user,
 
 	skb = alloc_skb(CAPI_DATA_B3_REQ_LEN+count, GFP_ATOMIC);
 	if (!skb) {
-		printk(KERN_ERR "capinc_tty_write: alloc_skb failed\n");
+		printk(KERN_ERR "capi_ppptty_write: alloc_skb failed\n");
 		return -ENOMEM;
 	}
 
@@ -198,7 +197,7 @@ send_stop_queue(struct capincci *np)
 }
 
 static int
-capinc_tty_chars_in_buffer(struct tty_struct *tty)
+capi_ppptty_chars_in_buffer(struct tty_struct *tty)
 {
 	struct capi_ppptty *cp = tty->driver_data;
 
@@ -238,7 +237,6 @@ ncci_connect(struct capidev *cdev, struct ncci_connect_data *data)
 	struct list_head *p;
         unsigned int minor = 0;
 
-	HDEBUG;
 	MOD_INC_USE_COUNT;
 	
 	cp = kmalloc(sizeof(struct capi_ppptty), GFP_KERNEL);
@@ -297,7 +295,7 @@ find_capi_ppptty(int minor)
 }
 
 static int
-capinc_tty_open(struct tty_struct * tty, struct file * file)
+capi_ppptty_open(struct tty_struct * tty, struct file * file)
 {
 	struct capi_ppptty *cp;
 
@@ -315,7 +313,7 @@ capinc_tty_open(struct tty_struct * tty, struct file * file)
 }
 
 static void
-capinc_tty_close(struct tty_struct * tty, struct file * file)
+capi_ppptty_close(struct tty_struct * tty, struct file * file)
 {
 	struct capi_ppptty *cp;
 
@@ -332,30 +330,30 @@ capinc_tty_close(struct tty_struct * tty, struct file * file)
 
 // ----------------------------------------------------------------------
 
-static int capinc_tty_refcount;
-static struct tty_struct *capinc_tty_table[CAPINC_NR_PORTS];
-static struct termios *capinc_tty_termios[CAPINC_NR_PORTS];
-static struct termios *capinc_tty_termios_locked[CAPINC_NR_PORTS];
+static int capi_ppptty_refcount;
+static struct tty_struct *capi_ppptty_table[CAPI_PPPTTY_NR_PORTS];
+static struct termios *capi_ppptty_termios[CAPI_PPPTTY_NR_PORTS];
+static struct termios *capi_ppptty_termios_locked[CAPI_PPPTTY_NR_PORTS];
 
-static struct tty_driver capinc_tty_driver = {
+static struct tty_driver capi_ppptty_driver = {
 	magic:           TTY_DRIVER_MAGIC,
-	driver_name:     "capi_nc",
+	driver_name:     "capi_ppptty",
 	name:            "capi/%d",
 	minor_start:     0,
-	num:             CAPINC_NR_PORTS,
+	num:             CAPI_PPPTTY_NR_PORTS,
 	type:            TTY_DRIVER_TYPE_SERIAL,
 	subtype:         SERIAL_TYPE_NORMAL,
 	flags:           TTY_DRIVER_REAL_RAW|TTY_DRIVER_RESET_TERMIOS,
-	refcount:        &capinc_tty_refcount,
-	table:           capinc_tty_table,
-	termios:         capinc_tty_termios,
-	termios_locked:  capinc_tty_termios_locked,
+	refcount:        &capi_ppptty_refcount,
+	table:           capi_ppptty_table,
+	termios:         capi_ppptty_termios,
+	termios_locked:  capi_ppptty_termios_locked,
 	
-	open:            capinc_tty_open,
-	close:           capinc_tty_close,
-	write:           capinc_tty_write,
-	write_room:      capinc_tty_write_room,
-	chars_in_buffer: capinc_tty_chars_in_buffer,
+	open:            capi_ppptty_open,
+	close:           capi_ppptty_close,
+	write:           capi_ppptty_write,
+	write_room:      capi_ppptty_write_room,
+	chars_in_buffer: capi_ppptty_chars_in_buffer,
 };
 
 extern int (*capi_ppptty_connect)(struct capidev *cdev, struct ncci_connect_data *data);
@@ -364,20 +362,18 @@ static int __init capi_ppptty_init(void)
 {
 	int retval;
 	
-	HDEBUG;
-
 	MOD_INC_USE_COUNT;
 
 	capi_ppptty_connect = &ncci_connect;
 
-	capinc_tty_driver.major = capi_ttymajor,
-	capinc_tty_driver.init_termios = tty_std_termios;
-	capinc_tty_driver.init_termios.c_iflag = ICRNL;
-	capinc_tty_driver.init_termios.c_oflag = OPOST | ONLCR;
-	capinc_tty_driver.init_termios.c_cflag = B9600 | CS8 | CREAD | HUPCL | CLOCAL;
-	capinc_tty_driver.init_termios.c_lflag = 0;
+	capi_ppptty_driver.major = capi_ttymajor,
+	capi_ppptty_driver.init_termios = tty_std_termios;
+	capi_ppptty_driver.init_termios.c_iflag = ICRNL;
+	capi_ppptty_driver.init_termios.c_oflag = OPOST | ONLCR;
+	capi_ppptty_driver.init_termios.c_cflag = B9600 | CS8 | CREAD | HUPCL | CLOCAL;
+	capi_ppptty_driver.init_termios.c_lflag = 0;
 
-	retval = tty_register_driver(&capinc_tty_driver);
+	retval = tty_register_driver(&capi_ppptty_driver);
 	if (retval < 0) {
 		printk(KERN_ERR "Couldn't register capi_nc driver\n");
 		goto out;
@@ -392,7 +388,7 @@ static int __init capi_ppptty_init(void)
 static void __exit capi_ppptty_exit(void) 
 {
 	capi_ppptty_connect = NULL;
-	tty_unregister_driver(&capinc_tty_driver);
+	tty_unregister_driver(&capi_ppptty_driver);
 }
 
 module_init(capi_ppptty_init);
