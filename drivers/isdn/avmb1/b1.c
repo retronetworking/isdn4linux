@@ -6,6 +6,9 @@
  * (c) Copyright 1999 by Carsten Paeth (calle@calle.in-berlin.de)
  * 
  * $Log$
+ * Revision 1.4  1999/07/09 15:05:38  keil
+ * compat.h is now isdn_compat.h
+ *
  * Revision 1.3  1999/07/06 07:41:59  calle
  * - changes in /proc interface
  * - check and changed calls to [dev_]kfree_skb and [dev_]alloc_skb.
@@ -569,6 +572,8 @@ int b1ctl_read_proc(char *page, char **start, off_t off,
 	len += sprintf(page+len, "%-16s %s\n", "name", card->name);
 	len += sprintf(page+len, "%-16s 0x%x\n", "io", card->port);
 	len += sprintf(page+len, "%-16s %d\n", "irq", card->irq);
+	if (card->cardtype == avm_t1pci)
+	   len += sprintf(page+len, "%-16s %d\n", "membase", card->membase);
 	switch (card->cardtype) {
 	case avm_b1isa: s = "B1 ISA"; break;
 	case avm_b1pci: s = "B1 PCI"; break;
@@ -616,11 +621,6 @@ int b1ctl_read_proc(char *page, char **start, off_t off,
 	}
 	len += sprintf(page+len, "%-16s %s\n", "cardname", card->cardname);
 
-	if (len < off) 
-           return 0;
-	*eof = 1;
-	*start = page - off;
-	return ((count < len-off) ? count : len-off);
 	if (len < off) 
            return 0;
 	*eof = 1;

@@ -4,6 +4,12 @@
  * Copyright 1999 by Carsten Paeth (calle@calle.in-berlin.de)
  *
  * $Log$
+ * Revision 1.2  1999/07/05 15:09:45  calle
+ * - renamed "appl_release" to "appl_released".
+ * - version und profile data now cleared on controller reset
+ * - extended /proc interface, to allow driver and controller specific
+ *   informations to include by driver hackers.
+ *
  * Revision 1.1  1999/07/01 15:26:22  calle
  * complete new version (I love it):
  * + new hardware independed "capi_driver" interface that will make it easy to:
@@ -57,6 +63,7 @@ typedef struct avmcard {
 	char name[32];
 	unsigned int port;
 	unsigned irq;
+	unsigned long membase;
 	enum avmcardtype cardtype;
 	int cardnr; /* for t1isa */
 
@@ -71,6 +78,10 @@ typedef struct avmcard {
 	char databuf[2048];	/* capimsg data part */
 
 	int interrupt;
+
+	void *mbase;
+	unsigned long recvlen;   
+	__u32 csr;
 
 	struct capi_ctr *ctrl;
 } avmcard;
@@ -168,6 +179,7 @@ extern int b1_irq_table[16];
 					   * int32 Length message
 					   * 
 					 */
+#define RECEIVE_POLLDWORD	0x73
 
 #define WRITE_REGISTER		0x00
 #define READ_REGISTER		0x01
@@ -505,6 +517,9 @@ static inline void b1_setinterrupt(unsigned int base, unsigned irq,
 	      b1outp(base, B1_INSTAT, 0x00);
 	      b1outp(base, B1_RESET, 0xf0);
 	      b1outp(base, B1_INSTAT, 0x02);
+	      break;
+	   case avm_t1pci:
+	      b1outp(base, B1_RESET, 0xf0);
 	      break;
 	 }
 }

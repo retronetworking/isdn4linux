@@ -16,6 +16,7 @@
 #include <linux/mm.h>
 
 #define ioremap vremap
+#define ioremap_nocache vremap
 #define iounmap vfree
 
 static inline unsigned long copy_from_user(void *to, const void *from, unsigned long n)
