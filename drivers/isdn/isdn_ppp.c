@@ -19,6 +19,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.56  1999/09/29 16:01:06  he
+ * replaced dev_alloc_skb() for downstream skbs by equivalent alloc_skb()
+ *
  * Revision 1.55  1999/09/23 22:07:51  detabc
  *
  * make ipc_head common usable (for use compressor with raw-ip)
@@ -224,10 +227,6 @@
 
 /* TODO: right tbusy handling when using MP */
 
-/*
- * experimental for dynamic addressing: readdress IP frames
- */
-#undef ISDN_SYNCPPP_READDRESS
 #define CONFIG_ISDN_CCP 1
 
 #include <linux/config.h>
@@ -375,10 +374,6 @@ isdn_ppp_free(isdn_net_local * lp)
 		printk(KERN_DEBUG "isdn_ppp_free %d %lx %lx\n", lp->ppp_slot, (long) lp, (long) is->lp);
 
 	is->lp = NULL;          /* link is down .. set lp to NULL */
-#ifdef ISDN_SYNCPPP_READDRESS
-	is->old_pa_addr = 0x0;
-	is->old_pa_dstaddr = 0x0;
-#endif
 	lp->ppp_slot = -1;      /* is this OK ?? */
 	restore_flags(flags);
 
@@ -1500,12 +1495,6 @@ isdn_ppp_xmit(struct sk_buff *skb, struct net_device *netdev)
 	ipts = ippp_table[mlp->ppp_slot];
 
 	if (!(ipts->pppcfg & SC_ENABLE_IP)) {	/* PPP connected ? */
-#ifdef ISDN_SYNCPPP_READDRESS
-		if (!ipts->old_pa_addr)
-			ipts->old_pa_addr = mdev->pa_addr;
-		if (!ipts->old_pa_dstaddr)
-			ipts->old_pa_dstaddr = mdev->pa_dstaddr;
-#endif
 		if (ipts->debug & 0x1)
 			printk(KERN_INFO "%s: IP frame delayed.\n", netdev->name);
 		return 1;
@@ -1514,21 +1503,6 @@ isdn_ppp_xmit(struct sk_buff *skb, struct net_device *netdev)
 	switch (ntohs(skb->protocol)) {
 		case ETH_P_IP:
 			proto = PPP_IP;
-#ifdef ISDN_SYNCPPP_READDRESS
-			if (ipts->old_pa_addr != mdev->pa_addr) {
-				struct iphdr *ipfr;
-				ipfr = (struct iphdr *) skb->data;
-				if(ipts->debug & 0x4)
-					printk(KERN_DEBUG "IF-address changed from %lx to %lx\n", ipts->old_pa_addr, mdev->pa_addr);
-				if (ipfr->version == 4) {
-					if (ipfr->saddr == ipts->old_pa_addr) {
-						printk(KERN_DEBUG "readdressing %lx to %lx\n", ipfr->saddr, mdev->pa_addr);
-						ipfr->saddr = mdev->pa_addr;
-					}
-				}
-			}
-			/* dstaddr change not so important */
-#endif
 			break;
 		case ETH_P_IPX:
 			proto = PPP_IPX;	/* untested */
@@ -1559,8 +1533,6 @@ isdn_ppp_xmit(struct sk_buff *skb, struct net_device *netdev)
 
 	/* Pull off the fake header we stuck on earlier to keep
      * the fragemntation code happy.
-     * this will break the ISDN_SYNCPPP_READDRESS hack a few lines
-     * above. So, enabling this is no longer allowed
      */
 	skb_pull(skb,IPPP_MAX_HEADER);
 
