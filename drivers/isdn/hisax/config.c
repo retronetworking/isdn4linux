@@ -5,6 +5,9 @@
  *
  *
  * $Log$
+ * Revision 1.15.2.26  1999/01/20 14:39:23  keil
+ * fixed readstat problem
+ *
  * Revision 1.15.2.25  1998/11/29 15:34:07  keil
  * add Siemens I-Surf
  *
@@ -719,7 +722,7 @@ VHiSax_putstatus(struct IsdnCardState *cs, char *head, char *fmt, va_list args)
 		return;
 	}
 	if (len > HISAX_STATUS_BUFSIZE) {
-		printk(KERN_WARNING "HiSax: status overflow %d/%d",
+		printk(KERN_WARNING "HiSax: status overflow %d/%d\n",
 			len, HISAX_STATUS_BUFSIZE);
 		restore_flags(flags);
 		return;
