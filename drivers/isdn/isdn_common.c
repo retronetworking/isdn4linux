@@ -21,6 +21,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.8  1996/05/06 11:34:51  hipp
+ * fixed a few bugs
+ *
  * Revision 1.7  1996/05/02 03:55:17  fritz
  * Bugfixes:
  *  - B-channel connect message for modem devices
@@ -244,7 +247,8 @@ static void isdn_receive_callback(int di, int channel, u_char * buf, int len)
 	ulong flags;
 	char *p;
 	int i;
-	int midx;
+        int midx;
+	modem_info *info;
 
 	if (dev->global_flags & ISDN_GLOBAL_STOPPED)
 		return;
@@ -259,14 +263,18 @@ static void isdn_receive_callback(int di, int channel, u_char * buf, int len)
 	if (len) {
 		save_flags(flags);
 		cli();
-                midx = dev->m_idx[i];
-                if ((dev->mdm.online[midx]<2) &&
-                    (dev->mdm.vonline[midx]!=1)) {
+                if ((midx = dev->m_idx[i])<0) {
+                        restore_flags(flags);
+                        return;
+                }
+                info  = &dev->mdm.info[midx];
+                if ((info->online < 2) &&
+                    (info->vonline != 1)) {
                         /* If Modem not listening, drop data */
                         restore_flags(flags);
                         return;
                 }
-                if (dev->mdm.atmodem[midx].mdmreg[13] & 2)
+                if (info->emu.mdmreg[13] & 2)
                         /* T.70 decoding: Simply throw away the T.70 header (4 bytes) */
                         if ((buf[0] == 1) && ((buf[1] == 0) || (buf[1] == 1))) {
 #ifdef ISDN_DEBUG_MODEM_DUMP
@@ -279,9 +287,9 @@ static void isdn_receive_callback(int di, int channel, u_char * buf, int len)
 #endif
                         }
 #ifdef CONFIG_ISDN_AUDIO
-                if (dev->mdm.vonline[midx] == 1) {
+                if (info->vonline == 1) {
                         /* voice conversion/compression */
-                        switch (dev->mdm.atmodem[midx].vpar[3]) {
+                        switch (info->emu.vpar[3]) {
                                 case 1:
                                 case 2:
                                         /* adpcm
@@ -289,7 +297,7 @@ static void isdn_receive_callback(int di, int channel, u_char * buf, int len)
                                          * space, we can overwrite the buffer.
                                          */
                                         isdn_audio_a2l(buf,len);
-                                        len = isdn_audio_lin2adpcm(dev->mdm.atmodem[midx].adpcms,
+                                        len = isdn_audio_lin2adpcm(info->adpcmr,
                                                                    buf,
                                                                    buf,
                                                                    len);
@@ -307,7 +315,7 @@ static void isdn_receive_callback(int di, int channel, u_char * buf, int len)
 #endif
                 /* Try to deliver directly via tty-flip-buf if queue is empty */
                 if (!dev->drv[di]->rpqueue[channel])
-                        if (isdn_tty_try_read(midx, buf, len)) {
+                        if (isdn_tty_try_read(info, buf, len)) {
                                 restore_flags(flags);
                                 return;
                         }
@@ -325,10 +333,8 @@ static void isdn_receive_callback(int di, int channel, u_char * buf, int len)
                         dev->drv[di]->rcvcount[channel] += len;
                 }
                 /* Schedule dequeuing */
-                if ((dev->modempoll) && (midx >= 0)) {
-                        if (dev->mdm.rcvsched[midx])
-                                isdn_timer_ctrl(ISDN_TIMER_MODEMREAD, 1);
-                }
+                if ((dev->modempoll) && (info->rcvsched))
+                        isdn_timer_ctrl(ISDN_TIMER_MODEMREAD, 1);
                 wake_up_interruptible(&dev->drv[di]->rcv_waitq[channel]);
 		restore_flags(flags);
 	}
@@ -352,6 +358,7 @@ static int isdn_status_callback(isdn_ctrl * c)
 	ulong flags;
 	int i;
 	int r;
+        modem_info *info;
 	isdn_ctrl cmd;
 
 	di = c->driver;
@@ -364,9 +371,7 @@ static int isdn_status_callback(isdn_ctrl * c)
                                 return 0;
                         if (isdn_net_stat_callback(i, c->command))
                                 return 0;
-#if FUTURE
                         isdn_tty_bsent(di, c->arg);
-#endif
                         wake_up_interruptible(&dev->drv[di]->snd_waitq[c->arg]);
                         break;
                 case ISDN_STAT_STAVAIL:
@@ -407,8 +412,9 @@ static int isdn_status_callback(isdn_ctrl * c)
                                          * tty and set RI-bit of modem-status.
                                          */
                                         if ((mi = isdn_tty_find_icall(di, c->arg, c->num)) >= 0) {
-                                                dev->mdm.msr[mi] |= UART_MSR_RI;
-                                                isdn_tty_modem_result(2, &dev->mdm.info[mi]);
+                                                info = &dev->mdm.info[mi];
+                                                info->msr |= UART_MSR_RI;
+                                                isdn_tty_modem_result(2, info);
                                                 isdn_timer_ctrl(ISDN_TIMER_MODEMRING, 1);
                                         } else if (dev->drv[di]->reject_bus) {
                                                 cmd.driver = di;
@@ -470,12 +476,13 @@ static int isdn_status_callback(isdn_ctrl * c)
                         if (isdn_net_stat_callback(i, c->command))
                                 break;
 
-			if ((mi = dev->m_idx[i]) >= 0)
+			if ((mi = dev->m_idx[i]) >= 0) {
 				/* If any tty has just dialed-out, setup B-Channel */
-				if (dev->mdm.info[mi].flags &
+                                info = &dev->mdm.info[mi];
+				if (info->flags &
 				    (ISDN_ASYNC_NORMAL_ACTIVE | ISDN_ASYNC_CALLOUT_ACTIVE)) {
-					if (dev->mdm.dialing[mi] == 1) {
-						dev->mdm.dialing[mi] = 2;
+					if (info->dialing == 1) {
+						info->dialing = 2;
 						cmd.driver = di;
 						cmd.arg = c->arg;
 						cmd.command = ISDN_CMD_ACCEPTB;
@@ -483,6 +490,7 @@ static int isdn_status_callback(isdn_ctrl * c)
 						return 0;
 					}
 				}
+                        }
                         break;
                 case ISDN_STAT_DHUP:
 			if (i<0)
@@ -499,18 +507,19 @@ static int isdn_status_callback(isdn_ctrl * c)
                                 break;
 			if ((mi = dev->m_idx[i]) >= 0) {
 				/* Signal hangup to tty-device */
-				if (dev->mdm.info[mi].flags &
+                                info = &dev->mdm.info[mi];
+				if (info->flags &
 				    (ISDN_ASYNC_NORMAL_ACTIVE | ISDN_ASYNC_CALLOUT_ACTIVE)) {
-					if (dev->mdm.dialing[mi] == 1) {
-						dev->mdm.dialing[mi] = 0;
-						isdn_tty_modem_result(7, &dev->mdm.info[mi]);
+					if (info->dialing == 1) {
+						info->dialing = 0;
+						isdn_tty_modem_result(7, info);
 					}
-					if (dev->mdm.online[mi])
-						isdn_tty_modem_result(3, &dev->mdm.info[mi]);
+					if (info->online)
+						isdn_tty_modem_result(3, info);
 #ifdef ISDN_DEBUG_MODEM_HUP
 					printk(KERN_DEBUG "Mhup in ISDN_STAT_DHUP\n");
 #endif
-					isdn_tty_modem_hup(&dev->mdm.info[mi]);
+					isdn_tty_modem_hup(info);
 					return 0;
 				}
 			}
@@ -532,16 +541,17 @@ static int isdn_status_callback(isdn_ctrl * c)
 				/* Schedule CONNECT-Message to any tty, waiting for it and
 				 * set DCD-bit of it's modem-status.
 				 */
-				if (dev->mdm.info[mi].flags &
+                                info = &dev->mdm.info[mi];
+				if (info->flags &
 				    (ISDN_ASYNC_NORMAL_ACTIVE | ISDN_ASYNC_CALLOUT_ACTIVE)) {
-					dev->mdm.msr[mi] |= UART_MSR_DCD;
-					if (dev->mdm.dialing[mi])
-						dev->mdm.dialing[mi] = 0;
-					dev->mdm.rcvsched[mi] = 1;
+					info->msr |= UART_MSR_DCD;
+					if (info->dialing)
+						info->dialing = 0;
+					info->rcvsched = 1;
                                         if (USG_MODEM(dev->usage[i]))
-                                          isdn_tty_modem_result(5, &dev->mdm.info[mi]);
+                                          isdn_tty_modem_result(5, info);
                                         if (USG_VOICE(dev->usage[i]))
-                                          isdn_tty_modem_result(11, &dev->mdm.info[mi]);
+                                          isdn_tty_modem_result(11, info);
 				}
 			}
                         break;
@@ -557,15 +567,16 @@ static int isdn_status_callback(isdn_ctrl * c)
                         isdn_info_update();
 			if ((mi = dev->m_idx[i]) >= 0) {
 				/* Signal hangup to tty-device, schedule NO CARRIER-message */
-				if (dev->mdm.info[mi].flags &
+                                info = &dev->mdm.info[mi];
+				if (info->flags &
 				    (ISDN_ASYNC_NORMAL_ACTIVE | ISDN_ASYNC_CALLOUT_ACTIVE)) {
-					dev->mdm.msr[mi] &= ~(UART_MSR_DCD | UART_MSR_RI);
-					if (dev->mdm.online[mi])
-						isdn_tty_modem_result(3, &dev->mdm.info[mi]);
+					info->msr &= ~(UART_MSR_DCD | UART_MSR_RI);
+					if (info->online)
+						isdn_tty_modem_result(3, info);
 #ifdef ISDN_DEBUG_MODEM_HUP
 					printk(KERN_DEBUG "Mhup in ISDN_STAT_BHUP\n");
 #endif
-					isdn_tty_modem_hup(&dev->mdm.info[mi]);
+					isdn_tty_modem_hup(info);
 				}
 			}
                         break;
@@ -580,16 +591,17 @@ static int isdn_status_callback(isdn_ctrl * c)
                         if (isdn_net_stat_callback(i, c->command))
                                 break;
 			if ((mi = dev->m_idx[i]) >= 0) {
-				if (dev->mdm.info[mi].flags &
+                                info = &dev->mdm.info[mi];
+				if (info->flags &
 				    (ISDN_ASYNC_NORMAL_ACTIVE | ISDN_ASYNC_CALLOUT_ACTIVE)) {
-					if (dev->mdm.dialing[mi]) {
-						dev->mdm.dialing[mi] = 0;
-						isdn_tty_modem_result(6, &dev->mdm.info[mi]);
+					if (info->dialing) {
+						info->dialing = 0;
+						isdn_tty_modem_result(6, info);
 					}
-					dev->mdm.msr[mi] &= ~UART_MSR_DCD;
-					if (dev->mdm.online[mi]) {
-						isdn_tty_modem_result(3, &dev->mdm.info[mi]);
-						dev->mdm.online[mi] = 0;
+					info->msr &= ~UART_MSR_DCD;
+					if (info->online) {
+						isdn_tty_modem_result(3, info);
+						info->online = 0;
 					}
 				}
 			}
@@ -871,7 +883,6 @@ static int isdn_write(struct inode *inode, struct file *file, const char *buf, i
 		if (!dev->drv[drvidx]->running)
 			return -ENODEV;
 		chidx = isdn_minor2chan(minor);
-                dev->obytes[minor] += count;
 		while (isdn_writebuf_stub(drvidx, chidx, buf, count, 1) != count)
 			interruptible_sleep_on(&dev->drv[drvidx]->snd_waitq[chidx]);
 		return count;
@@ -1276,7 +1287,8 @@ static int isdn_ioctl(struct inode *inode, struct file *file, uint cmd, ulong ar
                                         if ((ret = verify_area(VERIFY_READ, (void *) arg,
                                                                sizeof(isdn_ioctl_struct))))
                                                 return ret;
-                                        memcpy_fromfs((char *) &iocts, (char *) arg, sizeof(isdn_ioctl_struct));
+                                        memcpy_fromfs((char *) &iocts, (char *) arg,
+                                                      sizeof(isdn_ioctl_struct));
                                         if (strlen(iocts.drvid)) {
                                                 if ((p = strchr(iocts.drvid, ',')))
                                                         *p = 0;
@@ -1324,9 +1336,10 @@ static int isdn_ioctl(struct inode *inode, struct file *file, uint cmd, ulong ar
                                                 return ret;
                                         
                                         for (i = 0; i < ISDN_MAX_CHANNELS; i++) {
-                                                memcpy_tofs(p, dev->mdm.atmodem[i].profile, ISDN_MODEM_ANZREG);
+                                                memcpy_tofs(p, dev->mdm.info[i].emu.profile,
+                                                            ISDN_MODEM_ANZREG);
                                                 p += ISDN_MODEM_ANZREG;
-                                                memcpy_tofs(p, dev->mdm.atmodem[i].pmsn, ISDN_MSNLEN);
+                                                memcpy_tofs(p, dev->mdm.info[i].emu.pmsn, ISDN_MSNLEN);
                                                 p += ISDN_MSNLEN;
                                         }
                                         return (ISDN_MODEM_ANZREG + ISDN_MSNLEN) * ISDN_MAX_CHANNELS;
@@ -1345,9 +1358,10 @@ static int isdn_ioctl(struct inode *inode, struct file *file, uint cmd, ulong ar
                                                 return ret;
                                         
                                         for (i = 0; i < ISDN_MAX_CHANNELS; i++) {
-                                                memcpy_fromfs(dev->mdm.atmodem[i].profile, p, ISDN_MODEM_ANZREG);
+                                                memcpy_fromfs(dev->mdm.info[i].emu.profile, p,
+                                                              ISDN_MODEM_ANZREG);
                                                 p += ISDN_MODEM_ANZREG;
-                                                memcpy_fromfs(dev->mdm.atmodem[i].pmsn, p, ISDN_MSNLEN);
+                                                memcpy_fromfs(dev->mdm.info[i].emu.pmsn, p, ISDN_MSNLEN);
                                                 p += ISDN_MSNLEN;
                                         }
                                         return 0;
@@ -1726,26 +1740,33 @@ void isdn_receive_skb_callback(int drvidx, int chan, struct sk_buff *skb)
 int isdn_writebuf_stub(int drvidx, int chan, const u_char *buf, int len, 
 		       int user)
 {
+	int ret;
+
         if (dev->drv[drvidx]->interface->writebuf)
-          return dev->drv[drvidx]->interface->writebuf(drvidx, chan, buf,
-                                                       len, user);
+                ret = dev->drv[drvidx]->interface->writebuf(drvidx, chan, buf,
+                                                            len, user);
         else {
-          struct sk_buff * skb;
+                struct sk_buff * skb;
 
-          skb = alloc_skb(dev->drv[drvidx]->interface->hl_hdrlen + len, GFP_ATOMIC);
-          if (skb == NULL)
-                  return 0;
+                skb = alloc_skb(dev->drv[drvidx]->interface->hl_hdrlen + len,
+                                GFP_ATOMIC);
+                if (skb == NULL)
+                        return 0;
 
-          skb_reserve(skb, dev->drv[drvidx]->interface->hl_hdrlen);
-          skb->free = 1;
+                skb_reserve(skb, dev->drv[drvidx]->interface->hl_hdrlen);
+                skb->free = 1;
 
-          if (user)
-                  memcpy_fromfs(skb_put(skb, len), buf, len);
-          else
-                  memcpy(skb_put(skb, len), buf, len);
+                if (user)
+                        memcpy_fromfs(skb_put(skb, len), buf, len);
+                else
+                        memcpy(skb_put(skb, len), buf, len);
 
-          return dev->drv[drvidx]->interface->writebuf_skb(drvidx, chan, skb);
+                ret = dev->drv[drvidx]->interface->writebuf_skb(drvidx,
+                                                                chan, skb);
         }
+        if (ret > 0)
+                dev->obytes[isdn_dc2minor(drvidx,chan)] += ret;
+        return ret;
 }
 
 /*
@@ -1768,6 +1789,8 @@ int isdn_writebuf_skb_stub(int drvidx, int chan, struct sk_buff * skb)
                      writebuf(drvidx,chan,skb->data,skb->len,0))==skb->len)
 		        dev_kfree_skb(skb, FREE_WRITE);
         }
+        if (ret > 0)
+                dev->obytes[isdn_dc2minor(drvidx,chan)] += skb->len;
         return ret;
 }
 
