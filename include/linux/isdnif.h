@@ -22,6 +22,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.31  1999/09/06 07:29:36  fritz
+ * Changed my mail-address.
+ *
  * Revision 1.30  1999/08/23 15:54:29  keil
  * more backported changes from kernel 2.3.14
  *
@@ -620,7 +623,9 @@ typedef struct {
  *
  */
 extern int register_isdn(isdn_if*);
+#ifdef COMPAT_NEED_UACCESS
 #include <asm/uaccess.h>
+#endif
 
 #endif /* __KERNEL__ */
 #endif /* isdnif_h */

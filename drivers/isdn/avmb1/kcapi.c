@@ -6,6 +6,10 @@
  * (c) Copyright 1999 by Carsten Paeth (calle@calle.in-berlin.de)
  * 
  * $Log$
+ * Revision 1.8  1999/09/10 17:24:18  calle
+ * Changes for proposed standard for CAPI2.0:
+ * - AK148 "Linux Exention"
+ *
  * Revision 1.7  1999/09/04 06:20:05  keil
  * Changes from kernel set_current_state()
  *
@@ -61,6 +65,9 @@
 #include <linux/capi.h>
 #include <linux/kernelcapi.h>
 #include <linux/isdn_compat.h>
+#ifdef COMPAT_NEED_UACCESS
+#include <asm/uaccess.h>
+#endif
 #include "capicmd.h"
 #include "capiutil.h"
 #include "capilli.h"

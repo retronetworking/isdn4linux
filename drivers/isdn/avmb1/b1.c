@@ -6,6 +6,9 @@
  * (c) Copyright 1999 by Carsten Paeth (calle@calle.in-berlin.de)
  * 
  * $Log$
+ * Revision 1.10  1999/09/15 08:16:03  calle
+ * Implementation of 64Bit extention complete.
+ *
  * Revision 1.9  1999/09/07 09:02:53  calle
  * SETDATA removed. Now inside the kernel the datapart of DATA_B3_REQ and
  * DATA_B3_IND is always directly after the CAPI message. The "Data" member
@@ -68,6 +71,9 @@
 #include <linux/capi.h>
 #include <asm/io.h>
 #include <linux/isdn_compat.h>
+#ifdef COMPAT_NEED_UACCESS
+#include <asm/uaccess.h>
+#endif
 #include "capilli.h"
 #include "avmcard.h"
 #include "capicmd.h"

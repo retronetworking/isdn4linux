@@ -49,7 +49,7 @@ static inline unsigned long copy_to_user(void *to, const void *from, unsigned lo
 #endif
 #define LSARG off_t
 #else
-#include <asm/uaccess.h>
+#define COMPAT_NEED_UACCESS
 #define GET_USER get_user
 #define PUT_USER put_user
 #define RWTYPE long
