@@ -3023,10 +3023,7 @@ idi_send_data(eicon_card *card, eicon_chan *chan, int ack, struct sk_buff *skb, 
         	chan2->ptr = chan;
 
 	        reqbuf = (eicon_REQ *)skb_put(xmit_skb, plen + sizeof(eicon_REQ));
-		if (((len - offset) > 270) &&
-			(chan->l2prot != ISDN_PROTO_L2_MODEM) &&
-			(chan->l2prot != ISDN_PROTO_L2_FAX) &&
-			(chan->l2prot != ISDN_PROTO_L2_TRANS)) {
+		if ((len - offset) > 270) { 
 		        reqbuf->Req = N_MDATA;
 		} else {
 		        reqbuf->Req = N_DATA;
