@@ -6,6 +6,9 @@
  * (c) Copyright 1999 by Carsten Paeth (calle@calle.in-berlin.de)
  * 
  * $Log$
+ * Revision 1.9  1999/10/11 22:04:12  keil
+ * COMPAT_NEED_UACCESS (no include in isdn_compat.h)
+ *
  * Revision 1.8  1999/09/10 17:24:18  calle
  * Changes for proposed standard for CAPI2.0:
  * - AK148 "Linux Exention"
@@ -1229,7 +1232,12 @@ static int old_capi_manufacturer(unsigned int cmd, void *data)
 			case AVM_CARDTYPE_T1: driver = t1isa_driver; break;
 			default: driver = 0;
 		}
-		if (!driver || !driver->add_card) {
+		if (!driver) {
+			printk(KERN_ERR "kcapi: driver not loaded.\n");
+			return -EIO;
+		}
+		if (!driver->add_card) {
+			printk(KERN_ERR "kcapi: driver has no add card function.\n");
 			return -EIO;
 		}
 
