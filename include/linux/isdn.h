@@ -21,6 +21,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.83  1999/11/26 15:54:59  detabc
+ * added compression (isdn_bsdcompress) for rawip interfaces with x75i B2-protocol.
+ *
  * Revision 1.82  1999/11/20 22:14:14  detabc
  * added channel dial-skip in case of external use
  * (isdn phone or another isdn device) on the same NTBA.
@@ -745,11 +748,11 @@ typedef struct isdn_net_local_s {
   void *dw_abc_bsd_stat_rx;
   void *dw_abc_bsd_stat_tx;
   short dw_abc_bsd_is_rx;
+#endif
   ulong	dw_abc_bsd_snd;
   ulong	dw_abc_bsd_bsd_snd;
   ulong	dw_abc_bsd_rcv;
   ulong	dw_abc_bsd_bsd_rcv;
-#endif
 #endif
 } isdn_net_local;
 

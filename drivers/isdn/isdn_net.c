@@ -21,6 +21,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.97  1999/11/26 15:54:59  detabc
+ * added compression (isdn_bsdcompress) for rawip interfaces with x75i B2-protocol.
+ *
  * Revision 1.96  1999/11/20 22:14:13  detabc
  * added channel dial-skip in case of external use
  * (isdn phone or another isdn device) on the same NTBA.
@@ -1643,20 +1646,34 @@ int isdn_net_send_skb(struct net_device *ndev, isdn_net_local * lp,struct sk_buf
 
 	} else if(skb != NULL) {
 
-		if(lp->dw_abc_if_flags & ISDN_DW_ABC_IFFLAG_BSDAKTIV) {
+		int l = skb->len;
+		int nl = l;
 
-			int l = skb->len;
+		if(lp->dw_abc_if_flags & ISDN_DW_ABC_IFFLAG_BSDAKTIV) {
 
 			if((skb = dwabc_bsd_compress(lp,skb,ndev)) != NULL) {
 
-				lp->dw_abc_bsd_snd += l;
-				lp->dw_abc_bsd_bsd_snd += skb->len;
+				nl = skb->len;
+
+				if(l != nl && (r = isdn_dc2minor(lp->isdn_device,lp->isdn_channel)) >= 0) {
+
+					dev->obytes[r] += l - nl;
+					lp->stats.tx_bytes += l - nl;
+				}
 
 				if(dwabc_helper_isdn_net_send_skb(ndev,lp,skb))
 					lp->dw_abc_next_skb = skb;
+				
+				r = 0;
 			}
 
 		} else  r = dwabc_helper_isdn_net_send_skb(ndev,lp,skb);
+
+		if(lp->p_encap == ISDN_NET_ENCAP_RAWIP && !r) {
+
+			lp->dw_abc_bsd_snd += l;
+			lp->dw_abc_bsd_bsd_snd += nl;
+		}
 	} 
 	
 	clear_bit(ISDN_DW_ABC_BITLOCK_SEND,&lp->dw_abc_bitlocks);
@@ -2260,12 +2277,26 @@ isdn_net_receive(struct net_device *ndev, struct sk_buff *skb)
 			if(lp->p_encap == ISDN_NET_ENCAP_RAWIP) {
 
 				ulong l = skb->len;
-
-				if((skb = dwabc_bsd_rx_pkt(lp,skb,ndev)) == NULL)
-					return;
+				int r = 0;
 
 				lp->dw_abc_bsd_bsd_rcv += l;
+
+				if((skb = dwabc_bsd_rx_pkt(lp,skb,ndev)) == NULL) {
+
+					lp->dw_abc_bsd_rcv += l;
+					return;
+				}
+
 				lp->dw_abc_bsd_rcv += skb->len;
+
+				if(l != skb->len && (r = isdn_dc2minor(olp->isdn_device,olp->isdn_channel)) >= 0) {
+
+					dev->ibytes[r] += skb->len - l;
+					olp->stats.rx_bytes += skb->len - l;
+
+					if(olp != lp)
+						lp->stats.rx_bytes += skb->len - l;
+				}
 			}
 #endif
 #ifdef CONFIG_ISDN_WITH_ABC_RCV_NO_HUPTIMER

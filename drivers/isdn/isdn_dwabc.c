@@ -20,6 +20,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.7  1999/11/26 15:54:59  detabc
+ * added compression (isdn_bsdcompress) for rawip interfaces with x75i B2-protocol.
+ *
  * Revision 1.6  1999/11/20 22:14:13  detabc
  * added channel dial-skip in case of external use
  * (isdn phone or another isdn device) on the same NTBA.
@@ -1779,7 +1782,8 @@ int dwabc_bsd_init(isdn_net_local *lp)
 							
 							if((tx = (*c->alloc)(cp)) == NULL) {
 
-								printk(KERN_INFO "%s: allocation of bsd tx-memory failed\n",lp->name);
+								printk(KERN_INFO
+									"%s: allocation of bsd tx-memory failed\n",lp->name);
 								r = -1;
 
 							} else if(!(*c->init)(tx,cp,0,1)) {
@@ -1805,9 +1809,15 @@ int dwabc_bsd_init(isdn_net_local *lp)
 					restore_flags(flags);
 				}
 
-			} else printk(KERN_INFO "%s: bsd-compress only with L2-Protocol x75i allowed\n",lp->name);
+			} else if(lp->dw_abc_flags & ISDN_DW_ABC_FLAG_BSD_COMPRESS) {
+			
+				printk(KERN_INFO "%s: bsd-compress only with L2-Protocol x75i allowed\n",lp->name);
+			}
 
-		} else printk(KERN_INFO "%s: bsd-compress only with encapsulation rawip allowed\n",lp->name);
+		} else if(lp->dw_abc_flags & ISDN_DW_ABC_FLAG_BSD_COMPRESS) {
+		
+			printk(KERN_INFO "%s: bsd-compress only with encapsulation rawip allowed\n",lp->name);
+		}
 	}
 
 	return(r);
