@@ -5,6 +5,9 @@
  *
  *
  * $Log$
+ * Revision 1.7  2000/01/20 19:47:45  keil
+ * Add Fax Class 1 support
+ *
  * Revision 1.6  1999/10/14 20:25:29  keil
  * add a statistic for error monitoring
  *
@@ -205,7 +208,7 @@
 #define HDLC_ERROR	0x1c
 #define HDLC_ERR_FAD	0x10
 #define HDLC_ERR_RER	0x08
-#define HDLC_ERR_CER	0x01
+#define HDLC_ERR_CER	0x04
 #define SART_NMD	0x01
 
 #define BSTAT_RDM0	0x1
