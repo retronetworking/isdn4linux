@@ -19,6 +19,11 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.6  1998/06/17 19:51:37  he
+ * merged with 2.1.10[34] (cosmetics and udelay() -> mdelay())
+ * brute force fix to avoid Ugh's in isdn_tty_write()
+ * cleaned up some dead code
+ *
  * Revision 1.5  1998/04/14 20:59:32  he
  * merged 2.1.94 changes
  *
@@ -1317,7 +1322,7 @@ isdnloop_command(isdn_ctrl * c, isdnloop_card * card)
 							c->parm.num[0] ? "N" : "ALL", c->parm.num);
 					} else
 						sprintf(cbuf, "%02d;EAZ%s\n", (int) a,
-							c->parm.num[0] ? c->parm.num : "0123456789");
+							c->parm.num[0] ? c->parm.num : (u_char *) "0123456789");
 					i = isdnloop_writecmd(cbuf, strlen(cbuf), 0, card);
 				}
 				break;
