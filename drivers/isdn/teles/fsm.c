@@ -1,6 +1,9 @@
 /* $Id$
  *
  * $Log$
+ * Revision 1.1  1996/04/13 10:23:41  fritz
+ * Initial revision
+ *
  *
  */
 #define __NO_VERSION__
@@ -120,7 +123,7 @@ FsmAddTimer(struct FsmTimer *ft,
 	init_timer(&ft->tl);
 	ft->event = event;
 	ft->arg = arg;
-	ft->tl.expires = RUN_AT((millisec * HZ) / 1000);
+	ft->tl.expires = jiffies + (millisec * HZ) / 1000;
 	add_timer(&ft->tl);
 	return 0;
 }
