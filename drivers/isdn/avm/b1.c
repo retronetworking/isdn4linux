@@ -353,8 +353,6 @@ void b1_register_appl(struct capi_ctr *ctrl,
 	unsigned long flags;
 	int nconn, want = rp->level3cnt;
 
-	MOD_INC_USE_COUNT;
-
 	if (want > 0) nconn = want;
 	else nconn = ctrl->profile.nbchannel * -want;
 	if (nconn == 0) nconn = ctrl->profile.nbchannel;
@@ -384,8 +382,6 @@ void b1_release_appl(struct capi_ctr *ctrl, __u16 appl)
 	b1_put_byte(port, SEND_RELEASE);
 	b1_put_word(port, appl);
 	restore_flags(flags);
-
-	MOD_DEC_USE_COUNT;
 }
 
 void b1_send_message(struct capi_ctr *ctrl, struct sk_buff *skb)

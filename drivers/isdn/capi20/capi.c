@@ -43,7 +43,6 @@
 #include <net/capi/util.h>
 #include <net/capi/command.h>
 #include "capi.h"
-// for fops_get/put
 #include <linux/isdn_compat.h>
 
 static char *revision = "$Revision$";
@@ -562,7 +561,9 @@ capi_open(struct inode *inode, struct file *file)
 
 	return 0;
  outf:
+#ifndef COMPAT_HAS_FILEOP_OWNER
 	MOD_DEC_USE_COUNT;
+#endif
 	return retval;
 }
 

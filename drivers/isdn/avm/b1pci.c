@@ -5,10 +5,10 @@
  * 
  * (c) Copyright 1999 by Carsten Paeth (calle@calle.in-berlin.de)
  * 
- * 2001-02-24 enable unloading when not used
- *            move to new pci interface, cleanup
- *            move to new kernelcapi
- *            Kai Germaschewski (kai.germaschewski@gmx.de)
+ * 2001-02-24 : enable unloading when not used
+ *              move to new pci interface, cleanup
+ *              move to new kernelcapi
+ *              Kai Germaschewski (kai.germaschewski@gmx.de)
  */
 
 #include <linux/config.h>
@@ -16,11 +16,9 @@
 #include <linux/init.h>
 #include <linux/kernel.h>
 #include <linux/pci.h>
-#include <linux/ioport.h>
 #include <net/capi/driver.h>
 #include <net/capi/kcapi.h>
 #include "avmcard.h"
-#include <linux/isdn_compat.h>
 
 static char *revision = "$Revision$";
 static char *rev;
@@ -210,6 +208,7 @@ static int b1pci_conf_controller(struct capi_ctr *ctr, int cmd, void *data)
 /* ------------------------------------------------------------- */
 
 static struct capi_driver b1pci_driver = {
+	owner:           THIS_MODULE,
 	name:            "b1pci",
 	revision:        "0.0",
 	register_appl:   b1_register_appl,
@@ -266,6 +265,9 @@ static int b1pciv4_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
 
 	retval = -ENODEV;
 	if (pci_enable_device(pdev) < 0)
+		goto outf_count;
+
+	if (!pci_resource_start(pdev, 2)) /* not B1 PCI V4 */
 		goto outf_count;
 
 	card = (avmcard *) kmalloc(sizeof(avmcard), GFP_KERNEL);
@@ -378,6 +380,7 @@ static void b1pciv4_remove(struct pci_dev *pdev)
 /* ------------------------------------------------------------- */
 
 static struct capi_driver b1pciv4_driver = {
+	owner:           THIS_MODULE,
 	name:            "b1pciv4",
 	revision:        "0.0",
 	register_appl:   b1dma_register_appl,
