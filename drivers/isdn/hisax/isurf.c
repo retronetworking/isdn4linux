@@ -5,6 +5,10 @@
  * Author     Karsten Keil (keil@isdn4linux.de)
  *
  * $Log$
+ * Revision 1.5  1999/08/25 17:00:02  keil
+ * Make ISAR V32bis modem running
+ * Make LL->HL interface open for additional commands
+ *
  * Revision 1.4  1999/08/22 20:27:09  calle
  * backported changes from kernel 2.3.14:
  * - several #include "config.h" gone, others come.
@@ -150,10 +154,10 @@ reset_isurf(struct IsdnCardState *cs, u_char chips)
 	byteout(cs->hw.isurf.reset, chips); /* Reset On */
 	save_flags(flags);
 	sti();
-	current->state = TASK_INTERRUPTIBLE;
+	set_current_state(TASK_INTERRUPTIBLE);
 	schedule_timeout((10*HZ)/1000);
 	byteout(cs->hw.isurf.reset, ISURF_ISAR_EA); /* Reset Off */
-	current->state = TASK_INTERRUPTIBLE;
+	set_current_state(TASK_INTERRUPTIBLE);
 	schedule_timeout((10*HZ)/1000);
 	restore_flags(flags);
 }

@@ -7,6 +7,12 @@
  * Author       Roland Klabunde (R.Klabunde@Berkom.de)
  *
  * $Log$
+ * Revision 1.7  1999/08/22 20:26:55  calle
+ * backported changes from kernel 2.3.14:
+ * - several #include "config.h" gone, others come.
+ * - "struct device" changed to "struct net_device" in 2.3.14, added a
+ *   define in isdn_compat.h for older kernel versions.
+ *
  * Revision 1.6  1999/08/11 21:01:22  keil
  * new PCI codefix
  *
@@ -225,11 +231,11 @@ reset_bkm(struct IsdnCardState *cs)
 		sti();
 		/* Issue the I20 soft reset     */
 		pI20_Regs->i20SysControl = 0xFF;	/* all in */
-		current->state = TASK_INTERRUPTIBLE;
+		set_current_state(TASK_INTERRUPTIBLE);
 		schedule_timeout((10 * HZ) / 1000);
 		/* Remove the soft reset */
 		pI20_Regs->i20SysControl = sysRESET | 0xFF;
-		current->state = TASK_INTERRUPTIBLE;
+		set_current_state(TASK_INTERRUPTIBLE);
 		schedule_timeout((10 * HZ) / 1000);
 		/* Set our configuration */
 		pI20_Regs->i20SysControl = sysRESET | sysCFG;
@@ -240,14 +246,14 @@ reset_bkm(struct IsdnCardState *cs)
 		    g_A4T_ISAC_RES |
 		    g_A4T_JADE_BOOTR |
 		    g_A4T_ISAR_BOOTR;
-		current->state = TASK_INTERRUPTIBLE;
+		set_current_state(TASK_INTERRUPTIBLE);
 		schedule_timeout((10 * HZ) / 1000);
 
 		/* Remove RESET state from ISDN */
 		pI20_Regs->i20GuestControl &= ~(g_A4T_ISAC_RES |
 						g_A4T_JADE_RES |
 						g_A4T_ISAR_RES);
-		current->state = TASK_INTERRUPTIBLE;
+		set_current_state(TASK_INTERRUPTIBLE);
 		schedule_timeout((10 * HZ) / 1000);
 		restore_flags(flags);
 	}

@@ -7,6 +7,10 @@
  * Thanks to Christian "naddy" Weisgerber (3Com, US Robotics) for documentation
  *
  * $Log$
+ * Revision 1.9  1999/07/12 21:05:29  keil
+ * fix race in IRQ handling
+ * added watchdog for lost IRQs
+ *
  * Revision 1.8  1999/07/01 08:12:10  keil
  * Common HiSax version for 2.0, 2.1, 2.2 and 2.3 kernel
  *
@@ -173,11 +177,11 @@ reset_sportster(struct IsdnCardState *cs)
 	byteout(cs->hw.spt.cfg_reg + SPORTSTER_RES_IRQ, cs->hw.spt.res_irq);
 	save_flags(flags);
 	sti();
-	current->state = TASK_INTERRUPTIBLE;
+	set_current_state(TASK_INTERRUPTIBLE);
 	schedule_timeout((10*HZ)/1000);
 	cs->hw.spt.res_irq &= ~SPORTSTER_RESET; /* Reset Off */
 	byteout(cs->hw.spt.cfg_reg + SPORTSTER_RES_IRQ, cs->hw.spt.res_irq);
-	current->state = TASK_INTERRUPTIBLE;
+	set_current_state(TASK_INTERRUPTIBLE);
 	schedule_timeout((10*HZ)/1000);
 	restore_flags(flags);
 }

@@ -20,6 +20,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.73  1999/08/28 21:56:27  keil
+ * misplaced #endif caused ttyI crash in 2.3.X
+ *
  * Revision 1.72  1999/07/31 12:59:45  armin
  * Added tty fax capabilities.
  *
@@ -1981,7 +1984,7 @@ isdn_tty_block_til_ready(struct tty_struct *tty, struct file *filp, modem_info *
 	restore_flags(flags);
 	info->blocked_open++;
 	while (1) {
-		current->state = TASK_INTERRUPTIBLE;
+		set_current_state(TASK_INTERRUPTIBLE);
 		if (tty_hung_up_p(filp) ||
 		    !(info->flags & ISDN_ASYNC_INITIALIZED)) {
 #ifdef MODEM_DO_RESTART
@@ -2154,7 +2157,7 @@ isdn_tty_close(struct tty_struct *tty, struct file *filp)
 		 */
 		timeout = jiffies + HZ;
 		while (!(info->lsr & UART_LSR_TEMT)) {
-			current->state = TASK_INTERRUPTIBLE;
+			set_current_state(TASK_INTERRUPTIBLE);
 			schedule_timeout(20);
 			if (time_after(jiffies,timeout))
 				break;
@@ -2170,7 +2173,7 @@ isdn_tty_close(struct tty_struct *tty, struct file *filp)
 	info->ncarrier = 0;
 	tty->closing = 0;
 	if (info->blocked_open) {
-		current->state = TASK_INTERRUPTIBLE;
+		set_current_state(TASK_INTERRUPTIBLE);
 		schedule_timeout(50);
 		wake_up_interruptible(&info->open_wait);
 	}

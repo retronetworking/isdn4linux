@@ -6,6 +6,9 @@
  *
  *
  * $Log$
+ * Revision 1.4  1999/08/09 18:59:59  keil
+ * Fix S0 init - Thanks to Stefan Gybas
+ *
  * Revision 1.3  1999/07/12 21:05:12  keil
  * fix race in IRQ handling
  * added watchdog for lost IRQs
@@ -79,13 +82,13 @@ reset_hfcs(struct IsdnCardState *cs)
 	cs->BC_Write_Reg(cs, HFCD_DATA, HFCD_CIRM, cs->hw.hfcD.cirm);	/* Reset On */
 	save_flags(flags);
 	sti();
-	current->state = TASK_INTERRUPTIBLE;
+	set_current_state(TASK_INTERRUPTIBLE);
 	schedule_timeout((30*HZ)/1000);
 	cs->hw.hfcD.cirm = 0;
 	if (cs->typ == ISDN_CTYPE_TELES3C)
 		cs->hw.hfcD.cirm |= HFCD_MEM8K;
 	cs->BC_Write_Reg(cs, HFCD_DATA, HFCD_CIRM, cs->hw.hfcD.cirm);	/* Reset Off */
-	current->state = TASK_INTERRUPTIBLE;
+	set_current_state(TASK_INTERRUPTIBLE);
 	schedule_timeout((10*HZ)/1000);
 	if (cs->typ == ISDN_CTYPE_TELES3C)
 		cs->hw.hfcD.cirm |= HFCD_INTB;
@@ -132,7 +135,7 @@ hfcs_card_msg(struct IsdnCardState *cs, int mt, void *arg)
 			init2bds0(cs);
 			save_flags(flags);
 			sti();
-			current->state = TASK_INTERRUPTIBLE;
+			set_current_state(TASK_INTERRUPTIBLE);
 			schedule_timeout((80*HZ)/1000);
 			cs->hw.hfcD.ctmt |= HFCD_TIM800;
 			cs->BC_Write_Reg(cs, HFCD_DATA, HFCD_CTMT, cs->hw.hfcD.ctmt); 

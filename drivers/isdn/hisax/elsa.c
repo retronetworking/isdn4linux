@@ -14,6 +14,9 @@
  *              for ELSA PCMCIA support
  *
  * $Log$
+ * Revision 2.18  1999/08/25 16:50:54  keil
+ * Fix bugs which cause 2.3.14 hangs (waitqueue init)
+ *
  * Revision 2.17  1999/08/11 20:57:40  keil
  * bugfix IPAC version 1.1
  * new PCI codefix
@@ -575,10 +578,10 @@ reset_elsa(struct IsdnCardState *cs)
 		save_flags(flags);
 		sti();
 		writereg(cs->hw.elsa.ale, cs->hw.elsa.isac, IPAC_POTA2, 0x20);
-		current->state = TASK_INTERRUPTIBLE;
+		set_current_state(TASK_INTERRUPTIBLE);
 		schedule_timeout((10*HZ)/1000); /* Timeout 10ms */
 		writereg(cs->hw.elsa.ale, cs->hw.elsa.isac, IPAC_POTA2, 0x00);
-		current->state = TASK_INTERRUPTIBLE;
+		set_current_state(TASK_INTERRUPTIBLE);
 		writereg(cs->hw.elsa.ale, cs->hw.elsa.isac, IPAC_MASK, 0xc0);
 		schedule_timeout((10*HZ)/1000); /* Timeout 10ms */
 		restore_flags(flags);
@@ -782,7 +785,7 @@ Elsa_card_msg(struct IsdnCardState *cs, int mt, void *arg)
 				cs->hw.elsa.status |= ELSA_TIMER_AKTIV;
 				byteout(cs->hw.elsa.ctrl, cs->hw.elsa.ctrl_reg);
 				byteout(cs->hw.elsa.timer, 0);
-				current->state = TASK_INTERRUPTIBLE;
+				set_current_state(TASK_INTERRUPTIBLE);
 				schedule_timeout((110*HZ)/1000);
 				restore_flags(flags);
 				cs->hw.elsa.ctrl_reg &= ~ELSA_ENA_TIMER_INT;

@@ -21,6 +21,10 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.11  1999/08/29 17:23:44  armin
+ * New setup compat.
+ * Bugfix if compile as not module.
+ *
  * Revision 1.10  1999/08/22 20:26:41  calle
  * backported changes from kernel 2.3.14:
  * - several #include "config.h" gone, others come.
@@ -233,7 +237,7 @@ typedef struct {
 
 /* Macro for delay via schedule() */
 #define SLEEP(j) {                     \
-  current->state = TASK_INTERRUPTIBLE; \
+  set_current_state(TASK_INTERRUPTIBLE); \
   schedule_timeout(j);                 \
 }
 

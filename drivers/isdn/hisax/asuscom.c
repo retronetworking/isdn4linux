@@ -8,6 +8,10 @@
  *
  *
  * $Log$
+ * Revision 1.7  1999/07/12 21:04:53  keil
+ * fix race in IRQ handling
+ * added watchdog for lost IRQs
+ *
  * Revision 1.6  1999/07/01 08:11:18  keil
  * Common HiSax version for 2.0, 2.1, 2.2 and 2.3 kernel
  *
@@ -284,13 +288,13 @@ reset_asuscom(struct IsdnCardState *cs)
 		byteout(cs->hw.asus.adr, ASUS_RESET);	/* Reset On */
 	save_flags(flags);
 	sti();
-	current->state = TASK_INTERRUPTIBLE;
+	set_current_state(TASK_INTERRUPTIBLE);
 	schedule_timeout((10*HZ)/1000);
 	if (cs->subtyp == ASUS_IPAC)
 		writereg(cs->hw.asus.adr, cs->hw.asus.isac, IPAC_POTA2, 0x0);
 	else
 		byteout(cs->hw.asus.adr, 0);	/* Reset Off */
-	current->state = TASK_INTERRUPTIBLE;
+	set_current_state(TASK_INTERRUPTIBLE);
 	schedule_timeout((10*HZ)/1000);
 	if (cs->subtyp == ASUS_IPAC) {
 		writereg(cs->hw.asus.adr, cs->hw.asus.isac, IPAC_CONF, 0x0);

@@ -5,6 +5,9 @@
  *
  *
  * $Log$
+ * Revision 2.33  1999/08/30 11:57:52  keil
+ * Fix broken avm pcmcia
+ *
  * Revision 2.32  1999/08/28 22:11:10  keil
  * __setup function should be static
  *
@@ -714,11 +717,11 @@ extern int setup_saphir(struct IsdnCard *card);
 extern int setup_testemu(struct IsdnCard *card);
 #endif
 
-#if	CARD_BKM_A4T
+#if CARD_BKM_A4T
 extern int setup_bkm_a4t(struct IsdnCard *card);
 #endif
 
-#if	CARD_SCT_QUADRO
+#if CARD_SCT_QUADRO
 extern int setup_sct_quadro(struct IsdnCard *card);
 #endif
 
@@ -997,7 +1000,7 @@ HISAX_INITFUNC(static int init_card(struct IsdnCardState *cs))
 	while (cnt) {
 		cs->cardmsg(cs, CARD_INIT, NULL);
 		sti();
-		current->state = TASK_INTERRUPTIBLE;
+		set_current_state(TASK_INTERRUPTIBLE);
 		/* Timeout 10ms */
 		schedule_timeout((10*HZ)/1000);
 		restore_flags(flags);

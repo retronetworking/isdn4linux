@@ -20,6 +20,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.8  1999/01/05 18:29:25  he
+ * merged remaining schedule_timeout() changes from 2.1.127
+ *
  * Revision 1.7  1998/11/05 22:12:41  fritz
  * Changed mail-address.
  *
@@ -68,7 +71,7 @@ static void
 isa_delay(long t)
 {
         sti();
-        current->state = TASK_INTERRUPTIBLE;
+        set_current_state(TASK_INTERRUPTIBLE);
         schedule_timeout(t);
         sti();
 }

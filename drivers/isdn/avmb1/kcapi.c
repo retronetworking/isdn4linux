@@ -6,6 +6,10 @@
  * (c) Copyright 1999 by Carsten Paeth (calle@calle.in-berlin.de)
  * 
  * $Log$
+ * Revision 1.6  1999/07/20 06:41:49  calle
+ * Bugfix: After the redesign of the AVM B1 driver, the driver didn't even
+ *         compile, if not selected as modules.
+ *
  * Revision 1.5  1999/07/09 15:05:48  keil
  * compat.h is now isdn_compat.h
  *
@@ -1273,7 +1277,7 @@ static int old_capi_manufacturer(unsigned int cmd, void *data)
 
 		while (card->cardstate != CARD_RUNNING) {
 
-			current->state = TASK_INTERRUPTIBLE;
+			set_current_state(TASK_INTERRUPTIBLE);
 			schedule_timeout(HZ/10);	/* 0.1 sec */
 
 			if (signal_pending(current))
@@ -1298,7 +1302,7 @@ static int old_capi_manufacturer(unsigned int cmd, void *data)
 
 		while (card->cardstate > CARD_DETECTED) {
 
-			current->state = TASK_INTERRUPTIBLE;
+			set_current_state(TASK_INTERRUPTIBLE);
 			schedule_timeout(HZ/10);	/* 0.1 sec */
 
 			if (signal_pending(current))
@@ -1351,7 +1355,7 @@ static int old_capi_manufacturer(unsigned int cmd, void *data)
 
 		while (card->cardstate != CARD_FREE) {
 
-			current->state = TASK_INTERRUPTIBLE;
+			set_current_state(TASK_INTERRUPTIBLE);
 			schedule_timeout(HZ/10);	/* 0.1 sec */
 
 			if (signal_pending(current))

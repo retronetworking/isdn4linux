@@ -11,6 +11,10 @@
  *              Fritz Elfert
  *
  * $Log$
+ * Revision 2.34  1999/08/25 20:02:34  werner
+ * Changed return values for stat_icall(w) from 3->4 and 4->5 because of conflicts
+ * with existing software definitions. (PtP incomplete called party number)
+ *
  * Revision 2.33  1999/08/25 17:00:09  keil
  * Make ISAR V32bis modem running
  * Make LL->HL interface open for additional commands
@@ -136,7 +140,6 @@
  *
  */
 
-#include <linux/config.h>
 #define __NO_VERSION__
 #include "hisax.h"
 #include "../avmb1/capicmd.h"  /* this should be moved in a common place */

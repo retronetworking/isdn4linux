@@ -112,5 +112,9 @@ static inline unsigned long copy_to_user(void *to, const void *from, unsigned lo
 #define net_device device
 #endif
 
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2,3,16)
+#define set_current_state(sta) (current->state = sta)
+#endif
+
 #endif /* __KERNEL__ */
 #endif /* _LINUX_ISDN_COMPAT_H */

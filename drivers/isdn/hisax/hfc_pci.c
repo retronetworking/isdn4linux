@@ -23,6 +23,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.18  1999/08/29 17:05:44  werner
+ * corrected tx_lo line setup. Datasheet is not correct.
+ *
  * Revision 1.17  1999/08/28 21:04:27  werner
  * Implemented full audio support (transparent mode)
  *
@@ -173,10 +176,10 @@ reset_hfcpci(struct IsdnCardState *cs)
 	Write_hfc(cs, HFCPCI_CIRM, HFCPCI_RESET);	/* Reset On */
 	save_flags(flags);
 	sti();
-	current->state = TASK_INTERRUPTIBLE;
+	set_current_state(TASK_INTERRUPTIBLE);
 	schedule_timeout((30 * HZ) / 1000);	/* Timeout 30ms */
 	Write_hfc(cs, HFCPCI_CIRM, 0);	/* Reset Off */
-	current->state = TASK_INTERRUPTIBLE;
+	set_current_state(TASK_INTERRUPTIBLE);
 	schedule_timeout((20 * HZ) / 1000);	/* Timeout 20ms */
 	if (Read_hfc(cs, HFCPCI_STATUS) & 2)
 		printk(KERN_WARNING "HFC-PCI init bit busy\n");
@@ -1576,7 +1579,7 @@ hfcpci_card_msg(struct IsdnCardState *cs, int mt, void *arg)
 			inithfcpci(cs);
 			save_flags(flags);
 			sti();
-			current->state = TASK_INTERRUPTIBLE;
+			set_current_state(TASK_INTERRUPTIBLE);
 			schedule_timeout((80 * HZ) / 1000);	/* Timeout 80ms */
 			/* now switch timer interrupt off */
 			cs->hw.hfcpci.int_m1 &= ~HFCPCI_INTS_TIMER;
