@@ -7,6 +7,9 @@
  *              Fritz Elfert
  *
  * $Log$
+ * Revision 1.9  1996/11/18 20:23:19  keil
+ * log writebuf channel not open changed
+ *
  * Revision 1.8  1996/11/06 17:43:17  keil
  * more changes for 2.1.X;block fixed ST_PRO_W
  *
@@ -1449,6 +1452,12 @@ HiSax_command(isdn_ctrl * ic)
                     	    for (i = 0; i < *(unsigned int *)ic->num; i++)
                  	    	HiSax_mod_inc_use_count();
                  	    break;
+#ifdef MODULE
+                    case (555):
+                  	    mod_use_count_ &= 0xF0000000;
+                  	    HiSax_mod_inc_use_count();
+                  	    break;
+#endif MODULE
                     case (11):
                     	    num=0;
         		    for (i = 0; i < nrcards; i++)
@@ -1476,6 +1485,7 @@ HiSax_command(isdn_ctrl * ic)
                                 HiSax_putstatus(tmp);
 			        printk(KERN_DEBUG "HiSax: %s", tmp);
                        	    }
+                       	    break;
                     default:  
                     	    return (-EINVAL);
                   }
