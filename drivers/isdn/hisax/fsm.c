@@ -1,5 +1,5 @@
 /* $Id$
- *
+
  * Author       Karsten Keil (keil@temic-ech.spacenet.de)
  *              based on the teles driver from Jan den Ouden
  *
@@ -7,6 +7,9 @@
  *              Fritz Elfert
  *
  * $Log$
+ * Revision 1.3  1997/02/16 01:04:08  fritz
+ * Bugfix: Changed timer handling caused hang with 2.1.X
+ *
  * Revision 1.2  1997/01/09 20:57:27  keil
  * cleanup & FSM_TIMER_DEBUG
  *
@@ -24,10 +27,10 @@ void
 FsmNew(struct Fsm *fsm,
        struct FsmNode *fnlist, int fncount)
 {
-	int             i;
+	int i;
 
-	fsm->jumpmatrix = (int *) Smalloc(4L * fsm->state_count * fsm->event_count,
-					  GFP_KERNEL, "Fsm jumpmatrix");
+	fsm->jumpmatrix = (int *)
+	    kmalloc(4L * fsm->state_count * fsm->event_count, GFP_KERNEL);
 	memset(fsm->jumpmatrix, 0, 4L * fsm->state_count * fsm->event_count);
 
 	for (i = 0; i < fncount; i++)
@@ -38,14 +41,14 @@ FsmNew(struct Fsm *fsm,
 void
 FsmFree(struct Fsm *fsm)
 {
-	Sfree((void *) fsm->jumpmatrix);
+	kfree((void *) fsm->jumpmatrix);
 }
 
 int
 FsmEvent(struct FsmInst *fi, int event, void *arg)
 {
-	void            (*r) (struct FsmInst *, int, void *);
-	char            str[80];
+	void (*r) (struct FsmInst *, int, void *);
+	char str[80];
 
 	r = (void (*)) fi->fsm->jumpmatrix[fi->fsm->state_count * event + fi->state];
 	if (r) {
@@ -71,7 +74,7 @@ FsmEvent(struct FsmInst *fi, int event, void *arg)
 void
 FsmChangeState(struct FsmInst *fi, int newstate)
 {
-	char            str[80];
+	char str[80];
 
 	fi->state = newstate;
 	if (fi->debug) {
@@ -87,7 +90,7 @@ FsmExpireTimer(struct FsmTimer *ft)
 #if FSM_TIMER_DEBUG
 	if (ft->fi->debug) {
 		char str[40];
-		sprintf(str, "FsmExpireTimer %lx", (long)ft);
+		sprintf(str, "FsmExpireTimer %lx", (long) ft);
 		ft->fi->printdebug(ft->fi, str);
 	}
 #endif
@@ -103,7 +106,7 @@ FsmInitTimer(struct FsmInst *fi, struct FsmTimer *ft)
 #if FSM_TIMER_DEBUG
 	if (ft->fi->debug) {
 		char str[40];
-		sprintf(str, "FsmInitTimer %lx", (long)ft);
+		sprintf(str, "FsmInitTimer %lx", (long) ft);
 		ft->fi->printdebug(ft->fi, str);
 	}
 #endif
@@ -116,7 +119,7 @@ FsmDelTimer(struct FsmTimer *ft, int where)
 #if FSM_TIMER_DEBUG
 	if (ft->fi->debug) {
 		char str[40];
-		sprintf(str, "FsmDelTimer %lx %d", (long)ft, where);
+		sprintf(str, "FsmDelTimer %lx %d", (long) ft, where);
 		ft->fi->printdebug(ft->fi, str);
 	}
 #endif
@@ -131,7 +134,7 @@ FsmAddTimer(struct FsmTimer *ft,
 #if FSM_TIMER_DEBUG
 	if (ft->fi->debug) {
 		char str[40];
-		sprintf(str, "FsmAddTimer %lx %d %d", (long)ft, millisec, where);
+		sprintf(str, "FsmAddTimer %lx %d %d", (long) ft, millisec, where);
 		ft->fi->printdebug(ft->fi, str);
 	}
 #endif
