@@ -71,8 +71,6 @@ struct isdn_ppp_comp_data {
 
 #ifdef __KERNEL__
 
-#include <asm/spinlock.h>
-
 /*
  * We need a way for the decompressor to influence the generation of CCP
  * Reset-Requests in a variety of ways. The decompressor is already returning
