@@ -21,6 +21,22 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.96  1999/11/20 22:14:13  detabc
+ * added channel dial-skip in case of external use
+ * (isdn phone or another isdn device) on the same NTBA.
+ * usefull with two or more card's connected the different NTBA's.
+ * global switchable in kernel-config and also per netinterface.
+ *
+ * add auto disable of netinterface's in case of:
+ * 	to many connection's in short time.
+ * 	config mistakes (wrong encapsulation, B2-protokoll or so on) on local
+ * 	or remote side.
+ * 	wrong password's or something else to a ISP (syncppp).
+ *
+ * possible encapsulations for this future are:
+ * ISDN_NET_ENCAP_SYNCPPP, ISDN_NET_ENCAP_UIHDLC, ISDN_NET_ENCAP_RAWIP,
+ * and ISDN_NET_ENCAP_CISCOHDLCK.
+ *
  * Revision 1.95  1999/10/27 21:21:17  detabc
  * Added support for building logically-bind-group's per interface.
  * usefull for outgoing call's with more then one isdn-card.
@@ -495,12 +511,12 @@ static int isdn_dwabc_is_interface_disabled(isdn_net_local *lp)
 #ifdef CONFIG_ISDN_WITH_ABC_CONN_ERROR
 	if(!(lp->dw_abc_flags & ISDN_DW_ABC_FLAG_NO_CONN_ERROR) && isdn_dwabc_encap_with_conerr(lp)) {
 
-		if(lp->dw_abc_bchan_errcnt && !(lp->dw_abc_bchan_errcnt & 3)) {
+		if(lp->dw_abc_bchan_errcnt > 3 && !(lp->dw_abc_bchan_errcnt & 3)) {
 
 			ulong nj = jiffies;
 			ulong delay = 	lp->dw_abc_bchan_errcnt * 
 							lp->dw_abc_bchan_errcnt * 
-							lp->dw_abc_bchan_errcnt * 2;
+							lp->dw_abc_bchan_errcnt;
 
 			if(delay > 86400) delay = 86400;
 			delay = (lp->dw_abc_bchan_last_connect + delay * HZ);
@@ -639,6 +655,7 @@ isdn_net_unbind_channel(isdn_net_local * lp)
 	isdn_dw_clear_if(0l,lp);
 	lp->dw_abc_if_flags &= ~ISDN_DW_ABC_IFFLAG_NODCHAN;
 	lp->dw_abc_inuse_secure = 0;
+	dwabc_bsd_free(lp);
 #endif
 	if (lp->first_skb) {
 		dev_kfree_skb(lp->first_skb);
@@ -700,15 +717,17 @@ isdn_net_autohup()
 		if ((l->flags & ISDN_NET_CONNECTED) && (!l->dialstate)) {
 			anymore = 1;
 			l->huptimer++;
+#ifdef CONFIG_ISDN_WITH_ABC
+		if(l->dw_abc_next_skb != NULL)
+			isdn_net_send_skb(&p->dev,l,NULL);
 #ifdef CONFIG_ISDN_WITH_ABC_CONN_ERROR
-			if(	isdn_dwabc_encap_with_conerr(l)	&&
-				l->dw_abc_bchan_errcnt > 0) {
+			if(	isdn_dwabc_encap_with_conerr(l)	&& l->dw_abc_bchan_errcnt > 0) {
 
-				int n = 115;
+				int n = 180;
 
-				if(l->dw_abc_bchan_errcnt > 2) n = 86;
-				if(l->dw_abc_bchan_errcnt > 4) n = 56;
-				if(l->dw_abc_bchan_errcnt > 8) n = 30;
+				if(l->dw_abc_bchan_errcnt > 3) n = 120;
+				if(l->dw_abc_bchan_errcnt > 6) n = 90;
+				if(l->dw_abc_bchan_errcnt > 9) n = 60;
 
 				if(l->huptimer > n) {
 
@@ -718,6 +737,7 @@ isdn_net_autohup()
 					continue;
 				}
 			}
+#endif
 #endif
 			/*
 			 * if there is some dialmode where timeout-hangup
@@ -867,7 +887,7 @@ isdn_net_stat_callback(int idx, isdn_ctrl *c)
 					if((lp->dialstate == 4 || lp->dialstate == 12) && 
 						lp->dw_abc_dialstart && (idx < ISDN_MAX_CHANNELS)) {
 					
-						if((jiffies - lp->dw_abc_dialstart) < (HZ >>1)) {
+						if((jiffies - lp->dw_abc_dialstart) < (HZ >>2)) {
 
 							lp->dw_abc_if_flags |= ISDN_DW_ABC_IFFLAG_NODCHAN;
 							lp->dialstate = 1;
@@ -911,6 +931,7 @@ isdn_net_stat_callback(int idx, isdn_ctrl *c)
 							isdn_timer_ctrl(ISDN_TIMER_KEEPALIVE, 1);
 						printk(KERN_INFO "isdn_net: %s connected\n", lp->name);
 #ifdef CONFIG_ISDN_WITH_ABC
+						if(!dwabc_bsd_init(lp)) dwabc_bsd_first_gen(lp);
 						lp->dw_abc_bchan_last_connect = jiffies;
 #ifdef CONFIG_ISDN_WITH_ABC_CONN_ERROR
 						if(!(lp->dw_abc_flags & ISDN_DW_ABC_FLAG_NO_CONN_ERROR)) {
@@ -1547,12 +1568,13 @@ isdn_net_log_skb(struct sk_buff * skb, isdn_net_local * lp)
 					strcpy(addinfo, " IDP");
 					break;
 			}
+			printk(KERN_INFO
 #ifdef CONFIG_ISDN_WITH_ABC
-			printk(KERN_INFO "%s %s: %d.%d.%d.%d -> %d.%d.%d.%d%s\n",
+				"%s %s: %d.%d.%d.%d -> %d.%d.%d.%d%s\n",
 				(reason == NULL) ? "OPEN" : reason,
 				(lp != NULL) ? lp->name : "",
 #else
-			printk(KERN_INFO "OPEN: %d.%d.%d.%d -> %d.%d.%d.%d%s\n",
+				"OPEN: %d.%d.%d.%d -> %d.%d.%d.%d%s\n",
 #endif
 
 			       p[12], p[13], p[14], p[15],
@@ -1560,12 +1582,13 @@ isdn_net_log_skb(struct sk_buff * skb, isdn_net_local * lp)
 			       addinfo);
 			break;
 		case ETH_P_ARP:
+			printk(KERN_INFO
 #ifdef CONFIG_ISDN_WITH_ABC
-			printk(KERN_INFO "%s %s: ARP %d.%d.%d.%d -> *.*.*.* ?%d.%d.%d.%d\n",
+				"%s %s: ARP %d.%d.%d.%d -> *.*.*.* ?%d.%d.%d.%d\n",
 				(reason == NULL) ? "OPEN" : reason,
 				(lp != NULL) ? lp->name : "",
 #else
-			printk(KERN_INFO "OPEN: ARP %d.%d.%d.%d -> *.*.*.* ?%d.%d.%d.%d\n",
+				"OPEN: ARP %d.%d.%d.%d -> *.*.*.* ?%d.%d.%d.%d\n",
 #endif
 			       p[14], p[15], p[16], p[17],
 			       p[24], p[25], p[26], p[27]);
@@ -1585,9 +1608,67 @@ isdn_net_log_skb(struct sk_buff * skb, isdn_net_local * lp)
  * Side-effects: ndev->tbusy is cleared on success.
  */
 #endif
+#ifdef CONFIG_ISDN_WITH_ABC
+static int dwabc_helper_isdn_net_send_skb(struct net_device *,isdn_net_local *,struct sk_buff *);
+
+int isdn_net_send_skb(struct net_device *ndev, isdn_net_local * lp,struct sk_buff *skb)
+{
+	int r = 0;
+
+	if(lp == NULL || ndev == NULL) {
+
+		printk(KERN_WARNING "send_skb called with lp 0x%x ndev 0x%x\n",
+			(char *)lp - (char *)0,(char *)ndev - (char *)0);
+
+		return(1);
+	}
+
+	if(test_and_set_bit(ISDN_DW_ABC_BITLOCK_SEND,&lp->dw_abc_bitlocks)) {
+
+		if(dev->net_verbose > 2)
+			printk(KERN_INFO "%s: send_skb called recursivly\n",lp->name);
+
+		return(1);
+	}
+
+	if(lp->dw_abc_next_skb != NULL) {
+
+		skb = lp->dw_abc_next_skb;
+		lp->dw_abc_next_skb = NULL;
+
+		if(dwabc_helper_isdn_net_send_skb(ndev,lp,skb))
+			lp->dw_abc_next_skb = skb;
+
+		r = 1;
+
+	} else if(skb != NULL) {
+
+		if(lp->dw_abc_if_flags & ISDN_DW_ABC_IFFLAG_BSDAKTIV) {
+
+			int l = skb->len;
+
+			if((skb = dwabc_bsd_compress(lp,skb,ndev)) != NULL) {
+
+				lp->dw_abc_bsd_snd += l;
+				lp->dw_abc_bsd_bsd_snd += skb->len;
+
+				if(dwabc_helper_isdn_net_send_skb(ndev,lp,skb))
+					lp->dw_abc_next_skb = skb;
+			}
+
+		} else  r = dwabc_helper_isdn_net_send_skb(ndev,lp,skb);
+	} 
+	
+	clear_bit(ISDN_DW_ABC_BITLOCK_SEND,&lp->dw_abc_bitlocks);
+	return(r);
+}
+
+static int dwabc_helper_isdn_net_send_skb
+#else
 int
-isdn_net_send_skb(struct net_device *ndev, isdn_net_local * lp,
-		  struct sk_buff *skb)
+isdn_net_send_skb
+#endif
+		(struct net_device *ndev, isdn_net_local * lp,struct sk_buff *skb)
 {
 	int ret;
 	int len = skb->len;     /* save len */
@@ -2175,6 +2256,18 @@ isdn_net_receive(struct net_device *ndev, struct sk_buff *skb)
 			/* Fall through */
 		case ISDN_NET_ENCAP_RAWIP:
 			/* RAW-IP without MAC-Header */
+#ifdef CONFIG_ISDN_WITH_ABC
+			if(lp->p_encap == ISDN_NET_ENCAP_RAWIP) {
+
+				ulong l = skb->len;
+
+				if((skb = dwabc_bsd_rx_pkt(lp,skb,ndev)) == NULL)
+					return;
+
+				lp->dw_abc_bsd_bsd_rcv += l;
+				lp->dw_abc_bsd_rcv += skb->len;
+			}
+#endif
 #ifdef CONFIG_ISDN_WITH_ABC_RCV_NO_HUPTIMER
 			if(!(olp->dw_abc_flags & ISDN_DW_ABC_FLAG_RCV_NO_HUPTIMER)) {
 #endif
@@ -3802,6 +3895,7 @@ isdn_net_realrm(isdn_net_dev * p, isdn_net_dev * q)
 		isdn_timer_ctrl(ISDN_TIMER_NETHANGUP, 0);
 #ifdef CONFIG_ISDN_WITH_ABC
 	isdn_dw_clear_if(~0l,p->local);
+	dwabc_bsd_free(p->local);
 #endif
 	restore_flags(flags);
 	kfree(p->local);

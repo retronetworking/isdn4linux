@@ -21,6 +21,22 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.82  1999/11/20 22:14:14  detabc
+ * added channel dial-skip in case of external use
+ * (isdn phone or another isdn device) on the same NTBA.
+ * usefull with two or more card's connected the different NTBA's.
+ * global switchable in kernel-config and also per netinterface.
+ *
+ * add auto disable of netinterface's in case of:
+ * 	to many connection's in short time.
+ * 	config mistakes (wrong encapsulation, B2-protokoll or so on) on local
+ * 	or remote side.
+ * 	wrong password's or something else to a ISP (syncppp).
+ *
+ * possible encapsulations for this future are:
+ * ISDN_NET_ENCAP_SYNCPPP, ISDN_NET_ENCAP_UIHDLC, ISDN_NET_ENCAP_RAWIP,
+ * and ISDN_NET_ENCAP_CISCOHDLCK.
+ *
  * Revision 1.81  1999/10/27 21:21:18  detabc
  * Added support for building logically-bind-group's per interface.
  * usefull for outgoing call's with more then one isdn-card.
@@ -337,6 +353,7 @@
 #undef CONFIG_ISDN_WITH_ABC_ICALL_BIND
 #undef CONFIG_ISDN_WITH_ABC_CH_EXTINUSE
 #undef CONFIG_ISDN_WITH_ABC_CONN_ERROR
+#undef CONFIG_ISDN_WITH_ABC_RAWIPCOMPRESS
 #else
 #include <linux/isdn_dwabc.h>
 
@@ -348,8 +365,13 @@
 #define ISDN_DW_ABC_FLAG_RCV_NO_HUPTIMER	0x00000020L
 #define ISDN_DW_ABC_FLAG_NO_CH_EXTINUSE		0x00000040L
 #define ISDN_DW_ABC_FLAG_NO_CONN_ERROR		0x00000080L
+#define ISDN_DW_ABC_FLAG_BSD_COMPRESS		0x00000100L
 
 #define ISDN_DW_ABC_IFFLAG_NODCHAN			0x00000001L
+#define ISDN_DW_ABC_IFFLAG_BSDAKTIV			0x00000002L
+
+#define ISDN_DW_ABC_BITLOCK_SEND			0
+#define ISDN_DW_ABC_BITLOCK_RECEIVE			1
 
 #endif
 
@@ -696,11 +718,14 @@ typedef struct isdn_net_local_s {
   ulong cisco_myseq;                   /* Local keepalive seq. for Cisco   */
   ulong cisco_yourseq;                 /* Remote keepalive seq. for Cisco  */
 #ifdef CONFIG_ISDN_WITH_ABC
-  ulong dw_abc_flags;
-  ulong dw_abc_if_flags;
-  int   dw_abc_inuse_secure;
-  ulong dw_abc_dialstart;
-  int   dw_abc_old_onhtime;
+  ulong 	dw_abc_flags;
+  ulong 	dw_abc_if_flags;
+  int   	dw_abc_inuse_secure;
+  ulong 	dw_abc_dialstart;
+  int   	dw_abc_old_onhtime;
+  struct sk_buff *dw_abc_next_skb;
+  int 		dw_abc_remote_version;
+  int		dw_abc_bitlocks;
 #ifdef CONFIG_ISDN_WITH_ABC_OUTGOING_EAZ
   char	dw_out_msn[ISDN_MSNLEN]; /* eaz for outgoing call if *out_msn != 0 */
 #endif
@@ -714,6 +739,16 @@ typedef struct isdn_net_local_s {
   ulong dw_abc_bchan_last_connect;
 #ifdef CONFIG_ISDN_WITH_ABC_CONN_ERROR
   short dw_abc_bchan_errcnt;
+#endif
+#ifdef CONFIG_ISDN_WITH_ABC_RAWIPCOMPRESS
+  void *dw_abc_bsd_compressor;
+  void *dw_abc_bsd_stat_rx;
+  void *dw_abc_bsd_stat_tx;
+  short dw_abc_bsd_is_rx;
+  ulong	dw_abc_bsd_snd;
+  ulong	dw_abc_bsd_bsd_snd;
+  ulong	dw_abc_bsd_rcv;
+  ulong	dw_abc_bsd_bsd_rcv;
 #endif
 #endif
 } isdn_net_local;
@@ -1009,6 +1044,11 @@ extern void	isdn_dwabc_test_phone(isdn_net_local *);
 extern void isdn_dw_abc_init_func(void);
 extern void isdn_dw_abc_release_func(void);
 extern int  isdn_dw_abc_reset_interface(isdn_net_local *,int);
+extern int	dwabc_bsd_init(isdn_net_local *lp);
+extern void	dwabc_bsd_free(isdn_net_local *lp);
+extern struct sk_buff *dwabc_bsd_compress(isdn_net_local *,struct sk_buff *,struct net_device *);
+extern void dwabc_bsd_first_gen(isdn_net_local *);
+extern struct sk_buff *dwabc_bsd_rx_pkt(isdn_net_local *,struct sk_buff *,struct net_device *);
 #ifdef CONFIG_ISDN_WITH_ABC_LCR_SUPPORT
 extern size_t	isdn_dw_abc_lcr_readstat(char *,size_t);
 extern ulong	isdn_dw_abc_lcr_call_number(isdn_net_local *,isdn_ctrl *);

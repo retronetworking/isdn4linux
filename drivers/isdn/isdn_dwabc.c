@@ -20,6 +20,22 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.6  1999/11/20 22:14:13  detabc
+ * added channel dial-skip in case of external use
+ * (isdn phone or another isdn device) on the same NTBA.
+ * usefull with two or more card's connected the different NTBA's.
+ * global switchable in kernel-config and also per netinterface.
+ *
+ * add auto disable of netinterface's in case of:
+ * 	to many connection's in short time.
+ * 	config mistakes (wrong encapsulation, B2-protokoll or so on) on local
+ * 	or remote side.
+ * 	wrong password's or something else to a ISP (syncppp).
+ *
+ * possible encapsulations for this future are:
+ * ISDN_NET_ENCAP_SYNCPPP, ISDN_NET_ENCAP_UIHDLC, ISDN_NET_ENCAP_RAWIP,
+ * and ISDN_NET_ENCAP_CISCOHDLCK.
+ *
  * Revision 1.5  1999/11/07 21:57:04  detabc
  * added dwabc-udpinfo-dial support
  *
@@ -78,6 +94,16 @@ static char *dwabcrevison = "$Revision$";
 #include <net/udp.h>
 #include <net/checksum.h>
 #include <linux/isdn_dwabc.h>
+
+#if CONFIG_ISDN_WITH_ABC_RAWIPCOMPRESS && CONFIG_ISDN_PPP
+#include <linux/isdn_ppp.h>
+extern struct isdn_ppp_compressor *isdn_ippp_comp_head;
+#define ipc_head isdn_ippp_comp_head
+static struct isdn_ppp_comp_data BSD_COMP_INIT_DATA;
+#ifndef CI_BSD_COMPRESS
+#define CI_BSD_COMPRESS 21
+#endif
+#endif
 
 #define NBYTEORDER_30BYTES      0x1e00 
 #define DWABC_TMRES (HZ)
@@ -1274,6 +1300,9 @@ void isdn_dw_abc_init_func(void)
 #ifdef CONFIG_ISDN_WITH_ABC_CONN_ERROR
 		"CONFIG_ISDN_WITH_ABC_CONN_ERROR\n"
 #endif
+#ifdef CONFIG_ISDN_WITH_ABC_RAWIPCOMPRESS
+		"CONFIG_ISDN_WITH_ABC_RAWIPCOMPRESS\n"
+#endif
 		"loaded\n",
 		dwabcrevison);
 }
@@ -1350,6 +1379,7 @@ void isdn_dwabc_test_phone(isdn_net_local *lp)
 				case 'e':   lp->dw_abc_flags |= ISDN_DW_ABC_FLAG_NO_CONN_ERROR;			break;
 
 				case 'D':	lp->dw_abc_flags |= ISDN_DW_ABC_FLAG_DYNADDR;				break;
+				case 'B':	lp->dw_abc_flags |= ISDN_DW_ABC_FLAG_BSD_COMPRESS;			break;
 
 				case '"':
 				case ' ':
@@ -1588,5 +1618,337 @@ int isdn_dw_abc_reset_interface(isdn_net_local *lp,int with_message)
 }
 
 	
+#if CONFIG_ISDN_WITH_ABC_RAWIPCOMPRESS && CONFIG_ISDN_PPP
 
+#define DWBSD_PKT_FIRST_LEN 16
+#define DWBSD_PKT_SWITCH	165
+#define DWBSD_PKT_BSD		189
+
+#define DWBSD_VERSION 		0x1
+
+void dwabc_bsd_first_gen(isdn_net_local *lp)
+{
+	if(lp != NULL && lp->p_encap == ISDN_NET_ENCAP_RAWIP && 
+		(lp->dw_abc_flags & ISDN_DW_ABC_FLAG_BSD_COMPRESS)) { 
+		
+		struct sk_buff *skb = NULL;
+		char *p = NULL;
+		char *ep = NULL;
+
+		if(lp->dw_abc_next_skb != NULL)
+			dev_kfree_skb(lp->dw_abc_next_skb);
+
+		lp->dw_abc_next_skb = NULL;
+
+		if((skb =(struct sk_buff *)dev_alloc_skb(128)) == NULL) {
+
+			printk(KERN_INFO "%s: dwabc: alloc-skb failed for 128 bytes\n",lp->name);
+			return;
+		}
+
+		skb_reserve(skb,64);
+		p = skb_put(skb,DWBSD_PKT_FIRST_LEN);
+		ep = p + DWBSD_PKT_FIRST_LEN;
+
+		*(p++) = DWBSD_PKT_SWITCH;
+		*(p++) = DWBSD_VERSION;
+		for(;p < ep;p++)	*(p++) = 0;
+		lp->dw_abc_next_skb = skb;
+
+		if(dev->net_verbose > 2)
+			printk(KERN_INFO "%s: dwabc: sending comm-header version 0x%x\n",lp->name,DWBSD_VERSION);
+	}
+}
+
+
+void dwabc_bsd_free(isdn_net_local *lp)
+{
+	if(lp != NULL) {
+
+		if(lp->dw_abc_bsd_stat_rx || lp->dw_abc_bsd_stat_tx) {
+
+			struct isdn_ppp_compressor *c = NULL;
+
+			if(!(c = (struct isdn_ppp_compressor *)lp->dw_abc_bsd_compressor)) {
+
+				printk(KERN_WARNING
+					"%s: PANIC: freeing bsd compressmemory without compressor\n",
+					lp->name);
+
+			} else {
+
+				if(lp->dw_abc_bsd_stat_rx) (*c->free)(lp->dw_abc_bsd_stat_rx);
+				if(lp->dw_abc_bsd_stat_tx) (*c->free)(lp->dw_abc_bsd_stat_tx);
+
+				if(dev->net_verbose > 2)
+					printk(KERN_INFO "%s: free bsd compress-memory\n",lp->name);
+			}
+		}
+
+		lp->dw_abc_bsd_compressor = NULL;
+		lp->dw_abc_bsd_stat_rx = NULL;
+		lp->dw_abc_bsd_stat_tx = NULL;
+		lp->dw_abc_if_flags &= ~ISDN_DW_ABC_IFFLAG_BSDAKTIV;
+
+		if(dev->net_verbose > 0) {
+
+			if(lp->dw_abc_bsd_rcv != lp->dw_abc_bsd_bsd_rcv) {
+
+				printk(KERN_INFO "%s: Receive %lu<-%lu kb\n",lp->name,
+					lp->dw_abc_bsd_rcv >> 10 , lp->dw_abc_bsd_bsd_rcv >> 10);
+			}
+
+
+			if(lp->dw_abc_bsd_snd != lp->dw_abc_bsd_bsd_snd) {
+
+				printk(KERN_INFO "%s: Send  %lu->%lu kb\n",lp->name,
+					lp->dw_abc_bsd_snd >> 10 , lp->dw_abc_bsd_bsd_snd >> 10);
+			}
+		}
+
+		lp->dw_abc_bsd_rcv 		=
+		lp->dw_abc_bsd_bsd_rcv	=
+		lp->dw_abc_bsd_snd 		=
+		lp->dw_abc_bsd_bsd_snd 	= 0;
+
+		if(lp->dw_abc_next_skb) {
+
+			dev_kfree_skb(lp->dw_abc_next_skb);
+			lp->dw_abc_next_skb = NULL;
+		}
+	}
+}
+
+
+int dwabc_bsd_init(isdn_net_local *lp)
+{
+	int r = 1;
+
+	if(lp != NULL) {
+
+		dwabc_bsd_free(lp);
+
+		if(lp->p_encap == ISDN_NET_ENCAP_RAWIP) {
+
+			if(lp->l2_proto == ISDN_PROTO_L2_X75I) {
+
+				if(lp->dw_abc_flags & ISDN_DW_ABC_FLAG_BSD_COMPRESS) {
+
+					ulong flags = 0;
+					struct isdn_ppp_compressor *c = ipc_head;
+
+					save_flags(flags);
+					cli();
+					for(;c != NULL && c->num != CI_BSD_COMPRESS; c = c->next);
+
+					if(c == NULL) {
+
+						printk(KERN_INFO "%s: Module isdn_bsdcompress not loaded\n",lp->name);
+						r = -1;
+					
+					} else {
+
+						void *rx = NULL;
+						void *tx = NULL;
+						struct isdn_ppp_comp_data *cp = &BSD_COMP_INIT_DATA;
+
+						memset(cp,0,sizeof(*cp));
+						cp->num = CI_BSD_COMPRESS;
+						cp->optlen = 1;
+						
+						/*
+						** set BSD_VERSION 1 and 12 bits compressmode
+						*/
+						*cp->options = (1 << 5) | 12;
+
+						if((rx = (*c->alloc)(cp)) == NULL) {
+
+							printk(KERN_INFO "%s: allocation of bsd rx-memory failed\n",lp->name);
+							r = -1;
+
+						} else if(!(*c->init)(rx,cp,0,1)) {
+
+							printk(KERN_INFO "%s: init of bsd rx-stream  failed\n",lp->name);
+							(*c->free)(rx);
+							rx = NULL;
+						}
+
+						if(rx != NULL) {
+
+							cp->flags = IPPP_COMP_FLAG_XMIT;
+							
+							if((tx = (*c->alloc)(cp)) == NULL) {
+
+								printk(KERN_INFO "%s: allocation of bsd tx-memory failed\n",lp->name);
+								r = -1;
+
+							} else if(!(*c->init)(tx,cp,0,1)) {
+
+								printk(KERN_INFO "%s: init of bsd tx-stream  failed\n",lp->name);
+								(*c->free)(tx);
+								tx = NULL;
+							}
+						}
+
+						if(tx != NULL) {
+
+							lp->dw_abc_bsd_compressor = (void *)c;
+							lp->dw_abc_bsd_stat_rx = rx;
+							lp->dw_abc_bsd_stat_tx = tx;
+							r = 0;
+
+							if(dev->net_verbose > 2)
+								printk(KERN_INFO "%s: bsd compress-memory and init ok\n",lp->name);
+						}
+					}
+
+					restore_flags(flags);
+				}
+
+			} else printk(KERN_INFO "%s: bsd-compress only with L2-Protocol x75i allowed\n",lp->name);
+
+		} else printk(KERN_INFO "%s: bsd-compress only with encapsulation rawip allowed\n",lp->name);
+	}
+
+	return(r);
+}
+
+struct sk_buff *dwabc_bsd_compress(isdn_net_local *lp,struct sk_buff *skb,struct net_device *ndev)
+{
+	if(lp != NULL && lp->p_encap == ISDN_NET_ENCAP_RAWIP 	&& 
+		(lp->dw_abc_flags & ISDN_DW_ABC_FLAG_BSD_COMPRESS)	&&
+		(lp->dw_abc_if_flags & ISDN_DW_ABC_IFFLAG_BSDAKTIV)) {
+
+		if(lp->dw_abc_bsd_stat_tx != NULL && lp->dw_abc_bsd_compressor) {
+
+			struct isdn_ppp_compressor *cp = (struct isdn_ppp_compressor *)lp->dw_abc_bsd_compressor;
+			struct sk_buff *nskb = (struct sk_buff *)dev_alloc_skb(skb->len * 2 + ndev->hard_header_len);
+			int l = 0;
+
+			if(nskb == NULL) {
+
+				(void)(*cp->reset)(lp->dw_abc_bsd_stat_tx,0,0,NULL,0,NULL);
+				printk(KERN_INFO "%s: dwabc-compress no memory\n",lp->name);
+
+			} else {
+
+				skb_reserve(nskb,ndev->hard_header_len);
+				*(unsigned char *)skb_put(nskb,1) = DWBSD_PKT_BSD;
+				l = (*cp->compress)(lp->dw_abc_bsd_stat_tx,skb,nskb,0x21);
+
+				if(l < 1 || l > skb->len) {
+
+					(void)(*cp->reset)(lp->dw_abc_bsd_stat_tx,0,0,NULL,0,NULL);
+					dev_kfree_skb(nskb);
+
+				} else {
+
+					dev_kfree_skb(skb);
+					skb = nskb;
+				}
+			}
+		}
+	}
+	return(skb);
+}
+
+struct sk_buff *dwabc_bsd_rx_pkt(isdn_net_local *lp,struct sk_buff *skb,struct net_device *ndev)
+{
+	struct sk_buff *r = skb;
+
+	if(lp != NULL && lp->p_encap == ISDN_NET_ENCAP_RAWIP && 
+		(lp->dw_abc_flags & ISDN_DW_ABC_FLAG_BSD_COMPRESS)) { 
+
+		unsigned char *p = (unsigned char *)skb->data;
+		struct isdn_ppp_compressor *cp = (struct isdn_ppp_compressor *)lp->dw_abc_bsd_compressor;
+
+		if(*p == DWBSD_PKT_SWITCH) {
+
+			if(skb->len == DWBSD_PKT_FIRST_LEN) {
+
+				lp->dw_abc_remote_version = p[1];
+				lp->dw_abc_if_flags |= ISDN_DW_ABC_IFFLAG_BSDAKTIV;
+				kfree_skb(skb);
+
+				if(dev->net_verbose > 2)
+					printk(KERN_INFO "%s: receive comm-header rem-version 0x%02x\n",
+						lp->name,lp->dw_abc_remote_version);
+
+				return(NULL);
+			}
+
+		} else if(*p != DWBSD_PKT_BSD) {
+
+			if(lp->dw_abc_bsd_stat_rx != NULL && cp && lp->dw_abc_bsd_is_rx) {
+				
+				(void)(*cp->reset)(lp->dw_abc_bsd_stat_rx,0,0,NULL,0,NULL);
+				lp->dw_abc_bsd_is_rx = 0;
+			}
+
+		} else if(lp->dw_abc_bsd_stat_rx != NULL && cp) {
+
+			struct sk_buff *nskb = NULL;
+
+			if(test_and_set_bit(ISDN_DW_ABC_BITLOCK_RECEIVE,&lp->dw_abc_bitlocks)) {
+
+				printk(KERN_INFO "%s: bsd-decomp called recursivly\n",lp->name);
+				kfree_skb(skb);
+				return(NULL);
+			} 
+			
+			nskb = (struct sk_buff *)dev_alloc_skb(2048 + ndev->hard_header_len);
+
+			if(nskb != NULL) {
+
+				int l = 0;
+
+				skb_reserve(nskb,ndev->hard_header_len);
+				skb_pull(skb, 1);
+
+				if((l = (*cp->decompress)(lp->dw_abc_bsd_stat_rx,skb,nskb,NULL)) < 1 || l>8000) {
+
+					printk(KERN_INFO "%s: abc-decomp failed\n",lp->name);
+					dev_kfree_skb(nskb);
+					dev_kfree_skb(skb);
+					nskb = NULL;
+
+				} else {
+
+					if (nskb->data[0] & 0x1)
+						skb_pull(nskb, 1);   /* protocol ID is only 8 bit */
+					else
+						skb_pull(nskb, 2);
+
+					nskb->dev = skb->dev;
+					nskb->pkt_type = skb->pkt_type;
+					nskb->mac.raw = nskb->data;
+					dev_kfree_skb(skb);
+					lp->dw_abc_bsd_is_rx = 1;
+				}
+
+			} else {
+
+				printk(KERN_INFO "%s: PANIC abc-decomp no memory\n",lp->name);
+				dev_kfree_skb(skb);
+			}
+
+			clear_bit(ISDN_DW_ABC_BITLOCK_RECEIVE,&lp->dw_abc_bitlocks);
+			r = nskb;
+		}
+	}
+
+	return(r);
+}
+
+#else
+int dwabc_bsd_init(isdn_net_local *lp) { return(1); }
+void dwabc_bsd_free(isdn_net_local *lp) { return; }
+void dwabc_bsd_first_gen(isdn_net_local *lp) { return ; }
+
+struct sk_buff *dwabc_bsd_compress(isdn_net_local *lp,struct sk_buff *skb,struct net_device *ndev)
+{ return(skb); }
+
+struct sk_buff *dwabc_bsd_rx_pkt(isdn_net_local *lp,struct sk_buff *skb,struct net_device *ndev)
+{ return(skb); }
+#endif
 #endif
