@@ -6,6 +6,9 @@
  * Copyright 1996 by Carsten Paeth (calle@calle.in-berlin.de)
  *
  * $Log$
+ * Revision 1.15  1999/06/21 15:24:11  calle
+ * extend information in /proc.
+ *
  * Revision 1.14  1999/06/10 16:51:03  calle
  * Bugfix: open/release of control device was not handled correct.
  *
@@ -88,7 +91,7 @@
 #include <linux/capi.h>
 #include <linux/kernelcapi.h>
 
-#include "compat.h"
+#include <linux/isdn_compat.h>
 #include "capiutil.h"
 #include "capicmd.h"
 #include "capidev.h"
@@ -589,7 +592,16 @@ static struct capi_interface_user cuser = {
 
 int capi_init(void)
 {
+#ifdef COMPAT_HAS_NEW_WAITQ
+	int j;
+#endif
+	
 	memset(capidevs, 0, sizeof(capidevs));
+#ifdef COMPAT_HAS_NEW_WAITQ
+	for ( j = 0; j < CAPI_MAXMINOR+1; j++ ) {
+		init_waitqueue_head(&capidevs[j].recv_wait);
+	}
+#endif
 
 	if (register_chrdev(capi_major, "capi20", &capi_fops)) {
 		printk(KERN_ERR "capi20: unable to get major %d\n", capi_major);

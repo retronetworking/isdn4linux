@@ -6,6 +6,11 @@
  * Copyright 1997 by Carsten Paeth (calle@calle.in-berlin.de)
  *
  * $Log$
+ * Revision 1.19  1999/06/29 16:16:54  calle
+ * Let ISDN_CMD_UNLOAD work with open isdn devices without crash again.
+ * Also right unlocking (ISDN_CMD_UNLOCK) is done now.
+ * isdnlog should check returncode of read(2) calls.
+ *
  * Revision 1.18  1999/06/21 15:24:15  calle
  * extend information in /proc.
  *
@@ -117,7 +122,6 @@
 #include <linux/kernelcapi.h>
 #include <linux/ctype.h>
 
-#include "compat.h"
 #include "capiutil.h"
 #include "capicmd.h"
 #include "capidrv.h"

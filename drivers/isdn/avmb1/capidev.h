@@ -6,6 +6,9 @@
  * (c) Copyright 1996 by Carsten Paeth (calle@calle.in-berlin.de)
  *
  * $Log$
+ * Revision 1.2  1999/06/21 15:24:13  calle
+ * extend information in /proc.
+ *
  * Revision 1.1  1997/03/04 21:50:30  calle
  * Frirst version in isdn4linux
  *
@@ -22,7 +25,11 @@ struct capidev {
 	int is_registered;
 	__u16 applid;
 	struct sk_buff_head recv_queue;
+#ifdef COMPAT_HAS_NEW_WAITQ
+	wait_queue_head_t recv_wait;
+#else
 	struct wait_queue *recv_wait;
+#endif
 	__u16 errcode;
 	/* Statistic */
 	unsigned long nopen;

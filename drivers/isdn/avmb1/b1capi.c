@@ -6,6 +6,9 @@
  * (c) Copyright 1997 by Carsten Paeth (calle@calle.in-berlin.de)
  * 
  * $Log$
+ * Revision 1.17  1999/06/21 15:24:05  calle
+ * extend information in /proc.
+ *
  * Revision 1.16  1999/06/10 16:53:51  calle
  * Removing of module b1pci will now remove card from lower level.
  *
@@ -117,7 +120,7 @@
 #include <linux/capi.h>
 #include <linux/b1lli.h>
 #include <linux/kernelcapi.h>
-#include "compat.h"
+#include <linux/isdn_compat.h>
 #include "capicmd.h"
 #include "capiutil.h"
 

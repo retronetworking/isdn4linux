@@ -6,6 +6,9 @@
  * (c) Copyright 1997 by Carsten Paeth (calle@calle.in-berlin.de)
  * 
  * $Log$
+ * Revision 1.13  1999/06/21 15:33:02  calle
+ * fixed typo.
+ *
  * Revision 1.12  1999/06/21 15:24:09  calle
  * extend information in /proc.
  *
@@ -95,7 +98,7 @@
 #include <linux/capi.h>
 #include <linux/b1lli.h>
 
-#include "compat.h"
+#include <linux/isdn_compat.h>
 #include "capicmd.h"
 #include "capiutil.h"
 

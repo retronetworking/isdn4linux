@@ -6,6 +6,9 @@
  * (c) Copyright 1997 by Carsten Paeth (calle@calle.in-berlin.de)
  * 
  * $Log$
+ * Revision 1.10  1999/06/10 16:53:54  calle
+ * Removing of module b1pci will now remove card from lower level.
+ *
  * Revision 1.9  1999/04/15 19:49:32  calle
  * fix fuer die B1-PCI. Jetzt geht z.B. auch IRQ 17 ...
  *
@@ -50,7 +53,7 @@
 #include <linux/kernel.h>
 #include <linux/pci.h>
 #include <linux/skbuff.h>
-#include "compat.h"
+#include <linux/isdn_compat.h>
 #include <linux/capi.h>
 #include <linux/b1lli.h>
 
