@@ -112,14 +112,14 @@ int DivasCardsDiscover(void)
 			Card.name[5] = 'B';
 			Card.name[6] = '\0';
 
-			if (check_region(Card.io_base, 0x1F))
+			if (check_region(Card.io_base, 0x20))
 			{
 				printk(KERN_WARNING "Divas: DIVA I/O Base already in use 0x%x-0x%x\n", Card.io_base, Card.io_base + 0x1F);
 				wDeviceIndex++;
 				continue;
 			}
 
-			if (check_region(Card.reset_base, 0xFF))
+			if (check_region(Card.reset_base, 0x80))
 			{
 				printk(KERN_WARNING "Divas: PLX I/O Base already in use 0x%x-0x%x\n", Card.reset_base, Card.reset_base + 0xFF);
 				wDeviceIndex++;
@@ -171,14 +171,14 @@ int DivasCardsDiscover(void)
 			Card.name[5] = 'B';
 			Card.name[6] = '\0';
 
-			if (check_region(Card.io_base, 0x1F))
+			if (check_region(Card.io_base, 0x20))
 			{
 				printk(KERN_WARNING "Divas: DIVA I/O Base already in use 0x%x-0x%x\n", Card.io_base, Card.io_base + 0x1F);	
 				wDeviceIndex++;
 				continue;
 			}
 
-			if (check_region(Card.reset_base, 0xFF))
+			if (check_region(Card.reset_base, 0x80))
 			{
 				printk(KERN_WARNING "Divas: PLX I/O Base already in use 0x%x-0x%x\n", Card.reset_base, Card.reset_base + 0xFF);
 				wDeviceIndex++;

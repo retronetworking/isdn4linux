@@ -31,6 +31,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.25.2.1  2000/03/25 18:51:03  armin
+ * First checkin of new eicon driver V2
+ *
  * Revision 1.25  2000/02/22 16:26:40  armin
  * Fixed membase error message.
  * Fixed missing log buffer struct.
@@ -1535,8 +1538,8 @@ cleanup_module(void)
 
 			if(pCard->hw->card_type == DIA_CARD_TYPE_DIVA_SERVER_B)
 			{
-				release_region(pCard->hw->io_base,0x1F);
-				release_region(pCard->hw->reset_base,0xFF);
+				release_region(pCard->hw->io_base,0x20);
+				release_region(pCard->hw->reset_base,0x80);
 			}
 
                         // If this is a 4BRI ...

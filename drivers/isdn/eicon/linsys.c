@@ -90,8 +90,8 @@ int DivasBRIInitPCI(card_t *card, dia_card_t *cfg)
 	card->hw->reset_base = card->cfg.reset_base;
 	card->hw->io_base = card->cfg.io_base;
 
-	request_region(card->hw->reset_base,0xFF,"Divas");
-	request_region(card->hw->io_base,0x1F,"Divas");
+	request_region(card->hw->reset_base,0x80,"Divas");
+	request_region(card->hw->io_base,0x20,"Divas");
 
 
 	/* Same as for PRI */
