@@ -19,6 +19,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.19  1996/10/25 19:03:21  hipp
+ * changed/added some defines to (re)allow compilation without MP/VJ
+ *
  * Revision 1.18  1996/10/22 23:14:00  fritz
  * Changes for compatibility to 2.0.X and 2.1.X kernels.
  *
@@ -148,7 +151,9 @@ static void isdn_ppp_frame_log(char *info,char *data,int len,int maxlen)
  */
 int isdn_ppp_free(isdn_net_local *lp)
 {
+#ifdef CONFIG_ISDN_MPP
 	isdn_net_local *master_lp=lp;
+#endif
 	unsigned long flags;
 	struct ippp_struct *is;
 
