@@ -35,21 +35,15 @@ static inline u_char
 readreg(unsigned int ale, unsigned int adr, u_char off)
 {
 	register u_char ret;
-	long flags;
 
-	save_flags(flags);
-	cli();
 	byteout(ale, off);
 	ret = bytein(adr);
-	restore_flags(flags);
 	return (ret);
 }
 
 static inline void
 readfifo(unsigned int ale, unsigned int adr, u_char off, u_char * data, int size)
 {
-	/* fifo read without cli because it's allready done  */
-
 	byteout(ale, off);
 	insb(adr, data, size);
 }
@@ -58,19 +52,13 @@ readfifo(unsigned int ale, unsigned int adr, u_char off, u_char * data, int size
 static inline void
 writereg(unsigned int ale, unsigned int adr, u_char off, u_char data)
 {
-	long flags;
-
-	save_flags(flags);
-	cli();
 	byteout(ale, off);
 	byteout(adr, data);
-	restore_flags(flags);
 }
 
 static inline void
 writefifo(unsigned int ale, unsigned int adr, u_char off, u_char * data, int size)
 {
-	/* fifo write without cli because it's allready done  */
 	byteout(ale, off);
 	outsb(adr, data, size);
 }
@@ -128,16 +116,14 @@ WriteHSCX(struct IsdnCardState *cs, int hscx, u_char offset, u_char value)
 
 #include "hscx_irq.c"
 
-static void
+static irqreturn_t
 saphir_interrupt(int intno, void *dev_id, struct pt_regs *regs)
 {
 	struct IsdnCardState *cs = dev_id;
 	u_char val;
+	u_long flags;
 
-	if (!cs) {
-		printk(KERN_WARNING "saphir: Spurious interrupt!\n");
-		return;
-	}
+	spin_lock_irqsave(&cs->lock, flags);
 	val = readreg(cs->hw.saphir.ale, cs->hw.saphir.hscx, HSCX_ISTA + 0x40);
       Start_HSCX:
 	if (val)
@@ -169,27 +155,28 @@ saphir_interrupt(int intno, void *dev_id, struct pt_regs *regs)
 	writereg(cs->hw.saphir.ale, cs->hw.saphir.isac, ISAC_MASK, 0);
 	writereg(cs->hw.saphir.ale, cs->hw.saphir.hscx, HSCX_MASK, 0);
 	writereg(cs->hw.saphir.ale, cs->hw.saphir.hscx, HSCX_MASK + 0x40, 0);
+	spin_unlock_irqrestore(&cs->lock, flags);
+	return IRQ_HANDLED;
 }
 
 static void
 SaphirWatchDog(struct IsdnCardState *cs)
 {
+	u_long flags;
+
+	spin_lock_irqsave(&cs->lock, flags);
         /* 5 sec WatchDog, so read at least every 4 sec */
 	cs->readisac(cs, ISAC_RBCH);
+	spin_unlock_irqrestore(&cs->lock, flags);
 	mod_timer(&cs->hw.saphir.timer, jiffies+1*HZ);
 }
 
 void
 release_io_saphir(struct IsdnCardState *cs)
 {
-	long flags;
-	
-	save_flags(flags);
-	cli();
 	byteout(cs->hw.saphir.cfg_reg + IRQ_REG, 0xff);
 	del_timer(&cs->hw.saphir.timer);
 	cs->hw.saphir.timer.function = NULL;
-	restore_flags(flags);
 	if (cs->hw.saphir.cfg_reg)
 		release_region(cs->hw.saphir.cfg_reg, 6);
 }
@@ -231,15 +218,21 @@ saphir_reset(struct IsdnCardState *cs)
 static int
 saphir_card_msg(struct IsdnCardState *cs, int mt, void *arg)
 {
+	u_long flags;
+
 	switch (mt) {
 		case CARD_RESET:
+			spin_lock_irqsave(&cs->lock, flags);
 			saphir_reset(cs);
+			spin_unlock_irqrestore(&cs->lock, flags);
 			return(0);
 		case CARD_RELEASE:
 			release_io_saphir(cs);
 			return(0);
 		case CARD_INIT:
+			spin_lock_irqsave(&cs->lock, flags);
 			inithscxisac(cs, 3);
+			spin_unlock_irqrestore(&cs->lock, flags);
 			return(0);
 		case CARD_TEST:
 			return(0);
@@ -265,21 +258,19 @@ setup_saphir(struct IsdnCard *card)
 	cs->hw.saphir.hscx = card->para[1] + HSCX_DATA;
 	cs->hw.saphir.ale = card->para[1] + ADDRESS_REG;
 	cs->irq = card->para[0];
-	if (check_region((cs->hw.saphir.cfg_reg), 6)) {
+	if (!request_region(cs->hw.saphir.cfg_reg, 6, "saphir")) {
 		printk(KERN_WARNING
 			"HiSax: %s config port %x-%x already in use\n",
 			CardType[card->typ],
 			cs->hw.saphir.cfg_reg,
 			cs->hw.saphir.cfg_reg + 5);
 		return (0);
-	} else
-		request_region(cs->hw.saphir.cfg_reg,6, "saphir");
+	}
 
-	printk(KERN_INFO
-	       "HiSax: %s config irq:%d io:0x%X\n",
-	       CardType[cs->typ], cs->irq,
-	       cs->hw.saphir.cfg_reg);
+	printk(KERN_INFO "HiSax: %s config irq:%d io:0x%X\n",
+		CardType[cs->typ], cs->irq, cs->hw.saphir.cfg_reg);
 
+	setup_isac(cs);
 	cs->hw.saphir.timer.function = (void *) SaphirWatchDog;
 	cs->hw.saphir.timer.data = (long) cs;
 	init_timer(&cs->hw.saphir.timer);

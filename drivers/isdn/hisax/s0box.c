@@ -21,10 +21,6 @@ const char *s0box_revision = "$Revision$";
 
 static inline void
 writereg(unsigned int padr, signed int addr, u_char off, u_char val) {
-	unsigned long flags;
-
-	save_flags(flags);
-	cli();
 	outb_p(0x1c,padr+2);
 	outb_p(0x14,padr+2);
 	outb_p((addr+off)&0x7f,padr);
@@ -33,7 +29,6 @@ writereg(unsigned int padr, signed int addr, u_char off, u_char val) {
 	outb_p(0x17,padr+2);
 	outb_p(0x14,padr+2);
 	outb_p(0x1c,padr+2);
-	restore_flags(flags);
 }
 
 static u_char nibtab[] = { 1, 9, 5, 0xd, 3, 0xb, 7, 0xf,
@@ -43,10 +38,7 @@ static u_char nibtab[] = { 1, 9, 5, 0xd, 3, 0xb, 7, 0xf,
 static inline u_char
 readreg(unsigned int padr, signed int addr, u_char off) {
 	register u_char n1, n2;
-	unsigned long flags;
 
-	save_flags(flags);
-	cli();
 	outb_p(0x1c,padr+2);
 	outb_p(0x14,padr+2);
 	outb_p((addr+off)|0x80,padr);
@@ -57,7 +49,6 @@ readreg(unsigned int padr, signed int addr, u_char off) {
 	n2 = (inb_p(padr+1) >> 3) & 0x17;
 	outb_p(0x14,padr+2);
 	outb_p(0x1c,padr+2);
-	restore_flags(flags);
 	return nibtab[n1] | (nibtab[n2] << 4);
 }
 
@@ -149,18 +140,16 @@ WriteHSCX(struct IsdnCardState *cs, int hscx, u_char offset, u_char value)
 
 #include "hscx_irq.c"
 
-static void
+static irqreturn_t
 s0box_interrupt(int intno, void *dev_id, struct pt_regs *regs)
 {
 #define MAXCOUNT 5
 	struct IsdnCardState *cs = dev_id;
 	u_char val;
+	u_long flags;
 	int count = 0;
 
-	if (!cs) {
-		printk(KERN_WARNING "Teles: Spurious interrupt!\n");
-		return;
-	}
+	spin_lock_irqsave(&cs->lock, flags);
 	val = readreg(cs->hw.teles3.cfg_reg, cs->hw.teles3.hscx[1], HSCX_ISTA);
       Start_HSCX:
 	if (val)
@@ -190,6 +179,8 @@ s0box_interrupt(int intno, void *dev_id, struct pt_regs *regs)
 	writereg(cs->hw.teles3.cfg_reg, cs->hw.teles3.isac, ISAC_MASK, 0x0);
 	writereg(cs->hw.teles3.cfg_reg, cs->hw.teles3.hscx[0], HSCX_MASK, 0x0);
 	writereg(cs->hw.teles3.cfg_reg, cs->hw.teles3.hscx[1], HSCX_MASK, 0x0);
+	spin_unlock_irqrestore(&cs->lock, flags);
+	return IRQ_HANDLED;
 }
 
 void
@@ -201,6 +192,8 @@ release_io_s0box(struct IsdnCardState *cs)
 static int
 S0Box_card_msg(struct IsdnCardState *cs, int mt, void *arg)
 {
+	u_long flags;
+
 	switch (mt) {
 		case CARD_RESET:
 			break;
@@ -208,7 +201,9 @@ S0Box_card_msg(struct IsdnCardState *cs, int mt, void *arg)
 			release_io_s0box(cs);
 			break;
 		case CARD_INIT:
+			spin_lock_irqsave(&cs->lock, flags);
 			inithscxisac(cs, 3);
+			spin_unlock_irqrestore(&cs->lock, flags);
 			break;
 		case CARD_TEST:
 			break;
@@ -235,22 +230,22 @@ setup_s0box(struct IsdnCard *card)
 	cs->hw.teles3.hscxfifo[0] = cs->hw.teles3.hscx[0] + 0x3e;
 	cs->hw.teles3.hscxfifo[1] = cs->hw.teles3.hscx[1] + 0x3e;
 	cs->irq = card->para[0];
-	if (check_region(cs->hw.teles3.cfg_reg,8)) {
+	if (!request_region(cs->hw.teles3.cfg_reg,8, "S0Box parallel I/O")) {
 		printk(KERN_WARNING
 		       "HiSax: %s ports %x-%x already in use\n",
 		       CardType[cs->typ],
                        cs->hw.teles3.cfg_reg,
                        cs->hw.teles3.cfg_reg + 7);
 		return 0;
-	} else
-		request_region(cs->hw.teles3.cfg_reg, 8, "S0Box parallel I/O");
+	}
 	printk(KERN_INFO
-	       "HiSax: %s config irq:%d isac:0x%x  cfg:0x%x\n",
-	       CardType[cs->typ], cs->irq,
-	       cs->hw.teles3.isac, cs->hw.teles3.cfg_reg);
+		"HiSax: %s config irq:%d isac:0x%x  cfg:0x%x\n",
+		CardType[cs->typ], cs->irq,
+		cs->hw.teles3.isac, cs->hw.teles3.cfg_reg);
 	printk(KERN_INFO
-	       "HiSax: hscx A:0x%x  hscx B:0x%x\n",
-	       cs->hw.teles3.hscx[0], cs->hw.teles3.hscx[1]);
+		"HiSax: hscx A:0x%x  hscx B:0x%x\n",
+		cs->hw.teles3.hscx[0], cs->hw.teles3.hscx[1]);
+	setup_isac(cs);
 	cs->readisac = &ReadISAC;
 	cs->writeisac = &WriteISAC;
 	cs->readisacfifo = &ReadISACfifo;

@@ -61,112 +61,71 @@ static const char *avm_revision = "$Revision$";
 static inline u_char
 ReadISAC(struct IsdnCardState *cs, u_char offset)
 {
-	long flags;
         u_char ret;
 
         offset -= 0x20;
-	save_flags(flags);
-	cli();
         byteout(cs->hw.avm.cfg_reg+ADDRREG_OFFSET,ISAC_REG_OFFSET+offset);
 	ret = bytein(cs->hw.avm.cfg_reg+DATAREG_OFFSET);
-	restore_flags(flags);
 	return ret;
 }
 
 static inline void
 WriteISAC(struct IsdnCardState *cs, u_char offset, u_char value)
 {
-	long flags;
-
         offset -= 0x20;
-
-	save_flags(flags);
-	cli();
         byteout(cs->hw.avm.cfg_reg+ADDRREG_OFFSET,ISAC_REG_OFFSET+offset);
 	byteout(cs->hw.avm.cfg_reg+DATAREG_OFFSET, value);
-	restore_flags(flags);
 }
 
 static inline void
 ReadISACfifo(struct IsdnCardState *cs, u_char * data, int size)
 {
-	long flags;
-
-	save_flags(flags);
-	cli();
 	byteout(cs->hw.avm.cfg_reg+ADDRREG_OFFSET,ISAC_FIFO_OFFSET);
 	insb(cs->hw.avm.cfg_reg+DATAREG_OFFSET, data, size);
-	restore_flags(flags);
 }
 
 static inline void
 WriteISACfifo(struct IsdnCardState *cs, u_char * data, int size)
 {
-	long flags;
-
-	save_flags(flags);
-	cli();
 	byteout(cs->hw.avm.cfg_reg+ADDRREG_OFFSET,ISAC_FIFO_OFFSET);
 	outsb(cs->hw.avm.cfg_reg+DATAREG_OFFSET, data, size);
-	restore_flags(flags);
 }
 
 static inline u_char
 ReadHSCX(struct IsdnCardState *cs, int hscx, u_char offset)
 {
 	u_char ret;
-	long flags;
 
         offset -= 0x20;
-
-	save_flags(flags);
-	cli();
 	byteout(cs->hw.avm.cfg_reg+ADDRREG_OFFSET,
 			HSCX_REG_OFFSET+hscx*HSCX_CH_DIFF+offset);
 	ret = bytein(cs->hw.avm.cfg_reg+DATAREG_OFFSET);
-	restore_flags(flags);
 	return ret;
 }
 
 static inline void
 WriteHSCX(struct IsdnCardState *cs, int hscx, u_char offset, u_char value)
 {
-	long flags;
-
         offset -= 0x20;
-
-	save_flags(flags);
-	cli();
 	byteout(cs->hw.avm.cfg_reg+ADDRREG_OFFSET,
 			HSCX_REG_OFFSET+hscx*HSCX_CH_DIFF+offset);
 	byteout(cs->hw.avm.cfg_reg+DATAREG_OFFSET, value);
-	restore_flags(flags);
 }
 
 static inline void
 ReadHSCXfifo(struct IsdnCardState *cs, int hscx, u_char * data, int size)
 {
-	long flags;
-
-	save_flags(flags);
-	cli();
 	byteout(cs->hw.avm.cfg_reg+ADDRREG_OFFSET,
 			HSCX_FIFO_OFFSET+hscx*HSCX_CH_DIFF);
 	insb(cs->hw.avm.cfg_reg+DATAREG_OFFSET, data, size);
-	restore_flags(flags);
 }
 
 static inline void
 WriteHSCXfifo(struct IsdnCardState *cs, int hscx, u_char * data, int size)
 {
-	long flags;
-
-	save_flags(flags);
-	cli();
 	byteout(cs->hw.avm.cfg_reg+ADDRREG_OFFSET,
 			HSCX_FIFO_OFFSET+hscx*HSCX_CH_DIFF);
 	outsb(cs->hw.avm.cfg_reg+DATAREG_OFFSET, data, size);
-	restore_flags(flags);
 }
 
 /*
@@ -180,16 +139,14 @@ WriteHSCXfifo(struct IsdnCardState *cs, int hscx, u_char * data, int size)
 
 #include "hscx_irq.c"
 
-static void
+static irqreturn_t
 avm_a1p_interrupt(int intno, void *dev_id, struct pt_regs *regs)
 {
 	struct IsdnCardState *cs = dev_id;
 	u_char val, sval;
+	u_long flags;
 
-	if (!cs) {
-		printk(KERN_WARNING "AVM A1 PCMCIA: Spurious interrupt!\n");
-		return;
-	}
+	spin_lock_irqsave(&cs->lock, flags);
 	while ((sval = (~bytein(cs->hw.avm.cfg_reg+ASL0_OFFSET) & ASL0_R_IRQPENDING))) {
 		if (cs->debug & L1_DEB_INTSTAT)
 			debugl1(cs, "avm IntStatus %x", sval);
@@ -210,18 +167,24 @@ avm_a1p_interrupt(int intno, void *dev_id, struct pt_regs *regs)
 	WriteISAC(cs, ISAC_MASK, 0x00);
 	WriteHSCX(cs, 0, HSCX_MASK, 0x00);
 	WriteHSCX(cs, 1, HSCX_MASK, 0x00);
+	spin_unlock_irqrestore(&cs->lock, flags);
+	return IRQ_HANDLED;
 }
 
 static int
 AVM_card_msg(struct IsdnCardState *cs, int mt, void *arg)
 {
+	u_long flags;
+
 	switch (mt) {
 		case CARD_RESET:
+			spin_lock_irqsave(&cs->lock, flags);
 			byteout(cs->hw.avm.cfg_reg+ASL0_OFFSET,0x00);
 			HZDELAY(HZ / 5 + 1);
 			byteout(cs->hw.avm.cfg_reg+ASL0_OFFSET,ASL0_W_RESET);
 			HZDELAY(HZ / 5 + 1);
 			byteout(cs->hw.avm.cfg_reg+ASL0_OFFSET,0x00);
+			spin_unlock_irqrestore(&cs->lock, flags);
 			return 0;
 
 		case CARD_RELEASE:
@@ -230,11 +193,13 @@ AVM_card_msg(struct IsdnCardState *cs, int mt, void *arg)
 			return 0;
 
 		case CARD_INIT:
+			spin_lock_irqsave(&cs->lock, flags);
 			byteout(cs->hw.avm.cfg_reg+ASL0_OFFSET,ASL0_W_TDISABLE|ASL0_W_TRESET|ASL0_W_IRQENABLE);
 			clear_pending_isac_ints(cs);
 			clear_pending_hscx_ints(cs);
 			inithscxisac(cs, 1);
 			inithscxisac(cs, 2);
+			spin_unlock_irqrestore(&cs->lock, flags);
 			return 0;
 
 		case CARD_TEST:
@@ -253,7 +218,6 @@ setup_avm_a1_pcmcia(struct IsdnCard *card)
 {
 	u_char model, vers;
 	struct IsdnCardState *cs = card->cs;
-	long flags;
 	char tmp[64];
 
 
@@ -267,10 +231,7 @@ setup_avm_a1_pcmcia(struct IsdnCard *card)
 	cs->irq = card->para[0];
 
 
-	save_flags(flags);
 	outb(cs->hw.avm.cfg_reg+ASL1_OFFSET, ASL1_W_ENABLE_S0);
-        sti();
-
 	byteout(cs->hw.avm.cfg_reg+ASL0_OFFSET,0x00);
 	HZDELAY(HZ / 5 + 1);
 	byteout(cs->hw.avm.cfg_reg+ASL0_OFFSET,ASL0_W_RESET);
@@ -279,14 +240,13 @@ setup_avm_a1_pcmcia(struct IsdnCard *card)
 
 	byteout(cs->hw.avm.cfg_reg+ASL0_OFFSET, ASL0_W_TDISABLE|ASL0_W_TRESET);
 
-	restore_flags(flags);
-
 	model = bytein(cs->hw.avm.cfg_reg+MODREG_OFFSET);
 	vers = bytein(cs->hw.avm.cfg_reg+VERREG_OFFSET);
 
 	printk(KERN_INFO "AVM A1 PCMCIA: io 0x%x irq %d model %d version %d\n",
 				cs->hw.avm.cfg_reg, cs->irq, model, vers);
 
+	setup_isac(cs);
 	cs->readisac = &ReadISAC;
 	cs->writeisac = &WriteISAC;
 	cs->readisacfifo = &ReadISACfifo;

@@ -98,16 +98,14 @@ WriteHSCX(struct IsdnCardState *cs, int hscx, u_char offset, u_char value)
 
 #include "hscx_irq.c"
 
-static void
+static irqreturn_t
 sportster_interrupt(int intno, void *dev_id, struct pt_regs *regs)
 {
 	struct IsdnCardState *cs = dev_id;
 	u_char val;
+	u_long flags;
 
-	if (!cs) {
-		printk(KERN_WARNING "Sportster: Spurious interrupt!\n");
-		return;
-	}
+	spin_lock_irqsave(&cs->lock, flags);
 	val = READHSCX(cs, 1, HSCX_ISTA);
       Start_HSCX:
 	if (val)
@@ -130,6 +128,8 @@ sportster_interrupt(int intno, void *dev_id, struct pt_regs *regs)
 	}
 	/* get a new irq impulse if there any pending */
 	bytein(cs->hw.spt.cfg_reg + SPORTSTER_RES_IRQ +1);
+	spin_unlock_irqrestore(&cs->lock, flags);
+	return IRQ_HANDLED;
 }
 
 void
@@ -158,18 +158,25 @@ reset_sportster(struct IsdnCardState *cs)
 static int
 Sportster_card_msg(struct IsdnCardState *cs, int mt, void *arg)
 {
+	u_long flags;
+
 	switch (mt) {
 		case CARD_RESET:
+			spin_lock_irqsave(&cs->lock, flags);
 			reset_sportster(cs);
+			spin_unlock_irqrestore(&cs->lock, flags);
 			return(0);
 		case CARD_RELEASE:
 			release_io_sportster(cs);
 			return(0);
 		case CARD_INIT:
+			spin_lock_irqsave(&cs->lock, flags);
+			reset_sportster(cs);
 			inithscxisac(cs, 1);
 			cs->hw.spt.res_irq |= SPORTSTER_INTE; /* IRQ On */
 			byteout(cs->hw.spt.cfg_reg + SPORTSTER_RES_IRQ, cs->hw.spt.res_irq);
 			inithscxisac(cs, 2);
+			spin_unlock_irqrestore(&cs->lock, flags);
 			return(0);
 		case CARD_TEST:
 			return(0);
@@ -184,13 +191,12 @@ get_io_range(struct IsdnCardState *cs)
 	
 	for (i=0;i<64;i++) {
 		adr = cs->hw.spt.cfg_reg + i *1024;
-		if (check_region(adr, 8)) {
+		if (!request_region(adr, 8, "sportster")) {
 			printk(KERN_WARNING
 				"HiSax: %s config port %x-%x already in use\n",
 				CardType[cs->typ], adr, adr + 8);
 			break;
-		} else
-			request_region(adr, 8, "sportster");
+		} 
 	}
 	if (i==64)
 		return(1);
@@ -241,12 +247,9 @@ setup_sportster(struct IsdnCard *card)
 			printk(KERN_WARNING "Sportster: wrong IRQ\n");
 			return(0);
 	}
-	reset_sportster(cs);
-	printk(KERN_INFO
-	       "HiSax: %s config irq:%d cfg:0x%X\n",
-	       CardType[cs->typ], cs->irq,
-	       cs->hw.spt.cfg_reg);
-
+	printk(KERN_INFO "HiSax: %s config irq:%d cfg:0x%X\n",
+		CardType[cs->typ], cs->irq, cs->hw.spt.cfg_reg);
+	setup_isac(cs);
 	cs->readisac = &ReadISAC;
 	cs->writeisac = &WriteISAC;
 	cs->readisacfifo = &ReadISACfifo;

@@ -143,17 +143,15 @@ WriteHSCX(struct IsdnCardState *cs, int hscx, u_char offset, u_char value)
 
 #include "hscx_irq.c"
 
-static void
+static irqreturn_t
 teles0_interrupt(int intno, void *dev_id, struct pt_regs *regs)
 {
 	struct IsdnCardState *cs = dev_id;
 	u_char val;
+	u_long flags;
 	int count = 0;
 
-	if (!cs) {
-		printk(KERN_WARNING "Teles0: Spurious interrupt!\n");
-		return;
-	}
+	spin_lock_irqsave(&cs->lock, flags);
 	val = readhscx(cs->hw.teles0.membase, 1, HSCX_ISTA);
       Start_HSCX:
 	if (val)
@@ -181,6 +179,8 @@ teles0_interrupt(int intno, void *dev_id, struct pt_regs *regs)
 	writeisac(cs->hw.teles0.membase, ISAC_MASK, 0x0);
 	writehscx(cs->hw.teles0.membase, 0, HSCX_MASK, 0x0);
 	writehscx(cs->hw.teles0.membase, 1, HSCX_MASK, 0x0);
+	spin_unlock_irqrestore(&cs->lock, flags);
+	return IRQ_HANDLED;
 }
 
 void
@@ -196,10 +196,7 @@ static int
 reset_teles0(struct IsdnCardState *cs)
 {
 	u_char cfval;
-	long flags;
 
-	save_flags(flags);
-	sti();
 	if (cs->hw.teles0.cfg_reg) {
 		switch (cs->irq) {
 			case 2:
@@ -240,22 +237,27 @@ reset_teles0(struct IsdnCardState *cs)
 	HZDELAY(HZ / 5 + 1);
 	writeb(1, cs->hw.teles0.membase + 0x80); mb();
 	HZDELAY(HZ / 5 + 1);
-	restore_flags(flags);
 	return(0);
 }
 
 static int
 Teles_card_msg(struct IsdnCardState *cs, int mt, void *arg)
 {
+	u_long flags;
+
 	switch (mt) {
 		case CARD_RESET:
+			spin_lock_irqsave(&cs->lock, flags);
 			reset_teles0(cs);
+			spin_unlock_irqrestore(&cs->lock, flags);
 			return(0);
 		case CARD_RELEASE:
 			release_io_teles0(cs);
 			return(0);
 		case CARD_INIT:
+			spin_lock_irqsave(&cs->lock, flags);
 			inithscxisac(cs, 3);
+			spin_unlock_irqrestore(&cs->lock, flags);
 			return(0);
 		case CARD_TEST:
 			return(0);
@@ -288,15 +290,13 @@ setup_teles0(struct IsdnCard *card)
 	}
 	cs->irq = card->para[0];
 	if (cs->hw.teles0.cfg_reg) {
-		if (check_region(cs->hw.teles0.cfg_reg, 8)) {
+		if (!request_region(cs->hw.teles0.cfg_reg, 8, "teles cfg")) {
 			printk(KERN_WARNING
 			  "HiSax: %s config port %x-%x already in use\n",
 			       CardType[card->typ],
 			       cs->hw.teles0.cfg_reg,
 			       cs->hw.teles0.cfg_reg + 8);
 			return (0);
-		} else {
-			request_region(cs->hw.teles0.cfg_reg, 8, "teles cfg");
 		}
 	}
 	if (cs->hw.teles0.cfg_reg) {
@@ -326,7 +326,7 @@ setup_teles0(struct IsdnCard *card)
 	/* 16.0 and 8.0 designed for IOM1 */
 	test_and_set_bit(HW_IOM1, &cs->HW_Flags);
 	cs->hw.teles0.phymem = card->para[1];
-	if (check_mem_region(cs->hw.teles0.phymem, TELES_IOMEM_SIZE)) {
+	if (!request_mem_region(cs->hw.teles0.phymem, TELES_IOMEM_SIZE, "teles iomem")) {
 		printk(KERN_WARNING
 			"HiSax: %s memory region %lx-%lx already in use\n",
 			CardType[card->typ],
@@ -335,9 +335,6 @@ setup_teles0(struct IsdnCard *card)
 		if (cs->hw.teles0.cfg_reg)
 			release_region(cs->hw.teles0.cfg_reg, 8);
 		return (0);
-	} else {
-		request_mem_region(cs->hw.teles0.phymem, TELES_IOMEM_SIZE,
-			"teles iomem");
 	}
 	cs->hw.teles0.membase =
 		(unsigned long) ioremap(cs->hw.teles0.phymem, TELES_IOMEM_SIZE);
@@ -350,6 +347,7 @@ setup_teles0(struct IsdnCard *card)
 		release_io_teles0(cs);
 		return (0);
 	}
+	setup_isac(cs);
 	cs->readisac = &ReadISAC;
 	cs->writeisac = &WriteISAC;
 	cs->readisacfifo = &ReadISACfifo;

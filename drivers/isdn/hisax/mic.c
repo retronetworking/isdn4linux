@@ -34,22 +34,15 @@ static inline u_char
 readreg(unsigned int ale, unsigned int adr, u_char off)
 {
 	register u_char ret;
-	long flags;
 
-	save_flags(flags);
-	cli();
 	byteout(ale, off);
 	ret = bytein(adr);
-	restore_flags(flags);
-
 	return (ret);
 }
 
 static inline void
 readfifo(unsigned int ale, unsigned int adr, u_char off, u_char * data, int size)
 {
-	/* fifo read without cli because it's allready done  */
-
 	byteout(ale, off);
 	insb(adr, data, size);
 }
@@ -58,19 +51,13 @@ readfifo(unsigned int ale, unsigned int adr, u_char off, u_char * data, int size
 static inline void
 writereg(unsigned int ale, unsigned int adr, u_char off, u_char data)
 {
-	long flags;
-
-	save_flags(flags);
-	cli();
 	byteout(ale, off);
 	byteout(adr, data);
-	restore_flags(flags);
 }
 
 static inline void
 writefifo(unsigned int ale, unsigned int adr, u_char off, u_char * data, int size)
 {
-	/* fifo write without cli because it's allready done  */
 	byteout(ale, off);
 	outsb(adr, data, size);
 }
@@ -132,16 +119,14 @@ WriteHSCX(struct IsdnCardState *cs, int hscx, u_char offset, u_char value)
 
 #include "hscx_irq.c"
 
-static void
+static irqreturn_t
 mic_interrupt(int intno, void *dev_id, struct pt_regs *regs)
 {
 	struct IsdnCardState *cs = dev_id;
 	u_char val;
+	u_long flags;
 
-	if (!cs) {
-		printk(KERN_WARNING "mic: Spurious interrupt!\n");
-		return;
-	}
+	spin_lock_irqsave(&cs->lock, flags);
 	val = readreg(cs->hw.mic.adr, cs->hw.mic.hscx, HSCX_ISTA + 0x40);
       Start_HSCX:
 	if (val)
@@ -168,6 +153,8 @@ mic_interrupt(int intno, void *dev_id, struct pt_regs *regs)
 	writereg(cs->hw.mic.adr, cs->hw.mic.isac, ISAC_MASK, 0x0);
 	writereg(cs->hw.mic.adr, cs->hw.mic.hscx, HSCX_MASK, 0x0);
 	writereg(cs->hw.mic.adr, cs->hw.mic.hscx, HSCX_MASK + 0x40, 0x0);
+	spin_unlock_irqrestore(&cs->lock, flags);
+	return IRQ_HANDLED;
 }
 
 void
@@ -182,6 +169,8 @@ release_io_mic(struct IsdnCardState *cs)
 static int
 mic_card_msg(struct IsdnCardState *cs, int mt, void *arg)
 {
+	u_long flags;
+
 	switch (mt) {
 		case CARD_RESET:
 			return(0);
@@ -189,8 +178,10 @@ mic_card_msg(struct IsdnCardState *cs, int mt, void *arg)
 			release_io_mic(cs);
 			return(0);
 		case CARD_INIT:
+			spin_lock_irqsave(&cs->lock, flags);
 			inithscx(cs); /* /RTSA := ISAC RST */
 			inithscxisac(cs, 3);
+			spin_unlock_irqrestore(&cs->lock, flags);
 			return(0);
 		case CARD_TEST:
 			return(0);
@@ -217,21 +208,17 @@ setup_mic(struct IsdnCard *card)
 	cs->hw.mic.isac = cs->hw.mic.cfg_reg + MIC_ISAC;
 	cs->hw.mic.hscx = cs->hw.mic.cfg_reg + MIC_HSCX;
 
-	if (check_region((cs->hw.mic.cfg_reg), bytecnt)) {
+	if (!request_region(cs->hw.mic.cfg_reg, bytecnt, "mic isdn")) {
 		printk(KERN_WARNING
 		       "HiSax: %s config port %x-%x already in use\n",
 		       CardType[card->typ],
 		       cs->hw.mic.cfg_reg,
 		       cs->hw.mic.cfg_reg + bytecnt);
 		return (0);
-	} else {
-		request_region(cs->hw.mic.cfg_reg, bytecnt, "mic isdn");
 	}
-
-	printk(KERN_INFO
-	       "mic: defined at 0x%x IRQ %d\n",
-	       cs->hw.mic.cfg_reg,
-	       cs->irq);
+	printk(KERN_INFO "mic: defined at 0x%x IRQ %d\n",
+		cs->hw.mic.cfg_reg, cs->irq);
+	setup_isac(cs);
 	cs->readisac = &ReadISAC;
 	cs->writeisac = &WriteISAC;
 	cs->readisacfifo = &ReadISACfifo;
