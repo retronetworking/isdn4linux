@@ -11,6 +11,9 @@
  *              Beat Doebeli
  *
  * $Log$
+ * Revision 2.4  1997/11/08 21:35:56  keil
+ * new l1 init
+ *
  * Revision 2.3  1997/11/06 17:09:33  keil
  * New 2.1 init code
  *
@@ -312,7 +315,7 @@ setup_teles3(struct IsdnCard *card))
 	strcpy(tmp, teles3_revision);
 	printk(KERN_INFO "HiSax: Teles IO driver Rev. %s\n", HiSax_getrev(tmp));
 	if ((cs->typ != ISDN_CTYPE_16_3) && (cs->typ != ISDN_CTYPE_PNP)
-	    && (cs->typ != ISDN_CTYPE_TELESPCMCIA))
+	    && (cs->typ != ISDN_CTYPE_TELESPCMCIA) && (cs->typ != ISDN_CTYPE_COMPAQ_ISA))
 		return (0);
 
 	if (cs->typ == ISDN_CTYPE_16_3) {

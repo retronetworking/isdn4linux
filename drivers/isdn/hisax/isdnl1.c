@@ -11,6 +11,9 @@
  *
  *
  * $Log$
+ * Revision 2.10  1997/11/08 21:35:48  keil
+ * new l1 init
+ *
  * Revision 2.9  1997/11/06 17:09:18  keil
  * New 2.1 init code
  *
@@ -723,6 +726,7 @@ checkcard(int cardnr, char *id, int *busy_flag))
 		case ISDN_CTYPE_16_3:
 		case ISDN_CTYPE_PNP:
 		case ISDN_CTYPE_TELESPCMCIA:
+		case ISDN_CTYPE_COMPAQ_ISA:
 			ret = setup_teles3(card);
 			break;
 #endif
