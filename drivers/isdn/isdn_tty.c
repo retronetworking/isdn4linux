@@ -20,6 +20,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.70  1999/07/25 16:17:58  keil
+ * Fix Suspend/Resume
+ *
  * Revision 1.69  1999/07/25 12:56:15  armin
  * isdn_tty_at_cout() now queues the message if online and
  * data is in queue or flip buffer is full.
@@ -2652,12 +2655,18 @@ isdn_tty_at_cout(char *msg, modem_info * info)
 	/* data is in queue or flip buffer is full */
 	if ((info->online) && (((tty->flip.count + strlen(msg)) >= TTY_FLIPBUF_SIZE) ||
 	    (!skb_queue_empty(&dev->drv[info->isdn_driver]->rpqueue[info->isdn_channel])))) {
-		skb = alloc_skb(strlen(msg) + sizeof(isdn_audio_skb), GFP_ATOMIC);
+		skb = alloc_skb(strlen(msg)
+#ifdef CONFIG_ISDN_AUDIO
+			+ sizeof(isdn_audio_skb)
+#endif
+			, GFP_ATOMIC);
 		if (!skb) {
 			restore_flags(flags);
 			return;
 		}
+#ifdef CONFIG_ISDN_AUDIO
 		skb_reserve(skb, sizeof(isdn_audio_skb));
+#endif
 		sp = skb_put(skb, strlen(msg));
 #ifdef CONFIG_ISDN_AUDIO
 		ISDN_AUDIO_SKB_DLECOUNT(skb) = 0;
