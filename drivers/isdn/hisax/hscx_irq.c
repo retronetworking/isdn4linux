@@ -7,6 +7,9 @@
  * This is an include file for fast inline IRQ stuff
  *
  * $Log$
+ * Revision 1.2  1997/06/26 11:16:19  keil
+ * first version
+ *
  *
  */
 
@@ -53,44 +56,44 @@ WriteHSCXCMDR(struct IsdnCardState *cs, int hscx, u_char data)
 
 
 static void
-hscx_empty_fifo(struct HscxState *hsp, int count)
+hscx_empty_fifo(struct BCState *bcs, int count)
 {
 	u_char *ptr;
-	struct IsdnCardState *cs = hsp->sp;
+	struct IsdnCardState *cs = bcs->cs;
 	long flags;
 
 	if ((cs->debug & L1_DEB_HSCX) && !(cs->debug & L1_DEB_HSCX_FIFO))
 		debugl1(cs, "hscx_empty_fifo");
 
-	if (hsp->rcvidx + count > HSCX_BUFMAX) {
+	if (bcs->hw.hscx.rcvidx + count > HSCX_BUFMAX) {
 		if (cs->debug & L1_DEB_WARN)
 			debugl1(cs, "hscx_empty_fifo: incoming packet too large");
-		WriteHSCXCMDR(cs, hsp->hscx, 0x80);
-		hsp->rcvidx = 0;
+		WriteHSCXCMDR(cs, bcs->channel, 0x80);
+		bcs->hw.hscx.rcvidx = 0;
 		return;
 	}
-	ptr = hsp->rcvbuf + hsp->rcvidx;
-	hsp->rcvidx += count;
+	ptr = bcs->hw.hscx.rcvbuf + bcs->hw.hscx.rcvidx;
+	bcs->hw.hscx.rcvidx += count;
 	save_flags(flags);
 	cli();
-	READHSCXFIFO(cs, hsp->hscx, ptr, count);
-	WriteHSCXCMDR(cs, hsp->hscx, 0x80);
+	READHSCXFIFO(cs, bcs->channel, ptr, count);
+	WriteHSCXCMDR(cs, bcs->channel, 0x80);
 	restore_flags(flags);
 	if (cs->debug & L1_DEB_HSCX_FIFO) {
 		char tmp[128];
 		char *t = tmp;
 
 		t += sprintf(t, "hscx_empty_fifo %c cnt %d",
-			     hsp->hscx ? 'B' : 'A', count);
+			     bcs->channel ? 'B' : 'A', count);
 		QuickHex(t, ptr, count);
 		debugl1(cs, tmp);
 	}
 }
 
 static void
-hscx_fill_fifo(struct HscxState *hsp)
+hscx_fill_fifo(struct BCState *bcs)
 {
-	struct IsdnCardState *cs = hsp->sp;
+	struct IsdnCardState *cs = bcs->cs;
 	int more, count;
 	u_char *ptr;
 	long flags;
@@ -99,34 +102,34 @@ hscx_fill_fifo(struct HscxState *hsp)
 	if ((cs->debug & L1_DEB_HSCX) && !(cs->debug & L1_DEB_HSCX_FIFO))
 		debugl1(cs, "hscx_fill_fifo");
 
-	if (!hsp->tx_skb)
+	if (!bcs->hw.hscx.tx_skb)
 		return;
-	if (hsp->tx_skb->len <= 0)
+	if (bcs->hw.hscx.tx_skb->len <= 0)
 		return;
 
-	more = (hsp->mode == 1) ? 1 : 0;
-	if (hsp->tx_skb->len > 32) {
+	more = (bcs->mode == L1_MODE_TRANS) ? 1 : 0;
+	if (bcs->hw.hscx.tx_skb->len > 32) {
 		more = !0;
 		count = 32;
 	} else
-		count = hsp->tx_skb->len;
+		count = bcs->hw.hscx.tx_skb->len;
 
-	waitforXFW(cs, hsp->hscx);
+	waitforXFW(cs, bcs->channel);
 	save_flags(flags);
 	cli();
-	ptr = hsp->tx_skb->data;
-	skb_pull(hsp->tx_skb, count);
-	hsp->tx_cnt -= count;
-	hsp->count += count;
-	WRITEHSCXFIFO(cs, hsp->hscx, ptr, count);
-	WriteHSCXCMDR(cs, hsp->hscx, more ? 0x8 : 0xa);
+	ptr = bcs->hw.hscx.tx_skb->data;
+	skb_pull(bcs->hw.hscx.tx_skb, count);
+	bcs->tx_cnt -= count;
+	bcs->hw.hscx.count += count;
+	WRITEHSCXFIFO(cs, bcs->channel, ptr, count);
+	WriteHSCXCMDR(cs, bcs->channel, more ? 0x8 : 0xa);
 	restore_flags(flags);
 	if (cs->debug & L1_DEB_HSCX_FIFO) {
 		char tmp[128];
 		char *t = tmp;
 
 		t += sprintf(t, "hscx_fill_fifo %c cnt %d",
-			     hsp->hscx ? 'B' : 'A', count);
+			     bcs->channel ? 'B' : 'A', count);
 		QuickHex(t, ptr, count);
 		debugl1(cs, tmp);
 	}
@@ -136,12 +139,12 @@ static inline void
 hscx_interrupt(struct IsdnCardState *cs, u_char val, u_char hscx)
 {
 	u_char r;
-	struct HscxState *hsp = cs->hs + hscx;
+	struct BCState *bcs = cs->bcs + hscx;
 	struct sk_buff *skb;
 	int count;
 	char tmp[32];
 
-	if (!hsp->init)
+	if (!(bcs->Flag & BC_FLG_INIT))
 		return;
 
 	if (val & 0x80) {	/* RME */
@@ -150,10 +153,10 @@ hscx_interrupt(struct IsdnCardState *cs, u_char val, u_char hscx)
 			if (!(r & 0x80))
 				if (cs->debug & L1_DEB_WARN)
 					debugl1(cs, "HSCX invalid frame");
-			if ((r & 0x40) && hsp->mode)
+			if ((r & 0x40) && bcs->mode)
 				if (cs->debug & L1_DEB_WARN) {
 					sprintf(tmp, "HSCX RDO mode=%d",
-						hsp->mode);
+						bcs->mode);
 					debugl1(cs, tmp);
 				}
 			if (!(r & 0x20))
@@ -164,8 +167,8 @@ hscx_interrupt(struct IsdnCardState *cs, u_char val, u_char hscx)
 			count = READHSCX(cs, hscx, HSCX_RBCL) & 0x1f;
 			if (count == 0)
 				count = 32;
-			hscx_empty_fifo(hsp, count);
-			if ((count = hsp->rcvidx - 1) > 0) {
+			hscx_empty_fifo(bcs, count);
+			if ((count = bcs->hw.hscx.rcvidx - 1) > 0) {
 				if (cs->debug & L1_DEB_HSCX_FIFO) {
 					sprintf(tmp, "HX Frame %d", count);
 					debugl1(cs, tmp);
@@ -174,46 +177,49 @@ hscx_interrupt(struct IsdnCardState *cs, u_char val, u_char hscx)
 					printk(KERN_WARNING "Elsa: receive out of memory\n");
 				else {
 					SET_SKB_FREE(skb);
-					memcpy(skb_put(skb, count), hsp->rcvbuf, count);
-					skb_queue_tail(&hsp->rqueue, skb);
+					memcpy(skb_put(skb, count), bcs->hw.hscx.rcvbuf, count);
+					skb_queue_tail(&bcs->rqueue, skb);
 				}
 			}
 		}
-		hsp->rcvidx = 0;
-		hscx_sched_event(hsp, B_RCVBUFREADY);
+		bcs->hw.hscx.rcvidx = 0;
+		hscx_sched_event(bcs, B_RCVBUFREADY);
 	}
 	if (val & 0x40) {	/* RPF */
-		hscx_empty_fifo(hsp, 32);
-		if (hsp->mode == 1) {
+		hscx_empty_fifo(bcs, 32);
+		if (bcs->mode == L1_MODE_TRANS) {
 			/* receive audio data */
 			if (!(skb = dev_alloc_skb(32)))
 				printk(KERN_WARNING "HiSax: receive out of memory\n");
 			else {
 				SET_SKB_FREE(skb);
-				memcpy(skb_put(skb, 32), hsp->rcvbuf, 32);
-				skb_queue_tail(&hsp->rqueue, skb);
+				memcpy(skb_put(skb, 32), bcs->hw.hscx.rcvbuf, 32);
+				skb_queue_tail(&bcs->rqueue, skb);
 			}
-			hsp->rcvidx = 0;
-			hscx_sched_event(hsp, B_RCVBUFREADY);
+			bcs->hw.hscx.rcvidx = 0;
+			hscx_sched_event(bcs, B_RCVBUFREADY);
 		}
 	}
 	if (val & 0x10) {	/* XPR */
-		if (hsp->tx_skb)
-			if (hsp->tx_skb->len) {
-				hscx_fill_fifo(hsp);
+		if (bcs->hw.hscx.tx_skb)
+			if (bcs->hw.hscx.tx_skb->len) {
+				hscx_fill_fifo(bcs);
 				return;
 			} else {
-				dev_kfree_skb(hsp->tx_skb, FREE_WRITE);
-				hsp->count = 0;
-				if (hsp->st->l4.l1writewakeup)
-					hsp->st->l4.l1writewakeup(hsp->st);
-				hsp->tx_skb = NULL;
+				dev_kfree_skb(bcs->hw.hscx.tx_skb, FREE_WRITE);
+				bcs->hw.hscx.count = 0;
+				if (bcs->st->lli.l1writewakeup)
+					bcs->st->lli.l1writewakeup(bcs->st);
+				bcs->hw.hscx.tx_skb = NULL;
 			}
-		if ((hsp->tx_skb = skb_dequeue(&hsp->squeue))) {
-			hsp->count = 0;
-			hscx_fill_fifo(hsp);
-		} else
-			hscx_sched_event(hsp, B_XMTBUFREADY);
+		if ((bcs->hw.hscx.tx_skb = skb_dequeue(&bcs->squeue))) {
+			bcs->hw.hscx.count = 0;
+			bcs->Flag |= BC_FLG_BUSY;
+			hscx_fill_fifo(bcs);
+		} else {
+			bcs->Flag &= ~BC_FLG_BUSY;
+			hscx_sched_event(bcs, B_XMTBUFREADY);
+		}
 	}
 }
 
@@ -222,25 +228,25 @@ hscx_int_main(struct IsdnCardState *cs, u_char val)
 {
 
 	u_char exval;
-	struct HscxState *hsp;
+	struct BCState *bcs;
 	char tmp[32];
 
 	if (val & 0x01) {
-		hsp = cs->hs + 1;
+		bcs = cs->bcs + 1;
 		exval = READHSCX(cs, 1, HSCX_EXIR);
 		if (exval == 0x40) {
-			if (hsp->mode == 1)
-				hscx_fill_fifo(hsp);
+			if (bcs->mode == 1)
+				hscx_fill_fifo(bcs);
 			else {
 				/* Here we lost an TX interrupt, so
 				   * restart transmitting the whole frame.
 				 */
-				if (hsp->tx_skb) {
-					skb_push(hsp->tx_skb, hsp->count);
-					hsp->tx_cnt += hsp->count;
-					hsp->count = 0;
+				if (bcs->hw.hscx.tx_skb) {
+					skb_push(bcs->hw.hscx.tx_skb, bcs->hw.hscx.count);
+					bcs->tx_cnt += bcs->hw.hscx.count;
+					bcs->hw.hscx.count = 0;
 				}
-				WriteHSCXCMDR(cs, hsp->hscx, 0x01);
+				WriteHSCXCMDR(cs, bcs->channel, 0x01);
 				if (cs->debug & L1_DEB_WARN) {
 					sprintf(tmp, "HSCX B EXIR %x Lost TX", exval);
 					debugl1(cs, tmp);
@@ -259,21 +265,21 @@ hscx_int_main(struct IsdnCardState *cs, u_char val)
 		hscx_interrupt(cs, val, 1);
 	}
 	if (val & 0x02) {
-		hsp = cs->hs;
+		bcs = cs->bcs;
 		exval = READHSCX(cs, 0, HSCX_EXIR);
 		if (exval == 0x40) {
-			if (hsp->mode == 1)
-				hscx_fill_fifo(hsp);
+			if (bcs->mode == L1_MODE_TRANS)
+				hscx_fill_fifo(bcs);
 			else {
 				/* Here we lost an TX interrupt, so
 				   * restart transmitting the whole frame.
 				 */
-				if (hsp->tx_skb) {
-					skb_push(hsp->tx_skb, hsp->count);
-					hsp->tx_cnt += hsp->count;
-					hsp->count = 0;
+				if (bcs->hw.hscx.tx_skb) {
+					skb_push(bcs->hw.hscx.tx_skb, bcs->hw.hscx.count);
+					bcs->tx_cnt += bcs->hw.hscx.count;
+					bcs->hw.hscx.count = 0;
 				}
-				WriteHSCXCMDR(cs, hsp->hscx, 0x01);
+				WriteHSCXCMDR(cs, bcs->channel, 0x01);
 				if (cs->debug & L1_DEB_WARN) {
 					sprintf(tmp, "HSCX A EXIR %x Lost TX", exval);
 					debugl1(cs, tmp);

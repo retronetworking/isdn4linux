@@ -6,9 +6,11 @@
  *
  *
  * $Log$
+ * Revision 1.2  1997/06/26 11:16:18  keil
+ * first version
+ *
  *
  */
-
 
 /* All Registers original Siemens Spec  */
 
@@ -35,6 +37,7 @@
 #define HSCX_MASK 0x20
 
 extern int HscxVersion(struct IsdnCardState *cs, char *s);
-extern void hscx_sched_event(struct HscxState *hsp, int event);
-extern void modehscx(struct HscxState *hs, int mode, int ichan);
+extern void hscx_sched_event(struct BCState *bcs, int event);
+extern void modehscx(struct BCState *bcs, int mode, int bc);
 extern void clear_pending_hscx_ints(struct IsdnCardState *cs);
+extern void inithscx(struct IsdnCardState *cs);
