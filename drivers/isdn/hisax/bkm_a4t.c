@@ -10,7 +10,6 @@
  *
  */
 
-#define __NO_VERSION__
 
 #include <linux/config.h>
 #include <linux/init.h>
