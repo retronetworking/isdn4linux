@@ -6,6 +6,9 @@
  * (c) Copyright 1999 by Carsten Paeth (calle@calle.in-berlin.de)
  * 
  * $Log$
+ * Revision 1.17  2000/04/21 13:00:56  calle
+ * Bugfix: driver_proc_info was also wrong.
+ *
  * Revision 1.16  2000/04/21 12:38:42  calle
  * Bugfix: error in proc_ functions, begin-off => off-begin
  *
@@ -263,7 +266,6 @@ static int proc_applications_read_proc(char *page, char **start, off_t off,
 	struct capi_appl *ap;
 	int i;
 	int len = 0;
-	off_t begin = 0;
 
 	for (i=0; i < CAPI_MAXAPPL; i++) {
 		ap = &applications[i];
@@ -275,20 +277,21 @@ static int proc_applications_read_proc(char *page, char **start, off_t off,
 			ap->rparam.datablklen,
 			ap->nncci,
                         skb_queue_len(&ap->recv_queue));
-		if (len+begin > off+count)
-			goto endloop;
-		if (len+begin < off) {
-			begin += len;
+		if (len <= off) {
+			off -= len;
 			len = 0;
+		} else {
+			if (len-off > count)
+				goto endloop;
 		}
 	}
 endloop:
-	if (i >= CAPI_MAXAPPL)
+	*start = page+off;
+	if (len < count)
 		*eof = 1;
-	if (off >= len+begin)
-		return 0;
-	*start = page + (off-begin);
-	return ((count < begin+len-off) ? count : begin+len-off);
+	if (len>count) len = count;
+	if (len<0) len = 0;
+	return len;
 }
 
 /*
@@ -302,7 +305,6 @@ static int proc_ncci_read_proc(char *page, char **start, off_t off,
 	struct capi_ncci *np;
 	int i;
 	int len = 0;
-	off_t begin = 0;
 
 	for (i=0; i < CAPI_MAXAPPL; i++) {
 		ap = &applications[i];
@@ -313,21 +315,22 @@ static int proc_ncci_read_proc(char *page, char **start, off_t off,
 				np->ncci,
 				np->winsize,
 				np->nmsg);
-			if (len+begin > off+count)
-				goto endloop;
-			if (len+begin < off) {
-				begin += len;
+			if (len <= off) {
+				off -= len;
 				len = 0;
+			} else {
+				if (len-off > count)
+					goto endloop;
 			}
 		}
 	}
 endloop:
-	if (i >= CAPI_MAXAPPL)
+	*start = page+off;
+	if (len < count)
 		*eof = 1;
-	if (off >= len+begin)
-		return 0;
-	*start = page + (off-begin);
-	return ((count < begin+len-off) ? count : begin+len-off);
+	if (len>count) len = count;
+	if (len<0) len = 0;
+	return len;
 }
 
 /*
@@ -339,7 +342,6 @@ static int proc_driver_read_proc(char *page, char **start, off_t off,
 {
 	struct capi_driver *driver;
 	int len = 0;
-	off_t begin = 0;
 
 	spin_lock(&drivers_lock);
 	for (driver = drivers; driver; driver = driver->next) {
@@ -347,21 +349,22 @@ static int proc_driver_read_proc(char *page, char **start, off_t off,
 					driver->name,
 					driver->ncontroller,
 					driver->revision);
-		if (len+begin > off+count)
-			goto endloop;
-		if (len+begin < off) {
-			begin += len;
+		if (len <= off) {
+			off -= len;
 			len = 0;
+		} else {
+			if (len-off > count)
+				goto endloop;
 		}
 	}
 endloop:
 	spin_unlock(&drivers_lock);
-	if (!driver)
+	*start = page+off;
+	if (len < count)
 		*eof = 1;
-	if (off >= len+begin)
-		return 0;
-	*start = page + (off-begin);
-	return ((count < begin+len-off) ? count : begin+len-off);
+	if (len>count) len = count;
+	if (len<0) len = 0;
+	return len;
 }
 
 /*
@@ -373,26 +376,26 @@ static int proc_users_read_proc(char *page, char **start, off_t off,
 {
         struct capi_interface_user *cp;
 	int len = 0;
-	off_t begin = 0;
 
 	spin_lock(&capi_users_lock);
         for (cp = capi_users; cp ; cp = cp->next) {
 		len += sprintf(page+len, "%s\n", cp->name);
-		if (len+begin > off+count)
-			goto endloop;
-		if (len+begin < off) {
-			begin += len;
+		if (len <= off) {
+			off -= len;
 			len = 0;
+		} else {
+			if (len-off > count)
+				goto endloop;
 		}
 	}
 endloop:
 	spin_unlock(&capi_users_lock);
-	if (cp == 0)
+	*start = page+off;
+	if (len < count)
 		*eof = 1;
-	if (off >= len+begin)
-		return 0;
-	*start = page + (off-begin);
-	return ((count < begin+len-off) ? count : begin+len-off);
+	if (len>count) len = count;
+	if (len<0) len = 0;
+	return len;
 }
 
 /*
@@ -405,7 +408,6 @@ static int proc_controller_read_proc(char *page, char **start, off_t off,
 	struct capi_ctr *cp;
 	int i;
 	int len = 0;
-	off_t begin = 0;
 
 	for (i=0; i < CAPI_MAXCONTR; i++) {
 		cp = &cards[i];
@@ -416,20 +418,21 @@ static int proc_controller_read_proc(char *page, char **start, off_t off,
 			cp->name,
 			cp->driver->procinfo ?  cp->driver->procinfo(cp) : ""
 			);
-		if (len+begin > off+count)
-			goto endloop;
-		if (len+begin < off) {
-			begin += len;
+		if (len <= off) {
+			off -= len;
 			len = 0;
+		} else {
+			if (len-off > count)
+				goto endloop;
 		}
 	}
 endloop:
-	if (i >= CAPI_MAXCONTR)
+	*start = page+off;
+	if (len < count)
 		*eof = 1;
-	if (off >= len+begin)
-		return 0;
-	*start = page + (off-begin);
-	return ((count < begin+len-off) ? count : begin+len-off);
+	if (len>count) len = count;
+	if (len<0) len = 0;
+	return len;
 }
 
 /*
@@ -442,7 +445,6 @@ static int proc_applstats_read_proc(char *page, char **start, off_t off,
 	struct capi_appl *ap;
 	int i;
 	int len = 0;
-	off_t begin = 0;
 
 	for (i=0; i < CAPI_MAXAPPL; i++) {
 		ap = &applications[i];
@@ -453,20 +455,21 @@ static int proc_applstats_read_proc(char *page, char **start, off_t off,
 			ap->nrecvdatapkt,
 			ap->nsentctlpkt,
 			ap->nsentdatapkt);
-		if (len+begin > off+count)
-			goto endloop;
-		if (len+begin < off) {
-			begin += len;
+		if (len <= off) {
+			off -= len;
 			len = 0;
+		} else {
+			if (len-off > count)
+				goto endloop;
 		}
 	}
 endloop:
-	if (i >= CAPI_MAXAPPL)
+	*start = page+off;
+	if (len < count)
 		*eof = 1;
-	if (off >= len+begin)
-		return 0;
-	*start = page + (off-begin);
-	return ((count < begin+len-off) ? count : begin+len-off);
+	if (len>count) len = count;
+	if (len<0) len = 0;
+	return len;
 }
 
 /*
@@ -479,7 +482,6 @@ static int proc_contrstats_read_proc(char *page, char **start, off_t off,
 	struct capi_ctr *cp;
 	int i;
 	int len = 0;
-	off_t begin = 0;
 
 	for (i=0; i < CAPI_MAXCONTR; i++) {
 		cp = &cards[i];
@@ -490,20 +492,21 @@ static int proc_contrstats_read_proc(char *page, char **start, off_t off,
 			cp->nrecvdatapkt,
 			cp->nsentctlpkt,
 			cp->nsentdatapkt);
-		if (len+begin > off+count)
-			goto endloop;
-		if (len+begin < off) {
-			begin += len;
+		if (len <= off) {
+			off -= len;
 			len = 0;
+		} else {
+			if (len-off > count)
+				goto endloop;
 		}
 	}
 endloop:
-	if (i >= CAPI_MAXCONTR)
+	*start = page+off;
+	if (len < count)
 		*eof = 1;
-	if (off >= len+begin)
-		return 0;
-	*start = page + (off-begin);
-	return ((count < begin+len-off) ? count : begin+len-off);
+	if (len>count) len = count;
+	if (len<0) len = 0;
+	return len;
 }
 
 static struct procfsentries {
