@@ -7,6 +7,9 @@
  *              Fritz Elfert
  *
  * $Log$
+ * Revision 1.10.2.3  1997/11/15 18:54:03  keil
+ * cosmetics
+ *
  * Revision 1.10.2.2  1997/10/17 22:13:59  keil
  * update to last hisax version
  *
@@ -141,7 +144,7 @@ cansend(struct PStack *st)
 {
 	int p1;
 
-	p1 = st->l2.va - st->l2.vs;
+	p1 = st->l2.vs - st->l2.va;
 	if (p1 < 0)
 		p1 += (test_bit(FLG_MOD128, &st->l2.flag) ? 128 : 8);
 	return ((p1 < st->l2.window) && !test_bit(FLG_PEER_BUSY, &st->l2.flag));
