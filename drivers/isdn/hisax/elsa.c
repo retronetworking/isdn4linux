@@ -6,8 +6,11 @@
  *
  * Thanks to    Elsa GmbH for documents and informations
  *
- * 
+ *
  * $Log$
+ * Revision 1.6  1997/01/09 18:22:46  keil
+ * one more PCC-8 fix
+ *
  * Revision 1.5  1996/12/08 19:46:14  keil
  * PCC-8 correct IRQs; starting ARCOFI support
  *
@@ -47,7 +50,7 @@ readhscx(unsigned int adr, int hscx, byte off)
 {
 	register byte		ret;
 	long flags;
-	
+
 	save_flags(flags);
 	cli();
 	byteout(adr+CARD_ALE,off +(hscx?0x60:0x20));
@@ -60,17 +63,17 @@ static inline void
 read_fifo_hscx(unsigned int adr, int hscx, byte * data, int size)
 {
 	/* fifo read without cli because it's allready done  */
-	
+
 	byteout(adr +CARD_ALE, (hscx?0x40:0));
 	insb(adr +CARD_HSCX, data, size);
 }
 
-        
+
 static inline void
 writehscx(unsigned int adr, int hscx, byte off, byte data)
 {
 	long flags;
-	
+
 	save_flags(flags);
 	cli();
 	byteout(adr +CARD_ALE, off +(hscx?0x60:0x20));
@@ -84,7 +87,6 @@ write_fifo_hscx(unsigned int adr, int hscx, byte * data, int size)
 	/* fifo write without cli because it's allready done  */
 	byteout(adr +CARD_ALE, (hscx?0x40:0));
 	outsb(adr +CARD_HSCX, data, size);
-
 }
 
 static inline byte
@@ -92,7 +94,7 @@ readisac(unsigned int adr, byte off)
 {
 	register byte		ret;
 	long flags;
-	
+
 	save_flags(flags);
 	cli();
 	byteout(adr +CARD_ALE, off +0x20);
@@ -110,12 +112,12 @@ read_fifo_isac(unsigned int adr, byte * data, int size)
 	insb(adr , data, size);
 }
 
-        
+
 static inline void
 writeisac(unsigned int adr, byte off, byte data)
 {
 	long flags;
-	
+
 	save_flags(flags);
 	cli();
 	byteout(adr +CARD_ALE, off +0x20);
@@ -132,25 +134,35 @@ write_fifo_isac(unsigned int adr, byte * data, int size)
 	outsb(adr, data, size);
 }
 
-static inline void 
+static inline int
+TimerRun(struct IsdnCardState *sp) {
+	register byte	val;
+
+	val = bytein(sp->cfg_reg + CARD_CONFIG);
+	if (sp->subtyp==ELSA_QS1000)
+		return (0==(val & TIMER_RUN));
+	return((val & TIMER_RUN));
+}
+
+static inline void
 elsa_led_handler(struct IsdnCardState *sp) {
 
 	byte	outval=0xf0;
 	int	stat=0,cval;
-	
-	
+
+
 	if ((sp->ph_state==0) ||(sp->ph_state==15)) {
 		stat=1;
 	} else {
-	 	if (sp->hs[0].mode!=0) 
+	 	if (sp->hs[0].mode!=0)
 			stat|=2;
-	 	if (sp->hs[1].mode!=0) 
+	 	if (sp->hs[1].mode!=0)
 			stat|=4;
 	}
 	cval = (sp->counter>>6)&3;
 	switch (cval) {
 	  case 0:
-	  	if (!stat) 
+	  	if (!stat)
 	  		outval |= STAT_LED;
 	  	else if (stat==1)
 	  		outval |= LINE_LED |STAT_LED;
@@ -162,23 +174,23 @@ elsa_led_handler(struct IsdnCardState *sp) {
 	  	}
 	  	break;
 	  case 1:
-	  	if (!stat) 
+	  	if (!stat)
 	  		outval |= LINE_LED;
 	  	else if (stat==1)
 	  		outval |= LINE_LED |STAT_LED;
-	  	else {  
+	  	else {
 	  		if (stat & 2)
 	  			outval |= STAT_LED;
 	  		if (stat & 4)
 	  			outval |= LINE_LED;
 	  	}
-	  	break; 
+	  	break;
 	  case 2:
-	  	if (!stat) 
+	  	if (!stat)
 	  		outval |= STAT_LED;
 	  	else if (stat==1)
 	  		outval |= 0;
-	  	else {  
+	  	else {
 	  		if (stat & 2)
 	  			outval |= STAT_LED;
 	  		if (stat & 4)
@@ -186,7 +198,7 @@ elsa_led_handler(struct IsdnCardState *sp) {
 	  	}
 	  	break;
 	  case 3:
-	  	if (!stat) 
+	  	if (!stat)
 	  		outval |= LINE_LED;
 	  	break;
 	}
@@ -206,7 +218,7 @@ waitforCEC(int adr, int hscx)
 		printk(KERN_WARNING "Elsa: waitforCEC timeout\n");
 }
 
-    
+
 static inline void
 waitforXFW(int adr, int hscx)
 {
@@ -291,10 +303,10 @@ hscx_empty_fifo(struct HscxState *hsp, int count)
 	if (sp->debug & L1_DEB_HSCX_FIFO) {
 		char	tmp[128];
 		char	*t=tmp;
-		
+
 		t += sprintf(t,"hscx_empty_fifo %c cnt %d",
 			hsp->hscx?'B':'A',count);
-		QuickHex(t,ptr,count);        
+		QuickHex(t,ptr,count);
 		debugl1(sp, tmp);
 	}
 }
@@ -337,10 +349,10 @@ hscx_fill_fifo(struct HscxState *hsp)
 	if (sp->debug & L1_DEB_HSCX_FIFO) {
 		char	tmp[128];
 		char	*t=tmp;
-		
+
 		t += sprintf(t,"hscx_fill_fifo %c cnt %d",
 			hsp->hscx?'B':'A', count);
-		QuickHex(t,ptr,count);        
+		QuickHex(t,ptr,count);
 		debugl1(sp, tmp);
 	}
 }
@@ -363,7 +375,7 @@ hscx_interrupt(struct IsdnCardState *sp, byte val, byte hscx)
 			if (!r & 0x80)
 				if (sp->debug & L1_DEB_WARN)
 					debugl1(sp, "HSCX invalid frame");
-			if ((r & 0x40) && hsp->mode) 
+			if ((r & 0x40) && hsp->mode)
 				if (sp->debug & L1_DEB_WARN) {
 					sprintf(tmp, "HSCX RDO mode=%d",
 						hsp->mode);
@@ -406,7 +418,7 @@ hscx_interrupt(struct IsdnCardState *sp, byte val, byte hscx)
 			else
 				err=BufPoolGet(&hsp->rcvibh, &hsp->rbufpool,
 					GFP_ATOMIC, (void *)1, 2);
-			
+
 			if (err) {
 				if (sp->debug & L1_DEB_WARN)
                                        debugl1(sp, "HSCX RPF out of buffers");
@@ -415,7 +427,7 @@ hscx_interrupt(struct IsdnCardState *sp, byte val, byte hscx)
 			} else
 				hsp->rcvptr = 0;
 		}
-		
+
 		hscx_empty_fifo(hsp, 32);
                 if (hsp->mode == 1) {
                         /* receive audio data */
@@ -424,7 +436,7 @@ hscx_interrupt(struct IsdnCardState *sp, byte val, byte hscx)
                         hsp->rcvibh = NULL;
                         hscx_sched_event(hsp, HSCX_RCVBUFREADY);
                 }
-                
+
 	}
       afterRPF:
 	if (val & 0x10) {	/* XPR */
@@ -461,13 +473,13 @@ isac_empty_fifo(struct IsdnCardState *sp, int count)
 	long			flags;
 
 	if ((sp->debug & L1_DEB_ISAC) && !(sp->debug & L1_DEB_ISAC_FIFO))
-        	debugl1(sp, "isac_empty_fifo"); 
+        	debugl1(sp, "isac_empty_fifo");
 
 	if (sp->rcvptr >= 3072) {
 		if (sp->debug & L1_DEB_WARN) {
 			char		 tmp[40];
 			sprintf(tmp, "isac_empty_fifo rcvptr %d", sp->rcvptr);
-        		debugl1(sp, tmp); 
+        		debugl1(sp, tmp);
 		}
 		return;
 	}
@@ -483,9 +495,9 @@ isac_empty_fifo(struct IsdnCardState *sp, int count)
 	if (sp->debug & L1_DEB_ISAC_FIFO) {
 		char	tmp[128];
 		char	*t=tmp;
-		
+
 		t += sprintf(t,"isac_empty_fifo cnt %d", count);
-		QuickHex(t,ptr,count);        
+		QuickHex(t,ptr,count);
 		debugl1(sp, tmp);
 	}
 }
@@ -499,7 +511,7 @@ isac_fill_fifo(struct IsdnCardState *sp)
 	long			flags;
 
 	if ((sp->debug & L1_DEB_ISAC) && !(sp->debug & L1_DEB_ISAC_FIFO))
-        	debugl1(sp, "isac_fill_fifo"); 
+        	debugl1(sp, "isac_fill_fifo");
 
 	ibh = sp->xmtibh;
 	if (!ibh)
@@ -528,9 +540,9 @@ isac_fill_fifo(struct IsdnCardState *sp)
 	if (sp->debug & L1_DEB_ISAC_FIFO) {
 		char	tmp[128];
 		char	*t=tmp;
-		
+
 		t += sprintf(t,"isac_fill_fifo cnt %d", count);
-		QuickHex(t,ptr,count);        
+		QuickHex(t,ptr,count);
 		debugl1(sp, tmp);
 	}
 }
@@ -542,7 +554,7 @@ ph_command(struct IsdnCardState *sp, unsigned int command)
 		char	tmp[32];
 		sprintf(tmp, "ph_command %d", command);
         	debugl1(sp, tmp);
-        } 
+        }
 	writeisac(sp->cfg_reg, ISAC_CIX0, (command << 2) | 3);
 }
 
@@ -550,15 +562,15 @@ static inline void
 isac_interrupt(struct IsdnCardState *sp, byte val) {
 	byte			exval,v1;
 	unsigned int    	count;
-	char			tmp[32];    
-#if ARCOFI_USE 
+	char			tmp[32];
+#if ARCOFI_USE
 	struct BufHeader	*ibh;
 	byte			*ptr;
 #endif
 
 	if (sp->debug & L1_DEB_ISAC) {
 		sprintf(tmp, "ISAC interrupt %x", val);
-        	debugl1(sp, tmp); 
+        	debugl1(sp, tmp);
         }
 	if (val & 0x80) {	/* RME */
 		exval = readisac(sp->cfg_reg, ISAC_RSTA);
@@ -631,7 +643,7 @@ isac_interrupt(struct IsdnCardState *sp, byte val) {
 	}
 	afterXPR:
 	if (val & 0x04) {	/* CISQ */
-		sp->ph_state = (readisac(sp->cfg_reg, ISAC_CIX0) >> 2) 
+		sp->ph_state = (readisac(sp->cfg_reg, ISAC_CIX0) >> 2)
 				& 0xf;
 		if (sp->debug & L1_DEB_ISAC) {
         		sprintf(tmp, "l1state %d", sp->ph_state);
@@ -645,13 +657,13 @@ isac_interrupt(struct IsdnCardState *sp, byte val) {
         		debugl1(sp, "ISAC SIN interrupt");
 	}
 	if (val & 0x01) {	/* EXI */
-		exval = readisac(sp->cfg_reg, ISAC_EXIR); 
+		exval = readisac(sp->cfg_reg, ISAC_EXIR);
 		if (sp->debug & L1_DEB_WARN) {
         		sprintf(tmp, "ISAC EXIR %02x", exval);
         		debugl1(sp, tmp);
         	}
         	if (exval & 0x08) {
-			v1 = readisac(sp->cfg_reg, ISAC_MOSR); 
+			v1 = readisac(sp->cfg_reg, ISAC_MOSR);
 			if (sp->debug & L1_DEB_WARN) {
         			sprintf(tmp, "ISAC MOSR %02x", v1);
         			debugl1(sp, tmp);
@@ -678,12 +690,12 @@ isac_interrupt(struct IsdnCardState *sp, byte val) {
         					debugl1(sp, "ISAC MON RX overflow!");
 					goto afterMONR0;
 				}
-				*ptr = readisac(sp->cfg_reg, ISAC_MOR0); 
+				*ptr = readisac(sp->cfg_reg, ISAC_MOR0);
 				if (sp->debug & L1_DEB_WARN) {
         				sprintf(tmp, "ISAC MOR0 %02x", *ptr);
         				debugl1(sp, tmp);
         			}
-        		} 
+        		}
 afterMONR0:
         		if (v1 & 0x80) {
 				if (!sp->mon_rx)
@@ -706,23 +718,23 @@ afterMONR0:
         					debugl1(sp, "ISAC MON RX overflow!");
 					goto afterMONR1;
 				}
-				*ptr = readisac(sp->cfg_reg, ISAC_MOR1); 
+				*ptr = readisac(sp->cfg_reg, ISAC_MOR1);
 				if (sp->debug & L1_DEB_WARN) {
         				sprintf(tmp, "ISAC MOR1 %02x", *ptr);
         				debugl1(sp, tmp);
         			}
-        		} 
+        		}
 afterMONR1:
         		if (v1 & 0x04) {
         			writeisac(sp->cfg_reg, ISAC_MOCR, 0x0a);
 				sp->mon_rx->datasize = sp->mon_rxp;
 				sp->mon_flg |= MON0_RX;
-        		} 
+        		}
         		if (v1 & 0x40) {
         			writeisac(sp->cfg_reg, ISAC_MOCR, 0xa0);
 				sp->mon_rx->datasize = sp->mon_rxp;
 				sp->mon_flg |= MON1_RX;
-        		} 
+        		}
         		if (v1 == 0x02) {
 				ibh = sp->mon_tx;
 				if (!ibh) {
@@ -742,7 +754,7 @@ afterMONR1:
 				ptr += sp->mon_txp;
 				sp->mon_txp++;
         			writeisac(sp->cfg_reg, ISAC_MOX0, *ptr);
-        		} 
+        		}
 AfterMOX0:
         		if (v1 == 0x20) {
 				ibh = sp->mon_tx;
@@ -757,13 +769,13 @@ AfterMOX0:
 					sp->mon_tx  = NULL;
 					sp->mon_txp = 0;
 					sp->mon_flg |= MON1_TX;
-					goto AfterMOX1; 
+					goto AfterMOX1;
 				}
 				ptr = DATAPTR(ibh);
 				ptr += sp->mon_txp;
 				sp->mon_txp++;
         			writeisac(sp->cfg_reg, ISAC_MOX1, *ptr);
-        		} 
+        		}
 AfterMOX1:
 #endif
         	}
@@ -776,8 +788,8 @@ hscx_int_main(struct IsdnCardState *sp, byte val) {
 	byte    		exval;
 	struct HscxState	*hsp;
 	char			tmp[32];
-	
-		
+
+
 	if (val & 0x01) {
 		hsp = sp->hs + 1;
         	exval = readhscx(sp->cfg_reg, 1, HSCX_EXIR);
@@ -792,19 +804,19 @@ hscx_int_main(struct IsdnCardState *sp, byte val) {
 				writehscxCMDR(sp->cfg_reg, hsp->hscx, 0x01);
 				if (sp->debug & L1_DEB_WARN) {
 					sprintf(tmp, "HSCX B EXIR %x Lost TX", exval);
-        				debugl1(sp, tmp); 
+        				debugl1(sp, tmp);
         			}
                         }
                 } else
 			if (sp->debug & L1_DEB_HSCX) {
 				sprintf(tmp, "HSCX B EXIR %x", exval);
-        			debugl1(sp, tmp); 
+        			debugl1(sp, tmp);
         		}
 	}
 	if (val & 0xf8) {
 		if (sp->debug & L1_DEB_HSCX) {
 			sprintf(tmp, "HSCX B interrupt %x", val);
-        		debugl1(sp, tmp); 
+        		debugl1(sp, tmp);
         	}
 		hscx_interrupt(sp, val, 1);
 	}
@@ -822,20 +834,20 @@ hscx_int_main(struct IsdnCardState *sp, byte val) {
 				writehscxCMDR(sp->cfg_reg, hsp->hscx,0x01);
 				if (sp->debug & L1_DEB_WARN) {
 					sprintf(tmp, "HSCX A EXIR %x Lost TX", exval);
-        				debugl1(sp, tmp); 
+        				debugl1(sp, tmp);
         			}
         		}
-		} else 
+		} else
 			if (sp->debug & L1_DEB_HSCX) {
 				sprintf(tmp, "HSCX A EXIR %x", exval);
-        			debugl1(sp, tmp); 
+        			debugl1(sp, tmp);
         		}
 	}
         if (val & 0x04) {
                 exval = readhscx(sp->cfg_reg, 0, HSCX_ISTA);
 		if (sp->debug & L1_DEB_HSCX) {
 			sprintf(tmp, "HSCX A interrupt %x", exval);
-        		debugl1(sp, tmp); 
+        		debugl1(sp, tmp);
         	}
         	hscx_interrupt(sp, exval, 0);
 	}
@@ -848,17 +860,17 @@ elsa_interrupt(int intno, void *dev_id, struct pt_regs *regs)
 	byte                 val, sval, stat=0;
 
 	sp = (struct IsdnCardState *) irq2dev_map[intno];
-	
+
 	if (!sp) {
 		printk(KERN_WARNING "Elsa: Spurious interrupt!\n");
 		return;
 	}
-	
-	sval = bytein(sp->cfg_reg + 5);
+
+	sval = bytein(sp->cfg_reg + CARD_CONFIG);
 	INT_RESTART:
-	if (!(sval & sp->mask1)) {
+	if (!TimerRun(sp)) {
 		/* Timer Restart */
-		bytein(sp->cfg_reg + 6);
+		bytein(sp->cfg_reg + CARD_START_TIMER);
 		if (!(sp->counter++ & 0x3f)) {
 			/* Call LEDs all 64 tics */
 				elsa_led_handler(sp);
@@ -873,25 +885,25 @@ elsa_interrupt(int intno, void *dev_id, struct pt_regs *regs)
 	}
 	val = readisac(sp->cfg_reg, ISAC_ISTA);
 	Start_ISAC:
-	if (val) { 
+	if (val) {
 		isac_interrupt(sp,val);
 		stat |= 2;
 	}
 
-	sval = bytein(sp->cfg_reg + 5);
-	if (!(sval & sp->mask1)) 
+	sval = bytein(sp->cfg_reg + CARD_CONFIG);
+	if (!TimerRun(sp))
 		goto INT_RESTART;
 
 	val = readhscx(sp->cfg_reg, 1, HSCX_ISTA);
 	if (val) {
-		if (sp->debug & L1_DEB_HSCX) 
-        		debugl1(sp, "HSCX IntStat after IntRoutine"); 
+		if (sp->debug & L1_DEB_HSCX)
+        		debugl1(sp, "HSCX IntStat after IntRoutine");
 		goto Start_HSCX;
 	}
 	val = readisac(sp->cfg_reg, ISAC_ISTA);
 	if (val) {
-		if (sp->debug & L1_DEB_ISAC) 
-        		debugl1(sp, "ISAC IntStat after IntRoutine"); 
+		if (sp->debug & L1_DEB_ISAC)
+        		debugl1(sp, "ISAC IntStat after IntRoutine");
 		goto Start_ISAC;
 	}
 	if (stat & 1) {
@@ -904,7 +916,7 @@ elsa_interrupt(int intno, void *dev_id, struct pt_regs *regs)
 		writeisac(sp->cfg_reg, ISAC_MASK, 0xFF);
 		writeisac(sp->cfg_reg, ISAC_MASK, 0x0);
 	}
-
+	byteout(sp->cfg_reg+7, 0xff);
 }
 
 
@@ -912,7 +924,7 @@ static void
 initisac(struct IsdnCardState    *sp)
 {
 	unsigned int	adr=sp->cfg_reg;
-	
+
 	/* Elsa IOM 2 Mode */
 	writeisac(adr, ISAC_MASK, 0xff);
 	writeisac(adr, ISAC_ADF2, 0x80);
@@ -938,7 +950,7 @@ modehscx(struct HscxState *hs, int mode, int ichan)
 		sprintf(tmp, "hscx %c mode %d ichan %d",
 	        	'A'+hscx, mode, ichan);
         	debugl1(sp, tmp);
-        } 
+        }
         hs->mode = mode;
         writehscx(sp->cfg_reg, hscx, HSCX_CCR1, 0x85);
         writehscx(sp->cfg_reg, hscx, HSCX_XAD1, 0xFF);
@@ -988,10 +1000,10 @@ modehscx(struct HscxState *hs, int mode, int ichan)
 
 void release_io_elsa(struct IsdnCard *card) {
 	int bytecnt=8;
-	
+
 	if (card->sp->subtyp == ELSA_PCFPRO)
 		bytecnt=16;
-	if (card->sp->cfg_reg) 
+	if (card->sp->cfg_reg)
 		release_region(card->sp->cfg_reg, bytecnt);
 }
 
@@ -1012,7 +1024,7 @@ check_arcofi(struct IsdnCardState *sp)
 	ulong	timeout;
 	long	flags;
 	byte    *p;
-	
+
 	if (BufPoolGet(&(sp->mon_tx), &(sp->sbufpool),
         	GFP_ATOMIC,(void *) 1, 3)) {
 		if (sp->debug & L1_DEB_WARN)
@@ -1067,9 +1079,9 @@ initelsa(struct IsdnCardState *sp)
 	char  	tmp[40];
 	ulong	timeout;
 	long	flags;
-	
+
 	sp->counter = 0;
-	irq_cnt = kstat.interrupts[sp->irq]; 
+	irq_cnt = kstat.interrupts[sp->irq];
 	sprintf(tmp, "IRQ %d count %d", sp->irq, irq_cnt);
 	debugl1(sp, tmp);
 	clear_pending_ints(sp);
@@ -1085,15 +1097,15 @@ initelsa(struct IsdnCardState *sp)
 		while (timeout != jiffies);  /* Warte auf Startflanke */
 		bytein(sp->cfg_reg +CARD_START_TIMER);
 		byteout(sp->cfg_reg +CARD_CONTROL,ISDN_RESET |ENABLE_TIM_INT);
-		timeout += 111;
-		while (timeout != jiffies);  /* Warte 1,11 s */
+		timeout += 11;
+		while (timeout != jiffies);  /* Warte 110 ms */
 		restore_flags(flags);
-		printk(KERN_INFO "Elsa: %d timer tics in 1.11 sek\n",
+		printk(KERN_INFO "Elsa: %d timer tics in 110 msek\n",
 			sp->counter);
-		if (abs(sp->counter-125)<2) {
+		if (abs(sp->counter-12)<3) {
 			printk(KERN_INFO "Elsa: timer and irq OK\n");
 		} else {
-        		printk(KERN_WARNING 
+        		printk(KERN_WARNING
         		"Elsa: timer problem maybe an IRQ(%d) conflict\n",
         		sp->irq);
         	}
@@ -1101,14 +1113,14 @@ initelsa(struct IsdnCardState *sp)
 			kstat.interrupts[sp->irq]);
         	debugl1(sp, tmp);
         	if (kstat.interrupts[sp->irq]==irq_cnt) {
-        		printk(KERN_WARNING 
+        		printk(KERN_WARNING
         		"Elsa: IRQ(%d) getting no interrupts during init\n",
         		sp->irq);
         		irq2dev_map[sp->irq] = NULL;
         		free_irq(sp->irq, NULL);
-        		return(0); 
+        		return(0);
         	}
-		check_arcofi(sp); 
+		check_arcofi(sp);
 	}
 	sp->counter=0;
 	return(ret);
@@ -1120,7 +1132,7 @@ probe_elsa_adr(unsigned int adr)
 	int	i, in1, in2, p16_1=0, p16_2=0,
 		pcc_1=0, pcc_2=0, pfp_1=0, pfp_2=0;
 	long flags;
-	
+
         if (check_region(adr,8)) {
 		printk(KERN_WARNING
 			"Probing ELSA Port 0x%x: already in use\n",
@@ -1163,7 +1175,7 @@ probe_elsa(struct IsdnCardState    *sp)
 	unsigned int	CARD_portlist[] = {0x160, 0x170, 0x260, 0x360, 0};
 
 	for (i = 0; CARD_portlist[i]; i++) {
-		if ((sp->subtyp = probe_elsa_adr(CARD_portlist[i]))) 
+		if ((sp->subtyp = probe_elsa_adr(CARD_portlist[i])))
 			break;
         }
 	return(CARD_portlist[i]);
@@ -1177,70 +1189,72 @@ setup_elsa(struct IsdnCard *card)
 	int			bytecnt;
 	byte			val, verA, verB;
 	struct IsdnCardState 	*sp = card->sp;
-        
-	if (sp->typ != ISDN_CTYPE_ELSA)
-		return(0);
-		
-        sp->cfg_reg = card->para[0];
 
- 	printk(KERN_INFO "Elsa: Mircolink IO probing\n");
-        if (sp->cfg_reg) {
-        	if (!(sp->subtyp = probe_elsa_adr(sp->cfg_reg))) {
-                	printk(KERN_WARNING 
-                		"Elsa: no Elsa Mircolink at 0x%x\n",
-                		sp->cfg_reg);
-                		return(0);
-          	}
-        } else 
-        	sp->cfg_reg = probe_elsa(sp);
-        if (sp->cfg_reg) {
-                val=bytein(sp->cfg_reg + CARD_CONFIG);
-        	if (sp->subtyp == ELSA_PCC) {
-        		const byte CARD_IrqTab[8] = { 7, 3, 5, 9, 0, 0, 0, 0 };
-        		sp->irq = CARD_IrqTab[(val & 0x0c) >>2];
+        if (sp->typ == ISDN_CTYPE_ELSA) {
+                sp->cfg_reg = card->para[0];
+         	printk(KERN_INFO "Elsa: Mircolink IO probing\n");
+                if (sp->cfg_reg) {
+                	if (!(sp->subtyp = probe_elsa_adr(sp->cfg_reg))) {
+                        	printk(KERN_WARNING
+                        		"Elsa: no Elsa Mircolink at 0x%x\n",
+                        		sp->cfg_reg);
+                        		return(0);
+                  	}
+                } else
+                	sp->cfg_reg = probe_elsa(sp);
+                if (sp->cfg_reg) {
+                        val=bytein(sp->cfg_reg + CARD_CONFIG);
+                	if (sp->subtyp == ELSA_PCC) {
+                		const byte CARD_IrqTab[8] = { 7, 3, 5, 9, 0, 0, 0, 0 };
+                		sp->irq = CARD_IrqTab[(val & 0x0c) >>2];
+                	} else {
+                		const byte CARD_IrqTab[8] = { 15, 10, 15, 3, 11, 5, 11, 9};
+                		sp->irq = CARD_IrqTab[(val & 0x38) >>3];
+                	}
+                        val = bytein(sp->cfg_reg + CARD_ALE) & 0x7;
+                        if (val < 3) val |= 8;
+                        val += 'A' - 3;
+                        if (val=='B' || val=='C') val ^= 1;
+                        if ((sp->subtyp == ELSA_PCFPRO) && (val='G')) val = 'C';
+        		printk(KERN_INFO
+        			"Elsa: %s found at 0x%x Rev.:%c IRQ %d\n",
+        			Elsa_Types[sp->subtyp],
+        			sp->cfg_reg,
+        			val, sp->irq);
+                        val = bytein(sp->cfg_reg + CARD_ALE) & 0x08;
+                        if (val)
+        			printk(KERN_WARNING
+        				"Elsa: Mircolink PCC S0 bus power bad\n");
         	} else {
-        		const byte CARD_IrqTab[8] = { 15, 10, 15, 3, 11, 5, 11, 9};
-        		sp->irq = CARD_IrqTab[(val & 0x38) >>3];
+        		printk(KERN_WARNING
+        			"No Elsa Mircolink found\n");
+                        	return(0);
         	}
-                val = bytein(sp->cfg_reg + CARD_ALE) & 0x7;
-                if (val < 3) val |= 8;
-                val += 'A' - 3;
-                if (val=='B' || val=='C') val ^= 1; 
-                if ((sp->subtyp == ELSA_PCFPRO) && (val='G')) val = 'C';
-		printk(KERN_INFO 
-			"Elsa: %s found at 0x%x Rev.:%c IRQ %d\n",
-			Elsa_Types[sp->subtyp],
-			sp->cfg_reg,
-			val, sp->irq);
-                val = bytein(sp->cfg_reg + CARD_ALE) & 0x08;
-                if (val) 
-			printk(KERN_WARNING
-				"Elsa: Mircolink PCC S0 bus power bad\n");
-	} else {
-		printk(KERN_WARNING 
-			"No Elsa Mircolink found\n");
-                	return(0);
-	}
+        } else if (sp->typ == ISDN_CTYPE_ELSA_QS1000) {
+                sp->cfg_reg = card->para[0];
+                sp->irq = card->para[1];
+                sp->subtyp = ELSA_QS1000;
+        } else
+        	return(0);
 
 	switch (sp->subtyp) {
 		case ELSA_PCC:  bytecnt = 8;
-				sp->mask1 = TIMER_RUN;
 				break;
 		case ELSA_PCFPRO:bytecnt = 16;
-				sp->mask1 = TIMER_RUN;
 				break;
 		case ELSA_PCC16:bytecnt = 8;
-				sp->mask1 = TIMER_RUN;
 				break;
 		case ELSA_PCF:  bytecnt = 16;
-				sp->mask1 = TIMER_RUN;
+				break;
+		case ELSA_QS1000:
+				bytecnt = 8;
 				break;
 		default:
-				printk(KERN_WARNING 
+				printk(KERN_WARNING
 					"Unknown ELSA subtype %d\n", sp->subtyp);
                 		return(0);
 	}
-	
+
  	if (check_region((sp->cfg_reg), bytecnt)) {
         	printk(KERN_WARNING
                 "HiSax: %s config port %x-%x already in use\n",
@@ -1253,12 +1267,12 @@ setup_elsa(struct IsdnCard *card)
 	}
 
 	/* Teste Timer */
-	bytein(sp->cfg_reg +CARD_START_TIMER);
-	if (!(bytein(sp->cfg_reg +CARD_CONFIG) & sp->mask1)) {
+	bytein(sp->cfg_reg + CARD_START_TIMER);
+	if (!TimerRun(sp)) {
 		bytein(sp->cfg_reg +CARD_START_TIMER); /* 2. Versuch */
-		if (!((val=bytein(sp->cfg_reg +CARD_CONFIG)) & sp->mask1)) { 
-        		printk(KERN_WARNING 
-        			"Elsa: timer do not start (%02x)\n",val);
+		if (!TimerRun(sp)) {
+        		printk(KERN_WARNING
+        			"Elsa: timer do not start\n");
         		release_io_elsa(card);
         		return(0);
         	}
@@ -1270,23 +1284,23 @@ setup_elsa(struct IsdnCard *card)
 	bytein(sp->cfg_reg +CARD_START_TIMER);
 	while (timout == jiffies);  /* Warte 10 ms */
 	restore_flags(flags);
-	if (bytein(sp->cfg_reg +CARD_CONFIG) & sp->mask1) { 
+	if (TimerRun(sp)) {
         	printk(KERN_WARNING "Elsa: timer do not run down\n");
         	release_io_elsa(card);
         	return(0);
         }
         printk(KERN_INFO "Elsa: timer OK; resetting card\n");
-	/* Wait 1 Timer */        
+	/* Wait 1 Timer */
 	bytein(sp->cfg_reg +CARD_START_TIMER);
-	while(!(bytein(sp->cfg_reg +CARD_CONFIG) & sp->mask1));
-        byteout(sp->cfg_reg+4,0x00);  /* Reset On */
-	/* Wait 1 Timer */        
+	while(TimerRun(sp));
+        byteout(sp->cfg_reg +CARD_CONTROL,0x00);  /* Reset On */
+	/* Wait 1 Timer */
 	bytein(sp->cfg_reg +CARD_START_TIMER);
-	while(!(bytein(sp->cfg_reg +CARD_CONFIG) & sp->mask1));
-        byteout(sp->cfg_reg+4,ISDN_RESET);  /* Reset Off */
-	/* Wait 1 Timer */        
+	while(TimerRun(sp));
+        byteout(sp->cfg_reg +CARD_CONTROL,ISDN_RESET);  /* Reset Off */
+	/* Wait 1 Timer */
 	bytein(sp->cfg_reg +CARD_START_TIMER);
-	while(!(bytein(sp->cfg_reg +CARD_CONFIG) & sp->mask1));
+	while(TimerRun(sp));
 
         verA=readhscx(sp->cfg_reg, 0,HSCX_VSTR) & 0xf;
         verB=readhscx(sp->cfg_reg, 1,HSCX_VSTR) & 0xf;
@@ -1300,6 +1314,6 @@ setup_elsa(struct IsdnCard *card)
         sp->ph_command     = &ph_command;
         sp->hscx_fill_fifo = &hscx_fill_fifo;
         sp->isac_fill_fifo = &isac_fill_fifo;
-        
+
 	return (1);
 }

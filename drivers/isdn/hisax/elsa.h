@@ -3,11 +3,14 @@
  * elsa.h   Header for Elsa ISDN cards
  *
  * Author	Karsten Keil (keil@temic-ech.spacenet.de)
- * 
+ *
  * Thanks to    Elsa GmbH for documents and informations
  *
  *
  * $Log$
+ * Revision 1.3  1996/12/08 19:47:38  keil
+ * ARCOFI support
+ *
  * Revision 1.2  1996/11/18 15:33:35  keil
  * PCC and PCFPro support
  *
@@ -29,6 +32,7 @@
 #define ELSA_PCFPRO  2
 #define ELSA_PCC16   3
 #define ELSA_PCF     4
+#define ELSA_QS1000  5
 
 /***                                                                    ***
  ***   Makros als Befehle fuer die Kartenregister                       ***
@@ -48,7 +52,7 @@
 
 /* ALE-Register (Read) */
 #define HW_RELEASE      0x07    /* Bit 0-2 Hardwarerkennung */
-#define S0_POWER_BAD    0x08    /* Bit 3 S0-Bus Spannung fehlt */ 
+#define S0_POWER_BAD    0x08    /* Bit 3 S0-Bus Spannung fehlt */
 
 extern	void elsa_report(struct IsdnCardState *sp);
 extern  void release_io_elsa(struct IsdnCard *card);
