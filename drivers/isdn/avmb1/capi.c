@@ -6,6 +6,9 @@
  * Copyright 1996 by Carsten Paeth (calle@calle.in-berlin.de)
  *
  * $Log$
+ * Revision 1.33  2000/05/18 16:35:43  calle
+ * Uaaahh. Bad memory leak fixed.
+ *
  * Revision 1.32  2000/04/21 12:38:42  calle
  * Bugfix: error in proc_ functions, begin-off => off-begin
  *
@@ -328,11 +331,11 @@ static struct capiminor *minors = 0;
 #endif /* CONFIG_ISDN_CAPI_MIDDLEWARE */
 
 #ifdef COMPAT_HAS_kmem_cache
-static kmem_cache_t *capidev_cachep = 0; 
-static kmem_cache_t *capincci_cachep = 0; 
+static kmem_cache_t *capidev_cachep = 0;
+static kmem_cache_t *capincci_cachep = 0;
 #ifdef CONFIG_ISDN_CAPI_MIDDLEWARE
-static kmem_cache_t *capiminor_cachep = 0; 
-static kmem_cache_t *capidh_cachep = 0; 
+static kmem_cache_t *capiminor_cachep = 0;
+static kmem_cache_t *capidh_cachep = 0;
 #endif /* CONFIG_ISDN_CAPI_MIDDLEWARE */
 #endif
 
@@ -905,7 +908,6 @@ static void capi_signal(__u16 applid, void *param)
 
 
 	if (CAPIMSG_SUBCOMMAND(skb->data) == CAPI_IND) {
- 
 		datahandle = CAPIMSG_U16(skb->data, CAPIMSG_BASELEN+4+4+2);
 #ifdef _DEBUG_DATAFLOW
 		printk(KERN_DEBUG "capi_signal: DATA_B3_IND %u len=%d\n",
@@ -949,14 +951,14 @@ static void capi_signal(__u16 applid, void *param)
 
 /* -------- file_operations for capidev ----------------------------- */
 
-static long long capi_llseek(struct file *file,
-			     long long offset, int origin)
+static loff_t
+capi_llseek(struct file *file, loff_t offset, int origin)
 {
 	return -ESPIPE;
 }
 
-static ssize_t capi_read(struct file *file, char *buf,
-		      size_t count, loff_t *ppos)
+static ssize_t
+capi_read(struct file *file, char *buf, size_t count, loff_t *ppos)
 {
 	struct capidev *cdev = (struct capidev *)file->private_data;
 	struct sk_buff *skb;
@@ -1006,8 +1008,8 @@ static ssize_t capi_read(struct file *file, char *buf,
 	return copied;
 }
 
-static ssize_t capi_write(struct file *file, const char *buf,
-		       size_t count, loff_t *ppos)
+static ssize_t
+capi_write(struct file *file, const char *buf, size_t count, loff_t *ppos)
 {
 	struct capidev *cdev = (struct capidev *)file->private_data;
 	struct sk_buff *skb;
@@ -1070,7 +1072,8 @@ capi_poll(struct file *file, poll_table * wait)
 	return mask;
 }
 
-static int capi_ioctl(struct inode *inode, struct file *file,
+static int
+capi_ioctl(struct inode *inode, struct file *file,
 		      unsigned int cmd, unsigned long arg)
 {
 	struct capidev *cdev = (struct capidev *)file->private_data;
@@ -1285,7 +1288,8 @@ static int capi_ioctl(struct inode *inode, struct file *file,
 	return -EINVAL;
 }
 
-static int capi_open(struct inode *inode, struct file *file)
+static int
+capi_open(struct inode *inode, struct file *file)
 {
 	if (file->private_data)
 		return -EEXIST;
@@ -1300,7 +1304,8 @@ static int capi_open(struct inode *inode, struct file *file)
 	return 0;
 }
 
-static int capi_release(struct inode *inode, struct file *file)
+static int
+capi_release(struct inode *inode, struct file *file)
 {
 	struct capidev *cdev = (struct capidev *)file->private_data;
 
@@ -1316,19 +1321,20 @@ static int capi_release(struct inode *inode, struct file *file)
 
 static struct file_operations capi_fops =
 {
-	llseek:         capi_llseek,
-	read:           capi_read,
-	write:          capi_write,
-	poll:           capi_poll,
-	ioctl:          capi_ioctl,
-	open:           capi_open,
-	release:        capi_release,                                           
+	llseek:		capi_llseek,
+	read:		capi_read,
+	write:		capi_write,
+	poll:		capi_poll,
+	ioctl:		capi_ioctl,
+	open:		capi_open,
+	release:	capi_release,
 };
 
 #ifdef CONFIG_ISDN_CAPI_MIDDLEWARE
 /* -------- file_operations for capincci ---------------------------- */
 
-int capinc_raw_open(struct inode *inode, struct file *file)
+static int
+capinc_raw_open(struct inode *inode, struct file *file)
 {
 	struct capiminor *mp;
 
@@ -1352,14 +1358,14 @@ int capinc_raw_open(struct inode *inode, struct file *file)
 	return 0;
 }
 
-long long capinc_raw_llseek(struct file *file,
-			     long long offset, int origin)
+static loff_t
+capinc_raw_llseek(struct file *file, loff_t offset, int origin)
 {
 	return -ESPIPE;
 }
 
-ssize_t capinc_raw_read(struct file *file, char *buf,
-		      size_t count, loff_t *ppos)
+static ssize_t
+capinc_raw_read(struct file *file, char *buf, size_t count, loff_t *ppos)
 {
 	struct capiminor *mp = (struct capiminor *)file->private_data;
 	struct sk_buff *skb;
@@ -1416,8 +1422,8 @@ ssize_t capinc_raw_read(struct file *file, char *buf,
 	return copied;
 }
 
-ssize_t capinc_raw_write(struct file *file, const char *buf,
-		       size_t count, loff_t *ppos)
+static ssize_t
+capinc_raw_write(struct file *file, const char *buf, size_t count, loff_t *ppos)
 {
 	struct capiminor *mp = (struct capiminor *)file->private_data;
 	struct sk_buff *skb;
@@ -1454,7 +1460,7 @@ ssize_t capinc_raw_write(struct file *file, const char *buf,
 	return count;
 }
 
-unsigned int
+static unsigned int
 capinc_raw_poll(struct file *file, poll_table * wait)
 {
 	struct capiminor *mp = (struct capiminor *)file->private_data;
@@ -1472,7 +1478,8 @@ capinc_raw_poll(struct file *file, poll_table * wait)
 	return mask;
 }
 
-int capinc_raw_ioctl(struct inode *inode, struct file *file,
+static int
+capinc_raw_ioctl(struct inode *inode, struct file *file,
 		      unsigned int cmd, unsigned long arg)
 {
 	struct capiminor *mp = (struct capiminor *)file->private_data;
@@ -1523,7 +1530,7 @@ int capinc_raw_ioctl(struct inode *inode, struct file *file,
 	return -EINVAL;
 }
 
-int
+static int
 capinc_raw_release(struct inode *inode, struct file *file)
 {
 	struct capiminor *mp = (struct capiminor *)file->private_data;
@@ -1540,22 +1547,15 @@ capinc_raw_release(struct inode *inode, struct file *file)
 	return 0;
 }
 
-struct file_operations capinc_raw_fops =
+static struct file_operations capinc_raw_fops =
 {
-	capinc_raw_llseek,
-	capinc_raw_read,
-	capinc_raw_write,
-	NULL,			/* capi_readdir */
-	capinc_raw_poll,
-	capinc_raw_ioctl,
-	NULL,			/* capi_mmap */
-	capinc_raw_open,
-#ifdef FILEOP_HAS_FLUSH
-        NULL,                   /* capi_flush */
-#endif
-	capinc_raw_release,
-	NULL,			/* capi_fsync */
-	NULL,			/* capi_fasync */
+	llseek:		capinc_raw_llseek,
+	read:		capinc_raw_read,
+	write:		capinc_raw_write,
+	poll:		capinc_raw_poll,
+	ioctl:		capinc_raw_ioctl,
+	open:		capinc_raw_open,
+	release:	capinc_raw_release,
 };
 
 /* -------- tty_operations for capincci ----------------------------- */
@@ -2088,9 +2088,9 @@ static void alloc_exit(void)
 
 static int alloc_init(void)
 {
-	capidev_cachep = kmem_cache_create("capi20_dev", 
+	capidev_cachep = kmem_cache_create("capi20_dev",
 					 sizeof(struct capidev),
-					 0, 
+					 0,
 					 SLAB_HWCACHE_ALIGN,
 					 NULL, NULL);
 	if (!capidev_cachep) {
@@ -2098,9 +2098,9 @@ static int alloc_init(void)
 		return -ENOMEM;
 	}
 
-	capincci_cachep = kmem_cache_create("capi20_ncci", 
+	capincci_cachep = kmem_cache_create("capi20_ncci",
 					 sizeof(struct capincci),
-					 0, 
+					 0,
 					 SLAB_HWCACHE_ALIGN,
 					 NULL, NULL);
 	if (!capincci_cachep) {
@@ -2108,18 +2108,18 @@ static int alloc_init(void)
 		return -ENOMEM;
 	}
 #ifdef CONFIG_ISDN_CAPI_MIDDLEWARE
-	capidh_cachep = kmem_cache_create("capi20_dh", 
+	capidh_cachep = kmem_cache_create("capi20_dh",
 					 sizeof(struct datahandle_queue),
-					 0, 
+					 0,
 					 SLAB_HWCACHE_ALIGN,
 					 NULL, NULL);
 	if (!capidh_cachep) {
 		alloc_exit();
 		return -ENOMEM;
 	}
-	capiminor_cachep = kmem_cache_create("capi20_minor", 
+	capiminor_cachep = kmem_cache_create("capi20_minor",
 					 sizeof(struct capiminor),
-					 0, 
+					 0,
 					 SLAB_HWCACHE_ALIGN,
 					 NULL, NULL);
 	if (!capiminor_cachep) {

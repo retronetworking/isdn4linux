@@ -6,6 +6,10 @@
  * Heavily based on devpts filesystem from H. Peter Anvin
  * 
  * $Log$
+ * Revision 1.6  2000/04/03 13:29:25  calle
+ * make Tim Waugh happy (module unload races in 2.3.99-pre3).
+ * no real problem there, but now it is much cleaner ...
+ *
  * Revision 1.5  2000/03/13 17:49:52  calle
  * make it running with 2.3.51.
  *
@@ -213,7 +217,7 @@ static struct dentry *capifs_root_lookup(struct inode * dir, struct dentry * den
 
 	dentry->d_inode = np->inode;
 	if ( dentry->d_inode )
-		dentry->d_inode->i_count++;
+		i_count_inc(dentry->d_inode->i_count);
 	
 	d_add(dentry, dentry->d_inode);
 
@@ -232,9 +236,9 @@ static void capifs_put_super(struct super_block *sb)
 
 	for ( i = 0 ; i < sbi->max_ncci ; i++ ) {
 		if ( (inode = sbi->nccis[i].inode) ) {
-			if ( inode->i_count != 1 )
+			if (i_count_read(inode->i_count) != 1 )
 				printk("capifs_put_super: badness: entry %d count %d\n",
-				       i, inode->i_count);
+				       i, (unsigned)i_count_read(inode->i_count));
 			inode->i_nlink--;
 			iput(inode);
 		}
