@@ -85,10 +85,10 @@ DESCRIPTOR DIDD_Table[32];
 
 void    DIVA_DIDD_Read( DESCRIPTOR *table, int tablelength )
 {
+        bzero(table, tablelength);
+
         if (tablelength > sizeof(DIDD_Table))
           tablelength = sizeof(DIDD_Table);
-
-        bzero(table, tablelength);
 
         if(tablelength % sizeof(DESCRIPTOR)) {
           tablelength /= sizeof(DESCRIPTOR);
