@@ -21,6 +21,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.41  1997/03/08 08:16:31  fritz
+ * Bugfix: Deleting a phone number during dial gave unpredictable results.
+ *
  * Revision 1.40  1997/03/05 21:16:08  fritz
  * Fix: did not compile with 2.1.27
  *
@@ -558,7 +561,7 @@ isdn_net_dial(void)
 				if (!p->local.dial) {
 					printk(KERN_WARNING "%s: phone number deleted?\n",
 					       p->local.name);
-					p->local.dialstate = 0;
+					isdn_net_hangup(&p->dev);
 					break;
 				}
 				anymore = 1;
@@ -598,7 +601,7 @@ isdn_net_dial(void)
 					restore_flags(flags);
 					printk(KERN_WARNING "%s: phone number deleted?\n",
 					       p->local.name);
-					p->local.dialstate = 0;
+					isdn_net_hangup(&p->dev);
 					break;
 				}
 				if (!strcmp(p->local.dial->num, "LEASED")) {
