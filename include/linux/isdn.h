@@ -21,6 +21,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.94.2.1  2000/03/04 16:59:20  detabc
+ * copy frame's before rewriting saddr
+ *
  * Revision 1.94  2000/02/26 00:29:40  keil
  * more softnet changes
  *
@@ -753,7 +756,9 @@ typedef struct isdn_net_local_s {
   struct isdn_net_local_s *last;       /* Ptr to last link in bundle       */
   struct isdn_net_dev_s  *netdev;      /* Ptr to netdev                    */
   struct sk_buff         *first_skb;   /* Ptr to skb that triggers dialing */
+#if 0
   struct sk_buff *volatile sav_skb;    /* Ptr to skb, rejected by LL-driver*/
+#endif
                                        /* Ptr to orig. hard_header_cache   */
   int                    (*org_hhc)(
 				    struct neighbour *neigh,
@@ -808,6 +813,7 @@ typedef struct isdn_net_local_s {
   ulong	dw_abc_bsd_rcv;
   ulong	dw_abc_bsd_bsd_rcv;
 #endif
+  atomic_t frame_cnt; /* number of frames currently queued in HL driver */
 } isdn_net_local;
 
 /* the interface itself */

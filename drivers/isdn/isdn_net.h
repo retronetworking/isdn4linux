@@ -21,6 +21,12 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.10  1999/08/22 20:26:06  calle
+ * backported changes from kernel 2.3.14:
+ * - several #include "config.h" gone, others come.
+ * - "struct device" changed to "struct net_device" in 2.3.14, added a
+ *   define in isdn_compat.h for older kernel versions.
+ *
  * Revision 1.9  1999/04/12 12:33:27  fritz
  * Changes from 2.0 tree.
  *
@@ -123,3 +129,71 @@ extern int isdn_net_send_skb(struct net_device *, isdn_net_local *,
 extern int isdn_net_rcv_skb(int, struct sk_buff *);
 extern void isdn_net_slarp_out(void);
 extern int isdn_net_dial_req(isdn_net_local *);
+
+#define ISDN_NET_MAX_QUEUE_LENGTH 2
+
+static inline void isdn_net_inc_frame_cnt(isdn_net_local *lp)
+{
+	atomic_inc(&lp->frame_cnt);
+	printk(KERN_DEBUG "%s: inc_frame_cnt now %d\n", lp->name, atomic_read(&lp->frame_cnt));
+}
+
+static inline void isdn_net_dec_frame_cnt(isdn_net_local *lp)
+{
+	atomic_dec(&lp->frame_cnt);
+	printk(KERN_DEBUG "%s: dec_frame_cnt now %d\n", lp->name, atomic_read(&lp->frame_cnt));
+}
+
+static inline void isdn_net_zero_frame_cnt(isdn_net_local *lp)
+{
+	atomic_set(&lp->frame_cnt, 0);
+	printk(KERN_DEBUG "%s: zero_frame_cnt now %d\n", lp->name, atomic_read(&lp->frame_cnt));
+}
+
+
+/* 
+ * Find out if the netdevice has been ifup-ed yet.
+ * For slaves, look at the corresponding master.
+ */
+static inline int isdn_net_started(isdn_net_dev *n)
+{
+	isdn_net_local *lp = n->local;
+	struct net_device *dev;
+	
+	if (lp->master) 
+		dev = lp->master;
+	else
+		dev = &n->dev;
+#ifdef COMPAT_NO_SOFTNET
+	return dev->start;
+#else
+	return netif_running(dev);
+#endif
+}
+
+/*
+ * wake up the network -> net_device queue.
+ * For slaves, wake the corresponding master interface.
+ */
+static inline void isdn_net_lp_xon(isdn_net_local * lp)
+{
+//	printk(KERN_DEBUG "isdn_net_lp_xon\n");
+	if (lp->master) 
+		netif_wake_queue(lp->master);
+	else
+		netif_wake_queue(&lp->netdev->dev);
+}
+
+/*
+ * stop the network -> net_device queue.
+ * For slaves, stop the corresponding master interface.
+ */
+static inline void isdn_net_lp_xoff(isdn_net_local * lp)
+{
+//	printk(KERN_DEBUG "isdn_net_lp_xoff\n");
+	if (lp->master) 
+		netif_stop_queue(lp->master);
+	else
+		netif_stop_queue(&lp->netdev->dev);
+}
+
