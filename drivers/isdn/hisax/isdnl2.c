@@ -7,6 +7,9 @@
  *              Fritz Elfert
  *
  * $Log$
+ * Revision 1.10.2.7  1998/05/27 18:05:51  keil
+ * HiSax 3.0
+ *
  * Revision 1.10.2.6  1998/05/26 10:36:57  keil
  * fixes from certification
  *
@@ -578,7 +581,7 @@ l2_got_disconn(struct FsmInst *fi, int event, void *arg)
 	}
 	send_uframe(st, cmd | PollFlag, RSP);
 	if (rel) {
-		if (test_and_clear_bit(FLG_LAPB, &st->l2.flag))
+		if (test_bit(FLG_LAPB, &st->l2.flag))
 			st->l2.l2l1(st, PH_DEACTIVATE | REQUEST, NULL);
 		st->l2.l2l3(st, DL_RELEASE | INDICATION, NULL);
 	}
@@ -646,7 +649,7 @@ l2_got_ua(struct FsmInst *fi, int event, void *arg)
 				st->l2.l2l3(st, pr, NULL);
 		}
 	} else {		/* ST_L2_6 */
-		if (test_and_clear_bit(FLG_LAPB, &st->l2.flag))
+		if (test_bit(FLG_LAPB, &st->l2.flag))
 			st->l2.l2l1(st, PH_DEACTIVATE | REQUEST, NULL);
 		st->l2.l2l3(st, DL_RELEASE | CONFIRM, NULL);
 		FsmChangeState(fi, ST_L2_4);
@@ -683,8 +686,8 @@ l2_got_dm(struct FsmInst *fi, int event, void *arg)
 	PollFlag = get_PollFlagFree(st, skb);
 	if (!PollFlag) {
 		if (fi->state == ST_L2_4) {
-		establishlink(fi);
-		test_and_clear_bit(FLG_L3_INIT, &st->l2.flag);
+			establishlink(fi);
+			test_and_clear_bit(FLG_L3_INIT, &st->l2.flag);
 			FsmChangeState(fi, ST_L2_5);
 		}
 	} else if (fi->state != ST_L2_4) {
@@ -692,7 +695,7 @@ l2_got_dm(struct FsmInst *fi, int event, void *arg)
 			FsmDelTimer(&st->l2.t200, 2);
 	 	if (fi->state == ST_L2_5)
 			discard_queue(&st->l2.i_queue);
-		if (test_and_clear_bit(FLG_LAPB, &st->l2.flag))
+		if (test_bit(FLG_LAPB, &st->l2.flag))
 			st->l2.l2l1(st, PH_DEACTIVATE | REQUEST, NULL);
 		if (fi->state == ST_L2_6)
 			st->l2.l2l3(st, DL_RELEASE | CONFIRM, NULL);
@@ -1015,7 +1018,7 @@ l2_st5_tout_200(struct FsmInst *fi, int event, void *arg)
 		test_and_clear_bit(FLG_T200_RUN, &st->l2.flag);
 		discard_queue(&st->l2.i_queue);
 		st->ma.layer(st, MDL_ERROR | INDICATION, (void *) 'G');
-		if (test_and_clear_bit(FLG_LAPB, &st->l2.flag))
+		if (test_bit(FLG_LAPB, &st->l2.flag))
 			st->l2.l2l1(st, PH_DEACTIVATE | REQUEST, NULL);
 		st->l2.l2l3(st, DL_RELEASE | INDICATION, NULL);
 	} else {
@@ -1037,7 +1040,7 @@ l2_st6_tout_200(struct FsmInst *fi, int event, void *arg)
 	} else if (st->l2.rc == st->l2.N200) {
 		FsmChangeState(fi, ST_L2_4);
 		st->ma.layer(st, MDL_ERROR | INDICATION, (void *) 'H');
-		if (test_and_clear_bit(FLG_LAPB, &st->l2.flag))
+		if (test_bit(FLG_LAPB, &st->l2.flag))
 			st->l2.l2l1(st, PH_DEACTIVATE | REQUEST, NULL);
 		st->l2.l2l3(st, DL_RELEASE | INDICATION, NULL);
 	} else {
@@ -1484,15 +1487,15 @@ isdnl2_l3l2(struct PStack *st, int pr, void *arg)
 			if (test_bit(FLG_L1_ACTIV, &st->l2.flag)) {
 				if (test_bit(FLG_LAPD, &st->l2.flag) ||
 					test_bit(FLG_ORIG, &st->l2.flag)) {
-				FsmEvent(&st->l2.l2m, EV_L2_DL_ESTABLISH, arg);
-	}
+					FsmEvent(&st->l2.l2m, EV_L2_DL_ESTABLISH, arg);
+				}
 			} else {
 				if (test_bit(FLG_LAPD, &st->l2.flag) ||
 					test_bit(FLG_ORIG, &st->l2.flag)) {
-				test_and_set_bit(FLG_ESTAB_PEND, &st->l2.flag);
+					test_and_set_bit(FLG_ESTAB_PEND, &st->l2.flag);
 				}
 				st->l2.l2l1(st, PH_ACTIVATE, NULL);
-}
+			}
 			break;
 		case (DL_RELEASE | REQUEST):
 			if (test_bit(FLG_LAPB, &st->l2.flag)) {
@@ -1548,7 +1551,7 @@ setstack_isdnl2(struct PStack *st, char *debug_id)
 	st->l2.debug = 0;
 
 	st->l2.l2m.fsm = &l2fsm;
-	if (test_and_clear_bit(FLG_LAPB, &st->l2.flag))
+	if (test_bit(FLG_LAPB, &st->l2.flag))
 		st->l2.l2m.state = ST_L2_4;
 	else
 	st->l2.l2m.state = ST_L2_1;
