@@ -15,6 +15,7 @@
 #include "isac.h"
 #include "isdnl1.h"
 #include <linux/pci.h>
+#include <linux/isdn_compat.h>
 #include <linux/interrupt.h>
 
 extern const char *CardType[];

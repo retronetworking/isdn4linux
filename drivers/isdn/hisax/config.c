@@ -10,9 +10,7 @@
 #include <linux/stddef.h>
 #include <linux/timer.h>
 #include <linux/config.h>
-#include <linux/isdn_compat.h>
 #include <linux/init.h>
-#include <linux/pci.h>
 #include "hisax.h"
 #include <linux/module.h>
 #include <linux/kernel_stat.h>

@@ -19,6 +19,7 @@
 #include "hscx.h"
 #include "isdnl1.h"
 #include <linux/pci.h>
+#include <linux/isdn_compat.h>
 #include "bkm_ax.h"
 
 #if CONFIG_PCI

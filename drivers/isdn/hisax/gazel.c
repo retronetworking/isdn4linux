@@ -17,6 +17,7 @@
 #include "isdnl1.h"
 #include "ipac.h"
 #include <linux/pci.h>
+#include <linux/isdn_compat.h>
 
 extern const char *CardType[];
 const char *gazel_revision = "$Revision$";

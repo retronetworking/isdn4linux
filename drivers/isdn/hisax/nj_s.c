@@ -10,6 +10,7 @@
 #include "isac.h"
 #include "isdnl1.h"
 #include <linux/pci.h>
+#include <linux/isdn_compat.h>
 #include <linux/interrupt.h>
 #include <linux/ppp_defs.h>
 #include "netjet.h"

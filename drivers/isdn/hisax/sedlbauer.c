@@ -49,6 +49,7 @@
 #include "isar.h"
 #include "isdnl1.h"
 #include <linux/pci.h>
+#include <linux/isdn_compat.h>
 
 extern const char *CardType[];
 
