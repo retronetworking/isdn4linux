@@ -21,6 +21,13 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.101  2000/03/20 22:37:47  detabc
+ * modify abc-extension to work together with the new LL.
+ * remove abc frame-counter (is obsolete now).
+ * use the new lp->super_tx_queue for internal queueing (bsd-rawip-compress).
+ * modify isdn_net_xmit() and isdn_net_write_super().
+ * -- Kai, please have a look to this two function's. Thank's.
+ *
  * Revision 1.100  2000/03/19 15:27:53  kai
  * no known bugs left...
  *
@@ -424,18 +431,20 @@
 #else
 #include <linux/isdn_dwabc.h>
 
+volatile u_long dwsjiffies;
 #define ISDN_DW_ABC_FLAG_NO_TCP_KEEPALIVE	0x00000001L
 #define ISDN_DW_ABC_FLAG_NO_UDP_CHECK		0x00000002L
 #define ISDN_DW_ABC_FLAG_NO_UDP_HANGUP		0x00000004L
 #define ISDN_DW_ABC_FLAG_NO_UDP_DIAL		0x00000008L
-#define ISDN_DW_ABC_FLAG_DYNADDR		0x00000010L
+#define ISDN_DW_ABC_FLAG_DYNADDR			0x00000010L
 #define ISDN_DW_ABC_FLAG_RCV_NO_HUPTIMER	0x00000020L
 #define ISDN_DW_ABC_FLAG_NO_CH_EXTINUSE		0x00000040L
 #define ISDN_DW_ABC_FLAG_NO_CONN_ERROR		0x00000080L
 #define ISDN_DW_ABC_FLAG_BSD_COMPRESS		0x00000100L
-#define ISDN_DW_ABC_FLAG_NO_LCR			0x00000200L
+#define ISDN_DW_ABC_FLAG_NO_LCR				0x00000200L
 #define ISDN_DW_ABC_FLAG_RW_SOCKADDR		0x00000400L
 #define ISDN_DW_ABC_FLAG_RWUDP_SOCKADDR		0x00000800L
+#define ISDN_DW_ABC_FLAG_LEASED_LINE		0x00001000L
 
 #define ISDN_DW_ABC_IFFLAG_NODCHAN		0x00000001L
 #define ISDN_DW_ABC_IFFLAG_BSDAKTIV		0x00000002L
@@ -804,7 +813,7 @@ typedef struct isdn_net_local_s {
   ulong 	dw_abc_flags;
   ulong 	dw_abc_if_flags;
   int   	dw_abc_inuse_secure;
-  volatile atomic_t dw_abc_pkt_onl;
+  ulong 	dw_abc_comhd_last_send;
   ulong 	dw_abc_dialstart;
   int   	dw_abc_old_onhtime;
   int 		dw_abc_remote_version;
@@ -1158,7 +1167,7 @@ extern size_t isdn_dw_abc_lcr_readstat(char *,size_t);
 extern ulong isdn_dw_abc_lcr_call_number(isdn_net_local *,isdn_ctrl *);
 extern void isdn_dw_abc_lcr_open(void);
 extern void isdn_dw_abc_lcr_close(void);
-extern void isdn_dw_abc_lcr_ioctl(u_long);
+extern void isdn_dw_abc_lcr_ioctl(ulong);
 extern void isdn_dw_abc_lcr_clear(isdn_net_local *);
 extern void isdn_dw_abc_free_lch_with_pch(int,int);
 #endif

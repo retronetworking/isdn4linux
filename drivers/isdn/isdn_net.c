@@ -21,6 +21,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.124  2000/04/03 21:07:22  detabc
+ * change write_super handling for abc-stuff
+ *
  * Revision 1.123  2000/04/03 19:14:36  kai
  * fix "isdn BUG at isdn_net.c:1440!"
  *
@@ -685,6 +688,9 @@ char *isdn_net_revision = "$Revision$";
 #ifdef CONFIG_ISDN_WITH_ABC_CONN_ERROR
 static int isdn_dwabc_encap_with_conerr(isdn_net_local *lp)
 {
+	if(lp->dw_abc_flags & ISDN_DW_ABC_FLAG_NO_CONN_ERROR)
+		return(0);
+
 	return( 
 		lp->p_encap == ISDN_NET_ENCAP_SYNCPPP			||
 		lp->p_encap == ISDN_NET_ENCAP_RAWIP 			||
@@ -1762,20 +1768,6 @@ isdn_net_log_skb(struct sk_buff * skb, isdn_net_local * lp)
  * not received from the network layer, but e.g. frames from ipppd, CCP
  * reset frames etc.
  */
-#ifdef CONFIG_ISDN_WITH_ABC
-void isdn_net_write_super(isdn_net_local *lp, struct sk_buff *skb)
-{
-	if(in_interrupt() && dev->net_verbose > 1) {
-
-		printk(KERN_INFO 
-			"%s: NOTE isdn_net_write_super called in interrupt\n",
-			lp->name);
-	}
-
-	skb_queue_tail(&lp->super_tx_queue, skb);
-	queue_task(&lp->tqueue, &tq_immediate);
-}
-#else
 void isdn_net_write_super(isdn_net_local *lp, struct sk_buff *skb)
 {
 	if (in_interrupt()) {
@@ -1787,14 +1779,18 @@ void isdn_net_write_super(isdn_net_local *lp, struct sk_buff *skb)
 	}
 
 	spin_lock_bh(&lp->xmit_lock);
-	if (!isdn_net_lp_busy(lp)) {
+#ifdef CONFIG_ISDN_WITH_ABC
+	if(skb_queue_empty(&lp->super_tx_queue) && !isdn_net_lp_busy(lp)) 
+#else
+	if (!isdn_net_lp_busy(lp))
+#endif
+	{
 		isdn_net_writebuf_skb(lp, skb);
 	} else {
 		skb_queue_tail(&lp->super_tx_queue, skb);
 	}
 	spin_unlock_bh(&lp->xmit_lock);
 }
-#endif
 
 /*
  * called from tq_immediate
@@ -1908,6 +1904,16 @@ isdn_net_xmit(struct net_device *ndev, struct sk_buff *skb)
 	/* Reset hangup-timeout */
 	lp->huptimer = 0; // FIXME?
 #ifdef CONFIG_ISDN_WITH_ABC
+#ifdef CONFIG_ISDN_WITH_ABC_RAWIPCOMPRESS
+	if(	(lp->dw_abc_flags & ISDN_DW_ABC_FLAG_LEASED_LINE) 	&&
+		(lp->dw_abc_flags & ISDN_DW_ABC_FLAG_BSD_COMPRESS)	&&
+		(dwsjiffies - lp->dw_abc_comhd_last_send) > 1800	&&
+		lp->dw_abc_bsd_compressor != NULL					) {
+
+		dwabc_bsd_first_gen(lp);
+	}
+#endif
+
 	{
 		struct sk_buff *t_skb = NULL;
 

@@ -23,6 +23,13 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.18  2000/03/20 22:37:46  detabc
+ * modify abc-extension to work together with the new LL.
+ * remove abc frame-counter (is obsolete now).
+ * use the new lp->super_tx_queue for internal queueing (bsd-rawip-compress).
+ * modify isdn_net_xmit() and isdn_net_write_super().
+ * -- Kai, please have a look to this two function's. Thank's.
+ *
  * Revision 1.17  2000/03/04 16:20:41  detabc
  * copy frames before rewriting frame's saddr
  *
@@ -146,7 +153,6 @@ struct PSH {
 #include <net/checksum.h>
 #include <linux/isdn_dwabc.h>
 
-volatile u_long dwsjiffies;
 
 #if CONFIG_ISDN_WITH_ABC_RAWIPCOMPRESS && CONFIG_ISDN_PPP
 #include <linux/isdn_ppp.h>
@@ -1480,6 +1486,7 @@ void isdn_dw_abc_init_func(void)
 		"loaded\n",
 		dwabcrevison);
 
+		dwsjiffies = 0;
 		dw_abc_timer.expires = jiffies + DWABC_TMRES;
 		add_timer(&dw_abc_timer);
 }
@@ -1563,6 +1570,7 @@ void isdn_dwabc_test_phone(isdn_net_local *lp)
 				case 'T':	lp->dw_abc_flags |= ISDN_DW_ABC_FLAG_RW_SOCKADDR;			break;
 				case 'U':	lp->dw_abc_flags |= ISDN_DW_ABC_FLAG_RWUDP_SOCKADDR;		break;
 				case 'B':	lp->dw_abc_flags |= ISDN_DW_ABC_FLAG_BSD_COMPRESS;			break;
+				case 'L': 	lp->dw_abc_flags |= ISDN_DW_ABC_FLAG_LEASED_LINE;			break;
 
 				case '"':
 				case ' ':
@@ -1574,6 +1582,23 @@ void isdn_dwabc_test_phone(isdn_net_local *lp)
 					break;
 				}
 			}
+		}
+
+		if(lp->dw_abc_flags & ISDN_DW_ABC_FLAG_LEASED_LINE) {
+
+			lp->dw_abc_flags &= ~(
+					ISDN_DW_ABC_FLAG_DYNADDR		|
+					ISDN_DW_ABC_FLAG_RW_SOCKADDR	|
+					ISDN_DW_ABC_FLAG_RWUDP_SOCKADDR );
+
+			lp->dw_abc_flags |= 
+					ISDN_DW_ABC_FLAG_NO_TCP_KEEPALIVE	|
+					ISDN_DW_ABC_FLAG_NO_UDP_CHECK		|
+					ISDN_DW_ABC_FLAG_NO_UDP_HANGUP		|
+					ISDN_DW_ABC_FLAG_NO_UDP_DIAL		|
+					ISDN_DW_ABC_FLAG_NO_CH_EXTINUSE		|
+					ISDN_DW_ABC_FLAG_NO_CONN_ERROR		|
+					ISDN_DW_ABC_FLAG_NO_LCR;
 		}
 
 		if(dev->net_verbose  && (lp->dw_abc_flags != oflags || dev->net_verbose > 4))
@@ -2032,6 +2057,7 @@ void dwabc_bsd_first_gen(isdn_net_local *lp)
 		for(;p < ep;p++)	*(p++) = 0;
 
 		isdn_net_write_super(lp, skb);
+		lp->dw_abc_comhd_last_send = dwsjiffies;
 
 		if(dev->net_verbose > 2)
 			printk(KERN_INFO "%s: dwabc: sending comm-header version 0x%x\n",lp->name,DWBSD_VERSION);
