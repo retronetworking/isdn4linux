@@ -19,6 +19,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.28.2.3  1998/12/30 17:49:00  paul
+ * fixed syncPPP callback out
+ *
  * Revision 1.28.2.2  1998/11/03 14:31:23  fritz
  * Reduced stack usage in various functions.
  * Adapted statemachine to work with certified HiSax.
@@ -906,13 +909,21 @@ isdn_ppp_write(int min, struct file *file, const char *buf, int count)
 		if ((dev->drv[lp->isdn_device]->flags & DRV_FLAG_RUNNING) &&
 			lp->dialstate == 0 &&
 		    (lp->flags & ISDN_NET_CONNECTED)) {
+			unsigned short hl;
 			int cnt;
 			struct sk_buff *skb;
-			skb = dev_alloc_skb(count);
+			/*
+			 * we need to reserve enought space in front of
+			 * sk_buff. old call to dev_alloc_skb only reserved
+			 * 16 bytes, now we are looking what the driver want
+			 */
+			hl = dev->drv[lp->isdn_device]->interface->hl_hdrlen;
+			skb = alloc_skb(hl+count, GFP_ATOMIC);
 			if (!skb) {
 				printk(KERN_WARNING "isdn_ppp_write: out of memory!\n");
 				return count;
 			}
+			skb_reserve(skb, hl);
 			SET_SKB_FREE(skb);
 			if (copy_from_user(skb_put(skb, count), buf, count))
 				return -EFAULT;
@@ -1333,9 +1344,9 @@ static unsigned char *isdn_ppp_skb_push(struct sk_buff **skb_p,int len)
  */
 
 int
-isdn_ppp_xmit(struct sk_buff *skb, struct device *dev)
+isdn_ppp_xmit(struct sk_buff *skb, struct device *netdev)
 {
-	struct device *mdev = ((isdn_net_local *) (dev->priv))->master;	/* get master (for redundancy) */
+	struct device *mdev = ((isdn_net_local *) (netdev->priv))->master;	/* get master (for redundancy) */
 	isdn_net_local *lp,*mlp;
 	isdn_net_dev *nd;
 	unsigned int proto = PPP_IP;     /* 0x21 */
@@ -1344,8 +1355,8 @@ isdn_ppp_xmit(struct sk_buff *skb, struct device *dev)
 	if (mdev)
 		mlp = (isdn_net_local *) (mdev->priv);
 	else {
-		mdev = dev;
-		mlp = (isdn_net_local *) (dev->priv);
+		mdev = netdev;
+		mlp = (isdn_net_local *) (netdev->priv);
 	}
 	nd = mlp->netdev;       /* get master lp */
 	ipts = ippp_table[mlp->ppp_slot];
@@ -1358,7 +1369,7 @@ isdn_ppp_xmit(struct sk_buff *skb, struct device *dev)
 			ipts->old_pa_dstaddr = mdev->pa_dstaddr;
 #endif
 		if (ipts->debug & 0x1)
-			printk(KERN_INFO "%s: IP frame delayed.\n", dev->name);
+			printk(KERN_INFO "%s: IP frame delayed.\n", netdev->name);
 		return 1;
 	}
 
@@ -1424,12 +1435,19 @@ isdn_ppp_xmit(struct sk_buff *skb, struct device *dev)
 #ifdef CONFIG_ISDN_PPP_VJ
 	if (proto == PPP_IP && ipts->pppcfg & SC_COMP_TCP) {	/* ipts here? probably yes, but check this again */
 		struct sk_buff *new_skb;
-
-		new_skb = dev_alloc_skb(skb->len);
+		unsigned short hl;
+		/*
+		 * we need to reserve enought space in front of
+		 * sk_buff. old call to dev_alloc_skb only reserved
+		 * 16 bytes, now we are looking what the driver want
+		 */
+		hl = dev->drv[lp->isdn_device]->interface->hl_hdrlen;
+		new_skb = alloc_skb(hl+skb->len, GFP_ATOMIC);
 		if (new_skb) {
 			u_char *buf;
 			int pktlen;
 
+			skb_reserve(new_skb, hl);
 			new_skb->dev = skb->dev;
 			SET_SKB_FREE(new_skb);
 			skb_put(new_skb, skb->len);
@@ -1528,9 +1546,9 @@ isdn_ppp_xmit(struct sk_buff *skb, struct device *dev)
 		printk(KERN_DEBUG "skb xmit: len: %d\n", (int) skb->len);
 		isdn_ppp_frame_log("xmit", skb->data, skb->len, 32);
 	}
-	if (isdn_net_send_skb(dev, lp, skb)) {
+	if (isdn_net_send_skb(netdev, lp, skb)) {
 		if (lp->sav_skb) {	/* whole sav_skb processing with disabled IRQs ?? */
-			printk(KERN_ERR "%s: whoops .. there is another stored skb!\n", dev->name);
+			printk(KERN_ERR "%s: whoops .. there is another stored skb!\n", netdev->name);
 			dev_kfree_skb(skb, FREE_WRITE);
 		} else
 			lp->sav_skb = skb;
