@@ -7,6 +7,10 @@
  *              Fritz Elfert
  *
  * $Log$
+ * Revision 2.9  1998/05/25 12:58:23  keil
+ * HiSax golden code from certification, Don't use !!!
+ * No leased lines, no X75, but many changes.
+ *
  * Revision 2.8  1998/03/07 22:57:07  tsbogend
  * made HiSax working on Linux/Alpha
  *
@@ -340,9 +344,13 @@ static void
 tei_l1l2(struct PStack *st, int pr, void *arg)
 {
 	struct sk_buff *skb = arg;
-#ifndef TEI_FIXED
 	int mt;
 	char tmp[64];
+
+	if (test_bit(FLG_FIXED_TEI, &st->l2.flag)) {
+		dev_kfree_skb(skb);
+		return;
+	}
 
 	if (pr == (PH_DATA | INDICATION)) {
 		if (skb->len < 3) {
@@ -388,29 +396,34 @@ tei_l1l2(struct PStack *st, int pr, void *arg)
 		sprintf(tmp, "tei handler wrong pr %x\n", pr);
 		st->ma.tei_m.printdebug(&st->ma.tei_m, tmp);
 	}
-#endif
 	dev_kfree_skb(skb);
 }
 
 static void
 tei_l2tei(struct PStack *st, int pr, void *arg)
 {
-	switch (pr) {
-		case (MDL_ASSIGN | INDICATION):
-#ifdef TEI_FIXED
+	struct IsdnCardState *cs;
+
+	if (test_bit(FLG_FIXED_TEI, &st->l2.flag)) {
+		if (pr == (MDL_ASSIGN | INDICATION)) {
 			if (st->ma.debug) {
 				char tmp[64];
-				sprintf(tmp, "fixed assign tei %d", TEI_FIXED);
+				sprintf(tmp, "fixed assign tei %d", st->l2.tei);
 				st->ma.tei_m.printdebug(&st->ma.tei_m, tmp);
 			}
-			st->l3.l3l2(st, MDL_ASSIGN | REQUEST, (void *) (long) TEI_FIXED);
-#else
+			st->l3.l3l2(st, MDL_ASSIGN | REQUEST, (void *) (long) st->l2.tei);
+			cs = (struct IsdnCardState *) st->l1.hardware;
+			cs->cardmsg(cs, MDL_ASSIGN | REQUEST, NULL);
+		}
+		return;
+	}
+	switch (pr) {
+		case (MDL_ASSIGN | INDICATION):
 			FsmEvent(&st->ma.tei_m, EV_IDREQ, arg);
 			break;
 		case (MDL_ERROR | REQUEST):
 			FsmEvent(&st->ma.tei_m, EV_VERIFY, arg);
 			break;
-#endif
 		default:
 			break;
 	}

@@ -7,6 +7,10 @@
  *              Fritz Elfert
  *
  * $Log$
+ * Revision 2.18  1998/05/25 12:57:40  keil
+ * HiSax golden code from certification, Don't use !!!
+ * No leased lines, no X75, but many changes.
+ *
  * Revision 2.17  1998/04/15 16:46:06  keil
  * RESUME support
  *
@@ -368,9 +372,9 @@ lli_do_dialout(struct FsmInst *fi, int event, void *arg)
 	FsmChangeState(fi, ST_OUT_DIAL);
 	chanp->cs->cardmsg(chanp->cs, MDL_INFO_SETUP, (void *) (long)chanp->chan);
 	if (test_and_clear_bit(FLG_RESUME, &chanp->Flags))
-		ev = CC_RESUME_REQ;
+		ev = CC_RESUME | REQUEST;
 	else
-		ev = CC_SETUP_REQ;
+		ev = CC_SETUP | REQUEST;
 	if (chanp->leased) {
 		FsmEvent(&chanp->fi, EV_SETUP_CNF, NULL);
 	} else {
@@ -483,7 +487,7 @@ lli_deliver_call(struct FsmInst *fi, int event, void *arg)
 				if (test_bit(FLG_ESTAB_D, &chanp->Flags)) {
 					FsmChangeState(fi, ST_IN_ALERT_SEND);
 					test_and_set_bit(FLG_CALL_ALERT, &chanp->Flags);
-					chanp->d_st->lli.l4l3(chanp->d_st, CC_ALERTING_REQ, chanp->proc);
+					chanp->d_st->lli.l4l3(chanp->d_st, CC_ALERTING | REQUEST, chanp->proc);
 				} else {
 					test_and_set_bit(FLG_DO_ALERT, &chanp->Flags);
 					FsmChangeState(fi, ST_IN_WAIT_D);
@@ -497,23 +501,21 @@ lli_deliver_call(struct FsmInst *fi, int event, void *arg)
 				break;
 			case 0:	/* OK, nobody likes this call */
 			default:	/* statcallb problems */
-				chanp->d_st->lli.l4l3(chanp->d_st, CC_IGNORE, chanp->proc);
+				chanp->d_st->lli.l4l3(chanp->d_st, CC_IGNORE | REQUEST, chanp->proc);
 				chanp->cs->cardmsg(chanp->cs, MDL_INFO_REL, (void *) (long)chanp->chan);
 				FsmChangeState(fi, ST_NULL);
-#ifndef LAYER2_WATCHING
-				if (test_bit(FLG_ESTAB_D, &chanp->Flags))
+				if (test_bit(FLG_ESTAB_D, &chanp->Flags) &&
+					!test_bit(FLG_PTP, &chanp->d_st->l2.flag))
 					FsmRestartTimer(&chanp->drel_timer, DREL_TIMER_VALUE, EV_SHUTDOWN_D, NULL, 61);
-#endif
 				break;
 		}
 	} else {
-		chanp->d_st->lli.l4l3(chanp->d_st, CC_IGNORE, chanp->proc);
+		chanp->d_st->lli.l4l3(chanp->d_st, CC_IGNORE | REQUEST, chanp->proc);
 		chanp->cs->cardmsg(chanp->cs, MDL_INFO_REL, (void *)(long)chanp->chan);
 		FsmChangeState(fi, ST_NULL);
-#ifndef LAYER2_WATCHING
-		if (test_bit(FLG_ESTAB_D, &chanp->Flags))
+		if (test_bit(FLG_ESTAB_D, &chanp->Flags) &&
+			!test_bit(FLG_PTP, &chanp->d_st->l2.flag))
 			FsmRestartTimer(&chanp->drel_timer, DREL_TIMER_VALUE, EV_SHUTDOWN_D, NULL, 62);
-#endif
 	}
 }
 
@@ -546,17 +548,17 @@ lli_do_action(struct FsmInst *fi, int event, void *arg)
 		!test_bit(FLG_DO_HANGUP, &chanp->Flags)) {
 		FsmChangeState(fi, ST_IN_WAIT_CONN_ACK);
 		test_and_clear_bit(FLG_DO_ALERT, &chanp->Flags);
-		chanp->d_st->lli.l4l3(chanp->d_st, CC_SETUP_RSP, chanp->proc);
+		chanp->d_st->lli.l4l3(chanp->d_st, CC_SETUP | RESPONSE, chanp->proc);
 	} else if (test_and_clear_bit(FLG_DO_ALERT, &chanp->Flags)) {
 		if (test_bit(FLG_DO_HANGUP, &chanp->Flags))
 			FsmRestartTimer(&chanp->drel_timer, 40, EV_HANGUP, NULL, 63);
 		FsmChangeState(fi, ST_IN_ALERT_SEND);
 		test_and_set_bit(FLG_CALL_ALERT, &chanp->Flags);
-		chanp->d_st->lli.l4l3(chanp->d_st, CC_ALERTING_REQ, chanp->proc);
+		chanp->d_st->lli.l4l3(chanp->d_st, CC_ALERTING | REQUEST, chanp->proc);
 	} else if (test_and_clear_bit(FLG_DO_HANGUP, &chanp->Flags)) {
 		FsmChangeState(fi, ST_WAIT_DRELEASE);
 		chanp->proc->para.cause = 0x15;		/* Call Rejected */
-		chanp->d_st->lli.l4l3(chanp->d_st, CC_REJECT_REQ, chanp->proc);
+		chanp->d_st->lli.l4l3(chanp->d_st, CC_REJECT | REQUEST, chanp->proc);
 		test_and_set_bit(FLG_DISC_SEND, &chanp->Flags);
 	}
 }
@@ -567,7 +569,7 @@ lli_send_dconnect(struct FsmInst *fi, int event, void *arg)
 	struct Channel *chanp = fi->userdata;
 
 	FsmChangeState(fi, ST_IN_WAIT_CONN_ACK);
-	chanp->d_st->lli.l4l3(chanp->d_st, CC_SETUP_RSP, chanp->proc);
+	chanp->d_st->lli.l4l3(chanp->d_st, CC_SETUP | RESPONSE, chanp->proc);
 }
 
 static void
@@ -598,7 +600,7 @@ lli_suspend(struct FsmInst *fi, int event, void *arg)
 {
 	struct Channel *chanp = fi->userdata;
 
-	chanp->d_st->lli.l4l3(chanp->d_st, CC_SUSPEND_REQ, chanp->proc);
+	chanp->d_st->lli.l4l3(chanp->d_st, CC_SUSPEND | REQUEST, chanp->proc);
 }
 
 /* Call clearing */
@@ -621,7 +623,7 @@ lli_cancel_call(struct FsmInst *fi, int event, void *arg)
 	if (test_and_clear_bit(FLG_START_B, &chanp->Flags))
 		release_b_st(chanp);
 	chanp->proc->para.cause = 0x10;		/* Normal Call Clearing */
-	chanp->d_st->lli.l4l3(chanp->d_st, CC_DISCONNECT_REQ, chanp->proc);
+	chanp->d_st->lli.l4l3(chanp->d_st, CC_DISCONNECT | REQUEST, chanp->proc);
 	test_and_set_bit(FLG_DISC_SEND, &chanp->Flags);
 }
 
@@ -631,9 +633,9 @@ lli_shutdown_d(struct FsmInst *fi, int event, void *arg)
 	struct Channel *chanp = fi->userdata;
 
 	FsmDelTimer(&chanp->drel_timer, 62);
-#ifdef LAYER2_WATCHING
+	if (test_bit(FLG_PTP, &chanp->d_st->l2.flag)) {
 	FsmChangeState(fi, ST_NULL);
-#else
+	} else {
 	if (!test_bit(FLG_TWO_DCHAN, &chanp->cs->HW_Flags)) {
 		if (chanp->chan) {
 			if (chanp->cs->channel[0].fi.state != ST_NULL)
@@ -646,7 +648,7 @@ lli_shutdown_d(struct FsmInst *fi, int event, void *arg)
 	FsmChangeState(fi, ST_WAIT_DSHUTDOWN);
 	test_and_clear_bit(FLG_ESTAB_D, &chanp->Flags);
 	chanp->d_st->lli.l4l3(chanp->d_st, DL_RELEASE | REQUEST, NULL);
-#endif
+	}
 }
 
 static void
@@ -667,9 +669,8 @@ lli_timeout_d(struct FsmInst *fi, int event, void *arg)
 	FsmChangeState(fi, ST_NULL);
 	chanp->Flags = 0;
 	test_and_set_bit(FLG_ESTAB_D, &chanp->Flags);
-#ifndef LAYER2_WATCHING
+	if (!test_bit(FLG_PTP, &chanp->d_st->l2.flag))
 	FsmAddTimer(&chanp->drel_timer, DREL_TIMER_VALUE, EV_SHUTDOWN_D, NULL, 60);
-#endif
 	chanp->cs->cardmsg(chanp->cs, MDL_INFO_REL, (void *) (long)chanp->chan);
 }
 
@@ -734,7 +735,7 @@ lli_send_d_disc(struct FsmInst *fi, int event, void *arg)
 			chanp->proc->para.cause = 0x15;		/* Call Reject */
 		else
 			chanp->proc->para.cause = 0x10;		/* Normal Call Clearing */
-		chanp->d_st->lli.l4l3(chanp->d_st, CC_DISCONNECT_REQ, chanp->proc);
+		chanp->d_st->lli.l4l3(chanp->d_st, CC_DISCONNECT | REQUEST, chanp->proc);
 		test_and_set_bit(FLG_DISC_SEND, &chanp->Flags);
 	}
 }
@@ -886,7 +887,7 @@ lli_received_d_disc(struct FsmInst *fi, int event, void *arg)
 	test_and_clear_bit(FLG_CALL_ALERT, &chanp->Flags);
 	test_and_clear_bit(FLG_LL_DCONN, &chanp->Flags);
 	test_and_clear_bit(FLG_CALL_SEND, &chanp->Flags);
-	chanp->d_st->lli.l4l3(chanp->d_st, CC_RELEASE_REQ, chanp->proc);
+	chanp->d_st->lli.l4l3(chanp->d_st, CC_RELEASE | REQUEST, chanp->proc);
 }
 
 /* processing charge info */
@@ -948,7 +949,7 @@ lli_no_dchan_in(struct FsmInst *fi, int event, void *arg)
 	ic.command = ISDN_STAT_DHUP;
 	ic.arg = chanp->chan;
 	chanp->cs->iif.statcallb(&ic);
-	chanp->d_st->lli.l4l3(chanp->d_st, CC_DLRL, chanp->proc);
+	chanp->d_st->lli.l4l3(chanp->d_st, CC_DLRL | REQUEST, chanp->proc);
 	chanp->Flags = 0;
 	FsmChangeState(fi, ST_NULL);
 	chanp->d_st->lli.l4l3(chanp->d_st, DL_RELEASE | REQUEST, NULL);
@@ -1058,7 +1059,7 @@ lli_got_dlrl(struct FsmInst *fi, int event, void *arg)
 			ic.arg = chanp->chan;
 			chanp->cs->iif.statcallb(&ic);
 		}
-		chanp->d_st->lli.l4l3(chanp->d_st, CC_DLRL, chanp->proc);
+		chanp->d_st->lli.l4l3(chanp->d_st, CC_DLRL | REQUEST, chanp->proc);
 		chanp->Flags = 0;
 		chanp->d_st->lli.l4l3(chanp->d_st, DL_RELEASE | REQUEST, NULL);
 	}
@@ -1272,9 +1273,9 @@ dchan_l3l4(struct PStack *st, int pr, void *arg)
 			i++;
 		}
 		return;
-	} else if (pr == CC_SETUP_IND) {
+	} else if (pr == (CC_SETUP | INDICATION)) {
 		if (!(chanp = selectfreechannel(pc->st))) {
-			pc->st->lli.l4l3(pc->st, CC_DLRL, pc);
+			pc->st->lli.l4l3(pc->st, CC_DLRL | REQUEST, pc);
 		} else {
 			chanp->proc = pc;
 			pc->chan = chanp;
@@ -1284,34 +1285,34 @@ dchan_l3l4(struct PStack *st, int pr, void *arg)
 	}
 	chanp = pc->chan;
 	switch (pr) {
-		case (CC_DISCONNECT_IND):
+		case (CC_DISCONNECT | INDICATION):
 			FsmEvent(&chanp->fi, EV_DISCONNECT_IND, NULL);
 			break;
-		case (CC_RELEASE_CNF):
+		case (CC_RELEASE | CONFIRM):
 			FsmEvent(&chanp->fi, EV_RELEASE_CNF, NULL);
 			break;
-		case (CC_SUSPEND_ACK):
+		case (CC_SUSPEND | CONFIRM):
 			FsmEvent(&chanp->fi, EV_RELEASE_CNF, NULL);
 			break;
-		case (CC_RESUME_ACK):
+		case (CC_RESUME | CONFIRM):
 			FsmEvent(&chanp->fi, EV_SETUP_CNF, NULL);
 			break;
 		case (CC_RESUME_ERR):
 			FsmEvent(&chanp->fi, EV_RELEASE_CNF, NULL);
 			break;
-		case (CC_RELEASE_IND):
+		case (CC_RELEASE | INDICATION):
 			FsmEvent(&chanp->fi, EV_RELEASE_IND, NULL);
 			break;
-		case (CC_SETUP_COMPLETE_IND):
+		case (CC_SETUP_COMPL | INDICATION):
 			FsmEvent(&chanp->fi, EV_SETUP_CMPL_IND, NULL);
 			break;
-		case (CC_SETUP_CNF):
+		case (CC_SETUP | CONFIRM):
 			FsmEvent(&chanp->fi, EV_SETUP_CNF, NULL);
 			break;
-		case (CC_INFO_CHARGE):
+		case (CC_CHARGE | INDICATION):
 			FsmEvent(&chanp->fi, EV_CINF, NULL);
 			break;
-		case (CC_NOSETUP_RSP_ERR):
+		case (CC_NOSETUP_RSP):
 			FsmEvent(&chanp->fi, EV_NOSETUP_RSP, NULL);
 			break;
 		case (CC_SETUP_ERR):
@@ -1323,8 +1324,8 @@ dchan_l3l4(struct PStack *st, int pr, void *arg)
 		case (CC_RELEASE_ERR):
 			FsmEvent(&chanp->fi, EV_RELEASE_ERR, NULL);
 			break;
-		case (CC_PROCEEDING_IND):
-		case (CC_ALERTING_IND):
+		case (CC_PROCEEDING | INDICATION):
+		case (CC_ALERTING | INDICATION):
 			break;
 		default:
 			if (chanp->debug & 0x800) {
@@ -1359,8 +1360,10 @@ init_d_st(struct Channel *chanp)
 		st->l2.T203 = 10000;	/* 10000 milliseconds */
 	else
 		st->l2.T203 = 10000;	/* 5000 milliseconds  */
-	
-	sprintf(tmp, "Channel %d q.921", chanp->chan);
+	if (test_bit(FLG_TWO_DCHAN, &cs->HW_Flags))
+		sprintf(tmp, "DCh%d Q.921", chanp->chan);
+	else
+		sprintf(tmp, "DCh Q.921");
 	setstack_isdnl2(st, tmp);
 	setstack_l3dc(st, chanp);
 	st->lli.userdata = chanp;
@@ -1440,12 +1443,12 @@ CallcNewChan(struct IsdnCardState *csta)
 	init_chan(0, csta);
 	init_chan(1, csta);
 	printk(KERN_INFO "HiSax: 2 channels added\n");
-#ifdef LAYER2_WATCHING
-	printk(KERN_INFO "LAYER2 ESTABLISH\n");
+	if (test_bit(FLG_PTP, &csta->channel->d_st->l2.flag)) {
+		printk(KERN_INFO "LAYER2 WATCHING ESTABLISH\n");
 	test_and_set_bit(FLG_START_D, &csta->channel->Flags);
 	csta->channel->d_st->lli.l4l3(csta->channel->d_st,
 		DL_ESTABLISH | REQUEST, NULL);
-#endif
+	}
 	return (2);
 }
 
@@ -1594,7 +1597,7 @@ init_b_st(struct Channel *chanp, int incoming)
 	st->l3.debug = 0;
 	switch (chanp->l2_active_protocol) {
 		case (ISDN_PROTO_L2_X75I):
-			sprintf(tmp, "Channel %d x.75", chanp->chan);
+			sprintf(tmp, "Ch%d X.75", chanp->chan);
 			setstack_isdnl2(st, tmp);
 			setstack_l3bc(st, chanp);
 			st->l2.l2l3 = lldata_handler;
@@ -1603,7 +1606,6 @@ init_b_st(struct Channel *chanp, int incoming)
 			st->lli.l2writewakeup = ll_writewakeup;
 			st->l2.l2m.debug = chanp->debug & 16;
 			st->l2.debug = chanp->debug & 64;
-			st->l3.l3l2(st, MDL_NOTEIPROC, NULL);
 			break;
 		case (ISDN_PROTO_L2_HDLC):
 		case (ISDN_PROTO_L2_TRANS):
@@ -1620,6 +1622,63 @@ init_b_st(struct Channel *chanp, int incoming)
 	else
 		st->l1.bc = chanp->proc->para.bchannel - 1;
 	return (0);
+}
+
+static void
+leased_l4l3(struct PStack *st, int pr, void *arg)
+{
+	struct Channel *chanp = (struct Channel *) st->lli.userdata;
+	struct sk_buff *skb = arg;
+
+	switch (pr) {
+		case (DL_DATA | REQUEST):
+			link_debug(chanp, "leased line d-channel DATA", 0);
+			dev_kfree_skb(skb);
+			break;
+		case (DL_ESTABLISH | REQUEST):
+			st->l2.l2l1(st, PH_ACTIVATE | REQUEST, NULL);
+			break;
+		case (DL_RELEASE | REQUEST):
+			break;
+		default:
+			printk(KERN_WARNING "transd_l4l3 unknown primitive %d\n",
+			       pr);
+			break;
+	}
+}
+
+static void
+leased_l1l2(struct PStack *st, int pr, void *arg)
+{
+	struct Channel *chanp = (struct Channel *) st->lli.userdata;
+	struct sk_buff *skb = arg;
+	int i,event = EV_DLRL;
+
+	switch (pr) {
+		case (PH_DATA | INDICATION):
+			link_debug(chanp, "leased line d-channel DATA", 0);
+			dev_kfree_skb(skb);
+			break;
+		case (PH_ACTIVATE | INDICATION):
+		case (PH_ACTIVATE | CONFIRM):
+			event = EV_DLEST;
+		case (PH_DEACTIVATE | INDICATION):
+		case (PH_DEACTIVATE | CONFIRM):
+			if (test_bit(FLG_TWO_DCHAN, &chanp->cs->HW_Flags))
+				i = 1;
+			else
+				i = 0;
+			while (i < 2) {
+				FsmEvent(&chanp->fi, event, NULL);
+				chanp++;
+				i++;
+			}
+			break;
+		default:
+			printk(KERN_WARNING
+				"transd_l1l2 unknown primitive %d\n", pr);
+			break;
+	}
 }
 
 static void
@@ -1858,7 +1917,10 @@ HiSax_command(isdn_ctrl * ic)
 						sprintf(tmp, "card %d channel %d set leased mode\n",
 							csta->cardnr + 1, num + 1);
 						HiSax_putstatus(csta, tmp);
-/*						FsmEvent(&csta->channel[num].lc_d->lcfi, EV_LC_ESTABLISH, NULL);*/
+						chanp->d_st->l1.l1l2 = leased_l1l2;
+						chanp->d_st->lli.l4l3 = leased_l4l3;
+						chanp->d_st->lli.l4l3(chanp->d_st,
+							DL_ESTABLISH | REQUEST, NULL);
 					}
 					break;
 				case (6):	/* set B-channel test loop */
@@ -1866,6 +1928,28 @@ HiSax_command(isdn_ctrl * ic)
 					if (csta->stlist)
 						csta->stlist->l2.l2l1(csta->stlist,
 							PH_TESTLOOP | REQUEST, (void *) (long)num);
+					break;
+				case (7):	/* set card in PTP mode */
+					if (test_bit(FLG_TWO_DCHAN, &csta->HW_Flags)) {
+						printk(KERN_ERR "HiSax PTP mode only with one TEI possible\n");
+					} else {
+						test_and_set_bit(FLG_PTP, &csta->channel[0].d_st->l2.flag);
+						test_and_set_bit(FLG_FIXED_TEI, &csta->channel[0].d_st->l2.flag);
+						csta->channel[0].d_st->l2.tei = 0;
+						sprintf(tmp, "set card in PTP mode\n");
+						HiSax_putstatus(csta, tmp);
+						printk(KERN_DEBUG "HiSax: %s", tmp);
+					}
+					break;
+				case (8):	/* set card in FIXED TEI mode */
+					num = *(unsigned int *) ic->parm.num;
+					chanp = csta->channel + (num & 1);
+					num = num >>1;
+					test_and_set_bit(FLG_FIXED_TEI, &chanp->d_st->l2.flag);
+					chanp->d_st->l2.tei = num;
+					sprintf(tmp, "set card in FIXED TEI (%d) mode\n", num);
+					HiSax_putstatus(csta, tmp);
+					printk(KERN_DEBUG "HiSax: %s", tmp);
 					break;
 #ifdef MODULE
 				case (55):
