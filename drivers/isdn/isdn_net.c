@@ -21,6 +21,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.99  1999/11/30 11:29:06  detabc
+ * add a on the fly frame-counter and limit
+ *
  * Revision 1.98  1999/11/28 14:49:07  detabc
  * In case of rawip-compress adjust dev[x]->ibytes/obytes to reflect the
  * uncompressed size.
@@ -2274,6 +2277,9 @@ isdn_net_receive(struct net_device *ndev, struct sk_buff *skb)
 #ifdef CONFIG_ISDN_X25
 	struct concap_proto *cprot = lp -> netdev -> cprot;
 #endif
+#ifdef CONFIG_ISDN_WITH_ABC
+	struct net_device *ondev = ndev;
+#endif
 	cisco_hdr *ch;
 
 	lp->transcount += skb->len;
@@ -2311,29 +2317,36 @@ isdn_net_receive(struct net_device *ndev, struct sk_buff *skb)
 			break;
 		case ISDN_NET_ENCAP_UIHDLC:
 			/* HDLC with UI-frame (for ispa with -h1 option) */
+#ifdef CONFIG_ISDN_WITH_ABC_RCV_NO_HUPTIMER
+			if(!(olp->dw_abc_flags & ISDN_DW_ABC_FLAG_RCV_NO_HUPTIMER)) {
+#endif
 			olp->huptimer = 0;
 			lp->huptimer = 0;
+#ifdef CONFIG_ISDN_WITH_ABC_RCV_NO_HUPTIMER
+			}
+#endif
 			skb_pull(skb, 2);
 			/* Fall through */
 		case ISDN_NET_ENCAP_RAWIP:
 			/* RAW-IP without MAC-Header */
 #ifdef CONFIG_ISDN_WITH_ABC
-			if(lp->p_encap == ISDN_NET_ENCAP_RAWIP) {
+			if(olp->p_encap == ISDN_NET_ENCAP_RAWIP) {
 
-				ulong l = skb->len;
-				int r = 0;
+				ushort l = skb->len;
+				short r = 0;
 
-				lp->dw_abc_bsd_bsd_rcv += l;
+				olp->dw_abc_bsd_bsd_rcv += l;
 
-				if((skb = dwabc_bsd_rx_pkt(lp,skb,ndev)) == NULL) {
+				if((skb = dwabc_bsd_rx_pkt(olp,skb,ondev)) == NULL) {
 
-					lp->dw_abc_bsd_rcv += l;
+					olp->dw_abc_bsd_rcv += l;
 					return;
 				}
 
-				lp->dw_abc_bsd_rcv += skb->len;
+				olp->dw_abc_bsd_rcv += skb->len;
 
-				if(l != skb->len && (r = isdn_dc2minor(olp->isdn_device,olp->isdn_channel)) >= 0) {
+				if(	l != skb->len && 
+					(r=isdn_dc2minor(olp->isdn_device,olp->isdn_channel))>=0) {
 
 					dev->ibytes[r] += skb->len - l;
 					olp->stats.rx_bytes += skb->len - l;

@@ -4,6 +4,9 @@
  * Linux ISDN subsystem, abc-extension releated funktions.
  *
  * Author: abc GmbH written by Detlef Wengorz <detlefw@isdn4linux.de>
+ * 
+ * Many thanks for testing, debugging and writing Doku to:
+ * Mario Schugowski <mario@mediatronix.de>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -20,6 +23,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.9  1999/11/30 11:29:06  detabc
+ * add a on the fly frame-counter and limit
+ *
  * Revision 1.8  1999/11/28 14:49:07  detabc
  * In case of rawip-compress adjust dev[x]->ibytes/obytes to reflect the
  * uncompressed size.
@@ -1273,6 +1279,8 @@ void isdn_dw_abc_init_func(void)
 	printk( KERN_INFO
 		"abc-extension %s\n"
 		"written by\nDetlef Wengorz <detlefw@isdn4linux.de>\n"
+		"Thanks for test's etc. to:\n"
+		"Mario Schugowski <mario@mediatronix.de>\n"
 		"Installed options:\n"
 #ifdef CONFIG_ISDN_WITH_ABC_CALLB
 		"CONFIG_ISDN_WITH_ABC_CALLB\n"
@@ -1310,6 +1318,9 @@ void isdn_dw_abc_init_func(void)
 #ifdef CONFIG_ISDN_WITH_ABC_RAWIPCOMPRESS
 		"CONFIG_ISDN_WITH_ABC_RAWIPCOMPRESS\n"
 #endif
+#ifdef CONFIG_ISDN_WITH_ABC_FRAME_LIMIT
+		"CONFIG_ISDN_WITH_ABC_FRAME_LIMIT\n"
+#endif
 		"loaded\n",
 		dwabcrevison);
 }
@@ -1327,6 +1338,8 @@ void isdn_dw_abc_release_func(void)
 
 	printk( KERN_INFO
 		"abc-extension %s\n"
+		"Thanks for test's etc. to:\n"
+		"Mario Schugowski <mario@mediatronix.de>\n"
 		"written by\n"
 		"Detlef Wengorz <detlefw@isdn4linux.de>\n"
 		"unloaded\n",
