@@ -6,6 +6,9 @@
  * (c) Copyright 1999 by Carsten Paeth (calle@calle.in-berlin.de)
  * 
  * $Log$
+ * Revision 1.30  2000/11/28 11:28:28  kai
+ * *** empty log message ***
+ *
  * Revision 1.29.2.2  2000/11/26 17:47:53  kai
  * added PCI_DEV_TABLE for 2.4
  *

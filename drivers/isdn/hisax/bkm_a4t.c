@@ -1,4 +1,5 @@
 /* $Id$
+ *
  * bkm_a4t.c    low level stuff for T-Berkom A4T
  *              derived from the original file sedlbauer.c
  *              derived from the original file niccy.c
@@ -25,7 +26,6 @@
 extern const char *CardType[];
 
 const char *bkm_a4t_revision = "$Revision$";
-
 
 static inline u_char
 readreg(unsigned int ale, unsigned int adr, u_char off)

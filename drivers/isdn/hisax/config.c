@@ -1,5 +1,6 @@
 /* $Id$
  *
+ *
  * Author       Karsten Keil (keil@isdn4linux.de)
  *              based on the teles driver from Jan den Ouden
  *
