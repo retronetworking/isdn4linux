@@ -21,6 +21,10 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.69  1998/09/07 21:59:58  he
+ * flush method for 2.1.118 and above
+ * updated IIOCTLNETGPN
+ *
  * Revision 1.68  1998/08/31 21:09:45  he
  * new ioctl IIOCNETGPN for /dev/isdninfo (get network interface'
  *     peer phone number)
@@ -1911,9 +1915,7 @@ static struct file_operations isdn_fops =
 	isdn_ioctl,             /* isdn_ioctl */
 	NULL,                   /* isdn_mmap */
 	isdn_open,
-#if LINUX_VERSION_CODE > KERNEL_VERSION(2,1,117)
 	NULL,			/* flush */
-#endif
 	isdn_close,
 	NULL                    /* fsync */
 };
