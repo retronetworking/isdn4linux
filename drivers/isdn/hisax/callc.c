@@ -294,10 +294,8 @@ r2_1(struct FsmInst *fi, int event, void *arg)
 {
         struct Channel *chanp = fi->userdata;
 
-	FsmDelTimer(&chanp->icall_timer,61); 
-        chanp->is.l4.l4l3(&chanp->is, CC_DISCONNECT_REQ, NULL);
-
         FsmChangeState(fi, ST_OUT_W_HANGUP);
+        chanp->is.l4.l4l3(&chanp->is, CC_DISCONNECT_REQ, NULL);
 }
 
 
@@ -306,7 +304,6 @@ r2_2(struct FsmInst *fi, int event, void *arg)
 {
         struct Channel *chanp = fi->userdata;
 
-	FsmDelTimer(&chanp->icall_timer,62); 
         FsmChangeState(fi, ST_REL_W);
         FsmEvent(&chanp->lc_d.lcfi, EV_LC_RELEASE, NULL);
         ll_hangup(chanp, 0);
@@ -328,14 +325,12 @@ r3_1(struct FsmInst *fi, int event, void *arg)
 {
         struct Channel *chanp = fi->userdata;
 
-	FsmDelTimer(&chanp->icall_timer,63); 
 	chanp->is.l4.l4l3(&chanp->is,CC_DLRL,NULL); 
 	
         FsmEvent(&chanp->lc_d.lcfi, EV_LC_RELEASE, NULL);
-        FsmChangeState(fi, ST_REL_W);
         ll_hangup(chanp, 0);
+        FsmChangeState(fi, ST_NULL);
 }
-
 
 static void
 r4(struct FsmInst *fi, int event, void *arg)
@@ -376,15 +371,16 @@ r7(struct FsmInst *fi, int event, void *arg)
 {
         struct Channel *chanp = fi->userdata;
         isdn_ctrl       ic;
+        int		ret;
+        char		txt[32];	       
 
         /*
-         * Report incoming calls only once to linklevel, use octet 3 of
-         * channel identification information element. (it's value
-         * is copied to chanp->para.bchannel in l3s12(), file isdnl3.c)
+         * Report incoming calls only once to linklevel, use CallFlags
+         * which is set to 3 with each broadcast message in isdnl1.c
+         * and resetted if a interface  answered the STAT_ICALL.
          */
-        if (((chanp->chan & 1) + 1) & chanp->para.bchannel) {
-/*                chanp->is.l4.l4l3(&chanp->is, CC_ALERTING_REQ, NULL);
-*/                FsmChangeState(fi, ST_IN);
+        if ((chanp->sp) &&(chanp->sp->CallFlags==3)) {
+                FsmChangeState(fi, ST_IN);
                 if (chanp->debug & 1)
                         stat_debug(chanp, "STAT_ICALL");
                 ic.driver = drid;
@@ -396,12 +392,31 @@ r7(struct FsmInst *fi, int event, void *arg)
                  */
                 sprintf(ic.num, "%s,%d,0,%s", chanp->para.calling, chanp->para.info,
                         chanp->para.called);
-                iif.statcallb(&ic);
-        	FsmAddTimer(&chanp->icall_timer, 60000, EV_ICALL_TIMER, NULL, 60);
+                ret=iif.statcallb(&ic);
+                if (chanp->debug & 1) {
+                	sprintf(txt,"statcallb ret=%d",ret);
+                	stat_debug(chanp, txt);
+                }
+                if (ret) /* if a interface knows this call, reset the CallFlag
+			  * to avoid a second Call report to the linklevel */
+                	chanp->sp->CallFlags &= ~(chanp->chan+1); 
+                switch(ret) {
+                  case 1: /* OK, anybody likes this call */
+                  	chanp->is.l4.l4l3(&chanp->is, CC_ALERTING_REQ, NULL);
+                	break;
+                  case 2: /* Rejecting Call ,nothing to do here */
+                  	break;
+                  case 0: /* OK, nobody likes this call */
+                  default: /* statcallb problems */
+                	chanp->is.l4.l4l3(&chanp->is,CC_DLRL,NULL);
+                	FsmEvent(&chanp->lc_d.lcfi, EV_LC_RELEASE, NULL);
+                	FsmChangeState(fi, ST_REL_W);
+                	break;
+                }
         } else {
-                chanp->is.l4.l4l3(&chanp->is,CC_DLRL,NULL);
-                FsmEvent(&chanp->lc_d.lcfi, EV_LC_RELEASE, NULL);
-                FsmChangeState(fi, ST_REL_W);
+                	chanp->is.l4.l4l3(&chanp->is,CC_DLRL,NULL);
+                	FsmEvent(&chanp->lc_d.lcfi, EV_LC_RELEASE, NULL);
+                	FsmChangeState(fi, ST_REL_W);
         }
 }
 
@@ -410,7 +425,6 @@ r8(struct FsmInst *fi, int event, void *arg)
 {
         struct Channel *chanp = fi->userdata;
 
-	FsmDelTimer(&chanp->icall_timer,64); 
         FsmChangeState(fi, ST_IN_SETUP);
         chanp->is.l4.l4l3(&chanp->is, CC_SETUP_RSP, NULL);
 
@@ -1068,7 +1082,6 @@ init_chan(int chan, int cardnr, int hscx,
         chanp->fi.debug = 0;
         chanp->fi.userdata = chanp;
         chanp->fi.printdebug = callc_debug;
-        FsmInitTimer(&chanp->fi, &chanp->icall_timer);
 
         chanp->lc_d.lcfi.fsm = &lcfsm;
         chanp->lc_d.lcfi.state = ST_LC_NULL;
@@ -1167,7 +1180,8 @@ lldata_handler(struct PStack *st, int pr,
                   BufPoolRelease(ibh);
                   break;
           default:
-                  printk(KERN_WARNING "lldata_handler unknown primitive\n");
+                  printk(KERN_WARNING "lldata_handler unknown primitive %d\n",
+                  	pr);
                   break;
         }
 }
@@ -1188,7 +1202,8 @@ lltrans_handler(struct PStack *st, int pr,
                   BufPoolRelease(ibh);
                   break;
           default:
-                  printk(KERN_WARNING "lltrans_handler unknown primitive\n");
+                  printk(KERN_WARNING "lltrans_handler unknown primitive %d\n",
+                  	pr);
                   break;
         }
 }
@@ -1489,7 +1504,7 @@ HiSax_writebuf(int id, int chan, const u_char * buf, int count, int user)
         ptr += i;
 
         if (user)
-                copy_from_user(ptr, buf, count);
+                memcpy_fromfs(ptr, buf, count);
         else
                 memcpy(ptr, buf, count);
         ibh->datasize = count + i;
