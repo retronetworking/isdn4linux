@@ -8,6 +8,9 @@
  *
  * 
  * $Log$
+ * Revision 1.3  1996/11/18 15:33:04  keil
+ * PCC and PCFPro support
+ *
  * Revision 1.2  1996/10/27 22:08:03  keil
  * cosmetic changes
  *
@@ -855,8 +858,12 @@ modehscx(struct HscxState *hs, int mode, int ichan)
 }
 
 void release_io_elsa(struct IsdnCard *card) {
+	int bytecnt=8;
+	
+	if (card->sp->subtyp == ELSA_PCFPRO)
+		bytecnt=16;
 	if (card->sp->cfg_reg) 
-		release_region(card->sp->cfg_reg, 8);
+		release_region(card->sp->cfg_reg, bytecnt);
 }
 
 static void
