@@ -29,6 +29,7 @@ ARCOFI_OBJ :=
 HSCX_OBJ :=
 HFC_OBJ :=
 HFC_2BDS0 :=
+RAWHDLC_OBJ :=
 
 ifeq ($(CONFIG_HISAX_16_0),y)
 	 O_OBJS += teles0.o
@@ -106,10 +107,12 @@ ifeq ($(CONFIG_HISAX_TELES3C),y)
 	 O_OBJS += teles3c.o
 	 HFC_2BDS0 := hfc_2bds0.o
 endif
+ifeq ($(CONFIG_HISAX_AMD7930),y)
+	 O_OBJS += amd7930.o
+	 RAWHDLC_OBJ := rawhdlc.o
+endif
 
-
-
-O_OBJS += $(ISAC_OBJ) $(HSCX_OBJ) $(HFC_OBJ) $(HFC_2BDS0) $(ARCOFI_OBJ)
+O_OBJS += $(ISAC_OBJ) $(HSCX_OBJ) $(HFC_OBJ) $(ARCOFI_OBJ) $(HFC_2BDS0) $(RAWHDLC_OBJ)
 OX_OBJS += config.o
 
 O_TARGET :=
