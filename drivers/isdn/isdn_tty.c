@@ -20,6 +20,11 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.25  1997/02/03 23:04:30  fritz
+ * Reformatted according CodingStyle.
+ * skb->free stuff replaced by macro.
+ * Finished full-duplex audio.
+ *
  * Revision 1.24  1997/01/14 01:32:42  fritz
  * Changed audio receive not to rely on skb->users and skb->lock.
  * Added ATI2 and related variables.
@@ -603,7 +608,7 @@ isdn_tty_dial(char *n, modem_info * info, atemu * m)
 		cmd.arg = info->isdn_channel;
 		cmd.command = ISDN_CMD_CLREAZ;
 		dev->drv[info->isdn_driver]->interface->command(&cmd);
-		strcpy(cmd.num, isdn_map_eaz2msn(m->msn, info->isdn_driver));
+		strcpy(cmd.parm.num, isdn_map_eaz2msn(m->msn, info->isdn_driver));
 		cmd.driver = info->isdn_driver;
 		cmd.command = ISDN_CMD_SETEAZ;
 		dev->drv[info->isdn_driver]->interface->command(&cmd);
@@ -618,7 +623,7 @@ isdn_tty_dial(char *n, modem_info * info, atemu * m)
 		dev->drv[info->isdn_driver]->interface->command(&cmd);
 		cmd.driver = info->isdn_driver;
 		cmd.arg = info->isdn_channel;
-		sprintf(cmd.num, "%s,%s,%d,%d", n, isdn_map_eaz2msn(m->msn, info->isdn_driver),
+		sprintf(cmd.parm.num, "%s,%s,%d,%d", n, isdn_map_eaz2msn(m->msn, info->isdn_driver),
 			si, m->mdmreg[19]);
 		cmd.command = ISDN_CMD_DIAL;
 		info->dialing = 1;
@@ -1732,47 +1737,31 @@ isdn_tty_modem_init(void)
  * Return Index to dev->mdm or -1 if none found.
  */
 int
-isdn_tty_find_icall(int di, int ch, char *num)
+isdn_tty_find_icall(int di, int ch, setup_parm setup)
 {
 	char *eaz;
 	int i;
 	int idx;
 	int si1;
 	int si2;
-	char *s;
-	char nr[31];
+	char nr[32];
 	ulong flags;
 
 	save_flags(flags);
 	cli();
-	if (num[0] == ',') {
+	if (!setup.phone[0]) {
 		nr[0] = '0';
-		strncpy(&nr[1], num, 29);
+		nr[1] = '\0';
 		printk(KERN_INFO "isdn_tty: Incoming call without OAD, assuming '0'\n");
 	} else
-		strncpy(nr, num, 30);
-	s = strtok(nr, ",");
-	s = strtok(NULL, ",");
-	if (!s) {
-		printk(KERN_WARNING "isdn_tty: Incoming callinfo garbled, ignored: %s\n",
-		       num);
-		restore_flags(flags);
-		return -1;
-	}
-	si1 = (int) simple_strtoul(s, NULL, 10);
-	s = strtok(NULL, ",");
-	if (!s) {
-		printk(KERN_WARNING "isdn_tty: Incoming callinfo garbled, ignored: %s\n",
-		       num);
-		restore_flags(flags);
-		return -1;
-	}
-	si2 = (int) simple_strtoul(s, NULL, 10);
-	eaz = strtok(NULL, ",");
-	if (!eaz) {
+		strcpy(nr, setup.phone);
+	si1 = (int) setup.si1;
+	si2 = (int) setup.si2;
+	if (!setup.eazmsn[0]) {
 		printk(KERN_WARNING "isdn_tty: Incoming call without CPN, assuming '0'\n");
 		eaz = "0";
-	}
+	} else
+		eaz = setup.eazmsn;
 #ifdef ISDN_DEBUG_MODEM_ICALL
 	printk(KERN_DEBUG "m_fi: eaz=%s si1=%d si2=%d\n", eaz, si1, si2);
 #endif

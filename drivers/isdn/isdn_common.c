@@ -21,6 +21,10 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.33  1997/02/10 10:05:42  fritz
+ * More changes for Kernel 2.1.X
+ * Symbol information moved to isdn_syms.c
+ *
  * Revision 1.32  1997/02/03 22:55:26  fritz
  * Reformatted according CodingStyle.
  * Changed isdn_writebuf_stub static.
@@ -455,7 +459,7 @@ isdn_all_eaz(int di, int ch)
 	cmd.driver = di;
 	cmd.arg = ch;
 	cmd.command = ISDN_CMD_SETEAZ;
-	cmd.num[0] = '\0';
+	cmd.parm.num[0] = '\0';
 	(void) dev->drv[di]->interface->command(&cmd);
 }
 
@@ -518,13 +522,13 @@ isdn_status_callback(isdn_ctrl * c)
 			cmd.arg = c->arg;
 			cmd.command = ISDN_CMD_LOCK;
 			dev->drv[di]->interface->command(&cmd);
-			r = isdn_net_find_icall(di, c->arg, i, c->num);
+			r = isdn_net_find_icall(di, c->arg, i, c->parm.setup);
 			switch (r) {
 				case 0:
 					/* No network-device replies. Schedule RING-message to
 					 * tty and set RI-bit of modem-status.
 					 */
-					if ((mi = isdn_tty_find_icall(di, c->arg, c->num)) >= 0) {
+					if ((mi = isdn_tty_find_icall(di, c->arg, c->parm.setup)) >= 0) {
 						info = &dev->mdm.info[mi];
 						info->msr |= UART_MSR_RI;
 						isdn_tty_modem_result(2, info);
@@ -579,18 +583,18 @@ isdn_status_callback(isdn_ctrl * c)
 #endif
 			if (dev->global_flags & ISDN_GLOBAL_STOPPED)
 				return 0;
-			if (strcmp(c->num, "0"))
+			if (strcmp(c->parm.num, "0"))
 				isdn_net_stat_callback(i, c->command);
 			break;
 		case ISDN_STAT_CAUSE:
 #ifdef ISDN_DEBUG_STATCALLB
 			printk(KERN_DEBUG "CAUSE: %ld %s\n", c->arg, c->num);
 #endif
-			printk(KERN_INFO "isdn: cause: %s\n", c->num);
+			printk(KERN_INFO "isdn: cause: %s\n", c->parm.num);
 			if ((mi = dev->m_idx[i]) >= 0) {
 				/* Signal cause to tty-device */
 				info = &dev->mdm.info[mi];
-				strncpy(info->last_cause, c->num, 5);
+				strncpy(info->last_cause, c->parm.num, 5);
 			}
 			break;
 		case ISDN_STAT_DCONN:
@@ -1702,9 +1706,9 @@ isdn_ioctl(struct inode *inode, struct file *file, uint cmd, ulong arg)
 					c.driver = drvidx;
 					c.command = ISDN_CMD_IOCTL;
 					c.arg = cmd;
-					memcpy(c.num, (char *) &iocts.arg, sizeof(ulong));
+					memcpy(c.parm.num, (char *) &iocts.arg, sizeof(ulong));
 					ret = dev->drv[drvidx]->interface->command(&c);
-					memcpy((char *) &iocts.arg, c.num, sizeof(ulong));
+					memcpy((char *) &iocts.arg, c.parm.num, sizeof(ulong));
 					copy_to_user((char *) arg, &iocts, sizeof(isdn_ioctl_struct));
 					return ret;
 				} else

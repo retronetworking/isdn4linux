@@ -20,6 +20,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.7  1997/02/03 23:06:10  fritz
+ * Reformatted according CodingStyle
+ *
  * Revision 1.6  1997/01/14 01:35:19  fritz
  * Changed prototype of isdn_tty_modem_hup.
  *
@@ -48,7 +51,7 @@ extern void isdn_tty_modem_hup(modem_info *, int);
 extern int isdn_tty_modem_init(void);
 extern void isdn_tty_readmodem(void);
 extern int isdn_tty_try_read(modem_info *, struct sk_buff *);
-extern int isdn_tty_find_icall(int, int, char *);
+extern int isdn_tty_find_icall(int, int, setup_parm);
 extern int isdn_tty_countDLE(unsigned char *, int);
 extern void isdn_tty_bsent(int, int);
 extern void isdn_tty_cleanup_xmit(modem_info *);

@@ -21,6 +21,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.4  1997/02/03 23:16:48  fritz
+ * Removed isdn_net_receive_callback prototype.
+ *
  * Revision 1.3  1997/01/17 01:19:30  fritz
  * Applied chargeint patch.
  *
@@ -49,7 +52,7 @@ extern int isdn_net_getcfg(isdn_net_ioctl_cfg *);
 extern int isdn_net_addphone(isdn_net_ioctl_phone *);
 extern int isdn_net_getphones(isdn_net_ioctl_phone *, char *);
 extern int isdn_net_delphone(isdn_net_ioctl_phone *);
-extern int isdn_net_find_icall(int, int, int, char *);
+extern int isdn_net_find_icall(int, int, int, setup_parm);
 extern void isdn_net_hangup(struct device *);
 extern void isdn_net_dial(void);
 extern void isdn_net_autohup(void);

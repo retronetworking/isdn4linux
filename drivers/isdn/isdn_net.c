@@ -21,6 +21,14 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.34  1997/02/03 23:15:07  fritz
+ * Reformatted according CodingStyle.
+ * replaced arp_find prototype by proper include.
+ * made dev_purge_queues static.
+ * Bugfix in bogocps calculation.
+ * removed isdn_net_receive_callback - was never used ;-)
+ * Misc. fixes for Kernel 2.1.X comaptibility.
+ *
  * Revision 1.33  1997/01/17 01:19:25  fritz
  * Applied chargeint patch.
  *
@@ -521,7 +529,7 @@ isdn_net_dial(void)
 				cmd.arg = p->local.isdn_channel;
 				cmd.command = ISDN_CMD_CLREAZ;
 				dev->drv[p->local.isdn_device]->interface->command(&cmd);
-				sprintf(cmd.num, "%s", isdn_map_eaz2msn(p->local.msn, cmd.driver));
+				sprintf(cmd.parm.num, "%s", isdn_map_eaz2msn(p->local.msn, cmd.driver));
 				cmd.command = ISDN_CMD_SETEAZ;
 				dev->drv[p->local.isdn_device]->interface->command(&cmd);
 				p->local.dialretry = 0;
@@ -557,7 +565,7 @@ isdn_net_dial(void)
 					printk(KERN_INFO "%s: Open leased line ...\n", p->local.name);
 				} else {
 					cmd.command = ISDN_CMD_DIAL;
-					sprintf(cmd.num, "%s,%s,7,0", p->local.dial->num,
+					sprintf(cmd.parm.num, "%s,%s,7,0", p->local.dial->num,
 						isdn_map_eaz2msn(p->local.msn, cmd.driver));
 					i = isdn_dc2minor(p->local.isdn_device, p->local.isdn_channel);
 					if (i >= 0) {
@@ -1554,7 +1562,7 @@ isdn_net_swap_usage(int i1, int i2)
  *               4 = Wait cbdelay, then call back
  */
 int
-isdn_net_find_icall(int di, int ch, int idx, char *num)
+isdn_net_find_icall(int di, int ch, int idx, setup_parm setup)
 {
 	char *eaz;
 	int si1;
@@ -1565,40 +1573,24 @@ isdn_net_find_icall(int di, int ch, int idx, char *num)
 	isdn_net_dev *p;
 	isdn_net_phone *n;
 	ulong flags;
-	char nr[31];
-	char *s;
+	char nr[32];
 
 	/* Search name in netdev-chain */
 	save_flags(flags);
 	cli();
-	if (num[0] == ',') {
+	if (!setup.phone[0]) {
 		nr[0] = '0';
-		strncpy(&nr[1], num, 30);
+		nr[1] = '\0';
 		printk(KERN_INFO "isdn_net: Incoming call without OAD, assuming '0'\n");
 	} else
-		strncpy(nr, num, 30);
-	s = strtok(nr, ",");
-	s = strtok(NULL, ",");
-	if (!s) {
-		printk(KERN_WARNING "isdn_net: Incoming callinfo garbled, ignored: %s\n",
-		       num);
-		restore_flags(flags);
-		return 0;
-	}
-	si1 = (int) simple_strtoul(s, NULL, 10);
-	s = strtok(NULL, ",");
-	if (!s) {
-		printk(KERN_WARNING "isdn_net: Incoming callinfo garbled, ignored: %s\n",
-		       num);
-		restore_flags(flags);
-		return 0;
-	}
-	si2 = (int) simple_strtoul(s, NULL, 10);
-	eaz = strtok(NULL, ",");
-	if (!eaz) {
+		strcpy(nr, setup.phone);
+	si1 = (int)setup.si1;
+	si2 = (int)setup.si2;
+	if (!setup.eazmsn[0]) {
 		printk(KERN_WARNING "isdn_net: Incoming call without CPN, assuming '0'\n");
 		eaz = "0";
-	}
+	} else
+		eaz = setup.eazmsn;
 	if (dev->net_verbose > 1)
 		printk(KERN_INFO "isdn_net: call from %s,%d,%d -> %s\n", nr, si1, si2, eaz);
 	/* Accept only calls with Si1 = 7 (Data-Transmission) */
@@ -2023,6 +2015,9 @@ isdn_net_newslave(char *parm)
 			return NULL;
 		/* Master must be a real interface, not a slave */
 		if (n->local.master)
+			return NULL;
+		/* Master must not be started yet */
+		if (n->dev.start)
 			return NULL;
 		return (isdn_net_new(newname, &(n->dev)));
 	}
