@@ -10,6 +10,9 @@
  *              Beat Doebeli
  *
  * $Log$
+ * Revision 2.0  1997/06/26 11:02:43  keil
+ * New Layer and card interface
+ *
  * Revision 1.8  1997/04/13 19:54:04  keil
  * Change in IRQ check delay for SMP
  *
@@ -199,8 +202,8 @@ telesS0_interrupt(int intno, void *dev_id, struct pt_regs *regs)
 void
 release_io_teles0(struct IsdnCard *card)
 {
-	if (card->sp->hw.teles0.cfg_reg)
-		release_region(card->sp->hw.teles0.cfg_reg, 8);
+	if (card->cs->hw.teles0.cfg_reg)
+		release_region(card->cs->hw.teles0.cfg_reg, 8);
 }
 
 static void
@@ -269,8 +272,7 @@ initteles0(struct IsdnCardState *cs)
 		clear_pending_isac_ints(cs);
 		clear_pending_hscx_ints(cs);
 		initisac(cs);
-		modehscx(cs->hs, 0, 0);
-		modehscx(cs->hs + 1, 0, 0);
+		inithscx(cs);
 		loop = 0;
 		while (loop++ < 10) {
 			/* At least 1-3 irqs must happen
@@ -310,7 +312,7 @@ int
 setup_teles0(struct IsdnCard *card)
 {
 	u_char val;
-	struct IsdnCardState *cs = card->sp;
+	struct IsdnCardState *cs = card->cs;
 	char tmp[64];
 
 	strcpy(tmp, teles0_revision);
@@ -367,7 +369,7 @@ setup_teles0(struct IsdnCard *card)
 			return (0);
 		}
 	}
-	cs->HW_Flags = HW_IOM1;	/* 16.0 and 8.0 designed for IOM1 */
+	cs->HW_Flags |= HW_IOM1;	/* 16.0 and 8.0 designed for IOM1 */
 	printk(KERN_NOTICE
 	       "HiSax: %s config irq:%d mem:%x cfg:%x\n",
 	       CardType[cs->typ], cs->irq,
@@ -377,9 +379,9 @@ setup_teles0(struct IsdnCard *card)
 	cs->writeisac = &WriteISAC;
 	cs->readisacfifo = &ReadISACfifo;
 	cs->writeisacfifo = &WriteISACfifo;
-	cs->readhscx = &ReadHSCX;
-	cs->writehscx = &WriteHSCX;
-	cs->hscx_fill_fifo = &hscx_fill_fifo;
+	cs->BC_Read_Reg = &ReadHSCX;
+	cs->BC_Write_Reg = &WriteHSCX;
+	cs->BC_Send_Data = &hscx_fill_fifo;
 	cs->cardmsg = &Teles_card_msg;
 	ISACVersion(cs, "Teles0:");
 	if (HscxVersion(cs, "Teles0:")) {

@@ -11,6 +11,9 @@
  *              Beat Doebeli
  *
  * $Log$
+ * Revision 2.0  1997/06/26 11:02:50  keil
+ * New Layer and card interface
+ *
  * Revision 1.3  1997/04/13 19:54:02  keil
  * Change in IRQ check delay for SMP
  *
@@ -224,8 +227,8 @@ ix1micro_interrupt(int intno, void *dev_id, struct pt_regs *regs)
 void
 release_io_ix1micro(struct IsdnCard *card)
 {
-	if (card->sp->hw.ix1.cfg_reg)
-		release_region(card->sp->hw.ix1.cfg_reg, 4);
+	if (card->cs->hw.ix1.cfg_reg)
+		release_region(card->cs->hw.ix1.cfg_reg, 4);
 }
 
 static void
@@ -261,8 +264,7 @@ initix1micro(struct IsdnCardState *cs)
 		clear_pending_isac_ints(cs);
 		clear_pending_hscx_ints(cs);
 		initisac(cs);
-		modehscx(cs->hs, 0, 0);
-		modehscx(cs->hs + 1, 0, 0);
+		inithscx(cs);
 		loop = 0;
 		while (loop++ < 10) {
 			/* At least 1-3 irqs must happen
@@ -302,7 +304,7 @@ ix1_card_msg(struct IsdnCardState *cs, int mt, void *arg)
 int
 setup_ix1micro(struct IsdnCard *card)
 {
-	struct IsdnCardState *cs = card->sp;
+	struct IsdnCardState *cs = card->cs;
 	char tmp[64];
 
 	strcpy(tmp, ix1_revision);
@@ -337,9 +339,9 @@ setup_ix1micro(struct IsdnCard *card)
 	cs->writeisac = &WriteISAC;
 	cs->readisacfifo = &ReadISACfifo;
 	cs->writeisacfifo = &WriteISACfifo;
-	cs->readhscx = &ReadHSCX;
-	cs->writehscx = &WriteHSCX;
-	cs->hscx_fill_fifo = &hscx_fill_fifo;
+	cs->BC_Read_Reg = &ReadHSCX;
+	cs->BC_Write_Reg = &WriteHSCX;
+	cs->BC_Send_Data = &hscx_fill_fifo;
 	cs->cardmsg = &ix1_card_msg;
 	ISACVersion(cs, "Diva:");
 	if (HscxVersion(cs, "Diva:")) {

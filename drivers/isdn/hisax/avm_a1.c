@@ -6,6 +6,9 @@
  *
  *
  * $Log$
+ * Revision 2.0  1997/06/26 11:02:48  keil
+ * New Layer and card interface
+ *
  * Revision 1.6  1997/04/13 19:54:07  keil
  * Change in IRQ check delay for SMP
  *
@@ -166,19 +169,19 @@ avm_a1_interrupt(int intno, void *dev_id, struct pt_regs *regs)
 inline static void
 release_ioregs(struct IsdnCard *card, int mask)
 {
-	release_region(card->sp->hw.avm.cfg_reg, 8);
+	release_region(card->cs->hw.avm.cfg_reg, 8);
 	if (mask & 1)
-		release_region(card->sp->hw.avm.isac + 32, 32);
+		release_region(card->cs->hw.avm.isac + 32, 32);
 	if (mask & 2)
-		release_region(card->sp->hw.avm.isacfifo, 1);
+		release_region(card->cs->hw.avm.isacfifo, 1);
 	if (mask & 4)
-		release_region(card->sp->hw.avm.hscx[0] + 32, 32);
+		release_region(card->cs->hw.avm.hscx[0] + 32, 32);
 	if (mask & 8)
-		release_region(card->sp->hw.avm.hscxfifo[0], 1);
+		release_region(card->cs->hw.avm.hscxfifo[0], 1);
 	if (mask & 0x10)
-		release_region(card->sp->hw.avm.hscx[1] + 32, 32);
+		release_region(card->cs->hw.avm.hscx[1] + 32, 32);
 	if (mask & 0x20)
-		release_region(card->sp->hw.avm.hscxfifo[1], 1);
+		release_region(card->cs->hw.avm.hscxfifo[1], 1);
 }
 
 void
@@ -207,8 +210,7 @@ initavm_a1(struct IsdnCardState *cs)
 		clear_pending_isac_ints(cs);
 		clear_pending_hscx_ints(cs);
 		initisac(cs);
-		modehscx(cs->hs, 0, 0);
-		modehscx(cs->hs + 1, 0, 0);
+		inithscx(cs);
 		while (loop++ < 10) {
 			/* At least 1-3 irqs must happen
 			 * (one from HSCX A, one from HSCX B, 3rd from ISAC)
@@ -238,7 +240,7 @@ int
 setup_avm_a1(struct IsdnCard *card)
 {
 	u_char val;
-	struct IsdnCardState *cs = card->sp;
+	struct IsdnCardState *cs = card->cs;
 	long flags;
 	char tmp[64];
 
@@ -376,9 +378,9 @@ setup_avm_a1(struct IsdnCard *card)
 	cs->writeisac = &WriteISAC;
 	cs->readisacfifo = &ReadISACfifo;
 	cs->writeisacfifo = &WriteISACfifo;
-	cs->readhscx = &ReadHSCX;
-	cs->writehscx = &WriteHSCX;
-	cs->hscx_fill_fifo = &hscx_fill_fifo;
+	cs->BC_Read_Reg = &ReadHSCX;
+	cs->BC_Write_Reg = &WriteHSCX;
+	cs->BC_Send_Data = &hscx_fill_fifo;
 	cs->cardmsg = &AVM_card_msg;
 	ISACVersion(cs, "AVM A1:");
 	if (HscxVersion(cs, "AVM A1:")) {

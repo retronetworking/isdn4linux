@@ -11,6 +11,9 @@
  *              Beat Doebeli
  *
  * $Log$
+ * Revision 2.0  1997/06/26 11:02:46  keil
+ * New Layer and card interface
+ *
  * Revision 1.11  1997/04/13 19:54:05  keil
  * Change in IRQ check delay for SMP
  *
@@ -183,21 +186,21 @@ inline static void
 release_ioregs(struct IsdnCard *card, int mask)
 {
 	if (mask & 1)
-		release_region(card->sp->hw.teles3.isac + 32, 32);
+		release_region(card->cs->hw.teles3.isac + 32, 32);
 	if (mask & 2)
-		release_region(card->sp->hw.teles3.hscx[0] + 32, 32);
+		release_region(card->cs->hw.teles3.hscx[0] + 32, 32);
 	if (mask & 4)
-		release_region(card->sp->hw.teles3.hscx[1] + 32, 32);
+		release_region(card->cs->hw.teles3.hscx[1] + 32, 32);
 }
 
 void
 release_io_teles3(struct IsdnCard *card)
 {
-	if (card->sp->typ == ISDN_CTYPE_TELESPCMCIA)
-		release_region(card->sp->hw.teles3.cfg_reg, 97);
+	if (card->cs->typ == ISDN_CTYPE_TELESPCMCIA)
+		release_region(card->cs->hw.teles3.cfg_reg, 97);
 	else {
-		if (card->sp->hw.teles3.cfg_reg)
-			release_region(card->sp->hw.teles3.cfg_reg, 8);
+		if (card->cs->hw.teles3.cfg_reg)
+			release_region(card->cs->hw.teles3.cfg_reg, 8);
 		release_ioregs(card, 0x7);
 	}
 }
@@ -271,8 +274,7 @@ initteles3(struct IsdnCardState *cs)
 		clear_pending_isac_ints(cs);
 		clear_pending_hscx_ints(cs);
 		initisac(cs);
-		modehscx(cs->hs, 0, 0);
-		modehscx(cs->hs + 1, 0, 0);
+		inithscx(cs);
 		loop = 0;
 		while (loop++ < 10) {
 			/* At least 1-3 irqs must happen
@@ -312,7 +314,7 @@ int
 setup_teles3(struct IsdnCard *card)
 {
 	u_char val;
-	struct IsdnCardState *cs = card->sp;
+	struct IsdnCardState *cs = card->cs;
 	char tmp[64];
 
 	strcpy(tmp, teles3_revision);
@@ -451,9 +453,9 @@ setup_teles3(struct IsdnCard *card)
 	cs->writeisac = &WriteISAC;
 	cs->readisacfifo = &ReadISACfifo;
 	cs->writeisacfifo = &WriteISACfifo;
-	cs->readhscx = &ReadHSCX;
-	cs->writehscx = &WriteHSCX;
-	cs->hscx_fill_fifo = &hscx_fill_fifo;
+	cs->BC_Read_Reg = &ReadHSCX;
+	cs->BC_Write_Reg = &WriteHSCX;
+	cs->BC_Send_Data = &hscx_fill_fifo;
 	cs->cardmsg = &Teles_card_msg;
 	ISACVersion(cs, "Teles3:");
 	if (HscxVersion(cs, "Teles3:")) {

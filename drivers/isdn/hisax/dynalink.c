@@ -8,6 +8,9 @@
  *
  *
  * $Log$
+ * Revision 1.1  1997/06/26 11:21:41  keil
+ * first version
+ *
  *
  */
 
@@ -181,8 +184,8 @@ release_io_dynalink(struct IsdnCard *card)
 {
 	int bytecnt = 8;
 
-	if (card->sp->hw.dyna.cfg_reg)
-		release_region(card->sp->hw.dyna.cfg_reg, bytecnt);
+	if (card->cs->hw.dyna.cfg_reg)
+		release_region(card->cs->hw.dyna.cfg_reg, bytecnt);
 }
 
 static void
@@ -215,8 +218,7 @@ initdynalink(struct IsdnCardState *cs)
 		clear_pending_isac_ints(cs);
 		clear_pending_hscx_ints(cs);
 		initisac(cs);
-		modehscx(cs->hs, 0, 0);
-		modehscx(cs->hs + 1, 0, 0);
+		inithscx(cs);
 		printk(KERN_INFO "Dynalink: IRQ %d count %d\n", cs->irq,
 		       kstat.interrupts[cs->irq]);
 		if (kstat.interrupts[cs->irq] == irq_cnt) {
@@ -246,7 +248,7 @@ int
 setup_dynalink(struct IsdnCard *card)
 {
 	int bytecnt;
-	struct IsdnCardState *cs = card->sp;
+	struct IsdnCardState *cs = card->cs;
 	char tmp[64];
 
 	strcpy(tmp, Dynalink_revision);
@@ -284,9 +286,9 @@ setup_dynalink(struct IsdnCard *card)
 	cs->writeisac = &WriteISAC;
 	cs->readisacfifo = &ReadISACfifo;
 	cs->writeisacfifo = &WriteISACfifo;
-	cs->readhscx = &ReadHSCX;
-	cs->writehscx = &WriteHSCX;
-	cs->hscx_fill_fifo = &hscx_fill_fifo;
+	cs->BC_Read_Reg = &ReadHSCX;
+	cs->BC_Write_Reg = &WriteHSCX;
+	cs->BC_Send_Data = &hscx_fill_fifo;
 	cs->cardmsg = &Dyna_card_msg;
 	ISACVersion(cs, "Dynalink:");
 	if (HscxVersion(cs, "Dynalink:")) {

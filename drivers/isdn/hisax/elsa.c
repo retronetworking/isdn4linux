@@ -8,6 +8,9 @@
  *
  *
  * $Log$
+ * Revision 2.0  1997/06/26 11:02:40  keil
+ * New Layer and card interface
+ *
  * Revision 1.14  1997/04/13 19:53:25  keil
  * Fixed QS1000 init, change in IRQ check delay for SMP
  *
@@ -240,13 +243,13 @@ release_io_elsa(struct IsdnCard *card)
 {
 	int bytecnt = 8;
 
-	del_timer(&card->sp->hw.elsa.tl);
-	if (card->sp->hw.elsa.ctrl)
-		byteout(card->sp->hw.elsa.ctrl, 0);	/* LEDs Out */
-	if (card->sp->subtyp == ELSA_PCFPRO)
+	del_timer(&card->cs->hw.elsa.tl);
+	if (card->cs->hw.elsa.ctrl)
+		byteout(card->cs->hw.elsa.ctrl, 0);	/* LEDs Out */
+	if (card->cs->subtyp == ELSA_PCFPRO)
 		bytecnt = 16;
-	if (card->sp->hw.elsa.base)
-		release_region(card->sp->hw.elsa.base, bytecnt);
+	if (card->cs->hw.elsa.base)
+		release_region(card->cs->hw.elsa.base, bytecnt);
 }
 
 static void
@@ -272,7 +275,7 @@ reset_elsa(struct IsdnCardState *cs)
 }
 
 static void
-check_arcofi(struct IsdnCardState *sp)
+check_arcofi(struct IsdnCardState *cs)
 {
 #if ARCOFI_USE
 	u_char val;
@@ -281,49 +284,49 @@ check_arcofi(struct IsdnCardState *sp)
 	long flags;
 	u_char *p;
 
-	if (BufPoolGet(&(sp->mon_tx), &(sp->sbufpool),
+	if (BufPoolGet(&(cs->mon_tx), &(cs->sbufpool),
 		       GFP_ATOMIC, (void *) 1, 3)) {
-		if (sp->debug & L1_DEB_WARN)
-			debugl1(sp, "ISAC MON TX out of buffers!");
+		if (cs->debug & L1_DEB_WARN)
+			debugl1(cs, "ISAC MON TX out of buffers!");
 		return;
 	} else
-		sp->mon_txp = 0;
-	p = DATAPTR(sp->mon_tx);
+		cs->mon_txp = 0;
+	p = DATAPTR(cs->mon_tx);
 	*p++ = 0xa0;
 	*p++ = 0x0;
-	sp->mon_tx->datasize = 2;
-	sp->mon_txp = 1;
-	sp->mon_flg = 0;
-	writeisac(sp->cfg_reg, ISAC_MOCR, 0xa0);
-	val = readisac(sp->cfg_reg, ISAC_MOSR);
-	writeisac(sp->cfg_reg, ISAC_MOX1, 0xa0);
-	writeisac(sp->cfg_reg, ISAC_MOCR, 0xb0);
+	cs->mon_tx->datasize = 2;
+	cs->mon_txp = 1;
+	cs->mon_flg = 0;
+	writeisac(cs->cfg_reg, ISAC_MOCR, 0xa0);
+	val = readisac(cs->cfg_reg, ISAC_MOSR);
+	writeisac(cs->cfg_reg, ISAC_MOX1, 0xa0);
+	writeisac(cs->cfg_reg, ISAC_MOCR, 0xb0);
 	save_flags(flags);
 	sti();
 	HZDELAY(3);
 	restore_flags(flags);
-	if (sp->mon_flg & MON1_TX) {
-		if (sp->mon_flg & MON1_RX) {
-			sprintf(tmp, "Arcofi response received %d bytes", sp->mon_rx->datasize);
-			debugl1(sp, tmp);
-			p = DATAPTR(sp->mon_rx);
+	if (cs->mon_flg & MON1_TX) {
+		if (cs->mon_flg & MON1_RX) {
+			sprintf(tmp, "Arcofi response received %d bytes", cs->mon_rx->datasize);
+			debugl1(cs, tmp);
+			p = DATAPTR(cs->mon_rx);
 			t = tmp;
 			t += sprintf(tmp, "Arcofi data");
-			QuickHex(t, p, sp->mon_rx->datasize);
-			debugl1(sp, tmp);
-			BufPoolRelease(sp->mon_rx);
-			sp->mon_rx = NULL;
-			sp->mon_rxp = 0;
-			sp->mon_flg = 0;
+			QuickHex(t, p, cs->mon_rx->datasize);
+			debugl1(cs, tmp);
+			BufPoolRelease(cs->mon_rx);
+			cs->mon_rx = NULL;
+			cs->mon_rxp = 0;
+			cs->mon_flg = 0;
 		}
-	} else if (sp->mon_tx) {
-		BufPoolRelease(sp->mon_tx);
-		sp->mon_tx = NULL;
-		sp->mon_txp = 0;
+	} else if (cs->mon_tx) {
+		BufPoolRelease(cs->mon_tx);
+		cs->mon_tx = NULL;
+		cs->mon_txp = 0;
 		sprintf(tmp, "Arcofi not detected");
-		debugl1(sp, tmp);
+		debugl1(cs, tmp);
 	}
-	sp->mon_flg = 0;
+	cs->mon_flg = 0;
 #endif
 }
 
@@ -419,8 +422,7 @@ initelsa(struct IsdnCardState *cs)
 		clear_pending_isac_ints(cs);
 		clear_pending_hscx_ints(cs);
 		initisac(cs);
-		modehscx(cs->hs, 0, 0);
-		modehscx(cs->hs + 1, 0, 0);
+		inithscx(cs);
 		if (cs->subtyp == ELSA_QS1000) {
 			byteout(cs->hw.elsa.timer, 0);
 			byteout(cs->hw.elsa.trig, 0xff);
@@ -524,14 +526,14 @@ probe_elsa_adr(unsigned int adr)
 }
 
 static unsigned int
-probe_elsa(struct IsdnCardState *sp)
+probe_elsa(struct IsdnCardState *cs)
 {
 	int i;
 	unsigned int CARD_portlist[] =
 	{0x160, 0x170, 0x260, 0x360, 0};
 
 	for (i = 0; CARD_portlist[i]; i++) {
-		if ((sp->subtyp = probe_elsa_adr(CARD_portlist[i])))
+		if ((cs->subtyp = probe_elsa_adr(CARD_portlist[i])))
 			break;
 	}
 	return (CARD_portlist[i]);
@@ -543,7 +545,7 @@ setup_elsa(struct IsdnCard *card)
 	long flags;
 	int bytecnt;
 	u_char val;
-	struct IsdnCardState *cs = card->sp;
+	struct IsdnCardState *cs = card->cs;
 	char tmp[64];
 
 	strcpy(tmp, Elsa_revision);
@@ -721,9 +723,9 @@ setup_elsa(struct IsdnCard *card)
 	cs->writeisac = &WriteISAC;
 	cs->readisacfifo = &ReadISACfifo;
 	cs->writeisacfifo = &WriteISACfifo;
-	cs->readhscx = &ReadHSCX;
-	cs->writehscx = &WriteHSCX;
-	cs->hscx_fill_fifo = &hscx_fill_fifo;
+	cs->BC_Read_Reg = &ReadHSCX;
+	cs->BC_Write_Reg = &WriteHSCX;
+	cs->BC_Send_Data = &hscx_fill_fifo;
 	cs->cardmsg = &Elsa_card_msg;
 	ISACVersion(cs, "Elsa:");
 	if (HscxVersion(cs, "Elsa:")) {
