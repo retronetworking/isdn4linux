@@ -1107,11 +1107,10 @@ void releasestack_isdnl2(struct PStack *st);
 void setstack_transl2(struct PStack *st);
 void releasestack_transl2(struct PStack *st);
 
-struct Channel;
-
 void setstack_l3cc(struct PStack *st, int b3_mode);
+void releasestack_l3cc(struct PStack *st);
 void setstack_l3trans(struct PStack *st);
-void releasestack_isdnl3(struct PStack *st);
+void releasestack_l3trans(struct PStack *st);
 
 u_char *findie(u_char * p, int size, u_char ie, int wanted_set);
 int getcallref(u_char * p);

@@ -24,8 +24,6 @@ const char *lli_revision = "$Revision$";
 static struct CallcIf *c_ifs[HISAX_MAX_CARDS] = { 0, };
 
 static void lldata_handler(struct PStack *st, int pr, void *arg);
-static struct PStack *new_b_st(struct Channel *chanp);
-static void del_b_st(struct Channel *chanp);
 
 static struct Fsm callcfsm =
 {NULL, 0, 0, NULL, NULL};
@@ -96,6 +94,71 @@ discard_queue(struct sk_buff_head *q)
 		ret++;
 	}
 	return(ret);
+}
+
+static struct PStack *
+new_b_st(struct Channel *chanp)
+{
+	struct PStack *st;
+	struct IsdnCardState *cs = chanp->cs;
+	struct StackParams sp;
+	int bchannel;
+
+	if (chanp->b_st) {
+		int_error();
+	}
+
+	st = kmalloc(sizeof(struct PStack), GFP_ATOMIC);
+	if (!st)
+		return 0;
+
+	st->l1.delay = DEFAULT_B_DELAY;
+
+	switch (chanp->l2_active_protocol) {
+	case (ISDN_PROTO_L2_X75I):
+		sp.b1_mode = B1_MODE_HDLC;
+		sp.b2_mode = B2_MODE_X75SLP;
+		break;
+	case (ISDN_PROTO_L2_HDLC):
+		sp.b1_mode = B1_MODE_HDLC;
+		sp.b2_mode = B2_MODE_TRANS;
+		break;
+	case (ISDN_PROTO_L2_TRANS):
+		sp.b1_mode = B1_MODE_TRANS;
+		sp.b2_mode = B2_MODE_TRANS;
+		break;
+	case (ISDN_PROTO_L2_MODEM):
+		sp.b1_mode = B1_MODE_MODEM;
+		sp.b2_mode = B2_MODE_TRANS;
+		break;
+	case (ISDN_PROTO_L2_FAX):
+		sp.b1_mode = B1_MODE_FAX;
+		sp.b2_mode = B2_MODE_TRANS;
+		break;
+	default:
+		int_error();
+		return 0;
+	}
+	sp.b3_mode = B3_MODE_TRANS;
+	bchannel = chanp->leased ? chanp->chan & 1 : chanp->l4pc.l3pc->para.bchannel - 1;
+	init_st(st, cs, &sp, bchannel, chanp, lldata_handler);
+
+	st->l2.l2m.debug = chanp->debug & 0x10;
+	st->l2.debug = chanp->debug & 0x40;
+
+	return st;
+}
+
+static void
+del_b_st(struct Channel *chanp)
+{
+	if (!chanp->b_st) {
+		int_error();
+		return;
+	}
+	release_st(chanp->b_st);
+	kfree(chanp->b_st);
+	chanp->b_st = NULL;
 }
 
 #define LL_DEB_INFO      0x00000001
@@ -895,37 +958,6 @@ CallcFree(void)
 	FsmFree(&callcfsm);
 }
 
-static void
-release_b_st(struct Channel *chanp)
-{
-	struct PStack *st = chanp->b_st;
-
-	chanp->b_st->l1.bcs->BC_Close(chanp->b_st->l1.bcs);
-	switch (chanp->l2_active_protocol) {
-	case (ISDN_PROTO_L2_X75I):
-		releasestack_isdnl2(st);
-		break;
-	case (ISDN_PROTO_L2_HDLC):
-	case (ISDN_PROTO_L2_TRANS):
-	case (ISDN_PROTO_L2_MODEM):
-	case (ISDN_PROTO_L2_FAX):
-		releasestack_transl2(st);
-		break;
-	}
-} 
-
-static void
-del_b_st(struct Channel *chanp)
-{
-	if (!chanp->b_st) {
-		int_error();
-		return;
-	}
-	release_b_st(chanp);
-	kfree(chanp->b_st);
-	chanp->b_st = 0;
-}
-
 struct Channel
 *selectfreechannel(struct PStack *st, int bch)
 {
@@ -1070,77 +1102,6 @@ callc_debug(struct FsmInst *fi, char *fmt, ...)
 	va_end(args);
 }
 
-static struct PStack *
-new_d_st(struct Channel *chanp)
-{
-	struct StackParams sp;
-	struct PStack *st;
-
-	st = kmalloc(sizeof(struct PStack), GFP_ATOMIC);
-	if (!st)
-		return 0;
-
-	sp.b1_mode = B1_MODE_HDLC;
-	sp.b2_mode = B2_MODE_LAPD;
-	sp.b3_mode = chanp->c_if->b3_mode;
-	init_st(st, chanp->cs, &sp, CHANNEL_D, chanp, dchan_l3l4);
-
-	return st;
-}
-
-static struct PStack *
-new_b_st(struct Channel *chanp)
-{
-	struct PStack *st;
-	struct IsdnCardState *cs = chanp->cs;
-	struct StackParams sp;
-	int bchannel;
-
-	if (chanp->b_st) {
-		int_error();
-	}
-
-	st = kmalloc(sizeof(struct PStack), GFP_ATOMIC);
-	if (!st)
-		return 0;
-
-	st->l1.delay = DEFAULT_B_DELAY;
-
-	switch (chanp->l2_active_protocol) {
-	case (ISDN_PROTO_L2_X75I):
-		sp.b1_mode = B1_MODE_HDLC;
-		sp.b2_mode = B2_MODE_X75SLP;
-		break;
-	case (ISDN_PROTO_L2_HDLC):
-		sp.b1_mode = B1_MODE_HDLC;
-		sp.b2_mode = B2_MODE_TRANS;
-		break;
-	case (ISDN_PROTO_L2_TRANS):
-		sp.b1_mode = B1_MODE_TRANS;
-		sp.b2_mode = B2_MODE_TRANS;
-		break;
-	case (ISDN_PROTO_L2_MODEM):
-		sp.b1_mode = B1_MODE_MODEM;
-		sp.b2_mode = B2_MODE_TRANS;
-		break;
-	case (ISDN_PROTO_L2_FAX):
-		sp.b1_mode = B1_MODE_FAX;
-		sp.b2_mode = B2_MODE_TRANS;
-		break;
-	default:
-		int_error();
-		return 0;
-	}
-	sp.b3_mode = B3_MODE_TRANS;
-	bchannel = chanp->leased ? chanp->chan & 1 : chanp->l4pc.l3pc->para.bchannel - 1;
-	init_st(st, cs, &sp, bchannel, chanp, lldata_handler);
-
-	st->l2.l2m.debug = chanp->debug & 0x10;
-	st->l2.debug = chanp->debug & 0x40;
-
-	return st;
-}
-
 static void
 channelConstr(struct Channel *chanp, struct CallcIf *c_if, int chan)
 {
@@ -1158,7 +1119,17 @@ channelConstr(struct Channel *chanp, struct CallcIf *c_if, int chan)
 	chanp->fi.userdata = chanp;
 	chanp->fi.printdebug = callc_debug;
 	if (chan == 0 || test_bit(FLG_TWO_DCHAN, &c_if->cs->HW_Flags)) {
-		chanp->d_st = new_d_st(chanp);
+		struct StackParams sp;
+		
+		chanp->d_st = kmalloc(sizeof(struct PStack), GFP_ATOMIC);
+		if (!chanp->d_st) {
+			int_error();
+			return;
+		}
+		sp.b1_mode = B1_MODE_HDLC;
+		sp.b2_mode = B2_MODE_LAPD;
+		sp.b3_mode = chanp->c_if->b3_mode;
+		init_st(chanp->d_st, chanp->cs, &sp, CHANNEL_D, chanp, dchan_l3l4);
 	} else {
 	        chanp->d_st = c_if->channel[0].d_st;
 	}
@@ -1167,26 +1138,18 @@ channelConstr(struct Channel *chanp, struct CallcIf *c_if, int chan)
 }
 
 static void
-del_d_st(struct Channel *chanp)
-{
-	struct PStack *st = chanp->d_st;
-
-	if (!st)
-		return;
-	releasestack_isdnl2(st);
-	releasestack_isdnl3(st);
-	HiSax_rmlist(st->l1.hardware, st);
-	kfree(st);
-	chanp->d_st = NULL;
-}
-
-static void
 channelDestr(struct Channel *chanp)
 {
-	if ((chanp->chan == 0) || test_bit(FLG_TWO_DCHAN, &chanp->cs->HW_Flags))
-		del_d_st(chanp);
-	else
-		chanp->d_st = 0;
+	if ((chanp->chan == 0) || test_bit(FLG_TWO_DCHAN, &chanp->cs->HW_Flags)) {
+		if (!chanp->d_st) {
+			int_error();
+			return;
+		}
+		release_st(chanp->d_st);
+		kfree(chanp->d_st);
+	}
+	chanp->d_st = NULL;
+
 	if (chanp->b_st) {
 		printk(KERN_WARNING "CallcFreeChan b_st ch%d not yet freed\n", chanp->chan);
 		del_b_st(chanp);

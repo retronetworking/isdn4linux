@@ -3,8 +3,9 @@
 static int
 init_st_1(struct PStack *st, int b1_mode, struct IsdnCardState *cs, int bchannel)
 {
+	st->l1.mode = b1_mode;
 	st->l1.hardware = cs;
-	st->l1.mode = b1_mode; // FIXME do everywhere
+	st->l1.bc = bchannel;
 	switch (bchannel) {
 	case CHANNEL_D:
 		HiSax_addlist(cs, st);
@@ -12,8 +13,6 @@ init_st_1(struct PStack *st, int b1_mode, struct IsdnCardState *cs, int bchannel
 		break;
 	case CHANNEL_B1:
 	case CHANNEL_B2:
-		st->l1.bc = bchannel;
-		st->l1.mode = b1_mode;
 		if (cs->bcs[bchannel].BC_SetStack(st, &cs->bcs[bchannel]))
 			return -1;
 		st->l1.bcs->conmsg = NULL;
@@ -25,9 +24,26 @@ init_st_1(struct PStack *st, int b1_mode, struct IsdnCardState *cs, int bchannel
 	return 0;
 }
 
+static void 
+release_st_1(struct PStack *st)
+{
+	switch (st->l1.bc) {
+	case CHANNEL_D:
+		HiSax_rmlist(st->l1.hardware, st);
+		break;
+	case CHANNEL_B1:
+	case CHANNEL_B2:
+		st->l1.bcs->BC_Close(st->l1.bcs);
+		break;
+	default:
+		int_error();
+	}
+}
+
 static int
 init_st_2(struct PStack *st, int b2_mode)
 {
+	st->l2.mode = b2_mode;
 	switch (b2_mode) {
 	case B2_MODE_LAPD:
 		st->l2.sap = 0;
@@ -64,9 +80,26 @@ init_st_2(struct PStack *st, int b2_mode)
 	return 0;
 }
 
+static void
+release_st_2(struct PStack *st)
+{
+	switch (st->l2.mode) {
+	case B2_MODE_LAPD:
+	case B2_MODE_X75SLP:
+		releasestack_isdnl2(st);
+		break;
+	case B2_MODE_TRANS:
+		releasestack_transl2(st);
+		break;
+	default:
+		int_error();
+	}
+}
+
 static int
 init_st_3(struct PStack *st, int b3_mode)
 {
+	st->l3.mode = b3_mode;
 	switch (b3_mode) {
 	case B3_MODE_DSS1:
 	case B3_MODE_1TR6:
@@ -79,6 +112,24 @@ init_st_3(struct PStack *st, int b3_mode)
 		break;
 	}
 	return 0;
+}
+
+static void
+release_st_3(struct PStack *st)
+{
+	switch (st->l3.mode) {
+	case B3_MODE_DSS1:
+	case B3_MODE_1TR6:
+	case B3_MODE_LEASED:
+	case B3_MODE_NI1:
+		releasestack_l3cc(st);
+		break;
+	case B3_MODE_TRANS:
+		releasestack_l3trans(st);
+		break;
+	default:
+		int_error();
+	}
 }
 
 int
@@ -100,3 +151,10 @@ init_st(struct PStack *st, struct IsdnCardState *cs, struct StackParams *sp,
 	return 0;
 }
 
+void
+release_st(struct PStack *st)
+{
+	release_st_1(st);
+	release_st_2(st);
+	release_st_3(st);
+}

@@ -4,11 +4,13 @@
 #include "fsm.h"
 
 struct IsdnCardState;
+struct Channel;
 
 // =================================================================
 // PStack
 
 struct Layer1 {
+	int mode; 
 	struct IsdnCardState *hardware;
 	struct BCState *bcs;
 	struct PStack **stlistp;
@@ -18,13 +20,14 @@ struct Layer1 {
 	void (*l1l2) (struct PStack *, int, void *);
 	void (*l1hw) (struct PStack *, int, void *);
 	void (*l1tei) (struct PStack *, int, void *);
-	int mode, bc;
+	int bc;
 	int delay;
 };
 
 #define MAX_WINDOW	8
 
 struct Layer2 {
+	int mode;
 	int tei;
 	int sap;
 	int AddressA;
@@ -49,6 +52,7 @@ struct Layer2 {
 };
 
 struct Layer3 {
+	int mode;
         void (*l3ml3) (struct PStack *, int, void *);
 	void (*l2l3) (struct PStack *, int, void *);
 	void (*l4l3) (struct PStack *, int, void *);
@@ -132,5 +136,7 @@ int
 init_st(struct PStack *st, struct IsdnCardState *cs, struct StackParams *sp, 
 	int bchannel, struct Channel *chanp, 
 	void (*l3l4)(struct PStack *st, int pr, void *arg));
+void
+release_st(struct PStack *st);
 
 #endif
