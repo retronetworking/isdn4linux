@@ -3,6 +3,9 @@
  *   Basic declarations, defines and prototypes
  *
  * $Log$
+ * Revision 1.13.2.5  1998/01/27 22:42:42  keil
+ * changes for new teles 16.3c and dynalink ---> asuscom
+ *
  * Revision 1.13.2.4  1998/01/11 22:55:17  keil
  * 16.3c support
  *
@@ -833,6 +836,14 @@ struct IsdnCardState {
 #ifdef CONFIG_HISAX_EURO
 #undef TEI_PER_CARD
 #define TEI_PER_CARD 1
+#define HISAX_EURO_SENDCOMPLETE 1
+#ifdef	CONFIG_HISAX_ML
+#undef HISAX_EURO_SENDCOMPLETE
+#endif
+#undef HISAX_DE_AOC
+#ifdef CONFIG_DE_AOC
+#define HISAX_DE_AOC 1
+#endif
 #endif
 
 #if TEI_PER_CARD
