@@ -278,7 +278,7 @@ struct l3_process
 	p->debug = st->l3.debug;
 	p->callref = cr;
 	p->state = 0;
-	p->chan = NULL;
+	p->l4pc = NULL;
 	p->st = st;
 	p->N303 = st->l3.N303;
 	L3InitTimer(p, &p->timer);

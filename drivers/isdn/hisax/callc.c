@@ -49,15 +49,15 @@ static struct Fsm callcfsm =
 static inline void
 Dp_L4L3(struct Channel *chanp, int pr, void *arg)
 {
-	if (!chanp->proc) {
+	if (!chanp->l4pc.l3pc) {
 		int_error();
 		return;
 	}
-	if (!chanp->proc->l4l3) {
+	if (!chanp->l4pc.l3pc->l4l3) {
 		int_error();
 		return;
 	}
-	chanp->proc->l4l3(chanp->proc, pr, 0);
+	chanp->l4pc.l3pc->l4l3(chanp->l4pc.l3pc, pr, 0);
 }
 
 static inline void
@@ -293,14 +293,14 @@ lli_deliver_cause(struct Channel *chanp)
 {
 	isdn_ctrl ic;
 
-	if (chanp->proc->para.cause == NO_CAUSE)
+	if (chanp->l4pc.l3pc->para.cause == NO_CAUSE)
 		return;
 	if (chanp->cs->protocol == ISDN_PTYPE_EURO)
-		sprintf(ic.parm.num, "E%02X%02X", chanp->proc->para.loc & 0x7f,
-			chanp->proc->para.cause & 0x7f);
+		sprintf(ic.parm.num, "E%02X%02X", chanp->l4pc.l3pc->para.loc & 0x7f,
+			chanp->l4pc.l3pc->para.cause & 0x7f);
 	else
-		sprintf(ic.parm.num, "%02X%02X", chanp->proc->para.loc & 0x7f,
-			chanp->proc->para.cause & 0x7f);
+		sprintf(ic.parm.num, "%02X%02X", chanp->l4pc.l3pc->para.loc & 0x7f,
+			chanp->l4pc.l3pc->para.cause & 0x7f);
 	HL_LL(chanp, ISDN_STAT_CAUSE, &ic);
 }
 
@@ -369,7 +369,7 @@ lli_prep_dialout(struct FsmInst *fi, int event, void *arg)
 		lli_init_bchan_out(fi, event, arg);
 	} else {
 		FsmChangeState(fi, ST_OUT_DIAL);
-		D_L4L3(chanp, CC_NEW_CR | REQUEST, chanp);
+		D_L4L3(chanp, CC_NEW_CR | REQUEST, &chanp->l4pc);
 		Dp_L4L3(chanp, CC_SETUP | REQUEST, 0);
 	}
 }
@@ -388,7 +388,7 @@ lli_resume(struct FsmInst *fi, int event, void *arg)
 		lli_init_bchan_out(fi, event, arg);
 	} else {
 		FsmChangeState(fi, ST_OUT_DIAL);
-		D_L4L3(chanp, CC_NEW_CR | REQUEST, chanp);
+		D_L4L3(chanp, CC_NEW_CR | REQUEST, &chanp->l4pc);
 		Dp_L4L3(chanp, CC_RESUME | REQUEST, 0);
 	}
 }
@@ -436,7 +436,7 @@ lli_deliver_call(struct FsmInst *fi, int event, void *arg)
 		 * No need to return "unknown" for calls without OAD,
 		 * cause that's handled in linklevel now (replaced by '0')
 		 */
-		ic.parm.setup = chanp->proc->para.setup;
+		ic.parm.setup = chanp->l4pc.l3pc->para.setup;
 		ret = HL_LL(chanp, (chanp->chan < 2) ? ISDN_STAT_ICALL : ISDN_STAT_ICALLW, &ic);
 		link_debug(LL_DEB_INFO, chanp, 1, "statcallb ret=%d", ret);
 
@@ -559,7 +559,7 @@ lli_disconnect_req(struct FsmInst *fi, int event, void *arg)
 		lli_leased_hup(fi, chanp);
 	} else {
 		FsmChangeState(fi, ST_WAIT_DRELEASE);
-		chanp->proc->para.cause = 0x10;	/* Normal Call Clearing */
+		chanp->l4pc.l3pc->para.cause = 0x10;	/* Normal Call Clearing */
 		Dp_L4L3(chanp, CC_DISCONNECT | REQUEST, 0);
 	}
 }
@@ -573,7 +573,7 @@ lli_disconnect_reject(struct FsmInst *fi, int event, void *arg)
 		lli_leased_hup(fi, chanp);
 	} else {
 		FsmChangeState(fi, ST_WAIT_DRELEASE);
-		chanp->proc->para.cause = 0x15;	/* Call Rejected */
+		chanp->l4pc.l3pc->para.cause = 0x15;	/* Call Rejected */
 		Dp_L4L3(chanp, CC_DISCONNECT | REQUEST, 0);
 	}
 }
@@ -603,7 +603,7 @@ lli_reject_req(struct FsmInst *fi, int event, void *arg)
 		return;
 	}
 #ifndef ALERT_REJECT
-	chanp->proc->para.cause = 0x15;	/* Call Rejected */
+	chanp->l4pc.l3pc->para.cause = 0x15;	/* Call Rejected */
 	Dp_L4L3(chanp, CC_REJECT | REQUEST, 0);
 	lli_dhup_close(fi, event, arg);
 #else
@@ -746,7 +746,7 @@ lli_charge_info(struct FsmInst *fi, int event, void *arg)
 	struct Channel *chanp = fi->userdata;
 	isdn_ctrl ic;
 
-	sprintf(ic.parm.num, "%d", chanp->proc->para.chargeinfo);
+	sprintf(ic.parm.num, "%d", chanp->l4pc.l3pc->para.chargeinfo);
 	HL_LL(chanp, ISDN_STAT_CINF, &ic);
 }
 
@@ -973,82 +973,88 @@ static void stat_redir_result(struct CallcIf *c_if, int chan, ulong result)
 }
 
 static void
+dchan_l3l4proc(struct l4_process *l4pc, int pr, void *arg)
+{
+	struct Channel *chanp = l4pc->priv;
+
+	switch (pr) {
+	case (CC_SETUP | INDICATION):
+		FsmEvent(&chanp->fi, EV_SETUP_IND, arg);
+		break;
+	case (CC_DISCONNECT | INDICATION):
+		FsmEvent(&chanp->fi, EV_DISCONNECT_IND, arg);
+		break;
+	case (CC_RELEASE | CONFIRM):
+		FsmEvent(&chanp->fi, EV_RELEASE, arg);
+		break;
+	case (CC_SUSPEND | CONFIRM):
+		FsmEvent(&chanp->fi, EV_RELEASE, arg);
+		break;
+	case (CC_RESUME | CONFIRM):
+		FsmEvent(&chanp->fi, EV_SETUP_CNF, arg);
+		break;
+	case (CC_RESUME_ERR):
+		FsmEvent(&chanp->fi, EV_RELEASE, arg);
+		break;
+	case (CC_RELEASE | INDICATION):
+		FsmEvent(&chanp->fi, EV_RELEASE, arg);
+		break;
+	case (CC_SETUP_COMPL | INDICATION):
+		FsmEvent(&chanp->fi, EV_SETUP_CMPL_IND, arg);
+		break;
+	case (CC_SETUP | CONFIRM):
+		FsmEvent(&chanp->fi, EV_SETUP_CNF, arg);
+		break;
+	case (CC_CHARGE | INDICATION):
+		FsmEvent(&chanp->fi, EV_CINF, arg);
+		break;
+	case (CC_NOSETUP_RSP):
+		FsmEvent(&chanp->fi, EV_NOSETUP_RSP, arg);
+		break;
+	case (CC_SETUP_ERR):
+		FsmEvent(&chanp->fi, EV_SETUP_ERR, arg);
+		break;
+	case (CC_CONNECT_ERR):
+		FsmEvent(&chanp->fi, EV_CONNECT_ERR, arg);
+		break;
+	case (CC_RELEASE_ERR):
+		FsmEvent(&chanp->fi, EV_RELEASE, arg);
+		break;
+	case (CC_PROCEED_SEND | INDICATION):
+	case (CC_PROCEEDING | INDICATION):
+	case (CC_ALERTING | INDICATION):
+	case (CC_PROGRESS | INDICATION):
+	case (CC_NOTIFY | INDICATION):
+		break;
+	case (CC_REDIR | INDICATION):
+		stat_redir_result(chanp->c_if, chanp->chan, chanp->l4pc.l3pc->redir_result); 
+		break;
+	default:
+		ll_debug(LL_DEB_WARN, chanp->c_if, 
+			 "Ch %d L3->L4 unknown primitive %#x", chanp->chan, pr);
+	}
+}
+
+static void
 dchan_l3l4(struct PStack *st, int pr, void *arg)
 {
 	struct l3_process *pc = arg;
-	struct IsdnCardState *cs = st->l1.hardware;
 	struct Channel *chanp;
 
 	if(!pc)
 		return;
 
-	if (pr == (CC_SETUP | INDICATION)) {
+	if (pr == (CC_NEW_CR | INDICATION)) {
 		if (!(chanp = selectfreechannel(pc->st, pc->para.bchannel))) {
-			pc->para.cause = 0x11;	/* User busy */
-			pc->l4l3(pc, CC_REJECT | REQUEST, 0);
+			pc->l4pc = 0;
 		} else {
-			chanp->proc = pc;
-			pc->chan = chanp;
-			FsmEvent(&chanp->fi, EV_SETUP_IND, NULL);
+			chanp->l4pc.l3pc = pc;
+			pc->l4pc = &chanp->l4pc;
 		}
 		return;
 	}
-	if (!(chanp = pc->chan))
-		return;
 
-	switch (pr) {
-		case (CC_DISCONNECT | INDICATION):
-			FsmEvent(&chanp->fi, EV_DISCONNECT_IND, NULL);
-			break;
-		case (CC_RELEASE | CONFIRM):
-			FsmEvent(&chanp->fi, EV_RELEASE, NULL);
-			break;
-		case (CC_SUSPEND | CONFIRM):
-			FsmEvent(&chanp->fi, EV_RELEASE, NULL);
-			break;
-		case (CC_RESUME | CONFIRM):
-			FsmEvent(&chanp->fi, EV_SETUP_CNF, NULL);
-			break;
-		case (CC_RESUME_ERR):
-			FsmEvent(&chanp->fi, EV_RELEASE, NULL);
-			break;
-		case (CC_RELEASE | INDICATION):
-			FsmEvent(&chanp->fi, EV_RELEASE, NULL);
-			break;
-		case (CC_SETUP_COMPL | INDICATION):
-			FsmEvent(&chanp->fi, EV_SETUP_CMPL_IND, NULL);
-			break;
-		case (CC_SETUP | CONFIRM):
-			FsmEvent(&chanp->fi, EV_SETUP_CNF, NULL);
-			break;
-		case (CC_CHARGE | INDICATION):
-			FsmEvent(&chanp->fi, EV_CINF, NULL);
-			break;
-		case (CC_NOSETUP_RSP):
-			FsmEvent(&chanp->fi, EV_NOSETUP_RSP, NULL);
-			break;
-		case (CC_SETUP_ERR):
-			FsmEvent(&chanp->fi, EV_SETUP_ERR, NULL);
-			break;
-		case (CC_CONNECT_ERR):
-			FsmEvent(&chanp->fi, EV_CONNECT_ERR, NULL);
-			break;
-		case (CC_RELEASE_ERR):
-			FsmEvent(&chanp->fi, EV_RELEASE, NULL);
-			break;
-		case (CC_PROCEED_SEND | INDICATION):
-		case (CC_PROCEEDING | INDICATION):
-		case (CC_ALERTING | INDICATION):
-		case (CC_PROGRESS | INDICATION):
-		case (CC_NOTIFY | INDICATION):
-			break;
-		case (CC_REDIR | INDICATION):
-			stat_redir_result(cs->c_if, chanp->chan, pc->redir_result); 
-			break;
-		default:
-			ll_debug(LL_DEB_WARN, chanp->c_if, 
-				 "Ch %d L3->L4 unknown primitive %#x", chanp->chan, pr);
-	}
+	int_error();
 }
 
 static void
@@ -1124,6 +1130,8 @@ channelConstr(struct Channel *chanp, struct CallcIf *c_if, int chan)
 {
 	chanp->cs = c_if->cs;
 	chanp->c_if = c_if;
+	chanp->l4pc.priv = chanp;
+	chanp->l4pc.l3l4 = dchan_l3l4proc;
 	chanp->bcs = &c_if->cs->bcs[chan];
 	chanp->chan = chan;
 	chanp->incoming = 0;
@@ -1235,7 +1243,7 @@ init_b_st(struct Channel *chanp, int incoming)
 	if (chanp->leased)
 		st->l1.bc = chanp->chan & 1;
 	else
-		st->l1.bc = chanp->proc->para.bchannel - 1;
+		st->l1.bc = chanp->l4pc.l3pc->para.bchannel - 1;
 	switch (chanp->l2_active_protocol) {
 		case (ISDN_PROTO_L2_X75I):
 		case (ISDN_PROTO_L2_HDLC):

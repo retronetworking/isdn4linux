@@ -1,6 +1,18 @@
 #ifndef __CALLC_H__
 #define __CALLC_H__
 
+// =================================================================
+// struct l4_process
+
+struct l4_process {
+	struct l3_process *l3pc;
+	void (*l3l4)(struct l4_process *l4pc, int pr, void *arg);
+	void *priv;
+};
+
+// =================================================================
+// struct Channel
+
 struct Channel {
 	struct PStack *b_st, *d_st;
 	struct CallcIf *c_if;
@@ -14,7 +26,7 @@ struct Channel {
 	int l2_protocol, l2_active_protocol;
 	int l3_protocol;
 	int data_open;
-	struct l3_process *proc;
+	struct l4_process l4pc;
 	setup_parm setup;	/* from isdnif.h numbers and Serviceindicator */
 	int Flags;		/* for remembering action done in l4 */
 	int leased;
