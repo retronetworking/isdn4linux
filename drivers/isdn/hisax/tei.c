@@ -7,6 +7,9 @@
  *              Fritz Elfert
  *
  * $Log$
+ * Revision 2.1  1997/07/31 11:50:16  keil
+ * ONE TEI and FIXED TEI handling
+ *
  * Revision 2.0  1997/07/27 21:13:30  keil
  * New TEI managment
  *
@@ -376,11 +379,11 @@ tei_l1l2(struct PStack *st, int pr, void *arg)
 static void
 tei_l2tei(struct PStack *st, int pr, void *arg)
 {
-	char tmp[64];
 	switch (pr) {
 		case (MDL_ASSIGN):
 #ifdef TEI_FIXED
 			if (st->ma.debug) {
+				char tmp[64];
 				sprintf(tmp, "fixed assign tei %d", TEI_FIXED);
 				st->ma.tei_m.printdebug(&st->ma.tei_m, tmp);
 			}
