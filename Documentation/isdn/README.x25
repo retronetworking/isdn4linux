@@ -1,16 +1,16 @@
- 
+  
 X.25 support within isdn4linux
 ==============================
 
-This is experimental code. Use it completely at your own risk.
+This is alpha/beta test code. Use it completely at your own risk.
 As new versions appear, the stuff described here might suddenly change
 or become invalid without notice.
 
 Keep in mind:
 
-You are using an experimental kernel (2.1.x series) with an experimental
-X.25 protocol implementation and experimental X.25-on-top-of-isdn extensions.
-Thus, be prepared to face problems related therefrom.
+You are using several new parts of the 2.2.x kernel series which
+have not been tested in a large scale. Therefore, you might encounter
+more bugs as usual.
 
 - If you connect to an X.25 neighbour not operated by yourself, ASK the
   other side first. Be prepared that bugs in the protocol implementation
@@ -61,9 +61,7 @@ X.25 on top of isdn might be useful with two different scenarios:
 
 - You might want to access a public X.25 data network from your Linux box.
   You can use i4l if you were physically connected to the X.25 switch
-  by an ISDN line (leased line as well as dial up connection should work,
-  but connecting to x.25 network switches is currently untested. Testing
-  needs to be done by somebody with access to such a switch.) 
+  by an ISDN line (leased line as well as dial up connection should work)
 
 - Or you might want to operate certain ISDN teleservices on your linux
   box. A lot of those teleservices run on top of the ISO-8208
@@ -87,15 +85,10 @@ work with every existing HL driver. I was able to successfully open X.25
 connections on top of the isdnloop driver and the hisax driver.
 "x25iface"-encapsulation bypasses demand dialing. Dialing will be
 initiated when the upper (X.25 packet) layer requests the lapb datalink to
-be established. But hangup timeout is still active. The connection
-will not automatically be re-established by the isdn_net module
-itself when new data arrives after the hangup timeout. But
-the X.25 network code will re-establish the datalink connection
-(resulting in re-dialing and an X.25 protocol reset) when new data is
-to be transmitted. (This currently does not work properly with the
-isdnloop driver, see "known problems" below). It is recommended to
-use sufficiently large hangup-timeouts as most application probably
-can't deal with such N-reset events.
+be established. But hangup timeout is still active. Whenever a hangup
+occurs, all existing X.25 connections on that link will be cleared
+It is recommended to use sufficiently large hangup-timeouts for the
+isdn interfaces.
 
 
 In order to set up a conforming protocol stack you also need to
@@ -114,14 +107,15 @@ To mimic an X.25 network switch (DCE side of the connection), use
    isdnctrl l2_prot <iface-name> x25dce
 
 However, x25dte or x25dce is currently not supported by any real HL
-level driver. The main difference between x75 and x25dte/dce is that
+level driver. The main difference between x75i and x25dte/dce is that
 x25d[tc]e uses fixed lap_b addresses. With x75i, the side which
 initiates the isdn connection uses the DTE's lap_b address while the
 called side used the DCE's lap_b address. Thus, l2_prot x75i might
 probably work if you access a public X.25 network as long as the
-corresponding isdn connection is set up by you. However, I've never
-tested this.
-
+corresponding isdn connection is set up by you. At least one test
+was successful to connect via isdn4linux to an X.25 switch using this
+trick. At the switch side, a terminal adapter X.21 was used to connect
+it to the isdn.
 
 
 How to set up a test installation?
@@ -132,10 +126,11 @@ To test X.25 on top of isdn, you need to get
 - a recent version of the "isdnctrl" program that supports setting the new
   X.25 specific parameters.
 
-- the x25-utils-2.1.x package from ftp.pspt.fi/pub/ham/linux/ax25
-  or any mirror site (i.e. ftp://ftp.gwdg.de/pub/linux/misc/ax25/).
+- the x25-utils-2.X package from 
+  ftp://ftp.hes.iki.fi/pub/ham/linux/ax25/x25utils-*
+  (don't confuse the x25-utils with the ax25-utils)
 
-- an application program that uses linux AF_X25 sockets (some are
+- an application program that uses linux PF_X25 sockets (some are
   contained in the x25-util package).
 
 Before compiling the user level utilities make sure that the compiler/
@@ -144,7 +139,7 @@ source tree. Either make /usr/include/linux a symbolic link pointing to
 this kernel's include/linux directory or set the appropriate compiler flags.
 
 When all drivers and interfaces are loaded and configured you need to
-ifconfig the network interfaces up and add x25-routes to them. Use
+ifconfig the network interfaces up and add X.25-routes to them. Use
 the usual ifconfig tool.
 
 ifconfig <iface-name> up
@@ -154,32 +149,22 @@ is needed to set up X.25 routes. I.e.
 
 x25route add 01 <iface-name>
 
-will cause all x.25 connections to the destination x.25-address
+will cause all x.25 connections to the destination X.25-address
 "01" to be routed to your created isdn network interface.
-
 
 There are currently no real X.25 applications available. However, for
 tests, the x25-utils package contains a modified version of telnet
 and telnetd that uses X.25 sockets instead of tcp/ip sockets. You can
 use those for your first tests. Furthermore, you might check
 ftp://ftp.hamburg.pop.de/pub/LOCAL/linux/i4l-eft/ which contains some
-experimental implementation ("eftp4linux") of the EUROfile transfer
+alpha-test implementation ("eftp4linux") of the EUROfile transfer
 protocol.
 
-The eftp4linux test releases also contains an "ix25test" script that
-simplifies the task of configuring a set of isdn network interfaces
-and x.25 routes for testing x.25 on top of isdn. On the same site,
-you might also find a list of known problems and maybe patches and
-hints to work around some of them. 
-
+The scripts distributed with the eftp4linux test releases might also
+provide useful examples for setting up X.25 on top of isdn.
 
 The x25-utility package also contains an x25trace tool that can be
 used to monitor X.25 packets received by the network interfaces.
 The /proc/net/x25* files also contain useful information. 
 
 - Henner
-
-
-
-
-
