@@ -21,10 +21,17 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
- * detlef@abcbtx.de
- *
+ * Fa. abc Agentur fuer
+ * Bildschirm-Communication GmbH
+ * Mercedesstrasse 14
+ * 71063 Sindelfingen
+ * Germany
  *
  * $Log$
+ * Revision 1.2  1998/03/08 13:14:20  detabc
+ * abc-extension support for kernels > 2.1.x
+ * first try (sorry experimental)
+ *
  * Revision 1.1.2.2  1998/03/08 11:35:04  detabc
  * Add cvs header-controls an remove unused funktions
  *

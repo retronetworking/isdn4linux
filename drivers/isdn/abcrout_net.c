@@ -22,12 +22,19 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
- * detlef@abcbtx.de
- * detlef wengorz
  *
+ * Fa. abc Agentur fuer
+ * Bildschirm-Communication GmbH
+ * Mercedesstrasse 14
+ * 71063 Sindelfingen
+ * Germany
  *
  *
  * $Log$
+ * Revision 1.5  1998/04/26 20:01:17  detabc
+ * add new abc-extension-code from 2.0.xx kernels
+ * remove some unused code
+ *
  * Revision 1.4  1998/04/21 18:03:40  detabc
  * changes for 2.1.x kernels
  *
