@@ -60,6 +60,7 @@ ACER P10
 HST Saphir
 Berkom Telekom A4T
 Scitel Quadro
+Gazel ISDN cards
 HFC-PCI based cards
 
 Note: PCF, PCF-Pro: up to now, only the ISDN part is supported
@@ -177,7 +178,8 @@ Card types:
    31	HST Saphir               irq, io
    32	Telekom A4T              none
    33	Scitel Quadro		 subcontroller (4*S0, subctrl 1...4)
-   34	Gazel ISDN cards
+   34	Gazel ISDN cards (ISA)   irq,io
+   34	Gazel ISDN cards (PCI)   none
    35	HFC 2BDS0 PCI            none
 
 
@@ -269,17 +271,18 @@ type
    22   Sedlbauer Speed Star (PCMCIA)  pa=irq, pb=io  (set with card manager)
    24   Dr. Neuhaus Niccy PnP   ONLY WORKS AS A MODULE !
    24   Dr. Neuhaus Niccy PCI   no parameter
-   25   Teles S0Box             irq, io (of the used lpt port)
-   26   AVM A1 PCMCIA (Fritz!)  irq, io (set with card manager)
+   25   Teles S0Box             pa=irq, pb=io (of the used lpt port)
+   26   AVM A1 PCMCIA (Fritz!)  pa=irq, pb=io (set with card manager)
    27   AVM PnP (Fritz!PnP)     ONLY WORKS AS A MODULE !
    27   AVM PCI (Fritz!PCI)     no parameter
    28   Sedlbauer Speed Fax+    ONLY WORKS AS A MODULE !
    29	Siemens I-Surf          ONLY WORKS AS A MODULE !
    30	ACER P10                ONLY WORKS AS A MODULE !
-   31	HST Saphir              irq, io
+   31	HST Saphir              pa=irq, pb=io
    32	Telekom A4T             no parameter
    33	Scitel Quadro		subcontroller (4*S0, subctrl 1...4)
-   34	Gazel ISDN cards
+   34	Gazel ISDN cards (ISA)  pa=irq, pb=io
+   34	Gazel ISDN cards (PCI)  no parameter
    35	HFC 2BDS0 PCI           no parameter
 
 Running the driver
