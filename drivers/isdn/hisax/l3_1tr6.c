@@ -6,6 +6,9 @@
  *
  *
  * $Log$
+ * Revision 2.0  1997/07/27 21:15:45  keil
+ * New Callref based layer3
+ *
  * Revision 1.12  1997/06/26 11:11:45  keil
  * SET_SKBFREE now on creation of a SKB
  *
@@ -131,7 +134,6 @@ l3_1tr6_setup_req(struct l3_process *pc, u_char pr, void *arg)
 	L3AddTimer(&pc->timer, T303, CC_T303);
 	newl3state(pc, 1);
 	pc->st->l3.l3l2(pc->st, DL_DATA, skb);
-
 }
 
 static void
@@ -189,7 +191,8 @@ l3_1tr6_setup(struct l3_process *pc, u_char pr, void *arg)
 		}
 		newl3state(pc, 6);
 		pc->st->l3.l3l4(pc, CC_SETUP_IND, NULL);
-	}
+	} else
+		release_l3_process(pc);
 }
 
 static void
@@ -313,6 +316,7 @@ l3_1tr6_rel(struct l3_process *pc, u_char pr, void *arg)
 	newl3state(pc, 0);
 	l3_1TR6_message(pc, MT_N1_REL_ACK, PROTO_DIS_N1);
 	pc->st->l3.l3l4(pc, CC_RELEASE_IND, NULL);
+	release_l3_process(pc);
 }
 
 static void
@@ -325,6 +329,7 @@ l3_1tr6_rel_ack(struct l3_process *pc, u_char pr, void *arg)
 	newl3state(pc, 0);
 	pc->para.cause = -1;
 	pc->st->l3.l3l4(pc, CC_RELEASE_CNF, NULL);
+	release_l3_process(pc);
 }
 
 static void
@@ -434,7 +439,7 @@ l3_1tr6_setup_rsp(struct l3_process *pc, u_char pr, void *arg)
 static void
 l3_1tr6_reset(struct l3_process *pc, u_char pr, void *arg)
 {
-	newl3state(pc, 0);
+	release_l3_process(pc);
 }
 
 static void
@@ -492,7 +497,7 @@ l3_1tr6_t303(struct l3_process *pc, u_char pr, void *arg)
 	} else {
 		L3DelTimer(&pc->timer);
 		pc->st->l3.l3l4(pc, CC_NOSETUP_RSP_ERR, NULL);
-		newl3state(pc, 0);
+		release_l3_process(pc);
 	}
 }
 
@@ -503,7 +508,6 @@ l3_1tr6_t304(struct l3_process *pc, u_char pr, void *arg)
 	pc->para.cause = 0xE6;
 	l3_1tr6_disconnect_req(pc, pr, NULL);
 	pc->st->l3.l3l4(pc, CC_SETUP_ERR, NULL);
-
 }
 
 static void
@@ -574,7 +578,7 @@ l3_1tr6_t308_2(struct l3_process *pc, u_char pr, void *arg)
 {
 	L3DelTimer(&pc->timer);
 	pc->st->l3.l3l4(pc, CC_RELEASE_ERR, NULL);
-	newl3state(pc, 0);
+	release_l3_process(pc);
 }
 /* *INDENT-OFF* */
 static struct stateentry downstl[] =
