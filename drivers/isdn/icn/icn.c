@@ -19,6 +19,10 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.50  1998/03/07 17:41:54  detabc
+ * add d-channel connect and disconnect support statcallback
+ * from icn low-level to link->level
+ *
  * Revision 1.49  1998/02/13 11:14:15  keil
  * change for 2.1.86 (removing FREE_READ/FREE_WRITE from [dev]_kfree_skb()
  *
@@ -639,25 +643,23 @@ icn_parse_status(u_char * status, int channel, icn_card * card)
 			icn_free_queue(card,channel);
 			card->rcvidx[channel] = 0;
 
-			if( card->flags & 
-				((channel)?ICN_FLAGS_B2ACTIVE:ICN_FLAGS_B1ACTIVE)) {
-
+			if (card->flags & 
+			    ((channel)?ICN_FLAGS_B2ACTIVE:ICN_FLAGS_B1ACTIVE)) {
+				
 				isdn_ctrl ncmd;
-
-				printk(KERN_INFO "icn: D-Channel hangup before B-Channel hangup\n");
+				
 				card->flags &= ~((channel)?
-						ICN_FLAGS_B2ACTIVE:ICN_FLAGS_B1ACTIVE);
-
-				memset(&ncmd,0,sizeof(ncmd));
-
+						 ICN_FLAGS_B2ACTIVE:ICN_FLAGS_B1ACTIVE);
+				
+				memset(&ncmd, 0, sizeof(ncmd));
+				
 				ncmd.driver = card->myid;
 				ncmd.arg = channel;
 				ncmd.command = ISDN_STAT_BHUP;
 				restore_flags(flags);
 				card->interface.statcallb(&cmd);
-				dflag |= (channel+1);
-
-			} else restore_flags(flags);
+			} else
+				restore_flags(flags);
 			
 			break;
 		case 1:
