@@ -6,6 +6,10 @@
  * (c) Copyright 1999 by Carsten Paeth (calle@calle.in-berlin.de)
  * 
  * $Log$
+ * Revision 1.6  2000/04/03 13:29:25  calle
+ * make Tim Waugh happy (module unload races in 2.3.99-pre3).
+ * no real problem there, but now it is much cleaner ...
+ *
  * Revision 1.5  2000/02/02 18:36:04  calle
  * - Modules are now locked while init_module is running
  * - fixed problem with memory mapping if address is not aligned
@@ -165,7 +169,11 @@ static int t1pci_add_card(struct capi_driver *driver, struct capicardparams *p)
 	b1dma_reset(card);
 
 	if ((retval = t1pci_detect(card)) != 0) {
-		printk(KERN_NOTICE "%s: NO card at 0x%x (%d)\n",
+		if (retval < 6)
+			printk(KERN_NOTICE "%s: NO card at 0x%x (%d)\n",
+					driver->name, card->port, retval);
+		else
+			printk(KERN_NOTICE "%s: card at 0x%x, but cabel not connected or T1 has no power (%d)\n",
 					driver->name, card->port, retval);
                 iounmap((void *) (((unsigned long) card->mbase) & PAGE_MASK));
 	        kfree(card->ctrlinfo);
