@@ -100,6 +100,9 @@ static void deflect_timer_expire(ulong arg)
        restore_flags(flags); 
        break;
 
+     case NETWORK_DIAL:
+       divert_if.dial_net_name(cs->deflect_dest);  
+
      case DEFLECT_AUTODEL:
      default:
        save_flags(flags);
@@ -467,6 +470,7 @@ int isdn_divert_icall(isdn_ctrl *ic)
          case DEFLECT_PROCEED:
          case DEFLECT_REPORT:
          case DEFLECT_REJECT:
+         case NETWORK_DIAL:
            if (dv->rule.action == DEFLECT_PROCEED)
 	    if ((!if_used) || ((!extern_wait_max) && (!dv->rule.waittime))) 
               return(0); /* no external deflection needed */  
@@ -510,6 +514,11 @@ int isdn_divert_icall(isdn_ctrl *ic)
            else
              { cs->deflect_dest[0] = '\0';
 	       retval = 4; /* only proceed */
+	       if (cs->akt_state == NETWORK_DIAL) {
+		 strcpy(cs->deflect_dest,dv->rule.to_nr);
+		 cs->timer.expires = jiffies + 10;
+		 retval = 0;
+	       }
              }  
            sprintf(cs->info,"%d 0x%lx %s %s %s %s 0x%x 0x%x %d %d %s\n",
                    cs->akt_state,
@@ -530,7 +539,6 @@ int isdn_divert_icall(isdn_ctrl *ic)
               return((dv->rule.action == DEFLECT_REPORT) ? 0:2); /* nothing to do */ 
             }              
            break;
-  
          default:
            return(0); /* ignore call */
            break;

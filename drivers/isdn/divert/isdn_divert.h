@@ -49,9 +49,10 @@
 #define DEFLECT_PROCEED   2  /* deflect when externally triggered */
 #define DEFLECT_ALERT     3  /* alert and deflect after delay */ 
 #define DEFLECT_REJECT    4  /* reject immediately */
-#define DIVERT_ACTIVATE   5  /* diversion activate */
-#define DIVERT_DEACTIVATE 6  /* diversion deactivate */
-#define DIVERT_REPORT     7  /* interrogation result */ 
+#define NETWORK_DIAL      5  /* dial a network interface */
+#define DIVERT_ACTIVATE   16 /* diversion activate */
+#define DIVERT_DEACTIVATE 17 /* diversion deactivate */
+#define DIVERT_REPORT     18 /* interrogation result */ 
 #define DEFLECT_AUTODEL 255  /* only for internal use */ 
 
 #define DEFLECT_ALL_IDS   0xFFFFFFFF /* all drivers selected */
@@ -73,6 +74,7 @@ typedef struct
                        2 = report call, send proceed, wait max waittime secs
                        3 = report call, alert and deflect after waittime 
                        4 = report call, reject immediately  
+                       5 = dial net interface specified in to_nr  
                        actions 1-2 only take place if interface is opened 
 		    */
    u_char waittime; /* maximum wait time for proceeding */ 
