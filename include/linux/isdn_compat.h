@@ -118,6 +118,10 @@ static inline unsigned long copy_to_user(void *to, const void *from, unsigned lo
 #define pci_resource_start_mem(pdev, nr) pci_resource_start(pdev, nr)
 #define get_pcibase(ps, nr) ps->resource[nr].start
 #endif
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2,4,0)
+#define pci_get_sub_vendor(pdev, id)	pci_read_config_word(pdev, PCI_SUBSYSTEM_VENDOR_ID, &id)
+#define pci_get_sub_system(pdev, id)	pci_read_config_word(pdev, PCI_SUBSYSTEM_ID, &id)
+#endif
 #endif
 
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2,1,118)
@@ -173,6 +177,16 @@ static inline unsigned long copy_to_user(void *to, const void *from, unsigned lo
 #define spin_unlock_bh(lock)
 #define COMPAT_NEED_SPIN_LOCK_BH
 #endif
+
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2,3,99)
+#define i_count_read(ic) ic
+#define i_count_inc(ic)  ic++
+#else
+#define i_count_read(ic) atomic_read(&ic)
+#define i_count_inc(ic)  atomic_inc(&ic)
+#endif
+
+#define COMPAT_PCI_COMMON_ID
 
 #endif /* __KERNEL__ */
 #endif /* _LINUX_ISDN_COMPAT_H */
