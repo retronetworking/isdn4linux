@@ -94,6 +94,7 @@ if [ "$CONFIG_EXPERIMENTAL" != "n" ]; then
 
 		if [ "$CONFIG_ISDN_WITH_ABC_UDP_CHECK" != "n" ]; then
 			bool 'Enable Hangup-Support with UDP-INFO' 				CONFIG_ISDN_WITH_ABC_UDP_CHECK_HANGUP
+			bool 'Enable Dial-Support with UDP-INFO'				CONFIG_ISDN_WITH_ABC_UDP_CHECK_DIAL
 		fi
 
 	fi

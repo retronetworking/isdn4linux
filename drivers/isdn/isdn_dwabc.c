@@ -20,6 +20,15 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.4  1999/10/27 21:21:17  detabc
+ * Added support for building logically-bind-group's per interface.
+ * usefull for outgoing call's with more then one isdn-card.
+ *
+ * Switchable support to dont reset the hangup-timeout for
+ * receive frames. Most part's of the timru-rules for receiving frames
+ * are now obsolete. If the input- or forwarding-firewall deny
+ * the frame, the line will be not hold open.
+ *
  * Revision 1.3  1999/09/23 22:22:41  detabc
  * added tcp-keepalive-detect with local response (ipv4 only)
  * added host-only-interface support
@@ -436,19 +445,27 @@ int dw_abc_udp_test(struct sk_buff *skb,struct net_device *ndev)
 						char mc = 0;
 
 						switch(*p) {
-						case 0x32:
 						case 0x30:
 
 							mc = *p;
 
+							if((lp->flags & ISDN_NET_CONNECTED) && (!lp->dialstate))
+								mc++;
+
+							break;
+
+						case 0x32:
+
+							mc = *p;
+#ifdef CONFIG_ISDN_WITH_ABC_UDP_CHECK_DIAL
 							if((lp->flags & ISDN_NET_CONNECTED) && (!lp->dialstate)) {
 
 								mc++;
 								break;
 							}
 
-							if(*p != 0x32) break;
 							if(!isdn_net_force_dial_lp(lp)) mc++;
+#endif
 							break;
 
 						case 0x11:
@@ -464,9 +481,10 @@ int dw_abc_udp_test(struct sk_buff *skb,struct net_device *ndev)
 						case 0x28:	mc = *p + 1;	break;
 						case 0x2a:
 						case 0x2c:
+
+							mc = *p;
 #ifdef CONFIG_ISDN_WITH_ABC_UDP_CHECK_HANGUP
 							if(!(lp->dw_abc_flags & ISDN_DW_ABC_FLAG_NO_UDP_HANGUP)) {
-								mc = *p;
 
 								if(lp->isdn_device >= 0) {
 
@@ -474,9 +492,6 @@ int dw_abc_udp_test(struct sk_buff *skb,struct net_device *ndev)
 									mc = *p + 1;
 								}
 							}
-#else
-							printk(KERN_DEBUG "%s: UDP-INFO-HANGUP not supportet\n",
-								lp->name);
 #endif
 							break;
 						}
