@@ -6,6 +6,10 @@
  * (c) Copyright 1999 by Carsten Paeth (calle@calle.in-berlin.de)
  * 
  * $Log$
+ * Revision 1.19  2001/03/20 13:14:50  calle
+ * - the revision strings in 2.4.3-pre4 get to long, changed handling
+ *   to support revision strings > 9 ...
+ *
  * Revision 1.18  2001/03/15 15:48:04  kai
  * compatibility changes from KERNEL_2_4
  *
@@ -105,6 +109,7 @@
 #include <linux/interrupt.h>
 #include <linux/ioport.h>
 #include <linux/capi.h>
+#include <linux/kernelcapi.h>
 #include <linux/init.h>
 #include <linux/isdn_compat.h>
 #include <asm/io.h>
@@ -407,7 +412,7 @@ static int t1isa_load_firmware(struct capi_ctr *ctrl, capiloaddata *data)
 	cli();
 	b1_setinterrupt(port, card->irq, card->cardtype);
 	b1_put_byte(port, SEND_INIT);
-	b1_put_word(port, AVM_NAPPS);
+	b1_put_word(port, CAPI_MAXAPPL);
 	b1_put_word(port, AVM_NCCI_PER_CHANNEL*30);
 	b1_put_word(port, ctrl->cnr - 1);
 	restore_flags(flags);

@@ -4,6 +4,9 @@
  * Copyright 1999 by Carsten Paeth (calle@calle.in-berlin.de)
  *
  * $Log$
+ * Revision 1.9  2001/04/18 12:26:15  calle
+ * support for AVM ISDN Controller C2 added.
+ *
  * Revision 1.8  2000/10/10 17:44:19  kai
  * changes from/for 2.2.18
  *
@@ -59,7 +62,6 @@
 
 #define	AVMB1_PORTLEN		0x1f
 #define AVM_MAXVERSION		8
-#define AVM_NAPPS		30
 #define AVM_NCCI_PER_CHANNEL	4
 
 /*

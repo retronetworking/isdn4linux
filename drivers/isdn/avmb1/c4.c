@@ -6,6 +6,9 @@
  * (c) Copyright 1999 by Carsten Paeth (calle@calle.in-berlin.de)
  * 
  * $Log$
+ * Revision 1.34  2001/04/19 13:00:54  calle
+ * - Ignore reset notification if controllers are in detect state.
+ *
  * Revision 1.33  2001/04/19 11:00:41  calle
  * Now the C2 is really running ...
  *
@@ -142,6 +145,7 @@
 #include <linux/pci.h>
 #include <linux/isdn_compat.h>
 #include <linux/capi.h>
+#include <linux/kernelcapi.h>
 #include <linux/init.h>
 #include <asm/io.h>
 #include <asm/uaccess.h>
@@ -883,7 +887,7 @@ static void c4_send_init(avmcard *card)
 	_put_byte(&p, 0);
 	_put_byte(&p, 0);
 	_put_byte(&p, SEND_INIT);
-	_put_word(&p, AVM_NAPPS);
+	_put_word(&p, CAPI_MAXAPPL);
 	_put_word(&p, AVM_NCCI_PER_CHANNEL*30);
 	_put_word(&p, card->cardnr - 1);
 	skb_put(skb, (__u8 *)p - (__u8 *)skb->data);

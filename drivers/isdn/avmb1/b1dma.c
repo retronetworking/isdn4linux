@@ -6,6 +6,9 @@
  * (c) Copyright 2000 by Carsten Paeth (calle@calle.in-berlin.de)
  * 
  * $Log$
+ * Revision 1.14  2001/04/18 12:26:15  calle
+ * support for AVM ISDN Controller C2 added.
+ *
  * Revision 1.13  2001/03/20 13:14:50  calle
  * - the revision strings in 2.4.3-pre4 get to long, changed handling
  *   to support revision strings > 9 ...
@@ -60,6 +63,7 @@
 #include <linux/interrupt.h>
 #include <linux/ioport.h>
 #include <linux/capi.h>
+#include <linux/kernelcapi.h>
 #include <asm/io.h>
 #include <linux/init.h>
 #include <linux/isdn_compat.h>
@@ -727,7 +731,7 @@ static void b1dma_send_init(avmcard *card)
 	_put_byte(&p, 0);
 	_put_byte(&p, 0);
 	_put_byte(&p, SEND_INIT);
-	_put_word(&p, AVM_NAPPS);
+	_put_word(&p, CAPI_MAXAPPL);
 	_put_word(&p, AVM_NCCI_PER_CHANNEL*30);
 	_put_word(&p, card->cardnr - 1);
 	skb_put(skb, (__u8 *)p - (__u8 *)skb->data);
