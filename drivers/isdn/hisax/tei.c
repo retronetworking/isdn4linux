@@ -7,6 +7,9 @@
  *              Fritz Elfert
  *
  * $Log$
+ * Revision 1.8.2.3  1997/11/15 18:54:20  keil
+ * cosmetics
+ *
  * Revision 1.8.2.2  1997/10/17 22:14:23  keil
  * update to last hisax version
  *
@@ -385,7 +388,7 @@ tei_l2tei(struct PStack *st, int pr, void *arg)
 				sprintf(tmp, "fixed assign tei %d", TEI_FIXED);
 				st->ma.tei_m.printdebug(&st->ma.tei_m, tmp);
 			}
-			st->ma.manl2(st, MDL_ASSIGN, (void *) (int) TEI_FIXED);
+			st->ma.manl2(st, MDL_ASSIGN_REQ, (void *) (int) TEI_FIXED);
 #else
 			FsmEvent(&st->ma.tei_m, EV_IDREQ, arg);
 #endif
