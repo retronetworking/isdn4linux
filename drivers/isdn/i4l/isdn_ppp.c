@@ -606,7 +606,9 @@ isdn_ppp_ioctl(int min, struct file *file, unsigned int cmd, unsigned long arg)
 
 				if (copy_from_user(&uprog, (void *) arg, sizeof(uprog)))
 					return -EFAULT;
-				if (uprog.len > 0 && uprog.len < 65536) {
+				if (uprog.len > BPF_MAXINSNS)
+					return -EINVAL;
+				if (uprog.len > 0) {
 					len = uprog.len * sizeof(struct sock_filter);
 					code = kmalloc(len, GFP_KERNEL);
 					if (code == NULL)

@@ -16,6 +16,19 @@ config ISDN_PPP
 	  feature. See <file:Documentation/isdn/README.syncppp> and
 	  <file:Documentation/isdn/syncPPP.FAQ> for more information.
 
+config IPPP_FILTER
+	bool "PPP filtering for ISDN"
+	depends on ISDN_PPP
+	help
+	  Say Y here if you want to be able to filter the packets passing over
+	  ISDN sync PPP interfaces.  This allows you to control which packets count
+	  as activity (i.e. which packets will reset the idle timer or bring up
+	  a demand-dialled link) and which packets are to be dropped entirely.
+	  You need to say Y here if you wish to use the pass-filter and
+	  active-filter options to ipppd.
+
+	  If unsure, say N.
+
 config ISDN_PPP_VJ
 	bool "Use VJ-compression with synchronous PPP"
 	depends on ISDN_PPP
