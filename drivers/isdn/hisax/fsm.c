@@ -7,6 +7,9 @@
  *              Fritz Elfert
  *
  * $Log$
+ * Revision 1.4  1997/04/06 22:56:42  keil
+ * Some cosmetic changes
+ *
  * Revision 1.3  1997/02/16 01:04:08  fritz
  * Bugfix: Changed timer handling caused hang with 2.1.X
  *
@@ -152,10 +155,26 @@ FsmAddTimer(struct FsmTimer *ft,
 	return 0;
 }
 
-int
-FsmTimerRunning(struct FsmTimer *ft)
+void
+FsmRestartTimer(struct FsmTimer *ft,
+	    int millisec, int event, void *arg, int where)
 {
-	return (ft->tl.next != NULL);
+
+#if FSM_TIMER_DEBUG
+	if (ft->fi->debug) {
+		char str[40];
+		sprintf(str, "FsmRestartTimer %lx %d %d", (long) ft, millisec, where);
+		ft->fi->printdebug(ft->fi, str);
+	}
+#endif
+
+	if (ft->tl.next || ft->tl.prev)
+		del_timer(&ft->tl);
+	init_timer(&ft->tl);
+	ft->event = event;
+	ft->arg = arg;
+	ft->tl.expires = jiffies + (millisec * HZ) / 1000;
+	add_timer(&ft->tl);
 }
 
 void
