@@ -21,6 +21,14 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.32  1997/02/03 22:55:26  fritz
+ * Reformatted according CodingStyle.
+ * Changed isdn_writebuf_stub static.
+ * Slow down tty-RING counter.
+ * skb->free stuff replaced by macro.
+ * Bugfix in audio-skb locking.
+ * Bugfix in HL-driver locking.
+ *
  * Revision 1.31  1997/01/17 01:19:18  fritz
  * Applied chargeint patch.
  *
@@ -145,11 +153,13 @@
  */
 
 #include <linux/config.h>
+#define __NO_VERSION__
 #include <linux/module.h>
 #include <linux/version.h>
-#ifndef __GENKSYMS__            /* Don't want genksyms report unneeded structs */
-#include <linux/isdn.h>
+#if (LINUX_VERSION_CODE >= 0x020117)
+#include <asm/poll.h>
 #endif
+#include <linux/isdn.h>
 #include "isdn_common.h"
 #include "isdn_tty.h"
 #include "isdn_net.h"
@@ -165,7 +175,6 @@
 
 isdn_dev *dev = (isdn_dev *) 0;
 
-static int has_exported = 0;
 static char *isdn_revision = "$Revision$";
 
 extern char *isdn_net_revision;
@@ -1097,6 +1106,7 @@ isdn_write(struct inode *inode, struct file *file, const char *buf, RWARG count)
 	return -ENODEV;
 }
 
+#if (LINUX_VERSION_CODE < 0x020117)
 static int
 isdn_select(struct inode *inode, struct file *file, int type, select_table * st)
 {
@@ -1130,6 +1140,42 @@ isdn_select(struct inode *inode, struct file *file, int type, select_table * st)
 #endif
 	return -ENODEV;
 }
+#else
+static unsigned int
+isdn_poll(struct file *file, poll_table * wait)
+{
+	unsigned int mask = 0;
+	unsigned int minor = MINOR(file->f_inode->i_rdev);
+	int drvidx = isdn_minor2drv(minor - ISDN_MINOR_CTRL);
+
+	if (minor == ISDN_MINOR_STATUS) {
+		poll_wait(&(dev->info_waitq), wait);
+		/* mask = POLLOUT | POLLWRNORM; */
+		if (file->private_data) {
+			mask |= POLLIN | POLLRDNORM;
+		}
+		return mask;
+	}
+	if (minor >= ISDN_MINOR_CTRL && minor <= ISDN_MINOR_CTRLMAX) {
+		poll_wait(&(dev->drv[drvidx]->st_waitq), wait);
+		if (drvidx < 0) {
+			printk(KERN_ERR "isdn_common: isdn_poll 1 -> what the hell\n");
+			return POLLERR;
+		}
+		mask = POLLOUT | POLLWRNORM;
+		if (dev->drv[drvidx]->stavail) {
+			mask |= POLLIN | POLLRDNORM;
+		}
+		return mask;
+	}
+#ifdef CONFIG_ISDN_PPP
+	if (minor <= ISDN_MINOR_PPPMAX)
+		return (isdn_ppp_poll(file, wait));
+#endif
+	printk(KERN_ERR "isdn_common: isdn_poll 2 -> what the hell\n");
+	return POLLERR;
+}
+#endif
 
 static int
 isdn_set_allcfg(char *src)
@@ -1794,7 +1840,11 @@ static struct file_operations isdn_fops =
 	isdn_read,
 	isdn_write,
 	NULL,                   /* isdn_readdir */
+#if (LINUX_VERSION_CODE < 0x020117)
 	isdn_select,            /* isdn_select */
+#else
+	isdn_poll,              /* isdn_poll */
+#endif
 	isdn_ioctl,             /* isdn_ioctl */
 	NULL,                   /* isdn_mmap */
 	isdn_open,
@@ -2161,32 +2211,6 @@ isdn_getrev(const char *revision)
 	return rev;
 }
 
-#if (LINUX_VERSION_CODE < 0x020111)
-static struct symbol_table isdn_syms =
-{
-#include <linux/symtab_begin.h>
-	X(register_isdn),
-#include <linux/symtab_end.h>
-};
-
-static void
-isdn_export_syms(void)
-{
-	register_symtab(&isdn_syms);
-	has_exported = 1;
-}
-
-#else
-EXPORT_SYMBOL(register_isdn);
-
-static void
-isdn_export_syms(void)
-{
-	has_exported = 1;
-}
-
-#endif
-
 /*
  * Allocate and initialize all data, register modem-devices
  */
@@ -2244,8 +2268,7 @@ isdn_init(void)
 	}
 #endif                          /* CONFIG_ISDN_PPP */
 
-	if (!has_exported)
-		isdn_export_syms();
+	isdn_export_syms();
 
 	strcpy(irev, isdn_revision);
 	strcpy(trev, isdn_tty_revision);

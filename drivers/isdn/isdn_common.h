@@ -21,6 +21,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.4  1997/02/03 22:56:50  fritz
+ * Removed isdn_writebuf_stub prototype.
+ *
  * Revision 1.3  1996/05/19 00:13:05  fritz
  * Removed debug flag.
  *
@@ -57,6 +60,12 @@ extern int isdn_getnum(char **);
 extern int isdn_readbchan(int, int, u_char *, u_char *, int, int);
 extern int isdn_get_free_channel(int, int, int, int, int);
 extern int isdn_writebuf_skb_stub(int, int, struct sk_buff *);
+extern int register_isdn(isdn_if * i);
+#if (LINUX_VERSION_CODE < 0x020111)
+extern void isdn_export_syms(void);
+#else
+#define isdn_export_syms()
+#endif
 #if defined(ISDN_DEBUG_NET_DUMP) || defined(ISDN_DEBUG_MODEM_DUMP)
 extern void isdn_dumppkt(char *, u_char *, int, int);
 #endif
