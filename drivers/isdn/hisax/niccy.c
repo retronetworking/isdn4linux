@@ -8,6 +8,9 @@
  * Thanks to Dr. Neuhaus and SAGEM for informations
  *
  * $Log$
+ * Revision 1.1.2.3  1998/04/08 22:05:26  keil
+ * Forgot PCI fix
+ *
  * Revision 1.1.2.2  1998/04/08 21:48:23  keil
  * New init; working Niccy PCI
  *
@@ -19,6 +22,7 @@
 
 
 #define __NO_VERSION__
+#include <linux/config.h>
 #include "hisax.h"
 #include "isac.h"
 #include "hscx.h"
