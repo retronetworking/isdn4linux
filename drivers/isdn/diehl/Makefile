@@ -15,7 +15,7 @@
 
 L_OBJS :=
 M_OBJS :=
-O_OBJS := module.o diehl_isa.o
+O_OBJS := module.o diehl_isa.o diehl_pci.o
 
 O_TARGET :=
 ifeq ($(CONFIG_ISDN_DRV_DIEHL),y)
