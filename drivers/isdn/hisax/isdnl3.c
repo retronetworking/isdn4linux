@@ -11,6 +11,9 @@
  *              Fritz Elfert
  *
  * $Log$
+ * Revision 2.10  1999/07/21 14:46:19  keil
+ * changes from EICON certification
+ *
  * Revision 2.9  1999/07/01 08:11:53  keil
  * Common HiSax version for 2.0, 2.1, 2.2 and 2.3 kernel
  *
@@ -373,10 +376,13 @@ static void
 l3ml3p(struct PStack *st, int pr)
 {
 	struct l3_process *p = st->l3.proc;
+	struct l3_process *np;
 
 	while (p) {
+		/* p might be kfreed under us, so we need to save where we want to go on */
+		np = p->next;
 		st->l3.l3ml3(st, pr, p);
-		p = p->next;
+		p = np;
 	}
 }
 

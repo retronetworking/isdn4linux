@@ -11,6 +11,9 @@
  *              Fritz Elfert
  *
  * $Log$
+ * Revision 2.20  1999/08/25 16:52:04  keil
+ * Make gcc on AXP happy
+ *
  * Revision 2.19  1999/08/05 20:40:26  keil
  * Fix interlayer communication
  *
@@ -358,7 +361,7 @@ IsRNR(u_char * data, struct PStack *st)
 int
 iframe_error(struct PStack *st, struct sk_buff *skb)
 {
-	int i = l2addrsize(&st->l2) + (test_bit(FLG_MOD128, &st->l2.flag) ? 1 : 0);
+	int i = l2addrsize(&st->l2) + (test_bit(FLG_MOD128, &st->l2.flag) ? 2 : 1);
 	int rsp = *skb->data & 0x2;
 
 	if (test_bit(FLG_ORIG, &st->l2.flag))
