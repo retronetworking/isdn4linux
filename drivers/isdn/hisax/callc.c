@@ -7,6 +7,9 @@
  *              Fritz Elfert
  *
  * $Log$
+ * Revision 1.21  1997/02/19 09:24:27  keil
+ * Bugfix: Hangup to LL if a ttyI rings
+ *
  * Revision 1.20  1997/02/17 00:32:47  keil
  * Bugfix: No Busy reported to LL
  *
@@ -1239,6 +1242,9 @@ release_ds(struct Channel *chanp)
 			releasestack_transl2(st);
 			break;
 	}
+	/* Reset B-Channel Statemachine */
+	FsmDelTimer(&chanp->lc_b.act_timer, 79);
+	FsmChangeState(&chanp->lc_b.lcfi, ST_LC_NULL);
 }
 
 static void
