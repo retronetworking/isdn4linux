@@ -21,6 +21,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.107  2000/02/13 09:52:05  kai
+ * increased TX_TIMEOUT to 20sec
+ *
  * Revision 1.106  2000/02/12 19:26:55  kai
  * adopted to latest 2.3 softnet changes.
  *
@@ -526,8 +529,20 @@ static void __inline__ isdn_net_lp_xon(isdn_net_local * lp)
 		netif_wake_queue(&lp->netdev->dev);
 }
 
+/* For 2.2.x we leave the transmitter busy timeout at 2 secs, just 
+ * to be safe.
+ * For 2.3.x we push it up to 20 secs, because call establishment
+ * (in particular callback) may take such a long time, and we 
+ * don't want confusing messages in the log. However, there is a slight
+ * possibility that this large timeout will break other things like MPPP,
+ * which might rely on the tx timeout. If so, we'll find out this way...
+ */
 
+#ifdef COMPAT_NO_SOFTNET
+#define ISDN_NET_TX_TIMEOUT (2*HZ)
+#else
 #define ISDN_NET_TX_TIMEOUT (20*HZ) 
+#endif
 
 /* Prototypes */
 
