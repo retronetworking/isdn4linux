@@ -23,6 +23,9 @@
  * detlef@abcbtx.de
  * detlef wengorz
  * $Log$
+ * Revision 1.1.2.2  1998/03/08 11:35:06  detabc
+ * Add cvs header-controls an remove unused funktions
+ *
  */
 
 #include <linux/config.h>
@@ -909,7 +912,7 @@ void abc_hup_snd_test(isdn_net_local *lp,struct sk_buff *skb)
 	u_short k;
 	u_char *p = skb->data;
 
-	if(!lp->abc_bchan_is_up)
+	if(!lp->abc_bchan_is_up) 
 		return;
 
 	if(lp->master)
@@ -917,7 +920,9 @@ void abc_hup_snd_test(isdn_net_local *lp,struct sk_buff *skb)
 	
 	if(!(lpm->abc_flags & ABC_ABCROUTER)) {
 
+#ifndef CONFIG_ISDN_TIMEOUT_RULE
 		lp->huptimer = 0;
+#endif
 		return;
 	}
 
@@ -927,7 +932,9 @@ void abc_hup_snd_test(isdn_net_local *lp,struct sk_buff *skb)
 	if(k & ABCR_TCPKEEP)
 		return;
 
+#ifndef CONFIG_ISDN_TIMEOUT_RULE
 	lp->huptimer = 0;
+#endif
 	return;
 }
 
@@ -1341,7 +1348,10 @@ struct sk_buff *abc_test_receive(struct device *ndev, struct sk_buff *skb)
 				isdn_net_log_packet(skb->data,lp);
 				lp->abc_first_disp = 1;
 			}
-
+#ifdef CONFIG_ISDN_TIMEOUT_RULES
+	isdn_net_recalc_timeout(ISDN_TIMRU_KEEPUP_IN,
+		ISDN_TIMRU_PACKET_SKB, ndev, skb, 0);
+#endif
 			netif_rx(skb);
 		}
 
@@ -1360,6 +1370,10 @@ struct sk_buff *abc_test_receive(struct device *ndev, struct sk_buff *skb)
 			lp->abc_first_disp = 1;
 		}
 
+#ifdef CONFIG_ISDN_TIMEOUT_RULES
+	isdn_net_recalc_timeout(ISDN_TIMRU_KEEPUP_IN,
+		ISDN_TIMRU_PACKET_SKB, ndev, skb, 0);
+#endif
 		netif_rx(skb);
 	}
 		
