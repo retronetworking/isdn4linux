@@ -21,6 +21,11 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.53  1998/02/20 17:18:05  fritz
+ * Changes for recent kernels.
+ * Added common stub for sending commands to lowlevel.
+ * Added V.110.
+ *
  * Revision 1.52  1998/01/31 22:05:57  keil
  * Lots of changes for X.25 support:
  * Added generic support for connection-controlling encapsulation protocols
@@ -1949,30 +1954,43 @@ int
 isdn_writebuf_skb_stub(int drvidx, int chan, int ack, struct sk_buff *skb)
 {
 	int ret;
+	struct sk_buff *nskb;
 	int v110_ret = skb->len;
 	int idx = isdn_dc2minor(drvidx, chan);
 
 	if (dev->v110[idx]) {
 		atomic_inc(&dev->v110use[idx]);
-		skb = isdn_v110_encode(dev->v110[idx], skb);
+		nskb = isdn_v110_encode(dev->v110[idx], skb);
 		atomic_dec(&dev->v110use[idx]);
-		if (!skb)
+		if (!nskb)
 			return 0;
+		v110_ret = *((int *)nskb->data);
+		skb_pull(nskb, sizeof(int));
+		if (!nskb->len) {
+			dev_kfree_skb(nskb);
+			dev_kfree_skb(skb);
+			return v110_ret;
+		}
 		/* V.110 must always be acknowledged */
 		ack = 1;
-	}
-	ret = dev->drv[drvidx]->interface->writebuf_skb(drvidx, chan, ack, skb);
+		ret = dev->drv[drvidx]->interface->writebuf_skb(drvidx, chan, ack, nskb);
+	} else
+		ret = dev->drv[drvidx]->interface->writebuf_skb(drvidx, chan, ack, skb);
 	if (ret > 0) {
 		dev->obytes[idx] += ret;
 		if (dev->v110[idx]) {
 			atomic_inc(&dev->v110use[idx]);
 			dev->v110[idx]->skbuser++;
 			atomic_dec(&dev->v110use[idx]);
+			dev_kfree_skb(skb);
 			/* For V.110 return unencoded data length */
-			printk(KERN_DEBUG "xmit2 V110 %d\n", skb->len);
 			ret = v110_ret;
+			if (ret == skb->len)
+				dev_kfree_skb(skb);
 		}
-	}
+	} else
+		if (dev->v110[idx])
+			dev_kfree_skb(nskb);
 	return ret;
 }
 

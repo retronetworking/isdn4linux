@@ -20,6 +20,11 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.46  1998/02/20 17:23:08  fritz
+ * Changes for recent kernels.
+ * Merged in contributions by Thomas Pfeiffer (V.110 T.70+ Extended FAX stuff)
+ * Added symbolic constants for Modem-Registers.
+ *
  * Revision 1.45  1998/01/31 22:07:49  keil
  * changes for newer kernels
  *
@@ -2676,6 +2681,12 @@ isdn_tty_cmd_ATand(char **p, modem_info * info)
 #endif
 			m->mdmreg[REG_PSIZE] = i / 16;
 			info->xmit_size = m->mdmreg[REG_PSIZE] * 16;
+			switch (m->mdmreg[REG_L2PROT]) {
+				case ISDN_PROTO_L2_V11096:
+				case ISDN_PROTO_L2_V11019:
+				case ISDN_PROTO_L2_V11038:
+					info->xmit_size /= 10;		
+			}
 			break;
 		case 'D':
 			/* &D - Set DCD-Low-behavior */
@@ -2731,7 +2742,7 @@ isdn_tty_cmd_ATand(char **p, modem_info * info)
 					break;
 				case 38400:
 					m->mdmreg[REG_L2PROT] = ISDN_PROTO_L2_V11038;
-					m->mdmreg[REG_SI2] = 200; /* ??? */
+					m->mdmreg[REG_SI2] = 198; /* no existing standard for this */
 					info->xmit_size = m->mdmreg[REG_PSIZE] * 16 / 10;
 					break;
 				default:
@@ -2777,7 +2788,7 @@ isdn_tty_cmd_ATand(char **p, modem_info * info)
 			}
 			break;
 		case 'X':
-			/* &X - Switch to BTX-Mode */
+			/* &X - Switch to BTX-Mode and T.70 */
 			p[0]++;
 			switch (isdn_getnum(p)) {
 				case 0:
@@ -2787,7 +2798,14 @@ isdn_tty_cmd_ATand(char **p, modem_info * info)
 				case 1:
 					m->mdmreg[REG_T70] |= BIT_T70;
 					m->mdmreg[REG_T70] &= ~BIT_T70_EXT;
-					m->mdmreg[REG_L2PROT] = 0;
+					m->mdmreg[REG_L2PROT] = ISDN_PROTO_L2_X75I;
+					info->xmit_size = 112;
+					m->mdmreg[REG_SI1] = 4;
+					m->mdmreg[REG_SI2] = 0;
+					break;
+				case 2:
+					m->mdmreg[REG_T70] |= (BIT_T70 | BIT_T70_EXT);
+					m->mdmreg[REG_L2PROT] = ISDN_PROTO_L2_X75I;
 					info->xmit_size = 112;
 					m->mdmreg[REG_SI1] = 4;
 					m->mdmreg[REG_SI2] = 0;
@@ -2807,11 +2825,11 @@ isdn_tty_check_ats(int mreg, int mval, modem_info * info, atemu * m)
 {
 	/* Some plausibility checks */
 	switch (mreg) {
-		case 14:
+		case REG_L2PROT:
 			if (mval > ISDN_PROTO_L2_MAX)
 				return 1;
 			break;
-		case 16:
+		case REG_PSIZE:
 			if ((mval * 16) > ISDN_SERIAL_XMIT_MAX)
 				return 1;
 #ifdef CONFIG_ISDN_AUDIO
@@ -2819,10 +2837,16 @@ isdn_tty_check_ats(int mreg, int mval, modem_info * info, atemu * m)
 				return 1;
 #endif
 			info->xmit_size = mval * 16;
+			switch (m->mdmreg[REG_L2PROT]) {
+				case ISDN_PROTO_L2_V11096:
+				case ISDN_PROTO_L2_V11019:
+				case ISDN_PROTO_L2_V11038:
+					info->xmit_size /= 10;		
+			}
 			break;
-		case 20:
-		case 21:
-		case 22:
+		case REG_SI1I:
+		case REG_PLAN:
+		case REG_SCREEN:
 			/* readonly registers */
 			return 1;
 	}
