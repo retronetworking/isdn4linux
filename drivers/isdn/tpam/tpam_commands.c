@@ -29,7 +29,7 @@
 #include <linux/interrupt.h>
 #include <asm/io.h>
 
-#include <linux/tpam.h>
+#include <linux/isdn/tpam.h>
 #include "tpam.h"
 
 /* Local functions prototypes */

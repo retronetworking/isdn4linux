@@ -13,7 +13,7 @@ tpam-objs	:= tpam_main.o tpam_nco.o tpam_memory.o tpam_commands.o tpam_queues.o 
 
 obj-$(CONFIG_ISDN_DRV_TPAM)	+= tpam.o
 
-include $(TOPDIR)/Rules.make
+include $(TOPDIR)/drivers/isdn/Rules.make
 
 # Link rules for multi-part drivers.
 
