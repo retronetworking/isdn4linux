@@ -22,12 +22,14 @@ written by Fritz Elfert.
 Supported cards
 ---------------
 
-Teles 8.0/16.0/16.3 and compatible ones
+Teles 8.0/16.0/16.3 and compatible ones (no 16.3c)
 Teles S0/PCMCIA
 Creatix PnP S0 
 AVM A1 (Fritz, Teledat 150)
 ELSA Microlink PCC-16, PCF, PCF-Pro, PCC-8
 ELSA Quickstep 1000
+ELSA Quickstep 1000PCI
+ELSA Quickstep 3000 (same settings as QS1000)
 ELSA PCMCIA
 ITK ix1-micro Rev.2
 Eicon.Diehl Diva 2.0 ISA and PCI (S0 and U interface, no PRO version)
@@ -36,11 +38,13 @@ ASUSCOM NETWORK INC. ISDNLink 128K PC adapter (order code I-IN100-ST-D)
 Dynalink IS64PH (OEM version of ASUSCOM NETWORK INC. ISDNLink 128K adapter)
 HFC-2BS0 based cards (TeleInt SA1)
 Sedlbauer Speed Card (WinSpeed, Teledat 100)
+USR Sportster internal TA (compatible Stollmann tina-pp V3)
+ith Kommunikationstechnik GmbH MIC 16 ISA card 
 
 Note: PCF, PCF-Pro: up to now, only the ISDN part is supported
       PCC-8: not tested yet
       Teles PCMCIA is EXPERIMENTAL
-      Eicon.Diehl Diva Piccola not tested yet
+      Teles 16.3c is not supported
       Eicon.Diehl Diva U interface not tested
 
 If you know other passive cards with the Siemens chipset, please let me know.
@@ -128,6 +132,9 @@ Card types:
    12   ASUS COM ISDNLink        irq, io  (from isapnp setup)
    13   HFC-2BS0 based cards     irq, io  
    15   Sedlbauer Speed Card     irq, io  
+   16   USR Sportster internal   irq, io  
+   17   MIC card                 irq, io  
+   18   ELSA Quickstep 1000PCI   no parameter
         
 At the moment IRQ sharing is not possible. Please make sure that your IRQ
 is free and enabled for ISA use.
@@ -205,9 +212,11 @@ Card types:
    11   Eicon.Diehl Diva ISAPnP ONLY WORKS AS A MODULE !
    11   Eicon.Diehl Diva PCI    no parameter
    12   ASUS COM ISDNLink       ONLY WORKS AS A MODULE !
-   13	HFC-2BS0 based cards    pa=irq  pb=io  
+   13	HFC-2BS0 based cards    pa=irq  pb=io
    15	Sedlbauer Speed Card    pa=irq  pb=io (WinSpeed only as module !)  
-
+   16   USR Sportster internal  pa=irq  pb=io
+   17   MIC card                pa=irq  pb=io
+   18   ELSA Quickstep 1000PCI  no parameter
 
 Running the driver
 ------------------
@@ -231,8 +240,8 @@ Apr 13 21:01:59 kke01 kernel: HiSax: DSS1 Rev. 1.14
 Apr 13 21:01:59 kke01 kernel: HiSax: 2 channels added
 
 This means that the card is ready for use.
-Cabling problems or line-downs are not detected, and only ELSA cards can detect
-the S0 power.
+Cabling problems or line-downs are not detected, and only some ELSA cards can 
+detect the S0 power.
 
 Remember that, according to the new strategy for accessing low-level drivers
 from within isdn4linux, you should also define a driver ID while doing
@@ -318,6 +327,7 @@ Special thanks to:
 	Klaus-Peter Nischke (ITK AG), Christof Petig, Werner Fehn (ELSA GmbH),
 	Volker Schmidt
 	Edgar Toernig and Marcus Niemann for the Sedlbauer driver
+	Stephan von Krawczynski
 	Juergen Quade for the Leased Line part
         and more people who are hunting bugs. (If I forgot somebody, please
 	send me a mail). 
@@ -327,6 +337,7 @@ Special thanks to:
         Firma Dynalink NL
 	Firma ASUSCOM NETWORK INC. Taiwan
 	Firma S.u.S.E
+	Firma ith Kommunikationstechnik GmbH
         
         My girl friend and partner in life Ute for her patience with me.
 
