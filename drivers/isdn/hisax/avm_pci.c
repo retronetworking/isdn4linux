@@ -7,6 +7,9 @@
  *
  *
  * $Log$
+ * Revision 1.1  1998/08/20 13:47:30  keil
+ * first version
+ *
  *
  *
  */
@@ -539,6 +542,7 @@ setstack_hdlc(struct PStack *st, struct BCState *bcs)
 	bcs->channel = st->l1.bc;
 	if (open_hdlcstate(st->l1.hardware, bcs))
 		return (-1);
+	st->l1.bcs = bcs;
 	st->l2.l2l1 = hdlc_l2l1;
 	setstack_manager(st);
 	bcs->st = st;
