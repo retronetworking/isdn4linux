@@ -27,6 +27,10 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.45  1998/03/24 16:33:12  hipp
+ * More CCP changes. BSD compression now "works" on a local loopback link.
+ * Moved some isdn_ppp stuff from isdn.h to isdn_ppp.h
+ *
  * Revision 1.44  1998/03/22 18:50:56  hipp
  * Added BSD Compression for syncPPP .. UNTESTED at the moment
  *
@@ -828,6 +832,7 @@ typedef struct isdn_devt {
 	int               v110emu[ISDN_MAX_CHANNELS];/* V.110 emulator-mode 0=none */
 	atomic_t          v110use[ISDN_MAX_CHANNELS];/* Usage-Semaphore for stream */
 	isdn_v110_stream  *v110[ISDN_MAX_CHANNELS];  /* V.110 private data         */
+	struct semaphore  sem;                       /* serialize list access*/
 	isdn_module       *modules;
 #ifdef CONFIG_ISDN_WITH_ABC
 	ulong           abc_not_avail_jiffies[ISDN_MAX_CHANNELS];

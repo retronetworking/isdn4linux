@@ -21,6 +21,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.59  1998/03/07 22:37:33  fritz
+ * Bugfix: restore_flags missing.
+ *
  * Revision 1.58  1998/03/07 18:21:05  cal
  * Dynamic Timeout-Rule-Handling vs. 971110 included
  *
@@ -2867,7 +2870,8 @@ isdn_net_addphone(isdn_net_ioctl_phone * phone)
 }
 
 /*
- * Return a string of all phone-numbers of an interface.
+ * Copy a string of all phone-numbers of an interface to user space.
+ * This might sleep and must be called with the isdn semaphore down.
  */
 int
 isdn_net_getphones(isdn_net_ioctl_phone * phone, char *phones)
@@ -2877,12 +2881,9 @@ isdn_net_getphones(isdn_net_ioctl_phone * phone, char *phones)
 	int more = 0;
 	int count = 0;
 	isdn_net_phone *n;
-	int flags;
 
 	if (!p)
 		return -ENODEV;
-	save_flags(flags);
-	cli();
 	inout &= 1;
 	for (n = p->local->phone[inout]; n; n = n->next) {
 		if (more) {
@@ -2890,7 +2891,6 @@ isdn_net_getphones(isdn_net_ioctl_phone * phone, char *phones)
 			count++;
 		}
 		if (copy_to_user(phones, n->num, strlen(n->num) + 1)) {
-			restore_flags(flags);
 			return -EFAULT;
 		}
 		phones += strlen(n->num);
@@ -2899,7 +2899,6 @@ isdn_net_getphones(isdn_net_ioctl_phone * phone, char *phones)
 	}
 	put_user(0, phones);
 	count++;
-	restore_flags(flags);
 	return count;
 }
 

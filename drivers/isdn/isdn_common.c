@@ -21,6 +21,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.61  1998/03/22 18:50:46  hipp
+ * Added BSD Compression for syncPPP .. UNTESTED at the moment
+ *
  * Revision 1.60  1998/03/19 13:18:18  keil
  * Start of a CAPI like interface for supplementary Service
  * first service: SUSPEND
@@ -811,9 +814,18 @@ isdn_getnum(char **p)
 /*
  * isdn_readbchan() tries to get data from the read-queue.
  * It MUST be called with interrupts off.
+ *
+ * Be aware that this is not an atomic operation when sleep != 0, even though 
+ * interrupts are turned off! Well, like that we are currently only called
+ * on behalf of a read system call on raw device files (which are documented
+ * to be dangerous and for for debugging purpose only). The inode semaphore
+ * takes care that this is not called for the same minor device number while
+ * we are sleeping, but access is not serialized against simultaneous read()
+ * from the corresponding ttyI device. Can other ugly events, like changes
+ * of the mapping (di,ch)<->minor, happen during the sleep? --he 
  */
 int
-isdn_readbchan(int di, int channel, u_char * buf, u_char * fp, int len, int user)
+isdn_readbchan(int di, int channel, u_char * buf, u_char * fp, int len, struct wait_queue **sleep)
 {
 	int left;
 	int count;
@@ -826,8 +838,8 @@ isdn_readbchan(int di, int channel, u_char * buf, u_char * fp, int len, int user
 	if (!dev->drv[di])
 		return 0;
 	if (skb_queue_empty(&dev->drv[di]->rpqueue[channel])) {
-		if (user)
-			interruptible_sleep_on(&dev->drv[di]->rcv_waitq[channel]);
+		if (sleep)
+			interruptible_sleep_on(sleep);
 		else
 			return 0;
 	}
@@ -849,16 +861,10 @@ isdn_readbchan(int di, int channel, u_char * buf, u_char * fp, int len, int user
 			count_pull = count_put = 0;
 			while ((count_pull < skb->len) && (left-- > 0)) {
 				if (dev->drv[di]->DLEflag & DLEmask) {
-					if (user)
-						put_user(DLE, cp++);
-					else
-						*cp++ = DLE;
+					*cp++ = DLE;
 					dev->drv[di]->DLEflag &= ~DLEmask;
 				} else {
-					if (user)
-						put_user(*p, cp++);
-					else
-						*cp++ = *p;
+					*cp++ = *p;
 					if (*p == DLE) {
 						dev->drv[di]->DLEflag |= DLEmask;
 						(ISDN_AUDIO_SKB_DLECOUNT(skb))--;
@@ -879,10 +885,7 @@ isdn_readbchan(int di, int channel, u_char * buf, u_char * fp, int len, int user
 				dflag = 0;
 			}
 			count_put = count_pull;
-			if (user)
-				copy_to_user(cp, skb->data, count_put);
-			else
-				memcpy(cp, skb->data, count_put);
+			memcpy(cp, skb->data, count_put);
 			cp += count_put;
 			left -= count_put;
 #ifdef CONFIG_ISDN_AUDIO
@@ -1007,12 +1010,12 @@ isdn_read(struct file *file, char *buf, size_t count, loff_t * off)
 	ulong flags;
 	int drvidx;
 	int chidx;
+	char *p;
 
 	if (off != &file->f_pos)
 		return -ESPIPE;
 
 	if (minor == ISDN_MINOR_STATUS) {
-		char *p;
 		if (!file->private_data) {
 			if (file->f_flags & O_NONBLOCK)
 				return -EAGAIN;
@@ -1037,11 +1040,15 @@ isdn_read(struct file *file, char *buf, size_t count, loff_t * off)
 		if (!dev->drv[drvidx]->running)
 			return -ENODEV;
 		chidx = isdn_minor2chan(minor);
+		if(  ! (p = kmalloc(count,GFP_KERNEL))  ) return -ENOMEM;
 		save_flags(flags);
 		cli();
-		len = isdn_readbchan(drvidx, chidx, buf, 0, count, 1);
+		len = isdn_readbchan(drvidx, chidx, p, 0, count,
+				     &dev->drv[drvidx]->rcv_waitq[chidx]);
 		*off += len;
 		restore_flags(flags);
+		if( copy_to_user(buf,p,len) ) len = -EFAULT;
+		kfree(p);
 		return len;
 	}
 	if (minor <= ISDN_MINOR_CTRLMAX) {
@@ -1165,6 +1172,11 @@ isdn_poll(struct file *file, poll_table * wait)
 	return POLLERR;
 }
 
+/* 
+ * This accesses user space with interrupts off, but is not needed by
+ * any of the isdn4k-util programs anyway. Thus, in contrast to your
+ * first impression after looking at the code, fixing is trival!*/
+#if 0 
 static int
 isdn_set_allcfg(char *src)
 {
@@ -1296,6 +1308,7 @@ isdn_get_allcfg(char *dest)
 	restore_flags(flags);
 	return 0;
 }
+#endif
 
 static int
 isdn_ioctl(struct inode *inode, struct file *file, uint cmd, ulong arg)
@@ -1372,6 +1385,13 @@ isdn_ioctl(struct inode *inode, struct file *file, uint cmd, ulong arg)
 		return 0;
 	}
 	if (minor <= ISDN_MINOR_CTRLMAX) {
+/*
+ * isdn net devices manage lots of configuration variables as linked lists.
+ * Those lists must only be manipulated from user space. Some of the ioctl's
+ * service routines access user space and are not atomic. Therefor, ioctl's
+ * manipulating the lists and ioctl's sleeping while accessing the lists
+ * are serialized by means of a semaphore.
+ */
 		switch (cmd) {
 #ifdef CONFIG_NETDEVICES
 			case IIOCNETAIF:
@@ -1380,14 +1400,21 @@ isdn_ioctl(struct inode *inode, struct file *file, uint cmd, ulong arg)
 					if (copy_from_user(name, (char *) arg, sizeof(name)))
 						return -EFAULT;
 					s = name;
-				} else
+				} else {
 					s = NULL;
+				}
+				ret = down_interruptible(&dev->sem);
+				if( ret ) return ret;
 				if ((s = isdn_net_new(s, NULL))) {
-					if (copy_to_user((char *) arg, s, strlen(s) + 1))
-						return -EFAULT;
-					return 0;
+					if (copy_to_user((char *) arg, s, strlen(s) + 1)){
+						ret = -EFAULT;
+					} else {
+						ret = 0;
+					}
 				} else
-					return -ENODEV;
+					ret = -ENODEV;
+				up(&dev->sem);
+				return ret;
 			case IIOCNETASL:
 				/* Add a slave to a network-interface */
 				if (arg) {
@@ -1395,18 +1422,28 @@ isdn_ioctl(struct inode *inode, struct file *file, uint cmd, ulong arg)
 						return -EFAULT;
 				} else
 					return -EINVAL;
+				ret = down_interruptible(&dev->sem);
+				if( ret ) return ret;
 				if ((s = isdn_net_newslave(bname))) {
-					if (copy_to_user((char *) arg, s, strlen(s) + 1))
-						return -EFAULT;
-					return 0;
+					if (copy_to_user((char *) arg, s, strlen(s) + 1)){
+						ret = -EFAULT;
+					} else {
+						ret = 0;
+					}
 				} else
-					return -ENODEV;
+					ret = -ENODEV;
+				up(&dev->sem);
+				return ret;
 			case IIOCNETDIF:
 				/* Delete a network-interface */
 				if (arg) {
 					if (copy_from_user(name, (char *) arg, sizeof(name)))
 						return -EFAULT;
-					return isdn_net_rm(name);
+					ret = down_interruptible(&dev->sem);
+					if( ret ) return ret;
+					ret = isdn_net_rm(name);
+					up(&dev->sem);
+					return ret;
 				} else
 					return -EINVAL;
 			case IIOCNETSCF:
@@ -1434,7 +1471,11 @@ isdn_ioctl(struct inode *inode, struct file *file, uint cmd, ulong arg)
 				if (arg) {
 					if (copy_from_user((char *) &phone, (char *) arg, sizeof(phone)))
 						return -EFAULT;
-					return isdn_net_addphone(&phone);
+					ret = down_interruptible(&dev->sem);
+					if( ret ) return ret;
+					ret = isdn_net_addphone(&phone);
+					up(&dev->sem);
+					return ret;
 				} else
 					return -EINVAL;
 			case IIOCNETGNM:
@@ -1442,7 +1483,11 @@ isdn_ioctl(struct inode *inode, struct file *file, uint cmd, ulong arg)
 				if (arg) {
 					if (copy_from_user((char *) &phone, (char *) arg, sizeof(phone)))
 						return -EFAULT;
-					return isdn_net_getphones(&phone, (char *) arg);
+					ret = down_interruptible(&dev->sem);
+					if( ret ) return ret;
+					ret = isdn_net_getphones(&phone, (char *) arg);
+					up(&dev->sem);
+					return ret;
 				} else
 					return -EINVAL;
 			case IIOCNETDNM:
@@ -1450,7 +1495,11 @@ isdn_ioctl(struct inode *inode, struct file *file, uint cmd, ulong arg)
 				if (arg) {
 					if (copy_from_user((char *) &phone, (char *) arg, sizeof(phone)))
 						return -EFAULT;
-					return isdn_net_delphone(&phone);
+					ret = down_interruptible(&dev->sem);
+					if( ret ) return ret;
+					ret = isdn_net_delphone(&phone);
+					up(&dev->sem);
+					return ret;
 				} else
 					return -EINVAL;
 			case IIOCNETDIL:
@@ -1487,30 +1536,30 @@ isdn_ioctl(struct inode *inode, struct file *file, uint cmd, ulong arg)
 			case IIOCNETARU:
 				/* Add a rule to a network-interface */
 				if (arg) {
-					if((ret = copy_from_user((char *) &timru, (char *) arg, sizeof(timru))))
-						return(ret);
+					if(copy_from_user((char *) &timru, (char *) arg, sizeof(timru)))
+						return -EFAULT;
 					return(isdn_timru_ioctl_add_rule(&timru));
 				} else
 					return(-EINVAL);
 			case IIOCNETDRU:
 				/* Delete a rule from a network-interface */
 				if (arg) {
-					if((ret = copy_from_user((char *) &timru, (char *) arg, sizeof(timru))))
-						return(ret);
+					if(copy_from_user((char *) &timru, (char *) arg, sizeof(timru)))
+						return -EFAULT;
 					return(isdn_timru_ioctl_del_rule(&timru));
 				} else
 					return(-EINVAL);
 			case IIOCNETGRU:
 				/* Get a rule of a network-interface */
 				if (arg) {
-					if((ret = copy_from_user((char *)&timru, (char *)arg, sizeof(timru))))
-						return(ret);
+					if(copy_from_user((char *)&timru, (char *)arg, sizeof(timru)))
+						return -EFAULT;
 
 					if((ret = isdn_timru_ioctl_get_rule(&timru)))
 						return(ret);
 
-					if((ret = copy_to_user((char *)arg, (char *)&timru, sizeof(timru))))
-						return(ret);
+					if(copy_to_user((char *)arg, (char *)&timru, sizeof(timru)))
+						return -EFAULT;
 
 					return(0);
 				} else
@@ -1521,14 +1570,14 @@ isdn_ioctl(struct inode *inode, struct file *file, uint cmd, ulong arg)
 			case IIOCNETBUD:
 				/* handle budget-accounting of a network-interface */
 				if (arg) {
-					if((ret = copy_from_user((char *)&budget, (char *)arg, sizeof(budget))))
-						return(ret);
+					if(copy_from_user((char *)&budget, (char *)arg, sizeof(budget)))
+						return -EFAULT;
 
 					if((ret = isdn_budget_ioctl(&budget)))
 						return(ret);
 
-					if((ret = copy_to_user((char *)arg, (char *)&budget, sizeof(budget))))
-						return(ret);
+					if(copy_to_user((char *)arg, (char *)&budget, sizeof(budget)))
+						return -EFAULT;
 
 					return(0);
 				} else
@@ -1570,6 +1619,7 @@ isdn_ioctl(struct inode *inode, struct file *file, uint cmd, ulong arg)
 					return -ENODEV;
 				dev->drv[drvidx]->reject_bus = iocts.arg;
 				return 0;
+#if 0
 			case IIOCGETSET:
 				/* Get complete setup (all network-interfaces and profile-
 				   settings of all tty-devices */
@@ -1586,6 +1636,7 @@ isdn_ioctl(struct inode *inode, struct file *file, uint cmd, ulong arg)
 				else
 					return -EINVAL;
 				break;
+#endif
 			case IIOCSIGPRF:
 				dev->profd = current;
 				return 0;
@@ -2315,6 +2366,7 @@ isdn_init(void)
 	memset((char *) dev, 0, sizeof(isdn_dev));
 	init_timer(&dev->timer);
 	dev->timer.function = isdn_timer_funct;
+	dev->sem = MUTEX;
 	for (i = 0; i < ISDN_MAX_CHANNELS; i++) {
 		dev->drvmap[i] = -1;
 		dev->chanmap[i] = -1;

@@ -21,6 +21,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.10  1998/03/07 18:21:03  cal
+ * Dynamic Timeout-Rule-Handling vs. 971110 included
+ *
  * Revision 1.9  1998/02/20 17:19:01  fritz
  * Added common stub for sending commands to lowlevel.
  *
@@ -86,7 +89,7 @@ extern char *isdn_map_eaz2msn(char *msn, int di);
 extern void isdn_timer_ctrl(int tf, int onoff);
 extern void isdn_unexclusive_channel(int di, int ch);
 extern int isdn_getnum(char **);
-extern int isdn_readbchan(int, int, u_char *, u_char *, int, int);
+extern int isdn_readbchan(int, int, u_char *, u_char *, int, struct wait_queue**);
 extern int isdn_get_free_channel(int, int, int, int, int);
 extern int isdn_writebuf_skb_stub(int, int, int, struct sk_buff *);
 extern int register_isdn(isdn_if * i);
