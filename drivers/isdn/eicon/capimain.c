@@ -126,7 +126,7 @@ static struct capi_driver divas_driver = {
     release_appl:     diva_release_appl,
     send_message:     diva_send_message,
     procinfo:         diva_procinfo,
-    read_proc:        diva_ctl_read_proc,
+    ctr_read_proc:    diva_ctl_read_proc,
     driver_read_proc: diva_driver_read_proc,
 };
 
