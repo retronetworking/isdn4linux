@@ -27,6 +27,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.42  1998/03/08 13:53:46  detabc
+ * add ABC-variables in structur isdn_devt
+ *
  * Revision 1.41  1998/03/08 13:14:37  detabc
  * abc-extension support for kernels > 2.1.x
  * first try (sorry experimental)
@@ -954,5 +957,8 @@ extern void abc_simple_crypt(u_char *poin,int len,u_char *key);
 #define MIN(a,b) ((a<b)?a:b)
 #define MAX(a,b) ((a>b)?a:b)
 
+#if (LINUX_VERSION_CODE < 0x020159) /* 2.1.89 */
+#define poll_wait(f,wq,w) poll_wait((wq),(w))
+#endif
 #endif /* __KERNEL__ */
 #endif /* isdn_h */

@@ -6,6 +6,9 @@
  * Copyright 1996 by Carsten Paeth (calle@calle.in-berlin.de)
  *
  * $Log$
+ * Revision 1.10  1998/02/13 07:09:13  calle
+ * change for 2.1.86 (removing FREE_READ/FREE_WRITE from [dev]_kfree_skb()
+ *
  * Revision 1.9  1998/01/31 11:14:44  calle
  * merged changes to 2.0 tree, prepare 2.1.82 to work.
  *
@@ -234,7 +237,10 @@ capi_poll(struct file *file, poll_table * wait)
 		return POLLERR;
 
 	cdev = &capidevs[minor];
-	poll_wait(&(cdev->recv_wait), wait);
+#if (LINUX_VERSION_CODE < 0x020159) /* 2.1.89 */
+#define poll_wait(f,wq,w) poll_wait((wq),(w))
+#endif
+	poll_wait(file, &(cdev->recv_wait), wait);
 	mask = POLLOUT | POLLWRNORM;
 	if (!skb_queue_empty(&cdev->recv_queue))
 		mask |= POLLIN | POLLRDNORM;

@@ -21,6 +21,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.58  1998/03/07 22:35:24  fritz
+ * Starting generic module support (Nothing usable yet).
+ *
  * Revision 1.57  1998/03/07 18:21:01  cal
  * Dynamic Timeout-Rule-Handling vs. 971110 included
  *
@@ -1103,7 +1106,7 @@ isdn_poll(struct file *file, poll_table * wait)
 	int drvidx = isdn_minor2drv(minor - ISDN_MINOR_CTRL);
 
 	if (minor == ISDN_MINOR_STATUS) {
-		poll_wait(&(dev->info_waitq), wait);
+		poll_wait(file, &(dev->info_waitq), wait);
 		/* mask = POLLOUT | POLLWRNORM; */
 		if (file->private_data) {
 			mask |= POLLIN | POLLRDNORM;
@@ -1111,7 +1114,7 @@ isdn_poll(struct file *file, poll_table * wait)
 		return mask;
 	}
 	if (minor >= ISDN_MINOR_CTRL && minor <= ISDN_MINOR_CTRLMAX) {
-		poll_wait(&(dev->drv[drvidx]->st_waitq), wait);
+		poll_wait(file, &(dev->drv[drvidx]->st_waitq), wait);
 		if (drvidx < 0) {
 			printk(KERN_ERR "isdn_common: isdn_poll 1 -> what the hell\n");
 			return POLLERR;

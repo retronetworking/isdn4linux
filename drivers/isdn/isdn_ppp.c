@@ -19,6 +19,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.35  1998/03/07 18:21:11  cal
+ * Dynamic Timeout-Rule-Handling vs. 971110 included
+ *
  * Revision 1.34  1998/02/25 17:49:48  he
  * Changed return codes caused be failing copy_{to,from}_user to -EFAULT
  *
@@ -161,8 +164,8 @@
 #define __NO_VERSION__
 #include <linux/module.h>
 #include <linux/version.h>
-#include <linux/isdn.h>
 #include <linux/poll.h>
+#include <linux/isdn.h>
 #include "isdn_common.h"
 #include "isdn_ppp.h"
 #include "isdn_net.h"
@@ -700,7 +703,7 @@ isdn_ppp_poll(struct file *file, poll_table * wait)
 		printk(KERN_DEBUG "isdn_ppp_poll: minor: %d\n",
 				MINOR(file->f_dentry->d_inode->i_rdev));
 
-	poll_wait(&is->wq, wait);
+	poll_wait(file, &is->wq, wait);
 
 	if (!(is->state & IPPP_OPEN)) {
 		printk(KERN_DEBUG "isdn_ppp: device not open\n");
