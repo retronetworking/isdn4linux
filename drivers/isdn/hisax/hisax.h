@@ -3,6 +3,12 @@
  *   Basic declarations, defines and prototypes
  *
  * $Log$
+ * Revision 2.18  1998/03/26 07:10:04  paul
+ * The jumpmatrix table in struct Fsm was an array of "int". This is not
+ * large enough for pointers to functions on Linux/Alpha (instant crash
+ * on "insmod hisax). Now there is a typedef for the pointer to function.
+ * This also prevents warnings about "incompatible pointer types".
+ *
  * Revision 2.17  1998/03/19 13:18:43  keil
  * Start of a CAPI like interface for supplementary Service
  * first service: SUSPEND
@@ -508,10 +514,10 @@ struct elsa_hw {
 
 struct teles3_hw {
 	unsigned int cfg_reg;
-	unsigned int isac;
-	unsigned int hscx[2];
-	unsigned int isacfifo;
-	unsigned int hscxfifo[2];
+	signed   int isac;
+	signed   int hscx[2];
+	signed   int isacfifo;
+	signed   int hscxfifo[2];
 };	
 
 struct teles0_hw {
@@ -727,8 +733,9 @@ struct IsdnCardState {
 #define  ISDN_CTYPE_SEDLBAUER_PCMCIA	22
 #define  ISDN_CTYPE_AMD7930	23
 #define  ISDN_CTYPE_NICCY	24
+#define  ISDN_CTYPE_S0BOX	25
 
-#define  ISDN_CTYPE_COUNT	24
+#define  ISDN_CTYPE_COUNT	25
 
 #ifdef ISDN_CHIP_ISAC
 #undef ISDN_CHIP_ISAC
@@ -754,6 +761,15 @@ struct IsdnCardState {
 #endif
 #else
 #define  CARD_TELES3  0
+#endif
+
+#ifdef	CONFIG_HISAX_TELESPCI
+#define  CARD_TELESPCI (1<< ISDN_CTYPE_TELESPCI)
+#ifndef ISDN_CHIP_ISAC
+#define ISDN_CHIP_ISAC 1
+#endif
+#else
+#define  CARD_TELESPCI  0
 #endif
 
 #ifdef	CONFIG_HISAX_AVM_A1
@@ -873,12 +889,20 @@ struct IsdnCardState {
 #define CARD_NICCY 0
 #endif
 
+#ifdef	CONFIG_HISAX_S0BOX
+#define	CARD_S0BOX (1 << ISDN_CTYPE_S0BOX)
+#ifndef ISDN_CHIP_ISAC
+#define ISDN_CHIP_ISAC 1
+#endif
+#else
+#define CARD_S0BOX 0
+#endif
 
 #define  SUPORTED_CARDS  (CARD_TELES0 | CARD_TELES3 | CARD_AVM_A1 | CARD_ELSA \
 			 | CARD_IX1MICROR2 | CARD_DIEHLDIVA | CARD_ASUSCOM \
 			 | CARD_TELEINT | CARD_SEDLBAUER | CARD_SPORTSTER \
 			 | CARD_MIC | CARD_NETJET | CARD_TELES3C | CARD_AMD7930 \
-			 | CARD_NICCY)
+			 | CARD_NICCY | CARD_S0BOX | CARD_TELESPCI)
 
 #define TEI_PER_CARD 0
 

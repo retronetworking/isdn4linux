@@ -5,6 +5,9 @@
  *
  *
  * $Log$
+ * Revision 2.13  1998/03/09 23:19:23  keil
+ * Changes for PCMCIA
+ *
  * Revision 2.12  1998/02/11 17:28:02  keil
  * Niccy PnP/PCI support
  *
@@ -112,11 +115,24 @@ EXPORT_SYMBOL(elsa_init_pcmcia);
 #define DEFAULT_CARD ISDN_CTYPE_16_3
 #define DEFAULT_CFG {15,0x180,0,0}
 #endif
+#ifdef CONFIG_HISAX_S0BOX
+#undef DEFAULT_CARD
+#undef DEFAULT_CFG
+#define DEFAULT_CARD ISDN_CTYPE_S0BOX
+#define DEFAULT_CFG {7,0x378,0,0}
+#endif
 #ifdef CONFIG_HISAX_16_0
 #undef DEFAULT_CARD
 #undef DEFAULT_CFG
 #define DEFAULT_CARD ISDN_CTYPE_16_0
 #define DEFAULT_CFG {15,0xd0000,0xd80,0}
+#endif
+
+#ifdef CONFIG_HISAX_TELESPCI
+#undef DEFAULT_CARD
+#undef DEFAULT_CFG
+#define DEFAULT_CARD ISDN_CTYPE_TELESPCI
+#define DEFAULT_CFG {0,0,0,0}
 #endif
 
 #ifdef CONFIG_HISAX_IX1MICROR2
@@ -478,12 +494,14 @@ HiSax_init(void))
 			case ISDN_CTYPE_SPORTSTER:
 			case ISDN_CTYPE_MIC:
 			case ISDN_CTYPE_TELES3C:
+			case ISDN_CTYPE_S0BOX:
 				cards[i].para[0] = irq[i];
 				cards[i].para[1] = io[i];
 				break;
 			case ISDN_CTYPE_ELSA_PCI:
 			case ISDN_CTYPE_NETJET:
 			case ISDN_CTYPE_AMD7930:
+			case ISDN_CTYPE_TELESPCI:
 				break;
 		}
 	}
