@@ -111,6 +111,8 @@ if [ "$CONFIG_ISDN_DRV_HISAX" != "n" ]; then
 	 bool '  Am7930' CONFIG_HISAX_AMD7930
       fi
    fi
+   bool '  HiSax debugging' CONFIG_HISAX_DEBUG
+
    dep_tristate 'Sedlbauer PCMCIA cards' CONFIG_HISAX_SEDLBAUER_CS $CONFIG_PCMCIA
    dep_tristate 'ELSA PCMCIA MicroLink cards' CONFIG_HISAX_ELSA_CS $CONFIG_PCMCIA
    dep_tristate 'Colognechip HFC-USB support' CONFIG_HISAX_HFC_USB_CS $CONFIG_HISAX $CONFIG_USB
@@ -126,11 +128,6 @@ if [ "$CONFIG_ISDN_DRV_HISAX" != "n" ]; then
    if [ "$CONFIG_HISAX_HFC_USB_CS" != "n" ]; then
       define_bool CONFIG_HISAX_HFC_USB y
    fi
-   if [ "$CONFIG_HISAX_ST5481_CS" != "n" ]; then
-      define_bool CONFIG_HISAX_ST5481 y
-   fi
-
-   bool '  HiSax debugging' CONFIG_HISAX_DEBUG
 fi
 endmenu
 

@@ -26,7 +26,6 @@
 #include <linux/module.h>
 #include <linux/init.h>
 #include <linux/pci.h>
-#include <linux/isapnp.h>
 #include "hisax_isapnp.h"
 #include <linux/kmod.h>
 #include <linux/slab.h>
@@ -58,18 +57,16 @@ static struct pci_device_id fcpci_ids[] __initdata = {
 	  0, 0, (unsigned long) "Fritz!Card PCI v2" },
 	{ }
 };
+MODULE_DEVICE_TABLE(pci, fcpci_ids);
 
-#ifdef __ISAPNP__
 static struct isapnp_device_id fcpnp_ids[] __initdata = {
 	{ ISAPNP_VENDOR('A', 'V', 'M'), ISAPNP_FUNCTION(0x0900),
 	  ISAPNP_VENDOR('A', 'V', 'M'), ISAPNP_FUNCTION(0x0900), 
 	  (unsigned long) "Fritz!Card PnP" },
 	{ }
 };
-#endif
-
-MODULE_DEVICE_TABLE(pci, fcpci_ids);
 MODULE_DEVICE_TABLE(isapnp, fcpnp_ids);
+
 static int protocol = 2;       /* EURO-ISDN Default */
 MODULE_PARM(protocol, "i");
 
@@ -1011,4 +1008,6 @@ static void __exit hisax_fcpci_exit(void)
 module_init(hisax_fcpci_init);
 module_exit(hisax_fcpci_exit);
 
+#ifdef __ISAPNP__
 #include "hisax_isapnp.c"
+#endif
