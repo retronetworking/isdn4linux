@@ -2596,7 +2596,7 @@ isdn_net_find_icall(int di, int ch, int idx, setup_parm setup)
 				break;
 		}
 		swapped = 0;
-		if (!(matchret = isdn_wildmat(eaz, isdn_map_eaz2msn(lp->msn, di))))
+		if (!(matchret = isdn_msncmp(eaz, isdn_map_eaz2msn(lp->msn, di))))
 			ematch = 1;
 		/* Remember if more numbers eventually can match */
 		if (matchret > wret)
@@ -2793,7 +2793,7 @@ isdn_net_find_icall(int di, int ch, int idx, setup_parm setup)
 			n = lp->phone[0];
 			if (lp->flags & ISDN_NET_SECURE) {
 				while (n) {
-					if (!isdn_wildmat(nr, n->num))
+					if (!isdn_msncmp(nr, n->num))
 						break;
 					n = (isdn_net_phone *) n->next;
 				}
