@@ -8,6 +8,9 @@
  *
  *
  * $Log$
+ * Revision 1.1.2.4  1998/03/07 23:15:14  tsbogend
+ * made HiSax working on Linux/Alpha
+ *
  * Revision 1.1.2.3  1998/01/27 22:37:35  keil
  * fast io
  *
@@ -301,10 +304,7 @@ Diva_card_msg(struct IsdnCardState *cs, int mt, void *arg)
 			return(request_irq(cs->irq, &diva_interrupt,
 					I4L_IRQ_FLAG, "HiSax", cs));
 		case CARD_INIT:
-			clear_pending_isac_ints(cs);
-			clear_pending_hscx_ints(cs);
-			initisac(cs);
-			inithscx(cs);
+			inithscxisac(cs, 3);
 			return(0);
 		case CARD_TEST:
 			return(0);

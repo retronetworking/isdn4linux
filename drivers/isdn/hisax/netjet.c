@@ -8,6 +8,9 @@
  *
  *
  * $Log$
+ * Revision 1.1.2.4  1998/01/27 22:37:27  keil
+ * fast io
+ *
  * Revision 1.1.2.3  1997/12/01 09:09:57  keil
  * IRQ bit clearing
  *
@@ -820,6 +823,7 @@ setstack_tiger(struct PStack *st, struct BCState *bcs)
 	st->ma.manl1 = tiger_manl1;
 	setstack_manager(st);
 	bcs->st = st;
+	st->l1.Flags = 0;
 	return (0);
 }
 
@@ -1010,6 +1014,9 @@ NETjet_card_msg(struct IsdnCardState *cs, int mt, void *arg)
 			inittiger(cs);
 			clear_pending_isac_ints(cs);
 			initisac(cs);
+			cs->writeisac(cs, ISAC_MASK, 0);
+			/* RESET Receiver and Transmitter */
+			cs->writeisac(cs, ISAC_CMDR, 0x41);
 			return(0);
 		case CARD_TEST:
 			return(0);
