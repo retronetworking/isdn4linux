@@ -21,6 +21,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.4  1999/08/08 10:17:33  werner
+ * added new PCI vendor and card ids for Manufacturer 0x1043
+ *
  * Revision 1.3  1999/07/14 12:39:34  werner
  * Added changes for echo handling.
  *
@@ -34,10 +37,6 @@
 
 /* defines for PCI config */
 
-#define PCI_VENDOR_CCD	 0x1397
-#define PCI_CCD_PCI_ID	 0x2BD0
-#define PCI_VENDOR_CCD2	 0x1043   /* Asuscom ? */
-#define PCI_CCD_PCI_ID2	 0x675
 #define PCI_ENA_MEMIO    0x02
 #define PCI_ENA_MASTER   0x04
 
