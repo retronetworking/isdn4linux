@@ -211,9 +211,10 @@ while getopts :dhk:uc:vt a ; do
 done
 shift `expr $OPTIND - 1`
 
+calc_ctrl_file
+
 if $UNIQUE ; then
 	DOCP=docpuni
-	calc_ctrl_file
 fi
 
 echo -n "Using $DOCP"
@@ -339,4 +340,12 @@ else
 		fi
 	fi
   done
+	if [ $VERSION -le 2 -o $PATCHLEVEL -le 3 ]; then
+		if $UNIQUE ; then
+			docpd drivers/isdn/Rules.make $KERNELDIR/drivers/isdn/Rules.make
+		else
+			$DOCP drivers/isdn/Rules.make $KERNELDIR/drivers/isdn/Rules.make
+		fi
+
+	fi
 fi

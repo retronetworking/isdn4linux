@@ -41,6 +41,9 @@
 #define pci_get_sub_system(pdev, id)	pci_read_config_word(pdev, PCI_SUBSYSTEM_ID, &id)
 
 #define __exit
+#define __devinit
+#define __devinitdata
+
 #define net_device device
 #define COMPAT_NO_SOFTNET
 #define netif_running(d) test_bit(LINK_STATE_START, &d->state)
