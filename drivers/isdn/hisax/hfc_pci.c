@@ -23,6 +23,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.27  2000/02/26 00:35:12  keil
+ * Fix skb freeing in interrupt context
+ *
  * Revision 1.26  2000/02/09 20:22:55  werner
  *
  * Updated PCI-ID table
@@ -139,7 +142,9 @@ typedef struct {
 	char *card_name;
 } PCI_ENTRY;
 
-#define NT_T1_COUNT 20		/* number of 3.125ms interrupts for G2 timeout */
+#define NT_T1_COUNT	20	/* number of 3.125ms interrupts for G2 timeout */
+#define CLKDEL_TE	0x0e	/* CLKDEL in TE mode */
+#define CLKDEL_NT	0x6c	/* CLKDEL in NT mode */
 
 static const PCI_ENTRY id_list[] =
 {
@@ -225,7 +230,7 @@ reset_hfcpci(struct IsdnCardState *cs)
 	cs->hw.hfcpci.trm = 0 + HFCPCI_BTRANS_THRESMASK;	/* no echo connect , threshold */
 	Write_hfc(cs, HFCPCI_TRM, cs->hw.hfcpci.trm);
 
-	Write_hfc(cs, HFCPCI_CLKDEL, 0x0e);	/* ST-Bit delay for TE-Mode */
+	Write_hfc(cs, HFCPCI_CLKDEL, CLKDEL_TE); /* ST-Bit delay for TE-Mode */
 	cs->hw.hfcpci.sctrl_e = HFCPCI_AUTO_AWAKE;
 	Write_hfc(cs, HFCPCI_SCTRL_E, cs->hw.hfcpci.sctrl_e);	/* S/T Auto awake */
 	cs->hw.hfcpci.bswapped = 0;	/* no exchange */
@@ -349,6 +354,9 @@ hfcpci_empty_fifo(struct BCState *bcs, bzfifo_type * bz, u_char * bdata, int cou
 	    (*(bdata + (zp->z1 - B_SUB_VAL)))) {
 		if (cs->debug & L1_DEB_WARN)
 			debugl1(cs, "hfcpci_empty_fifo: incoming packet invalid length %d or crc", count);
+#ifdef ERROR_STATISTIC
+		bcs->err_inv++;
+#endif
 		bz->za[new_f2].z2 = new_z2;
 		bz->f2 = new_f2;	/* next buffer */
 		skb = NULL;
@@ -416,6 +424,9 @@ receive_dmsg(struct IsdnCardState *cs)
 		    (df->data[zp->z1])) {
 			if (cs->debug & L1_DEB_WARN)
 				debugl1(cs, "empty_fifo hfcpci paket inv. len %d or crc %d", rcnt, df->data[zp->z1]);
+#ifdef ERROR_STATISTIC
+			cs->err_rx++;
+#endif
 			df->f2 = ((df->f2 + 1) & MAX_D_FRAMES) | (MAX_D_FRAMES + 1);	/* next buffer */
 			df->za[df->f2 & D_FREG_MASK].z2 = (zp->z2 + rcnt) & (D_FIFO_SIZE - 1);
 		} else if ((skb = dev_alloc_skb(rcnt - 3))) {
@@ -604,6 +615,9 @@ hfcpci_fill_dfifo(struct IsdnCardState *cs)
 	if (fcnt > (MAX_D_FRAMES - 1)) {
 		if (cs->debug & L1_DEB_ISAC)
 			debugl1(cs, "hfcpci_fill_Dfifo more as 14 frames");
+#ifdef ERROR_STATISTIC
+		cs->err_tx++;
+#endif
 		return;
 	}
 	/* now determine free bytes in FIFO buffer */
@@ -838,6 +852,7 @@ hfcpci_auxcmd(struct IsdnCardState *cs, isdn_ctrl * ic)
 	    (!(cs->hw.hfcpci.int_m1 & (HFCPCI_INTS_B2TRANS + HFCPCI_INTS_B2REC + HFCPCI_INTS_B1TRANS + HFCPCI_INTS_B1REC)))) {
 		save_flags(flags);
 		cli();
+		Write_hfc(cs, HFCPCI_CLKDEL, CLKDEL_NT); /* ST-Bit delay for NT-Mode */
 		Write_hfc(cs, HFCPCI_STATES, HFCPCI_LOAD_STATE | 0);	/* HFC ST G0 */
 		udelay(10);
 		cs->hw.hfcpci.sctrl |= SCTRL_MODE_NT;
