@@ -20,6 +20,11 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.33  1997/02/28 02:32:45  fritz
+ * Cleanup: Moved some tty related stuff from isdn_common.c
+ *          to isdn_tty.c
+ * Bugfix:  Bisync protocol did not behave like documented.
+ *
  * Revision 1.32  1997/02/23 15:43:03  fritz
  * Small change in handling of incoming calls
  * documented in newest version of ttyI.4
@@ -169,6 +174,9 @@ static void isdn_tty_cmd_ATA(modem_info *);
 static void isdn_tty_at_cout(char *, modem_info *);
 static void isdn_tty_flush_buffer(struct tty_struct *);
 static void isdn_tty_modem_result(int, modem_info *);
+#ifdef CONFIG_ISDN_AUDIO
+static int isdn_tty_countDLE(unsigned char *, int);
+#endif
 
 /* Leave this unchanged unless you know what you do! */
 #define MODEM_PARANOIA_CHECK
@@ -187,7 +195,7 @@ char *isdn_tty_revision = "$Revision$";
 #define ETX 0x03
 #define DC4 0x14
 
-/* isdn_tty_try_read() is called from within isdn_receive_callback()
+/* isdn_tty_try_read() is called from within isdn_tty_rcv_skb()
  * to stuff incoming data directly into a tty's flip-buffer. This
  * is done to speed up tty-receiving if the receive-queue is empty.
  * This routine MUST be called with interrupts off.
@@ -196,7 +204,7 @@ char *isdn_tty_revision = "$Revision$";
  *  0 = Failure, data has to be buffered and later processed by
  *      isdn_tty_readmodem().
  */
-int
+static int
 isdn_tty_try_read(modem_info * info, struct sk_buff *skb)
 {
 	int c;
@@ -294,6 +302,100 @@ isdn_tty_readmodem(void)
 		isdn_timer_ctrl(ISDN_TIMER_MODEMREAD, 0);
 }
 
+int
+isdn_tty_rcv_skb(int i, int di, int channel, struct sk_buff *skb)
+{
+	ulong flags;
+	int midx;
+#ifdef CONFIG_ISDN_AUDIO
+	int ifmt;
+#endif
+	modem_info *info;
+
+	if ((midx = dev->m_idx[i]) < 0) {
+		/* if midx is invalid, packet is not for tty */
+		return 0;
+	}
+	info = &dev->mdm.info[midx];
+#ifdef CONFIG_ISDN_AUDIO
+	ifmt = 1;
+	
+	if (info->vonline)
+		isdn_audio_calc_dtmf(info, skb->data, skb->len, ifmt);
+#endif
+	if ((info->online < 2) &&
+	    (!(info->vonline & 1))) {
+		/* If Modem not listening, drop data */
+	    SET_SKB_FREE(skb);
+    	kfree_skb(skb, FREE_READ);
+		return 1;
+	}
+	if (info->emu.mdmreg[13] & 2)
+		/* T.70 decoding: Simply throw away the T.70 header (4 bytes) */
+		if ((skb->data[0] == 1) && ((skb->data[1] == 0) || (skb->data[1] == 1)))
+			skb_pull(skb, 4);
+	if (skb_headroom(skb) < sizeof(isdn_audio_skb)) {
+		printk(KERN_WARNING
+		       "isdn_audio: insufficient skb_headroom, dropping\n");
+	    SET_SKB_FREE(skb);
+    	kfree_skb(skb, FREE_READ);
+		return 1;
+	}
+	ISDN_AUDIO_SKB_DLECOUNT(skb) = 0;
+	ISDN_AUDIO_SKB_LOCK(skb) = 0;
+#ifdef CONFIG_ISDN_AUDIO
+	if (info->vonline & 1) {
+		/* voice conversion/compression */
+		switch (info->emu.vpar[3]) {
+			case 2:
+			case 3:
+			case 4:
+				/* adpcm
+				 * Since compressed data takes less
+				 * space, we can overwrite the buffer.
+				 */
+				skb_trim(skb, isdn_audio_xlaw2adpcm(info->adpcmr,
+								    ifmt,
+								    skb->data,
+								    skb->data,
+								    skb->len));
+				break;
+			case 5:
+				/* a-law */
+				if (!ifmt)
+					isdn_audio_ulaw2alaw(skb->data, skb->len);
+				break;
+			case 6:
+				/* u-law */
+				if (ifmt)
+					isdn_audio_alaw2ulaw(skb->data, skb->len);
+				break;
+		}
+		ISDN_AUDIO_SKB_DLECOUNT(skb) =
+			isdn_tty_countDLE(skb->data, skb->len);
+	}
+#endif
+	/* Try to deliver directly via tty-flip-buf if queue is empty */
+	save_flags(flags);
+	cli();
+	if (skb_queue_empty(&dev->drv[di]->rpqueue[channel]))
+		if (isdn_tty_try_read(info, skb)) {
+			restore_flags(flags);
+			return 1;
+		}
+	/* Direct deliver failed or queue wasn't empty.
+	 * Queue up for later dequeueing via timer-irq.
+	 */
+	__skb_queue_tail(&dev->drv[di]->rpqueue[channel], skb);
+	dev->drv[di]->rcvcount[channel] +=
+		(skb->len + ISDN_AUDIO_SKB_DLECOUNT(skb));
+	restore_flags(flags);
+	/* Schedule dequeuing */
+	if ((dev->modempoll) && (info->rcvsched))
+		isdn_timer_ctrl(ISDN_TIMER_MODEMREAD, 1);
+	return 1;
+}
+
 void
 isdn_tty_cleanup_xmit(modem_info * info)
 {
@@ -343,7 +445,7 @@ isdn_tty_tint(modem_info * info)
 }
 
 #ifdef CONFIG_ISDN_AUDIO
-int
+static int
 isdn_tty_countDLE(unsigned char *buf, int len)
 {
 	int count = 0;

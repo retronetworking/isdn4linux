@@ -20,6 +20,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.7  1997/02/03 22:44:11  fritz
+ * Reformatted according CodingStyle
+ *
  * Revision 1.6  1996/06/06 14:43:31  fritz
  * Changed to support DTMF decoding on audio playback also.
  *
@@ -526,14 +529,7 @@ isdn_audio_goertzel(int *sample, modem_info * info)
 		return;
 	}
 	SET_SKB_FREE(skb);
-	if (skb_headroom(skb) < sizeof(isdn_audio_skb)) {
-		printk(KERN_WARNING
-		"isdn_audio: insufficient DTMF skb_headroom, dropping\n");
-		dev_kfree_skb(skb, FREE_READ);
-		return;
-	}
 	result = (int *) skb_put(skb, sizeof(int) * NCOEFF);
-	ISDN_AUDIO_SKB_DLECOUNT(skb) = 0;
 	for (k = 0; k < NCOEFF; k++) {
 		sk = sk1 = sk2 = 0;
 		for (n = 0; n < DTMF_NPOINTS; n++) {
@@ -594,6 +590,14 @@ isdn_audio_eval_dtmf(modem_info * info)
 			*p++ = 0x10;
 			*p = what;
 			skb_trim(skb, 2);
+			if (skb_headroom(skb) < sizeof(isdn_audio_skb)) {
+				printk(KERN_WARNING
+				       "isdn_audio: insufficient skb_headroom, dropping\n");
+				kfree_skb(skb, FREE_READ);
+				return;
+			}
+			ISDN_AUDIO_SKB_DLECOUNT(skb) = 0;
+			ISDN_AUDIO_SKB_LOCK(skb) = 0;
 			save_flags(flags);
 			cli();
 			di = info->isdn_driver;

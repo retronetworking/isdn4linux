@@ -21,6 +21,11 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.36  1997/02/28 02:32:40  fritz
+ * Cleanup: Moved some tty related stuff from isdn_common.c
+ *          to isdn_tty.c
+ * Bugfix:  Bisync protocol did not behave like documented.
+ *
  * Revision 1.35  1997/02/21 13:01:19  fritz
  * Changes CAUSE message output in kernel log.
  *
@@ -350,13 +355,7 @@ isdn_timer_ctrl(int tf, int onoff)
 static void
 isdn_receive_skb_callback(int di, int channel, struct sk_buff *skb)
 {
-	ulong flags;
 	int i;
-	int midx;
-#ifdef CONFIG_ISDN_AUDIO
-	int ifmt;
-#endif
-	modem_info *info;
 
 	if ((i = isdn_dc2minor(di, channel)) == -1) {
 		isdn_trash_skb(skb, FREE_READ);
@@ -370,86 +369,8 @@ isdn_receive_skb_callback(int di, int channel, struct sk_buff *skb)
 	/* No network-device found, deliver to tty or raw-channel */
 	SET_SKB_FREE(skb);
 	if (skb->len) {
-		if ((midx = dev->m_idx[i]) < 0) {
-			/* if midx is invalid, drop packet */
-			isdn_trash_skb(skb, FREE_READ);
+		if (isdn_tty_rcv_skb(i, di, channel, skb))
 			return;
-		}
-		info = &dev->mdm.info[midx];
-#ifdef CONFIG_ISDN_AUDIO
-		ifmt = 1;
-
-		if (info->vonline)
-			isdn_audio_calc_dtmf(info, skb->data, skb->len, ifmt);
-#endif
-		if ((info->online < 2) &&
-		    (!(info->vonline & 1))) {
-			/* If Modem not listening, drop data */
-			isdn_trash_skb(skb, FREE_READ);
-			return;
-		}
-		if (info->emu.mdmreg[13] & 2)
-			/* T.70 decoding: Simply throw away the T.70 header (4 bytes) */
-			if ((skb->data[0] == 1) && ((skb->data[1] == 0) || (skb->data[1] == 1)))
-				skb_pull(skb, 4);
-		if (skb_headroom(skb) < sizeof(isdn_audio_skb)) {
-			printk(KERN_WARNING
-			       "isdn_audio: insufficient skb_headroom, dropping\n");
-			isdn_trash_skb(skb, FREE_READ);
-			return;
-		}
-		ISDN_AUDIO_SKB_DLECOUNT(skb) = 0;
-		ISDN_AUDIO_SKB_LOCK(skb) = 0;
-#ifdef CONFIG_ISDN_AUDIO
-		if (info->vonline & 1) {
-			/* voice conversion/compression */
-			switch (info->emu.vpar[3]) {
-				case 2:
-				case 3:
-				case 4:
-					/* adpcm
-					 * Since compressed data takes less
-					 * space, we can overwrite the buffer.
-					 */
-					skb_trim(skb, isdn_audio_xlaw2adpcm(info->adpcmr,
-								    ifmt,
-							       skb->data,
-							       skb->data,
-							      skb->len));
-					break;
-				case 5:
-					/* a-law */
-					if (!ifmt)
-						isdn_audio_ulaw2alaw(skb->data, skb->len);
-					break;
-				case 6:
-					/* u-law */
-					if (ifmt)
-						isdn_audio_alaw2ulaw(skb->data, skb->len);
-					break;
-			}
-			ISDN_AUDIO_SKB_DLECOUNT(skb) =
-			    isdn_tty_countDLE(skb->data, skb->len);
-		}
-#endif
-		/* Try to deliver directly via tty-flip-buf if queue is empty */
-		save_flags(flags);
-		cli();
-		if (skb_queue_empty(&dev->drv[di]->rpqueue[channel]))
-			if (isdn_tty_try_read(info, skb)) {
-				restore_flags(flags);
-				return;
-			}
-		/* Direct deliver failed or queue wasn't empty.
-		 * Queue up for later dequeueing via timer-irq.
-		 */
-		__skb_queue_tail(&dev->drv[di]->rpqueue[channel], skb);
-		dev->drv[di]->rcvcount[channel] +=
-		    (skb->len + ISDN_AUDIO_SKB_DLECOUNT(skb));
-		restore_flags(flags);
-		/* Schedule dequeuing */
-		if ((dev->modempoll) && (info->rcvsched))
-			isdn_timer_ctrl(ISDN_TIMER_MODEMREAD, 1);
 		wake_up_interruptible(&dev->drv[di]->rcv_waitq[channel]);
 	} else
 		isdn_trash_skb(skb, FREE_READ);
