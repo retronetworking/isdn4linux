@@ -8,6 +8,9 @@
  *
  *
  * $Log$
+ * Revision 2.0  1997/06/26 11:02:43  keil
+ * New Layer and card interface
+ *
  * Revision 1.6  1997/03/23 21:45:48  keil
  * Add support for ELSA PCMCIA
  *
@@ -47,6 +50,12 @@
 #define ELSA_PCMCIA  6
 #define ELSA_QS1000  7
 #define ELSA_QS3000  8
+#define ELSA_QS1000PCI 9
+
+/* PCI stuff */
+#define PCI_VENDOR_ELSA	0x1048
+#define PCI_QS1000_ID	0x1000
+
 
 /* ITAC Registeradressen (only Microlink PC) */
 #define ITAC_SYS	0x34
