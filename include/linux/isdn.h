@@ -27,6 +27,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.36  1998/02/20 17:35:55  fritz
+ * Added V.110 stuff.
+ *
  * Revision 1.35  1998/01/31 22:14:14  keil
  * changes for 2.1.82
  *
@@ -715,12 +718,10 @@ typedef struct {
 	int nbits;                     /* Number of used bits in streambyte    */
 	unsigned char key;             /* Bitmask in stream eg. 11 (nbits=2)   */
 	int decodelen;                 /* Amount of data in decodebuf          */
-	int encodelen;                 /* Amount of data in endecodebuf        */
 	int SyncInit;                  /* Number of sync frames to send        */
 	unsigned char *OnlineFrame;    /* Precalculated V110 idle frame        */
 	unsigned char *OfflineFrame;   /* Precalculated V110 sync Frame        */
-	int framelen;                  /* Length of sync/idle frames           */
-	unsigned long jiffies;
+	int framelen;                  /* Length of frames                     */
 	int skbuser;                   /* Number of unacked userdata skbs      */
 	int skbidle;                   /* Number of unacked idle/sync skbs     */
 	int introducer;                /* Local vars for decoder               */
@@ -728,8 +729,8 @@ typedef struct {
 	unsigned char b;
 	int skbres;                    /* space to reserve in outgoing skb     */
 	int maxsize;                   /* maxbufsize of lowlevel driver        */
+	unsigned char *encodebuf;      /* temporary buffer for encoding        */
 	unsigned char decodebuf[V110_BUFSIZE]; /* incomplete V110 matrices     */
-	unsigned char encodebuf[V110_BUFSIZE]; /* incomplete V110 matrices     */
 } isdn_v110_stream;
 
 /*========================= End of V.110 stuff =============================*/
