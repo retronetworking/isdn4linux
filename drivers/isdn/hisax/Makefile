@@ -16,6 +16,7 @@ hisax-objs	:= config.o isdnl1.o tei.o isdnl2.o isdnl3.o \
 
 # Optional parts of multipart objects.
 hfcusb-mods-$(CONFIG_HISAX_HFC_USB) := hfc_usb.o
+st5481usb-mods-$(CONFIG_HISAX_ST5481) := st5481_usb.o
 
 hisax-objs-$(CONFIG_HISAX_EURO) += l3dss1.o
 hisax-objs-$(CONFIG_HISAX_NI1) += l3ni1.o
@@ -50,6 +51,7 @@ hisax-objs-$(CONFIG_HISAX_BKM_A4T) += bkm_a4t.o isac.o arcofi.o jade.o
 hisax-objs-$(CONFIG_HISAX_SCT_QUADRO) += bkm_a8.o isac.o arcofi.o hscx.o
 hisax-objs-$(CONFIG_HISAX_GAZEL) += gazel.o isac.o arcofi.o hscx.o
 hisax-objs-$(CONFIG_HISAX_W6692) += w6692.o
+hisax-objs-$(CONFIG_HISAX_ST5481) += st5481.o st5481_hdlc.o
 #hisax-objs-$(CONFIG_HISAX_TESTEMU) += testemu.o
 
 hisax-objs += $(sort $(hisax-objs-y))
@@ -57,7 +59,7 @@ hisax-objs += $(sort $(hisax-objs-y))
 # insert hfc usb module into obj-m
 
 obj-m += $(hfcusb-mods-y)	
-multi-m += $(hfcusb-mods-y)
+obj-m += $(st5481usb-mods-y)
 
 # Each configuration option enables a list of files.
 

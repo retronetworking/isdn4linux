@@ -73,6 +73,7 @@
  *   38 Travers Technologies NETspider-U PCI card
  *   39 HFC 2BDS0-SP PCMCIA     p0=irq p1=iobase
  *   40 HFC-S USB               none
+ *   41 ST5481 ISDN USB modem   none
  *
  * protocol can be either ISDN_PTYPE_EURO or ISDN_PTYPE_1TR6 or ISDN_PTYPE_NI1
  *
@@ -97,6 +98,7 @@ const char *CardType[] =
 	"Telekom A4T", "Scitel Quadro", "Gazel", "HFC 2BDS0 PCI",
 	    "Winbond 6692",
 	"HFC 2BDS0 SX", "NETspider-U", "HFC-2BDS0-SP PCMCIA", "HFC-S USB",
+        "ST5481 ISDN USB modem",
 };
 
 void HiSax_closecard(int cardnr);
@@ -308,6 +310,15 @@ EXPORT_SYMBOL(hfc_init_pcmcia);
 #undef DEFAULT_CFG
 #define DEFAULT_CARD ISDN_CTYPE_NETJET_U
 #define DEFAULT_CFG {0,0,0,0}
+#endif
+
+#ifdef CONFIG_HISAX_ST5481 
+#undef DEFAULT_CARD
+#undef DEFAULT_CFG
+#define DEFAULT_CARD ISDN_CTYPE_ST5481
+#define DEFAULT_CFG {0,0,0,0}
+int st5481_init_usb(struct usb_device *dev, int typ, int prot, int *cardnr);
+EXPORT_SYMBOL(st5481_init_usb);
 #endif
 
 #ifdef CONFIG_HISAX_1TR6
@@ -639,6 +650,10 @@ extern int setup_w6692(struct IsdnCard *card);
 
 #if CARD_NETJET_U
 extern int setup_netjet_u(struct IsdnCard *card);
+#endif
+
+#if CARD_ST5481
+extern int setup_st5481(struct IsdnCard *card);
 #endif
 
 /*
@@ -1194,7 +1209,12 @@ checkcard(int cardnr, char *id, int *busy_flag, void *load_drv)
 			ret = setup_netjet_u(card);
 			break;
 #endif
-		default:
+#if CARD_ST5481
+	case ISDN_CTYPE_ST5481:
+ 		        ret = setup_st5481(card);
+ 		        break;
+#endif			
+	        default:
 			printk(KERN_WARNING
 			       "HiSax: Support for %s Card not selected\n",
 			       CardType[card->typ]);
@@ -1533,6 +1553,12 @@ HiSax_init(void)
 		return 0;
 	}
 #endif
+#ifdef CONFIG_HISAX_ST5481
+	if (type[0] == ISDN_CTYPE_ST5481) {
+		/* we have to export  and return in this case */
+		return 0;
+	}
+#endif
 #endif
 	nrcards = 0;
 #ifdef MODULE
@@ -1611,6 +1637,7 @@ HiSax_init(void)
 			case ISDN_CTYPE_TELESPCI:
 			case ISDN_CTYPE_W6692:
 			case ISDN_CTYPE_NETJET_U:
+		        case ISDN_CTYPE_ST5481:
 				break;
 			case ISDN_CTYPE_BKM_A4T:
 				break;
@@ -1862,6 +1889,44 @@ avm_a1_init_pcmcia(void *pcm_iob, int pcm_irq, int *busy_flag, int prot)
 	       nrcards, (nrcards > 1) ? "s" : "");
 
 	HiSax_inithardware(busy_flag);
+	printk(KERN_NOTICE "HiSax: module installed\n");
+#endif
+	return (0);
+}
+#endif
+
+#ifdef CONFIG_HISAX_ST5481
+int st5481_init_usb(struct usb_device *dev, int typ, int prot, int *cardnr)
+{
+#ifdef MODULE
+	int i;
+
+	nrcards = 0;
+
+	for (i = 0; i < HISAX_MAX_CARDS; i++) {
+		cards[i].para[0] = irq[i];
+		cards[i].para[1] = io[i];
+		cards[i].typ = type[i];
+		if (protocol[i]) {
+			cards[i].protocol = protocol[i];
+		}
+	}
+	cards[0].para[1] = (int) dev; // FIXME: broken for sizeof(void *) != sizeof(int)
+	cards[0].protocol = prot;
+	cards[0].typ = typ;
+	*cardnr = 0;    // FIXME: only 1 adapter possible
+
+	if (!HiSax_id)
+		HiSax_id = HiSaxID;
+	if (!HiSaxID[0])
+		strcpy(HiSaxID, "st5481_usb");
+	for (i = 0; i < HISAX_MAX_CARDS; i++)
+		if (cards[i].typ > 0)
+			nrcards++;
+	printk(KERN_DEBUG "HiSax: Total %d card%s defined\n",
+	       nrcards, (nrcards > 1) ? "s" : "");
+
+	HiSax_inithardware(NULL);
 	printk(KERN_NOTICE "HiSax: module installed\n");
 #endif
 	return (0);

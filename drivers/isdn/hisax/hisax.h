@@ -457,6 +457,16 @@ struct amd7930_hw {
 	struct tq_struct tq_xmt;
 };
 
+struct st5481B_hw {
+	int rcvidx;
+	u_char *rcvbuf;         /* B-Channel receive Buffer */
+	struct hdlc_vars *hdlc_state_in;
+	struct hdlc_vars *hdlc_state_out;
+	u_char b_flow_event;
+	u_long b_out_busy;
+	struct urb *b_out_urb[2]; /* double buffering */
+	struct urb *b_in_urb[2]; /* double buffering */
+};
 
 #define BC_FLG_INIT	1
 #define BC_FLG_ACTIV	2
@@ -514,6 +524,7 @@ struct BCState {
 		struct tiger_hw tiger;
 		struct amd7930_hw  amd7930;
 		struct w6692B_hw w6692;
+		struct st5481B_hw st5481;
 	} hw;
 };
 
@@ -791,6 +802,23 @@ struct w6692_hw {
 	struct timer_list timer;
 };
 
+struct st5481_hw {
+	struct usb_device *dev;
+	struct hdlc_vars *hdlc_state_in;
+	struct hdlc_vars *hdlc_state_out;
+	struct evt_fifo *xmt_evt_fifo;
+	struct ctrl_msg_fifo *ctrl_msg_fifo;
+	u_long ctrl_busy;
+	struct urb *ctrl_urb;
+	struct urb *int_urb;
+	int d_out_state;
+	u_long d_out_busy;
+	struct urb *d_out_urb[2]; /* double buffering */
+	struct urb *d_in_urb[2]; /* double buffering */
+	u_char leds;
+	unsigned int led_counter;
+};
+
 #ifdef  CONFIG_HISAX_TESTEMU
 struct te_hw {
 	unsigned char *sfifo;
@@ -859,6 +887,10 @@ struct icc_chip {
 	u_char adf2;
 };
 
+struct st5481_chip {
+	int ph_state;
+};
+
 #define HW_IOM1			0
 #define HW_IPAC			1
 #define HW_ISAR			2
@@ -909,6 +941,7 @@ struct IsdnCardState {
 		struct bkm_hw ax;
 		struct gazel_hw gazel;
 		struct w6692_hw w6692;
+		struct st5481_hw st5481;
 	} hw;
 	int myid;
 	isdn_if iif;
@@ -942,6 +975,7 @@ struct IsdnCardState {
 		struct hfcsx_chip hfcsx;
 		struct w6692_chip w6692;
 		struct icc_chip icc;
+		struct st5481_chip st5481;
 	} dc;
 	u_char *rcvbuf;
 	int rcvidx;
@@ -1004,7 +1038,8 @@ struct IsdnCardState {
 #define  ISDN_CTYPE_NETJET_U	38
 #define  ISDN_CTYPE_HFC_SP_PCMCIA      39
 #define  ISDN_CTYPE_HFC_USB     40
-#define  ISDN_CTYPE_COUNT	40
+#define  ISDN_CTYPE_ST5481      41
+#define  ISDN_CTYPE_COUNT	41
 
 
 #ifdef ISDN_CHIP_ISAC
@@ -1261,6 +1296,12 @@ struct IsdnCardState {
 #endif
 #else
 #define CARD_NETJET_U 0
+#endif
+
+#ifdef	CONFIG_HISAX_ST5481
+#define	CARD_ST5481	1
+#else
+#define	CARD_ST5481	0
 #endif
 
 #define TEI_PER_CARD 1

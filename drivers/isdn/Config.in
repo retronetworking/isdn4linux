@@ -114,6 +114,11 @@ if [ "$CONFIG_ISDN_DRV_HISAX" != "n" ]; then
        if [ "CONFIG_USB" != "n" ]; then	
       	bool '  Colognechip HFC-USB support' CONFIG_HISAX_HFC_USB 
        fi	
+      fi
+      if [ "$CONFIG_MODULES" != "n" ]; then
+       if [ "CONFIG_USB" != "n" ]; then	
+        bool '  ST5481 USB ISDN modem' CONFIG_HISAX_ST5481
+       fi
       fi	
    fi
    dep_tristate 'Sedlbauer PCMCIA cards' CONFIG_HISAX_SEDLBAUER_CS $CONFIG_PCMCIA
