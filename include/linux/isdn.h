@@ -21,6 +21,10 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.19  1997/01/14 01:41:07  fritz
+ * Added ATI2 related variables.
+ * Added variables for audio support in skbuffs.
+ *
  * Revision 1.18  1996/11/06 17:37:50  keil
  * more changes for 2.1.X
  *
@@ -180,7 +184,7 @@ typedef struct {
 } isdn_net_ioctl_phone;
 
 #define NET_DV 0x01 /* Data version for net_cfg     */
-#define TTY_DV 0x01 /* Data version for iprofd etc. */
+#define TTY_DV 0x02 /* Data version for iprofd etc. */
 
 typedef struct {
   char name[10];     /* Name of interface                     */
