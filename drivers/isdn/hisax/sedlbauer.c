@@ -17,6 +17,10 @@
  *            Edgar Toernig
  *
  * $Log$
+ * Revision 1.15  1999/08/25 17:00:00  keil
+ * Make ISAR V32bis modem running
+ * Make LL->HL interface open for additional commands
+ *
  * Revision 1.14  1999/08/11 20:59:22  keil
  * new PCI codefix
  * fix IRQ problem while unload
@@ -580,7 +584,7 @@ setup_sedlbauer(struct IsdnCard *card))
 #if CONFIG_PCI
 #ifdef COMPAT_HAS_NEW_PCI
 		if (!pci_present()) {
-			printk(KERN_ERR "FritzPCI: no PCI bus present\n");
+			printk(KERN_ERR "Sedlbauer: no PCI bus present\n");
 			return(0);
 		}
 		if ((dev_sedl = pci_find_device(PCI_VENDOR_SEDLBAUER,
