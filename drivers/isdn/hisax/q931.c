@@ -14,6 +14,9 @@
  *
  * 
  * $Log$
+ * Revision 1.1  1996/10/13 20:04:56  keil
+ * Initial revision
+ *
  *
  */
 
@@ -1097,7 +1100,7 @@ dlogframe(struct IsdnCardState *sp, byte * buf, int size, char *comment) {
 			}
 			buf += buf[1] + 2;
 		}
-	} else {	/* EURO */
+	} else if (buf[0] == 8) {	/* EURO */
 		/* locate message type */
 		for (i = 0; i < MTSIZE; i++)
 			if (mtlist[i].nr == buf[3])
@@ -1157,6 +1160,8 @@ dlogframe(struct IsdnCardState *sp, byte * buf, int size, char *comment) {
 			/* Skip to next element */
 			buf += buf[1] + 2;
 		}
+	} else {
+		dp += sprintf(dp, "Unknown protocol %x!", buf[0]);
 	}
 	dp += sprintf(dp, "\n");
 	HiSax_putstatus(sp->dlogspace);
