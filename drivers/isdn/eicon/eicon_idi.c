@@ -21,6 +21,11 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.1  1999/01/01 18:09:41  armin
+ * First checkin of new eicon driver.
+ * DIVA-Server BRI/PCI and PRI/PCI are supported.
+ * Old diehl code is obsolete.
+ *
  *
  */
 
@@ -359,9 +364,8 @@ int
 diehl_idi_listen_req(diehl_card *card, diehl_chan *chan)
 {
 #ifdef IDI_DEBUG
-	printk(KERN_DEBUG"idi: Listen_Req eazmask=0x%x\n", chan->eazmask);
+	printk(KERN_DEBUG"idi: Listen_Req eazmask=0x%x Ch:%d\n", chan->eazmask, chan->No);
 #endif
-  if (chan->eazmask) {
 	if (!chan->e.D3Id) {
 		idi_do_req(card, chan, ASSIGN, 0); 
 	}
@@ -369,13 +373,6 @@ diehl_idi_listen_req(diehl_card *card, diehl_chan *chan)
 		idi_do_req(card, chan, INDICATE_REQ, 0);
 		chan->fsm_state = DIEHL_STATE_LISTEN;
 	}
-  }
-  else {
-/* TODO
-	if (chan->e.B2Id) idi_do_req(card, chan, REMOVE, 1);
-	if (chan->e.D3Id) idi_do_req(card, chan, REMOVE, 0);
-*/
-  }
   return(0);
 }
 
@@ -416,6 +413,7 @@ idi_hangup(diehl_card *card, diehl_chan *chan)
 int
 idi_connect_res(diehl_card *card, diehl_chan *chan)
 {
+  chan->fsm_state = DIEHL_STATE_IWAIT;
   idi_do_req(card, chan, CALL_RES, 0);
   idi_do_req(card, chan, ASSIGN, 1);
   return(0);
@@ -513,9 +511,11 @@ idi_connect_req(diehl_card *card, diehl_chan *chan, char *phone,
                         l -= 3;
                         break;
                 case ISDN_PROTO_L2_MODEM:
-                        reqbuf->XBuffer.P[l-5] = 10;
-                        reqbuf->XBuffer.P[l-6] = 1;
-			l -= 5;
+			reqbuf->XBuffer.P[l-6] = 3;
+			reqbuf->XBuffer.P[l-5] = 0x10;
+			reqbuf->XBuffer.P[l-4] = 8;
+			reqbuf->XBuffer.P[l-3] = 0;
+			l -= 3;
                         break;
         }
 	
@@ -863,8 +863,10 @@ idi_handle_ind(diehl_pci_card *card, struct sk_buff *skb)
 #ifdef IDI_DEBUG
   						printk(KERN_DEBUG"idi: Call Alert\n");
 #endif
-						chan->fsm_state = DIEHL_STATE_ICALL;
-						idi_do_req(ccard, chan, CALL_ALERT, 0);
+						if ((chan->fsm_state == DIEHL_STATE_ICALL) || (chan->fsm_state == DIEHL_STATE_ICALLW)) {
+							chan->fsm_state = DIEHL_STATE_ICALL;
+							idi_do_req(ccard, chan, CALL_ALERT, 0);
+						}
 						break;
 					case 2: /* reject */
 #ifdef IDI_DEBUG
@@ -900,7 +902,7 @@ idi_handle_ind(diehl_pci_card *card, struct sk_buff *skb)
 #ifdef IDI_DEBUG
   				printk(KERN_DEBUG"idi_ind: Call_Ind\n");
 #endif
-				if (chan->fsm_state == DIEHL_STATE_ICALL) {
+				if ((chan->fsm_state == DIEHL_STATE_ICALL) || (chan->fsm_state == DIEHL_STATE_IWAIT)) {
 					chan->fsm_state = DIEHL_STATE_IBWAIT;
 					cmd.driver = ccard->myid;
 					cmd.command = ISDN_STAT_DCONN;
@@ -1011,7 +1013,7 @@ idi_handle_ack(diehl_pci_card *card, struct sk_buff *skb)
 
 	if ((ack->Rc != ASSIGN_OK) && (ack->Rc != OK)) {
 #ifdef IDI_DEBUG
-		printk(KERN_ERR "diehl_handle_ack: Not OK: Rc=%d Id=%d Ch=%d\n",
+		printk(KERN_ERR "eicon_handle_ack: Not OK: Rc=%d Id=%d Ch=%d\n",
 			ack->Rc, ack->RcId, ack->RcCh);
 #endif
 			if ((chan = card->IdTable[ack->RcId]) != NULL) {
