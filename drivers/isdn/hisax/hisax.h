@@ -3,6 +3,10 @@
  *   Basic declarations, defines and prototypes
  *
  * $Log$
+ * Revision 1.13.2.18  1998/11/03 00:06:33  keil
+ * certification related changes
+ * fixed logging for smaller stack use
+ *
  * Revision 1.13.2.17  1998/10/11 19:33:48  niemann
  * Added new IPAC based cards.
  * Code cleanup and simplified (sedlbauer.c)
@@ -272,8 +276,8 @@ struct Layer1 {
 #define FLG_ORIG	2
 #define FLG_MOD128	3
 #define FLG_PEND_REL	4
-#define FLG_L3_INIT	5 
-#define FLG_T200_RUN	6 
+#define FLG_L3_INIT	5
+#define FLG_T200_RUN	6
 #define FLG_ACK_PEND	7
 #define FLG_REJEXC	8
 #define FLG_OWN_BUSY	9
@@ -352,7 +356,7 @@ struct PStack {
 	struct Layer1 l1;
 	struct Layer2 l2;
 	struct Layer3 l3;
-	struct LLInterface lli; 
+	struct LLInterface lli;
 	struct Management ma;
 	int protocol;		/* EDSS1 or 1TR6 */
 };
@@ -394,8 +398,18 @@ struct isar_hw {
 	struct isar_reg *reg;
 };
 
+struct hdlc_stat_reg {
+	u_char cmd  __attribute__((packed));
+	u_char xml  __attribute__((packed));
+	u_char mode __attribute__((packed));
+	u_char fill __attribute__((packed));
+};
+
 struct hdlc_hw {
-	u_int ctrl;
+	union {
+		u_int ctrl;
+		struct hdlc_stat_reg sr;
+	} ctrl;
 	u_int stat;
 	int rcvidx;
 	int count;              /* Current skb sent count */
@@ -532,12 +546,12 @@ struct teles3_hw {
 	signed   int hscx[2];
 	signed   int isacfifo;
 	signed   int hscxfifo[2];
-};	
+};
 
 struct teles0_hw {
 	unsigned int cfg_reg;
 	unsigned int membase;
-};	
+};
 
 struct avm_hw {
 	unsigned int cfg_reg;
@@ -546,7 +560,7 @@ struct avm_hw {
 	unsigned int isacfifo;
 	unsigned int hscxfifo[2];
 	unsigned int counter;
-};	
+};
 
 struct ix1_hw {
 	unsigned int cfg_reg;
@@ -566,7 +580,7 @@ struct diva_hw {
 	unsigned int status;
 	struct timer_list tl;
 	u_char ctrl_reg;
-};	
+};
 
 struct asus_hw {
 	unsigned int cfg_reg;
@@ -605,7 +619,7 @@ struct spt_hw {
 	unsigned int isac;
 	unsigned int hscx[2];
 	unsigned char res_irq;
-};	
+};
 
 struct mic_hw {
 	unsigned int cfg_reg;
@@ -664,7 +678,7 @@ struct IsdnCardState {
 	unsigned char subtyp;
 	int protocol;
 	unsigned int irq;
-	int HW_Flags; 
+	int HW_Flags;
 	int *busy_flag;
 	union {
 		struct elsa_hw elsa;
@@ -803,7 +817,7 @@ struct IsdnCardState {
 
 #ifdef	CONFIG_HISAX_AVM_A1
 #define  CARD_AVM_A1 (1<< ISDN_CTYPE_A1)
-#ifndef ISDN_CHIP_ISAC 
+#ifndef ISDN_CHIP_ISAC
 #define ISDN_CHIP_ISAC 1
 #endif
 #else
@@ -812,7 +826,7 @@ struct IsdnCardState {
 
 #ifdef	CONFIG_HISAX_AVM_A1_PCMCIA
 #define  CARD_AVM_A1_PCMCIA (1<< ISDN_CTYPE_A1_PCMCIA)
-#ifndef ISDN_CHIP_ISAC 
+#ifndef ISDN_CHIP_ISAC
 #define ISDN_CHIP_ISAC 1
 #endif
 #else
@@ -821,7 +835,7 @@ struct IsdnCardState {
 
 #ifdef	CONFIG_HISAX_FRITZPCI
 #define  CARD_FRITZPCI (1<< ISDN_CTYPE_FRITZPCI)
-#ifndef ISDN_CHIP_ISAC 
+#ifndef ISDN_CHIP_ISAC
 #define ISDN_CHIP_ISAC 1
 #endif
 #else
