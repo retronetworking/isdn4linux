@@ -21,6 +21,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.58  1998/03/07 18:21:05  cal
+ * Dynamic Timeout-Rule-Handling vs. 971110 included
+ *
  * Revision 1.57  1998/02/25 18:31:13  fritz
  * Added debugging output in adjust_header.
  *
@@ -2927,6 +2930,7 @@ isdn_net_delphone(isdn_net_ioctl_phone * phone)
 				else
 					p->local->phone[inout] = n->next;
 				kfree(n);
+				restore_flags(flags);
 				return 0;
 			}
 			m = n;
