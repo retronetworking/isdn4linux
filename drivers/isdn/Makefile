@@ -34,7 +34,7 @@ obj-	:=
 
 # Each configuration option enables a list of files.
 
-obj-$(CONFIG_ISDN)			+= isdn.o
+obj-$(CONFIG_ISDN_MOD)			+= isdn.o
 obj-$(CONFIG_ISDN_PPP_BSDCOMP)		+= isdn_bsdcomp.o
 
 # Object files in subdirectories
@@ -50,14 +50,18 @@ subdir-$(CONFIG_ISDN_DRV_SC)		+= sc
 subobj-$(CONFIG_ISDN_DRV_SC)		+= sc/sc_drv.o
 subdir-$(CONFIG_ISDN_CAPI)		+= avmb1
 subobj-$(CONFIG_ISDN_CAPI)		+= avmb1/avmb1.o
+subdir-$(CONFIG_ISDN_KCAPI)		+= kernelcapi
+subobj-$(CONFIG_ISDN_KCAPI)		+= kernelcapi/kcapi_drv.o
+subdir-$(CONFIG_ISDN_KCAPI_CAPI20)	+= capi20
+subobj-$(CONFIG_ISDN_KCAPI_CAPI20)	+= capi20/capi_drv.o
+subdir-$(CONFIG_ISDN_KCAPI_CAPIDRV)	+= capidrv
+subobj-$(CONFIG_ISDN_KCAPI_CAPIDRV)	+= capidrv/capidrv_drv.o
 subdir-$(CONFIG_ISDN_DRV_LOOP)		+= isdnloop
 subobj-$(CONFIG_ISDN_DRV_LOOP)		+= isdnloop/isdnloop_drv.o
 subdir-$(CONFIG_ISDN_DRV_ACT2000)	+= act2000
 subobj-$(CONFIG_ISDN_DRV_ACT2000)	+= act2000/act2000_drv.o
-subdir-$(CONFIG_ISDN_DRV_EICON_OLD)	+= eicon
-subobj-$(CONFIG_ISDN_DRV_EICON_OLD)	+= eicon/eicon_drv.o
-subdir-$(CONFIG_ISDN_DRV_EICON_DIVAS)	+= eicon
-subobj-$(CONFIG_ISDN_DRV_EICON_DIVAS)	+= eicon/eicon_drv.o
+subdir-$(CONFIG_ISDN_DIVAS)		+= eicon
+subobj-$(CONFIG_ISDN_DIVAS)		+= eicon/divas_drv.o
 subdir-$(CONFIG_HYSDN)			+= hysdn
 subobj-$(CONFIG_HYSDN)			+= hysdn/hysdn_drv.o
 

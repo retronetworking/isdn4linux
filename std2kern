@@ -233,6 +233,15 @@ else
   for i in drivers/isdn/isdn_*.[ch] ; do
     $DOCP $i $KERNELDIR/$i
   done
+  for i in drivers/isdn/kernelcapi/*.[ch] ; do
+    $DOCP $i $KERNELDIR/$i
+  done
+  for i in drivers/isdn/capi20/*.[ch] ; do
+    $DOCP $i $KERNELDIR/$i
+  done
+  for i in drivers/isdn/capidrv/*.[ch] ; do
+    $DOCP $i $KERNELDIR/$i
+  done
   for i in drivers/isdn/icn/icn.[ch] ; do
     $DOCP $i $KERNELDIR/$i
   done
@@ -299,6 +308,9 @@ else
   if [ -n "$CTRLNAME" ] ; then
         grep "linux/isdn_compat.h" $CTRLNAME >/dev/null || COPY_COMPAT=true;
   fi
+  for i in include/net/capi/*.h ; do
+	$DOCP $i $KERNELDIR/$i
+  done
   for i in include/linux/*.h ; do
 	if [ "$i" = "include/linux/isdn_compat.h" -a \
 	     "$UNIQUE" = "true" -a "$COPY_COMPAT" = "false" ] ; then
@@ -326,6 +338,9 @@ else
 	fi
   done
   for i in drivers/isdn/Makefile \
+	   drivers/isdn/kernelcapi/Makefile \
+	   drivers/isdn/capi20/Makefile \
+	   drivers/isdn/capidrv/Makefile \
 	   drivers/isdn/icn/Makefile \
            drivers/isdn/hisax/Makefile \
            drivers/isdn/pcbit/Makefile \
