@@ -21,6 +21,7 @@
 #undef COMPAT_HAS_ISA_IOREMAP
 #define net_device device
 #define set_current_state(sta) current->state = sta
+#undef COMPAT_HAS_pci_find_subsys
 
 #undef CONFIG_ISDN_WITH_ABC
 #undef CONFIG_ISDN_WITH_ABC_CALLB
