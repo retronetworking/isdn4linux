@@ -181,6 +181,7 @@ typedef struct HYSDN_CARD {
 	struct tq_struct irq_queue;	/* interrupt task queue */
 	uchar volatile irq_enabled;	/* interrupt enabled if != 0 */
 	uchar volatile hw_lock;	/* hardware is currently locked -> no access */
+	spinlock_t irq_lock;
 
 	/* boot process */
 	void *boot;		/* pointer to boot private data */
