@@ -1,6 +1,9 @@
 /* $Id$
  *
  * $Log$
+ * Revision 1.4  1996/05/17 03:46:16  fritz
+ * General cleanup.
+ *
  * Revision 1.3  1996/04/30 21:57:53  isdn4dev
  * remove some debugging code, improve callback   Karsten Keil
  *
@@ -288,7 +291,7 @@ l3s12(struct PStack *st, byte pr, void *arg)
 
         if (bcfound) {
                 if (st->pa->info != 7) {
-                        printk(KERN_WARNING "non-dgital call: %s -> %s\n",
+                        printk(KERN_WARNING "non-digital call: %s -> %s\n",
                                st->pa->calling,
                                st->pa->called);
                 }

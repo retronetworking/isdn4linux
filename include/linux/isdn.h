@@ -21,6 +21,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.9  1996/05/17 03:58:20  fritz
+ * Added flags for DLE handling.
+ *
  * Revision 1.8  1996/05/11 21:49:55  fritz
  * Removed queue mamagement variables.
  * Changed queue management to use sk_buffs.
@@ -201,7 +204,7 @@ typedef struct {
 #ifdef CONFIG_ISDN_PPP
 
 #ifdef CONFIG_ISDN_PPP_VJ
-#  include "/usr/src/linux/drivers/net/slhc.h"
+#  include <net/slhc_vj.h>
 #endif
 
 #include <linux/ppp_defs.h>

@@ -19,6 +19,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.8  1996/05/06 11:34:55  hipp
+ * fixed a few bugs
+ *
  * Revision 1.7  1996/04/30 11:07:42  fritz
  * Added Michael's ippp-bind patch.
  *
@@ -865,7 +868,7 @@ int isdn_ppp_xmit(struct sk_buff *skb, struct device *dev)
         lp->huptimer = 0;
  
         /* If packet is to be resent, it has already been processed and
-         * therefore it's first bytes are already initialized. In this case
+         * therefore its first bytes are already initialized. In this case
          * send it immediately ...
          */
         if (*((unsigned long *)skb->data) != 0)

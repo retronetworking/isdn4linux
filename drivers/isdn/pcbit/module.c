@@ -1,7 +1,7 @@
 /*
  * Copyright (C) 1996 Universidade de Lisboa
  * 
- * Writen by Pedro Roque Marques (roque@di.fc.ul.pt)
+ * Written by Pedro Roque Marques (roque@di.fc.ul.pt)
  *
  * This software may be used and distributed according to the terms of 
  * the GNU Public License, incorporated herein by reference.
@@ -92,11 +92,6 @@ int pcbit_init(void)
 void cleanup_module(void)
 {
 	int board;
-
-	if (MOD_IN_USE) {
-		printk(KERN_WARNING "pcbit: device busy, remove cancelled\n");
-		return;
-	}
 
 	for (board = 0; board < num_boards; board++)
 		pcbit_terminate(board);

@@ -1,7 +1,7 @@
 /*
  * Copyright (C) 1996 Universidade de Lisboa
  * 
- * Writen by Pedro Roque Marques (roque@di.fc.ul.pt)
+ * Written by Pedro Roque Marques (roque@di.fc.ul.pt)
  *
  * This software may be used and distributed according to the terms of 
  * the GNU Public License, incorporated herein by reference.
@@ -52,9 +52,9 @@ static char* pcbit_devname[MAX_PCBIT_CARDS] = {
  */
 
 int pcbit_command(isdn_ctrl* ctl);
-int pcbit_stat(u_char* buf, int len, int user, int, int);
+int pcbit_stat(u_char* buf, int len, int user);
 int pcbit_xmit(int driver, int chan, struct sk_buff *skb);
-int pcbit_writecmd(const u_char*, int, int, int, int);
+int pcbit_writecmd(const u_char*, int, int);
 
 static int set_protocol_running(struct pcbit_dev * dev);
 
@@ -251,7 +251,7 @@ int pcbit_command(isdn_ctrl* ctl)
 		pcbit_fsm_event(dev, chan, EV_USR_SETUP_RESP, NULL);
 		break;
 	case ISDN_CMD_ACCEPTB:
-		printk("ISDN_CMD_ACCEPTB - not realy needed\n");
+		printk("ISDN_CMD_ACCEPTB - not really needed\n");
 		break;
 	case ISDN_CMD_HANGUP:
 		pcbit_fsm_event(dev, chan, EV_USR_RELEASE_REQ, NULL);
@@ -354,7 +354,7 @@ int pcbit_xmit(int driver, int chnum, struct sk_buff *skb)
 	{
 #ifdef DEBUG_QUEUE
 		printk(KERN_DEBUG 
-		       "pcbit: %d packets allready in queue - write fails\n",
+		       "pcbit: %d packets already in queue - write fails\n",
 		       chan->queued);
 #endif
 		/*
@@ -390,16 +390,19 @@ int pcbit_xmit(int driver, int chnum, struct sk_buff *skb)
 }
 
 
-int pcbit_writecmd(const u_char* buf, int len, int user, int driver, int channel)
+int pcbit_writecmd(const u_char* buf, int len, int user)
 {
 	struct pcbit_dev * dev;
-	int i, j;
+	int board, i, j;
 	const u_char * loadbuf;
 	u_char * ptr = NULL;
 
 	int errstat;
 
-	dev = finddev(driver);
+	/* we should have the driver id as input here too - let's say it's 0 */
+	board = 0;
+
+	dev = dev_pcbit[board];
 
 	if (!dev)
 	{
@@ -757,7 +760,7 @@ static int stat_end = 0;
 (flag ? memcpy_tofs(d, s, len) : memcpy(d, s, len))
 
 
-int pcbit_stat(u_char* buf, int len, int user, int driver, int channel)
+int pcbit_stat(u_char* buf, int len, int user)
 {
 	int stat_count;
 	stat_count = stat_end - stat_st;
@@ -765,7 +768,7 @@ int pcbit_stat(u_char* buf, int len, int user, int driver, int channel)
 	if (stat_count < 0)
 		stat_count = STATBUF_LEN - stat_st + stat_end;
 
-	/* FIXME: should we sleep and wait for more cockies ? */
+	/* FIXME: should we sleep and wait for more cookies ? */
 	if (len > stat_count)            
 		len = stat_count;
 
@@ -1022,7 +1025,7 @@ static int pcbit_ioctl(isdn_ctrl* ctl)
 		dev->unack_seq = 0;
 		break;
 	default:
-		printk("error: unkown ioctl\n");
+		printk("error: unknown ioctl\n");
 		break;
 	};
 	return 0;

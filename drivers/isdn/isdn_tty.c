@@ -20,6 +20,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.10  1996/05/17 03:51:49  fritz
+ * Changed DLE handling for audio receive.
+ *
  * Revision 1.9  1996/05/11 21:52:07  fritz
  * Changed queue management to use sk_buffs.
  *
@@ -442,7 +445,7 @@ void isdn_tty_modem_hup(modem_info * info)
         }
 }
 
-static inline int isdn_tty_paranoia_check(modem_info * info, dev_t device, const char *routine)
+static inline int isdn_tty_paranoia_check(modem_info * info, kdev_t device, const char *routine)
 {
 #ifdef MODEM_PARANOIA_CHECK
 	if (!info) {

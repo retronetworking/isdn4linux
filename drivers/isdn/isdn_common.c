@@ -21,6 +21,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.13  1996/05/17 15:43:30  fritz
+ * Bugfix: decrement of rcvcount in readbchan() corrected.
+ *
  * Revision 1.12  1996/05/17 03:55:43  fritz
  * Changed DLE handling for audio receive.
  * Some cleanup.
@@ -532,7 +535,7 @@ static int isdn_status_callback(isdn_ctrl * c)
                                 break;
 			if ((mi = dev->m_idx[i]) >= 0) {
 				/* Schedule CONNECT-Message to any tty, waiting for it and
-				 * set DCD-bit of it's modem-status.
+				 * set DCD-bit of its modem-status.
 				 */
                                 info = &dev->mdm.info[mi];
 				if (info->flags &
