@@ -20,6 +20,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.3  1998/06/16 21:09:09  armin
+ * Added parts for loading firmware (PCI). STILL UNUSABLE.
+ *
  * Revision 1.2  1998/06/13 10:56:02  armin
  * Added first PCI parts. STILL UNUSABLE
  *
@@ -43,7 +46,7 @@ static int   diehl_irq          = -1;
 static char *diehl_id           = "\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0";
 
 MODULE_DESCRIPTION(             "Driver for Diehl active ISDN cards");
-MODULE_AUTHOR(                  "Fritz Elfert");
+MODULE_AUTHOR(                  "Fritz Elfert / Armin Schindler");
 MODULE_SUPPORTED_DEVICE(        "ISDN subsystem");
 MODULE_PARM_DESC(diehl_type,    "Type of first card");
 MODULE_PARM_DESC(diehl_membase, "Base address, if ISA card");
@@ -215,6 +218,42 @@ diehl_set_msn(diehl_card *card, char *eazmsn)
 }
 
 static void
+diehl_rcv_dispatch(struct diehl_card *card)
+{
+	switch (card->bus) {
+		case DIEHL_BUS_ISA:
+			break;
+		case DIEHL_BUS_PCI:
+#if CONFIG_PCI
+			diehl_pci_rcv_dispatch(&card->hwif.pci);
+			break;
+#endif
+		case DIEHL_BUS_MCA:
+		default:
+			printk(KERN_WARNING
+			       "diehl_ack_dispatch: Illegal bustype %d\n", card->bus);
+	}
+}
+
+static void
+diehl_ack_dispatch(struct diehl_card *card)
+{
+	switch (card->bus) {
+		case DIEHL_BUS_ISA:
+			break;
+		case DIEHL_BUS_PCI:
+#if CONFIG_PCI
+			diehl_pci_ack_dispatch(&card->hwif.pci);
+			break;
+#endif
+		case DIEHL_BUS_MCA:
+		default:
+			printk(KERN_WARNING
+			       "diehl_ack_dispatch: Illegal bustype %d\n", card->bus);
+	}
+}
+
+static void
 diehl_transmit(struct diehl_card *card)
 {
 	switch (card->bus) {
@@ -222,6 +261,10 @@ diehl_transmit(struct diehl_card *card)
 			diehl_isa_transmit(&card->hwif.isa);
 			break;
 		case DIEHL_BUS_PCI:
+#if CONFIG_PCI
+			diehl_pci_transmit(&card->hwif.pci);
+			break;
+#endif
 		case DIEHL_BUS_MCA:
 		default:
 			printk(KERN_WARNING
@@ -309,8 +352,13 @@ diehl_command(diehl_card * card, isdn_ctrl * c)
                                                         ret = diehl_pci_load(
                                                                 &(card->hwif.pci),
                                                                 &(((diehl_codebuf *)a)->pci));
-                                                        if (!ret)
+                                                        if (!ret) {
                                                                 card->flags |= DIEHL_FLAGS_LOADED;
+								cmd.command = ISDN_STAT_RUN;    
+								cmd.driver = card->myid;        
+								cmd.arg = 0;                    
+								card->interface.statcallb(&cmd);
+							}
                                                         return ret;
 						} else return -ENODEV;
 #endif
@@ -339,7 +387,7 @@ diehl_command(diehl_card * card, isdn_ctrl * c)
 		case ISDN_CMD_DIAL:
 			if (!card->flags & DIEHL_FLAGS_RUNNING)
 				return -ENODEV;
-			if (!(chan = find_channel(card, c->arg & 0x0f)))
+			if (!(chan = find_channel(card, c->arg & 0x1f)))
 				break;
 			save_flags(flags);
 			cli();
@@ -356,6 +404,11 @@ diehl_command(diehl_card * card, isdn_ctrl * c)
 			chan->fsm_state = DIEHL_STATE_OCALL;
 			chan->callref = 0xffff;
 			restore_flags(flags);
+			
+			ret = idi_connect_req(card, chan, c->parm.setup.phone,
+						     c->parm.setup.eazmsn,
+						     c->parm.setup.si1,
+						     c->parm.setup.si2);
 #if 0
 			ret = diehl_capi_connect_req(card, chan, c->parm.setup.phone,
 						     tmp[0], c->parm.setup.si1,
@@ -371,12 +424,14 @@ diehl_command(diehl_card * card, isdn_ctrl * c)
 		case ISDN_CMD_ACCEPTD:
 			if (!card->flags & DIEHL_FLAGS_RUNNING)
 				return -ENODEV;
-			if (!(chan = find_channel(card, c->arg & 0x0f)))
+			if (!(chan = find_channel(card, c->arg & 0x1f)))
 				break;
-			if (chan->fsm_state == DIEHL_STATE_ICALL)
+			if (chan->fsm_state == DIEHL_STATE_ICALL) { 
+				idi_connect_res(card, chan);
 #if 0
 				diehl_capi_select_b2_protocol_req(card, chan);
 #endif
+			}
 			return 0;
 		case ISDN_CMD_ACCEPTB:
 			if (!card->flags & DIEHL_FLAGS_RUNNING)
@@ -385,7 +440,7 @@ diehl_command(diehl_card * card, isdn_ctrl * c)
 		case ISDN_CMD_HANGUP:
 			if (!card->flags & DIEHL_FLAGS_RUNNING)
 				return -ENODEV;
-			if (!(chan = find_channel(card, c->arg & 0x0f)))
+			if (!(chan = find_channel(card, c->arg & 0x1f)))
 				break;
 			switch (chan->fsm_state) {
 				case DIEHL_STATE_ICALL:
@@ -400,11 +455,12 @@ diehl_command(diehl_card * card, isdn_ctrl * c)
 #endif
 					break;
 			}
+			idi_hangup(card, chan);
 			return 0;
 		case ISDN_CMD_SETEAZ:
 			if (!card->flags & DIEHL_FLAGS_RUNNING)
 				return -ENODEV;
-			if (!(chan = find_channel(card, c->arg & 0x0f)))
+			if (!(chan = find_channel(card, c->arg & 0x1f)))
 				break;
 			if (strlen(c->parm.num)) {
 				if (card->ptype == ISDN_PTYPE_EURO) {
@@ -419,6 +475,7 @@ diehl_command(diehl_card * card, isdn_ctrl * c)
 				}
 			} else
 				chan->eazmask = 0x3ff;
+			diehl_idi_listen_req(card, chan);
 #if 0
 			diehl_capi_listen_req(card);
 #endif
@@ -426,9 +483,10 @@ diehl_command(diehl_card * card, isdn_ctrl * c)
 		case ISDN_CMD_CLREAZ:
 			if (!card->flags & DIEHL_FLAGS_RUNNING)
 				return -ENODEV;
-			if (!(chan = find_channel(card, c->arg & 0x0f)))
+			if (!(chan = find_channel(card, c->arg & 0x1f)))
 				break;
 			chan->eazmask = 0;
+			diehl_idi_listen_req(card, chan);
 #if 0
 			diehl_capi_listen_req(card);
 #endif
@@ -436,14 +494,14 @@ diehl_command(diehl_card * card, isdn_ctrl * c)
 		case ISDN_CMD_SETL2:
 			if (!card->flags & DIEHL_FLAGS_RUNNING)
 				return -ENODEV;
-			if (!(chan = find_channel(card, c->arg & 0x0f)))
+			if (!(chan = find_channel(card, c->arg & 0x1f)))
 				break;
 			chan->l2prot = (c->arg >> 8);
 			return 0;
 		case ISDN_CMD_GETL2:
 			if (!card->flags & DIEHL_FLAGS_RUNNING)
 				return -ENODEV;
-			if (!(chan = find_channel(card, c->arg & 0x0f)))
+			if (!(chan = find_channel(card, c->arg & 0x1f)))
 				break;
 			return chan->l2prot;
 		case ISDN_CMD_SETL3:
@@ -453,14 +511,14 @@ diehl_command(diehl_card * card, isdn_ctrl * c)
 				printk(KERN_WARNING "L3 protocol unknown\n");
 				return -1;
 			}
-			if (!(chan = find_channel(card, c->arg & 0x0f)))
+			if (!(chan = find_channel(card, c->arg & 0x1f)))
 				break;
 			chan->l3prot = (c->arg >> 8);
 			return 0;
 		case ISDN_CMD_GETL3:
 			if (!card->flags & DIEHL_FLAGS_RUNNING)
 				return -ENODEV;
-			if (!(chan = find_channel(card, c->arg & 0x0f)))
+			if (!(chan = find_channel(card, c->arg & 0x1f)))
 				break;
 			return chan->l3prot;
 		case ISDN_CMD_GETEAZ:
@@ -524,7 +582,7 @@ diehl_sendbuf(diehl_card *card, int channel, int ack, struct sk_buff *skb)
 		}
 	}
 	dev_kfree_skb(skb);
-	msg = (actcapi_msg *)skb_push(xmit_skb, 19);
+	msg = (diehl_capi_msg *)skb_push(xmit_skb, 19);
 	msg->hdr.len = 19 + len;
 	msg->hdr.applicationID = 1;
 	msg->hdr.cmd.cmd = 0x86;
@@ -539,6 +597,8 @@ diehl_sendbuf(diehl_card *card, int channel, int ack, struct sk_buff *skb)
 	skb_queue_tail(&card->sndq, xmit_skb);
 	diehl_schedule_tx(card);
         return len;
+#else
+dev_kfree_skb(skb);
 #endif
 	return skb->len;
 }
@@ -703,11 +763,9 @@ diehl_alloccard(int type, int membase, int irq, char *id)
 		skb_queue_head_init(&card->sackq);
 		card->snd_tq.routine = (void *) (void *) diehl_transmit;
 		card->snd_tq.data = card;
-#if 0
 		card->rcv_tq.routine = (void *) (void *) diehl_rcv_dispatch;
 		card->rcv_tq.data = card;
 		card->ack_tq.routine = (void *) (void *) diehl_ack_dispatch;
-#endif
 		card->ack_tq.data = card;
 		card->interface.maxbufsize = 4000;
 		card->interface.command = if_command;
@@ -808,6 +866,11 @@ diehl_alloccard(int type, int membase, int irq, char *id)
 			card->bch[j].ncci = 0x8000;
 			card->bch[j].l2prot = ISDN_PROTO_L2_X75I;
 			card->bch[j].l3prot = ISDN_PROTO_L3_TRANS;
+			card->bch[j].e.D3Id = 0;
+			card->bch[j].e.B2Id = 0x20;
+			card->bch[j].e.Req = 0;
+			card->bch[j].No = j;
+			skb_queue_head_init(&card->bch[j].e.X);
 		}
 		card->next = cards;
 		cards = card;

@@ -25,6 +25,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.2  1998/06/16 21:10:45  armin
+ * Added part for loading firmware. STILL UNUSABLE.
+ *
  * Revision 1.1  1998/06/13 10:40:33  armin
  * First check in. YET UNUSABLE
  *
@@ -280,6 +283,110 @@ diehl_pci_release(diehl_pci_card *card) {
         diehl_pci_release_shmem(card);
 }
 
+void
+diehl_pci_rcv_dispatch(diehl_pci_card *card) {
+        struct sk_buff *skb;
+
+        if (!card) {
+                printk(KERN_WARNING "diehl_pci_rcv_dispatch: NULL card!\n");
+                return;
+        }
+	while((skb = skb_dequeue(&((diehl_card *)card->card)->rcvq))) {
+		idi_handle_ind(card, skb);
+	}
+}
+
+void
+diehl_pci_ack_dispatch(diehl_pci_card *card) {
+        struct sk_buff *skb;
+
+        if (!card) {
+                printk(KERN_WARNING "diehl_pci_ack_dispatch: NULL card!\n");
+                return;
+        }
+	while((skb = skb_dequeue(&((diehl_card *)card->card)->rackq))) {
+		idi_handle_ack(card, skb);
+	}
+}
+
+void
+diehl_pci_transmit(diehl_pci_card *card) {
+        struct sk_buff *skb;
+        struct sk_buff *skb2;
+        unsigned long(flags);
+        char *ram, *reg, *cfg;
+	diehl_pci_pr_ram  *prram;
+	diehl_pci_REQ *ReqOut, *reqbuf;
+	diehl_chan *chan;
+	diehl_chan_ptr *chan2;
+	int ReqCount;
+
+        if (!card) {
+                printk(KERN_WARNING "diehl_pci_transmit: NULL card!\n");
+                return;
+        }
+        ram = (char *)card->PCIram;
+        reg = (char *)card->PCIreg;
+        cfg = (char *)card->PCIcfg;
+        prram = (diehl_pci_pr_ram *)ram;
+	ReqCount = 0;
+	while((skb2 = skb_dequeue(&((diehl_card *)card->card)->sndq))) { 
+                save_flags(flags);
+                cli();
+                if (!(readb(&prram->ReqOutput) - readb(&prram->ReqInput))) {
+                        restore_flags(flags);
+                        skb_queue_head(&((diehl_card *)card->card)->sndq, skb2);
+#ifdef DIEHL_PCI_DEBUG
+                        printk(KERN_INFO "diehl_pci: transmit: Not ready\n");
+#endif
+                        return;
+                }
+		restore_flags(flags);
+		chan2 = (diehl_chan_ptr *)skb2->data;
+		chan = chan2->ptr;
+		if (!chan->e.busy) {
+		 if((skb = skb_dequeue(&chan->e.X))) { 
+			reqbuf = (diehl_pci_REQ *)skb->data;
+			/* get address of next available request buffer */
+			ReqOut = (diehl_pci_REQ *)&prram->B[readw(&prram->NextReq)];
+			writew(reqbuf->XBuffer.length, &ReqOut->XBuffer.length);
+			memcpy(&ReqOut->XBuffer.P, &reqbuf->XBuffer.P, reqbuf->XBuffer.length);
+			writeb(reqbuf->ReqCh, &ReqOut->ReqCh);
+			writeb(reqbuf->Req, &ReqOut->Req); 
+			if (!reqbuf->Reference) {
+				writeb(chan->e.D3Id, &ReqOut->ReqId); 
+				chan->e.ReqCh = 0; 
+			}
+			else {
+				writeb(chan->e.B2Id, &ReqOut->ReqId); 
+				chan->e.ReqCh = 1;
+			}
+			if ((!readb(&ReqOut->ReqId)) || (readb(&ReqOut->ReqId) == 0x20)){
+			 	chan->e.ref = readw(&ReqOut->Reference); 
+#if 0
+		                printk(KERN_INFO "diehl_pci: Ref %d stored for Ch %d\n", 
+						chan->e.ref, chan->No);
+#endif
+			} 
+			chan->e.Req = reqbuf->Req;
+			ReqCount++; 
+			writew(readw(&ReqOut->next), &prram->NextReq); 
+			chan->e.busy = 1; 
+			dev_kfree_skb(skb);
+		 }
+		 dev_kfree_skb(skb2);
+		} 
+		else {
+		skb_queue_tail(&((diehl_card *)card->card)->sackq, skb2);
+		}
+	}
+	writeb((__u8)(readb(&prram->ReqInput) + ReqCount), &prram->ReqInput); 
+
+	while((skb = skb_dequeue(&((diehl_card *)card->card)->sackq))) { 
+		skb_queue_tail(&((diehl_card *)card->card)->sndq, skb);
+	}
+}
+
 
 /*
  * IRQ handler
@@ -289,6 +396,10 @@ diehl_pci_irq(int irq, void *dev_id, struct pt_regs *regs) {
         diehl_pci_card *card = (diehl_pci_card *)dev_id;
     	char *ram, *reg, *cfg;	
 	diehl_pci_pr_ram  *prram;
+        diehl_pci_RC *RcIn;
+        diehl_pci_IND *IndIn;
+	struct sk_buff *skb;
+        int Count, Rc, Ind;
 
 	ram = (char *)card->PCIram;
 	reg = (char *)card->PCIreg;
@@ -301,7 +412,7 @@ diehl_pci_irq(int irq, void *dev_id, struct pt_regs *regs) {
         }
 
 	if (card->irqprobe) {
-                if (readb(&ram[0x3fe])) {
+                if (readb(&ram[0x3fe])) { 
 #ifdef DIEHL_PCI_DEBUG
                         printk(KERN_INFO "diehl_pci: test interrupt routine ACK\n");
 #endif
@@ -309,13 +420,84 @@ diehl_pci_irq(int irq, void *dev_id, struct pt_regs *regs) {
 		        writew(MP_IRQ_RESET_VAL, &cfg[MP_IRQ_RESET]);
 		        writew(0, &cfg[MP_IRQ_RESET + 2]);
 			writeb(0, &ram[0x3fe]);
-                }
+                } 
 		
 		card->irqprobe = 0;
 		return;
 	}
 
-	/* here has to follow the interrupt stuff */
+	if (!(readb(&ram[0x3fe]))) { /* card did not interrupt */
+		printk(KERN_DEBUG "diehl_pci: IRQ: card tells no interrupt!\n");
+		return;
+	} 
+
+        /* if return codes are available ...  */
+        if((Count = readb(&prram->RcOutput))) {
+		diehl_pci_RC *ack;
+                /* get the buffer address of the first return code */
+                RcIn = (diehl_pci_RC *)&prram->B[readw(&prram->NextRc)];
+                /* for all return codes do ...  */
+                while(Count--) {
+
+                        if((Rc=readb(&RcIn->Rc))) {
+				skb = alloc_skb(sizeof(diehl_pci_RC), GFP_ATOMIC);
+				ack = (diehl_pci_RC *)skb_put(skb, sizeof(diehl_pci_RC));
+				ack->Rc = Rc;
+				ack->RcId = readb(&RcIn->RcId);
+				ack->RcCh = readb(&RcIn->RcCh);
+				ack->Reference = readw(&RcIn->Reference);
+#ifdef DIEHL_PCI_DEBUG
+                        	printk(KERN_INFO "diehl_pci: IRQ Rc=%d Id=%d Ch=%d Ref=%d\n",
+					Rc,ack->RcId,ack->RcCh,ack->Reference);
+#endif
+                        	writeb(0, &RcIn->Rc);
+				 skb_queue_tail(&((diehl_card *)card->card)->rackq, skb);
+				 diehl_schedule_ack((diehl_card *)card->card);
+                        }
+                        /* get buffer address of next return code   */
+                        RcIn = (diehl_pci_RC *)&prram->B[readw(&RcIn->next)];
+                }
+                /* clear all return codes (no chaining!) */
+                writeb(0, &prram->RcOutput);
+
+        }
+        /* if indications are available ... */
+        if((Count = readb(&prram->IndOutput))) {
+		diehl_pci_IND *ind;
+                /* get the buffer address of the first indication */
+                IndIn = (diehl_pci_IND *)&prram->B[readw(&prram->NextInd)];
+                /* for all indications do ... */
+                while(Count--) {
+			Ind = readb(&IndIn->Ind);
+			if(Ind) {
+				int len = readw(&IndIn->RBuffer.length);
+				skb = alloc_skb(sizeof(diehl_pci_IND), GFP_ATOMIC);
+				ind = (diehl_pci_IND *)skb_put(skb, sizeof(diehl_pci_IND));
+				ind->Ind = Ind;
+				ind->IndId = readb(&IndIn->IndId);
+				ind->IndCh = readb(&IndIn->IndCh);
+				ind->MInd = readb(&IndIn->MInd);
+				ind->MLength = readw(&IndIn->MLength);
+				ind->RBuffer.length = len;
+#ifdef DIEHL_PCI_DEBUG
+	                        printk(KERN_INFO "diehl_pci: IRQ Ind=%d Id=%d Ch=%d MInd=%d MLen=%d Len=%d\n",
+				Ind,ind->IndId,ind->IndCh,ind->MInd,ind->MLength,len);
+#endif
+				memcpy(&ind->RBuffer.P, &IndIn->RBuffer.P, len);
+				skb_queue_tail(&((diehl_card *)card->card)->rcvq, skb);
+				diehl_schedule_rx((diehl_card *)card->card);
+				writeb(0, &IndIn->Ind);
+                        }
+                        /* get buffer address of next indication  */
+                        IndIn = (diehl_pci_IND *)&prram->B[readw(&IndIn->next)];
+                }
+                writeb(0, &prram->IndOutput);
+        }
+
+	/* clear interrupt */
+	writew(MP_IRQ_RESET_VAL, &cfg[MP_IRQ_RESET]);
+	writew(0, &cfg[MP_IRQ_RESET + 2]); 
+	writeb(0, &ram[0x3fe]); 
 
   return;
 }
@@ -540,11 +722,13 @@ diehl_pci_load(diehl_pci_card *card, diehl_pci_codebuf *cb) {
 
         card->irqprobe = 1;
 
-        if (request_irq(card->irq, &diehl_pci_irq, 0, "Diehl PCI ISDN", card)) 
-         {
-          printk(KERN_ERR "diehl_pci: Couldn't request irq %d\n", card->irq);
-          return -EIO;
-         }
+	if (!card->ivalid) {
+	        if (request_irq(card->irq, &diehl_pci_irq, 0, "Diehl PCI ISDN", card)) 
+        	 {
+	          printk(KERN_ERR "diehl_pci: Couldn't request irq %d\n", card->irq);
+        	  return -EIO;
+	         }
+	}
 	card->ivalid = 1;
 
         req_int = readb(&prram->ReadyInt);
@@ -567,7 +751,18 @@ diehl_pci_load(diehl_pci_card *card, diehl_pci_codebuf *cb) {
            return -EIO;
          }
 
+   /* initializing some variables */
+   for(j=0; j<256; j++) card->IdTable[j] = NULL;
+   for(j=0; j<((diehl_card *)card->card)->nchannels; j++) {
+		((diehl_card *)card->card)->bch[j].e.busy = 0;
+		((diehl_card *)card->card)->bch[j].e.D3Id = 0;
+		((diehl_card *)card->card)->bch[j].e.B2Id = 0;
+		((diehl_card *)card->card)->bch[j].e.ref = 0;
+		((diehl_card *)card->card)->bch[j].e.Req = 0;
+   }
+
    printk(KERN_INFO "diehl_pci: Card started OK\n");
+
  return 0;
 }
 

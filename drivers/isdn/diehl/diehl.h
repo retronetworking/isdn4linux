@@ -20,6 +20,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.3  1998/06/16 21:08:14  armin
+ * Added parts for loading firmware (PCI). STILL UNUSABLE.
+ *
  * Revision 1.2  1998/06/13 10:55:16  armin
  * Added first PCI parts. STILL UNUSABLE
  *
@@ -135,6 +138,7 @@ typedef union {
 	/* diehl_mca_codebuf mca etc. ... */
 } diehl_codebuf;
 
+
 #ifdef __KERNEL__
 
 /* Kernel includes */
@@ -161,6 +165,50 @@ typedef union {
 
 #include <linux/isdnif.h>
 #include "diehl_isa.h"
+
+
+typedef struct {
+  __u8                  Req;            /* pending request          */
+  __u8                  Rc;             /* return code received     */
+  __u8                  Ind;            /* indication received      */
+  __u8                  ReqCh;          /* channel of current Req   */
+  __u8                  RcCh;           /* channel of current Rc    */
+  __u8                  IndCh;          /* channel of current Ind   */
+  __u8                  D3Id;           /* ID used by this entity   */
+  __u8                  B2Id;           /* ID used by this entity   */
+  __u8                  GlobalId;       /* reserved field           */
+  __u8                  XNum;           /* number of X-buffers      */
+  __u8                  RNum;           /* number of R-buffers      */
+  struct sk_buff_head   X;              /* X-buffer queue           */
+  struct sk_buff_head   R;              /* R-buffer queue           */
+  __u8                  RNR;            /* receive not ready flag   */
+  __u8                  complete;       /* receive complete status  */
+  __u8                  busy;           /* busy flag                */
+  __u16                 ref;            /* saved reference          */
+} entity;
+
+
+typedef struct {
+	int	       No;		 /* Channel Number	        */
+	unsigned short callref;          /* Call Reference              */
+	unsigned short fsm_state;        /* Current D-Channel state     */
+	unsigned short eazmask;          /* EAZ-Mask for this Channel   */
+	short queued;                    /* User-Data Bytes in TX queue */
+	unsigned short plci;
+	unsigned short ncci;
+	unsigned char  l2prot;           /* Layer 2 protocol            */
+	unsigned char  l3prot;           /* Layer 3 protocol            */
+	entity		e;		 /* Entity  			*/
+	char		cpn[32];	 /* remember cpn		*/
+	char		oad[32];	 /* remember oad		*/
+	unsigned char	si1;
+	unsigned char	si2;
+} diehl_chan;
+
+typedef struct {
+	diehl_chan *ptr;
+} diehl_chan_ptr;
+
 #include "diehl_pci.h"
 
 #define DIEHL_FLAGS_RUNNING  1 /* Cards driver activated */
@@ -186,6 +234,7 @@ typedef union {
 #define DIEHL_STATE_DHWAIT2 11
 #define DIEHL_STATE_BSETUP  12
 #define DIEHL_STATE_ACTIVE  13
+#define DIEHL_STATE_ICALLW  14
 
 #define DIEHL_MAX_QUEUED  8000 /* 2 * maxbuff */
 
@@ -221,17 +270,6 @@ typedef struct {
 	__u8 more;
 } diehl_indhdr;
 
-typedef struct {
-	unsigned short callref;          /* Call Reference              */
-	unsigned short fsm_state;        /* Current D-Channel state     */
-	unsigned short eazmask;          /* EAZ-Mask for this Channel   */
-	short queued;                    /* User-Data Bytes in TX queue */
-	unsigned short plci;
-	unsigned short ncci;
-	unsigned char  l2prot;           /* Layer 2 protocol            */
-	unsigned char  l3prot;           /* Layer 3 protocol            */
-} diehl_chan;
-
 typedef struct msn_entry {
 	char eaz;
         char msn[16];
@@ -261,7 +299,7 @@ typedef struct diehl_card {
 	struct tq_struct rcv_tq;         /* Task struct for rcv bh           */
 	struct tq_struct ack_tq;         /* Task struct for ack bh           */
 	msn_entry *msn_list;
-	unsigned short msgnum;           /* Message number fur sending       */
+	unsigned short msgnum;           /* Message number for sending       */
 	int    nchannels;                /* Number of B-Channels             */
 	diehl_chan *bch;                 /* B-Channel status/control         */
 	char   status_buf[256];          /* Buffer for status messages       */
@@ -272,8 +310,11 @@ typedef struct diehl_card {
         char regname[35];                /* Name used for request_region     */
 } diehl_card;
 
+#include "idi.h"
+
 extern diehl_card *cards;
 extern char *diehl_ctype_name[];
+
 
 extern __inline__ void diehl_schedule_tx(diehl_card *card)
 {

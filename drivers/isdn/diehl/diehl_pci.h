@@ -19,6 +19,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.2  1998/06/16 21:10:46  armin
+ * Added part for loading firmware. STILL UNUSABLE.
+ *
  * Revision 1.1  1998/06/13 10:40:34  armin
  * First check in. YET UNUSABLE
  *
@@ -29,7 +32,6 @@
 
 #ifdef __KERNEL__
 
-#include "diehl.h"
 
 #define PCI_VENDOR_EICON        0x1133
 #define PCI_DIVA_PRO20          0xe001
@@ -97,6 +99,46 @@ typedef union {
 	diehl_pci_boot boot;
 } diehl_pci_shmem;
 
+typedef struct {
+  __u16 length __attribute__ ((packed)); /* length of data/parameter field */
+  __u8  P[270];                          /* data/parameter field    TODO: change size for skb  */
+} diehl_pci_PBUFFER;
+
+typedef struct {
+  __u16 next            __attribute__ ((packed));
+  __u8  Req             __attribute__ ((packed));
+  __u8  ReqId           __attribute__ ((packed));
+  __u8  ReqCh           __attribute__ ((packed));
+  __u8  Reserved1       __attribute__ ((packed));
+  __u16 Reference       __attribute__ ((packed));
+  __u8  Reserved[8]     __attribute__ ((packed));
+  diehl_pci_PBUFFER XBuffer;
+} diehl_pci_REQ;
+
+typedef struct {
+  __u16 next            __attribute__ ((packed));
+  __u8  Rc              __attribute__ ((packed));
+  __u8  RcId            __attribute__ ((packed));
+  __u8  RcCh            __attribute__ ((packed));
+  __u8  Reserved1       __attribute__ ((packed));
+  __u16 Reference       __attribute__ ((packed));
+  __u8  Reserved2[8]    __attribute__ ((packed));
+} diehl_pci_RC;
+
+typedef struct {
+  __u16 next            __attribute__ ((packed));
+  __u8  Ind             __attribute__ ((packed));
+  __u8  IndId           __attribute__ ((packed));
+  __u8  IndCh           __attribute__ ((packed));
+  __u8  MInd            __attribute__ ((packed));
+  __u16 MLength         __attribute__ ((packed));
+  __u16 Reference       __attribute__ ((packed));
+  __u8  RNR             __attribute__ ((packed));
+  __u8  Reserved        __attribute__ ((packed));
+  __u32 Ack             __attribute__ ((packed));
+  diehl_pci_PBUFFER RBuffer;
+} diehl_pci_IND;
+
 
 typedef struct {
   __u16 NextReq  __attribute__ ((packed));       	/* pointer to next Req Buffer               */
@@ -144,6 +186,7 @@ typedef struct {
         unsigned char     ivalid;   /* Flag: IRQ is valid         */
         unsigned char     master;   /* Flag: Card ist Quadro 1/4  */
         void*             generic;  /* Ptr to generic card struct */
+	diehl_chan* 	  IdTable[256]; /* Table to find entity   */
 } diehl_pci_card;
 
 
@@ -153,6 +196,8 @@ extern void diehl_pci_release(diehl_pci_card *card);
 extern void diehl_pci_printpar(diehl_pci_card *card);
 extern void diehl_pci_transmit(diehl_pci_card *card);
 extern int diehl_pci_find_card(char *ID);
+extern void diehl_pci_ack_dispatch(diehl_pci_card *card); 
+extern void diehl_pci_rcv_dispatch(diehl_pci_card *card); 
 
 #endif  /* __KERNEL__ */
 
