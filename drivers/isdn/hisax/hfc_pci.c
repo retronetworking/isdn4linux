@@ -23,6 +23,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.7  1999/07/14 21:24:20  werner
+ * fixed memcpy problem when using E-channel feature
+ *
  * Revision 1.6  1999/07/13 21:08:08  werner
  * added echo channel logging feature.
  *
@@ -148,6 +151,20 @@ reset_hfcpci(struct IsdnCardState *cs)
 	Write_hfc(cs, HFCPCI_SCTRL, cs->hw.hfcpci.sctrl);
 	cs->hw.hfcpci.sctrl_r = 0;
 	Write_hfc(cs, HFCPCI_SCTRL_R, cs->hw.hfcpci.sctrl_r);
+
+        /* Init GCI/IOM2 in master mode */
+	/* Slots 0 and 1 are set for B-chan 1 and 2 */
+	/* D- and monitor/CI channel are not enabled */
+	/* STIO1 is used as output for data, B1+B2 from ST->IOM+HFC */
+	/* STIO2 is used as data input, B1+B2 from IOM->ST */ 
+	/* ST B-channel send disabled -> continous 1s */
+	/* The IOM slots are always enabled */
+	cs->hw.hfcpci.conn = 0x36; /* set data flow directions */
+	Write_hfc(cs, HFCPCI_CONNECT, cs->hw.hfcpci.conn);
+	Write_hfc(cs, HFCPCI_B1_SSL, 0x80); /* B1-Slot 0 STIO1 out enabled */
+	Write_hfc(cs, HFCPCI_B2_SSL, 0x81); /* B2-Slot 1 STIO1 out enabled */
+	Write_hfc(cs, HFCPCI_B1_RSL, 0x80); /* B1-Slot 0 STIO2 in enabled */
+	Write_hfc(cs, HFCPCI_B2_RSL, 0x81); /* B2-Slot 1 STIO2 in enabled */
 	restore_flags(flags);
 }
 
@@ -567,9 +584,13 @@ hfcpci_fill_fifo(struct BCState *bcs)
 /* set/reset echo mode */
 /***********************/ 
 int hfcpci_set_echo(struct IsdnCardState *cs, int i)
-{
+{ int flags;
+
   if (cs->chanlimit > 1)
     return(-EINVAL);
+
+  save_flags(flags);
+  cli();
   if (i) {
     cs->logecho = 1;
     cs->hw.hfcpci.trm |= 0x20; /* enable echo chan */
@@ -584,7 +605,7 @@ int hfcpci_set_echo(struct IsdnCardState *cs, int i)
   }
     cs->hw.hfcpci.sctrl_r &= ~SCTRL_B2_ENA;
     cs->hw.hfcpci.sctrl &= ~SCTRL_B2_ENA;
-    cs->hw.hfcpci.conn &= ~0x18;
+    cs->hw.hfcpci.conn |= 0x10; /* B2-IOM -> B2-ST */ 
     cs->hw.hfcpci.ctmt &= ~2;
   Write_hfc(cs, HFCPCI_CTMT, cs->hw.hfcpci.ctmt);
   Write_hfc(cs, HFCPCI_SCTRL_R, cs->hw.hfcpci.sctrl_r);
@@ -593,6 +614,7 @@ int hfcpci_set_echo(struct IsdnCardState *cs, int i)
   Write_hfc(cs, HFCPCI_TRM, cs->hw.hfcpci.trm);
   Write_hfc(cs, HFCPCI_FIFO_EN, cs->hw.hfcpci.fifo_en);
   Write_hfc(cs, HFCPCI_INT_M1, cs->hw.hfcpci.int_m1);
+  restore_flags(flags);
   return(0);
 } /* hfcpci_set_echo */ 
 
@@ -1088,7 +1110,7 @@ mode_hfcpci(struct BCState *bcs, int mode, int bc)
 				cs->hw.hfcpci.int_m1 |= (HFCPCI_INTS_B2TRANS+HFCPCI_INTS_B2REC);
 			} else {
 				cs->hw.hfcpci.ctmt |= 1;
-				cs->hw.hfcpci.conn &= ~0x3;
+				cs->hw.hfcpci.conn &= ~0x03;
 				cs->hw.hfcpci.sctrl |= SCTRL_B1_ENA;
 				cs->hw.hfcpci.sctrl_r |= SCTRL_B1_ENA;
 				cs->hw.hfcpci.fifo_en |= HFCPCI_FIFOEN_B1;
@@ -1110,6 +1132,21 @@ mode_hfcpci(struct BCState *bcs, int mode, int bc)
 				cs->hw.hfcpci.sctrl_r |= SCTRL_B1_ENA;
 				cs->hw.hfcpci.fifo_en |= HFCPCI_FIFOEN_B1;
 				cs->hw.hfcpci.int_m1 |= (HFCPCI_INTS_B1TRANS+HFCPCI_INTS_B1REC);
+			}
+			break;
+		case (L1_MODE_EXTRN):
+			if (bc) {
+			        cs->hw.hfcpci.conn |= 0x10;
+				cs->hw.hfcpci.sctrl |= SCTRL_B2_ENA;
+				cs->hw.hfcpci.sctrl_r |= SCTRL_B2_ENA;
+				cs->hw.hfcpci.fifo_en &= ~HFCPCI_FIFOEN_B2;
+				cs->hw.hfcpci.int_m1 &= ~(HFCPCI_INTS_B2TRANS+HFCPCI_INTS_B2REC);
+			} else {
+			        cs->hw.hfcpci.conn |= 0x02;
+				cs->hw.hfcpci.sctrl |= SCTRL_B1_ENA;
+				cs->hw.hfcpci.sctrl_r |= SCTRL_B1_ENA;
+				cs->hw.hfcpci.fifo_en &= ~HFCPCI_FIFOEN_B1;
+				cs->hw.hfcpci.int_m1 &= ~(HFCPCI_INTS_B1TRANS+HFCPCI_INTS_B1REC);
 			}
 			break;
 	}
