@@ -19,6 +19,11 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.3  1996/02/11 02:27:12  fritz
+ * Lot of Bugfixes my Michael.
+ * Moved calls to skb_push() into isdn_net_header()
+ * Fixed a possible race-condition in isdn_ppp_timer_timeout().
+ *
  * Revision 1.2  1996/01/22 05:08:06  fritz
  * Merged in Michael's patches for MP.
  * Minor changes in isdn_ppp_xmit.
@@ -28,11 +33,11 @@
  *
  */
 
-/* User setable options now have gone into isdnconfig.h */
-
 /* TODO: right tbusy handling when using MP */
 
+#ifndef STANDALONE
 #include <linux/config.h>
+#endif
 #define __NO_VERSION__
 #include <linux/module.h>
 #include <linux/isdn.h>
@@ -775,7 +780,7 @@ static void isdn_ppp_push_higher(isdn_net_dev *net_dev, isdn_net_local *lp, stru
 }
 
 /*
- * send ppp frame .. we expect a PIDCOMP proto -- 
+ * send ppp frame .. we expect a PIDCOMPable proto -- 
  *  (here: currently always PPP_IP,PPP_VJC_COMP,PPP_VJC_UNCOMP)
  */
 int isdn_ppp_xmit(struct sk_buff *skb, struct device *dev)
@@ -786,6 +791,15 @@ int isdn_ppp_xmit(struct sk_buff *skb, struct device *dev)
 	struct ippp_struct *ipt = ippp_table + lp->ppp_minor;
 	struct ippp_struct *ipts = ippp_table + lp->netdev->local.ppp_minor;
 
+        /* If packet is to be resent, it has already been processed and
+         * therefore it's first bytes are already initialized. In this case
+         * send it immediately ...
+         */
+        if (*((unsigned long *)skb->data) != 0)
+          return (isdn_net_send_skb(dev , lp , skb));
+
+        /* ... else packet needs processing. */
+
 /* future: step to next 'lp' when this lp is 'tbusy' */
 
 #if 0
@@ -794,21 +808,30 @@ int isdn_ppp_xmit(struct sk_buff *skb, struct device *dev)
 
 #ifdef CONFIG_ISDN_PPP_VJ
 	if (ipt->pppcfg & SC_COMP_TCP) {
-		u_char *buf = skb->data + 4;
+		u_char *buf = skb->data;
 		int pktlen;
-		pktlen = slhc_compress(ipts->slcomp, buf, skb->len-4, ipts->cbuf,
+		int len = 4;
+#ifdef CONFIG_ISDN_MPP
+		if (ipt->mpppcfg & SC_MP_PROT) /* sigh */ 
+			if (ipt->mpppcfg & SC_OUT_SHORT_SEQ)
+				len += 3;
+			else
+				len += 5;
+#endif
+		buf += len;
+		pktlen = slhc_compress(ipts->slcomp, buf, skb->len-len, ipts->cbuf,
 				&buf, !(ipts->pppcfg & SC_NO_TCP_CCID));
-		skb_trim(skb,pktlen+4);
-		if(buf != skb->data+4) { /* copied to new buffer ??? (btw: WHY must slhc copy it?? *sigh*)  */
-			memcpy(skb->data+4,buf,pktlen);
+		skb_trim(skb,pktlen+len);
+		if(buf != skb->data+len) { /* copied to new buffer ??? (btw: WHY must slhc copy it?? *sigh*)  */
+			memcpy(skb->data+len,buf,pktlen);
 		}
-		if (skb->data[4] & SL_TYPE_COMPRESSED_TCP) {	/* cslip? style -> PPP */
+		if (skb->data[len] & SL_TYPE_COMPRESSED_TCP) {	/* cslip? style -> PPP */
 			proto = PPP_VJC_COMP;
-			skb->data[4] ^= SL_TYPE_COMPRESSED_TCP;
+			skb->data[len] ^= SL_TYPE_COMPRESSED_TCP;
 		} else {
-			if (skb->data[4] >= SL_TYPE_UNCOMPRESSED_TCP)
+			if (skb->data[len] >= SL_TYPE_UNCOMPRESSED_TCP)
 				proto = PPP_VJC_UNCOMP;
-			skb->data[4] = (skb->data[4] & 0x0f) | 0x40;
+			skb->data[len] = (skb->data[len] & 0x0f) | 0x40;
 		}
 	}
 #endif
