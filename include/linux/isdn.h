@@ -27,6 +27,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.47  1998/04/21 18:00:25  detabc
+ * Add items for secure-callback (abc-extension only)
+ *
  * Revision 1.46  1998/04/14 16:28:59  he
  * Fixed user space access with interrupts off and remaining
  * copy_{to,from}_user() -> -EFAULT return codes
@@ -425,6 +428,11 @@ typedef struct {
 #define ISDN_GLOBAL_STOPPED 1
 
 /*=================== Start of ip-over-ISDN stuff =========================*/
+#ifdef CONFIG_ISDN_WITH_ABC
+#define ABC_ANZ_TX_QUE 5
+#define ABC_DELAYED_MAXHANGUP_WAIT      ((u_long)HZ * 24LU)
+#define ABC_DELAYED_TRAFFICHANGUP_WAIT  ((u_long)HZ * 6LU)
+#endif
 
 /* Feature- and status-flags for a net-interface */
 #define ISDN_NET_CONNECTED  0x01       /* Bound to ISDN-Channel             */
@@ -580,9 +588,7 @@ typedef struct isdn_net_local_s {
 	u_long  abc_icall_disabled;     /* incoming call disdabled to s     */
 	u_long  abc_nextkeep;           /* nextkeep at jiffies              */
 	u_long  abc_anz_wrong_data_prot;
-	u_long  abc_callback_retry;
 	u_long  abc_rem_disconnect;
-	short   abc_bchan_is_up;
 	short   abc_first_disp;         /* gesetzt wenn first pak displayed */
 	u_long  abc_snd_want_bytes;
 	u_long  abc_snd_real_bytes;
@@ -592,8 +598,11 @@ typedef struct isdn_net_local_s {
 	u_long  abc_dlcon_cnt;
 	u_long  abc_cbout_secure;
 	u_long  abc_last_disp_disabled;
+	u_long  abc_last_traffic;
+	u_long  abc_delayed_hangup;
 	u_char  abc_rx_key[ISDN_MSNLEN];
 	u_char  abc_out_msn[ISDN_MSNLEN];  /* MSNs/EAZs for outgoing calls */
+	struct sk_buff_head abc_tx_que[ABC_ANZ_TX_QUE];
 #endif
 } isdn_net_local;
 
@@ -859,7 +868,6 @@ extern struct sk_buff *abc_test_receive(struct device *,struct sk_buff *);
 extern struct sk_buff *abc_snd_data(struct device *,struct sk_buff *);
 extern void abc_free_receive(void);
 extern int abc_test_rcvq(struct device *ndev);
-extern struct sk_buff *abc_get_uncomp(struct sk_buff *);
 extern int abcgmbh_getpack_mem(void);
 extern int abc_clean_up_memory(void);
 extern int abcgmbh_depack(u_char *,int,u_char *,int);
@@ -867,8 +875,6 @@ extern int abcgmbh_pack(u_char *,u_char *,int);
 extern void abc_insert_incall(u_char *number);
 extern int abc_test_incall(u_char *number);
 
-#define ABC_MUSTFIRST   0x00000001
-#define ABC_MUSTKEEP    0x00000002
 #define ABC_ABCROUTER   0x00000004
 #define ABC_WITH_UDP    0x00000008
 #define ABC_WITH_TCP    0x00000010
@@ -890,6 +896,9 @@ extern void abc_pack_statistik(isdn_net_local *lp);
 extern void abc_test_phone(isdn_net_local *lp);
 extern void abc_simple_decrypt(u_char *poin,int len,u_char *key);
 extern void abc_simple_crypt(u_char *poin,int len,u_char *key);
+extern void abc_clear_tx_que(isdn_net_local *lp);
+extern void abc_put_tx_que(isdn_net_local *,int,int,struct sk_buff *);
+extern void isdn_net_log_skb(struct sk_buff *skb, isdn_net_local * lp);
 #endif
 
 
