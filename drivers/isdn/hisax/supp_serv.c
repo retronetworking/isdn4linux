@@ -3,6 +3,7 @@
 #include "asn1_enc.h"
 #include "isdnl3.h"
 #include "l3dss1.h"
+#include "l4l3if.h"
 
 #define T_ACTIVATE    4000
 #define T_DEACTIVATE  4000
@@ -54,6 +55,20 @@ static __inline__ int capiGetFacReqListen(__u8 *p, __u8 *_end, struct FacReqList
 	if (end > _end) return -1;
 
 	CAPI_GET(capiGetDWord, &listen->NotificationMask);
+
+	if (p != end) return -1;
+	return len + 1;
+}
+
+static __inline__ int capiGetFacReqSuspend(__u8 *p, __u8 *_end, struct FacReqSuspend *suspend)
+{
+	int len = *p++;
+	int ret;
+	__u8 *end = p + len;
+
+	if (end > _end) return -1;
+
+	CAPI_GET(capiGetStruct, &suspend->CallIdentity);
 
 	if (p != end) return -1;
 	return len + 1;
@@ -127,6 +142,9 @@ static __inline__ int capiGetFacReqParm(__u8 *p, struct FacReqParm *facReqParm)
 	case 0x0001: // Listen
 		CAPI_GET(capiGetFacReqListen, &facReqParm->u.Listen);
 		break;
+	case 0x0004: // Suspend
+		CAPI_GET(capiGetFacReqSuspend, &facReqParm->u.Suspend);
+		break;
 	case 0x0009: // CF Activate
 		CAPI_GET(capiGetFacReqCFActivate, &facReqParm->u.CFActivate);
 		break;
@@ -139,6 +157,8 @@ static __inline__ int capiGetFacReqParm(__u8 *p, struct FacReqParm *facReqParm)
 	case 0x000c: // CF Interrogate Numbers
 		CAPI_GET(capiGetFacReqCFInterrogateNumbers, &facReqParm->u.CFInterrogateNumbers);
 		break;
+	default:
+		return len + 1;
 	}
 
 	if (p != end) return -1;
@@ -151,6 +171,7 @@ void applSuppFacilityReq(struct Appl *appl, _cmsg *cmsg)
 	__u16 Info;
 	struct FacReqParm facReqParm;
 	struct FacConfParm facConfParm;
+	struct Cplci *cplci;
 
 	if (capiGetFacReqParm(cmsg->FacilityRequestParameter, &facReqParm) < 0) {
 		contrAnswerCmsg(appl->contr, cmsg, CapiIllMessageParmCoding);
@@ -163,6 +184,14 @@ void applSuppFacilityReq(struct Appl *appl, _cmsg *cmsg)
 		break;
 	case 0x0001: // Listen
 		Info = applFacListen(appl, &facReqParm, &facConfParm);
+		break;
+	case 0x0004: // Suspend
+		cplci = applAdr2cplci(appl, cmsg->adr.adrPLCI);
+		if (!cplci) {
+			Info = CapiIllContrPlciNcci;
+			break;
+		}
+		Info = cplciFacSuspend(cplci, &facReqParm, &facConfParm);
 		break;
 	case 0x0009: // CF Activate
 		Info = applFacCFActivate(appl, &facReqParm, &facConfParm);
@@ -186,26 +215,6 @@ void applSuppFacilityReq(struct Appl *appl, _cmsg *cmsg)
 	capiEncodeFacConfParm(tmp, &facConfParm);
 	cmsg->FacilityConfirmationParameter = tmp;
 	contrRecvCmsg(appl->contr, cmsg);
-}
-
-int applGetSupportedServices(struct Appl *appl, struct FacReqParm *facReqParm,
-			      struct FacConfParm *facConfParm)
-{
-	facConfParm->u.GetSupportedServices.SupplementaryServiceInfo = CapiSuccess;
-	facConfParm->u.GetSupportedServices.SupportedServices = HiSaxSupportedServices;
-	return CapiSuccess;
-}
-
-int applFacListen(struct Appl *appl, struct FacReqParm *facReqParm,
-		   struct FacConfParm *facConfParm)
-{
-	if (facReqParm->u.Listen.NotificationMask &~ HiSaxSupportedServices) {
-		facConfParm->u.Info.SupplementaryServiceInfo = CapiSupplementaryServiceNotSupported;
-	} else {
-		appl->NotificationMask = facReqParm->u.Listen.NotificationMask;
-		facConfParm->u.Info.SupplementaryServiceInfo = CapiSuccess;
-	}
-	return CapiSuccess;
 }
 
 __u8 *encodeInvokeComponentHead(__u8 *p)
@@ -236,6 +245,26 @@ struct DummyProcess *applNewDummyPc(struct Appl *appl, __u16 Function, __u32 Han
 	dummy_pc->Function = Function;
 	dummy_pc->Handle = Handle;
 	return dummy_pc;
+}
+
+int applGetSupportedServices(struct Appl *appl, struct FacReqParm *facReqParm,
+			      struct FacConfParm *facConfParm)
+{
+	facConfParm->u.GetSupportedServices.SupplementaryServiceInfo = CapiSuccess;
+	facConfParm->u.GetSupportedServices.SupportedServices = HiSaxSupportedServices;
+	return CapiSuccess;
+}
+
+int applFacListen(struct Appl *appl, struct FacReqParm *facReqParm,
+		   struct FacConfParm *facConfParm)
+{
+	if (facReqParm->u.Listen.NotificationMask &~ HiSaxSupportedServices) {
+		facConfParm->u.Info.SupplementaryServiceInfo = CapiSupplementaryServiceNotSupported;
+	} else {
+		appl->NotificationMask = facReqParm->u.Listen.NotificationMask;
+		facConfParm->u.Info.SupplementaryServiceInfo = CapiSuccess;
+	}
+	return CapiSuccess;
 }
 
 int applFacCFActivate(struct Appl *appl, struct FacReqParm *facReqParm,
@@ -331,6 +360,23 @@ int applFacCFInterrogateNumbers(struct Appl *appl, struct FacReqParm *facReqParm
 	L4L3(&appl->contr->l4, CC_DUMMY | REQUEST, &facility_req);
 	dummyPcAddTimer(dummy_pc, T_INTERROGATE);
 
+	facConfParm->u.Info.SupplementaryServiceInfo = CapiSuccess;
+	return CapiSuccess;
+}
+
+int cplciFacSuspend(struct Cplci *cplci, struct FacReqParm *facReqParm,
+		    struct FacConfParm *facConfParm)
+{
+	struct Plci *plci = cplci->plci;
+	struct suspend_req_parm suspend_req;
+	__u8 *CallIdentity = facReqParm->u.Suspend.CallIdentity;
+	
+	if (CallIdentity[0] > 8) 
+		return CapiIllMessageParmCoding;
+
+	suspend_req.call_identity[0] = IE_CALL_ID;
+	memcpy(&suspend_req.call_identity[1], CallIdentity, CallIdentity[0] + 1);
+	p_L4L3(&plci->l4_pc, CC_X_SUSPEND | REQUEST, &suspend_req); 
 	facConfParm->u.Info.SupplementaryServiceInfo = CapiSuccess;
 	return CapiSuccess;
 }

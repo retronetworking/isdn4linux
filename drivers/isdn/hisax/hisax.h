@@ -94,6 +94,7 @@
 #define CC_X_DISCONNECT	0x0364
 #define CC_RELEASE	0x0368
 #define CC_SUSPEND	0x0370
+#define CC_X_SUSPEND	0x037A
 #define CC_PROCEED_SEND 0x0374
 #define CC_REDIR        0x0378
 #define CC_T303		0x0383

@@ -21,7 +21,8 @@ void init_cplci(void);
 void init_ncci(void);
 
 #define SuppServiceCF          0x00000010
-#define HiSaxSupportedServices SuppServiceCF
+#define SuppServiceTP          0x00000002
+#define HiSaxSupportedServices (SuppServiceCF | SuppServiceTP)
 
 #define CAPIMSG_REQ_DATAHANDLE(m)	(m[18] | (m[19]<<8))
 #define CAPIMSG_RESP_DATAHANDLE(m)	(m[12] | (m[13]<<8))
@@ -52,8 +53,14 @@ void dummyPcConstr(struct DummyProcess *dummy_pc, struct Contr *contr, __u16 inv
 void dummyPcDestr(struct DummyProcess *dummy_pc);
 void dummyPcAddTimer(struct DummyProcess *dummy_pc, int msec);
 
+int capiEncodeFacIndSuspend(__u8 *dest, __u16  SupplementaryServiceReason);
+
 struct FacReqListen {
 	__u32 NotificationMask;
+};
+
+struct FacReqSuspend {
+	__u8 *CallIdentity;
 };
 
 struct FacReqCFActivate {
@@ -82,6 +89,7 @@ struct FacReqParm {
 	__u16 Function;
 	union {
 		struct FacReqListen Listen;
+		struct FacReqSuspend Suspend;
 		struct FacReqCFActivate CFActivate;
 		struct FacReqCFDeactivate CFDeactivate;
 		struct FacReqCFInterrogateParameters CFInterrogateParameters;
@@ -264,6 +272,8 @@ struct Ncci *cplciNewNcci(struct Cplci* cplci);
 void cplciDelNcci(struct Cplci* cplci);
 void cplciRecvCmsg(struct Cplci *cplci, _cmsg *cmsg);
 void cplciCmsgHeader(struct Cplci *cplci, _cmsg *cmsg, __u8 cmd, __u8 subcmd);
+int cplciFacSuspend(struct Cplci *cplci, struct FacReqParm *facReqParm,
+		    struct FacConfParm *facConfParm);
 
 // ---------------------------------------------------------------------------
 // struct Ncci

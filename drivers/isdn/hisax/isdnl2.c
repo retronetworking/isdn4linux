@@ -1826,6 +1826,9 @@ transl2_l3l2(struct PStack *st, int pr, void *arg)
 	case (DL_UNIT_DATA | REQUEST):
 		st->l2.l2l1(st, PH_DATA | REQUEST, arg);
 		break;
+	case (PH_ACTIVATE | REQUEST):
+		st->l2.l2l1(st, PH_ACTIVATE | REQUEST, NULL);
+		break;
 	case (DL_ESTABLISH | REQUEST):
 		st->l2.l2l1(st, PH_ACTIVATE | REQUEST, NULL);
 		break;

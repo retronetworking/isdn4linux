@@ -265,6 +265,8 @@ enum {
 	EV_PLCI_CC_DISCONNECT_IND,
 	EV_PLCI_CC_RELEASE_IND,
 	EV_PLCI_CC_RELEASE_PROC_IND,
+	EV_PLCI_CC_SUSPEND_CONF,
+	EV_PLCI_SUSPEND_CONF,
 	EV_PLCI_CC_REJECT_IND,
 }
 
@@ -292,6 +294,8 @@ static char* str_ev_plci[] = {
 	"EV_PLCI_CC_DISCONNECT_IND",
 	"EV_PLCI_CC_RELEASE_IND",
 	"EV_PLCI_CC_RELEASE_PROC_IND",
+	"EV_PLCI_CC_SUSPEND_CONF",
+	"EV_PLCI_SUSPEND_CONF",
 	"EV_PLCI_CC_REJECT_IND",
 };
 
@@ -501,6 +505,15 @@ static void plci_disconnect_req(struct FsmInst *fi, int event, void *arg)
 	p_L4L3(&plci->l4_pc, CC_X_DISCONNECT | REQUEST, &disconnect_req);
 }
 
+static void plci_suspend_conf(struct FsmInst *fi, int event, void *arg)
+{
+	struct Cplci *cplci = fi->userdata;
+
+	FsmChangeState(fi, ST_PLCI_P_5);
+	if (cplci->ncci)
+		ncciLinkDown(cplci->ncci);
+}
+
 static void plci_disconnect_ind(struct FsmInst *fi, int event, void *arg)
 {
 	FsmChangeState(fi, ST_PLCI_P_6);
@@ -604,6 +617,9 @@ static void plci_cc_release_ind(struct FsmInst *fi, int event, void *arg)
 	
 	plciDetachCplci(cplci->plci, cplci);
 
+	if (cplci->ncci) {
+		ncciLinkDown(cplci->ncci);
+	}
 	cplciCmsgHeader(cplci, &cmsg, CAPI_DISCONNECT, CAPI_IND);
 	if (skb)
 		cause = q931IE(skb, IE_CAUSE);
@@ -614,6 +630,30 @@ static void plci_cc_release_ind(struct FsmInst *fi, int event, void *arg)
 	} else {
 		cmsg.Reason = 0;
 	}
+	FsmEvent(&cplci->plci_m, EV_PLCI_DISCONNECT_IND, &cmsg);
+	cplciRecvCmsg(cplci, &cmsg);
+}
+
+static void plci_cc_suspend_conf(struct FsmInst *fi, int event, void *arg)
+{
+	struct Cplci *cplci = fi->userdata;
+	_cmsg cmsg;
+	__u8 tmp[10], *p;
+	
+	cplciCmsgHeader(cplci, &cmsg, CAPI_FACILITY, CAPI_IND);
+	p = &tmp[1];
+	p += capiEncodeWord(p, 0x0004); // Suspend
+	p += capiEncodeFacIndSuspend(p, CapiSuccess);
+	tmp[0] = p - &tmp[1];
+	cmsg.FacilitySelector = 0x0003;
+	cmsg.FacilityIndicationParameter = tmp;
+	contrRecvCmsg(cplci->contr, &cmsg);
+
+	FsmEvent(&cplci->plci_m, EV_PLCI_SUSPEND_CONF, &cmsg);
+	
+	plciDetachCplci(cplci->plci, cplci);
+
+	cplciCmsgHeader(cplci, &cmsg, CAPI_DISCONNECT, CAPI_IND);
 	FsmEvent(&cplci->plci_m, EV_PLCI_DISCONNECT_IND, &cmsg);
 	cplciRecvCmsg(cplci, &cmsg);
 }
@@ -665,6 +705,8 @@ static struct FsmNode fn_plci_list[] =
   {ST_PLCI_P_ACT,              EV_PLCI_INFO_REQ,              plci_info_req},
   {ST_PLCI_P_ACT,              EV_PLCI_CC_DISCONNECT_IND,     plci_cc_disconnect_ind},
   {ST_PLCI_P_ACT,              EV_PLCI_CC_RELEASE_IND,        plci_cc_release_ind},
+  {ST_PLCI_P_ACT,              EV_PLCI_CC_SUSPEND_CONF,       plci_cc_suspend_conf},
+  {ST_PLCI_P_ACT,              EV_PLCI_SUSPEND_CONF,          plci_suspend_conf},
 
   {ST_PLCI_P_5,                EV_PLCI_DISCONNECT_IND,        plci_disconnect_ind},
   {ST_PLCI_P_5,                EV_PLCI_CC_RELEASE_IND,        plci_cc_release_ind},
@@ -811,6 +853,9 @@ void cplci_l3l4(struct Cplci *cplci, int pr, void *arg)
 		cplciInfoIndIE(cplci, IE_PROGRESS, CAPI_INFOMASK_PROGRESS, arg);
 		break;
 	case CC_CHARGE | INDICATION:
+		break;
+	case CC_SUSPEND | CONFIRM:
+		FsmEvent(&cplci->plci_m, EV_PLCI_CC_SUSPEND_CONF, arg); 
 		break;
 	default:
 		cplciDebug(cplci, LL_DEB_WARN, 

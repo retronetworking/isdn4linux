@@ -2580,6 +2580,19 @@ l3dss1_suspend_req(struct l3_process *pc, u_char pr, void *arg)
 }
 
 static void
+l3dss1_x_suspend_req(struct l3_process *pc, u_char pr, void *arg)
+{
+	MsgDeclare(32);
+	struct suspend_req_parm *suspend_req = arg;
+
+	MsgXHead(pc->callref, MT_SUSPEND);
+	MsgAdd(suspend_req->call_identity);
+	MsgSend();
+	l3pc_newstate(pc, 15);
+	l3pc_addtimer(pc, T319, CC_T319);
+}
+
+static void
 l3dss1_suspend_ack(struct l3_process *pc, u_char pr, void *arg)
 {
 	struct sk_buff *skb = arg;
@@ -2805,6 +2818,8 @@ static struct stateentry downstatelist[] =
 	 CC_SETUP | RESPONSE, l3dss1_setup_rsp},
 	{SBIT(10),
 	 CC_SUSPEND | REQUEST, l3dss1_suspend_req},
+	{SBIT(10),
+	 CC_X_SUSPEND | REQUEST, l3dss1_x_suspend_req},
         {SBIT(6),
          CC_PROCEED_SEND | REQUEST, l3dss1_proceed_req},
         {SBIT(7) | SBIT(9),
