@@ -22,6 +22,13 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.20  1997/05/27 15:18:06  fritz
+ * Added changes for recent 2.1.x kernels:
+ *   changed return type of isdn_close
+ *   queue_task_* -> queue_task
+ *   clear/set_bit -> test_and_... where apropriate.
+ *   changed type of hard_header_cache parameter.
+ *
  * Revision 1.19  1997/03/25 23:13:56  keil
  * NI-1 US protocol
  *
@@ -375,9 +382,15 @@ static inline unsigned long copy_to_user(void *to, const void *from, unsigned lo
 }
 
 #define GET_USER(x, addr) ( x = get_user(addr) )
+#ifdef __alpha__ /* needed for 2.0.x with alpha-patches */
+#define RWTYPE long
+#define LSTYPE long
+#define RWARG unsigned long
+#else
 #define RWTYPE int
 #define LSTYPE int
 #define RWARG int
+#endif
 #define LSARG off_t
 #else
 #include <asm/uaccess.h>
