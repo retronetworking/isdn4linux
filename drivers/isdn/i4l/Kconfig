@@ -78,6 +78,7 @@ menu "ISDN feature submodules"
 
 config ISDN_DRV_LOOP
 	tristate "isdnloop support"
+	depends on BROKEN_ON_SMP
 	help
 	  This driver provides a virtual ISDN card. Its primary purpose is
 	  testing of linklevel features or configuration without getting
@@ -87,7 +88,7 @@ config ISDN_DRV_LOOP
 
 config ISDN_DIVERSION
 	tristate "Support isdn diversion services"
-	depends on BROKEN
+	depends on BROKEN && BROKEN_ON_SMP
 	help
 	  This option allows you to use some supplementary diversion
 	  services in conjunction with the HiSax driver on an EURO/DSS1
