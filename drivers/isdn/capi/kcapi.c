@@ -309,12 +309,10 @@ static void recv_handler(void *dummy)
 			continue;
 		}
 
-		if (   CAPIMSG_COMMAND(skb->data) == CAPI_DATA_B3
-		    && CAPIMSG_SUBCOMMAND(skb->data) == CAPI_IND) {
+		if (CAPIMSG_CMD(skb->data) == CAPI_DATA_B3_IND)
 			ap->nrecvdatapkt++;
-		} else {
+		else
 			ap->nrecvctlpkt++;
-		}
 		ap->recv_message(ap, skb);
 	}
 }

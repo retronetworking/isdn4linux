@@ -148,10 +148,16 @@ if [ $# != 0 ]; then
 		$DODIFF $i $KERNELDIR/$i
 	done
 else
-	for i in drivers/isdn/i4l/isdn_*.[ch] ; do
+	for i in drivers/isdn/act2000/*.[ch] ; do
 		$DODIFF $i $KERNELDIR/$i
 	done
 	for i in drivers/isdn/divert/*.[ch] ; do
+		$DODIFF $i $KERNELDIR/$i
+	done
+	for i in drivers/isdn/eicon/*.[ch] ; do
+		$DODIFF $i $KERNELDIR/$i
+	done
+	for i in drivers/isdn/hisax/*.[ch] ; do
 		$DODIFF $i $KERNELDIR/$i
 	done
 	for i in drivers/isdn/hysdn/*.[ch] ; do
@@ -160,25 +166,25 @@ else
 	for i in drivers/isdn/icn/icn.[ch] ; do
 		$DODIFF $i $KERNELDIR/$i
 	done
-	for i in drivers/isdn/hisax/*.[ch] ; do
-		$DODIFF $i $KERNELDIR/$i
-	done
-	for i in drivers/isdn/hardware/avm/*.[ch] ; do
-		$DODIFF $i $KERNELDIR/$i
-	done
-	for i in drivers/isdn/sc/*.[ch] ; do
+	for i in drivers/isdn/isdnloop/*.[ch] ; do
 		$DODIFF $i $KERNELDIR/$i
 	done
 	for i in drivers/isdn/pcbit/*.[ch] ; do
 		$DODIFF $i $KERNELDIR/$i
 	done
-	for i in drivers/isdn/act2000/*.[ch] ; do
+	for i in drivers/isdn/sc/*.[ch] ; do
 		$DODIFF $i $KERNELDIR/$i
 	done
-	for i in drivers/isdn/isdnloop/*.[ch] ; do
+	for i in drivers/isdn/tpam/*.[ch] ; do
 		$DODIFF $i $KERNELDIR/$i
 	done
-	for i in drivers/isdn/eicon/*.[ch] ; do
+	for i in drivers/isdn/capi/*.[ch] ; do
+		$DODIFF $i $KERNELDIR/$i
+	done
+	for i in drivers/isdn/i4l/isdn_*.[ch] ; do
+		$DODIFF $i $KERNELDIR/$i
+	done
+	for i in drivers/isdn/hardware/avm/*.[ch] ; do
 		$DODIFF $i $KERNELDIR/$i
 	done
 	for i in drivers/isdn/hardware/eicon/*.[ch] ; do

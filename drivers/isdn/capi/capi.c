@@ -199,7 +199,7 @@ static void capiminor_del_all_ack(struct capiminor *mp)
 
 static struct capiminor *capiminor_alloc(struct capi20_appl *ap, u32 ncci)
 {
-	struct capiminor *mp, *p;
+	struct capiminor *mp, *p = NULL;
 	struct list_head *l;
 	unsigned int minor = 0;
 	unsigned long flags;
@@ -222,18 +222,17 @@ static struct capiminor *capiminor_alloc(struct capi20_appl *ap, u32 ncci)
 	write_lock_irqsave(&capiminor_list_lock, flags);
 	list_for_each(l, &capiminor_list) {
 		p = list_entry(l, struct capiminor, list);
-		if (p->minor > minor) {
-			mp->minor = minor;
-			list_add_tail(&mp->list, &p->list);
+		if (p->minor > minor)
 			break;
-		}
 		minor++;
+		p = NULL;
 	}
+	mp->minor = minor;
+	if (p)
+		list_add_tail(&mp->list, &p->list);
+	else
+		list_add_tail(&mp->list, l);
 	write_unlock_irqrestore(&capiminor_list_lock, flags);
-	if (l == &capiminor_list) {
-		kfree(mp);
-		return NULL;
-	}
 	return mp;
 }
 

@@ -15,10 +15,13 @@
 #include <linux/list.h>
 #include <linux/isdn/capilli.h>
 
+#ifdef KCAPI_DEBUG
 #define DBG(format, arg...) do { \
 printk(KERN_DEBUG "%s: " format "\n" , __FUNCTION__ , ## arg); \
 } while (0)
-
+#else
+#define DBG(format, arg...)
+#endif
 
 enum {
 	CARD_DETECTED = 1,

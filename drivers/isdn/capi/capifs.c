@@ -88,9 +88,10 @@ static int capifs_parse_options(char *s, struct options *p)
 
 static int capifs_remount(struct super_block *s, int *flags, char *data)
 {
-	struct options new;
+	struct options new = options;
+
 	if (capifs_parse_options(data, &new)) {
-		printk("capifs: called with bogus options\n");
+		printk("%s: called with bogus options\n", __FUNCTION__);
 		return -EINVAL;
 	}
 	options = new;
@@ -109,7 +110,7 @@ static int capifs_fill_super(struct super_block *s, void *data, int silent)
 	struct inode * inode;
 
 	if (capifs_parse_options(data, &options)) {
-		printk("capifs: called with bogus options\n");
+		printk("%s: called with bogus options\n", __FUNCTION__);
 		return -EINVAL;
 	}
 
@@ -171,10 +172,11 @@ static struct dentry *get_node(int type, int num)
 	char s[10];
 	int len;
 	struct dentry *root = capifs_mnt->mnt_root;
+
 	if (type)
-		len = sprintf(s, "%d", num);
-	else
 		len = sprintf(s, "%c%d", type, num);
+	else
+		len = sprintf(s, "%d", num);
 	down(&root->d_inode->i_sem);
 	return lookup_one_len(s, root, len);
 }
