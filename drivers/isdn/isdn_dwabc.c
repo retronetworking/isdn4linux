@@ -33,9 +33,37 @@
 static char *dwabcrevison = "$Revision$";
 
 #include <asm/semaphore.h>
+#define CONFIG_ISDN_WITH_ABC_NEED_DWSJIFFIES 	1
 #include <linux/isdn.h>
 #include "isdn_common.h"
 #include "isdn_net.h"
+
+#if CONFIG_ISDN_WITH_ABC_IPTABLES_NETFILTER || CONFIG_ISDN_WITH_ABC_IPV6TABLES_NETFILTER
+#include <linux/module.h>
+#endif
+
+#ifdef CONFIG_ISDN_WITH_ABC_IPTABLES_NETFILTER
+#include <linux/netfilter_ipv4/ip_tables.h>
+static void	dwabcnetfilter_init(void);
+static void	dwabcnetfilter_fini(void);
+#define IPTV6_hook_priorities MYV6_nf_ip_hook_priorities
+#endif
+
+#ifdef CONFIG_ISDN_WITH_ABC_IPV6TABLES_NETFILTER 
+
+#ifdef IPTV6_hook_priorities
+/*
+** stop compiler warning (redefine of nf_ip_hook_priorities)
+*/
+#define nf_ip_hook_priorities IPTV6_hook_priorities
+#else
+#define IPTV6_hook_priorities nf_ip_hook_priorities
+#endif
+#include <linux/netfilter_ipv6/ip6_tables.h>
+static void	dwabcv6netfilter_init(void);
+static void	dwabcv6netfilter_fini(void);
+#endif
+
 
 struct PSH { 
 	u_long saddr;
@@ -44,9 +72,9 @@ struct PSH {
 	u_short len;
 };
 
+#include <linux/skbuff.h>
 
 #ifdef CONFIG_ISDN_WITH_ABC_IPV4_TCP_KEEPALIVE
-#include <linux/skbuff.h>
 #include <net/ip.h>
 #include <net/tcp.h>
 #ifdef CONFIG_ISDN_WITH_ABC_IPV4_DYNADDR
@@ -70,7 +98,7 @@ static struct isdn_ppp_comp_data BSD_COMP_INIT_DATA;
 #endif
 
 #define NBYTEORDER_30BYTES      0x1e00 
-#define DWABC_TMRES (HZ)
+#define DWABC_TMRES (HZ / 10)
 
 //#define KEEPALIVE_VERBOSE 1
 //#define DYNADDR_VERBOSE	 1
@@ -540,16 +568,18 @@ void isdn_dw_clear_if(ulong pm,isdn_net_local *lp)
 
 static void dw_abc_timer_func(u_long dont_need_yet)
 {
-	static int recu = 0;
+	register u_long t;
+
+	if(!((t = ++isdn_dwabc_jiffies.msec_100) & 1))
+		if(isdn_dwabc_jiffies.msec_200++ & 1)
+			isdn_dwabc_jiffies.msec_400++;
 	
+	if(!(t % 5)) 
+		if(isdn_dwabc_jiffies.msec_500++ & 1)
+			isdn_dwabc_jiffies.msec_1000++;
+
 	dw_abc_timer.expires = jiffies + DWABC_TMRES;
 	add_timer(&dw_abc_timer);
-	dwsjiffies++;
-
-	if(test_and_set_bit(0,&recu))
-		return;
-
-	clear_bit(0,&recu);
 }
 
 
@@ -1345,8 +1375,9 @@ void isdn_dw_abc_init_func(void)
 	init_timer(&dw_abc_timer);
 	dw_abc_timer.function = dw_abc_timer_func;
 
+
 	printk( KERN_INFO
-		"abc-extension %s\n"
+		"abc-extension %s Kernel 0x%06X\n"
 		"written by\nDetlef Wengorz <detlefw@isdn4linux.de>\n"
 		"Thanks for test's etc. to:\n"
 		"Mario Schugowski <mario@mediatronix.de>\n"
@@ -1394,16 +1425,34 @@ void isdn_dw_abc_init_func(void)
 #ifdef CONFIG_ISDN_WITH_ABC_RAWIPCOMPRESS
 		"CONFIG_ISDN_WITH_ABC_RAWIPCOMPRESS\n"
 #endif
+#ifdef CONFIG_ISDN_WITH_ABC_IPTABLES_NETFILTER
+		"CONFIG_ISDN_WITH_ABC_IPTABLES_NETFILTER\n"
+#endif
+#ifdef CONFIG_ISDN_WITH_ABC_IPV6TABLES_NETFILTER
+		"CONFIG_ISDN_WITH_ABC_IPV6TABLES_NETFILTER\n"
+#endif
 		"loaded\n",
-		dwabcrevison);
+		dwabcrevison,LINUX_VERSION_CODE);
 
 		dwsjiffies = 0;
 		dw_abc_timer.expires = jiffies + DWABC_TMRES;
 		add_timer(&dw_abc_timer);
+#ifdef CONFIG_ISDN_WITH_ABC_IPTABLES_NETFILTER
+		dwabcnetfilter_init();
+#endif
+#ifdef CONFIG_ISDN_WITH_ABC_IPV6TABLES_NETFILTER
+		dwabcv6netfilter_init();
+#endif
 }
 
 void isdn_dw_abc_release_func(void)
 {
+#ifdef CONFIG_ISDN_WITH_ABC_IPTABLES_NETFILTER
+	dwabcnetfilter_fini();
+#endif
+#ifdef CONFIG_ISDN_WITH_ABC_IPV6TABLES_NETFILTER
+	dwabcv6netfilter_fini();
+#endif
 	del_timer(&dw_abc_timer);
 #ifdef CONFIG_ISDN_WITH_ABC_LCR_SUPPORT
 	dw_lcr_clear_all();
@@ -1412,14 +1461,14 @@ void isdn_dw_abc_release_func(void)
 	isdn_tcp_keepalive_done();
 #endif
 	printk( KERN_INFO
-		"abc-extension %s\n"
+		"abc-extension %s  Kernel 0x%06X\n"
 		"written by\n"
 		"Detlef Wengorz <detlefw@isdn4linux.de>\n"
 		"Thanks for test's etc. to:\n"
 		"Mario Schugowski <mario@mediatronix.de>\n"
 		"unloaded\n"
 		"For more details see http://i4l.mediatronix.de\n",
-		dwabcrevison);
+		dwabcrevison,LINUX_VERSION_CODE);
 }
 
 
@@ -2273,5 +2322,566 @@ struct sk_buff *dwabc_bsd_compress(isdn_net_local *lp,struct sk_buff *skb,struct
 
 struct sk_buff *dwabc_bsd_rx_pkt(isdn_net_local *lp,struct sk_buff *skb,struct net_device *ndev)
 { return(skb); }
+#endif
+
+
+#if CONFIG_ISDN_WITH_ABC_IPTABLES_NETFILTER || CONFIG_ISDN_WITH_ABC_IPV6TABLES_NETFILTER
+
+static isdn_net_local *dwisdn_get_lp(const struct net_device *nd)
+{
+	isdn_net_local *r = NULL;
+
+	if(nd != NULL) {
+
+		isdn_net_dev *p = dev->netdev;
+		int shl = 0;
+
+		for(;shl < 5000 && p != NULL && &p->dev != nd;shl++,p = p->next);
+
+		if(p != NULL && nd == &p->dev)
+			r = p->local;
+	}
+
+	return(r);
+}
+
+
+
+static int isdn_ipt_dwisdn(	const struct net_device *in_ndev,
+							const struct net_device *out_ndev,
+							const void *info)
+{
+	int retw = 0;
+
+	if(info != NULL) {
+
+		int shl = 0;
+		const IPTDWISDN_INFO *dw  = (IPTDWISDN_INFO *)info;
+		isdn_net_local *lp = NULL;
+
+		if(dw->parcount > 0 && 
+			(*dw->inst & ~IPT_DWISDN_NOT) == IPT_DWISDN_IDEV) {
+
+			if(*dw->inst & IPT_DWISDN_NOT)
+				lp = dwisdn_get_lp(out_ndev);
+			else
+				lp = dwisdn_get_lp(in_ndev);
+
+			shl = 1;
+
+		} else lp = dwisdn_get_lp(out_ndev);
+
+		retw = lp != NULL;
+
+		for(;retw && shl < IPTDWISDN_MAXOPS && shl < dw->parcount; shl++) {
+
+			enum iptdwisdn inst = dw->inst[shl];
+			u_long v = dw->value[shl];
+			int not;
+
+			if((not = (inst & IPT_DWISDN_NOT)))
+				inst &= ~IPT_DWISDN_NOT;
+
+			switch(inst) {
+
+			default:
+
+				printk(KERN_DEBUG
+				"ipt_dwisdn instruction %0x unknown\n",inst);
+				retw = 0;
+				break;
+
+			case IPT_DWISDN_DIALMODE:
+
+				retw = 0;
+
+				switch(v) {
+
+				case 1:	
+					retw = ISDN_NET_DIALMODE(*lp) == ISDN_NET_DM_AUTO;
+					break;
+
+				case 2:	
+					retw = ISDN_NET_DIALMODE(*lp) == ISDN_NET_DM_MANUAL;
+					break;
+
+				case 3:	
+					retw = ISDN_NET_DIALMODE(*lp) == ISDN_NET_DM_OFF;
+					break;
+				}
+
+				break;
+
+			case IPT_DWISDN_CBOUT:
+
+				retw = 0;
+
+				if(lp->flags & ISDN_NET_CALLBACK) {
+
+					retw = !!(lp->flags & ISDN_NET_CBOUT);
+						
+					if(not)
+						retw = !retw;
+				}
+
+				continue;
+
+			case IPT_DWISDN_OUTGOING:
+
+				if(lp->flags & ISDN_NET_CONNECTED)
+					retw = !!lp->outgoing;
+				else
+					retw = 0;
+
+				break;
+
+			case IPT_DWISDN_IDEV:
+
+				if(not) 
+					lp = dwisdn_get_lp(out_ndev);
+				else
+					lp = dwisdn_get_lp(in_ndev);
+
+				retw = lp != NULL;
+				continue;
+
+			case IPT_DWISDN_CHARGE:
+
+				retw = lp->charge >= v;
+				break;
+
+			case IPT_DWISDN_CON:
+
+				retw = 0;
+
+				if(v & IPTCS_DWISN_OFFL) {
+
+					if(!(lp->flags & ISDN_NET_CONNECTED) && 
+						!lp->dialstate) {
+
+						retw = 1;
+					}
+				}
+
+				if(v & IPTCS_DWISN_ONL) {
+
+					if((lp->flags & ISDN_NET_CONNECTED) && 
+						!lp->dialstate) {
+
+						retw = 1;
+					}
+				}
+
+				if(v & IPTCS_DWISN_DIAL) {
+
+					if((lp->flags & ISDN_NET_CONNECTED) && 
+						lp->dialstate) {
+
+						retw = 1;
+					}
+				}
+					
+				break;
+			}
+
+			if(not)
+				retw = !retw;
+		}
+	}
+
+	return(retw);
+}
+
+
+static int dwisdn_match(	const struct sk_buff *skb,
+							const struct net_device *in,
+							const struct net_device *out,
+							const void *matchinfo,
+							int offset,
+							const void *hdr,
+							u_int16_t datalen,
+							int *hotdrop)
+/************************************************************************
+*************************************************************************/
+{
+	const IPTDWISDN_INFO *dw = matchinfo;
+
+	if(dw == NULL)
+		return(0);
+
+	return(isdn_ipt_dwisdn(in,out,dw));
+}
+
+
+#ifdef CONFIG_ISDN_WITH_ABC_IPT_TARGET
+static unsigned int DWISDN_target(
+			struct sk_buff **pskb,
+			unsigned int hooknum,
+			const struct net_device *in,
+			const struct net_device *out,
+			const void *info,
+			void *userinfo)                             
+{
+	unsigned int retw = IPT_CONTINUE;
+
+	if(info != NULL) {
+
+		int shl = 0;
+		const IPTDWISDN_INFO *dw  = (IPTDWISDN_INFO *)info;
+		isdn_net_local *lp = dwisdn_get_lp(out);
+		struct sk_buff *p = (pskb != NULL) ? *pskb : NULL;
+
+		for(shl = 0;shl < IPTDWISDN_MAXOPS && shl < dw->parcount; shl++) {
+
+			enum tiptdwisdn inst = dw->inst[shl];
+			u_long v = dw->value[shl];
+			int not;
+
+			if((not = (inst & TIPT_DWISDN_NOT)))
+				inst &= ~TIPT_DWISDN_NOT;
+
+			switch(inst) {
+
+			default:
+
+				printk(KERN_DEBUG
+				"ipt_DWISDN instruction %0x unknown\n",inst);
+				break;
+
+			case TIPT_DWISDN_HUPRESET:
+
+				if(lp != NULL)
+					lp->huptimer = 0;
+
+				break;
+
+			case TIPT_DWISDN_DIALMODE:
+
+				if(lp != NULL) {
+
+					/* first all bits off */
+					lp->flags &= ~ISDN_NET_DIALMODE_MASK;
+
+					switch(v) {
+					case 1:	lp->flags |= ISDN_NET_DM_AUTO;		break;
+					case 2:	lp->flags |= ISDN_NET_DM_MANUAL;	break;
+					case 3:	lp->flags |= ISDN_NET_DM_OFF;		break;
+					}
+				}
+
+				break;
+
+			case TIPT_DWISDN_HANGUP:
+
+				if(lp != NULL && (lp->flags & ISDN_NET_CONNECTED))
+					isdn_net_hangup(&lp->netdev->dev);
+
+				break;
+
+			case TIPT_DWISDN_DIAL:
+
+				if(lp != NULL && !(lp->flags & ISDN_NET_CONNECTED))
+					isdn_net_force_dial_lp(lp);
+
+				break;
+
+			case TIPT_DWISDN_IDEV:
+
+				lp = dwisdn_get_lp((not) ? out : in);
+				break;
+
+			case TIPT_DWISDN_CLEAR:
+
+				v = 0;
+				
+				if(	CONFIG_ISDN_WITH_ABC_IPT_TARGET_HBIT > 0 	&&
+					CONFIG_ISDN_WITH_ABC_IPT_TARGET_HBIT < 33 	) {
+
+					v |= (1lu << (CONFIG_ISDN_WITH_ABC_IPT_TARGET_HBIT -1));
+				}
+
+				if(	CONFIG_ISDN_WITH_ABC_IPT_TARGET_DBIT > 0 	&&
+					CONFIG_ISDN_WITH_ABC_IPT_TARGET_DBIT < 33 	) {
+
+					v |= (1lu << (CONFIG_ISDN_WITH_ABC_IPT_TARGET_DBIT -1));
+				}
+
+				if(p != NULL && (p->nfmark & v)) {
+
+					p->nfmark &= ~v;
+					p->nfcache |= NFC_ALTERED;
+				}
+
+				break;
+
+			case TIPT_DWISDN_SET:
+
+				v = 0;
+				
+				if(	CONFIG_ISDN_WITH_ABC_IPT_TARGET_HBIT > 0 	&&
+					CONFIG_ISDN_WITH_ABC_IPT_TARGET_HBIT < 33 	) {
+
+					v |= (1lu << (CONFIG_ISDN_WITH_ABC_IPT_TARGET_HBIT -1));
+				}
+
+				if(p != NULL && (p->nfmark & v) != v) {
+
+					p->nfmark |= v;
+					p->nfcache |= NFC_ALTERED;
+				}
+
+				break;
+
+			case TIPT_DWISDN_UNREACH:
+
+				v = 0;
+
+				if(	CONFIG_ISDN_WITH_ABC_IPT_TARGET_DBIT > 0 	&&
+					CONFIG_ISDN_WITH_ABC_IPT_TARGET_DBIT < 33 	) {
+
+					v |= (1lu << (CONFIG_ISDN_WITH_ABC_IPT_TARGET_DBIT -1));
+				}
+
+				if(p != NULL && (p->nfmark & v) != v) {
+
+					p->nfmark |= v;
+					p->nfcache |= NFC_ALTERED;
+				}
+
+				break;
+			}
+		}
+	}
+
+	return(retw);
+}
+#endif
+#endif
+
+#ifdef CONFIG_ISDN_WITH_ABC_IPTABLES_NETFILTER 
+
+static int dwisdn_checkentry(	const char *tablename,
+								const struct ipt_ip *ip,
+								void *matchinfo,
+								unsigned int matchsize,
+								unsigned int hook_mask)
+{
+	const IPTDWISDN_INFO *dw = matchinfo;
+
+	if (matchsize != IPT_ALIGN(sizeof(IPTDWISDN_INFO))) {
+
+		printk(KERN_WARNING
+		"ipt_dwisdn: sizeof(IPTDWISDN_INFO) wrong (I think wrong Version)\n");
+
+		return 0;
+	}
+
+	if(dw != NULL && dw->revision > IPTDWISDN_REVISION) {
+
+		printk(KERN_WARNING
+		"ipt_dwisdn: iptables-revison > kernel-revision (%hu/%hu)\n",
+			dw->revision,IPTDWISDN_REVISION);
+
+		return 0;
+	}
+
+	return(1);
+}
+
+
+#ifdef CONFIG_ISDN_WITH_ABC_IPT_TARGET
+static int DWISDN_checkentry(	const char *tablename,
+	   							const struct ipt_entry *e,
+           						void *targinfo,
+           						unsigned int targinfosize,
+           						unsigned int hook_mask)
+{
+	const IPTDWISDN_INFO *dt = targinfo;
+
+	if (targinfosize != IPT_ALIGN(sizeof(IPTDWISDN_INFO))) {
+
+		printk(KERN_WARNING
+		"ipt_DWISDN: sizeof(IPTDWISDN_INFO) wrong (I think wrong Version)\n");
+
+		return 0;
+	}
+
+	if(dt != NULL && dt->revision > IPTDWISDN_REVISION) {
+
+		printk(KERN_WARNING
+		"ipt_DWISDN: iptables-revison > kernel-revision (%hu/%hu)\n",
+			dt->revision,IPTDWISDN_REVISION);
+
+		return 0;
+	}
+
+	return 1;
+}
+
+
+static struct ipt_target ipt_DWISDN = {
+
+	{ NULL, NULL },
+	"DWISDN",
+	DWISDN_target,
+	DWISDN_checkentry,
+	NULL, THIS_MODULE,
+};
+#endif
+
+
+static struct ipt_match ipt_dwisdn = { 
+
+	{ NULL, NULL },
+	"dwisdn", 
+	dwisdn_match,
+	dwisdn_checkentry,
+	NULL, THIS_MODULE
+};
+
+
+static void	dwabcnetfilter_init(void) 
+{ 
+	int r = ipt_register_match(&ipt_dwisdn); 
+
+	if(!r)
+		printk(KERN_WARNING "ipt_dwisdn: isdn-ipv4-netfilter installed\n");
+	else 
+		printk(KERN_WARNING
+			"ipt_dwisdn: isdn-ipv4-netfilter install failed (%d)\n",r);
+
+#ifdef CONFIG_ISDN_WITH_ABC_IPT_TARGET
+	r = ipt_register_target(&ipt_DWISDN); 
+
+	if(!r)
+		printk(KERN_WARNING "ipt_DWISDN: isdn-ipv4-netfilter installed\n");
+	else 
+		printk(KERN_WARNING
+			"ipt_DWISDN: isdn-ipv4-netfilter install failed (%d)\n",r);
+#endif
+}
+
+
+static void	dwabcnetfilter_fini(void) 
+{ 
+	ipt_unregister_match(&ipt_dwisdn);
+#ifdef CONFIG_ISDN_WITH_ABC_IPT_TARGET
+	ipt_unregister_target(&ipt_DWISDN);
+#endif
+}
+
+#endif
+
+#ifdef CONFIG_ISDN_WITH_ABC_IPV6TABLES_NETFILTER 
+static int dwisdn_checkentry_v6(	const char *tablename,
+									const struct ip6t_ip6 *ip,
+									void *matchinfo,
+									unsigned int matchsize,
+									unsigned int hook_mask)
+{
+	const IPTDWISDN_INFO *dw = matchinfo;
+
+	if (matchsize != IP6T_ALIGN(sizeof(IPTDWISDN_INFO))) {
+
+		printk(KERN_WARNING
+		"ipt_dwisdn: sizeof(IPTDWISDN_INFO) wrong (I think wrong Version)\n");
+
+		return 0;
+	}
+
+	if(dw != NULL && dw->revision > IPTDWISDN_REVISION) {
+
+		printk(KERN_WARNING
+		"ipt_dwisdn: iptables-revison > kernel-revision (%hu/%hu)\n",
+			dw->revision,IPTDWISDN_REVISION);
+
+		return 0;
+	}
+
+	return(1);
+}
+
+
+static struct ip6t_match ip6t_dwisdn = { 
+
+	{ NULL, NULL },
+	"dwisdn", 
+	dwisdn_match,
+	dwisdn_checkentry_v6,
+	NULL, THIS_MODULE
+};
+
+#ifdef CONFIG_ISDN_WITH_ABC_IPT_TARGET
+static int DWISDN_checkentry_v6(
+								const char *tablename,
+								const struct ip6t_entry *ip,
+           						void *targinfo,
+           						unsigned int targinfosize,
+           						unsigned int hook_mask)
+{
+	const IPTDWISDN_INFO *dt = targinfo;
+
+	if (targinfosize != IP6T_ALIGN(sizeof(IPTDWISDN_INFO))) {
+
+		printk(KERN_WARNING
+		"ipt_DWISDN: sizeof(IPTDWISDN_INFO) wrong (I think wrong Version)\n");
+
+		return 0;
+	}
+
+	if(dt != NULL && dt->revision > IPTDWISDN_REVISION) {
+
+		printk(KERN_WARNING
+		"ipt_DWISDN: iptables-revison > kernel-revision (%hu/%hu)\n",
+			dt->revision,IPTDWISDN_REVISION);
+
+		return 0;
+	}
+
+	return 1;
+}
+
+
+static struct ip6t_target ip6t_DWISDN = {
+
+	{ NULL, NULL },
+	"DWISDN",
+	DWISDN_target,
+	DWISDN_checkentry_v6,
+	NULL, THIS_MODULE,
+};
+#endif
+
+
+
+static void	dwabcv6netfilter_init(void) 
+{ 
+	int r = ip6t_register_match(&ip6t_dwisdn); 
+
+	if(!r)
+		printk(KERN_WARNING "ipt_dwisdn: isdn-ipv6-netfilter installed\n");
+	else
+		printk(KERN_WARNING
+			"ipt_dwisdn: isdn-ipv6-netfilter install failed (%d)\n",r);
+
+#ifdef CONFIG_ISDN_WITH_ABC_IPT_TARGET
+	r = ip6t_register_target(&ip6t_DWISDN); 
+
+	if(!r)
+		printk(KERN_WARNING "ipt_DWISDN: isdn-ipv6-netfilter installed\n");
+	else
+		printk(KERN_WARNING
+			"ipt_DWISDN: isdn-ipv6-netfilter install failed (%d)\n",r);
+#endif
+}
+
+static void	dwabcv6netfilter_fini(void) 
+{ 
+	ip6t_unregister_match(&ip6t_dwisdn);
+#ifdef CONFIG_ISDN_WITH_ABC_IPT_TARGET
+	ip6t_unregister_target(&ip6t_DWISDN);
+#endif
+}
+
 #endif
 #endif
