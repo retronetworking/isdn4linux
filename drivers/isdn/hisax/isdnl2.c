@@ -7,6 +7,9 @@
  *              Fritz Elfert
  *
  * $Log$
+ * Revision 1.10.2.8  1998/06/18 23:12:05  keil
+ * LAPB bugfix
+ *
  * Revision 1.10.2.7  1998/05/27 18:05:51  keil
  * HiSax 3.0
  *
@@ -203,19 +206,16 @@ sethdraddr(struct Layer2 *l2, u_char * header, int rsp)
 	}
 }
 
-static void
-enqueue_ui(struct PStack *st,
-	   struct sk_buff *skb)
-{
-	st->l2.l2l1(st, PH_DATA | REQUEST, skb);
-}
-
-static void
+inline static void
 enqueue_super(struct PStack *st,
 	      struct sk_buff *skb)
 {
+	if (test_bit(FLG_LAPB, &st->l2.flag))
+		st->l1.bcs->tx_cnt += skb->len;
 	st->l2.l2l1(st, PH_DATA | REQUEST, skb);
 }
+
+#define enqueue_ui(a, b) enqueue_super(a, b)
 
 inline int
 IsUI(u_char * data, int ext)
@@ -779,6 +779,8 @@ invoke_retransmission(struct PStack *st, int nr)
 			if (p1 < 0)
 				p1 += (test_bit(FLG_MOD128, &l2->flag) ? 128 : 8);
 			p1 = (p1 + l2->sow) % l2->window;
+			if (test_bit(FLG_LAPB, &l2->flag))
+				st->l1.bcs->tx_cnt += l2->windowar[p1]->len + l2headersize(l2, 0);
 			skb_queue_head(&l2->i_queue, l2->windowar[p1]);
 			l2->windowar[p1] = NULL;
 		}
