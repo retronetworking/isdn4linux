@@ -19,6 +19,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.5  1997/03/30 17:10:36  calle
+ * added support for AVM-B1-PCI card.
+ *
  * Revision 1.4  1997/03/04 21:59:44  calle
  * Added AVM-B1-CAPI2.0 driver
  *
@@ -37,10 +40,6 @@
 
 #ifdef CONFIG_ISDN_DRV_ICN
 extern void icn_init(void);
-#endif
-
-#ifdef CONFIG_ISDN_DRV_TELES
-extern void teles_init(void);
 #endif
 
 #ifdef CONFIG_ISDN_DRV_HISAX
@@ -65,9 +64,6 @@ isdn_cards_init(void)
 {
 #if CONFIG_ISDN_DRV_ICN
 	icn_init();
-#endif
-#if CONFIG_ISDN_DRV_TELES
-	teles_init();
 #endif
 #ifdef CONFIG_ISDN_DRV_HISAX
 	HiSax_init();

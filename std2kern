@@ -95,9 +95,6 @@ else
   for i in drivers/isdn/pcbit/*.[ch] ; do
     $DOCP $i $KERNELDIR/$i
   done
-  for i in drivers/isdn/teles/*.[ch] ; do
-    $DOCP $i $KERNELDIR/$i
-  done
   for i in drivers/isdn/hisax/*.[ch] ; do
     $DOCP $i $KERNELDIR/$i
   done
@@ -119,7 +116,7 @@ else
     $DOCP $i $KERNELDIR/$i
   done
   for i in drivers/isdn/Makefile drivers/isdn/icn/Makefile \
-           drivers/isdn/teles/Makefile drivers/isdn/hisax/Makefile \
+           drivers/isdn/hisax/Makefile \
            drivers/isdn/pcbit/Makefile drivers/isdn/sc/Makefile \
            drivers/isdn/avmb1/Makefile; do
 	if [ -f $i.kernel ] ; then
