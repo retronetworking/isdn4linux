@@ -6,6 +6,9 @@
  * Copyright 1997 by Carsten Paeth (calle@calle.in-berlin.de)
  *
  * $Log$
+ * Revision 1.25  1999/08/04 10:10:11  calle
+ * Bugfix: corrected /proc functions, added structure for new AVM cards.
+ *
  * Revision 1.24  1999/07/20 06:48:02  calle
  * Bugfix: firmware version check for D2 trace was too restrictiv.
  *
@@ -1025,6 +1028,13 @@ static void handle_incoming_call(capidrv_contr * card, _cmsg * cmsg)
 			cmd.parm.setup.si1,
 			cmd.parm.setup.si2,
 			cmd.parm.setup.eazmsn);
+
+	if (cmd.parm.setup.si1 == 1 && cmd.parm.setup.si2 != 0) {
+		printk(KERN_INFO "capidrv-%d: patching si2=%d to 0 for VBOX\n", 
+			card->contrnr,
+			cmd.parm.setup.si2);
+		cmd.parm.setup.si2 = 0;
+	}
 
 	switch (card->interface.statcallb(&cmd)) {
 	case 0:
