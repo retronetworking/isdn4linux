@@ -19,6 +19,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.1  1998/06/13 10:40:34  armin
+ * First check in. YET UNUSABLE
+ *
  */
 
 #ifndef diehl_pci_h
@@ -95,16 +98,40 @@ typedef union {
 } diehl_pci_shmem;
 
 
+typedef struct {
+  __u16 NextReq  __attribute__ ((packed));       	/* pointer to next Req Buffer               */
+  __u16 NextRc   __attribute__ ((packed));          	/* pointer to next Rc Buffer                */
+  __u16 NextInd  __attribute__ ((packed));         	/* pointer to next Ind Buffer               */
+  __u8 ReqInput  __attribute__ ((packed));        	/* number of Req Buffers sent               */
+  __u8 ReqOutput  __attribute__ ((packed));       	/* number of Req Buffers returned           */
+  __u8 ReqReserved  __attribute__ ((packed));     	/* number of Req Buffers reserved           */
+  __u8 Int  __attribute__ ((packed));             	/* ISDN-P interrupt                         */
+  __u8 XLock  __attribute__ ((packed));           	/* Lock field for arbitration               */
+  __u8 RcOutput  __attribute__ ((packed));        	/* number of Rc buffers received            */
+  __u8 IndOutput  __attribute__ ((packed));       	/* number of Ind buffers received           */
+  __u8 IMask  __attribute__ ((packed));           	/* Interrupt Mask Flag                      */
+  __u8 Reserved1[2]  __attribute__ ((packed));    	/* reserved field, do not use               */
+  __u8 ReadyInt  __attribute__ ((packed));        	/* request field for ready interrupt        */
+  __u8 Reserved2[12]  __attribute__ ((packed));   	/* reserved field, do not use               */
+  __u8 InterfaceType  __attribute__ ((packed));   	/* interface type 1=16K interface           */
+  __u16 Signature  __attribute__ ((packed));       	/* ISDN-P initialized indication            */
+  __u8 B[1];			         		/* buffer space for Req,Ind and Rc          */
+} diehl_pci_pr_ram;
+
+typedef union {
+	diehl_pci_pr_ram ram;
+} diehl_pci_ram;
+
 /*
  * card's description
  */
 typedef struct {
 	int		  ramsize;
 	int   		  irq;	    /* IRQ		          */
-	unsigned int*	  PCIram;
-	unsigned int*	  PCIreg;
-	unsigned int*	  PCIcfg;
-	int 		  serial;   /* Serial No.		  */
+	unsigned int      PCIram;
+	unsigned int	  PCIreg;
+	unsigned int	  PCIcfg;
+	long int   	  serial;   /* Serial No.		  */
 	int		  channels; /* No. of supported channels  */
         void*             card;
         diehl_pci_shmem*  shmem;    /* Shared-memory area         */
@@ -118,6 +145,7 @@ typedef struct {
         unsigned char     master;   /* Flag: Card ist Quadro 1/4  */
         void*             generic;  /* Ptr to generic card struct */
 } diehl_pci_card;
+
 
 
 extern int diehl_pci_load(diehl_pci_card *card, diehl_pci_codebuf *cb);

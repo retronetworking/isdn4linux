@@ -25,6 +25,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.1  1998/06/13 10:40:33  armin
+ * First check in. YET UNUSABLE
+ *
  */
 
 #include <linux/pci.h>
@@ -42,7 +45,7 @@
 char *diehl_pci_revision = "$Revision$";
 
 
-#if CONFIG_PCI		/* intire stuff is only for PCI */
+#if CONFIG_PCI	         /* intire stuff is only for PCI */
 
 #undef DIEHL_PCI_DEBUG  /* if you want diehl_pci more verbose */
      
@@ -202,16 +205,13 @@ int diehl_pci_find_card(char *ID)
 	ram = (u8 *) ((u32)aparms->shmem + MP_SHARED_RAM_OFFSET);
 	reg =  ioremap(preg, 0x4000);
 	cfg =  ioremap(pcfg, 0x1000);	
-	aparms->PCIram = (unsigned int *) ram;
-	aparms->PCIreg = (unsigned int *) reg;
-	aparms->PCIcfg = (unsigned int *) cfg;
+	aparms->PCIram = (unsigned int) ram;
+	aparms->PCIreg = (unsigned int) reg;
+	aparms->PCIcfg = (unsigned int) cfg;
 
 	aparms->mvalid = 1;
 
-	if (strlen(ID) < 1)
-		sprintf(did, "PCI%d", pci_cards);
-	 else
-		sprintf(did, "%s%d", ID, pci_cards);
+	sprintf(did, "%s%d", (strlen(ID) < 1) ? "PCI":ID, pci_cards);
 
 	printk(KERN_INFO "diehl_pci: DriverID: '%s'\n", did);
 
@@ -252,6 +252,12 @@ diehl_pci_release_shmem(diehl_pci_card *card) {
 	if (!card->master)
 		return;
 	if (card->mvalid) {
+	        /* reset board */
+        	writeb(_MP_RISC_RESET | _MP_LED1 | _MP_LED2, card->PCIreg + MP_RESET);
+	        SLEEP(20);
+	        writeb(0, card->PCIreg + MP_RESET);
+	        SLEEP(20);
+
 		iounmap((void *)card->shmem);
 		iounmap((void *)card->PCIreg);
 		iounmap((void *)card->PCIcfg);
@@ -281,20 +287,289 @@ diehl_pci_release(diehl_pci_card *card) {
 static void
 diehl_pci_irq(int irq, void *dev_id, struct pt_regs *regs) {
         diehl_pci_card *card = (diehl_pci_card *)dev_id;
-        /* diehl_isa_com *com; */
-        unsigned char tmp;
-        struct sk_buff *skb;
+    	char *ram, *reg, *cfg;	
+	diehl_pci_pr_ram  *prram;
+
+	ram = (char *)card->PCIram;
+	reg = (char *)card->PCIreg;
+	cfg = (char *)card->PCIcfg;
+	prram = (diehl_pci_pr_ram *)ram;
 
         if (!card) {
                 printk(KERN_WARNING "diehl_pci_irq: spurious interrupt %d\n", irq);
                 return;
         }
 
-	/* Now interrupt stuff */
+	if (card->irqprobe) {
+                if (readb(&ram[0x3fe])) {
+#ifdef DIEHL_PCI_DEBUG
+                        printk(KERN_INFO "diehl_pci: test interrupt routine ACK\n");
+#endif
+                        writeb(0, &prram->RcOutput);
+		        writew(MP_IRQ_RESET_VAL, &cfg[MP_IRQ_RESET]);
+		        writew(0, &cfg[MP_IRQ_RESET + 2]);
+			writeb(0, &ram[0x3fe]);
+                }
+		
+		card->irqprobe = 0;
+		return;
+	}
 
+	/* here has to follow the interrupt stuff */
+
+  return;
 }
 
 
+/* show header information of code file */
+static
+void diehl_pci_print_hdr(unsigned char *code, int offset)
+{
+  unsigned char hdr[80];
+  int i;
+
+  i = 0;
+  while ((i < (sizeof(hdr) -1))
+          && (code[offset + i] != '\0')
+          && (code[offset + i] != '\r')
+          && (code[offset + i] != '\n'))
+   {
+     hdr[i] = code[offset + i];
+     i++;
+   }
+   hdr[i] = '\0';
+   printk(KERN_DEBUG "diehl_pci: loading %s\n", hdr);
+}
+
+
+/*
+ * Configure a card, download code into card,
+ * check if we get interrupts and return 0 on succes.
+ * Return -ERRNO on failure.
+ */
+int
+diehl_pci_load(diehl_pci_card *card, diehl_pci_codebuf *cb) {
+        diehl_pci_boot    *boot;
+	diehl_pci_pr_ram  *prram;
+        int               i,j;
+        int               timeout;
+	unsigned int	  offset, offp=0, size, length;
+	unsigned long int signature = 0,cmd = 0;
+        diehl_pci_codebuf cbuf;
+        unsigned char     *code;
+	unsigned char	  req_int;
+    	char *ram, *reg, *cfg;	
+
+        if (copy_from_user(&cbuf, cb, sizeof(diehl_pci_codebuf)))
+                return -EFAULT;
+
+        boot = &card->shmem->boot;
+	ram = (char *)card->PCIram;
+	reg = (char *)card->PCIreg;
+	cfg = (char *)card->PCIcfg;
+	prram = (diehl_pci_pr_ram *)ram;
+
+	/* reset board */
+	writeb(_MP_RISC_RESET | _MP_LED1 | _MP_LED2, card->PCIreg + MP_RESET);
+	SLEEP(20);
+	writeb(0, card->PCIreg + MP_RESET);
+	SLEEP(20);
+
+	/* set command count to 0 */
+	writel(0, &boot->reserved); 
+
+	/* check if CPU increments the life word */
+        i = readw(&boot->live);
+        SLEEP(20);
+        if (i == readw(&boot->live)) {
+           printk(KERN_ERR "diehl_pci: card is reset, but CPU not running !\n");
+           return -EIO;
+         }
+#ifdef DIEHL_PCI_DEBUG
+	 printk(KERN_DEBUG "diehl_pci: reset card OK (CPU running)\n");
+#endif
+
+	/* download firmware : DSP and Protocol */
+#ifdef DIEHL_PCI_DEBUG
+	printk(KERN_DEBUG "diehl_pci: downloading firmware...\n");
+#endif
+
+       	/* Allocate code-buffer */
+       	if (!(code = kmalloc(400, GFP_KERNEL))) {
+                printk(KERN_WARNING "diehl_pci_boot: Couldn't allocate code buffer\n");
+       	        return -ENOMEM;
+        }
+        writel(MP_PROTOCOL_ADDR, &boot->addr); /* RISC code entry point */
+        for (j = 0; j <= cbuf.dsp_code_num; j++)
+         {
+	   if (j==0) size = cbuf.protocol_len;
+		else size = cbuf.dsp_code_len[j];	
+
+           if (j==1) writel(MP_DSP_ADDR, &boot->addr); /* DSP code entry point */
+
+           offset = 0;
+           do  /* download block of up to 400 bytes */
+            {
+              length = ((size - offset) >= 400) ? 400 : (size - offset);
+
+        	if (copy_from_user(code, (&cb->code) + offp + offset, length)) {
+                	kfree(code);
+	                return -EFAULT;
+        	}
+
+		if (offset == 0)
+	           	diehl_pci_print_hdr(code, j ? 0x00 : 0x80); 
+
+              for (i = 0; i < length; i+=4)
+               {
+                 writel(((u32 *)code)[i >> 2],&boot->data[i]); 
+               }
+
+               /* verify block */
+              for (i = 0; i < length; i+=4)
+               {
+                if (((u32 *)code)[i >> 2] != readl(&boot->data[i]))
+                 {
+                  printk(KERN_ERR "diehl_pci: code block verify failed !\n");
+		  kfree(code);
+                  return -EIO;
+                 }
+               } 
+
+              /* tell card the length (in words) */
+              writel(((length + 3) / 4), &boot->len);
+              writel(2, &boot->cmd); /* DIVAS_LOAD_CMD */
+
+              /* wait till card ACKs */
+	      timeout = jiffies + 20;
+              while (timeout > jiffies) {
+                cmd = readl(&boot->cmd);
+                if (!cmd) break;
+                SLEEP(2);
+               }
+              if (cmd)
+               {
+                printk(KERN_ERR "diehl_pci: timeout, no ACK to load !\n");
+		kfree(code);
+                return -EIO;
+               }
+
+              /* move onto next block */
+              offset += length;
+            } while (offset < size);
+#ifdef DIEHL_PCI_DEBUG
+	printk(KERN_DEBUG "diehl_pci: %d bytes loaded.\n", offset);
+#endif
+	 offp += size;
+         }
+	 kfree(code);	
+
+	/* initialize the adapter data structure */
+#ifdef DIEHL_PCI_DEBUG
+	printk(KERN_DEBUG "diehl_pci: initializing adapter data structure...\n");
+#endif
+        /* clear out config space */
+        for (i = 0; i < 256; i++) writeb(0, &ram[i]);
+
+        /* copy configuration down to the card */
+        writeb(cbuf.tei, &ram[8]);
+        writeb(cbuf.nt2, &ram[9]);
+        writeb(0, &ram[10]);
+        writeb(cbuf.WatchDog, &ram[11]);
+        writeb(cbuf.Permanent, &ram[12]);
+        writeb(cbuf.XInterface, &ram[13]);
+        writeb(cbuf.StableL2, &ram[14]);
+        writeb(cbuf.NoOrderCheck, &ram[15]);
+        writeb(cbuf.HandsetType, &ram[16]);
+        writeb(0, &ram[17]);
+        writeb(cbuf.LowChannel, &ram[18]);
+        writeb(cbuf.ProtVersion, &ram[19]);
+        writeb(cbuf.Crc4, &ram[20]);
+        for (i = 0; i < 32; i++)
+         {
+           writeb(cbuf.l[0].oad[i], &ram[32 + i]);
+           writeb(cbuf.l[0].osa[i], &ram[64 + i]);
+           writeb(cbuf.l[0].spid[i], &ram[96 + i]);
+           writeb(cbuf.l[1].oad[i], &ram[128 + i]);
+           writeb(cbuf.l[1].osa[i], &ram[160 + i]);
+           writeb(cbuf.l[1].spid[i], &ram[192 + i]);
+         }
+#ifdef DIEHL_PCI_DEBUG
+	printk(KERN_DEBUG "diehl_pci: configured card OK\n");
+#endif
+
+	/* start adapter */
+#ifdef DIEHL_PCI_DEBUG
+	printk(KERN_DEBUG "diehl_pci: tell card to start...\n");
+#endif
+        writel(MP_PROTOCOL_ADDR, &boot->addr); /* RISC code entry point */
+        writel(3, &boot->cmd); /* DIVAS_START_CMD */
+
+        /* wait till card ACKs */
+        timeout = jiffies + (5*HZ);
+        while (timeout > jiffies) {
+           signature = readl(&boot->signature);
+           if ((signature >> 16) == DIVAS_SIGNATURE) break;
+           SLEEP(2);
+         }
+        if ((signature >> 16) != DIVAS_SIGNATURE)
+         {
+#ifdef DIEHL_PCI_DEBUG
+           printk(KERN_ERR "diehl_pci: signature 0x%lx expected 0x%x\n",(signature >> 16),DIVAS_SIGNATURE);
+#endif
+           printk(KERN_ERR "diehl_pci: timeout, protocol code not running !\n");
+           return -EIO;
+         }
+#ifdef DIEHL_PCI_DEBUG
+	printk(KERN_DEBUG "diehl_pci: Protocol code running, signature OK\n");
+#endif
+
+	/* get serial number and number of channels supported by card */
+        card->channels = readb(&ram[0x3f6]);
+        card->serial = readl(&ram[0x3f0]);
+        printk(KERN_INFO "diehl_pci: Supported channels : %d\n", card->channels);
+        printk(KERN_INFO "diehl_pci: Card serial no. = %lu\n", card->serial);
+
+	/* test interrupt */
+	readb(&ram[0x3fe]);
+        writeb(0, &ram[0x3fe]); /* reset any pending interrupt */
+	readb(&ram[0x3fe]);
+
+        writew(MP_IRQ_RESET_VAL, &cfg[MP_IRQ_RESET]);
+        writew(0, &cfg[MP_IRQ_RESET + 2]);
+
+        card->irqprobe = 1;
+
+        if (request_irq(card->irq, &diehl_pci_irq, 0, "Diehl PCI ISDN", card)) 
+         {
+          printk(KERN_ERR "diehl_pci: Couldn't request irq %d\n", card->irq);
+          return -EIO;
+         }
+	card->ivalid = 1;
+
+        req_int = readb(&prram->ReadyInt);
+#ifdef DIEHL_PCI_DEBUG
+	printk(KERN_DEBUG "diehl_pci: testing interrupt\n");
+#endif
+        req_int++;
+        /* Trigger an interrupt and check if it is delivered */
+        writeb(req_int, &prram->ReadyInt);
+
+        timeout = jiffies + 20;
+        while (timeout > jiffies) {
+          if (card->irqprobe != 1) break;
+          SLEEP(2);
+         }
+        if (card->irqprobe == 1) {
+           free_irq(card->irq, card);
+	   card->ivalid = 0;
+           printk(KERN_ERR "diehl_pci: getting no interrupts !\n");
+           return -EIO;
+         }
+
+   printk(KERN_INFO "diehl_pci: Card started OK\n");
+ return 0;
+}
 
 #endif	/* CONFIG_PCI */
 
