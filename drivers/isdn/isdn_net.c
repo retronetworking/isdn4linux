@@ -21,6 +21,10 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.62  1998/05/03 17:40:42  detabc
+ * Include abc-extension-support for >= 2.1.x Kernels in
+ * isdn_net.c and isdn_common.c. alpha-test OK and running !
+ *
  * Revision 1.61  1998/04/16 19:19:42  keil
  * Fix from vger (tx max qlength)
  *
@@ -296,7 +300,6 @@ char *isdn_net_revision = "$Revision$";
 static void
 isdn_net_unreachable(struct device *dev, struct sk_buff *skb, char *reason)
 {
-	int	i;
 
 	if(skb) {
 
@@ -304,24 +307,34 @@ isdn_net_unreachable(struct device *dev, struct sk_buff *skb, char *reason)
 	       dev->name,
 		   (reason != NULL) ? reason : "unknown");
 
+#ifdef CONFIG_ISDN_WITH_ABC
+		icmp_send(skb, ICMP_DEST_UNREACH, ICMP_NET_UNREACH, 0);
+#else
 		icmp_send(skb, ICMP_DEST_UNREACH, ICMP_HOST_UNREACH, 0);
+#endif
 	}
 
 #ifdef CONFIG_ISDN_WITH_ABC
 	if(dev != NULL) {
 
 		isdn_net_local *lp = (isdn_net_local *) dev->priv;
-		lp->abc_unreached_jiffies = jiffies + (HZ / 5);
+		lp->abc_unreached_jiffies = jiffies + lp->dialwait;
+		lp->abc_max_unreached_jiffies = jiffies + lp->dialwait * 6;
+		abc_clear_tx_que(lp);
+		clear_bit(0, (void *) &(dev->tbusy));
 	}
 #endif
 #if 0
-	for(i = 0; i < DEV_NUMBUFFS; i++) {
-		struct sk_buff *skb;
+	{
+		int	i;
+		for(i = 0; i < DEV_NUMBUFFS; i++) {
+			struct sk_buff *skb;
 
-		while((skb = skb_dequeue(&dev->buffs[i]))) {
-				icmp_send(skb, ICMP_DEST_UNREACH, ICMP_HOST_UNREACH, 0);
-				dev_kfree_skb(skb);
-        }
+			while((skb = skb_dequeue(&dev->buffs[i]))) {
+					icmp_send(skb, ICMP_DEST_UNREACH, ICMP_HOST_UNREACH, 0);
+					dev_kfree_skb(skb);
+			}
+		}
 	}
 #endif
 }
@@ -1605,24 +1618,28 @@ isdn_net_send_skb(struct device *ndev, isdn_net_local * lp,
 
 	if(skb != NULL) {
 
-		u_int l = (u_int)skb->len;
+		if(lp->abc_flags & ABC_ABCROUTER) {
 
-		qnr  = 1;
+			u_int l = (u_int)skb->len;
 
-		if(l > 64) 
-			qnr++;
+			qnr  = 1;
 
-		if(l > 128) 
-			qnr++;
+			if(l > 64) 
+				qnr++;
 
-		if(l > 512) 
-			qnr++;
-		
-		if(l > 1024) 
-			qnr++;
+			if(l > 128) 
+				qnr++;
 
-		if(qnr >= ABC_ANZ_TX_QUE) 
-			qnr  = ABC_ANZ_TX_QUE - 1;
+			if(l > 512) 
+				qnr++;
+			
+			if(l > 1024) 
+				qnr++;
+
+			if(qnr >= ABC_ANZ_TX_QUE) 
+				qnr  = ABC_ANZ_TX_QUE - 1;
+
+		} else qnr = 1;
 
 		abc_put_tx_que(lp,qnr,0,skb);
 	}
@@ -1811,15 +1828,25 @@ isdn_net_start_xmit(struct sk_buff *skb, struct device *ndev)
 			if(dev->net_verbose > 10)
 				printk(KERN_DEBUG " abc_start_xmit  calling udp_test\n");
 
-			if(abcgmbh_udp_test(ndev,skb)) 
+			if(abcgmbh_udp_test(ndev,skb)) {
+
+				ndev->tbusy = 0;
 				return(0);
+			}
 		}
 
-		if(lp->abc_unreached_jiffies > jiffies) {
+		if(lp->abc_unreached_jiffies > jiffies && 
+			lp->abc_max_unreached_jiffies > jiffies) {
 
-			isdn_net_unreachable(ndev, skb,NULL);
+			abc_clear_tx_que(lp);
+			icmp_send(skb, ICMP_DEST_UNREACH, ICMP_NET_UNREACH, 0);
 			dev_kfree_skb(skb);
+			lp->abc_unreached_jiffies = jiffies + lp->dialwait;
 			ndev->tbusy = 0;
+
+			if(dev->net_verbose > 6)
+				printk(KERN_DEBUG "%s: ABC_ICMP_DEST_UNREACH \n",ndev->name);
+
 			return(0);
 		}
 
@@ -1828,8 +1855,11 @@ isdn_net_start_xmit(struct sk_buff *skb, struct device *ndev)
 			if(dev->net_verbose > 7)
 				printk(KERN_DEBUG " abc_start_xmit  calling tcp_test\n");
 
-			if(abcgmbh_tcp_test(ndev,skb)) 
+			if(abcgmbh_tcp_test(ndev,skb)) {
+
+				ndev->tbusy = 0;
 				return(0);
+			}
 		}
 	}
 
