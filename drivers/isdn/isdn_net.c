@@ -21,6 +21,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.30  1996/11/25 17:20:50  hipp
+ * fixed pppbind bug in isdn_net_find_icall()
+ *
  * Revision 1.29  1996/11/13 02:31:38  fritz
  * Minor cleanup.
  *
@@ -491,9 +494,9 @@ isdn_net_dial(void)
 			p->local.dial = p->local.phone[1];
 			anymore = 1;
 			p->local.dialstate++;
-			break;
-			/* Prepare dialing. Clear EAZ, then set EAZ. */
+			/* Fall through */
 		case 2:
+			/* Prepare dialing. Clear EAZ, then set EAZ. */
 			cmd.driver = p->local.isdn_device;
 			cmd.arg = p->local.isdn_channel;
 			cmd.command = ISDN_CMD_CLREAZ;
@@ -504,7 +507,7 @@ isdn_net_dial(void)
 			p->local.dialretry = 0;
 			anymore = 1;
 			p->local.dialstate++;
-			break;
+			/* Falls through */
 		case 3:
 			/* Setup interface, dial current phone-number, switch to next number.
 			 * If list of phone-numbers is exhausted, increment
