@@ -9,6 +9,9 @@
  *              Fritz Elfert
  *
  * $Log$
+ * Revision 1.14  1997/04/06 22:54:20  keil
+ * Using SKB's
+ *
  * Revision 1.13  1997/03/13 20:37:28  keil
  * CLIR and channel request added
  *
@@ -96,6 +99,7 @@ l3dss1_release_cmpl(struct PStack *st, u_char pr, void *arg)
 	int cause = -1;
 
 	p = skb->data;
+	st->pa->loc = 0;
 	if ((p = findie(p, skb->len, IE_CAUSE, 0))) {
 		p++;
 		if (*p++ == 2)
@@ -267,6 +271,7 @@ l3dss1_disconnect(struct PStack *st, u_char pr, void *arg)
 
 	StopAllL3Timer(st);
 	p = skb->data;
+	st->pa->loc = 0;
 	if ((p = findie(p, skb->len, IE_CAUSE, 0))) {
 		p++;
 		if (*p++ == 2)
