@@ -1,5 +1,5 @@
 I4LVERSION=2.1.88
-xxx=xxx
+
 KERNELDIR = /usr/src/linux
 
 ######### NOTHING TO CHANGE BELOW ################
@@ -19,7 +19,7 @@ ISDNINC  := $(ISDNTOP)/include
 VERSION    = $(shell head -9 $(KERNELDIR)/Makefile |grep VERSION |awk '{print $$3}')
 PATCHLEVEL = $(shell head -9 $(KERNELDIR)/Makefile |grep PATCHLEVEL |awk '{print $$3}')
 SUBLEVEL   = $(shell head -9 $(KERNELDIR)/Makefile |grep SUBLEVEL |awk '{print $$3}')
-ARCH       = $(shell head -9 $(KERNELDIR)/Makefile |grep ARCH |awk '{print $$3}')
+ARCH := $(shell uname -m | sed -e s/i.86/i386/ -e s/sun4u/sparc64/)
 ifneq ("$(shell egrep '^ *SMP *=.*' $(KERNELDIR)/Makefile)","")
 	SMP = 1
 endif
