@@ -19,6 +19,11 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.2  1997/10/01 09:22:03  fritz
+ * Removed old compatibility stuff for 2.0.X kernels.
+ * From now on, this code is for 2.1.X ONLY!
+ * Old stuff is still in the separate branch.
+ *
  * Revision 1.1  1997/03/24 23:02:04  fritz
  * Added isdnloop driver.
  *
@@ -45,7 +50,7 @@ isdnloop_free_queue(isdnloop_card * card, int channel)
 	struct sk_buff *skb;
 
 	while ((skb = skb_dequeue(queue)))
-		dev_kfree_skb(skb, FREE_WRITE);
+		dev_kfree_skb(skb);
 	card->sndcount[channel] = 0;
 }
 
@@ -421,7 +426,7 @@ isdnloop_sendbuf(int channel, struct sk_buff *skb, isdnloop_card * card)
 		nskb = skb_clone(skb, GFP_ATOMIC);
 		if (nskb) {
 			skb_queue_tail(&card->bqueue[channel], nskb);
-			dev_kfree_skb(skb, FREE_WRITE);
+			dev_kfree_skb(skb);
 		} else
 			len = 0;
 		card->sndcount[channel] += len;
@@ -1547,7 +1552,7 @@ cleanup_module(void)
 
 		last = card;
 		while ((skb = skb_dequeue(&card->dqueue)))
-			dev_kfree_skb(skb, FREE_WRITE);
+			dev_kfree_skb(skb);
 		card = card->next;
 		kfree(last);
 	}
