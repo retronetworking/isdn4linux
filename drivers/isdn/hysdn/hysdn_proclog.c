@@ -20,6 +20,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.6  2000/06/18 16:08:18  keil
+ * 2.4 PCI changes and some cosmetics
+ *
  * Revision 1.5  2000/04/23 14:18:36  kai
  * merge changes from main tree
  *
@@ -48,6 +51,9 @@
 #include <linux/poll.h>
 #include <linux/proc_fs.h>
 #include <linux/pci.h>
+#ifndef COMPAT_USE_MODCOUNT_LOCK
+#include <linux/smp_lock.h>
+#endif
 
 #include "hysdn_defs.h"
 
@@ -298,7 +304,11 @@ hysdn_log_open(struct inode *ino, struct file *filep)
 	struct procdata *pd;
 	ulong flags;
 
-	MOD_INC_USE_COUNT;	/* lock module */
+#ifdef COMPAT_USE_MODCOUNT_LOCK
+	MOD_INC_USE_COUNT;
+#else
+	lock_kernel();
+#endif
 	card = card_root;
 	while (card) {
 		pd = card->proclog;
@@ -307,7 +317,11 @@ hysdn_log_open(struct inode *ino, struct file *filep)
 		card = card->next;	/* search next entry */
 	}
 	if (!card) {
-		MOD_DEC_USE_COUNT;	/* unlock module */
+#ifdef COMPAT_USE_MODCOUNT_LOCK
+		MOD_DEC_USE_COUNT;
+#else
+		unlock_kernel();
+#endif
 		return (-ENODEV);	/* device is unknown/invalid */
 	}
 	filep->private_data = card;	/* remember our own card */
@@ -326,9 +340,16 @@ hysdn_log_open(struct inode *ino, struct file *filep)
 			(struct log_data **) filep->private_data = &(pd->log_head);
 		restore_flags(flags);
 	} else {		/* simultaneous read/write access forbidden ! */
-		MOD_DEC_USE_COUNT;	/* unlock module */
+#ifdef COMPAT_USE_MODCOUNT_LOCK
+		MOD_DEC_USE_COUNT;
+#else
+		unlock_kernel();
+#endif
 		return (-EPERM);	/* no permission this time */
 	}
+#ifndef COMPAT_USE_MODCOUNT_LOCK
+	unlock_kernel();
+#endif
 	return (0);
 }				/* hysdn_log_open */
 
@@ -348,6 +369,9 @@ hysdn_log_close(struct inode *ino, struct file *filep)
 	int flags, retval = 0;
 
 
+#ifndef COMPAT_USE_MODCOUNT_LOCK
+	lock_kernel();
+#endif
 	if ((filep->f_mode & (FMODE_READ | FMODE_WRITE)) == FMODE_WRITE) {
 		/* write only access -> write debug level written */
 		retval = 0;	/* success */
@@ -389,8 +413,12 @@ hysdn_log_close(struct inode *ino, struct file *filep)
 					kfree(inf);
 				}
 	}			/* read access */
-
+#ifdef COMPAT_USE_MODCOUNT_LOCK
 	MOD_DEC_USE_COUNT;
+#else
+	unlock_kernel();
+#endif
+
 	return (retval);
 }				/* hysdn_log_close */
 
@@ -463,12 +491,16 @@ hysdn_proclog_init(hysdn_card * card)
 		log_inode_operations.default_file_ops = &log_fops;
 #endif
 		sprintf(pd->log_name, "%s%d", PROC_LOG_BASENAME, card->myid);
-		if ((pd->log = create_proc_entry(pd->log_name, S_IFREG | S_IRUGO | S_IWUSR, hysdn_proc_entry)) != NULL)
+		if ((pd->log = create_proc_entry(pd->log_name, S_IFREG | S_IRUGO | S_IWUSR, hysdn_proc_entry)) != NULL) {
 #ifdef COMPAT_NO_SOFTNET
 			pd->log->ops = &log_inode_operations;	/* set new operations table */
 #else
 		        pd->log->proc_fops = &log_fops; 
+#ifdef COMPAT_HAS_FILEOP_OWNER
+		        pd->log->owner = THIS_MODULE;
 #endif
+#endif
+		}
 
 #ifdef COMPAT_HAS_NEW_WAITQ
 		init_waitqueue_head(&(pd->rd_queue));

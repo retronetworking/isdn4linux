@@ -20,6 +20,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.4  2000/06/18 16:08:18  keil
+ * 2.4 PCI changes and some cosmetics
+ *
  * Revision 1.3  2000/06/13 09:15:07  ualbrecht
  * Module will now unload more gracefully.
  *
@@ -266,9 +269,3 @@ cleanup_module(void)
 }				/* cleanup_module */
 
 #endif				/* CONFIG_MODULES */
-
-
-
-
-
-

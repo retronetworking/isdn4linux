@@ -20,6 +20,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.6  2000/05/17 11:41:30  ualbrecht
+ * CAPI 2.0 support added
+ *
  * Revision 1.5  2000/04/23 14:18:36  kai
  * merge changes from main tree
  *
@@ -48,6 +51,9 @@
 #include <linux/poll.h>
 #include <linux/proc_fs.h>
 #include <linux/pci.h>
+#ifndef COMPAT_USE_MODCOUNT_LOCK
+#include <linux/smp_lock.h>
+#endif
 
 #include "hysdn_defs.h"
 
@@ -289,9 +295,12 @@ hysdn_conf_open(struct inode *ino, struct file *filep)
 	struct conf_writedata *cnf;
 	char *cp, *tmp;
 
-	MOD_INC_USE_COUNT;	/* lock module */
-
 	/* now search the addressed card */
+#ifdef COMPAT_USE_MODCOUNT_LOCK
+	MOD_INC_USE_COUNT;
+#else
+	lock_kernel();
+#endif
 	card = card_root;
 	while (card) {
 		pd = card->procconf;
@@ -300,7 +309,11 @@ hysdn_conf_open(struct inode *ino, struct file *filep)
 		card = card->next;	/* search next entry */
 	}
 	if (!card) {
-		MOD_DEC_USE_COUNT;	/* unlock module */
+#ifdef COMPAT_USE_MODCOUNT_LOCK
+		MOD_DEC_USE_COUNT;
+#else
+		unlock_kernel();
+#endif
 		return (-ENODEV);	/* device is unknown/invalid */
 	}
 	if (card->debug_flags & (LOG_PROC_OPEN | LOG_PROC_ALL))
@@ -311,7 +324,11 @@ hysdn_conf_open(struct inode *ino, struct file *filep)
 		/* write only access -> write boot file or conf line */
 
 		if (!(cnf = kmalloc(sizeof(struct conf_writedata), GFP_KERNEL))) {
+#ifdef COMPAT_USE_MODCOUNT_LOCK
 			MOD_DEC_USE_COUNT;
+#else
+			unlock_kernel();
+#endif
 			return (-EFAULT);
 		}
 		cnf->card = card;
@@ -323,7 +340,11 @@ hysdn_conf_open(struct inode *ino, struct file *filep)
 		/* read access -> output card info data */
 
 		if (!(tmp = (char *) kmalloc(INFO_OUT_LEN * 2 + 2, GFP_KERNEL))) {
+#ifdef COMPAT_USE_MODCOUNT_LOCK
 			MOD_DEC_USE_COUNT;
+#else
+			unlock_kernel();
+#endif
 			return (-EFAULT);	/* out of memory */
 		}
 		filep->private_data = tmp;	/* start of string */
@@ -357,9 +378,16 @@ hysdn_conf_open(struct inode *ino, struct file *filep)
 		*cp++ = '\n';
 		*cp = 0;	/* end of string */
 	} else {		/* simultaneous read/write access forbidden ! */
-		MOD_DEC_USE_COUNT;	/* unlock module */
+#ifdef COMPAT_USE_MODCOUNT_LOCK
+		MOD_DEC_USE_COUNT;
+#else
+		unlock_kernel();
+#endif
 		return (-EPERM);	/* no permission this time */
 	}
+#ifndef COMPAT_USE_MODCOUNT_LOCK
+	unlock_kernel();
+#endif
 	return (0);
 }				/* hysdn_conf_open */
 
@@ -374,6 +402,9 @@ hysdn_conf_close(struct inode *ino, struct file *filep)
 	int retval = 0;
 	struct proc_dir_entry *pd;
 
+#ifndef COMPAT_USE_MODCOUNT_LOCK
+	lock_kernel();
+#endif
 	/* search the addressed card */
 	card = card_root;
 	while (card) {
@@ -383,6 +414,9 @@ hysdn_conf_close(struct inode *ino, struct file *filep)
 		card = card->next;	/* search next entry */
 	}
 	if (!card) {
+#ifndef COMPAT_USE_MODCOUNT_LOCK
+		unlock_kernel();
+#endif
 		return (-ENODEV);	/* device is unknown/invalid */
 	}
 	if (card->debug_flags & (LOG_PROC_OPEN | LOG_PROC_ALL))
@@ -405,7 +439,11 @@ hysdn_conf_close(struct inode *ino, struct file *filep)
 		if (filep->private_data)
 			kfree(filep->private_data);	/* release memory */
 	}
-	MOD_DEC_USE_COUNT;	/* reduce usage count */
+#ifdef COMPAT_USE_MODCOUNT_LOCK
+	MOD_DEC_USE_COUNT;
+#else
+	unlock_kernel();
+#endif
 	return (retval);
 }				/* hysdn_conf_close */
 
@@ -459,6 +497,9 @@ hysdn_procconf_init(void)
 			((struct proc_dir_entry *) card->procconf)->ops = &conf_inode_operations;
 #else
 			((struct proc_dir_entry *) card->procconf)->proc_fops = &conf_fops;
+#ifdef COMPAT_HAS_FILEOP_OWNER
+			((struct proc_dir_entry *) card->procconf)->owner = THIS_MODULE;
+#endif
 #endif
 			hysdn_proclog_init(card);	/* init the log file entry */
 		}
