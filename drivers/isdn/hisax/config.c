@@ -5,6 +5,9 @@
  *
  *
  * $Log$
+ * Revision 1.15.2.37  1999/09/04 06:50:04  keil
+ * Changes from kernel set_current_state()
+ *
  * Revision 1.15.2.36  1999/08/30 19:47:44  keil
  * resync hisax for 2.0 to 2.2/2.3 stuff
  *
@@ -170,6 +173,8 @@
  *   33 Scitel Quadro		p0=subcontroller (4*S0, subctrl 1...4)
  *   34	Gazel ISDN cards
  *   35 HFC 2BDS0 PCI           none
+ *   36 Winbond 6692 PCI        none
+ *
  * protocol can be either ISDN_PTYPE_EURO or ISDN_PTYPE_1TR6 or ISDN_PTYPE_NI1
  *
  *
@@ -183,7 +188,7 @@ const char *CardType[] =
  "Compaq ISA", "NETjet", "Teles PCI", "Sedlbauer Speed Star (PCMCIA)",
  "AMD 7930", "NICCY", "S0Box", "AVM A1 (PCMCIA)", "AVM Fritz PnP/PCI",
  "Sedlbauer Speed Fax +", "Siemens I-Surf", "Acer P10", "HST Saphir",
- "Telekom A4T", "Scitel Quadro", "Gazel", "HFC 2BDS0 PCI",
+ "Telekom A4T", "Scitel Quadro", "Gazel", "HFC 2BDS0 PCI", "Winbond 6692",
 };
 
 void HiSax_closecard(int cardnr);
@@ -392,6 +397,13 @@ static struct symbol_table hisax_syms_sedl= {
 #undef DEFAULT_CFG
 #define DEFAULT_CARD ISDN_CTYPE_GAZEL
 #define DEFAULT_CFG {15,0x180,0,0}
+#endif
+
+#ifdef CONFIG_HISAX_W6692
+#undef DEFAULT_CARD
+#undef DEFAULT_CFG
+#define DEFAULT_CARD ISDN_CTYPE_W6692
+#define DEFAULT_CFG {0,0,0,0}
 #endif
 
 #ifdef CONFIG_HISAX_1TR6
@@ -715,6 +727,10 @@ extern int setup_sct_quadro(struct IsdnCard *card);
 
 #if CARD_GAZEL
 extern int setup_gazel(struct IsdnCard *card);
+#endif
+
+#if CARD_W6692
+extern int setup_w6692(struct IsdnCard *card);
 #endif
 
 /*
@@ -1242,6 +1258,11 @@ checkcard(int cardnr, char *id, int *busy_flag))
  			ret = setup_gazel(card);
  			break;
 #endif
+#if CARD_W6692
+		case ISDN_CTYPE_W6692:
+			ret = setup_w6692(card);
+			break;
+#endif
 		default:
 			printk(KERN_WARNING
 				"HiSax: Support for %s Card not selected\n",
@@ -1538,6 +1559,7 @@ HiSax_init(void))
 			case ISDN_CTYPE_NETJET:
 			case ISDN_CTYPE_AMD7930:
 			case ISDN_CTYPE_TELESPCI:
+			case ISDN_CTYPE_W6692:
 				break;
 			case ISDN_CTYPE_BKM_A4T:
 	  		   	break;
