@@ -141,8 +141,6 @@ extern void isdn_net_autohup(void);
 extern int isdn_net_force_hangup(char *);
 extern int isdn_net_force_dial(char *);
 extern isdn_net_dev *isdn_net_findif(char *);
-extern int isdn_net_send_skb(struct net_device *, isdn_net_local *,
-			     struct sk_buff *);
 extern int isdn_net_rcv_skb(int, struct sk_buff *);
 extern void isdn_net_slarp_out(void);
 extern int isdn_net_dial_req(isdn_net_local *);

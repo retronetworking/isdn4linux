@@ -21,6 +21,13 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.122  2000/03/20 22:37:46  detabc
+ * modify abc-extension to work together with the new LL.
+ * remove abc frame-counter (is obsolete now).
+ * use the new lp->super_tx_queue for internal queueing (bsd-rawip-compress).
+ * modify isdn_net_xmit() and isdn_net_write_super().
+ * -- Kai, please have a look to this two function's. Thank's.
+ *
  * Revision 1.121  2000/03/19 15:27:53  kai
  * no known bugs left...
  *
@@ -913,13 +920,6 @@ isdn_net_autohup()
 			anymore = 1;
 			l->huptimer++;
 #ifdef CONFIG_ISDN_WITH_ABC
-		if(	l->dw_abc_next_skb != NULL 	|| 
-			l->sav_skb != NULL 			|| 
-			l->first_skb != NULL		|| 
-			(l->dw_abc_if_flags & ISDN_DW_ABC_IFFLAG_RSTREMOTE)) {
-
-			isdn_net_send_skb(&p->dev,l,NULL);
-		}
 #ifdef CONFIG_ISDN_WITH_ABC_CONN_ERROR
 			if(	isdn_dwabc_encap_with_conerr(l)	&& l->dw_abc_bchan_errcnt > 0) {
 
@@ -1013,11 +1013,6 @@ isdn_net_stat_callback(int idx, isdn_ctrl *c)
 					isdn_net_dec_frame_cnt(lp);
 					lp->stats.tx_packets++;
 					lp->stats.tx_bytes += c->parm.length;
-#ifdef CONFIG_ISDN_WITH_ABC
-#ifdef CONFIG_ISDN_WITH_ABC_FRAME_LIMIT
-					atomic_dec(&lp->dw_abc_pkt_onl);
-#endif
-#endif
 				}
 				return 1;
 			case ISDN_STAT_DCONN:
@@ -1227,15 +1222,11 @@ isdn_net_dial(void)
 				if(!(lp->dw_abc_flags & ISDN_DW_ABC_FLAG_NO_CH_EXTINUSE) &&
 					(lp->dw_abc_if_flags & ISDN_DW_ABC_IFFLAG_NODCHAN)) {
 
-					struct sk_buff *lfirst_skb = NULL;
 					int chi = 0;
 					short lsecure = 0;
 
-					lfirst_skb = lp->first_skb;
-					lp->first_skb = NULL;
 					lsecure = lp->dw_abc_inuse_secure;
 					isdn_net_unbind_channel(lp);
-					lp->first_skb = lfirst_skb;
 					lp->dw_abc_inuse_secure = lsecure + 1;
 
 					/* Grab a free ISDN-Channel */
@@ -1258,7 +1249,7 @@ isdn_net_dial(void)
 							) < 0) {
 
 						restore_flags(flags);
-						isdn_net_unreachable(&p->dev, lp->first_skb,
+						isdn_net_unreachable(&p->dev, NULL,
 							"DWABC: redial-external-inuse NO FREE CHANNEL\n");
 						isdn_net_hangup(&p->dev);
 						break;
@@ -1768,6 +1759,38 @@ isdn_net_log_skb(struct sk_buff * skb, isdn_net_local * lp)
  * not received from the network layer, but e.g. frames from ipppd, CCP
  * reset frames etc.
  */
+#ifdef CONFIG_ISDN_WITH_ABC
+void isdn_net_write_super(isdn_net_local *lp, struct sk_buff *skb)
+{
+
+	if (in_interrupt()) {
+
+	//	printk("isdn BUG at %s:%d!\n", __FILE__, __LINE__);
+		
+		if(dev->net_verbose > 1)
+			printk(KERN_INFO "%s: NOTE isdn_net_write_super called in interrupt\n",lp->name);
+
+		if (skb_queue_empty(&lp->super_tx_queue)) {
+
+			skb_queue_tail(&lp->super_tx_queue, skb);
+			queue_task(&lp->tqueue, &tq_immediate);
+		
+		} else queue_task(&lp->tqueue, &tq_immediate);
+
+	} else {
+
+		spin_lock_bh(&lp->xmit_lock);
+
+		if (!isdn_net_lp_busy(lp)) {
+			isdn_net_writebuf_skb(lp, skb);
+		} else {
+			skb_queue_tail(&lp->super_tx_queue, skb);
+		}
+
+		spin_unlock_bh(&lp->xmit_lock);
+	}
+}
+#else
 void isdn_net_write_super(isdn_net_local *lp, struct sk_buff *skb)
 {
 	if (in_interrupt()) {
@@ -1783,6 +1806,7 @@ void isdn_net_write_super(isdn_net_local *lp, struct sk_buff *skb)
 	}
 	spin_unlock_bh(&lp->xmit_lock);
 }
+#endif
 
 /*
  * called from tq_immediate
@@ -1840,126 +1864,7 @@ void isdn_net_writebuf_skb(isdn_net_local *lp, struct sk_buff *skb)
 
 }
 
-#ifdef CONFIG_ISDN_WITH_ABC
-static int dwabc_helper_isdn_net_send_skb(struct net_device *ndev, isdn_net_local * lp,struct sk_buff *skb)
-{
-	if (isdn_net_lp_busy(lp)) {
-		printk(KERN_WARNING "dwabc_helper_isdn_net_send_skb: HL channel busy\n");
-		return 1;
-	}
-	isdn_net_writebuf_skb(lp, skb);
-#ifdef CONFIG_ISDN_WITH_ABC_FRAME_LIMIT
-	atomic_inc(&lp->dw_abc_pkt_onl);
-#endif
-	return 0;
-}
-
-int isdn_net_send_skb(struct net_device *ndev, isdn_net_local * lp,struct sk_buff *skb)
-{
-	int r = 0;
-
-	if(lp == NULL || ndev == NULL) {
-
-		printk(KERN_WARNING "send_skb called with lp 0x%x ndev 0x%x\n",
-			(char *)lp - (char *)0,(char *)ndev - (char *)0);
-
-		return(1);
-	}
-
-	if(test_and_set_bit(ISDN_DW_ABC_BITLOCK_SEND,&lp->dw_abc_bitlocks)) {
-
-		if(dev->net_verbose > 2)
-			printk(KERN_INFO "%s: send_skb called recursivly\n",lp->name);
-
-		return(1);
-	}
-once_more:;
-#ifdef CONFIG_ISDN_WITH_ABC_FRAME_LIMIT
-	if((r = atomic_read(&lp->dw_abc_pkt_onl) > 1)) {
-		netif_stop_queue(ndev);
-		clear_bit(ISDN_DW_ABC_BITLOCK_SEND,&lp->dw_abc_bitlocks);
-		return(1);
-	}
-#endif
-	if(lp->dw_abc_next_skb != NULL) {
-
-		if(skb == lp->dw_abc_next_skb)
-			skb = NULL;
-
-		if(!dwabc_helper_isdn_net_send_skb(ndev,lp,lp->dw_abc_next_skb)) {
-
-			lp->dw_abc_next_skb = NULL;
-			goto once_more;
-		}
-
-		r = 1;
-
-	} else if(lp->dw_abc_if_flags & ISDN_DW_ABC_IFFLAG_RSTREMOTE) {
-
-		dwabc_bsd_first_gen(lp);
-		lp->dw_abc_if_flags &= ~ISDN_DW_ABC_IFFLAG_RSTREMOTE;
-		goto once_more;
-	
-	} else if(lp->first_skb != NULL && skb != lp->first_skb) {
-
-		lp->dw_abc_next_skb = lp->first_skb;
-		lp->first_skb = NULL;
-		goto once_more;
-
-	} else if(lp->sav_skb != NULL && skb != lp->sav_skb) {
-
-		lp->dw_abc_next_skb = lp->sav_skb;
-		lp->sav_skb = NULL;
-		goto once_more;
-	
-	} else if(skb != NULL) {
-
-		int l = skb->len;
-		int nl = l;
-
-		if(	lp->p_encap == ISDN_NET_ENCAP_RAWIP &&
-			(lp->dw_abc_if_flags & ISDN_DW_ABC_IFFLAG_BSDAKTIV)) {
-
-			if((skb = dwabc_bsd_compress(lp,skb,ndev)) != NULL) {
-
-				nl = skb->len;
-
-				if(l != nl && (r = isdn_dc2minor(lp->isdn_device,lp->isdn_channel)) >= 0) {
-
-					dev->obytes[r] += l - nl;
-					lp->stats.tx_bytes += l - nl;
-				}
-
-				if(dwabc_helper_isdn_net_send_skb(ndev,lp,skb)) {
-
-					lp->dw_abc_next_skb = skb;
-					netif_stop_queue(ndev);
-				}
-
-				r = 0;
-			}
-
-		} else  r = dwabc_helper_isdn_net_send_skb(ndev,lp,skb);
-
-		if(lp->p_encap == ISDN_NET_ENCAP_RAWIP && !r) {
-
-			lp->dw_abc_bsd_snd += l;
-			lp->dw_abc_bsd_bsd_snd += nl;
-		}
-	} 
-
-	if((lp->dw_abc_if_flags & ISDN_DW_ABC_IFFLAG_RSTREMOTE) && lp->dw_abc_next_skb == NULL) {
-
-		dwabc_bsd_first_gen(lp);
-		lp->dw_abc_if_flags &= ~ISDN_DW_ABC_IFFLAG_RSTREMOTE;
-		goto once_more;
-	}
-	
-	clear_bit(ISDN_DW_ABC_BITLOCK_SEND,&lp->dw_abc_bitlocks);
-	return(r);
-}
-
-#else
+#if 0
 int isdn_net_send_skb(struct net_device *ndev, isdn_net_local * lp,struct sk_buff *skb)
 {
 	if (isdn_net_lp_busy(lp)) {
@@ -1969,8 +1874,8 @@ int isdn_net_send_skb(struct net_device *ndev, isdn_net_local * lp,struct sk_buf
 	isdn_net_writebuf_skb(lp, skb);
 	return 0;
 }
-
 #endif
+
 /*
  *  Helper function for isdn_net_start_xmit.
  *  When called, the connection is already established.
@@ -1988,6 +1893,7 @@ isdn_net_xmit(struct net_device *ndev, struct sk_buff *skb)
 	isdn_net_dev *nd;
 	isdn_net_local *slp;
 	isdn_net_local *lp = (isdn_net_local *) ndev->priv;
+	int retv = 0;
 
 	if (((isdn_net_local *) (ndev->priv))->master) {
 		printk("isdn BUG at %s:%d!\n", __FILE__, __LINE__);
@@ -2013,7 +1919,62 @@ isdn_net_xmit(struct net_device *ndev, struct sk_buff *skb)
 
 	/* Reset hangup-timeout */
 	lp->huptimer = 0; // FIXME?
+#ifdef CONFIG_ISDN_WITH_ABC
+	{
+		struct sk_buff *t_skb = NULL;
+
+		while (!isdn_net_lp_busy(lp) && (t_skb = skb_dequeue(&lp->super_tx_queue)) != NULL)
+			isdn_net_writebuf_skb(lp, t_skb);                                
+
+	}
+
+	if(isdn_net_lp_busy(lp)) retv = 1; 
+	else {
+	
+		if(test_and_set_bit(ISDN_DW_ABC_BITLOCK_SEND,&lp->dw_abc_bitlocks)) {
+
+			if(dev->net_verbose > 2)
+				printk(KERN_INFO "%s: isdn_net_xmit  called recursivly\n",lp->name);
+
+			spin_unlock_bh(&lp->xmit_lock);
+			return(1);
+		}
+
+		if(skb != NULL) {
+
+			int l = skb->len;
+			int nl = l;
+
+			if(	lp->p_encap == ISDN_NET_ENCAP_RAWIP &&
+				(lp->dw_abc_if_flags & ISDN_DW_ABC_IFFLAG_BSDAKTIV)) {
+
+				if((skb = dwabc_bsd_compress(lp,skb,ndev)) != NULL) {
+
+					int r = 0;
+					nl = skb->len;
+
+					if(l != nl && (r = isdn_dc2minor(lp->isdn_device,lp->isdn_channel)) >= 0) {
+
+						dev->obytes[r] += l - nl;
+						lp->stats.tx_bytes += l - nl;
+					}
+				}
+			} 
+
+			if(lp->p_encap == ISDN_NET_ENCAP_RAWIP) {
+
+				lp->dw_abc_bsd_snd += l;
+				lp->dw_abc_bsd_bsd_snd += nl;
+			}
+		} 
+
+		clear_bit(ISDN_DW_ABC_BITLOCK_SEND,&lp->dw_abc_bitlocks);
+		isdn_net_writebuf_skb(lp, skb);
+	}
+
+#else
 	isdn_net_writebuf_skb(lp, skb);
+#endif
 	spin_unlock_bh(&lp->xmit_lock);
 
 	/* the following stuff is here for backwards compatibility.
@@ -2045,7 +2006,7 @@ isdn_net_xmit(struct net_device *ndev, struct sk_buff *skb)
 		nd->queue = nd->local;
 	}
 
-	return 0;
+	return retv;
 
 #if 0
 	if (lp->cps > lp->triggercps) {

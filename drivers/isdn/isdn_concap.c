@@ -5,6 +5,12 @@
  * another -- protocol specific -- source file.
  *
  * $Log$
+ * Revision 1.6  1999/08/22 20:26:01  calle
+ * backported changes from kernel 2.3.14:
+ * - several #include "config.h" gone, others come.
+ * - "struct device" changed to "struct net_device" in 2.3.14, added a
+ *   define in isdn_compat.h for older kernel versions.
+ *
  * Revision 1.5  1998/10/30 18:44:48  he
  * pass return value from isdn_net_dial_req for dialmode change
  *
@@ -52,15 +58,20 @@
 
 int isdn_concap_dl_data_req(struct concap_proto *concap, struct sk_buff *skb)
 {
-	int tmp;
 	struct net_device *ndev = concap -> net_dev;
-	isdn_net_local *lp = (isdn_net_local *) ndev->priv;
+	isdn_net_dev *nd = ((isdn_net_local *) ndev->priv)->netdev;
+	isdn_net_local *lp = isdn_net_get_locked_lp(nd);
 
 	IX25DEBUG( "isdn_concap_dl_data_req: %s \n", concap->net_dev->name);
+	if (!lp) {
+		IX25DEBUG( "isdn_concap_dl_data_req: %s : isdn_net_send_skb returned %d\n", concap -> net_dev -> name, 1);
+		return 1;
+	}
 	lp->huptimer = 0;
-	tmp=isdn_net_send_skb(ndev, lp, skb);
-	IX25DEBUG( "isdn_concap_dl_data_req: %s : isdn_net_send_skb returned %d\n", concap -> net_dev -> name, tmp);
-	return tmp;
+	isdn_net_writebuf_skb(lp, skb);
+	spin_unlock_bh(&lp->xmit_lock);
+	IX25DEBUG( "isdn_concap_dl_data_req: %s : isdn_net_send_skb returned %d\n", concap -> net_dev -> name, 0);
+	return 0;
 }
 
 

@@ -30,6 +30,7 @@
 #undef COMPAT_has_generic_read_dir
 #define THIS_MODULE	&__this_module
 
+#undef CAPI_PPP_ON_RAW_DEVICE
 #undef CONFIG_ISDN_WITH_ABC
 #undef CONFIG_ISDN_WITH_ABC_CALLB
 #undef CONFIG_ISDN_WITH_ABC_UDP_CHECK
@@ -53,3 +54,6 @@
 #define devfs_unregister_chrdev(m,n) unregister_chrdev(m,n)
 
 #define COMPAT_NEED_MPPP_DEFS
+
+#define spin_lock_bh spin_lock
+#define spin_unlock_bh spin_unlock
