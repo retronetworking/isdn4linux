@@ -20,6 +20,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.58  1998/07/26 18:48:45  armin
+ * Added silence detection in voice receive mode.
+ *
  * Revision 1.57  1998/06/26 15:12:36  fritz
  * Added handling of STAT_ICALL with incomplete CPN.
  * Added AT&L for ttyI emulator.
@@ -901,7 +904,7 @@ isdn_tty_dial(char *n, modem_info * info, atemu * m)
 			break;
 		}
 #ifdef CONFIG_ISDN_AUDIO
-	if (si == 1) {
+	if ((si == 1) && (l2 != ISDN_PROTO_L2_MODEM)) {
 		l2 = ISDN_PROTO_L2_TRANS;
 		usg = ISDN_USAGE_VOICE;
 	}
@@ -1096,7 +1099,7 @@ isdn_tty_resume(char *id, modem_info * info, atemu * m)
 			break;
 		}
 #ifdef CONFIG_ISDN_AUDIO
-	if (si == 1) {
+	if ((si == 1) && (l2 != ISDN_PROTO_L2_MODEM)) {
 		l2 = ISDN_PROTO_L2_TRANS;
 		usg = ISDN_USAGE_VOICE;
 	}
@@ -1148,7 +1151,90 @@ isdn_tty_resume(char *id, modem_info * info, atemu * m)
 		cmd.parm.cmsg.para[4] = 0;
 		cmd.parm.cmsg.para[5] = l;
 		strncpy(&cmd.parm.cmsg.para[6], id, l);
-		cmd.command = CAPI_PUT_MESSAGE;
+		cmd.command =CAPI_PUT_MESSAGE;
+/*		info->dialing = 1;
+		strcpy(dev->num[i], n);
+		isdn_info_update();
+*/
+		isdn_command(&cmd);
+	}
+}
+
+/* isdn_tty_send_msg() sends a message to a HL driver
+ * This is used for hybrid modem cards to send AT commands to it
+ */
+
+static void
+isdn_tty_send_msg(modem_info * info, atemu * m, char *msg)
+{
+	int usg = ISDN_USAGE_MODEM;
+	int si = 7;
+	int l2 = m->mdmreg[REG_L2PROT];
+	isdn_ctrl cmd;
+	ulong flags;
+	int i;
+	int j;
+	int l;
+
+	l = strlen(msg);
+	if (!l) {
+		isdn_tty_modem_result(4, info);
+		return;
+	}
+	for (j = 7; j >= 0; j--)
+		if (m->mdmreg[REG_SI1] & (1 << j)) {
+			si = bit2si[j];
+			break;
+		}
+#ifdef CONFIG_ISDN_AUDIO
+	if ((si == 1) && (l2 != ISDN_PROTO_L2_MODEM)) {
+		l2 = ISDN_PROTO_L2_TRANS;
+		usg = ISDN_USAGE_VOICE;
+	}
+#endif
+	m->mdmreg[REG_SI1I] = si2bit[si];
+	save_flags(flags);
+	cli();
+	i = isdn_get_free_channel(usg, l2, m->mdmreg[REG_L3PROT], -1, -1);
+	if (i < 0) {
+		restore_flags(flags);
+		isdn_tty_modem_result(6, info);
+	} else {
+		info->isdn_driver = dev->drvmap[i];
+		info->isdn_channel = dev->chanmap[i];
+		info->drv_index = i;
+		dev->m_idx[i] = info->line;
+		dev->usage[i] |= ISDN_USAGE_OUTGOING;
+		info->last_dir = 1;
+		isdn_info_update();
+		restore_flags(flags);
+		cmd.driver = info->isdn_driver;
+		cmd.arg = info->isdn_channel;
+		cmd.command = ISDN_CMD_CLREAZ;
+		isdn_command(&cmd);
+		strcpy(cmd.parm.num, isdn_map_eaz2msn(m->msn, info->isdn_driver));
+		cmd.driver = info->isdn_driver;
+		cmd.command = ISDN_CMD_SETEAZ;
+		isdn_command(&cmd);
+		cmd.driver = info->isdn_driver;
+		cmd.command = ISDN_CMD_SETL2;
+		info->last_l2 = l2;
+		cmd.arg = info->isdn_channel + (l2 << 8);
+		isdn_command(&cmd);
+		cmd.driver = info->isdn_driver;
+		cmd.command = ISDN_CMD_SETL3;
+		cmd.arg = info->isdn_channel + (m->mdmreg[REG_L3PROT] << 8);
+		isdn_command(&cmd);
+		cmd.driver = info->isdn_driver;
+		cmd.arg = info->isdn_channel;
+		cmd.parm.cmsg.Length = l+14;
+		cmd.parm.cmsg.Command = CAPI_MANUFACTURER;
+		cmd.parm.cmsg.Subcommand = CAPI_REQ;
+		cmd.parm.cmsg.adr.Controller = info->isdn_driver + 1;
+		cmd.parm.cmsg.para[0] = l+1;
+		strncpy(&cmd.parm.cmsg.para[1], msg, l);
+		cmd.parm.cmsg.para[l+1] = 0xd;
+		cmd.command =CAPI_PUT_MESSAGE;
 /*		info->dialing = 1;
 		strcpy(dev->num[i], n);
 		isdn_info_update();
@@ -2860,6 +2946,9 @@ isdn_tty_report(modem_info * info)
 		case ISDN_PROTO_L2_TRANS:
 			isdn_tty_at_cout("transparent", info);
 			break;
+		case ISDN_PROTO_L2_MODEM:
+			isdn_tty_at_cout("modem", info);
+			break;
 		default:
 			isdn_tty_at_cout("unknown", info);
 			break;
@@ -3189,9 +3278,10 @@ isdn_tty_cmd_ATA(modem_info * info)
 #ifdef CONFIG_ISDN_AUDIO
 		/* If more than one bit set in reg18, autoselect Layer2 */
 		if ((m->mdmreg[REG_SI1] & m->mdmreg[REG_SI1I]) != m->mdmreg[REG_SI1]) {
-			if (m->mdmreg[REG_SI1I] == 1)
-				l2 = ISDN_PROTO_L2_TRANS;
-			else
+			if (m->mdmreg[REG_SI1I] == 1) {
+				if (l2 != ISDN_PROTO_L2_MODEM)
+					l2 = ISDN_PROTO_L2_TRANS;
+			} else
 				l2 = ISDN_PROTO_L2_X75I;
 		}
 #endif
@@ -3763,6 +3853,10 @@ isdn_tty_parse_at(modem_info * info)
 						break;
 					case 'R':	/* RESUME */
 						isdn_tty_get_msnstr(ds, &p);
+						isdn_tty_resume(ds, info, m);
+					case 'M':	/* MESSAGE */
+						p++;
+						isdn_tty_send_msg(info, m, p);
 						break;
 					default:
 						PARSE_ERROR;

@@ -11,6 +11,9 @@
  *
  *
  * $Log$
+ * Revision 2.10  1998/08/13 23:36:22  keil
+ * HiSax 3.1 - don't work stable with current LinkLevel
+ *
  * Revision 2.9  1998/05/25 12:57:48  keil
  * HiSax golden code from certification, Don't use !!!
  * No leased lines, no X75, but many changes.
@@ -419,6 +422,16 @@ elsa_interrupt_ipac(int intno, void *dev_id, struct pt_regs *regs)
 	val = bytein(cs->hw.elsa.cfg + 0x4c); /* PCI IRQ */
 	if (!(val & ELSA_PCI_IRQ_MASK))
 		return;
+#if ARCOFI_USE
+	if (cs->hw.elsa.MFlag) {
+		val = serial_inp(cs, UART_IIR);
+		if (!(val & UART_IIR_NO_INT)) {
+			sprintf(tmp,"IIR %02x", val);
+			debugl1(cs, tmp);
+			rs_interrupt_elsa(intno, cs);
+		}
+	}
+#endif
 	ista = readreg(cs->hw.elsa.ale, cs->hw.elsa.isac, IPAC_ISTA);
 Start_IPAC:
 	if (cs->debug & L1_DEB_IPAC) {
@@ -570,6 +583,8 @@ set_arcofi(struct IsdnCardState *cs, int bc) {
 	udelay(ARCDEL);
 	send_arcofi(cs, ARCOFI_XOP_F, bc, 0);
 	restore_flags(flags);
+	sprintf(tmp,"end set_arcofi bc=%d", bc);
+	debugl1(cs, tmp);
 }
 
 static int

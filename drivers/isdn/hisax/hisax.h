@@ -3,6 +3,9 @@
  *   Basic declarations, defines and prototypes
  *
  * $Log$
+ * Revision 2.23  1998/08/13 23:36:31  keil
+ * HiSax 3.1 - don't work stable with current LinkLevel
+ *
  * Revision 2.22  1998/07/15 15:01:28  calle
  * Support for AVM passive PCMCIA cards:
  *    A1 PCMCIA, FRITZ!Card PCMCIA and FRITZ!Card PCMCIA 2.0
@@ -467,6 +470,7 @@ struct Channel {
 	struct FsmTimer drel_timer, dial_timer;
 	int debug;
 	int l2_protocol, l2_active_protocol;
+	int l3_protocol;
 	int data_open;
 	struct l3_process *proc;
 	setup_parm setup;	/* from isdnif.h numbers and Serviceindicator */

@@ -7,6 +7,10 @@
  *
  *
  * $Log$
+ * Revision 1.3  1998/05/25 12:57:38  keil
+ * HiSax golden code from certification, Don't use !!!
+ * No leased lines, no X75, but many changes.
+ *
  * Revision 1.2  1998/04/15 16:47:16  keil
  * new interface
  *
@@ -25,7 +29,7 @@ send_arcofi(struct IsdnCardState *cs, const u_char *msg, int bc, int receive) {
 	u_char val;
 	char tmp[32];
 	long flags;
-	int cnt=50;
+	int cnt=30;
 	
 	cs->mon_txp = 0;
 	cs->mon_txc = msg[0];
@@ -51,11 +55,6 @@ send_arcofi(struct IsdnCardState *cs, const u_char *msg, int bc, int receive) {
 	while (cnt && !test_bit(HW_MON1_TX_END, &cs->HW_Flags)) {
 		cnt--;
 		udelay(500);
-#if 0
-		current->state = TASK_INTERRUPTIBLE;
-		current->timeout = jiffies + (10 * HZ) / 1000;	/* Timeout 10ms */
-		schedule();
-#endif
 	}
 	if (receive) {
 		while (cnt && !test_bit(HW_MON1_RX_END, &cs->HW_Flags)) {
@@ -64,8 +63,9 @@ send_arcofi(struct IsdnCardState *cs, const u_char *msg, int bc, int receive) {
 		}
 	}
 	restore_flags(flags);
-	sprintf(tmp, "arcofi tout %d", cnt);
-	debugl1(cs, tmp);
+	if (cnt <= 0) {
+		printk(KERN_WARNING"HiSax arcofi monitor timed out\n");
+		debugl1(cs, "HiSax arcofi monitor timed out");
+	}
 	return(cnt);	
 }
-

@@ -6,6 +6,9 @@
  *
  *
  * $Log$
+ * Revision 1.14  1998/08/13 23:36:33  keil
+ * HiSax 3.1 - don't work stable with current LinkLevel
+ *
  * Revision 1.13  1998/06/26 22:03:28  keil
  * send flags between hdlc frames
  *
@@ -113,8 +116,8 @@ modehscx(struct BCState *bcs, int mode, int bc)
 	}
 	switch (mode) {
 		case (L1_MODE_NULL):
-			cs->BC_Write_Reg(cs, hscx, HSCX_TSAX, 0xff);
-			cs->BC_Write_Reg(cs, hscx, HSCX_TSAR, 0xff);
+			cs->BC_Write_Reg(cs, hscx, HSCX_TSAX, 0x1f);
+			cs->BC_Write_Reg(cs, hscx, HSCX_TSAR, 0x1f);
 			cs->BC_Write_Reg(cs, hscx, HSCX_MODE, 0x84);
 			break;
 		case (L1_MODE_TRANS):

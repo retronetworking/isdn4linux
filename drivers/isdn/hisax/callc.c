@@ -7,6 +7,9 @@
  *              Fritz Elfert
  *
  * $Log$
+ * Revision 2.21  1998/08/13 23:36:15  keil
+ * HiSax 3.1 - don't work stable with current LinkLevel
+ *
  * Revision 2.20  1998/06/26 15:13:05  fritz
  * Added handling of STAT_ICALL with incomplete CPN.
  * Added AT&L for ttyI emulator.
@@ -1797,6 +1800,15 @@ HiSax_command(isdn_ctrl * ic)
 				link_debug(chanp, tmp, 1);
 			}
 			chanp->l2_protocol = ic->arg >> 8;
+			break;
+		case (ISDN_CMD_SETL3):
+			chanp = csta->channel + (ic->arg & 0xff);
+			if (chanp->debug & 1) {
+				sprintf(tmp, "SETL3 card %d %ld", csta->cardnr + 1,
+					ic->arg >> 8);
+				link_debug(chanp, tmp, 1);
+			}
+			chanp->l3_protocol = ic->arg >> 8;
 			break;
 		case (ISDN_CMD_DIAL):
 			chanp = csta->channel + (ic->arg & 0xff);
