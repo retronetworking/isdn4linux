@@ -204,7 +204,7 @@ hfc_empty_fifo(struct BCState *bcs, int count)
 		ptr = skb_put(skb, count);
 		idx = 0;
 		cip = HFC_CIP | HFC_FIFO_OUT | HFC_REC | HFC_CHANNEL(bcs->channel);
-		while ((idx < count - 3) && WaitNoBusy(cs)) {
+		while ((idx < count) && WaitNoBusy(cs)) {
 			*ptr++ = cs->BC_Read_Reg(cs, HFC_DATA_NODEB, cip);
 			idx++;
 		}
