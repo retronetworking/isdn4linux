@@ -21,6 +21,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.48.2.27  1998/11/05 22:11:53  fritz
+ * Changed mail-address.
+ *
  * Revision 1.48.2.26  1998/11/03 14:54:39  fritz
  * Applied callback-patch fur bundled RAW-IP by gvz@popocate.hamburg.pop.de
  *
@@ -349,9 +352,9 @@ static void dev_purge_queues(struct device *dev);	/* move this to net/core/dev.c
 
 char *isdn_net_revision = "$Revision$";
 
- /*
-  * Code for raw-networking over ISDN
-  */
+/*
+ * Code for raw-networking over ISDN
+ */
 
 static void
 isdn_net_unreachable(struct device *dev, struct sk_buff *skb, char *reason)
@@ -359,7 +362,6 @@ isdn_net_unreachable(struct device *dev, struct sk_buff *skb, char *reason)
 	int i;
 
 	if(skb != NULL) {
-	
 		u_short proto = ntohs(skb->protocol);
 
 		printk(KERN_DEBUG "isdn_net: %s: %s, send ICMP %s\n",
@@ -394,7 +396,7 @@ isdn_net_unreachable(struct device *dev, struct sk_buff *skb, char *reason)
 					);
 				}
 				dev_kfree_skb(skb, FREE_WRITE);
-        	}
+		}
 	}
 }
 
@@ -535,18 +537,18 @@ isdn_net_autohup()
 		if ((l->flags & ISDN_NET_CONNECTED) && (!l->dialstate)) {
 			anymore = 1;
 			l->huptimer++;
- 			/*
- 			 * only do timeout-hangup
- 			 * if interface is configured as AUTO
- 			 */
+			/*
+			 * if there is some dialmode where timeout-hangup
+			 * should _not_ be done, check for that here and
+			 * 35 lines below (ifdef CONFIG_ISDN_BUDGET)
+			 * eg: (ISDN_NET_DIALMODE(*l) != ISDN_NET_DM_NOTIMEOUT)
+			 */
 #ifdef CONFIG_ISDN_TIMEOUT_RULES
- 			if ((ISDN_NET_DIALMODE(*l) == ISDN_NET_DM_AUTO) &&
- 			    (l->timeout_rules || l->huptimeout) &&
- 			    (l->huptimer > l->huptimeout))
+			if ((l->timeout_rules || l->huptimeout) &&
+			    (l->huptimer > l->huptimeout))
 #else
-  			if ((ISDN_NET_DIALMODE(*l) == ISDN_NET_DM_AUTO) &&
- 			    (l->onhtime) &&
- 			    (l->huptimer > l->onhtime))
+			if ((l->onhtime) &&
+			    (l->huptimer > l->onhtime))
 #endif
 				if (l->hupflags & ISDN_MANCHARGE &&
 				    l->hupflags & ISDN_CHARGEHUP) {
@@ -573,8 +575,7 @@ isdn_net_autohup()
 					isdn_net_hangup(&p->dev);
 
 #ifdef CONFIG_ISDN_BUDGET
-			if((ISDN_NET_DIALMODE(*l) == ISDN_NET_DM_AUTO) &&
-			   isdn_net_budget(ISDN_BUDGET_CHECK_ONLINE, &p->dev)) {
+			if(isdn_net_budget(ISDN_BUDGET_CHECK_ONLINE, &p->dev)) {
 				isdn_net_hangup(&p->dev);
 			}
 #endif
@@ -851,11 +852,11 @@ isdn_net_dial(void)
 				 * retry-counter.
 				 */
 				if(dev->global_flags & ISDN_GLOBAL_STOPPED || (ISDN_NET_DIALMODE(p->local) == ISDN_NET_DM_OFF)) {
- 					char *s;
- 					if (dev->global_flags & ISDN_GLOBAL_STOPPED)
- 						s = "dial suppressed: isdn system stopped";
- 					else
- 						s = "dial suppressed: dialmode `off'";
+					char *s;
+					if (dev->global_flags & ISDN_GLOBAL_STOPPED)
+						s = "dial suppressed: isdn system stopped";
+					else
+						s = "dial suppressed: dialmode `off'";
 					isdn_net_unreachable(&p->dev, p->local.first_skb, s);
 					isdn_net_hangup(&p->dev);
 					break;
@@ -1043,7 +1044,7 @@ isdn_net_dial(void)
 				/* Remote does callback. Hangup after cbdelay, then wait for incoming
 				 * call (in state 13).
 				 */
-				if (p->local.dtimer++ > p->local.cbdelay) 
+				if (p->local.dtimer++ > p->local.cbdelay)
 				{
 					printk(KERN_INFO "%s: hangup waiting for callback ...\n", p->local.name);
 					p->local.dtimer = 0;
@@ -1629,9 +1630,9 @@ isdn_net_receive(struct device *ndev, struct sk_buff *skb)
 	** detlef
 	** with abc-extension and abc-router (only with raw-ip) enabled
 	** the programflow will never reach this point.
-	** 
-	** the functioncall will be make in the file abcrout_net.c 
-	** behind decrypt and decompress 
+	**
+	** the functioncall will be make in the file abcrout_net.c
+	** behind decrypt and decompress
 	*/
 	isdn_net_recalc_timeout(ISDN_TIMRU_KEEPUP_IN,
 		ISDN_TIMRU_PACKET_SKB, ndev, skb, 0);
@@ -1717,7 +1718,6 @@ isdn_net_header(struct sk_buff *skb, struct device *dev, unsigned short type,
 		case ISDN_NET_ENCAP_ETHER:
 			len = my_eth_header(skb, dev, type, daddr, saddr, plen);
 			break;
-            break;
 #ifdef CONFIG_ISDN_PPP
 		case ISDN_NET_ENCAP_SYNCPPP:
 			/* stick on a fake header to keep fragmentation code happy. */
@@ -2084,10 +2084,10 @@ isdn_net_find_icall(int di, isdn_ctrl *c, int idx)
 #endif
 		if ( (!(p->local.flags & ISDN_NET_CONNECTED) &&	/* not connected  */
 		      USG_NONE(dev->usage[idx]))		/* and ch. unused */
- 		    ||						/* or */
+		    ||						/* or */
 		     (((p->local.dialstate == 4) || (p->local.dialstate == 12) ||
-               (p->local.dialstate == 13)) &&	/* if dialing        */
-		       !(p->local.flags & ISDN_NET_CALLBACK))                 		/* but no callback   */
+		       (p->local.dialstate == 13)) &&	/* if dialing        */
+		      !(p->local.flags & ISDN_NET_CALLBACK))                 		/* but no callback   */
 		   ) /*if*/ {
 #ifdef ISDN_DEBUG_NET_ICALL
 			printk(KERN_DEBUG "n_fi: match1, pdev=%d pch=%d\n",
@@ -2471,7 +2471,7 @@ isdn_net_new(char *name, struct device *master)
 	netdev->local.onhtime = 10;	/* Default hangup-time for saving costs
 	                                   of those who forget configuring this */
 	netdev->local.dialmax = 1;
- 	netdev->local.flags = ISDN_NET_CBHUP | ISDN_NET_DM_MANUAL; /* Hangup before Callback, manual dial */
+	netdev->local.flags = ISDN_NET_CBHUP | ISDN_NET_DM_MANUAL; /* Hangup before Callback, manual dial */
 	netdev->local.cbdelay = 25;	/* Wait 5 secs before Callback */
 	netdev->local.dialtimeout = -1;  /* Infinite Dial-Timeout */
 	netdev->local.dialwait = 5 * HZ; /* Wait 5 sec. after failed dial */
@@ -2663,16 +2663,16 @@ isdn_net_setcfg(isdn_net_ioctl_cfg * cfg)
 				p->local.flags &= ~ISDN_NET_CALLBACK;
 				break;
 		}
- 		p->local.flags &= ~ISDN_NET_DIALMODE_MASK;	/* first all bits off */
- 		if (cfg->dialmode && !(cfg->dialmode & ISDN_NET_DIALMODE_MASK)) {
- 			/* old isdnctrl version, where only 0 or 1 is given */
- 			printk(KERN_WARNING 
- 			     "Old isdnctrl version detected! Please update.\n");
- 			p->local.flags |= ISDN_NET_DM_OFF; /* turn on 'off' bit */
- 		}
- 		else {
- 			p->local.flags |= cfg->dialmode;   /* turn on selected bits */
- 		}
+		p->local.flags &= ~ISDN_NET_DIALMODE_MASK;	/* first all bits off */
+		if (cfg->dialmode && !(cfg->dialmode & ISDN_NET_DIALMODE_MASK)) {
+			/* old isdnctrl version, where only 0 or 1 is given */
+			printk(KERN_WARNING
+			       "Old isdnctrl version detected! Please update.\n");
+			p->local.flags |= ISDN_NET_DM_OFF; /* turn on 'off' bit */
+		}
+		else {
+			p->local.flags |= cfg->dialmode;   /* turn on selected bits */
+		}
 		if (cfg->chargehup)
 			p->local.hupflags |= ISDN_CHARGEHUP;
 		else
@@ -2754,12 +2754,12 @@ isdn_net_getcfg(isdn_net_ioctl_cfg * cfg)
 		if (p->local.flags & ISDN_NET_CBOUT)
 			cfg->callback = 2;
 		cfg->cbhup = (p->local.flags & ISDN_NET_CBHUP) ? 1 : 0;
- 		cfg->dialmode = p->local.flags & ISDN_NET_DIALMODE_MASK;
+		cfg->dialmode = p->local.flags & ISDN_NET_DIALMODE_MASK;
 		cfg->chargehup = (p->local.hupflags & 4) ? 1 : 0;
 		cfg->ihup = (p->local.hupflags & 8) ? 1 : 0;
 		cfg->cbdelay = p->local.cbdelay;
 		cfg->dialmax = p->local.dialmax;
-        cfg->triggercps = p->local.triggercps;
+		cfg->triggercps = p->local.triggercps;
 		cfg->slavedelay = p->local.slavedelay / HZ;
 		cfg->chargeint = (p->local.hupflags & ISDN_CHARGEHUP) ?
 		    (p->local.chargeint / HZ) : 0;
