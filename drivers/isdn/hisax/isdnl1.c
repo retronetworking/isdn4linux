@@ -11,6 +11,9 @@
  *            
  * 
  * $Log$
+ * Revision 1.1  1996/10/13 20:04:53  keil
+ * Initial revision
+ *
  *
  *
 */
@@ -44,6 +47,12 @@ const	char	*l1_revision        = "$Revision$";
 const   char    *CardType[] =  {"No Card","Teles 16.0","Teles 8.0","Teles 16.3",
 				"Creatix PNP","AVM A1","Elsa ML PCC16"};
 
+static	char	*HSCXVer[] = {"A1","?1","A2","?3","A3","V2.3","?6","?7",
+			      "?8","?9","?10","?11","?12","?13","?14","???"};
+
+static  char    *ISACVer[] = {"2086/2186 V1.1","2085 B1","2085 B2",
+			      "2085 V2.3"};
+ 
 extern void     tei_handler(struct PStack *st, byte pr,
 			    struct BufHeader *ibh);
 extern struct   IsdnCard cards[];
@@ -56,13 +65,19 @@ void debugl1(struct IsdnCardState *sp, char *msg)
 	char            tmp[256], tm[32];
 
 	jiftime(tm, jiffies);
-	sprintf(tmp, "%s Card %d %s\n", tm, sp->cardnr, msg);
+	sprintf(tmp, "%s Card %d %s\n", tm, sp->cardnr+1, msg);
 	HiSax_putstatus(tmp); 
 }
 
 /*
  * HSCX stuff goes here
  */
+
+
+char *HscxVersion(byte v)
+{
+	return(HSCXVer[v&0xf]);
+}
 
 void
 hscx_sched_event(struct HscxState *hsp, int event)
@@ -75,6 +90,11 @@ hscx_sched_event(struct HscxState *hsp, int event)
 /*
  * ISAC stuff goes here
  */
+
+char *ISACVersion(byte v)
+{
+	return(ISACVer[(v>>5)&3]);
+}
 
 void
 isac_sched_event(struct IsdnCardState *sp, int event)
@@ -221,6 +241,7 @@ process_rcv(struct IsdnCardState *sp)
 				dlogframe(sp, ptr + 3, ibh->datasize - 3,
 					"Q.931 frame network->user broadcast");
 			}
+			sp->CallFlags = 3;
 			while (stptr != NULL) {
 				if ((ptr[0] >> 2) == stptr->l2.sap)
 					if (!BufPoolGet(&cibh, &sp->rbufpool, GFP_ATOMIC,
@@ -614,6 +635,8 @@ checkcard(int cardnr)
 	}
 	sp->dlogspace = Smalloc(4096, GFP_KERNEL, "dlogspace");
 	sp->typ      = card->typ;
+	sp->CallFlags = 0;
+	
 	printk(KERN_NOTICE
 		"HiSax: Card %d Protocol %s\n", cardnr+1,
                 (card->protocol == ISDN_PTYPE_1TR6) ? "1TR6" : "EDSS1");
