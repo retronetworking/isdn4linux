@@ -20,6 +20,19 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.41.2.3  1998/03/07 23:35:20  detabc
+ * added the abc-extension to the linux isdn-kernel
+ * for kernel-version 2.0.xx
+ * DO NOT USE FOR HIGHER KERNELS-VERSIONS
+ * all source-lines are switched with the define  CONFIG_ISDN_WITH_ABC
+ * (make config and answer ABC-Ext. Support (Compress,TCP-Keepalive ...) with yes
+ *
+ * you need also a modified isdnctrl-source the switch on the
+ * features of the abc-extension
+ *
+ * please use carefully. more detail will be follow.
+ * thanks
+ *
  * Revision 1.41.2.2  1998/03/07 23:02:51  tsbogend
  * fixed kernel unaligned traps on Linux/Alpha
  *
@@ -1761,9 +1774,6 @@ isdn_tty_close(struct tty_struct *tty, struct file *filp)
 	 * line status register.
 	 */
 	if (info->flags & ISDN_ASYNC_INITIALIZED) {
-#ifdef CONFIG_ISDN_WITH_ABC
-		printk(KERN_DEBUG "isdn_tty_ ISDN_ASYNC_INITIALIZED start\n");
-#endif
 		tty_wait_until_sent(tty, 3000);	/* 30 seconds timeout */
 		/*
 		 * Before we drop DTR, make sure the UART transmitter
@@ -1778,9 +1788,6 @@ isdn_tty_close(struct tty_struct *tty, struct file *filp)
 			if (jiffies > timeout)
 				break;
 		}
-#ifdef CONFIG_ISDN_WITH_ABC
-	printk(KERN_DEBUG "isdn_tty_ ISDN_ASYNC_INITIALIZED ende\n");
-#endif
 	}
 	dev->modempoll--;
 	isdn_tty_shutdown(info);
