@@ -21,6 +21,15 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.90  1999/10/27 21:21:17  detabc
+ * Added support for building logically-bind-group's per interface.
+ * usefull for outgoing call's with more then one isdn-card.
+ *
+ * Switchable support to dont reset the hangup-timeout for
+ * receive frames. Most part's of the timru-rules for receiving frames
+ * are now obsolete. If the input- or forwarding-firewall deny
+ * the frame, the line will be not hold open.
+ *
  * Revision 1.89  1999/10/16 14:46:47  keil
  * replace kmalloc with vmalloc for the big dev struct
  *
@@ -2135,7 +2144,7 @@ isdn_free_channel(int di, int ch, int usage)
 	save_flags(flags);
 	cli();
 	for (i = 0; i < ISDN_MAX_CHANNELS; i++)
-		if (((dev->usage[i] & ISDN_USAGE_MASK) == usage) &&
+		if (((!usage) || ((dev->usage[i] & ISDN_USAGE_MASK) == usage)) &&
 		    (dev->drvmap[i] == di) &&
 		    (dev->chanmap[i] == ch)) {
 			dev->usage[i] &= (ISDN_USAGE_NONE | ISDN_USAGE_EXCLUSIVE);
