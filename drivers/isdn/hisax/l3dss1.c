@@ -9,6 +9,9 @@
  *              Fritz Elfert
  *
  * $Log$
+ * Revision 1.16.2.5  1998/09/27 13:06:48  keil
+ * Apply most changes from 2.1.X (HiSax 3.1)
+ *
  * Revision 1.16.2.4  1998/05/27 18:06:08  keil
  * HiSax 3.0
  *
@@ -91,7 +94,7 @@ l3dss1_parse_facility(struct l3_process *pc, u_char * p)
 	switch (*p & 0x1F) {	/* component tag */
 		case 1:	/* invoke */
 			{
-				unsigned char nlen, ilen;
+				unsigned char nlen = 0, ilen;
 				int ident;
 
 				p++;
