@@ -113,6 +113,12 @@ else
   for i in drivers/isdn/divert/*.[ch] ; do
     $DOCP $i $KERNELDIR/$i
   done
+  if [ -f $KERNELDIR/Documentation/Configure.help ] ; then
+    grep -q CONFIG_ISDN_DIVERSION $KERNELDIR/Documentation/Configure.help
+    if [ $? != 0 ] ; then
+      patch -d $KERNELDIR/Documentation < Documentation/Configure.help.divert.diff
+    fi
+  fi
   for i in include/linux/*.h ; do
     $DOCP $i $KERNELDIR/$i
   done
