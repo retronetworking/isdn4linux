@@ -19,6 +19,10 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.63  2000/05/06 00:52:39  kai
+ * merged changes from kernel tree
+ * fixed timer and net_device->name breakage
+ *
  * Revision 1.62  1999/09/06 07:29:35  fritz
  * Changed my mail-address.
  *
@@ -1878,7 +1882,7 @@ icn_setup(char *str, int *ints)
 		portbase = ints[1];
 	if (ints[0] > 1)
 		membase = ints[2];
-	if (strlen(str)) {
+	if (str && *str) {
 		strcpy(sid, str);
 		icn_id = sid;
 		if ((p = strchr(sid, ','))) {
