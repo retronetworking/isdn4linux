@@ -6,6 +6,10 @@
  * (c) Copyright 1997 by Carsten Paeth (calle@calle.in-berlin.de)
  * 
  * $Log$
+ * Revision 1.4.2.9  1998/01/23 16:49:27  calle
+ * added functions for pcmcia cards,
+ * avmb1_addcard returns now the controller number.
+ *
  * Revision 1.4.2.8  1998/01/16 14:04:15  calle
  * Decoding of manufacturer part of capi_profile, now show linetype and
  * protocol if possible.
@@ -492,7 +496,7 @@ void avmb1_card_ready(avmb1_card * card)
 			);
 }
 
-static void avmb1_card_down(avmb1_card * card)
+static void avmb1_card_down(avmb1_card * card, int notify)
 {
 	__u16 appl;
 
@@ -529,7 +533,7 @@ static char *cardtype2str(int cardtype)
 	}
 }
 
-int avmb1_addcard(int port, int irq, int cardtype)
+int avmb1_registercard(int port, int irq, int cardtype, int allocio)
 {
 	struct avmb1_card *card;
 	int irqval,i;
@@ -537,21 +541,26 @@ int avmb1_addcard(int port, int irq, int cardtype)
 
 	for (i=0; i < CAPI_MAXCONTR && cards[i].cardstate != CARD_FREE; i++) ;
    
-	if (i == CAPI_MAXCONTR) 
-	   return -ENFILE;
+	if (i == CAPI_MAXCONTR) {
+		printk(KERN_ERR "b1capi: out of controller slots\n");
+	   	return -ENFILE;
+	}
 
 	card = &cards[i];
 	memset(card, 0, sizeof(avmb1_card));
 	sprintf(card->name, "avmb1-%d", CARDNR(card));
 
-	request_region(port, AVMB1_PORTLEN, card->name);
+        if (allocio)
+		request_region(port, AVMB1_PORTLEN, card->name);
 
-	if ((irqval = request_irq(irq, avmb1_interrupt, SA_SHIRQ, card->name, card)) != 0) {
+	if ((irqval = request_irq(irq, avmb1_interrupt,
+				 SA_SHIRQ, card->name, card)) != 0) {
 		printk(KERN_ERR "b1capi: unable to get IRQ %d (irqval=%d).\n",
 		       irq, irqval);
 		release_region((unsigned short) port, AVMB1_PORTLEN);
 		return -EIO;
 	}
+
 	card->cardstate = CARD_DETECTED;
 	ncards++;
 	card->cnr = CARDNR(card);
@@ -561,16 +570,15 @@ int avmb1_addcard(int port, int irq, int cardtype)
 	return card->cnr;
 }
 
-int avmb1_probecard(int port, int irq, int cardtype)
+int avmb1_addcard(int port, int irq, int cardtype)
+{
+	return avmb1_registercard(port, irq, cardtype, 1);
+}
+
+int avmb1_detectcard(int port, int irq, int cardtype)
 {
 	int rc;
 
-	if (check_region((unsigned short) port, AVMB1_PORTLEN)) {
-		printk(KERN_WARNING
-		       "b1capi: ports 0x%03x-0x%03x in use.\n",
-		       port, port + AVMB1_PORTLEN);
-		return -EIO;
-	}
 	if (!B1_valid_irq(irq, cardtype)) {
 		printk(KERN_WARNING "b1capi: irq %d not valid for %s-card.\n",
 				irq, cardtype2str(cardtype));
@@ -596,7 +604,18 @@ int avmb1_probecard(int port, int irq, int cardtype)
 	return 0;
 }
 
-int avmb1_releasecard(int cnr)
+int avmb1_probecard(int port, int irq, int cardtype)
+{
+	if (check_region((unsigned short) port, AVMB1_PORTLEN)) {
+		printk(KERN_WARNING
+		       "b1capi: ports 0x%03x-0x%03x in use.\n",
+		       port, port + AVMB1_PORTLEN);
+		return -EIO;
+	}
+        return avmb1_detectcard(port, irq, cardtype);
+}
+
+int avmb1_unregistercard(int cnr, int freeio)
 {
 	avmb1_card * card;
    	if (!VALID_CARD(cnr)) 
@@ -605,9 +624,11 @@ int avmb1_releasecard(int cnr)
 	if (card->cardstate == CARD_FREE)
 		return -ESRCH;
 	if (card->cardstate == CARD_RUNNING)
-		avmb1_card_down(card);
+		avmb1_card_down(card, freeio);
+
 	free_irq(card->irq, card);
-	release_region(card->port, AVMB1_PORTLEN);
+	if (freeio)
+		release_region(card->port, AVMB1_PORTLEN);
 	card->cardstate = CARD_FREE;
 	return 0;
 }
@@ -623,12 +644,14 @@ int avmb1_resetcard(int cnr)
 		return -ESRCH;
 
 	if (card->cardstate == CARD_RUNNING)
-		avmb1_card_down(card);
+		avmb1_card_down(card, 0);
 
 	B1_reset(card->port);
 	B1_reset(card->port);
 
 	card->cardstate = CARD_DETECTED;
+
+	return 0;
 }
 
 /* ------------------------------------------------------------- */
@@ -1045,8 +1068,10 @@ EXPORT_SYMBOL(attach_capi_interface);
 EXPORT_SYMBOL(detach_capi_interface);
 EXPORT_SYMBOL(avmb1_addcard);
 EXPORT_SYMBOL(avmb1_probecard);
-EXPORT_SYMBOL(avmb1_releasecard);
+EXPORT_SYMBOL(avmb1_registercard);
+EXPORT_SYMBOL(avmb1_unregistercard);
 EXPORT_SYMBOL(avmb1_resetcard);
+EXPORT_SYMBOL(avmb1_detectcard);
 #else
 static struct symbol_table capidev_syms =
 {
@@ -1055,8 +1080,10 @@ static struct symbol_table capidev_syms =
 	X(detach_capi_interface),
 	X(avmb1_addcard),
 	X(avmb1_probecard),
-	X(avmb1_releasecard),
+	X(avmb1_registercard),
+	X(avmb1_unregistercard),
 	X(avmb1_resetcard),
+	X(avmb1_detectcard),
 #include <linux/symtab_end.h>
 };
 #endif
@@ -1126,14 +1153,14 @@ void cleanup_module(void)
 			 * disable card
 			 */
 			B1_disable_irq(cards[i].port);
-			B1_reset(cards[i].port);
-			B1_reset(cards[i].port);
+			avmb1_resetcard(i+1);
 			/*
 			 * free kernel resources
 			 */
-			avmb1_releasecard(i+1);
+			avmb1_unregistercard(i+1, 1);
 		}
 	}
+	schedule(); /* execute queued tasks .... */
 	printk(KERN_NOTICE "AVM-B1-CAPI-driver Rev%s: unloaded\n", rev);
 }
 #endif
