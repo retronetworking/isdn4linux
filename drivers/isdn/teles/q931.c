@@ -14,6 +14,9 @@
  *
  * 
  * $Log$
+ * Revision 1.3  1996/04/30 22:06:50  isdn4dev
+ *   logging 1TR6 messages correctly   Karsten Keil
+ *
  * Revision 1.2  1996/04/20 16:48:19  fritz
  * Misc. typos
  *
@@ -531,12 +534,6 @@ prcause(char *dest, byte * p)
 	else
 		dp += sprintf(dp, "  cause value %x : %s \n", cause, cvlist[i].edescr);
 
-
-#if 0
-	dp += sprintf(dp,"    cause value ");
-        dp += prbits(dp,*p++,7,7);
-        *dp++ = '\n';
-#endif
 	while (!0) {
 		if (p > end)
 			break;
@@ -971,24 +968,6 @@ static struct InformationElement we_6[] =
 	{WE6_addTransAttr, "Additional Transmission Attributes", general}
 };
 static int we_6_len = (sizeof(we_6) / sizeof(struct InformationElement));
-
-#ifdef FRITZDEBUG
-void
-hexdump(byte * buf, int len, char *comment)
-{
-	static char     dbuf[1024];
-	char           *p = dbuf;
-
-	p += sprintf(p, "%s: ", comment);
-	while (len) {
-		p += sprintf(p, "%02x ", *p++);
-		len--;
-	}
-	p += sprintf(p, "\n");
-
-	teles_putstatus(dbuf);
-}
-#endif
 
 void
 dlogframe(struct IsdnCardState *sp, byte * buf, int size, char *comment) {

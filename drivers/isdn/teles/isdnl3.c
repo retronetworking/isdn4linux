@@ -1,6 +1,9 @@
 /* $Id$
  *
  * $Log$
+ * Revision 1.3  1996/04/30 21:57:53  isdn4dev
+ * remove some debugging code, improve callback   Karsten Keil
+ *
  * Revision 1.2  1996/04/20 16:45:05  fritz
  * Changed to report all incoming calls to Linklevel, not just those
  * with Service 7.
@@ -123,17 +126,9 @@ l3s5(struct PStack *st, byte pr,
 		  *p++ = 0x90;	/* Packet-Mode 64kbps                      */
 		  break;
 	}
-/*
- * What about info2? Mapping to High-Layer-Compatibility?
- */
-
-#if 0				/* user-user not allowed in The Netherlands! */
-	*p++ = 0x7f;
-	*p++ = 0x2;
-	*p++ = 0x0;
-	*p++ = 66;
-#endif
-
+	/*
+	 * What about info2? Mapping to High-Layer-Compatibility?
+	 */
 	if (st->pa->calling[0] != '\0') {
 		*p++ = 0x6c;
 		*p++ = strlen(st->pa->calling) + 1;
@@ -307,15 +302,6 @@ l3s13(struct PStack *st, byte pr, void *arg)
 {
 	newl3state(st, 0);
 }
-
-#ifdef DEFINED_BUT_NOT_USED
-static void
-l3s15(struct PStack *st, byte pr, void *arg)
-{
-	newl3state(st, 0);
-	st->l3.l3l4(st, CC_REJECT, NULL);
-}
-#endif
 
 static void
 l3s16(struct PStack *st, byte pr,
