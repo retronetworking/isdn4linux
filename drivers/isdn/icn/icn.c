@@ -20,6 +20,10 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.11  1995/04/23  13:40:45  fritz
+ * Added support for SVP's.
+ * Changed Dial-Command to support MSN's on DSS1-Lines.
+ *
  * Revision 1.10  1995/03/25  23:23:24  fritz
  * Changed configurable Ports, to allow settings for DIP-Switch Cardversions.
  *
@@ -58,6 +62,11 @@
  */
 
 #include "icn.h"
+
+/*
+ * Experimental Firmware with switchable L2-Protocol
+ */
+#undef HDLC_FIRMWARE
 
 /*
  * Verbose bootcode- and protocol-downloading.
@@ -480,7 +489,7 @@ pollcard(unsigned long dummy) {
 	  }
 	} else {
 	  p = dev->imsg;
-	  if (!strncmp(p,"DRV1.00",7)) {
+	  if (!strncmp(p,"DRV1.",5)) {
 	    if (!strncmp(p+7,"TC",2)) {
 	      dev->ptype = ICN_TYPE_1TR6;
 	      printk(KERN_INFO "icn: 1TR6-Protocol loaded and running\n");
@@ -878,9 +887,7 @@ command (isdn_ctrl *c) {
       if (c->arg<ICN_BCH) {
 	a = c->arg+1;
 	if (dev->ptype == ICN_TYPE_EURO) {
-	  if (!strlen(c->num))
-	    return 0;
-	  sprintf(cbuf,"%02d;MSN%s\n",(int)a,c->num);
+	  sprintf(cbuf,"%02d;MS%s%s\n",(int)a,c->num[0]?"N":"ALL",c->num);
 	} else
 	  sprintf(cbuf,"%02d;EAZ%s\n",(int)a,c->num[0]?c->num:"0123456789");
 	i = writecmd(cbuf,strlen(cbuf),0);
@@ -897,23 +904,23 @@ command (isdn_ctrl *c) {
       }
       break;
     case ISDN_CMD_SETL2:
+#ifdef HDLC_FIRMWARE
       if ((c->arg & 255)<ICN_BCH) {
 	a = c->arg;
 	switch (a >> 8) {
 	  case ISDN_PROTO_L2_X75I:
 	    sprintf(cbuf,"%02d;BX75\n",(int)(a&255)+1);
 	    break;
-#ifdef HASHDLC
 	  case ISDN_PROTO_L2_HDLC:
 	    sprintf(cbuf,"%02d;BTRA\n",(int)(a&255)+1);
 	    break;
-#endif
 	  default:
 	    return -EINVAL;
 	}
 	i = writecmd(cbuf,strlen(cbuf),0);
 	dev->l2_proto[a&255] = (a >> 8);
       }
+#endif
       break;
     case ISDN_CMD_GETL2:
       if ((c->arg & 255)<ICN_BCH)
@@ -958,21 +965,22 @@ init_module( void) {
     return -EIO;
   }
   memset((char *)dev,0,sizeof(icn_dev));
-  dev->port                = portbase;
-  dev->shmem               = (icn_shmem *)(membase & 0x0ffc000);
-  dev->interface.channels  = ICN_BCH;
-  dev->interface.command   = command;
-  dev->interface.writebuf  = sendbuf;
-  dev->interface.writecmd  = writecmd;
-  dev->interface.readstat  = readstatus;
-  dev->interface.features  = ISDN_FEATURE_L2_X75I |
-#ifdef HASHDLC
-                             ISDN_FEATURE_L2_HDLC |
+  dev->port                 = portbase;
+  dev->shmem                = (icn_shmem *)(membase & 0x0ffc000);
+  dev->interface.channels   = ICN_BCH;
+  dev->interface.maxbufsize = 4000;
+  dev->interface.command    = command;
+  dev->interface.writebuf   = sendbuf;
+  dev->interface.writecmd   = writecmd;
+  dev->interface.readstat   = readstatus;
+  dev->interface.features   = ISDN_FEATURE_L2_X75I |
+#ifdef HDLC_FIRMWARE
+                              ISDN_FEATURE_L2_HDLC |
 #endif
-                             ISDN_FEATURE_L3_TRANS ;
-  dev->msg_buf_write       = dev->msg_buf;
-  dev->msg_buf_read        = dev->msg_buf;
-  dev->msg_buf_end         = &dev->msg_buf[sizeof(dev->msg_buf)-1];
+                              ISDN_FEATURE_L3_TRANS ;
+  dev->msg_buf_write        = dev->msg_buf;
+  dev->msg_buf_read         = dev->msg_buf;
+  dev->msg_buf_end          = &dev->msg_buf[sizeof(dev->msg_buf)-1];
   memset((char *)dev->l2_proto,ISDN_PROTO_L2_X75I,sizeof(dev->l2_proto));
   if (!register_isdn(&dev->interface)) {
     printk(KERN_WARNING "icn: Unable to register\n");
