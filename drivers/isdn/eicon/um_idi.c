@@ -23,6 +23,7 @@ extern void diva_os_wakeup_close (void* os_context);
 		LOCALS
    -------------------------------------------------------------------------- */
 static diva_entity_queue_t	adapter_q;
+static diva_os_spin_lock_t adapter_lock;
 
 static diva_um_idi_adapter_t* diva_um_idi_find_adapter (int nr);
 static void cleanup_adapter (diva_um_idi_adapter_t* a);
@@ -42,6 +43,7 @@ int
 diva_user_mode_idi_init (void)
 {
   diva_q_init(&adapter_q);
+  diva_os_initialize_spin_lock (&adapter_lock, "adapter");
   return (0);
 }
 
@@ -108,12 +110,14 @@ diva_user_mode_idi_finit (void)
 		diva_os_free (0, a);
 		a = (diva_um_idi_adapter_t*)diva_q_get_head (&adapter_q);
 	}
+        diva_os_destroy_spin_lock (&adapter_lock, "adapter");
 }
 
 /* -------------------------------------------------------------------------
 		CREATE AND INIT IDI ADAPTER
 	 ------------------------------------------------------------------------- */
 int diva_user_mode_idi_create_adapter (const DESCRIPTOR* d, int adapter_nr) {
+        diva_os_spin_lock_magic_t old_irql;
 	diva_um_idi_adapter_t* a =
 		(diva_um_idi_adapter_t*)diva_os_malloc (0, sizeof(diva_um_idi_adapter_t));
 	
@@ -128,7 +132,9 @@ int diva_user_mode_idi_create_adapter (const DESCRIPTOR* d, int adapter_nr) {
 	DBG_LOG (("DIDD_ADD A(%d), type:%02x, features:%04x, channels:%d",
 					 adapter_nr, a->d.type, a->d.features, a->d.channels));
 
+        diva_os_enter_spin_lock (&adapter_lock, &old_irql, "create_adapter");
 	diva_q_add_tail (&adapter_q, &a->link);
+        diva_os_leave_spin_lock (&adapter_lock, &old_irql, "create_adapter");
 	return (0);
 }
 
@@ -191,6 +197,7 @@ static void cleanup_entity (divas_um_idi_entity_t* e) {
 void* divas_um_idi_create_entity (int adapter_nr, void* file) {
 	divas_um_idi_entity_t* e;
 	diva_um_idi_adapter_t* a;
+        diva_os_spin_lock_magic_t old_irql;
 
 	if ((e = (divas_um_idi_entity_t*)diva_os_malloc (0, sizeof(*e)))) {
 		memset(e, 0x00, sizeof(*e));
@@ -213,6 +220,7 @@ void* divas_um_idi_create_entity (int adapter_nr, void* file) {
 			return (0);
 		}
 
+                diva_os_enter_spin_lock (&adapter_lock, &old_irql, "create_entity");
 		/*
 			Look for Adapter requested
 			*/
@@ -220,6 +228,7 @@ void* divas_um_idi_create_entity (int adapter_nr, void* file) {
 			/*
 				No adapter was found, or this adapter was removed
 				*/
+                        diva_os_leave_spin_lock (&adapter_lock, &old_irql, "create_entity");
 
 			DBG_LOG (("A: no adapter(%d)", adapter_nr));
 
@@ -234,6 +243,7 @@ void* divas_um_idi_create_entity (int adapter_nr, void* file) {
 		e->adapter = a;   /* link to adapter   */
 
 		diva_q_add_tail (&a->entity_q, &e->link); /* link from adapter */
+                diva_os_leave_spin_lock (&adapter_lock, &old_irql, "create_entity");
 
 		DBG_LOG (("A(%d), create E(%08x)", adapter_nr, e));
 	}
@@ -247,13 +257,16 @@ void* divas_um_idi_create_entity (int adapter_nr, void* file) {
 int divas_um_idi_delete_entity (int adapter_nr, void* entity) {
 	divas_um_idi_entity_t* e;
 	diva_um_idi_adapter_t* a;
+        diva_os_spin_lock_magic_t old_irql;
 
 	if (!(e = (divas_um_idi_entity_t*)entity))
           return(-1);
 
+        diva_os_enter_spin_lock (&adapter_lock, &old_irql, "delete_entity");
 	if ((a = e->adapter)) {
           diva_q_remove (&a->entity_q, &e->link);
         }
+        diva_os_leave_spin_lock (&adapter_lock, &old_irql, "delete_entity");
 
 	cleanup_entity (e);
 	diva_os_free (0, e->os_context);
@@ -278,6 +291,9 @@ int diva_um_idi_read (void* entity,
 	const void* data;
 	int length, ret = 0;
 	diva_um_idi_data_queue_t* q;
+        diva_os_spin_lock_magic_t old_irql;
+
+        diva_os_enter_spin_lock (&adapter_lock, &old_irql, "read");
 
 	e = (divas_um_idi_entity_t*)entity;
 	a = e->adapter;
@@ -289,6 +305,7 @@ int diva_um_idi_read (void* entity,
 		/*
 			Adapter was unloaded
 			*/
+                diva_os_leave_spin_lock (&adapter_lock, &old_irql, "read");
 		return (-1); /* adapter was removed */
 	}
 	if (e->status & DIVA_UM_IDI_REMOVED) {
@@ -296,6 +313,7 @@ int diva_um_idi_read (void* entity,
 			entity was removed as result of adapter removal
 			user should assign this entity again
 			*/
+                diva_os_leave_spin_lock (&adapter_lock, &old_irql, "read");
 		return (-1);
 	}
 
@@ -323,6 +341,7 @@ int diva_um_idi_read (void* entity,
 				Not enough space to read message
 				*/
 			DBG_ERR (("A: A(%d) E(%08x) read small buffer", a->adapter_nr, e, ret));
+                        diva_os_leave_spin_lock (&adapter_lock, &old_irql, "read");
 			return (-2);
 		}
 		/*
@@ -341,6 +360,8 @@ int diva_um_idi_read (void* entity,
 
 	DBG_TRC (("A(%d) E(%08x) read=%d", a->adapter_nr, e, ret));
 
+        diva_os_leave_spin_lock (&adapter_lock, &old_irql, "read");
+
 	return (ret);
 }
 
@@ -355,6 +376,9 @@ int diva_um_idi_write (void* entity,
 	diva_um_idi_req_hdr_t* req;
 	void* data;
 	int ret = 0;
+        diva_os_spin_lock_magic_t old_irql;
+
+        diva_os_enter_spin_lock (&adapter_lock, &old_irql, "write");
 
 	e = (divas_um_idi_entity_t*)entity;
 	a = e->adapter;
@@ -366,6 +390,7 @@ int diva_um_idi_write (void* entity,
 		/*
 			Adapter was unloaded
 			*/
+                diva_os_leave_spin_lock (&adapter_lock, &old_irql, "write");
 		return (-1); /* adapter was removed */
 	}
 	if (e->status & DIVA_UM_IDI_REMOVED) {
@@ -373,15 +398,18 @@ int diva_um_idi_write (void* entity,
 			entity was removed as result of adapter removal
 			user should assign this entity again
 			*/
+                diva_os_leave_spin_lock (&adapter_lock, &old_irql, "write");
 		return (-1);
 	}
 
 	if ((length < sizeof (*req)) || (length > sizeof (e->buffer))) {
+                diva_os_leave_spin_lock (&adapter_lock, &old_irql, "write");
 		return (-2);
 	}
 
 	if (e->status & DIVA_UM_IDI_RC_PENDING) {
 		DBG_ERR(("A: A(%d) E(%08x) rc pending", a->adapter_nr, e));
+                diva_os_leave_spin_lock (&adapter_lock, &old_irql, "write");
 		return (-1); /* should wait for RC code first */
 	}
 
@@ -391,6 +419,7 @@ int diva_um_idi_write (void* entity,
 		*/
 	if ((ret = (*cp_fn)(os_handle, e->buffer, src, length)) < 0) {
 		DBG_TRC(("A: A(%d) E(%08x) write error=%d", a->adapter_nr, e, ret));
+                diva_os_leave_spin_lock (&adapter_lock, &old_irql, "write");
 		return (ret);
 	}
 
@@ -401,6 +430,7 @@ int diva_um_idi_write (void* entity,
 			DBG_LOG(("A(%d) get_features", a->adapter_nr));
 			if (!(data = diva_data_q_get_segment4write	(&e->data))) {
 				DBG_ERR(("A(%d) get_features, no free buffer", a->adapter_nr));
+                                diva_os_leave_spin_lock (&adapter_lock, &old_irql, "write");
 				return (0);
 			}
 			diva_user_mode_idi_adapter_features (a,
@@ -408,6 +438,8 @@ int diva_um_idi_write (void* entity,
 			((diva_um_idi_ind_hdr_t*)data)->type = DIVA_UM_IDI_IND_FEATURES;
 			((diva_um_idi_ind_hdr_t*)data)->data_length = 0;
 			diva_data_q_ack_segment4write	(&e->data, sizeof(diva_um_idi_ind_hdr_t));
+
+                        diva_os_leave_spin_lock (&adapter_lock, &old_irql, "write");
 
 			diva_os_wakeup_read (e->os_context);
 		} break;
@@ -421,16 +453,20 @@ int diva_um_idi_write (void* entity,
 							req->type & DIVA_UM_IDI_REQ_TYPE_MASK));
 			switch (process_idi_request (e, req)) {
 				case -1:
+                                        diva_os_leave_spin_lock (&adapter_lock, &old_irql, "write");
 					return (-1);
 				case -2:
+                                        diva_os_leave_spin_lock (&adapter_lock, &old_irql, "write");
 					diva_os_wakeup_read (e->os_context);
 					break;
 				default:
+                                        diva_os_leave_spin_lock (&adapter_lock, &old_irql, "write");
 					break;
 			}
 			break;
 
 		default:
+                        diva_os_leave_spin_lock (&adapter_lock, &old_irql, "write");
 			return (-1);
 	}
 
@@ -445,7 +481,10 @@ int diva_um_idi_write (void* entity,
 static void diva_um_idi_xdi_callback (ENTITY* entity) {
 	divas_um_idi_entity_t* e = DIVAS_CONTAINING_RECORD(entity,
                                    divas_um_idi_entity_t, e); 
+        diva_os_spin_lock_magic_t old_irql;
 	int call_wakeup = 0;
+
+        diva_os_enter_spin_lock (&adapter_lock, &old_irql, "xdi_callback");
 
 	if (e->e.complete == 255) {
 		if ((call_wakeup = process_idi_rc (e, e->e.Rc))) {
@@ -454,6 +493,7 @@ static void diva_um_idi_xdi_callback (ENTITY* entity) {
 			}
 		}
 		e->e.Rc = 0;
+                diva_os_leave_spin_lock (&adapter_lock, &old_irql, "xdi_callback");
 
 		if (call_wakeup) {
 			diva_os_wakeup_read (e->os_context);
@@ -467,6 +507,7 @@ static void diva_um_idi_xdi_callback (ENTITY* entity) {
 			call_wakeup = process_idi_ind (e, e->e.Ind);
 		}
 		e->e.Ind = 0;
+                diva_os_leave_spin_lock (&adapter_lock, &old_irql, "xdi_callback");
 		if (call_wakeup) {
 			diva_os_wakeup_read (e->os_context);
 		}
@@ -680,10 +721,12 @@ static int	write_return_code (divas_um_idi_entity_t* e, byte rc) {
 int diva_user_mode_idi_ind_ready (void* entity, void* os_handle) {
 	divas_um_idi_entity_t* e;
 	diva_um_idi_adapter_t* a;
+        diva_os_spin_lock_magic_t old_irql;
 	int ret;
 
         if (!entity)
           return(-1);
+        diva_os_enter_spin_lock (&adapter_lock, &old_irql, "ind_ready");
 	e = (divas_um_idi_entity_t*)entity;
 	a = e->adapter;
 
@@ -691,6 +734,7 @@ int diva_user_mode_idi_ind_ready (void* entity, void* os_handle) {
 		/*
 			Adapter was unloaded
 			*/
+                diva_os_leave_spin_lock (&adapter_lock, &old_irql, "ind_ready");
 		return (-1); /* adapter was removed */
 	}
 	if (e->status & DIVA_UM_IDI_REMOVED) {
@@ -698,10 +742,13 @@ int diva_user_mode_idi_ind_ready (void* entity, void* os_handle) {
 			entity was removed as result of adapter removal
 			user should assign this entity again
 			*/
+                diva_os_leave_spin_lock (&adapter_lock, &old_irql, "ind_ready");
 		return (-1);
 	}
 
 	ret = e->rc.count + e->data.count;
+
+        diva_os_leave_spin_lock (&adapter_lock, &old_irql, "ind_ready");
 
 	return (ret);
 }
@@ -714,19 +761,26 @@ int divas_um_idi_entity_assigned (void* entity) {
 	divas_um_idi_entity_t* e;
 	diva_um_idi_adapter_t* a;
 	int ret;
+        diva_os_spin_lock_magic_t old_irql;
+
+        diva_os_enter_spin_lock (&adapter_lock, &old_irql, "assigned?");
 
 	e = (divas_um_idi_entity_t*)entity;
 	a = e->adapter;
 	e->status |= DIVA_UM_IDI_REMOVE_PENDING;
 
 	if (a->status & DIVA_UM_IDI_ADAPTER_REMOVED) {
+                diva_os_leave_spin_lock (&adapter_lock, &old_irql, "assigned?");
 		return (0);
 	}
 	if (e->status & DIVA_UM_IDI_REMOVED) {
+                diva_os_leave_spin_lock (&adapter_lock, &old_irql, "assigned?");
 		return (0);
 	}
 	
 	ret = (e->e.Id || e->rc_count || (e->status & DIVA_UM_IDI_ASSIGN_PENDING));
+
+        diva_os_leave_spin_lock (&adapter_lock, &old_irql, "assigned?");
 
 	return (ret);
 }
@@ -735,22 +789,29 @@ int divas_um_idi_entity_assigned (void* entity) {
 int divas_um_idi_entity_start_remove (void* entity) {
 	divas_um_idi_entity_t* e;
 	diva_um_idi_adapter_t* a;
+        diva_os_spin_lock_magic_t old_irql;
+
+        diva_os_enter_spin_lock (&adapter_lock, &old_irql, "start_remove");
 
 	e = (divas_um_idi_entity_t*)entity;
 	a = e->adapter;
 
 	if (a->status & DIVA_UM_IDI_ADAPTER_REMOVED) {
+                diva_os_leave_spin_lock (&adapter_lock, &old_irql, "start_remove");
 		return (0);
 	}
 	if (e->status & DIVA_UM_IDI_REMOVED) {
+                diva_os_leave_spin_lock (&adapter_lock, &old_irql, "start_remove");
 		return (0);
 	}
 
 	if (e->rc_count) {
+                diva_os_leave_spin_lock (&adapter_lock, &old_irql, "start_remove");
 		return (1);
 	}
 
 	if (!e->e.Id) {
+                diva_os_leave_spin_lock (&adapter_lock, &old_irql, "start_remove");
 		return (0); /* REMOVE was pending */
 	}
 
@@ -765,6 +826,8 @@ int divas_um_idi_entity_start_remove (void* entity) {
 
         if (e->adapter->d.request)
 	  (*(e->adapter->d.request))(&e->e);
+
+        diva_os_leave_spin_lock (&adapter_lock, &old_irql, "start_remove");
 
 	return (0);
 }

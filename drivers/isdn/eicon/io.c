@@ -81,7 +81,8 @@ static byte extended_xdi_features[DIVA_XDI_EXTENDED_FEATURES_MAX_SZ+1] = {
  (DIVA_XDI_EXTENDED_FEATURES_VALID       |
   DIVA_XDI_EXTENDED_FEATURE_CMA          |
   DIVA_XDI_EXTENDED_FEATURE_SDRAM_BAR    |
-  DIVA_XDI_EXTENDED_FEATURE_CAPI_PRMS),
+  DIVA_XDI_EXTENDED_FEATURE_CAPI_PRMS    |
+  DIVA_XDI_EXTENDED_FEATURE_NO_CANCEL_RC),
  0
 };
 /*****************************************************************************/

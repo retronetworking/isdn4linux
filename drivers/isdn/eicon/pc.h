@@ -229,6 +229,7 @@ struct dual
 #define INT_CUSTXFER 61 /* internal transfer request                */
 #define INT_CUSTX_NIND 62 /* internal transfer ack                  */
 #define INT_CUSTXREJ_NIND 63 /* internal transfer rej               */
+#define INT_X5NI_CF_XFER  64 /* internal transfer OK indication     */
 /*------------------------------------------------------------------*/
 /* management service primitives                                    */
 /*------------------------------------------------------------------*/
@@ -371,6 +372,7 @@ struct dual
 #define DIVA_RC_TYPE_REMOVE_COMPLETE   0x00000008
 #define DIVA_RC_TYPE_STREAM_PTR        0x00000009
 #define DIVA_RC_TYPE_CMA_PTR           0x0000000a
+#define DIVA_RC_TYPE_OK_FC             0x0000000b
 /* ------------------------------------------------------
       IO Control codes for IN BAND SIGNALING
    ------------------------------------------------------ */ 

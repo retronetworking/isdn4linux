@@ -116,6 +116,8 @@ static void diva_detect_pci_cards (void);
 static void divas_found_pci_card (int handle, unsigned char bus, unsigned char func);
 static void diva_init_request_array (void);
 
+static diva_os_spin_lock_t adapter_lock;
+
 /*
 **  Called on driver load, MAIN, main, DriverEntry
 */
@@ -124,7 +126,9 @@ divasa_xdi_driver_entry(void)
 {
   diva_os_xdi_adapter_t* a;
   int current = 1;
+  diva_os_spin_lock_magic_t old_irql;
 
+  diva_os_initialize_spin_lock (&adapter_lock, "adapter");
   diva_q_init(&adapter_queue);
   diva_init_request_array ();
 
@@ -136,6 +140,7 @@ divasa_xdi_driver_entry(void)
   /*
     Count the controllers
   */
+  diva_os_enter_spin_lock (&adapter_lock, &old_irql, "driver_entry");
   a = (diva_os_xdi_adapter_t*)diva_q_get_head(&adapter_queue);
   while (a) {
     IoAdapters[current-1] = &a->xdi_adapter;
@@ -143,6 +148,7 @@ divasa_xdi_driver_entry(void)
     a->xdi_adapter.ANum   = a->controller;
     a = (diva_os_xdi_adapter_t*)diva_q_get_next(&a->link);
   }
+  diva_os_leave_spin_lock (&adapter_lock, &old_irql, "driver_entry");
 
   /*
     Return TRUE if no cards were found
@@ -156,8 +162,11 @@ divasa_xdi_driver_entry(void)
 void
 divasa_xdi_driver_unload(void)
 {
-  diva_os_xdi_adapter_t* a = (diva_os_xdi_adapter_t*)diva_q_get_head(&adapter_queue);
+  diva_os_spin_lock_magic_t old_irql;
+  diva_os_xdi_adapter_t* a;
 
+  diva_os_enter_spin_lock (&adapter_lock, &old_irql, "driver_unload");
+  a = (diva_os_xdi_adapter_t*)diva_q_get_head(&adapter_queue);
   while (a) {
     diva_q_remove (&adapter_queue, &a->link);
 
@@ -169,7 +178,8 @@ divasa_xdi_driver_unload(void)
 
     a = (diva_os_xdi_adapter_t*)diva_q_get_head(&adapter_queue);
   }
-
+  diva_os_leave_spin_lock (&adapter_lock, &old_irql, "driver_unload");
+  diva_os_destroy_spin_lock (&adapter_lock, "adapter");
 }
 
 /*
@@ -194,6 +204,7 @@ divas_found_pci_card (int handle, unsigned char bus, unsigned char func)
 {
   diva_os_xdi_adapter_t* a;
   diva_supported_cards_info_t* pI = &divas_supported_cards[handle];
+  diva_os_spin_lock_magic_t old_irql;
 
   DBG_LOG(("found %d-%s bus: %d, func:%d", 
         pI->CardOrdinal, CardProperties[pI->CardOrdinal].Name, bus, func));
@@ -216,14 +227,15 @@ divas_found_pci_card (int handle, unsigned char bus, unsigned char func)
     Add master adapter first, so slave adapters will receive higher
     numbers as master adapter
   */
+  diva_os_enter_spin_lock (&adapter_lock, &old_irql, "found_pci_card");
   diva_q_add_tail (&adapter_queue, &a->link);
 
   if ((*(pI->init_card))(a)) {
     diva_q_remove (&adapter_queue, &a->link);
     diva_os_free (0, a);
     DBG_ERR(("A: can't get adapter resources"));
-    return;
   }
+  diva_os_leave_spin_lock (&adapter_lock, &old_irql, "found_pci_card");
 }
 
 /*
@@ -244,6 +256,7 @@ diva_xdi_open_adapter (void* os_handle, const void* src,
 {
   diva_xdi_um_cfg_cmd_t	msg;
   diva_os_xdi_adapter_t* a;
+  diva_os_spin_lock_magic_t old_irql;
 
   if (length < sizeof(diva_xdi_um_cfg_cmd_t)) {
     DBG_ERR(("A: A(?) open, msg too small (%d < %d)",
@@ -254,8 +267,10 @@ diva_xdi_open_adapter (void* os_handle, const void* src,
     DBG_ERR(("A: A(?) open, write error"))
     return (0);
   }
+  diva_os_enter_spin_lock (&adapter_lock, &old_irql, "open_adapter");
   a = (diva_os_xdi_adapter_t*)diva_q_find (&adapter_queue,
                                            (void*)msg.adapter, cmp_adapter_nr);
+  diva_os_leave_spin_lock (&adapter_lock, &old_irql, "open_adapter");
 
   if (!a) {
     DBG_ERR(("A: A(%d) open, adapter not found", msg.adapter))
@@ -437,6 +452,10 @@ diva_xdi_display_adapter_features (int card)
 void
 diva_add_slave_adapter (diva_os_xdi_adapter_t* a)
 {
+  diva_os_spin_lock_magic_t old_irql;
+
+  diva_os_enter_spin_lock (&adapter_lock, &old_irql, "add_slave");
   diva_q_add_tail (&adapter_queue, &a->link);
+  diva_os_leave_spin_lock (&adapter_lock, &old_irql, "add_slave");
 }
 

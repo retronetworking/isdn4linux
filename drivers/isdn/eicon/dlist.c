@@ -1,9 +1,6 @@
 /* $Id$ */
 
-#include "platform.h"
 #include "dlist.h"
-
-static spinlock_t dlist_lock;
 
 /*
 **  Initialize linked list
@@ -13,7 +10,6 @@ void
 diva_q_init (diva_entity_queue_t* q)
 {
   memset (q, 0x00, sizeof(*q));
-  dlist_lock = SPIN_LOCK_UNLOCKED;
 }
 
 /*
@@ -22,8 +18,6 @@ diva_q_init (diva_entity_queue_t* q)
 void
 diva_q_remove (diva_entity_queue_t* q, diva_entity_link_t* what)
 {
-  spin_lock(&dlist_lock);
-
   if(!what->prev) {
     if ((q->head = what->next)) {
       q->head->prev = 0;
@@ -38,8 +32,6 @@ diva_q_remove (diva_entity_queue_t* q, diva_entity_link_t* what)
     what->next->prev = what->prev;
   }
   what->prev = what->next = 0;
-
-  spin_unlock(&dlist_lock);
 }
 
 /*
@@ -48,8 +40,6 @@ diva_q_remove (diva_entity_queue_t* q, diva_entity_link_t* what)
 void
 diva_q_add_tail (diva_entity_queue_t* q, diva_entity_link_t* what)
 {
-  spin_lock(&dlist_lock);
-
   what->next = 0;
   if (!q->head) {
     what->prev = 0;
@@ -59,25 +49,20 @@ diva_q_add_tail (diva_entity_queue_t* q, diva_entity_link_t* what)
     q->tail->next = what;
     q->tail = what;
   }
-
-  spin_unlock(&dlist_lock);
 }
 
 diva_entity_link_t*
 diva_q_find (const diva_entity_queue_t* q, const void* what,
              diva_q_cmp_fn_t cmp_fn)
 {
-  diva_entity_link_t* current;
+  diva_entity_link_t* current = q->head;
 
-  spin_lock(&dlist_lock);
-  current = q->head;
   while (current) {
     if (!(*cmp_fn)(what, current)) {
       break;
     }
     current = current->next;
   }
-  spin_unlock(&dlist_lock);
 
   return (current);
 }
@@ -110,15 +95,12 @@ int
 diva_q_get_nr_of_entries (const diva_entity_queue_t* q)
 {
   int i = 0;
-  const diva_entity_link_t* current;
+  const diva_entity_link_t* current = q->head;
 
-  spin_lock(&dlist_lock);
-  current = q->head;
   while (current) {
     i++;
     current = current->next;
   }
-  spin_unlock(&dlist_lock);
 
   return (i);
 }

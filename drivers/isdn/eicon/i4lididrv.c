@@ -48,7 +48,7 @@ static eicon_card *cards = (eicon_card *) NULL;   /* glob. var , contains
 
 static char *DRIVERNAME = "Eicon Diva - native I4L Interface driver (http://www.melware.net)";
 static char *DRIVERLNAME = "diva2i4l";
-static char *DRIVERRELEASE = "1.0beta4";
+static char *DRIVERRELEASE = "1.0beta5";
 static char *eicon_revision = "$Revision$";
 extern char *eicon_idi_revision;
 
@@ -311,8 +311,6 @@ diva_init_thread(void)
 static int
 divad_thread(void * data)
 {
-  lock_kernel();
-
   atomic_inc(&thread_running);
   if (atomic_read(&thread_running) > 1) {
       printk(KERN_WARNING"%s: thread already running\n", DRIVERLNAME);
@@ -1321,7 +1319,7 @@ connect_didd(void)
       dprintf = (DIVA_DI_PRINTF)MAdapter.request;
       DbgRegister("I4L", DRIVERRELEASE, DBG_DEFAULT);
     }
-    else if ((DIDD_Table[x].type > 1) &&
+    else if ((DIDD_Table[x].type > 0) &&
              (DIDD_Table[x].type < 16))
     {  /* IDI Adapter found */
       if (DIDD_Table[x].channels) {

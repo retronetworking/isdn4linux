@@ -25,16 +25,12 @@
 #include "platform.h"
 #include "dqueue.h"
 
-static spinlock_t dqueue_lock;
-
 int
 diva_data_q_init(diva_um_idi_data_queue_t* q,
                  int max_length,
                  int max_segments)
 {
   int i;
-
-  dqueue_lock = SPIN_LOCK_UNLOCKED;
 
   q->max_length	= max_length;
   q->segments = max_segments;
@@ -81,22 +77,17 @@ diva_data_q_get_max_length(const diva_um_idi_data_queue_t* q)
 void*
 diva_data_q_get_segment4write(diva_um_idi_data_queue_t* q)
 {
-  void *ret = NULL;
-
-  spin_lock(&dqueue_lock);
   if ((!q->segment_pending) && (q->count < q->segments)) {
     q->segment_pending = 1;
-    ret = q->data[q->write];
+    return (q->data[q->write]);
   }
-  spin_unlock(&dqueue_lock);
 
-  return (ret);
+  return (0);
 }
 
 void
 diva_data_q_ack_segment4write(diva_um_idi_data_queue_t* q, int length)
 {
-  spin_lock(&dqueue_lock);
   if (q->segment_pending) {
     q->length[q->write] = length;
     q->count++;
@@ -106,37 +97,26 @@ diva_data_q_ack_segment4write(diva_um_idi_data_queue_t* q, int length)
     }
     q->segment_pending = 0;
   }
-  spin_unlock(&dqueue_lock);
 }
 
 const void*
 diva_data_q_get_segment4read(const diva_um_idi_data_queue_t* q)
 {
-  void *ret = NULL;
-
-  spin_lock(&dqueue_lock);
   if (q->count) {
-    ret = q->data[q->read];
+    return (q->data[q->read]);
   }
-  spin_unlock(&dqueue_lock);
-  return (ret);
+  return (0);
 }
 
 int
 diva_data_q_get_segment_length(const diva_um_idi_data_queue_t* q)
 {
-  int ret;
-  
-  spin_lock(&dqueue_lock);
-  ret = q->length[q->read];
-  spin_unlock(&dqueue_lock);
-  return (ret);
+  return (q->length[q->read]);
 }
 
 void
 diva_data_q_ack_segment4read(diva_um_idi_data_queue_t* q)
 {
-  spin_lock(&dqueue_lock);
   if (q->count) {
     q->length[q->read] = 0;
     q->count--;
@@ -145,6 +125,5 @@ diva_data_q_ack_segment4read(diva_um_idi_data_queue_t* q)
       q->read = 0;
     }
   }
-  spin_unlock(&dqueue_lock);
 }
 

@@ -568,6 +568,7 @@ byte isdn_rc(ADAPTER * a,
   ENTITY  * this;
   byte e_no;
   word i;
+  int cancel_rc;
 #ifdef USE_EXTENDED_DEBUGS
   {
     ISDN_ADAPTER *io = (ISDN_ADAPTER *)a->io ;
@@ -606,6 +607,7 @@ byte isdn_rc(ADAPTER * a,
           a->RcExtensionSupported = TRUE;
       }
       a->misc_flags_table[e_no] &= ~DIVA_MISC_FLAGS_REMOVE_PENDING;
+      a->misc_flags_table[e_no] &= ~DIVA_MISC_FLAGS_NO_RC_CANCELLING;
       free_entity(a, e_no);
       for (i = 0; i < 256; i++)
       {
@@ -639,7 +641,28 @@ byte isdn_rc(ADAPTER * a,
       CALLBACK(a, this);
       return 0;
     }
-    if (a->FlowControlIdTable[Ch] == Id)
+    /*
+      New protocol code sends return codes that comes from release
+      of flow control condition marked with DIVA_RC_TYPE_OK_FC extended
+      information element type.
+      If like return code arrives then application is able to process
+      all return codes self and XDI should not cances return codes.
+      This return code does not decrement XMOREC partial return code
+      counter due to fact that it was no request for this return code,
+      also XMOREC was not incremented.
+      */
+    if (extended_info_type == DIVA_RC_TYPE_OK_FC) {
+      a->misc_flags_table[e_no] |= DIVA_MISC_FLAGS_NO_RC_CANCELLING;
+      this->Rc = Rc;
+      this->complete=0xff;
+      xdi_xlog_rc_event (XDI_A_NR(a), Id, Ch, Rc, 1, a->IdTypeTable[this->No]);
+      DBG_TRC(("XDI OK_FC A(%02x) Id:%02x Ch:%02x Rc:%02x",
+      XDI_A_NR(a), Id, Ch, Rc))
+      CALLBACK(a, this);
+      return 0;
+    }
+    cancel_rc = !(a->misc_flags_table[e_no] & DIVA_MISC_FLAGS_NO_RC_CANCELLING);
+    if (cancel_rc && (a->FlowControlIdTable[Ch] == Id))
     {
       a->FlowControlIdTable[Ch] = 0;
       if ((Rc != OK) || !a->FlowControlSkipTable[Ch])
@@ -658,7 +681,7 @@ byte isdn_rc(ADAPTER * a,
     if (this->More &XMOREC)
       this->More--;
         /* call the application callback function                   */
-    if(this->More &XMOREF && !(this->More &XMOREC)) {
+    if (((!cancel_rc) || (this->More & XMOREF)) && !(this->More & XMOREC)) {
       this->Rc = Rc;
       this->More &=~XBUSY;
       this->complete=0xff;

@@ -28,6 +28,7 @@
 #include <asm/uaccess.h>
 #include <linux/smp_lock.h>
 #include <linux/vmalloc.h>
+#include <linux/sched.h>
 
 #include <linux/isdn.h>
 #include <linux/isdnif.h>
@@ -54,7 +55,10 @@ EXPORT_NO_SYMBOLS;
 static char *main_revision = "$Revision$";
 static char *DRIVERNAME = "Eicon DIVA - CAPI Interface driver (http://www.melware.net)";
 static char *DRIVERLNAME = "divacapi";
-static char *DRIVERRELEASE = "1.0beta4";
+#define DRRELMAJOR  1
+#define DRRELMINOR  0
+#define DRRELEXTRA  "beta5"
+static char DRIVERRELEASE[16];
 
 #define M_COMPANY "Eicon Networks"
 
@@ -97,6 +101,7 @@ CAPI_MSG *mapped_msg = (CAPI_MSG *) NULL;
 static byte max_adapter = 0;
 
 static void clean_adapter(int);
+static void DIRequest (ENTITY* e);
 
 MODULE_DESCRIPTION(             "CAPI driver for Eicon DIVA cards");
 MODULE_AUTHOR(                  "Cytronics & Melware, Eicon Networks");
@@ -843,6 +848,18 @@ write_end:
   kfree_skb(skb);
 }
 
+static void
+DIRequest (ENTITY* e)
+{
+  DIVA_CAPI_ADAPTER *a = &(adapter[(byte)e->user[0]]);
+  diva_card* os_card = (diva_card*)a->os_card;
+
+  if (a->FlowControlIdTable[e->ReqCh] == e->Id) {
+    a->FlowControlSkipTable[e->ReqCh] = 1;
+  }
+
+  (*(os_card->d.request))(e);
+}
 
 /************ module functions ***********/
 
@@ -903,7 +920,7 @@ diva_remove_card(DESCRIPTOR *d)
 static int
 diva_add_card(DESCRIPTOR *d)
 {
-  int k = 0;
+  int k = 0, i = 0;
   diva_card *card = NULL;
   struct capi_ctr *ctrl = NULL;
   DIVA_CAPI_ADAPTER *a = NULL;
@@ -931,8 +948,8 @@ diva_add_card(DESCRIPTOR *d)
   strncpy(ctrl->manu, M_COMPANY, CAPI_MANUFACTURER_LEN);
   ctrl->version.majorversion = 2;
   ctrl->version.minorversion = 0;
-  ctrl->version.majormanuversion = 1;
-  ctrl->version.minormanuversion = 0;
+  ctrl->version.majormanuversion = DRRELMAJOR;
+  ctrl->version.minormanuversion = DRRELMINOR;
   sync_req.GetSerial.Req = 0;
   sync_req.GetSerial.Rc = IDI_SYNC_REQ_GET_SERIAL;
   sync_req.GetSerial.serial = 0;
@@ -940,16 +957,10 @@ diva_add_card(DESCRIPTOR *d)
   sprintf(serial, "%ld", sync_req.GetSerial.serial);
   serial[CAPI_SERIAL_LEN-1] = 0;
   strncpy(ctrl->serial, serial, CAPI_SERIAL_LEN);
-  ctrl->profile.nbchannel = card->d.channels;
-  /* manufacturer profile information */
-  ctrl->profile.manu[0] = 0;
-  ctrl->profile.manu[1] = 0;
-  ctrl->profile.manu[2] = 0;
-  ctrl->profile.manu[3] = 0;
-  ctrl->profile.manu[4] = 0;
 
   a = &adapter[card->Id - 1];
-  card->adapter = a;    
+  card->adapter = a;
+  a->os_card = card;
   ControllerMap[card->Id] = (byte)(card->Id);
   sync_req.xdi_capi_prms.Req = 0;
   sync_req.xdi_capi_prms.Rc = IDI_SYNC_REQ_XDI_GET_CAPI_PARAMS;
@@ -957,7 +968,7 @@ diva_add_card(DESCRIPTOR *d)
   card->d.request((ENTITY *)&sync_req);
   a->flag_dynamic_l1_down = sync_req.xdi_capi_prms.info.flag_dynamic_l1_down;
   a->group_optimization_enabled = sync_req.xdi_capi_prms.info.group_optimization_enabled;
-  a->request = card->d.request;
+  a->request = DIRequest; /* card->d.request; */
   a->max_plci = card->d.channels + 30;
   a->max_listen = 2;
   if (!(a->plci = (PLCI *) vmalloc(sizeof(PLCI) * a->max_plci))) {
@@ -1011,10 +1022,6 @@ diva_add_card(DESCRIPTOR *d)
       a->profile.B3_Protocols = 0x07;
       a->manufacturer_features = 0;
     }
-  ctrl->profile.goptions = a->profile.Global_Options;
-  ctrl->profile.support1 = a->profile.B1_Protocols;
-  ctrl->profile.support2 = a->profile.B2_Protocols;
-  ctrl->profile.support3 = a->profile.B3_Protocols;
 
 #if IMPLEMENT_LINE_INTERCONNECT
   a->li_pri = (a->profile.Channels > 2);
@@ -1043,9 +1050,29 @@ diva_add_card(DESCRIPTOR *d)
   cards = card;
   spin_unlock(&ll_lock);
 
+  AutomaticLaw(a);
+  while(i++ < 30) {
+    if (a->automatic_law > 3)
+      break;
+    set_current_state(TASK_UNINTERRUPTIBLE);
+    schedule_timeout(HZ / 10 + 1);
+  }
+
+  /* profile information */
+  ctrl->profile.nbchannel = card->d.channels;
+  ctrl->profile.goptions = a->profile.Global_Options;
+  ctrl->profile.support1 = a->profile.B1_Protocols;
+  ctrl->profile.support2 = a->profile.B2_Protocols;
+  ctrl->profile.support3 = a->profile.B3_Protocols;
+  /* manufacturer profile information */
+  ctrl->profile.manu[0] = a->man_profile.private_options;
+  ctrl->profile.manu[1] = a->man_profile.rtp_primary_payloads;
+  ctrl->profile.manu[2] = a->man_profile.rtp_additional_payloads;
+  ctrl->profile.manu[3] = 0;
+  ctrl->profile.manu[4] = 0;
+
   ctrl->ready(ctrl);
 
-  AutomaticLaw(a) ;
   max_adapter++;
   DBG_TRC(("adapter added, max_adapter=%d", max_adapter));
   return(1);
@@ -1142,7 +1169,7 @@ connect_didd(void)
       dprintf = (DIVA_DI_PRINTF)MAdapter.request;
       DbgRegister("CAPI20", DRIVERRELEASE, DBG_DEFAULT);
     }
-    else if ((DIDD_Table[x].type > 1) &&
+    else if ((DIDD_Table[x].type > 0) &&
              (DIDD_Table[x].type < 16))
     {  /* IDI Adapter found */
       diva_add_card(&DIDD_Table[x]);
@@ -1213,6 +1240,8 @@ divacapi_init(void)
 
   api_lock = SPIN_LOCK_UNLOCKED;
   ll_lock = SPIN_LOCK_UNLOCKED;
+
+  sprintf(DRIVERRELEASE, "%d.%d%s", DRRELMAJOR, DRRELMINOR, DRRELEXTRA);
 
   printk(KERN_INFO "%s\n", DRIVERNAME);
   printk(KERN_INFO "%s: Rel:%s  Rev:", DRIVERLNAME, DRIVERRELEASE);

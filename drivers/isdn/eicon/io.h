@@ -74,6 +74,7 @@ struct _ISDN_ADAPTER {
  void             (* DIRequest)(PISDN_ADAPTER, ENTITY *) ;
  int                 Initialized ;
  int         RegisteredWithDidd ;
+ int                 Unavailable ;  /* callback function possible? */
  int         ResourcesClaimed ;
  int         PnpBiosConfigUsed ;
  dword        Logging ;
@@ -93,6 +94,10 @@ struct _ISDN_ADAPTER {
  dword               slotId ;
  dword               ControllerNumber ;  /* for QUADRO cards only */
  PADAPTER_LIST_ENTRY QuadroList ;        /* for QUADRO card  only */
+ PISDN_ADAPTER       MultiMaster ;       /* for 4-BRI card only - better managment in W2k */
+ dword               DspCodeBaseAddrTable[4] ;
+ dword               MaxDspCodeSizeTable[4] ;
+ dword               downloadAddrTable[4] ;
  PDEVICE_OBJECT      DeviceObject ;
  dword               DeviceId ;
  diva_os_adapter_irq_info_t irq_info;
@@ -132,7 +137,7 @@ struct _ISDN_ADAPTER {
  dword               StableL2 ;
  dword               DidLen ;
  dword               NoOrderCheck ;
- dword        ForceLaw;
+ dword               ForceLaw; /* VoiceCoding - default:0, a-law: 1, my-law: 2 */
  dword               SigFlags ;
  dword               LowChannel ;
  dword               ProtVersion ;

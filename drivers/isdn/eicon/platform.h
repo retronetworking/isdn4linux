@@ -237,16 +237,17 @@ diva_os_atomic_decrement(diva_os_atomic_t* pv)
 /* 
 **  CAPI SECTION
 */
-#define IMPLEMENT_DTMF                  1
-#define IMPLEMENT_LINE_INTERCONNECT     1
-#define IMPLEMENT_ECHO_CANCELLER        1
-#define IMPLEMENT_RTP                   1
 #define NO_CORNETN
-#define IMPLEMENT_T38                   0
-#define IMPLEMENT_PIAFS                 1
-#define IMPLEMENT_FAX_SUB_SEP_PWD       1
-#define IMPLEMENT_V18                   1
-#define IMPLEMENT_DTMF_TONE             1
+#define IMPLEMENT_DTMF 1
+#define IMPLEMENT_LINE_INTERCONNECT 1
+#define IMPLEMENT_ECHO_CANCELLER 1
+#define IMPLEMENT_RTP 1
+#define IMPLEMENT_T38 1
+#define IMPLEMENT_FAX_SUB_SEP_PWD 1
+#define IMPLEMENT_V18 1
+#define IMPLEMENT_DTMF_TONE 1
+#define IMPLEMENT_PIAFS 1
+#define IMPLEMENT_FAX_PAPER_FORMATS 1
 
 #if !defined(__i386__)
 #define READ_WORD(w) ( ((byte *)(w))[0] + \

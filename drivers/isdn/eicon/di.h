@@ -38,7 +38,8 @@
 #define XMOREF 0x20
 #define XBUSY  0x40
 #define RMORE  0x80
-#define DIVA_MISC_FLAGS_REMOVE_PENDING  0x01
+#define DIVA_MISC_FLAGS_REMOVE_PENDING    0x01
+#define DIVA_MISC_FLAGS_NO_RC_CANCELLING  0x02
         /* structure for all information we have to keep on a per   */
         /* adapater basis                                           */
 typedef struct adapter_s ADAPTER;

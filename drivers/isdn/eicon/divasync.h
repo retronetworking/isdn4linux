@@ -80,10 +80,11 @@ typedef struct _diva_xdi_get_extended_xdi_features {
 /*
    features[0]
   */
-#define DIVA_XDI_EXTENDED_FEATURES_VALID   0x01
-#define DIVA_XDI_EXTENDED_FEATURE_CMA      0x02
-#define DIVA_XDI_EXTENDED_FEATURE_SDRAM_BAR 0x04
-#define DIVA_XDI_EXTENDED_FEATURE_CAPI_PRMS 0x08
+#define DIVA_XDI_EXTENDED_FEATURES_VALID          0x01
+#define DIVA_XDI_EXTENDED_FEATURE_CMA             0x02
+#define DIVA_XDI_EXTENDED_FEATURE_SDRAM_BAR       0x04
+#define DIVA_XDI_EXTENDED_FEATURE_CAPI_PRMS       0x08
+#define DIVA_XDI_EXTENDED_FEATURE_NO_CANCEL_RC    0x10
 #define DIVA_XDI_EXTENDED_FEATURES_MAX_SZ    1
 /******************************************************************************/
 #define IDI_SYNC_REQ_XDI_GET_ADAPTER_SDRAM_BAR   0x93

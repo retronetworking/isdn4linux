@@ -56,7 +56,7 @@ typedef struct _diva_um_idi_os_context {
 
 static char *DRIVERNAME = "Eicon DIVA - User IDI (http://www.melware.net)";
 static char *DRIVERLNAME = "diva_idi";
-static char *DRIVERRELEASE = "1.0beta4";
+static char *DRIVERRELEASE = "1.0beta5";
 
 #define DBG_MINIMUM  (DL_LOG + DL_FTL + DL_ERR)
 #define DBG_DEFAULT  (DBG_MINIMUM + DL_XLOG + DL_REG)
@@ -452,7 +452,7 @@ connect_didd(void)
       dprintf = (DIVA_DI_PRINTF)MAdapter.request;
       DbgRegister("User IDI", DRIVERRELEASE, DBG_DEFAULT);
     }
-    else if ((DIDD_Table[x].type > 1) &&
+    else if ((DIDD_Table[x].type > 0) &&
              (DIDD_Table[x].type < 16))
     {  /* IDI Adapter found */
       um_new_card(&DIDD_Table[x]);
@@ -493,7 +493,14 @@ divasi_init(void)
   strcpy(tmprev, main_revision);
   printk("%s  Build: %s\n", getrev(tmprev), DIVA_BUILD);
 
+  if (diva_user_mode_idi_init ()) {
+    printk(KERN_ERR "%s: init failed.\n", DRIVERLNAME);
+    ret = -EIO;
+    goto out;
+  }
+
    if(!connect_didd()) {
+    diva_user_mode_idi_finit ();
     printk(KERN_ERR "%s: failed to connect to DIDD.\n", DRIVERLNAME);
     ret = -EIO;
     goto out;
@@ -502,15 +509,8 @@ divasi_init(void)
   if(!create_um_idi_proc()) {
     remove_um_idi_proc();
     disconnect_didd();
+    diva_user_mode_idi_finit ();
     printk(KERN_ERR "%s: failed to create proc entry.\n", DRIVERLNAME);
-    ret = -EIO;
-    goto out;
-  }
-
-  if (diva_user_mode_idi_init ()) {
-    remove_um_idi_proc();
-    disconnect_didd();
-    printk(KERN_ERR "%s: init failed.\n", DRIVERLNAME);
     ret = -EIO;
     goto out;
   }

@@ -41,10 +41,18 @@
 
 
 
+
+#define IMPLEMENT_DTMF 1
+#define IMPLEMENT_LINE_INTERCONNECT 1
+#define IMPLEMENT_ECHO_CANCELLER 1
+#define IMPLEMENT_RTP 1
+#define IMPLEMENT_T38 1
 #define IMPLEMENT_FAX_SUB_SEP_PWD 1
 #define IMPLEMENT_V18 1
 #define IMPLEMENT_DTMF_TONE 1
 #define IMPLEMENT_PIAFS 1
+#define IMPLEMENT_FAX_PAPER_FORMATS 1
+
 
 /*------------------------------------------------------------------*/
 /* Common API internal definitions                                  */
@@ -75,7 +83,9 @@
 
 
 #define FAX_CONNECT_INFO_BUFFER_SIZE  80
+#define NCPI_BUFFER_SIZE              80
 
+#define MAX_CHANNELS_PER_PLCI         8
 #define MAX_INTERNAL_COMMAND_LEVELS   4
 #define INTERNAL_REQ_BUFFER_SIZE      272
 #define INTERNAL_IND_BUFFER_SIZE      128
@@ -245,7 +255,7 @@ struct _PLCI {
   word          hangup_flow_ctrl_timer;
 
   word          ncci_ring_list;
-  byte          inc_dis_ncci_table[8];
+  byte          inc_dis_ncci_table[MAX_CHANNELS_PER_PLCI];
   t_std_internal_command internal_command_queue[MAX_INTERNAL_COMMAND_LEVELS];
   dword         c_ind_mask_table[C_IND_MASK_DWORDS];
   dword         group_optimization_mask_table[C_IND_MASK_DWORDS];
@@ -255,8 +265,8 @@ struct _PLCI {
   API_SAVE      B_protocol;
   byte          fax_connect_info_length;
   byte          fax_connect_info_buffer[FAX_CONNECT_INFO_BUFFER_SIZE];
-  byte          mdm_state;
-  byte          mdm_ncpi[6];
+  byte          ncpi_state;
+  byte          ncpi_buffer[NCPI_BUFFER_SIZE];
 
   byte          internal_req_buffer[INTERNAL_REQ_BUFFER_SIZE];
   byte          internal_ind_buffer[INTERNAL_IND_BUFFER_SIZE];
@@ -364,6 +374,9 @@ struct _DIVA_CAPI_ADAPTER {
   byte group_optimization_enabled; /* use application groups if enabled */
   dword sdram_bar;
   byte flag_dynamic_l1_down; /* for hunt groups:down layer 1 if no appl present*/
+  byte FlowControlIdTable[256];
+  byte FlowControlSkipTable[256];
+  void* os_card; /* pointer to associated OS dependent adapter structure */
 };
 
 
@@ -399,8 +412,148 @@ struct _DIVA_CAPI_ADAPTER {
 /* FAX interface to IDI                                             */
 /*------------------------------------------------------------------*/
 
-#define CAPI_MAX_HEAD_LINE_SPACE    89
-#define CAPI_MAX_DATE_TIME_LENGTH   18
+#define CAPI_MAX_HEAD_LINE_SPACE        89
+#define CAPI_MAX_DATE_TIME_LENGTH       18
+
+#define T30_MAX_STATION_ID_LENGTH       20
+#define T30_MAX_SUBADDRESS_LENGTH       20
+#define T30_MAX_PASSWORD_LENGTH         20
+
+typedef struct t30_info_s T30_INFO;
+struct t30_info_s {
+  byte          code;
+  byte          rate_div_2400;
+  byte          resolution;
+  byte          data_format;
+  byte          pages_low;
+  byte          pages_high;
+  byte          operating_mode;
+  byte          control_bits_low;
+  byte          control_bits_high;
+  byte          feature_bits_low;
+  byte          feature_bits_high;
+  byte          recording_properties;
+  byte          universal_6;
+  byte          universal_7;
+  byte          station_id_len;
+  byte          head_line_len;
+  byte          station_id[T30_MAX_STATION_ID_LENGTH];
+/* byte          head_line[];      */
+/* byte          sub_sep_length;   */
+/* byte          sub_sep_field[];  */
+/* byte          pwd_length;       */
+/* byte          pwd_field[];      */
+};
+
+
+#define T30_RESOLUTION_R8_0385          0x00
+#define T30_RESOLUTION_R8_0770_OR_200   0x01
+#define T30_RESOLUTION_R8_1540          0x02
+#define T30_RESOLUTION_R16_1540_OR_400  0x04
+#define T30_RESOLUTION_R4_0385_OR_100   0x08
+#define T30_RESOLUTION_300_300          0x10
+#define T30_RESOLUTION_INCH_BASED       0x40
+#define T30_RESOLUTION_METRIC_BASED     0x80
+
+#define T30_RECORDING_WIDTH_ISO_A4      0
+#define T30_RECORDING_WIDTH_ISO_B4      1
+#define T30_RECORDING_WIDTH_ISO_A3      2
+#define T30_RECORDING_WIDTH_COUNT       3
+
+#define T30_RECORDING_LENGTH_ISO_A4     0
+#define T30_RECORDING_LENGTH_ISO_B4     1
+#define T30_RECORDING_LENGTH_UNLIMITED  2
+#define T30_RECORDING_LENGTH_COUNT      3
+
+#define T30_MIN_SCANLINE_TIME_00_00_00  0
+#define T30_MIN_SCANLINE_TIME_05_05_05  1
+#define T30_MIN_SCANLINE_TIME_10_05_05  2
+#define T30_MIN_SCANLINE_TIME_10_10_10  3
+#define T30_MIN_SCANLINE_TIME_20_10_10  4
+#define T30_MIN_SCANLINE_TIME_20_20_20  5
+#define T30_MIN_SCANLINE_TIME_40_20_20  6
+#define T30_MIN_SCANLINE_TIME_40_40_40  7
+#define T30_MIN_SCANLINE_TIME_RES_8     8
+#define T30_MIN_SCANLINE_TIME_RES_9     9
+#define T30_MIN_SCANLINE_TIME_RES_10    10
+#define T30_MIN_SCANLINE_TIME_10_10_05  11
+#define T30_MIN_SCANLINE_TIME_20_10_05  12
+#define T30_MIN_SCANLINE_TIME_20_20_10  13
+#define T30_MIN_SCANLINE_TIME_40_20_10  14
+#define T30_MIN_SCANLINE_TIME_40_40_20  15
+#define T30_MIN_SCANLINE_TIME_COUNT     16
+
+#define T30_DATA_FORMAT_SFF             0
+#define T30_DATA_FORMAT_ASCII           1
+#define T30_DATA_FORMAT_NATIVE          2
+#define T30_DATA_FORMAT_COUNT           3
+
+
+#define T30_OPERATING_MODE_STANDARD     0
+#define T30_OPERATING_MODE_CLASS2       1
+#define T30_OPERATING_MODE_CLASS1       2
+#define T30_OPERATING_MODE_CAPI         3
+#define T30_OPERATING_MODE_COUNT        4
+
+        /* EDATA transmit messages */
+#define EDATA_T30_DIS         0x01
+#define EDATA_T30_FTT         0x02
+#define EDATA_T30_MCF         0x03
+#define EDATA_T30_PARAMETERS  0x04
+
+        /* EDATA receive messages */
+#define EDATA_T30_DCS         0x81
+#define EDATA_T30_TRAIN_OK    0x82
+#define EDATA_T30_EOP         0x83
+#define EDATA_T30_MPS         0x84
+#define EDATA_T30_EOM         0x85
+#define EDATA_T30_DTC         0x86
+#define EDATA_T30_PAGE_END    0x87   /* Indicates end of page data. Reserved, but not implemented ! */
+#define EDATA_T30_EOP_CAPI    0x88
+
+
+#define T30_SUCCESS                        0
+#define T30_ERR_NO_DIS_RECEIVED            1
+#define T30_ERR_TIMEOUT_NO_RESPONSE        2
+#define T30_ERR_RETRY_NO_RESPONSE          3
+#define T30_ERR_TOO_MANY_REPEATS           4
+#define T30_ERR_UNEXPECTED_MESSAGE         5
+#define T30_ERR_UNEXPECTED_DCN             6
+#define T30_ERR_DTC_UNSUPPORTED            7
+#define T30_ERR_ALL_RATES_FAILED           8
+#define T30_ERR_TOO_MANY_TRAINS            9
+#define T30_ERR_RECEIVE_CORRUPTED          10
+#define T30_ERR_UNEXPECTED_DISC            11
+#define T30_ERR_APPLICATION_DISC           12
+#define T30_ERR_INCOMPATIBLE_DIS           13
+#define T30_ERR_INCOMPATIBLE_DCS           14
+#define T30_ERR_TIMEOUT_NO_COMMAND         15
+#define T30_ERR_RETRY_NO_COMMAND           16
+#define T30_ERR_TIMEOUT_COMMAND_TOO_LONG   17
+#define T30_ERR_TIMEOUT_RESPONSE_TOO_LONG  18
+#define T30_ERR_NOT_IDENTIFIED             19
+#define T30_ERR_SUPERVISORY_TIMEOUT        20
+#define T30_ERR_TOO_LONG_SCAN_LINE         21
+/* #define T30_ERR_RETRY_NO_PAGE_AFTER_MPS    22 */
+#define T30_ERR_RETRY_NO_PAGE_RECEIVED     23
+#define T30_ERR_RETRY_NO_DCS_AFTER_FTT     24
+#define T30_ERR_RETRY_NO_DCS_AFTER_EOM     25
+#define T30_ERR_RETRY_NO_DCS_AFTER_MPS     26
+#define T30_ERR_RETRY_NO_DCN_AFTER_MCF     27
+#define T30_ERR_RETRY_NO_DCN_AFTER_RTN     28
+#define T30_ERR_RETRY_NO_CFR               29
+#define T30_ERR_RETRY_NO_MCF_AFTER_EOP     30
+#define T30_ERR_RETRY_NO_MCF_AFTER_EOM     31
+#define T30_ERR_RETRY_NO_MCF_AFTER_MPS     32
+#define T30_ERR_SUB_SEP_UNSUPPORTED        33
+#define T30_ERR_PWD_UNSUPPORTED            34
+#define T30_ERR_SUB_SEP_PWD_UNSUPPORTED    35
+#define T30_ERR_INVALID_COMMAND_FRAME      36
+#define T30_ERR_UNSUPPORTED_PAGE_CODING    37
+#define T30_ERR_INVALID_PAGE_CODING        38
+#define T30_ERR_INCOMPATIBLE_PAGE_CONFIG   39
+#define T30_ERR_TIMEOUT_FROM_APPLICATION   40
+
 
 #define T30_CONTROL_BIT_DISABLE_FINE       0x0001
 #define T30_CONTROL_BIT_ENABLE_ECM         0x0002
@@ -425,33 +578,6 @@ struct _DIVA_CAPI_ADAPTER {
 #define T30_FEATURE_BIT_UNCOMPR_ENABLED    0x0020
 #define T30_FEATURE_BIT_POLLING            0x0040
 #define T30_FEATURE_BIT_MORE_DOCUMENTS     0x0100
-
-
-typedef struct t30_info_s T30_INFO;
-struct t30_info_s {
-  byte          code;
-  byte          rate;
-  byte          resolution;
-  byte          format;
-  byte          pages_low;
-  byte          pages_high;
-  byte          atf;
-  byte          control_bits_low;
-  byte          control_bits_high;
-  byte          feature_bits_low;
-  byte          feature_bits_high;
-  byte          universal_5;
-  byte          universal_6;
-  byte          universal_7;
-  byte          station_id_len;
-  byte          head_line_len;
-  byte          station_id[20];
-/* byte          head_line[];    */
-/* byte          sub_sep_length; */
-/* byte          sub_sep_field;  */
-/* byte          pwd_length;     */
-/* byte          pwd_field;      */
-};
 
 
 /*------------------------------------------------------------------*/
@@ -637,6 +763,7 @@ struct async_s {
 #define MANUFACTURER_FEATURE_PIAFS                0x00100000L
 #define MANUFACTURER_FEATURE_DTMF_TONE            0x00200000L
 #define MANUFACTURER_FEATURE_FAX_PAPER_FORMATS    0x00400000L
+#define MANUFACTURER_FEATURE_OK_FC_LABEL          0x00800000L
 
 /*------------------------------------------------------------------*/
 /* DTMF interface to IDI                                            */
@@ -842,6 +969,14 @@ struct li_config_pri_s {
 /* T.38 interface to IDI                                            */
 /*------------------------------------------------------------------*/
 
+
+#define B1_T38                  30
+#define B2_T38                  30
+#define B3_T38                  30
+
+#define PRIVATE_T38                    2
+
+
 /*------------------------------------------------------------------*/
 /* PIAFS interface to IDI                                            */
 /*------------------------------------------------------------------*/
@@ -980,6 +1115,15 @@ struct li_config_pri_s {
 
 
 /*------------------------------------------------------------------*/
+/* FAX SUB/SEP/PWD extension                                        */
+/*------------------------------------------------------------------*/
+
+
+#define PRIVATE_FAX_PAPER_FORMATS      6
+
+
+
+/*------------------------------------------------------------------*/
 /* Advanced voice                                                   */
 /*------------------------------------------------------------------*/
 
@@ -1048,5 +1192,15 @@ struct li_config_pri_s {
 #define N_RX_FLOW_CONTROL_MASK  0x3f
 #define N_OK_FC_PENDING         0x80
 #define N_TX_FLOW_CONTROL_MASK  0xc0
+
+/*------------------------------------------------------------------*/
+/* NCPI state                                                       */
+/*------------------------------------------------------------------*/
+#define NCPI_VALID_CONNECT_B3_IND  0x01
+#define NCPI_VALID_CONNECT_B3_ACT  0x02
+#define NCPI_VALID_DISC_B3_IND     0x04
+#define NCPI_CONNECT_B3_ACT_SENT   0x08
+#define NCPI_MDM_CTS_ON_RECEIVED   0x40
+#define NCPI_MDM_DCD_ON_RECEIVED   0x80
 
 /*------------------------------------------------------------------*/
