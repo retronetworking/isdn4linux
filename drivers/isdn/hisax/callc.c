@@ -30,9 +30,6 @@ static void release_b_st(struct Channel *chanp);
 static struct Fsm callcfsm =
 {NULL, 0, 0, NULL, NULL};
 
-/* experimental REJECT after ALERTING for CALLBACK to beat the 4s delay */
-#define ALERT_REJECT 0
-
 /* Value to delay the sending of the first B-channel paket after CONNECT
  * here is no value given by ITU, but experience shows that 300 ms will
  * work on many networks, if you or your other side is behind local exchanges
@@ -356,8 +353,10 @@ lli_prep_dialout(struct FsmInst *fi, int event, void *arg)
 {
 	struct Channel *chanp = fi->userdata;
 
-	FsmDelTimer(&chanp->drel_timer, 60);
-	FsmDelTimer(&chanp->dial_timer, 73);
+	chanp->setup = *(setup_parm *) arg;
+	if (!strcmp(chanp->setup.eazmsn, "0"))
+		chanp->setup.eazmsn[0] = '\0';
+
 	chanp->l2_active_protocol = chanp->l2_protocol;
 	chanp->incoming = 0;
 	chanp->cs->cardmsg(chanp->cs, MDL_INFO_SETUP, (void *) (long)chanp->chan);
@@ -375,8 +374,6 @@ lli_resume(struct FsmInst *fi, int event, void *arg)
 {
 	struct Channel *chanp = fi->userdata;
 
-	FsmDelTimer(&chanp->drel_timer, 60);
-	FsmDelTimer(&chanp->dial_timer, 73);
 	chanp->l2_active_protocol = chanp->l2_protocol;
 	chanp->incoming = 0;
 	chanp->cs->cardmsg(chanp->cs, MDL_INFO_SETUP, (void *) (long)chanp->chan);
@@ -438,13 +435,11 @@ lli_deliver_call(struct FsmInst *fi, int event, void *arg)
 
 		switch (ret) {
 			case 1:	/* OK, someone likes this call */
-				FsmDelTimer(&chanp->drel_timer, 61);
 				FsmChangeState(fi, ST_IN_ALERT_SENT);
 				Dp_L4L3(chanp, CC_ALERTING | REQUEST, 0);
 				break;
 			case 5: /* direct redirect */
 			case 4: /* Proceeding desired */
-				FsmDelTimer(&chanp->drel_timer, 61);
 				FsmChangeState(fi, ST_IN_PROCEED_SEND);
 				Dp_L4L3(chanp, CC_PROCEED_SEND | REQUEST, 0);
 				if (ret == 5) {
@@ -600,16 +595,10 @@ lli_reject_req(struct FsmInst *fi, int event, void *arg)
 		lli_leased_hup(fi, chanp);
 		return;
 	}
-#ifndef ALERT_REJECT
 	if (chanp->l4pc.l3pc)
 		chanp->l4pc.l3pc->para.cause = 0x15;	/* Call Rejected */
 	Dp_L4L3(chanp, CC_REJECT | REQUEST, 0);
 	lli_dhup_close(fi, event, arg);
-#else
-	FsmRestartTimer(&chanp->drel_timer, 40, EV_HANGUP, NULL, 63);
-	FsmChangeState(fi, ST_IN_ALERT_SENT);
-	Dp_L4L3(chanp, CC_ALERTING | REQUEST, 0);
-#endif
 }
 
 static void
@@ -1276,8 +1265,6 @@ channelConstr(struct Channel *chanp, struct CallcIf *c_if, int chan)
 	chanp->fi.debug = LL_DEB_WARN;
 	chanp->fi.userdata = chanp;
 	chanp->fi.printdebug = callc_debug;
-	FsmInitTimer(&chanp->fi, &chanp->dial_timer);
-	FsmInitTimer(&chanp->fi, &chanp->drel_timer);
 	if (!chan || test_bit(FLG_TWO_DCHAN, &c_if->cs->HW_Flags)) {
 		init_d_st(chanp);
 	} else {
@@ -1304,8 +1291,6 @@ release_d_st(struct Channel *chanp)
 static void
 channelDestr(struct Channel *chanp)
 {
-	FsmDelTimer(&chanp->drel_timer, 74);
-	FsmDelTimer(&chanp->dial_timer, 75);
 	if ((chanp->chan == 0) || test_bit(FLG_TWO_DCHAN, &chanp->cs->HW_Flags))
 		release_d_st(chanp);
 	else
@@ -1480,12 +1465,7 @@ lli_got_fac_req(struct Channel *chanp, capi_msg *cm) {
 			break;
 		case 5: /* Resume */
 			strncpy(chanp->setup.phone, &cm->para[5], cm->para[5] +1);
-			if (chanp->fi.state == ST_NULL) {
-				FsmEvent(&chanp->fi, EV_RESUME, cm);
-			} else {
-				FsmDelTimer(&chanp->dial_timer, 72);
-				FsmAddTimer(&chanp->dial_timer, 80, EV_RESUME, cm, 73);
-			}
+			FsmEvent(&chanp->fi, EV_RESUME, cm);
 			break;
 	}
 }
@@ -1532,11 +1512,11 @@ int HiSax_ioctl(struct CallcIf *c_if, isdn_ctrl *ic)
 	struct Channel *chanp;
 
 	switch (ic->arg) {
-	case (0):
+	case 0:
 		num = *(unsigned int *) ic->parm.num;
 		HiSax_reportcard(c_if->cs->cardnr, num);
 		break;
-	case (1):
+	case 1:
 		num = *(unsigned int *) ic->parm.num;
 		distr_debug(c_if, num);
 		printk(KERN_DEBUG "HiSax: debugging flags card %d set to %x\n",
@@ -1544,7 +1524,7 @@ int HiSax_ioctl(struct CallcIf *c_if, isdn_ctrl *ic)
 		HiSax_putstatus(c_if->cs, "debugging flags ",
 				"card %d set to %x", c_if->cs->cardnr + 1, num);
 		break;
-	case (2):
+	case 2:
 		num = *(unsigned int *) ic->parm.num;
 		c_if->channel[0].b_st->l1.delay = num;
 		c_if->channel[1].b_st->l1.delay = num;
@@ -1553,15 +1533,15 @@ int HiSax_ioctl(struct CallcIf *c_if, isdn_ctrl *ic)
 		printk(KERN_DEBUG "HiSax: delay card %d set to %d ms\n",
 		       c_if->cs->cardnr + 1, num);
 		break;
-	case (3):
+	case 3:
 		for (i = 0; i < *(unsigned int *) ic->parm.num; i++)
 			HiSax_mod_dec_use_count(c_if->cs);
 		break;
-	case (4):
+	case 4:
 		for (i = 0; i < *(unsigned int *) ic->parm.num; i++)
 			HiSax_mod_inc_use_count(c_if->cs);
 		break;
-	case (5):	/* set card in leased mode */
+	case 5:	/* set card in leased mode */
 		num = *(unsigned int *) ic->parm.num;
 		if ((num <1) || (num > 2)) {
 			HiSax_putstatus(c_if->cs, "Set LEASED ",
@@ -1580,13 +1560,13 @@ int HiSax_ioctl(struct CallcIf *c_if, isdn_ctrl *ic)
 			D_L4L3(chanp, DL_ESTABLISH | REQUEST, NULL);
 		}
 		break;
-	case (6):	/* set B-channel test loop */
+	case 6:	/* set B-channel test loop */
 		num = *(unsigned int *) ic->parm.num;
 		if (c_if->cs->stlist)
 			c_if->cs->stlist->l2.l2l1(c_if->cs->stlist,
 						  PH_TESTLOOP | REQUEST, (void *) (long)num);
 		break;
-	case (7):	/* set card in PTP mode */
+	case 7:	/* set card in PTP mode */
 		num = *(unsigned int *) ic->parm.num;
 		if (test_bit(FLG_TWO_DCHAN, &c_if->cs->HW_Flags)) {
 			printk(KERN_ERR "HiSax PTP mode only with one TEI possible\n");
@@ -1605,7 +1585,7 @@ int HiSax_ioctl(struct CallcIf *c_if, isdn_ctrl *ic)
 			printk(KERN_DEBUG "HiSax: set card in PTMP mode\n");
 		}
 		break;
-	case (8):	/* set card in FIXED TEI mode */
+	case 8:	/* set card in FIXED TEI mode */
 		num = *(unsigned int *) ic->parm.num;
 		chanp = c_if->channel + (num & 1);
 		num = num >>1;
@@ -1623,7 +1603,10 @@ int HiSax_ioctl(struct CallcIf *c_if, isdn_ctrl *ic)
 		}
 		D_L4L3(chanp, DL_ESTABLISH | REQUEST, NULL);
 		break;
-	case (11):
+	case 10:
+		i = *(unsigned int *) ic->parm.num;
+		return(set_channel_limit(c_if->cs, i));
+	case 11:
 		num = c_if->cs->debug & DEB_DLOG_HEX;
 		c_if->cs->debug = *(unsigned int *) ic->parm.num;
 		c_if->cs->debug |= num;
@@ -1633,7 +1616,7 @@ int HiSax_ioctl(struct CallcIf *c_if, isdn_ctrl *ic)
 		printk(KERN_DEBUG "HiSax: l1 debugging flags card %d set to %x\n",
 		       c_if->cs->cardnr + 1, c_if->cs->debug);
 		break;
-	case (13):
+	case 13:
 		c_if->channel[0].d_st->l3.debug = *(unsigned int *) ic->parm.num;
 		c_if->channel[1].d_st->l3.debug = *(unsigned int *) ic->parm.num;
 		HiSax_putstatus(c_if->cs, "l3 debugging ",
@@ -1642,9 +1625,6 @@ int HiSax_ioctl(struct CallcIf *c_if, isdn_ctrl *ic)
 		printk(KERN_DEBUG "HiSax: l3 debugging flags card %d set to %x\n",
 		       c_if->cs->cardnr + 1, *(unsigned int *) ic->parm.num);
 		break;
-	case (10):
-		i = *(unsigned int *) ic->parm.num;
-		return(set_channel_limit(c_if->cs, i));
 	default:
 		if (c_if->cs->auxcmd)
 			return(c_if->cs->auxcmd(c_if->cs, ic));
@@ -1669,34 +1649,34 @@ HiSax_command_debug(struct CallcIf *c_if, isdn_ctrl *ic)
 		link_debug(LL_DEB_INFO, chanp, 1, "SETL2 card %d %ld",
 			   cardnr + 1, ic->arg >> 8);
 		break;
-	case (ISDN_CMD_SETL3):
+	case ISDN_CMD_SETL3:
 		link_debug(LL_DEB_INFO, chanp, 1, "SETL3 card %d %ld",
 			   c_if->cs->cardnr + 1, ic->arg >> 8);
 		break;
-	case (ISDN_CMD_DIAL):
+	case ISDN_CMD_DIAL:
 		link_debug(LL_DEB_INFO, chanp, 1, "DIAL %s -> %s (%d,%d)",
 			   ic->parm.setup.eazmsn, ic->parm.setup.phone,
 			   ic->parm.setup.si1, ic->parm.setup.si2);
 		break;
-	case (ISDN_CMD_ACCEPTB):
+	case ISDN_CMD_ACCEPTB:
 		link_debug(LL_DEB_INFO, chanp, 1, "ACCEPTB");
 		break;
-	case (ISDN_CMD_ACCEPTD):
+	case ISDN_CMD_ACCEPTD:
 		link_debug(LL_DEB_INFO, chanp, 1, "ACCEPTD");
 		break;
-	case (ISDN_CMD_HANGUP):
+	case ISDN_CMD_HANGUP:
 		link_debug(LL_DEB_INFO, chanp, 1, "HANGUP");
 		break;
-	case (ISDN_CMD_PROCEED):
+	case ISDN_CMD_PROCEED:
 		link_debug(LL_DEB_INFO, chanp, 1, "PROCEED");
 		break;
-	case (ISDN_CMD_ALERT):
+	case ISDN_CMD_ALERT:
 		link_debug(LL_DEB_INFO, chanp, 1, "ALERT");
 		break;
-	case (ISDN_CMD_REDIR):
+	case ISDN_CMD_REDIR:
 		link_debug(LL_DEB_INFO, chanp, 1, "REDIR");
 		break;
-	case (CAPI_PUT_MESSAGE):
+	case CAPI_PUT_MESSAGE:
 		capi_debug(chanp, &ic->parm.cmsg);
 		break;
 	}
@@ -1719,37 +1699,27 @@ HiSax_command(isdn_ctrl * ic)
 
 	chanp = &c_if->channel[ic->arg & 0xff];
 	switch (ic->command) {
-	case (ISDN_CMD_SETEAZ):
+	case ISDN_CMD_SETEAZ:
 		break;
-	case (ISDN_CMD_SETL2):
+	case ISDN_CMD_SETL2:
 		chanp->l2_protocol = ic->arg >> 8;
 		break;
-	case (ISDN_CMD_SETL3):
+	case ISDN_CMD_SETL3:
 		chanp->l3_protocol = ic->arg >> 8;
 		break;
-	case (ISDN_CMD_DIAL):
-		chanp->setup = ic->parm.setup;
-		if (!strcmp(chanp->setup.eazmsn, "0"))
-			chanp->setup.eazmsn[0] = '\0';
-		/* this solution is dirty and may be change, if
-		 * we make a callreference based callmanager */
-		if (chanp->fi.state == ST_NULL) {
-			FsmEvent(&chanp->fi, EV_DIAL, NULL);
-		} else {
-			FsmDelTimer(&chanp->dial_timer, 70);
-			FsmAddTimer(&chanp->dial_timer, 50, EV_DIAL, NULL, 71);
-		}
+	case ISDN_CMD_DIAL:
+		FsmEvent(&chanp->fi, EV_DIAL, &ic->parm.setup);
 		break;
-	case (ISDN_CMD_ACCEPTB):
+	case ISDN_CMD_ACCEPTB:
 		FsmEvent(&chanp->fi, EV_ACCEPTB, NULL);
 		break;
-	case (ISDN_CMD_ACCEPTD):
+	case ISDN_CMD_ACCEPTD:
 		FsmEvent(&chanp->fi, EV_ACCEPTD, NULL);
 		break;
-	case (ISDN_CMD_HANGUP):
+	case ISDN_CMD_HANGUP:
 		FsmEvent(&chanp->fi, EV_HANGUP, NULL);
 		break;
-	case (CAPI_PUT_MESSAGE):
+	case CAPI_PUT_MESSAGE:
 		if (chanp->debug & 1)
 			capi_debug(chanp, &ic->parm.cmsg);
 		if (ic->parm.cmsg.Length < 8)
@@ -1767,31 +1737,31 @@ HiSax_command(isdn_ctrl * ic)
 			break;
 		}
 		break;
-	case (ISDN_CMD_PROCEED):
+	case ISDN_CMD_PROCEED:
 		FsmEvent(&chanp->fi, EV_PROCEED, NULL);
 		break;
 
-	case (ISDN_CMD_ALERT):
+	case ISDN_CMD_ALERT:
 		FsmEvent(&chanp->fi, EV_ALERT, NULL);
 		break;
 
-	case (ISDN_CMD_REDIR):
+	case ISDN_CMD_REDIR:
 		chanp->setup = ic->parm.setup;
 		FsmEvent(&chanp->fi, EV_REDIR, NULL);
 		break;
 
 		/* protocol specific io commands */
-	case (ISDN_CMD_PROT_IO):
+	case ISDN_CMD_PROT_IO:
 		if (c_if->b3_mode - B3_MODE_CC == (ic->arg & 0xFF))
 			return c_if->channel[0].d_st->l3.l4l3_proto(c_if->channel[0].d_st, ic);
 		return -EINVAL;
-	case (ISDN_CMD_LOCK):
+	case ISDN_CMD_LOCK:
 		HiSax_mod_inc_use_count(c_if->cs);
 		break;
-	case (ISDN_CMD_UNLOCK):
+	case ISDN_CMD_UNLOCK:
 		HiSax_mod_dec_use_count(c_if->cs);
 		break;
-	case (ISDN_CMD_IOCTL):
+	case ISDN_CMD_IOCTL:
 		return HiSax_ioctl(c_if, ic);
 		
 	default:

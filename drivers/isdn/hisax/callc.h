@@ -14,7 +14,6 @@ struct Channel {
 	int tx_cnt;
 	int incoming;
 	struct FsmInst fi;
-	struct FsmTimer drel_timer, dial_timer;
 	int l2_protocol, l2_active_protocol;
 	int l3_protocol;
 	int data_open;
