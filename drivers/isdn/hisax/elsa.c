@@ -8,6 +8,9 @@
  *
  *
  * $Log$
+ * Revision 1.14.2.1  1997/06/25 09:11:24  fritz
+ * Changed SET_SKB_FREE stuff in HiSax.
+ *
  * Revision 1.14  1997/04/13 19:53:25  keil
  * Fixed QS1000 init, change in IRQ check delay for SMP
  *
@@ -433,7 +436,7 @@ hscx_interrupt(struct IsdnCardState *sp, u_char val, u_char hscx)
 
 		r = readhscx(sp->cfg_reg, hsp->hscx, HSCX_RSTA);
 		if ((r & 0xf0) != 0xa0) {
-			if (!r & 0x80)
+			if (!(r & 0x80))
 				if (sp->debug & L1_DEB_WARN)
 					debugl1(sp, "HSCX invalid frame");
 			if ((r & 0x40) && hsp->mode)
@@ -442,7 +445,7 @@ hscx_interrupt(struct IsdnCardState *sp, u_char val, u_char hscx)
 						hsp->mode);
 					debugl1(sp, tmp);
 				}
-			if (!r & 0x20)
+			if (!(r & 0x20))
 				if (sp->debug & L1_DEB_WARN)
 					debugl1(sp, "HSCX CRC error");
 			writehscxCMDR(sp->cfg_reg, hsp->hscx, 0x80);

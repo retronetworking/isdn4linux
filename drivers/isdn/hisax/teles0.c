@@ -10,6 +10,9 @@
  *              Beat Doebeli
  *
  * $Log$
+ * Revision 1.8.2.1  1997/06/25 09:11:39  fritz
+ * Changed SET_SKB_FREE stuff in HiSax.
+ *
  * Revision 1.8  1997/04/13 19:54:04  keil
  * Change in IRQ check delay for SMP
  *
@@ -276,7 +279,7 @@ hscx_interrupt(struct IsdnCardState *sp, u_char val, u_char hscx)
 
 		r = readhscx(sp->membase, hsp->hscx, HSCX_RSTA);
 		if ((r & 0xf0) != 0xa0) {
-			if (!r & 0x80)
+			if (!(r & 0x80))
 				if (sp->debug & L1_DEB_WARN)
 					debugl1(sp, "HSCX invalid frame");
 			if ((r & 0x40) && hsp->mode)
@@ -285,7 +288,7 @@ hscx_interrupt(struct IsdnCardState *sp, u_char val, u_char hscx)
 						hsp->mode);
 					debugl1(sp, tmp);
 				}
-			if (!r & 0x20)
+			if (!(r & 0x20))
 				if (sp->debug & L1_DEB_WARN)
 					debugl1(sp, "HSCX CRC error");
 			writehscxCMDR(sp->membase, hsp->hscx, 0x80);
