@@ -5,6 +5,9 @@
  * another -- protocol specific -- source file.
  *
  * $Log$
+ * Revision 1.2  1998/01/31 22:49:21  keil
+ * correct comments
+ *
  * Revision 1.1  1998/01/31 22:27:57  keil
  * New files from Henner Eisen for X.25 support
  *
@@ -24,7 +27,7 @@ extern int isdn_net_force_dial_lp(isdn_net_local *);
 
 
 /* The following set of device service operations are for encapsulation
-   protocols that require for reliable datalink sematics. That means:
+   protocols that require for reliable datalink semantics. That means:
 
    - before any data is to be submitted the connection must explicitly
      be set up.

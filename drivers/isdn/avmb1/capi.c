@@ -6,6 +6,9 @@
  * Copyright 1996 by Carsten Paeth (calle@calle.in-berlin.de)
  *
  * $Log$
+ * Revision 1.11  1998/03/09 17:46:37  he
+ * merged in 2.1.89 changes
+ *
  * Revision 1.10  1998/02/13 07:09:13  calle
  * change for 2.1.86 (removing FREE_READ/FREE_WRITE from [dev]_kfree_skb()
  *
@@ -387,7 +390,7 @@ static int capi_ioctl(struct inode *inode, struct file *file,
 			struct capi_manufacturer_cmd mcmd;
 			if (minor)
 				return -EINVAL;
-			if (!suser())
+			if (!capable(CAP_SYS_ADMIN))
 				return -EPERM;
 			retval = copy_from_user((void *) &mcmd, (void *) arg,
 						sizeof(mcmd));

@@ -21,6 +21,12 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.65  1998/05/22 10:01:11  detabc
+ * in case of a icmp-unreach condition the tcp-keepalive-entrys
+ * will be dropped from the internal double-link-list (only abc-extension).
+ * send icmp unreach only if the skb->protocol == ETH_P_IP
+ * speedup abc-no-dchan  redial
+ *
  * Revision 1.64  1998/05/07 19:58:39  detabc
  * bugfix in abc_delayed_hangup
  * optimize keepalive-tests for abc_rawip
@@ -894,20 +900,24 @@ isdn_net_stat_callback(int idx, isdn_ctrl *c)
 						if( pops )
 							if( pops->connect_ind)
 								pops->connect_ind(cprot);
-
 #endif /* CONFIG_ISDN_X25 */
 						if (lp->first_skb) {
 							
 							if (!(isdn_net_xmit(&p->dev, lp, lp->first_skb)))
 								lp->first_skb = NULL;
 						}
-#ifdef CONFIG_ISDN_TIMEOUT_RULES
 						else {
+							/*
+							 * dev.tbusy is usually cleared implicitly by isdn_net_xmit(,,lp->first_skb).
+							 * With an empty lp->first_skb, we need to do this ourselves
+							 */
+							lp->netdev->dev.tbusy = 0;
+#ifdef CONFIG_ISDN_TIMEOUT_RULES
 							/* recalc initial huptimeout,
 							   there is no packet to match the rules. */
 							isdn_net_recalc_timeout(ISDN_TIMRU_BRINGUP, ISDN_TIMRU_PACKET_NONE, &p->dev, NULL, 0);
-						}
 #endif
+						}
 						return 1;
 				}
 				break;
