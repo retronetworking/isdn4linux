@@ -11,6 +11,10 @@
  *              Fritz Elfert
  *
  * $Log$
+ * Revision 1.30.2.12  1998/11/03 00:05:51  keil
+ * certification related changes
+ * fixed logging for smaller stack use
+ *
  * Revision 1.30.2.11  1998/09/30 22:20:05  keil
  * Cosmetics
  *
@@ -96,7 +100,7 @@ static struct Fsm callcfsm =
 
 static int chancount = 0;
 
-/* experimental REJECT after ALERTING for CALLBACK to beat the 4s delay */ 
+/* experimental REJECT after ALERTING for CALLBACK to beat the 4s delay */
 #define ALERT_REJECT 0
 
 /* Value to delay the sending of the first B-channel paket after CONNECT
@@ -104,7 +108,7 @@ static int chancount = 0;
  * work on many networks, if you or your other side is behind local exchanges
  * a greater value may be recommented. If the delay is to short the first paket
  * will be lost and autodetect on many comercial routers goes wrong !
- * You can adjust this value on runtime with 
+ * You can adjust this value on runtime with
  * hisaxctrl <id> 2 <value>
  * value is in milliseconds
  */
@@ -169,9 +173,9 @@ link_debug(struct Channel *chanp, int direction, char *fmt, ...)
 {
 	va_list args;
 	char tmp[16];
-	
+
 	va_start(args, fmt);
-	sprintf(tmp, "Ch%d %s ", chanp->chan, 
+	sprintf(tmp, "Ch%d %s ", chanp->chan,
 		direction ? "LL->HL" : "HL->LL");
 	VHiSax_putstatus(chanp->cs, tmp, fmt, args);
 	va_end(args);
@@ -313,7 +317,7 @@ lli_d_established(struct FsmInst *fi, int event, void *arg)
 		ic.parm.setup.si2 = 0;
 		ic.parm.setup.plan = 0;
 		ic.parm.setup.screen = 0;
-		sprintf(ic.parm.setup.eazmsn,"%d", chanp->chan + 1); 
+		sprintf(ic.parm.setup.eazmsn,"%d", chanp->chan + 1);
 		sprintf(ic.parm.setup.phone,"LEASED%d", chanp->cs->myid);
 		ret = chanp->cs->iif.statcallb(&ic);
 		if (chanp->debug & 1)
@@ -434,10 +438,10 @@ lli_start_dchan(struct FsmInst *fi, int event, void *arg)
 		test_and_set_bit(FLG_DO_CONNECT, &chanp->Flags);
 	else if (event == EV_HANGUP) {
 		test_and_set_bit(FLG_DO_HANGUP, &chanp->Flags);
-#ifdef ALERT_REJECT		
+#ifdef ALERT_REJECT
 		test_and_set_bit(FLG_DO_ALERT, &chanp->Flags);
 #endif
-	} 
+	}
 	if (test_bit(FLG_ESTAB_D, &chanp->Flags)) {
 		FsmEvent(fi, EV_DLEST, NULL);
 	} else if (!test_and_set_bit(FLG_START_D, &chanp->Flags))
@@ -514,7 +518,7 @@ lli_deliver_call(struct FsmInst *fi, int event, void *arg)
 static void
 lli_establish_d(struct FsmInst *fi, int event, void *arg)
 {
-	/* This establish the D-channel for pending L3 messages 
+	/* This establish the D-channel for pending L3 messages
 	 * without blocking the channel
 	 */
 	struct Channel *chanp = fi->userdata;
@@ -1190,7 +1194,7 @@ struct Channel
 			return (chanp);
 		chanp++;
 		i++;
-	}		
+	}
 	return (NULL);
 }
 
@@ -1210,7 +1214,7 @@ is_activ(struct PStack *st)
 			return (1);
 		chanp++;
 		i++;
-	}		
+	}
 	return (0);
 }
 
@@ -1235,7 +1239,7 @@ dchan_l3l4(struct PStack *st, int pr, void *arg)
 	}
 	if (event >= 0) {
 		int i;
-		
+
 		chanp = st->lli.userdata;
 		if (test_bit(FLG_TWO_DCHAN, &cs->HW_Flags))
 			i = 1;
@@ -1259,7 +1263,7 @@ dchan_l3l4(struct PStack *st, int pr, void *arg)
 	}
 	if (!(chanp = pc->chan))
 		return;
-	
+
 	switch (pr) {
 		case (CC_DISCONNECT | INDICATION):
 			FsmEvent(&chanp->fi, EV_DISCONNECT_IND, NULL);
@@ -1679,6 +1683,7 @@ distr_debug(struct IsdnCardState *csta, int debugflags)
 		chanp[i].b_st->ma.tei_m.debug = debugflags & 0x200;
 		chanp[i].b_st->ma.debug = debugflags & 0x200;
 		chanp[i].d_st->l1.l1m.debug = debugflags & 0x1000;
+		chanp[i].b_st->l1.l1m.debug = debugflags & 0x2000;
 	}
 	if (debugflags & 4)
 		csta->debug |= DEB_DLOG_HEX;
@@ -1737,7 +1742,7 @@ lli_got_manufacturer(struct Channel *chanp, struct IsdnCardState *cs, capi_msg *
 		if (cs->hw.elsa.MFlag) {
 			cs->cardmsg(cs, CARD_AUX_IND, cm->para);
 		}
-	}	
+	}
 }
 #endif
 
@@ -1756,22 +1761,22 @@ HiSax_command(isdn_ctrl * ic)
 		       ic->command, ic->driver);
 		return -ENODEV;
 	}
-	
+
 	switch (ic->command) {
 		case (ISDN_CMD_SETEAZ):
 			chanp = csta->channel + ic->arg;
 			break;
-		
+
 		case (ISDN_CMD_SETL2):
 			chanp = csta->channel + (ic->arg & 0xff);
 			if (chanp->debug & 1)
-				link_debug(chanp, 1, "SETL2 card %d %ld", 
+				link_debug(chanp, 1, "SETL2 card %d %ld",
 					csta->cardnr + 1, ic->arg >> 8);
 			chanp->l2_protocol = ic->arg >> 8;
 			break;
 		case (ISDN_CMD_SETL3):
 			chanp = csta->channel + (ic->arg & 0xff);
-			if (chanp->debug & 1) 
+			if (chanp->debug & 1)
 				link_debug(chanp, 1, "SETL3 card %d %ld",
 					csta->cardnr + 1, ic->arg >> 8);
 			chanp->l3_protocol = ic->arg >> 8;
@@ -1865,7 +1870,7 @@ HiSax_command(isdn_ctrl * ic)
 						"card %d set to %x", csta->cardnr + 1, num);
 					break;
 				case (2):
-					num = *(unsigned int *) ic->parm.num; 
+					num = *(unsigned int *) ic->parm.num;
 					csta->channel[0].b_st->l1.delay = num;
 					csta->channel[1].b_st->l1.delay = num;
 					HiSax_putstatus(csta, "delay ", "card %d set to %d ms",

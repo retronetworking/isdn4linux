@@ -1,10 +1,13 @@
 /* $Id$
 
- * Author       Karsten Keil (keil@temic-ech.spacenet.de)
+ * Author       Karsten Keil (keil@isdn4linux.de)
  *              based on the teles driver from Jan den Ouden
  *
  *
  * $Log$
+ * Revision 1.15.2.20  1998/11/04 11:50:32  fritz
+ * Make compile with modversions enabled.
+ *
  * Revision 1.15.2.19  1998/11/03 00:06:05  keil
  * certification related changes
  * fixed logging for smaller stack use
@@ -124,7 +127,7 @@
  *   24 Dr Neuhaus Niccy PnP/PCI card p0=irq p1=IO0 p2=IO1 (PnP only)
  *   25 Teles S0Box             p0=irq p1=iobase (from isapnp setup)
  *   26 AVM A1 PCMCIA (Fritz)   p0=irq p1=iobase
- *   27 AVM PCI (Fritz!PCI)     no parameter
+ *   27 AVM PnP/PCI 		p0=irq p1=iobase (PCI no parameter)
  *   28 Sedlbauer Speed Fax+ 	p0=irq p1=iobase (from isapnp setup)
  *
  * protocol can be either ISDN_PTYPE_EURO or ISDN_PTYPE_1TR6 or ISDN_PTYPE_NI1
@@ -135,10 +138,10 @@
 const char *CardType[] =
 {"No Card", "Teles 16.0", "Teles 8.0", "Teles 16.3", "Creatix/Teles PnP",
  "AVM A1", "Elsa ML", "Elsa Quickstep", "Teles PCMCIA", "ITK ix1-micro Rev.2",
- "Elsa PCMCIA", "Eicon.Diehl Diva", "ISDNLink", "TeleInt", "Teles 16.3c", 
+ "Elsa PCMCIA", "Eicon.Diehl Diva", "ISDNLink", "TeleInt", "Teles 16.3c",
  "Sedlbauer Speed Card", "USR Sportster", "ith mic Linux", "Elsa PCI",
  "Compaq ISA", "NETjet", "Teles PCI", "Sedlbauer Speed Star (PCMCIA)",
- "AMD 7930", "NICCY", "S0Box", "AVM A1 (PCMCIA)", "AVM Fritz!PCI",
+ "AMD 7930", "NICCY", "S0Box", "AVM A1 (PCMCIA)", "AVM Fritz PnP/PCI",
  "Sedlbauer Speed Fax +"
 };
 
@@ -319,10 +322,10 @@ static struct symbol_table hisax_syms_sedl= {
 #endif
 
 #define FIRST_CARD { \
-  DEFAULT_CARD, \
-  DEFAULT_PROTO, \
-  DEFAULT_CFG, \
-  NULL, \
+	DEFAULT_CARD, \
+	DEFAULT_PROTO, \
+	DEFAULT_CFG, \
+	NULL, \
 }
 
 #define EMPTY_CARD	{0, DEFAULT_PROTO, {0, 0, 0, 0}, NULL}
@@ -415,15 +418,15 @@ HiSaxVersion(void))
 	char tmp[64];
 
 	printk(KERN_INFO "HiSax: Linux Driver for passive ISDN cards\n");
-	printk(KERN_INFO "HiSax: Version 3.0d\n");
+	printk(KERN_INFO "HiSax: Version 3.0e\n");
 	strcpy(tmp, l1_revision);
-	printk(KERN_INFO "HiSax: Layer1 Revision %s\n", HiSax_getrev(tmp)); 
+	printk(KERN_INFO "HiSax: Layer1 Revision %s\n", HiSax_getrev(tmp));
 	strcpy(tmp, l2_revision);
-	printk(KERN_INFO "HiSax: Layer2 Revision %s\n", HiSax_getrev(tmp)); 
+	printk(KERN_INFO "HiSax: Layer2 Revision %s\n", HiSax_getrev(tmp));
 	strcpy(tmp, tei_revision);
-	printk(KERN_INFO "HiSax: TeiMgr Revision %s\n", HiSax_getrev(tmp)); 
+	printk(KERN_INFO "HiSax: TeiMgr Revision %s\n", HiSax_getrev(tmp));
 	strcpy(tmp, l3_revision);
-	printk(KERN_INFO "HiSax: Layer3 Revision %s\n", HiSax_getrev(tmp)); 
+	printk(KERN_INFO "HiSax: Layer3 Revision %s\n", HiSax_getrev(tmp));
 	strcpy(tmp, lli_revision);
 	printk(KERN_INFO "HiSax: LinkLayer Revision %s\n", HiSax_getrev(tmp));
 	certification_check(1);
@@ -515,7 +518,7 @@ extern int setup_avm_a1_pcmcia(struct IsdnCard *card);
 #endif
 
 #if CARD_FRITZPCI
-extern int setup_avm_pci(struct IsdnCard *card);
+extern int setup_avm_pcipnp(struct IsdnCard *card);
 #endif
 
 #if CARD_ELSA
@@ -585,19 +588,35 @@ int
 HiSax_readstatus(u_char * buf, int len, int user, int id, int channel)
 {
 	int count;
-	u_char *p;
-	struct IsdnCardState *csta = hisax_findcard(id);
+	u_char *p = buf;
+	struct IsdnCardState *cs = hisax_findcard(id);
 
-	if (csta) {
-		for (p = buf, count = 0; count < len; p++, count++) {
-			if (user)
-				put_user(*csta->status_read++, p);
-			else
-				*p++ = *csta->status_read++;
-			if (csta->status_read > csta->status_end)
-				csta->status_read = csta->status_buf;
+	if (cs) {
+		if (len > HISAX_STATUS_BUFSIZE) {
+			printk(KERN_WARNING "HiSax: status overflow readstat %d/%d",
+				len, HISAX_STATUS_BUFSIZE);
+			return -ENODEV;
 		}
-		return count;
+		count = cs->status_end - cs->status_read +1;
+		if (count >= len)
+			count = len;
+		if (user)
+			copy_to_user(p, cs->status_read, count);
+		else
+			memcpy(p, cs->status_read, count);
+		cs->status_read += count;
+		if (cs->status_read > cs->status_end)
+			cs->status_read = cs->status_buf;
+		p += count;
+		count = len - count;
+		if (count) {
+			if (user)
+				copy_to_user(p, cs->status_read, count);
+			else
+				memcpy(p, cs->status_read, count);
+			cs->status_read += count;
+		}
+		return len;
 	} else {
 		printk(KERN_ERR
 		 "HiSax: if_readstatus called with invalid driverId!\n");
@@ -639,14 +658,12 @@ VHiSax_putstatus(struct IsdnCardState *cs, char *head, char *fmt, va_list args)
 	u_char *p;
 	isdn_ctrl ic;
 	int len;
-	
+
 	save_flags(flags);
 	cli();
 	p = tmpbuf;
 	if (head) {
 		p += jiftime(p, jiffies);
-//		if (cs && cs->stlist)
-//			printk(KERN_WARNING"%8lx\n", (u_long)cs->stlist->l2.l2l1);
 		p += sprintf(p, " %s", head);
 		p += vsprintf(p, fmt, args);
 		*p++ = '\n';
@@ -668,7 +685,6 @@ VHiSax_putstatus(struct IsdnCardState *cs, char *head, char *fmt, va_list args)
 		restore_flags(flags);
 		return;
 	}
-#if 1
 	count = len;
 	i = cs->status_end - cs->status_write +1;
 	if (i >= len)
@@ -683,15 +699,6 @@ VHiSax_putstatus(struct IsdnCardState *cs, char *head, char *fmt, va_list args)
 		memcpy(cs->status_write, p, len);
 		cs->status_write += len;
 	}
-#else
-	count = 0;
-	for (i = len; i > 0; i--, p++) {
-		*cs->status_write++ = *p;
-		if (cs->status_write > cs->status_end)
-			cs->status_write = cs->status_buf;
-		count++;
-	}
-#endif
 #ifdef KERNELSTACK_DEBUG
 	i = (ulong)&len - current->kernel_stack_page;
 	sprintf(tmpbuf, "kstack %s %lx use %ld\n", current->comm,
@@ -769,8 +776,8 @@ static void
 closecard(int cardnr)
 {
 	struct IsdnCardState *csta = cards[cardnr].cs;
-	
-	if (csta->bcs->BC_Close != NULL) { 
+
+	if (csta->bcs->BC_Close != NULL) {
 		csta->bcs->BC_Close(csta->bcs + 1);
 		csta->bcs->BC_Close(csta->bcs);
 	}
@@ -983,7 +990,7 @@ checkcard(int cardnr, char *id, int *busy_flag))
 #endif
 #if CARD_FRITZPCI
 		case ISDN_CTYPE_FRITZPCI:
-			ret = setup_avm_pci(card);
+			ret = setup_avm_pcipnp(card);
 			break;
 #endif
 #if CARD_ELSA
@@ -1232,7 +1239,7 @@ __initfunc(int
 HiSax_init(void))
 {
 	int i;
-	
+
 #ifdef MODULE
 	int nzproto = 0;
 #ifdef CONFIG_HISAX_ELSA
@@ -1314,6 +1321,7 @@ HiSax_init(void))
 			case ISDN_CTYPE_MIC:
 			case ISDN_CTYPE_TELES3C:
 			case ISDN_CTYPE_S0BOX:
+			case ISDN_CTYPE_FRITZPCI:
 				cards[i].para[0] = irq[i];
 				cards[i].para[1] = io[i];
 				break;
@@ -1321,7 +1329,6 @@ HiSax_init(void))
 			case ISDN_CTYPE_NETJET:
 			case ISDN_CTYPE_AMD7930:
 			case ISDN_CTYPE_TELESPCI:
-			case ISDN_CTYPE_FRITZPCI:
 				break;
 		}
 	}
@@ -1537,4 +1544,4 @@ int avm_a1_init_pcmcia(void *pcm_iob, int pcm_irq, int *busy_flag, int prot)
 #endif
 	return (0);
 }
-#endif 
+#endif

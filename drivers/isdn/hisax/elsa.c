@@ -15,6 +15,10 @@
  *
  *
  * $Log$
+ * Revision 1.14.2.15  1998/11/03 00:06:14  keil
+ * certification related changes
+ * fixed logging for smaller stack use
+ *
  * Revision 1.14.2.14  1998/10/25 19:43:58  fritz
  * Removed a compiler warning
  *
@@ -174,7 +178,7 @@ const u_char ARCOFI_XOP_0[] = {2,0xa1,0x30}; /* PWR Down */
 const u_char ARCOFI_XOP_1[] = {2,0xa1,0x31}; /* PWR UP */
 const u_char ARCOFI_XOP_F[] = {2,0xa1,0x3f}; /* Normal OP */
 const u_char ARCOFI_SOP_F[] = {10,0xa1,0x1f,0x00,0x50,0x10,0x00,0x00,0x80,0x02,0x12};
- 
+
 static void set_arcofi(struct IsdnCardState *cs, int bc);
 
 #if ARCOFI_USE
@@ -499,7 +503,7 @@ release_io_elsa(struct IsdnCardState *cs)
 		writereg(cs->hw.elsa.ale, cs->hw.elsa.isac, IPAC_ATX, 0xff);
 		release_region(cs->hw.elsa.cfg, 0x80);
 	}
-	if ((cs->subtyp == ELSA_PCFPRO) || 
+	if ((cs->subtyp == ELSA_PCFPRO) ||
 		(cs->subtyp == ELSA_QS3000) ||
 		(cs->subtyp == ELSA_PCF) ||
 		(cs->subtyp == ELSA_QS3000PCI)) {
@@ -550,7 +554,7 @@ reset_elsa(struct IsdnCardState *cs)
 		writereg(cs->hw.elsa.ale, cs->hw.elsa.isac, IPAC_ACFG, 0x0);
 		writereg(cs->hw.elsa.ale, cs->hw.elsa.isac, IPAC_AOE, 0x3c);
 		writereg(cs->hw.elsa.ale, cs->hw.elsa.isac, IPAC_ATX, 0xff);
-		if (cs->subtyp == ELSA_QS1000PCI) 
+		if (cs->subtyp == ELSA_QS1000PCI)
 			byteout(cs->hw.elsa.cfg + 0x4c, 0x41); /* enable ELSA PCI IRQ */
 		else if (cs->subtyp == ELSA_QS3000PCI)
 			byteout(cs->hw.elsa.cfg + 0x4c, 0x43); /* enable ELSA PCI IRQ */
@@ -569,7 +573,7 @@ init_arcofi(struct IsdnCardState *cs) {
 static void
 set_arcofi(struct IsdnCardState *cs, int bc) {
 	long flags;
-	
+
 	debugl1(cs,"set_arcofi bc=%d", bc);
 	save_flags(flags);
 	sti();
@@ -715,12 +719,12 @@ elsa_led_handler(struct IsdnCardState *cs)
 	if ((cs->subtyp == ELSA_QS1000PCI) ||
 		(cs->subtyp == ELSA_QS3000PCI)) {
 		u_char led = 0xff;
-		if (cs->hw.elsa.ctrl_reg & ELSA_LINE_LED) 
+		if (cs->hw.elsa.ctrl_reg & ELSA_LINE_LED)
 			led ^= ELSA_IPAC_LINE_LED;
 		if (cs->hw.elsa.ctrl_reg & ELSA_STAT_LED)
 			led ^= ELSA_IPAC_STAT_LED;
 		writereg(cs->hw.elsa.ale, cs->hw.elsa.isac, IPAC_ATX, led);
-	} else	
+	} else
 		byteout(cs->hw.elsa.ctrl, cs->hw.elsa.ctrl_reg);
 	if (blink) {
 		init_timer(&cs->hw.elsa.tl);
@@ -751,13 +755,12 @@ Elsa_card_msg(struct IsdnCardState *cs, int mt, void *arg)
 			else
 				ret = request_irq(cs->irq, &elsa_interrupt,
 					I4L_IRQ_FLAG, "HiSax", cs);
-			reset_elsa(cs);
 			return(ret);
 		case CARD_INIT:
 			cs->debug |= L1_DEB_IPAC;
 			inithscxisac(cs, 1);
 			if ((cs->subtyp == ELSA_QS1000) ||
-			    (cs->subtyp == ELSA_QS3000)) 
+			    (cs->subtyp == ELSA_QS3000))
 			{
 				byteout(cs->hw.elsa.timer, 0);
 			}
@@ -1074,7 +1077,7 @@ setup_elsa(struct IsdnCard *card)
 		cs->hw.elsa.base = pci_ioaddr;
 		cs->hw.elsa.ale  = pci_ioaddr;
 		cs->hw.elsa.isac = pci_ioaddr +1;
-		cs->hw.elsa.hscx = pci_ioaddr +1; 
+		cs->hw.elsa.hscx = pci_ioaddr +1;
 		cs->irq = pci_irq;
 		test_and_set_bit(HW_IPAC, &cs->HW_Flags);
 		cs->hw.elsa.timer = 0;
@@ -1090,7 +1093,7 @@ setup_elsa(struct IsdnCard *card)
 		printk(KERN_WARNING "Elsa: unable to config Elsa PCI\n");
 		return (0);
 #endif /* CONFIG_PCI */
-	} else 
+	} else
 		return (0);
 
 	switch (cs->subtyp) {
@@ -1171,6 +1174,7 @@ setup_elsa(struct IsdnCard *card)
 	cs->BC_Write_Reg = &WriteHSCX;
 	cs->BC_Send_Data = &hscx_fill_fifo;
 	cs->cardmsg = &Elsa_card_msg;
+	reset_elsa(cs);
 	if ((cs->subtyp == ELSA_QS1000PCI) || (cs->subtyp == ELSA_QS3000PCI)) {
 		cs->readisac = &ReadISAC_IPAC;
 		cs->writeisac = &WriteISAC_IPAC;

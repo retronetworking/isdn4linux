@@ -6,6 +6,10 @@
  *
  *
  * $Log$
+ * Revision 1.3.2.10  1998/11/03 00:06:37  keil
+ * certification related changes
+ * fixed logging for smaller stack use
+ *
  * Revision 1.3.2.9  1998/09/27 13:06:14  keil
  * Apply most changes from 2.1.X (HiSax 3.1)
  *
@@ -80,14 +84,12 @@ modehscx(struct BCState *bcs, int mode, int bc)
 			'A' + hscx, mode, bc);
 	bcs->mode = mode;
 	bcs->channel = bc;
-	cs->BC_Write_Reg(cs, hscx, HSCX_CCR1, 
-		test_bit(HW_IPAC, &cs->HW_Flags) ? 0x82 : 0x85);
 	cs->BC_Write_Reg(cs, hscx, HSCX_XAD1, 0xFF);
 	cs->BC_Write_Reg(cs, hscx, HSCX_XAD2, 0xFF);
 	cs->BC_Write_Reg(cs, hscx, HSCX_RAH2, 0xFF);
 	cs->BC_Write_Reg(cs, hscx, HSCX_XBCH, 0x0);
 	cs->BC_Write_Reg(cs, hscx, HSCX_RLCR, 0x0);
-	cs->BC_Write_Reg(cs, hscx, HSCX_CCR1, 
+	cs->BC_Write_Reg(cs, hscx, HSCX_CCR1,
 		test_bit(HW_IPAC, &cs->HW_Flags) ? 0x82 : 0x85);
 	cs->BC_Write_Reg(cs, hscx, HSCX_CCR2, 0x30);
 	cs->BC_Write_Reg(cs, hscx, HSCX_XCCR, 7);
@@ -116,7 +118,7 @@ modehscx(struct BCState *bcs, int mode, int bc)
 			cs->BC_Write_Reg(cs, hscx, HSCX_MODE, 0xe4);
 			break;
 		case (L1_MODE_HDLC):
-			cs->BC_Write_Reg(cs, hscx, HSCX_CCR1, 
+			cs->BC_Write_Reg(cs, hscx, HSCX_CCR1,
 				test_bit(HW_IPAC, &cs->HW_Flags) ? 0x8a : 0x8d);
 			cs->BC_Write_Reg(cs, hscx, HSCX_MODE, 0x8c);
 			break;
@@ -228,7 +230,6 @@ open_hscxstate(struct IsdnCardState *cs, struct BCState *bcs)
 			test_and_clear_bit(BC_FLG_INIT, &bcs->Flag);
 			kfree(bcs->hw.hscx.rcvbuf);
 			bcs->hw.hscx.rcvbuf = NULL;
-			test_and_clear_bit(BC_FLG_INIT, &bcs->Flag);
 			return (2);
 		}
 		skb_queue_head_init(&bcs->rqueue);
@@ -282,7 +283,7 @@ clear_pending_hscx_ints(struct IsdnCardState *cs))
 	cs->BC_Write_Reg(cs, 1, HSCX_MASK, 0xFF);
 }
 
-HISAX_INITFUNC(void 
+HISAX_INITFUNC(void
 inithscx(struct IsdnCardState *cs))
 {
 	cs->bcs[0].BC_SetStack = setstack_hscx;
@@ -295,7 +296,7 @@ inithscx(struct IsdnCardState *cs))
 	modehscx(cs->bcs + 1, 0, 0);
 }
 
-HISAX_INITFUNC(void 
+HISAX_INITFUNC(void
 inithscxisac(struct IsdnCardState *cs, int part))
 {
 	if (part & 1) {
