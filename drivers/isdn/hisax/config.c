@@ -5,6 +5,9 @@
  *
  *
  * $Log$
+ * Revision 1.15.2.15  1998/09/12 18:43:56  niemann
+ * Added new card: Sedlbauer ISDN-Controller PC/104
+ *
  * Revision 1.15.2.14  1998/08/25 14:01:27  calle
  * Ported driver for AVM Fritz!Card PCI from the 2.1 tree.
  * I could not test it.
@@ -67,6 +70,7 @@
 #include <linux/timer.h>
 #include <linux/config.h>
 #include "hisax.h"
+#include <linux/module.h>
 
 /*
  * This structure array contains one entry per card. An entry looks
@@ -101,8 +105,8 @@
  *   24 Dr Neuhaus Niccy PnP/PCI card p0=irq p1=IO0 p2=IO1 (PnP only)
  *   25 Teles S0Box             p0=irq p1=iobase (from isapnp setup)
  *   26 AVM A1 PCMCIA (Fritz)   p0=irq p1=iobase
- *   27 AVM Fritz!Card PCI      no parameter
- *
+ *   27 AVM PCI (Fritz!PCI)     no parameter
+ *   28 Sedlbauer Speed Fax+ 	p0=irq p1=iobase
  *
  * protocol can be either ISDN_PTYPE_EURO or ISDN_PTYPE_1TR6 or ISDN_PTYPE_NI1
  *
@@ -544,6 +548,7 @@ HiSax_init(void))
 			case ISDN_CTYPE_TELEINT:
 			case ISDN_CTYPE_SEDLBAUER:
 			case ISDN_CTYPE_SEDLBAUER_PCMCIA:
+			case ISDN_CTYPE_SEDLBAUER_FAX:
 			case ISDN_CTYPE_SPORTSTER:
 			case ISDN_CTYPE_MIC:
 			case ISDN_CTYPE_TELES3C:
@@ -708,8 +713,8 @@ int sedl_init_pcmcia(void *pcm_iob, int pcm_irq, int *busy_flag, int prot)
 	CallcNew();
 	Isdnl3New();
 	Isdnl2New();
-	TeiNew();
 	Isdnl1New();
+	TeiNew();
 	HiSax_inithardware(busy_flag);
 	printk(KERN_NOTICE "HiSax: module installed\n");
 	return (0);

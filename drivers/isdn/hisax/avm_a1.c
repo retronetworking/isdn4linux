@@ -6,6 +6,9 @@
  *
  *
  * $Log$
+ * Revision 1.6.2.10  1998/05/27 18:04:50  keil
+ * HiSax 3.0
+ *
  * Revision 1.6.2.9  1998/04/08 21:58:39  keil
  * New init code
  *
@@ -57,7 +60,7 @@
 #include "isdnl1.h"
 
 extern const char *CardType[];
-const char *avm_revision = "$Revision$";
+static const char *avm_revision = "$Revision$";
 
 #define	 AVM_A1_STAT_ISAC	0x01
 #define	 AVM_A1_STAT_HSCX	0x02

@@ -11,6 +11,9 @@
  *
  *
  * $Log$
+ * Revision 1.15.2.15  1998/09/12 18:44:00  niemann
+ * Added new card: Sedlbauer ISDN-Controller PC/104
+ *
  * Revision 1.15.2.14  1998/08/25 14:01:35  calle
  * Ported driver for AVM Fritz!Card PCI from the 2.1 tree.
  * I could not test it.
@@ -179,9 +182,10 @@ const char *CardType[] =
 {"No Card", "Teles 16.0", "Teles 8.0", "Teles 16.3", "Creatix/Teles PnP",
  "AVM A1", "Elsa ML", "Elsa Quickstep", "Teles PCMCIA", "ITK ix1-micro Rev.2",
  "Elsa PCMCIA", "Eicon.Diehl Diva", "ISDNLink", "TeleInt", "Teles 16.3c", 
- "Sedlbauer ISDN Card", "USR Sportster", "ith mic Linux", "Elsa PCI",
+ "Sedlbauer Speed Card", "USR Sportster", "ith mic Linux", "Elsa PCI",
  "Compaq ISA", "NETjet", "Teles PCI", "Sedlbauer Speed Star (PCMCIA)",
- "AMD 7930", "NICCY", "S0Box", "AVM A1 (PCMCIA)", "AVM Fritz!Card PCI"
+ "AMD 7930", "NICCY", "S0Box", "AVM A1 (PCMCIA)", "AVM Fritz!PCI",
+ "Sedlbauer Speed Fax +"
 };
 
 extern struct IsdnCard cards[];
@@ -546,8 +550,11 @@ BChannel_proc_xmt(struct BCState *bcs)
 {
 	struct PStack *st = bcs->st;
 
-	if (test_bit(BC_FLG_BUSY, &bcs->Flag))
+	if (test_bit(BC_FLG_BUSY, &bcs->Flag)) {
+		debugl1(bcs->cs, "BC_BUSY Error");
+		printk(KERN_WARNING "HiSax: BC_BUSY Error\n");
 		return;
+	}
 
 	if (test_and_clear_bit(FLG_L1_PULL_REQ, &st->l1.Flags))
 		st->l1.l1l2(st, PH_PULL | CONFIRM, NULL);
@@ -657,7 +664,8 @@ closecard(int cardnr)
 		csta->mon_tx = NULL;
 	}
 	csta->cardmsg(csta, CARD_RELEASE, NULL);
-	del_timer(&csta->dbusytimer);
+	if (csta->dbusytimer.function != NULL)
+		del_timer(&csta->dbusytimer);
 	ll_unload(csta);
 }
 
@@ -689,8 +697,8 @@ HISAX_INITFUNC(static int init_card(struct IsdnCardState *cs))
 			cs->irq, kstat_irqs(cs->irq));
 		if (kstat_irqs(cs->irq) == irq_cnt) {
 			printk(KERN_WARNING
-				"%s: IRQ(%d) getting no interrupts during init %d\n",
-				CardType[cs->typ], cs->irq, 4 - cnt);
+			       "%s: IRQ(%d) getting no interrupts during init %d\n",
+			       CardType[cs->typ], cs->irq, 4 - cnt);
 			if (cnt == 1) {
 				free_irq(cs->irq, cs);
 				return (2);
@@ -718,13 +726,14 @@ checkcard(int cardnr, char *id, int *busy_flag))
 	save_flags(flags);
 	cli();
 	if (!(cs = (struct IsdnCardState *)
-	      kmalloc(sizeof(struct IsdnCardState), GFP_ATOMIC))) {
+		kmalloc(sizeof(struct IsdnCardState), GFP_ATOMIC))) {
 		printk(KERN_WARNING
 		       "HiSax: No memory for IsdnCardState(card %d)\n",
 		       cardnr + 1);
 		restore_flags(flags);
 		return (0);
 	}
+	memset(cs, 0, sizeof(struct IsdnCardState));
 	card->cs = cs;
 	cs->cardnr = cardnr;
 	cs->debug = L1_DEB_WARN;
@@ -879,6 +888,7 @@ checkcard(int cardnr, char *id, int *busy_flag))
 #if CARD_SEDLBAUER
 		case ISDN_CTYPE_SEDLBAUER:
 		case ISDN_CTYPE_SEDLBAUER_PCMCIA:
+		case ISDN_CTYPE_SEDLBAUER_FAX:
 			ret = setup_sedlbauer(card);
 			break;
 #endif
@@ -924,7 +934,7 @@ checkcard(int cardnr, char *id, int *busy_flag))
 		restore_flags(flags);
 		return (0);
 	}
-	if (!(cs->rcvbuf = kmalloc(MAX_DFRAME_LEN, GFP_ATOMIC))) {
+	if (!(cs->rcvbuf = kmalloc(MAX_DFRAME_LEN_L1, GFP_ATOMIC))) {
 		printk(KERN_WARNING
 		       "HiSax: No memory for isac rcvbuf\n");
 		return (1);
@@ -950,7 +960,9 @@ checkcard(int cardnr, char *id, int *busy_flag))
 	}
 	init_tei(cs, cs->protocol);
 	CallcNewChan(cs);
-	ll_run(cs);
+	/* ISAR needs firmware download first */
+	if (!test_bit(HW_ISAR, &cs->HW_Flags))
+		ll_run(cs);
 	restore_flags(flags);
 	return (1);
 }
@@ -1029,7 +1041,7 @@ HiSax_closecard(int cardnr)
 	while (i!=last) {
 		cards[i] = cards[i+1];
 		i++;
-		}
+	}
 	nrcards--;
 }
 
@@ -1047,6 +1059,12 @@ HiSax_reportcard(int cardnr)
 	printk(KERN_DEBUG "HiSax: HiSax_reportcard address 0x%lX\n",
 	       (ulong) & HiSax_reportcard);
 	printk(KERN_DEBUG "HiSax: cs 0x%lX\n", (ulong) cs);
+	printk(KERN_DEBUG "HiSax: HW_Flags %x bc0 flg %x bc0 flg %x\n",
+		cs->HW_Flags, cs->bcs[0].Flag, cs->bcs[1].Flag);
+	printk(KERN_DEBUG "HiSax: bcs 0 mode %d ch%d\n",
+		cs->bcs[0].mode, cs->bcs[0].channel);
+	printk(KERN_DEBUG "HiSax: bcs 1 mode %d ch%d\n",
+		cs->bcs[1].mode, cs->bcs[1].channel);
 	printk(KERN_DEBUG "HiSax: cs stl 0x%lX\n", (ulong) & (cs->stlist));
 	stptr = cs->stlist;
 	while (stptr != NULL) {
@@ -1251,12 +1269,12 @@ static void
 l1_timer3(struct FsmInst *fi, int event, void *arg)
 {
 	struct PStack *st = fi->userdata;
-	
+
 	test_and_clear_bit(FLG_L1_T3RUN, &st->l1.Flags);	
-        if (test_and_clear_bit(FLG_L1_ACTIVATING, &st->l1.Flags))
+	if (test_and_clear_bit(FLG_L1_ACTIVATING, &st->l1.Flags))
 		L1deactivated(st->l1.hardware);
-        if (st->l1.l1m.state != ST_L1_F6) {
-        	FsmChangeState(fi, ST_L1_F3);
+	if (st->l1.l1m.state != ST_L1_F6) {
+		FsmChangeState(fi, ST_L1_F3);
 		st->l1.l1hw(st, HW_ENABLE | REQUEST, NULL);
 	}
 }
@@ -1290,9 +1308,22 @@ l1_activate(struct FsmInst *fi, int event, void *arg)
 	st->l1.l1hw(st, HW_RESET | REQUEST, NULL);
 }
 
+static void
+l1_activate_no(struct FsmInst *fi, int event, void *arg)
+{
+	struct PStack *st = fi->userdata;
+
+	if ((!test_bit(FLG_L1_DEACTTIMER, &st->l1.Flags)) && (!test_bit(FLG_L1_T3RUN, &st->l1.Flags))) {
+		test_and_clear_bit(FLG_L1_ACTIVATING, &st->l1.Flags);
+		L1deactivated(st->l1.hardware);
+	}
+}
+
 static struct FsmNode L1DFnList[] HISAX_INITDATA =
 {
 	{ST_L1_F3, EV_PH_ACTIVATE, l1_activate},
+	{ST_L1_F6, EV_PH_ACTIVATE, l1_activate_no},
+	{ST_L1_F8, EV_PH_ACTIVATE, l1_activate_no},
 	{ST_L1_F3, EV_RESET_IND, l1_reset},
 	{ST_L1_F4, EV_RESET_IND, l1_reset},
 	{ST_L1_F5, EV_RESET_IND, l1_reset},
@@ -1456,34 +1487,34 @@ l1_msg(struct IsdnCardState *cs, int pr, void *arg) {
 	while (st) {
 		switch(pr) {
 			case (HW_RESET | INDICATION):
-			FsmEvent(&st->l1.l1m, EV_RESET_IND, arg);
-			break;
+				FsmEvent(&st->l1.l1m, EV_RESET_IND, arg);
+				break;
 			case (HW_DEACTIVATE | CONFIRM):
-			FsmEvent(&st->l1.l1m, EV_DEACT_CNF, arg);
-			break;
+				FsmEvent(&st->l1.l1m, EV_DEACT_CNF, arg);
+				break;
 			case (HW_DEACTIVATE | INDICATION):
-			FsmEvent(&st->l1.l1m, EV_DEACT_IND, arg);
-			break;
+				FsmEvent(&st->l1.l1m, EV_DEACT_IND, arg);
+				break;
 			case (HW_POWERUP | CONFIRM):
-			FsmEvent(&st->l1.l1m, EV_POWER_UP, arg);
-			break;
+				FsmEvent(&st->l1.l1m, EV_POWER_UP, arg);
+				break;
 			case (HW_RSYNC | INDICATION):
-			FsmEvent(&st->l1.l1m, EV_RSYNC_IND, arg);
-			break;
+				FsmEvent(&st->l1.l1m, EV_RSYNC_IND, arg);
+				break;
 			case (HW_INFO2 | INDICATION):
-			FsmEvent(&st->l1.l1m, EV_INFO2_IND, arg);
-			break;
+				FsmEvent(&st->l1.l1m, EV_INFO2_IND, arg);
+				break;
 			case (HW_INFO4_P8 | INDICATION):
 			case (HW_INFO4_P10 | INDICATION):
-			FsmEvent(&st->l1.l1m, EV_INFO4_IND, arg);
-			break;
-		default:
-			if (cs->debug) {
+				FsmEvent(&st->l1.l1m, EV_INFO4_IND, arg);
+				break;
+			default:
+				if (cs->debug) {
 					sprintf(tmp, "l1msg %04X unhandled", pr);
-				debugl1(cs, tmp);
-			}
-			break;
-	}
+					debugl1(cs, tmp);
+				}
+				break;
+		}
 		st = st->next;
 	}
 }

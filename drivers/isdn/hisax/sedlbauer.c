@@ -15,6 +15,9 @@
  *            Edgar Toernig
  *
  * $Log$
+ * Revision 1.1.2.6  1998/09/12 18:44:06  niemann
+ * Added new card: Sedlbauer ISDN-Controller PC/104
+ *
  * Revision 1.1.2.5  1998/04/08 21:58:44  keil
  * New init code
  *
@@ -41,6 +44,7 @@
 #include "isac.h"
 #include "ipac.h"
 #include "hscx.h"
+#include "isar.h"
 #include "isdnl1.h"
 
 extern const char *CardType[];
@@ -50,10 +54,10 @@ const char *Sedlbauer_revision = "$Revision$";
 const char *Sedlbauer_Types[] =
 {"None", "Speed Card", "Speed Win", "Speed Star", "Speed Fax+", "ISDN PC/104"};
  
-#define SEDL_SPEED_CARD  1
-#define SEDL_SPEED_WIN   2
-#define SEDL_SPEED_STAR  3
-#define SEDL_SPEED_FAX   4
+#define SEDL_SPEED_CARD 1
+#define SEDL_SPEED_WIN  2
+#define SEDL_SPEED_STAR 3
+#define SEDL_SPEED_FAX	4
 #define SEDL_SPEED_PC104 5
 
 #define byteout(addr,val) outb(val,addr)
@@ -70,10 +74,10 @@ const char *Sedlbauer_Types[] =
 #define SEDL_PCMCIA_HSCX	2
 #define SEDL_PCMCIA_ADR		4
 
-#define SEDL_FAX_ISAC          	4
-#define SEDL_FAX_ISAR          	6
-#define SEDL_FAX_ADR           	8
-#define SEDL_FAX_ISAR_RESET_ON 	10
+#define SEDL_FAX_ISAC		4
+#define SEDL_FAX_ISAR		6
+#define SEDL_FAX_ADR		8
+#define SEDL_FAX_ISAR_RESET_ON	10
 #define SEDL_FAX_ISAR_RESET_OFF	12
 
 #define SEDL_PC104_ADR 	0
@@ -188,6 +192,34 @@ WriteHSCX(struct IsdnCardState *cs, int hscx, u_char offset, u_char value)
 		 cs->hw.sedl.hscx, offset + (hscx ? 0x40 : 0), value);
 }
 
+/* ISAR access routines
+ * mode = 0 access with IRQ on
+ * mode = 1 access with IRQ off
+ * mode = 2 access with IRQ off and using last offset
+ */
+  
+static u_char
+ReadISAR(struct IsdnCardState *cs, int mode, u_char offset)
+{	
+	if (mode == 0)
+		return (readreg(cs->hw.sedl.adr, cs->hw.sedl.isar, offset));
+	else if (mode == 1)
+		byteout(cs->hw.sedl.adr, offset);
+	return(bytein(cs->hw.sedl.isar));
+}
+
+static void
+WriteISAR(struct IsdnCardState *cs, int mode, u_char offset, u_char value)
+{
+	if (mode == 0)
+		writereg(cs->hw.sedl.adr, cs->hw.sedl.isar, offset, value);
+	else {
+		if (mode == 1)
+			byteout(cs->hw.sedl.adr, offset);
+		byteout(cs->hw.sedl.isar, value);
+	}
+}
+
 /*
  * fast interrupt HSCX stuff goes here
  */
@@ -216,7 +248,7 @@ sedlbauer_interrupt(int intno, void *dev_id, struct pt_regs *regs)
 		return;
 	}
 
-        if ((cs->subtyp == SEDL_SPEED_STAR) && (*cs->busy_flag == 1)) {
+        if ((cs->typ == ISDN_CTYPE_SEDLBAUER_PCMCIA) && (*cs->busy_flag == 1)) {
           /* The card tends to generate interrupts while being removed
              causing us to just crash the kernel. bad. */
           printk(KERN_WARNING "Sedlbauer: card not available!\n");
@@ -308,10 +340,51 @@ Start_IPAC:
 	writereg(cs->hw.sedl.adr, cs->hw.sedl.isac, IPAC_MASK, 0xC0);
 }
 
+static void
+sedlbauer_interrupt_isar(int intno, void *dev_id, struct pt_regs *regs)
+{
+	struct IsdnCardState *cs = dev_id;
+	u_char val;
+	int cnt = 20;
+
+	if (!cs) {
+		printk(KERN_WARNING "Sedlbauer: Spurious interrupt!\n");
+		return;
+	}
+
+	val = readreg(cs->hw.sedl.adr, cs->hw.sedl.isar, ISAR_IRQBIT);
+      Start_ISAR:
+	if (val & ISAR_IRQSTA)
+		isar_int_main(cs);
+	val = readreg(cs->hw.sedl.adr, cs->hw.sedl.isac, ISAC_ISTA);
+      Start_ISAC:
+	if (val)
+		isac_interrupt(cs, val);
+	val = readreg(cs->hw.sedl.adr, cs->hw.sedl.isar, ISAR_IRQBIT);
+	if ((val & ISAR_IRQSTA) && --cnt) {
+		if (cs->debug & L1_DEB_HSCX)
+			debugl1(cs, "ISAR IntStat after IntRoutine");
+		goto Start_ISAR;
+	}
+	val = readreg(cs->hw.sedl.adr, cs->hw.sedl.isac, ISAC_ISTA);
+	if (val && --cnt) {
+		if (cs->debug & L1_DEB_ISAC)
+			debugl1(cs, "ISAC IntStat after IntRoutine");
+		goto Start_ISAC;
+	}
+	if (!cnt)
+		printk(KERN_WARNING "Sedlbauer IRQ LOOP\n");
+
+	writereg(cs->hw.sedl.adr, cs->hw.sedl.isar, ISAR_IRQBIT, 0);
+	writereg(cs->hw.sedl.adr, cs->hw.sedl.isac, ISAC_MASK, 0xFF);
+	writereg(cs->hw.sedl.adr, cs->hw.sedl.isac, ISAC_MASK, 0x0);
+	writereg(cs->hw.sedl.adr, cs->hw.sedl.isar, ISAR_IRQBIT, ISAR_IRQMSK);
+}
+
 void
 release_io_sedlbauer(struct IsdnCardState *cs)
 {
-	int bytecnt = 8;
+	int bytecnt = (cs->subtyp == SEDL_SPEED_FAX) ? 16 : 8;
 
 	if (cs->hw.sedl.cfg_reg)
 		release_region(cs->hw.sedl.cfg_reg, bytecnt);
@@ -362,18 +435,40 @@ Sedl_card_msg(struct IsdnCardState *cs, int mt, void *arg)
 			release_io_sedlbauer(cs);
 			return(0);
 		case CARD_SETIRQ:
-			if (cs->subtyp == SEDL_SPEED_PC104)
+			if (cs->subtyp == SEDL_SPEED_FAX) {
+				return(request_irq(cs->irq, &sedlbauer_interrupt_isar,
+					I4L_IRQ_FLAG, "HiSax", cs));
+			} else if (cs->subtyp == SEDL_SPEED_PC104) {
 				return(request_irq(cs->irq, &sedlbauer_interrupt_ipac,
 					I4L_IRQ_FLAG, "HiSax", cs));
-                        else
+			} else {
 				return(request_irq(cs->irq, &sedlbauer_interrupt,
 					I4L_IRQ_FLAG, "HiSax", cs));
+			}
 		case CARD_INIT:
-                        cs->debug |= L1_DEB_IPAC;
-			inithscxisac(cs, 3);
+			if (cs->subtyp == SEDL_SPEED_FAX) {
+				clear_pending_isac_ints(cs);
+				writereg(cs->hw.sedl.adr, cs->hw.sedl.isar,
+					ISAR_IRQBIT, 0);
+				initisac(cs);
+				inithscx(cs);
+				/* Reenable all IRQ */
+				cs->writeisac(cs, ISAC_MASK, 0);
+				// writereg(cs->hw.sedl.adr, cs->hw.sedl.isar,
+				//	ISAR_IRQBIT, ISAR_IRQSTA);
+				/* RESET Receiver and Transmitter */
+				cs->writeisac(cs, ISAC_CMDR, 0x41);
+			} else {
+				inithscxisac(cs, 3);
+			}
 			return(0);
 		case CARD_TEST:
 			return(0);
+		case CARD_LOAD_FIRM:
+			if (cs->subtyp == SEDL_SPEED_FAX)
+				return(isar_load_firmware(cs, arg));
+			else
+				return(0);
 	}
 	return(0);
 }
@@ -381,9 +476,8 @@ Sedl_card_msg(struct IsdnCardState *cs, int mt, void *arg)
 __initfunc(int
 setup_sedlbauer(struct IsdnCard *card))
 {
-	int bytecnt;
+	int bytecnt, ver, val;
 	struct IsdnCardState *cs = card->cs;
-	u_char	val;
 	char tmp[64];
 
 	strcpy(tmp, Sedlbauer_revision);
@@ -392,6 +486,8 @@ setup_sedlbauer(struct IsdnCard *card))
  		cs->subtyp = SEDL_SPEED_CARD;
  	} else if (cs->typ == ISDN_CTYPE_SEDLBAUER_PCMCIA) {	
  		cs->subtyp = SEDL_SPEED_STAR;
+ 	} else if (cs->typ == ISDN_CTYPE_SEDLBAUER_FAX) {	
+ 		cs->subtyp = SEDL_SPEED_FAX;
  	} else
 		return (0);
 
@@ -404,6 +500,14 @@ setup_sedlbauer(struct IsdnCard *card))
 		cs->hw.sedl.hscx = cs->hw.sedl.cfg_reg + SEDL_PCMCIA_HSCX;
 		cs->hw.sedl.reset_on = cs->hw.sedl.cfg_reg + SEDL_PCMCIA_RESET;
 		cs->hw.sedl.reset_off = cs->hw.sedl.cfg_reg + SEDL_PCMCIA_RESET;
+	} else if (cs->subtyp == SEDL_SPEED_FAX) {
+		cs->hw.sedl.adr = cs->hw.sedl.cfg_reg + SEDL_FAX_ADR;
+		cs->hw.sedl.isac = cs->hw.sedl.cfg_reg + SEDL_FAX_ISAC;
+		cs->hw.sedl.isar = cs->hw.sedl.cfg_reg + SEDL_FAX_ISAR;
+		cs->hw.sedl.reset_on = cs->hw.sedl.cfg_reg + SEDL_FAX_ISAR_RESET_ON;
+		cs->hw.sedl.reset_off = cs->hw.sedl.cfg_reg + SEDL_FAX_ISAR_RESET_OFF;
+		test_and_set_bit(HW_ISAR, &cs->HW_Flags);
+		bytecnt = 16;
 	} else {
 		cs->hw.sedl.adr = cs->hw.sedl.cfg_reg + SEDL_ADR;
 		cs->hw.sedl.isac = cs->hw.sedl.cfg_reg + SEDL_ISAC;
@@ -415,17 +519,23 @@ setup_sedlbauer(struct IsdnCard *card))
 	/* In case of the sedlbauer pcmcia card, this region is in use,
            reserved for us by the card manager. So we do not check it
            here, it would fail. */
-	if (cs->subtyp != SEDL_SPEED_STAR &&
-	   check_region((cs->hw.sedl.cfg_reg), bytecnt)) {
+	if ((cs->typ != ISDN_CTYPE_SEDLBAUER_PCMCIA) &&
+		check_region((cs->hw.sedl.cfg_reg), bytecnt)) {
 		printk(KERN_WARNING
-		       "HiSax: %s config port %x-%x already in use\n",
-		       CardType[card->typ],
-		       cs->hw.sedl.cfg_reg,
-		       cs->hw.sedl.cfg_reg + bytecnt);
-		return (0);
+			"HiSax: %s config port %x-%x already in use\n",
+			CardType[card->typ],
+			cs->hw.sedl.cfg_reg,
+			cs->hw.sedl.cfg_reg + bytecnt);
+			return (0);
 	} else {
 		request_region(cs->hw.sedl.cfg_reg, bytecnt, "sedlbauer isdn");
 	}
+
+	printk(KERN_INFO
+	       "Sedlbauer: defined at 0x%x-0x%x IRQ %d\n",
+	       cs->hw.sedl.cfg_reg,
+	       cs->hw.sedl.cfg_reg + bytecnt,
+	       cs->irq);
 
 	cs->BC_Read_Reg = &ReadHSCX;
 	cs->BC_Write_Reg = &WriteHSCX;
@@ -446,27 +556,33 @@ setup_sedlbauer(struct IsdnCard *card))
                 cs->writeisacfifo = &WriteISACfifo_IPAC;
                 printk(KERN_INFO "Sedlbauer %s: IPAC version %x\n",
 			Sedlbauer_Types[cs->subtyp], val);
-        } else {
+	} else {
 		cs->readisac = &ReadISAC;
 		cs->writeisac = &WriteISAC;
 		cs->readisacfifo = &ReadISACfifo;
 		cs->writeisacfifo = &WriteISACfifo;
 		ISACVersion(cs, "Sedlbauer:");
-		if (HscxVersion(cs, "Sedlbauer:")) {
-			printk(KERN_WARNING
-				"Sedlbauer %s: wrong HSCX versions check IO address\n",
-				Sedlbauer_Types[cs->subtyp]);
-			release_io_sedlbauer(cs);
-			return (0);
+		if (cs->subtyp == SEDL_SPEED_FAX) {
+			cs->BC_Read_Reg = &ReadISAR;
+			cs->BC_Write_Reg = &WriteISAR;
+			cs->BC_Send_Data = &hscx_fill_fifo;
+			ver = ISARVersion(cs, "Sedlbauer:");
+			if (ver < 0) {
+				printk(KERN_WARNING
+					"Sedlbauer: wrong ISAR version (ret = %d)\n", ver);
+				release_io_sedlbauer(cs);
+				return (0);
+			}
+		} else {
+			if (HscxVersion(cs, "Sedlbauer:")) {
+				printk(KERN_WARNING
+					"Sedlbauer %s: wrong HSCX versions check IO address\n",
+					Sedlbauer_Types[cs->subtyp]);
+				release_io_sedlbauer(cs);
+				return (0);
+			}
 		}
 	}
-	printk(KERN_INFO "Sedlbauer %s uses ports 0x%x-0x%x\n",
-			Sedlbauer_Types[cs->subtyp],
-			cs->hw.sedl.cfg_reg,
-			cs->hw.sedl.cfg_reg + bytecnt);
-	printk(KERN_INFO "Sedlbauer %s uses IRQ %d\n",
-			Sedlbauer_Types[cs->subtyp],
-			cs->irq);
 	printk(KERN_INFO "Sedlbauer %s: resetting card\n",
 			Sedlbauer_Types[cs->subtyp]);
 	reset_sedlbauer(cs);

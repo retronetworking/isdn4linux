@@ -11,6 +11,9 @@
  *
  *
  * $Log$
+ * Revision 1.14.2.11  1998/05/27 18:05:14  keil
+ * HiSax 3.0
+ *
  * Revision 1.14.2.10  1998/04/11 18:46:03  keil
  * QS3000PCI support, changes for arcofi
  *
@@ -419,9 +422,19 @@ elsa_interrupt_ipac(int intno, void *dev_id, struct pt_regs *regs)
 		printk(KERN_WARNING "Elsa: Spurious interrupt!\n");
 		return;
 	}
-		val = bytein(cs->hw.elsa.cfg + 0x4c); /* PCI IRQ */
+	val = bytein(cs->hw.elsa.cfg + 0x4c); /* PCI IRQ */
 	if (!(val & ELSA_PCI_IRQ_MASK))
-	  return;
+		return;
+#if ARCOFI_USE
+	if (cs->hw.elsa.MFlag) {
+		val = serial_inp(cs, UART_IIR);
+		if (!(val & UART_IIR_NO_INT)) {
+			sprintf(tmp,"IIR %02x", val);
+			debugl1(cs, tmp);
+			rs_interrupt_elsa(intno, cs);
+		}
+	}
+#endif
 	ista = readreg(cs->hw.elsa.ale, cs->hw.elsa.isac, IPAC_ISTA);
 Start_IPAC:
 	if (cs->debug & L1_DEB_IPAC) {
@@ -475,7 +488,7 @@ release_io_elsa(struct IsdnCardState *cs)
 		release_region(cs->hw.elsa.cfg, 0x80);
 	}
 	if (cs->subtyp == ELSA_QS3000PCI) {
-		byteout(cs->hw.elsa.cfg + 0x4c, 0x03); /* enable ELSA PCI IRQ */
+		byteout(cs->hw.elsa.cfg + 0x4c, 0x03); /* disable ELSA PCI IRQ */
 		writereg(cs->hw.elsa.ale, cs->hw.elsa.isac, IPAC_ATX, 0xff);
 		release_region(cs->hw.elsa.cfg, 0x80);
 	}
@@ -573,6 +586,8 @@ set_arcofi(struct IsdnCardState *cs, int bc) {
 	udelay(ARCDEL);
 	send_arcofi(cs, ARCOFI_XOP_F, bc, 0);
 	restore_flags(flags);
+	sprintf(tmp,"end set_arcofi bc=%d", bc);
+	debugl1(cs, tmp);
 }
 
 static int
@@ -717,7 +732,7 @@ Elsa_card_msg(struct IsdnCardState *cs, int mt, void *arg)
 {
 	int pwr, len, ret = 0;
 	u_char *msg;
-	long flags;	
+	long flags;
 
 	switch (mt) {
 		case CARD_RESET:
@@ -730,10 +745,11 @@ Elsa_card_msg(struct IsdnCardState *cs, int mt, void *arg)
 			if ((cs->subtyp == ELSA_QS1000PCI) ||
 				(cs->subtyp == ELSA_QS3000PCI))
 				ret = request_irq(cs->irq, &elsa_interrupt_ipac,
-					I4L_IRQ_FLAG, "HiSax", cs);
+					I4L_IRQ_FLAG | SA_SHIRQ, "HiSax", cs);
 			else
 				ret = request_irq(cs->irq, &elsa_interrupt,
 					I4L_IRQ_FLAG, "HiSax", cs);
+			reset_elsa(cs);
 			return(ret);
 		case CARD_INIT:
 			cs->debug |= L1_DEB_IPAC;
@@ -769,7 +785,7 @@ Elsa_card_msg(struct IsdnCardState *cs, int mt, void *arg)
 				byteout(cs->hw.elsa.ctrl, cs->hw.elsa.ctrl_reg);
 				cs->hw.elsa.status &= ~ELSA_TIMER_AKTIV;
 				printk(KERN_INFO "Elsa: %d timer tics in 110 msek\n",
-					cs->hw.elsa.counter);
+				       cs->hw.elsa.counter);
 				if (abs(cs->hw.elsa.counter - 13) < 3) {
 					printk(KERN_INFO "Elsa: timer and irq OK\n");
 					ret = 0;
@@ -1147,7 +1163,6 @@ setup_elsa(struct IsdnCard *card)
 		}
 		printk(KERN_INFO "Elsa: timer OK; resetting card\n");
 	}
-	reset_elsa(cs);
 	cs->BC_Read_Reg = &ReadHSCX;
 	cs->BC_Write_Reg = &WriteHSCX;
 	cs->BC_Send_Data = &hscx_fill_fifo;

@@ -7,6 +7,9 @@
  *              Fritz Elfert
  *
  * $Log$
+ * Revision 1.10.2.4  1998/05/27 18:05:59  keil
+ * HiSax 3.0
+ *
  * Revision 1.10.2.3  1997/11/15 18:54:09  keil
  * cosmetics
  *
@@ -326,7 +329,8 @@ release_l3_process(struct l3_process *p)
 		pp = np;
 		np = np->next;
 	}
-	printk(KERN_ERR "HiSax internal L3 error CR not in list\n");
+	printk(KERN_ERR "HiSax internal L3 error CR(%d) not in list\n", p->callref);
+	l3_debug(p->st, "HiSax internal L3 error CR(%d) not in list", p->callref);
 };
 
 void

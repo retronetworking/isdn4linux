@@ -1,6 +1,9 @@
 /* $Id$
 
  * $Log$
+ * Revision 1.4.2.4  1998/05/27 18:05:49  keil
+ * HiSax 3.0
+ *
  * Revision 1.4.2.3  1997/12/01 09:09:08  keil
  * more l1 debug
  *
@@ -35,7 +38,7 @@
 #define	L1_DEB_HSCX_FIFO	0x20
 #define	L1_DEB_LAPD	        0x40
 #define	L1_DEB_IPAC	        0x80
-#define L1_DEB_RECEIVE_FRAME	0x100
+#define	L1_DEB_RECEIVE_FRAME    0x100
 #define L1_DEB_MONITOR		0x200
 
 #define D_RCVBUFREADY	0

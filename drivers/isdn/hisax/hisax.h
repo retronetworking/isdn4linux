@@ -3,6 +3,10 @@
  *   Basic declarations, defines and prototypes
  *
  * $Log$
+ * Revision 1.13.2.13  1998/08/25 14:01:30  calle
+ * Ported driver for AVM Fritz!Card PCI from the 2.1 tree.
+ * I could not test it.
+ *
  * Revision 1.13.2.12  1998/07/15 14:43:33  calle
  * Support for AVM passive PCMCIA cards:
  *    A1 PCMCIA, FRITZ!Card PCMCIA and FRITZ!Card PCMCIA 2.0
@@ -108,6 +112,7 @@
 #define CARD_RELEASE	0x00F3
 #define CARD_TEST	0x00F4
 #define CARD_AUX_IND	0x00F5
+#define CARD_LOAD_FIRM	0x00F6
 
 #define PH_ACTIVATE	0x0100
 #define PH_DEACTIVATE	0x0110
@@ -130,7 +135,6 @@
 #define MDL_INFO_SETUP	0x02E0
 #define MDL_INFO_CONN	0x02E4
 #define MDL_INFO_REL	0x02E8
-
 
 #define CC_SETUP	0x0300
 #define CC_RESUME	0x0304
@@ -167,6 +171,7 @@
 #ifdef __KERNEL__
 
 #define MAX_DFRAME_LEN	260
+#define MAX_DFRAME_LEN_L1	300
 #define HSCX_BUFMAX	4096
 #define MAX_DATA_SIZE	(HSCX_BUFMAX - 4)
 #define MAX_DATA_MEM	(HSCX_BUFMAX + 64)
@@ -350,10 +355,10 @@ struct l3_process {
 };
 
 struct hscx_hw {
+	int hscx;
 	int rcvidx;
 	int count;              /* Current skb sent count */
 	u_char *rcvbuf;         /* B-Channel receive Buffer */
-	struct sk_buff *tx_skb; /* B-Channel transmit Buffer */
 };
 
 struct hdlc_hw {
@@ -362,18 +367,15 @@ struct hdlc_hw {
 	int rcvidx;
 	int count;              /* Current skb sent count */
 	u_char *rcvbuf;         /* B-Channel receive Buffer */
-	struct sk_buff *tx_skb; /* B-Channel transmit Buffer */
 };
 
 struct hfcB_hw {
 	unsigned int *send;
 	int f1;
 	int f2;
-	struct sk_buff *tx_skb; /* B-Channel transmit Buffer */
 };
 
 struct tiger_hw {
-	struct sk_buff *tx_skb; /* B-Channel transmit Buffer */
 	u_int *send;
 	u_int *s_irq;
 	u_int *s_end;
@@ -404,7 +406,6 @@ struct amd7930_hw {
 	struct hdlc_state *hdlc_state;
 	struct tq_struct tq_rcv;
 	struct tq_struct tq_xmt;
-	struct sk_buff *tx_skb; /* B-Channel transmit Buffer */
 };
 
 
@@ -426,9 +427,11 @@ struct BCState {
 	int Flag;
 	struct IsdnCardState *cs;
 	int tx_cnt;		/* B-Channel transmit counter */
+	struct sk_buff *tx_skb; /* B-Channel transmit Buffer */
 	struct sk_buff_head rqueue;	/* B-Channel receive Queue */
 	struct sk_buff_head squeue;	/* B-Channel send Queue */
 	struct PStack *st;
+	struct timer_list transbusy;
 	struct tq_struct tqueue;
 	int event;
 	int  (*BC_SetStack) (struct PStack *, struct BCState *);
@@ -452,6 +455,7 @@ struct Channel {
 	struct FsmTimer drel_timer, dial_timer;
 	int debug;
 	int l2_protocol, l2_active_protocol;
+	int l3_protocol;
 	int data_open;
 	struct l3_process *proc;
 	setup_parm setup;	/* from isdnif.h numbers and Serviceindicator */
@@ -485,7 +489,7 @@ struct elsa_hw {
 	u_char LCR;
 	u_char MCR;
 	u_char ctrl_reg;
-};	
+};
 
 struct teles3_hw {
 	unsigned int cfg_reg;
@@ -554,6 +558,7 @@ struct sedl_hw {
 	unsigned int adr;
 	unsigned int isac;
 	unsigned int hscx;
+	unsigned int isar;
 	unsigned int reset_on;
 	unsigned int reset_off;
 };
@@ -607,6 +612,7 @@ struct hfcD_hw {
 
 #define HW_IOM1		0
 #define HW_IPAC		1
+#define HW_ISAR		2
 #define FLG_TWO_DCHAN	4
 #define FLG_L1_DBUSY	5
 #define FLG_DBUSY_TIMER 6
@@ -712,8 +718,9 @@ struct IsdnCardState {
 #define  ISDN_CTYPE_S0BOX	25
 #define  ISDN_CTYPE_A1_PCMCIA	26
 #define  ISDN_CTYPE_FRITZPCI	27
+#define  ISDN_CTYPE_SEDLBAUER_FAX     28
 
-#define  ISDN_CTYPE_COUNT	27
+#define  ISDN_CTYPE_COUNT	28
 
 #ifdef ISDN_CHIP_ISAC
 #undef ISDN_CHIP_ISAC
@@ -837,7 +844,7 @@ struct IsdnCardState {
 #endif
 
 #ifdef  CONFIG_HISAX_SEDLBAUER
-#define CARD_SEDLBAUER (1 << ISDN_CTYPE_SEDLBAUER) | (1 << ISDN_CTYPE_SEDLBAUER_PCMCIA)
+#define CARD_SEDLBAUER (1 << ISDN_CTYPE_SEDLBAUER) | (1 << ISDN_CTYPE_SEDLBAUER_PCMCIA) | ( 1 << ISDN_CTYPE_SEDLBAUER_FAX)
 #ifndef ISDN_CHIP_ISAC
 #define ISDN_CHIP_ISAC 1
 #endif
@@ -906,7 +913,7 @@ struct IsdnCardState {
 			 | CARD_IX1MICROR2 | CARD_DIEHLDIVA | CARD_ASUSCOM \
 			 | CARD_TELEINT | CARD_SEDLBAUER | CARD_SPORTSTER \
 			 | CARD_MIC | CARD_NETJET | CARD_TELES3C | CARD_AMD7930 \
-			 | CARD_AVM_A1_PCMCIA | CARD_FRITZPCI \
+			 | CARD_AVM_A1_PCMCIA | CARD_FRITZPCI\
 			 | CARD_NICCY | CARD_S0BOX | CARD_TELESPCI)
 
 #define TEI_PER_CARD 0
@@ -920,8 +927,13 @@ struct IsdnCardState {
 #undef TEI_PER_CARD
 #define TEI_PER_CARD 1
 #define HISAX_EURO_SENDCOMPLETE 1
-#ifdef	CONFIG_HISAX_ML
+#define EXT_BEARER_CAPS 1
+#define HISAX_SEND_STD_LLC_IE 1
+#ifdef	CONFIG_HISAX_NO_SENDCOMPLETE
 #undef HISAX_EURO_SENDCOMPLETE
+#endif
+#ifdef	CONFIG_HISAX_NO_LLC
+#undef HISAX_SEND_STD_LLC_IE
 #endif
 #undef HISAX_DE_AOC
 #ifdef CONFIG_DE_AOC
