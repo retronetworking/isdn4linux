@@ -72,11 +72,12 @@ if [ "$CONFIG_ISDN_DRV_HISAX" != "n" ]; then
    if [ "$CONFIG_EXPERIMENTAL" != "n" ]; then
       bool '  HFC-S+, HFC-SP, HFC-PCMCIA cards' CONFIG_HISAX_HFC_SX
 #      bool '  TESTEMULATOR (EXPERIMENTAL)' CONFIG_HISAX_TESTEMU
-      bool '  Sedlbauer PCMCIA cards' CONFIG_HISAX_SEDLBAUER_CS
       if [ "$ARCH" = "sparc" -o "$ARCH" = "sparc64" ]; then
 	 bool '  Am7930' CONFIG_HISAX_AMD7930
       fi
    fi
+
+   dep_tristate '  Sedlbauer PCMCIA cs module' CONFIG_HISAX_SEDLBAUER_CS $CONFIG_PCMCIA
 fi
 endmenu
 
