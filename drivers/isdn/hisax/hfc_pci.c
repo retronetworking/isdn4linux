@@ -23,6 +23,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.19  1999/09/04 06:20:06  keil
+ * Changes from kernel set_current_state()
+ *
  * Revision 1.18  1999/08/29 17:05:44  werner
  * corrected tx_lo line setup. Datasheet is not correct.
  *
@@ -1636,11 +1639,17 @@ __initfunc(int
 		  tmp_hfcpci = pci_find_device(id_list[i].vendor_id,
 					       id_list[i].device_id,
 					       dev_hfcpci);
-		  if (tmp_hfcpci) break;
 		  i++;
+		  if (tmp_hfcpci) {
+		    if ((card->para[0]) && (card->para[0] != (get_pcibase(tmp_hfcpci,0) & PCI_BASE_ADDRESS_IO_MASK)))
+		      continue;
+		    else
+		      break;
+		  }  
 		}  
 					      
 		if (tmp_hfcpci) {
+		        i--;
 		        dev_hfcpci = tmp_hfcpci; /* old device */
 			cs->hw.hfcpci.pci_bus = dev_hfcpci->bus->number;
 			cs->hw.hfcpci.pci_device_fn = dev_hfcpci->devfn;
@@ -1669,6 +1678,14 @@ __initfunc(int
 			}
 			if (!id_list[i].vendor_id) 
 			  continue;
+
+			if (card->para[0]) {
+			  pcibios_read_config_dword(cs->hw.hfcpci.pci_bus,
+						    cs->hw.hfcpci.pci_device_fn, PCI_BASE_ADDRESS_0,
+						    (void *) &cs->hw.hfcpci.pci_io);
+			if ((cs->hw.hfcpci.pci_io & PCI_BASE_ADDRESS_IO_MASK) != card->para[0])
+			  continue;
+			}
 
 			pcibios_read_config_byte(cs->hw.hfcpci.pci_bus, cs->hw.hfcpci.pci_device_fn,
 					       PCI_INTERRUPT_LINE, &irq);
