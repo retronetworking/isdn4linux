@@ -2,7 +2,8 @@
  *
  * Header for the Linux ISDN abc-extension.
  *
- * Author: abc GmbH written by Detlef Wengorz <detlefw@isdn4linux.de> 
+ * Copyright           by abc GmbH
+ *                     written by Detlef Wengorz <detlefw@isdn4linux.de>
  * 
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -17,19 +18,6 @@
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
- *
- * $Log$
- * Revision 1.2  1999/09/14 10:16:21  keil
- * change ABC include
- *
- * Revision 1.1  1999/09/12 16:19:40  detabc
- * added abc features
- * low cost routing for net-interfaces (only the HL side).
- * need more implementation in the isdnlog-utility
- * udp info support (first part).
- * different EAZ on outgoing call's.
- * more checks on D-Channel callbacks (double use of channels).
- * tested and running with kernel 2.3.17
  *
  */
 

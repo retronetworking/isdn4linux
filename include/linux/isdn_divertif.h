@@ -1,6 +1,5 @@
-/* 
- * $Id$
- *
+/* $Id$
+
  * Header for the diversion supplementary interface for i4l.
  *
  * Copyright 1998       by Werner Cornelius (werner@isdn4linux.de)
@@ -18,11 +17,6 @@
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
- *
- * $Log$
- * Revision 1.2  1999/07/04 21:38:38  werner
- * ported from kernel version 2.0
- *
  *
  */
 

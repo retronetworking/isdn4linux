@@ -1,4 +1,5 @@
 /* $Id$
+
  * header for Linux ISDN subsystem, tty_fax related functions (linklevel).
  *
  * Copyright 1999   by Armin Schindler (mac@melware.de)
@@ -18,8 +19,6 @@
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
- *
- * $Log$
  *
  */
 

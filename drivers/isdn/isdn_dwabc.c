@@ -3,8 +3,9 @@
 
  * Linux ISDN subsystem, abc-extension releated funktions.
  *
- * Author: abc GmbH written by Detlef Wengorz <detlefw@isdn4linux.de>
- * 
+ * Copyright           by abc GmbH
+ *                     written by Detlef Wengorz <detlefw@isdn4linux.de>
+ *
  * Many thanks for testing, debugging and writing Doku to:
  * Mario Schugowski <mario@mediatronix.de>
  *
@@ -21,102 +22,6 @@
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
- *
- * $Log$
- * Revision 1.18  2000/03/20 22:37:46  detabc
- * modify abc-extension to work together with the new LL.
- * remove abc frame-counter (is obsolete now).
- * use the new lp->super_tx_queue for internal queueing (bsd-rawip-compress).
- * modify isdn_net_xmit() and isdn_net_write_super().
- * -- Kai, please have a look to this two function's. Thank's.
- *
- * Revision 1.17  2000/03/04 16:20:41  detabc
- * copy frames before rewriting frame's saddr
- *
- * Revision 1.16  2000/02/06 21:49:59  detabc
- * add rewriting of socket's and frame's saddr for udp-ipv4 dynip-connections.
- * Include checksum-recompute of ip- and udp-header's.
- *
- * Revision 1.15  2000/02/05 22:11:33  detabc
- * Add rewriting of socket's and frame's saddr adressfield for
- * dynip-connections.  Only for tcp/ipv4 and switchable per interface.
- * Include checksum-recompute of ip- and tcp-header's.
- *
- * Revision 1.14  2000/01/25 22:37:14  detabc
- * modify changes from Karsten ( MSN == - ) for bind-groups
- *
- * Revision 1.13  2000/01/23 18:45:37  keil
- * Change EAZ mapping to forbit the use of cards (insert a "-" for the MSN)
- *
- * Revision 1.12  2000/01/09 20:43:14  detabc
- * exand logical bind-group's for both call's (in and out).
- * add first part of kernel-config-help for abc-extension.
- *
- * Revision 1.11  1999/12/05 16:06:08  detabc
- * add resethandling for rawip-compression.
- * at now all B2-Protocols are usable with rawip-compression
- *
- * Revision 1.10  1999/12/04 15:05:25  detabc
- * bugfix abc-rawip-bsdcompress with channel-bundeling
- *
- * Revision 1.9  1999/11/30 11:29:06  detabc
- * add a on the fly frame-counter and limit
- *
- * Revision 1.8  1999/11/28 14:49:07  detabc
- * In case of rawip-compress adjust dev[x]->ibytes/obytes to reflect the
- * uncompressed size.
- *
- * Revision 1.7  1999/11/26 15:54:59  detabc
- * added compression (isdn_bsdcompress) for rawip interfaces with x75i B2-protocol.
- *
- * Revision 1.6  1999/11/20 22:14:13  detabc
- * added channel dial-skip in case of external use
- * (isdn phone or another isdn device) on the same NTBA.
- * usefull with two or more card's connected the different NTBA's.
- * global switchable in kernel-config and also per netinterface.
- *
- * add auto disable of netinterface's in case of:
- * 	to many connection's in short time.
- * 	config mistakes (wrong encapsulation, B2-protokoll or so on) on local
- * 	or remote side.
- * 	wrong password's or something else to a ISP (syncppp).
- *
- * possible encapsulations for this future are:
- * ISDN_NET_ENCAP_SYNCPPP, ISDN_NET_ENCAP_UIHDLC, ISDN_NET_ENCAP_RAWIP,
- * and ISDN_NET_ENCAP_CISCOHDLCK.
- *
- * Revision 1.5  1999/11/07 21:57:04  detabc
- * added dwabc-udpinfo-dial support
- *
- * Revision 1.4  1999/10/27 21:21:17  detabc
- * Added support for building logically-bind-group's per interface.
- * usefull for outgoing call's with more then one isdn-card.
- *
- * Switchable support to dont reset the hangup-timeout for
- * receive frames. Most part's of the timru-rules for receiving frames
- * are now obsolete. If the input- or forwarding-firewall deny
- * the frame, the line will be not hold open.
- *
- * Revision 1.3  1999/09/23 22:22:41  detabc
- * added tcp-keepalive-detect with local response (ipv4 only)
- * added host-only-interface support
- * (source ipaddr == interface ipaddr) (ipv4 only)
- * ok with kernel 2.3.18 and 2.2.12
- *
- * Revision 1.2  1999/09/14 22:53:53  detabc
- *
- * Test LCR ioctl call/ change a wrong pointer++/
- * LCR LL->user_space(isdnlog)->ioctl->LL ok now
- *
- * Revision 1.1  1999/09/12 16:19:39  detabc
- * added abc features
- * least cost routing for net-interfaces (only the HL side).
- * need more implementation in the isdnlog-utility
- * udp info support (first part).
- * different EAZ on outgoing call's.
- * more checks on D-Channel callbacks (double use of channels).
- * tested and running with kernel 2.3.17
- *
  *
  */
 

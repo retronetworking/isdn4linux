@@ -18,17 +18,8 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
- * $Log$
- * Revision 1.3  1999/10/30 09:49:28  keil
- * Reinit of v110 structs
- *
- * Revision 1.2  1998/02/22 19:44:25  fritz
- * Bugfixes and improvements regarding V.110, V.110 now running.
- *
- * Revision 1.1  1998/02/20 17:32:09  fritz
- * First checkin (not yet completely functionable).
- *
  */
+
 #include <linux/string.h>
 #include <linux/kernel.h>
 #include <linux/malloc.h>

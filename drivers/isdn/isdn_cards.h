@@ -18,13 +18,6 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
- * $Log$
- * Revision 1.2  1997/02/03 23:31:55  fritz
- * Reformatted according CodingStyle
- *
- * Revision 1.1  1996/04/20 16:04:03  fritz
- * Initial revision
- *
  */
 
 extern void isdn_cards_init(void);
