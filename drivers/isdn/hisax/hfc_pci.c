@@ -23,6 +23,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.8  1999/07/23 14:25:15  werner
+ * Some smaller bug fixes and prepared support for GCI/IOM bus
+ *
  * Revision 1.7  1999/07/14 21:24:20  werner
  * fixed memcpy problem when using E-channel feature
  *
@@ -256,7 +259,7 @@ hfcpci_empty_fifo(struct BCState *bcs, bzfifo_type * bz, u_char * bdata, int cou
 		count -= 3;
 		ptr = skb_put(skb, count);
 
-		if (zp->z1 >= zp->z2)
+ 		if (zp->z2 + count <= B_FIFO_SIZE + B_SUB_VAL)
 			maxlen = count;		/* complete transfer */
 		else
 			maxlen = B_FIFO_SIZE + B_SUB_VAL - zp->z2;	/* maximum */
@@ -320,7 +323,7 @@ receive_dmsg(struct IsdnCardState *cs)
 			rcnt -= 3;
 			ptr = skb_put(skb, rcnt);
 
-			if (zp->z1 >= zp->z2)
+			if (zp->z2 + rcnt <= D_FIFO_SIZE)
 				maxlen = rcnt;	/* complete transfer */
 			else
 				maxlen = D_FIFO_SIZE - zp->z2;	/* maximum */
@@ -673,7 +676,7 @@ static void receive_emsg(struct IsdnCardState *cs)
 		    rcnt -= 3;
 		    ptr = e_buffer;
 
-		    if (zp->z1 >= zp->z2)
+		    if (zp->z2 <= B_FIFO_SIZE + B_SUB_VAL)
 			maxlen = rcnt;		/* complete transfer */
 		    else
 			maxlen = B_FIFO_SIZE + B_SUB_VAL - zp->z2;	/* maximum */
