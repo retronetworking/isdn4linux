@@ -11,6 +11,9 @@
  *              Fritz Elfert
  *
  * $Log$
+ * Revision 2.44  2000/05/23 20:45:05  keil
+ * debug for wakeup callback
+ *
  * Revision 2.43  2000/05/19 18:39:41  keil
  * some debug for upstream packets
  *
@@ -1273,7 +1276,7 @@ init_chan(int chan, struct IsdnCardState *csta)
 	chanp->fi.printdebug = callc_debug;
 	FsmInitTimer(&chanp->fi, &chanp->dial_timer);
 	FsmInitTimer(&chanp->fi, &chanp->drel_timer);
-	if (!chan || test_bit(FLG_TWO_DCHAN, &csta->HW_Flags)) {
+	if (!chan || (test_bit(FLG_TWO_DCHAN, &csta->HW_Flags) && chan < 2)) {
 		init_d_st(chanp);
 	} else {
 		chanp->d_st = csta->channel->d_st;
@@ -1703,6 +1706,7 @@ HiSax_command(isdn_ctrl * ic)
 			break;
 		case (ISDN_CMD_ACCEPTD):
 			chanp = csta->channel + ic->arg;
+			chanp->setup = ic->parm.setup;
 			if (chanp->debug & 1)
 				link_debug(chanp, 1, "ACCEPTD");
 			FsmEvent(&chanp->fi, EV_ACCEPTD, NULL);
