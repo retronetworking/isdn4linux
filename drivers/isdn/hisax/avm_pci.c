@@ -7,6 +7,10 @@
  *
  *
  * $Log$
+ * Revision 1.1.2.1  1998/08/25 14:01:24  calle
+ * Ported driver for AVM Fritz!Card PCI from the 2.1 tree.
+ * I could not test it.
+ *
  * Revision 1.1  1998/08/20 13:47:30  keil
  * first version
  *
@@ -272,26 +276,26 @@ hdlc_fill_fifo(struct BCState *bcs)
 
 	if ((cs->debug & L1_DEB_HSCX) && !(cs->debug & L1_DEB_HSCX_FIFO))
 		debugl1(cs, "hdlc_fill_fifo");
-	if (!bcs->hw.hdlc.tx_skb)
+	if (!bcs->tx_skb)
 		return;
-	if (bcs->hw.hdlc.tx_skb->len <= 0)
+	if (bcs->tx_skb->len <= 0)
 		return;
 
 	bcs->hw.hdlc.ctrl &= ~HDLC_CMD_XME;
-	if (bcs->hw.hdlc.tx_skb->len > fifo_size) {
+	if (bcs->tx_skb->len > fifo_size) {
 		count = fifo_size;
 	} else {
-		count = bcs->hw.hdlc.tx_skb->len;
+		count = bcs->tx_skb->len;
 		if (bcs->mode != L1_MODE_TRANS)
 			bcs->hw.hdlc.ctrl |= HDLC_CMD_XME;
 	}
 	if ((cs->debug & L1_DEB_HSCX) && !(cs->debug & L1_DEB_HSCX_FIFO)) {
 		u_char tmp[32];
-		sprintf(tmp, "hdlc_fill_fifo %d/%ld", count, bcs->hw.hdlc.tx_skb->len);
+		sprintf(tmp, "hdlc_fill_fifo %d/%ld", count, bcs->tx_skb->len);
 		debugl1(cs, tmp);
 	}
-	ptr = (u_int *) p = bcs->hw.hdlc.tx_skb->data;
-	skb_pull(bcs->hw.hdlc.tx_skb, count);
+	ptr = (u_int *) p = bcs->tx_skb->data;
+	skb_pull(bcs->tx_skb, count);
 	bcs->tx_cnt -= count;
 	bcs->hw.hdlc.count += count;
 	if (idx != inl(cs->hw.avm.cfg_reg + 4))
@@ -375,8 +379,8 @@ HDLC_irq(struct BCState *bcs, u_int stat) {
 		/* Here we lost an TX interrupt, so
 		 * restart transmitting the whole frame.
 		 */
-		if (bcs->hw.hdlc.tx_skb) {
-			skb_push(bcs->hw.hdlc.tx_skb, bcs->hw.hdlc.count);
+		if (bcs->tx_skb) {
+			skb_push(bcs->tx_skb, bcs->hw.hdlc.count);
 			bcs->tx_cnt += bcs->hw.hdlc.count;
 			bcs->hw.hdlc.count = 0;
 			bcs->hw.hdlc.ctrl &= ~HDLC_STAT_RML_MASK;
@@ -391,20 +395,20 @@ HDLC_irq(struct BCState *bcs, u_int stat) {
 		if (bcs->cs->debug & L1_DEB_WARN)
 			debugl1(bcs->cs, tmp);
 	} else if (stat & HDLC_INT_XPR) {
-		if (bcs->hw.hdlc.tx_skb) {
-			if (bcs->hw.hdlc.tx_skb->len) {
+		if (bcs->tx_skb) {
+			if (bcs->tx_skb->len) {
 				hdlc_fill_fifo(bcs);
 				return;
 			} else {
 				if (bcs->st->lli.l1writewakeup &&
-					(PACKET_NOACK != bcs->hw.hdlc.tx_skb->pkt_type))
+					(PACKET_NOACK != bcs->tx_skb->pkt_type))
 					bcs->st->lli.l1writewakeup(bcs->st, bcs->hw.hdlc.count);
-				dev_kfree_skb(bcs->hw.hdlc.tx_skb, FREE_WRITE);
+				dev_kfree_skb(bcs->tx_skb, FREE_WRITE);
 				bcs->hw.hdlc.count = 0; 
-				bcs->hw.hdlc.tx_skb = NULL;
+				bcs->tx_skb = NULL;
 			}
 		}
-		if ((bcs->hw.hdlc.tx_skb = skb_dequeue(&bcs->squeue))) {
+		if ((bcs->tx_skb = skb_dequeue(&bcs->squeue))) {
 			bcs->hw.hdlc.count = 0;
 			test_and_set_bit(BC_FLG_BUSY, &bcs->Flag);
 			hdlc_fill_fifo(bcs);
@@ -453,11 +457,11 @@ hdlc_l2l1(struct PStack *st, int pr, void *arg)
 		case (PH_DATA | REQUEST):
 			save_flags(flags);
 			cli();
-			if (st->l1.bcs->hw.hdlc.tx_skb) {
+			if (st->l1.bcs->tx_skb) {
 				skb_queue_tail(&st->l1.bcs->squeue, skb);
 				restore_flags(flags);
 			} else {
-				st->l1.bcs->hw.hdlc.tx_skb = skb;
+				st->l1.bcs->tx_skb = skb;
 				test_and_set_bit(BC_FLG_BUSY, &st->l1.bcs->Flag);
 				st->l1.bcs->hw.hdlc.count = 0;
 				restore_flags(flags);
@@ -465,17 +469,17 @@ hdlc_l2l1(struct PStack *st, int pr, void *arg)
 			}
 			break;
 		case (PH_PULL | INDICATION):
-			if (st->l1.bcs->hw.hdlc.tx_skb) {
+			if (st->l1.bcs->tx_skb) {
 				printk(KERN_WARNING "hdlc_l2l1: this shouldn't happen\n");
 				break;
 			}
 			test_and_set_bit(BC_FLG_BUSY, &st->l1.bcs->Flag);
-			st->l1.bcs->hw.hdlc.tx_skb = skb;
+			st->l1.bcs->tx_skb = skb;
 			st->l1.bcs->hw.hdlc.count = 0;
 			st->l1.bcs->cs->BC_Send_Data(st->l1.bcs);
 			break;
 		case (PH_PULL | REQUEST):
-			if (!st->l1.bcs->hw.hdlc.tx_skb) {
+			if (!st->l1.bcs->tx_skb) {
 				test_and_clear_bit(FLG_L1_PULL_REQ, &st->l1.Flags);
 				st->l1.l1l2(st, PH_PULL | CONFIRM, NULL);
 			} else
@@ -509,9 +513,9 @@ close_hdlcstate(struct BCState *bcs)
 		}
 		discard_queue(&bcs->rqueue);
 		discard_queue(&bcs->squeue);
-		if (bcs->hw.hdlc.tx_skb) {
-			dev_kfree_skb(bcs->hw.hdlc.tx_skb, FREE_WRITE);
-			bcs->hw.hdlc.tx_skb = NULL;
+		if (bcs->tx_skb) {
+			dev_kfree_skb(bcs->tx_skb, FREE_WRITE);
+			bcs->tx_skb = NULL;
 			test_and_clear_bit(BC_FLG_BUSY, &bcs->Flag);
 		}
 	}
@@ -529,7 +533,7 @@ open_hdlcstate(struct IsdnCardState *cs, struct BCState *bcs)
 		skb_queue_head_init(&bcs->rqueue);
 		skb_queue_head_init(&bcs->squeue);
 	}
-	bcs->hw.hdlc.tx_skb = NULL;
+	bcs->tx_skb = NULL;
 	test_and_clear_bit(BC_FLG_BUSY, &bcs->Flag);
 	bcs->event = 0;
 	bcs->hw.hdlc.rcvidx = 0;
@@ -543,6 +547,7 @@ setstack_hdlc(struct PStack *st, struct BCState *bcs)
 	bcs->channel = st->l1.bc;
 	if (open_hdlcstate(st->l1.hardware, bcs))
 		return (-1);
+	st->l1.bcs = bcs;
 	st->l2.l2l1 = hdlc_l2l1;
 	setstack_manager(st);
 	bcs->st = st;
@@ -635,7 +640,7 @@ AVM_card_msg(struct IsdnCardState *cs, int mt, void *arg)
 			return(0);
 		case CARD_SETIRQ:
 			return(request_irq(cs->irq, &avm_pci_interrupt,
-					I4L_IRQ_FLAG, "HiSax", cs));
+					I4L_IRQ_FLAG | SA_SHIRQ, "HiSax", cs));
 		case CARD_INIT:
 			clear_pending_isac_ints(cs);
 			initisac(cs);
@@ -655,20 +660,21 @@ AVM_card_msg(struct IsdnCardState *cs, int mt, void *arg)
 	return(0);
 }
 
+static 	int pci_index __initdata = 0;
+
 __initfunc(int
 setup_avm_pci(struct IsdnCard *card))
 {
 	u_int val;
 	struct IsdnCardState *cs = card->cs;
 	char tmp[64];
-        int pci_index;
 
 	strcpy(tmp, avm_pci_rev);
 	printk(KERN_INFO "HiSax: AVM PCI driver Rev. %s\n", HiSax_getrev(tmp));
 	if (cs->typ != ISDN_CTYPE_FRITZPCI)
 		return (0);
 #if CONFIG_PCI
-	for (pci_index = 0; pci_index < 8; pci_index++) {
+	for (pci_index = 0; pci_index < 255; pci_index++) {
 		unsigned char pci_bus, pci_device_fn;
 		unsigned int ioaddr;
 		unsigned char irq;
