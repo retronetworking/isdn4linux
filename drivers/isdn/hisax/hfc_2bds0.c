@@ -6,6 +6,9 @@
  *
  *
  * $Log$
+ * Revision 1.1.2.3  1998/04/04 21:59:20  keil
+ * Fixed B-channel access
+ *
  * Revision 1.1.2.2  1998/01/27 22:40:35  keil
  * fixed IRQ latency, B-channel selection and more
  *
@@ -650,6 +653,7 @@ setstack_2b(struct PStack *st, struct BCState *bcs)
 	st->ma.manl1 = hfc_manl1;
 	setstack_manager(st);
 	bcs->st = st;
+	st->l1.Flags = 0;
 	return (0);
 }
 

@@ -6,6 +6,9 @@
  *
  *
  * $Log$
+ * Revision 1.1.2.3  1998/04/04 21:59:23  keil
+ * Fixed B-channel access
+ *
  * Revision 1.1.2.2  1997/11/15 18:54:27  keil
  * cosmetics
  *
@@ -565,6 +568,7 @@ setstack_hfc(struct PStack *st, struct BCState *bcs)
 	st->ma.manl1 = hfc_manl1;
 	setstack_manager(st);
 	bcs->st = st;
+	st->l1.Flags = 0;
 	return (0);
 }
 
