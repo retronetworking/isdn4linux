@@ -7,6 +7,9 @@
  * This is an include file for fast inline IRQ stuff
  *
  * $Log$
+ * Revision 1.6  1997/10/29 19:01:07  keil
+ * changes for 2.1
+ *
  * Revision 1.5  1997/10/01 09:21:35  fritz
  * Removed old compatibility stuff for 2.0.X kernels.
  * From now on, this code is for 2.1.X ONLY!
@@ -221,7 +224,7 @@ hscx_interrupt(struct IsdnCardState *cs, u_char val, u_char hscx)
 				if (bcs->st->lli.l1writewakeup &&
 					(PACKET_NOACK != bcs->hw.hscx.tx_skb->pkt_type))
 					bcs->st->lli.l1writewakeup(bcs->st, bcs->hw.hscx.count);
-				dev_kfree_skb(bcs->hw.hscx.tx_skb, FREE_WRITE);
+				dev_kfree_skb(bcs->hw.hscx.tx_skb);
 				bcs->hw.hscx.count = 0; 
 				bcs->hw.hscx.tx_skb = NULL;
 			}

@@ -7,6 +7,9 @@
  *              Fritz Elfert
  *
  * $Log$
+ * Revision 2.6  1998/02/02 13:36:15  keil
+ * bugfix X.75 win calculation
+ *
  * Revision 2.5  1997/11/06 17:09:22  keil
  * New 2.1 init code
  *
@@ -136,7 +139,7 @@ ReleaseWin(struct Layer2 *l2)
 	for (i = 0; i < MAX_WINDOW; i++) {
 		if (l2->windowar[i]) {
 			cnt++;
-			dev_kfree_skb(l2->windowar[i], FREE_WRITE);
+			dev_kfree_skb(l2->windowar[i]);
 			l2->windowar[i] = NULL;
 		}
 	}
@@ -161,7 +164,7 @@ discard_i_queue(struct PStack *st)
 	struct sk_buff *skb;
 
 	while ((skb = skb_dequeue(&st->l2.i_queue))) {
-		dev_kfree_skb(skb, FREE_READ);
+		dev_kfree_skb(skb);
 	}
 }
 
@@ -171,7 +174,7 @@ discard_ui_queue(struct PStack *st)
 	struct sk_buff *skb;
 
 	while ((skb = skb_dequeue(&st->l2.ui_queue))) {
-		dev_kfree_skb(skb, FREE_READ);
+		dev_kfree_skb(skb);
 	}
 }
 
@@ -314,7 +317,7 @@ setva(struct PStack *st, int nr)
 		len = l2->windowar[l2->sow]->len;
 		if (PACKET_NOACK == l2->windowar[l2->sow]->pkt_type)
 			len = -1;
-		dev_kfree_skb(l2->windowar[l2->sow], FREE_WRITE);
+		dev_kfree_skb(l2->windowar[l2->sow]);
 		l2->windowar[l2->sow] = NULL;
 		l2->sow = (l2->sow + 1) % l2->window;
 		if (st->lli.l2writewakeup && (len >=0))
@@ -348,7 +351,7 @@ get_PollFlag(struct PStack * st, struct sk_buff * skb)
 inline void
 FreeSkb(struct sk_buff *skb)
 {
-	dev_kfree_skb(skb, FREE_READ);
+	dev_kfree_skb(skb);
 }
 
 
@@ -1113,7 +1116,7 @@ l2_pull_iqueue(struct FsmInst *fi, int event, void *arg)
 	if (l2->windowar[p1]) {
 		printk(KERN_WARNING "isdnl2 try overwrite ack queue entry %d\n",
 		       p1);
-		dev_kfree_skb(l2->windowar[p1], FREE_WRITE);
+		dev_kfree_skb(l2->windowar[p1]);
 	}
 	l2->windowar[p1] = skb_clone(skb, GFP_ATOMIC);
 
@@ -1446,12 +1449,12 @@ isdnl2_l3l2(struct PStack *st, int pr, void *arg)
 	switch (pr) {
 		case (DL_DATA):
 			if (FsmEvent(&st->l2.l2m, EV_L2_DL_DATA, arg)) {
-				dev_kfree_skb((struct sk_buff *) arg, FREE_READ);
+				dev_kfree_skb((struct sk_buff *) arg);
 			}
 			break;
 		case (DL_UNIT_DATA):
 			if (FsmEvent(&st->l2.l2m, EV_L2_DL_UNIT_DATA, arg)) {
-				dev_kfree_skb((struct sk_buff *) arg, FREE_READ);
+				dev_kfree_skb((struct sk_buff *) arg);
 			}
 			break;
 	}

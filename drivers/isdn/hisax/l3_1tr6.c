@@ -6,6 +6,9 @@
  *
  *
  * $Log$
+ * Revision 2.3  1997/11/06 17:12:24  keil
+ * KERN_NOTICE --> KERN_INFO
+ *
  * Revision 2.2  1997/10/29 19:03:00  keil
  * changes for 2.1
  *
@@ -244,7 +247,7 @@ l3_1tr6_setup(struct l3_process *pc, u_char pr, void *arg)
 		if ((FAC_SPV == p[3]) || (FAC_Activate == p[3]))
 			pc->para.spv = 1;
 	}
-	dev_kfree_skb(skb, FREE_READ);
+	dev_kfree_skb(skb);
 
 	/* Signal all services, linklevel takes care of Service-Indicator */
 	if (bcfound) {
@@ -273,7 +276,7 @@ l3_1tr6_setup_ack(struct l3_process *pc, u_char pr, void *arg)
 		pc->para.bchannel = p[2] & 0x3;
 	} else if (pc->st->l3.debug & L3_DEB_WARN)
 		l3_debug(pc->st, "setup answer without bchannel");
-	dev_kfree_skb(skb, FREE_READ);
+	dev_kfree_skb(skb);
 	L3AddTimer(&pc->timer, T304, CC_T304);
 	pc->st->l3.l3l4(pc, CC_MORE_INFO, NULL);
 }
@@ -290,7 +293,7 @@ l3_1tr6_call_sent(struct l3_process *pc, u_char pr, void *arg)
 		pc->para.bchannel = p[2] & 0x3;
 	} else if (pc->st->l3.debug & L3_DEB_WARN)
 		l3_debug(pc->st, "setup answer without bchannel");
-	dev_kfree_skb(skb, FREE_READ);
+	dev_kfree_skb(skb);
 	L3AddTimer(&pc->timer, T310, CC_T310);
 	newl3state(pc, 3);
 	pc->st->l3.l3l4(pc, CC_PROCEEDING_IND, NULL);
@@ -301,7 +304,7 @@ l3_1tr6_alert(struct l3_process *pc, u_char pr, void *arg)
 {
 	struct sk_buff *skb = arg;
 
-	dev_kfree_skb(skb, FREE_READ);
+	dev_kfree_skb(skb);
 	L3DelTimer(&pc->timer);	/* T304 */
 	newl3state(pc, 4);
 	pc->st->l3.l3l4(pc, CC_ALERTING_IND, NULL);
@@ -332,7 +335,7 @@ l3_1tr6_info(struct l3_process *pc, u_char pr, void *arg)
 		}
 	} else if (pc->st->l3.debug & L3_DEB_CHARGE)
 		l3_debug(pc->st, "charging info not found");
-	dev_kfree_skb(skb, FREE_READ);
+	dev_kfree_skb(skb);
 
 }
 
@@ -341,7 +344,7 @@ l3_1tr6_info_s2(struct l3_process *pc, u_char pr, void *arg)
 {
 	struct sk_buff *skb = arg;
 
-	dev_kfree_skb(skb, FREE_READ);
+	dev_kfree_skb(skb);
 }
 
 static void
@@ -351,7 +354,7 @@ l3_1tr6_connect(struct l3_process *pc, u_char pr, void *arg)
 
 	L3DelTimer(&pc->timer);	/* T310 */
 	newl3state(pc, 10);
-	dev_kfree_skb(skb, FREE_READ);
+	dev_kfree_skb(skb);
 	pc->para.chargeinfo = 0;
 	pc->st->l3.l3l4(pc, CC_SETUP_CNF, NULL);
 }
@@ -376,7 +379,7 @@ l3_1tr6_rel(struct l3_process *pc, u_char pr, void *arg)
 		}
 	} else
 		pc->para.cause = -1;
-	dev_kfree_skb(skb, FREE_READ);
+	dev_kfree_skb(skb);
 	StopAllL3Timer(pc);
 	newl3state(pc, 0);
 	l3_1TR6_message(pc, MT_N1_REL_ACK, PROTO_DIS_N1);
@@ -389,7 +392,7 @@ l3_1tr6_rel_ack(struct l3_process *pc, u_char pr, void *arg)
 {
 	struct sk_buff *skb = arg;
 
-	dev_kfree_skb(skb, FREE_READ);
+	dev_kfree_skb(skb);
 	StopAllL3Timer(pc);
 	newl3state(pc, 0);
 	pc->para.cause = -1;
@@ -442,7 +445,7 @@ l3_1tr6_disc(struct l3_process *pc, u_char pr, void *arg)
 			l3_debug(pc->st, "cause not found");
 		pc->para.cause = -1;
 	}
-	dev_kfree_skb(skb, FREE_READ);
+	dev_kfree_skb(skb);
 	newl3state(pc, 12);
 	pc->st->l3.l3l4(pc, CC_DISCONNECT_IND, NULL);
 }
@@ -453,7 +456,7 @@ l3_1tr6_connect_ack(struct l3_process *pc, u_char pr, void *arg)
 {
 	struct sk_buff *skb = arg;
 
-	dev_kfree_skb(skb, FREE_READ);
+	dev_kfree_skb(skb);
 	newl3state(pc, 10);
 	pc->para.chargeinfo = 0;
 	L3DelTimer(&pc->timer);
@@ -731,7 +734,7 @@ up1tr6(struct PStack *st, int pr, void *arg)
 			sprintf(tmp, "up1tr6 len only %d", skb->len);
 			l3_debug(st, tmp);
 		}
-		dev_kfree_skb(skb, FREE_READ);
+		dev_kfree_skb(skb);
 		return;
 	}
 	if ((skb->data[0] & 0xfe) != PROTO_DIS_N0) {
@@ -741,7 +744,7 @@ up1tr6(struct PStack *st, int pr, void *arg)
 				skb->data[0], skb->len);
 			l3_debug(st, tmp);
 		}
-		dev_kfree_skb(skb, FREE_READ);
+		dev_kfree_skb(skb);
 		return;
 	}
 	if (skb->data[1] != 1) {
@@ -749,13 +752,13 @@ up1tr6(struct PStack *st, int pr, void *arg)
 			sprintf(tmp, "up1tr6 CR len not 1");
 			l3_debug(st, tmp);
 		}
-		dev_kfree_skb(skb, FREE_READ);
+		dev_kfree_skb(skb);
 		return;
 	}
 	cr = skb->data[2];
 	mt = skb->data[3];
 	if (skb->data[0] == PROTO_DIS_N0) {
-		dev_kfree_skb(skb, FREE_READ);
+		dev_kfree_skb(skb);
 		if (st->l3.debug & L3_DEB_STATE) {
 			sprintf(tmp, "up1tr6%s N0 mt %x unhandled",
 			     (pr == DL_DATA) ? " " : "(broadcast) ", mt);
@@ -769,11 +772,11 @@ up1tr6(struct PStack *st, int pr, void *arg)
 						sprintf(tmp, "up1tr6 no roc mem");
 						l3_debug(st, tmp);
 					}
-					dev_kfree_skb(skb, FREE_READ);
+					dev_kfree_skb(skb);
 					return;
 				}
 			} else {
-				dev_kfree_skb(skb, FREE_READ);
+				dev_kfree_skb(skb);
 				return;
 			}
 		}
@@ -782,7 +785,7 @@ up1tr6(struct PStack *st, int pr, void *arg)
 			    ((1 << proc->state) & datastln1[i].state))
 				break;
 		if (i == datastln1_len) {
-			dev_kfree_skb(skb, FREE_READ);
+			dev_kfree_skb(skb);
 			if (st->l3.debug & L3_DEB_STATE) {
 				sprintf(tmp, "up1tr6%sstate %d mt %x unhandled",
 				  (pr == DL_DATA) ? " " : "(broadcast) ",

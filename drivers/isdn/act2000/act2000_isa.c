@@ -20,6 +20,11 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.4  1997/10/09 22:23:00  fritz
+ * New HL<->LL interface:
+ *   New BSENT callback with nr. of bytes included.
+ *   Sending without ACK.
+ *
  * Revision 1.3  1997/09/25 17:25:38  fritz
  * Support for adding cards at runtime.
  * Support for new Firmware.
@@ -417,7 +422,7 @@ isa_send(act2000_card * card)
 			msg->msg.data_b3_req.flags = card->need_b3ack;
 			skb_queue_tail(&card->ackq, skb);
 		} else
-			dev_kfree_skb(skb, FREE_WRITE);
+			dev_kfree_skb(skb);
 		card->sbuf = NULL;
 #if 0
 		printk(KERN_DEBUG "isa_send: %d bytes\n", l);

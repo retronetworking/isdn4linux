@@ -6,6 +6,9 @@
  *
  *
  * $Log$
+ * Revision 1.6  1998/02/02 13:41:12  keil
+ * new init
+ *
  * Revision 1.5  1997/11/06 17:09:34  keil
  * New 2.1 init code
  *
@@ -162,13 +165,13 @@ close_hscxstate(struct BCState *bcs)
 			bcs->hw.hscx.rcvbuf = NULL;
 		}
 		while ((skb = skb_dequeue(&bcs->rqueue))) {
-			dev_kfree_skb(skb, FREE_READ);
+			dev_kfree_skb(skb);
 		}
 		while ((skb = skb_dequeue(&bcs->squeue))) {
-			dev_kfree_skb(skb, FREE_WRITE);
+			dev_kfree_skb(skb);
 		}
 		if (bcs->hw.hscx.tx_skb) {
-			dev_kfree_skb(bcs->hw.hscx.tx_skb, FREE_WRITE);
+			dev_kfree_skb(bcs->hw.hscx.tx_skb);
 			bcs->hw.hscx.tx_skb = NULL;
 			test_and_clear_bit(BC_FLG_BUSY, &bcs->Flag);
 		}

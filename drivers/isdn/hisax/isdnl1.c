@@ -11,6 +11,9 @@
  *
  *
  * $Log$
+ * Revision 2.17  1998/02/11 17:28:07  keil
+ * Niccy PnP/PCI support
+ *
  * Revision 2.16  1998/02/09 18:46:08  keil
  * Support for Sedlbauer PCMCIA (Marcus Niemann)
  *
@@ -465,7 +468,7 @@ DChannel_proc_rcv(struct IsdnCardState *cs)
 					stptr = stptr->next;
 				}
 			}
-			dev_kfree_skb(skb, FREE_READ);
+			dev_kfree_skb(skb);
 		} else if (sapi == CTRL_SAPI) {
 			found = 0;
 			while (stptr != NULL)
@@ -488,7 +491,7 @@ DChannel_proc_rcv(struct IsdnCardState *cs)
 					LogFrame(cs, skb->data, skb->len);
 					dlogframe(cs, skb->data + 4, skb->len - 4, tmp);
 				}
-				dev_kfree_skb(skb, FREE_READ);
+				dev_kfree_skb(skb);
 			}
 		}
 	}
@@ -591,13 +594,13 @@ closecard(int cardnr)
 		csta->rcvbuf = NULL;
 	}
 	while ((skb = skb_dequeue(&csta->rq))) {
-		dev_kfree_skb(skb, FREE_READ);
+		dev_kfree_skb(skb);
 	}
 	while ((skb = skb_dequeue(&csta->sq))) {
-		dev_kfree_skb(skb, FREE_WRITE);
+		dev_kfree_skb(skb);
 	}
 	if (csta->tx_skb) {
-		dev_kfree_skb(csta->tx_skb, FREE_WRITE);
+		dev_kfree_skb(csta->tx_skb);
 		csta->tx_skb = NULL;
 	}
 	if (csta->mon_rx) {

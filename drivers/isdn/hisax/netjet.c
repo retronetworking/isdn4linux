@@ -8,6 +8,9 @@
  *
  *
  * $Log$
+ * Revision 1.2  1998/02/02 13:32:06  keil
+ * New
+ *
  *
  *
  */
@@ -540,7 +543,7 @@ static void fill_dma(struct BCState *bcs)
 	if (test_and_clear_bit(BC_FLG_NOFRAME, &bcs->Flag)) {
 		write_raw(bcs, bcs->hw.tiger.sendp, bcs->hw.tiger.free);
 	} else if (test_and_clear_bit(BC_FLG_HALF, &bcs->Flag)) {
-		p = (u_int *) inl(bcs->cs->hw.njet.base + NETJET_DMA_READ_ADR);
+		p = bus_to_virt(inl(bcs->cs->hw.njet.base + NETJET_DMA_READ_ADR));
 		sp = bcs->hw.tiger.sendp;
 		if (p == bcs->hw.tiger.s_end)
 			p = bcs->hw.tiger.send -1;
@@ -561,7 +564,7 @@ static void fill_dma(struct BCState *bcs)
 			write_raw(bcs, p, bcs->hw.tiger.free - cnt);
 		}
 	} else if (test_and_clear_bit(BC_FLG_EMPTY, &bcs->Flag)) {
-		p = (u_int *) inl(bcs->cs->hw.njet.base + NETJET_DMA_READ_ADR);
+		p = bus_to_virt(inl(bcs->cs->hw.njet.base + NETJET_DMA_READ_ADR));
 		cnt = bcs->hw.tiger.s_end - p;
 		if (cnt < 2) {
 			p = bcs->hw.tiger.send + 1;
@@ -622,11 +625,16 @@ static void write_raw(struct BCState *bcs, u_int *buf, int cnt) {
 		bcs->hw.tiger.sp += s_cnt;
 		bcs->hw.tiger.sendp = p;
 		if (!bcs->hw.tiger.sendcnt) {
-			if (bcs->st->lli.l1writewakeup &&
-				(PACKET_NOACK != bcs->hw.tiger.tx_skb->pkt_type))
-				bcs->st->lli.l1writewakeup(bcs->st, bcs->hw.tiger.tx_skb->len);
-			dev_kfree_skb(bcs->hw.tiger.tx_skb, FREE_WRITE);
-			bcs->hw.tiger.tx_skb = NULL;
+			if (!bcs->hw.tiger.tx_skb) {
+				sprintf(tmp,"tiger write_raw: NULL skb s_cnt %d", s_cnt);
+				debugl1(bcs->cs, tmp);
+			} else {
+				if (bcs->st->lli.l1writewakeup &&
+					(PACKET_NOACK != bcs->hw.tiger.tx_skb->pkt_type))
+					bcs->st->lli.l1writewakeup(bcs->st, bcs->hw.tiger.tx_skb->len);
+				dev_kfree_skb(bcs->hw.tiger.tx_skb);
+				bcs->hw.tiger.tx_skb = NULL;
+			}
 			test_and_clear_bit(BC_FLG_BUSY, &bcs->Flag);
 			bcs->hw.tiger.free = cnt - s_cnt;
 			if (bcs->hw.tiger.free > (NETJET_DMA_SIZE/2))
@@ -744,13 +752,13 @@ close_tigerstate(struct BCState *bcs)
 			bcs->hw.tiger.sendbuf = NULL;
 		}
 		while ((skb = skb_dequeue(&bcs->rqueue))) {
-			dev_kfree_skb(skb, FREE_READ);
+			dev_kfree_skb(skb);
 		}
 		while ((skb = skb_dequeue(&bcs->squeue))) {
-			dev_kfree_skb(skb, FREE_WRITE);
+			dev_kfree_skb(skb);
 		}
 		if (bcs->hw.tiger.tx_skb) {
-			dev_kfree_skb(bcs->hw.tiger.tx_skb, FREE_WRITE);
+			dev_kfree_skb(bcs->hw.tiger.tx_skb);
 			bcs->hw.tiger.tx_skb = NULL;
 			test_and_clear_bit(BC_FLG_BUSY, &bcs->Flag);
 		}
@@ -763,12 +771,12 @@ open_tigerstate(struct IsdnCardState *cs, int bc)
 	struct BCState *bcs = cs->bcs + bc;
 
 	if (!test_and_set_bit(BC_FLG_INIT, &bcs->Flag)) {
-		if (!(bcs->hw.tiger.rcvbuf = kmalloc(HSCX_BUFMAX, GFP_ATOMIC))) {
+		if (!(bcs->hw.tiger.rcvbuf = kmalloc(HSCX_BUFMAX, GFP_KERNEL))) {
 			printk(KERN_WARNING
 			       "HiSax: No memory for tiger.rcvbuf\n");
 			return (1);
 		}
-		if (!(bcs->hw.tiger.sendbuf = kmalloc(RAW_BUFMAX, GFP_ATOMIC))) {
+		if (!(bcs->hw.tiger.sendbuf = kmalloc(RAW_BUFMAX, GFP_KERNEL))) {
 			printk(KERN_WARNING
 			       "HiSax: No memory for tiger.sendbuf\n");
 			return (1);
@@ -822,7 +830,7 @@ inittiger(struct IsdnCardState *cs))
 	char tmp[128];
 
 	if (!(cs->bcs[0].hw.tiger.send = kmalloc(NETJET_DMA_SIZE * sizeof(unsigned int),
-		GFP_ATOMIC | GFP_DMA))) {
+		GFP_KERNEL | GFP_DMA))) {
 		printk(KERN_WARNING
 		       "HiSax: No memory for tiger.send\n");
 		return;
@@ -837,14 +845,14 @@ inittiger(struct IsdnCardState *cs))
 	sprintf(tmp, "tiger: send buf %x - %x", (u_int)cs->bcs[0].hw.tiger.send,
 		(u_int)(cs->bcs[0].hw.tiger.send + NETJET_DMA_SIZE - 1));
 	debugl1(cs, tmp);
-	outl((u_int)cs->bcs[0].hw.tiger.send,
+	outl(virt_to_bus(cs->bcs[0].hw.tiger.send),
 		cs->hw.njet.base + NETJET_DMA_READ_START);
-	outl((u_int)(cs->bcs[0].hw.tiger.s_irq),
+	outl(virt_to_bus(cs->bcs[0].hw.tiger.s_irq),
 		cs->hw.njet.base + NETJET_DMA_READ_IRQ);
-	outl((u_int)(cs->bcs[0].hw.tiger.s_end),
+	outl(virt_to_bus(cs->bcs[0].hw.tiger.s_end),
 		cs->hw.njet.base + NETJET_DMA_READ_END);
 	if (!(cs->bcs[0].hw.tiger.rec = kmalloc(NETJET_DMA_SIZE * sizeof(unsigned int),
-		GFP_ATOMIC | GFP_DMA))) {
+		GFP_KERNEL | GFP_DMA))) {
 		printk(KERN_WARNING
 		       "HiSax: No memory for tiger.rec\n");
 		return;
@@ -854,11 +862,11 @@ inittiger(struct IsdnCardState *cs))
 	debugl1(cs, tmp);
 	cs->bcs[1].hw.tiger.rec = cs->bcs[0].hw.tiger.rec;
 	memset(cs->bcs[0].hw.tiger.rec, 0xff, NETJET_DMA_SIZE * sizeof(unsigned int));
-	outl((u_int)cs->bcs[0].hw.tiger.rec,
+	outl(virt_to_bus(cs->bcs[0].hw.tiger.rec),
 		cs->hw.njet.base + NETJET_DMA_WRITE_START);
-	outl((u_int)(cs->bcs[0].hw.tiger.rec + NETJET_DMA_SIZE/2 - 1),
+	outl(virt_to_bus(cs->bcs[0].hw.tiger.rec + NETJET_DMA_SIZE/2 - 1),
 		cs->hw.njet.base + NETJET_DMA_WRITE_IRQ);
-	outl((u_int)(cs->bcs[0].hw.tiger.rec + NETJET_DMA_SIZE - 1),
+	outl(virt_to_bus(cs->bcs[0].hw.tiger.rec + NETJET_DMA_SIZE - 1),
 		cs->hw.njet.base + NETJET_DMA_WRITE_END);
 	sprintf(tmp, "tiger: dmacfg  %x/%x  pulse=%d",
 		inl(cs->hw.njet.base + NETJET_DMA_WRITE_ADR),

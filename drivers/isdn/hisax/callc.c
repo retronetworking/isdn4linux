@@ -7,6 +7,9 @@
  *              Fritz Elfert
  *
  * $Log$
+ * Revision 2.12  1998/02/09 10:55:54  keil
+ * New leased line mode
+ *
  * Revision 2.11  1998/02/02 13:35:19  keil
  * config B-channel delay
  *
@@ -1812,7 +1815,7 @@ lldata_handler(struct PStack *st, int pr, void *arg)
 			if (chanp->data_open)
 				chanp->cs->iif.rcvcallb_skb(chanp->cs->myid, chanp->chan, skb);
 			else {
-				dev_kfree_skb(skb, FREE_READ);
+				dev_kfree_skb(skb);
 			}
 			break;
 		default:
@@ -1840,7 +1843,7 @@ lltrans_handler(struct PStack *st, int pr, void *arg)
 					chanp->cs->iif.rcvcallb_skb(chanp->cs->myid,
 						chanp->chan, skb);
 				} else
-					dev_kfree_skb(skb, FREE_READ);
+					dev_kfree_skb(skb);
 			}
 			break;
 		default:
@@ -2205,7 +2208,7 @@ HiSax_writebuf_skb(int id, int chan, int ack, struct sk_buff *skb)
 				chanp->bcs->tx_cnt += len;
 				st->l2.l2l1(st, PH_DATA_REQ, nskb);
 			}
-			dev_kfree_skb(skb, FREE_WRITE);
+			dev_kfree_skb(skb);
 		} else
 			len = 0;
 		restore_flags(flags);

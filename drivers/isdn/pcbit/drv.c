@@ -730,7 +730,7 @@ void pcbit_l3_receive(struct pcbit_dev * dev, ulong msg,
 #endif
 	}
 
-	kfree_skb(skb, FREE_READ);
+	kfree_skb(skb);
 
 }
 

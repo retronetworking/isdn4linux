@@ -7,6 +7,9 @@
  *              Fritz Elfert
  *
  * $Log$
+ * Revision 2.6  1998/02/02 13:41:42  keil
+ * fix MDL_ASSIGN for PtP
+ *
  * Revision 2.5  1997/11/06 17:09:12  keil
  * New 2.1 init code
  *
@@ -378,7 +381,7 @@ tei_l1l2(struct PStack *st, int pr, void *arg)
 		sprintf(tmp, "tei handler wrong pr %x\n", pr);
 		st->ma.tei_m.printdebug(&st->ma.tei_m, tmp);
 	}
-	dev_kfree_skb(skb, FREE_READ);
+	dev_kfree_skb(skb);
 }
 
 static void

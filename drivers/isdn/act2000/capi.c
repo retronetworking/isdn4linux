@@ -21,6 +21,11 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.5  1997/10/09 22:23:02  fritz
+ * New HL<->LL interface:
+ *   New BSENT callback with nr. of bytes included.
+ *   Sending without ACK.
+ *
  * Revision 1.4  1997/09/25 17:25:39  fritz
  * Support for adding cards at runtime.
  * Support for new Firmware.
@@ -637,7 +642,7 @@ handle_ack(act2000_card *card, act2000_chan *chan, __u8 blocknr) {
 			chan->queued -= m->msg.data_b3_req.datalen;
 			if (m->msg.data_b3_req.flags)
 				ret = m->msg.data_b3_req.datalen;
-			dev_kfree_skb(tmp, FREE_WRITE);
+			dev_kfree_skb(tmp);
 			if (chan->queued < 0)
 				chan->queued = 0;
                         return ret;
@@ -960,7 +965,7 @@ actcapi_dispatch(act2000_card *card)
 				printk(KERN_WARNING "act2000: UNHANDLED Message %04x\n", ccmd);
 				break;
 		}
-		dev_kfree_skb(skb, FREE_READ);
+		dev_kfree_skb(skb);
 	}
 }
 

@@ -9,6 +9,9 @@
  *              Fritz Elfert
  *
  * $Log$
+ * Revision 2.6  1998/02/03 23:26:35  keil
+ * V110 extensions from Thomas Pfeiffer
+ *
  * Revision 2.5  1998/02/02 13:34:28  keil
  * Support australian Microlink net and german AOCD
  *
@@ -304,7 +307,7 @@ l3dss1_release_cmpl(struct l3_process *pc, u_char pr, void *arg)
 			pc->para.loc = *p++;
 		cause = *p & 0x7f;
 	}
-	dev_kfree_skb(skb, FREE_READ);
+	dev_kfree_skb(skb);
 	StopAllL3Timer(pc);
 	pc->para.cause = cause;
 	newl3state(pc, 0);
@@ -648,7 +651,7 @@ l3dss1_call_proc(struct l3_process *pc, u_char pr, void *arg)
 			l3_debug(pc->st, "setup answer without bchannel");
 	} else if (pc->debug & L3_DEB_WARN)
 		l3_debug(pc->st, "setup answer without bchannel");
-	dev_kfree_skb(skb, FREE_READ);
+	dev_kfree_skb(skb);
 	newl3state(pc, 3);
 	L3AddTimer(&pc->timer, T310, CC_T310);
 	pc->st->l3.l3l4(pc, CC_PROCEEDING_IND, NULL);
@@ -668,7 +671,7 @@ l3dss1_setup_ack(struct l3_process *pc, u_char pr, void *arg)
 			l3_debug(pc->st, "setup answer without bchannel");
 	} else if (pc->debug & L3_DEB_WARN)
 		l3_debug(pc->st, "setup answer without bchannel");
-	dev_kfree_skb(skb, FREE_READ);
+	dev_kfree_skb(skb);
 	newl3state(pc, 2);
 	L3AddTimer(&pc->timer, T304, CC_T304);
 	pc->st->l3.l3l4(pc, CC_MORE_INFO, NULL);
@@ -690,7 +693,7 @@ l3dss1_disconnect(struct l3_process *pc, u_char pr, void *arg)
 			pc->para.loc = *p++;
 		cause = *p & 0x7f;
 	}
-	dev_kfree_skb(skb, FREE_READ);
+	dev_kfree_skb(skb);
 	newl3state(pc, 12);
 	pc->para.cause = cause;
 	pc->st->l3.l3l4(pc, CC_DISCONNECT_IND, NULL);
@@ -701,7 +704,7 @@ l3dss1_connect(struct l3_process *pc, u_char pr, void *arg)
 {
 	struct sk_buff *skb = arg;
 
-	dev_kfree_skb(skb, FREE_READ);
+	dev_kfree_skb(skb);
 	L3DelTimer(&pc->timer);	/* T310 */
 	newl3state(pc, 10);
 	pc->para.chargeinfo = 0;
@@ -713,7 +716,7 @@ l3dss1_alerting(struct l3_process *pc, u_char pr, void *arg)
 {
 	struct sk_buff *skb = arg;
 
-	dev_kfree_skb(skb, FREE_READ);
+	dev_kfree_skb(skb);
 	L3DelTimer(&pc->timer);	/* T304 */
 	newl3state(pc, 4);
 	pc->st->l3.l3l4(pc, CC_ALERTING_IND, NULL);
@@ -780,7 +783,7 @@ l3dss1_setup(struct l3_process *pc, u_char pr, void *arg)
 	  	 * cause 0x60
 	  	 */
 	  	pc->para.cause = 0x60;
-		dev_kfree_skb(skb, FREE_READ);
+		dev_kfree_skb(skb);
 		if (pc->state == 0)
 			pc->st->l3.l3l4(pc, CC_ESTABLISH, NULL);
 		else
@@ -844,7 +847,7 @@ l3dss1_setup(struct l3_process *pc, u_char pr, void *arg)
 			l3_debug(pc->st, "setup without bearer capabilities");
 		/* ETS 300-104 1.3.3 */
 	  	pc->para.cause = 0x60;
-		dev_kfree_skb(skb, FREE_READ);
+		dev_kfree_skb(skb);
 		if (pc->state == 0)
 			pc->st->l3.l3l4(pc, CC_ESTABLISH, NULL);
 		else
@@ -894,7 +897,7 @@ l3dss1_setup(struct l3_process *pc, u_char pr, void *arg)
 			l3_debug(pc->st, "wrong calling subaddress");
 	}
 
-	dev_kfree_skb(skb, FREE_READ);
+	dev_kfree_skb(skb);
 
 	if (bcfound) {
 		if ((pc->para.setup.si1 != 7) && (pc->debug & L3_DEB_WARN)) {
@@ -929,7 +932,7 @@ l3dss1_connect_ack(struct l3_process *pc, u_char pr, void *arg)
 {
 	struct sk_buff *skb = arg;
 
-	dev_kfree_skb(skb, FREE_READ);
+	dev_kfree_skb(skb);
 	newl3state(pc, 10);
 	L3DelTimer(&pc->timer);
 	pc->st->l3.l3l4(pc, CC_SETUP_COMPLETE_IND, NULL);
@@ -1016,7 +1019,7 @@ l3dss1_release(struct l3_process *pc, u_char pr, void *arg)
 		p = NULL;
 #endif
 	}
-	dev_kfree_skb(skb, FREE_READ);
+	dev_kfree_skb(skb);
 	StopAllL3Timer(pc);
 	pc->para.cause = cause;
 	l3dss1_message(pc, MT_RELEASE_COMPLETE);
@@ -1041,7 +1044,7 @@ l3dss1_status_enq(struct l3_process *pc, u_char pr, void *arg)
 	int l;
 	struct sk_buff *skb = arg;
 
-	dev_kfree_skb(skb, FREE_READ);
+	dev_kfree_skb(skb);
 
 	MsgHead(p, pc->callref, MT_STATUS);
 
@@ -1071,7 +1074,7 @@ l3dss1_status_req(struct l3_process *pc, u_char pr, void *arg)
 	int l;
 	struct sk_buff *skb = arg;
 
-	dev_kfree_skb(skb, FREE_READ);
+	dev_kfree_skb(skb);
 
 	MsgHead(p, pc->callref, MT_STATUS);
 
@@ -1256,7 +1259,7 @@ l3dss1_status(struct l3_process *pc, u_char pr, void *arg)
 		 */
 		l3dss1_release_ind(pc, pr, arg);
 	} else
-		dev_kfree_skb(skb, FREE_READ);
+		dev_kfree_skb(skb);
 }
 
 static void
@@ -1304,7 +1307,7 @@ l3dss1_global_restart(struct l3_process *pc, u_char pr, void *arg)
 		sprintf(tmp, "Restart for channel %d", chan);
 		l3_debug(pc->st, tmp);
 	}
-	dev_kfree_skb(skb, FREE_READ);
+	dev_kfree_skb(skb);
 	newl3state(pc, 2);
 	up = pc->st->l3.proc;
 	while (up) {
@@ -1460,7 +1463,7 @@ global_handler(struct PStack *st, int mt, struct sk_buff *skb)
 		    ((1 << proc->state) & globalmes_list[i].state))
 			break;
 	if (i == globalm_len) {
-		dev_kfree_skb(skb, FREE_READ);
+		dev_kfree_skb(skb);
 		if (st->l3.debug & L3_DEB_STATE) {
 			sprintf(tmp, "dss1 global state %d mt %x unhandled",
 				proc->state, mt);
@@ -1493,7 +1496,7 @@ dss1up(struct PStack *st, int pr, void *arg)
 				skb->data[0], skb->len);
 			l3_debug(st, tmp);
 		}
-		dev_kfree_skb(skb, FREE_READ);
+		dev_kfree_skb(skb);
 		return;
 	}
 	cr = getcallref(skb->data);
@@ -1502,7 +1505,7 @@ dss1up(struct PStack *st, int pr, void *arg)
 		global_handler(st, mt, skb);
 		return;
 	} else if (cr == -1) {			/* Dummy Callref */
-		dev_kfree_skb(skb, FREE_READ);
+		dev_kfree_skb(skb);
 		return;
 	} else if (!(proc = getl3proc(st, cr))) {
 		/* No transaction process exist, that means no call with
@@ -1515,7 +1518,7 @@ dss1up(struct PStack *st, int pr, void *arg)
 				 * CAUSE 0x2f "Resource unavailable", but this
 				 * need a new_l3_process too ... arghh
 				 */
-				dev_kfree_skb(skb, FREE_READ);
+				dev_kfree_skb(skb);
 				return;
 			}
 		} else if (mt == MT_STATUS) {
@@ -1539,7 +1542,7 @@ dss1up(struct PStack *st, int pr, void *arg)
 				 * MT_STATUS is received with call state == 0,
 				 * we must send nothing
 				 */
-				dev_kfree_skb(skb, FREE_READ);
+				dev_kfree_skb(skb);
 				return;
 			} else {
 				/* ETS 300-104 part 2.4.2
@@ -1547,7 +1550,7 @@ dss1up(struct PStack *st, int pr, void *arg)
 				 * MT_STATUS is received with call state != 0,
 				 * we must send MT_RELEASE_COMPLETE cause 101
 				 */
-				dev_kfree_skb(skb, FREE_READ);
+				dev_kfree_skb(skb);
 				if ((proc = new_l3_process(st, cr))) {
 					proc->para.cause = 0x65; /* 101 */
 					proc->st->l3.l3l4(proc, CC_ESTABLISH, NULL);
@@ -1555,14 +1558,14 @@ dss1up(struct PStack *st, int pr, void *arg)
 				return;
 			}
 		} else if (mt == MT_RELEASE_COMPLETE){
-			dev_kfree_skb(skb, FREE_READ);
+			dev_kfree_skb(skb);
 			return;
 		} else {
 			/* ETS 300-104 part 2
 			 * if setup has not been made and a message type 
 			 * (except MT_SETUP and RELEASE_COMPLETE) is received,
 			 * we must send MT_RELEASE_COMPLETE cause 81 */
-			dev_kfree_skb(skb, FREE_READ);
+			dev_kfree_skb(skb);
 			if ((proc = new_l3_process(st, cr))) {
 				proc->para.cause = 0x51; /* 81 */
 				proc->st->l3.l3l4(proc, CC_ESTABLISH, NULL);
@@ -1583,7 +1586,7 @@ dss1up(struct PStack *st, int pr, void *arg)
 		    ((1 << proc->state) & datastatelist[i].state))
 			break;
 	if (i == datasllen) {
-		dev_kfree_skb(skb, FREE_READ);
+		dev_kfree_skb(skb);
 		if (st->l3.debug & L3_DEB_STATE) {
 			sprintf(tmp, "dss1up%sstate %d mt %x unhandled",
 				(pr == DL_DATA) ? " " : "(broadcast) ",

@@ -7,6 +7,9 @@
  *              Fritz Elfert
  *
  * $Log$
+ * Revision 2.4  1997/11/06 17:09:25  keil
+ * New 2.1 init code
+ *
  * Revision 2.3  1997/10/29 19:07:53  keil
  * changes for 2.1
  *
@@ -193,7 +196,7 @@ no_l3_proto(struct PStack *st, int pr, void *arg)
 
 	HiSax_putstatus(st->l1.hardware, "L3 no D protocol\n");
 	if (skb) {
-		dev_kfree_skb(skb, FREE_READ);
+		dev_kfree_skb(skb);
 	}
 }
 

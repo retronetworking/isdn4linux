@@ -7,6 +7,9 @@
  *
  *
  * $Log$
+ * Revision 1.1  1998/02/03 23:20:51  keil
+ * New files for SPARC isdn support
+ *
  * Revision 1.1  1998/01/08 04:17:12  baccala
  * ISDN comes to the Sparc.  Key points:
  *
@@ -113,7 +116,7 @@ Bchan_xmt_bh(struct BCState *bcs)
 	struct sk_buff *skb;
 
 	if (bcs->hw.amd7930.tx_skb != NULL) {
-		dev_kfree_skb(bcs->hw.amd7930.tx_skb, FREE_WRITE);
+		dev_kfree_skb(bcs->hw.amd7930.tx_skb);
 		bcs->hw.amd7930.tx_skb = NULL;
 	}
 
@@ -173,7 +176,7 @@ Bchan_fill_fifo(struct BCState *bcs, struct sk_buff *skb)
 				      bcs->hw.amd7930.tx_buff, len,
 				      (void *) &Bchan_xmit_callback,
 				      (void *) bcs);
-		dev_kfree_skb(skb, FREE_WRITE);
+		dev_kfree_skb(skb);
 	} else if (bcs->mode == L1_MODE_TRANS) {
 		amd7930_bxmit(0, bcs->channel,
 			      bcs->hw.amd7930.tx_buff, skb->len,
@@ -181,7 +184,7 @@ Bchan_fill_fifo(struct BCState *bcs, struct sk_buff *skb)
 			      (void *) bcs);
 		bcs->hw.amd7930.tx_skb = skb;
 	} else {
-		dev_kfree_skb(skb, FREE_WRITE);
+		dev_kfree_skb(skb);
 	}
 }
 
@@ -368,10 +371,10 @@ Bchan_close(struct BCState *bcs)
 
 	if (test_bit(BC_FLG_INIT, &bcs->Flag)) {
 		while ((skb = skb_dequeue(&bcs->rqueue))) {
-			dev_kfree_skb(skb, FREE_READ);
+			dev_kfree_skb(skb);
 		}
 		while ((skb = skb_dequeue(&bcs->squeue))) {
-			dev_kfree_skb(skb, FREE_WRITE);
+			dev_kfree_skb(skb);
 		}
 	}
 	test_and_clear_bit(BC_FLG_INIT, &bcs->Flag);

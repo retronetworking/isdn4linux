@@ -6,6 +6,9 @@
  *
  *
  * $Log$
+ * Revision 1.11  1998/02/09 10:54:49  keil
+ * fixes for leased mode
+ *
  * Revision 1.10  1998/02/02 13:37:37  keil
  * new init
  *
@@ -304,7 +307,7 @@ isac_interrupt(struct IsdnCardState *cs, u_char val)
 				isac_fill_fifo(cs);
 				goto afterXPR;
 			} else {
-				dev_kfree_skb(cs->tx_skb, FREE_WRITE);
+				dev_kfree_skb(cs->tx_skb);
 				cs->tx_cnt = 0;
 				cs->tx_skb = NULL;
 			}

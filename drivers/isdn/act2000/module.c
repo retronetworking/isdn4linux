@@ -20,6 +20,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.6  1998/01/31 22:10:42  keil
+ * changes for 2.1.82
+ *
  * Revision 1.5  1997/10/09 22:23:04  fritz
  * New HL<->LL interface:
  *   New BSENT callback with nr. of bytes included.
@@ -507,7 +510,7 @@ act2000_sendbuf(act2000_card *card, int channel, int ack, struct sk_buff *skb)
 			return 0;
 		}
 	}
-	dev_kfree_skb(skb, FREE_WRITE);
+	dev_kfree_skb(skb);
 	msg = (actcapi_msg *)skb_push(xmit_skb, 19);
 	msg->hdr.len = 19 + len;
 	msg->hdr.applicationID = 1;

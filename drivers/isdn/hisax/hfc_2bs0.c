@@ -6,6 +6,9 @@
  *
  *
  * $Log$
+ * Revision 1.3  1997/11/06 17:13:35  keil
+ * New 2.1 init code
+ *
  * Revision 1.2  1997/10/29 19:04:47  keil
  * changes for 2.1
  *
@@ -216,7 +219,7 @@ hfc_empty_fifo(struct BCState *bcs, int count)
 		if (idx != count - 3) {
 			debugl1(cs, "RFIFO BUSY error");
 			printk(KERN_WARNING "HFC FIFO channel %d BUSY Error\n", bcs->channel);
-			dev_kfree_skb(skb, FREE_READ);
+			dev_kfree_skb(skb);
 			WaitNoBusy(cs);
 			stat = cs->BC_Read_Reg(cs, HFC_DATA, HFC_CIP | HFC_F2_INC | HFC_REC |
 					       HFC_CHANNEL(bcs->channel));
@@ -236,7 +239,7 @@ hfc_empty_fifo(struct BCState *bcs, int count)
 		}
 		if (stat) {
 			debugl1(cs, "FIFO CRC error");
-			dev_kfree_skb(skb, FREE_READ);
+			dev_kfree_skb(skb);
 			skb = NULL;
 		}
 		WaitNoBusy(cs);
@@ -315,7 +318,7 @@ hfc_fill_fifo(struct BCState *bcs)
 		bcs->tx_cnt -= count;
 		if (PACKET_NOACK == bcs->hw.hfc.tx_skb->pkt_type)
 			count = -1;
-		dev_kfree_skb(bcs->hw.hfc.tx_skb, FREE_WRITE);
+		dev_kfree_skb(bcs->hw.hfc.tx_skb);
 		bcs->hw.hfc.tx_skb = NULL;
 		WaitForBusy(cs);
 		WaitNoBusy(cs);
@@ -505,13 +508,13 @@ close_hfcstate(struct BCState *bcs)
 	mode_hfc(bcs, 0, 0);
 	if (test_bit(BC_FLG_INIT, &bcs->Flag)) {
 		while ((skb = skb_dequeue(&bcs->rqueue))) {
-			dev_kfree_skb(skb, FREE_READ);
+			dev_kfree_skb(skb);
 		}
 		while ((skb = skb_dequeue(&bcs->squeue))) {
-			dev_kfree_skb(skb, FREE_WRITE);
+			dev_kfree_skb(skb);
 		}
 		if (bcs->hw.hfc.tx_skb) {
-			dev_kfree_skb(bcs->hw.hfc.tx_skb, FREE_WRITE);
+			dev_kfree_skb(bcs->hw.hfc.tx_skb);
 			bcs->hw.hfc.tx_skb = NULL;
 			test_and_clear_bit(BC_FLG_BUSY, &bcs->Flag);
 		}
