@@ -21,6 +21,13 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.29  1997/05/27 15:18:02  fritz
+ * Added changes for recent 2.1.x kernels:
+ *   changed return type of isdn_close
+ *   queue_task_* -> queue_task
+ *   clear/set_bit -> test_and_... where apropriate.
+ *   changed type of hard_header_cache parameter.
+ *
  * Revision 1.28  1997/03/07 01:33:01  fritz
  * Added proper ifdef's for CONFIG_ISDN_AUDIO
  *
@@ -597,8 +604,8 @@ typedef struct {
 
 struct sqqueue {
   struct sqqueue *next;
-  int sqno_start;
-  int sqno_end;
+  long sqno_start;
+  long sqno_end;
   struct sk_buff *skb;
   long timer;
 };
@@ -606,7 +613,7 @@ struct sqqueue {
 struct mpqueue {
   struct mpqueue *next;
   struct mpqueue *last;
-  int    sqno;
+  long sqno;
   struct sk_buff *skb;
   int BEbyte;
   unsigned long time;
@@ -645,7 +652,8 @@ struct ippp_struct {
   struct slcompress *slcomp;
 #endif
   unsigned long debug;
-  struct isdn_ppp_compressor *compressor;
+  struct isdn_ppp_compressor *compressor,*link_compressor;
+  void *decomp_stat,*comp_stat,*link_decomp_stat,*link_comp_stat;
 };
 
 #endif
