@@ -21,6 +21,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.94.2.2  2000/03/13 08:18:10  kai
+ * first step to frame_cnt
+ *
  * Revision 1.94.2.1  2000/03/04 16:59:20  detabc
  * copy frame's before rewriting saddr
  *
@@ -756,9 +759,7 @@ typedef struct isdn_net_local_s {
   struct isdn_net_local_s *last;       /* Ptr to last link in bundle       */
   struct isdn_net_dev_s  *netdev;      /* Ptr to netdev                    */
   struct sk_buff         *first_skb;   /* Ptr to skb that triggers dialing */
-#if 0
-  struct sk_buff *volatile sav_skb;    /* Ptr to skb, rejected by LL-driver*/
-#endif
+  struct sk_buff_head    super_tx_queue; /* List of supervisory frames to be transmitted asap */
                                        /* Ptr to orig. hard_header_cache   */
   int                    (*org_hhc)(
 				    struct neighbour *neigh,

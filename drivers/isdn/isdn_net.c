@@ -21,6 +21,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.111.2.2  2000/03/13 08:18:09  kai
+ * first step to frame_cnt
+ *
  * Revision 1.111.2.1  2000/03/04 16:59:20  detabc
  * copy frame's before rewriting saddr
  *
@@ -514,6 +517,38 @@
  * --KG
  */
 
+/* 
+ * Find out if the netdevice has been ifup-ed yet.
+ * For slaves, look at the corresponding master.
+ */
+static int __inline__ isdn_net_started(isdn_net_dev *n)
+{
+	isdn_net_local *lp = n->local;
+	struct net_device *dev;
+	
+	if (lp->master) 
+		dev = lp->master;
+	else
+		dev = &n->dev;
+#ifdef COMPAT_NO_SOFTNET
+	return dev->start;
+#else
+	return netif_running(dev);
+#endif
+}
+
+/*
+ * wake up the network -> net_device queue.
+ * For slaves, wake the corresponding master interface.
+ */
+static void __inline__ isdn_net_lp_xon(isdn_net_local * lp)
+{
+	if (lp->master) 
+		netif_wake_queue(lp->master);
+	else
+		netif_wake_queue(&lp->netdev->dev);
+}
+
 /* For 2.2.x we leave the transmitter busy timeout at 2 secs, just 
  * to be safe.
  * For 2.3.x we push it up to 20 secs, because call establishment
@@ -718,6 +753,7 @@ static void
 isdn_net_unbind_channel(isdn_net_local * lp)
 {
 	ulong flags;
+	struct sk_buff *skb;
 
 	save_flags(flags);
 	cli();
@@ -731,12 +767,9 @@ isdn_net_unbind_channel(isdn_net_local * lp)
 		dev_kfree_skb(lp->first_skb);
 		lp->first_skb = NULL;
 	}
-#if 0
-	if (lp->sav_skb) {
-		dev_kfree_skb(lp->sav_skb);
-		lp->sav_skb = NULL;
+	while ((skb = skb_dequeue(&lp->super_tx_queue))) {
+		kfree_skb(skb);
 	}
-#endif
 	if (!lp->master) {	/* reset only master device */
 		/* Moral equivalent of dev_purge_queues():
 		   BEWARE! This chunk of code cannot be called from hardware
@@ -791,7 +824,7 @@ isdn_net_autohup()
 			l->huptimer++;
 #ifdef CONFIG_ISDN_WITH_ABC
 		if(	l->dw_abc_next_skb != NULL 	|| 
-			l->sav_skb != NULL 			|| 
+			(!isdn_net_super_tx_queue_len(l) != 0) ||
 			l->first_skb != NULL		|| 
 			(l->dw_abc_if_flags & ISDN_DW_ABC_IFFLAG_RSTREMOTE)) {
 
@@ -882,9 +915,6 @@ isdn_net_stat_callback(int idx, isdn_ctrl *c)
 				/* A packet has successfully been sent out */
 				if ((lp->flags & ISDN_NET_CONNECTED) &&
 				    (!lp->dialstate)) {
-					isdn_net_dec_frame_cnt(lp);
-					if (atomic_read(&lp->frame_cnt) < ISDN_NET_MAX_QUEUE_LENGTH) 
-						isdn_net_lp_xon(lp);
 					lp->stats.tx_packets++;
 					lp->stats.tx_bytes += c->parm.length;
 #ifdef CONFIG_ISDN_WITH_ABC
@@ -899,24 +929,20 @@ isdn_net_stat_callback(int idx, isdn_ctrl *c)
 					   dequeueing the sav_skb while another
 					   frame is sent will not occur.
 					*/
-#if 0
-					if (lp->p_encap == ISDN_NET_ENCAP_SYNCPPP && lp->sav_skb) {
- 						struct net_device *mdev;
-						printk(KERN_INFO "sav_skb != 0\n");
+					if (lp->p_encap == ISDN_NET_ENCAP_SYNCPPP && !skb_queue_empty(&lp->super_tx_queue)) {
+						struct net_device *mdev;
+						struct sk_buff *skb;
 						if (lp->master)
 							mdev = lp->master;
 						else
 							mdev = &lp->netdev->dev;
-						if (!isdn_net_send_skb(mdev, lp, lp->sav_skb)) {
-							lp->sav_skb = NULL;
-						} else {
+						skb = skb_dequeue(&lp->super_tx_queue);
+						if (isdn_net_send_skb(mdev, lp, skb)) {
+							skb_queue_head(&lp->super_tx_queue, skb);
 							return 1;
 						}
 					}
-#endif
-#if 0
 					isdn_net_lp_xon(lp);
-#endif
 				}
 				return 1;
 			case ISDN_STAT_DCONN:
@@ -993,7 +1019,6 @@ isdn_net_stat_callback(int idx, isdn_ctrl *c)
 				break;
 #endif /* CONFIG_ISDN_X25 */
 			case ISDN_STAT_BCONN:
-				isdn_net_zero_frame_cnt(lp);
 				/* B-Channel is up */
 				switch (lp->dialstate) {
 					case 5:
@@ -1802,9 +1827,6 @@ int isdn_net_send_skb
 
 	ret = isdn_writebuf_skb_stub(lp->isdn_device, lp->isdn_channel, 1, skb);
 	if (ret == len) {
-		isdn_net_inc_frame_cnt(lp);
-		if (atomic_read(&lp->frame_cnt) >= ISDN_NET_MAX_QUEUE_LENGTH)
-			isdn_net_lp_xoff(lp);
 		lp->transcount += len;
 #ifdef CONFIG_ISDN_WITH_ABC
 #ifdef CONFIG_ISDN_WITH_ABC_FRAME_LIMIT
@@ -2312,7 +2334,6 @@ isdn_net_slarp_send(isdn_net_local *lp, int is_reply)
 	len = skb->len;
 	if (isdn_writebuf_skb_stub(lp->isdn_device, lp->isdn_channel, 0, skb) != len)
 		dev_kfree_skb(skb);
-	isdn_net_inc_frame_cnt(lp);
 }
 
 static void
@@ -3502,9 +3523,7 @@ isdn_net_new(char *name, struct net_device *master)
 	netdev->local->exclusive = -1;
 	netdev->local->ppp_slot = -1;
 	netdev->local->pppbind = -1;
-#if 0
-	netdev->local->sav_skb = NULL;
-#endif
+	skb_queue_head_init(&netdev->local->super_tx_queue);
 	netdev->local->first_skb = NULL;
 	netdev->local->l2_proto = ISDN_PROTO_L2_X75I;
 	netdev->local->l3_proto = ISDN_PROTO_L3_TRANS;
