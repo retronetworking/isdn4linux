@@ -11,6 +11,9 @@
  *
  *
  * $Log$
+ * Revision 1.15.2.17  1998/09/27 23:54:17  keil
+ * cosmetics
+ *
  * Revision 1.15.2.16  1998/09/27 13:06:22  keil
  * Apply most changes from 2.1.X (HiSax 3.1)
  *
@@ -1564,5 +1567,6 @@ setstack_l1_B(struct PStack *st)
 	st->l1.l1m.userdata = st;
 	st->l1.l1m.userint = 0;
 	st->l1.l1m.printdebug = l1m_debug;
+	st->l1.Flags = 0;
 	FsmInitTimer(&st->l1.l1m, &st->l1.timer);
 }
