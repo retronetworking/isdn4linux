@@ -399,7 +399,7 @@ Description of the Interface between Linklevel and Hardwarelevel
                     protocol-Id is one of the constants ISDN_PROTO_L3...
       parm.fax    = Pointer to T30_s fax struct. (fax usage only)
 
-  ISDN_CMD_GETL2: (currently unused)
+  ISDN_CMD_GETL3: (currently unused)
 
     With this command, the HL-driver is told to return the current
     setting of the Layer-3-protocol.
