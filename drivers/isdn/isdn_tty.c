@@ -20,6 +20,11 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.78  1999/10/28 23:03:51  armin
+ * Bugfix: now freeing channel on modem_hup() even when
+ * usage on ttyI has changed and error-report for
+ * AT-commands on wrong channel-state.
+ *
  * Revision 1.77  1999/10/26 21:13:14  armin
  * using define for checking phone number len in isdn_tty_getdial()
  *
@@ -3106,9 +3111,12 @@ isdn_tty_show_profile(int ridx, modem_info * info)
 static void
 isdn_tty_get_msnstr(char *n, char **p)
 {
-	while ((*p[0] >= '0' && *p[0] <= '9') ||
+	int limit = ISDN_MSNLEN - 1;
+
+	while (((*p[0] >= '0' && *p[0] <= '9') ||
 	       /* Why a comma ??? */
-	       (*p[0] == ','))
+	       (*p[0] == ',')) &&
+		(limit--))
 		*n++ = *p[0]++;
 	*n = '\0';
 }
