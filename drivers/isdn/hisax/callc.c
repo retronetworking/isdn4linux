@@ -18,16 +18,13 @@
 
 const char *lli_revision = "$Revision$";
 
-extern struct IsdnCard cards[];
-extern int nrcards;
+static struct CallcIf *c_ifs[HISAX_MAX_CARDS] = { 0, };
 
 static int init_b_st(struct Channel *chanp, int incoming);
 static void release_b_st(struct Channel *chanp);
 
 static struct Fsm callcfsm =
 {NULL, 0, 0, NULL, NULL};
-
-static int chancount = 0;
 
 /* experimental REJECT after ALERTING for CALLBACK to beat the 4s delay */
 #define ALERT_REJECT 0
@@ -48,18 +45,19 @@ static int chancount = 0;
 #define  FLG_START_B	0
 
 /*
- * Find card with given driverId
+ * Find CallcIf with given driverId
  */
-static inline struct IsdnCardState *
-hisax_findcard(int driverid)
+
+static inline struct CallcIf *
+findCallcIf(int driverid)
 {
 	int i;
 
-	for (i = 0; i < nrcards; i++)
-		if (cards[i].cs)
-			if (cards[i].cs->myid == driverid)
-				return (cards[i].cs);
-	return (struct IsdnCardState *) 0;
+	for (i = 0; i < HISAX_MAX_CARDS; i++)
+		if (c_ifs[i])
+			if (c_ifs[i]->cs->myid == driverid)
+				return c_ifs[i];
+	return 0;
 }
 
 int
@@ -1148,7 +1146,6 @@ int
 CallcNewChan(struct IsdnCardState *csta) {
 	int i;
 
-	chancount += 2;
 	init_chan(0, csta);
 	init_chan(1, csta);
 	printk(KERN_INFO "HiSax: 2 channels added\n");
@@ -1482,7 +1479,7 @@ set_channel_limit(struct IsdnCardState *cs, int chanmax)
 int
 HiSax_command(isdn_ctrl * ic)
 {
-	struct IsdnCardState *csta = hisax_findcard(ic->driver);
+	struct IsdnCardState *csta = findCallcIf(ic->driver)->cs;
 	struct PStack *st;
 	struct Channel *chanp;
 	int i;
@@ -1667,7 +1664,7 @@ HiSax_command(isdn_ctrl * ic)
 					num = csta->debug & DEB_DLOG_HEX;
 					csta->debug = *(unsigned int *) ic->parm.num;
 					csta->debug |= num;
-					HiSax_putstatus(cards[0].cs, "l1 debugging ",
+					HiSax_putstatus(csta, "l1 debugging ",
 						"flags card %d set to %x",
 						csta->cardnr + 1, csta->debug);
 					printk(KERN_DEBUG "HiSax: l1 debugging flags card %d set to %x\n",
@@ -1676,7 +1673,7 @@ HiSax_command(isdn_ctrl * ic)
 				case (13):
 					csta->c_if->channel[0].d_st->l3.debug = *(unsigned int *) ic->parm.num;
 					csta->c_if->channel[1].d_st->l3.debug = *(unsigned int *) ic->parm.num;
-					HiSax_putstatus(cards[0].cs, "l3 debugging ",
+					HiSax_putstatus(csta, "l3 debugging ",
 						"flags card %d set to %x\n", csta->cardnr + 1,
 						*(unsigned int *) ic->parm.num);
 					printk(KERN_DEBUG "HiSax: l3 debugging flags card %d set to %x\n",
@@ -1731,7 +1728,7 @@ HiSax_command(isdn_ctrl * ic)
 int
 HiSax_writebuf_skb(int id, int chan, int ack, struct sk_buff *skb)
 {
-	struct IsdnCardState *csta = hisax_findcard(id);
+	struct IsdnCardState *csta = findCallcIf(id)->cs;
 	struct Channel *chanp;
 	struct PStack *st;
 	int len = skb->len;
@@ -1789,6 +1786,72 @@ HiSax_writebuf_skb(int id, int chan, int ack, struct sk_buff *skb)
 // =================================================================
 // Interface to config.c
 
+int
+callcIfConstr(struct CallcIf *c_if, struct IsdnCardState *cs, char *id)
+{
+	memset(c_if, 0, sizeof(struct CallcIf));
+
+	c_if->cs = cs;
+
+#if 0
+	// status ring buffer
+
+ 	if (!(c_if->status_buf = kmalloc(HISAX_STATUS_BUFSIZE, GFP_KERNEL))) {
+		printk(KERN_WARNING
+		       "HiSax: No memory for status_buf(card %d)\n",
+		       cs->cardnr + 1);
+		return -ENOMEM;
+	}
+	c_if->status_read = c_if->status_buf;
+	c_if->status_write = c_if->status_buf;
+	c_if->status_end = c_if->status_buf + HISAX_STATUS_BUFSIZE - 1;
+	
+	// register to LL
+
+	strcpy(c_if->iif.id, id);
+	
+	c_if->iif.channels = 2;
+	c_if->iif.maxbufsize = MAX_DATA_SIZE;
+	c_if->iif.hl_hdrlen = MAX_HEADER_LEN;
+	c_if->iif.features = cs->features;
+	c_if->iif.command = HiSax_command;
+	c_if->iif.writecmd = 0;
+	c_if->iif.writebuf_skb = HiSax_writebuf_skb;
+	c_if->iif.readstat = HiSax_read_status;
+	register_isdn(&c_if->iif);
+
+	c_if->myid = c_if->iif.channels;
+
+	printk(KERN_INFO
+	       "HiSax: Card %d Protocol %s Id=%s (%d)\n", cs->cardnr + 1,
+	       (cs->protocol == ISDN_PTYPE_1TR6) ? "1TR6" :
+	       (cs->protocol == ISDN_PTYPE_EURO) ? "EDSS1" :
+	       (cs->protocol == ISDN_PTYPE_LEASED) ? "LEASED" :
+	       (cs->protocol == ISDN_PTYPE_NI1) ? "NI1" :
+	       "NONE", c_if->iif.id, c_if->myid);
+
+#endif
+	return 0;
+}
+
+void 
+callcIfDestr(struct CallcIf *c_if)
+{
+#if 0
+	isdn_ctrl ic;
+
+	// unregister from LL
+
+	statcallb(c_if, ISDN_STAT_UNLOAD, &ic);
+
+	// status ring buffer
+
+	if (c_if->status_buf) {
+		kfree(c_if->status_buf);
+	}
+#endif
+}
+
 struct CallcIf *
 newCallcIf(struct IsdnCardState *cs, char *id)
 {
@@ -1799,7 +1862,6 @@ newCallcIf(struct IsdnCardState *cs, char *id)
 	if (!c_if) {
 		return 0;
 	}
-#if 0
 	if (callcIfConstr(c_if, cs, id)) {
 		kfree(c_if);
 		return 0;
@@ -1816,7 +1878,6 @@ newCallcIf(struct IsdnCardState *cs, char *id)
 		return 0;
 	}
 	c_ifs[i] = c_if;
-#endif
 	return c_if;
 
 }
@@ -1830,7 +1891,6 @@ delCallcIf(struct CallcIf *c_if)
 		int_error();
 		return;
 	}
-#if 0
 	for (i = 0; i < HISAX_MAX_CARDS; i++) {
 		if (c_ifs[i] == c_if) {
 			break;
@@ -1843,6 +1903,5 @@ delCallcIf(struct CallcIf *c_if)
 		return;
 	}
 	c_ifs[i] = 0;
-#endif
 }
 
