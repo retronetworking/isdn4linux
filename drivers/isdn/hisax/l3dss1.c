@@ -13,6 +13,12 @@
  *              Fritz Elfert
  *
  * $Log$
+ * Revision 2.22  2000/01/20 19:44:20  keil
+ * Fixed uninitialiesed location
+ * Fixed redirecting number IE in Setup
+ * Changes from certification
+ * option for disabling use of KEYPAD protocol
+ *
  * Revision 2.21  1999/12/19 20:25:17  keil
  * fixed LLC for outgoing analog calls
  * IE Signal is valid on older local switches
@@ -1039,7 +1045,8 @@ u_char *
 EncodeASyncParams(u_char * p, u_char si2)
 {				// 7c 06 88  90 21 42 00 bb
 
-	p[0] = p[1] = 0;
+	p[0] = 0;
+	p[1] = 0x40;		// Intermediate rate: 16 kbit/s jj 2000.02.19
 	p[2] = 0x80;
 	if (si2 & 32)		// 7 data bits
 
@@ -1053,7 +1060,7 @@ EncodeASyncParams(u_char * p, u_char si2)
 		p[2] += 96;
 	else			// 1 stop bit
 
-		p[2] = 32;
+		p[2] += 32;
 
 	if (si2 & 8)		// even parity
 
