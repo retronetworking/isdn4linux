@@ -7,6 +7,10 @@
  *
  *
  * $Log$
+ * Revision 1.1.2.11  1999/07/12 21:00:58  keil
+ * fix race in IRQ handling
+ * added watchdog for lost IRQs
+ *
  * Revision 1.1.2.10  1999/07/01 10:29:24  keil
  * Version is the same as outside isdn4kernel_2_0 branch,
  * only version numbers are different
@@ -802,7 +806,7 @@ setup_avm_pcipnp(struct IsdnCard *card))
 				printk(KERN_WARNING "FritzPCI: No IRQ for PCI card found\n");
 				return(0);
 			}
-			cs->hw.avm.cfg_reg = dev_avm->base_address[1] &
+			cs->hw.avm.cfg_reg = get_pcibase(dev_avm, 1) &
 				PCI_BASE_ADDRESS_IO_MASK; 
 			if (!cs->hw.avm.cfg_reg) {
 				printk(KERN_WARNING "FritzPCI: No IO-Adr for PCI card found\n");

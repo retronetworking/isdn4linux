@@ -1,6 +1,10 @@
 /* $Id$
 
  * $Log$
+ * Revision 1.3.2.5  1999/07/01 10:31:07  keil
+ * Version is the same as outside isdn4kernel_2_0 branch,
+ * only version numbers are different
+ *
  * Revision 2.4  1999/07/01 08:11:54  keil
  * Common HiSax version for 2.0, 2.1, 2.2 and 2.3 kernel
  *
@@ -34,7 +38,7 @@
  */
 
 #define SBIT(state) (1<<state)
-#define ALL_STATES  0x00ffffff
+#define ALL_STATES  0x03ffffff
 
 #define PROTO_DIS_EURO	0x08
 

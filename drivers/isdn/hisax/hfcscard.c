@@ -6,6 +6,10 @@
  *
  *
  * $Log$
+ * Revision 1.1.2.3  1999/07/12 21:01:28  keil
+ * fix race in IRQ handling
+ * added watchdog for lost IRQs
+ *
  * Revision 1.1.2.2  1999/07/01 10:30:26  keil
  * Version is the same as outside isdn4kernel_2_0 branch,
  * only version numbers are different
@@ -105,8 +109,8 @@ reset_hfcs(struct IsdnCardState *cs)
 	cs->BC_Write_Reg(cs, HFCD_DATA, HFCD_STATES, HFCD_LOAD_STATE | 2); /* HFC ST 2 */
 	udelay(10);
 	cs->BC_Write_Reg(cs, HFCD_DATA, HFCD_STATES, 2); /* HFC ST 2 */
-	cs->hw.hfcD.mst_m = 0;
-	cs->BC_Write_Reg(cs, HFCD_DATA, HFCD_MST_MODE, HFCD_MASTER); /* HFC Master */
+	cs->hw.hfcD.mst_m = HFCD_MASTER;
+	cs->BC_Write_Reg(cs, HFCD_DATA, HFCD_MST_MODE, cs->hw.hfcD.mst_m); /* HFC Master */
 	cs->hw.hfcD.sctrl = 0;
 	cs->BC_Write_Reg(cs, HFCD_DATA, HFCD_SCTRL, cs->hw.hfcD.sctrl);
 	restore_flags(flags);

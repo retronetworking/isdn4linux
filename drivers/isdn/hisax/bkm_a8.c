@@ -7,6 +7,9 @@
  * Author       Roland Klabunde (R.Klabunde@Berkom.de)
  *
  * $Log$
+ * Revision 1.1.2.4  1999/07/14 11:42:18  keil
+ * correct PCI_SUBSYSTEM_VENDOR_ID
+ *
  * Revision 1.1.2.3  1999/07/12 21:01:03  keil
  * fix race in IRQ handling
  * added watchdog for lost IRQs
@@ -22,6 +25,7 @@
  */
 #define __NO_VERSION__
 
+#include <linux/config.h>
 #include "hisax.h"
 #include "isac.h"
 #include "ipac.h"
@@ -372,7 +376,7 @@ __initfunc(int
 			&sub_sys_id);
 		if (sub_sys_id == ((SCT_SUBSYS_ID << 16) | SCT_SUBVEN_ID)) {
 			found = 1;
-			pci_ioaddr1 = dev_a8->base_address[1];
+			pci_ioaddr1 = get_pcibase(dev_a8, 1);
 			pci_irq = dev_a8->irq;
 			pci_bus = dev_a8->bus->number;
 			pci_device_fn = dev_a8->devfn;
@@ -434,7 +438,7 @@ __initfunc(int
 		pcibios_write_config_dword(pci_bus, pci_device_fn,
 			PCI_BASE_ADDRESS_1, pci_ioaddr1);
 #ifdef COMPAT_HAS_NEW_PCI
-		dev_a8->base_address[1] = pci_ioaddr1;
+		get_pcibase(dev_a8, 1) = pci_ioaddr1;
 #endif /* COMPAT_HAS_NEW_PCI */
 	}
 /* End HACK */

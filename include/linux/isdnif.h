@@ -22,6 +22,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.20.2.6  1999/07/15 13:14:15  keil
+ * add ISDN_STAT_DISCH from 2.2
+ *
  * Revision 1.20.2.5  1999/07/01 11:10:13  keil
  * changes for compatibility
  *
@@ -136,6 +139,7 @@
 #define ISDN_PROTO_L2_V11019 8   /* V.110 bitrate adaption 19200 Baud */
 #define ISDN_PROTO_L2_V11038 9   /* V.110 bitrate adaption 38400 Baud */
 #define ISDN_PROTO_L2_MODEM  10  /* Analog Modem on Board */
+#define ISDN_PROTO_L2_FAX    11  /* Fax Group 2/3         */
 #define ISDN_PROTO_L2_MAX    15  /* Max. 16 Protocols                 */
 
 /*
@@ -304,6 +308,7 @@ typedef struct
 #define ISDN_FEATURE_L2_V11019  (0x0001 << ISDN_PROTO_L2_V11019)
 #define ISDN_FEATURE_L2_V11038  (0x0001 << ISDN_PROTO_L2_V11038)
 #define ISDN_FEATURE_L2_MODEM   (0x0001 << ISDN_PROTO_L2_MODEM)
+#define ISDN_FEATURE_L2_FAX	(0x0001 << ISDN_PROTO_L2_FAX)
 
 #define ISDN_FEATURE_L2_MASK    (0x0FFFF) /* Max. 16 protocols */
 #define ISDN_FEATURE_L2_SHIFT   (0)

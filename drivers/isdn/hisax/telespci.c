@@ -7,6 +7,10 @@
  *
  *
  * $Log$
+ * Revision 1.1.2.5  1999/07/12 21:02:04  keil
+ * fix race in IRQ handling
+ * added watchdog for lost IRQs
+ *
  * Revision 1.1.2.4  1999/07/01 10:32:03  keil
  * Version is the same as outside isdn4kernel_2_0 branch,
  * only version numbers are different
@@ -331,10 +335,10 @@ setup_telespci(struct IsdnCard *card))
 			printk(KERN_WARNING "Teles: No IRQ for PCI card found\n");
 			return(0);
 		}
-		cs->hw.teles0.membase = (u_int) ioremap(dev_tel->base_address[0],
+		cs->hw.teles0.membase = (u_int) ioremap(get_pcibase(dev_tel, 0),
 			PAGE_SIZE);
 		printk(KERN_INFO "Found: Zoran, base-address: 0x%lx, irq: 0x%x\n",
-			dev_tel->base_address[0], dev_tel->irq);
+			get_pcibase(dev_tel, 0), dev_tel->irq);
 	} else {
 		printk(KERN_WARNING "TelesPCI: No PCI card found\n");
 		return(0);

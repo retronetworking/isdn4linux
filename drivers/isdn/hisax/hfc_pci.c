@@ -23,6 +23,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.1.2.10  1999/08/12 19:01:03  werner
+ * Added further manufacturer and device ids to PCI list
+ *
  * Revision 1.1.2.9  1999/08/09 19:14:31  werner
  * moved constant pci ids to pci id table
  *
@@ -60,6 +63,7 @@
  *
  */
 
+#include <linux/config.h>
 #define __NO_VERSION__
 #include "hisax.h"
 #include "hfc_pci.h"
@@ -74,18 +78,31 @@ extern const char *CardType[];
 
 static const char *hfcpci_revision = "$Revision$";
 
-static const int CCD_VENDOR_IDS[] = { 
-	0x1043,   /* Asuscom  */
-	0x1051,   /* Motorola MC145575 */
-        0x1397,   /* CCD and Billion */
-	0,
-};
+/* table entry in the PCI devices list */
+typedef struct {
+  int vendor_id; 
+  int device_id;
+  char *vendor_name;
+  char *card_name;
+  } PCI_ENTRY;
 
-static const int CCD_DEVICE_IDS[] = { 
-	0x675,    /* Asuscom  */
-	0x100,    /* Motorola MC145575 */
-        0x2BD0,   /* CCD and Billion */
-	0,
+static const PCI_ENTRY id_list[] = {
+  {0x1397,0x2BD0,"CCD/Billion/Asuscom","2BD0"},
+  {0x1397,0xB000,"Billion","B000"},
+  {0x1397,0xB006,"Billion","B006"},
+  {0x1397,0xB007,"Billion","B007"},
+  {0x1397,0xB008,"Billion","B008"},
+  {0x1397,0xB009,"Billion","B009"},
+  {0x1397,0xB00A,"Billion","B00A"},
+  {0x1397,0xB00B,"Billion","B00B"},
+  {0x1397,0xB00C,"Billion","B00C"},
+  {0x1043,0x0675,"Asuscom/Askey","675"},
+  {0x0871,0xFFA2,"German telekom","T-Concept"},
+  {0x0871,0xFFA1,"German telekom","A1T"},
+  {0x1051,0x0100,"Motorola MC145575","MC145575"},
+  {0x1397,0xB100,"Seyeon","B100"},
+  {0x15B0,0x2BD0,"Zoltrix","2BD0"},
+  {0,0,NULL,NULL},      
 };
 
 
@@ -148,7 +165,7 @@ reset_hfcpci(struct IsdnCardState *cs)
 	cs->hw.hfcpci.fifo_en = 0x30;	/* only D fifos enabled */
 	Write_hfc(cs, HFCPCI_FIFO_EN, cs->hw.hfcpci.fifo_en);
 
-	cs->hw.hfcpci.trm = 0; /* no echo connect */
+	cs->hw.hfcpci.trm = 0 + HFCPCI_BTRANS_THRESMASK; /* no echo connect , threshold */
 	Write_hfc(cs, HFCPCI_TRM, cs->hw.hfcpci.trm);
 
 	Write_hfc(cs, HFCPCI_CLKDEL, 0x0e);	/* ST-Bit delay for TE-Mode */
@@ -174,7 +191,7 @@ reset_hfcpci(struct IsdnCardState *cs)
 	cs->hw.hfcpci.mst_m = HFCPCI_MASTER;	/* HFC Master Mode */
 
 	Write_hfc(cs, HFCPCI_MST_MODE, cs->hw.hfcpci.mst_m);
-	cs->hw.hfcpci.sctrl = 0;
+	cs->hw.hfcpci.sctrl = 0x40; /* set tx_lo mode, error in datasheet ! */
 	Write_hfc(cs, HFCPCI_SCTRL, cs->hw.hfcpci.sctrl);
 	cs->hw.hfcpci.sctrl_r = 0;
 	Write_hfc(cs, HFCPCI_SCTRL_R, cs->hw.hfcpci.sctrl_r);
@@ -373,6 +390,59 @@ receive_dmsg(struct IsdnCardState *cs)
 	return (1);
 }
 
+/*******************************************************************************/
+/* check for transparent receive data and read max one threshold size if avail */
+/*******************************************************************************/
+int hfcpci_empty_fifo_trans(struct BCState *bcs, bzfifo_type *bz, u_char *bdata)
+{ unsigned short *z1r, *z2r;
+  int new_z2, fcnt, maxlen;
+  struct sk_buff *skb;
+  u_char *ptr, *ptr1;
+
+  z1r = &bz->za[MAX_B_FRAMES].z1; /* pointer to z reg */
+  z2r = z1r + 1; 
+
+  if (!(fcnt = *z1r - *z2r)) 
+    return(0); /* no data avail */
+
+  if (fcnt <= 0) 
+    fcnt += B_FIFO_SIZE; /* bytes actually buffered */  
+  if (fcnt > HFCPCI_BTRANS_THRESHOLD)
+    fcnt = HFCPCI_BTRANS_THRESHOLD; /* limit size */
+
+  new_z2 = *z2r + fcnt;	/* new position in fifo */
+  if (new_z2 >= (B_FIFO_SIZE + B_SUB_VAL))
+    new_z2 -= B_FIFO_SIZE;	/* buffer wrap */
+
+  if (!(skb = dev_alloc_skb(fcnt)))
+		printk(KERN_WARNING "HFCPCI: receive out of memory\n");
+  else {
+    SET_SKB_FREE(skb);
+    ptr = skb_put(skb, fcnt);
+    if (*z2r + fcnt <= B_FIFO_SIZE + B_SUB_VAL)
+      maxlen = fcnt; /* complete transfer */
+    else
+      maxlen = B_FIFO_SIZE + B_SUB_VAL - *z2r;	/* maximum */
+
+    ptr1 = bdata + (*z2r - B_SUB_VAL);	/* start of data */
+    memcpy(ptr, ptr1, maxlen);	/* copy data */
+    fcnt -= maxlen;
+
+    if (fcnt) {	/* rest remaining */
+      ptr += maxlen;
+      ptr1 = bdata;	/* start of buffer */
+      memcpy(ptr, ptr1, fcnt);	/* rest */
+    }
+    cli();
+    skb_queue_tail(&bcs->rqueue, skb);
+    sti();
+    hfcpci_sched_event(bcs, B_RCVBUFREADY); 
+  }
+  
+  *z2r = new_z2; /* new position */
+  return(1);
+} /* hfcpci_empty_fifo_trans */ 
+
 /**********************************/
 /* B-channel main receive routine */
 /**********************************/
@@ -432,8 +502,11 @@ main_rec_hfcpci(struct BCState *bcs)
 			receive = 1;
 		else
 			receive = 0;
-	} else
-		receive = 0;
+	} else 
+	  if (bcs->mode == L1_MODE_TRANS)
+	    receive = hfcpci_empty_fifo_trans(bcs, bz, bdata);
+	  else
+	    receive = 0;
 	test_and_clear_bit(FLG_LOCK_ATOMIC, &cs->HW_Flags);
 	if (count && receive)
 		goto Begin;
@@ -525,6 +598,7 @@ hfcpci_fill_fifo(struct BCState *bcs)
 	bzfifo_type *bz;
 	u_char *bdata;
 	u_char new_f1, *src, *dst;
+        unsigned short *z1t, *z2t;
 
 	if (!bcs->tx_skb)
 		return;
@@ -542,8 +616,60 @@ hfcpci_fill_fifo(struct BCState *bcs)
 		bdata = ((fifo_area *) (cs->hw.hfcpci.fifos))->b_chans.txdat_b1;
 	}
 
+	if (bcs->mode == L1_MODE_TRANS) {
+	  z1t = &bz->za[MAX_B_FRAMES].z1;
+	  z2t = z1t + 1;
+	  if (cs->debug & L1_DEB_HSCX)
+	          debugl1(cs, "hfcpci_fill_fifo_trans %d z1(%x) z2(%x)",
+		  bcs->channel, *z1t, *z2t);
+	  fcnt = *z2t - *z1t;
+	  if (fcnt <= 0)
+	          fcnt += B_FIFO_SIZE;	/* fcnt contains available bytes in fifo */
+	  fcnt = B_FIFO_SIZE - fcnt; /* remaining bytes to send */
+
+	  while ((fcnt < 2 * HFCPCI_BTRANS_THRESHOLD) && (bcs->tx_skb)) {
+	    if (bcs->tx_skb->len < B_FIFO_SIZE - fcnt) { 
+	      /* data is suitable for fifo */
+	      count = bcs->tx_skb->len;
+
+	      new_z1 = *z1t + count;	/* new buffer Position */
+	      if (new_z1 >= (B_FIFO_SIZE + B_SUB_VAL))
+		new_z1 -= B_FIFO_SIZE;	/* buffer wrap */
+	      src = bcs->tx_skb->data;	/* source pointer */
+	      dst = bdata + (*z1t - B_SUB_VAL);
+	      maxlen = (B_FIFO_SIZE + B_SUB_VAL) - *z1t; /* end of fifo */
+	      if (maxlen > count)
+		maxlen = count;	/* limit size */
+	      memcpy(dst, src, maxlen);	/* first copy */
+
+	      count -= maxlen;	/* remaining bytes */
+	      if (count) {
+		dst = bdata;	/* start of buffer */
+		src += maxlen;	/* new position */
+		memcpy(dst, src, count);
+	      }
+	      bcs->tx_cnt -= bcs->tx_skb->len;
+	      fcnt += bcs->tx_skb->len;
+	      *z1t = new_z1; /* now send data */
+	    }
+            else 
+	      if (cs->debug & L1_DEB_HSCX)
+		debugl1(cs, "hfcpci_fill_fifo_trans %d frame length %d discarded",
+			bcs->channel, bcs->tx_skb->len);
+
+	    idev_kfree_skb(bcs->tx_skb, FREE_WRITE);
+            cli();
+            bcs->tx_skb = skb_dequeue(&bcs->squeue); /* fetch next data */
+            sti();
+	  }  
+	  test_and_clear_bit(BC_FLG_BUSY, &bcs->Flag);
+	  restore_flags(flags);
+	  return;
+	}
+
+
 	if (cs->debug & L1_DEB_HSCX)
-		debugl1(cs, "hfcpci_fill_fifo %d f1(%d) f2(%d) z1(f1)(%x)",
+		debugl1(cs, "hfcpci_fill_fifo_hdlc %d f1(%d) f2(%d) z1(f1)(%x)",
 			bcs->channel, bz->f1, bz->f2,
 			bz->za[bz->f1].z1);
 
@@ -610,9 +736,12 @@ hfcpci_fill_fifo(struct BCState *bcs)
 /***********************/
 /* set/reset echo mode */
 /***********************/ 
-int hfcpci_set_echo(struct IsdnCardState *cs, int i)
-{ int flags;
-
+static int
+hfcpci_auxcmd(struct IsdnCardState *cs, isdn_ctrl *ic)
+{
+  int flags;
+  int i = *(unsigned int *) ic->parm.num;
+  
   if (cs->chanlimit > 1)
     return(-EINVAL);
 
@@ -643,7 +772,7 @@ int hfcpci_set_echo(struct IsdnCardState *cs, int i)
   Write_hfc(cs, HFCPCI_INT_M1, cs->hw.hfcpci.int_m1);
   restore_flags(flags);
   return(0);
-} /* hfcpci_set_echo */ 
+} /* hfcpci_auxcmd */ 
 
 /*****************************/
 /* E-channel receive routine */
@@ -1089,6 +1218,7 @@ void
 mode_hfcpci(struct BCState *bcs, int mode, int bc)
 {
 	struct IsdnCardState *cs = bcs->cs;
+	bzfifo_type *bzr, *bzt;
 	int flags;
 
 	if (cs->debug & L1_DEB_HSCX)
@@ -1135,6 +1265,8 @@ mode_hfcpci(struct BCState *bcs, int mode, int bc)
 				cs->hw.hfcpci.sctrl_r |= SCTRL_B2_ENA;
 				cs->hw.hfcpci.fifo_en |= HFCPCI_FIFOEN_B2;
 				cs->hw.hfcpci.int_m1 |= (HFCPCI_INTS_B2TRANS+HFCPCI_INTS_B2REC);
+		                bzr = &((fifo_area *) (cs->hw.hfcpci.fifos))->b_chans.rxbz_b2;
+		                bzt = &((fifo_area *) (cs->hw.hfcpci.fifos))->b_chans.txbz_b2;
 			} else {
 				cs->hw.hfcpci.ctmt |= 1;
 				cs->hw.hfcpci.conn &= ~0x03;
@@ -1142,7 +1274,17 @@ mode_hfcpci(struct BCState *bcs, int mode, int bc)
 				cs->hw.hfcpci.sctrl_r |= SCTRL_B1_ENA;
 				cs->hw.hfcpci.fifo_en |= HFCPCI_FIFOEN_B1;
 				cs->hw.hfcpci.int_m1 |= (HFCPCI_INTS_B1TRANS+HFCPCI_INTS_B1REC);
+		                bzr = &((fifo_area *) (cs->hw.hfcpci.fifos))->b_chans.rxbz_b1;
+		                bzt = &((fifo_area *) (cs->hw.hfcpci.fifos))->b_chans.txbz_b1;
 			}
+			bzr->za[MAX_B_FRAMES].z1 = B_FIFO_SIZE + B_SUB_VAL - 1;
+                        bzr->za[MAX_B_FRAMES].z2 = bzr->za[MAX_B_FRAMES].z1; 
+			bzr->f1 = MAX_B_FRAMES;
+			bzr->f2 = bzr->f1; /* init F pointers to remain constant */
+			bzt->za[MAX_B_FRAMES].z1 = B_FIFO_SIZE + B_SUB_VAL - 1;
+                        bzt->za[MAX_B_FRAMES].z2 = bzt->za[MAX_B_FRAMES].z1; 
+			bzt->f1 = MAX_B_FRAMES;
+			bzt->f2 = bzt->f1; /* init F pointers to remain constant */
 			break;
 		case (L1_MODE_HDLC):
 			if (bc) {
@@ -1571,12 +1713,10 @@ __initfunc(int
 
 	reset_hfcpci(cs);
 	cs->cardmsg = &hfcpci_card_msg;
+	cs->auxcmd  = &hfcpci_auxcmd;
 	return (1);
 #else
 	printk(KERN_WARNING "HFC-PCI: NO_PCI_BIOS\n");
 	return (0);
 #endif				/* CONFIG_PCI */
 }
-
-
-

@@ -11,6 +11,10 @@
  *              Fritz Elfert
  *
  * $Log$
+ * Revision 1.10.2.15  1999/07/01 10:30:55  keil
+ * Version is the same as outside isdn4kernel_2_0 branch,
+ * only version numbers are different
+ *
  * Revision 2.17  1999/07/01 08:11:50  keil
  * Common HiSax version for 2.0, 2.1, 2.2 and 2.3 kernel
  *
@@ -163,6 +167,19 @@ static char *strL2Event[] =
 static int l2addrsize(struct Layer2 *l2);
 
 static void
+set_peer_busy(struct Layer2 *l2) {
+	test_and_set_bit(FLG_PEER_BUSY, &l2->flag);
+	if (skb_queue_len(&l2->i_queue) || skb_queue_len(&l2->ui_queue))
+		test_and_set_bit(FLG_L2BLOCK, &l2->flag);
+}
+
+static void
+clear_peer_busy(struct Layer2 *l2) {
+	if (test_and_clear_bit(FLG_PEER_BUSY, &l2->flag))
+		test_and_clear_bit(FLG_L2BLOCK, &l2->flag);
+}
+
+static void
 InitWin(struct Layer2 *l2)
 {
 	int i;
@@ -219,7 +236,7 @@ clear_exception(struct Layer2 *l2)
 	test_and_clear_bit(FLG_ACK_PEND, &l2->flag);
 	test_and_clear_bit(FLG_REJEXC, &l2->flag);
 	test_and_clear_bit(FLG_OWN_BUSY, &l2->flag);
-	test_and_clear_bit(FLG_PEER_BUSY, &l2->flag);
+	clear_peer_busy(l2);
 }
 
 inline int
@@ -1026,10 +1043,10 @@ l2_st7_got_super(struct FsmInst *fi, int event, void *arg)
 
 	skb_pull(skb, l2addrsize(l2));
 	if (IsRNR(skb->data, st)) {
-		test_and_set_bit(FLG_PEER_BUSY, &l2->flag);
+		set_peer_busy(l2);
 		typ = RNR;
 	} else
-		test_and_clear_bit(FLG_PEER_BUSY, &l2->flag);
+		clear_peer_busy(l2);
 	if (IsREJ(skb->data, st))
 		typ = REJ;
 
@@ -1376,10 +1393,10 @@ l2_st8_got_super(struct FsmInst *fi, int event, void *arg)
 	skb_pull(skb, l2addrsize(l2));
 
 	if (IsRNR(skb->data, st)) {
-		test_and_set_bit(FLG_PEER_BUSY, &l2->flag);
+		set_peer_busy(l2);
 		rnr = 1;
 	} else
-		test_and_clear_bit(FLG_PEER_BUSY, &l2->flag);
+		clear_peer_busy(l2);
 
 	if (test_bit(FLG_MOD128, &l2->flag)) {
 		PollFlag = (skb->data[1] & 0x1) == 0x1;
@@ -1496,11 +1513,14 @@ l2_tei_remove(struct FsmInst *fi, int event, void *arg)
 }
 
 static void
-l2_discard_i(struct FsmInst *fi, int event, void *arg)
+l2_st14_persistant_da(struct FsmInst *fi, int event, void *arg)
 {
 	struct PStack *st = fi->userdata;
 	
 	discard_queue(&st->l2.i_queue);
+	discard_queue(&st->l2.ui_queue);
+	if (test_and_clear_bit(FLG_ESTAB_PEND, &st->l2.flag))
+		st->l2.l2l3(st, DL_RELEASE | INDICATION, NULL);
 }
 
 static void
@@ -1663,9 +1683,10 @@ static struct FsmNode L2FnList[] HISAX_INITDATA =
 	{ST_L2_6, EV_L2_FRAME_ERROR, l2_frame_error},
 	{ST_L2_7, EV_L2_FRAME_ERROR, l2_frame_error_reest},
 	{ST_L2_8, EV_L2_FRAME_ERROR, l2_frame_error_reest},
+	{ST_L2_1, EV_L1_DEACTIVATE, l2_st14_persistant_da},
 	{ST_L2_2, EV_L1_DEACTIVATE, l2_st24_tei_remove},
 	{ST_L2_3, EV_L1_DEACTIVATE, l2_st3_tei_remove},
-	{ST_L2_4, EV_L1_DEACTIVATE, l2_discard_i},
+	{ST_L2_4, EV_L1_DEACTIVATE, l2_st14_persistant_da},
 	{ST_L2_5, EV_L1_DEACTIVATE, l2_st5_persistant_da},
 	{ST_L2_6, EV_L1_DEACTIVATE, l2_st6_persistant_da},
 	{ST_L2_7, EV_L1_DEACTIVATE, l2_persistant_da},
@@ -1724,7 +1745,7 @@ isdnl2_l1l2(struct PStack *st, int pr, void *arg)
 			}
 			if(c) {
 				FreeSkb(skb);
-				FsmEvent(&st->l2.l2m, EV_L2_FRAME_ERROR, (void *) c);
+				FsmEvent(&st->l2.l2m, EV_L2_FRAME_ERROR, (void *)(long)c);
 				ret = 0;
 			}
 			if (ret)

@@ -8,6 +8,10 @@
  *
  *
  * $Log$
+ * Revision 1.1.2.15  1999/07/12 21:01:11  keil
+ * fix race in IRQ handling
+ * added watchdog for lost IRQs
+ *
  * Revision 1.1.2.14  1999/07/01 10:29:56  keil
  * Version is the same as outside isdn4kernel_2_0 branch,
  * only version numbers are different
@@ -891,7 +895,7 @@ setup_diva(struct IsdnCard *card))
 		val = readreg(cs->hw.diva.cfg_reg + DIVA_IPAC_ADR,
 			cs->hw.diva.cfg_reg + DIVA_IPAC_DATA, IPAC_ID);
 		printk(KERN_INFO "Diva: IPAC version %x\n", val);
-		if (val == 1) {
+		if ((val == 1) || (val==2)) {
 			cs->subtyp = DIVA_IPAC_ISA;
 			cs->hw.diva.ctrl = 0;
 			cs->hw.diva.isac = card->para[1] + DIVA_IPAC_DATA;
@@ -922,23 +926,23 @@ setup_diva(struct IsdnCard *card))
 			PCI_DIVA20_ID, dev_diva))) {
 			cs->subtyp = DIVA_PCI;
 			cs->irq = dev_diva->irq;
-			cs->hw.diva.cfg_reg = dev_diva->base_address[2]
+			cs->hw.diva.cfg_reg = get_pcibase(dev_diva, 2)
 				& PCI_BASE_ADDRESS_IO_MASK;
 		} else if ((dev_diva_u = pci_find_device(PCI_VENDOR_EICON_DIEHL,
 			PCI_DIVA20_U_ID, dev_diva_u))) {
 			cs->subtyp = DIVA_PCI;
 			cs->irq = dev_diva_u->irq;
-			cs->hw.diva.cfg_reg = dev_diva_u->base_address[2]
+			cs->hw.diva.cfg_reg = get_pcibase(dev_diva_u, 2)
 				& PCI_BASE_ADDRESS_IO_MASK;
 		} else if ((dev_diva201 = pci_find_device(PCI_VENDOR_EICON_DIEHL,
 			PCI_DIVA_201, dev_diva201))) {
 			cs->subtyp = DIVA_IPAC_PCI;
 			cs->irq = dev_diva201->irq;
 			cs->hw.diva.pci_cfg =
-				(ulong) ioremap((dev_diva201->base_address[0]
+				(ulong) ioremap((get_pcibase(dev_diva201, 0)
 					& PCI_BASE_ADDRESS_IO_MASK), 4096);
 			cs->hw.diva.cfg_reg =
-				(ulong) ioremap((dev_diva201->base_address[1]
+				(ulong) ioremap((get_pcibase(dev_diva201, 1)
 					& PCI_BASE_ADDRESS_IO_MASK), 4096);
 		} else {
 			printk(KERN_WARNING "Diva: No PCI card found\n");

@@ -7,6 +7,10 @@
  *		../../../Documentation/isdn/HiSax.cert
  *
  * $Log$
+ * Revision 1.2.2.2  1999/07/01 10:29:49  keil
+ * Version is the same as outside isdn4kernel_2_0 branch,
+ * only version numbers are different
+ *
  * Revision 2.1  1998/11/15 23:51:15  keil
  * certification stuff
  *
@@ -29,6 +33,7 @@ certification_check(int output) {
 		printk(KERN_INFO "HiSax: Approval registration numbers:\n");
 		printk(KERN_INFO "HiSax: German D133361J CETECOM ICT Services GmbH\n");
 		printk(KERN_INFO "HiSax: EU (D133362J) CETECOM ICT Services GmbH\n");
+		printk(KERN_INFO "HiSax: Approved with Eicon Technology Diva 2.01 PCI cards\n");
 	}
 	return(0);
 #endif

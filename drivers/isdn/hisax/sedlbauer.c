@@ -17,6 +17,10 @@
  *            Edgar Toernig
  *
  * $Log$
+ * Revision 1.1.2.18  1999/07/12 21:01:52  keil
+ * fix race in IRQ handling
+ * added watchdog for lost IRQs
+ *
  * Revision 1.1.2.17  1999/07/01 10:31:49  keil
  * Version is the same as outside isdn4kernel_2_0 branch,
  * only version numbers are different
@@ -433,9 +437,11 @@ sedlbauer_interrupt_isar(int intno, void *dev_id, struct pt_regs *regs)
 void
 release_io_sedlbauer(struct IsdnCardState *cs)
 {
-	int bytecnt = (cs->subtyp == SEDL_SPEED_FAX) ? 16 : 8;
+	int bytecnt = 8;
 
-	if (cs->hw.sedl.bus == SEDL_BUS_PCI) {
+	if (cs->subtyp == SEDL_SPEED_FAX) {
+		bytecnt = 16;
+	} else if (cs->hw.sedl.bus == SEDL_BUS_PCI) {
 		bytecnt = 256;
 	}
 	if (cs->hw.sedl.cfg_reg)
@@ -488,6 +494,17 @@ Sedl_card_msg(struct IsdnCardState *cs, int mt, void *arg)
 			reset_sedlbauer(cs);
 			return(0);
 		case CARD_RELEASE:
+			if (cs->hw.sedl.chip == SEDL_CHIP_ISAC_ISAR) {
+				writereg(cs->hw.sedl.adr, cs->hw.sedl.hscx,
+					ISAR_IRQBIT, 0);
+				writereg(cs->hw.sedl.adr, cs->hw.sedl.isac,
+					ISAC_MASK, 0xFF);
+				reset_sedlbauer(cs);
+				writereg(cs->hw.sedl.adr, cs->hw.sedl.hscx,
+					ISAR_IRQBIT, 0);
+				writereg(cs->hw.sedl.adr, cs->hw.sedl.isac,
+					ISAC_MASK, 0xFF);
+			}
 			release_io_sedlbauer(cs);
 			return(0);
 		case CARD_INIT:
@@ -507,18 +524,9 @@ Sedl_card_msg(struct IsdnCardState *cs, int mt, void *arg)
 			return(0);
 		case CARD_TEST:
 			return(0);
-		case CARD_LOAD_FIRM:
-			if (cs->hw.sedl.chip == SEDL_CHIP_ISAC_ISAR) {
-				if (isar_load_firmware(cs, arg))
-					return(1);
-				else 
-					ll_run(cs);
-			}
-			return(0);
 	}
 	return(0);
 }
-
 
 #ifdef SEDLBAUER_PCI
 #ifdef COMPAT_HAS_NEW_PCI
@@ -566,7 +574,7 @@ setup_sedlbauer(struct IsdnCard *card))
 #if CONFIG_PCI
 #ifdef COMPAT_HAS_NEW_PCI
 		if (!pci_present()) {
-			printk(KERN_ERR "FritzPCI: no PCI bus present\n");
+			printk(KERN_ERR "Sedlbauer: no PCI bus present\n");
 			return(0);
 		}
 		if ((dev_sedl = pci_find_device(PCI_VENDOR_SEDLBAUER,
@@ -576,7 +584,7 @@ setup_sedlbauer(struct IsdnCard *card))
 				printk(KERN_WARNING "Sedlbauer: No IRQ for PCI card found\n");
 				return(0);
 			}
-			cs->hw.sedl.cfg_reg = dev_sedl->base_address[0] &
+			cs->hw.sedl.cfg_reg = get_pcibase(dev_sedl, 0) &
 				PCI_BASE_ADDRESS_IO_MASK; 
 		} else {
 			printk(KERN_WARNING "Sedlbauer: No PCI card found\n");
@@ -720,7 +728,7 @@ setup_sedlbauer(struct IsdnCard *card))
 			cs->bcs[1].hw.isar.reg = &cs->hw.sedl.isar;
 			test_and_set_bit(HW_ISAR, &cs->HW_Flags);
 			cs->irq_func = &sedlbauer_interrupt_isar;
-	
+			cs->auxcmd = &isar_auxcmd;
 			ISACVersion(cs, "Sedlbauer:");
 		
 			cs->BC_Read_Reg = &ReadISAR;

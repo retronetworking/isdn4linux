@@ -5,6 +5,10 @@
  * Author     Karsten Keil (keil@isdn4linux.de)
  *
  * $Log$
+ * Revision 1.1.2.3  1999/07/12 21:01:38  keil
+ * fix race in IRQ handling
+ * added watchdog for lost IRQs
+ *
  * Revision 1.1.2.2  1999/07/01 10:31:08  keil
  * Version is the same as outside isdn4kernel_2_0 branch,
  * only version numbers are different
@@ -17,7 +21,6 @@
  */
 
 #define __NO_VERSION__
-#include <linux/config.h>
 #include "hisax.h"
 #include "isac.h"
 #include "isar.h"
@@ -175,18 +178,26 @@ ISurf_card_msg(struct IsdnCardState *cs, int mt, void *arg)
 			return(0);
 		case CARD_TEST:
 			return(0);
-		case CARD_LOAD_FIRM:
-			if (isar_load_firmware(cs, arg))
-				return(1);
-			ll_run(cs);
+	}
+	return(0);
+}
+
+static int
+isurf_auxcmd(struct IsdnCardState *cs, isdn_ctrl *ic) {
+	int ret;
+
+	if ((ic->command == ISDN_CMD_IOCTL) && (ic->arg == 9)) {
+		ret = isar_auxcmd(cs, ic);
+		if (!ret) {
 			reset_isurf(cs, ISURF_ISAR_EA | ISURF_ISAC_RESET |
 				ISURF_ARCOFI_RESET);
 			initisac(cs);
 			cs->writeisac(cs, ISAC_MASK, 0);
 			cs->writeisac(cs, ISAC_CMDR, 0x41);
-			return(0);
+		}
+		return(ret);
 	}
-	return(0);
+	return(isar_auxcmd(cs, ic));
 }
 
 __initfunc(int
@@ -229,6 +240,7 @@ setup_isurf(struct IsdnCard *card))
 
 	cs->cardmsg = &ISurf_card_msg;
 	cs->irq_func = &isurf_interrupt;
+	cs->auxcmd = &isurf_auxcmd;
 	cs->readisac = &ReadISAC;
 	cs->writeisac = &WriteISAC;
 	cs->readisacfifo = &ReadISACfifo;

@@ -7,6 +7,9 @@
  * Author       Roland Klabunde (R.Klabunde@Berkom.de)
  *
  * $Log$
+ * Revision 1.1.2.4  1999/07/14 11:42:16  keil
+ * correct PCI_SUBSYSTEM_VENDOR_ID
+ *
  * Revision 1.1.2.3  1999/07/12 21:01:01  keil
  * fix race in IRQ handling
  * added watchdog for lost IRQs
@@ -23,6 +26,7 @@
 
 #define __NO_VERSION__
 
+#include <linux/config.h>
 #include "hisax.h"
 #include "isac.h"
 #include "hscx.h"
@@ -315,7 +319,7 @@ __initfunc(int
 			&sub_sys_id);
 		if (sub_sys_id == ((A4T_SUBSYS_ID << 16) | A4T_SUBVEN_ID)) {
 			found = 1;
-			pci_memaddr = dev_a4t->base_address[0];
+			pci_memaddr = get_pcibase(dev_a4t, 0);
 			cs->irq = dev_a4t->irq;
 		}
 	}

@@ -6,6 +6,10 @@
  *              based on source code from Karsten Keil
  *
  * $Log$
+ * Revision 2.1.2.3  1999/07/12 21:01:22  keil
+ * fix race in IRQ handling
+ * added watchdog for lost IRQs
+ *
  * Revision 2.1.2.2  1999/07/11 22:53:44  keil
  * Set timeslots after inithscx
  *
@@ -16,6 +20,7 @@
  * Initial revision
  *
  */
+#include <linux/config.h>
 #define __NO_VERSION__
 #include "hisax.h"
 #include "isac.h"
@@ -587,8 +592,8 @@ setup_gazelpci(struct IsdnCardState *cs)
 		if ((dev_tel = pci_find_device(GAZEL_MANUFACTURER, seekcard, dev_tel))) {
 
 			pci_irq = dev_tel->irq;
-			pci_ioaddr0 = dev_tel->base_address[1];
-			pci_ioaddr1 = dev_tel->base_address[2];
+			pci_ioaddr0 = get_pcibase(dev_tel, 1);
+			pci_ioaddr1 = get_pcibase(dev_tel, 2);
 			found = 1;
 		}
 #else

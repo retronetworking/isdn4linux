@@ -7,6 +7,10 @@
  *
  *
  * $Log$
+ * Revision 1.1.2.7  1999/07/01 10:29:16  keil
+ * Version is the same as outside isdn4kernel_2_0 branch,
+ * only version numbers are different
+ *
  * Revision 1.7  1999/07/01 08:11:17  keil
  * Common HiSax version for 2.0, 2.1, 2.2 and 2.3 kernel
  *
@@ -151,4 +155,8 @@ init_arcofi(struct IsdnCardState *cs) {
 	cs->dc.isac.arcofitimer.function = (void *) arcofi_timer;
 	cs->dc.isac.arcofitimer.data = (long) cs;
 	init_timer(&cs->dc.isac.arcofitimer);
+#ifdef COMPAT_HAS_NEW_WAITQ
+	init_waitqueue_head(&cs->dc.isac.arcofi_wait);
+#endif
+	test_and_set_bit(HW_ARCOFI, &cs->HW_Flags);
 }

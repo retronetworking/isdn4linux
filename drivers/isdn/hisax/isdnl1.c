@@ -15,6 +15,9 @@
  *
  *
  * $Log$
+ * Revision 1.15.2.24  1999/07/09 13:51:56  keil
+ * remove unused variable
+ *
  * Revision 1.15.2.23  1999/07/09 13:32:43  keil
  * remove debug code
  *
@@ -133,7 +136,6 @@
 const char *l1_revision = "$Revision$";
 
 #define __NO_VERSION__
-#include <linux/config.h>
 #include "hisax.h"
 #include "isdnl1.h"
 
@@ -392,7 +394,7 @@ BChannel_proc_rcv(struct BCState *bcs)
 	}
 }
 
-static void
+void
 BChannel_bh(struct BCState *bcs)
 {
 	if (!bcs)
