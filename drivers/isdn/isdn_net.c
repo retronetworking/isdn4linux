@@ -1416,7 +1416,7 @@ isdn_net_xmit(struct net_device *ndev, struct sk_buff *skb)
 	isdn_net_local *slp;
 	isdn_net_local *lp = (isdn_net_local *) ndev->priv;
 	int retv = 0;
-#if CONFIG_ISDN_WITH_ABC && CONFIG_ISDN_WITH_ABC_IPT_TARGET
+#ifdef CONFIG_ISDN_WITH_ABC_IPT_TARGET
 	ulong old_huptimer = lp->huptimer;
 
 	short d_reset_frame = 
@@ -1435,7 +1435,7 @@ isdn_net_xmit(struct net_device *ndev, struct sk_buff *skb)
 	/* For the other encaps the header has already been built */
 #ifdef CONFIG_ISDN_PPP
 	if (lp->p_encap == ISDN_NET_ENCAP_SYNCPPP) {
-#if CONFIG_ISDN_WITH_ABC && CONFIG_ISDN_WITH_ABC_IPT_TARGET
+#ifdef CONFIG_ISDN_WITH_ABC_IPT_TARGET
 		int r = isdn_ppp_xmit(skb, ndev);
 		
 		if(d_reset_frame)
