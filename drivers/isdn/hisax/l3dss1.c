@@ -13,6 +13,9 @@
  *              Fritz Elfert
  *
  * $Log$
+ * Revision 1.16.2.14  1999/05/09 21:39:45  keil
+ * Add COLP IEs
+ *
  * Revision 1.16.2.13  1999/05/05 20:29:39  werner
  * changed keypad support (every called party with * or # assumed keypad)
  * added STAT callback for delivering display messages to HL
@@ -1720,7 +1723,7 @@ l3dss1_setup(struct l3_process *pc, u_char pr, void *arg)
 	}
 	/* Now we are on none mandatory IEs */
 #if 0
- !!!!!! hier gehts nachher weiter ? info bugfix */
+ !!!!!! this check seems to be a problem ? info bugfix to Karsten */
 	err = check_infoelements(pc, skb, ie_SETUP);
 	if (ERR_IE_COMPREHENSION == err) {
 		pc->para.cause = 96;
@@ -2083,29 +2086,15 @@ l3dss1_notify(struct l3_process *pc, u_char pr, void *arg)
 static void
 l3dss1_status_enq(struct l3_process *pc, u_char pr, void *arg)
 {
-	u_char tmp[16];
-	u_char *p = tmp;
-	int l,ret;
+	int ret;
 	struct sk_buff *skb = arg;
 
 	ret = check_infoelements(pc, skb, ie_STATUS_ENQUIRY);
 	l3dss1_std_ie_err(pc, ret);
-	MsgHead(p, pc->callref, MT_STATUS);
 
-	*p++ = IE_CAUSE;
-	*p++ = 0x2;
-	*p++ = 0x80;
-	*p++ = 30 | 0x80;		/* answer status enquire */
+        idev_kfree_skb(skb, FREE_READ);
 
-	*p++ = 0x14;		/* CallState */
-	*p++ = 0x1;
-	*p++ = pc->state & 0x3f;
-
-	l = p - tmp;
-	if (!(skb = l3_alloc_skb(l)))
-		return;
-	memcpy(skb_put(skb, l), tmp, l);
-	l3_msg(pc->st, DL_DATA | REQUEST, skb);
+        l3dss1_status_send(pc, 0x1E, NULL);   /* answer status enquire */
 }
 
 /******************************/
@@ -2444,7 +2433,7 @@ static void
 l3dss1_restart(struct l3_process *pc, u_char pr, void *arg)
 {
 	L3DelTimer(&pc->timer);
-	pc->st->l3.l3l4(pc->st, CC_DLRL | INDICATION, pc);
+	pc->st->l3.l3l4(pc->st, CC_RELEASE | INDICATION, pc);
 	dss1_release_l3_process(pc);
 }
 
@@ -2742,6 +2731,40 @@ l3dss1_global_restart(struct l3_process *pc, u_char pr, void *arg)
 	newl3state(pc, 0);
 	l3_msg(pc->st, DL_DATA | REQUEST, skb);
 }
+
+static void
+l3dss1_dl_reset(struct l3_process *pc, u_char pr, void *arg)
+{
+        pc->para.cause = 0x29;          /* Temporary failure */
+        l3dss1_disconnect_req(pc, pr, NULL);
+        pc->st->l3.l3l4(pc->st, CC_SETUP_ERR, pc);
+}
+
+static void
+l3dss1_dl_release(struct l3_process *pc, u_char pr, void *arg)
+{
+        newl3state(pc, 0);
+        pc->para.cause = 0x1b;          /* Destination out of order */
+        pc->st->l3.l3l4(pc->st, CC_RELEASE | INDICATION, pc);
+        release_l3_process(pc);
+}
+
+static void
+l3dss1_dl_reestablish(struct l3_process *pc, u_char pr, void *arg)
+{
+        L3DelTimer(&pc->timer);
+        L3AddTimer(&pc->timer, T309, CC_T309);
+        l3_msg(pc->st, DL_ESTABLISH | REQUEST, NULL);
+}
+ 
+static void
+l3dss1_dl_reest_status(struct l3_process *pc, u_char pr, void *arg)
+{
+        L3DelTimer(&pc->timer);
+ 
+        l3dss1_status_send(pc, 0x1F, NULL);   /* normal, unspecified */
+}
+
 /* *INDENT-OFF* */
 static struct stateentry downstatelist[] =
 {
@@ -2753,8 +2776,6 @@ static struct stateentry downstatelist[] =
 	 CC_DISCONNECT | REQUEST, l3dss1_disconnect_req},
 	{SBIT(12),
 	 CC_RELEASE | REQUEST, l3dss1_release_req},
-	{ALL_STATES,
-	 CC_DLRL | REQUEST, l3dss1_reset},
 	{ALL_STATES,
 	 CC_RESTART | REQUEST, l3dss1_restart},
 	{SBIT(6),
@@ -2795,6 +2816,8 @@ static struct stateentry downstatelist[] =
 	 CC_T308_1, l3dss1_t308_1},
 	{SBIT(19),
 	 CC_T308_2, l3dss1_t308_2},
+	{SBIT(10),
+	 CC_T309, l3dss1_dl_release},
 };
 
 #define DOWNSLLEN \
@@ -2863,6 +2886,21 @@ static struct stateentry globalmes_list[] =
 };
 #define GLOBALM_LEN \
 	(sizeof(globalmes_list) / sizeof(struct stateentry))
+
+static struct stateentry manstatelist[] =
+{
+        {SBIT(2),
+         DL_ESTABLISH | INDICATION, l3dss1_dl_reset},
+        {SBIT(10),
+         DL_ESTABLISH | CONFIRM, l3dss1_dl_reest_status},
+        {SBIT(10),
+         DL_RELEASE | INDICATION, l3dss1_dl_reestablish},
+        {ALL_STATES,
+         DL_RELEASE | INDICATION, l3dss1_dl_release},
+};
+
+#define MANSLLEN \
+        (sizeof(manstatelist) / sizeof(struct stateentry))
 /* *INDENT-ON* */
 
 
@@ -2927,18 +2965,16 @@ dss1up(struct PStack *st, int pr, void *arg)
 			l3_msg(st, pr, arg);
 			return;
 			break;
+                default:
+                        printk(KERN_ERR "HiSax dss1up unknown pr=%04x\n", pr);
+                        return;
 	}
 	if (skb->len < 3) {
 		l3_debug(st, "dss1up frame too short(%d)", skb->len);
 		idev_kfree_skb(skb, FREE_READ);
 		return;
 	}
-	if (skb->len < 3) {
-		if (st->l3.debug & L3_DEB_WARN)
-			l3_debug(st, "dss1up frame too short(%d)", skb->len);
-		idev_kfree_skb(skb, FREE_READ);
-		return;
-	}
+
 	if (skb->data[0] != PROTO_DIS_EURO) {
 		if (st->l3.debug & L3_DEB_PROTERR) {
 			l3_debug(st, "dss1up%sunexpected discriminator %x message len %d",
@@ -3083,7 +3119,7 @@ dss1down(struct PStack *st, int pr, void *arg)
 	struct l3_process *proc;
 	struct Channel *chan;
 
-	if (((DL_ESTABLISH | REQUEST) == pr) || ((DL_RELEASE | REQUEST) == pr)) {
+	if ((DL_ESTABLISH | REQUEST) == pr) {
 		l3_msg(st, pr, NULL);
 		return;
 	} else if (((CC_SETUP | REQUEST) == pr) || ((CC_RESUME | REQUEST) == pr)) {
@@ -3127,6 +3163,34 @@ dss1down(struct PStack *st, int pr, void *arg)
 	}
 }
 
+static void
+dss1man(struct PStack *st, int pr, void *arg)
+{
+        int i;
+        struct l3_process *proc = arg;
+ 
+        if (!proc) {
+                printk(KERN_ERR "HiSax dss1man without proc pr=%04x\n", pr);
+                return;
+        }
+        for (i = 0; i < MANSLLEN; i++)
+                if ((pr == manstatelist[i].primitive) &&
+                    ((1 << proc->state) & manstatelist[i].state))
+                        break;
+        if (i == MANSLLEN) {
+                if (st->l3.debug & L3_DEB_STATE) {
+                        l3_debug(st, "cr %d dss1man state %d prim %d unhandled",
+                                proc->callref & 0x7f, proc->state, pr);
+                }
+        } else {
+                if (st->l3.debug & L3_DEB_STATE) {
+                        l3_debug(st, "cr %d dss1man state %d prim %d",
+                                proc->callref & 0x7f, proc->state, pr);
+                }
+                manstatelist[i].rout(proc, pr, arg);
+        }
+}
+ 
 void
 setstack_dss1(struct PStack *st)
 {
@@ -3136,6 +3200,7 @@ setstack_dss1(struct PStack *st)
 	st->lli.l4l3 = dss1down;
 	st->lli.l4l3_proto = l3dss1_cmd_global;
 	st->l2.l2l3 = dss1up;
+	st->l3.l3ml3 = dss1man;
 	st->l3.N303 = 1;
 	st->prot.dss1.last_invoke_id = 0;
 	st->prot.dss1.invoke_used[0] = 1; /* Bit 0 must always be set to 1 */

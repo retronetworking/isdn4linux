@@ -10,6 +10,9 @@
  *
  *
  * $Log$
+ * Revision 1.11.2.7  1999/04/22 21:11:21  werner
+ * Added support for dss1 diversion services
+ *
  * Revision 1.11.2.6  1998/11/03 00:07:10  keil
  * certification related changes
  * fixed logging for smaller stack use
@@ -563,6 +566,9 @@ l3_1tr6_disconnect_req(struct l3_process *pc, u_char pr, void *arg)
 		case 0x10:
 			clen = 0;
 			break;
+                case 0x11:
+                        cause = CAUSE_UserBusy;
+                        break;
 		case 0x15:
 			cause = CAUSE_CallRejected;
 			break;
@@ -675,6 +681,24 @@ l3_1tr6_t308_2(struct l3_process *pc, u_char pr, void *arg)
 	pc->st->l3.l3l4(pc->st, CC_RELEASE_ERR, pc);
 	release_l3_process(pc);
 }
+
+static void
+l3_1tr6_dl_reset(struct l3_process *pc, u_char pr, void *arg)
+{
+        pc->para.cause = CAUSE_LocalProcErr;
+        l3_1tr6_disconnect_req(pc, pr, NULL);
+        pc->st->l3.l3l4(pc->st, CC_SETUP_ERR, pc);
+}
+
+static void
+l3_1tr6_dl_release(struct l3_process *pc, u_char pr, void *arg)
+{
+        newl3state(pc, 0);
+        pc->para.cause = 0x1b;          /* Destination out of order */
+        pc->st->l3.l3l4(pc->st, CC_RELEASE | INDICATION, pc);
+        release_l3_process(pc);
+}
+
 /* *INDENT-OFF* */
 static struct stateentry downstl[] =
 {
@@ -685,8 +709,6 @@ static struct stateentry downstl[] =
     	 CC_DISCONNECT | REQUEST, l3_1tr6_disconnect_req},
 	{SBIT(12),
 	 CC_RELEASE | REQUEST, l3_1tr6_release_req},
-	{ALL_STATES,
-	 CC_DLRL | REQUEST, l3_1tr6_reset},
 	{SBIT(6),
 	 CC_IGNORE | REQUEST, l3_1tr6_reset},
 	{SBIT(6),
@@ -747,10 +769,21 @@ static struct stateentry datastln1[] =
 	{SBIT(19),
 	 MT_N1_REL_ACK, l3_1tr6_rel_ack}
 };
-/* *INDENT-ON* */
 
 #define DATASTLN1_LEN \
 	(sizeof(datastln1) / sizeof(struct stateentry))
+
+static struct stateentry manstatelist[] =
+{
+        {SBIT(2),
+         DL_ESTABLISH | INDICATION, l3_1tr6_dl_reset},
+        {ALL_STATES,
+         DL_RELEASE | INDICATION, l3_1tr6_dl_release},
+};
+ 
+#define MANSLLEN \
+        (sizeof(manstatelist) / sizeof(struct stateentry))
+/* *INDENT-ON* */
 
 static void
 up1tr6(struct PStack *st, int pr, void *arg)
@@ -875,7 +908,7 @@ down1tr6(struct PStack *st, int pr, void *arg)
 	struct Channel *chan;
 	char tmp[80];
 
-	if (((DL_ESTABLISH | REQUEST)== pr) || ((DL_RELEASE | REQUEST)== pr)) {
+	if ((DL_ESTABLISH | REQUEST)== pr) {
 		l3_msg(st, pr, NULL);
 		return;
 	} else if ((CC_SETUP | REQUEST) == pr) {
@@ -914,6 +947,34 @@ down1tr6(struct PStack *st, int pr, void *arg)
 	}
 }
 
+static void
+man1tr6(struct PStack *st, int pr, void *arg)
+{
+        int i;
+        struct l3_process *proc = arg;
+ 
+        if (!proc) {
+                printk(KERN_ERR "HiSax man1tr6 without proc pr=%04x\n", pr);
+                return;
+        }
+        for (i = 0; i < MANSLLEN; i++)
+                if ((pr == manstatelist[i].primitive) &&
+                    ((1 << proc->state) & manstatelist[i].state))
+                        break;
+        if (i == MANSLLEN) {
+                if (st->l3.debug & L3_DEB_STATE) {
+                        l3_debug(st, "cr %d man1tr6 state %d prim %d unhandled",
+                                proc->callref & 0x7f, proc->state, pr);
+                }
+        } else {
+                if (st->l3.debug & L3_DEB_STATE) {
+                        l3_debug(st, "cr %d man1tr6 state %d prim %d",
+                                proc->callref & 0x7f, proc->state, pr);
+                }
+                manstatelist[i].rout(proc, pr, arg);
+        }
+}
+ 
 void
 setstack_1tr6(struct PStack *st)
 {
@@ -921,6 +982,7 @@ setstack_1tr6(struct PStack *st)
 
 	st->lli.l4l3 = down1tr6;
 	st->l2.l2l3 = up1tr6;
+	st->l3.l3ml3 = man1tr6;
 	st->l3.N303 = 0;
 
 	strcpy(tmp, l3_1tr6_revision);
