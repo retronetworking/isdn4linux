@@ -21,6 +21,10 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.8  1996/05/11 21:49:55  fritz
+ * Removed queue mamagement variables.
+ * Changed queue management to use sk_buffs.
+ *
  * Revision 1.7  1996/05/07 09:10:06  fritz
  * Reorganized tty-related structs.
  *
@@ -553,6 +557,7 @@ typedef struct {
   isdn_if            *interface;        /* Interface to driver              */
   int                *rcverr;           /* Error-counters for B-Ch.-receive */
   int                *rcvcount;         /* Byte-counters for B-Ch.-receive  */
+  unsigned long      DLEflag;           /* Flags: Insert DLE at next read   */
   struct sk_buff_head *rpqueue;         /* Pointers to start of Rcv-Queue   */
   struct wait_queue  **rcv_waitq;       /* Wait-Queues for B-Channel-Reads  */
   struct wait_queue  **snd_waitq;       /* Wait-Queue for B-Channel-Send's  */
