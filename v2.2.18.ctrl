@@ -60,3 +60,5 @@
 #define __exit
 #define __devinit
 #define __devinitdata
+
+#define COMPAT_NEED_PCI_IDS

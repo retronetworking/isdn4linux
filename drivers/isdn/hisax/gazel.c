@@ -26,20 +26,6 @@ const char *gazel_revision = "$Revision$";
 #define R753      3
 #define R742      4
 
-/* Gazel R685 stuff */
-#ifndef PCI_VENDOR_ID_PLX
-#define PCI_VENDOR_ID_PLX	0x10b5
-#endif
-#ifndef PCI_DEVICE_ID_PLX_R685
-#define PCI_DEVICE_ID_PLX_R685	0x1030
-#endif
-#ifndef PCI_DEVICE_ID_PLX_R753
-#define PCI_DEVICE_ID_PLX_R753	0x1152
-#endif
-#ifndef PCI_DEVICE_ID_PLX_DJINN_ITOO
-#define PCI_DEVICE_ID_PLX_DJINN_ITOO	0x1151
-#endif
-
 #define PLX_CNTRL    0x50	/* registre de controle PLX */
 #define RESET_GAZEL  0x4
 #define RESET_9050   0x40000000

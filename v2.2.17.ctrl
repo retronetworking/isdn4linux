@@ -70,3 +70,5 @@
 
 #define init_MUTEX(x) *(x)=MUTEX
 #define init_MUTEX_LOCKED(x) *(x)=MUTEX_LOCKED
+
+#define COMPAT_NEED_PCI_IDS

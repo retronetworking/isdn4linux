@@ -53,6 +53,7 @@
 #define COMPAT_USE_MODCOUNT_LOCK
 #define devfs_register_chrdev(m,n,f) register_chrdev(m,n,f)
 #define devfs_unregister_chrdev(m,n) unregister_chrdev(m,n)
+#define COMPAT_NEED_PCI_IDS
 
 #else /* 2.4.0 and later */
 
@@ -70,6 +71,8 @@
 #define COMPAT_HAVE_NEW_FILLDIR
 
 #endif
+
+#define COMPAT_NEED_PCI_IDS
 
 #endif /* ISDN_COMPAT_GENERIC */
 
@@ -135,6 +138,84 @@ typedef struct wait_queue *wait_queue_head_t;
 #define init_waitqueue_head(x)			*(x)=NULL
 #define init_waitqueue_entry(q,p)		((q)->task)=(p)
 #endif /* COMPAT_HAS_NEW_WAITQ */
+
+#ifdef COMPAT_NEED_PCI_IDS
+
+#define PCI_ANY_ID (~0)
+
+#define PCI_VENDOR_ID_DYNALINK          0x0675
+#define PCI_DEVICE_ID_DYNALINK_IS64PH   0x1702
+
+#define PCI_DEVICE_ID_WINBOND2_6692	0x6692
+
+#define PCI_DEVICE_ID_PLX_R685		0x1030
+#define PCI_DEVICE_ID_PLX_DJINN_ITOO    0x1151
+#define PCI_DEVICE_ID_PLX_R753          0x1152
+
+#define PCI_VENDOR_ID_ELSA		0x1048
+#define PCI_DEVICE_ID_ELSA_MICROLINK	0x1000
+#define PCI_DEVICE_ID_ELSA_QS3000	0x3000
+
+#define PCI_VENDOR_ID_EICON		0x1133
+#define PCI_DEVICE_ID_EICON_DIVA20PRO	0xe001
+#define PCI_DEVICE_ID_EICON_DIVA20	0xe002
+#define PCI_DEVICE_ID_EICON_DIVA20PRO_U	0xe003
+#define PCI_DEVICE_ID_EICON_DIVA20_U	0xe004
+#define PCI_DEVICE_ID_EICON_DIVA201	0xe005
+#define PCI_DEVICE_ID_EICON_MAESTRA	0xe010
+#define PCI_DEVICE_ID_EICON_MAESTRAQ	0xe012
+#define PCI_DEVICE_ID_EICON_MAESTRAQ_U	0xe013
+#define PCI_DEVICE_ID_EICON_MAESTRAP	0xe014
+ 
+#define PCI_VENDOR_ID_CCD		0x1385
+#define PCI_DEVICE_ID_CCD_2BD0	        0x2BD0
+#define PCI_DEVICE_ID_CCD_B000	        0xB000
+#define PCI_DEVICE_ID_CCD_B006	        0xB006
+#define PCI_DEVICE_ID_CCD_B007	        0xB007
+#define PCI_DEVICE_ID_CCD_B008	        0xB008
+#define PCI_DEVICE_ID_CCD_B009	        0xB009
+#define PCI_DEVICE_ID_CCD_B00A	        0xB00A
+#define PCI_DEVICE_ID_CCD_B00B	        0xB00B
+#define PCI_DEVICE_ID_CCD_B00C	        0xB00C
+#define PCI_DEVICE_ID_CCD_B100	        0xB100
+
+#define PCI_VENDOR_ID_ASUSTEK           0x1043   
+#define PCI_DEVICE_ID_ASUSTEK_0675      0x0675
+
+#define PCI_VENDOR_ID_BERKOM		        0x0871
+#define PCI_DEVICE_ID_BERKOM_A1T	        0xFFA1
+#define PCI_DEVICE_ID_BERKOM_T_CONCEPT          0xFFA2
+#define PCI_DEVICE_ID_BERKOM_A4T	        0xFFA4
+#define PCI_DEVICE_ID_BERKOM_SCITEL_QUADRO      0xFFA8
+
+#define PCI_DEVICE_ID_SATSAGEM_NICCY	0x1016
+
+#define PCI_DEVICE_ID_TIGERJET_100	0x0002
+
+#define PCI_VENDOR_ID_ANIGMA		0x1051
+#define PCI_DEVICE_ID_ANIGMA_MC145575	0x0100
+
+#define PCI_VENDOR_ID_ZOLTRIX		0x15b0
+#define PCI_DEVICE_ID_ZOLTRIX_2BD0	0x2BD0
+
+#define PCI_DEVICE_ID_DIGI_DF_M_IOM2_E	0x0070
+#define PCI_DEVICE_ID_DIGI_DF_M_E	0x0071
+#define PCI_DEVICE_ID_DIGI_DF_M_IOM2_A	0x0072
+#define PCI_DEVICE_ID_DIGI_DF_M_A	0x0073
+
+#define PCI_DEVICE_ID_AVM_B1		0x0700
+#define PCI_DEVICE_ID_AVM_C4		0x0800
+#define PCI_DEVICE_ID_AVM_T1		0x1200
+
+#define PCI_VENDOR_ID_HYPERCOPE		0x1365
+#define PCI_DEVICE_ID_HYPERCOPE_PLX	0x9050
+#define PCI_SUBDEVICE_ID_HYPERCOPE_OLD_ERGO     0x0104
+#define PCI_SUBDEVICE_ID_HYPERCOPE_ERGO         0x0106
+#define PCI_SUBDEVICE_ID_HYPERCOPE_METRO        0x0107
+#define PCI_SUBDEVICE_ID_HYPERCOPE_CHAMP2       0x0108
+#define PCI_SUBDEVICE_ID_HYPERCOPE_PLEXUS       0x0109
+
+#endif /* COMPAT_NEED_PCI_IDS */
 
 #endif /* __KERNEL__ */
 #endif /* _LINUX_ISDN_COMPAT_H */

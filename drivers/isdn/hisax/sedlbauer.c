@@ -59,12 +59,6 @@ const char *Sedlbauer_Types[] =
 	"speed win II / ISDN PC/104", "speed star II", "speed pci",
 	"speed fax+ pyramid", "speed fax+ pci"};
 
-#ifndef PCI_VENDOR_ID_TIGERJET
-#define PCI_VENDOR_ID_TIGERJET		0xe159
-#endif
-#ifndef PCI_DEVICE_ID_TIGERJET_100
-#define PCI_DEVICE_ID_TIGERJET_100	0x0002
-#endif
 #define PCI_SUBVENDOR_SPEEDFAX_PYRAMID	0x51
 #define PCI_SUBVENDOR_SEDLBAUER_PCI	0x53
 #define PCI_SUBVENDOR_SPEEDFAX_PCI	0x54
