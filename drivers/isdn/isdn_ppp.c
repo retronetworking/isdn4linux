@@ -176,6 +176,7 @@ isdn_ppp_bind(isdn_net_local * lp)
 	int unit = 0;
 	long flags;
 	struct ippp_struct *is;
+	int retval;
 
 	save_flags(flags);
 	cli();
@@ -208,12 +209,14 @@ isdn_ppp_bind(isdn_net_local * lp)
 	if (i >= ISDN_MAX_CHANNELS) {
 		restore_flags(flags);
 		printk(KERN_WARNING "isdn_ppp_bind: Can't find a (free) connection to the ipppd daemon.\n");
-		return -1;
+		retval = -1;
+		goto out;
 	}
 	unit = isdn_ppp_if_get_unit(lp->name);	/* get unit number from interface name .. ugly! */
 	if (unit < 0) {
 		printk(KERN_ERR "isdn_ppp_bind: illegal interface name %s.\n", lp->name);
-		return -1;
+		retval = -1;
+		goto out;
 	}
 	
 	lp->ppp_slot = i;
@@ -222,13 +225,16 @@ isdn_ppp_bind(isdn_net_local * lp)
 	is->unit = unit;
 	is->state = IPPP_OPEN | IPPP_ASSIGNED;	/* assigned to a netdevice but not connected */
 #ifdef CONFIG_ISDN_MPP
-	if (isdn_ppp_mp_init(lp, NULL) < 0)
-		return -ENOMEM;
+	retval = isdn_ppp_mp_init(lp, NULL);
+	if (retval < 0)
+		goto out;
 #endif /* CONFIG_ISDN_MPP */
 
-	restore_flags(flags);
+	retval = lp->ppp_slot;
 
-	return lp->ppp_slot;
+ out:
+	restore_flags(flags);
+	return retval;
 }
 
 /*
