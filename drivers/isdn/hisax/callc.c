@@ -348,6 +348,7 @@ lli_init_bchan_out(struct FsmInst *fi, int event, void *arg)
 
 	FsmChangeState(fi, ST_WAIT_BCONN);
 	HL_LL(chanp, ISDN_STAT_DCONN, &ic);
+	chanp->tx_cnt = 0;
 	chanp->b_st = new_b_st(chanp);
 	B_L4L3(chanp, DL_ESTABLISH | REQUEST, 0);
 }
@@ -499,6 +500,7 @@ lli_init_bchan_in(struct FsmInst *fi, int event, void *arg)
 	FsmChangeState(fi, ST_WAIT_BCONN);
 	HL_LL(chanp, ISDN_STAT_DCONN, &ic);
 	chanp->l2_active_protocol = chanp->l2_protocol;
+	chanp->tx_cnt = 0;
 	chanp->b_st = new_b_st(chanp);
 	B_L4L3(chanp, PH_ACTIVATE | REQUEST, NULL); 
 }
@@ -1088,12 +1090,12 @@ init_st_1(struct PStack *st, int b1_mode, struct IsdnCardState *cs, int bchannel
 {
 	st->l1.hardware = cs;
 	switch (bchannel) {
-	case -1: // D-Channel
+	case CHANNEL_D:
 		HiSax_addlist(cs, st);
 		setstack_HiSax(st, cs);
 		break;
-	case 0:
-	case 1:
+	case CHANNEL_B1:
+	case CHANNEL_B2:
 		st->l1.bc = bchannel;
 		st->l1.mode = b1_mode;
 		if (cs->bcs[bchannel].BC_SetStack(st, &cs->bcs[bchannel]))
@@ -1182,50 +1184,6 @@ init_st(struct PStack *st, struct IsdnCardState *cs, struct StackParams *sp,
 	return 0;
 }
 
-static int
-init_b_st(struct Channel *chanp)
-{
-	struct PStack *st = chanp->b_st;
-	struct IsdnCardState *cs = chanp->cs;
-	struct StackParams sp;
-	int bchannel;
-
-	chanp->tx_cnt = 0;
-	switch (chanp->l2_active_protocol) {
-	case (ISDN_PROTO_L2_X75I):
-		sp.b1_mode = B1_MODE_HDLC;
-		sp.b2_mode = B2_MODE_X75SLP;
-		break;
-	case (ISDN_PROTO_L2_HDLC):
-		sp.b1_mode = B1_MODE_HDLC;
-		sp.b2_mode = B2_MODE_TRANS;
-		break;
-	case (ISDN_PROTO_L2_TRANS):
-		sp.b1_mode = B1_MODE_TRANS;
-		sp.b2_mode = B2_MODE_TRANS;
-		break;
-	case (ISDN_PROTO_L2_MODEM):
-		sp.b1_mode = B1_MODE_MODEM;
-		sp.b2_mode = B2_MODE_TRANS;
-		break;
-	case (ISDN_PROTO_L2_FAX):
-		sp.b1_mode = B1_MODE_FAX;
-		sp.b2_mode = B2_MODE_TRANS;
-		break;
-	default:
-		int_error();
-		return -EINVAL;
-	}
-	sp.b3_mode = B3_MODE_TRANS;
-	bchannel = chanp->leased ? chanp->chan & 1 : chanp->l4pc.l3pc->para.bchannel - 1;
-	init_st(st, cs, &sp, bchannel, chanp, lldata_handler);
-
-	st->l2.l2m.debug = chanp->debug & 16;
-	st->l2.debug = chanp->debug & 64;
-
-	return 0;
-}
-
 static void
 callc_debug(struct FsmInst *fi, char *fmt, ...)
 {
@@ -1261,6 +1219,9 @@ static struct PStack *
 new_b_st(struct Channel *chanp)
 {
 	struct PStack *st;
+	struct IsdnCardState *cs = chanp->cs;
+	struct StackParams sp;
+	int bchannel;
 
 	if (chanp->b_st) {
 		int_error();
@@ -1271,8 +1232,38 @@ new_b_st(struct Channel *chanp)
 		return 0;
 
 	st->l1.delay = DEFAULT_B_DELAY;
-	chanp->b_st = st;
-	init_b_st(chanp);
+
+	switch (chanp->l2_active_protocol) {
+	case (ISDN_PROTO_L2_X75I):
+		sp.b1_mode = B1_MODE_HDLC;
+		sp.b2_mode = B2_MODE_X75SLP;
+		break;
+	case (ISDN_PROTO_L2_HDLC):
+		sp.b1_mode = B1_MODE_HDLC;
+		sp.b2_mode = B2_MODE_TRANS;
+		break;
+	case (ISDN_PROTO_L2_TRANS):
+		sp.b1_mode = B1_MODE_TRANS;
+		sp.b2_mode = B2_MODE_TRANS;
+		break;
+	case (ISDN_PROTO_L2_MODEM):
+		sp.b1_mode = B1_MODE_MODEM;
+		sp.b2_mode = B2_MODE_TRANS;
+		break;
+	case (ISDN_PROTO_L2_FAX):
+		sp.b1_mode = B1_MODE_FAX;
+		sp.b2_mode = B2_MODE_TRANS;
+		break;
+	default:
+		int_error();
+		return 0;
+	}
+	sp.b3_mode = B3_MODE_TRANS;
+	bchannel = chanp->leased ? chanp->chan & 1 : chanp->l4pc.l3pc->para.bchannel - 1;
+	init_st(st, cs, &sp, bchannel, chanp, lldata_handler);
+
+	st->l2.l2m.debug = chanp->debug & 0x10;
+	st->l2.debug = chanp->debug & 0x40;
 
 	return st;
 }
@@ -1446,15 +1437,9 @@ distr_debug(struct CallcIf *c_if, int debugflags)
 		chanp[i].debug = debugflags | LL_DEB_WARN;
 		chanp[i].fi.debug = debugflags & 2;
 		chanp[i].d_st->l2.l2m.debug = debugflags & 8;
-//		chanp[i].b_st->l2.l2m.debug = debugflags & 0x10;
 		chanp[i].d_st->l2.debug = debugflags & 0x20;
-//		chanp[i].b_st->l2.debug = debugflags & 0x40;
 		chanp[i].d_st->l3.l3m.debug = debugflags & 0x80;
-//		chanp[i].b_st->l3.l3m.debug = debugflags & 0x100;
-//		chanp[i].b_st->ma.tei_m.debug = debugflags & 0x200;
-//		chanp[i].b_st->ma.debug = debugflags & 0x200;
 		chanp[i].d_st->l1.l1m.debug = debugflags & 0x1000;
-//		chanp[i].b_st->l1.l1m.debug = debugflags & 0x2000;
 	}
 	if (debugflags & 4)
 		c_if->cs->debug |= DEB_DLOG_HEX;
