@@ -22,6 +22,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.17  1997/02/10 21:12:53  fritz
+ * More setup-interface changes.
+ *
  * Revision 1.16  1997/02/10 19:42:57  fritz
  * New interface for reporting incoming calls.
  *
@@ -343,8 +346,25 @@ extern int register_isdn(isdn_if*);
 #endif
 #if (LINUX_VERSION_CODE < 0x020100)
 #include <linux/mm.h>
-#define copy_from_user memcpy_fromfs
-#define copy_to_user memcpy_tofs
+
+static inline unsigned long copy_from_user(void *to, const void *from, unsigned long n)
+{
+	int i;
+	if ((i = verify_area(VERIFY_READ, from, n)) != 0)
+		return i;
+	memcpy_fromfs(to, from, n);
+	return 0;
+}
+
+static inline unsigned long copy_to_user(void *to, const void *from, unsigned long n)
+{
+	int i;
+	if ((i = verify_area(VERIFY_WRITE, to, n)) != 0)
+		return i;
+	memcpy_tofs(to, from, n);
+	return 0;
+}
+
 #define GET_USER(x, addr) ( x = get_user(addr) )
 #define RWTYPE int
 #define LSTYPE int
