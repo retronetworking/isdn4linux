@@ -7,6 +7,9 @@
  *              Fritz Elfert
  *
  * $Log$
+ * Revision 2.0  1997/07/27 21:12:21  keil
+ * CRef based L3; new channel handling; many other stuff
+ *
  * Revision 1.31  1997/06/26 11:09:23  keil
  * New managment and minor changes
  *
@@ -382,14 +385,14 @@ lli_prep_dialout(struct FsmInst *fi, int event, void *arg)
 	FsmDelTimer(&chanp->dial_timer, 73);
 	chanp->l2_active_protocol = chanp->l2_protocol;
 	chanp->incoming = 0;
-	chanp->lc_b.l2_start = !0;
+	chanp->lc_b->l2_start = !0;
 	switch (chanp->l2_active_protocol) {
 		case (ISDN_PROTO_L2_X75I):
-			chanp->lc_b.l2_establish = !0;
+			chanp->lc_b->l2_establish = !0;
 			break;
 		case (ISDN_PROTO_L2_HDLC):
 		case (ISDN_PROTO_L2_TRANS):
-			chanp->lc_b.l2_establish = 0;
+			chanp->lc_b->l2_establish = 0;
 			break;
 		default:
 			printk(KERN_WARNING "lli_prep_dialout unknown protocol\n");
@@ -400,9 +403,9 @@ lli_prep_dialout(struct FsmInst *fi, int event, void *arg)
 	} else {
 		chanp->Flags = FLG_START_D;
 		if (chanp->leased) {
-			chanp->lc_d.l2_establish = 0;
+			chanp->lc_d->l2_establish = 0;
 		}
-		FsmEvent(&chanp->lc_d.lcfi, EV_LC_ESTABLISH, NULL);
+		FsmEvent(&chanp->lc_d->lcfi, EV_LC_ESTABLISH, NULL);
 	}
 }
 
@@ -439,7 +442,7 @@ lli_init_bchan_out(struct FsmInst *fi, int event, void *arg)
 	chanp->cs->iif.statcallb(&ic);
 	init_b_st(chanp, 0);
 	SETBIT(chanp->Flags, FLG_START_B);
-	FsmEvent(&chanp->lc_b.lcfi, EV_LC_ESTABLISH, NULL);
+	FsmEvent(&chanp->lc_b->lcfi, EV_LC_ESTABLISH, NULL);
 }
 
 static void
@@ -478,7 +481,7 @@ lli_start_dchan(struct FsmInst *fi, int event, void *arg)
 		FsmEvent(fi, EV_DLEST, NULL);
 	} else if (!(chanp->Flags & FLG_START_D)) {
 		SETBIT(chanp->Flags, FLG_START_D);
-		FsmEvent(&chanp->lc_d.lcfi, EV_LC_ESTABLISH, NULL);
+		FsmEvent(&chanp->lc_d->lcfi, EV_LC_ESTABLISH, NULL);
 	}
 }
 
@@ -529,7 +532,7 @@ lli_deliver_call(struct FsmInst *fi, int event, void *arg)
 					SETBIT(chanp->Flags, FLG_DO_ALERT);
 					FsmChangeState(fi, ST_IN_WAIT_D);
 					SETBIT(chanp->Flags, FLG_START_D);
-					FsmEvent(&chanp->lc_d.lcfi, EV_LC_ESTABLISH, NULL);
+					FsmEvent(&chanp->lc_d->lcfi, EV_LC_ESTABLISH, NULL);
 				}
 				break;
 			case 2:	/* Rejecting Call */
@@ -605,14 +608,14 @@ lli_init_bchan_in(struct FsmInst *fi, int event, void *arg)
 	chanp->cs->iif.statcallb(&ic);
 	chanp->l2_active_protocol = chanp->l2_protocol;
 	chanp->incoming = !0;
-	chanp->lc_b.l2_start = 0;
+	chanp->lc_b->l2_start = 0;
 	switch (chanp->l2_active_protocol) {
 		case (ISDN_PROTO_L2_X75I):
-			chanp->lc_b.l2_establish = !0;
+			chanp->lc_b->l2_establish = !0;
 			break;
 		case (ISDN_PROTO_L2_HDLC):
 		case (ISDN_PROTO_L2_TRANS):
-			chanp->lc_b.l2_establish = 0;
+			chanp->lc_b->l2_establish = 0;
 			break;
 		default:
 			printk(KERN_WARNING "bchannel unknown protocol\n");
@@ -620,7 +623,7 @@ lli_init_bchan_in(struct FsmInst *fi, int event, void *arg)
 	}
 	init_b_st(chanp, !0);
 	SETBIT(chanp->Flags, FLG_START_B);
-	FsmEvent(&chanp->lc_b.lcfi, EV_LC_ESTABLISH, NULL);
+	FsmEvent(&chanp->lc_b->lcfi, EV_LC_ESTABLISH, NULL);
 }
 
 /* Call clearing */
@@ -667,7 +670,7 @@ lli_shutdown_d(struct FsmInst *fi, int event, void *arg)
 	}
 	FsmChangeState(fi, ST_WAIT_DSHUTDOWN);
 	RESBIT(chanp->Flags, FLG_ESTAB_D);
-	FsmEvent(&chanp->lc_d.lcfi, EV_LC_RELEASE, NULL);
+	FsmEvent(&chanp->lc_d->lcfi, EV_LC_RELEASE, NULL);
 }
 
 static void
@@ -711,7 +714,7 @@ lli_disconn_bchan(struct FsmInst *fi, int event, void *arg)
 	chanp->data_open = 0;
 	FsmChangeState(fi, ST_WAIT_BRELEASE);
 	RESBIT(chanp->Flags, FLG_CONNECT_B);
-	FsmEvent(&chanp->lc_b.lcfi, EV_LC_RELEASE, NULL);
+	FsmEvent(&chanp->lc_b->lcfi, EV_LC_RELEASE, NULL);
 }
 
 static void
@@ -772,7 +775,7 @@ lli_release_bchan(struct FsmInst *fi, int event, void *arg)
 	SETBIT(chanp->Flags, FLG_DISC_REC);
 	FsmChangeState(fi, ST_WAIT_BREL_DISC);
 	RESBIT(chanp->Flags, FLG_CONNECT_B);
-	FsmEvent(&chanp->lc_b.lcfi, EV_LC_RELEASE, NULL);
+	FsmEvent(&chanp->lc_b->lcfi, EV_LC_RELEASE, NULL);
 }
 
 static void
@@ -785,8 +788,8 @@ lli_received_d_rel(struct FsmInst *fi, int event, void *arg)
 	FsmChangeState(fi, ST_NULL);
 	SETBIT(chanp->Flags, FLG_REL_REC);
 	if (chanp->Flags & FLG_CONNECT_B) {
-		chanp->lc_b.l2_establish = 0;	/* direct reset in lc_b.lcfi */
-		FsmEvent(&chanp->lc_b.lcfi, EV_LC_RELEASE, NULL);
+		chanp->lc_b->l2_establish = 0;	/* direct reset in lc_b->lcfi */
+		FsmEvent(&chanp->lc_b->lcfi, EV_LC_RELEASE, NULL);
 		RESBIT(chanp->Flags, FLG_CONNECT_B);
 	}
 	if (chanp->Flags & FLG_LL_BCONN) {
@@ -828,8 +831,8 @@ lli_received_d_relcnf(struct FsmInst *fi, int event, void *arg)
 	chanp->data_open = 0;
 	FsmChangeState(fi, ST_NULL);
 	if (chanp->Flags & FLG_CONNECT_B) {
-		chanp->lc_b.l2_establish = 0;	/* direct reset in lc_b.lcfi */
-		FsmEvent(&chanp->lc_b.lcfi, EV_LC_RELEASE, NULL);
+		chanp->lc_b->l2_establish = 0;	/* direct reset in lc_b->lcfi */
+		FsmEvent(&chanp->lc_b->lcfi, EV_LC_RELEASE, NULL);
 		RESBIT(chanp->Flags, FLG_CONNECT_B);
 	}
 	if (chanp->Flags & FLG_LL_BCONN) {
@@ -929,7 +932,7 @@ lli_no_dchan(struct FsmInst *fi, int event, void *arg)
 	chanp->cs->iif.statcallb(&ic);
 	chanp->Flags = 0;
 	FsmChangeState(fi, ST_NULL);
-	FsmEvent(&chanp->lc_d.lcfi, EV_LC_RELEASE, NULL);
+	FsmEvent(&chanp->lc_d->lcfi, EV_LC_RELEASE, NULL);
 }
 
 static void
@@ -961,7 +964,7 @@ lli_no_dchan_in(struct FsmInst *fi, int event, void *arg)
 	chanp->d_st->lli.l4l3(chanp->d_st, CC_DLRL, chanp->proc);
 	chanp->Flags = 0;
 	FsmChangeState(fi, ST_NULL);
-	FsmEvent(&chanp->lc_d.lcfi, EV_LC_RELEASE, NULL);
+	FsmEvent(&chanp->lc_d->lcfi, EV_LC_RELEASE, NULL);
 }
 
 static void
@@ -1030,8 +1033,8 @@ lli_got_dlrl(struct FsmInst *fi, int event, void *arg)
 	chanp->data_open = 0;
 	FsmChangeState(fi, ST_NULL);
 	if (chanp->Flags & FLG_CONNECT_B) {
-		chanp->lc_b.l2_establish = 0;	/* direct reset in lc_b.lcfi */
-		FsmEvent(&chanp->lc_b.lcfi, EV_LC_RELEASE, NULL);
+		chanp->lc_b->l2_establish = 0;	/* direct reset in lc_b->lcfi */
+		FsmEvent(&chanp->lc_b->lcfi, EV_LC_RELEASE, NULL);
 		RESBIT(chanp->Flags, FLG_CONNECT_B);
 	}
 	if (chanp->Flags & FLG_LL_BCONN) {
@@ -1066,7 +1069,7 @@ lli_got_dlrl(struct FsmInst *fi, int event, void *arg)
 	}
 	chanp->d_st->lli.l4l3(chanp->d_st, CC_DLRL, chanp->proc);
 	chanp->Flags = 0;
-	FsmEvent(&chanp->lc_d.lcfi, EV_LC_RELEASE, NULL);
+	FsmEvent(&chanp->lc_d->lcfi, EV_LC_RELEASE, NULL);
 	chanp->cs->cardmsg(chanp->cs, MDL_INFO_REL, (void *) chanp->chan);
 }
 /* *INDENT-OFF* */
@@ -1282,11 +1285,16 @@ static struct FsmNode LcFnList[] =
 	{ST_LC_ESTABLISH_WAIT,	EV_LC_DL_ESTABLISH,	lc_connected},
 	{ST_LC_ESTABLISH_WAIT,	EV_LC_RELEASE,		lc_release_l1},
 	{ST_LC_ESTABLISH_WAIT,	EV_LC_DL_RELEASE,	lc_release_l1},
+	{ST_LC_ESTABLISH_WAIT,  EV_LC_PH_DEACTIVATE,	lc_l1_deactivated},
+	{ST_LC_CONNECTED,	EV_LC_ESTABLISH,	lc_connected},
 	{ST_LC_CONNECTED,	EV_LC_RELEASE,		lc_release_l2},
 	{ST_LC_CONNECTED,	EV_LC_DL_RELEASE,	lc_l2_released},
+	{ST_LC_CONNECTED,  	EV_LC_PH_DEACTIVATE,	lc_l1_deactivated},
 	{ST_LC_FLUSH_WAIT,	EV_LC_TIMER,		lc_release_l2},
+	{ST_LC_FLUSH_WAIT,  	EV_LC_PH_DEACTIVATE,	lc_l1_deactivated},
 	{ST_LC_RELEASE_WAIT,	EV_LC_DL_RELEASE,	lc_release_l1},
 	{ST_LC_RELEASE_WAIT,	EV_LC_TIMER,		lc_release_l1},
+	{ST_LC_FLUSH_WAIT,  	EV_LC_PH_DEACTIVATE,	lc_l1_deactivated},
 };
 /* *INDENT-ON* */
 
@@ -1332,23 +1340,22 @@ release_b_st(struct Channel *chanp)
 			break;
 	}
 	/* Reset B-Channel Statemachine */
-	FsmDelTimer(&chanp->lc_b.act_timer, 79);
-	FsmChangeState(&chanp->lc_b.lcfi, ST_LC_NULL);
+	FsmDelTimer(&chanp->lc_b->act_timer, 79);
+	FsmChangeState(&chanp->lc_b->lcfi, ST_LC_NULL);
 }
 
 static void
 dc_l1man(struct PStack *st, int pr, void *arg)
 {
 	struct Channel *chanp;
-	int i;
 
 	chanp = (struct Channel *) st->lli.userdata;
 	switch (pr) {
 		case (PH_ACTIVATE):
-			FsmEvent(&chanp->lc_d.lcfi, EV_LC_PH_ACTIVATE, NULL);
+			FsmEvent(&chanp->lc_d->lcfi, EV_LC_PH_ACTIVATE, NULL);
 			break;
 		case (PH_DEACTIVATE):
-			FsmEvent(&chanp->lc_d.lcfi, EV_LC_PH_DEACTIVATE, NULL);
+			FsmEvent(&chanp->lc_d->lcfi, EV_LC_PH_DEACTIVATE, NULL);
 			break;
 	}
 }
@@ -1360,10 +1367,10 @@ dc_l2man(struct PStack *st, int pr, void *arg)
 
 	switch (pr) {
 		case (DL_ESTABLISH):
-			FsmEvent(&chanp->lc_d.lcfi, EV_LC_DL_ESTABLISH, NULL);
+			FsmEvent(&chanp->lc_d->lcfi, EV_LC_DL_ESTABLISH, NULL);
 			break;
 		case (DL_RELEASE):
-			FsmEvent(&chanp->lc_d.lcfi, EV_LC_DL_RELEASE, NULL);
+			FsmEvent(&chanp->lc_d->lcfi, EV_LC_DL_RELEASE, NULL);
 			break;
 	}
 }
@@ -1375,10 +1382,10 @@ bc_l1man(struct PStack *st, int pr, void *arg)
 
 	switch (pr) {
 		case (PH_ACTIVATE):
-			FsmEvent(&chanp->lc_b.lcfi, EV_LC_PH_ACTIVATE, NULL);
+			FsmEvent(&chanp->lc_b->lcfi, EV_LC_PH_ACTIVATE, NULL);
 			break;
 		case (PH_DEACTIVATE):
-			FsmEvent(&chanp->lc_b.lcfi, EV_LC_PH_DEACTIVATE, NULL);
+			FsmEvent(&chanp->lc_b->lcfi, EV_LC_PH_DEACTIVATE, NULL);
 			break;
 	}
 }
@@ -1390,25 +1397,31 @@ bc_l2man(struct PStack *st, int pr, void *arg)
 
 	switch (pr) {
 		case (DL_ESTABLISH):
-			FsmEvent(&chanp->lc_b.lcfi, EV_LC_DL_ESTABLISH, NULL);
+			FsmEvent(&chanp->lc_b->lcfi, EV_LC_DL_ESTABLISH, NULL);
 			break;
 		case (DL_RELEASE):
-			FsmEvent(&chanp->lc_b.lcfi, EV_LC_DL_RELEASE, NULL);
+			FsmEvent(&chanp->lc_b->lcfi, EV_LC_DL_RELEASE, NULL);
 			break;
 	}
 }
 
 struct Channel
-*
-selectfreechannel(struct PStack *st)
+*selectfreechannel(struct PStack *st)
 {
 	struct IsdnCardState *cs = st->l1.hardware;
 	struct Channel *chanp = st->lli.userdata;
 	int i;
 
-	if (chanp->fi.state == ST_NULL) {
-		return (chanp);
-	}
+	if (cs->HW_Flags & FLG_TWO_DCHAN)
+		i=1;
+	else
+		i=0;
+	while (i<2) {
+		if (chanp->fi.state == ST_NULL)
+			return (chanp);
+		chanp++;
+		i++;
+	}		
 	return (NULL);
 }
 
@@ -1488,13 +1501,12 @@ init_d_st(struct Channel *chanp)
 	st->l2.flag = FLG_MOD128 | FLG_LAPD | FLG_ORIG;
 	st->l2.window = 1;
 	st->l2.T200 = 1000;	/* 1000 milliseconds  */
-	if (st->protocol == ISDN_PTYPE_1TR6) {
-		st->l2.N200 = 3;	/* try 3 times        */
+	st->l2.N200 = 3;	/* try 3 times        */
+	if (st->protocol == ISDN_PTYPE_1TR6)
 		st->l2.T203 = 10000;	/* 10000 milliseconds */
-	} else {
-		st->l2.N200 = 4;	/* try 4 times        */
+	else
 		st->l2.T203 = 5000;	/* 5000 milliseconds  */
-	}
+	
 	sprintf(tmp, "Channel %d q.921", chanp->chan);
 	setstack_isdnl2(st, tmp);
 	setstack_isdnl3(st, chanp);
@@ -1595,10 +1607,29 @@ init_chan(int chan, struct IsdnCardState *csta)
 	chanp->leased = 0;
 	chanp->b_st = kmalloc(sizeof(struct PStack), GFP_ATOMIC);
 	chanp->b_st->next = NULL;
-	chanp->d_st = kmalloc(sizeof(struct PStack), GFP_ATOMIC);
-	chanp->d_st->next = NULL;
-	init_d_st(chanp);
 
+	if (!chan || (csta->HW_Flags & FLG_TWO_DCHAN)) {
+		chanp->d_st = kmalloc(sizeof(struct PStack), GFP_ATOMIC);
+		chanp->d_st->next = NULL;
+		init_d_st(chanp);
+		chanp->lc_d = kmalloc(sizeof(struct LcFsm), GFP_ATOMIC);
+		chanp->lc_d->lcfi.fsm = &lcfsm;
+		chanp->lc_d->lcfi.state = ST_LC_NULL;
+		chanp->lc_d->lcfi.debug = 0;
+		chanp->lc_d->lcfi.userdata = chanp->lc_d;
+		chanp->lc_d->lcfi.printdebug = lc_debug;
+		chanp->lc_d->type = LC_D;
+		chanp->lc_d->delay = 0;
+		chanp->lc_d->ch = chanp;
+		chanp->lc_d->st = chanp->d_st;
+		chanp->lc_d->l2_establish = !0;
+		chanp->lc_d->l2_start = !0;
+		chanp->lc_d->lccall = lccall_d;
+		FsmInitTimer(&chanp->lc_d->lcfi, &chanp->lc_d->act_timer);
+	} else {
+		chanp->d_st = csta->channel->d_st;
+		chanp->lc_d = csta->channel->lc_d;
+	}
 	chanp->fi.fsm = &callcfsm;
 	chanp->fi.state = ST_NULL;
 	chanp->fi.debug = 0;
@@ -1606,34 +1637,20 @@ init_chan(int chan, struct IsdnCardState *csta)
 	chanp->fi.printdebug = callc_debug;
 	FsmInitTimer(&chanp->fi, &chanp->dial_timer);
 	FsmInitTimer(&chanp->fi, &chanp->drel_timer);
-
-	chanp->lc_d.lcfi.fsm = &lcfsm;
-	chanp->lc_d.lcfi.state = ST_LC_NULL;
-	chanp->lc_d.lcfi.debug = 0;
-	chanp->lc_d.lcfi.userdata = &chanp->lc_d;
-	chanp->lc_d.lcfi.printdebug = lc_debug;
-	chanp->lc_d.type = LC_D;
-	chanp->lc_d.delay = 0;
-	chanp->lc_d.ch = chanp;
-	chanp->lc_d.st = chanp->d_st;
-	chanp->lc_d.l2_establish = !0;
-	chanp->lc_d.l2_start = !0;
-	chanp->lc_d.lccall = lccall_d;
-	FsmInitTimer(&chanp->lc_d.lcfi, &chanp->lc_d.act_timer);
-
-	chanp->lc_b.lcfi.fsm = &lcfsm;
-	chanp->lc_b.lcfi.state = ST_LC_NULL;
-	chanp->lc_b.lcfi.debug = 0;
-	chanp->lc_b.lcfi.userdata = &chanp->lc_b;
-	chanp->lc_b.lcfi.printdebug = dlc_debug;
-	chanp->lc_b.type = LC_B;
-	chanp->lc_b.delay = 250;
-	chanp->lc_b.ch = chanp;
-	chanp->lc_b.st = chanp->b_st;
-	chanp->lc_b.l2_establish = !0;
-	chanp->lc_b.l2_start = !0;
-	chanp->lc_b.lccall = lccall_b;
-	FsmInitTimer(&chanp->lc_b.lcfi, &chanp->lc_b.act_timer);
+	chanp->lc_b = kmalloc(sizeof(struct LcFsm), GFP_ATOMIC);
+	chanp->lc_b->lcfi.fsm = &lcfsm;
+	chanp->lc_b->lcfi.state = ST_LC_NULL;
+	chanp->lc_b->lcfi.debug = 0;
+	chanp->lc_b->lcfi.userdata = chanp->lc_b;
+	chanp->lc_b->lcfi.printdebug = dlc_debug;
+	chanp->lc_b->type = LC_B;
+	chanp->lc_b->delay = 250;
+	chanp->lc_b->ch = chanp;
+	chanp->lc_b->st = chanp->b_st;
+	chanp->lc_b->l2_establish = !0;
+	chanp->lc_b->l2_start = !0;
+	chanp->lc_b->lccall = lccall_b;
+	FsmInitTimer(&chanp->lc_b->lcfi, &chanp->lc_b->act_timer);
 	chanp->data_open = 0;
 }
 
@@ -1669,8 +1686,8 @@ CallcFreeChan(struct IsdnCardState *csta)
 	for (i = 0; i < 2; i++) {
 		FsmDelTimer(&csta->channel[i].drel_timer, 74);
 		FsmDelTimer(&csta->channel[i].dial_timer, 75);
-		FsmDelTimer(&csta->channel[i].lc_d.act_timer, 77);
-		FsmDelTimer(&csta->channel[i].lc_b.act_timer, 76);
+		FsmDelTimer(&csta->channel[i].lc_d->act_timer, 77);
+		FsmDelTimer(&csta->channel[i].lc_b->act_timer, 76);
 		if (i || (csta->HW_Flags & FLG_TWO_DCHAN))
 			release_d_st(csta->channel + i);
 		if (csta->channel[i].b_st) {
@@ -1680,6 +1697,20 @@ CallcFreeChan(struct IsdnCardState *csta)
 			csta->channel[i].b_st = NULL;
 		} else
 			printk(KERN_WARNING "CallcFreeChan b_st ch%d allready freed\n", i);
+		if (csta->channel[i].lc_b) {
+			kfree(csta->channel[i].lc_b);
+			csta->channel[i].b_st = NULL;
+		}
+		if (i || (csta->HW_Flags & FLG_TWO_DCHAN)) {
+			release_d_st(csta->channel + i);
+			FsmDelTimer(&csta->channel[i].lc_d->act_timer, 77);
+			if (csta->channel[i].lc_d) {
+				kfree(csta->channel[i].lc_d);
+				csta->channel[i].d_st = NULL;
+			} else
+				printk(KERN_WARNING "CallcFreeChan lc_d ch%d allready freed\n", i);
+		} else
+			csta->channel[i].d_st = NULL;
 	}
 }
 
@@ -1809,8 +1840,8 @@ distr_debug(struct IsdnCardState *csta, int debugflags)
 		chanp[i].b_st->l2.l2m.debug = debugflags & 16;
 		chanp[i].d_st->l2.debug = debugflags & 32;
 		chanp[i].b_st->l2.debug = debugflags & 64;
-		chanp[i].lc_d.lcfi.debug = debugflags & 128;
-		chanp[i].lc_b.lcfi.debug = debugflags & 256;
+		chanp[i].lc_d->lcfi.debug = debugflags & 128;
+		chanp[i].lc_b->lcfi.debug = debugflags & 256;
 		chanp[i].b_st->ma.tei_m.debug = debugflags & 512;
 		chanp[i].b_st->ma.debug = debugflags & 512;
 	}
@@ -2040,7 +2071,7 @@ HiSax_writebuf_skb(int id, int chan, struct sk_buff *skb)
 		cli();
 		nskb = skb_clone(skb, GFP_ATOMIC);
 		if (nskb) {
-			if (chanp->lc_b.l2_establish)
+			if (chanp->lc_b->l2_establish)
 				st->l3.l3l2(st, DL_DATA, nskb);
 			else {
 				chanp->bcs->tx_cnt += len;

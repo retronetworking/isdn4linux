@@ -3,6 +3,9 @@
  *   Basic declarations, defines and prototypes
  *
  * $Log$
+ * Revision 2.1  1997/07/27 21:45:13  keil
+ * new main structures
+ *
  * Revision 2.0  1997/06/26 11:06:27  keil
  * New card and L1 interface.
  * Eicon.Diehl Diva and Dynalink IS64PH support
@@ -329,7 +332,8 @@ struct Channel {
 	int chan;
 	int incoming;
 	struct FsmInst fi;
-	struct LcFsm lc_d, lc_b;
+	struct LcFsm *lc_d;
+	struct LcFsm *lc_b;
 	struct FsmTimer drel_timer, dial_timer;
 	int debug;
 	int l2_protocol, l2_active_protocol;
