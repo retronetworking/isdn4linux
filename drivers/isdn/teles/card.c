@@ -7,6 +7,9 @@
  * Beat Doebeli         log all D channel traffic
  * 
  * $Log$
+ * Revision 1.6  1996/05/26 14:58:10  fritz
+ * Bugfix: Did not show port correctly, when no card found.
+ *
  * Revision 1.5  1996/05/17 03:45:02  fritz
  * Made error messages more clearly.
  * Bugfix: Only 31 bytes of 32-byte audio frames
@@ -379,11 +382,11 @@ hscx_fill_fifo(struct HscxState *hsp)
 
 	ibh = hsp->xmtibh;
 	if (!ibh)
-		return;
+                return;
 
 	count = ibh->datasize - hsp->sendptr;
 	if (count <= 0)
-		return;
+                return;
 
 	more = (hsp->mode == 1)?1:0;
 	if (count > 32) {
