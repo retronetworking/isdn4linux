@@ -21,6 +21,10 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.13  1996/06/06 14:25:44  fritz
+ * Changed loglevel of "incoming ... without OAD" message, since
+ * with audio support this is quite normal.
+ *
  * Revision 1.12  1996/06/05 02:36:45  fritz
  * Minor bugfixes by M. Hipp.
  *
@@ -178,6 +182,10 @@ isdn_net_unbind_channel(isdn_net_local * lp)
                 dev_kfree_skb(lp->first_skb,FREE_WRITE);
                 lp->first_skb = NULL;
         }
+	if(lp->sav_skb) {
+                dev_kfree_skb(lp->sav_skb,FREE_WRITE);
+		lp->sav_skb = NULL;
+	}
 	dev_purge_queues(&lp->netdev->dev);
 	lp->dialstate = 0;
 	dev->rx_netdev[isdn_dc2minor(lp->isdn_device,lp->isdn_channel)] = NULL;
@@ -259,14 +267,19 @@ isdn_net_stat_callback(int idx, int cmd)
 				if ((lp->flags & ISDN_NET_CONNECTED) &&
 				    (!lp->dialstate)) {
 					lp->stats.tx_packets++;
-					if(lp->p_encap == ISDN_NET_ENCAP_SYNCPPP && lp->first_skb) {
-						if(!isdn_net_send_skb(&lp->netdev->dev,lp,lp->first_skb)) {
-							dev_kfree_skb(lp->first_skb,FREE_WRITE);
-							lp->first_skb = NULL;
+					if(lp->p_encap == ISDN_NET_ENCAP_SYNCPPP && lp->sav_skb) {
+						struct device *mdev;
+						if(lp->master)
+							mdev = lp->master;
+						else
+							mdev = &lp->netdev->dev;
+						if(!isdn_net_send_skb(mdev,lp,lp->sav_skb)) {
+							lp->sav_skb = NULL;
 							mark_bh(NET_BH);
 						}
-						else
+						else {
 							return 1;
+						}
 					}
                                         if (clear_bit(0,(void*)&(p->dev.tbusy)))
                                                 mark_bh(NET_BH);
@@ -289,8 +302,14 @@ isdn_net_stat_callback(int idx, int cmd)
 				/* Either D-Channel-hangup or error during dialout */
 				if ((!lp->dialstate) && (lp->flags & ISDN_NET_CONNECTED)) {
 					lp->flags &= ~ISDN_NET_CONNECTED;
-					if(lp->first_skb)
+					if(lp->first_skb) {
 						dev_kfree_skb(lp->first_skb,FREE_WRITE);
+						lp->first_skb = NULL;
+					}
+					if(lp->sav_skb) {
+						dev_kfree_skb(lp->sav_skb,FREE_WRITE);
+						lp->sav_skb = NULL;
+					}
 					isdn_free_channel(lp->isdn_device, lp->isdn_channel,
                                                           ISDN_USAGE_NET);
 #ifdef CONFIG_ISDN_PPP
@@ -600,6 +619,10 @@ isdn_net_hangup(struct device *d)
                 dev_kfree_skb(lp->first_skb,FREE_WRITE);
                 lp->first_skb = NULL;
         }
+	if(lp->sav_skb) {
+		dev_kfree_skb(lp->sav_skb,FREE_WRITE);
+		lp->sav_skb = NULL;
+	}
 	dev_purge_queues(d);
 	if (lp->flags & ISDN_NET_CONNECTED) {
 		printk(KERN_INFO "isdn_net: local hangup %s\n", lp->name);
@@ -728,10 +751,11 @@ isdn_net_send_skb(struct device *ndev, isdn_net_local *lp,
                   struct sk_buff *skb)
 {
 	int ret;
+	int len = skb->len;	/* save len */
 	
-	lp->transcount += skb->len;
         ret = isdn_writebuf_skb_stub(lp->isdn_device, lp->isdn_channel, skb);
-	if (ret == skb->len) {
+	if (ret == len) {
+		lp->transcount += len;
 		clear_bit(0, (void *)&(ndev->tbusy));
 		return 0;
 	}
@@ -758,8 +782,7 @@ isdn_net_xmit(struct device *ndev, isdn_net_local *lp, struct sk_buff *skb)
 	/* For the other encaps the header has already been built */
 #ifdef CONFIG_ISDN_PPP
 	if (lp->p_encap == ISDN_NET_ENCAP_SYNCPPP) {
-		ndev->tbusy = ret = isdn_ppp_xmit(skb, ndev);
-		return ret;
+		return isdn_ppp_xmit(skb, ndev);
 	}
 #endif		
 	/* Reset hangup-timeout */
@@ -873,7 +896,7 @@ isdn_net_start_xmit(struct sk_buff *skb, struct device *ndev)
 				if (lp->p_encap == ISDN_NET_ENCAP_SYNCPPP) {
 					/* no 'first_skb' handling for syncPPP */
 					if (isdn_ppp_bind(lp) < 0) {
-						lp->first_skb = skb;	/* net_unbind will free skb */
+                                        	dev_kfree_skb(skb,FREE_WRITE);
 						isdn_net_unbind_channel(lp);
                                                 restore_flags(flags);
 						return 0;	/* STN (skb to nirvana) ;) */
