@@ -26,6 +26,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.34  2000/04/02 21:56:34  armin
+ * Start of new driver V2.
+ *
  * Revision 1.33  2000/03/06 15:45:17  armin
  * Fixed incomplete number handling with BRI PtP connection.
  *
@@ -295,8 +298,8 @@ idi_call_res_req(eicon_REQ *reqbuf, eicon_chan *chan)
 	reqbuf->XBuffer.P[3] = 0;
 	reqbuf->XBuffer.P[4] = 0;
 	reqbuf->XBuffer.P[5] = 0;
-	reqbuf->XBuffer.P[6] = 32;
-	reqbuf->XBuffer.P[7] = 3;
+	reqbuf->XBuffer.P[6] = 128;
+	reqbuf->XBuffer.P[7] = 0;
 	switch(chan->l2prot) {
 		case ISDN_PROTO_L2_X75I:
 		case ISDN_PROTO_L2_X75UI:
@@ -632,8 +635,8 @@ idi_connect_req(eicon_card *card, eicon_chan *chan, char *phone,
 	reqbuf->XBuffer.P[l++] = 0;
 	reqbuf->XBuffer.P[l++] = 0;
 	reqbuf->XBuffer.P[l++] = 0;
-	reqbuf->XBuffer.P[l++] = 32;
-	reqbuf->XBuffer.P[l++] = 3;
+	reqbuf->XBuffer.P[l++] = 128;
+	reqbuf->XBuffer.P[l++] = 0;
         switch(chan->l2prot) {
 		case ISDN_PROTO_L2_X75I:
 		case ISDN_PROTO_L2_X75UI:
@@ -2783,6 +2786,8 @@ idi_handle_ack_ok(eicon_card *ccard, eicon_chan *chan, eicon_RC *ack)
 {
 	ulong flags;
 	isdn_ctrl cmd;
+	int tqueued = 0;
+	int twaitpq = 0;
 
 	if (ack->RcId != ((chan->e.ReqCh) ? chan->e.B2Id : chan->e.D3Id)) {
 		/* I dont know why this happens, should not ! */
@@ -2832,14 +2837,9 @@ idi_handle_ack_ok(eicon_card *ccard, eicon_chan *chan, eicon_RC *ack)
 				break;
 			case N_MDATA:
 			case N_DATA:
+				tqueued = chan->queued;
+				twaitpq = chan->waitpq;
 				if ((chan->e.Req & 0x0f) == N_DATA) {
-					if (chan->queued) {
-						cmd.driver = ccard->myid;
-						cmd.command = ISDN_STAT_BSENT;
-						cmd.arg = chan->No;
-						cmd.parm.length = chan->waitpq;
-						ccard->interface.statcallb(&cmd);
-					}
 					spin_lock_irqsave(&eicon_lock, flags);
 					chan->waitpq = 0;
 					spin_unlock_irqrestore(&eicon_lock, flags);
@@ -2866,6 +2866,13 @@ idi_handle_ack_ok(eicon_card *ccard, eicon_chan *chan, eicon_RC *ack)
 				chan->queued -= chan->waitq;
 				if (chan->queued < 0) chan->queued = 0;
 				spin_unlock_irqrestore(&eicon_lock, flags);
+				if (((chan->e.Req & 0x0f) == N_DATA) && (tqueued)) {
+					cmd.driver = ccard->myid;
+					cmd.command = ISDN_STAT_BSENT;
+					cmd.arg = chan->No;
+					cmd.parm.length = twaitpq;
+					ccard->interface.statcallb(&cmd);
+				}
 				break;
 			default:
 				eicon_log(ccard, 16, "idi_ack: Ch%d: RC OK Id=%x Ch=%d (ref:%d)\n", chan->No,

@@ -31,6 +31,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.26  2000/04/02 21:56:34  armin
+ * Start of new driver V2.
+ *
  * Revision 1.25  2000/02/22 16:26:40  armin
  * Fixed membase error message.
  * Fixed missing log buffer struct.
@@ -129,8 +132,8 @@
  */
 
 #define DRIVERNAME "Eicon active ISDN driver"
-#define DRIVERRELEASE "2.00"
-#define DRIVERPATCH "B"
+#define DRIVERRELEASE "2.0"
+#define DRIVERPATCH ".1"
 
 
 #include <linux/config.h>
