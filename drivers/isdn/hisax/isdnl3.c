@@ -321,10 +321,13 @@ static void
 l3ml3p(struct PStack *st, int pr)
 {
 	struct l3_process *p = st->l3.proc;
+	struct l3_process *np;
 
 	while (p) {
+		/* p might be kfreed under us, so we need to save where we want to go on */
+		np = p->next;
 		st->l3.l3ml3(st, pr, p);
-		p = p->next;
+		p = np;
 	}
 }
 

@@ -131,7 +131,7 @@
   #undef  l3dss1_process
 #endif CONFIG_HISAX_EURO
 
-#define MAX_DFRAME_LEN	261
+#define MAX_DFRAME_LEN	260
 #define MAX_DFRAME_LEN_L1	300
 #define HSCX_BUFMAX	4096
 #define MAX_DATA_SIZE	(HSCX_BUFMAX - 4)

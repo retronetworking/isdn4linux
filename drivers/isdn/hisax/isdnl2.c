@@ -291,7 +291,7 @@ IsRNR(u_char * data, struct PStack *st)
 int
 iframe_error(struct PStack *st, struct sk_buff *skb)
 {
-	int i = l2addrsize(&st->l2) + (test_bit(FLG_MOD128, &st->l2.flag) ? 1 : 0);
+	int i = l2addrsize(&st->l2) + (test_bit(FLG_MOD128, &st->l2.flag) ? 2 : 1);
 	int rsp = *skb->data & 0x2;
 
 	if (test_bit(FLG_ORIG, &st->l2.flag))
@@ -305,9 +305,7 @@ iframe_error(struct PStack *st, struct sk_buff *skb)
 		return 'N';
 
 	if ((skb->len - i) > st->l2.maxlen)
-	{printk("O %d\n", skb->len - i);
 		return 'O';
-	}
 
 	return 0;
 }
