@@ -7,6 +7,9 @@
  * This is an include file for fast inline IRQ stuff
  *
  * $Log$
+ * Revision 1.5.2.2  1998/05/27 18:05:36  keil
+ * HiSax 3.0
+ *
  * Revision 1.5.2.1  1997/10/17 22:10:46  keil
  * new files on 2.0
  *
@@ -248,7 +251,7 @@ hscx_int_main(struct IsdnCardState *cs, u_char val)
 	if (val & 0x01) {
 		bcs = cs->bcs + 1;
 		exval = READHSCX(cs, 1, HSCX_EXIR);
-		if (exval == 0x40) {
+		if (exval & 0x40) {
 			if (bcs->mode == 1)
 				hscx_fill_fifo(bcs);
 			else {
@@ -281,7 +284,7 @@ hscx_int_main(struct IsdnCardState *cs, u_char val)
 	if (val & 0x02) {
 		bcs = cs->bcs;
 		exval = READHSCX(cs, 0, HSCX_EXIR);
-		if (exval == 0x40) {
+		if (exval & 0x40) {
 			if (bcs->mode == L1_MODE_TRANS)
 				hscx_fill_fifo(bcs);
 			else {
