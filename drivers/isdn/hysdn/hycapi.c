@@ -20,6 +20,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.5  2000/06/18 16:08:18  keil
+ * 2.4 PCI changes and some cosmetics
+ *
  * Revision 1.4  2000/06/13 09:13:06  ualbrecht
  * Changed internal application handling: Registration is now deferred
  * until a CAPI-message is actually sent to the controller (no good
@@ -220,6 +223,7 @@ send a LISTEN_REQ (if there has been such a thing )
 static void hycapi_restart_internal(struct capi_ctr *ctrl)
 {
 	int i;
+	struct sk_buff *skb;
 #ifdef HYCAPI_PRINTFNAMES
 	printk(KERN_WARNING "HYSDN: hycapi_restart_internal");
 #endif
@@ -228,8 +232,8 @@ static void hycapi_restart_internal(struct capi_ctr *ctrl)
 			hycapi_register_internal(ctrl, i+1, 
 						 &hycapi_applications[i].rp);
 			if(hycapi_applications[i].listen_req[ctrl->cnr-1]) {
-				hycapi_sendmsg_internal(ctrl, 
-							hycapi_applications[i].listen_req[ctrl->cnr-1]);
+				skb = skb_copy(hycapi_applications[i].listen_req[ctrl->cnr-1], GFP_ATOMIC);
+				hycapi_sendmsg_internal(ctrl, skb);
 			}
 		}
 	}
@@ -408,7 +412,7 @@ void hycapi_send_message(struct capi_ctr *ctrl, struct sk_buff *skb)
 	switch(_hycapi_appCheck(appl_id, ctrl->cnr))
 	{
 		case 0:
-			printk(KERN_INFO "Need to register\n");
+/*			printk(KERN_INFO "Need to register\n"); */
 			hycapi_register_internal(ctrl, 
 						 appl_id,
 						 &(hycapi_applications[appl_id-1].rp));
