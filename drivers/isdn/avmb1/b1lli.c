@@ -6,6 +6,9 @@
  * (c) Copyright 1997 by Carsten Paeth (calle@calle.in-berlin.de)
  * 
  * $Log$
+ * Revision 1.1.2.4  1998/01/27 16:12:51  calle
+ * Support for PCMCIA B1/M1/M2 ready.
+ *
  * Revision 1.1.2.3  1998/01/15 15:33:37  calle
  * print cardtype, d2 protocol and linetype after load.
  *
@@ -137,8 +140,26 @@
 #define B1_OUTSTAT		0x03
 #define B1_RESET		0x10
 #define B1_ANALYSE		0x04
-#define B1_IDENT		0x17  /* Hema card T1 */
-#define B1_IRQ_MASTER		0x12  /* Hema card T1 */
+
+/* Hema card T1 */
+
+#define T1_FASTLINK		0x00
+#define T1_SLOWLINK		0x08
+
+#define T1_READ			B1_READ
+#define T1_WRITE		B1_WRITE
+#define T1_INSTAT		B1_INSTAT
+#define T1_OUTSTAT		B1_OUTSTAT
+#define T1_IRQENABLE		0x05
+#define T1_FIFOSTAT		0x06
+#define T1_RESETLINK		0x10
+#define T1_ANALYSE		0x11
+#define T1_IRQMASTER		0x12
+#define T1_IDENT		0x17
+#define T1_RESETBOARD		0x1f
+
+#define HEMA_VERSION_ID		0
+#define HEMA_PAL_ID		0
 
 #define B1_STAT0(cardtype)  ((cardtype) == AVM_CARDTYPE_M1 ? 0x81200000l : 0x80A00000l)
 #define B1_STAT1(cardtype)  (0x80E00000l)
@@ -150,6 +171,19 @@ static inline unsigned char b1outp(unsigned short base,
 {
 	outb(value, base + offset);
 	return inb(base + B1_ANALYSE);
+}
+
+static inline void t1outp(unsigned short base,
+			  unsigned short offset,
+			  unsigned char value)
+{
+	outb(value, base + offset);
+}
+
+static inline unsigned char t1inp(unsigned short base,
+			          unsigned short offset)
+{
+	return inb(base + offset);
 }
 
 static inline int B1_rx_full(unsigned short base)
@@ -265,6 +299,26 @@ static int irq_table[16] =
  112,				/* irq 15 */
 };
 
+static int hema_irq_table[16] =
+{0,
+ 0,
+ 0,
+ 0x80,				/* irq 3 */
+ 0,
+ 0x90,				/* irq 5 */
+ 0,
+ 0xA0,				/* irq 7 */
+ 0,
+ 0xB0,				/* irq 9 */
+ 0xC0,				/* irq 10 */
+ 0xD0,				/* irq 11 */
+ 0xE0,				/* irq 12 */
+ 0,
+ 0,
+ 0xF0,				/* irq 15 */
+};
+
+
 int B1_valid_irq(unsigned irq, int cardtype)
 {
 	switch (cardtype) {
@@ -272,9 +326,9 @@ int B1_valid_irq(unsigned irq, int cardtype)
 	   case AVM_CARDTYPE_M1:
 	   case AVM_CARDTYPE_M2:
 	   case AVM_CARDTYPE_B1:
-	   	return irq_table[irq] != 0;
+	   	return irq_table[irq & 0xf] != 0;
 	   case AVM_CARDTYPE_T1:
-	   	return irq == 5;
+	   	return hema_irq_table[irq & 0xf] != 0;
 	}
 }
 
@@ -282,7 +336,7 @@ unsigned char B1_assign_irq(unsigned short base, unsigned irq, int cardtype)
 {
 	switch (cardtype) {
 	   case AVM_CARDTYPE_T1:
-	      return b1outp(base, B1_IRQ_MASTER, 0x08);
+	      return b1outp(base, T1_IRQMASTER, 0x08);
 	   default:
 	   case AVM_CARDTYPE_M1:
 	   case AVM_CARDTYPE_M2:
@@ -359,6 +413,74 @@ int B1_detect(unsigned short base, int cardtype)
 	return 0;
 }
 
+int T1_detectandinit(unsigned short base, unsigned irq, int cardnr)
+{
+	unsigned char cregs[8];
+	unsigned char reverse_cardnr;
+	unsigned long flags;
+	unsigned char dummy;
+	int i;
+
+	reverse_cardnr =   ((cardnr & 0x01) << 3) | ((cardnr & 0x02) << 1)
+		         | ((cardnr & 0x04) >> 1) | ((cardnr & 0x08) >> 3);
+	cregs[0] = (HEMA_VERSION_ID << 4) | (reverse_cardnr & 0xf);
+	cregs[1] = 0x00; /* fast & slow link connected to CON1 */
+	cregs[2] = 0x05; /* fast link 20MBit, slow link 20 MBit */
+	cregs[3] = 0;
+	cregs[4] = 0x11; /* zero wait state */
+	cregs[5] = hema_irq_table[irq & 0xf] != 0;
+	cregs[6] = 0;
+	cregs[7] = 0;
+
+	save_flags(flags);
+	cli();
+	/* board reset */
+	t1outp(0x150, T1_RESETBOARD, 0xf);
+	udelay(100 * 1000);
+	dummy = t1inp(base, T1_FASTLINK+T1_OUTSTAT); /* first read */
+	/* write config */
+	dummy = (base >> 4) & 0xff;
+	for (i=1;i<=0xf;i++) t1outp(base, i, dummy);
+	b1outp(base, HEMA_PAL_ID & 0xf, dummy);
+	b1outp(base, HEMA_PAL_ID >> 4, cregs[0]);
+	for(i=1;i<7;i++) t1outp(base, 0, cregs[i]);
+	t1outp(base, (base >> 4) & 0x3, cregs[7]);
+	restore_flags(flags);
+
+	udelay(100 * 1000);
+	t1outp(base, T1_FASTLINK+T1_RESETLINK, 0);
+	t1outp(base, T1_SLOWLINK+T1_RESETLINK, 0);
+	udelay(10 * 1000);
+	t1outp(base, T1_FASTLINK+T1_RESETLINK, 1);
+	t1outp(base, T1_SLOWLINK+T1_RESETLINK, 1);
+	udelay(100 * 1000);
+	t1outp(base, T1_FASTLINK+T1_RESETLINK, 0);
+	t1outp(base, T1_SLOWLINK+T1_RESETLINK, 0);
+	udelay(10 * 1000);
+	t1outp(base, T1_FASTLINK+T1_ANALYSE, 0);
+	udelay(5 * 1000);
+	t1outp(base, T1_SLOWLINK+T1_ANALYSE, 0);
+
+	if (t1inp(base, T1_FASTLINK+T1_OUTSTAT) != 0x1) /* tx empty */
+		return 1;
+	if (t1inp(base, T1_FASTLINK+T1_INSTAT) != 0x0) /* rx empty */
+		return 2;
+	if (t1inp(base, T1_FASTLINK+T1_IRQENABLE) != 0x0)
+		return 3;
+	if ((t1inp(base, T1_FASTLINK+T1_FIFOSTAT) & 0xf0) != 0x70)
+		return 4;
+	if ((t1inp(base, T1_FASTLINK+T1_IRQMASTER) & 0x0e) != 0)
+		return 5;
+	if ((t1inp(base, T1_FASTLINK+T1_IDENT) & 0x7d) != 1)
+		return 6;
+	if (t1inp(base, T1_SLOWLINK+T1_OUTSTAT) != 0x1) /* tx empty */
+		return 7;
+	if ((t1inp(base, T1_SLOWLINK+T1_IRQMASTER) & 0x0e) != 0)
+		return 8;
+	if ((t1inp(base, T1_SLOWLINK+T1_IDENT) & 0x7d) != 0)
+		return 9;
+        return 0;
+}
 
 extern int loaddebug;
 
