@@ -21,6 +21,10 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.68  1999/07/11 17:07:37  armin
+ * Added tty modem register S23.
+ * Added new layer 2 and 3 protocols for Fax and DSP functions.
+ *
  * Revision 1.67  1999/07/07 10:17:24  detabc
  * remove unused messages
  *
@@ -317,6 +321,7 @@
 #define ISDN_USAGE_VOICE      4
 #define ISDN_USAGE_FAX        5
 #define ISDN_USAGE_MASK       7 /* Mask to get plain usage */
+#define ISDN_USAGE_DISABLED  32 /* This bit is set, if channel is disabled */
 #define ISDN_USAGE_EXCLUSIVE 64 /* This bit is set, if channel is exclusive */
 #define ISDN_USAGE_OUTGOING 128 /* This bit is set, if channel is outgoing  */
 
