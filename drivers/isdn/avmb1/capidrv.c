@@ -6,6 +6,10 @@
  * Copyright 1997 by Carsten Paeth (calle@calle.in-berlin.de)
  *
  * $Log$
+ * Revision 1.33  2000/05/06 00:52:36  kai
+ * merged changes from kernel tree
+ * fixed timer and net_device->name breakage
+ *
  * Revision 1.32  2000/04/07 15:19:58  calle
  * remove warnings
  *
@@ -328,6 +332,8 @@ static inline __u32 b1prot(int l2, int l3)
 		return 2;
         case ISDN_PROTO_L2_FAX:
 		return 4;
+	case ISDN_PROTO_L2_MODEM:
+		return 8;
 	}
 }
 
@@ -344,6 +350,7 @@ static inline __u32 b2prot(int l2, int l3)
         case ISDN_PROTO_L2_V11096:
         case ISDN_PROTO_L2_V11019:
         case ISDN_PROTO_L2_V11038:
+	case ISDN_PROTO_L2_MODEM:
 		return 1;
         case ISDN_PROTO_L2_FAX:
 		return 4;
@@ -361,6 +368,7 @@ static inline __u32 b3prot(int l2, int l3)
         case ISDN_PROTO_L2_V11096:
         case ISDN_PROTO_L2_V11019:
         case ISDN_PROTO_L2_V11038:
+	case ISDN_PROTO_L2_MODEM:
 	default:
 		return 0;
         case ISDN_PROTO_L2_FAX:
@@ -2274,20 +2282,19 @@ static int capidrv_addcontr(__u16 contr, struct capi_profile *profp)
 	card->interface.writebuf_skb = if_sendbuf;
 	card->interface.writecmd = 0;
 	card->interface.readstat = if_readstat;
-	card->interface.features = ISDN_FEATURE_L2_X75I |
-	    ISDN_FEATURE_L2_X75UI |
-	    ISDN_FEATURE_L2_X75BUI |
-	    ISDN_FEATURE_L2_HDLC |
-	    ISDN_FEATURE_L2_TRANS |
-	    ISDN_FEATURE_L3_TRANS |
-	    ISDN_FEATURE_L2_V11096 |
-	    ISDN_FEATURE_L2_V11019 |
-	    ISDN_FEATURE_L2_V11038 |
-#if 0
-	    ISDN_FEATURE_L2_FAX |
-	    ISDN_FEATURE_L3_FAX |
-#endif
-	    ISDN_FEATURE_P_UNKNOWN;
+	card->interface.features = ISDN_FEATURE_L2_HDLC |
+	    			   ISDN_FEATURE_L2_TRANS |
+	    			   ISDN_FEATURE_L3_TRANS |
+				   ISDN_FEATURE_P_UNKNOWN |
+				   ISDN_FEATURE_L2_X75I |
+				   ISDN_FEATURE_L2_X75UI |
+				   ISDN_FEATURE_L2_X75BUI;
+	if (profp->support1 & (1<<2))
+		card->interface.features = ISDN_FEATURE_L2_V11096 |
+	    				   ISDN_FEATURE_L2_V11019 |
+	    				   ISDN_FEATURE_L2_V11038;
+	if (profp->support1 & (1<<8))
+		card->interface.features = ISDN_FEATURE_L2_MODEM;
 	card->interface.hl_hdrlen = 22; /* len of DATA_B3_REQ */
 	strncpy(card->interface.id, id, sizeof(card->interface.id) - 1);
 
