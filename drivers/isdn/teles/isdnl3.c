@@ -1,6 +1,9 @@
 /* $Id$
  *
  * $Log$
+ * Revision 1.8  1996/06/03 20:35:04  fritz
+ * Fixed typos.
+ *
  * Revision 1.7  1996/06/03 20:03:39  fritz
  * Fixed typos.
  *
@@ -301,7 +304,7 @@ l3s12(struct PStack *st, byte pr, void *arg)
 
         if (bcfound) {
                 if (st->pa->info != 7) {
-                        printk(KERN_WARNING "non-digital call: %s -> %s\n",
+                        printk(KERN_DEBUG "non-digital call: %s -> %s\n",
                                st->pa->calling,
                                st->pa->called);
                 }

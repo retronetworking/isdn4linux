@@ -1,6 +1,9 @@
 /* $Id$
  *
  * $Log$
+ * Revision 1.3  1996/04/30 21:54:42  isdn4dev
+ * SPV, callback , remove some debugging code  Karsten Keil
+ *
  * Revision 1.2  1996/04/20 16:47:23  fritz
  * Changed statemachine to allow reject of an incoming call.
  * Report all incoming calls, not just those with Service = 7.
@@ -153,7 +156,7 @@ l3_1tr6_tu_setup(struct PStack *st, byte pr, void *arg)
 
         /* Signal all services, linklevel takes care of Service-Indicator */
 	if (st->pa->info != 7) {
-                printk(KERN_INFO "non-digital call: %s -> %s\n",
+                printk(KERN_DEBUG "non-digital call: %s -> %s\n",
                        st->pa->calling,
                        st->pa->called);
 	}
