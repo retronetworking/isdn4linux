@@ -2085,48 +2085,6 @@ isdn_writebuf_skb_stub(int drvidx, int chan, int ack, struct sk_buff *skb)
 }
 
 int
-register_isdn_module(isdn_module *m) {
-#if 0
-	isdn_module_list **pp = &dev->modules;
-	isdn_module *new = kmalloc(sizeof(isdn_module_list), GFP_KERNEL);
-
-	if (!new) {
-		printk(KERN_WARNING "isdn: Out of memory in register_isdn_module\n");
-		return -1;
-	}
-	while (*pp && (*pp)->orig != m)
-		pp = &(*pp)->next;
-	if (*pp != NULL) {
-		printk(KERN_WARNING "isdn: Module %s already registered\n", m->name);
-		return -1;
-	}
-	while (*pp && ((*pp)->module.priority < m->priority))
-		pp = &(*pp)->next;
-	new->next = *pp;
-	new->orig = m;
-	new->module = *m;
- 
-	*pp = new;
-#endif
-	return 0;
-}
-
-int
-unregister_isdn_module(isdn_module *m) {
-#if 0
-	isdn_module_list **pp = &dev->modules;
-
-	while (*pp && *pp != m)
-		pp = &(*pp)->next;
-	if (*pp == NULL) {
-		printk(KERN_WARNING "isdn: Module %s not found\n", m->name);
-		return -1;
-	}
-#endif
-	return 0;
-}
-
-int
 isdn_add_channels(driver *d, int drvidx, int n, int adding)
 {
 	int j, k, m;
@@ -2289,8 +2247,6 @@ EXPORT_SYMBOL(DIVERT_REG_NAME);
 
 
 EXPORT_SYMBOL(register_isdn);
-EXPORT_SYMBOL(register_isdn_module);
-EXPORT_SYMBOL(unregister_isdn_module);
 #ifdef CONFIG_ISDN_PPP
 EXPORT_SYMBOL(isdn_ppp_register_compressor);
 EXPORT_SYMBOL(isdn_ppp_unregister_compressor);
