@@ -6,6 +6,13 @@
  * Copyright 1996 by Carsten Paeth (calle@calle.in-berlin.de)
  *
  * $Log$
+ * Revision 1.4  1997/05/27 15:17:50  fritz
+ * Added changes for recent 2.1.x kernels:
+ *   changed return type of isdn_close
+ *   queue_task_* -> queue_task
+ *   clear/set_bit -> test_and_... where apropriate.
+ *   changed type of hard_header_cache parameter.
+ *
  * Revision 1.3  1997/05/18 09:24:14  calle
  * added verbose disconnect reason reporting to avmb1.
  * some fixes in capi20 interface.
@@ -430,13 +437,9 @@ static int capi_open(struct inode *inode, struct file *file)
 		MOD_INC_USE_COUNT;
 
 	} else {
-
-		if (!capidevs[minor].is_open) {
-			capidevs[minor].is_open = 1;
-			MOD_INC_USE_COUNT;
-		}
+		capidevs[minor].is_open++;
+		MOD_INC_USE_COUNT;
 	}
-
 
 	return 0;
 }
@@ -464,8 +467,10 @@ capi_release(struct inode *inode, struct file *file)
 
 		while ((skb = skb_dequeue(&cdev->recv_queue)) != 0)
 			kfree_skb(skb, FREE_READ);
+		cdev->is_open = 0;
+	} else {
+		cdev->is_open--;
 	}
-	cdev->is_open = 0;
 
 	MOD_DEC_USE_COUNT;
 	return CLOSEVAL;
