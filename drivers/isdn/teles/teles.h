@@ -1,6 +1,9 @@
 /* $Id$
  *
  * $Log$
+ * Revision 1.1  1996/04/13 10:29:00  fritz
+ * Initial revision
+ *
  *
  */
 #include <linux/module.h>
@@ -285,6 +288,7 @@ struct Param {
 	int             chargeinfo;  /* Charge Info - only for 1tr6 in
 				      * the moment 
 				      */
+	int		spv;	     /* SPV Flag */
 };
 
 struct PStack {
