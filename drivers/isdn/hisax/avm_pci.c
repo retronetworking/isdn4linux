@@ -7,6 +7,9 @@
  *
  *
  * $Log$
+ * Revision 1.4  1998/11/15 23:53:19  keil
+ * Fritz!PnP; changes from 2.0
+ *
  * Revision 1.3  1998/09/27 23:53:39  keil
  * Fix error handling
  *
@@ -760,7 +763,7 @@ AVM_card_msg(struct IsdnCardState *cs, int mt, void *arg)
 static 	struct pci_dev *dev_avm __initdata = NULL;
 
 __initfunc(int
-setup_avm_pci(struct IsdnCard *card))
+setup_avm_pcipnp(struct IsdnCard *card))
 {
 	u_int val, ver;
 	struct IsdnCardState *cs = card->cs;
