@@ -19,7 +19,15 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.1.1.1  1996/04/28 12:25:40  fritz
+ * Taken under CVS control
+ *
  */
+
+#define __NO_VERSION__
+#include <linux/module.h>
+#include <linux/isdn.h>
+#include "isdn_audio.h"
 
 /*
  * 8-bit-linear <-> alaw conversion stuff
@@ -65,7 +73,8 @@ static unsigned char isdn_audio_l2atable[] = {
 };
 
 #if ((CPU == 386) || (CPU == 486) || (CPU == 586))
-static inline void isdn_audio_transasm(const void *table, void *buff, unsigned long n)
+static inline void
+isdn_audio_transasm(const void *table, void *buff, unsigned long n)
 {
         __asm__("cld\n"
                 "1:\tlodsb\n\t"
@@ -76,17 +85,20 @@ static inline void isdn_audio_transasm(const void *table, void *buff, unsigned l
                 :"bx","cx","di","si","ax");
 }
 
-static inline void isdn_audio_a2l(unsigned char *buff, unsigned long len)
+void
+isdn_audio_a2l(unsigned char *buff, unsigned long len)
 {
-        isdn_audio_transasm(isdn_audio_a2ltable, buff, len)
+        isdn_audio_transasm(isdn_audio_a2ltable, buff, len);
 }
 
-static inline void isdn_audio_l2a(unsigned char *buff, unsigned long len)
+void
+isdn_audio_l2a(unsigned char *buff, unsigned long len)
 {
-        isdn_audio_transasm(isdn_audio_l2atable, buff, len)
+        isdn_audio_transasm(isdn_audio_l2atable, buff, len);
 }
 #else
-static inline void isdn_audio_a2l(unsigned char *buff, unsigned long len)
+void
+isdn_audio_a2l(unsigned char *buff, unsigned long len)
 {
         while (len--) {
                 *buff = isdn_audio_a2ltable[*buff];
@@ -94,7 +106,8 @@ static inline void isdn_audio_a2l(unsigned char *buff, unsigned long len)
         }
 }
 
-static inline void isdn_audio_l2a(unsigned char *buff, unsigned long len)
+void
+isdn_audio_l2a(unsigned char *buff, unsigned long len)
 {
         while (len--) {
                 *buff = isdn_audio_l2atable[*buff];
@@ -109,62 +122,80 @@ static inline void isdn_audio_l2a(unsigned char *buff, unsigned long len)
  * Used by permission of Gert Doering
  */
 
-typedef struct adpcm_state {
-        int a;
-        int d;
-        int word;
-        int nleft;
-} adpcm_state;
-
-static state_t state_init = { 0x0000, 0 };
-
 static int Mx[3][8] = {
-    { 0x3800, 0x5600, 0,0,0,0,0,0 },
-    { 0x399a, 0x3a9f, 0x4d14, 0x6607, 0,0,0,0 },
-    { 0x3556, 0x3556, 0x399A, 0x3A9F, 0x4200, 0x4D14, 0x6607, 0x6607 },
+        { 0x3800, 0x5600, 0,0,0,0,0,0 },
+        { 0x399a, 0x3a9f, 0x4d14, 0x6607, 0,0,0,0 },
+        { 0x3556, 0x3556, 0x399A, 0x3A9F, 0x4200, 0x4D14, 0x6607, 0x6607 },
 };
 
-static int bitmask[9] = { 0, 0x01, 0x03, 0x07, 0x0f, 0x1f, 0x3f, 0x7f, 0xff }; 
+static int bitmask[9] = {
+        0, 0x01, 0x03, 0x07, 0x0f, 0x1f, 0x3f, 0x7f, 0xff
+}; 
 
 static int
-get_bits (int nbits, adpcm_state *s, FILE *in)
+isdn_audio_get_bits (int nbits, adpcm_state *s, unsigned char *in, int *len)
 {
         while( s->nleft < nbits) {
-                int d=getc(in);
-                if (d==EOF) return EOF;
-                s->word = (s->word<<8) | d;
-                s->nleft+=8;
+                int d = *in++;
+                (*len)--;
+                s->word = (s->word << 8) | d;
+                s->nleft += 8;
         }
         s->nleft -= nbits;
         return (s->word >> s->nleft) & bitmask[nbits];
 }
 
 static void
-put_bits (int data, int nbits, adpcm_state *s, FILE *out)
+isdn_audio_put_bits (int data, int nbits, adpcm_state *s,
+                     unsigned char *out, int *len)
 {
-        s->word = (s->word<<nbits) | (data & bitmask[nbits]);
+        s->word = (s->word << nbits) | (data & bitmask[nbits]);
         s->nleft += nbits;
-        while(s->nleft>=8) {
+        while(s->nleft >= 8) {
                 int d = (s->word >> (s->nleft-8));
-                putc(d&255, out);
-                s->nleft-=8;
+                *out++ = d & 255;
+                (*len)++;
+                s->nleft -= 8;
         }
 }
 
-static void
-isdn_audio_adpcm2lin (int nbits, adpcm_state *s FILE *in, FILE *out)
+adpcm_state *
+isdn_audio_adpcm_init(int nbits)
+{
+        adpcm_state *s;
+
+        s = (adpcm_state *) kmalloc(sizeof(adpcm_state), GFP_ATOMIC);
+        if (s) {
+                s->a     = 0;
+                s->d     = 5;
+                s->word  = 0;
+                s->nleft = 0;
+                s->nbits = nbits;
+        }
+        return s;
+}
+
+/*
+ * Decompression of adpcm data to 8-bit linear
+ *
+ */
+ 
+int
+isdn_audio_adpcm2lin (adpcm_state *s, unsigned char *in,
+                      unsigned char *out, int len)
 {
         int a = s->a;
         int d = s->d;
+        int nbits = s->nbits;
+        int olen = 0;
         
-        while (1) {
+        while (len) {
                 int sign;
-                int e = get_bits(nbits, s, in);
-                if (e == EOF) break;
-                
-                if( nbits == 4 && e == 0) d = 4;
-                
-                sign = ( e>>(nbits-1) ) ? -1 : 1 ;
+                int e = isdn_audio_get_bits(nbits, s, in, &len);
+
+                if (nbits == 4 && e == 0)
+                        d = 4;
+                sign = (e >> (nbits-1))?-1:1;
                 e &= bitmask[nbits-1];
 #if 0                
                 if (rom >= 610 && rom < 612) {
@@ -175,27 +206,33 @@ isdn_audio_adpcm2lin (int nbits, adpcm_state *s FILE *in, FILE *out)
                         a = (a * 4093 + 2048) >>12;
                 }
 #endif                
-                a += sign * ((e<<1)+1) * d >>1;
-                if ( (d&1) ) a++;
-                zput(a<<2, out);
-                
-                d = (d * Mx[nbits-2][ e ] + 0x2000) >>14;
-                if ( d < 5 ) d=5;     
+                a += sign * ((e << 1) + 1) * d >> 1;
+                if (d & 1)
+                        a++;
+                *out++ = (a << 6);
+                olen++;
+                d = (d * Mx[nbits-2][ e ] + 0x2000) >> 14;
+                if ( d < 5 )
+                        d = 5;     
         }
+        return olen;
 }
 
-static void
-isdn_audio_lin2adpcm (int nbits, adpcm_state *s, FILE *in, FILE *out)
+int
+isdn_audio_lin2adpcm (adpcm_state *s, unsigned char *in,
+                      unsigned char *out, int len)
 {
+        int a = s->a;
+        int d = s->d;
+        int nbits = s->nbits;
+        int olen = 0;
+
         while (len--) {
-                int e = 0, nmax = 1 << (nbits-1);
+                int e = 0, nmax = 1 << (nbits - 1);
                 int sign, delta;
                 
-                delta = (zget(in) >> 2) - a;
-                if(feof(in))
-                        break;
-                
-                if(delta<0) {
+                delta = (*in++ << 6) - a;
+                if (delta < 0) {
                         e = nmax;
                         delta = -delta;
                 }
@@ -203,11 +240,9 @@ isdn_audio_lin2adpcm (int nbits, adpcm_state *s, FILE *in, FILE *out)
                         delta -= d;
                         e++;
                 }
-                
-                if(nbits==4 && ((e&0x0f) == 0)) e=0x08;
-                
-                put_bits( e, nbits, &s, out);
-                
+                if (nbits == 4 && ((e & 0x0f) == 0))
+                        e = 8;
+                isdn_audio_put_bits(e, nbits, s, out, &olen);
 #if 0
                 if(rom >= 610 && rom < 612) {
                         /* modified conversion algorithm for ROM >= 6.10 */
@@ -217,30 +252,17 @@ isdn_audio_lin2adpcm (int nbits, adpcm_state *s, FILE *in, FILE *out)
                         a = (a * 4093 + 2048) >>12;
                 }
 #endif                
-                sign = ( e>>(nbits-1) ) ? -1 : 1 ;
-                e = e&bitmask[nbits-1];
+                sign = (e >> (nbits-1))?-1:1 ;
+                e &= bitmask[nbits-1];
                 
-                a += sign * ((e<<1)+1) * d >>1;
-                if ( (d&1) ) a++;
-                
-                d = (d*Mx[nbits-2][ e ] + 0x2000) >>14;
-                if ( d < 5 ) d=5;
+                a += sign * ((e << 1) + 1) * d >> 1;
+                if (d & 1)
+                        a++;
+                d = (d * Mx[nbits-2][ e ] + 0x2000) >> 14;
+                if (d < 5)
+                        d=5;
         }
-        if(s.nleft) put_bits(0, 8-s.nleft, &s, out);
+        if (s->nleft)
+                isdn_audio_put_bits(0, 8-s->nleft, s, out, &olen);
+        return olen;
 }
-
-int
-pvfadpcm (int argc, char **argv )
-{
-        FILE *in=stdin, *out=stdout;
-        int nbits;
-        
-        nbits= argv[0][strlen(argv[0])-1] -'0';
-        if(nbits>=2 && nbits <=4) {
-                pvftoadpcm(nbits, in, out);
-        } else {
-                adpcmtopvf(nbits, in, out);
-        }
-        return 0;
-}
-
