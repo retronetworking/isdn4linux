@@ -21,6 +21,13 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.44  1997/05/27 15:17:26  fritz
+ * Added changes for recent 2.1.x kernels:
+ *   changed return type of isdn_close
+ *   queue_task_* -> queue_task
+ *   clear/set_bit -> test_and_... where apropriate.
+ *   changed type of hard_header_cache parameter.
+ *
  * Revision 1.43  1997/03/30 16:51:13  calle
  * changed calls to copy_from_user/copy_to_user and removed verify_area
  * were possible.
@@ -1333,8 +1340,9 @@ isdn_net_header(struct sk_buff *skb, struct device *dev, unsigned short type,
 		case ISDN_NET_ENCAP_ETHER:
 			len = my_eth_header(skb, dev, type, daddr, saddr, plen);
 			break;
+		case ISDN_NET_ENCAP_SYNCPPP:
 		case ISDN_NET_ENCAP_RAWIP:
-			printk(KERN_WARNING "isdn_net_header called with RAW_IP!\n");
+			printk(KERN_WARNING "isdn_net_header called with RAW_IP/SYNCPPP!\n");
 			len = 0;
 			break;
 		case ISDN_NET_ENCAP_IPTYP:
@@ -2232,7 +2240,8 @@ isdn_net_setcfg(isdn_net_ioctl_cfg * cfg)
 			p->local.chargeint = cfg->chargeint * HZ;
 		}
 		if (cfg->p_encap != p->local.p_encap) {
-			if (cfg->p_encap == ISDN_NET_ENCAP_RAWIP) {
+			if (cfg->p_encap == ISDN_NET_ENCAP_RAWIP || 
+			     cfg->p_encap == ISDN_NET_ENCAP_SYNCPPP) {
 				p->dev.hard_header = NULL;
 #if (LINUX_VERSION_CODE < 0x02010F)
 				p->dev.header_cache_bind = NULL;
