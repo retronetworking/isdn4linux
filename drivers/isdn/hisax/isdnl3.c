@@ -11,6 +11,9 @@
  *              Fritz Elfert
  *
  * $Log$
+ * Revision 1.10.2.10  1999/05/24 21:51:07  werner
+ * Changes related to new layer management.
+ *
  * Revision 1.10.2.9  1999/04/28 21:49:17  keil
  * More CTS2 tests
  *
@@ -434,6 +437,7 @@ releasestack_isdnl3(struct PStack *st)
 		kfree(st->l3.global);
 		st->l3.global = NULL;
 	}
+	FsmDelTimer(&st->l3.l3m_timer, 54);
 	discard_queue(&st->l3.squeue);
 }
 
