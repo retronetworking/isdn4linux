@@ -19,6 +19,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.9  1995/03/25  23:17:30  fritz
+ * Fixed race-condition in pollbchan_send
+ *
  * Revision 1.8  1995/03/15  12:49:44  fritz
  * Added support for SPV's
  * Splitted pollbchan_work ifor calling send-routine directly
@@ -778,7 +781,9 @@ command (isdn_ctrl *c) {
 	  return (int)dev->shmem;
 	case ICN_IOCTL_SETPORT:
 	  if (a == 0x300 || a == 0x310 || a == 0x320 || a == 0x330
-	      || a == 0x340 || a == 0x350 || a == 0x360) {
+	      || a == 0x340 || a == 0x350 || a == 0x360 ||
+	      a == 0x308 || a == 0x318 || a == 0x328 || a == 0x338
+	      || a == 0x348 || a == 0x358 || a == 0x368) {
 	    if (dev->port != (unsigned short)a) {
 	      if (check_region((unsigned short)a,ICN_PORTLEN)) {
 		printk(KERN_WARNING "icn: ports 0x%03x-0x%03x in use.\n",
