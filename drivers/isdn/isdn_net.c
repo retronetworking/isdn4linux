@@ -21,6 +21,10 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.111  2000/02/28 22:28:24  he
+ * moved tx_timeout warning messages in old (2.2.x) branch where it really only
+ * indicates problems.
+ *
  * Revision 1.110  2000/02/26 01:00:53  keil
  * changes from 2.3.47
  *
@@ -1948,28 +1952,54 @@ void isdn_net_tx_timeout(struct net_device * ndev)
  * If this interface isn't connected to a ISDN-Channel, find a free channel,
  * and start dialing.
  */
+#ifdef CONFIG_ISDN_WITH_ABC
+static int dwabc_isdn_net_start_xmit(struct sk_buff *,struct net_device *);
+
+static int isdn_net_start_xmit(struct sk_buff *skb, struct net_device *ndev)
+{
+	if(skb == NULL || ndev == NULL)
+		return(dwabc_isdn_net_start_xmit(skb,ndev));
+#ifdef CONFIG_ISDN_WITH_ABC_UDP_CHECK
+	if(!(((isdn_net_local *)ndev->priv)->dw_abc_flags & 
+		ISDN_DW_ABC_FLAG_NO_UDP_CHECK)) {
+
+		if(dw_abc_udp_test(skb,ndev)) {
+			dev_kfree_skb(skb);
+			return(0);
+		}
+	}
+#endif
+#if CONFIG_ISDN_WITH_ABC_IPV4_TCP_KEEPALIVE || CONFIG_ISDN_WITH_ABC_IPV4_DYNADDR
+	{
+		struct sk_buff *myskb = NULL;
+
+		if((myskb = isdn_dw_abc_ip4_keepalive_test(ndev,skb)) == skb)
+			return(dwabc_isdn_net_start_xmit(skb,ndev));
+
+		if(dwabc_isdn_net_start_xmit(myskb,ndev)) {
+
+			dev_kfree_skb(myskb);
+			return(1);
+		}
+
+		dev_kfree_skb(skb);
+		return(0);
+	}
+#else
+	return(dwabc_isdn_net_start_xmit(skb,ndev));
+#endif
+}
+
+static int
+dwabc_isdn_net_start_xmit(struct sk_buff *skb, struct net_device *ndev)
+#else
 static int
 isdn_net_start_xmit(struct sk_buff *skb, struct net_device *ndev)
+#endif
 {
 	isdn_net_local *lp = (isdn_net_local *) ndev->priv;
 #ifdef CONFIG_ISDN_X25
 	struct concap_proto * cprot = lp -> netdev -> cprot;
-#endif
-#ifdef CONFIG_ISDN_WITH_ABC
-#if CONFIG_ISDN_WITH_ABC_IPV4_TCP_KEEPALIVE || CONFIG_ISDN_WITH_ABC_IPV4_DYNADDR
-	if(isdn_dw_abc_ip4_keepalive_test(ndev,skb)) {
-		dev_kfree_skb(skb);
-		return(0);
-	}
-#endif
-#ifdef CONFIG_ISDN_WITH_ABC_UDP_CHECK
-	if(!(lp->dw_abc_flags & ISDN_DW_ABC_FLAG_NO_UDP_CHECK)) {
-		if(dw_abc_udp_test(skb,ndev)) {
-			dev_kfree_skb(skb);
-			return 0;
-		}
-	}
-#endif
 #endif
 #ifdef COMPAT_NO_SOFTNET 
 	/* some comment as with the softnet TX timeout
