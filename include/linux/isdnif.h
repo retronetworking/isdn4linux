@@ -26,8 +26,10 @@
 #ifndef isdnif_h
 #define isdnif_h
 
+#ifdef __KERNEL__
 #include <linux/config.h>
 #include <linux/isdn_compat.h>
+#endif
 
 /*
  * Values for general protocol-selection
