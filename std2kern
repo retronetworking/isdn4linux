@@ -46,6 +46,9 @@ else
   for i in drivers/isdn/hisax/*.[ch] ; do
     $DOCP $i $KERNELDIR/$i
   done
+  for i in drivers/isdn/sc/*.[ch] ; do
+    $DOCP $i $KERNELDIR/$i
+  done
   for i in include/linux/isdn*.h ; do
     $DOCP $i $KERNELDIR/$i
   done
