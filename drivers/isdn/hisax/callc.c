@@ -7,6 +7,9 @@
  *              Fritz Elfert
  *
  * $Log$
+ * Revision 1.8  1996/11/06 17:43:17  keil
+ * more changes for 2.1.X;block fixed ST_PRO_W
+ *
  * Revision 1.7  1996/11/06 15:13:51  keil
  * typo 0x64 --->64 in debug code
  *
@@ -1502,7 +1505,7 @@ HiSax_writebuf(int id, int chan, const u_char * buf, int count, int user)
         byte           *ptr;
 
 	if (!chanp->data_open) {
-		printk(KERN_DEBUG "HiSax_writebuf: channel not open\n");
+		command_debug(chanp, "writebuf: channel not open");
 		return -EIO;
 	}
 	
