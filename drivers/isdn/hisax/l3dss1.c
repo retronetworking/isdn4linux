@@ -13,6 +13,9 @@
  *              Fritz Elfert
  *
  * $Log$
+ * Revision 1.16.2.11  1999/04/28 21:49:07  keil
+ * More CTS2 tests
+ *
  * Revision 1.16.2.10  1999/04/22 21:11:27  werner
  * Added support for dss1 diversion services
  *
@@ -1251,6 +1254,7 @@ l3dss1_setup_req(struct l3_process *pc, u_char pr,
 	u_char tmp[128];
 	u_char *p = tmp;
 	u_char channel = 0;
+        u_char send_keypad = 0;
 	u_char screen = 0x80;
 	u_char *teln;
 	u_char *msn;
@@ -1307,7 +1311,12 @@ l3dss1_setup_req(struct l3_process *pc, u_char pr,
 				case 'D':
 					screen = 0x80;
 					break;
-				default:
+			        case 'K': /* teln is keypad */
+				        channel = 0x83; /* no real chan */
+                                        send_keypad = 1;     
+                                        break;
+				
+			        default:
 					if (pc->debug & L3_DEB_WARN)
 						l3_debug(pc->st, "Wrong MSN Code");
 					break;
@@ -1360,22 +1369,31 @@ l3dss1_setup_req(struct l3_process *pc, u_char pr,
 		} else
 			sp++;
 	}
-	*p++ = 0x70;
+	
+        if (send_keypad) {
+	  *p++ = 0x2C; /* IE keypad */
+          *p++ = strlen(teln);
+          while (*teln)
+                  *p++ = *teln & 0x7F;
+        }
+        else {      
+        *p++ = 0x70;
 	*p++ = strlen(teln) + 1;
 	/* Classify as AnyPref. */
 	*p++ = 0x81;		/* Ext = '1'B, Type = '000'B, Plan = '0001'B. */
-	while (*teln)
-		*p++ = *teln++ & 0x7f;
+	  while (*teln)
+		  *p++ = *teln++ & 0x7f;
 
-	if (sub) {
-		*sub++ = '.';
-		*p++ = 0x71;	/* Called party subaddress */
-		*p++ = strlen(sub) + 2;
-		*p++ = 0x80;	/* NSAP coded */
-		*p++ = 0x50;	/* local IDI format */
-		while (*sub)
-			*p++ = *sub++ & 0x7f;
-	}
+	  if (sub) {
+		  *sub++ = '.';
+		  *p++ = 0x71;	/* Called party subaddress */
+		  *p++ = strlen(sub) + 2;
+		  *p++ = 0x80;	/* NSAP coded */
+		  *p++ = 0x50;	/* local IDI format */
+		  while (*sub)
+			  *p++ = *sub++ & 0x7f;
+	  }
+        }
 #if EXT_BEARER_CAPS
 	if ((pc->para.setup.si2 >= 160) && (pc->para.setup.si2 <= 175)) {	// sync. Bitratenadaption, V.110/X.30
 
