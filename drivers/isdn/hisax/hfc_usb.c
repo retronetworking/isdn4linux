@@ -1308,7 +1308,10 @@ static struct usb_device_id hfc_usb_idtab[] = {
 	{}				/* end with an all-zeroes entry */
 };
 
+MODULE_AUTHOR("Peter Sprenger (sprenger@moving-byters.de)/Martin Bachem (info@colognechip.com)");
+MODULE_DESCRIPTION("HFC I4L USB driver");
 MODULE_DEVICE_TABLE(usb, hfc_usb_idtab);
+MODULE_LICENSE("GPL");
 
 #define EP_NUL 1    // Endpoint at this position not allowed
 #define EP_NOP 2	// all type of endpoints allowed at this position
