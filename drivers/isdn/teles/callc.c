@@ -1,6 +1,9 @@
 /* $Id$
  *
  * $Log$
+ * Revision 1.1  1996/04/13 10:20:59  fritz
+ * Initial revision
+ *
  *
  */
 #define __NO_VERSION__
@@ -360,16 +363,14 @@ r7(struct FsmInst *fi, int event, void *arg)
         struct Channel *chanp = fi->userdata;
         isdn_ctrl       ic;
 
-        chanp->is.l4.l4l3(&chanp->is, CC_ALERTING_REQ, NULL);
-
-        FsmChangeState(fi, ST_IN);
-
         /*
          * Report incoming calls only once to linklevel, use octet 3 of
          * channel identification information element. (it's value
          * is copied to chanp->para.bchannel in l3s12(), file isdnl3.c)
          */
         if (((chanp->chan & 1) + 1) & chanp->para.bchannel) {
+                chanp->is.l4.l4l3(&chanp->is, CC_ALERTING_REQ, NULL);
+                FsmChangeState(fi, ST_IN);
                 if (chanp->debug & 1)
                         stat_debug(chanp, "STAT_ICALL");
                 ic.driver = drid;
@@ -382,6 +383,10 @@ r7(struct FsmInst *fi, int event, void *arg)
                 sprintf(ic.num, "%s,%d,0,%s", chanp->para.calling, chanp->para.info,
                         chanp->para.called);
                 iif.statcallb(&ic);
+        } else {
+                chanp->is.l4.l4l3(&chanp->is,CC_DLRL,NULL);
+                FsmEvent(&chanp->lc_d.lcfi, EV_LC_RELEASE, NULL);
+                FsmChangeState(fi, ST_REL_W);
         }
 }
 
