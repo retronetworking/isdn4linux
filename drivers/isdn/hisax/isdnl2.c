@@ -7,6 +7,9 @@
  *              Fritz Elfert
  *
  * $Log$
+ * Revision 2.0  1997/06/26 11:07:29  keil
+ * New q.921 and X.75 Layer2
+ *
  *
  *  Old log removed KKe
  *
@@ -19,6 +22,7 @@ const char *l2_revision = "$Revision$";
 
 static void l2m_debug(struct FsmInst *fi, char *s);
 
+static
 struct Fsm l2fsm =
 {NULL, 0, 0, NULL, NULL};
 
@@ -279,8 +283,8 @@ setva(struct PStack *st, int nr)
 		dev_kfree_skb(l2->windowar[l2->sow], FREE_WRITE);
 		l2->windowar[l2->sow] = NULL;
 		l2->sow = (l2->sow + 1) % l2->window;
-		if (st->l4.l2writewakeup)
-			st->l4.l2writewakeup(st);
+		if (st->lli.l2writewakeup)
+			st->lli.l2writewakeup(st);
 	}
 }
 
@@ -335,8 +339,8 @@ establishlink(struct FsmInst *fi)
 	st->l2.rc = 0;
 	cmd = ((st->l2.flag & FLG_MOD128) ? SABME : SABM) | 0x10;
 	send_uframe(st, cmd, CMD);
-	FsmDelTimer(&st->l2.t203_timer, 1);
-	FsmRestartTimer(&st->l2.t200_timer, st->l2.t200, EV_L2_T200, NULL, 1);
+	FsmDelTimer(&st->l2.t203, 1);
+	FsmRestartTimer(&st->l2.t200, st->l2.T200, EV_L2_T200, NULL, 1);
 	st->l2.flag |= FLG_T200_RUN;
 	FsmChangeState(fi, ST_L2_5);
 }
@@ -372,7 +376,7 @@ l2_dl_establish(struct FsmInst *fi, int event, void *arg)
 	struct PStack *st = fi->userdata;
 
 	if (fi->state == ST_L2_1)
-		st->l2.l2tei(st, MDL_ASSIGN, (void *) st->l2.ces);
+		st->l2.l2tei(st, MDL_ASSIGN, NULL);
 	FsmChangeState(fi, ST_L2_3);
 }
 
@@ -399,7 +403,7 @@ l2_put_ui(struct FsmInst *fi, int event, void *arg)
 
 	skb_queue_tail(&st->l2.ui_queue, skb);
 	if (fi->state == ST_L2_1) {
-		st->l2.l2tei(st, MDL_ASSIGN, (void *) st->l2.ces);
+		st->l2.l2tei(st, MDL_ASSIGN, NULL);
 		FsmChangeState(fi, ST_L2_2);
 	}
 	if (fi->state > ST_L2_3)
@@ -444,8 +448,8 @@ l2_dl_release(struct FsmInst *fi, int event, void *arg)
 	FsmChangeState(fi, ST_L2_6);
 	st->l2.rc = 0;
 	send_uframe(st, DISC | 0x10, CMD);
-	FsmDelTimer(&st->l2.t203_timer, 1);
-	FsmRestartTimer(&st->l2.t200_timer, st->l2.t200, EV_L2_T200, NULL, 2);
+	FsmDelTimer(&st->l2.t203, 1);
+	FsmRestartTimer(&st->l2.t200, st->l2.T200, EV_L2_T200, NULL, 2);
 	st->l2.flag |= FLG_T200_RUN;
 }
 
@@ -488,10 +492,10 @@ l2_got_SABMX(struct FsmInst *fi, int event, void *arg)
 	st->l2.sow = 0;
 	FsmChangeState(fi, ST_L2_7);
 	if (st->l2.flag & FLG_T200_RUN) {
-		FsmDelTimer(&st->l2.t200_timer, 2);
+		FsmDelTimer(&st->l2.t200, 2);
 		st->l2.flag &= ~FLG_T200_RUN;
 	}
-	FsmAddTimer(&st->l2.t203_timer, st->l2.t203, EV_L2_T203, NULL, 3);
+	FsmAddTimer(&st->l2.t203, st->l2.T203, EV_L2_T203, NULL, 3);
 
 	if (est)
 		st->l2.l2man(st, DL_ESTABLISH, NULL);
@@ -528,9 +532,9 @@ l2_got_disconn(struct FsmInst *fi, int event, void *arg)
 	}
 	if (cst) {
 		FsmChangeState(fi, ST_L2_4);
-		FsmDelTimer(&st->l2.t203_timer, 3);
+		FsmDelTimer(&st->l2.t203, 3);
 		if (st->l2.flag & FLG_T200_RUN) {
-			FsmDelTimer(&st->l2.t200_timer, 2);
+			FsmDelTimer(&st->l2.t200, 2);
 			st->l2.flag &= ~FLG_T200_RUN;
 		}
 	}
@@ -562,7 +566,7 @@ l2_got_ua(struct FsmInst *fi, int event, void *arg)
 	FreeSkb(skb);
 
 	if (st->l2.flag & FLG_T200_RUN) {
-		FsmDelTimer(&st->l2.t200_timer, 2);
+		FsmDelTimer(&st->l2.t200, 2);
 		st->l2.flag &= ~FLG_T200_RUN;
 	}
 	if (fi->state == ST_L2_5) {
@@ -572,7 +576,7 @@ l2_got_ua(struct FsmInst *fi, int event, void *arg)
 			st->l2.rc = 0;
 			send_uframe(st, DISC | 0x10, CMD);
 			FsmChangeState(fi, ST_L2_6);
-			FsmAddTimer(&st->l2.t200_timer, st->l2.t200, EV_L2_T200, NULL, 4);
+			FsmAddTimer(&st->l2.t200, st->l2.T200, EV_L2_T200, NULL, 4);
 			st->l2.flag |= FLG_T200_RUN;
 		} else {
 			if (!(st->l2.flag & FLG_L3_INIT))
@@ -587,7 +591,7 @@ l2_got_ua(struct FsmInst *fi, int event, void *arg)
 			st->l2.vr = 0;
 			st->l2.sow = 0;
 			FsmChangeState(fi, ST_L2_7);
-			FsmAddTimer(&st->l2.t203_timer, st->l2.t203, EV_L2_T203, NULL, 4);
+			FsmAddTimer(&st->l2.t203, st->l2.T203, EV_L2_T203, NULL, 4);
 			if (est)
 				st->l2.l2man(st, DL_ESTABLISH, NULL);
 		}
@@ -617,7 +621,7 @@ l2_got_dm(struct FsmInst *fi, int event, void *arg)
 		st->l2.flag &= ~FLG_L3_INIT;
 	} else {
 		if (st->l2.flag & FLG_T200_RUN) {
-			FsmDelTimer(&st->l2.t200_timer, 2);
+			FsmDelTimer(&st->l2.t200, 2);
 			st->l2.flag &= ~FLG_T200_RUN;
 		}
 		if (fi->state == ST_L2_5 && !(st->l2.flag & FLG_L3_INIT))
@@ -669,7 +673,7 @@ transmit_enquiry(struct PStack *st)
 	else
 		enquiry_cr(st, RR, CMD, 1);
 	st->l2.flag &= ~FLG_ACK_PEND;
-	FsmAddTimer(&st->l2.t200_timer, st->l2.t200, EV_L2_T200, NULL, 12);
+	FsmAddTimer(&st->l2.t200, st->l2.T200, EV_L2_T200, NULL, 12);
 	st->l2.flag |= FLG_T200_RUN;
 }
 
@@ -761,24 +765,24 @@ l2_got_st7_super(struct FsmInst *fi, int event, void *arg)
 			setva(st, nr);
 			invoke_retransmission(st, nr);
 			if (st->l2.flag & FLG_T200_RUN) {
-				FsmDelTimer(&st->l2.t200_timer, 9);
+				FsmDelTimer(&st->l2.t200, 9);
 				st->l2.flag &= ~FLG_T200_RUN;
 			}
-			if (FsmAddTimer(&st->l2.t203_timer, st->l2.t203,
+			if (FsmAddTimer(&st->l2.t203, st->l2.T203,
 					EV_L2_T203, NULL, 6))
 				l2m_debug(&st->l2.l2m, "Restart T203 ST7 REJ");
 		} else if ((nr == l2->vs) && (typ == RR)) {
 			setva(st, nr);
 			if (st->l2.flag & FLG_T200_RUN) {
-				FsmDelTimer(&st->l2.t200_timer, 9);
+				FsmDelTimer(&st->l2.t200, 9);
 				st->l2.flag &= ~FLG_T200_RUN;
 			}
-			FsmRestartTimer(&st->l2.t203_timer, st->l2.t203,
+			FsmRestartTimer(&st->l2.t203, st->l2.T203,
 					EV_L2_T203, NULL, 7);
 		} else if ((l2->va != nr) || (typ == RNR)) {
 			setva(st, nr);
-			FsmDelTimer(&st->l2.t203_timer, 9);
-			FsmRestartTimer(&st->l2.t200_timer, st->l2.t200, EV_L2_T200, NULL, 6);
+			FsmDelTimer(&st->l2.t203, 9);
+			FsmRestartTimer(&st->l2.t200, st->l2.T200, EV_L2_T200, NULL, 6);
 			st->l2.flag |= FLG_T200_RUN;
 		}
 		if (skb_queue_len(&st->l2.i_queue) && (typ == RR))
@@ -799,6 +803,8 @@ l2_feed_iqueue(struct FsmInst *fi, int event, void *arg)
 	struct PStack *st = fi->userdata;
 	struct sk_buff *skb = arg;
 
+	if (st->l2.flag & FLG_LAPB)
+		st->l1.bcs->tx_cnt += skb->len + l2headersize(&st->l2, 0);
 	if (!((fi->state == ST_L2_5) && (st->l2.flag & FLG_L3_INIT)))
 		skb_queue_tail(&st->l2.i_queue, skb);
 	if (fi->state == ST_L2_7)
@@ -812,7 +818,7 @@ l2_got_iframe(struct FsmInst *fi, int event, void *arg)
 	struct sk_buff *skb = arg;
 	struct IsdnCardState *sp = st->l1.hardware;
 	struct Layer2 *l2 = &(st->l2);
-	int PollFlag, ns, nr, i;
+	int PollFlag, ns, nr, i, hs;
 	char str[64];
 
 	i = l2addrsize(l2);
@@ -845,10 +851,11 @@ l2_got_iframe(struct FsmInst *fi, int event, void *arg)
 		l2->flag &= ~FLG_REJEXC;
 		if (st->l2.flag & FLG_LAPD)
 			if (sp->dlogflag) {
+				hs = l2headersize(l2, 0);
 				LogFrame(st->l1.hardware, skb->data, skb->len);
 				sprintf(str, "Q.931 frame network->user tei %d", st->l2.tei);
-				dlogframe(st->l1.hardware, skb->data + l2->ihsize,
-					  skb->len - l2->ihsize, str);
+				dlogframe(st->l1.hardware, skb->data + hs,
+					  skb->len - hs, str);
 			}
 		if (PollFlag)
 			enquiry_response(st);
@@ -874,13 +881,13 @@ l2_got_iframe(struct FsmInst *fi, int event, void *arg)
 		if (!(st->l2.flag & FLG_PEER_BUSY) && (fi->state == ST_L2_7)) {
 			if (nr == st->l2.vs) {
 				if (st->l2.flag & FLG_T200_RUN) {
-					FsmDelTimer(&st->l2.t200_timer, 10);
+					FsmDelTimer(&st->l2.t200, 10);
 					st->l2.flag &= ~FLG_T200_RUN;
 				}
-				FsmRestartTimer(&st->l2.t203_timer, st->l2.t203,
+				FsmRestartTimer(&st->l2.t203, st->l2.T203,
 						EV_L2_T203, NULL, 7);
 			} else if (nr != st->l2.va) {
-				FsmRestartTimer(&st->l2.t200_timer, st->l2.t200, EV_L2_T200,
+				FsmRestartTimer(&st->l2.t200, st->l2.T200, EV_L2_T200,
 						NULL, 8);
 				st->l2.flag |= FLG_T200_RUN;
 			}
@@ -908,7 +915,6 @@ l2_got_tei(struct FsmInst *fi, int event, void *arg)
 	if (fi->state == ST_L2_3) {
 		establishlink(fi);
 		st->l2.flag |= FLG_L3_INIT;
-		FsmChangeState(fi, ST_L2_5);
 	} else
 		FsmChangeState(fi, ST_L2_4);
 	if (skb_queue_len(&st->l2.ui_queue))
@@ -926,7 +932,7 @@ l2_st5_tout_200(struct FsmInst *fi, int event, void *arg)
 {
 	struct PStack *st = fi->userdata;
 
-	if (st->l2.rc == st->l2.n200) {
+	if (st->l2.rc == st->l2.N200) {
 		FsmChangeState(fi, ST_L2_4);
 		st->l2.flag &= ~FLG_T200_RUN;
 		discard_i_queue(st);
@@ -934,7 +940,7 @@ l2_st5_tout_200(struct FsmInst *fi, int event, void *arg)
 		st->l2.l2man(st, DL_RELEASE, NULL);
 	} else {
 		st->l2.rc++;
-		FsmAddTimer(&st->l2.t200_timer, st->l2.t200, EV_L2_T200,
+		FsmAddTimer(&st->l2.t200, st->l2.T200, EV_L2_T200,
 			    NULL, 9);
 		send_uframe(st, ((st->l2.flag & FLG_MOD128) ? SABME : SABM)
 			    | 0x10, CMD);
@@ -946,13 +952,13 @@ l2_st6_tout_200(struct FsmInst *fi, int event, void *arg)
 {
 	struct PStack *st = fi->userdata;
 
-	if (st->l2.rc == st->l2.n200) {
+	if (st->l2.rc == st->l2.N200) {
 		FsmChangeState(fi, ST_L2_4);
 		st->ma.layer(st, MDL_ERROR, (void *) 'H');
 		st->l2.l2man(st, DL_RELEASE, NULL);
 	} else {
 		st->l2.rc++;
-		FsmAddTimer(&st->l2.t200_timer, st->l2.t200, EV_L2_T200,
+		FsmAddTimer(&st->l2.t200, st->l2.T200, EV_L2_T200,
 			    NULL, 9);
 		send_uframe(st, DISC | 0x10, CMD);
 	}
@@ -968,7 +974,7 @@ l2_st78_tout_200(struct FsmInst *fi, int event, void *arg)
 		st->l2.rc = 0;
 		FsmChangeState(fi, ST_L2_8);
 	}
-	if (st->l2.rc == st->l2.n200) {
+	if (st->l2.rc == st->l2.N200) {
 		establishlink(fi);
 	} else {
 		transmit_enquiry(st);
@@ -1039,8 +1045,8 @@ l2_pull_iqueue(struct FsmInst *fi, int event, void *arg)
 	st->l2.l2l1(st, PH_DATA_PULLED, skb);
 	st->l2.flag &= ~FLG_ACK_PEND;
 	if (!(st->l2.flag & FLG_T200_RUN)) {
-		FsmDelTimer(&st->l2.t203_timer, 13);
-		FsmAddTimer(&st->l2.t200_timer, st->l2.t200, EV_L2_T200, NULL, 11);
+		FsmDelTimer(&st->l2.t203, 13);
+		FsmAddTimer(&st->l2.t200, st->l2.T200, EV_L2_T200, NULL, 11);
 		st->l2.flag |= FLG_T200_RUN;
 	}
 	if (skb_queue_len(&l2->i_queue) && cansend(st))
@@ -1092,16 +1098,16 @@ l2_got_st8_super(struct FsmInst *fi, int event, void *arg)
 		if (legalnr(st, nr)) {
 			setva(st, nr);
 			if (st->l2.flag & FLG_T200_RUN) {
-				FsmDelTimer(&st->l2.t200_timer, 7);
+				FsmDelTimer(&st->l2.t200, 7);
 				st->l2.flag &= ~FLG_T200_RUN;
 			}
-			FsmDelTimer(&l2->t203_timer, 8);
+			FsmDelTimer(&l2->t203, 8);
 			if (rnr) {
-				FsmRestartTimer(&l2->t200_timer, l2->t200,
+				FsmRestartTimer(&l2->t200, l2->T200,
 						EV_L2_T200, NULL, 14);
 				st->l2.flag |= FLG_T200_RUN;
 			} else
-				FsmAddTimer(&l2->t203_timer, l2->t203,
+				FsmAddTimer(&l2->t203, l2->T203,
 					    EV_L2_T203, NULL, 5);
 			invoke_retransmission(st, nr);
 			FsmChangeState(fi, ST_L2_7);
@@ -1163,12 +1169,12 @@ l2_tei_remove(struct FsmInst *fi, int event, void *arg)
 
 	discard_i_queue(st);
 	discard_ui_queue(st);
-	st->l2.tei = 255;
+	st->l2.tei = -1;
 	if (st->l2.flag & FLG_T200_RUN) {
-		FsmDelTimer(&st->l2.t200_timer, 18);
+		FsmDelTimer(&st->l2.t200, 18);
 		st->l2.flag &= ~FLG_T200_RUN;
 	}
-	FsmDelTimer(&st->l2.t203_timer, 19);
+	FsmDelTimer(&st->l2.t203, 19);
 	if (fi->state != ST_L2_4)
 		st->l2.l2man(st, DL_RELEASE, NULL);
 	FsmChangeState(fi, ST_L2_1);
@@ -1317,10 +1323,6 @@ isdnl2_l3l2(struct PStack *st, int pr, void *arg)
 static void
 isdnl2_manl2(struct PStack *st, int pr, void *arg)
 {
-	char tmp[64];
-
-	sprintf(tmp, "pr=%d arg=%d", pr, (int) arg);
-	l2m_debug(&st->l2.l2m, tmp);
 	switch (pr) {
 		case (DL_ESTABLISH):
 			FsmEvent(&st->l2.l2m, EV_L2_DL_ESTABLISH, arg);
@@ -1346,8 +1348,8 @@ isdnl2_manl2(struct PStack *st, int pr, void *arg)
 void
 releasestack_isdnl2(struct PStack *st)
 {
-	FsmDelTimer(&st->l2.t200_timer, 15);
-	FsmDelTimer(&st->l2.t203_timer, 16);
+	FsmDelTimer(&st->l2.t200, 15);
+	FsmDelTimer(&st->l2.t203, 16);
 	discard_i_queue(st);
 	discard_ui_queue(st);
 	ReleaseWin(&st->l2);
@@ -1371,8 +1373,6 @@ setstack_isdnl2(struct PStack *st, char *debug_id)
 	st->l3.l3l2 = isdnl2_l3l2;
 	st->ma.manl2 = isdnl2_manl2;
 
-	st->l2.uihsize = l2headersize(&st->l2, !0);
-	st->l2.ihsize = l2headersize(&st->l2, 0);
 	skb_queue_head_init(&st->l2.i_queue);
 	skb_queue_head_init(&st->l2.ui_queue);
 	InitWin(&st->l2);
@@ -1386,8 +1386,8 @@ setstack_isdnl2(struct PStack *st, char *debug_id)
 	st->l2.l2m.printdebug = l2m_debug;
 	strcpy(st->l2.debug_id, debug_id);
 
-	FsmInitTimer(&st->l2.l2m, &st->l2.t200_timer);
-	FsmInitTimer(&st->l2.l2m, &st->l2.t203_timer);
+	FsmInitTimer(&st->l2.l2m, &st->l2.t200);
+	FsmInitTimer(&st->l2.l2m, &st->l2.t203);
 }
 
 void
