@@ -21,6 +21,10 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.11  1996/05/18 01:36:59  fritz
+ * Added spelling corrections and some minor changes
+ * to stay in sync with kernel.
+ *
  * Revision 1.10  1996/05/17 03:49:01  fritz
  * Some cleanup.
  *
@@ -252,6 +256,15 @@ isdn_net_stat_callback(int idx, int cmd)
 				if ((lp->flags & ISDN_NET_CONNECTED) &&
 				    (!lp->dialstate)) {
 					lp->stats.tx_packets++;
+					if(lp->p_encap == ISDN_NET_ENCAP_SYNCPPP && lp->first_skb) {
+						if(!isdn_net_send_skb(&lp->netdev->dev,lp,lp->first_skb)) {
+							dev_kfree_skb(lp->first_skb,FREE_WRITE);
+							lp->first_skb = NULL;
+							mark_bh(NET_BH);
+						}
+						else
+							return 1;
+					}
                                         if (clear_bit(0,(void*)&(p->dev.tbusy)))
                                                 mark_bh(NET_BH);
 				}
@@ -715,9 +728,11 @@ isdn_net_send_skb(struct device *ndev, isdn_net_local *lp,
 	
 	lp->transcount += skb->len;
         ret = isdn_writebuf_skb_stub(lp->isdn_device, lp->isdn_channel, skb);
-	if (ret == skb->len)
+	if (ret == skb->len) {
 		clear_bit(0, (void *)&(ndev->tbusy));
-	return (!ret);
+		return 0;
+	}
+	return 1;
 }                                      
 	
 
