@@ -3,6 +3,9 @@
  *   Basic declarations, defines and prototypes
  *
  * $Log$
+ * Revision 1.10  1997/02/09 00:23:52  keil
+ * new interface handling, one interface per card
+ *
  * Revision 1.9  1997/01/27 23:18:44  keil
  * prototype for releasestack_isdnl3
  *
@@ -338,12 +341,10 @@ struct Management {
 
 struct Param {
 	int cause;
+	int loc;
 	int bchannel;
-	int callref;		/* Callreferenz Number             */
-	int info;		/* Service-Indicator               */
-	int info2;		/* Service-Indicator, second octet */
-	char calling[40];	/* Called Id                       */
-	char called[40];	/* Caller Id                       */
+	int callref;		/* Callreferenz Number */
+	setup_parm setup;       /* from isdnif.h numbers and Serviceindicator */
 	int chargeinfo;		/* Charge Info - only for 1tr6 in
 				 * the moment
 				 */

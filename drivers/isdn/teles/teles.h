@@ -1,6 +1,9 @@
 /* $Id$
  *
  * $Log$
+ * Revision 1.2  1996/04/30 21:52:04  isdn4dev
+ * SPV for 1TR6 - Karsten
+ *
  * Revision 1.1  1996/04/13 10:29:00  fritz
  * Initial revision
  *
@@ -280,11 +283,7 @@ struct Param {
 	int             cause;
 	int             bchannel;
 	int             callref;     /* TEI-Number                      */
-	int             itc;
-	int             info;	     /* Service-Indicator               */
-	int             info2;	     /* Service-Indicator, second octet */
-	char            calling[40]; /* Called Id                       */
-	char            called[40];  /* Caller Id                       */
+	setup_parm      setup;       /* from isdnif.h numbers and Serviceindicator */
 	int             chargeinfo;  /* Charge Info - only for 1tr6 in
 				      * the moment 
 				      */
