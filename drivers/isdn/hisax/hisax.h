@@ -3,6 +3,9 @@
  *   Basic declarations, defines and prototypes
  *
  * $Log$
+ * Revision 1.13.2.2  1997/11/15 18:55:43  keil
+ * New init, new cards
+ *
  * Revision 1.13.2.1  1997/10/17 22:13:51  keil
  * update to last hisax version
  *
@@ -166,6 +169,7 @@
 #define HSCX_BUFMAX	4096
 #define MAX_DATA_SIZE	(HSCX_BUFMAX - 4)
 #define MAX_DATA_MEM	(HSCX_BUFMAX + 64)
+#define RAW_BUFMAX	(((HSCX_BUFMAX*6)/5) + 5)
 #define MAX_HEADER_LEN	4
 #define MAX_WINDOW	8
 #define MAX_MON_FRAME	32
@@ -351,16 +355,34 @@ struct hfcB_hw {
 };
 
 struct tiger_hw {
-	unsigned int *send;
-	unsigned int *rec;
-	int *sendp;
-	int *recp;
 	struct sk_buff *tx_skb; /* B-Channel transmit Buffer */
+	u_int *send;
+	u_int *s_irq;
+	u_int *s_end;
+	u_int *sendp;
+	u_int *rec;
+	int free;
+	u_char *rcvbuf;
+	u_char *sendbuf;
+	u_char *sp;
+	int sendcnt;
+	u_int s_tot;
+	u_int r_bitcnt;
+	u_int r_tot;
+	u_int r_err;
+	u_int r_fcs;
+	u_char r_state;
+	u_char r_one;
+	u_char r_val;
+	u_char s_state;
 };
 
 #define BC_FLG_INIT	1
 #define BC_FLG_ACTIV	2
 #define BC_FLG_BUSY	3
+#define BC_FLG_NOFRAME	4
+#define BC_FLG_HALF	5
+#define BC_FLG_EMPTY	6
 
 #define L1_MODE_NULL	0
 #define L1_MODE_TRANS	1
@@ -523,12 +545,12 @@ struct njet_hw {
 	unsigned int base;
 	unsigned int isac;
 	unsigned int auxa;
-	unsigned long membase;
-	unsigned long memsize;
-	unsigned long memirq;
 	unsigned char auxd;
 	unsigned char dmactrl;
 	unsigned char ctrl_reg;
+	unsigned char irqmask0;
+	unsigned char irqstat0;
+	unsigned char last_is0;
 };
 
 #define HW_IOM1		0
