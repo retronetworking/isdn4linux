@@ -20,6 +20,10 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.7  2000/03/02 00:11:06  werner
+ *
+ * Changes related to procfs for 2.3.48
+ *
  * Revision 1.6  2000/02/14 19:23:03  werner
  *
  * Changed handling of proc filesystem tables to a more portable version
@@ -307,19 +311,14 @@ isdn_divert_lseek(struct file *file, loff_t offset, int orig)
 
 static struct file_operations isdn_fops =
 {
-	isdn_divert_lseek,
-	isdn_divert_read,
-	isdn_divert_write,
-	NULL,			/* isdn_readdir */
-	isdn_divert_poll,	/* isdn_poll */
-	isdn_divert_ioctl,	/* isdn_ioctl */
-	NULL,			/* isdn_mmap */
-	isdn_divert_open,
-	NULL,			/* flush */
-	isdn_divert_close,
-	NULL			/* fsync */
+	llseek:         isdn_divert_lseek,
+	read:           isdn_divert_read,
+	write:          isdn_divert_write,
+	poll:           isdn_divert_poll,
+	ioctl:          isdn_divert_ioctl,
+	open:           isdn_divert_open,
+	release:        isdn_divert_close,                                      
 };
-
 #ifdef COMPAT_NO_SOFTNET
 struct inode_operations divert_file_inode_operations;
 #endif
@@ -358,7 +357,6 @@ divert_dev_init(void)
 #else
 	isdn_divert_entry->proc_fops = &isdn_fops; 
 #endif
-
 #endif	/* CONFIG_PROC_FS */
 
 	return (0);

@@ -20,6 +20,10 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.3  2000/03/02 00:11:07  werner
+ *
+ * Changes related to procfs for 2.3.48
+ *
  * Revision 1.2  2000/02/14 19:23:03  werner
  *
  * Changed handling of proc filesystem tables to a more portable version
@@ -404,23 +408,16 @@ hysdn_conf_close(struct inode *ino, struct file *filep)
 /******************************************************/
 static struct file_operations conf_fops =
 {
-	hysdn_dummy_lseek,
-	hysdn_conf_read,
-	hysdn_conf_write,
-	NULL,			/* readdir */
-	NULL,			/* poll */
-	NULL,			/* ioctl */
-	NULL,			/* mmap */
-	hysdn_conf_open,
-	NULL,			/* flush */
-	hysdn_conf_close,
-	NULL			/* fsync */
+	llseek:         hysdn_dummy_lseek,
+	read:           hysdn_conf_read,
+	write:          hysdn_conf_write,
+	open:           hysdn_conf_open,
+	release:        hysdn_conf_close,                                       
 };
 
 #ifdef COMPAT_NO_SOFTNET
 static struct inode_operations conf_inode_operations;
 #endif
-
 /*****************************/
 /* hysdn subdir in /proc/net */
 /*****************************/

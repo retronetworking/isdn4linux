@@ -487,7 +487,7 @@ static int bsd_compress (void *state, struct sk_buff *skb_in, struct sk_buff *sk
       		*(skb_put(skb_out,1)) = (unsigned char) (accm>>24); \
 	accm <<= 8;			\
 	bitno += 8;			\
-	} while (bitno <= 24);		\
+    } while (bitno <= 24);		\
   }
 #else
 #define OUTPUT(ent)			\
@@ -568,6 +568,7 @@ static int bsd_compress (void *state, struct sk_buff *skb_in, struct sk_buff *sk
 #ifdef CONFIG_ISDN_WITH_ABC
 		secure = 0;
 #endif
+
 		do {
 			hval += disp;
 			if (hval >= db->hsize)
@@ -575,11 +576,10 @@ static int bsd_compress (void *state, struct sk_buff *skb_in, struct sk_buff *sk
 			dictp = dict_ptr (db, hval);
 			if (dictp->codem1 >= max_ent)
 				goto nomatch;
-		}
 #ifndef CONFIG_ISDN_WITH_ABC
-		while (dictp->fcode != fcode);
+		} while (dictp->fcode != fcode);
 #else
-		while (dictp->fcode != fcode && ++secure < 100000);
+		} while (dictp->fcode != fcode && ++secure < 100000);
 		if(secure >= 100000) {
 			printk(KERN_DEBUG "BSD: compress while dictp->fcode != fcode secure-counter reached\n");
 			return 0;
@@ -839,11 +839,10 @@ static int bsd_decompress (void *state, struct sk_buff *skb_in, struct sk_buff *
 		p     = skb_put(skb_out,codelen);
 		p += codelen;
 #ifdef CONFIG_ISDN_WITH_ABC
-		for(secure = 0; finchar > LAST && secure < 50000;secure++)
+		for(secure = 0; finchar > LAST && secure < 50000;secure++) {
 #else
-		while (finchar > LAST) 
+		while (finchar > LAST) {
 #endif
-		{
 			struct bsd_dict *dictp2 = dict_ptr (db, finchar);
 	    
 			dictp = dict_ptr (db, dictp2->cptr);
@@ -913,11 +912,10 @@ static int bsd_decompress (void *state, struct sk_buff *skb_in, struct sk_buff *
 					if (hval >= db->hsize)
 						hval -= db->hsize;
 					dictp = dict_ptr (db, hval);
-				} 
 #ifndef CONFIG_ISDN_WITH_ABC
-				while (dictp->codem1 < max_ent);
+				} while (dictp->codem1 < max_ent);
 #else
-				while (dictp->codem1 < max_ent && ++secure < 50000);
+				} while (dictp->codem1 < max_ent && ++secure < 50000);
 				if(secure >= 50000) {
 					printk(KERN_DEBUG "BSD: decomp while (dictp->codem1 < max_ent) secure-counter reached\n");
 					return DECOMP_FATALERROR;
@@ -961,7 +959,7 @@ static int bsd_decompress (void *state, struct sk_buff *skb_in, struct sk_buff *
 	db->comp_bytes   += skb_in->len - BSD_OVHD;
 	db->uncomp_bytes += skb_out->len;
 
-#ifndef CONFIG_ISDN_WITH_ABC
+#ifdef CONFIG_ISDN_WITH_ABC
 	/*
 	** bsd_check will call bsd_clear 
 	** and so on the internal tables will be cleared.
@@ -969,7 +967,7 @@ static int bsd_decompress (void *state, struct sk_buff *skb_in, struct sk_buff *
 	** I think that's not what we will at this point ?????
 	** For me at works without bsd_check.
 	*/
-
+#else
 	if (bsd_check(db)) {
 		if (db->debug)
 			printk(KERN_DEBUG "bsd_decomp%d: peer should have cleared dictionary on %d\n",

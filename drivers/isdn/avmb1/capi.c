@@ -6,6 +6,17 @@
  * Copyright 1996 by Carsten Paeth (calle@calle.in-berlin.de)
  *
  * $Log$
+ * Revision 1.24  2000/03/03 15:50:42  calle
+ * - kernel CAPI:
+ *   - Changed parameter "param" in capi_signal from __u32 to void *.
+ *   - rewrote notifier handling in kcapi.c
+ *   - new notifier NCCI_UP and NCCI_DOWN
+ * - User CAPI:
+ *   - /dev/capi20 is now a cloning device.
+ *   - middleware extentions prepared.
+ * - capidrv.c
+ *   - locking of list operations and module count updates.
+ *
  * Revision 1.23  2000/02/26 01:00:53  keil
  * changes from 2.3.47
  *
@@ -686,20 +697,13 @@ static int capi_release(struct inode *inode, struct file *file)
 
 static struct file_operations capi_fops =
 {
-	capi_llseek,
-	capi_read,
-	capi_write,
-	NULL,			/* capi_readdir */
-	capi_poll,
-	capi_ioctl,
-	NULL,			/* capi_mmap */
-	capi_open,
-#ifdef FILEOP_HAS_FLUSH
-        NULL,                   /* capi_flush */
-#endif
-	capi_release,
-	NULL,			/* capi_fsync */
-	NULL,			/* capi_fasync */
+	llseek:         capi_llseek,
+	read:           capi_read,
+	write:          capi_write,
+	poll:           capi_poll,
+	ioctl:          capi_ioctl,
+	open:           capi_open,
+	release:        capi_release,                                           
 };
 
 /* -------- /proc functions ----------------------------------------- */
