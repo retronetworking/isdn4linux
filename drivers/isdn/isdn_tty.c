@@ -20,6 +20,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.16  1996/06/05 02:24:12  fritz
+ * Added DTMF decoder for audio mode.
+ *
  * Revision 1.15  1996/06/03 20:35:01  fritz
  * Fixed typos.
  *
@@ -377,6 +380,11 @@ static void isdn_tty_senddown(modem_info * info)
                 restore_flags(flags);
                 return;
         }
+        if (info->isdn_driver < 0) {
+                info->xmit_count = 0;
+                restore_flags(flags);
+                return;
+        }
         skb_res = dev->drv[info->isdn_driver]->interface->hl_hdrlen + 4;
         if (info->vonline & 2) {
 #ifdef CONFIG_ISDN_AUDIO
@@ -409,7 +417,7 @@ static void isdn_tty_senddown(modem_info * info)
                                 /* adpcm, compatible to ZyXel 1496 modem
                                  * with ROM revision 6.01
                                  */
-                                buflen = isdn_audio_adpcm2xlaw(info->audio_ss,
+                                buflen = isdn_audio_adpcm2xlaw(info->adpcms,
                                                                ifmt,
                                                                hbuf,
                                                                skb_put(skb,skb_len),
@@ -583,13 +591,17 @@ void isdn_tty_modem_hup(modem_info * info)
                 isdn_tty_at_cout("\020\024", info);
         }
         info->vonline = 0;
-        if (info->audio_ss) {
-                kfree(info->audio_ss);
-                info->audio_ss = NULL;
+        if (info->dtmf_state) {
+                kfree(info->dtmf_state);
+                info->dtmf_state = NULL;
         }
-        if (info->audio_sr) {
-                kfree(info->audio_sr);
-                info->audio_sr = NULL;
+        if (info->adpcms) {
+                kfree(info->adpcms);
+                info->adpcms = NULL;
+        }
+        if (info->adpcmr) {
+                kfree(info->adpcmr);
+                info->adpcmr = NULL;
         }
         info->msr &= ~(UART_MSR_DCD | UART_MSR_RI);
         info->lsr |= UART_LSR_TEMT;
@@ -1421,6 +1433,7 @@ static void isdn_tty_close(struct tty_struct *tty, struct file *filp)
 	if (tty->ldisc.flush_buffer)
 		tty->ldisc.flush_buffer(tty);
 	info->tty = 0;
+        info->ncarrier = 0;
 	tty->closing = 0;
 	if (info->blocked_open) {
                 current->state = TASK_INTERRUPTIBLE;
@@ -1614,7 +1627,7 @@ int isdn_tty_find_icall(int di, int ch, char *num)
 	if (num[0] == ',') {
 		nr[0] = '0';
 		strncpy(&nr[1], num, 29);
-		printk(KERN_WARNING "isdn_tty: Incoming call without OAD, assuming '0'\n");
+		printk(KERN_INFO "isdn_tty: Incoming call without OAD, assuming '0'\n");
 	} else
 		strncpy(nr, num, 30);
 	s = strtok(nr, ",");
@@ -1845,6 +1858,14 @@ void isdn_tty_modem_result(int code, modem_info * info)
                                 return;
                         }
                         restore_flags(flags);
+                        if (info->vonline & 1) {
+                                /* voice-recording, add DLE-ETX */
+                                isdn_tty_at_cout("\020\003", info);
+                        }
+                        if (info->vonline & 2) {
+                                /* voice-playing, add DLE-DC4 */
+                                isdn_tty_at_cout("\020\024", info);
+                        }
                         break;
                 case 1:
                 case 5:
@@ -1886,6 +1907,8 @@ void isdn_tty_modem_result(int code, modem_info * info)
 			restore_flags(flags);
 			return;
 		}
+                if (info->tty->ldisc.flush_buffer)
+                        info->tty->ldisc.flush_buffer(info->tty);
 		if ((info->flags & ISDN_ASYNC_CHECK_CD) &&
 		    (!((info->flags & ISDN_ASYNC_CALLOUT_ACTIVE) &&
 		       (info->flags & ISDN_ASYNC_CALLOUT_NOHUP)))) {
@@ -2287,10 +2310,17 @@ static int isdn_tty_cmd_PLUSV(char **p, modem_info * info)
                         /* AT+VRX - Start recording */
                         if (!m->vpar[0])
                                 PARSE_ERROR1;
-                        info->audio_sr = isdn_audio_state_init(m->vpar[3]);
-                        if (!info->audio_sr) {
-                                printk(KERN_WARNING "isdn_tty: Couldn't malloc audio state\n");
+                        info->dtmf_state = isdn_audio_dtmf_init(info->dtmf_state);
+                        if (!info->dtmf_state) {
+                                printk(KERN_WARNING "isdn_tty: Couldn't malloc dtmf state\n");
                                 PARSE_ERROR1;
+                        }
+                        if (m->vpar[3] < 5) {
+                                info->adpcmr = isdn_audio_adpcm_init(info->adpcmr, m->vpar[3]);
+                                if (!info->adpcmr) {
+                                        printk(KERN_WARNING "isdn_tty: Couldn't malloc adpcm state\n");
+                                        PARSE_ERROR1;
+                                }
                         }
                         info->vonline = 1;
                         isdn_tty_modem_result(1, info);
@@ -2386,10 +2416,17 @@ static int isdn_tty_cmd_PLUSV(char **p, modem_info * info)
                         /* AT+VTX - Start sending */
                         if (!m->vpar[0])
                                 PARSE_ERROR1;
-                        info->audio_ss = isdn_audio_state_init(m->vpar[3]);
-                        if (!info->audio_ss) {
-                                printk(KERN_WARNING "isdn_tty: Couldn't malloc audio state\n");
+                        info->dtmf_state = isdn_audio_dtmf_init(info->dtmf_state);
+                        if (!info->dtmf_state) {
+                                printk(KERN_WARNING "isdn_tty: Couldn't malloc dtmf state\n");
                                 PARSE_ERROR1;
+                        }
+                        if (m->vpar[3] < 5) {
+                                info->adpcms = isdn_audio_adpcm_init(info->adpcms, m->vpar[3]);
+                                if (!info->adpcms) {
+                                        printk(KERN_WARNING "isdn_tty: Couldn't malloc adpcm state\n");
+                                        PARSE_ERROR1;
+                                }
                         }
                         m->lastDLE = 0;
                         info->vonline = 2;
