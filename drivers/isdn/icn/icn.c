@@ -19,6 +19,10 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.8  1995/03/15  12:49:44  fritz
+ * Added support for SPV's
+ * Splitted pollbchan_work ifor calling send-routine directly
+ *
  * Revision 1.7  1995/02/20  03:48:03  fritz
  * Added support of new request_region-function.
  * Minor bugfixes.
@@ -131,7 +135,7 @@ map_channel(int channel) {
   if (channel == dev->channel) return;
   OUTB_P(0,ICN_MAPRAM);                           /* Disable RAM          */
   shiftout(ICN_BANK,chan2bank[channel],3,4);      /* Select Bank          */
-  OUTB_P(0xff,ICN_MAPRAM);                           /* Enable RAM           */
+  OUTB_P(0xff,ICN_MAPRAM);                        /* Enable RAM           */
   dev->channel = channel;
 }
 
@@ -530,19 +534,18 @@ sendbuf(int channel, u_char *buffer, int len, int user) {
     save_flags(flags);
     cli();
     p = new_buf(&dev->spqueue[channel],len);
-    restore_flags(flags);
-    if (!p)
+    if (!p) {
+      restore_flags(flags);
       return 0;
-    save_flags(flags);
-    cli();
+    }
     if (user) {
       memcpy_fromfs(p,buffer,len);
     } else {
       memcpy(p,buffer,len);
     }
     dev->sndcount[channel] += len;
-    restore_flags(flags);
     pollbchan_send(channel);
+    restore_flags(flags);
   }
   return len;
 }
