@@ -8,6 +8,9 @@
  *              This file is (c) under GNU PUBLIC LICENSE
  *
  * $Log$
+ * Revision 1.2  2000/02/26 00:35:13  keil
+ * Fix skb freeing in interrupt context
+ *
  * Revision 1.1  1999/09/04 06:28:58  keil
  * first revision
  *
@@ -737,7 +740,9 @@ static void
 W6692Bmode(struct BCState *bcs, int mode, int bc)
 {
 	struct IsdnCardState *cs = bcs->cs;
-	int bchan = bcs->hw.w6692.bchan;
+	int bchan = bc;
+
+	bcs->hw.w6692.bchan = bc;
 
 	if (cs->debug & L1_DEB_HSCX)
 		debugl1(cs, "w6692 %c mode %d ichan %d",
