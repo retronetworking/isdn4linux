@@ -6,6 +6,9 @@
  *
  *
  * $Log$
+ * Revision 1.9  1997/02/11 01:37:40  keil
+ * Changed setup-interface (incoming and outgoing)
+ *
  * Revision 1.8  1997/01/27 23:20:21  keil
  * report revision only ones
  *
@@ -37,6 +40,7 @@
 #include "hisax.h"
 #include "l3_1tr6.h"
 #include "isdnl3.h"
+#include <linux/ctype.h>
 
 extern char *HiSax_getrev(const char *revision);
 const char *l3_1tr6_revision = "$Revision$";
@@ -68,7 +72,10 @@ l3_1tr6_setup_req(struct PStack *st, byte pr, void *arg)
 {
 	struct BufHeader *dibh;
 	byte *p;
-	char *teln;
+	byte *teln;
+	byte *eaz;
+        byte channel=0;
+        	
 
 	st->l3.callref = st->pa->callref;
 	BufPoolGet(&dibh, st->l1.sbufpool, GFP_ATOMIC, (void *) st, 19);
@@ -77,7 +84,32 @@ l3_1tr6_setup_req(struct PStack *st, byte pr, void *arg)
 
 	MsgHead(p, st->l3.callref, MT_N1_SETUP, PROTO_DIS_N1);
 
-	if ('S' == (st->pa->setup.phone[0] & 0x5f)) {	/* SPV ? */
+        teln = st->pa->setup.phone;
+	st->pa->spv = 0;
+        if (!isdigit(*teln)) {
+        	switch (0x5f & *teln) {
+                	case 'S': st->pa->spv = 1;
+                		  break;
+                	case 'C': channel = 0x08;
+                	case 'P': channel |= 0x80;
+                		  teln++;
+                		  if (*teln=='1')
+                			channel |= 0x01;
+                		  else
+                			channel |= 0x02;
+                		  break;
+                	default:  if (st->l3.debug & L3_DEB_WARN)
+                			l3_debug(st, "Wrong MSN Code");
+                		  break;
+                }
+                teln++;
+	}
+	if (channel) {
+		*p++ = 0x18; /* channel indicator */
+		*p++ = 1;
+		*p++ = channel;
+	}
+	if (st->pa->spv) {	/* SPV ? */
 		/* NSF SPV */
 		*p++ = WE0_netSpecFac;
 		*p++ = 4;	/* Laenge */
@@ -92,25 +124,18 @@ l3_1tr6_setup_req(struct PStack *st, byte pr, void *arg)
 		*p++ = st->pa->setup.si1;	/* 0 for all Services */
 		*p++ = st->pa->setup.si2;	/* 0 for all Services */
 	}
-	if (st->pa->setup.eazmsn[0] != '\0') {
+	
+	eaz = st->pa->setup.eazmsn;
+	if (*eaz) {
 		*p++ = WE0_origAddr;
-		*p++ = strlen(st->pa->setup.eazmsn) + 1;
+		*p++ = strlen(eaz) + 1;
 		/* Classify as AnyPref. */
 		*p++ = 0x81;	/* Ext = '1'B, Type = '000'B, Plan = '0001'B. */
-		teln = st->pa->setup.eazmsn;
-		while (*teln)
-			*p++ = *teln++ & 0x7f;
+		while (*eaz)
+			*p++ = *eaz++ & 0x7f;
 	}
 	*p++ = WE0_destAddr;
-	teln = st->pa->setup.phone;
-	if ('S' != (st->pa->setup.phone[0] & 0x5f)) {	/* Keine SPV */
-		*p++ = strlen(st->pa->setup.phone) + 1;
-		st->pa->spv = 0;
-	} else {		/* SPV */
-		*p++ = strlen(st->pa->setup.phone);
-		teln++;		/* skip S */
-		st->pa->spv = 1;
-	}
+	*p++ = strlen(teln) + 1;
 	/* Classify as AnyPref. */
 	*p++ = 0x81;		/* Ext = '1'B, Type = '000'B, Plan = '0001'B. */
 	while (*teln)
