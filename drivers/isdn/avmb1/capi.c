@@ -6,6 +6,11 @@
  * Copyright 1996 by Carsten Paeth (calle@calle.in-berlin.de)
  *
  * $Log$
+ * Revision 1.12  1998/05/26 22:39:34  he
+ * sync'ed with 2.1.102 where appropriate (CAPABILITY changes)
+ * concap typo
+ * cleared dev.tbusy in isdn_net BCONN status callback
+ *
  * Revision 1.11  1998/03/09 17:46:37  he
  * merged in 2.1.89 changes
  *
@@ -470,6 +475,9 @@ static struct file_operations capi_fops =
 	capi_ioctl,
 	NULL,			/* capi_mmap */
 	capi_open,
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,1,118)
+        NULL,                   /* capi_flush */
+#endif
 	capi_release,
 	NULL,			/* capi_fsync */
 	NULL,			/* capi_fasync */
