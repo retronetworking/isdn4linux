@@ -3,9 +3,6 @@
  *
  * Author   Roland Klabunde (R.Klabunde@Berkom.de)
  *
- *
- * $Log$
- *
  */
 
 /* All Registers original Siemens Spec  */

@@ -7,22 +7,6 @@
  *
  *              This file is (c) under GNU PUBLIC LICENSE
  *
- * $Log$
- * Revision 1.2.2.2  2000/03/03 15:26:24  kai
- * remove the layer-breaking writewakeup callbacks and use PH_DATA / DL_DATA
- * | CONFIRM instead
- *
- * Revision 1.2.2.1  2000/03/03 13:11:32  kai
- * changed L1_MODE_... to B1_MODE_... using constants defined in CAPI
- *
- * Revision 1.2  2000/02/26 00:35:13  keil
- * Fix skb freeing in interrupt context
- *
- * Revision 1.1  1999/09/04 06:28:58  keil
- * first revision
- *
- *
- *
  */
 
 #include <linux/config.h>

@@ -4,18 +4,6 @@
  *
  * Author       Karsten Keil (keil@isdn4linux.de)
  *
- *
- * $Log$
- * Revision 1.4  1998/04/15 16:45:34  keil
- * new init code
- *
- * Revision 1.3  1997/07/27 21:38:35  keil
- * new B-channel interface
- *
- * Revision 1.2  1997/06/26 11:16:18  keil
- * first version
- *
- *
  */
 
 /* All Registers original Siemens Spec  */

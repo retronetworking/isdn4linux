@@ -7,29 +7,6 @@
  * 
  * Thanks to Dr. Neuhaus and SAGEM for informations
  *
- * $Log$
- * Revision 1.8  1999/08/11 21:01:33  keil
- * new PCI codefix
- *
- * Revision 1.7  1999/08/10 16:02:04  calle
- * struct pci_dev changed in 2.3.13. Made the necessary changes.
- *
- * Revision 1.6  1999/07/12 21:05:23  keil
- * fix race in IRQ handling
- * added watchdog for lost IRQs
- *
- * Revision 1.5  1999/07/01 08:12:07  keil
- * Common HiSax version for 2.0, 2.1, 2.2 and 2.3 kernel
- *
- * Revision 1.4  1998/04/16 19:16:48  keil
- * need config.h
- *
- * Revision 1.3  1998/04/15 16:42:59  keil
- * new init code
- *
- * Revision 1.2  1998/02/11 17:31:04  keil
- * new file
- *
  */
 
 

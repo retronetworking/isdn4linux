@@ -5,29 +5,6 @@
  * Author       BeWan Systems
  *              based on source code from Karsten Keil
  *
- * $Log$
- * Revision 2.6  1999/08/22 20:27:03  calle
- * backported changes from kernel 2.3.14:
- * - several #include "config.h" gone, others come.
- * - "struct device" changed to "struct net_device" in 2.3.14, added a
- *   define in isdn_compat.h for older kernel versions.
- *
- * Revision 2.5  1999/08/11 21:01:26  keil
- * new PCI codefix
- *
- * Revision 2.4  1999/08/10 16:01:54  calle
- * struct pci_dev changed in 2.3.13. Made the necessary changes.
- *
- * Revision 2.3  1999/07/12 21:05:09  keil
- * fix race in IRQ handling
- * added watchdog for lost IRQs
- *
- * Revision 2.1  1999/07/08 21:26:17  keil
- * new card
- *
- * Revision 1.0  1999/28/06
- * Initial revision
- *
  */
 #include <linux/config.h>
 #define __NO_VERSION__

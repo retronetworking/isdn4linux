@@ -6,33 +6,6 @@
  *
  * Author       Roland Klabunde (R.Klabunde@Berkom.de)
  *
- * $Log$
- * Revision 1.8  1999/09/04 06:20:05  keil
- * Changes from kernel set_current_state()
- *
- * Revision 1.7  1999/08/22 20:26:55  calle
- * backported changes from kernel 2.3.14:
- * - several #include "config.h" gone, others come.
- * - "struct device" changed to "struct net_device" in 2.3.14, added a
- *   define in isdn_compat.h for older kernel versions.
- *
- * Revision 1.6  1999/08/11 21:01:22  keil
- * new PCI codefix
- *
- * Revision 1.5  1999/08/10 16:01:46  calle
- * struct pci_dev changed in 2.3.13. Made the necessary changes.
- *
- * Revision 1.4  1999/07/14 11:43:14  keil
- * correct PCI_SUBSYSTEM_VENDOR_ID
- *
- * Revision 1.3  1999/07/12 21:04:58  keil
- * fix race in IRQ handling
- * added watchdog for lost IRQs
- *
- * Revision 1.2  1999/07/01 08:07:53  keil
- * Initial version
- *
- *
  */
 
 #define __NO_VERSION__

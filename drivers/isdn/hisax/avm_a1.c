@@ -4,68 +4,6 @@
  *
  * Author       Karsten Keil (keil@isdn4linux.de)
  *
- *
- * $Log$
- * Revision 2.11.2.1  2000/03/03 13:03:33  kai
- * now we use schedule_timeout() instead of the huge
- * udelay() when we have to wait a long time.
- *
- * Revision 2.11  1999/07/12 21:04:54  keil
- * fix race in IRQ handling
- * added watchdog for lost IRQs
- *
- * Revision 2.10  1998/11/15 23:54:21  keil
- * changes from 2.0
- *
- * Revision 2.9  1998/08/13 23:36:12  keil
- * HiSax 3.1 - don't work stable with current LinkLevel
- *
- * Revision 2.8  1998/04/15 16:44:27  keil
- * new init code
- *
- * Revision 2.7  1998/02/02 13:29:37  keil
- * fast io
- *
- * Revision 2.6  1998/01/13 23:09:46  keil
- * really disable timer
- *
- * Revision 2.5  1998/01/02 06:50:29  calle
- * Perodic timer of A1 now disabled, no need for linux driver.
- *
- * Revision 2.4  1997/11/08 21:35:42  keil
- * new l1 init
- *
- * Revision 2.3  1997/11/06 17:13:32  keil
- * New 2.1 init code
- *
- * Revision 2.2  1997/10/29 18:55:48  keil
- * changes for 2.1.60 (irq2dev_map)
- *
- * Revision 2.1  1997/07/27 21:47:13  keil
- * new interface structures
- *
- * Revision 2.0  1997/06/26 11:02:48  keil
- * New Layer and card interface
- *
- * Revision 1.6  1997/04/13 19:54:07  keil
- * Change in IRQ check delay for SMP
- *
- * Revision 1.5  1997/04/06 22:54:10  keil
- * Using SKB's
- *
- * Revision 1.4  1997/01/27 15:50:21  keil
- * SMP proof,cosmetics
- *
- * Revision 1.3  1997/01/21 22:14:20  keil
- * cleanups
- *
- * Revision 1.2  1996/10/27 22:07:31  keil
- * cosmetic changes
- *
- * Revision 1.1  1996/10/13 20:04:49  keil
- * Initial revision
- *
- *
  */
 #define __NO_VERSION__
 #include "hisax.h"

@@ -3,9 +3,6 @@
  *
  * Author     Roland Klabunde (R.Klabunde@Berkom.de)
  *
- * $Log$
- *
- *
  */
 
 #ifndef	__BKM_AX_H__

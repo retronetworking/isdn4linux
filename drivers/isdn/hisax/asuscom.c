@@ -6,35 +6,6 @@
  *
  * Thanks to  ASUSCOM NETWORK INC. Taiwan and  Dynalink NL for informations
  *
- *
- * $Log$
- * Revision 1.9  1999/12/19 13:09:41  keil
- * changed TASK_INTERRUPTIBLE into TASK_UNINTERRUPTIBLE for
- * signal proof delays
- *
- * Revision 1.8  1999/09/04 06:20:05  keil
- * Changes from kernel set_current_state()
- *
- * Revision 1.7  1999/07/12 21:04:53  keil
- * fix race in IRQ handling
- * added watchdog for lost IRQs
- *
- * Revision 1.6  1999/07/01 08:11:18  keil
- * Common HiSax version for 2.0, 2.1, 2.2 and 2.3 kernel
- *
- * Revision 1.5  1998/11/15 23:54:19  keil
- * changes from 2.0
- *
- * Revision 1.4  1998/06/18 23:18:20  keil
- * Support for new IPAC card
- *
- * Revision 1.3  1998/04/15 16:46:53  keil
- * new init code
- *
- * Revision 1.2  1998/02/02 13:27:06  keil
- * New
- *
- *
  */
 
 #define __NO_VERSION__

@@ -4,13 +4,6 @@
  *
  * Author       Petr Novak <petr.novak@i.cz>
  *
- *
- * $Log$
- *
- * Revision 1.0  1999/08/28 21:58:00 pnovak
- * first version
- *
- *
  */
 
 /* map W6692 functions to ISAC functions */

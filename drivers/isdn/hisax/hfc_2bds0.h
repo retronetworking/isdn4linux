@@ -4,13 +4,6 @@
  *
  * Author       Karsten Keil (keil@isdn4linux.de)
  *
- *
- * $Log$
- * Revision 1.2  1998/02/02 13:26:15  keil
- * New
- *
- *
- *
  */
 
 #define HFCD_CIRM  	0x18

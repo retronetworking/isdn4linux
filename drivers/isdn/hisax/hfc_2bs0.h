@@ -4,12 +4,6 @@
  *
  * Author       Karsten Keil (keil@isdn4linux.de)
  *
- *
- * $Log$
- * Revision 1.1  1997/09/11 17:31:34  keil
- * Common part for HFC 2BS0 based cards
- *
- *
  */
 
 #define HFC_CTMT	0xe0
