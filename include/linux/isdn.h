@@ -21,6 +21,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.64  1999/04/18 14:57:14  fritz
+ * Removed TIMRU stuff
+ *
  * Revision 1.63  1999/04/18 14:07:18  fritz
  * Removed TIMRU stuff.
  *
@@ -355,9 +358,9 @@ typedef struct {
   int  outgoing;
 } isdn_net_ioctl_phone;
 
-#define NET_DV 0x05 /* Data version for net_cfg       */
-#define TTY_DV 0x05 /* Data version for iprofd etc.   */
-#define INF_DV 0x01 /* Data version for /dev/isdninfo */
+#define NET_DV 0x05  /* Data version for isdn_net_ioctl_cfg   */
+#define TTY_DV 0x05  /* Data version for iprofd etc.          */
+#define INF_DV 0x01  /* Data version for /dev/isdninfo        */
 
 typedef struct {
   char name[10];     /* Name of interface                     */
