@@ -23,6 +23,10 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.25  1999/12/19 13:09:42  keil
+ * changed TASK_INTERRUPTIBLE into TASK_UNINTERRUPTIBLE for
+ * signal proof delays
+ *
  * Revision 1.24  1999/11/17 23:59:55  werner
  *
  * removed unneeded data
@@ -150,6 +154,7 @@ static const PCI_ENTRY id_list[] =
 	{0x1051, 0x0100, "Motorola MC145575", "MC145575"},
 	{0x1397, 0xB100, "Seyeon", "B100"},
 	{0x15B0, 0x2BD0, "Zoltrix", "2BD0"},
+	{0x114f, 0x71,   "Digi intl.","Digicom"}, 
 	{0, 0, NULL, NULL},
 };
 
