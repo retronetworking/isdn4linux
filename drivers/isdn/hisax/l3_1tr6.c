@@ -14,7 +14,6 @@ const char *l3_1tr6_revision = "$Revision$";
 
 #include "hisax.h"
 #include "l4l3if.h"
-#include "callc.h" // FIXME
 #include "l3_1tr6.h"
 #include "isdnl3.h"
 #include <linux/ctype.h>
@@ -93,6 +92,7 @@ l3_1tr6_setup_req(struct l3_process *pc, u_char pr, void *arg)
 	u_char channel = 0;
 	int l;
 
+	pc->para.setup = *(setup_parm *)arg;
 	MsgHead(p, pc->callref, MT_N1_SETUP, PROTO_DIS_N1);
 	teln = pc->para.setup.phone;
 	pc->para.spv = 0;
@@ -918,7 +918,6 @@ down1tr6(struct PStack *st, int pr, void *arg)
 	int cr;
 	struct l3_process *proc;
 	struct l4_process *l4pc;
-	struct Channel *chanp;
 
 	switch (pr) {
 	case DL_ESTABLISH | REQUEST:
@@ -926,13 +925,11 @@ down1tr6(struct PStack *st, int pr, void *arg)
 		break;
 	case CC_NEW_CR | REQUEST:
 		l4pc = arg;
-		chanp = l4pc->priv; // FIXME
 		cr = newcallref();
 		cr |= 0x80;
 		if ((proc = l3_1TR6_new_l3_process(st, cr))) {
 			proc->l4pc = l4pc;
 			l4pc->l3pc = proc;
-			proc->para.setup = chanp->setup;
 		}
 		break;
 	default:

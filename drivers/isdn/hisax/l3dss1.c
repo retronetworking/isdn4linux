@@ -1221,6 +1221,8 @@ l3dss1_setup_req(struct l3_process *pc, u_char pr,
 	u_char *sp;
 	int l;
 
+	pc->para.setup = *(setup_parm *)arg;
+
 	MsgHead(p, pc->callref, MT_SETUP);
 
 	teln = pc->para.setup.phone;
@@ -2560,7 +2562,10 @@ l3dss1_resume_req(struct l3_process *pc, u_char pr, void *arg)
 	u_char tmp[32];
 	u_char *p = tmp;
 	u_char i, l;
-	u_char *msg = pc->para.setup.phone;
+	u_char *msg;
+
+	pc->para.setup = *(setup_parm *)arg;
+	msg = pc->para.setup.phone;
 
 	MsgHead(p, pc->callref, MT_RESUME);
 
@@ -3129,7 +3134,6 @@ dss1down(struct PStack *st, int pr, void *arg)
 	int cr;
 	struct l3_process *proc;
 	struct l4_process *l4pc;
-	struct Channel *chanp;
 
 	switch (pr) {
 	case DL_ESTABLISH | REQUEST:
@@ -3137,13 +3141,11 @@ dss1down(struct PStack *st, int pr, void *arg)
 		break;
 	case CC_NEW_CR | REQUEST:
 		l4pc = arg;
-		chanp = l4pc->priv; // FIXME
 		cr = newcallref();
 		cr |= 0x80;
 		if ((proc = dss1_new_l3_process(st, cr))) {
 			proc->l4pc = l4pc;
 			l4pc->l3pc = proc;
-			proc->para.setup = chanp->setup;
 		}
 		break;
 	default:

@@ -16,6 +16,7 @@ const char *lli_revision = "$Revision$";
 
 #include "hisax.h"
 #include "callc.h"
+#include "l4l3if.h"
 #include "../avmb1/capicmd.h"  /* this should be moved in a common place */
 
 #define HISAX_STATUS_BUFSIZE 4096
@@ -49,15 +50,7 @@ static struct Fsm callcfsm =
 static inline void
 Dp_L4L3(struct Channel *chanp, int pr, void *arg)
 {
-	if (!chanp->l4pc.l3pc) {
-		int_error();
-		return;
-	}
-	if (!chanp->l4pc.l3pc->l4l3) {
-		int_error();
-		return;
-	}
-	chanp->l4pc.l3pc->l4l3(chanp->l4pc.l3pc, pr, 0);
+	p_L4L3(&chanp->l4pc, pr, arg);
 }
 
 static inline void
@@ -370,7 +363,7 @@ lli_prep_dialout(struct FsmInst *fi, int event, void *arg)
 	} else {
 		FsmChangeState(fi, ST_OUT_DIAL);
 		D_L4L3(chanp, CC_NEW_CR | REQUEST, &chanp->l4pc);
-		Dp_L4L3(chanp, CC_SETUP | REQUEST, 0);
+		Dp_L4L3(chanp, CC_SETUP | REQUEST, &chanp->setup);
 	}
 }
 
@@ -389,7 +382,7 @@ lli_resume(struct FsmInst *fi, int event, void *arg)
 	} else {
 		FsmChangeState(fi, ST_OUT_DIAL);
 		D_L4L3(chanp, CC_NEW_CR | REQUEST, &chanp->l4pc);
-		Dp_L4L3(chanp, CC_RESUME | REQUEST, 0);
+		Dp_L4L3(chanp, CC_RESUME | REQUEST, &chanp->setup);
 	}
 }
 
