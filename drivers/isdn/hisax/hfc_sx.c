@@ -22,6 +22,10 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.2  1999/12/19 13:09:42  keil
+ * changed TASK_INTERRUPTIBLE into TASK_UNINTERRUPTIBLE for
+ * signal proof delays
+ *
  * Revision 1.1  1999/11/18 00:09:18  werner
  *
  * Initial release of files for HFC-S+ and HFC-SP cards with 32K-RAM.
@@ -46,10 +50,31 @@ static const char *hfcsx_revision = "$Revision$";
 /* IRQ-table for CCDs demo board       */
 /* IRQs 6,5,10,11,12,15 are supported  */
 /***************************************/
+
+/* Teles 16.3c Vendor Id TAG2620, Version 1.0, Vendor version 2.1
+ *
+ * Thanks to Uwe Wisniewski
+ *
+ * ISA-SLOT  Signal      PIN
+ * B25        IRQ3     92 IRQ_G
+ * B23        IRQ5     94 IRQ_A
+ * B4         IRQ2/9   95 IRQ_B
+ * D3         IRQ10    96 IRQ_C
+ * D4         IRQ11    97 IRQ_D
+ * D5         IRQ12    98 IRQ_E
+ * D6         IRQ15    99 IRQ_F
+ */
+
+#undef CCD_DEMO_BOARD
+#ifdef CCD_DEMO_BOARD
 static u_char ccd_sp_irqtab[16] = {
   0,0,0,0,0,2,1,0,0,0,3,4,5,0,0,6
-}; 
-
+};
+#else /* Teles 16.3c */
+static u_char ccd_sp_irqtab[16] = {
+  0,0,0,7,0,1,0,0,0,2,3,4,5,0,0,6
+};
+#endif
 #define NT_T1_COUNT 20		/* number of 3.125ms interrupts for G2 timeout */
 
 #define byteout(addr,val) outb(val,addr)
