@@ -1,5 +1,3 @@
-/* -*- mode: c; c-basic-offset: 2 -*- */
-
 #ifndef _LINUX_ISDN_PPP_H
 #define _LINUX_ISDN_PPP_H
 

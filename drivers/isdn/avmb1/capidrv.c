@@ -6,6 +6,9 @@
  * Copyright 1997 by Carsten Paeth (calle@calle.in-berlin.de)
  *
  * $Log$
+ * Revision 1.29.2.8  2000/05/29 14:14:36  kai
+ * now it compiles at least
+ *
  * Revision 1.29.2.7  2000/05/06 01:21:36  kai
  * merged changes from main tree
  *
@@ -2312,6 +2315,7 @@ static void listentimerfunc(unsigned long x)
         send_listen(card);
 	mod_timer(&card->listentimer, jiffies + 60*HZ);
 }
+
 
 static int capidrv_addcontr(__u16 contr, struct capi_profile *profp)
 {
