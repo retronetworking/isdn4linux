@@ -1,3 +1,6 @@
+#ifndef __FSM_H__
+#define __FSM_H__
+
 #include <linux/timer.h>
 
 struct FsmInst;
@@ -41,3 +44,5 @@ int FsmAddTimer(struct FsmTimer *ft, int millisec, int event,
 void FsmRestartTimer(struct FsmTimer *ft, int millisec, int event,
 		     void *arg, int where);
 void FsmDelTimer(struct FsmTimer *ft, int where);
+
+#endif

@@ -1,3 +1,15 @@
+/*
+ * Driver for ST5481 USB ISDN modem
+ *
+ * Author       Frode Isaksen
+ * Copyright    2001 by Frode Isaksen      <fisaksen@bewan.com>
+ *              2001 by Kai Germaschewski  <kai.germaschewski@gmx.de>
+ * 
+ * This software may be used and distributed according to the terms
+ * of the GNU General Public License, incorporated herein by reference.
+ *
+ */
+
 #include <linux/version.h>
 #include <linux/module.h>
 #include <linux/init.h>
@@ -103,7 +115,7 @@ void st5481_usb_pipe_reset(struct st5481_adapter *adapter,
 
 void st5481_ph_command(struct st5481_adapter *adapter, unsigned int command)
 {
-	DBG(8,"command=%s",ST5481_CMD_string(command));
+	DBG(8,"command=%s", ST5481_CMD_string(command));
 
 	st5481_usb_device_ctrl_msg(adapter, TXCI, command, NULL, NULL);
 }
@@ -183,40 +195,32 @@ static void usb_int_complete(struct urb *urb)
 		}
 	}
 	
-	DUMP_PACKET(1, data, INT_PKT_SIZE);
+	DBG_PACKET(1, data, INT_PKT_SIZE);
 		
 	if (urb->actual_length == 0) {
 		return;
 	}
 
 	irqbyte = data[MPINT];
-	if (irqbyte & DEN_INT) {
-		st5481_sched_d_out_event(adapter, EV_DOUT_DEN, NULL);
-	}
+	if (irqbyte & DEN_INT)
+		FsmEvent(&adapter->d_out.fsm, EV_DOUT_DEN, NULL);
 
-	if (irqbyte & DCOLL_INT) {
-		st5481_sched_d_out_event(adapter, EV_DOUT_COLL, NULL);
-	}
+	if (irqbyte & DCOLL_INT)
+		FsmEvent(&adapter->d_out.fsm, EV_DOUT_COLL, NULL);
 
 	irqbyte = data[FFINT_D];
-	if (irqbyte & OUT_UNDERRUN) {
-//		printk("OUT_UNDERRUN\n");
-		st5481_sched_d_out_event(adapter, EV_DOUT_UNDERRUN, NULL);
-	}
-	if (irqbyte & OUT_DOWN) {
-//		printk("OUT_DOWN\n");
-	}
+	if (irqbyte & OUT_UNDERRUN)
+		FsmEvent(&adapter->d_out.fsm, EV_DOUT_UNDERRUN, NULL);
+
+	if (irqbyte & OUT_DOWN)
+;//		printk("OUT_DOWN\n");
 
 	irqbyte = data[MPINT];
-	if (irqbyte & RXCI_INT) {
-		DBG(8,"CI %s",ST5481_IND_string(data[CCIST] & 0x0f));
-		adapter->ph_state = data[CCIST] & 0x0f;
-		st5481_sched_event(adapter, D_L1STATECHANGE);
-	}
+	if (irqbyte & RXCI_INT)
+		FsmEvent(&adapter->l1m, data[CCIST] & 0x0f, NULL);
 
-	for (j = 0; j < 2; j++) {
+	for (j = 0; j < 2; j++)
 		adapter->bcs[j].b_out.flow_event |= data[FFINT_B1 + j];
-	}
 
 	urb->actual_length = 0;
 }
@@ -298,8 +302,6 @@ int __devinit st5481_setup_usb(struct st5481_adapter *adapter)
 		     usb_int_complete, adapter,
 		     endpoint->bInterval);
 		
-	fifo_init(&intr->evt_fifo.f, ARRAY_SIZE(intr->evt_fifo.data));
-
 	return 0;
 }
 
@@ -478,7 +480,7 @@ static void usb_in_complete(struct urb *urb)
 		}
 	}
 
-	DUMP_ISO_PACKET(0x80,urb);
+	DBG_ISO_PACKET(0x80,urb);
 
 	len = st5481_isoc_flatten(urb);
 	ptr = urb->transfer_buffer;
@@ -497,7 +499,7 @@ static void usb_in_complete(struct urb *urb)
 		if (status > 0) {
 			// Good frame received
 			DBG(4,"count=%d",status);
-			DUMP_PACKET(0x400, in->rcvbuf, status);
+			DBG_PACKET(0x400, in->rcvbuf, status);
 			if (!(skb = dev_alloc_skb(status))) {
 				WARN("receive out of memory\n");
 				break;
@@ -602,8 +604,6 @@ static void st5481_start_rcv(void *context)
 
 	DBG(4,"");
 
-	// Start receiving from B channel
-
 	in->urb[0]->dev = adapter->usb_dev;
 	SUBMIT_URB(in->urb[0]);
 
@@ -627,9 +627,15 @@ void st5481_in_mode(struct st5481_in *in, int mode)
 				      in->mode == L1_MODE_HDLC_56K);
 		
 		st5481_usb_pipe_reset(in->adapter, in->ep, NULL, NULL);
+#if 0
 		st5481_usb_device_ctrl_msg(in->adapter, in->counter,
 					   in->packet_size,
 					   st5481_start_rcv, in);
+#endif
+		st5481_usb_device_ctrl_msg(in->adapter, in->counter,
+					   in->packet_size,
+					   NULL, NULL);
+		st5481_start_rcv(in);
 	} else {
 		st5481_usb_device_ctrl_msg(in->adapter, in->counter,
 					   0, NULL, NULL);

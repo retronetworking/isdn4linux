@@ -2,19 +2,19 @@
 
 # The target object and module list name.
 
-O_TARGET	:= vmlinux-obj.o
+O_TARGET	  := vmlinux-obj.o
 
 # Objects that export symbols.
 
-export-objs	:= config.o fsm.o
+export-objs	  := config.o fsm.o hisax_isac.o
 
 # Multipart objects.
 
-list-multi	:= hisax.o st5481_mod.o
-hisax-objs	:= config.o isdnl1.o tei.o isdnl2.o isdnl3.o \
-		   lmgr.o q931.o callc.o fsm.o cert.o
-st5481-objs	:= st5481_init.o st5481_usb.o st5481_d.o st5481_b.o \
-		   st5481_hdlc.o
+list-multi	  := hisax.o st5481_mod.o
+hisax-objs	  := config.o isdnl1.o tei.o isdnl2.o isdnl3.o \
+		     lmgr.o q931.o callc.o fsm.o cert.o
+hisax_st5481-objs := st5481_init.o st5481_usb.o st5481_d.o st5481_b.o \
+		     st5481_hdlc.o
 
 # Optional parts of multipart objects.
 hisax-objs-$(CONFIG_HISAX_EURO) += l3dss1.o
@@ -28,7 +28,6 @@ hisax-objs-$(CONFIG_HISAX_S0BOX) += s0box.o isac.o arcofi.o hscx.o
 hisax-objs-$(CONFIG_HISAX_AVM_A1) += avm_a1.o isac.o arcofi.o hscx.o
 hisax-objs-$(CONFIG_HISAX_AVM_A1_PCMCIA) += avm_a1p.o isac.o arcofi.o hscx.o
 hisax-objs-$(CONFIG_HISAX_FRITZPCI) += avm_pci.o isac.o arcofi.o
-hisax-objs-$(CONFIG_HISAX_AVM_A1) += avm_a1.o isac.o arcofi.o hscx.o
 hisax-objs-$(CONFIG_HISAX_ELSA) += elsa.o isac.o arcofi.o hscx.o
 hisax-objs-$(CONFIG_HISAX_IX1MICROR2) += ix1_micro.o isac.o arcofi.o hscx.o
 hisax-objs-$(CONFIG_HISAX_DIEHLDIVA) += diva.o isac.o arcofi.o hscx.o
@@ -60,12 +59,9 @@ obj-$(CONFIG_ISDN_DRV_HISAX)		+= hisax.o
 obj-$(CONFIG_HISAX_SEDLBAUER_CS)	+= sedlbauer_cs.o
 obj-$(CONFIG_HISAX_ELSA_CS)		+= elsa_cs.o
 obj-$(CONFIG_HISAX_HFC_USB_CS)		+= hfc_usb.o
-obj-$(CONFIG_HISAX_ST5481_CS)		+= st5481.o
+obj-$(CONFIG_HISAX_ST5481)		+= hisax_st5481.o
+obj-$(CONFIG_HISAX_FRITZ_PCIPNP)        += hisax_fcpcipnp.o hisax_isac.o
 
-MD5FILES 	:= isac.c isdnl1.c isdnl2.c isdnl3.c \
-		   tei.c callc.c cert.c l3dss1.c l3_1tr6.c \
-		   elsa.c diva.c sedlbauer.c hfc_pci.c \
-		   hfc_usbr.c hfc_usb.c
 CERT := $(shell md5sum -c md5sums.asc >> /dev/null;echo $$?)
 CFLAGS_cert.o := -DCERTIFICATION=$(CERT)
 
@@ -76,5 +72,5 @@ include $(TOPDIR)/drivers/isdn/Rules.make
 hisax.o: $(hisax-objs)
 	$(LD) -r -o $@ $(hisax-objs)
 
-st5481.o: $(st5481-objs)
-	$(LD) -r -o $@ $(st5481-objs)
+hisax_st5481.o: $(hisax_st5481-objs)
+	$(LD) -r -o $@ $(hisax_st5481-objs)

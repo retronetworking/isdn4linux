@@ -24,50 +24,10 @@
 if (level &  ST5481_DEBUG) \
 printk(KERN_DEBUG __FUNCTION__ ": " format "\n" , ## arg) \
 
-static inline const char *
-ST5481_IND_string(int evt)
-{
-	static char s[16];
-
-	switch(evt) {
-	case ST5481_IND_DP: return "DP";
-	case ST5481_IND_RSY: return "RSY";
-	case ST5481_IND_AP: return "AP";
-	case ST5481_IND_AI8: return "AI8";
-	case ST5481_IND_AI10: return "AI10";
-	case ST5481_IND_AIL: return "AIL";
-	case ST5481_IND_DI: return "DI";
-	}
-	
-	sprintf(s,"0x%x",evt);
-	return s;
-}
-
-static inline const char *
-ST5481_CMD_string(int evt)
-{
-	static char s[16];
-
-	switch (evt) {
-	case ST5481_CMD_DR: return "DR";
-	case ST5481_CMD_RES: return "RES";
-	case ST5481_CMD_TM1: return "TM1";
-	case ST5481_CMD_TM2: return "TM2";
-	case ST5481_CMD_PUP: return "PUP";
-	case ST5481_CMD_AR8: return "AR8";
-	case ST5481_CMD_AR10: return "AR10";
-	case ST5481_CMD_ARL: return "ARL";
-	case ST5481_CMD_PDN: return "PDN";
-	};
-	
-	sprintf(s,"0x%x",evt);
-	return s;
-}	
-
 static inline void 
 dump_packet(const char *name,const u_char *data,int pkt_len)
 {
-#define DUMP_HDR_SIZE 20
+#define DUMP_HDR_SIZE 200
 #define DUMP_TLR_SIZE 8
 	if (pkt_len) {
 		int i,len1,len2;

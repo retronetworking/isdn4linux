@@ -1,5 +1,17 @@
-#ifndef __ST5481_HDLC__
-#define __ST5481_HDLC__
+/*
+ * Driver for ST5481 USB ISDN modem
+ *
+ * Author       Frode Isaksen
+ * Copyright    2001 by Frode Isaksen      <fisaksen@bewan.com>
+ *              2001 by Kai Germaschewski  <kai.germaschewski@gmx.de>
+ * 
+ * This software may be used and distributed according to the terms
+ * of the GNU General Public License, incorporated herein by reference.
+ *
+ */
+
+#ifndef __ST5481_HDLC_H__
+#define __ST5481_HDLC_H__
 
 struct hdlc_vars {
   	int bit_shift; 

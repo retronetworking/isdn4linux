@@ -1,14 +1,27 @@
-#ifndef _ST5481__H_
-#define _ST5481__H_
+/*
+ * Driver for ST5481 USB ISDN modem
+ *
+ * Author       Frode Isaksen
+ * Copyright    2001 by Frode Isaksen      <fisaksen@bewan.com>
+ *              2001 by Kai Germaschewski  <kai.germaschewski@gmx.de>
+ * 
+ * This software may be used and distributed according to the terms
+ * of the GNU General Public License, incorporated herein by reference.
+ *
+ */
+
+#ifndef _ST5481_H_
+#define _ST5481_H_
+
+// USB IDs, the Product Id is in the range 0x4810-0x481F
 
 #define ST_VENDOR_ID 0x0483
-#define ST5481_PRODUCT_ID 0x4810 /* The Product Id is in the range 0x4810-0x481F */
+#define ST5481_PRODUCT_ID 0x4810
 #define ST5481_PRODUCT_ID_MASK 0xFFF0
 
-/*
-  ST5481 endpoints when using alternative setting 3 (2B+D).
-  To get the endpoint address, OR with 0x80 for IN endpoints.
-*/ 
+// ST5481 endpoints when using alternative setting 3 (2B+D).
+// To get the endpoint address, OR with 0x80 for IN endpoints.
+
 #define EP_CTRL   0x00U /* Control endpoint */
 #define EP_INT    0x01U /* Interrupt endpoint */
 #define EP_B1_OUT 0x02U /* B1 channel out */
@@ -18,27 +31,27 @@
 #define EP_D_OUT  0x06U /* D channel out */
 #define EP_D_IN   0x07U /* D channel in */
   
-/* 
-   Number of isochronous packets. With 20 packets we get
-   50 interrupts/sec for each endpoint.
-*/ 
+// Number of isochronous packets. With 20 packets we get
+// 50 interrupts/sec for each endpoint.
+
 #define NUM_ISO_PACKETS_D      20
 #define NUM_ISO_PACKETS_B      20
 
-/*
-  Size of each isochronous packet.
-*/
+// Size of each isochronous packet.
+// In outgoing direction we need to match ISDN data rates:
+// D:  2 bytes / msec -> 16 kbit / s
+// B: 16 bytes / msec -> 64 kbit / s
 #define SIZE_ISO_PACKETS_D_IN  16
 #define SIZE_ISO_PACKETS_D_OUT 2
 #define SIZE_ISO_PACKETS_B_IN  32
 #define SIZE_ISO_PACKETS_B_OUT 8
 
+// If we overrun/underrun, we send one packet with +/- 2 bytes
 #define B_FLOW_ADJUST 2
 
-/* 
-   Registers that are written using vendor specific device request
-   on endpoint 0. 
-*/
+// Registers that are written using vendor specific device request
+// on endpoint 0. 
+
 #define LBA			0x02 /* S loopback */
 #define SET_DEFAULT		0x06 /* Soft reset */
 #define LBB			0x1D /* S maintenance loopback */
@@ -74,16 +87,14 @@
 #define TXCI			0x56 /* CI command to be transmitted */
 
 
-/*
-  Format of the interrupt packet received on endpoint 1:
+// Format of the interrupt packet received on endpoint 1:
+//
+// +--------+--------+--------+--------+--------+--------+
+// !MPINT   !FFINT_D !FFINT_B1!FFINT_B2!CCIST   !GPIO_INT!
+// +--------+--------+--------+--------+--------+--------+
 
- +--------+--------+--------+--------+--------+--------+
- !MPINT   !FFINT_D !FFINT_B1!FFINT_B2!CCIST   !GPIO_INT!
- +--------+--------+--------+--------+--------+--------+
+// Offsets in the interrupt packet
 
-*/
-
-/* Offsets in the interrupt packet */
 #define MPINT			0
 #define FFINT_D			1
 #define FFINT_B1		2
@@ -92,7 +103,7 @@
 #define GPIO_INT		5
 #define INT_PKT_SIZE            6
 
-/* MPINT */
+// MPINT
 #define LSD_INT                 0x80 /* S line activity detected */
 #define RXCI_INT		0x40 /* Indicate primitive arrived */
 #define	DEN_INT			0x20 /* Signal enabling data out of D Tx fifo */
@@ -102,7 +113,7 @@
 #define DRXON_INT               0x02 /* Reception channel active */
 #define GPCHG_INT               0x01 /* GPIO pin value changed */
 
-/* FFINT_x */
+// FFINT_x
 #define IN_OVERRUN		0x80 /* In fifo overrun */
 #define OUT_UNDERRUN		0x40 /* Out fifo underrun */
 #define IN_UP			0x20 /* In fifo thresholdh up-crossed */
@@ -115,17 +126,8 @@
 #define ANY_REC_INT	(IN_OVERRUN+IN_UP+IN_DOWN+IN_COUNTER_ZEROED)
 #define ANY_XMIT_INT	(OUT_UNDERRUN+OUT_UP+OUT_DOWN+OUT_COUNTER_ZEROED)
 
-/* Level 1 indications that are found at offset 4 (CCIST)
-   in the interrupt packet */
-#define ST5481_IND_DP		 0x0  /* Deactivation Pending */
-#define	ST5481_IND_RSY		 0x4  /* ReSYnchronizing */
-#define ST5481_IND_AP		 0x8  /* Activation Pending */
-#define	ST5481_IND_AI8		 0xC  /* Activation Indication class 8 */
-#define	ST5481_IND_AI10		 0xD  /* Activation Indication class 10 */
-#define	ST5481_IND_AIL		 0xE  /* Activation Indication Loopback */
-#define	ST5481_IND_DI		 0xF  /* Deactivation Indication */
 
-/* Level 1 commands that are sent using the TXCI device request */
+// Level 1 commands that are sent using the TXCI device request
 #define ST5481_CMD_DR		 0x0 /* Deactivation Request */
 #define ST5481_CMD_RES		 0x1 /* state machine RESet */
 #define ST5481_CMD_TM1		 0x2 /* Test Mode 1 */
@@ -136,15 +138,14 @@
 #define ST5481_CMD_ARL		 0xA /* Activation Request Loopback */
 #define ST5481_CMD_PDN		 0xF /* Power DoWn */
 
-
-/* Turn on/off the LEDs using the GPIO device request.
-   To use the B LEDs, number_of_leds must be set to 4 */
+// Turn on/off the LEDs using the GPIO device request.
+// To use the B LEDs, number_of_leds must be set to 4
 #define B1_LED		0x10U
 #define B2_LED		0x20U
 #define GREEN_LED	0x40U
 #define RED_LED	        0x80U
 
-/* D channel out states */
+// D channel out states
 enum {
 	ST_DOUT_NONE,
 
@@ -163,7 +164,7 @@ enum {
 
 #define DOUT_STATE_COUNT (ST_DOUT_WAIT_FOR_RESET + 1)
 
-/* D channel out events */
+// D channel out events
 enum {
 	EV_DOUT_START_XMIT,
 	EV_DOUT_COMPLETE,
@@ -172,12 +173,48 @@ enum {
 	EV_DOUT_STOPPED,
 	EV_DOUT_COLL,
 	EV_DOUT_UNDERRUN,
-	DXMIT_NOT_BUSY,
 };
 
-#define DOUT_EVENT_COUNT (DXMIT_NOT_BUSY + 1)
+#define DOUT_EVENT_COUNT (EV_DOUT_UNDERRUN + 1)
 
-#define MIN(a,b) ((a)<(b) ? (a):(b))
+// ----------------------------------------------------------------------
+
+enum {
+	ST_L1_F3,
+	ST_L1_F4,
+	ST_L1_F6,
+	ST_L1_F7,
+	ST_L1_F8,
+};
+
+#define L1_STATE_COUNT (ST_L1_F8+1)
+
+// The first 16 entries match the Level 1 indications that 
+// are found at offset 4 (CCIST) in the interrupt packet
+
+enum {
+	EV_IND_DP,  // 0000 Deactivation Pending
+	EV_IND_1,   // 0001
+	EV_IND_2,   // 0010
+	EV_IND_3,   // 0011
+	EV_IND_RSY, // 0100 ReSYnchronizing
+	EV_IND_5,   // 0101
+	EV_IND_6,   // 0110
+	EV_IND_7,   // 0111
+	EV_IND_AP,  // 1000 Activation Pending
+	EV_IND_9,   // 1001
+	EV_IND_10,  // 1010
+	EV_IND_11,  // 1011
+	EV_IND_AI8, // 1100 Activation Indication class 8
+	EV_IND_AI10,// 1101 Activation Indication class 10
+	EV_IND_AIL, // 1110 Activation Indication Loopback
+	EV_IND_DI,  // 1111 Deactivation Indication
+	EV_PH_ACTIVATE_REQ,
+	EV_PH_DEACTIVATE_REQ,
+	EV_TIMER3,
+};
+
+#define L1_EVENT_COUNT (EV_TIMER3 + 1)
 
 #define ERR(format, arg...) \
 printk(KERN_ERR __FILE__ ": " __FUNCTION__ ": " format "\n" , ## arg)
@@ -188,7 +225,6 @@ printk(KERN_WARNING __FILE__ ": " __FUNCTION__ ": " format "\n" , ## arg)
 #define INFO(format, arg...) \
 printk(KERN_INFO __FILE__ ": " __FUNCTION__ ": " format "\n" , ## arg)
 
-#include "st5481-debug.h"
 #include "st5481_hdlc.h"
 #include "fsm.h"
 #include "hisax_if.h"
@@ -265,21 +301,6 @@ static inline int fifo_remove(struct fifo *fifo)
 	return index;
 }
 
-// ----------------------------------------------------------------------
-
-/* FIFO of received interrupt events */
-
-struct evt {
-	int pr;
-	void *arg;
-};
-
-#define MAX_EVT_FIFO 16
-struct evt_fifo {
-	struct fifo f;
-	struct evt data[MAX_EVT_FIFO];
-};	
-
 /* ======================================================================
  * control pipe
  */
@@ -308,7 +329,7 @@ struct st5481_ctrl {
 };
 
 struct st5481_intr {
-	struct evt_fifo evt_fifo;
+  //	struct evt_fifo evt_fifo;
 	struct urb *urb;
 };
 
@@ -369,9 +390,7 @@ struct st5481_adapter {
 	unsigned int led_counter;
 
 	unsigned long event;
-	struct tq_struct tqueue;
 
-	int ph_state;
 	struct FsmInst l1m;
 	struct FsmTimer timer;
 
@@ -414,8 +433,6 @@ void st5481_release_b(struct st5481_bcs *bcs);
 void st5481_d_l2l1(struct hisax_if *hisax_d_if, int pr, void *arg);
 
 /* D Channel */
-#define D_L1STATECHANGE 2
-#define D_OUT_EVENT 10
 
 int  st5481_setup_d(struct st5481_adapter *adapter);
 void st5481_release_d(struct st5481_adapter *adapter);
@@ -423,9 +440,6 @@ void st5481_b_l2l1(struct hisax_if *b_if, int pr, void *arg);
 int  st5481_d_init(void);
 void st5481_d_exit(void);
 
-void st5481_sched_event(struct st5481_adapter *adapter, int event);
-void st5481_sched_d_out_event(struct st5481_adapter *adapter,
-			      int event, void *arg);
 /* USB */
 void st5481_ph_command(struct st5481_adapter *adapter, unsigned int command);
 int st5481_setup_isocpipes(struct urb* urb[2], struct usb_device *dev, 
@@ -447,5 +461,73 @@ int  st5481_setup_usb(struct st5481_adapter *adapter);
 void st5481_release_usb(struct st5481_adapter *adapter);
 void st5481_start(struct st5481_adapter *adapter);
 void st5481_stop(struct st5481_adapter *adapter);
+
+// ----------------------------------------------------------------------
+// debugging macros
+
+#define __debug_variable st5481_debug
+#include "hisax_debug.h"
+
+#ifdef CONFIG_HISAX_DEBUG
+
+extern int st5481_debug;
+
+#define DBG_ISO_PACKET(level,urb) \
+  if (level & __debug_variable) dump_iso_packet(__FUNCTION__,urb)
+
+static void __attribute__((unused))
+dump_iso_packet(const char *name,urb_t *urb)
+{
+	int i,j;
+	int len,ofs;
+	u_char *data;
+
+	printk(KERN_DEBUG "%s: packets=%d,errors=%d\n",
+	       name,urb->number_of_packets,urb->error_count);
+	for (i = 0; i  < urb->number_of_packets; ++i) {
+		if (urb->pipe & USB_DIR_IN) {
+			len = urb->iso_frame_desc[i].actual_length;
+		} else {
+			len = urb->iso_frame_desc[i].length;
+		}
+		ofs = urb->iso_frame_desc[i].offset;
+		printk(KERN_DEBUG "len=%.2d,ofs=%.3d ",len,ofs);
+		if (len) {
+			data = urb->transfer_buffer+ofs;
+			for (j=0; j < len; j++) {
+				printk ("%.2x", data[j]);
+			}
+		}
+		printk("\n");
+	}
+}
+
+static inline const char *ST5481_CMD_string(int evt)
+{
+	static char s[16];
+
+	switch (evt) {
+	case ST5481_CMD_DR: return "DR";
+	case ST5481_CMD_RES: return "RES";
+	case ST5481_CMD_TM1: return "TM1";
+	case ST5481_CMD_TM2: return "TM2";
+	case ST5481_CMD_PUP: return "PUP";
+	case ST5481_CMD_AR8: return "AR8";
+	case ST5481_CMD_AR10: return "AR10";
+	case ST5481_CMD_ARL: return "ARL";
+	case ST5481_CMD_PDN: return "PDN";
+	};
+	
+	sprintf(s,"0x%x",evt);
+	return s;
+}	
+
+#else
+
+#define DBG_ISO_PACKET(level,urb) do {} while (0)
+
+#endif
+
+
 
 #endif 

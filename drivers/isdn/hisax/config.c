@@ -326,7 +326,8 @@ EXPORT_SYMBOL(hfc_init_pcmcia);
 #define DEFAULT_PROTO_NAME "UNKNOWN"
 #endif
 #ifndef DEFAULT_CARD
-#error "HiSax: No cards configured"
+#define DEFAULT_CARD 0
+#define DEFAULT_CFG {0,0,0,0}
 #endif
 
 int hisax_init_pcmcia(void *, int *, struct IsdnCard *);
@@ -1805,6 +1806,7 @@ static int hisax_cardmsg(struct IsdnCardState *cs, int mt, void *arg);
 static int hisax_bc_setstack(struct PStack *st, struct BCState *bcs);
 static void hisax_bc_close(struct BCState *bcs);
 static void hisax_bh(struct IsdnCardState *cs);
+static void EChannel_proc_rcv(struct hisax_d_if *d_if);
 
 int hisax_register(struct hisax_d_if *hisax_d_if, struct hisax_b_if *b_if[],
 		   char *name, int protocol)
@@ -1846,13 +1848,17 @@ int hisax_register(struct hisax_d_if *hisax_d_if, struct hisax_b_if *b_if[],
 		hisax_d_if->b_if[i] = b_if[i];
 	}
 	hisax_d_if->ifc.l1l2 = hisax_d_l1l2;
-
+	skb_queue_head_init(&hisax_d_if->erq);
+	clear_bit(0, &hisax_d_if->ph_state);
+	
 	return 0;
 }
 
 void hisax_unregister(struct hisax_d_if *hisax_d_if)
 {
+	cards[hisax_d_if->cs->cardnr].typ = 0;
 	HiSax_closecard(hisax_d_if->cs->cardnr);
+	skb_queue_purge(&hisax_d_if->erq);
 }
 
 #include "isdnl1.h"
@@ -1866,8 +1872,22 @@ static void hisax_sched_event(struct IsdnCardState *cs, int event)
 
 static void hisax_bh(struct IsdnCardState *cs)
 {
+	struct PStack *st;
+	int pr;
+
 	if (test_and_clear_bit(D_RCVBUFREADY, &cs->event))
 		DChannel_proc_rcv(cs);
+	if (test_and_clear_bit(E_RCVBUFREADY, &cs->event))
+		EChannel_proc_rcv(cs->hw.hisax_d_if);
+	if (test_and_clear_bit(D_L1STATECHANGE, &cs->event)) {
+		if (test_bit(0, &cs->hw.hisax_d_if->ph_state))
+			pr = PH_ACTIVATE | INDICATION;
+		else
+			pr = PH_DEACTIVATE | INDICATION;
+		for (st = cs->stlist; st; st = st->next)
+			st->l1.l1l2(st, pr, NULL);
+		
+	}
 }
 
 static void hisax_b_sched_event(struct BCState *bcs, int event)
@@ -1898,12 +1918,12 @@ static void hisax_d_l1l2(struct hisax_if *ifc, int pr, void *arg)
 
 	switch (pr) {
 	case PH_ACTIVATE | INDICATION:
-		for (st = cs->stlist; st; st = st->next)
-			st->l1.l1l2(st, pr, NULL);
+		set_bit(0, &d_if->ph_state);
+		hisax_sched_event(cs, D_L1STATECHANGE);
 		break;
 	case PH_DEACTIVATE | INDICATION:
-		for (st = cs->stlist; st; st = st->next)
-			st->l1.l1l2(st, pr, NULL);
+		clear_bit(0, &d_if->ph_state);
+		hisax_sched_event(cs, D_L1STATECHANGE);
 		break;
 	case PH_DATA | INDICATION:
 		skb_queue_tail(&cs->rq, arg);
@@ -1913,15 +1933,18 @@ static void hisax_d_l1l2(struct hisax_if *ifc, int pr, void *arg)
 		skb = skb_dequeue(&cs->sq);
 		if (skb) {
 			D_L2L1(d_if, PH_DATA | REQUEST, skb);
-		} else {
-			clear_bit(FLG_L1_DBUSY, &cs->HW_Flags);
-			for (st = cs->stlist; st; st = st->next) {
-				if (test_and_clear_bit(FLG_L1_PULL_REQ, &st->l1.Flags))
-
-					st->l1.l1l2(st, PH_PULL | CONFIRM, NULL);
-				break;
-			}
+			break;
 		}
+		clear_bit(FLG_L1_DBUSY, &cs->HW_Flags);
+		for (st = cs->stlist; st; st = st->next) {
+			if (test_and_clear_bit(FLG_L1_PULL_REQ, &st->l1.Flags))
+				st->l1.l1l2(st, PH_PULL | CONFIRM, NULL);
+			break;
+		}
+		break;
+	case PH_DATA_E | INDICATION:
+		skb_queue_tail(&d_if->erq, arg);
+		hisax_sched_event(cs, E_RCVBUFREADY);
 		break;
 	default:
 		printk("pr %#x\n", pr);
@@ -2056,6 +2079,35 @@ static void hisax_bc_close(struct BCState *bcs)
 
 	if (b_if)
 		B_L2L1(b_if, PH_DEACTIVATE | REQUEST, NULL);
+}
+
+static void EChannel_proc_rcv(struct hisax_d_if *d_if)
+{
+	struct IsdnCardState *cs = d_if->cs;
+	u_char *ptr;
+	struct sk_buff *skb;
+
+	while ((skb = skb_dequeue(&d_if->erq)) != NULL) {
+		if (cs->debug & DEB_DLOG_HEX) {
+			ptr = cs->dlog;
+			if ((skb->len) < MAX_DLOG_SPACE / 3 - 10) {
+				*ptr++ = 'E';
+				*ptr++ = 'C';
+				*ptr++ = 'H';
+				*ptr++ = 'O';
+				*ptr++ = ':';
+				ptr += QuickHex(ptr, skb->data, skb->len);
+				ptr--;
+				*ptr++ = '\n';
+				*ptr = 0;
+				HiSax_putstatus(cs, NULL, cs->dlog);
+			} else
+				HiSax_putstatus(cs, "LogEcho: ",
+						"warning Frame too big (%d)",
+						skb->len);
+		}
+		dev_kfree_skb_any(skb);
+	}
 }
 
 #include <linux/pci.h>

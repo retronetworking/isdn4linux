@@ -1,9 +1,12 @@
-/* 
- *
+/*
  * Driver for ST5481 USB ISDN modem
  *
- * Author       Frode Isaksen (fisaksen@bewan.com)
- *
+ * Author       Frode Isaksen
+ * Copyright    2001 by Frode Isaksen      <fisaksen@bewan.com>
+ *              2001 by Kai Germaschewski  <kai.germaschewski@gmx.de>
+ * 
+ * This software may be used and distributed according to the terms
+ * of the GNU General Public License, incorporated herein by reference.
  *
  */
 
@@ -11,35 +14,38 @@
  * TODO:
  *
  * b layer1 delay?
- * d out fsm
  * hdlc as module
  * hotplug / unregister issues
  * mod_inc/dec_use_count
  * unify parts of d/b channel usb handling
  * file header
- * PH_PAUSE?
- * evt queue w/o arg?
+ * avoid copy to isoc buffer?
+ * improve usb delay?
+ * merge l1 state machines?
+ * clean up debug
  */
-
-static const char *st5481_revision = "$Revision$";
 
 #include <linux/version.h>
 #include <linux/module.h>
 #include <linux/init.h>
 #include <linux/usb.h>
 #include <linux/slab.h>
-#include <linux/netdevice.h>
-#include <linux/if_arp.h>
 #include "st5481.h"
 
 MODULE_AUTHOR("Frode Isaksen <fisaksen@bewan.com>");
-MODULE_DESCRIPTION("ST5481 USB ISDN modem");
+MODULE_DESCRIPTION("ST5481 USB ISDN modem driver");
 
 static int protocol = 2;       /* EURO-ISDN Default */
 MODULE_PARM(protocol, "i");
 
 static int number_of_leds = 2;       /* 2 LEDs on the adpater default */
 MODULE_PARM(number_of_leds, "i");
+
+#ifdef CONFIG_HISAX_DEBUG
+static int debug = 0x1;
+MODULE_PARM(debug, "i");
+int st5481_debug;
+#endif
 
 static LIST_HEAD(adapter_list);
 
@@ -59,6 +65,7 @@ static void * __devinit probe_st5481(struct usb_device *dev,
 	struct hisax_b_if *b_if[2];
 	int retval, i;
 
+	MOD_INC_USE_COUNT;
 	printk(KERN_INFO "st541: found adapter VendorId %04x, ProductId %04x, LEDs %d\n",
 	     dev->descriptor.idVendor, dev->descriptor.idProduct,
 	     number_of_leds);
@@ -113,7 +120,7 @@ static void * __devinit probe_st5481(struct usb_device *dev,
  err_usb:
 	st5481_release_usb(adapter);
  err:
-	WARN("retval %d\n", retval);
+	MOD_DEC_USE_COUNT;
 	return NULL;
 }
 
@@ -140,6 +147,7 @@ static void __devexit disconnect_st5481(struct usb_device *dev, void *arg)
 	hisax_unregister(&adapter->hisax_d_if);
 
 	kfree(adapter);
+	MOD_DEC_USE_COUNT;
 }
 
 /*
@@ -177,10 +185,11 @@ static int __init st5481_usb_init(void)
 {
 	int retval;
 
-	DBG(1,"");
+#ifdef CONFIG_HISAX_DEBUG
+	st5481_debug = debug;
+#endif
 
-	printk(KERN_INFO "st5481: ST5481 USB ISDN driver %s\n",
-	       st5481_revision);
+	printk(KERN_INFO "hiax_st5481: ST5481 USB ISDN driver v0.1.0\n");
 
 	retval = st5481_d_init();
 	if (retval < 0)
@@ -190,7 +199,6 @@ static int __init st5481_usb_init(void)
 	if (retval < 0)
 		goto out_d_exit;
 
-	//	create_proc_read_entry("driver/st5481", 0, 0, proc_read_proc, NULL);
 	return 0;
 
  out_d_exit:
@@ -199,13 +207,10 @@ static int __init st5481_usb_init(void)
 	return retval;
 }
 
-static void __exit st5481_usb_cleanup(void)
+static void __exit st5481_usb_exit(void)
 {
-	DBG(1,"");
-
 	usb_deregister(&st5481_usb_driver);
-	//	remove_proc_entry("driver/st5481", NULL);
 }
 
 module_init(st5481_usb_init);
-module_exit(st5481_usb_cleanup);
+module_exit(st5481_usb_exit);

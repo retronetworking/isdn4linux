@@ -1,3 +1,15 @@
+/*
+ * Driver for ST5481 USB ISDN modem
+ *
+ * Author       Frode Isaksen
+ * Copyright    2001 by Frode Isaksen      <fisaksen@bewan.com>
+ *              2001 by Kai Germaschewski  <kai.germaschewski@gmx.de>
+ * 
+ * This software may be used and distributed according to the terms
+ * of the GNU General Public License, incorporated herein by reference.
+ *
+ */
+
 #include <linux/version.h>
 #include <linux/module.h>
 #include <linux/init.h>
@@ -6,9 +18,9 @@
 #include <linux/netdevice.h>
 #include "st5481.h"
 
-static inline void B_L1L2(struct hisax_b_if *b_if, int pr, void *arg)
+static inline void B_L1L2(struct st5481_bcs *bcs, int pr, void *arg)
 {
-	struct hisax_if *ifc = (struct hisax_if *) b_if;
+	struct hisax_if *ifc = (struct hisax_if *) &bcs->b_if;
 
 	ifc->l1l2(ifc, pr, arg);
 }
@@ -50,13 +62,15 @@ static void usb_b_out(struct st5481_bcs *bcs,int buf_nr)
 	len = 0;
 	while (len < buf_size) {
 		if ((skb = b_out->tx_skb)) {
-			DUMP_SKB(0x100, skb);
+			DBG_SKB(0x100, skb);
 			DBG(4,"B%d,len=%d",bcs->channel+1,skb->len);
 			
 			if (bcs->mode == L1_MODE_TRANS) {	
-				bytes_sent = MIN(buf_size - len, skb->len);
+				bytes_sent = buf_size - len;
+				if (skb->len < bytes_sent)
+					bytes_sent = skb->len;
 
-				memcpy(urb->transfer_buffer+len, skb->data, buf_size);
+				memcpy(urb->transfer_buffer+len, skb->data, bytes_sent);
 				
 				len += bytes_sent;
 			} else {
@@ -70,8 +84,7 @@ static void usb_b_out(struct st5481_bcs *bcs,int buf_nr)
 			if (!skb->len) {
 				// Frame sent
 				b_out->tx_skb = NULL;
-				B_L1L2(&bcs->b_if, PH_DATA | CONFIRM,
-					     (void *) skb->truesize);
+				B_L1L2(bcs, PH_DATA | CONFIRM, (void *) skb->truesize);
 				dev_kfree_skb_any(skb);
 				
 /* 				if (!(bcs->tx_skb = skb_dequeue(&bcs->sq))) { */
@@ -102,7 +115,7 @@ static void usb_b_out(struct st5481_bcs *bcs,int buf_nr)
 	urb->number_of_packets = i;
 	urb->dev = adapter->usb_dev;
 
-	DUMP_ISO_PACKET(0x200,urb);
+	DBG_ISO_PACKET(0x200,urb);
 
 	SUBMIT_URB(urb);
 }
@@ -324,7 +337,6 @@ void __devexit st5481_release_b(struct st5481_bcs *bcs)
  */
 void st5481_b_l2l1(struct hisax_if *ifc, int pr, void *arg)
 {
-	struct hisax_b_if *b_if = (struct hisax_b_if *) ifc;
 	struct st5481_bcs *bcs = ifc->priv;
 	struct sk_buff *skb = arg;
 	int mode;
@@ -342,12 +354,12 @@ void st5481_b_l2l1(struct hisax_if *ifc, int pr, void *arg)
 		mode = (int) arg;
 		DBG(4,"B%d,PH_ACTIVATE_REQUEST %d", bcs->channel + 1, mode);
 		st5481B_mode(bcs, mode);
-		B_L1L2(b_if, PH_ACTIVATE | INDICATION, NULL);
+		B_L1L2(bcs, PH_ACTIVATE | INDICATION, NULL);
 		break;
 	case PH_DEACTIVATE | REQUEST:
 		DBG(4,"B%d,PH_DEACTIVATE_REQUEST", bcs->channel + 1);
 		st5481B_mode(bcs, L1_MODE_NULL);
-		B_L1L2(b_if, PH_DEACTIVATE | INDICATION, NULL);
+		B_L1L2(bcs, PH_DEACTIVATE | INDICATION, NULL);
 		break;
 	default:
 		WARN("pr %#x\n", pr);

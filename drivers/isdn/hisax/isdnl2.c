@@ -1414,8 +1414,8 @@ l2_st5_tei_remove(struct FsmInst *fi, int event, void *arg)
 	freewin(st);
 	st->l2.tei = -1;
 	stop_t200(st, 17);
-	st5_dl_release_l2l3(st);
 	FsmChangeState(fi, ST_L2_1);
+	st5_dl_release_l2l3(st);
 }
 
 static void

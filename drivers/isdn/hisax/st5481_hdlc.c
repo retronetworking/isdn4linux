@@ -1,7 +1,18 @@
+/*
+ * Driver for ST5481 USB ISDN modem
+ *
+ * Author       Frode Isaksen
+ * Copyright    2001 by Frode Isaksen      <fisaksen@bewan.com>
+ *              2001 by Kai Germaschewski  <kai.germaschewski@gmx.de>
+ * 
+ * This software may be used and distributed according to the terms
+ * of the GNU General Public License, incorporated herein by reference.
+ *
+ */
+
 #include "st5481_hdlc.h"
 
-
-static const unsigned short int crc16_tab[]={
+static const unsigned short int crc16_tab[] = {
 	0x0000,0x1189,0x2312,0x329b,0x4624,0x57ad,0x6536,0x74bf,
 	0x8c48,0x9dc1,0xaf5a,0xbed3,0xca6c,0xdbe5,0xe97e,0xf8f7,
 	0x1081,0x0108,0x3393,0x221a,0x56a5,0x472c,0x75b7,0x643e,
@@ -236,7 +247,7 @@ int hdlc_decode(struct hdlc_vars *hdlc, const unsigned char *src,
 			} else {
 				switch(hdlc->hdlc_bits1){
 				case 5:
-				break;
+					break;
 				case 6:
 					if(hdlc->data_received){
 						if (hdlc->dstpos < 2) {
@@ -350,260 +361,260 @@ int hdlc_decode(struct hdlc_vars *hdlc, const unsigned char *src,
   dsize - destination buffer size
   returns - number of encoded bytes in the destination buffer
 */
-int
-hdlc_encode(struct hdlc_vars *hdlc, const unsigned char *src, unsigned short slen, int *count,
-	    unsigned char *dst, int dsize)
+int hdlc_encode(struct hdlc_vars *hdlc, const unsigned char *src, 
+		unsigned short slen, int *count,
+		unsigned char *dst, int dsize)
 {
-  static const unsigned char xfast_flag_value[]={
-	0x7e,0x3f,0x9f,0xcf,0xe7,0xf3,0xf9,0xfc,0x7e
-  };
+	static const unsigned char xfast_flag_value[] = {
+		0x7e,0x3f,0x9f,0xcf,0xe7,0xf3,0xf9,0xfc,0x7e
+	};
 
-  int len = 0;
+	int len = 0;
 
-  *count = slen;
+	*count = slen;
 
-  while (dsize > 0) {
-	  if(hdlc->bit_shift==0){	
-		  if(slen && !hdlc->do_closing){
-			  hdlc->shift_reg = *src++;
-			  slen--;
-			  if (slen == 0) 
-				  hdlc->do_closing = 1;  /* closing sequence, CRC + flag(s) */
-			  hdlc->bit_shift = 8;
-		  } else {
-			  if(hdlc->state == HDLC_SEND_DATA){
-				  if(hdlc->data_received){
-					  hdlc->state = HDLC_SEND_CRC1;
-					  hdlc->crc ^= 0xffff;
-					  hdlc->bit_shift = 8;
-					  hdlc->shift_reg = hdlc->crc & 0xff;
-				  } else if(!hdlc->do_adapt56){
-					  hdlc->state = HDLC_SEND_FAST_FLAG;
-				  } else {
-					  hdlc->state = HDLC_SENDFLAG_B0;
-				  }
-			  }
-			  
-		  }
-	  }
-
-	  switch(hdlc->state){
-	  case STOPPED:
-		  while (dsize--)
-			  *dst++ = 0xff;
-		  
-		  return dsize;
-	case HDLC_SEND_FAST_FLAG:
-		hdlc->do_closing = 0;
-		if(slen == 0){
-			*dst++ = hdlc->ffvalue;
-			len++;
-			dsize--;
-			break;
-		}
-		if(hdlc->bit_shift==8){
-			hdlc->cbin = hdlc->ffvalue>>(8-hdlc->data_bits);
-			hdlc->state = HDLC_SEND_DATA;
-			hdlc->crc = 0xffff;
-			hdlc->hdlc_bits1 = 0;
-			hdlc->data_received = 1;
-		}
-		break;
-	case HDLC_SENDFLAG_B0:
-		hdlc->do_closing = 0;
-		hdlc->cbin <<= 1;
-		hdlc->data_bits++;
-		hdlc->hdlc_bits1 = 0;
-		hdlc->state = HDLC_SENDFLAG_B1A6;
-		break;
-	case HDLC_SENDFLAG_B1A6:
-		hdlc->cbin <<= 1;
-		hdlc->data_bits++;
-		hdlc->cbin++;
-		if(++hdlc->hdlc_bits1 == 6)
-			hdlc->state = HDLC_SENDFLAG_B7;
-		break;
-	case HDLC_SENDFLAG_B7:
-		hdlc->cbin <<= 1;
-		hdlc->data_bits++;
-		if(slen == 0){
-			hdlc->state = HDLC_SENDFLAG_B0;
-			break;
-		}
-		if(hdlc->bit_shift==8){
-			hdlc->state = HDLC_SEND_DATA;
-			hdlc->crc = 0xffff;
-			hdlc->hdlc_bits1 = 0;
-			hdlc->data_received = 1;
-		}
-		break;
-	case HDLC_SEND_FIRST_FLAG:
-		hdlc->data_received = 1;
-		if(hdlc->data_bits==8){
-			hdlc->state = HDLC_SEND_DATA;
-			hdlc->crc = 0xffff;
-			hdlc->hdlc_bits1 = 0;
-			break;
-		}
-		hdlc->cbin <<= 1;
-		hdlc->data_bits++;
-		if(hdlc->shift_reg & 0x01)
-			hdlc->cbin++;
-		hdlc->shift_reg >>= 1;
-		hdlc->bit_shift--;
-		if(hdlc->bit_shift==0){
-			hdlc->state = HDLC_SEND_DATA;
-			hdlc->crc = 0xffff;
-			hdlc->hdlc_bits1 = 0;
-		}
-		break;
-	case HDLC_SEND_DATA:
-		hdlc->cbin <<= 1;
-		hdlc->data_bits++;
-		if(hdlc->hdlc_bits1 == 5){
-			hdlc->hdlc_bits1 = 0;
-			break;
-		}
-		if(hdlc->bit_shift==8){
-			unsigned cval;
-
-			cval = (hdlc->crc^hdlc->shift_reg) & 0xff;
-			hdlc->crc = (hdlc->crc>>8)^crc16_tab[cval];
-		}
-		if(hdlc->shift_reg & 0x01){
-			hdlc->hdlc_bits1++;
-			hdlc->cbin++;
-			hdlc->shift_reg >>= 1;
-			hdlc->bit_shift--;
-		} else {
-			hdlc->hdlc_bits1 = 0;
-			hdlc->shift_reg >>= 1;
-			hdlc->bit_shift--;
-		}
-		break;
-	case HDLC_SEND_CRC1:
-		hdlc->cbin <<= 1;
-		hdlc->data_bits++;
-		if(hdlc->hdlc_bits1 == 5){
-			hdlc->hdlc_bits1 = 0;
-			break;
-		}
-		if(hdlc->shift_reg & 0x01){
-			hdlc->hdlc_bits1++;
-			hdlc->cbin++;
-			hdlc->shift_reg >>= 1;
-			hdlc->bit_shift--;
-		} else {
-			hdlc->hdlc_bits1 = 0;
-			hdlc->shift_reg >>= 1;
-			hdlc->bit_shift--;
-		}
-		if(hdlc->bit_shift==0){
-			hdlc->shift_reg = (hdlc->crc >> 8);
-			hdlc->state = HDLC_SEND_CRC2;
-			hdlc->bit_shift = 8;
-		}
-		break;
-	case HDLC_SEND_CRC2:
-		hdlc->cbin <<= 1;
-		hdlc->data_bits++;
-		if(hdlc->hdlc_bits1 == 5){
-			hdlc->hdlc_bits1 = 0;
-			break;
-		}
-		if(hdlc->shift_reg & 0x01){
-			hdlc->hdlc_bits1++;
-			hdlc->cbin++;
-			hdlc->shift_reg >>= 1;
-			hdlc->bit_shift--;
-		} else {
-			hdlc->hdlc_bits1 = 0;
-			hdlc->shift_reg >>= 1;
-			hdlc->bit_shift--;
-		}
-		if(hdlc->bit_shift==0){
-			hdlc->shift_reg = 0x7e;
-			hdlc->state = HDLC_SEND_CLOSING_FLAG;
-			hdlc->bit_shift = 8;
-		}
-		break;
-	case HDLC_SEND_CLOSING_FLAG:
-		hdlc->cbin <<= 1;
-		hdlc->data_bits++;
-		if(hdlc->hdlc_bits1 == 5){
-			hdlc->hdlc_bits1 = 0;
-			break;
-		}
-		if(hdlc->shift_reg & 0x01){
-			hdlc->cbin++;
-		}
-		hdlc->shift_reg >>= 1;
-		hdlc->bit_shift--;
-		if(hdlc->bit_shift==0){
-			hdlc->ffvalue = xfast_flag_value[hdlc->data_bits];
-			if(hdlc->dchannel){
-				hdlc->ffvalue = 0x7e;
-				hdlc->state = HDLC_SEND_IDLE1;
-				hdlc->bit_shift = 8-hdlc->data_bits;
-				if(hdlc->bit_shift==0)
-					hdlc->state = HDLC_SEND_FAST_IDLE;
+	while (dsize > 0) {
+		if(hdlc->bit_shift==0){	
+			if(slen && !hdlc->do_closing){
+				hdlc->shift_reg = *src++;
+				slen--;
+				if (slen == 0) 
+					hdlc->do_closing = 1;  /* closing sequence, CRC + flag(s) */
+				hdlc->bit_shift = 8;
 			} else {
-				if(!hdlc->do_adapt56){
-					hdlc->state = HDLC_SEND_FAST_FLAG;
-					hdlc->data_received = 0;
-				} else {
-					hdlc->state = HDLC_SENDFLAG_B0;
-					hdlc->data_received = 0;
+				if(hdlc->state == HDLC_SEND_DATA){
+					if(hdlc->data_received){
+						hdlc->state = HDLC_SEND_CRC1;
+						hdlc->crc ^= 0xffff;
+						hdlc->bit_shift = 8;
+						hdlc->shift_reg = hdlc->crc & 0xff;
+					} else if(!hdlc->do_adapt56){
+						hdlc->state = HDLC_SEND_FAST_FLAG;
+					} else {
+						hdlc->state = HDLC_SENDFLAG_B0;
+					}
 				}
-				// Finished with this frame, send flags
-				if (dsize > 1) dsize = 1; 
+			  
 			}
 		}
-		break;
-	case HDLC_SEND_IDLE1:
-		hdlc->do_closing = 0;
-		hdlc->cbin <<= 1;
-		hdlc->cbin++;
-		hdlc->data_bits++;
-		hdlc->bit_shift--;
-		if(hdlc->bit_shift==0){
-			hdlc->state = HDLC_SEND_FAST_IDLE;
-			hdlc->bit_shift = 0;
-		}
-		break;
-	case HDLC_SEND_FAST_IDLE:
-		hdlc->do_closing = 0;
-		hdlc->cbin = 0xff;
-		hdlc->data_bits = 8;
-		if(hdlc->bit_shift == 8){
-			hdlc->cbin = 0x7e;
-			hdlc->state = HDLC_SEND_FIRST_FLAG;
-		} else {
-			*dst++ = hdlc->cbin;
-			hdlc->bit_shift = hdlc->data_bits = 0;
-			len++;
-			dsize = 0;
-		}
-		break;
-	default:
-		break;
-	}
-	if(hdlc->do_adapt56){
-		if(hdlc->data_bits==7){
+
+		switch(hdlc->state){
+		case STOPPED:
+			while (dsize--)
+				*dst++ = 0xff;
+		  
+			return dsize;
+		case HDLC_SEND_FAST_FLAG:
+			hdlc->do_closing = 0;
+			if(slen == 0){
+				*dst++ = hdlc->ffvalue;
+				len++;
+				dsize--;
+				break;
+			}
+			if(hdlc->bit_shift==8){
+				hdlc->cbin = hdlc->ffvalue>>(8-hdlc->data_bits);
+				hdlc->state = HDLC_SEND_DATA;
+				hdlc->crc = 0xffff;
+				hdlc->hdlc_bits1 = 0;
+				hdlc->data_received = 1;
+			}
+			break;
+		case HDLC_SENDFLAG_B0:
+			hdlc->do_closing = 0;
+			hdlc->cbin <<= 1;
+			hdlc->data_bits++;
+			hdlc->hdlc_bits1 = 0;
+			hdlc->state = HDLC_SENDFLAG_B1A6;
+			break;
+		case HDLC_SENDFLAG_B1A6:
+			hdlc->cbin <<= 1;
+			hdlc->data_bits++;
+			hdlc->cbin++;
+			if(++hdlc->hdlc_bits1 == 6)
+				hdlc->state = HDLC_SENDFLAG_B7;
+			break;
+		case HDLC_SENDFLAG_B7:
+			hdlc->cbin <<= 1;
+			hdlc->data_bits++;
+			if(slen == 0){
+				hdlc->state = HDLC_SENDFLAG_B0;
+				break;
+			}
+			if(hdlc->bit_shift==8){
+				hdlc->state = HDLC_SEND_DATA;
+				hdlc->crc = 0xffff;
+				hdlc->hdlc_bits1 = 0;
+				hdlc->data_received = 1;
+			}
+			break;
+		case HDLC_SEND_FIRST_FLAG:
+			hdlc->data_received = 1;
+			if(hdlc->data_bits==8){
+				hdlc->state = HDLC_SEND_DATA;
+				hdlc->crc = 0xffff;
+				hdlc->hdlc_bits1 = 0;
+				break;
+			}
+			hdlc->cbin <<= 1;
+			hdlc->data_bits++;
+			if(hdlc->shift_reg & 0x01)
+				hdlc->cbin++;
+			hdlc->shift_reg >>= 1;
+			hdlc->bit_shift--;
+			if(hdlc->bit_shift==0){
+				hdlc->state = HDLC_SEND_DATA;
+				hdlc->crc = 0xffff;
+				hdlc->hdlc_bits1 = 0;
+			}
+			break;
+		case HDLC_SEND_DATA:
+			hdlc->cbin <<= 1;
+			hdlc->data_bits++;
+			if(hdlc->hdlc_bits1 == 5){
+				hdlc->hdlc_bits1 = 0;
+				break;
+			}
+			if(hdlc->bit_shift==8){
+				unsigned cval;
+
+				cval = (hdlc->crc^hdlc->shift_reg) & 0xff;
+				hdlc->crc = (hdlc->crc>>8)^crc16_tab[cval];
+			}
+			if(hdlc->shift_reg & 0x01){
+				hdlc->hdlc_bits1++;
+				hdlc->cbin++;
+				hdlc->shift_reg >>= 1;
+				hdlc->bit_shift--;
+			} else {
+				hdlc->hdlc_bits1 = 0;
+				hdlc->shift_reg >>= 1;
+				hdlc->bit_shift--;
+			}
+			break;
+		case HDLC_SEND_CRC1:
+			hdlc->cbin <<= 1;
+			hdlc->data_bits++;
+			if(hdlc->hdlc_bits1 == 5){
+				hdlc->hdlc_bits1 = 0;
+				break;
+			}
+			if(hdlc->shift_reg & 0x01){
+				hdlc->hdlc_bits1++;
+				hdlc->cbin++;
+				hdlc->shift_reg >>= 1;
+				hdlc->bit_shift--;
+			} else {
+				hdlc->hdlc_bits1 = 0;
+				hdlc->shift_reg >>= 1;
+				hdlc->bit_shift--;
+			}
+			if(hdlc->bit_shift==0){
+				hdlc->shift_reg = (hdlc->crc >> 8);
+				hdlc->state = HDLC_SEND_CRC2;
+				hdlc->bit_shift = 8;
+			}
+			break;
+		case HDLC_SEND_CRC2:
+			hdlc->cbin <<= 1;
+			hdlc->data_bits++;
+			if(hdlc->hdlc_bits1 == 5){
+				hdlc->hdlc_bits1 = 0;
+				break;
+			}
+			if(hdlc->shift_reg & 0x01){
+				hdlc->hdlc_bits1++;
+				hdlc->cbin++;
+				hdlc->shift_reg >>= 1;
+				hdlc->bit_shift--;
+			} else {
+				hdlc->hdlc_bits1 = 0;
+				hdlc->shift_reg >>= 1;
+				hdlc->bit_shift--;
+			}
+			if(hdlc->bit_shift==0){
+				hdlc->shift_reg = 0x7e;
+				hdlc->state = HDLC_SEND_CLOSING_FLAG;
+				hdlc->bit_shift = 8;
+			}
+			break;
+		case HDLC_SEND_CLOSING_FLAG:
+			hdlc->cbin <<= 1;
+			hdlc->data_bits++;
+			if(hdlc->hdlc_bits1 == 5){
+				hdlc->hdlc_bits1 = 0;
+				break;
+			}
+			if(hdlc->shift_reg & 0x01){
+				hdlc->cbin++;
+			}
+			hdlc->shift_reg >>= 1;
+			hdlc->bit_shift--;
+			if(hdlc->bit_shift==0){
+				hdlc->ffvalue = xfast_flag_value[hdlc->data_bits];
+				if(hdlc->dchannel){
+					hdlc->ffvalue = 0x7e;
+					hdlc->state = HDLC_SEND_IDLE1;
+					hdlc->bit_shift = 8-hdlc->data_bits;
+					if(hdlc->bit_shift==0)
+						hdlc->state = HDLC_SEND_FAST_IDLE;
+				} else {
+					if(!hdlc->do_adapt56){
+						hdlc->state = HDLC_SEND_FAST_FLAG;
+						hdlc->data_received = 0;
+					} else {
+						hdlc->state = HDLC_SENDFLAG_B0;
+						hdlc->data_received = 0;
+					}
+					// Finished with this frame, send flags
+					if (dsize > 1) dsize = 1; 
+				}
+			}
+			break;
+		case HDLC_SEND_IDLE1:
+			hdlc->do_closing = 0;
 			hdlc->cbin <<= 1;
 			hdlc->cbin++;
 			hdlc->data_bits++;
+			hdlc->bit_shift--;
+			if(hdlc->bit_shift==0){
+				hdlc->state = HDLC_SEND_FAST_IDLE;
+				hdlc->bit_shift = 0;
+			}
+			break;
+		case HDLC_SEND_FAST_IDLE:
+			hdlc->do_closing = 0;
+			hdlc->cbin = 0xff;
+			hdlc->data_bits = 8;
+			if(hdlc->bit_shift == 8){
+				hdlc->cbin = 0x7e;
+				hdlc->state = HDLC_SEND_FIRST_FLAG;
+			} else {
+				*dst++ = hdlc->cbin;
+				hdlc->bit_shift = hdlc->data_bits = 0;
+				len++;
+				dsize = 0;
+			}
+			break;
+		default:
+			break;
+		}
+		if(hdlc->do_adapt56){
+			if(hdlc->data_bits==7){
+				hdlc->cbin <<= 1;
+				hdlc->cbin++;
+				hdlc->data_bits++;
+			}
+		}
+		if(hdlc->data_bits==8){
+			*dst++ = hdlc->cbin;
+			hdlc->data_bits = 0;
+			len++;
+			dsize--;
 		}
 	}
-	if(hdlc->data_bits==8){
-		*dst++ = hdlc->cbin;
-		hdlc->data_bits = 0;
-		len++;
-		dsize--;
-	}
-  }
-  *count -= slen;
+	*count -= slen;
 
-  return len;
+	return len;
 }
 

@@ -14,6 +14,7 @@
 #define D_RX_MON1	5
 #define D_TX_MON0	6
 #define D_TX_MON1	7
+#define E_RCVBUFREADY	8
 
 #define B_RCVBUFREADY 0
 #define B_XMTBUFREADY 1
