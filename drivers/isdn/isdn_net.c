@@ -21,6 +21,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.123  2000/04/03 19:14:36  kai
+ * fix "isdn BUG at isdn_net.c:1440!"
+ *
  * Revision 1.122  2000/03/20 22:37:46  detabc
  * modify abc-extension to work together with the new LL.
  * remove abc frame-counter (is obsolete now).
@@ -1762,33 +1765,15 @@ isdn_net_log_skb(struct sk_buff * skb, isdn_net_local * lp)
 #ifdef CONFIG_ISDN_WITH_ABC
 void isdn_net_write_super(isdn_net_local *lp, struct sk_buff *skb)
 {
+	if(in_interrupt() && dev->net_verbose > 1) {
 
-	if (in_interrupt()) {
-
-	//	printk("isdn BUG at %s:%d!\n", __FILE__, __LINE__);
-		
-		if(dev->net_verbose > 1)
-			printk(KERN_INFO "%s: NOTE isdn_net_write_super called in interrupt\n",lp->name);
-
-		if (skb_queue_empty(&lp->super_tx_queue)) {
-
-			skb_queue_tail(&lp->super_tx_queue, skb);
-			queue_task(&lp->tqueue, &tq_immediate);
-		
-		} else queue_task(&lp->tqueue, &tq_immediate);
-
-	} else {
-
-		spin_lock_bh(&lp->xmit_lock);
-
-		if (!isdn_net_lp_busy(lp)) {
-			isdn_net_writebuf_skb(lp, skb);
-		} else {
-			skb_queue_tail(&lp->super_tx_queue, skb);
-		}
-
-		spin_unlock_bh(&lp->xmit_lock);
+		printk(KERN_INFO 
+			"%s: NOTE isdn_net_write_super called in interrupt\n",
+			lp->name);
 	}
+
+	skb_queue_tail(&lp->super_tx_queue, skb);
+	queue_task(&lp->tqueue, &tq_immediate);
 }
 #else
 void isdn_net_write_super(isdn_net_local *lp, struct sk_buff *skb)
@@ -1926,9 +1911,8 @@ isdn_net_xmit(struct net_device *ndev, struct sk_buff *skb)
 	{
 		struct sk_buff *t_skb = NULL;
 
-		while (!isdn_net_lp_busy(lp) && (t_skb = skb_dequeue(&lp->super_tx_queue)) != NULL)
+		while (!isdn_net_lp_busy(lp) && (t_skb = skb_dequeue(&lp->super_tx_queue)) != NULL) 
 			isdn_net_writebuf_skb(lp, t_skb);                                
-
 	}
 
 	if(isdn_net_lp_busy(lp)) retv = 1; 
