@@ -21,6 +21,15 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.106  2000/02/12 19:26:55  kai
+ * adopted to latest 2.3 softnet changes.
+ *
+ * tested with PPP and MPPP, it works here.
+ * can somebody check raw-ip?
+ *
+ * also changed std2kern, stddiff for bash-1 compatibility,
+ * hope this doesn't break anything.
+ *
  * Revision 1.105  2000/02/12 11:43:26  he
  * SOFTNET related changes, first try. Compatible with linux 2.2.x, but
  * not tested for kernels with softnet (>= 2.3.43) yet.
@@ -518,7 +527,7 @@ static void __inline__ isdn_net_lp_xon(isdn_net_local * lp)
 }
 
 
-#define ISDN_NET_TX_TIMEOUT (2*HZ) 
+#define ISDN_NET_TX_TIMEOUT (20*HZ) 
 
 /* Prototypes */
 
