@@ -503,7 +503,7 @@ static int avmcs_event(event_t event, int priority,
 
 /*====================================================================*/
 
-int __init avmcs_init(void)
+static int __init avmcs_init(void)
 {
     servinfo_t serv;
     CardServices(GetCardServicesInfo, &serv);
@@ -516,7 +516,7 @@ int __init avmcs_init(void)
     return 0;
 }
 
-void __exit avmcs_exit(void)
+static void __exit avmcs_exit(void)
 {
     unregister_pccard_driver(&dev_info);
     while (dev_list != NULL) {

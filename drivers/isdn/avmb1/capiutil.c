@@ -7,6 +7,11 @@
  * Rewritten for Linux 1996 by Carsten Paeth (calle@calle.in-berlin.de)
  *
  * $Log$
+ * Revision 1.12  2000/11/01 14:05:02  calle
+ * - use module_init/module_exit from linux/init.h.
+ * - all static struct variables are initialized with "membername:" now.
+ * - avm_cs.c, let it work with newer pcmcia-cs.
+ *
  * Revision 1.11  2000/03/03 15:50:42  calle
  * - kernel CAPI:
  *   - Changed parameter "param" in capi_signal from __u32 to void *.
@@ -988,7 +993,14 @@ EXPORT_SYMBOL(capi_cmsg2str);
 EXPORT_SYMBOL(capi_message2str);
 EXPORT_SYMBOL(capi_info2str);
 
-int __init capiutil_init(void) { return 0; }
-void __exit capiutil_exit(void) { }
+static int __init capiutil_init(void)
+{ 
+	return 0; 
+}
+
+static void __exit capiutil_exit(void)
+{
+}
+
 module_init(capiutil_init);
 module_exit(capiutil_exit);

@@ -6,6 +6,9 @@
  * (c) Copyright 1999 by Carsten Paeth (calle@calle.in-berlin.de)
  * 
  * $Log$
+ * Revision 1.19  2000/11/19 17:02:47  kai
+ * compatibility cleanup - part 3
+ *
  * Revision 1.18  2000/11/19 17:01:53  kai
  * compatibility cleanup - part 2
  *
@@ -740,7 +743,7 @@ EXPORT_SYMBOL(b1_handle_interrupt);
 
 EXPORT_SYMBOL(b1ctl_read_proc);
 
-int __init b1_init(void)
+static int __init b1_init(void)
 {
 	char *p;
 	char rev[10];
@@ -757,7 +760,7 @@ int __init b1_init(void)
 	return 0;
 }
 
-void __exit b1_exit(void)
+static void __exit b1_exit(void)
 {
 }
 

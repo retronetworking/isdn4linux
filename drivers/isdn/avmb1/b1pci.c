@@ -6,6 +6,11 @@
  * (c) Copyright 1999 by Carsten Paeth (calle@calle.in-berlin.de)
  * 
  * $Log$
+ * Revision 1.28  2000/11/01 14:05:02  calle
+ * - use module_init/module_exit from linux/init.h.
+ * - all static struct variables are initialized with "membername:" now.
+ * - avm_cs.c, let it work with newer pcmcia-cs.
+ *
  * Revision 1.27  2000/08/08 09:24:19  calle
  * calls to pci_enable_device surounded by #ifndef COMPAT_HAS_2_2_PCI
  *
@@ -549,7 +554,7 @@ static int add_card(struct pci_dev *dev)
 	return retval;
 }
 
-int __init b1pci_init(void)
+static int __init b1pci_init(void)
 {
 	struct capi_driver *driver = &b1pci_driver;
 #ifdef CONFIG_ISDN_DRV_AVMB1_B1PCIV4
@@ -641,7 +646,7 @@ int __init b1pci_init(void)
 #endif
 }
 
-void __exit b1pci_exit(void)
+static void __exit b1pci_exit(void)
 {
     detach_capi_driver(&b1pci_driver);
 #ifdef CONFIG_ISDN_DRV_AVMB1_B1PCIV4

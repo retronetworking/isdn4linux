@@ -6,6 +6,11 @@
  * (c) Copyright 1999 by Carsten Paeth (calle@calle.in-berlin.de)
  * 
  * $Log$
+ * Revision 1.11  2000/11/01 14:05:02  calle
+ * - use module_init/module_exit from linux/init.h.
+ * - all static struct variables are initialized with "membername:" now.
+ * - avm_cs.c, let it work with newer pcmcia-cs.
+ *
  * Revision 1.10  2000/05/06 00:52:36  kai
  * merged changes from kernel tree
  * fixed timer and net_device->name breakage
@@ -302,7 +307,7 @@ EXPORT_SYMBOL(b1pcmcia_delcard);
 
 /* ------------------------------------------------------------- */
 
-int __init b1pcmcia_init(void)
+static int __init b1pcmcia_init(void)
 {
 	struct capi_driver *driver = &b1pcmcia_driver;
 	char *p;
@@ -329,7 +334,7 @@ int __init b1pcmcia_init(void)
 	return retval;
 }
 
-void __exit b1pcmcia_exit(void)
+static void __exit b1pcmcia_exit(void)
 {
     detach_capi_driver(&b1pcmcia_driver);
 }

@@ -6,6 +6,9 @@
  * Heavily based on devpts filesystem from H. Peter Anvin
  * 
  * $Log$
+ * Revision 1.13  2000/11/18 16:17:25  kai
+ * change from 2.4 tree
+ *
  * Revision 1.12  2000/11/01 14:05:02  calle
  * - use module_init/module_exit from linux/init.h.
  * - all static struct variables are initialized with "membername:" now.
@@ -595,7 +598,7 @@ void capifs_free_ncci(char type, unsigned int num)
 	}
 }
 
-int __init capifs_init(void)
+static int __init capifs_init(void)
 {
 	char rev[10];
 	char *p;
@@ -624,7 +627,7 @@ int __init capifs_init(void)
 	return 0;
 }
 
-void __exit capifs_exit(void)
+static void __exit capifs_exit(void)
 {
 	unregister_filesystem(&capifs_fs_type);
 }

@@ -6,6 +6,11 @@
  * (c) Copyright 1999 by Carsten Paeth (calle@calle.in-berlin.de)
  * 
  * $Log$
+ * Revision 1.9  2000/11/01 14:05:02  calle
+ * - use module_init/module_exit from linux/init.h.
+ * - all static struct variables are initialized with "membername:" now.
+ * - avm_cs.c, let it work with newer pcmcia-cs.
+ *
  * Revision 1.8  2000/04/03 13:29:24  calle
  * make Tim Waugh happy (module unload races in 2.3.99-pre3).
  * no real problem there, but now it is much cleaner ...
@@ -262,7 +267,7 @@ static struct capi_driver b1isa_driver = {
     add_card: b1isa_add_card,
 };
 
-int __init b1isa_init(void)
+static int __init b1isa_init(void)
 {
 	struct capi_driver *driver = &b1isa_driver;
 	char *p;
@@ -289,7 +294,7 @@ int __init b1isa_init(void)
 	return retval;
 }
 
-void __exit b1isa_exit(void)
+static void __exit b1isa_exit(void)
 {
     detach_capi_driver(&b1isa_driver);
 }

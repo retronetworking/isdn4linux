@@ -6,6 +6,9 @@
  * (c) Copyright 1999 by Carsten Paeth (calle@calle.in-berlin.de)
  * 
  * $Log$
+ * Revision 1.20  2000/11/19 17:01:53  kai
+ * compatibility cleanup - part 2
+ *
  * Revision 1.19  2000/11/01 14:05:02  calle
  * - use module_init/module_exit from linux/init.h.
  * - all static struct variables are initialized with "membername:" now.
@@ -1731,32 +1734,11 @@ EXPORT_SYMBOL(detach_capi_interface);
 EXPORT_SYMBOL(attach_capi_driver);
 EXPORT_SYMBOL(detach_capi_driver);
 
-#ifndef MODULE
-#ifdef CONFIG_ISDN_DRV_AVMB1_B1ISA
-extern int b1isa_init(void);
-#endif
-#ifdef CONFIG_ISDN_DRV_AVMB1_B1PCI
-extern int b1pci_init(void);
-#endif
-#ifdef CONFIG_ISDN_DRV_AVMB1_T1ISA
-extern int t1isa_init(void);
-#endif
-#ifdef CONFIG_ISDN_DRV_AVMB1_B1PCMCIA
-extern int b1pcmcia_init(void);
-#endif
-#ifdef CONFIG_ISDN_DRV_AVMB1_T1PCI
-extern int t1pci_init(void);
-#endif
-#ifdef CONFIG_ISDN_DRV_AVMB1_C4
-extern int c4_init(void);
-#endif
-#endif
-
 /*
  * init / exit functions
  */
 
-int __init kcapi_init(void)
+static int __init kcapi_init(void)
 {
 	char *p;
 	char rev[10];
@@ -1764,7 +1746,6 @@ int __init kcapi_init(void)
 	MOD_INC_USE_COUNT;
 
 	skb_queue_head_init(&recv_queue);
-	/* init_bh(CAPI_BH, do_capi_bh); */
 
 	tq_state_notify.routine = notify_handler;
 	tq_state_notify.data = 0;
@@ -1785,30 +1766,12 @@ int __init kcapi_init(void)
         printk(KERN_NOTICE "CAPI-driver Rev%s: loaded\n", rev);
 #else
 	printk(KERN_NOTICE "CAPI-driver Rev%s: started\n", rev);
-#ifdef CONFIG_ISDN_DRV_AVMB1_B1ISA
-	(void)b1isa_init();
-#endif
-#ifdef CONFIG_ISDN_DRV_AVMB1_B1PCI
-	(void)b1pci_init();
-#endif
-#ifdef CONFIG_ISDN_DRV_AVMB1_T1ISA
-	(void)t1isa_init();
-#endif
-#ifdef CONFIG_ISDN_DRV_AVMB1_B1PCMCIA
-	(void)b1pcmcia_init();
-#endif
-#ifdef CONFIG_ISDN_DRV_AVMB1_T1PCI
-	(void)t1pci_init();
-#endif
-#ifdef CONFIG_ISDN_DRV_AVMB1_C4
-	(void)c4_init();
-#endif
 #endif
 	MOD_DEC_USE_COUNT;
 	return 0;
 }
 
-void __exit kcapi_exit(void)
+static void __exit kcapi_exit(void)
 {
 	char rev[10];
 	char *p;

@@ -6,6 +6,9 @@
  * Copyright 1997 by Carsten Paeth (calle@calle.in-berlin.de)
  *
  * $Log$
+ * Revision 1.38  2000/11/14 08:43:07  calle
+ * Bugfix for v110. Connectparamters where setup for sync ...
+ *
  * Revision 1.37  2000/11/01 14:05:02  calle
  * - use module_init/module_exit from linux/init.h.
  * - all static struct variables are initialized with "membername:" now.
@@ -2522,7 +2525,7 @@ static struct capi_interface_user cuser = {
 	callback: lower_callback
 };
 
-int __init capidrv_init(void)
+static int __init capidrv_init(void)
 {
 	struct capi_register_params rparam;
 	capi_profile profile;
@@ -2582,7 +2585,7 @@ int __init capidrv_init(void)
 	return 0;
 }
 
-void __exit capidrv_exit(void)
+static void __exit capidrv_exit(void)
 {
 	char rev[10];
 	char *p;

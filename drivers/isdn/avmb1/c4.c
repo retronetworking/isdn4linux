@@ -6,6 +6,9 @@
  * (c) Copyright 1999 by Carsten Paeth (calle@calle.in-berlin.de)
  * 
  * $Log$
+ * Revision 1.19  2000/11/19 17:02:47  kai
+ * compatibility cleanup - part 3
+ *
  * Revision 1.18  2000/11/01 14:05:02  calle
  * - use module_init/module_exit from linux/init.h.
  * - all static struct variables are initialized with "membername:" now.
@@ -1358,7 +1361,7 @@ pci_find_subsys(unsigned int vendor, unsigned int device,
 
 static int ncards = 0;
 
-int __init c4_init(void)
+static int __init c4_init(void)
 {
 	struct capi_driver *driver = &c4_driver;
 	struct pci_dev *dev = NULL;
@@ -1444,7 +1447,7 @@ int __init c4_init(void)
 #endif
 }
 
-void __exit c4_exit(void)
+static void __exit c4_exit(void)
 {
     detach_capi_driver(&c4_driver);
 }

@@ -6,6 +6,9 @@
  * Copyright 1996 by Carsten Paeth (calle@calle.in-berlin.de)
  *
  * $Log$
+ * Revision 1.42  2000/11/19 17:03:55  kai
+ * compatibility cleanup - part 5
+ *
  * Revision 1.41  2000/11/01 14:05:02  calle
  * - use module_init/module_exit from linux/init.h.
  * - all static struct variables are initialized with "membername:" now.
@@ -2218,7 +2221,7 @@ static struct capi_interface_user cuser = {
 
 static char rev[10];
 
-int __init capi_init(void)
+static int __init capi_init(void)
 {
 	char *p;
 
