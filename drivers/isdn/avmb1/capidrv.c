@@ -6,6 +6,12 @@
  * Copyright 1997 by Carsten Paeth (calle@calle.in-berlin.de)
  *
  * $Log$
+ * Revision 1.8  1997/11/04 06:12:09  calle
+ * capi.c: new read/write in file_ops since 2.1.60
+ * capidrv.c: prepared isdnlog interface for d2-trace in newer firmware.
+ * capiutil.c: needs config.h (CONFIG_ISDN_DRV_AVMB1_VERBOSE_REASON)
+ * compat.h: added #define LinuxVersionCode
+ *
  * Revision 1.7  1997/10/11 10:36:34  calle
  * Added isdnlog support. patch to isdnlog needed.
  *
@@ -795,6 +801,7 @@ static void handle_controller(_cmsg * cmsg)
 			capi_cmd2str(cmsg->Command, cmsg->Subcommand),
 			cmsg->adr.adrController,
 			cmsg->Function, s);
+		   break;
 		}
 		goto ignored;
 	case CAPI_FACILITY_IND:	/* Controller/plci/ncci */
@@ -1341,9 +1348,9 @@ static void handle_dtrace_data(capidrv_contr *card,
     cli();
 
     if (level2) {
-        PUTBYTE_TO_STATUS(card, 'H');
-        PUTBYTE_TO_STATUS(card, 'E');
-        PUTBYTE_TO_STATUS(card, 'X');
+        PUTBYTE_TO_STATUS(card, 'D');
+        PUTBYTE_TO_STATUS(card, '2');
+        PUTBYTE_TO_STATUS(card, send ? '>' : '<');
         PUTBYTE_TO_STATUS(card, ':');
     } else {
         PUTBYTE_TO_STATUS(card, 'D');
@@ -1769,7 +1776,7 @@ static void enable_dchannel_trace(capidrv_contr *card)
 					   0x214D5641,  /* ManuID */
 					   0,           /* Class */
 					   1,           /* Function */
-					   (_cstruct)"\004\014\200\000\000");
+					   (_cstruct)"\004\200\014\000\000");
 	} else {
 		printk(KERN_INFO "%s: D3 trace enabled\n", card->name);
 		capi_fill_MANUFACTURER_REQ(&cmdcmsg, global.appid,

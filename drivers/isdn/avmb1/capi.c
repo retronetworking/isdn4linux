@@ -6,6 +6,12 @@
  * Copyright 1996 by Carsten Paeth (calle@calle.in-berlin.de)
  *
  * $Log$
+ * Revision 1.8  1997/11/04 06:12:08  calle
+ * capi.c: new read/write in file_ops since 2.1.60
+ * capidrv.c: prepared isdnlog interface for d2-trace in newer firmware.
+ * capiutil.c: needs config.h (CONFIG_ISDN_DRV_AVMB1_VERBOSE_REASON)
+ * compat.h: added #define LinuxVersionCode
+ *
  * Revision 1.7  1997/10/11 10:29:34  calle
  * llseek() parameters changed in 2.1.56.
  *
@@ -56,7 +62,7 @@
 #include <linux/timer.h>
 #include <linux/wait.h>
 #include <linux/skbuff.h>
-#include <asm/poll.h>
+#include <linux/poll.h>
 #include <linux/capi.h>
 #include <linux/kernelcapi.h>
 
@@ -101,37 +107,24 @@ static void capi_signal(__u16 applid, __u32 minor)
 
 /* -------- file_operations ----------------------------------------- */
 
-static long long capi_llseek(
-#if LINUX_VERSION_CODE < LinuxVersionCode(2,1,56)
-			     struct inode *inode,
-#endif
-			     struct file *file,
+static long long capi_llseek(struct file *file,
 			     long long offset, int origin)
 {
 	return -ESPIPE;
 }
 
-#if LINUX_VERSION_CODE < LinuxVersionCode(2,1,60)
-static long capi_read(struct inode *inode, struct file *file,
-		      char *buf, unsigned long count)
-{
-#else
 static ssize_t capi_read(struct file *file, char *buf,
 		      size_t count, loff_t *ppos)
 {
         struct inode *inode = file->f_dentry->d_inode;
-#endif
 	unsigned int minor = MINOR(inode->i_rdev);
 	struct capidev *cdev;
 	struct sk_buff *skb;
 	int retval;
 	size_t copied;
 
-#if LINUX_VERSION_CODE >= LinuxVersionCode(2,1,60)
        if (ppos != &file->f_pos)
 		return -ESPIPE;
-#endif
-
 
 	if (!minor || minor > CAPI_MAXMINOR || !capidevs[minor].is_registered)
 		return -ENODEV;
@@ -147,7 +140,7 @@ static ssize_t capi_read(struct file *file, char *buf,
 			interruptible_sleep_on(&cdev->recv_wait);
 			if ((skb = skb_dequeue(&cdev->recv_queue)) != 0)
 				break;
-			if (current->signal & ~current->blocked)
+			if (signal_pending(current))
 				break;
 		}
 		if (skb == 0)
@@ -173,16 +166,10 @@ static ssize_t capi_read(struct file *file, char *buf,
 	return copied;
 }
 
-#if LINUX_VERSION_CODE < LinuxVersionCode(2,1,60)
-static long capi_write(struct inode *inode, struct file *file,
-		       const char *buf, unsigned long count)
-{
-#else
 static ssize_t capi_write(struct file *file, const char *buf,
 		       size_t count, loff_t *ppos)
 {
         struct inode *inode = file->f_dentry->d_inode;
-#endif
 	unsigned int minor = MINOR(inode->i_rdev);
 	struct capidev *cdev;
 	struct sk_buff *skb;
@@ -191,10 +178,8 @@ static ssize_t capi_write(struct file *file, const char *buf,
 	__u8 subcmd;
 	__u16 mlen;
 
-#if LINUX_VERSION_CODE >= LinuxVersionCode(2,1,60)
        if (ppos != &file->f_pos)
 		return -ESPIPE;
-#endif
 
 	if (!minor || minor > CAPI_MAXMINOR || !capidevs[minor].is_registered)
 		return -ENODEV;

@@ -6,6 +6,9 @@
  * (c) Copyright 1997 by Carsten Paeth (calle@calle.in-berlin.de)
  * 
  * $Log$
+ * Revision 1.4  1997/12/10 20:00:50  calle
+ * get changes from 2.0 version
+ *
  * Revision 1.3  1997/10/01 09:21:14  fritz
  * Removed old compatibility stuff for 2.0.X kernels.
  * From now on, this code is for 2.1.X ONLY!
@@ -107,7 +110,7 @@ int b1pci_init(void)
 			ioaddr, irq);
 			return rc;
 		}
-		if ((rc = avmb1_addcard(ioaddr, irq, AVM_CARDTYPE_B1)) != 0)
+		if ((rc = avmb1_addcard(ioaddr, irq, AVM_CARDTYPE_B1)) < 0)
 			return rc;
 	}
 	return 0;
