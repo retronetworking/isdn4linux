@@ -19,6 +19,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.59  1999/10/31 15:59:50  he
+ * more skb headroom checks
+ *
  * Revision 1.58  1999/10/30 13:13:01  keil
  * Henners isdn_ppp_skb_push:under fix
  *
@@ -276,6 +279,7 @@ static void isdn_ppp_ccp_xmit_reset(struct ippp_struct *is, int proto,
 				    unsigned char code, unsigned char id,
 				    unsigned char *data, int len);
 static struct ippp_ccp_reset *isdn_ppp_ccp_reset_alloc(struct ippp_struct *is);
+static void isdn_ppp_ccp_reset_free(struct ippp_struct *is);
 static void isdn_ppp_ccp_reset_free_state(struct ippp_struct *is,
 					  unsigned char id);
 static void isdn_ppp_ccp_timer_callback(unsigned long closure);
@@ -638,9 +642,9 @@ isdn_ppp_release(int min, struct file *file)
 	is->comp_stat    = is->link_comp_stat    = NULL;
         is->decomp_stat  = is->link_decomp_stat  = NULL;
 
+	/* Clean up if necessary */
 	if(is->reset)
-		kfree(is->reset);
-	is->reset = NULL;
+		isdn_ppp_ccp_reset_free(is);
 
 	/* this slot is ready for new connections */
 	is->state = 0;
@@ -2327,13 +2331,32 @@ static void isdn_ppp_ccp_xmit_reset(struct ippp_struct *is, int proto,
 static struct ippp_ccp_reset *isdn_ppp_ccp_reset_alloc(struct ippp_struct *is)
 {
 	struct ippp_ccp_reset *r;
-	printk(KERN_DEBUG "ippp_ccp: allocating reset data structure\n");
 	r = kmalloc(sizeof(struct ippp_ccp_reset), GFP_KERNEL);
-	if(!r)
+	if(!r) {
+		printk(KERN_ERR "ippp_ccp: failed to allocate reset data"
+		       " structure - no mem\n");
 		return NULL;
+	}
 	memset(r, 0, sizeof(struct ippp_ccp_reset));
+	printk(KERN_DEBUG "ippp_ccp: allocated reset data structure %p\n", r);
 	is->reset = r;
 	return r;
+}
+
+/* Destroy the reset state vector. Kill all pending timers first. */
+static void isdn_ppp_ccp_reset_free(struct ippp_struct *is)
+{
+	unsigned int id;
+
+	printk(KERN_DEBUG "ippp_ccp: freeing reset data structure %p\n",
+	       is->reset);
+	for(id = 0; id < 256; id++) {
+		if(is->reset->rs[id]) {
+			isdn_ppp_ccp_reset_free_state(is, (unsigned char)id);
+		}
+	}
+	kfree(is->reset);
+	is->reset = NULL;
 }
 
 /* Free a given state and clear everything up for later reallocation */
@@ -2973,6 +2996,16 @@ static int isdn_ppp_set_compressor(struct ippp_struct *is, struct isdn_ppp_comp_
 	if(is->debug & 0x10)
 		printk(KERN_DEBUG "[%d] Set %s type %d\n",is->unit,
 			(data->flags&IPPP_COMP_FLAG_XMIT)?"compressor":"decompressor",num);
+
+	/* If is has no valid reset state vector, we cannot allocate a
+	   decompressor. The decompressor would cause reset transactions
+	   sooner or later, and they need that vector. */
+
+	if(!(data->flags & IPPP_COMP_FLAG_XMIT) && !is->reset) {
+		printk(KERN_ERR "ippp_ccp: no reset data structure - can't"
+		       " allow decompression.\n");
+		return -ENOMEM;
+	}
 
 	while(ipc) {
 		if(ipc->num == num) {
