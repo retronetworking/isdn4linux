@@ -6,6 +6,9 @@
  * (c) Copyright 1999 by Carsten Paeth (calle@calle.in-berlin.de)
  * 
  * $Log$
+ * Revision 1.18  2001/03/15 15:48:04  kai
+ * compatibility changes from KERNEL_2_4
+ *
  * Revision 1.17  2001/03/15 09:03:33  kai
  * spelling fixes from KERNEL_2_4
  * compilation warning fixes from KERNEL_2_4
@@ -631,10 +634,11 @@ static int __init t1isa_init(void)
 
 	MOD_INC_USE_COUNT;
 
-	if ((p = strchr(revision, ':'))) {
-		strncpy(driver->revision, p + 1, sizeof(driver->revision));
-		p = strchr(driver->revision, '$');
-		*p = 0;
+	if ((p = strchr(revision, ':')) != 0 && p[1]) {
+		strncpy(driver->revision, p + 2, sizeof(driver->revision));
+		driver->revision[sizeof(driver->revision)-1] = 0;
+		if ((p = strchr(driver->revision, '$')) != 0 && p > driver->revision)
+			*(p-1) = 0;
 	}
 
 	printk(KERN_INFO "%s: revision %s\n", driver->name, driver->revision);

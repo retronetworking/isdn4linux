@@ -6,6 +6,9 @@
  * Heavily based on devpts filesystem from H. Peter Anvin
  * 
  * $Log$
+ * Revision 1.18  2001/03/15 15:48:04  kai
+ * compatibility changes from KERNEL_2_4
+ *
  * Revision 1.17  2001/03/15 09:03:33  kai
  * spelling fixes from KERNEL_2_4
  * compilation warning fixes from KERNEL_2_4
@@ -615,16 +618,17 @@ void capifs_free_ncci(char type, unsigned int num)
 
 static int __init capifs_init(void)
 {
-	char rev[10];
+	char rev[32];
 	char *p;
 	int err;
 
 	MOD_INC_USE_COUNT;
 
-	if ((p = strchr(revision, ':'))) {
-		strcpy(rev, p + 1);
-		p = strchr(rev, '$');
-		*p = 0;
+	if ((p = strchr(revision, ':')) != 0 && p[1]) {
+		strncpy(rev, p + 2, sizeof(rev));
+		rev[sizeof(rev)-1] = 0;
+		if ((p = strchr(rev, '$')) != 0 && p > rev)
+		   *(p-1) = 0;
 	} else
 		strcpy(rev, "1.0");
 
@@ -634,9 +638,9 @@ static int __init capifs_init(void)
 		return err;
 	}
 #ifdef MODULE
-        printk(KERN_NOTICE "capifs: Rev%s: loaded\n", rev);
+        printk(KERN_NOTICE "capifs: Rev %s: loaded\n", rev);
 #else
-	printk(KERN_NOTICE "capifs: Rev%s: started\n", rev);
+	printk(KERN_NOTICE "capifs: Rev %s: started\n", rev);
 #endif
 	MOD_DEC_USE_COUNT;
 	return 0;

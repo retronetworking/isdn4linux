@@ -6,6 +6,9 @@
  * (c) Copyright 1999 by Carsten Paeth (calle@calle.in-berlin.de)
  * 
  * $Log$
+ * Revision 1.21  2001/03/15 15:48:04  kai
+ * compatibility changes from KERNEL_2_4
+ *
  * Revision 1.20  2000/11/23 20:45:14  kai
  * fixed module_init/exit stuff
  * Note: compiled-in kernel doesn't work pre 2.2.18 anymore.
@@ -748,12 +751,13 @@ EXPORT_SYMBOL(b1ctl_read_proc);
 static int __init b1_init(void)
 {
 	char *p;
-	char rev[10];
+	char rev[32];
 
-	if ((p = strchr(revision, ':'))) {
-		strncpy(rev, p + 1, sizeof(rev));
-		p = strchr(rev, '$');
-		*p = 0;
+	if ((p = strchr(revision, ':')) != 0 && p[1]) {
+		strncpy(rev, p + 2, sizeof(rev));
+		rev[sizeof(rev)-1] = 0;
+		if ((p = strchr(rev, '$')) != 0 && p > rev)
+		   *(p-1) = 0;
 	} else
 		strcpy(rev, "1.0");
 

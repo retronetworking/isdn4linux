@@ -6,6 +6,9 @@
  * Copyright 1997 by Carsten Paeth (calle@calle.in-berlin.de)
  *
  * $Log$
+ * Revision 1.42  2001/03/17 17:44:19  kai
+ * fixes for various bugs which came up on linux-kernel
+ *
  * Revision 1.41  2001/03/15 15:48:04  kai
  * compatibility changes from KERNEL_2_4
  *
@@ -2540,7 +2543,7 @@ static int __init capidrv_init(void)
 {
 	struct capi_register_params rparam;
 	capi_profile profile;
-	char rev[10];
+	char rev[32];
 	char *p;
 	__u32 ncontr, contr;
 	__u16 errcode;
@@ -2554,12 +2557,13 @@ static int __init capidrv_init(void)
 		return -EIO;
 	}
 
-	if ((p = strchr(revision, ':'))) {
-		strcpy(rev, p + 1);
-		p = strchr(rev, '$');
-		*p = 0;
+	if ((p = strchr(revision, ':')) != 0 && p[1]) {
+		strncpy(rev, p + 2, sizeof(rev));
+		rev[sizeof(rev)-1] = 0;
+		if ((p = strchr(rev, '$')) != 0 && p > rev)
+		   *(p-1) = 0;
 	} else
-		strcpy(rev, " ??? ");
+		strcpy(rev, "1.0");
 
 	rparam.level3cnt = -2;  /* number of bchannels twice */
 	rparam.datablkcnt = 16;
@@ -2590,7 +2594,7 @@ static int __init capidrv_init(void)
 	}
 	proc_init();
 
-	printk(KERN_NOTICE "capidrv: Rev%s: loaded\n", rev);
+	printk(KERN_NOTICE "capidrv: Rev %s: loaded\n", rev);
 	MOD_DEC_USE_COUNT;
 
 	return 0;

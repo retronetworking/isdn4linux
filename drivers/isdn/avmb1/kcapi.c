@@ -6,6 +6,9 @@
  * (c) Copyright 1999 by Carsten Paeth (calle@calle.in-berlin.de)
  * 
  * $Log$
+ * Revision 1.24  2001/03/15 15:48:04  kai
+ * compatibility changes from KERNEL_2_4
+ *
  * Revision 1.23  2001/03/15 09:03:33  kai
  * spelling fixes from KERNEL_2_4
  * compilation warning fixes from KERNEL_2_4
@@ -1762,7 +1765,7 @@ EXPORT_SYMBOL(detach_capi_driver);
 static int __init kcapi_init(void)
 {
 	char *p;
-	char rev[10];
+	char rev[32];
 
 	MOD_INC_USE_COUNT;
 
@@ -1776,17 +1779,18 @@ static int __init kcapi_init(void)
 
         proc_capi_init();
 
-	if ((p = strchr(revision, ':'))) {
-		strcpy(rev, p + 1);
-		p = strchr(rev, '$');
-		*p = 0;
+	if ((p = strchr(revision, ':')) != 0 && p[1]) {
+		strncpy(rev, p + 2, sizeof(rev));
+		rev[sizeof(rev)-1] = 0;
+		if ((p = strchr(rev, '$')) != 0 && p > rev)
+		   *(p-1) = 0;
 	} else
 		strcpy(rev, "1.0");
 
 #ifdef MODULE
-        printk(KERN_NOTICE "CAPI-driver Rev%s: loaded\n", rev);
+        printk(KERN_NOTICE "CAPI-driver Rev %s: loaded\n", rev);
 #else
-	printk(KERN_NOTICE "CAPI-driver Rev%s: started\n", rev);
+	printk(KERN_NOTICE "CAPI-driver Rev %s: started\n", rev);
 #endif
 	MOD_DEC_USE_COUNT;
 	return 0;

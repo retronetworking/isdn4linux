@@ -6,6 +6,9 @@
  * (c) Copyright 2000 by Carsten Paeth (calle@calle.in-berlin.de)
  * 
  * $Log$
+ * Revision 1.12  2001/03/15 15:48:04  kai
+ * compatibility changes from KERNEL_2_4
+ *
  * Revision 1.11  2000/11/19 17:02:47  kai
  * compatibility cleanup - part 3
  *
@@ -989,12 +992,13 @@ EXPORT_SYMBOL(b1dmactl_read_proc);
 int b1dma_init(void)
 {
 	char *p;
-	char rev[10];
+	char rev[32];
 
-	if ((p = strchr(revision, ':'))) {
-		strncpy(rev, p + 1, sizeof(rev));
-		p = strchr(rev, '$');
-		*p = 0;
+	if ((p = strchr(revision, ':')) != 0 && p[1]) {
+		strncpy(rev, p + 2, sizeof(rev));
+		rev[sizeof(rev)-1] = 0;
+		if ((p = strchr(rev, '$')) != 0 && p > rev)
+		   *(p-1) = 0;
 	} else
 		strcpy(rev, "1.0");
 

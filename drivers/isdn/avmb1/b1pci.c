@@ -6,6 +6,11 @@
  * (c) Copyright 1999 by Carsten Paeth (calle@calle.in-berlin.de)
  * 
  * $Log$
+ * Revision 1.37  2001/03/15 09:03:32  kai
+ * spelling fixes from KERNEL_2_4
+ * compilation warning fixes from KERNEL_2_4
+ * sedlbauer PCMCIA support module
+ *
  * Revision 1.36  2000/12/17 21:14:58  kai
  * sync with kernel. std2kern hopefully takes care of the Makefile
  * difference for the time being
@@ -587,17 +592,20 @@ static int __init b1pci_init(void)
 
 	MOD_INC_USE_COUNT;
 
-	if ((p = strchr(revision, ':'))) {
-		strncpy(driver->revision, p + 1, sizeof(driver->revision));
-		p = strchr(driver->revision, '$');
-		*p = 0;
-#ifdef CONFIG_ISDN_DRV_AVMB1_B1PCIV4
-	        p = strchr(revision, ':');
-		strncpy(driverv4->revision, p + 1, sizeof(driverv4->revision));
-		p = strchr(driverv4->revision, '$');
-		*p = 0;
-#endif
+	if ((p = strchr(revision, ':')) != 0 && p[1]) {
+		strncpy(driver->revision, p + 2, sizeof(driver->revision));
+		driver->revision[sizeof(driver->revision)-1] = 0;
+		if ((p = strchr(driver->revision, '$')) != 0 && p > driver->revision)
+			*(p-1) = 0;
 	}
+#ifdef CONFIG_ISDN_DRV_AVMB1_B1PCIV4
+	if ((p = strchr(revision, ':')) != 0 && p[1]) {
+		strncpy(driverv4->revision, p + 2, sizeof(driverv4->revision));
+		driverv4->revision[sizeof(driverv4->revision)-1] = 0;
+		if ((p = strchr(driverv4->revision, '$')) != 0 && p > driverv4->revision)
+			*(p-1) = 0;
+	}
+#endif
 
 	printk(KERN_INFO "%s: revision %s\n", driver->name, driver->revision);
 
