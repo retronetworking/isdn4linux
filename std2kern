@@ -46,5 +46,8 @@ else
   for i in include/linux/isdn*.h ; do
     $DOCP $i $KERNELDIR/$i
   done
+  for i in Documentation/isdn/* ; do
+    $DOCP $i $KERNELDIR/$i
+  done
 fi
 
