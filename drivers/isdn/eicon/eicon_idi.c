@@ -2543,7 +2543,7 @@ idi_handle_ind(eicon_card *ccard, struct sk_buff *skb)
 						case ISDN_PROTO_L2_TRANS:
 							idi_do_req(ccard, chan, N_CONNECT, 1);
 							break;
-						default:
+						default:;
 							/* On most incoming calls we use automatic connect */
 							/* idi_do_req(ccard, chan, N_CONNECT, 1); */
 					}

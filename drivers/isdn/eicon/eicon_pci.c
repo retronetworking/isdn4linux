@@ -86,7 +86,7 @@ int eicon_pci_find_card(char *ID)
 				printk(KERN_INFO "%s: DriverID='%s' CardID=%d\n",
 					eicon_ctype_name[ctype], did, card_id);
 			}
-err:
+err:;
 		}
 		pCard++;
 	}
