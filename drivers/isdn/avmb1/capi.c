@@ -6,6 +6,9 @@
  * Copyright 1996 by Carsten Paeth (calle@calle.in-berlin.de)
  *
  * $Log$
+ * Revision 1.1  1997/03/04 21:50:29  calle
+ * Frirst version in isdn4linux
+ *
  * Revision 2.2  1997/02/12 09:31:39  calle
  * new version
  *
@@ -14,7 +17,6 @@
  *
  */
 
-#include <linux/config.h>
 #include <linux/module.h>
 #include <linux/errno.h>
 #include <linux/kernel.h>
@@ -28,6 +30,9 @@
 #include <linux/timer.h>
 #include <linux/wait.h>
 #include <linux/skbuff.h>
+#if (LINUX_VERSION_CODE >= 0x020117)
+#include <asm/poll.h>
+#endif
 #include <linux/capi.h>
 #include <linux/kernelcapi.h>
 
@@ -195,6 +200,7 @@ static long capi_write(struct inode *inode, struct file *file,
 	return count;
 }
 
+#if (LINUX_VERSION_CODE < 0x020117)
 static int capi_select(struct inode *inode, struct file *file,
 		       int sel_type, select_table * wait)
 {
@@ -227,6 +233,25 @@ static int capi_select(struct inode *inode, struct file *file,
 	}
 	return 1;
 }
+#else
+static unsigned int
+capi_poll(struct file *file, poll_table * wait)
+{
+	unsigned int mask = 0;
+	unsigned int minor = MINOR(file->f_inode->i_rdev);
+	struct capidev *cdev;
+
+	if (!minor || minor > CAPI_MAXMINOR || !capidevs[minor].is_registered)
+		return POLLERR;
+
+	cdev = &capidevs[minor];
+	poll_wait(&(cdev->recv_wait), wait);
+	mask = POLLOUT | POLLWRNORM;
+	if (!skb_queue_empty(&cdev->recv_queue))
+		mask |= POLLIN | POLLRDNORM;
+	return mask;
+}
+#endif
 
 static int capi_ioctl(struct inode *inode, struct file *file,
 		      unsigned int cmd, unsigned long arg)
@@ -444,7 +469,11 @@ static struct file_operations capi_fops =
 	capi_read,
 	capi_write,
 	NULL,			/* capi_readdir */
+#if (LINUX_VERSION_CODE < 0x020117)
 	capi_select,
+#else
+	capi_poll,
+#endif
 	capi_ioctl,
 	NULL,			/* capi_mmap */
 	capi_open,
