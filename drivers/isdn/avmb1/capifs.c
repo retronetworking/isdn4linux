@@ -6,6 +6,9 @@
  * Heavily based on devpts filesystem from H. Peter Anvin
  * 
  * $Log$
+ * Revision 1.9  2000/08/20 07:30:13  keil
+ * changes for 2.4
+ *
  * Revision 1.8  2000/07/20 10:23:13  calle
  * Include isdn_compat.h for people that don't use -p option of std2kern.
  *
@@ -583,6 +586,7 @@ void capifs_free_ncci(char type, unsigned int num)
 				continue;
 			if (np->inode) {
 				inode = np->inode;
+				np->inode = 0;
 				np->used = 0;
 				inode->i_nlink--;
 				iput(inode);
