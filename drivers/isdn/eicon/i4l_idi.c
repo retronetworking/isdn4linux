@@ -233,7 +233,7 @@ idi_call_res_req(eicon_REQ *reqbuf, eicon_chan *chan)
 			reqbuf->XBuffer.P[4] = 0;
 			break;
 		case ISDN_PROTO_L2_MODEM:
-			reqbuf->XBuffer.P[1] = 12;
+			/* reqbuf->XBuffer.P[1] = 12; */
 			reqbuf->XBuffer.P[2] = 0x11;
 			reqbuf->XBuffer.P[3] = 9;
 			reqbuf->XBuffer.P[4] = 0;
@@ -622,7 +622,7 @@ idi_connect_req(eicon_card *card, eicon_chan *chan, char *phone,
                         l -= 3;
                         break;
                 case ISDN_PROTO_L2_MODEM:
-			reqbuf->XBuffer.P[l-7] = 12;
+			/* reqbuf->XBuffer.P[l-7] = 12; */
 			reqbuf->XBuffer.P[l-6] = 0x11;
 			reqbuf->XBuffer.P[l-5] = 7;
 			reqbuf->XBuffer.P[l-4] = 0;
