@@ -1,6 +1,9 @@
 /* $Id$
  *
  * $Log$
+ * Revision 1.1  1996/04/13 10:19:28  fritz
+ * Initial revision
+ *
  *
  */
 #define __NO_VERSION__
@@ -44,7 +47,7 @@ BufPoolAdd(struct BufPool *bp, int priority)
 	printk(KERN_DEBUG "BufPoolAdd bp %x\n", bp);
 #endif
 
-	ptr = (struct Pages *) GET_FREE_PAGES(priority, bp->pageorder);
+	ptr = (struct Pages *) __get_free_pages(priority, bp->pageorder, 0);
 	if (!ptr) {
 		printk(KERN_WARNING "BufPoolAdd couldn't get pages!\n");
 		return (-1);
