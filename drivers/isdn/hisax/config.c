@@ -460,8 +460,8 @@ HiSax_mod_dec_use_count(struct IsdnCardState *cs)
 #ifdef MODULE
 	MOD_DEC_USE_COUNT;
 	if (!cs->c_if) 
-		return; // FIXME
-	if (cs->c_if->channel[0].debug & 0x400)
+		return;
+	if (cs->c_if && cs->c_if->channel[0].debug & 0x400)
 		HiSax_putstatus(cs, "   UNLOCK ", "modcnt %lx",
 				MOD_USE_COUNT);
 #endif
@@ -473,7 +473,7 @@ HiSax_mod_inc_use_count(struct IsdnCardState *cs)
 #ifdef MODULE
 	MOD_INC_USE_COUNT;
 	if (!cs->c_if) 
-		return; // FIXME
+		return;
 	if (cs->c_if->channel[0].debug & 0x400)
 		HiSax_putstatus(cs, "   LOCK ", "modcnt %lx",
 				MOD_USE_COUNT);

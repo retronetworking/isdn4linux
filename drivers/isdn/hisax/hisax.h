@@ -106,6 +106,8 @@
 #define CC_CONNECT_ERR	0x03E4
 #define CC_RELEASE_ERR	0x03E5
 #define CC_RESTART	0x03F4
+#define CC_NEW_CR       0x03A0
+#define CC_RELEASE_CR   0x03A4
 #define CC_TDSS1_IO     0x13F4    /* DSS1 IO user timer */
 
 /* define maximum number of possible waiting incoming calls */

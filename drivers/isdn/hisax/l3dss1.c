@@ -3091,7 +3091,7 @@ dss1down(struct PStack *st, int pr, void *arg)
 	if ((DL_ESTABLISH | REQUEST) == pr) {
 		l3_msg(st, pr, NULL);
 		return;
-	} else if (((CC_SETUP | REQUEST) == pr) || ((CC_RESUME | REQUEST) == pr)) {
+	} else if (pr == (CC_NEW_CR | REQUEST)) {
 		chan = arg;
 		cr = newcallref();
 		cr |= 0x80;
