@@ -19,6 +19,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.21  1996/08/29 20:35:57  fritz
+ * Speed up B-Channel polling interval.
+ *
  * Revision 1.20  1996/06/24 17:20:37  fritz
  * Bugfixes in pollbchan_send():
  *   - Using lock field of skbuff breaks networking.
@@ -132,6 +135,7 @@ typedef struct icn_cdef {
 #include <linux/ioport.h>
 #include <linux/timer.h>
 #include <linux/wait.h>
+#include <linux/delay.h>
 #include <linux/isdnif.h>
 
 #endif /* __KERNEL__ */
