@@ -21,6 +21,10 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.5  1999/03/29 11:19:41  armin
+ * I/O stuff now in seperate file (eicon_io.c)
+ * Old ISA type cards (S,SX,SCOM,Quadro,S2M) implemented.
+ *
  * Revision 1.4  1999/03/02 12:37:42  armin
  * Added some important checks.
  * Analog Modem with DSP.
@@ -96,6 +100,7 @@ typedef struct eicon_cdef {
 #define EICON_ISA_BOOT_NORMAL 2
 
 /* Struct for downloading protocol via ioctl for ISA cards */
+/* same struct for downloading protocol via ioctl for MCA cards */
 typedef struct {
 	/* start-up parameters */
 	unsigned char tei;
@@ -152,6 +157,7 @@ typedef struct {
 /* Data for downloading protocol via ioctl */
 typedef union {
 	eicon_isa_codebuf isa;
+	eicon_isa_codebuf mca;
 	eicon_pci_codebuf pci;
 } eicon_codebuf;
 
@@ -388,14 +394,10 @@ typedef struct {
 #define EICON_LOCK_TX 0
 #define EICON_LOCK_RX 1
 
-typedef struct {
-	int dummy;
-} eicon_mca_card;
-
 typedef union {
 	eicon_isa_card isa;
 	eicon_pci_card pci;
-	eicon_mca_card mca;
+	eicon_isa_card mca;
 } eicon_hwif;
 
 typedef struct {
@@ -461,6 +463,9 @@ typedef struct eicon_card {
 	char   *status_buf_end;
         isdn_if interface;               /* Interface to upper layer         */
         char regname[35];                /* Name used for request_region     */
+#ifdef CONFIG_MCA
+        int  mca_slot;                   /* # of cards MCA slot              */
+#endif
 } eicon_card;
 
 /* -----------------------------------------------------------**
@@ -517,6 +522,12 @@ extern void eicon_io_transmit(eicon_card *card);
 extern void eicon_irq(int irq, void *dev_id, struct pt_regs *regs);
 extern void eicon_io_rcv_dispatch(eicon_card *ccard);
 extern void eicon_io_ack_dispatch(eicon_card *ccard);
+#ifdef CONFIG_MCA
+extern int eicon_mca_find_card(int, int, int, char *);
+extern int eicon_mca_probe(int, int, int, int, char *);
+extern int eicon_info(char *, int , void *);
+#endif /* CONFIG_MCA */
+
 extern ulong DebugVar;
 
 #endif  /* __KERNEL__ */

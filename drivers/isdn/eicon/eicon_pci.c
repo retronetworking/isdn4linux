@@ -26,6 +26,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.6  1999/04/01 12:48:37  armin
+ * Changed some log outputs.
+ *
  * Revision 1.5  1999/03/29 11:19:49  armin
  * I/O stuff now in seperate file (eicon_io.c)
  * Old ISA type cards (S,SX,SCOM,Quadro,S2M) implemented.
@@ -190,12 +193,13 @@ int eicon_pci_find_card(char *ID)
 			} else {
 				request_region(aparms->PCIreg, 0x20, "eicon reg");
 			}
-			if (check_region((aparms->PCIcfg), 0x100)) {
+			if (check_region((aparms->PCIcfg), 0x80)) {
 				printk(KERN_WARNING "eicon_pci: cfg port already in use !\n");
 				aparms->PCIcfg = 0;
+				release_region(aparms->PCIreg, 0x20);
 				break;	
 			} else {
-				request_region(aparms->PCIcfg, 0x100, "eicon cfg");
+				request_region(aparms->PCIcfg, 0x80, "eicon cfg");
 			}
 			break;
     		case PCI_MAESTRAQ:
@@ -323,7 +327,7 @@ eicon_pci_release_shmem(eicon_pci_card *card) {
 				outw(0, card->PCIreg + M_DATA);
 
 				release_region(card->PCIreg, 0x20);
-				release_region(card->PCIcfg, 0x100);
+				release_region(card->PCIcfg, 0x80);
 				break;
                 	case EICON_CTYPE_MAESTRAQ:
 	                case EICON_CTYPE_MAESTRAQ_U:
