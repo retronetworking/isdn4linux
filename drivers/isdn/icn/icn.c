@@ -3,6 +3,7 @@
  * ISDN low-level module for the ICN active ISDN-Card.
  *
  * Copyright 1994 by Fritz Elfert (fritz@wuemaus.franken.de)
+ * Copyright 1995 Thinking Objects Software GmbH Wuerzburg
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -19,6 +20,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.10  1995/03/25  23:23:24  fritz
+ * Changed configurable Ports, to allow settings for DIP-Switch Cardversions.
+ *
  * Revision 1.9  1995/03/25  23:17:30  fritz
  * Fixed race-condition in pollbchan_send
  *
@@ -437,7 +441,7 @@ pollcard(unsigned long dummy) {
 	  if (!strncmp(p,"CIF",3)) {
 	    cmd.command = ISDN_STAT_CINF;
 	    cmd.arg     = ch-1;
-	    strcpy(cmd.num,p+3);
+	    strncpy(cmd.num,p+3,sizeof(cmd.num)-1);
 	    cmd.driver  = dev->myid;
 	    dev->interface.statcallb(&cmd);
 	    continue;
@@ -445,7 +449,7 @@ pollcard(unsigned long dummy) {
 	  if (!strncmp(p,"CAU",3)) {
 	    cmd.command = ISDN_STAT_CAUSE;
 	    cmd.arg     = ch-1;
-	    strcpy(cmd.num,p+3);
+	    strncpy(cmd.num,p+3,sizeof(cmd.num)-1);
 	    cmd.driver  = dev->myid;
 	    dev->interface.statcallb(&cmd);
 	    continue;
@@ -454,7 +458,7 @@ pollcard(unsigned long dummy) {
 	    cmd.command = ISDN_STAT_ICALL;
 	    cmd.driver  = dev->myid;
 	    cmd.arg     = ch-1;
-	    strcpy(cmd.num,p+6);
+	    strncpy(cmd.num,p+6,sizeof(cmd.num)-1);
 	    dev->interface.statcallb(&cmd);
 	    continue;
 	  }
@@ -462,7 +466,7 @@ pollcard(unsigned long dummy) {
 	    cmd.command = ISDN_STAT_ICALL;
 	    cmd.driver  = dev->myid;
 	    cmd.arg     = ch-1;
-	    strcpy(cmd.num,p+6);
+	    strncpy(cmd.num,p+6,sizeof(cmd.num)-1);
 	    dev->interface.statcallb(&cmd);
 	    continue;
 	  }
@@ -470,8 +474,21 @@ pollcard(unsigned long dummy) {
 	    cmd.command = ISDN_STAT_NODCH;
 	    cmd.driver  = dev->myid;
 	    cmd.arg     = ch-1;
-	    strcpy(cmd.num,p+6);
+	    strncpy(cmd.num,p+6,sizeof(cmd.num)-1);
 	    dev->interface.statcallb(&cmd);
+	    continue;
+	  }
+	} else {
+	  p = dev->imsg;
+	  if (!strncmp(p,"DRV1.00",7)) {
+	    if (!strncmp(p+7,"TC",2)) {
+	      dev->ptype = ICN_TYPE_1TR6;
+	      printk(KERN_INFO "icn: 1TR6-Protocol loaded and running\n");
+	    }
+	    if (!strncmp(p+7,"EC",2)) {
+	      dev->ptype = ICN_TYPE_EURO;
+	      printk(KERN_INFO "icn: Euro-Protocol loaded and running\n");
+	    }
 	    continue;
 	  }
 	}
@@ -661,7 +678,6 @@ loadproto(u_char *buffer) {
       current->timeout = jiffies + ICN_BOOT_TIMEOUT1;
       schedule();
     } else {
-      printk(KERN_INFO "icn: Protocol loaded and running\n");
       save_flags(flags);
       cli();
       init_timer(&dev->st_timer);
@@ -763,7 +779,7 @@ command (isdn_ctrl *c) {
   ulong a;
   ulong flags;
   int   i;
-  static char cbuf[60];
+  char  cbuf[60];
 
   switch (c->command) {
     case ISDN_CMD_IOCTL:
@@ -820,16 +836,20 @@ command (isdn_ctrl *c) {
     case ISDN_CMD_DIAL:
       if ((c->arg & 255)<ICN_BCH) {
 	char *p = c->num;
+	char dial[50];
+        char dcode[4];
 	a = c->arg;
 	if (*p == 's' || *p == 'S') {
 	  /* Dial for SPV */
 	  p++;
-	  sprintf(cbuf,"%02d;DSCA_R%s,07,00,%d\n",(int)(a&255)+1,p,
-	  (int)(a>>8));
+	  strcpy(dcode,"SCA");
 	} else
 	  /* Normal Dial */
-	  sprintf(cbuf,"%02d;DCAL_R%s,07,00,%d\n",(int)(a&255)+1,p,
-	  (int)(a>>8));
+	  strcpy(dcode,"CAL");
+	strcpy(dial,p);
+	p = strchr(dial,',');
+	*p++ = '\0';
+	sprintf(cbuf,"%02d;D%s_R%s,07,00,%s\n",(int)(a&255)+1,dcode,dial,p);
 	i = writecmd(cbuf,strlen(cbuf),0);
       }
       break;
@@ -857,14 +877,22 @@ command (isdn_ctrl *c) {
     case ISDN_CMD_SETEAZ:
       if (c->arg<ICN_BCH) {
 	a = c->arg+1;
-	sprintf(cbuf,"%02d;EAZ%s\n",(int)a,c->num);
+	if (dev->ptype == ICN_TYPE_EURO) {
+	  if (!strlen(c->num))
+	    return 0;
+	  sprintf(cbuf,"%02d;MSN%s\n",(int)a,c->num);
+	} else
+	  sprintf(cbuf,"%02d;EAZ%s\n",(int)a,c->num[0]?c->num:"0123456789");
 	i = writecmd(cbuf,strlen(cbuf),0);
       }
       break;
     case ISDN_CMD_CLREAZ:
       if (c->arg<ICN_BCH) {
 	a = c->arg+1;
-	sprintf(cbuf,"%02d;EAZC\n",(int)a);
+	if (dev->ptype == ICN_TYPE_EURO)
+	  sprintf(cbuf,"%02d;MSNC\n",(int)a);
+	else
+	  sprintf(cbuf,"%02d;EAZC\n",(int)a);
 	i = writecmd(cbuf,strlen(cbuf),0);
       }
       break;
