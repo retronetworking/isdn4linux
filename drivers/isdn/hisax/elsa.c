@@ -11,6 +11,9 @@
  *
  *
  * $Log$
+ * Revision 1.14.2.8  1998/03/07 23:15:15  tsbogend
+ * made HiSax working on Linux/Alpha
+ *
  * Revision 1.14.2.7  1998/01/27 22:37:36  keil
  * fast io
  *
@@ -634,16 +637,15 @@ Elsa_card_msg(struct IsdnCardState *cs, int mt, void *arg)
 					I4L_IRQ_FLAG, "HiSax", cs);
 			return(ret);
 		case CARD_INIT:
+			inithscxisac(cs, 1);
+			if ((cs->subtyp == ELSA_QS1000) ||
+			    (cs->subtyp == ELSA_QS3000)) 
+			{
+				byteout(cs->hw.elsa.timer, 0);
+			}
 			if (cs->hw.elsa.trig)
 				byteout(cs->hw.elsa.trig, 0xff);
-			clear_pending_isac_ints(cs);
-			clear_pending_hscx_ints(cs);
-			initisac(cs);
-			inithscx(cs);
-			if (cs->subtyp == ELSA_QS1000) {
-				byteout(cs->hw.elsa.timer, 0);
-				byteout(cs->hw.elsa.trig, 0xff);
-			}
+			inithscxisac(cs, 2);
 			return(0);
 		case CARD_TEST:
 			if ((cs->subtyp != ELSA_PCMCIA) &&
@@ -918,6 +920,7 @@ setup_elsa(struct IsdnCard *card)
 			printk(KERN_WARNING "Elsa: No PCI card found\n");
 			return(0);
 		}
+		pci_index++;
 		if (!pci_irq) {
 			printk(KERN_WARNING "Elsa: No IRQ for PCI card found\n");
 			return(0);
