@@ -21,6 +21,10 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.98  1999/11/28 14:49:07  detabc
+ * In case of rawip-compress adjust dev[x]->ibytes/obytes to reflect the
+ * uncompressed size.
+ *
  * Revision 1.97  1999/11/26 15:54:59  detabc
  * added compression (isdn_bsdcompress) for rawip interfaces with x75i B2-protocol.
  *
@@ -721,7 +725,7 @@ isdn_net_autohup()
 			anymore = 1;
 			l->huptimer++;
 #ifdef CONFIG_ISDN_WITH_ABC
-		if(l->dw_abc_next_skb != NULL)
+		if(l->dw_abc_next_skb != NULL || l->sav_skb != NULL)
 			isdn_net_send_skb(&p->dev,l,NULL);
 #ifdef CONFIG_ISDN_WITH_ABC_CONN_ERROR
 			if(	isdn_dwabc_encap_with_conerr(l)	&& l->dw_abc_bchan_errcnt > 0) {
@@ -810,6 +814,11 @@ isdn_net_stat_callback(int idx, isdn_ctrl *c)
 				    (!lp->dialstate)) {
 					lp->stats.tx_packets++;
 					lp->stats.tx_bytes += c->parm.length;
+#ifdef CONFIG_ISDN_WITH_ABC
+#ifdef CONFIG_ISDN_WITH_ABC_FRAME_LIMIT
+					atomic_dec(&lp->dw_abc_pkt_onl);
+#endif
+#endif
 					/* some HL drivers deliver 
 					   ISDN_STAT_BSENT from hw interrupt.
 					   Output routines in isdn_ppp are now
@@ -1633,23 +1642,48 @@ int isdn_net_send_skb(struct net_device *ndev, isdn_net_local * lp,struct sk_buf
 
 		return(1);
 	}
-
+once_more:;
+#ifdef CONFIG_ISDN_WITH_ABC_FRAME_LIMIT
+	if((r = atomic_read(&lp->dw_abc_pkt_onl) > 1)) {
+#ifdef ISDN_NEW_TBUSY
+		isdn_net_dev_xoff(ndev);
+#endif
+		clear_bit(ISDN_DW_ABC_BITLOCK_SEND,&lp->dw_abc_bitlocks);
+		return(1);
+	}
+#endif
 	if(lp->dw_abc_next_skb != NULL) {
 
-		skb = lp->dw_abc_next_skb;
-		lp->dw_abc_next_skb = NULL;
+		if(skb == lp->dw_abc_next_skb)
+			skb = NULL;
 
-		if(dwabc_helper_isdn_net_send_skb(ndev,lp,skb))
-			lp->dw_abc_next_skb = skb;
+		if(!dwabc_helper_isdn_net_send_skb(ndev,lp,lp->dw_abc_next_skb)) {
+
+			lp->dw_abc_next_skb = NULL;
+			goto once_more;
+		}
 
 		r = 1;
 
+	} else if(lp->first_skb != NULL && skb != lp->first_skb) {
+
+		lp->dw_abc_next_skb = lp->first_skb;
+		lp->first_skb = NULL;
+		goto once_more;
+
+	} else if(lp->sav_skb != NULL && skb != lp->sav_skb) {
+
+		lp->dw_abc_next_skb = lp->sav_skb;
+		lp->sav_skb = NULL;
+		goto once_more;
+	
 	} else if(skb != NULL) {
 
 		int l = skb->len;
 		int nl = l;
 
-		if(lp->dw_abc_if_flags & ISDN_DW_ABC_IFFLAG_BSDAKTIV) {
+		if(	lp->p_encap == ISDN_NET_ENCAP_RAWIP &&
+			(lp->dw_abc_if_flags & ISDN_DW_ABC_IFFLAG_BSDAKTIV)) {
 
 			if((skb = dwabc_bsd_compress(lp,skb,ndev)) != NULL) {
 
@@ -1661,9 +1695,14 @@ int isdn_net_send_skb(struct net_device *ndev, isdn_net_local * lp,struct sk_buf
 					lp->stats.tx_bytes += l - nl;
 				}
 
-				if(dwabc_helper_isdn_net_send_skb(ndev,lp,skb))
+				if(dwabc_helper_isdn_net_send_skb(ndev,lp,skb)) {
+
 					lp->dw_abc_next_skb = skb;
-				
+#ifdef ISDN_NEW_TBUSY
+					isdn_net_dev_xoff(ndev);
+#endif
+				}
+
 				r = 0;
 			}
 
@@ -1695,6 +1734,11 @@ isdn_net_send_skb
 		lp->transcount += len;
 #ifndef ISDN_NEW_TBUSY
 		clear_bit(0, (void *) &(ndev->tbusy));
+#endif
+#ifdef CONFIG_ISDN_WITH_ABC
+#ifdef CONFIG_ISDN_WITH_ABC_FRAME_LIMIT
+		atomic_inc(&lp->dw_abc_pkt_onl);
+#endif
 #endif
 		return 0;
 	}

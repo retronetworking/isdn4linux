@@ -96,7 +96,7 @@ if [ "$CONFIG_EXPERIMENTAL" != "n" ]; then
 			bool '      Enable Hangup-Support with UDP-INFO' CONFIG_ISDN_WITH_ABC_UDP_CHECK_HANGUP
 			bool '      Enable Dial-Support with UDP-INFO' CONFIG_ISDN_WITH_ABC_UDP_CHECK_DIAL
 		fi
-
+		bool '   Limit on the line frames to 2' CONFIG_ISDN_WITH_ABC_FRAME_LIMIT
 		if [ "$CONFIG_ISDN_PPP" != "n" ]; then
 			bool '      Enable Compression with rawip and x75i' CONFIG_ISDN_WITH_ABC_RAWIPCOMPRESS
 		fi

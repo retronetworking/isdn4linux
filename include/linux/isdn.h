@@ -21,6 +21,10 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.84  1999/11/28 14:49:08  detabc
+ * In case of rawip-compress adjust dev[x]->ibytes/obytes to reflect the
+ * uncompressed size.
+ *
  * Revision 1.83  1999/11/26 15:54:59  detabc
  * added compression (isdn_bsdcompress) for rawip interfaces with x75i B2-protocol.
  *
@@ -357,6 +361,7 @@
 #undef CONFIG_ISDN_WITH_ABC_CH_EXTINUSE
 #undef CONFIG_ISDN_WITH_ABC_CONN_ERROR
 #undef CONFIG_ISDN_WITH_ABC_RAWIPCOMPRESS
+#undef CONFIG_ISDN_WITH_ABC_FRAME_LIMIT
 #else
 #include <linux/isdn_dwabc.h>
 
@@ -724,6 +729,7 @@ typedef struct isdn_net_local_s {
   ulong 	dw_abc_flags;
   ulong 	dw_abc_if_flags;
   int   	dw_abc_inuse_secure;
+  volatile atomic_t dw_abc_pkt_onl;
   ulong 	dw_abc_dialstart;
   int   	dw_abc_old_onhtime;
   struct sk_buff *dw_abc_next_skb;

@@ -20,6 +20,10 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.8  1999/11/28 14:49:07  detabc
+ * In case of rawip-compress adjust dev[x]->ibytes/obytes to reflect the
+ * uncompressed size.
+ *
  * Revision 1.7  1999/11/26 15:54:59  detabc
  * added compression (isdn_bsdcompress) for rawip interfaces with x75i B2-protocol.
  *
@@ -1713,6 +1717,7 @@ void dwabc_bsd_free(isdn_net_local *lp)
 		lp->dw_abc_bsd_bsd_rcv	=
 		lp->dw_abc_bsd_snd 		=
 		lp->dw_abc_bsd_bsd_snd 	= 0;
+		atomic_set(&lp->dw_abc_pkt_onl,0);
 
 		if(lp->dw_abc_next_skb) {
 
