@@ -1491,7 +1491,7 @@ static int __init kcapi_init(void)
 	} else
 		strcpy(rev, "1.0");
 
-        printk(KERN_NOTICE "CAPI4Linux kernel driver Rev. %s: ", rev);
+        printk(KERN_NOTICE "CAPI4Linux kernel driver Rev%s: ", rev);
 #ifdef MODULE
         printk("loaded\n");
 #else
@@ -1515,7 +1515,7 @@ static void __exit kcapi_exit(void)
 	}
 
         proc_capi_exit();
-	printk(KERN_NOTICE "CAPI4Linux kernel driver Rev. %s: unloaded\n", rev);
+	printk(KERN_NOTICE "CAPI4Linux kernel driver Rev%s: unloaded\n", rev);
 }
 
 module_init(kcapi_init);

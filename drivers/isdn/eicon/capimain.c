@@ -1221,6 +1221,7 @@ divacapi_init(void)
         diva_capi_common_code_build, DIVA_BUILD);
 
   strcpy(divas_driver.name, DRIVERLNAME);
+  strcpy(tmprev, main_revision);
   sprintf(divas_driver.revision, "%s/%s %s(%s)", DRIVERRELEASE,
           getrev(tmprev), diva_capi_common_code_build, DIVA_BUILD);
 

@@ -2126,7 +2126,7 @@ static int __init capi_init(void)
 #else
         compileinfo = " (no middleware)";
 #endif
-	printk(KERN_NOTICE "capi20: Rev. %s: started up with major %d%s\n",
+	printk(KERN_NOTICE "capi20: Rev %s: started up with major %d%s\n",
 				rev, capi_major, compileinfo);
 
 	MOD_DEC_USE_COUNT;
@@ -2162,7 +2162,7 @@ static void __exit capi_exit(void)
 #endif
 #endif
 	(void) detach_capi_interface(&cuser);
-	printk(KERN_NOTICE "capi: Rev. %s: unloaded\n", rev);
+	printk(KERN_NOTICE "capi: Rev %s: unloaded\n", rev);
 }
 
 module_init(capi_init);

@@ -572,9 +572,9 @@ static int __init capifs_init(void)
 		return err;
 	}
 #ifdef MODULE
-        printk(KERN_NOTICE "capifs: Rev. %s: loaded\n", rev);
+        printk(KERN_NOTICE "capifs: Rev%s: loaded\n", rev);
 #else
-	printk(KERN_NOTICE "capifs: Rev. %s: started\n", rev);
+	printk(KERN_NOTICE "capifs: Rev%s: started\n", rev);
 #endif
 	MOD_DEC_USE_COUNT;
 	return 0;
