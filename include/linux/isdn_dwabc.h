@@ -19,6 +19,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.2  1999/09/14 10:16:21  keil
+ * change ABC include
+ *
  * Revision 1.1  1999/09/12 16:19:40  detabc
  * added abc features
  * low cost routing for net-interfaces (only the HL side).
@@ -33,7 +36,11 @@
 #ifndef ISDN_DWABC_H
 #define ISDN_DWABC_H
 
+#ifdef __KERNEL__
 #include <linux/types.h>
+#else
+#include <sys/types.h>
+#endif
 
 #define DWABC_LCR_FLG_NEWNUMBER		0x00000001L
 #define DWABC_LCR_FLG_DISABLE		0x00000002L
@@ -43,10 +50,10 @@
 struct ISDN_DWABC_LCR_IOCTL {
 
 	int 	lcr_ioctl_sizeof;	/* mustbe sizeof(ISDN_DWABC_LCR_IOCTL)	*/
-	u_short lcr_ioctl_onhtime;	/* new hanguptime			*/
-	u_long 	lcr_ioctl_callid;	/* callid from lcr-subsystem		*/
-	u_long 	lcr_ioctl_flags;	/* see above				*/
-	char 	lcr_ioctl_nr[32];	/* new destination phonenumber		*/
+	u_short lcr_ioctl_onhtime;	/* new hanguptime						*/
+	u_long 	lcr_ioctl_callid;	/* callid from lcr-subsystem			*/
+	u_long 	lcr_ioctl_flags;	/* see above							*/
+	char 	lcr_ioctl_nr[32];	/* new destination phonenumber			*/
 
 };
 
