@@ -8,6 +8,9 @@
  *
  *
  * $Log$
+ * Revision 1.8  1998/11/15 23:55:14  keil
+ * changes from 2.0
+ *
  * Revision 1.7  1998/09/30 22:24:48  keil
  * Fix missing line in setstack*
  *
@@ -39,8 +42,19 @@
 #include "hscx.h"
 #include "isdnl1.h"
 #include <linux/pci.h>
+#ifndef COMPAT_HAS_NEW_PCI
+#include <linux/bios32.h>
+#endif
 #include <linux/interrupt.h>
 #include <linux/ppp_defs.h>
+
+#ifndef bus_to_virt
+#define bus_to_virt (u_int *)
+#endif
+
+#ifndef virt_to_bus
+#define virt_to_bus (u_int)
+#endif
 
 extern const char *CardType[];
 
@@ -373,6 +387,7 @@ static void got_frame(struct BCState *bcs, int count) {
 	if (!(skb = dev_alloc_skb(count)))
 		printk(KERN_WARNING "TIGER: receive out of memory\n");
 	else {
+		SET_SKB_FREE(skb);
 		memcpy(skb_put(skb, count), bcs->hw.tiger.rcvbuf, count);
 		skb_queue_tail(&bcs->rqueue, skb);
 	}
@@ -671,7 +686,7 @@ static void write_raw(struct BCState *bcs, u_int *buf, int cnt) {
 				if (bcs->st->lli.l1writewakeup &&
 					(PACKET_NOACK != bcs->tx_skb->pkt_type))
 					bcs->st->lli.l1writewakeup(bcs->st, bcs->tx_skb->len);
-				dev_kfree_skb(bcs->tx_skb);
+				idev_kfree_skb(bcs->tx_skb, FREE_WRITE);
 				bcs->tx_skb = NULL;
 			}
 			test_and_clear_bit(BC_FLG_BUSY, &bcs->Flag);
@@ -808,7 +823,7 @@ close_tigerstate(struct BCState *bcs)
 		discard_queue(&bcs->rqueue);
 		discard_queue(&bcs->squeue);
 		if (bcs->tx_skb) {
-			dev_kfree_skb(bcs->tx_skb);
+			idev_kfree_skb(bcs->tx_skb, FREE_WRITE);
 			bcs->tx_skb = NULL;
 			test_and_clear_bit(BC_FLG_BUSY, &bcs->Flag);
 		}
@@ -1043,9 +1058,11 @@ NETjet_card_msg(struct IsdnCardState *cs, int mt, void *arg)
 	return(0);
 }
 
-
-
+#ifdef COMPAT_HAS_NEW_PCI
 static 	struct pci_dev *dev_netjet __initdata = NULL;
+#else
+static  int pci_index __initdata = 0;
+#endif
 
 __initfunc(int
 setup_netjet(struct IsdnCard *card))
@@ -1053,13 +1070,19 @@ setup_netjet(struct IsdnCard *card))
 	int bytecnt;
 	struct IsdnCardState *cs = card->cs;
 	char tmp[64];
-
+#if CONFIG_PCI
+#ifndef COMPAT_HAS_NEW_PCI
+	u_char pci_bus, pci_device_fn, pci_irq;
+	u_int pci_ioaddr, found;
+#endif
+#endif
 	strcpy(tmp, NETjet_revision);
 	printk(KERN_INFO "HiSax: Traverse Tech. NETjet driver Rev. %s\n", HiSax_getrev(tmp));
 	if (cs->typ != ISDN_CTYPE_NETJET)
 		return(0);
 	test_and_clear_bit(FLG_LOCK_ATOMIC, &cs->HW_Flags);
 #if CONFIG_PCI
+#ifdef COMPAT_HAS_NEW_PCI
 	if (!pci_present()) {
 		printk(KERN_ERR "Netjet: no PCI bus present\n");
 		return(0);
@@ -1068,22 +1091,57 @@ setup_netjet(struct IsdnCard *card))
 		PCI_NETJET_ID,  dev_netjet))) {
 		cs->irq = dev_netjet->irq;
 		if (!cs->irq) {
-		printk(KERN_WARNING "NETjet: No IRQ for PCI card found\n");
-		return(0);
-	}
-		cs->hw.njet.base = dev_netjet->base_address[0] &
-			PCI_BASE_ADDRESS_IO_MASK; 
+			printk(KERN_WARNING "NETjet: No IRQ for PCI card found\n");
+			return(0);
+		}
+		cs->hw.njet.base = dev_netjet->base_address[0]
+			& PCI_BASE_ADDRESS_IO_MASK; 
 		if (!cs->hw.njet.base) {
-		printk(KERN_WARNING "NETjet: No IO-Adr for PCI card found\n");
-		return(0);
-	}
-		cs->hw.njet.auxa = cs->hw.njet.base + NETJET_AUXDATA;
-		cs->hw.njet.isac = cs->hw.njet.base | NETJET_ISAC_OFF;
-	bytecnt = 256;
+			printk(KERN_WARNING "NETjet: No IO-Adr for PCI card found\n");
+			return(0);
+		}
 	} else {
 		printk(KERN_WARNING "NETjet: No PCI card found\n");
 		return(0);
 	}
+#else
+	found = 0;
+	for (; pci_index < 0xff; pci_index++) {
+		if (pcibios_find_device(PCI_VENDOR_TRAVERSE_TECH,
+			PCI_NETJET_ID, pci_index, &pci_bus, &pci_device_fn)
+			== PCIBIOS_SUCCESSFUL)
+			found = 1;
+		else
+			continue;
+		/* get IRQ */
+		pcibios_read_config_byte(pci_bus, pci_device_fn,
+			PCI_INTERRUPT_LINE, &pci_irq);
+
+		/* get IO address */
+		pcibios_read_config_dword(pci_bus, pci_device_fn,
+			PCI_BASE_ADDRESS_0, &pci_ioaddr);
+		if (found)
+			break;
+	}
+	if (!found) {
+		printk(KERN_WARNING "NETjet: No PCI card found\n");
+		return(0);
+	}
+	pci_index++;
+	if (!pci_irq) {
+		printk(KERN_WARNING "NETjet: No IRQ for PCI card found\n");
+		return(0);
+	}
+	if (!pci_ioaddr) {
+		printk(KERN_WARNING "NETjet: No IO-Adr for PCI card found\n");
+		return(0);
+	}
+	cs->hw.njet.base = pci_ioaddr & PCI_BASE_ADDRESS_IO_MASK; 
+	cs->irq = pci_irq;
+#endif /* COMPAT_HAS_NEW_PCI */
+	cs->hw.njet.auxa = cs->hw.njet.base + NETJET_AUXDATA;
+	cs->hw.njet.isac = cs->hw.njet.base | NETJET_ISAC_OFF;
+	bytecnt = 256;
 #else
 	printk(KERN_WARNING "NETjet: NO_PCI_BIOS\n");
 	printk(KERN_WARNING "NETjet: unable to config NETJET PCI\n");

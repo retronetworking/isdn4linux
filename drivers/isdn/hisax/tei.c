@@ -11,6 +11,9 @@
  *              Fritz Elfert
  *
  * $Log$
+ * Revision 2.11  1998/11/15 23:55:24  keil
+ * changes from 2.0
+ *
  * Revision 2.10  1998/05/25 14:08:10  keil
  * HiSax 3.0
  * fixed X.75 and leased line to work again
@@ -160,6 +163,7 @@ put_tei_msg(struct PStack *st, u_char m_id, unsigned int ri, u_char tei)
 		printk(KERN_WARNING "HiSax: No skb for TEI manager\n");
 		return;
 	}
+	SET_SKB_FREE(skb);
 	bp = skb_put(skb, 3);
 	bp[0] = (TEI_SAPI << 2);
 	bp[1] = (GROUP_TEI << 1) | 0x1;
@@ -342,7 +346,7 @@ tei_l1l2(struct PStack *st, int pr, void *arg)
 	int mt;
 
 	if (test_bit(FLG_FIXED_TEI, &st->l2.flag)) {
-		dev_kfree_skb(skb);
+		idev_kfree_skb(skb, FREE_READ);
 		return;
 	}
 
@@ -350,8 +354,8 @@ tei_l1l2(struct PStack *st, int pr, void *arg)
 		if (skb->len < 3) {
 			st->ma.tei_m.printdebug(&st->ma.tei_m,
 				"short mgr frame %ld/3", skb->len);
-		} else if (((skb->data[0] >> 2) != TEI_SAPI) ||
-			   ((skb->data[1] >> 1) != GROUP_TEI)) {
+		} else if ((skb->data[0] != ((TEI_SAPI << 2) | 2)) ||
+			   (skb->data[1] != ((GROUP_TEI << 1) | 1))) {
 			st->ma.tei_m.printdebug(&st->ma.tei_m,
 				"wrong mgr sapi/tei %x/%x",
 				skb->data[0], skb->data[1]);
@@ -388,7 +392,7 @@ tei_l1l2(struct PStack *st, int pr, void *arg)
 		st->ma.tei_m.printdebug(&st->ma.tei_m,
 			"tei handler wrong pr %x\n", pr);
 	}
-	dev_kfree_skb(skb);
+	idev_kfree_skb(skb, FREE_READ);
 }
 
 static void

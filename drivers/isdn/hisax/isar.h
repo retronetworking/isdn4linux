@@ -5,6 +5,9 @@
  *
  *
  * $Log$
+ * Revision 1.2  1998/11/15 23:54:54  keil
+ * changes from 2.0
+ *
  * Revision 1.1  1998/08/13 23:33:48  keil
  * First version, only init
  *
@@ -35,6 +38,7 @@
 #define ISAR_HIS_PUMPCFG	0x26	
 #define ISAR_HIS_IOM2CFG	0x27
 #define ISAR_HIS_IOM2REQ	0x07
+#define ISAR_HIS_IOM2CTRL	0x2b
 #define ISAR_HIS_BSTREQ	0x0c
 #define ISAR_HIS_PSTREQ	0x0e
 #define ISAR_HIS_SDATA	0x20

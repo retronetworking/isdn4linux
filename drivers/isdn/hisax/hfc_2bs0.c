@@ -6,6 +6,9 @@
  *
  *
  * $Log$
+ * Revision 1.8  1998/11/15 23:54:43  keil
+ * changes from 2.0
+ *
  * Revision 1.7  1998/09/30 22:24:46  keil
  * Fix missing line in setstack*
  *
@@ -216,6 +219,7 @@ hfc_empty_fifo(struct BCState *bcs, int count)
 	if (!(skb = dev_alloc_skb(count - 3)))
 		printk(KERN_WARNING "HFC: receive out of memory\n");
 	else {
+		SET_SKB_FREE(skb);
 		ptr = skb_put(skb, count - 3);
 		idx = 0;
 		cip = HFC_CIP | HFC_FIFO_OUT | HFC_REC | HFC_CHANNEL(bcs->channel);
@@ -226,7 +230,7 @@ hfc_empty_fifo(struct BCState *bcs, int count)
 		if (idx != count - 3) {
 			debugl1(cs, "RFIFO BUSY error");
 			printk(KERN_WARNING "HFC FIFO channel %d BUSY Error\n", bcs->channel);
-			dev_kfree_skb(skb);
+			idev_kfree_skb(skb, FREE_READ);
 			WaitNoBusy(cs);
 			stat = cs->BC_Read_Reg(cs, HFC_DATA, HFC_CIP | HFC_F2_INC | HFC_REC |
 					       HFC_CHANNEL(bcs->channel));
@@ -244,7 +248,7 @@ hfc_empty_fifo(struct BCState *bcs, int count)
 				bcs->channel, chksum, stat);
 		if (stat) {
 			debugl1(cs, "FIFO CRC error");
-			dev_kfree_skb(skb);
+			idev_kfree_skb(skb, FREE_READ);
 			skb = NULL;
 		}
 		WaitNoBusy(cs);
@@ -318,7 +322,7 @@ hfc_fill_fifo(struct BCState *bcs)
 		bcs->tx_cnt -= count;
 		if (PACKET_NOACK == bcs->tx_skb->pkt_type)
 			count = -1;
-		dev_kfree_skb(bcs->tx_skb);
+		idev_kfree_skb(bcs->tx_skb, FREE_WRITE);
 		bcs->tx_skb = NULL;
 		WaitForBusy(cs);
 		WaitNoBusy(cs);
@@ -516,7 +520,7 @@ close_hfcstate(struct BCState *bcs)
 		discard_queue(&bcs->rqueue);
 		discard_queue(&bcs->squeue);
 		if (bcs->tx_skb) {
-			dev_kfree_skb(bcs->tx_skb);
+			idev_kfree_skb(bcs->tx_skb, FREE_WRITE);
 			bcs->tx_skb = NULL;
 			test_and_clear_bit(BC_FLG_BUSY, &bcs->Flag);
 		}

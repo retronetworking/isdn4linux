@@ -6,6 +6,9 @@
  *  Layermanagement module
  *
  * $Log$
+ * Revision 1.5  1998/11/15 23:55:12  keil
+ * changes from 2.0
+ *
  * Revision 1.4  1998/05/25 12:58:19  keil
  * HiSax golden code from certification, Don't use !!!
  * No leased lines, no X75, but many changes.
@@ -47,7 +50,7 @@ hisax_manager(struct PStack *st, int pr, void *arg)
 		case (MDL_ERROR | INDICATION):
 			Code = (long) arg;
 			HiSax_putstatus(st->l1.hardware, "manager: MDL_ERROR",
-				"%c %s\n", (char)Code, 
+				" %c %s", (char)Code, 
 				test_bit(FLG_LAPD, &st->l2.flag) ?
 				"D-channel" : "B-channel");
 			if (test_bit(FLG_LAPD, &st->l2.flag))

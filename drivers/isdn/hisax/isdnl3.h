@@ -1,6 +1,9 @@
 /* $Id$
 
  * $Log$
+ * Revision 2.3  1998/11/15 23:55:06  keil
+ * changes from 2.0
+ *
  * Revision 2.2  1998/05/25 14:10:17  keil
  * HiSax 3.0
  * X.75 and leased are working again.
@@ -30,12 +33,14 @@
 #define SBIT(state) (1<<state)
 #define ALL_STATES  0x00ffffff
 
-#define	PROTO_DIS_EURO	0x08
+#define PROTO_DIS_EURO	0x08
 
 #define L3_DEB_WARN	0x01
-#define	L3_DEB_PROTERR	0x02
-#define	L3_DEB_STATE	0x04
-#define	L3_DEB_CHARGE	0x08
+#define L3_DEB_PROTERR	0x02
+#define L3_DEB_STATE	0x04
+#define L3_DEB_CHARGE	0x08
+#define L3_DEB_CHECK	0x10
+#define L3_DEB_SI	0x20
 
 struct stateentry {
 	int state;

@@ -15,6 +15,9 @@
  *
  *
  * $Log$
+ * Revision 2.31  1998/11/15 23:54:56  keil
+ * changes from 2.0
+ *
  * Revision 2.30  1998/09/30 22:27:00  keil
  * Add init of l1.Flags
  *
@@ -252,9 +255,11 @@ void
 L1deactivated(struct IsdnCardState *cs)
 {
 	struct PStack *st;
+	int i=0;
 
 	st = cs->stlist;
 	while (st) {
+		printk(KERN_WARNING"st %d %lx\n",i++,(ulong)st);
 		if (test_bit(FLG_L1_DBUSY, &cs->HW_Flags))
 			st->l1.l1l2(st, PH_PAUSE | CONFIRM, NULL);
 		st->l1.l1l2(st, PH_DEACTIVATE | INDICATION, NULL);
@@ -296,9 +301,18 @@ DChannel_proc_rcv(struct IsdnCardState *cs)
 			Logl2Frame(cs, skb, "PH_DATA", 1);
 #endif
 		stptr = cs->stlist;
+		if (skb->len<3) {
+			debugl1(cs, "D-channel frame too short(%d)",skb->len);
+			idev_kfree_skb(skb, FREE_READ);
+			return;
+		}
+		if ((skb->data[0] & 1) || !(skb->data[1] &1)) {
+			debugl1(cs, "D-channel frame wrong EA0/EA1");
+			idev_kfree_skb(skb, FREE_READ);
+			return;
+		}
 		sapi = skb->data[0] >> 2;
 		tei = skb->data[1] >> 1;
-
 		if (cs->debug & DEB_DLOG_HEX)
 			LogFrame(cs, skb->data, skb->len);
 		if (cs->debug & DEB_DLOG_VERBOSE)
@@ -321,7 +335,7 @@ DChannel_proc_rcv(struct IsdnCardState *cs)
 					stptr = stptr->next;
 				}
 			}
-			dev_kfree_skb(skb);
+			idev_kfree_skb(skb, FREE_READ);
 		} else if (sapi == CTRL_SAPI) { /* sapi 0 */
 			found = 0;
 			while (stptr != NULL)
@@ -332,7 +346,7 @@ DChannel_proc_rcv(struct IsdnCardState *cs)
 				} else
 					stptr = stptr->next;
 			if (!found)
-				dev_kfree_skb(skb);
+				idev_kfree_skb(skb, FREE_READ);
 		}
 	}
 }

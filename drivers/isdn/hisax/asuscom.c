@@ -8,6 +8,9 @@
  *
  *
  * $Log$
+ * Revision 1.5  1998/11/15 23:54:19  keil
+ * changes from 2.0
+ *
  * Revision 1.4  1998/06/18 23:18:20  keil
  * Support for new IPAC card
  *
@@ -287,13 +290,13 @@ reset_asuscom(struct IsdnCardState *cs)
 	save_flags(flags);
 	sti();
 	current->state = TASK_INTERRUPTIBLE;
-	schedule_timeout(1);
+	schedule_timeout((10*HZ)/1000);
 	if (cs->subtyp == ASUS_IPAC)
 		writereg(cs->hw.asus.adr, cs->hw.asus.isac, IPAC_POTA2, 0x0);
 	else
 		byteout(cs->hw.asus.adr, 0);	/* Reset Off */
 	current->state = TASK_INTERRUPTIBLE;
-	schedule_timeout(1);
+	schedule_timeout((10*HZ)/1000);
 	if (cs->subtyp == ASUS_IPAC) {
 		writereg(cs->hw.asus.adr, cs->hw.asus.isac, IPAC_CONF, 0x0);
 		writereg(cs->hw.asus.adr, cs->hw.asus.isac, IPAC_ACFG, 0xff);

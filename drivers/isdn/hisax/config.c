@@ -5,6 +5,13 @@
  *
  *
  * $Log$
+ * Revision 2.23  1999/02/17 10:53:02  cpetig
+ * Added Hisax_closecard to exported symbols.
+ * As indicated by Oliver Schoett <os@sdm.de>.
+ *
+ * If anyone is annoyed by exporting symbols deep inside the code, please
+ * contact me.
+ *
  * Revision 2.22  1999/02/04 21:41:53  keil
  * Fix printk msg
  *
@@ -132,7 +139,13 @@
  *   26 AVM A1 PCMCIA (Fritz)   p0=irq p1=iobase
  *   27 AVM PnP/PCI 		p0=irq p1=iobase (PCI no parameter)
  *   28 Sedlbauer Speed Fax+ 	p0=irq p1=iobase (from isapnp setup)
- *
+ *   29 Siemens I-Surf          p0=irq p1=iobase p2=memory (from isapnp setup)   
+ *   30 ACER P10                p0=irq p1=iobase (from isapnp setup)   
+ *   31 HST Saphir              p0=irq  p1=iobase
+ *   32 Telekom A4T             none
+ *   33 Scitel Quadro		p0=subcontroller (4*S0, subctrl 1...4)
+ *   34	Gazel ISDN cards
+ *   35 HFC 2BDS0 PCI           none
  * protocol can be either ISDN_PTYPE_EURO or ISDN_PTYPE_1TR6 or ISDN_PTYPE_NI1
  *
  *
@@ -145,15 +158,27 @@ const char *CardType[] =
  "Sedlbauer Speed Card", "USR Sportster", "ith mic Linux", "Elsa PCI",
  "Compaq ISA", "NETjet", "Teles PCI", "Sedlbauer Speed Star (PCMCIA)",
  "AMD 7930", "NICCY", "S0Box", "AVM A1 (PCMCIA)", "AVM Fritz PnP/PCI",
- "Sedlbauer Speed Fax +"
+ "Sedlbauer Speed Fax +", "Siemens I-Surf", "Acer P10", "HST Saphir",
+ "Telekom A4T", "Scitel Quadro", "Gazel", "HFC 2BDS0 PCI",
 };
+
+void HiSax_closecard(int cardnr);
 
 #ifdef CONFIG_HISAX_ELSA
 #define DEFAULT_CARD ISDN_CTYPE_ELSA
 #define DEFAULT_CFG {0,0,0,0}
 int elsa_init_pcmcia(void*, int, int*, int);
+#ifdef COMPAT_HAS_NEW_SYMTAB
 EXPORT_SYMBOL(elsa_init_pcmcia);
-#endif
+#else
+static struct symbol_table hisax_syms_elsa = {
+#include <linux/symtab_begin.h>
+	X(elsa_init_pcmcia),
+#include <linux/symtab_end.h>
+};
+#endif /* COMPAT_HAS_NEW_SYMTAB */
+#endif /* CONFIG_HISAX_ELSA */
+
 #ifdef CONFIG_HISAX_AVM_A1
 #undef DEFAULT_CARD
 #undef DEFAULT_CFG
@@ -167,8 +192,17 @@ EXPORT_SYMBOL(elsa_init_pcmcia);
 #define DEFAULT_CARD ISDN_CTYPE_A1_PCMCIA
 #define DEFAULT_CFG {11,0x170,0,0}
 int avm_a1_init_pcmcia(void*, int, int*, int);
+#ifdef COMPAT_HAS_NEW_SYMTAB
 EXPORT_SYMBOL(avm_a1_init_pcmcia);
-#endif
+#else
+static struct symbol_table hisax_syms_avm_a1= {
+#include <linux/symtab_begin.h>
+	X(avm_a1_init_pcmcia),
+	X(HiSax_closecard),
+#include <linux/symtab_end.h>
+};
+#endif /* COMPAT_HAS_NEW_SYMTAB */
+#endif /* CONFIG_HISAX_AVM_A1_PCMCIA */
 
 #ifdef CONFIG_HISAX_FRITZPCI
 #undef DEFAULT_CARD
@@ -183,12 +217,14 @@ EXPORT_SYMBOL(avm_a1_init_pcmcia);
 #define DEFAULT_CARD ISDN_CTYPE_16_3
 #define DEFAULT_CFG {15,0x180,0,0}
 #endif
+
 #ifdef CONFIG_HISAX_S0BOX
 #undef DEFAULT_CARD
 #undef DEFAULT_CFG
 #define DEFAULT_CARD ISDN_CTYPE_S0BOX
 #define DEFAULT_CFG {7,0x378,0,0}
 #endif
+
 #ifdef CONFIG_HISAX_16_0
 #undef DEFAULT_CARD
 #undef DEFAULT_CFG
@@ -237,8 +273,16 @@ EXPORT_SYMBOL(avm_a1_init_pcmcia);
 #define DEFAULT_CARD ISDN_CTYPE_SEDLBAUER
 #define DEFAULT_CFG {11,0x270,0,0}
 int sedl_init_pcmcia(void*, int, int*, int);
+#ifdef COMPAT_HAS_NEW_SYMTAB
 EXPORT_SYMBOL(sedl_init_pcmcia);
-#endif
+#else
+static struct symbol_table hisax_syms_sedl= {
+#include <linux/symtab_begin.h>
+	X(sedl_init_pcmcia),
+#include <linux/symtab_end.h>
+};
+#endif /* COMPAT_HAS_NEW_SYMTAB */
+#endif /* CONFIG_HISAX_SEDLBAUER */
 
 #ifdef CONFIG_HISAX_SPORTSTER
 #undef DEFAULT_CARD
@@ -261,12 +305,20 @@ EXPORT_SYMBOL(sedl_init_pcmcia);
 #define DEFAULT_CFG {0,0,0,0}
 #endif
 
-#ifdef CONFIG_HISAX_TELES3C
+#ifdef CONFIG_HISAX_HFCS
 #undef DEFAULT_CARD
 #undef DEFAULT_CFG
 #define DEFAULT_CARD ISDN_CTYPE_TELES3C
 #define DEFAULT_CFG {5,0x500,0,0}
 #endif
+
+#ifdef CONFIG_HISAX_HFC_PCI
+#undef DEFAULT_CARD
+#undef DEFAULT_CFG
+#define DEFAULT_CARD ISDN_CTYPE_HFC_PCI
+#define DEFAULT_CFG {0,0,0,0}
+#endif
+
 
 #ifdef CONFIG_HISAX_AMD7930
 #undef DEFAULT_CARD
@@ -280,6 +332,41 @@ EXPORT_SYMBOL(sedl_init_pcmcia);
 #undef DEFAULT_CFG
 #define DEFAULT_CARD ISDN_CTYPE_NICCY
 #define DEFAULT_CFG {0,0x0,0,0}
+#endif
+
+#ifdef CONFIG_HISAX_ISURF
+#undef DEFAULT_CARD
+#undef DEFAULT_CFG
+#define DEFAULT_CARD ISDN_CTYPE_ISURF
+#define DEFAULT_CFG {5,0x100,0xc8000,0}
+#endif
+
+#ifdef CONFIG_HISAX_HSTSAPHIR
+#undef DEFAULT_CARD
+#undef DEFAULT_CFG
+#define DEFAULT_CARD ISDN_CTYPE_HSTSAPHIR
+#define DEFAULT_CFG {5,0x250,0,0}
+#endif
+
+#ifdef CONFIG_HISAX_BKM_A4T            
+#undef DEFAULT_CARD
+#undef DEFAULT_CFG
+#define DEFAULT_CARD ISDN_CTYPE_BKM_A4T
+#define DEFAULT_CFG {0,0x0,0,0}
+#endif
+
+#ifdef CONFIG_HISAX_SCT_QUADRO
+#undef DEFAULT_CARD
+#undef DEFAULT_CFG
+#define DEFAULT_CARD ISDN_CTYPE_SCT_QUADRO
+#define DEFAULT_CFG {1,0x0,0,0}
+#endif
+
+#ifdef CONFIG_HISAX_GAZEL
+#undef DEFAULT_CARD
+#undef DEFAULT_CFG
+#define DEFAULT_CARD ISDN_CTYPE_GAZEL
+#define DEFAULT_CFG {15,0x180,0,0}
 #endif
 
 #ifdef CONFIG_HISAX_1TR6
@@ -359,6 +446,7 @@ static int mem[] HISAX_INITDATA =
 {0, 0, 0, 0, 0, 0, 0, 0};
 static char *id HISAX_INITDATA = HiSaxID;
 
+#ifdef COMPAT_HAS_NEW_SYMTAB
 MODULE_AUTHOR("Karsten Keil");
 MODULE_PARM(type, "1-8i");
 MODULE_PARM(protocol, "1-8i");
@@ -370,7 +458,7 @@ MODULE_PARM(id, "s");
 MODULE_PARM(io0, "1-8i");
 MODULE_PARM(io1, "1-8i");
 #endif /* CONFIG_HISAX_16_3 */
-
+#endif /* COMPAT_HAS_NEW_SYMTAB */
 #endif /* MODULE */
 
 int nrcards;
@@ -545,8 +633,12 @@ extern int setup_mic(struct IsdnCard *card);
 extern int setup_netjet(struct IsdnCard *card);
 #endif
 
-#if CARD_TELES3C
-extern int setup_t163c(struct IsdnCard *card);
+#if CARD_HFCS
+extern int setup_hfcs(struct IsdnCard *card);
+#endif
+
+#if CARD_HFC_PCI
+extern int setup_hfcpci(struct IsdnCard *card);
 #endif
 
 #if CARD_AMD7930
@@ -555,6 +647,30 @@ extern int setup_amd7930(struct IsdnCard *card);
 
 #if CARD_NICCY
 extern int setup_niccy(struct IsdnCard *card);
+#endif
+
+#if CARD_ISURF
+extern int setup_isurf(struct IsdnCard *card);
+#endif
+
+#if CARD_HSTSAPHIR
+extern int setup_saphir(struct IsdnCard *card);
+#endif
+
+#if CARD_TESTEMU
+extern int setup_testemu(struct IsdnCard *card);
+#endif
+
+#if	CARD_BKM_A4T
+extern int setup_bkm_a4t(struct IsdnCard *card);
+#endif
+
+#if	CARD_SCT_QUADRO
+extern int setup_sct_quadro(struct IsdnCard *card);
+#endif
+
+#if CARD_GAZEL
+extern int setup_gazel(struct IsdnCard *card);
 #endif
 
 /*
@@ -569,6 +685,18 @@ static inline struct IsdnCardState
 		if (cards[i].cs)
 			if (cards[i].cs->myid == driverid)
 				return (cards[i].cs);
+	return (NULL);
+}
+
+/*
+ * Find card with given card number
+ */
+struct IsdnCardState
+*hisax_get_card(int cardnr)
+{
+	if ((cardnr <= nrcards) && (cardnr>0))
+		if (cards[cardnr-1].cs)
+			return (cards[cardnr-1].cs);
 	return (NULL);
 }
 
@@ -775,23 +903,18 @@ closecard(int cardnr)
 		csta->bcs->BC_Close(csta->bcs);
 	}
 
+	discard_queue(&csta->rq);
+	discard_queue(&csta->sq);
 	if (csta->rcvbuf) {
 		kfree(csta->rcvbuf);
 		csta->rcvbuf = NULL;
 	}
-	discard_queue(&csta->rq);
-	discard_queue(&csta->sq);
 	if (csta->tx_skb) {
-		dev_kfree_skb(csta->tx_skb);
+		idev_kfree_skb(csta->tx_skb, FREE_WRITE);
 		csta->tx_skb = NULL;
 	}
-	if (csta->mon_rx) {
-		kfree(csta->mon_rx);
-		csta->mon_rx = NULL;
-	}
-	if (csta->mon_tx) {
-		kfree(csta->mon_tx);
-		csta->mon_tx = NULL;
+	if (csta->DC_Close != NULL) {
+		csta->DC_Close(csta);
 	}
 	csta->cardmsg(csta, CARD_RELEASE, NULL);
 	if (csta->dbusytimer.function != NULL)
@@ -804,6 +927,8 @@ HISAX_INITFUNC(static int init_card(struct IsdnCardState *cs))
 	int irq_cnt, cnt = 3;
 	long flags;
 
+	if (!cs->irq)
+		return(cs->cardmsg(cs, CARD_INIT, NULL));
 	save_flags(flags);
 	cli();
 	irq_cnt = kstat_irqs(cs->irq);
@@ -820,7 +945,7 @@ HISAX_INITFUNC(static int init_card(struct IsdnCardState *cs))
 		sti();
 		current->state = TASK_INTERRUPTIBLE;
 		/* Timeout 10ms */
-		schedule_timeout((10 * HZ) / 1000);
+		schedule_timeout((10*HZ)/1000);
 		restore_flags(flags);
 		printk(KERN_INFO "%s: IRQ %d count %d\n", CardType[cs->typ],
 			cs->irq, kstat_irqs(cs->irq));
@@ -874,11 +999,207 @@ checkcard(int cardnr, char *id, int *busy_flag))
 #endif
 	cs->protocol = card->protocol;
 
-	if ((card->typ > 0) && (card->typ < 31)) {
-		if (!((1 << card->typ) & SUPORTED_CARDS)) {
+	if ((card->typ > 0) && (card->typ <= ISDN_CTYPE_COUNT)) {
+		if (!(cs->dlog = kmalloc(MAX_DLOG_SPACE, GFP_ATOMIC))) {
 			printk(KERN_WARNING
-			     "HiSax: Support for %s Card not selected\n",
-			       CardType[card->typ]);
+				"HiSax: No memory for dlog(card %d)\n",
+				cardnr + 1);
+			restore_flags(flags);
+			return (0);
+		}
+		if (!(cs->status_buf = kmalloc(HISAX_STATUS_BUFSIZE, GFP_ATOMIC))) {
+			printk(KERN_WARNING
+				"HiSax: No memory for status_buf(card %d)\n",
+				cardnr + 1);
+			kfree(cs->dlog);
+			restore_flags(flags);
+			return (0);
+		}
+		cs->stlist = NULL;
+		cs->status_read = cs->status_buf;
+		cs->status_write = cs->status_buf;
+		cs->status_end = cs->status_buf + HISAX_STATUS_BUFSIZE - 1;
+		cs->typ = card->typ;
+		strcpy(cs->iif.id, id);
+		cs->iif.channels = 2;
+		cs->iif.maxbufsize = MAX_DATA_SIZE;
+		cs->iif.hl_hdrlen = MAX_HEADER_LEN;
+		cs->iif.features =
+			ISDN_FEATURE_L2_X75I |
+			ISDN_FEATURE_L2_HDLC |
+//			ISDN_FEATURE_L2_MODEM |
+			ISDN_FEATURE_L2_TRANS |
+			ISDN_FEATURE_L3_TRANS |
+#ifdef	CONFIG_HISAX_1TR6
+			ISDN_FEATURE_P_1TR6 |
+#endif
+#ifdef	CONFIG_HISAX_EURO
+			ISDN_FEATURE_P_EURO |
+#endif
+#ifdef	CONFIG_HISAX_NI1
+			ISDN_FEATURE_P_NI1 |
+#endif
+			0;
+
+		cs->iif.command = HiSax_command;
+		cs->iif.writecmd = NULL;
+		cs->iif.writebuf_skb = HiSax_writebuf_skb;
+		cs->iif.readstat = HiSax_readstatus;
+		register_isdn(&cs->iif);
+		cs->myid = cs->iif.channels;
+		printk(KERN_INFO
+			"HiSax: Card %d Protocol %s Id=%s (%d)\n", cardnr + 1,
+			(card->protocol == ISDN_PTYPE_1TR6) ? "1TR6" :
+			(card->protocol == ISDN_PTYPE_EURO) ? "EDSS1" :
+			(card->protocol == ISDN_PTYPE_LEASED) ? "LEASED" :
+			(card->protocol == ISDN_PTYPE_NI1) ? "NI1" :
+			"NONE", cs->iif.id, cs->myid);
+		switch (card->typ) {
+#if CARD_TELES0
+			case ISDN_CTYPE_16_0:
+			case ISDN_CTYPE_8_0:
+				ret = setup_teles0(card);
+				break;
+#endif
+#if CARD_TELES3
+			case ISDN_CTYPE_16_3:
+			case ISDN_CTYPE_PNP:
+			case ISDN_CTYPE_TELESPCMCIA:
+			case ISDN_CTYPE_COMPAQ_ISA:
+				ret = setup_teles3(card);
+				break;
+#endif
+#if CARD_S0BOX
+			case ISDN_CTYPE_S0BOX:
+				ret = setup_s0box(card);
+				break;
+#endif
+#if CARD_TELESPCI
+			case ISDN_CTYPE_TELESPCI:
+				ret = setup_telespci(card);
+				break;
+#endif
+#if CARD_AVM_A1
+			case ISDN_CTYPE_A1:
+				ret = setup_avm_a1(card);
+				break;
+#endif
+#if CARD_AVM_A1_PCMCIA
+			case ISDN_CTYPE_A1_PCMCIA:
+				ret = setup_avm_a1_pcmcia(card);
+				break;
+#endif
+#if CARD_FRITZPCI
+			case ISDN_CTYPE_FRITZPCI:
+				ret = setup_avm_pcipnp(card);
+				break;
+#endif
+#if CARD_ELSA
+			case ISDN_CTYPE_ELSA:
+			case ISDN_CTYPE_ELSA_PNP:
+			case ISDN_CTYPE_ELSA_PCMCIA:
+			case ISDN_CTYPE_ELSA_PCI:
+				ret = setup_elsa(card);
+				break;
+#endif
+#if CARD_IX1MICROR2
+			case ISDN_CTYPE_IX1MICROR2:
+				ret = setup_ix1micro(card);
+				break;
+#endif
+#if CARD_DIEHLDIVA
+			case ISDN_CTYPE_DIEHLDIVA:
+				ret = setup_diva(card);
+				break;
+#endif
+#if CARD_ASUSCOM
+			case ISDN_CTYPE_ASUSCOM:
+				ret = setup_asuscom(card);
+				break;
+#endif
+#if CARD_TELEINT
+			case ISDN_CTYPE_TELEINT:
+				ret = setup_TeleInt(card);
+				break;
+#endif
+#if CARD_SEDLBAUER
+			case ISDN_CTYPE_SEDLBAUER:
+			case ISDN_CTYPE_SEDLBAUER_PCMCIA:
+			case ISDN_CTYPE_SEDLBAUER_FAX:
+				ret = setup_sedlbauer(card);
+				break;
+#endif
+#if CARD_SPORTSTER
+			case ISDN_CTYPE_SPORTSTER:
+				ret = setup_sportster(card);
+				break;
+#endif
+#if CARD_MIC
+			case ISDN_CTYPE_MIC:
+				ret = setup_mic(card);
+				break;
+#endif
+#if CARD_NETJET
+			case ISDN_CTYPE_NETJET:
+				ret = setup_netjet(card);
+				break;
+#endif
+#if CARD_HFCS
+			case ISDN_CTYPE_TELES3C:
+			case ISDN_CTYPE_ACERP10:
+				ret = setup_hfcs(card);
+				break;
+#endif
+#if CARD_HFC_PCI
+		        case ISDN_CTYPE_HFC_PCI: 
+				ret = setup_hfcpci(card);
+				break;
+#endif
+#if CARD_NICCY
+			case ISDN_CTYPE_NICCY:
+				ret = setup_niccy(card);
+				break;
+#endif
+#if CARD_AMD7930
+			case ISDN_CTYPE_AMD7930:
+				ret = setup_amd7930(card);
+				break;
+#endif
+#if CARD_ISURF
+			case ISDN_CTYPE_ISURF:
+				ret = setup_isurf(card);
+				break;
+#endif
+#if CARD_HSTSAPHIR
+			case ISDN_CTYPE_HSTSAPHIR:
+				ret = setup_saphir(card);
+				break;
+#endif
+#if CARD_TESTEMU
+			case ISDN_CTYPE_TESTEMU:
+				ret = setup_testemu(card);
+				break;
+#endif
+#if	CARD_BKM_A4T       
+           	case ISDN_CTYPE_BKM_A4T:
+	        	ret = setup_bkm_a4t(card);
+			break;
+#endif
+#if	CARD_SCT_QUADRO
+	        case ISDN_CTYPE_SCT_QUADRO:
+    			ret = setup_sct_quadro(card);
+			break;
+#endif
+#if CARD_GAZEL
+ 		case ISDN_CTYPE_GAZEL:
+ 			ret = setup_gazel(card);
+ 			break;
+#endif
+		default:
+			printk(KERN_WARNING
+				"HiSax: Support for %s Card not selected\n",
+				CardType[card->typ]);
+			ll_unload(cs);
 			restore_flags(flags);
 			return (0);
 		}
@@ -888,174 +1209,6 @@ checkcard(int cardnr, char *id, int *busy_flag))
 		       card->typ);
 		restore_flags(flags);
 		return (0);
-	}
-	if (!(cs->dlog = kmalloc(MAX_DLOG_SPACE, GFP_ATOMIC))) {
-		printk(KERN_WARNING
-		       "HiSax: No memory for dlog(card %d)\n",
-		       cardnr + 1);
-		restore_flags(flags);
-		return (0);
-	}
-	if (!(cs->status_buf = kmalloc(HISAX_STATUS_BUFSIZE, GFP_ATOMIC))) {
-		printk(KERN_WARNING
-		       "HiSax: No memory for status_buf(card %d)\n",
-		       cardnr + 1);
-		kfree(cs->dlog);
-		restore_flags(flags);
-		return (0);
-	}
-	cs->stlist = NULL;
-	cs->mon_tx = NULL;
-	cs->mon_rx = NULL;
-	cs->status_read = cs->status_buf;
-	cs->status_write = cs->status_buf;
-	cs->status_end = cs->status_buf + HISAX_STATUS_BUFSIZE - 1;
-	cs->typ = card->typ;
-	strcpy(cs->iif.id, id);
-	cs->iif.channels = 2;
-	cs->iif.maxbufsize = MAX_DATA_SIZE;
-	cs->iif.hl_hdrlen = MAX_HEADER_LEN;
-	cs->iif.features =
-	    ISDN_FEATURE_L2_X75I |
-	    ISDN_FEATURE_L2_HDLC |
-	    ISDN_FEATURE_L2_MODEM |
-	    ISDN_FEATURE_L2_TRANS |
-	    ISDN_FEATURE_L3_TRANS |
-#ifdef	CONFIG_HISAX_1TR6
-	    ISDN_FEATURE_P_1TR6 |
-#endif
-#ifdef	CONFIG_HISAX_EURO
-	    ISDN_FEATURE_P_EURO |
-#endif
-#ifdef        CONFIG_HISAX_NI1
-	    ISDN_FEATURE_P_NI1 |
-#endif
-	    0;
-
-	cs->iif.command = HiSax_command;
-	cs->iif.writecmd = NULL;
-	cs->iif.writebuf_skb = HiSax_writebuf_skb;
-	cs->iif.readstat = HiSax_readstatus;
-	register_isdn(&cs->iif);
-	cs->myid = cs->iif.channels;
-	printk(KERN_INFO
-	       "HiSax: Card %d Protocol %s Id=%s (%d)\n", cardnr + 1,
-	       (card->protocol == ISDN_PTYPE_1TR6) ? "1TR6" :
-	       (card->protocol == ISDN_PTYPE_EURO) ? "EDSS1" :
-	       (card->protocol == ISDN_PTYPE_LEASED) ? "LEASED" :
-	       (card->protocol == ISDN_PTYPE_NI1) ? "NI1" :
-	       "NONE", cs->iif.id, cs->myid);
-	switch (card->typ) {
-#if CARD_TELES0
-		case ISDN_CTYPE_16_0:
-		case ISDN_CTYPE_8_0:
-			ret = setup_teles0(card);
-			break;
-#endif
-#if CARD_TELES3
-		case ISDN_CTYPE_16_3:
-		case ISDN_CTYPE_PNP:
-		case ISDN_CTYPE_TELESPCMCIA:
-		case ISDN_CTYPE_COMPAQ_ISA:
-			ret = setup_teles3(card);
-			break;
-#endif
-#if CARD_S0BOX
-		case ISDN_CTYPE_S0BOX:
-			ret = setup_s0box(card);
-			break;
-#endif
-#if CARD_TELESPCI
-		case ISDN_CTYPE_TELESPCI:
-			ret = setup_telespci(card);
-			break;
-#endif
-#if CARD_AVM_A1
-		case ISDN_CTYPE_A1:
-			ret = setup_avm_a1(card);
-			break;
-#endif
-#if CARD_AVM_A1_PCMCIA
-		case ISDN_CTYPE_A1_PCMCIA:
-			ret = setup_avm_a1_pcmcia(card);
-			break;
-#endif
-#if CARD_FRITZPCI
-		case ISDN_CTYPE_FRITZPCI:
-			ret = setup_avm_pcipnp(card);
-			break;
-#endif
-#if CARD_ELSA
-		case ISDN_CTYPE_ELSA:
-		case ISDN_CTYPE_ELSA_PNP:
-		case ISDN_CTYPE_ELSA_PCMCIA:
-		case ISDN_CTYPE_ELSA_PCI:
-			ret = setup_elsa(card);
-			break;
-#endif
-#if CARD_IX1MICROR2
-		case ISDN_CTYPE_IX1MICROR2:
-			ret = setup_ix1micro(card);
-			break;
-#endif
-#if CARD_DIEHLDIVA
-		case ISDN_CTYPE_DIEHLDIVA:
-			ret = setup_diva(card);
-			break;
-#endif
-#if CARD_ASUSCOM
-		case ISDN_CTYPE_ASUSCOM:
-			ret = setup_asuscom(card);
-			break;
-#endif
-#if CARD_TELEINT
-		case ISDN_CTYPE_TELEINT:
-			ret = setup_TeleInt(card);
-			break;
-#endif
-#if CARD_SEDLBAUER
-		case ISDN_CTYPE_SEDLBAUER:
-		case ISDN_CTYPE_SEDLBAUER_PCMCIA:
-		case ISDN_CTYPE_SEDLBAUER_FAX:
-			ret = setup_sedlbauer(card);
-			break;
-#endif
-#if CARD_SPORTSTER
-		case ISDN_CTYPE_SPORTSTER:
-			ret = setup_sportster(card);
-			break;
-#endif
-#if CARD_MIC
-		case ISDN_CTYPE_MIC:
-			ret = setup_mic(card);
-			break;
-#endif
-#if CARD_NETJET
-		case ISDN_CTYPE_NETJET:
-			ret = setup_netjet(card);
-			break;
-#endif
-#if CARD_TELES3C
-		case ISDN_CTYPE_TELES3C:
-			ret = setup_t163c(card);
-			break;
-#endif
-#if CARD_NICCY
-		case ISDN_CTYPE_NICCY:
-			ret = setup_niccy(card);
-			break;
-#endif
-#if CARD_AMD7930
-		case ISDN_CTYPE_AMD7930:
-			ret = setup_amd7930(card);
-			break;
-#endif
-		default:
-			printk(KERN_WARNING "HiSax: Unknown Card Typ %d\n",
-			       card->typ);
-			ll_unload(cs);
-			restore_flags(flags);
-			return (0);
 	}
 	if (!ret) {
 		ll_unload(cs);
@@ -1161,7 +1314,8 @@ HiSax_closecard(int cardnr)
 		ll_stop(cards[cardnr].cs);
 		release_tei(cards[cardnr].cs);
 		closecard(cardnr);
-		free_irq(cards[cardnr].cs->irq, cards[cardnr].cs);
+		if (cards[cardnr].cs->irq)
+			free_irq(cards[cardnr].cs->irq, cards[cardnr].cs);
 		kfree((void *) cards[cardnr].cs);
 		cards[cardnr].cs = NULL;
 	}
@@ -1172,8 +1326,6 @@ HiSax_closecard(int cardnr)
 	}
 	nrcards--;
 }
-
-EXPORT_SYMBOL(HiSax_closecard);
 
 void
 HiSax_reportcard(int cardnr)
@@ -1195,11 +1347,13 @@ HiSax_reportcard(int cardnr)
 		cs->bcs[0].mode, cs->bcs[0].channel);
 	printk(KERN_DEBUG "HiSax: bcs 1 mode %d ch%d\n",
 		cs->bcs[1].mode, cs->bcs[1].channel);
+	printk(KERN_DEBUG "HiSax: cs setstack_d 0x%lX\n", (ulong) cs->setstack_d);
 	printk(KERN_DEBUG "HiSax: cs stl 0x%lX\n", (ulong) & (cs->stlist));
 	stptr = cs->stlist;
 	while (stptr != NULL) {
 		printk(KERN_DEBUG "HiSax: dst%d 0x%lX\n", i, (ulong) stptr);
 		printk(KERN_DEBUG "HiSax: dst%d stp 0x%lX\n", i, (ulong) stptr->l1.stlistp);
+		printk(KERN_DEBUG "HiSax: dst%d l1.l1hw 0x%lX\n", i, (ulong) stptr->l1.l1hw);
 		printk(KERN_DEBUG "HiSax:   tei %d sapi %d\n",
 		       stptr->l2.tei, stptr->l2.sap);
 		printk(KERN_DEBUG "HiSax:      man 0x%lX\n", (ulong) stptr->ma.layer);
@@ -1239,18 +1393,27 @@ HiSax_init(void))
 #ifdef CONFIG_HISAX_ELSA
 	if (type[0] == ISDN_CTYPE_ELSA_PCMCIA) {
 		/* we have exported  and return in this case */
+#ifndef COMPAT_HAS_NEW_SYMTAB
+		register_symtab(&hisax_syms_elsa);
+#endif
 		return 0;
 	}
 #endif
 #ifdef CONFIG_HISAX_SEDLBAUER
 	if (type[0] == ISDN_CTYPE_SEDLBAUER_PCMCIA) {
 		/* we have to export  and return in this case */
+#ifndef COMPAT_HAS_NEW_SYMTAB
+		register_symtab(&hisax_syms_sedl);
+#endif
 		return 0;
 	}
 #endif
 #ifdef CONFIG_HISAX_AVM_A1_PCMCIA
 	if (type[0] == ISDN_CTYPE_A1_PCMCIA) {
 		/* we have to export  and return in this case */
+#ifndef COMPAT_HAS_NEW_SYMTAB
+		register_symtab(&hisax_syms_avm_a1);
+#endif
 		return 0;
 	}
 #endif
@@ -1311,15 +1474,28 @@ HiSax_init(void))
 			case ISDN_CTYPE_SPORTSTER:
 			case ISDN_CTYPE_MIC:
 			case ISDN_CTYPE_TELES3C:
+			case ISDN_CTYPE_ACERP10:
 			case ISDN_CTYPE_S0BOX:
 			case ISDN_CTYPE_FRITZPCI:
+			case ISDN_CTYPE_HSTSAPHIR:
+			case ISDN_CTYPE_GAZEL:
 				cards[i].para[0] = irq[i];
 				cards[i].para[1] = io[i];
+				break;
+			case ISDN_CTYPE_ISURF:
+				cards[i].para[0] = irq[i];
+				cards[i].para[1] = io[i];
+				cards[i].para[2] = mem[i];
 				break;
 			case ISDN_CTYPE_ELSA_PCI:
 			case ISDN_CTYPE_NETJET:
 			case ISDN_CTYPE_AMD7930:
 			case ISDN_CTYPE_TELESPCI:
+				break;
+			case ISDN_CTYPE_BKM_A4T:
+	  		   	break;
+			case ISDN_CTYPE_SCT_QUADRO:
+	          	cards[i].para[0] = irq[i];
 				break;
 		}
 	}
@@ -1346,11 +1522,13 @@ HiSax_init(void))
 	Isdnl1New();
 	if (HiSax_inithardware(NULL)) {
 		/* Install only, if at least one card found */
-		/* No symbols to export, hide all symbols */
-
 #ifdef MODULE
+#ifndef COMPAT_HAS_NEW_SYMTAB
+		/* No symbols to export, hide all symbols */
+		register_symtab(NULL);
 		printk(KERN_INFO "HiSax: module installed\n");
-#endif
+#endif /* COMPAT_HAS_NEW_SYMTAB */
+#endif /* MODULE */
 		return (0);
 	} else {
 		Isdnl1Free();

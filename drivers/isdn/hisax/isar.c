@@ -6,6 +6,9 @@
  *
  *
  * $Log$
+ * Revision 1.2  1998/11/15 23:54:53  keil
+ * changes from 2.0
+ *
  * Revision 1.1  1998/08/13 23:33:47  keil
  * First version, only init
  *
@@ -423,6 +426,7 @@ isar_rcv_frame(struct IsdnCardState *cs, struct BCState *bcs)
 		break;
 	case L1_MODE_TRANS:
 		if ((skb = dev_alloc_skb(ireg->clsb))) {
+			SET_SKB_FREE(skb);
 			rcv_mbox(cs, ireg, (u_char *)skb_put(skb, ireg->clsb));
 			skb_queue_tail(&bcs->rqueue, skb);
 			isar_sched_event(bcs, B_RCVBUFREADY);
@@ -456,6 +460,7 @@ isar_rcv_frame(struct IsdnCardState *cs, struct BCState *bcs)
 				} else if (!(skb = dev_alloc_skb(bcs->hw.isar.rcvidx-2)))
 					printk(KERN_WARNING "ISAR: receive out of memory\n");
 				else {
+					SET_SKB_FREE(skb);
 					memcpy(skb_put(skb, bcs->hw.isar.rcvidx-2),
 						bcs->hw.isar.rcvbuf, bcs->hw.isar.rcvidx-2);
 					skb_queue_tail(&bcs->rqueue, skb);
@@ -554,7 +559,7 @@ send_frames(struct BCState *bcs)
 			if (bcs->st->lli.l1writewakeup &&
 				(PACKET_NOACK != bcs->tx_skb->pkt_type))
 					bcs->st->lli.l1writewakeup(bcs->st, bcs->hw.isar.txcnt);
-			dev_kfree_skb(bcs->tx_skb);
+			idev_kfree_skb(bcs->tx_skb, FREE_WRITE);
 			bcs->hw.isar.txcnt = 0; 
 			bcs->tx_skb = NULL;
 		}
@@ -879,7 +884,7 @@ close_isarstate(struct BCState *bcs)
 		discard_queue(&bcs->rqueue);
 		discard_queue(&bcs->squeue);
 		if (bcs->tx_skb) {
-			dev_kfree_skb(bcs->tx_skb);
+			idev_kfree_skb(bcs->tx_skb, FREE_WRITE);
 			bcs->tx_skb = NULL;
 			test_and_clear_bit(BC_FLG_BUSY, &bcs->Flag);
 			if (bcs->cs->debug & L1_DEB_HSCX)

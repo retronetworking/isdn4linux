@@ -8,6 +8,9 @@
  * Thanks to Dr. Neuhaus and SAGEM for informations
  *
  * $Log$
+ * Revision 1.4  1998/04/16 19:16:48  keil
+ * need config.h
+ *
  * Revision 1.3  1998/04/15 16:42:59  keil
  * new init code
  *
@@ -24,6 +27,9 @@
 #include "hscx.h"
 #include "isdnl1.h"
 #include <linux/pci.h>
+#ifndef COMPAT_HAS_NEW_PCI
+#include <linux/bios32.h>
+#endif
 
 extern const char *CardType[];
 const char *niccy_revision = "$Revision$";
@@ -258,7 +264,11 @@ niccy_card_msg(struct IsdnCardState *cs, int mt, void *arg)
 	return(0);
 }
 
+#ifdef COMPAT_HAS_NEW_PCI
 static 	struct pci_dev *niccy_dev __initdata = NULL;
+#else
+static  int pci_index __initdata = 0;
+#endif
 
 __initfunc(int
 setup_niccy(struct IsdnCard *card))
@@ -301,40 +311,84 @@ setup_niccy(struct IsdnCard *card))
 	} else {
 #if CONFIG_PCI
 		u_int pci_ioaddr;
-
+#ifdef COMPAT_HAS_NEW_PCI
 		if (!pci_present()) {
 			printk(KERN_ERR "Niccy: no PCI bus present\n");
 			return(0);
 		}
-
 		cs->subtyp = 0;
 		if ((niccy_dev = pci_find_device(PCI_VENDOR_DR_NEUHAUS,
 			   PCI_NICCY_ID, niccy_dev))) {
 			/* get IRQ */
 			if (!niccy_dev->irq) {
 				printk(KERN_WARNING "Niccy: No IRQ for PCI card found\n");
-			return(0);
-		}
+				return(0);
+			}
 			cs->irq = niccy_dev->irq;
 			if (!niccy_dev->base_address[0]) {
 				printk(KERN_WARNING "Niccy: No IO-Adr for PCI cfg found\n");
-			return(0);
-		}
+				return(0);
+			}
 			cs->hw.niccy.cfg_reg = niccy_dev->base_address[0] & PCI_BASE_ADDRESS_IO_MASK;
 			if (!niccy_dev->base_address[1]) {
-			printk(KERN_WARNING "Niccy: No IO-Adr for PCI card found\n");
-			return(0);
-		}
+				printk(KERN_WARNING "Niccy: No IO-Adr for PCI card found\n");
+				return(0);
+			}
 			pci_ioaddr = niccy_dev->base_address[1] & PCI_BASE_ADDRESS_IO_MASK;
-		cs->hw.niccy.isac = pci_ioaddr + ISAC_PCI_DATA;
-		cs->hw.niccy.isac_ale = pci_ioaddr + ISAC_PCI_ADDR;
-		cs->hw.niccy.hscx = pci_ioaddr + HSCX_PCI_DATA;
-		cs->hw.niccy.hscx_ale = pci_ioaddr + HSCX_PCI_ADDR;
 			cs->subtyp = NICCY_PCI;
 		} else {
 			printk(KERN_WARNING "Niccy: No PCI card found\n");
 			return(0);
 		}
+#else
+		u_char pci_bus, pci_device_fn, pci_irq;
+
+		cs->subtyp = 0;
+		for (; pci_index < 0xff; pci_index++) {
+			if (pcibios_find_device(PCI_VENDOR_DR_NEUHAUS,
+			   PCI_NICCY_ID, pci_index, &pci_bus, &pci_device_fn)
+			   == PCIBIOS_SUCCESSFUL)
+				cs->subtyp = NICCY_PCI;
+			else
+				continue;
+			/* get IRQ */
+			pcibios_read_config_byte(pci_bus, pci_device_fn,
+				PCI_INTERRUPT_LINE, &pci_irq);
+
+			/* get IO pci AMCC address */
+			pcibios_read_config_dword(pci_bus, pci_device_fn,
+				PCI_BASE_ADDRESS_0, &pci_ioaddr);
+			if (!pci_ioaddr) {
+				printk(KERN_WARNING "Niccy: No IO-Adr for PCI cfg found\n");
+				return(0);
+			}
+			cs->hw.niccy.cfg_reg = pci_ioaddr & ~3 ;
+			/* get IO address */
+			pcibios_read_config_dword(pci_bus, pci_device_fn,
+				PCI_BASE_ADDRESS_1, &pci_ioaddr);
+			if (cs->subtyp)
+				break;
+		}
+		if (!cs->subtyp) {
+			printk(KERN_WARNING "Niccy: No PCI card found\n");
+			return(0);
+		}
+		pci_index++;
+		if (!pci_irq) {
+			printk(KERN_WARNING "Niccy: No IRQ for PCI card found\n");
+			return(0);
+		}
+		if (!pci_ioaddr) {
+			printk(KERN_WARNING "Niccy: No IO-Adr for PCI card found\n");
+			return(0);
+		}
+		pci_ioaddr &= ~3; /* remove io/mem flag */
+		cs->irq = pci_irq;
+#endif /* COMPAT_HAS_NEW_PCI */
+		cs->hw.niccy.isac = pci_ioaddr + ISAC_PCI_DATA;
+		cs->hw.niccy.isac_ale = pci_ioaddr + ISAC_PCI_ADDR;
+		cs->hw.niccy.hscx = pci_ioaddr + HSCX_PCI_DATA;
+		cs->hw.niccy.hscx_ale = pci_ioaddr + HSCX_PCI_ADDR;
 		if (check_region((cs->hw.niccy.isac), 4)) {
 			printk(KERN_WARNING
 				"HiSax: %s data port %x-%x already in use\n",

@@ -17,6 +17,9 @@
  *            Edgar Toernig
  *
  * $Log$
+ * Revision 1.9  1998/11/15 23:55:20  keil
+ * changes from 2.0
+ *
  * Revision 1.8  1998/08/13 23:34:51  keil
  * starting speedfax+ (ISAR) support
  *
@@ -73,6 +76,9 @@
 #include "isar.h"
 #include "isdnl1.h"
 #include <linux/pci.h>
+#ifndef COMPAT_HAS_NEW_PCI
+#include <linux/bios32.h>
+#endif
 
 extern const char *CardType[];
 
@@ -451,10 +457,10 @@ reset_sedlbauer(struct IsdnCardState *cs)
 			save_flags(flags);
 			sti();
 			current->state = TASK_INTERRUPTIBLE;
-			schedule_timeout(1);
+			schedule_timeout((10*HZ)/1000);
 			writereg(cs->hw.sedl.adr, cs->hw.sedl.isac, IPAC_POTA2, 0x0);
 			current->state = TASK_INTERRUPTIBLE;
-			schedule_timeout(1);
+			schedule_timeout((10*HZ)/1000);
 			writereg(cs->hw.sedl.adr, cs->hw.sedl.isac, IPAC_CONF, 0x0);
 			writereg(cs->hw.sedl.adr, cs->hw.sedl.isac, IPAC_ACFG, 0xff);
 			writereg(cs->hw.sedl.adr, cs->hw.sedl.isac, IPAC_AOE, 0x0);
@@ -466,10 +472,10 @@ reset_sedlbauer(struct IsdnCardState *cs)
 			save_flags(flags);
 			sti();
 			current->state = TASK_INTERRUPTIBLE;
-			schedule_timeout(1);
+			schedule_timeout((10*HZ)/1000);
 			byteout(cs->hw.sedl.reset_off, 0);	/* Reset Off */
 			current->state = TASK_INTERRUPTIBLE;
-			schedule_timeout(1);
+			schedule_timeout((10*HZ)/1000);
 			restore_flags(flags);
 		}
 	}
@@ -527,7 +533,11 @@ Sedl_card_msg(struct IsdnCardState *cs, int mt, void *arg)
 
 
 #ifdef SEDLBAUER_PCI
+#ifdef COMPAT_HAS_NEW_PCI
+static 	struct pci_dev *dev_sedl __initdata = NULL;
+#else
 static  int pci_index __initdata = 0;
+#endif
 #endif
 
 __initfunc(int
@@ -566,6 +576,25 @@ setup_sedlbauer(struct IsdnCard *card))
 /* Probe for Sedlbauer speed pci */
 #if SEDLBAUER_PCI
 #if CONFIG_PCI
+#ifdef COMPAT_HAS_NEW_PCI
+		if (!pci_present()) {
+			printk(KERN_ERR "FritzPCI: no PCI bus present\n");
+			return(0);
+		}
+		if ((dev_sedl = pci_find_device(PCI_VENDOR_SEDLBAUER,
+				PCI_SPEEDPCI_ID, dev_sedl))) {
+			cs->irq = dev_sedl->irq;
+			if (!cs->irq) {
+				printk(KERN_WARNING "Sedlbauer: No IRQ for PCI card found\n");
+				return(0);
+			}
+			cs->hw.sedl.cfg_reg = dev_sedl->base_address[0] &
+				PCI_BASE_ADDRESS_IO_MASK; 
+		} else {
+			printk(KERN_WARNING "Sedlbauer: No PCI card found\n");
+			return(0);
+		}
+#else
 		for (; pci_index < 255; pci_index++) {
 			unsigned char pci_bus, pci_device_fn;
 			unsigned int ioaddr;
@@ -586,14 +615,6 @@ setup_sedlbauer(struct IsdnCard *card))
 				printk(KERN_WARNING "Sedlbauer: No IO-Adr for PCI card found\n");
 				return(0);
 			}
-			cs->hw.sedl.bus = SEDL_BUS_PCI;
-			cs->hw.sedl.chip = SEDL_CHIP_IPAC;
-			cs->subtyp = SEDL_SPEED_PCI;
-			bytecnt = 256;
-			byteout(cs->hw.sedl.cfg_reg, 0xff);
-			byteout(cs->hw.sedl.cfg_reg, 0x00);
-			byteout(cs->hw.sedl.cfg_reg+ 2, 0xdd);
-			byteout(cs->hw.sedl.cfg_reg+ 5, 0x02);
 			break;
 		}	
 		if (pci_index == 255) {
@@ -601,6 +622,15 @@ setup_sedlbauer(struct IsdnCard *card))
 			return(0);
 		}
 		pci_index++;
+#endif /* COMPAT_HAS_NEW_PCI */
+		cs->hw.sedl.bus = SEDL_BUS_PCI;
+		cs->hw.sedl.chip = SEDL_CHIP_IPAC;
+		cs->subtyp = SEDL_SPEED_PCI;
+		bytecnt = 256;
+		byteout(cs->hw.sedl.cfg_reg, 0xff);
+		byteout(cs->hw.sedl.cfg_reg, 0x00);
+		byteout(cs->hw.sedl.cfg_reg+ 2, 0xdd);
+		byteout(cs->hw.sedl.cfg_reg+ 5, 0x02);
 #else
 		printk(KERN_WARNING "Sedlbauer: NO_PCI_BIOS\n");
 		return (0);

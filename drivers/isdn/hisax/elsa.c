@@ -15,6 +15,9 @@
  *
  *
  * $Log$
+ * Revision 2.12  1998/11/15 23:54:35  keil
+ * changes from 2.0
+ *
  * Revision 2.11  1998/08/20 13:50:34  keil
  * More support for hybrid modem (not working yet)
  *
@@ -67,13 +70,15 @@
 #include "hscx.h"
 #include "isdnl1.h"
 #include <linux/pci.h>
-
-//#define KDEBUG_DEF
-//#include "../kdebug.h"
+#ifndef COMPAT_HAS_NEW_PCI
+#include <linux/bios32.h>
+#endif
+#include <linux/serial.h>
+#include <linux/serial_reg.h>
 
 extern const char *CardType[];
 
-static const char *Elsa_revision = "$Revision$";
+const char *Elsa_revision = "$Revision$";
 const char *Elsa_Types[] =
 {"None", "PC", "PCC-8", "PCC-16", "PCF", "PCF-Pro",
  "PCMCIA", "QS 1000", "QS 3000", "QS 1000 PCI", "QS 3000 PCI"};
@@ -155,16 +160,26 @@ const char *ITACVer[] =
 #define ELSA_IPAC_LINE_LED	0x40	/* Bit 6 Gelbe LED */
 #define ELSA_IPAC_STAT_LED	0x80	/* Bit 7 Gruene LED */
 
-const u_char ARCOFI_VERSION[] = {2,0xa0,0};
-const u_char ARCOFI_COP_5[] = {4,0xa1,0x25,0xbb,0x4a}; /* GTX */
-const u_char ARCOFI_COP_6[] = {6,0xa1,0x26,0,0,0x82,0x7c}; /* GRL GRH */
-const u_char ARCOFI_COP_7[] = {4,0xa1,0x27,0x80,0x80}; /* GZ */
-const u_char ARCOFI_COP_8[] = {10,0xa1,0x28,0x49,0x31,0x8,0x13,0x6e,0x88,0x2a,0x61}; /* TX */
-const u_char ARCOFI_COP_9[] = {10,0xa1,0x29,0x80,0xcb,0xe9,0x88,0x00,0xc8,0xd8,0x80}; /* RX */
-const u_char ARCOFI_XOP_0[] = {2,0xa1,0x30}; /* PWR Down */
-const u_char ARCOFI_XOP_1[] = {2,0xa1,0x31}; /* PWR UP */
-const u_char ARCOFI_XOP_F[] = {2,0xa1,0x3f}; /* Normal OP */
-const u_char ARCOFI_SOP_F[] = {10,0xa1,0x1f,0x00,0x50,0x10,0x00,0x00,0x80,0x02,0x12};
+static struct arcofi_msg ARCOFI_XOP_F =
+	{NULL,0,2,{0xa1,0x3f,0,0,0,0,0,0,0,0}}; /* Normal OP */
+static struct arcofi_msg ARCOFI_XOP_1 =
+	{&ARCOFI_XOP_F,0,2,{0xa1,0x31,0,0,0,0,0,0,0,0}}; /* PWR UP */
+static struct arcofi_msg ARCOFI_SOP_F = 
+	{&ARCOFI_XOP_1,0,10,{0xa1,0x1f,0x00,0x50,0x10,0x00,0x00,0x80,0x02,0x12}};
+static struct arcofi_msg ARCOFI_COP_9 =
+	{&ARCOFI_SOP_F,0,10,{0xa1,0x29,0x80,0xcb,0xe9,0x88,0x00,0xc8,0xd8,0x80}}; /* RX */
+static struct arcofi_msg ARCOFI_COP_8 =
+	{&ARCOFI_COP_9,0,10,{0xa1,0x28,0x49,0x31,0x8,0x13,0x6e,0x88,0x2a,0x61}}; /* TX */
+static struct arcofi_msg ARCOFI_COP_7 =
+	{&ARCOFI_COP_8,0,4,{0xa1,0x27,0x80,0x80,0,0,0,0,0,0}}; /* GZ */
+static struct arcofi_msg ARCOFI_COP_6 =
+	{&ARCOFI_COP_7,0,6,{0xa1,0x26,0,0,0x82,0x7c,0,0,0,0}}; /* GRL GRH */
+static struct arcofi_msg ARCOFI_COP_5 =
+	{&ARCOFI_COP_6,0,4,{0xa1,0x25,0xbb,0x4a,0,0,0,0,0,0}}; /* GTX */
+static struct arcofi_msg ARCOFI_VERSION =
+	{NULL,1,2,{0xa0,0,0,0,0,0,0,0,0,0}};
+static struct arcofi_msg ARCOFI_XOP_0 =
+	{NULL,0,2,{0xa1,0x30,0,0,0,0,0,0,0,0}}; /* PWR Down */
 
 static void set_arcofi(struct IsdnCardState *cs, int bc);
 
@@ -477,6 +492,7 @@ release_io_elsa(struct IsdnCardState *cs)
 	int bytecnt = 8;
 
 	del_timer(&cs->hw.elsa.tl);
+	clear_arcofi(cs);
 	if (cs->hw.elsa.ctrl)
 		byteout(cs->hw.elsa.ctrl, 0);	/* LEDs Out */
 	if (cs->subtyp == ELSA_QS1000PCI) {
@@ -529,11 +545,11 @@ reset_elsa(struct IsdnCardState *cs)
 		sti();
 		writereg(cs->hw.elsa.ale, cs->hw.elsa.isac, IPAC_POTA2, 0x20);
 		current->state = TASK_INTERRUPTIBLE;
-		schedule_timeout((10*HZ)/1000);	/* Timeout 10ms */
+		schedule_timeout((10*HZ)/1000); /* Timeout 10ms */
 		writereg(cs->hw.elsa.ale, cs->hw.elsa.isac, IPAC_POTA2, 0x00);
 		current->state = TASK_INTERRUPTIBLE;
-		schedule_timeout((10*HZ)/1000);	/* Timeout 10ms */
 		writereg(cs->hw.elsa.ale, cs->hw.elsa.isac, IPAC_MASK, 0xc0);
+		schedule_timeout((10*HZ)/1000); /* Timeout 10ms */
 		restore_flags(flags);
 		writereg(cs->hw.elsa.ale, cs->hw.elsa.isac, IPAC_ACFG, 0x0);
 		writereg(cs->hw.elsa.ale, cs->hw.elsa.isac, IPAC_AOE, 0x3c);
@@ -546,40 +562,10 @@ reset_elsa(struct IsdnCardState *cs)
 }
 
 static void
-init_arcofi(struct IsdnCardState *cs) {
-	send_arcofi(cs, ARCOFI_XOP_0, 1, 0);
-/*	send_arcofi(cs, ARCOFI_XOP_F, 1);
-*/
-}
-
-#define ARCDEL 500
-
-static void
 set_arcofi(struct IsdnCardState *cs, int bc) {
-	long flags;
-
-	debugl1(cs,"set_arcofi bc=%d", bc);
-	save_flags(flags);
-	sti();
-	send_arcofi(cs, ARCOFI_XOP_0, bc, 0);
-	udelay(ARCDEL);
-	send_arcofi(cs, ARCOFI_COP_5, bc, 0);
-	udelay(ARCDEL);
-	send_arcofi(cs, ARCOFI_COP_6, bc, 0);
-	udelay(ARCDEL);
-	send_arcofi(cs, ARCOFI_COP_7, bc, 0);
-	udelay(ARCDEL);
-	send_arcofi(cs, ARCOFI_COP_8, bc, 0);
-	udelay(ARCDEL);
-	send_arcofi(cs, ARCOFI_COP_9, bc, 0);
-	udelay(ARCDEL);
-	send_arcofi(cs, ARCOFI_SOP_F, bc, 0);
-	udelay(ARCDEL);
-	send_arcofi(cs, ARCOFI_XOP_1, bc, 0);
-	udelay(ARCDEL);
-	send_arcofi(cs, ARCOFI_XOP_F, bc, 0);
-	restore_flags(flags);
-	debugl1(cs,"end set_arcofi bc=%d", bc);
+	cs->dc.isac.arcofi_bc = bc;
+	arcofi_fsm(cs, ARCOFI_START, &ARCOFI_COP_5);
+	interruptible_sleep_on(&cs->dc.isac.arcofi_wait);
 }
 
 static int
@@ -591,23 +577,24 @@ check_arcofi(struct IsdnCardState *cs)
 	char *t;
 	u_char *p;
 
-	if (!cs->mon_tx)
-		if (!(cs->mon_tx=kmalloc(MAX_MON_FRAME, GFP_ATOMIC))) {
+	if (!cs->dc.isac.mon_tx)
+		if (!(cs->dc.isac.mon_tx=kmalloc(MAX_MON_FRAME, GFP_ATOMIC))) {
 			if (cs->debug & L1_DEB_WARN)
 				debugl1(cs, "ISAC MON TX out of buffers!");
 			return(0);
 		}
-	send_arcofi(cs, ARCOFI_VERSION, 0, 1);
-	if (test_and_clear_bit(HW_MON1_TX_END, &cs->HW_Flags)) {
-		if (test_and_clear_bit(HW_MON1_RX_END, &cs->HW_Flags)) {
-			debugl1(cs, "Arcofi response received %d bytes", cs->mon_rxp);
-			p = cs->mon_rx;
+	cs->dc.isac.arcofi_bc = 0;
+	arcofi_fsm(cs, ARCOFI_START, &ARCOFI_VERSION);
+	interruptible_sleep_on(&cs->dc.isac.arcofi_wait);
+	if (!test_and_clear_bit(FLG_ARCOFI_ERROR, &cs->HW_Flags)) {
+			debugl1(cs, "Arcofi response received %d bytes", cs->dc.isac.mon_rxp);
+			p = cs->dc.isac.mon_rx;
 			t = tmp;
 			t += sprintf(tmp, "Arcofi data");
-			QuickHex(t, p, cs->mon_rxp);
+			QuickHex(t, p, cs->dc.isac.mon_rxp);
 			debugl1(cs, tmp);
-			if ((cs->mon_rxp == 2) && (cs->mon_rx[0] == 0xa0)) {
-				switch(cs->mon_rx[1]) {
+			if ((cs->dc.isac.mon_rxp == 2) && (cs->dc.isac.mon_rx[0] == 0xa0)) {
+				switch(cs->dc.isac.mon_rx[1]) {
 					case 0x80:
 						debugl1(cs, "Arcofi 2160 detected");
 						arcofi_present = 1;
@@ -626,9 +613,8 @@ check_arcofi(struct IsdnCardState *cs)
 				}
 			} else
 				debugl1(cs, "undefined Monitor response");
-			cs->mon_rxp = 0;
-		}
-	} else if (cs->mon_tx) {
+			cs->dc.isac.mon_rxp = 0;
+	} else if (cs->dc.isac.mon_tx) {
 		debugl1(cs, "Arcofi not detected");
 	}
 	if (arcofi_present) {
@@ -669,7 +655,8 @@ check_arcofi(struct IsdnCardState *cs)
 				"Elsa: %s detected modem at 0x%x\n",
 				Elsa_Types[cs->subtyp],
 				cs->hw.elsa.base+8);
-		init_arcofi(cs);
+		arcofi_fsm(cs, ARCOFI_START, &ARCOFI_XOP_0);
+		interruptible_sleep_on(&cs->dc.isac.arcofi_wait);
 		return(1);
 	}
 #endif
@@ -767,7 +754,6 @@ Elsa_card_msg(struct IsdnCardState *cs, int mt, void *arg)
 				byteout(cs->hw.elsa.ctrl, cs->hw.elsa.ctrl_reg);
 				byteout(cs->hw.elsa.timer, 0);
 				current->state = TASK_INTERRUPTIBLE;
-				/* Timeout 110ms */
 				schedule_timeout((110*HZ)/1000);
 				restore_flags(flags);
 				cs->hw.elsa.ctrl_reg &= ~ELSA_ENA_TIMER_INT;
@@ -905,8 +891,12 @@ probe_elsa(struct IsdnCardState *cs)
 	return (CARD_portlist[i]);
 }
 
+#ifdef COMPAT_HAS_NEW_PCI
 static 	struct pci_dev *dev_qs1000 __initdata = NULL;
 static 	struct pci_dev *dev_qs3000 __initdata = NULL;
+#else
+static 	int pci_index __initdata = 0;
+#endif
 
 int
 setup_elsa(struct IsdnCard *card)
@@ -1015,6 +1005,7 @@ setup_elsa(struct IsdnCard *card)
 		       cs->irq);
 	} else if (cs->typ == ISDN_CTYPE_ELSA_PCI) {
 #if CONFIG_PCI
+#ifdef COMPAT_HAS_NEW_PCI
 		if (!pci_present()) {
 			printk(KERN_ERR "Elsa: no PCI bus present\n");
 			return(0);
@@ -1072,6 +1063,66 @@ setup_elsa(struct IsdnCard *card)
 			restore_flags(flags);
 		}
 #else
+		u_char pci_bus, pci_device_fn, pci_irq;
+		u_int pci_ioaddr;
+
+		cs->subtyp = 0;
+		for (; pci_index < 0xff; pci_index++) {
+			if (pcibios_find_device(PCI_VENDOR_ELSA,
+			   PCI_QS1000_ID, pci_index, &pci_bus, &pci_device_fn)
+			   == PCIBIOS_SUCCESSFUL)
+				cs->subtyp = ELSA_QS1000PCI;
+			else if (pcibios_find_device(PCI_VENDOR_ELSA,
+			   PCI_QS3000_ID, pci_index, &pci_bus, &pci_device_fn)
+			   == PCIBIOS_SUCCESSFUL)
+				cs->subtyp = ELSA_QS3000PCI;
+			else
+				break;
+			/* get IRQ */
+			pcibios_read_config_byte(pci_bus, pci_device_fn,
+				PCI_INTERRUPT_LINE, &pci_irq);
+
+			/* get IO address */
+			pcibios_read_config_dword(pci_bus, pci_device_fn,
+				PCI_BASE_ADDRESS_1, &pci_ioaddr);
+			pci_ioaddr &= ~3; /* remove io/mem flag */
+			cs->hw.elsa.cfg = pci_ioaddr;
+			pcibios_read_config_dword(pci_bus, pci_device_fn,
+				PCI_BASE_ADDRESS_3, &pci_ioaddr);
+			if (cs->subtyp)
+				break;
+		}
+		if (!cs->subtyp) {
+			printk(KERN_WARNING "Elsa: No PCI card found\n");
+			return(0);
+		}
+		pci_index++;
+		if (!pci_irq) {
+			printk(KERN_WARNING "Elsa: No IRQ for PCI card found\n");
+			return(0);
+		}
+
+		if (!pci_ioaddr) {
+			printk(KERN_WARNING "Elsa: No IO-Adr for PCI card found\n");
+			return(0);
+		}
+		pci_ioaddr &= ~3; /* remove io/mem flag */
+		cs->hw.elsa.base = pci_ioaddr;
+		cs->hw.elsa.ale  = pci_ioaddr;
+		cs->hw.elsa.isac = pci_ioaddr +1;
+		cs->hw.elsa.hscx = pci_ioaddr +1;
+		cs->irq = pci_irq;
+		test_and_set_bit(HW_IPAC, &cs->HW_Flags);
+		cs->hw.elsa.timer = 0;
+		cs->hw.elsa.trig  = 0;
+		printk(KERN_INFO
+		       "Elsa: %s defined at 0x%x/0x%x IRQ %d\n",
+		       Elsa_Types[cs->subtyp],
+		       cs->hw.elsa.base,
+		       cs->hw.elsa.cfg,
+		       cs->irq);
+#endif /* COMPAT_HAS_NEW_PCI */
+#else
 		printk(KERN_WARNING "Elsa: Elsa PCI and NO_PCI_BIOS\n");
 		printk(KERN_WARNING "Elsa: unable to config Elsa PCI\n");
 		return (0);
@@ -1126,6 +1177,7 @@ setup_elsa(struct IsdnCard *card)
 			request_region(cs->hw.elsa.cfg, 0x80, "elsa isdn pci");
 		}
 	}
+	init_arcofi(cs);
 	cs->hw.elsa.tl.function = (void *) elsa_led_handler;
 	cs->hw.elsa.tl.data = (long) cs;
 	init_timer(&cs->hw.elsa.tl);

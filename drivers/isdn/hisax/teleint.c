@@ -6,6 +6,9 @@
  *
  *
  * $Log$
+ * Revision 1.7  1998/11/15 23:55:26  keil
+ * changes from 2.0
+ *
  * Revision 1.6  1998/04/15 16:45:31  keil
  * new init code
  *
@@ -249,11 +252,11 @@ reset_TeleInt(struct IsdnCardState *cs)
 	save_flags(flags);
 	sti();
 	current->state = TASK_INTERRUPTIBLE;
-	schedule_timeout(3);
+	schedule_timeout((30*HZ)/1000);
 	cs->hw.hfc.cirm &= ~HFC_RESET;
 	byteout(cs->hw.hfc.addr | 1, cs->hw.hfc.cirm);	/* Reset Off */
 	current->state = TASK_INTERRUPTIBLE;
-	schedule_timeout(1);
+	schedule_timeout((10*HZ)/1000);
 	restore_flags(flags);
 }
 

@@ -7,6 +7,9 @@
  * Thanks to Christian "naddy" Weisgerber (3Com, US Robotics) for documentation
  *
  * $Log$
+ * Revision 1.7  1998/11/15 23:55:22  keil
+ * changes from 2.0
+ *
  * Revision 1.6  1998/04/15 16:44:35  keil
  * new init code
  *
@@ -168,11 +171,11 @@ reset_sportster(struct IsdnCardState *cs)
 	save_flags(flags);
 	sti();
 	current->state = TASK_INTERRUPTIBLE;
-	schedule_timeout(1);
+	schedule_timeout((10*HZ)/1000);
 	cs->hw.spt.res_irq &= ~SPORTSTER_RESET; /* Reset Off */
 	byteout(cs->hw.spt.cfg_reg + SPORTSTER_RES_IRQ, cs->hw.spt.res_irq);
 	current->state = TASK_INTERRUPTIBLE;
-	schedule_timeout(1);
+	schedule_timeout((10*HZ)/1000);
 	restore_flags(flags);
 }
 
