@@ -6,6 +6,9 @@
  * Copyright 1997 by Carsten Paeth (calle@calle.in-berlin.de)
  *
  * $Log$
+ * Revision 1.3.2.2  1997/10/08 05:42:25  calle
+ * Added isdnlog support. patch to isdnlog needed.
+ *
  * Revision 1.3.2.1  1997/07/13 12:16:48  calle
  * bug fix for more than one controller in connect_req.
  *
@@ -1702,7 +1705,7 @@ static int capidrv_addcontr(__u16 contr, struct capi_profile *profp)
 	cmd.command = ISDN_STAT_RUN;
 	card->interface.statcallb(&cmd);
 
-	card->cipmask = 1;	/* any */
+	card->cipmask = 0x1FFF03FF;	/* any */
 	card->cipmask2 = 0;
 
 	capi_fill_LISTEN_REQ(&cmdcmsg, global.appid,
