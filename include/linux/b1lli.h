@@ -6,6 +6,9 @@
  * Copyright 1996 by Carsten Paeth (calle@calle.in-berlin.de)
  *
  * $Log$
+ * Revision 1.1.2.4  1998/01/26 14:51:56  calle
+ * interface change for pcmcia cards.
+ *
  * Revision 1.1.2.3  1998/01/23 16:46:45  calle
  * new functions for pcmcia cards.
  *
@@ -70,6 +73,7 @@ typedef struct avmb1_carddef {
 #define AVM_CARDTYPE_B1	0
 #define AVM_CARDTYPE_T1	1
 #define AVM_CARDTYPE_M1	2
+#define AVM_CARDTYPE_M2	3
 
 typedef struct avmb1_extcarddef {
 	int port;
