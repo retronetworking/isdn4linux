@@ -19,6 +19,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.62.2.5  2000/03/15 20:50:25  kai
+ * working, but not perfect yet
+ *
  * Revision 1.62.2.4  2000/03/15 08:32:53  kai
  * works so far, but not finished
  *
@@ -1186,7 +1189,7 @@ void isdn_ppp_receive(isdn_net_dev * net_dev, isdn_net_local * lp, struct sk_buf
 		int sqno_end;
 
 		if(is->compflags & SC_LINK_DECOMP_ON) {	
-			if(proto == PPP_LINK_COMP) {
+			if(proto == PPP_COMPFRAG) {
 				if(is->debug & 0x10)
 					printk(KERN_DEBUG "received single link compressed frame\n");
 				skb = isdn_ppp_decompress(skb,is,NULL,proto);
@@ -1449,7 +1452,7 @@ isdn_ppp_push_higher(isdn_net_dev * net_dev, isdn_net_local * lp, struct sk_buff
 #endif
 			break;
 		case PPP_CCP:
-		case PPP_LINK_CCP:
+		case PPP_CCPFRAG:
 			isdn_ppp_receive_ccp(net_dev,lp,skb,proto);
 			/* Dont pop up ResetReq/Ack stuff to the daemon any
 			   longer - the job is done already */
@@ -2576,7 +2579,7 @@ static struct sk_buff *isdn_ppp_decompress(struct sk_buff *skb,struct ippp_struc
 	int proto)
 {
 #ifndef CONFIG_ISDN_CCP
-	if(proto == PPP_COMP || proto == PPP_LINK_COMP) {
+	if(proto == PPP_COMP || proto == PPP_COMPFRAG) {
 		printk(KERN_ERR "isdn_ppp: Ouch! Compression not included!\n");
 		dev_kfree_skb(skb);
 		return NULL;
@@ -2632,7 +2635,7 @@ static struct sk_buff *isdn_ppp_decompress(struct sk_buff *skb,struct ippp_struc
 	printk(KERN_DEBUG "ippp: Decompress valid!\n");
 	*/
 
-	if((master && proto == PPP_COMP) || (!master && proto == PPP_LINK_COMP) ) {
+	if((master && proto == PPP_COMP) || (!master && proto == PPP_COMPFRAG) ) {
 		/* Set up reset params for the decompressor */
 		memset(&rsparm, 0, sizeof(rsparm));
 		rsparm.data = rsdata;
@@ -2904,7 +2907,7 @@ static void isdn_ppp_send_ccp(isdn_net_dev *net_dev, isdn_net_local *lp, struct 
 	}
 
 	proto = ((int)data[0]<<8)+data[1];
-	if(proto != PPP_CCP && proto != PPP_LINK_CCP)
+	if(proto != PPP_CCP && proto != PPP_CCPFRAG)
 		return;
 
 	printk(KERN_DEBUG "Received CCP frame from daemon:\n");
