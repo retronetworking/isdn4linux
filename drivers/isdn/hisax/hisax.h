@@ -3,6 +3,9 @@
  *   Basic declarations, defines and prototypes
  *
  * $Log$
+ * Revision 2.38  1999/11/14 23:37:03  keil
+ * new ISA memory mapped IO
+ *
  * Revision 2.37  1999/10/14 20:25:28  keil
  * add a statistic for error monitoring
  *
@@ -781,6 +784,31 @@ struct hfcPCI_hw {
 	struct timer_list timer;
 };
 
+struct hfcSX_hw {
+        unsigned int  base;
+	unsigned char cirm;
+	unsigned char ctmt;
+	unsigned char conn;
+	unsigned char mst_m;
+	unsigned char int_m1;
+	unsigned char int_m2;
+	unsigned char int_s1;
+	unsigned char sctrl;
+        unsigned char sctrl_r;
+        unsigned char sctrl_e;
+        unsigned char trm;
+	unsigned char stat;
+	unsigned char fifo;
+        unsigned char bswapped;
+        unsigned char nt_mode;
+        unsigned char chip;
+        int b_fifo_size;
+        unsigned char last_fifo;
+        void *extra;
+        int nt_timer;
+	struct timer_list timer;
+};
+
 struct hfcD_hw {
 	unsigned int addr;
 	unsigned int bfifosize;
@@ -900,6 +928,10 @@ struct hfcpci_chip {
 	int ph_state;
 };
 
+struct hfcsx_chip {
+	int ph_state;
+};
+
 struct w6692_chip {
 	int ph_state;
 };
@@ -940,6 +972,7 @@ struct IsdnCardState {
 		struct njet_hw njet;
 		struct hfcD_hw hfcD;
 		struct hfcPCI_hw hfcpci;
+		struct hfcSX_hw hfcsx;
 		struct ix1_hw niccy;
 		struct isurf_hw isurf;
 		struct saphir_hw saphir;
@@ -979,6 +1012,7 @@ struct IsdnCardState {
 		struct isac_chip isac;
 		struct hfcd_chip hfcd;
 		struct hfcpci_chip hfcpci;
+		struct hfcsx_chip hfcsx;
 		struct w6692_chip w6692;
 	} dc;
 	u_char *rcvbuf;
@@ -1038,7 +1072,8 @@ struct IsdnCardState {
 #define  ISDN_CTYPE_GAZEL	34
 #define  ISDN_CTYPE_HFC_PCI	35
 #define  ISDN_CTYPE_W6692	36
-#define  ISDN_CTYPE_COUNT	36
+#define  ISDN_CTYPE_HFC_SX      37
+#define  ISDN_CTYPE_COUNT	37
 
 
 #ifdef ISDN_CHIP_ISAC
@@ -1205,6 +1240,12 @@ struct IsdnCardState {
 #define  CARD_HFC_PCI 1
 #else
 #define  CARD_HFC_PCI 0
+#endif
+
+#ifdef	CONFIG_HISAX_HFC_SX
+#define  CARD_HFC_SX 1
+#else
+#define  CARD_HFC_SX 0
 #endif
 
 #ifdef  CONFIG_HISAX_AMD7930
