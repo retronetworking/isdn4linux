@@ -8,6 +8,9 @@
  *
  *
  * $Log$
+ * Revision 1.13  1997/04/07 22:58:07  keil
+ * need include config.h
+ *
  * Revision 1.12  1997/04/06 22:54:14  keil
  * Using SKB's
  *
@@ -1029,6 +1032,25 @@ release_io_elsa(struct IsdnCard *card)
 }
 
 static void
+reset_elsa(struct IsdnCardState *sp)
+{
+#ifdef CONFIG_HISAX_ELSA_PCC
+	/* Wait 1 Timer */
+	byteout(sp->cfg_reg + CARD_START_TIMER, 0);
+	while (TimerRun(sp));
+	byteout(sp->cfg_reg + CARD_CONTROL, 0x00);	/* Reset On */
+	/* Wait 1 Timer */
+	byteout(sp->cfg_reg + CARD_START_TIMER, 0);
+	while (TimerRun(sp));
+	byteout(sp->cfg_reg + CARD_CONTROL, ISDN_RESET);	/* Reset Off */
+	/* Wait 1 Timer */
+	byteout(sp->cfg_reg + CARD_START_TIMER, 0);
+	while (TimerRun(sp));
+	byteout(sp->cfg_reg + CARD_TRIG_IRQ, 0xff);
+#endif
+}
+
+static void
 clear_pending_ints(struct IsdnCardState *sp)
 {
 #ifdef CONFIG_HISAX_ELSA_PCMCIA
@@ -1078,7 +1100,18 @@ clear_pending_ints(struct IsdnCardState *sp)
 		debugl1(sp, tmp);
 	}
 #endif
-	writeisac(sp->cfg_reg, ISAC_MASK, 0);
+	writehscx(sp->cfg_reg, 0, HSCX_MASK, 0xFF);
+	writehscx(sp->cfg_reg, 1, HSCX_MASK, 0xFF);
+	writeisac(sp->cfg_reg, ISAC_MASK, 0xFF);
+#ifdef CONFIG_HISAX_ELSA_PCC
+	if (sp->subtyp == ELSA_QS1000) {
+		byteout(sp->cfg_reg + CARD_START_TIMER, 0);
+		byteout(sp->cfg_reg + CARD_TRIG_IRQ, 0xff);
+	}
+#endif
+	writehscx(sp->cfg_reg, 0, HSCX_MASK, 0x0);
+	writehscx(sp->cfg_reg, 1, HSCX_MASK, 0x0);
+	writeisac(sp->cfg_reg, ISAC_MASK, 0x0);
 	writeisac(sp->cfg_reg, ISAC_CMDR, 0x41);
 }
 
@@ -1141,18 +1174,18 @@ check_arcofi(struct IsdnCardState *sp)
 int
 initelsa(struct IsdnCardState *sp)
 {
-	int ret, irq_cnt;
+	int ret, irq_cnt, cnt = 3;
 	long flags;
 
-	sp->counter = 0;
 	irq_cnt = kstat.interrupts[sp->irq];
 	printk(KERN_INFO "Elsa: IRQ %d count %d\n", sp->irq, irq_cnt);
-	clear_pending_ints(sp);
 	ret = get_irq(sp->cardnr, &elsa_interrupt);
 #ifdef CONFIG_HISAX_ELSA_PCC
 	byteout(sp->cfg_reg + CARD_TRIG_IRQ, 0xff);
 #endif
-	if (ret) {
+	while (ret && cnt) {
+		sp->counter = 0;
+		clear_pending_ints(sp);
 		initisac(sp);
 		sp->modehscx(sp->hs, 0, 0);
 		sp->modehscx(sp->hs + 1, 0, 0);
@@ -1162,29 +1195,38 @@ initelsa(struct IsdnCardState *sp)
 #ifdef CONFIG_HISAX_ELSA_PCC
 		byteout(sp->cfg_reg + CARD_CONTROL, ISDN_RESET | ENABLE_TIM_INT);
 		byteout(sp->cfg_reg + CARD_START_TIMER, 0);
-		HZDELAY(11);	/* Warte 110 ms */
+		current->state = TASK_INTERRUPTIBLE;
+		current->timeout = jiffies + (110 * HZ) / 1000;		/* Timeout 110ms */
+		schedule();
 		restore_flags(flags);
 		printk(KERN_INFO "Elsa: %d timer tics in 110 msek\n",
 		       sp->counter);
-		if (abs(sp->counter - 12) < 3) {
+		if (abs(sp->counter - 13) < 3) {
 			printk(KERN_INFO "Elsa: timer and irq OK\n");
 		} else {
 			printk(KERN_WARNING
-			"Elsa: timer problem maybe an IRQ(%d) conflict\n",
-			       sp->irq);
+			       "Elsa: timer tic problem (%d/12) maybe an IRQ(%d) conflict\n",
+			       sp->counter, sp->irq);
 		}
 #endif
 		printk(KERN_INFO "Elsa: IRQ %d count %d\n", sp->irq,
 		       kstat.interrupts[sp->irq]);
 		if (kstat.interrupts[sp->irq] == irq_cnt) {
 			printk(KERN_WARNING
-			       "Elsa: IRQ(%d) getting no interrupts during init\n",
-			       sp->irq);
-			irq2dev_map[sp->irq] = NULL;
-			free_irq(sp->irq, NULL);
-			return (0);
+			       "Elsa: IRQ(%d) getting no interrupts during init %d\n",
+			       sp->irq, 4 - cnt);
+			if (cnt == 1) {
+				irq2dev_map[sp->irq] = NULL;
+				free_irq(sp->irq, NULL);
+				return (0);
+			} else {
+				reset_elsa(sp);
+				cnt--;
+			}
+		} else {
+			check_arcofi(sp);
+			cnt = 0;
 		}
-		check_arcofi(sp);
 	}
 	sp->counter = 0;
 	return (ret);
@@ -1404,18 +1446,7 @@ setup_elsa(struct IsdnCard *card)
 		return (0);
 	}
 	printk(KERN_INFO "Elsa: timer OK; resetting card\n");
-	/* Wait 1 Timer */
-	byteout(sp->cfg_reg + CARD_START_TIMER, 0);
-	while (TimerRun(sp));
-	byteout(sp->cfg_reg + CARD_CONTROL, 0x00);	/* Reset On */
-	/* Wait 1 Timer */
-	byteout(sp->cfg_reg + CARD_START_TIMER, 0);
-	while (TimerRun(sp));
-	byteout(sp->cfg_reg + CARD_CONTROL, ISDN_RESET);	/* Reset Off */
-	/* Wait 1 Timer */
-	byteout(sp->cfg_reg + CARD_START_TIMER, 0);
-	while (TimerRun(sp));
-	byteout(sp->cfg_reg + CARD_TRIG_IRQ, 0xff);
+	reset_elsa(sp);
 #endif
 	verA = readhscx(sp->cfg_reg, 0, HSCX_VSTR) & 0xf;
 	verB = readhscx(sp->cfg_reg, 1, HSCX_VSTR) & 0xf;
