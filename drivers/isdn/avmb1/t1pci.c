@@ -6,6 +6,12 @@
  * (c) Copyright 1999 by Carsten Paeth (calle@calle.in-berlin.de)
  * 
  * $Log$
+ * Revision 1.17  2000/12/05 19:15:44  kai
+ * o call pci_enable_device() first of all, because this may change/assign
+ *   resources we use afterwards.
+ * o #ifndef COMPAT_HAS_2_2_PCI is not necessary, because for 2.2
+ *   pci_enable_device is defined to (0)
+ *
  * Revision 1.16  2000/11/28 14:26:46  calle
  * But the #ifndef PCI_DEVICE_ID_AVM* back, and let it compile again.
  * Please always check if 2.2.14-2.2.18 compile after a "std2kern -u"
@@ -325,18 +331,9 @@ static int __init t1pci_init(void)
 	printk(KERN_INFO "%s: revision %s\n", driver->name, driver->revision);
 
         di = attach_capi_driver(driver);
-
 	if (!di) {
 		printk(KERN_ERR "%s: failed to attach capi_driver\n",
 				driver->name);
-		MOD_DEC_USE_COUNT;
-		return -EIO;
-	}
-
-#ifdef CONFIG_PCI
-	if (!pci_present()) {
-		printk(KERN_ERR "%s: no PCI bus present\n", driver->name);
-    		detach_capi_driver(driver);
 		MOD_DEC_USE_COUNT;
 		return -EIO;
 	}
@@ -347,9 +344,7 @@ static int __init t1pci_init(void)
 		if (pci_enable_device(dev) < 0) {
 		        printk(KERN_ERR	"%s: failed to enable AVM-T1-PCI\n",
 			       driver->name);
-    			detach_capi_driver(&t1pci_driver);
-			MOD_DEC_USE_COUNT;
-			return -EIO;
+			continue;
 		}
 
 		param.port = pci_resource_start(dev, 1);
@@ -364,9 +359,7 @@ static int __init t1pci_init(void)
 		        printk(KERN_ERR
 			"%s: no AVM-T1-PCI at i/o %#x, irq %d detected, mem %#x\n",
 			driver->name, param.port, param.irq, param.membase);
-    			detach_capi_driver(&t1pci_driver);
-			MOD_DEC_USE_COUNT;
-			return retval;
+			continue;
 		}
 		ncards++;
 	}
@@ -379,12 +372,7 @@ static int __init t1pci_init(void)
 	printk(KERN_ERR "%s: NO T1-PCI card detected\n", driver->name);
 	detach_capi_driver(&t1pci_driver);
 	MOD_DEC_USE_COUNT;
-	return -ESRCH;
-#else
-	printk(KERN_ERR "%s: kernel not compiled with PCI.\n", driver->name);
-	MOD_DEC_USE_COUNT;
-	return -EIO;
-#endif
+	return -ENODEV;
 }
 
 static void __exit t1pci_exit(void)

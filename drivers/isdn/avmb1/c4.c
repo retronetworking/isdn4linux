@@ -6,6 +6,9 @@
  * (c) Copyright 1999 by Carsten Paeth (calle@calle.in-berlin.de)
  * 
  * $Log$
+ * Revision 1.25  2000/12/07 00:03:55  kai
+ * move compatibility stuff to isdn_compat.h
+ *
  * Revision 1.24  2000/12/05 19:15:44  kai
  * o call pci_enable_device() first of all, because this may change/assign
  *   resources we use afterwards.
@@ -1379,20 +1382,11 @@ static int __init c4_init(void)
 	printk(KERN_INFO "%s: revision %s\n", driver->name, driver->revision);
 
         di = attach_capi_driver(driver);
-
 	if (!di) {
 		printk(KERN_ERR "%s: failed to attach capi_driver\n",
 				driver->name);
 		MOD_DEC_USE_COUNT;
-		return -EIO;
-	}
-
-#ifdef CONFIG_PCI
-	if (!pci_present()) {
-		printk(KERN_ERR "%s: no PCI bus present\n", driver->name);
-    		detach_capi_driver(driver);
-		MOD_DEC_USE_COUNT;
-		return -EIO;
+		return -ENODEV;
 	}
 
 	while ((dev = pci_find_subsys(
@@ -1403,9 +1397,7 @@ static int __init c4_init(void)
 		if (pci_enable_device(dev) < 0) {
 		        printk(KERN_ERR "%s: failed to enable AVM-C4\n",
 			       driver->name);
-    			detach_capi_driver(driver);
-			MOD_DEC_USE_COUNT;
-			return -ENODEV;
+			continue;
 		}
 
 		param.port = pci_resource_start(dev, 1);
@@ -1420,9 +1412,7 @@ static int __init c4_init(void)
 		        printk(KERN_ERR
 			"%s: no AVM-C4 at i/o %#x, irq %d detected, mem %#x\n",
 			driver->name, param.port, param.irq, param.membase);
-    			detach_capi_driver(driver);
-			MOD_DEC_USE_COUNT;
-			return retval;
+			continue;
 		}
 		ncards++;
 	}
@@ -1435,12 +1425,7 @@ static int __init c4_init(void)
 	printk(KERN_ERR "%s: NO C4 card detected\n", driver->name);
 	detach_capi_driver(driver);
 	MOD_DEC_USE_COUNT;
-	return -ESRCH;
-#else
-	printk(KERN_ERR "%s: kernel not compiled with PCI.\n", driver->name);
-	MOD_DEC_USE_COUNT;
-	return -EIO;
-#endif
+	return -ENODEV;
 }
 
 static void __exit c4_exit(void)

@@ -6,6 +6,12 @@
  * (c) Copyright 1999 by Carsten Paeth (calle@calle.in-berlin.de)
  * 
  * $Log$
+ * Revision 1.33  2000/12/05 19:15:44  kai
+ * o call pci_enable_device() first of all, because this may change/assign
+ *   resources we use afterwards.
+ * o #ifndef COMPAT_HAS_2_2_PCI is not necessary, because for 2.2
+ *   pci_enable_device is defined to (0)
+ *
  * Revision 1.32  2000/11/28 14:26:46  calle
  * But the #ifndef PCI_DEVICE_ID_AVM* back, and let it compile again.
  * Please always check if 2.2.14-2.2.18 compile after a "std2kern -u"
@@ -594,50 +600,29 @@ static int __init b1pci_init(void)
 	printk(KERN_INFO "%s: revision %s\n", driver->name, driver->revision);
 
         di = attach_capi_driver(driver);
-
 	if (!di) {
 		printk(KERN_ERR "%s: failed to attach capi_driver\n",
 				driver->name);
 		MOD_DEC_USE_COUNT;
-		return -EIO;
+		return -ENODEV;
 	}
 
 #ifdef CONFIG_ISDN_DRV_AVMB1_B1PCIV4
 	printk(KERN_INFO "%s: revision %s\n", driverv4->name, driverv4->revision);
 
         div4 = attach_capi_driver(driverv4);
-
 	if (!div4) {
     		detach_capi_driver(driver);
 		printk(KERN_ERR "%s: failed to attach capi_driver\n",
 				driverv4->name);
 		MOD_DEC_USE_COUNT;
-		return -EIO;
+		return -ENODEV;
 	}
 #endif
-
-#ifdef CONFIG_PCI
-	if (!pci_present()) {
-		printk(KERN_ERR "%s: no PCI bus present\n", driver->name);
-    		detach_capi_driver(driver);
-#ifdef CONFIG_ISDN_DRV_AVMB1_B1PCIV4
-    		detach_capi_driver(driverv4);
-#endif
-		MOD_DEC_USE_COUNT;
-		return -EIO;
-	}
 
 	while ((dev = pci_find_device(PCI_VENDOR_ID_AVM, PCI_DEVICE_ID_AVM_B1, dev))) {
-		retval = add_card(dev);
-		if (retval != 0) {
-    			detach_capi_driver(driver);
-#ifdef CONFIG_ISDN_DRV_AVMB1_B1PCIV4
-    			detach_capi_driver(driverv4);
-#endif
-			MOD_DEC_USE_COUNT;
-			return retval;
-		}
-		ncards++;
+		if (add_card(dev) == 0)
+			ncards++;
 	}
 	if (ncards) {
 		printk(KERN_INFO "%s: %d B1-PCI card(s) detected\n",
@@ -651,12 +636,7 @@ static int __init b1pci_init(void)
 	detach_capi_driver(driverv4);
 #endif
 	MOD_DEC_USE_COUNT;
-	return -ESRCH;
-#else
-	printk(KERN_ERR "%s: kernel not compiled with PCI.\n", driver->name);
-	MOD_DEC_USE_COUNT;
-	return -EIO;
-#endif
+	return -ENODEV;
 }
 
 static void __exit b1pci_exit(void)
