@@ -8,6 +8,9 @@
  *
  *
  * $Log$
+ * Revision 1.1  1996/10/13 20:03:45  keil
+ * Initial revision
+ *
  *
 */
 
@@ -19,6 +22,10 @@
 #define CARD_START_TIMER 6
 #define CARD_TRIG_IRQ	7
 
+#define ELSA_PCC     1
+#define ELSA_PCFPRO  2
+#define ELSA_PCC16   3
+
 /***                                                                    ***
  ***   Makros als Befehle fuer die Kartenregister                       ***
  ***   (mehrere Befehle werden durch Bit-Oderung kombiniert)            ***
@@ -26,7 +33,7 @@
 
 /* Config-Register (Read) */
 #define TIMER_RUN       0x02    /* Bit 1 des Config-Reg     */
-#define TOGGLE          0x04    /* Bit 2 Config-Reg toggelt bei Zugriffen */    
+#define TIMER_RUN_PCC   0x01    /* Bit 0 des Config-Reg  bei PCC */
 #define IRQ_INDEX       0x38    /* Bit 3,4,5 des Config-Reg */
 
 /* Control-Register (Write) */

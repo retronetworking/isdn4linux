@@ -8,6 +8,9 @@
  *
  * 
  * $Log$
+ * Revision 1.2  1996/10/27 22:08:03  keil
+ * cosmetic changes
+ *
  * Revision 1.1  1996/10/13 20:04:52  keil
  * Initial revision
  *
@@ -21,6 +24,8 @@
 #include <linux/kernel_stat.h>
 
 extern const   char    *CardType[];
+
+const  char    *Elsa_Types[] = {"None","PCC-8","PCF-Pro","PCC-16/PCF"};
 
 #define byteout(addr,val) outb_p(val,addr)
 #define bytein(addr) inb_p(addr)
@@ -719,7 +724,7 @@ elsa_interrupt(int intno, void *dev_id, struct pt_regs *regs)
 	
 	sval = bytein(sp->cfg_reg + 5);
 	INT_RESTART:
-	if (!(sval & 0x02)) {
+	if (!(sval & sp->mask1)) {
 		/* Timer Restart */
 		bytein(sp->cfg_reg + 6);
 		if (!(sp->counter++ & 0x3f)) {
@@ -742,7 +747,7 @@ elsa_interrupt(int intno, void *dev_id, struct pt_regs *regs)
 	}
 
 	sval = bytein(sp->cfg_reg + 5);
-	if (!(sval & 0x02)) 
+	if (!(sval & sp->mask1)) 
 		goto INT_RESTART;
 
 	val = readhscx(sp->cfg_reg, 1, HSCX_ISTA);
@@ -962,10 +967,11 @@ initelsa(struct IsdnCardState *sp)
 	return(ret);
 }
 
-static int
-probe_pcc16_adr(unsigned int adr)
+static unsigned char
+probe_elsa_adr(unsigned int adr)
 {
-	int	i,Summe1,Summe2;
+	int	i, in1, in2, p16_1=0, p16_2=0,
+		pcc_1=0, pcc_2=0, pfp_1=0, pfp_2=0;
 	long flags;
 	
         if (check_region(adr,8)) {
@@ -976,29 +982,41 @@ probe_pcc16_adr(unsigned int adr)
         }
 	save_flags(flags);
 	cli();
-	for (i=Summe1=Summe2=0;i<16;i++) {
-		Summe1 += (0x4 & inb(adr + CARD_CONFIG));  /* 'toggelt' bei                 */
-		Summe2 += (0x4 & inb(adr + CARD_CONFIG));  /* jedem Zugriff                 */
+	for (i=0;i<16;i++) {
+		in1 = inb(adr + CARD_CONFIG);  /* 'toggelt' bei */
+		in2 = inb(adr + CARD_CONFIG);  /* jedem Zugriff */
+		p16_1 += 0x04 & in1;
+		p16_2 += 0x04 & in2;
+		pcc_1 += 0x02 & in1;
+		pcc_2 += 0x02 & in2;
+		pfp_1 += 0x40 & in1;
+		pfp_2 += 0x40 & in2;
 	}
 	restore_flags(flags);
         printk(KERN_INFO "Probing IO 0x%x",adr);
-	if (65!=(++Summe1*++Summe2)) {
+	if (65 == ++p16_1 * ++p16_2) {
+                printk(" PCC-16/PCF found\n");
+                return(3);
+        } else if (1025 == ++pfp_1 * ++pfp_2) {
+                printk(" PCF-Pro found\n");
+                return(2);
+        } else if (33 == ++pcc_1 * ++pcc_2) {
+                printk(" PCC8 found\n");
+                return(1);
+        } else {
                 printk(" failed\n");
                 return(0);
-         } else {
-                printk(" found\n");
-                return(1);
-         }
+        }
 }
 
 static unsigned int
-probe_pcc16(void)
+probe_elsa(struct IsdnCardState    *sp)
 {
 	int i;
 	unsigned int	CARD_portlist[] = {0x160, 0x170, 0x260, 0x360, 0};
 
 	for (i = 0; CARD_portlist[i]; i++) {
-		if (probe_pcc16_adr(CARD_portlist[i]))
+		if ((sp->subtyp = probe_elsa_adr(CARD_portlist[i]))) 
 			break;
         }
 	return(CARD_portlist[i]);
@@ -1009,6 +1027,7 @@ setup_elsa(struct IsdnCard *card)
 {
 	ulong			timout;
 	long			flags;
+	int			bytecnt;
 	byte			val, verA, verB;
 	struct IsdnCardState 	*sp = card->sp;
         
@@ -1019,24 +1038,26 @@ setup_elsa(struct IsdnCard *card)
 
  	printk(KERN_INFO "Elsa: Mircolink PCC IO probing\n");
         if (sp->cfg_reg) {
-        	if (!probe_pcc16_adr(sp->cfg_reg)) {
+        	if (!(sp->subtyp = probe_elsa_adr(sp->cfg_reg))) {
                 	printk(KERN_WARNING 
-                		"Elsa: no Mircolink PCC16 at 0x%x\n",
+                		"Elsa: no Elsa Mircolink at 0x%x\n",
                 		sp->cfg_reg);
                 		return(0);
           	}
         } else 
-        	sp->cfg_reg = probe_pcc16();
+        	sp->cfg_reg = probe_elsa(sp);
         if (sp->cfg_reg) {
         	const byte CARD_IrqTab[8] = { 15, 10, 15, 3, 11, 5, 11, 9};
                 val=bytein(sp->cfg_reg + CARD_CONFIG);
                 sp->irq = CARD_IrqTab[(val & 0x38) >>3];
                 val = bytein(sp->cfg_reg + CARD_ALE) & 0x7;
+                if (val < 3) val |= 8;
                 val += 'A' - 3;
-                if (val=='B' || val=='C') 
-                val ^= 1; 
+                if (val=='B' || val=='C') val ^= 1; 
+                if ((sp->subtyp == ELSA_PCFPRO) && (val='G')) val = 'C';
 		printk(KERN_INFO 
-			"Elsa: Mircolink PCC16 found at 0x%x Rev.:%c IRQ %d\n",
+			"Elsa: %s found at 0x%x Rev.:%c IRQ %d\n",
+			Elsa_Types[sp->subtyp],
 			sp->cfg_reg,
 			val, sp->irq);
                 val = bytein(sp->cfg_reg + CARD_ALE) & 0x08;
@@ -1045,26 +1066,42 @@ setup_elsa(struct IsdnCard *card)
 				"Elsa: Mircolink PCC S0 bus power bad\n");
 	} else {
 		printk(KERN_WARNING 
-			"No Elsa Mircolink PCC found\n");
+			"No Elsa Mircolink found\n");
                 	return(0);
 	}
 
- 	if (check_region((sp->cfg_reg) ,8)) {
+	switch (sp->subtyp) {
+		case ELSA_PCC:  bytecnt = 8;
+				sp->mask1 = TIMER_RUN_PCC;
+				break;
+		case ELSA_PCC16:bytecnt = 8;
+				sp->mask1 = TIMER_RUN;
+				break;
+		case ELSA_PCFPRO:bytecnt = 16;
+				sp->mask1 = TIMER_RUN;
+				break;
+		default:
+				printk(KERN_WARNING 
+					"Unknown ELSA subtype %d\n", sp->subtyp);
+                		return(0);
+	}
+	
+ 	if (check_region((sp->cfg_reg), bytecnt)) {
         	printk(KERN_WARNING
                 "HiSax: %s config port %x-%x already in use\n",
                 CardType[card->typ],
                 sp->cfg_reg,
-                sp->cfg_reg + 8);
+                sp->cfg_reg + bytecnt);
                 return (0);
         } else {
-                request_region(sp->cfg_reg, 8, "elsa isdn");
+                request_region(sp->cfg_reg, bytecnt, "elsa isdn");
 	}
 
 	/* Teste Timer */
 	bytein(sp->cfg_reg +CARD_START_TIMER);
-	if (!(bytein(sp->cfg_reg +CARD_CONFIG) & TIMER_RUN)) {
+	if (!(bytein(sp->cfg_reg +CARD_CONFIG) & sp->mask1)) {
 		bytein(sp->cfg_reg +CARD_START_TIMER); /* 2. Versuch */
-		if (!(bytein(sp->cfg_reg +CARD_CONFIG) & TIMER_RUN)) { 
+		if (!(bytein(sp->cfg_reg +CARD_CONFIG) & sp->mask1)) { 
         		printk(KERN_WARNING "Elsa: timer do not start\n");
         		release_io_elsa(card);
         		return(0);
@@ -1077,7 +1114,7 @@ setup_elsa(struct IsdnCard *card)
 	bytein(sp->cfg_reg +CARD_START_TIMER);
 	while (timout == jiffies);  /* Warte 10 ms */
 	restore_flags(flags);
-	if (bytein(sp->cfg_reg +CARD_CONFIG) & TIMER_RUN) { 
+	if (bytein(sp->cfg_reg +CARD_CONFIG) & sp->mask1) { 
         	printk(KERN_WARNING "Elsa: timer do not run down\n");
         	release_io_elsa(card);
         	return(0);
@@ -1085,15 +1122,15 @@ setup_elsa(struct IsdnCard *card)
         printk(KERN_INFO "Elsa: timer OK; resetting card\n");
 	/* Wait 1 Timer */        
 	bytein(sp->cfg_reg +CARD_START_TIMER);
-	while(!(bytein(sp->cfg_reg +CARD_CONFIG) & TIMER_RUN));
+	while(!(bytein(sp->cfg_reg +CARD_CONFIG) & sp->mask1));
         byteout(sp->cfg_reg+4,0x00);  /* Reset On */
 	/* Wait 1 Timer */        
 	bytein(sp->cfg_reg +CARD_START_TIMER);
-	while(!(bytein(sp->cfg_reg +CARD_CONFIG) & TIMER_RUN));
+	while(!(bytein(sp->cfg_reg +CARD_CONFIG) & sp->mask1));
         byteout(sp->cfg_reg+4,ISDN_RESET);  /* Reset Off */
 	/* Wait 1 Timer */        
 	bytein(sp->cfg_reg +CARD_START_TIMER);
-	while(!(bytein(sp->cfg_reg +CARD_CONFIG) & TIMER_RUN));
+	while(!(bytein(sp->cfg_reg +CARD_CONFIG) & sp->mask1));
 
         verA=readhscx(sp->cfg_reg, 0,HSCX_VSTR) & 0xf;
         verB=readhscx(sp->cfg_reg, 1,HSCX_VSTR) & 0xf;
