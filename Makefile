@@ -1,4 +1,4 @@
-I4LVERSION=2.0.28
+I4LVERSION=2.1.88
 
 KERNELDIR = /usr/src/linux
 
