@@ -19,6 +19,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.66  2000/03/17 17:01:00  kai
+ * cleanup
+ *
  * Revision 1.65  2000/03/17 16:22:55  kai
  * we keep track of outstanding packets (given to HL, but not confirmed yet)
  * now, but we don't use it for flow control yet.
@@ -276,10 +279,6 @@
  * Initial revision
  *
  */
-
-/* TODO: right tbusy handling when using MP */
-
-#define CONFIG_ISDN_CCP 1
 
 #include <linux/config.h>
 #define __NO_VERSION__
@@ -1094,7 +1093,8 @@ isdn_ppp_write(int min, struct file *file, const char *buf, int count)
 			}
 
 			isdn_ppp_send_ccp(lp->netdev,lp,skb); /* keeps CCP/compression states in sync */
-			isdn_net_write_super(lp, skb);                         
+
+			isdn_net_write_super(lp, skb);
 		}
 	}
 	return count;
@@ -1526,7 +1526,6 @@ isdn_ppp_xmit(struct sk_buff *skb, struct net_device *netdev)
 	isdn_net_dev *nd;
 	unsigned int proto = PPP_IP;     /* 0x21 */
 	struct ippp_struct *ipt,*ipts;
-	unsigned long flags;
 
 	if (mdev)
 		mlp = (isdn_net_local *) (mdev->priv);
@@ -1552,21 +1551,22 @@ isdn_ppp_xmit(struct sk_buff *skb, struct net_device *netdev)
 			break;
 		default:
 			dev_kfree_skb(skb);
-			printk(KERN_ERR "isdn_ppp: skipped frame with unsupported protocol: %#x.\n", skb->protocol);
+			printk(KERN_ERR "isdn_ppp: skipped unsupported protocol: %#x.\n", 
+			       skb->protocol);
 			return 0;
 	}
 
 	lp = nd->queue;         /* get lp on top of queue */
-
-	if (lp->sav_skb) {      /* find a non-busy device */
-		isdn_net_local *nlp = lp->next;
-		while (nlp->sav_skb) {
-			if (lp == nlp)
-				return 1;
-			nlp = nd->queue = nd->queue->next;
+	/* find a non-busy device */
+	while (atomic_read(&nd->queue->frame_cnt) >= ISDN_NET_MAX_QUEUE_LENGTH) {
+		nd->queue = nd->queue->next;
+		if (nd->queue == lp) { /* not found -- should never happen */
+			printk(KERN_WARNING "%s: all channels busy!\n", lp->name);
+			return 1;
 		}
-		lp = nlp;
 	}
+	lp = nd->queue;
+
 	ipt = ippp_table[lp->ppp_slot];
 	lp->huptimer = 0;
 
@@ -1575,8 +1575,8 @@ isdn_ppp_xmit(struct sk_buff *skb, struct net_device *netdev)
 	 */
 
 	/* Pull off the fake header we stuck on earlier to keep
-     * the fragemntation code happy.
-     */
+	 * the fragmentation code happy.
+	 */
 	skb_pull(skb,IPPP_MAX_HEADER);
 
 	if (ipt->debug & 0x4)
@@ -1705,16 +1705,8 @@ isdn_ppp_xmit(struct sk_buff *skb, struct net_device *netdev)
 		printk(KERN_DEBUG "skb xmit: len: %d\n", (int) skb->len);
 		isdn_ppp_frame_log("xmit", skb->data, skb->len, 32,ipt->unit,lp->ppp_slot);
 	}
-	save_flags(flags);
-	cli();
-	if (isdn_net_send_skb(netdev, lp, skb)) {
-		if (lp->sav_skb) {	/* should never happen as sav_skb are sent with disabled IRQs) */
-			printk(KERN_ERR "%s: whoops .. there is another stored skb!\n", netdev->name);
-			dev_kfree_skb(skb);
-		} else
-			lp->sav_skb = skb;
-	}
-	restore_flags(flags);
+	
+	isdn_net_writebuf_skb(lp, skb);
 	return 0;
 }
 
@@ -2337,7 +2329,8 @@ static void isdn_ppp_ccp_xmit_reset(struct ippp_struct *is, int proto,
 	/* skb is now ready for xmit */
 	printk(KERN_DEBUG "Sending CCP Frame:\n");
 	isdn_ppp_frame_log("ccp-xmit", skb->data, skb->len, 32, is->unit,lp->ppp_slot);
-	isdn_net_write_super(lp, skb);                         
+
+	isdn_net_write_super(lp, skb);
 }
 
 /* Allocate the reset state vector */
@@ -2587,14 +2580,6 @@ static void isdn_ppp_ccp_reset_ack_rcvd(struct ippp_struct *is,
 static struct sk_buff *isdn_ppp_decompress(struct sk_buff *skb,struct ippp_struct *is,struct ippp_struct *master,
 	int proto)
 {
-#ifndef CONFIG_ISDN_CCP
-	if(proto == PPP_COMP || proto == PPP_COMPFRAG) {
-		printk(KERN_ERR "isdn_ppp: Ouch! Compression not included!\n");
-		dev_kfree_skb(skb);
-		return NULL;
-	}
-	return skb;
-#else
 	void *stat = NULL;
 	struct isdn_ppp_compressor *ipc = NULL;
 	struct sk_buff *skb_out;
@@ -2684,7 +2669,6 @@ static struct sk_buff *isdn_ppp_decompress(struct sk_buff *skb,struct ippp_struc
 		ipc->incomp(stat,skb,proto);
 		return skb;
 	}
-#endif
 }
 
 /*
@@ -2703,13 +2687,9 @@ static struct sk_buff *isdn_ppp_compress(struct sk_buff *skb_in,int *proto,
     void *stat;
     struct sk_buff *skb_out;
 
-#ifdef CONFIG_ISDN_CCP
 	/* we do not compress control protocols */
     if(*proto < 0 || *proto > 0x3fff) {
-#else
-    {
-#endif
-      return skb_in;
+	    return skb_in;
     }
 
 	if(type) { /* type=1 => Link compression */

@@ -21,6 +21,10 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.97  2000/03/17 16:22:55  kai
+ * we keep track of outstanding packets (given to HL, but not confirmed yet)
+ * now, but we don't use it for flow control yet.
+ *
  * Revision 1.96  2000/03/17 12:49:42  kai
  * calling statcallb with ISDN_STAT_BSENT in hard-IRQ context is now
  * officially allowed. writebuf_skb() will never be called in hard-IRQ context
@@ -761,7 +765,8 @@ typedef struct isdn_net_local_s {
   struct isdn_net_local_s *last;       /* Ptr to last link in bundle       */
   struct isdn_net_dev_s  *netdev;      /* Ptr to netdev                    */
   struct sk_buff         *first_skb;   /* Ptr to skb that triggers dialing */
-  struct sk_buff *volatile sav_skb;    /* Ptr to skb, rejected by LL-driver*/
+  struct sk_buff_head    super_tx_queue; /* List of supervisory frames to  */
+	                               /* be transmitted asap              */
   atomic_t frame_cnt;                  /* number of frames currently       */
                         	       /* queued in HL driver              */    
                                        /* Ptr to orig. hard_header_cache   */

@@ -21,6 +21,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.117  2000/03/17 17:01:00  kai
+ * cleanup
+ *
  * Revision 1.116  2000/03/17 16:22:55  kai
  * we keep track of outstanding packets (given to HL, but not confirmed yet)
  * now, but we don't use it for flow control yet.
@@ -518,33 +521,6 @@
  * --KG
  */
 
-static __inline__ void isdn_net_inc_frame_cnt(isdn_net_local *lp)
-{
-       atomic_inc(&lp->frame_cnt);
-#if 0
-       printk(KERN_DEBUG "%s: inc_frame_cnt now %d\n", lp->name, 
-	      atomic_read(&p->frame_cnt));
-#endif
-}
-
-static __inline__ void isdn_net_dec_frame_cnt(isdn_net_local *lp)
-{
-       atomic_dec(&lp->frame_cnt);
-#if 0
-       printk(KERN_DEBUG "%s: dec_frame_cnt now %d\n", lp->name, 
-	      atomic_read(&p->frame_cnt));
-#endif
-}
-
-static __inline__ void isdn_net_zero_frame_cnt(isdn_net_local *lp)
-{
-       atomic_set(&lp->frame_cnt, 0);
-#if 0
-       printk(KERN_DEBUG "%s: zero_frame_cnt now %d\n", lp->name,
-	      atomic_read(&lp->frame_cnt));
-#endif
-}
-
 /* 
  * Find out if the netdevice has been ifup-ed yet.
  * For slaves, look at the corresponding master.
@@ -575,6 +551,79 @@ static __inline__ void isdn_net_lp_xon(isdn_net_local * lp)
 		netif_wake_queue(lp->master);
 	else
 		netif_wake_queue(&lp->netdev->dev);
+}
+
+/*
+ * stop the network -> net_device queue.
+ * For slaves, stop the corresponding master interface.
+ */
+static __inline__ void isdn_net_lp_xoff(isdn_net_local * lp)
+{
+	if (lp->master)
+		netif_stop_queue(lp->master);
+	else
+		netif_stop_queue(&lp->netdev->dev);
+}
+
+static __inline__ int isdn_net_lp_busy(isdn_net_local *lp)
+{
+	if (atomic_read(&lp->frame_cnt) < ISDN_NET_MAX_QUEUE_LENGTH)
+		return 0;
+	/* multilink raw-ip and syncppp need to be handled differently */
+	if (lp->p_encap == ISDN_NET_ENCAP_SYNCPPP) {
+		isdn_net_local *nlp = lp->next;
+		while (nlp != lp) {
+			if (atomic_read(&nlp->frame_cnt) < ISDN_NET_MAX_QUEUE_LENGTH)
+				return 0;
+			nlp = nlp->next;
+		}
+	} else {
+		if (lp->master)
+			lp = lp->master->priv;
+		while (lp->flags & ISDN_NET_CONNECTED && lp->dialstate == 0) {
+			if (atomic_read(&lp->frame_cnt) < ISDN_NET_MAX_QUEUE_LENGTH)
+				return 0;
+			if (!lp->slave) break;
+			lp = lp->slave->priv;
+		}
+	}
+	return 1;
+}
+
+static __inline__ void isdn_net_inc_frame_cnt(isdn_net_local *lp)
+{
+	atomic_inc(&lp->frame_cnt);
+	if (isdn_net_lp_busy(lp))
+		isdn_net_lp_xoff(lp);
+#if 0
+	printk(KERN_DEBUG "%s: inc_frame_cnt now %d\n", lp->name, 
+	      atomic_read(&p->frame_cnt));
+#endif
+}
+
+static __inline__ void isdn_net_dec_frame_cnt(isdn_net_local *lp)
+{
+	atomic_dec(&lp->frame_cnt);
+	if (!(isdn_net_lp_busy(lp))) {
+		if (lp->sav_skb) {
+			queue_task(&lp->tqueue, &tq_immediate);
+		} else {
+			isdn_net_lp_xon(lp);
+		}
+       }                                                                      
+#if 0
+	printk(KERN_DEBUG "%s: dec_frame_cnt now %d\n", lp->name, 
+	       atomic_read(&p->frame_cnt));
+#endif
+}
+
+static __inline__ void isdn_net_zero_frame_cnt(isdn_net_local *lp)
+{
+	atomic_set(&lp->frame_cnt, 0);
+#if 0
+	printk(KERN_DEBUG "%s: zero_frame_cnt now %d\n", lp->name,
+	       atomic_read(&lp->frame_cnt));
+#endif
 }
 
 /* For 2.2.x we leave the transmitter busy timeout at 2 secs, just 
@@ -781,6 +830,7 @@ static void
 isdn_net_unbind_channel(isdn_net_local * lp)
 {
 	ulong flags;
+	struct sk_buff *skb;
 
 	save_flags(flags);
 	cli();
@@ -794,9 +844,8 @@ isdn_net_unbind_channel(isdn_net_local * lp)
 		dev_kfree_skb(lp->first_skb);
 		lp->first_skb = NULL;
 	}
-	if (lp->sav_skb) {
-		dev_kfree_skb(lp->sav_skb);
-		lp->sav_skb = NULL;
+	while ((skb = skb_dequeue(&lp->super_tx_queue))) {
+		kfree_skb(skb);
 	}
 	if (!lp->master) {	/* reset only master device */
 		/* Moral equivalent of dev_purge_queues():
@@ -951,21 +1000,6 @@ isdn_net_stat_callback(int idx, isdn_ctrl *c)
 					atomic_dec(&lp->dw_abc_pkt_onl);
 #endif
 #endif
-					/* some HL drivers deliver 
-					   ISDN_STAT_BSENT from hw interrupt.
-					   So we use a task queue for further processing,
-					   particularly we want writebuf_skb() called single-
-					   threaded.
-
-					   Output routines in isdn_ppp are now
-					   called with irq disabled such that
-					   dequeueing the sav_skb while another
-					   frame is sent will not occur.
-					*/
-					if (lp->sav_skb) {
-						queue_task(&lp->tqueue, &tq_immediate);
-					}
-					isdn_net_lp_xon(lp);
 				}
 				return 1;
 			case ISDN_STAT_DCONN:
@@ -1043,7 +1077,7 @@ isdn_net_stat_callback(int idx, isdn_ctrl *c)
 #endif /* CONFIG_ISDN_X25 */
 			case ISDN_STAT_BCONN:
 				/* B-Channel is up */
-				isdn_net_zero_frame_cnt(lp);                   
+				isdn_net_zero_frame_cnt(lp);
 				switch (lp->dialstate) {
 					case 5:
 					case 6:
@@ -1709,15 +1743,43 @@ isdn_net_log_skb(struct sk_buff * skb, isdn_net_local * lp)
 	}
 }
 
+/*
+ * this function is used to send supervisory data, i.e. data which was
+ * not received from the network layer, but e.g. frames from ipppd, CCP
+ * reset frames etc.
+ */
+void isdn_net_write_super(isdn_net_local *lp, struct sk_buff *skb)
+{
+	if (atomic_read(&lp->frame_cnt) < ISDN_NET_MAX_QUEUE_LENGTH) {
+		isdn_net_writebuf_skb(lp, skb);
+	} else {
+		skb_queue_tail(&lp->super_tx_queue, skb);
+	}
+}
+
+/*
+ * called from tq_immediate
+ */
+static void
+isdn_net_softint(void *private)
+{
+	struct sk_buff *skb;
+	
+	while (atomic_read(&lp->frame_cnt) < ISDN_NET_MAX_QUEUE_LENGTH) {
+		skb = skb_dequeue(&lp->super_tx_queue);
+		if (!skb)
+			break;
+		isdn_net_writebuf_skb(lp, skb);                                
+	}
+}
+
 /* 
  * all frames sent from the (net) LL to a HL driver should go via this function
  */
-
-int isdn_net_writebuf_skb(isdn_net_local *lp, struct sk_buff *skb)
+void isdn_net_writebuf_skb(isdn_net_local *lp, struct sk_buff *skb)
 {
 	int ret;
 	int len = skb->len;     /* save len */
-#if 0
 
 	if (atomic_read(&lp->frame_cnt) >= ISDN_NET_MAX_QUEUE_LENGTH) {
 		/* we should never get here */
@@ -1725,69 +1787,35 @@ int isdn_net_writebuf_skb(isdn_net_local *lp, struct sk_buff *skb)
 		       atomic_read(&lp->frame_cnt));
 		goto error;
 	}
-#endif
 	ret = isdn_writebuf_skb_stub(lp->isdn_device, lp->isdn_channel, 1, skb);
-	if (ret != len) {
-		return ret;
-	}
-#if 0
 	if (ret != len) {
 		/* we should never get here either */
 		printk(KERN_WARNING "%s: HL driver queue full\n", lp->name);
 		goto error;
 	}
-#endif
 	
 	lp->transcount += len;
 	isdn_net_inc_frame_cnt(lp);
-	return 0;
+	return;
 
-#if 0
  error:
 	dev_kfree_skb(skb);
 	lp->stats.tx_errors++;
-	return;
-#endif
 }
 
-/*
- * this function is used to send supervisory data, i.e. data which was
- * not received from the network layer, but e.g. frames from ipppd, CCP
- * reset frames etc.
- */
-void
-isdn_net_write_super(isdn_net_local *lp, struct sk_buff *skb)
-{
-	unsigned long flags;
-	int cnt, count;
-	
-	count = skb->len;
-	save_flags(flags);
-	cli();
-	if ((cnt = isdn_net_writebuf_skb(lp, skb)) != count) {
-		if (lp->sav_skb) {
-			dev_kfree_skb(lp->sav_skb);
-			printk(KERN_INFO "isdn_ppp_write: freeing sav_skb (%d,%d)!\n",
-			       cnt, count);
-		} else
-			printk(KERN_INFO "isdn_ppp_write: Can't write PPP frame to LL (%d,%d)!\n",
-			       cnt, count);
-		lp->sav_skb = skb;
-	}
-	restore_flags(flags);
-}
-
-
-
-/*
- * Generic routine to send out an skbuf.
- * If lowlevel-device does not support support skbufs, use
- * standard send-routine, else send directly.
- *
- * Return: 0 on success, !0 on failure.
- */
 #ifdef CONFIG_ISDN_WITH_ABC
-static int dwabc_helper_isdn_net_send_skb(struct net_device *,isdn_net_local *,struct sk_buff *);
+static int dwabc_helper_isdn_net_send_skb(struct net_device *ndev, isdn_net_local * lp,struct sk_buff *skb)
+{
+	if (atomic_read(&lp->frame_cnt) >= ISDN_NET_MAX_QUEUE_LENGTH) {
+		printk(KERN_WARNING "dwabc_helper_isdn_net_send_skb: HL channel busy\n");
+		return 1;
+	}
+	isdn_net_writebuf_skb(lp, skb);
+#ifdef CONFIG_ISDN_WITH_ABC_FRAME_LIMIT
+	atomic_inc(&lp->dw_abc_pkt_onl);
+#endif
+	return 0;
+}
 
 int isdn_net_send_skb(struct net_device *ndev, isdn_net_local * lp,struct sk_buff *skb)
 {
@@ -1894,32 +1922,18 @@ once_more:;
 	return(r);
 }
 
-static int dwabc_helper_isdn_net_send_skb
 #else
-int isdn_net_send_skb
-#endif
-		(struct net_device *ndev, isdn_net_local * lp,struct sk_buff *skb)
+int isdn_net_send_skb(struct net_device *ndev, isdn_net_local * lp,struct sk_buff *skb)
 {
-	int ret;
-	int len = skb->len;     /* save len */
-
-	ret = isdn_net_writebuf_skb(lp, skb);
-	if (ret == len) {
-#ifdef CONFIG_ISDN_WITH_ABC
-#ifdef CONFIG_ISDN_WITH_ABC_FRAME_LIMIT
-		atomic_inc(&lp->dw_abc_pkt_onl);
-#endif
-#endif
-		return 0;
+	if (atomic_read(&lp->frame_cnt) >= ISDN_NET_MAX_QUEUE_LENGTH) {
+		printk(KERN_WARNING "isdn_net_send_skb: HL channel busy\n");
+		return 1;
 	}
-	if (ret < 0) {
-		dev_kfree_skb(skb);
-		lp->stats.tx_errors++;
-		return 0;
-	}
-	return 1;
+	isdn_net_writebuf_skb(lp, skb);
+	return 0;
 }
 
+#endif
 /*
  *  Helper function for isdn_net_start_xmit.
  *  When called, the connection is already established.
@@ -1956,6 +1970,18 @@ isdn_net_xmit(struct net_device *ndev, isdn_net_local * lp, struct sk_buff *skb)
 			ret = isdn_net_send_skb(ndev, lp, skb);
 		else {
 			isdn_net_local *slp = (isdn_net_local *) (lp->srobin->priv);
+			int safe = 0;
+			/* we need a non-busy channel */
+			while (atomic_read(&slp->frame_cnt) >= ISDN_NET_MAX_QUEUE_LENGTH) {
+				lp->srobin = (slp->slave) ? slp->slave : ndev;
+				if (!((slp->flags & ISDN_NET_CONNECTED) && (slp->dialstate == 0)))
+					lp->srobin = ndev;
+				slp = (isdn_net_local *) (lp->srobin->priv);
+				if (save++ > 100) {
+					printk("isdn_net: should never happen\n");
+					return 1;
+				}
+			}
 			/* Master delivers via srobin and maintains srobin */
 			if (lp->srobin == ndev)
 				ret = isdn_net_send_skb(ndev, lp, skb);
@@ -2025,7 +2051,7 @@ void isdn_net_tx_timeout(struct net_device * ndev)
 		 * actually, this may not matter at all, because ISDN hardware
 		 * should not see transmitter hangs at all IMO
 		 * changed KERN_DEBUG to KERN_WARNING to find out if this is 
-		 * ever called
+		 * ever called   --KG
 		 */
 	}
 	ndev->trans_start = jiffies;
@@ -3520,21 +3546,6 @@ isdn_net_force_dial(char *name)
 }
 
 /*
- * called from tq_immediate
- */
-static void
-isdn_net_send_sav_skb(void *private)
-{
-       isdn_net_local *lp = private;
-       unsigned long flags;
-
-       save_flags(flags);
-       cli();
-       if (isdn_net_writebuf_skb(lp, lp->sav_skb) > 0)
-	       lp->sav_skb = 0;
-       restore_flags(flags);
-}
-                                                                               /*
  * Allocate a new network-interface and initialize its data structures.
  */
 char *
@@ -3606,7 +3617,7 @@ isdn_net_new(char *name, struct net_device *master)
 	netdev->local->next = netdev->local;
 
 	memset(&netdev->local->tqueue, 0, sizeof(struct tq_struct));
-	netdev->local->tqueue.routine = isdn_net_send_sav_skb;
+	netdev->local->tqueue.routine = isdn_net_softint;
 	netdev->local->tqueue.data = netdev->local;
 
 	netdev->local->isdn_device = -1;
@@ -3616,7 +3627,7 @@ isdn_net_new(char *name, struct net_device *master)
 	netdev->local->exclusive = -1;
 	netdev->local->ppp_slot = -1;
 	netdev->local->pppbind = -1;
-	netdev->local->sav_skb = NULL;
+	skb_queue_head_init(&netdev->local->super_tx_queue);
 	netdev->local->first_skb = NULL;
 	netdev->local->l2_proto = ISDN_PROTO_L2_X75I;
 	netdev->local->l3_proto = ISDN_PROTO_L3_TRANS;
