@@ -21,6 +21,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.5  1996/04/30 11:03:16  fritz
+ * Added Michael's ippp-bind patch.
+ *
  * Revision 1.4  1996/04/29 23:00:02  fritz
  * Added variables for voice-support.
  *
@@ -516,6 +519,7 @@ struct ippp_struct {
   unsigned char *cbuf;
   struct slcompress *slcomp;
 #endif
+  unsigned long debug;
 };
 
 #endif
