@@ -11,6 +11,10 @@
  *              Fritz Elfert
  *
  * $Log$
+ * Revision 2.21  2000/04/12 16:41:01  kai
+ * fix max iframe size
+ * fix bug in multicasting DL_RELEASE_IND
+ *
  * Revision 2.20  1999/08/25 16:52:04  keil
  * Make gcc on AXP happy
  *
@@ -371,7 +375,7 @@ iframe_error(struct PStack *st, struct sk_buff *skb)
 		return 'L';
 
 
-	if (skb->len <= i)
+	if (skb->len < i)
 		return 'N';
 
 	if ((skb->len - i) > st->l2.maxlen)
