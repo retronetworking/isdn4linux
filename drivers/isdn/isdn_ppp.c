@@ -1102,10 +1102,6 @@ isdn_ppp_push_higher(isdn_net_dev * net_dev, isdn_net_local * lp, struct sk_buff
 
  	/* Reset hangup-timer */
  	lp->huptimer = 0;
-#ifdef CONFIG_ISDN_WITH_ABC_IPV4_TCP_KEEPALIVE
-	if(!(lp->dw_abc_flags & ISDN_DW_ABC_FLAG_NO_TCP_KEEPALIVE))
-	 	(void)isdn_dw_abc_ip4_keepalive_test(NULL,skb);
-#endif
 #ifdef CONFIG_ISDN_WITH_ABC_CONN_ERROR
 	lp->dw_abc_bchan_errcnt = 0;
 #endif
