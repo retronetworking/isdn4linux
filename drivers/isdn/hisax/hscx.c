@@ -6,6 +6,9 @@
  *
  *
  * $Log$
+ * Revision 1.3.2.6  1998/06/09 18:26:32  keil
+ * PH_DEACTIVATE B-channel every time signaled to higher layer
+ *
  * Revision 1.3.2.5  1998/05/27 18:05:34  keil
  * HiSax 3.0
  *
@@ -70,8 +73,6 @@ modehscx(struct BCState *bcs, int mode, int bc)
 		debugl1(cs, tmp);
 	}
 	bcs->mode = mode;
-	cs->BC_Write_Reg(cs, hscx, HSCX_CCR1, 
-		test_bit(HW_IPAC, &cs->HW_Flags) ? 0x82 : 0x85);
 	cs->BC_Write_Reg(cs, hscx, HSCX_XAD1, 0xFF);
 	cs->BC_Write_Reg(cs, hscx, HSCX_XAD2, 0xFF);
 	cs->BC_Write_Reg(cs, hscx, HSCX_RAH2, 0xFF);
@@ -104,6 +105,8 @@ modehscx(struct BCState *bcs, int mode, int bc)
 			cs->BC_Write_Reg(cs, hscx, HSCX_MODE, 0xe4);
 			break;
 		case (L1_MODE_HDLC):
+			cs->BC_Write_Reg(cs, hscx, HSCX_CCR1, 
+				test_bit(HW_IPAC, &cs->HW_Flags) ? 0x8a : 0x8d);
 			cs->BC_Write_Reg(cs, hscx, HSCX_MODE, 0x8c);
 			break;
 	}
