@@ -8,6 +8,9 @@
  * Thanks to Dr. Neuhaus and SAGEM for informations
  *
  * $Log$
+ * Revision 1.9  2000/04/09 19:09:19  keil
+ * Bugfix: reset IRQ enable only valid for PCI version
+ *
  * Revision 1.8  1999/08/11 21:01:33  keil
  * new PCI codefix
  *
@@ -231,8 +234,6 @@ release_io_niccy(struct IsdnCardState *cs)
 static void
 niccy_reset(struct IsdnCardState *cs)
 {
-	int val, nval;
-
 	if (cs->subtyp == NICCY_PCI) {
 		int val;
 
