@@ -7,6 +7,10 @@
  * Rewritten for Linux 1996 by Carsten Paeth (calle@calle.in-berlin.de)
  *
  * $Log$
+ * Revision 1.3.2.1  1998/08/03 15:52:21  paul
+ * various changes from 2.0.3[45] kernel sources, as suggested by
+ * Oliver.Lauer@coburg.baynet.de
+ *
  * Revision 1.3  1997/05/18 09:24:18  calle
  * added verbose disconnect reason reporting to avmb1.
  * some fixes in capi20 interface.
@@ -34,7 +38,7 @@
 #include <linux/mm.h>
 #include <asm/segment.h>
 
-#include "compat.h"
+#include <linux/isdn_compat.h>
 #include "capiutil.h"
 
 /* from CAPI2.0 DDK AVM Berlin GmbH */

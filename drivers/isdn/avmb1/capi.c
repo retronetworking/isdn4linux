@@ -6,6 +6,9 @@
  * Copyright 1996 by Carsten Paeth (calle@calle.in-berlin.de)
  *
  * $Log$
+ * Revision 1.4.2.1  1999/06/10 16:46:52  calle
+ * Bugfix: open/release was not correctly handled for control device.
+ *
  * Revision 1.4  1997/05/27 15:17:50  fritz
  * Added changes for recent 2.1.x kernels:
  *   changed return type of isdn_close
@@ -51,7 +54,7 @@
 #include <linux/capi.h>
 #include <linux/kernelcapi.h>
 
-#include "compat.h"
+#include <linux/isdn_compat.h>
 #include "capiutil.h"
 #include "capicmd.h"
 #include "capidev.h"

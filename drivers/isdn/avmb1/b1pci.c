@@ -6,6 +6,10 @@
  * (c) Copyright 1997 by Carsten Paeth (calle@calle.in-berlin.de)
  * 
  * $Log$
+ * Revision 1.2.2.2  1998/01/23 16:49:30  calle
+ * added functions for pcmcia cards,
+ * avmb1_addcard returns now the controller number.
+ *
  * Revision 1.2.2.1  1997/11/26 10:46:57  calle
  * prepared for M1 (Mobile) and T1 (PMX) cards.
  * prepared to set configuration after load to support other D-channel
@@ -27,7 +31,7 @@
 #include <linux/bios32.h>
 #include <linux/pci.h>
 #include <linux/skbuff.h>
-#include "compat.h"
+#include <linux/isdn_compat.h>
 #include <linux/capi.h>
 #include <linux/b1lli.h>
 

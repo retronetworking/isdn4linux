@@ -6,6 +6,10 @@
  * Copyright 1997 by Carsten Paeth (calle@calle.in-berlin.de)
  *
  * $Log$
+ * Revision 1.3.2.13  1999/05/31 11:47:39  calle
+ * Bugfix: In if_sendbuf, skb_push'ed DATA_B3 header was not skb_pull'ed
+ *         on failure, result in data block with DATA_B3 header transmitted
+ *
  * Revision 1.3.2.12  1998/09/11 15:37:11  calle
  * Started with support for CAPI channel allocation/bundling.
  *
@@ -85,7 +89,6 @@
 #include <linux/kernelcapi.h>
 #include <linux/ctype.h>
 
-#include "compat.h"
 #include "capiutil.h"
 #include "capicmd.h"
 #include "capidrv.h"
@@ -1786,7 +1789,7 @@ static int if_command(isdn_ctrl * c)
 
 static _cmsg sendcmsg;
 
-static int if_sendbuf(int id, int channel, struct sk_buff *skb)
+static int if_sendbuf(int id, int channel, int ack, struct sk_buff *skb)
 {
 	capidrv_contr *card = findcontrbydriverid(id);
 	capidrv_bchan *bchan;

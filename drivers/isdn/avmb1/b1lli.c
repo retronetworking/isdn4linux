@@ -6,6 +6,9 @@
  * (c) Copyright 1997 by Carsten Paeth (calle@calle.in-berlin.de)
  * 
  * $Log$
+ * Revision 1.1.2.11  1998/10/25 14:36:18  fritz
+ * Backported from MIPS (Cobalt).
+ *
  * Revision 1.1.2.10  1998/03/20 20:34:41  calle
  * port valid check now only for T1, because of the PCI and PCMCIA cards.
  *
@@ -65,7 +68,7 @@
 #include <linux/capi.h>
 #include <linux/b1lli.h>
 
-#include "compat.h"
+#include <linux/isdn_compat.h>
 #include "capicmd.h"
 #include "capiutil.h"
 

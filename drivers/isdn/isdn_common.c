@@ -21,6 +21,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.44.2.11  1999/05/05 21:41:32  werner
+ * callback handling for display messages added
+ *
  * Revision 1.44.2.10  1999/04/22 21:09:22  werner
  * Added support for dss1 diversion services
  *
@@ -1956,7 +1959,7 @@ isdn_writebuf_stub(int drvidx, int chan, const u_char * buf, int len,
 			memcpy(skb_put(skb, len), buf, len);
 
 		ret = dev->drv[drvidx]->interface->writebuf_skb(drvidx,
-							      chan, skb);
+							      chan, 1, skb);
 		if (ret <= 0)
 			kfree_skb(skb, FREE_WRITE);
 	}
@@ -1981,7 +1984,7 @@ isdn_writebuf_skb_stub(int drvidx, int chan, struct sk_buff *skb)
 
 	if (dev->drv[drvidx]->interface->writebuf_skb)
 		ret = dev->drv[drvidx]->interface->
-		    writebuf_skb(drvidx, chan, skb);
+		    writebuf_skb(drvidx, chan, 1, skb);
 	else {
 		if ((ret = dev->drv[drvidx]->interface->
 		  writebuf(drvidx, chan, skb->data, skb->len, 0)) == len)

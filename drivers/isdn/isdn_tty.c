@@ -20,6 +20,10 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.41.2.12  1999/05/05 21:43:47  werner
+ * support for keypad added (every destination with * or # = keypad)
+ * enable display messages announce with S13 Bit 5 = 1
+ *
  * Revision 1.41.2.11  1998/11/05 22:12:12  fritz
  * Changed mail-address.
  *
@@ -1034,7 +1038,7 @@ isdn_tty_startup(modem_info * info)
 	 */
 	info->mcr = UART_MCR_DTR | UART_MCR_RTS | UART_MCR_OUT2;
 	if (info->tty)
-		clear_bit(TTY_IO_ERROR, &info->tty->flags);
+		test_and_clear_bit(TTY_IO_ERROR, &info->tty->flags);
 	/*
 	 * and set the speed of the serial port
 	 */
@@ -1076,7 +1080,7 @@ isdn_tty_shutdown(modem_info * info)
 		}
 	}
 	if (info->tty)
-		set_bit(TTY_IO_ERROR, &info->tty->flags);
+		test_and_set_bit(TTY_IO_ERROR, &info->tty->flags);
 
 	info->flags &= ~ISDN_ASYNC_INITIALIZED;
 	restore_flags(flags);

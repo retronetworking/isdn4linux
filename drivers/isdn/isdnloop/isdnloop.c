@@ -19,6 +19,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.1.2.1  1998/11/05 22:13:15  fritz
+ * Changed mail-address.
+ *
  * Revision 1.1  1997/03/24 23:02:04  fritz
  * Added isdnloop driver.
  *
@@ -1265,7 +1268,7 @@ isdnloop_command(isdn_ctrl * c, isdnloop_card * card)
 							c->parm.num[0] ? "N" : "ALL", c->parm.num);
 					} else
 						sprintf(cbuf, "%02d;EAZ%s\n", (int) a,
-							c->parm.num[0] ? c->parm.num : "0123456789");
+							c->parm.num[0] ? (char *)(c->parm.num) : "0123456789");
 					i = isdnloop_writecmd(cbuf, strlen(cbuf), 0, card);
 				}
 				break;
@@ -1407,7 +1410,7 @@ if_readstatus(u_char * buf, int len, int user, int id, int channel)
 }
 
 static int
-if_sendbuf(int id, int channel, struct sk_buff *skb)
+if_sendbuf(int id, int channel, int ack, struct sk_buff *skb)
 {
 	isdnloop_card *card = isdnloop_findcard(id);
 

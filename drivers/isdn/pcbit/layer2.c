@@ -46,7 +46,6 @@
 #include <asm/system.h>
 #include <asm/io.h>
 
-
 #include "pcbit.h"
 #include "layer2.h"
 #include "edss1.h"

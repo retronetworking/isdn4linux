@@ -42,7 +42,7 @@ extern void *memcpy_fromshmem(int, void *, const void *, size_t);
 extern int sendmessage(int, unsigned int, unsigned int, unsigned int,
                 unsigned int, unsigned int, unsigned int, unsigned int *);
 
-int sndpkt(int devId, int channel, struct sk_buff *data)
+int sndpkt(int devId, int channel, int ack, struct sk_buff *data)
 {
 	LLData	ReqLnkWrite;
 	int status;

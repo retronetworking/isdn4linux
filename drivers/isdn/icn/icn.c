@@ -19,6 +19,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.45.2.4  1998/11/05 22:13:02  fritz
+ * Changed mail-address.
+ *
  * Revision 1.45.2.3  1998/06/07 13:32:04  fritz
  * Minor bugfixes for broken Switches.
  *
@@ -1561,7 +1564,7 @@ icn_command(isdn_ctrl * c, icn_card * card)
 						c->parm.num[0] ? "N" : "ALL", c->parm.num);
 				} else
 					sprintf(cbuf, "%02d;EAZ%s\n", (int) a,
-						c->parm.num[0] ? c->parm.num : "0123456789");
+						c->parm.num[0] ? (char *)(c->parm.num) : "0123456789");
 				i = icn_writecmd(cbuf, strlen(cbuf), 0, card);
 			}
 			break;
@@ -1703,7 +1706,7 @@ if_readstatus(u_char * buf, int len, int user, int id, int channel)
 }
 
 static int
-if_sendbuf(int id, int channel, struct sk_buff *skb)
+if_sendbuf(int id, int channel, int ack, struct sk_buff *skb)
 {
 	icn_card *card = icn_findcard(id);
 

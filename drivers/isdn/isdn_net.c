@@ -26,6 +26,10 @@
  * If chargehup is set to on, chargeint may be used to specify a initial interval > 10 s.
  *
  * $Log$
+ * Revision 1.48.2.29  1999/06/07 19:02:43  werner
+ * corrected huptimeout bug
+ * now it is possible to set a manual timeout even if AOCD present
+ *
  * Revision 1.48.2.27  1998/11/05 22:11:53  fritz
  * Changed mail-address.
  *
@@ -1180,13 +1184,13 @@ isdn_net_send_skb(struct device *ndev, isdn_net_local * lp,
 	ret = isdn_writebuf_skb_stub(lp->isdn_device, lp->isdn_channel, skb);
 	if (ret == len) {
 		lp->transcount += len;
-		clear_bit(0, (void *) &(ndev->tbusy));
+		test_and_clear_bit(0, (void *) &(ndev->tbusy));
 		return 0;
 	}
 	if (ret < 0) {
 		dev_kfree_skb(skb, FREE_WRITE);
 		lp->stats.tx_errors++;
-		clear_bit(0, (void *) &(ndev->tbusy));
+		test_and_clear_bit(0, (void *) &(ndev->tbusy));
 		return 0;
 	}
 	return 1;
