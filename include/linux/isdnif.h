@@ -22,6 +22,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.20.2.3  1999/04/22 21:12:18  werner
+ * Added support for dss1 diversion services
+ *
  * Revision 1.20.2.2  1998/11/05 22:13:33  fritz
  * Changed mail-address.
  *
@@ -265,6 +268,7 @@ typedef struct
 #define ISDN_STAT_ICALLW  271    /* Incoming call without B-chan waiting  */
 #define ISDN_STAT_REDIR   272    /* Redir result                          */ 
 #define ISDN_STAT_PROT    273    /* protocol IO specific callback         */
+#define ISDN_STAT_DISPLAY 274    /* deliver a received display message    */
 
 /*
  * Values for feature-field of interface-struct.
@@ -304,6 +308,7 @@ typedef struct {
   ulong arg;              /* Additional Data               */
   union {
 	char  num[50];    /* Additional Data               */
+        char  display[85];/* display message data          */ 
 	setup_parm setup; /* Data for call setup           */
         dss1_cmd_stat dss1_io; /* DSS1 IO-parameter/result */
   } parm;
