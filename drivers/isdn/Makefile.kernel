@@ -76,5 +76,15 @@ else
   endif
 endif
 
+ifeq ($(CONFIG_ISDN_DRV_SC),y)
+  L_OBJS += sc/sc.o
+  SUB_DIRS += sc
+  MOD_SUB_DIRS += sc
+else
+  ifeq ($(CONFIG_ISDN_DRV_SC),m)
+    MOD_SUB_DIRS += sc
+  endif
+endif
+
 include $(TOPDIR)/Rules.make
 

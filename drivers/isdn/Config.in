@@ -21,3 +21,4 @@ if [ "$CONFIG_ISDN_DRV_HISAX" != "n" ]; then
     bool 'HiSax Support for EURO/DSS1' CONFIG_HISAX_EURO
     bool 'HiSax Support for german 1TR6' CONFIG_HISAX_1TR6
 fi
+dep_tristate 'Spellcaster support' CONFIG_ISDN_DRV_SC $CONFIG_ISDN
