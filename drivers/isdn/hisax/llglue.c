@@ -7,6 +7,9 @@
  *              Fritz Elfert
  *
  * $Log$
+ * Revision 1.4  1997/01/21 22:25:27  keil
+ * cleanups for 2.0
+ *
  * Revision 1.3  1996/11/05 19:35:47  keil
  * using config.h
  *
@@ -114,7 +117,7 @@ ll_init(void)
 	    ISDN_FEATURE_L2_HDLC |
 	    ISDN_FEATURE_L2_TRANS |
 	    ISDN_FEATURE_L3_TRANS |
-#ifdef	CONFIG_HISAX_EURO
+#ifdef	CONFIG_HISAX_1TR6
 	    ISDN_FEATURE_P_1TR6 |
 #endif
 #ifdef	CONFIG_HISAX_EURO
