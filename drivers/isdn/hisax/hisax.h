@@ -3,6 +3,9 @@
  *   Basic declarations, defines and prototypes
  *
  * $Log$
+ * Revision 2.42  2000/04/09 19:02:44  keil
+ * retry pump modulation settings if it fails
+ *
  * Revision 2.41  2000/02/26 00:35:13  keil
  * Fix skb freeing in interrupt context
  *
@@ -227,6 +230,7 @@
 #define CC_SUSPEND	0x0370
 #define CC_PROCEED_SEND 0x0374
 #define CC_REDIR        0x0378
+#define CC_T302		0x0382
 #define CC_T303		0x0383
 #define CC_T304		0x0384
 #define CC_T305		0x0385

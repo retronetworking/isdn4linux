@@ -11,6 +11,9 @@
  *              Fritz Elfert
  *
  * $Log$
+ * Revision 2.41  2000/03/17 07:07:42  kai
+ * fixed oops when dialing out without l3 protocol selected
+ *
  * Revision 2.40  1999/12/19 12:59:56  keil
  * fix leased line handling
  * and cosmetics
@@ -541,6 +544,10 @@ lli_deliver_call(struct FsmInst *fi, int event, void *arg)
 				break;
 			case 2:	/* Rejecting Call */
 				break;
+			case 3:	/* incomplete number */
+				FsmDelTimer(&chanp->drel_timer, 61);
+				chanp->d_st->lli.l4l3(chanp->d_st, CC_MORE_INFO | REQUEST, chanp->proc);
+				break;
 			case 0:	/* OK, nobody likes this call */
 			default:	/* statcallb problems */
 				chanp->d_st->lli.l4l3(chanp->d_st, CC_IGNORE | REQUEST, chanp->proc);
@@ -947,6 +954,8 @@ static struct FsmNode fnlist[] HISAX_INITDATA =
         {ST_IN_WAIT_LL,         EV_HANGUP,              lli_reject_req},
         {ST_IN_WAIT_LL,         EV_DISCONNECT_IND,      lli_release_req},
         {ST_IN_WAIT_LL,         EV_RELEASE,             lli_dhup_close},
+        {ST_IN_WAIT_LL,         EV_SETUP_IND,           lli_deliver_call},
+        {ST_IN_WAIT_LL,         EV_SETUP_ERR,           lli_error},
         {ST_IN_ALERT_SENT,      EV_SETUP_CMPL_IND,      lli_init_bchan_in},
         {ST_IN_ALERT_SENT,      EV_ACCEPTD,             lli_send_dconnect},
         {ST_IN_ALERT_SENT,      EV_HANGUP,              lli_disconnect_reject},
@@ -1108,6 +1117,9 @@ dchan_l3l4(struct PStack *st, int pr, void *arg)
 		return;
 
 	switch (pr) {
+		case (CC_MORE_INFO | INDICATION):
+			FsmEvent(&chanp->fi, EV_SETUP_IND, NULL);
+			break;
 		case (CC_DISCONNECT | INDICATION):
 			FsmEvent(&chanp->fi, EV_DISCONNECT_IND, NULL);
 			break;

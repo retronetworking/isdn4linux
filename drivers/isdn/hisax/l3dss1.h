@@ -3,6 +3,9 @@
  *  DSS1 (Euro) D-channel protocol defines
  *
  * $Log$
+ * Revision 1.8  2000/01/20 19:46:15  keil
+ * Changes from certification
+ *
  * Revision 1.7  1999/07/01 08:12:02  keil
  * Common HiSax version for 2.0, 2.1, 2.2 and 2.3 kernel
  *
@@ -31,6 +34,7 @@
 
 #ifndef l3dss1_process
 
+#define T302	15000
 #define T303	4000
 #define T304	30000
 #define T305	30000

@@ -13,6 +13,9 @@
  *              Fritz Elfert
  *
  * $Log$
+ * Revision 2.24  2000/03/19 15:26:35  kai
+ * changed keypad to use specified bearer, instead of always a-law
+ *
  * Revision 2.23  2000/02/26 01:38:14  keil
  * Fixes for V.110 encoding LLC from Jens Jakobsen
  *
@@ -1974,6 +1977,16 @@ l3dss1_proceed_req(struct l3_process *pc, u_char pr,
 	pc->st->l3.l3l4(pc->st, CC_PROCEED_SEND | INDICATION, pc); 
 }
 
+static void
+l3dss1_setup_ack_req(struct l3_process *pc, u_char pr,
+		   void *arg)
+{
+	newl3state(pc, 25);
+	L3DelTimer(&pc->timer);
+	L3AddTimer(&pc->timer, T302, CC_T302);
+	l3dss1_message(pc, MT_SETUP_ACKNOWLEDGE);
+}
+
 /********************************************/
 /* deliver a incoming display message to HL */
 /********************************************/
@@ -2115,9 +2128,22 @@ l3dss1_information(struct l3_process *pc, u_char pr, void *arg)
 {
 	int ret;
 	struct sk_buff *skb = arg;
+	u_char *p;
+	char tmp[32];
 
 	ret = check_infoelements(pc, skb, ie_INFORMATION);
-	l3dss1_std_ie_err(pc, ret);
+	if (ret)
+		l3dss1_std_ie_err(pc, ret);
+	if (pc->state == 25) { /* overlap receiving */
+		L3DelTimer(&pc->timer);
+		p = skb->data;
+		if ((p = findie(p, skb->len, 0x70, 0))) {
+			iecpy(tmp, p, 1);
+			strcat(pc->para.setup.eazmsn, tmp);
+			pc->st->l3.l3l4(pc->st, CC_MORE_INFO | INDICATION, pc);
+		}
+		L3AddTimer(&pc->timer, T302, CC_T302);
+	}
 }
 
 /******************************/
@@ -2343,6 +2369,16 @@ l3dss1_dummy(struct l3_process *pc, u_char pr, void *arg)
 }
 
 static void
+l3dss1_t302(struct l3_process *pc, u_char pr, void *arg)
+{
+	L3DelTimer(&pc->timer);
+	pc->para.loc = 0;
+	pc->para.cause = 28; /* invalid number */
+	l3dss1_disconnect_req(pc, pr, NULL);
+	pc->st->l3.l3l4(pc->st, CC_SETUP_ERR, pc);
+}
+
+static void
 l3dss1_t303(struct l3_process *pc, u_char pr, void *arg)
 {
 	if (pc->N303 > 0) {
@@ -2361,6 +2397,7 @@ static void
 l3dss1_t304(struct l3_process *pc, u_char pr, void *arg)
 {
 	L3DelTimer(&pc->timer);
+	pc->para.loc = 0;
 	pc->para.cause = 102;
 	l3dss1_disconnect_req(pc, pr, NULL);
 	pc->st->l3.l3l4(pc->st, CC_SETUP_ERR, pc);
@@ -2400,6 +2437,7 @@ static void
 l3dss1_t310(struct l3_process *pc, u_char pr, void *arg)
 {
 	L3DelTimer(&pc->timer);
+	pc->para.loc = 0;
 	pc->para.cause = 102;
 	l3dss1_disconnect_req(pc, pr, NULL);
 	pc->st->l3.l3l4(pc->st, CC_SETUP_ERR, pc);
@@ -2409,6 +2447,7 @@ static void
 l3dss1_t313(struct l3_process *pc, u_char pr, void *arg)
 {
 	L3DelTimer(&pc->timer);
+	pc->para.loc = 0;
 	pc->para.cause = 102;
 	l3dss1_disconnect_req(pc, pr, NULL);
 	pc->st->l3.l3l4(pc->st, CC_CONNECT_ERR, pc);
@@ -2798,32 +2837,36 @@ static struct stateentry downstatelist[] =
 	 CC_SETUP | REQUEST, l3dss1_setup_req},
 	{SBIT(0),
 	 CC_RESUME | REQUEST, l3dss1_resume_req},
-	{SBIT(1) | SBIT(2) | SBIT(3) | SBIT(4) | SBIT(6) | SBIT(7) | SBIT(8) | SBIT(9) | SBIT(10),
+	{SBIT(1) | SBIT(2) | SBIT(3) | SBIT(4) | SBIT(6) | SBIT(7) | SBIT(8) | SBIT(9) | SBIT(10) | SBIT(25),
 	 CC_DISCONNECT | REQUEST, l3dss1_disconnect_req},
 	{SBIT(12),
 	 CC_RELEASE | REQUEST, l3dss1_release_req},
 	{ALL_STATES,
 	 CC_RESTART | REQUEST, l3dss1_restart},
-	{SBIT(6),
+	{SBIT(6) | SBIT(25),
 	 CC_IGNORE | REQUEST, l3dss1_reset},
-	{SBIT(6),
+	{SBIT(6) | SBIT(25),
 	 CC_REJECT | REQUEST, l3dss1_reject_req},
-	{SBIT(6),
+	{SBIT(6) | SBIT(25),
 	 CC_PROCEED_SEND | REQUEST, l3dss1_proceed_req},
-	{SBIT(6) | SBIT(9),
+	{SBIT(6),
+	 CC_MORE_INFO | REQUEST, l3dss1_setup_ack_req},
+	{SBIT(25),
+	 CC_MORE_INFO | REQUEST, l3dss1_dummy},
+	{SBIT(6) | SBIT(9) | SBIT(25),
 	 CC_ALERTING | REQUEST, l3dss1_alert_req},
-	{SBIT(6) | SBIT(7) | SBIT(9),
+	{SBIT(6) | SBIT(7) | SBIT(9) | SBIT(25),
 	 CC_SETUP | RESPONSE, l3dss1_setup_rsp},
 	{SBIT(10),
 	 CC_SUSPEND | REQUEST, l3dss1_suspend_req},
-        {SBIT(6),
-         CC_PROCEED_SEND | REQUEST, l3dss1_proceed_req},
-        {SBIT(7) | SBIT(9),
+        {SBIT(7) | SBIT(9) | SBIT(25),
          CC_REDIR | REQUEST, l3dss1_redir_req},
         {SBIT(6),
          CC_REDIR | REQUEST, l3dss1_redir_req_early},
         {SBIT(9) | SBIT(25),
          CC_DISCONNECT | REQUEST, l3dss1_disconnect_req},
+	{SBIT(25),
+	 CC_T302, l3dss1_t302},
 	{SBIT(1),
 	 CC_T303, l3dss1_t303},
 	{SBIT(2),
