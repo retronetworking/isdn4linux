@@ -1,6 +1,9 @@
 /* $Id$
  *
  * $Log$
+ * Revision 1.5  1996/05/06 10:16:15  fritz
+ * Added voice stuff.
+ *
  * Revision 1.4  1996/04/30 22:04:05  isdn4dev
  *   improved callback  Karsten Keil
  *
@@ -675,6 +678,7 @@ static struct FsmNode fnlist[] =
         {ST_OUT,              EV_SETUP_CNF,           r10},
         {ST_OUT,              EV_HANGUP,              r2_1},
         {ST_OUT,              EV_RELEASE_IND,         r20},
+        {ST_OUT,              EV_RELEASE_CNF,         r20},
         {ST_OUT,              EV_DLRL,                r2_2},
         {ST_OUT_W_HANGUP,     EV_RELEASE_IND,         r2_2},
         {ST_OUT_W_HANGUP,     EV_DLRL,                r20},
