@@ -21,6 +21,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.19.2.1  2000/03/25 18:51:02  armin
+ * First checkin of new eicon driver V2
+ *
  * Revision 1.19  2000/01/23 21:21:23  armin
  * Added new trace capability and some updates.
  * DIVA Server BRI now supports data for ISDNLOG.
@@ -217,6 +220,7 @@ typedef struct {
 #include <linux/major.h>
 #include <asm/segment.h>
 #include <asm/io.h>
+#include <asm/spinlock.h>
 #include <linux/kernel.h>
 #include <linux/signal.h>
 #include <linux/malloc.h>
@@ -471,6 +475,8 @@ extern int eicon_info(char *, int , void *);
 extern ulong DebugVar;
 extern void eicon_log(eicon_card * card, int level, const char *fmt, ...);
 extern void eicon_putstatus(eicon_card * card, char * buf);
+
+extern spinlock_t eicon_lock;
 
 #endif  /* __KERNEL__ */
 

@@ -26,6 +26,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.31.2.3  2000/03/25 18:51:03  armin
+ * First checkin of new eicon driver V2
+ *
  * Revision 1.31.2.2  2000/03/06 15:47:42  armin
  * Fixed incomplete number handling with BRI PtP connection.
  *
@@ -2450,11 +2453,11 @@ idi_handle_ind(eicon_card *ccard, struct sk_buff *skb)
 		                while((skb2 = skb_dequeue(&chan->e.X))) {
 					dev_kfree_skb(skb2);
 				}
-				flags = UxCardLock(NULL);
+				spin_lock_irqsave(&eicon_lock, flags);
 				chan->queued = 0;
 				chan->waitq = 0;
 				chan->waitpq = 0;
-				UxCardUnlock(NULL, flags);
+				spin_unlock_irqrestore(&eicon_lock, flags);
 				if (message.e_cau[0] & 0x7f) {
 					cmd.driver = ccard->myid;
 					cmd.arg = chan->No;
@@ -2717,11 +2720,11 @@ idi_handle_ind(eicon_card *ccard, struct sk_buff *skb)
 				}
 #endif
 				chan->e.IndCh = 0;
-				flags = UxCardLock(NULL);
+				spin_lock_irqsave(&eicon_lock, flags);
 				chan->queued = 0;
 				chan->waitq = 0;
 				chan->waitpq = 0;
-				UxCardUnlock(NULL, flags);
+				spin_unlock_irqrestore(&eicon_lock, flags);
 				idi_do_req(ccard, chan, HANGUP, 0);
 				if (chan->fsm_state == EICON_STATE_ACTIVE) {
 					cmd.driver = ccard->myid;
@@ -2806,7 +2809,7 @@ idi_handle_ack_ok(eicon_card *ccard, eicon_chan *chan, eicon_RC *ack)
 			eicon_log(ccard, 16, "idi_ack: Ch%d: Rc-Ref %d not equal to stored %d\n", chan->No,
 				ack->Reference, chan->e.ref);
 		}
-		flags = UxCardLock(NULL);
+		spin_lock_irqsave(&eicon_lock, flags);
 		ccard->IdTable[ack->RcId] = NULL;
 		eicon_log(ccard, 16, "idi_ack: Ch%d: Removed : Id=%x Ch=%d (%s)\n", chan->No,
 			ack->RcId, ack->RcCh, (chan->e.ReqCh)? "Net":"Sig");
@@ -2814,7 +2817,7 @@ idi_handle_ack_ok(eicon_card *ccard, eicon_chan *chan, eicon_RC *ack)
 			chan->e.D3Id = 0;
 		else
 			chan->e.B2Id = 0;
-		UxCardUnlock(NULL, flags);
+		spin_unlock_irqrestore(&eicon_lock, flags);
 		return 1;
 	}
 
@@ -2840,9 +2843,9 @@ idi_handle_ack_ok(eicon_card *ccard, eicon_chan *chan, eicon_RC *ack)
 						cmd.parm.length = chan->waitpq;
 						ccard->interface.statcallb(&cmd);
 					}
-					flags = UxCardLock(NULL);
+					spin_lock_irqsave(&eicon_lock, flags);
 					chan->waitpq = 0;
-					UxCardUnlock(NULL, flags);
+					spin_unlock_irqrestore(&eicon_lock, flags);
 #ifdef CONFIG_ISDN_TTY_FAX
 					if (chan->l2prot == ISDN_PROTO_L2_FAX) {
 						if (((chan->queued - chan->waitq) < 1) &&
@@ -2862,10 +2865,10 @@ idi_handle_ack_ok(eicon_card *ccard, eicon_chan *chan, eicon_RC *ack)
 					}
 #endif
 				}
-				flags = UxCardLock(NULL);
+				spin_lock_irqsave(&eicon_lock, flags);
 				chan->queued -= chan->waitq;
 				if (chan->queued < 0) chan->queued = 0;
-				UxCardUnlock(NULL, flags);
+				spin_unlock_irqrestore(&eicon_lock, flags);
 				break;
 			default:
 				eicon_log(ccard, 16, "idi_ack: Ch%d: RC OK Id=%x Ch=%d (ref:%d)\n", chan->No,
@@ -2891,10 +2894,10 @@ idi_handle_ack(eicon_card *ccard, struct sk_buff *skb)
 		return;
 	}
 
-	flags = UxCardLock(NULL);
+	spin_lock_irqsave(&eicon_lock, flags);
 	if ((chan = ccard->IdTable[ack->RcId]) != NULL)
 		dCh = chan->No;
-	UxCardUnlock(NULL, flags);
+	spin_unlock_irqrestore(&eicon_lock, flags);
 
 	switch (ack->Rc) {
 		case OK_FC:
@@ -2922,7 +2925,7 @@ idi_handle_ack(eicon_card *ccard, struct sk_buff *skb)
 				eicon_log(ccard, 1, "idi_ack: Ch%d: ASSIGN-OK on chan already assigned (%x,%x)\n",
 					chan->No, chan->e.D3Id, chan->e.B2Id);
 			}
-			flags = UxCardLock(NULL);
+			spin_lock_irqsave(&eicon_lock, flags);
 			for(j = 0; j < ccard->nchannels + 1; j++) {
 				if ((ccard->bch[j].e.ref == ack->Reference) &&
 					(ccard->bch[j].e.Req == ASSIGN)) {
@@ -2937,7 +2940,7 @@ idi_handle_ack(eicon_card *ccard, struct sk_buff *skb)
 					break;
 				}
 			}		
-			UxCardUnlock(NULL, flags);
+			spin_unlock_irqrestore(&eicon_lock, flags);
 			if (j > ccard->nchannels) {
 				eicon_log(ccard, 24, "idi_ack: Ch??: ref %d not found for Id %d\n", 
 					ack->Reference, ack->RcId);
@@ -2981,12 +2984,12 @@ idi_handle_ack(eicon_card *ccard, struct sk_buff *skb)
 				ccard->interface.statcallb(&cmd);
 			}
 	}
-	flags = UxCardLock(NULL);
+	spin_lock_irqsave(&eicon_lock, flags);
 	if (chan) {
 		chan->e.ref = 0;
 		chan->e.busy = 0;
 	}
-	UxCardUnlock(NULL, flags);
+	spin_unlock_irqrestore(&eicon_lock, flags);
 	dev_kfree_skb(skb);
 	eicon_schedule_tx(ccard);
 }
@@ -3021,7 +3024,7 @@ idi_send_data(eicon_card *card, eicon_chan *chan, int ack, struct sk_buff *skb, 
 
 	eicon_log(card, 128, "idi_snd: Ch%d: %d bytes\n", chan->No, len);
 
-	flags = UxCardLock(NULL);
+	spin_lock_irqsave(&eicon_lock, flags);
 	while(offset < len) {
 
 		plen = ((len - offset) > 270) ? 270 : len - offset;
@@ -3030,7 +3033,7 @@ idi_send_data(eicon_card *card, eicon_chan *chan, int ack, struct sk_buff *skb, 
         	skb2 = alloc_skb(sizeof(eicon_chan_ptr), GFP_ATOMIC);
 
 	        if ((!xmit_skb) || (!skb2)) {
-			UxCardUnlock(NULL, flags);
+			spin_unlock_irqrestore(&eicon_lock, flags);
         	        eicon_log(card, 1, "idi_err: Ch%d: alloc_skb failed in send_data()\n", chan->No);
 			if (xmit_skb) 
 				dev_kfree_skb(skb);
@@ -3065,7 +3068,7 @@ idi_send_data(eicon_card *card, eicon_chan *chan, int ack, struct sk_buff *skb, 
 	}
 	if (que)
 		chan->queued += len;
-	UxCardUnlock(NULL, flags);
+	spin_unlock_irqrestore(&eicon_lock, flags);
 	eicon_schedule_tx(card);
         dev_kfree_skb(skb);
         return len;

@@ -24,6 +24,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.10.2.1  2000/03/25 18:51:03  armin
+ * First checkin of new eicon driver V2
+ *
  * Revision 1.10  2000/01/23 21:21:23  armin
  * Added new trace capability and some updates.
  * DIVA Server BRI now supports data for ISDNLOG.
@@ -86,7 +89,7 @@ eicon_io_rcv_dispatch(eicon_card *ccard) {
 	while((skb = skb_dequeue(&ccard->rcvq))) {
         	ind = (eicon_IND *)skb->data;
 
-		flags = UxCardLock(NULL);
+		spin_lock_irqsave(&eicon_lock, flags);
         	if ((chan = ccard->IdTable[ind->IndId]) == NULL) {
 			if (DebugVar & 1) {
 				switch(ind->Ind) {
@@ -99,11 +102,11 @@ eicon_io_rcv_dispatch(eicon_card *ccard) {
 							ind->Ind,ind->IndId,ind->IndCh,ind->MInd,ind->MLength,ind->RBuffer.length);
 				}
 			}
-			UxCardUnlock(NULL, flags);
+			spin_unlock_irqrestore(&eicon_lock, flags);
 	                dev_kfree_skb(skb);
 	                continue;
 	        }
-		UxCardUnlock(NULL, flags);
+		spin_unlock_irqrestore(&eicon_lock, flags);
 
 		if (chan->e.complete) { /* check for rec-buffer chaining */
 			if (ind->MLength == ind->RBuffer.length) {
@@ -119,11 +122,11 @@ eicon_io_rcv_dispatch(eicon_card *ccard) {
 			}
 		}
 		else {
-			flags = UxCardLock(NULL);
+			spin_lock_irqsave(&eicon_lock, flags);
 			if (!(skb2 = skb_dequeue(&chan->e.R))) {
 				chan->e.complete = 1;
                 		eicon_log(ccard, 1, "eicon: buffer incomplete, but 0 in queue\n");
-				UxCardUnlock(NULL, flags);
+				spin_unlock_irqrestore(&eicon_lock, flags);
 	                	dev_kfree_skb(skb);
 				continue;	
 			}
@@ -132,7 +135,7 @@ eicon_io_rcv_dispatch(eicon_card *ccard) {
 					GFP_ATOMIC);
 			if (!skb_new) {
                 		eicon_log(ccard, 1, "eicon_io: skb_alloc failed in rcv_dispatch()\n");
-				UxCardUnlock(NULL, flags);
+				spin_unlock_irqrestore(&eicon_lock, flags);
 	                	dev_kfree_skb(skb);
 	                	dev_kfree_skb(skb2);
 				continue;	
@@ -151,14 +154,14 @@ eicon_io_rcv_dispatch(eicon_card *ccard) {
                 	dev_kfree_skb(skb2);
 			if (ind->MLength == ind->RBuffer.length) {
 				chan->e.complete = 2;
-				UxCardUnlock(NULL, flags);
+				spin_unlock_irqrestore(&eicon_lock, flags);
 				idi_handle_ind(ccard, skb_new);
 				continue;
 			}
 			else {
 				chan->e.complete = 0;
 				skb_queue_tail(&chan->e.R, skb_new);
-				UxCardUnlock(NULL, flags);
+				spin_unlock_irqrestore(&eicon_lock, flags);
 				continue;
 			}
 		}
@@ -349,7 +352,7 @@ eicon_io_transmit(eicon_card *ccard) {
 	if (!(skb2 = skb_dequeue(&ccard->sndq)))
 		quloop = 0; 
 	while(quloop) { 
-                flags = UxCardLock(NULL);
+                spin_lock_irqsave(&eicon_lock, flags);
 		switch (scom) {
 		  case 1:
 			if ((ram_inb(ccard, &com->Req)) || (ccard->ReadyInt)) {
@@ -358,7 +361,7 @@ eicon_io_transmit(eicon_card *ccard) {
 					ram_outb(ccard, &com->ReadyInt, tmp);
 					ccard->ReadyInt++;
 				}
-				UxCardUnlock(NULL, flags);
+				spin_unlock_irqrestore(&eicon_lock, flags);
                 	        skb_queue_head(&ccard->sndq, skb2);
        	                	eicon_log(ccard, 32, "eicon: transmit: Card not ready\n");
 	                        return;
@@ -366,14 +369,14 @@ eicon_io_transmit(eicon_card *ccard) {
 			break;
 		  case 0:
 	                if (!(ram_inb(ccard, &prram->ReqOutput) - ram_inb(ccard, &prram->ReqInput))) {
-				UxCardUnlock(NULL, flags);
+				spin_unlock_irqrestore(&eicon_lock, flags);
                 	        skb_queue_head(&ccard->sndq, skb2);
        	                	eicon_log(ccard, 32, "eicon: transmit: Card not ready\n");
 	                        return;
         	        }
 			break;
 		}
-		UxCardUnlock(NULL, flags);
+		spin_unlock_irqrestore(&eicon_lock, flags);
 
 		chan2 = (eicon_chan_ptr *)skb2->data;
 		chan = chan2->ptr;
@@ -384,7 +387,7 @@ eicon_io_transmit(eicon_card *ccard) {
 		  if ((reqbuf->Reference) && (chan->e.B2Id == 0) && (reqbuf->ReqId & 0x1f)) {
 			eicon_log(ccard, 16, "eicon: transmit: error Id=0 on %d (Net)\n", chan->No); 
 		  } else {
-                	flags = UxCardLock(NULL);
+                	spin_lock_irqsave(&eicon_lock, flags);
 
 			switch (scom) {
 			  case 1:
@@ -515,7 +518,7 @@ eicon_io_transmit(eicon_card *ccard) {
 					reqbuf->Req, tmpid, 
 					reqbuf->ReqCh, reqbuf->XBuffer.length,
 					chan->e.ref); 
-			UxCardUnlock(NULL, flags);
+			spin_unlock_irqrestore(&eicon_lock, flags);
 #ifdef CONFIG_ISDN_DRV_EICON_PCI
 			if (scom == 2) {
 				if (ep) {

@@ -31,6 +31,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.25.2.2  2000/03/26 12:43:32  armin
+ * Fixed wrong range of io region.
+ *
  * Revision 1.25.2.1  2000/03/25 18:51:03  armin
  * First checkin of new eicon driver V2
  *
@@ -174,6 +177,8 @@ extern char *file_check(void);
 #define EICON_CTRL_VERSION 2 
 
 ulong DebugVar;
+
+spinlock_t eicon_lock;
 
 DESCRIPTOR idi_d[16];
 int idi_dlength;
@@ -549,15 +554,15 @@ eicon_command(eicon_card * card, isdn_ctrl * c)
 				return -ENODEV;
 			if (!(chan = find_channel(card, c->arg & 0x1f)))
 				break;
-			flags = UxCardLock(NULL);
+			spin_lock_irqsave(&eicon_lock, flags);
 			if ((chan->fsm_state != EICON_STATE_NULL) && (chan->fsm_state != EICON_STATE_LISTEN)) {
-				restore_flags(flags);
+				spin_unlock_irqrestore(&eicon_lock, flags);
 				eicon_log(card, 1, "Dial on channel %d with state %d\n",
 					chan->No, chan->fsm_state);
 				return -EBUSY;
 			}
 			chan->fsm_state = EICON_STATE_OCALL;
-			UxCardUnlock(NULL, flags);
+			spin_unlock_irqrestore(&eicon_lock, flags);
 			
 			ret = idi_connect_req(card, chan, c->parm.setup.phone,
 						     c->parm.setup.eazmsn,
@@ -745,7 +750,7 @@ if_readstatus(u_char * buf, int len, int user, int id, int channel)
                 if (!card->flags & EICON_FLAGS_RUNNING)
                         return -ENODEV;
 	
-		flags = UxCardLock(NULL);
+		spin_lock_irqsave(&eicon_lock, flags);
 		while((skb = skb_dequeue(&card->statq))) {
 
 			if ((skb->len + count) > len)
@@ -768,12 +773,12 @@ if_readstatus(u_char * buf, int len, int user, int id, int channel)
 			} else {
 				skb_pull(skb, cnt);
 				skb_queue_head(&card->statq, skb);
-				UxCardUnlock(NULL, flags);
+				spin_unlock_irqrestore(&eicon_lock, flags);
 				return count;
 			}
 		}
 		card->statq_entries = 0;
-		UxCardUnlock(NULL, flags);
+		spin_unlock_irqrestore(&eicon_lock, flags);
 		return count;
         }
         printk(KERN_ERR
@@ -852,11 +857,11 @@ eicon_putstatus(eicon_card * card, char * buf)
 			return;
 	}
 
-	flags = UxCardLock(NULL);
+	spin_lock_irqsave(&eicon_lock, flags);
 	count = strlen(buf);
 	skb = alloc_skb(count, GFP_ATOMIC);
 	if (!skb) {
-		UxCardUnlock(NULL, flags);
+		spin_unlock_irqrestore(&eicon_lock, flags);
 		printk(KERN_ERR "eicon: could not alloc skb in putstatus\n");
 		return;
 	}
@@ -874,7 +879,7 @@ eicon_putstatus(eicon_card * card, char * buf)
 	} else
 		card->statq_entries++;
 
-	UxCardUnlock(NULL, flags);
+	spin_unlock_irqrestore(&eicon_lock, flags);
         if (count) {
                 cmd.command = ISDN_STAT_STAVAIL;
                 cmd.driver = card->myid;
@@ -1391,6 +1396,7 @@ eicon_init(void)
 	char tmprev[50];
 
 	DebugVar = 1;
+	eicon_lock = (spinlock_t) SPIN_LOCK_UNLOCKED;
 
         printk(KERN_INFO "%s Rev: ", DRIVERNAME);
 	strcpy(tmprev, eicon_revision);
