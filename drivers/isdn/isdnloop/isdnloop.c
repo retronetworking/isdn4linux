@@ -985,10 +985,12 @@ isdnloop_writecmd(const u_char * buf, int len, int user, isdnloop_card * card)
 	isdn_ctrl cmd;
 
 	while (len) {
-		int count = MIN(255, len);
+		int count = len;
 		u_char *p;
 		u_char msg[0x100];
 
+		if (count > 255)
+			count = 255;
 		if (user)
 			copy_from_user(msg, buf, count);
 		else

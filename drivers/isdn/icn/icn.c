@@ -930,7 +930,9 @@ icn_loadproto(u_char * buffer, icn_card * card)
 	restore_flags(flags);
 	while (left) {
 		if (sbfree) {   /* If there is a free buffer...  */
-			cnt = MIN(256, left);
+			cnt = left;
+			if (cnt > 256)
+				cnt = 256;
 			if (copy_from_user(codebuf, p, cnt)) {
 				icn_maprelease_channel(card, 0);
 				return -EFAULT;
@@ -1029,7 +1031,6 @@ static int
 icn_writecmd(const u_char * buf, int len, int user, icn_card * card)
 {
 	int mch = card->secondhalf ? 2 : 0;
-	int avail;
 	int pp;
 	int i;
 	int count;
@@ -1046,8 +1047,9 @@ icn_writecmd(const u_char * buf, int len, int user, icn_card * card)
 	ocount = 1;
 	xcount = loop = 0;
 	while (len) {
-		avail = cmd_free;
-		count = MIN(avail, len);
+		count = cmd_free;
+		if (count > len)
+			count = len;
 		if (user)
 			copy_from_user(msg, buf, count);
 		else

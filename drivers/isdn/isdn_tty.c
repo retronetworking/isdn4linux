@@ -1187,9 +1187,11 @@ isdn_tty_write(struct tty_struct *tty, int from_user, const u_char * buf, int co
 	/* See isdn_tty_senddown() */
 	atomic_inc(&info->xmit_lock);
 	while (1) {
-		c = MIN(count, info->xmit_size - info->xmit_count);
-		if (info->isdn_driver >= 0)
-			c = MIN(c, dev->drv[info->isdn_driver]->maxbufsize);
+		c = count;
+		if (c > info->xmit_size - info->xmit_count)
+			c = info->xmit_size - info->xmit_count;
+		if (info->isdn_driver >= 0 && c > dev->drv[info->isdn_driver]->maxbufsize)
+			c = dev->drv[info->isdn_driver]->maxbufsize;
 		if (c <= 0)
 			break;
 		if ((info->online > 1)

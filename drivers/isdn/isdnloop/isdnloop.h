@@ -128,8 +128,6 @@ MODULE_PARM_DESC(isdnloop_id, "ID-String of first card");
 /* Utility-Macros */
 
 #define CID (card->interface.id)
-#define MIN(a,b) ((a<b)?a:b)
-#define MAX(a,b) ((a>b)?a:b)
 
 #endif                          /* defined(__KERNEL__) || defined(__DEBUGVAR__) */
 #endif                          /* isdnloop_h */
