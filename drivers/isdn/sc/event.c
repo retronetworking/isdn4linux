@@ -62,10 +62,16 @@ int indicate_status(int card, int event,ulong Channel,char *Data)
 	if (Data != NULL){
 		pr_debug("%s: Event data: %s\n", adapter[card]->devicename,
 			Data);
-		if (event == ISDN_STAT_ICALL)
-			memcpy(&cmd.parm.setup, Data, sizeof(cmd.parm.setup));
-		else
-			strcpy(cmd.parm.num, Data);
+		switch (event) {
+			case ISDN_STAT_BSENT:
+				memcpy(&cmd.parm.length, Data, sizeof(cmd.parm.length));
+				break;
+			case ISDN_STAT_ICALL:
+				memcpy(&cmd.parm.setup, Data, sizeof(cmd.parm.setup));
+				break;
+			default:
+				strcpy(cmd.parm.num, Data);
+		}
 	}
 
 	cmd.command = event;
