@@ -82,28 +82,22 @@ dia_config_t *DivasConfig(card_t *, dia_config_t *);
 
 static
 DESCRIPTOR DIDD_Table[16];
-static
-int DIDD_Length = 0;
 
-void    EtdM_DIDD_Read( DESCRIPTOR *table, int *tablelength )
+void    DIVA_DIDD_Read( DESCRIPTOR *table, int tablelength )
 {
-	int table_size = sizeof(DIDD_Table);
-
-    bcopy((caddr_t)DIDD_Table, (caddr_t)table, table_size);
-
-	*tablelength = DIDD_Length;
+        if (tablelength > 0)
+          bcopy((caddr_t)DIDD_Table, (caddr_t)table, tablelength);
 
 	return;
 }
 
 static
-void 	EtdM_DIDD_Write(DESCRIPTOR *table, int tablelength)
+void 	DIVA_DIDD_Write(DESCRIPTOR *table, int tablelength)
 {
-	int table_size = sizeof(DIDD_Table);
+        if (tablelength > sizeof(DIDD_Table))
+          tablelength = sizeof(DIDD_Table);
 
-	bcopy((caddr_t)table, (caddr_t)DIDD_Table, table_size);
-
-	DIDD_Length = tablelength;	
+	bcopy((caddr_t)table, (caddr_t)DIDD_Table, tablelength);
 
 	return;
 }
@@ -111,19 +105,16 @@ void 	EtdM_DIDD_Write(DESCRIPTOR *table, int tablelength)
 static
 void    init_idi_tab(void)
 {
-    int length = 0;
-
     DESCRIPTOR d[16];
 
-    EtdM_DIDD_Read(d, &length);
+    bzero(d, sizeof(d));
 
-    d[length].type = IDI_DIMAINT;  /* identify the DIMAINT entry */
-    d[length].channels = 0; /* zero channels associated with dimaint*/
-    d[length].features = 0; /* no features associated with dimaint */
-    d[length].request = (IDI_CALL) DivasPrintf;
-    length++;
+    d[0].type = IDI_DIMAINT;  /* identify the DIMAINT entry */
+    d[0].channels = 0; /* zero channels associated with dimaint*/
+    d[0].features = 0; /* no features associated with dimaint */
+    d[0].request = (IDI_CALL) DivasPrintf;
     
-    EtdM_DIDD_Write(d, length);
+    DIVA_DIDD_Write(d, sizeof(d));
 
     return;
 }
@@ -680,9 +671,12 @@ static int idi_register(card_t *card, byte channels)
 	bzero(card->e_tbl, sizeof(E_INFO) * num_entities);
 	card->e_max = num_entities;
 
-    EtdM_DIDD_Read(d, &length);
+    DIVA_DIDD_Read(d, sizeof(d));
 
-	if (length == DIM(d))
+        for(length=0; length < DIM(d); length++)
+          if (d[length].type == 0) break;
+
+	if (length >= DIM(d))
 	{
 		KDPRINTF((KERN_WARNING "Divas: IDI register failed - table full"));
 		return -1;
@@ -692,18 +686,18 @@ static int idi_register(card_t *card, byte channels)
 	{
 		case DIA_CARD_TYPE_DIVA_SERVER:
 		d[length].type = IDI_ADAPTER_PR;
-		d[length].serial = card->serial_no;
+		/* d[length].serial = card->serial_no; */
 		break;
 
 		case DIA_CARD_TYPE_DIVA_SERVER_B:
 		d[length].type = IDI_ADAPTER_MAESTRA;
-		d[length].serial = card->serial_no;
+		/* d[length].serial = card->serial_no; */
 		break;
 
 		// 4BRI is treated as 4 BRI adapters
 		case DIA_CARD_TYPE_DIVA_SERVER_Q:
 		d[length].type = IDI_ADAPTER_MAESTRA;
-		d[length].serial = card->cfg.serial;
+		/* d[length].serial = card->cfg.serial; */
 	}
 
 	d[length].features = 0;
@@ -727,7 +721,7 @@ static int idi_register(card_t *card, byte channels)
 
 	length++;
 
-	EtdM_DIDD_Write(d, length);
+	DIVA_DIDD_Write(d, sizeof(d));
 
     return 0;
 }
