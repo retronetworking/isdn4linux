@@ -22,6 +22,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.13  1996/11/13 02:39:59  fritz
+ * More compatibility changes.
+ *
  * Revision 1.12  1996/11/06 17:38:48  keil
  * more changes for 2.1.X
  *
@@ -325,6 +328,7 @@ extern int register_isdn(isdn_if*);
 #define LSTYPE int
 #define RWARG int
 #define LSARG off_t
+#define SET_SKB_FREE(x) ( x->free = 1 )
 #else
 #include <asm/uaccess.h>
 #define GET_USER get_user
@@ -333,8 +337,12 @@ extern int register_isdn(isdn_if*);
 #define LSTYPE long long
 #define RWARG unsigned long
 #define LSARG long long
+#if (LINUX_VERSION_CODE < 0x02010F)
+#define SET_SKB_FREE(x) ( x->free = 1 )
+#else
+#define SET_SKB_FREE(x)
+#endif
 #endif
 
 #endif /* __KERNEL__ */
 #endif /* isdnif_h */
-
