@@ -23,6 +23,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.12  1999/08/10 16:01:58  calle
+ * struct pci_dev changed in 2.3.13. Made the necessary changes.
+ *
  * Revision 1.11  1999/08/09 19:13:32  werner
  * moved constant pci ids to pci id table
  *
@@ -1486,12 +1489,7 @@ __initfunc(int
 				printk(KERN_WARNING "HFC-PCI: No IRQ for PCI card found\n");
 				return (0);
 			}
-			cs->hw.hfcpci.pci_io = (char *)
-#if LINUX_VERSION_CODE < KERNEL_VERSION(2,3,13)
-			    dev_hfcpci->base_address[1];
-#else
-			    dev_hfcpci->resource[1].start;
-#endif
+			cs->hw.hfcpci.pci_io = (char *) get_pcibase(dev_hfcpci, 1);
 		} else {
 			printk(KERN_WARNING "HFC-PCI: No PCI card found\n");
 			return (0);

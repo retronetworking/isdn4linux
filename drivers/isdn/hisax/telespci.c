@@ -7,6 +7,9 @@
  *
  *
  * $Log$
+ * Revision 2.8  1999/08/10 16:02:10  calle
+ * struct pci_dev changed in 2.3.13. Made the necessary changes.
+ *
  * Revision 2.7  1999/07/12 21:05:34  keil
  * fix race in IRQ handling
  * added watchdog for lost IRQs
@@ -331,17 +334,10 @@ setup_telespci(struct IsdnCard *card))
 			printk(KERN_WARNING "Teles: No IRQ for PCI card found\n");
 			return(0);
 		}
-#if LINUX_VERSION_CODE < KERNEL_VERSION(2,3,13)
-		cs->hw.teles0.membase = (u_int) ioremap(dev_tel->base_address[0],
+		cs->hw.teles0.membase = (u_int) ioremap(get_pcibase(dev_tel, 0),
 			PAGE_SIZE);
 		printk(KERN_INFO "Found: Zoran, base-address: 0x%lx, irq: 0x%x\n",
-			dev_tel->base_address[0], dev_tel->irq);
-#else
-		cs->hw.teles0.membase = (u_int) ioremap(dev_tel->resource[0].start,
-			PAGE_SIZE);
-		printk(KERN_INFO "Found: Zoran, base-address: 0x%lx, irq: 0x%x\n",
-			dev_tel->resource[0].start, dev_tel->irq);
-#endif
+			get_pcibase(dev_tel, 0), dev_tel->irq);
 	} else {
 		printk(KERN_WARNING "TelesPCI: No PCI card found\n");
 		return(0);

@@ -7,6 +7,9 @@
  * Thanks to Traverse Technologie Australia for documents and informations
  *
  * $Log$
+ * Revision 1.12  1999/08/10 16:02:00  calle
+ * struct pci_dev changed in 2.3.13. Made the necessary changes.
+ *
  * Revision 1.11  1999/08/07 17:32:00  keil
  * Asymetric buffers for improved ping times.  Interframe spacing
  * fix for NJ<->NJ thoughput.  Matt Henderson - www.traverse.com.au
@@ -1104,12 +1107,8 @@ setup_netjet(struct IsdnCard *card))
 			printk(KERN_WARNING "NETjet: No IRQ for PCI card found\n");
 			return(0);
 		}
-#if LINUX_VERSION_CODE < KERNEL_VERSION(2,3,13)
-		cs->hw.njet.base = dev_netjet->base_address[0]
+		cs->hw.njet.base = get_pcibase(dev_netjet, 0)
 			& PCI_BASE_ADDRESS_IO_MASK; 
-#else
-		cs->hw.njet.base = dev_netjet->resource[0].start;
-#endif
 		if (!cs->hw.njet.base) {
 			printk(KERN_WARNING "NETjet: No IO-Adr for PCI card found\n");
 			return(0);

@@ -7,6 +7,9 @@
  * Author       Roland Klabunde (R.Klabunde@Berkom.de)
  *
  * $Log$
+ * Revision 1.5  1999/08/10 16:01:48  calle
+ * struct pci_dev changed in 2.3.13. Made the necessary changes.
+ *
  * Revision 1.4  1999/07/14 11:43:15  keil
  * correct PCI_SUBSYSTEM_VENDOR_ID
  *
@@ -371,11 +374,7 @@ __initfunc(int
 			&sub_sys_id);
 		if (sub_sys_id == ((SCT_SUBSYS_ID << 16) | SCT_SUBVEN_ID)) {
 			found = 1;
-#if LINUX_VERSION_CODE < KERNEL_VERSION(2,3,13)
-			pci_ioaddr1 = dev_a8->base_address[1];
-#else
-			pci_ioaddr1 = dev_a8->resource[1].start;
-#endif
+			pci_ioaddr1 = get_pcibase(dev_a8, 1);
 			pci_irq = dev_a8->irq;
 			pci_bus = dev_a8->bus->number;
 			pci_device_fn = dev_a8->devfn;
@@ -437,11 +436,7 @@ __initfunc(int
 		pcibios_write_config_dword(pci_bus, pci_device_fn,
 			PCI_BASE_ADDRESS_1, pci_ioaddr1);
 #ifdef COMPAT_HAS_NEW_PCI
-#if LINUX_VERSION_CODE < KERNEL_VERSION(2,3,13)
-		dev_a8->base_address[1] = pci_ioaddr1;
-#else
-		dev_a8->resource[1].start = pci_ioaddr1;
-#endif
+		get_pcibase(dev_a8, 1) = pci_ioaddr1;
 #endif /* COMPAT_HAS_NEW_PCI */
 	}
 /* End HACK */

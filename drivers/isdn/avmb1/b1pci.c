@@ -6,6 +6,9 @@
  * (c) Copyright 1999 by Carsten Paeth (calle@calle.in-berlin.de)
  * 
  * $Log$
+ * Revision 1.15  1999/08/10 16:02:27  calle
+ * struct pci_dev changed in 2.3.13. Made the necessary changes.
+ *
  * Revision 1.14  1999/07/09 15:05:41  keil
  * compat.h is now isdn_compat.h
  *
@@ -246,11 +249,7 @@ int b1pci_init(void)
 	while ((dev = pci_find_device(PCI_VENDOR_ID_AVM, PCI_DEVICE_ID_AVM_B1, dev))) {
 		struct capicardparams param;
 
-#if LINUX_VERSION_CODE < KERNEL_VERSION(2,3,13)
-		param.port = dev->base_address[1] & PCI_BASE_ADDRESS_IO_MASK;
-#else
-		param.port = dev->resource[1].start;
-#endif
+		param.port = get_pcibase(dev, 1) & PCI_BASE_ADDRESS_IO_MASK;
 		param.irq = dev->irq;
 		printk(KERN_INFO
 			"%s: PCI BIOS reports AVM-B1 at i/o %#x, irq %d\n",

@@ -6,6 +6,9 @@
  *              based on source code from Karsten Keil
  *
  * $Log$
+ * Revision 2.4  1999/08/10 16:01:54  calle
+ * struct pci_dev changed in 2.3.13. Made the necessary changes.
+ *
  * Revision 2.3  1999/07/12 21:05:09  keil
  * fix race in IRQ handling
  * added watchdog for lost IRQs
@@ -588,13 +591,8 @@ setup_gazelpci(struct IsdnCardState *cs)
 		if ((dev_tel = pci_find_device(GAZEL_MANUFACTURER, seekcard, dev_tel))) {
 
 			pci_irq = dev_tel->irq;
-#if LINUX_VERSION_CODE < KERNEL_VERSION(2,3,13)
-			pci_ioaddr0 = dev_tel->base_address[1];
-			pci_ioaddr1 = dev_tel->base_address[2];
-#else
-			pci_ioaddr0 = dev_tel->resource[1].start;
-			pci_ioaddr1 = dev_tel->resource[2].start;
-#endif
+			pci_ioaddr0 = get_pcibase(dev_tel, 1);
+			pci_ioaddr1 = get_pcibase(dev_tel, 2);
 			found = 1;
 		}
 #else

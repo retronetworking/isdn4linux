@@ -7,6 +7,9 @@
  * Author       Roland Klabunde (R.Klabunde@Berkom.de)
  *
  * $Log$
+ * Revision 1.5  1999/08/10 16:01:46  calle
+ * struct pci_dev changed in 2.3.13. Made the necessary changes.
+ *
  * Revision 1.4  1999/07/14 11:43:14  keil
  * correct PCI_SUBSYSTEM_VENDOR_ID
  *
@@ -314,11 +317,7 @@ __initfunc(int
 			&sub_sys_id);
 		if (sub_sys_id == ((A4T_SUBSYS_ID << 16) | A4T_SUBVEN_ID)) {
 			found = 1;
-#if LINUX_VERSION_CODE < KERNEL_VERSION(2,3,13)
-			pci_memaddr = dev_a4t->base_address[0];
-#else
-			pci_memaddr = dev_a4t->resource[0].start;
-#endif
+			pci_memaddr = get_pcibase(dev_a4t, 0);
 			cs->irq = dev_a4t->irq;
 		}
 	}

@@ -12,6 +12,9 @@
  *
  *
  * $Log$
+ * Revision 1.15  1999/08/10 16:01:49  calle
+ * struct pci_dev changed in 2.3.13. Made the necessary changes.
+ *
  * Revision 1.14  1999/08/07 17:35:08  keil
  * approval for Eicon Technology Diva 2.01 PCI
  *
@@ -932,41 +935,24 @@ setup_diva(struct IsdnCard *card))
 			PCI_DIVA20_ID, dev_diva))) {
 			cs->subtyp = DIVA_PCI;
 			cs->irq = dev_diva->irq;
-#if LINUX_VERSION_CODE < KERNEL_VERSION(2,3,13)
-			cs->hw.diva.cfg_reg = dev_diva->base_address[2]
+			cs->hw.diva.cfg_reg = get_pcibase(dev_diva, 2)
 				& PCI_BASE_ADDRESS_IO_MASK;
-#else
-			cs->hw.diva.cfg_reg = dev_diva->resource[2].start;
-#endif
 		} else if ((dev_diva_u = pci_find_device(PCI_VENDOR_EICON_DIEHL,
 			PCI_DIVA20_U_ID, dev_diva_u))) {
 			cs->subtyp = DIVA_PCI;
 			cs->irq = dev_diva_u->irq;
-#if LINUX_VERSION_CODE < KERNEL_VERSION(2,3,13)
-			cs->hw.diva.cfg_reg = dev_diva_u->base_address[2]
+			cs->hw.diva.cfg_reg = get_pcibase(dev_diva_u, 2)
 				& PCI_BASE_ADDRESS_IO_MASK;
-#else
-			cs->hw.diva.cfg_reg = dev_diva->resource[2].start;
-#endif
 		} else if ((dev_diva201 = pci_find_device(PCI_VENDOR_EICON_DIEHL,
 			PCI_DIVA_201, dev_diva201))) {
 			cs->subtyp = DIVA_IPAC_PCI;
 			cs->irq = dev_diva201->irq;
-#if LINUX_VERSION_CODE < KERNEL_VERSION(2,3,13)
 			cs->hw.diva.pci_cfg =
-				(ulong) ioremap((dev_diva201->base_address[0]
+				(ulong) ioremap((get_pcibase(dev_diva201, 0)
 					& PCI_BASE_ADDRESS_IO_MASK), 4096);
 			cs->hw.diva.cfg_reg =
-				(ulong) ioremap((dev_diva201->base_address[1]
+				(ulong) ioremap((get_pcibase(dev_diva201, 1)
 					& PCI_BASE_ADDRESS_IO_MASK), 4096);
-#else
-			cs->hw.diva.pci_cfg =
-				(ulong) ioremap(dev_diva201->resource[0].start,
-					4096);
-			cs->hw.diva.cfg_reg =
-				(ulong) ioremap(dev_diva201->resource[1].start,
-					4096);
-#endif
 		} else {
 			printk(KERN_WARNING "Diva: No PCI card found\n");
 			return(0);
