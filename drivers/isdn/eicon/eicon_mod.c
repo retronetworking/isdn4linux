@@ -26,6 +26,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.12  1999/08/31 11:20:14  paul
+ * various spelling corrections (new checksums may be needed, Karsten!)
+ *
  * Revision 1.11  1999/08/29 17:23:45  armin
  * New setup compat.
  * Bugfix if compile as not module.
@@ -1275,8 +1278,8 @@ eicon_addcard(int Type, int membase, int irq, char *id)
 #define eicon_init init_module
 #endif
 
-__initfunc(int
-eicon_init(void))
+int
+eicon_init(void)
 {
 	int card_count = 0;
 	int release = 0;
@@ -1392,8 +1395,8 @@ eicon_setup(char *line)
 
 	str = get_options(line, 4, ints);
 #else
-__initfunc(void
-eicon_setup(char *str, int *ints))
+void
+eicon_setup(char *str, int *ints)
 {
         int i, argc;
 #endif
