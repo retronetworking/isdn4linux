@@ -2,7 +2,7 @@
 
  * Linux ISDN subsystem, network interfaces and related functions (linklevel).
  *
- * Copyright 1994,95,96 by Fritz Elfert (fritz@wuemaus.franken.de)
+ * Copyright 1994-1998  by Fritz Elfert (fritz@isdn4linux.de)
  * Copyright 1995,96    by Thinking Objects Software GmbH Wuerzburg
  * Copyright 1995,96    by Michael Hipp (Michael.Hipp@student.uni-tuebingen.de)
  *
@@ -21,6 +21,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.79  1998/10/30 17:55:27  he
+ * dialmode for x25iface and multulink ppp
+ *
  * Revision 1.78  1998/10/26 18:20:46  he
  * re-inserted p=p->next in isdn_net_find_icall() (fixes kernel lock up
  * on incoming call not matching the first interface)
@@ -391,7 +394,7 @@ isdn_net_unreachable(struct device *dev, struct sk_buff *skb, char *reason)
 			struct sk_buff *skb;
 
 			while((skb = skb_dequeue(&dev->buffs[i]))) {
-					if(ntohs(skb->protocol) == ETH_P_IP) 
+					if(ntohs(skb->protocol) == ETH_P_IP)
 						icmp_send(skb, ICMP_DEST_UNREACH, ICMP_HOST_UNREACH, 0);
 					dev_kfree_skb(skb);
 			}
@@ -404,10 +407,10 @@ static void
 isdn_net_reset(struct device *dev)
 {
 #ifdef CONFIG_ISDN_X25
-	struct concap_device_ops * dops = 
+	struct concap_device_ops * dops =
 		( (isdn_net_local *) dev->priv ) -> dops;
-	struct concap_proto * cprot = 
-		( (isdn_net_local *) dev->priv ) -> netdev -> cprot; 
+	struct concap_proto * cprot =
+		( (isdn_net_local *) dev->priv ) -> netdev -> cprot;
 #endif
 	ulong flags;
 
@@ -416,7 +419,7 @@ isdn_net_reset(struct device *dev)
 	dev->interrupt = 0;
 	dev->tbusy = 0;
 #ifdef CONFIG_ISDN_X25
-	if( cprot && cprot -> pops && dops ) 
+	if( cprot && cprot -> pops && dops )
 		cprot -> pops -> restart ( cprot, dev, dops );
 #endif
 	restore_flags(flags);
@@ -443,7 +446,7 @@ isdn_net_open(struct device *dev)
 		if (ifa != NULL)
 			memcpy(dev->dev_addr+2, &ifa->ifa_local, 4);
 	}
- 
+
 	/* If this interface has slaves, start them also */
 
 	if ((p = (((isdn_net_local *) dev->priv)->slave))) {
@@ -544,18 +547,18 @@ isdn_net_autohup()
 		if ((l->flags & ISDN_NET_CONNECTED) && (!l->dialstate)) {
 			anymore = 1;
 			l->huptimer++;
-  			/*
-  			 * only do timeout-hangup
-  			 * if interface is configured as AUTO
-  			 */
+			/*
+			 * if there is some dialmode where timeout-hangup
+			 * should _not_ be done, check for that here and
+			 * 37 lines below (ifdef CONFIG_ISDN_BUDGET)
+			 * eg: (ISDN_NET_DIALMODE(*l) != ISDN_NET_DM_NOTIMEOUT)
+			 */
 #ifdef CONFIG_ISDN_TIMEOUT_RULES
- 			if ((ISDN_NET_DIALMODE(*l) == ISDN_NET_DM_AUTO) &&
- 			    (l->timeout_rules || l->huptimeout) &&
- 			    (l->huptimer > l->huptimeout))
+			if ((l->timeout_rules || l->huptimeout) &&
+			    (l->huptimer > l->huptimeout))
 #else
-  			if ((ISDN_NET_DIALMODE(*l) == ISDN_NET_DM_AUTO) &&
- 			    (l->onhtime) &&
- 			    (l->huptimer > l->onhtime))
+			if ((l->onhtime) &&
+			    (l->huptimer > l->onhtime))
 #endif
 			{
 				if (l->hupflags & ISDN_MANCHARGE &&
@@ -583,8 +586,7 @@ isdn_net_autohup()
 					isdn_net_hangup(&p->dev);
 			}
 #ifdef CONFIG_ISDN_BUDGET
-			if((ISDN_NET_DIALMODE(*l) == ISDN_NET_DM_AUTO) &&
-			   isdn_net_budget(ISDN_BUDGET_CHECK_ONLINE, &p->dev)) {
+			if(isdn_net_budget(ISDN_BUDGET_CHECK_ONLINE, &p->dev)) {
 				isdn_net_hangup(&p->dev);
 			}
 #endif
@@ -611,7 +613,7 @@ isdn_net_stat_callback(int idx, isdn_ctrl *c)
 {
 	isdn_net_dev *p = dev->st_netdev[idx];
 	int cmd = c->command;
-	
+
 	if (p) {
 		isdn_net_local *lp = p->local;
 #ifdef CONFIG_ISDN_X25
@@ -662,8 +664,8 @@ isdn_net_stat_callback(int idx, isdn_ctrl *c)
 				   failed. If there are generic encap protocol
 				   receiver routines signal the closure of
 				   the link*/
-				
-				if( !(lp->flags & ISDN_NET_CONNECTED) 
+
+				if( !(lp->flags & ISDN_NET_CONNECTED)
 				    && pops && pops -> disconn_ind )
 					pops -> disconn_ind(cprot);
 #endif /* CONFIG_ISDN_X25 */
@@ -752,7 +754,7 @@ isdn_net_stat_callback(int idx, isdn_ctrl *c)
 								pops->connect_ind(cprot);
 #endif /* CONFIG_ISDN_X25 */
 						if (lp->first_skb) {
-							
+
 							if (!(isdn_net_xmit(&p->dev, lp, lp->first_skb)))
 								lp->first_skb = NULL;
 						}
@@ -891,12 +893,12 @@ isdn_net_dial(void)
 				 * retry-counter.
 				 */
 				if(dev->global_flags & ISDN_GLOBAL_STOPPED || (ISDN_NET_DIALMODE(*lp) == ISDN_NET_DM_OFF)) {
-  					char *s;
-  					if (dev->global_flags & ISDN_GLOBAL_STOPPED)
-  						s = "dial suppressed: isdn system stopped";
-  					else
-  						s = "dial suppressed: dialmode `off'";
- 					isdn_net_unreachable(&p->dev, lp->first_skb, s);
+					char *s;
+					if (dev->global_flags & ISDN_GLOBAL_STOPPED)
+						s = "dial suppressed: isdn system stopped";
+					else
+						s = "dial suppressed: dialmode `off'";
+					isdn_net_unreachable(&p->dev, lp->first_skb, s);
 					isdn_net_hangup(&p->dev);
 					break;
 				}
@@ -1123,7 +1125,7 @@ isdn_net_hangup(struct device *d)
 #ifdef CONFIG_ISDN_X25
 		/* try if there are generic encap protocol
 		   receiver routines and signal the closure of
-		   the link */		
+		   the link */
 		if( pops && pops -> disconn_ind )
 		  pops -> disconn_ind(cprot);
 #endif /* CONFIG_ISDN_X25 */
@@ -1153,7 +1155,7 @@ isdn_net_log_skb(struct sk_buff * skb, isdn_net_local * lp)
 	char addinfo[100];
 
 	addinfo[0] = '\0';
-	/* This check stolen from 2.1.72 dev_queue_xmit_nit() */ 
+	/* This check stolen from 2.1.72 dev_queue_xmit_nit() */
 	if (skb->nh.raw < skb->data || skb->nh.raw >= skb->tail) {
 		/* fall back to old isdn_net_log_packet method() */
 		char * buf = skb->data;
@@ -1357,7 +1359,7 @@ isdn_net_start_xmit(struct sk_buff *skb, struct device *ndev)
 {
 	isdn_net_local *lp = (isdn_net_local *) ndev->priv;
 #ifdef CONFIG_ISDN_X25
-	struct concap_proto * cprot = lp -> netdev -> cprot; 
+	struct concap_proto * cprot = lp -> netdev -> cprot;
 #endif
 
 	if (ndev->tbusy) {
@@ -1370,7 +1372,7 @@ isdn_net_start_xmit(struct sk_buff *skb, struct device *ndev)
 	ndev->tbusy = 1; /* left instead of obsolete test_and_set_bit() */
 #ifdef CONFIG_ISDN_X25
 /* At this point hard_start_xmit() passes control to the encapsulation
-   protocol (if present). 
+   protocol (if present).
    For X.25 auto-dialing is completly bypassed because:
    - It does not conform with the semantics of a reliable datalink
      service as needed by X.25 PLP.
@@ -1514,8 +1516,8 @@ isdn_net_close(struct device *dev)
 {
 	struct device *p;
 #ifdef CONFIG_ISDN_X25
-	struct concap_proto * cprot = 
-		( (isdn_net_local *) dev->priv ) -> netdev -> cprot; 
+	struct concap_proto * cprot =
+		( (isdn_net_local *) dev->priv ) -> netdev -> cprot;
 	/* printk(KERN_DEBUG "isdn_net_close %s\n" , dev-> name ); */
 #endif
 
@@ -1528,9 +1530,9 @@ isdn_net_close(struct device *dev)
 		/* If this interface has slaves, stop them also */
 		while (p) {
 #ifdef CONFIG_ISDN_X25
-			cprot = ( (isdn_net_local *) p->priv ) 
-				-> netdev -> cprot; 
-			if( cprot && cprot -> pops ) 
+			cprot = ( (isdn_net_local *) p->priv )
+				-> netdev -> cprot;
+			if( cprot && cprot -> pops )
 				cprot -> pops -> close( cprot );
 #endif
 			isdn_net_hangup(p);
@@ -1616,7 +1618,7 @@ isdn_net_slarp_send(isdn_net_local *lp, int is_reply)
 	int len;
 	cisco_hdr *ch;
 	cisco_slarp *s;
-	
+
 	if (!skb) {
 		printk(KERN_WARNING
 		       "%s: Could not allocate SLARP reply\n", lp->name);
@@ -1630,7 +1632,7 @@ isdn_net_slarp_send(isdn_net_local *lp, int is_reply)
 	s = (cisco_slarp *)skb_put(skb, sizeof(cisco_slarp));
 	if (is_reply) {
 		s->code = htonl(CISCO_SLARP_REPLY);
- 		memset(&s->slarp.reply.ifaddr, 0, sizeof(__u32));
+		memset(&s->slarp.reply.ifaddr, 0, sizeof(__u32));
 		memset(&s->slarp.reply.netmask, 0, sizeof(__u32));
 	} else {
 		lp->cisco_myseq++;
@@ -1825,7 +1827,7 @@ isdn_net_receive(struct device *ndev, struct sk_buff *skb)
 		default:
 #ifdef CONFIG_ISDN_X25
 		  /* try if there are generic sync_device receiver routines */
-			if(cprot) if(cprot -> pops) 
+			if(cprot) if(cprot -> pops)
 				if( cprot -> pops -> data_ind){
 					cprot -> pops -> data_ind(cprot,skb);
 					return;
@@ -2030,7 +2032,7 @@ isdn_net_init(struct device *ndev)
 	ndev->flags = IFF_NOARP|IFF_POINTOPOINT;
 	ndev->type = ARPHRD_ETHER;
 	ndev->addr_len = ETH_ALEN;
-	
+
 	/* for clients with MPPP maybe higher values better */
 	ndev->tx_queue_len = 30;
 
@@ -2693,7 +2695,7 @@ isdn_net_setcfg(isdn_net_ioctl_cfg * cfg)
 			save_flags(flags);
 			cli(); /* avoid races with incoming events trying to
 				  call cprot->pops methods */
-			if( cprot && cprot -> pops ) 
+			if( cprot && cprot -> pops )
 				cprot -> pops -> proto_del ( cprot );
 			p -> cprot = NULL;
 			lp -> dops = NULL;
@@ -2707,7 +2709,7 @@ isdn_net_setcfg(isdn_net_ioctl_cfg * cfg)
 			p -> cprot = isdn_concap_new( cfg -> p_encap );
 			/* p -> cprot == NULL now if p_encap is not supported
 			   by means of the concap_proto mechanism */
-			/* the protocol is not configured yet; this will 
+			/* the protocol is not configured yet; this will
 			   happen later when isdn_net_reset() is called */
 #endif
 		}
@@ -2736,7 +2738,7 @@ isdn_net_setcfg(isdn_net_ioctl_cfg * cfg)
 			if( cfg->p_encap >= 0 &&
 			    cfg->p_encap <= ISDN_NET_ENCAP_MAX_ENCAP )
 				break;
-			printk(KERN_WARNING 
+			printk(KERN_WARNING
 			       "%s: encapsulation protocol %d not supported\n",
 			       p->local->name, cfg->p_encap);
 			return -EINVAL;
