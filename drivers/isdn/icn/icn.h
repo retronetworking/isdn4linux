@@ -19,15 +19,18 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.12  1996/01/22 05:01:22  fritz
+ * Revert to GPL.
+ *
  * Revision 1.11  1995/12/18  18:25:00  fritz
  * Support for ICN-2B Cards.
- * Change for supporting user-setable service-octet.
+ * Change for supporting user-settable service-octet.
  *
  * Revision 1.10  1995/10/29  21:43:10  fritz
  * Added support for leased lines.
  *
  * Revision 1.9  1995/04/23  13:42:10  fritz
- * Added some constants for distingushing 1TR6 and DSS1
+ * Added some constants for distinguishing 1TR6 and DSS1
  *
  * Revision 1.8  1995/03/25  23:18:55  fritz
  * Changed ICN_PORTLEN to reflect correct number of ports.
@@ -91,12 +94,6 @@
 #include <linux/timer.h>
 #include <linux/wait.h>
 #include <linux/isdnif.h>
-
-#ifdef MODULE
-#ifdef DEF_VERSION
-char kernel_version[] = UTS_RELEASE;
-#endif
-#endif
 
 #endif				/* __KERNEL__ */
 
@@ -188,7 +185,7 @@ typedef struct {
 } pqueue;
 
 typedef struct {
-	unsigned short port;	/* Base-port-adress                 */
+	unsigned short port;	/* Base-port-address                */
 	icn_shmem *shmem;	/* Pointer to memory-mapped-buffers */
 	int myid;		/* Driver-Nr. assigned by linklevel */
 	int rvalid;		/* IO-portregion has been requested */
@@ -198,7 +195,7 @@ typedef struct {
 	unsigned short flags;	/* Statusflags                      */
 	int doubleS0;		/* Flag: Double-S0-Card             */
 	int secondhalf;		/* Flag: Second half of a doubleS0  */
-	int ptype;		/* Protocoltype (1TR6 or Euro)      */
+	int ptype;		/* Protocol type (1TR6 or Euro)     */
 	struct timer_list st_timer;	/* Timer for Status-Polls           */
 	struct timer_list rb_timer;	/* Timer for B-Channel-Polls        */
 	int channel;		/* Currently mapped Channel         */
@@ -208,7 +205,7 @@ typedef struct {
 	int l2_proto[ICN_BCH];	/* Current layer-2-protocol         */
 	isdn_if interface;	/* Interface to upper layer         */
 	int iptr;		/* Index to imsg-buffer             */
-	char imsg[40];		/* Internal buf for status-parsing  */
+	char imsg[60];		/* Internal buf for status-parsing  */
 	char msg_buf[2048];	/* Buffer for status-messages       */
 	char *msg_buf_write;	/* Writepointer for statusbuffer    */
 	char *msg_buf_read;	/* Readpointer for statusbuffer     */
