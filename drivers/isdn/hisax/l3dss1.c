@@ -25,6 +25,54 @@ const char *dss1_revision = "$Revision$";
 #include <linux/ctype.h>
 #include <linux/config.h>
 
+#ifdef CONFIG_HISAX_CAPI
+#define MsgDeclare(len) \
+	struct sk_buff *skb; \
+	u_char tmp[len]; \
+	u_char *p = tmp; \
+	int l
+
+#define	MsgXHead(cref, mty) \
+	*p++ = 0x8; \
+	if (cref == -1) { \
+		*p++ = 0x0; \
+	} else { \
+		*p++ = 0x1; \
+		*p++ = (cref)^0x80; \
+	} \
+	*p++ = (mty)
+
+#define MsgAdd(msg) do { \
+        if (msg[0]) { \
+		if (msg[0] & 0x80) { \
+			*p++ = msg[0]; \
+		} else { \
+			memcpy(p, msg, msg[1] + 2); \
+			p += msg[1] + 2; \
+		} \
+        } \
+	} while (0)
+
+#define MsgUUS(uus) do { \
+        *p++ = IE_USER_USER; /* UUS info element */ \
+        *p++ = strlen(uus) + 1; \
+        *p++ = 0x04; /* IA5 chars */ \
+        strcpy(p, uus); \
+        p += strlen(uus); \
+        uus[0] = '\0'; \
+        } while (0)
+
+#define MsgSend() do { \
+	l = p - tmp; \
+	if ((skb = l3_alloc_skb(l))) { \
+	        memcpy(skb_put(skb, l), tmp, l); \
+	        l3_msg(pc->st, DL_DATA | REQUEST, skb); \
+        } \
+        } while (0)
+//	        l3pc_l3l2(pc, DL_DATA | REQUEST, skb); \
+
+#endif
+
 static void
 dss1down_proc(struct l3_process *pc, int pr, void *arg);
 
@@ -1426,6 +1474,64 @@ l3dss1_setup_req(struct l3_process *pc, u_char pr,
 	l3_msg(pc->st, DL_DATA | REQUEST, skb);
 }
 
+#ifdef CONFIG_HISAX_CAPI
+
+
+static void
+l3dss1_gen_setup_req(struct l3_process *pc, u_char pr,
+		 void *arg)
+{
+	MsgDeclare(128);
+	struct setup_req_parm *setup_req = &pc->setup_req;
+
+	MsgXHead(pc->callref, MT_SETUP);
+
+	if (!setup_req->bearer_capability[0]) {
+		int_error();
+		return;
+	}
+	MsgAdd(setup_req->sending_complete);
+	MsgAdd(setup_req->bearer_capability);
+	MsgAdd(setup_req->channel_identification);
+	MsgAdd(setup_req->keypad_facility);
+	MsgAdd(setup_req->calling_party_number);
+	MsgAdd(setup_req->calling_party_subaddress);
+	MsgAdd(setup_req->called_party_number);
+	MsgAdd(setup_req->called_party_subaddress);
+	MsgAdd(setup_req->low_layer_compatibility);
+
+	MsgSend();
+
+	L3DelTimer(&pc->timer);
+	L3AddTimer(&pc->timer, T303, CC_T303);
+	newl3state(pc, 1);
+#if 0
+	l3pc_deltimer(pc);
+	l3pc_addtimer(pc, T303, CC_T303);
+	l3pc_newstate(pc, 1);
+#endif
+}
+
+// ==========================================================================
+// handle messages from call control
+// ==========================================================================
+
+// ==========================================================================
+// outgoing
+
+static void
+l3dss1_x_setup_req(struct l3_process *pc, u_char pr, void *arg)
+{
+	if (!arg) {
+		int_error();
+		return;
+	}
+	memcpy(&pc->setup_req, arg, sizeof(struct setup_req_parm));
+	l3dss1_gen_setup_req(pc, pr, arg);
+}
+
+#endif
+
 static void
 l3dss1_call_proc(struct l3_process *pc, u_char pr, void *arg)
 {
@@ -2749,6 +2855,8 @@ static struct stateentry downstatelist[] =
 	{SBIT(0),
 	 CC_SETUP | REQUEST, l3dss1_setup_req},
 	{SBIT(0),
+	 CC_X_SETUP | REQUEST, l3dss1_x_setup_req},
+	{SBIT(0),
 	 CC_RESUME | REQUEST, l3dss1_resume_req},
 	{SBIT(1) | SBIT(2) | SBIT(3) | SBIT(4) | SBIT(6) | SBIT(7) | SBIT(8) | SBIT(9) | SBIT(10),
 	 CC_DISCONNECT | REQUEST, l3dss1_disconnect_req},
@@ -3190,6 +3298,7 @@ setstack_dss1(struct PStack *st)
 	char tmp[64];
 	int i;
 
+	st->l3.debug = 0xffff; // FIXME
 	st->l3.l4l3 = dss1down;
 	st->l3.l4l3_proto = l3dss1_cmd_global;
 	st->l3.l2l3 = dss1up;

@@ -330,20 +330,11 @@ static void plci_connect_req(struct FsmInst *fi, int event, void *arg)
 	struct Plci *plci = cplci->plci;
 	struct setup_req_parm setup_req;
 	_cmsg *cmsg = arg;
-#if 0
-	setup_parm setup;
-#endif
 	__u16 Info = 0;
 
 	FsmChangeState(fi, ST_PLCI_P_0_1);
 	test_and_set_bit(PLCI_FLAG_OUTGOING, &plci->flags);
 
-#if 0
-	memset(&setup, 0, sizeof(setup_parm));
-	if ((Info = cmsg2setup(cmsg, &setup))) {
-		goto answer;
-	}
-#endif
 	memset(&setup_req, 0, sizeof(struct setup_req_parm));
 	if ((Info = cmsg2setup_req(cmsg, &setup_req))) {
 		goto answer;
@@ -353,9 +344,6 @@ static void plci_connect_req(struct FsmInst *fi, int event, void *arg)
 	}
 
 	plciNewCrReq(plci);
-#if 0
-	p_L4L3(&plci->l4_pc, CC_SETUP | REQUEST, &setup);
-#endif
 	p_L4L3(&plci->l4_pc, CC_X_SETUP | REQUEST, &setup_req);
 	
  answer:
