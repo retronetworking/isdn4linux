@@ -246,7 +246,7 @@ static void recv_handler(void *dummy)
 		ap = get_capi_appl_by_nr(CAPIMSG_APPID(skb->data));
 		if (!ap) {
 			printk(KERN_ERR "kcapi: recv_handler: applid %d ? (%s)\n",
-			       ap->applid, capi_message2str(skb->data));
+				CAPIMSG_APPID(skb->data), capi_message2str(skb->data));
 			kfree_skb(skb);
 			continue;
 		}
