@@ -23,6 +23,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.17  1999/08/28 21:04:27  werner
+ * Implemented full audio support (transparent mode)
+ *
  * Revision 1.16  1999/08/25 17:01:27  keil
  * Use new LL->HL auxcmd call
  *
@@ -207,7 +210,7 @@ reset_hfcpci(struct IsdnCardState *cs)
 	cs->hw.hfcpci.mst_m = HFCPCI_MASTER;	/* HFC Master Mode */
 
 	Write_hfc(cs, HFCPCI_MST_MODE, cs->hw.hfcpci.mst_m);
-	cs->hw.hfcpci.sctrl = 0;
+	cs->hw.hfcpci.sctrl = 0x40; /* set tx_lo mode, error in datasheet ! */
 	Write_hfc(cs, HFCPCI_SCTRL, cs->hw.hfcpci.sctrl);
 	cs->hw.hfcpci.sctrl_r = 0;
 	Write_hfc(cs, HFCPCI_SCTRL_R, cs->hw.hfcpci.sctrl_r);
