@@ -6,6 +6,9 @@
  * (c) Copyright 1999 by Carsten Paeth (calle@calle.in-berlin.de)
  * 
  * $Log$
+ * Revision 1.12.2.4  2000/04/16 11:00:26  kai
+ * TP works
+ *
  * Revision 1.12.2.3  2000/04/08 14:29:09  kai
  * *** empty log message ***
  *
@@ -895,6 +898,9 @@ static void controllercb_handle_capimsg(struct capi_ctr * card,
         subcmd = CAPIMSG_SUBCOMMAND(skb->data);
 	if (cmd == CAPI_DATA_B3 && subcmd == CAPI_IND) {
 		card->nrecvdatapkt++;
+	        if (card->traceflag > 2) showctl |= 2;
+	} else if (cmd == CAPI_DATA_B3 && subcmd == CAPI_CONF) {
+		card->nrecvctlpkt++;
 	        if (card->traceflag > 2) showctl |= 2;
 	} else {
 		card->nrecvctlpkt++;

@@ -80,174 +80,52 @@ __u16 CIPValue2setup(__u16 CIPValue, struct setup_req_parm *parm)
 	return 0;
 }
 
-__u16 CalledPartyNumber2setup(__u8 *CPN, struct setup_req_parm *parm)
+__u16 cstruct2IE(__u8 *cstruct, __u8 IE, __u8 *dest)
 {
 	int len;
 
-	if (!CPN)
+	if (!cstruct)
 		return 0;
-	len = CPN[0];
+	len = cstruct[0];
 	if (len == 0)
 		return 0;
-	if (len > 23 - 2)
-		return CapiIllMessageParmCoding;
-	parm->called_party_number[0] = IE_CALLED_PN; 
-	memcpy(parm->called_party_number + 1, CPN, len + 1); 
-	return 0;
-}
-
-__u16 CallingPartyNumber2setup(__u8 *CGN, struct setup_req_parm *parm)
-{
-	int len;
-
-	if (!CGN)
-		return 0;
-	len = CGN[0];
-	if (len == 0)
-		return 0;
-	if (len > 24 - 2)
-		return CapiIllMessageParmCoding;
-	parm->calling_party_number[0] = IE_CALLING_PN; 
-	memcpy(parm->calling_party_number + 1, CGN, len + 1); 
-	return 0;
-}
-
-__u16 CalledPartySubaddress2setup(__u8 *SA, struct setup_req_parm *parm)
-{
-	int len;
-
-	if (!SA)
-		return 0;
-	len = SA[0];
-	if (len == 0)
-		return 0;
-	if (len > 23 - 2)
-		return CapiIllMessageParmCoding;
-	parm->called_party_subaddress[0] = IE_CALLED_SUB; 
-	memcpy(parm->called_party_subaddress + 1, SA, len + 1); 
-	return 0;
-}
-
-__u16 CallingPartySubaddress2setup(__u8 *SA, struct setup_req_parm *parm)
-{
-	int len;
-
-	if (!SA)
-		return 0;
-	len = SA[0];
-	if (len == 0)
-		return 0;
-	if (len > 23 - 2)
-		return CapiIllMessageParmCoding;
-	parm->calling_party_subaddress[0] = IE_CALLING_SUB; 
-	memcpy(parm->calling_party_subaddress + 1, SA, len + 1); 
-	return 0;
-}
-
-__u16 BC2setup(__u8 *BC, struct setup_req_parm *parm)
-{
-	int len;
-
-	if (!BC)
-		return 0;
-	len = BC[0];
-	if (len == 0)
-		return 0;
-	if (len > 13 - 2)
-		return CapiIllMessageParmCoding;
-	parm->bearer_capability[0] = IE_BEARER; 
-	memcpy(parm->bearer_capability + 1, BC, len + 1); 
-	return 0;
-}
-
-__u16 LLC2setup(__u8 *LLC, struct setup_req_parm *parm)
-{
-	int len;
-
-	if (!LLC)
-		return 0;
-	len = LLC[0];
-	if (len == 0)
-		return 0;
-	if (len > 16 - 2)
-		return CapiIllMessageParmCoding;
-	parm->low_layer_compatibility[0] = IE_LLC; 
-	memcpy(parm->low_layer_compatibility + 1, LLC, len + 1); 
-	return 0;
-}
-
-__u16 HLC2setup(__u8 *HLC, struct setup_req_parm *parm)
-{
-	int len;
-
-	if (!HLC)
-		return 0;
-	len = HLC[0];
-	if (len == 0)
-		return 0;
-	if (len > 4 - 2)
-		return CapiIllMessageParmCoding;
-	parm->high_layer_compatibility[0] = IE_HLC; 
-	memcpy(parm->high_layer_compatibility + 1, HLC, len + 1); 
-	return 0;
-}
-
-__u16 UserUser2alerting_req(__u8 *UU, struct alerting_req_parm *parm)
-{
-	int len;
-
-	if (!UU)
-		return 0;
-	len = UU[0];
-	if (len == 0)
-		return 0;
-	if (len > 131 - 2)
-		return CapiIllMessageParmCoding;
-	parm->user_user[0] = IE_USER_USER; 
-	memcpy(parm->user_user + 1, UU, len + 1); 
+	if (len > getmax_ie_len(IE) - 2)
+		return !0;
+	dest[0] = IE;
+	memcpy(dest + 1, cstruct, len + 1);
 	return 0;
 }
 
 __u16 cmsg2setup_req(_cmsg *cmsg, struct setup_req_parm *parm)
 {
-	__u16 Info;
-
-	Info = CIPValue2setup(cmsg->CIPValue, parm);
-	if (Info)
-		return Info;
-	Info = CalledPartyNumber2setup(cmsg->CalledPartyNumber, parm);
-	if (Info)
-		return Info;
-	Info = CallingPartyNumber2setup(cmsg->CallingPartyNumber, parm);
-	if (Info)
-		return Info;
-	Info = CalledPartySubaddress2setup(cmsg->CalledPartySubaddress, parm);
-	if (Info)
-		return Info;
-	Info = CallingPartySubaddress2setup(cmsg->CallingPartySubaddress, parm);
-	if (Info)
-		return Info;
-	Info = BC2setup(cmsg->BC, parm);
-	if (Info)
-		return Info;
-	Info = LLC2setup(cmsg->LLC, parm);
-	if (Info)
-		return Info;
-	Info = HLC2setup(cmsg->HLC, parm);
-	if (Info)
-		return Info;
+	if (CIPValue2setup(cmsg->CIPValue, parm))
+		goto err;
+	if (cstruct2IE(cmsg->CalledPartyNumber, IE_CALLED_PN, parm->called_party_number))
+		goto err;
+	if (cstruct2IE(cmsg->CallingPartyNumber, IE_CALLING_PN, parm->calling_party_number))
+		goto err;
+	if (cstruct2IE(cmsg->CalledPartySubaddress, IE_CALLED_SUB, parm->called_party_subaddress))
+		goto err;
+	if (cstruct2IE(cmsg->CallingPartySubaddress, IE_CALLING_SUB, parm->calling_party_subaddress))
+		goto err;
+	if (cstruct2IE(cmsg->BC, IE_BEARER, parm->bearer_capability))
+		goto err;
+	if (cstruct2IE(cmsg->LLC, IE_LLC, parm->low_layer_compatibility))
+		goto err;
+	if (cstruct2IE(cmsg->HLC, IE_HLC, parm->high_layer_compatibility))
+		goto err;
 	return 0;
+ err:
+	return CapiIllMessageParmCoding;
 }
 
 __u16 cmsg2alerting_req(_cmsg *cmsg, struct alerting_req_parm *parm)
 {
-	__u16 Info;
-
-	Info = UserUser2alerting_req(cmsg->Useruserdata, parm);
-	if (Info)
-		return Info;
-
+	if (cstruct2IE(cmsg->Useruserdata, IE_USER_USER, parm->user_user))
+		goto err;
 	return 0;
+ err:
+	return CapiIllMessageParmCoding;
 }
 
 __u16 cplciCheckBprotocol(struct Cplci *cplci, _cmsg *cmsg)
@@ -264,7 +142,6 @@ __u16 cplciCheckBprotocol(struct Cplci *cplci, _cmsg *cmsg)
 	cplci->Bprotocol.B1protocol = cmsg->B1protocol;
 	cplci->Bprotocol.B2protocol = cmsg->B2protocol;
 	cplci->Bprotocol.B3protocol = cmsg->B3protocol;
-
 	return 0;
 }
 
@@ -514,7 +391,7 @@ static void plci_connect_resp(struct FsmInst *fi, int event, void *arg)
 		FsmChangeState(fi, ST_PLCI_P_4);
 		break;
 	default : // ignore, reject 
-		memcpy(cause, "\x08\x02\x80", 3);
+		memcpy(cause, "\x08\x02\x80", 3); // IE CAUSE, location = local
 		switch (cmsg->Reject) {
 		case 2: cause[3] = 0x90; break; // normal call clearing
 		case 3: cause[3] = 0x91; break; // user busy

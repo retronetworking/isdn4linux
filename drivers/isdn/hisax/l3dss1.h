@@ -116,6 +116,8 @@
 #define CAU_RECOVERY_ON_TIMER_EXPIRY           102
 #define CAU_PROTOCOL_ERROR                     111
 
+int getmax_ie_len(u_char ie);
+
 #else /* only l3dss1_process */
 
 /* l3dss1 specific data in l3 process */

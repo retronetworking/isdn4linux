@@ -712,7 +712,7 @@ struct ie_len {
 static
 struct ie_len max_ie_len[] = {
 	{IE_SEGMENT, 4},
-	{IE_BEARER, 12},
+	{IE_BEARER, 13},
 	{IE_CAUSE, 32},
 	{IE_CALL_ID, 10},
 	{IE_CALL_STATE, 3},
@@ -735,19 +735,20 @@ struct ie_len max_ie_len[] = {
 	{IE_REV_CHARGE, 3},
 	{IE_CALLING_PN, 24},
 	{IE_CALLING_SUB, 23},
-	{IE_CALLED_PN, 24},
+	{IE_CALLED_PN, 23},
 	{IE_CALLED_SUB, 23},
 	{IE_REDIR_NR, 255},
 	{IE_TRANS_SEL, 255},
 	{IE_RESTART_IND, 3},
-	{IE_LLC, 18},
-	{IE_HLC, 5},
+	{IE_LLC, 16},
+	{IE_HLC, 4},
 	{IE_USER_USER, 131},
 	{-1,0},
 };
 
-static int
-getmax_ie_len(u_char ie) {
+int
+getmax_ie_len(u_char ie) 
+{
 	int i = 0;
 	while (max_ie_len[i].ie != -1) {
 		if (max_ie_len[i].ie == ie)
