@@ -21,6 +21,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.49  1997/11/06 17:16:52  keil
+ * Sync to 2.1.62 changes
+ *
  * Revision 1.48  1997/11/02 23:55:50  keil
  * Andi Kleen's changes for 2.1.60
  * without it the isdninfo and isdnctrl devices won't work
@@ -1873,6 +1876,8 @@ isdn_writebuf_skb_stub(int drvidx, int chan, int ack, struct sk_buff *skb)
 /*
  * Low-level-driver registration
  */
+
+EXPORT_SYMBOL(register_isdn);
 
 int
 register_isdn(isdn_if * i)
