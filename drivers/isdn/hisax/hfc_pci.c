@@ -23,6 +23,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.1.2.9  1999/08/09 19:14:31  werner
+ * moved constant pci ids to pci id table
+ *
  * Revision 1.1.2.8  1999/08/08 10:18:50  werner
  * added new PCI vendor and card ids for vendor 0x1043 (Asuscom ?)
  *
@@ -1465,9 +1468,9 @@ __initfunc(int
 			return (0);
 		}
 		i = 0;
-                while (CCD_VENDOR_IDS[i]) {
-		  tmp_hfcpci = pci_find_device(CCD_VENDOR_IDS[i],
-					       CCD_DEVICE_IDS[i],
+                while (id_list[i].vendor_id) {
+		  tmp_hfcpci = pci_find_device(id_list[i].vendor_id,
+					       id_list[i].device_id,
 					       dev_hfcpci);
 		  if (tmp_hfcpci) break;
 		  i++;
@@ -1482,8 +1485,8 @@ __initfunc(int
 				printk(KERN_WARNING "HFC-PCI: No IRQ for PCI card found\n");
 				return (0);
 			}
-			cs->hw.hfcpci.pci_io = (char *)
-			    dev_hfcpci->base_address[1];
+			cs->hw.hfcpci.pci_io = (char *) get_pcibase(dev_hfcpci, 1);
+			printk(KERN_INFO "HiSax: HFC-PCI card manufacturer: %s card name: %s\n",id_list[i].vendor_name,id_list[i].card_name);
 		} else {
 			printk(KERN_WARNING "HFC-PCI: No PCI card found\n");
 			return (0);
@@ -1493,14 +1496,14 @@ __initfunc(int
 			unsigned char irq;
 
 			i = 0;
-                        while (CCD_VENDOR_IDS[i]) {
-			  if (pcibios_find_device(CCD_VENDOR_IDS[i],
-						  CCD_DEVICE_IDS[i], pci_index,
+                        while (id_list[i].vendor_id) {
+			  if (pcibios_find_device(id_list[i].vendor_id,
+						  id_list[i].device_id, pci_index,
 						  &cs->hw.hfcpci.pci_bus, &cs->hw.hfcpci.pci_device_fn) == 0) 
 			    break;
 			  i++;
 			}
-			if (!CCD_VENDOR_IDS[i]) 
+			if (!id_list[i].vendor_id) 
 			  continue;
 
 			pcibios_read_config_byte(cs->hw.hfcpci.pci_bus, cs->hw.hfcpci.pci_device_fn,
@@ -1510,6 +1513,7 @@ __initfunc(int
 			pcibios_read_config_dword(cs->hw.hfcpci.pci_bus,
 				cs->hw.hfcpci.pci_device_fn, PCI_BASE_ADDRESS_1,
 				(void *) &cs->hw.hfcpci.pci_io);
+			printk(KERN_INFO "HiSax: HFC-PCI card manufacturer: %s card name: %s\n",id_list[i].vendor_name,id_list[i].card_name);
 			break;
 		}
 		if (pci_index == 255) {
