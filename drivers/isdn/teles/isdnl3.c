@@ -1,6 +1,9 @@
 /* $Id$
  *
  * $Log$
+ * Revision 1.10  1996/09/25 18:32:43  keil
+ * response for STATUS_ENQ message added
+ *
  * Revision 1.9  1996/06/06 14:22:27  fritz
  * Changed level of "non-digital call..." message, since
  * with audio support, this is quite normal.
@@ -548,7 +551,7 @@ l3up(struct PStack *st,
 				  datastatelist_1tr6t[i].rout(st, pr, ibh);
 			  break;
 #endif
-		  default:	/* E-DSS1 */
+		  case PROTO_EURO:	/* E-DSS1 */
 			  for (i = 0; i < datasllen; i++)
 				  if ((st->l3.state == datastatelist[i].state) &&
 				      (mt == datastatelist[i].primitive))
@@ -560,6 +563,10 @@ l3up(struct PStack *st,
 				 		st->l3.state, mt);
 			  } else
 				  datastatelist[i].rout(st, pr, ibh);
+			  break;
+		  default:
+		          BufPoolRelease(ibh);
+			  break;
 		}
 	} else if (pr == DL_UNIT_DATA) {
 		ptr = DATAPTR(ibh);
@@ -586,7 +593,7 @@ l3up(struct PStack *st,
 				  datastatelist_1tr6t[i].rout(st, pr, ibh);
 			  break;
 #endif
-		  default:	/* E-DSS1 */
+		  case PROTO_EURO:	/* E-DSS1 */
 			  for (i = 0; i < datasllen; i++)
 				  if ((st->l3.state == datastatelist[i].state) &&
 				      (mt == datastatelist[i].primitive))
@@ -598,6 +605,10 @@ l3up(struct PStack *st,
 				 		st->l3.state, mt);
 			  } else
 				  datastatelist[i].rout(st, pr, ibh);
+			  break;
+		  default:
+		          BufPoolRelease(ibh);
+			  break;
 		}
 	}
 }

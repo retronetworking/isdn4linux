@@ -7,6 +7,9 @@
  * Beat Doebeli         log all D channel traffic
  * 
  * $Log$
+ * Revision 1.14  1996/09/23 01:53:49  fritz
+ * Bugfix: discard unknown frames (non-EDSS1 and non-1TR6).
+ *
  * Revision 1.13  1996/07/18 11:21:24  jdenoud
  * Use small buffers for incoming audio data
  *
@@ -937,12 +940,6 @@ process_rcv(struct IsdnCardState *sp)
 		if (broadc && sp->dlogflag && (!(ptr[0] >> 2)))
 			dlogframe(sp, ptr + 3, ibh->datasize - 3,
 				  "Q.931 frame network->user broadcast");
-
-		/* throw away unknwon frame types */
-		if (!(ptr[3]==PROTO_EURO || ((ptr[3]&0xfe)==PROTO_DIS_N0))) {
-			BufPoolRelease(ibh);
-			continue;
-		}
 
 		if (broadc) {
 			while (stptr != NULL) {
