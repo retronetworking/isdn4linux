@@ -21,6 +21,15 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.81  1999/10/27 21:21:18  detabc
+ * Added support for building logically-bind-group's per interface.
+ * usefull for outgoing call's with more then one isdn-card.
+ *
+ * Switchable support to dont reset the hangup-timeout for
+ * receive frames. Most part's of the timru-rules for receiving frames
+ * are now obsolete. If the input- or forwarding-firewall deny
+ * the frame, the line will be not hold open.
+ *
  * Revision 1.80  1999/10/26 21:09:29  armin
  * New bufferlen for phonenumber only with kernel 2.3.x
  *
@@ -326,6 +335,8 @@
 #undef CONFIG_ISDN_WITH_ABC_IPV4_DYNADDR
 #undef CONFIG_ISDN_WITH_ABC_RCV_NO_HUPTIMER
 #undef CONFIG_ISDN_WITH_ABC_ICALL_BIND
+#undef CONFIG_ISDN_WITH_ABC_CH_EXTINUSE
+#undef CONFIG_ISDN_WITH_ABC_CONN_ERROR
 #else
 #include <linux/isdn_dwabc.h>
 
@@ -335,9 +346,10 @@
 #define ISDN_DW_ABC_FLAG_NO_UDP_DIAL		0x00000008L
 #define ISDN_DW_ABC_FLAG_DYNADDR			0x00000010L
 #define ISDN_DW_ABC_FLAG_RCV_NO_HUPTIMER	0x00000020L
+#define ISDN_DW_ABC_FLAG_NO_CH_EXTINUSE		0x00000040L
+#define ISDN_DW_ABC_FLAG_NO_CONN_ERROR		0x00000080L
 
-extern void isdn_dw_abc_init_func(void);
-extern void isdn_dw_abc_release_func(void);
+#define ISDN_DW_ABC_IFFLAG_NODCHAN			0x00000001L
 
 #endif
 
@@ -366,6 +378,7 @@ extern void isdn_dw_abc_release_func(void);
 #define IIOCGETCPS  _IO('I',21)
 #define IIOCGETDVR  _IO('I',22)
 #define IIOCNETLCR  _IO('I',23) /* dwabc ioctl for LCR from isdnlog */
+#define IIOCNETDWRSET  _IO('I',24) /* dwabc ioctl to reset abc-values to default on a net-interface */
 
 #define IIOCNETALN  _IO('I',32)
 #define IIOCNETDLN  _IO('I',33)
@@ -684,6 +697,9 @@ typedef struct isdn_net_local_s {
   ulong cisco_yourseq;                 /* Remote keepalive seq. for Cisco  */
 #ifdef CONFIG_ISDN_WITH_ABC
   ulong dw_abc_flags;
+  ulong dw_abc_if_flags;
+  int   dw_abc_inuse_secure;
+  ulong dw_abc_dialstart;
   int   dw_abc_old_onhtime;
 #ifdef CONFIG_ISDN_WITH_ABC_OUTGOING_EAZ
   char	dw_out_msn[ISDN_MSNLEN]; /* eaz for outgoing call if *out_msn != 0 */
@@ -694,6 +710,10 @@ typedef struct isdn_net_local_s {
   ulong 				dw_abc_lcr_end_request;
   isdn_ctrl 			*dw_abc_lcr_cmd;
   struct ISDN_DWABC_LCR_IOCTL	*dw_abc_lcr_io;
+#endif
+  ulong dw_abc_bchan_last_connect;
+#ifdef CONFIG_ISDN_WITH_ABC_CONN_ERROR
+  short dw_abc_bchan_errcnt;
 #endif
 #endif
 } isdn_net_local;
@@ -956,6 +976,9 @@ typedef struct isdn_devt {
 	int               chanmap[ISDN_MAX_CHANNELS];/* Map minor->device-channel  */
 	int               drvmap[ISDN_MAX_CHANNELS]; /* Map minor->driver-index    */
 	int               usage[ISDN_MAX_CHANNELS];  /* Used by tty/ip/voice       */
+#ifdef CONFIG_ISDN_WITH_ABC_CH_EXTINUSE
+	ulong			  dwabc_chan_external_inuse[ISDN_MAX_CHANNELS];
+#endif
 	char              num[ISDN_MAX_CHANNELS][ISDN_MSNLEN];
 	/* Remote number of active ch.*/
 	int               m_idx[ISDN_MAX_CHANNELS];  /* Index for mdm....          */
@@ -983,7 +1006,9 @@ extern void isdn_net_log_skb_dwabc(struct sk_buff *,isdn_net_local *,char *);
 extern void isdn_net_hangup(struct net_device *d);
 extern void isdn_dw_clear_if(ulong pm,isdn_net_local *);
 extern void	isdn_dwabc_test_phone(isdn_net_local *);
-
+extern void isdn_dw_abc_init_func(void);
+extern void isdn_dw_abc_release_func(void);
+extern int  isdn_dw_abc_reset_interface(isdn_net_local *,int);
 #ifdef CONFIG_ISDN_WITH_ABC_LCR_SUPPORT
 extern size_t	isdn_dw_abc_lcr_readstat(char *,size_t);
 extern ulong	isdn_dw_abc_lcr_call_number(isdn_net_local *,isdn_ctrl *);
@@ -992,7 +1017,6 @@ extern void		isdn_dw_abc_lcr_close(void);
 extern void		isdn_dw_abc_lcr_ioctl(u_long);
 extern void 	isdn_dw_abc_lcr_clear(isdn_net_local *);
 #endif
-
 #ifdef CONFIG_ISDN_WITH_ABC_UDP_CHECK
 extern int dw_abc_udp_test(struct sk_buff *skb,struct net_device *ndev); 
 #endif

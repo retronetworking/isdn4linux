@@ -21,6 +21,15 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.95  1999/10/27 21:21:17  detabc
+ * Added support for building logically-bind-group's per interface.
+ * usefull for outgoing call's with more then one isdn-card.
+ *
+ * Switchable support to dont reset the hangup-timeout for
+ * receive frames. Most part's of the timru-rules for receiving frames
+ * are now obsolete. If the input- or forwarding-firewall deny
+ * the frame, the line will be not hold open.
+ *
  * Revision 1.94  1999/10/02 11:07:02  he
  * Changed tbusy logic in indn_net.c
  *
@@ -445,6 +454,71 @@ char *isdn_net_revision = "$Revision$";
  /*
   * Code for raw-networking over ISDN
   */
+#ifdef CONFIG_ISDN_WITH_ABC
+#ifdef CONFIG_ISDN_WITH_ABC_CONN_ERROR
+static int isdn_dwabc_encap_with_conerr(isdn_net_local *lp)
+{
+	return( 
+		lp->p_encap == ISDN_NET_ENCAP_SYNCPPP			||
+		lp->p_encap == ISDN_NET_ENCAP_RAWIP 			||
+		lp->p_encap == ISDN_NET_ENCAP_CISCOHDLCK		||
+		lp->p_encap == ISDN_NET_ENCAP_UIHDLC			);
+}
+
+static int isdn_dwabc_conerr_ippktok(struct sk_buff *skb)
+{
+		struct iphdr *iph = (struct iphdr *)skb->data;
+		return(iph->version == 6 || (skb->len >= 20 && iph->version == 4));
+}
+
+#endif
+
+static int isdn_dwabc_is_interface_disabled(isdn_net_local *lp)
+{
+	if(lp == NULL)
+		return(0);
+
+	lp->dw_abc_inuse_secure = 0;
+	lp->dw_abc_dialstart = 0;
+
+	/*
+	** check for jiffies overflow
+	*/
+	if(lp->dw_abc_bchan_last_connect > jiffies) {
+
+#ifdef CONFIG_ISDN_WITH_ABC_CONN_ERROR
+		lp->dw_abc_bchan_errcnt = 0;
+#endif
+		lp->dw_abc_bchan_last_connect = 0;
+	}
+
+#ifdef CONFIG_ISDN_WITH_ABC_CONN_ERROR
+	if(!(lp->dw_abc_flags & ISDN_DW_ABC_FLAG_NO_CONN_ERROR) && isdn_dwabc_encap_with_conerr(lp)) {
+
+		if(lp->dw_abc_bchan_errcnt && !(lp->dw_abc_bchan_errcnt & 3)) {
+
+			ulong nj = jiffies;
+			ulong delay = 	lp->dw_abc_bchan_errcnt * 
+							lp->dw_abc_bchan_errcnt * 
+							lp->dw_abc_bchan_errcnt * 2;
+
+			if(delay > 86400) delay = 86400;
+			delay = (lp->dw_abc_bchan_last_connect + delay * HZ);
+
+			if(delay > nj) {
+
+				printk(KERN_INFO 
+					"%s: interface auto-disabled (bchannel connect-error %lu seconds left)\n",
+					lp->name,(delay - nj) / HZ);
+
+				return(1);
+			}
+		}
+	}
+#endif
+	return(0);
+}
+#endif
 
 #ifdef CONFIG_ISDN_WITH_ABC
 void
@@ -563,6 +637,8 @@ isdn_net_unbind_channel(isdn_net_local * lp)
 	cli();
 #ifdef CONFIG_ISDN_WITH_ABC
 	isdn_dw_clear_if(0l,lp);
+	lp->dw_abc_if_flags &= ~ISDN_DW_ABC_IFFLAG_NODCHAN;
+	lp->dw_abc_inuse_secure = 0;
 #endif
 	if (lp->first_skb) {
 		dev_kfree_skb(lp->first_skb);
@@ -624,6 +700,25 @@ isdn_net_autohup()
 		if ((l->flags & ISDN_NET_CONNECTED) && (!l->dialstate)) {
 			anymore = 1;
 			l->huptimer++;
+#ifdef CONFIG_ISDN_WITH_ABC_CONN_ERROR
+			if(	isdn_dwabc_encap_with_conerr(l)	&&
+				l->dw_abc_bchan_errcnt > 0) {
+
+				int n = 115;
+
+				if(l->dw_abc_bchan_errcnt > 2) n = 86;
+				if(l->dw_abc_bchan_errcnt > 4) n = 56;
+				if(l->dw_abc_bchan_errcnt > 8) n = 30;
+
+				if(l->huptimer > n) {
+
+					printk(KERN_INFO "%s: bchan conf-error auto-secure-hangup\n",l->name);
+					isdn_net_hangup(&p->dev);
+					p = (isdn_net_dev *) p->next;
+					continue;
+				}
+			}
+#endif
 			/*
 			 * if there is some dialmode where timeout-hangup
 			 * should _not_ be done, check for that here
@@ -756,8 +851,32 @@ isdn_net_stat_callback(int idx, isdn_ctrl *c)
 					printk(KERN_INFO "%s: Chargesum is %d\n", lp->name,
 					       lp->charge);
 					isdn_net_unbind_channel(lp);
+#ifdef CONFIG_ISDN_WITH_ABC_CONN_ERROR
+					if(lp->dw_abc_bchan_errcnt) {
+
+						printk(KERN_INFO
+							"%s: Note: bchannel-error-counter is %hd\n",
+							lp->name,
+							lp->dw_abc_bchan_errcnt);
+					}
+#endif
 					return 1;
 				}
+#ifdef CONFIG_ISDN_WITH_ABC_CH_EXTINUSE
+				if(!(lp->dw_abc_flags & ISDN_DW_ABC_FLAG_NO_CH_EXTINUSE)) {
+					if((lp->dialstate == 4 || lp->dialstate == 12) && 
+						lp->dw_abc_dialstart && (idx < ISDN_MAX_CHANNELS)) {
+					
+						if((jiffies - lp->dw_abc_dialstart) < (HZ >>1)) {
+
+							lp->dw_abc_if_flags |= ISDN_DW_ABC_IFFLAG_NODCHAN;
+							lp->dialstate = 1;
+							dev->dwabc_chan_external_inuse[idx] = jiffies + HZ * 30;
+							printk(KERN_INFO "%s: Channel %d look like external in use\n",lp->name,idx);
+						}
+					}
+				}
+#endif
 				break;
 #ifdef CONFIG_ISDN_X25
 			case ISDN_STAT_BHUP:
@@ -791,6 +910,18 @@ isdn_net_stat_callback(int idx, isdn_ctrl *c)
 						if (lp->p_encap == ISDN_NET_ENCAP_CISCOHDLCK)
 							isdn_timer_ctrl(ISDN_TIMER_KEEPALIVE, 1);
 						printk(KERN_INFO "isdn_net: %s connected\n", lp->name);
+#ifdef CONFIG_ISDN_WITH_ABC
+						lp->dw_abc_bchan_last_connect = jiffies;
+#ifdef CONFIG_ISDN_WITH_ABC_CONN_ERROR
+						if(!(lp->dw_abc_flags & ISDN_DW_ABC_FLAG_NO_CONN_ERROR)) {
+
+							lp->dw_abc_bchan_errcnt += isdn_dwabc_encap_with_conerr(lp);
+							
+							if(lp->dw_abc_bchan_errcnt > 32000)
+								lp->dw_abc_bchan_errcnt = 32000;
+						}
+#endif
+#endif
 						/* If first Chargeinfo comes before B-Channel connect,
 						 * we correct the timestamp here.
 						 */
@@ -911,6 +1042,50 @@ isdn_net_dial(void)
 				 */
 				save_flags(flags);
 				cli();
+#ifdef CONFIG_ISDN_WITH_ABC_CH_EXTINUSE
+				if(!(lp->dw_abc_flags & ISDN_DW_ABC_FLAG_NO_CH_EXTINUSE) &&
+					(lp->dw_abc_if_flags & ISDN_DW_ABC_IFFLAG_NODCHAN)) {
+
+					struct sk_buff *lfirst_skb = NULL;
+					int chi = 0;
+					short lsecure = 0;
+
+					lfirst_skb = lp->first_skb;
+					lp->first_skb = NULL;
+					lsecure = lp->dw_abc_inuse_secure;
+					isdn_net_unbind_channel(lp);
+					lp->first_skb = lfirst_skb;
+					lp->dw_abc_inuse_secure = lsecure + 1;
+
+					/* Grab a free ISDN-Channel */
+					if ((lsecure >= ISDN_MAX_CHANNELS ) || (chi = 
+#ifdef CONFIG_ISDN_WITH_ABC_ICALL_BIND 
+				     	dwabc_isdn_get_net_free_channel(lp)
+#else
+						isdn_get_free_channel(
+							ISDN_USAGE_NET,
+							lp->l2_proto,
+							lp->l3_proto,
+							lp->pre_device,
+						 	lp->pre_channel)
+#endif
+							) < 0) {
+
+						restore_flags(flags);
+						isdn_net_unreachable(&p->dev, lp->first_skb,
+							"DWABC: redial-external-inuse NO FREE CHANNEL\n");
+						isdn_net_hangup(&p->dev);
+						break;
+					}
+
+					isdn_net_bind_channel(lp, chi);
+					lp->dialstate = 1;
+					lp->dialstarted = 0;
+					lp->dialwait_timer = 0;
+				}
+
+				lp->dw_abc_if_flags &= ~ISDN_DW_ABC_IFFLAG_NODCHAN;
+#endif
 				lp->dial = lp->phone[1];
 				restore_flags(flags);
 				if (!lp->dial) {
@@ -1102,6 +1277,15 @@ dw_abc_lcr_next_click:;
 					       lp->dialretry, 
 						   cmd.parm.setup.eazmsn,
 						   cmd.parm.setup.phone);
+#ifdef CONFIG_ISDN_WITH_ABC_CONN_ERROR
+					if(lp->dw_abc_bchan_errcnt) {
+
+						printk(KERN_INFO
+							"%s: Note: bchannel-error-counter is %hd\n",
+							lp->name,
+							lp->dw_abc_bchan_errcnt);
+					}
+#endif
 #else
 					printk(KERN_INFO "%s: dialing %d %s...\n", lp->name,
 					       lp->dialretry, cmd.parm.setup.phone);
@@ -1126,6 +1310,10 @@ dw_abc_lcr_next_click:;
 				lp->dialstate =
 				    (lp->cbdelay &&
 				     (lp->flags & ISDN_NET_CBOUT)) ? 12 : 4;
+#ifdef CONFIG_ISDN_WITH_ABC
+				lp->dw_abc_if_flags &= ~ISDN_DW_ABC_IFFLAG_NODCHAN;
+				lp->dw_abc_dialstart = jiffies;
+#endif
 				break;
 			case 4:
 				/* Wait for D-Channel-connect.
@@ -1264,6 +1452,15 @@ isdn_net_hangup(struct net_device *d)
 		isdn_command(&cmd);
 		printk(KERN_INFO "%s: Chargesum is %d\n", lp->name, lp->charge);
 		isdn_all_eaz(lp->isdn_device, lp->isdn_channel);
+#ifdef CONFIG_ISDN_WITH_ABC_CONN_ERROR
+		if(lp->dw_abc_bchan_errcnt) {
+
+			printk(KERN_INFO
+				"%s: Note: bchannel-error-counter is %hd\n",
+				lp->name,
+				lp->dw_abc_bchan_errcnt);
+		}
+#endif
 	}
 	isdn_net_unbind_channel(lp);
 }
@@ -1605,7 +1802,17 @@ isdn_net_start_xmit(struct sk_buff *skb, struct net_device *ndev)
 					} else
 						lp->dialwait_timer = 0;
 				}
+#ifdef CONFIG_ISDN_WITH_ABC
+				if(isdn_dwabc_is_interface_disabled(lp)) {
 
+					dev_kfree_skb(skb);
+#ifndef ISDN_NEW_TBUSY
+					ndev->tbusy = 0;
+#endif
+					restore_flags(flags);
+					return(0);
+				}
+#endif
 				/* Grab a free ISDN-Channel */
 				if (((chi =
 #ifdef CONFIG_ISDN_WITH_ABC_ICALL_BIND 
@@ -1962,14 +2169,8 @@ isdn_net_receive(struct net_device *ndev, struct sk_buff *skb)
 			break;
 		case ISDN_NET_ENCAP_UIHDLC:
 			/* HDLC with UI-frame (for ispa with -h1 option) */
-#ifdef CONFIG_ISDN_WITH_ABC_RCV_NO_HUPTIMER
-			if(!(olp->dw_abc_flags & ISDN_DW_ABC_FLAG_RCV_NO_HUPTIMER)) {
-#endif
 			olp->huptimer = 0;
 			lp->huptimer = 0;
-#ifdef CONFIG_ISDN_WITH_ABC_RCV_NO_HUPTIMER
-			}
-#endif
 			skb_pull(skb, 2);
 			/* Fall through */
 		case ISDN_NET_ENCAP_RAWIP:
@@ -1983,6 +2184,10 @@ isdn_net_receive(struct net_device *ndev, struct sk_buff *skb)
 			}
 #endif
 			skb->protocol = htons(ETH_P_IP);
+#ifdef CONFIG_ISDN_WITH_ABC_CONN_ERROR
+			if(isdn_dwabc_conerr_ippktok(skb))
+				lp->dw_abc_bchan_errcnt = 0;
+#endif
 			break;
 		case ISDN_NET_ENCAP_CISCOHDLCK:
 			ch = (cisco_hdr *)skb->data;
@@ -2003,10 +2208,17 @@ isdn_net_receive(struct net_device *ndev, struct sk_buff *skb)
 				case CISCO_TYPE_INET:
 					skb_pull(skb, 4);
 					skb->protocol = htons(ETH_P_IP);
+#ifdef CONFIG_ISDN_WITH_ABC_CONN_ERROR
+					if(isdn_dwabc_conerr_ippktok(skb))
+						lp->dw_abc_bchan_errcnt = 0;
+#endif
 					break;
 				case CISCO_TYPE_SLARP:
 					skb_pull(skb, 4);
 					isdn_net_slarp_in(olp, skb);
+#ifdef CONFIG_ISDN_WITH_ABC_CONN_ERROR
+					lp->dw_abc_bchan_errcnt = 0;
+#endif
 					return;
 				default:
 					printk(KERN_WARNING "%s: Unknown Cisco type 0x%04x\n",
@@ -2059,6 +2271,9 @@ isdn_net_receive(struct net_device *ndev, struct sk_buff *skb)
 			if(cprot) if(cprot -> pops)
 				if( cprot -> pops -> data_ind){
 					cprot -> pops -> data_ind(cprot,skb);
+#ifdef CONFIG_ISDN_WITH_ABC_CONN_ERROR
+					lp->dw_abc_bchan_errcnt = 0;
+#endif
 					return;
 				};
 #endif /* CONFIG_ISDN_X25 */
@@ -2668,7 +2883,13 @@ isdn_net_find_icall(int di, int ch, int idx, setup_parm setup)
 						p = (isdn_net_dev *) p->next;
 						continue;
 					}
+				} 
+#ifdef CONFIG_ISDN_WITH_ABC_CONN_ERROR
+				if(isdn_dwabc_is_interface_disabled(lp)) {
+					restore_flags(flags);
+					return 3;
 				}
+#endif
 				if (lp->flags & ISDN_NET_CALLBACK) {
 					int chi;
 					/*
@@ -3272,6 +3493,9 @@ isdn_net_setcfg(isdn_net_ioctl_cfg * cfg)
 			}
 		}
 		lp->p_encap = cfg->p_encap;
+#ifdef CONFIG_ISDN_WITH_ABC 
+		isdn_dw_abc_reset_interface(lp,0);
+#endif
 		return 0;
 	}
 	return -ENODEV;

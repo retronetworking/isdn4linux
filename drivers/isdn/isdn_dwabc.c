@@ -20,6 +20,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.5  1999/11/07 21:57:04  detabc
+ * added dwabc-udpinfo-dial support
+ *
  * Revision 1.4  1999/10/27 21:21:17  detabc
  * Added support for building logically-bind-group's per interface.
  * usefull for outgoing call's with more then one isdn-card.
@@ -470,12 +473,7 @@ int dw_abc_udp_test(struct sk_buff *skb,struct net_device *ndev)
 
 						case 0x11:
 							mc = *p + 1;
-							/**********
-							lp->conn_start =
-							lp->conn_count =
-							lp->anz_conf_err = 0;
-							lp->last_pkt_rcv = jiffies;
-							*************/
+							isdn_dw_abc_reset_interface(lp,1);
 							break;
 
 						case 0x28:	mc = *p + 1;	break;
@@ -1270,6 +1268,12 @@ void isdn_dw_abc_init_func(void)
 #ifdef CONFIG_ISDN_WITH_ABC_RCV_NO_HUPTIMER
 		"CONFIG_ISDN_WITH_ABC_RCV_NO_HUPTIMER\n"
 #endif
+#ifdef CONFIG_ISDN_WITH_ABC_CH_EXTINUSE
+		"CONFIG_ISDN_WITH_ABC_CH_EXTINUSE\n"
+#endif
+#ifdef CONFIG_ISDN_WITH_ABC_CONN_ERROR
+		"CONFIG_ISDN_WITH_ABC_CONN_ERROR\n"
+#endif
 		"loaded\n",
 		dwabcrevison);
 }
@@ -1342,6 +1346,8 @@ void isdn_dwabc_test_phone(isdn_net_local *lp)
 				case 'h':	lp->dw_abc_flags |= ISDN_DW_ABC_FLAG_NO_UDP_HANGUP;			break;
 				case 'd':	lp->dw_abc_flags |= ISDN_DW_ABC_FLAG_NO_UDP_DIAL;			break;
 				case 'X':	lp->dw_abc_flags |= ISDN_DW_ABC_FLAG_RCV_NO_HUPTIMER;		break;
+				case 'c':	lp->dw_abc_flags |= ISDN_DW_ABC_FLAG_NO_CH_EXTINUSE;		break;
+				case 'e':   lp->dw_abc_flags |= ISDN_DW_ABC_FLAG_NO_CONN_ERROR;			break;
 
 				case 'D':	lp->dw_abc_flags |= ISDN_DW_ABC_FLAG_DYNADDR;				break;
 
@@ -1556,4 +1562,31 @@ int dwabc_isdn_get_net_free_channel(isdn_net_local *lp)
 	return(retw);
 }
 #endif
+
+int isdn_dw_abc_reset_interface(isdn_net_local *lp,int with_message)
+{
+	int r = -EINVAL;
+
+	if(lp != NULL) {
+
+		r = 0;
+
+		lp->dw_abc_bchan_last_connect = 0;
+		lp->dw_abc_dialstart = 0;
+		lp->dw_abc_inuse_secure = 0;
+#ifdef CONFIG_ISDN_WITH_ABC_CONN_ERROR
+		lp->dw_abc_bchan_errcnt = 0;
+#endif
+
+		if(with_message && dev->net_verbose > 0)
+			printk(KERN_INFO
+				"%s: NOTE: reset (clear) abc-interface-secure-counter\n",
+				lp->name);
+	}
+
+	return(r);
+}
+
+	
+
 #endif

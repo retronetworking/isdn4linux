@@ -21,6 +21,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.93  1999/11/04 13:11:36  keil
+ * Reinit of v110 structs
+ *
  * Revision 1.92  1999/10/31 15:59:50  he
  * more skb headroom checks
  *
@@ -1573,6 +1576,28 @@ isdn_ioctl(struct inode *inode, struct file *file, uint cmd, ulong arg)
  * are serialized by means of a semaphore.
  */
 		switch (cmd) {
+			case IIOCNETDWRSET:
+#ifdef CONFIG_ISDN_WITH_ABC
+				if (arg) {
+
+					if (copy_from_user(name, (char *) arg, sizeof(name))) {
+
+						return(-EFAULT);
+
+					} else {
+
+						isdn_net_dev *p = isdn_net_findif(name);
+
+						if(p == NULL)
+							return(-EINVAL);
+
+						return(isdn_dw_abc_reset_interface(p->local,1));
+					}
+				} 
+#else
+				printk(KERN_INFO "INFO: ISDN_DW_ABC_EXTENSION not enabled\n");
+#endif
+				return(-EINVAL);
 			case IIOCNETLCR:
 #ifdef CONFIG_ISDN_WITH_ABC_LCR_SUPPORT
 				isdn_dw_abc_lcr_ioctl(arg);			
@@ -2104,6 +2129,15 @@ isdn_get_free_channel(int usage, int l2_proto, int l3_proto, int pre_dev
 		if (USG_NONE(dev->usage[i]) &&
 		    (dev->drvmap[i] != -1)) {
 			int d = dev->drvmap[i];
+#ifdef CONFIG_ISDN_WITH_ABC_CH_EXTINUSE
+			if(jiffies < dev->dwabc_chan_external_inuse[i]) {
+
+				if((dev->dwabc_chan_external_inuse[i] - jiffies) > (HZ * 120))
+					dev->dwabc_chan_external_inuse[i] = 0;
+				else 
+					continue;
+			}
+#endif
 			if ((dev->usage[i] & ISDN_USAGE_EXCLUSIVE) &&
 			((pre_dev != d) || (pre_chan != dev->chanmap[i])))
 				continue;

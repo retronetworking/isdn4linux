@@ -19,6 +19,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.60  1999/11/04 20:29:55  he
+ * applied Andre Beck's reset_free fix
+ *
  * Revision 1.59  1999/10/31 15:59:50  he
  * more skb headroom checks
  *
@@ -1444,7 +1447,10 @@ isdn_ppp_push_higher(isdn_net_dev * net_dev, isdn_net_local * lp, struct sk_buff
  	lp->huptimer = 0;
 #ifdef CONFIG_ISDN_WITH_ABC_IPV4_TCP_KEEPALIVE
 	if(!(lp->dw_abc_flags & ISDN_DW_ABC_FLAG_NO_TCP_KEEPALIVE))
-		(void)isdn_dw_abc_ip4_keepalive_test(NULL,skb);
+	 	(void)isdn_dw_abc_ip4_keepalive_test(NULL,skb);
+#ifdef CONFIG_ISDN_WITH_ABC_CONN_ERROR
+	lp->dw_abc_bchan_errcnt = 0;
+#endif
 #endif
 	netif_rx(skb);
 	/* net_dev->local->stats.rx_packets++; *//* done in isdn_net.c */
