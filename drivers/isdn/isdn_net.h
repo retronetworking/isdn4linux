@@ -21,6 +21,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.10.2.6  2000/03/21 23:52:38  kai
+ * fix backwards compatibility
+ *
  * Revision 1.15  2000/03/19 15:27:53  kai
  * no known bugs left...
  *
@@ -175,7 +178,7 @@ static __inline__ isdn_net_local * isdn_net_get_locked_lp(isdn_net_dev *nd)
 	while (isdn_net_lp_busy(nd->queue)) {
 		spin_unlock_bh(&nd->queue->xmit_lock);
 		nd->queue = nd->queue->next;
-		if (nd->queue == lp) /* not found -- should never happen */
+		if (nd->queue == lp)
 			return 0;
 		spin_lock_bh(&nd->queue->xmit_lock);
 	}
@@ -198,9 +201,9 @@ static __inline__ void isdn_net_add_to_bundle(isdn_net_dev *nd, isdn_net_local *
 
 	lp = nd->queue;
 	nlp->last = lp->last;
+	nlp->next = lp;
 	lp->last->next = nlp;
 	lp->last = nlp;
-	nlp->next = lp;
 	nd->queue = nlp;
 
 	spin_unlock_irqrestore(&nd->queue_lock, flags);
@@ -211,17 +214,26 @@ static __inline__ void isdn_net_add_to_bundle(isdn_net_dev *nd, isdn_net_local *
 static __inline__ void isdn_net_rm_from_bundle(isdn_net_local *lp)
 {
 	isdn_net_local *master_lp = lp;
+	isdn_net_local *nlp;
 	unsigned long flags;
 
-	if (lp->master)
-		master_lp = (isdn_net_local *) lp->master->priv;
-
+  	if (lp->master)
+  		master_lp = (isdn_net_local *) lp->master->priv;
+	
 	spin_lock_irqsave(&master_lp->netdev->queue_lock, flags);
-	lp->last->next = lp->next;
-	lp->next->last = lp->last;
-	if (master_lp->netdev->queue == lp)
-		master_lp->netdev->queue = lp->next;
-	lp->next = lp->last = lp;	/* (re)set own pointers */
+ 	/* make sure none of the queue pointers will point to the 
+ 	 * interface being removed */
+ 	for (nlp=lp->next; nlp != lp; nlp=nlp->next) {
+ 		if (nlp->netdev->queue == lp )
+ 			nlp->netdev->queue = lp->next;
+	}
+  	lp->last->next = lp->next;
+  	lp->next->last = lp->last;
+ 	
+ 	if (master_lp->netdev->queue == lp)
+ 		master_lp->netdev->queue = lp->next;
+ 	lp->next = lp->last = lp;	/* (re)set own pointers */
+ 	lp->netdev->queue = lp;
 	spin_unlock_irqrestore(&master_lp->netdev->queue_lock, flags);
 }
 

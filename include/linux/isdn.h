@@ -21,6 +21,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.94.2.6  2000/03/20 14:39:44  kai
+ * merged LL changes from main tree
+ *
  * Revision 1.100  2000/03/19 15:27:53  kai
  * no known bugs left...
  *
@@ -848,8 +851,8 @@ typedef struct isdn_net_dev_s {
   void *next;                          /* Pointer to next isdn-interface   */
   struct net_device dev;               /* interface to upper levels        */
 #ifdef CONFIG_ISDN_PPP
-  struct mpqueue *mp_last; 
-  struct ippp_bundle ib;
+  ippp_bundle * pb;		/* pointer to the common bundle structure
+   			         * with the the per-bundle data */
 #endif
 #ifdef CONFIG_ISDN_X25
   struct concap_proto  *cprot; /* connection oriented encapsulation protocol */

@@ -21,6 +21,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.111.2.12  2000/04/03 19:14:05  kai
+ * fix "isdn BUG at isdn_net.c:1440!"
+ *
  * Revision 1.111.2.11  2000/03/21 23:52:37  kai
  * fix backwards compatibility
  *
@@ -1045,9 +1048,11 @@ isdn_net_stat_callback(int idx, isdn_ctrl *c)
 #endif /* CONFIG_ISDN_X25 */
 				if ((!lp->dialstate) && (lp->flags & ISDN_NET_CONNECTED)) {
 #ifdef CONFIG_ISDN_PPP
-					isdn_ppp_free(lp);
+					if (lp->p_encap == ISDN_NET_ENCAP_SYNCPPP)
+						isdn_ppp_free(lp);
 #endif
-					isdn_net_lp_disconnected(lp);
+					if (lp->p_encap != ISDN_NET_ENCAP_SYNCPPP)
+						isdn_net_lp_disconnected(lp);
 					isdn_all_eaz(lp->isdn_device, lp->isdn_channel);
 					printk(KERN_INFO "%s: remote hangup\n", lp->name);
 					printk(KERN_INFO "%s: Chargesum is %d\n", lp->name,
@@ -1617,9 +1622,11 @@ isdn_net_hangup(struct net_device *d)
 	if (lp->flags & ISDN_NET_CONNECTED) {
 		printk(KERN_INFO "isdn_net: local hangup %s\n", lp->name);
 #ifdef CONFIG_ISDN_PPP
-		isdn_ppp_free(lp);
+		if (lp->p_encap == ISDN_NET_ENCAP_SYNCPPP)
+			isdn_ppp_free(lp);
 #endif
-		isdn_net_lp_disconnected(lp);
+		if (lp->p_encap != ISDN_NET_ENCAP_SYNCPPP)
+			isdn_net_lp_disconnected(lp);
 #ifdef CONFIG_ISDN_X25
 		/* try if there are generic encap protocol
 		   receiver routines and signal the closure of
@@ -3658,11 +3665,6 @@ isdn_net_new(char *name, struct net_device *master)
 	}
 	netdev->local->magic = ISDN_NET_MAGIC;
 
-#ifdef CONFIG_ISDN_PPP
-	netdev->mp_last = NULL; /* mpqueue is empty */
-	netdev->ib.next_num = 0;
-	netdev->ib.last = NULL;
-#endif
 	netdev->queue = netdev->local;
 	spin_lock_init(&netdev->queue_lock);
 
