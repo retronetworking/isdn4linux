@@ -146,6 +146,10 @@ if [ "$CONFIG_ISDN_CAPI" != "n" ]; then
    if [ "$CONFIG_EXPERIMENTAL" != "n" ]; then
       bool '  AVM C4 support' CONFIG_ISDN_DRV_AVMB1_C4
    fi
+   bool '  AVM FRITZ!Card PCI support' CONFIG_ISDN_DRV_AVMB1_FCPCI
+   bool '  AVM FRITZ!Card Classic support' CONFIG_ISDN_DRV_AVMB1_FCCLASSIC
+   bool '  AVM FRITZ!Card PNP support' CONFIG_ISDN_DRV_AVMB1_FCPNP
+   bool '  AVM FRITZ!Card PCMCIA support' CONFIG_ISDN_DRV_AVMB1_FCPCMCIA
    bool '  Verbose reason code reporting (kernel size +=7K)' CONFIG_ISDN_DRV_AVMB1_VERBOSE_REASON
 fi
 if [ "$CONFIG_PROC_FS" != "n" ]; then
