@@ -6,6 +6,9 @@
  * (c) Copyright 1997 by Carsten Paeth (calle@calle.in-berlin.de)
  * 
  * $Log$
+ * Revision 1.4.2.15  1998/03/18 17:43:26  calle
+ * T1 with fastlink, bugfix for multicontroller support in capidrv.c
+ *
  * Revision 1.4.2.14  1998/03/04 17:33:47  calle
  * Changes for T1.
  *
@@ -454,6 +457,7 @@ static void notify_handler(void *dummy)
 
 /* -------- card ready callback ------------------------------- */
 
+
 void avmb1_card_ready(avmb1_card * card)
 {
         struct capi_profile *profp =
@@ -462,6 +466,7 @@ void avmb1_card_ready(avmb1_card * card)
 	__u16 appl;
 	char *cardname, cname[20];
 	__u32 flag;
+        int nbchan = profp->nbchannel;
 
 	card->cversion.majorversion = 2;
 	card->cversion.minorversion = 0;
@@ -474,9 +479,14 @@ void avmb1_card_ready(avmb1_card * card)
 
 	for (appl = 1; appl <= CAPI_MAXAPPL; appl++) {
 		if (VALID_APPLID(appl) && !APPL(appl)->releasing) {
+			int nconn, want = APPL(appl)->rparam.level3cnt;
+
+			if (want > 0) nconn = want;
+			else nconn = nbchan * -want;
+			if (nconn == 0) nconn = nbchan;
+
 			B1_send_register(card->port, appl,
-				1024 * (APPL(appl)->rparam.level3cnt+1),
-				APPL(appl)->rparam.level3cnt,
+				1024 * (nconn+1), nconn,
 				APPL(appl)->rparam.datablkcnt,
 				APPL(appl)->rparam.datablklen);
 		}
@@ -697,6 +707,7 @@ static int capi_installed(void)
 
 static __u16 capi_register(capi_register_params * rparam, __u16 * applidp)
 {
+	int nconn, want = rparam->level3cnt;
 	int i;
 	int appl;
 
@@ -716,13 +727,20 @@ static __u16 capi_register(capi_register_params * rparam, __u16 * applidp)
 	memcpy(&APPL(appl)->rparam, rparam, sizeof(capi_register_params));
 
 	for (i = 0; i < CAPI_MAXCONTR; i++) {
+		struct capi_profile *profp =
+			(struct capi_profile *)cards[i].version[VER_PROFILE];
+
 		if (cards[i].cardstate != CARD_RUNNING)
 			continue;
+
+		if (want > 0) nconn = want;
+		else nconn = profp->nbchannel * -want;
+		if (nconn == 0) nconn = profp->nbchannel;
+
 		B1_send_register(cards[i].port, appl,
-			       1024 * (APPL(appl)->rparam.level3cnt + 1),
-				 APPL(appl)->rparam.level3cnt,
-				 APPL(appl)->rparam.datablkcnt,
-				 APPL(appl)->rparam.datablklen);
+			1024 * (nconn+1), nconn,
+			APPL(appl)->rparam.datablkcnt,
+			APPL(appl)->rparam.datablklen);
 	}
 	*applidp = appl;
 	printk(KERN_INFO "b1capi: appl %d up\n", appl);

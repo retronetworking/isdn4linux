@@ -6,6 +6,9 @@
  * Copyright 1997 by Carsten Paeth (calle@calle.in-berlin.de)
  *
  * $Log$
+ * Revision 1.3.2.8  1998/03/18 17:51:28  calle
+ * added controller number to error messages
+ *
  * Revision 1.3.2.7  1998/02/27 15:40:47  calle
  * T1 running with slow link. bugfix in capi_release.
  *
@@ -1961,8 +1964,8 @@ int capidrv_init(void)
 	} else
 		strcpy(rev, " ??? ");
 
-	rparam.level3cnt = 2;
-	rparam.datablkcnt = 8;
+	rparam.level3cnt = -2;
+	rparam.datablkcnt = 16;
 	rparam.datablklen = 2048;
 	errcode = (*capifuncs->capi_register) (&rparam, &global.appid);
 	if (errcode) {
