@@ -6,6 +6,9 @@
  * (c) Copyright 1997 by Carsten Paeth (calle@calle.in-berlin.de)
  * 
  * $Log$
+ * Revision 1.1  1997/03/30 17:10:42  calle
+ * added support for AVM-B1-PCI card.
+ *
  */
 
 #include <linux/config.h>
@@ -88,14 +91,14 @@ int b1pci_init(void)
 		/* Strip the I/O address out of the returned value */
 		ioaddr &= PCI_BASE_ADDRESS_IO_MASK;
 		printk(KERN_INFO
-			"b1pci.c: PCI BIOS reports AVM-B1 at i/o %#x, irq %d,",
-			ioaddr,
-			irq);
+			"b1pci: PCI BIOS reports AVM-B1 at i/o %#x, irq %d\n",
+			ioaddr, irq);
 		if ((rc = avmb1_probecard(ioaddr, irq)) != 0) {
-			printk(" but cannot be detected.\n");
+		        printk(KERN_ERR
+			"b1pci: no AVM-B1 at i/o %#x, irq %d detected\n",
+			ioaddr, irq);
 			return rc;
 		}
-		printk(" ok.\n");
 		if ((rc = avmb1_addcard(ioaddr, irq)) != 0)
 			return rc;
 	}

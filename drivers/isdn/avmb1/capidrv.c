@@ -6,6 +6,9 @@
  * Copyright 1997 by Carsten Paeth (calle@calle.in-berlin.de)
  *
  * $Log$
+ * Revision 1.2  1997/03/05 21:19:59  fritz
+ * Removed include of config.h (mkdep stated this is unneded).
+ *
  * Revision 1.1  1997/03/04 21:50:31  calle
  * Frirst version in isdn4linux
  *
@@ -234,6 +237,7 @@ static inline __u8 cip2si2(__u16 cipval)
 		cipval = 0;	/* .... */
 	return si[cipval];
 }
+
 
 /* -------- controller managment ------------------------------------- */
 
@@ -665,8 +669,8 @@ static void handle_controller(_cmsg * cmsg)
 
 	case CAPI_LISTEN_CONF:	/* Controller */
 		if (debugmode)
-			printk(KERN_DEBUG "capidrv: listenconf Info=0x%4x cipmask=0x%x\n",
-			       cmsg->Info, card->cipmask);
+			printk(KERN_DEBUG "capidrv: listenconf Info=0x%4x (%s) cipmask=0x%x\n",
+			       cmsg->Info, capi_info2str(cmsg->Info), card->cipmask);
 		if (cmsg->Info) {
 			listen_change_state(card, EV_LISTEN_CONF_ERROR);
 		} else if (card->cipmask == 0) {
@@ -831,9 +835,9 @@ static void handle_plci(_cmsg * cmsg)
 
 	case CAPI_DISCONNECT_IND:	/* plci */
 		if (cmsg->Reason) {
-			printk(KERN_INFO "capidrv: %s reason 0x%x for plci 0x%x\n",
+			printk(KERN_INFO "capidrv: %s reason 0x%x (%s) for plci 0x%x\n",
 			   capi_cmd2str(cmsg->Command, cmsg->Subcommand),
-			       cmsg->Reason, cmsg->adr.adrPLCI);
+			       cmsg->Reason, capi_info2str(cmsg->Reason), cmsg->adr.adrPLCI);
 		}
 		if (!(plcip = find_plci_by_plci(card, cmsg->adr.adrPLCI))) {
 			capi_cmsg_answer(cmsg);
@@ -849,9 +853,10 @@ static void handle_plci(_cmsg * cmsg)
 
 	case CAPI_DISCONNECT_CONF:	/* plci */
 		if (cmsg->Info) {
-			printk(KERN_INFO "capidrv: %s info 0x%x for plci 0x%x\n",
+			printk(KERN_INFO "capidrv: %s info 0x%x (%s) for plci 0x%x\n",
 			   capi_cmd2str(cmsg->Command, cmsg->Subcommand),
-			       cmsg->adr.adrPLCI, cmsg->Info);
+			       cmsg->Info, capi_info2str(cmsg->Info), 
+			       cmsg->adr.adrPLCI);
 		}
 		if (!(plcip = find_plci_by_plci(card, cmsg->adr.adrPLCI)))
 			goto notfound;
@@ -861,9 +866,10 @@ static void handle_plci(_cmsg * cmsg)
 
 	case CAPI_ALERT_CONF:	/* plci */
 		if (cmsg->Info) {
-			printk(KERN_INFO "capidrv: %s info 0x%x for plci 0x%x\n",
+			printk(KERN_INFO "capidrv: %s info 0x%x (%s) for plci 0x%x\n",
 			   capi_cmd2str(cmsg->Command, cmsg->Subcommand),
-			       cmsg->adr.adrPLCI, cmsg->Info);
+			       cmsg->Info, capi_info2str(cmsg->Info), 
+			       cmsg->adr.adrPLCI);
 		}
 		break;
 
@@ -873,9 +879,10 @@ static void handle_plci(_cmsg * cmsg)
 
 	case CAPI_CONNECT_CONF:	/* plci */
 		if (cmsg->Info) {
-			printk(KERN_INFO "capidrv: %s info 0x%x for plci 0x%x\n",
+			printk(KERN_INFO "capidrv: %s info 0x%x (%s) for plci 0x%x\n",
 			   capi_cmd2str(cmsg->Command, cmsg->Subcommand),
-			       cmsg->adr.adrPLCI, cmsg->Info);
+			       cmsg->Info, capi_info2str(cmsg->Info), 
+			       cmsg->adr.adrPLCI);
 		}
 		if (!(plcip = find_plci_by_msgid(card, cmsg->Messagenumber)))
 			goto notfound;
@@ -1055,6 +1062,12 @@ static void handle_ncci(_cmsg * cmsg)
 			goto notfound;
 
 		nccip->ncci = cmsg->adr.adrNCCI;
+		if (cmsg->Info) {
+			printk(KERN_INFO "capidrv: %s info 0x%x (%s) for ncci 0x%x\n",
+			   capi_cmd2str(cmsg->Command, cmsg->Subcommand),
+			       cmsg->Info, capi_info2str(cmsg->Info), 
+			       cmsg->adr.adrNCCI);
+		}
 
 		if (cmsg->Info)
 			ncci_change_state(card, nccip, EV_NCCI_CONNECT_B3_CONF_ERROR);
@@ -1096,8 +1109,13 @@ static void handle_ncci(_cmsg * cmsg)
 	case CAPI_DISCONNECT_B3_CONF:	/* ncci */
 		if (!(nccip = find_ncci(card, cmsg->adr.adrNCCI)))
 			goto notfound;
-		if (cmsg->Info)
+		if (cmsg->Info) {
+			printk(KERN_INFO "capidrv: %s info 0x%x (%s) for ncci 0x%x\n",
+			   capi_cmd2str(cmsg->Command, cmsg->Subcommand),
+			       cmsg->Info, capi_info2str(cmsg->Info), 
+			       cmsg->adr.adrNCCI);
 			ncci_change_state(card, nccip, EV_NCCI_DISCONNECT_B3_CONF_ERROR);
+		}
 		break;
 
 	case CAPI_RESET_B3_IND:	/* ncci */

@@ -6,6 +6,9 @@
  * Copyright 1996 by Carsten Paeth (calle@calle.in-berlin.de)
  *
  * $Log$
+ * Revision 1.2  1997/03/05 21:17:59  fritz
+ * Added capi_poll for compiling under 2.1.27
+ *
  * Revision 1.1  1997/03/04 21:50:29  calle
  * Frirst version in isdn4linux
  *
@@ -276,7 +279,6 @@ static int capi_ioctl(struct inode *inode, struct file *file,
 						(void *) arg, sizeof(struct capi_register_params));
 			if (retval)
 				return -EFAULT;
-
 			if (cdev->is_registered)
 				return -EEXIST;
 			cdev->errcode = (*capifuncs->capi_register) (&data.rparams,
@@ -294,7 +296,8 @@ static int capi_ioctl(struct inode *inode, struct file *file,
 						(void *) arg,
 						sizeof(data.contr));
 			if (retval)
-				cdev->errcode = (*capifuncs->capi_get_version) (data.contr, &data.version);
+				return -EFAULT;
+		        cdev->errcode = (*capifuncs->capi_get_version) (data.contr, &data.version);
 			if (cdev->errcode)
 				return -EIO;
 			retval = copy_to_user((void *) arg,
@@ -311,7 +314,8 @@ static int capi_ioctl(struct inode *inode, struct file *file,
 						(void *) arg,
 						sizeof(data.contr));
 			if (retval)
-				cdev->errcode = (*capifuncs->capi_get_serial) (data.contr, data.serial);
+				return -EFAULT;
+			cdev->errcode = (*capifuncs->capi_get_serial) (data.contr, data.serial);
 			if (cdev->errcode)
 				return -EIO;
 			retval = copy_to_user((void *) arg,
@@ -358,7 +362,8 @@ static int capi_ioctl(struct inode *inode, struct file *file,
 						(void *) arg,
 						sizeof(data.contr));
 			if (retval)
-				cdev->errcode = (*capifuncs->capi_get_manufacturer) (data.contr, data.manufacturer);
+				return -EFAULT;
+			cdev->errcode = (*capifuncs->capi_get_manufacturer) (data.contr, data.manufacturer);
 			if (cdev->errcode)
 				return -EIO;
 

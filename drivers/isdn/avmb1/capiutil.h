@@ -7,6 +7,9 @@
  * Rewritten for Linux 1996 by Carsten Paeth (calle@calle.in-berlin.de)
  * 
  * $Log$
+ * Revision 1.1  1997/03/04 21:50:35  calle
+ * Frirst version in isdn4linux
+ *
  * Revision 2.2  1997/02/12 09:31:39  calle
  * new version
  *
@@ -151,6 +154,11 @@ unsigned capi_message2cmsg(_cmsg * cmsg, __u8 * msg);
 unsigned capi_cmsg_header(_cmsg * cmsg, __u16 _ApplId,
 			  __u8 _Command, __u8 _Subcommand,
 			  __u16 _Messagenumber, __u32 _Controller);
+
+/*
+ * capi_info2str generated a readable string for Capi2.0 reasons.
+ */
+char *capi_info2str(__u16 reason);
 
 /*-----------------------------------------------------------------------*/
 

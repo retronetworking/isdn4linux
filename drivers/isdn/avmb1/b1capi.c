@@ -6,6 +6,9 @@
  * (c) Copyright 1997 by Carsten Paeth (calle@calle.in-berlin.de)
  * 
  * $Log$
+ * Revision 1.2  1997/03/05 21:20:41  fritz
+ * Removed include of config.h (mkdep stated this is unneded).
+ *
  * Revision 1.1  1997/03/04 21:50:27  calle
  * Frirst version in isdn4linux
  *
@@ -253,6 +256,7 @@ void avmb1_handle_free_ncci(avmb1_card * card,
 		}
 		APPL(appl)->releasing--;
 		if (APPL(appl)->releasing == 0) {
+	                APPL(appl)->signal = 0;
 			APPL_MARK_FREE(appl);
 			printk(KERN_INFO "b1capi: appl %d down\n", appl);
 		}
@@ -520,7 +524,6 @@ static __u16 capi_release(__u16 applid)
 		return CAPI_ILLAPPNR;
 	while ((skb = skb_dequeue(&APPL(applid)->recv_queue)) != 0)
 		kfree_skb(skb, FREE_READ);
-	APPL(applid)->signal = 0;
 	for (i = 0; i < ncards; i++) {
 		if (cards[i].cardstate != CARD_RUNNING)
 			continue;
@@ -528,6 +531,7 @@ static __u16 capi_release(__u16 applid)
 		B1_send_release(cards[i].port, applid);
 	}
 	if (APPL(applid)->releasing == 0) {
+	        APPL(applid)->signal = 0;
 		APPL_MARK_FREE(applid);
 		printk(KERN_INFO "b1capi: appl %d down\n", applid);
 	}
