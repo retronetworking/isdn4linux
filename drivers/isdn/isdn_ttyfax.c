@@ -20,6 +20,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.5  2000/01/20 19:55:33  keil
+ * Add FAX Class 1 support
+ *
  * Revision 1.4  1999/09/21 19:00:35  armin
  * Extended FCON message with added CPN
  * can now be activated with Bit 1 of Reg 23.
@@ -410,7 +413,7 @@ isdn_tty_cmd_FCLASS1(char **p, modem_info * info)
 		}
 		/* get a temporary connection to the first free fax driver */
 		i = isdn_get_free_channel(ISDN_USAGE_FAX, ISDN_PROTO_L2_FAX,
-					  ISDN_PROTO_L3_FCLASS1, -1, -1);
+					  ISDN_PROTO_L3_FCLASS1, -1, -1, "00");
 		if (i < 0) {
 			restore_flags(flags);
 			PARSE_ERROR1;
