@@ -21,6 +21,10 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.1.2.2  1999/07/01 10:30:25  keil
+ * Version is the same as outside isdn4kernel_2_0 branch,
+ * only version numbers are different
+ *
  * Revision 1.2  1999/07/01 08:07:52  keil
  * Initial version
  *
@@ -180,6 +184,7 @@
 #define HFCPCI_FIFOEN_B1     0x03
 #define HFCPCI_FIFOEN_B2     0x0C
 #define HFCPCI_FIFOEN_DTX    0x10
+#define HFCPCI_FIFOEN_B2RX   0x08
 
 
 /***********************************/

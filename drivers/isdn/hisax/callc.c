@@ -11,6 +11,9 @@
  *              Fritz Elfert
  *
  * $Log$
+ * Revision 1.30.2.18  1999/07/09 08:28:43  keil
+ * cosmetics
+ *
  * Revision 1.30.2.17  1999/07/01 10:29:32  keil
  * Version is the same as outside isdn4kernel_2_0 branch,
  * only version numbers are different
@@ -972,12 +975,24 @@ struct Channel
            chanp += 2;
          }
 
-	while (i < ((bch) ? 2 : (2 + MAX_WAITING_CALLS))) {
+	while (i < ((bch) ? cs->chanlimit : (2 + MAX_WAITING_CALLS))) {
 		if (chanp->fi.state == ST_NULL)
 			return (chanp);
 		chanp++;
 		i++;
 	}
+
+        if (bch) /* number of channels is limited */ 
+         { i = 2; /* virtual channel */
+           chanp = st->lli.userdata;
+	   chanp += i;
+	   while (i < (2 + MAX_WAITING_CALLS)) {
+		if (chanp->fi.state == ST_NULL)
+			return (chanp);
+		chanp++;
+		i++;
+	   }
+         }
 	return (NULL);
 }
 

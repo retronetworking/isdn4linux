@@ -3,6 +3,10 @@
  *   Basic declarations, defines and prototypes
  *
  * $Log$
+ * Revision 1.13.2.27  1999/07/12 21:01:29  keil
+ * fix race in IRQ handling
+ * added watchdog for lost IRQs
+ *
  * Revision 1.13.2.26  1999/07/01 10:30:27  keil
  * Version is the same as outside isdn4kernel_2_0 branch,
  * only version numbers are different
@@ -700,9 +704,13 @@ struct hfcPCI_hw {
 	unsigned char int_m2;
 	unsigned char int_s1;
 	unsigned char sctrl;
+        unsigned char sctrl_r;
+        unsigned char sctrl_e;
+        unsigned char trm;
 	unsigned char stat;
 	unsigned char fifo;
         unsigned char fifo_en;
+        unsigned char bswapped;
   /*	unsigned int *send; */
 	unsigned char pci_bus;
         unsigned char pci_device_fn;
@@ -843,6 +851,8 @@ struct IsdnCardState {
 	unsigned long irq_flags;
 	int HW_Flags;
 	int *busy_flag;
+        int chanlimit; /* limited number of B-chans to use */
+        int logecho; /* log echo if supported by card */
 	union {
 		struct elsa_hw elsa;
 		struct teles0_hw teles0;
@@ -1112,6 +1122,7 @@ struct IsdnCardState {
 
 #ifdef	CONFIG_HISAX_HFC_PCI
 #define  CARD_HFC_PCI 1
+extern int hfcpci_set_echo(struct IsdnCardState *, int);
 #else
 #define  CARD_HFC_PCI 0
 #endif
