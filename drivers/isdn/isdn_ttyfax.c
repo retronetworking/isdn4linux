@@ -20,6 +20,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.1  1999/07/31 12:59:50  armin
+ * Added tty fax capabilities.
+ *
  *
  */
 
@@ -64,7 +67,7 @@ static void isdn_tty_fax_modem_result(int code, modem_info * info)
 	atemu *m = &info->emu;
 	T30_s *f = info->fax;
 	char rs[50];
-	char rss[20];
+	char rss[50];
 	char *rp;
 	int i;
 	static char *msg[] =
@@ -295,7 +298,7 @@ int isdn_tty_cmd_PLUSF_FAX(char **p, modem_info * info)
 	isdn_ctrl cmd;
 	int par;
 	char rs[50];
-	char rss[20];
+	char rss[50];
 	int maxdccval[]={1,5,2,2,3,2,0,7};
 
 	/* FAA still unchanged */
@@ -1131,7 +1134,8 @@ int isdn_tty_cmd_PLUSF_FAX(char **p, modem_info * info)
 #ifdef ISDN_TTY_FAX_STAT_DEBUG
                 printk(KERN_DEBUG "isdn_tty: FREV?\n");
 #endif
-		sprintf(rs, "\r\nRev: %s", isdn_getrev(isdn_tty_fax_revision));
+		strcpy(rss, isdn_tty_fax_revision);
+		sprintf(rs, "\r\nRev: %s", isdn_getrev(rss));
                 isdn_tty_at_cout(rs, info);
                 return 0;
         }
