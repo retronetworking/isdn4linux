@@ -1,5 +1,5 @@
 MODULES=isdn.o
-OBJS=isdn_common.o isdn_net.o isdn_tty.o isdn_ppp.o
+OBJS=isdn_common.o isdn_net.o isdn_tty.o isdn_ppp.o isdn_audio.o
 PROGS=debugvar
 SUBDIRS=teles icn pcbit
 
@@ -23,6 +23,9 @@ isdn_tty.o:	isdn_tty.c $(INCLUDES)/linux/isdn.h $(INCLUDES)/linux/isdnif.h
 	$(CC) $(CFLAGS) -c $<
 
 isdn_ppp.o:	isdn_ppp.c $(INCLUDES)/linux/isdn.h $(INCLUDES)/linux/isdnif.h
+	$(CC) $(CFLAGS) -c $<
+
+isdn_audio.o:	isdn_audio.c $(INCLUDES)/linux/isdn.h $(INCLUDES)/linux/isdnif.h
 	$(CC) $(CFLAGS) -c $<
 
 debugvar: debugvar.c $(INCLUDES)/linux/isdn.h $(INCLUDES)/linux/isdnif.h
