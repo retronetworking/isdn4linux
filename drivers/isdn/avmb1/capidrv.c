@@ -6,6 +6,9 @@
  * Copyright 1997 by Carsten Paeth (calle@calle.in-berlin.de)
  *
  * $Log$
+ * Revision 1.3.2.5  1997/10/29 09:35:29  calle
+ * correct byteorder problem with new isdnlog interface.
+ *
  * Revision 1.3.2.4  1997/10/26 15:04:24  calle
  * prepared isdnlog interface for d2-trace in newer firmware.
  *
@@ -189,9 +192,8 @@ static inline __u32 b2prot(int l2, int l3)
 	default:
 		return 0;
 	case ISDN_PROTO_L2_HDLC:
-		return 1;
 	case ISDN_PROTO_L2_TRANS:
-		return 0;
+		return 1;
 	}
 }
 
@@ -753,6 +755,7 @@ static void handle_controller(_cmsg * cmsg)
 			capi_cmd2str(cmsg->Command, cmsg->Subcommand),
 			cmsg->adr.adrController,
 			cmsg->Function, s);
+		   break;
 		}
 		goto ignored;
 	case CAPI_FACILITY_IND:	/* Controller/plci/ncci */
@@ -1295,9 +1298,9 @@ static void handle_dtrace_data(capidrv_contr *card,
     cli();
 
     if (level2) {
-        PUTBYTE_TO_STATUS(card, 'H');
-        PUTBYTE_TO_STATUS(card, 'E');
-        PUTBYTE_TO_STATUS(card, 'X');
+        PUTBYTE_TO_STATUS(card, 'D');
+        PUTBYTE_TO_STATUS(card, '2');
+        PUTBYTE_TO_STATUS(card, send ? '>' : '<');
         PUTBYTE_TO_STATUS(card, ':');
     } else {
         PUTBYTE_TO_STATUS(card, 'D');
@@ -1721,7 +1724,7 @@ static void enable_dchannel_trace(capidrv_contr *card)
 					   0x214D5641,  /* ManuID */
 					   0,           /* Class */
 					   1,           /* Function */
-					   (_cstruct)"\004\014\200\000\000");
+					   (_cstruct)"\004\200\014\000\000");
 	} else {
 		printk(KERN_INFO "%s: D3 trace enabled\n", card->name);
 		capi_fill_MANUFACTURER_REQ(&cmdcmsg, global.appid,
