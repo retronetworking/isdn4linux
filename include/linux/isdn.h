@@ -21,6 +21,10 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.31.2.5  1998/04/18 17:39:45  detabc
+ * remove some unused abc-lines
+ * added defines und items for abc-secure callback (only used with abc-extenrsion)
+ *
  * Revision 1.31.2.4  1998/04/08 21:42:25  keil
  * Blocksize default 1024
  *
@@ -379,6 +383,11 @@ typedef struct {
 #define ISDN_GLOBAL_STOPPED 1
 
 /*=================== Start of ip-over-ISDN stuff =========================*/
+#ifdef CONFIG_ISDN_WITH_ABC
+#define ABC_ANZ_TX_QUE 5
+#define ABC_DELAYED_MAXHANGUP_WAIT		((u_long)HZ * 24LU)
+#define ABC_DELAYED_TRAFFICHANGUP_WAIT	((u_long)HZ * 6LU)
+#endif
 
 /* Feature- and status-flags for a net-interface */
 #define ISDN_NET_CONNECTED  0x01       /* Bound to ISDN-Channel             */
@@ -529,7 +538,6 @@ typedef struct isdn_net_local_s {
 	u_long  abc_nextkeep;           /* nextkeep at jiffies              */
 	u_long  abc_anz_wrong_data_prot;
 	u_long  abc_rem_disconnect;
-	short   abc_bchan_is_up;
 	short   abc_first_disp;         /* gesetzt wenn first pak displayed */
 	u_long  abc_snd_want_bytes;
 	u_long	abc_snd_real_bytes;
@@ -539,8 +547,11 @@ typedef struct isdn_net_local_s {
 	u_long  abc_dlcon_cnt;
 	u_long	abc_cbout_secure;
 	u_long  abc_last_disp_disabled;
+	u_long	abc_last_traffic;
+	u_long	abc_delayed_hangup;
 	u_char  abc_rx_key[ISDN_MSNLEN];
   	u_char  abc_out_msn[ISDN_MSNLEN];  /* MSNs/EAZs for outgoing calls */
+	struct sk_buff_head abc_tx_que[ABC_ANZ_TX_QUE];
 #endif
 #ifdef CONFIG_ISDN_TIMEOUT_RULES
   struct isdn_timeout_rules	*timeout_rules;
@@ -591,14 +602,13 @@ extern int abcgmbh_pack(u_char *,u_char *,int);
 extern void abc_insert_incall(u_char *number);
 extern int abc_test_incall(u_char *number);
 
-#define ABC_MUSTFIRST   0x00000001
-#define ABC_MUSTKEEP    0x00000002
 #define ABC_ABCROUTER   0x00000004
 #define ABC_WITH_UDP    0x00000008
 #define ABC_WITH_TCP    0x00000010
 #define ABC_NODCHAN		0x00000020
 #define ABC_WRONG_DSP	0x00000040
 #define ABC_MUST_DISCON	0x00000080
+
 
 extern int isdn_abc_net_send_skb(   struct device *,
                                     isdn_net_local *,
@@ -610,13 +620,14 @@ extern int abc_keep_senden(struct device *,isdn_net_local *lp);
 extern int abc_eot_senden(struct device *,isdn_net_local *lp);
 extern int abcgmbh_freepack_mem(void);
 extern struct sk_buff *abc_get_keep_skb(void);
-extern void abc_hup_snd_test(isdn_net_local *lp,struct sk_buff *skb);
 extern int abcgmbh_tcp_test(struct device *ndev,struct sk_buff *sp);
 extern void isdn_net_log_packet(u_char * buf, isdn_net_local * lp);
 extern void abc_pack_statistik(isdn_net_local *lp);
 extern void abc_test_phone(isdn_net_local *lp);
 extern void abc_simple_decrypt(u_char *poin,int len,u_char *key);
 extern void abc_simple_crypt(u_char *poin,int len,u_char *key);
+extern void abc_clear_tx_que(isdn_net_local *lp);
+extern void abc_put_tx_que(isdn_net_local *,int,int,struct sk_buff *);
 #endif
 
 /*===================== End of ip-over-ISDN stuff ===========================*/
