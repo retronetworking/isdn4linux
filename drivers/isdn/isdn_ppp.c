@@ -19,6 +19,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.54  1999/09/13 23:25:17  he
+ * serialized xmitting frames from isdn_ppp and BSENT statcallb
+ *
  * Revision 1.53  1999/08/31 11:18:14  paul
  * various spelling corrections (new checksums may be needed, Karsten!)
  *
@@ -287,7 +290,16 @@ static void isdn_ppp_free_mpqueue(isdn_net_dev *);
 char *isdn_ppp_revision = "$Revision$";
 
 static struct ippp_struct *ippp_table[ISDN_MAX_CHANNELS];
+
+#ifndef CONFIG_ISDN_WITH_ABC
 static struct isdn_ppp_compressor *ipc_head = NULL;
+#else
+	/*
+	** make compressor's common usable
+	*/
+struct isdn_ppp_compressor *isdn_ippp_comp_head = NULL;
+#define ipc_head isdn_ippp_comp_head
+#endif
 
 /*
  * frame log (debug)
@@ -1418,6 +1430,10 @@ isdn_ppp_push_higher(isdn_net_dev * net_dev, isdn_net_local * lp, struct sk_buff
 
  	/* Reset hangup-timer */
  	lp->huptimer = 0;
+#ifdef CONFIG_ISDN_WITH_ABC_IPV4_TCP_KEEPALIVE
+	if(!(lp->dw_abc_flags & ISDN_DW_ABC_FLAG_NO_TCP_KEEPALIVE))
+		(void)isdn_dw_abc_ip4_keepalive_test(NULL,skb);
+#endif
 	netif_rx(skb);
 	/* net_dev->local->stats.rx_packets++; *//* done in isdn_net.c */
 
@@ -2928,7 +2944,6 @@ static void isdn_ppp_send_ccp(isdn_net_dev *net_dev, isdn_net_local *lp, struct 
 		break;
 	}
 }
-
 
 int isdn_ppp_register_compressor(struct isdn_ppp_compressor *ipc)
 {
