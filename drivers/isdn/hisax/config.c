@@ -5,6 +5,9 @@
  *
  *
  * $Log$
+ * Revision 2.35  1999/09/04 06:35:09  keil
+ * Winbond W6692 support
+ *
  * Revision 2.34  1999/09/04 06:20:06  keil
  * Changes from kernel set_current_state()
  *
@@ -1536,6 +1539,7 @@ HiSax_init(void))
 				break;
 #endif
 			case ISDN_CTYPE_ELSA:
+			case ISDN_CTYPE_HFC_PCI:
 				cards[i].para[0] = io[i];
 				break;
 			case ISDN_CTYPE_16_3:
