@@ -19,6 +19,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.36  1997/02/10 21:31:20  fritz
+ * Changed setup-interface (incoming and outgoing).
+ *
  * Revision 1.35  1997/02/10 10:10:28  fritz
  * Changes for Kernel 2.1.X compatibility.
  * Enhanced initialization, can recover from
@@ -578,12 +581,16 @@ icn_parse_status(u_char * status, int channel, icn_card * card)
 				s = strtok(NULL,",");
 				strncpy(cmd.parm.setup.eazmsn, s, sizeof(cmd.parm.setup.eazmsn));
 			}
+			cmd.parm.setup.plan = 0;
+			cmd.parm.setup.screen = 0;
 			break;
 		case 4:
 			sprintf(cmd.parm.setup.phone, "LEASED%d", card->myid);
 			sprintf(cmd.parm.setup.eazmsn, "%d", channel+1);
 			cmd.parm.setup.si1 = 7;
 			cmd.parm.setup.si2 = 0;
+			cmd.parm.setup.plan = 0;
+			cmd.parm.setup.screen = 0;
 			break;
 		case 5:
 			strncpy(cmd.parm.num, status + 3, sizeof(cmd.parm.num) - 1);
