@@ -21,8 +21,10 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.73  1999/09/06 07:29:36  fritz
+ * Changed my mail-address.
+ *
  * Revision 1.72  1999/09/04 22:20:19  detabc
- * /usr/hst/detlef/mmm
  *
  * Revision 1.71  1999/08/23 15:54:22  keil
  * more backported changes from kernel 2.3.14
@@ -283,11 +285,18 @@
 #define ISDN_MINOR_STATUS   255
 
 #ifndef CONFIG_ISDN_WITH_ABC
+#include <linux/isdn_dwabc.h>
 #undef CONFIG_ISDN_WITH_ABC_CALLB
 #undef CONFIG_ISDN_WITH_ABC_UDP_CHECK
 #undef CONFIG_ISDN_WITH_ABC_UDP_CHECK_HANGUP
 #undef CONFIG_ISDN_WITH_ABC_OUTGOING_EAZ
+#undef CONFIG_ISDN_WITH_ABC_CALL_CHECK_SYNCRO
+#undef CONFIG_ISDN_WITH_ABC_LCR_SUPPORT
+#else
+extern void isdn_dw_abc_init_func(void);
+extern void isdn_dw_abc_release_func(void);
 #endif
+
 
 /* New ioctl-codes */
 #define IIOCNETAIF  _IO('I',1)
@@ -312,6 +321,7 @@
 #define IIOCNETDIL  _IO('I',20)
 #define IIOCGETCPS  _IO('I',21)
 #define IIOCGETDVR  _IO('I',22)
+#define IIOCNETLCR	_IO('I',23) /* dwabc ioctl for LCR from isdnlog */
 
 #define IIOCNETALN  _IO('I',32)
 #define IIOCNETDLN  _IO('I',33)
@@ -447,7 +457,6 @@ typedef struct {
 #endif
 
 #include <linux/isdnif.h>
-
 
 #define ISDN_DRVIOCTL_MASK       0x7f  /* Mask for Device-ioctl */
 
@@ -623,8 +632,16 @@ typedef struct isdn_net_local_s {
   ulong cisco_myseq;                   /* Local keepalive seq. for Cisco   */
   ulong cisco_yourseq;                 /* Remote keepalive seq. for Cisco  */
 #ifdef CONFIG_ISDN_WITH_ABC
+	int dw_abc_old_onhtime;
 #ifdef CONFIG_ISDN_WITH_ABC_OUTGOING_EAZ
   char	dw_out_msn[ISDN_MSNLEN]; /* eaz for outgoing call if *out_msn != 0 */
+#endif
+#ifdef CONFIG_ISDN_WITH_ABC_LCR_SUPPORT
+  u_long 				dw_abc_lcr_callid;
+  u_long 				dw_abc_lcr_start_request;
+  u_long 				dw_abc_lcr_end_request;
+  isdn_ctrl 			*dw_abc_lcr_cmd;
+  struct ISDN_DWABC_LCR_IOCTL	*dw_abc_lcr_io;
 #endif
 #endif
 } isdn_net_local;
@@ -908,6 +925,24 @@ typedef struct isdn_devt {
 
 extern isdn_dev *dev;
 
+#ifdef CONFIG_ISDN_WITH_ABC
+extern void isdn_net_hangup(struct net_device *d);
+extern void isdn_dw_clear_if(ulong pm,isdn_net_local *);
+
+#ifdef CONFIG_ISDN_WITH_ABC_LCR_SUPPORT
+extern size_t	isdn_dw_abc_lcr_readstat(char *,size_t);
+extern u_long	isdn_dw_abc_lcr_call_number(isdn_net_local *,isdn_ctrl *);
+extern void		isdn_dw_abc_lcr_open(void);
+extern void		isdn_dw_abc_lcr_close(void);
+extern void		isdn_dw_abc_lcr_ioctl(u_long);
+extern void 	isdn_dw_abc_lcr_clear(isdn_net_local *);
+#endif
+
+#ifdef CONFIG_ISDN_WITH_ABC_UDP_CHECK
+extern int dw_abc_udp_test(struct sk_buff *skb,struct net_device *ndev); 
+#endif
+
+#endif
 
 /* Utility-Macros */
 #define MIN(a,b) ((a<b)?a:b)

@@ -21,6 +21,8 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.90  1999/09/04 22:21:39  detabc
+ *
  * Revision 1.89  1999/08/22 20:26:03  calle
  * backported changes from kernel 2.3.14:
  * - several #include "config.h" gone, others come.
@@ -360,11 +362,10 @@
 #include "isdn_concap.h"
 #endif
 
-#ifdef CONFIG_ISDN_WITH_ABC_UDP_CHECK
-#include <net/udp.h>
-#include <net/checksum.h>
-static int abc_udp_test(struct sk_buff *skb,struct net_device *ndev);
+#ifdef CONFIG_ISDN_WITH_ABC
+#include <linux/isdn_dwabc.h>
 #endif
+
 
 /* Prototypes */
 
@@ -485,6 +486,9 @@ isdn_net_unbind_channel(isdn_net_local * lp)
 
 	save_flags(flags);
 	cli();
+#ifdef CONFIG_ISDN_WITH_ABC
+	isdn_dw_clear_if(0l,lp);
+#endif
 	if (lp->first_skb) {
 		dev_kfree_skb(lp->first_skb);
 		lp->first_skb = NULL;
@@ -850,12 +854,49 @@ isdn_net_dial(void)
 				lp->dialretry = 0;
 				anymore = 1;
 				lp->dialstate++;
+#ifdef CONFIG_ISDN_WITH_ABC
+				lp->onhtime = lp->dw_abc_old_onhtime;
+#ifdef CONFIG_ISDN_WITH_ABC_LCR_SUPPORT
+				isdn_dw_abc_lcr_clear(lp);
+#endif
+#endif
 				/* Fall through */
 			case 3:
 				/* Setup interface, dial current phone-number, switch to next number.
 				 * If list of phone-numbers is exhausted, increment
 				 * retry-counter.
 				 */
+#ifdef CONFIG_ISDN_WITH_ABC_LCR_SUPPORT
+				if(	lp->dw_abc_lcr_cmd != NULL &&
+					lp->dw_abc_lcr_start_request != lp->dw_abc_lcr_end_request) {
+
+					if(	lp->dw_abc_lcr_io == NULL 				&& 
+						lp->dw_abc_lcr_start_request <= jiffies &&
+						lp->dw_abc_lcr_end_request > jiffies) {
+						
+						anymore = 1;
+						break;
+					}
+
+					if(lp->dw_abc_lcr_io != NULL) {
+
+						if(lp->dw_abc_lcr_io->lcr_ioctl_flags & 
+							DWABC_LCR_FLG_DISABLE) {
+
+							isdn_net_hangup(&p->dev);
+							break;
+						}
+
+						if(lp->dw_abc_lcr_io->lcr_ioctl_flags & 
+							DWABC_LCR_FLG_NEWHUPTIME) {
+							lp->onhtime = lp->dw_abc_lcr_io->lcr_ioctl_onhtime;
+						}
+					}
+
+					memcpy(&cmd,lp->dw_abc_lcr_cmd,sizeof(cmd));
+					goto dw_abc_lcr_next_click;
+				}
+#endif
 				if(dev->global_flags & ISDN_GLOBAL_STOPPED || (ISDN_NET_DIALMODE(*lp) == ISDN_NET_DM_OFF)) {
 					char *s;
 					if (dev->global_flags & ISDN_GLOBAL_STOPPED)
@@ -930,6 +971,34 @@ isdn_net_dial(void)
 #else
 					sprintf(cmd.parm.setup.eazmsn, "%s",
 						isdn_map_eaz2msn(lp->msn, cmd.driver));
+#endif
+#ifdef CONFIG_ISDN_WITH_ABC_LCR_SUPPORT
+					/*
+					** if callback-out we dont need 
+					** low-cost-routing LCR
+					*/
+				    if(!(lp->flags & ISDN_NET_CBOUT)) {
+
+						isdn_dw_abc_lcr_call_number(lp,&cmd);
+						
+						if(lp->dw_abc_lcr_start_request != lp->dw_abc_lcr_end_request) {
+
+							if(dev->net_verbose > 2) {
+
+								printk(KERN_INFO 
+					"%s: Waiting for LCR-response from isdnlog %s -> %s...\n",
+									lp->name,
+						   			cmd.parm.setup.eazmsn,
+						   			cmd.parm.setup.phone);
+							}
+								
+							anymore = 1;
+							break;
+						}
+					} 
+
+dw_abc_lcr_next_click:;
+					isdn_dw_abc_lcr_clear(lp);
 #endif
 					i = isdn_dc2minor(lp->isdn_device, lp->isdn_channel);
 					if (i >= 0) {
@@ -1322,7 +1391,7 @@ isdn_net_start_xmit(struct sk_buff *skb, struct net_device *ndev)
 	struct concap_proto * cprot = lp -> netdev -> cprot;
 #endif
 #ifdef CONFIG_ISDN_WITH_ABC_UDP_CHECK
-	if(abc_udp_test(skb,ndev)) {
+	if(dw_abc_udp_test(skb,ndev)) {
 		dev_kfree_skb(skb);
 		return 0;
 	}
@@ -1943,7 +2012,7 @@ isdn_net_rebuild_header(struct sk_buff *skb)
 }
 
 /*
- * Interface-setup. (called just after registering a new interface)
+ * Interface-setup. (just after registering a new interface)
  */
 static int
 isdn_net_init(struct net_device *ndev)
@@ -2686,6 +2755,9 @@ isdn_net_new(char *name, struct net_device *master)
 	netdev->local->hupflags = ISDN_INHUP;	/* Do hangup even on incoming calls */
 	netdev->local->onhtime = 10;	/* Default hangup-time for saving costs
 	   of those who forget configuring this */
+#ifdef CONFIG_ISDN_WITH_ABC 
+	netdev->local->dw_abc_old_onhtime = netdev->local->onhtime;
+#endif
 	netdev->local->dialmax = 1;
 	netdev->local->flags = ISDN_NET_CBHUP | ISDN_NET_DM_MANUAL;	/* Hangup before Callback, manual dial */
 	netdev->local->cbdelay = 25;	/* Wait 5 secs before Callback */
@@ -2884,6 +2956,9 @@ isdn_net_setcfg(isdn_net_ioctl_cfg * cfg)
 		lp->pre_device = drvidx;
 		lp->pre_channel = chidx;
 		lp->onhtime = cfg->onhtime;
+#ifdef CONFIG_ISDN_WITH_ABC 
+		lp->dw_abc_old_onhtime = lp->onhtime;
+#endif
 		lp->charge = cfg->charge;
 		lp->l2_proto = cfg->l2_proto;
 		lp->l3_proto = cfg->l3_proto;
@@ -3260,8 +3335,10 @@ isdn_net_realrm(isdn_net_dev * p, isdn_net_dev * q)
 	/* If no more net-devices remain, disable auto-hangup timer */
 	if (dev->netdev == NULL)
 		isdn_timer_ctrl(ISDN_TIMER_NETHANGUP, 0);
+#ifdef CONFIG_ISDN_WITH_ABC
+	isdn_dw_clear_if(~0l,p->local);
+#endif
 	restore_flags(flags);
-
 	kfree(p->local);
 	kfree(p);
 
@@ -3318,114 +3395,3 @@ isdn_net_rmall(void)
 	return 0;
 }
 
-
-#ifdef CONFIG_ISDN_WITH_ABC_UDP_CHECK
-static int abc_udp_test(struct sk_buff *skb,struct net_device *ndev)
-{
-#define NBYTEORDER_30BYTES      0x1e00 
-	if(ndev != NULL && skb != NULL && skb->protocol == htons(ETH_P_IP)) {
-		struct iphdr *iph = (struct iphdr *)skb->data;
-		isdn_net_local *lp = (isdn_net_local *) ndev->priv;
-		if(skb->len >= 20 && iph->version == 4) {
-			if(	iph->tot_len == NBYTEORDER_30BYTES	&& iph->protocol == IPPROTO_UDP) {
-				struct udphdr *udp = (struct udphdr *)(skb->data + (iph->ihl << 2));
-				if(udp->dest == htons(25001) && udp->source >= htons(20000) && udp->source < htons(25000)) {
-					char *p = (char *)(udp + 1);
-					if(p[0] == p[1]) {
-						char mc = 0;
-						switch(*p) {
-						case 0x11:
-							mc = *p + 1;
-							/**********
-							lp->conn_start =
-							lp->conn_count =
-							lp->anz_conf_err = 0;
-							lp->last_pkt_rcv = jiffies;
-							*************/
-							break;
-						case 0x28:	mc = *p + 1;	break;
-						case 0x2a:
-						case 0x2c:
-#ifdef CONFIG_ISDN_WITH_ABC_UDP_CHECK_HANGUP
-							{
-								ulong flags;
-								mc = *p;
-								save_flags(flags);
-								cli();
-
-								if(lp->dialstate == 20) {
-
-									lp->dialstate = 0;
-
-									if(lp->first_skb) {
-
-										dev_kfree_skb(lp->first_skb);
-										lp->first_skb = NULL;
-									}
-
-									mc = *p + 1;
-								}
-
-								restore_flags(flags);
-
-								if(lp->isdn_device >= 0) {
-
-									isdn_net_hangup(ndev);
-									mc = *p + 1;
-								}
-							}
-#else
-							printk(KERN_DEBUG "%s: UDP-INFO-HANGUP not supportet\n",
-								lp->name);
-#endif
-							break;
-						}
-
-						if(mc) {
-							struct sk_buff *nskb;
-							int need = 2+sizeof(struct iphdr)+sizeof(struct udphdr);
-							int hneed = need + ndev->hard_header_len;
-							if((nskb = (struct sk_buff *)dev_alloc_skb(hneed)) != NULL) {
-								ushort n = sizeof(struct udphdr) + 2;
-								struct iphdr *niph;
-								struct udphdr *nup;
-								skb_reserve(nskb,ndev->hard_header_len);
-								if((niph = (struct iphdr *)skb_put(nskb,need))==NULL){
-									printk(KERN_DEBUG "%s: skb_put failt (%d bytes)\n", lp->name,hneed);
-									dev_kfree_skb(nskb);
-									return(0);
-								}
-								nup = (struct udphdr *)(niph + 1);
-								((char *)(nup + 1))[0] = mc;
-								((char *)(nup + 1))[1] = mc;
-								nup->source=udp->dest;
-								nup->dest=udp->source;
-								nup->len=htons(n);
-								nup->check=0; /* dont need checksum */
-								memset((void *)niph,0,sizeof(*niph));
-								niph->version=4;
-								niph->ihl=5;
-								niph->tot_len=NBYTEORDER_30BYTES;
-								niph->ttl = 32;
-								niph->protocol = IPPROTO_UDP;
-								niph->saddr=iph->daddr;
-								niph->daddr=iph->saddr;
-								niph->id=iph->id;
-								niph->check=ip_fast_csum((unsigned char *)niph,niph->ihl);
-								nskb->dev = ndev;
-								nskb->pkt_type = PACKET_HOST;
-								nskb->protocol = htons(ETH_P_IP);
-								nskb->mac.raw = nskb->data;
-								netif_rx(nskb);
-							}
-							return(1);
-						}
-					}
-				}
-			}
-		}
-	}
-	return(0);
-#undef NBYTEORDER_30BYTES 
-}
-#endif

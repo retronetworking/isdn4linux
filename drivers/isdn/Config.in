@@ -90,6 +90,7 @@ if [ "$CONFIG_EXPERIMENTAL" != "n" ]; then
 		fi
 
 		bool 'Enable Outgoing-EAZ-Support'      CONFIG_ISDN_WITH_ABC_OUTGOING_EAZ
+		bool 'Enable LCR-Support (need isdnlog)'      CONFIG_ISDN_WITH_ABC_LCR_SUPPORT
 	fi
 fi
 

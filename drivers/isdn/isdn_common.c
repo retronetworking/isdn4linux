@@ -21,6 +21,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.86  1999/07/31 12:59:42  armin
+ * Added tty fax capabilities.
+ *
  * Revision 1.85  1999/07/29 16:58:35  armin
  * Bugfix: DLE handling in isdn_readbchan()
  *
@@ -1338,12 +1341,18 @@ isdn_read(struct file *file, char *buf, size_t count, loff_t * off)
 				return -EAGAIN;
 			interruptible_sleep_on(&(dev->drv[drvidx]->st_waitq));
 		}
+#ifdef CONFIG_ISDN_WITH_ABC_LCR_SUPPORT
+		if(drvidx || (len = isdn_dw_abc_lcr_readstat(buf,count)) < 1) {
+#endif
 		if (dev->drv[drvidx]->interface->readstat)
 			len = dev->drv[drvidx]->interface->
 			    readstat(buf, MIN(count, dev->drv[drvidx]->stavail),
 				     1, drvidx, isdn_minor2chan(minor));
 		else
 			len = 0;
+#ifdef CONFIG_ISDN_WITH_ABC_LCR_SUPPORT
+		}
+#endif
 		save_flags(flags);
 		cli();
 		if (len)
@@ -1532,6 +1541,14 @@ isdn_ioctl(struct inode *inode, struct file *file, uint cmd, ulong arg)
  * are serialized by means of a semaphore.
  */
 		switch (cmd) {
+			case IIOCNETLCR:
+#ifdef CONFIG_ISDN_WITH_ABC_LCR_SUPPORT
+				isdn_dw_abc_lcr_ioctl(arg);			
+				return(0);
+#else
+				printk(KERN_INFO "INFO: ISDN_ABC_LCR_SUPPORT not enabled\n");
+				return -ENODEV;
+#endif
 #ifdef CONFIG_NETDEVICES
 			case IIOCNETAIF:
 				/* Add a network-interface */
@@ -1935,6 +1952,9 @@ isdn_open(struct inode *ino, struct file *filep)
 		if (drvidx < 0)
 			return -ENODEV;
 		isdn_MOD_INC_USE_COUNT();
+#ifdef CONFIG_ISDN_WITH_ABC_LCR_SUPPORT
+		if(!drvidx) isdn_dw_abc_lcr_open();
+#endif
 		return 0;
 	}
 #ifdef CONFIG_ISDN_PPP
@@ -1979,6 +1999,12 @@ isdn_close(struct inode *ino, struct file *filep)
 	if (minor <= ISDN_MINOR_CTRLMAX) {
 		if (dev->profd == current)
 			dev->profd = NULL;
+#ifdef CONFIG_ISDN_WITH_ABC_LCR_SUPPORT
+		{
+			int drvidx = isdn_minor2drv(minor - ISDN_MINOR_CTRL);
+			if(!drvidx) isdn_dw_abc_lcr_close();
+		}
+#endif
 		return 0;
 	}
 #ifdef CONFIG_ISDN_PPP
@@ -2582,6 +2608,9 @@ isdn_init(void)
 	isdn_cards_init();
 #endif
 	isdn_info_update();
+#ifdef CONFIG_ISDN_WITH_ABC
+	isdn_dw_abc_init_func();
+#endif
 	return 0;
 }
 
@@ -2630,5 +2659,8 @@ cleanup_module(void)
 		printk(KERN_NOTICE "ISDN-subsystem unloaded\n");
 	}
 	restore_flags(flags);
+#ifdef CONFIG_ISDN_WITH_ABC
+	isdn_dw_abc_release_func();
+#endif
 }
 #endif
