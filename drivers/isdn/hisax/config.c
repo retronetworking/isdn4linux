@@ -5,6 +5,9 @@
  *
  *
  * $Log$
+ * Revision 2.45  2000/05/16 20:56:41  keil
+ * Support all 4 BRI lines with one driver
+ *
  * Revision 2.44  2000/02/26 00:35:12  keil
  * Fix skb freeing in interrupt context
  *
@@ -270,12 +273,10 @@ static struct symbol_table hisax_syms_elsa = {
 int avm_a1_init_pcmcia(void*, int, int*, int);
 #ifdef COMPAT_HAS_NEW_SYMTAB
 EXPORT_SYMBOL(avm_a1_init_pcmcia);
-EXPORT_SYMBOL(HiSax_closecard);
 #else
 static struct symbol_table hisax_syms_avm_a1= {
 #include <linux/symtab_begin.h>
 	X(avm_a1_init_pcmcia),
-	X(HiSax_closecard),
 #include <linux/symtab_end.h>
 };
 #endif /* COMPAT_HAS_NEW_SYMTAB */
@@ -484,6 +485,19 @@ static struct symbol_table hisax_syms_sedl= {
 #error "HiSax: No cards configured"
 #endif
 
+int hisax_init_pcmcia(void *, int *, struct IsdnCard *);
+#ifdef COMPAT_HAS_NEW_SYMTAB
+EXPORT_SYMBOL(hisax_init_pcmcia);
+EXPORT_SYMBOL(HiSax_closecard);
+#else
+static struct symbol_table hisax_syms_pcmcia = {
+#include <linux/symtab_begin.h>
+	X(hisax_init_pcmcia),
+	X(HiSax_closecard),
+#include <linux/symtab_end.h>
+};
+#endif /* COMPAT_HAS_NEW_SYMTAB */
+
 #define FIRST_CARD { \
 	DEFAULT_CARD, \
 	DEFAULT_PROTO, \
@@ -582,9 +596,9 @@ HiSaxVersion(void))
 
 	printk(KERN_INFO "HiSax: Linux Driver for passive ISDN cards\n");
 #ifdef MODULE
-	printk(KERN_INFO "HiSax: Version 3.3e (module)\n");
+	printk(KERN_INFO "HiSax: Version 3.4 (module)\n");
 #else
-	printk(KERN_INFO "HiSax: Version 3.3e (kernel)\n");
+	printk(KERN_INFO "HiSax: Version 3.4 (kernel)\n");
 #endif
 	strcpy(tmp, l1_revision);
 	printk(KERN_INFO "HiSax: Layer1 Revision %s\n", HiSax_getrev(tmp));
@@ -1548,6 +1562,21 @@ HiSax_init(void))
 
 #ifdef MODULE
 	int nzproto = 0;
+
+	nrcards = 0;
+	HiSaxVersion();
+#ifndef COMPAT_HAS_NEW_SYMTAB
+	register_symtab(&hisax_syms_pcmcia);
+#endif
+	if (!type[0]) {
+		/* We 'll register drivers later, but init basic functions*/
+		CallcNew();
+		Isdnl3New();
+		Isdnl2New();
+		TeiNew();
+		Isdnl1New();
+		return 0;
+	}
 #ifdef CONFIG_HISAX_ELSA
 	if (type[0] == ISDN_CTYPE_ELSA_PCMCIA) {
 		/* we have exported  and return in this case */
@@ -1883,3 +1912,21 @@ int avm_a1_init_pcmcia(void *pcm_iob, int pcm_irq, int *busy_flag, int prot)
 	return (0);
 }
 #endif
+
+int hisax_init_pcmcia(void *pcm_iob, int *busy_flag, struct IsdnCard *card)
+{
+	u_char ids[16];
+	int ret = -1;
+
+	cards[nrcards] = *card;
+	if (nrcards)
+		sprintf(ids, "HiSax%d", nrcards);
+	else
+		sprintf(ids, "HiSax");
+	if (!checkcard(nrcards, ids, busy_flag)) {
+		return(-1);
+	}
+	ret = nrcards;
+	nrcards++;
+	return (ret);
+}
