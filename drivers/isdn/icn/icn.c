@@ -19,6 +19,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.39  1997/02/23 16:21:56  fritz
+ * Bugfix: Check for NULL pointer in icn_parse_status().
+ *
  * Revision 1.38  1997/02/11 18:29:31  fritz
  * Bugfix in D64S initialization.
  *
@@ -235,7 +238,7 @@ static inline void
 icn_map_channel(icn_card * card, int channel)
 {
 #ifdef MAP_DEBUG
-	printk(KERN_DEBUG "icn_map_channel %d %d\n", dev->channel, channel);
+	printk(KERN_DEBUG "icn_map_channel %d %d\n", dev.channel, channel);
 #endif
 	if ((channel == dev.channel) && (card == dev.mcard))
 		return;
@@ -275,7 +278,7 @@ icn_lock_channel(icn_card * card, int channel)
 	} else {
 		retval = 0;
 #ifdef MAP_DEBUG
-		printk(KERN_DEBUG "icn_lock_channel %d FAILED, dc=%d\n", channel, device->channel);
+		printk(KERN_DEBUG "icn_lock_channel %d FAILED, dc=%d\n", channel, dev.channel);
 #endif
 	}
 	restore_flags(flags);
@@ -291,7 +294,7 @@ icn_release_channel(void)
 	ulong flags;
 
 #ifdef MAP_DEBUG
-	printk(KERN_DEBUG "icn_release_channel l=%d\n", device->chanlock);
+	printk(KERN_DEBUG "icn_release_channel l=%d\n", dev.chanlock);
 #endif
 	save_flags(flags);
 	cli();
