@@ -21,6 +21,17 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.3  1996/02/11 02:22:28  fritz
+ * Changed status- receive-callbacks to use pointer-arrays for finding
+ * a corresponding interface instead of looping over all interfaces.
+ * Activate Auto-hangup-timer only when interface is online.
+ * Some bugfixes in the dialing-statemachine.
+ * Lot of bugfixes in sk_buff'ized encapsulation handling.
+ * For speedup connection-setup after dialing, remember sk_buf that triggered
+ * dialing.
+ * Fixed isdn_net_log_packet according to different encapsulations.
+ * Correct ARP-handling for ETHERNET-encapsulation.
+ *
  * Revision 1.2  1996/01/22 05:05:12  fritz
  * Changed returncode-logic for isdn_net_start_xmit() and it's
  * helper-functions.
@@ -31,7 +42,9 @@
  *
  */
 
+#ifndef STANDALONE
 #include <linux/config.h>
+#endif
 #define __NO_VERSION__
 #include <linux/module.h>
 #include <linux/isdn.h>
@@ -1106,7 +1119,11 @@ isdn_net_header(struct sk_buff *skb, struct device *dev, unsigned short type,
                                 }
                         }
 #endif
-                        skb_push(skb, len);
+                        /* Initialize first 4 bytes to a value, which is
+                         * guaranteed to be invalid. Need that to check
+                         * for already compressed packets in isdn_ppp_xmit().
+                         */
+                        *((unsigned long *)skb_push(skb, len)) = 0;
                         break;
 #endif
 	}
