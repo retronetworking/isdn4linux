@@ -11,6 +11,10 @@
  *
  *
  * $Log$
+ * Revision 2.22  1998/04/15 16:40:13  keil
+ * Add S0Box and Teles PCI support
+ * Fix cardnr overwrite bug
+ *
  * Revision 2.21  1998/04/10 10:35:28  paul
  * fixed (silly?) warnings from egcs on Alpha.
  *
@@ -183,7 +187,7 @@ extern int nrcards;
 extern char *HiSax_id;
 extern struct IsdnBuffers *tracebuf;
 
-#define TIMER3_VALUE 7
+#define TIMER3_VALUE 7000
 
 static
 struct Fsm l1fsm =
@@ -1164,7 +1168,7 @@ l1_power_up(struct FsmInst *fi, int event, void *arg)
 		FsmChangeState(fi, ST_L1_F4);
 		cs->l1cmd(cs, PH_INFO3_REQ, NULL);
 		FsmDelTimer(&st->l1.timer, 1);
-		FsmAddTimer(&st->l1.timer, TIMER3_VALUE * HZ, EV_TIMER3, NULL, 2);
+		FsmAddTimer(&st->l1.timer, TIMER3_VALUE, EV_TIMER3, NULL, 2);
 		test_and_set_bit(FLG_L1_T3RUN, &st->l1.Flags);
 	} else
 		FsmChangeState(fi, ST_L1_F3);
@@ -1219,8 +1223,10 @@ l1_timer3(struct FsmInst *fi, int event, void *arg)
 	test_and_clear_bit(FLG_L1_T3RUN, &st->l1.Flags);	
         if (test_and_clear_bit(FLG_L1_ACTIVATING, &st->l1.Flags))
         	L1deactivated(cs);
-        if (st->l1.l1m.state != ST_L1_F6)
+        if (st->l1.l1m.state != ST_L1_F6) {
         	FsmChangeState(fi, ST_L1_F3);
+        	cs->l1cmd(cs, PH_ENABLE_REQ, NULL);
+        }
 }
 
 static void
