@@ -2,13 +2,20 @@
 
  * EURO/DSS1 D-channel protocol
  *
- * Author       Karsten Keil (keil@temic-ech.spacenet.de)
+ * Author       Karsten Keil (keil@isdn4linux.de)
  *              based on the teles driver from Jan den Ouden
+ *
+ *		This file is (c) under GNU PUBLIC LICENSE
+ *		For changes and modifications please read
+ *		../../../Documentation/isdn/HiSax.cert
  *
  * Thanks to    Jan den Ouden
  *              Fritz Elfert
  *
  * $Log$
+ * Revision 2.11  1998/08/13 23:36:51  keil
+ * HiSax 3.1 - don't work stable with current LinkLevel
+ *
  * Revision 2.10  1998/05/25 14:10:20  keil
  * HiSax 3.0
  * X.75 and leased are working again.
@@ -104,7 +111,7 @@ l3dss1_parse_facility(struct l3_process *pc, u_char * p)
 	switch (*p & 0x1F) {	/* component tag */
 		case 1:	/* invoke */
 			{
-				unsigned char nlen, ilen;
+				unsigned char nlen = 0, ilen;
 				int ident;
 
 				p++;
@@ -198,6 +205,7 @@ l3dss1_parse_facility(struct l3_process *pc, u_char * p)
 					case 0x22:	/* during */
 						FOO1("1A", 0x30, FOO1("1C", 0xA1, FOO1("1D", 0x30, FOO1("1E", 0x02, ( {
 							       ident = 0;
+							nlen = (nlen)?nlen:0; /* Make gcc happy */
 							while (ilen > 0) {
 														     ident = (ident << 8) | *p++;
 								  ilen--;
@@ -220,6 +228,7 @@ l3dss1_parse_facility(struct l3_process *pc, u_char * p)
 					case 0x24:	/* final */
 						FOO1("2A", 0x30, FOO1("2B", 0x30, FOO1("2C", 0xA1, FOO1("2D", 0x30, FOO1("2E", 0x02, ( {
 							       ident = 0;
+							nlen = (nlen)?nlen:0; /* Make gcc happy */
 							while (ilen > 0) {
 																      ident = (ident << 8) | *p++;
 								  ilen--;
@@ -283,11 +292,11 @@ l3dss1_check_messagetype_validity(int mt)
 		case MT_NOTIFY:
 		case MT_STATUS:
 		case MT_STATUS_ENQUIRY:
-			return (1);
+			return(1);
 		default:
-			return (0);
+			return(0);
 	}
-	return (0);
+	return(0);
 }
 
 static void
@@ -1649,8 +1658,8 @@ static struct stateentry downstatelist[] =
 	 CC_T308_2, l3dss1_t308_2},
 };
 
-static int downsllen = sizeof(downstatelist) /
-sizeof(struct stateentry);
+#define DOWNSLLEN \
+	(sizeof(downstatelist) / sizeof(struct stateentry))
 
 static struct stateentry datastatelist[] =
 {
@@ -1707,7 +1716,8 @@ static struct stateentry datastatelist[] =
 	 MT_INVALID, l3dss1_status_req},
 };
 
-static int datasllen = sizeof(datastatelist) / sizeof(struct stateentry);
+#define DATASLLEN \
+	(sizeof(datastatelist) / sizeof(struct stateentry))
 
 static struct stateentry globalmes_list[] =
 {
@@ -1719,8 +1729,8 @@ static struct stateentry globalmes_list[] =
 	 MT_RESTART_ACKNOWLEDGE, l3dss1_restart_ack},
 */
 };
-static int globalm_len = sizeof(globalmes_list) / sizeof(struct stateentry);
-
+#define GLOBALM_LEN \
+	(sizeof(globalmes_list) / sizeof(struct stateentry))
 /* *INDENT-ON* */
 
 
@@ -1730,21 +1740,21 @@ global_handler(struct PStack *st, int mt, struct sk_buff *skb)
 	int i;
 	struct l3_process *proc = st->l3.global;
 
-	for (i = 0; i < globalm_len; i++)
+	for (i = 0; i < GLOBALM_LEN; i++)
 		if ((mt == globalmes_list[i].primitive) &&
 		    ((1 << proc->state) & globalmes_list[i].state))
 			break;
-	if (i == globalm_len) {
+	if (i == GLOBALM_LEN) {
 		dev_kfree_skb(skb);
 		if (st->l3.debug & L3_DEB_STATE) {
 			l3_debug(st, "dss1 global state %d mt %x unhandled",
-				 proc->state, mt);
+				proc->state, mt);
 		}
 		return;
 	} else {
 		if (st->l3.debug & L3_DEB_STATE) {
 			l3_debug(st, "dss1 global %d mt %x",
-				 proc->state, mt);
+				proc->state, mt);
 		}
 		globalmes_list[i].rout(proc, mt, skb);
 	}
@@ -1860,23 +1870,23 @@ dss1up(struct PStack *st, int pr, void *arg)
 		 */
 		mt = MT_INVALID;	/* sorry, not clean, but do the right thing ;-) */
 	}
-	for (i = 0; i < datasllen; i++)
+	for (i = 0; i < DATASLLEN; i++)
 		if ((mt == datastatelist[i].primitive) &&
 		    ((1 << proc->state) & datastatelist[i].state))
 			break;
-	if (i == datasllen) {
+	if (i == DATASLLEN) {
 		dev_kfree_skb(skb);
 		if (st->l3.debug & L3_DEB_STATE) {
 			l3_debug(st, "dss1up%sstate %d mt %x unhandled",
-				 (pr == (DL_DATA | INDICATION)) ? " " : "(broadcast) ",
-				 proc->state, mt);
+				(pr == (DL_DATA | INDICATION)) ? " " : "(broadcast) ",
+				proc->state, mt);
 		}
 		return;
 	} else {
 		if (st->l3.debug & L3_DEB_STATE) {
 			l3_debug(st, "dss1up%sstate %d mt %x",
-				 (pr == (DL_DATA | INDICATION)) ? " " : "(broadcast) ",
-				 proc->state, mt);
+				(pr == (DL_DATA | INDICATION)) ? " " : "(broadcast) ",
+				proc->state, mt);
 		}
 		datastatelist[i].rout(proc, pr, skb);
 	}
@@ -1909,19 +1919,19 @@ dss1down(struct PStack *st, int pr, void *arg)
 		printk(KERN_ERR "HiSax dss1down without proc pr=%04x\n", pr);
 		return;
 	}
-	for (i = 0; i < downsllen; i++)
+	for (i = 0; i < DOWNSLLEN; i++)
 		if ((pr == downstatelist[i].primitive) &&
 		    ((1 << proc->state) & downstatelist[i].state))
 			break;
-	if (i == downsllen) {
+	if (i == DOWNSLLEN) {
 		if (st->l3.debug & L3_DEB_STATE) {
 			l3_debug(st, "dss1down state %d prim %d unhandled",
-				 proc->state, pr);
+				proc->state, pr);
 		}
 	} else {
 		if (st->l3.debug & L3_DEB_STATE) {
 			l3_debug(st, "dss1down state %d prim %d",
-				 proc->state, pr);
+				proc->state, pr);
 		}
 		downstatelist[i].rout(proc, pr, arg);
 	}

@@ -2,10 +2,13 @@
 
  * hscx.c   HSCX specific routines
  *
- * Author       Karsten Keil (keil@temic-ech.spacenet.de)
+ * Author       Karsten Keil (keil@isdn4linux.de)
  *
  *
  * $Log$
+ * Revision 1.15  1998/08/20 13:50:42  keil
+ * More support for hybrid modem (not working yet)
+ *
  * Revision 1.14  1998/08/13 23:36:33  keil
  * HiSax 3.1 - don't work stable with current LinkLevel
  *
@@ -82,21 +85,18 @@ modehscx(struct BCState *bcs, int mode, int bc)
 	struct IsdnCardState *cs = bcs->cs;
 	int hscx = bcs->hw.hscx.hscx;
 
-	if (cs->debug & L1_DEB_HSCX) {
-		char tmp[40];
-		sprintf(tmp, "hscx %c mode %d ichan %d",
+	if (cs->debug & L1_DEB_HSCX)
+		debugl1(cs, "hscx %c mode %d ichan %d",
 			'A' + hscx, mode, bc);
-		debugl1(cs, tmp);
-	}
 	bcs->mode = mode;
 	bcs->channel = bc;
-	cs->BC_Write_Reg(cs, hscx, HSCX_CCR1, 
-		test_bit(HW_IPAC, &cs->HW_Flags) ? 0x82 : 0x85);
 	cs->BC_Write_Reg(cs, hscx, HSCX_XAD1, 0xFF);
 	cs->BC_Write_Reg(cs, hscx, HSCX_XAD2, 0xFF);
 	cs->BC_Write_Reg(cs, hscx, HSCX_RAH2, 0xFF);
 	cs->BC_Write_Reg(cs, hscx, HSCX_XBCH, 0x0);
 	cs->BC_Write_Reg(cs, hscx, HSCX_RLCR, 0x0);
+	cs->BC_Write_Reg(cs, hscx, HSCX_CCR1,
+		test_bit(HW_IPAC, &cs->HW_Flags) ? 0x82 : 0x85);
 	cs->BC_Write_Reg(cs, hscx, HSCX_CCR2, 0x30);
 	cs->BC_Write_Reg(cs, hscx, HSCX_XCCR, 7);
 	cs->BC_Write_Reg(cs, hscx, HSCX_RCCR, 7);
@@ -124,7 +124,7 @@ modehscx(struct BCState *bcs, int mode, int bc)
 			cs->BC_Write_Reg(cs, hscx, HSCX_MODE, 0xe4);
 			break;
 		case (L1_MODE_HDLC):
-			cs->BC_Write_Reg(cs, hscx, HSCX_CCR1, 
+			cs->BC_Write_Reg(cs, hscx, HSCX_CCR1,
 				test_bit(HW_IPAC, &cs->HW_Flags) ? 0x8a : 0x8d);
 			cs->BC_Write_Reg(cs, hscx, HSCX_MODE, 0x8c);
 			break;
@@ -206,6 +206,10 @@ close_hscxstate(struct BCState *bcs)
 			kfree(bcs->hw.hscx.rcvbuf);
 			bcs->hw.hscx.rcvbuf = NULL;
 		}
+		if (bcs->blog) {
+			kfree(bcs->blog);
+			bcs->blog = NULL;
+		}
 		discard_queue(&bcs->rqueue);
 		discard_queue(&bcs->squeue);
 		if (bcs->tx_skb) {
@@ -222,8 +226,17 @@ open_hscxstate(struct IsdnCardState *cs, struct BCState *bcs)
 	if (!test_and_set_bit(BC_FLG_INIT, &bcs->Flag)) {
 		if (!(bcs->hw.hscx.rcvbuf = kmalloc(HSCX_BUFMAX, GFP_ATOMIC))) {
 			printk(KERN_WARNING
-			       "HiSax: No memory for hscx.rcvbuf\n");
+				"HiSax: No memory for hscx.rcvbuf\n");
+			test_and_clear_bit(BC_FLG_INIT, &bcs->Flag);
 			return (1);
+		}
+		if (!(bcs->blog = kmalloc(MAX_BLOG_SPACE, GFP_ATOMIC))) {
+			printk(KERN_WARNING
+				"HiSax: No memory for bcs->blog\n");
+			test_and_clear_bit(BC_FLG_INIT, &bcs->Flag);
+			kfree(bcs->hw.hscx.rcvbuf);
+			bcs->hw.hscx.rcvbuf = NULL;
+			return (2);
 		}
 		skb_queue_head_init(&bcs->rqueue);
 		skb_queue_head_init(&bcs->squeue);
@@ -254,36 +267,29 @@ HISAX_INITFUNC(void
 clear_pending_hscx_ints(struct IsdnCardState *cs))
 {
 	int val, eval;
-	char tmp[64];
 
 	val = cs->BC_Read_Reg(cs, 1, HSCX_ISTA);
-	sprintf(tmp, "HSCX B ISTA %x", val);
-	debugl1(cs, tmp);
+	debugl1(cs, "HSCX B ISTA %x", val);
 	if (val & 0x01) {
 		eval = cs->BC_Read_Reg(cs, 1, HSCX_EXIR);
-		sprintf(tmp, "HSCX B EXIR %x", eval);
-		debugl1(cs, tmp);
+		debugl1(cs, "HSCX B EXIR %x", eval);
 	}
 	if (val & 0x02) {
 		eval = cs->BC_Read_Reg(cs, 0, HSCX_EXIR);
-		sprintf(tmp, "HSCX A EXIR %x", eval);
-		debugl1(cs, tmp);
+		debugl1(cs, "HSCX A EXIR %x", eval);
 	}
 	val = cs->BC_Read_Reg(cs, 0, HSCX_ISTA);
-	sprintf(tmp, "HSCX A ISTA %x", val);
-	debugl1(cs, tmp);
+	debugl1(cs, "HSCX A ISTA %x", val);
 	val = cs->BC_Read_Reg(cs, 1, HSCX_STAR);
-	sprintf(tmp, "HSCX B STAR %x", val);
-	debugl1(cs, tmp);
+	debugl1(cs, "HSCX B STAR %x", val);
 	val = cs->BC_Read_Reg(cs, 0, HSCX_STAR);
-	sprintf(tmp, "HSCX A STAR %x", val);
-	debugl1(cs, tmp);
+	debugl1(cs, "HSCX A STAR %x", val);
 	/* disable all IRQ */
 	cs->BC_Write_Reg(cs, 0, HSCX_MASK, 0xFF);
 	cs->BC_Write_Reg(cs, 1, HSCX_MASK, 0xFF);
 }
 
-HISAX_INITFUNC(void 
+HISAX_INITFUNC(void
 inithscx(struct IsdnCardState *cs))
 {
 	cs->bcs[0].BC_SetStack = setstack_hscx;
@@ -296,7 +302,7 @@ inithscx(struct IsdnCardState *cs))
 	modehscx(cs->bcs + 1, 0, 0);
 }
 
-HISAX_INITFUNC(void 
+HISAX_INITFUNC(void
 inithscxisac(struct IsdnCardState *cs, int part))
 {
 	if (part & 1) {

@@ -2,10 +2,17 @@
 
  *  German 1TR6 D-channel protocol
  *
- * Author       Karsten Keil (keil@temic-ech.spacenet.de)
+ * Author       Karsten Keil (keil@isdn4linux.de)
+ *
+ *		This file is (c) under GNU PUBLIC LICENSE
+ *		For changes and modifications please read
+ *		../../../Documentation/isdn/HiSax.cert
  *
  *
  * $Log$
+ * Revision 2.7  1998/08/13 23:36:45  keil
+ * HiSax 3.1 - don't work stable with current LinkLevel
+ *
  * Revision 2.6  1998/05/25 14:10:18  keil
  * HiSax 3.0
  * X.75 and leased are working again.
@@ -705,8 +712,8 @@ static struct stateentry downstl[] =
 	 CC_T308_2, l3_1tr6_t308_2},
 };
 
-static int downstl_len = sizeof(downstl) /
-sizeof(struct stateentry);
+#define DOWNSTL_LEN \
+	(sizeof(downstl) / sizeof(struct stateentry))
 
 static struct stateentry datastln1[] =
 {
@@ -743,11 +750,8 @@ static struct stateentry datastln1[] =
 };
 /* *INDENT-ON* */
 
-
-
-
-static int datastln1_len = sizeof(datastln1) /
-sizeof(struct stateentry);
+#define DATASTLN1_LEN \
+	(sizeof(datastln1) / sizeof(struct stateentry))
 
 static void
 up1tr6(struct PStack *st, int pr, void *arg)
@@ -771,7 +775,7 @@ up1tr6(struct PStack *st, int pr, void *arg)
 	}
 	if (skb->len < 4) {
 		if (st->l3.debug & L3_DEB_PROTERR) {
-			sprintf(tmp, "up1tr6 len only %d", skb->len);
+			sprintf(tmp, "up1tr6 len only %ld", skb->len);
 			l3_debug(st, tmp);
 		}
 		dev_kfree_skb(skb);
@@ -779,7 +783,7 @@ up1tr6(struct PStack *st, int pr, void *arg)
 	}
 	if ((skb->data[0] & 0xfe) != PROTO_DIS_N0) {
 		if (st->l3.debug & L3_DEB_PROTERR) {
-			sprintf(tmp, "up1tr6%sunexpected discriminator %x message len %d",
+			sprintf(tmp, "up1tr6%sunexpected discriminator %x message len %ld",
 				(pr == (DL_DATA | INDICATION)) ? " " : "(broadcast) ",
 				skb->data[0], skb->len);
 			l3_debug(st, tmp);
@@ -839,11 +843,11 @@ up1tr6(struct PStack *st, int pr, void *arg)
 				mt = MT_N1_INVALID;
 			}
 		}
-		for (i = 0; i < datastln1_len; i++)
+		for (i = 0; i < DATASTLN1_LEN; i++)
 			if ((mt == datastln1[i].primitive) &&
 			    ((1 << proc->state) & datastln1[i].state))
 				break;
-		if (i == datastln1_len) {
+		if (i == DATASTLN1_LEN) {
 			dev_kfree_skb(skb);
 			if (st->l3.debug & L3_DEB_STATE) {
 				sprintf(tmp, "up1tr6%sstate %d mt %x unhandled",
@@ -891,11 +895,11 @@ down1tr6(struct PStack *st, int pr, void *arg)
 		proc = arg;
 	}
 
-	for (i = 0; i < downstl_len; i++)
+	for (i = 0; i < DOWNSTL_LEN; i++)
 		if ((pr == downstl[i].primitive) &&
 		    ((1 << proc->state) & downstl[i].state))
 			break;
-	if (i == downstl_len) {
+	if (i == DOWNSTL_LEN) {
 		if (st->l3.debug & L3_DEB_STATE) {
 			sprintf(tmp, "down1tr6 state %d prim %d unhandled",
 				proc->state, pr);

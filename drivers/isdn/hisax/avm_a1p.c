@@ -8,6 +8,9 @@
  * Author       Carsten Paeth (calle@calle.in-berlin.de)
  *
  * $Log$
+ * Revision 2.2  1998/08/13 23:36:13  keil
+ * HiSax 3.1 - don't work stable with current LinkLevel
+ *
  * Revision 2.1  1998/07/15 15:01:23  calle
  * Support for AVM passive PCMCIA cards:
  *    A1 PCMCIA, FRITZ!Card PCMCIA and FRITZ!Card PCMCIA 2.0
@@ -190,17 +193,14 @@ avm_a1p_interrupt(int intno, void *dev_id, struct pt_regs *regs)
 {
 	struct IsdnCardState *cs = dev_id;
 	u_char val, sval, stat = 0;
-	char tmp[32];
 
 	if (!cs) {
 		printk(KERN_WARNING "AVM A1 PCMCIA: Spurious interrupt!\n");
 		return;
 	}
 	while ((sval = (~bytein(cs->hw.avm.cfg_reg+ASL0_OFFSET) & ASL0_R_IRQPENDING))) {
-		if (cs->debug & L1_DEB_INTSTAT) {
-			sprintf(tmp, "avm IntStatus %x", sval);
-			debugl1(cs, tmp);
-		}
+		if (cs->debug & L1_DEB_INTSTAT)
+			debugl1(cs, "avm IntStatus %x", sval);
 		if (sval & ASL0_R_HSCX) {
                         val = ReadHSCX(cs, 1, HSCX_ISTA);
 			if (val) {

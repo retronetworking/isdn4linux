@@ -1,12 +1,19 @@
 /* $Id$
 
- * Author       Karsten Keil (keil@temic-ech.spacenet.de)
+ * Author       Karsten Keil (keil@isdn4linux.de)
  *              based on the teles driver from Jan den Ouden
+ *
+ *		This file is (c) under GNU PUBLIC LICENSE
+ *		For changes and modifications please read
+ *		../../../Documentation/isdn/HiSax.cert
  *
  * Thanks to    Jan den Ouden
  *              Fritz Elfert
  *
  * $Log$
+ * Revision 2.15  1998/08/13 23:36:42  keil
+ * HiSax 3.1 - don't work stable with current LinkLevel
+ *
  * Revision 2.14  1998/06/19 15:19:18  keil
  * fix LAPB tx_cnt for none I-frames
  *
@@ -63,7 +70,7 @@
 
 const char *l2_revision = "$Revision$";
 
-static void l2m_debug(struct FsmInst *fi, char *s);
+static void l2m_debug(struct FsmInst *fi, char *fmt, ...);
 
 static
 struct Fsm l2fsm =
@@ -938,10 +945,8 @@ l2_got_iframe(struct FsmInst *fi, int event, void *arg)
 {
 	struct PStack *st = fi->userdata;
 	struct sk_buff *skb = arg;
-	struct IsdnCardState *sp = st->l1.hardware;
 	struct Layer2 *l2 = &(st->l2);
-	int PollFlag, ns, nr, i, hs, rsp;
-	char str[64];
+	int PollFlag, ns, nr, i, rsp;
 
 	rsp = *skb->data & 0x2;
 	if (test_bit(FLG_ORIG, &l2->flag))
@@ -989,14 +994,6 @@ l2_got_iframe(struct FsmInst *fi, int event, void *arg)
 	} else if (l2->vr == ns) {
 		l2->vr = (l2->vr + 1) % (test_bit(FLG_MOD128, &l2->flag) ? 128 : 8);
 		test_and_clear_bit(FLG_REJEXC, &l2->flag);
-		if (test_bit(FLG_LAPD, &l2->flag))
-			if (sp->dlogflag) {
-				hs = l2headersize(l2, 0);
-				LogFrame(st->l1.hardware, skb->data, skb->len);
-				sprintf(str, "Q.931 frame network->user tei %d", st->l2.tei);
-				dlogframe(st->l1.hardware, skb->data + hs,
-					  skb->len - hs, str);
-			}
 		if (PollFlag)
 			enquiry_response(st);
 		else
@@ -1276,26 +1273,21 @@ l2_got_FRMR(struct FsmInst *fi, int event, void *arg)
 {
 	struct PStack *st = fi->userdata;
 	struct sk_buff *skb = arg;
-	char tmp[64];
 
 	skb_pull(skb, l2addrsize(&st->l2) + 1);
 	if (test_bit(FLG_MOD128, &st->l2.flag)) {
 		if (skb->len < 5)
 			st->ma.layer(st, MDL_ERROR | INDICATION, (void *) 'N');
-		else {
-			sprintf(tmp, "FRMR information %2x %2x %2x %2x %2x",
+		else
+			l2m_debug(&st->l2.l2m, "FRMR information %2x %2x %2x %2x %2x",
 				skb->data[0], skb->data[1], skb->data[2],
 				skb->data[3], skb->data[4]);
-			l2m_debug(&st->l2.l2m, tmp);
-		}
 	} else {
 		if (skb->len < 3)
 			st->ma.layer(st, MDL_ERROR | INDICATION, (void *) 'N');
-		else {
-			sprintf(tmp, "FRMR information %2x %2x %2x",
+		else
+			l2m_debug(&st->l2.l2m, "FRMR information %2x %2x %2x",
 				skb->data[0], skb->data[1], skb->data[2]);
-			l2m_debug(&st->l2.l2m, tmp);
-		}
 	}
 	if (!(skb->data[0] & 1) || ((skb->data[0] & 3) == 1) ||		/* I or S */
 	    (IsUA(skb->data, 0) && (fi->state == ST_L2_7))) {
@@ -1453,7 +1445,6 @@ isdnl2_l1l2(struct PStack *st, int pr, void *arg)
 {
 	struct sk_buff *skb = arg;
 	u_char *datap;
-	char tmp[32];
 	int ret = 1, len;
 
 	switch (pr) {
@@ -1515,8 +1506,7 @@ isdnl2_l1l2(struct PStack *st, int pr, void *arg)
 			FsmEvent(&st->l2.l2m, EV_L1_DEACTIVATE, arg);
 			break;
 		default:
-			sprintf(tmp, "l2 unknown pr %04x", pr);
-			l2m_debug(&st->l2.l2m, tmp);
+			l2m_debug(&st->l2.l2m, "l2 unknown pr %04x", pr);
 			break;
 	}
 }
@@ -1581,14 +1571,14 @@ releasestack_isdnl2(struct PStack *st)
 }
 
 static void
-l2m_debug(struct FsmInst *fi, char *s)
+l2m_debug(struct FsmInst *fi, char *fmt, ...)
 {
+	va_list args;
 	struct PStack *st = fi->userdata;
-	char tm[32], str[256];
 
-	jiftime(tm, jiffies);
-	sprintf(str, "%s %s %s\n", tm, st->l2.debug_id, s);
-	HiSax_putstatus(st->l1.hardware, str);
+	va_start(args, fmt);
+	VHiSax_putstatus(st->l1.hardware, st->l2.debug_id, fmt, args);
+	va_end(args);
 }
 
 void

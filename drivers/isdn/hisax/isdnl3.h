@@ -1,6 +1,10 @@
 /* $Id$
 
  * $Log$
+ * Revision 2.2  1998/05/25 14:10:17  keil
+ * HiSax 3.0
+ * X.75 and leased are working again.
+ *
  * Revision 2.1  1998/05/25 12:58:13  keil
  * HiSax golden code from certification, Don't use !!!
  * No leased lines, no X75, but many changes.
@@ -39,7 +43,8 @@ struct stateentry {
 	void (*rout) (struct l3_process *, u_char, void *);
 };
 
-extern void l3_debug(struct PStack *st, const char *fmt, ...);
+#define l3_debug(st, fmt, args...) HiSax_putstatus(st->l1.hardware, "l3 ", fmt, ## args)
+
 extern void newl3state(struct l3_process *pc, int state);
 extern void L3InitTimer(struct l3_process *pc, struct L3Timer *t);
 extern void L3DelTimer(struct L3Timer *t);

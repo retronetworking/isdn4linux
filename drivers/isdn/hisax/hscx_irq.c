@@ -2,11 +2,14 @@
 
  * hscx_irq.c     low level b-channel stuff for Siemens HSCX
  *
- * Author     Karsten Keil (keil@temic-ech.spacenet.de)
+ * Author     Karsten Keil (keil@isdn4linux.de)
  *
  * This is an include file for fast inline IRQ stuff
  *
  * $Log$
+ * Revision 1.10  1998/08/13 23:36:35  keil
+ * HiSax 3.1 - don't work stable with current LinkLevel
+ *
  * Revision 1.9  1998/06/24 14:44:51  keil
  * Fix recovery of TX IRQ loss
  *
@@ -103,13 +106,12 @@ hscx_empty_fifo(struct BCState *bcs, int count)
 	WriteHSCXCMDR(cs, bcs->hw.hscx.hscx, 0x80);
 	restore_flags(flags);
 	if (cs->debug & L1_DEB_HSCX_FIFO) {
-		char tmp[256];
-		char *t = tmp;
+		char *t = bcs->blog;
 
 		t += sprintf(t, "hscx_empty_fifo %c cnt %d",
 			     bcs->hw.hscx.hscx ? 'B' : 'A', count);
 		QuickHex(t, ptr, count);
-		debugl1(cs, tmp);
+		debugl1(cs, bcs->blog);
 	}
 }
 
@@ -149,13 +151,12 @@ hscx_fill_fifo(struct BCState *bcs)
 	WriteHSCXCMDR(cs, bcs->hw.hscx.hscx, more ? 0x8 : 0xa);
 	restore_flags(flags);
 	if (cs->debug & L1_DEB_HSCX_FIFO) {
-		char tmp[256];
-		char *t = tmp;
+		char *t = bcs->blog;
 
 		t += sprintf(t, "hscx_fill_fifo %c cnt %d",
 			     bcs->hw.hscx.hscx ? 'B' : 'A', count);
 		QuickHex(t, ptr, count);
-		debugl1(cs, tmp);
+		debugl1(cs, bcs->blog);
 	}
 }
 
@@ -167,7 +168,6 @@ hscx_interrupt(struct IsdnCardState *cs, u_char val, u_char hscx)
 	struct sk_buff *skb;
 	int fifo_size = test_bit(HW_IPAC, &cs->HW_Flags)? 64: 32;
 	int count;
-	char tmp[32];
 
 	if (!test_bit(BC_FLG_INIT, &bcs->Flag))
 		return;
@@ -179,11 +179,9 @@ hscx_interrupt(struct IsdnCardState *cs, u_char val, u_char hscx)
 				if (cs->debug & L1_DEB_WARN)
 					debugl1(cs, "HSCX invalid frame");
 			if ((r & 0x40) && bcs->mode)
-				if (cs->debug & L1_DEB_WARN) {
-					sprintf(tmp, "HSCX RDO mode=%d",
+				if (cs->debug & L1_DEB_WARN)
+					debugl1(cs, "HSCX RDO mode=%d",
 						bcs->mode);
-					debugl1(cs, tmp);
-				}
 			if (!(r & 0x20))
 				if (cs->debug & L1_DEB_WARN)
 					debugl1(cs, "HSCX CRC error");
@@ -195,10 +193,8 @@ hscx_interrupt(struct IsdnCardState *cs, u_char val, u_char hscx)
 				count = fifo_size;
 			hscx_empty_fifo(bcs, count);
 			if ((count = bcs->hw.hscx.rcvidx - 1) > 0) {
-				if (cs->debug & L1_DEB_HSCX_FIFO) {
-					sprintf(tmp, "HX Frame %d", count);
-					debugl1(cs, tmp);
-				}
+				if (cs->debug & L1_DEB_HSCX_FIFO)
+					debugl1(cs, "HX Frame %d", count);
 				if (!(skb = dev_alloc_skb(count)))
 					printk(KERN_WARNING "HSCX: receive out of memory\n");
 				else {
@@ -255,7 +251,6 @@ hscx_int_main(struct IsdnCardState *cs, u_char val)
 
 	u_char exval;
 	struct BCState *bcs;
-	char tmp[32];
 
 	if (val & 0x01) {
 		bcs = cs->bcs + 1;
@@ -273,21 +268,15 @@ hscx_int_main(struct IsdnCardState *cs, u_char val)
 					bcs->hw.hscx.count = 0;
 				}
 				WriteHSCXCMDR(cs, bcs->hw.hscx.hscx, 0x01);
-				if (cs->debug & L1_DEB_WARN) {
-					sprintf(tmp, "HSCX B EXIR %x Lost TX", exval);
-					debugl1(cs, tmp);
-				}
+				if (cs->debug & L1_DEB_WARN)
+					debugl1(cs, "HSCX B EXIR %x Lost TX", exval);
 			}
-		} else if (cs->debug & L1_DEB_HSCX) {
-			sprintf(tmp, "HSCX B EXIR %x", exval);
-			debugl1(cs, tmp);
-		}
+		} else if (cs->debug & L1_DEB_HSCX)
+			debugl1(cs, "HSCX B EXIR %x", exval);
 	}
 	if (val & 0xf8) {
-		if (cs->debug & L1_DEB_HSCX) {
-			sprintf(tmp, "HSCX B interrupt %x", val);
-			debugl1(cs, tmp);
-		}
+		if (cs->debug & L1_DEB_HSCX)
+			debugl1(cs, "HSCX B interrupt %x", val);
 		hscx_interrupt(cs, val, 1);
 	}
 	if (val & 0x02) {
@@ -306,22 +295,16 @@ hscx_int_main(struct IsdnCardState *cs, u_char val)
 					bcs->hw.hscx.count = 0;
 				}
 				WriteHSCXCMDR(cs, bcs->hw.hscx.hscx, 0x01);
-				if (cs->debug & L1_DEB_WARN) {
-					sprintf(tmp, "HSCX A EXIR %x Lost TX", exval);
-					debugl1(cs, tmp);
-				}
+				if (cs->debug & L1_DEB_WARN)
+					debugl1(cs, "HSCX A EXIR %x Lost TX", exval);
 			}
-		} else if (cs->debug & L1_DEB_HSCX) {
-			sprintf(tmp, "HSCX A EXIR %x", exval);
-			debugl1(cs, tmp);
-		}
+		} else if (cs->debug & L1_DEB_HSCX)
+			debugl1(cs, "HSCX A EXIR %x", exval);
 	}
 	if (val & 0x04) {
 		exval = READHSCX(cs, 0, HSCX_ISTA);
-		if (cs->debug & L1_DEB_HSCX) {
-			sprintf(tmp, "HSCX A interrupt %x", exval);
-			debugl1(cs, tmp);
-		}
+		if (cs->debug & L1_DEB_HSCX)
+			debugl1(cs, "HSCX A interrupt %x", exval);
 		hscx_interrupt(cs, exval, 0);
 	}
 }

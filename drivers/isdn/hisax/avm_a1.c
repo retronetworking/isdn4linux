@@ -2,10 +2,13 @@
 
  * avm_a1.c     low level stuff for AVM A1 (Fritz) isdn cards
  *
- * Author       Karsten Keil (keil@temic-ech.spacenet.de)
+ * Author       Karsten Keil (keil@isdn4linux.de)
  *
  *
  * $Log$
+ * Revision 2.9  1998/08/13 23:36:12  keil
+ * HiSax 3.1 - don't work stable with current LinkLevel
+ *
  * Revision 2.8  1998/04/15 16:44:27  keil
  * new init code
  *
@@ -148,7 +151,6 @@ avm_a1_interrupt(int intno, void *dev_id, struct pt_regs *regs)
 {
 	struct IsdnCardState *cs = dev_id;
 	u_char val, sval, stat = 0;
-	char tmp[32];
 
 	if (!cs) {
 		printk(KERN_WARNING "AVM A1: Spurious interrupt!\n");
@@ -158,10 +160,8 @@ avm_a1_interrupt(int intno, void *dev_id, struct pt_regs *regs)
 		if (!(sval & AVM_A1_STAT_TIMER)) {
 			byteout(cs->hw.avm.cfg_reg, 0x1E);
 			sval = bytein(cs->hw.avm.cfg_reg);
-		} else if (cs->debug & L1_DEB_INTSTAT) {
-			sprintf(tmp, "avm IntStatus %x", sval);
-			debugl1(cs, tmp);
-		}
+		} else if (cs->debug & L1_DEB_INTSTAT)
+			debugl1(cs, "avm IntStatus %x", sval);
 		if (!(sval & AVM_A1_STAT_HSCX)) {
 			val = readreg(cs->hw.avm.hscx[1], HSCX_ISTA);
 			if (val) {

@@ -7,6 +7,9 @@
  *
  *
  * $Log$
+ * Revision 2.4  1998/10/05 09:38:08  keil
+ * Fix register addressing
+ *
  * Revision 2.3  1998/05/25 12:58:26  keil
  * HiSax golden code from certification, Don't use !!!
  * No leased lines, no X75, but many changes.
@@ -284,7 +287,7 @@ TelesPCI_card_msg(struct IsdnCardState *cs, int mt, void *arg)
 			return(0);
 		case CARD_SETIRQ:
 			return(request_irq(cs->irq, &telespci_interrupt,
-					I4L_IRQ_FLAG, "HiSax", cs));
+					I4L_IRQ_FLAG | SA_SHIRQ, "HiSax", cs));
 		case CARD_INIT:
 			inithscxisac(cs, 3);
 			return(0);
