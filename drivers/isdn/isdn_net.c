@@ -21,6 +21,15 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.91  1999/09/12 16:19:39  detabc
+ * added abc features
+ * low cost routing for net-interfaces (only the HL side).
+ * need more implementation in the isdnlog-utility
+ * udp info support (first part).
+ * different EAZ on outgoing call's.
+ * more checks on D-Channel callbacks (double use of channels).
+ * tested and running with kernel 2.3.17
+ *
  * Revision 1.90  1999/09/04 22:21:39  detabc
  *
  * Revision 1.89  1999/08/22 20:26:03  calle
@@ -617,6 +626,13 @@ isdn_net_stat_callback(int idx, isdn_ctrl *c)
 				    (!lp->dialstate)) {
 					lp->stats.tx_packets++;
 					lp->stats.tx_bytes += c->parm.length;
+					/* some HL drivers deliver 
+					   ISDN_STAT_BSENT from hw interrupt.
+					   Output routines in isdn_ppp are now
+					   called with irq disabled such that
+					   dequeueing the sav_skb while another
+					   frame is sent will not occur.
+					*/
 					if (lp->p_encap == ISDN_NET_ENCAP_SYNCPPP && lp->sav_skb) {
 						struct net_device *mdev;
 						if (lp->master)

@@ -21,6 +21,15 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.74  1999/09/12 16:19:39  detabc
+ * added abc features
+ * low cost routing for net-interfaces (only the HL side).
+ * need more implementation in the isdnlog-utility
+ * udp info support (first part).
+ * different EAZ on outgoing call's.
+ * more checks on D-Channel callbacks (double use of channels).
+ * tested and running with kernel 2.3.17
+ *
  * Revision 1.73  1999/09/06 07:29:36  fritz
  * Changed my mail-address.
  *
@@ -610,7 +619,7 @@ typedef struct isdn_net_local_s {
   struct isdn_net_local_s *last;       /* Ptr to last link in bundle       */
   struct isdn_net_dev_s  *netdev;      /* Ptr to netdev                    */
   struct sk_buff         *first_skb;   /* Ptr to skb that triggers dialing */
-  struct sk_buff         *sav_skb;     /* Ptr to skb, rejected by LL-driver*/
+  struct sk_buff *volatile sav_skb;    /* Ptr to skb, rejected by LL-driver*/
                                        /* Ptr to orig. hard_header_cache   */
   int                    (*org_hhc)(
 				    struct neighbour *neigh,

@@ -19,6 +19,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.53  1999/08/31 11:18:14  paul
+ * various spelling corrections (new checksums may be needed, Karsten!)
+ *
  * Revision 1.52  1999/08/22 20:26:07  calle
  * backported changes from kernel 2.3.14:
  * - several #include "config.h" gone, others come.
@@ -1004,6 +1007,7 @@ isdn_ppp_write(int min, struct file *file, const char *buf, int count)
 			lp->dialstate == 0 &&
 		    (lp->flags & ISDN_NET_CONNECTED)) {
 			unsigned short hl;
+			unsigned long flags;
 			int cnt;
 			struct sk_buff *skb;
 			/*
@@ -1027,6 +1031,8 @@ isdn_ppp_write(int min, struct file *file, const char *buf, int count)
 
 			isdn_ppp_send_ccp(lp->netdev,lp,skb); /* keeps CCP/compression states in sync */
 
+			save_flags(flags);
+			cli();
 			if ((cnt = isdn_writebuf_skb_stub(lp->isdn_device, lp->isdn_channel, 1, skb)) != count) {
 				if (lp->sav_skb) {
 					dev_kfree_skb(lp->sav_skb);
@@ -1035,6 +1041,7 @@ isdn_ppp_write(int min, struct file *file, const char *buf, int count)
 					printk(KERN_INFO "isdn_ppp_write: Can't write PPP frame to LL (%d,%d)!\n", cnt, count);
 				lp->sav_skb = skb;
 			}
+			restore_flags(flags);
 		}
 	}
 	return count;
@@ -1459,6 +1466,7 @@ isdn_ppp_xmit(struct sk_buff *skb, struct net_device *netdev)
 	isdn_net_dev *nd;
 	unsigned int proto = PPP_IP;     /* 0x21 */
 	struct ippp_struct *ipt,*ipts;
+	unsigned long flags;
 
 	if (mdev)
 		mlp = (isdn_net_local *) (mdev->priv);
@@ -1654,13 +1662,16 @@ isdn_ppp_xmit(struct sk_buff *skb, struct net_device *netdev)
 		printk(KERN_DEBUG "skb xmit: len: %d\n", (int) skb->len);
 		isdn_ppp_frame_log("xmit", skb->data, skb->len, 32,ipt->unit,lp->ppp_slot);
 	}
+	save_flags(flags);
+	cli();
 	if (isdn_net_send_skb(netdev, lp, skb)) {
-		if (lp->sav_skb) {	/* whole sav_skb processing with disabled IRQs ?? */
+		if (lp->sav_skb) {	/* should never happen as sav_skb are sent with disabled IRQs) */
 			printk(KERN_ERR "%s: whoops .. there is another stored skb!\n", netdev->name);
 			dev_kfree_skb(skb);
 		} else
 			lp->sav_skb = skb;
 	}
+	restore_flags(flags);
 	return 0;
 }
 
@@ -2242,6 +2253,7 @@ static void isdn_ppp_ccp_xmit_reset(struct ippp_struct *is, int proto,
 	struct sk_buff *skb;
 	unsigned char *p;
 	int count;
+	unsigned long flags;
 	int cnt = 0;
 	isdn_net_local *lp = is->lp;
 
@@ -2284,6 +2296,8 @@ static void isdn_ppp_ccp_xmit_reset(struct ippp_struct *is, int proto,
 	   especially dunno what the sav_skb stuff is good for. */
 
 	count = skb->len;
+	save_flags(flags);
+	cli();
 	if ((cnt = isdn_writebuf_skb_stub(lp->isdn_device, lp->isdn_channel,
 					  1, skb)) != count) {
 		if (lp->sav_skb) {
@@ -2297,6 +2311,7 @@ static void isdn_ppp_ccp_xmit_reset(struct ippp_struct *is, int proto,
 			       cnt, count);
 		lp->sav_skb = skb;
 	}
+	restore_flags(flags);
 }
 
 /* Allocate the reset state vector */
@@ -3000,5 +3015,3 @@ static int isdn_ppp_set_compressor(struct ippp_struct *is, struct isdn_ppp_comp_
 	}
 	return -EINVAL;
 }
-
-
