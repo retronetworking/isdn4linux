@@ -218,12 +218,12 @@ DChannel_proc_rcv(struct IsdnCardState *cs)
 		stptr = cs->stlist;
 		if (skb->len<3) {
 			debugl1(cs, "D-channel frame too short(%d)",skb->len);
-			idev_kfree_skb(skb, FREE_READ);
+			dev_kfree_skb(skb);
 			return;
 		}
 		if ((skb->data[0] & 1) || !(skb->data[1] &1)) {
 			debugl1(cs, "D-channel frame wrong EA0/EA1");
-			idev_kfree_skb(skb, FREE_READ);
+			dev_kfree_skb(skb);
 			return;
 		}
 		sapi = skb->data[0] >> 2;
@@ -250,7 +250,7 @@ DChannel_proc_rcv(struct IsdnCardState *cs)
 					stptr = stptr->next;
 				}
 			}
-			idev_kfree_skb(skb, FREE_READ);
+			dev_kfree_skb(skb);
 		} else if (sapi == CTRL_SAPI) { /* sapi 0 */
 			found = 0;
 			while (stptr != NULL)
@@ -261,9 +261,9 @@ DChannel_proc_rcv(struct IsdnCardState *cs)
 				} else
 					stptr = stptr->next;
 			if (!found)
-				idev_kfree_skb(skb, FREE_READ);
+				dev_kfree_skb(skb);
 		} else
-			idev_kfree_skb(skb, FREE_READ);
+			dev_kfree_skb(skb);
 	}
 }
 

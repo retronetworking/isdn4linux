@@ -235,7 +235,6 @@ icc_interrupt(struct IsdnCardState *cs, u_char val)
 				if (!(skb = alloc_skb(count, GFP_ATOMIC)))
 					printk(KERN_WARNING "HiSax: D receive out of memory\n");
 				else {
-					SET_SKB_FREE(skb);
 					memcpy(skb_put(skb, count), cs->rcvbuf, count);
 					skb_queue_tail(&cs->rq, skb);
 				}
@@ -263,7 +262,7 @@ icc_interrupt(struct IsdnCardState *cs, u_char val)
 				icc_fill_fifo(cs);
 				goto afterXPR;
 			} else {
-				idev_kfree_skb_irq(cs->tx_skb, FREE_WRITE);
+				dev_kfree_skb_irq(cs->tx_skb);
 				cs->tx_cnt = 0;
 				cs->tx_skb = NULL;
 			}
@@ -554,7 +553,7 @@ ICC_l1hw(struct PStack *st, int pr, void *arg)
 			discard_queue(&cs->rq);
 			discard_queue(&cs->sq);
 			if (cs->tx_skb) {
-				idev_kfree_skb_any(cs->tx_skb, FREE_WRITE);
+				dev_kfree_skb_any(cs->tx_skb);
 				cs->tx_skb = NULL;
 			}
 			if (test_and_clear_bit(FLG_DBUSY_TIMER, &cs->HW_Flags))
@@ -610,7 +609,7 @@ dbusy_timer_handler(struct IsdnCardState *cs)
 			/* discard frame; reset transceiver */
 			test_and_clear_bit(FLG_DBUSY_TIMER, &cs->HW_Flags);
 			if (cs->tx_skb) {
-				idev_kfree_skb_any(cs->tx_skb, FREE_WRITE);
+				dev_kfree_skb_any(cs->tx_skb);
 				cs->tx_cnt = 0;
 				cs->tx_skb = NULL;
 			} else {

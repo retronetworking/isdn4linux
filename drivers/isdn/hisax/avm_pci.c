@@ -478,7 +478,7 @@ HDLC_irq(struct BCState *bcs, u_int stat) {
 				if (bcs->st->lli.l1writewakeup &&
 					(PACKET_NOACK != bcs->tx_skb->pkt_type))
 					bcs->st->lli.l1writewakeup(bcs->st, bcs->hw.hdlc.count);
-				idev_kfree_skb_irq(bcs->tx_skb, FREE_WRITE);
+				dev_kfree_skb_irq(bcs->tx_skb);
 				bcs->hw.hdlc.count = 0;
 				bcs->tx_skb = NULL;
 			}
@@ -605,7 +605,7 @@ close_hdlcstate(struct BCState *bcs)
 		discard_queue(&bcs->rqueue);
 		discard_queue(&bcs->squeue);
 		if (bcs->tx_skb) {
-			idev_kfree_skb_any(bcs->tx_skb, FREE_WRITE);
+			dev_kfree_skb_any(bcs->tx_skb);
 			bcs->tx_skb = NULL;
 			test_and_clear_bit(BC_FLG_BUSY, &bcs->Flag);
 		}

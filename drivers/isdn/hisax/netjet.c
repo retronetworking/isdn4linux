@@ -419,7 +419,6 @@ static void got_frame(struct BCState *bcs, int count) {
 	if (!(skb = dev_alloc_skb(count)))
 		printk(KERN_WARNING "TIGER: receive out of memory\n");
 	else {
-		SET_SKB_FREE(skb);
 		memcpy(skb_put(skb, count), bcs->hw.tiger.rcvbuf, count);
 		skb_queue_tail(&bcs->rqueue, skb);
 	}
@@ -751,7 +750,7 @@ static void write_raw(struct BCState *bcs, u_int *buf, int cnt) {
 				if (bcs->st->lli.l1writewakeup &&
 					(PACKET_NOACK != bcs->tx_skb->pkt_type))
 					bcs->st->lli.l1writewakeup(bcs->st, bcs->tx_skb->len);
-				idev_kfree_skb_any(bcs->tx_skb, FREE_WRITE);
+				dev_kfree_skb_any(bcs->tx_skb);
 				bcs->tx_skb = NULL;
 			}
 			test_and_clear_bit(BC_FLG_BUSY, &bcs->Flag);
@@ -894,7 +893,7 @@ close_tigerstate(struct BCState *bcs)
 		discard_queue(&bcs->rqueue);
 		discard_queue(&bcs->squeue);
 		if (bcs->tx_skb) {
-			idev_kfree_skb_any(bcs->tx_skb, FREE_WRITE);
+			dev_kfree_skb_any(bcs->tx_skb);
 			bcs->tx_skb = NULL;
 			test_and_clear_bit(BC_FLG_BUSY, &bcs->Flag);
 		}

@@ -6,6 +6,11 @@
  * (c) Copyright 1999 by Carsten Paeth (calle@calle.in-berlin.de)
  * 
  * $Log$
+ * Revision 1.18  2000/11/01 14:05:02  calle
+ * - use module_init/module_exit from linux/init.h.
+ * - all static struct variables are initialized with "membername:" now.
+ * - avm_cs.c, let it work with newer pcmcia-cs.
+ *
  * Revision 1.17  2000/10/10 17:44:19  kai
  * changes from/for 2.2.18
  *
@@ -547,7 +552,7 @@ static void c4_dispatch_tx(avmcard *card)
 	c4outmeml(card->mbase+DOORBELL, DBELL_DOWN_ARM);
 
 	restore_flags(flags);
-	idev_kfree_skb_any(skb, FREE_WRITE);
+	dev_kfree_skb_any(skb);
 }
 
 /* ------------------------------------------------------------- */

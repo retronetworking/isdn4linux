@@ -6,6 +6,9 @@
  * (c) Copyright 2000 by Carsten Paeth (calle@calle.in-berlin.de)
  * 
  * $Log$
+ * Revision 1.10  2000/11/19 17:01:53  kai
+ * compatibility cleanup - part 2
+ *
  * Revision 1.9  2000/11/01 14:05:02  calle
  * - use module_init/module_exit from linux/init.h.
  * - all static struct variables are initialized with "membername:" now.
@@ -452,7 +455,7 @@ static void b1dma_dispatch_tx(avmcard *card)
 		b1dmaoutmeml(card->mbase+AMCC_INTCSR, card->csr);
 
 	restore_flags(flags);
-	idev_kfree_skb_any(skb, FREE_WRITE);
+	dev_kfree_skb_any(skb);
 }
 
 /* ------------------------------------------------------------- */

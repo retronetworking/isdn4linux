@@ -8,21 +8,9 @@
 #include <linux/version.h>
 #endif
 
-#if LINUX_VERSION_CODE < KERNEL_VERSION(2,1,15)
-#define SET_SKB_FREE(x) ( x->free = 1 )
-#define idev_kfree_skb(a,b) dev_kfree_skb(a,b)
-#define idev_kfree_skb_irq(a,b) dev_kfree_skb(a,b)
-#define idev_kfree_skb_any(a,b) dev_kfree_skb(a,b)
-#else
-#define SET_SKB_FREE(x)
-#define idev_kfree_skb(a,b) dev_kfree_skb(a)
 #if LINUX_VERSION_CODE < KERNEL_VERSION(2,3,43)
-#define idev_kfree_skb_irq(a,b) dev_kfree_skb(a)
-#define idev_kfree_skb_any(a,b) dev_kfree_skb(a)
-#else
-#define idev_kfree_skb_irq(a,b) dev_kfree_skb_irq(a)
-#define idev_kfree_skb_any(a,b) dev_kfree_skb_any(a)
-#endif
+#define dev_kfree_skb_irq(a) dev_kfree_skb(a)
+#define dev_kfree_skb_any(a) dev_kfree_skb(a)
 #endif
 
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2,1,18)

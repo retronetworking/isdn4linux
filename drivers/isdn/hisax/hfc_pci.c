@@ -271,7 +271,6 @@ hfcpci_empty_fifo(struct BCState *bcs, bzfifo_type * bz, u_char * bdata, int cou
 	} else if (!(skb = dev_alloc_skb(count - 3)))
 		printk(KERN_WARNING "HFCPCI: receive out of memory\n");
 	else {
-		SET_SKB_FREE(skb);
 		total = count;
 		count -= 3;
 		ptr = skb_put(skb, count);
@@ -338,7 +337,6 @@ receive_dmsg(struct IsdnCardState *cs)
 			df->f2 = ((df->f2 + 1) & MAX_D_FRAMES) | (MAX_D_FRAMES + 1);	/* next buffer */
 			df->za[df->f2 & D_FREG_MASK].z2 = (zp->z2 + rcnt) & (D_FIFO_SIZE - 1);
 		} else if ((skb = dev_alloc_skb(rcnt - 3))) {
-			SET_SKB_FREE(skb);
 			total = rcnt;
 			rcnt -= 3;
 			ptr = skb_put(skb, rcnt);
@@ -398,7 +396,6 @@ hfcpci_empty_fifo_trans(struct BCState *bcs, bzfifo_type * bz, u_char * bdata)
 	if (!(skb = dev_alloc_skb(fcnt)))
 		printk(KERN_WARNING "HFCPCI: receive out of memory\n");
 	else {
-		SET_SKB_FREE(skb);
 		ptr = skb_put(skb, fcnt);
 		if (*z2r + fcnt <= B_FIFO_SIZE + B_SUB_VAL)
 			maxlen = fcnt;	/* complete transfer */
@@ -564,7 +561,7 @@ hfcpci_fill_dfifo(struct IsdnCardState *cs)
 	df->f1 = new_f1;	/* next frame */
 	restore_flags(flags);
 
-	idev_kfree_skb_any(cs->tx_skb, FREE_WRITE);
+	dev_kfree_skb_any(cs->tx_skb);
 	cs->tx_skb = NULL;
 	return;
 }
@@ -638,7 +635,7 @@ hfcpci_fill_fifo(struct BCState *bcs)
 				debugl1(cs, "hfcpci_fill_fifo_trans %d frame length %d discarded",
 					bcs->channel, bcs->tx_skb->len);
 
-			idev_kfree_skb_any(bcs->tx_skb, FREE_WRITE);
+			dev_kfree_skb_any(bcs->tx_skb);
 			cli();
 			bcs->tx_skb = skb_dequeue(&bcs->squeue);	/* fetch next data */
 			sti();
@@ -706,7 +703,7 @@ hfcpci_fill_fifo(struct BCState *bcs)
 	bz->f1 = new_f1;	/* next frame */
 	restore_flags(flags);
 
-	idev_kfree_skb_any(bcs->tx_skb, FREE_WRITE);
+	dev_kfree_skb_any(bcs->tx_skb);
 	bcs->tx_skb = NULL;
 	test_and_clear_bit(BC_FLG_BUSY, &bcs->Flag);
 	return;
@@ -1059,7 +1056,7 @@ hfcpci_interrupt(int intno, void *dev_id, struct pt_regs *regs)
 					}
 					goto afterXPR;
 				} else {
-					idev_kfree_skb_irq(cs->tx_skb, FREE_WRITE);
+					dev_kfree_skb_irq(cs->tx_skb);
 					cs->tx_cnt = 0;
 					cs->tx_skb = NULL;
 				}
@@ -1465,7 +1462,7 @@ close_hfcpci(struct BCState *bcs)
 		discard_queue(&bcs->rqueue);
 		discard_queue(&bcs->squeue);
 		if (bcs->tx_skb) {
-			idev_kfree_skb_any(bcs->tx_skb, FREE_WRITE);
+			dev_kfree_skb_any(bcs->tx_skb);
 			bcs->tx_skb = NULL;
 			test_and_clear_bit(BC_FLG_BUSY, &bcs->Flag);
 		}

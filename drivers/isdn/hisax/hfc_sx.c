@@ -261,7 +261,6 @@ read_fifo(struct IsdnCardState *cs, u_char fifo, int trans_max)
 	  if (count > trans_max) 
 	    count = trans_max; /* limit length */
 	    if ((skb = dev_alloc_skb(count))) {
-	      SET_SKB_FREE(skb);
 	      dst = skb_put(skb, count);
 	      while (count--) 
 		*dst++ = Read_hfc(cs, HFCSX_FIF_DRD);
@@ -304,7 +303,6 @@ read_fifo(struct IsdnCardState *cs, u_char fifo, int trans_max)
 	    skb = NULL;
 	  } else 
 	    if ((skb = dev_alloc_skb(count - 3))) {
-	      SET_SKB_FREE(skb);
 	      count -= 3;
 	      dst = skb_put(skb, count);
 
@@ -314,7 +312,7 @@ read_fifo(struct IsdnCardState *cs, u_char fifo, int trans_max)
 	      Read_hfc(cs, HFCSX_FIF_DRD); /* CRC 1 */
 	      Read_hfc(cs, HFCSX_FIF_DRD); /* CRC 2 */
 	      if (Read_hfc(cs, HFCSX_FIF_DRD)) {
-		idev_kfree_skb_irq(skb, FREE_READ);
+		dev_kfree_skb_irq(skb);
 		if (cs->debug & L1_DEB_ISAC_FIFO)
 		  debugl1(cs, "hfcsx_read_fifo %d crc error", fifo);
 		skb = NULL;
@@ -587,7 +585,7 @@ hfcsx_fill_dfifo(struct IsdnCardState *cs)
 		return;
 
 	if (write_fifo(cs, cs->tx_skb, HFCSX_SEL_D_TX, 0)) {
-	  idev_kfree_skb_any(cs->tx_skb, FREE_WRITE);
+	  dev_kfree_skb_any(cs->tx_skb);
 	  cs->tx_skb = NULL;
 	}
 	return;
@@ -620,7 +618,7 @@ hfcsx_fill_fifo(struct BCState *bcs)
 	  if (bcs->st->lli.l1writewakeup &&
 	      (PACKET_NOACK != bcs->tx_skb->pkt_type))
 	    bcs->st->lli.l1writewakeup(bcs->st, bcs->tx_skb->len);
-	  idev_kfree_skb_any(bcs->tx_skb, FREE_WRITE);
+	  dev_kfree_skb_any(bcs->tx_skb);
 	  bcs->tx_skb = NULL;
 	  test_and_clear_bit(BC_FLG_BUSY, &bcs->Flag);
 	}
@@ -764,7 +762,7 @@ receive_emsg(struct IsdnCardState *cs)
 	      } else
 		HiSax_putstatus(cs, "LogEcho: ", "warning Frame too big (%d)", skb->len);
 	    }
-	    idev_kfree_skb_any(skb, FREE_READ);
+	    dev_kfree_skb_any(skb);
 	  }
 	} while (--count && skb);
 
@@ -918,7 +916,7 @@ hfcsx_interrupt(int intno, void *dev_id, struct pt_regs *regs)
 					}
 					goto afterXPR;
 				} else {
-					idev_kfree_skb_irq(cs->tx_skb, FREE_WRITE);
+					dev_kfree_skb_irq(cs->tx_skb);
 					cs->tx_cnt = 0;
 					cs->tx_skb = NULL;
 				}
@@ -1306,7 +1304,7 @@ close_hfcsx(struct BCState *bcs)
 		discard_queue(&bcs->rqueue);
 		discard_queue(&bcs->squeue);
 		if (bcs->tx_skb) {
-			idev_kfree_skb_any(bcs->tx_skb, FREE_WRITE);
+			dev_kfree_skb_any(bcs->tx_skb);
 			bcs->tx_skb = NULL;
 			test_and_clear_bit(BC_FLG_BUSY, &bcs->Flag);
 		}

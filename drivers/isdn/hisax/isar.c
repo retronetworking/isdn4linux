@@ -455,7 +455,6 @@ send_DLE_ETX(struct BCState *bcs)
 	struct sk_buff *skb;
 	
 	if ((skb = dev_alloc_skb(2))) {
-		SET_SKB_FREE(skb);
 		memcpy(skb_put(skb, 2), dleetx, 2);
 		skb_queue_tail(&bcs->rqueue, skb);
 		isar_sched_event(bcs, B_RCVBUFREADY);
@@ -508,7 +507,6 @@ isar_rcv_frame(struct IsdnCardState *cs, struct BCState *bcs)
 	case L1_MODE_TRANS:
 	case L1_MODE_V32:
 		if ((skb = dev_alloc_skb(ireg->clsb))) {
-			SET_SKB_FREE(skb);
 			rcv_mbox(cs, ireg, (u_char *)skb_put(skb, ireg->clsb));
 			skb_queue_tail(&bcs->rqueue, skb);
 			isar_sched_event(bcs, B_RCVBUFREADY);
@@ -549,7 +547,6 @@ isar_rcv_frame(struct IsdnCardState *cs, struct BCState *bcs)
 				} else if (!(skb = dev_alloc_skb(bcs->hw.isar.rcvidx-2))) {
 					printk(KERN_WARNING "ISAR: receive out of memory\n");
 				} else {
-					SET_SKB_FREE(skb);
 					memcpy(skb_put(skb, bcs->hw.isar.rcvidx-2),
 						bcs->hw.isar.rcvbuf, bcs->hw.isar.rcvidx-2);
 					skb_queue_tail(&bcs->rqueue, skb);
@@ -575,7 +572,6 @@ isar_rcv_frame(struct IsdnCardState *cs, struct BCState *bcs)
 				debugl1(cs, "isar_rcv_frame: raw(%d) dle(%d)",
 					ireg->clsb, bcs->hw.isar.rcvidx);
 			if ((skb = dev_alloc_skb(bcs->hw.isar.rcvidx))) {
-				SET_SKB_FREE(skb);
 				insert_dle((u_char *)skb_put(skb, bcs->hw.isar.rcvidx),
 					bcs->hw.isar.rcvbuf, ireg->clsb);
 				skb_queue_tail(&bcs->rqueue, skb);
@@ -634,7 +630,6 @@ isar_rcv_frame(struct IsdnCardState *cs, struct BCState *bcs)
 				} else if (!(skb = dev_alloc_skb(bcs->hw.isar.rcvidx))) {
 					printk(KERN_WARNING "ISAR: receive out of memory\n");
 				} else {
-					SET_SKB_FREE(skb);
 					insert_dle((u_char *)skb_put(skb, len),
 						bcs->hw.isar.rcvbuf,
 						bcs->hw.isar.rcvidx);
@@ -780,7 +775,7 @@ send_frames(struct BCState *bcs)
 					}
 				}
 			}
-			idev_kfree_skb_any(bcs->tx_skb, FREE_WRITE);
+			dev_kfree_skb_any(bcs->tx_skb);
 			bcs->hw.isar.txcnt = 0; 
 			bcs->tx_skb = NULL;
 		}
@@ -1657,7 +1652,7 @@ close_isarstate(struct BCState *bcs)
 		discard_queue(&bcs->rqueue);
 		discard_queue(&bcs->squeue);
 		if (bcs->tx_skb) {
-			idev_kfree_skb_any(bcs->tx_skb, FREE_WRITE);
+			dev_kfree_skb_any(bcs->tx_skb);
 			bcs->tx_skb = NULL;
 			test_and_clear_bit(BC_FLG_BUSY, &bcs->Flag);
 			if (bcs->cs->debug & L1_DEB_HSCX)

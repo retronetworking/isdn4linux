@@ -2980,7 +2980,7 @@ dss1up(struct PStack *st, int pr, void *arg)
 	}
 	if (skb->len < 3) {
 		l3_debug(st, "dss1up frame too short(%d)", skb->len);
-		idev_kfree_skb(skb, FREE_READ);
+		dev_kfree_skb(skb);
 		return;
 	}
 
@@ -2990,13 +2990,13 @@ dss1up(struct PStack *st, int pr, void *arg)
 				 (pr == (DL_DATA | INDICATION)) ? " " : "(broadcast) ",
 				 skb->data[0], skb->len);
 		}
-		idev_kfree_skb(skb, FREE_READ);
+		dev_kfree_skb(skb);
 		return;
 	}
 	cr = getcallref(skb->data);
 	if (skb->len < ((skb->data[1] & 0x0f) + 3)) {
 		l3_debug(st, "dss1up frame too short(%d)", skb->len);
-		idev_kfree_skb(skb, FREE_READ);
+		dev_kfree_skb(skb);
 		return;
 	}
 	mt = skb->data[skb->data[1] + 2];
@@ -3005,26 +3005,26 @@ dss1up(struct PStack *st, int pr, void *arg)
 	if (cr == -2) {  /* wrong Callref */
 		if (st->l3.debug & L3_DEB_WARN)
 			l3_debug(st, "dss1up wrong Callref");
-		idev_kfree_skb(skb, FREE_READ);
+		dev_kfree_skb(skb);
 		return;
 	} else if (cr == -1) {	/* Dummy Callref */
 		if (mt == MT_FACILITY)
 			if ((p = findie(skb->data, skb->len, IE_FACILITY, 0))) {
 				l3dss1_parse_facility(st, NULL, 
 					(pr == (DL_DATA | INDICATION)) ? -1 : -2, p); 
-				idev_kfree_skb(skb, FREE_READ);
+				dev_kfree_skb(skb);
 				return;  
 			}
 		if (st->l3.debug & L3_DEB_WARN)
 			l3_debug(st, "dss1up dummy Callref (no facility msg or ie)");
-		idev_kfree_skb(skb, FREE_READ);
+		dev_kfree_skb(skb);
 		return;
 	} else if ((((skb->data[1] & 0x0f) == 1) && (0==(cr & 0x7f))) ||
 		(((skb->data[1] & 0x0f) == 2) && (0==(cr & 0x7fff)))) {	/* Global CallRef */
 		if (st->l3.debug & L3_DEB_STATE)
 			l3_debug(st, "dss1up Global CallRef");
 		global_handler(st, mt, skb);
-		idev_kfree_skb(skb, FREE_READ);
+		dev_kfree_skb(skb);
 		return;
 	} else if (!(proc = getl3proc(st, cr))) {
 		/* No transaction process exist, that means no call with
@@ -3036,7 +3036,7 @@ dss1up(struct PStack *st, int pr, void *arg)
 				/* Setup with wrong CREF flag */
 				if (st->l3.debug & L3_DEB_STATE)
 					l3_debug(st, "dss1up wrong CRef flag");
-				idev_kfree_skb(skb, FREE_READ);
+				dev_kfree_skb(skb);
 				return;
 			}
 			if (!(proc = dss1_new_l3_process(st, cr))) {
@@ -3044,7 +3044,7 @@ dss1up(struct PStack *st, int pr, void *arg)
 				 * CAUSE 0x2f "Resource unavailable", but this
 				 * need a new_l3_process too ... arghh
 				 */
-				idev_kfree_skb(skb, FREE_READ);
+				dev_kfree_skb(skb);
 				return;
 			}
 		} else if (mt == MT_STATUS) {
@@ -3078,17 +3078,17 @@ dss1up(struct PStack *st, int pr, void *arg)
 					l3dss1_msg_without_setup(proc, 0, NULL);
 				}
 			}
-			idev_kfree_skb(skb, FREE_READ);
+			dev_kfree_skb(skb);
 			return;
 		} else if (mt == MT_RELEASE_COMPLETE) {
-			idev_kfree_skb(skb, FREE_READ);
+			dev_kfree_skb(skb);
 			return;
 		} else {
 			/* ETS 300-104 part 2
 			 * if setup has not been made and a message type
 			 * (except MT_SETUP and RELEASE_COMPLETE) is received,
 			 * we must send MT_RELEASE_COMPLETE cause 81 */
-			idev_kfree_skb(skb, FREE_READ);
+			dev_kfree_skb(skb);
 			if ((proc = dss1_new_l3_process(st, cr))) {
 				proc->para.cause = 81;
 				l3dss1_msg_without_setup(proc, 0, NULL);
@@ -3097,7 +3097,7 @@ dss1up(struct PStack *st, int pr, void *arg)
 		}
 	}
 	if (l3dss1_check_messagetype_validity(proc, mt, skb)) {
-		idev_kfree_skb(skb, FREE_READ);
+		dev_kfree_skb(skb);
 		return;
 	}
 	if ((p = findie(skb->data, skb->len, IE_DISPLAY, 0)) != NULL) 
@@ -3124,7 +3124,7 @@ dss1up(struct PStack *st, int pr, void *arg)
 		}
 		datastatelist[i].rout(proc, pr, skb);
 	}
-	idev_kfree_skb(skb, FREE_READ);
+	dev_kfree_skb(skb);
 	return;
 }
 

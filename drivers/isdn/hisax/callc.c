@@ -79,7 +79,7 @@ discard_queue(struct sk_buff_head *q)
 	int ret=0;
 
 	while ((skb = skb_dequeue(q))) {
-		idev_kfree_skb(skb, FREE_READ);
+		dev_kfree_skb(skb);
 		ret++;
 	}
 	return(ret);
@@ -1196,7 +1196,7 @@ lldata_handler(struct PStack *st, int pr, void *arg)
 				chanp->cs->iif.rcvcallb_skb(chanp->cs->myid, chanp->chan, skb);
 			} else {
 				link_debug(chanp, 0, "lldata: channel not open");
-				idev_kfree_skb(skb, FREE_READ);
+				dev_kfree_skb(skb);
 			}
 			break;
 		case (DL_ESTABLISH | INDICATION):
@@ -1228,7 +1228,7 @@ lltrans_handler(struct PStack *st, int pr, void *arg)
 				chanp->cs->iif.rcvcallb_skb(chanp->cs->myid, chanp->chan, skb);
 			} else {
 				link_debug(chanp, 0, "lltrans: channel not open");
-				idev_kfree_skb(skb, FREE_READ);
+				dev_kfree_skb(skb);
 			}
 			break;
 		case (PH_ACTIVATE | INDICATION):
@@ -1341,7 +1341,7 @@ leased_l4l3(struct PStack *st, int pr, void *arg)
 	switch (pr) {
 		case (DL_DATA | REQUEST):
 			link_debug(chanp, 0, "leased line d-channel DATA");
-			idev_kfree_skb(skb, FREE_READ);
+			dev_kfree_skb(skb);
 			break;
 		case (DL_ESTABLISH | REQUEST):
 			st->l2.l2l1(st, PH_ACTIVATE | REQUEST, NULL);
@@ -1365,7 +1365,7 @@ leased_l1l2(struct PStack *st, int pr, void *arg)
 	switch (pr) {
 		case (PH_DATA | INDICATION):
 			link_debug(chanp, 0, "leased line d-channel DATA");
-			idev_kfree_skb(skb, FREE_READ);
+			dev_kfree_skb(skb);
 			break;
 		case (PH_ACTIVATE | INDICATION):
 		case (PH_ACTIVATE | CONFIRM):
@@ -1816,7 +1816,7 @@ HiSax_writebuf_skb(int id, int chan, int ack, struct sk_buff *skb)
 				chanp->bcs->tx_cnt += len;
 				st->l2.l2l1(st, PH_DATA | REQUEST, nskb);
 			}
-			idev_kfree_skb(skb, FREE_WRITE);
+			dev_kfree_skb(skb);
 		} else
 			len = 0;
 		restore_flags(flags);

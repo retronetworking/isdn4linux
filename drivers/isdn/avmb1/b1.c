@@ -6,6 +6,9 @@
  * (c) Copyright 1999 by Carsten Paeth (calle@calle.in-berlin.de)
  * 
  * $Log$
+ * Revision 1.18  2000/11/19 17:01:53  kai
+ * compatibility cleanup - part 2
+ *
  * Revision 1.17  2000/11/01 14:05:02  calle
  * - use module_init/module_exit from linux/init.h.
  * - all static struct variables are initialized with "membername:" now.
@@ -439,7 +442,7 @@ void b1_send_message(struct capi_ctr *ctrl, struct sk_buff *skb)
 		b1_put_slice(port, skb->data, len);
 	}
 	restore_flags(flags);
-	idev_kfree_skb_any(skb, FREE_WRITE);
+	dev_kfree_skb_any(skb);
 }
 
 /* ------------------------------------------------------------- */

@@ -1,8 +1,4 @@
 #delete #include <linux/isdn_compat.h>
-#define SET_SKB_FREE(x)
-#define idev_kfree_skb(a,b) dev_kfree_skb(a)
-#define idev_kfree_skb_irq(a,b) dev_kfree_skb_irq(a)
-#define idev_kfree_skb_any(a,b) dev_kfree_skb_any(a)
 #define COMPAT_HAS_NEW_SYMTAB
 #define CLOSETYPE int
 #define CLOSEVAL (0)

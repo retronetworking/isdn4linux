@@ -911,7 +911,7 @@ closecard(int cardnr)
 		csta->rcvbuf = NULL;
 	}
 	if (csta->tx_skb) {
-		idev_kfree_skb(csta->tx_skb, FREE_WRITE);
+		dev_kfree_skb(csta->tx_skb);
 		csta->tx_skb = NULL;
 	}
 	if (csta->DC_Close != NULL) {

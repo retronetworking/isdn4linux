@@ -200,7 +200,6 @@ hfc_empty_fifo(struct BCState *bcs, int count)
 	if (!(skb = dev_alloc_skb(count)))
 		printk(KERN_WARNING "HFC: receive out of memory\n");
 	else {
-		SET_SKB_FREE(skb);
 		ptr = skb_put(skb, count);
 		idx = 0;
 		cip = HFC_CIP | HFC_FIFO_OUT | HFC_REC | HFC_CHANNEL(bcs->channel);
@@ -211,7 +210,7 @@ hfc_empty_fifo(struct BCState *bcs, int count)
 		if (idx != count) {
 			debugl1(cs, "RFIFO BUSY error");
 			printk(KERN_WARNING "HFC FIFO channel %d BUSY Error\n", bcs->channel);
-			idev_kfree_skb_any(skb, FREE_READ);
+			dev_kfree_skb_any(skb);
 			if (bcs->mode != L1_MODE_TRANS) {
 			  WaitNoBusy(cs);
 			  stat = cs->BC_Read_Reg(cs, HFC_DATA, HFC_CIP | HFC_F2_INC | HFC_REC |
@@ -232,7 +231,7 @@ hfc_empty_fifo(struct BCState *bcs, int count)
 			    bcs->channel, chksum, stat);
 		  if (stat) {
 		    debugl1(cs, "FIFO CRC error");
-		    idev_kfree_skb_any(skb, FREE_READ);
+		    dev_kfree_skb_any(skb);
 		    skb = NULL;
 #ifdef ERROR_STATISTIC
 		    bcs->err_crc++;
@@ -321,7 +320,7 @@ hfc_fill_fifo(struct BCState *bcs)
 		bcs->tx_cnt -= count;
 		if (PACKET_NOACK == bcs->tx_skb->pkt_type)
 			count = -1;
-		idev_kfree_skb_any(bcs->tx_skb, FREE_WRITE);
+		dev_kfree_skb_any(bcs->tx_skb);
 		bcs->tx_skb = NULL;
 		if (bcs->mode != L1_MODE_TRANS) {
 		  WaitForBusy(cs);
@@ -535,7 +534,7 @@ close_hfcstate(struct BCState *bcs)
 		discard_queue(&bcs->rqueue);
 		discard_queue(&bcs->squeue);
 		if (bcs->tx_skb) {
-			idev_kfree_skb_any(bcs->tx_skb, FREE_WRITE);
+			dev_kfree_skb_any(bcs->tx_skb);
 			bcs->tx_skb = NULL;
 			test_and_clear_bit(BC_FLG_BUSY, &bcs->Flag);
 		}

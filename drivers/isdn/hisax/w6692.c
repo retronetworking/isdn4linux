@@ -352,7 +352,6 @@ W6692B_interrupt(struct IsdnCardState *cs, u_char bchan)
 				if (!(skb = dev_alloc_skb(count)))
 					printk(KERN_WARNING "W6692: Bchan receive out of memory\n");
 				else {
-					SET_SKB_FREE(skb);
 					memcpy(skb_put(skb, count), bcs->hw.w6692.rcvbuf, count);
 					skb_queue_tail(&bcs->rqueue, skb);
 				}
@@ -368,7 +367,6 @@ W6692B_interrupt(struct IsdnCardState *cs, u_char bchan)
 			if (!(skb = dev_alloc_skb(W_B_FIFO_THRESH)))
 				printk(KERN_WARNING "HiSax: receive out of memory\n");
 			else {
-				SET_SKB_FREE(skb);
 				memcpy(skb_put(skb, W_B_FIFO_THRESH), bcs->hw.w6692.rcvbuf, W_B_FIFO_THRESH);
 				skb_queue_tail(&bcs->rqueue, skb);
 			}
@@ -385,7 +383,7 @@ W6692B_interrupt(struct IsdnCardState *cs, u_char bchan)
 				if (bcs->st->lli.l1writewakeup &&
 				 (PACKET_NOACK != bcs->tx_skb->pkt_type))
 					bcs->st->lli.l1writewakeup(bcs->st, bcs->hw.w6692.count);
-				idev_kfree_skb_irq(bcs->tx_skb, FREE_WRITE);
+				dev_kfree_skb_irq(bcs->tx_skb);
 				bcs->hw.w6692.count = 0;
 				bcs->tx_skb = NULL;
 			}
@@ -463,7 +461,6 @@ W6692_interrupt(int intno, void *dev_id, struct pt_regs *regs)
 				if (!(skb = alloc_skb(count, GFP_ATOMIC)))
 					printk(KERN_WARNING "HiSax: D receive out of memory\n");
 				else {
-					SET_SKB_FREE(skb);
 					memcpy(skb_put(skb, count), cs->rcvbuf, count);
 					skb_queue_tail(&cs->rq, skb);
 				}
@@ -486,7 +483,7 @@ W6692_interrupt(int intno, void *dev_id, struct pt_regs *regs)
 				W6692_fill_fifo(cs);
 				goto afterXFR;
 			} else {
-				idev_kfree_skb_irq(cs->tx_skb, FREE_WRITE);
+				dev_kfree_skb_irq(cs->tx_skb);
 				cs->tx_cnt = 0;
 				cs->tx_skb = NULL;
 			}
@@ -663,7 +660,7 @@ W6692_l1hw(struct PStack *st, int pr, void *arg)
 			discard_queue(&cs->rq);
 			discard_queue(&cs->sq);
 			if (cs->tx_skb) {
-				idev_kfree_skb_any(cs->tx_skb, FREE_WRITE);
+				dev_kfree_skb_any(cs->tx_skb);
 				cs->tx_skb = NULL;
 			}
 			if (test_and_clear_bit(FLG_DBUSY_TIMER, &cs->HW_Flags))
@@ -722,7 +719,7 @@ dbusy_timer_handler(struct IsdnCardState *cs)
 			/* discard frame; reset transceiver */
 			test_and_clear_bit(FLG_DBUSY_TIMER, &cs->HW_Flags);
 			if (cs->tx_skb) {
-				idev_kfree_skb_any(cs->tx_skb, FREE_WRITE);
+				dev_kfree_skb_any(cs->tx_skb);
 				cs->tx_cnt = 0;
 				cs->tx_skb = NULL;
 			} else {
@@ -837,7 +834,7 @@ close_w6692state(struct BCState *bcs)
 		discard_queue(&bcs->rqueue);
 		discard_queue(&bcs->squeue);
 		if (bcs->tx_skb) {
-			idev_kfree_skb_any(bcs->tx_skb, FREE_WRITE);
+			dev_kfree_skb_any(bcs->tx_skb);
 			bcs->tx_skb = NULL;
 			test_and_clear_bit(BC_FLG_BUSY, &bcs->Flag);
 		}
