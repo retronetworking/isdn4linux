@@ -21,6 +21,10 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.21  1996/06/15 14:58:20  fritz
+ * Added version signatures for data structures used
+ * by userlevel programs.
+ *
  * Revision 1.20  1996/06/12 16:01:49  fritz
  * Bugfix: Remote B-channel hangup sometimes did not result
  *         in a NO CARRIER on tty.
@@ -122,6 +126,7 @@
 
 /* Debugflags */
 #undef  ISDN_DEBUG_STATCALLB
+#define NEW_ISDN_TIMER_CTRL
 
 isdn_dev *dev = (isdn_dev *) 0;
 
@@ -229,8 +234,10 @@ static void isdn_timer_funct(ulong dummy)
 
 		save_flags(flags);
 		cli();
-		del_timer(&dev->timer);
-		dev->timer.function = isdn_timer_funct;
+                del_timer(&dev->timer);
+#ifndef NEW_ISDN_TIMER_CTRL
+                dev->timer.function = isdn_timer_funct;
+#endif
 		dev->timer.expires = jiffies + ISDN_TIMER_RES;
 		add_timer(&dev->timer);
 		restore_flags(flags);
@@ -252,12 +259,20 @@ void isdn_timer_ctrl(int tf, int onoff)
 		dev->tflags |= tf;
 	else
 		dev->tflags &= ~tf;
+#ifdef NEW_ISDN_TIMER_CTRL
 	if (dev->tflags) {
-		del_timer(&dev->timer);
-		dev->timer.function = isdn_timer_funct;
+                if (!del_timer(&dev->timer)) /* del_timer is 1, when active */
+                        dev->timer.expires = jiffies + ISDN_TIMER_RES;
+		add_timer(&dev->timer);
+	}
+#else
+	if (dev->tflags) {
+                del_timer(&dev->timer);
+                dev->timer.function = isdn_timer_funct;
 		dev->timer.expires = jiffies + ISDN_TIMER_RES;
 		add_timer(&dev->timer);
 	}
+#endif
 	restore_flags(flags);
 }
 
@@ -284,6 +299,7 @@ static void isdn_receive_skb_callback(int di, int channel, struct sk_buff *skb)
 	if (isdn_net_rcv_skb(i, skb))
 		return;
 	/* No network-device found, deliver to tty or raw-channel */
+        skb->free = 1;
 	if (skb->len) {
                 if ((midx = dev->m_idx[i])<0) {
                         /* if midx is invalid, drop packet */
@@ -1741,7 +1757,7 @@ int isdn_get_free_channel(int usage, int l2_proto, int l3_proto, int pre_dev
 						dev->usage[i] &= ISDN_USAGE_EXCLUSIVE;
 						dev->usage[i] |= usage;
 						isdn_info_update();
-                                                cmd.driver = i;
+                                                cmd.driver = d;
                                                 cmd.arg = 0;
                                                 cmd.command = ISDN_CMD_LOCK;
                                                 (void) dev->drv[d]->interface->command(&cmd);
@@ -1752,7 +1768,7 @@ int isdn_get_free_channel(int usage, int l2_proto, int l3_proto, int pre_dev
 							dev->usage[i] &= ISDN_USAGE_EXCLUSIVE;
 							dev->usage[i] |= usage;
 							isdn_info_update();
-                                                        cmd.driver = i;
+                                                        cmd.driver = d;
                                                         cmd.arg = 0;
                                                         cmd.command = ISDN_CMD_LOCK;
                                                         (void) dev->drv[d]->interface->command(&cmd);
@@ -2077,6 +2093,10 @@ int isdn_init(void)
 		return -EIO;
 	}
 	memset((char *) dev, 0, sizeof(isdn_dev));
+#ifdef NEW_ISDN_TIMER_CTRL
+        init_timer(&dev->timer);
+        dev->timer.function = isdn_timer_funct;
+#endif
 	for (i = 0; i < ISDN_MAX_CHANNELS; i++) {
 		dev->drvmap[i] = -1;
 		dev->chanmap[i] = -1;
