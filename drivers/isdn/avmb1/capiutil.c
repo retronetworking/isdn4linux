@@ -7,6 +7,9 @@
  * Rewritten for Linux 1996 by Carsten Paeth (calle@calle.in-berlin.de)
  *
  * $Log$
+ * Revision 1.1  1997/03/04 21:50:34  calle
+ * Frirst version in isdn4linux
+ *
  * Revision 2.2  1997/02/12 09:31:39  calle
  * new version
  *
@@ -14,7 +17,6 @@
  * Initial revision
  *
  */
-#include <linux/config.h>
 #include <linux/module.h>
 #include <linux/string.h>
 #include <linux/ctype.h>
@@ -723,26 +725,29 @@ char *capi_cmsg2str(_cmsg * cmsg)
 	return buf;
 }
 
-#ifdef MODULE
 
-#ifndef HAS_NEW_SYMTAB
-#define EXPORT_SYMBOL(symbol)	X(symbol)
+#ifdef HAS_NEW_SYMTAB
+EXPORT_SYMBOL(capi_cmsg2message);
+EXPORT_SYMBOL(capi_message2cmsg);
+EXPORT_SYMBOL(capi_cmsg_header);
+EXPORT_SYMBOL(capi_cmd2str);
+EXPORT_SYMBOL(capi_cmsg2str);
+EXPORT_SYMBOL(capi_message2str);
+#else
 static struct symbol_table capifunc_syms =
 {
 #include <linux/symtab_begin.h>
-#endif
-
-	EXPORT_SYMBOL(capi_cmsg2message),
-	EXPORT_SYMBOL(capi_message2cmsg),
-	EXPORT_SYMBOL(capi_cmsg_header),
-	EXPORT_SYMBOL(capi_cmd2str),
-	EXPORT_SYMBOL(capi_cmsg2str),
-	EXPORT_SYMBOL(capi_message2str),
-
-#ifndef HAS_NEW_SYMTAB
+	X(capi_cmsg2message),
+	X(capi_message2cmsg),
+	X(capi_cmsg_header),
+	X(capi_cmd2str),
+	X(capi_cmsg2str),
+	X(capi_message2str),
 #include <linux/symtab_end.h>
 };
 #endif
+
+#ifdef MODULE
 
 int init_module(void)
 {
