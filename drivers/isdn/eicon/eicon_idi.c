@@ -26,6 +26,11 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.26  1999/11/25 11:43:27  armin
+ * Fixed statectrl and connect message.
+ * X.75 fix and HDLC/transparent with autoconnect.
+ * Minor cleanup.
+ *
  * Revision 1.25  1999/11/18 20:30:55  armin
  * removed old workaround for ISA cards.
  *
@@ -190,6 +195,9 @@ idi_assign_req(eicon_REQ *reqbuf, int signet, eicon_chan *chan)
 	reqbuf->XBuffer.P[l++] = LLC;
 	reqbuf->XBuffer.P[l++] = 2;
 	switch(chan->l2prot) {
+		case ISDN_PROTO_L2_TRANS:
+			reqbuf->XBuffer.P[l++] = 2; /* transparent */
+			break;
 		case ISDN_PROTO_L2_X75I:
 		case ISDN_PROTO_L2_X75UI:
 		case ISDN_PROTO_L2_X75BUI:
@@ -202,7 +210,6 @@ idi_assign_req(eicon_REQ *reqbuf, int signet, eicon_chan *chan)
 				reqbuf->XBuffer.P[l++] = 10; /* V.42 */
 			break;
 		case ISDN_PROTO_L2_HDLC:
-		case ISDN_PROTO_L2_TRANS:
 		case ISDN_PROTO_L2_FAX:
   			if (chan->fsm_state == EICON_STATE_IWAIT)
 				reqbuf->XBuffer.P[l++] = 3; /* autoconnect on incoming */
@@ -2515,8 +2522,11 @@ idi_handle_ind(eicon_card *ccard, struct sk_buff *skb)
 						case ISDN_PROTO_L2_MODEM:
 							/* do nothing, wait for connect */
 							break;
+						case ISDN_PROTO_L2_TRANS:
+							idi_do_req(ccard, chan, IDI_N_CONNECT, 1);
+							break;
 						default:
-							/* On incoming calls we use automatic connect */
+							/* On most incoming calls we use automatic connect */
 							/* idi_do_req(ccard, chan, IDI_N_CONNECT, 1); */
 					}
 				} else
