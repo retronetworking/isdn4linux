@@ -3,6 +3,9 @@
  *  DSS1 (Euro) D-channel protocol defines
  *
  * $Log$
+ * Revision 1.7  1999/07/01 08:12:02  keil
+ * Common HiSax version for 2.0, 2.1, 2.2 and 2.3 kernel
+ *
  * Revision 1.6  1998/03/19 13:18:50  keil
  * Start of a CAPI like interface for supplementary Service
  * first service: SUSPEND
@@ -32,6 +35,8 @@
 #define T304	30000
 #define T305	30000
 #define T308	4000
+/* for layer 1 certification T309 < layer1 T3 (e.g. 4000) */
+/* This makes some tests easier and quicker */
 #define T309	40000
 #define T310	30000
 #define T313	4000
