@@ -139,6 +139,12 @@ ifeq ($(CONFIG_HISAX_NICCY),y)
 	 HSCX_OBJ := hscx.o
 endif
 
+ifeq ($(CONFIG_HISAX_ISURF),y)
+	 O_OBJS += isurf.o
+	 ISAC_OBJ := isac.o
+	 ISAR_OBJ := isar.o
+endif
+
 O_OBJS += $(ISAC_OBJ) $(HSCX_OBJ) $(ISAR_OBJ) $(ARCOFI_OBJ) 
 O_OBJS += $(HFC_OBJ) $(HFC_2BDS0)
 OX_OBJS += config.o

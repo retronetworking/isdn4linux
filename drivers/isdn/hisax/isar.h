@@ -5,6 +5,9 @@
  *
  *
  * $Log$
+ * Revision 1.1.2.3  1998/10/04 23:05:01  keil
+ * ISAR works now
+ *
  * Revision 1.1.2.2  1998/09/30 22:28:09  keil
  * more work for isar support
  *
@@ -41,6 +44,7 @@
 #define ISAR_HIS_PUMPCFG	0x26	
 #define ISAR_HIS_IOM2CFG	0x27
 #define ISAR_HIS_IOM2REQ	0x07
+#define ISAR_HIS_IOM2CTRL	0x2b
 #define ISAR_HIS_BSTREQ	0x0c
 #define ISAR_HIS_PSTREQ	0x0e
 #define ISAR_HIS_SDATA	0x20

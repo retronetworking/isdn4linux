@@ -3,6 +3,9 @@
  *   Basic declarations, defines and prototypes
  *
  * $Log$
+ * Revision 1.13.2.19  1998/11/05 21:11:17  keil
+ * AVM PnP support
+ *
  * Revision 1.13.2.18  1998/11/03 00:06:33  keil
  * certification related changes
  * fixed logging for smaller stack use
@@ -661,6 +664,13 @@ struct hfcD_hw {
 	struct timer_list timer;
 };
 
+struct isurf_hw {
+	unsigned int reset;
+	unsigned int isac;
+	unsigned int isar;
+	struct isar_reg isar_r;
+};
+
 #define HW_IOM1		0
 #define HW_IPAC		1
 #define HW_ISAR		2
@@ -695,6 +705,7 @@ struct IsdnCardState {
 		struct njet_hw njet;
 		struct hfcD_hw hfcD;
 		struct ix1_hw niccy;
+		struct isurf_hw isurf;
 	} hw;
 	int myid;
 	isdn_if iif;
@@ -769,8 +780,8 @@ struct IsdnCardState {
 #define  ISDN_CTYPE_A1_PCMCIA	26
 #define  ISDN_CTYPE_FRITZPCI	27
 #define  ISDN_CTYPE_SEDLBAUER_FAX     28
-
-#define  ISDN_CTYPE_COUNT	28
+#define  ISDN_CTYPE_ISURF	29
+#define  ISDN_CTYPE_COUNT	29
 
 #ifdef ISDN_CHIP_ISAC
 #undef ISDN_CHIP_ISAC
@@ -950,6 +961,15 @@ struct IsdnCardState {
 #define CARD_NICCY 0
 #endif
 
+#ifdef	CONFIG_HISAX_ISURF
+#define	CARD_ISURF (1 << ISDN_CTYPE_ISURF)
+#ifndef ISDN_CHIP_ISAC
+#define ISDN_CHIP_ISAC 1
+#endif
+#else
+#define CARD_ISURF 0
+#endif
+
 #ifdef	CONFIG_HISAX_S0BOX
 #define	CARD_S0BOX (1 << ISDN_CTYPE_S0BOX)
 #ifndef ISDN_CHIP_ISAC
@@ -964,7 +984,7 @@ struct IsdnCardState {
 			 | CARD_TELEINT | CARD_SEDLBAUER | CARD_SPORTSTER \
 			 | CARD_MIC | CARD_NETJET | CARD_TELES3C | CARD_AMD7930 \
 			 | CARD_AVM_A1_PCMCIA | CARD_FRITZPCI\
-			 | CARD_NICCY | CARD_S0BOX | CARD_TELESPCI)
+			 | CARD_NICCY | CARD_S0BOX | CARD_TELESPCI | CARD_ISURF)
 
 #define TEI_PER_CARD 0
 

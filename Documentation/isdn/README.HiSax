@@ -54,6 +54,7 @@ USR Sportster internal TA (compatible Stollmann tina-pp V3)
 ith Kommunikationstechnik GmbH MIC 16 ISA card
 Traverse Technologie NETjet PCI S0 card
 Dr. Neuhaus Niccy PnP/PCI
+Siemens I-Surf
 
 Note: PCF, PCF-Pro: up to now, only the ISDN part is supported
       PCC-8: not tested yet
@@ -165,6 +166,7 @@ Card types:
    27   AVM PnP (Fritz!PnP)      irq, io  (from isapnp setup)
    27   AVM PCI (Fritz!PCI)      no parameter
    28   Sedlbauer Speed Fax+     irq, io (from isapnp setup)
+   29   Siemens I-Surf           irq, io, mem (from isapnp setup)
 
 
 At the moment IRQ sharing is only possible with PCI cards. Please make sure
@@ -260,6 +262,7 @@ type
    27   AVM PnP (Fritz!PnP)     ONLY WORKS AS A MODULE !
    27   AVM PCI (Fritz!PCI)     no parameter
    28   Sedlbauer Speed Fax+    ONLY WORKS AS A MODULE !
+   29   Siemens I-Surf          ONLY WORKS AS A MODULE !
 
 
 Running the driver

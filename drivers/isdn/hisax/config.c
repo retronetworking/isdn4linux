@@ -5,6 +5,9 @@
  *
  *
  * $Log$
+ * Revision 1.15.2.24  1998/11/11 13:37:53  keil
+ * fix typo
+ *
  * Revision 1.15.2.23  1998/11/11 11:04:36  keil
  * update version
  *
@@ -141,6 +144,7 @@
  *   26 AVM A1 PCMCIA (Fritz)   p0=irq p1=iobase
  *   27 AVM PnP/PCI 		p0=irq p1=iobase (PCI no parameter)
  *   28 Sedlbauer Speed Fax+ 	p0=irq p1=iobase (from isapnp setup)
+ *   29 Siemens I-Surf          p0=irq p1=iobase p2=memory (from isapnp setup)   
  *
  * protocol can be either ISDN_PTYPE_EURO or ISDN_PTYPE_1TR6 or ISDN_PTYPE_NI1
  *
@@ -154,7 +158,7 @@ const char *CardType[] =
  "Sedlbauer Speed Card", "USR Sportster", "ith mic Linux", "Elsa PCI",
  "Compaq ISA", "NETjet", "Teles PCI", "Sedlbauer Speed Star (PCMCIA)",
  "AMD 7930", "NICCY", "S0Box", "AVM A1 (PCMCIA)", "AVM Fritz PnP/PCI",
- "Sedlbauer Speed Fax +"
+ "Sedlbauer Speed Fax +", "Siemens I-Surf"
 };
 
 #ifdef CONFIG_HISAX_ELSA
@@ -309,6 +313,13 @@ static struct symbol_table hisax_syms_sedl= {
 #define DEFAULT_CFG {0,0x0,0,0}
 #endif
 
+#ifdef CONFIG_HISAX_ISURF
+#undef DEFAULT_CARD
+#undef DEFAULT_CFG
+#define DEFAULT_CARD ISDN_CTYPE_ISURF
+#define DEFAULT_CFG {5,0x100,0xc8000,0}
+#endif
+
 #ifdef CONFIG_HISAX_1TR6
 #define DEFAULT_PROTO ISDN_PTYPE_1TR6
 #define DEFAULT_PROTO_NAME "1TR6"
@@ -431,9 +442,9 @@ HiSaxVersion(void))
 
 	printk(KERN_INFO "HiSax: Linux Driver for passive ISDN cards\n");
 #ifdef MODULE
-	printk(KERN_INFO "HiSax: Version 3.1 (module)\n");
+	printk(KERN_INFO "HiSax: Version 3.1a (module)\n");
 #else
-	printk(KERN_INFO "HiSax: Version 3.1 (kernel)\n");
+	printk(KERN_INFO "HiSax: Version 3.1a (kernel)\n");
 #endif
 	strcpy(tmp, l1_revision);
 	printk(KERN_INFO "HiSax: Layer1 Revision %s\n", HiSax_getrev(tmp));
@@ -583,6 +594,10 @@ extern int setup_amd7930(struct IsdnCard *card);
 
 #if CARD_NICCY
 extern int setup_niccy(struct IsdnCard *card);
+#endif
+
+#if CARD_ISURF
+extern int setup_isurf(struct IsdnCard *card);
 #endif
 
 /*
@@ -1074,6 +1089,11 @@ checkcard(int cardnr, char *id, int *busy_flag))
 			ret = setup_amd7930(card);
 			break;
 #endif
+#if CARD_ISURF
+		case ISDN_CTYPE_ISURF:
+			ret = setup_isurf(card);
+			break;
+#endif
 		default:
 			printk(KERN_WARNING "HiSax: Unknown Card Typ %d\n",
 			       card->typ);
@@ -1340,6 +1360,11 @@ HiSax_init(void))
 			case ISDN_CTYPE_FRITZPCI:
 				cards[i].para[0] = irq[i];
 				cards[i].para[1] = io[i];
+				break;
+			case ISDN_CTYPE_ISURF:
+				cards[i].para[0] = irq[i];
+				cards[i].para[1] = io[i];
+				cards[i].para[2] = mem[i];
 				break;
 			case ISDN_CTYPE_ELSA_PCI:
 			case ISDN_CTYPE_NETJET:
