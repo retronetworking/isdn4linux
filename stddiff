@@ -104,7 +104,7 @@ else
 	done
 	README=`echo Documentation/isdn/README* | grep -v '.sc'`
 	for i in Documentation/isdn/CREDITS $README Documentation/isdn/*.FAQ \
-		Documentation/isdn/INTERFACE ; do
+		Documentation/isdn/HiSax.* Documentation/isdn/INTERFACE ; do
 		dodiff $i $KERNELDIR/$i
 	done
 	for i in drivers/isdn/Config.in ; do
