@@ -10,11 +10,12 @@ export-objs	  := config.o fsm.o hisax_isac.o
 
 # Multipart objects.
 
-list-multi	  := hisax.o hisax_st5481.o
+list-multi	  := hisax.o hisax_st5481.o hfc_usb.o
 hisax-objs	  := config.o isdnl1.o tei.o isdnl2.o isdnl3.o \
 		     lmgr.o q931.o callc.o fsm.o cert.o
 hisax_st5481-objs := st5481_init.o st5481_usb.o st5481_d.o st5481_b.o \
 		     st5481_hdlc.o
+hfc_usb-objs      := hfc_usb.o
 
 # Optional parts of multipart objects.
 hisax-objs-$(CONFIG_HISAX_EURO) += l3dss1.o
@@ -41,7 +42,6 @@ hisax-objs-$(CONFIG_HISAX_NETJET_U) += nj_u.o netjet.o icc.o
 hisax-objs-$(CONFIG_HISAX_HFCS) += hfcscard.o hfc_2bds0.o
 hisax-objs-$(CONFIG_HISAX_HFC_PCI) += hfc_pci.o
 hisax-objs-$(CONFIG_HISAX_HFC_SX) += hfc_sx.o
-hisax-objs-$(CONFIG_HISAX_HFC_USB) += hfc_usbr.o
 hisax-objs-$(CONFIG_HISAX_NICCY) += niccy.o isac.o arcofi.o hscx.o
 hisax-objs-$(CONFIG_HISAX_ISURF) += isurf.o isac.o arcofi.o isar.o
 hisax-objs-$(CONFIG_HISAX_HSTSAPHIR) += saphir.o isac.o arcofi.o hscx.o
