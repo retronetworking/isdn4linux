@@ -24,6 +24,10 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.2  2000/02/13 17:32:19  werner
+ *
+ * Added support for new network layer of 2.3.43 and 44 kernels and tested driver.
+ *
  * Revision 1.1  2000/02/10 19:45:18  werner
  *
  * Initial release
@@ -47,7 +51,7 @@
 /* store the actual version for log reporting */
 char *hysdn_net_revision = "$Revision$";
 
-#define MAX_SKB_BUFFERS 20 /* number of buffers for keeping TX-data */
+#define MAX_SKB_BUFFERS 20	/* number of buffers for keeping TX-data */
 
 /****************************************************************************/
 /* structure containing the complete network data. The structure is aligned */
@@ -71,11 +75,11 @@ struct net_local {
 	 * by this lock as well.
 	 */
 	spinlock_t lock;
-        struct sk_buff *skbs[MAX_SKB_BUFFERS]; /* pointers to tx-skbs */
-        int in_idx,out_idx; /* indexes to buffer ring */
-        int sk_count; /* number of buffers currently in ring */
+	struct sk_buff *skbs[MAX_SKB_BUFFERS];	/* pointers to tx-skbs */
+	int in_idx, out_idx;	/* indexes to buffer ring */
+	int sk_count;		/* number of buffers currently in ring */
 
-        int is_open; /* flag controlling module locking */
+	int is_open;		/* flag controlling module locking */
 #endif
 };				/* net_local */
 
@@ -111,11 +115,11 @@ net_open(struct net_device *dev)
 		MOD_INC_USE_COUNT;	/* increment only if device is down */
 	dev->start = 1;		/* and started */
 #else
-	if (!((struct net_local *)dev)->is_open)
-	  MOD_INC_USE_COUNT; /* increment only if interface is actually down */
-	((struct net_local *)dev)->is_open = 1; /* device actually open */
+	if (!((struct net_local *) dev)->is_open)
+		MOD_INC_USE_COUNT;	/* increment only if interface is actually down */
+	((struct net_local *) dev)->is_open = 1;	/* device actually open */
 
-	netif_start_queue(dev); /* start tx-queueing */
+	netif_start_queue(dev);	/* start tx-queueing */
 #endif
 
 	/* Fill in the MAC-level header (if not already set) */
@@ -138,16 +142,17 @@ net_open(struct net_device *dev)
 /* flush the currently occupied tx-buffers */
 /* must only be called when device closed  */
 /*******************************************/
-static void flush_tx_buffers(struct net_local *nl)
+static void
+flush_tx_buffers(struct net_local *nl)
 {
 
-  while (nl->sk_count) {
-    dev_kfree_skb(nl->skbs[nl->out_idx++]); /* free skb */
-    if (nl->out_idx >= MAX_SKB_BUFFERS)
-      nl->out_idx = 0; /* wrap around */
-    nl->sk_count--;
-  }
-} /* flush_tx_buffers */
+	while (nl->sk_count) {
+		dev_kfree_skb(nl->skbs[nl->out_idx++]);		/* free skb */
+		if (nl->out_idx >= MAX_SKB_BUFFERS)
+			nl->out_idx = 0;	/* wrap around */
+		nl->sk_count--;
+	}
+}				/* flush_tx_buffers */
 #endif
 
 
@@ -159,7 +164,7 @@ static int
 net_close(struct net_device *dev)
 {
 
-#ifdef COMPAT_NO_SOFTNET 
+#ifdef COMPAT_NO_SOFTNET
 	dev->tbusy = 1;		/* we are busy */
 
 	if (dev->start)
@@ -168,12 +173,12 @@ net_close(struct net_device *dev)
 	dev->start = 0;		/* and not started */
 
 #else
-	netif_stop_queue(dev); /* disable queueing */
+	netif_stop_queue(dev);	/* disable queueing */
 
-	if (((struct net_local *)dev)->is_open)
-	  MOD_DEC_USE_COUNT; /* adjust module counter */
-	((struct net_local *)dev)->is_open = 0;
-	flush_tx_buffers((struct net_local *)dev);
+	if (((struct net_local *) dev)->is_open)
+		MOD_DEC_USE_COUNT;	/* adjust module counter */
+	((struct net_local *) dev)->is_open = 0;
+	flush_tx_buffers((struct net_local *) dev);
 
 #endif
 	return (0);		/* success */
@@ -182,7 +187,7 @@ net_close(struct net_device *dev)
 #ifdef COMPAT_NO_SOFTNET
 /************************************/
 /* send a packet on this interface. */
-/* only for kernel versions < 2.3.33*/
+/* only for kernel versions < 2.3.33 */
 /************************************/
 static int
 net_send_packet(struct sk_buff *skb, struct net_device *dev)
@@ -232,10 +237,10 @@ net_send_packet(struct sk_buff *skb, struct net_device *dev)
 
 	spin_lock_irq(&lp->lock);
 
-        lp->skbs[lp->in_idx++] = skb; /* add to buffer list */
+	lp->skbs[lp->in_idx++] = skb;	/* add to buffer list */
 	if (lp->in_idx >= MAX_SKB_BUFFERS)
-	  lp->in_idx = 0; /* wrap around */
-	lp->sk_count++; /* adjust counter */
+		lp->in_idx = 0;	/* wrap around */
+	lp->sk_count++;		/* adjust counter */
 	dev->trans_start = jiffies;
 
 	/* If we just used up the very last entry in the
@@ -250,12 +255,11 @@ net_send_packet(struct sk_buff *skb, struct net_device *dev)
 	 */
 
 	spin_unlock_irq(&lp->lock);
-	
-	if (lp->sk_count <= 3) {
-	  queue_task(&((hysdn_card *) dev->priv)->irq_queue, &tq_immediate);
-	  mark_bh(IMMEDIATE_BH);
-	}
 
+	if (lp->sk_count <= 3) {
+		queue_task(&((hysdn_card *) dev->priv)->irq_queue, &tq_immediate);
+		mark_bh(IMMEDIATE_BH);
+	}
 	return (0);		/* success */
 }				/* net_send_packet */
 
@@ -285,17 +289,17 @@ hysdn_tx_netack(hysdn_card * card)
 #else
 
 	if (!lp->sk_count)
-	  return; /* error condition */
-	
+		return;		/* error condition */
+
 	lp->stats.tx_packets++;
 	lp->stats.tx_bytes += lp->skbs[lp->out_idx]->len;
-	
-	dev_kfree_skb(lp->skbs[lp->out_idx++]); /* free skb */
-	if (lp->out_idx >= MAX_SKB_BUFFERS)
-	  lp->out_idx = 0; /* wrap around */
 
-	if (lp->sk_count-- == MAX_SKB_BUFFERS) /* dec usage count */
-	  netif_start_queue((struct net_device *)lp);
+	dev_kfree_skb(lp->skbs[lp->out_idx++]);		/* free skb */
+	if (lp->out_idx >= MAX_SKB_BUFFERS)
+		lp->out_idx = 0;	/* wrap around */
+
+	if (lp->sk_count-- == MAX_SKB_BUFFERS)	/* dec usage count */
+		netif_start_queue((struct net_device *) lp);
 #endif
 }				/* hysdn_tx_netack */
 
@@ -348,10 +352,10 @@ hysdn_tx_netget(hysdn_card * card)
 	return (lp->tx_skb);	/* return packet pointer */
 
 #else
-	if (!lp->sk_count) 
-	  return(NULL); /* nothing available */
+	if (!lp->sk_count)
+		return (NULL);	/* nothing available */
 
-	return(lp->skbs[lp->out_idx]); /* next packet to send */
+	return (lp->skbs[lp->out_idx]);		/* next packet to send */
 #endif
 }				/* hysdn_tx_netget */
 
@@ -394,7 +398,7 @@ hysdn_net_create(hysdn_card * card)
 	memset(dev, 0, sizeof(struct net_local));	/* clean the structure */
 
 #ifndef COMPAT_NO_SOFTNET
-	spin_lock_init(&((struct net_local *)dev)->lock);
+	spin_lock_init(&((struct net_local *) dev)->lock);
 #endif
 
 	/* initialise necessary or informing fields */
@@ -431,7 +435,7 @@ hysdn_net_release(hysdn_card * card)
 	dev->stop(dev);		/* close the device */
 
 #ifndef COMPAT_NO_SOFTNET
-	flush_tx_buffers((struct net_local *)dev); /* empty buffers */
+	flush_tx_buffers((struct net_local *) dev);	/* empty buffers */
 #endif
 
 	unregister_netdev(dev);	/* release the device */
