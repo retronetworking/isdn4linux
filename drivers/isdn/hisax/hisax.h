@@ -3,6 +3,9 @@
  *   Basic declarations, defines and prototypes
  *
  * $Log$
+ * Revision 1.13.2.15  1998/09/30 22:28:04  keil
+ * more work for isar support
+ *
  * Revision 1.13.2.14  1998/09/27 13:06:09  keil
  * Apply most changes from 2.1.X (HiSax 3.1)
  *
@@ -364,11 +367,22 @@ struct hscx_hw {
 	u_char *rcvbuf;         /* B-Channel receive Buffer */
 };
 
+struct isar_reg {
+	unsigned int Flags;
+	volatile u_char bstat;
+	volatile u_char iis;
+	volatile u_char cmsb;
+	volatile u_char clsb;
+	volatile u_char par[8];
+};
+
 struct isar_hw {
 	int dpath;
 	int rcvidx;
 	int txcnt;
+	int mml;
 	u_char *rcvbuf;         /* B-Channel receive Buffer */
+	struct isar_reg *reg;
 };
 
 struct hdlc_hw {
@@ -569,14 +583,9 @@ struct sedl_hw {
 	unsigned int adr;
 	unsigned int isac;
 	unsigned int hscx;
-	unsigned int isar;
 	unsigned int reset_on;
 	unsigned int reset_off;
-	volatile u_char bstat;
-	volatile u_char iis;
-	volatile u_char cmsb;
-	volatile u_char clsb;
-	volatile u_char par[8];
+	struct isar_reg isar;
 };
 
 struct spt_hw {

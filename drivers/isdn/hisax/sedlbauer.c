@@ -15,6 +15,9 @@
  *            Edgar Toernig
  *
  * $Log$
+ * Revision 1.1.2.8  1998/09/30 22:28:10  keil
+ * more work for isar support
+ *
  * Revision 1.1.2.7  1998/09/27 13:07:01  keil
  * Apply most changes from 2.1.X (HiSax 3.1)
  *
@@ -205,21 +208,21 @@ static u_char
 ReadISAR(struct IsdnCardState *cs, int mode, u_char offset)
 {	
 	if (mode == 0)
-		return (readreg(cs->hw.sedl.adr, cs->hw.sedl.isar, offset));
+		return (readreg(cs->hw.sedl.adr, cs->hw.sedl.hscx, offset));
 	else if (mode == 1)
 		byteout(cs->hw.sedl.adr, offset);
-	return(bytein(cs->hw.sedl.isar));
+	return(bytein(cs->hw.sedl.hscx));
 }
 
 static void
 WriteISAR(struct IsdnCardState *cs, int mode, u_char offset, u_char value)
 {
 	if (mode == 0)
-		writereg(cs->hw.sedl.adr, cs->hw.sedl.isar, offset, value);
+		writereg(cs->hw.sedl.adr, cs->hw.sedl.hscx, offset, value);
 	else {
 		if (mode == 1)
 			byteout(cs->hw.sedl.adr, offset);
-		byteout(cs->hw.sedl.isar, value);
+		byteout(cs->hw.sedl.hscx, value);
 	}
 }
 
@@ -355,7 +358,7 @@ sedlbauer_interrupt_isar(int intno, void *dev_id, struct pt_regs *regs)
 		return;
 	}
 
-	val = readreg(cs->hw.sedl.adr, cs->hw.sedl.isar, ISAR_IRQBIT);
+	val = readreg(cs->hw.sedl.adr, cs->hw.sedl.hscx, ISAR_IRQBIT);
       Start_ISAR:
 	if (val & ISAR_IRQSTA)
 		isar_int_main(cs);
@@ -363,7 +366,7 @@ sedlbauer_interrupt_isar(int intno, void *dev_id, struct pt_regs *regs)
       Start_ISAC:
 	if (val)
 		isac_interrupt(cs, val);
-	val = readreg(cs->hw.sedl.adr, cs->hw.sedl.isar, ISAR_IRQBIT);
+	val = readreg(cs->hw.sedl.adr, cs->hw.sedl.hscx, ISAR_IRQBIT);
 	if ((val & ISAR_IRQSTA) && --cnt) {
 		if (cs->debug & L1_DEB_HSCX)
 			debugl1(cs, "ISAR IntStat after IntRoutine");
@@ -378,10 +381,10 @@ sedlbauer_interrupt_isar(int intno, void *dev_id, struct pt_regs *regs)
 	if (!cnt)
 		printk(KERN_WARNING "Sedlbauer IRQ LOOP\n");
 
-	writereg(cs->hw.sedl.adr, cs->hw.sedl.isar, ISAR_IRQBIT, 0);
+	writereg(cs->hw.sedl.adr, cs->hw.sedl.hscx, ISAR_IRQBIT, 0);
 	writereg(cs->hw.sedl.adr, cs->hw.sedl.isac, ISAC_MASK, 0xFF);
 	writereg(cs->hw.sedl.adr, cs->hw.sedl.isac, ISAC_MASK, 0x0);
-	writereg(cs->hw.sedl.adr, cs->hw.sedl.isar, ISAR_IRQBIT, ISAR_IRQMSK);
+	writereg(cs->hw.sedl.adr, cs->hw.sedl.hscx, ISAR_IRQBIT, ISAR_IRQMSK);
 }
 
 void
@@ -453,14 +456,12 @@ Sedl_card_msg(struct IsdnCardState *cs, int mt, void *arg)
 		case CARD_INIT:
 			if (cs->subtyp == SEDL_SPEED_FAX) {
 				clear_pending_isac_ints(cs);
-				writereg(cs->hw.sedl.adr, cs->hw.sedl.isar,
+				writereg(cs->hw.sedl.adr, cs->hw.sedl.hscx,
 					ISAR_IRQBIT, 0);
 				initisac(cs);
-				inithscx(cs);
+				initisar(cs);
 				/* Reenable all IRQ */
 				cs->writeisac(cs, ISAC_MASK, 0);
-				// writereg(cs->hw.sedl.adr, cs->hw.sedl.isar,
-				//	ISAR_IRQBIT, ISAR_IRQSTA);
 				/* RESET Receiver and Transmitter */
 				cs->writeisac(cs, ISAC_CMDR, 0x41);
 			} else {
@@ -470,10 +471,13 @@ Sedl_card_msg(struct IsdnCardState *cs, int mt, void *arg)
 		case CARD_TEST:
 			return(0);
 		case CARD_LOAD_FIRM:
-			if (cs->subtyp == SEDL_SPEED_FAX)
-				return(isar_load_firmware(cs, arg));
-			else
-				return(0);
+			if (cs->subtyp == SEDL_SPEED_FAX) {
+				if (isar_load_firmware(cs, arg))
+					return(1);
+				else
+					ll_run(cs);
+			}
+			return(0);
 	}
 	return(0);
 }
@@ -508,9 +512,11 @@ setup_sedlbauer(struct IsdnCard *card))
 	} else if (cs->subtyp == SEDL_SPEED_FAX) {
 		cs->hw.sedl.adr = cs->hw.sedl.cfg_reg + SEDL_FAX_ADR;
 		cs->hw.sedl.isac = cs->hw.sedl.cfg_reg + SEDL_FAX_ISAC;
-		cs->hw.sedl.isar = cs->hw.sedl.cfg_reg + SEDL_FAX_ISAR;
+		cs->hw.sedl.hscx = cs->hw.sedl.cfg_reg + SEDL_FAX_ISAR;
 		cs->hw.sedl.reset_on = cs->hw.sedl.cfg_reg + SEDL_FAX_ISAR_RESET_ON;
 		cs->hw.sedl.reset_off = cs->hw.sedl.cfg_reg + SEDL_FAX_ISAR_RESET_OFF;
+		cs->bcs[0].hw.isar.reg = &cs->hw.sedl.isar;
+		cs->bcs[1].hw.isar.reg = &cs->hw.sedl.isar;
 		test_and_set_bit(HW_ISAR, &cs->HW_Flags);
 		bytecnt = 16;
 	} else {
@@ -571,7 +577,7 @@ setup_sedlbauer(struct IsdnCard *card))
 		if (cs->subtyp == SEDL_SPEED_FAX) {
 			cs->BC_Read_Reg = &ReadISAR;
 			cs->BC_Write_Reg = &WriteISAR;
-			cs->BC_Send_Data = &hscx_fill_fifo;
+			cs->BC_Send_Data = &isar_fill_fifo;
 			ver = ISARVersion(cs, "Sedlbauer:");
 			if (ver < 0) {
 				printk(KERN_WARNING
