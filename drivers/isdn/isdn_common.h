@@ -21,6 +21,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.2  1996/04/20 16:20:40  fritz
+ * Misc. typos.
+ *
  * Revision 1.1  1996/01/10 21:37:19  fritz
  * Initial revision
  *
@@ -35,7 +38,6 @@
 #undef  ISDN_DEBUG_AT
 #undef  ISDN_DEBUG_NET_DUMP
 #undef  ISDN_DEBUG_NET_DIAL
-#undef  ISDN_DEBUG_NET_BUILDHDR
 #undef  ISDN_DEBUG_NET_ICALL
 
 /* Prototypes */
