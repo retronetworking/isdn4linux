@@ -1,6 +1,9 @@
 /* $Id$
  *
  * $Log$
+ * Revision 1.12  1997/02/11 01:39:20  keil
+ * Changed setup-interface (incoming and outgoing)
+ *
  * Revision 1.11  1996/09/29 19:41:58  fritz
  * Bugfix: ignore unknown frames.
  *
@@ -264,6 +267,7 @@ l3s12(struct PStack *st, byte pr, void *arg)
                  * Bearer Capabilities
                  */
 		if ((p = findie(p + st->l2.uihsize, ibh->datasize - st->l2.uihsize, 0x04, 0))) {
+			st->pa->setup.si2 = 0;
 			switch (p[2] & 0x1f) {
 			  case 0x00:
                                   /* Speech */

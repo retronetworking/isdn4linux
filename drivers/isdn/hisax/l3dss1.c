@@ -9,6 +9,9 @@
  *              Fritz Elfert
  *
  * $Log$
+ * Revision 1.10  1997/02/11 01:37:24  keil
+ * Changed setup-interface (incoming and outgoing)
+ *
  * Revision 1.9  1997/01/27 23:20:52  keil
  * report revision only ones
  *
@@ -288,6 +291,7 @@ l3dss1_setup(struct PStack *st, byte pr, void *arg)
 	   * Bearer Capabilities
 	 */
 	if ((p = findie(p + st->l2.uihsize, ibh->datasize - st->l2.uihsize, 0x04, 0))) {
+		st->pa->setup.si2 = 0;
 		switch (p[2] & 0x1f) {
 		case 0x00:
 			/* Speech */
