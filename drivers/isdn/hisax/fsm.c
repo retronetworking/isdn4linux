@@ -7,6 +7,9 @@
  *              Fritz Elfert
  *
  * $Log$
+ * Revision 1.5  1997/06/26 11:10:05  keil
+ * Restart timer function added
+ *
  * Revision 1.4  1997/04/06 22:56:42  keil
  * Some cosmetic changes
  *
@@ -36,9 +39,14 @@ FsmNew(struct Fsm *fsm,
 	    kmalloc(4L * fsm->state_count * fsm->event_count, GFP_KERNEL);
 	memset(fsm->jumpmatrix, 0, 4L * fsm->state_count * fsm->event_count);
 
-	for (i = 0; i < fncount; i++)
-		fsm->jumpmatrix[fsm->state_count * fnlist[i].event +
-			      fnlist[i].state] = (int) fnlist[i].routine;
+	for (i = 0; i < fncount; i++) 
+		if ((fnlist[i].state>=fsm->state_count) || (fnlist[i].event>=fsm->event_count)) {
+			printk(KERN_ERR "FsmNew Error line %d st(%d/%d) ev(%d/%d)\n",
+				i,fnlist[i].state,fsm->state_count,
+				fnlist[i].event,fsm->event_count);
+		} else		
+			fsm->jumpmatrix[fsm->state_count * fnlist[i].event +
+				fnlist[i].state] = (int) fnlist[i].routine;
 }
 
 void
@@ -53,6 +61,11 @@ FsmEvent(struct FsmInst *fi, int event, void *arg)
 	void (*r) (struct FsmInst *, int, void *);
 	char str[80];
 
+	if ((fi->state>=fi->fsm->state_count) || (event >= fi->fsm->event_count)) {
+		printk(KERN_ERR "FsmEvent Error st(%d/%d) ev(%d/%d)\n",
+			fi->state,fi->fsm->state_count,event,fi->fsm->event_count);
+		return(1);
+	}
 	r = (void (*)) fi->fsm->jumpmatrix[fi->fsm->state_count * event + fi->state];
 	if (r) {
 		if (fi->debug) {
