@@ -11,6 +11,9 @@
  *              Fritz Elfert
  *
  * $Log$
+ * Revision 2.13  1999/07/21 14:46:28  keil
+ * changes from EICON certification
+ *
  * Revision 2.12  1999/07/01 08:12:11  keil
  * Common HiSax version for 2.0, 2.1, 2.2 and 2.3 kernel
  *
@@ -214,7 +217,7 @@ tei_id_assign(struct FsmInst *fi, int event, void *arg)
 	if (st->ma.debug)
 		st->ma.tei_m.printdebug(&st->ma.tei_m,
 			"identity assign ri %d tei %d", ri, tei);
-	if ((ost = findtei(st, tei))) {		/* same tei is in use */
+	if ((ost = findtei(st, tei))) {	/* same tei is in use */
 		if (ri != ost->ma.ri) {
 			st->ma.tei_m.printdebug(&st->ma.tei_m,
 				"possible duplicate assignment tei %d", tei);
@@ -241,10 +244,12 @@ tei_id_test_dup(struct FsmInst *fi, int event, void *arg)
 	if (st->ma.debug)
 		st->ma.tei_m.printdebug(&st->ma.tei_m,
 			"foreign identity assign ri %d tei %d", ri, tei);
-	if ((ost = findtei(st, tei))) {		/* same tei is in use */
-		st->ma.tei_m.printdebug(&st->ma.tei_m,
-			"possible duplicate assignment tei %d", tei);
-		FsmEvent(&ost->ma.tei_m, EV_VERIFY, NULL);
+	if ((ost = findtei(st, tei))) {	/* same tei is in use */
+		if (ri != ost->ma.ri) {	/* and it wasn't our request */
+			st->ma.tei_m.printdebug(&st->ma.tei_m,
+				"possible duplicate assignment tei %d", tei);
+			FsmEvent(&ost->ma.tei_m, EV_VERIFY, NULL);
+		}
 	} 
 }
 
