@@ -6,6 +6,9 @@
  * Copyright 1996 by Carsten Paeth (calle@calle.in-berlin.de)
  *
  * $Log$
+ * Revision 1.47  2000/12/07 00:00:03  kai
+ * fix compatiblity to 2.4 when using std2kern w/o -u
+ *
  * Revision 1.46  2000/12/06 16:58:01  kai
  * patches from 2.4.0-test12-6
  * o remove unneeded includes
@@ -557,9 +560,6 @@ static struct capincci *capincci_alloc(struct capidev *cdev, __u32 ncci)
 	memset(np, 0, sizeof(struct capincci));
 	np->ncci = ncci;
 	np->cdev = cdev;
-	for (pp=&cdev->nccis; *pp; pp = &(*pp)->next)
-		;
-	*pp = np;
 #ifdef CONFIG_ISDN_CAPI_MIDDLEWARE
 	mp = 0;
 	if (cdev->userflags & CAPIFLAG_HIGHJACKING)
@@ -577,6 +577,9 @@ static struct capincci *capincci_alloc(struct capidev *cdev, __u32 ncci)
 #endif
 	}
 #endif /* CONFIG_ISDN_CAPI_MIDDLEWARE */
+	for (pp=&cdev->nccis; *pp; pp = &(*pp)->next)
+		;
+	*pp = np;
         return np;
 }
 
