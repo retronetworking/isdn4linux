@@ -21,6 +21,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.48.2.24  1998/10/25 22:08:22  fritz
+ * Bugfix: Only first number was dialed.
+ *
  * Revision 1.48.2.23  1998/10/25 17:42:18  fritz
  * Bugfix: added missing reset of connect-flag.
  *
@@ -443,6 +446,21 @@ isdn_net_bind_channel(isdn_net_local * lp, int idx)
 	restore_flags(flags);
 }
 
+static inline void
+isdn_net_unbind_ptr_idx(int idx)
+{
+	if (idx != -1) {
+		dev->rx_netdev[idx] = NULL;
+		dev->st_netdev[idx] = NULL;
+	}
+}
+
+static inline void
+isdn_net_unbind_ptr(int drv, int ch)
+{
+	isdn_net_unbind_ptr_idx(isdn_dc2minor(drv, ch));
+}
+
 /*
  * unbind a net-interface (resets interface after an error)
  */
@@ -465,8 +483,7 @@ isdn_net_unbind_channel(isdn_net_local * lp)
 		dev_purge_queues(&lp->netdev->dev);
 	lp->dialstate = 0;
 	if (lp->isdn_device != -1 && lp->isdn_device != -1) {
-		dev->rx_netdev[isdn_dc2minor(lp->isdn_device, lp->isdn_channel)] = NULL;
-		dev->st_netdev[isdn_dc2minor(lp->isdn_device, lp->isdn_channel)] = NULL;
+		isdn_net_unbind_ptr(lp->isdn_device, lp->isdn_channel);
 		isdn_free_channel(lp->isdn_device, lp->isdn_channel, ISDN_USAGE_NET);
 	}
 	lp->flags &= ~ISDN_NET_CONNECTED;
@@ -612,6 +629,7 @@ isdn_net_stat_callback(int idx, isdn_ctrl *c)
 						lp->dialstate++;
 						return 1;
 					case 12:
+					case 13:
 						lp->dialstate = 5;
 						return 1;
 				}
@@ -619,33 +637,47 @@ isdn_net_stat_callback(int idx, isdn_ctrl *c)
 			case ISDN_STAT_DHUP:
 				/* Either D-Channel-hangup or error during dialout */
 				if (lp->flags & ISDN_NET_CONNECTED) {
+					printk(KERN_INFO "%s: remote %s (%d)\n", lp->name,
+						lp->dialstate?"abort":"hangup", lp->dialstate);
+					printk(KERN_INFO "%s: Chargesum is %d\n", lp->name,
+						lp->charge);
+printk(KERN_DEBUG "idx=%d drv=%d ch=%d\n",idx, lp->isdn_device, lp->isdn_channel);
 					if (!lp->dialstate) {
-						if (lp->first_skb) {
-							dev_kfree_skb(lp->first_skb, FREE_WRITE);
-							lp->first_skb = NULL;
-						}
-						if (lp->sav_skb) {
-							dev_kfree_skb(lp->sav_skb, FREE_WRITE);
-							lp->sav_skb = NULL;
-						}
-						lp->flags &= ~ISDN_NET_CONNECTED;
-						isdn_free_channel(lp->isdn_device, lp->isdn_channel,
-							  	ISDN_USAGE_NET);
+						isdn_all_eaz(lp->isdn_device, lp->isdn_channel);
 #ifdef CONFIG_ISDN_PPP
 						isdn_ppp_free(lp);
 #endif
-						isdn_all_eaz(lp->isdn_device, lp->isdn_channel);
-						lp->isdn_device = -1;
-						lp->isdn_channel = -1;
-						dev->st_netdev[idx] = NULL;
-						dev->rx_netdev[idx] = NULL;
+						isdn_net_unbind_channel(lp);
 					} else {
-						lp->dialstate = 3;
+						switch (lp->dialstate) {
+							case 4:
+							case 5:
+							case 6:
+							case 7:
+							case 8:
+							case 9:
+								lp->dialstate = 3;
+								break;
+							case 11:
+								break;
+							case 12:
+								{
+									isdn_ctrl cmd;
+									printk(KERN_INFO "%s: got reject, waiting for callback ...\n", p->local.name);
+
+									p->local.dtimer = 0;
+									p->local.dialstate = 13;
+									cmd.driver = p->local.isdn_device;
+									cmd.command = ISDN_CMD_HANGUP;
+									cmd.arg = p->local.isdn_channel;
+									isdn_command(&cmd);
+									isdn_all_eaz(p->local.isdn_device, p->local.isdn_channel);
+								}
+								/* Fall through */
+							case 13:
+								break;
+						}
 					}
-					printk(KERN_INFO "%s: remote %s\n", lp->name,
-						lp->dialstate?"abort":"hangup");
-					printk(KERN_INFO "%s: Chargesum is %d\n", lp->name,
-						lp->charge);
 					return 1;
 				}
 				break;
@@ -912,11 +944,13 @@ isdn_net_dial(void)
 					p->local.hupflags &= ~ISDN_HAVECHARGE;
 				}
 				anymore = 1;
-				p->local.dialstate =
-				    (p->local.cbdelay &&
-				     (p->local.flags & ISDN_NET_CBOUT)) ? 12 : 4;
+				if (p->local.flags & ISDN_NET_CBOUT) {
+					p->local.dialstate = (p->local.cbdelay) ? 12 : 13;
+				} else
+					p->local.dialstate = 4;
 				break;
 			case 4:
+			case 13:
 				/* Wait for D-Channel-connect.
 				 * If timeout, switch back to state 3.
 				 * Dialmax-handling moved to state 3.
@@ -999,13 +1033,13 @@ isdn_net_dial(void)
 				break;
 			case 12:
 				/* Remote does callback. Hangup after cbdelay, then wait for incoming
-				 * call (in state 4).
+				 * call (in state 13).
 				 */
 				if (p->local.dtimer++ > p->local.cbdelay) 
 				{
 					printk(KERN_INFO "%s: hangup waiting for callback ...\n", p->local.name);
 					p->local.dtimer = 0;
-					p->local.dialstate = 4;
+					p->local.dialstate = 13;
 					cmd.driver = p->local.isdn_device;
 					cmd.command = ISDN_CMD_HANGUP;
 					cmd.arg = p->local.isdn_channel;
@@ -1978,7 +2012,7 @@ isdn_net_find_icall(int di, isdn_ctrl *c, int idx)
 {
 	char *eaz;
 	int ch = c->arg;
-	setup_parm setup = c->parm.setup;
+	setup_parm *setup = &c->parm.setup;
 	int si1;
 	int si2;
 	int ematch;
@@ -1992,19 +2026,19 @@ isdn_net_find_icall(int di, isdn_ctrl *c, int idx)
 	/* Search name in netdev-chain */
 	save_flags(flags);
 	cli();
-	if (!setup.phone[0]) {
+	if (!setup->phone[0]) {
 		nr[0] = '0';
 		nr[1] = '\0';
 		printk(KERN_INFO "isdn_net: Incoming call without OAD, assuming '0'\n");
 	} else
-		strcpy(nr, setup.phone);
-	si1 = (int) setup.si1;
-	si2 = (int) setup.si2;
-	if (!setup.eazmsn[0]) {
+		strcpy(nr, setup->phone);
+	si1 = (int) setup->si1;
+	si2 = (int) setup->si2;
+	if (!setup->eazmsn[0]) {
 		printk(KERN_WARNING "isdn_net: Incoming call without CPN, assuming '0'\n");
 		eaz = "0";
 	} else
-		eaz = setup.eazmsn;
+		eaz = setup->eazmsn;
 	if (dev->net_verbose > 1)
 		printk(KERN_INFO "isdn_net: call from %s,%d,%d -> %s\n", nr, si1, si2, eaz);
 	/* Accept only calls with Si1 = 7 (Data-Transmission) */
@@ -2043,7 +2077,8 @@ isdn_net_find_icall(int di, isdn_ctrl *c, int idx)
 		if ( (!(p->local.flags & ISDN_NET_CONNECTED) &&	/* not connected  */
 		      USG_NONE(dev->usage[idx]))		/* and ch. unused */
  		    ||						/* or */
-		     (((p->local.dialstate == 4) || (p->local.dialstate == 12)) &&	/* if dialing        */
+		     (((p->local.dialstate == 4) || (p->local.dialstate == 12) ||
+               (p->local.dialstate == 13)) &&	/* if dialing        */
 		       !(p->local.flags & ISDN_NET_CALLBACK))                 		/* but no callback   */
 		   ) /*if*/ {
 #ifdef ISDN_DEBUG_NET_ICALL
@@ -2228,11 +2263,13 @@ isdn_net_find_icall(int di, isdn_ctrl *c, int idx)
 					       eaz);
 					/* if this interface is dialing, it does it probably on a different
 					   device, so free this device */
-					if ((p->local.dialstate == 4) || (p->local.dialstate == 12)) {
+					if (p->local.dialstate &&
+						((p->local.isdn_device != di) || (p->local.isdn_channel != ch))) {
 #ifdef CONFIG_ISDN_PPP
 						if (lp->p_encap == ISDN_NET_ENCAP_SYNCPPP)
 							isdn_ppp_free(lp);
 #endif
+						isdn_net_unbind_ptr(lp->isdn_device, lp->isdn_channel);
 						isdn_free_channel(p->local.isdn_device, p->local.isdn_channel,
 							 ISDN_USAGE_NET);
 					}

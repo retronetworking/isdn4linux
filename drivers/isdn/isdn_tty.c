@@ -20,6 +20,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.41.2.9  1998/10/25 15:48:32  fritz
+ * Misc bugfixes and adaptions to new HiSax
+ *
  * Revision 1.41.2.8  1998/08/22 16:43:07  armin
  * Added silence detection in audio receive mode (AT+VSD).
  *
@@ -1983,7 +1986,7 @@ isdn_tty_find_icall(int di, isdn_ctrl *c)
 {
 	char *eaz;
 	int ch = c->arg;
-	setup_parm setup = c->parm.setup;
+	setup_parm *setup = &c->parm.setup;
 	int i;
 	int idx;
 	int si1;
@@ -1993,19 +1996,19 @@ isdn_tty_find_icall(int di, isdn_ctrl *c)
 
 	save_flags(flags);
 	cli();
-	if (!setup.phone[0]) {
+	if (!setup->phone[0]) {
 		nr[0] = '0';
 		nr[1] = '\0';
 		printk(KERN_INFO "isdn_tty: Incoming call without OAD, assuming '0'\n");
 	} else
-		strcpy(nr, setup.phone);
-	si1 = (int) setup.si1;
-	si2 = (int) setup.si2;
-	if (!setup.eazmsn[0]) {
+		strcpy(nr, setup->phone);
+	si1 = (int) setup->si1;
+	si2 = (int) setup->si2;
+	if (!setup->eazmsn[0]) {
 		printk(KERN_WARNING "isdn_tty: Incoming call without CPN, assuming '0'\n");
 		eaz = "0";
 	} else
-		eaz = setup.eazmsn;
+		eaz = setup->eazmsn;
 #ifdef ISDN_DEBUG_MODEM_ICALL
 	printk(KERN_DEBUG "m_fi: eaz=%s si1=%d si2=%d\n", eaz, si1, si2);
 #endif
@@ -2039,8 +2042,8 @@ isdn_tty_find_icall(int di, isdn_ctrl *c)
 				dev->usage[idx] |= (si1 == 1) ? ISDN_USAGE_VOICE : ISDN_USAGE_MODEM;
 				strcpy(dev->num[idx], nr);
 				info->emu.mdmreg[20] = si2bit[si1];
-				info->emu.mdmreg[21] = setup.plan;
-				info->emu.mdmreg[22] = setup.screen;
+				info->emu.mdmreg[21] = setup->plan;
+				info->emu.mdmreg[22] = setup->screen;
 				isdn_info_update();
 				restore_flags(flags);
 				printk(KERN_INFO "isdn_tty: call from %s, -> RING on ttyI%d\n", nr,
@@ -2053,7 +2056,7 @@ isdn_tty_find_icall(int di, isdn_ctrl *c)
 		}
 	}
 	printk(KERN_INFO "isdn_tty: call from %s -> %s %s\n", nr, eaz,
-	       dev->drv[di]->reject_bus ? "rejected" : "ignored");
+	       (dev->drv[di]->flags & DRV_FLAG_REJBUS) ? "rejected" : "ignored");
 	restore_flags(flags);
 	return -1;
 }

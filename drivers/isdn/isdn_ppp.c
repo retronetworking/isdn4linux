@@ -19,6 +19,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.28.2.1  1998/03/16 09:56:02  cal
+ * Merged in TimRu-patches. Still needs validation in conjunction with ABC-patches.
+ *
  * Revision 1.28  1997/06/17 13:05:57  hipp
  * Applied Eric's underflow-patches (slightly modified)
  * more compression changes (but disabled at the moment)
@@ -638,23 +641,28 @@ isdn_ppp_ioctl(int min, struct file *file, unsigned int cmd, unsigned long arg)
 			break;
 		case PPPIOCGCALLINFO:
 			{
-				struct pppcallinfo pci;
-				memset((char *) &pci,0,sizeof(struct pppcallinfo));
+				struct pppcallinfo *pci;
+
+				if ((pci = (struct pppcallinfo *)kmalloc(sizeof(struct pppcallinfo), GFP_KERNEL)) == NULL)
+					return -ENOMEM;
+				memset((char *) pci,0,sizeof(struct pppcallinfo));
 				if(lp)
 				{
-					strncpy(pci.local_num,lp->msn,63);
+					strncpy(pci->local_num,lp->msn,63);
 					if(lp->dial) {
-						strncpy(pci.remote_num,lp->dial->num,63);
+						strncpy(pci->remote_num,lp->dial->num,63);
 					}
-					pci.charge_units = lp->charge;
+					pci->charge_units = lp->charge;
 					if(lp->outgoing)
-						pci.calltype = CALLTYPE_OUTGOING;
+						pci->calltype = CALLTYPE_OUTGOING;
 					else
-						pci.calltype = CALLTYPE_INCOMING;
+						pci->calltype = CALLTYPE_INCOMING;
 					if(lp->flags & ISDN_NET_CALLBACK)
-						pci.calltype |= CALLTYPE_CALLBACK;
+						pci->calltype |= CALLTYPE_CALLBACK;
 				}
-				return set_arg((void *)arg,sizeof(struct pppcallinfo),&pci);
+				r = set_arg((void *)arg,sizeof(struct pppcallinfo),pci);
+				kfree(pci);
+				return r;
 			}
 		default:
 			break;
@@ -889,7 +897,8 @@ isdn_ppp_write(int min, struct file *file, const char *buf, int count)
 		if (lp->isdn_device < 0 || lp->isdn_channel < 0)
 			return 0;
 
-		if (dev->drv[lp->isdn_device]->running && lp->dialstate == 0 &&
+		if ((dev->drv[lp->isdn_device]->flags & DRV_FLAG_RUNNING) &&
+			lp->dialstate == 0 &&
 		    (lp->flags & ISDN_NET_CONNECTED)) {
 			int cnt;
 			struct sk_buff *skb;

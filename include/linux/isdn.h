@@ -21,6 +21,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.31.2.14  1998/10/25 14:37:37  fritz
+ * Backported from MIPS (Cobalt).
+ *
  * Revision 1.31.2.13  1998/10/23 10:14:25  paul
  * Implementation of "dialmode" (successor of "status")
  * You also need current isdnctrl for this!
@@ -223,8 +226,8 @@
 #define IIOCNETANM  _IO('I',5)
 #define IIOCNETDNM  _IO('I',6)
 #define IIOCNETGNM  _IO('I',7)
-#define IIOCGETSET  _IO('I',8)
-#define IIOCSETSET  _IO('I',9)
+/* #define IIOCGETSET  _IO('I',8) obsolete */
+/* #define IIOCSETSET  _IO('I',9) obsolete */
 #define IIOCSETVER  _IO('I',10)
 #define IIOCNETHUP  _IO('I',11)
 #define IIOCSETGST  _IO('I',12)
@@ -798,16 +801,18 @@ typedef struct {
   char *private;
 } infostruct;
 
+#define DRV_FLAG_RUNNING 1
+#define DRV_FLAG_REJBUS  2
+#define DRV_FLAG_LOADED  4
+
 /* Description of hardware-level-driver */
 typedef struct {
-  ulong               flags;            /* Flags                            */
+  ulong               online;           /* Channel-Online flags             */
+  ulong               flags;            /* Misc driver flags                */
   int                 channels;         /* Number of channels               */
-  int                 reject_bus;       /* Flag: Reject rejected call on bus*/
   struct wait_queue  *st_waitq;         /* Wait-Queue for status-read's     */
   int                 maxbufsize;       /* Maximum Buffersize supported     */
   unsigned long       pktcount;         /* Until now: unused                */
-  int                 running;          /* Flag: Protocolcode running       */
-  int                 loaded;           /* Flag: Driver loaded              */
   int                 stavail;          /* Chars avail on Status-device     */
   isdn_if            *interface;        /* Interface to driver              */
   int                *rcverr;           /* Error-counters for B-Ch.-receive */

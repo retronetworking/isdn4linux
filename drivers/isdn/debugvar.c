@@ -22,6 +22,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.5  1997/02/03 23:34:51  fritz
+ * Reformatted
+ *
  * Revision 1.4  1996/04/30 07:55:50  fritz
  * Disabled mmap.
  *
@@ -130,13 +133,14 @@ dumpDriver(ulong drvaddr)
 	driver *drv = (driver *) mapmem(drvaddr, sizeof(driver));
 	isdn_if *ifc = (isdn_if *) mapmem((ulong) drv->interface, sizeof(isdn_if));
 
-	printf("  flags      = %08lx\n", drv->flags);
+	printf("  online     = %08lx\n", drv->online);
 	printf("  channels   = %d\n", drv->channels);
-	printf("  reject_bus = %d\n", drv->reject_bus);
+	printf("  reject_bus = %s\n", (drv->flags & DRV_FLAG_REJBUS)?"yes":"no");
+	printf("  running    = %s\n", (drv->flags & DRV_FLAG_RUNNING)?"yes":"no");
+	printf("  loaded     = %s\n", (drv->flags & DRV_FLAG_LOADED)?"yes":"no");
+	printf("  locked     = %s\n", (drv->flags & DRV_FLAG_LOCKED)?"yes":"no");
 	printf("  maxbufsize = %d\n", drv->maxbufsize);
 	printf("  pktcount   = %ld\n", drv->pktcount);
-	printf("  running    = %d\n", drv->running);
-	printf("  loaded     = %d\n", drv->loaded);
 	printf("  stavail    = %d\n", drv->stavail);
 	printf("  Interface @%08lx:\n", (ulong) drv->interface);
 	printf("    Id(ch)     = %d\n", ifc->channels);
