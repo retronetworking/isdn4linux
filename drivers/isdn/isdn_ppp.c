@@ -19,12 +19,18 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.2  1996/01/22 05:08:06  fritz
+ * Merged in Michael's patches for MP.
+ * Minor changes in isdn_ppp_xmit.
+ *
  * Revision 1.1  1996/01/09 04:11:29  fritz
  * Initial revision
  *
  */
 
 /* User setable options now have gone into isdnconfig.h */
+
+/* TODO: right tbusy handling when using MP */
 
 #include <linux/config.h>
 #define __NO_VERSION__
@@ -41,17 +47,20 @@
 /* Prototypes */
 static int isdn_ppp_fill_rq(char *buf, int len, int minor);
 static int isdn_ppp_hangup(int);
-static int isdn_ppp_fill_mpqueue(isdn_net_dev *, struct sk_buff **skb,
-		int BEbyte, int *sqno, int min_sqno);
-static void isdn_ppp_mask_queue(isdn_net_dev * dev, long mask);
-static void isdn_ppp_cleanup_queue(isdn_net_dev * dev, long min);
 static void isdn_ppp_push_higher(isdn_net_dev * net_dev, isdn_net_local * lp,
 			struct sk_buff *skb, int proto);
 static int isdn_ppp_if_get_unit(char **namebuf);
-static int isdn_ppp_bundle(int, int);
 
- char *isdn_ppp_revision              = "$Revision$";
-static struct ippp_struct *ippp_table = (struct ippp_struct *) 0;
+#ifdef CONFIG_ISDN_MPP
+static int isdn_ppp_bundle(int, int);
+static void isdn_ppp_mask_queue(isdn_net_dev * dev, long mask);
+static void isdn_ppp_cleanup_queue(isdn_net_dev * dev, long min);
+static int isdn_ppp_fill_mpqueue(isdn_net_dev *, struct sk_buff **skb,
+		int BEbyte, int *sqno, int min_sqno);
+#endif
+
+char *isdn_ppp_revision              = "$Revision$";
+struct ippp_struct *ippp_table = (struct ippp_struct *) 0;
 
 extern int isdn_net_force_dial_lp(isdn_net_local *);
 
@@ -60,7 +69,7 @@ int isdn_ppp_free(isdn_net_local * lp)
 	if (lp->ppp_minor < 0)
 		return 0;
 
-#ifndef CONFIG_ISDN_MPP
+#ifdef CONFIG_ISDN_MPP
 	if(lp->master)
 	{
 		isdn_net_dev *p = dev->netdev;
@@ -76,7 +85,11 @@ int isdn_ppp_free(isdn_net_local * lp)
 			}
 			p=p->next;
 		}
+	} else {
+                lp->netdev->ib.bundled = 0;
+		/* last link: free mpqueue, free sqqueue ? */
 	}
+
 #endif
 
 	isdn_ppp_hangup(lp->ppp_minor);
@@ -217,25 +230,6 @@ void isdn_ppp_release(int minor, struct file *file)
 		}
 		ippp_table[minor].lp->ppp_minor = -1;
 		isdn_net_hangup(&p->dev); /* lp->ppp_minor==-1 => no calling of isdn_ppp_hangup() */
-
-#if 0
-		for (; p;) {
-			isdn_net_local *lp = p->queue;
-			p = p->next;
-			for (;;) {
-				if (lp == ippp_table[minor].lp) {
-					printk(KERN_DEBUG "ippp_release, hangup\n");
-					isdn_net_hangup(lp);
-					isdn_net_clean_queue();
-					p = NULL;
-					break;
-				}
-				lp = lp->next;
-				if (lp == p->queue)
-					break;
-			}
-		}
-#endif
 		ippp_table[minor].lp = NULL;
 	}
 	for (i = 0; i < NUM_RCV_BUFFS; i++) {
@@ -289,12 +283,15 @@ int isdn_ppp_ioctl(int minor, struct file *file, unsigned int cmd, unsigned long
 		break;
 #endif
 	case PPPIOCBUNDLE:
-		printk(KERN_DEBUG "PPPIOCBUNDLE\n");
+#ifdef CONFIG_ISDN_MPP
 		if ((r = get_arg((void *) arg, &val)))
 			return r;
 		printk(KERN_DEBUG "iPPP-bundle: minor: %d, slave unit: %d, master unit: %d\n",
                         (int) minor, (int) ippp_table[minor].unit, (int) val);
 		return isdn_ppp_bundle(minor, val);
+#else
+		return -1;
+#endif
 		break;
 	case PPPIOCGUNIT:	/* get ppp/isdn unit number */
 		if ((r = set_arg((void *) arg, ippp_table[minor].unit)))
@@ -544,9 +541,6 @@ void isdn_ppp_cleanup(void)
 
 void isdn_ppp_receive(isdn_net_dev * net_dev, isdn_net_local * lp, struct sk_buff *skb)
 {
-	int proto;
-	int sqno_end;
-
 #if 0
 	printk(KERN_DEBUG "recv, skb %d\n",skb->len);
 #endif
@@ -556,7 +550,10 @@ void isdn_ppp_receive(isdn_net_dev * net_dev, isdn_net_local * lp, struct sk_buf
 	else if (ippp_table[lp->ppp_minor].pppcfg & SC_REJ_COMP_AC)
 		return;		/* discard it silently */
 
+#ifdef CONFIG_ISDN_MPP
 	if (!(ippp_table[lp->ppp_minor].mpppcfg & SC_REJ_MP_PROT)) {
+		int proto;
+		int sqno_end;
 		if (skb->data[0] & 0x1) {
 			proto = skb->data[0];
 			skb_pull(skb,1);	/* protocol ID is only 8 bit */
@@ -634,7 +631,7 @@ void isdn_ppp_receive(isdn_net_dev * net_dev, isdn_net_local * lp, struct sk_buf
 			 * then check whether the number is in order
 			 */
 			net_dev->ib.modify = 1;		/* block timeout-timer */
-			if ( (net_dev->queue != net_dev->queue->next) && net_dev->ib.next_num != sqno) {
+			if (net_dev->ib.bundled && net_dev->ib.next_num != sqno) {
 				/*
 				 * packet is not 'in order'
 				 */
@@ -692,6 +689,7 @@ void isdn_ppp_receive(isdn_net_dev * net_dev, isdn_net_local * lp, struct sk_buf
 		} else
 			isdn_ppp_push_higher(net_dev, lp, skb , proto);
 	} else
+#endif
 		isdn_ppp_push_higher(net_dev, lp, skb , -1);
 }
 
@@ -788,6 +786,8 @@ int isdn_ppp_xmit(struct sk_buff *skb, struct device *dev)
 	struct ippp_struct *ipt = ippp_table + lp->ppp_minor;
 	struct ippp_struct *ipts = ippp_table + lp->netdev->local.ppp_minor;
 
+/* future: step to next 'lp' when this lp is 'tbusy' */
+
 #if 0
 	printk(KERN_DEBUG  "xmit, skb %d\n",skb->len);
 #endif
@@ -817,18 +817,20 @@ int isdn_ppp_xmit(struct sk_buff *skb, struct device *dev)
 	printk(KERN_DEBUG  "xmit, skb %d %04x\n",skb->len,proto);
 #endif
 
+#ifdef CONFIG_ISDN_MPP
 	if (ipt->mpppcfg & SC_MP_PROT) {
 		/* we get mp_seqno from static isdn_net_local */
 		long mp_seqno = ipts->mp_seqno;
 		ipts->mp_seqno++;
+		nd->queue = nd->queue->next;
 		if (ipt->mpppcfg & SC_OUT_SHORT_SEQ) {
-			skb_push(skb, 3);
+			/* skb_push(skb, 3); Done in isdn_net_header() */
 			mp_seqno &= 0xfff;
 			skb->data[4] = MP_BEGIN_FRAG | MP_END_FRAG | (mp_seqno >> 8);	/* (B)egin & (E)ndbit .. */
 			skb->data[5] = mp_seqno & 0xff;
 			skb->data[6] = proto;	/* PID compression */
 		} else {
-			skb_push(skb, 5);
+			/* skb_push(skb, 5); Done in isdn_net_header () */
 			skb->data[4] = MP_BEGIN_FRAG | MP_END_FRAG;	/* (B)egin & (E)ndbit .. */
 			skb->data[5] = (mp_seqno >> 16) & 0xff;	/* sequence nubmer: 24bit */
 			skb->data[6] = (mp_seqno >> 8) & 0xff;
@@ -837,6 +839,7 @@ int isdn_ppp_xmit(struct sk_buff *skb, struct device *dev)
 		}
 		proto = PPP_MP; /* MP Protocol, 0x003d */
 	}
+#endif
 	skb->data[0] = 0xff;        /* All Stations */
 	skb->data[1] = 0x03;        /* Unumbered information */
 	skb->data[2] = proto >> 8;
@@ -862,43 +865,29 @@ void isdn_ppp_free_mpqueue(isdn_net_dev * p)
 	}
 }
 
+#ifdef CONFIG_ISDN_MPP
+
 static int isdn_ppp_bundle(int minor, int unit)
 {
 	char ifn[IFNAMSIZ + 1];
 	long flags;
 	isdn_net_dev *p;
 	isdn_net_local *lp,*nlp;
-#if CONFIG_ISDN_MPP
-	isdn_net_local *olp;
-#endif
 
 	sprintf(ifn, "ippp%d", unit);
 	p = isdn_net_findif(ifn);
 	if (!p)
 		return -1;
 
-#ifdef CONFIG_ISDN_MPP
-	nlp = kmalloc(sizeof(isdn_net_local), GFP_KERNEL);
-	if (!nlp)
-		return -EINVAL;
-#endif
-
 	isdn_timer_ctrl(ISDN_TIMER_IPPP, 1);	/* enable timer for ippp/MP */
 
 	save_flags(flags);
 	cli();
 
-/*  check whether interface is up */
-
-#ifdef CONFIG_ISDN_MPP
-	olp = ippp_table[minor].lp;
-	*nlp = *olp;		/* copy lp to new (dynamic) struct */
-	ippp_table[minor].lp = nlp;
-#else
 	nlp = ippp_table[minor].lp;
-#endif
 
 	lp = p->queue;
+	p->ib.bundled = 1;
 	nlp->last = lp->last;
 	lp->last->next = nlp;
 	lp->last = nlp;
@@ -906,19 +895,6 @@ static int isdn_ppp_bundle(int minor, int unit)
 	p->queue = nlp;
 
 	nlp->netdev = lp->netdev;
-
-#ifdef CONFIG_ISDN_MPP
-	if (!(nlp->flags & ISDN_NET_TMP))
-		printk(KERN_WARNING "isdn_ppp_bundle: bundled non-tmp interface ..\n");
-
-	nlp->flags &= ~ISDN_NET_TMP;
-	nlp->flags |= ISDN_NET_DYNAMIC;
-
-	nlp->phone[0] = NULL;	/* pointers are invalid after removing the parent-struct */
-	nlp->phone[1] = NULL;
-	nlp->dial = NULL;
-	strcpy(nlp->name, lp->name);
-#endif
 
 	ippp_table[nlp->ppp_minor].unit = ippp_table[lp->ppp_minor].unit;
 /* maybe also SC_CCP stuff */
@@ -1112,15 +1088,20 @@ static void isdn_ppp_cleanup_queue(isdn_net_dev * dev, long min_sqno)
  * a buffered packet timed-out?
  */
 
+#endif
+
 void isdn_ppp_timer_timeout(void)
 {
+#ifdef CONFIG_ISDN_MPP
 	isdn_net_dev *net_dev = dev->netdev;
 	struct sqqueue *q, *ql = NULL, *qn;
 
 	while (net_dev) {
 		isdn_net_local *lp = &net_dev->local;
-		if (net_dev->ib.modify)		/* interface locked? */
+		if (net_dev->ib.modify)	{	/* interface locked? */
+                        net_dev = net_dev->next;
 			continue;
+                }
 
 		q = net_dev->ib.sq;
 		while (q) {
@@ -1141,6 +1122,7 @@ void isdn_ppp_timer_timeout(void)
 		}
 		net_dev = net_dev->next;
 	}
+#endif
 }
 
 int isdn_ppp_dev_ioctl(struct device *dev, struct ifreq *ifr, int cmd)
@@ -1190,6 +1172,7 @@ static int isdn_ppp_if_get_unit(char **namebuf)
 
 int isdn_ppp_dial_slave(char *name)
 {
+#ifdef CONFIG_ISDN_MPP
 	isdn_net_dev *ndev;
 	isdn_net_local *lp;
 	struct device *sdev;
@@ -1213,6 +1196,9 @@ int isdn_ppp_dial_slave(char *name)
 
 	isdn_net_force_dial_lp((isdn_net_local *) sdev->priv);
 	return 0;
+#else
+	return -1;
+#endif
 }
 
 
