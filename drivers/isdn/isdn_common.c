@@ -2005,7 +2005,6 @@ isdn_writebuf_skb_stub(int drvidx, int chan, int ack, struct sk_buff *skb)
 		skb_pull(nskb, sizeof(int));
 		if (!nskb->len) {
 			dev_kfree_skb(nskb);
-			dev_kfree_skb(skb);
 			return v110_ret;
 		}
 		/* V.110 must always be acknowledged */
@@ -2044,9 +2043,10 @@ isdn_writebuf_skb_stub(int drvidx, int chan, int ack, struct sk_buff *skb)
 			atomic_inc(&dev->v110use[idx]);
 			dev->v110[idx]->skbuser++;
 			atomic_dec(&dev->v110use[idx]);
-			dev_kfree_skb(skb);
 			/* For V.110 return unencoded data length */
 			ret = v110_ret;
+			/* if the complete frame was send we free the skb;
+			   if not upper function will requeue the skb */ 
 			if (ret == skb->len)
 				dev_kfree_skb(skb);
 		}
