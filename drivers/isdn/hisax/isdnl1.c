@@ -339,8 +339,7 @@ HiSax_rmlist(struct IsdnCardState *cs,
 }
 
 void
-init_bcstate(struct IsdnCardState *cs,
-	     int bc)
+init_bcstate(struct IsdnCardState *cs, int bc)
 {
 	struct BCState *bcs = cs->bcs + bc;
 

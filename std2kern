@@ -8,6 +8,7 @@ NOTEST=true
 DODIFF=false
 DIFFREV=false
 ALLOW_ANY_DIR=true
+IGNORETOP=false
 
 docp() {
 
@@ -23,6 +24,16 @@ docp() {
     # Makefiles
     BASENAME=`basename $2`; 
     if [ "$BASENAME" = "Makefile" ]; then
+	if $IGNORETOP; then
+		for x in drivers/isdn/Makefile drivers/isdn/hardware/Makefile ; do
+			if [ "$1" = "$x" ]; then
+			    if $VERBOSE; then
+				echo "skipped"
+			    fi
+			    return
+			fi
+		done
+	fi
 	if [ $VERSION -gt 3 -o \( $VERSION -eq 2 -a $PATCHLEVEL -gt 3 \) ]; then
 	    sed -e "s/drivers\/isdn\/Rules\.make/Rules\.make/" < $SRCNAME > $TMPNAME
 	    if $VERBOSE ; then
@@ -67,14 +78,17 @@ docp() {
 	    return
 	fi
     fi
-    # Config.in
-    if [ "$1" = "drivers/isdn/Config.in" ]; then
-	if ! [ $VERSION -gt 3 -o \( $VERSION -eq 2 -a $PATCHLEVEL -gt 3 \) ]; then
-	    grep -v "CONFIG_PCMCIA" < $SRCNAME > $TMPNAME
-	    if $VERBOSE ; then
-		echo -n "processing... modified..."
-	    fi
-	    SRCNAME=$TMPNAME
+    # Kconfig
+    if [ "$BASENAME" = "Kconfig" ]; then
+	if $IGNORETOP; then
+		for x in drivers/isdn/Kconfig drivers/isdn/hardware/Kconfig ; do
+			if [ "$1" = "$x" ]; then
+			    if $VERBOSE; then
+				echo "skipped"
+			    fi
+			    return
+			fi
+		done
 	fi
     fi
 
@@ -182,6 +196,7 @@ usage() {
 	-r      reverse directions of diff
 	-c FILE	Use FILE as control file for $PREPARSER (only with -u)
 	-t      Test, don't really copy files
+        -x      don't modify toplevel Makefile and Kconfig
 
 	Without any files given, within the whole tree, the "right"
 	files are copied. When any files are given in the commandline,
@@ -228,7 +243,7 @@ calc_ctrl_file() {
 	exit 1
 }
 
-while getopts :dhk:uc:vtidr a ; do
+while getopts :dhk:uc:vtidrx a ; do
 	case $a in
 		\?)	case $OPTARG in
 				k)	echo "-k requires Kernel directory parameter"
@@ -255,6 +270,8 @@ while getopts :dhk:uc:vtidr a ; do
 		d)      DODIFF=true;
 			;;
 		r)      DIFFREV=true;
+			;;
+		x)      IGNORETOP=true;
 			;;
 		h)	usage
 			;;

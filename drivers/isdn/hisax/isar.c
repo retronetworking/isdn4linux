@@ -49,7 +49,6 @@ int
 sendmsg(struct IsdnCardState *cs, u_char his, u_char creg, u_char len,
 	u_char *msg)
 {
-	long flags;
 	int i;
 	
 	if (!waitforHIA(cs, 4000))
@@ -58,8 +57,6 @@ sendmsg(struct IsdnCardState *cs, u_char his, u_char creg, u_char len,
 	if (cs->debug & L1_DEB_HSCX)
 		debugl1(cs, "sendmsg(%02x,%02x,%d)", his, creg, len);
 #endif
-	save_flags(flags);
-	cli();
 	cs->BC_Write_Reg(cs, 0, ISAR_CTRL_H, creg);
 	cs->BC_Write_Reg(cs, 0, ISAR_CTRL_L, len);
 	cs->BC_Write_Reg(cs, 0, ISAR_WADR, 0);
@@ -83,7 +80,6 @@ sendmsg(struct IsdnCardState *cs, u_char his, u_char creg, u_char len,
 #endif
 	}
 	cs->BC_Write_Reg(cs, 1, ISAR_HIS, his);
-	restore_flags(flags);
 	waitforHIA(cs, 10000);
 	return(1);
 }
@@ -136,7 +132,6 @@ waitrecmsg(struct IsdnCardState *cs, u_char *len,
 	u_char *msg, int maxdelay)
 {
 	int timeout = 0;
-	long flags;
 	struct isar_reg *ir = cs->bcs[0].hw.isar.reg;
 	
 	
@@ -147,12 +142,9 @@ waitrecmsg(struct IsdnCardState *cs, u_char *len,
 		printk(KERN_WARNING"isar recmsg IRQSTA timeout\n");
 		return(0);
 	}
-	save_flags(flags);
-	cli();
 	get_irq_infos(cs, ir);
 	rcv_mbox(cs, ir, msg);
 	*len = ir->clsb;
-	restore_flags(flags);
 	return(1);
 }
 
@@ -194,7 +186,7 @@ isar_load_firmware(struct IsdnCardState *cs, u_char *buf)
 	u_short sadr, left, *sp;
 	u_char *p = buf;
 	u_char *msg, *tmpmsg, *mp, tmp[64];
-	long flags;
+	u_long flags;
 	struct isar_reg *ireg = cs->bcs[0].hw.isar.reg;
 	
 	struct {u_short sadr;
@@ -202,20 +194,19 @@ isar_load_firmware(struct IsdnCardState *cs, u_char *buf)
 		u_short d_key;
 	} blk_head;
 		
+	spin_lock_irqsave(&cs->lock, flags);
 #define	BLK_HEAD_SIZE 6
 	if (1 != (ret = ISARVersion(cs, "Testing"))) {
 		printk(KERN_ERR"isar_load_firmware wrong isar version %d\n", ret);
+		spin_unlock_irqrestore(&cs->lock, flags);
 		return(1);
 	}
 	debug = cs->debug;
 #if DBG_LOADFIRM<2
 	cs->debug &= ~(L1_DEB_HSCX | L1_DEB_HSCX_FIFO);
 #endif
-	printk(KERN_DEBUG"isar_load_firmware buf %#lx\n", (u_long)buf);
-	if ((ret = verify_area(VERIFY_READ, (void *) p, sizeof(int)))) {
-		printk(KERN_ERR"isar_load_firmware verify_area ret %d\n", ret);
-		return ret;
-	}
+	spin_unlock_irqrestore(&cs->lock, flags);
+	
 	if ((ret = copy_from_user(&size, p, sizeof(int)))) {
 		printk(KERN_ERR"isar_load_firmware copy_from_user ret %d\n", ret);
 		return ret;
@@ -238,10 +229,11 @@ isar_load_firmware(struct IsdnCardState *cs, u_char *buf)
 		kfree(msg);
 		return (1);
 	}
+	spin_lock_irqsave(&cs->lock, flags);
 	while (cnt < size) {
 		if ((ret = copy_from_user(&blk_head, p, BLK_HEAD_SIZE))) {
 			printk(KERN_ERR"isar_load_firmware copy_from_user ret %d\n", ret);
-			goto reterror;
+			goto reterr_unlock;
 		}
 #ifdef __BIG_ENDIAN
 		sadr = (blk_head.sadr & 0xff)*256 + blk_head.sadr/256;
@@ -259,16 +251,16 @@ isar_load_firmware(struct IsdnCardState *cs, u_char *buf)
 		left = blk_head.len;
 		if (!sendmsg(cs, ISAR_HIS_DKEY, blk_head.d_key & 0xff, 0, NULL)) {
 			printk(KERN_ERR"isar sendmsg dkey failed\n");
-			ret = 1;goto reterror;
+			ret = 1;goto reterr_unlock;
 		}
 		if (!waitrecmsg(cs, &len, tmp, 100000)) {
 			printk(KERN_ERR"isar waitrecmsg dkey failed\n");
-			ret = 1;goto reterror;
+			ret = 1;goto reterr_unlock;
 		}
 		if ((ireg->iis != ISAR_IIS_DKEY) || ireg->cmsb || len) {
 			printk(KERN_ERR"isar wrong dkey response (%x,%x,%x)\n",
 				ireg->iis, ireg->cmsb, len);
-			ret = 1;goto reterror;
+			ret = 1;goto reterr_unlock;
 		}
 		while (left>0) {
 			if (left > 126)
@@ -283,7 +275,7 @@ isar_load_firmware(struct IsdnCardState *cs, u_char *buf)
 			*mp++ = noc;
 			if ((ret = copy_from_user(tmpmsg, p, nom))) {
 				printk(KERN_ERR"isar_load_firmware copy_from_user ret %d\n", ret);
-				goto reterror;
+				goto reterr_unlock;
 			}
 			p += nom;
 			cnt += nom;
@@ -307,16 +299,16 @@ isar_load_firmware(struct IsdnCardState *cs, u_char *buf)
 			}
 			if (!sendmsg(cs, ISAR_HIS_FIRM, 0, nom, msg)) {
 				printk(KERN_ERR"isar sendmsg prog failed\n");
-				ret = 1;goto reterror;
+				ret = 1;goto reterr_unlock;
 			}
 			if (!waitrecmsg(cs, &len, tmp, 100000)) {
 				printk(KERN_ERR"isar waitrecmsg prog failed\n");
-				ret = 1;goto reterror;
+				ret = 1;goto reterr_unlock;
 			}
 			if ((ireg->iis != ISAR_IIS_FIRM) || ireg->cmsb || len) {
 				printk(KERN_ERR"isar wrong prog response (%x,%x,%x)\n",
 					ireg->iis, ireg->cmsb, len);
-				ret = 1;goto reterror;
+				ret = 1;goto reterr_unlock;
 			}
 		}
 		printk(KERN_DEBUG"isar firmware block %5d words loaded\n",
@@ -331,23 +323,22 @@ isar_load_firmware(struct IsdnCardState *cs, u_char *buf)
 	ireg->bstat = 0;
 	if (!sendmsg(cs, ISAR_HIS_STDSP, 0, 2, msg)) {
 		printk(KERN_ERR"isar sendmsg start dsp failed\n");
-		ret = 1;goto reterror;
+		ret = 1;goto reterr_unlock;
 	}
 	if (!waitrecmsg(cs, &len, tmp, 100000)) {
 		printk(KERN_ERR"isar waitrecmsg start dsp failed\n");
-		ret = 1;goto reterror;
+		ret = 1;goto reterr_unlock;
 	}
 	if ((ireg->iis != ISAR_IIS_STDSP) || ireg->cmsb || len) {
 		printk(KERN_ERR"isar wrong start dsp response (%x,%x,%x)\n",
 			ireg->iis, ireg->cmsb, len);
-		ret = 1;goto reterror;
+		ret = 1;goto reterr_unlock;
 	} else
 		printk(KERN_DEBUG"isar start dsp success\n");
 	/* NORMAL mode entered */
 	/* Enable IRQs of ISAR */
 	cs->BC_Write_Reg(cs, 0, ISAR_IRQBIT, ISAR_IRQSTA);
-	save_flags(flags);
-	sti();
+	spin_unlock_irqrestore(&cs->lock, flags);
 	cnt = 1000; /* max 1s */
 	while ((!ireg->bstat) && cnt) {
 		udelay(1000);
@@ -355,7 +346,7 @@ isar_load_firmware(struct IsdnCardState *cs, u_char *buf)
 	}
 	if (!cnt) {
 		printk(KERN_ERR"isar no general status event received\n");
-		ret = 1;goto reterrflg;
+		ret = 1;goto reterror;
 	} else {
 		printk(KERN_DEBUG"isar general status event %x\n",
 			ireg->bstat);
@@ -364,12 +355,14 @@ isar_load_firmware(struct IsdnCardState *cs, u_char *buf)
 	cnt = 10;
 	while (cnt--)
 		udelay(1000);
+	spin_lock_irqsave(&cs->lock, flags);
 	ireg->iis = 0;
 	if (!sendmsg(cs, ISAR_HIS_DIAG, ISAR_CTRL_STST, 0, NULL)) {
 		printk(KERN_ERR"isar sendmsg self tst failed\n");
-		ret = 1;goto reterrflg;
+		ret = 1;goto reterr_unlock;
 	}
 	cnt = 10000; /* max 100 ms */
+	spin_unlock_irqrestore(&cs->lock, flags);
 	while ((ireg->iis != ISAR_IIS_DIAG) && cnt) {
 		udelay(10);
 		cnt--;
@@ -377,7 +370,7 @@ isar_load_firmware(struct IsdnCardState *cs, u_char *buf)
 	udelay(1000);
 	if (!cnt) {
 		printk(KERN_ERR"isar no self tst response\n");
-		ret = 1;goto reterrflg;
+		ret = 1;goto reterror;
 	}
 	if ((ireg->cmsb == ISAR_CTRL_STST) && (ireg->clsb == 1)
 		&& (ireg->par[0] == 0)) {
@@ -385,13 +378,15 @@ isar_load_firmware(struct IsdnCardState *cs, u_char *buf)
 	} else {
 		printk(KERN_DEBUG"isar selftest not OK %x/%x/%x\n",
 			ireg->cmsb, ireg->clsb, ireg->par[0]);
-		ret = 1;goto reterrflg;
+		ret = 1;goto reterror;
 	}
+	spin_lock_irqsave(&cs->lock, flags);
 	ireg->iis = 0;
 	if (!sendmsg(cs, ISAR_HIS_DIAG, ISAR_CTRL_SWVER, 0, NULL)) {
 		printk(KERN_ERR"isar RQST SVN failed\n");
-		ret = 1;goto reterrflg;
+		ret = 1;goto reterr_unlock;
 	}
+	spin_unlock_irqrestore(&cs->lock, flags);
 	cnt = 30000; /* max 300 ms */
 	while ((ireg->iis != ISAR_IIS_DIAG) && cnt) {
 		udelay(10);
@@ -400,7 +395,7 @@ isar_load_firmware(struct IsdnCardState *cs, u_char *buf)
 	udelay(1000);
 	if (!cnt) {
 		printk(KERN_ERR"isar no SVN response\n");
-		ret = 1;goto reterrflg;
+		ret = 1;goto reterror;
 	} else {
 		if ((ireg->cmsb == ISAR_CTRL_SWVER) && (ireg->clsb == 1))
 			printk(KERN_DEBUG"isar software version %#x\n",
@@ -408,15 +403,16 @@ isar_load_firmware(struct IsdnCardState *cs, u_char *buf)
 		else {
 			printk(KERN_ERR"isar wrong swver response (%x,%x) cnt(%d)\n",
 				ireg->cmsb, ireg->clsb, cnt);
-			ret = 1;goto reterrflg;
+			ret = 1;goto reterror;
 		}
 	}
+	spin_lock_irqsave(&cs->lock, flags);
 	cs->debug = debug;
 	isar_setup(cs);
 
 	ret = 0;
-reterrflg:
-	restore_flags(flags);
+reterr_unlock:
+	spin_unlock_irqrestore(&cs->lock, flags);
 reterror:
 	cs->debug = debug;
 	if (ret)
@@ -445,14 +441,6 @@ isar_bh(struct BCState *bcs)
 }
 
 static void
-isar_sched_event(struct BCState *bcs, int event)
-{
-	bcs->event |= 1 << event;
-	queue_task(&bcs->tqueue, &tq_immediate);
-	mark_bh(IMMEDIATE_BH);
-}
-
-static void
 send_DLE_ETX(struct BCState *bcs)
 {
 	u_char dleetx[2] = {DLE,ETX};
@@ -461,7 +449,7 @@ send_DLE_ETX(struct BCState *bcs)
 	if ((skb = dev_alloc_skb(2))) {
 		memcpy(skb_put(skb, 2), dleetx, 2);
 		skb_queue_tail(&bcs->rqueue, skb);
-		isar_sched_event(bcs, B_RCVBUFREADY);
+		schedule_event(bcs, B_RCVBUFREADY);
 	} else {
 		printk(KERN_WARNING "HiSax: skb out of memory\n");
 	}
@@ -513,7 +501,7 @@ isar_rcv_frame(struct IsdnCardState *cs, struct BCState *bcs)
 		if ((skb = dev_alloc_skb(ireg->clsb))) {
 			rcv_mbox(cs, ireg, (u_char *)skb_put(skb, ireg->clsb));
 			skb_queue_tail(&bcs->rqueue, skb);
-			isar_sched_event(bcs, B_RCVBUFREADY);
+			schedule_event(bcs, B_RCVBUFREADY);
 		} else {
 			printk(KERN_WARNING "HiSax: skb out of memory\n");
 			cs->BC_Write_Reg(cs, 1, ISAR_IIA, 0);
@@ -554,7 +542,7 @@ isar_rcv_frame(struct IsdnCardState *cs, struct BCState *bcs)
 					memcpy(skb_put(skb, bcs->hw.isar.rcvidx-2),
 						bcs->hw.isar.rcvbuf, bcs->hw.isar.rcvidx-2);
 					skb_queue_tail(&bcs->rqueue, skb);
-					isar_sched_event(bcs, B_RCVBUFREADY);
+					schedule_event(bcs, B_RCVBUFREADY);
 				}
 				bcs->hw.isar.rcvidx = 0;
 			}
@@ -579,7 +567,7 @@ isar_rcv_frame(struct IsdnCardState *cs, struct BCState *bcs)
 				insert_dle((u_char *)skb_put(skb, bcs->hw.isar.rcvidx),
 					bcs->hw.isar.rcvbuf, ireg->clsb);
 				skb_queue_tail(&bcs->rqueue, skb);
-				isar_sched_event(bcs, B_RCVBUFREADY);
+				schedule_event(bcs, B_RCVBUFREADY);
 				if (ireg->cmsb & SART_NMD) { /* ABORT */
 					if (cs->debug & L1_DEB_WARN)
 						debugl1(cs, "isar_rcv_frame: no more data");
@@ -589,7 +577,7 @@ isar_rcv_frame(struct IsdnCardState *cs, struct BCState *bcs)
 						ISAR_HIS_PUMPCTRL, PCTRL_CMD_ESC,
 						0, NULL);
 					bcs->hw.isar.state = STFAX_ESCAPE;
-					isar_sched_event(bcs, B_LL_NOCARRIER);
+					schedule_event(bcs, B_LL_NOCARRIER);
 				}
 			} else {
 				printk(KERN_WARNING "HiSax: skb out of memory\n");
@@ -639,9 +627,9 @@ isar_rcv_frame(struct IsdnCardState *cs, struct BCState *bcs)
 						bcs->hw.isar.rcvbuf,
 						bcs->hw.isar.rcvidx);
 					skb_queue_tail(&bcs->rqueue, skb);
-					isar_sched_event(bcs, B_RCVBUFREADY);
+					schedule_event(bcs, B_RCVBUFREADY);
 					send_DLE_ETX(bcs);
-					isar_sched_event(bcs, B_LL_OK);
+					schedule_event(bcs, B_LL_OK);
 					test_and_clear_bit(BC_FLG_FRH_WAIT, &bcs->Flag);
 				}
 				bcs->hw.isar.rcvidx = 0;
@@ -656,7 +644,7 @@ isar_rcv_frame(struct IsdnCardState *cs, struct BCState *bcs)
 			bcs->hw.isar.state = STFAX_ESCAPE;
 			if (test_and_clear_bit(BC_FLG_FRH_WAIT, &bcs->Flag)) {
 				send_DLE_ETX(bcs);
-				isar_sched_event(bcs, B_LL_NOCARRIER);
+				schedule_event(bcs, B_LL_NOCARRIER);
 			}
 		}
 		break;
@@ -674,7 +662,6 @@ isar_fill_fifo(struct BCState *bcs)
 	int count;
 	u_char msb;
 	u_char *ptr;
-	long flags;
 
 	if ((cs->debug & L1_DEB_HSCX) && !(cs->debug & L1_DEB_HSCX_FIFO))
 		debugl1(cs, "isar_fill_fifo");
@@ -692,8 +679,6 @@ isar_fill_fifo(struct BCState *bcs)
 		count = bcs->tx_skb->len;
 		msb = HDLC_FED;
 	}
-	save_flags(flags);
-	cli();
 	ptr = bcs->tx_skb->data;
 	if (!bcs->hw.isar.txcnt) {
 		msb |= HDLC_FST;
@@ -744,7 +729,6 @@ isar_fill_fifo(struct BCState *bcs)
 			printk(KERN_ERR"isar_fill_fifo mode(%x) error\n", bcs->mode);
 			break;
 	}
-	restore_flags(flags);
 }
 
 inline
@@ -801,11 +785,11 @@ send_frames(struct BCState *bcs)
 				}
 				test_and_set_bit(BC_FLG_LL_OK, &bcs->Flag);
 			} else {
-				isar_sched_event(bcs, B_LL_CONNECT);
+				schedule_event(bcs, B_LL_CONNECT);
 			}
 		}
 		test_and_clear_bit(BC_FLG_BUSY, &bcs->Flag);
-		isar_sched_event(bcs, B_XMTBUFREADY);
+		schedule_event(bcs, B_XMTBUFREADY);
 	}
 }
 
@@ -1064,7 +1048,7 @@ isar_pump_statev_fax(struct BCState *bcs, u_char devt) {
 						&bcs->Flag);
 					add_timer(&bcs->hw.isar.ftimer);
 				} else {
-					isar_sched_event(bcs, B_LL_CONNECT);
+					schedule_event(bcs, B_LL_CONNECT);
 				}
 			} else {
 				if (cs->debug & L1_DEB_WARN)
@@ -1112,10 +1096,10 @@ isar_pump_statev_fax(struct BCState *bcs, u_char devt) {
 				}
 			} else if (bcs->hw.isar.state == STFAX_ACTIV) {
 				if (test_and_clear_bit(BC_FLG_LL_OK, &bcs->Flag)) {
-					isar_sched_event(bcs, B_LL_OK);
+					schedule_event(bcs, B_LL_OK);
 				} else if (bcs->hw.isar.cmd == PCTRL_CMD_FRM) {
 					send_DLE_ETX(bcs);
-					isar_sched_event(bcs, B_LL_NOCARRIER);
+					schedule_event(bcs, B_LL_NOCARRIER);
 				} else {
 					ll_deliver_faxstat(bcs, ISDN_FAX_CLASS1_FCERROR);
 				}
@@ -1171,12 +1155,9 @@ static char debbuf[128];
 void
 isar_int_main(struct IsdnCardState *cs)
 {
-	long flags;
 	struct isar_reg *ireg = cs->bcs[0].hw.isar.reg;
 	struct BCState *bcs;
 
-	save_flags(flags);
-	cli();
 	get_irq_infos(cs, ireg);
 	switch (ireg->iis & ISAR_IIS_MSCMSD) {
 		case ISAR_IIS_RDATA:
@@ -1265,7 +1246,6 @@ isar_int_main(struct IsdnCardState *cs)
 					ireg->iis, ireg->cmsb, ireg->clsb);
 			break;
 	}
-	restore_flags(flags);
 }
 
 static void
@@ -1275,10 +1255,10 @@ ftimer_handler(struct BCState *bcs) {
 			bcs->Flag);
 	test_and_clear_bit(BC_FLG_FTI_RUN, &bcs->Flag);
 	if (test_and_clear_bit(BC_FLG_LL_CONN, &bcs->Flag)) {
-		isar_sched_event(bcs, B_LL_CONNECT);
+		schedule_event(bcs, B_LL_CONNECT);
 	}
 	if (test_and_clear_bit(BC_FLG_FTI_FTS, &bcs->Flag)) {
-		isar_sched_event(bcs, B_LL_OK);
+		schedule_event(bcs, B_LL_OK);
 	}
 }
 
@@ -1585,71 +1565,81 @@ isar_setup(struct IsdnCardState *cs)
 		cs->bcs[i].mode = 0;
 		cs->bcs[i].hw.isar.dpath = i + 1;
 		modeisar(&cs->bcs[i], 0, 0);
-		cs->bcs[i].tqueue.routine = (void *) (void *) isar_bh;
+		INIT_WORK(&cs->bcs[i].tqueue, (void *)(void *) isar_bh, &cs->bcs[i]);
 	}
 }
 
 void
 isar_l2l1(struct PStack *st, int pr, void *arg)
 {
+	struct BCState *bcs = st->l1.bcs;
 	struct sk_buff *skb = arg;
-	long flags;
+	int ret;
+	u_long flags;
 
 	switch (pr) {
 		case (PH_DATA | REQUEST):
-			save_flags(flags);
-			cli();
-			if (st->l1.bcs->tx_skb) {
-				skb_queue_tail(&st->l1.bcs->squeue, skb);
-				restore_flags(flags);
+			spin_lock_irqsave(&bcs->cs->lock, flags);
+			if (bcs->tx_skb) {
+				skb_queue_tail(&bcs->squeue, skb);
 			} else {
-				st->l1.bcs->tx_skb = skb;
-				test_and_set_bit(BC_FLG_BUSY, &st->l1.bcs->Flag);
-				if (st->l1.bcs->cs->debug & L1_DEB_HSCX)
-					debugl1(st->l1.bcs->cs, "DRQ set BC_FLG_BUSY");
-				st->l1.bcs->hw.isar.txcnt = 0;
-				restore_flags(flags);
-				st->l1.bcs->cs->BC_Send_Data(st->l1.bcs);
+				bcs->tx_skb = skb;
+				test_and_set_bit(BC_FLG_BUSY, &bcs->Flag);
+				if (bcs->cs->debug & L1_DEB_HSCX)
+					debugl1(bcs->cs, "DRQ set BC_FLG_BUSY");
+				bcs->hw.isar.txcnt = 0;
+				bcs->cs->BC_Send_Data(bcs);
 			}
+			spin_unlock_irqrestore(&bcs->cs->lock, flags);
 			break;
 		case (PH_PULL | INDICATION):
-			if (st->l1.bcs->tx_skb) {
+			spin_lock_irqsave(&bcs->cs->lock, flags);
+			if (bcs->tx_skb) {
 				printk(KERN_WARNING "isar_l2l1: this shouldn't happen\n");
-				break;
+			} else {
+				test_and_set_bit(BC_FLG_BUSY, &bcs->Flag);
+				if (bcs->cs->debug & L1_DEB_HSCX)
+					debugl1(bcs->cs, "PUI set BC_FLG_BUSY");
+				bcs->tx_skb = skb;
+				bcs->hw.isar.txcnt = 0;
+				bcs->cs->BC_Send_Data(bcs);
 			}
-			test_and_set_bit(BC_FLG_BUSY, &st->l1.bcs->Flag);
-			if (st->l1.bcs->cs->debug & L1_DEB_HSCX)
-				debugl1(st->l1.bcs->cs, "PUI set BC_FLG_BUSY");
-			st->l1.bcs->tx_skb = skb;
-			st->l1.bcs->hw.isar.txcnt = 0;
-			st->l1.bcs->cs->BC_Send_Data(st->l1.bcs);
+			spin_unlock_irqrestore(&bcs->cs->lock, flags);
 			break;
 		case (PH_PULL | REQUEST):
-			if (!st->l1.bcs->tx_skb) {
+			if (!bcs->tx_skb) {
 				test_and_clear_bit(FLG_L1_PULL_REQ, &st->l1.Flags);
 				st->l1.l1l2(st, PH_PULL | CONFIRM, NULL);
 			} else
 				test_and_set_bit(FLG_L1_PULL_REQ, &st->l1.Flags);
 			break;
 		case (PH_ACTIVATE | REQUEST):
-			test_and_set_bit(BC_FLG_ACTIV, &st->l1.bcs->Flag);
-			st->l1.bcs->hw.isar.conmsg[0] = 0;
+			spin_lock_irqsave(&bcs->cs->lock, flags);
+			test_and_set_bit(BC_FLG_ACTIV, &bcs->Flag);
+			bcs->hw.isar.conmsg[0] = 0;
 			if (test_bit(FLG_ORIG, &st->l2.flag))
-				test_and_set_bit(BC_FLG_ORIG, &st->l1.bcs->Flag);
+				test_and_set_bit(BC_FLG_ORIG, &bcs->Flag);
 			else
-				test_and_clear_bit(BC_FLG_ORIG, &st->l1.bcs->Flag);
+				test_and_clear_bit(BC_FLG_ORIG, &bcs->Flag);
 			switch(st->l1.mode) {
 				case L1_MODE_TRANS:
 				case L1_MODE_HDLC:
-					if (modeisar(st->l1.bcs, st->l1.mode, st->l1.bc))
+					ret = modeisar(bcs, st->l1.mode, st->l1.bc);
+					spin_unlock_irqrestore(&bcs->cs->lock, flags);
+					if (ret)
 						l1_msg_b(st, PH_DEACTIVATE | REQUEST, arg);
 					else
 						l1_msg_b(st, PH_ACTIVATE | REQUEST, arg);
 					break;
 				case L1_MODE_V32:
 				case L1_MODE_FAX:
-					if (modeisar(st->l1.bcs, st->l1.mode, st->l1.bc))
+					ret = modeisar(bcs, st->l1.mode, st->l1.bc);
+					spin_unlock_irqrestore(&bcs->cs->lock, flags);
+					if (ret)
 						l1_msg_b(st, PH_DEACTIVATE | REQUEST, arg);
+					break;
+				default:
+					spin_unlock_irqrestore(&bcs->cs->lock, flags);
 					break;
 			}
 			break;
@@ -1657,20 +1647,22 @@ isar_l2l1(struct PStack *st, int pr, void *arg)
 			l1_msg_b(st, pr, arg);
 			break;
 		case (PH_DEACTIVATE | CONFIRM):
+			spin_lock_irqsave(&bcs->cs->lock, flags);
 			switch(st->l1.mode) {
 				case L1_MODE_TRANS:
 				case L1_MODE_HDLC:
 				case L1_MODE_V32:
 					break;
 				case L1_MODE_FAX:
-					isar_pump_cmd(st->l1.bcs, ISDN_FAXPUMP_HALT, 0);
+					isar_pump_cmd(bcs, ISDN_FAXPUMP_HALT, 0);
 					break;
 			}
-			test_and_clear_bit(BC_FLG_ACTIV, &st->l1.bcs->Flag);
-			test_and_clear_bit(BC_FLG_BUSY, &st->l1.bcs->Flag);
-			if (st->l1.bcs->cs->debug & L1_DEB_HSCX)
-				debugl1(st->l1.bcs->cs, "PDAC clear BC_FLG_BUSY");
-			modeisar(st->l1.bcs, 0, st->l1.bc);
+			test_and_clear_bit(BC_FLG_ACTIV, &bcs->Flag);
+			test_and_clear_bit(BC_FLG_BUSY, &bcs->Flag);
+			if (bcs->cs->debug & L1_DEB_HSCX)
+				debugl1(bcs->cs, "PDAC clear BC_FLG_BUSY");
+			modeisar(bcs, 0, st->l1.bc);
+			spin_unlock_irqrestore(&bcs->cs->lock, flags);
 			st->l1.l1l2(st, PH_DEACTIVATE | CONFIRM, NULL);
 			break;
 	}

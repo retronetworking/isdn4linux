@@ -38,14 +38,12 @@ static void dch_l2l1(struct PStack *st, int pr, void *arg);
 static void dbusy_timer_handler(struct IsdnCardState *cs);
 static void ipacx_new_ph(struct IsdnCardState *cs);
 static void dch_bh(struct IsdnCardState *cs);
-static void dch_sched_event(struct IsdnCardState *cs, int event);
 static void dch_empty_fifo(struct IsdnCardState *cs, int count);
 static void dch_fill_fifo(struct IsdnCardState *cs);
 static inline void dch_int(struct IsdnCardState *cs);
 static void __devinit dch_setstack(struct PStack *st, struct IsdnCardState *cs);
 static void __devinit dch_init(struct IsdnCardState *cs);
 static void bch_l2l1(struct PStack *st, int pr, void *arg);
-static void bch_sched_event(struct BCState *bcs, int event);
 static void bch_empty_fifo(struct BCState *bcs, int count);
 static void bch_fill_fifo(struct BCState *bcs);
 static void bch_int(struct IsdnCardState *cs, u_char hscx);
@@ -85,7 +83,7 @@ cic_int(struct IsdnCardState *cs)
 //	printk(KERN_INFO "cic_int(%x)\n", event);
 //#########################################  
   cs->dc.isac.ph_state = event;
-  dch_sched_event(cs, D_L1STATECHANGE);
+  schedule_event(cs, D_L1STATECHANGE);
 }
 
 //==========================================================
@@ -309,23 +307,11 @@ dch_bh(struct IsdnCardState *cs)
 }
 
 //----------------------------------------------------------
-// proceed with bottom half handler dch_bh()
-//----------------------------------------------------------
-static void
-dch_sched_event(struct IsdnCardState *cs, int event)
-{
-	set_bit(event, &cs->event);
-	queue_task(&cs->tqueue, &tq_immediate);
-	mark_bh(IMMEDIATE_BH);
-}
-
-//----------------------------------------------------------
 // Fill buffer from receive FIFO
 //----------------------------------------------------------
 static void 
 dch_empty_fifo(struct IsdnCardState *cs, int count)
 {
-	long flags;
 	u_char *ptr;
 
 	if ((cs->debug &L1_DEB_ISAC) && !(cs->debug &L1_DEB_ISAC_FIFO))
@@ -343,11 +329,8 @@ dch_empty_fifo(struct IsdnCardState *cs, int count)
 	ptr = cs->rcvbuf + cs->rcvidx;
 	cs->rcvidx += count;
   
-	save_flags(flags);
-	cli();
 	cs->readisacfifo(cs, ptr, count);
 	cs->writeisac(cs, IPACX_CMDRD, 0x80); // RMC
-	restore_flags(flags);
   
 	if (cs->debug &L1_DEB_ISAC_FIFO) {
 		char *t = cs->dlog;
@@ -364,7 +347,6 @@ dch_empty_fifo(struct IsdnCardState *cs, int count)
 static void 
 dch_fill_fifo(struct IsdnCardState *cs)
 {
-	long flags;
 	int count;
 	u_char cmd, *ptr;
 
@@ -382,8 +364,6 @@ dch_fill_fifo(struct IsdnCardState *cs)
 		cmd   = 0x0A; // XTF | XME
 	}
   
-	save_flags(flags);
-	cli();
 	ptr = cs->tx_skb->data;
 	skb_pull(cs->tx_skb, count);
 	cs->tx_cnt += count;
@@ -398,7 +378,6 @@ dch_fill_fifo(struct IsdnCardState *cs)
 	init_timer(&cs->dbusytimer);
 	cs->dbusytimer.expires = jiffies + ((DBUSY_TIMER_VALUE * HZ)/1000);
 	add_timer(&cs->dbusytimer);
-	restore_flags(flags);
   
 	if (cs->debug &L1_DEB_ISAC_FIFO) {
 		char *t = cs->dlog;
@@ -417,7 +396,6 @@ dch_int(struct IsdnCardState *cs)
 {
 	struct sk_buff *skb;
 	u_char istad, rstad;
-	long flags;
 	int count;
 
 	istad = cs->readisac(cs, IPACX_ISTAD);
@@ -444,8 +422,6 @@ dch_int(struct IsdnCardState *cs)
 			count &= D_FIFO_SIZE-1;
 			if (count == 0) count = D_FIFO_SIZE;
 			dch_empty_fifo(cs, count);
-			save_flags(flags);
-			cli();
 			if ((count = cs->rcvidx) > 0) {
 	      cs->rcvidx = 0;
 				if (!(skb = dev_alloc_skb(count)))
@@ -455,10 +431,9 @@ dch_int(struct IsdnCardState *cs)
 					skb_queue_tail(&cs->rq, skb);
 				}
 			}
-			restore_flags(flags);
     }
 	  cs->rcvidx = 0;
-		dch_sched_event(cs, D_RCVBUFREADY);
+		schedule_event(cs, D_RCVBUFREADY);
 	}
 
 	if (istad &0x40) {  // RPF
@@ -474,7 +449,7 @@ dch_int(struct IsdnCardState *cs)
 		if (test_and_clear_bit(FLG_DBUSY_TIMER, &cs->HW_Flags))
 			del_timer(&cs->dbusytimer);
 		if (test_and_clear_bit(FLG_L1_DBUSY, &cs->HW_Flags))
-			dch_sched_event(cs, D_CLEARBUSY);
+			schedule_event(cs, D_CLEARBUSY);
     if (cs->tx_skb) {
       if (cs->tx_skb->len) {
         dch_fill_fifo(cs);
@@ -491,7 +466,7 @@ dch_int(struct IsdnCardState *cs)
       dch_fill_fifo(cs);
     } 
     else {
-      dch_sched_event(cs, D_XMTBUFREADY);
+      schedule_event(cs, D_XMTBUFREADY);
     }  
   }  
   afterXPR:
@@ -524,7 +499,6 @@ dch_init(struct IsdnCardState *cs)
 {
 	printk(KERN_INFO "HiSax: IPACX ISDN driver v0.1.0\n");
 
-	cs->tqueue.routine  = (void *)(void *) dch_bh;
 	cs->setstack_d      = dch_setstack;
   
 	cs->dbusytimer.function = (void *) dbusy_timer_handler;
@@ -548,67 +522,61 @@ dch_init(struct IsdnCardState *cs)
 static void
 bch_l2l1(struct PStack *st, int pr, void *arg)
 {
+	struct BCState *bcs = st->l1.bcs;
 	struct sk_buff *skb = arg;
-	long flags;
+	u_long flags;
 
 	switch (pr) {
 		case (PH_DATA | REQUEST):
-			save_flags(flags);
-			cli();
-			if (st->l1.bcs->tx_skb) {
-				skb_queue_tail(&st->l1.bcs->squeue, skb);
-				restore_flags(flags);
+			spin_lock_irqsave(&bcs->cs->lock, flags);
+			if (bcs->tx_skb) {
+				skb_queue_tail(&bcs->squeue, skb);
 			} else {
-				st->l1.bcs->tx_skb = skb;
-				set_bit(BC_FLG_BUSY, &st->l1.bcs->Flag);
-				st->l1.bcs->hw.hscx.count = 0;
-				restore_flags(flags);
-        bch_fill_fifo(st->l1.bcs);
+				bcs->tx_skb = skb;
+				set_bit(BC_FLG_BUSY, &bcs->Flag);
+				bcs->hw.hscx.count = 0;
+				bch_fill_fifo(bcs);
 			}
+			spin_unlock_irqrestore(&bcs->cs->lock, flags);
 			break;
 		case (PH_PULL | INDICATION):
-			if (st->l1.bcs->tx_skb) {
+			spin_lock_irqsave(&bcs->cs->lock, flags);
+			if (bcs->tx_skb) {
 				printk(KERN_WARNING "HiSax bch_l2l1(): this shouldn't happen\n");
-				break;
+			} else {
+				set_bit(BC_FLG_BUSY, &bcs->Flag);
+				bcs->tx_skb = skb;
+				bcs->hw.hscx.count = 0;
+				bch_fill_fifo(bcs);
 			}
-			set_bit(BC_FLG_BUSY, &st->l1.bcs->Flag);
-			st->l1.bcs->tx_skb = skb;
-			st->l1.bcs->hw.hscx.count = 0;
-      bch_fill_fifo(st->l1.bcs);
+			spin_unlock_irqrestore(&bcs->cs->lock, flags);
 			break;
 		case (PH_PULL | REQUEST):
-			if (!st->l1.bcs->tx_skb) {
+			if (!bcs->tx_skb) {
 				clear_bit(FLG_L1_PULL_REQ, &st->l1.Flags);
 				st->l1.l1l2(st, PH_PULL | CONFIRM, NULL);
 			} else
 				set_bit(FLG_L1_PULL_REQ, &st->l1.Flags);
 			break;
 		case (PH_ACTIVATE | REQUEST):
-			set_bit(BC_FLG_ACTIV, &st->l1.bcs->Flag);
-			bch_mode(st->l1.bcs, st->l1.mode, st->l1.bc);
+			spin_lock_irqsave(&bcs->cs->lock, flags);
+			set_bit(BC_FLG_ACTIV, &bcs->Flag);
+			bch_mode(bcs, st->l1.mode, st->l1.bc);
+			spin_unlock_irqrestore(&bcs->cs->lock, flags);
 			l1_msg_b(st, pr, arg);
 			break;
 		case (PH_DEACTIVATE | REQUEST):
 			l1_msg_b(st, pr, arg);
 			break;
 		case (PH_DEACTIVATE | CONFIRM):
-			clear_bit(BC_FLG_ACTIV, &st->l1.bcs->Flag);
-			clear_bit(BC_FLG_BUSY, &st->l1.bcs->Flag);
-			bch_mode(st->l1.bcs, 0, st->l1.bc);
+			spin_lock_irqsave(&bcs->cs->lock, flags);
+			clear_bit(BC_FLG_ACTIV, &bcs->Flag);
+			clear_bit(BC_FLG_BUSY, &bcs->Flag);
+			bch_mode(bcs, 0, st->l1.bc);
+			spin_unlock_irqrestore(&bcs->cs->lock, flags);
 			st->l1.l1l2(st, PH_DEACTIVATE | CONFIRM, NULL);
 			break;
 	}
-}
-
-//----------------------------------------------------------
-// proceed with bottom half handler BChannel_bh()
-//----------------------------------------------------------
-static void
-bch_sched_event(struct BCState *bcs, int event)
-{
-	bcs->event |= 1 << event;
-	queue_task(&bcs->tqueue, &tq_immediate);
-	mark_bh(IMMEDIATE_BH);
 }
 
 //----------------------------------------------------------
@@ -619,7 +587,6 @@ bch_empty_fifo(struct BCState *bcs, int count)
 {
 	u_char *ptr, hscx;
 	struct IsdnCardState *cs;
-	long flags;
 	int cnt;
 
 	cs = bcs->cs;
@@ -636,9 +603,6 @@ bch_empty_fifo(struct BCState *bcs, int count)
 		return;
 	}
   
-  // Read data uninterruptible
-	save_flags(flags);
-	cli();
 	ptr = bcs->hw.hscx.rcvbuf + bcs->hw.hscx.rcvidx;
 	cnt = count;
 	while (cnt--) *ptr++ = cs->BC_Read_Reg(cs, hscx, IPACX_RFIFOB); 
@@ -646,7 +610,6 @@ bch_empty_fifo(struct BCState *bcs, int count)
   
 	ptr = bcs->hw.hscx.rcvbuf + bcs->hw.hscx.rcvidx;
 	bcs->hw.hscx.rcvidx += count;
-	restore_flags(flags);
   
 	if (cs->debug &L1_DEB_HSCX_FIFO) {
 		char *t = bcs->blog;
@@ -666,7 +629,6 @@ bch_fill_fifo(struct BCState *bcs)
 	struct IsdnCardState *cs;
 	int more, count, cnt;
 	u_char *ptr, *p, hscx;
-	long flags;
 
 	cs = bcs->cs;
 	if ((cs->debug &L1_DEB_HSCX) && !(cs->debug &L1_DEB_HSCX_FIFO))
@@ -685,15 +647,12 @@ bch_fill_fifo(struct BCState *bcs)
 	}  
 	cnt = count;
     
-	save_flags(flags);
-	cli();
 	p = ptr = bcs->tx_skb->data;
 	skb_pull(bcs->tx_skb, count);
 	bcs->tx_cnt -= count;
 	bcs->hw.hscx.count += count;
 	while (cnt--) cs->BC_Write_Reg(cs, hscx, IPACX_XFIFOB, *p++); 
 	cs->BC_Write_Reg(cs, hscx, IPACX_CMDRB, (more ? 0x08 : 0x0a));
-	restore_flags(flags);
   
 	if (cs->debug &L1_DEB_HSCX_FIFO) {
 		char *t = bcs->blog;
@@ -753,7 +712,7 @@ bch_int(struct IsdnCardState *cs, u_char hscx)
 			}
 		}
 		bcs->hw.hscx.rcvidx = 0;
-		bch_sched_event(bcs, B_RCVBUFREADY);
+		schedule_event(bcs, B_RCVBUFREADY);
 	}
   
 	if (istab &0x40) {	// RPF
@@ -768,7 +727,7 @@ bch_int(struct IsdnCardState *cs, u_char hscx)
 				skb_queue_tail(&bcs->rqueue, skb);
 			}
 			bcs->hw.hscx.rcvidx = 0;
-			bch_sched_event(bcs, B_RCVBUFREADY);
+			schedule_event(bcs, B_RCVBUFREADY);
 		}
 	}
   
@@ -800,7 +759,7 @@ bch_int(struct IsdnCardState *cs, u_char hscx)
       bch_fill_fifo(bcs);
     } else {
       clear_bit(BC_FLG_BUSY, &bcs->Flag);
-      bch_sched_event(bcs, B_XMTBUFREADY);
+      schedule_event(bcs, B_XMTBUFREADY);
     }
   }
   afterXPR:
@@ -1021,13 +980,22 @@ init_ipacx(struct IsdnCardState *cs, int part)
 		cs->writeisac(cs, IPACX_MASKD, _MASKD_IMASK);
 		cs->writeisac(cs, IPACX_MASK, _MASK_IMASK); // global mask register
 
-    // reset HDLC Transmitters/receivers
+		// reset HDLC Transmitters/receivers
 		cs->writeisac(cs, IPACX_CMDRD, 0x41); 
-    cs->BC_Write_Reg(cs, 0, IPACX_CMDRB, 0x41);
-    cs->BC_Write_Reg(cs, 1, IPACX_CMDRB, 0x41);
-  	ph_command(cs, IPACX_CMD_RES);
+		cs->BC_Write_Reg(cs, 0, IPACX_CMDRB, 0x41);
+		cs->BC_Write_Reg(cs, 1, IPACX_CMDRB, 0x41);
+		ph_command(cs, IPACX_CMD_RES);
 	}
 }
 
+
+void __devinit
+setup_ipacx(struct IsdnCardState *cs)
+{
+	INIT_WORK(&cs->tqueue, (void *)(void *) dch_bh, cs);
+	cs->dbusytimer.function = (void *) dbusy_timer_handler;
+	cs->dbusytimer.data = (long) cs;
+	init_timer(&cs->dbusytimer);
+}
 //----------------- end of file -----------------------
 
