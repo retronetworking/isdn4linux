@@ -6,6 +6,9 @@
  * (c) Copyright 1997 by Carsten Paeth (calle@calle.in-berlin.de)
  * 
  * $Log$
+ * Revision 1.1.2.8  1998/03/18 17:43:29  calle
+ * T1 with fastlink, bugfix for multicontroller support in capidrv.c
+ *
  * Revision 1.1.2.7  1998/03/04 17:33:50  calle
  * Changes for T1.
  *
@@ -40,7 +43,7 @@
  *
  * 
  */
-#define FASTLINK_DEBUG
+/* #define FASTLINK_DEBUG */
 
 #include <linux/kernel.h>
 #include <linux/skbuff.h>
@@ -54,6 +57,8 @@
 #include "compat.h"
 #include "capicmd.h"
 #include "capiutil.h"
+
+extern int showcapimsgs;
 
 /*
  * LLI Messages to the ISDN-ControllerISDN Controller 
@@ -819,8 +824,6 @@ void B1_send_release(unsigned short port,
 	B1_put_word(port, appid);
 	restore_flags(flags);
 }
-
-extern int showcapimsgs;
 
 void B1_send_message(unsigned short port, struct sk_buff *skb)
 {

@@ -6,6 +6,9 @@
  * (c) Copyright 1997 by Carsten Paeth (calle@calle.in-berlin.de)
  * 
  * $Log$
+ * Revision 1.4.2.16  1998/03/20 09:01:08  calle
+ * Changes capi_register handling to get full support for 30 bchannels.
+ *
  * Revision 1.4.2.15  1998/03/18 17:43:26  calle
  * T1 with fastlink, bugfix for multicontroller support in capidrv.c
  *
@@ -585,7 +588,7 @@ int avmb1_registercard(int port, int irq, int cardtype, int allocio)
 		printk(KERN_ERR "b1capi: unable to get IRQ %d (irqval=%d).\n",
 		       irq, irqval);
 		release_region((unsigned short) port, AVMB1_PORTLEN);
-		return -EIO;
+		return -EBUSY;
 	}
 
 	card->cardstate = CARD_DETECTED;
@@ -609,13 +612,14 @@ int avmb1_detectcard(int port, int irq, int cardtype)
 	if (!B1_valid_irq(irq, cardtype)) {
 		printk(KERN_WARNING "b1capi: irq %d not valid for %s-card.\n",
 				irq, cardtype2str(cardtype));
-		return -EIO;
+		return -EINVAL;
 	}
 	if (!B1_valid_port(port, cardtype)) {
 		printk(KERN_WARNING "b1capi: port 0x%x not valid for %s-card.\n",
 				irq, cardtype2str(cardtype));
-		return -EIO;
+		return -EINVAL;
 	}
+	B1_reset(port);
 	if ((rc = B1_detect(port, cardtype)) != 0) {
 		printk(KERN_NOTICE "b1capi: NO %s-card at 0x%x (%d)\n",
 					  cardtype2str(cardtype), port, rc);
@@ -642,7 +646,7 @@ int avmb1_probecard(int port, int irq, int cardtype)
 		printk(KERN_WARNING
 		       "b1capi: ports 0x%03x-0x%03x in use.\n",
 		       port, port + AVMB1_PORTLEN);
-		return -EIO;
+		return -EBUSY;
 	}
         return avmb1_detectcard(port, irq, cardtype);
 }
@@ -910,6 +914,17 @@ static int capi_manufacturer(unsigned int cmd, void *data)
 			return rc;
 
                 if (cdef.cardtype == AVM_CARDTYPE_T1) {
+			int i;
+		        for (i=0; i < CAPI_MAXCONTR; i++) {
+	        	    	if (   cards[i].cardstate != CARD_FREE
+				    && cards[i].cardtype == AVM_CARDTYPE_T1
+				    && cards[i].cardnr == cdef.cardnr) {
+					printk(KERN_ERR
+						"b1capi: T1-HEMA-card-%d already at 0x%x\n",
+						cdef.cardnr, cards[i].port);
+					return -EBUSY;
+				}
+                        }
 			rc = T1_detectandinit(cdef.port,cdef.irq,cdef.cardnr);
 			if (rc) {
 			        printk(KERN_NOTICE "b1capi: NO T1-HEMA-card-%d at 0x%x (%d)\n",
@@ -920,7 +935,21 @@ static int capi_manufacturer(unsigned int cmd, void *data)
 				  cdef.cardnr, cdef.port);
 		}
 
-		return avmb1_addcard(cdef.port, cdef.irq, cdef.cardtype);
+		rc = avmb1_addcard(cdef.port, cdef.irq, cdef.cardtype);
+		if (rc < 0)
+			return rc;
+		/* don't want to change interface t
+		   addcard/probecard/registercard */
+                if (cdef.cardtype == AVM_CARDTYPE_T1) {
+			int i;
+		        for (i=0; i < CAPI_MAXCONTR; i++) {
+	        	    	if (cards[i].cnr == rc) {
+					cards[i].cardnr = cdef.cardnr;
+					break;
+				}
+                        }
+		}
+		return rc;
 
 	case AVMB1_LOAD:
 	case AVMB1_LOAD_AND_CONFIG:
@@ -940,8 +969,7 @@ static int capi_manufacturer(unsigned int cmd, void *data)
 			return -ESRCH;
 
 		if (ldef.t4file.len <= 0) {
-			if (loaddebug)
-				printk(KERN_DEBUG "b1capi: load: invalid parameter length of t4file is %d ?\n", ldef.t4file.len);
+			printk(KERN_DEBUG "b1capi: load: invalid parameter: length of t4file is %d ?\n", ldef.t4file.len);
 			return -EINVAL;
 		}
 
@@ -1019,7 +1047,14 @@ static int capi_manufacturer(unsigned int cmd, void *data)
 		/*
 		 * init card
 		 */
-		B1_send_init(card->port, AVM_NAPPS, AVM_NNCCI, card->cnr - 1);
+                if (card->cardtype == AVM_CARDTYPE_T1)
+		   B1_send_init(card->port, AVM_NAPPS,
+					    AVM_NNCCI_PER_CHANNEL*30,
+				   	    card->cnr - 1);
+		else
+		   B1_send_init(card->port, AVM_NAPPS,
+					    AVM_NNCCI_PER_CHANNEL*2,
+				   	    card->cnr - 1);
 
 		if (loaddebug) {
 			printk(KERN_DEBUG "b1capi: load: waiting for init reply contr %d\n",
