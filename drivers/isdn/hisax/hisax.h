@@ -1309,17 +1309,3 @@ int certification_check(int output);
 void HiSax_mod_dec_use_count(struct IsdnCardState *cs);
 void HiSax_mod_inc_use_count(struct IsdnCardState *cs);
 
-#include "callc.h" // FIXME
-
-static inline void l3pc_l3l4(struct l3_process *l3pc, int pr, void *arg)
-{
-	if (!l3pc->l4pc) {
-		int_error();
-		return;
-	}
-	if (!l3pc->l4pc->l3l4) {
-		int_error();
-		return;
-	}
-	l3pc->l4pc->l3l4(l3pc->l4pc, pr, arg);
-}
