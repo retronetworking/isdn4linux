@@ -21,6 +21,15 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.87  1999/09/12 16:19:39  detabc
+ * added abc features
+ * low cost routing for net-interfaces (only the HL side).
+ * need more implementation in the isdnlog-utility
+ * udp info support (first part).
+ * different EAZ on outgoing call's.
+ * more checks on D-Channel callbacks (double use of channels).
+ * tested and running with kernel 2.3.17
+ *
  * Revision 1.86  1999/07/31 12:59:42  armin
  * Added tty fax capabilities.
  *
@@ -2342,8 +2351,8 @@ isdn_add_channels(driver *d, int drvidx, int n, int adding)
 #ifdef COMPAT_HAS_NEW_WAITQ
 	d->snd_waitq = d->rcv_waitq + m;
 	for (j = 0; j < m; j++) {
-		init_waitqueue_head(&d->rcv_waitq[m]);
-		init_waitqueue_head(&d->snd_waitq[m]);
+		init_waitqueue_head(&d->rcv_waitq[j]);
+		init_waitqueue_head(&d->snd_waitq[j]);
 	}
 #else
 	memset((char *) d->rcv_waitq, 0, sizeof(struct wait_queue *) * m);
