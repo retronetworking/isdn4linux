@@ -6,6 +6,9 @@
  * Copyright 1996 by Carsten Paeth (calle@calle.in-berlin.de)
  *
  * $Log$
+ * Revision 1.32  2000/04/21 12:38:42  calle
+ * Bugfix: error in proc_ functions, begin-off => off-begin
+ *
  * Revision 1.31  2000/04/03 13:29:24  calle
  * make Tim Waugh happy (module unload races in 2.3.99-pre3).
  * no real problem there, but now it is much cleaner ...
@@ -717,6 +720,7 @@ int handle_recv_skb(struct capiminor *mp, struct sk_buff *skb)
 					datahandle, skb->len);
 #endif
 		mp->tty->ldisc.receive_buf(mp->tty, skb->data, 0, skb->len);
+		kfree_skb(skb);
 		return 0;
 
 #ifdef CAPI_PPP_ON_RAW_DEVICE
