@@ -186,6 +186,10 @@ static inline unsigned long copy_to_user(void *to, const void *from, unsigned lo
 #define i_count_inc(ic)  atomic_inc(&ic)
 #endif
 
+#if LINUX_VERSION_CODE > KERNEL_VERSION(2,4,0)
+#define COMPAT_HAS_FILEOP_OWNER
+#endif
+
 #define COMPAT_PCI_COMMON_ID
 
 #endif /* __KERNEL__ */

@@ -69,3 +69,4 @@
 #define COMPAT_PCI_COMMON_ID
 #define i_count_read(ic) ic
 #define i_count_inc(ic)  ic++
+#undef COMPAT_HAS_FILEOP_OWNER
