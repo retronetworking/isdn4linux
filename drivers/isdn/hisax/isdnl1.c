@@ -11,6 +11,9 @@
  *
  *
  * $Log$
+ * Revision 1.13  1997/04/06 22:55:50  keil
+ * Using SKB's
+ *
  * Revision 1.12  1997/03/26 13:43:57  keil
  * small cosmetics
  *
@@ -54,6 +57,7 @@
 const char *l1_revision = "$Revision$";
 
 #define __NO_VERSION__
+#include <linux/config.h>
 #include "hisax.h"
 #include "isdnl1.h"
 
@@ -874,7 +878,7 @@ checkcard(int cardnr, char *id)
 	save_flags(flags);
 	cli();
 	if (!(sp = (struct IsdnCardState *)
-	      kmalloc(sizeof(struct IsdnCardState), GFP_KERNEL))) {
+	      kmalloc(sizeof(struct IsdnCardState), GFP_ATOMIC))) {
 		printk(KERN_WARNING
 		       "HiSax: No memory for IsdnCardState(card %d)\n",
 		       cardnr + 1);
@@ -901,14 +905,14 @@ checkcard(int cardnr, char *id)
 		restore_flags(flags);
 		return (0);
 	}
-	if (!(sp->dlogspace = kmalloc(4096, GFP_KERNEL))) {
+	if (!(sp->dlogspace = kmalloc(4096, GFP_ATOMIC))) {
 		printk(KERN_WARNING
 		       "HiSax: No memory for dlogspace(card %d)\n",
 		       cardnr + 1);
 		restore_flags(flags);
 		return (0);
 	}
-	if (!(sp->status_buf = kmalloc(HISAX_STATUS_BUFSIZE, GFP_KERNEL))) {
+	if (!(sp->status_buf = kmalloc(HISAX_STATUS_BUFSIZE, GFP_ATOMIC))) {
 		printk(KERN_WARNING
 		       "HiSax: No memory for status_buf(card %d)\n",
 		       cardnr + 1);
@@ -996,7 +1000,7 @@ checkcard(int cardnr, char *id)
 		ll_unload(sp);
 		return (0);
 	}
-	if (!(sp->rcvbuf = kmalloc(MAX_DFRAME_LEN, GFP_KERNEL))) {
+	if (!(sp->rcvbuf = kmalloc(MAX_DFRAME_LEN, GFP_ATOMIC))) {
 		printk(KERN_WARNING
 		       "HiSax: No memory for isac rcvbuf\n");
 		return (1);
@@ -1218,7 +1222,7 @@ open_hscxstate(struct IsdnCardState *sp,
 	struct HscxState *hsp = sp->hs + hscx;
 
 	if (!hsp->init) {
-		if (!(hsp->rcvbuf = kmalloc(HSCX_BUFMAX, GFP_KERNEL))) {
+		if (!(hsp->rcvbuf = kmalloc(HSCX_BUFMAX, GFP_ATOMIC))) {
 			printk(KERN_WARNING
 			       "HiSax: No memory for hscx_rcvbuf\n");
 			return (1);
