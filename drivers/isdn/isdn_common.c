@@ -21,6 +21,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.83  1999/07/13 21:02:05  werner
+ * Added limit possibilty of driver b_channel resources (ISDN_STAT_DISCH)
+ *
  * Revision 1.82  1999/07/12 21:06:50  werner
  * Fixed problem when loading more than one driver temporary
  *
@@ -480,6 +483,8 @@ isdn_wildmat(char *s, char *p)
 	register int reverse;
 	register int nostar = 1;
 
+	if (!(*s) && !(*p))
+		return(1);
 	for (; *p; s++, p++)
 		switch (*p) {
 			case '\\':
