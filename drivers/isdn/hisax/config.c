@@ -5,6 +5,9 @@
  *
  *
  * $Log$
+ * Revision 1.15.2.4  1998/01/27 22:33:53  keil
+ * dynalink ----> asuscom
+ *
  * Revision 1.15.2.3  1998/01/11 22:55:15  keil
  * 16.3c support
  *
@@ -299,7 +302,7 @@ HiSaxVersion(void))
 	r += sprintf(r, "%s", HiSax_getrev(tmp));
 
 	printk(KERN_INFO "HiSax: Driver for Siemens chip set ISDN cards\n");
-	printk(KERN_INFO "HiSax: Version 2.7\n");
+	printk(KERN_INFO "HiSax: Version 2.8\n");
 	printk(KERN_INFO "HiSax: Revisions %s\n", rev);
 }
 
