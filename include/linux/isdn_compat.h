@@ -57,7 +57,7 @@
 #define devfs_register_chrdev(m,n,f) register_chrdev(m,n,f)
 #define devfs_unregister_chrdev(m,n) unregister_chrdev(m,n)
 #define COMPAT_NEED_PCI_IDS
-#define in_irq() (local_irq_count(smp_processor_id()) != 0)
+#define in_irq() (local_irq_count[smp_processor_id()] != 0)
 
 #else /* 2.4.0 and later */
 
