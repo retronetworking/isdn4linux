@@ -896,7 +896,9 @@ struct IsdnCardState {
 		struct njet_hw njet;
 		struct hfcD_hw hfcD;
 		struct hfcPCI_hw hfcpci;
+#ifdef CONFIG_HISAX_HFC_USB
 	        struct hfcUSB_hw hfcusb;
+#endif
 		struct hfcSX_hw hfcsx;
 		struct ix1_hw niccy;
 		struct isurf_hw isurf;
