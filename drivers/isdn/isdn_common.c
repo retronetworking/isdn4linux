@@ -21,6 +21,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.11  1996/05/11 21:51:32  fritz
+ * Changed queue management to use sk_buffs.
+ *
  * Revision 1.10  1996/05/10 08:49:16  fritz
  * Checkin before major changes of tty-code.
  *
@@ -96,6 +99,11 @@ extern char *isdn_ppp_revision;
 #else
 static char *isdn_ppp_revision = ": none $";
 #endif
+#ifdef CONFIG_ISDN_AUDIO
+extern char *isdn_audio_revision;
+#else
+static char *isdn_audio_revision = ": none $";
+#endif
 
 void isdn_MOD_INC_USE_COUNT(void)
 {
@@ -119,6 +127,12 @@ void isdn_dumppkt(char *s, u_char * p, int len, int dumplen)
 }
 #endif
 
+static __inline void isdn_trash_skb(struct sk_buff *skb, int rw)
+{
+        skb->free = 1;
+        kfree_skb(skb, rw);
+}
+
 static void isdn_free_queue(struct sk_buff_head *queue)
 {
         struct sk_buff *skb;
@@ -127,10 +141,8 @@ static void isdn_free_queue(struct sk_buff_head *queue)
         save_flags(flags);
         cli();
         if (skb_queue_len(queue))
-                while ((skb = skb_dequeue(queue))) {
-                        skb->free = 1;
-                        kfree_skb(skb,FREE_READ);
-                }
+                while ((skb = skb_dequeue(queue)))
+                        isdn_trash_skb(skb, FREE_READ);
         restore_flags(flags);
 }
 
@@ -219,19 +231,12 @@ void isdn_timer_ctrl(int tf, int onoff)
 static void isdn_receive_skb_callback(int di, int channel, struct sk_buff *skb)
 {
 	ulong flags;
-        int len;
 	int i;
         int midx;
 	modem_info *info;
         
-	if (dev->global_flags & ISDN_GLOBAL_STOPPED) {
-                skb->free = 1;
-                kfree_skb(skb, FREE_READ);
-		return;
-        }
         if ((i = isdn_dc2minor(di,channel))==-1) {
-                skb->free = 1;
-                kfree_skb(skb, FREE_READ);
+                isdn_trash_skb(skb, FREE_READ);
                 return;
         }
 	/* Update statistics */
@@ -242,16 +247,15 @@ static void isdn_receive_skb_callback(int di, int channel, struct sk_buff *skb)
 	/* No network-device found, deliver to tty or raw-channel */
 	if (skb->len) {
                 if ((midx = dev->m_idx[i])<0) {
-                        skb->free = 1;
-                        kfree_skb(skb, FREE_READ);
+                        /* if midx is invalid, drop packet */
+                        isdn_trash_skb(skb, FREE_READ);
                         return;
                 }
                 info  = &dev->mdm.info[midx];
                 if ((info->online < 2) &&
                     (info->vonline != 1)) {
                         /* If Modem not listening, drop data */
-                        skb->free = 1;
-                        kfree_skb(skb, FREE_READ);
+                        isdn_trash_skb(skb, FREE_READ);
                         return;
                 }
                 if (info->emu.mdmreg[13] & 2)
@@ -265,6 +269,11 @@ static void isdn_receive_skb_callback(int di, int channel, struct sk_buff *skb)
                                 isdn_dumppkt("T70strip2:", skb->data, skb->len, skb->len);
 #endif
                         }
+                /* The users field of an sk_buff is used in a special way
+                 * with tty's incoming data:
+                 *   users is set to the number of DLE codes when in audio mode.
+                 */
+                skb->users = 0;
 #ifdef CONFIG_ISDN_AUDIO
                 if (info->vonline == 1) {
                         int ifmt = 1;
@@ -277,11 +286,11 @@ static void isdn_receive_skb_callback(int di, int channel, struct sk_buff *skb)
                                          * Since compressed data takes less
                                          * space, we can overwrite the buffer.
                                          */
-                                        len = isdn_audio_xlaw2adpcm(info->adpcmr,
-								    ifmt,
-								    skb->data,
-								    skb->data,
-								    skb->len);
+                                        skb_trim(skb,isdn_audio_xlaw2adpcm(info->adpcmr,
+                                                                           ifmt,
+                                                                           skb->data,
+                                                                           skb->data,
+                                                                           skb->len));
                                         break;
                                 case 5:
                                         /* a-law */
@@ -294,7 +303,7 @@ static void isdn_receive_skb_callback(int di, int channel, struct sk_buff *skb)
                                                 isdn_audio_alaw2ulaw(skb->data,skb->len);
                                         break;
                         }
-                        isdn_tty_handleDLEup(skb->data,skb->len);
+                        skb->users = isdn_tty_countDLE(skb->data,skb->len);
                 }
 #endif
                 /* Try to deliver directly via tty-flip-buf if queue is empty */
@@ -309,16 +318,14 @@ static void isdn_receive_skb_callback(int di, int channel, struct sk_buff *skb)
                  * Queue up for later dequeueing via timer-irq.
                  */
                 __skb_queue_tail(&dev->drv[di]->rpqueue[channel], skb);
-                dev->drv[di]->rcvcount[channel] += skb->len;
+                dev->drv[di]->rcvcount[channel] += (skb->len + skb->users);
                 restore_flags(flags);
                 /* Schedule dequeuing */
                 if ((dev->modempoll) && (info->rcvsched))
                         isdn_timer_ctrl(ISDN_TIMER_MODEMREAD, 1);
                 wake_up_interruptible(&dev->drv[di]->rcv_waitq[channel]);
-	} else {
-                skb->free = 1;
-                kfree_skb(skb, FREE_READ);
-        }
+	} else
+                isdn_trash_skb(skb, FREE_READ);
 }
 
 void isdn_all_eaz(int di, int ch)
@@ -633,14 +640,19 @@ int isdn_getnum(char **p)
 	return v;
 }
 
+#define DLE 0x10
+
+/*
+ * isdn_readbchan() tries to get data from the read-queue.
+ * It MUST be called with interrupts off.
+ */
 int isdn_readbchan(int di, int channel, u_char * buf, u_char * fp, int len, int user)
 {
-	int avail;
 	int left;
 	int count;
-	int copy_l;
+	int count_pull;
+        int count_put;
 	int dflag;
-	int flags;
         struct sk_buff *skb;
 	u_char *cp;
 
@@ -652,44 +664,85 @@ int isdn_readbchan(int di, int channel, u_char * buf, u_char * fp, int len, int 
 		else
 			return 0;
 	}
-	save_flags(flags);
-	cli();
-	avail = dev->drv[di]->rcvcount[channel];
-	restore_flags(flags);
-	left = MIN(len, avail);
+	left = MIN(len, dev->drv[di]->rcvcount[channel]);
 	cp = buf;
 	count = 0;
 	while (left) {
                 if (!(skb = skb_peek(&dev->drv[di]->rpqueue[channel])))
                         break;
-		if ((copy_l = skb->len) > left) {
-			copy_l = left;
-			dflag = 0;
-		} else
-			dflag = 1;
-		if (user)
-			memcpy_tofs(cp, skb->data, copy_l);
-		else
-			memcpy(cp, skb->data, copy_l);
-		if (fp) {
-			memset(fp, 0, copy_l);
-			fp += copy_l;
-		}
-		left -= copy_l;
-		count += copy_l;
-		cp += copy_l;
-		if (dflag) {
+                if (skb->lock)
+                        break;
+                skb->lock = 1;
+                if (skb->users) {
+                        /* users is the count of DLE's in
+                         * this buff when in voice mode.
+                         */
+                        char *p = skb->data;
+                        unsigned long DLEmask = (1 << channel);
+
+                        dflag = 0;
+                        count_pull = count_put = 0;
+                        while ((count_pull < skb->len) && (left-- > 0)) {
+                                if (dev->drv[di]->DLEflag & DLEmask) {
+                                        if (user)
+                                                put_fs_byte(DLE,cp++);
+                                        else
+                                                *cp++ = DLE;
+                                        dev->drv[di]->DLEflag &= ~DLEmask;
+                                } else {
+                                        if (user)
+                                                put_fs_byte(*p,cp++);
+                                        else
+                                                *cp++ = *p;
+                                        if (*p == DLE) {
+                                                dev->drv[di]->DLEflag |= DLEmask;
+                                                skb->users--;
+                                        }
+                                        p++;
+                                        count_pull++;
+                                }
+                                count_put++;
+                        }
+                        if (count_pull >= skb->len)
+                                dflag = 1;
+                } else {
+                        /* No DLE's in buff, so simply copy it */
+                        dflag = 1;
+                        if ((count_pull = skb->len) > left) {
+                                count_pull = left;
+                                dflag = 0;
+                        }
+                        count_put = count_pull;
+                        if (user)
+                                memcpy_tofs(cp, skb->data, count_put);
+                        else
+                                memcpy(cp, skb->data, count_put);
+                        cp += count_put;
+                        left -= count_put;
+                }
+                count += count_put;
+                if (fp) {
+                        memset(fp, 0, count_put);
+                        fp += count_put;
+                }
+                if (dflag) {
+                        /* We got all the data in this buff.
+                         * Now we can dequeue it.
+                         */
 			if (fp)
 				*(fp - 1) = 0xff;
+                        skb->lock = 0;
                         skb = skb_dequeue(&dev->drv[di]->rpqueue[channel]);
-                        skb->free = 1;
-                        kfree_skb(skb, FREE_READ);
-		} else
-			skb_pull(skb,copy_l);
-		save_flags(flags);
-		cli();
-		dev->drv[di]->rcvcount[channel] -= copy_l;
-		restore_flags(flags);
+                        isdn_trash_skb(skb, FREE_READ);
+		} else {
+                        /* Not yet emptied this buff, so it
+                         * must stay in the queue, for further calls
+                         * but we pull off the data we got until now.
+                         */
+			skb_pull(skb,count_pull);
+                        skb->lock = 0;
+                }
+		dev->drv[di]->rcvcount[channel] -= count;
 	}
 	return count;
 }
@@ -784,9 +837,7 @@ static int isdn_read(struct inode *inode, struct file *file, char *buf, int coun
                                 return -EAGAIN;
 			interruptible_sleep_on(&(dev->info_waitq));
                 }
-		save_flags(flags);
 		p = isdn_statstr();
-		restore_flags(flags);
 		file->private_data = 0;
 		if ((len = strlen(p)) <= count) {
 			memcpy_tofs(buf, p, len);
@@ -804,8 +855,11 @@ static int isdn_read(struct inode *inode, struct file *file, char *buf, int coun
 		if (!dev->drv[drvidx]->running)
 			return -ENODEV;
 		chidx = isdn_minor2chan(minor);
+                save_flags(flags);
+                cli();
 		len = isdn_readbchan(drvidx, chidx, buf, 0, count, 1);
 		file->f_pos += len;
+                restore_flags(flags);
 		return len;
 	}
 	if (minor <= ISDN_MINOR_CTRLMAX) {
@@ -1467,6 +1521,7 @@ static int isdn_open(struct inode *ino, struct file *filep)
 
 	if (minor == ISDN_MINOR_STATUS) {
 		infostruct *p;
+
 		if ((p = (infostruct *) kmalloc(sizeof(infostruct), GFP_KERNEL))) {
 			MOD_INC_USE_COUNT;
 			p->next = (char *) dev->infochain;
@@ -1702,19 +1757,16 @@ void isdn_unexclusive_channel(int di, int ch)
  */
 void isdn_receive_callback(int drvidx, int chan, u_char *buf, int len) 
 {
-        int i;
         struct sk_buff *skb;
 
 	if (dev->global_flags & ISDN_GLOBAL_STOPPED)
 		return;
-        if ((i = isdn_dc2minor(drvidx,chan))==-1)
-                return;
-        skb = alloc_skb(len+16, GFP_ATOMIC);
+        skb = dev_alloc_skb(len);
         if (skb) {
                 memcpy(skb_put(skb, len), buf, len);
-                skb->free = 1;
                 isdn_receive_skb_callback(drvidx, chan, skb);
-        }
+        } else
+                printk(KERN_WARNING "isdn: rcv alloc_skb failed, packet dropped.\n");
 }
 
 /*
@@ -1984,7 +2036,8 @@ int isdn_init(void)
 	printk(KERN_NOTICE "ISDN subsystem Rev: %s/", isdn_getrev(isdn_revision));
         printk("%s/", isdn_getrev(isdn_tty_revision));
         printk("%s/", isdn_getrev(isdn_net_revision));
-        printk("%s", isdn_getrev(isdn_ppp_revision));
+        printk("%s/", isdn_getrev(isdn_ppp_revision));
+        printk("%s", isdn_getrev(isdn_audio_revision));
 
 #ifdef MODULE
 	printk(" loaded\n");
