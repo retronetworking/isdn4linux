@@ -20,6 +20,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.9  1995/04/23  13:42:10  fritz
+ * Added some constants for distingushing 1TR6 and DSS1
+ *
  * Revision 1.8  1995/03/25  23:18:55  fritz
  * Changed ICN_PORTLEN to reflect correct number of ports.
  *
@@ -56,6 +59,7 @@
 #define ICN_IOCTL_GETPORT   3
 #define ICN_IOCTL_LOADBOOT  4
 #define ICN_IOCTL_LOADPROTO 5
+#define ICN_IOCTL_LEASEDCFG 6
 
 #ifdef __KERNEL__
 /* Kernel includes */
@@ -98,8 +102,8 @@ char kernel_version[] = UTS_RELEASE;
 #define ICN_RUN    (dev->port+2)
 #define ICN_BANK   (dev->port+3)
 
-#define ICN_TYPE_1TR6 0
-#define ICN_TYPE_EURO 1
+#define ICN_TYPE_1TR6 1
+#define ICN_TYPE_EURO 2
 
 #define ICN_FLAGS_B1ACTIVE 1     /* B-Channel-1 is open                 */
 #define ICN_FLAGS_B2ACTIVE 2     /* B-Channel-2 is open                 */
@@ -175,6 +179,8 @@ typedef struct {
   icn_shmem        *shmem;              /* Pointer to memory-mapped-buffers */
   int              myid;                /* Driver-Nr. assigned by linklevel */
   int              rvalid;              /* IO-portregion has been requested */
+  int              leased;              /* Flag: This Adapter is connected  */
+				        /*       to a leased line           */
   unsigned short   flags;               /* Statusflags                      */
   int              ptype;               /* Protocoltype (1TR6 or Euro)      */
   struct timer_list st_timer;           /* Timer for Status-Polls           */
@@ -207,8 +213,9 @@ static icn_dev *dev = (icn_dev *)0;
  * module. For this reason define the Port-Base an Shmem-Base as
  * integers.
  */
-static int portbase = ICN_BASEADDR;
-static int membase  = ICN_MEMADDR;
+static int   portbase = ICN_BASEADDR;
+static int   membase  = ICN_MEMADDR;
+static char* id       = "\0";
 
 /* Utility-Macros */
 
