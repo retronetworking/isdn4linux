@@ -164,7 +164,7 @@ static void divas_remove_one(struct pci_dev *pdev);
 static struct pci_driver diva_pci_driver = {
 	.name     = "divas",
 	.probe    = divas_init_one,
-	.remove   = divas_remove_one,
+	.remove   = __devexit_p(divas_remove_one),
 	.id_table = divas_pci_tbl,
 };
 
