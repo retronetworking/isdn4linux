@@ -11,6 +11,9 @@
  *              Beat Doebeli
  *
  * $Log$
+ * Revision 2.5  1997/11/12 15:01:25  keil
+ * COMPAQ_ISA changes
+ *
  * Revision 2.4  1997/11/08 21:35:56  keil
  * new l1 init
  *
@@ -262,9 +265,9 @@ reset_teles3(struct IsdnCardState *cs)
 			restore_flags(flags);
 		} else if (cs->typ == ISDN_CTYPE_COMPAQ_ISA) {
 			save_flags(flags);
-			byteout(cs->hw.teles3.cfg_reg, 0x00);
-			HZDELAY(2);
 			byteout(cs->hw.teles3.cfg_reg, 0xff);
+			HZDELAY(2);
+			byteout(cs->hw.teles3.cfg_reg, 0x00);
 			HZDELAY(2);
 			restore_flags(flags);
 		} else {
