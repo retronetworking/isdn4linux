@@ -9,6 +9,9 @@
  *              Fritz Elfert
  *
  * $Log$
+ * Revision 2.4  1997/11/06 17:12:25  keil
+ * KERN_NOTICE --> KERN_INFO
+ *
  * Revision 2.3  1997/10/29 19:03:01  keil
  * changes for 2.1
  *
@@ -47,6 +50,181 @@ const char *dss1_revision = "$Revision$";
 	*ptr++ = mty
 
 
+#ifdef HISAX_DE_AOC
+static void
+l3dss1_parse_facility(struct l3_process *pc, u_char *p)
+{
+	int qd_len = 0;
+	char tmp[32];
+
+	p++;
+	qd_len = *p++;
+	if (qd_len == 0) {
+		l3_debug(pc->st, "qd_len == 0");
+		return;
+	}
+	if((*p & 0x1F) != 0x11) {	/* Service discriminator, supplementary service */
+		l3_debug(pc->st, "supplementary service != 0x11");
+		return;
+	}
+	while(qd_len > 0 && !(*p & 0x80)) {	/* extension ? */
+		p++; qd_len--;
+	} 
+	if(qd_len < 2) {
+		l3_debug(pc->st, "qd_len < 2");
+		return;
+	}
+	p++; qd_len--;
+	if((*p & 0xE0) != 0xA0) {	/* class and form */
+		l3_debug(pc->st, "class and form != 0xA0");
+		return;
+	}
+	switch(*p & 0x1F) {		/* component tag */
+	    case 1: /* invoke */
+		{
+		    unsigned char nlen, ilen;
+		    int ident;
+    
+		    p++; qd_len--;
+		    if(qd_len < 1) {
+			    l3_debug(pc->st, "qd_len < 1");
+			    break;
+		    }
+		    if(*p & 0x80) { /* length format */
+			    l3_debug(pc->st, "*p & 0x80 length format");
+			    break;
+		    }
+		    nlen = *p++; qd_len--;
+		    if(qd_len < nlen) {
+			    l3_debug(pc->st, "qd_len < nlen");
+			    return;
+		    }
+		    qd_len -= nlen;
+    
+		    if(nlen < 2) {
+			    l3_debug(pc->st, "nlen < 2");
+			    return;
+		    }
+		    if(*p != 0x02) {	/* invoke identifier tag */
+			    l3_debug(pc->st, "invoke identifier tag !=0x02");
+			    return;
+		    }
+		    p++; nlen--;
+		    if(*p & 0x80) { /* length format */
+			    l3_debug(pc->st, "*p & 0x80 length format 2");
+			    break;
+		    }
+		    ilen = *p++; nlen--;
+		    if(ilen > nlen || ilen == 0) {
+			    l3_debug(pc->st, "ilen > nlen || ilen == 0");
+			    return;
+		    }
+		    nlen -= ilen;
+		    ident = 0;
+		    while(ilen > 0) {
+			    ident = (ident << 8) | (*p++ & 0xFF);	/* invoke identifier */
+			    ilen--;
+		    }
+    
+		    if(nlen < 2) {
+			    l3_debug(pc->st, "nlen < 2 22");
+			    return;
+		    }
+		    if(*p != 0x02)	{	/* operation value */ 
+			    l3_debug(pc->st, "operation value !=0x02");
+			    return;
+		    }
+		    p++; nlen--;
+		    ilen = *p++; nlen--;
+		    if(ilen > nlen || ilen == 0) {
+			    l3_debug(pc->st, "ilen > nlen || ilen == 0 22");
+			    return;
+		    }
+		    nlen -= ilen;
+		    ident = 0;
+		    while(ilen > 0) {
+			    ident = (ident << 8) | (*p++ & 0xFF);
+			    ilen--;
+		    }
+    
+    #define FOO1(s,a,b) \
+	    while(nlen > 1) {		\
+		    int ilen = p[1];	\
+		    if(nlen < ilen+2) {	\
+			    l3_debug(pc->st, "FOO1  nlen < ilen+2"); \
+			    return;		\
+		    }			\
+		    nlen -= ilen+2;		\
+		    if((*p & 0xFF) == (a)) {	\
+			    int nlen = ilen;	\
+			    p += 2;		\
+			    b;		\
+		    } else {		\
+			    p += ilen+2;	\
+		    }			\
+	    }
+			    
+		    switch(ident) {
+		    default:
+			    break;
+		    case 0x22: /* during */
+			    FOO1("1A",0x30,FOO1("1C",0xA1,FOO1("1D",0x30,FOO1("1E",0x02,({
+				    ident = 0;
+				    while(ilen > 0) {
+					    ident = (ident<<8) | *p++;
+					    ilen--;
+				    }
+				    if (ident > pc->para.chargeinfo) {
+					    pc->para.chargeinfo = ident;
+					    pc->st->l3.l3l4(pc, CC_INFO_CHARGE, NULL);
+				    }
+				    if (pc->st->l3.debug & L3_DEB_CHARGE) {
+					    if (*(p+2) == 0) {
+						    sprintf(tmp, "charging info during %d", pc->para.chargeinfo);
+						    l3_debug(pc->st, tmp);
+					    }
+					    else {
+					    sprintf(tmp, "charging info final %d", pc->para.chargeinfo);
+					    l3_debug(pc->st, tmp);
+					    }
+				    }
+			    })))))
+			    break;
+		    case 0x24: /* final */
+			    FOO1("2A",0x30,FOO1("2B",0x30,FOO1("2C",0xA1,FOO1("2D",0x30,FOO1("2E",0x02,({
+				    ident = 0;
+				    while(ilen > 0) {
+					    ident = (ident<<8) | *p++;
+					    ilen--;
+				    }
+				    if (ident > pc->para.chargeinfo) {
+					    pc->para.chargeinfo = ident;
+					    pc->st->l3.l3l4(pc, CC_INFO_CHARGE, NULL);
+				    }
+				    if (pc->st->l3.debug & L3_DEB_CHARGE) {
+					    sprintf(tmp, "charging info final %d", pc->para.chargeinfo);
+					    l3_debug(pc->st, tmp);
+				    }
+			    }))))))
+		    break;
+		    }
+    #undef FOO1
+    
+		}
+	    break;
+	    case 2: /* return result */
+		    l3_debug(pc->st, "return result break");
+		    break;
+	    case 3: /* return error */
+		    l3_debug(pc->st, "return error break");
+		    break;
+	    default:
+		    l3_debug(pc->st, "default break");
+		    break;
+	}
+}
+
+#endif	
 static int 
 l3dss1_check_messagetype_validity(int mt) {
 /* verify if a message type exists */
@@ -149,7 +327,9 @@ l3dss1_setup_req(struct l3_process *pc, u_char pr,
 	/*
 	 * Set Bearer Capability, Map info from 1TR6-convention to EDSS1
 	 */
+#ifdef HISAX_EURO_SENDCOMPLETE
 	*p++ = 0xa1;		/* complete indicator */
+#endif
 	switch (pc->para.setup.si1) {
 		case 1:	/* Telephony                               */
 			*p++ = 0x4;	/* BC-IE-code                              */
@@ -341,6 +521,7 @@ l3dss1_connect(struct l3_process *pc, u_char pr, void *arg)
 	dev_kfree_skb(skb, FREE_READ);
 	L3DelTimer(&pc->timer);	/* T310 */
 	newl3state(pc, 10);
+	pc->para.chargeinfo = 0;
 	pc->st->l3.l3l4(pc, CC_SETUP_CNF, NULL);
 }
 
@@ -638,6 +819,14 @@ l3dss1_release(struct l3_process *pc, u_char pr, void *arg)
 			pc->para.loc = *p++;
 		cause = *p & 0x7f;
 	}
+	p = skb->data;
+	if ((p = findie(p, skb->len, IE_FACILITY, 0))) {
+#ifdef HISAX_DE_AOC
+	    l3dss1_parse_facility(pc,p);
+#else
+		p = NULL;
+#endif
+	}
 	dev_kfree_skb(skb, FREE_READ);
 	StopAllL3Timer(pc);
 	pc->para.cause = cause;
@@ -882,6 +1071,24 @@ l3dss1_status(struct l3_process *pc, u_char pr, void *arg)
 }
 
 static void
+l3dss1_facility(struct l3_process *pc, u_char pr, void *arg)
+{
+        u_char *p;
+	struct sk_buff *skb = arg;
+
+	p = skb->data;
+	if ((p = findie(p, skb->len, IE_FACILITY, 0))) {
+#ifdef HISAX_DE_AOC
+	    l3dss1_parse_facility(pc,p);
+#else
+		p = NULL;
+#endif
+	}
+}
+
+
+	
+static void
 l3dss1_global_restart(struct l3_process *pc, u_char pr, void *arg)
 {
 	u_char tmp[32];
@@ -982,6 +1189,8 @@ static struct stateentry datastatelist[] =
 {
 	{ALL_STATES,
 	 MT_STATUS_ENQUIRY, l3dss1_status_enq},
+	{ALL_STATES,
+	 MT_FACILITY, l3dss1_facility},
 	{SBIT(19),
 	 MT_STATUS, l3dss1_release_ind},
 	{ALL_STATES,
