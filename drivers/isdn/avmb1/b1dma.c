@@ -6,6 +6,9 @@
  * (c) Copyright 2000 by Carsten Paeth (calle@calle.in-berlin.de)
  * 
  * $Log$
+ * Revision 1.5  2000/06/19 16:51:53  keil
+ * don't free skb in irq context
+ *
  * Revision 1.4  2000/04/03 16:38:05  calle
  * made suppress_pollack static.
  *
@@ -621,13 +624,6 @@ static void b1dma_handle_interrupt(avmcard *card)
 	if ((status & TX_TC_INT) != 0) {
 		card->csr &= ~EN_TX_TC_INT;
 	        b1dma_dispatch_tx(card);
-#if 1
-	} else if (card->csr & EN_TX_TC_INT) {
-		if (b1dmainmeml(card->mbase+AMCC_TXLEN) == 0) {
-			card->csr &= ~EN_TX_TC_INT;
-			b1dma_dispatch_tx(card);
-		}
-#endif
 	}
 	b1dmaoutmeml(card->mbase+AMCC_INTCSR, card->csr);
 }
