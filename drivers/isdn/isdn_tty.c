@@ -20,6 +20,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.41.2.14  1999/07/04 21:04:11  werner
+ * Changed display register enable bit from 5 to 7 (for 2.2 compatibility)
+ *
  * Revision 1.41.2.13  1999/07/01 10:43:01  keil
  * added ack parameter in writebuf_skb (is only a dummy in 2.0 branch)
  *
@@ -42,26 +45,10 @@
  * Added silence detection in audio receive mode (AT+VSD).
  *
  * Revision 1.41.2.7  1998/06/07 13:48:08  fritz
- * ABC cleanup
  *
  * Revision 1.41.2.5  1998/04/08 21:42:35  keil
  * Blocksize default 1024
  *
- * Revision 1.41.2.4  1998/03/19 17:58:55  detabc
- * remove 2 debug-messages (no longer needed) bug was fixed
- *
- * Revision 1.41.2.3  1998/03/07 23:35:20  detabc
- * added the abc-extension to the linux isdn-kernel
- * for kernel-version 2.0.xx
- * DO NOT USE FOR HIGHER KERNELS-VERSIONS
- * all source-lines are switched with the define  CONFIG_ISDN_WITH_ABC
- * (make config and answer ABC-Ext. Support (Compress,TCP-Keepalive ...) with yes
- *
- * you need also a modified isdnctrl-source the switch on the
- * features of the abc-extension
- *
- * please use carefully. more detail will be follow.
- * thanks
  *
  * Revision 1.41.2.2  1998/03/07 23:02:51  tsbogend
  * fixed kernel unaligned traps on Linux/Alpha

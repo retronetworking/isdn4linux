@@ -19,8 +19,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
- * Revision 1.2.2.1  1998/03/16 09:55:41  cal
- * Merged in TimRu-patches. Still needs validation in conjunction with ABC-patches.
+ * Revision 1.2.2.2  1998/10/23 05:54:12  paul
+ * Implementation of "dialmode" (successor of "status")
+ * You also need current isdnctrl for this!
  *
  *
  */

@@ -19,6 +19,11 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.28.2.4  1999/07/06 08:11:32  calle
+ * bugfix: dev_alloc_skb only reserve 16 bytes. We need to look at the
+ *         hdrlen the driver want. So I changed dev_alloc_skb calls
+ *         to alloc_skb and skb_reserve.
+ *
  * Revision 1.28.2.3  1998/12/30 17:49:00  paul
  * fixed syncPPP callback out
  *
@@ -28,7 +33,6 @@
  * Some fixes in callback handling.
  *
  * Revision 1.28.2.1  1998/03/16 09:56:02  cal
- * Merged in TimRu-patches. Still needs validation in conjunction with ABC-patches.
  *
  * Revision 1.28  1997/06/17 13:05:57  hipp
  * Applied Eric's underflow-patches (slightly modified)

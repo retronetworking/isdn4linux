@@ -26,6 +26,9 @@
  * If chargehup is set to on, chargeint may be used to specify a initial interval > 10 s.
  *
  * $Log$
+ * Revision 1.48.2.30  1999/07/01 10:41:56  keil
+ * added ack parameter in writebuf_skb (is only a dummy in 2.0 branch)
+ *
  * Revision 1.48.2.29  1999/06/07 19:02:43  werner
  * corrected huptimeout bug
  * now it is possible to set a manual timeout even if AOCD present
@@ -74,84 +77,13 @@
  * 'isdnctrl status dev-name on'.
  *
  * Revision 1.48.2.15  1998/06/07 13:47:51  fritz
- * ABC cleanup
  *
- * Revision 1.48.2.13  1998/05/22 10:13:07  detabc
- * in case of a icmp-unreach condition the tcp-keepalive-entrys
- * will be dropped from the internal double-link-list (only abc-extension).
- * send icmp unreach only if the skb->protocol == ETH_P_IP
- *
- * Revision 1.48.2.12  1998/05/21 09:23:56  detabc
- * speedup abc-no-dchannel-redial
- *
- * Revision 1.48.2.11  1998/05/07 19:54:53  detabc
- * bugfix in abc_delayed_hangup
- * optimize keepalive-tests for abc_rawip
- *
- * Revision 1.48.2.10  1998/05/06 08:34:04  detabc
- * change ICMP_HOST_UNREACH to ICMP_NET_UNREACH (only abc-ext.)
- * set dev->tbusy to zero in isdn_net_unreachable() (only abc-ext.)
- * drop all new packets and send ICMP_NET_UNREACH for
- * min. dialwait to max. dialwait * 6 time. (only abc-ext.)
- * change random-deliver of packets (small first) from all emcapsulation
- * to only rawip with ABC-Router-Flag enabled.
- *
- * Revision 1.48.2.9  1998/05/03 17:48:22  detabc
- * remove unused dev->tbusy = 1 line (only abc-extension)
- *
- * Revision 1.48.2.8  1998/04/28 15:11:55  detabc
- * fixed the wrong #ifndef CONFIG_ISDN_WITH_ABC define
- *
- * Revision 1.48.2.7  1998/04/26 11:24:08  detabc
- * add abc_delayed_hangup (only with a spezial udp-packet)
- * move abc-compress and -crypt from start of transmit to the
- * isdn_net_send_skb() function (better for TIMRU and the work is much easyer).
- *
- * added the abc_tx_queue's in the isdn_net_send_skb().
- * give small-packets a high priority.
- * transmit small packest first.
- * NOTE: NOTE: NOTE:
- * At now with the ABC-EXTENSION will be deliver the pakets in RANDOM-ORDER.
- * Please let me know if this a problem.
- *
- * Revision 1.48.2.6  1998/04/18 17:55:09  detabc
- * dropp packets if call's are disabled (only abc-extension)
- * add secure callback (only abc-extension)
- * this means: if you are the callback-out-side and the remote
- * dont reject the call ?????
- * in this case the connection is ok !!! but you pay the connection !!!!
- * now this will be a configerror and the connection will be dropped .
- * also a new call will be disabled for 4 hours.
- * incouming-calls are still possible.
  *
  * Revision 1.48.2.5  1998/04/16 19:24:51  keil
  * Fix from vger (tx max qlength)
  *
- * Revision 1.48.2.4  1998/03/20 12:17:27  detabc
- * merge abc-extension with timru-time-rules
- * christian please check my changes in the CONFIG_ISDN_TIMEOUT_RULES sources
- * please ! think about:
- * behind the function isdn_abc_net_start_xmit(), is the first one behind
- * the kernel-driver, the paket will be compressed an/or crypted. In this
- * case no information availible in the skb->data area.
- *
- * Fritz !! Please read my remarks in the funktion isdn_net_unreachable() !
  *
  * Revision 1.48.2.3  1998/03/16 09:55:51  cal
- * Merged in TimRu-patches. Still needs validation in conjunction with ABC-patches.
- *
- * Revision 1.48.2.2  1998/03/07 23:35:09  detabc
- * added the abc-extension to the linux isdn-kernel
- * for kernel-version 2.0.xx
- * DO NOT USE FOR HIGHER KERNELS-VERSIONS
- * all source-lines are switched with the define  CONFIG_ISDN_WITH_ABC
- * (make config and answer ABC-Ext. Support (Compress,TCP-Keepalive ...) with yes
- *
- * you need also a modified isdnctrl-source the switch on the
- * features of the abc-extension
- *
- * please use carefully. more detail will be follow.
- * thanks
  *
  * Revision 1.48.2.1  1997/08/21 15:56:07  fritz
  * Synchronized 2.0.X branch with 2.0.31-pre7

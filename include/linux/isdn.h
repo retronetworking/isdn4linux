@@ -21,6 +21,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.31.2.19  1999/07/01 11:10:06  keil
+ * changes for compatibility
+ *
  * Revision 1.31.2.18  1999/04/22 21:12:12  werner
  * Added support for dss1 diversion services
  *
@@ -49,44 +52,15 @@
  * make isdn4k-utils compile again.
  *
  * Revision 1.31.2.10  1998/06/07 13:48:30  fritz
- * ABC cleanup
  *
- * Revision 1.31.2.9  1998/06/02 12:12:49  detabc
- * wegen einer einstweiliger verfuegung gegen DW ist zur zeit
- * die abc-extension bis zur klaerung der rechtslage nicht verfuegbar
- *
- * Revision 1.31.2.8  1998/05/06 08:30:44  detabc
- * add Item to stop icmp-unreach (max. 6 times of dialwait delay)
- *
- * Revision 1.31.2.7  1998/04/26 19:51:40  detabc
- * removed unused code
- *
- * Revision 1.31.2.6  1998/04/26 11:10:46  detabc
- * add items for the abc_tx_queus and the abc_delayed_hangup
- * only used if the abc-extension is enabled
- *
- * Revision 1.31.2.5  1998/04/18 17:39:45  detabc
- * remove some unused abc-lines
- * added defines und items for abc-secure callback (only used with abc-extenrsion)
  *
  * Revision 1.31.2.4  1998/04/08 21:42:25  keil
  * Blocksize default 1024
  *
  * Revision 1.31.2.3  1998/03/16 09:56:28  cal
- * Merged in TimRu-patches. Still needs validation in conjunction with ABC-patches.
+ * Merged in TimRu-patches.
  *
- * Revision 1.31.2.2  1998/03/07 23:35:45  detabc
- * added the abc-extension to the linux isdn-kernel
- * for kernel-version 2.0.xx
- * DO NOT USE FOR HIGHER KERNELS-VERSIONS
- * all source-lines are switched with the define  CONFIG_ISDN_WITH_ABC
- * (make config and answer ABC-Ext. Support (Compress,TCP-Keepalive ...) with yes
  *
- * you need also a modified isdnctrl-source the switch on the
- * features of the abc-extension
- *
- * please use carefully. more detail will be follow.
- * thanks
  *
  * Revision 1.31.2.1  1997/08/21 15:57:04  fritz
  * Synchronized 2.0.X branch with 2.0.31-pre7
