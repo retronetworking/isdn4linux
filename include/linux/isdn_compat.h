@@ -163,5 +163,10 @@ static inline unsigned long copy_to_user(void *to, const void *from, unsigned lo
 #define COMPAT_NEED_MPPP_DEFS
 #endif
 
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2,3,1)
+#define spin_lock_bh spin_lock
+#define spin_unlock_bh spin_unlock
+#endif
+
 #endif /* __KERNEL__ */
 #endif /* _LINUX_ISDN_COMPAT_H */
