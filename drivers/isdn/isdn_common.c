@@ -21,6 +21,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.9  1996/05/07 09:19:41  fritz
+ * Adapted to changes in isdn_tty.c
+ *
  * Revision 1.8  1996/05/06 11:34:51  hipp
  * fixed a few bugs
  *
@@ -288,26 +291,31 @@ static void isdn_receive_callback(int di, int channel, u_char * buf, int len)
                         }
 #ifdef CONFIG_ISDN_AUDIO
                 if (info->vonline == 1) {
+                        int ifmt = 1;
                         /* voice conversion/compression */
                         switch (info->emu.vpar[3]) {
-                                case 1:
                                 case 2:
+                                case 3:
+                                case 4:
                                         /* adpcm
                                          * Since compressed data takes less
                                          * space, we can overwrite the buffer.
                                          */
-                                        isdn_audio_a2l(buf,len);
-                                        len = isdn_audio_lin2adpcm(info->adpcmr,
-                                                                   buf,
-                                                                   buf,
-                                                                   len);
+                                        len = isdn_audio_xlaw2adpcm(info->adpcmr,
+								    ifmt,
+								    buf,
+								    buf,
+								    len);
                                         break;
-                                case 3:
-                                        /* linear */
-                                        isdn_audio_a2l(buf,len);
-                                        break;
-                                case 4:
+                                case 5:
                                         /* a-law */
+                                        if (!ifmt)
+                                                isdn_audio_ulaw2alaw(buf,len);
+                                        break;
+                                case 6:
+                                        /* u-law */
+                                        if (ifmt)
+                                                isdn_audio_alaw2ulaw(buf,len);
                                         break;
                         }
                         len = isdn_tty_handleDLEup(buf,len);

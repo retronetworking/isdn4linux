@@ -20,6 +20,13 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.7  1996/05/07 09:15:09  fritz
+ * Reorganized and general cleanup.
+ * Bugfixes:
+ *  - Audio-transmit working now.
+ *  - "NO CARRIER" now reported, when hanging up with DTR low.
+ *  - Corrected CTS handling.
+ *
  * Revision 1.6  1996/05/02 03:59:25  fritz
  * Bugfixes:
  *  - On dialout, layer-2 setup had been incomplete
@@ -52,6 +59,8 @@
 #include "isdn_tty.h"
 #ifdef CONFIG_ISDN_AUDIO
 #include "isdn_audio.h"
+#define VBUF 256
+#define VBUFX (VBUF/16)
 #endif
 
 /* Prototypes */
@@ -180,27 +189,43 @@ static void isdn_tty_senddown(modem_info * info, int midx)
                 return;
 #ifdef CONFIG_ISDN_AUDIO
         if (info->vonline==2) {
+                /* For now, ifmt is fixed to 1 (alaw), since this
+                 * is used with ISDN everywhere in the world, except
+                 * US, Canadia and Japan.
+                 * Later, when US-ISDN protocols are implemented,
+                 * this setting will depend on the Layer-3 protocol.
+                 */
+                int ifmt = 1;
                 /* voice conversion/decompression */
+#if 0
+printk("vcode %d %d\n",info->emu.vpar[3],buflen);
+#endif
                 switch (info->emu.vpar[3]) {
-                        case 1:
                         case 2:
-                                /* adpcm
-                                 * xmit_size is limited to 256 bytes
+                        case 3:
+                        case 4:
+                                /* adpcm, compatible to ZyXel 1496 modem
+                                 * with ROM revision 6.01
+                                 * xmit_size is limited to VBUF bytes
                                  * so we take the rest of the buffer
                                  * for decompressed data.
                                  */
-                                buflen = isdn_audio_adpcm2lin(info->adpcms,
-                                                              bufptr,
-                                                              bufptr+256,
-                                                              buflen);
-                                bufptr += 256;
-                                /* fall through */
-                        case 3:
-                                /* linear */
-                                isdn_audio_l2a(bufptr,buflen);
-                                /* fall through */
-                        case 4:
+                                buflen = isdn_audio_adpcm2xlaw(info->adpcms,
+                                                               ifmt,
+                                                               bufptr,
+                                                               bufptr+VBUF,
+                                                               buflen);
+                                bufptr += VBUF;
+                                break;
+                        case 5:
                                 /* a-law */
+                                if (!ifmt)
+                                        isdn_audio_alaw2ulaw(bufptr,buflen);
+                                break;
+                        case 6:
+                                /* u-law */
+                                if (ifmt)
+                                        isdn_audio_ulaw2alaw(bufptr,buflen);
                                 break;
                 }
         }
@@ -602,10 +627,10 @@ static int isdn_tty_handleDLEdown(modem_info *info, atemu *m, int len, int midx)
  */
 static int isdn_tty_end_vrx(const char *buf, int c, int from_user)
 {
-	char tmpbuf[256];
+	char tmpbuf[VBUF];
         char *p;
 
-        if (c > 256) {
+        if (c > VBUF) {
                 printk(KERN_ERR "isdn_tty: (end_vrx) BUFFER OVERFLOW!!!\n");
                 return 1;
         }
@@ -646,7 +671,7 @@ static int isdn_tty_write(struct tty_struct *tty, int from_user, const u_char * 
 	save_flags(flags);
 	cli();
 	while (1) {
-		c = MIN(count, info->xmit_size - info->xmit_count - 1);
+		c = MIN(count, info->xmit_size - info->xmit_count);
 		if (info->isdn_driver >= 0) {
 			i = dev->drv[info->isdn_driver]->maxbufsize;
 			c = MIN(c, i);
@@ -725,8 +750,8 @@ static int isdn_tty_write_room(struct tty_struct *tty)
 	if (isdn_tty_paranoia_check(info, tty->device, "isdn_tty_write_room"))
 		return 0;
 	if (!info->online)
-		return info->xmit_size - 1;
-	ret = info->xmit_size - info->xmit_count - 1;
+		return info->xmit_size;
+	ret = info->xmit_size - info->xmit_count;
 	return (ret < 0) ? 0 : ret;
 }
 
@@ -1353,7 +1378,7 @@ static void isdn_tty_modem_reset_vpar(atemu *m)
         m->vpar[0] = 2;  /* Voice-device            (2 = phone line) */
         m->vpar[1] = 0;  /* Silence detection level (0 = none      ) */
         m->vpar[2] = 70; /* Silence interval        (7 sec.        ) */
-        m->vpar[3] = 1;  /* Compression type        (1 = ADPCM-2   ) */
+        m->vpar[3] = 2;  /* Compression type        (1 = ADPCM-2   ) */
 }
 
 static void isdn_tty_modem_reset_regs(atemu * m, int force)
@@ -1816,7 +1841,7 @@ static int isdn_tty_cmd_ATand(char **p, modem_info * info)
                         if ((i < 0) || (i > ISDN_SERIAL_XMIT_SIZE))
                                 PARSE_ERROR1;
 #ifdef CONFIG_ISDN_AUDIO
-                        if ((m->mdmreg[18] & 1) && (i > 256))
+                        if ((m->mdmreg[18] & 1) && (i > VBUF))
                                 PARSE_ERROR1;
 #endif
                         m->mdmreg[16] = i / 16;
@@ -1938,7 +1963,7 @@ static int isdn_tty_cmd_ATS(char **p, modem_info * info)
                                         if ((mval * 16) > ISDN_SERIAL_XMIT_SIZE)
                                                 PARSE_ERROR1;
 #ifdef CONFIG_ISDN_AUDIO
-                                        if ((m->mdmreg[18] & 1) && (mval > 16))
+                                        if ((m->mdmreg[18] & 1) && (mval > VBUFX))
                                                 PARSE_ERROR1;
 #endif
                                         break;
@@ -2077,8 +2102,8 @@ static int isdn_tty_cmd_PLUSV(char **p, modem_info * info)
                         /* AT+VRX - Start recording */
                         if (!m->vpar[0])
                                 PARSE_ERROR1;
-                        if (m->vpar[3] < 3) {
-                                info->adpcmr = isdn_audio_adpcm_init(m->vpar[3]+1);
+                        if (m->vpar[3] < 5) {
+                                info->adpcmr = isdn_audio_adpcm_init(m->vpar[3]);
                                 if (!info->adpcmr) {
                                         printk(KERN_WARNING "isdn_tty: Couldn't malloc adpcm state\n");
                                         PARSE_ERROR1;
@@ -2143,24 +2168,27 @@ static int isdn_tty_cmd_PLUSV(char **p, modem_info * info)
                                 case '=':
                                         p[0]++;
                                         switch (*p[0]) {
-                                                case '1':
                                                 case '2':
                                                 case '3':
                                                 case '4':
+                                                case '5':
+                                                case '6':
                                                         par1 = isdn_getnum(p);
-                                                        if ((par1 < 1) || (par1 > 4))
+                                                        if ((par1 < 2) || (par1 > 6))
                                                                 PARSE_ERROR1;
                                                         m->vpar[3] = par1;
                                                         break;
                                                 case '?':
                                                         p[0]++;
-                                                        isdn_tty_at_cout("\r\n1;ADPCM;2;0;(8000)\r\n",
+                                                        isdn_tty_at_cout("\r\n2;ADPCM;2;0;(8000)\r\n",
                                                                          info);
-                                                        isdn_tty_at_cout("2;ADPCM;3;0;(8000)\r\n",
+                                                        isdn_tty_at_cout("3;ADPCM;3;0;(8000)\r\n",
                                                                          info);
-                                                        isdn_tty_at_cout("3;LINEAR;8;0;(8000)\r\n",
+                                                        isdn_tty_at_cout("4;ADPCM;4;0;(8000)\r\n",
                                                                          info);
-                                                        isdn_tty_at_cout("4;ALAW;8;0;(8000)",
+                                                        isdn_tty_at_cout("5;ALAW;8;0;(8000)",
+                                                                         info);
+                                                        isdn_tty_at_cout("6;ULAW;8;0;(8000)",
                                                                          info);
                                                         break;
                                                 default:
@@ -2175,8 +2203,8 @@ static int isdn_tty_cmd_PLUSV(char **p, modem_info * info)
                         /* AT+VTX - Start sending */
                         if (!m->vpar[0])
                                 PARSE_ERROR1;
-                        if (m->vpar[3] < 3) {
-                                info->adpcms = isdn_audio_adpcm_init(m->vpar[3]+1);
+                        if (m->vpar[3] < 5) {
+                                info->adpcms = isdn_audio_adpcm_init(m->vpar[3]);
                                 if (!info->adpcms) {
                                         printk(KERN_WARNING "isdn_tty: Couldn't malloc adpcm state\n");
                                         PARSE_ERROR1;
@@ -2339,8 +2367,8 @@ static void isdn_tty_parse_at(modem_info * info)
                                                                         case '8':
                                                                                 p++;
                                                                                 m->mdmreg[18] = 5;
-                                                                                m->mdmreg[16] = 16;
-                                                                                info->xmit_size = 256;
+                                                                                m->mdmreg[16] = VBUFX;
+                                                                                info->xmit_size = VBUF;
                                                                                 break;
                                                                         case '?':
                                                                                 p++;
