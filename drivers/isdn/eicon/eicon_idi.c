@@ -1,10 +1,10 @@
 /* $Id$
  *
- * ISDN lowlevel-module for Eicon.Diehl active cards.
+ * ISDN lowlevel-module for Eicon active cards.
  *        IDI interface 
  *
- * Copyright 1998,99 by Armin Schindler (mac@melware.de)
- * Copyright 1999    Cytronics & Melware (info@melware.de)
+ * Copyright 1998-2000  by Armin Schindler (mac@melware.de)
+ * Copyright 1999,2000  Cytronics & Melware (info@melware.de)
  *
  * Thanks to	Deutsche Mailbox Saar-Lor-Lux GmbH
  *		for sponsoring and testing fax
@@ -26,6 +26,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.28  2000/01/20 19:55:34  keil
+ * Add FAX Class 1 support
+ *
  * Revision 1.27  1999/11/29 13:12:03  armin
  * Autoconnect on L2_TRANS doesn't work with link_level correctly,
  * changed back to former mode.
@@ -2334,6 +2337,51 @@ idi_parse_udata(eicon_card *ccard, eicon_chan *chan, unsigned char *buffer, int 
 }
 
 void
+eicon_parse_trace(eicon_card *ccard, unsigned char *buffer, int len)
+{
+	int i,j,n;
+	int buflen = len * 3 + 30;
+	char *p;
+	struct trace_s {
+		unsigned long time;
+		unsigned short size;
+		unsigned short code;
+		unsigned char data[1];
+	} *q;
+
+	if (!(p = kmalloc(buflen, GFP_KERNEL))) {
+		eicon_log(ccard, 1, "idi_err: Ch??: could not allocate trace buffer\n");
+		return;
+	}
+	memset(p, 0, buflen);
+	q = (struct trace_s *)buffer;
+
+	if (DebugVar & 512) {
+		if ((q->code == 3) || (q->code == 4)) {
+			n = (short) *(q->data);
+			if (n) {
+				j = sprintf(p, "DTRC:");
+				for (i = 0; i < n; i++) {
+					j += sprintf(p + j, "%02x ", q->data[i+2]);
+				}
+				j += sprintf(p + j, "\n");
+			}
+		}
+	} else {
+		j = sprintf(p, "XLOG: %lx %04x %04x ",
+			q->time, q->size, q->code);
+
+		for (i = 0; i < q->size; i++) {
+			j += sprintf(p + j, "%02x ", q->data[i]);
+		}
+		j += sprintf(p + j, "\n");
+	}
+	if (strlen(p))
+		eicon_putstatus(ccard, p);
+	kfree(p);
+}
+
+void
 idi_handle_ind(eicon_card *ccard, struct sk_buff *skb)
 {
 	int tmp;
@@ -2364,7 +2412,7 @@ idi_handle_ind(eicon_card *ccard, struct sk_buff *skb)
 	else
 		dlev = 128;
 
-       	eicon_log(ccard, dlev, "idi_hdl: Ch%d: Ind=%d Id=%x Ch=%d MInd=%d MLen=%d Len=%d\n", chan->No,
+       	eicon_log(ccard, dlev, "idi_hdl: Ch%d: Ind=%x Id=%x Ch=%x MInd=%x MLen=%x Len=%x\n", chan->No,
 	        ind->Ind,ind->IndId,ind->IndCh,ind->MInd,ind->MLength,ind->RBuffer.length);
 
 	free_buff = 1;
@@ -2575,8 +2623,12 @@ idi_handle_ind(eicon_card *ccard, struct sk_buff *skb)
 
 		if (chan->No == ccard->nchannels) {
 			/* Management Indication */
-			idi_IndParse(ccard, chan, &message, ind->RBuffer.P, ind->RBuffer.length);
-			chan->fsm_state = 1;
+			if (ind->Ind == 0x04) { /* Trace_Ind */
+				eicon_parse_trace(ccard, ind->RBuffer.P, ind->RBuffer.length);
+			} else {
+				idi_IndParse(ccard, chan, &message, ind->RBuffer.P, ind->RBuffer.length);
+				chan->fsm_state = 1;
+			}
 		} 
 		else
 		switch(ind->Ind) {
@@ -2724,7 +2776,7 @@ idi_handle_ack_ok(eicon_card *ccard, eicon_chan *chan, eicon_RC *ack)
 	/* Management Interface */	
 	if (chan->No == ccard->nchannels) {
 		/* Managementinterface: changing state */
-		if (chan->e.Req == 0x04)
+		if (chan->e.Req != 0x02)
 			chan->fsm_state = 1;
 	}
 
@@ -2891,11 +2943,14 @@ idi_handle_ack(eicon_card *ccard, struct sk_buff *skb)
 						dCh, ack->Rc, ack->RcId, ack->RcCh);
 					break;
 				default:
-					eicon_log(ccard, 1, "eicon_err: Ch%d: Ack Not OK !!: Rc=%d Id=%x Ch=%d Req=%d\n",
-						dCh, ack->Rc, ack->RcId, ack->RcCh, chan->e.Req);
+					if (dCh != ccard->nchannels)
+						eicon_log(ccard, 1, "eicon_err: Ch%d: Ack Not OK !!: Rc=%d Id=%x Ch=%d Req=%d\n",
+							dCh, ack->Rc, ack->RcId, ack->RcCh, chan->e.Req);
 			}
 			if (dCh == ccard->nchannels) { /* Management */
 				chan->fsm_state = 2;
+				eicon_log(ccard, 8, "eicon_err: Ch%d: Ack Not OK !!: Rc=%d Id=%x Ch=%d Req=%d\n",
+					dCh, ack->Rc, ack->RcId, ack->RcCh, chan->e.Req);
 			} else if (dCh >= 0) {
 					/* any other channel */
 					/* card reports error: we hangup */
@@ -3095,38 +3150,36 @@ eicon_idi_manage(eicon_card *card, eicon_manifbuf *mb)
 
         chan = &(card->bch[card->nchannels]);
 
-	if (chan->e.D3Id)
-		return -EBUSY;
-	chan->e.D3Id = 1;
-	while((skb2 = skb_dequeue(&chan->e.X)))
-		dev_kfree_skb(skb2);
-	chan->e.busy = 0;
+	if (!(chan->e.D3Id)) {
+		chan->e.D3Id = 1;
+		while((skb2 = skb_dequeue(&chan->e.X)))
+			dev_kfree_skb(skb2);
+		chan->e.busy = 0;
  
-	if ((ret = eicon_idi_manage_assign(card))) {
-		chan->e.D3Id = 0;
-		return(ret); 
-	}
+		if ((ret = eicon_idi_manage_assign(card))) {
+			chan->e.D3Id = 0;
+			return(ret); 
+		}
 
-        timeout = jiffies + 50;
-        while (timeout > jiffies) {
-                if (chan->e.B2Id) break;
-                SLEEP(10);
-        }
-        if (!chan->e.B2Id) {
-		chan->e.D3Id = 0;
-		return -EIO;
+	        timeout = jiffies + 50;
+        	while (timeout > jiffies) {
+	                if (chan->e.B2Id) break;
+        	        SLEEP(10);
+	        }
+	        if (!chan->e.B2Id) {
+			chan->e.D3Id = 0;
+			return -EIO;
+		}
 	}
 
 	chan->fsm_state = 0;
 
 	if (!(manbuf = kmalloc(sizeof(eicon_manifbuf), GFP_KERNEL))) {
                	eicon_log(card, 1, "idi_err: alloc_manifbuf failed\n");
-		chan->e.D3Id = 0;
 		return -ENOMEM;
 	}
 	if (copy_from_user(manbuf, mb, sizeof(eicon_manifbuf))) {
 		kfree(manbuf);
-		chan->e.D3Id = 0;
 		return -EFAULT;
 	}
 
@@ -3140,7 +3193,6 @@ eicon_idi_manage(eicon_card *card, eicon_manifbuf *mb)
 		if (skb2) 
 			dev_kfree_skb(skb2);
 		kfree(manbuf);
-		chan->e.D3Id = 0;
                 return -ENOMEM;
         }
 
@@ -3177,25 +3229,14 @@ eicon_idi_manage(eicon_card *card, eicon_manifbuf *mb)
                 SLEEP(10);
         }
         if ((!chan->fsm_state) || (chan->fsm_state == 2)) {
-		eicon_idi_manage_remove(card);
 		kfree(manbuf);
-		chan->e.D3Id = 0;
 		return -EIO;
 	}
-
-	if ((ret = eicon_idi_manage_remove(card))) {
-		kfree(manbuf);
-		chan->e.D3Id = 0;
-		return(ret);
-	}
-
 	if (copy_to_user(mb, manbuf, sizeof(eicon_manifbuf))) {
 		kfree(manbuf);
-		chan->e.D3Id = 0;
 		return -EFAULT;
 	}
 
 	kfree(manbuf);
-	chan->e.D3Id = 0;
   return(0);
 }

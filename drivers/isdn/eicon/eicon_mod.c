@@ -1,12 +1,12 @@
 /* $Id$
  *
- * ISDN lowlevel-module for Eicon.Diehl active cards.
+ * ISDN lowlevel-module for Eicon active cards.
  * 
- * Copyright 1997    by Fritz Elfert (fritz@isdn4linux.de)
- * Copyright 1998,99 by Armin Schindler (mac@melware.de) 
- * Copyright 1999    Cytronics & Melware (info@melware.de)
+ * Copyright 1997      by Fritz Elfert (fritz@isdn4linux.de)
+ * Copyright 1998-2000 by Armin Schindler (mac@melware.de) 
+ * Copyright 1999,2000 Cytronics & Melware (info@melware.de)
  * 
- * Thanks to    Eicon Technology Diehl GmbH & Co. oHG for
+ * Thanks to    Eicon Technology GmbH & Co. oHG for
  *              documents, informations and hardware.
  *
  *              Deutsche Telekom AG for S2M support.
@@ -31,6 +31,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.23  2000/01/20 19:55:34  keil
+ * Add FAX Class 1 support
+ *
  * Revision 1.22  1999/11/27 12:56:19  armin
  * Forgot some iomem changes for last ioremap compat.
  *
@@ -154,7 +157,7 @@ static int   irq          = -1;
 #endif
 static char *id           = "\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0";
 
-MODULE_DESCRIPTION(             "Driver for Eicon.Diehl active ISDN cards");
+MODULE_DESCRIPTION(             "Driver for Eicon active ISDN cards");
 MODULE_AUTHOR(                  "Armin Schindler");
 MODULE_SUPPORTED_DEVICE(        "ISDN subsystem");
 MODULE_PARM_DESC(id,   		"ID-String of first card");

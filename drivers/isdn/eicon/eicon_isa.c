@@ -1,11 +1,11 @@
 /* $Id$
  *
- * ISDN low-level module for Eicon.Diehl active ISDN-Cards.
+ * ISDN low-level module for Eicon active ISDN-Cards.
  * Hardware-specific code for old ISA cards.
  *
- * Copyright 1998    by Fritz Elfert (fritz@isdn4linux.de)
- * Copyright 1998,99 by Armin Schindler (mac@melware.de)
- * Copyright 1999    Cytronics & Melware (info@melware.de)
+ * Copyright 1998      by Fritz Elfert (fritz@isdn4linux.de)
+ * Copyright 1998-2000 by Armin Schindler (mac@melware.de)
+ * Copyright 1999,2000 Cytronics & Melware (info@melware.de)
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -22,6 +22,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.12  1999/11/27 12:56:19  armin
+ * Forgot some iomem changes for last ioremap compat.
+ *
  * Revision 1.11  1999/11/25 11:33:09  armin
  * Microchannel fix from Erik Weber (exrz73@ibm.net).
  *

@@ -1,10 +1,10 @@
 /* $Id$
  *
- * ISDN lowlevel-module for the Eicon.Diehl active cards.
+ * ISDN lowlevel-module for the Eicon active cards.
  * IDI-Interface
  *
- * Copyright 1998,99 by Armin Schindler (mac@melware.de)
- * Copyright 1999    Cytronics & Melware (info@melware.de)
+ * Copyright 1998-2000  by Armin Schindler (mac@melware.de)
+ * Copyright 1999,2000  Cytronics & Melware (info@melware.de)
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -21,6 +21,11 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.8  1999/11/25 11:43:27  armin
+ * Fixed statectrl and connect message.
+ * X.75 fix and HDLC/transparent with autoconnect.
+ * Minor cleanup.
+ *
  * Revision 1.7  1999/08/22 20:26:46  calle
  * backported changes from kernel 2.3.14:
  * - several #include "config.h" gone, others come.

@@ -1,12 +1,12 @@
 /* $Id$
  *
- * ISDN low-level module for Eicon.Diehl active ISDN-Cards.
+ * ISDN low-level module for Eicon active ISDN-Cards.
  * Hardware-specific code for PCI cards.
  *
- * Copyright 1998,99 by Armin Schindler (mac@melware.de)
- * Copyright 1999    Cytronics & Melware (info@melware.de)
+ * Copyright 1998-2000 by Armin Schindler (mac@melware.de)
+ * Copyright 1999,2000 Cytronics & Melware (info@melware.de)
  *
- * Thanks to	Eicon Technology Diehl GmbH & Co. oHG for 
+ * Thanks to	Eicon Technology GmbH & Co. oHG for 
  *		documents, informations and hardware. 
  *
  *		Deutsche Telekom AG for S2M support.
@@ -26,6 +26,12 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.10  1999/08/22 20:26:49  calle
+ * backported changes from kernel 2.3.14:
+ * - several #include "config.h" gone, others come.
+ * - "struct device" changed to "struct net_device" in 2.3.14, added a
+ *   define in isdn_compat.h for older kernel versions.
+ *
  * Revision 1.9  1999/08/11 21:01:11  keil
  * new PCI codefix
  *
