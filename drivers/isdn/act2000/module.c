@@ -20,6 +20,10 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.10  1999/10/24 18:46:05  fritz
+ * Changed isa_ prefix to act2000_isa_ to prevent name-clash in latest
+ * kernels.
+ *
  * Revision 1.9  1999/04/12 13:13:56  fritz
  * Made cards pointer static to avoid name-clash.
  *
@@ -796,7 +800,7 @@ act2000_addcard(int bus, int port, int irq, char *id)
 		switch (bus) {
 			case ACT2000_BUS_ISA:
 				for (i = 0; i < ISA_NRPORTS; i++)
-					if (act2000_isa_detect(isa_ports[i])) {
+					if (act2000_isa_detect(act2000_isa_ports[i])) {
 						printk(KERN_INFO
 						       "act2000: Detected ISA card at port 0x%x\n",
 						       act2000_isa_ports[i]);
