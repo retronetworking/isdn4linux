@@ -7,6 +7,9 @@
  *              Fritz Elfert
  *
  * $Log$
+ * Revision 1.25  1997/04/06 22:54:08  keil
+ * Using SKB's
+ *
  * Revision 1.24  1997/03/05 11:28:03  keil
  * fixed undefined l2tei procedure
  * a layer1 release delete now the drel timer
@@ -1066,6 +1069,7 @@ static struct FsmNode fnlist[] =
 
 
 
+
 #define FNCOUNT (sizeof(fnlist)/sizeof(struct FsmNode))
 
 static void
@@ -1192,6 +1196,7 @@ static struct FsmNode LcFnList[] =
 	{ST_LC_ESTABLISH_WAIT,	EV_LC_DL_RELEASE,	lc_r5},
 };
 /* *INDENT-ON* */
+
 
 
 
@@ -1367,9 +1372,12 @@ ll_handler(struct PStack *st, int pr, void *arg)
 			FsmEvent(&chanp->fi, EV_RELEASE_ERR, NULL);
 			break;
 		default:
-			jiftime(tm, jiffies);
-			sprintf(tmp, "%s Channel %d L3->L4 unknown primitiv %d\n", tm, chanp->chan, pr);
-			HiSax_putstatus(chanp->sp, tmp);
+			if (chanp->debug & 2048) {
+				jiftime(tm, jiffies);
+				sprintf(tmp, "%s Channel %d L3->L4 unknown primitiv %d\n",
+					tm, chanp->chan, pr);
+				HiSax_putstatus(chanp->sp, tmp);
+			}
 	}
 }
 
@@ -1931,33 +1939,27 @@ HiSax_writebuf_skb(int id, int chan, struct sk_buff *skb)
 			/* Must return 0 here, since this is not an error
 			 * but a temporary lack of resources.
 			 */
-			if (chanp->debug & 1) {
+			if (chanp->debug & 2048) {
 				sprintf(tmp, "writebuf: no buffers for %d bytes", len);
 				link_debug(chanp, tmp, 1);
 			}
 			return 0;
 		}
-		i = 0;
 		save_flags(flags);
 		cli();
 		nskb = skb_clone(skb, GFP_ATOMIC);
 		if (nskb) {
 			if (chanp->lc_b.l2_establish) {
+				csta->hs[chanp->hscx].tx_cnt += len + st->l2.ihsize;
 				chanp->ds.l3.l3l2(&chanp->ds, DL_DATA, nskb);
-				i = st->l2.ihsize;
-			} else
+			} else {
+				csta->hs[chanp->hscx].tx_cnt += len;
 				chanp->ds.l2.l2l1(&chanp->ds, PH_DATA, nskb);
+			}
 			dev_kfree_skb(skb, FREE_WRITE);
 		} else
 			len = 0;
-		csta->hs[chanp->hscx].tx_cnt += len + i;
 		restore_flags(flags);
 	}
-#if 0
-	if (chanp->debug & 1) {
-		sprintf(tmp, "writebuf: %d bytes", count);
-		link_debug(chanp, tmp, 1);
-	}
-#endif
 	return (len);
 }
