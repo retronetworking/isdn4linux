@@ -20,6 +20,10 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.1  2000/02/10 19:45:18  werner
+ *
+ * Initial release
+ *
  *
  */
 
@@ -409,26 +413,7 @@ static struct file_operations conf_fops =
 	NULL			/* fsync */
 };
 
-static struct inode_operations conf_inode_operations =
-{
-	&conf_fops,		/* log proc file-ops */
-	NULL,			/* create      */
-	NULL,			/* lookup      */
-	NULL,			/* link        */
-	NULL,			/* unlink      */
-	NULL,			/* symlink     */
-	NULL,			/* mkdir       */
-	NULL,			/* rmdir       */
-	NULL,			/* mknod       */
-	NULL,			/* rename      */
-	NULL,			/* readlink    */
-	NULL,			/* follow_link */
-	NULL,			/* readpage    */
-	NULL,			/* writepage   */
-	NULL,			/* bmap        */
-	NULL,			/* truncate    */
-	NULL			/* permission  */
-};
+static struct inode_operations conf_inode_operations;
 
 /*****************************/
 /* hysdn subdir in /proc/net */
@@ -458,6 +443,9 @@ hysdn_procconf_init(void)
 		if ((card->procconf = (void *) create_proc_entry(conf_name,
 					     S_IFREG | S_IRUGO | S_IWUSR,
 					    hysdn_proc_entry)) != NULL) {
+			memset(&conf_inode_operations, 0, sizeof(struct inode_operations));
+			conf_inode_operations.default_file_ops = &conf_fops;
+
 			((struct proc_dir_entry *) card->procconf)->ops = &conf_inode_operations;
 			hysdn_proclog_init(card);	/* init the log file entry */
 		}
