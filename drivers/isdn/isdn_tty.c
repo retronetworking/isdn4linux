@@ -20,6 +20,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.34  1997/03/02 14:29:22  fritz
+ * More ttyI related cleanup.
+ *
  * Revision 1.33  1997/02/28 02:32:45  fritz
  * Cleanup: Moved some tty related stuff from isdn_common.c
  *          to isdn_tty.c
@@ -797,9 +800,9 @@ isdn_tty_modem_hup(modem_info * info, int local)
 	isdn_tty_flush_buffer(info->tty);
 	if (info->online) {
 		info->last_lhup = local;
+		info->online = 0;
 		/* NO CARRIER message */
 		isdn_tty_modem_result(3, info);
-		info->online = 0;
 	}
 #ifdef CONFIG_ISDN_AUDIO
 	info->vonline = 0;
