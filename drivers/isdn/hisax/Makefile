@@ -6,7 +6,7 @@ O_TARGET	:= vmlinux-obj.o
 
 # Objects that export symbols.
 
-export-objs	:= config.o hfc_usbr.o
+export-objs	:= config.o
 
 # Multipart objects.
 
@@ -15,6 +15,7 @@ hisax-objs	:= config.o isdnl1.o tei.o isdnl2.o isdnl3.o \
 		   lmgr.o q931.o callc.o fsm.o cert.o
 
 # Optional parts of multipart objects.
+
 hisax-objs-$(CONFIG_HISAX_EURO) += l3dss1.o
 hisax-objs-$(CONFIG_HISAX_NI1) += l3ni1.o
 hisax-objs-$(CONFIG_HISAX_1TR6) += l3_1tr6.o
@@ -74,5 +75,3 @@ include $(TOPDIR)/drivers/isdn/Rules.make
 
 hisax.o: $(hisax-objs)
 	$(LD) -r -o $@ $(hisax-objs)
-
-
