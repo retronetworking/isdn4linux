@@ -21,6 +21,11 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.16  1996/06/24 17:48:08  fritz
+ * Bugfixes:
+ *   - Did not free channel on unbinding.
+ *   - ioctl returned wrong callback settings.
+ *
  * Revision 1.15  1996/06/16 17:42:54  tsbogend
  * fixed problem with IP addresses on Linux/Alpha (long is 8 byte there)
  *
@@ -2204,10 +2209,7 @@ int isdn_net_getphones(isdn_net_ioctl_phone * phone, char *phones)
 	save_flags(flags);
 	cli();
 	inout &= 1;
-	n = p->local.phone[inout];
-        if (n)
-                count++;
-	while (n) {
+        for (n = p->local.phone[inout]; n; n = n->next) {
 		if (more) {
 			put_fs_byte(' ', phones++);
 			count++;
@@ -2219,10 +2221,10 @@ int isdn_net_getphones(isdn_net_ioctl_phone * phone, char *phones)
 		memcpy_tofs(phones, n->num, strlen(n->num) + 1);
 		phones += strlen(n->num);
 		count += strlen(n->num);
-		n = n->next;
 		more = 1;
 	}
         put_fs_byte(0,phones);
+        count++;
 	restore_flags(flags);
 	return count;
 }
