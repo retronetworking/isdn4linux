@@ -11,6 +11,10 @@
  *              Beat Doebeli
  *
  * $Log$
+ * Revision 2.12  1999/07/12 21:05:32  keil
+ * fix race in IRQ handling
+ * added watchdog for lost IRQs
+ *
  * Revision 2.11  1999/07/01 08:12:14  keil
  * Common HiSax version for 2.0, 2.1, 2.2 and 2.3 kernel
  *
@@ -460,9 +464,10 @@ setup_teles3(struct IsdnCard *card))
 							 * 0x1f=with AB
 							 * 0x1c 16.3 ???
 							 * 0x39 16.3 1.1
+							 * 0x38 16.3 1.3
 							 * 0x46 16.3 with AB + Video (Teles-Vision)
 							 */
-		if (val != 0x46 && val != 0x39 && val != 0x1c && val != 0x1e && val != 0x1f) {
+		if (val != 0x46 && val != 0x39 && val != 0x38 && val != 0x1c && val != 0x1e && val != 0x1f) {
 			printk(KERN_WARNING "Teles: 16.3 Byte at %x is %x\n",
 			       cs->hw.teles3.cfg_reg + 2, val);
 			release_io_teles3(cs);
