@@ -60,10 +60,13 @@ or, if several cards are installed:
 insmod/modprobe hisax.o \
   io=iobase1,iobase2,... mem=membase1,membase2,... \
   type=card_type1,card_type2,... \
-  protocol=D_channel_protocol1,D_channel_protocol2,... id=idstring
+  protocol=D_channel_protocol1,D_channel_protocol2,... \
+  id=idstring1%idstring2 ...
 
 where iobaseN = io base address of the Nth card, membaseN = memory
 base address of the Nth card, etc.
+The reason for the delimiter "%" in the idstrings is that "," won't
+work with the current modules package. 
 
 The parameters can be specified in any order. For example, the io
 parameter can precede the irq parameter, or vice versa. If several
@@ -80,6 +83,10 @@ is listed after a Teles 16.3 card, a dummy mem=0 parameter must be
 specified for the 16.3. Instead of a dummy value, the parameter can
 also be skipped by simply omitting the value. For example:
 mem=,0xd0000. See example 6 below.
+The protocol parameter for the D-channel may be omittedprotocol may be 
+omitted, if you select the correct one during kernel config.
+Valid values are 1 for german 1TR6, 2 for DSS1 (EURO) and 3 for leased lines
+(no D-channel).
 
 The Creatix/Teles PnP cards uses io1= and io2= instead of io= for specifying 
 the I/O addresses of the ISAC and HSCX chips, respectively.
@@ -112,7 +119,7 @@ Examples for module loading
    modprobe hisax protocol=1 type=1 io=0xd80 mem=0xd0000 irq=5
 
 3. Fritzcard, Euro ISDN, I/O base 340 hex, IRQ 10 and ELSA PCF, Euro ISDN
-   modprobe hisax type=5,6 protocol=2,2 io=0x340 irq=10
+   modprobe hisax type=5,6 protocol=2,2 io=0x340 irq=10 id=Fritz%Elsa
 
 4. Any ELSA  PCC/PCF card  Euro ISDN
    modprobe hisax type=6 protocol=2
@@ -136,11 +143,12 @@ Examples for module loading
 
 LILO/LOADLIN with driver compiled direct into the kernel:
 
-hisax=typ1,dp1,pa_1,pb_1,pc_1[,typ2,dp2,pa_2 ... ,pa_n,pb_n,pc_n][,idstring]
+hisax=typ1,dp1,pa_1,pb_1,pc_1[,typ2,dp2,pa_2 ... \
+      typn,dpn,pa_n,pb_n,pc_n][,idstring1[,idstring2,...,idstringn]]
 
 where
      typ1 = Cardtype of 1st card. (default: depends on kernel settings)
-     dp1  = D-channel protocol of 1st card. 1=1TR6, 2=EDSS1 (default: 2)
+     dp1  = D-channel protocol of 1st card. 1=1TR6, 2=EDSS1, 3=leased
      pa_1 = 1. parameter (depend on the cardtype)
      pb_1 = 2. parameter (depend on the cardtype)
      pc_1 = 3. parameter (depend on the cardtype)
@@ -214,11 +222,12 @@ With DebugCmd 1 is
         4   D channel Q.931 (call control messages)
         8   D channel Q.921 
         16  B channel X.75
-        32  unused
-        64  LOCK debug in callc.c
+        32  D channel l2
+        64  B channel l2
        128  D-Channel link state debug
        256  B-Channel link state debug
        512  Tei debug
+      1024  LOCK debug in callc.c
 
 With DebugCmd 11 is
 
@@ -263,7 +272,7 @@ Special thanks to:
 
         Fritz Elfert, Jan den Ouden, Michael Hipp, Michael Wein, 
         Andreas Kool, Pekka Sarnila, Sim Yskes, Johan Myrre'en,
-	Klaus-Peter Nischke (ITK AG), Christof Petig, Werner Fehn,
+	Klaus-Peter Nischke (ITK AG), Christof Petig, Werner Fehn (Elsa GmbH),
 	Volker Schmidt
         and more people, who are hunting bugs (If I forgot somebody, please
 	send me a mail). 
