@@ -337,7 +337,7 @@ lli_go_active(struct FsmInst *fi, int event, void *arg)
  * RESUME
  */
 
-/* incomming call */
+/* incoming call */
 
 static void
 lli_deliver_call(struct FsmInst *fi, int event, void *arg)

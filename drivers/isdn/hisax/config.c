@@ -1758,6 +1758,8 @@ int __devinit hisax_init_pcmcia(void *pcm_iob, int *busy_flag, struct IsdnCard *
 }
 
 #ifndef COMPAT_HAS_2_2_PCI
+#include <linux/pci.h>
+
 static struct pci_device_id hisax_pci_tbl[] __initdata = {
 #ifdef CONFIG_HISAX_FRITZPCI
 	{PCI_VENDOR_ID_AVM,      PCI_DEVICE_ID_AVM_A1,          PCI_ANY_ID, PCI_ANY_ID},

@@ -361,7 +361,7 @@ ergo_waitpofready(struct HYSDN_CARD *card)
 			    (dpr->ToPcSize < MIN_RDY_MSG_SIZE) ||
 			    (dpr->ToPcSize > MAX_RDY_MSG_SIZE) ||
 			    ((*(ulong *) dpr->ToPcBuf) != RDY_MAGIC))
-				break;	/* an error occured */
+				break;	/* an error occurred */
 
 			/* Check for additional data delivered during SysReady */
 			msg_size = dpr->ToPcSize - RDY_MAGIC_SIZE;

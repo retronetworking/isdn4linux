@@ -6,6 +6,9 @@
  * Copyright 1997 by Carsten Paeth (calle@calle.in-berlin.de)
  *
  * $Log$
+ * Revision 1.39.6.2  2001/02/13 11:43:29  kai
+ * more compatility changes for 2.2.19
+ *
  * Revision 1.39.6.1  2001/02/10 14:41:20  kai
  * Changes from kernel tree
  *
@@ -491,7 +494,7 @@ static inline __u8 cip2si2(__u16 cipval)
 }
 
 
-/* -------- controller managment ------------------------------------- */
+/* -------- controller management ------------------------------------- */
 
 static inline capidrv_contr *findcontrbydriverid(int driverid)
 {

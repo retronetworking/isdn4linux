@@ -7,7 +7,7 @@
 //              www.traverse.com.au
 //
 // 1999.6.25 Initial implementation of routines for Siemens ISDN
-// Communication Controler PEB 2070 based on the ISAC routines
+// Communication Controller PEB 2070 based on the ISAC routines
 // written by Karsten Keil.
 //
 // This file is (c) under GNU General Public License

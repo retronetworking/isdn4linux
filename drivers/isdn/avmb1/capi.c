@@ -6,6 +6,9 @@
  * Copyright 1996 by Carsten Paeth (calle@calle.in-berlin.de)
  *
  * $Log$
+ * Revision 1.44.6.5  2001/02/13 11:43:29  kai
+ * more compatility changes for 2.2.19
+ *
  * Revision 1.44.6.4  2001/02/10 14:41:20  kai
  * Changes from kernel tree
  *
@@ -259,9 +262,6 @@
 #include "capicmd.h"
 #if defined(CONFIG_ISDN_CAPI_CAPIFS) || defined(CONFIG_ISDN_CAPI_CAPIFS_MODULE)
 #include "capifs.h"
-#endif
-#ifdef COMPAT_HAS_kmem_cache
-#include <linux/slab.h>
 #endif
 
 static char *revision = "$Revision$";
@@ -1402,7 +1402,6 @@ capinc_raw_open(struct inode *inode, struct file *file)
 #ifdef _DEBUG_REFCOUNT
 	printk(KERN_DEBUG "capi_raw_open %d\n", GET_USE_COUNT(THIS_MODULE));
 #endif
-
 	mp->datahandle = 0;
 	mp->file = file;
 	file->private_data = (void *)mp;
