@@ -1,18 +1,18 @@
  
-X25 support within isdn4linux
-=============================
+X.25 support within isdn4linux
+==============================
 
-This is experimental code. Use it completely on your own risk.
+This is experimental code. Use it completely at your own risk.
 As new versions appear, the stuff described here might suddenly change
 or become invalid without notice.
 
 Keep in mind:
 
 You are using an experimental kernel (2.1.x series) with an experimental
-x25 protocol implementation and experimental x25-on-top-of-isdn extensions.
+X.25 protocol implementation and experimental X.25-on-top-of-isdn extensions.
 Thus, be prepared to face problems related therefrom.
 
-- If you connect to an x25 neighbour not operated by yourself, ASK the
+- If you connect to an X.25 neighbour not operated by yourself, ASK the
   other side first. Be prepared that bugs in the protocol implementation
   might result in problems.
 
@@ -48,7 +48,7 @@ you also need to enable "Packet socket".
 For local testing it is also recommended to enable the isdnloop driver
 from the isdn subsystem's configuration menu.
 
-For testing, it is recommended that all isdn drivers and the x25 PLP
+For testing, it is recommended that all isdn drivers and the X.25 PLP
 protocol are compiled as loadable modules. Like this, you can recover
 from certain errors by simply unloading and reloading the modules.
 
@@ -57,7 +57,7 @@ from certain errors by simply unloading and reloading the modules.
 What's it for? How to use it?
 =============================
 
-X25 on top of isdn might be useful with two different scenarios:
+X.25 on top of isdn might be useful with two different scenarios:
 
 - You might want to access a public X.25 data network from your Linux box.
   You can use i4l if you were physically connected to the X.25 switch
@@ -71,7 +71,7 @@ X25 on top of isdn might be useful with two different scenarios:
   same as ITU-T X.25.
 
   Popular candidates of such teleservices are EUROfile transfer or any
-  teleservice applying ITU-T recommendation T.90 (i.e., AFAIK, G4 Fax).
+  teleservice applying ITU-T recommendation T.90.
 
 To use the X.25 protocol on top of isdn, just create an isdn network
 interface as usual, configure your own and/or peer's ISDN numbers,
@@ -79,23 +79,23 @@ and choose x25iface encapsulation by
 
    isdnctrl encap <iface-name> x25iface.
 
-Once encap is set like this, the device can be used by the x25 packet layer.
+Once encap is set like this, the device can be used by the X.25 packet layer.
 
-All the stuff needed for x25 is implemented inside the isdn link
+All the stuff needed for X.25 is implemented inside the isdn link
 level (mainly isdn_net.c and some new source files). Thus, it should
-work with every existing HL driver. I was able to successfully open x25
+work with every existing HL driver. I was able to successfully open X.25
 connections on top of the isdnloop driver and the hisax driver.
 "x25iface"-encapsulation bypasses demand dialing. Dialing will be
-initiated when the upper (x25 packet) layer requests the lapb datalink to
+initiated when the upper (X.25 packet) layer requests the lapb datalink to
 be established. But hangup timeout is still active. The connection
 will not automatically be re-established by the isdn_net module
 itself when new data arrives after the hangup timeout. But
-the x25 network code will re-establish the datalink connection
-(resulting in re-dialing and an x25 protocol reset) when new data is
+the X.25 network code will re-establish the datalink connection
+(resulting in re-dialing and an X.25 protocol reset) when new data is
 to be transmitted. (This currently does not work properly with the
 isdnloop driver, see "known problems" below). It is recommended to
-use large hangup-timeouts as most application probably can't deal
-with such N-reset events.
+use sufficiently large hangup-timeouts as most application probably
+can't deal with such N-reset events.
 
 
 In order to set up a conforming protocol stack you also need to
@@ -118,7 +118,7 @@ level driver. The main difference between x75 and x25dte/dce is that
 x25d[tc]e uses fixed lap_b addresses. With x75i, the side which
 initiates the isdn connection uses the DTE's lap_b address while the
 called side used the DCE's lap_b address. Thus, l2_prot x75i might
-probably work if you access a public x25 network as long as the
+probably work if you access a public X.25 network as long as the
 corresponding isdn connection is set up by you. However, I've never
 tested this.
 
@@ -127,10 +127,10 @@ tested this.
 How to set up a test installation?
 ==================================
 
-To test x25 on top of isdn, you need to get
+To test X.25 on top of isdn, you need to get
 
 - a recent version of the "isdnctrl" program that supports setting the new
-  x25 specific parameters.
+  X.25 specific parameters.
 
 - the x25-utils-2.1.x package from ftp.pspt.fi/pub/ham/linux/ax25
   or any mirror site (i.e. ftp://ftp.gwdg.de/pub/linux/misc/ax25/).
@@ -150,17 +150,17 @@ the usual ifconfig tool.
 ifconfig <iface-name> up
 
 But a special x25route tool (distributed with the x25-util package)
-is needed to set up x25 routes. I.e. 
+is needed to set up X.25 routes. I.e. 
 
 x25route add 01 <iface-name>
 
 will cause all x.25 connections to the destination x.25-address
-"01" being routed to your created isdn network interface.
+"01" to be routed to your created isdn network interface.
 
 
-There are currently no real x25 applications available. However, for
+There are currently no real X.25 applications available. However, for
 tests, the x25-utils package contains a modified version of telnet
-and telnetd that uses x25 sockets instead of tcp/ip sockets. You can
+and telnetd that uses X.25 sockets instead of tcp/ip sockets. You can
 use those for your first tests. Furthermore, you might check
 ftp://ftp.hamburg.pop.de/pub/LOCAL/linux/i4l-eft/ which contains some
 experimental implementation ("eftp4linux") of the EUROfile transfer
@@ -174,7 +174,7 @@ hints to work around some of them.
 
 
 The x25-utility package also contains an x25trace tool that can be
-used to monitor x25 packets received by the network interfaces.
+used to monitor X.25 packets received by the network interfaces.
 The /proc/net/x25* files also contain useful information. 
 
 - Henner
