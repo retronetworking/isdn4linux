@@ -10,6 +10,9 @@
  * 	        Beat Doebeli
  * 
  * $Log$
+ * Revision 1.2  1996/10/27 22:08:34  keil
+ * cosmetic changes
+ *
  * Revision 1.1  1996/10/13 20:04:58  keil
  * Initial revision
  *
@@ -31,28 +34,28 @@ extern const   char    *CardType[];
 static inline byte
 readisac(unsigned int adr, byte off)
 {
-	return *(byte *) (adr + 0x120 + ((off & 1) ? 0x1ff : 0) + off);
+	return readb(adr + 0x120 + ((off & 1) ? 0x1ff : 0) + off);
 }
 
 static inline void
 writeisac(unsigned int adr, byte off, byte data)
 {
-	*(byte *) (adr + 0x120 + ((off & 1) ? 0x1ff : 0) + off) = data;
+	writeb(data, adr + 0x120 + ((off & 1) ? 0x1ff : 0) + off);
 }
 
 
 static inline byte
 readhscx(unsigned int adr, int hscx, byte off)
 {
-	return *(byte *) (adr +(hscx? 0x1e0: 0x1a0) +
+	return readb(adr +(hscx? 0x1e0: 0x1a0) +
 		((off & 1) ? 0x1ff : 0) + off);
 }
 
 static inline void
 writehscx(unsigned int adr, int hscx, byte off, byte data)
 {
-	*(byte *) (adr +(hscx ? 0x1e0: 0x1a0) +
-		((off & 1) ? 0x1ff : 0) + off) = data;
+	writeb(data, adr +(hscx ? 0x1e0: 0x1a0) +
+		((off & 1) ? 0x1ff : 0) + off);
 }
 
 static inline void
@@ -61,7 +64,7 @@ read_fifo_isac(unsigned int adr, byte * data, int size)
 	register int  i;
 	register byte *ad = (byte *) (adr + 0x100);
 	for (i=0;i<size;i++)
-	    data[i] = *ad;
+	    data[i] = readb(ad);
 }
         
 static void
@@ -70,7 +73,7 @@ write_fifo_isac(unsigned int adr, byte * data, int size)
 	register int  i;
 	register byte *ad = (byte *) (adr + 0x100);
 	for (i=0;i<size;i++)
-		*ad = data[i];
+		writeb(data[i], ad);
 }
 
 static inline void
@@ -79,7 +82,7 @@ read_fifo_hscx(unsigned int adr, int hscx, byte * data, int size)
 	register int  i;
 	register byte *ad = (byte *) (adr +(hscx ? 0x1c0: 0x180));
 	for (i=0;i<size;i++)
-	    data[i] =  *ad;
+	    data[i] =  readb(ad);
 }
         
 static inline void
@@ -88,7 +91,7 @@ write_fifo_hscx(unsigned int adr, int hscx, byte * data, int size)
 	int  i;
 	register byte *ad = (byte *) (adr +(hscx ? 0x1c0: 0x180));
 	for (i=0;i<size;i++)
-		*ad = data[i];
+		writeb(data[i], ad);
 }
 static inline void
 waitforCEC(int adr, int hscx)
