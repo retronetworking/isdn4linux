@@ -1,6 +1,6 @@
 /* $Id$
  *
- * header for Linux ISDN subsystem, common used funtions and debugging-switches (linklevel).
+ * header for Linux ISDN subsystem, common used functions and debugging-switches (linklevel).
  *
  * Copyright 1994,95,96 by Fritz Elfert (fritz@wuemaus.franken.de)
  * Copyright 1995,96    by Thinking Objects Software GmbH Wuerzburg
@@ -21,6 +21,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.1  1996/01/10 21:37:19  fritz
+ * Initial revision
+ *
  */
 
 #undef  ISDN_DEBUG_MODEM_OPEN
@@ -46,8 +49,10 @@ extern char* isdn_map_eaz2msn(char *msn, int di);
 extern void  isdn_timer_ctrl(int tf, int onoff);
 extern void  isdn_unexclusive_channel(int di, int ch);
 extern int   isdn_getnum(char **);
-extern int   isdn_readbchan (int di, int channel, u_char *buf,
-			     u_char *fp, int len, int user);
-extern int   isdn_get_free_channel(int usage, int l2_proto, int l3_proto,
-				   int pre_dev, int pre_chan);
-
+extern int   isdn_readbchan (int, int, u_char *, u_char *, int, int);
+extern int   isdn_get_free_channel(int, int, int, int, int);
+extern int   isdn_writebuf_stub(int, int, const u_char *, int, int);
+extern int   isdn_writebuf_skb_stub(int, int, struct sk_buff *);
+#if defined(ISDN_DEBUG_NET_DUMP) || defined(ISDN_DEBUG_MODEM_DUMP)
+extern void  isdn_dumppkt(char *, u_char *, int, int);
+#endif
