@@ -7,6 +7,9 @@
  *              Fritz Elfert
  *
  * $Log$
+ * Revision 2.0  1997/07/27 21:15:42  keil
+ * New Callref based layer3
+ *
  * Revision 1.11  1997/06/26 11:11:44  keil
  * SET_SKBFREE now on creation of a SKB
  *
@@ -72,7 +75,9 @@ getcallref(u_char * p)
 {
 	int l, m = 1, cr = 0;
 	p++;			/* prot discr */
-	l = *p++;		/* callref length */
+	l = 0xf & *p++;		/* callref length */
+	if (!l)			/* dummy CallRef */
+		return(-1);
 	while (l--) {
 		cr += m * (*p++);
 		m *= 8;
@@ -264,7 +269,8 @@ setstack_isdnl3(struct PStack *st, struct Channel *chanp)
 {
 	char tmp[64];
 
-	st->l3.proc = NULL;
+	st->l3.proc   = NULL;
+	st->l3.global = NULL;
 
 #ifdef	CONFIG_HISAX_EURO
 	if (st->protocol == ISDN_PTYPE_EURO) {
@@ -303,4 +309,9 @@ releasestack_isdnl3(struct PStack *st)
 {
 	while (st->l3.proc)
 		release_l3_process(st->l3.proc);
+	if (st->l3.global) {
+		StopAllL3Timer(st->l3.global);
+		kfree(st->l3.global);
+		st->l3.global = NULL;
+	}
 }

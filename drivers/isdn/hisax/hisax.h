@@ -3,6 +3,9 @@
  *   Basic declarations, defines and prototypes
  *
  * $Log$
+ * Revision 2.4  1997/07/31 19:25:20  keil
+ * PTP_DATA_LINK support
+ *
  * Revision 2.3  1997/07/31 11:50:17  keil
  * ONE TEI and FIXED TEI handling
  *
@@ -99,6 +102,7 @@
 
 #define CC_MORE_INFO	53
 #define CC_IGNORE	54
+#define CC_RESTART	55
 
 #define MDL_REMOVE	56
 #define MDL_VERIFY	57
@@ -220,6 +224,7 @@ struct Layer3 {
 	void (*l3l4) (struct l3_process *, int, void *);
 	void (*l3l2) (struct PStack *, int, void *);
 	struct l3_process *proc;
+	struct l3_process *global;
 	int N303;
 	int debug;
 };

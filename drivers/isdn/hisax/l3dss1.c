@@ -9,6 +9,9 @@
  *              Fritz Elfert
  *
  * $Log$
+ * Revision 2.0  1997/07/27 21:15:43  keil
+ * New Callref based layer3
+ *
  * Revision 1.17  1997/06/26 11:11:46  keil
  * SET_SKBFREE now on creation of a SKB
  *
@@ -593,6 +596,90 @@ l3dss1_t308_2(struct l3_process *pc, u_char pr, void *arg)
 	pc->st->l3.l3l4(pc, CC_RELEASE_ERR, NULL);
 	release_l3_process(pc);
 }
+
+static void
+l3dss1_restart(struct l3_process *pc, u_char pr, void *arg)
+{
+	L3DelTimer(&pc->timer);
+	pc->st->l3.l3l4(pc, CC_DLRL, NULL);
+	release_l3_process(pc);
+}
+
+static void
+l3dss1_status(struct l3_process *pc, u_char pr, void *arg)
+{
+	u_char *p;
+	char tmp[64], *t;
+	int l;
+	struct sk_buff *skb = arg;
+	
+	p = skb->data;
+	t = tmp;
+	if ((p = findie(p, skb->len, IE_CAUSE, 0))) {
+		p++;
+		l = *p++;
+		t += sprintf(t,"Status CR %x Cause:", pc->callref);
+		while (l--)
+			t += sprintf(t," %2x",*p++);
+	} else
+		sprintf(t,"Status CR %x no Cause", pc->callref);
+	l3_debug(pc->st, tmp);
+	p = skb->data;
+	t = tmp;
+	t += sprintf(t,"Status state %x ", pc->state);
+	if ((p = findie(p, skb->len, IE_CALL_STATE, 0))) {
+		p++;
+		if (1== *p++)
+			t += sprintf(t,"peer state %x" , *p);
+		else
+			t += sprintf(t,"peer state len error");
+	} else
+		sprintf(t,"no peer state");
+	l3_debug(pc->st, tmp);
+	dev_kfree_skb(skb, FREE_READ);
+}
+
+static void
+l3dss1_global_restart(struct l3_process *pc, u_char pr, void *arg)
+{
+	u_char tmp[32];
+	u_char *p;
+	u_char ri;
+	int l;
+	struct sk_buff *skb = arg;
+	struct l3_process *up;
+	
+	newl3state(pc, 2);
+	L3DelTimer(&pc->timer);
+	p = skb->data;
+	if ((p = findie(p, skb->len, IE_RESTART_IND, 0))) {
+	        ri = p[2];
+	        sprintf(tmp, "Restart %x", ri);
+	} else {
+		sprintf(tmp, "Restart without restart IE");
+		ri = 0x86;
+	}
+	l3_debug(pc->st, tmp);
+	dev_kfree_skb(skb, FREE_READ);
+	newl3state(pc, 2);
+	up = pc->st->l3.proc;
+	while (up) {
+		up->st->lli.l4l3(up->st, CC_RESTART, up);
+		up = up->next;
+	}
+	p = tmp;
+	MsgHead(p, pc->callref, MT_RESTART_ACKNOWLEDGE);
+	*p++ = 0x79; /* RESTART Ind */
+	*p++ = 1;
+	*p++ = ri;
+	l = p - tmp;
+	if (!(skb = l3_alloc_skb(l)))
+		return;
+	memcpy(skb_put(skb, l), tmp, l);
+	newl3state(pc, 0);
+	pc->st->l3.l3l2(pc->st, DL_DATA, skb);
+}
+
 /* *INDENT-OFF* */
 static struct stateentry downstatelist[] =
 {
@@ -604,6 +691,8 @@ static struct stateentry downstatelist[] =
 	 CC_RELEASE_REQ, l3dss1_release_req},
 	{ALL_STATES,
 	 CC_DLRL, l3dss1_reset},
+	{ALL_STATES,
+	 CC_RESTART, l3dss1_restart},
 	{SBIT(6),
 	 CC_IGNORE, l3dss1_reset},
 	{SBIT(6),
@@ -635,6 +724,8 @@ static struct stateentry datastatelist[] =
 {
 	{ALL_STATES,
 	 MT_STATUS_ENQUIRY, l3dss1_status_enq},
+	{ALL_STATES,
+	 MT_STATUS, l3dss1_status},
 	{SBIT(0) | SBIT(6),
 	 MT_SETUP, l3dss1_setup},
 	{SBIT(1) | SBIT(2),
@@ -656,11 +747,62 @@ static struct stateentry datastatelist[] =
 	{SBIT(8),
 	 MT_CONNECT_ACKNOWLEDGE, l3dss1_connect_ack},
 };
+
+static int datasllen = sizeof(datastatelist) / sizeof(struct stateentry);
+
+static struct stateentry globalmes_list[] =
+{
+	{ALL_STATES,
+         MT_STATUS, l3dss1_status},
+	{SBIT(0),
+	 MT_RESTART, l3dss1_global_restart},
+/*	{SBIT(1),
+	 MT_RESTART_ACKNOWLEDGE, l3dss1_restart_ack},                                  
+*/
+};
+static int globalm_len = sizeof(globalmes_list) / sizeof(struct stateentry);
+
+#if 0
+static struct stateentry globalcmd_list[] =
+{
+	{ALL_STATES,
+         CC_STATUS, l3dss1_status_req},
+	{SBIT(0),
+	 CC_RESTART, l3dss1_restart_req},
+};
+
+static int globalc_len = sizeof(globalcmd_list) / sizeof(struct stateentry);
+#endif
 /* *INDENT-ON* */
 
-
-static int datasllen = sizeof(datastatelist) /
-sizeof(struct stateentry);
+static void
+global_handler(struct PStack *st, int mt, struct sk_buff *skb)
+{
+	int i;
+	char tmp[64];
+	struct l3_process *proc = st->l3.global;
+	
+	for (i = 0; i < globalm_len; i++)
+		if ((mt == globalmes_list[i].primitive) &&
+		    ((1 << proc->state) & globalmes_list[i].state))
+			break;
+	if (i == globalm_len) {
+		dev_kfree_skb(skb, FREE_READ);
+		if (st->l3.debug & L3_DEB_STATE) {
+			sprintf(tmp, "dss1 global state %d mt %x unhandled",
+				proc->state, mt);
+			l3_debug(st, tmp);
+		}
+		return;
+	} else {
+		if (st->l3.debug & L3_DEB_STATE) {
+			sprintf(tmp, "dss1 global %d mt %x",
+				proc->state, mt);
+			l3_debug(st, tmp);
+		}
+		globalmes_list[i].rout(proc, mt, skb);
+	}
+}
 
 static void
 dss1up(struct PStack *st, int pr, void *arg)
@@ -682,7 +824,13 @@ dss1up(struct PStack *st, int pr, void *arg)
 	}
 	cr = getcallref(skb->data);
 	mt = skb->data[skb->data[1] + 2];
-	if (!(proc = getl3proc(st, cr))) {
+	if (!cr) {				/* Global CallRef */
+		global_handler(st, mt, skb);
+		return;
+	} else if (cr == -1) {			/* Dummy Callref */
+		dev_kfree_skb(skb, FREE_READ);
+		return;
+	} else if (!(proc = getl3proc(st, cr))) {
 		if (mt == MT_SETUP) {
 			if (!(proc = new_l3_process(st, cr))) {
 				dev_kfree_skb(skb, FREE_READ);
@@ -768,7 +916,17 @@ setstack_dss1(struct PStack *st)
 	st->lli.l4l3 = dss1down;
 	st->l2.l2l3 = dss1up;
 	st->l3.N303 = 1;
-
+	if (!(st->l3.global = kmalloc(sizeof(struct l3_process), GFP_ATOMIC))) {
+		printk(KERN_ERR "HiSax can't get memory for dss1 global CR\n");
+	} else {
+		st->l3.global->state = 0;
+		st->l3.global->callref = 0;
+		st->l3.global->next = NULL;
+		st->l3.global->debug = L3_DEB_WARN;
+		st->l3.global->st = st;
+		st->l3.global->N303 = 1;
+		L3InitTimer(st->l3.global, &st->l3.global->timer);
+	}
 	strcpy(tmp, dss1_revision);
 	printk(KERN_NOTICE "HiSax: DSS1 Rev. %s\n", HiSax_getrev(tmp));
 }
