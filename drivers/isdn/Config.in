@@ -9,7 +9,7 @@ if [ "$CONFIG_INET" != "n" ]; then
    if [ "$CONFIG_ISDN_PPP" != "n" ]; then
       bool         '    Use VJ-compression with synchronous PPP' CONFIG_ISDN_PPP_VJ
       bool         '    Support generic MP (RFC 1717)' CONFIG_ISDN_MPP
-      dep_tristate '    Support BSD compression (module only)' CONFIG_ISDN_PPP_BSDCOMP m
+      dep_tristate '    Support BSD compression' CONFIG_ISDN_PPP_BSDCOMP $CONFIG_ISDN
    fi
 fi
 bool '  Support audio via ISDN' CONFIG_ISDN_AUDIO
@@ -58,7 +58,7 @@ endmenu
 mainmenu_option next_comment
 comment 'ISDN feature submodules'
    dep_tristate 'isdnloop support' CONFIG_ISDN_DRV_LOOP $CONFIG_ISDN
-   bool 'Support isdn diversion services' CONFIG_ISDN_DIVERSION
+   dep_tristate 'Support isdn diversion services' CONFIG_ISDN_DIVERSION $CONFIG_ISDN
 endmenu
 
 comment 'low-level hardware drivers'
@@ -107,6 +107,7 @@ if [ "$CONFIG_ISDN_DRV_HISAX" != "n" ]; then
    if [ "$CONFIG_EXPERIMENTAL" != "n" ]; then
       bool '  HFC-S+, HFC-SP, HFC-PCMCIA cards' CONFIG_HISAX_HFC_SX
 #      bool '  TESTEMULATOR (EXPERIMENTAL)' CONFIG_HISAX_TESTEMU
+      bool '  Sedlbauer PCMCIA cards' CONFIG_HISAX_SEDLBAUER_CS
       if [ "$ARCH" = "sparc" -o "$ARCH" = "sparc64" ]; then
 	 bool '  Am7930' CONFIG_HISAX_AMD7930
       fi
@@ -127,7 +128,7 @@ dep_tristate       'IBM Active 2000 support' CONFIG_ISDN_DRV_ACT2000 $CONFIG_ISD
 bool               'Eicon active card support' CONFIG_ISDN_DRV_EICON
 if [ "$CONFIG_ISDN_DRV_EICON" != "n" ]; then
    if [ "$CONFIG_ISDN_DRV_EICON_OLD" != "y" ]; then
-      dep_tristate '  Build Eicon driver type standalone' CONFIG_ISDN_DRV_EICON_DIVAS $CONFIG_ISDN
+      dep_tristate '  Build Eicon driver type standalone' CONFIG_ISDN_DRV_EICON_DIVAS $CONFIG_ISDN $CONFIG_PCI
    fi
    if [ "$CONFIG_ISDN_DRV_EICON_DIVAS" != "y" ]; then
       dep_tristate '  Legacy Eicon driver' CONFIG_ISDN_DRV_EICON_OLD $CONFIG_ISDN
