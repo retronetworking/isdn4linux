@@ -3,6 +3,9 @@
  *  DSS1 (Euro) D-channel protocol defines
  *
  * $Log$
+ * Revision 1.2  1997/08/03 14:36:34  keil
+ * Implement RESTART procedure
+ *
  * Revision 1.1  1997/07/27 21:08:38  keil
  * new
  *
@@ -51,4 +54,5 @@
 
 #define IE_CAUSE               0x08
 #define IE_CALL_STATE          0x14
+#define IE_CHANNEL_ID          0x18
 #define IE_RESTART_IND         0x79

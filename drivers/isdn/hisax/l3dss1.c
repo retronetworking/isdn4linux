@@ -9,6 +9,9 @@
  *              Fritz Elfert
  *
  * $Log$
+ * Revision 2.1  1997/08/03 14:36:33  keil
+ * Implement RESTART procedure
+ *
  * Revision 2.0  1997/07/27 21:15:43  keil
  * New Callref based layer3
  *
@@ -151,7 +154,7 @@ l3dss1_setup_req(struct l3_process *pc, u_char pr,
 		}
 	}
 	if (channel) {
-		*p++ = 0x18;	/* channel indicator */
+		*p++ = IE_CHANNEL_ID;
 		*p++ = 1;
 		*p++ = channel;
 	}
@@ -194,7 +197,7 @@ l3dss1_call_proc(struct l3_process *pc, u_char pr, void *arg)
 
 	L3DelTimer(&pc->timer);
 	p = skb->data;
-	if ((p = findie(p, skb->len, 0x18, 0))) {
+	if ((p = findie(p, skb->len, IE_CHANNEL_ID, 0))) {
 		pc->para.bchannel = p[2] & 0x3;
 		if ((!pc->para.bchannel) && (pc->debug & L3_DEB_WARN))
 			l3_debug(pc->st, "setup answer without bchannel");
@@ -214,7 +217,7 @@ l3dss1_setup_ack(struct l3_process *pc, u_char pr, void *arg)
 
 	L3DelTimer(&pc->timer);
 	p = skb->data;
-	if ((p = findie(p, skb->len, 0x18, 0))) {
+	if ((p = findie(p, skb->len, IE_CHANNEL_ID, 0))) {
 		pc->para.bchannel = p[2] & 0x3;
 		if ((!pc->para.bchannel) && (pc->debug & L3_DEB_WARN))
 			l3_debug(pc->st, "setup answer without bchannel");
@@ -284,7 +287,7 @@ l3dss1_setup(struct l3_process *pc, u_char pr, void *arg)
 	 * Channel Identification
 	 */
 	p = skb->data;
-	if ((p = findie(p, skb->len, 0x18, 0))) {
+	if ((p = findie(p, skb->len, IE_CHANNEL_ID, 0))) {
 		pc->para.bchannel = p[2] & 0x3;
 		if (pc->para.bchannel)
 			bcfound++;
@@ -644,7 +647,7 @@ l3dss1_global_restart(struct l3_process *pc, u_char pr, void *arg)
 {
 	u_char tmp[32];
 	u_char *p;
-	u_char ri;
+	u_char ri, chan=0;
 	int l;
 	struct sk_buff *skb = arg;
 	struct l3_process *up;
@@ -660,15 +663,29 @@ l3dss1_global_restart(struct l3_process *pc, u_char pr, void *arg)
 		ri = 0x86;
 	}
 	l3_debug(pc->st, tmp);
+	p = skb->data;
+	if ((p = findie(p, skb->len, IE_CHANNEL_ID, 0))) {
+		chan = p[2] & 3;
+		sprintf(tmp, "Restart for channel %d", chan);
+		l3_debug(pc->st, tmp);
+	}
 	dev_kfree_skb(skb, FREE_READ);
 	newl3state(pc, 2);
 	up = pc->st->l3.proc;
 	while (up) {
-		up->st->lli.l4l3(up->st, CC_RESTART, up);
+		if ((ri & 7)==7)
+			up->st->lli.l4l3(up->st, CC_RESTART, up);
+		else if (up->para.bchannel == chan)
+				up->st->lli.l4l3(up->st, CC_RESTART, up);
 		up = up->next;
 	}
 	p = tmp;
 	MsgHead(p, pc->callref, MT_RESTART_ACKNOWLEDGE);
+	if (chan) {
+		*p++ = IE_CHANNEL_ID;
+		*p++ = 1;
+		*p++ = chan | 0x80;
+	}
 	*p++ = 0x79; /* RESTART Ind */
 	*p++ = 1;
 	*p++ = ri;
