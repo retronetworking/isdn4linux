@@ -188,7 +188,6 @@ static dev_link_t *elsa_cs_attach(void)
     dev_link_t *link;
     local_info_t *local;
     int ret, i;
-    void elsa_interrupt(int, void *, struct pt_regs *);
 
     DEBUG(0, "elsa_cs_attach()\n");
 

@@ -365,6 +365,8 @@ config HISAX_DEBUG
 	  the ST5481 USB driver currently. 
 	  If in doubt, say yes.
 
+comment "HiSax PCMCIA card service modules"
+
 config HISAX_SEDLBAUER_CS
 	tristate "Sedlbauer PCMCIA cards"
 	depends on PCMCIA && HISAX_SEDLBAUER
@@ -374,17 +376,25 @@ config HISAX_SEDLBAUER_CS
 
 config HISAX_ELSA_CS
 	tristate "ELSA PCMCIA MicroLink cards"
-	depends on PCMCIA
+	depends on PCMCIA && HISAX_ELSA
 	help
 	  This enables the PCMCIA client driver for the Elsa PCMCIA MicroLink
 	  card.
 
 config HISAX_AVM_A1_CS
 	tristate "AVM A1 PCMCIA cards"
-	depends on PCMCIA
+	depends on PCMCIA && ISDN_DRV_HISAX
 	help
 	  This enables the PCMCIA client driver for the AVM A1 / Fritz!Card
 	  PCMCIA cards.
+
+config HISAX_TELES_CS
+	tristate "TELES PCMCIA cards"
+	depends on PCMCIA && HISAX_16_3
+	help
+	  This enables the PCMCIA client driver for the Teles PCMCIA cards.
+
+comment "HiSax sub driver modules"
 
 config HISAX_ST5481
 	tristate "ST5481 USB ISDN modem (EXPERIMENTAL)"
@@ -411,6 +421,11 @@ config HISAX_FRITZ_PCIPNP
 config HISAX_HDLC
 	bool
 	depends on HISAX_ST5481
+	default y
+
+config HISAX_AVM_A1_PCMCIA
+	bool
+	depends on HISAX_AVM_A1_CS
 	default y
 
 endif
