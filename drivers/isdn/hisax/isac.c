@@ -6,6 +6,9 @@
  *
  *
  * $Log$
+ * Revision 1.7.2.2  1997/11/15 18:54:23  keil
+ * cosmetics
+ *
  * Revision 1.7.2.1  1997/10/17 22:10:49  keil
  * new files on 2.0
  *
@@ -599,8 +602,10 @@ initisac(struct IsdnCardState *cs))
 {
 	cs->tqueue.routine = (void *) (void *) isac_bh;
 	cs->l1cmd = isac_l1cmd;
+	cs->setstack_d = setstack_isac;
 	cs->dbusytimer.function = (void *) dbusy_timer_handler;
 	cs->dbusytimer.data = (long) cs;
+	init_timer(&cs->dbusytimer);
   	cs->writeisac(cs, ISAC_MASK, 0xff);
   	cs->mocr = 0xaa;
 	if (test_bit(HW_IOM1, &cs->HW_Flags)) {
