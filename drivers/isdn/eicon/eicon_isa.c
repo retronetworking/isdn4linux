@@ -3,7 +3,7 @@
  * ISDN low-level module for Eicon.Diehl active ISDN-Cards.
  * Hardware-specific code for old ISA cards.
  *
- * Copyright 1998    by Fritz Elfert (fritz@wuemaus.franken.de)
+ * Copyright 1998    by Fritz Elfert (fritz@isdn4linux.de)
  * Copyright 1998,99 by Armin Schindler (mac@melware.de)
  * Copyright 1999    Cytronics & Melware (info@melware.de)
  *
@@ -22,6 +22,12 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.7  1999/08/22 20:26:48  calle
+ * backported changes from kernel 2.3.14:
+ * - several #include "config.h" gone, others come.
+ * - "struct device" changed to "struct net_device" in 2.3.14, added a
+ *   define in isdn_compat.h for older kernel versions.
+ *
  * Revision 1.6  1999/07/25 15:12:06  armin
  * fix of some debug logs.
  * enabled ISA-cards option.

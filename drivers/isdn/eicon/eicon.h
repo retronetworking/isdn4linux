@@ -2,7 +2,7 @@
  *
  * ISDN low-level module for Eicon.Diehl active ISDN-Cards.
  *
- * Copyright 1998    by Fritz Elfert (fritz@wuemaus.franken.de)
+ * Copyright 1998    by Fritz Elfert (fritz@isdn4linux.de)
  * Copyright 1998,99 by Armin Schindler (mac@melware.de) 
  * Copyright 1999    Cytronics & Melware (info@melware.de)
  *
@@ -21,6 +21,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.12  1999/09/04 06:20:05  keil
+ * Changes from kernel set_current_state()
+ *
  * Revision 1.11  1999/08/29 17:23:44  armin
  * New setup compat.
  * Bugfix if compile as not module.

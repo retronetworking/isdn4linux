@@ -4,7 +4,7 @@
  *
  * Definition of the interface between the subsystem and its low-level drivers.
  *
- * Copyright 1994,95,96 by Fritz Elfert (fritz@wuemaus.franken.de)
+ * Copyright 1994,95,96 by Fritz Elfert (fritz@isdn4linux.de)
  * Copyright 1995,96    Thinking Objects Software GmbH Wuerzburg
  * 
  * This program is free software; you can redistribute it and/or modify
@@ -22,6 +22,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.30  1999/08/23 15:54:29  keil
+ * more backported changes from kernel 2.3.14
+ *
  * Revision 1.29  1999/07/31 13:00:02  armin
  * Added tty fax capabilities.
  *

@@ -2,7 +2,7 @@
  *
  * ISDN lowlevel-module for Eicon.Diehl active cards.
  * 
- * Copyright 1997    by Fritz Elfert (fritz@wuemaus.franken.de)
+ * Copyright 1997    by Fritz Elfert (fritz@isdn4linux.de)
  * Copyright 1998,99 by Armin Schindler (mac@melware.de) 
  * Copyright 1999    Cytronics & Melware (info@melware.de)
  * 
@@ -26,6 +26,10 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.13  1999/09/04 17:37:59  armin
+ * Removed not used define, did not work and caused error
+ * in 2.3.16
+ *
  * Revision 1.12  1999/08/31 11:20:14  paul
  * various spelling corrections (new checksums may be needed, Karsten!)
  *

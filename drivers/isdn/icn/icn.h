@@ -2,7 +2,7 @@
 
  * ISDN lowlevel-module for the ICN active ISDN-Card.
  *
- * Copyright 1994 by Fritz Elfert (fritz@wuemaus.franken.de)
+ * Copyright 1994 by Fritz Elfert (fritz@isdn4linux.de)
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -19,6 +19,11 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.28  1997/10/10 15:56:18  fritz
+ * New HL<->LL interface:
+ *   New BSENT callback with nr. of bytes included.
+ *   Sending without ACK.
+ *
  * Revision 1.27  1997/10/01 09:21:56  fritz
  * Removed old compatibility stuff for 2.0.X kernels.
  * From now on, this code is for 2.1.X ONLY!
