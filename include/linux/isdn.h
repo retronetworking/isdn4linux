@@ -743,8 +743,6 @@ typedef struct isdn_devt {
 	int               tflags;                    /* Timer-Flags:               */
 	/*  see ISDN_TIMER_..defines  */
 	int               global_flags;
-	infostruct        *infochain;                /* List of open info-devs.    */
-	wait_queue_head_t info_waitq;               /* Wait-Queue for isdninfo    */
 	struct timer_list timer;		       /* Misc.-function Timer       */
 	int               chanmap[ISDN_MAX_CHANNELS];/* Map minor->device-channel  */
 	int               drvmap[ISDN_MAX_CHANNELS]; /* Map minor->driver-index    */

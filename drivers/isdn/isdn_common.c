@@ -30,6 +30,7 @@
 #include <linux/vmalloc.h>
 #include <linux/isdn.h>
 #include <linux/smp_lock.h>
+#include <linux/list.h>
 #include "isdn_common.h"
 #include "isdn_tty.h"
 #include "isdn_net.h"
@@ -920,71 +921,238 @@ isdn_minor2chan(int minor)
 	return (dev->chanmap[minor]);
 }
 
-static char *
-isdn_statstr(void)
-{
-	static char istatbuf[2048];
-	char *p;
-	int i;
+// ----------------------------------------------------------------------
+// /dev/isdninfo
+// 
+// This device has somewhat insane semantics, but we need to support
+// them for the sake of compatibility.
+//
+// After opening, the first read will succeed and return the current state
+// Then, unless O_NONBLOCK is set, it will block until a state change happens
+// and then return the new state.
+// Also, if the buffer size for the read is too small, we'll just return
+// EOF
 
-	sprintf(istatbuf, "idmap:\t");
-	p = istatbuf + strlen(istatbuf);
-	for (i = 0; i < ISDN_MAX_CHANNELS; i++) {
-		sprintf(p, "%s ", (dev->drvmap[i] < 0) ? "-" : dev->drvid[dev->drvmap[i]]);
-		p = istatbuf + strlen(istatbuf);
-	}
-	sprintf(p, "\nchmap:\t");
-	p = istatbuf + strlen(istatbuf);
-	for (i = 0; i < ISDN_MAX_CHANNELS; i++) {
-		sprintf(p, "%d ", dev->chanmap[i]);
-		p = istatbuf + strlen(istatbuf);
-	}
-	sprintf(p, "\ndrmap:\t");
-	p = istatbuf + strlen(istatbuf);
-	for (i = 0; i < ISDN_MAX_CHANNELS; i++) {
-		sprintf(p, "%d ", dev->drvmap[i]);
-		p = istatbuf + strlen(istatbuf);
-	}
-	sprintf(p, "\nusage:\t");
-	p = istatbuf + strlen(istatbuf);
-	for (i = 0; i < ISDN_MAX_CHANNELS; i++) {
-		sprintf(p, "%d ", dev->usage[i]);
-		p = istatbuf + strlen(istatbuf);
-	}
-	sprintf(p, "\nflags:\t");
-	p = istatbuf + strlen(istatbuf);
-	for (i = 0; i < ISDN_MAX_DRIVERS; i++) {
-		if (dev->drv[i]) {
-			sprintf(p, "%ld ", dev->drv[i]->online);
-			p = istatbuf + strlen(istatbuf);
-		} else {
-			sprintf(p, "? ");
-			p = istatbuf + strlen(istatbuf);
-		}
-	}
-	sprintf(p, "\nphone:\t");
-	p = istatbuf + strlen(istatbuf);
-	for (i = 0; i < ISDN_MAX_CHANNELS; i++) {
-		sprintf(p, "%s ", dev->num[i]);
-		p = istatbuf + strlen(istatbuf);
-	}
-	sprintf(p, "\n");
-	return istatbuf;
-}
+struct isdnstatus_dev {
+	struct list_head list;
+	int update;
+};
 
-/* Module interface-code */
+static DECLARE_WAIT_QUEUE_HEAD(isdnstatus_waitq);
+static LIST_HEAD(isdnstatus_devs);
+static spinlock_t isdnstatus_devs_lock = SPIN_LOCK_UNLOCKED;
 
 void
 isdn_info_update(void)
 {
-	infostruct *p = dev->infochain;
+	struct list_head *p;
+	struct isdnstatus_dev *idev;
 
-	while (p) {
-		*(p->private) = 1;
-		p = (infostruct *) p->next;
+	spin_lock(&isdnstatus_devs_lock);
+	list_for_each(p, &isdnstatus_devs) {
+		idev = list_entry(p, struct isdnstatus_dev, list);
+		idev->update = 1;
 	}
-	wake_up_interruptible(&(dev->info_waitq));
+	spin_unlock(&isdnstatus_devs_lock);
+	wake_up_interruptible(&isdnstatus_waitq);
 }
+
+static int
+isdnstatus_open(struct inode *ino, struct file *filep)
+{
+	struct isdnstatus_dev *p;
+
+	p = kmalloc(sizeof(struct isdnstatus_dev), GFP_USER);
+	if (!p)
+		return -ENOMEM;
+
+	/* At opening time we allow a single update */
+	p->update = 1;
+	spin_lock(&isdnstatus_devs_lock);
+	list_add(&p->list, &isdnstatus_devs);
+	spin_unlock(&isdnstatus_devs_lock);
+	filep->private_data = p;
+
+	return 0;
+}
+
+static int
+isdnstatus_close(struct inode *ino, struct file *filep)
+{
+	struct isdnstatus_dev *p = filep->private_data;
+
+	spin_lock(&isdnstatus_devs_lock);
+	list_del(&p->list);
+	spin_unlock(&isdnstatus_devs_lock);
+	kfree(p);
+}
+
+// FIXME we don't lock against the state changing whilst being
+// printed
+
+void
+isdn_statstr(char *buf)
+{
+	char *p;
+	int i;
+
+	p = buf;
+	p += sprintf(p, "idmap:\t");
+	for (i = 0; i < ISDN_MAX_CHANNELS; i++) {
+		p += sprintf(p, "%s ", (dev->drvmap[i] < 0) ? "-" : dev->drvid[dev->drvmap[i]]);
+	}
+	p += sprintf(p, "\nchmap:\t");
+	for (i = 0; i < ISDN_MAX_CHANNELS; i++) {
+		p += sprintf(p, "%d ", dev->chanmap[i]);
+	}
+	p += sprintf(p, "\ndrmap:\t");
+	for (i = 0; i < ISDN_MAX_CHANNELS; i++) {
+		p += sprintf(p, "%d ", dev->drvmap[i]);
+	}
+	p += sprintf(p, "\nusage:\t");
+	for (i = 0; i < ISDN_MAX_CHANNELS; i++) {
+		p += sprintf(p, "%d ", dev->usage[i]);
+	}
+	p += sprintf(p, "\nflags:\t");
+	for (i = 0; i < ISDN_MAX_DRIVERS; i++) {
+		if (dev->drv[i]) {
+			p += sprintf(p, "%ld ", dev->drv[i]->online);
+		} else {
+			p += sprintf(p, "? ");
+		}
+	}
+	p += sprintf(p, "\nphone:\t");
+	for (i = 0; i < ISDN_MAX_CHANNELS; i++) {
+		p += sprintf(p, "%s ", dev->num[i]);
+	}
+	p += sprintf(p, "\n");
+}
+
+static ssize_t
+isdnstatus_read(struct file *file, char *buf, size_t count, loff_t * off)
+{
+	static DECLARE_MUTEX(istatbuf_mutex);
+	static char istatbuf[2048];
+
+        DECLARE_WAITQUEUE(wait, current);
+	struct isdnstatus_dev *idev;
+	int retval = 0;
+	unsigned int len;
+
+	idev = file->private_data;
+
+	if (off != &file->f_pos)
+		return -ESPIPE;
+
+        add_wait_queue(&isdnstatus_waitq, &wait);
+        for (;;) {
+                set_current_state(TASK_INTERRUPTIBLE);
+                
+		if (idev->update)
+                        break;
+
+                retval = -EAGAIN;
+                if (file->f_flags & O_NONBLOCK)
+                        break;
+
+                retval = -ERESTARTSYS;
+                if (signal_pending(current))
+                        break;
+
+                schedule();
+        }
+        __set_current_state(TASK_RUNNING);
+        remove_wait_queue(&isdnstatus_waitq, &wait);
+
+	if (!idev->update)
+		goto out;
+
+	idev->update = 0;
+	down(&istatbuf_mutex);
+	isdn_statstr(istatbuf);
+	len = strlen(istatbuf);
+	if (len > count) {
+		retval = 0;
+		goto out_unlock;
+	}
+	if (copy_to_user(buf, istatbuf, len)) {
+		retval = -EFAULT;
+		goto out_unlock;
+	}
+	*off += len;
+	retval = len;
+
+ out_unlock:
+	up(&istatbuf_mutex);
+ out:
+	return retval;
+}
+
+static ssize_t
+isdnstatus_write(struct file *file, const char *buf, size_t count, loff_t * off)
+{
+	return -EINVAL;
+}
+
+static unsigned int
+isdnstatus_poll(struct file *file, poll_table * wait)
+{
+	struct isdnstatus_dev *idev;
+	unsigned int mask = 0;
+
+	idev = file->private_data;
+
+	poll_wait(file, &isdnstatus_waitq, wait);
+	if (idev->update) {
+		mask |= POLLIN | POLLRDNORM;
+	}
+	return mask;
+}
+
+static int
+isdnstatus_ioctl(struct inode *inode, struct file *file, uint cmd, ulong arg)
+{
+	int retval;
+	isdn_net_ioctl_phone phone;
+
+	switch (cmd) {
+	case IIOCGETDVR:
+		return (TTY_DV +
+			(NET_DV << 8) +
+			(INF_DV << 16));
+	case IIOCGETCPS:
+		if (arg) {
+			ulong *p = (ulong *) arg;
+			int i;
+			if ((retval = verify_area(VERIFY_WRITE, (void *) arg,
+					       sizeof(ulong) * ISDN_MAX_CHANNELS * 2)))
+				return retval;
+			for (i = 0; i < ISDN_MAX_CHANNELS; i++) {
+				put_user(dev->ibytes[i], p++);
+				put_user(dev->obytes[i], p++);
+			}
+			return 0;
+		} else
+			return -EINVAL;
+		break;
+#ifdef CONFIG_NETDEVICES
+	case IIOCNETGPN:
+		/* Get peer phone number of a connected 
+		 * isdn network interface */
+		if (arg) {
+			if (copy_from_user((char *) &phone, (char *) arg, sizeof(phone)))
+				return -EFAULT;
+			return isdn_net_getpeer(&phone, (isdn_net_ioctl_phone *) arg);
+		} else
+			return -EINVAL;
+#endif
+	default:
+		return -EINVAL;
+	}
+}
+
+// ----------------------------------------------------------------------
+
 
 static ssize_t
 isdn_read(struct file *file, char *buf, size_t count, loff_t * off)
@@ -1003,28 +1171,9 @@ isdn_read(struct file *file, char *buf, size_t count, loff_t * off)
 #ifndef COMPAT_HAVE_READ_LOCK_KERNEL
 	lock_kernel();
 #endif
-	if (minor == ISDN_MINOR_STATUS) {
-		if (!file->private_data) {
-			if (file->f_flags & O_NONBLOCK) {
-				retval = -EAGAIN;
-				goto out;
-			}
-			interruptible_sleep_on(&(dev->info_waitq));
-		}
-		p = isdn_statstr();
-		file->private_data = 0;
-		if ((len = strlen(p)) <= count) {
-			if (copy_to_user(buf, p, len)) {
-				retval = -EFAULT;
-				goto out;
-			}
-			*off += len;
-			retval = len;
-			goto out;
-		}
-		retval = 0;
-		goto out;
-	}
+	if (minor == ISDN_MINOR_STATUS)
+		return isdnstatus_read(file, buf, count, off);
+	  
 	if (!dev->drivers) {
 		retval = -ENODEV;
 		goto out;
@@ -1121,11 +1270,12 @@ isdn_write(struct file *file, const char *buf, size_t count, loff_t * off)
 	int chidx;
 	int retval;
 
+	if (minor == ISDN_MINOR_STATUS)
+		return isdnstatus_write(file, buf, count, off);
+
 	if (off != &file->f_pos)
 		return -ESPIPE;
 
-	if (minor == ISDN_MINOR_STATUS)
-		return -EPERM;
 	if (!dev->drivers)
 		return -ENODEV;
 
@@ -1192,14 +1342,9 @@ isdn_poll(struct file *file, poll_table * wait)
 #ifndef COMPAT_HAVE_POLL_LOCK_KERNEL
 	lock_kernel();
 #endif
-	if (minor == ISDN_MINOR_STATUS) {
-		poll_wait(file, &(dev->info_waitq), wait);
-		/* mask = POLLOUT | POLLWRNORM; */
-		if (file->private_data) {
-			mask |= POLLIN | POLLRDNORM;
-		}
-		goto out;
-	}
+	if (minor == ISDN_MINOR_STATUS)
+ 		return isdnstatus_poll(file, wait);
+
 	if (minor >= ISDN_MINOR_CTRL && minor <= ISDN_MINOR_CTRLMAX) {
 		if (drvidx < 0) {
 			/* driver deregistered while file open */
@@ -1253,42 +1398,9 @@ isdn_ioctl(struct inode *inode, struct file *file, uint cmd, ulong arg)
 #define phone iocpar.phone
 #define cfg   iocpar.cfg
 
-	if (minor == ISDN_MINOR_STATUS) {
-		switch (cmd) {
-			case IIOCGETDVR:
-				return (TTY_DV +
-					(NET_DV << 8) +
-					(INF_DV << 16));
-			case IIOCGETCPS:
-				if (arg) {
-					ulong *p = (ulong *) arg;
-					int i;
-					if ((ret = verify_area(VERIFY_WRITE, (void *) arg,
-							       sizeof(ulong) * ISDN_MAX_CHANNELS * 2)))
-						return ret;
-					for (i = 0; i < ISDN_MAX_CHANNELS; i++) {
-						put_user(dev->ibytes[i], p++);
-						put_user(dev->obytes[i], p++);
-					}
-					return 0;
-				} else
-					return -EINVAL;
-				break;
-#ifdef CONFIG_NETDEVICES
-			case IIOCNETGPN:
-				/* Get peer phone number of a connected 
-				 * isdn network interface */
-				if (arg) {
-					if (copy_from_user((char *) &phone, (char *) arg, sizeof(phone)))
-						return -EFAULT;
-					return isdn_net_getpeer(&phone, (isdn_net_ioctl_phone *) arg);
-				} else
-					return -EINVAL;
-#endif
-			default:
-				return -EINVAL;
-		}
-	}
+	if (minor == ISDN_MINOR_STATUS)
+		return isdnstatus_ioctl(inode, file, cmd, arg);
+
 	if (!dev->drivers)
 		return -ENODEV;
 	if (minor <= ISDN_MINOR_BMAX) {
@@ -1715,20 +1827,7 @@ isdn_open(struct inode *ino, struct file *filep)
 #endif
 
 	if (minor == ISDN_MINOR_STATUS) {
-		infostruct *p;
-
-		if ((p = (infostruct *) kmalloc(sizeof(infostruct), GFP_KERNEL))) {
-			p->next = (char *) dev->infochain;
-			p->private = (char *) &(filep->private_data);
-			dev->infochain = p;
-			/* At opening we allow a single update */
-			filep->private_data = (char *) 1;
-			retval = 0;
-			goto out;
-		} else {
-			retval = -ENOMEM;
-			goto out;
-		}
+		return isdnstatus_open(ino, filep);
 	}
 	if (!dev->channels)
 		goto out;
@@ -1782,23 +1881,7 @@ isdn_close(struct inode *ino, struct file *filep)
 	lock_kernel();
 #endif
 	if (minor == ISDN_MINOR_STATUS) {
-		infostruct *p = dev->infochain;
-		infostruct *q = NULL;
-
-		while (p) {
-			if (p->private == (char *) &(filep->private_data)) {
-				if (q)
-					q->next = p->next;
-				else
-					dev->infochain = (infostruct *) (p->next);
-				kfree(p);
-				goto out;
-			}
-			q = p;
-			p = (infostruct *) (p->next);
-		}
-		printk(KERN_WARNING "isdn: No private data while closing isdnctrl\n");
-		goto out;
+		isdnstatus_close(ino, filep);
 	}
 	isdn_unlock_drivers();
 	if (minor <= ISDN_MINOR_BMAX)
@@ -2437,7 +2520,6 @@ static int __init isdn_init(void)
 	init_timer(&dev->timer);
 	dev->timer.function = isdn_timer_funct;
 	init_MUTEX(&dev->sem);
-	init_waitqueue_head(&dev->info_waitq);
 	for (i = 0; i < ISDN_MAX_CHANNELS; i++) {
 		dev->drvmap[i] = -1;
 		dev->chanmap[i] = -1;
