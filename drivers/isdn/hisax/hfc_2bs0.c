@@ -6,6 +6,9 @@
  *
  *
  * $Log$
+ * Revision 1.1.2.2  1997/11/15 18:54:27  keil
+ * cosmetics
+ *
  * Revision 1.1.2.1  1997/10/17 22:10:41  keil
  * new files on 2.0
  *
@@ -416,7 +419,7 @@ mode_hfc(struct BCState *bcs, int mode, int bc)
 		debugl1(cs, tmp);
 	}
 	bcs->mode = mode;
-
+	bcs->channel = bc;
 	switch (mode) {
 		case (L1_MODE_NULL):
 			if (bc)
@@ -546,7 +549,7 @@ hfc_manl1(struct PStack *st, int pr,
 			break;
 		case (PH_DEACTIVATE_REQ):
 			if (!test_bit(BC_FLG_BUSY, &st->l1.bcs->Flag))
-				mode_hfc(st->l1.bcs, 0, 0);
+				mode_hfc(st->l1.bcs, 0, st->l1.bc);
 			test_and_clear_bit(BC_FLG_ACTIV, &st->l1.bcs->Flag);
 			break;
 	}

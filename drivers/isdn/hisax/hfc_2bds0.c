@@ -6,6 +6,9 @@
  *
  *
  * $Log$
+ * Revision 1.1.2.2  1998/01/27 22:40:35  keil
+ * fixed IRQ latency, B-channel selection and more
+ *
  * Revision 1.1.2.1  1998/01/11 22:54:00  keil
  * Teles 16.3c (HFC 2BDS0) first version
  *
@@ -527,6 +530,13 @@ mode_2bs0(struct BCState *bcs, int mode, int bc)
 			}
 			break;
 	}
+	if (cs->debug & L1_DEB_HSCX) {
+		char tmp[40];
+		sprintf(tmp, "HFCD m%d bc%d %x %x %x",
+			mode, bc, cs->hw.hfcD.sctrl, cs->hw.hfcD.ctmt,
+			cs->hw.hfcD.conn);
+		debugl1(cs, tmp);
+	}
 	WriteReg(cs, HFCD_DATA, HFCD_SCTRL, cs->hw.hfcD.sctrl);
 	WriteReg(cs, HFCD_DATA, HFCD_CTMT, cs->hw.hfcD.ctmt);
 	WriteReg(cs, HFCD_DATA, HFCD_CONN, cs->hw.hfcD.conn);
@@ -624,7 +634,7 @@ hfc_manl1(struct PStack *st, int pr,
 			break;
 		case (PH_DEACTIVATE_REQ):
 			if (!test_bit(BC_FLG_BUSY, &st->l1.bcs->Flag))
-				mode_2bs0(st->l1.bcs, 0, 0);
+				mode_2bs0(st->l1.bcs, 0, st->l1.bc);
 			test_and_clear_bit(BC_FLG_ACTIV, &st->l1.bcs->Flag);
 			break;
 	}
