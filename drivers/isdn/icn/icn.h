@@ -19,6 +19,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.24  1997/01/29 22:34:46  fritz
+ * Cleanup, Corrected D64S setup of 2nd channel.
+ *
  * Revision 1.23  1996/12/17 18:47:55  tsbogend
  * changed timeouts from absolute numbers to HZ based values
  *
@@ -269,6 +272,7 @@ typedef struct icn_dev {
 	int channel;            /* Currently mapped channel         */
 	struct icn_card *mcard; /* Currently mapped card            */
 	int chanlock;           /* Semaphore for channel-mapping    */
+	int firstload;          /* Flag: firmware never loaded      */
 } icn_dev;
 
 typedef icn_dev *icn_devptr;
