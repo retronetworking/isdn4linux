@@ -27,7 +27,6 @@ if [ "$CONFIG_ISDN_WITH_ABC" != "n" ]; then
 	bool '  Use D-Channel-Callback with Channel in use check' CONFIG_ISDN_WITH_ABC_CALLB
 	bool '  Enable Outgoing-EAZ-Support' CONFIG_ISDN_WITH_ABC_OUTGOING_EAZ
 	bool '  Enable LCR-Support (need isdnlog)' CONFIG_ISDN_WITH_ABC_LCR_SUPPORT
-	bool '  TCP keepalive detect and response (ip4 only)' CONFIG_ISDN_WITH_ABC_IPV4_TCP_KEEPALIVE
 	bool '  RX dont reset hanguptimeout' CONFIG_ISDN_WITH_ABC_RCV_NO_HUPTIMER
 	bool '  Drop frames with s_addr != iface_addr  (ip4 only)' CONFIG_ISDN_WITH_ABC_IPV4_DYNADDR
 	if [ "$CONFIG_EXPERIMENTAL" != "n" ]; then

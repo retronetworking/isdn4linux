@@ -201,7 +201,6 @@ typedef struct {
 #undef CONFIG_ISDN_WITH_ABC_UDP_CHECK_DIAL
 #undef CONFIG_ISDN_WITH_ABC_OUTGOING_EAZ
 #undef CONFIG_ISDN_WITH_ABC_LCR_SUPPORT
-#undef CONFIG_ISDN_WITH_ABC_IPV4_TCP_KEEPALIVE
 #undef CONFIG_ISDN_WITH_ABC_IPV4_DYNADDR
 #undef CONFIG_ISDN_WITH_ABC_RCV_NO_HUPTIMER
 #undef CONFIG_ISDN_WITH_ABC_CH_EXTINUSE
@@ -229,7 +228,7 @@ extern DWABCJIFFIES isdn_dwabc_jiffies;
 #endif
 #define dwsjiffies (isdn_dwabc_jiffies.msec_1000)
 
-#define ISDN_DW_ABC_FLAG_NO_TCP_KEEPALIVE	0x00000001L
+#define ISDN_DW_ABC_FLAG_UNUSED00001		0x00000001L
 #define ISDN_DW_ABC_FLAG_NO_UDP_CHECK		0x00000002L
 #define ISDN_DW_ABC_FLAG_NO_UDP_HANGUP		0x00000004L
 #define ISDN_DW_ABC_FLAG_NO_UDP_DIAL		0x00000008L
@@ -781,7 +780,7 @@ extern void isdn_dw_abc_lcr_ulock(void);
 #ifdef CONFIG_ISDN_WITH_ABC_UDP_CHECK
 extern int dw_abc_udp_test(struct sk_buff *skb,struct net_device *ndev); 
 #endif
-#if CONFIG_ISDN_WITH_ABC_IPV4_TCP_KEEPALIVE || CONFIG_ISDN_WITH_ABC_IPV4_DYNADDR
+#if CONFIG_ISDN_WITH_ABC_IPV4_DYNADDR
 struct sk_buff *isdn_dw_abc_ip4_keepalive_test(struct net_device *ndev,struct sk_buff *skb);
 #endif
 #endif

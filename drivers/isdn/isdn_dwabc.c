@@ -27,21 +27,12 @@ static char *dwabcrevison = "$Revision$";
 #include "isdn_common.h"
 #include "isdn_net.h"
 
-struct PSH { 
-	u_long saddr;
-	u_long daddr;
-	u_char zp[2]; 
-	u_short len;
-};
-
 #include <linux/skbuff.h>
 
-#ifdef CONFIG_ISDN_WITH_ABC_IPV4_TCP_KEEPALIVE
+#if CONFIG_ISDN_WITH_ABC_IPV4_DYNADDR
 #include <net/ip.h>
 #include <net/tcp.h>
-#if CONFIG_ISDN_WITH_ABC_IPV4_DYNADDR || CONFIG_ISDN_WITH_ABC_IPTABLES_NETFILTER
 #include <linux/inetdevice.h>
-#endif
 #endif
 
 #include <net/udp.h>
@@ -61,9 +52,7 @@ extern struct isdn_ppp_compressor *isdn_ippp_comp_head;
 #define NBYTEORDER_30BYTES      0x1e00 
 #define DWABC_TMRES (HZ / 10)
 
-//#define KEEPALIVE_VERBOSE 1
-//#define DYNADDR_VERBOSE	 1
-
+#define DYNADDR_VERBOSE	 1
 #define VERBLEVEL (dev->net_verbose > 2)
 
 static void dw_nfw_dlink(isdn_net_local *lp,struct sk_buff *skb,char *msg);
@@ -90,37 +79,6 @@ static LIST_HEAD(lcr_dll);
 static atomic_t lcr_open_count		=	ATOMIC_INIT(0);
 static volatile  ulong lcr_call_counter	= 0;
 
-#endif
-
-#ifdef CONFIG_ISDN_WITH_ABC_IPV4_TCP_KEEPALIVE
-
-static short 	deadloop					= 0;
-static ISDN_DWSPINLOCK ipv4keep_spin = ISDN_DWSPIN_UNLOCKED;
-#define TKAL_LOCK 	isdn_dwspin_trylock(&ipv4keep_spin)
-#define TKAL_ULOCK 	isdn_dwspin_unlock(&ipv4keep_spin)
-
-struct TCPM {
-	struct list_head dll;
-	u_short         tcpm_srcport;
-	u_short         tcpm_dstport;
-	u_short         tcpm_window;
-	u_long          tcpm_srcadr;
-	u_long          tcpm_dstadr;
-	u_long          tcpm_seqnr;
-	u_long          tcpm_acknr;
-	u_long          tcpm_time;
-};
-
-static u_long   next_police		= 0;
-static u_long   last_police		= 0;
-
-#define MAX_MMA 16
-static void    *MMA[MAX_MMA];
-static LIST_HEAD(tcp_dll);
-static LIST_HEAD(tcp_free_dll);
-#endif
-
-#ifdef CONFIG_ISDN_WITH_ABC_LCR_SUPPORT
 
 static int myjiftime(char *p,u_long nj)
 {
@@ -515,17 +473,11 @@ int dw_abc_udp_test(struct sk_buff *skb,struct net_device *ndev)
 #endif
 
 
-
-
 void isdn_dw_clear_if(ulong pm,isdn_net_local *lp)
 {
 	if(lp != NULL) {
-
 #ifdef CONFIG_ISDN_WITH_ABC_LCR_SUPPORT
 		isdn_dw_abc_lcr_clear(lp);
-#endif
-#if CONFIG_ISDN_WITH_ABC_IPTABLES_NETFILTER
-		lp->dw_abc_addr_ready = 0;
 #endif
 	}
 }
@@ -549,7 +501,7 @@ static void dw_abc_timer_func(u_long dont_need_yet)
 }
 
 
-#if CONFIG_ISDN_WITH_ABC_IPV4_TCP_KEEPALIVE || CONFIG_ISDN_WITH_ABC_IPV4_DYNADDR
+#if CONFIG_ISDN_WITH_ABC_IPV4_DYNADDR
 
 static char    *ipnr2buf(u_long ipadr)
 {
@@ -561,449 +513,7 @@ static char    *ipnr2buf(u_long ipadr)
 	sprintf(p, "%d.%d.%d.%d", up[0], up[1], up[2], up[3]);
 	return (p);
 }
-#endif
 
-#if CONFIG_ISDN_WITH_ABC_IPV4_TCP_KEEPALIVE
-
-static __inline__ void free_tcpm(struct TCPM *fb)
-{
-	if (fb != NULL) {
-
-		list_del(&fb->dll);
-		list_add_tail(&fb->dll,&tcp_free_dll);
-	}
-}
-
-static void     ip4keepalive_get_memory(void)
-{
-	struct TCPM    *nb;
-	struct TCPM    *enb;
-	int             anz = 1024 / sizeof(struct TCPM);
-	int             shl;
-
-	for (shl = 0; shl < MAX_MMA && MMA[shl] != NULL; shl++) ;
-
-	if (shl >= MAX_MMA)
-		return;
-
-	nb = (struct TCPM *) kmalloc(sizeof(struct TCPM) * anz, GFP_ATOMIC);
-
-	if (nb == NULL) {
-
-		printk(KERN_DEBUG "ip4keepalive no mem\n");
-		return;
-
-	}
-
-	memset((void *) nb, 0, sizeof(struct TCPM) * anz);
-	enb = nb + anz;
-	MMA[shl] = (void *) nb;
-
-	for (; nb < enb; nb++) 
-		list_add_tail(&nb->dll,&tcp_free_dll);
-}
-
-static __inline struct TCPM *get_free_tm(void)
-{
-	struct TCPM    *nb;
-	struct list_head *lh = NULL;
-
-	if(list_empty(&tcp_free_dll)) {
-
-		if(MMA[MAX_MMA - 1] == NULL) 
-			ip4keepalive_get_memory();
-	}
-
-	if(list_empty(&tcp_free_dll)) {
-
-		if(!list_empty(&tcp_dll))
-			lh = tcp_dll.prev;
-
-	} else lh = tcp_free_dll.next;
-
-	if(lh == NULL)
-		return(NULL);
-
-	list_del(lh);
-	nb = list_entry(lh,struct TCPM,dll);
-	memset((void *) nb, 0, sizeof(*nb));
-	list_add(&nb->dll,&tcp_dll);
-	
-	return (nb);
-}
-
-
-static int  isdn_tcpipv4_test(struct net_device *ndev, struct iphdr *ip, struct sk_buff *skb)
-/******************************************************************************
-	
-	return	==	0	==	no keepalive 
-			==	1	==	keepalive response transmited
-
-****************************************************************************/
-
-{
-	int             ip_hd_len = ip->ihl << 2;
-	struct tcphdr  *tcp = (struct tcphdr *) (((u_char *) ip) + ip_hd_len);
-
-	int             tcp_hdr_len = tcp->doff << 2;
-	int             tcp_data_len = ntohs(ip->tot_len) - tcp_hdr_len - ip_hd_len;
-
-	u_long          tcp_seqnr;
-	struct TCPM    *nb;
-	int             retw = 0;
-	int				shl = 0;
-	int				secure = 10000;
-
-#ifdef KEEPALIVE_VERBOSE
-	if (VERBLEVEL)
-		printk(KERN_DEBUG "isdn_keepalive %s-called ipver %d ipproto %d %s->%s len %d\n",
-				(ndev != NULL) ? "Tx" : "Rx",
-			   ip->version,
-			   ip->protocol,
-			   ipnr2buf(ip->saddr),
-			   ipnr2buf(ip->daddr),
-			   ntohs(ip->tot_len));
-#endif
-
-	if (next_police < jiffies || last_police > jiffies) {
-
-		struct list_head *lh = NULL;
-		next_police = last_police = jiffies;
-		next_police += HZ * 60;
-
-		for(lh = tcp_dll.next,shl=0; lh != &tcp_dll && shl < secure;shl++) {
-
-			nb = list_entry(lh,struct TCPM,dll);
-			lh = lh->next;
-
-			if (nb->tcpm_time > jiffies || 
-				((jiffies - nb->tcpm_time) > (HZ * 3600 * 12)))
-				free_tcpm(nb);
-		}
-
-		if(shl >= secure) {
-
-			printk(KERN_WARNING "ip_isdn_tcp_keepalive: police deadloop\n");
-			deadloop = 1;
-		}
-	}
-
-#ifdef KEEPALIVE_VERBOSE
-	if (VERBLEVEL) {
-
-		printk(KERN_DEBUG
-			   "isdn_keepalive %hd->%hd %d %d %d/%d\n",
-			   ntohs(tcp->source),
-			   ntohs(tcp->dest),
-			   ip_hd_len,
-			   tcp->doff,
-			   tcp_hdr_len,
-			   tcp_data_len);
-	}
-#endif
-	if (tcp_data_len < 0) {
-
-		printk(KERN_DEBUG
-			   "isdn_keepalive adaten < 0 %d %d %d/%d\n",
-			   ip_hd_len,
-			   tcp->doff,
-			   tcp_hdr_len,
-			   tcp_data_len);
-
-		return (0);
-	}
-
-	nb = NULL;
-
-	{
-		struct list_head *lh = NULL;
-
-		shl = 0;
-
-		list_for_each(lh,&tcp_dll) {
-
-			if(shl++ >= secure)
-				break;
-
-			nb = list_entry(lh,struct TCPM,dll);
-
-			 if(!((nb->tcpm_srcadr ^ ip->saddr) ||
-		  		(nb->tcpm_dstadr ^ ip->daddr) ||
-		  		(nb->tcpm_srcport ^ tcp->source) ||
-		  		(nb->tcpm_dstport ^ tcp->dest)))
-				break;
-
-			nb = NULL;
-		}
-
-		if(shl >= secure) {
-
-			printk(KERN_WARNING "ip_isdn_tcp_keepalive: search deadloop\n");
-			deadloop = 1;
-		}
-	}
-
-#ifdef KEEPALIVE_VERBOSE
-	if (VERBLEVEL) {
-
-		printk(KERN_DEBUG
-			   "isdn_keepalive found tcp_merk 0x%08lX %d %d/%d\n",
-			   (long) nb,
-			   tcp->doff,
-			   tcp_hdr_len,
-			   tcp_data_len);
-
-		printk(KERN_DEBUG
-			   "isdn_keepalive syn %d ack %d fin %d rst %d psh %d urg %d\n",
-			   tcp->syn,
-			   tcp->ack,
-			   tcp->fin,
-			   tcp->rst,
-			   tcp->psh,
-			   tcp->urg);
-	}
-#endif
-	if (nb == NULL) {
-
-		if(!tcp->ack || tcp->fin || tcp->rst || tcp->syn || tcp->urg) {
-			
-
-#ifdef KEEPALIVE_VERBOSE
-			if (VERBLEVEL)
-				printk(KERN_DEBUG "isdn_keepalive flags ausgang\n");
-#endif
-			return (0);
-		}
-
-		if ((nb = get_free_tm()) == NULL) {
-
-#ifdef KEEPALIVE_VERBOSE
-			if (VERBLEVEL)
-				printk(KERN_DEBUG "isdn_keepalive get_free_tm == NULL\n");
-#endif
-
-			return (0);
-		}
-
-		nb->tcpm_srcadr = ip->saddr;
-		nb->tcpm_dstadr = ip->daddr;
-		nb->tcpm_srcport = tcp->source;
-		nb->tcpm_dstport = tcp->dest;
-		nb->tcpm_acknr = tcp->ack_seq;
-		nb->tcpm_window = tcp->window;
-		nb->tcpm_time = jiffies;
-		nb->tcpm_seqnr = ntohl(tcp->seq) + tcp_data_len;
-
-#ifdef KEEPALIVE_VERBOSE
-		if (VERBLEVEL) {
-
-			printk(KERN_DEBUG
-				   "isdn_keepalive put new %s:%hu->%s:%hu  ack %lu oseq %lu len %d nseq %lu\n",
-				   ipnr2buf(ip->saddr),
-				   ntohs(tcp->source),
-				   ipnr2buf(ip->daddr),
-				   ntohs(tcp->dest),
-				   ntohl(tcp->ack_seq),
-				   ntohl(tcp->seq),
-				   tcp_data_len,
-				   nb->tcpm_seqnr);
-		}
-#endif
-		return (0);
-	}
-
-	if (!tcp->ack || tcp->fin || tcp->rst || tcp->urg) {
-
-#ifdef KEEPALIVE_VERBOSE
-		if (VERBLEVEL)
-			printk(KERN_DEBUG
-				   "isdn_keepalive received || flags != 0 || ack == 0\n");
-#endif
-
-		free_tcpm(nb);
-		return (0);
-	}
-
-	tcp_seqnr = ntohl(tcp->seq);
-
-	if (!tcp->psh 						&& 
-		tcp_data_len < 2 				&&
-		nb->tcpm_acknr == tcp->ack_seq 	&&
-		nb->tcpm_window == tcp->window	) {
-
-		if (nb->tcpm_seqnr == tcp_seqnr || (nb->tcpm_seqnr - 1) == tcp_seqnr) {
-
-			/*
-			 * so, das ist schon ein fast ein sicherer
-			 * keepalive-request.
-			 * aber es koennte immer noch ein retransmit sein
-			 */
-
-			if (nb->tcpm_time < jiffies &&
-				(jiffies - nb->tcpm_time) >= ((u_long) 50 * HZ)) {
-
-				struct sk_buff *nskb;
-				int             need;
-				int             hlen;
-
-				/*
-				 * ok jetzt eine antwort generieren
-				 */
-
-				need = sizeof(struct iphdr) + sizeof(struct tcphdr);
-
-				hlen = ndev->hard_header_len;
-				hlen = (hlen + 15) & ~15;
-				nskb = dev_alloc_skb(need + hlen);
-
-				if (nskb != NULL) {
-
-					struct tcphdr  *ntcp;
-					struct iphdr   *iph = (struct iphdr *) ((u_char *) skb->data);
-
-					struct PSH *psh;
-
-					skb_reserve(nskb, hlen);
-					iph = (struct iphdr *) skb_put(nskb, sizeof(*iph));
-					ntcp = (struct tcphdr *) skb_put(nskb, sizeof(*ntcp));
-
-					if(dev->net_verbose > 0)
-						printk(KERN_DEBUG "isdn_keepalive send response %s->%s %d->%d\n",
-							   ipnr2buf(ip->daddr),
-							   ipnr2buf(ip->saddr),
-							   ntohs(tcp->dest),
-							   ntohs(tcp->source));
-
-					memset((void *) ntcp, 0, sizeof(*ntcp));
-					psh = (struct PSH *) (((u_char *) ntcp) - sizeof(*psh));
-					psh->saddr = ip->daddr;
-					psh->daddr = ip->saddr;
-					psh->zp[0] = 0;
-					psh->zp[1] = 6;
-					psh->len = htons(sizeof(*tcp));
-
-					ntcp->source = tcp->dest;
-					ntcp->dest = tcp->source;
-					ntcp->seq = tcp->ack_seq;
-					ntcp->ack_seq = htonl(tcp_seqnr + tcp_data_len);
-					ntcp->window = tcp->window;
-					ntcp->doff = sizeof(*tcp) >> 2;
-					ntcp->check = 0;
-					ntcp->urg_ptr = 0;
-					ntcp->ack = 1;
-					ntcp->check = ip_compute_csum((void *) psh, 32);
-					memset(iph, 0, sizeof(*iph));
-					iph->version = 4;
-					iph->ihl = 5;
-					iph->tos = ip->tos;
-					iph->tot_len = htons(sizeof(*iph) + sizeof(*ntcp));
-					iph->id = (u_short) (jiffies & 0xFFFF);
-					iph->frag_off = 0;
-					iph->ttl = IPDEFTTL;
-					iph->protocol = ip->protocol;
-					iph->daddr = ip->saddr;
-					iph->saddr = ip->daddr;
-					iph->check = ip_compute_csum((void *) iph, sizeof(*iph));
-					nskb->dev = ndev;
-					nskb->mac.raw = nskb->data;
-					nskb->protocol = htons(ETH_P_IP);
-					nskb->pkt_type = PACKET_HOST;
-					netif_rx(nskb);
-					retw = 1;
-
-				} else {
-
-					printk(KERN_DEBUG
-						   "isdn_keepalive no space for new skb\n");
-				}
-
-			} else {
-
-#ifdef KEEPALIVE_VERBOSE
-				if (VERBLEVEL) {
-
-					printk(KERN_DEBUG
-						   "isdn_keepalive jiffies %lu %lu\n",
-						   jiffies, nb->tcpm_time);
-				}
-#endif
-			}
-
-		} else {
-
-#ifdef KEEPALIVE_VERBOSE
-			if (VERBLEVEL) {
-
-				printk(KERN_DEBUG
-					   "isdn_keepalive no keep  nb->tcpm_seqnr %lu tcp->seqnr %lu dlen %d nb->ack %lu tcp->ack %lu nm->window %d tcp->window %d\n",
-					   nb->tcpm_seqnr,
-					   tcp_seqnr,
-					   tcp_data_len,
-					   ntohl(nb->tcpm_acknr),
-					   ntohl(tcp->ack_seq),
-					   ntohs(nb->tcpm_window),
-					   ntohs(tcp->window));
-			}
-#endif
-		}
-
-	} else {
-
-#ifdef KEEPALIVE_VERBOSE
-		if (VERBLEVEL) {
-
-			printk(KERN_DEBUG
-				   "isdn_keepalive datenlen %d ack==seq %d win==win %d\n",
-				   tcp_data_len,
-				   nb->tcpm_acknr == tcp->ack_seq,
-				   nb->tcpm_window == tcp->window);
-		}
-#endif
-	}
-
-	nb->tcpm_seqnr = tcp_seqnr + tcp_data_len;
-	nb->tcpm_acknr = tcp->ack_seq;
-	nb->tcpm_window = tcp->window;
-	nb->tcpm_time = jiffies;
-
-	list_del(&nb->dll);
-	list_add(&nb->dll,&tcp_dll);
-
-	return (retw);
-}
-
-static void isdn_tcp_keepalive_init(void)
-{
-	if(!TKAL_LOCK) {
-
-		INIT_LIST_HEAD(&tcp_dll);
-		INIT_LIST_HEAD(&tcp_free_dll);
-		next_police = last_police = 0;
-		deadloop = 0;
-		memset(MMA,0,sizeof(MMA));
-		TKAL_ULOCK;
-
-	} else printk(KERN_INFO "isdn keepalive_init can't lcok\n");
-}
-
-static void isdn_tcp_keepalive_done(void)
-{
-	int shl;
-
-	if(!TKAL_LOCK) {
-
-		INIT_LIST_HEAD(&tcp_dll);
-		INIT_LIST_HEAD(&tcp_free_dll);
-		next_police = last_police = 0;
-		for (shl = 0; shl < MAX_MMA && MMA[shl] != NULL; shl++) kfree(MMA[shl]);
-		memset(MMA,0,sizeof(MMA));
-		TKAL_ULOCK;
-
-	} else printk(KERN_INFO "isdn keepalive_done can't lcok\n");
-}
-#endif
-
-#if CONFIG_ISDN_WITH_ABC_IPV4_TCP_KEEPALIVE || CONFIG_ISDN_WITH_ABC_IPV4_DYNADDR
 struct sk_buff *isdn_dw_abc_ip4_keepalive_test(struct net_device *ndev,struct sk_buff *skb)
 {
 	int rklen;
@@ -1015,14 +525,8 @@ struct sk_buff *isdn_dw_abc_ip4_keepalive_test(struct net_device *ndev,struct sk
 
 	lp = (isdn_net_local *)ndev->priv;
 
-	if(ntohs(skb->protocol) != ETH_P_IP) {
-
-#ifdef KEEPALIVE_VERBOSE
-		if(VERBLEVEL)
-			printk(KERN_WARNING "ip_isdn_keepalive: protocol != ETH_P_IP\n");
-#endif
+	if(ntohs(skb->protocol) != ETH_P_IP)
 		return(skb);
-	}
 
 	rklen = skb->len;
 	ip = (struct iphdr *)skb->data;
@@ -1033,28 +537,14 @@ struct sk_buff *isdn_dw_abc_ip4_keepalive_test(struct net_device *ndev,struct sk
 		ip = (struct iphdr *)skb->nh.raw;
 	}
 
-	if (rklen < sizeof(struct iphdr)) {
-#ifdef KEEPALIVE_VERBOSE
-		if(VERBLEVEL)
-			printk(KERN_WARNING "ip_isdn_keepalive: len %d < iphdr\n",
-			rklen);
-#endif
+	if (rklen < sizeof(struct iphdr))
 		return (skb);
-	}
 
 	rklen -= sizeof(struct iphdr);
 	
-	if(ip->version != 4 ) {
-#ifdef KEEPALIVE_VERBOSE
-		if(VERBLEVEL)
-			printk(KERN_WARNING
-				"ip_isdn_keepalive: ipversion %d != 4\n",
-				ip->version);
-#endif
+	if(ip->version != 4 ) 
 		return(skb);
-	}
 
-#ifdef CONFIG_ISDN_WITH_ABC_IPV4_DYNADDR
 	if(ndev->ip_ptr != NULL && (lp->dw_abc_flags & ISDN_DW_ABC_FLAG_DYNADDR)) {
 
 		struct in_device *indev = (struct in_device *)ndev->ip_ptr;
@@ -1084,61 +574,13 @@ struct sk_buff *isdn_dw_abc_ip4_keepalive_test(struct net_device *ndev,struct sk
 			}
 		}
 	}
-#endif
 
-#ifdef CONFIG_ISDN_WITH_ABC_IPV4_TCP_KEEPALIVE
-	if((lp->dw_abc_flags & ISDN_DW_ABC_FLAG_NO_TCP_KEEPALIVE)) 
-		return(skb);
-
-	if (rklen < sizeof(struct tcphdr)) {
-#ifdef KEEPALIVE_VERBOSE
-			if(VERBLEVEL)
-				printk(KERN_WARNING "ip_isdn_keepalive: len %d < \n",skb->len);
-#endif
-		return (skb);
-	}
-
-	if(ip->protocol != IPPROTO_TCP) {
-#ifdef KEEPALIVE_VERBOSE
-		if(VERBLEVEL)
-			printk(KERN_WARNING
-				"ip_isdn_keepalive: ip->proto %d != IPPROTO_TCP\n",
-				ip->protocol);
-#endif
-		return(skb);
-	}
-
-	if(deadloop) {
-
-		if(deadloop < 10) {
-			printk(KERN_WARNING "ip_isdn_keepalive: sorry deadloop detected\n");
-			deadloop++;
-		}
-
-		return(skb);
-	}
-
-	rklen = 0;
-
-	if(!TKAL_LOCK) {
-
-		rklen = isdn_tcpipv4_test(ndev,ip,skb);
-		TKAL_ULOCK;
-	}
-
-	return(rklen ? NULL : skb);
-#else
 	return(skb);
-#endif
 }
 #endif
 
 void isdn_dw_abc_init_func(void)
 {
-
-#ifdef CONFIG_ISDN_WITH_ABC_IPV4_TCP_KEEPALIVE
-	isdn_tcp_keepalive_init();
-#endif
 
 	init_timer(&dw_abc_timer);
 	dw_abc_timer.function = dw_abc_timer_func;
@@ -1166,9 +608,6 @@ void isdn_dw_abc_init_func(void)
 #ifdef CONFIG_ISDN_WITH_ABC_LCR_SUPPORT
 		"CONFIG_ISDN_WITH_ABC_LCR_SUPPORT\n"
 #endif
-#ifdef CONFIG_ISDN_WITH_ABC_IPV4_TCP_KEEPALIVE
-		"CONFIG_ISDN_WITH_ABC_IPV4_TCP_KEEPALIVE\n"
-#endif
 #ifdef CONFIG_ISDN_WITH_ABC_IPV4_DYNADDR
 		"CONFIG_ISDN_WITH_ABC_IPV4_DYNADDR\n"
 #endif
@@ -1186,7 +625,6 @@ void isdn_dw_abc_init_func(void)
 #endif
 		"loaded\n",
 		dwabcrevison,LINUX_VERSION_CODE);
-
 		dwsjiffies = 0;
 		dw_abc_timer.expires = jiffies + DWABC_TMRES;
 		add_timer(&dw_abc_timer);
@@ -1198,15 +636,11 @@ void isdn_dw_abc_release_func(void)
 #ifdef CONFIG_ISDN_WITH_ABC_LCR_SUPPORT
 	dw_lcr_clear_all();
 #endif
-#ifdef CONFIG_ISDN_WITH_ABC_IPV4_TCP_KEEPALIVE
-	isdn_tcp_keepalive_done();
-#endif
 	printk( KERN_INFO
 		"abc-extension %s  Kernel 0x%06X\n"
 		"written by\n"
 		"Detlef Wengorz <detlefw@isdn4linux.de>\n"
-		"unloaded\n"
-		"For more details see http://i4l.mediatronix.de\n",
+		"unloaded\n",
 		dwabcrevison,LINUX_VERSION_CODE);
 }
 
@@ -1254,7 +688,6 @@ void isdn_dwabc_test_phone(isdn_net_local *lp)
 				/* abc switch's */
 
 				for(p++;p < ep && *p;p++) switch(*p) {
-				case 'k':	lp->dw_abc_flags |= ISDN_DW_ABC_FLAG_NO_TCP_KEEPALIVE;		break;
 				case 'u':	lp->dw_abc_flags |= ISDN_DW_ABC_FLAG_NO_UDP_CHECK;			break;
 				case 'h':	lp->dw_abc_flags |= ISDN_DW_ABC_FLAG_NO_UDP_HANGUP;			break;
 				case 'd':	lp->dw_abc_flags |= ISDN_DW_ABC_FLAG_NO_UDP_DIAL;			break;
@@ -1286,7 +719,6 @@ void isdn_dwabc_test_phone(isdn_net_local *lp)
 			lp->dw_abc_flags &= ~ISDN_DW_ABC_FLAG_DYNADDR;
 
 			lp->dw_abc_flags |= 
-					ISDN_DW_ABC_FLAG_NO_TCP_KEEPALIVE	|
 					ISDN_DW_ABC_FLAG_NO_UDP_CHECK		|
 					ISDN_DW_ABC_FLAG_NO_UDP_HANGUP		|
 					ISDN_DW_ABC_FLAG_NO_UDP_DIAL		|
@@ -1301,172 +733,6 @@ void isdn_dwabc_test_phone(isdn_net_local *lp)
 	}
 }
 
-
-#ifdef CONFIG_ISDN_WITH_ABC_ICALL_BIND 
-
-
-int dwabc_isdn_get_net_free_channel(isdn_net_local *lp) 
-{
-	int retw = -1;
-	int isconf = 0;
-
-	if(lp != NULL) {
-#ifdef CONFIG_ISDN_WITH_ABC_OUTGOING_EAZ 
-		char *now_msn = (*lp->dw_out_msn) ? lp->dw_out_msn : lp->msn;
-#else
-		char *now_msn = lp->msn;
-#endif
-
-		if(lp->pre_device < 0 && lp->pre_channel < 0) {
-
-			isdn_net_phone *h = lp->phone[0];
-			int secure = 0;
-			dwabc_check_lchmap();
-
-			for(;retw < 0 && h != NULL && secure < 1000;secure++,h = h->next) {
-
-				char *p 	= 	h->num;
-				char *ep 	= 	p + ISDN_MSNLEN;
-				int di		=	0;
-				int shl		=	0;
-				ulong bits	=	0;
-				short dir_down  = 	0;
-				driver *dri = NULL;
-
-				for(;p < ep && *p && (*p <= ' ' || *p == '"' || *p == '\'');p++);
-
-				if(p >= (ep-1) || *p != '>') continue;
-				if(*(++p) != '>') continue;
-
-				isconf = 1;
-				p++;
-
-				if(p < ep && (*p == '<' || *p == '>')) {
-
-					dir_down = *p == '<';
-					p++;
-				}
-
-				if((di = get_driverid(lp,p,ep,&bits)) < 0 || di >= ISDN_MAX_DRIVERS)
-					continue;
-
-				if((dri = dev->drv[di]) == NULL)
-					continue;
-
-				if(dir_down) for(shl = dri->channels -1 ; shl >= 0  && retw < 0; shl--) {
-
-					if(shl >=  ISDN_DW_ABC_MAX_CH_P_RIVER)
-						continue;
-
-					if(bits & (1L << shl)) {
-
-						if(dri->dwabc_lchmap[shl])
-							continue;
-
-						if(isdn_dc2minor(di,shl) < 0)
-							continue;
-
-						if((retw = isdn_get_free_channel(
-								ISDN_USAGE_NET,
-								lp->l2_proto,
-								lp->l3_proto,
-								di,
-								9999,
-								now_msn
-								)) >= 0) {
-
-							int c = dev->chanmap[retw];
-
-							if(c >= 0) {
-
-								dri->dwabc_lchmap[shl] = c + 1;
-								dri->dwabc_lch_use = jiffies;
-							}
-						}
-					}
-
-				} else for(shl = 0; shl < ISDN_DW_ABC_MAX_CH_P_RIVER && 
-								retw < 0 && shl < dri->channels; shl++) {
-
-					if(bits & (1L << shl)) {
-
-						if(dri->dwabc_lchmap[shl])
-							continue;
-
-						if(isdn_dc2minor(di,shl) < 0)
-							break;
-
-						if((retw = isdn_get_free_channel(
-								ISDN_USAGE_NET,
-								lp->l2_proto,
-								lp->l3_proto,
-								di,
-								9999,
-								now_msn)) >= 0) {
-
-							int c = dev->chanmap[retw];
-
-							if(c >= 0) {
-
-								dri->dwabc_lchmap[shl] = c + 1;
-								dri->dwabc_lch_use = jiffies;
-							}
-						}
-					}
-				}
-			}
-		}
-
-		if(!isconf) {
-
-			retw = isdn_get_free_channel(
-					ISDN_USAGE_NET,
-					lp->l2_proto,
-					lp->l3_proto,
-					lp->pre_device,
-					lp->pre_channel,
-					now_msn);
-
-			if(retw >= 0) {
-
-				int di = dev->drvmap[retw];
-				int ch = dev->chanmap[retw];
-
-				if(di >= 0 && di < ISDN_MAX_DRIVERS && ch >= 0) {
-
-					driver *dri = dev->drv[di];
-
-					if(dri != NULL) {
-
-						int i;
-
-						for(i = 0; i < dri->channels && i < ISDN_DW_ABC_MAX_CH_P_RIVER;i++) {
-
-							if(!dri->dwabc_lchmap[i]) {
-
-								dri->dwabc_lchmap[i] = ch + 1;
-								dri->dwabc_lch_use = jiffies;
-								break;
-							}
-						}
-					}
-				}
-			}
-
-		} else if(retw < 0 && lp != NULL) {
-
-			printk(KERN_INFO "%s: No free locical Channel found\n",lp->name);
-		}
-
-	} else {
-
-		printk(KERN_WARNING 
-			"dwabc_isdn_get_net_free_channel  called with *lp == NULL\n");
-	}
-
-	return(retw);
-}
-#endif
 
 int isdn_dw_abc_reset_interface(isdn_net_local *lp,int with_message)
 {
