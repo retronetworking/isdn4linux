@@ -222,6 +222,7 @@ struct isar_hw {
 	u_char mod;
 	u_char newcmd;
 	u_char newmod;
+	char try_mod;
 	struct timer_list ftimer;
 	u_char *rcvbuf;         /* B-Channel receive Buffer */
 	u_char conmsg[16];

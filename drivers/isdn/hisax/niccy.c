@@ -20,7 +20,11 @@
 #endif
 
 extern const char *CardType[];
+<<<<<<< niccy.c
 const char *niccy_revision = "$Revision$";
+=======
+const char *niccy_revision = "$Revision$";
+>>>>>>> 1.9
 
 #define byteout(addr,val) outb(val,addr)
 #define bytein(addr) inb(addr)
@@ -205,11 +209,14 @@ static void
 niccy_reset(struct IsdnCardState *cs)
 {
 	int val, nval;
-	
-	val = inl(cs->hw.niccy.cfg_reg + PCI_IRQ_CTRL_REG);
-	nval = val | PCI_IRQ_ENABLE;
-	outl(nval, cs->hw.niccy.cfg_reg + PCI_IRQ_CTRL_REG);
 
+	if (cs->subtyp == NICCY_PCI) {
+		int val;
+
+		val = inl(cs->hw.niccy.cfg_reg + PCI_IRQ_CTRL_REG);
+		val |= PCI_IRQ_ENABLE;
+		outl(val, cs->hw.niccy.cfg_reg + PCI_IRQ_CTRL_REG);
+	}
 	inithscxisac(cs, 3);
 }
 
