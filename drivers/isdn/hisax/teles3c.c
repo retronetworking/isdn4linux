@@ -6,6 +6,9 @@
  *
  *
  * $Log$
+ * Revision 1.1.2.1  1998/01/11 22:54:04  keil
+ * Teles 16.3c (HFC 2BDS0) first version
+ *
  *
  */
 
@@ -17,63 +20,6 @@
 extern const char *CardType[];
 
 const char *teles163c_revision = "$Revision$";
-
-#define byteout(addr,val) outb_p(val,addr)
-#define bytein(addr) inb_p(addr)
-
-static void
-dummyf(struct IsdnCardState *cs, u_char * data, int size)
-{
-}
-
-static inline u_char
-ReadReg(struct IsdnCardState *cs, int data, u_char reg)
-{
-	register u_char ret;
-
-	if (data) {
-		cs->hw.hfcD.cip = reg;
-		byteout(cs->hw.hfcD.addr | 1, reg);
-		ret = bytein(cs->hw.hfcD.addr);
-		if (cs->debug & L1_DEB_HSCX_FIFO && (data != 2)) {
-			char tmp[32];
-			sprintf(tmp, "t3c RD %02x %02x", reg, ret);
-			debugl1(cs, tmp);
-		}
-	} else
-		ret = bytein(cs->hw.hfcD.addr | 1);
-	return (ret);
-}
-
-static inline void
-WriteReg(struct IsdnCardState *cs, int data, u_char reg, u_char value)
-{
-	byteout(cs->hw.hfcD.addr | 1, reg);
-	cs->hw.hfcD.cip = reg;
-	if (data)
-		byteout(cs->hw.hfcD.addr, value);
-	if (cs->debug & L1_DEB_HSCX_FIFO && (data != HFCD_DATA_NODEB)) {
-		char tmp[32];
-		sprintf(tmp, "t3c W%c %02x %02x", data ? 'D' : 'C', reg, value);
-		debugl1(cs, tmp);
-	}
-}
-
-/* Interface functions */
-
-static u_char
-readreghfcd(struct IsdnCardState *cs, u_char offset)
-{
-	u_char val;
-	val = ReadReg(cs, HFCD_DATA, offset);
-	return(val);
-}
-
-static void
-writereghfcd(struct IsdnCardState *cs, u_char offset, u_char value)
-{
-	WriteReg(cs, HFCD_DATA, offset, value);
-}
 
 static void
 t163c_interrupt(int intno, void *dev_id, struct pt_regs *regs)
@@ -87,8 +33,8 @@ t163c_interrupt(int intno, void *dev_id, struct pt_regs *regs)
 		return;
 	}
 	if ((HFCD_ANYINT | HFCD_BUSY_NBUSY) & 
-		(stat = ReadReg(cs, HFCD_DATA, HFCD_STAT))) {
-		val = ReadReg(cs, HFCD_DATA, HFCD_INT_S1);
+		(stat = cs->BC_Read_Reg(cs, HFCD_DATA, HFCD_STAT))) {
+		val = cs->BC_Read_Reg(cs, HFCD_DATA, HFCD_INT_S1);
 		if (cs->debug & L1_DEB_ISAC) {
 			sprintf(tmp, "teles3c: stat(%02x) s1(%02x)", stat, val);
 			debugl1(cs, tmp);
@@ -128,34 +74,36 @@ reset_t163c(struct IsdnCardState *cs)
 
 	printk(KERN_INFO "teles3c: resetting card\n");
 	cs->hw.hfcD.cirm = HFCD_RESET | HFCD_MEM8K;
-	WriteReg(cs, HFCD_DATA, HFCD_CIRM, cs->hw.hfcD.cirm);	/* Reset On */
+	cs->BC_Write_Reg(cs, HFCD_DATA, HFCD_CIRM, cs->hw.hfcD.cirm);	/* Reset On */
 	save_flags(flags);
 	sti();
 	current->state = TASK_INTERRUPTIBLE;
 	current->timeout = jiffies + 3;
 	schedule();
 	cs->hw.hfcD.cirm = HFCD_MEM8K;
-	WriteReg(cs, HFCD_DATA, HFCD_CIRM, cs->hw.hfcD.cirm);	/* Reset Off */
+	cs->BC_Write_Reg(cs, HFCD_DATA, HFCD_CIRM, cs->hw.hfcD.cirm);	/* Reset Off */
 	current->state = TASK_INTERRUPTIBLE;
 	current->timeout = jiffies + 1;
 	schedule();
 	cs->hw.hfcD.cirm |= HFCD_INTB;
-	WriteReg(cs, HFCD_DATA, HFCD_CIRM, cs->hw.hfcD.cirm);	/* INT B */
-	WriteReg(cs, HFCD_DATA, HFCD_CLKDEL, 0x0e);
-	WriteReg(cs, HFCD_DATA, HFCD_TEST, HFCD_AUTO_AWAKE); /* S/T Auto awake */
+	cs->BC_Write_Reg(cs, HFCD_DATA, HFCD_CIRM, cs->hw.hfcD.cirm);	/* INT B */
+	cs->BC_Write_Reg(cs, HFCD_DATA, HFCD_CLKDEL, 0x0e);
+	cs->BC_Write_Reg(cs, HFCD_DATA, HFCD_TEST, HFCD_AUTO_AWAKE); /* S/T Auto awake */
 	cs->hw.hfcD.ctmt = HFCD_TIM25 | HFCD_AUTO_TIMER;
-	WriteReg(cs, HFCD_DATA, HFCD_CTMT, cs->hw.hfcD.ctmt);
+	cs->BC_Write_Reg(cs, HFCD_DATA, HFCD_CTMT, cs->hw.hfcD.ctmt);
 	cs->hw.hfcD.int_m2 = HFCD_IRQ_ENABLE;
-	cs->hw.hfcD.int_m1 = 0xff;
-	WriteReg(cs, HFCD_DATA, HFCD_INT_M1, cs->hw.hfcD.int_m1);
-	WriteReg(cs, HFCD_DATA, HFCD_INT_M2, cs->hw.hfcD.int_m2);
-	WriteReg(cs, HFCD_DATA, HFCD_STATES, HFCD_LOAD_STATE | 2); /* HFC ST 2 */
+	cs->hw.hfcD.int_m1 = HFCD_INTS_B1TRANS | HFCD_INTS_B2TRANS |
+		HFCD_INTS_DTRANS | HFCD_INTS_B1REC | HFCD_INTS_B2REC |
+		HFCD_INTS_DREC | HFCD_INTS_L1STATE;
+	cs->BC_Write_Reg(cs, HFCD_DATA, HFCD_INT_M1, cs->hw.hfcD.int_m1);
+	cs->BC_Write_Reg(cs, HFCD_DATA, HFCD_INT_M2, cs->hw.hfcD.int_m2);
+	cs->BC_Write_Reg(cs, HFCD_DATA, HFCD_STATES, HFCD_LOAD_STATE | 2); /* HFC ST 2 */
 	udelay(10);
-	WriteReg(cs, HFCD_DATA, HFCD_STATES, 2); /* HFC ST 2 */
+	cs->BC_Write_Reg(cs, HFCD_DATA, HFCD_STATES, 2); /* HFC ST 2 */
 	cs->hw.hfcD.mst_m = 0;
-	WriteReg(cs, HFCD_DATA, HFCD_MST_MODE, HFCD_MASTER); /* HFC Master */
+	cs->BC_Write_Reg(cs, HFCD_DATA, HFCD_MST_MODE, HFCD_MASTER); /* HFC Master */
 	cs->hw.hfcD.sctrl = 0;
-	WriteReg(cs, HFCD_DATA, HFCD_SCTRL, cs->hw.hfcD.sctrl);
+	cs->BC_Write_Reg(cs, HFCD_DATA, HFCD_SCTRL, cs->hw.hfcD.sctrl);
 	restore_flags(flags);
 }
 
@@ -163,7 +111,6 @@ static int
 t163c_card_msg(struct IsdnCardState *cs, int mt, void *arg)
 {
 	long flags;
-	u_char reg,val;
 	char tmp[32];
 
 	if (cs->debug & L1_DEB_ISAC) {
@@ -191,8 +138,8 @@ t163c_card_msg(struct IsdnCardState *cs, int mt, void *arg)
 			current->timeout = jiffies + (80*HZ)/1000;
 			schedule();
 			cs->hw.hfcD.ctmt |= HFCD_TIM800;
-			WriteReg(cs, HFCD_DATA, HFCD_CTMT, cs->hw.hfcD.ctmt); 
-			WriteReg(cs, HFCD_DATA, HFCD_MST_MODE, cs->hw.hfcD.mst_m);
+			cs->BC_Write_Reg(cs, HFCD_DATA, HFCD_CTMT, cs->hw.hfcD.ctmt); 
+			cs->BC_Write_Reg(cs, HFCD_DATA, HFCD_MST_MODE, cs->hw.hfcD.mst_m);
 			restore_flags(flags);
 			return(0);
 		case CARD_TEST:
@@ -215,12 +162,14 @@ setup_t163c(struct IsdnCard *card))
 	cs->hw.hfcD.addr = card->para[1] & 0xfffe;
 	cs->irq = card->para[0];
 	cs->hw.hfcD.cip = 0;
+	cs->hw.hfcD.int_s1 = 0;
 	cs->hw.hfcD.send = NULL;
 	cs->bcs[0].hw.hfc.send = NULL;
 	cs->bcs[1].hw.hfc.send = NULL;
 	cs->hw.hfcD.bfifosize = 1024 + 512;
 	cs->hw.hfcD.dfifosize = 512;
 	cs->ph_state = 0;
+	cs->hw.hfcD.fifo = 255;
 	if (check_region((cs->hw.hfcD.addr), 2)) {
 		printk(KERN_WARNING
 		       "HiSax: %s config port %x-%x already in use\n",
@@ -232,23 +181,18 @@ setup_t163c(struct IsdnCard *card))
 		request_region(cs->hw.hfcD.addr, 2, "teles3c isdn");
 	}
 	/* Teles 16.3c IO ADR is 0x200 | YY0U (YY Bit 15/14 address) */
-	byteout(cs->hw.hfcD.addr, 0x0);
-	byteout(cs->hw.hfcD.addr | 1, 0x56);
+	outb(0x00, cs->hw.hfcD.addr);
+	outb(0x56, cs->hw.hfcD.addr | 1);
 	printk(KERN_INFO
 	       "teles3c: defined at 0x%x IRQ %d HZ %d\n",
 	       cs->hw.hfcD.addr,
 	       cs->irq, HZ);
 
-	reset_t163c(cs);
+	set_cs_func(cs);
 	cs->hw.hfcD.timer.function = (void *) t163c_Timer;
 	cs->hw.hfcD.timer.data = (long) cs;
 	init_timer(&cs->hw.hfcD.timer);
-	cs->readisac = &readreghfcd;
-	cs->writeisac = &writereghfcd;
-	cs->readisacfifo = &dummyf;
-	cs->writeisacfifo = &dummyf;
-	cs->BC_Read_Reg = &ReadReg;
-	cs->BC_Write_Reg = &WriteReg;
+	reset_t163c(cs);
 	cs->cardmsg = &t163c_card_msg;
 	return (1);
 }
