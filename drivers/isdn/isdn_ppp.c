@@ -19,6 +19,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.22  1997/02/06 15:03:51  hipp
+ * changed GFP_KERNEL kmalloc to GFP_ATOMIC in isdn_ppp_fill_mpqueue()
+ *
  * Revision 1.21  1997/02/03 23:29:38  fritz
  * Reformatted according CodingStyle
  * Bugfix: removed isdn_ppp_skb_destructor, used by upper layers.
@@ -105,7 +108,11 @@
 #include <linux/config.h>
 #define __NO_VERSION__
 #include <linux/module.h>
+#include <linux/version.h>
 #include <linux/isdn.h>
+#if (LINUX_VERSION_CODE >= 0x020117)
+#include <asm/poll.h>
+#endif
 #include "isdn_common.h"
 #include "isdn_ppp.h"
 #include "isdn_net.h"
@@ -591,6 +598,7 @@ isdn_ppp_ioctl(int min, struct file *file, unsigned int cmd, unsigned long arg)
 	return 0;
 }
 
+#if (LINUX_VERSION_CODE < 0x020117)
 int
 isdn_ppp_select(int min, struct file *file, int type, select_table * st)
 {
@@ -633,6 +641,45 @@ isdn_ppp_select(int min, struct file *file, int type, select_table * st)
 	}
 	return 1;
 }
+#else
+unsigned int
+isdn_ppp_poll(struct file *file, poll_table * wait)
+{
+	unsigned int mask;
+	struct ippp_buf_queue *bf, *bl;
+	unsigned long flags;
+	struct ippp_struct *is;
+	
+	is = file->private_data;
+	
+	if(is->debug & 0x2)
+		printk(KERN_DEBUG "isdn_ppp_poll: minor: %d\n", MINOR(file->f_inode->i_rdev));
+	
+	poll_wait(&is->wq, wait);
+	
+	if (!(is->state & IPPP_OPEN)) {
+		printk(KERN_DEBUG "isdn_ppp: device not open\n");
+		return POLLERR;
+	}
+	/* we're always ready to send .. */
+	mask = POLLOUT | POLLWRNORM;
+	
+	save_flags(flags);
+	cli();
+	bl = is->last;
+	bf = is->first;
+	/* 
+	 * if IPPP_NOBLOCK is set we return even if we have nothing to read 
+	 */
+	if (bf->next != bl || (is->state & IPPP_NOBLOCK)) {
+		is->state &= ~IPPP_NOBLOCK;
+		mask |= POLLIN | POLLRDNORM;
+	}
+	
+	restore_flags(flags);
+	return mask;
+}
+#endif
 
 /*
  *  fill up isdn_ppp_read() queue ..
@@ -780,7 +827,7 @@ isdn_ppp_write(int min, struct file *file, const char *buf, int count)
 			SET_SKB_FREE(skb);
 			copy_from_user(skb_put(skb, count), buf, count);
 			if (is->debug & 0x40) {
-				printk(KERN_DEBUG "ppp xmit: len %ld\n", skb->len);
+				printk(KERN_DEBUG "ppp xmit: len %d\n", skb->len);
 				isdn_ppp_frame_log("xmit", skb->data, skb->len, 32);
 			}
 			if ((cnt = isdn_writebuf_skb_stub(lp->isdn_device, lp->isdn_channel, skb)) != count) {
@@ -848,7 +895,7 @@ isdn_ppp_receive(isdn_net_dev * net_dev, isdn_net_local * lp, struct sk_buff *sk
 	is = ippp_table[lp->ppp_slot];
 
 	if (is->debug & 0x4) {
-		printk(KERN_DEBUG "ippp_receive: len: %ld\n", skb->len);
+		printk(KERN_DEBUG "ippp_receive: len: %d\n", skb->len);
 		isdn_ppp_frame_log("receive", skb->data, skb->len, 32);
 	}
 	if (net_dev->local.master) {
@@ -1029,7 +1076,7 @@ isdn_ppp_push_higher(isdn_net_dev * net_dev, isdn_net_local * lp, struct sk_buff
 		}
 	}
 	if (is->debug & 0x10) {
-		printk(KERN_DEBUG "push, skb %ld %04x\n", skb->len, proto);
+		printk(KERN_DEBUG "push, skb %d %04x\n", skb->len, proto);
 		isdn_ppp_frame_log("rpush", skb->data, skb->len, 32);
 	}
 	switch (proto) {
@@ -1201,7 +1248,7 @@ isdn_ppp_xmit(struct sk_buff *skb, struct device *dev)
 	 */
 
 	if (ipt->debug & 0x4)
-		printk(KERN_DEBUG "xmit skb, len %ld\n", skb->len);
+		printk(KERN_DEBUG "xmit skb, len %d\n", skb->len);
 
 #ifdef CONFIG_ISDN_PPP_VJ
 	if (proto == PPP_IP && ipts->pppcfg & SC_COMP_TCP) {	/* ipts here? probably yes .. but this check again */
@@ -1243,7 +1290,7 @@ isdn_ppp_xmit(struct sk_buff *skb, struct device *dev)
 #endif
 
 	if (ipt->debug & 0x24)
-		printk(KERN_DEBUG "xmit2 skb, len %ld, proto %04x\n", skb->len, proto);
+		printk(KERN_DEBUG "xmit2 skb, len %d, proto %04x\n", skb->len, proto);
 
 #ifdef CONFIG_ISDN_MPP
 	if (ipt->mpppcfg & SC_MP_PROT) {
@@ -1277,7 +1324,7 @@ isdn_ppp_xmit(struct sk_buff *skb, struct device *dev)
 	/* tx-stats are now updated via BSENT-callback */
 
 	if (ipts->debug & 0x40) {
-		printk(KERN_DEBUG "skb xmit: len: %ld\n", skb->len);
+		printk(KERN_DEBUG "skb xmit: len: %d\n", skb->len);
 		isdn_ppp_frame_log("xmit", skb->data, skb->len, 32);
 	}
 	if (isdn_net_send_skb(dev, lp, skb)) {
