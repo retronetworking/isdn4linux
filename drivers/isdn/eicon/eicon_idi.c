@@ -21,6 +21,10 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.5  1999/01/24 20:14:11  armin
+ * Changed and added debug stuff.
+ * Better data sending. (still problems with tty's flip buffer)
+ *
  * Revision 1.4  1999/01/10 18:46:05  armin
  * Bug with wrong values in HLC fixed.
  * Bytes to send are counted and limited now.
@@ -905,7 +909,7 @@ idi_handle_ind(diehl_pci_card *card, struct sk_buff *skb)
   					printk(KERN_DEBUG"idi_ind: Info_Ind\n");
 				if ((chan->fsm_state == DIEHL_STATE_ICALLW) &&
 				    (message.cpn[0])) {
-					strcat(chan->cpn, message.cpn);
+					strcat(chan->cpn, message.cpn + 1);
 					goto try_stat_icall_again;
 				}
 				break;
