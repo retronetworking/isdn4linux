@@ -178,7 +178,6 @@ isdn_ppp_bind(isdn_net_local * lp)
 
 	save_flags(flags);
 	cli();
-
 	if (lp->pppbind < 0) {  /* device bounded to ippp device ? */
 		isdn_net_dev *net_dev = dev->netdev;
 		char exclusive[ISDN_MAX_CHANNELS];	/* exclusive flags */
@@ -217,7 +216,6 @@ isdn_ppp_bind(isdn_net_local * lp)
 	}
 	
 	lp->ppp_slot = i;
-
 	is = ippp_table[i];
 	is->lp = lp;
 	is->unit = unit;
@@ -1411,18 +1409,27 @@ static void isdn_ppp_mp_print_recv_pkt( int slot, struct sk_buff * skb );
 static void isdn_ppp_mp_receive(isdn_net_dev * net_dev, isdn_net_local * lp, 
 							struct sk_buff *skb)
 {
-	struct ippp_struct *is = ippp_table[lp->ppp_slot];
+	struct ippp_struct *is;
 	isdn_net_local * lpq;
 	ippp_bundle * mp;
 	isdn_mppp_stats * stats;
 	struct sk_buff * newfrag, * frag, * start, *nextf;
 	u32 newseq, minseq, thisseq;
 	unsigned long flags;
-    
-    	spin_lock_irqsave(&net_dev->pb->lock, flags);
+	int slot;
+
+	spin_lock_irqsave(&net_dev->pb->lock, flags);
     	mp = net_dev->pb;
         stats = &mp->stats;
-	
+	slot = lp->ppp_slot;
+	if (slot < 0 || slot > ISDN_MAX_CHANNELS) {
+		printk(KERN_ERR "isdn_ppp_mp_receive: lp->ppp_slot %d\n", lp->ppp_slot);
+		stats->frame_drops++;
+		dev_kfree_skb(skb);
+		spin_unlock_irqrestore(&mp->lock, flags);
+		return;
+	}
+	is = ippp_table[slot];
     	if( ++mp->frames > stats->max_queue_len )
 		stats->max_queue_len = mp->frames;
 	
@@ -1450,9 +1457,14 @@ static void isdn_ppp_mp_receive(isdn_net_dev * net_dev, isdn_net_local * lp,
 	/* find the minimum received sequence number over all links */
 	is->last_link_seqno = minseq = newseq;
 	for (lpq = net_dev->queue;;) {
-	   u32 lls = ippp_table[lpq->ppp_slot]->last_link_seqno;
-		if (MP_LT(lls, minseq))
-			minseq = lls;
+		slot = lpq->ppp_slot;
+		if (slot < 0 || slot > ISDN_MAX_CHANNELS) {
+			printk(KERN_ERR "isdn_ppp_mp_receive: lpq->ppp_slot %d\n", lpq->ppp_slot);
+		} else {
+			u32 lls = ippp_table[slot]->last_link_seqno;
+			if (MP_LT(lls, minseq))
+				minseq = lls;
+		}
 		if ((lpq = lpq->next) == net_dev->queue)
 			break;
 	}
@@ -1604,13 +1616,12 @@ static void isdn_ppp_mp_receive(isdn_net_dev * net_dev, isdn_net_local * lp,
 	 * queue overflow */
 	if (mp->frames > MP_MAX_QUEUE_LEN) {
 		stats->overflows++;
-		while (mp->frames < MP_MAX_QUEUE_LEN) {
+		while (mp->frames > MP_MAX_QUEUE_LEN) {
 			frag = mp->frags->next;
 			isdn_ppp_mp_free_skb(mp, mp->frags);
 			mp->frags = frag;
 		}
 	}
-	
 	spin_unlock_irqrestore(&mp->lock, flags);
 }
 
