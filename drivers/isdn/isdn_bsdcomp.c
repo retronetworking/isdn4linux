@@ -105,6 +105,14 @@ MODULE_LICENSE("Dual BSD/GPL");
 
 #define DEBUG 1
 
+#ifdef CONFIG_ISDN_WITH_ABC
+#define BSD_C_MALLOC(x)     kmalloc((x),GFP_ATOMIC)
+#define BSD_C_FREE(x)       kfree(x)
+#else
+#define BSD_C_MALLOC(x)     vmalloc(x)
+#define BSD_C_FREE(x)       vfree(x)
+#endif
+
 /*
  * A dictionary for doing BSD compress.
  */
@@ -285,7 +293,7 @@ static void bsd_free (void *state)
 		 * Release the dictionary
 		 */
 		if (db->dict) {
-			vfree (db->dict);
+			BSD_C_FREE (db->dict);
 			db->dict = NULL;
 		}
 
@@ -293,7 +301,7 @@ static void bsd_free (void *state)
 		 * Release the string buffer
 		 */
 		if (db->lens) {
-			vfree (db->lens);
+			BSD_C_FREE (db->lens);
 			db->lens = NULL;
 		}
 
@@ -350,13 +358,18 @@ static void *bsd_alloc (struct isdn_ppp_comp_data *data)
 	 * Allocate space for the dictionary. This may be more than one page in
 	 * length.
 	 */
-	db->dict = (struct bsd_dict *) vmalloc (hsize * sizeof (struct bsd_dict));
+	db->dict = (struct bsd_dict *) BSD_C_MALLOC (hsize * sizeof (struct bsd_dict));
+
+	MOD_INC_USE_COUNT;
+	/*
+	** MOD_INC_USE_COUNT must be before bsd_free
+	** bsd_free make MOD_DEC_USE_COUNT if db != NULL
+	*/
+
 	if (!db->dict) {
 		bsd_free (db);
 		return NULL;
 	}
-
-	MOD_INC_USE_COUNT;
 
 	/*
 	 * If this is the compression buffer then there is no length data.
@@ -365,7 +378,7 @@ static void *bsd_alloc (struct isdn_ppp_comp_data *data)
 	if (!decomp)
 		db->lens = NULL;
 	else {
-		db->lens = (unsigned short *) vmalloc ((maxmaxcode + 1) *
+		db->lens = (unsigned short *) BSD_C_MALLOC ((maxmaxcode + 1) *
 			sizeof (db->lens[0]));
 		if (!db->lens) {
 			bsd_free (db); /* calls MOD_DEC_USE_COUNT; */
