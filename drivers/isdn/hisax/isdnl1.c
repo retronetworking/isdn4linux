@@ -1,16 +1,19 @@
 /* $Id$
- *
+
  * isdnl1.c     common low level stuff for Siemens Chipsetbased isdn cards
  *              based on the teles driver from Jan den Ouden
  *
- * Author	Karsten Keil (keil@temic-ech.spacenet.de)
+ * Author       Karsten Keil (keil@temic-ech.spacenet.de)
  *
- * Thanks to	Jan den Ouden
- *	        Fritz Elfert
- * 	        Beat Doebeli
+ * Thanks to    Jan den Ouden
+ *              Fritz Elfert
+ *              Beat Doebeli
  *
  *
  * $Log$
+ * Revision 1.6  1997/01/21 22:20:00  keil
+ * changes for D-channel log; Elsa Quickstep support
+ *
  * Revision 1.5  1997/01/10 12:51:19  keil
  * cleanup; set newversion
  *
@@ -28,9 +31,9 @@
  *
  *
  *
-*/
+ */
 
-const	char	*l1_revision        = "$Revision$";
+const char *l1_revision = "$Revision$";
 
 #define __NO_VERSION__
 #include "hisax.h"
@@ -52,32 +55,41 @@ const	char	*l1_revision        = "$Revision$";
 #include "elsa.h"
 #endif
 
+#if CARD_IX1MICROR2
+#include "ix1_micro.h"
+#endif
+
 #define INCLUDE_INLINE_FUNCS
 #include <linux/tqueue.h>
 #include <linux/interrupt.h>
 
-const   char    *CardType[] =  {"No Card","Teles 16.0","Teles 8.0","Teles 16.3",
-				"Creatix PnP","AVM A1","Elsa ML", "Elsa Quickstep"};
+const char *CardType[] =
+{"No Card", "Teles 16.0", "Teles 8.0", "Teles 16.3",
+ "Creatix PnP", "AVM A1", "Elsa ML", "Elsa Quickstep",
+ "Teles PCMCIA", "ITK ix1-micro Rev.2"};
 
-static	char	*HSCXVer[] = {"A1","?1","A2","?3","A3","V2.1","?6","?7",
-			      "?8","?9","?10","?11","?12","?13","?14","???"};
+static char *HSCXVer[] =
+{"A1", "?1", "A2", "?3", "A3", "V2.1", "?6", "?7",
+ "?8", "?9", "?10", "?11", "?12", "?13", "?14", "???"};
 
-static  char    *ISACVer[] = {"2086/2186 V1.1","2085 B1","2085 B2",
-			      "2085 V2.3"};
+static char *ISACVer[] =
+{"2086/2186 V1.1", "2085 B1", "2085 B2",
+ "2085 V2.3"};
 
-extern void     tei_handler(struct PStack *st, byte pr,
-			    struct BufHeader *ibh);
-extern struct   IsdnCard cards[];
-extern int      nrcards;
+extern void tei_handler(struct PStack *st, byte pr,
+			struct BufHeader *ibh);
+extern struct IsdnCard cards[];
+extern int nrcards;
 
 
 
-void debugl1(struct IsdnCardState *sp, char *msg)
+void
+debugl1(struct IsdnCardState *sp, char *msg)
 {
-	char            tmp[256], tm[32];
+	char tmp[256], tm[32];
 
 	jiftime(tm, jiffies);
-	sprintf(tmp, "%s Card %d %s\n", tm, sp->cardnr+1, msg);
+	sprintf(tmp, "%s Card %d %s\n", tm, sp->cardnr + 1, msg);
 	HiSax_putstatus(tmp);
 }
 
@@ -86,9 +98,10 @@ void debugl1(struct IsdnCardState *sp, char *msg)
  */
 
 
-char *HscxVersion(byte v)
+char *
+HscxVersion(byte v)
 {
-	return(HSCXVer[v&0xf]);
+	return (HSCXVer[v & 0xf]);
 }
 
 void
@@ -103,9 +116,10 @@ hscx_sched_event(struct HscxState *hsp, int event)
  * ISAC stuff goes here
  */
 
-char *ISACVersion(byte v)
+char *
+ISACVersion(byte v)
 {
-	return(ISACVer[(v>>5)&3]);
+	return (ISACVer[(v >> 5) & 3]);
 }
 
 void
@@ -119,7 +133,7 @@ isac_sched_event(struct IsdnCardState *sp, int event)
 int
 act_wanted(struct IsdnCardState *sp)
 {
-	struct PStack  *st;
+	struct PStack *st;
 
 	st = sp->stlist;
 	while (st)
@@ -133,68 +147,78 @@ act_wanted(struct IsdnCardState *sp)
 void
 isac_new_ph(struct IsdnCardState *sp)
 {
-	int             enq;
+	int enq;
 
 	enq = act_wanted(sp);
 
 	switch (sp->ph_state) {
-	  case (6):
-		  sp->ph_command(sp, 15);
-		  break;
-	  case (15):
-		  if (enq)
-			  sp->ph_command(sp, 0);
-		  break;
-	  case (0):
-		  if (enq)
-			  sp->ph_command(sp, 0);
-		  else
-			  sp->ph_command(sp, 15);
-		  break;
-	  case (7):
-		  if (enq)
-			  sp->ph_command(sp, 9);
-		  break;
-	  case (12):
-	          sp->ph_command(sp, 8);
-		  sp->ph_active = 5;
-		  isac_sched_event(sp, ISAC_PHCHANGE);
-		  if (!sp->xmtibh)
-			  if (!BufQueueUnlink(&sp->xmtibh, &sp->sq))
-				  sp->sendptr = 0;
-		  if (sp->xmtibh)
-			  sp->isac_fill_fifo(sp);
-		  break;
-	  case (13):
-	          sp->ph_command(sp, 9);
-		  sp->ph_active = 5;
-		  isac_sched_event(sp, ISAC_PHCHANGE);
-		  if (!sp->xmtibh)
-			  if (!BufQueueUnlink(&sp->xmtibh, &sp->sq))
-				  sp->sendptr = 0;
-		  if (sp->xmtibh)
-			  sp->isac_fill_fifo(sp);
-		  break;
-	  case (4):
-	  case (8):
-		  break;
-	  default:
- 		  sp->ph_active = 0;
-		  break;
+	case (6):
+		sp->ph_active = 0;
+		sp->ph_command(sp, 15);
+		break;
+	case (15):
+		sp->ph_active = 0;
+		if (enq)
+			sp->ph_command(sp, 0);
+		break;
+	case (0):
+		sp->ph_active = 0;
+		if (enq)
+			sp->ph_command(sp, 0);
+#if 0
+		else
+			sp->ph_command(sp, 15);
+#endif
+		break;
+	case (7):
+		sp->ph_active = 0;
+		if (enq)
+			sp->ph_command(sp, 9);
+		break;
+	case (12):
+		sp->ph_command(sp, 8);
+		sp->ph_active = 5;
+		isac_sched_event(sp, ISAC_PHCHANGE);
+		if (!sp->xmtibh)
+			if (!BufQueueUnlink(&sp->xmtibh, &sp->sq))
+				sp->sendptr = 0;
+		if (sp->xmtibh)
+			sp->isac_fill_fifo(sp);
+		break;
+	case (13):
+		sp->ph_command(sp, 9);
+		sp->ph_active = 5;
+		isac_sched_event(sp, ISAC_PHCHANGE);
+		if (!sp->xmtibh)
+			if (!BufQueueUnlink(&sp->xmtibh, &sp->sq))
+				sp->sendptr = 0;
+		if (sp->xmtibh)
+			sp->isac_fill_fifo(sp);
+		break;
+	case (4):
+	case (8):
+		sp->ph_active = 0;
+		break;
+	default:
+		sp->ph_active = 0;
+		break;
 	}
 }
 
 static void
 restart_ph(struct IsdnCardState *sp)
 {
-	switch (sp->ph_active) {
-	  case (0):
-		  if (sp->ph_state == 6)
-			  sp->ph_command(sp, 0);
-		  else
-			  sp->ph_command(sp, 1);
-		  sp->ph_active = 1;
-		  break;
+	if (!sp->ph_active) {
+		if ((sp->ph_state == 6) || (sp->ph_state == 0)) {
+			sp->ph_command(sp, 0);
+			sp->ph_active = 2;
+		} else {
+			sp->ph_command(sp, 1);
+			sp->ph_active = 1;
+		}
+	} else if (sp->ph_active == 2) {
+		sp->ph_command(sp, 1);
+		sp->ph_active = 1;
 	}
 }
 
@@ -202,7 +226,7 @@ restart_ph(struct IsdnCardState *sp)
 static void
 act_ivated(struct IsdnCardState *sp)
 {
-	struct PStack  *st;
+	struct PStack *st;
 
 	st = sp->stlist;
 	while (st) {
@@ -224,7 +248,7 @@ process_new_ph(struct IsdnCardState *sp)
 static void
 process_xmt(struct IsdnCardState *sp)
 {
-	struct PStack  *stptr;
+	struct PStack *stptr;
 
 	if (sp->xmtibh)
 		return;
@@ -243,27 +267,27 @@ static void
 process_rcv(struct IsdnCardState *sp)
 {
 	struct BufHeader *ibh, *cibh;
-	struct PStack    *stptr;
-	byte             *ptr;
-	int              found, broadc;
-	char             tmp[64];
+	struct PStack *stptr;
+	byte *ptr;
+	int found, broadc;
+	char tmp[64];
 
 	while (!BufQueueUnlink(&ibh, &sp->rq)) {
-#ifdef L2FRAME_DEBUG /* psa */
-	        if(sp->debug & L1_DEB_LAPD)
-		        Logl2Frame(sp,ibh,"PH_DATA",1);
+#ifdef L2FRAME_DEBUG		/* psa */
+		if (sp->debug & L1_DEB_LAPD)
+			Logl2Frame(sp, ibh, "PH_DATA", 1);
 #endif
 		stptr = sp->stlist;
 		ptr = DATAPTR(ibh);
 		broadc = (ptr[1] >> 1) == 127;
 
 		if (broadc) {
-			if (!(ptr[0] >> 2)) { /* sapi 0 */
+			if (!(ptr[0] >> 2)) {	/* sapi 0 */
 				sp->CallFlags = 3;
 				if (sp->dlogflag) {
 					LogFrame(sp, ptr, ibh->datasize);
 					dlogframe(sp, ptr + 3, ibh->datasize - 3,
-						"Q.931 frame network->user broadcast");
+						  "Q.931 frame network->user broadcast");
 				}
 			}
 			while (stptr != NULL) {
@@ -292,12 +316,12 @@ process_rcv(struct IsdnCardState *sp)
 				/* BD 10.10.95
 				 * Print out D-Channel msg not processed
 				 * by isdn4linux
-                                 */
+				 */
 
 				if ((!(ptr[0] >> 2)) && (!(ptr[2] & 0x01))) {
 					sprintf(tmp,
-					"Q.931 frame network->user with tei %d (not for us)",
-					ptr[1] >> 1);
+						"Q.931 frame network->user with tei %d (not for us)",
+						ptr[1] >> 1);
 					LogFrame(sp, ptr, ibh->datasize);
 					dlogframe(sp, ptr + 4, ibh->datasize - 4, tmp);
 				}
@@ -325,62 +349,62 @@ isac_bh(struct IsdnCardState *sp)
 
 static void
 l2l1(struct PStack *st, int pr,
-	   struct BufHeader *ibh)
+     struct BufHeader *ibh)
 {
 	struct IsdnCardState *sp = (struct IsdnCardState *) st->l1.hardware;
-	byte	*ptr = DATAPTR(ibh);
-	char	str[64];
+	byte *ptr = DATAPTR(ibh);
+	char str[64];
 
 	switch (pr) {
-	  case (PH_DATA):
-	        if (sp->xmtibh) {
+	case (PH_DATA):
+		if (sp->xmtibh) {
 			BufQueueLink(&sp->sq, ibh);
-#ifdef L2FRAME_DEBUG /* psa */
-			if(sp->debug & L1_DEB_LAPD)
-				Logl2Frame(sp,ibh,"PH_DATA Queued",0);
+#ifdef L2FRAME_DEBUG		/* psa */
+			if (sp->debug & L1_DEB_LAPD)
+				Logl2Frame(sp, ibh, "PH_DATA Queued", 0);
 #endif
 		} else {
-			if ((sp->dlogflag) && (!(ptr[2]&1))) { /* I-FRAME */
+			if ((sp->dlogflag) && (!(ptr[2] & 1))) {	/* I-FRAME */
 				LogFrame(sp, ptr, ibh->datasize);
 				sprintf(str, "Q.931 frame user->network tei %d", st->l2.tei);
 				dlogframe(sp, ptr + st->l2.ihsize, ibh->datasize - st->l2.ihsize,
-				  str);
+					  str);
 			}
 			sp->xmtibh = ibh;
 			sp->sendptr = 0;
 			sp->releasebuf = !0;
 			sp->isac_fill_fifo(sp);
-#ifdef L2FRAME_DEBUG /* psa */
-			if(sp->debug & L1_DEB_LAPD)
-				Logl2Frame(sp,ibh,"PH_DATA",0);
+#ifdef L2FRAME_DEBUG		/* psa */
+			if (sp->debug & L1_DEB_LAPD)
+				Logl2Frame(sp, ibh, "PH_DATA", 0);
 #endif
 		}
 		break;
-	  case (PH_DATA_PULLED):
+	case (PH_DATA_PULLED):
 		if (sp->xmtibh) {
 			if (sp->debug & L1_DEB_WARN)
-        			debugl1(sp, " l2l1 xmtibh exist this shouldn't happen");
+				debugl1(sp, " l2l1 xmtibh exist this shouldn't happen");
 			break;
 		}
-		if ((sp->dlogflag) && (!(ptr[2]&1))) { /* I-FRAME */
+		if ((sp->dlogflag) && (!(ptr[2] & 1))) {	/* I-FRAME */
 			LogFrame(sp, ptr, ibh->datasize);
 			sprintf(str, "Q.931 frame user->network tei %d", st->l2.tei);
 			dlogframe(sp, ptr + st->l2.ihsize, ibh->datasize - st->l2.ihsize,
-				str);
+				  str);
 		}
 		sp->xmtibh = ibh;
 		sp->sendptr = 0;
 		sp->releasebuf = 0;
 		sp->isac_fill_fifo(sp);
-#ifdef L2FRAME_DEBUG /* psa */
-		if(sp->debug & L1_DEB_LAPD)
-			Logl2Frame(sp,ibh,"PH_DATA_PULLED",0);
+#ifdef L2FRAME_DEBUG		/* psa */
+		if (sp->debug & L1_DEB_LAPD)
+			Logl2Frame(sp, ibh, "PH_DATA_PULLED", 0);
 #endif
 		break;
-	  case (PH_REQUEST_PULL):
-#ifdef L2FRAME_DEBUG /* psa */
-		if(sp->debug & L1_DEB_LAPD)
-			debugl1(sp,"-> PH_REQUEST_PULL");
+	case (PH_REQUEST_PULL):
+#ifdef L2FRAME_DEBUG		/* psa */
+		if (sp->debug & L1_DEB_LAPD)
+			debugl1(sp, "-> PH_REQUEST_PULL");
 #endif
 		if (!sp->xmtibh) {
 			st->l1.requestpull = 0;
@@ -395,7 +419,7 @@ l2l1(struct PStack *st, int pr,
 static void
 hscx_process_xmt(struct HscxState *hsp)
 {
-	struct PStack  *st = hsp->st;
+	struct PStack *st = hsp->st;
 
 	if (hsp->xmtibh)
 		return;
@@ -455,7 +479,7 @@ void
 HiSax_rmlist(struct IsdnCardState *sp,
 	     struct PStack *st)
 {
-	struct PStack  *p;
+	struct PStack *p;
 
 	if (sp->stlist == st)
 		sp->stlist = st->next;
@@ -473,14 +497,15 @@ HiSax_rmlist(struct IsdnCardState *sp,
 static void
 check_ph_act(struct IsdnCardState *sp)
 {
-	struct PStack  *st = sp->stlist;
+	struct PStack *st = sp->stlist;
 
 	while (st) {
 		if (st->l1.act_state)
 			return;
 		st = st->next;
 	}
-	sp->ph_active = 0;
+	if (sp->ph_active == 5)
+		sp->ph_active = 4;
 }
 
 static void
@@ -488,37 +513,38 @@ HiSax_manl1(struct PStack *st, int pr,
 	    void *arg)
 {
 	struct IsdnCardState *sp = (struct IsdnCardState *)
-		st->l1.hardware;
-	long            flags;
-	char	tmp[32];
+	st->l1.hardware;
+	long flags;
+	char tmp[32];
 
 	switch (pr) {
-	  case (PH_ACTIVATE):
-		  if (sp->debug) {
-		  	sprintf(tmp, "PH_ACT ph_active %d", sp->ph_active);
-		  	debugl1(sp, tmp);
-		  }
-		  save_flags(flags);
-		  cli();
-		  if (sp->ph_active == 5) {
-			  st->l1.act_state = 2;
-			  restore_flags(flags);
-			  st->l1.l1man(st, PH_ACTIVATE, NULL);
-		  } else {
-			  st->l1.act_state = 1;
-			  if (sp->ph_active == 0)
-				  restart_ph(sp);
-			  restore_flags(flags);
-		  }
-		  break;
-	  case (PH_DEACTIVATE):
-		  st->l1.act_state = 0;
-		  if (sp->debug) {
-		  	sprintf(tmp, "PH_DEACT ph_active %d", sp->ph_active);
-		  	debugl1(sp, tmp);
-		  }
-		  check_ph_act(sp);
-		  break;
+	case (PH_ACTIVATE):
+		if (sp->debug) {
+			sprintf(tmp, "PH_ACT ph_active %d", sp->ph_active);
+			debugl1(sp, tmp);
+		}
+		save_flags(flags);
+		cli();
+		if (sp->ph_active & 4) {
+			sp->ph_active = 5;
+			st->l1.act_state = 2;
+			restore_flags(flags);
+			st->l1.l1man(st, PH_ACTIVATE, NULL);
+		} else {
+			st->l1.act_state = 1;
+			if (sp->ph_active == 0)
+				restart_ph(sp);
+			restore_flags(flags);
+		}
+		break;
+	case (PH_DEACTIVATE):
+		st->l1.act_state = 0;
+		if (sp->debug) {
+			sprintf(tmp, "PH_DEACT ph_active %d", sp->ph_active);
+			debugl1(sp, tmp);
+		}
+		check_ph_act(sp);
+		break;
 	}
 }
 
@@ -584,14 +610,14 @@ int
 get_irq(int cardnr, void *routine)
 {
 	struct IsdnCard *card = cards + cardnr;
-	long            flags;
+	long flags;
 
 	save_flags(flags);
 	cli();
 	if (request_irq(card->sp->irq, routine,
 			SA_INTERRUPT, "HiSax", NULL)) {
 		printk(KERN_WARNING "HiSax: couldn't get interrupt %d\n",
-                       card->sp->irq);
+		       card->sp->irq);
 		restore_flags(flags);
 		return (0);
 	}
@@ -603,7 +629,7 @@ get_irq(int cardnr, void *routine)
 static void
 release_irq(int cardnr)
 {
-	struct	IsdnCard *card = cards + cardnr;
+	struct IsdnCard *card = cards + cardnr;
 
 	irq2dev_map[card->sp->irq] = NULL;
 	free_irq(card->sp->irq, NULL);
@@ -637,103 +663,115 @@ closecard(int cardnr)
 	close_hscxstate(sp->hs + 1);
 	close_hscxstate(sp->hs);
 
-        switch (sp->typ) {
+	switch (sp->typ) {
 #if CARD_TELES0
-          case ISDN_CTYPE_16_0:
-          case ISDN_CTYPE_8_0:
-		release_io_teles0(&cards[cardnr]);
-                break;
+	case ISDN_CTYPE_16_0:
+	case ISDN_CTYPE_8_0:
+		release_io_teles0(cards + cardnr);
+		break;
 #endif
 #if CARD_TELES3
-          case ISDN_CTYPE_PNP:
-          case ISDN_CTYPE_16_3:
-		release_io_teles3(&cards[cardnr]);
-                break;
+	case ISDN_CTYPE_PNP:
+	case ISDN_CTYPE_16_3:
+	case ISDN_CTYPE_TELESPCMCIA:
+		release_io_teles3(cards + cardnr);
+		break;
 #endif
 #if CARD_AVM_A1
-          case ISDN_CTYPE_A1:
-		release_io_avm_a1(&cards[cardnr]);
-                break;
+	case ISDN_CTYPE_A1:
+		release_io_avm_a1(cards + cardnr);
+		break;
 #endif
 #if CARD_ELSA
-          case ISDN_CTYPE_ELSA:
-          case ISDN_CTYPE_ELSA_QS1000:
-		release_io_elsa(&cards[cardnr]);
-                break;
+	case ISDN_CTYPE_ELSA:
+	case ISDN_CTYPE_ELSA_QS1000:
+		release_io_elsa(cards + cardnr);
+		break;
 #endif
-          default:
-          	break;
+#if CARD_IX1MICROR2
+	case ISDN_CTYPE_IX1MICROR2:
+		release_io_ix1micro(cards + cardnr);
+		break;
+#endif
+	default:
+		break;
 	}
 }
 
 static int
 checkcard(int cardnr)
 {
-	int			ret=0;
-	struct IsdnCard		*card = cards + cardnr;
-	struct IsdnCardState	*sp;
+	int ret = 0;
+	struct IsdnCard *card = cards + cardnr;
+	struct IsdnCardState *sp;
 
 
 	sp = (struct IsdnCardState *)
-	    	    Smalloc(sizeof(struct IsdnCardState), GFP_KERNEL,
+	    Smalloc(sizeof(struct IsdnCardState), GFP_KERNEL,
 		    "struct IsdnCardState");
 
-	card->sp   = sp;
+	card->sp = sp;
 	sp->cardnr = cardnr;
-	sp->cfg_reg  = 0;
+	sp->cfg_reg = 0;
 	sp->protocol = card->protocol;
 
-	if ((card->typ>0) && (card->typ<31)) {
-		if (!((1<<card->typ) & SUPORTED_CARDS)) {
-                        printk(KERN_WARNING
-                               "HiSax: Support for %s Card not selected\n",
-                               CardType[card->typ]);
-                        return(0);
-                }
-        } else {
-        	printk(KERN_WARNING
-                        "HiSax: Card Type %d out of range\n",
-                        card->typ);
+	if ((card->typ > 0) && (card->typ < 31)) {
+		if (!((1 << card->typ) & SUPORTED_CARDS)) {
+			printk(KERN_WARNING
+			     "HiSax: Support for %s Card not selected\n",
+			       CardType[card->typ]);
+			return (0);
+		}
+	} else {
+		printk(KERN_WARNING
+		       "HiSax: Card Type %d out of range\n",
+		       card->typ);
 		return (0);
 	}
 	sp->dlogspace = Smalloc(4096, GFP_KERNEL, "dlogspace");
-	sp->typ      = card->typ;
+	sp->typ = card->typ;
 	sp->CallFlags = 0;
 
 	printk(KERN_NOTICE
-		"HiSax: Card %d Protocol %s\n", cardnr+1,
-                (card->protocol == ISDN_PTYPE_1TR6) ? "1TR6" : "EDSS1");
+	       "HiSax: Card %d Protocol %s\n", cardnr + 1,
+	       (card->protocol == ISDN_PTYPE_1TR6) ? "1TR6" : "EDSS1");
 
-        switch (card->typ) {
+	switch (card->typ) {
 #if CARD_TELES0
-          case ISDN_CTYPE_16_0:
-          case ISDN_CTYPE_8_0:
-                ret=setup_teles0(card);
-                break;
+	case ISDN_CTYPE_16_0:
+	case ISDN_CTYPE_8_0:
+		ret = setup_teles0(card);
+		break;
 #endif
 #if CARD_TELES3
-          case ISDN_CTYPE_PNP:
-          case ISDN_CTYPE_16_3:
-                ret=setup_teles3(card);
-                break;
+	case ISDN_CTYPE_16_3:
+	case ISDN_CTYPE_PNP:
+	case ISDN_CTYPE_TELESPCMCIA:
+		ret = setup_teles3(card);
+		break;
 #endif
 #if CARD_AVM_A1
-          case ISDN_CTYPE_A1:
-                ret=setup_avm_a1(card);
-                break;
+	case ISDN_CTYPE_A1:
+		ret = setup_avm_a1(card);
+		break;
 #endif
 #if CARD_ELSA
-          case ISDN_CTYPE_ELSA:
-          case ISDN_CTYPE_ELSA_QS1000:
-                ret=setup_elsa(card);
-                break;
+	case ISDN_CTYPE_ELSA:
+	case ISDN_CTYPE_ELSA_QS1000:
+		ret = setup_elsa(card);
+		break;
 #endif
-          default:
-                printk(KERN_WARNING  "HiSax: Unknown Card Typ %d\n",
-                  			card->typ);
-				Sfree(sp->dlogspace);
-                        	return(0);
-        }
+#if CARD_IX1MICROR2
+	case ISDN_CTYPE_IX1MICROR2:
+		ret = setup_ix1micro(card);
+		break;
+#endif
+	default:
+		printk(KERN_WARNING "HiSax: Unknown Card Typ %d\n",
+		       card->typ);
+		Sfree(sp->dlogspace);
+		return (0);
+	}
 	if (!ret) {
 		Sfree(sp->dlogspace);
 		return (0);
@@ -746,16 +784,16 @@ checkcard(int cardnr)
 		    ISAC_SMALLBUF_MAXPAGES);
 
 
-	sp->rcvibh  = NULL;
-	sp->rcvptr  = 0;
-	sp->xmtibh  = NULL;
+	sp->rcvibh = NULL;
+	sp->rcvptr = 0;
+	sp->xmtibh = NULL;
 	sp->sendptr = 0;
-	sp->mon_rx  = NULL;
+	sp->mon_rx = NULL;
 	sp->mon_rxp = 0;
-	sp->mon_tx  = NULL;
+	sp->mon_tx = NULL;
 	sp->mon_txp = 0;
 	sp->mon_flg = 0;
-	sp->event   = 0;
+	sp->event = 0;
 	sp->tqueue.next = 0;
 	sp->tqueue.sync = 0;
 	sp->tqueue.routine = (void *) (void *) isac_bh;
@@ -776,77 +814,83 @@ checkcard(int cardnr)
 	init_hscxstate(sp, 0);
 	init_hscxstate(sp, 1);
 
-        switch (card->typ) {
+	switch (card->typ) {
 #if CARD_TELES0
-          case ISDN_CTYPE_16_0:
-          case ISDN_CTYPE_8_0:
-                ret=initteles0(sp);
-                break;
+	case ISDN_CTYPE_16_0:
+	case ISDN_CTYPE_8_0:
+		ret = initteles0(sp);
+		break;
 #endif
 #if CARD_TELES3
-          case ISDN_CTYPE_PNP:
-          case ISDN_CTYPE_16_3:
-                ret=initteles3(sp);
-                break;
+	case ISDN_CTYPE_16_3:
+	case ISDN_CTYPE_PNP:
+	case ISDN_CTYPE_TELESPCMCIA:
+		ret = initteles3(sp);
+		break;
 #endif
 #if CARD_AVM_A1
-          case ISDN_CTYPE_A1:
-                ret=initavm_a1(sp);
-                break;
+	case ISDN_CTYPE_A1:
+		ret = initavm_a1(sp);
+		break;
 #endif
 #if CARD_ELSA
-          case ISDN_CTYPE_ELSA:
-          case ISDN_CTYPE_ELSA_QS1000:
-                ret=initelsa(sp);
-                break;
+	case ISDN_CTYPE_ELSA:
+	case ISDN_CTYPE_ELSA_QS1000:
+		ret = initelsa(sp);
+		break;
 #endif
-          default:
-          	ret=0;
-          	break;
+#if CARD_IX1MICROR2
+	case ISDN_CTYPE_IX1MICROR2:
+		ret = initix1micro(sp);
+		break;
+#endif
+	default:
+		ret = 0;
+		break;
 	}
 	if (!ret) {
-                closecard(cardnr);
-                return(0);
-        }
-	return(1);
+		closecard(cardnr);
+		return (0);
+	}
+	return (1);
 }
 
 void
 HiSax_shiftcards(int idx)
 {
-        int i;
+	int i;
 
-        for (i = idx; i < 15; i++)
-                memcpy(&cards[i],&cards[i+1],sizeof(cards[i]));
+	for (i = idx; i < 15; i++)
+		memcpy(&cards[i], &cards[i + 1], sizeof(cards[i]));
 }
 
 int
 HiSax_inithardware(void)
 {
-        int             foundcards = 0;
-	int             i = 0;
+	int foundcards = 0;
+	int i = 0;
 
 	while (i < nrcards) {
-                if (cards[i].typ<1)
-                        break;
+		if (cards[i].typ < 1)
+			break;
 		if (checkcard(i)) {
-                        foundcards++;
-                        i++;
-                } else {
+			foundcards++;
+			i++;
+		} else {
 			printk(KERN_WARNING "HiSax: Card %s not installed !\n",
-			  	CardType[cards[i].typ]);
+			       CardType[cards[i].typ]);
 			Sfree((void *) cards[i].sp);
 			cards[i].sp = NULL;
-                        HiSax_shiftcards(i);
+			HiSax_shiftcards(i);
 		}
-        }
-        return foundcards;
+	}
+	return foundcards;
 }
 
 void
 HiSax_closehardware(void)
 {
-	int             i;
+	int i;
 
 	for (i = 0; i < nrcards; i++)
 		if (cards[i].sp) {
@@ -867,38 +911,37 @@ hscx_l2l1(struct PStack *st, int pr,
 	long flags;
 
 	switch (pr) {
-                case (PH_DATA):
-			save_flags(flags);
-			cli();
-                        if (hsp->xmtibh) {
-                                BufQueueLink(&hsp->sq, ibh);
-				restore_flags(flags);
-			}
-                        else {
-				restore_flags(flags);
-                                hsp->xmtibh = ibh;
-                                hsp->sendptr = 0;
-                                hsp->releasebuf = !0;
-                                sp->hscx_fill_fifo(hsp);
-                        }
-                        break;
-                case (PH_DATA_PULLED):
-                        if (hsp->xmtibh) {
-                                printk(KERN_WARNING "hscx_l2l1: this shouldn't happen\n");
-                                break;
-                        }
-                        hsp->xmtibh = ibh;
-                        hsp->sendptr = 0;
-                        hsp->releasebuf = 0;
-                        sp->hscx_fill_fifo(hsp);
-                        break;
-                case (PH_REQUEST_PULL):
-                        if (!hsp->xmtibh) {
-                                st->l1.requestpull = 0;
-                                st->l1.l1l2(st, PH_PULL_ACK, NULL);
-                        } else
-                                st->l1.requestpull = !0;
-                        break;
+	case (PH_DATA):
+		save_flags(flags);
+		cli();
+		if (hsp->xmtibh) {
+			BufQueueLink(&hsp->sq, ibh);
+			restore_flags(flags);
+		} else {
+			restore_flags(flags);
+			hsp->xmtibh = ibh;
+			hsp->sendptr = 0;
+			hsp->releasebuf = !0;
+			sp->hscx_fill_fifo(hsp);
+		}
+		break;
+	case (PH_DATA_PULLED):
+		if (hsp->xmtibh) {
+			printk(KERN_WARNING "hscx_l2l1: this shouldn't happen\n");
+			break;
+		}
+		hsp->xmtibh = ibh;
+		hsp->sendptr = 0;
+		hsp->releasebuf = 0;
+		sp->hscx_fill_fifo(hsp);
+		break;
+	case (PH_REQUEST_PULL):
+		if (!hsp->xmtibh) {
+			st->l1.requestpull = 0;
+			st->l1.l1l2(st, PH_PULL_ACK, NULL);
+		} else
+			st->l1.requestpull = !0;
+		break;
 	}
 
 }
@@ -954,21 +997,21 @@ static void
 hscx_manl1(struct PStack *st, int pr,
 	   void *arg)
 {
-	struct IsdnCardState *sp = (struct IsdnCardState *)st->l1.hardware;
+	struct IsdnCardState *sp = (struct IsdnCardState *) st->l1.hardware;
 	struct HscxState *hsp = sp->hs + st->l1.hscx;
 
 	switch (pr) {
-	  case (PH_ACTIVATE):
-		  hsp->active = !0;
-		  sp->modehscx(hsp, st->l1.hscxmode, st->l1.hscxchannel);
-		  st->l1.l1man(st, PH_ACTIVATE, NULL);
-		  break;
-	  case (PH_DEACTIVATE):
-		  if (!hsp->xmtibh)
-			  sp->modehscx(hsp, 0, 0);
+	case (PH_ACTIVATE):
+		hsp->active = !0;
+		sp->modehscx(hsp, st->l1.hscxmode, st->l1.hscxchannel);
+		st->l1.l1man(st, PH_ACTIVATE, NULL);
+		break;
+	case (PH_DEACTIVATE):
+		if (!hsp->xmtibh)
+			sp->modehscx(hsp, 0, 0);
 
-		  hsp->active = 0;
-		  break;
+		hsp->active = 0;
+		break;
 	}
 }
 
@@ -998,94 +1041,97 @@ HiSax_reportcard(int cardnr)
 {
 	struct IsdnCardState *sp = cards[cardnr].sp;
 
-	printk(KERN_DEBUG "HiSax: reportcard No %d\n",cardnr+1);
+	printk(KERN_DEBUG "HiSax: reportcard No %d\n", cardnr + 1);
 	printk(KERN_DEBUG "HiSax: Type %s\n", CardType[sp->typ]);
 	printk(KERN_DEBUG "HiSax: debuglevel %x\n", sp->debug);
-	if (sp->debug) sp->debug =0;
-	else sp->debug =0xff;
+	if (sp->debug)
+		sp->debug = 0;
+	else
+		sp->debug = 0xff;
 }
 
-#ifdef L2FRAME_DEBUG /* psa */
+#ifdef L2FRAME_DEBUG		/* psa */
 
-char *l2cmd(byte cmd)
+char *
+l2cmd(byte cmd)
 {
-  switch(cmd & ~0x10) {
-  case 1:
-    return "RR";
-  case 5:
-    return "RNR";
-  case 9:
-    return "REJ";
-  case 0x6f:
-    return "SABME";
-  case 0x0f:
-    return "DM";
-  case 3:
-    return "UI";
-  case 0x43:
-    return "DISC";
-  case 0x63:
-    return "UA";
-  case 0x87:
-    return "FRMR";
-  case 0xaf:
-    return "XID";
-  default:
-    if(!(cmd & 1))
-      return "I";
-    else
-      return "invalid command";
-  }
+	switch (cmd & ~0x10) {
+	case 1:
+		return "RR";
+	case 5:
+		return "RNR";
+	case 9:
+		return "REJ";
+	case 0x6f:
+		return "SABME";
+	case 0x0f:
+		return "DM";
+	case 3:
+		return "UI";
+	case 0x43:
+		return "DISC";
+	case 0x63:
+		return "UA";
+	case 0x87:
+		return "FRMR";
+	case 0xaf:
+		return "XID";
+	default:
+		if (!(cmd & 1))
+			return "I";
+		else
+			return "invalid command";
+	}
 }
 
 static char tmp[20];
 
-char *l2frames(byte *ptr)
+char *
+l2frames(byte * ptr)
 {
-  switch(ptr[2] & ~0x10) {
-  case 1:
-  case 5:
-  case 9:
-    sprintf(tmp, "%s[%d](nr %d)", l2cmd(ptr[2]), ptr[3] & 1, ptr[3] >> 1);
-    break;
-  case 0x6f:
-  case 0x0f:
-  case 3:
-  case 0x43:
-  case 0x63:
-  case 0x87:
-  case 0xaf:
-    sprintf(tmp, "%s[%d]", l2cmd(ptr[2]), (ptr[2] & 0x10) >> 4);
-    break;
-  default:
-    if(!(ptr[2] & 1)) {
-      sprintf(tmp, "I[%d](ns %d, nr %d)", ptr[3] & 1, ptr[2] >> 1,ptr[3] >> 1);
-      break;
-    }
-    else
-      return "invalid command";
-  }
+	switch (ptr[2] & ~0x10) {
+	case 1:
+	case 5:
+	case 9:
+		sprintf(tmp, "%s[%d](nr %d)", l2cmd(ptr[2]), ptr[3] & 1, ptr[3] >> 1);
+		break;
+	case 0x6f:
+	case 0x0f:
+	case 3:
+	case 0x43:
+	case 0x63:
+	case 0x87:
+	case 0xaf:
+		sprintf(tmp, "%s[%d]", l2cmd(ptr[2]), (ptr[2] & 0x10) >> 4);
+		break;
+	default:
+		if (!(ptr[2] & 1)) {
+			sprintf(tmp, "I[%d](ns %d, nr %d)", ptr[3] & 1, ptr[2] >> 1, ptr[3] >> 1);
+			break;
+		} else
+			return "invalid command";
+	}
 
 
-  return tmp;
+	return tmp;
 }
 
 void
 Logl2Frame(struct IsdnCardState *sp, struct BufHeader *ibh, char *buf, int dir)
 {
-  char tmp[132];
-  byte *ptr;
+	char tmp[132];
+	byte *ptr;
 
-  ptr = DATAPTR(ibh);
+	ptr = DATAPTR(ibh);
 
-  if(ptr[0] & 1 || !(ptr[1] & 1))
-    debugl1(sp,"Addres not LAPD");
-  else {
-    sprintf(tmp,"%s %s: %s%c (sapi %d, tei %d)",
-	    (dir?"<-":"->"), buf, l2frames(ptr),
-	    ((ptr[0] & 2) >> 1) == dir?'C':'R', ptr[0] >> 2, ptr[1] >> 1);
-    debugl1(sp, tmp);
-  }
+	if (ptr[0] & 1 || !(ptr[1] & 1))
+		debugl1(sp, "Addres not LAPD");
+	else {
+		sprintf(tmp, "%s %s: %s%c (sapi %d, tei %d)",
+			(dir ? "<-" : "->"), buf, l2frames(ptr),
+			((ptr[0] & 2) >> 1) == dir ? 'C' : 'R', ptr[0] >> 2, ptr[1] >> 1);
+		debugl1(sp, tmp);
+	}
 }
 
 #endif
