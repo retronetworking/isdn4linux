@@ -1,6 +1,6 @@
 L_OBJS :=
 M_OBJS :=
-O_OBJS := eicon_mod.o eicon_isa.o eicon_pci.o eicon_idi.o
+O_OBJS := eicon_mod.o eicon_isa.o eicon_pci.o eicon_idi.o eicon_io.o
 
 O_TARGET :=
 ifeq ($(CONFIG_ISDN_DRV_EICON),y)

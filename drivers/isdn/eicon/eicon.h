@@ -21,6 +21,11 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.4  1999/03/02 12:37:42  armin
+ * Added some important checks.
+ * Analog Modem with DSP.
+ * Channels will be added to Link-Level after loading firmware.
+ *
  * Revision 1.3  1999/01/24 20:14:07  armin
  * Changed and added debug stuff.
  * Better data sending. (still problems with tty's flip buffer)
@@ -41,51 +46,54 @@
 #ifndef eicon_h
 #define eicon_h
 
-#define DIEHL_IOCTL_SETMMIO   0
-#define DIEHL_IOCTL_GETMMIO   1
-#define DIEHL_IOCTL_SETIRQ    2
-#define DIEHL_IOCTL_GETIRQ    3
-#define DIEHL_IOCTL_LOADBOOT  4
-#define DIEHL_IOCTL_ADDCARD   5
-#define DIEHL_IOCTL_GETTYPE   6
-#define DIEHL_IOCTL_LOADPCI   7 
+#define EICON_IOCTL_SETMMIO   0
+#define EICON_IOCTL_GETMMIO   1
+#define EICON_IOCTL_SETIRQ    2
+#define EICON_IOCTL_GETIRQ    3
+#define EICON_IOCTL_LOADBOOT  4
+#define EICON_IOCTL_ADDCARD   5
+#define EICON_IOCTL_GETTYPE   6
+#define EICON_IOCTL_LOADPCI   7 
+#define EICON_IOCTL_LOADISA   8 
+#define EICON_IOCTL_GETVER    9 
 
-#define DIEHL_IOCTL_MANIF    90 
+#define EICON_IOCTL_MANIF    90 
 
-#define DIEHL_IOCTL_FREEIT   97
-#define DIEHL_IOCTL_TEST     98
-#define DIEHL_IOCTL_DEBUGVAR 99
+#define EICON_IOCTL_FREEIT   97
+#define EICON_IOCTL_TEST     98
+#define EICON_IOCTL_DEBUGVAR 99
 
 /* Bus types */
-#define DIEHL_BUS_ISA          1
-#define DIEHL_BUS_MCA          2
-#define DIEHL_BUS_PCI          3
+#define EICON_BUS_ISA          1
+#define EICON_BUS_MCA          2
+#define EICON_BUS_PCI          3
 
 /* Constants for describing Card-Type */
-#define DIEHL_CTYPE_S            0
-#define DIEHL_CTYPE_SX           1
-#define DIEHL_CTYPE_SCOM         2
-#define DIEHL_CTYPE_QUADRO       3
-#define DIEHL_CTYPE_PRI          4
-#define DIEHL_CTYPE_MAESTRA      5
-#define DIEHL_CTYPE_MAESTRAQ     6
-#define DIEHL_CTYPE_MAESTRAQ_U   7
-#define DIEHL_CTYPE_MAESTRAP     8
-#define DIEHL_CTYPE_MASK         0x0f
-#define DIEHL_CTYPE_QUADRO_NR(n) (n<<4)
+#define EICON_CTYPE_S            0
+#define EICON_CTYPE_SX           1
+#define EICON_CTYPE_SCOM         2
+#define EICON_CTYPE_QUADRO       3
+#define EICON_CTYPE_S2M          4
+#define EICON_CTYPE_MAESTRA      5
+#define EICON_CTYPE_MAESTRAQ     6
+#define EICON_CTYPE_MAESTRAQ_U   7
+#define EICON_CTYPE_MAESTRAP     8
+#define EICON_CTYPE_ISABRI       0x10
+#define EICON_CTYPE_ISAPRI       0x20
+#define EICON_CTYPE_MASK         0x0f
+#define EICON_CTYPE_QUADRO_NR(n) (n<<4)
 
 #define MAX_HEADER_LEN 10
 
 /* Struct for adding new cards */
-typedef struct diehl_cdef {
-	int type;      /* Card-Type (DIEHL_CTYPE_...)                 */
-        int membase;   /* membase & irq only needed for old ISA cards */
+typedef struct eicon_cdef {
+        int membase;
         int irq;
         char id[10];
-} diehl_cdef;
+} eicon_cdef;
 
-#define DIEHL_ISA_BOOT_MEMCHK 1
-#define DIEHL_ISA_BOOT_NORMAL 2
+#define EICON_ISA_BOOT_MEMCHK 1
+#define EICON_ISA_BOOT_NORMAL 2
 
 /* Struct for downloading protocol via ioctl for ISA cards */
 typedef struct {
@@ -103,7 +111,7 @@ typedef struct {
 	unsigned char LowChannel;
 	unsigned char ProtVersion;
 	unsigned char Crc4;
-	unsigned char LoopBack;
+	unsigned char Loopback;
 	unsigned char oad[32];
 	unsigned char osa[32];
 	unsigned char spid[32];
@@ -111,7 +119,7 @@ typedef struct {
 	unsigned long bootstrap_len;
 	unsigned long firmware_len;
 	unsigned char code[1]; /* Rest (bootstrap- and firmware code) will be allocated */
-} diehl_isa_codebuf;
+} eicon_isa_codebuf;
 
 /* Struct for downloading protocol via ioctl for PCI cards */
 typedef struct {
@@ -139,14 +147,13 @@ typedef struct {
 	unsigned int  dsp_code_num;
         unsigned long dsp_code_len[9];
         unsigned char code[1]; /* Rest (protocol- and dsp code) will be allocated */
-} diehl_pci_codebuf;
+} eicon_pci_codebuf;
 
 /* Data for downloading protocol via ioctl */
 typedef union {
-	diehl_isa_codebuf isa;
-	diehl_pci_codebuf pci;
-	/* diehl_mca_codebuf mca etc. ... */
-} diehl_codebuf;
+	eicon_isa_codebuf isa;
+	eicon_pci_codebuf pci;
+} eicon_codebuf;
 
 /* Data for Management interface */
 typedef struct {
@@ -182,6 +189,12 @@ typedef struct {
 #include <linux/ctype.h>
 
 #include <linux/isdnif.h>
+
+typedef struct {
+  __u16 length __attribute__ ((packed)); /* length of data/parameter field */
+  __u8  P[1];                          /* data/parameter field */
+} eicon_PBUFFER;
+
 #include "eicon_isa.h"
 
 /* Macro for delay via schedule() */
@@ -335,74 +348,74 @@ typedef struct {
 	unsigned char   cause[2];	 /* Last Cause			*/
 	unsigned char	si1;
 	unsigned char	si2;
-} diehl_chan;
+} eicon_chan;
 
 typedef struct {
-	diehl_chan *ptr;
-} diehl_chan_ptr;
+	eicon_chan *ptr;
+} eicon_chan_ptr;
 
 #include "eicon_pci.h"
 
-#define DIEHL_FLAGS_RUNNING  1 /* Cards driver activated */
-#define DIEHL_FLAGS_PVALID   2 /* Cards port is valid    */
-#define DIEHL_FLAGS_IVALID   4 /* Cards irq is valid     */
-#define DIEHL_FLAGS_MVALID   8 /* Cards membase is valid */
-#define DIEHL_FLAGS_LOADED   8 /* Firmware loaded        */
+#define EICON_FLAGS_RUNNING  1 /* Cards driver activated */
+#define EICON_FLAGS_PVALID   2 /* Cards port is valid    */
+#define EICON_FLAGS_IVALID   4 /* Cards irq is valid     */
+#define EICON_FLAGS_MVALID   8 /* Cards membase is valid */
+#define EICON_FLAGS_LOADED   8 /* Firmware loaded        */
 
-#define DIEHL_BCH            2 /* # of channels per card */
+#define EICON_BCH            2 /* # of channels per card */
 
 /* D-Channel states */
-#define DIEHL_STATE_NULL     0
-#define DIEHL_STATE_ICALL    1
-#define DIEHL_STATE_OCALL    2
-#define DIEHL_STATE_IWAIT    3
-#define DIEHL_STATE_OWAIT    4
-#define DIEHL_STATE_IBWAIT   5
-#define DIEHL_STATE_OBWAIT   6
-#define DIEHL_STATE_BWAIT    7
-#define DIEHL_STATE_BHWAIT   8
-#define DIEHL_STATE_BHWAIT2  9
-#define DIEHL_STATE_DHWAIT  10
-#define DIEHL_STATE_DHWAIT2 11
-#define DIEHL_STATE_BSETUP  12
-#define DIEHL_STATE_ACTIVE  13
-#define DIEHL_STATE_ICALLW  14
-#define DIEHL_STATE_LISTEN  15
-#define DIEHL_STATE_WMCONN  16
+#define EICON_STATE_NULL     0
+#define EICON_STATE_ICALL    1
+#define EICON_STATE_OCALL    2
+#define EICON_STATE_IWAIT    3
+#define EICON_STATE_OWAIT    4
+#define EICON_STATE_IBWAIT   5
+#define EICON_STATE_OBWAIT   6
+#define EICON_STATE_BWAIT    7
+#define EICON_STATE_BHWAIT   8
+#define EICON_STATE_BHWAIT2  9
+#define EICON_STATE_DHWAIT  10
+#define EICON_STATE_DHWAIT2 11
+#define EICON_STATE_BSETUP  12
+#define EICON_STATE_ACTIVE  13
+#define EICON_STATE_ICALLW  14
+#define EICON_STATE_LISTEN  15
+#define EICON_STATE_WMCONN  16
 
 #define EICON_MAX_QUEUED  8000 /* 2 * maxbuff */
 
-#define DIEHL_LOCK_TX 0
-#define DIEHL_LOCK_RX 1
+#define EICON_LOCK_TX 0
+#define EICON_LOCK_RX 1
 
 typedef struct {
 	int dummy;
-} diehl_mca_card;
+} eicon_mca_card;
 
 typedef union {
-	diehl_isa_card isa;
-	diehl_pci_card pci;
-	diehl_mca_card mca;
-} diehl_hwif;
+	eicon_isa_card isa;
+	eicon_pci_card pci;
+	eicon_mca_card mca;
+} eicon_hwif;
 
 typedef struct {
 	__u8 ret;
 	__u8 id;
 	__u8 ch;
-} diehl_ack;
+} eicon_ack;
 
 typedef struct {
 	__u8 code;
 	__u8 id;
 	__u8 ch;
-} diehl_req;
+} eicon_req;
 
 typedef struct {
 	__u8 ret;
 	__u8 id;
 	__u8 ch;
 	__u8 more;
-} diehl_indhdr;
+} eicon_indhdr;
 
 typedef struct msn_entry {
 	char eaz;
@@ -413,13 +426,14 @@ typedef struct msn_entry {
 /*
  * Per card driver data
  */
-typedef struct diehl_card {
-	diehl_hwif hwif;                 /* Hardware dependant interface     */
+typedef struct eicon_card {
+	eicon_hwif hwif;                 /* Hardware dependant interface     */
         u_char ptype;                    /* Protocol type (1TR6 or Euro)     */
         u_char bus;                      /* Bustype (ISA, MCA, PCI)          */
-        u_char type;                     /* Cardtype (DIEHL_CTYPE_...)       */
+        u_char type;                     /* Cardtype (EICON_CTYPE_...)       */
+	struct eicon_card *qnext;  	 /* Pointer to next quadro adapter   */
         int Feature;                     /* Protocol Feature Value           */
-        struct diehl_card *next;	 /* Pointer to next device struct    */
+        struct eicon_card *next;	 /* Pointer to next device struct    */
         int myid;                        /* Driver-Nr. assigned by linklevel */
         unsigned long flags;             /* Statusflags                      */
         unsigned long ilock;             /* Semaphores for IRQ-Routines      */
@@ -435,15 +449,19 @@ typedef struct diehl_card {
 	struct tq_struct ack_tq;         /* Task struct for ack bh           */
 	msn_entry *msn_list;
 	unsigned short msgnum;           /* Message number for sending       */
+	eicon_chan*	IdTable[256];	 /* Table to find entity   */
+	__u16  ref_in;
+	__u16  ref_out;
 	int    nchannels;                /* Number of B-Channels             */
-	diehl_chan *bch;                 /* B-Channel status/control         */
+	int    ReadyInt;		 /* Ready Interrupt		     */
+	eicon_chan *bch;                 /* B-Channel status/control         */
 	char   status_buf[256];          /* Buffer for status messages       */
 	char   *status_buf_read;
 	char   *status_buf_write;
 	char   *status_buf_end;
         isdn_if interface;               /* Interface to upper layer         */
         char regname[35];                /* Name used for request_region     */
-} diehl_card;
+} eicon_card;
 
 /* -----------------------------------------------------------**
 ** The PROTOCOL_FEATURE_STRING                                **
@@ -471,30 +489,34 @@ typedef struct diehl_card {
 
 #include "eicon_idi.h"
 
-extern diehl_card *cards;
-extern char *diehl_ctype_name[];
+extern eicon_card *cards;
+extern char *eicon_ctype_name[];
 
 
-extern __inline__ void diehl_schedule_tx(diehl_card *card)
+extern __inline__ void eicon_schedule_tx(eicon_card *card)
 {
         queue_task(&card->snd_tq, &tq_immediate);
         mark_bh(IMMEDIATE_BH);
 }
 
-extern __inline__ void diehl_schedule_rx(diehl_card *card)
+extern __inline__ void eicon_schedule_rx(eicon_card *card)
 {
         queue_task(&card->rcv_tq, &tq_immediate);
         mark_bh(IMMEDIATE_BH);
 }
 
-extern __inline__ void diehl_schedule_ack(diehl_card *card)
+extern __inline__ void eicon_schedule_ack(eicon_card *card)
 {
         queue_task(&card->ack_tq, &tq_immediate);
         mark_bh(IMMEDIATE_BH);
 }
 
-extern char *diehl_find_eaz(diehl_card *, char);
-extern int diehl_addcard(int, int, int, char *);
+extern char *eicon_find_eaz(eicon_card *, char);
+extern int eicon_addcard(int, int, int, char *);
+extern void eicon_io_transmit(eicon_card *card);
+extern void eicon_irq(int irq, void *dev_id, struct pt_regs *regs);
+extern void eicon_io_rcv_dispatch(eicon_card *ccard);
+extern void eicon_io_ack_dispatch(eicon_card *ccard);
 extern ulong DebugVar;
 
 #endif  /* __KERNEL__ */

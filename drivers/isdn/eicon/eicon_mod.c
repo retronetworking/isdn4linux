@@ -26,6 +26,11 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.3  1999/03/02 12:37:47  armin
+ * Added some important checks.
+ * Analog Modem with DSP.
+ * Channels will be added to Link-Level after loading firmware.
+ *
  * Revision 1.2  1999/01/24 20:14:21  armin
  * Changed and added debug stuff.
  * Better data sending. (still problems with tty's flip buffer)
@@ -40,25 +45,29 @@
 
 #include <linux/config.h>
 #include <linux/module.h>
+#include <linux/init.h>
 
 #include "eicon.h"
 
-static diehl_card *cards = (diehl_card *) NULL;
+#define INCLUDE_INLINE_FUNCS
 
-static char *diehl_revision = "$Revision$";
+static eicon_card *cards = (eicon_card *) NULL;
 
-extern char *diehl_pci_revision;
-extern char *diehl_isa_revision;
-extern char *diehl_idi_revision;
+static char *eicon_revision = "$Revision$";
+
+extern char *eicon_pci_revision;
+extern char *eicon_isa_revision;
+extern char *eicon_idi_revision;
 
 #ifdef MODULE
 #define MOD_USE_COUNT (GET_USE_COUNT (&__this_module))
 #endif
 
+#define EICON_CTRL_VERSION 1
+
 ulong DebugVar;
 
 /* Parameters to be set by insmod */
-static int   type         = -1;
 static int   membase      = -1;
 static int   irq          = -1;
 static char *id           = "\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0";
@@ -66,30 +75,27 @@ static char *id           = "\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0";
 MODULE_DESCRIPTION(             "Driver for Eicon.Diehl active ISDN cards");
 MODULE_AUTHOR(                  "Armin Schindler");
 MODULE_SUPPORTED_DEVICE(        "ISDN subsystem");
-MODULE_PARM_DESC(type,		"Type of first card");
-MODULE_PARM_DESC(membase,	"Base address, if ISA card");
-MODULE_PARM_DESC(irq,    	"IRQ of card");
+MODULE_PARM_DESC(membase,	"Base address of first ISA card");
+MODULE_PARM_DESC(irq,    	"IRQ of first card");
 MODULE_PARM_DESC(id,   		"ID-String of first card");
-MODULE_PARM(type,   	      	"i");
 MODULE_PARM(membase,    	"i");
 MODULE_PARM(irq,          	"i");
 MODULE_PARM(id,           	"s");
 
-char *diehl_ctype_name[] = {
-	"ISDN-S",
-	"ISDN-SX",
-	"ISDN-SCOM",
-	"ISDN-QUADRO",
-	"ISDN-PRI",
-	"DIVA Server BRI/PCI",
-	"DIVA Server 4BRI/PCI",
-	"DIVA Server 4BRI/PCI",
-	"DIVA Server PRI/PCI"
+char *eicon_ctype_name[] = {
+        "ISDN-S",
+        "ISDN-SX",
+        "ISDN-SCOM",
+        "ISDN-QUADRO",
+        "ISDN-S2M",
+        "DIVA Server BRI/PCI",
+        "DIVA Server 4BRI/PCI",
+        "DIVA Server 4BRI/PCI",
+        "DIVA Server PRI/PCI"
 };
 
-
 static char *
-diehl_getrev(const char *revision)
+eicon_getrev(const char *revision)
 {
 	char *rev;
 	char *p;
@@ -102,8 +108,8 @@ diehl_getrev(const char *revision)
 
 }
 
-static diehl_chan *
-find_channel(diehl_card *card, int channel)
+static eicon_chan *
+find_channel(eicon_card *card, int channel)
 {
 	if ((channel >= 0) && (channel < card->nchannels))
         	return &(card->bch[channel]);
@@ -116,7 +122,7 @@ find_channel(diehl_card *card, int channel)
  * Free MSN list
  */
 static void
-diehl_clear_msn(diehl_card *card)
+eicon_clear_msn(eicon_card *card)
 {
         struct msn_entry *p = card->msn_list;
         struct msn_entry *q;
@@ -139,7 +145,7 @@ diehl_clear_msn(diehl_card *card)
  * return a bitmask with corresponding bit set.
  */
 static __u16
-diehl_find_msn(diehl_card *card, char *msn, int ia5)
+eicon_find_msn(eicon_card *card, char *msn, int ia5)
 {
         struct msn_entry *p = card->msn_list;
 	__u8 eaz = '0';
@@ -162,7 +168,7 @@ diehl_find_msn(diehl_card *card, char *msn, int ia5)
  * return a string with corresponding msn.
  */
 char *
-diehl_find_eaz(diehl_card *card, char eaz)
+eicon_find_eaz(eicon_card *card, char eaz)
 {
         struct msn_entry *p = card->msn_list;
 
@@ -182,7 +188,7 @@ diehl_find_eaz(diehl_card *card, char eaz)
  * If length of eazmsn is 1, delete that entry.
  */
 static int
-diehl_set_msn(diehl_card *card, char *eazmsn)
+eicon_set_msn(eicon_card *card, char *eazmsn)
 {
         struct msn_entry *p = card->msn_list;
         struct msn_entry *q = NULL;
@@ -257,17 +263,14 @@ diehl_set_msn(diehl_card *card, char *eazmsn)
 #endif
 
 static void
-diehl_rcv_dispatch(struct diehl_card *card)
+eicon_rcv_dispatch(struct eicon_card *card)
 {
 	switch (card->bus) {
-		case DIEHL_BUS_ISA:
+		case EICON_BUS_ISA:
+		case EICON_BUS_PCI:
+			eicon_io_rcv_dispatch(card);
 			break;
-		case DIEHL_BUS_PCI:
-#if CONFIG_PCI
-			diehl_pci_rcv_dispatch(&card->hwif.pci);
-			break;
-#endif
-		case DIEHL_BUS_MCA:
+		case EICON_BUS_MCA:
 		default:
 			if (DebugVar & 1)
 				printk(KERN_WARNING
@@ -276,17 +279,14 @@ diehl_rcv_dispatch(struct diehl_card *card)
 }
 
 static void
-diehl_ack_dispatch(struct diehl_card *card)
+eicon_ack_dispatch(struct eicon_card *card)
 {
 	switch (card->bus) {
-		case DIEHL_BUS_ISA:
+		case EICON_BUS_ISA:
+		case EICON_BUS_PCI:
+			eicon_io_ack_dispatch(card);
 			break;
-		case DIEHL_BUS_PCI:
-#if CONFIG_PCI
-			diehl_pci_ack_dispatch(&card->hwif.pci);
-			break;
-#endif
-		case DIEHL_BUS_MCA:
+		case EICON_BUS_MCA:
 		default:
 			if (DebugVar & 1)
 				printk(KERN_WARNING
@@ -295,18 +295,14 @@ diehl_ack_dispatch(struct diehl_card *card)
 }
 
 static void
-diehl_transmit(struct diehl_card *card)
+eicon_transmit(struct eicon_card *card)
 {
 	switch (card->bus) {
-		case DIEHL_BUS_ISA:
-			diehl_isa_transmit(&card->hwif.isa);
+		case EICON_BUS_ISA:
+		case EICON_BUS_PCI:
+			eicon_io_transmit(card);
 			break;
-		case DIEHL_BUS_PCI:
-#if CONFIG_PCI
-			diehl_pci_transmit(&card->hwif.pci);
-			break;
-#endif
-		case DIEHL_BUS_MCA:
+		case EICON_BUS_MCA:
 		default:
 			if (DebugVar & 1)
 				printk(KERN_WARNING
@@ -315,11 +311,11 @@ diehl_transmit(struct diehl_card *card)
 }
 
 static int
-diehl_command(diehl_card * card, isdn_ctrl * c)
+eicon_command(eicon_card * card, isdn_ctrl * c)
 {
         ulong a;
-        diehl_chan *chan;
-	diehl_cdef cdef;
+        eicon_chan *chan;
+	eicon_cdef cdef;
 	isdn_ctrl cmd;
 	char tmp[17];
 	int ret = 0;
@@ -329,14 +325,49 @@ diehl_command(diehl_card * card, isdn_ctrl * c)
 		case ISDN_CMD_IOCTL:
 			memcpy(&a, c->parm.num, sizeof(ulong));
 			switch (c->arg) {
-				case DIEHL_IOCTL_GETTYPE:
+				case EICON_IOCTL_GETVER:
+					return(EICON_CTRL_VERSION);
+				case EICON_IOCTL_GETTYPE:
 					return(card->type);
-				case DIEHL_IOCTL_GETIRQ:
+				case EICON_IOCTL_GETMMIO:
 					switch (card->bus) {
-						case DIEHL_BUS_ISA:
+						case EICON_BUS_ISA:
+							return (int)card->hwif.isa.shmem;
+#if CONFIG_PCI
+						case EICON_BUS_PCI:
+							return card->hwif.pci.PCIram;
+#endif
+						default:
+							if (DebugVar & 1)
+								printk(KERN_WARNING
+								       "eicon: Illegal BUS type %d\n",
+							       card->bus);
+							ret = -ENODEV;
+					}
+				case EICON_IOCTL_SETMMIO:
+					if (card->flags & EICON_FLAGS_LOADED)
+						return -EBUSY;
+					switch (card->bus) {
+						case EICON_BUS_ISA:
+							if (eicon_isa_find_card(a,
+								card->hwif.isa.irq,
+								card->regname) < 0)
+								return -EFAULT;
+							card->hwif.isa.shmem = (eicon_isa_shmem *)a;
+							return 0;
+						default:
+							if (DebugVar & 1)
+								printk(KERN_WARNING
+							      		"eicon: Illegal BUS type %d\n",
+							       card->bus);
+							ret = -ENODEV;
+					}					
+				case EICON_IOCTL_GETIRQ:
+					switch (card->bus) {
+						case EICON_BUS_ISA:
 							return card->hwif.isa.irq;
 #if CONFIG_PCI
-						case DIEHL_BUS_PCI:
+						case EICON_BUS_PCI:
 							return card->hwif.pci.irq;
 #endif
 						default:
@@ -346,11 +377,13 @@ diehl_command(diehl_card * card, isdn_ctrl * c)
 							       card->bus);
 							ret = -ENODEV;
 					}
-				case DIEHL_IOCTL_SETIRQ:
-					if (card->flags & DIEHL_FLAGS_LOADED)
+				case EICON_IOCTL_SETIRQ:
+					if (card->flags & EICON_FLAGS_LOADED)
 						return -EBUSY;
+					if ((a < 2) || (a > 15))
+						return -EFAULT;
 					switch (card->bus) {
-						case DIEHL_BUS_ISA:
+						case EICON_BUS_ISA:
 							card->hwif.isa.irq = a;
 							return 0;
 						default:
@@ -360,14 +393,45 @@ diehl_command(diehl_card * card, isdn_ctrl * c)
 							       card->bus);
 							ret = -ENODEV;
 					}					
-				case DIEHL_IOCTL_LOADBOOT:
+				case EICON_IOCTL_LOADBOOT:
+					if (card->flags & EICON_FLAGS_RUNNING)
+						return -EBUSY;  
 					switch (card->bus) {
-						case DIEHL_BUS_ISA:
-							ret = diehl_isa_load(
+						case EICON_BUS_ISA:
+							ret = eicon_isa_bootload(
 								&(card->hwif.isa),
-								&(((diehl_codebuf *)a)->isa));
-							if (!ret)
-								card->flags |= DIEHL_FLAGS_LOADED;
+								&(((eicon_codebuf *)a)->isa));
+							break;
+						default:
+							if (DebugVar & 1)
+								printk(KERN_WARNING
+								       "eicon: Illegal BUS type %d\n",
+							       card->bus);
+							ret = -ENODEV;
+					}
+					return ret;
+				case EICON_IOCTL_LOADISA:
+					if (card->flags & EICON_FLAGS_RUNNING)
+						return -EBUSY;  
+					switch (card->bus) {
+						case EICON_BUS_ISA:
+							ret = eicon_isa_load(
+								&(card->hwif.isa),
+								&(((eicon_codebuf *)a)->isa));
+							if (!ret) {
+                                                                card->flags |= EICON_FLAGS_LOADED;
+                                                                card->flags |= EICON_FLAGS_RUNNING;
+								if (card->hwif.isa.channels > 1) {
+									cmd.command = ISDN_STAT_ADDCH;
+									cmd.driver = card->myid;
+									cmd.arg = card->hwif.isa.channels - 1;
+									card->interface.statcallb(&cmd);
+								}
+								cmd.command = ISDN_STAT_RUN;    
+								cmd.driver = card->myid;        
+								cmd.arg = 0;                    
+								card->interface.statcallb(&cmd);
+							}
 							break;
 						default:
 							if (DebugVar & 1)
@@ -378,8 +442,8 @@ diehl_command(diehl_card * card, isdn_ctrl * c)
 					}
 					return ret;
 
-				case DIEHL_IOCTL_MANIF:
-					if (!card->flags & DIEHL_FLAGS_RUNNING)
+				case EICON_IOCTL_MANIF:
+					if (!card->flags & EICON_FLAGS_RUNNING)
 						return -ENODEV;
 					if (!card->Feature & PROTCAP_MANIF)
 						return -ENODEV;
@@ -388,26 +452,26 @@ diehl_command(diehl_card * card, isdn_ctrl * c)
 						(eicon_manifbuf *)a);
 					return ret;
 #if CONFIG_PCI 
-				case DIEHL_IOCTL_LOADPCI:
-						if (card->flags & DIEHL_FLAGS_RUNNING)
+				case EICON_IOCTL_LOADPCI:
+						if (card->flags & EICON_FLAGS_RUNNING)
 							return -EBUSY;  
-                                                if (card->bus == DIEHL_BUS_PCI) {
+                                                if (card->bus == EICON_BUS_PCI) {
 							switch(card->type) {
-								case DIEHL_CTYPE_MAESTRA:
-                                                		        ret = diehl_pci_load_bri(
+								case EICON_CTYPE_MAESTRA:
+                                                		        ret = eicon_pci_load_bri(
 		                                                                &(card->hwif.pci),
-                		                                                &(((diehl_codebuf *)a)->pci)); 
+                		                                                &(((eicon_codebuf *)a)->pci)); 
 									break;
 
-								case DIEHL_CTYPE_MAESTRAP:
-		                                                        ret = diehl_pci_load_pri(
+								case EICON_CTYPE_MAESTRAP:
+		                                                        ret = eicon_pci_load_pri(
                 		                                                &(card->hwif.pci),
-                                		                                &(((diehl_codebuf *)a)->pci)); 
+                                		                                &(((eicon_codebuf *)a)->pci)); 
 									break;
 							}
                                                         if (!ret) {
-                                                                card->flags |= DIEHL_FLAGS_LOADED;
-                                                                card->flags |= DIEHL_FLAGS_RUNNING;
+                                                                card->flags |= EICON_FLAGS_LOADED;
+                                                                card->flags |= EICON_FLAGS_RUNNING;
 								if (card->hwif.pci.channels > 1) {
 									cmd.command = ISDN_STAT_ADDCH;
 									cmd.driver = card->myid;
@@ -423,29 +487,29 @@ diehl_command(diehl_card * card, isdn_ctrl * c)
 						} else return -ENODEV;
 #endif
 #if 0
-				case DIEHL_IOCTL_SETMSN:
+				case EICON_IOCTL_SETMSN:
 					if ((ret = copy_from_user(tmp, (char *)a, sizeof(tmp))))
 						return -EFAULT;
-					if ((ret = diehl_set_msn(card, tmp)))
+					if ((ret = eicon_set_msn(card, tmp)))
 						return ret;
 #if 0
-					if (card->flags & DIEHL_FLAGS_RUNNING)
-						return(diehl_capi_manufacturer_req_msn(card));
+					if (card->flags & EICON_FLAGS_RUNNING)
+						return(eicon_capi_manufacturer_req_msn(card));
 #endif
 					return 0;
 #endif
-				case DIEHL_IOCTL_ADDCARD:
+				case EICON_IOCTL_ADDCARD:
 					if ((ret = copy_from_user(&cdef, (char *)a, sizeof(cdef))))
 						return -EFAULT;
-					if (diehl_addcard(cdef.type, cdef.membase, cdef.irq, cdef.id))
+					if (!(eicon_addcard(0, cdef.membase, cdef.irq, cdef.id)))
 						return -EIO;
 					return 0;
-				case DIEHL_IOCTL_DEBUGVAR:
+				case EICON_IOCTL_DEBUGVAR:
 					DebugVar = a;
 					printk(KERN_DEBUG"eicon: Debug Value set to %ld\n", DebugVar);
 					return 0;
 #ifdef MODULE
-				case DIEHL_IOCTL_FREEIT:
+				case EICON_IOCTL_FREEIT:
 					while (MOD_USE_COUNT > 0) MOD_DEC_USE_COUNT;
 					MOD_INC_USE_COUNT;
 					return 0;
@@ -455,13 +519,13 @@ diehl_command(diehl_card * card, isdn_ctrl * c)
 			}
 			break;
 		case ISDN_CMD_DIAL:
-			if (!card->flags & DIEHL_FLAGS_RUNNING)
+			if (!card->flags & EICON_FLAGS_RUNNING)
 				return -ENODEV;
 			if (!(chan = find_channel(card, c->arg & 0x1f)))
 				break;
 			save_flags(flags);
 			cli();
-			if ((chan->fsm_state != DIEHL_STATE_NULL) && (chan->fsm_state != DIEHL_STATE_LISTEN)) {
+			if ((chan->fsm_state != EICON_STATE_NULL) && (chan->fsm_state != EICON_STATE_LISTEN)) {
 				restore_flags(flags);
 				if (DebugVar & 1)
 					printk(KERN_WARNING "Dial on channel %d with state %d\n",
@@ -469,10 +533,10 @@ diehl_command(diehl_card * card, isdn_ctrl * c)
 				return -EBUSY;
 			}
 			if (card->ptype == ISDN_PTYPE_EURO)
-				tmp[0] = diehl_find_msn(card, c->parm.setup.eazmsn, 1);
+				tmp[0] = eicon_find_msn(card, c->parm.setup.eazmsn, 1);
 			else
 				tmp[0] = c->parm.setup.eazmsn[0];
-			chan->fsm_state = DIEHL_STATE_OCALL;
+			chan->fsm_state = EICON_STATE_OCALL;
 			chan->callref = 0xffff;
 			restore_flags(flags);
 			
@@ -488,33 +552,33 @@ diehl_command(diehl_card * card, isdn_ctrl * c)
 			}
 			return ret;
 		case ISDN_CMD_ACCEPTD:
-			if (!card->flags & DIEHL_FLAGS_RUNNING)
+			if (!card->flags & EICON_FLAGS_RUNNING)
 				return -ENODEV;
 			if (!(chan = find_channel(card, c->arg & 0x1f)))
 				break;
-			if (chan->fsm_state == DIEHL_STATE_ICALL) { 
+			if (chan->fsm_state == EICON_STATE_ICALL) { 
 				idi_connect_res(card, chan);
 			}
 			return 0;
 		case ISDN_CMD_ACCEPTB:
-			if (!card->flags & DIEHL_FLAGS_RUNNING)
+			if (!card->flags & EICON_FLAGS_RUNNING)
 				return -ENODEV;
 			return 0;
 		case ISDN_CMD_HANGUP:
-			if (!card->flags & DIEHL_FLAGS_RUNNING)
+			if (!card->flags & EICON_FLAGS_RUNNING)
 				return -ENODEV;
 			if (!(chan = find_channel(card, c->arg & 0x1f)))
 				break;
 			idi_hangup(card, chan);
 			return 0;
 		case ISDN_CMD_SETEAZ:
-			if (!card->flags & DIEHL_FLAGS_RUNNING)
+			if (!card->flags & EICON_FLAGS_RUNNING)
 				return -ENODEV;
 			if (!(chan = find_channel(card, c->arg & 0x1f)))
 				break;
 			if (strlen(c->parm.num)) {
 				if (card->ptype == ISDN_PTYPE_EURO) {
-					chan->eazmask = diehl_find_msn(card, c->parm.num, 0);
+					chan->eazmask = eicon_find_msn(card, c->parm.num, 0);
 				}
 				if (card->ptype == ISDN_PTYPE_1TR6) {
 					int i;
@@ -525,31 +589,31 @@ diehl_command(diehl_card * card, isdn_ctrl * c)
 				}
 			} else
 				chan->eazmask = 0x3ff;
-			diehl_idi_listen_req(card, chan);
+			eicon_idi_listen_req(card, chan);
 			return 0;
 		case ISDN_CMD_CLREAZ:
-			if (!card->flags & DIEHL_FLAGS_RUNNING)
+			if (!card->flags & EICON_FLAGS_RUNNING)
 				return -ENODEV;
 			if (!(chan = find_channel(card, c->arg & 0x1f)))
 				break;
 			chan->eazmask = 0;
-			diehl_idi_listen_req(card, chan);
+			eicon_idi_listen_req(card, chan);
 			return 0;
 		case ISDN_CMD_SETL2:
-			if (!card->flags & DIEHL_FLAGS_RUNNING)
+			if (!card->flags & EICON_FLAGS_RUNNING)
 				return -ENODEV;
 			if (!(chan = find_channel(card, c->arg & 0x1f)))
 				break;
 			chan->l2prot = (c->arg >> 8);
 			return 0;
 		case ISDN_CMD_GETL2:
-			if (!card->flags & DIEHL_FLAGS_RUNNING)
+			if (!card->flags & EICON_FLAGS_RUNNING)
 				return -ENODEV;
 			if (!(chan = find_channel(card, c->arg & 0x1f)))
 				break;
 			return chan->l2prot;
 		case ISDN_CMD_SETL3:
-			if (!card->flags & DIEHL_FLAGS_RUNNING)
+			if (!card->flags & EICON_FLAGS_RUNNING)
 				return -ENODEV;
 			if ((c->arg >> 8) != ISDN_PROTO_L3_TRANS) {
 				if (DebugVar & 1)
@@ -561,25 +625,25 @@ diehl_command(diehl_card * card, isdn_ctrl * c)
 			chan->l3prot = (c->arg >> 8);
 			return 0;
 		case ISDN_CMD_GETL3:
-			if (!card->flags & DIEHL_FLAGS_RUNNING)
+			if (!card->flags & EICON_FLAGS_RUNNING)
 				return -ENODEV;
 			if (!(chan = find_channel(card, c->arg & 0x1f)))
 				break;
 			return chan->l3prot;
 		case ISDN_CMD_GETEAZ:
-			if (!card->flags & DIEHL_FLAGS_RUNNING)
+			if (!card->flags & EICON_FLAGS_RUNNING)
 				return -ENODEV;
 			if (DebugVar & 1)
 				printk(KERN_DEBUG "eicon CMD_GETEAZ not implemented\n");
 			return 0;
 		case ISDN_CMD_SETSIL:
-			if (!card->flags & DIEHL_FLAGS_RUNNING)
+			if (!card->flags & EICON_FLAGS_RUNNING)
 				return -ENODEV;
 			if (DebugVar & 1)
 				printk(KERN_DEBUG "eicon CMD_SETSIL not implemented\n");
 			return 0;
 		case ISDN_CMD_GETSIL:
-			if (!card->flags & DIEHL_FLAGS_RUNNING)
+			if (!card->flags & EICON_FLAGS_RUNNING)
 				return -ENODEV;
 			if (DebugVar & 1)
 				printk(KERN_DEBUG "eicon CMD_GETSIL not implemented\n");
@@ -598,17 +662,17 @@ diehl_command(diehl_card * card, isdn_ctrl * c)
 /*
  * Find card with given driverId
  */
-static inline diehl_card *
-diehl_findcard(int driverid)
+static inline eicon_card *
+eicon_findcard(int driverid)
 {
-        diehl_card *p = cards;
+        eicon_card *p = cards;
 
         while (p) {
                 if (p->myid == driverid)
                         return p;
                 p = p->next;
         }
-        return (diehl_card *) 0;
+        return (eicon_card *) 0;
 }
 
 /*
@@ -617,10 +681,10 @@ diehl_findcard(int driverid)
 static int
 if_command(isdn_ctrl * c)
 {
-        diehl_card *card = diehl_findcard(c->driver);
+        eicon_card *card = eicon_findcard(c->driver);
 
         if (card)
-                return (diehl_command(card, c));
+                return (eicon_command(card, c));
         printk(KERN_ERR
              "eicon: if_command %d called with invalid driverId %d!\n",
                c->command, c->driver);
@@ -630,10 +694,10 @@ if_command(isdn_ctrl * c)
 static int
 if_writecmd(const u_char * buf, int len, int user, int id, int channel)
 {
-        diehl_card *card = diehl_findcard(id);
+        eicon_card *card = eicon_findcard(id);
 
         if (card) {
-                if (!card->flags & DIEHL_FLAGS_RUNNING)
+                if (!card->flags & EICON_FLAGS_RUNNING)
                         return -ENODEV;
                 return (len);
         }
@@ -647,12 +711,12 @@ if_readstatus(u_char * buf, int len, int user, int id, int channel)
 {
 #if 0
 	/* Not yet used */
-        diehl_card *card = diehl_findcard(id);
+        eicon_card *card = eicon_findcard(id);
 	
         if (card) {
-                if (!card->flags & DIEHL_FLAGS_RUNNING)
+                if (!card->flags & EICON_FLAGS_RUNNING)
                         return -ENODEV;
-                return (diehl_readstatus(buf, len, user, card));
+                return (eicon_readstatus(buf, len, user, card));
         }
         printk(KERN_ERR
                "eicon: if_readstatus called with invalid driverId!\n");
@@ -663,11 +727,11 @@ if_readstatus(u_char * buf, int len, int user, int id, int channel)
 static int
 if_sendbuf(int id, int channel, int ack, struct sk_buff *skb)
 {
-        diehl_card *card = diehl_findcard(id);
-	diehl_chan *chan;
+        eicon_card *card = eicon_findcard(id);
+	eicon_chan *chan;
 	
         if (card) {
-                if (!card->flags & DIEHL_FLAGS_RUNNING) {
+                if (!card->flags & EICON_FLAGS_RUNNING) {
 			dev_kfree_skb(skb);
                         return -ENODEV;
 		}
@@ -675,7 +739,7 @@ if_sendbuf(int id, int channel, int ack, struct sk_buff *skb)
 			dev_kfree_skb(skb);
 			return -ENODEV;
 		}
-		if (chan->fsm_state == DIEHL_STATE_ACTIVE)
+		if (chan->fsm_state == EICON_STATE_ACTIVE)
 			return (idi_send_data(card, chan, ack, skb));
 		else {
 			dev_kfree_skb(skb);
@@ -694,34 +758,34 @@ if_sendbuf(int id, int channel, int ack, struct sk_buff *skb)
  * link it into cards-list.
  */
 static void
-diehl_alloccard(int type, int membase, int irq, char *id)
+eicon_alloccard(int Type, int membase, int irq, char *id)
 {
 	int i;
 	int j;
 	int qloop;
-        diehl_card *card;
+	char qid[5];
+        eicon_card *card;
 #if CONFIG_PCI
-	diehl_pci_card *pcic;
+	eicon_pci_card *pcic;
 #endif
 
-	qloop = (type == DIEHL_CTYPE_QUADRO)?3:0;
-	type &= 0x0f;
-	for (i = qloop; i >= 0; i--) {
-		if (!(card = (diehl_card *) kmalloc(sizeof(diehl_card), GFP_KERNEL))) {
+	qloop = (Type == EICON_CTYPE_QUADRO)?2:0;
+	for (i = 0; i <= qloop; i++) {
+		if (!(card = (eicon_card *) kmalloc(sizeof(eicon_card), GFP_KERNEL))) {
 			printk(KERN_WARNING
 			       "eicon: (%s) Could not allocate card-struct.\n", id);
 			return;
 		}
-		memset((char *) card, 0, sizeof(diehl_card));
+		memset((char *) card, 0, sizeof(eicon_card));
 		skb_queue_head_init(&card->sndq);
 		skb_queue_head_init(&card->rcvq);
 		skb_queue_head_init(&card->rackq);
 		skb_queue_head_init(&card->sackq);
-		card->snd_tq.routine = (void *) (void *) diehl_transmit;
+		card->snd_tq.routine = (void *) (void *) eicon_transmit;
 		card->snd_tq.data = card;
-		card->rcv_tq.routine = (void *) (void *) diehl_rcv_dispatch;
+		card->rcv_tq.routine = (void *) (void *) eicon_rcv_dispatch;
 		card->rcv_tq.data = card;
-		card->ack_tq.routine = (void *) (void *) diehl_ack_dispatch;
+		card->ack_tq.routine = (void *) (void *) eicon_ack_dispatch;
 		card->ack_tq.data = card;
 		card->interface.maxbufsize = 4000;
 		card->interface.command = if_command;
@@ -738,59 +802,52 @@ diehl_alloccard(int type, int membase, int irq, char *id)
 		card->ptype = ISDN_PTYPE_UNKNOWN;
 		strncpy(card->interface.id, id, sizeof(card->interface.id) - 1);
 		card->myid = -1;
-		card->type = type;
-		switch (type) {
-			case DIEHL_CTYPE_S:
-			case DIEHL_CTYPE_SX:
-			case DIEHL_CTYPE_SCOM:
-			case DIEHL_CTYPE_QUADRO:
+		card->type = Type;
+		switch (Type) {
+			case EICON_CTYPE_QUADRO:
 				if (membase == -1)
-					membase = DIEHL_ISA_MEMBASE;
+					membase = EICON_ISA_MEMBASE;
 				if (irq == -1)
-					irq = DIEHL_ISA_IRQ;
-				card->bus = DIEHL_BUS_ISA;
+					irq = EICON_ISA_IRQ;
+				card->bus = EICON_BUS_ISA;
 				card->hwif.isa.card = (void *)card;
-				card->hwif.isa.shmem = (diehl_isa_shmem *)membase;
-				card->hwif.isa.master = 1;
-				if (type == DIEHL_CTYPE_QUADRO) {
-					int l;
-
-					card->hwif.isa.shmem = (diehl_isa_shmem *)(membase + i * DIEHL_ISA_QOFFSET);
-					card->hwif.isa.master = (i == 0);
-					if ((l = strlen(id))) {
-						if (l+3 >= sizeof(card->interface.id)) {
-							printk(KERN_WARNING
-							       "Id-String for Quadro must not exceed %d characters",
-							       sizeof(card->interface.id)-4);
-							kfree(card);
-							return;
+				card->hwif.isa.shmem = (eicon_isa_shmem *)(membase + (i+1) * EICON_ISA_QOFFSET);
+				card->hwif.isa.master = 0;
+				strcpy(card->interface.id, id);
+				if (id[strlen(id) - 1] == 'a') {
+					card->interface.id[strlen(id) - 1] = 'a' + i + 1;
+				} else {
+					sprintf(qid, "_%c",'2' + i);
+					strcat(card->interface.id, qid);
+				}
+				printk(KERN_INFO "eicon_isa: Quadro: Driver-Id %s added.\n",
+					card->interface.id);
+				if (i == 0) {
+					eicon_card *p = cards;
+					while(p) {
+						if ((p->hwif.isa.master) && (p->hwif.isa.irq == irq)) {
+							p->qnext = card;
+							break;
 						}
-						sprintf(card->interface.id, "%s%d/4", id, i+1);
+						p = p->next;
 					}
+					if (!p) {
+						printk(KERN_WARNING "eicon_alloccard: Quadro Master not found.\n");
+						kfree(card);
+						return;
+					}
+				} else {
+					cards->qnext = card;
 				}
 				card->hwif.isa.irq = irq;
-				card->hwif.isa.type = type;
+				card->hwif.isa.type = Type;
 				card->nchannels = 2;
-				card->interface.channels = 2;
-				break;
-			case DIEHL_CTYPE_PRI:
-				if (membase == -1)
-					membase = DIEHL_ISA_MEMBASE;
-				if (irq == -1)
-					irq = DIEHL_ISA_IRQ;
-				card->bus = DIEHL_BUS_ISA;
-				card->hwif.isa.card = (void *)card;
-				card->hwif.isa.shmem = (diehl_isa_shmem *)membase;
-				card->hwif.isa.master = 1;
-				card->hwif.isa.irq = irq;
-				card->hwif.isa.type = type;
-				card->nchannels = 30;
-				card->interface.channels = 30;
+				card->interface.channels = 1;
 				break;
 #if CONFIG_PCI
-			case DIEHL_CTYPE_MAESTRA:
-				(diehl_pci_card *)pcic = (diehl_pci_card *)membase;
-                                card->bus = DIEHL_BUS_PCI;
+			case EICON_CTYPE_MAESTRA:
+				(eicon_pci_card *)pcic = (eicon_pci_card *)membase;
+                                card->bus = EICON_BUS_PCI;
 				card->interface.features |=
 					ISDN_FEATURE_L2_V11096 |
 					ISDN_FEATURE_L2_V11019 |
@@ -803,22 +860,22 @@ diehl_alloccard(int type, int membase, int irq, char *id)
                                 card->hwif.pci.mvalid = pcic->mvalid;
                                 card->hwif.pci.ivalid = 0;
                                 card->hwif.pci.irq = irq;
-                                card->hwif.pci.type = type;
+                                card->hwif.pci.type = Type;
 				card->flags = 0;
                                 card->nchannels = 2;
 				card->interface.channels = 1;
 				break;
 
-			case DIEHL_CTYPE_MAESTRAP:
-				(diehl_pci_card *)pcic = (diehl_pci_card *)membase;
-                                card->bus = DIEHL_BUS_PCI;
+			case EICON_CTYPE_MAESTRAP:
+				(eicon_pci_card *)pcic = (eicon_pci_card *)membase;
+                                card->bus = EICON_BUS_PCI;
 				card->interface.features |=
 					ISDN_FEATURE_L2_V11096 |
 					ISDN_FEATURE_L2_V11019 |
 					ISDN_FEATURE_L2_V11038 |
 					ISDN_FEATURE_L2_MODEM;
                                 card->hwif.pci.card = (void *)card;
-                                card->hwif.pci.shmem = (diehl_pci_shmem *)pcic->shmem;
+                                card->hwif.pci.shmem = (eicon_pci_shmem *)pcic->shmem;
 				card->hwif.pci.PCIreg = pcic->PCIreg;
 				card->hwif.pci.PCIram = pcic->PCIram;
 				card->hwif.pci.PCIcfg = pcic->PCIcfg;
@@ -826,18 +883,46 @@ diehl_alloccard(int type, int membase, int irq, char *id)
                                 card->hwif.pci.mvalid = pcic->mvalid;
                                 card->hwif.pci.ivalid = 0;
                                 card->hwif.pci.irq = irq;
-                                card->hwif.pci.type = type;
+                                card->hwif.pci.type = Type;
 				card->flags = 0;
                                 card->nchannels = 30;
 				card->interface.channels = 1;
 				break;
 #endif
+			case EICON_CTYPE_ISABRI:
+				if (membase == -1)
+					membase = EICON_ISA_MEMBASE;
+				if (irq == -1)
+					irq = EICON_ISA_IRQ;
+				card->bus = EICON_BUS_ISA;
+				card->hwif.isa.card = (void *)card;
+				card->hwif.isa.shmem = (eicon_isa_shmem *)membase;
+				card->hwif.isa.master = 1;
+				card->hwif.isa.irq = irq;
+				card->hwif.isa.type = Type;
+				card->nchannels = 2;
+				card->interface.channels = 1;
+				break;
+			case EICON_CTYPE_ISAPRI:
+				if (membase == -1)
+					membase = EICON_ISA_MEMBASE;
+				if (irq == -1)
+					irq = EICON_ISA_IRQ;
+				card->bus = EICON_BUS_ISA;
+				card->hwif.isa.card = (void *)card;
+				card->hwif.isa.shmem = (eicon_isa_shmem *)membase;
+				card->hwif.isa.master = 1;
+				card->hwif.isa.irq = irq;
+				card->hwif.isa.type = Type;
+				card->nchannels = 30;
+				card->interface.channels = 1;
+				break;
 			default:
-				printk(KERN_WARNING "eicon_alloccard: Invalid type %d\n", type);
+				printk(KERN_WARNING "eicon_alloccard: Invalid type %d\n", Type);
 				kfree(card);
 				return;
 		}
-		if (!(card->bch = (diehl_chan *) kmalloc(sizeof(diehl_chan) * (card->nchannels + 1)
+		if (!(card->bch = (eicon_chan *) kmalloc(sizeof(eicon_chan) * (card->nchannels + 1)
 							 , GFP_KERNEL))) {
 			printk(KERN_WARNING
 			       "eicon: (%s) Could not allocate bch-struct.\n", id);
@@ -845,7 +930,7 @@ diehl_alloccard(int type, int membase, int irq, char *id)
 			return;
 		}
 		for (j=0; j< (card->nchannels + 1); j++) {
-			memset((char *)&card->bch[j], 0, sizeof(diehl_chan));
+			memset((char *)&card->bch[j], 0, sizeof(eicon_chan));
 			card->bch[j].plci = 0x8000;
 			card->bch[j].ncci = 0x8000;
 			card->bch[j].l2prot = ISDN_PROTO_L2_X75I;
@@ -866,18 +951,18 @@ diehl_alloccard(int type, int membase, int irq, char *id)
  * register card at linklevel
  */
 static int
-diehl_registercard(diehl_card * card)
+eicon_registercard(eicon_card * card)
 {
         switch (card->bus) {
-		case DIEHL_BUS_ISA:
-			diehl_isa_printpar(&card->hwif.isa);
+		case EICON_BUS_ISA:
+			/* TODO something to print */
 			break;
-		case DIEHL_BUS_PCI:
+		case EICON_BUS_PCI:
 #if CONFIG_PCI
-			diehl_pci_printpar(&card->hwif.pci); 
+			eicon_pci_printpar(&card->hwif.pci); 
 			break;
 #endif
-		case DIEHL_BUS_MCA:
+		case EICON_BUS_MCA:
 		default:
 			if (DebugVar & 1)
 				printk(KERN_WARNING
@@ -892,13 +977,13 @@ diehl_registercard(diehl_card * card)
                 return -1;
         }
         card->myid = card->interface.channels;
-        sprintf(card->regname, "eicon-isdn (%s)", card->interface.id);
+        sprintf(card->regname, "%s", card->interface.id);
         return 0;
 }
 
 #ifdef MODULE
 static void
-unregister_card(diehl_card * card)
+unregister_card(eicon_card * card)
 {
         isdn_ctrl cmd;
 
@@ -906,15 +991,15 @@ unregister_card(diehl_card * card)
         cmd.driver = card->myid;
         card->interface.statcallb(&cmd);
         switch (card->bus) {
-		case DIEHL_BUS_ISA:
-			diehl_isa_release(&card->hwif.isa);
+		case EICON_BUS_ISA:
+			eicon_isa_release(&card->hwif.isa);
 			break;
-		case DIEHL_BUS_PCI:
+		case EICON_BUS_PCI:
 #if CONFIG_PCI
-			diehl_pci_release(&card->hwif.pci);
+			eicon_pci_release(&card->hwif.pci);
 			break;
 #endif
-		case DIEHL_BUS_MCA:
+		case EICON_BUS_MCA:
 		default:
 			if (DebugVar & 1)
 				printk(KERN_WARNING
@@ -926,22 +1011,25 @@ unregister_card(diehl_card * card)
 #endif /* MODULE */
 
 static void
-diehl_freecard(diehl_card *card) {
-	diehl_clear_msn(card);
+eicon_freecard(eicon_card *card) {
+	eicon_clear_msn(card);
 	kfree(card->bch);
 	kfree(card);
 }
 
 int
-diehl_addcard(int type, int membase, int irq, char *id)
+eicon_addcard(int Type, int membase, int irq, char *id)
 {
-	diehl_card *p;
-	diehl_card *q = NULL;
+	eicon_card *p;
+	eicon_card *q = NULL;
 	int registered;
 	int added = 0;
 	int failed = 0;
 
-	diehl_alloccard(type, membase, irq, id);
+	if (!Type) /* ISA */
+		if ((Type = eicon_isa_find_card(membase, irq, id)) < 0)
+			return 0;
+	eicon_alloccard(Type, membase, irq, id);
         p = cards;
         while (p) {
 		registered = 0;
@@ -951,19 +1039,19 @@ diehl_addcard(int type, int membase, int irq, char *id)
 			 */
 			added++;
 			switch (p->bus) {
-				case DIEHL_BUS_ISA:
-					if (diehl_registercard(p))
+				case EICON_BUS_ISA:
+					if (eicon_registercard(p))
 						break;
 					registered = 1;
 					break;
-				case DIEHL_BUS_PCI:
+				case EICON_BUS_PCI:
 #if CONFIG_PCI
-					if (diehl_registercard(p))
+					if (eicon_registercard(p))
 						break;
 					registered = 1;
 					break;
 #endif
-				case DIEHL_BUS_MCA:
+				case EICON_BUS_MCA:
 				default:
 					if (DebugVar & 1)
 						printk(KERN_WARNING
@@ -984,11 +1072,11 @@ diehl_addcard(int type, int membase, int irq, char *id)
                                p->interface.id);
                         if (q) {
                                 q->next = p->next;
-                                diehl_freecard(p);
+                                eicon_freecard(p);
                                 p = q->next;
                         } else {
                                 cards = p->next;
-                                diehl_freecard(p);
+                                eicon_freecard(p);
                                 p = cards;
                         }
 			failed++;
@@ -1003,8 +1091,8 @@ diehl_addcard(int type, int membase, int irq, char *id)
 #define eicon_init init_module
 #endif
 
-int
-eicon_init(void)
+__initfunc(int
+eicon_init(void))
 {
 	int tmp = 0;
 	char tmprev[50];
@@ -1012,28 +1100,29 @@ eicon_init(void)
 	DebugVar = 1;
 
         printk(KERN_INFO "%s Rev: ", DRIVERNAME);
-	strcpy(tmprev, diehl_revision);
-	printk("%s/", diehl_getrev(tmprev));
-	strcpy(tmprev, diehl_pci_revision);
-	printk("%s/", diehl_getrev(tmprev));
-	strcpy(tmprev, diehl_isa_revision);
-	printk("%s/", diehl_getrev(tmprev));
-	strcpy(tmprev, diehl_idi_revision);
-	printk("%s\n", diehl_getrev(tmprev));
+	strcpy(tmprev, eicon_revision);
+	printk("%s/", eicon_getrev(tmprev));
+	strcpy(tmprev, eicon_pci_revision);
+	printk("%s/", eicon_getrev(tmprev));
+	strcpy(tmprev, eicon_isa_revision);
+	printk("%s/", eicon_getrev(tmprev));
+	strcpy(tmprev, eicon_idi_revision);
+	printk("%s\n", eicon_getrev(tmprev));
 
-        if ((!cards) && (type != -1))
-		tmp = diehl_addcard(type, membase, irq, id);
+	tmp = eicon_addcard(0, membase, irq, id);
 #if CONFIG_PCI
-	tmp += diehl_pci_find_card(id);
+	tmp += eicon_pci_find_card(id);
 #endif
-        if (!cards)
-                printk(KERN_INFO "eicon: No cards defined yet\n");
-	else
+        if (!cards) {
+#ifdef MODULE
+                printk(KERN_INFO "eicon: No cards defined, driver not loaded !\n");
+#endif
+		return -ENODEV;
+
+	} else
 		printk(KERN_INFO "eicon: %d card%s added\n", tmp, (tmp>1)?"s":"");
         /* No symbols to export, hide all symbols */
-
         EXPORT_NO_SYMBOLS;
-
         return 0;
 }
 
@@ -1041,8 +1130,8 @@ eicon_init(void)
 void
 cleanup_module(void)
 {
-        diehl_card *card = cards;
-        diehl_card *last;
+        eicon_card *card = cards;
+        eicon_card *last;
         while (card) {
                 unregister_card(card); 
                 card = card->next;
@@ -1051,39 +1140,38 @@ cleanup_module(void)
         while (card) {
                 last = card;
                 card = card->next;
-		diehl_freecard(last);
+		eicon_freecard(last);
         }
         printk(KERN_INFO "%s unloaded\n", DRIVERNAME);
 }
 
 #else
-void
-eicon_setup(char *str, int *ints)
+__initfunc(void
+eicon_setup(char *str, int *ints))
 {
-        int i, argc, membase, irq, type;
-	
+        int i, argc;
+
         argc = ints[0];
         i = 1;
-        if (argc)
-                while (argc) {
-                        membase = irq = -1;
-			type = 0;
-                        if (argc) {
-                                type = ints[i];
-                                i++;
-                                argc--;
-                        }
-                        if (argc) {
-                                membase = ints[i];
-                                i++;
-                                argc--;
-                        }
-                        if (argc) {
-                                irq = ints[i];
-                                i++;
-                                argc--;
-                        }
-			diehl_addcard(type, membase, irq, id);
+        if (argc) {
+		membase = irq = -1;
+		if (argc) {
+			membase = ints[i];
+			i++;
+			argc--;
 		}
+		if (argc) {
+			irq = ints[i];
+			i++;
+			argc--;
+		}
+		if (strlen(str)) {
+			strcpy(id, str);
+		} else {
+			strcpy(id, "eicon");
+		} 
+		/* eicon_addcard(0, membase, irq, id); */
+       		printk(KERN_INFO "eicon: membase=0x%x irq=%d id=%s\n", membase, irq, id);
+	}
 }
 #endif

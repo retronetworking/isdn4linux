@@ -21,10 +21,13 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.1  1999/03/02 12:18:54  armin
+ * First checkin of DSP defines for audio features.
+ *
  *
  */
 
-#ifndef DSP_H 
+#ifndef DSP_H
 #define DSP_H
 
 #define DSP_UDATA_REQUEST_RECONFIGURE           0

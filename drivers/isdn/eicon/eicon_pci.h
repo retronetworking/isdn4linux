@@ -20,6 +20,11 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.2  1999/03/02 12:37:50  armin
+ * Added some important checks.
+ * Analog Modem with DSP.
+ * Channels will be added to Link-Level after loading firmware.
+ *
  * Revision 1.1  1999/01/01 18:09:46  armin
  * First checkin of new eicon driver.
  * DIVA-Server BRI/PCI and PRI/PCI are supported.
@@ -35,10 +40,10 @@
 
 
 #define PCI_VENDOR_EICON        0x1133
-#define PCI_DIVA_PRO20          0xe001
-#define PCI_DIVA20              0xe002
-#define PCI_DIVA_PRO20_U        0xe003
-#define PCI_DIVA20_U            0xe004
+#define PCI_DIVA_PRO20          0xe001	/* Not supported */
+#define PCI_DIVA20              0xe002	/* Not supported */
+#define PCI_DIVA_PRO20_U        0xe003	/* Not supported */
+#define PCI_DIVA20_U            0xe004	/* Not supported */
 #define PCI_MAESTRA             0xe010
 #define PCI_MAESTRAQ            0xe012
 #define PCI_MAESTRAQ_U          0xe013
@@ -105,7 +110,7 @@ typedef struct {
 	__u32 reserved[(0x1020>>2)-6] __attribute__ ((packed));
 	__u32 signature	__attribute__ ((packed));
 	__u8 data[1];    /* real interface description */
-} diehl_pci_boot;
+} eicon_pci_boot;
 
 
 #define DL_PARA_IO_TYPE   0
@@ -128,7 +133,7 @@ typedef struct tag_dsp_download_space
     struct
     {
       __u32               r3addr;
-      diehl_pci_boot	  *boot;
+      eicon_pci_boot	  *boot;
       __u32               BadData;  /* in case of verify error */
       __u32               GoodData;
       __u16               timeout;
@@ -139,73 +144,8 @@ typedef struct tag_dsp_download_space
 
 /* Shared memory */
 typedef union {
-	diehl_pci_boot boot;
-} diehl_pci_shmem;
-
-typedef struct {
-  __u16 length __attribute__ ((packed)); /* length of data/parameter field */
-  __u8  P[1];                          /* data/parameter field */
-} diehl_pci_PBUFFER;
-
-typedef struct {
-  __u16 next            __attribute__ ((packed));
-  __u8  Req             __attribute__ ((packed));
-  __u8  ReqId           __attribute__ ((packed));
-  __u8  ReqCh           __attribute__ ((packed));
-  __u8  Reserved1       __attribute__ ((packed));
-  __u16 Reference       __attribute__ ((packed));
-  __u8  Reserved[8]     __attribute__ ((packed));
-  diehl_pci_PBUFFER XBuffer;
-} diehl_pci_REQ;
-
-typedef struct {
-  __u16 next            __attribute__ ((packed));
-  __u8  Rc              __attribute__ ((packed));
-  __u8  RcId            __attribute__ ((packed));
-  __u8  RcCh            __attribute__ ((packed));
-  __u8  Reserved1       __attribute__ ((packed));
-  __u16 Reference       __attribute__ ((packed));
-  __u8  Reserved2[8]    __attribute__ ((packed));
-} diehl_pci_RC;
-
-typedef struct {
-  __u16 next            __attribute__ ((packed));
-  __u8  Ind             __attribute__ ((packed));
-  __u8  IndId           __attribute__ ((packed));
-  __u8  IndCh           __attribute__ ((packed));
-  __u8  MInd            __attribute__ ((packed));
-  __u16 MLength         __attribute__ ((packed));
-  __u16 Reference       __attribute__ ((packed));
-  __u8  RNR             __attribute__ ((packed));
-  __u8  Reserved        __attribute__ ((packed));
-  __u32 Ack             __attribute__ ((packed));
-  diehl_pci_PBUFFER RBuffer;
-} diehl_pci_IND;
-
-
-typedef struct {
-  __u16 NextReq  __attribute__ ((packed));       	/* pointer to next Req Buffer               */
-  __u16 NextRc   __attribute__ ((packed));          	/* pointer to next Rc Buffer                */
-  __u16 NextInd  __attribute__ ((packed));         	/* pointer to next Ind Buffer               */
-  __u8 ReqInput  __attribute__ ((packed));        	/* number of Req Buffers sent               */
-  __u8 ReqOutput  __attribute__ ((packed));       	/* number of Req Buffers returned           */
-  __u8 ReqReserved  __attribute__ ((packed));     	/* number of Req Buffers reserved           */
-  __u8 Int  __attribute__ ((packed));             	/* ISDN-P interrupt                         */
-  __u8 XLock  __attribute__ ((packed));           	/* Lock field for arbitration               */
-  __u8 RcOutput  __attribute__ ((packed));        	/* number of Rc buffers received            */
-  __u8 IndOutput  __attribute__ ((packed));       	/* number of Ind buffers received           */
-  __u8 IMask  __attribute__ ((packed));           	/* Interrupt Mask Flag                      */
-  __u8 Reserved1[2]  __attribute__ ((packed));    	/* reserved field, do not use               */
-  __u8 ReadyInt  __attribute__ ((packed));        	/* request field for ready interrupt        */
-  __u8 Reserved2[12]  __attribute__ ((packed));   	/* reserved field, do not use               */
-  __u8 InterfaceType  __attribute__ ((packed));   	/* interface type 1=16K interface           */
-  __u16 Signature  __attribute__ ((packed));       	/* ISDN-P initialized indication            */
-  __u8 B[1];			         		/* buffer space for Req,Ind and Rc          */
-} diehl_pci_pr_ram;
-
-typedef union {
-	diehl_pci_pr_ram ram;
-} diehl_pci_ram;
+	eicon_pci_boot boot;
+} eicon_pci_shmem;
 
 /*
  * card's description
@@ -219,7 +159,7 @@ typedef struct {
 	long int   	  serial;   /* Serial No.		  */
 	int		  channels; /* No. of supported channels  */
         void*             card;
-        diehl_pci_shmem*  shmem;    /* Shared-memory area         */
+        eicon_pci_shmem*  shmem;    /* Shared-memory area         */
         unsigned char*    intack;   /* Int-Acknowledge            */
         unsigned char*    stopcpu;  /* Writing here stops CPU     */
         unsigned char*    startcpu; /* Writing here starts CPU    */
@@ -229,19 +169,15 @@ typedef struct {
         unsigned char     ivalid;   /* Flag: IRQ is valid         */
         unsigned char     master;   /* Flag: Card is Quadro 1/4   */
         void*             generic;  /* Ptr to generic card struct */
-	diehl_chan* 	  IdTable[256]; /* Table to find entity   */
-} diehl_pci_card;
+} eicon_pci_card;
 
 
 
-extern int diehl_pci_load_pri(diehl_pci_card *card, diehl_pci_codebuf *cb);
-extern int diehl_pci_load_bri(diehl_pci_card *card, diehl_pci_codebuf *cb);
-extern void diehl_pci_release(diehl_pci_card *card);
-extern void diehl_pci_printpar(diehl_pci_card *card);
-extern void diehl_pci_transmit(diehl_pci_card *card);
-extern int diehl_pci_find_card(char *ID);
-extern void diehl_pci_ack_dispatch(diehl_pci_card *card); 
-extern void diehl_pci_rcv_dispatch(diehl_pci_card *card); 
+extern int eicon_pci_load_pri(eicon_pci_card *card, eicon_pci_codebuf *cb);
+extern int eicon_pci_load_bri(eicon_pci_card *card, eicon_pci_codebuf *cb);
+extern void eicon_pci_release(eicon_pci_card *card);
+extern void eicon_pci_printpar(eicon_pci_card *card);
+extern int eicon_pci_find_card(char *ID);
 
 #endif  /* __KERNEL__ */
 

@@ -21,6 +21,11 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.8  1999/03/02 12:37:43  armin
+ * Added some important checks.
+ * Analog Modem with DSP.
+ * Channels will be added to Link-Level after loading firmware.
+ *
  * Revision 1.7  1999/02/03 18:34:35  armin
  * Channel selection for outgoing calls w/o CHI.
  * Added channel # in debug messages.
@@ -59,7 +64,7 @@
 
 #undef EICON_FULL_SERVICE_OKTETT
 
-char *diehl_idi_revision = "$Revision$";
+char *eicon_idi_revision = "$Revision$";
 
 eicon_manifbuf *manbuf;
 
@@ -75,11 +80,11 @@ static char HLC_telephony[2] =	{ 0x91, 0x81 };
 static char HLC_faxg3[2] =  	{ 0x91, 0x84 };
 #endif
 
-int eicon_idi_manage_assign(diehl_card *card);
-int eicon_idi_manage_remove(diehl_card *card);
+int eicon_idi_manage_assign(eicon_card *card);
+int eicon_idi_manage_remove(eicon_card *card);
 
 int
-idi_assign_req(diehl_pci_REQ *reqbuf, int signet, diehl_chan *chan)
+idi_assign_req(eicon_REQ *reqbuf, int signet, eicon_chan *chan)
 {
 	int l = 0;
   if (!signet) {
@@ -143,7 +148,7 @@ idi_assign_req(diehl_pci_REQ *reqbuf, int signet, diehl_chan *chan)
 }
 
 int
-idi_put_req(diehl_pci_REQ *reqbuf, int rq, int signet)
+idi_put_req(eicon_REQ *reqbuf, int rq, int signet)
 {
 	reqbuf->Req = rq;
 	reqbuf->ReqCh = 0;
@@ -155,7 +160,7 @@ idi_put_req(diehl_pci_REQ *reqbuf, int rq, int signet)
 }
 
 int
-idi_call_res_req(diehl_pci_REQ *reqbuf, diehl_chan *chan)
+idi_call_res_req(eicon_REQ *reqbuf, eicon_chan *chan)
 {
 	int l = 9;
 	reqbuf->Req = CALL_RES;
@@ -211,15 +216,15 @@ idi_call_res_req(diehl_pci_REQ *reqbuf, diehl_chan *chan)
 }
 
 int
-idi_do_req(diehl_card *card, diehl_chan *chan, int cmd, int layer)
+idi_do_req(eicon_card *card, eicon_chan *chan, int cmd, int layer)
 {
         struct sk_buff *skb;
         struct sk_buff *skb2;
-	diehl_pci_REQ *reqbuf;
-	diehl_chan_ptr *chan2;
+	eicon_REQ *reqbuf;
+	eicon_chan_ptr *chan2;
 
-        skb = alloc_skb(270 + sizeof(diehl_pci_REQ), GFP_ATOMIC);
-        skb2 = alloc_skb(sizeof(diehl_chan_ptr), GFP_ATOMIC);
+        skb = alloc_skb(270 + sizeof(eicon_REQ), GFP_ATOMIC);
+        skb2 = alloc_skb(sizeof(eicon_chan_ptr), GFP_ATOMIC);
 
         if ((!skb) || (!skb2)) {
 		if (DebugVar & 1)
@@ -227,10 +232,10 @@ idi_do_req(diehl_card *card, diehl_chan *chan, int cmd, int layer)
                 return -ENOMEM; 
 	}
 
-	chan2 = (diehl_chan_ptr *)skb_put(skb2, sizeof(diehl_chan_ptr));
+	chan2 = (eicon_chan_ptr *)skb_put(skb2, sizeof(eicon_chan_ptr));
 	chan2->ptr = chan;
 
-	reqbuf = (diehl_pci_REQ *)skb_put(skb, 270 + sizeof(diehl_pci_REQ));
+	reqbuf = (eicon_REQ *)skb_put(skb, 270 + sizeof(eicon_REQ));
 	if (DebugVar & 8)
 		printk(KERN_DEBUG "idi_req: Ch%d: 0x%02x (%s)\n", chan->No, cmd, (layer)?"Net":"Sig");
 	if (layer) cmd |= 0x700;
@@ -278,21 +283,21 @@ idi_do_req(diehl_card *card, diehl_chan *chan, int cmd, int layer)
 
 	skb_queue_tail(&chan->e.X, skb);
 	skb_queue_tail(&card->sndq, skb2); 
-	diehl_schedule_tx(card);
+	eicon_schedule_tx(card);
 	return(0);
 }
 
 int
-diehl_idi_listen_req(diehl_card *card, diehl_chan *chan)
+eicon_idi_listen_req(eicon_card *card, eicon_chan *chan)
 {
 	if (DebugVar & 16)
 		printk(KERN_DEBUG"idi_req: Ch%d: Listen_Req eazmask=0x%x\n",chan->No, chan->eazmask);
 	if (!chan->e.D3Id) {
 		idi_do_req(card, chan, ASSIGN, 0); 
 	}
-	if (chan->fsm_state == DIEHL_STATE_NULL) {
+	if (chan->fsm_state == EICON_STATE_NULL) {
 		idi_do_req(card, chan, INDICATE_REQ, 0);
-		chan->fsm_state = DIEHL_STATE_LISTEN;
+		chan->fsm_state = EICON_STATE_LISTEN;
 	}
   return(0);
 }
@@ -338,31 +343,31 @@ idi_si2bc(int si1, int si2, char *bc, char *hlc)
 }
 
 int
-idi_hangup(diehl_card *card, diehl_chan *chan)
+idi_hangup(eicon_card *card, eicon_chan *chan)
 {
-	if ((chan->fsm_state == DIEHL_STATE_ACTIVE) ||
-	    (chan->fsm_state == DIEHL_STATE_WMCONN)) {
+	if ((chan->fsm_state == EICON_STATE_ACTIVE) ||
+	    (chan->fsm_state == EICON_STATE_WMCONN)) {
   		if (chan->e.B2Id) idi_do_req(card, chan, IDI_N_DISC, 1);
 	}
 	if (chan->e.B2Id) idi_do_req(card, chan, REMOVE, 1);
 	idi_do_req(card, chan, HANGUP, 0);
-	chan->fsm_state = DIEHL_STATE_NULL;
+	chan->fsm_state = EICON_STATE_NULL;
 	if (DebugVar & 8)
 		printk(KERN_DEBUG"idi_req: Ch%d: Hangup\n", chan->No);
   return(0);
 }
 
 int
-idi_connect_res(diehl_card *card, diehl_chan *chan)
+idi_connect_res(eicon_card *card, eicon_chan *chan)
 {
-  chan->fsm_state = DIEHL_STATE_IWAIT;
+  chan->fsm_state = EICON_STATE_IWAIT;
   idi_do_req(card, chan, CALL_RES, 0);
   idi_do_req(card, chan, ASSIGN, 1);
   return(0);
 }
 
 int
-idi_connect_req(diehl_card *card, diehl_chan *chan, char *phone,
+idi_connect_req(eicon_card *card, eicon_chan *chan, char *phone,
                     char *eazmsn, int si1, int si2)
 {
 	int l = 0;
@@ -372,11 +377,11 @@ idi_connect_req(diehl_card *card, diehl_chan *chan, char *phone,
 	unsigned char hlc[5];
         struct sk_buff *skb;
         struct sk_buff *skb2;
-	diehl_pci_REQ *reqbuf;
-	diehl_chan_ptr *chan2;
+	eicon_REQ *reqbuf;
+	eicon_chan_ptr *chan2;
 
-        skb = alloc_skb(270 + sizeof(diehl_pci_REQ), GFP_ATOMIC);
-        skb2 = alloc_skb(sizeof(diehl_chan_ptr), GFP_ATOMIC);
+        skb = alloc_skb(270 + sizeof(eicon_REQ), GFP_ATOMIC);
+        skb2 = alloc_skb(sizeof(eicon_chan_ptr), GFP_ATOMIC);
 
         if ((!skb) || (!skb2)) {
 		if (DebugVar & 1)
@@ -384,10 +389,10 @@ idi_connect_req(diehl_card *card, diehl_chan *chan, char *phone,
                 return -ENOMEM; 
 	}
 
-	chan2 = (diehl_chan_ptr *)skb_put(skb2, sizeof(diehl_chan_ptr));
+	chan2 = (eicon_chan_ptr *)skb_put(skb2, sizeof(eicon_chan_ptr));
 	chan2->ptr = chan;
 
-	reqbuf = (diehl_pci_REQ *)skb_put(skb, 270 + sizeof(diehl_pci_REQ));
+	reqbuf = (eicon_REQ *)skb_put(skb, 270 + sizeof(eicon_REQ));
 	reqbuf->Req = CALL_REQ;
 	reqbuf->ReqCh = 0;
 	reqbuf->ReqId = 1;
@@ -400,7 +405,7 @@ idi_connect_req(diehl_card *card, diehl_chan *chan, char *phone,
 
 	reqbuf->XBuffer.P[l++] = OAD;
 	reqbuf->XBuffer.P[l++] = strlen(eazmsn) + 2;
-	reqbuf->XBuffer.P[l++] = 0x21;
+	reqbuf->XBuffer.P[l++] = 0x01;
 	reqbuf->XBuffer.P[l++] = 0x81;
 	for(i=0; i<strlen(eazmsn);i++) 
 		reqbuf->XBuffer.P[l++] = eazmsn[i];
@@ -471,7 +476,7 @@ idi_connect_req(diehl_card *card, diehl_chan *chan, char *phone,
 
 	skb_queue_tail(&chan->e.X, skb);
 	skb_queue_tail(&card->sndq, skb2); 
-	diehl_schedule_tx(card);
+	eicon_schedule_tx(card);
 
 	if (DebugVar & 8)
   		printk(KERN_DEBUG"idi_req: Ch%d: Conn_Req %s -> %s\n",chan->No, eazmsn, phone);
@@ -480,7 +485,7 @@ idi_connect_req(diehl_card *card, diehl_chan *chan, char *phone,
 
 
 void
-idi_IndParse(diehl_pci_card *card, diehl_chan *chan, idi_ind_message *message, unsigned char *buffer, int len)
+idi_IndParse(eicon_card *ccard, eicon_chan *chan, idi_ind_message *message, unsigned char *buffer, int len)
 {
 	int i,j;
 	int pos = 0;
@@ -490,7 +495,6 @@ idi_IndParse(diehl_pci_card *card, diehl_chan *chan, idi_ind_message *message, u
 	__u8 w;
 	__u16 code;
 	isdn_ctrl cmd;
-	diehl_card *ccard = (diehl_card *) card->card;
 
   memset(message, 0, sizeof(idi_ind_message));
 
@@ -806,10 +810,9 @@ idi_bc2si(unsigned char *bc, unsigned char *hlc, unsigned char *si1, unsigned ch
 }
 
 void
-idi_parse_udata(diehl_pci_card *card, diehl_chan *chan, unsigned char *buffer, int len)
+idi_parse_udata(eicon_card *ccard, eicon_chan *chan, unsigned char *buffer, int len)
 {
 	isdn_ctrl cmd;
-	diehl_card *ccard = (diehl_card *) card->card;
 	eicon_dsp_ind *p = (eicon_dsp_ind *) (&buffer[1]);
         static char *connmsg[] =
         {"", "V.21", "V.23", "V.22", "V.22bis", "V.32bis", "V.34",
@@ -827,8 +830,8 @@ idi_parse_udata(diehl_pci_card *card, diehl_chan *chan, unsigned char *buffer, i
 			break;
 		case DSP_UDATA_INDICATION_DCD_ON:
 			if ((chan->l2prot == ISDN_PROTO_L2_MODEM) &&
-			    (chan->fsm_state == DIEHL_STATE_WMCONN)) {
-				chan->fsm_state = DIEHL_STATE_ACTIVE;
+			    (chan->fsm_state == EICON_STATE_WMCONN)) {
+				chan->fsm_state = EICON_STATE_ACTIVE;
 				cmd.driver = ccard->myid;
 				cmd.command = ISDN_STAT_BCONN;
 				cmd.arg = chan->No;
@@ -863,23 +866,17 @@ idi_parse_udata(diehl_pci_card *card, diehl_chan *chan, unsigned char *buffer, i
 }
 
 void
-idi_handle_ind(diehl_pci_card *card, struct sk_buff *skb)
+idi_handle_ind(eicon_card *ccard, struct sk_buff *skb)
 {
 	int tmp;
 	int free_buff;
 	struct sk_buff *skb2;
-        diehl_pci_IND *ind = (diehl_pci_IND *)skb->data;
-	diehl_chan *chan;
-	diehl_card *ccard = (diehl_card *) card->card;
+        eicon_IND *ind = (eicon_IND *)skb->data;
+	eicon_chan *chan;
 	idi_ind_message message;
 	isdn_ctrl cmd;
 
-	if ((chan = card->IdTable[ind->IndId]) == NULL) {
-		if (DebugVar & 1) {
-			printk(KERN_ERR "idi: Indication for unknown channel Ind=%d Id=%d\n", ind->Ind, ind->IndId);
-        		printk(KERN_DEBUG "idi_hdl: Ch??: Ind=%d Id=%d Ch=%d MInd=%d MLen=%d Len=%d\n",
-		        ind->Ind,ind->IndId,ind->IndCh,ind->MInd,ind->MLength,ind->RBuffer.length);
-		}
+	if ((chan = ccard->IdTable[ind->IndId]) == NULL) {
   		dev_kfree_skb(skb);
 		return;
 	}
@@ -893,7 +890,7 @@ idi_handle_ind(diehl_pci_card *card, struct sk_buff *skb)
 	free_buff = 1;
 	/* Signal Layer */
 	if (chan->e.D3Id == ind->IndId) {
-		idi_IndParse(card, chan, &message, ind->RBuffer.P, ind->RBuffer.length);
+		idi_IndParse(ccard, chan, &message, ind->RBuffer.P, ind->RBuffer.length);
 		switch(ind->Ind) {
 			case HANGUP:
 				if (DebugVar & 8)
@@ -905,7 +902,7 @@ idi_handle_ind(diehl_pci_card *card, struct sk_buff *skb)
 				chan->queued = 0;
 				chan->waitq = 0;
 				chan->waitpq = 0;
-				chan->fsm_state = DIEHL_STATE_NULL;
+				chan->fsm_state = EICON_STATE_NULL;
 				if (message.e_cau[0] & 0x7f) {
 					cmd.driver = ccard->myid;
 					cmd.arg = chan->No;
@@ -919,12 +916,12 @@ idi_handle_ind(diehl_pci_card *card, struct sk_buff *skb)
 				cmd.arg = chan->No;
 				cmd.command = ISDN_STAT_DHUP;
 				ccard->interface.statcallb(&cmd);
-				diehl_idi_listen_req(ccard, chan);
+				eicon_idi_listen_req(ccard, chan);
 				break;
 			case INDICATE_IND:
 				if (DebugVar & 8)
   					printk(KERN_DEBUG"idi_ind: Ch%d: Indicate_Ind\n", chan->No);
-				chan->fsm_state = DIEHL_STATE_ICALL;
+				chan->fsm_state = EICON_STATE_ICALL;
 				idi_bc2si(message.bc, message.hlc, &chan->si1, &chan->si2);
 				strcpy(chan->cpn, message.cpn + 1);
 				if (strlen(message.dsa)) {
@@ -950,8 +947,8 @@ idi_handle_ind(diehl_pci_card *card, struct sk_buff *skb)
 					case 1: /* alert */
 						if (DebugVar & 8)
   							printk(KERN_DEBUG"idi_req: Ch%d: Call Alert\n", chan->No);
-						if ((chan->fsm_state == DIEHL_STATE_ICALL) || (chan->fsm_state == DIEHL_STATE_ICALLW)) {
-							chan->fsm_state = DIEHL_STATE_ICALL;
+						if ((chan->fsm_state == EICON_STATE_ICALL) || (chan->fsm_state == EICON_STATE_ICALLW)) {
+							chan->fsm_state = EICON_STATE_ICALL;
 							idi_do_req(ccard, chan, CALL_ALERT, 0);
 						}
 						break;
@@ -963,9 +960,11 @@ idi_handle_ind(diehl_pci_card *card, struct sk_buff *skb)
 					case 3: /* incomplete number */
 						if (DebugVar & 8)
   							printk(KERN_DEBUG"idi_req: Ch%d: Incomplete Number\n", chan->No);
-					        switch(card->type) {
-					                case DIEHL_CTYPE_MAESTRAP:
-								chan->fsm_state = DIEHL_STATE_ICALLW;
+					        switch(ccard->type) {
+					                case EICON_CTYPE_MAESTRAP:
+					                case EICON_CTYPE_S2M:
+								/* TODO (other protocols) */
+								chan->fsm_state = EICON_STATE_ICALLW;
 								break;
 							default:
 								idi_do_req(ccard, chan, HANGUP, 0);
@@ -976,7 +975,7 @@ idi_handle_ind(diehl_pci_card *card, struct sk_buff *skb)
 			case INFO_IND:
 				if (DebugVar & 8)
   					printk(KERN_DEBUG"idi_ind: Ch%d: Info_Ind\n", chan->No);
-				if ((chan->fsm_state == DIEHL_STATE_ICALLW) &&
+				if ((chan->fsm_state == EICON_STATE_ICALLW) &&
 				    (message.cpn[0])) {
 					strcat(chan->cpn, message.cpn + 1);
 					goto try_stat_icall_again;
@@ -985,8 +984,8 @@ idi_handle_ind(diehl_pci_card *card, struct sk_buff *skb)
 			case CALL_IND:
 				if (DebugVar & 8)
   					printk(KERN_DEBUG"idi_ind: Ch%d: Call_Ind\n", chan->No);
-				if ((chan->fsm_state == DIEHL_STATE_ICALL) || (chan->fsm_state == DIEHL_STATE_IWAIT)) {
-					chan->fsm_state = DIEHL_STATE_IBWAIT;
+				if ((chan->fsm_state == EICON_STATE_ICALL) || (chan->fsm_state == EICON_STATE_IWAIT)) {
+					chan->fsm_state = EICON_STATE_IBWAIT;
 					cmd.driver = ccard->myid;
 					cmd.command = ISDN_STAT_DCONN;
 					cmd.arg = chan->No;
@@ -998,8 +997,8 @@ idi_handle_ind(diehl_pci_card *card, struct sk_buff *skb)
 			case CALL_CON:
 				if (DebugVar & 8)
   					printk(KERN_DEBUG"idi_ind: Ch%d: Call_Con\n", chan->No);
-				if (chan->fsm_state == DIEHL_STATE_OCALL) {
-					chan->fsm_state = DIEHL_STATE_OBWAIT;
+				if (chan->fsm_state == EICON_STATE_OCALL) {
+					chan->fsm_state = EICON_STATE_OBWAIT;
 					cmd.driver = ccard->myid;
 					cmd.command = ISDN_STAT_DCONN;
 					cmd.arg = chan->No;
@@ -1023,7 +1022,7 @@ idi_handle_ind(diehl_pci_card *card, struct sk_buff *skb)
 
 		if (chan->No == ccard->nchannels) {
 			/* Management Indication */
-			idi_IndParse(card, chan, &message, ind->RBuffer.P, ind->RBuffer.length);
+			idi_IndParse(ccard, chan, &message, ind->RBuffer.P, ind->RBuffer.length);
 			chan->fsm_state = 1;
 		} 
 		else
@@ -1032,10 +1031,10 @@ idi_handle_ind(diehl_pci_card *card, struct sk_buff *skb)
 				if (DebugVar & 16)
   					printk(KERN_DEBUG"idi_ind: Ch%d: N_Connect_Ack\n", chan->No);
 				if (chan->l2prot == ISDN_PROTO_L2_MODEM) {
-					chan->fsm_state = DIEHL_STATE_WMCONN;
+					chan->fsm_state = EICON_STATE_WMCONN;
 					break;
 				}
-				chan->fsm_state = DIEHL_STATE_ACTIVE;
+				chan->fsm_state = EICON_STATE_ACTIVE;
 				cmd.driver = ccard->myid;
 				cmd.command = ISDN_STAT_BCONN;
 				cmd.arg = chan->No;
@@ -1046,10 +1045,10 @@ idi_handle_ind(diehl_pci_card *card, struct sk_buff *skb)
   					printk(KERN_DEBUG"idi_ind: Ch%d: N_Connect\n", chan->No);
 				if (chan->e.B2Id) idi_do_req(ccard, chan, IDI_N_CONNECT_ACK, 1);
 				if (chan->l2prot == ISDN_PROTO_L2_MODEM) {
-					chan->fsm_state = DIEHL_STATE_WMCONN;
+					chan->fsm_state = EICON_STATE_WMCONN;
 					break;
 				}
-				chan->fsm_state = DIEHL_STATE_ACTIVE;
+				chan->fsm_state = EICON_STATE_ACTIVE;
 				cmd.driver = ccard->myid;
 				cmd.command = ISDN_STAT_BCONN;
 				cmd.arg = chan->No;
@@ -1065,7 +1064,7 @@ idi_handle_ind(diehl_pci_card *card, struct sk_buff *skb)
 				chan->queued = 0;
 				chan->waitq = 0;
 				chan->waitpq = 0;
-				if (chan->fsm_state == DIEHL_STATE_ACTIVE) {
+				if (chan->fsm_state == EICON_STATE_ACTIVE) {
 					cmd.driver = ccard->myid;
 					cmd.command = ISDN_STAT_BHUP;
 					cmd.arg = chan->No;
@@ -1081,14 +1080,14 @@ idi_handle_ind(diehl_pci_card *card, struct sk_buff *skb)
   					printk(KERN_DEBUG"idi_ind: Ch%d: N_DATA_ACK\n", chan->No);
 				break;
 			case IDI_N_DATA:
-				skb_pull(skb, sizeof(diehl_pci_IND) - 1);
+				skb_pull(skb, sizeof(eicon_IND) - 1);
 				if (DebugVar & 128)
 					printk(KERN_DEBUG"idi_rcv: Ch%d: %d bytes\n", chan->No, skb->len);
 				ccard->interface.rcvcallb_skb(ccard->myid, chan->No, skb);
 				free_buff = 0; 
 				break; 
 			case IDI_N_UDATA:
-				idi_parse_udata(card, chan, ind->RBuffer.P, ind->RBuffer.length);
+				idi_parse_udata(ccard, chan, ind->RBuffer.P, ind->RBuffer.length);
 				break; 
 			default:
 				if (DebugVar & 8)
@@ -1103,29 +1102,41 @@ idi_handle_ind(diehl_pci_card *card, struct sk_buff *skb)
 }
 
 void
-idi_handle_ack(diehl_pci_card *card, struct sk_buff *skb)
+idi_handle_ack(eicon_card *ccard, struct sk_buff *skb)
 {
 	int j;
-        diehl_pci_RC *ack = (diehl_pci_RC *)skb->data;
-	diehl_chan *chan;
-	diehl_card *ccard = (diehl_card *) card->card;
+        eicon_RC *ack = (eicon_RC *)skb->data;
+	eicon_chan *chan;
 	isdn_ctrl cmd;
 
 	if ((ack->Rc != ASSIGN_OK) && (ack->Rc != OK)) {
-		if ((chan = card->IdTable[ack->RcId]) != NULL) {
+		if ((chan = ccard->IdTable[ack->RcId]) != NULL) {
 			chan->e.busy = 0;
 			if (DebugVar & 24)
 				printk(KERN_ERR "eicon_ack: Ch%d: Not OK: Rc=%d Id=%d Ch=%d\n", chan->No, 
 					ack->Rc, ack->RcId, ack->RcCh);
+			if (chan->No == ccard->nchannels) { /* Management */
+				chan->fsm_state = 2;
+			} else {	/* any other channel */
+					/* card reports error: we hangup */
+				idi_hangup(ccard, chan);
+				cmd.driver = ccard->myid;
+				cmd.command = ISDN_STAT_DHUP;
+				cmd.arg = chan->No;
+				ccard->interface.statcallb(&cmd);
+			}
 		}
 	} 
 	else {
-		if ((chan = card->IdTable[ack->RcId]) != NULL) {
+		if ((chan = ccard->IdTable[ack->RcId]) != NULL) {
 			if (ack->RcId != ((chan->e.ReqCh) ? chan->e.B2Id : chan->e.D3Id)) {
 				if (DebugVar & 16)
 					printk(KERN_DEBUG "idi_ack: Ch%d: RcId %d not equal to last %d\n", chan->No, 
 						ack->RcId, (chan->e.ReqCh) ? chan->e.B2Id : chan->e.D3Id);
 			} else {	
+				if (chan->No == ccard->nchannels) { /* Management */
+					if (chan->e.Req == 0x04) chan->fsm_state = 1;
+				}
 				if (chan->e.ReqCh) {
 					switch(chan->e.Req & 0x0f) {
 						case IDI_N_MDATA:
@@ -1155,7 +1166,7 @@ idi_handle_ack(diehl_pci_card *card, struct sk_buff *skb)
 
 				if (chan->e.Req == REMOVE) {
 					if (ack->Reference == chan->e.ref) {
-						card->IdTable[ack->RcId] = NULL;
+						ccard->IdTable[ack->RcId] = NULL;
 						if (DebugVar & 16)
 							printk(KERN_DEBUG "idi_ack: Ch%d: Removed : Id=%d Ch=%d (%s)\n", chan->No,
 								ack->RcId, ack->RcCh, (chan->e.ReqCh)? "Net":"Sig");
@@ -1180,8 +1191,9 @@ idi_handle_ack(diehl_pci_card *card, struct sk_buff *skb)
 						ccard->bch[j].e.D3Id  = ack->RcId;
 					else
 						ccard->bch[j].e.B2Id  = ack->RcId;
-					card->IdTable[ack->RcId] = &ccard->bch[j];
+					ccard->IdTable[ack->RcId] = &ccard->bch[j];
 					ccard->bch[j].e.busy = 0;
+					ccard->bch[j].e.ref = 0;
 					if (DebugVar & 16)
 						printk(KERN_DEBUG"idi_ack: Ch%d: Id %d assigned (%s)\n", j, 
 							ack->RcId, (ccard->bch[j].e.ReqCh)? "Net":"Sig");
@@ -1196,20 +1208,20 @@ idi_handle_ack(diehl_pci_card *card, struct sk_buff *skb)
 		}
 	}
   dev_kfree_skb(skb);
-  diehl_schedule_tx((diehl_card *)card->card);
+  eicon_schedule_tx(ccard);
 }
 
 int
-idi_send_data(diehl_card *card, diehl_chan *chan, int ack, struct sk_buff *skb)
+idi_send_data(eicon_card *card, eicon_chan *chan, int ack, struct sk_buff *skb)
 {
         struct sk_buff *xmit_skb;
         struct sk_buff *skb2;
-        diehl_pci_REQ *reqbuf;
-        diehl_chan_ptr *chan2;
+        eicon_REQ *reqbuf;
+        eicon_chan_ptr *chan2;
         int len, plen = 0, offset = 0;
 	unsigned long flags;
 
-        if (chan->fsm_state != DIEHL_STATE_ACTIVE) {
+        if (chan->fsm_state != EICON_STATE_ACTIVE) {
 		if (DebugVar & 1)
 			printk(KERN_DEBUG"idi_snd: Ch%d: send bytes on state %d !\n", chan->No, chan->fsm_state);
                 return -ENODEV;
@@ -1230,8 +1242,8 @@ idi_send_data(diehl_card *card, diehl_chan *chan, int ack, struct sk_buff *skb)
 
 		plen = ((len - offset) > 270) ? 270 : len - offset;
 
-	        xmit_skb = alloc_skb(plen + sizeof(diehl_pci_REQ), GFP_ATOMIC);
-        	skb2 = alloc_skb(sizeof(diehl_chan_ptr), GFP_ATOMIC);
+	        xmit_skb = alloc_skb(plen + sizeof(eicon_REQ), GFP_ATOMIC);
+        	skb2 = alloc_skb(sizeof(eicon_chan_ptr), GFP_ATOMIC);
 
 	        if ((!skb) || (!skb2)) {
 			restore_flags(flags);
@@ -1240,10 +1252,10 @@ idi_send_data(diehl_card *card, diehl_chan *chan, int ack, struct sk_buff *skb)
                 	return -ENOMEM;
 	        }
 
-	        chan2 = (diehl_chan_ptr *)skb_put(skb2, sizeof(diehl_chan_ptr));
+	        chan2 = (eicon_chan_ptr *)skb_put(skb2, sizeof(eicon_chan_ptr));
         	chan2->ptr = chan;
 
-	        reqbuf = (diehl_pci_REQ *)skb_put(xmit_skb, plen + sizeof(diehl_pci_REQ));
+	        reqbuf = (eicon_REQ *)skb_put(xmit_skb, plen + sizeof(eicon_REQ));
 		if (((len - offset) > 270) &&
 			(chan->l2prot != ISDN_PROTO_L2_TRANS)) {
 		        reqbuf->Req = IDI_N_MDATA;
@@ -1264,7 +1276,7 @@ idi_send_data(diehl_card *card, diehl_chan *chan, int ack, struct sk_buff *skb)
 	}
 	chan->queued += len;
 	restore_flags(flags);
-	diehl_schedule_tx(card);
+	eicon_schedule_tx(card);
         dev_kfree_skb(skb);
         return len;
 }
@@ -1272,18 +1284,18 @@ idi_send_data(diehl_card *card, diehl_chan *chan, int ack, struct sk_buff *skb)
 
 
 int
-eicon_idi_manage_assign(diehl_card *card)
+eicon_idi_manage_assign(eicon_card *card)
 {
         struct sk_buff *skb;
         struct sk_buff *skb2;
-        diehl_pci_REQ  *reqbuf;
-        diehl_chan     *chan;
-        diehl_chan_ptr *chan2;
+        eicon_REQ  *reqbuf;
+        eicon_chan     *chan;
+        eicon_chan_ptr *chan2;
 
         chan = &(card->bch[card->nchannels]);
 
-        skb = alloc_skb(270 + sizeof(diehl_pci_REQ), GFP_ATOMIC);
-        skb2 = alloc_skb(sizeof(diehl_chan_ptr), GFP_ATOMIC);
+        skb = alloc_skb(270 + sizeof(eicon_REQ), GFP_ATOMIC);
+        skb2 = alloc_skb(sizeof(eicon_chan_ptr), GFP_ATOMIC);
 
         if ((!skb) || (!skb2)) {
 		if (DebugVar & 1)
@@ -1291,10 +1303,10 @@ eicon_idi_manage_assign(diehl_card *card)
                 return -ENOMEM;
         }
 
-        chan2 = (diehl_chan_ptr *)skb_put(skb2, sizeof(diehl_chan_ptr));
+        chan2 = (eicon_chan_ptr *)skb_put(skb2, sizeof(eicon_chan_ptr));
         chan2->ptr = chan;
 
-        reqbuf = (diehl_pci_REQ *)skb_put(skb, 270 + sizeof(diehl_pci_REQ));
+        reqbuf = (eicon_REQ *)skb_put(skb, 270 + sizeof(eicon_REQ));
 
         reqbuf->XBuffer.P[0] = 0;
         reqbuf->Req = ASSIGN;
@@ -1305,24 +1317,24 @@ eicon_idi_manage_assign(diehl_card *card)
 
         skb_queue_tail(&chan->e.X, skb);
         skb_queue_tail(&card->sndq, skb2);
-        diehl_schedule_tx(card);
+        eicon_schedule_tx(card);
         return(0);
 }
 
 
 int
-eicon_idi_manage_remove(diehl_card *card)
+eicon_idi_manage_remove(eicon_card *card)
 {
         struct sk_buff *skb;
         struct sk_buff *skb2;
-        diehl_pci_REQ  *reqbuf;
-        diehl_chan     *chan;
-        diehl_chan_ptr *chan2;
+        eicon_REQ  *reqbuf;
+        eicon_chan     *chan;
+        eicon_chan_ptr *chan2;
 
         chan = &(card->bch[card->nchannels]);
 
-        skb = alloc_skb(270 + sizeof(diehl_pci_REQ), GFP_ATOMIC);
-        skb2 = alloc_skb(sizeof(diehl_chan_ptr), GFP_ATOMIC);
+        skb = alloc_skb(270 + sizeof(eicon_REQ), GFP_ATOMIC);
+        skb2 = alloc_skb(sizeof(eicon_chan_ptr), GFP_ATOMIC);
 
         if ((!skb) || (!skb2)) {
 		if (DebugVar & 1)
@@ -1330,10 +1342,10 @@ eicon_idi_manage_remove(diehl_card *card)
                 return -ENOMEM;
         }
 
-        chan2 = (diehl_chan_ptr *)skb_put(skb2, sizeof(diehl_chan_ptr));
+        chan2 = (eicon_chan_ptr *)skb_put(skb2, sizeof(eicon_chan_ptr));
         chan2->ptr = chan;
 
-        reqbuf = (diehl_pci_REQ *)skb_put(skb, 270 + sizeof(diehl_pci_REQ));
+        reqbuf = (eicon_REQ *)skb_put(skb, 270 + sizeof(eicon_REQ));
 
         reqbuf->Req = REMOVE;
         reqbuf->ReqCh = 0;
@@ -1343,13 +1355,13 @@ eicon_idi_manage_remove(diehl_card *card)
 
         skb_queue_tail(&chan->e.X, skb);
         skb_queue_tail(&card->sndq, skb2);
-        diehl_schedule_tx(card);
+        eicon_schedule_tx(card);
         return(0);
 }
 
 
 int
-eicon_idi_manage(diehl_card *card, eicon_manifbuf *mb)
+eicon_idi_manage(eicon_card *card, eicon_manifbuf *mb)
 {
 	int l = 0;
 	int ret = 0;
@@ -1357,24 +1369,27 @@ eicon_idi_manage(diehl_card *card, eicon_manifbuf *mb)
 	int i;
         struct sk_buff *skb;
         struct sk_buff *skb2;
-        diehl_pci_REQ  *reqbuf;
-        diehl_chan     *chan;
-        diehl_chan_ptr *chan2;
+        eicon_REQ  *reqbuf;
+        eicon_chan     *chan;
+        eicon_chan_ptr *chan2;
 
         chan = &(card->bch[card->nchannels]);
 
 	if (chan->e.D3Id) return -EBUSY;
 	chan->e.D3Id = 1;
-  
+	while((skb2 = skb_dequeue(&chan->e.X)))
+		dev_kfree_skb(skb2);
+	chan->e.busy = 0;
+ 
 	if ((ret = eicon_idi_manage_assign(card))) {
 		chan->e.D3Id = 0;
 		return(ret); 
 	}
 
-        timeout = jiffies + 40;
+        timeout = jiffies + 50;
         while (timeout > jiffies) {
                 if (chan->e.B2Id) break;
-                SLEEP(2);
+                SLEEP(10);
         }
         if (!chan->e.B2Id) {
 		chan->e.D3Id = 0;
@@ -1394,21 +1409,21 @@ eicon_idi_manage(diehl_card *card, eicon_manifbuf *mb)
 		return -EFAULT;
 	}
 
-        skb = alloc_skb(270 + sizeof(diehl_pci_REQ), GFP_ATOMIC);
-        skb2 = alloc_skb(sizeof(diehl_chan_ptr), GFP_ATOMIC);
+        skb = alloc_skb(270 + sizeof(eicon_REQ), GFP_ATOMIC);
+        skb2 = alloc_skb(sizeof(eicon_chan_ptr), GFP_ATOMIC);
 
         if ((!skb) || (!skb2)) {
 		if (DebugVar & 1)
-                	printk(KERN_WARNING "idi_err: alloc_skb failed\n");
+                	printk(KERN_WARNING "idi_err_manif: alloc_skb failed\n");
 		kfree(manbuf);
 		chan->e.D3Id = 0;
                 return -ENOMEM;
         }
 
-        chan2 = (diehl_chan_ptr *)skb_put(skb2, sizeof(diehl_chan_ptr));
+        chan2 = (eicon_chan_ptr *)skb_put(skb2, sizeof(eicon_chan_ptr));
         chan2->ptr = chan;
 
-        reqbuf = (diehl_pci_REQ *)skb_put(skb, 270 + sizeof(diehl_pci_REQ));
+        reqbuf = (eicon_REQ *)skb_put(skb, 270 + sizeof(eicon_REQ));
 
         reqbuf->XBuffer.P[l++] = ESC;
         reqbuf->XBuffer.P[l++] = 6;
@@ -1418,7 +1433,7 @@ eicon_idi_manage(diehl_card *card, eicon_manifbuf *mb)
         reqbuf->XBuffer.P[1] = manbuf->length[0] + 1;
 
         reqbuf->XBuffer.P[l++] = 0;
-        reqbuf->Req = 0x02; /* MAN_READ */
+        reqbuf->Req = (manbuf->count) ? manbuf->count : 0x02; /* Request */
         reqbuf->ReqCh = 0;
         reqbuf->ReqId = 1;
         reqbuf->XBuffer.length = l;
@@ -1430,14 +1445,14 @@ eicon_idi_manage(diehl_card *card, eicon_manifbuf *mb)
 	manbuf->count = 0;
 	manbuf->pos = 0;
 
-        diehl_schedule_tx(card);
+        eicon_schedule_tx(card);
 
         timeout = jiffies + 50;
         while (timeout > jiffies) {
                 if (chan->fsm_state) break;
-                SLEEP(5);
+                SLEEP(10);
         }
-        if (!chan->fsm_state) {
+        if ((!chan->fsm_state) || (chan->fsm_state == 2)) {
 		eicon_idi_manage_remove(card);
 		kfree(manbuf);
 		chan->e.D3Id = 0;

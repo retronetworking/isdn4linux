@@ -21,6 +21,11 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.3  1999/03/02 12:37:45  armin
+ * Added some important checks.
+ * Analog Modem with DSP.
+ * Channels will be added to Link-Level after loading firmware.
+ *
  * Revision 1.2  1999/01/24 20:14:18  armin
  * Changed and added debug stuff.
  * Better data sending. (still problems with tty's flip buffer)
@@ -134,7 +139,7 @@
 #define WRONG_CH                0x04    /* wrong task/entity id     */
 #define UNKNOWN_IE              0x05    /* unknown information el.  */
 #define WRONG_IE                0x06    /* wrong information el.    */
-#define OUT_OF_RESOURCES        0x07    /* ISDN-S card out of res.  */
+#define OUT_OF_RESOURCES        0x07    /* card out of res.         */
 #define N_FLOW_CONTROL          0x10    /* Flow-Control, retry      */
 #define ASSIGN_RC               0xe0    /* ASSIGN acknowledgement   */
 #define ASSIGN_OK               0xef    /* ASSIGN OK                */
@@ -168,16 +173,72 @@ typedef struct {
 	char rdn[32];
 } idi_ind_message;
 
-extern int idi_do_req(diehl_card *card, diehl_chan *chan, int cmd, int layer);
-extern int idi_hangup(diehl_card *card, diehl_chan *chan);
-extern int idi_connect_res(diehl_card *card, diehl_chan *chan);
-extern int diehl_idi_listen_req(diehl_card *card, diehl_chan *chan);
-extern int idi_connect_req(diehl_card *card, diehl_chan *chan, char *phone,
+typedef struct { 
+  __u16 next            __attribute__ ((packed));
+  __u8  Req             __attribute__ ((packed));
+  __u8  ReqId           __attribute__ ((packed));
+  __u8  ReqCh           __attribute__ ((packed));
+  __u8  Reserved1       __attribute__ ((packed));
+  __u16 Reference       __attribute__ ((packed));
+  __u8  Reserved[8]     __attribute__ ((packed));
+  eicon_PBUFFER XBuffer; 
+} eicon_REQ;
+
+typedef struct {
+  __u16 next            __attribute__ ((packed));
+  __u8  Rc              __attribute__ ((packed));
+  __u8  RcId            __attribute__ ((packed));
+  __u8  RcCh            __attribute__ ((packed));
+  __u8  Reserved1       __attribute__ ((packed));
+  __u16 Reference       __attribute__ ((packed));
+  __u8  Reserved2[8]    __attribute__ ((packed));
+} eicon_RC;
+
+typedef struct {
+  __u16 next            __attribute__ ((packed));
+  __u8  Ind             __attribute__ ((packed));
+  __u8  IndId           __attribute__ ((packed));
+  __u8  IndCh           __attribute__ ((packed));
+  __u8  MInd            __attribute__ ((packed));
+  __u16 MLength         __attribute__ ((packed));
+  __u16 Reference       __attribute__ ((packed));
+  __u8  RNR             __attribute__ ((packed));
+  __u8  Reserved        __attribute__ ((packed));
+  __u32 Ack             __attribute__ ((packed));
+  eicon_PBUFFER RBuffer;
+} eicon_IND;
+
+typedef struct {
+  __u16 NextReq  __attribute__ ((packed));  /* pointer to next Req Buffer */
+  __u16 NextRc   __attribute__ ((packed));  /* pointer to next Rc Buffer  */
+  __u16 NextInd  __attribute__ ((packed));  /* pointer to next Ind Buffer */
+  __u8 ReqInput  __attribute__ ((packed));  /* number of Req Buffers sent */
+  __u8 ReqOutput  __attribute__ ((packed)); /* number of Req Buffers returned */
+  __u8 ReqReserved  __attribute__ ((packed));/*number of Req Buffers reserved */
+  __u8 Int  __attribute__ ((packed));       /* ISDN-P interrupt           */
+  __u8 XLock  __attribute__ ((packed));     /* Lock field for arbitration */
+  __u8 RcOutput  __attribute__ ((packed));  /* number of Rc buffers received */
+  __u8 IndOutput  __attribute__ ((packed)); /* number of Ind buffers received */
+  __u8 IMask  __attribute__ ((packed));     /* Interrupt Mask Flag        */
+  __u8 Reserved1[2]  __attribute__ ((packed)); /* reserved field, do not use */
+  __u8 ReadyInt  __attribute__ ((packed));  /* request field for ready int */
+  __u8 Reserved2[12]  __attribute__ ((packed)); /* reserved field, do not use */
+  __u8 InterfaceType  __attribute__ ((packed)); /* interface type 1=16K    */
+  __u16 Signature  __attribute__ ((packed));    /* ISDN-P initialized ind  */
+  __u8 B[1];                            /* buffer space for Req,Ind and Rc */
+} eicon_pr_ram;
+
+
+extern int idi_do_req(eicon_card *card, eicon_chan *chan, int cmd, int layer);
+extern int idi_hangup(eicon_card *card, eicon_chan *chan);
+extern int idi_connect_res(eicon_card *card, eicon_chan *chan);
+extern int eicon_idi_listen_req(eicon_card *card, eicon_chan *chan);
+extern int idi_connect_req(eicon_card *card, eicon_chan *chan, char *phone,
 	                    char *eazmsn, int si1, int si2);
 
-extern void idi_handle_ack(diehl_pci_card *card, struct sk_buff *skb);
-extern void idi_handle_ind(diehl_pci_card *card, struct sk_buff *skb);
-extern int eicon_idi_manage(diehl_card *card, eicon_manifbuf *mb);
-extern int idi_send_data(diehl_card *card, diehl_chan *chan, int ack, struct sk_buff *skb);
+extern void idi_handle_ack(eicon_card *card, struct sk_buff *skb);
+extern void idi_handle_ind(eicon_card *card, struct sk_buff *skb);
+extern int eicon_idi_manage(eicon_card *card, eicon_manifbuf *mb);
+extern int idi_send_data(eicon_card *card, eicon_chan *chan, int ack, struct sk_buff *skb);
 
 #endif

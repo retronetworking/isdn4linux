@@ -21,6 +21,11 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.2  1999/03/02 12:37:46  armin
+ * Added some important checks.
+ * Analog Modem with DSP.
+ * Channels will be added to Link-Level after loading firmware.
+ *
  * Revision 1.1  1999/01/01 18:09:44  armin
  * First checkin of new eicon driver.
  * DIVA-Server BRI/PCI and PRI/PCI are supported.
@@ -35,18 +40,15 @@
 #ifdef __KERNEL__
 
 /* Factory defaults for ISA-Cards */
-#define DIEHL_ISA_MEMBASE 0xd0000
-#define DIEHL_ISA_IRQ     3
+#define EICON_ISA_MEMBASE 0xd0000
+#define EICON_ISA_IRQ     3
 /* shmem offset for Quadro parts */
-#define DIEHL_ISA_QOFFSET 0x0800
+#define EICON_ISA_QOFFSET 0x0800
 
-/*
- * Request-buffer
- */
 typedef struct {
-	__u16 len __attribute__ ((packed));        /* length of data/parameter field         */
-	__u8  buf[270];                            /* data/parameter field                   */
-} diehl_isa_reqbuf;
+        __u16 length __attribute__ ((packed));   /* length of data/parameter field         */
+        __u8  P[270];                            /* data/parameter field                   */
+} eicon_scom_PBUFFER;
 
 /* General communication buffer */
 typedef struct {
@@ -69,9 +71,9 @@ typedef struct {
 	__u8   Reserved[12];                       /* reserved space                         */
 	__u8   IfType;                             /* 1 = 16k-Interface                      */
 	__u16  Signature __attribute__ ((packed)); /* ISDN adapter Signature                 */
-	diehl_isa_reqbuf XBuffer;                            /* Transmit Buffer                        */
-	diehl_isa_reqbuf RBuffer;                            /* Receive Buffer                         */
-} diehl_isa_com;
+	eicon_scom_PBUFFER XBuffer;                /* Transmit Buffer                        */
+	eicon_scom_PBUFFER RBuffer;                /* Receive Buffer                         */
+} eicon_isa_com;
 
 /* struct for downloading firmware */
 typedef struct {
@@ -85,14 +87,14 @@ typedef struct {
 	__u16 signature __attribute__ ((packed));
 	__u8  fill[224];
 	__u8  b[256];
-} diehl_isa_boot;
+} eicon_isa_boot;
 
 /* Shared memory */
 typedef union {
 	unsigned char  c[0x400];
-	diehl_isa_com  com;
-	diehl_isa_boot boot;
-} diehl_isa_shmem;
+	eicon_isa_com  com;
+	eicon_isa_boot boot;
+} eicon_isa_shmem;
 
 /*
  * card's description
@@ -101,20 +103,21 @@ typedef struct {
 	int               ramsize;
 	int               irq;	    /* IRQ                        */
 	void*             card;
-	diehl_isa_shmem*  shmem;    /* Shared-memory area         */
+	eicon_isa_shmem*  shmem;    /* Shared-memory area         */
 	unsigned char*    intack;   /* Int-Acknowledge            */
 	unsigned char*    stopcpu;  /* Writing here stops CPU     */
 	unsigned char*    startcpu; /* Writing here starts CPU    */
 	unsigned char     type;     /* card type                  */
+	int		  channels; /* No. of channels		  */
 	unsigned char     irqprobe; /* Flag: IRQ-probing          */
 	unsigned char     mvalid;   /* Flag: Memory is valid      */
 	unsigned char     ivalid;   /* Flag: IRQ is valid         */
 	unsigned char     master;   /* Flag: Card ist Quadro 1/4  */
 	void*             generic;  /* Ptr to generic card struct */
-} diehl_isa_card;
+} eicon_isa_card;
 
 /* Offsets for special locations on standard cards */
-#define INTACK     0x03fe /* HW-doc says: 0x3ff, sample code and manual say: 0x3fe ??? */
+#define INTACK     0x03fe 
 #define STOPCPU    0x0400
 #define STARTCPU   0x0401
 #define RAMSIZE    0x0400
@@ -125,10 +128,12 @@ typedef struct {
 #define RAMSIZE_P  0x4000
 
 
-extern int diehl_isa_load(diehl_isa_card *card, diehl_isa_codebuf *cb);
-extern void diehl_isa_release(diehl_isa_card *card);
-extern void diehl_isa_printpar(diehl_isa_card *card);
-extern void diehl_isa_transmit(diehl_isa_card *card);
+extern int eicon_isa_load(eicon_isa_card *card, eicon_isa_codebuf *cb);
+extern int eicon_isa_bootload(eicon_isa_card *card, eicon_isa_codebuf *cb);
+extern void eicon_isa_release(eicon_isa_card *card);
+extern void eicon_isa_printpar(eicon_isa_card *card);
+extern void eicon_isa_transmit(eicon_isa_card *card);
+extern int eicon_isa_find_card(int Mem, int Irq, char * Id);
 
 #endif  /* __KERNEL__ */
 
