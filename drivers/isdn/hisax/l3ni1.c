@@ -1,122 +1,26 @@
-/* $Id$
-
- * EURO/DSS1 D-channel protocol
- *
- * Author       Karsten Keil (keil@isdn4linux.de)
- *              based on the teles driver from Jan den Ouden
- *
- *		This file is (c) under GNU PUBLIC LICENSE
- *		For changes and modifications please read
- *		../../../Documentation/isdn/HiSax.cert
- *
- * Thanks to    Jan den Ouden
- *              Fritz Elfert
- *
- * $Log$
- * Revision 2.26  2000/05/19 18:40:57  keil
- * implement codeset shift procedure for IE checking
- *
- * Revision 2.25  2000/04/27 10:31:01  keil
- * implement overlap receiving
- *
- * Revision 2.24  2000/03/19 15:26:35  kai
- * changed keypad to use specified bearer, instead of always a-law
- *
- * Revision 2.23  2000/02/26 01:38:14  keil
- * Fixes for V.110 encoding LLC from Jens Jakobsen
- *
- * Revision 2.22  2000/01/20 19:44:20  keil
- * Fixed uninitialiesed location
- * Fixed redirecting number IE in Setup
- * Changes from certification
- * option for disabling use of KEYPAD protocol
- *
- * Revision 2.21  1999/12/19 20:25:17  keil
- * fixed LLC for outgoing analog calls
- * IE Signal is valid on older local switches
- *
- * Revision 2.20  1999/10/11 22:16:27  keil
- * Suspend/Resume is possible without explicit ID too
- *
- * Revision 2.19  1999/08/25 16:55:23  keil
- * Fix for test case TC10011
- *
- * Revision 2.18  1999/08/11 20:54:39  keil
- * High layer compatibility is valid in SETUP
- *
- * Revision 2.17  1999/07/25 16:18:25  keil
- * Fix Suspend/Resume
- *
- * Revision 2.16  1999/07/21 14:46:23  keil
- * changes from EICON certification
- *
- * Revision 2.14  1999/07/09 08:30:08  keil
- * cosmetics
- *
- * Revision 2.13  1999/07/01 08:11:58  keil
- * Common HiSax version for 2.0, 2.1, 2.2 and 2.3 kernel
- *
- * Revision 2.12  1998/11/15 23:55:10  keil
- * changes from 2.0
- *
- * Revision 2.11  1998/08/13 23:36:51  keil
- * HiSax 3.1 - don't work stable with current LinkLevel
- *
- * Revision 2.10  1998/05/25 14:10:20  keil
- * HiSax 3.0
- * X.75 and leased are working again.
- *
- * Revision 2.9  1998/05/25 12:58:17  keil
- * HiSax golden code from certification, Don't use !!!
- * No leased lines, no X75, but many changes.
- *
- * Revision 2.8  1998/03/19 13:18:47  keil
- * Start of a CAPI like interface for supplementary Service
- * first service: SUSPEND
- *
- * Revision 2.7  1998/02/12 23:08:01  keil
- * change for 2.1.86 (removing FREE_READ/FREE_WRITE from [dev]_kfree_skb()
- *
- * Revision 2.6  1998/02/03 23:26:35  keil
- * V110 extensions from Thomas Pfeiffer
- *
- * Revision 2.5  1998/02/02 13:34:28  keil
- * Support australian Microlink net and german AOCD
- *
- * Revision 2.4  1997/11/06 17:12:25  keil
- * KERN_NOTICE --> KERN_INFO
- *
- * Revision 2.3  1997/10/29 19:03:01  keil
- * changes for 2.1
- *
- * Revision 2.2  1997/08/07 17:44:36  keil
- * Fix RESTART
- *
- * Revision 2.1  1997/08/03 14:36:33  keil
- * Implement RESTART procedure
- *
- * Revision 2.0  1997/07/27 21:15:43  keil
- * New Callref based layer3
- *
- * Revision 1.17  1997/06/26 11:11:46  keil
- * SET_SKBFREE now on creation of a SKB
- *
- * Revision 1.15  1997/04/17 11:50:48  keil
- * pa->loc was undefined, if it was not send by the exchange
- *
- * Old log removed /KKe
- *
- */
+//-----------------------------------------------------------------------------
+//
+// NI1 D-channel protocol
+//
+// Author                Matt Henderson & Guy Ellis - Traverse Tecnologies Pty Ltd
+//                                www.traverse.com.au
+//
+// 2000.6.6 Initial implementation of routines for US NI1 
+// Layer 3 protocol based on the EURO/DSS1 D-channel protocol 
+// driver written by Karsten Keil et al.  Thanks also for the 
+// code provided by Ragnar Paulson and Will Scales.
+//
+//-----------------------------------------------------------------------------
 
 #define __NO_VERSION__
 #include "hisax.h"
 #include "isdnl3.h"
-#include "l3dss1.h"
+#include "l3ni1.h"
 #include <linux/ctype.h>
 #include <linux/config.h>
 
 extern char *HiSax_getrev(const char *revision);
-const char *dss1_revision = "$Revision$";
+const char *ni1_revision = "$Revision$";
 
 #define EXT_BEARER_CAPS 1
 
@@ -145,18 +49,18 @@ static unsigned char new_invoke_id(struct PStack *p)
 	save_flags(flags);
 	cli();
 
-	retval = p->prot.dss1.last_invoke_id + 1; /* try new id */
-	while ((i) && (p->prot.dss1.invoke_used[retval >> 3] == 0xFF)) {
-		p->prot.dss1.last_invoke_id = (retval & 0xF8) + 8;
+	retval = p->prot.ni1.last_invoke_id + 1; /* try new id */
+	while ((i) && (p->prot.ni1.invoke_used[retval >> 3] == 0xFF)) {
+		p->prot.ni1.last_invoke_id = (retval & 0xF8) + 8;
 		i--;
 	}  
 	if (i) {
-		while (p->prot.dss1.invoke_used[retval >> 3] & (1 << (retval & 7)))
+		while (p->prot.ni1.invoke_used[retval >> 3] & (1 << (retval & 7)))
 		retval++; 
 	} else
 		retval = 0;
-	p->prot.dss1.last_invoke_id = retval;
-	p->prot.dss1.invoke_used[retval >> 3] |= (1 << (retval & 7));
+	p->prot.ni1.last_invoke_id = retval;
+	p->prot.ni1.invoke_used[retval >> 3] |= (1 << (retval & 7));
 	restore_flags(flags);
 
 	return(retval);  
@@ -172,131 +76,131 @@ static void free_invoke_id(struct PStack *p, unsigned char id)
 
   save_flags(flags);
   cli();
-  p->prot.dss1.invoke_used[id >> 3] &= ~(1 << (id & 7));
+  p->prot.ni1.invoke_used[id >> 3] &= ~(1 << (id & 7));
   restore_flags(flags);
 } /* free_invoke_id */  
 
 
 /**********************************************************/
-/* create a new l3 process and fill in dss1 specific data */
+/* create a new l3 process and fill in ni1 specific data */
 /**********************************************************/
 static struct l3_process
-*dss1_new_l3_process(struct PStack *st, int cr)
+*ni1_new_l3_process(struct PStack *st, int cr)
 {  struct l3_process *proc;
 
    if (!(proc = new_l3_process(st, cr))) 
      return(NULL);
 
-   proc->prot.dss1.invoke_id = 0;
-   proc->prot.dss1.remote_operation = 0;
-   proc->prot.dss1.uus1_data[0] = '\0';
+   proc->prot.ni1.invoke_id = 0;
+   proc->prot.ni1.remote_operation = 0;
+   proc->prot.ni1.uus1_data[0] = '\0';
    
    return(proc);
-} /* dss1_new_l3_process */
+} /* ni1_new_l3_process */
 
 /************************************************/
-/* free a l3 process and all dss1 specific data */
+/* free a l3 process and all ni1 specific data */
 /************************************************/ 
 static void
-dss1_release_l3_process(struct l3_process *p)
+ni1_release_l3_process(struct l3_process *p)
 {
-   free_invoke_id(p->st,p->prot.dss1.invoke_id);
+   free_invoke_id(p->st,p->prot.ni1.invoke_id);
    release_l3_process(p);
-} /* dss1_release_l3_process */
+} /* ni1_release_l3_process */
  
 /********************************************************/
 /* search a process with invoke id id and dummy callref */
 /********************************************************/
 static struct l3_process *
-l3dss1_search_dummy_proc(struct PStack *st, int id)
+l3ni1_search_dummy_proc(struct PStack *st, int id)
 { struct l3_process *pc = st->l3.proc; /* start of processes */
 
   if (!id) return(NULL);
 
   while (pc)
-   { if ((pc->callref == -1) && (pc->prot.dss1.invoke_id == id))
+   { if ((pc->callref == -1) && (pc->prot.ni1.invoke_id == id))
        return(pc);
      pc = pc->next;
    } 
   return(NULL);
-} /* l3dss1_search_dummy_proc */
+} /* l3ni1_search_dummy_proc */
 
 /*******************************************************************/
 /* called when a facility message with a dummy callref is received */
 /* and a return result is delivered. id specifies the invoke id.   */
 /*******************************************************************/ 
 static void 
-l3dss1_dummy_return_result(struct PStack *st, int id, u_char *p, u_char nlen)
+l3ni1_dummy_return_result(struct PStack *st, int id, u_char *p, u_char nlen)
 { isdn_ctrl ic;
   struct IsdnCardState *cs;
   struct l3_process *pc = NULL; 
 
-  if ((pc = l3dss1_search_dummy_proc(st, id)))
+  if ((pc = l3ni1_search_dummy_proc(st, id)))
    { L3DelTimer(&pc->timer); /* remove timer */
 
      cs = pc->st->l1.hardware;
      ic.driver = cs->myid;
      ic.command = ISDN_STAT_PROT;
-     ic.arg = DSS1_STAT_INVOKE_RES;
-     ic.parm.dss1_io.hl_id = pc->prot.dss1.invoke_id;
-     ic.parm.dss1_io.ll_id = pc->prot.dss1.ll_id;
-     ic.parm.dss1_io.proc = pc->prot.dss1.proc;
-     ic.parm.dss1_io.timeout= 0;
-     ic.parm.dss1_io.datalen = nlen;
-     ic.parm.dss1_io.data = p;
-     free_invoke_id(pc->st, pc->prot.dss1.invoke_id);
-     pc->prot.dss1.invoke_id = 0; /* reset id */
+     ic.arg = NI1_STAT_INVOKE_RES;
+     ic.parm.ni1_io.hl_id = pc->prot.ni1.invoke_id;
+     ic.parm.ni1_io.ll_id = pc->prot.ni1.ll_id;
+     ic.parm.ni1_io.proc = pc->prot.ni1.proc;
+     ic.parm.ni1_io.timeout= 0;
+     ic.parm.ni1_io.datalen = nlen;
+     ic.parm.ni1_io.data = p;
+     free_invoke_id(pc->st, pc->prot.ni1.invoke_id);
+     pc->prot.ni1.invoke_id = 0; /* reset id */
 
      cs->iif.statcallb(&ic);
-     dss1_release_l3_process(pc); 
+     ni1_release_l3_process(pc); 
    }
   else
    l3_debug(st, "dummy return result id=0x%x result len=%d",id,nlen);
-} /* l3dss1_dummy_return_result */
+} /* l3ni1_dummy_return_result */
 
 /*******************************************************************/
 /* called when a facility message with a dummy callref is received */
 /* and a return error is delivered. id specifies the invoke id.    */
 /*******************************************************************/ 
 static void 
-l3dss1_dummy_error_return(struct PStack *st, int id, ulong error)
+l3ni1_dummy_error_return(struct PStack *st, int id, ulong error)
 { isdn_ctrl ic;
   struct IsdnCardState *cs;
   struct l3_process *pc = NULL; 
 
-  if ((pc = l3dss1_search_dummy_proc(st, id)))
+  if ((pc = l3ni1_search_dummy_proc(st, id)))
    { L3DelTimer(&pc->timer); /* remove timer */
 
      cs = pc->st->l1.hardware;
      ic.driver = cs->myid;
      ic.command = ISDN_STAT_PROT;
-     ic.arg = DSS1_STAT_INVOKE_ERR;
-     ic.parm.dss1_io.hl_id = pc->prot.dss1.invoke_id;
-     ic.parm.dss1_io.ll_id = pc->prot.dss1.ll_id;
-     ic.parm.dss1_io.proc = pc->prot.dss1.proc;
-     ic.parm.dss1_io.timeout= error;
-     ic.parm.dss1_io.datalen = 0;
-     ic.parm.dss1_io.data = NULL;
-     free_invoke_id(pc->st, pc->prot.dss1.invoke_id);
-     pc->prot.dss1.invoke_id = 0; /* reset id */
+     ic.arg = NI1_STAT_INVOKE_ERR;
+     ic.parm.ni1_io.hl_id = pc->prot.ni1.invoke_id;
+     ic.parm.ni1_io.ll_id = pc->prot.ni1.ll_id;
+     ic.parm.ni1_io.proc = pc->prot.ni1.proc;
+     ic.parm.ni1_io.timeout= error;
+     ic.parm.ni1_io.datalen = 0;
+     ic.parm.ni1_io.data = NULL;
+     free_invoke_id(pc->st, pc->prot.ni1.invoke_id);
+     pc->prot.ni1.invoke_id = 0; /* reset id */
 
      cs->iif.statcallb(&ic);
-     dss1_release_l3_process(pc); 
+     ni1_release_l3_process(pc); 
    }
   else
    l3_debug(st, "dummy return error id=0x%x error=0x%lx",id,error);
-} /* l3dss1_error_return */
+} /* l3ni1_error_return */
 
 /*******************************************************************/
 /* called when a facility message with a dummy callref is received */
 /* and a invoke is delivered. id specifies the invoke id.          */
 /*******************************************************************/ 
 static void 
-l3dss1_dummy_invoke(struct PStack *st, int cr, int id, 
+l3ni1_dummy_invoke(struct PStack *st, int cr, int id, 
                     int ident, u_char *p, u_char nlen)
 { isdn_ctrl ic;
   struct IsdnCardState *cs;
-  
+
   l3_debug(st, "dummy invoke %s id=0x%x ident=0x%x datalen=%d",
                (cr == -1) ? "local" : "broadcast",id,ident,nlen);
   if (cr >= -1) return; /* ignore local data */
@@ -304,19 +208,19 @@ l3dss1_dummy_invoke(struct PStack *st, int cr, int id,
   cs = st->l1.hardware;
   ic.driver = cs->myid;
   ic.command = ISDN_STAT_PROT;
-  ic.arg = DSS1_STAT_INVOKE_BRD;
-  ic.parm.dss1_io.hl_id = id;
-  ic.parm.dss1_io.ll_id = 0;
-  ic.parm.dss1_io.proc = ident;
-  ic.parm.dss1_io.timeout= 0;
-  ic.parm.dss1_io.datalen = nlen;
-  ic.parm.dss1_io.data = p;
+  ic.arg = NI1_STAT_INVOKE_BRD;
+  ic.parm.ni1_io.hl_id = id;
+  ic.parm.ni1_io.ll_id = 0;
+  ic.parm.ni1_io.proc = ident;
+  ic.parm.ni1_io.timeout= 0;
+  ic.parm.ni1_io.datalen = nlen;
+  ic.parm.ni1_io.data = p;
 
   cs->iif.statcallb(&ic);
-} /* l3dss1_dummy_invoke */
+} /* l3ni1_dummy_invoke */
 
 static void
-l3dss1_parse_facility(struct PStack *st, struct l3_process *pc,
+l3ni1_parse_facility(struct PStack *st, struct l3_process *pc,
                       int cr, u_char * p)
 {
 	int qd_len = 0;
@@ -447,96 +351,26 @@ l3dss1_parse_facility(struct PStack *st, struct l3_process *pc,
 					ilen--;
 				}
 
-                                if (!pc) 
-			         { l3dss1_dummy_invoke(st, cr, id, ident, p, nlen);
-                                   return;
-                                 } 
-#if HISAX_DE_AOC
-			{
-
-#define FOO1(s,a,b) \
-	    while(nlen > 1) {		\
-		    int ilen = p[1];	\
-		    if(nlen < ilen+2) {	\
-			    l3_debug(st, "FOO1  nlen < ilen+2"); \
-			    return;		\
-		    }			\
-		    nlen -= ilen+2;		\
-		    if((*p & 0xFF) == (a)) {	\
-			    int nlen = ilen;	\
-			    p += 2;		\
-			    b;		\
-		    } else {		\
-			    p += ilen+2;	\
-		    }			\
-	    }
-
-				switch (ident) {
-					case 0x22:	/* during */
-						FOO1("1A", 0x30, FOO1("1C", 0xA1, FOO1("1D", 0x30, FOO1("1E", 0x02, ( {
-							       ident = 0;
-							nlen = (nlen)?nlen:0; /* Make gcc happy */
-							while (ilen > 0) {
-														     ident = (ident << 8) | *p++;
-								  ilen--;
-									}
-														     if (ident > pc->para.chargeinfo) {
-														     pc->para.chargeinfo = ident;
-														     st->l3.l3l4(st, CC_CHARGE | INDICATION, pc);
-									}
-														     if (st->l3.debug & L3_DEB_CHARGE) {
-														     if (*(p + 2) == 0) {
-														     l3_debug(st, "charging info during %d", pc->para.chargeinfo);
-									}
-								   else {
-														     l3_debug(st, "charging info final %d", pc->para.chargeinfo);
-									}
-									}
-									}
-								    )))))
-							break;
-					case 0x24:	/* final */
-						FOO1("2A", 0x30, FOO1("2B", 0x30, FOO1("2C", 0xA1, FOO1("2D", 0x30, FOO1("2E", 0x02, ( {
-							       ident = 0;
-							nlen = (nlen)?nlen:0; /* Make gcc happy */
-							while (ilen > 0) {
-																      ident = (ident << 8) | *p++;
-								  ilen--;
-									}
-																      if (ident > pc->para.chargeinfo) {
-																      pc->para.chargeinfo = ident;
-																      st->l3.l3l4(st, CC_CHARGE | INDICATION, pc);
-									}
-																      if (st->l3.debug & L3_DEB_CHARGE) {
-																      l3_debug(st, "charging info final %d", pc->para.chargeinfo);
-									}
-									}
-								   ))))))
-							break;
-					default:
-                                                       l3_debug(st, "invoke break invalid ident %02x",ident);
-						break;
-				}
-#undef FOO1
-
-			}
-#else  not HISAX_DE_AOC
-                        l3_debug(st, "invoke break");
-#endif not HISAX_DE_AOC 
-			break;
+				if (!pc) 
+				{
+					l3ni1_dummy_invoke(st, cr, id, ident, p, nlen);
+					return;
+				} 
+				l3_debug(st, "invoke break");
+				break;
 		case 2:	/* return result */
 			 /* if no process available handle separately */ 
                         if (!pc)
 			 { if (cr == -1) 
-                             l3dss1_dummy_return_result(st, id, p, nlen);
+                             l3ni1_dummy_return_result(st, id, p, nlen);
                            return; 
                          }   
-                        if ((pc->prot.dss1.invoke_id) && (pc->prot.dss1.invoke_id == id))
+                        if ((pc->prot.ni1.invoke_id) && (pc->prot.ni1.invoke_id == id))
                           { /* Diversion successfull */
-                            free_invoke_id(st,pc->prot.dss1.invoke_id);
-                            pc->prot.dss1.remote_result = 0; /* success */     
-                            pc->prot.dss1.invoke_id = 0;
-                            pc->redir_result = pc->prot.dss1.remote_result; 
+                            free_invoke_id(st,pc->prot.ni1.invoke_id);
+                            pc->prot.ni1.remote_result = 0; /* success */     
+                            pc->prot.ni1.invoke_id = 0;
+                            pc->redir_result = pc->prot.ni1.remote_result; 
                             st->l3.l3l4(st, CC_REDIR | INDICATION, pc);                                  } /* Diversion successfull */
                         else
                           l3_debug(st,"return error unknown identifier");
@@ -573,15 +407,15 @@ l3dss1_parse_facility(struct PStack *st, struct l3_process *pc,
 			 /* if no process available handle separately */ 
                         if (!pc)
 			 { if (cr == -1)
-                             l3dss1_dummy_error_return(st, id, err_ret);
+                             l3ni1_dummy_error_return(st, id, err_ret);
                            return; 
                          }   
-                        if ((pc->prot.dss1.invoke_id) && (pc->prot.dss1.invoke_id == id))
+                        if ((pc->prot.ni1.invoke_id) && (pc->prot.ni1.invoke_id == id))
                           { /* Deflection error */
-                            free_invoke_id(st,pc->prot.dss1.invoke_id);
-                            pc->prot.dss1.remote_result = err_ret; /* result */
-                            pc->prot.dss1.invoke_id = 0; 
-                            pc->redir_result = pc->prot.dss1.remote_result; 
+                            free_invoke_id(st,pc->prot.ni1.invoke_id);
+                            pc->prot.ni1.remote_result = err_ret; /* result */
+                            pc->prot.ni1.invoke_id = 0; 
+                            pc->redir_result = pc->prot.ni1.remote_result; 
                             st->l3.l3l4(st, CC_REDIR | INDICATION, pc);  
                           } /* Deflection error */
                         else
@@ -594,7 +428,7 @@ l3dss1_parse_facility(struct PStack *st, struct l3_process *pc,
 }
 
 static void
-l3dss1_message(struct l3_process *pc, u_char mt)
+l3ni1_message(struct l3_process *pc, u_char mt)
 {
 	struct sk_buff *skb;
 	u_char *p;
@@ -607,7 +441,7 @@ l3dss1_message(struct l3_process *pc, u_char mt)
 }
 
 static void
-l3dss1_message_cause(struct l3_process *pc, u_char mt, u_char cause)
+l3ni1_message_cause(struct l3_process *pc, u_char mt, u_char cause)
 {
 	struct sk_buff *skb;
 	u_char tmp[16];
@@ -628,7 +462,7 @@ l3dss1_message_cause(struct l3_process *pc, u_char mt, u_char cause)
 }
 
 static void
-l3dss1_status_send(struct l3_process *pc, u_char pr, void *arg)
+l3ni1_status_send(struct l3_process *pc, u_char pr, void *arg)
 {
 	u_char tmp[16];
 	u_char *p = tmp;
@@ -654,10 +488,10 @@ l3dss1_status_send(struct l3_process *pc, u_char pr, void *arg)
 }
 
 static void
-l3dss1_msg_without_setup(struct l3_process *pc, u_char pr, void *arg)
+l3ni1_msg_without_setup(struct l3_process *pc, u_char pr, void *arg)
 {
-	/* This routine is called if here was no SETUP made (checks in dss1up and in
-	 * l3dss1_setup) and a RELEASE_COMPLETE have to be sent with an error code
+	/* This routine is called if here was no SETUP made (checks in ni1up and in
+	 * l3ni1_setup) and a RELEASE_COMPLETE have to be sent with an error code
 	 * MT_STATUS_ENQUIRE in the NULL state is handled too
 	 */
 	u_char tmp[16];
@@ -678,7 +512,7 @@ l3dss1_msg_without_setup(struct l3_process *pc, u_char pr, void *arg)
 			*p++ = pc->para.cause | 0x80;
 			break;
 		default:
-			printk(KERN_ERR "HiSax l3dss1_msg_without_setup wrong cause %d\n",
+			printk(KERN_ERR "HiSax l3ni1_msg_without_setup wrong cause %d\n",
 				pc->para.cause);
 			return;
 	}
@@ -687,7 +521,7 @@ l3dss1_msg_without_setup(struct l3_process *pc, u_char pr, void *arg)
 		return;
 	memcpy(skb_put(skb, l), tmp, l);
 	l3_msg(pc->st, DL_DATA | REQUEST, skb);
-	dss1_release_l3_process(pc);
+	ni1_release_l3_process(pc);
 }
 
 static int ie_ALERTING[] = {IE_BEARER, IE_CHANNEL_ID | IE_MANDATORY_1,
@@ -891,7 +725,7 @@ check_infoelements(struct l3_process *pc, struct sk_buff *skb, int *checklist)
 
 /* verify if a message type exists and contain no IE error */
 static int
-l3dss1_check_messagetype_validity(struct l3_process *pc, int mt, void *arg)
+l3ni1_check_messagetype_validity(struct l3_process *pc, int mt, void *arg)
 {
 	switch (mt) {
 		case MT_ALERTING:
@@ -918,22 +752,22 @@ l3dss1_check_messagetype_validity(struct l3_process *pc, int mt, void *arg)
 		case MT_STATUS:
 		case MT_STATUS_ENQUIRY:
 			if (pc->debug & L3_DEB_CHECK)
-				l3_debug(pc->st, "l3dss1_check_messagetype_validity mt(%x) OK", mt);
+				l3_debug(pc->st, "l3ni1_check_messagetype_validity mt(%x) OK", mt);
 			break;
 		case MT_RESUME: /* RESUME only in user->net */
 		case MT_SUSPEND: /* SUSPEND only in user->net */
 		default:
 			if (pc->debug & (L3_DEB_CHECK | L3_DEB_WARN))
-				l3_debug(pc->st, "l3dss1_check_messagetype_validity mt(%x) fail", mt);
+				l3_debug(pc->st, "l3ni1_check_messagetype_validity mt(%x) fail", mt);
 			pc->para.cause = 97;
-			l3dss1_status_send(pc, 0, NULL);
+			l3ni1_status_send(pc, 0, NULL);
 			return(1);
 	}
 	return(0);
 }
 
 static void
-l3dss1_std_ie_err(struct l3_process *pc, int ret) {
+l3ni1_std_ie_err(struct l3_process *pc, int ret) {
 
 	if (pc->debug & L3_DEB_CHECK)
 		l3_debug(pc->st, "check_infoelements ret %d", ret);
@@ -942,15 +776,15 @@ l3dss1_std_ie_err(struct l3_process *pc, int ret) {
 			break;
 		case ERR_IE_COMPREHENSION:
 			pc->para.cause = 96;
-			l3dss1_status_send(pc, 0, NULL);
+			l3ni1_status_send(pc, 0, NULL);
 			break;
 		case ERR_IE_UNRECOGNIZED:
 			pc->para.cause = 99;
-			l3dss1_status_send(pc, 0, NULL);
+			l3ni1_status_send(pc, 0, NULL);
 			break;
 		case ERR_IE_LENGTH:
 			pc->para.cause = 100;
-			l3dss1_status_send(pc, 0, NULL);
+			l3ni1_status_send(pc, 0, NULL);
 			break;
 		case ERR_IE_SEQUENCE:
 		default:
@@ -959,7 +793,7 @@ l3dss1_std_ie_err(struct l3_process *pc, int ret) {
 }
 
 static int
-l3dss1_get_channel_id(struct l3_process *pc, struct sk_buff *skb) {
+l3ni1_get_channel_id(struct l3_process *pc, struct sk_buff *skb) {
 	u_char *p;
 
 	p = skb->data;
@@ -982,7 +816,7 @@ l3dss1_get_channel_id(struct l3_process *pc, struct sk_buff *skb) {
 }
 
 static int
-l3dss1_get_cause(struct l3_process *pc, struct sk_buff *skb) {
+l3ni1_get_cause(struct l3_process *pc, struct sk_buff *skb) {
 	u_char l, i=0;
 	u_char *p;
 
@@ -1021,7 +855,7 @@ l3dss1_get_cause(struct l3_process *pc, struct sk_buff *skb) {
 }
 
 static void
-l3dss1_msg_with_uus(struct l3_process *pc, u_char cmd)
+l3ni1_msg_with_uus(struct l3_process *pc, u_char cmd)
 {
 	struct sk_buff *skb;
 	u_char tmp[16+40];
@@ -1030,13 +864,13 @@ l3dss1_msg_with_uus(struct l3_process *pc, u_char cmd)
 
 	MsgHead(p, pc->callref, cmd);
 
-        if (pc->prot.dss1.uus1_data[0])
+        if (pc->prot.ni1.uus1_data[0])
 	 { *p++ = IE_USER_USER; /* UUS info element */
-           *p++ = strlen(pc->prot.dss1.uus1_data) + 1;
+           *p++ = strlen(pc->prot.ni1.uus1_data) + 1;
            *p++ = 0x04; /* IA5 chars */
-           strcpy(p,pc->prot.dss1.uus1_data);
-           p += strlen(pc->prot.dss1.uus1_data);
-           pc->prot.dss1.uus1_data[0] = '\0';   
+           strcpy(p,pc->prot.ni1.uus1_data);
+           p += strlen(pc->prot.ni1.uus1_data);
+           pc->prot.ni1.uus1_data[0] = '\0';   
          } 
 
 	l = p - tmp;
@@ -1044,27 +878,27 @@ l3dss1_msg_with_uus(struct l3_process *pc, u_char cmd)
 		return;
 	memcpy(skb_put(skb, l), tmp, l);
 	l3_msg(pc->st, DL_DATA | REQUEST, skb);
-} /* l3dss1_msg_with_uus */
+} /* l3ni1_msg_with_uus */
 
 static void
-l3dss1_release_req(struct l3_process *pc, u_char pr, void *arg)
+l3ni1_release_req(struct l3_process *pc, u_char pr, void *arg)
 {
 	StopAllL3Timer(pc);
 	newl3state(pc, 19);
-	if (!pc->prot.dss1.uus1_data[0]) 
-		l3dss1_message(pc, MT_RELEASE);
+	if (!pc->prot.ni1.uus1_data[0]) 
+		l3ni1_message(pc, MT_RELEASE);
 	else
-		l3dss1_msg_with_uus(pc, MT_RELEASE);
+		l3ni1_msg_with_uus(pc, MT_RELEASE);
 	L3AddTimer(&pc->timer, T308, CC_T308_1);
 }
 
 static void
-l3dss1_release_cmpl(struct l3_process *pc, u_char pr, void *arg)
+l3ni1_release_cmpl(struct l3_process *pc, u_char pr, void *arg)
 {
 	struct sk_buff *skb = arg;
 	int ret;
 
-	if ((ret = l3dss1_get_cause(pc, skb))>0) {
+	if ((ret = l3ni1_get_cause(pc, skb))>0) {
 		if (pc->debug & L3_DEB_WARN)
 			l3_debug(pc->st, "RELCMPL get_cause ret(%d)",ret);
 	} else if (ret < 0)
@@ -1072,7 +906,7 @@ l3dss1_release_cmpl(struct l3_process *pc, u_char pr, void *arg)
 	StopAllL3Timer(pc);
 	newl3state(pc, 0);
 	pc->st->l3.l3l4(pc->st, CC_RELEASE | CONFIRM, pc);
-	dss1_release_l3_process(pc);
+	ni1_release_l3_process(pc);
 }
 
 #if EXT_BEARER_CAPS
@@ -1142,7 +976,7 @@ EncodeASyncParams(u_char * p, u_char si2)
 	return p + 3;
 }
 
-static  u_char
+static u_char
 EncodeSyncParams(u_char si2, u_char ai)
 {
 
@@ -1315,18 +1149,14 @@ DecodeSI2(struct sk_buff *skb)
 
 
 static void
-l3dss1_setup_req(struct l3_process *pc, u_char pr,
+l3ni1_setup_req(struct l3_process *pc, u_char pr,
 		 void *arg)
 {
 	struct sk_buff *skb;
 	u_char tmp[128];
 	u_char *p = tmp;
-	u_char channel = 0;
 
-        u_char send_keypad;
-	u_char screen = 0x80;
 	u_char *teln;
-	u_char *msn;
 	u_char *sub;
 	u_char *sp;
 	int l;
@@ -1334,17 +1164,10 @@ l3dss1_setup_req(struct l3_process *pc, u_char pr,
 	MsgHead(p, pc->callref, MT_SETUP);
 
 	teln = pc->para.setup.phone;
-#ifndef CONFIG_HISAX_NO_KEYPAD
-        send_keypad = (strchr(teln,'*') || strchr(teln,'#')) ? 1 : 0; 
-#else
-	send_keypad = 0;
-#endif
-#ifndef CONFIG_HISAX_NO_SENDCOMPLETE
-	if (!send_keypad)
-		*p++ = 0xa1;		/* complete indicator */
-#endif
+
+	*p++ = 0xa1;		/* complete indicator */
 	/*
-	 * Set Bearer Capability, Map info from 1TR6-convention to EDSS1
+	 * Set Bearer Capability, Map info from 1TR6-convention to NI1
 	 */
 	switch (pc->para.setup.si1) {
 	case 1:	                  /* Telephony                                */
@@ -1364,81 +1187,6 @@ l3dss1_setup_req(struct l3_process *pc, u_char pr,
 		break;
 	}
 
-	if (send_keypad) {
-		*p++ = IE_KEYPAD;
-		*p++ = strlen(teln);
-		while (*teln)
-			*p++ = (*teln++) & 0x7F;
-	}
-	  
-	/*
-	 * What about info2? Mapping to High-Layer-Compatibility?
-	 */
-	if ((*teln) && (!send_keypad)) {
-		/* parse number for special things */
-		if (!isdigit(*teln)) {
-			switch (0x5f & *teln) {
-				case 'C':
-					channel = 0x08;
-				case 'P':
-					channel |= 0x80;
-					teln++;
-					if (*teln == '1')
-						channel |= 0x01;
-					else
-						channel |= 0x02;
-					break;
-				case 'R':
-					screen = 0xA0;
-					break;
-				case 'D':
-					screen = 0x80;
-					break;
-				
-			        default:
-					if (pc->debug & L3_DEB_WARN)
-						l3_debug(pc->st, "Wrong MSN Code");
-					break;
-			}
-			teln++;
-		}
-	}
-	if (channel) {
-		*p++ = IE_CHANNEL_ID;
-		*p++ = 1;
-		*p++ = channel;
-	}
-	msn = pc->para.setup.eazmsn;
-	sub = NULL;
-	sp = msn;
-	while (*sp) {
-		if ('.' == *sp) {
-			sub = sp;
-			*sp = 0;
-		} else
-			sp++;
-	}
-	if (*msn) {
-		*p++ = IE_CALLING_PN;
-		*p++ = strlen(msn) + (screen ? 2 : 1);
-		/* Classify as AnyPref. */
-		if (screen) {
-			*p++ = 0x01;	/* Ext = '0'B, Type = '000'B, Plan = '0001'B. */
-			*p++ = screen;
-		} else
-			*p++ = 0x81;	/* Ext = '1'B, Type = '000'B, Plan = '0001'B. */
-		while (*msn)
-			*p++ = *msn++ & 0x7f;
-	}
-	if (sub) {
-		*sub++ = '.';
-		*p++ = IE_CALLING_SUB;
-		*p++ = strlen(sub) + 2;
-		*p++ = 0x80;	/* NSAP coded */
-		*p++ = 0x50;	/* local IDI format */
-		while (*sub)
-			*p++ = *sub++ & 0x7f;
-	}
 	sub = NULL;
 	sp = teln;
 	while (*sp) {
@@ -1449,24 +1197,14 @@ l3dss1_setup_req(struct l3_process *pc, u_char pr,
 			sp++;
 	}
 	
-        if (!send_keypad) {      
-		*p++ = IE_CALLED_PN;
-		*p++ = strlen(teln) + 1;
-		/* Classify as AnyPref. */
-		*p++ = 0x81;		/* Ext = '1'B, Type = '000'B, Plan = '0001'B. */
-		while (*teln)
-			*p++ = *teln++ & 0x7f;
-		
-		if (sub) {
-			*sub++ = '.';
-			*p++ = IE_CALLED_SUB;
-			*p++ = strlen(sub) + 2;
-			*p++ = 0x80;	/* NSAP coded */
-			*p++ = 0x50;	/* local IDI format */
-			while (*sub)
-				*p++ = *sub++ & 0x7f;
-		}
-        }
+	*p++ = IE_KEYPAD;
+	*p++ = strlen(teln);
+	while (*teln)
+		*p++ = (*teln++) & 0x7F;
+
+	if (sub)
+		*sub++ = '.';
+	
 #if EXT_BEARER_CAPS
 	if ((pc->para.setup.si2 >= 160) && (pc->para.setup.si2 <= 175)) {	// sync. Bitratenadaption, V.110/X.30
 
@@ -1493,7 +1231,6 @@ l3dss1_setup_req(struct l3_process *pc, u_char pr,
 		*p++ = 0x90;
 		*p++ = 0x21;
 		p = EncodeASyncParams(p, pc->para.setup.si2 - 192);
-#ifndef CONFIG_HISAX_NO_LLC
 	} else {
 	  switch (pc->para.setup.si1) {
 		case 1:	                /* Telephony                                */
@@ -1512,12 +1249,13 @@ l3dss1_setup_req(struct l3_process *pc, u_char pr,
 			*p++ = 0x90;	/* Circuit-Mode 64kbps                      */
 			break;
 	  }
-#endif
 	}
 #endif
 	l = p - tmp;
 	if (!(skb = l3_alloc_skb(l)))
+{
 		return;
+}
 	memcpy(skb_put(skb, l), tmp, l);
 	L3DelTimer(&pc->timer);
 	L3AddTimer(&pc->timer, T303, CC_T303);
@@ -1526,17 +1264,17 @@ l3dss1_setup_req(struct l3_process *pc, u_char pr,
 }
 
 static void
-l3dss1_call_proc(struct l3_process *pc, u_char pr, void *arg)
+l3ni1_call_proc(struct l3_process *pc, u_char pr, void *arg)
 {
 	struct sk_buff *skb = arg;
 	int id, ret;
 
-	if ((id = l3dss1_get_channel_id(pc, skb)) >= 0) {
+	if ((id = l3ni1_get_channel_id(pc, skb)) >= 0) {
 		if ((0 == id) || ((3 == id) && (0x10 == pc->para.moderate))) {
 			if (pc->debug & L3_DEB_WARN)
 				l3_debug(pc->st, "setup answer with wrong chid %x", id);
 			pc->para.cause = 100;
-			l3dss1_status_send(pc, pr, NULL);
+			l3ni1_status_send(pc, pr, NULL);
 			return;
 		}
 		pc->para.bchannel = id;
@@ -1547,35 +1285,35 @@ l3dss1_call_proc(struct l3_process *pc, u_char pr, void *arg)
 			pc->para.cause = 96;
 		else
 			pc->para.cause = 100;
-		l3dss1_status_send(pc, pr, NULL);
+		l3ni1_status_send(pc, pr, NULL);
 		return;
 	}
 	/* Now we are on none mandatory IEs */
 	ret = check_infoelements(pc, skb, ie_CALL_PROCEEDING);
 	if (ERR_IE_COMPREHENSION == ret) {
-		l3dss1_std_ie_err(pc, ret);
+		l3ni1_std_ie_err(pc, ret);
 		return;
 	}
 	L3DelTimer(&pc->timer);
 	newl3state(pc, 3);
 	L3AddTimer(&pc->timer, T310, CC_T310);
 	if (ret) /* STATUS for none mandatory IE errors after actions are taken */
-		l3dss1_std_ie_err(pc, ret);
+		l3ni1_std_ie_err(pc, ret);
 	pc->st->l3.l3l4(pc->st, CC_PROCEEDING | INDICATION, pc);
 }
 
 static void
-l3dss1_setup_ack(struct l3_process *pc, u_char pr, void *arg)
+l3ni1_setup_ack(struct l3_process *pc, u_char pr, void *arg)
 {
 	struct sk_buff *skb = arg;
 	int id, ret;
 
-	if ((id = l3dss1_get_channel_id(pc, skb)) >= 0) {
+	if ((id = l3ni1_get_channel_id(pc, skb)) >= 0) {
 		if ((0 == id) || ((3 == id) && (0x10 == pc->para.moderate))) {
 			if (pc->debug & L3_DEB_WARN)
 				l3_debug(pc->st, "setup answer with wrong chid %x", id);
 			pc->para.cause = 100;
-			l3dss1_status_send(pc, pr, NULL);
+			l3ni1_status_send(pc, pr, NULL);
 			return;
 		}
 		pc->para.bchannel = id;
@@ -1586,25 +1324,25 @@ l3dss1_setup_ack(struct l3_process *pc, u_char pr, void *arg)
 			pc->para.cause = 96;
 		else
 			pc->para.cause = 100;
-		l3dss1_status_send(pc, pr, NULL);
+		l3ni1_status_send(pc, pr, NULL);
 		return;
 	}
 	/* Now we are on none mandatory IEs */
 	ret = check_infoelements(pc, skb, ie_SETUP_ACKNOWLEDGE);
 	if (ERR_IE_COMPREHENSION == ret) {
-		l3dss1_std_ie_err(pc, ret);
+		l3ni1_std_ie_err(pc, ret);
 		return;
 	}
 	L3DelTimer(&pc->timer);
 	newl3state(pc, 2);
 	L3AddTimer(&pc->timer, T304, CC_T304);
 	if (ret) /* STATUS for none mandatory IE errors after actions are taken */
-		l3dss1_std_ie_err(pc, ret);
+		l3ni1_std_ie_err(pc, ret);
 	pc->st->l3.l3l4(pc->st, CC_MORE_INFO | INDICATION, pc);
 }
 
 static void
-l3dss1_disconnect(struct l3_process *pc, u_char pr, void *arg)
+l3ni1_disconnect(struct l3_process *pc, u_char pr, void *arg)
 {
 	struct sk_buff *skb = arg;
 	u_char *p;
@@ -1612,7 +1350,7 @@ l3dss1_disconnect(struct l3_process *pc, u_char pr, void *arg)
 	u_char cause = 0;
 
 	StopAllL3Timer(pc);
-	if ((ret = l3dss1_get_cause(pc, skb))) {
+	if ((ret = l3ni1_get_cause(pc, skb))) {
 		if (pc->debug & L3_DEB_WARN)
 			l3_debug(pc->st, "DISC get_cause ret(%d)", ret);
 		if (ret < 0)
@@ -1621,7 +1359,7 @@ l3dss1_disconnect(struct l3_process *pc, u_char pr, void *arg)
 			cause = 100;
 	} 
 	if ((p = findie(skb->data, skb->len, IE_FACILITY, 0)))
-		l3dss1_parse_facility(pc->st, pc, pc->callref, p);
+		l3ni1_parse_facility(pc->st, pc, pc->callref, p);
 	ret = check_infoelements(pc, skb, ie_DISCONNECT);
 	if (ERR_IE_COMPREHENSION == ret)
 		cause = 96;
@@ -1634,22 +1372,22 @@ l3dss1_disconnect(struct l3_process *pc, u_char pr, void *arg)
        	if (11 != ret)
 		pc->st->l3.l3l4(pc->st, CC_DISCONNECT | INDICATION, pc);
        	else if (!cause)
-		   l3dss1_release_req(pc, pr, NULL);
+		   l3ni1_release_req(pc, pr, NULL);
 	if (cause) {
-		l3dss1_message_cause(pc, MT_RELEASE, cause);
+		l3ni1_message_cause(pc, MT_RELEASE, cause);
 		L3AddTimer(&pc->timer, T308, CC_T308_1);
 	}
 }
 
 static void
-l3dss1_connect(struct l3_process *pc, u_char pr, void *arg)
+l3ni1_connect(struct l3_process *pc, u_char pr, void *arg)
 {
 	struct sk_buff *skb = arg;
 	int ret;
 
 	ret = check_infoelements(pc, skb, ie_CONNECT);
 	if (ERR_IE_COMPREHENSION == ret) {
-		l3dss1_std_ie_err(pc, ret);
+		l3ni1_std_ie_err(pc, ret);
 		return;
 	}
 	L3DelTimer(&pc->timer);	/* T310 */
@@ -1657,30 +1395,30 @@ l3dss1_connect(struct l3_process *pc, u_char pr, void *arg)
 	pc->para.chargeinfo = 0;
 	/* here should inserted COLP handling KKe */
 	if (ret)
-		l3dss1_std_ie_err(pc, ret);
+		l3ni1_std_ie_err(pc, ret);
 	pc->st->l3.l3l4(pc->st, CC_SETUP | CONFIRM, pc);
 }
 
 static void
-l3dss1_alerting(struct l3_process *pc, u_char pr, void *arg)
+l3ni1_alerting(struct l3_process *pc, u_char pr, void *arg)
 {
 	struct sk_buff *skb = arg;
 	int ret;
 
 	ret = check_infoelements(pc, skb, ie_ALERTING);
 	if (ERR_IE_COMPREHENSION == ret) {
-		l3dss1_std_ie_err(pc, ret);
+		l3ni1_std_ie_err(pc, ret);
 		return;
 	}
 	L3DelTimer(&pc->timer);	/* T304 */
 	newl3state(pc, 4);
 	if (ret)
-		l3dss1_std_ie_err(pc, ret);
+		l3ni1_std_ie_err(pc, ret);
 	pc->st->l3.l3l4(pc->st, CC_ALERTING | INDICATION, pc);
 }
 
 static void
-l3dss1_setup(struct l3_process *pc, u_char pr, void *arg)
+l3ni1_setup(struct l3_process *pc, u_char pr, void *arg)
 {
 	u_char *p;
 	int bcfound = 0;
@@ -1751,7 +1489,7 @@ l3dss1_setup(struct l3_process *pc, u_char pr, void *arg)
 				l3_debug(pc->st, "setup with wrong bearer(l=%d:%x,%x)",
 					p[1], p[2], p[3]);
 			pc->para.cause = 100;
-			l3dss1_msg_without_setup(pc, pr, NULL);
+			l3ni1_msg_without_setup(pc, pr, NULL);
 			return;
 		}
 	} else {
@@ -1759,20 +1497,20 @@ l3dss1_setup(struct l3_process *pc, u_char pr, void *arg)
 			l3_debug(pc->st, "setup without bearer capabilities");
 		/* ETS 300-104 1.3.3 */
 		pc->para.cause = 96;
-		l3dss1_msg_without_setup(pc, pr, NULL);
+		l3ni1_msg_without_setup(pc, pr, NULL);
 		return;
 	}
 	/*
 	 * Channel Identification
 	 */
-	if ((id = l3dss1_get_channel_id(pc, skb)) >= 0) {
+	if ((id = l3ni1_get_channel_id(pc, skb)) >= 0) {
 		if ((pc->para.bchannel = id)) {
 			if ((3 == id) && (0x10 == pc->para.moderate)) {
 				if (pc->debug & L3_DEB_WARN)
 					l3_debug(pc->st, "setup with wrong chid %x",
 						id);
 				pc->para.cause = 100;
-				l3dss1_msg_without_setup(pc, pr, NULL);
+				l3ni1_msg_without_setup(pc, pr, NULL);
 				return;
 			}
 			bcfound++;
@@ -1788,14 +1526,14 @@ l3dss1_setup(struct l3_process *pc, u_char pr, void *arg)
 			pc->para.cause = 96;
 		else
 			pc->para.cause = 100;
-		l3dss1_msg_without_setup(pc, pr, NULL);
+		l3ni1_msg_without_setup(pc, pr, NULL);
 		return;
 	}
 	/* Now we are on none mandatory IEs */
 	err = check_infoelements(pc, skb, ie_SETUP);
 	if (ERR_IE_COMPREHENSION == err) {
 		pc->para.cause = 96;
-		l3dss1_msg_without_setup(pc, pr, NULL);
+		l3ni1_msg_without_setup(pc, pr, NULL);
 		return;
 	}
 	p = skb->data;
@@ -1841,18 +1579,18 @@ l3dss1_setup(struct l3_process *pc, u_char pr, void *arg)
 	}
 	newl3state(pc, 6);
 	if (err) /* STATUS for none mandatory IE errors after actions are taken */
-		l3dss1_std_ie_err(pc, err);
+		l3ni1_std_ie_err(pc, err);
 	pc->st->l3.l3l4(pc->st, CC_SETUP | INDICATION, pc);
 }
 
 static void
-l3dss1_reset(struct l3_process *pc, u_char pr, void *arg)
+l3ni1_reset(struct l3_process *pc, u_char pr, void *arg)
 {
-	dss1_release_l3_process(pc);
+	ni1_release_l3_process(pc);
 }
 
 static void
-l3dss1_disconnect_req(struct l3_process *pc, u_char pr, void *arg)
+l3ni1_disconnect_req(struct l3_process *pc, u_char pr, void *arg)
 {
 	struct sk_buff *skb;
 	u_char tmp[16+40];
@@ -1872,13 +1610,13 @@ l3dss1_disconnect_req(struct l3_process *pc, u_char pr, void *arg)
 	*p++ = 0x80;
 	*p++ = cause | 0x80;
 
-        if (pc->prot.dss1.uus1_data[0])
+        if (pc->prot.ni1.uus1_data[0])
 	 { *p++ = IE_USER_USER; /* UUS info element */
-           *p++ = strlen(pc->prot.dss1.uus1_data) + 1;
+           *p++ = strlen(pc->prot.ni1.uus1_data) + 1;
            *p++ = 0x04; /* IA5 chars */
-           strcpy(p,pc->prot.dss1.uus1_data);
-           p += strlen(pc->prot.dss1.uus1_data);
-           pc->prot.dss1.uus1_data[0] = '\0';   
+           strcpy(p,pc->prot.ni1.uus1_data);
+           p += strlen(pc->prot.ni1.uus1_data);
+           pc->prot.ni1.uus1_data[0] = '\0';   
          } 
 
 	l = p - tmp;
@@ -1891,41 +1629,41 @@ l3dss1_disconnect_req(struct l3_process *pc, u_char pr, void *arg)
 }
 
 static void
-l3dss1_setup_rsp(struct l3_process *pc, u_char pr,
+l3ni1_setup_rsp(struct l3_process *pc, u_char pr,
 		 void *arg)
 {
         if (!pc->para.bchannel) 
 	 { if (pc->debug & L3_DEB_WARN)
 	       l3_debug(pc->st, "D-chan connect for waiting call");
-           l3dss1_disconnect_req(pc, pr, arg);
+           l3ni1_disconnect_req(pc, pr, arg);
            return;
          }
 	newl3state(pc, 8);
-	l3dss1_message(pc, MT_CONNECT);
+	l3ni1_message(pc, MT_CONNECT);
 	L3DelTimer(&pc->timer);
 	L3AddTimer(&pc->timer, T313, CC_T313);
 }
 
 static void
-l3dss1_connect_ack(struct l3_process *pc, u_char pr, void *arg)
+l3ni1_connect_ack(struct l3_process *pc, u_char pr, void *arg)
 {
 	struct sk_buff *skb = arg;
 	int ret;
 
 	ret = check_infoelements(pc, skb, ie_CONNECT_ACKNOWLEDGE);
 	if (ERR_IE_COMPREHENSION == ret) {
-		l3dss1_std_ie_err(pc, ret);
+		l3ni1_std_ie_err(pc, ret);
 		return;
 	}
 	newl3state(pc, 10);
 	L3DelTimer(&pc->timer);
 	if (ret)
-		l3dss1_std_ie_err(pc, ret);
+		l3ni1_std_ie_err(pc, ret);
 	pc->st->l3.l3l4(pc->st, CC_SETUP_COMPL | INDICATION, pc);
 }
 
 static void
-l3dss1_reject_req(struct l3_process *pc, u_char pr, void *arg)
+l3ni1_reject_req(struct l3_process *pc, u_char pr, void *arg)
 {
 	struct sk_buff *skb;
 	u_char tmp[16];
@@ -1950,24 +1688,24 @@ l3dss1_reject_req(struct l3_process *pc, u_char pr, void *arg)
 	l3_msg(pc->st, DL_DATA | REQUEST, skb);
 	pc->st->l3.l3l4(pc->st, CC_RELEASE | INDICATION, pc);
 	newl3state(pc, 0);
-	dss1_release_l3_process(pc);
+	ni1_release_l3_process(pc);
 }
 
 static void
-l3dss1_release(struct l3_process *pc, u_char pr, void *arg)
+l3ni1_release(struct l3_process *pc, u_char pr, void *arg)
 {
 	struct sk_buff *skb = arg;
 	u_char *p;
 	int ret, cause=0;
 
 	StopAllL3Timer(pc);
-	if ((ret = l3dss1_get_cause(pc, skb))>0) {
+	if ((ret = l3ni1_get_cause(pc, skb))>0) {
 		if (pc->debug & L3_DEB_WARN)
 			l3_debug(pc->st, "REL get_cause ret(%d)", ret);
 	} else if (ret<0)
 		pc->para.cause = NO_CAUSE;
 	if ((p = findie(skb->data, skb->len, IE_FACILITY, 0))) {
-		l3dss1_parse_facility(pc->st, pc, pc->callref, p);
+		l3ni1_parse_facility(pc->st, pc, pc->callref, p);
 	}
 	if ((ret<0) && (pc->state != 11))
 		cause = 96;
@@ -1979,49 +1717,49 @@ l3dss1_release(struct l3_process *pc, u_char pr, void *arg)
 	else if ((ERR_IE_UNRECOGNIZED == ret) && (!cause))
 		cause = 99;  
 	if (cause)
-		l3dss1_message_cause(pc, MT_RELEASE_COMPLETE, cause);
+		l3ni1_message_cause(pc, MT_RELEASE_COMPLETE, cause);
 	else
-		l3dss1_message(pc, MT_RELEASE_COMPLETE);
+		l3ni1_message(pc, MT_RELEASE_COMPLETE);
 	pc->st->l3.l3l4(pc->st, CC_RELEASE | INDICATION, pc);
 	newl3state(pc, 0);
-	dss1_release_l3_process(pc);
+	ni1_release_l3_process(pc);
 }
 
 static void
-l3dss1_alert_req(struct l3_process *pc, u_char pr,
+l3ni1_alert_req(struct l3_process *pc, u_char pr,
 		 void *arg)
 {
 	newl3state(pc, 7);
-	if (!pc->prot.dss1.uus1_data[0]) 
-		l3dss1_message(pc, MT_ALERTING);
+	if (!pc->prot.ni1.uus1_data[0]) 
+		l3ni1_message(pc, MT_ALERTING);
 	else
-		l3dss1_msg_with_uus(pc, MT_ALERTING); 
+		l3ni1_msg_with_uus(pc, MT_ALERTING); 
 }
 
 static void
-l3dss1_proceed_req(struct l3_process *pc, u_char pr,
+l3ni1_proceed_req(struct l3_process *pc, u_char pr,
 		   void *arg)
 {
 	newl3state(pc, 9);
-	l3dss1_message(pc, MT_CALL_PROCEEDING);
+	l3ni1_message(pc, MT_CALL_PROCEEDING);
 	pc->st->l3.l3l4(pc->st, CC_PROCEED_SEND | INDICATION, pc); 
 }
 
 static void
-l3dss1_setup_ack_req(struct l3_process *pc, u_char pr,
+l3ni1_setup_ack_req(struct l3_process *pc, u_char pr,
 		   void *arg)
 {
 	newl3state(pc, 25);
 	L3DelTimer(&pc->timer);
 	L3AddTimer(&pc->timer, T302, CC_T302);
-	l3dss1_message(pc, MT_SETUP_ACKNOWLEDGE);
+	l3ni1_message(pc, MT_SETUP_ACKNOWLEDGE);
 }
 
 /********************************************/
 /* deliver a incoming display message to HL */
 /********************************************/
 static void
-l3dss1_deliver_display(struct l3_process *pc, int pr, u_char *infp)
+l3ni1_deliver_display(struct l3_process *pc, int pr, u_char *infp)
 {       u_char len;
         isdn_ctrl ic; 
 	struct IsdnCardState *cs;
@@ -2040,11 +1778,11 @@ l3dss1_deliver_display(struct l3_process *pc, int pr, u_char *infp)
 	ic.driver = cs->myid;
 	ic.arg = pc->chan->chan; 
 	cs->iif.statcallb(&ic);
-} /* l3dss1_deliver_display */
+} /* l3ni1_deliver_display */
 
 
 static void
-l3dss1_progress(struct l3_process *pc, u_char pr, void *arg)
+l3ni1_progress(struct l3_process *pc, u_char pr, void *arg)
 {
 	struct sk_buff *skb = arg;
 	int err = 0;
@@ -2089,19 +1827,19 @@ l3dss1_progress(struct l3_process *pc, u_char pr, void *arg)
 	if (err) {	
 		if (pc->debug & L3_DEB_WARN)
 			l3_debug(pc->st, "progress error %d", err);
-		l3dss1_status_send(pc, pr, NULL);
+		l3ni1_status_send(pc, pr, NULL);
 		return;
 	}
 	/* Now we are on none mandatory IEs */
 	err = check_infoelements(pc, skb, ie_PROGRESS);
 	if (err)
-		l3dss1_std_ie_err(pc, err);
+		l3ni1_std_ie_err(pc, err);
 	if (ERR_IE_COMPREHENSION != err)
 		pc->st->l3.l3l4(pc->st, CC_PROGRESS | INDICATION, pc);
 }
 
 static void
-l3dss1_notify(struct l3_process *pc, u_char pr, void *arg)
+l3ni1_notify(struct l3_process *pc, u_char pr, void *arg)
 {
 	struct sk_buff *skb = arg;
 	int err = 0;
@@ -2130,31 +1868,31 @@ l3dss1_notify(struct l3_process *pc, u_char pr, void *arg)
 	if (err) {	
 		if (pc->debug & L3_DEB_WARN)
 			l3_debug(pc->st, "notify error %d", err);
-		l3dss1_status_send(pc, pr, NULL);
+		l3ni1_status_send(pc, pr, NULL);
 		return;
 	}
 	/* Now we are on none mandatory IEs */
 	err = check_infoelements(pc, skb, ie_NOTIFY);
 	if (err)
-		l3dss1_std_ie_err(pc, err);
+		l3ni1_std_ie_err(pc, err);
 	if (ERR_IE_COMPREHENSION != err)
 		pc->st->l3.l3l4(pc->st, CC_NOTIFY | INDICATION, pc);
 }
 
 static void
-l3dss1_status_enq(struct l3_process *pc, u_char pr, void *arg)
+l3ni1_status_enq(struct l3_process *pc, u_char pr, void *arg)
 {
 	int ret;
 	struct sk_buff *skb = arg;
 
 	ret = check_infoelements(pc, skb, ie_STATUS_ENQUIRY);
-	l3dss1_std_ie_err(pc, ret);
+	l3ni1_std_ie_err(pc, ret);
 	pc->para.cause = 30; /* response to STATUS_ENQUIRY */
-        l3dss1_status_send(pc, pr, NULL);
+        l3ni1_status_send(pc, pr, NULL);
 }
 
 static void
-l3dss1_information(struct l3_process *pc, u_char pr, void *arg)
+l3ni1_information(struct l3_process *pc, u_char pr, void *arg)
 {
 	int ret;
 	struct sk_buff *skb = arg;
@@ -2163,7 +1901,7 @@ l3dss1_information(struct l3_process *pc, u_char pr, void *arg)
 
 	ret = check_infoelements(pc, skb, ie_INFORMATION);
 	if (ret)
-		l3dss1_std_ie_err(pc, ret);
+		l3ni1_std_ie_err(pc, ret);
 	if (pc->state == 25) { /* overlap receiving */
 		L3DelTimer(&pc->timer);
 		p = skb->data;
@@ -2179,7 +1917,7 @@ l3dss1_information(struct l3_process *pc, u_char pr, void *arg)
 /******************************/
 /* handle deflection requests */
 /******************************/
-static void l3dss1_redir_req(struct l3_process *pc, u_char pr, void *arg)
+static void l3ni1_redir_req(struct l3_process *pc, u_char pr, void *arg)
 {
 	struct sk_buff *skb;
 	u_char tmp[128];
@@ -2190,17 +1928,17 @@ static void l3dss1_redir_req(struct l3_process *pc, u_char pr, void *arg)
 	int l; 
 
 
-        strcpy(pc->prot.dss1.uus1_data,pc->chan->setup.eazmsn); /* copy uus element if available */
+        strcpy(pc->prot.ni1.uus1_data,pc->chan->setup.eazmsn); /* copy uus element if available */
         if (!pc->chan->setup.phone[0])
           { pc->para.cause = -1;
-            l3dss1_disconnect_req(pc,pr,arg); /* disconnect immediately */
+            l3ni1_disconnect_req(pc,pr,arg); /* disconnect immediately */
             return;
           } /* only uus */
  
-        if (pc->prot.dss1.invoke_id) 
-          free_invoke_id(pc->st,pc->prot.dss1.invoke_id);
+        if (pc->prot.ni1.invoke_id) 
+          free_invoke_id(pc->st,pc->prot.ni1.invoke_id);
  
-        if (!(pc->prot.dss1.invoke_id = new_invoke_id(pc->st))) 
+        if (!(pc->prot.ni1.invoke_id = new_invoke_id(pc->st))) 
           return;
 
         MsgHead(p, pc->callref, MT_FACILITY);
@@ -2216,7 +1954,7 @@ static void l3dss1_redir_req(struct l3_process *pc, u_char pr, void *arg)
         *p++ = len_phone + len_sub + 2 + 2 + 8 + 3; /* length of data */
         *p++ = 0x02;  /* invoke id tag, integer */
 	*p++ = 0x01;  /* length */
-        *p++ = pc->prot.dss1.invoke_id;  /* invoke id */ 
+        *p++ = pc->prot.ni1.invoke_id;  /* invoke id */ 
         *p++ = 0x02;  /* operation value tag, integer */
 	*p++ = 0x01;  /* length */
         *p++ = 0x0D;  /* Call Deflect */
@@ -2246,23 +1984,23 @@ static void l3dss1_redir_req(struct l3_process *pc, u_char pr, void *arg)
 	memcpy(skb_put(skb, l), tmp, l);
 
         l3_msg(pc->st, DL_DATA | REQUEST, skb);
-} /* l3dss1_redir_req */
+} /* l3ni1_redir_req */
 
 /********************************************/
 /* handle deflection request in early state */
 /********************************************/
-static void l3dss1_redir_req_early(struct l3_process *pc, u_char pr, void *arg)
+static void l3ni1_redir_req_early(struct l3_process *pc, u_char pr, void *arg)
 {
-  l3dss1_proceed_req(pc,pr,arg);
-  l3dss1_redir_req(pc,pr,arg);
-} /* l3dss1_redir_req_early */
+  l3ni1_proceed_req(pc,pr,arg);
+  l3ni1_redir_req(pc,pr,arg);
+} /* l3ni1_redir_req_early */
 
 /***********************************************/
 /* handle special commands for this protocol.  */
 /* Examples are call independant services like */
 /* remote operations with dummy  callref.      */
 /***********************************************/
-static int l3dss1_cmd_global(struct PStack *st, isdn_ctrl *ic)
+static int l3ni1_cmd_global(struct PStack *st, isdn_ctrl *ic)
 { u_char id;
   u_char temp[265];
   u_char *p = temp;
@@ -2271,12 +2009,12 @@ static int l3dss1_cmd_global(struct PStack *st, isdn_ctrl *ic)
   struct l3_process *pc = NULL;
 
   switch (ic->arg)
-   { case DSS1_CMD_INVOKE:
-       if (ic->parm.dss1_io.datalen < 0) return(-2); /* invalid parameter */ 
+   { case NI1_CMD_INVOKE:
+       if (ic->parm.ni1_io.datalen < 0) return(-2); /* invalid parameter */ 
 
-       for (proc_len = 1, i = ic->parm.dss1_io.proc >> 8; i; i++) 
+       for (proc_len = 1, i = ic->parm.ni1_io.proc >> 8; i; i++) 
          i = i >> 8; /* add one byte */    
-       l = ic->parm.dss1_io.datalen + proc_len + 8; /* length excluding ie header */
+       l = ic->parm.ni1_io.datalen + proc_len + 8; /* length excluding ie header */
        if (l > 255) 
          return(-2); /* too long */
 
@@ -2297,55 +2035,55 @@ static int l3dss1_cmd_global(struct PStack *st, isdn_ctrl *ic)
        *p++ = proc_len; /* length of operation */
        
        for (i = proc_len; i; i--)
-         *p++ = (ic->parm.dss1_io.proc >> (i-1)) & 0xFF;
-       memcpy(p, ic->parm.dss1_io.data, ic->parm.dss1_io.datalen); /* copy data */
-       l = (p - temp) + ic->parm.dss1_io.datalen; /* total length */         
+         *p++ = (ic->parm.ni1_io.proc >> (i-1)) & 0xFF;
+       memcpy(p, ic->parm.ni1_io.data, ic->parm.ni1_io.datalen); /* copy data */
+       l = (p - temp) + ic->parm.ni1_io.datalen; /* total length */         
 
-       if (ic->parm.dss1_io.timeout > 0)
-        if (!(pc = dss1_new_l3_process(st, -1)))
+       if (ic->parm.ni1_io.timeout > 0)
+        if (!(pc = ni1_new_l3_process(st, -1)))
           { free_invoke_id(st, id);
             return(-2);
           } 
-       pc->prot.dss1.ll_id = ic->parm.dss1_io.ll_id; /* remember id */ 
-       pc->prot.dss1.proc = ic->parm.dss1_io.proc; /* and procedure */
+       pc->prot.ni1.ll_id = ic->parm.ni1_io.ll_id; /* remember id */ 
+       pc->prot.ni1.proc = ic->parm.ni1_io.proc; /* and procedure */
 
        if (!(skb = l3_alloc_skb(l))) 
          { free_invoke_id(st, id);
-           if (pc) dss1_release_l3_process(pc);
+           if (pc) ni1_release_l3_process(pc);
            return(-2);
          }
        memcpy(skb_put(skb, l), temp, l);
        
        if (pc)
-        { pc->prot.dss1.invoke_id = id; /* remember id */
-          L3AddTimer(&pc->timer, ic->parm.dss1_io.timeout, CC_TDSS1_IO | REQUEST);
+        { pc->prot.ni1.invoke_id = id; /* remember id */
+          L3AddTimer(&pc->timer, ic->parm.ni1_io.timeout, CC_TNI1_IO | REQUEST);
         }
        
        l3_msg(st, DL_DATA | REQUEST, skb);
-       ic->parm.dss1_io.hl_id = id; /* return id */
+       ic->parm.ni1_io.hl_id = id; /* return id */
        return(0);
 
-     case DSS1_CMD_INVOKE_ABORT:
-       if ((pc = l3dss1_search_dummy_proc(st, ic->parm.dss1_io.hl_id)))
+     case NI1_CMD_INVOKE_ABORT:
+       if ((pc = l3ni1_search_dummy_proc(st, ic->parm.ni1_io.hl_id)))
 	{ L3DelTimer(&pc->timer); /* remove timer */
-          dss1_release_l3_process(pc);
+          ni1_release_l3_process(pc);
           return(0); 
         } 
        else
-	{ l3_debug(st, "l3dss1_cmd_global abort unknown id");
+	{ l3_debug(st, "l3ni1_cmd_global abort unknown id");
           return(-2);
         } 
        break;
     
      default: 
-       l3_debug(st, "l3dss1_cmd_global unknown cmd 0x%lx", ic->arg);
+       l3_debug(st, "l3ni1_cmd_global unknown cmd 0x%lx", ic->arg);
        return(-1);  
    } /* switch ic-> arg */
   return(-1);
-} /* l3dss1_cmd_global */
+} /* l3ni1_cmd_global */
 
 static void 
-l3dss1_io_timer(struct l3_process *pc)
+l3ni1_io_timer(struct l3_process *pc)
 { isdn_ctrl ic;
   struct IsdnCardState *cs = pc->st->l1.hardware;
 
@@ -2353,23 +2091,23 @@ l3dss1_io_timer(struct l3_process *pc)
 
   ic.driver = cs->myid;
   ic.command = ISDN_STAT_PROT;
-  ic.arg = DSS1_STAT_INVOKE_ERR;
-  ic.parm.dss1_io.hl_id = pc->prot.dss1.invoke_id;
-  ic.parm.dss1_io.ll_id = pc->prot.dss1.ll_id;
-  ic.parm.dss1_io.proc = pc->prot.dss1.proc;
-  ic.parm.dss1_io.timeout= -1;
-  ic.parm.dss1_io.datalen = 0;
-  ic.parm.dss1_io.data = NULL;
-  free_invoke_id(pc->st, pc->prot.dss1.invoke_id);
-  pc->prot.dss1.invoke_id = 0; /* reset id */
+  ic.arg = NI1_STAT_INVOKE_ERR;
+  ic.parm.ni1_io.hl_id = pc->prot.ni1.invoke_id;
+  ic.parm.ni1_io.ll_id = pc->prot.ni1.ll_id;
+  ic.parm.ni1_io.proc = pc->prot.ni1.proc;
+  ic.parm.ni1_io.timeout= -1;
+  ic.parm.ni1_io.datalen = 0;
+  ic.parm.ni1_io.data = NULL;
+  free_invoke_id(pc->st, pc->prot.ni1.invoke_id);
+  pc->prot.ni1.invoke_id = 0; /* reset id */
 
   cs->iif.statcallb(&ic);
 
-  dss1_release_l3_process(pc); 
-} /* l3dss1_io_timer */
+  ni1_release_l3_process(pc); 
+} /* l3ni1_io_timer */
 
 static void
-l3dss1_release_ind(struct l3_process *pc, u_char pr, void *arg)
+l3ni1_release_ind(struct l3_process *pc, u_char pr, void *arg)
 {
 	u_char *p;
 	struct sk_buff *skb = arg;
@@ -2387,55 +2125,55 @@ l3dss1_release_ind(struct l3_process *pc, u_char pr, void *arg)
 		 */
 		pc->st->l3.l3l4(pc->st, CC_RELEASE | INDICATION, pc);
 		newl3state(pc, 0);
-		dss1_release_l3_process(pc);
+		ni1_release_l3_process(pc);
 	} else {
 		pc->st->l3.l3l4(pc->st, CC_IGNORE | INDICATION, pc);
 	}
 }
 
 static void
-l3dss1_dummy(struct l3_process *pc, u_char pr, void *arg)
+l3ni1_dummy(struct l3_process *pc, u_char pr, void *arg)
 {
 }
 
 static void
-l3dss1_t302(struct l3_process *pc, u_char pr, void *arg)
+l3ni1_t302(struct l3_process *pc, u_char pr, void *arg)
 {
 	L3DelTimer(&pc->timer);
 	pc->para.loc = 0;
 	pc->para.cause = 28; /* invalid number */
-	l3dss1_disconnect_req(pc, pr, NULL);
+	l3ni1_disconnect_req(pc, pr, NULL);
 	pc->st->l3.l3l4(pc->st, CC_SETUP_ERR, pc);
 }
 
 static void
-l3dss1_t303(struct l3_process *pc, u_char pr, void *arg)
+l3ni1_t303(struct l3_process *pc, u_char pr, void *arg)
 {
 	if (pc->N303 > 0) {
 		pc->N303--;
 		L3DelTimer(&pc->timer);
-		l3dss1_setup_req(pc, pr, arg);
+		l3ni1_setup_req(pc, pr, arg);
 	} else {
 		L3DelTimer(&pc->timer);
-		l3dss1_message_cause(pc, MT_RELEASE_COMPLETE, 102);
+		l3ni1_message_cause(pc, MT_RELEASE_COMPLETE, 102);
 		pc->st->l3.l3l4(pc->st, CC_NOSETUP_RSP, pc);
-		dss1_release_l3_process(pc);
+		ni1_release_l3_process(pc);
 	}
 }
 
 static void
-l3dss1_t304(struct l3_process *pc, u_char pr, void *arg)
+l3ni1_t304(struct l3_process *pc, u_char pr, void *arg)
 {
 	L3DelTimer(&pc->timer);
 	pc->para.loc = 0;
 	pc->para.cause = 102;
-	l3dss1_disconnect_req(pc, pr, NULL);
+	l3ni1_disconnect_req(pc, pr, NULL);
 	pc->st->l3.l3l4(pc->st, CC_SETUP_ERR, pc);
 
 }
 
 static void
-l3dss1_t305(struct l3_process *pc, u_char pr, void *arg)
+l3ni1_t305(struct l3_process *pc, u_char pr, void *arg)
 {
 	u_char tmp[16];
 	u_char *p = tmp;
@@ -2464,56 +2202,56 @@ l3dss1_t305(struct l3_process *pc, u_char pr, void *arg)
 }
 
 static void
-l3dss1_t310(struct l3_process *pc, u_char pr, void *arg)
+l3ni1_t310(struct l3_process *pc, u_char pr, void *arg)
 {
 	L3DelTimer(&pc->timer);
 	pc->para.loc = 0;
 	pc->para.cause = 102;
-	l3dss1_disconnect_req(pc, pr, NULL);
+	l3ni1_disconnect_req(pc, pr, NULL);
 	pc->st->l3.l3l4(pc->st, CC_SETUP_ERR, pc);
 }
 
 static void
-l3dss1_t313(struct l3_process *pc, u_char pr, void *arg)
+l3ni1_t313(struct l3_process *pc, u_char pr, void *arg)
 {
 	L3DelTimer(&pc->timer);
 	pc->para.loc = 0;
 	pc->para.cause = 102;
-	l3dss1_disconnect_req(pc, pr, NULL);
+	l3ni1_disconnect_req(pc, pr, NULL);
 	pc->st->l3.l3l4(pc->st, CC_CONNECT_ERR, pc);
 }
 
 static void
-l3dss1_t308_1(struct l3_process *pc, u_char pr, void *arg)
+l3ni1_t308_1(struct l3_process *pc, u_char pr, void *arg)
 {
 	newl3state(pc, 19);
 	L3DelTimer(&pc->timer);
-	l3dss1_message(pc, MT_RELEASE);
+	l3ni1_message(pc, MT_RELEASE);
 	L3AddTimer(&pc->timer, T308, CC_T308_2);
 }
 
 static void
-l3dss1_t308_2(struct l3_process *pc, u_char pr, void *arg)
+l3ni1_t308_2(struct l3_process *pc, u_char pr, void *arg)
 {
 	L3DelTimer(&pc->timer);
 	pc->st->l3.l3l4(pc->st, CC_RELEASE_ERR, pc);
-	dss1_release_l3_process(pc);
+	ni1_release_l3_process(pc);
 }
 
 static void
-l3dss1_t318(struct l3_process *pc, u_char pr, void *arg)
+l3ni1_t318(struct l3_process *pc, u_char pr, void *arg)
 {
 	L3DelTimer(&pc->timer);
 	pc->para.cause = 102;	/* Timer expiry */
 	pc->para.loc = 0;	/* local */
 	pc->st->l3.l3l4(pc->st, CC_RESUME_ERR, pc);
 	newl3state(pc, 19);
-	l3dss1_message(pc, MT_RELEASE);
+	l3ni1_message(pc, MT_RELEASE);
 	L3AddTimer(&pc->timer, T308, CC_T308_1);
 }
 
 static void
-l3dss1_t319(struct l3_process *pc, u_char pr, void *arg)
+l3ni1_t319(struct l3_process *pc, u_char pr, void *arg)
 {
 	L3DelTimer(&pc->timer);
 	pc->para.cause = 102;	/* Timer expiry */
@@ -2523,22 +2261,22 @@ l3dss1_t319(struct l3_process *pc, u_char pr, void *arg)
 }
 
 static void
-l3dss1_restart(struct l3_process *pc, u_char pr, void *arg)
+l3ni1_restart(struct l3_process *pc, u_char pr, void *arg)
 {
 	L3DelTimer(&pc->timer);
 	pc->st->l3.l3l4(pc->st, CC_RELEASE | INDICATION, pc);
-	dss1_release_l3_process(pc);
+	ni1_release_l3_process(pc);
 }
 
 static void
-l3dss1_status(struct l3_process *pc, u_char pr, void *arg)
+l3ni1_status(struct l3_process *pc, u_char pr, void *arg)
 {
 	u_char *p;
 	struct sk_buff *skb = arg;
 	int ret; 
 	u_char cause = 0, callState = 0;
 	
-	if ((ret = l3dss1_get_cause(pc, skb))) {
+	if ((ret = l3ni1_get_cause(pc, skb))) {
 		if (pc->debug & L3_DEB_WARN)
 			l3_debug(pc->st, "STATUS get_cause ret(%d)",ret);
 		if (ret < 0)
@@ -2570,7 +2308,7 @@ l3dss1_status(struct l3_process *pc, u_char pr, void *arg)
 			l3_debug(pc->st, "STATUS error(%d/%d)",ret,cause);
 		tmp = pc->para.cause;
 		pc->para.cause = cause;
-		l3dss1_status_send(pc, 0, NULL);
+		l3ni1_status_send(pc, 0, NULL);
 		if (cause == 99)
 			pc->para.cause = tmp;
 		else
@@ -2584,27 +2322,27 @@ l3dss1_status(struct l3_process *pc, u_char pr, void *arg)
 		 */
 		pc->st->l3.l3l4(pc->st, CC_RELEASE | INDICATION, pc);
 		newl3state(pc, 0);
-		dss1_release_l3_process(pc);
+		ni1_release_l3_process(pc);
 	}
 }
 
 static void
-l3dss1_facility(struct l3_process *pc, u_char pr, void *arg)
+l3ni1_facility(struct l3_process *pc, u_char pr, void *arg)
 {
 	struct sk_buff *skb = arg;
 	int ret;
 	
 	ret = check_infoelements(pc, skb, ie_FACILITY);
-	l3dss1_std_ie_err(pc, ret);
+	l3ni1_std_ie_err(pc, ret);
  	  {
 		u_char *p;
 		if ((p = findie(skb->data, skb->len, IE_FACILITY, 0)))
-			l3dss1_parse_facility(pc->st, pc, pc->callref, p);
+			l3ni1_parse_facility(pc->st, pc, pc->callref, p);
 	}
 }
 
 static void
-l3dss1_suspend_req(struct l3_process *pc, u_char pr, void *arg)
+l3ni1_suspend_req(struct l3_process *pc, u_char pr, void *arg)
 {
 	struct sk_buff *skb;
 	u_char tmp[32];
@@ -2633,7 +2371,7 @@ l3dss1_suspend_req(struct l3_process *pc, u_char pr, void *arg)
 }
 
 static void
-l3dss1_suspend_ack(struct l3_process *pc, u_char pr, void *arg)
+l3ni1_suspend_ack(struct l3_process *pc, u_char pr, void *arg)
 {
 	struct sk_buff *skb = arg;
 	int ret;
@@ -2646,39 +2384,39 @@ l3dss1_suspend_ack(struct l3_process *pc, u_char pr, void *arg)
 	if ((ret = check_infoelements(pc, skb, ie_SUSPEND_ACKNOWLEDGE)))
 		if (pc->debug & L3_DEB_WARN)
 			l3_debug(pc->st, "SUSPACK check ie(%d)",ret);
-	dss1_release_l3_process(pc);
+	ni1_release_l3_process(pc);
 }
 
 static void
-l3dss1_suspend_rej(struct l3_process *pc, u_char pr, void *arg)
+l3ni1_suspend_rej(struct l3_process *pc, u_char pr, void *arg)
 {
 	struct sk_buff *skb = arg;
 	int ret;
 
-	if ((ret = l3dss1_get_cause(pc, skb))) {
+	if ((ret = l3ni1_get_cause(pc, skb))) {
 		if (pc->debug & L3_DEB_WARN)
 			l3_debug(pc->st, "SUSP_REJ get_cause ret(%d)",ret);
 		if (ret < 0) 
 			pc->para.cause = 96;
 		else
 			pc->para.cause = 100;
-		l3dss1_status_send(pc, pr, NULL);
+		l3ni1_status_send(pc, pr, NULL);
 		return;
 	}
 	ret = check_infoelements(pc, skb, ie_SUSPEND_REJECT);
 	if (ERR_IE_COMPREHENSION == ret) {
-		l3dss1_std_ie_err(pc, ret);
+		l3ni1_std_ie_err(pc, ret);
 		return;
 	}
 	L3DelTimer(&pc->timer);
 	pc->st->l3.l3l4(pc->st, CC_SUSPEND_ERR, pc);
 	newl3state(pc, 10);
 	if (ret) /* STATUS for none mandatory IE errors after actions are taken */
-		l3dss1_std_ie_err(pc, ret);
+		l3ni1_std_ie_err(pc, ret);
 }
 
 static void
-l3dss1_resume_req(struct l3_process *pc, u_char pr, void *arg)
+l3ni1_resume_req(struct l3_process *pc, u_char pr, void *arg)
 {
 	struct sk_buff *skb;
 	u_char tmp[32];
@@ -2708,17 +2446,17 @@ l3dss1_resume_req(struct l3_process *pc, u_char pr, void *arg)
 }
 
 static void
-l3dss1_resume_ack(struct l3_process *pc, u_char pr, void *arg)
+l3ni1_resume_ack(struct l3_process *pc, u_char pr, void *arg)
 {
 	struct sk_buff *skb = arg;
 	int id, ret;
 
-	if ((id = l3dss1_get_channel_id(pc, skb)) > 0) {
+	if ((id = l3ni1_get_channel_id(pc, skb)) > 0) {
 		if ((0 == id) || ((3 == id) && (0x10 == pc->para.moderate))) {
 			if (pc->debug & L3_DEB_WARN)
 				l3_debug(pc->st, "resume ack with wrong chid %x", id);
 			pc->para.cause = 100;
-			l3dss1_status_send(pc, pr, NULL);
+			l3ni1_status_send(pc, pr, NULL);
 			return;
 		}
 		pc->para.bchannel = id;
@@ -2726,52 +2464,52 @@ l3dss1_resume_ack(struct l3_process *pc, u_char pr, void *arg)
 		if (pc->debug & L3_DEB_WARN)
 			l3_debug(pc->st, "resume ack without chid (ret %d)", id);
 		pc->para.cause = 96;
-		l3dss1_status_send(pc, pr, NULL);
+		l3ni1_status_send(pc, pr, NULL);
 		return;
 	}
 	ret = check_infoelements(pc, skb, ie_RESUME_ACKNOWLEDGE);
 	if (ERR_IE_COMPREHENSION == ret) {
-		l3dss1_std_ie_err(pc, ret);
+		l3ni1_std_ie_err(pc, ret);
 		return;
 	}
 	L3DelTimer(&pc->timer);
 	pc->st->l3.l3l4(pc->st, CC_RESUME | CONFIRM, pc);
 	newl3state(pc, 10);
 	if (ret) /* STATUS for none mandatory IE errors after actions are taken */
-		l3dss1_std_ie_err(pc, ret);
+		l3ni1_std_ie_err(pc, ret);
 }
 
 static void
-l3dss1_resume_rej(struct l3_process *pc, u_char pr, void *arg)
+l3ni1_resume_rej(struct l3_process *pc, u_char pr, void *arg)
 {
 	struct sk_buff *skb = arg;
 	int ret;
 
-	if ((ret = l3dss1_get_cause(pc, skb))) {
+	if ((ret = l3ni1_get_cause(pc, skb))) {
 		if (pc->debug & L3_DEB_WARN)
 			l3_debug(pc->st, "RES_REJ get_cause ret(%d)",ret);
 		if (ret < 0) 
 			pc->para.cause = 96;
 		else
 			pc->para.cause = 100;
-		l3dss1_status_send(pc, pr, NULL);
+		l3ni1_status_send(pc, pr, NULL);
 		return;
 	}
 	ret = check_infoelements(pc, skb, ie_RESUME_REJECT);
 	if (ERR_IE_COMPREHENSION == ret) {
-		l3dss1_std_ie_err(pc, ret);
+		l3ni1_std_ie_err(pc, ret);
 		return;
 	}
 	L3DelTimer(&pc->timer);
 	pc->st->l3.l3l4(pc->st, CC_RESUME_ERR, pc);
 	newl3state(pc, 0);
 	if (ret) /* STATUS for none mandatory IE errors after actions are taken */
-		l3dss1_std_ie_err(pc, ret);
-	dss1_release_l3_process(pc);
+		l3ni1_std_ie_err(pc, ret);
+	ni1_release_l3_process(pc);
 }
 
 static void
-l3dss1_global_restart(struct l3_process *pc, u_char pr, void *arg)
+l3ni1_global_restart(struct l3_process *pc, u_char pr, void *arg)
 {
 	u_char tmp[32];
 	u_char *p;
@@ -2825,16 +2563,16 @@ l3dss1_global_restart(struct l3_process *pc, u_char pr, void *arg)
 }
 
 static void
-l3dss1_dl_reset(struct l3_process *pc, u_char pr, void *arg)
+l3ni1_dl_reset(struct l3_process *pc, u_char pr, void *arg)
 {
         pc->para.cause = 0x29;          /* Temporary failure */
         pc->para.loc = 0;
-        l3dss1_disconnect_req(pc, pr, NULL);
+        l3ni1_disconnect_req(pc, pr, NULL);
         pc->st->l3.l3l4(pc->st, CC_SETUP_ERR, pc);
 }
 
 static void
-l3dss1_dl_release(struct l3_process *pc, u_char pr, void *arg)
+l3ni1_dl_release(struct l3_process *pc, u_char pr, void *arg)
 {
         newl3state(pc, 0);
         pc->para.cause = 0x1b;          /* Destination out of order */
@@ -2844,7 +2582,7 @@ l3dss1_dl_release(struct l3_process *pc, u_char pr, void *arg)
 }
 
 static void
-l3dss1_dl_reestablish(struct l3_process *pc, u_char pr, void *arg)
+l3ni1_dl_reestablish(struct l3_process *pc, u_char pr, void *arg)
 {
         L3DelTimer(&pc->timer);
         L3AddTimer(&pc->timer, T309, CC_T309);
@@ -2852,71 +2590,149 @@ l3dss1_dl_reestablish(struct l3_process *pc, u_char pr, void *arg)
 }
  
 static void
-l3dss1_dl_reest_status(struct l3_process *pc, u_char pr, void *arg)
+l3ni1_dl_reest_status(struct l3_process *pc, u_char pr, void *arg)
 {
 	L3DelTimer(&pc->timer);
  
  	pc->para.cause = 0x1F; /* normal, unspecified */
-	l3dss1_status_send(pc, 0, NULL);
+	l3ni1_status_send(pc, 0, NULL);
+}
+
+static void l3ni1_SendSpid( struct l3_process *pc, u_char pr, struct sk_buff *skb, int iNewState )
+{
+	u_char         * p;
+	char           * pSPID;
+	struct Channel * pChan = pc->st->lli.userdata;
+	int              l;
+
+	if ( skb )
+		idev_kfree_skb( skb, FREE_READ );
+
+	if ( !( pSPID = strchr( pChan->setup.eazmsn, ':' ) ) )
+	{
+		printk( KERN_ERR "SPID not supplied in EAZMSN %s\n", pChan->setup.eazmsn );
+		newl3state( pc, 0 );
+		pc->st->l3.l3l2( pc->st, DL_RELEASE | REQUEST, NULL );
+		return;
+	}
+
+	l = strlen( ++pSPID );
+	if ( !( skb = l3_alloc_skb( 5+l ) ) )
+	{
+		printk( KERN_ERR "HiSax can't get memory to send SPID\n" );
+		return;
+	}
+
+	p = skb_put( skb, 5 );
+	*p++ = PROTO_DIS_EURO;
+	*p++ = 0;
+	*p++ = MT_INFORMATION;
+	*p++ = IE_SPID;
+	*p++ = l;
+
+	memcpy( skb_put( skb, l ), pSPID, l );
+
+	newl3state( pc, iNewState );
+
+	L3DelTimer( &pc->timer );
+	L3AddTimer( &pc->timer, TSPID, CC_TSPID );
+
+	pc->st->l3.l3l2( pc->st, DL_DATA | REQUEST, skb );
+}
+
+static void l3ni1_spid_send( struct l3_process *pc, u_char pr, void *arg )
+{
+	l3ni1_SendSpid( pc, pr, arg, 20 );
+}
+
+void l3ni1_spid_epid( struct l3_process *pc, u_char pr, void *arg )
+{
+	struct sk_buff *skb = arg;
+
+	if ( skb->data[ 1 ] == 0 )
+		if ( skb->data[ 3 ] == IE_ENDPOINT_ID )
+		{
+			L3DelTimer( &pc->timer );
+			newl3state( pc, 0 );
+			l3_msg( pc->st, DL_ESTABLISH | CONFIRM, NULL );
+		}
+	idev_kfree_skb( skb, FREE_READ );
+}
+
+static void l3ni1_spid_tout( struct l3_process *pc, u_char pr, void *arg )
+{
+	if ( pc->state < 22 )
+		l3ni1_SendSpid( pc, pr, arg, pc->state+1 );
+	else
+	{
+		L3DelTimer( &pc->timer );
+		idev_kfree_skb( arg, FREE_READ );
+
+		printk( KERN_ERR "SPID not accepted\n" );
+		newl3state( pc, 0 );
+		pc->st->l3.l3l2( pc->st, DL_RELEASE | REQUEST, NULL );
+	}
 }
 
 /* *INDENT-OFF* */
 static struct stateentry downstatelist[] =
 {
 	{SBIT(0),
-	 CC_SETUP | REQUEST, l3dss1_setup_req},
+	 CC_SETUP | REQUEST, l3ni1_setup_req},
 	{SBIT(0),
-	 CC_RESUME | REQUEST, l3dss1_resume_req},
+	 CC_RESUME | REQUEST, l3ni1_resume_req},
 	{SBIT(1) | SBIT(2) | SBIT(3) | SBIT(4) | SBIT(6) | SBIT(7) | SBIT(8) | SBIT(9) | SBIT(10) | SBIT(25),
-	 CC_DISCONNECT | REQUEST, l3dss1_disconnect_req},
+	 CC_DISCONNECT | REQUEST, l3ni1_disconnect_req},
 	{SBIT(12),
-	 CC_RELEASE | REQUEST, l3dss1_release_req},
+	 CC_RELEASE | REQUEST, l3ni1_release_req},
 	{ALL_STATES,
-	 CC_RESTART | REQUEST, l3dss1_restart},
+	 CC_RESTART | REQUEST, l3ni1_restart},
 	{SBIT(6) | SBIT(25),
-	 CC_IGNORE | REQUEST, l3dss1_reset},
+	 CC_IGNORE | REQUEST, l3ni1_reset},
 	{SBIT(6) | SBIT(25),
-	 CC_REJECT | REQUEST, l3dss1_reject_req},
+	 CC_REJECT | REQUEST, l3ni1_reject_req},
 	{SBIT(6) | SBIT(25),
-	 CC_PROCEED_SEND | REQUEST, l3dss1_proceed_req},
+	 CC_PROCEED_SEND | REQUEST, l3ni1_proceed_req},
 	{SBIT(6),
-	 CC_MORE_INFO | REQUEST, l3dss1_setup_ack_req},
+	 CC_MORE_INFO | REQUEST, l3ni1_setup_ack_req},
 	{SBIT(25),
-	 CC_MORE_INFO | REQUEST, l3dss1_dummy},
+	 CC_MORE_INFO | REQUEST, l3ni1_dummy},
 	{SBIT(6) | SBIT(9) | SBIT(25),
-	 CC_ALERTING | REQUEST, l3dss1_alert_req},
+	 CC_ALERTING | REQUEST, l3ni1_alert_req},
 	{SBIT(6) | SBIT(7) | SBIT(9) | SBIT(25),
-	 CC_SETUP | RESPONSE, l3dss1_setup_rsp},
+	 CC_SETUP | RESPONSE, l3ni1_setup_rsp},
 	{SBIT(10),
-	 CC_SUSPEND | REQUEST, l3dss1_suspend_req},
+	 CC_SUSPEND | REQUEST, l3ni1_suspend_req},
         {SBIT(7) | SBIT(9) | SBIT(25),
-         CC_REDIR | REQUEST, l3dss1_redir_req},
+         CC_REDIR | REQUEST, l3ni1_redir_req},
         {SBIT(6),
-         CC_REDIR | REQUEST, l3dss1_redir_req_early},
+         CC_REDIR | REQUEST, l3ni1_redir_req_early},
         {SBIT(9) | SBIT(25),
-         CC_DISCONNECT | REQUEST, l3dss1_disconnect_req},
+         CC_DISCONNECT | REQUEST, l3ni1_disconnect_req},
 	{SBIT(25),
-	 CC_T302, l3dss1_t302},
+	 CC_T302, l3ni1_t302},
 	{SBIT(1),
-	 CC_T303, l3dss1_t303},
+	 CC_T303, l3ni1_t303},
 	{SBIT(2),
-	 CC_T304, l3dss1_t304},
+	 CC_T304, l3ni1_t304},
 	{SBIT(3),
-	 CC_T310, l3dss1_t310},
+	 CC_T310, l3ni1_t310},
 	{SBIT(8),
-	 CC_T313, l3dss1_t313},
+	 CC_T313, l3ni1_t313},
 	{SBIT(11),
-	 CC_T305, l3dss1_t305},
+	 CC_T305, l3ni1_t305},
 	{SBIT(15),
-	 CC_T319, l3dss1_t319},
+	 CC_T319, l3ni1_t319},
 	{SBIT(17),
-	 CC_T318, l3dss1_t318},
+	 CC_T318, l3ni1_t318},
 	{SBIT(19),
-	 CC_T308_1, l3dss1_t308_1},
+	 CC_T308_1, l3ni1_t308_1},
 	{SBIT(19),
-	 CC_T308_2, l3dss1_t308_2},
+	 CC_T308_2, l3ni1_t308_2},
 	{SBIT(10),
-	 CC_T309, l3dss1_dl_release},
+	 CC_T309, l3ni1_dl_release},
+	{ SBIT( 20 ) | SBIT( 21 ) | SBIT( 22 ),
+	 CC_TSPID, l3ni1_spid_tout },
 };
 
 #define DOWNSLLEN \
@@ -2925,53 +2741,53 @@ static struct stateentry downstatelist[] =
 static struct stateentry datastatelist[] =
 {
 	{ALL_STATES,
-	 MT_STATUS_ENQUIRY, l3dss1_status_enq},
+	 MT_STATUS_ENQUIRY, l3ni1_status_enq},
 	{ALL_STATES,
-	 MT_FACILITY, l3dss1_facility},
+	 MT_FACILITY, l3ni1_facility},
 	{SBIT(19),
-	 MT_STATUS, l3dss1_release_ind},
+	 MT_STATUS, l3ni1_release_ind},
 	{ALL_STATES,
-	 MT_STATUS, l3dss1_status},
+	 MT_STATUS, l3ni1_status},
 	{SBIT(0),
-	 MT_SETUP, l3dss1_setup},
+	 MT_SETUP, l3ni1_setup},
 	{SBIT(6) | SBIT(7) | SBIT(8) | SBIT(9) | SBIT(10) | SBIT(11) | SBIT(12) |
 	 SBIT(15) | SBIT(17) | SBIT(19) | SBIT(25),
-	 MT_SETUP, l3dss1_dummy},
+	 MT_SETUP, l3ni1_dummy},
 	{SBIT(1) | SBIT(2),
-	 MT_CALL_PROCEEDING, l3dss1_call_proc},
+	 MT_CALL_PROCEEDING, l3ni1_call_proc},
 	{SBIT(1),
-	 MT_SETUP_ACKNOWLEDGE, l3dss1_setup_ack},
+	 MT_SETUP_ACKNOWLEDGE, l3ni1_setup_ack},
 	{SBIT(2) | SBIT(3),
-	 MT_ALERTING, l3dss1_alerting},
+	 MT_ALERTING, l3ni1_alerting},
 	{SBIT(2) | SBIT(3),
-	 MT_PROGRESS, l3dss1_progress},
+	 MT_PROGRESS, l3ni1_progress},
 	{SBIT(2) | SBIT(3) | SBIT(4) | SBIT(7) | SBIT(8) | SBIT(9) | SBIT(10) |
 	 SBIT(11) | SBIT(12) | SBIT(15) | SBIT(17) | SBIT(19) | SBIT(25),
-	 MT_INFORMATION, l3dss1_information},
+	 MT_INFORMATION, l3ni1_information},
 	{SBIT(10) | SBIT(11) | SBIT(15),
-	 MT_NOTIFY, l3dss1_notify},
+	 MT_NOTIFY, l3ni1_notify},
 	{SBIT(0) | SBIT(1) | SBIT(2) | SBIT(3) | SBIT(4) | SBIT(7) | SBIT(8) | SBIT(10) |
 	 SBIT(11) | SBIT(12) | SBIT(15) | SBIT(17) | SBIT(19) | SBIT(25),
-	 MT_RELEASE_COMPLETE, l3dss1_release_cmpl},
+	 MT_RELEASE_COMPLETE, l3ni1_release_cmpl},
 	{SBIT(1) | SBIT(2) | SBIT(3) | SBIT(4) | SBIT(7) | SBIT(8) | SBIT(9) | SBIT(10) | SBIT(11) | SBIT(12) | SBIT(15) | SBIT(17) | SBIT(25),
-	 MT_RELEASE, l3dss1_release},
-	{SBIT(19),  MT_RELEASE, l3dss1_release_ind},
+	 MT_RELEASE, l3ni1_release},
+	{SBIT(19),  MT_RELEASE, l3ni1_release_ind},
 	{SBIT(1) | SBIT(2) | SBIT(3) | SBIT(4) | SBIT(7) | SBIT(8) | SBIT(9) | SBIT(10) | SBIT(11) | SBIT(15) | SBIT(17) | SBIT(25),
-	 MT_DISCONNECT, l3dss1_disconnect},
+	 MT_DISCONNECT, l3ni1_disconnect},
 	{SBIT(19),
-	 MT_DISCONNECT, l3dss1_dummy},
+	 MT_DISCONNECT, l3ni1_dummy},
 	{SBIT(1) | SBIT(2) | SBIT(3) | SBIT(4),
-	 MT_CONNECT, l3dss1_connect},
+	 MT_CONNECT, l3ni1_connect},
 	{SBIT(8),
-	 MT_CONNECT_ACKNOWLEDGE, l3dss1_connect_ack},
+	 MT_CONNECT_ACKNOWLEDGE, l3ni1_connect_ack},
 	{SBIT(15),
-	 MT_SUSPEND_ACKNOWLEDGE, l3dss1_suspend_ack},
+	 MT_SUSPEND_ACKNOWLEDGE, l3ni1_suspend_ack},
 	{SBIT(15),
-	 MT_SUSPEND_REJECT, l3dss1_suspend_rej},
+	 MT_SUSPEND_REJECT, l3ni1_suspend_rej},
 	{SBIT(17),
-	 MT_RESUME_ACKNOWLEDGE, l3dss1_resume_ack},
+	 MT_RESUME_ACKNOWLEDGE, l3ni1_resume_ack},
 	{SBIT(17),
-	 MT_RESUME_REJECT, l3dss1_resume_rej},
+	 MT_RESUME_REJECT, l3ni1_resume_rej},
 };
 
 #define DATASLLEN \
@@ -2980,12 +2796,14 @@ static struct stateentry datastatelist[] =
 static struct stateentry globalmes_list[] =
 {
 	{ALL_STATES,
-	 MT_STATUS, l3dss1_status},
+	 MT_STATUS, l3ni1_status},
 	{SBIT(0),
-	 MT_RESTART, l3dss1_global_restart},
+	 MT_RESTART, l3ni1_global_restart},
 /*	{SBIT(1),
-	 MT_RESTART_ACKNOWLEDGE, l3dss1_restart_ack},
+	 MT_RESTART_ACKNOWLEDGE, l3ni1_restart_ack},
 */
+	{ SBIT( 0 ), MT_DL_ESTABLISHED, l3ni1_spid_send },
+	{ SBIT( 20 ) | SBIT( 21 ) | SBIT( 22 ), MT_INFORMATION, l3ni1_spid_epid },
 };
 #define GLOBALM_LEN \
 	(sizeof(globalmes_list) / sizeof(struct stateentry))
@@ -2993,13 +2811,13 @@ static struct stateentry globalmes_list[] =
 static struct stateentry manstatelist[] =
 {
         {SBIT(2),
-         DL_ESTABLISH | INDICATION, l3dss1_dl_reset},
+         DL_ESTABLISH | INDICATION, l3ni1_dl_reset},
         {SBIT(10),
-         DL_ESTABLISH | CONFIRM, l3dss1_dl_reest_status},
+         DL_ESTABLISH | CONFIRM, l3ni1_dl_reest_status},
         {SBIT(10),
-         DL_RELEASE | INDICATION, l3dss1_dl_reestablish},
+         DL_RELEASE | INDICATION, l3ni1_dl_reestablish},
         {ALL_STATES,
-         DL_RELEASE | INDICATION, l3dss1_dl_release},
+         DL_RELEASE | INDICATION, l3ni1_dl_release},
 };
 
 #define MANSLLEN \
@@ -3016,14 +2834,17 @@ global_handler(struct PStack *st, int mt, struct sk_buff *skb)
 	int i;
 	struct l3_process *proc = st->l3.global;
 
-	proc->callref = skb->data[2]; /* cr flag */
+	if ( skb )	
+		proc->callref = skb->data[2]; /* cr flag */
+	else
+		proc->callref = 0;
 	for (i = 0; i < GLOBALM_LEN; i++)
 		if ((mt == globalmes_list[i].primitive) &&
 		    ((1 << proc->state) & globalmes_list[i].state))
 			break;
 	if (i == GLOBALM_LEN) {
 		if (st->l3.debug & L3_DEB_STATE) {
-			l3_debug(st, "dss1 global state %d mt %x unhandled",
+			l3_debug(st, "ni1 global state %d mt %x unhandled",
 				proc->state, mt);
 		}
 		MsgHead(p, proc->callref, MT_STATUS);
@@ -3041,7 +2862,7 @@ global_handler(struct PStack *st, int mt, struct sk_buff *skb)
 		l3_msg(proc->st, DL_DATA | REQUEST, skb);
 	} else {
 		if (st->l3.debug & L3_DEB_STATE) {
-			l3_debug(st, "dss1 global %d mt %x",
+			l3_debug(st, "ni1 global %d mt %x",
 				proc->state, mt);
 		}
 		globalmes_list[i].rout(proc, mt, skb);
@@ -3049,7 +2870,7 @@ global_handler(struct PStack *st, int mt, struct sk_buff *skb)
 }
 
 static void
-dss1up(struct PStack *st, int pr, void *arg)
+ni1up(struct PStack *st, int pr, void *arg)
 {
 	int i, mt, cr, cause, callState;
 	char *ptr;
@@ -3061,26 +2882,30 @@ dss1up(struct PStack *st, int pr, void *arg)
 		case (DL_DATA | INDICATION):
 		case (DL_UNIT_DATA | INDICATION):
 			break;
-		case (DL_ESTABLISH | CONFIRM):
 		case (DL_ESTABLISH | INDICATION):
 		case (DL_RELEASE | INDICATION):
 		case (DL_RELEASE | CONFIRM):
 			l3_msg(st, pr, arg);
 			return;
 			break;
-                default:
-                        printk(KERN_ERR "HiSax dss1up unknown pr=%04x\n", pr);
-                        return;
+
+		case (DL_ESTABLISH | CONFIRM):
+			global_handler( st, MT_DL_ESTABLISHED, NULL );
+			return;
+
+		default:
+			printk(KERN_ERR "HiSax ni1up unknown pr=%04x\n", pr);
+			return;
 	}
 	if (skb->len < 3) {
-		l3_debug(st, "dss1up frame too short(%d)", skb->len);
+		l3_debug(st, "ni1up frame too short(%d)", skb->len);
 		idev_kfree_skb(skb, FREE_READ);
 		return;
 	}
 
 	if (skb->data[0] != PROTO_DIS_EURO) {
 		if (st->l3.debug & L3_DEB_PROTERR) {
-			l3_debug(st, "dss1up%sunexpected discriminator %x message len %d",
+			l3_debug(st, "ni1up%sunexpected discriminator %x message len %d",
 				 (pr == (DL_DATA | INDICATION)) ? " " : "(broadcast) ",
 				 skb->data[0], skb->len);
 		}
@@ -3089,34 +2914,42 @@ dss1up(struct PStack *st, int pr, void *arg)
 	}
 	cr = getcallref(skb->data);
 	if (skb->len < ((skb->data[1] & 0x0f) + 3)) {
-		l3_debug(st, "dss1up frame too short(%d)", skb->len);
+		l3_debug(st, "ni1up frame too short(%d)", skb->len);
 		idev_kfree_skb(skb, FREE_READ);
 		return;
 	}
 	mt = skb->data[skb->data[1] + 2];
 	if (st->l3.debug & L3_DEB_STATE)
-		l3_debug(st, "dss1up cr %d", cr);
+		l3_debug(st, "ni1up cr %d", cr);
 	if (cr == -2) {  /* wrong Callref */
 		if (st->l3.debug & L3_DEB_WARN)
-			l3_debug(st, "dss1up wrong Callref");
+			l3_debug(st, "ni1up wrong Callref");
 		idev_kfree_skb(skb, FREE_READ);
 		return;
 	} else if (cr == -1) {	/* Dummy Callref */
 		if (mt == MT_FACILITY)
+		{
 			if ((p = findie(skb->data, skb->len, IE_FACILITY, 0))) {
-				l3dss1_parse_facility(st, NULL, 
+				l3ni1_parse_facility(st, NULL, 
 					(pr == (DL_DATA | INDICATION)) ? -1 : -2, p); 
 				idev_kfree_skb(skb, FREE_READ);
 				return;  
 			}
+		}
+		else
+		{
+			global_handler(st, mt, skb);
+			return;
+		}
+				
 		if (st->l3.debug & L3_DEB_WARN)
-			l3_debug(st, "dss1up dummy Callref (no facility msg or ie)");
+			l3_debug(st, "ni1up dummy Callref (no facility msg or ie)");
 		idev_kfree_skb(skb, FREE_READ);
 		return;
 	} else if ((((skb->data[1] & 0x0f) == 1) && (0==(cr & 0x7f))) ||
 		(((skb->data[1] & 0x0f) == 2) && (0==(cr & 0x7fff)))) {	/* Global CallRef */
 		if (st->l3.debug & L3_DEB_STATE)
-			l3_debug(st, "dss1up Global CallRef");
+			l3_debug(st, "ni1up Global CallRef");
 		global_handler(st, mt, skb);
 		idev_kfree_skb(skb, FREE_READ);
 		return;
@@ -3129,11 +2962,11 @@ dss1up(struct PStack *st, int pr, void *arg)
 			if (skb->data[2] & 0x80) {
 				/* Setup with wrong CREF flag */
 				if (st->l3.debug & L3_DEB_STATE)
-					l3_debug(st, "dss1up wrong CRef flag");
+					l3_debug(st, "ni1up wrong CRef flag");
 				idev_kfree_skb(skb, FREE_READ);
 				return;
 			}
-			if (!(proc = dss1_new_l3_process(st, cr))) {
+			if (!(proc = ni1_new_l3_process(st, cr))) {
 				/* May be to answer with RELEASE_COMPLETE and
 				 * CAUSE 0x2f "Resource unavailable", but this
 				 * need a new_l3_process too ... arghh
@@ -3167,9 +3000,9 @@ dss1up(struct PStack *st, int pr, void *arg)
 				 * MT_STATUS is received with call state != 0,
 				 * we must send MT_RELEASE_COMPLETE cause 101
 				 */
-				if ((proc = dss1_new_l3_process(st, cr))) {
+				if ((proc = ni1_new_l3_process(st, cr))) {
 					proc->para.cause = 101;
-					l3dss1_msg_without_setup(proc, 0, NULL);
+					l3ni1_msg_without_setup(proc, 0, NULL);
 				}
 			}
 			idev_kfree_skb(skb, FREE_READ);
@@ -3183,36 +3016,36 @@ dss1up(struct PStack *st, int pr, void *arg)
 			 * (except MT_SETUP and RELEASE_COMPLETE) is received,
 			 * we must send MT_RELEASE_COMPLETE cause 81 */
 			idev_kfree_skb(skb, FREE_READ);
-			if ((proc = dss1_new_l3_process(st, cr))) {
+			if ((proc = ni1_new_l3_process(st, cr))) {
 				proc->para.cause = 81;
-				l3dss1_msg_without_setup(proc, 0, NULL);
+				l3ni1_msg_without_setup(proc, 0, NULL);
 			}
 			return;
 		}
 	}
-	if (l3dss1_check_messagetype_validity(proc, mt, skb)) {
+	if (l3ni1_check_messagetype_validity(proc, mt, skb)) {
 		idev_kfree_skb(skb, FREE_READ);
 		return;
 	}
 	if ((p = findie(skb->data, skb->len, IE_DISPLAY, 0)) != NULL) 
-	  l3dss1_deliver_display(proc, pr, p); /* Display IE included */
+	  l3ni1_deliver_display(proc, pr, p); /* Display IE included */
 	for (i = 0; i < DATASLLEN; i++)
 		if ((mt == datastatelist[i].primitive) &&
 		    ((1 << proc->state) & datastatelist[i].state))
 			break;
 	if (i == DATASLLEN) {
 		if (st->l3.debug & L3_DEB_STATE) {
-			l3_debug(st, "dss1up%sstate %d mt %#x unhandled",
+			l3_debug(st, "ni1up%sstate %d mt %#x unhandled",
 				(pr == (DL_DATA | INDICATION)) ? " " : "(broadcast) ",
 				proc->state, mt);
 		}
 		if ((MT_RELEASE_COMPLETE != mt) && (MT_RELEASE != mt)) {
 			proc->para.cause = 101;
-			l3dss1_status_send(proc, pr, skb);
+			l3ni1_status_send(proc, pr, skb);
 		}
 	} else {
 		if (st->l3.debug & L3_DEB_STATE) {
-			l3_debug(st, "dss1up%sstate %d mt %x",
+			l3_debug(st, "ni1up%sstate %d mt %x",
 				(pr == (DL_DATA | INDICATION)) ? " " : "(broadcast) ",
 				proc->state, mt);
 		}
@@ -3223,7 +3056,7 @@ dss1up(struct PStack *st, int pr, void *arg)
 }
 
 static void
-dss1down(struct PStack *st, int pr, void *arg)
+ni1down(struct PStack *st, int pr, void *arg)
 {
 	int i, cr;
 	struct l3_process *proc;
@@ -3236,7 +3069,7 @@ dss1down(struct PStack *st, int pr, void *arg)
 		chan = arg;
 		cr = newcallref();
 		cr |= 0x80;
-		if ((proc = dss1_new_l3_process(st, cr))) {
+		if ((proc = ni1_new_l3_process(st, cr))) {
 			proc->chan = chan;
 			chan->proc = proc;
 			proc->para.setup = chan->setup;
@@ -3246,12 +3079,12 @@ dss1down(struct PStack *st, int pr, void *arg)
 		proc = arg;
 	}
 	if (!proc) {
-		printk(KERN_ERR "HiSax dss1down without proc pr=%04x\n", pr);
+		printk(KERN_ERR "HiSax ni1down without proc pr=%04x\n", pr);
 		return;
 	}
 
-	if ( pr == (CC_TDSS1_IO | REQUEST)) {
-		l3dss1_io_timer(proc); /* timer expires */ 
+	if ( pr == (CC_TNI1_IO | REQUEST)) {
+		l3ni1_io_timer(proc); /* timer expires */ 
 		return;
 	}  
 
@@ -3261,12 +3094,12 @@ dss1down(struct PStack *st, int pr, void *arg)
 			break;
 	if (i == DOWNSLLEN) {
 		if (st->l3.debug & L3_DEB_STATE) {
-			l3_debug(st, "dss1down state %d prim %#x unhandled",
+			l3_debug(st, "ni1down state %d prim %#x unhandled",
 				proc->state, pr);
 		}
 	} else {
 		if (st->l3.debug & L3_DEB_STATE) {
-			l3_debug(st, "dss1down state %d prim %#x",
+			l3_debug(st, "ni1down state %d prim %#x",
 				proc->state, pr);
 		}
 		downstatelist[i].rout(proc, pr, arg);
@@ -3274,13 +3107,13 @@ dss1down(struct PStack *st, int pr, void *arg)
 }
 
 static void
-dss1man(struct PStack *st, int pr, void *arg)
+ni1man(struct PStack *st, int pr, void *arg)
 {
         int i;
         struct l3_process *proc = arg;
- 
+
         if (!proc) {
-                printk(KERN_ERR "HiSax dss1man without proc pr=%04x\n", pr);
+                printk(KERN_ERR "HiSax ni1man without proc pr=%04x\n", pr);
                 return;
         }
         for (i = 0; i < MANSLLEN; i++)
@@ -3289,12 +3122,12 @@ dss1man(struct PStack *st, int pr, void *arg)
                         break;
         if (i == MANSLLEN) {
                 if (st->l3.debug & L3_DEB_STATE) {
-                        l3_debug(st, "cr %d dss1man state %d prim %#x unhandled",
+                        l3_debug(st, "cr %d ni1man state %d prim %#x unhandled",
                                 proc->callref & 0x7f, proc->state, pr);
                 }
         } else {
                 if (st->l3.debug & L3_DEB_STATE) {
-                        l3_debug(st, "cr %d dss1man state %d prim %#x",
+                        l3_debug(st, "cr %d ni1man state %d prim %#x",
                                 proc->callref & 0x7f, proc->state, pr);
                 }
                 manstatelist[i].rout(proc, pr, arg);
@@ -3302,24 +3135,24 @@ dss1man(struct PStack *st, int pr, void *arg)
 }
  
 void
-setstack_dss1(struct PStack *st)
+setstack_ni1(struct PStack *st)
 {
 	char tmp[64];
 	int i;
 
-	st->lli.l4l3 = dss1down;
-	st->lli.l4l3_proto = l3dss1_cmd_global;
-	st->l2.l2l3 = dss1up;
-	st->l3.l3ml3 = dss1man;
+	st->lli.l4l3 = ni1down;
+	st->lli.l4l3_proto = l3ni1_cmd_global;
+	st->l2.l2l3 = ni1up;
+	st->l3.l3ml3 = ni1man;
 	st->l3.N303 = 1;
-	st->prot.dss1.last_invoke_id = 0;
-	st->prot.dss1.invoke_used[0] = 1; /* Bit 0 must always be set to 1 */
+	st->prot.ni1.last_invoke_id = 0;
+	st->prot.ni1.invoke_used[0] = 1; /* Bit 0 must always be set to 1 */
 	i = 1;
 	while (i < 32) 
-		st->prot.dss1.invoke_used[i++] = 0;   
+		st->prot.ni1.invoke_used[i++] = 0;   
 
 	if (!(st->l3.global = kmalloc(sizeof(struct l3_process), GFP_ATOMIC))) {
-		printk(KERN_ERR "HiSax can't get memory for dss1 global CR\n");
+		printk(KERN_ERR "HiSax can't get memory for ni1 global CR\n");
 	} else {
 		st->l3.global->state = 0;
 		st->l3.global->callref = 0;
@@ -3327,10 +3160,10 @@ setstack_dss1(struct PStack *st)
 		st->l3.global->debug = L3_DEB_WARN;
 		st->l3.global->st = st;
 		st->l3.global->N303 = 1;
-		st->l3.global->prot.dss1.invoke_id = 0; 
+		st->l3.global->prot.ni1.invoke_id = 0; 
 
 		L3InitTimer(st->l3.global, &st->l3.global->timer);
 	}
-	strcpy(tmp, dss1_revision);
-	printk(KERN_INFO "HiSax: DSS1 Rev. %s\n", HiSax_getrev(tmp));
+	strcpy(tmp, ni1_revision);
+	printk(KERN_INFO "HiSax: National ISDN-1 Rev. %s\n", HiSax_getrev(tmp));
 }
