@@ -11,6 +11,9 @@
  *              Beat Doebeli
  *
  * $Log$
+ * Revision 1.11.2.6  1997/12/01 22:35:43  keil
+ * ID Byte for 16.3 version 1.1
+ *
  * Revision 1.11.2.5  1997/11/15 18:51:03  keil
  * new common init function
  *
@@ -224,6 +227,7 @@ reset_teles3(struct IsdnCardState *cs)
 		if ((cs->hw.teles3.cfg_reg) && (cs->typ != ISDN_CTYPE_COMPAQ_ISA)) {
 			switch (cs->irq) {
 				case 2:
+				case 9:
 					irqcfg = 0x00;
 					break;
 				case 3:
