@@ -5,6 +5,9 @@
  *
  *
  * $Log$
+ * Revision 2.39  1999/10/16 14:44:45  keil
+ * Fix module parm if only NICCY was selected
+ *
  * Revision 2.38  1999/10/14 20:25:28  keil
  * add a statistic for error monitoring
  *
@@ -553,9 +556,9 @@ HiSaxVersion(void))
 
 	printk(KERN_INFO "HiSax: Linux Driver for passive ISDN cards\n");
 #ifdef MODULE
-	printk(KERN_INFO "HiSax: Version 3.3b (module)\n");
+	printk(KERN_INFO "HiSax: Version 3.3c (module)\n");
 #else
-	printk(KERN_INFO "HiSax: Version 3.3b (kernel)\n");
+	printk(KERN_INFO "HiSax: Version 3.3c (kernel)\n");
 #endif
 	strcpy(tmp, l1_revision);
 	printk(KERN_INFO "HiSax: Layer1 Revision %s\n", HiSax_getrev(tmp));
@@ -1692,9 +1695,7 @@ int elsa_init_pcmcia(void *pcm_iob, int pcm_irq, int *busy_flag, int prot)
 
 	nrcards = 0;
 	HiSaxVersion();
-	if (id)			/* If id= string used */
-		HiSax_id = id;
-	/* Initialize all 8 structs, even though we only accept
+	/* Initialize all structs, even though we only accept
 	   two pcmcia cards
 	   */
 	for (i = 0; i < HISAX_MAX_CARDS; i++) {
@@ -1743,9 +1744,7 @@ int sedl_init_pcmcia(void *pcm_iob, int pcm_irq, int *busy_flag, int prot)
 
 	nrcards = 0;
 	HiSaxVersion();
-	if (id)			/* If id= string used */
-		HiSax_id = id;
-	/* Initialize all 8 structs, even though we only accept
+	/* Initialize all structs, even though we only accept
 	   two pcmcia cards
 	   */
 	for (i = 0; i < HISAX_MAX_CARDS; i++) {
@@ -1794,12 +1793,10 @@ int avm_a1_init_pcmcia(void *pcm_iob, int pcm_irq, int *busy_flag, int prot)
 
 	nrcards = 0;
 	HiSaxVersion();
-	if (id)			/* If id= string used */
-		HiSax_id = id;
-	/* Initialize all 16 structs, even though we only accept
+	/* Initialize all structs, even though we only accept
 	   two pcmcia cards
 	   */
-	for (i = 0; i < 16; i++) {
+	for (i = 0; i < HISAX_MAX_CARDS; i++) {
 		cards[i].para[0] = irq[i];
 		cards[i].para[1] = io[i];
 		cards[i].typ = type[i];
