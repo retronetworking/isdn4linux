@@ -6,6 +6,11 @@
  * (c) Copyright 1997 by Carsten Paeth (calle@calle.in-berlin.de)
  * 
  * $Log$
+ * Revision 1.11  1999/05/25 21:18:44  calle
+ * - Made loading of firmware safer, will not longer go into endless loop,
+ *   even if t4 file is corrupt or user load a non t4 file.
+ * - Changed and added error messages if load failed.
+ *
  * Revision 1.10  1999/04/15 19:49:31  calle
  * fix fuer die B1-PCI. Jetzt geht z.B. auch IRQ 17 ...
  *
@@ -179,6 +184,10 @@ extern int showcapimsgs;
 #define RECEIVE_TASK_READY	0x31	/*
 					   * int32 tasknr
 					   * int32 Length Taskname ...
+					 */
+#define RECEIVE_DEBUGMSG	0x71	/*
+					   * int32 Length message
+					   * 
 					 */
 
 #define WRITE_REGISTER		0x00
@@ -891,8 +900,9 @@ void B1_send_release(unsigned int port,
 	restore_flags(flags);
 }
 
-void B1_send_message(unsigned int port, struct sk_buff *skb)
+void B1_send_message(avmb1_card * card, struct sk_buff *skb)
 {
+	unsigned int port = card->port;
 	unsigned long flags;
 	__u16 len = CAPIMSG_LEN(skb->data);
 	__u8 cmd = CAPIMSG_COMMAND(skb->data);
@@ -921,6 +931,8 @@ void B1_send_message(unsigned int port, struct sk_buff *skb)
 		B1_put_slice(port, skb->data, len);
 		B1_put_slice(port, skb->data + len, dlen);
 		restore_flags(flags);
+		dev_kfree_skb(skb);
+		card->nsentdatapkt++;
 	} else {
 		if (showcapimsgs) {
 
@@ -938,8 +950,9 @@ void B1_send_message(unsigned int port, struct sk_buff *skb)
 		B1_put_byte(port, SEND_MESSAGE);
 		B1_put_slice(port, skb->data, len);
 		restore_flags(flags);
+		dev_kfree_skb(skb);
+		card->nsentctlpkt++;
 	}
-	dev_kfree_skb(skb);
 }
 
 /*
@@ -988,11 +1001,13 @@ t1retry:
 		}
 		if (!(skb = dev_alloc_skb(DataB3Len + MsgLen))) {
 			printk(KERN_ERR "b1lli: incoming packet dropped\n");
+			card->nrecvdroppkt++;
 		} else {
 			memcpy(skb_put(skb, MsgLen), card->msgbuf, MsgLen);
 			memcpy(skb_put(skb, DataB3Len), card->databuf, DataB3Len);
 			CAPIMSG_SETDATA(skb->data, skb->data + MsgLen);
 			avmb1_handle_capimsg(card, ApplId, skb);
+			card->nrecvdatapkt++;
 		}
 		break;
 
@@ -1019,9 +1034,11 @@ t1retry:
 		}
 		if (!(skb = dev_alloc_skb(MsgLen))) {
 			printk(KERN_ERR "b1lli: incoming packet dropped\n");
+			card->nrecvdroppkt++;
 		} else {
 			memcpy(skb_put(skb, MsgLen), card->msgbuf, MsgLen);
 			avmb1_handle_capimsg(card, ApplId, skb);
+			card->nrecvctlpkt++;
 		}
 		break;
 
@@ -1082,10 +1099,20 @@ t1retry:
 		printk(KERN_INFO "b1lli(0x%x): Task %d \"%s\" ready.\n",
 				card->port, ApplId, card->msgbuf);
 		break;
+        case RECEIVE_DEBUGMSG:
+		MsgLen = B1_get_slice(card->port, card->msgbuf);
+		card->msgbuf[MsgLen--] = 0;
+		while (    MsgLen >= 0
+		       && (   card->msgbuf[MsgLen] == '\n'
+			   || card->msgbuf[MsgLen] == '\r')
+			card->msgbuf[MsgLen--] = 0;
+		printk(KERN_INFO "b1lli(0x%x): DEBUG: %s\n",
+				card->port, card->msgbuf);
+		break;
 	default:
 		printk(KERN_ERR "b1lli(0x%x): B1_handle_interrupt: 0x%x ???\n",
 				card->port, b1cmd);
-		break;
+		return;
 	}
 	if (card->cardtype == AVM_CARDTYPE_T1) 
 		goto t1retry;

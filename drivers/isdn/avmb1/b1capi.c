@@ -6,8 +6,11 @@
  * (c) Copyright 1997 by Carsten Paeth (calle@calle.in-berlin.de)
  * 
  * $Log$
+ * Revision 1.16  1999/06/10 16:53:51  calle
+ * Removing of module b1pci will now remove card from lower level.
+ *
  * Revision 1.15  1999/05/25 14:51:42  calle
- * Added /proc/capi/* to track states in kernelcapi.
+ * Added /proc/capi/ to track states in kernelcapi.
  *
  * Revision 1.14  1999/04/15 19:49:29  calle
  * fix fuer die B1-PCI. Jetzt geht z.B. auch IRQ 17 ...
@@ -371,6 +374,44 @@ endloop:
 }
 
 /*
+ * /proc/capi/cardstats:
+ *	cnr nrecvdroppkt nrecvctlpkt nrecvdatapkt nsentctlpkt nsentdatapkt
+ */
+static int proc_cardstats_read_proc(char *page, char **start, off_t off,
+                                       int count, int *eof, void *data)
+{
+	avmb1_card *cp;
+	int i;
+	int len = 0;
+	off_t begin = 0;
+
+	for (i=0; i < CAPI_MAXCONTR; i++) {
+		cp = &cards[i];
+		if (cp->cardstate == CARD_FREE) continue;
+		len += sprintf(page+len, "%d %lu %lu %lu %lu %lu\n",
+			cp->cnr, 
+			cp->nrecvdroppkt,
+			cp->nrecvctlpkt,
+			cp->nrecvdatapkt,
+			cp->nsentctlpkt,
+			cp->nsentdatapkt);
+		if (len+begin > off+count)
+			goto endloop;
+		if (len+begin < off) {
+			begin += len;
+			len = 0;
+		}
+	}
+endloop:
+	if (i >= CAPI_MAXCONTR)
+		*eof = 1;
+	if (off >= len+begin)
+		return 0;
+	*start = page + (begin-off);
+	return ((count < begin+len-off) ? count : begin+len-off);
+}
+
+/*
  * /proc/capi/users:
  *	name
  */
@@ -411,6 +452,7 @@ static struct procfsentries {
    { "capi/ncci", 	  0	 , proc_ncci_read_proc },
    { "capi/cards", 	  0	 , proc_cards_read_proc },
    { "capi/users", 	  0	 , proc_users_read_proc },
+   { "capi/cardstats", 	  0	 , proc_cardstats_read_proc },
 };
 
 static void proc_capi_init(void)
@@ -1039,7 +1081,7 @@ static __u16 capi_put_message(__u16 applid, struct sk_buff *skb)
 	    && mq_enqueue(np, CAPIMSG_MSGID(skb->data)) == 0)
 		return CAPI_SENDQUEUEFULL;
 
-	B1_send_message(CARD(contr)->port, skb);
+	B1_send_message(CARD(contr), skb);
 	return CAPI_NOERROR;
 }
 

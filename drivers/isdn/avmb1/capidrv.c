@@ -6,6 +6,9 @@
  * Copyright 1997 by Carsten Paeth (calle@calle.in-berlin.de)
  *
  * $Log$
+ * Revision 1.17  1999/06/10 16:53:55  calle
+ * Removing of module b1pci will now remove card from lower level.
+ *
  * Revision 1.16  1999/05/31 11:50:33  calle
  * Bugfix: In if_sendbuf, skb_push'ed DATA_B3 header was not skb_pull'ed
  *         on failure, result in data block with DATA_B3 header transmitted
@@ -106,6 +109,7 @@
 #include <linux/skbuff.h>
 #include <linux/isdn.h>
 #include <linux/isdnif.h>
+#include <linux/proc_fs.h>
 #include <linux/capi.h>
 #include <linux/kernelcapi.h>
 #include <linux/ctype.h>
@@ -206,6 +210,12 @@ struct capidrv_data {
 	__u16 appid;
 	int ncontr;
 	struct capidrv_contr *contr_list;
+
+        /* statistic */
+	unsigned long nrecvctlpkt;
+	unsigned long nrecvdatapkt;
+	unsigned long nsentctlpkt;
+	unsigned long nsentdatapkt;
 };
 
 typedef struct capidrv_plci capidrv_plci;
@@ -579,6 +589,7 @@ static void send_message(capidrv_contr * card, _cmsg * cmsg)
 	skb = dev_alloc_skb(len);
 	memcpy(skb_put(skb, len), cmsg->buf, len);
 	(*capifuncs->capi_put_message) (global.appid, skb);
+	global.nsentctlpkt++;
 }
 
 /* -------- state machine -------------------------------------------- */
@@ -1407,6 +1418,7 @@ static void handle_data(_cmsg * cmsg, struct sk_buff *skb)
 		printk(KERN_ERR "capidrv: %s from unknown controller 0x%x\n",
 		       capi_cmd2str(cmsg->Command, cmsg->Subcommand),
 		       cmsg->adr.adrController & 0x7f);
+		kfree_skb(skb);
 		return;
 	}
 	if (!(nccip = find_ncci(card, cmsg->adr.adrNCCI))) {
@@ -1438,9 +1450,11 @@ static void capidrv_signal(__u16 applid, __u32 dummy)
 		if (s_cmsg.Command == CAPI_DATA_B3
 		    && s_cmsg.Subcommand == CAPI_IND) {
 			handle_data(&s_cmsg, skb);
+			global.nrecvdatapkt++;
 			continue;
 		}
 		kfree_skb(skb);
+		global.nrecvctlpkt++;
 		if ((s_cmsg.adr.adrController & 0xffffff00) == 0)
 			handle_controller(&s_cmsg);
 		else if ((s_cmsg.adr.adrPLCI & 0xffff0000) == 0)
@@ -1950,6 +1964,7 @@ static int if_sendbuf(int id, int channel, int doack, struct sk_buff *skb)
 		if (errcode == CAPI_NOERROR) {
 			dev_kfree_skb(skb);
 			nccip->datahandle++;
+			global.nsentdatapkt++;
 			return len;
 		}
 	        (void)capidrv_del_ack(nccip, datahandle);
@@ -1960,6 +1975,7 @@ static int if_sendbuf(int id, int channel, int doack, struct sk_buff *skb)
 		errcode = (*capifuncs->capi_put_message) (global.appid, skb);
 		if (errcode == CAPI_NOERROR) {
 			nccip->datahandle++;
+			global.nsentdatapkt++;
 			return len;
 		}
 		skb_pull(skb, msglen);
@@ -2185,6 +2201,64 @@ static void lower_callback(unsigned int cmd, __u16 contr, void *data)
 	}
 }
 
+/*
+ * /proc/capi/capidrv:
+ * nrecvctlpkt nrecvdatapkt nsendctlpkt nsenddatapkt
+ */
+static int proc_capidrv_read_proc(char *page, char **start, off_t off,
+                                       int count, int *eof, void *data)
+{
+	int len = 0;
+
+	len += sprintf(page+len, "%lu %lu %lu %lu\n",
+			global.nrecvctlpkt,
+			global.nrecvdatapkt,
+			global.nsentctlpkt,
+			global.nsentdatapkt);
+	if (len < off) 
+           return 0;
+	*eof = 1;
+	*start = page -off;
+	return ((count < len-off) ? count : len-off);
+}
+
+static struct procfsentries {
+  char *name;
+  mode_t mode;
+  int (*read_proc)(char *page, char **start, off_t off,
+                                       int count, int *eof, void *data);
+  struct proc_dir_entry *procent;
+} procfsentries[] = {
+   /* { "capi",		  S_IFDIR, 0 }, */
+   { "capi/capidrv", 	  0	 , proc_capidrv_read_proc },
+};
+
+static void proc_init(void)
+{
+    int nelem = sizeof(procfsentries)/sizeof(procfsentries[0]);
+    int i;
+
+    for (i=0; i < nelem; i++) {
+        struct procfsentries *p = procfsentries + i;
+	p->procent = create_proc_entry(p->name, p->mode, 0);
+	if (p->procent) p->procent->read_proc = p->read_proc;
+    }
+}
+
+static void proc_exit(void)
+{
+    int nelem = sizeof(procfsentries)/sizeof(procfsentries[0]);
+    int i;
+
+    for (i=nelem-1; i >= 0; i--) {
+        struct procfsentries *p = procfsentries + i;
+	if (p->procent) {
+	   remove_proc_entry(p->name, 0);
+	   p->procent = 0;
+	}
+    }
+}
+
 static struct capi_interface_user cuser = {
 	"capidrv",
 	lower_callback
@@ -2240,6 +2314,7 @@ int capidrv_init(void)
 			continue;
 		(void) capidrv_addcontr(contr, &profile);
 	}
+	proc_init();
 
 	return 0;
 }
@@ -2266,6 +2341,7 @@ void cleanup_module(void)
 
 	(void) (*capifuncs->capi_release) (global.appid);
 	detach_capi_interface(&cuser);
+	proc_exit();
 
 	printk(KERN_NOTICE "capidrv: Rev%s: unloaded\n", rev);
 }

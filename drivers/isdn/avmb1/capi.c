@@ -6,6 +6,9 @@
  * Copyright 1996 by Carsten Paeth (calle@calle.in-berlin.de)
  *
  * $Log$
+ * Revision 1.14  1999/06/10 16:51:03  calle
+ * Bugfix: open/release of control device was not handled correct.
+ *
  * Revision 1.13  1998/08/28 04:32:25  calle
  * Added patch send by Michael.Mueller4@post.rwth-aachen.de, to get AVM B1
  * driver running with 2.1.118.
@@ -80,6 +83,7 @@
 #include <linux/timer.h>
 #include <linux/wait.h>
 #include <linux/skbuff.h>
+#include <linux/proc_fs.h>
 #include <linux/poll.h>
 #include <linux/capi.h>
 #include <linux/kernelcapi.h>
@@ -178,7 +182,10 @@ static ssize_t capi_read(struct file *file, char *buf,
 	}
 	copied = skb->len;
 
-
+	if (CAPIMSG_COMMAND(skb->data) == CAPI_DATA_B3
+	    && CAPIMSG_SUBCOMMAND(skb->data) == CAPI_IND)
+		cdev->nrecvdatapkt++;
+        else cdev->nrecvctlpkt++;
 	kfree_skb(skb);
 
 	return copied;
@@ -231,6 +238,9 @@ static ssize_t capi_write(struct file *file, const char *buf,
 		dev_kfree_skb(skb);
 		return -EIO;
 	}
+	if (cmd == CAPI_DATA_B3 && subcmd == CAPI_REQ)
+		cdev->nsentdatapkt++;
+	else cdev->nsentctlpkt++;
 	return count;
 }
 
@@ -426,12 +436,12 @@ static int capi_open(struct inode *inode, struct file *file)
 		capidevs[minor].is_open = 1;
 		skb_queue_head_init(&capidevs[minor].recv_queue);
 		MOD_INC_USE_COUNT;
+		capidevs[minor].nopen++;
 
 	} else {
 		capidevs[minor].is_open++;
 		MOD_INC_USE_COUNT;
 	}
-
 
 	return 0;
 }
@@ -457,8 +467,10 @@ capi_release(struct inode *inode, struct file *file)
 		cdev->is_registered = 0;
 		cdev->applid = 0;
 
-		while ((skb = skb_dequeue(&cdev->recv_queue)) != 0)
+		while ((skb = skb_dequeue(&cdev->recv_queue)) != 0) {
 			kfree_skb(skb);
+			cdev->nrecvdroppkt++;
+		}
 		cdev->is_open = 0;
 	} else {
 		cdev->is_open--;
@@ -486,7 +498,84 @@ static struct file_operations capi_fops =
 	NULL,			/* capi_fasync */
 };
 
+/* -------- /proc functions ----------------------------------- */
 
+/*
+ * /proc/capi/capi20:
+ *  minor opencount
+ *         nrecvdroppkt nrecvctlpkt nrecvdatapkt nsendctlpkt nsenddatapkt
+ */
+static int proc_capidev_read_proc(char *page, char **start, off_t off,
+                                       int count, int *eof, void *data)
+{
+        struct capidev *cp;
+	int i;
+	int len = 0;
+	off_t begin = 0;
+
+	for (i=0; i < CAPI_MAXMINOR; i++) {
+		cp = &capidevs[i+1];
+		if (cp->nopen == 0) continue;
+		len += sprintf(page+len, "%d %lu %lu %lu %lu %lu %lu\n",
+			i+1,
+			cp->nopen,
+			cp->nrecvdroppkt,
+			cp->nrecvctlpkt,
+			cp->nrecvdatapkt,
+			cp->nsentctlpkt,
+			cp->nsentdatapkt);
+		if (len+begin > off+count)
+			goto endloop;
+		if (len+begin < off) {
+			begin += len;
+			len = 0;
+		}
+	}
+endloop:
+	if (i >= CAPI_MAXMINOR)
+		*eof = 1;
+	if (off >= len+begin)
+		return 0;
+	*start = page + (begin-off);
+	return ((count < begin+len-off) ? count : begin+len-off);
+}
+
+static struct procfsentries {
+  char *name;
+  mode_t mode;
+  int (*read_proc)(char *page, char **start, off_t off,
+                                       int count, int *eof, void *data);
+  struct proc_dir_entry *procent;
+} procfsentries[] = {
+   /* { "capi",		  S_IFDIR, 0 }, */
+   { "capi/capi20", 	  0	 , proc_capidev_read_proc },
+};
+
+static void proc_init(void)
+{
+    int nelem = sizeof(procfsentries)/sizeof(procfsentries[0]);
+    int i;
+
+    for (i=0; i < nelem; i++) {
+        struct procfsentries *p = procfsentries + i;
+	p->procent = create_proc_entry(p->name, p->mode, 0);
+	if (p->procent) p->procent->read_proc = p->read_proc;
+    }
+}
+
+static void proc_exit(void)
+{
+    int nelem = sizeof(procfsentries)/sizeof(procfsentries[0]);
+    int i;
+
+    for (i=nelem-1; i >= 0; i--) {
+        struct procfsentries *p = procfsentries + i;
+	if (p->procent) {
+	   remove_proc_entry(p->name, 0);
+	   p->procent = 0;
+	}
+    }
+}
 /* -------- init function and module interface ---------------------- */
 
 #ifdef MODULE
@@ -512,12 +601,14 @@ int capi_init(void)
 		unregister_chrdev(capi_major, "capi20");
 		return -EIO;
 	}
+	(void)proc_init();
 	return 0;
 }
 
 #ifdef MODULE
 void cleanup_module(void)
 {
+	(void)proc_exit();
 	unregister_chrdev(capi_major, "capi20");
 	(void) detach_capi_interface(&cuser);
 }

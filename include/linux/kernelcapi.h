@@ -6,6 +6,9 @@
  * (c) Copyright 1997 by Carsten Paeth (calle@calle.in-berlin.de)
  * 
  * $Log$
+ * Revision 1.1  1997/03/04 21:27:33  calle
+ * First version in isdn4linux
+ *
  * Revision 2.2  1997/02/12 09:31:39  calle
  * new version
  *
@@ -55,6 +58,7 @@ struct capi_interface {
 struct capi_interface_user {
 	char name[20];
 	void (*callback) (unsigned int cmd, __u16 contr, void *data);
+	/* internal */
 	struct capi_interface_user *next;
 };
 

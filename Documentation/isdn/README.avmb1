@@ -83,6 +83,50 @@ for example:
 capidrv
 capi20
 
+/proc/capi/capidrv: statistics of capidrv.o (capi messages)
+    recvctlpkt recvdatapkt sentctlpkt sentdatapkt
+	recvctlpkt: capi messages received without DATA_B3_IND
+	recvdatapkt: capi DATA_B3_IND received
+	sendctlpkt: capi messages sent without DATA_B3_REQ
+	senddatapkt: capi DATA_B3_REQ sent
+
+for example:
+560 82 107 285
+
+/proc/capi/capi20: statistics of capi.o (/dev/capi20)
+    minor nopen recvdroppkt recvctlpkt recvdatapkt sendctlpkt senddatapkt
+	minor: minor device number of capi device
+	nopen: number of calls to devices open
+	recvdroppkt: capi messages dropped (messages in recvqueue in close)
+	recvctlpkt: capi messages received without DATA_B3_IND
+	recvdatapkt: capi DATA_B3_IND received
+	sendctlpkt: capi messages sent without DATA_B3_REQ
+	senddatapkt: capi DATA_B3_REQ sent
+
+for example:
+1 2 0 18 0 16 2
+
+/proc/capi/cardstats: statistics of kernelcapi's controllers
+    controller recvdroppkt recvctlpkt recvdatapkt sendctlpkt senddatapkt
+	controller: number of controller
+	recvdroppkt: capi messages dropped (no memory)
+	recvctlpkt: capi messages received without DATA_B3_IND
+	recvdatapkt: capi DATA_B3_IND received
+	sendctlpkt: capi messages sent without DATA_B3_REQ
+	senddatapkt: capi DATA_B3_REQ sent
+for example:
+1 0 578 82 123 287
+
+Checking for memory leaks:
+/proc/capi/capidrv:       560 82 107 285
+/proc/capi/capi20: 1 2 0   18  0  16   2
+========================================
+                          578 82 123 287
+
+/proc/capi/cardstats: 1 0 578 82 123 287
+========================================
+                          578 82 123 287
+
 Questions
 ---------
 Check out the FAQ (ftp.franken.de) or subscribe to the
@@ -90,6 +134,8 @@ linux-avmb1@calle.in-berlin.de mailing list by sending
 a mail to majordomo@calle.in-berlin.de with
 subscribe linux-avmb1
 in the body.
+
+German documentaion can be found at ftp://ftp.avm.de/cardware/b1/linux/
 
 Bugs 
 ----

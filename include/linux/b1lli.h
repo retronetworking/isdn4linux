@@ -6,6 +6,9 @@
  * Copyright 1996 by Carsten Paeth (calle@calle.in-berlin.de)
  *
  * $Log$
+ * Revision 1.6  1999/04/15 19:49:36  calle
+ * fix fuer die B1-PCI. Jetzt geht z.B. auch IRQ 17 ...
+ *
  * Revision 1.5  1998/10/25 14:50:28  fritz
  * Backported from MIPS (Cobalt).
  *
@@ -153,6 +156,12 @@ typedef struct avmb1_card {
 	char databuf[2048];	/* capimsg data part */
 	capi_version cversion;
 	char name[10];
+	/* statistic */
+	unsigned long nrecvdroppkt;
+	unsigned long nrecvctlpkt;
+	unsigned long nrecvdatapkt;
+	unsigned long nsentctlpkt;
+	unsigned long nsentdatapkt;
 } avmb1_card;
 
 /*
@@ -189,7 +198,7 @@ void B1_send_register(unsigned int port,
 		      __u16 appid, __u32 nmsg,
 		      __u32 nb3conn, __u32 nb3blocks, __u32 b3bsize);
 void B1_send_release(unsigned int port, __u16 appid);
-void B1_send_message(unsigned int port, struct sk_buff *skb);
+void B1_send_message(avmb1_card * card, struct sk_buff *skb);
 
 /* b1capi.c */
 void avmb1_handle_new_ncci(avmb1_card * card,
