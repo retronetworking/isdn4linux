@@ -5,6 +5,9 @@
  * Copyright 1994 by Fritz Elfert (fritz@wuemaus.franken.de)
  *
  * $Log$
+ * Revision 1.2  1995/01/02  02:15:57  fritz
+ * Misc. Bugfixes
+ *
  * Revision 1.1  1994/12/14  18:02:38  fritz
  * Initial revision
  *
@@ -28,7 +31,6 @@
 #include <linux/major.h>
 #include <asm/segment.h>
 #include <asm/io.h>
-#include <asm/string.h>
 #include <linux/kernel.h>
 #include <linux/signal.h>
 #include <linux/module.h>
@@ -165,6 +167,13 @@ typedef union icn_shmt {
 } icn_shmem;
 
 static icn_dev *dev = (icn_dev *)0;
+
+/* With modutils >= 1.1.67 Integers can be changed while loading a
+ * module. For this reason define the Port-Base an Shmem-Base as
+ * integers.
+ */
+static int portbase = ICN_BASEADDR;
+static int membase  = ICN_MEMADDR;
 
 /* Utility-Macros */
 
