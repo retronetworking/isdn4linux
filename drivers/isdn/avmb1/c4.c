@@ -6,6 +6,10 @@
  * (c) Copyright 1999 by Carsten Paeth (calle@calle.in-berlin.de)
  * 
  * $Log$
+ * Revision 1.31  2001/03/20 13:14:50  calle
+ * - the revision strings in 2.4.3-pre4 get to long, changed handling
+ *   to support revision strings > 9 ...
+ *
  * Revision 1.30  2001/03/15 15:48:04  kai
  * compatibility changes from KERNEL_2_4
  *
@@ -147,12 +151,17 @@ static char *revision = "$Revision$";
 #undef CONFIG_C4_POLLDEBUG
 
 /* ------------------------------------------------------------- */
+#ifndef PCI_DEVICE_ID_AVM_C2
+#define PCI_DEVICE_ID_AVM_C2	0x1100
+#endif
+/* ------------------------------------------------------------- */
 
 static int suppress_pollack;
 
 #ifndef COMPAT_HAS_2_2_PCI
 static struct pci_device_id c4_pci_tbl[] __initdata = {
 	{ PCI_VENDOR_ID_DEC,PCI_DEVICE_ID_DEC_21285, PCI_VENDOR_ID_AVM, PCI_DEVICE_ID_AVM_C4 },
+	{ PCI_VENDOR_ID_DEC,PCI_DEVICE_ID_DEC_21285, PCI_VENDOR_ID_AVM, PCI_DEVICE_ID_AVM_C2 },
 	{ }			/* Terminating entry */
 };
 
@@ -1346,6 +1355,23 @@ static int c4_add_card(struct capi_driver *driver, struct capicardparams *p)
 
 /* ------------------------------------------------------------- */
 
+static struct capi_driver c2_driver = {
+    name: "c2",
+    revision: "0.0",
+    load_firmware: c4_load_firmware,
+    reset_ctr: c4_reset_ctr,
+    remove_ctr: c4_remove_ctr,
+    register_appl: c4_register_appl,
+    release_appl: c4_release_appl,
+    send_message: c4_send_message,
+
+    procinfo: c4_procinfo,
+    ctr_read_proc: c4_read_proc,
+    driver_read_proc: 0,	/* use standard driver_read_proc */
+
+    add_card: 0, /* no add_card function */
+};
+
 static struct capi_driver c4_driver = {
     name: "c4",
     revision: "0.0",
@@ -1365,15 +1391,9 @@ static struct capi_driver c4_driver = {
 
 static int ncards = 0;
 
-static int __init c4_init(void)
+static int c4_attach_driver (struct capi_driver * driver)
 {
-	struct capi_driver *driver = &c4_driver;
-	struct pci_dev *dev = NULL;
 	char *p;
-	int retval;
-
-	MOD_INC_USE_COUNT;
-
 	if ((p = strchr(revision, ':')) != 0 && p[1]) {
 		strncpy(driver->revision, p + 2, sizeof(driver->revision));
 		driver->revision[sizeof(driver->revision)-1] = 0;
@@ -1390,15 +1410,23 @@ static int __init c4_init(void)
 		MOD_DEC_USE_COUNT;
 		return -ENODEV;
 	}
+	return 0;
+}
+
+static int __init search_cards(struct capi_driver * driver,
+				int pci_id, int nr)
+{
+	struct pci_dev *	dev	= NULL;
+	int			retval	= 0;
 
 	while ((dev = pci_find_subsys(
 			PCI_VENDOR_ID_DEC, PCI_DEVICE_ID_DEC_21285,
-			PCI_VENDOR_ID_AVM, PCI_DEVICE_ID_AVM_C4, dev))) {
+			PCI_VENDOR_ID_AVM, pci_id, dev))) {
 		struct capicardparams param;
 
 		if (pci_enable_device(dev) < 0) {
-		        printk(KERN_ERR "%s: failed to enable AVM-C4\n",
-			       driver->name);
+		        printk(KERN_ERR "%s: failed to enable AVM-C%d\n",
+			       driver->name, nr);
 			continue;
 		}
 		pci_set_master(dev);
@@ -1408,31 +1436,71 @@ static int __init c4_init(void)
 		param.membase = pci_resource_start_mem(dev, 0);
   
 		printk(KERN_INFO
-			"%s: PCI BIOS reports AVM-C4 at i/o %#x, irq %d, mem %#x\n",
-			driver->name, param.port, param.irq, param.membase);
+			"%s: PCI BIOS reports AVM-C%d at i/o %#x, irq %d, mem %#x\n",
+			driver->name, nr, param.port, param.irq, param.membase);
 		retval = c4_add_card(driver, &param);
 		if (retval != 0) {
 		        printk(KERN_ERR
-			"%s: no AVM-C4 at i/o %#x, irq %d detected, mem %#x\n",
-			driver->name, param.port, param.irq, param.membase);
+			"%s: no AVM-C%d at i/o %#x, irq %d detected, mem %#x\n",
+			driver->name, nr, param.port, param.irq, param.membase);
 			continue;
 		}
 		ncards++;
 	}
+	return retval;
+}
+
+static int __init c4_init(void)
+{
+	struct capi_driver *driver = &c4_driver;
+	struct pci_dev *dev = NULL;
+	int retval;
+
+	MOD_INC_USE_COUNT;
+
+	retval = c4_attach_driver (&c4_driver);
+	if (retval) {
+		MOD_DEC_USE_COUNT;
+		return retval;
+	}
+
+	retval = c4_attach_driver (&c2_driver);
+	if (retval) {
+		MOD_DEC_USE_COUNT;
+		return retval;
+	}
+
+	retval = search_cards(&c4_driver, PCI_DEVICE_ID_AVM_C4, 4);
+	if (retval && ncards == 0) {
+    		detach_capi_driver(&c2_driver);
+    		detach_capi_driver(&c4_driver);
+		MOD_DEC_USE_COUNT;
+		return retval;
+	}
+	retval = search_cards(&c2_driver, PCI_DEVICE_ID_AVM_C2, 2);
+	if (retval && ncards == 0) {
+    		detach_capi_driver(&c2_driver);
+    		detach_capi_driver(&c4_driver);
+		MOD_DEC_USE_COUNT;
+		return retval;
+	}
+
 	if (ncards) {
-		printk(KERN_INFO "%s: %d C4 card(s) detected\n",
-				driver->name, ncards);
+		printk(KERN_INFO "%s: %d C4/C2 card(s) detected\n",
+				c4_driver.name, ncards);
 		MOD_DEC_USE_COUNT;
 		return 0;
 	}
-	printk(KERN_ERR "%s: NO C4 card detected\n", driver->name);
-	detach_capi_driver(driver);
+	printk(KERN_ERR "%s: NO C4/C2 card detected\n", c4_driver.name);
+	detach_capi_driver(&c4_driver);
+	detach_capi_driver(&c2_driver);
 	MOD_DEC_USE_COUNT;
 	return -ENODEV;
 }
 
 static void __exit c4_exit(void)
 {
+    detach_capi_driver(&c2_driver);
     detach_capi_driver(&c4_driver);
 }
 
