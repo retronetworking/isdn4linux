@@ -7,6 +7,10 @@
  * Author       Roland Klabunde (R.Klabunde@Berkom.de)
  *
  * $Log$
+ * Revision 1.3  1999/07/12 21:04:58  keil
+ * fix race in IRQ handling
+ * added watchdog for lost IRQs
+ *
  * Revision 1.2  1999/07/01 08:07:53  keil
  * Initial version
  *
@@ -303,7 +307,8 @@ __initfunc(int
 	if ((dev_a4t = pci_find_device(I20_VENDOR_ID, I20_DEVICE_ID, dev_a4t))) {
 		u_int sub_sys_id = 0;
 
-		pci_read_config_dword(dev_a4t, PCI_SUBSYSTEM_ID, &sub_sys_id);
+		pci_read_config_dword(dev_a4t, PCI_SUBSYSTEM_VENDOR_ID,
+			&sub_sys_id);
 		if (sub_sys_id == ((A4T_SUBSYS_ID << 16) | A4T_SUBVEN_ID)) {
 			found = 1;
 			pci_memaddr = dev_a4t->base_address[0];
@@ -319,7 +324,8 @@ __initfunc(int
 				&pci_device_fn) == PCIBIOS_SUCCESSFUL) {
 			u_int sub_sys_id = 0;
 
-			pcibios_read_config_dword(pci_bus, pci_device_fn, PCI_SUBSYSTEM_ID, &sub_sys_id);
+			pcibios_read_config_dword(pci_bus, pci_device_fn,
+				PCI_SUBSYSTEM_VENDOR_ID, &sub_sys_id);
 			if (sub_sys_id == ((A4T_SUBSYS_ID << 16) | A4T_SUBVEN_ID)) {
 				found = 1;
 				pcibios_read_config_byte(pci_bus, pci_device_fn,
