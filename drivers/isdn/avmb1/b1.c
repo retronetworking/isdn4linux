@@ -6,6 +6,9 @@
  * (c) Copyright 1999 by Carsten Paeth (calle@calle.in-berlin.de)
  * 
  * $Log$
+ * Revision 1.14  2000/06/19 16:51:53  keil
+ * don't free skb in irq context
+ *
  * Revision 1.13  2000/01/25 14:33:38  calle
  * - Added Support AVM B1 PCI V4.0 (tested with prototype)
  *   - splitted up t1pci.c into b1dma.c for common function with b1pciv4
@@ -599,25 +602,29 @@ void b1_handle_interrupt(avmcard * card)
 		ctrl->ready(ctrl);
 		break;
 
-        case RECEIVE_TASK_READY:
-		ApplId = (unsigned) b1_get_word(card->port);
-		MsgLen = b1_get_slice(card->port, card->msgbuf);
-		card->msgbuf[MsgLen--] = 0;
-		while (    MsgLen >= 0
-		       && (   card->msgbuf[MsgLen] == '\n'
-			   || card->msgbuf[MsgLen] == '\r'))
-			card->msgbuf[MsgLen--] = 0;
+	case RECEIVE_TASK_READY:
+		ApplId = (unsigned) _get_word(&p);
+		MsgLen = _get_slice(&p, card->msgbuf);
+		card->msgbuf[MsgLen] = 0;
+		while (    MsgLen > 0
+		       && (   card->msgbuf[MsgLen-1] == '\n'
+			   || card->msgbuf[MsgLen-1] == '\r')) {
+			card->msgbuf[MsgLen-1] = 0;
+			MsgLen--;
+		}
 		printk(KERN_INFO "%s: task %d \"%s\" ready.\n",
 				card->name, ApplId, card->msgbuf);
 		break;
 
-        case RECEIVE_DEBUGMSG:
-		MsgLen = b1_get_slice(card->port, card->msgbuf);
-		card->msgbuf[MsgLen--] = 0;
-		while (    MsgLen >= 0
-		       && (   card->msgbuf[MsgLen] == '\n'
-			   || card->msgbuf[MsgLen] == '\r'))
-			card->msgbuf[MsgLen--] = 0;
+	case RECEIVE_DEBUGMSG:
+		MsgLen = _get_slice(&p, card->msgbuf);
+		card->msgbuf[MsgLen] = 0;
+		while (    MsgLen > 0
+		       && (   card->msgbuf[MsgLen-1] == '\n'
+			   || card->msgbuf[MsgLen-1] == '\r')) {
+			card->msgbuf[MsgLen-1] = 0;
+			MsgLen--;
+		}
 		printk(KERN_INFO "%s: DEBUG: %s\n", card->name, card->msgbuf);
 		break;
 

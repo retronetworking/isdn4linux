@@ -6,6 +6,10 @@
  * (c) Copyright 1999 by Carsten Paeth (calle@calle.in-berlin.de)
  * 
  * $Log$
+ * Revision 1.11  2000/04/03 13:29:25  calle
+ * make Tim Waugh happy (module unload races in 2.3.99-pre3).
+ * no real problem there, but now it is much cleaner ...
+ *
  * Revision 1.10  2000/02/02 18:36:04  calle
  * - Modules are now locked while init_module is running
  * - fixed problem with memory mapping if address is not aligned
@@ -277,26 +281,31 @@ static void t1_handle_interrupt(avmcard * card)
 			break;
 
 		case RECEIVE_TASK_READY:
-			ApplId = (unsigned) b1_get_word(card->port);
-			MsgLen = t1_get_slice(card->port, card->msgbuf);
-			card->msgbuf[MsgLen--] = 0;
-			while (    MsgLen >= 0
-			       && (   card->msgbuf[MsgLen] == '\n'
-				   || card->msgbuf[MsgLen] == '\r'))
-				card->msgbuf[MsgLen--] = 0;
+			ApplId = (unsigned) _get_word(&p);
+			MsgLen = _get_slice(&p, card->msgbuf);
+			card->msgbuf[MsgLen] = 0;
+			while (    MsgLen > 0
+			       && (   card->msgbuf[MsgLen-1] == '\n'
+				   || card->msgbuf[MsgLen-1] == '\r')) {
+				card->msgbuf[MsgLen-1] = 0;
+				MsgLen--;
+			}
 			printk(KERN_INFO "%s: task %d \"%s\" ready.\n",
 					card->name, ApplId, card->msgbuf);
 			break;
 
 		case RECEIVE_DEBUGMSG:
-			MsgLen = t1_get_slice(card->port, card->msgbuf);
-			card->msgbuf[MsgLen--] = 0;
-			while (    MsgLen >= 0
-			       && (   card->msgbuf[MsgLen] == '\n'
-				   || card->msgbuf[MsgLen] == '\r'))
-				card->msgbuf[MsgLen--] = 0;
+			MsgLen = _get_slice(&p, card->msgbuf);
+			card->msgbuf[MsgLen] = 0;
+			while (    MsgLen > 0
+			       && (   card->msgbuf[MsgLen-1] == '\n'
+				   || card->msgbuf[MsgLen-1] == '\r')) {
+				card->msgbuf[MsgLen-1] = 0;
+				MsgLen--;
+			}
 			printk(KERN_INFO "%s: DEBUG: %s\n", card->name, card->msgbuf);
 			break;
+
 
 		case 0xff:
 			printk(KERN_ERR "%s: card reseted ?\n", card->name);
