@@ -290,12 +290,12 @@ remove_maint_proc(void)
 **  DIDD
 */
 static void
-*didd_callback(void *context, DESCRIPTOR* adapter, int removal)
+didd_callback(void *context, DESCRIPTOR* adapter, int removal)
 {
   if (adapter->type == IDI_DADAPTER)
   {
     printk(KERN_ERR "%s: Change in DAdapter ? Oops ?.\n", DRIVERLNAME);
-    return(NULL);
+    return;
   }
 
   if (adapter->type == IDI_DIMAINT)
@@ -312,7 +312,7 @@ static void
       DbgRegister("MAINT", DRIVERRELEASE, DBG_DEFAULT);
     }
   }
-  return(NULL);
+  return;
 }
 
 static int __init

@@ -1225,7 +1225,7 @@ eicon_addcard(DESCRIPTOR *d)
         return (added - failed);
 }
 
-static void *
+static void
 didd_callback(void *context, DESCRIPTOR* adapter, int removal)
 {
   eicon_card *cp = NULL, *lastcp = NULL;
@@ -1235,7 +1235,7 @@ didd_callback(void *context, DESCRIPTOR* adapter, int removal)
   {
     printk(KERN_ERR "%s: Change in DAdapter ? Oops ?.\n", DRIVERLNAME);
     DBG_ERR(("Notification about IDI_DADAPTER change ! Oops."));
-    return(NULL);
+    return;
   }
   else if (adapter->type == IDI_DIMAINT)
   {
@@ -1285,7 +1285,7 @@ didd_callback(void *context, DESCRIPTOR* adapter, int removal)
       }
     }
   }
-  return(NULL);
+  return;
 }
 
 static int __init

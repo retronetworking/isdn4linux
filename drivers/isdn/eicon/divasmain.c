@@ -641,14 +641,14 @@ start_dbg(void)
     DIVA_BUILD, diva_xdi_common_code_build, __DATE__, __TIME__))
 }
 
-static void *
+static void
 didd_callback(void *context, DESCRIPTOR* adapter, int removal)
 {
   if (adapter->type == IDI_DADAPTER)
   {
     printk(KERN_ERR "%s: Change in DAdapter ? Oops ?.\n", DRIVERLNAME);
     DBG_ERR(("Notification about IDI_DADAPTER change ! Oops."));
-    return(NULL);
+    return;
   }
 
   if (adapter->type == IDI_DIMAINT)
@@ -665,7 +665,7 @@ didd_callback(void *context, DESCRIPTOR* adapter, int removal)
       start_dbg();
     }
   }
-  return(NULL);
+  return;
 }
 
 static int __init

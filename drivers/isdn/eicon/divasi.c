@@ -380,14 +380,14 @@ remove_all_idi_proc(void)
 /*
 ** DIDD notify callback
 */
-static void *
+static void
 didd_callback(void *context, DESCRIPTOR* adapter, int removal)
 {
   if (adapter->type == IDI_DADAPTER)
   {
     printk(KERN_ERR "%s: Change in DAdapter ? Oops ?.\n", DRIVERLNAME);
     DBG_ERR(("Notification about IDI_DADAPTER change ! Oops."));
-    return(NULL);
+    return;
   }
   else if (adapter->type == IDI_DIMAINT)
   {
@@ -415,7 +415,7 @@ didd_callback(void *context, DESCRIPTOR* adapter, int removal)
       um_new_card(adapter);
     }
   }
-  return(NULL);
+  return;
 }
 
 /*
