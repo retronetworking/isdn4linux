@@ -35,7 +35,7 @@ netjet_u_interrupt(int intno, void *dev_id, struct pt_regs *regs)
 	long flags;
 
 	if (!cs) {
-		printk(KERN_WARNING "NETjet-U: Spurious interrupt!\n");
+		printk(KERN_WARNING "NETspider-U: Spurious interrupt!\n");
 		return;
 	}
 	if (!((sval = bytein(cs->hw.njet.base + NETJET_IRQSTAT1)) &
@@ -156,7 +156,7 @@ setup_netjet_u(struct IsdnCard *card))
 #error "not running on big endian machines now"
 #endif
 	strcpy(tmp, NETjet_U_revision);
-	printk(KERN_INFO "HiSax: Traverse Tech. NETjet-U driver Rev. %s\n", HiSax_getrev(tmp));
+	printk(KERN_INFO "HiSax: Traverse Tech. NETspider-U driver Rev. %s\n", HiSax_getrev(tmp));
 	if (cs->typ != ISDN_CTYPE_NETJET_U)
 		return(0);
 	test_and_clear_bit(FLG_LOCK_ATOMIC, &cs->HW_Flags);
@@ -168,7 +168,7 @@ setup_netjet_u(struct IsdnCard *card))
 #ifdef COMPAT_HAS_NEW_PCI
 
 		if (!pci_present()) {
-			printk(KERN_ERR "Netjet: no PCI bus present\n");
+			printk(KERN_ERR "NETspider-U: no PCI bus present\n");
 			return(0);
 		}
 		if ((dev_netjet = pci_find_device(PCI_VENDOR_ID_TIGERJET,
@@ -177,16 +177,16 @@ setup_netjet_u(struct IsdnCard *card))
 				return(0);
 			cs->irq = dev_netjet->irq;
 			if (!cs->irq) {
-				printk(KERN_WARNING "NETjet-U: No IRQ for PCI card found\n");
+				printk(KERN_WARNING "NETspider-U: No IRQ for PCI card found\n");
 				return(0);
 			}
 			cs->hw.njet.base = pci_resource_start_io(dev_netjet, 0);
 			if (!cs->hw.njet.base) {
-				printk(KERN_WARNING "NETjet-U: No IO-Adr for PCI card found\n");
+				printk(KERN_WARNING "NETspider-U: No IO-Adr for PCI card found\n");
 				return(0);
 			}
 		} else {
-			printk(KERN_WARNING "NETjet-U: No PCI card found\n");
+			printk(KERN_WARNING "NETspider-U: No PCI card found\n");
 			return(0);
 		}
 #else
@@ -209,16 +209,16 @@ setup_netjet_u(struct IsdnCard *card))
 				break;
 		}
 		if (!found) {
-			printk(KERN_WARNING "NETjet-U: No PCI card found\n");
+			printk(KERN_WARNING "NETspider-U: No PCI card found\n");
 			return(0);
 		}
 		pci_index++;
 		if (!pci_irq) {
-			printk(KERN_WARNING "NETjet-U: No IRQ for PCI card found\n");
+			printk(KERN_WARNING "NETspider-U: No IRQ for PCI card found\n");
 			return(0);
 		}
 		if (!pci_ioaddr) {
-			printk(KERN_WARNING "NETjet-U: No IO-Adr for PCI card found\n");
+			printk(KERN_WARNING "NETspider-U: No IO-Adr for PCI card found\n");
 			return(0);
 		}
 		cs->hw.njet.base = pci_ioaddr & PCI_BASE_ADDRESS_IO_MASK; 
@@ -271,8 +271,8 @@ setup_netjet_u(struct IsdnCard *card))
 	}
 #else
 
-	printk(KERN_WARNING "NETjet-U: NO_PCI_BIOS\n");
-	printk(KERN_WARNING "NETjet-U: unable to config NETJET-U PCI\n");
+	printk(KERN_WARNING "NETspider-U: NO_PCI_BIOS\n");
+	printk(KERN_WARNING "NETspider-U: unable to config NETspider-U PCI\n");
 	return (0);
 
 #endif /* CONFIG_PCI */
@@ -280,7 +280,7 @@ setup_netjet_u(struct IsdnCard *card))
 	bytecnt = 256;
 
 	printk(KERN_INFO
-		"NETjet-U: PCI card configured at 0x%x IRQ %d\n",
+		"NETspider-U: PCI card configured at 0x%x IRQ %d\n",
 		cs->hw.njet.base, cs->irq);
 	if (check_region(cs->hw.njet.base, bytecnt)) {
 		printk(KERN_WARNING
@@ -303,6 +303,6 @@ setup_netjet_u(struct IsdnCard *card))
 	cs->cardmsg = &NETjet_U_card_msg;
 	cs->irq_func = &netjet_u_interrupt;
 	cs->irq_flags |= SA_SHIRQ;
-	ICCVersion(cs, "NETjet-U:");
+	ICCVersion(cs, "NETspider-U:");
 	return (1);
 }

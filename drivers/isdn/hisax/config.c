@@ -68,7 +68,7 @@
  *   35 HFC 2BDS0 PCI           none
  *   36 Winbond 6692 PCI        none
  *   37 HFC 2BDS0 S+/SP         p0=irq p1=iobase
- *   38 Travers Technologies NETjet-U PCI card
+ *   38 Travers Technologies NETspider-U PCI card
  *
  * protocol can be either ISDN_PTYPE_EURO or ISDN_PTYPE_1TR6 or ISDN_PTYPE_NI1
  *
@@ -84,7 +84,7 @@ const char *CardType[] =
  "AMD 7930", "NICCY", "S0Box", "AVM A1 (PCMCIA)", "AVM Fritz PnP/PCI",
  "Sedlbauer Speed Fax +", "Siemens I-Surf", "Acer P10", "HST Saphir",
  "Telekom A4T", "Scitel Quadro", "Gazel", "HFC 2BDS0 PCI", "Winbond 6692",
- "HFC 2BDS0 SX", "NETjet-U",
+ "HFC 2BDS0 SX", "NETspider-U",
 };
 
 void HiSax_closecard(int cardnr);
@@ -449,9 +449,9 @@ HiSaxVersion(void))
 
 	printk(KERN_INFO "HiSax: Linux Driver for passive ISDN cards\n");
 #ifdef MODULE
-	printk(KERN_INFO "HiSax: Version 3.4 (module)\n");
+	printk(KERN_INFO "HiSax: Version 3.5 (module)\n");
 #else
-	printk(KERN_INFO "HiSax: Version 3.4 (kernel)\n");
+	printk(KERN_INFO "HiSax: Version 3.5 (kernel)\n");
 #endif
 	strcpy(tmp, l1_revision);
 	printk(KERN_INFO "HiSax: Layer1 Revision %s\n", HiSax_getrev(tmp));

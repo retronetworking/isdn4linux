@@ -31,6 +31,7 @@ HFC_OBJ :=
 HFC_2BDS0 :=
 JADE_OBJ :=
 W6692_OBJ :=
+NETJ_OBJ :=
 ICC_OBJ :=
 
 ifeq ($(CONFIG_HISAX_16_0),y)
@@ -125,12 +126,14 @@ ifeq ($(CONFIG_HISAX_MIC),y)
 endif
 
 ifeq ($(CONFIG_HISAX_NETJET),y)
-	 O_OBJS += nj_s.o netjet.o
+	 O_OBJS += nj_s.o
+	 NETJ_OBJ := netjet.o
 	 ISAC_OBJ := isac.o
 endif
 
 ifeq ($(CONFIG_HISAX_NETJET_U),y)
 	 O_OBJS += nj_u.o
+	 NETJ_OBJ := netjet.o
 	 ICC_OBJ := icc.o
 endif
 
@@ -195,7 +198,7 @@ ifeq ($(ISAC_OBJ), isac.o)
 endif
 
 O_OBJS += $(ISAC_OBJ) $(HSCX_OBJ) $(ISAR_OBJ) $(JADE_OBJ)
-O_OBJS += $(HFC_OBJ) $(HFC_2BDS0) $(W6692_OBJ) $(ICC_OBJ)
+O_OBJS += $(HFC_OBJ) $(HFC_2BDS0) $(W6692_OBJ) $(NETJ_OBJ) $(ICC_OBJ)
 OX_OBJS += config.o
 
 O_TARGET :=
@@ -214,10 +217,9 @@ include $(TOPDIR)/Rules.make
 
 MD5FILES += isac.c isdnl1.c isdnl2.c isdnl3.c \
 	    tei.c callc.c cert.c l3dss1.c l3_1tr6.c \
-	    elsa.c diva.c
+	    elsa.c diva.c sedlbauer.c
 
 CERT = $(shell md5sum -c md5sums.asc >> /dev/null;echo $$?)
 
 cert.o:	$(MD5FILES) md5sums.asc
 	$(CC) $(CFLAGS) $(EXTRA_CFLAGS) -D CERTIFICATION=$(CERT) -c -o cert.o cert.c
-

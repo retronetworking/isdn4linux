@@ -86,9 +86,7 @@ if [ "$CONFIG_ISDN_DRV_HISAX" != "n" ]; then
    bool '  USR Sportster internal TA' CONFIG_HISAX_SPORTSTER
    bool '  MIC card' CONFIG_HISAX_MIC
    bool '  NETjet card' CONFIG_HISAX_NETJET
-   if [ "$CONFIG_HISAX_NETJET" != "n" ]; then
-      bool '    Support NETjet U interface' CONFIG_HISAX_NETJET_U
-   fi
+   bool '  NETspider U card' CONFIG_HISAX_NETJET_U
    bool '  Niccy PnP/PCI card' CONFIG_HISAX_NICCY
    bool '  Siemens I-Surf card' CONFIG_HISAX_ISURF
    bool '  HST Saphir card' CONFIG_HISAX_HSTSAPHIR
