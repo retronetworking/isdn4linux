@@ -10,6 +10,9 @@
  * goes to another -- device related -- concap_proto support source file.
  *
  * $Log$
+ * Revision 1.5  1998/10/30 17:55:39  he
+ * dialmode for x25iface and multulink ppp
+ *
  * Revision 1.4  1998/06/17 19:51:00  he
  * merged with 2.1.10[34] (cosmetics and udelay() -> mdelay())
  * brute force fix to avoid Ugh's in isdn_tty_write()
@@ -70,7 +73,7 @@ static struct concap_proto_ops ix25_pops = {
 	&isdn_x25iface_disconn_ind
 };
 
-/* error message helper fuction */
+/* error message helper function */
 static void illegal_state_warn( unsigned state, unsigned char firstbyte) 
 {
 	printk( KERN_WARNING "isdn_x25iface: firstbyte %x illegal in"

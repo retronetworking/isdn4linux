@@ -20,6 +20,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.60  1998/11/15 23:57:32  keil
+ * changes for 2.1.127
+ *
  * Revision 1.59  1998/08/20 13:50:15  keil
  * More support for hybrid modem (not working yet)
  *
@@ -2088,7 +2091,7 @@ isdn_tty_close(struct tty_struct *tty, struct file *filp)
 		while (!(info->lsr & UART_LSR_TEMT)) {
 			current->state = TASK_INTERRUPTIBLE;
 			schedule_timeout(20);
-			if (jiffies > timeout)
+			if (time_after(jiffies,timeout))
 				break;
 		}
 	}
