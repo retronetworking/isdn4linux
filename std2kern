@@ -1,0 +1,35 @@
+#!/bin/sh
+
+KERNELDIR=/usr/src/linux
+
+docp() {
+  if [ $1 -nt $2 ] ; then
+    echo Copying $1 ...
+    cp $1 $2
+  else
+    echo $2 is up to date, NOT converted
+  fi
+}
+
+if [ $# != 0 ]; then
+  for i in $* ; do
+    docp $i $KERNELDIR/$i
+  done
+else
+  for i in drivers/isdn/isdn_*.[ch] ; do
+    docp $i $KERNELDIR/$i
+  done
+  for i in drivers/isdn/icn/icn.[ch] ; do
+    docp $i $KERNELDIR/$i
+  done
+  for i in drivers/isdn/pcbit/*.[ch] ; do
+    docp $i $KERNELDIR/$i
+  done
+  for i in drivers/isdn/teles/*.[ch] ; do
+    docp $i $KERNELDIR/$i
+  done
+  for i in include/linux/isdn*.h ; do
+    docp $i $KERNELDIR/$i
+  done
+fi
+
