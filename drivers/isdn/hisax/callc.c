@@ -7,6 +7,9 @@
  *              Fritz Elfert
  *
  * $Log$
+ * Revision 2.3  1997/07/31 19:23:40  keil
+ * LAYER2_WATCHING for PtP
+ *
  * Revision 2.2  1997/07/31 11:48:18  keil
  * experimental REJECT after ALERTING
  *
@@ -1548,6 +1551,13 @@ init_chan(int chan, struct IsdnCardState *csta)
 	chanp->b_st = kmalloc(sizeof(struct PStack), GFP_ATOMIC);
 	chanp->b_st->next = NULL;
 
+	chanp->fi.fsm = &callcfsm;
+	chanp->fi.state = ST_NULL;
+	chanp->fi.debug = 0;
+	chanp->fi.userdata = chanp;
+	chanp->fi.printdebug = callc_debug;
+	FsmInitTimer(&chanp->fi, &chanp->dial_timer);
+	FsmInitTimer(&chanp->fi, &chanp->drel_timer);
 	if (!chan || (csta->HW_Flags & FLG_TWO_DCHAN)) {
 		chanp->d_st = kmalloc(sizeof(struct PStack), GFP_ATOMIC);
 		chanp->d_st->next = NULL;
@@ -1570,13 +1580,6 @@ init_chan(int chan, struct IsdnCardState *csta)
 		chanp->d_st = csta->channel->d_st;
 		chanp->lc_d = csta->channel->lc_d;
 	}
-	chanp->fi.fsm = &callcfsm;
-	chanp->fi.state = ST_NULL;
-	chanp->fi.debug = 0;
-	chanp->fi.userdata = chanp;
-	chanp->fi.printdebug = callc_debug;
-	FsmInitTimer(&chanp->fi, &chanp->dial_timer);
-	FsmInitTimer(&chanp->fi, &chanp->drel_timer);
 	chanp->lc_b = kmalloc(sizeof(struct LcFsm), GFP_ATOMIC);
 	chanp->lc_b->lcfi.fsm = &lcfsm;
 	chanp->lc_b->lcfi.state = ST_LC_NULL;
@@ -1601,6 +1604,10 @@ CallcNewChan(struct IsdnCardState *csta)
 	init_chan(0, csta);
 	init_chan(1, csta);
 	printk(KERN_INFO "HiSax: 2 channels added\n");
+#ifdef LAYER2_WATCHING
+	printk(KERN_INFO "LAYER2 ESTABLISH\n");
+	csta->channel->d_st->ma.manl2(csta->channel->d_st, DL_ESTABLISH, NULL);	
+#endif
 	return (2);
 }
 
