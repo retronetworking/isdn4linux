@@ -7,6 +7,9 @@
  *              Fritz Elfert
  *
  * $Log$
+ * Revision 2.0  1997/07/27 21:13:30  keil
+ * New TEI managment
+ *
  * Revision 1.9  1997/06/26 11:18:02  keil
  * New managment
  *
@@ -200,7 +203,7 @@ tei_id_denied(struct FsmInst *fi, int event, void *arg)
 	if (ri == st->ma.ri) {
 		FsmDelTimer(&st->ma.t202, 2);
 		FsmChangeState(&st->ma.tei_m, ST_TEI_NOP);
-		st->ma.manl2(st, MDL_REMOVE, 0);
+		st->ma.manl2(st, MDL_ERROR, 0);
 		cs = (struct IsdnCardState *) st->l1.hardware;
 		cs->cardmsg(cs, MDL_REMOVE, NULL);
 	}
@@ -284,7 +287,7 @@ tei_id_req_tout(struct FsmInst *fi, int event, void *arg)
 	} else {
 		sprintf(tmp, "assign req failed");
 		st->ma.tei_m.printdebug(&st->ma.tei_m, tmp);
-		st->ma.manl2(st, MDL_REMOVE, 0);
+		st->ma.manl2(st, MDL_ERROR, 0);
 		cs = (struct IsdnCardState *) st->l1.hardware;
 		cs->cardmsg(cs, MDL_REMOVE, NULL);
 		FsmChangeState(fi, ST_TEI_NOP);
@@ -373,9 +376,18 @@ tei_l1l2(struct PStack *st, int pr, void *arg)
 static void
 tei_l2tei(struct PStack *st, int pr, void *arg)
 {
+	char tmp[64];
 	switch (pr) {
 		case (MDL_ASSIGN):
+#ifdef TEI_FIXED
+			if (st->ma.debug) {
+				sprintf(tmp, "fixed assign tei %d", TEI_FIXED);
+				st->ma.tei_m.printdebug(&st->ma.tei_m, tmp);
+			}
+			st->ma.manl2(st, MDL_ASSIGN, (void *) (int) TEI_FIXED);
+#else
 			FsmEvent(&st->ma.tei_m, EV_IDREQ, arg);
+#endif
 			break;
 		case (MDL_VERIFY):
 			FsmEvent(&st->ma.tei_m, EV_VERIFY, arg);

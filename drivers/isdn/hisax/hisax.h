@@ -3,6 +3,9 @@
  *   Basic declarations, defines and prototypes
  *
  * $Log$
+ * Revision 2.2  1997/07/30 17:13:02  keil
+ * more changes for 'One TEI per card'
+ *
  * Revision 2.1  1997/07/27 21:45:13  keil
  * new main structures
  *
@@ -344,9 +347,6 @@ struct Channel {
 	int leased;
 };
 
-#define HW_IOM1	1
-#define FLG_TWO_DCHAN 0x10
-
 struct elsa_hw {
 	unsigned int base;
 	unsigned int cfg;
@@ -562,6 +562,19 @@ struct IsdnCardState {
 			 | CARD_TELEINT)
 
 #define TEI_PER_CARD 0
+#ifdef CONFIG_HISAX_1TR6
+#undef TEI_PER_CARD
+#define TEI_PER_CARD 1
+#endif
+
+#ifdef CONFIG_HISAX_EURO
+#undef TEI_PER_CARD
+#define TEI_PER_CARD 1
+#endif
+
+#if TEI_PER_CARD
+#undef TEI_FIXED
+#endif
 
 
 struct IsdnCard {
