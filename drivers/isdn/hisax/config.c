@@ -5,6 +5,9 @@
  *
  *
  * $Log$
+ * Revision 1.7  1997/01/27 15:56:57  keil
+ * Teles PCMCIA ITK ix1 micro added
+ *
  * Revision 1.6  1997/01/21 22:17:56  keil
  * new module load syntax
  *
@@ -88,13 +91,17 @@
 
 #ifdef CONFIG_HISAX_1TR6
 #define DEFAULT_PROTO ISDN_PTYPE_1TR6
+#define DEFAULT_PROTO_NAME "1TR6"
 #endif
 #ifdef CONFIG_HISAX_EURO
 #undef DEFAULT_PROTO
 #define DEFAULT_PROTO ISDN_PTYPE_EURO
+#undef DEFAULT_PROTO_NAME
+#define DEFAULT_PROTO_NAME "EURO"
 #endif
 #ifndef DEFAULT_PROTO
-#error "HiSax: No D channel protocol configured"
+#define DEFAULT_PROTO ISDN_PTYPE_UNKNOWN
+#define DEFAULT_PROTO_NAME "UNKNOWN"
 #endif
 #ifndef DEFAULT_CARD
 #error "HiSax: No cards configured"
@@ -104,11 +111,10 @@
   DEFAULT_CARD, \
   DEFAULT_PROTO, \
   DEFAULT_CFG, \
-  -1, \
   NULL, \
 }
 
-#define EMPTY_CARD	{0, 0, {0, 0, 0}, -1, NULL}
+#define EMPTY_CARD	{0, DEFAULT_PROTO, {0, 0, 0}, NULL}
 
 struct IsdnCard cards[] =
 {
@@ -130,7 +136,10 @@ struct IsdnCard cards[] =
 	EMPTY_CARD,
 };
 
-static char HiSaxID[20] = "\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0";
+static char HiSaxID[96] = "\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0" \
+"\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0" \
+"\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0" \
+"\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0";
 char *HiSax_id = HiSaxID;
 #ifdef MODULE
 /* Variables for insmod */
@@ -157,10 +166,7 @@ extern char *l1_revision;
 extern char *l2_revision;
 extern char *l3_revision;
 extern char *l4_revision;
-extern char *ll_revision;
 extern char *tei_revision;
-
-extern int HiSax_Installed;
 
 char *
 HiSax_getrev(const char *revision)
@@ -249,7 +255,6 @@ HiSax_init(void)
 	int nzproto = 0;
 
 	nrcards = 0;
-
 	strcpy(tmp, l1_revision);
 	r += sprintf(r, "%s/", HiSax_getrev(tmp));
 	strcpy(tmp, l2_revision);
@@ -257,8 +262,6 @@ HiSax_init(void)
 	strcpy(tmp, l3_revision);
 	r += sprintf(r, "%s/", HiSax_getrev(tmp));
 	strcpy(tmp, l4_revision);
-	r += sprintf(r, "%s/", HiSax_getrev(tmp));
-	strcpy(tmp, ll_revision);
 	r += sprintf(r, "%s/", HiSax_getrev(tmp));
 	strcpy(tmp, tei_revision);
 	r += sprintf(r, "%s", HiSax_getrev(tmp));
@@ -272,59 +275,59 @@ HiSax_init(void)
 		HiSax_id = id;
 	for (i = 0; i < 16; i++) {
 		cards[i].typ = type[i];
-		if ((cards[i].protocol = protocol[i]))
+		if (protocol[i]) {
+			cards[i].protocol = protocol[i];
 			nzproto++;
-
+		}
 		switch (type[i]) {
-		case ISDN_CTYPE_16_0:
-			cards[i].para[0] = irq[i];
-			cards[i].para[1] = mem[i];
-			cards[i].para[2] = io[i];
-			break;
+			case ISDN_CTYPE_16_0:
+				cards[i].para[0] = irq[i];
+				cards[i].para[1] = mem[i];
+				cards[i].para[2] = io[i];
+				break;
 
-		case ISDN_CTYPE_8_0:
-			cards[i].para[0] = irq[i];
-			cards[i].para[1] = mem[i];
-			break;
+			case ISDN_CTYPE_8_0:
+				cards[i].para[0] = irq[i];
+				cards[i].para[1] = mem[i];
+				break;
 
-		case ISDN_CTYPE_16_3:
-		case ISDN_CTYPE_TELESPCMCIA:
-			cards[i].para[0] = irq[i];
-			cards[i].para[1] = io[i];
-			break;
+			case ISDN_CTYPE_16_3:
+			case ISDN_CTYPE_TELESPCMCIA:
+				cards[i].para[0] = irq[i];
+				cards[i].para[1] = io[i];
+				break;
 
 #ifdef CONFIG_HISAX_16_3	/* For Creatix/Teles PnP */
-		case ISDN_CTYPE_PNP:
-			cards[i].para[0] = irq[i];
-			cards[i].para[1] = io0[i];
-			cards[i].para[2] = io1[i];
-			break;
+			case ISDN_CTYPE_PNP:
+				cards[i].para[0] = irq[i];
+				cards[i].para[1] = io0[i];
+				cards[i].para[2] = io1[i];
+				break;
 #endif
-		case ISDN_CTYPE_A1:
-			cards[i].para[0] = irq[i];
-			cards[i].para[1] = io[i];
-			break;
+			case ISDN_CTYPE_A1:
+				cards[i].para[0] = irq[i];
+				cards[i].para[1] = io[i];
+				break;
 
-		case ISDN_CTYPE_ELSA:
-			cards[i].para[0] = io[i];
-			break;
-		case ISDN_CTYPE_ELSA_QS1000:
-			cards[i].para[0] = irq[i];
-			cards[i].para[1] = io[i];
-			break;
+			case ISDN_CTYPE_ELSA:
+				cards[i].para[0] = io[i];
+				break;
+			case ISDN_CTYPE_ELSA_QS1000:
+				cards[i].para[0] = irq[i];
+				cards[i].para[1] = io[i];
+				break;
 
-		case ISDN_CTYPE_IX1MICROR2:
-			cards[i].para[0] = irq[i];
-			cards[i].para[1] = io[i];
-			break;
+			case ISDN_CTYPE_IX1MICROR2:
+				cards[i].para[0] = irq[i];
+				cards[i].para[1] = io[i];
+				break;
 
 		}
 	}
 	if (!nzproto) {
-		printk(KERN_ERR "HiSax: Error - no protocol specified."
-		       " Note: module load syntax has changed.\n");
-		printk(KERN_ERR "HiSax: Module NOT installed.\n");
-		return -EIO;
+		printk(KERN_WARNING "HiSax: Warning - no protocol specified\n");
+		printk(KERN_WARNING "HiSax: Note! module load syntax has changed.\n");
+		printk(KERN_WARNING "HiSax: using protocol %s\n", DEFAULT_PROTO_NAME);
 	}
 #endif
 	if (!HiSax_id)
@@ -336,39 +339,31 @@ HiSax_init(void)
 			nrcards++;
 	printk(KERN_DEBUG "HiSax: Total %d card%s defined\n",
 	       nrcards, (nrcards > 1) ? "s" : "");
+
+	CallcNew();
+	Isdnl2New();
 	if (HiSax_inithardware()) {
 		/* Install only, if at least one card found */
-		Isdnl2New();
-		TeiNew();
-		CallcNew();
-		ll_init();
-
 		/* No symbols to export, hide all symbols */
 		register_symtab(NULL);
 
 #ifdef MODULE
 		printk(KERN_NOTICE "HiSax: module installed\n");
 #endif
-		HiSax_Installed = 1;
 		return (0);
-	} else
+	} else {
+		Isdnl2Free();
+		CallcFree();
 		return -EIO;
+	}
 }
 
 #ifdef MODULE
 void
 cleanup_module(void)
 {
-
-	ll_stop();
-	TeiFree();
-	Isdnl2Free();
-	CallcFree();
 	HiSax_closehardware();
-	HiSax_Installed = 0;
-	ll_unload();
 	printk(KERN_NOTICE "HiSax module removed\n");
-
 }
 
 #endif
