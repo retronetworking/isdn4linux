@@ -7,6 +7,9 @@
  *              Fritz Elfert
  *
  * $Log$
+ * Revision 1.7  1997/03/17 18:34:38  keil
+ * fixed oops if no protocol selected during config
+ *
  * Revision 1.6  1997/02/16 01:04:08  fritz
  * Bugfix: Changed timer handling caused hang with 2.1.X
  *
@@ -150,6 +153,7 @@ setstack_isdnl3(struct PStack *st, struct Channel *chanp)
 			(st->protocol == ISDN_PTYPE_1TR6) ? "1tr6" :
 			(st->protocol == ISDN_PTYPE_EURO) ? "euro" :
 			"unknown");
+		printk(KERN_WARNING "HiSax: %s\n", tmp);
 		l3_debug(st, tmp);
 		st->protocol = -1;
 	}
