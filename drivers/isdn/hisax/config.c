@@ -5,6 +5,9 @@
  *
  *
  * $Log$
+ * Revision 1.10  1997/02/14 09:22:09  keil
+ * Final 2.0 version
+ *
  * Revision 1.9  1997/02/10 11:45:09  fritz
  * More changes for Kernel 2.1.X compatibility.
  *
@@ -167,6 +170,21 @@ int irq[] =
 int mem[] =
 {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
 char *id = HiSaxID;
+
+#if (LINUX_VERSION_CODE > 0x020111)
+MODULE_AUTHOR("Karsten Keil");
+MODULE_PARM(type, "1-16i");
+MODULE_PARM(protocol, "1-16i");
+MODULE_PARM(io, "1-16i");
+MODULE_PARM(irq, "1-16i");
+MODULE_PARM(mem, "1-16i");
+MODULE_PARM(id, "s");
+#ifdef CONFIG_HISAX_16_3	/* For Creatix/Teles PnP */
+MODULE_PARM(io0, "1-16i");
+MODULE_PARM(io1, "1-16i");
+#endif
+#endif
+
 #endif
 
 extern char *l1_revision;

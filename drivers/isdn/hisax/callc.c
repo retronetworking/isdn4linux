@@ -7,6 +7,9 @@
  *              Fritz Elfert
  *
  * $Log$
+ * Revision 1.18  1997/02/11 01:36:58  keil
+ * Changed setup-interface (incoming and outgoing), cause reporting
+ *
  * Revision 1.17  1997/02/09 00:23:10  keil
  * new interface handling, one interface per card
  * some changes in debug and leased line mode
@@ -64,7 +67,12 @@
 #include "hisax.h"
 
 #ifdef MODULE
+#if (LINUX_VERSION_CODE < 0x020111)
 extern long mod_use_count_;
+#define MOD_USE_COUNT mod_use_count_
+#else
+#define MOD_USE_COUNT ((&__this_module)->usecount)
+#endif
 #endif				/* MODULE */
 
 const char *l4_revision = "$Revision$";
@@ -1762,7 +1770,7 @@ HiSax_command(isdn_ctrl * ic)
 			if (csta->channel[0].debug & 1024) {
 				jiftime(tmp, jiffies);
 				i = strlen(tmp);
-				sprintf(tmp + i, "   LOCK modcnt %lx\n", mod_use_count_);
+				sprintf(tmp + i, "   LOCK modcnt %lx\n", MOD_USE_COUNT);
 				HiSax_putstatus(csta, tmp);
 			}
 #endif				/* MODULE */
@@ -1773,7 +1781,7 @@ HiSax_command(isdn_ctrl * ic)
 			if (csta->channel[0].debug & 1024) {
 				jiftime(tmp, jiffies);
 				i = strlen(tmp);
-				sprintf(tmp + i, " UNLOCK modcnt %lx\n", mod_use_count_);
+				sprintf(tmp + i, " UNLOCK modcnt %lx\n", MOD_USE_COUNT);
 				HiSax_putstatus(csta, tmp);
 			}
 #endif				/* MODULE */
@@ -1822,7 +1830,11 @@ HiSax_command(isdn_ctrl * ic)
 					break;
 #ifdef MODULE
 				case (55):
-					mod_use_count_ = MOD_VISITED;
+#if (LINUX_VERSION_CODE < 0x020111)
+					MOD_USE_COUNT = MOD_VISITED;
+#else
+					MOD_USE_COUNT = 0;
+#endif
 					HiSax_mod_inc_use_count();
 					break;
 #endif				/* MODULE */

@@ -1,6 +1,9 @@
 /* $Id$
  *
  * $Log$
+ * Revision 1.2  1997/02/10 11:45:14  fritz
+ * More changes for Kernel 2.1.X compatibility.
+ *
  * Revision 1.1  1996/04/13 10:27:02  fritz
  * Initial revision
  *
@@ -39,6 +42,13 @@ io_type         io[] =
 	{0, 0, 0, 0},
 	{0, 0, 0, 0},
 };
+
+#ifdef MODULE
+#if (LINUX_VERSION_CODE > 0x020111)
+MODULE_PARM(io, "1-64i");
+MODULE_PARM(teles_id, "s");
+#endif
+#endif
 
 void
 teles_mod_dec_use_count(void)

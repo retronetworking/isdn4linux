@@ -1,4 +1,3 @@
-#define __NO_VERSION__
 #include "includes.h"
 #include "hardware.h"
 #include "card.h"
@@ -39,6 +38,12 @@ int irq_supported(int irq_x)
 }
 
 #ifdef MODULE
+#if (LINUX_VERSION_CODE > 0x020111)
+MODULE_PARM(io, "1-4i");
+MODULE_PARM(irq, "1-4i");
+MODULE_PARM(ram, "1-4i");
+MODULE_PARM(do_reset, "i");
+#endif
 #define init_sc init_module
 #else
 /*
