@@ -19,6 +19,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.8  1997/02/10 10:11:33  fritz
+ * More changes for Kernel 2.1.X compatibility.
+ *
  * Revision 1.7  1997/02/03 23:18:57  fritz
  * Removed isdn_ppp_free_sqqueue prototype
  *         and ippp_table (both static in isdn_ppp.c).
@@ -57,7 +60,6 @@ extern int isdn_ppp_bind(isdn_net_local *);
 extern int isdn_ppp_xmit(struct sk_buff *, struct device *);
 extern void isdn_ppp_receive(isdn_net_dev *, isdn_net_local *, struct sk_buff *);
 extern int isdn_ppp_dev_ioctl(struct device *, struct ifreq *, int);
-extern void isdn_ppp_free_mpqueue(isdn_net_dev *);
 #if (LINUX_VERSION_CODE < 0x020117)
 extern int isdn_ppp_select(int, struct file *, int, select_table *);
 #else

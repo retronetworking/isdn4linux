@@ -19,6 +19,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.23  1997/02/10 11:12:19  fritz
+ * More changes for Kernel 2.1.X compatibility.
+ *
  * Revision 1.22  1997/02/06 15:03:51  hipp
  * changed GFP_KERNEL kmalloc to GFP_ATOMIC in isdn_ppp_fill_mpqueue()
  *
@@ -101,7 +104,7 @@
 /* TODO: right tbusy handling when using MP */
 
 /*
- * experimental for dynamic addressing: readdress IP frames 
+ * experimental for dynamic addressing: readdress IP frames
  */
 #undef ISDN_SYNCPPP_READDRESS
 
@@ -136,6 +139,7 @@ static void isdn_ppp_mask_queue(isdn_net_dev * dev, long mask);
 static void isdn_ppp_cleanup_mpqueue(isdn_net_dev * dev, long min);
 static void isdn_ppp_cleanup_sqqueue(isdn_net_dev * dev, isdn_net_local *, long min);
 static void isdn_ppp_free_sqqueue(isdn_net_dev *);
+static void isdn_ppp_free_mpqueue(isdn_net_dev *);
 static int isdn_ppp_fill_mpqueue(isdn_net_dev *, struct sk_buff **skb,
 				 int BEbyte, long *sqno, int min_sqno);
 #endif
@@ -646,36 +650,36 @@ unsigned int
 isdn_ppp_poll(struct file *file, poll_table * wait)
 {
 	unsigned int mask;
-	struct ippp_buf_queue *bf, *bl;
+	struct ippp_buf_queue *bf,
+	*bl;
 	unsigned long flags;
 	struct ippp_struct *is;
-	
+
 	is = file->private_data;
-	
-	if(is->debug & 0x2)
+
+	if (is->debug & 0x2)
 		printk(KERN_DEBUG "isdn_ppp_poll: minor: %d\n", MINOR(file->f_inode->i_rdev));
-	
+
 	poll_wait(&is->wq, wait);
-	
+
 	if (!(is->state & IPPP_OPEN)) {
 		printk(KERN_DEBUG "isdn_ppp: device not open\n");
 		return POLLERR;
 	}
 	/* we're always ready to send .. */
 	mask = POLLOUT | POLLWRNORM;
-	
+
 	save_flags(flags);
 	cli();
 	bl = is->last;
 	bf = is->first;
-	/* 
-	 * if IPPP_NOBLOCK is set we return even if we have nothing to read 
+	/*
+	 * if IPPP_NOBLOCK is set we return even if we have nothing to read
 	 */
 	if (bf->next != bl || (is->state & IPPP_NOBLOCK)) {
 		is->state &= ~IPPP_NOBLOCK;
 		mask |= POLLIN | POLLRDNORM;
 	}
-	
 	restore_flags(flags);
 	return mask;
 }
@@ -981,7 +985,7 @@ isdn_ppp_receive(isdn_net_dev * net_dev, isdn_net_local * lp, struct sk_buff *sk
 			}
 			if ((BEbyte & (MP_BEGIN_FRAG | MP_END_FRAG)) != (MP_BEGIN_FRAG | MP_END_FRAG)) {
 				static int dmes = 0;
-				if( !dmes ) {
+				if (!dmes) {
 					printk(KERN_DEBUG "ippp: trying ;) to fill mp_queue %d .. UNTESTED!!\n", lp->ppp_slot);
 					dmes = 1;
 				}
@@ -1223,8 +1227,8 @@ isdn_ppp_xmit(struct sk_buff *skb, struct device *dev)
 			proto = PPP_IPX;	/* untested */
 			break;
 		default:
-			dev_kfree_skb(skb,FREE_WRITE);
-			printk(KERN_ERR "isdn_ppp: skipped frame with unsupported protocoll: %#x.\n",skb->protocol);
+			dev_kfree_skb(skb, FREE_WRITE);
+			printk(KERN_ERR "isdn_ppp: skipped frame with unsupported protocoll: %#x.\n", skb->protocol);
 			return 0;
 	}
 
@@ -1357,11 +1361,12 @@ isdn_ppp_free_sqqueue(isdn_net_dev * p)
 
 }
 
-void
+static void
 isdn_ppp_free_mpqueue(isdn_net_dev * p)
 {
 	struct mpqueue *ql,
 	*q = p->mp_last;
+	p->mp_last = NULL;
 	while (q) {
 		ql = q->next;
 		SET_SKB_FREE(q->skb);

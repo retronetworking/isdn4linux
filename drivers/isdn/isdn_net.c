@@ -21,6 +21,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.36  1997/02/10 21:31:11  fritz
+ * Changed setup-interface (incoming and outgoing).
+ *
  * Revision 1.35  1997/02/10 20:12:45  fritz
  * Changed interface for reporting incoming calls.
  *
@@ -1590,8 +1593,8 @@ isdn_net_find_icall(int di, int ch, int idx, setup_parm setup)
 		printk(KERN_INFO "isdn_net: Incoming call without OAD, assuming '0'\n");
 	} else
 		strcpy(nr, setup.phone);
-	si1 = (int)setup.si1;
-	si2 = (int)setup.si2;
+	si1 = (int) setup.si1;
+	si2 = (int) setup.si2;
 	if (!setup.eazmsn[0]) {
 		printk(KERN_WARNING "isdn_net: Incoming call without CPN, assuming '0'\n");
 		eaz = "0";
@@ -2462,9 +2465,6 @@ isdn_net_realrm(isdn_net_dev * p, isdn_net_dev * q)
 		isdn_timer_ctrl(ISDN_TIMER_NETHANGUP, 0);
 	restore_flags(flags);
 
-#ifdef CONFIG_ISDN_MPP
-	isdn_ppp_free_mpqueue(p);	/* still necessary? */
-#endif
 	kfree(p);
 
 	return 0;
