@@ -21,6 +21,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.6  1996/04/30 09:34:35  fritz
+ * Removed compatibility-macros.
+ *
  * Revision 1.5  1996/04/20 16:28:38  fritz
  * Made more parameters of the dial statemachine user-configurable and
  * added hangup after dial for more reliability using callback.
@@ -1667,6 +1670,7 @@ isdn_net_find_icall(int di, int ch, int idx, char *num)
 					p->local.isdn_device = di;
 					p->local.isdn_channel = ch;
 					p->local.ppp_minor = -1;
+					p->local.pppbind = -1;
 					p->local.flags |= ISDN_NET_CONNECTED;
 					p->local.dialstate = 7;
 					p->local.dtimer = 0;
@@ -1839,6 +1843,7 @@ isdn_net_new(char *name, struct device *master)
 	netdev->local.pre_channel = -1;
 	netdev->local.exclusive = -1;
 	netdev->local.ppp_minor = -1;
+	netdev->local.pppbind = -1;
 	netdev->local.l2_proto = ISDN_PROTO_L2_X75I;
 	netdev->local.l3_proto = ISDN_PROTO_L3_TRANS;
 	netdev->local.slavedelay = 10 * HZ;
@@ -1985,6 +1990,7 @@ int isdn_net_setcfg(isdn_net_ioctl_cfg * cfg)
                 p->local.cbdelay     = cfg->cbdelay;
                 p->local.dialmax     = cfg->dialmax;
 		p->local.slavedelay  = cfg->slavedelay * HZ;
+		p->local.pppbind     = cfg->pppbind;
 		if (cfg->secure)
 			p->local.flags |= ISDN_NET_SECURE;
 		else
@@ -2068,6 +2074,7 @@ int isdn_net_getcfg(isdn_net_ioctl_cfg * cfg)
                 cfg->cbdelay = p->local.cbdelay;
                 cfg->dialmax = p->local.dialmax;
 		cfg->slavedelay = p->local.slavedelay / HZ;
+		cfg->pppbind = p->local.pppbind;
 		if (p->local.slave)
 			strcpy(cfg->slave, ((isdn_net_local *) p->local.slave->priv)->name);
 		else

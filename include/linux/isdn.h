@@ -21,6 +21,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.4  1996/04/29 23:00:02  fritz
+ * Added variables for voice-support.
+ *
  * Revision 1.3  1996/04/20 16:54:58  fritz
  * Increased maximum number of channels.
  * Added some flags for isdn_net to handle callback more reliable.
@@ -150,6 +153,7 @@ typedef struct {
   int  secure;       /* Flag: Secure                          */
   int  callback;     /* Flag: Callback                        */
   int  cbhup;        /* Flag: Reject Call before Callback     */
+  int  pppbind;      /* ippp device for bindings              */
 } isdn_net_ioctl_cfg;
 
 #ifdef __KERNEL__
@@ -336,6 +340,7 @@ typedef struct isdn_net_local_s {
                                        /* Ptr to orig. header_cache_update */
   void                   (*org_hcu)(struct hh_cache *, struct device *,
                                     unsigned char *);
+  int  pppbind;                        /* ippp device for bindings         */
 } isdn_net_local;
 
 #ifdef CONFIG_ISDN_PPP

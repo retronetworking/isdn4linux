@@ -19,6 +19,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.6  1996/04/30 09:33:09  fritz
+ * Removed compatibility-macros.
+ *
  * Revision 1.5  1996/04/20 16:32:32  fritz
  * Changed ippp_table to an array of pointers, allocating each part
  * separately.
@@ -124,16 +127,31 @@ int isdn_ppp_bind(isdn_net_local * lp)
 	save_flags(flags);
 	cli();
 
-        /* 
-         * search a free device 
-         */
-	for (i = 0; i < ISDN_MAX_CHANNELS; i++) {
-		if (ippp_table[i]->state == IPPP_OPEN) {		/* OPEN, but not connected! */
-#if 0
-			printk(KERN_DEBUG "find_minor, %d lp: %08lx\n", i, (long) lp);
-#endif
-			break;
+	if(lp->pppbind < 0)	/* device bounded to ippp device ? */
+	{
+ 		isdn_net_dev *net_dev = dev->netdev;
+		char exclusive[ISDN_MAX_CHANNELS];	/* exclusive flags */
+		memset(exclusive,0,ISDN_MAX_CHANNELS);
+		while (net_dev) {	/* step through net devices to find exclusive minors */
+			isdn_net_local *lp = &net_dev->local;
+			if(lp->pppbind >= 0)
+				exclusive[lp->pppbind] = 1;
+			net_dev = net_dev->next;
 		}
+		/*
+		 * search a free device 
+		 */
+		for (i = 0; i < ISDN_MAX_CHANNELS; i++) {
+			if (ippp_table[i]->state == IPPP_OPEN && !exclusive[i]) { /* OPEN, but not connected! */
+				break;
+			}
+		}
+	}
+	else {
+		if (ippp_table[lp->pppbind]->state == IPPP_OPEN) /* OPEN, but not connected! */
+			i = lp->pppbind;
+		else
+			i = ISDN_MAX_CHANNELS;	/* trigger error */
 	}
 
 	if (i >= ISDN_MAX_CHANNELS) {
