@@ -19,6 +19,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.40  1998/04/06 19:07:27  hipp
+ * added check, whether compression is enabled.
+ *
  * Revision 1.39  1998/03/25 22:46:53  hipp
  * Some additional CCP changes.
  *
@@ -208,6 +211,24 @@ static struct sk_buff *isdn_ppp_compress(struct sk_buff *skb_in,int *proto,
 static void isdn_ppp_send_ccp(isdn_net_dev *net_dev, isdn_net_local *lp,
 	 struct sk_buff *skb);
 
+/* New CCP stuff */
+static void isdn_ppp_ccp_kickup(struct ippp_struct *is);
+static void isdn_ppp_ccp_xmit_reset(struct ippp_struct *is, int proto,
+				    unsigned char code, unsigned char id,
+				    unsigned char *data, int len);
+static struct ippp_ccp_reset *isdn_ppp_ccp_reset_alloc(struct ippp_struct *is);
+static void isdn_ppp_ccp_reset_free_state(struct ippp_struct *is,
+					  unsigned char id);
+static void isdn_ppp_ccp_timer_callback(unsigned long closure);
+static struct ippp_ccp_reset_state *isdn_ppp_ccp_reset_alloc_state(struct ippp_struct *is,
+						      unsigned char id);
+static void isdn_ppp_ccp_reset_trans(struct ippp_struct *is,
+				     struct isdn_ppp_resetparams *rp);
+static void isdn_ppp_ccp_reset_ack_rcvd(struct ippp_struct *is,
+					unsigned char id);
+
+
+
 #ifdef CONFIG_ISDN_MPP
 static int isdn_ppp_bundle(struct ippp_struct *, int unit);
 static void isdn_ppp_mask_queue(isdn_net_dev * dev, long mask);
@@ -347,7 +368,7 @@ isdn_ppp_bind(isdn_net_local * lp)
 
 	if (i >= ISDN_MAX_CHANNELS) {
 		restore_flags(flags);
-		printk(KERN_WARNING "isdn_ppp_bind: Can't find usable ippp device.\n");
+		printk(KERN_WARNING "isdn_ppp_bind: Can't find a (free) connection to the ipppd daemon.\n");
 		return -1;
 	}
 	unit = isdn_ppp_if_get_unit(lp->name);	/* get unit number from interface name .. ugly! */
@@ -450,6 +471,8 @@ isdn_ppp_open(int min, struct file *file)
 	is->link_decomp_stat  = is->decomp_stat = NULL;
 	is->compflags = 0;
 
+	is->reset = isdn_ppp_ccp_reset_alloc(is);
+
 	is->lp = NULL;
 	is->mp_seqno = 0;       /* MP sequence number */
 	is->pppcfg = 0;         /* ppp configuration */
@@ -531,6 +554,10 @@ isdn_ppp_release(int min, struct file *file)
         is->decompressor = is->link_decompressor = NULL;
 	is->comp_stat    = is->link_comp_stat    = NULL;
         is->decomp_stat  = is->link_decomp_stat  = NULL;
+
+	if(is->reset)
+		kfree(is->reset);
+	is->reset = NULL;
 
 	/* this slot is ready for new connections */
 	is->state = 0;
@@ -1305,6 +1332,11 @@ isdn_ppp_push_higher(isdn_net_dev * net_dev, isdn_net_local * lp, struct sk_buff
 		case PPP_CCP:
 		case PPP_LINK_CCP:
 			isdn_ppp_receive_ccp(net_dev,lp,skb,proto);
+			/* Dont pop up ResetReq/Ack stuff to the daemon any
+			   longer - the job is done already */
+			if(skb->data[0] == CCP_RESETREQ ||
+			   skb->data[0] == CCP_RESETACK)
+				break;
 			/* fall through */
 		default:
 #ifdef CONFIG_ISDN_TIMEOUT_RULES
@@ -1487,8 +1519,7 @@ isdn_ppp_xmit(struct sk_buff *skb, struct device *dev)
 	/*
 	 * normal (single link) or bundle compression
 	 */
-	if(ipts->compflags & SC_COMP_ON)
-		skb = isdn_ppp_compress(skb,&proto,ipt,ipts,0);
+	skb = isdn_ppp_compress(skb,&proto,ipt,ipts,0);
 
 	if (ipt->debug & 0x24)
 		printk(KERN_DEBUG "xmit2 skb, len %d, proto %04x\n", (int) skb->len, proto);
@@ -1524,8 +1555,7 @@ isdn_ppp_xmit(struct sk_buff *skb, struct device *dev)
 	/*
 	 * 'link in bundle' compression  ...
 	 */
-	if(ipt->compflags & SC_LINK_COMP_ON)
-		skb = isdn_ppp_compress(skb,&proto,ipt,ipts,1);
+	skb = isdn_ppp_compress(skb,&proto,ipt,ipts,1);
 
 	if( (ipt->pppcfg & SC_COMP_PROT) && (proto <= 0xff) ) {
 		unsigned char *data = isdn_ppp_skb_push(&skb,1);
@@ -2090,6 +2120,340 @@ isdn_ppp_hangup_slave(char *name)
 /*
  * PPP compression stuff
  */
+
+
+/* Push an empty CCP Data Frame up to the daemon to wake it up and let it
+   generate a CCP Reset-Request or tear down CCP altogether */
+
+static void isdn_ppp_ccp_kickup(struct ippp_struct *is)
+{
+	isdn_ppp_fill_rq(NULL, 0, PPP_COMP, is->lp->ppp_slot);
+}
+
+/* In-kernel handling of CCP Reset-Request and Reset-Ack is necessary,
+   but absolutely nontrivial. The most abstruse problem we are facing is
+   that the generation, reception and all the handling of timeouts and
+   resends including proper request id management should be entirely left
+   to the (de)compressor, but indeed is not covered by the current API to
+   the (de)compressor. The API is a prototype version from PPP where only
+   some (de)compressors have yet been implemented and all of them are
+   rather simple in their reset handling. Especially, their is only one
+   outstanding ResetAck at a time with all of them and ResetReq/-Acks do
+   not have parameters. For this very special case it was sufficient to
+   just return an error code from the decompressor and have a single
+   reset() entry to communicate all the necessary information between
+   the framework and the (de)compressor. Bad enough, LZS is different
+   (and any other compressor may be different, too). It has multiple
+   histories (eventually) and needs to Reset each of them independently
+   and thus uses multiple outstanding Acks and history numbers as an
+   additional parameter to Reqs/Acks.
+   All that makes it harder to port the reset state engine into the
+   kernel because it is not just the same simple one as in (i)pppd but
+   it must be able to pass additional parameters and have multiple out-
+   standing Acks. We are trying to achieve the impossible by handling
+   reset transactions independent by their id. The id MUST change when
+   the data portion changes, thus any (de)compressor who uses more than
+   one resettable state must provide and recognize individual ids for
+   each individual reset transaction. The framework itself does _only_
+   differentiate them by id, because it has no other semantics like the
+   (de)compressor might.
+   This looks like a major redesign of the interface would be nice,
+   but I don't have an idea how to do it better. */
+
+/* Send a CCP Reset-Request or Reset-Ack directly from the kernel. This is
+   getting that lengthy because there is no simple "send-this-frame-out"
+   function above but every wrapper does a bit different. Hope I guess
+   correct in this hack... */
+
+static void isdn_ppp_ccp_xmit_reset(struct ippp_struct *is, int proto,
+				    unsigned char code, unsigned char id,
+				    unsigned char *data, int len)
+{
+	struct sk_buff *skb;
+	unsigned char *p;
+	int count;
+	int cnt = 0;
+	isdn_net_local *lp = is->lp;
+
+	/* Alloc large enough skb */
+	skb = dev_alloc_skb(len + 16);
+	if(!skb) {
+		printk(KERN_WARNING
+		       "ippp: CCP cannot send reset - out of memory\n");
+		return;
+	}
+
+	/* We may need to stuff an address and control field first */
+	if(!(is->pppcfg & SC_COMP_AC)) {
+		p = skb_put(skb, 2);
+		*p++ = 0xff;
+		*p++ = 0x03;
+	}
+
+	/* Stuff proto, code, id and length */
+	p = skb_put(skb, 6);
+	*p++ = (proto >> 8);
+	*p++ = (proto & 0xff);
+	*p++ = code;
+	*p++ = id;
+	cnt = 4 + len;
+	*p++ = (cnt >> 8);
+	*p++ = (cnt & 0xff);
+
+	/* Now stuff remaining bytes */
+	if(len) {
+		p = skb_put(skb, len);
+		memcpy(p, data, len);
+	}
+
+	/* skb is now ready for xmit */
+	printk(KERN_DEBUG "Sending CCP Frame:\n");
+	isdn_ppp_frame_log("ccp-xmit", skb->data, skb->len, 32, is->unit);
+
+	/* Just ripped from isdn_ppp_write. Dunno whether it makes sense,
+	   especially dunno what the sav_skb stuff is good for. */
+
+	count = skb->len;
+	if ((cnt = isdn_writebuf_skb_stub(lp->isdn_device, lp->isdn_channel,
+					  1, skb)) != count) {
+		if (lp->sav_skb) {
+			dev_kfree_skb(lp->sav_skb);
+			printk(KERN_INFO
+			       "isdn_ppp_write: freeing sav_skb (%d,%d)!\n",
+			       cnt, count);
+		} else
+			printk(KERN_INFO
+			       "isdn_ppp_write: Can't write PPP frame to LL (%d,%d)!\n",
+			       cnt, count);
+		lp->sav_skb = skb;
+	}
+}
+
+/* Allocate the reset state vector */
+static struct ippp_ccp_reset *isdn_ppp_ccp_reset_alloc(struct ippp_struct *is)
+{
+	struct ippp_ccp_reset *r;
+	printk(KERN_DEBUG "ippp_ccp: allocating reset data structure\n");
+	r = kmalloc(sizeof(struct ippp_ccp_reset), GFP_KERNEL);
+	if(!r)
+		return NULL;
+	memset(r, 0, sizeof(struct ippp_ccp_reset));
+	is->reset = r;
+	return r;
+}
+
+/* Free a given state and clear everything up for later reallocation */
+static void isdn_ppp_ccp_reset_free_state(struct ippp_struct *is,
+					  unsigned char id)
+{
+	struct ippp_ccp_reset_state *rs;
+
+	if(is->reset->rs[id]) {
+		printk(KERN_DEBUG "ippp_ccp: freeing state for id %d\n", id);
+		rs = is->reset->rs[id];
+		/* Make sure the kernel will not call back later */
+		if(rs->ta)
+			del_timer(&rs->timer);
+		is->reset->rs[id] = NULL;
+		kfree(rs);
+	} else {
+		printk(KERN_WARNING "ippp_ccp: id %d is not allocated\n", id);
+	}
+}
+
+/* The timer callback function which is called when a ResetReq has timed out,
+   aka has never been answered by a ResetAck */
+static void isdn_ppp_ccp_timer_callback(unsigned long closure)
+{
+	struct ippp_ccp_reset_state *rs =
+		(struct ippp_ccp_reset_state *)closure;
+
+	if(!rs) {
+		printk(KERN_ERR "ippp_ccp: timer cb with zero closure.\n");
+		return;
+	}
+	if(rs->ta && rs->state == CCPResetSentReq) {
+		/* We are correct here */
+		printk(KERN_DEBUG "ippp_ccp: CCP Reset timed out for id %d\n",
+		       rs->id);
+		if(!rs->expra) {
+			/* Hmm, there is no Ack really expected. We can clean
+			   up the state now, it will be reallocated if the
+			   decompressor insists on another reset */
+			rs->ta = 0;
+			isdn_ppp_ccp_reset_free_state(rs->is, rs->id);
+			return;
+		}
+		/* Push it again */
+		isdn_ppp_ccp_xmit_reset(rs->is, PPP_CCP, CCP_RESETREQ, rs->id,
+					rs->data, rs->dlen);
+		/* Restart timer */
+		rs->timer.expires = jiffies + HZ*5;
+		add_timer(&rs->timer);
+	} else {
+		printk(KERN_WARNING "ippp_ccp: timer cb in wrong state %d\n",
+		       rs->state);
+	}
+}
+
+/* Allocate a new reset transaction state */
+static struct ippp_ccp_reset_state *isdn_ppp_ccp_reset_alloc_state(struct ippp_struct *is,
+						      unsigned char id)
+{
+	struct ippp_ccp_reset_state *rs;
+	if(is->reset->rs[id]) {
+		printk(KERN_WARNING "ippp_ccp: old state exists for id %d\n",
+		       id);
+		return NULL;
+	} else {
+		rs = kmalloc(sizeof(struct ippp_ccp_reset_state), GFP_KERNEL);
+		if(!rs)
+			return NULL;
+		memset(rs, 0, sizeof(struct ippp_ccp_reset_state));
+		rs->state = CCPResetIdle;
+		rs->is = is;
+		rs->id = id;
+		rs->timer.data = (unsigned long)rs;
+		rs->timer.function = isdn_ppp_ccp_timer_callback;
+		is->reset->rs[id] = rs;
+	}
+	return rs;
+}
+
+
+/* A decompressor wants a reset with a set of parameters - do what is
+   necessary to fulfill it */
+static void isdn_ppp_ccp_reset_trans(struct ippp_struct *is,
+				     struct isdn_ppp_resetparams *rp)
+{
+	struct ippp_ccp_reset_state *rs;
+
+	if(rp->valid) {
+		/* The decompressor defines parameters by itself */
+		if(rp->rsend) {
+			/* And he wants us to send a request */
+			if(!(rp->idval)) {
+				printk(KERN_ERR "ippp_ccp: decompressor must"
+				       " specify reset id\n");
+				return;
+			}
+			if(is->reset->rs[rp->id]) {
+				/* There is already a transaction in existence
+				   for this id. May be still waiting for a
+				   Ack or may be wrong. */
+				rs = is->reset->rs[rp->id];
+				if(rs->state == CCPResetSentReq && rs->ta) {
+					printk(KERN_DEBUG "ippp_ccp: reset"
+					       " trans still in progress"
+					       " for id %d\n", rp->id);
+				} else {
+					printk(KERN_WARNING "ippp_ccp: reset"
+					       " trans in wrong state %d for"
+					       " id %d\n", rs->state, rp->id);
+				}
+			} else {
+				/* Ok, this is a new transaction */
+				printk(KERN_DEBUG "ippp_ccp: new trans for id"
+				       " %d to be started\n", rp->id);
+				rs = isdn_ppp_ccp_reset_alloc_state(is, rp->id);
+				if(!rs) {
+					printk(KERN_ERR "ippp_ccp: out of mem"
+					       " allocing ccp trans\n");
+					return;
+				}
+				rs->state = CCPResetSentReq;
+				rs->expra = rp->expra;
+				if(rp->dtval) {
+					rs->dlen = rp->dlen;
+					memcpy(rs->data, rp->data, rp->dlen);
+				}
+				/* HACK TODO - add link comp here */
+				isdn_ppp_ccp_xmit_reset(is, PPP_CCP,
+							CCP_RESETREQ, rs->id,
+							rs->data, rs->dlen);
+				/* Start the timer */
+				rs->timer.expires = jiffies + 5*HZ;
+				add_timer(&rs->timer);
+				rs->ta = 1;
+			}
+		} else {
+			printk(KERN_DEBUG "ippp_ccp: no reset sent\n");
+		}
+	} else {
+		/* The reset params are invalid. The decompressor does not
+		   care about them, so we just send the minimal requests
+		   and increase ids only when an Ack is received for a
+		   given id */
+		if(is->reset->rs[is->reset->lastid]) {
+			/* There is already a transaction in existence
+			   for this id. May be still waiting for a
+			   Ack or may be wrong. */
+			rs = is->reset->rs[is->reset->lastid];
+			if(rs->state == CCPResetSentReq && rs->ta) {
+				printk(KERN_DEBUG "ippp_ccp: reset"
+				       " trans still in progress"
+				       " for id %d\n", rp->id);
+			} else {
+				printk(KERN_WARNING "ippp_ccp: reset"
+				       " trans in wrong state %d for"
+				       " id %d\n", rs->state, rp->id);
+			}
+		} else {
+			printk(KERN_DEBUG "ippp_ccp: new trans for id"
+			       " %d to be started\n", is->reset->lastid);
+			rs = isdn_ppp_ccp_reset_alloc_state(is,
+							    is->reset->lastid);
+			if(!rs) {
+				printk(KERN_ERR "ippp_ccp: out of mem"
+				       " allocing ccp trans\n");
+				return;
+			}
+			rs->state = CCPResetSentReq;
+			/* We always expect an Ack if the decompressor doesnt
+			   know	better */
+			rs->expra = 1;
+			rs->dlen = 0;
+			/* HACK TODO - add link comp here */
+			isdn_ppp_ccp_xmit_reset(is, PPP_CCP, CCP_RESETREQ,
+						rs->id, NULL, 0);
+			/* Start the timer */
+			rs->timer.expires = jiffies + 5*HZ;
+			add_timer(&rs->timer);
+			rs->ta = 1;
+		}
+	}
+}
+
+/* An Ack was received for this id. This means we stop the timer and clean
+   up the state prior to calling the decompressors reset routine. */
+static void isdn_ppp_ccp_reset_ack_rcvd(struct ippp_struct *is,
+					unsigned char id)
+{
+	struct ippp_ccp_reset_state *rs = is->reset->rs[id];
+
+	if(rs) {
+		if(rs->ta && rs->state == CCPResetSentReq) {
+			/* Great, we are correct */
+			if(!rs->expra)
+				printk(KERN_DEBUG "ippp_ccp: ResetAck received"
+				       " for id %d but not expected\n", id);
+		} else {
+			printk(KERN_INFO "ippp_ccp: ResetAck received out of"
+			       "sync for id %d\n", id);
+		}
+		if(rs->ta) {
+			rs->ta = 0;
+			del_timer(&rs->timer);
+		}
+		isdn_ppp_ccp_reset_free_state(is, id);
+	} else {
+		printk(KERN_INFO "ippp_ccp: ResetAck received for unknown id"
+		       " %d\n", id);
+	}
+	/* Make sure the simple reset stuff uses a new id next time */
+	is->reset->lastid++;
+}
+
 static struct sk_buff *isdn_ppp_decompress(struct sk_buff *skb,struct ippp_struct *is,struct ippp_struct *master,
 	int proto)
 {
@@ -2105,6 +2469,9 @@ static struct sk_buff *isdn_ppp_decompress(struct sk_buff *skb,struct ippp_struc
 	struct isdn_ppp_compressor *ipc = NULL;
 	struct sk_buff *skb_out;
 	int len;
+	struct ippp_struct *ri;
+	struct isdn_ppp_resetparams rsparm;
+	unsigned char rsdata[IPPP_RESET_MAXDATABYTES];
 
 	if(!master) {
 		/* 
@@ -2122,6 +2489,7 @@ static struct sk_buff *isdn_ppp_decompress(struct sk_buff *skb,struct ippp_struc
 		}
 		stat = is->link_decomp_stat;
 		ipc = is->link_decompressor;
+		ri = is;
 	}
 	else {
 		/*
@@ -2139,22 +2507,50 @@ static struct sk_buff *isdn_ppp_decompress(struct sk_buff *skb,struct ippp_struc
 		}
 		stat = master->decomp_stat;
 		ipc = master->decompressor;
+		ri = master;
 	}
 
+	/*
 	printk(KERN_DEBUG "ippp: Decompress valid!\n");
+	*/
 
 	if((master && proto == PPP_COMP) || (!master && proto == PPP_LINK_COMP) ) {
+		/* Set up reset params for the decompressor */
+		memset(&rsparm, 0, sizeof(rsparm));
+		rsparm.data = rsdata;
+		rsparm.maxdlen = IPPP_RESET_MAXDATABYTES;
+
 /* !!!HACK,HACK,HACK!!! 2048 is only assumed */
 		skb_out = dev_alloc_skb(2048);
-		len = ipc->decompress(stat,skb,skb_out);
+		len = ipc->decompress(stat,skb,skb_out, &rsparm);
 		dev_kfree_skb(skb);
 		if(len <= 0) {
-			return NULL;
+		  /* Ok, some error */
+		  switch(len) {
+		  case DECOMP_ERROR:
+		    ri->pppcfg |= SC_DC_ERROR;
+		    printk(KERN_INFO "ippp: decomp wants reset %s params\n",
+			   rsparm.valid ? "with" : "without");
+
+		    isdn_ppp_ccp_reset_trans(ri, &rsparm);
+
+		    break;
+		  case DECOMP_FATALERROR:
+		    ri->pppcfg |= SC_DC_FERROR;
+		    /* Kick ipppd to recognize the error */
+		    isdn_ppp_ccp_kickup(ri);
+		    break;
+		  }
+		  /* Did I see a leak here ? */
+		  dev_kfree_skb(skb_out);
+		  return NULL;
 		}
 		return skb_out;
 	}
 	else {
+		/*
 		printk(KERN_DEBUG "isdn_ppp: [%d] Calling incomp with this frame!\n",is->unit);
+		*/
 		ipc->incomp(stat,skb,proto);
 		return skb;
 	}
@@ -2216,7 +2612,8 @@ static struct sk_buff *isdn_ppp_compress(struct sk_buff *skb_in,int *proto,
 		return skb_in;
 	}
 
-	skb_out = dev_alloc_skb(skb_in->len+32); /* 32 little additonal space */
+	/* Allow for at least 150 % expansion (for now) */
+	skb_out = dev_alloc_skb(skb_in->len + skb_in->len/2 + 32);
 	if(!skb_out)
 		return skb_in;
 
@@ -2240,6 +2637,12 @@ static void isdn_ppp_receive_ccp(isdn_net_dev *net_dev, isdn_net_local *lp,
 {
 	struct ippp_struct *is = ippp_table[lp->ppp_slot];
 	struct ippp_struct *mis;
+	int len;
+	struct isdn_ppp_resetparams rsparm;
+	unsigned char rsdata[IPPP_RESET_MAXDATABYTES];	
+
+	printk(KERN_DEBUG "Received CCP frame from peer\n");
+	isdn_ppp_frame_log("ccp-rcv", skb->data, skb->len, 32, is->unit);
 
 	if(lp->master)
 		mis = ippp_table[((isdn_net_local *) (lp->master->priv))->ppp_slot];
@@ -2247,100 +2650,197 @@ static void isdn_ppp_receive_ccp(isdn_net_dev *net_dev, isdn_net_local *lp,
 		mis = is;
 
 	switch(skb->data[0]) {
-		case CCP_CONFREQ:
-		case CCP_TERMREQ:
-		case CCP_TERMACK:
-			if(is->debug & 0x10)
-				printk(KERN_DEBUG "Disable (de)compression here!\n");
-			if(proto == PPP_CCP)
-				mis->compflags &= ~(SC_DECOMP_ON|SC_COMP_ON);		
-			else
-				is->compflags &= ~(SC_LINK_DECOMP_ON|SC_LINK_COMP_ON);		
-			break;
-		case CCP_CONFACK:
-			/* if we RECEIVE an ackowledge we enable the decompressor */
-			if(is->debug & 0x10)
-				printk(KERN_DEBUG "Enable decompression here!\n");
-			if(proto == PPP_CCP)
-				mis->compflags |= SC_DECOMP_ON;
-			else
-				is->compflags |= SC_LINK_DECOMP_ON;
-			break;
-		case CCP_RESETACK:
-			if(is->debug & 0x10)
-				printk(KERN_DEBUG "Reset decompression state here!\n");
-			if(proto == PPP_CCP) {
-				if(mis->decompressor && mis->decomp_stat)
-					mis->decompressor->reset(mis->decomp_stat);
-				mis->compflags &= ~SC_DECOMP_DISCARD;
+	case CCP_CONFREQ:
+	case CCP_TERMREQ:
+	case CCP_TERMACK:
+		if(is->debug & 0x10)
+			printk(KERN_DEBUG "Disable (de)compression here!\n");
+		if(proto == PPP_CCP)
+			mis->compflags &= ~(SC_DECOMP_ON|SC_COMP_ON);		
+		else
+			is->compflags &= ~(SC_LINK_DECOMP_ON|SC_LINK_COMP_ON);		
+		break;
+	case CCP_CONFACK:
+		/* if we RECEIVE an ackowledge we enable the decompressor */
+		if(is->debug & 0x10)
+			printk(KERN_DEBUG "Enable decompression here!\n");
+		if(proto == PPP_CCP)
+			mis->compflags |= SC_DECOMP_ON;
+		else
+			is->compflags |= SC_LINK_DECOMP_ON;
+		break;
+
+	case CCP_RESETACK:
+		printk(KERN_DEBUG "Received ResetAck from peer\n");
+		len = (skb->data[2] << 8) | skb->data[3];
+		len -= 4;
+
+		if(proto == PPP_CCP) {
+			/* If a reset Ack was outstanding for this id, then
+			   clean up the state engine */
+			isdn_ppp_ccp_reset_ack_rcvd(mis, skb->data[1]);
+			if(mis->decompressor && mis->decomp_stat)
+				mis->decompressor->
+					reset(mis->decomp_stat,
+					      skb->data[0],
+					      skb->data[1],
+					      len ? &skb->data[4] : NULL,
+					      len, NULL);
+			/* TODO: This is not easy to decide here */
+			mis->compflags &= ~SC_DECOMP_DISCARD;
+			mis->pppcfg &= ~SC_DC_ERROR;
+		}
+		else {
+			isdn_ppp_ccp_reset_ack_rcvd(is, skb->data[1]);
+			if(is->link_decompressor && is->link_decomp_stat)
+				is->link_decompressor->
+					reset(is->link_decomp_stat,
+					      skb->data[0],
+					      skb->data[1],
+					      len ? &skb->data[4] : NULL,
+					      len, NULL);
+			/* TODO: neither here */
+			is->compflags &= ~SC_LINK_DECOMP_DISCARD;
+			is->pppcfg &= ~SC_DC_ERROR;
+		}
+		break;
+
+	case CCP_RESETREQ:
+		printk(KERN_DEBUG "Received ResetReq from peer\n");
+		/* Receiving a ResetReq means we must reset our compressor */
+		/* Set up reset params for the reset entry */
+		memset(&rsparm, 0, sizeof(rsparm));
+		rsparm.data = rsdata;
+		rsparm.maxdlen = IPPP_RESET_MAXDATABYTES; 
+		/* Isolate data length */
+		len = (skb->data[2] << 8) | skb->data[3];
+		len -= 4;
+		if(proto == PPP_CCP) {
+			if(mis->compressor && mis->comp_stat)
+				mis->compressor->
+					reset(mis->comp_stat,
+					      skb->data[0],
+					      skb->data[1],
+					      len ? &skb->data[4] : NULL,
+					      len, &rsparm);
+		}
+		else {
+			if(is->link_compressor && is->link_comp_stat)
+				is->link_compressor->
+					reset(is->link_comp_stat,
+					      skb->data[0],
+					      skb->data[1],
+					      len ? &skb->data[4] : NULL,
+					      len, &rsparm);
+		}
+		/* Ack the Req as specified by rsparm */
+		if(rsparm.valid) {
+			/* Compressor reset handler decided how to answer */
+			if(rsparm.rsend) {
+				/* We should send a Frame */
+				isdn_ppp_ccp_xmit_reset(is, proto, CCP_RESETACK,
+							rsparm.idval ? rsparm.id
+							: skb->data[1],
+							rsparm.dtval ?
+							rsparm.data : NULL,
+							rsparm.dtval ?
+							rsparm.dlen : 0);
+			} else {
+				printk(KERN_DEBUG "ResetAck suppressed\n");
 			}
-			else {
-				if(is->link_decompressor && is->link_decomp_stat)
-					is->link_decompressor->reset(is->link_decomp_stat);
-				is->compflags &= ~SC_LINK_DECOMP_DISCARD;
-			}
-                        break;
+		} else {
+			/* We answer with a straight reflected Ack */
+			isdn_ppp_ccp_xmit_reset(is, proto, CCP_RESETACK,
+						skb->data[1],
+						len ? &skb->data[4] : NULL,
+						len);
+		}
+		break;
 	}
 }
+
 
 /*
  * Daemon sends a CCP frame ...
  */
+
+/* TODO: Clean this up with new Reset semantics */
+
 static void isdn_ppp_send_ccp(isdn_net_dev *net_dev, isdn_net_local *lp, struct sk_buff *skb)
 {
 	struct ippp_struct *mis,*is = ippp_table[lp->ppp_slot];
 	int proto;
+	unsigned char *data;
 
 	if(!skb || skb->len < 3)
 		return;
-	proto = ((int)skb->data[0]<<8)+skb->data[1];
+
+	/* Daemon may send with or without address and control field comp */
+	data = skb->data;
+	if(!(is->pppcfg & SC_COMP_AC) && data[0] == 0xff && data[1] == 0x03) {
+		data += 2;
+		if(skb->len < 5)
+			return;
+	}
+
+	proto = ((int)data[0]<<8)+data[1];
 	if(proto != PPP_CCP && proto != PPP_LINK_CCP)
 		return;
+
+	printk(KERN_DEBUG "Received CCP frame from daemon:\n");
+	isdn_ppp_frame_log("ccp-xmit", skb->data, skb->len, 32, is->unit);
 
         if(lp->master)
                 mis = ippp_table[((isdn_net_local *) (lp->master->priv))->ppp_slot];
         else
                 mis = is;
-
+	
 	if(mis != is)
 		printk(KERN_DEBUG "isdn_ppp: Ouch! Master CCP sends on slave slot!\n");
-
-        switch(skb->data[2]) {
-                case CCP_CONFREQ:
-                case CCP_TERMREQ:
-                case CCP_TERMACK:
-			if(is->debug & 0x10)
-                        	printk(KERN_DEBUG "Disable (de)compression here!\n");
-			if(proto == PPP_CCP)
-                        	is->compflags &= ~(SC_DECOMP_ON|SC_COMP_ON);
-			else
-                        	is->compflags &= ~(SC_LINK_DECOMP_ON|SC_LINK_COMP_ON);
-                        break;
-                case CCP_CONFACK:
-                        /* if we SEND an ackowledge we can/must enable the compressor */
-			if(is->debug & 0x10)
-                        	printk(KERN_DEBUG "Enable compression here!\n");
-			if(proto == PPP_CCP)
-                        	is->compflags |= SC_COMP_ON;
-			else
-                        	is->compflags |= SC_LINK_COMP_ON;
-                        break;
-                case CCP_RESETACK:
-			/* If we send a ACK we should reset our compressor */
-			if(is->debug & 0x10)
-				printk(KERN_DEBUG "Reset decompression state here!\n");
-			if(proto == PPP_CCP) {
-/* link to master? */
-				if(is->compressor && is->comp_stat)
-					is->compressor->reset(is->comp_stat);
-				is->compflags &= ~SC_COMP_DISCARD;	
-			}
-			else {
-                                if(is->link_compressor && is->link_comp_stat)
-                                        is->link_compressor->reset(is->link_comp_stat);
-				is->compflags &= ~SC_LINK_COMP_DISCARD;	
-                        }
-			break;
+	
+        switch(data[2]) {
+	case CCP_CONFREQ:
+	case CCP_TERMREQ:
+	case CCP_TERMACK:
+		if(is->debug & 0x10)
+			printk(KERN_DEBUG "Disable (de)compression here!\n");
+		if(proto == PPP_CCP)
+			is->compflags &= ~(SC_DECOMP_ON|SC_COMP_ON);
+		else
+			is->compflags &= ~(SC_LINK_DECOMP_ON|SC_LINK_COMP_ON);
+		break;
+	case CCP_CONFACK:
+		/* if we SEND an ackowledge we can/must enable the compressor */
+		if(is->debug & 0x10)
+			printk(KERN_DEBUG "Enable compression here!\n");
+		if(proto == PPP_CCP)
+			is->compflags |= SC_COMP_ON;
+		else
+			is->compflags |= SC_LINK_COMP_ON;
+		break;
+	case CCP_RESETACK:
+		/* If we send a ACK we should reset our compressor */
+		if(is->debug & 0x10)
+			printk(KERN_DEBUG "Reset decompression state here!\n");
+		printk(KERN_DEBUG "ResetAck from daemon passed by\n");
+		if(proto == PPP_CCP) {
+			/* link to master? */
+			if(is->compressor && is->comp_stat)
+				is->compressor->reset(is->comp_stat, 0, 0,
+						      NULL, 0, NULL);
+			is->compflags &= ~SC_COMP_DISCARD;	
+		}
+		else {
+			if(is->link_compressor && is->link_comp_stat)
+				is->link_compressor->reset(is->link_comp_stat,
+							   0, 0, NULL, 0, NULL);
+			is->compflags &= ~SC_LINK_COMP_DISCARD;	
+		}
+		break;
+	case CCP_RESETREQ:
+		/* Just let it pass by */
+		printk(KERN_DEBUG "ResetReq from daemon passed by\n");
+		break;
 	}
 }
 

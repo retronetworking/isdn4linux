@@ -258,7 +258,9 @@ static void bsd_stats (void *state, struct compstat *stats)
 /*
  * Reset state, as on a CCP ResetReq.
  */
-static void bsd_reset (void *state)
+static void bsd_reset (void *state,unsigned char code, unsigned char id,
+			unsigned char *data, unsigned len,
+			struct isdn_ppp_resetparams *rsparm)
 {
 	struct bsd_db *db = (struct bsd_db *) state;
 
@@ -418,7 +420,7 @@ static int bsd_init (void *state, struct isdn_ppp_comp_data *data, int unit, int
 
 	db->debug = 1;
     
-	bsd_reset(db);
+	bsd_reset(db,0,0,NULL,0,NULL);
     
 	return 1;
 }
@@ -645,7 +647,8 @@ static void bsd_incomp (void *state, struct sk_buff *skb_in,int proto)
 /*
  * Decompress "BSD Compress".
  */
-static int bsd_decompress (void *state, struct sk_buff *skb_in, struct sk_buff *skb_out)
+static int bsd_decompress (void *state, struct sk_buff *skb_in, struct sk_buff *skb_out,
+			   struct isdn_ppp_resetparams *rsparm)
 {
 	struct bsd_db *db;
 	unsigned int max_ent;
