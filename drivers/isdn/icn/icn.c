@@ -19,6 +19,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.57  1999/07/06 16:15:30  detabc
+ * remove unused messages
+ *
  * Revision 1.56  1999/04/12 13:15:07  fritz
  * Fixed a cast.
  *
@@ -1843,13 +1846,25 @@ icn_addcard(int port, char *id1, char *id2)
 #ifdef MODULE
 #define icn_init init_module
 #else
+#ifdef COMPAT_HAS_NEW_SETUP
+#include <linux/init.h>
+int
+icn_setup(char *line)
+{
+	char *p, *str;
+	int	ints[3];
+	static char sid[20];
+	static char sid2[20];
+
+	str = get_options(line, 2, ints);
+#else
 void
 icn_setup(char *str, int *ints)
 {
 	char *p;
 	static char sid[20];
 	static char sid2[20];
-
+#endif
 	if (ints[0])
 		portbase = ints[1];
 	if (ints[0] > 1)
@@ -1863,8 +1878,14 @@ icn_setup(char *str, int *ints)
 			icn_id2 = sid2;
 		}
 	}
+#ifdef COMPAT_HAS_NEW_SETUP
+	return(1);
+}
+__setup("icn=", icn_setup);
+#else
 }
 #endif
+#endif /* MODULES */
 
 int
 icn_init(void)

@@ -104,6 +104,10 @@ static inline unsigned long copy_to_user(void *to, const void *from, unsigned lo
 #define COMPAT_HAS_NEW_WAITQ
 #endif
 
+#if LINUX_VERSION_CODE > KERNEL_VERSION(2,3,12)
+#define COMPAT_HAS_NEW_SETUP
+#endif
+
 #if LINUX_VERSION_CODE < KERNEL_VERSION(2,3,14)
 #define net_device device
 #endif
