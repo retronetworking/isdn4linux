@@ -25,59 +25,87 @@ const char *dss1_revision = "$Revision$";
 #include <linux/ctype.h>
 #include <linux/config.h>
 
-#ifdef CONFIG_HISAX_CAPI
+/* The following set of macros allows to compose Q.931 messages rather easily
+ * To find out how they're used, just look into the code further down
+ */
+
 #define MsgDeclare(len) \
-	struct sk_buff *skb; \
-	u_char tmp[len]; \
-	u_char *p = tmp; \
-	int l
+	struct sk_buff *__skb; \
+	u_char __tmp[len]; \
+	u_char *__p = __tmp; \
+	int __l
 
 #define	MsgXHead(cref, mty) \
-	*p++ = 0x8; \
+	*__p++ = 0x8; \
 	if (cref == -1) { \
-		*p++ = 0x0; \
+		*__p++ = 0x0; \
 	} else { \
-		*p++ = 0x1; \
-		*p++ = (cref)^0x80; \
+		*__p++ = 0x1; \
+		*__p++ = (cref)^0x80; \
 	} \
-	*p++ = (mty)
+	*__p++ = (mty)
 
 #define MsgAdd(msg) do { \
         if (msg[0]) { \
 		if (msg[0] & 0x80) { \
-			*p++ = msg[0]; \
+			*__p++ = msg[0]; \
 		} else { \
-			memcpy(p, msg, msg[1] + 2); \
-			p += msg[1] + 2; \
+			memcpy(__p, msg, msg[1] + 2); \
+			__p += msg[1] + 2; \
 		} \
         } \
 	} while (0)
 
 #define MsgCause(loc, cause) do { \
-        *p++ = IE_CAUSE; \
-        *p++ = 0x2; \
-        *p++ = (loc) | 0x80; \
-        *p++ = (cause) | 0x80; } while (0)
+        *__p++ = IE_CAUSE; \
+        *__p++ = 0x2; \
+        *__p++ = (loc) | 0x80; \
+        *__p++ = (cause) | 0x80; } while (0)
+
+#define MsgCallState(state) do { \
+	*__p++ = IE_CALL_STATE; \
+	*__p++ = 0x1; \
+	*__p++ = state & 0x3f; } while (0)
+
+#define MsgCallId(id) do { \
+	__l = *id++; \
+	if (__l && (__l <= 10)) { /* Max length 10 octets */ \
+		*__p++ = IE_CALL_ID; \
+		*__p++ = __l; \
+		for (i = 0; i < __l; i++) \
+			*__p++ = *id++; \
+	} else if (__l) { \
+		l3_debug(pc->st, "wrong CALL_ID len %d", __l); \
+	} \
+	} while (0)
+
+#define MsgChannelId(ch) do { \
+	*__p++ = IE_CHANNEL_ID; \
+	*__p++ = 1; \
+	*__p++ = ch | 0x80; } while (0)
+
+#define MsgRestartInd(id) do { \
+	*__p++ = IE_RESTART_IND; \
+	*__p++ = 1; \
+	*__p++ = ri; } while (0)
 
 #define MsgUUS(uus) do { \
-        *p++ = IE_USER_USER; /* UUS info element */ \
-        *p++ = strlen(uus) + 1; \
-        *p++ = 0x04; /* IA5 chars */ \
-        strcpy(p, uus); \
-        p += strlen(uus); \
+        *__p++ = IE_USER_USER; /* UUS info element */ \
+        *__p++ = strlen(uus) + 1; \
+        *__p++ = 0x04; /* IA5 chars */ \
+        strcpy(__p, uus); \
+        __p += strlen(uus); \
         uus[0] = '\0'; \
         } while (0)
 
 #define MsgSend() do { \
-	l = p - tmp; \
-	if ((skb = l3_alloc_skb(l))) { \
-	        memcpy(skb_put(skb, l), tmp, l); \
-	        l3_msg(pc->st, DL_DATA | REQUEST, skb); \
+	__l = __p - __tmp; \
+	if ((__skb = l3_alloc_skb(__l))) { \
+	        memcpy(skb_put(__skb, __l), __tmp, __l); \
+	        l3_msg(pc->st, DL_DATA | REQUEST, __skb); \
         } \
         } while (0)
 //	        l3pc_l3l2(pc, DL_DATA | REQUEST, skb); \
-
-#endif
 
 static void
 dss1down_proc(struct l3_process *pc, int pr, void *arg);
@@ -574,61 +602,31 @@ l3dss1_parse_facility(struct PStack *st, struct l3_process *pc,
 static void
 l3dss1_message(struct l3_process *pc, u_char mt)
 {
-	struct sk_buff *skb;
-	u_char *p;
+	MsgDeclare(4);
 
-	if (!(skb = l3_alloc_skb(4)))
-		return;
-	p = skb_put(skb, 4);
-	MsgHead(p, pc->callref, mt);
-	l3_msg(pc->st, DL_DATA | REQUEST, skb);
+        MsgXHead(pc->callref, MT_RELEASE);	
+	MsgSend();
 }
 
 static void
 l3dss1_message_cause(struct l3_process *pc, u_char mt, u_char cause)
 {
-	struct sk_buff *skb;
-	u_char tmp[16];
-	u_char *p = tmp;
-	int l;
+	MsgDeclare(16);
 
-	MsgHead(p, pc->callref, mt);
-	*p++ = IE_CAUSE;
-	*p++ = 0x2;
-	*p++ = 0x80;
-	*p++ = cause | 0x80;
-
-	l = p - tmp;
-	if (!(skb = l3_alloc_skb(l)))
-		return;
-	memcpy(skb_put(skb, l), tmp, l);
-	l3_msg(pc->st, DL_DATA | REQUEST, skb);
+	MsgXHead(pc->callref, mt);
+	MsgCause(0, cause);
+	MsgSend();
 }
 
 static void
 l3dss1_status_send(struct l3_process *pc, u_char pr, void *arg)
 {
-	u_char tmp[16];
-	u_char *p = tmp;
-	int l;
-	struct sk_buff *skb;
+	MsgDeclare(16);
 
-	MsgHead(p, pc->callref, MT_STATUS);
-
-	*p++ = IE_CAUSE;
-	*p++ = 0x2;
-	*p++ = 0x80;
-	*p++ = pc->para.cause | 0x80;
-
-	*p++ = IE_CALL_STATE;
-	*p++ = 0x1;
-	*p++ = pc->state & 0x3f;
-
-	l = p - tmp;
-	if (!(skb = l3_alloc_skb(l)))
-		return;
-	memcpy(skb_put(skb, l), tmp, l);
-	l3_msg(pc->st, DL_DATA | REQUEST, skb);
+	MsgXHead(pc->callref, MT_STATUS);
+	MsgCause(0, pc->para.cause);
+	MsgCallState(pc->state);
+	MsgSend();
 }
 
 static void
@@ -638,10 +636,7 @@ l3dss1_msg_without_setup(struct l3_process *pc, u_char pr, void *arg)
 	 * l3dss1_setup) and a RELEASE_COMPLETE have to be sent with an error code
 	 * MT_STATUS_ENQUIRE in the NULL state is handled too
 	 */
-	u_char tmp[16];
-	u_char *p = tmp;
-	int l;
-	struct sk_buff *skb;
+	MsgDeclare(16);
 
 	switch (pc->para.cause) {
 		case CAU_INVALID_CALL_REFERENCE:
@@ -649,22 +644,15 @@ l3dss1_msg_without_setup(struct l3_process *pc, u_char pr, void *arg)
 		case CAU_MANDATORY_IE_MISSING:
 		case CAU_INVALID_IE_CONTENTS:
 		case CAU_MSG_NOT_COMPATIBLE_WITH_CALL_STATE:
-			MsgHead(p, pc->callref, MT_RELEASE_COMPLETE);
-			*p++ = IE_CAUSE;
-			*p++ = 0x2;
-			*p++ = 0x80;
-			*p++ = pc->para.cause | 0x80;
+			MsgXHead(pc->callref, MT_RELEASE_COMPLETE);
+			MsgCause(0, pc->para.cause);
 			break;
 		default:
 			printk(KERN_ERR "HiSax l3dss1_msg_without_setup wrong cause %d\n",
 				pc->para.cause);
 			return;
 	}
-	l = p - tmp;
-	if (!(skb = l3_alloc_skb(l)))
-		return;
-	memcpy(skb_put(skb, l), tmp, l);
-	l3_msg(pc->st, DL_DATA | REQUEST, skb);
+	MsgSend();
 	dss1_release_l3_process(pc);
 }
 
@@ -977,28 +965,13 @@ l3dss1_get_cause(struct l3_process *pc, struct sk_buff *skb) {
 static void
 l3dss1_msg_with_uus(struct l3_process *pc, u_char cmd)
 {
-	struct sk_buff *skb;
-	u_char tmp[16+40];
-	u_char *p = tmp;
-	int l;
+	MsgDeclare(16+40);
 
-	MsgHead(p, pc->callref, cmd);
-
-        if (pc->prot.dss1.uus1_data[0])
-	 { *p++ = IE_USER_USER; /* UUS info element */
-           *p++ = strlen(pc->prot.dss1.uus1_data) + 1;
-           *p++ = 0x04; /* IA5 chars */
-           strcpy(p,pc->prot.dss1.uus1_data);
-           p += strlen(pc->prot.dss1.uus1_data);
-           pc->prot.dss1.uus1_data[0] = '\0';   
-         } 
-
-	l = p - tmp;
-	if (!(skb = l3_alloc_skb(l)))
-		return;
-	memcpy(skb_put(skb, l), tmp, l);
-	l3_msg(pc->st, DL_DATA | REQUEST, skb);
-} /* l3dss1_msg_with_uus */
+	MsgXHead(pc->callref, cmd);
+        if (pc->prot.dss1.uus1_data[0]) 
+		MsgUUS(pc->prot.dss1.uus1_data);
+	MsgSend();
+}
 
 static void
 l3dss1_release_req(struct l3_process *pc, u_char pr, void *arg)
@@ -1918,10 +1891,7 @@ l3dss1_reset(struct l3_process *pc, u_char pr, void *arg)
 static void
 l3dss1_disconnect_req(struct l3_process *pc, u_char pr, void *arg)
 {
-	struct sk_buff *skb;
-	u_char tmp[16+40];
-	u_char *p = tmp;
-	int l;
+	MsgDeclare(16+40);
 	u_char cause = CAU_NORMAL_CALL_CLEARING;
 
 	if (pc->para.cause != NO_CAUSE)
@@ -1929,28 +1899,12 @@ l3dss1_disconnect_req(struct l3_process *pc, u_char pr, void *arg)
 
 	l3pc_deltimer(pc);
 
-	MsgHead(p, pc->callref, MT_DISCONNECT);
-
-	*p++ = IE_CAUSE;
-	*p++ = 0x2;
-	*p++ = 0x80;
-	*p++ = cause | 0x80;
-
+	MsgXHead(pc->callref, MT_DISCONNECT);
+	MsgCause(0, cause);
         if (pc->prot.dss1.uus1_data[0])
-	 { *p++ = IE_USER_USER; /* UUS info element */
-           *p++ = strlen(pc->prot.dss1.uus1_data) + 1;
-           *p++ = 0x04; /* IA5 chars */
-           strcpy(p,pc->prot.dss1.uus1_data);
-           p += strlen(pc->prot.dss1.uus1_data);
-           pc->prot.dss1.uus1_data[0] = '\0';   
-         } 
-
-	l = p - tmp;
-	if (!(skb = l3_alloc_skb(l)))
-		return;
-	memcpy(skb_put(skb, l), tmp, l);
+		MsgUUS(pc->prot.dss1.uus1_data);
 	l3pc_newstate(pc, 11);
-	l3_msg(pc->st, DL_DATA | REQUEST, skb);
+	MsgSend();
 	l3pc_addtimer(pc, T305, CC_T305);
 }
 
@@ -1991,27 +1945,15 @@ l3dss1_connect_ack(struct l3_process *pc, u_char pr, void *arg)
 static void
 l3dss1_reject_req(struct l3_process *pc, u_char pr, void *arg)
 {
-	struct sk_buff *skb;
-	u_char tmp[16];
-	u_char *p = tmp;
-	int l;
+	MsgDeclare(16);
 	u_char cause = CAU_CALL_REJECTED;
 
 	if (pc->para.cause != NO_CAUSE)
 		cause = pc->para.cause;
 
-	MsgHead(p, pc->callref, MT_RELEASE_COMPLETE);
-
-	*p++ = IE_CAUSE;
-	*p++ = 0x2;
-	*p++ = 0x80;
-	*p++ = cause | 0x80;
-
-	l = p - tmp;
-	if (!(skb = l3_alloc_skb(l)))
-		return;
-	memcpy(skb_put(skb, l), tmp, l);
-	l3_msg(pc->st, DL_DATA | REQUEST, skb);
+	MsgXHead(pc->callref, MT_RELEASE_COMPLETE);
+	MsgCause(0, cause);
+	MsgSend();
 	p_L3L4(pc, CC_RELEASE | INDICATION, 0);
 	l3pc_newstate(pc, 0);
 	dss1_release_l3_process(pc);
@@ -2463,29 +2405,17 @@ l3dss1_t304(struct l3_process *pc, u_char pr, void *arg)
 static void
 l3dss1_t305(struct l3_process *pc, u_char pr, void *arg)
 {
-	u_char tmp[16];
-	u_char *p = tmp;
-	int l;
-	struct sk_buff *skb;
+	MsgDeclare(16);
 	u_char cause = CAU_NORMAL_CALL_CLEARING;
 
 	l3pc_deltimer(pc);
 	if (pc->para.cause != NO_CAUSE)
 		cause = pc->para.cause;
 
-	MsgHead(p, pc->callref, MT_RELEASE);
-
-	*p++ = IE_CAUSE;
-	*p++ = 0x2;
-	*p++ = 0x80;
-	*p++ = cause | 0x80;
-
-	l = p - tmp;
-	if (!(skb = l3_alloc_skb(l)))
-		return;
-	memcpy(skb_put(skb, l), tmp, l);
+	MsgXHead(pc->callref, MT_RELEASE);
+	MsgCause(0, cause);
 	l3pc_newstate(pc, 19);
-	l3_msg(pc->st, DL_DATA | REQUEST, skb);
+	MsgSend();
 	l3pc_addtimer(pc, T308, CC_T308_1);
 }
 
@@ -2630,29 +2560,14 @@ l3dss1_facility(struct l3_process *pc, u_char pr, void *arg)
 static void
 l3dss1_suspend_req(struct l3_process *pc, u_char pr, void *arg)
 {
-	struct sk_buff *skb;
-	u_char tmp[32];
-	u_char *p = tmp;
-	u_char i, l;
+	MsgDeclare(32);
+	int i;
 	setup_parm *setup = (setup_parm *) arg;
-	u_char *msg = setup->phone;
+	u_char *call_id = setup->phone;
 
-	MsgHead(p, pc->callref, MT_SUSPEND);
-	l = *msg++;
-	if (l && (l <= 10)) {	/* Max length 10 octets */
-		*p++ = IE_CALL_ID;
-		*p++ = l;
-		for (i = 0; i < l; i++)
-			*p++ = *msg++;
-	} else if (l) {
-		l3_debug(pc->st, "SUS wrong CALL_ID len %d", l);
-		return;
-	}
-	l = p - tmp;
-	if (!(skb = l3_alloc_skb(l)))
-		return;
-	memcpy(skb_put(skb, l), tmp, l);
-	l3_msg(pc->st, DL_DATA | REQUEST, skb);
+	MsgXHead(pc->callref, MT_SUSPEND);
+	MsgCallId(call_id);
+	MsgSend();
 	l3pc_newstate(pc, 15);
 	l3pc_addtimer(pc, T319, CC_T319);
 }
@@ -2705,32 +2620,14 @@ l3dss1_suspend_rej(struct l3_process *pc, u_char pr, void *arg)
 static void
 l3dss1_resume_req(struct l3_process *pc, u_char pr, void *arg)
 {
-	struct sk_buff *skb;
-	u_char tmp[32];
-	u_char *p = tmp;
-	u_char i, l;
-	u_char *msg;
+	MsgDeclare(32);
+	int i;
 	setup_parm *setup = (setup_parm *) arg;
+	u_char *call_id = setup->phone;
 
-	msg = setup->phone;
-
-	MsgHead(p, pc->callref, MT_RESUME);
-
-	l = *msg++;
-	if (l && (l <= 10)) {	/* Max length 10 octets */
-		*p++ = IE_CALL_ID;
-		*p++ = l;
-		for (i = 0; i < l; i++)
-			*p++ = *msg++;
-	} else if (l) {
-		l3_debug(pc->st, "RES wrong CALL_ID len %d", l);
-		return;
-	}
-	l = p - tmp;
-	if (!(skb = l3_alloc_skb(l)))
-		return;
-	memcpy(skb_put(skb, l), tmp, l);
-	l3_msg(pc->st, DL_DATA | REQUEST, skb);
+	MsgXHead(pc->callref, MT_RESUME);
+	MsgCallId(call_id);
+	MsgSend();
 	l3pc_newstate(pc, 17);
 	l3pc_addtimer(pc, T318, CC_T318);
 }
@@ -2801,10 +2698,9 @@ l3dss1_resume_rej(struct l3_process *pc, u_char pr, void *arg)
 static void
 l3dss1_global_restart(struct l3_process *pc, u_char pr, void *arg)
 {
-	u_char tmp[32];
+	MsgDeclare(32);
 	u_char *p;
 	u_char ri, ch = 0, chan = 0;
-	int l;
 	struct sk_buff *skb = arg;
 	struct l3_process *up;
 
@@ -2834,22 +2730,13 @@ l3dss1_global_restart(struct l3_process *pc, u_char pr, void *arg)
 			up->l4l3(up, CC_RESTART | REQUEST, 0);
 		up = up->next;
 	}
-	p = tmp;
-	MsgHead(p, pc->callref, MT_RESTART_ACKNOWLEDGE);
+	MsgXHead(pc->callref, MT_RESTART_ACKNOWLEDGE);
 	if (chan) {
-		*p++ = IE_CHANNEL_ID;
-		*p++ = 1;
-		*p++ = ch | 0x80;
+		MsgChannelId(ch);
 	}
-	*p++ = 0x79;		/* RESTART Ind */
-	*p++ = 1;
-	*p++ = ri;
-	l = p - tmp;
-	if (!(skb = l3_alloc_skb(l)))
-		return;
-	memcpy(skb_put(skb, l), tmp, l);
+	MsgRestartInd(ri);
 	l3pc_newstate(pc, 0);
-	l3_msg(pc->st, DL_DATA | REQUEST, skb);
+	MsgSend();
 }
 
 static void
@@ -3038,41 +2925,31 @@ static struct stateentry manstatelist[] =
 static void
 global_handler(struct PStack *st, int mt, struct sk_buff *skb)
 {
-	u_char tmp[16];
-	u_char *p = tmp;
-	int l;
 	int i;
-	struct l3_process *proc = st->l3.global;
+	struct l3_process *pc = st->l3.global;
 
-	proc->callref = skb->data[2]; /* cr flag */
+	pc->callref = skb->data[2]; /* cr flag */
 	for (i = 0; i < GLOBALM_LEN; i++)
 		if ((mt == globalmes_list[i].primitive) &&
-		    ((1 << proc->state) & globalmes_list[i].state))
+		    ((1 << pc->state) & globalmes_list[i].state))
 			break;
 	if (i == GLOBALM_LEN) {
+		MsgDeclare(16);
+
 		if (st->l3.debug & L3_DEB_STATE) {
 			l3_debug(st, "dss1 global state %d mt %x unhandled",
-				proc->state, mt);
+				pc->state, mt);
 		}
-		MsgHead(p, proc->callref, MT_STATUS);
-		*p++ = IE_CAUSE;
-		*p++ = 0x2;
-		*p++ = 0x80;
-		*p++ = CAU_INVALID_CALL_REFERENCE |0x80;	/* invalid cr */
-		*p++ = 0x14;		/* CallState */
-		*p++ = 0x1;
-		*p++ = proc->state & 0x3f;
-		l = p - tmp;
-		if (!(skb = l3_alloc_skb(l)))
-			return;
-		memcpy(skb_put(skb, l), tmp, l);
-		l3_msg(proc->st, DL_DATA | REQUEST, skb);
+		MsgXHead(pc->callref, MT_STATUS);
+		MsgCause(0, CAU_INVALID_CALL_REFERENCE); // ??? FIXME
+		MsgCallState(pc->state);
+		MsgSend();
 	} else {
 		if (st->l3.debug & L3_DEB_STATE) {
 			l3_debug(st, "dss1 global %d mt %x",
-				proc->state, mt);
+				 pc->state, mt);
 		}
-		globalmes_list[i].rout(proc, mt, skb);
+		globalmes_list[i].rout(pc, mt, skb);
 	}
 }
 
