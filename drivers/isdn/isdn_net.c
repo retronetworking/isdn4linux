@@ -21,6 +21,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.18  1996/07/03 13:48:51  hipp
+ * bugfix: Call dev_purge_queues() only for master device
+ *
  * Revision 1.17  1996/06/25 18:37:37  fritz
  * Fixed return count for empty return string in isdn_net_getphones().
  *
@@ -366,6 +369,8 @@ isdn_net_stat_callback(int idx, int cmd)
                                                  */
                                                 lp->chargetime = jiffies;
                                                 /* Immediately send first skb to speed up arp */
+						if(lp->p_encap == ISDN_NET_ENCAP_SYNCPPP)
+							isdn_ppp_wakeup_daemon(lp);
                                                 if (lp->first_skb) {
                                                         if (!(isdn_net_xmit(&p->dev,lp,lp->first_skb)))
                                                                 lp->first_skb = NULL;
@@ -672,22 +677,6 @@ isdn_net_log_packet(u_char * buf, isdn_net_local * lp)
                 case ISDN_NET_ENCAP_CISCOHDLC:
                         proto = ntohs(*(unsigned short *)&buf[2]);
                         p = &buf[4];
-                        break;
-                case ISDN_NET_ENCAP_SYNCPPP:
-                        len = 4;
-#ifdef CONFIG_ISDN_MPP
-                        if (lp->ppp_minor!=-1) {
-                                if (ippp_table[lp->ppp_minor]->mpppcfg &
-                                    SC_MP_PROT) {
-                                        if (ippp_table[lp->ppp_minor]->mpppcfg &
-                                            SC_OUT_SHORT_SEQ)
-                                                len = 7;
-                                        else
-                                                len = 9;
-                                }
-                        }
-#endif
-                        p = &buf[len];
                         break;
         }
 	data_ofs = ((p[0] & 15) * 4);
@@ -1245,29 +1234,6 @@ isdn_net_header(struct sk_buff *skb, struct device *dev, unsigned short type,
                         *((ushort*)&skb->data[2]) = htons(type);
                         len = 4;
                         break;
-#ifdef CONFIG_ISDN_PPP
-                case ISDN_NET_ENCAP_SYNCPPP:
-                        /* reserve space to be filled in isdn_ppp_xmit */
-                        len = 4;
-#ifdef CONFIG_ISDN_MPP
-                        if (lp->ppp_minor!=-1) {
-                                if (ippp_table[lp->ppp_minor]->mpppcfg &
-                                    SC_MP_PROT) {
-                                        if (ippp_table[lp->ppp_minor]->mpppcfg &
-                                            SC_OUT_SHORT_SEQ)
-                                                len = 7;
-                                        else
-                                                len = 9;
-                                }
-                        }
-#endif
-                        /* Initialize first 4 bytes to a value, which is
-                         * guaranteed to be invalid. Need that to check
-                         * for already compressed packets in isdn_ppp_xmit().
-                         */
-                        *((u32 *)skb_push(skb, len)) = 0;
-                        break;
-#endif
 	}
 	return len;
 }
@@ -1753,7 +1719,7 @@ isdn_net_find_icall(int di, int ch, int idx, char *num)
                                         dev->st_netdev[idx] = lp->netdev;
 					p->local.isdn_device = di;
 					p->local.isdn_channel = ch;
-					p->local.ppp_minor = -1;
+					p->local.ppp_slot = -1;
 					p->local.pppbind = -1;
 					p->local.flags |= ISDN_NET_CONNECTED;
 					p->local.dialstate = 7;
@@ -1924,7 +1890,7 @@ isdn_net_new(char *name, struct device *master)
 	netdev->local.pre_device = -1;
 	netdev->local.pre_channel = -1;
 	netdev->local.exclusive = -1;
-	netdev->local.ppp_minor = -1;
+	netdev->local.ppp_slot = -1;
 	netdev->local.pppbind = -1;
 	netdev->local.l2_proto = ISDN_PROTO_L2_X75I;
 	netdev->local.l3_proto = ISDN_PROTO_L3_TRANS;
