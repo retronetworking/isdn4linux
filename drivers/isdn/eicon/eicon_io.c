@@ -24,6 +24,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.11  2000/04/02 21:56:34  armin
+ * Start of new driver V2.
+ *
  * Revision 1.10  2000/01/23 21:21:23  armin
  * Added new trace capability and some updates.
  * DIVA Server BRI now supports data for ISDNLOG.
@@ -88,6 +91,7 @@ eicon_io_rcv_dispatch(eicon_card *ccard) {
 
 		spin_lock_irqsave(&eicon_lock, flags);
         	if ((chan = ccard->IdTable[ind->IndId]) == NULL) {
+			spin_unlock_irqrestore(&eicon_lock, flags);
 			if (DebugVar & 1) {
 				switch(ind->Ind) {
 					case N_DISC_ACK: 
@@ -99,7 +103,6 @@ eicon_io_rcv_dispatch(eicon_card *ccard) {
 							ind->Ind,ind->IndId,ind->IndCh,ind->MInd,ind->MLength,ind->RBuffer.length);
 				}
 			}
-			spin_unlock_irqrestore(&eicon_lock, flags);
 	                dev_kfree_skb(skb);
 	                continue;
 	        }
@@ -119,11 +122,9 @@ eicon_io_rcv_dispatch(eicon_card *ccard) {
 			}
 		}
 		else {
-			spin_lock_irqsave(&eicon_lock, flags);
 			if (!(skb2 = skb_dequeue(&chan->e.R))) {
 				chan->e.complete = 1;
                 		eicon_log(ccard, 1, "eicon: buffer incomplete, but 0 in queue\n");
-				spin_unlock_irqrestore(&eicon_lock, flags);
 	                	dev_kfree_skb(skb);
 				continue;	
 			}
@@ -132,7 +133,6 @@ eicon_io_rcv_dispatch(eicon_card *ccard) {
 					GFP_ATOMIC);
 			if (!skb_new) {
                 		eicon_log(ccard, 1, "eicon_io: skb_alloc failed in rcv_dispatch()\n");
-				spin_unlock_irqrestore(&eicon_lock, flags);
 	                	dev_kfree_skb(skb);
 	                	dev_kfree_skb(skb2);
 				continue;	
@@ -151,14 +151,12 @@ eicon_io_rcv_dispatch(eicon_card *ccard) {
                 	dev_kfree_skb(skb2);
 			if (ind->MLength == ind->RBuffer.length) {
 				chan->e.complete = 2;
-				spin_unlock_irqrestore(&eicon_lock, flags);
 				idi_handle_ind(ccard, skb_new);
 				continue;
 			}
 			else {
 				chan->e.complete = 0;
 				skb_queue_tail(&chan->e.R, skb_new);
-				spin_unlock_irqrestore(&eicon_lock, flags);
 				continue;
 			}
 		}
@@ -511,11 +509,11 @@ eicon_io_transmit(eicon_card *ccard) {
 			}
 
 			chan->e.busy = 1;
+			spin_unlock_irqrestore(&eicon_lock, flags);
 	               	eicon_log(ccard, dlev, "eicon: Req=%d Id=%x Ch=%d Len=%d Ref=%d\n", 
 					reqbuf->Req, tmpid, 
 					reqbuf->ReqCh, reqbuf->XBuffer.length,
 					chan->e.ref); 
-			spin_unlock_irqrestore(&eicon_lock, flags);
 #ifdef CONFIG_ISDN_DRV_EICON_PCI
 			if (scom == 2) {
 				if (ep) {

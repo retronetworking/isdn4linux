@@ -283,7 +283,7 @@ static int diva_server_load(card_t *card, dia_load_t *load)
 {
 	diva_server_boot_t *boot;
 	int i, offset, length;
-	dword cmd;
+	dword cmd = 0;
 
 	DPRINTF(("divas: loading Diva Server PRI"));
 
@@ -388,7 +388,7 @@ static int diva_server_start(card_t *card, byte *channels)
 	diva_server_boot_t *boot;
 	byte *ram;
 	int	i;
-	dword signature;
+	dword signature = 0;
 
 	DPRINTF(("divas: start Diva Server PRI"));
 

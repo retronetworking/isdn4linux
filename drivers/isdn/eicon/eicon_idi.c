@@ -26,6 +26,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.35  2000/04/06 20:05:44  armin
+ * Fixed ugly BSENT bug, which caused bad performance.
+ *
  * Revision 1.34  2000/04/02 21:56:34  armin
  * Start of new driver V2.
  *
@@ -298,7 +301,7 @@ idi_call_res_req(eicon_REQ *reqbuf, eicon_chan *chan)
 	reqbuf->XBuffer.P[3] = 0;
 	reqbuf->XBuffer.P[4] = 0;
 	reqbuf->XBuffer.P[5] = 0;
-	reqbuf->XBuffer.P[6] = 128;
+	reqbuf->XBuffer.P[6] = 32;
 	reqbuf->XBuffer.P[7] = 0;
 	switch(chan->l2prot) {
 		case ISDN_PROTO_L2_X75I:
@@ -635,7 +638,7 @@ idi_connect_req(eicon_card *card, eicon_chan *chan, char *phone,
 	reqbuf->XBuffer.P[l++] = 0;
 	reqbuf->XBuffer.P[l++] = 0;
 	reqbuf->XBuffer.P[l++] = 0;
-	reqbuf->XBuffer.P[l++] = 128;
+	reqbuf->XBuffer.P[l++] = 32;
 	reqbuf->XBuffer.P[l++] = 0;
         switch(chan->l2prot) {
 		case ISDN_PROTO_L2_X75I:
@@ -2813,13 +2816,13 @@ idi_handle_ack_ok(eicon_card *ccard, eicon_chan *chan, eicon_RC *ack)
 		}
 		spin_lock_irqsave(&eicon_lock, flags);
 		ccard->IdTable[ack->RcId] = NULL;
-		eicon_log(ccard, 16, "idi_ack: Ch%d: Removed : Id=%x Ch=%d (%s)\n", chan->No,
-			ack->RcId, ack->RcCh, (chan->e.ReqCh)? "Net":"Sig");
 		if (!chan->e.ReqCh) 
 			chan->e.D3Id = 0;
 		else
 			chan->e.B2Id = 0;
 		spin_unlock_irqrestore(&eicon_lock, flags);
+		eicon_log(ccard, 16, "idi_ack: Ch%d: Removed : Id=%x Ch=%d (%s)\n", chan->No,
+			ack->RcId, ack->RcCh, (chan->e.ReqCh)? "Net":"Sig");
 		return 1;
 	}
 
@@ -2939,12 +2942,12 @@ idi_handle_ack(eicon_card *ccard, struct sk_buff *skb)
 						ccard->bch[j].e.B2Id  = ack->RcId;
 					ccard->IdTable[ack->RcId] = &ccard->bch[j];
 					chan = &ccard->bch[j];
-					eicon_log(ccard, 16, "idi_ack: Ch%d: Id %x assigned (%s)\n", j, 
-						ack->RcId, (ccard->bch[j].e.ReqCh)? "Net":"Sig");
 					break;
 				}
 			}
 			spin_unlock_irqrestore(&eicon_lock, flags);
+			eicon_log(ccard, 16, "idi_ack: Ch%d: Id %x assigned (%s)\n", j, 
+				ack->RcId, (ccard->bch[j].e.ReqCh)? "Net":"Sig");
 			if (j > ccard->nchannels) {
 				eicon_log(ccard, 24, "idi_ack: Ch??: ref %d not found for Id %d\n", 
 					ack->Reference, ack->RcId);

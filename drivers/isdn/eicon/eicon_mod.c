@@ -9,8 +9,6 @@
  * Thanks to    Eicon Technology GmbH & Co. oHG for
  *              documents, informations and hardware.
  *
- *              Deutsche Telekom AG for S2M support.
- *
  *		Deutsche Mailbox Saar-Lor-Lux GmbH
  *		for sponsoring and testing fax
  *		capabilities with Diva Server cards.
@@ -31,6 +29,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.27  2000/04/06 20:05:44  armin
+ * Fixed ugly BSENT bug, which caused bad performance.
+ *
  * Revision 1.26  2000/04/02 21:56:34  armin
  * Start of new driver V2.
  *
@@ -133,7 +134,7 @@
 
 #define DRIVERNAME "Eicon active ISDN driver"
 #define DRIVERRELEASE "2.0"
-#define DRIVERPATCH ".1"
+#define DRIVERPATCH ".2"
 
 
 #include <linux/config.h>

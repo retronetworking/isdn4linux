@@ -9,8 +9,6 @@
  * Thanks to	Eicon Technology GmbH & Co. oHG for 
  *		documents, informations and hardware. 
  *
- *		Deutsche Telekom AG for S2M support.
- *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation; either version 2, or (at your option)
@@ -26,6 +24,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.12  2000/04/02 21:56:34  armin
+ * Start of new driver V2.
+ *
  * Revision 1.11  2000/01/23 21:21:23  armin
  * Added new trace capability and some updates.
  * DIVA Server BRI now supports data for ISDNLOG.
