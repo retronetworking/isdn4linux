@@ -1262,7 +1262,9 @@ isdn_tty_write(struct tty_struct *tty, int from_user, const u_char * buf, int co
 					isdn_command(&c);
 				}
 				info->vonline = 0;
-				printk(KERN_DEBUG "fax dle cc/c %d/%d\n", cc,c);
+#ifdef ISDN_DEBUG_MODEM_VOICE
+				printk(KERN_DEBUG "fax dle cc/c %d/%d\n", cc, c);
+#endif
 				info->xmit_count += cc;
 			} else
 #endif
