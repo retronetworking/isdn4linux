@@ -7,6 +7,9 @@
  * Rewritten for Linux 1996 by Carsten Paeth (calle@calle.in-berlin.de)
  *
  * $Log$
+ * Revision 1.7  1999/07/01 08:23:01  keil
+ * compatibility macros now in <linux/isdn_compat.h>
+ *
  * Revision 1.6  1997/11/04 06:12:12  calle
  * capi.c: new read/write in file_ops since 2.1.60
  * capidrv.c: prepared isdnlog interface for d2-trace in newer firmware.
@@ -48,7 +51,7 @@
 #include <asm/segment.h>
 #include <linux/config.h>
 
-#include <linux/isdn_compat.h>
+#include "compat.h"
 #include "capiutil.h"
 
 /* from CAPI2.0 DDK AVM Berlin GmbH */

@@ -11,6 +11,9 @@
 # parent makes..
 #
 # $Log$
+# Revision 1.4  1997/03/30 17:10:40  calle
+# added support for AVM-B1-PCI card.
+#
 # Revision 1.3  1997/03/22 02:00:57  fritz
 # -Reworked toplevel Makefile. From now on, no different Makefiles
 #  for standalone- and in-kernel-compilation are needed any more.
@@ -53,20 +56,38 @@ L_TARGET := # used for .a targets (from L and LX objects)
 
 ifeq ($(CONFIG_ISDN_DRV_AVMB1),y)
   O_TARGET += avmb1.o
-  O_OBJS   += capi.o b1lli.o
-  OX_OBJS  += capiutil.o b1capi.o capidrv.o
-  ifdef CONFIG_PCI
-  OX_OBJS  += b1pci.o
+  OX_OBJS  += kcapi.o
+  O_OBJS   += capi.o kernelcapi.o
+  ifdef CONFIG_ISDN_DRV_AVMB1_B1ISA
+  O_OBJS   += b1isa.o
   endif
+  ifdef CONFIG_ISDN_DRV_AVMB1_B1PCI
+  O_OBJS  += b1pci.o
+  endif
+  ifdef CONFIG_ISDN_DRV_AVMB1_T1ISA
+  O_OBJS   += t1isa.o
+  endif
+  ifdef CONFIG_ISDN_DRV_AVMB1_B1PCMCIA
+  OX_OBJS   += b1pcmcia.o
+  endif
+  OX_OBJS  += capiutil.o capidrv.o b1.o
 else
   ifeq ($(CONFIG_ISDN_DRV_AVMB1),m)
   O_TARGET += kernelcapi.o
-  O_OBJS   += b1lli.o
-  OX_OBJS  += b1capi.o
+  OX_OBJS  += kcapi.o
   M_OBJS   += capi.o kernelcapi.o
-  MX_OBJS  += capiutil.o capidrv.o
-  ifdef CONFIG_PCI
-  MX_OBJS  += b1pci.o
+  ifdef CONFIG_ISDN_DRV_AVMB1_B1ISA
+  M_OBJS   += b1isa.o
+  endif
+  ifdef CONFIG_ISDN_DRV_AVMB1_B1PCI
+  M_OBJS  += b1pci.o
+  endif
+  ifdef CONFIG_ISDN_DRV_AVMB1_T1ISA
+  M_OBJS   += t1isa.o
+  endif
+  MX_OBJS  += capiutil.o capidrv.o b1.o
+  ifdef CONFIG_ISDN_DRV_AVMB1_B1PCMCIA
+  MX_OBJS  += b1pcmcia.o
   endif
   endif
 endif

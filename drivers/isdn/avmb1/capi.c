@@ -6,6 +6,9 @@
  * Copyright 1996 by Carsten Paeth (calle@calle.in-berlin.de)
  *
  * $Log$
+ * Revision 1.16  1999/07/01 08:22:57  keil
+ * compatibility macros now in <linux/isdn_compat.h>
+ *
  * Revision 1.15  1999/06/21 15:24:11  calle
  * extend information in /proc.
  *
@@ -91,7 +94,7 @@
 #include <linux/capi.h>
 #include <linux/kernelcapi.h>
 
-#include <linux/isdn_compat.h>
+#include "compat.h"
 #include "capiutil.h"
 #include "capicmd.h"
 #include "capidev.h"
@@ -472,7 +475,6 @@ capi_release(struct inode *inode, struct file *file)
 
 		while ((skb = skb_dequeue(&cdev->recv_queue)) != 0) {
 			kfree_skb(skb);
-			cdev->nrecvdroppkt++;
 		}
 		cdev->is_open = 0;
 	} else {
@@ -505,8 +507,7 @@ static struct file_operations capi_fops =
 
 /*
  * /proc/capi/capi20:
- *  minor opencount
- *         nrecvdroppkt nrecvctlpkt nrecvdatapkt nsendctlpkt nsenddatapkt
+ *  minor opencount nrecvctlpkt nrecvdatapkt nsendctlpkt nsenddatapkt
  */
 static int proc_capidev_read_proc(char *page, char **start, off_t off,
                                        int count, int *eof, void *data)
@@ -519,10 +520,9 @@ static int proc_capidev_read_proc(char *page, char **start, off_t off,
 	for (i=0; i < CAPI_MAXMINOR; i++) {
 		cp = &capidevs[i+1];
 		if (cp->nopen == 0) continue;
-		len += sprintf(page+len, "%d %lu %lu %lu %lu %lu %lu\n",
+		len += sprintf(page+len, "%d %lu %lu %lu %lu %lu\n",
 			i+1,
 			cp->nopen,
-			cp->nrecvdroppkt,
 			cp->nrecvctlpkt,
 			cp->nrecvdatapkt,
 			cp->nsentctlpkt,

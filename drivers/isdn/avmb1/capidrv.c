@@ -6,6 +6,9 @@
  * Copyright 1997 by Carsten Paeth (calle@calle.in-berlin.de)
  *
  * $Log$
+ * Revision 1.20  1999/07/01 08:22:59  keil
+ * compatibility macros now in <linux/isdn_compat.h>
+ *
  * Revision 1.19  1999/06/29 16:16:54  calle
  * Let ISDN_CMD_UNLOAD work with open isdn devices without crash again.
  * Also right unlocking (ISDN_CMD_UNLOCK) is done now.
@@ -121,7 +124,9 @@
 #include <linux/capi.h>
 #include <linux/kernelcapi.h>
 #include <linux/ctype.h>
+#include <asm/segment.h>
 
+#include "compat.h"
 #include "capiutil.h"
 #include "capicmd.h"
 #include "capidrv.h"

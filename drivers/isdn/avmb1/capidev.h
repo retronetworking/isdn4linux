@@ -6,6 +6,9 @@
  * (c) Copyright 1996 by Carsten Paeth (calle@calle.in-berlin.de)
  *
  * $Log$
+ * Revision 1.3  1999/07/01 08:22:58  keil
+ * compatibility macros now in <linux/isdn_compat.h>
+ *
  * Revision 1.2  1999/06/21 15:24:13  calle
  * extend information in /proc.
  *
@@ -33,7 +36,6 @@ struct capidev {
 	__u16 errcode;
 	/* Statistic */
 	unsigned long nopen;
-	unsigned long nrecvdroppkt;
 	unsigned long nrecvctlpkt;
 	unsigned long nrecvdatapkt;
 	unsigned long nsentctlpkt;
