@@ -1,6 +1,9 @@
 /* $Id$
 
  * $Log$
+ * Revision 1.4.2.5  1998/09/27 13:06:28  keil
+ * Apply most changes from 2.1.X (HiSax 3.1)
+ *
  * Revision 1.4.2.4  1998/05/27 18:05:49  keil
  * HiSax 3.0
  *
@@ -53,7 +56,7 @@
 #define B_RCVBUFREADY 0
 #define B_XMTBUFREADY 1
 
-extern void debugl1(struct IsdnCardState *sp, char *msg);
+extern void debugl1(struct IsdnCardState *cs, char *msg);
 extern void DChannel_proc_xmt(struct IsdnCardState *cs);
 extern void DChannel_proc_rcv(struct IsdnCardState *cs);
 extern void l1_msg(struct IsdnCardState *cs, int pr, void *arg);

@@ -1,12 +1,15 @@
 /* $Id$
 
- * arcofi.h   Ansteuerung ARCOFI 2165
+ * arcofi.c   Ansteuerung ARCOFI 2165
  *
  * Author     Karsten Keil (keil@temic-ech.spacenet.de)
  *
  *
  *
  * $Log$
+ * Revision 1.1.2.4  1998/09/27 13:05:29  keil
+ * Apply most changes from 2.1.X (HiSax 3.1)
+ *
  * Revision 1.1.2.3  1998/05/27 18:04:48  keil
  * HiSax 3.0
  *
@@ -27,7 +30,6 @@
 int
 send_arcofi(struct IsdnCardState *cs, const u_char *msg, int bc, int receive) {
 	u_char val;
-	char tmp[32];
 	long flags;
 	int cnt=30;
 	

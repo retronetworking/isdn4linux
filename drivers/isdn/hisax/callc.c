@@ -7,6 +7,9 @@
  *              Fritz Elfert
  *
  * $Log$
+ * Revision 1.30.2.10  1998/09/27 13:05:35  keil
+ * Apply most changes from 2.1.X (HiSax 3.1)
+ *
  * Revision 1.30.2.9  1998/05/27 18:04:53  keil
  * HiSax 3.0
  *
@@ -1320,7 +1323,7 @@ dchan_l3l4(struct PStack *st, int pr, void *arg)
 		default:
 			if (chanp->debug & 0x800) {
 				jiftime(tm, jiffies);
-				sprintf(tmp, "%s Channel %d L3->L4 unknown primitiv %d\n",
+				sprintf(tmp, "%s Channel %d L3->L4 unknown primitiv %x\n",
 					tm, chanp->chan, pr);
 				HiSax_putstatus(chanp->cs, tmp);
 			}
@@ -1500,7 +1503,7 @@ lldata_handler(struct PStack *st, int pr, void *arg)
 			FsmEvent(&chanp->fi, EV_BC_REL, NULL);
 			break;
 		default:
-			printk(KERN_WARNING "lldata_handler unknown primitive %d\n",
+			printk(KERN_WARNING "lldata_handler unknown primitive %x\n",
 			       pr);
 			break;
 	}
@@ -1530,7 +1533,7 @@ lltrans_handler(struct PStack *st, int pr, void *arg)
 			FsmEvent(&chanp->fi, EV_BC_REL, NULL);
 			break;
 		default:
-			printk(KERN_WARNING "lltrans_handler unknown primitive %d\n",
+			printk(KERN_WARNING "lltrans_handler unknown primitive %x\n",
 			       pr);
 			break;
 	}
@@ -1629,7 +1632,7 @@ leased_l4l3(struct PStack *st, int pr, void *arg)
 		case (DL_RELEASE | REQUEST):
 			break;
 		default:
-			printk(KERN_WARNING "transd_l4l3 unknown primitive %d\n",
+			printk(KERN_WARNING "transd_l4l3 unknown primitive %x\n",
 			       pr);
 			break;
 	}
@@ -1664,7 +1667,7 @@ leased_l1l2(struct PStack *st, int pr, void *arg)
 			break;
 		default:
 			printk(KERN_WARNING
-				"transd_l1l2 unknown primitive %d\n", pr);
+				"transd_l1l2 unknown primitive %x\n", pr);
 			break;
 	}
 }
