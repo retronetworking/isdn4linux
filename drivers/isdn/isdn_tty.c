@@ -20,6 +20,12 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.17  1996/06/06 14:55:47  fritz
+ * Changed to support DTMF decoding on audio playback also.
+ * Bugfix: Added check for invalid info->isdn_driver in
+ *         isdn_tty_senddown().
+ * Clear ncarrier flag on last close() of a tty.
+ *
  * Revision 1.16  1996/06/05 02:24:12  fritz
  * Added DTMF decoder for audio mode.
  *
@@ -191,7 +197,9 @@ void isdn_tty_readmodem(void)
                         info = &dev->mdm.info[midx];
 			if (info->online) {
 				r = 0;
+#ifdef CONFIG_ISDN_AUDIO
 				isdn_audio_eval_dtmf(info);
+#endif
 				if ((tty = info->tty)) {
 					if (info->mcr & UART_MCR_RTS) {
 						c = TTY_FLIPBUF_SIZE - tty->flip.count;
@@ -591,6 +599,7 @@ void isdn_tty_modem_hup(modem_info * info)
                 isdn_tty_at_cout("\020\024", info);
         }
         info->vonline = 0;
+#ifdef CONFIG_ISDN_AUDIO
         if (info->dtmf_state) {
                 kfree(info->dtmf_state);
                 info->dtmf_state = NULL;
@@ -603,6 +612,7 @@ void isdn_tty_modem_hup(modem_info * info)
                 kfree(info->adpcmr);
                 info->adpcmr = NULL;
         }
+#endif
         info->msr &= ~(UART_MSR_DCD | UART_MSR_RI);
         info->lsr |= UART_LSR_TEMT;
 	if (info->isdn_driver >= 0) {
