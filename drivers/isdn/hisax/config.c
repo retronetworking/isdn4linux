@@ -5,6 +5,9 @@
  *
  *
  * $Log$
+ * Revision 1.4  1996/11/05 19:35:17  keil
+ * using config.h; some spelling fixes
+ *
  * Revision 1.3  1996/10/23 17:23:28  keil
  * default config changes
  *
@@ -27,7 +30,7 @@
 /*
  * This structure array contains one entry per card. An entry looks
  * like this:
- * 
+ *
  * { type, protocol, p0, p1, p2, NULL }
  *
  * type
@@ -37,7 +40,7 @@
  *    4 Creatix PNP   	p0=irq p1=IO0 (ISAC)  p2=IO1 (HSCX)
  *    5 AVM A1 (Fritz)  p0=irq p1=iobase
  *    6 ELSA PCC16 	[p0=iobase] or nothing (autodetect)
- *                    
+ *
  *
  * protocol can be either ISDN_PTYPE_EURO or ISDN_PTYPE_1TR6
  *
@@ -80,7 +83,7 @@
 #ifndef DEFAULT_CARD
 #error "HiSax: No cards configured"
 #endif
- 
+
 #define FIRST_CARD { \
   DEFAULT_CARD, \
   DEFAULT_PROTO, \
@@ -225,7 +228,7 @@ HiSax_init(void)
 	printk(KERN_NOTICE "HiSax: Revision (");
 	strcpy(tmp,l1_revision);
 	printk("%s)\n",HiSax_getrev(tmp));
-	
+
 
 	for (i = 0; i < 16; i++) {
 		if ((io[i].typ>0) && (io[i].typ<=ISDN_CTYPE_COUNT)) {
