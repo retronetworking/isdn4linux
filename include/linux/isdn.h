@@ -21,6 +21,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.95  2000/03/04 16:20:42  detabc
+ * copy frames before rewriting frame's saddr
+ *
  * Revision 1.94  2000/02/26 00:29:40  keil
  * more softnet changes
  *
@@ -774,6 +777,7 @@ typedef struct isdn_net_local_s {
   int  cisco_loop;                     /* Loop counter for Cisco-SLARP     */
   ulong cisco_myseq;                   /* Local keepalive seq. for Cisco   */
   ulong cisco_yourseq;                 /* Remote keepalive seq. for Cisco  */
+  struct tq_struct tqueue;
 #ifdef CONFIG_ISDN_WITH_ABC
   ulong 	dw_abc_flags;
   ulong 	dw_abc_if_flags;

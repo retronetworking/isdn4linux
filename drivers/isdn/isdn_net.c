@@ -21,6 +21,11 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.114  2000/03/16 16:37:41  kai
+ * Allow phone numbers starting with "*" as outgoing numbers for
+ * networking interface. Some PBX's need this to allow dialing internal
+ * numbers (mine, for example ;-)
+ *
  * Revision 1.113  2000/03/16 15:46:37  kai
  * a little bugfix and cosmetic changes
  *
@@ -917,16 +922,7 @@ isdn_net_stat_callback(int idx, isdn_ctrl *c)
 					   frame is sent will not occur.
 					*/
 					if (lp->p_encap == ISDN_NET_ENCAP_SYNCPPP && lp->sav_skb) {
-						struct net_device *mdev;
-						if (lp->master)
-							mdev = lp->master;
-						else
-							mdev = &lp->netdev->dev;
-						if (!isdn_net_send_skb(mdev, lp, lp->sav_skb)) {
-							lp->sav_skb = NULL;
-						} else {
-							return 1;
-						}
+						queue_task(&lp->tqueue, &tq_immediate);
 					}
 					isdn_net_lp_xon(lp);
 				}
@@ -3416,6 +3412,27 @@ isdn_net_force_dial(char *name)
 }
 
 /*
+ * called from tq_immediate
+ */
+static void
+isdn_net_send_sav_skb(void *private)
+{
+       isdn_net_local *lp = private;
+       struct net_device *mdev;
+       unsigned long flags;
+
+       if (lp->master)
+	       mdev = lp->master;
+       else
+	       mdev = &lp->netdev->dev;
+
+       save_flags(flags);
+       cli();
+       if (!isdn_net_send_skb(mdev, lp, lp->sav_skb))
+	       lp->sav_skb = 0;
+       restore_flags(flags);
+}
+                                                                               /*
  * Allocate a new network-interface and initialize its data structures.
  */
 char *
@@ -3485,6 +3502,10 @@ isdn_net_new(char *name, struct net_device *master)
 	netdev->local->last = netdev->local;
 	netdev->local->netdev = netdev;
 	netdev->local->next = netdev->local;
+
+	memset(&netdev->local->tqueue, 0, sizeof(struct tq_struct));
+	netdev->local->tqueue.routine = isdn_net_send_sav_skb;
+	netdev->local->tqueue.data = netdev->local;
 
 	netdev->local->isdn_device = -1;
 	netdev->local->isdn_channel = -1;
@@ -4031,7 +4052,6 @@ isdn_net_realrm(isdn_net_dev * p, isdn_net_dev * q)
 
 	save_flags(flags);
 	cli();
-
 	if (isdn_net_started(p)) {
 		restore_flags(flags);
 		return -EBUSY;
