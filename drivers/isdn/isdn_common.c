@@ -21,6 +21,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.71  1999/01/28 09:10:43  armin
+ * Fixed bad while-loop in isdn_readbch().
+ *
  * Revision 1.70  1999/01/15 19:58:54  he
  * removed compatibiltity macro
  *
@@ -500,6 +503,8 @@ isdn_timer_funct(ulong dummy)
 				if (tf & ISDN_TIMER_KEEPALIVE)
 					isdn_net_slarp_out();
 			}
+			if (tf & ISDN_TIMER_CARRIER)
+				isdn_tty_carrier_timeout();
 #if (defined CONFIG_ISDN_PPP) && (defined CONFIG_ISDN_MPP)
 			if (tf & ISDN_TIMER_IPPP)
 				isdn_ppp_timer_timeout();
@@ -769,7 +774,9 @@ isdn_status_callback(isdn_ctrl * c)
 				cmd.command = ISDN_CMD_UNLOCK;
 				isdn_command(&cmd);
 			}
+#ifdef ISDN_DEBUG_STATCALLB
 			printk(KERN_DEBUG "ICALL: ret=%d\n", retval);
+#endif
 			return retval;
 			break;
 		case ISDN_STAT_CINF:
@@ -880,6 +887,9 @@ isdn_status_callback(isdn_ctrl * c)
 				break;
 			break;
 		case ISDN_STAT_ADDCH:
+			if (isdn_add_channels(dev->drv[di], di, c->arg, 1))
+				return -1;
+			isdn_info_update();
 			break;
 		case ISDN_STAT_UNLOAD:
 			save_flags(flags);
@@ -2174,6 +2184,104 @@ unregister_isdn_module(isdn_module *m) {
 	return 0;
 }
 
+int
+isdn_add_channels(driver *d, int drvidx, int n, int adding)
+{
+	int j, k, m;
+	ulong flags;
+
+	if (d->running)
+		return -1;
+	if (n < 1)
+		return 0;
+
+	m = (adding) ? d->channels + n : n;
+
+	if (dev->channels + n > ISDN_MAX_CHANNELS) {
+		printk(KERN_WARNING "register_isdn: Max. %d channels supported\n",
+		       ISDN_MAX_CHANNELS);
+		return -1;
+	}
+
+	if ((adding) && (d->rcverr))
+		kfree(d->rcverr);
+	if (!(d->rcverr = (int *) kmalloc(sizeof(int) * m, GFP_KERNEL))) {
+		printk(KERN_WARNING "register_isdn: Could not alloc rcverr\n");
+		return -1;
+	}
+	memset((char *) d->rcverr, 0, sizeof(int) * m);
+
+	if ((adding) && (d->rcvcount))
+		kfree(d->rcvcount);
+	if (!(d->rcvcount = (int *) kmalloc(sizeof(int) * m, GFP_KERNEL))) {
+		printk(KERN_WARNING "register_isdn: Could not alloc rcvcount\n");
+		if (!adding) kfree(d->rcverr);
+		return -1;
+	}
+	memset((char *) d->rcvcount, 0, sizeof(int) * m);
+
+	if ((adding) && (d->rpqueue)) {
+		for (j = 0; j < d->channels; j++)
+			isdn_free_queue(&d->rpqueue[j]);
+		kfree(d->rpqueue);
+	}
+	if (!(d->rpqueue =
+	      (struct sk_buff_head *) kmalloc(sizeof(struct sk_buff_head) * m, GFP_KERNEL))) {
+		printk(KERN_WARNING "register_isdn: Could not alloc rpqueue\n");
+		if (!adding) {
+			kfree(d->rcvcount);
+			kfree(d->rcverr);
+		}
+		return -1; 
+	}
+	for (j = 0; j < m; j++) {
+		skb_queue_head_init(&d->rpqueue[j]);
+	}
+
+	if ((adding) && (d->rcv_waitq))
+		kfree(d->rcv_waitq);
+	if (!(d->rcv_waitq = (struct wait_queue **)
+	      kmalloc(sizeof(struct wait_queue *) * m, GFP_KERNEL))) {
+		printk(KERN_WARNING "register_isdn: Could not alloc rcv_waitq\n");
+		if (!adding) {
+			kfree(d->rpqueue);
+			kfree(d->rcvcount);
+			kfree(d->rcverr);
+		}
+		return -1;
+	}
+	memset((char *) d->rcv_waitq, 0, sizeof(struct wait_queue *) * m);
+
+	if ((adding) && (d->snd_waitq))
+		kfree(d->snd_waitq);
+	if (!(d->snd_waitq = (struct wait_queue **)
+	      kmalloc(sizeof(struct wait_queue *) * m, GFP_KERNEL))) {
+		printk(KERN_WARNING "register_isdn: Could not alloc snd_waitq\n");
+		if (!adding) {
+			kfree(d->rcv_waitq);
+			kfree(d->rpqueue);
+			kfree(d->rcvcount);
+			kfree(d->rcverr);
+		}
+		return -1;
+	}
+	memset((char *) d->snd_waitq, 0, sizeof(struct wait_queue *) * m);
+
+	dev->channels += n;
+	save_flags(flags);
+	cli();
+	for (j = d->channels; j < m; j++)
+		for (k = 0; k < ISDN_MAX_CHANNELS; k++)
+			if (dev->chanmap[k] < 0) {
+				dev->chanmap[k] = j;
+				dev->drvmap[k] = drvidx;
+				break;
+			}
+	restore_flags(flags);
+	d->channels = m;
+	return 0;
+}
+
 /*
  * Low-level-driver registration
  */
@@ -2190,21 +2298,13 @@ int
 register_isdn(isdn_if * i)
 {
 	driver *d;
-	int n,
-	 j,
-	 k;
+	int j;
 	ulong flags;
 	int drvidx;
 
 	if (dev->drivers >= ISDN_MAX_DRIVERS) {
 		printk(KERN_WARNING "register_isdn: Max. %d drivers supported\n",
 		       ISDN_MAX_DRIVERS);
-		return 0;
-	}
-	n = i->channels;
-	if (dev->channels + n > ISDN_MAX_CHANNELS) {
-		printk(KERN_WARNING "register_isdn: Max. %d channels supported\n",
-		       ISDN_MAX_CHANNELS);
 		return 0;
 	}
 	if (!i->writebuf_skb) {
@@ -2216,52 +2316,7 @@ register_isdn(isdn_if * i)
 		return 0;
 	}
 	memset((char *) d, 0, sizeof(driver));
-	if (!(d->rcverr = (int *) kmalloc(sizeof(int) * n, GFP_KERNEL))) {
-		printk(KERN_WARNING "register_isdn: Could not alloc rcverr\n");
-		kfree(d);
-		return 0;
-	}
-	memset((char *) d->rcverr, 0, sizeof(int) * n);
-	if (!(d->rcvcount = (int *) kmalloc(sizeof(int) * n, GFP_KERNEL))) {
-		printk(KERN_WARNING "register_isdn: Could not alloc rcvcount\n");
-		kfree(d->rcverr);
-		kfree(d);
-		return 0;
-	}
-	memset((char *) d->rcvcount, 0, sizeof(int) * n);
-	if (!(d->rpqueue =
-	      (struct sk_buff_head *) kmalloc(sizeof(struct sk_buff_head) * n, GFP_KERNEL))) {
-		printk(KERN_WARNING "register_isdn: Could not alloc rpqueue\n");
-		kfree(d->rcvcount);
-		kfree(d->rcverr);
-		kfree(d);
-		return 0;
-	}
-	for (j = 0; j < n; j++) {
-		skb_queue_head_init(&d->rpqueue[j]);
-	}
-	if (!(d->rcv_waitq = (struct wait_queue **)
-	      kmalloc(sizeof(struct wait_queue *) * n, GFP_KERNEL))) {
-		printk(KERN_WARNING "register_isdn: Could not alloc rcv_waitq\n");
-		kfree(d->rpqueue);
-		kfree(d->rcvcount);
-		kfree(d->rcverr);
-		kfree(d);
-		return 0;
-	}
-	memset((char *) d->rcv_waitq, 0, sizeof(struct wait_queue *) * n);
-	if (!(d->snd_waitq = (struct wait_queue **)
-	      kmalloc(sizeof(struct wait_queue *) * n, GFP_KERNEL))) {
-		printk(KERN_WARNING "register_isdn: Could not alloc snd_waitq\n");
-		kfree(d->rcv_waitq);
-		kfree(d->rpqueue);
-		kfree(d->rcvcount);
-		kfree(d->rcverr);
-		kfree(d);
-		return 0;
-	}
-	memset((char *) d->snd_waitq, 0, sizeof(struct wait_queue *) * n);
-	d->channels = n;
+
 	d->loaded = 1;
 	d->maxbufsize = i->maxbufsize;
 	d->pktcount = 0;
@@ -2269,11 +2324,15 @@ register_isdn(isdn_if * i)
 	d->running = 0;
 	d->flags = 0;
 	d->interface = i;
+	d->channels = 0;
 	for (drvidx = 0; drvidx < ISDN_MAX_DRIVERS; drvidx++)
 		if (!dev->drv[drvidx])
 			break;
+	if (isdn_add_channels(d, drvidx, i->channels, 0)) {
+		kfree(d);
+		return 0;
+	}
 	i->channels = drvidx;
-
 	i->rcvcallb_skb = isdn_receive_skb_callback;
 	i->statcallb = isdn_status_callback;
 	if (!strlen(i->id))
@@ -2283,15 +2342,7 @@ register_isdn(isdn_if * i)
 	for (j = 0; j < drvidx; j++)
 		if (!strcmp(i->id, dev->drvid[j]))
 			sprintf(i->id, "line%d", drvidx);
-	for (j = 0; j < n; j++)
-		for (k = 0; k < ISDN_MAX_CHANNELS; k++)
-			if (dev->chanmap[k] < 0) {
-				dev->chanmap[k] = j;
-				dev->drvmap[k] = drvidx;
-				break;
-			}
 	dev->drv[drvidx] = d;
-	dev->channels += n;
 	strcpy(dev->drvid[drvidx], i->id);
 	isdn_info_update();
 	dev->drivers++;

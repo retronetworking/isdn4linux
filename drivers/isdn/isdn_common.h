@@ -21,6 +21,11 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.12  1998/06/26 15:12:27  fritz
+ * Added handling of STAT_ICALL with incomplete CPN.
+ * Added AT&L for ttyI emulator.
+ * Added more locking stuff in tty_write.
+ *
  * Revision 1.11  1998/04/14 16:28:47  he
  * Fixed user space access with interrupts off and remaining
  * copy_{to,from}_user() -> -EFAULT return codes
@@ -98,6 +103,7 @@ extern int isdn_get_free_channel(int, int, int, int, int);
 extern int isdn_writebuf_skb_stub(int, int, int, struct sk_buff *);
 extern int register_isdn(isdn_if * i);
 extern int isdn_wildmat(char *, char *);
+extern int isdn_add_channels(driver *, int, int, int);
 #if defined(ISDN_DEBUG_NET_DUMP) || defined(ISDN_DEBUG_MODEM_DUMP) || defined(CONFIG_ISDN_TIMEOUT_RULES)
 extern void isdn_dumppkt(char *, u_char *, int, int);
 #endif
