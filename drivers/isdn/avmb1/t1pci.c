@@ -6,6 +6,9 @@
  * (c) Copyright 1999 by Carsten Paeth (calle@calle.in-berlin.de)
  * 
  * $Log$
+ * Revision 1.9  2000/05/19 15:43:22  calle
+ * added calls to pci_device_start().
+ *
  * Revision 1.8  2000/05/06 00:52:36  kai
  * merged changes from kernel tree
  * fixed timer and net_device->name breakage
@@ -320,9 +323,7 @@ int t1pci_init(void)
 		        printk(KERN_ERR
 			"%s: failed to enable AVM-T1-PCI at i/o %#x, irq %d, mem %#x err=%d\n",
 			driver->name, param.port, param.irq, param.membase, retval);
-#ifdef MODULE
-			cleanup_module();
-#endif
+    			detach_capi_driver(&t1pci_driver);
 			MOD_DEC_USE_COUNT;
 			return -EIO;
 		}
@@ -335,9 +336,7 @@ int t1pci_init(void)
 		        printk(KERN_ERR
 			"%s: no AVM-T1-PCI at i/o %#x, irq %d detected, mem %#x\n",
 			driver->name, param.port, param.irq, param.membase);
-#ifdef MODULE
-			cleanup_module();
-#endif
+    			detach_capi_driver(&t1pci_driver);
 			MOD_DEC_USE_COUNT;
 			return retval;
 		}
@@ -350,6 +349,7 @@ int t1pci_init(void)
 		return 0;
 	}
 	printk(KERN_ERR "%s: NO T1-PCI card detected\n", driver->name);
+	detach_capi_driver(&t1pci_driver);
 	MOD_DEC_USE_COUNT;
 	return -ESRCH;
 #else

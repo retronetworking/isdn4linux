@@ -6,6 +6,9 @@
  * (c) Copyright 1999 by Carsten Paeth (calle@calle.in-berlin.de)
  * 
  * $Log$
+ * Revision 1.25  2000/05/29 12:29:18  keil
+ * make pci_enable_dev compatible to 2.2 kernel versions
+ *
  * Revision 1.24  2000/05/19 15:43:22  calle
  * added calls to pci_device_start().
  *
@@ -335,10 +338,13 @@ static int b1pciv4_add_card(struct capi_driver *driver, struct capicardparams *p
 	avmctrl_info *cinfo;
 	int retval;
 
+	MOD_INC_USE_COUNT;
+
 	card = (avmcard *) kmalloc(sizeof(avmcard), GFP_ATOMIC);
 
 	if (!card) {
 		printk(KERN_WARNING "%s: no memory.\n", driver->name);
+	        MOD_DEC_USE_COUNT;
 		return -ENOMEM;
 	}
 	memset(card, 0, sizeof(avmcard));
@@ -346,6 +352,7 @@ static int b1pciv4_add_card(struct capi_driver *driver, struct capicardparams *p
 	if (!card->dma) {
 		printk(KERN_WARNING "%s: no memory.\n", driver->name);
 		kfree(card);
+	        MOD_DEC_USE_COUNT;
 		return -ENOMEM;
 	}
 	memset(card->dma, 0, sizeof(avmcard_dmainfo));
@@ -354,6 +361,7 @@ static int b1pciv4_add_card(struct capi_driver *driver, struct capicardparams *p
 		printk(KERN_WARNING "%s: no memory.\n", driver->name);
 		kfree(card->dma);
 		kfree(card);
+	        MOD_DEC_USE_COUNT;
 		return -ENOMEM;
 	}
 	memset(cinfo, 0, sizeof(avmctrl_info));
@@ -372,6 +380,7 @@ static int b1pciv4_add_card(struct capi_driver *driver, struct capicardparams *p
 	        kfree(card->ctrlinfo);
 		kfree(card->dma);
 		kfree(card);
+	        MOD_DEC_USE_COUNT;
 		return -EBUSY;
 	}
 
@@ -386,6 +395,7 @@ static int b1pciv4_add_card(struct capi_driver *driver, struct capicardparams *p
 	        kfree(card->ctrlinfo);
 		kfree(card->dma);
 		kfree(card);
+	        MOD_DEC_USE_COUNT;
 		return -EIO;
 	}
 
@@ -398,6 +408,7 @@ static int b1pciv4_add_card(struct capi_driver *driver, struct capicardparams *p
 	        kfree(card->ctrlinfo);
 		kfree(card->dma);
 		kfree(card);
+	        MOD_DEC_USE_COUNT;
 		return -EIO;
 	}
 	b1dma_reset(card);
@@ -414,6 +425,7 @@ static int b1pciv4_add_card(struct capi_driver *driver, struct capicardparams *p
 	        kfree(card->ctrlinfo);
 		kfree(card->dma);
 		kfree(card);
+	        MOD_DEC_USE_COUNT;
 		return -EBUSY;
 	}
 
@@ -426,6 +438,7 @@ static int b1pciv4_add_card(struct capi_driver *driver, struct capicardparams *p
 	        kfree(card->ctrlinfo);
 		kfree(card->dma);
 		kfree(card);
+	        MOD_DEC_USE_COUNT;
 		return -EBUSY;
 	}
 	card->cardnr = cinfo->capi_ctrl->cnr;
@@ -436,8 +449,6 @@ static int b1pciv4_add_card(struct capi_driver *driver, struct capicardparams *p
 		"%s: AVM B1 PCI V4 at i/o %#x, irq %d, mem %#lx, revision %d (dma)\n",
 		driver->name, card->port, card->irq,
 		card->membase, card->revision);
-
-	MOD_INC_USE_COUNT;
 
 	return 0;
 }
@@ -490,10 +501,6 @@ static int add_card(struct pci_dev *dev)
 		        printk(KERN_ERR
 			"%s: failed to enable AVM-B1 V4 at i/o %#x, irq %d, mem %#x err=%d\n",
 			driver->name, param.port, param.irq, param.membase, retval);
-#ifdef MODULE
-			cleanup_module();
-#endif
-			MOD_DEC_USE_COUNT;
 			return -EIO;
 		}
 
@@ -520,10 +527,6 @@ static int add_card(struct pci_dev *dev)
 		        printk(KERN_ERR
 			"%s: failed to enable AVM-B1 at i/o %#x, irq %d, err=%d\n",
 			driver->name, param.port, param.irq, retval);
-#ifdef MODULE
-			cleanup_module();
-#endif
-			MOD_DEC_USE_COUNT;
 			return -EIO;
 		}
 		printk(KERN_INFO
@@ -602,8 +605,9 @@ int b1pci_init(void)
 	while ((dev = pci_find_device(PCI_VENDOR_ID_AVM, PCI_DEVICE_ID_AVM_B1, dev))) {
 		retval = add_card(dev);
 		if (retval != 0) {
-#ifdef MODULE
-			cleanup_module();
+    			detach_capi_driver(driver);
+#ifdef CONFIG_ISDN_DRV_AVMB1_B1PCIV4
+    			detach_capi_driver(driverv4);
 #endif
 			MOD_DEC_USE_COUNT;
 			return retval;
@@ -617,6 +621,10 @@ int b1pci_init(void)
 		return 0;
 	}
 	printk(KERN_ERR "%s: NO B1-PCI card detected\n", driver->name);
+	detach_capi_driver(driver);
+#ifdef CONFIG_ISDN_DRV_AVMB1_B1PCIV4
+	detach_capi_driver(driverv4);
+#endif
 	MOD_DEC_USE_COUNT;
 	return -ESRCH;
 #else

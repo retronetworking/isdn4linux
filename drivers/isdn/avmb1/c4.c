@@ -6,6 +6,9 @@
  * (c) Copyright 1999 by Carsten Paeth (calle@calle.in-berlin.de)
  * 
  * $Log$
+ * Revision 1.12  2000/06/19 16:51:53  keil
+ * don't free skb in irq context
+ *
  * Revision 1.11  2000/06/19 15:11:24  keil
  * avoid use of freed structs
  * changes from 2.4.0-ac21
@@ -1376,9 +1379,7 @@ int c4_init(void)
 		        printk(KERN_ERR
 			"%s: failed to enable AVM-C4 at i/o %#x, irq %d, mem %#x err=%d\n",
 			driver->name, param.port, param.irq, param.membase, retval);
-#ifdef MODULE
-			cleanup_module();
-#endif
+    			detach_capi_driver(driver);
 			MOD_DEC_USE_COUNT;
 			return -EIO;
 		}
@@ -1391,9 +1392,7 @@ int c4_init(void)
 		        printk(KERN_ERR
 			"%s: no AVM-C4 at i/o %#x, irq %d detected, mem %#x\n",
 			driver->name, param.port, param.irq, param.membase);
-#ifdef MODULE
-			cleanup_module();
-#endif
+    			detach_capi_driver(driver);
 			MOD_DEC_USE_COUNT;
 			return retval;
 		}
@@ -1406,6 +1405,7 @@ int c4_init(void)
 		return 0;
 	}
 	printk(KERN_ERR "%s: NO C4 card detected\n", driver->name);
+	detach_capi_driver(driver);
 	MOD_DEC_USE_COUNT;
 	return -ESRCH;
 #else
