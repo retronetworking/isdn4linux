@@ -6,6 +6,9 @@
  *
  *
  * $Log$
+ * Revision 1.3  1997/07/27 21:37:40  keil
+ * T3 implemented; supervisor l1timer; B-channel TEST_LOOP
+ *
  * Revision 1.2  1997/06/26 11:16:15  keil
  * first version
  *
@@ -45,6 +48,7 @@ ph_command(struct IsdnCardState *cs, unsigned int command)
 static void
 L1_T3_handler(struct IsdnCardState *cs)
 {
+	L1deactivated(cs);
 	ph_command(cs, ISAC_CMD_RS);
 }
 
