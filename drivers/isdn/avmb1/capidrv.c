@@ -6,6 +6,11 @@
  * Copyright 1997 by Carsten Paeth (calle@calle.in-berlin.de)
  *
  * $Log$
+ * Revision 1.13  1998/06/26 15:12:55  fritz
+ * Added handling of STAT_ICALL with incomplete CPN.
+ * Added AT&L for ttyI emulator.
+ * Added more locking stuff in tty_write.
+ *
  * Revision 1.12  1998/03/29 16:06:03  calle
  * changes from 2.0 tree merged.
  *
@@ -219,6 +224,10 @@ static inline __u32 b1prot(int l2, int l3)
 		return 0;
 	case ISDN_PROTO_L2_TRANS:
 		return 1;
+        case ISDN_PROTO_L2_V11096:
+        case ISDN_PROTO_L2_V11019:
+        case ISDN_PROTO_L2_V11038:
+		return 2;
 	}
 }
 
@@ -232,6 +241,9 @@ static inline __u32 b2prot(int l2, int l3)
 		return 0;
 	case ISDN_PROTO_L2_HDLC:
 	case ISDN_PROTO_L2_TRANS:
+        case ISDN_PROTO_L2_V11096:
+        case ISDN_PROTO_L2_V11019:
+        case ISDN_PROTO_L2_V11038:
 		return 1;
 	}
 }
@@ -244,8 +256,43 @@ static inline __u32 b3prot(int l2, int l3)
 	case ISDN_PROTO_L2_X75BUI:
 	case ISDN_PROTO_L2_HDLC:
 	case ISDN_PROTO_L2_TRANS:
+        case ISDN_PROTO_L2_V11096:
+        case ISDN_PROTO_L2_V11019:
+        case ISDN_PROTO_L2_V11038:
 	default:
 		return 0;
+	}
+}
+
+static _cstruct b1config_sync_v110(__u16 rate)
+{
+	/* CAPI-Spec "B1 Configuration" */
+	static unsigned char buf[9];
+	buf[0] = 8; /* len */
+	/* maximum bitrate */
+	buf[1] = rate & 0xff; buf[2] = (rate >> 8) & 0xff;
+	buf[3] = buf[4] = 0; /* reserved, bits per character */
+	buf[5] = buf[6] = 0; /* reserved, parity */
+	buf[7] = buf[9] = 0; /* reserved, stop bits */
+	return buf;
+}
+
+static _cstruct b1config(int l2, int l3)
+{
+	switch (l2) {
+	case ISDN_PROTO_L2_X75I:
+	case ISDN_PROTO_L2_X75UI:
+	case ISDN_PROTO_L2_X75BUI:
+	case ISDN_PROTO_L2_HDLC:
+	case ISDN_PROTO_L2_TRANS:
+	default:
+		return 0;
+        case ISDN_PROTO_L2_V11096:
+	    return b1config_sync_v110(9600);
+        case ISDN_PROTO_L2_V11019:
+	    return b1config_sync_v110(19200);
+        case ISDN_PROTO_L2_V11038:
+	    return b1config_sync_v110(38400);
 	}
 }
 
@@ -1524,7 +1571,7 @@ static int capidrv_command(isdn_ctrl * c, capidrv_contr * card)
 					    b1prot(bchan->l2, bchan->l3),	/* B1protocol */
 					    b2prot(bchan->l2, bchan->l3),	/* B2protocol */
 					    b3prot(bchan->l2, bchan->l3),	/* B3protocol */
-					      0,	/* B1configuration */
+					    b1config(bchan->l2, bchan->l3),	/* B1configuration */
 					      0,	/* B2configuration */
 					      0,	/* B3configuration */
 					      0,	/* BC */
@@ -1564,7 +1611,7 @@ static int capidrv_command(isdn_ctrl * c, capidrv_contr * card)
 				       b1prot(bchan->l2, bchan->l3),	/* B1protocol */
 				       b2prot(bchan->l2, bchan->l3),	/* B2protocol */
 				       b3prot(bchan->l2, bchan->l3),	/* B3protocol */
-				       0,	/* B1configuration */
+				       b1config(bchan->l2, bchan->l3),	/* B1configuration */
 				       0,	/* B2configuration */
 				       0,	/* B3configuration */
 				       0,	/* ConnectedNumber */
@@ -1914,6 +1961,9 @@ static int capidrv_addcontr(__u16 contr, struct capi_profile *profp)
 	    ISDN_FEATURE_L2_HDLC |
 	    ISDN_FEATURE_L2_TRANS |
 	    ISDN_FEATURE_L3_TRANS |
+	    ISDN_FEATURE_L2_V11096 |
+	    ISDN_FEATURE_L2_V11019 |
+	    ISDN_FEATURE_L2_V11038 |
 	    ISDN_FEATURE_P_UNKNOWN;
 	card->interface.hl_hdrlen = 22; /* len of DATA_B3_REQ */
 	strncpy(card->interface.id, id, sizeof(card->interface.id) - 1);
