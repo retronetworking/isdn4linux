@@ -11,6 +11,11 @@
 # parent makes..
 #
 # $Log$
+# Revision 1.12  2000/03/06 18:00:23  calle
+# - Middleware extention now working with 2.3.49 (capifs).
+# - Fixed typos in debug section of capi.c
+# - Bugfix: Makefile corrected for b1pcmcia.c
+#
 # Revision 1.11  2000/03/06 09:17:07  calle
 # - capifs: fileoperations now in inode (change for 2.3.49)
 # - Config.in: Middleware extention not a tristate, uups.
@@ -109,7 +114,7 @@ ifeq ($(CONFIG_ISDN_CAPI),y)
   O_TARGET += avmb1.o
   OX_OBJS  += kcapi.o
   O_OBJS   += capi.o
-  ifdef CONFIG_ISDN_CAPI_MIDDLEWARE
+  ifdef CONFIG_ISDN_CAPIFS
   	OX_OBJS   += capifs.o
   endif
   ifdef CONFIG_ISDN_DRV_AVMB1_B1ISA
@@ -136,7 +141,7 @@ else
   	O_TARGET += kernelcapi.o
   	OX_OBJS  += kcapi.o
   	M_OBJS   += capi.o kernelcapi.o
-  	ifdef CONFIG_ISDN_CAPI_MIDDLEWARE
+  	ifdef CONFIG_ISDN_CAPIFS
   		MX_OBJS   += capifs.o
   	endif
   	ifdef CONFIG_ISDN_DRV_AVMB1_B1ISA

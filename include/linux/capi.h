@@ -6,6 +6,17 @@
  * Copyright 1997 by Carsten Paeth (calle@calle.in-berlin.de)
  * 
  * $Log$
+ * Revision 1.2  2000/03/03 15:50:42  calle
+ * - kernel CAPI:
+ *   - Changed parameter "param" in capi_signal from __u32 to void *.
+ *   - rewrote notifier handling in kcapi.c
+ *   - new notifier NCCI_UP and NCCI_DOWN
+ * - User CAPI:
+ *   - /dev/capi20 is now a cloning device.
+ *   - middleware extentions prepared.
+ * - capidrv.c
+ *   - locking of list operations and module count updates.
+ *
  * Revision 1.1  1997/03/04 21:27:33  calle
  * First version in isdn4linux
  *
@@ -136,5 +147,7 @@ typedef union capi_ioctl_struct {
 #define CAPI_CLR_FLAGS		_IOR('C',0x25, unsigned)
 
 #define CAPI_NCCI_OPENCOUNT	_IOR('C',0x26, unsigned)
+
+#define CAPI_NCCI_GETUNIT	_IOR('C',0x27, unsigned)
 
 #endif				/* __LINUX_CAPI_H__ */

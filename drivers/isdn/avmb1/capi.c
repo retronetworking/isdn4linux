@@ -6,6 +6,11 @@
  * Copyright 1996 by Carsten Paeth (calle@calle.in-berlin.de)
  *
  * $Log$
+ * Revision 1.27  2000/03/06 18:00:23  calle
+ * - Middleware extention now working with 2.3.49 (capifs).
+ * - Fixed typos in debug section of capi.c
+ * - Bugfix: Makefile corrected for b1pcmcia.c
+ *
  * Revision 1.26  2000/03/03 16:48:38  calle
  * - Added CAPI2.0 Middleware support (CONFIG_ISDN_CAPI)
  *   It is now possible to create a connection with a CAPI2.0 applikation
@@ -496,10 +501,12 @@ static struct capincci *capincci_alloc(struct capidev *cdev, __u32 ncci)
 #ifdef _DEBUG_REFCOUNT
 		printk(KERN_DEBUG "set mp->nccip\n");
 #endif
+#ifdef CONFIG_ISDN_CAPIFS
 		kdev = MKDEV(capi_rawmajor, mp->minor);
-		capifs_new_ncci(cdev->applid, ncci, "raw", kdev);
+		capifs_new_ncci('r', mp->minor, kdev);
 		kdev = MKDEV(capi_ttymajor, mp->minor);
-		capifs_new_ncci(cdev->applid, ncci, "tty", kdev);
+		capifs_new_ncci(0, mp->minor, kdev);
+#endif
 	}
 #endif /* CONFIG_ISDN_CAPI_MIDDLEWARE */
         return np;
@@ -519,8 +526,10 @@ static void capincci_free(struct capidev *cdev, __u32 ncci)
 			*pp = (*pp)->next;
 #ifdef CONFIG_ISDN_CAPI_MIDDLEWARE
 			if ((mp = np->minorp) != 0) {
-				capifs_free_ncci(cdev->applid, np->ncci, "raw");
-				capifs_free_ncci(cdev->applid, np->ncci, "tty");
+#ifdef CONFIG_ISDN_CAPIFS
+				capifs_free_ncci('r', mp->minor);
+				capifs_free_ncci(0, mp->minor);
+#endif
 				if (mp->tty) {
 					mp->nccip = 0;
 #ifdef _DEBUG_REFCOUNT
@@ -1231,6 +1240,25 @@ static int capi_ioctl(struct inode *inode, struct file *file,
 			return count;
 		}
 		return 0;
+
+#ifdef CONFIG_ISDN_CAPI_MIDDLEWARE
+	case CAPI_NCCI_GETUNIT:
+		{
+			struct capincci *nccip;
+			struct capiminor *mp;
+			unsigned ncci;
+			retval = copy_from_user((void *) &ncci,
+						(void *) arg,
+						sizeof(ncci));
+			if (retval)
+				return -EFAULT;
+			nccip = capincci_find(cdev, (__u32) ncci);
+			if (!nccip || (mp = nccip->minorp) == 0)
+				return -ESRCH;
+			return mp->minor;
+		}
+		return 0;
+#endif /* CONFIG_ISDN_CAPI_MIDDLEWARE */
 	}
 	return -EINVAL;
 }
@@ -1837,9 +1865,9 @@ int capinc_tty_init(void)
 	memset(drv, 0, sizeof(struct tty_driver));
 	drv->magic = TTY_DRIVER_MAGIC;
 #if (LINUX_VERSION_CODE > 0x20100)
-	drv->driver_name = "capinc_tty";
+	drv->driver_name = "capi_nc";
 #endif
-	drv->name = "capi";
+	drv->name = "capi/%d";
 	drv->major = capi_ttymajor;
 	drv->minor_start = 0;
 	drv->num = CAPINC_NR_PORTS;
@@ -1880,7 +1908,7 @@ int capinc_tty_init(void)
 	drv->read_proc = capinc_tty_read_proc;
 #endif
 	if (tty_register_driver(drv)) {
-		printk(KERN_ERR "Couldn't register capinc_tty driver\n");
+		printk(KERN_ERR "Couldn't register capi_nc driver\n");
 		return -1;
 	}
 	return 0;
@@ -1891,7 +1919,7 @@ void capinc_tty_exit(void)
 	struct tty_driver *drv = &capinc_tty_driver;
 	int retval;
 	if ((retval = tty_unregister_driver(drv)))
-		printk(KERN_ERR "capi: failed to unregister capinc_tty driver (%d)\n", retval);
+		printk(KERN_ERR "capi: failed to unregister capi_nc driver (%d)\n", retval);
 }
 
 #endif /* CONFIG_ISDN_CAPI_MIDDLEWARE */
@@ -2139,12 +2167,19 @@ int capi_init(void)
 	}
 
 #ifdef CONFIG_ISDN_CAPI_MIDDLEWARE
-	if (devfs_register_chrdev(capi_rawmajor, "capinc_raw", &capinc_raw_fops)) {
+	if (devfs_register_chrdev(capi_rawmajor, "capi/r%d", &capinc_raw_fops)) {
 		devfs_unregister_chrdev(capi_major, "capi20");
 		printk(KERN_ERR "capi20: unable to get major %d\n", capi_rawmajor);
 		MOD_DEC_USE_COUNT;
 		return -EIO;
 	}
+#ifdef HAVE_DEVFS_FS
+        devfs_register_series (NULL, "capi/r%u", CAPINC_NR_PORTS,
+			      DEVFS_FL_DEFAULT,
+                              capi_rawmajor, 0,
+                              S_IFCHR | S_IRUSR | S_IWUSR, 0, 0,
+                              &capinc_raw_fops, NULL);
+#endif
 #endif /* CONFIG_ISDN_CAPI_MIDDLEWARE */
 #ifdef HAVE_DEVFS_FS
 	devfs_register (NULL, "isdn/capi20", 0, DEVFS_FL_DEFAULT,
@@ -2158,7 +2193,7 @@ int capi_init(void)
 		MOD_DEC_USE_COUNT;
 		devfs_unregister_chrdev(capi_major, "capi20");
 #ifdef CONFIG_ISDN_CAPI_MIDDLEWARE
-		devfs_unregister_chrdev(capi_rawmajor, "capinc_raw");
+		devfs_unregister_chrdev(capi_rawmajor, "capi/r%d");
 #endif /* CONFIG_ISDN_CAPI_MIDDLEWARE */
 #ifdef HAVE_DEVFS_FS
 		devfs_unregister(devfs_find_handle(NULL, "capi20", 0,
@@ -2172,7 +2207,7 @@ int capi_init(void)
 	if (capinc_tty_init() < 0) {
 		(void) detach_capi_interface(&cuser);
 		devfs_unregister_chrdev(capi_major, "capi20");
-		devfs_unregister_chrdev(capi_rawmajor, "capinc_raw");
+		devfs_unregister_chrdev(capi_rawmajor, "capi/r%d");
 		MOD_DEC_USE_COUNT;
 		return -ENOMEM;
 	}
@@ -2181,8 +2216,16 @@ int capi_init(void)
 #ifdef COMPAT_HAS_kmem_cache
 	if (alloc_init() < 0) {
 #ifdef CONFIG_ISDN_CAPI_MIDDLEWARE
+#ifdef HAVE_DEVFS_FS
+		unsigned int j;
+		devfs_unregister_chrdev(capi_rawmajor, "capi/r%d");
+		for (j = 0; j < CAPINC_NR_PORTS; j++) {
+			char devname[32];
+			sprintf(devname, "capi/r%u", j);
+			devfs_unregister(devfs_find_handle(NULL, devname, 0, capi_rawmajor, j, DEVFS_SPECIAL_CHR, 0));
+		}
+#endif
 		capinc_tty_exit();
-		devfs_unregister_chrdev(capi_rawmajor, "capinc_raw");
 #endif /* CONFIG_ISDN_CAPI_MIDDLEWARE */
 		(void) detach_capi_interface(&cuser);
 		devfs_unregister_chrdev(capi_major, "capi20");
@@ -2208,18 +2251,32 @@ int capi_init(void)
 #ifdef MODULE
 void cleanup_module(void)
 {
+#ifdef CONFIG_ISDN_CAPI_MIDDLEWARE
+#ifdef HAVE_DEVFS_FS
+	unsigned int j;
+#endif
+#endif
 #ifdef COMPAT_HAS_kmem_cache
 	alloc_exit();
 #endif
 	(void)proc_exit();
 
-#ifdef CONFIG_ISDN_CAPI_MIDDLEWARE
-	capinc_tty_exit();
-	devfs_unregister_chrdev(capi_rawmajor, "capinc_raw");
-#endif /* CONFIG_ISDN_CAPI_MIDDLEWARE */
 	devfs_unregister_chrdev(capi_major, "capi20");
 #ifdef HAVE_DEVFS_FS
 	devfs_unregister(devfs_find_handle(NULL, "isdn/capi20", 0, capi_major, 0, DEVFS_SPECIAL_CHR, 0));
+#endif
+
+#ifdef CONFIG_ISDN_CAPI_MIDDLEWARE
+	capinc_tty_exit();
+	devfs_unregister_chrdev(capi_rawmajor, "capi/r%d");
+#ifdef HAVE_DEVFS_FS
+	for (j = 0; j < CAPINC_NR_PORTS; j++) {
+		devfs_handle_t handle;
+		char devname[32];
+		sprintf(devname, "capi/r%u", j);
+		devfs_unregister(devfs_find_handle(NULL, devname, 0, capi_rawmajor, j, DEVFS_SPECIAL_CHR, 0));
+	}
+#endif
 #endif
 	(void) detach_capi_interface(&cuser);
 	printk(KERN_NOTICE "capi: Rev%s: unloaded\n", rev);
