@@ -20,6 +20,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.2  2000/05/22 10:31:22  ualbrecht
+ * Parameter-checking for app-registration fixed
+ *
  * Revision 1.1  2000/05/17 11:34:30  ualbrecht
  * Initial release
  *
@@ -316,13 +319,14 @@ hycapi_release_appl(struct capi_ctr *ctrl, __u16 appl)
 			ap->next = p->next;
 			break;
 		}
+		p = NULL;
 	}
 	if (!p) {
 		printk(KERN_WARNING "HYSDN: releasing unknown Application???\n");
 		return;
 	}
 	if(p->listen_req) {
-		kfree(p->listen_req);
+		kfree_skb(p->listen_req);
 	}
 	kfree(p);
 	ctrl->appl_released(ctrl, appl);
