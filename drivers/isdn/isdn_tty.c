@@ -2318,6 +2318,22 @@ isdn_tty_stat_callback(int i, isdn_ctrl *c)
 				  isdn_tty_at_cout("\r\n", info);
 				}
 				return 1;
+			case ISDN_STAT_ALERT:
+#ifdef ISDN_TTY_STAT_DEBUG
+				printk(KERN_DEBUG "tty_STAT_ALERT ttyI%d\n", info->line);
+#endif
+				/* Signal RINGING to tty-device if requested */
+				if (info->emu.mdmreg[REG_ALERT] & BIT_ALERT)
+					isdn_tty_modem_result(RESULT_RINGING, info);
+				return 1;
+			case ISDN_STAT_PROCEED:
+#ifdef ISDN_TTY_STAT_DEBUG
+				printk(KERN_DEBUG "tty_STAT_PROCEED ttyI%d\n", info->line);
+#endif
+				/* Signal PROCEEDING to tty-device if requested */
+				if (info->emu.mdmreg[REG_PROCEED] & BIT_PROCEED)
+					isdn_tty_modem_result(RESULT_PROCEEDING, info);
+				return 1;
 			case ISDN_STAT_DCONN:
 #ifdef ISDN_TTY_STAT_DEBUG
 				printk(KERN_DEBUG "tty_STAT_DCONN ttyI%d\n", info->line);
@@ -2630,7 +2646,7 @@ isdn_tty_modem_result(int code, modem_info * info)
 	static char *msg[] =
 	{"OK", "CONNECT", "RING", "NO CARRIER", "ERROR",
 	 "CONNECT 64000", "NO DIALTONE", "BUSY", "NO ANSWER",
-	 "RINGING", "NO MSN/EAZ", "VCON", "RUNG"};
+	 "RINGING", "NO MSN/EAZ", "VCON", "RUNG", "PROCEEDING"};
 	ulong flags;
 	char s[ISDN_MSNLEN+10];
 

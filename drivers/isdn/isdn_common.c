@@ -755,6 +755,10 @@ isdn_status_callback(isdn_ctrl * c)
                         if (divert_if)
                           return(divert_if->stat_callback(c));
 #endif /* CONFIG_ISDN_DIVERSION */
+		case ISDN_STAT_ALERT:
+		case ISDN_STAT_PROCEED:
+			isdn_tty_stat_callback(i, c);
+			break;
 		default:
 			return -1;
 	}

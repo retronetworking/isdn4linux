@@ -214,6 +214,8 @@ typedef struct
 #define ISDN_STAT_FAXIND  276    /* FAX indications from HL-driver        */
 #define ISDN_STAT_AUDIO   277    /* DTMF, DSP indications                 */
 #define ISDN_STAT_DISCH   278    /* Disable/Enable channel usage          */
+#define ISDN_STAT_ALERT   279    /* Signal alerting                       */
+#define ISDN_STAT_PROCEED 280    /* Signal proceeding                     */
 
 /*
  * Audio commands

@@ -145,9 +145,11 @@ enum {
 	EV_PROCEED,		/* 20 */
 	EV_ALERT,		/* 21 */ 
 	EV_REDIR,		/* 22 */ 
+	EV_ALERTING,		/* 23 */
+	EV_PROCEEDING,		/* 24 */
 };
 
-#define EVENT_COUNT (EV_REDIR + 1)
+#define EVENT_COUNT (EV_PROCEEDING + 1)
 
 static char *strEvent[] =
 {
@@ -174,6 +176,8 @@ static char *strEvent[] =
 	"EV_PROCEED",
 	"EV_ALERT",
 	"EV_REDIR",
+	"EV_ALERTING",
+	"EV_PROCEEDING",
 };
 
 
@@ -283,6 +287,22 @@ lli_prep_dialout(struct FsmInst *fi, int event, void *arg)
 		FsmChangeState(fi, ST_OUT_DIAL);
 		chanp->d_st->lli.l4l3(chanp->d_st, CC_SETUP | REQUEST, chanp);
 	}
+}
+
+static void
+lli_alerting(struct FsmInst *fi, int event, void *arg)
+{
+	struct Channel *chanp = fi->userdata;
+	
+	HL_LL(chanp, ISDN_STAT_ALERT);
+}
+
+static void
+lli_proceeding(struct FsmInst *fi, int event, void *arg)
+{
+	struct Channel *chanp = fi->userdata;
+	
+	HL_LL(chanp, ISDN_STAT_PROCEED);
 }
 
 static void
@@ -784,6 +804,8 @@ static struct FsmNode fnlist[] __initdata =
         {ST_OUT_DIAL,           EV_DISCONNECT_IND,      lli_release_req},
         {ST_OUT_DIAL,           EV_RELEASE,             lli_dhup_close},
         {ST_OUT_DIAL,           EV_NOSETUP_RSP,         lli_no_setup_rsp},
+        {ST_OUT_DIAL,           EV_PROCEEDING,		lli_proceeding},
+        {ST_OUT_DIAL,           EV_ALERTING,		lli_alerting},
         {ST_OUT_DIAL,           EV_SETUP_ERR,           lli_error},
         {ST_IN_WAIT_LL,         EV_LEASED_REL,          lli_failure_l},
         {ST_IN_WAIT_LL,         EV_ACCEPTD,             lli_setup_rsp},
@@ -997,8 +1019,13 @@ dchan_l3l4(struct PStack *st, int pr, void *arg)
 			FsmEvent(&chanp->fi, EV_RELEASE, NULL);
 			break;
 		case (CC_PROCEED_SEND | INDICATION):
+			break;
 		case (CC_PROCEEDING | INDICATION):
+			FsmEvent(&chanp->fi, EV_PROCEEDING, NULL);
+			break;
 		case (CC_ALERTING | INDICATION):
+			FsmEvent(&chanp->fi, EV_ALERTING, NULL);
+			break;
 		case (CC_PROGRESS | INDICATION):
 		case (CC_NOTIFY | INDICATION):
 			break;
