@@ -8,6 +8,9 @@
  *
  *
  * $Log$
+ * Revision 1.14.2.2  1997/06/25 17:57:45  keil
+ * little bugfix
+ *
  * Revision 1.14.2.1  1997/06/25 09:11:24  fritz
  * Changed SET_SKB_FREE stuff in HiSax.
  *
@@ -618,7 +621,7 @@ isac_interrupt(struct IsdnCardState *sp, u_char val)
 			if (exval & 0x40)
 				if (sp->debug & L1_DEB_WARN)
 					debugl1(sp, "ISAC RDO");
-			if (!exval & 0x20)
+			if (!(exval & 0x20))
 				if (sp->debug & L1_DEB_WARN)
 					debugl1(sp, "ISAC CRC error");
 			writeisac(sp->cfg_reg, ISAC_CMDR, 0x80);

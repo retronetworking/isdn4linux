@@ -21,6 +21,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.48  1997/06/22 11:57:15  fritz
+ * Added ability to adjust slave triggerlevel.
+ *
  * Revision 1.47  1997/06/21 10:52:05  fritz
  * Removed wrong SET_SKB_FREE in isdn_net_send_skb()
  *
@@ -1348,11 +1351,13 @@ isdn_net_header(struct sk_buff *skb, struct device *dev, unsigned short type,
 		case ISDN_NET_ENCAP_ETHER:
 			len = my_eth_header(skb, dev, type, daddr, saddr, plen);
 			break;
+#ifdef CONFIG_ISDN_PPP
 		case ISDN_NET_ENCAP_SYNCPPP:
 			/* stick on a fake header to keep fragmentation code happy. */
 			len = IPPP_MAX_HEADER;
 			skb_push(skb,len);
 			break;
+#endif
 		case ISDN_NET_ENCAP_RAWIP:
 			printk(KERN_WARNING "isdn_net_header called with RAW_IP!\n");
 			len = 0;

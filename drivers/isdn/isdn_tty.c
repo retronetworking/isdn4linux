@@ -20,6 +20,13 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.41  1997/05/27 15:17:31  fritz
+ * Added changes for recent 2.1.x kernels:
+ *   changed return type of isdn_close
+ *   queue_task_* -> queue_task
+ *   clear/set_bit -> test_and_... where apropriate.
+ *   changed type of hard_header_cache parameter.
+ *
  * Revision 1.40  1997/03/24 22:55:27  fritz
  * Added debug code for status callbacks.
  *
@@ -2438,13 +2445,16 @@ isdn_tty_get_msnstr(char *n, char **p)
  * Get phone-number from modem-commandbuffer
  */
 static void
-isdn_tty_getdial(char *p, char *q)
+isdn_tty_getdial(char *p, char *q, int max)
 {
 	int first = 1;
 
-	while (strchr("0123456789,#.*WPTS-", *p) && *p) {
-		if ((*p >= '0' && *p <= '9') || ((*p == 'S') && first))
+	max--;
+	while (strchr("0123456789,#.*WPTS-", *p) && *p && (max > 0)) {
+		if ((*p >= '0' && *p <= '9') || ((*p == 'S') && first)) {
 			*q++ = *p;
+			max--;
+		}
 		p++;
 		first = 0;
 	}
@@ -3085,7 +3095,7 @@ isdn_tty_parse_at(modem_info * info)
 				break;
 			case 'D':
 				/* D - Dial */
-				isdn_tty_getdial(++p, ds);
+				isdn_tty_getdial(++p, ds, sizeof(ds));
 				p += strlen(p);
 				if (!strlen(m->msn))
 					isdn_tty_modem_result(10, info);
