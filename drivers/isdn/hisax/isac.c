@@ -9,6 +9,9 @@
  *		../../../Documentation/isdn/HiSax.cert
  *
  * $Log$
+ * Revision 1.23  1999/08/25 16:50:52  keil
+ * Fix bugs which cause 2.3.14 hangs (waitqueue init)
+ *
  * Revision 1.22  1999/08/09 19:04:40  keil
  * Fix race condition - Thanks to Christer Weinigel
  *
@@ -278,12 +281,20 @@ isac_interrupt(struct IsdnCardState *cs, u_char val)
 	if (val & 0x80) {	/* RME */
 		exval = cs->readisac(cs, ISAC_RSTA);
 		if ((exval & 0x70) != 0x20) {
-			if (exval & 0x40)
+			if (exval & 0x40) {
 				if (cs->debug & L1_DEB_WARN)
 					debugl1(cs, "ISAC RDO");
-			if (!(exval & 0x20))
+#ifdef ERROR_STATISTIC
+				cs->err_rx++;
+#endif
+			}
+			if (!(exval & 0x20)) {
 				if (cs->debug & L1_DEB_WARN)
 					debugl1(cs, "ISAC CRC error");
+#ifdef ERROR_STATISTIC
+				cs->err_crc++;
+#endif
+			}
 			cs->writeisac(cs, ISAC_CMDR, 0x80);
 		} else {
 			count = cs->readisac(cs, ISAC_RBCL) & 0x1f;
@@ -369,6 +380,9 @@ isac_interrupt(struct IsdnCardState *cs, u_char val)
 		if (exval & 0x40) {  /* XDU */
 			debugl1(cs, "ISAC XDU");
 			printk(KERN_WARNING "HiSax: ISAC XDU\n");
+#ifdef ERROR_STATISTIC
+			cs->err_tx++;
+#endif
 			if (test_and_clear_bit(FLG_DBUSY_TIMER, &cs->HW_Flags))
 				del_timer(&cs->dbusytimer);
 			if (test_and_clear_bit(FLG_L1_DBUSY, &cs->HW_Flags))

@@ -5,6 +5,9 @@
  *
  *
  * $Log$
+ * Revision 2.37  1999/09/20 12:11:08  keil
+ * Fix hang if no protocol was selected
+ *
  * Revision 2.36  1999/09/07 05:43:58  werner
  *
  * Added io as parameter 0 for HFC-PCI cards, if manual selection needed.
@@ -1416,12 +1419,9 @@ HiSax_closecard(int cardnr)
 }
 
 void
-HiSax_reportcard(int cardnr)
+HiSax_reportcard(int cardnr, int sel)
 {
 	struct IsdnCardState *cs = cards[cardnr].cs;
-	struct PStack *stptr;
-	struct l3_process *pc;
-	int j, i = 1;
 
 	printk(KERN_DEBUG "HiSax: reportcard No %d\n", cardnr + 1);
 	printk(KERN_DEBUG "HiSax: Type %s\n", CardType[cs->typ]);
@@ -1429,12 +1429,39 @@ HiSax_reportcard(int cardnr)
 	printk(KERN_DEBUG "HiSax: HiSax_reportcard address 0x%lX\n",
 		(ulong) & HiSax_reportcard);
 	printk(KERN_DEBUG "HiSax: cs 0x%lX\n", (ulong) cs);
-	printk(KERN_DEBUG "HiSax: HW_Flags %x bc0 flg %x bc0 flg %x\n",
+	printk(KERN_DEBUG "HiSax: HW_Flags %x bc0 flg %x bc1 flg %x\n",
 		cs->HW_Flags, cs->bcs[0].Flag, cs->bcs[1].Flag);
 	printk(KERN_DEBUG "HiSax: bcs 0 mode %d ch%d\n",
 		cs->bcs[0].mode, cs->bcs[0].channel);
 	printk(KERN_DEBUG "HiSax: bcs 1 mode %d ch%d\n",
 		cs->bcs[1].mode, cs->bcs[1].channel);
+#ifdef ERROR_STATISTIC
+	printk(KERN_DEBUG "HiSax: dc errors(rx,crc,tx) %d,%d,%d\n",
+		cs->err_rx, cs->err_crc, cs->err_tx);
+	printk(KERN_DEBUG "HiSax: bc0 errors(inv,rdo,crc,tx) %d,%d,%d,%d\n",
+		cs->bcs[0].err_inv, cs->bcs[0].err_rdo, cs->bcs[0].err_crc, cs->bcs[0].err_tx);
+	printk(KERN_DEBUG "HiSax: bc1 errors(inv,rdo,crc,tx) %d,%d,%d,%d\n",
+		cs->bcs[1].err_inv, cs->bcs[1].err_rdo, cs->bcs[1].err_crc, cs->bcs[1].err_tx);
+	if (sel == 99) {
+		cs->err_rx  = 0;
+		cs->err_crc = 0;
+		cs->err_tx  = 0;
+		cs->bcs[0].err_inv = 0;
+		cs->bcs[0].err_rdo = 0;
+		cs->bcs[0].err_crc = 0;
+		cs->bcs[0].err_tx  = 0;
+		cs->bcs[1].err_inv = 0;
+		cs->bcs[1].err_rdo = 0;
+		cs->bcs[1].err_crc = 0;
+		cs->bcs[1].err_tx  = 0;
+	}
+#endif
+#if 0   
+	{  
+	struct PStack *stptr;
+	struct l3_process *pc;
+	int j, i = 1;
+
 	printk(KERN_DEBUG "HiSax: cs setstack_d 0x%lX\n", (ulong) cs->setstack_d);
 	printk(KERN_DEBUG "HiSax: cs stl 0x%lX\n", (ulong) & (cs->stlist));
 	stptr = cs->stlist;
@@ -1468,6 +1495,8 @@ HiSax_reportcard(int cardnr)
 			i++;
 		}
 	}
+	}
+#endif
 }
 
 

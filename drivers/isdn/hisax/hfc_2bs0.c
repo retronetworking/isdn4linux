@@ -6,6 +6,9 @@
  *
  *
  * $Log$
+ * Revision 1.9  1999/07/01 08:11:36  keil
+ * Common HiSax version for 2.0, 2.1, 2.2 and 2.3 kernel
+ *
  * Revision 1.8  1998/11/15 23:54:43  keil
  * changes from 2.0
  *
@@ -214,6 +217,9 @@ hfc_empty_fifo(struct BCState *bcs, int count)
 		stat = cs->BC_Read_Reg(cs, HFC_DATA, HFC_CIP | HFC_F2_INC | HFC_REC |
 				       HFC_CHANNEL(bcs->channel));
 		WaitForBusy(cs);
+#ifdef ERROR_STATISTIC
+		bcs->err_inv++;
+#endif
 		return (NULL);
 	}
 	if (!(skb = dev_alloc_skb(count - 3)))
@@ -250,6 +256,9 @@ hfc_empty_fifo(struct BCState *bcs, int count)
 			debugl1(cs, "FIFO CRC error");
 			idev_kfree_skb(skb, FREE_READ);
 			skb = NULL;
+#ifdef ERROR_STATISTIC
+			bcs->err_crc++;
+#endif
 		}
 		WaitNoBusy(cs);
 		stat = cs->BC_Read_Reg(cs, HFC_DATA, HFC_CIP | HFC_F2_INC | HFC_REC |

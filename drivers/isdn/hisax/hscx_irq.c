@@ -7,6 +7,9 @@
  * This is an include file for fast inline IRQ stuff
  *
  * $Log$
+ * Revision 1.12  1999/07/01 08:11:42  keil
+ * Common HiSax version for 2.0, 2.1, 2.2 and 2.3 kernel
+ *
  * Revision 1.11  1998/11/15 23:54:49  keil
  * changes from 2.0
  *
@@ -178,16 +181,28 @@ hscx_interrupt(struct IsdnCardState *cs, u_char val, u_char hscx)
 	if (val & 0x80) {	/* RME */
 		r = READHSCX(cs, hscx, HSCX_RSTA);
 		if ((r & 0xf0) != 0xa0) {
-			if (!(r & 0x80))
+			if (!(r & 0x80)) {
 				if (cs->debug & L1_DEB_WARN)
 					debugl1(cs, "HSCX invalid frame");
-			if ((r & 0x40) && bcs->mode)
+#ifdef ERROR_STATISTIC
+				bcs->err_inv++;
+#endif
+			}
+			if ((r & 0x40) && bcs->mode) {
 				if (cs->debug & L1_DEB_WARN)
 					debugl1(cs, "HSCX RDO mode=%d",
 						bcs->mode);
-			if (!(r & 0x20))
+#ifdef ERROR_STATISTIC
+				bcs->err_rdo++;
+#endif
+			}
+			if (!(r & 0x20)) {
 				if (cs->debug & L1_DEB_WARN)
 					debugl1(cs, "HSCX CRC error");
+#ifdef ERROR_STATISTIC
+				bcs->err_crc++;
+#endif
+			}
 			WriteHSCXCMDR(cs, hscx, 0x80);
 		} else {
 			count = READHSCX(cs, hscx, HSCX_RBCL) & (
@@ -264,6 +279,9 @@ hscx_int_main(struct IsdnCardState *cs, u_char val)
 			if (bcs->mode == 1)
 				hscx_fill_fifo(bcs);
 			else {
+#ifdef ERROR_STATISTIC
+				bcs->err_tx++;
+#endif
 				/* Here we lost an TX interrupt, so
 				   * restart transmitting the whole frame.
 				 */
@@ -294,6 +312,9 @@ hscx_int_main(struct IsdnCardState *cs, u_char val)
 				/* Here we lost an TX interrupt, so
 				   * restart transmitting the whole frame.
 				 */
+#ifdef ERROR_STATISTIC
+				bcs->err_tx++;
+#endif
 				if (bcs->tx_skb) {
 					skb_push(bcs->tx_skb, bcs->hw.hscx.count);
 					bcs->tx_cnt += bcs->hw.hscx.count;

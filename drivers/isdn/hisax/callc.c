@@ -11,6 +11,9 @@
  *              Fritz Elfert
  *
  * $Log$
+ * Revision 2.38  1999/10/11 22:16:27  keil
+ * Suspend/Resume is possible without explicit ID too
+ *
  * Revision 2.37  1999/09/20 19:49:47  keil
  * Fix wrong init of PStack
  *
@@ -1483,11 +1486,6 @@ leased_l1l2(struct PStack *st, int pr, void *arg)
 }
 
 static void
-channel_report(struct Channel *chanp)
-{
-}
-
-static void
 distr_debug(struct IsdnCardState *csta, int debugflags)
 {
 	int i;
@@ -1697,9 +1695,8 @@ HiSax_command(isdn_ctrl * ic)
 		case (ISDN_CMD_IOCTL):
 			switch (ic->arg) {
 				case (0):
-					HiSax_reportcard(csta->cardnr);
-					for (i = 0; i < 2; i++)
-						channel_report(&csta->channel[i]);
+					num = *(unsigned int *) ic->parm.num;
+					HiSax_reportcard(csta->cardnr, num);
 					break;
 				case (1):
 					num = *(unsigned int *) ic->parm.num;
