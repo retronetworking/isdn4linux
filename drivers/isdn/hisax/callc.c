@@ -7,6 +7,9 @@
  *              Fritz Elfert
  *
  * $Log$
+ * Revision 1.11  1996/11/26 18:43:17  keil
+ * change ioctl 555 --> 55 (555 didn't work)
+ *
  * Revision 1.10  1996/11/26 18:06:07  keil
  * fixed missing break statement,ioctl 555 reset modcount
  *
@@ -1490,7 +1493,8 @@ HiSax_command(isdn_ctrl * ic)
                        	    }
                        	    break;
                     default:  
-                    	    printk(KERN_DEBUG "HiSax: invalid ioclt %d\n",ic->arg);
+                    	    printk(KERN_DEBUG "HiSax: invalid ioclt %d\n",
+                    	    	(int)ic->arg);
                     	    return (-EINVAL);
                   }
                   break;
