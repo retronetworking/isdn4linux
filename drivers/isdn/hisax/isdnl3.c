@@ -7,6 +7,9 @@
  *              Fritz Elfert
  *
  * $Log$
+ * Revision 1.10.2.2  1997/10/17 22:14:05  keil
+ * update to last hisax version
+ *
  * Revision 2.1  1997/08/03 14:36:32  keil
  * Implement RESTART procedure
  *
@@ -293,7 +296,7 @@ setstack_isdnl3(struct PStack *st, struct Channel *chanp)
 	if (st->protocol == ISDN_PTYPE_LEASED) {
 		st->lli.l4l3 = no_l3_proto;
 		st->l2.l2l3 = no_l3_proto;
-		printk(KERN_NOTICE "HiSax: Leased line mode\n");
+		printk(KERN_INFO "HiSax: Leased line mode\n");
 	} else {
 		st->lli.l4l3 = no_l3_proto;
 		st->l2.l2l3 = no_l3_proto;

@@ -9,6 +9,9 @@
  *              Fritz Elfert
  *
  * $Log$
+ * Revision 1.16.2.1  1997/10/17 22:14:16  keil
+ * update to last hisax version
+ *
  * Revision 2.2  1997/08/07 17:44:36  keil
  * Fix RESTART
  *
@@ -38,10 +41,10 @@ extern char *HiSax_getrev(const char *revision);
 const char *dss1_revision = "$Revision$";
 
 #define	MsgHead(ptr, cref, mty) \
-*ptr++ = 0x8; \
-*ptr++ = 0x1; \
-*ptr++ = cref^0x80; \
-*ptr++ = mty
+	*ptr++ = 0x8; \
+	*ptr++ = 0x1; \
+	*ptr++ = cref^0x80; \
+	*ptr++ = mty
 
 
 static int 
@@ -1266,5 +1269,5 @@ setstack_dss1(struct PStack *st)
 		L3InitTimer(st->l3.global, &st->l3.global->timer);
 	}
 	strcpy(tmp, dss1_revision);
-	printk(KERN_NOTICE "HiSax: DSS1 Rev. %s\n", HiSax_getrev(tmp));
+	printk(KERN_INFO "HiSax: DSS1 Rev. %s\n", HiSax_getrev(tmp));
 }

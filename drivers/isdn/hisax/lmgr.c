@@ -6,6 +6,9 @@
  *  Layermanagement module
  *
  * $Log$
+ * Revision 1.1.2.1  1997/10/17 22:10:53  keil
+ * new files on 2.0
+ *
  * Revision 1.1  1997/06/26 11:17:25  keil
  * first version
  *
@@ -23,7 +26,7 @@ error_handling_dchan(struct PStack *st, int Error)
 		case 'D':
 		case 'G':
 		case 'H':
-			st->l2.l2tei(st, MDL_VERIFY, NULL);
+			st->l2.l2tei(st, MDL_ERROR_REQ, NULL);
 			break;
 	}
 }
@@ -35,7 +38,7 @@ hisax_manager(struct PStack *st, int pr, void *arg)
 	int Code;
 
 	switch (pr) {
-		case MDL_ERROR:
+		case MDL_ERROR_IND:
 			Code = (int) arg;
 			jiftime(tm, jiffies);
 			sprintf(str, "%s manager: MDL_ERROR %c %s\n", tm,

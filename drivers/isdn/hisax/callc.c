@@ -7,6 +7,9 @@
  *              Fritz Elfert
  *
  * $Log$
+ * Revision 1.30.2.1  1997/10/17 22:13:32  keil
+ * update to last hisax version
+ *
  * Revision 2.6  1997/09/11 17:26:58  keil
  * Open B-channel if here are incomming packets
  *
@@ -299,7 +302,6 @@ lli_d_released(struct FsmInst *fi, int event, void *arg)
 	struct Channel *chanp = fi->userdata;
 
 	test_and_clear_bit(FLG_START_D, &chanp->Flags);
-	test_and_clear_bit(FLG_START_D, &chanp->Flags);
 }
 
 /*
@@ -431,8 +433,7 @@ lli_deliver_call(struct FsmInst *fi, int event, void *arg)
 	 * which is set to 3 with each broadcast message in isdnl1.c
 	 * and resetted if a interface  answered the STAT_ICALL.
 	 */
-	if (((chanp->cs) && (chanp->cs->CallFlags == 3)) ||
-		!test_bit(FLG_TWO_DCHAN, &chanp->cs->HW_Flags)) {
+	if (1) { /* for only one TEI */
 		FsmChangeState(fi, ST_IN_WAIT_LL);
 		test_and_set_bit(FLG_CALL_REC, &chanp->Flags);
 		if (chanp->debug & 1)
@@ -450,11 +451,6 @@ lli_deliver_call(struct FsmInst *fi, int event, void *arg)
 			sprintf(txt, "statcallb ret=%d", ret);
 			link_debug(chanp, txt, 1);
 		}
-		if (ret)
-			/* if a interface knows this call, reset the CallFlag
-			 * to avoid a second Call report to the linklevel
-			 */
-			chanp->cs->CallFlags &= ~(chanp->chan + 1);
 		switch (ret) {
 			case 1:	/* OK, anybody likes this call */
 				FsmDelTimer(&chanp->drel_timer, 61);
@@ -699,12 +695,28 @@ lli_send_d_disc(struct FsmInst *fi, int event, void *arg)
 	}
 	if (test_and_clear_bit(FLG_START_B, &chanp->Flags))
 		release_b_st(chanp);
-	if (test_and_clear_bit(FLG_DO_HANGUP, &chanp->Flags))
-		chanp->proc->para.cause = 0x15;		/* Call Reject */
-	else
-		chanp->proc->para.cause = 0x10;		/* Normal Call Clearing */
-	chanp->d_st->lli.l4l3(chanp->d_st, CC_DISCONNECT_REQ, chanp->proc);
-	test_and_set_bit(FLG_DISC_SEND, &chanp->Flags);
+	if (chanp->leased) {
+		ic.command = ISDN_STAT_CAUSE;
+		ic.arg = chanp->chan;
+		sprintf(ic.parm.num, "L0010");
+		chanp->cs->iif.statcallb(&ic);
+		if (chanp->debug & 1)
+			link_debug(chanp, "STAT_DHUP", 0);
+		ic.driver = chanp->cs->myid;
+		ic.command = ISDN_STAT_DHUP;
+		ic.arg = chanp->chan;
+		chanp->cs->iif.statcallb(&ic);
+		FsmChangeState(fi, ST_WAIT_DSHUTDOWN);
+		test_and_clear_bit(FLG_ESTAB_D, &chanp->Flags);
+		FsmEvent(&chanp->lc_d->lcfi, EV_LC_RELEASE, NULL);
+	} else {
+		if (test_and_clear_bit(FLG_DO_HANGUP, &chanp->Flags))
+			chanp->proc->para.cause = 0x15;		/* Call Reject */
+		else
+			chanp->proc->para.cause = 0x10;		/* Normal Call Clearing */
+		chanp->d_st->lli.l4l3(chanp->d_st, CC_DISCONNECT_REQ, chanp->proc);
+		test_and_set_bit(FLG_DISC_SEND, &chanp->Flags);
+	}
 }
 
 static void
@@ -1023,7 +1035,7 @@ lli_got_dlrl(struct FsmInst *fi, int event, void *arg)
 	chanp->cs->cardmsg(chanp->cs, MDL_INFO_REL, (void *) chanp->chan);
 }
 /* *INDENT-OFF* */
-static struct FsmNode fnlist[] =
+static struct FsmNode fnlist[] HISAX_INITDATA =
 {
 	{ST_NULL,		EV_DIAL,		lli_prep_dialout},
 	{ST_NULL,		EV_SETUP_IND,		lli_deliver_call},
@@ -1125,7 +1137,7 @@ lc_activate_l1(struct FsmInst *fi, int event, void *arg)
 	FsmChangeState(fi, ST_LC_ACTIVATE_WAIT);
 	/* This timeout is to avoid a hang if no L1 activation is possible */
 	FsmAddTimer(&lf->act_timer, 30000, EV_LC_TIMER, NULL, 50);
-	lf->st->ma.manl1(lf->st, PH_ACTIVATE, NULL);
+	lf->st->ma.manl1(lf->st, PH_ACTIVATE_REQ, NULL);
 }
 
 static void
@@ -1154,9 +1166,9 @@ lc_start_l2(struct FsmInst *fi, int event, void *arg)
 {
 	struct LcFsm *lf = fi->userdata;
 
-	if (!lf->st->l1.act_state)
+/*	if (!lf->st->l1.act_state)
 		lf->st->l1.act_state = 2;
-	if (lf->l2_establish) {
+*/	if (lf->l2_establish) {
 		FsmChangeState(fi, ST_LC_ESTABLISH_WAIT);
 		if (lf->l2_start)
 			lf->st->ma.manl2(lf->st, DL_ESTABLISH, NULL);
@@ -1186,7 +1198,7 @@ lc_release_l2(struct FsmInst *fi, int event, void *arg)
 		lf->st->ma.manl2(lf->st, DL_RELEASE, NULL);
 	} else {
 		FsmChangeState(fi, ST_LC_NULL);
-		lf->st->ma.manl1(lf->st, PH_DEACTIVATE, NULL);
+		lf->st->ma.manl1(lf->st, PH_DEACTIVATE_REQ, NULL);
 		lf->lccall(lf, LC_RELEASE, NULL);
 	}
 }
@@ -1211,7 +1223,7 @@ lc_release_l1(struct FsmInst *fi, int event, void *arg)
 
 	FsmDelTimer(&lf->act_timer, 54);
 	FsmChangeState(fi, ST_LC_NULL);
-	lf->st->ma.manl1(lf->st, PH_DEACTIVATE, NULL);
+	lf->st->ma.manl1(lf->st, PH_DEACTIVATE_REQ, NULL);
 	lf->lccall(lf, LC_RELEASE, NULL);
 }
 
@@ -1225,7 +1237,7 @@ lc_l1_deactivated(struct FsmInst *fi, int event, void *arg)
 	lf->lccall(lf, LC_RELEASE, NULL);
 }
 /* *INDENT-OFF* */
-static struct FsmNode LcFnList[] =
+static struct FsmNode LcFnList[] HISAX_INITDATA =
 {
 	{ST_LC_NULL,  		EV_LC_ESTABLISH,	lc_activate_l1},
 	{ST_LC_NULL,  		EV_LC_PH_ACTIVATE,	lc_activated_from_l1},
@@ -1256,8 +1268,8 @@ static struct FsmNode LcFnList[] =
 
 #define LC_FN_COUNT (sizeof(LcFnList)/sizeof(struct FsmNode))
 
-void
-CallcNew(void)
+HISAX_INITFUNC(void
+CallcNew(void))
 {
 	callcfsm.state_count = STATE_COUNT;
 	callcfsm.event_count = EVENT_COUNT;
@@ -1306,10 +1318,11 @@ dc_l1man(struct PStack *st, int pr, void *arg)
 
 	chanp = (struct Channel *) st->lli.userdata;
 	switch (pr) {
-		case (PH_ACTIVATE):
+		case (PH_ACTIVATE_CNF):
+		case (PH_ACTIVATE_IND):
 			FsmEvent(&chanp->lc_d->lcfi, EV_LC_PH_ACTIVATE, NULL);
 			break;
-		case (PH_DEACTIVATE):
+		case (PH_DEACTIVATE_IND):
 			FsmEvent(&chanp->lc_d->lcfi, EV_LC_PH_DEACTIVATE, NULL);
 			break;
 	}
@@ -1336,10 +1349,11 @@ bc_l1man(struct PStack *st, int pr, void *arg)
 	struct Channel *chanp = (struct Channel *) st->lli.userdata;
 
 	switch (pr) {
-		case (PH_ACTIVATE):
+		case (PH_ACTIVATE_IND):
+		case (PH_ACTIVATE_CNF):
 			FsmEvent(&chanp->lc_b->lcfi, EV_LC_PH_ACTIVATE, NULL);
 			break;
-		case (PH_DEACTIVATE):
+		case (PH_DEACTIVATE_IND):
 			FsmEvent(&chanp->lc_b->lcfi, EV_LC_PH_DEACTIVATE, NULL);
 			break;
 	}
@@ -1467,7 +1481,7 @@ ll_handler(struct l3_process *pc, int pr, void *arg)
 		case (CC_ALERTING_IND):
 			break;
 		default:
-			if (chanp->debug & 2048) {
+			if (chanp->debug & 0x800) {
 				jiftime(tm, jiffies);
 				sprintf(tmp, "%s Channel %d L3->L4 unknown primitiv %d\n",
 					tm, chanp->chan, pr);
@@ -1740,7 +1754,7 @@ lltrans_handler(struct PStack *st, int pr, void *arg)
 	struct sk_buff *skb = arg;
 
 	switch (pr) {
-		case (PH_DATA):
+		case (PH_DATA_IND):
 			if (chanp->data_open)
 				chanp->cs->iif.rcvcallb_skb(chanp->cs->myid, chanp->chan, skb);
 			else {
@@ -1854,13 +1868,14 @@ distr_debug(struct IsdnCardState *csta, int debugflags)
 		chanp[i].debug = debugflags;
 		chanp[i].fi.debug = debugflags & 2;
 		chanp[i].d_st->l2.l2m.debug = debugflags & 8;
-		chanp[i].b_st->l2.l2m.debug = debugflags & 16;
-		chanp[i].d_st->l2.debug = debugflags & 32;
-		chanp[i].b_st->l2.debug = debugflags & 64;
-		chanp[i].lc_d->lcfi.debug = debugflags & 128;
-		chanp[i].lc_b->lcfi.debug = debugflags & 256;
-		chanp[i].b_st->ma.tei_m.debug = debugflags & 512;
-		chanp[i].b_st->ma.debug = debugflags & 512;
+		chanp[i].b_st->l2.l2m.debug = debugflags & 0x10;
+		chanp[i].d_st->l2.debug = debugflags & 0x20;
+		chanp[i].b_st->l2.debug = debugflags & 0x40;
+		chanp[i].lc_d->lcfi.debug = debugflags & 0x80;
+		chanp[i].lc_b->lcfi.debug = debugflags & 0x100;
+		chanp[i].b_st->ma.tei_m.debug = debugflags & 0x200;
+		chanp[i].b_st->ma.debug = debugflags & 0x200;
+		chanp[i].d_st->l1.l1m.debug = debugflags & 0x1000;
 	}
 	csta->dlogflag = debugflags & 4;
 }
@@ -1952,7 +1967,7 @@ HiSax_command(isdn_ctrl * ic)
 		case (ISDN_CMD_LOCK):
 			HiSax_mod_inc_use_count();
 #ifdef MODULE
-			if (csta->channel[0].debug & 1024) {
+			if (csta->channel[0].debug & 0x400) {
 				jiftime(tmp, jiffies);
 				i = strlen(tmp);
 				sprintf(tmp + i, "   LOCK modcnt %lx\n", MOD_USE_COUNT);
@@ -1963,7 +1978,7 @@ HiSax_command(isdn_ctrl * ic)
 		case (ISDN_CMD_UNLOCK):
 			HiSax_mod_dec_use_count();
 #ifdef MODULE
-			if (csta->channel[0].debug & 1024) {
+			if (csta->channel[0].debug & 0x400) {
 				jiftime(tmp, jiffies);
 				i = strlen(tmp);
 				sprintf(tmp + i, " UNLOCK modcnt %lx\n", MOD_USE_COUNT);
@@ -1997,6 +2012,8 @@ HiSax_command(isdn_ctrl * ic)
 				case (5):	/* set card in leased mode */
 					csta->channel[0].leased = 1;
 					csta->channel[1].leased = 1;
+					csta->channel[0].lc_d->l2_establish = 0;
+					csta->channel[1].lc_d->l2_establish = 0;
 					sprintf(tmp, "card %d set into leased mode\n",
 						csta->cardnr + 1);
 					HiSax_putstatus(csta, tmp);
@@ -2005,7 +2022,7 @@ HiSax_command(isdn_ctrl * ic)
 					num = *(unsigned int *) ic->parm.num;
 					if (csta->stlist)
 						csta->stlist->ma.manl1(csta->stlist,
-								       PH_TEST_LOOP, (void *) num);
+							PH_TESTLOOP_REQ, (void *) num);
 					break;
 #ifdef MODULE
 				case (55):
@@ -2020,7 +2037,7 @@ HiSax_command(isdn_ctrl * ic)
 				case (11):
 					csta->debug = *(unsigned int *) ic->parm.num;
 					sprintf(tmp, "l1 debugging flags card %d set to %x\n",
-					  csta->cardnr + 1, csta->debug);
+						csta->cardnr + 1, csta->debug);
 					HiSax_putstatus(cards[0].cs, tmp);
 					printk(KERN_DEBUG "HiSax: %s", tmp);
 					break;
@@ -2078,7 +2095,7 @@ HiSax_writebuf_skb(int id, int chan, struct sk_buff *skb)
 			/* Must return 0 here, since this is not an error
 			 * but a temporary lack of resources.
 			 */
-			if (chanp->debug & 2048) {
+			if (chanp->debug & 0x800) {
 				sprintf(tmp, "writebuf: no buffers for %d bytes", len);
 				link_debug(chanp, tmp, 1);
 			}
@@ -2092,7 +2109,7 @@ HiSax_writebuf_skb(int id, int chan, struct sk_buff *skb)
 				st->l3.l3l2(st, DL_DATA, nskb);
 			else {
 				chanp->bcs->tx_cnt += len;
-				st->l2.l2l1(st, PH_DATA, nskb);
+				st->l2.l2l1(st, PH_DATA_REQ, nskb);
 			}
 			dev_kfree_skb(skb, FREE_WRITE);
 		} else

@@ -6,6 +6,9 @@
  *
  *
  * $Log$
+ * Revision 1.1.2.1  1997/10/17 22:10:41  keil
+ * new files on 2.0
+ *
  * Revision 1.1  1997/09/11 17:31:33  keil
  * Common part for HFC 2BS0 based cards
  *
@@ -457,7 +460,7 @@ hfc_l2l1(struct PStack *st, int pr, void *arg)
 	long flags;
 
 	switch (pr) {
-		case (PH_DATA):
+		case (PH_DATA_REQ):
 			save_flags(flags);
 			cli();
 			if (st->l1.bcs->hw.hfc.tx_skb) {
@@ -470,7 +473,7 @@ hfc_l2l1(struct PStack *st, int pr, void *arg)
 				restore_flags(flags);
 			}
 			break;
-		case (PH_DATA_PULLED):
+		case (PH_PULL_IND):
 			if (st->l1.bcs->hw.hfc.tx_skb) {
 				printk(KERN_WARNING "hfc_l2l1: this shouldn't happen\n");
 				break;
@@ -482,12 +485,12 @@ hfc_l2l1(struct PStack *st, int pr, void *arg)
 			st->l1.bcs->cs->BC_Send_Data(st->l1.bcs);
 			restore_flags(flags);
 			break;
-		case (PH_REQUEST_PULL):
+		case (PH_PULL_REQ):
 			if (!st->l1.bcs->hw.hfc.tx_skb) {
-				st->l1.requestpull = 0;
-				st->l1.l1l2(st, PH_PULL_ACK, NULL);
+				test_and_clear_bit(FLG_L1_PULL_REQ, &st->l1.Flags);
+				st->l1.l1l2(st, PH_PULL_CNF, NULL);
 			} else
-				st->l1.requestpull = !0;
+				test_and_set_bit(FLG_L1_PULL_REQ, &st->l1.Flags);
 			break;
 	}
 }
@@ -536,12 +539,12 @@ hfc_manl1(struct PStack *st, int pr,
 	  void *arg)
 {
 	switch (pr) {
-		case (PH_ACTIVATE):
+		case (PH_ACTIVATE_REQ):
 			test_and_set_bit(BC_FLG_ACTIV, &st->l1.bcs->Flag);
 			mode_hfc(st->l1.bcs, st->l1.mode, st->l1.bc);
-			st->l1.l1man(st, PH_ACTIVATE, NULL);
+			st->l1.l1man(st, PH_ACTIVATE_CNF, NULL);
 			break;
-		case (PH_DEACTIVATE):
+		case (PH_DEACTIVATE_REQ):
 			if (!test_bit(BC_FLG_BUSY, &st->l1.bcs->Flag))
 				mode_hfc(st->l1.bcs, 0, 0);
 			test_and_clear_bit(BC_FLG_ACTIV, &st->l1.bcs->Flag);
@@ -558,14 +561,12 @@ setstack_hfc(struct PStack *st, struct BCState *bcs)
 	st->l2.l2l1 = hfc_l2l1;
 	st->ma.manl1 = hfc_manl1;
 	setstack_manager(st);
-	st->l1.act_state = 0;
-	st->l1.requestpull = 0;
 	bcs->st = st;
 	return (0);
 }
 
-void
-init_send(struct BCState *bcs)
+__initfunc(void
+init_send(struct BCState *bcs))
 {
 	int i;
 
@@ -578,8 +579,8 @@ init_send(struct BCState *bcs)
 		bcs->hw.hfc.send[i] = 0x1fff;
 }
 
-void
-inithfc(struct IsdnCardState *cs)
+__initfunc(void
+inithfc(struct IsdnCardState *cs))
 {
 	init_send(&cs->bcs[0]);
 	init_send(&cs->bcs[1]);

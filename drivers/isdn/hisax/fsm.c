@@ -7,6 +7,9 @@
  *              Fritz Elfert
  *
  * $Log$
+ * Revision 1.4.2.1  1997/10/17 22:13:49  keil
+ * update to last hisax version
+ *
  * Revision 1.6  1997/07/27 21:42:25  keil
  * proof Fsm routines
  *
@@ -32,9 +35,9 @@
 
 #define FSM_TIMER_DEBUG 0
 
-void
+HISAX_INITFUNC(void
 FsmNew(struct Fsm *fsm,
-       struct FsmNode *fnlist, int fncount)
+       struct FsmNode *fnlist, int fncount))
 {
 	int i;
 

@@ -6,6 +6,9 @@
  *
  *
  * $Log$
+ * Revision 1.3.2.1  1997/10/17 22:10:44  keil
+ * new files on 2.0
+ *
  * Revision 1.3  1997/07/27 21:38:34  keil
  * new B-channel interface
  *
@@ -21,12 +24,12 @@
 #include "isdnl1.h"
 #include <linux/interrupt.h>
 
-static char *HSCXVer[] =
+static char *HSCXVer[] HISAX_INITDATA =
 {"A1", "?1", "A2", "?3", "A3", "V2.1", "?6", "?7",
  "?8", "?9", "?10", "?11", "?12", "?13", "?14", "???"};
 
-int
-HscxVersion(struct IsdnCardState *cs, char *s)
+HISAX_INITFUNC(int
+HscxVersion(struct IsdnCardState *cs, char *s))
 {
 	int verA, verB;
 
@@ -109,7 +112,7 @@ hscx_l2l1(struct PStack *st, int pr, void *arg)
 	long flags;
 
 	switch (pr) {
-		case (PH_DATA):
+		case (PH_DATA_REQ):
 			save_flags(flags);
 			cli();
 			if (st->l1.bcs->hw.hscx.tx_skb) {
@@ -123,7 +126,7 @@ hscx_l2l1(struct PStack *st, int pr, void *arg)
 				st->l1.bcs->cs->BC_Send_Data(st->l1.bcs);
 			}
 			break;
-		case (PH_DATA_PULLED):
+		case (PH_PULL_IND):
 			if (st->l1.bcs->hw.hscx.tx_skb) {
 				printk(KERN_WARNING "hscx_l2l1: this shouldn't happen\n");
 				break;
@@ -133,12 +136,12 @@ hscx_l2l1(struct PStack *st, int pr, void *arg)
 			st->l1.bcs->hw.hscx.count = 0;
 			st->l1.bcs->cs->BC_Send_Data(st->l1.bcs);
 			break;
-		case (PH_REQUEST_PULL):
+		case (PH_PULL_REQ):
 			if (!st->l1.bcs->hw.hscx.tx_skb) {
-				st->l1.requestpull = 0;
-				st->l1.l1l2(st, PH_PULL_ACK, NULL);
+				test_and_clear_bit(FLG_L1_PULL_REQ, &st->l1.Flags);
+				st->l1.l1l2(st, PH_PULL_CNF, NULL);
 			} else
-				st->l1.requestpull = !0;
+				test_and_set_bit(FLG_L1_PULL_REQ, &st->l1.Flags);
 			break;
 	}
 
@@ -198,12 +201,12 @@ hscx_manl1(struct PStack *st, int pr,
 	   void *arg)
 {
 	switch (pr) {
-		case (PH_ACTIVATE):
+		case (PH_ACTIVATE_REQ):
 			test_and_set_bit(BC_FLG_ACTIV, &st->l1.bcs->Flag);
 			modehscx(st->l1.bcs, st->l1.mode, st->l1.bc);
-			st->l1.l1man(st, PH_ACTIVATE, NULL);
+			st->l1.l1man(st, PH_ACTIVATE_CNF, NULL);
 			break;
-		case (PH_DEACTIVATE):
+		case (PH_DEACTIVATE_REQ):
 			if (!test_bit(BC_FLG_BUSY, &st->l1.bcs->Flag))
 				modehscx(st->l1.bcs, 0, 0);
 			test_and_clear_bit(BC_FLG_ACTIV, &st->l1.bcs->Flag);
@@ -220,14 +223,12 @@ setstack_hscx(struct PStack *st, struct BCState *bcs)
 	st->l2.l2l1 = hscx_l2l1;
 	st->ma.manl1 = hscx_manl1;
 	setstack_manager(st);
-	st->l1.act_state = 0;
-	st->l1.requestpull = 0;
 	bcs->st = st;
 	return (0);
 }
 
-void
-clear_pending_hscx_ints(struct IsdnCardState *cs)
+HISAX_INITFUNC(void
+clear_pending_hscx_ints(struct IsdnCardState *cs))
 {
 	int val;
 	char tmp[64];
@@ -259,8 +260,8 @@ clear_pending_hscx_ints(struct IsdnCardState *cs)
 	cs->BC_Write_Reg(cs, 1, HSCX_MASK, 0);
 }
 
-void 
-inithscx(struct IsdnCardState *cs)
+HISAX_INITFUNC(void 
+inithscx(struct IsdnCardState *cs))
 {
 	cs->bcs[0].BC_SetStack = setstack_hscx;
 	cs->bcs[1].BC_SetStack = setstack_hscx;

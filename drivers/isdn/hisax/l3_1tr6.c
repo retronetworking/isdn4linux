@@ -6,6 +6,9 @@
  *
  *
  * $Log$
+ * Revision 1.11.2.1  1997/10/17 22:14:12  keil
+ * update to last hisax version
+ *
  * Revision 2.1  1997/08/03 15:28:09  keil
  * release L3 empty processes
  *
@@ -853,5 +856,5 @@ setstack_1tr6(struct PStack *st)
 	st->l3.N303 = 0;
 
 	strcpy(tmp, l3_1tr6_revision);
-	printk(KERN_NOTICE "HiSax: 1TR6 Rev. %s\n", HiSax_getrev(tmp));
+	printk(KERN_INFO "HiSax: 1TR6 Rev. %s\n", HiSax_getrev(tmp));
 }
