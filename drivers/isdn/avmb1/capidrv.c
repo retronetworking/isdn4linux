@@ -6,6 +6,9 @@
  * Copyright 1997 by Carsten Paeth (calle@calle.in-berlin.de)
  *
  * $Log$
+ * Revision 1.26  1999/08/06 07:41:16  calle
+ * Added the "vbox patch". if (si1 == 1) si2 = 0;
+ *
  * Revision 1.25  1999/08/04 10:10:11  calle
  * Bugfix: corrected /proc functions, added structure for new AVM cards.
  *
@@ -2306,7 +2309,7 @@ static int capidrv_delcontr(__u16 contr)
 }
 
 
-static void lower_callback(unsigned int cmd, __u16 contr, void *data)
+static void lower_callback(unsigned int cmd, __u32 contr, void *data)
 {
 
 	switch (cmd) {
