@@ -19,6 +19,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.62.2.6  2000/03/17 10:45:43  kai
+ * merged changes from main tree (MPPP constants)
+ *
  * Revision 1.62.2.5  2000/03/15 20:50:25  kai
  * working, but not perfect yet
  *
@@ -274,8 +277,6 @@
  * Initial revision
  *
  */
-
-#define CONFIG_ISDN_CCP 1
 
 #include <linux/config.h>
 #define __NO_VERSION__
@@ -1572,7 +1573,7 @@ isdn_ppp_xmit(struct sk_buff *skb, struct net_device *netdev)
 	 */
 
 	/* Pull off the fake header we stuck on earlier to keep
-	 * the fragemntation code happy.
+	 * the fragmentation code happy.
 	 */
 	skb_pull(skb,IPPP_MAX_HEADER);
 
@@ -1981,12 +1982,14 @@ isdn_ppp_cleanup_mpqueue(isdn_net_dev * dev, long min_sqno)
 #ifdef CONFIG_ISDN_PPP_VJ
 	int toss = 0;
 #endif
-/* z.z einfaches aussortieren gammeliger pakete. Fuer die Zukunft:
-   eventuell, solange vorne kein B-paket ist und sqno<=min_sqno: auch rauswerfen
-   wenn sqno<min_sqno und Luecken vorhanden sind: auch weg (die koennen nicht mehr gefuellt werden)
-   bei paketen groesser min_sqno: ueber mp_mrru: wenn summe ueber pktlen der rumhaengenden Pakete
-   groesser als mrru ist: raus damit , Pakete muessen allerdings zusammenhaengen sonst koennte
-   ja ein Paket mit B und eins mit E dazwischenpassen */
+	/* currently we just discard ancient packets. 
+	   To do: 
+	   Maybe, as long as there's no B-packet in front and sqno <= min_sqno: discard.
+	   If sqno < min_sqno and there are gaps: discard (the gaps won't be filled anyway).
+	   Packets with sqno > min_sqno: Larger than mp_mrru: If sum of all pktlen of pending
+	   packets large than mrru: discard - packets need to be consecutive, though, if not 
+	   there could be an B and an E-packet in between.
+	*/
 
 	struct mpqueue *ql,
 	*q = dev->mp_last;
@@ -2325,9 +2328,6 @@ static void isdn_ppp_ccp_xmit_reset(struct ippp_struct *is, int proto,
 	printk(KERN_DEBUG "Sending CCP Frame:\n");
 	isdn_ppp_frame_log("ccp-xmit", skb->data, skb->len, 32, is->unit,lp->ppp_slot);
 
-	/* Just ripped from isdn_ppp_write. Dunno whether it makes sense,
-	   especially dunno what the sav_skb stuff is good for. */
-
 	isdn_net_write_super(lp, skb);
 }
 
@@ -2578,14 +2578,6 @@ static void isdn_ppp_ccp_reset_ack_rcvd(struct ippp_struct *is,
 static struct sk_buff *isdn_ppp_decompress(struct sk_buff *skb,struct ippp_struct *is,struct ippp_struct *master,
 	int proto)
 {
-#ifndef CONFIG_ISDN_CCP
-	if(proto == PPP_COMP || proto == PPP_COMPFRAG) {
-		printk(KERN_ERR "isdn_ppp: Ouch! Compression not included!\n");
-		dev_kfree_skb(skb);
-		return NULL;
-	}
-	return skb;
-#else
 	void *stat = NULL;
 	struct isdn_ppp_compressor *ipc = NULL;
 	struct sk_buff *skb_out;
@@ -2675,7 +2667,6 @@ static struct sk_buff *isdn_ppp_decompress(struct sk_buff *skb,struct ippp_struc
 		ipc->incomp(stat,skb,proto);
 		return skb;
 	}
-#endif
 }
 
 /*
@@ -2694,13 +2685,9 @@ static struct sk_buff *isdn_ppp_compress(struct sk_buff *skb_in,int *proto,
     void *stat;
     struct sk_buff *skb_out;
 
-#ifdef CONFIG_ISDN_CCP
 	/* we do not compress control protocols */
     if(*proto < 0 || *proto > 0x3fff) {
-#else
-    {
-#endif
-      return skb_in;
+	    return skb_in;
     }
 
 	if(type) { /* type=1 => Link compression */
