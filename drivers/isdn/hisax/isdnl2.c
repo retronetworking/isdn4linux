@@ -1785,7 +1785,6 @@ setstack_isdnl2(struct PStack *st, char *debug_id)
 	st->l2.l2m.state = ST_L2_1;
 	st->l2.l2m.debug = 0;
 	st->l2.l2m.userdata = st;
-	st->l2.l2m.userint = 0;
 	st->l2.l2m.printdebug = l2m_debug;
 	strcpy(st->l2.debug_id, debug_id);
 

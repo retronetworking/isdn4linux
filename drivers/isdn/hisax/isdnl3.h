@@ -5,6 +5,8 @@
 #ifndef __ISDNL3_H__
 #define __ISDNL3_H__
 
+#include "stack.h"
+
 struct l3_process {
 	int callref;
 	int state;

@@ -8,6 +8,7 @@
  */
 
 #include "hisax.h"
+#include "stack.h"
 
 static void
 error_handling_dchan(struct PStack *st, int Error)

@@ -407,7 +407,6 @@ setstack_tei(struct PStack *st)
 	st->ma.tei_m.state = ST_TEI_NOP;
 	st->ma.tei_m.debug = 1;
 	st->ma.tei_m.userdata = st;
-	st->ma.tei_m.userint = 0;
 	st->ma.tei_m.printdebug = tei_debug;
 	FsmInitTimer(&st->ma.tei_m, &st->ma.t202);
 }

@@ -1,6 +1,8 @@
 #ifndef __ISDNL4_H__
 #define __ISDNL4_H__
 
+#include "stack.h"
+
 // =================================================================
 // struct l4_process
 

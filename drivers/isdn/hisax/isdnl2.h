@@ -1,5 +1,7 @@
 /* isdnl2.h */
 
+#include "stack.h"
+
 #define RR     0x01
 #define RNR    0x05
 #define REJ    0x09

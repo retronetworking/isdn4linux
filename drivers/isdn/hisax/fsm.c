@@ -9,6 +9,7 @@
  */
 
 #include "hisax.h"
+#include "fsm.h"
 
 #define FSM_TIMER_DEBUG 0
 

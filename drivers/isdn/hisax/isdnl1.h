@@ -2,6 +2,8 @@
 
  */
 
+#include "stack.h"
+
 #define D_RCVBUFREADY	0
 #define D_XMTBUFREADY	1
 #define D_L1STATECHANGE	2

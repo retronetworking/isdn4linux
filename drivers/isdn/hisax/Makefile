@@ -8,7 +8,7 @@ L_TARGET :=
 O_TARGET :=
 
 O_OBJS := isdnl1.o tei.o isdnl2.o isdnl3.o \
-          lmgr.o q931.o callc.o fsm.o cert.o
+          lmgr.o stack.o q931.o callc.o fsm.o cert.o
 
 # EXTRA_CFLAGS += -S
 
@@ -64,13 +64,13 @@ endif
 
 ifeq ($(CONFIG_HISAX_AVM_A1_PCMCIA),y)
 	 O_OBJS += avm_a1p.o
- 	 ISAC_OBJ := isac.o
+	 ISAC_OBJ := isac.o
 	 HSCX_OBJ := hscx.o
 endif
- 
+
 ifeq ($(CONFIG_HISAX_FRITZPCI),y)
 	 O_OBJS += avm_pci.o
- 	 ISAC_OBJ := isac.o
+	 ISAC_OBJ := isac.o
 endif
 
 

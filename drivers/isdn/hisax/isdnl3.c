@@ -342,7 +342,6 @@ setstack_l3cc(struct PStack *st, int b3_mode)
 	st->l3.l3m.state = ST_L3_LC_REL;
 	st->l3.l3m.debug = 1;
 	st->l3.l3m.userdata = st;
-	st->l3.l3m.userint = 0;
 	st->l3.l3m.printdebug = l3m_debug;
         FsmInitTimer(&st->l3.l3m, &st->l3.l3m_timer);
 	strcpy(st->l3.debug_id, "L3DC ");
@@ -417,7 +416,6 @@ setstack_l3trans(struct PStack *st)
 	st->l3.l3m.state = ST_L3_LC_REL;
 	st->l3.l3m.debug = 1;
 	st->l3.l3m.userdata = st;
-	st->l3.l3m.userint = 0;
 	st->l3.l3m.printdebug = l3m_debug;
 	strcpy(st->l3.debug_id, "L3BC ");
 	st->l3.l4l3 = l3trans_l4l3;

@@ -759,7 +759,6 @@ setstack_HiSax(struct PStack *st, struct IsdnCardState *cs)
 	st->l1.l1m.state = ST_L1_F3;
 	st->l1.l1m.debug = cs->debug;
 	st->l1.l1m.userdata = st;
-	st->l1.l1m.userint = 0;
 	st->l1.l1m.printdebug = l1m_debug;
 	FsmInitTimer(&st->l1.l1m, &st->l1.timer);
 	setstack_tei(st);
@@ -779,7 +778,6 @@ setstack_l1_B(struct PStack *st)
 	st->l1.l1m.state = ST_L1_NULL;
 	st->l1.l1m.debug = cs->debug;
 	st->l1.l1m.userdata = st;
-	st->l1.l1m.userint = 0;
 	st->l1.l1m.printdebug = l1m_debug;
 	st->l1.Flags = 0;
 	FsmInitTimer(&st->l1.l1m, &st->l1.timer);
