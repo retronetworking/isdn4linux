@@ -11,6 +11,9 @@
 # parent makes..
 #
 # $Log$
+# Revision 1.19  2000/08/10 14:46:25  ostoyke
+# CAPI4Linux.
+#
 # Revision 1.18  2000/04/03 16:39:25  calle
 # Makefile checked in with future things :-(
 #
@@ -115,7 +118,7 @@
 
 SUB_DIRS     :=
 MOD_SUB_DIRS :=
-ALL_SUB_DIRS := fcpci fcclassic fcpnp fcpcmcia
+ALL_SUB_DIRS := # fcpci fcclassic fcpnp fcpcmcia
 #
 # Objects that don't export a symtab
 #
