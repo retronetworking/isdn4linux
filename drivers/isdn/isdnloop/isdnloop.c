@@ -1523,13 +1523,9 @@ isdnloop_addcard(char *id1)
 	ulong flags;
 	isdnloop_card *card;
 
-	save_flags(flags);
-	cli();
 	if (!(card = isdnloop_initcard(id1))) {
-		restore_flags(flags);
 		return -EIO;
 	}
-	restore_flags(flags);
 	printk(KERN_INFO
 	       "isdnloop: (%s) virtual card added\n",
 	       card->interface.id);

@@ -82,13 +82,9 @@ int
 act2000_isa_detect(unsigned short portbase)
 {
         int ret = 0;
-        unsigned long flags;
 
-        save_flags(flags);
-        cli();
         if (!check_region(portbase, ISA_REGION))
                 ret = act2000_isa_reset(portbase);
-        restore_flags(flags);
         return ret;
 }
 
@@ -168,7 +164,6 @@ int
 act2000_isa_config_irq(act2000_card * card, short irq)
 {
         int i;
-        unsigned long flags;
 
         if (card->flags & ACT2000_FLAGS_IVALID) {
                 free_irq(card->irq, NULL);
@@ -178,30 +173,13 @@ act2000_isa_config_irq(act2000_card * card, short irq)
         outb(ISA_COR_IRQOFF, ISA_PORT_COR);
         if (!irq)
                 return 0;
-        save_flags(flags);
-        cli();
-        if (irq == -1) {
-                /* Auto select */
-                for (i = 0; i < ISA_NRIRQS; i++) {
-                        if (!request_irq(act2000_isa_irqs[i], &act2000_isa_interrupt, 0, card->regname, NULL)) {
-                                card->irq = act2000_isa_irqs[i];
-                                irq2card_map[card->irq] = card;
-                                card->flags |= ACT2000_FLAGS_IVALID;
-                                break;
-                        }
-                }
-        } else {
-                /* Fixed irq */
-                if (!request_irq(irq, &act2000_isa_interrupt, 0, card->regname, NULL)) {
-                        card->irq = irq;
-                        irq2card_map[card->irq] = card;
-			card->flags |= ACT2000_FLAGS_IVALID;
-                }
-        }
-        restore_flags(flags);
-        if (!card->flags & ACT2000_FLAGS_IVALID) {
+
+	if (!request_irq(irq, &act2000_isa_interrupt, 0, card->regname, NULL)) {
+		card->irq = irq;
+		irq2card_map[card->irq] = card;
+		card->flags |= ACT2000_FLAGS_IVALID;
                 printk(KERN_WARNING
-                       "act2000: Could not request irq\n");
+                       "act2000: Could not request irq %d\n",irq);
                 return -EBUSY;
         } else {
 		act2000_isa_select_irq(card);
