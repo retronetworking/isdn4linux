@@ -6,6 +6,9 @@
  *
  *
  * $Log$
+ * Revision 1.1.2.1  1998/01/11 22:54:02  keil
+ * Teles 16.3c (HFC 2BDS0) first version
+ *
  *
  */
 
@@ -124,3 +127,4 @@ extern void main_irq_2bds0(struct BCState *bcs);
 extern void init2bds0(struct IsdnCardState *cs);
 extern void release2bds0(struct IsdnCardState *cs);
 extern void hfc2bds0_interrupt(struct IsdnCardState *cs, u_char val);
+extern void set_cs_func(struct IsdnCardState *cs);
