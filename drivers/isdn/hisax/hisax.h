@@ -3,6 +3,9 @@
  *   Basic declarations, defines and prototypes
  *
  * $Log$
+ * Revision 2.31  1999/07/21 14:46:11  keil
+ * changes from EICON certification
+ *
  * Revision 2.30  1999/07/14 12:38:38  werner
  * Added changes for echo channel handling
  *
@@ -524,6 +527,7 @@ struct amd7930_hw {
 #define L1_MODE_NULL	0
 #define L1_MODE_TRANS	1
 #define L1_MODE_HDLC	2
+#define L1_MODE_EXTRN   3
 #define L1_MODE_MODEM	7
 
 struct BCState {
