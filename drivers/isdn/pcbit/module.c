@@ -83,7 +83,11 @@ int pcbit_init(void)
 	}
 
 	/* No symbols to export, hide all symbols */
+#if (LINUX_VERSION_CODE < 0x020111)
 	register_symtab(NULL);
+#else
+	EXPORT_NO_SYMBOLS;
+#endif
 
 	return 0;
 }

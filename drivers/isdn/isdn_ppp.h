@@ -19,6 +19,10 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.7  1997/02/03 23:18:57  fritz
+ * Removed isdn_ppp_free_sqqueue prototype
+ *         and ippp_table (both static in isdn_ppp.c).
+ *
  * Revision 1.6  1996/09/23 01:58:11  fritz
  * Fix: With syncPPP encapsulation, discard LCP packets
  *      when calculating hangup timeout.
@@ -54,7 +58,11 @@ extern int isdn_ppp_xmit(struct sk_buff *, struct device *);
 extern void isdn_ppp_receive(isdn_net_dev *, isdn_net_local *, struct sk_buff *);
 extern int isdn_ppp_dev_ioctl(struct device *, struct ifreq *, int);
 extern void isdn_ppp_free_mpqueue(isdn_net_dev *);
+#if (LINUX_VERSION_CODE < 0x020117)
 extern int isdn_ppp_select(int, struct file *, int, select_table *);
+#else
+extern unsigned int isdn_ppp_poll(struct file *, poll_table *);
+#endif
 extern int isdn_ppp_ioctl(int, struct file *, unsigned int, unsigned long);
 extern void isdn_ppp_release(int, struct file *);
 extern int isdn_ppp_dial_slave(char *);
