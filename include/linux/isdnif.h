@@ -22,6 +22,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.5  1996/05/01 11:43:54  fritz
+ * Removed STANDALONE
+ *
  * Revision 1.4  1996/05/01 11:38:40  fritz
  * Added ISDN_FEATURE_L2_TRANS
  *
@@ -173,6 +176,10 @@ typedef struct {
    *             int    local channel-number (0 ...)
    *             u_char pointer to received data (in Kernel-Space, volatile)
    *             int    length of data
+   *
+   * NOTE: This callback is obsolete, and will be removed when all
+   *       current LL-drivers support rcvcall_skb. Do NOT use for new
+   *       drivers.
    */
   void (*rcvcallb)(int, int, u_char*, int);
 
@@ -213,6 +220,10 @@ typedef struct {
    *                              no schedule allowed) 
    *                          1 = Data is in User-Space (use memcpy_fromfs,
    *                              may schedule)
+   *
+   * NOTE: This call is obsolete, and will be removed when all
+   *       current LL-drivers support writebuf_skb. Do NOT use for new
+   *       drivers.
    */
   int (*writebuf)(int, int, const u_char*, int, int);
 
@@ -260,7 +271,7 @@ typedef struct {
  *              supporting sk_buff's should set this to 0.
  * command      Address of Command-Handler.
  * features     Bitwise coded Features of this driver. (use ISDN_FEATURE_...)
- * writebuf     Address of Send-Command-Handler.
+ * writebuf     Address of Send-Command-Handler. OBSOLETE do NOT use anymore.
  * writebuf_skb Address of Skbuff-Send-Handler. (NULL if not supported)
  * writecmd        "    "  D-Channel  " which accepts raw D-Ch-Commands.
  * readstat        "    "  D-Channel  " which delivers raw Status-Data.
@@ -269,7 +280,7 @@ typedef struct {
  *
  * channels      Driver-ID assigned to this driver. (Must be used on all
  *               subsequent callbacks.
- * rcvcallb      Address of handler for received data.
+ * rcvcallb      Address of handler for received data. OBSOLETE, do NOT use anymore.
  * rcvcallb_skb  Address of handler for received Skbuff's. (NULL if not supp.)
  * statcallb        "    "     "    for status-changes.
  *
