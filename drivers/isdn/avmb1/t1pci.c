@@ -6,6 +6,11 @@
  * (c) Copyright 1999 by Carsten Paeth (calle@calle.in-berlin.de)
  * 
  * $Log$
+ * Revision 1.16  2000/11/28 14:26:46  calle
+ * But the #ifndef PCI_DEVICE_ID_AVM* back, and let it compile again.
+ * Please always check if 2.2.14-2.2.18 compile after a "std2kern -u"
+ * before checkin ...
+ *
  * Revision 1.15  2000/11/28 11:42:19  kai
  * merged MODULE_DEV_TABLE changes
  *
@@ -339,21 +344,17 @@ static int __init t1pci_init(void)
 	while ((dev = pci_find_device(PCI_VENDOR_ID_AVM, PCI_DEVICE_ID_AVM_T1, dev))) {
 		struct capicardparams param;
 
-		param.port = pci_resource_start_io(dev, 1);
- 		param.irq = dev->irq;
-		param.membase = pci_resource_start_mem(dev, 0);
-
-#ifndef COMPAT_HAS_2_2_PCI
-		retval = pci_enable_device (dev);
-		if (retval != 0) {
-		        printk(KERN_ERR
-			"%s: failed to enable AVM-T1-PCI at i/o %#x, irq %d, mem %#x err=%d\n",
-			driver->name, param.port, param.irq, param.membase, retval);
+		if (pci_enable_device(dev) < 0) {
+		        printk(KERN_ERR	"%s: failed to enable AVM-T1-PCI\n",
+			       driver->name);
     			detach_capi_driver(&t1pci_driver);
 			MOD_DEC_USE_COUNT;
 			return -EIO;
 		}
-#endif
+
+		param.port = pci_resource_start(dev, 1);
+ 		param.irq = dev->irq;
+		param.membase = pci_resource_start(dev, 0);
 
 		printk(KERN_INFO
 			"%s: PCI BIOS reports AVM-T1-PCI at i/o %#x, irq %d, mem %#x\n",

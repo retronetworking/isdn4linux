@@ -6,6 +6,11 @@
  * (c) Copyright 1999 by Carsten Paeth (calle@calle.in-berlin.de)
  * 
  * $Log$
+ * Revision 1.32  2000/11/28 14:26:46  calle
+ * But the #ifndef PCI_DEVICE_ID_AVM* back, and let it compile again.
+ * Please always check if 2.2.14-2.2.18 compile after a "std2kern -u"
+ * before checkin ...
+ *
  * Revision 1.31  2000/11/28 11:42:19  kai
  * merged MODULE_DEV_TABLE changes
  *
@@ -518,23 +523,19 @@ static int add_card(struct pci_dev *dev)
 	struct capicardparams param;
 	int retval;
 
+	if (pci_enable_device(dev) < 0) {
+		printk(KERN_ERR "%s: failed to enable AVM-B1\n",
+		       driver->name);
+		return -ENODEV;
+	}
+	param.irq = dev->irq;
+
 	if (pci_resource_start_io(dev, 2)) { /* B1 PCI V4 */
 #ifdef CONFIG_ISDN_DRV_AVMB1_B1PCIV4
 		driver = &b1pciv4_driver;
 #endif
 		param.membase = pci_resource_start_mem(dev, 0);
 		param.port = pci_resource_start_io(dev, 2);
-		param.irq = dev->irq;
-
-#ifndef COMPAT_HAS_2_2_PCI
-		retval = pci_enable_device (dev);
-		if (retval != 0) {
-		        printk(KERN_ERR
-			"%s: failed to enable AVM-B1 V4 at i/o %#x, irq %d, mem %#x err=%d\n",
-			driver->name, param.port, param.irq, param.membase, retval);
-			return -EIO;
-		}
-#endif
 
 		printk(KERN_INFO
 		"%s: PCI BIOS reports AVM-B1 V4 at i/o %#x, irq %d, mem %#x\n",
@@ -552,17 +553,7 @@ static int add_card(struct pci_dev *dev)
 	} else {
 		param.membase = 0;
 		param.port = pci_resource_start_io(dev, 1);
-		param.irq = dev->irq;
 
-#ifndef COMPAT_HAS_2_2_PCI
-		retval = pci_enable_device (dev);
-		if (retval != 0) {
-		        printk(KERN_ERR
-			"%s: failed to enable AVM-B1 at i/o %#x, irq %d, err=%d\n",
-			driver->name, param.port, param.irq, retval);
-			return -EIO;
-		}
-#endif
 		printk(KERN_INFO
 		"%s: PCI BIOS reports AVM-B1 at i/o %#x, irq %d\n",
 		driver->name, param.port, param.irq);
