@@ -27,6 +27,9 @@
  * Germany
  *
  * $Log$
+ * Revision 1.1.2.7  1998/04/27 12:01:06  detabc
+ * *** empty log message ***
+ *
  * Revision 1.1.2.6  1998/04/26 19:53:24  detabc
  * remove unused code
  *
@@ -2497,7 +2500,7 @@ int abcgmbh_udp_test(struct device *ndev,struct sk_buff *sp)
 						** ansonsten passiert garnichts
 						*/
 
-						if(!(lp->flags & ISDN_NET_CONNECTED) || !lp->outgoing)
+						if(!(lp->flags & ISDN_NET_CONNECTED))
 							transbuf[0] = transbuf[1] = 0x0;
 
 						retw = !sende_udp(ndev,
