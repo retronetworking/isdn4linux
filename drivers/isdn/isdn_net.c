@@ -21,6 +21,11 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.72  1998/06/26 15:12:31  fritz
+ * Added handling of STAT_ICALL with incomplete CPN.
+ * Added AT&L for ttyI emulator.
+ * Added more locking stuff in tty_write.
+ *
  * Revision 1.71  1998/06/18 22:43:08  fritz
  * Bugfix: Setting ndev->do_ioctl had beed accidetly removed at abc-cleanup.
  *
@@ -1978,7 +1983,7 @@ isdn_net_init(struct device *ndev)
 	ndev->addr_len = ETH_ALEN;
 	
 	/* for clients with MPPP maybe higher values better */
-	ndev->tx_queue_len = 5;
+	ndev->tx_queue_len = 30;
 
 	for (i = 0; i < ETH_ALEN; i++)
 		ndev->broadcast[i] = 0xff;
