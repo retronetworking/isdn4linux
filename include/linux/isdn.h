@@ -21,6 +21,10 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.90  2000/02/06 21:50:00  detabc
+ * add rewriting of socket's and frame's saddr for udp-ipv4 dynip-connections.
+ * Include checksum-recompute of ip- and udp-header's.
+ *
  * Revision 1.89  2000/02/05 22:11:33  detabc
  * Add rewriting of socket's and frame's saddr adressfield for
  * dynip-connections.  Only for tcp/ipv4 and switchable per interface.
@@ -467,7 +471,7 @@
 #define ISDN_USAGE_EXCLUSIVE 64 /* This bit is set, if channel is exclusive */
 #define ISDN_USAGE_OUTGOING 128 /* This bit is set, if channel is outgoing  */
 
-#define ISDN_MODEM_ANZREG    24        /* Number of Modem-Registers        */
+#define ISDN_MODEM_NUMREG    24  /* number of modem registers                 */
 #define ISDN_LMSNLEN         255 /* Length of tty's Listen-MSN string */
 #define ISDN_CMSGLEN	     50	 /* Length of CONNECT-Message to add for Modem */
 
@@ -842,8 +846,8 @@ typedef struct isdn_audio_skb {
 
 /* Private data of AT-command-interpreter */
 typedef struct atemu {
-	u_char       profile[ISDN_MODEM_ANZREG]; /* Modem-Regs. Profile 0              */
-	u_char       mdmreg[ISDN_MODEM_ANZREG];  /* Modem-Registers                    */
+	u_char       profile[ISDN_MODEM_NUMREG]; /* Modem-Regs. Profile 0              */
+	u_char       mdmreg[ISDN_MODEM_NUMREG];  /* Modem-Registers                    */
 	char         pmsn[ISDN_MSNLEN];          /* EAZ/MSNs Profile 0                 */
 	char         msn[ISDN_MSNLEN];           /* EAZ/MSN                            */
 	char         plmsn[ISDN_LMSNLEN];        /* Listening MSNs Profile 0           */

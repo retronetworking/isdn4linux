@@ -21,6 +21,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.97  2000/01/23 18:45:37  keil
+ * Change EAZ mapping to forbit the use of cards (insert a "-" for the MSN)
+ *
  * Revision 1.96  2000/01/20 19:55:33  keil
  * Add FAX Class 1 support
  *
@@ -1825,15 +1828,15 @@ isdn_ioctl(struct inode *inode, struct file *file, uint cmd, ulong arg)
 					int i;
 
 					if ((ret = verify_area(VERIFY_WRITE, (void *) arg,
-					(ISDN_MODEM_ANZREG + ISDN_MSNLEN + ISDN_LMSNLEN)
+					(ISDN_MODEM_NUMREG + ISDN_MSNLEN + ISDN_LMSNLEN)
 						   * ISDN_MAX_CHANNELS)))
 						return ret;
 
 					for (i = 0; i < ISDN_MAX_CHANNELS; i++) {
 						if (copy_to_user(p, dev->mdm.info[i].emu.profile,
-						      ISDN_MODEM_ANZREG))
+						      ISDN_MODEM_NUMREG))
 							return -EFAULT;
-						p += ISDN_MODEM_ANZREG;
+						p += ISDN_MODEM_NUMREG;
 						if (copy_to_user(p, dev->mdm.info[i].emu.pmsn, ISDN_MSNLEN))
 							return -EFAULT;
 						p += ISDN_MSNLEN;
@@ -1841,7 +1844,7 @@ isdn_ioctl(struct inode *inode, struct file *file, uint cmd, ulong arg)
 							return -EFAULT;
 						p += ISDN_LMSNLEN;
 					}
-					return (ISDN_MODEM_ANZREG + ISDN_MSNLEN + ISDN_LMSNLEN) * ISDN_MAX_CHANNELS;
+					return (ISDN_MODEM_NUMREG + ISDN_MSNLEN + ISDN_LMSNLEN) * ISDN_MAX_CHANNELS;
 				} else
 					return -EINVAL;
 				break;
@@ -1852,15 +1855,15 @@ isdn_ioctl(struct inode *inode, struct file *file, uint cmd, ulong arg)
 					int i;
 
 					if ((ret = verify_area(VERIFY_READ, (void *) arg,
-					(ISDN_MODEM_ANZREG + ISDN_MSNLEN)
+					(ISDN_MODEM_NUMREG + ISDN_MSNLEN)
 						   * ISDN_MAX_CHANNELS)))
 						return ret;
 
 					for (i = 0; i < ISDN_MAX_CHANNELS; i++) {
 						if (copy_from_user(dev->mdm.info[i].emu.profile, p,
-						     ISDN_MODEM_ANZREG))
+						     ISDN_MODEM_NUMREG))
 							return -EFAULT;
-						p += ISDN_MODEM_ANZREG;
+						p += ISDN_MODEM_NUMREG;
 						if (copy_from_user(dev->mdm.info[i].emu.pmsn, p, ISDN_MSNLEN))
 							return -EFAULT;
 						p += ISDN_MSNLEN;

@@ -22,6 +22,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.6  1999/04/12 12:33:07  fritz
+ * Changes from 2.0 tree.
+ *
  * Revision 1.5  1997/02/03 23:34:51  fritz
  * Reformatted
  *
@@ -166,8 +169,8 @@ dumpModem(modem mdm)
 		printf("  ncarrier       = %d\n", mdm.ncarrier[i]);
 		printf("  atmodem:\n");
 		atm = &mdm.atmodem[i];
-		printf("    profile      = \n      %s\n", dumpCharArray(atm->mdmreg, ISDN_MODEM_ANZREG));
-		printf("    mdmreg       = \n      %s\n", dumpCharArray(atm->mdmreg, ISDN_MODEM_ANZREG));
+		printf("    profile      = \n      %s\n", dumpCharArray(atm->mdmreg, ISDN_MODEM_NUMREG));
+		printf("    mdmreg       = \n      %s\n", dumpCharArray(atm->mdmreg, ISDN_MODEM_NUMREG));
 		printf("    msn          = \"%s\"\n", atm->msn);
 		printf("    mdmcmdl      = %d\n", atm->mdmcmdl);
 		printf("    pluscount    = %d\n", atm->pluscount);
