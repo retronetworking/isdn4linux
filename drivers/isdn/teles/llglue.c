@@ -1,6 +1,9 @@
 /* $Id$
  *
  * $Log$
+ * Revision 1.4  1996/05/26 14:59:57  fritz
+ * Bugfix: maxbufsize had been set without respect to possible X.75 header.
+ *
  * Revision 1.3  1996/05/01 14:19:57  fritz
  * Added ISDN_FEADTURE_L2_TRANS
  *
@@ -92,7 +95,7 @@ ll_init(void)
 	}
 
 	iif.channels = CallcNewChan();
-	iif.maxbufsize = BUFFER_SIZE(HSCX_SBUF_ORDER, HSCX_SBUF_BPPS - 4);
+	iif.maxbufsize = BUFFER_SIZE(HSCX_SBUF_ORDER, HSCX_SBUF_BPPS);
 	iif.features =
 	    ISDN_FEATURE_L2_X75I |
 	    ISDN_FEATURE_L2_HDLC |
