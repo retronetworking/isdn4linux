@@ -693,6 +693,13 @@ struct hfcPCI_hw {
 	struct timer_list timer;
 };
 
+#ifdef CONFIG_HISAX_HFC_USB
+struct hfcUSB_hw {  
+        void *drv; /* pointer to driver structure */
+        int dch_tx_busy;
+};
+#endif
+
 struct hfcSX_hw {
         unsigned int  base;
 	unsigned char cirm;
@@ -889,6 +896,9 @@ struct IsdnCardState {
 		struct njet_hw njet;
 		struct hfcD_hw hfcD;
 		struct hfcPCI_hw hfcpci;
+#ifdef CONFIG_HISAX_HFC_USB
+	        struct hfcUSB_hw hfcusb;
+#endif  
 		struct hfcSX_hw hfcsx;
 		struct ix1_hw niccy;
 		struct isurf_hw isurf;
@@ -993,7 +1003,8 @@ struct IsdnCardState {
 #define  ISDN_CTYPE_HFC_SX      37
 #define  ISDN_CTYPE_NETJET_U	38
 #define  ISDN_CTYPE_HFC_SP_PCMCIA      39
-#define  ISDN_CTYPE_COUNT	39
+#define  ISDN_CTYPE_HFC_USB     40
+#define  ISDN_CTYPE_COUNT	40
 
 
 #ifdef ISDN_CHIP_ISAC
