@@ -6,6 +6,9 @@
  *
  *
  * $Log$
+ * Revision 1.7  1998/02/12 23:07:36  keil
+ * change for 2.1.86 (removing FREE_READ/FREE_WRITE from [dev]_kfree_skb()
+ *
  * Revision 1.6  1998/02/02 13:41:12  keil
  * new init
  *
@@ -213,7 +216,7 @@ hscx_manl1(struct PStack *st, int pr,
 			break;
 		case (PH_DEACTIVATE_REQ):
 			if (!test_bit(BC_FLG_BUSY, &st->l1.bcs->Flag))
-				modehscx(st->l1.bcs, 0, 0);
+				modehscx(st->l1.bcs, 0, st->l1.bc);
 			test_and_clear_bit(BC_FLG_ACTIV, &st->l1.bcs->Flag);
 			break;
 	}
