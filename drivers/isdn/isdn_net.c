@@ -21,6 +21,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.48.2.18  1998/06/29 17:08:20  cal
+ * applied small TimRu-patch by Oliver Lauer
+ *
  * Revision 1.48.2.17  1998/06/26 22:00:47  keil
  * tx_queue_len = 5 was too small
  *
@@ -333,7 +336,7 @@ isdn_net_unreachable(struct device *dev, struct sk_buff *skb, char *reason)
 		printk(KERN_DEBUG "isdn_net: %s: %s, send ICMP %s\n",
 			   dev->name,
 			   (reason != NULL) ? reason : "reason unknown",
-			   (proto != ETH_P_IP) ? "Protcol != ETH_P_IP" : "" );
+			   (proto != ETH_P_IP) ? "Protocol != ETH_P_IP" : "" );
 
 		if(proto == ETH_P_IP) {
 
@@ -343,6 +346,11 @@ isdn_net_unreachable(struct device *dev, struct sk_buff *skb, char *reason)
 #endif
 				);
 		}
+	}
+	else {  /* dial not triggered by rawIP packet */
+		printk(KERN_DEBUG "isdn_net: %s: %s\n",
+			   dev->name,
+			   (reason != NULL) ? reason : "reason unknown");
 	}
 
 	for(i = 0; i < DEV_NUMBUFFS; i++) {
