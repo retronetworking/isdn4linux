@@ -3,6 +3,9 @@
  *   Basic declarations, defines and prototypes
  *
  * $Log$
+ * Revision 1.4  1996/11/18 15:35:39  keil
+ * some changes for ELSA cards
+ *
  * Revision 1.3  1996/11/05 19:37:23  keil
  * using config.h
  *
@@ -53,6 +56,7 @@
 #define SC_DISCONNECT          18
 #define CO_DTMF                19
 #define DL_RELEASE             20
+#define DL_FLUSH               21
 
 #define CO_ALARM               22
 #define CC_REJECT              23
@@ -346,6 +350,8 @@ struct IsdnCardState {
 	unsigned int    isac;
 	unsigned int	hscx[2];
 	unsigned int	counter;
+	struct BufHeader *mon_rx, *mon_tx;
+	int		mon_rxp, mon_txp, mon_flg;
 	void            (*ph_command) (struct IsdnCardState *, unsigned int);
 	void		(*modehscx) (struct HscxState *, int, int);
 	void		(*hscx_fill_fifo) (struct HscxState *);
@@ -369,6 +375,11 @@ struct IsdnCardState {
 	int             releasebuf;
 	unsigned int	CallFlags;
 };
+
+#define  MON0_RX	1
+#define  MON1_RX	2
+#define  MON0_TX	4
+#define  MON1_TX	8
 
 #define  ISDN_CTYPE_16_0	1
 #define  ISDN_CTYPE_8_0		2
