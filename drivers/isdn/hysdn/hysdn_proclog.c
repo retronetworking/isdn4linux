@@ -20,6 +20,10 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.4  2000/03/03 16:37:12  kai
+ * incorporated some cosmetic changes from the official kernel tree back
+ * into CVS
+ *
  * Revision 1.3  2000/03/02 00:11:07  werner
  *
  * Changes related to procfs for 2.3.48
@@ -35,7 +39,6 @@
  *
  */
 
-#include <linux/config.h>
 #define __NO_VERSION__
 #include <linux/module.h>
 #include <linux/version.h>

@@ -22,6 +22,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.4  2000/02/26 00:35:12  keil
+ * Fix skb freeing in interrupt context
+ *
  * Revision 1.3  2000/01/20 19:49:36  keil
  * Support teles 13.3c vendor version 2.1
  *
@@ -38,7 +41,6 @@
  *
  */
 
-#include <linux/config.h>
 #define __NO_VERSION__
 #include "hisax.h"
 #include "hfc_sx.h"
