@@ -502,10 +502,10 @@ close_elsastate(struct BCState *bcs)
 {
 	struct sk_buff *skb;
 
-	modehscx(bcs, 0, bcs->channel);
+	modehscx(bcs, B1_MODE_NULL, bcs->channel);
 	if (test_and_clear_bit(BC_FLG_INIT, &bcs->Flag)) {
 		if (bcs->hw.hscx.rcvbuf) {
-			if (bcs->mode != L1_MODE_MODEM)
+			if (bcs->mode != B1_MODE_MODEM)
 				kfree(bcs->hw.hscx.rcvbuf);
 			bcs->hw.hscx.rcvbuf = NULL;
 		}
@@ -679,14 +679,14 @@ setstack_elsa(struct PStack *st, struct BCState *bcs)
 
 	bcs->channel = st->l1.bc;
 	switch (st->l1.mode) {
-		case L1_MODE_HDLC:
-		case L1_MODE_TRANS:
+		case B1_MODE_HDLC:
+		case B1_MODE_TRANS:
 			if (open_hscxstate(st->l1.hardware, bcs))
 				return (-1);
 			st->l2.l2l1 = hscx_l2l1;
 			break;
-		case L1_MODE_MODEM:
-			bcs->mode = L1_MODE_MODEM;
+		case B1_MODE_MODEM:
+			bcs->mode = B1_MODE_MODEM;
 			if (!test_and_set_bit(BC_FLG_INIT, &bcs->Flag)) {
 				bcs->hw.hscx.rcvbuf = bcs->cs->hw.elsa.rcvbuf;
 				skb_queue_head_init(&bcs->rqueue);

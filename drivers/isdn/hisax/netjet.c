@@ -7,6 +7,9 @@
  * Thanks to Traverse Technologie Australia for documents and informations
  *
  * $Log$
+ * Revision 1.18  2000/02/26 00:35:13  keil
+ * Fix skb freeing in interrupt context
+ *
  * Revision 1.17  1999/12/19 13:09:42  keil
  * changed TASK_INTERRUPTIBLE into TASK_UNINTERRUPTIBLE for
  * signal proof delays
@@ -251,24 +254,24 @@ mode_tiger(struct BCState *bcs, int mode, int bc)
 	bcs->mode = mode;
 	bcs->channel = bc;
 	switch (mode) {
-		case (L1_MODE_NULL):
+		case (B1_MODE_NULL):
 			fill_mem(bcs, bcs->hw.tiger.send,
 				NETJET_DMA_TXSIZE, bc, 0xff);
 			if (cs->debug & L1_DEB_HSCX)
 				debugl1(cs, "Tiger stat rec %d/%d send %d",
 					bcs->hw.tiger.r_tot, bcs->hw.tiger.r_err,
 					bcs->hw.tiger.s_tot); 
-			if ((cs->bcs[0].mode == L1_MODE_NULL) &&
-				(cs->bcs[1].mode == L1_MODE_NULL)) {
+			if ((cs->bcs[0].mode == B1_MODE_NULL) &&
+				(cs->bcs[1].mode == B1_MODE_NULL)) {
 				cs->hw.njet.dmactrl = 0;
 				byteout(cs->hw.njet.base + NETJET_DMACTRL,
 					cs->hw.njet.dmactrl);
 				byteout(cs->hw.njet.base + NETJET_IRQMASK0, 0);
 			}
 			break;
-		case (L1_MODE_TRANS):
+		case (B1_MODE_TRANS):
 			break;
-		case (L1_MODE_HDLC): 
+		case (B1_MODE_HDLC): 
 			fill_mem(bcs, bcs->hw.tiger.send,
 				NETJET_DMA_TXSIZE, bc, 0xff);
 			bcs->hw.tiger.r_state = HDLC_ZERO_SEARCH;
@@ -622,9 +625,9 @@ static void read_tiger(struct IsdnCardState *cs) {
 		p = cs->bcs[0].hw.tiger.rec + NETJET_DMA_RXSIZE - 1;
 	else
 		p = cs->bcs[0].hw.tiger.rec + cnt - 1;
-	if (cs->bcs[0].mode == L1_MODE_HDLC)
+	if (cs->bcs[0].mode == B1_MODE_HDLC)
 		read_raw(cs->bcs, p, cnt);
-	if (cs->bcs[1].mode == L1_MODE_HDLC)
+	if (cs->bcs[1].mode == B1_MODE_HDLC)
 		read_raw(cs->bcs + 1, p, cnt);
 	cs->hw.njet.irqstat0 &= ~NETJET_IRQM0_READ;
 }
@@ -799,9 +802,9 @@ static void write_tiger(struct IsdnCardState *cs) {
 		p = cs->bcs[0].hw.tiger.send + NETJET_DMA_TXSIZE - 1;
 	else
 		p = cs->bcs[0].hw.tiger.send + cnt - 1;
-	if (cs->bcs[0].mode == L1_MODE_HDLC)
+	if (cs->bcs[0].mode == B1_MODE_HDLC)
 		write_raw(cs->bcs, p, cnt);
-	if (cs->bcs[1].mode == L1_MODE_HDLC)
+	if (cs->bcs[1].mode == B1_MODE_HDLC)
 		write_raw(cs->bcs + 1, p, cnt);
 	cs->hw.njet.irqstat0 &= ~NETJET_IRQM0_WRITE;
 }
@@ -854,7 +857,7 @@ tiger_l2l1(struct PStack *st, int pr, void *arg)
 		case (PH_DEACTIVATE | CONFIRM):
 			test_and_clear_bit(BC_FLG_ACTIV, &st->l1.bcs->Flag);
 			test_and_clear_bit(BC_FLG_BUSY, &st->l1.bcs->Flag);
-			mode_tiger(st->l1.bcs, 0, st->l1.bc);
+			mode_tiger(st->l1.bcs, B1_MODE_NULL, st->l1.bc);
 			st->l1.l1l2(st, PH_DEACTIVATE | CONFIRM, NULL);
 			break;
 	}
@@ -864,7 +867,7 @@ tiger_l2l1(struct PStack *st, int pr, void *arg)
 void
 close_tigerstate(struct BCState *bcs)
 {
-	mode_tiger(bcs, 0, bcs->channel);
+	mode_tiger(bcs, B1_MODE_NULL, bcs->channel);
 	if (test_and_clear_bit(BC_FLG_INIT, &bcs->Flag)) {
 		if (bcs->hw.tiger.rcvbuf) {
 			kfree(bcs->hw.tiger.rcvbuf);

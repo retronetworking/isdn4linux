@@ -12,6 +12,9 @@
  *
  *
  * $Log$
+ * Revision 1.19  2000/02/26 00:35:12  keil
+ * Fix skb freeing in interrupt context
+ *
  * Revision 1.18  1999/12/19 13:09:41  keil
  * changed TASK_INTERRUPTIBLE into TASK_UNINTERRUPTIBLE for
  * signal proof delays
@@ -490,7 +493,7 @@ Memhscx_fill_fifo(struct BCState *bcs)
 	if (bcs->tx_skb->len <= 0)
 		return;
 
-	more = (bcs->mode == L1_MODE_TRANS) ? 1 : 0;
+	more = (bcs->mode == B1_MODE_TRANS) ? 1 : 0;
 	if (bcs->tx_skb->len > fifo_size) {
 		more = !0;
 		count = fifo_size;
@@ -537,7 +540,7 @@ Memhscx_interrupt(struct IsdnCardState *cs, u_char val, u_char hscx)
 			if (!(r & 0x80))
 				if (cs->debug & L1_DEB_WARN)
 					debugl1(cs, "HSCX invalid frame");
-			if ((r & 0x40) && bcs->mode)
+			if ((r & 0x40) && (bcs->mode != B1_MODE_NULL))
 				if (cs->debug & L1_DEB_WARN)
 					debugl1(cs, "HSCX RDO mode=%d",
 						bcs->mode);
@@ -568,7 +571,7 @@ Memhscx_interrupt(struct IsdnCardState *cs, u_char val, u_char hscx)
 	}
 	if (val & 0x40) {	/* RPF */
 		Memhscx_empty_fifo(bcs, fifo_size);
-		if (bcs->mode == L1_MODE_TRANS) {
+		if (bcs->mode == B1_MODE_TRANS) {
 			/* receive audio data */
 			if (!(skb = dev_alloc_skb(fifo_size)))
 				printk(KERN_WARNING "HiSax: receive out of memory\n");
@@ -617,7 +620,7 @@ Memhscx_int_main(struct IsdnCardState *cs, u_char val)
 		bcs = cs->bcs + 1;
 		exval = MemReadHSCX(cs, 1, HSCX_EXIR);
 		if (exval & 0x40) {
-			if (bcs->mode == 1)
+			if (bcs->mode == B1_MODE_TRANS)
 				Memhscx_fill_fifo(bcs);
 			else {
 				/* Here we lost an TX interrupt, so
@@ -644,7 +647,7 @@ Memhscx_int_main(struct IsdnCardState *cs, u_char val)
 		bcs = cs->bcs;
 		exval = MemReadHSCX(cs, 0, HSCX_EXIR);
 		if (exval & 0x40) {
-			if (bcs->mode == L1_MODE_TRANS)
+			if (bcs->mode == B1_MODE_TRANS)
 				Memhscx_fill_fifo(bcs);
 			else {
 				/* Here we lost an TX interrupt, so

@@ -5,6 +5,9 @@
  * Author   Roland Klabunde (R.Klabunde@Berkom.de)
  *
  * $Log$
+ * Revision 1.3  2000/02/26 00:35:13  keil
+ * Fix skb freeing in interrupt context
+ *
  * Revision 1.2  1999/07/01 08:07:59  keil
  * Initial version
  *
@@ -96,7 +99,7 @@ jade_fill_fifo(struct BCState *bcs)
 	if (bcs->tx_skb->len <= 0)
 		return;
 
-	more = (bcs->mode == L1_MODE_TRANS) ? 1 : 0;
+	more = (bcs->mode == B1_MODE_TRANS) ? 1 : 0;
 	if (bcs->tx_skb->len > fifo_size) {
 		more = !0;
 		count = fifo_size;
@@ -143,7 +146,7 @@ jade_interrupt(struct IsdnCardState *cs, u_char val, u_char jade)
 			if (!(r & 0x80))
 				if (cs->debug & L1_DEB_WARN)
 					debugl1(cs, "JADE %s invalid frame", (jade ? "B":"A"));
-			if ((r & 0x40) && bcs->mode)
+			if ((r & 0x40) && (bcs->mode != B1_MODE_NULL))
 				if (cs->debug & L1_DEB_WARN)
 					debugl1(cs, "JADE %c RDO mode=%d", 'A'+jade, bcs->mode);
 			if (!(r & 0x20))
@@ -172,7 +175,7 @@ jade_interrupt(struct IsdnCardState *cs, u_char val, u_char jade)
 	}
 	if (val & 0x40) {	/* RPF */
 		jade_empty_fifo(bcs, fifo_size);
-		if (bcs->mode == L1_MODE_TRANS) {
+		if (bcs->mode == B1_MODE_TRANS) {
 			/* receive audio data */
 			if (!(skb = dev_alloc_skb(fifo_size)))
 				printk(KERN_WARNING "HiSax: receive out of memory\n");
@@ -223,7 +226,7 @@ jade_int_main(struct IsdnCardState *cs, u_char val, int jade)
 	if (val & jadeISR_XDU) {
 		/* relevant in HDLC mode only */
 		/* don't reset XPR here */
-		if (bcs->mode == 1)
+		if (bcs->mode == B1_MODE_TRANS)
 			jade_fill_fifo(bcs);
 		else {
 			/* Here we lost an TX interrupt, so

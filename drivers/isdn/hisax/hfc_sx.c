@@ -22,6 +22,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.4  2000/02/26 00:35:12  keil
+ * Fix skb freeing in interrupt context
+ *
  * Revision 1.3  2000/01/20 19:49:36  keil
  * Support teles 13.3c vendor version 2.1
  *
@@ -515,9 +518,9 @@ static
 struct BCState *
 Sel_BCS(struct IsdnCardState *cs, int channel)
 {
-	if (cs->bcs[0].mode && (cs->bcs[0].channel == channel))
+	if ((cs->bcs[0].mode != B1_MODE_NULL) && (cs->bcs[0].channel == channel))
 		return (&cs->bcs[0]);
-	else if (cs->bcs[1].mode && (cs->bcs[1].channel == channel))
+	else if ((cs->bcs[1].mode != B1_MODE_NULL) && (cs->bcs[1].channel == channel))
 		return (&cs->bcs[1]);
 	else
 		return (NULL);
@@ -574,7 +577,7 @@ main_rec_hfcsx(struct BCState *bcs)
 	sti();
 	skb = read_fifo(cs, ((bcs->channel) && (!cs->hw.hfcsx.bswapped)) ? 
 			HFCSX_SEL_B2_RX : HFCSX_SEL_B1_RX,
-			(bcs->mode == L1_MODE_TRANS) ? 
+			(bcs->mode == B1_MODE_TRANS) ? 
 			HFCSX_BTRANS_THRESHOLD : 0);
 
 	if (skb) {
@@ -629,7 +632,7 @@ hfcsx_fill_fifo(struct BCState *bcs)
 	if (write_fifo(cs, bcs->tx_skb, 
 		       ((bcs->channel) && (!cs->hw.hfcsx.bswapped)) ? 
 		       HFCSX_SEL_B2_TX : HFCSX_SEL_B1_TX,
-		       (bcs->mode == L1_MODE_TRANS) ? 
+		       (bcs->mode == B1_MODE_TRANS) ? 
 		       HFCSX_BTRANS_THRESHOLD : 0)) {
 
 	  bcs->tx_cnt -= bcs->tx_skb->len;
@@ -1161,7 +1164,7 @@ mode_hfcsx(struct BCState *bcs, int mode, int bc)
 		cs->hw.hfcsx.sctrl_e &= ~0x80;
 	} else {
 		if (bc) {
-			if (mode != L1_MODE_NULL) {
+			if (mode != B1_MODE_NULL) {
 				cs->hw.hfcsx.bswapped = 1;	/* B1 and B2 exchanged */
 				cs->hw.hfcsx.sctrl_e |= 0x80;
 			} else {
@@ -1175,7 +1178,7 @@ mode_hfcsx(struct BCState *bcs, int mode, int bc)
 		}
 	}
 	switch (mode) {
-		case (L1_MODE_NULL):
+		case (B1_MODE_NULL):
 			if (bc) {
 				cs->hw.hfcsx.sctrl &= ~SCTRL_B2_ENA;
 				cs->hw.hfcsx.sctrl_r &= ~SCTRL_B2_ENA;
@@ -1189,7 +1192,7 @@ mode_hfcsx(struct BCState *bcs, int mode, int bc)
 				cs->hw.hfcsx.int_m1 &= ~(HFCSX_INTS_B1TRANS + HFCSX_INTS_B1REC);
 			}
 			break;
-		case (L1_MODE_TRANS):
+		case (B1_MODE_TRANS):
 			if (bc) {
 				cs->hw.hfcsx.sctrl |= SCTRL_B2_ENA;
 				cs->hw.hfcsx.sctrl_r |= SCTRL_B2_ENA;
@@ -1207,7 +1210,7 @@ mode_hfcsx(struct BCState *bcs, int mode, int bc)
 				cs->hw.hfcsx.conn &= ~0x03;
 			}
 			break;
-		case (L1_MODE_HDLC):
+		case (B1_MODE_HDLC):
 			if (bc) {
 				cs->hw.hfcsx.sctrl |= SCTRL_B2_ENA;
 				cs->hw.hfcsx.sctrl_r |= SCTRL_B2_ENA;
@@ -1225,7 +1228,7 @@ mode_hfcsx(struct BCState *bcs, int mode, int bc)
 				cs->hw.hfcsx.conn &= ~0x03;
 			}
 			break;
-		case (L1_MODE_EXTRN):
+		case (B1_MODE_EXTRN):
 			if (bc) {
 				cs->hw.hfcsx.conn |= 0x10;
 				cs->hw.hfcsx.sctrl |= SCTRL_B2_ENA;
@@ -1245,7 +1248,7 @@ mode_hfcsx(struct BCState *bcs, int mode, int bc)
 	Write_hfc(cs, HFCSX_SCTRL_R, cs->hw.hfcsx.sctrl_r);
 	Write_hfc(cs, HFCSX_CTMT, cs->hw.hfcsx.ctmt);
 	Write_hfc(cs, HFCSX_CONNECT, cs->hw.hfcsx.conn);
-	if (mode != L1_MODE_EXTRN) {
+	if (mode != B1_MODE_EXTRN) {
 	  reset_fifo(cs, fifo2 ? HFCSX_SEL_B2_RX : HFCSX_SEL_B1_RX);
 	  reset_fifo(cs, fifo2 ? HFCSX_SEL_B2_TX : HFCSX_SEL_B1_TX);
 	}
@@ -1305,7 +1308,7 @@ hfcsx_l2l1(struct PStack *st, int pr, void *arg)
 		case (PH_DEACTIVATE | CONFIRM):
 			test_and_clear_bit(BC_FLG_ACTIV, &st->l1.bcs->Flag);
 			test_and_clear_bit(BC_FLG_BUSY, &st->l1.bcs->Flag);
-			mode_hfcsx(st->l1.bcs, 0, st->l1.bc);
+			mode_hfcsx(st->l1.bcs, B1_MODE_NULL, st->l1.bc);
 			st->l1.l1l2(st, PH_DEACTIVATE | CONFIRM, NULL);
 			break;
 	}
@@ -1317,7 +1320,7 @@ hfcsx_l2l1(struct PStack *st, int pr, void *arg)
 static void
 close_hfcsx(struct BCState *bcs)
 {
-	mode_hfcsx(bcs, 0, bcs->channel);
+	mode_hfcsx(bcs, B1_MODE_NULL, bcs->channel);
 	if (test_and_clear_bit(BC_FLG_INIT, &bcs->Flag)) {
 		discard_queue(&bcs->rqueue);
 		discard_queue(&bcs->squeue);
@@ -1471,8 +1474,8 @@ __initfunc(void
 	cs->bcs[1].BC_SetStack = setstack_2b;
 	cs->bcs[0].BC_Close = close_hfcsx;
 	cs->bcs[1].BC_Close = close_hfcsx;
-	mode_hfcsx(cs->bcs, 0, 0);
-	mode_hfcsx(cs->bcs + 1, 0, 1);
+	mode_hfcsx(cs->bcs, B1_MODE_NULL, 0);
+	mode_hfcsx(cs->bcs + 1, B1_MODE_NULL, 1);
 }
 
 

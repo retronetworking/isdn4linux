@@ -23,6 +23,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.27  2000/02/26 00:35:12  keil
+ * Fix skb freeing in interrupt context
+ *
  * Revision 1.26  2000/02/09 20:22:55  werner
  *
  * Updated PCI-ID table
@@ -315,9 +318,9 @@ static
 struct BCState *
 Sel_BCS(struct IsdnCardState *cs, int channel)
 {
-	if (cs->bcs[0].mode && (cs->bcs[0].channel == channel))
+	if ((cs->bcs[0].mode != B1_MODE_NULL) && (cs->bcs[0].channel == channel))
 		return (&cs->bcs[0]);
-	else if (cs->bcs[1].mode && (cs->bcs[1].channel == channel))
+	else if ((cs->bcs[1].mode != B1_MODE_NULL) && (cs->bcs[1].channel == channel))
 		return (&cs->bcs[1]);
 	else
 		return (NULL);
@@ -564,7 +567,7 @@ main_rec_hfcpci(struct BCState *bcs)
 			receive = 1;
 		else
 			receive = 0;
-	} else if (bcs->mode == L1_MODE_TRANS)
+	} else if (bcs->mode == B1_MODE_TRANS)
 		receive = hfcpci_empty_fifo_trans(bcs, bz, bdata);
 	else
 		receive = 0;
@@ -677,7 +680,7 @@ hfcpci_fill_fifo(struct BCState *bcs)
 		bdata = ((fifo_area *) (cs->hw.hfcpci.fifos))->b_chans.txdat_b1;
 	}
 
-	if (bcs->mode == L1_MODE_TRANS) {
+	if (bcs->mode == B1_MODE_TRANS) {
 		z1t = &bz->za[MAX_B_FRAMES].z1;
 		z2t = z1t + 1;
 		if (cs->debug & L1_DEB_HSCX)
@@ -1364,7 +1367,7 @@ mode_hfcpci(struct BCState *bcs, int mode, int bc)
 		cs->hw.hfcpci.sctrl_e &= ~0x80;
 	} else {
 		if (bc) {
-			if (mode != L1_MODE_NULL) {
+			if (mode != B1_MODE_NULL) {
 				cs->hw.hfcpci.bswapped = 1;	/* B1 and B2 exchanged */
 				cs->hw.hfcpci.sctrl_e |= 0x80;
 			} else {
@@ -1378,7 +1381,7 @@ mode_hfcpci(struct BCState *bcs, int mode, int bc)
 		}
 	}
 	switch (mode) {
-		case (L1_MODE_NULL):
+		case (B1_MODE_NULL):
 			if (bc) {
 				cs->hw.hfcpci.sctrl &= ~SCTRL_B2_ENA;
 				cs->hw.hfcpci.sctrl_r &= ~SCTRL_B2_ENA;
@@ -1394,7 +1397,7 @@ mode_hfcpci(struct BCState *bcs, int mode, int bc)
 				cs->hw.hfcpci.int_m1 &= ~(HFCPCI_INTS_B1TRANS + HFCPCI_INTS_B1REC);
 			}
 			break;
-		case (L1_MODE_TRANS):
+		case (B1_MODE_TRANS):
 			if (bc) {
 				cs->hw.hfcpci.sctrl |= SCTRL_B2_ENA;
 				cs->hw.hfcpci.sctrl_r |= SCTRL_B2_ENA;
@@ -1426,7 +1429,7 @@ mode_hfcpci(struct BCState *bcs, int mode, int bc)
 			bzt->f1 = MAX_B_FRAMES;
 			bzt->f2 = bzt->f1;	/* init F pointers to remain constant */
 			break;
-		case (L1_MODE_HDLC):
+		case (B1_MODE_HDLC):
 			if (bc) {
 				cs->hw.hfcpci.sctrl |= SCTRL_B2_ENA;
 				cs->hw.hfcpci.sctrl_r |= SCTRL_B2_ENA;
@@ -1446,7 +1449,7 @@ mode_hfcpci(struct BCState *bcs, int mode, int bc)
 				cs->hw.hfcpci.conn &= ~0x03;
 			}
 			break;
-		case (L1_MODE_EXTRN):
+		case (B1_MODE_EXTRN):
 			if (bc) {
 				cs->hw.hfcpci.conn |= 0x10;
 				cs->hw.hfcpci.sctrl |= SCTRL_B2_ENA;
@@ -1525,7 +1528,7 @@ hfcpci_l2l1(struct PStack *st, int pr, void *arg)
 		case (PH_DEACTIVATE | CONFIRM):
 			test_and_clear_bit(BC_FLG_ACTIV, &st->l1.bcs->Flag);
 			test_and_clear_bit(BC_FLG_BUSY, &st->l1.bcs->Flag);
-			mode_hfcpci(st->l1.bcs, 0, st->l1.bc);
+			mode_hfcpci(st->l1.bcs, B1_MODE_NULL, st->l1.bc);
 			st->l1.l1l2(st, PH_DEACTIVATE | CONFIRM, NULL);
 			break;
 	}
@@ -1537,7 +1540,7 @@ hfcpci_l2l1(struct PStack *st, int pr, void *arg)
 static void
 close_hfcpci(struct BCState *bcs)
 {
-	mode_hfcpci(bcs, 0, bcs->channel);
+	mode_hfcpci(bcs, B1_MODE_NULL, bcs->channel);
 	if (test_and_clear_bit(BC_FLG_INIT, &bcs->Flag)) {
 		discard_queue(&bcs->rqueue);
 		discard_queue(&bcs->squeue);
@@ -1691,8 +1694,8 @@ __initfunc(void
 	cs->bcs[1].BC_SetStack = setstack_2b;
 	cs->bcs[0].BC_Close = close_hfcpci;
 	cs->bcs[1].BC_Close = close_hfcpci;
-	mode_hfcpci(cs->bcs, 0, 0);
-	mode_hfcpci(cs->bcs + 1, 0, 1);
+	mode_hfcpci(cs->bcs, B1_MODE_NULL, 0);
+	mode_hfcpci(cs->bcs + 1, B1_MODE_NULL, 1);
 }
 
 

@@ -5,6 +5,9 @@
  * Author   Roland Klabunde (R.Klabunde@Berkom.de)
  *
  * $Log$
+ * Revision 1.3  2000/02/26 00:35:13  keil
+ * Fix skb freeing in interrupt context
+ *
  * Revision 1.2  1999/07/01 08:07:57  keil
  * Initial version
  *
@@ -94,7 +97,7 @@ modejade(struct BCState *bcs, int mode, int bc)
     bcs->mode = mode;
     bcs->channel = bc;
 	
-    cs->BC_Write_Reg(cs, jade, jade_HDLC_MODE, (mode == L1_MODE_TRANS ? jadeMODE_TMO:0x00));
+    cs->BC_Write_Reg(cs, jade, jade_HDLC_MODE, (mode == B1_MODE_TRANS ? jadeMODE_TMO:0x00));
     cs->BC_Write_Reg(cs, jade, jade_HDLC_CCR0, (jadeCCR0_PU|jadeCCR0_ITF));
     cs->BC_Write_Reg(cs, jade, jade_HDLC_CCR1, 0x00);
 
@@ -114,17 +117,17 @@ modejade(struct BCState *bcs, int mode, int bc)
 	cs->BC_Write_Reg(cs, jade, jade_HDLC_TSAR, 0x04);
     }
     switch (mode) {
-	case (L1_MODE_NULL):
+	case (B1_MODE_NULL):
 		cs->BC_Write_Reg(cs, jade, jade_HDLC_MODE, jadeMODE_TMO);
 		break;
-	case (L1_MODE_TRANS):
+	case (B1_MODE_TRANS):
 		cs->BC_Write_Reg(cs, jade, jade_HDLC_MODE, (jadeMODE_TMO|jadeMODE_RAC|jadeMODE_XAC));
 		break;
-	case (L1_MODE_HDLC):
+	case (B1_MODE_HDLC):
 		cs->BC_Write_Reg(cs, jade, jade_HDLC_MODE, (jadeMODE_RAC|jadeMODE_XAC));
 		break;
     }
-    if (mode) {
+    if (mode != B1_MODE_NULL) {
 	cs->BC_Write_Reg(cs, jade, jade_HDLC_RCMD, (jadeRCMD_RRES|jadeRCMD_RMC));
 	cs->BC_Write_Reg(cs, jade, jade_HDLC_XCMD, jadeXCMD_XRES);
 	/* Unmask ints */
@@ -192,7 +195,7 @@ jade_l2l1(struct PStack *st, int pr, void *arg)
 	case (PH_DEACTIVATE | CONFIRM):
 		test_and_clear_bit(BC_FLG_ACTIV, &st->l1.bcs->Flag);
 		test_and_clear_bit(BC_FLG_BUSY, &st->l1.bcs->Flag);
-		modejade(st->l1.bcs, 0, st->l1.bc);
+		modejade(st->l1.bcs, B1_MODE_NULL, st->l1.bc);
 		st->l1.l1l2(st, PH_DEACTIVATE | CONFIRM, NULL);
 		break;
     }
@@ -201,7 +204,7 @@ jade_l2l1(struct PStack *st, int pr, void *arg)
 void
 close_jadestate(struct BCState *bcs)
 {
-    modejade(bcs, 0, bcs->channel);
+    modejade(bcs, B1_MODE_NULL, bcs->channel);
     if (test_and_clear_bit(BC_FLG_INIT, &bcs->Flag)) {
 	if (bcs->hw.hscx.rcvbuf) {
 		kfree(bcs->hw.hscx.rcvbuf);
@@ -320,7 +323,7 @@ initjade(struct IsdnCardState *cs))
 	cs->BC_Write_Reg(cs, -1,jade_INT, (jadeINT_HDLC1|jadeINT_HDLC2));
 
 	/* once again TRANSPARENT */	
-	modejade(cs->bcs, 0, 0);
-	modejade(cs->bcs + 1, 0, 0);
+	modejade(cs->bcs, B1_MODE_NULL, 0);
+	modejade(cs->bcs + 1, B1_MODE_NULL, 0);
 }
 

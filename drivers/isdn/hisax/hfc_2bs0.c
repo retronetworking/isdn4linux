@@ -6,6 +6,9 @@
  *
  *
  * $Log$
+ * Revision 1.13  2000/02/26 00:35:12  keil
+ * Fix skb freeing in interrupt context
+ *
  * Revision 1.12  1999/12/19 14:17:12  keil
  * fix compiler warning
  *
@@ -217,7 +220,7 @@ hfc_empty_fifo(struct BCState *bcs, int count)
 		WaitForBusy(cs);
 		return (NULL);
 	}
-	if ((count < 4) && (bcs->mode != L1_MODE_TRANS)) {
+	if ((count < 4) && (bcs->mode != B1_MODE_TRANS)) {
 		if (cs->debug & L1_DEB_WARN)
 			debugl1(cs, "hfc_empty_fifo: incoming packet too small");
 		cip = HFC_CIP | HFC_FIFO_OUT | HFC_REC | HFC_CHANNEL(bcs->channel);
@@ -232,7 +235,7 @@ hfc_empty_fifo(struct BCState *bcs, int count)
 #endif
 		return (NULL);
 	}
-	if (bcs->mode == L1_MODE_TRANS)
+	if (bcs->mode == B1_MODE_TRANS)
 	  count -= 1;
 	else
 	  count -= 3;
@@ -251,7 +254,7 @@ hfc_empty_fifo(struct BCState *bcs, int count)
 			debugl1(cs, "RFIFO BUSY error");
 			printk(KERN_WARNING "HFC FIFO channel %d BUSY Error\n", bcs->channel);
 			idev_kfree_skb_any(skb, FREE_READ);
-			if (bcs->mode != L1_MODE_TRANS) {
+			if (bcs->mode != B1_MODE_TRANS) {
 			  WaitNoBusy(cs);
 			  stat = cs->BC_Read_Reg(cs, HFC_DATA, HFC_CIP | HFC_F2_INC | HFC_REC |
 						 HFC_CHANNEL(bcs->channel));
@@ -259,7 +262,7 @@ hfc_empty_fifo(struct BCState *bcs, int count)
 			}
 			return (NULL);
 		}
-		if (bcs->mode != L1_MODE_TRANS) {
+		if (bcs->mode != B1_MODE_TRANS) {
 		  WaitNoBusy(cs);
 		  chksum = (cs->BC_Read_Reg(cs, HFC_DATA, cip) << 8);
 		  WaitNoBusy(cs);
@@ -309,7 +312,7 @@ hfc_fill_fifo(struct BCState *bcs)
 	  WaitForBusy(cs);
 	}
 	WaitNoBusy(cs);
-	if (bcs->mode != L1_MODE_TRANS) {
+	if (bcs->mode != B1_MODE_TRANS) {
 	  bcs->hw.hfc.f1 = cs->BC_Read_Reg(cs, HFC_DATA, cip);
 	  cip = HFC_CIP | HFC_F2 | HFC_SEND | HFC_CHANNEL(bcs->channel);
 	  WaitNoBusy(cs);
@@ -337,7 +340,7 @@ hfc_fill_fifo(struct BCState *bcs)
 	  count = z1 - z2;
 	  if (count < 0)
 	    count += cs->hw.hfc.fifosize; 
-	} /* L1_MODE_TRANS */
+	} /* B1_MODE_TRANS */
 	if (cs->debug & L1_DEB_HSCX)
 		debugl1(cs, "hfc_fill_fifo %d count(%ld/%d)",
 			bcs->channel, bcs->tx_skb->len,
@@ -362,7 +365,7 @@ hfc_fill_fifo(struct BCState *bcs)
 			count = -1;
 		idev_kfree_skb_any(bcs->tx_skb, FREE_WRITE);
 		bcs->tx_skb = NULL;
-		if (bcs->mode != L1_MODE_TRANS) {
+		if (bcs->mode != B1_MODE_TRANS) {
 		  WaitForBusy(cs);
 		  WaitNoBusy(cs);
 		  cs->BC_Read_Reg(cs, HFC_DATA, HFC_CIP | HFC_F1_INC | HFC_SEND | HFC_CHANNEL(bcs->channel));
@@ -396,7 +399,7 @@ main_irq_hfc(struct BCState *bcs)
 	}
 	WaitNoBusy(cs);
 	receive = 0;
-	if (bcs->mode == L1_MODE_HDLC) {
+	if (bcs->mode == B1_MODE_HDLC) {
 		f1 = cs->BC_Read_Reg(cs, HFC_DATA, cip);
 		cip = HFC_CIP | HFC_F2 | HFC_REC | HFC_CHANNEL(bcs->channel);
 		WaitNoBusy(cs);
@@ -408,14 +411,14 @@ main_irq_hfc(struct BCState *bcs)
 			receive = 1; 
 		}
 	}
-	if (receive || (bcs->mode == L1_MODE_TRANS)) {
+	if (receive || (bcs->mode == B1_MODE_TRANS)) {
 		WaitForBusy(cs);
 		z1 = ReadZReg(bcs, HFC_Z1 | HFC_REC | HFC_CHANNEL(bcs->channel));
 		z2 = ReadZReg(bcs, HFC_Z2 | HFC_REC | HFC_CHANNEL(bcs->channel));
 		rcnt = z1 - z2;
 		if (rcnt < 0)
 			rcnt += cs->hw.hfc.fifosize;
-		if ((bcs->mode == L1_MODE_HDLC) || (rcnt)) {
+		if ((bcs->mode == B1_MODE_HDLC) || (rcnt)) {
 			rcnt++;
 			if (cs->debug & L1_DEB_HSCX)
 				debugl1(cs, "hfc rec %d z1(%x) z2(%x) cnt(%d)",
@@ -467,7 +470,7 @@ mode_hfc(struct BCState *bcs, int mode, int bc)
 	bcs->channel = bc;
 
 	switch (mode) {
-		case (L1_MODE_NULL):
+		case (B1_MODE_NULL):
 		        if (bc) {
 				cs->hw.hfc.ctmt &= ~1;
 				cs->hw.hfc.isac_spcr &= ~0x03;
@@ -477,7 +480,7 @@ mode_hfc(struct BCState *bcs, int mode, int bc)
 				cs->hw.hfc.isac_spcr &= ~0x0c;
 			}
 			break;
-		case (L1_MODE_TRANS):
+		case (B1_MODE_TRANS):
 		        cs->hw.hfc.ctmt &= ~(1 << bc); /* set HDLC mode */ 
 			cs->BC_Write_Reg(cs, HFC_STATUS, cs->hw.hfc.ctmt, cs->hw.hfc.ctmt);
 			hfc_clear_fifo(bcs); /* complete fifo clear */ 
@@ -491,7 +494,7 @@ mode_hfc(struct BCState *bcs, int mode, int bc)
 				cs->hw.hfc.isac_spcr |= 0x08;
 			}
 			break;
-		case (L1_MODE_HDLC):
+		case (B1_MODE_HDLC):
 			if (bc) {
 				cs->hw.hfc.ctmt &= ~1;
 				cs->hw.hfc.isac_spcr &= ~0x03;
@@ -505,7 +508,7 @@ mode_hfc(struct BCState *bcs, int mode, int bc)
 	}
 	cs->BC_Write_Reg(cs, HFC_STATUS, cs->hw.hfc.ctmt, cs->hw.hfc.ctmt);
 	cs->writeisac(cs, ISAC_SPCR, cs->hw.hfc.isac_spcr);
-	if (mode == L1_MODE_HDLC)
+	if (mode == B1_MODE_HDLC)
 		hfc_clear_fifo(bcs);
 }
 
@@ -559,7 +562,7 @@ hfc_l2l1(struct PStack *st, int pr, void *arg)
 		case (PH_DEACTIVATE | CONFIRM):
 			test_and_clear_bit(BC_FLG_ACTIV, &st->l1.bcs->Flag);
 			test_and_clear_bit(BC_FLG_BUSY, &st->l1.bcs->Flag);
-			mode_hfc(st->l1.bcs, 0, st->l1.bc);
+			mode_hfc(st->l1.bcs, B1_MODE_NULL, st->l1.bc);
 			st->l1.l1l2(st, PH_DEACTIVATE | CONFIRM, NULL);
 			break;
 	}
@@ -569,7 +572,7 @@ hfc_l2l1(struct PStack *st, int pr, void *arg)
 void
 close_hfcstate(struct BCState *bcs)
 {
-	mode_hfc(bcs, 0, bcs->channel);
+	mode_hfc(bcs, B1_MODE_NULL, bcs->channel);
 	if (test_bit(BC_FLG_INIT, &bcs->Flag)) {
 		discard_queue(&bcs->rqueue);
 		discard_queue(&bcs->squeue);
@@ -634,8 +637,8 @@ inithfc(struct IsdnCardState *cs))
 	cs->bcs[1].BC_SetStack = setstack_hfc;
 	cs->bcs[0].BC_Close = close_hfcstate;
 	cs->bcs[1].BC_Close = close_hfcstate;
-	mode_hfc(cs->bcs, 0, 0);
-	mode_hfc(cs->bcs + 1, 0, 0);
+	mode_hfc(cs->bcs, B1_MODE_NULL, 0);
+	mode_hfc(cs->bcs + 1, B1_MODE_NULL, 0);
 }
 
 void

@@ -6,6 +6,10 @@
  *
  *
  * $Log$
+ * Revision 1.12  1999/12/19 13:09:42  keil
+ * changed TASK_INTERRUPTIBLE into TASK_UNINTERRUPTIBLE for
+ * signal proof delays
+ *
  * Revision 1.11  1999/09/04 06:20:06  keil
  * Changes from kernel set_current_state()
  *
@@ -229,11 +233,11 @@ TeleInt_Timer(struct IsdnCardState *cs)
 {
 	int stat = 0;
 
-	if (cs->bcs[0].mode) {
+	if (cs->bcs[0].mode != B1_MODE_NULL) {
 		stat |= 1;
 		main_irq_hfc(&cs->bcs[0]);
 	}
-	if (cs->bcs[1].mode) {
+	if (cs->bcs[1].mode != B1_MODE_NULL) {
 		stat |= 2;
 		main_irq_hfc(&cs->bcs[1]);
 	}

@@ -6,6 +6,9 @@
  *
  *
  * $Log$
+ * Revision 1.12  2000/02/26 00:35:12  keil
+ * Fix skb freeing in interrupt context
+ *
  * Revision 1.11  1999/12/23 15:09:32  keil
  * change email
  *
@@ -503,7 +506,7 @@ mode_2bs0(struct BCState *bcs, int mode, int bc)
 	bcs->mode = mode;
 	bcs->channel = bc;
 	switch (mode) {
-		case (L1_MODE_NULL):
+		case (B1_MODE_NULL):
 			if (bc) {
 				cs->hw.hfcD.conn |= 0x18;
 				cs->hw.hfcD.sctrl &= ~SCTRL_B2_ENA;
@@ -512,7 +515,7 @@ mode_2bs0(struct BCState *bcs, int mode, int bc)
 				cs->hw.hfcD.sctrl &= ~SCTRL_B1_ENA;
 			}
 			break;
-		case (L1_MODE_TRANS):
+		case (B1_MODE_TRANS):
 			if (bc) {
 				cs->hw.hfcD.ctmt |= 2;
 				cs->hw.hfcD.conn &= ~0x18;
@@ -523,7 +526,7 @@ mode_2bs0(struct BCState *bcs, int mode, int bc)
 				cs->hw.hfcD.sctrl |= SCTRL_B1_ENA;
 			}
 			break;
-		case (L1_MODE_HDLC):
+		case (B1_MODE_HDLC):
 			if (bc) {
 				cs->hw.hfcD.ctmt &= ~2;
 				cs->hw.hfcD.conn &= ~0x18;
@@ -590,7 +593,7 @@ hfc_l2l1(struct PStack *st, int pr, void *arg)
 		case (PH_DEACTIVATE | CONFIRM):
 			test_and_clear_bit(BC_FLG_ACTIV, &st->l1.bcs->Flag);
 			test_and_clear_bit(BC_FLG_BUSY, &st->l1.bcs->Flag);
-			mode_2bs0(st->l1.bcs, 0, st->l1.bc);
+			mode_2bs0(st->l1.bcs, B1_MODE_NULL, st->l1.bc);
 			st->l1.l1l2(st, PH_DEACTIVATE | CONFIRM, NULL);
 			break;
 	}
@@ -599,7 +602,7 @@ hfc_l2l1(struct PStack *st, int pr, void *arg)
 void
 close_2bs0(struct BCState *bcs)
 {
-	mode_2bs0(bcs, 0, bcs->channel);
+	mode_2bs0(bcs, B1_MODE_NULL, bcs->channel);
 	if (test_and_clear_bit(BC_FLG_INIT, &bcs->Flag)) {
 		discard_queue(&bcs->rqueue);
 		discard_queue(&bcs->squeue);
@@ -894,9 +897,9 @@ hfc_fill_dfifo(struct IsdnCardState *cs)
 static 
 struct BCState *Sel_BCS(struct IsdnCardState *cs, int channel)
 {
-	if (cs->bcs[0].mode && (cs->bcs[0].channel == channel))
+	if ((cs->bcs[0].mode != B1_MODE_NULL) && (cs->bcs[0].channel == channel))
 		return(&cs->bcs[0]);
-	else if (cs->bcs[1].mode && (cs->bcs[1].channel == channel))
+	else if ((cs->bcs[1].mode != B1_MODE_NULL) && (cs->bcs[1].channel == channel))
 		return(&cs->bcs[1]);
 	else
 		return(NULL);
@@ -1224,8 +1227,8 @@ init2bds0(struct IsdnCardState *cs))
 	cs->bcs[1].BC_SetStack = setstack_2b;
 	cs->bcs[0].BC_Close = close_2bs0;
 	cs->bcs[1].BC_Close = close_2bs0;
-	mode_2bs0(cs->bcs, 0, 0);
-	mode_2bs0(cs->bcs + 1, 0, 1);
+	mode_2bs0(cs->bcs, B1_MODE_NULL, 0);
+	mode_2bs0(cs->bcs + 1, B1_MODE_NULL, 1);
 }
 
 void

@@ -7,6 +7,9 @@
  *
  *
  * $Log$
+ * Revision 1.15  2000/02/26 00:35:12  keil
+ * Fix skb freeing in interrupt context
+ *
  * Revision 1.14  1999/12/19 13:09:41  keil
  * changed TASK_INTERRUPTIBLE into TASK_UNINTERRUPTIBLE for
  * signal proof delays
@@ -235,9 +238,9 @@ WriteHDLC_s(struct IsdnCardState *cs, int chan, u_char offset, u_char value)
 static inline
 struct BCState *Sel_BCS(struct IsdnCardState *cs, int channel)
 {
-	if (cs->bcs[0].mode && (cs->bcs[0].channel == channel))
+	if ((cs->bcs[0].mode != B1_MODE_NULL) && (cs->bcs[0].channel == channel))
 		return(&cs->bcs[0]);
-	else if (cs->bcs[1].mode && (cs->bcs[1].channel == channel))
+	else if ((cs->bcs[1].mode != B1_MODE_NULL) && (cs->bcs[1].channel == channel))
 		return(&cs->bcs[1]);
 	else
 		return(NULL);
@@ -284,19 +287,19 @@ modehdlc(struct BCState *bcs, int mode, int bc)
 	bcs->hw.hdlc.ctrl.ctrl = 0;
 	switch (mode) {
 		case (-1): /* used for init */
-			bcs->mode = 1;
+			bcs->mode = B1_MODE_TRANS;
 			bcs->channel = bc;
 			bc = 0;
-		case (L1_MODE_NULL):
-			if (bcs->mode == L1_MODE_NULL)
+		case (B1_MODE_NULL):
+			if (bcs->mode == B1_MODE_NULL)
 				return;
 			bcs->hw.hdlc.ctrl.sr.cmd  = HDLC_CMD_XRS | HDLC_CMD_RRS;
 			bcs->hw.hdlc.ctrl.sr.mode = HDLC_MODE_TRANS;
 			write_ctrl(bcs, 5);
-			bcs->mode = L1_MODE_NULL;
+			bcs->mode = B1_MODE_NULL;
 			bcs->channel = bc;
 			break;
-		case (L1_MODE_TRANS):
+		case (B1_MODE_TRANS):
 			bcs->mode = mode;
 			bcs->channel = bc;
 			bcs->hw.hdlc.ctrl.sr.cmd  = HDLC_CMD_XRS | HDLC_CMD_RRS;
@@ -307,7 +310,7 @@ modehdlc(struct BCState *bcs, int mode, int bc)
 			bcs->hw.hdlc.ctrl.sr.cmd = 0;
 			hdlc_sched_event(bcs, B_XMTBUFREADY);
 			break;
-		case (L1_MODE_HDLC):
+		case (B1_MODE_HDLC):
 			bcs->mode = mode;
 			bcs->channel = bc;
 			bcs->hw.hdlc.ctrl.sr.cmd  = HDLC_CMD_XRS | HDLC_CMD_RRS;
@@ -385,14 +388,13 @@ hdlc_fill_fifo(struct BCState *bcs)
 		count = fifo_size;
 	} else {
 		count = bcs->tx_skb->len;
-		if (bcs->mode != L1_MODE_TRANS)
+		if (bcs->mode != B1_MODE_TRANS)
 			bcs->hw.hdlc.ctrl.sr.cmd |= HDLC_CMD_XME;
 	}
 	if ((cs->debug & L1_DEB_HSCX) && !(cs->debug & L1_DEB_HSCX_FIFO))
 		debugl1(cs, "hdlc_fill_fifo %d/%ld", count, bcs->tx_skb->len);
 	ptr = (u_int *) p = bcs->tx_skb->data;
 	skb_pull(bcs->tx_skb, count);
-	bcs->tx_cnt -= count;
 	bcs->hw.hdlc.count += count;
 	bcs->hw.hdlc.ctrl.sr.xml = ((count == fifo_size) ? 0 : count);
 	write_ctrl(bcs, 3);  /* sets the correct index too */
@@ -452,9 +454,9 @@ HDLC_irq(struct BCState *bcs, u_int stat) {
 			if (!(len = (stat & HDLC_STAT_RML_MASK)>>8))
 				len = 32;
 			hdlc_empty_fifo(bcs, len);
-			if ((stat & HDLC_STAT_RME) || (bcs->mode == L1_MODE_TRANS)) {
+			if ((stat & HDLC_STAT_RME) || (bcs->mode == B1_MODE_TRANS)) {
 				if (((stat & HDLC_STAT_CRCVFRRAB)==HDLC_STAT_CRCVFR) ||
-					(bcs->mode == L1_MODE_TRANS)) {
+					(bcs->mode == B1_MODE_TRANS)) {
 					if (!(skb = dev_alloc_skb(bcs->hw.hdlc.rcvidx)))
 						printk(KERN_WARNING "HDLC: receive out of memory\n");
 					else {
@@ -607,7 +609,7 @@ hdlc_l2l1(struct PStack *st, int pr, void *arg)
 		case (PH_DEACTIVATE | CONFIRM):
 			test_and_clear_bit(BC_FLG_ACTIV, &st->l1.bcs->Flag);
 			test_and_clear_bit(BC_FLG_BUSY, &st->l1.bcs->Flag);
-			modehdlc(st->l1.bcs, 0, st->l1.bc);
+			modehdlc(st->l1.bcs, B1_MODE_NULL, st->l1.bc);
 			st->l1.l1l2(st, PH_DEACTIVATE | CONFIRM, NULL);
 			break;
 	}
@@ -616,7 +618,7 @@ hdlc_l2l1(struct PStack *st, int pr, void *arg)
 void
 close_hdlcstate(struct BCState *bcs)
 {
-	modehdlc(bcs, 0, 0);
+	modehdlc(bcs, B1_MODE_NULL, 0);
 	if (test_and_clear_bit(BC_FLG_INIT, &bcs->Flag)) {
 		if (bcs->hw.hdlc.rcvbuf) {
 			kfree(bcs->hw.hdlc.rcvbuf);

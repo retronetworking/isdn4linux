@@ -6,6 +6,9 @@
  *
  *
  * $Log$
+ * Revision 1.18  2000/02/26 00:35:13  keil
+ * Fix skb freeing in interrupt context
+ *
  * Revision 1.17  1999/07/01 08:11:41  keil
  * Common HiSax version for 2.0, 2.1, 2.2 and 2.3 kernel
  *
@@ -121,21 +124,21 @@ modehscx(struct BCState *bcs, int mode, int bc)
 		cs->BC_Write_Reg(cs, hscx, HSCX_TSAR, bcs->hw.hscx.tsaxr1);
 	}
 	switch (mode) {
-		case (L1_MODE_NULL):
+		case (B1_MODE_NULL):
 			cs->BC_Write_Reg(cs, hscx, HSCX_TSAX, 0x1f);
 			cs->BC_Write_Reg(cs, hscx, HSCX_TSAR, 0x1f);
 			cs->BC_Write_Reg(cs, hscx, HSCX_MODE, 0x84);
 			break;
-		case (L1_MODE_TRANS):
+		case (B1_MODE_TRANS):
 			cs->BC_Write_Reg(cs, hscx, HSCX_MODE, 0xe4);
 			break;
-		case (L1_MODE_HDLC):
+		case (B1_MODE_HDLC):
 			cs->BC_Write_Reg(cs, hscx, HSCX_CCR1,
 				test_bit(HW_IPAC, &cs->HW_Flags) ? 0x8a : 0x8d);
 			cs->BC_Write_Reg(cs, hscx, HSCX_MODE, 0x8c);
 			break;
 	}
-	if (mode)
+	if (mode != B1_MODE_NULL)
 		cs->BC_Write_Reg(cs, hscx, HSCX_CMDR, 0x41);
 	cs->BC_Write_Reg(cs, hscx, HSCX_ISTA, 0x00);
 }
@@ -197,7 +200,7 @@ hscx_l2l1(struct PStack *st, int pr, void *arg)
 		case (PH_DEACTIVATE | CONFIRM):
 			test_and_clear_bit(BC_FLG_ACTIV, &st->l1.bcs->Flag);
 			test_and_clear_bit(BC_FLG_BUSY, &st->l1.bcs->Flag);
-			modehscx(st->l1.bcs, 0, st->l1.bc);
+			modehscx(st->l1.bcs, B1_MODE_NULL, st->l1.bc);
 			st->l1.l1l2(st, PH_DEACTIVATE | CONFIRM, NULL);
 			break;
 	}
@@ -206,7 +209,7 @@ hscx_l2l1(struct PStack *st, int pr, void *arg)
 void
 close_hscxstate(struct BCState *bcs)
 {
-	modehscx(bcs, 0, bcs->channel);
+	modehscx(bcs, B1_MODE_NULL, bcs->channel);
 	if (test_and_clear_bit(BC_FLG_INIT, &bcs->Flag)) {
 		if (bcs->hw.hscx.rcvbuf) {
 			kfree(bcs->hw.hscx.rcvbuf);
@@ -308,8 +311,8 @@ inithscx(struct IsdnCardState *cs))
 	cs->bcs[0].hw.hscx.tsaxr1 = 3;
 	cs->bcs[1].hw.hscx.tsaxr0 = 0x2f;
 	cs->bcs[1].hw.hscx.tsaxr1 = 3;
-	modehscx(cs->bcs, 0, 0);
-	modehscx(cs->bcs + 1, 0, 0);
+	modehscx(cs->bcs, B1_MODE_NULL, 0);
+	modehscx(cs->bcs + 1, B1_MODE_NULL, 0);
 }
 
 HISAX_INITFUNC(void

@@ -7,6 +7,10 @@
  *
  *
  * $Log$
+ * Revision 1.3  1999/07/12 21:04:52  keil
+ * fix race in IRQ handling
+ * added watchdog for lost IRQs
+ *
  * Revision 1.2  1998/02/12 23:07:10  keil
  * change for 2.1.86 (removing FREE_READ/FREE_WRITE from [dev]_kfree_skb()
  *
@@ -67,10 +71,10 @@
  *   3) the lack of any chip support for HDLC encapsulation
  *
  * The HiSax driver can put each B channel into one of three modes -
- * L1_MODE_NULL (channel disabled), L1_MODE_TRANS (transparent data relay),
- * and L1_MODE_HDLC (HDLC encapsulation by low-level driver).
- * L1_MODE_HDLC is the most common, used for almost all "pure" digital
- * data sessions.  L1_MODE_TRANS is used for ISDN audio.
+ * B1_MODE_NULL (channel disabled), B1_MODE_TRANS (transparent data relay),
+ * and B1_MODE_HDLC (HDLC encapsulation by low-level driver).
+ * B1_MODE_HDLC is the most common, used for almost all "pure" digital
+ * data sessions.  B1_MODE_TRANS is used for ISDN audio.
  *
  * HDLC B channel transmission is performed via a large buffer into
  * which the skb is copied while performing HDLC bit-stuffing.  A CRC
@@ -140,15 +144,15 @@ Bchan_xmit_callback(struct BCState *bcs)
 	mark_bh(IMMEDIATE_BH);
 }
 
-/* B channel transmission: two modes (three, if you count L1_MODE_NULL)
+/* B channel transmission: two modes (three, if you count B1_MODE_NULL)
  *
- * L1_MODE_HDLC - We need to do HDLC encapsulation before transmiting
+ * B1_MODE_HDLC - We need to do HDLC encapsulation before transmiting
  * the packet (i.e. make_raw_hdlc_data).  Since this can be a
  * time-consuming operation, our completion callback just schedules
  * a bottom half to do encapsulation for the next packet.  In between,
  * the link will just idle
  *
- * L1_MODE_TRANS - Data goes through, well, transparent.  No HDLC encap,
+ * B1_MODE_TRANS - Data goes through, well, transparent.  No HDLC encap,
  * and we can't just let the link idle, so the "bottom half" actually
  * gets called during the top half (it's our callback routine in this case),
  * but it's a lot faster now since we don't call make_raw_hdlc_data
@@ -171,7 +175,7 @@ Bchan_fill_fifo(struct BCState *bcs, struct sk_buff *skb)
 		debugl1(cs, tmp);
 	}
 
-	if (bcs->mode == L1_MODE_HDLC) {
+	if (bcs->mode == B1_MODE_HDLC) {
 		len = make_raw_hdlc_data(skb->data, skb->len,
 					 bcs->hw.amd7930.tx_buff, RAW_BUFMAX);
 		if (len > 0)
@@ -180,7 +184,7 @@ Bchan_fill_fifo(struct BCState *bcs, struct sk_buff *skb)
 				      (void *) &Bchan_xmit_callback,
 				      (void *) bcs);
 		dev_kfree_skb(skb);
-	} else if (bcs->mode == L1_MODE_TRANS) {
+	} else if (bcs->mode == B1_MODE_TRANS) {
 		amd7930_bxmit(0, bcs->channel,
 			      bcs->hw.amd7930.tx_buff, skb->len,
 			      (void *) &Bchan_xmt_bh,
@@ -246,7 +250,7 @@ Bchan_l2l1(struct PStack *st, int pr, void *arg)
 }
 
 /* Receiver callback and bottom half - decodes HDLC at leisure (if
- * L1_MODE_HDLC) and passes newly received skb on via bcs->rqueue.  If
+ * B1_MODE_HDLC) and passes newly received skb on via bcs->rqueue.  If
  * a large packet is received, stick rv_skb (the buffer that the
  * packet has been decoded into) on the receive queue and alloc a new
  * (large) skb to act as buffer for future receives.  If a small
@@ -293,7 +297,7 @@ Bchan_rcv_bh(struct BCState *bcs)
 	}
 
 	do {
-		if (bcs->mode == L1_MODE_HDLC) {
+		if (bcs->mode == B1_MODE_HDLC) {
 			while ((len = read_raw_hdlc_data(hw->hdlc_state,
 							 hw->rv_buff + hw->rv_buff_out, RCV_BUFSIZE/RCV_BUFBLKS,
 							 hw->rv_skb->tail, HSCX_BUFMAX))) {
@@ -335,7 +339,7 @@ Bchan_rcv_bh(struct BCState *bcs)
 					/* printk("amd7930: B channel receive error\n"); */
 				}
 			}
-		} else if (bcs->mode == L1_MODE_TRANS) {
+		} else if (bcs->mode == B1_MODE_TRANS) {
 			if (!(skb = dev_alloc_skb(RCV_BUFSIZE/RCV_BUFBLKS))) {
 				printk(KERN_WARNING "amd7930: receive out of memory\n");
 			} else {
@@ -369,7 +373,7 @@ Bchan_close(struct BCState *bcs)
 {
 	struct sk_buff *skb;
 
-	Bchan_mode(bcs, 0, 0);
+	Bchan_mode(bcs, B1_MODE_NULL, 0);
 	amd7930_bclose(0, bcs->channel);
 
 	if (test_bit(BC_FLG_INIT, &bcs->Flag)) {
@@ -454,7 +458,7 @@ Bchan_manl1(struct PStack *st, int pr,
 			break;
 		case (PH_DEACTIVATE_REQ):
 			if (!test_bit(BC_FLG_BUSY, &st->l1.bcs->Flag))
-				Bchan_mode(st->l1.bcs, 0, 0);
+				Bchan_mode(st->l1.bcs, B1_MODE_NULL, 0);
 			test_and_clear_bit(BC_FLG_ACTIV, &st->l1.bcs->Flag);
 			break;
 	}
@@ -716,8 +720,8 @@ static void init_amd7930(struct IsdnCardState *cs)
 	cs->bcs[1].BC_SetStack = setstack_amd7930;
 	cs->bcs[0].BC_Close = Bchan_close;
 	cs->bcs[1].BC_Close = Bchan_close;
-	Bchan_mode(cs->bcs, 0, 0);
-	Bchan_mode(cs->bcs + 1, 0, 0);
+	Bchan_mode(cs->bcs, B1_MODE_NULL, 0);
+	Bchan_mode(cs->bcs + 1, B1_MODE_NULL, 0);
 }
 
 void

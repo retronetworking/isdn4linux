@@ -3,6 +3,10 @@
  *   Basic declarations, defines and prototypes
  *
  * $Log$
+ * Revision 2.41.2.1  2000/03/03 13:03:33  kai
+ * now we use schedule_timeout() instead of the huge
+ * udelay() when we have to wait a long time.
+ *
  * Revision 2.41  2000/02/26 00:35:13  keil
  * Fix skb freeing in interrupt context
  *
@@ -582,13 +586,14 @@ struct amd7930_hw {
 #define BC_FLG_LL_OK	14
 #define BC_FLG_LL_CONN	15
 
-#define L1_MODE_NULL	0
-#define L1_MODE_TRANS	1
-#define L1_MODE_HDLC	2
-#define L1_MODE_EXTRN	3
-#define L1_MODE_MODEM	7
-#define L1_MODE_V32	8
-#define L1_MODE_FAX	9
+
+#define B1_MODE_NULL	0x100
+#define B1_MODE_EXTRN	0x101
+
+#define B1_MODE_HDLC	0
+#define B1_MODE_TRANS	1
+#define B1_MODE_FAX	4
+#define B1_MODE_MODEM	7
 
 struct BCState {
 	int channel;

@@ -11,6 +11,10 @@
  *              Fritz Elfert
  *
  * $Log$
+ * Revision 2.40  1999/12/19 12:59:56  keil
+ * fix leased line handling
+ * and cosmetics
+ *
  * Revision 2.39  1999/10/14 20:25:28  keil
  * add a statistic for error monitoring
  *
@@ -1398,16 +1402,16 @@ init_b_st(struct Channel *chanp, int incoming)
 	switch (chanp->l2_active_protocol) {
 		case (ISDN_PROTO_L2_X75I):
 		case (ISDN_PROTO_L2_HDLC):
-			st->l1.mode = L1_MODE_HDLC;
+			st->l1.mode = B1_MODE_HDLC;
 			break;
 		case (ISDN_PROTO_L2_TRANS):
-			st->l1.mode = L1_MODE_TRANS;
+			st->l1.mode = B1_MODE_TRANS;
 			break;
 		case (ISDN_PROTO_L2_MODEM):
-			st->l1.mode = L1_MODE_V32;
+			st->l1.mode = B1_MODE_MODEM;
 			break;
 		case (ISDN_PROTO_L2_FAX):
-			st->l1.mode = L1_MODE_FAX;
+			st->l1.mode = B1_MODE_FAX;
 			break;
 	}
 	chanp->bcs->conmsg = NULL;
@@ -1838,7 +1842,7 @@ HiSax_command(isdn_ctrl * ic)
 				case (10):
 					i = *(unsigned int *) ic->parm.num;
 					return(set_channel_limit(csta, i));
-				default:
+			        default:
 					if (csta->auxcmd)
 						return(csta->auxcmd(csta, ic));
 					printk(KERN_DEBUG "HiSax: invalid ioclt %d\n",
@@ -1847,7 +1851,7 @@ HiSax_command(isdn_ctrl * ic)
 			}
 			break;
 		
-		case (ISDN_CMD_PROCEED):
+	        case (ISDN_CMD_PROCEED):
 			chanp = csta->channel + ic->arg;
 			if (chanp->debug & 1)
 				link_debug(chanp, 1, "PROCEED");

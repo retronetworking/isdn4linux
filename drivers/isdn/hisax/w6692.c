@@ -8,6 +8,9 @@
  *              This file is (c) under GNU PUBLIC LICENSE
  *
  * $Log$
+ * Revision 1.2  2000/02/26 00:35:13  keil
+ * Fix skb freeing in interrupt context
+ *
  * Revision 1.1  1999/09/04 06:28:58  keil
  * first revision
  *
@@ -286,7 +289,7 @@ W6692B_fill_fifo(struct BCState *bcs)
 	if (bcs->tx_skb->len <= 0)
 		return;
 
-	more = (bcs->mode == L1_MODE_TRANS) ? 1 : 0;
+	more = (bcs->mode == B1_MODE_TRANS) ? 1 : 0;
 	if (bcs->tx_skb->len > W_B_FIFO_THRESH) {
 		more = !0;
 		count = W_B_FIFO_THRESH;
@@ -331,7 +334,7 @@ W6692B_interrupt(struct IsdnCardState *cs, u_char bchan)
 	if (val & W_B_EXI_RME) {	/* RME */
 		r = cs->BC_Read_Reg(cs, bchan, W_B_STAR);
 		if (r & (W_B_STAR_RDOV | W_B_STAR_CRCE | W_B_STAR_RMB | W_B_STAR_XDOW)) {
-			if ((r & W_B_STAR_RDOV) && bcs->mode)
+			if ((r & W_B_STAR_RDOV) && (bcs->mode != B1_MODE_NULL))
 				if (cs->debug & L1_DEB_WARN)
 					debugl1(cs, "W6692 B RDOV mode=%d",
 						bcs->mode);
@@ -361,7 +364,7 @@ W6692B_interrupt(struct IsdnCardState *cs, u_char bchan)
 	}
 	if (val & W_B_EXI_RMR) {	/* RMR */
 		W6692B_empty_fifo(bcs, W_B_FIFO_THRESH);
-		if (bcs->mode == L1_MODE_TRANS) {
+		if (bcs->mode == B1_MODE_TRANS) {
 			/* receive audio data */
 			if (!(skb = dev_alloc_skb(W_B_FIFO_THRESH)))
 				printk(KERN_WARNING "HiSax: receive out of memory\n");
@@ -398,7 +401,7 @@ W6692B_interrupt(struct IsdnCardState *cs, u_char bchan)
 		}
 	}
 	if (val & W_B_EXI_XDUN) {	/* XDUN */
-		if (bcs->mode == 1)
+		if (bcs->mode == B1_MODE_TRANS)
 			W6692B_fill_fifo(bcs);
 		else {
 			/* Here we lost an TX interrupt, so
@@ -746,19 +749,19 @@ W6692Bmode(struct BCState *bcs, int mode, int bc)
 	bcs->channel = bc;
 
 	switch (mode) {
-		case (L1_MODE_NULL):
+		case (B1_MODE_NULL):
 			cs->BC_Write_Reg(cs, bchan, W_B_MODE, 0);
 			break;
-		case (L1_MODE_TRANS):
+		case (B1_MODE_TRANS):
 			cs->BC_Write_Reg(cs, bchan, W_B_MODE, W_B_MODE_MMS);
 			break;
-		case (L1_MODE_HDLC):
+		case (B1_MODE_HDLC):
 			cs->BC_Write_Reg(cs, bchan, W_B_MODE, W_B_MODE_ITF);
 			cs->BC_Write_Reg(cs, bchan, W_B_ADM1, 0xff);
 			cs->BC_Write_Reg(cs, bchan, W_B_ADM2, 0xff);
 			break;
 	}
-	if (mode)
+	if (mode != B1_MODE_NULL)
 		cs->BC_Write_Reg(cs, bchan, W_B_CMDR, W_B_CMDR_RRST |
 				 W_B_CMDR_RACT | W_B_CMDR_XRST);
 	cs->BC_Write_Reg(cs, bchan, W_B_EXIM, 0x00);
@@ -813,7 +816,7 @@ W6692_l2l1(struct PStack *st, int pr, void *arg)
 		case (PH_DEACTIVATE | CONFIRM):
 			test_and_clear_bit(BC_FLG_ACTIV, &st->l1.bcs->Flag);
 			test_and_clear_bit(BC_FLG_BUSY, &st->l1.bcs->Flag);
-			W6692Bmode(st->l1.bcs, 0, st->l1.bc);
+			W6692Bmode(st->l1.bcs, B1_MODE_NULL, st->l1.bc);
 			st->l1.l1l2(st, PH_DEACTIVATE | CONFIRM, NULL);
 			break;
 	}
@@ -822,7 +825,7 @@ W6692_l2l1(struct PStack *st, int pr, void *arg)
 static void
 close_w6692state(struct BCState *bcs)
 {
-	W6692Bmode(bcs, 0, bcs->channel);
+	W6692Bmode(bcs, B1_MODE_NULL, bcs->channel);
 	if (test_and_clear_bit(BC_FLG_INIT, &bcs->Flag)) {
 		if (bcs->hw.w6692.rcvbuf) {
 			kfree(bcs->hw.w6692.rcvbuf);
@@ -921,8 +924,8 @@ HISAX_INITFUNC(void initW6692(struct IsdnCardState *cs, int part))
 		cs->bcs[1].BC_Close = close_w6692state;
 		cs->bcs[0].hw.w6692.bchan = 0;
 		cs->bcs[1].hw.w6692.bchan = 1;
-		W6692Bmode(cs->bcs, 0, 0);
-		W6692Bmode(cs->bcs + 1, 0, 0);
+		W6692Bmode(cs->bcs, B1_MODE_NULL, 0);
+		W6692Bmode(cs->bcs + 1, B1_MODE_NULL, 0);
 	}
 	if (part & 2) {
 		/* Reenable all IRQ */

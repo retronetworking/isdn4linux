@@ -7,6 +7,9 @@
  * This is an include file for fast inline IRQ stuff
  *
  * $Log$
+ * Revision 1.14  2000/02/26 00:35:13  keil
+ * Fix skb freeing in interrupt context
+ *
  * Revision 1.13  1999/10/14 20:25:28  keil
  * add a statistic for error monitoring
  *
@@ -142,7 +145,7 @@ hscx_fill_fifo(struct BCState *bcs)
 	if (bcs->tx_skb->len <= 0)
 		return;
 
-	more = (bcs->mode == L1_MODE_TRANS) ? 1 : 0;
+	more = (bcs->mode == B1_MODE_TRANS) ? 1 : 0;
 	if (bcs->tx_skb->len > fifo_size) {
 		more = !0;
 		count = fifo_size;
@@ -191,7 +194,7 @@ hscx_interrupt(struct IsdnCardState *cs, u_char val, u_char hscx)
 				bcs->err_inv++;
 #endif
 			}
-			if ((r & 0x40) && bcs->mode) {
+			if ((r & 0x40) && (bcs->mode != B1_MODE_NULL)) {
 				if (cs->debug & L1_DEB_WARN)
 					debugl1(cs, "HSCX RDO mode=%d",
 						bcs->mode);
@@ -230,7 +233,7 @@ hscx_interrupt(struct IsdnCardState *cs, u_char val, u_char hscx)
 	}
 	if (val & 0x40) {	/* RPF */
 		hscx_empty_fifo(bcs, fifo_size);
-		if (bcs->mode == L1_MODE_TRANS) {
+		if (bcs->mode == B1_MODE_TRANS) {
 			/* receive audio data */
 			if (!(skb = dev_alloc_skb(fifo_size)))
 				printk(KERN_WARNING "HiSax: receive out of memory\n");
@@ -279,7 +282,7 @@ hscx_int_main(struct IsdnCardState *cs, u_char val)
 		bcs = cs->bcs + 1;
 		exval = READHSCX(cs, 1, HSCX_EXIR);
 		if (exval & 0x40) {
-			if (bcs->mode == 1)
+			if (bcs->mode == B1_MODE_TRANS)
 				hscx_fill_fifo(bcs);
 			else {
 #ifdef ERROR_STATISTIC
@@ -309,7 +312,7 @@ hscx_int_main(struct IsdnCardState *cs, u_char val)
 		bcs = cs->bcs;
 		exval = READHSCX(cs, 0, HSCX_EXIR);
 		if (exval & 0x40) {
-			if (bcs->mode == L1_MODE_TRANS)
+			if (bcs->mode == B1_MODE_TRANS)
 				hscx_fill_fifo(bcs);
 			else {
 				/* Here we lost an TX interrupt, so

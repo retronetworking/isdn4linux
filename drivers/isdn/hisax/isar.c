@@ -6,6 +6,9 @@
  *
  *
  * $Log$
+ * Revision 1.10  2000/02/26 00:35:13  keil
+ * Fix skb freeing in interrupt context
+ *
  * Revision 1.9  2000/01/20 19:47:45  keil
  * Add Fax Class 1 support
  *
@@ -514,15 +517,15 @@ isar_rcv_frame(struct IsdnCardState *cs, struct BCState *bcs)
 		return;
 	}
 	switch (bcs->mode) {
-	case L1_MODE_NULL:
+	case B1_MODE_NULL:
 		debugl1(cs, "isar mode 0 spurious IIS_RDATA %x/%x/%x",
 			ireg->iis, ireg->cmsb, ireg->clsb);
 		printk(KERN_WARNING"isar mode 0 spurious IIS_RDATA %x/%x/%x\n",
 			ireg->iis, ireg->cmsb, ireg->clsb);
 		cs->BC_Write_Reg(cs, 1, ISAR_IIA, 0);
 		break;
-	case L1_MODE_TRANS:
-	case L1_MODE_V32:
+	case B1_MODE_TRANS:
+	case B1_MODE_MODEM:
 		if ((skb = dev_alloc_skb(ireg->clsb))) {
 			SET_SKB_FREE(skb);
 			rcv_mbox(cs, ireg, (u_char *)skb_put(skb, ireg->clsb));
@@ -533,7 +536,7 @@ isar_rcv_frame(struct IsdnCardState *cs, struct BCState *bcs)
 			cs->BC_Write_Reg(cs, 1, ISAR_IIA, 0);
 		}
 		break;
-	case L1_MODE_HDLC:
+	case B1_MODE_HDLC:
 		if ((bcs->hw.isar.rcvidx + ireg->clsb) > HSCX_BUFMAX) {
 			if (cs->debug & L1_DEB_WARN)
 				debugl1(cs, "isar_rcv_frame: incoming packet too large");
@@ -573,7 +576,7 @@ isar_rcv_frame(struct IsdnCardState *cs, struct BCState *bcs)
 			}
 		}
 		break;
-	case L1_MODE_FAX:
+	case B1_MODE_FAX:
 		if (bcs->hw.isar.state != STFAX_ACTIV) {
 			if (cs->debug & L1_DEB_WARN)
 				debugl1(cs, "isar_rcv_frame: not ACTIV");
@@ -694,7 +697,7 @@ isar_fill_fifo(struct BCState *bcs)
 	ptr = bcs->tx_skb->data;
 	if (!bcs->hw.isar.txcnt) {
 		msb |= HDLC_FST;
-		if ((bcs->mode == L1_MODE_FAX) &&
+		if ((bcs->mode == B1_MODE_FAX) &&
 			(bcs->hw.isar.cmd == PCTRL_CMD_FTH)) {
 			if (bcs->tx_skb->len > 1) {
 				if ((ptr[0]== 0xff) && (ptr[1] == 0x13))
@@ -708,19 +711,19 @@ isar_fill_fifo(struct BCState *bcs)
 	bcs->tx_cnt -= count;
 	bcs->hw.isar.txcnt += count;
 	switch (bcs->mode) {
-		case L1_MODE_NULL:
+		case B1_MODE_NULL:
 			printk(KERN_ERR"isar_fill_fifo wrong mode 0\n");
 			break;
-		case L1_MODE_TRANS:
-		case L1_MODE_V32:
+		case B1_MODE_TRANS:
+		case B1_MODE_MODEM:
 			sendmsg(cs, SET_DPS(bcs->hw.isar.dpath) | ISAR_HIS_SDATA,
 				0, count, ptr);
 			break;
-		case L1_MODE_HDLC:
+		case B1_MODE_HDLC:
 			sendmsg(cs, SET_DPS(bcs->hw.isar.dpath) | ISAR_HIS_SDATA,
 				msb, count, ptr);
 			break;
-		case L1_MODE_FAX:
+		case B1_MODE_FAX:
 			if (bcs->hw.isar.state != STFAX_ACTIV) {
 				if (cs->debug & L1_DEB_WARN)
 					debugl1(cs, "isar_fill_fifo: not ACTIV");
@@ -767,7 +770,7 @@ send_frames(struct BCState *bcs)
 			if (bcs->st->lli.l1writewakeup &&
 				(PACKET_NOACK != bcs->tx_skb->pkt_type))
 					bcs->st->lli.l1writewakeup(bcs->st, bcs->hw.isar.txcnt);
-			if (bcs->mode == L1_MODE_FAX) {
+			if (bcs->mode == B1_MODE_FAX) {
 				if (bcs->hw.isar.cmd == PCTRL_CMD_FTH) {
 					if (test_bit(BC_FLG_LASTDATA, &bcs->Flag)) {
 						test_and_set_bit(BC_FLG_NMD_DATA, &bcs->Flag);
@@ -813,14 +816,14 @@ check_send(struct IsdnCardState *cs, u_char rdm)
 	
 	if (rdm & BSTAT_RDM1) {
 		if ((bcs = sel_bcs_isar(cs, 1))) {
-			if (bcs->mode) {
+			if (bcs->mode != B1_MODE_NULL) {
 				send_frames(bcs);
 			}
 		}
 	}
 	if (rdm & BSTAT_RDM2) {
 		if ((bcs = sel_bcs_isar(cs, 2))) {
-			if (bcs->mode) {
+			if (bcs->mode != B1_MODE_NULL) {
 				send_frames(bcs);
 			}
 		}
@@ -1188,9 +1191,9 @@ isar_int_main(struct IsdnCardState *cs)
 		case ISAR_IIS_PSTEV:
 			if ((bcs = sel_bcs_isar(cs, ireg->iis >> 6))) {
 				rcv_mbox(cs, ireg, (u_char *)ireg->par);
-				if (bcs->mode == L1_MODE_V32) {
+				if (bcs->mode == B1_MODE_MODEM) {
 					isar_pump_statev_modem(bcs, ireg->cmsb);
-				} else if (bcs->mode == L1_MODE_FAX) {
+				} else if (bcs->mode == B1_MODE_FAX) {
 					isar_pump_statev_fax(bcs, ireg->cmsb);
 				} else {
 					if (cs->debug & L1_DEB_WARN)
@@ -1261,12 +1264,12 @@ setup_pump(struct BCState *bcs) {
 	u_char ctrl, param[6];
 
 	switch (bcs->mode) {
-		case L1_MODE_NULL:
-		case L1_MODE_TRANS:
-		case L1_MODE_HDLC:
+		case B1_MODE_NULL:
+		case B1_MODE_TRANS:
+		case B1_MODE_HDLC:
 			sendmsg(cs, dps | ISAR_HIS_PUMPCFG, PMOD_BYPASS, 0, NULL);
 			break;
-		case L1_MODE_V32:
+		case B1_MODE_MODEM:
 			ctrl = PMOD_DATAMODEM;
 			if (test_bit(BC_FLG_ORIG, &bcs->Flag)) {
 				ctrl |= PCTRL_ORIG;
@@ -1282,7 +1285,7 @@ setup_pump(struct BCState *bcs) {
 			param[4] = PV32P5_UT144;
 			sendmsg(cs, dps | ISAR_HIS_PUMPCFG, ctrl, 6, param);
 			break;
-		case L1_MODE_FAX:
+		case B1_MODE_FAX:
 			ctrl = PMOD_FAX;
 			if (test_bit(BC_FLG_ORIG, &bcs->Flag)) {
 				ctrl |= PCTRL_ORIG;
@@ -1310,21 +1313,21 @@ setup_sart(struct BCState *bcs) {
 	u_char ctrl, param[2];
 	
 	switch (bcs->mode) {
-		case L1_MODE_NULL:
+		case B1_MODE_NULL:
 			sendmsg(cs, dps | ISAR_HIS_SARTCFG, SMODE_DISABLE, 0,
 				NULL);
 			break;
-		case L1_MODE_TRANS:
+		case B1_MODE_TRANS:
 			sendmsg(cs, dps | ISAR_HIS_SARTCFG, SMODE_BINARY, 2,
 				"\0\0");
 			break;
-		case L1_MODE_HDLC:
-		case L1_MODE_FAX:
+		case B1_MODE_HDLC:
+		case B1_MODE_FAX:
 			param[0] = 0;
 			sendmsg(cs, dps | ISAR_HIS_SARTCFG, SMODE_HDLC, 1,
 				param);
 			break;
-		case L1_MODE_V32:
+		case B1_MODE_MODEM:
 			ctrl = SMODE_V14 | SCTRL_HDMC_BOTH;
 			param[0] = S_P1_CHS_8;
 			param[1] = S_P2_BFT_DEF;
@@ -1346,16 +1349,16 @@ setup_iom2(struct BCState *bcs) {
 	if (bcs->channel)
 		msg[1] = msg[3] = 1;
 	switch (bcs->mode) {
-		case L1_MODE_NULL:
+		case B1_MODE_NULL:
 			cmsb = 0;
 			/* dummy slot */
 			msg[1] = msg[3] = bcs->hw.isar.dpath + 2;
 			break;
-		case L1_MODE_TRANS:
-		case L1_MODE_HDLC:
+		case B1_MODE_TRANS:
+		case B1_MODE_HDLC:
 			break;
-		case L1_MODE_V32:
-		case L1_MODE_FAX:
+		case B1_MODE_MODEM:
+		case B1_MODE_FAX:
 			cmsb |= IOM_CTRL_ALAW | IOM_CTRL_RCV;
 			break;
 	}
@@ -1371,16 +1374,16 @@ modeisar(struct BCState *bcs, int mode, int bc)
 	struct IsdnCardState *cs = bcs->cs;
 
 	/* Here we are selecting the best datapath for requested mode */
-	if(bcs->mode == L1_MODE_NULL) { /* New Setup */
+	if(bcs->mode == B1_MODE_NULL) { /* New Setup */
 		bcs->channel = bc;
 		switch (mode) {
-			case L1_MODE_NULL: /* init */
+			case B1_MODE_NULL: /* init */
 				if (!bcs->hw.isar.dpath)
 					/* no init for dpath 0 */
 					return(0);
 				break;
-			case L1_MODE_TRANS:
-			case L1_MODE_HDLC:
+			case B1_MODE_TRANS:
+			case B1_MODE_HDLC:
 				/* best is datapath 2 */
 				if (!test_and_set_bit(ISAR_DP2_USE, 
 					&bcs->hw.isar.reg->Flags))
@@ -1393,8 +1396,8 @@ modeisar(struct BCState *bcs, int mode, int bc)
 					return(1);
 				}
 				break;
-			case L1_MODE_V32:
-			case L1_MODE_FAX:
+			case B1_MODE_MODEM:
+			case B1_MODE_FAX:
 				/* only datapath 1 */
 				if (!test_and_set_bit(ISAR_DP1_USE, 
 					&bcs->hw.isar.reg->Flags))
@@ -1414,7 +1417,7 @@ modeisar(struct BCState *bcs, int mode, int bc)
 	setup_pump(bcs);
 	setup_iom2(bcs);
 	setup_sart(bcs);
-	if (bcs->mode == L1_MODE_NULL) {
+	if (bcs->mode == B1_MODE_NULL) {
 		/* Clear resources */
 		if (bcs->hw.isar.dpath == 1)
 			test_and_clear_bit(ISAR_DP1_USE, &bcs->hw.isar.reg->Flags);
@@ -1539,9 +1542,9 @@ isar_setup(struct IsdnCardState *cs)
 		sendmsg(cs, (i ? ISAR_HIS_DPS2 : ISAR_HIS_DPS1) |
 			ISAR_HIS_P12CFG, 4, 1, &msg);
 		cs->bcs[i].hw.isar.mml = msg;
-		cs->bcs[i].mode = 0;
+		cs->bcs[i].mode = B1_MODE_NULL;
 		cs->bcs[i].hw.isar.dpath = i + 1;
-		modeisar(&cs->bcs[i], 0, 0);
+		modeisar(&cs->bcs[i], B1_MODE_NULL, 0);
 		cs->bcs[i].tqueue.routine = (void *) (void *) isar_bh;
 	}
 }
@@ -1596,15 +1599,15 @@ isar_l2l1(struct PStack *st, int pr, void *arg)
 			else
 				test_and_clear_bit(BC_FLG_ORIG, &st->l1.bcs->Flag);
 			switch(st->l1.mode) {
-				case L1_MODE_TRANS:
-				case L1_MODE_HDLC:
+				case B1_MODE_TRANS:
+				case B1_MODE_HDLC:
 					if (modeisar(st->l1.bcs, st->l1.mode, st->l1.bc))
 						l1_msg_b(st, PH_DEACTIVATE | REQUEST, arg);
 					else
 						l1_msg_b(st, PH_ACTIVATE | REQUEST, arg);
 					break;
-				case L1_MODE_V32:
-				case L1_MODE_FAX:
+				case B1_MODE_MODEM:
+				case B1_MODE_FAX:
 					if (modeisar(st->l1.bcs, st->l1.mode, st->l1.bc))
 						l1_msg_b(st, PH_DEACTIVATE | REQUEST, arg);
 					break;
@@ -1618,7 +1621,7 @@ isar_l2l1(struct PStack *st, int pr, void *arg)
 			test_and_clear_bit(BC_FLG_BUSY, &st->l1.bcs->Flag);
 			if (st->l1.bcs->cs->debug & L1_DEB_HSCX)
 				debugl1(st->l1.bcs->cs, "PDAC clear BC_FLG_BUSY");
-			modeisar(st->l1.bcs, 0, st->l1.bc);
+			modeisar(st->l1.bcs, B1_MODE_NULL, st->l1.bc);
 			st->l1.l1l2(st, PH_DEACTIVATE | CONFIRM, NULL);
 			break;
 	}
@@ -1627,7 +1630,7 @@ isar_l2l1(struct PStack *st, int pr, void *arg)
 void
 close_isarstate(struct BCState *bcs)
 {
-	modeisar(bcs, 0, bcs->channel);
+	modeisar(bcs, B1_MODE_NULL, bcs->channel);
 	if (test_and_clear_bit(BC_FLG_INIT, &bcs->Flag)) {
 		if (bcs->hw.isar.rcvbuf) {
 			kfree(bcs->hw.isar.rcvbuf);
