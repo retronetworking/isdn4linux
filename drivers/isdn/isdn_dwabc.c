@@ -23,6 +23,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.10  1999/12/04 15:05:25  detabc
+ * bugfix abc-rawip-bsdcompress with channel-bundeling
+ *
  * Revision 1.9  1999/11/30 11:29:06  detabc
  * add a on the fly frame-counter and limit
  *
@@ -1644,7 +1647,7 @@ int isdn_dw_abc_reset_interface(isdn_net_local *lp,int with_message)
 #define DWBSD_PKT_SWITCH	165
 #define DWBSD_PKT_BSD		189
 
-#define DWBSD_VERSION 		0x1
+#define DWBSD_VERSION 		0x2
 
 void dwabc_bsd_first_gen(isdn_net_local *lp)
 {
@@ -1659,6 +1662,7 @@ void dwabc_bsd_first_gen(isdn_net_local *lp)
 			dev_kfree_skb(lp->dw_abc_next_skb);
 
 		lp->dw_abc_next_skb = NULL;
+		lp->dw_abc_if_flags &= ~ISDN_DW_ABC_IFFLAG_RSTREMOTE;
 
 		if((skb =(struct sk_buff *)dev_alloc_skb(128)) == NULL) {
 
@@ -1751,85 +1755,78 @@ int dwabc_bsd_init(isdn_net_local *lp)
 
 		if(lp->p_encap == ISDN_NET_ENCAP_RAWIP) {
 
-			if(lp->l2_proto == ISDN_PROTO_L2_X75I) {
+			if(lp->dw_abc_flags & ISDN_DW_ABC_FLAG_BSD_COMPRESS) {
 
-				if(lp->dw_abc_flags & ISDN_DW_ABC_FLAG_BSD_COMPRESS) {
+				ulong flags = 0;
+				struct isdn_ppp_compressor *c = ipc_head;
 
-					ulong flags = 0;
-					struct isdn_ppp_compressor *c = ipc_head;
+				save_flags(flags);
+				cli();
+				for(;c != NULL && c->num != CI_BSD_COMPRESS; c = c->next);
 
-					save_flags(flags);
-					cli();
-					for(;c != NULL && c->num != CI_BSD_COMPRESS; c = c->next);
+				if(c == NULL) {
 
-					if(c == NULL) {
+					printk(KERN_INFO "%s: Module isdn_bsdcompress not loaded\n",lp->name);
+					r = -1;
+				
+				} else {
 
-						printk(KERN_INFO "%s: Module isdn_bsdcompress not loaded\n",lp->name);
-						r = -1;
+					void *rx = NULL;
+					void *tx = NULL;
+					struct isdn_ppp_comp_data *cp = &BSD_COMP_INIT_DATA;
+
+					memset(cp,0,sizeof(*cp));
+					cp->num = CI_BSD_COMPRESS;
+					cp->optlen = 1;
 					
-					} else {
+					/*
+					** set BSD_VERSION 1 and 12 bits compressmode
+					*/
+					*cp->options = (1 << 5) | 12;
 
-						void *rx = NULL;
-						void *tx = NULL;
-						struct isdn_ppp_comp_data *cp = &BSD_COMP_INIT_DATA;
+					if((rx = (*c->alloc)(cp)) == NULL) {
 
-						memset(cp,0,sizeof(*cp));
-						cp->num = CI_BSD_COMPRESS;
-						cp->optlen = 1;
+						printk(KERN_INFO "%s: allocation of bsd rx-memory failed\n",lp->name);
+						r = -1;
+
+					} else if(!(*c->init)(rx,cp,0,1)) {
+
+						printk(KERN_INFO "%s: init of bsd rx-stream  failed\n",lp->name);
+						(*c->free)(rx);
+						rx = NULL;
+					}
+
+					if(rx != NULL) {
+
+						cp->flags = IPPP_COMP_FLAG_XMIT;
 						
-						/*
-						** set BSD_VERSION 1 and 12 bits compressmode
-						*/
-						*cp->options = (1 << 5) | 12;
+						if((tx = (*c->alloc)(cp)) == NULL) {
 
-						if((rx = (*c->alloc)(cp)) == NULL) {
-
-							printk(KERN_INFO "%s: allocation of bsd rx-memory failed\n",lp->name);
+							printk(KERN_INFO
+								"%s: allocation of bsd tx-memory failed\n",lp->name);
 							r = -1;
 
-						} else if(!(*c->init)(rx,cp,0,1)) {
+						} else if(!(*c->init)(tx,cp,0,1)) {
 
-							printk(KERN_INFO "%s: init of bsd rx-stream  failed\n",lp->name);
-							(*c->free)(rx);
-							rx = NULL;
-						}
-
-						if(rx != NULL) {
-
-							cp->flags = IPPP_COMP_FLAG_XMIT;
-							
-							if((tx = (*c->alloc)(cp)) == NULL) {
-
-								printk(KERN_INFO
-									"%s: allocation of bsd tx-memory failed\n",lp->name);
-								r = -1;
-
-							} else if(!(*c->init)(tx,cp,0,1)) {
-
-								printk(KERN_INFO "%s: init of bsd tx-stream  failed\n",lp->name);
-								(*c->free)(tx);
-								tx = NULL;
-							}
-						}
-
-						if(tx != NULL) {
-
-							lp->dw_abc_bsd_compressor = (void *)c;
-							lp->dw_abc_bsd_stat_rx = rx;
-							lp->dw_abc_bsd_stat_tx = tx;
-							r = 0;
-
-							if(dev->net_verbose > 2)
-								printk(KERN_INFO "%s: bsd compress-memory and init ok\n",lp->name);
+							printk(KERN_INFO "%s: init of bsd tx-stream  failed\n",lp->name);
+							(*c->free)(tx);
+							tx = NULL;
 						}
 					}
 
-					restore_flags(flags);
+					if(tx != NULL) {
+
+						lp->dw_abc_bsd_compressor = (void *)c;
+						lp->dw_abc_bsd_stat_rx = rx;
+						lp->dw_abc_bsd_stat_tx = tx;
+						r = 0;
+
+						if(dev->net_verbose > 2)
+							printk(KERN_INFO "%s: bsd compress-memory and init ok\n",lp->name);
+					}
 				}
 
-			} else if(lp->dw_abc_flags & ISDN_DW_ABC_FLAG_BSD_COMPRESS) {
-			
-				printk(KERN_INFO "%s: bsd-compress only with L2-Protocol x75i allowed\n",lp->name);
+				restore_flags(flags);
 			}
 
 		} else if(lp->dw_abc_flags & ISDN_DW_ABC_FLAG_BSD_COMPRESS) {
@@ -1871,8 +1868,14 @@ struct sk_buff *dwabc_bsd_compress(isdn_net_local *lp,struct sk_buff *skb,struct
 
 				} else {
 
+					u_short sqnr;
+
 					dev_kfree_skb(skb);
 					skb = nskb;
+					sqnr = ((*(u_char *)skb->data) << 8) + ((u_char)skb->data[1]);
+
+					if(sqnr > 65500)
+						(void)(*cp->reset)(lp->dw_abc_bsd_stat_tx,0,0,NULL,0,NULL);
 				}
 			}
 		}
@@ -1894,9 +1897,18 @@ struct sk_buff *dwabc_bsd_rx_pkt(isdn_net_local *lp,struct sk_buff *skb,struct n
 
 			if(skb->len == DWBSD_PKT_FIRST_LEN) {
 
-				lp->dw_abc_remote_version = p[1];
+				if((lp->dw_abc_remote_version = p[1]) < 0x2) {
+
+					printk(KERN_INFO "%s: I can't really talk witk remote version 0x%x\n"
+						"Please upgrade remote or disable rawip-compression\n",
+						lp->name,p[1]);
+				}
+
 				lp->dw_abc_if_flags |= ISDN_DW_ABC_IFFLAG_BSDAKTIV;
 				kfree_skb(skb);
+
+				if(cp && lp->dw_abc_bsd_stat_tx) 
+					(void)(*cp->reset)(lp->dw_abc_bsd_stat_tx,0,0,NULL,0,NULL);
 
 				if(dev->net_verbose > 2)
 					printk(KERN_INFO "%s: receive comm-header rem-version 0x%02x\n",
@@ -1905,15 +1917,7 @@ struct sk_buff *dwabc_bsd_rx_pkt(isdn_net_local *lp,struct sk_buff *skb,struct n
 				return(NULL);
 			}
 
-		} else if(*p != DWBSD_PKT_BSD) {
-
-			if(lp->dw_abc_bsd_stat_rx != NULL && cp && lp->dw_abc_bsd_is_rx) {
-				
-				(void)(*cp->reset)(lp->dw_abc_bsd_stat_rx,0,0,NULL,0,NULL);
-				lp->dw_abc_bsd_is_rx = 0;
-			}
-
-		} else if(lp->dw_abc_bsd_stat_rx != NULL && cp) {
+		} else if(*p == DWBSD_PKT_BSD && lp->dw_abc_bsd_stat_rx != NULL && cp) {
 
 			struct sk_buff *nskb = NULL;
 
@@ -1921,6 +1925,7 @@ struct sk_buff *dwabc_bsd_rx_pkt(isdn_net_local *lp,struct sk_buff *skb,struct n
 
 				printk(KERN_INFO "%s: bsd-decomp called recursivly\n",lp->name);
 				kfree_skb(skb);
+				lp->dw_abc_if_flags |= ISDN_DW_ABC_IFFLAG_RSTREMOTE;
 				return(NULL);
 			} 
 			
@@ -1929,9 +1934,14 @@ struct sk_buff *dwabc_bsd_rx_pkt(isdn_net_local *lp,struct sk_buff *skb,struct n
 			if(nskb != NULL) {
 
 				int l = 0;
+				u_short sqnr;
 
 				skb_reserve(nskb,ndev->hard_header_len);
 				skb_pull(skb, 1);
+				sqnr = ((*(u_char *)skb->data) << 8) | ((u_char)skb->data[1]);
+
+				if(!sqnr && cp && lp->dw_abc_bsd_stat_rx)
+					(void)(*cp->reset)(lp->dw_abc_bsd_stat_rx,0,0,NULL,0,NULL);
 
 				if((l = (*cp->decompress)(lp->dw_abc_bsd_stat_rx,skb,nskb,NULL)) < 1 || l>8000) {
 
@@ -1939,6 +1949,7 @@ struct sk_buff *dwabc_bsd_rx_pkt(isdn_net_local *lp,struct sk_buff *skb,struct n
 					dev_kfree_skb(nskb);
 					dev_kfree_skb(skb);
 					nskb = NULL;
+					lp->dw_abc_if_flags |= ISDN_DW_ABC_IFFLAG_RSTREMOTE;
 
 				} else {
 
@@ -1951,13 +1962,13 @@ struct sk_buff *dwabc_bsd_rx_pkt(isdn_net_local *lp,struct sk_buff *skb,struct n
 					nskb->pkt_type = skb->pkt_type;
 					nskb->mac.raw = nskb->data;
 					dev_kfree_skb(skb);
-					lp->dw_abc_bsd_is_rx = 1;
 				}
 
 			} else {
 
 				printk(KERN_INFO "%s: PANIC abc-decomp no memory\n",lp->name);
 				dev_kfree_skb(skb);
+				lp->dw_abc_if_flags |= ISDN_DW_ABC_IFFLAG_RSTREMOTE;
 			}
 
 			clear_bit(ISDN_DW_ABC_BITLOCK_RECEIVE,&lp->dw_abc_bitlocks);

@@ -21,6 +21,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.85  1999/11/30 11:29:06  detabc
+ * add a on the fly frame-counter and limit
+ *
  * Revision 1.84  1999/11/28 14:49:08  detabc
  * In case of rawip-compress adjust dev[x]->ibytes/obytes to reflect the
  * uncompressed size.
@@ -377,6 +380,7 @@
 
 #define ISDN_DW_ABC_IFFLAG_NODCHAN			0x00000001L
 #define ISDN_DW_ABC_IFFLAG_BSDAKTIV			0x00000002L
+#define ISDN_DW_ABC_IFFLAG_RSTREMOTE		0x00000004L
 
 #define ISDN_DW_ABC_BITLOCK_SEND			0
 #define ISDN_DW_ABC_BITLOCK_RECEIVE			1
@@ -753,7 +757,6 @@ typedef struct isdn_net_local_s {
   void *dw_abc_bsd_compressor;
   void *dw_abc_bsd_stat_rx;
   void *dw_abc_bsd_stat_tx;
-  short dw_abc_bsd_is_rx;
 #endif
   ulong	dw_abc_bsd_snd;
   ulong	dw_abc_bsd_bsd_snd;

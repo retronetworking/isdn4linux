@@ -21,6 +21,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.100  1999/12/04 15:05:25  detabc
+ * bugfix abc-rawip-bsdcompress with channel-bundeling
+ *
  * Revision 1.99  1999/11/30 11:29:06  detabc
  * add a on the fly frame-counter and limit
  *
@@ -728,8 +731,13 @@ isdn_net_autohup()
 			anymore = 1;
 			l->huptimer++;
 #ifdef CONFIG_ISDN_WITH_ABC
-		if(l->dw_abc_next_skb != NULL || l->sav_skb != NULL)
+		if(	l->dw_abc_next_skb != NULL 	|| 
+			l->sav_skb != NULL 			|| 
+			l->first_skb != NULL		|| 
+			(l->dw_abc_if_flags & ISDN_DW_ABC_IFFLAG_RSTREMOTE)) {
+
 			isdn_net_send_skb(&p->dev,l,NULL);
+		}
 #ifdef CONFIG_ISDN_WITH_ABC_CONN_ERROR
 			if(	isdn_dwabc_encap_with_conerr(l)	&& l->dw_abc_bchan_errcnt > 0) {
 
@@ -1668,6 +1676,12 @@ once_more:;
 
 		r = 1;
 
+	} else if(lp->dw_abc_if_flags & ISDN_DW_ABC_IFFLAG_RSTREMOTE) {
+
+		dwabc_bsd_first_gen(lp);
+		lp->dw_abc_if_flags &= ~ISDN_DW_ABC_IFFLAG_RSTREMOTE;
+		goto once_more;
+	
 	} else if(lp->first_skb != NULL && skb != lp->first_skb) {
 
 		lp->dw_abc_next_skb = lp->first_skb;
@@ -1717,6 +1731,13 @@ once_more:;
 			lp->dw_abc_bsd_bsd_snd += nl;
 		}
 	} 
+
+	if((lp->dw_abc_if_flags & ISDN_DW_ABC_IFFLAG_RSTREMOTE) && lp->dw_abc_next_skb == NULL) {
+
+		dwabc_bsd_first_gen(lp);
+		lp->dw_abc_if_flags &= ~ISDN_DW_ABC_IFFLAG_RSTREMOTE;
+		goto once_more;
+	}
 	
 	clear_bit(ISDN_DW_ABC_BITLOCK_SEND,&lp->dw_abc_bitlocks);
 	return(r);
