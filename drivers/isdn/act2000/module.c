@@ -20,14 +20,14 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.1  1997/09/23 18:00:13  fritz
+ * New driver for IBM Active 2000.
+ *
  */
 
 #include "act2000.h"
 #include "act2000_isa.h"
 #include "capi.h"
-
-extern void act2000_terminate(int board);
-extern int act2000_init_dev(int board, int mem_base, int irq);
 
 static unsigned short isa_ports[] =
 {
@@ -35,15 +35,29 @@ static unsigned short isa_ports[] =
         0xcfe0, 0xcfa0, 0xcf60, 0xcf20, 0xcee0, 0xcea0, 0xce60,
 };
 #define ISA_NRPORTS (sizeof(isa_ports)/sizeof(unsigned short))
+
 act2000_card *cards = (act2000_card *) NULL;
 
 /* Parameters to be set by insmod */
-int act_bus = 0;
-int act_port = -1;
-int act_irq = 0;
-char *act_id = "\0";
+static int   act_bus  =  0;
+static int   act_port = -1;  /* -1 = Autoprobe  */
+static int   act_irq  = -1;  /* -1 = Autoselect */
+static char *act_id   = "\0";
 
-act2000_chan *find_channel(act2000_card *card, int channel)
+MODULE_DESCRIPTION(       "Driver for IBM Active 2000 ISDN card");
+MODULE_AUTHOR(            "Fritz Elfert");
+MODULE_SUPPORTED_DEVICE(  "ISDN subsystem");
+MODULE_PARM_DESC(act_bus, "BusType of first card, 1=ISA, 2=MCA, 3=PCMCIA, currently only ISA");
+MODULE_PARM_DESC(membase, "Base port address of first card");
+MODULE_PARM_DESC(act_irq, "IRQ of first card (-1 = grab next free IRQ)");
+MODULE_PARM_DESC(act_id,  "ID-String of first card");
+MODULE_PARM(act_bus,  "i");
+MODULE_PARM(act_port, "i");
+MODULE_PARM(act_irq,  "i");
+MODULE_PARM(act_id,   "s");
+
+static act2000_chan *
+find_channel(act2000_card *card, int channel)
 {
 	if ((channel >= 0) && (channel < ACT2000_BCH))
         	return &(card->bch[channel]);
@@ -54,115 +68,143 @@ act2000_chan *find_channel(act2000_card *card, int channel)
 /*
  * Free MSN list
  */
-static void act2000_clear_msn(struct act2000_card *card)
-{
-        struct msn_entry *ptr,
-        *back;
-
-        for (ptr = card->msn_list; ptr;) {
-                back = ptr->next;
-                kfree(ptr);
-                ptr = back;
-        }
-        card->msn_list = NULL;
-	actcapi_listen_req(card, 0);
-}
-
-/*
- * Add one ore more MSNs to the MSN list
- */
 static void
-act2000_set_msn(struct act2000_card *card, char *list)
+act2000_clear_msn(act2000_card *card)
 {
-        struct msn_entry *ptr;
-        struct msn_entry *back = NULL;
-        char *cp,
-		*sp;
-        int len;
-	
-        if (strlen(list) == 0) {
-                ptr = kmalloc(sizeof(struct msn_entry), GFP_ATOMIC);
-                if (!ptr) {
-                        printk(KERN_WARNING "kmalloc failed\n");
-                        return;
-                }
-                ptr->msn = NULL;
-		
-                ptr->next = card->msn_list;
-                card->msn_list = ptr;
-		actcapi_listen_req(card, 0x3ff);
-                return;
+        struct msn_entry *p = card->msn_list;
+        struct msn_entry *q;
+	unsigned long flags;
+
+	save_flags(flags);
+	cli();
+        card->msn_list = NULL;
+	restore_flags(flags);
+        while (p) {
+                q  = p->next;
+                kfree(p);
+                p = q;
         }
-        if (card->msn_list)
-                for (back = card->msn_list; back->next; back = back->next);
-	
-        sp = list;
-	
-        do {
-                cp = strchr(sp, ',');
-                if (cp)
-                        len = cp - sp;
-                else
-                        len = strlen(sp);
-		
-                ptr = kmalloc(sizeof(struct msn_entry), GFP_ATOMIC);
-		
-                if (!ptr) {
-                        printk(KERN_WARNING "kmalloc failed\n");
-                        return;
-                }
-                ptr->next = NULL;
-		
-                ptr->msn = kmalloc(len, GFP_ATOMIC);
-                if (!ptr->msn) {
-                        printk(KERN_WARNING "kmalloc failed\n");
-                        return;
-                }
-                memcpy(ptr->msn, sp, len - 1);
-                ptr->msn[len] = 0;
-		
-#ifdef DEBUG
-                printk(KERN_DEBUG "msn: %s\n", ptr->msn);
-#endif
-                if (card->msn_list == NULL)
-                        card->msn_list = ptr;
-                else
-                        back->next = ptr;
-                back = ptr;
-                sp += len;
-        } while (cp);
 }
 
 /*
- *  check if we do signal or reject an incoming call
+ * Find an MSN entry in the list.
+ * If ia5 != 0, return IA5-encoded EAZ, else
+ * return a bitmask with corresponding bit set.
+ */
+static __u16
+act2000_find_msn(act2000_card *card, char *msn, int ia5)
+{
+        struct msn_entry *p = card->msn_list;
+	__u8 eaz = '0';
+
+	while (p) {
+		if (!strcmp(p->msn, msn)) {
+			eaz = p->eaz;
+			break;
+		}
+		p = p->next;
+	}
+	if (!ia5)
+		return (1 << (eaz - '0'));
+	else
+		return eaz;
+}
+
+/*
+ * Find an EAZ entry in the list.
+ * return a string with corresponding msn.
+ */
+char *
+act2000_find_eaz(act2000_card *card, char eaz)
+{
+        struct msn_entry *p = card->msn_list;
+
+	while (p) {
+		if (p->eaz == eaz)
+			return(p->msn);
+		p = p->next;
+	}
+	return("\0");
+}
+
+/*
+ * Add or delete an MSN to the MSN list
  *
- *        if list is null, reject all calls
- *        if first entry has null MSN accept all calls
- *        else accept call if it matches an MSN in list. 
+ * First character of msneaz is EAZ, rest is MSN.
+ * If length of eazmsn is 1, delete that entry.
  */
-
 static int
-act2000_check_msn(struct act2000_card *card, char *msn)
+act2000_set_msn(act2000_card *card, char *eazmsn)
 {
-        struct msn_entry *ptr;
+        struct msn_entry *p = card->msn_list;
+        struct msn_entry *q = NULL;
+	unsigned long flags;
+	int i;
 	
-        for (ptr = card->msn_list; ptr; ptr = ptr->next) {
-		
-                if (ptr->msn == NULL)
-                        return 1;
-		
-                if (strcmp(ptr->msn, msn) == 0)
-                        return 1;
+	if (!strlen(eazmsn))
+		return 0;
+	if (strlen(eazmsn) > 16)
+		return -EINVAL;
+	for (i = 0; i < strlen(eazmsn); i++)
+		if (!isdigit(eazmsn[i]))
+			return -EINVAL;
+        if (strlen(eazmsn) == 1) {
+		/* Delete a single MSN */
+		while (p) {
+			if (p->eaz == eazmsn[0]) {
+				save_flags(flags);
+				cli();
+				if (q)
+					q->next = p->next;
+				else
+					card->msn_list = p->next;
+				restore_flags(flags);
+				kfree(p);
+				printk(KERN_DEBUG
+				       "Mapping for EAZ %c deleted\n",
+				       eazmsn[0]);
+				return 0;
+			}
+			q = p;
+			p = p->next;
+		}
+		return 0;
         }
-	
-        return 0;
+	/* Add a single MSN */
+	while (p) {
+		/* Found in list, replace MSN */
+		if (p->eaz == eazmsn[0]) {
+			save_flags(flags);
+			cli();
+			strcpy(p->msn, &eazmsn[1]);
+			restore_flags(flags);
+			printk(KERN_DEBUG
+			       "Mapping for EAZ %c changed to %s\n",
+			       eazmsn[0],
+			       &eazmsn[1]);
+			return 0;
+		}
+		p = p->next;
+	}
+	/* Not found in list, add new entry */
+	p = kmalloc(sizeof(msn_entry), GFP_KERNEL);
+	if (!p)
+		return -ENOMEM;
+	p->eaz = eazmsn[0];
+	strcpy(p->msn, &eazmsn[1]);
+	p->next = card->msn_list;
+	save_flags(flags);
+	cli();
+	card->msn_list = p;
+	restore_flags(flags);
+	printk(KERN_DEBUG
+	       "Mapping %c -> %s added\n",
+	       eazmsn[0],
+	       &eazmsn[1]);
+	return 0;
 }
 
-/*
- * called by interrupt service routine
- */
-
-void
+static void
 act2000_transmit(struct act2000_card *card)
 {
 	switch (card->bus) {
@@ -177,7 +219,7 @@ act2000_transmit(struct act2000_card *card)
 	}
 }
 
-void
+static void
 act2000_receive(struct act2000_card *card)
 {
 	switch (card->bus) {
@@ -214,9 +256,9 @@ act2000_command(act2000_card * card, isdn_ctrl * c)
         ulong a;
         struct act2000_chan *chan;
 	isdn_ctrl cmd;
+	char tmp[17];
 	int ret;
 	unsigned long flags;
-        char *cp;
  
         switch (c->command) {
 		case ISDN_CMD_IOCTL:
@@ -253,18 +295,21 @@ act2000_command(act2000_card * card, isdn_ctrl * c)
 					card->ptype = a?ISDN_PTYPE_EURO:ISDN_PTYPE_1TR6;
 					if (!(card->flags & ACT2000_FLAGS_RUNNING))
 						return 0;
-					if (a) {
-						ret = copy_from_user(card->msn, (char *)a,
-								  sizeof(card->msn));
-						if (ret)
-							return ret;
-					}
 					actcapi_manufacturer_req_net(card);
+					return 0;
+				case ACT2000_IOCTL_SETMSN:
+					if ((ret = copy_from_user(tmp, (char *)a, sizeof(tmp))))
+						return ret;
+					if ((ret = act2000_set_msn(card, tmp)))
+						return ret;
+					if (card->flags & ACT2000_FLAGS_RUNNING)
+						return(actcapi_manufacturer_req_msn(card));
 					return 0;
 				case ACT2000_IOCTL_TEST:
 					if (!(card->flags & ACT2000_FLAGS_RUNNING))
 						return -ENODEV;
-					actcapi_listen_req(card, (a & 0xffff));
+					card->bch[a & 1].eazmask = (a >> 1);
+					actcapi_listen_req(card);
 					return 0;
 				default:
 					return -EINVAL;
@@ -282,11 +327,15 @@ act2000_command(act2000_card * card, isdn_ctrl * c)
 				printk(KERN_WARNING "Dial on Non-NULL channel\n");
 				return -EBUSY;
 			}
+			if (card->ptype == ISDN_PTYPE_EURO)
+				tmp[0] = act2000_find_msn(card, c->parm.setup.eazmsn, 1);
+			else
+				tmp[0] = c->parm.setup.eazmsn[0];
 			chan->fsm_state = ACT2000_STATE_OCALL;
 			chan->callref = 0xffff;
 			restore_flags(flags);
 			ret = actcapi_connect_req(card, chan, c->parm.setup.phone,
-						  c->parm.setup.eazmsn, c->parm.setup.si1,
+						  tmp[0], c->parm.setup.si1,
 						  c->parm.setup.si2);
 			if (ret) {
 				cmd.driver = card->myid;
@@ -327,14 +376,28 @@ act2000_command(act2000_card * card, isdn_ctrl * c)
 				return -ENODEV;
 			if (!(chan = find_channel(card, c->arg & 0x0f)))
 				break;
-			act2000_set_msn(card, c->parm.num);
+			if (strlen(c->parm.num)) {
+				if (card->ptype == ISDN_PTYPE_EURO) {
+					chan->eazmask = act2000_find_msn(card, c->parm.num, 0);
+				}
+				if (card->ptype == ISDN_PTYPE_1TR6) {
+					int i;
+					chan->eazmask = 0;
+					for (i = 0; i < strlen(c->parm.num); i++)
+						if (isdigit(c->parm.num[i]))
+							chan->eazmask |= (1 << (c->parm.num[i] - '0'));
+				}
+			} else
+				chan->eazmask = 0x3ff;
+			actcapi_listen_req(card);
 			return 0;
 		case ISDN_CMD_CLREAZ:
 			if (!card->flags & ACT2000_FLAGS_RUNNING)
 				return -ENODEV;
 			if (!(chan = find_channel(card, c->arg & 0x0f)))
 				break;
-			act2000_clear_msn(card);
+			chan->eazmask = 0;
+			actcapi_listen_req(card);
 			return 0;
 		case ISDN_CMD_SETL2:
 			if (!card->flags & ACT2000_FLAGS_RUNNING)
@@ -392,7 +455,7 @@ act2000_command(act2000_card * card, isdn_ctrl * c)
         return -EINVAL;
 }
 
-int
+static int
 act2000_sendbuf(act2000_card *card, int channel, struct sk_buff *skb)
 {
         struct sk_buff *xmit_skb;
@@ -649,8 +712,8 @@ act2000_registercard(act2000_card * card)
         return 0;
 }
 
-static
-void unregister_card(act2000_card * card)
+static void
+unregister_card(act2000_card * card)
 {
         isdn_ctrl cmd;
 
@@ -709,21 +772,22 @@ act2000_init(void)
         printk(KERN_INFO "IBM Active 2000 ISDN driver\n");
         if (!cards) {
                 /* No cards defined via kernel-commandline */
-                if (act_bus) {
-                        /* card defined via insmod parameters */
+		if (!act_bus)
+			act_bus = ACT2000_BUS_ISA;
+                if (act_port != -1) {
+                        /* Port defined via insmod parameters */
                         act2000_alloccard(act_bus, act_port, act_irq, act_id);
                 } else {
                         int i;
-                        /* no cards defined at all, perform autoprobing */
+                        /* no port defined, perform autoprobing */
                         for (i = 0; i < ISA_NRPORTS; i++)
                                 if (isa_detect(isa_ports[i])) {
-                                        act2000_alloccard(ACT2000_BUS_ISA,
-                                                  isa_ports[i], -1, "\0");
+                                        act2000_alloccard(act_bus, isa_ports[i], -1, "\0");
                                         printk(KERN_INFO
                                                "act2000: Detected ISA card at port 0x%x\n",
                                                isa_ports[i]);
                                 }
-                        /* Todo: Scanning for PCMCIA and MCA cards */
+                        /* TODO: Scanning for PCMCIA and MCA cards */
                 }
         }
         p = cards;
@@ -813,6 +877,7 @@ cleanup_module(void)
         while (card) {
                 last = card;
                 card = card->next;
+		act2000_clear_msn(last);
                 kfree(last);
         }
         printk(KERN_INFO "IBM act2000 driver unloaded\n");
@@ -822,13 +887,10 @@ cleanup_module(void)
 void
 act2000_setup(char *str, int *ints)
 {
-        int i,
-         j,
-         argc;
-
+        int i, j, argc;
+	
         argc = ints[0];
         i = 1;
-
         if (argc)
                 while (argc) {
                         port = irq = proto = bus = -1;
@@ -847,26 +909,18 @@ act2000_setup(char *str, int *ints)
                                 i++;
                                 argc--;
                         }
-                        if (argc) {
-                                proto = ints[i];
-                                i++;
-                                argc--;
-                        }
-                        if (proto == -1)
-                                continue;
                         switch (bus) {
-                        case ACT2000_BUS_ISA:
-                                act2000_alloccard(bus, port, irq, proto, idstr);
-                                break;
-                        case ACT2000_BUS_MCA:
-                        case ACT2000_BUS_PCMCIA:
-                        default:
-                                printk(KERN_WARNING
-                                       "act2000: Unknown BUS type %d\n",
-                                       bus);
-                                break;
+				case ACT2000_BUS_ISA:
+					act2000_alloccard(bus, port, irq, idstr);
+					break;
+				case ACT2000_BUS_MCA:
+				case ACT2000_BUS_PCMCIA:
+				default:
+					printk(KERN_WARNING
+					       "act2000: Unknown BUS type %d\n",
+					       bus);
+					break;
                         }
-        } else {
-        }
+		}
 }
 #endif

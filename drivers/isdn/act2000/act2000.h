@@ -20,6 +20,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.1  1997/09/23 18:00:05  fritz
+ * New driver for IBM Active 2000.
+ *
  */
 
 #ifndef act2000_h
@@ -32,15 +35,25 @@
 #include <linux/version.h>
 #endif
 
-#define ACT2000_IOCTL_SETPORT   1
-#define ACT2000_IOCTL_GETPORT   2
-#define ACT2000_IOCTL_SETIRQ    3
-#define ACT2000_IOCTL_GETIRQ    4
-#define ACT2000_IOCTL_LOADBOOT  5
-#define ACT2000_IOCTL_ADDCARD   6
-#define ACT2000_IOCTL_SETPROTO  7
+#define ACT2000_IOCTL_SETPORT    1
+#define ACT2000_IOCTL_GETPORT    2
+#define ACT2000_IOCTL_SETIRQ     3
+#define ACT2000_IOCTL_GETIRQ     4
+#define ACT2000_IOCTL_SETBUS     5
+#define ACT2000_IOCTL_GETBUS     6
+#define ACT2000_IOCTL_SETPROTO   7
+#define ACT2000_IOCTL_GETPROTO   8
+#define ACT2000_IOCTL_SETMSN     9
+#define ACT2000_IOCTL_GETMSN    10
+#define ACT2000_IOCTL_LOADBOOT  11
+#define ACT2000_IOCTL_ADDCARD   12
+
 #define ACT2000_IOCTL_TEST      98
 #define ACT2000_IOCTL_DEBUGVAR  99
+
+#define ACT2000_BUS_ISA          1
+#define ACT2000_BUS_MCA          2
+#define ACT2000_BUS_PCMCIA       3
 
 /* Struct for adding new cards */
 typedef struct act2000_cdef {
@@ -85,32 +98,21 @@ typedef struct act2000_fwid {
 #include <linux/timer.h>
 #include <linux/wait.h>
 #include <linux/delay.h>
+#include <linux/ctype.h>
 #include <linux/isdnif.h>
 
-#endif                          /* __KERNEL__ */
+#endif                           /* __KERNEL__ */
 
-/* some useful macros for debugging */
-#ifdef ACT2000_DEBUG_PORT
-#define OUTB_P(v,p) {printk(KERN_DEBUG "ACT2000: outb_p(0x%02x,0x%03x)\n",v,p); outb_p(v,p);}
-#else
-#define OUTB_P outb
-#endif
-
-/* Defaults for Port-Address and shared-memory */
-#define ACT2000_BASEADDR 0x200
-#define ACT2000_PORTLEN (0x08)
+#define ACT2000_PORTLEN        8
 
 #define ACT2000_FLAGS_RUNNING  1 /* Cards driver activated */
 #define ACT2000_FLAGS_PVALID   2 /* Cards port is valid    */
 #define ACT2000_FLAGS_IVALID   4 /* Cards irq is valid     */
 #define ACT2000_FLAGS_LOADED   8 /* Firmware loaded        */
 
-#define ACT2000_BCH 2            /* Number of supported channels per card   */
+#define ACT2000_BCH            2 /* # of channels per card */
 
-#define ACT2000_BUS_ISA     1
-#define ACT2000_BUS_MCA     2
-#define ACT2000_BUS_PCMCIA  3
-
+/* D-Channel states */
 #define ACT2000_STATE_NULL     0
 #define ACT2000_STATE_ICALL    1
 #define ACT2000_STATE_OCALL    2
@@ -134,6 +136,7 @@ typedef struct act2000_fwid {
 typedef struct act2000_chan {
 	unsigned short callref;          /* Call Reference              */
 	unsigned short fsm_state;        /* Current D-Channel state     */
+	unsigned short eazmask;          /* EAZ-Mask for this Channel   */
 	short queued;                    /* User-Data Bytes in TX queue */
 	unsigned short plci;
 	unsigned short ncci;
@@ -142,7 +145,8 @@ typedef struct act2000_chan {
 } act2000_chan;
 
 typedef struct msn_entry {
-        char *msn;
+	char eaz;
+        char msn[16];
         struct msn_entry * next;
 } msn_entry;
 
@@ -175,7 +179,6 @@ typedef struct act2000_card {
 	char   *status_buf_end;
         isdn_if interface;               /* Interface to upper layer        */
         char regname[35];                /* Name used for request_region    */
-        char msn[20];                    /* Fake MSN                        */
 } act2000_card;
 
 extern act2000_card *cards;
@@ -191,6 +194,8 @@ extern __inline__ void act2000_schedule_rx(act2000_card *card)
         queue_task(&card->rcv_tq, &tq_immediate);
         mark_bh(IMMEDIATE_BH);
 }
+
+extern char *act2000_find_eaz(act2000_card *, char);
 
 #endif                          /* defined(__KERNEL__) || defined(__DEBUGVAR__) */
 #endif                          /* act2000_h */
