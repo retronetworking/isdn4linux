@@ -20,6 +20,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.1  2000/05/17 11:34:30  ualbrecht
+ * Initial release
+ *
  *
  */
 
@@ -159,28 +162,12 @@ hycapi_register_internal(struct capi_ctr *ctrl, __u16 appl,
 	__u8 _command = 0xa0, _subcommand = 0x80;
 	__u16 MessageNumber = 0x0000;
 	__u16 MessageBufferSize = 0;
-	int MaxLogicalConnections = 0,
-		MaxBDataBlocks = 0, MaxBDataLen = 0;
 	int slen = strlen(ExtFeatureDefaults);
+
 #ifdef HYCAPI_PRINTFNAMES
 	printk(KERN_NOTICE "hycapi_register_appl\n"); 
 #endif
-	MaxBDataBlocks = rp->datablkcnt > CAPI_MAXDATAWINDOW ? CAPI_MAXDATAWINDOW : rp->datablkcnt;
-	rp->datablkcnt = MaxBDataBlocks;
-	MaxBDataLen = rp->datablklen < 1024 ? 1024 : rp->datablklen ;
-	rp->datablklen = MaxBDataLen;
-
-	MaxLogicalConnections = rp->level3cnt;
-	if (MaxLogicalConnections < 0) {
-		MaxLogicalConnections = card->bchans * -MaxLogicalConnections; 
-	}
-	if (MaxLogicalConnections == 0) {
-		MaxLogicalConnections = card->bchans;
-	}
-
-	rp->level3cnt = MaxLogicalConnections;
-
-	MessageBufferSize = MaxLogicalConnections * MaxBDataBlocks * MaxBDataLen; 
+	MessageBufferSize = rp->level3cnt * rp->datablkcnt * rp->datablklen; 
 
 	len = CAPI_MSG_BASELEN + 8 + slen + 1;
 	if (!(skb = alloc_skb(len, GFP_ATOMIC))) {
@@ -237,8 +224,11 @@ void
 hycapi_register_appl(struct capi_ctr *ctrl, __u16 appl, 
 		     capi_register_params *rp)
 {
+	int MaxLogicalConnections = 0, MaxBDataBlocks = 0, MaxBDataLen = 0;
 	hycapictrl_info *cinfo = (hycapictrl_info *)(ctrl->driverdata);
 	appl_rec *ap, *p;
+	hysdn_card *card = cinfo->card;
+
 	ap = kmalloc(sizeof(appl_rec), GFP_ATOMIC);
 	if (!cinfo) {
 		printk(KERN_WARNING "HYSDN: no memory for capi-appl_rec.\n");
@@ -250,6 +240,24 @@ hycapi_register_appl(struct capi_ctr *ctrl, __u16 appl,
 	}
 	p->next = ap;
 	ap->app_id = appl;
+
+
+	MaxBDataBlocks = rp->datablkcnt > CAPI_MAXDATAWINDOW ? CAPI_MAXDATAWINDOW : rp->datablkcnt;
+	rp->datablkcnt = MaxBDataBlocks;
+	MaxBDataLen = rp->datablklen < 1024 ? 1024 : rp->datablklen ;
+	rp->datablklen = MaxBDataLen;
+
+	MaxLogicalConnections = rp->level3cnt;
+	if (MaxLogicalConnections < 0) {
+		MaxLogicalConnections = card->bchans * -MaxLogicalConnections; 
+	}
+	if (MaxLogicalConnections == 0) {
+		MaxLogicalConnections = card->bchans;
+	}
+
+	rp->level3cnt = MaxLogicalConnections;
+
+
 	memcpy(&(ap->rp), rp, sizeof(capi_register_params));
 	hycapi_register_internal(ctrl, appl, rp);
         MOD_INC_USE_COUNT;
