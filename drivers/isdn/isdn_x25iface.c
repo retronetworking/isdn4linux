@@ -17,8 +17,7 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
- */
- 
+ *
  * stuff needed to support the Linux X.25 PLP code on top of devices that
  * can provide a lab_b service using the concap_proto mechanism.
  * This module supports a network interface wich provides lapb_sematics
