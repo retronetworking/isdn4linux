@@ -1,3 +1,22 @@
+/*
+ * $Id$
+ *
+ * CAPI4Linux
+ *
+ * CAPI 2.0 Interface for Linux
+ *
+ * Copyright 2001 by Kai Germaschewski (kai.germaschewski@gmx.de)
+ * Copyright 1996 by Carsten Paeth (calle@calle.in-berlin.de)
+ *
+ * based up on the middleware extensions by Carsten Paeth
+ * 
+ * This module, along with the userspace pppd plugin 
+ * "capipppdplugin" allows to establish sync/async PPP connections
+ * via the /dev/capi20 interface, whereas the actual data connection
+ * will be handled by an emulated tty.
+ *
+ */
+
 #include <linux/kernel.h>
 #include <linux/module.h>
 #include <linux/init.h>
@@ -8,27 +27,24 @@
 // ----------------------------------------------------------------------
 
 #define CAPINC_NR_PORTS 256
-#define CAPINC_MAX_RECVQUEUE	10
-#define CAPINC_MAX_SENDQUEUE	10
 
 #define CAPI_MAX_BLKSIZE	2048
+
+// bits for capi_ppptty->flags
+#define XMIT_QUEUE_FULL         0
 
 // ----------------------------------------------------------------------
 
 struct capi_ppptty {
 	struct list_head    list;
+
 	struct capincci     ncci;
 	unsigned int        minor;
-
+	unsigned long       flags;
 	struct tty_struct  *tty;
-	int                 ttyinstop;
-	int                 ttyoutstop;
 	atomic_t            ttyopencount;
 
-	struct sk_buff_head inqueue;
-	int                 inbytes;
-	struct sk_buff_head outqueue;
-	int                 outbytes;
+	struct sk_buff_head recv_queue;
 };
 
 // ----------------------------------------------------------------------
@@ -41,22 +57,49 @@ MODULE_PARM(capi_ttymajor, "i");
 static spinlock_t ppptty_list_lock = SPIN_LOCK_UNLOCKED;
 static LIST_HEAD(ppptty_list);
 
-// ----------------------------------------------------------------------
+// ------------------------------------------------- receiving ---------
 
-static void handle_minor_recv(struct capi_ppptty *cp);
+static int
+receive_buf(struct capi_ppptty *cp, char *buf, int len)
+{
+	struct tty_struct *tty = cp->tty;
 
-// ----------------------------------------------------------------------
+	if (!tty) {
+		// discard frame FIXME?
+		HDEBUG();
+		return 0;
+	}
+	
+ 	if (tty->ldisc.receive_room(tty) < len) {
+		/* check TTY_THROTTLED first so it indicates our state */
+		if (!test_and_set_bit(TTY_THROTTLED, &tty->flags) &&
+		    tty->driver.throttle)
+			tty->driver.throttle(tty);
+		
+		HDEBUG();
+		return -EBUSY;
+	}
+	tty->ldisc.receive_buf(tty, buf, 0, len);
+	return 0;
+}
 
 static void
-capi_ppptty_send_wake_queue(struct capincci *np)
+run_recv_queue(struct capi_ppptty *cp)
 {
-	struct capi_ppptty *cp = np->priv;
+	struct tty_struct *tty = cp->tty;
+	struct sk_buff *skb;
 
-	if (!cp->tty)
+	if (tty && test_bit(TTY_THROTTLED, &tty->flags))
 		return;
 
-	if (cp->tty->ldisc.write_wakeup)
-		cp->tty->ldisc.write_wakeup(cp->tty);
+	while ((skb = skb_dequeue(&cp->recv_queue))) {
+		if (receive_buf(cp, skb->data, skb->len) < 0) {
+			HDEBUG();
+			skb_queue_head(&cp->recv_queue, skb);
+			return;
+		}
+		capincci_recv_ack(&cp->ncci, skb);
+	}
 }
 
 static int
@@ -64,12 +107,110 @@ capi_ppptty_recv(struct capincci *np, struct sk_buff *skb)
 {
 	struct capi_ppptty *cp = np->priv;
 
-	skb_queue_tail(&cp->inqueue, skb);
-	cp->inbytes += skb->len;
-	handle_minor_recv(cp);
+	// we don't need to do flow control here,
+	// because it'll happen automatically (CAPI
+	// won't send more than 8 unacknowledged messages)
+	skb_queue_tail(&cp->recv_queue, skb);
+	run_recv_queue(cp);
 
 	return 0;
 }
+
+// ------------------------------------------------------ sending -------
+
+static int
+capinc_tty_write_room(struct tty_struct *tty)
+{
+	struct capi_ppptty *cp = tty->driver_data;
+
+	if (!cp) {
+		HDEBUG();
+		return -EBUSY;
+	}
+	if (test_bit(XMIT_QUEUE_FULL, &cp->flags))
+		return 0;
+	else
+		return CAPI_MAX_BLKSIZE;
+}
+
+static int
+capinc_tty_write(struct tty_struct * tty, int from_user,
+		 const unsigned char *buf, int count)
+{
+	struct capi_ppptty *cp = tty->driver_data;
+	struct sk_buff *skb;
+	int retval;
+
+	if (!cp) {
+		HDEBUG();
+		return -EBUSY;
+	}
+
+	if (test_bit(XMIT_QUEUE_FULL, &cp->flags))
+		return 0;
+
+	skb = alloc_skb(CAPI_DATA_B3_REQ_LEN+count, GFP_ATOMIC);
+	if (!skb) {
+		printk(KERN_ERR "capinc_tty_write: alloc_skb failed\n");
+		return -ENOMEM;
+	}
+
+	skb_reserve(skb, CAPI_DATA_B3_REQ_LEN);
+	if (from_user) {
+		if (copy_from_user(skb_put(skb, count), buf, count)) {
+			kfree_skb(skb);
+			return -EFAULT;
+		}
+	} else {
+		memcpy(skb_put(skb, count), buf, count);
+	}
+
+	retval = capincci_send(&cp->ncci, skb);
+	if (retval < 0)
+		return retval;
+
+	return count;
+}
+
+static void
+send_wake_queue(struct capincci *np)
+{
+	struct capi_ppptty *cp = np->priv;
+	struct tty_struct *tty = cp->tty;
+
+	clear_bit(XMIT_QUEUE_FULL, &cp->flags);
+	if (tty) {
+		if (test_bit(TTY_DO_WRITE_WAKEUP, &tty->flags) &&
+		    tty->ldisc.write_wakeup)
+			(tty->ldisc.write_wakeup)(tty);
+		wake_up_interruptible(&tty->write_wait);
+	}
+}
+
+static void
+send_stop_queue(struct capincci *np)
+{
+	struct capi_ppptty *cp = np->priv;
+
+	set_bit(XMIT_QUEUE_FULL, &cp->flags);
+}
+
+static int
+capinc_tty_chars_in_buffer(struct tty_struct *tty)
+{
+	struct capi_ppptty *cp = tty->driver_data;
+
+	if (!cp) {
+		HDEBUG();
+		return -EBUSY;
+	}
+	if (test_bit(XMIT_QUEUE_FULL, &cp->flags))
+		return CAPI_MAX_BLKSIZE;
+	else
+		return 0;
+}
+
+// ----------------------------------------------------------------------
 
 static void
 capi_ppptty_dtor(struct capincci *np)
@@ -99,15 +240,14 @@ ncci_connect(struct capidev *cdev, struct ncci_connect_data *data)
 	HDEBUG();
 	MOD_INC_USE_COUNT;
 	
-	cp = kmalloc(sizeof(struct capi_ppptty), GFP_ATOMIC);
+	cp = kmalloc(sizeof(struct capi_ppptty), GFP_KERNEL);
 	if (!cp)
 		return -ENOMEM;
 
 	memset(cp, 0, sizeof(struct capi_ppptty));
-	atomic_set(&cp->ttyopencount,0);
+	atomic_set(&cp->ttyopencount, 0);
 
-	skb_queue_head_init(&cp->inqueue);
-	skb_queue_head_init(&cp->outqueue);
+	skb_queue_head_init(&cp->recv_queue);
 
         spin_lock(&ppptty_list_lock);
 	list_for_each(p, &ppptty_list) {
@@ -126,77 +266,12 @@ ncci_connect(struct capidev *cdev, struct ncci_connect_data *data)
 	cp->ncci.priv = cp;
 	cp->ncci.ncci = data->ncci;
 	cp->ncci.recv = capi_ppptty_recv;
-	cp->ncci.send_wake_queue = capi_ppptty_send_wake_queue;
+	cp->ncci.send_wake_queue = send_wake_queue;
+	cp->ncci.send_stop_queue = send_stop_queue;
 	cp->ncci.dtor = capi_ppptty_dtor;
 	capincci_hijack(cdev, &cp->ncci);
 
 	return 0;
-}
-
-// ----------------------------------------------------------------------
-
-static int
-handle_recv_skb(struct capi_ppptty *cp, struct sk_buff *skb)
-{
-	if (!cp->tty) {
-		capincci_recv_ack(&cp->ncci, skb);
-		return 0;
-	}
-
-	if (cp->ttyinstop) {
-		return -1;
-	}
-	if (cp->tty->ldisc.receive_room(cp->tty) < skb->len) {
-		return -1;
-	}
-	cp->tty->ldisc.receive_buf(cp->tty, skb->data, 0, skb->len);
-	capincci_recv_ack(&cp->ncci, skb);
-	return 0;
-}
-
-static void
-handle_minor_recv(struct capi_ppptty *cp)
-{
-	struct sk_buff *skb;
-
-	while ((skb = skb_dequeue(&cp->inqueue)) != 0) {
-		unsigned int len = skb->len;
-		cp->inbytes -= len;
-		if (handle_recv_skb(cp, skb) < 0) {
-			skb_queue_head(&cp->inqueue, skb);
-			cp->inbytes += len;
-			return;
-		}
-	}
-}
-
-int handle_minor_send(struct capi_ppptty *cp)
-{
-	struct sk_buff *skb;
-	int count = 0;
-	int retval;
-	int len;
-
-	if (cp->ttyoutstop) {
-		return 0;
-	}
-
-	while ((skb = skb_dequeue(&cp->outqueue)) != 0) {
-		len = skb->len;
-		retval = capincci_send(&cp->ncci, skb);
-		if (retval == -EAGAIN) {
-			// queue full
-			skb_queue_head(&cp->outqueue, skb);
-			break;
-		} else if (retval < 0) {
-			cp->outbytes -= len;
-			kfree_skb(skb);
-			continue;
-		}
-		count++;
-		cp->outbytes -= len;
-	}
-	return count;
 }
 
 // ----------------------------------------------------------------------
@@ -220,8 +295,6 @@ find_capi_ppptty(int minor)
 	return cp;
 }
 
-// ----------------------------------------------------------------------
-
 static int
 capinc_tty_open(struct tty_struct * tty, struct file * file)
 {
@@ -234,7 +307,9 @@ capinc_tty_open(struct tty_struct * tty, struct file * file)
 	tty->driver_data = cp;
 	cp->tty = tty;
 	atomic_inc(&cp->ttyopencount);
-	handle_minor_recv(cp);
+	MOD_INC_USE_COUNT;
+	run_recv_queue(cp);
+
 	return 0;
 }
 
@@ -251,117 +326,7 @@ capinc_tty_close(struct tty_struct * tty, struct file * file)
 		tty->driver_data = NULL;
 		cp->tty = NULL;
 	}
-}
-
-static int
-capinc_tty_write(struct tty_struct * tty, int from_user,
-		 const unsigned char *buf, int count)
-{
-	struct capi_ppptty *cp = tty->driver_data;
-	struct sk_buff *skb;
-
-	if (!cp)
-		return 0;
-
-	skb = alloc_skb(CAPI_DATA_B3_REQ_LEN+count, GFP_ATOMIC);
-	if (!skb) {
-		printk(KERN_ERR "capinc_tty_write: alloc_skb failed\n");
-		return -ENOMEM;
-	}
-
-	skb_reserve(skb, CAPI_DATA_B3_REQ_LEN);
-	if (from_user) {
-		if (copy_from_user(skb_put(skb, count), buf, count)) {
-			kfree_skb(skb);
-			return -EFAULT;
-		}
-	} else {
-		memcpy(skb_put(skb, count), buf, count);
-	}
-
-	skb_queue_tail(&cp->outqueue, skb);
-	cp->outbytes += skb->len;
-	handle_minor_send(cp);
-	handle_minor_recv(cp);
-	return count;
-}
-
-static void
-capinc_tty_flush_chars(struct tty_struct *tty)
-{
-	struct capi_ppptty *cp = tty->driver_data;
-
-	if (!cp)
-		return;
-
-	handle_minor_recv(cp);
-}
-
-static int
-capinc_tty_write_room(struct tty_struct *tty)
-{
-	struct capi_ppptty *cp = tty->driver_data;
-	int room;
-
-	if (!cp)
-		return 0;
-
-	room = CAPINC_MAX_SENDQUEUE-skb_queue_len(&cp->outqueue);
-	room *= CAPI_MAX_BLKSIZE;
-	return room;
-}
-
-#if 0
-static int
-capinc_tty_chars_in_buffer(struct tty_struct *tty)
-{
-	struct capi_ppptty *cp = tty->driver_data;
-
-	if (!cp)
-		return 0;
-
-	return cp->outbytes;
-}
-#endif
-
-static void
-capinc_tty_throttle(struct tty_struct * tty)
-{
-	struct capi_ppptty *cp = tty->driver_data;
-
-	if (cp)
-		cp->ttyinstop = 1;
-}
-
-static void
-capinc_tty_unthrottle(struct tty_struct * tty)
-{
-	struct capi_ppptty *cp = tty->driver_data;
-	if (cp) {
-		cp->ttyinstop = 0;
-		handle_minor_recv(cp);
-	}
-}
-
-static void
-capinc_tty_stop(struct tty_struct *tty)
-{
-	struct capi_ppptty *cp = tty->driver_data;
-
-	if (cp) {
-		cp->ttyoutstop = 1;
-	}
-}
-
-static void
-capinc_tty_start(struct tty_struct *tty)
-{
-	struct capi_ppptty *cp = tty->driver_data;
-
-	if (cp) {
-		cp->ttyoutstop = 0;
-		handle_minor_send(cp);
-	}
+	MOD_DEC_USE_COUNT;
 }
 
 // ----------------------------------------------------------------------
@@ -388,13 +353,8 @@ static struct tty_driver capinc_tty_driver = {
 	open:            capinc_tty_open,
 	close:           capinc_tty_close,
 	write:           capinc_tty_write,
-	flush_chars:     capinc_tty_flush_chars,
 	write_room:      capinc_tty_write_room,
-//	chars_in_buffer: capinc_tty_chars_in_buffer,
-	throttle:        capinc_tty_throttle,
-	unthrottle:      capinc_tty_unthrottle,
-	stop:            capinc_tty_stop,
-	start:           capinc_tty_start,
+	chars_in_buffer: capinc_tty_chars_in_buffer,
 };
 
 extern int (*capi_ppptty_connect)(struct capidev *cdev, struct ncci_connect_data *data);

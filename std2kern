@@ -290,7 +290,4 @@ exit 0
       fi
     fi
   fi
-    if [ $VERSION -le 2 -o \( $VERSION -eq 2 -a $PATCHLEVEL -le 2 \) ]; then
-	docp drivers/isdn/Rules.make $KERNELDIR/drivers/isdn/Rules.make
-    fi
 fi
