@@ -78,6 +78,7 @@
 #define COMPAT_d_alloc_root_one_parameter
 #define HAVE_DEVFS_FS
 #define COMPAT_HAS_SCHEDULE_TASK
+#define COMPAT_HAS_USB_IDTAB
 
 #endif
 
