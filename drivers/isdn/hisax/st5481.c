@@ -716,8 +716,8 @@ BC_Close_st5481(struct BCState *bcs)
 			kfree(hw->rcvbuf);
 			hw->rcvbuf = NULL;
 		}
-		discard_queue(&bcs->rqueue);
-		discard_queue(&bcs->squeue);
+		skb_queue_purge(&bcs->rqueue);
+		skb_queue_purge(&bcs->squeue);
 		if (bcs->tx_skb) {
 			dev_kfree_skb_any(bcs->tx_skb);
 			bcs->tx_skb = NULL;
@@ -1957,8 +1957,8 @@ st5481_l1hw(struct PStack *st, int pr, void *arg)
 	case (HW_DEACTIVATE | RESPONSE):
 		DBG(8,"HW_DEACTIVATE_RESPONSE,state=%s",ST5481_IND_string(cs->dc.st5481.ph_state));
 		//ph_command(cs, ST5481_CMD_DR);		
-		discard_queue(&cs->rq);
-		discard_queue(&cs->sq);
+		skb_queue_purge(&cs->rq);
+		skb_queue_purge(&cs->sq);
 		if (cs->tx_skb) {
 			dev_kfree_skb_any(cs->tx_skb);
 			cs->tx_skb = NULL;

@@ -175,6 +175,7 @@ typedef struct hfcusb_data {
 	struct timer_list t3_timer;	/* timer for activation/deactivation */
 } hfcusb_data;
 
+#if 0
 static void
 usb_dump_urb(purb_t purb)
 {
@@ -196,6 +197,7 @@ usb_dump_urb(purb_t purb)
 	printk("context               :%p\n", purb->context);
 	printk("complete              :%p\n", purb->complete);
 }
+#endif
 
 /*************************************************************************/
 /* bottom half handler for L1 activation/deactiavtaion + D-chan + E-chan */
