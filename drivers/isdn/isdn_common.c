@@ -1093,12 +1093,6 @@ isdn_read(struct file *file, char *buf, size_t count, loff_t * off)
 	return retval;
 }
 
-static loff_t
-isdn_llseek(struct file *file, loff_t offset, int orig)
-{
-	return -ESPIPE;
-}
-
 static ssize_t
 isdn_write(struct file *file, const char *buf, size_t count, loff_t * off)
 {
@@ -1819,7 +1813,7 @@ static struct file_operations isdn_fops =
 #ifdef COMPAT_HAS_FILEOP_OWNER
 	owner:		THIS_MODULE,
 #endif
-	llseek:		isdn_llseek,
+	llseek:		no_llseek,
 	read:		isdn_read,
 	write:		isdn_write,
 	poll:		isdn_poll,

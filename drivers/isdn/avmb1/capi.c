@@ -775,12 +775,6 @@ static void capi_signal(__u16 applid, void *param)
 
 /* -------- file_operations for capidev ----------------------------- */
 
-static loff_t
-capi_llseek(struct file *file, loff_t offset, int origin)
-{
-	return -ESPIPE;
-}
-
 static ssize_t
 capi_read(struct file *file, char *buf, size_t count, loff_t *ppos)
 {
@@ -1153,7 +1147,7 @@ static struct file_operations capi_fops =
 #ifdef COMPAT_HAS_FILEOP_OWNER
 	owner:		THIS_MODULE,
 #endif
-	llseek:		capi_llseek,
+	llseek:		no_llseek,
 	read:		capi_read,
 	write:		capi_write,
 	poll:		capi_poll,
@@ -1188,12 +1182,6 @@ capinc_raw_open(struct inode *inode, struct file *file)
 	file->private_data = (void *)mp;
 	handle_minor_recv(mp);
 	return 0;
-}
-
-static loff_t
-capinc_raw_llseek(struct file *file, loff_t offset, int origin)
-{
-	return -ESPIPE;
 }
 
 static ssize_t
@@ -1390,7 +1378,7 @@ static struct file_operations capinc_raw_fops =
 #ifdef COMPAT_HAS_FILEOP_OWNER
 	owner:		THIS_MODULE,
 #endif
-	llseek:		capinc_raw_llseek,
+	llseek:		no_llseek,
 	read:		capinc_raw_read,
 	write:		capinc_raw_write,
 	poll:		capinc_raw_poll,
