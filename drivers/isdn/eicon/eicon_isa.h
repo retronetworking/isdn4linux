@@ -21,6 +21,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.5  1999/09/08 20:17:31  armin
+ * Added microchannel patch from Erik Weber.
+ *
  * Revision 1.4  1999/09/06 07:29:35  fritz
  * Changed my mail-address.
  *
@@ -45,6 +48,7 @@
 #define eicon_isa_h
 
 #ifdef __KERNEL__
+#include <linux/config.h>
 
 /* Factory defaults for ISA-Cards */
 #define EICON_ISA_MEMBASE 0xd0000
