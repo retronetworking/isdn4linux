@@ -20,6 +20,10 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.38  1997/03/07 12:13:35  fritz
+ * Bugfix: Send audio in adpcm format was broken.
+ * Bugfix: CTS handling was wrong.
+ *
  * Revision 1.37  1997/03/07 01:37:34  fritz
  * Bugfix: Did not compile with CONFIG_ISDN_AUDIO disabled.
  * Bugfix: isdn_tty_tint() did not handle lowlevel errors correctly.
@@ -622,6 +626,9 @@ isdn_tty_senddown(modem_info * info)
 		restore_flags(flags);
 		return;
 	}
+	if ((info->emu.mdmreg[12] & 0x10) != 0)
+		info->msr &= ~UART_MSR_CTS;
+	info->lsr &= ~UART_LSR_TEMT;
 	if (info->isdn_driver < 0) {
 		info->xmit_count = 0;
 		restore_flags(flags);
@@ -694,9 +701,6 @@ isdn_tty_senddown(modem_info * info)
 		/* Add T.70 simplified header */
 		memcpy(skb_push(skb, 4), "\1\0\1\0", 4);
 	skb_queue_tail(&info->xmit_queue, skb);
-	if ((info->emu.mdmreg[12] & 0x10) != 0)
-		info->msr &= ~UART_MSR_CTS;
-	info->lsr &= ~UART_LSR_TEMT;
 }
 
 /************************************************************
