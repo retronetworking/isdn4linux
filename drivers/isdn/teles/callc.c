@@ -1,6 +1,9 @@
 /* $Id$
  *
  * $Log$
+ * Revision 1.2  1996/04/20 16:42:29  fritz
+ * Changed statemachine to allow reject of incoming calls.
+ *
  * Revision 1.1  1996/04/13 10:20:59  fritz
  * Initial revision
  *
@@ -234,6 +237,7 @@ r1(struct FsmInst *fi, int event, void *arg)
                   chanp->lc_b.l2_establish = !0;
                   break;
           case (ISDN_PROTO_L2_HDLC):
+          case (ISDN_PROTO_L2_TRANS):
                   chanp->lc_b.l2_establish = 0;
                   break;
           default:
@@ -416,6 +420,7 @@ r9(struct FsmInst *fi, int event, void *arg)
                   chanp->lc_b.l2_establish = !0;
                   break;
           case (ISDN_PROTO_L2_HDLC):
+          case (ISDN_PROTO_L2_TRANS):
                   chanp->lc_b.l2_establish = 0;
                   break;
           default:
@@ -1245,6 +1250,14 @@ init_ds(int chan, int incoming)
                   st->l1.hscxmode = 2;
                   st->l1.hscxchannel = chanlist[chan].para.bchannel - 1;
                   break;
+          case (ISDN_PROTO_L2_TRANS):
+                  st->l1.l1l2 = lltrans_handler;
+                  st->l1.l1man = dcc_l1man;
+                  st->l4.userdata = chanlist + chan;
+                  st->l4.l1writewakeup = ll_writewakeup;
+                  st->l1.hscxmode = 1;
+                  st->l1.hscxchannel = chanlist[chan].para.bchannel - 1;
+                  break;
         }
 
         return (0);
@@ -1342,6 +1355,7 @@ teles_command(isdn_ctrl * ic)
                             distr_debug();
                             sprintf(tmp, "debugging flags set to %x\n", debugflags);
                             teles_putstatus(tmp);
+			    printk(KERN_DEBUG "%s", tmp);
                             break;
                     case (2):
                             num = *(unsigned int *) ic->num;
