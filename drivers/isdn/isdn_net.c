@@ -1308,11 +1308,10 @@ void isdn_net_write_super(isdn_net_local *lp, struct sk_buff *skb)
 
 	spin_lock_bh(&lp->xmit_lock);
 #ifdef CONFIG_ISDN_WITH_ABC
-	if(skb_queue_empty(&lp->super_tx_queue) && !isdn_net_lp_busy(lp)) 
+	if(skb_queue_empty(&lp->super_tx_queue) && !isdn_net_lp_busy(lp)) {
 #else
-	if (!isdn_net_lp_busy(lp))
+	if (!isdn_net_lp_busy(lp)) {
 #endif
-	{
 		isdn_net_writebuf_skb(lp, skb);
 	} else {
 		skb_queue_tail(&lp->super_tx_queue, skb);
