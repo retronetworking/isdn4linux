@@ -21,6 +21,11 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.54  1998/06/18 23:32:01  fritz
+ * Replaced cli()/restore_flags() in isdn_tty_write() by locking.
+ * Removed direct-senddown feature in isdn_tty_write because it will
+ * never succeed with locking and is useless anyway.
+ *
  * Revision 1.53  1998/06/17 19:51:51  he
  * merged with 2.1.10[34] (cosmetics and udelay() -> mdelay())
  * brute force fix to avoid Ugh's in isdn_tty_write()
@@ -294,6 +299,7 @@
 
 #define ISDN_MODEM_ANZREG    23        /* Number of Modem-Registers        */
 #define ISDN_MSNLEN          20
+#define ISDN_LMSNLEN         255 /* Length of tty's Listen-MSN string */
 
 typedef struct {
   char drvid[25];
@@ -312,8 +318,9 @@ typedef struct {
   int  outgoing;
 } isdn_net_ioctl_phone;
 
-#define NET_DV 0x05 /* Data version for net_cfg     */
-#define TTY_DV 0x04 /* Data version for iprofd etc. */
+#define NET_DV 0x05 /* Data version for net_cfg       */
+#define TTY_DV 0x05 /* Data version for iprofd etc.   */
+#define INF_DV 0x01 /* Data version for /dev/isdninfo */
 
 typedef struct {
   char name[10];     /* Name of interface                     */
@@ -651,6 +658,9 @@ typedef struct atemu {
 	u_char       mdmreg[ISDN_MODEM_ANZREG];  /* Modem-Registers                    */
 	char         pmsn[ISDN_MSNLEN];          /* EAZ/MSNs Profile 0                 */
 	char         msn[ISDN_MSNLEN];           /* EAZ/MSN                            */
+	char         plmsn[ISDN_LMSNLEN];        /* Listening MSNs Profile 0           */
+	char         lmsn[ISDN_LMSNLEN];         /* Listening MSNs                     */
+	char         cpn[ISDN_MSNLEN];           /* CalledPartyNumber on incoming call */
 #ifdef CONFIG_ISDN_AUDIO
 	u_char       vpar[10];                   /* Voice-parameters                   */
 	int          lastDLE;                    /* Flag for voice-coding: DLE seen    */
@@ -713,6 +723,7 @@ typedef struct modem_info {
   struct termios	callout_termios;
   struct wait_queue	*open_wait;
   struct wait_queue	*close_wait;
+  struct semaphore      write_sem;
 } modem_info;
 
 #define ISDN_MODEM_WINSIZE 8

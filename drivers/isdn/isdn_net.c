@@ -21,6 +21,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.71  1998/06/18 22:43:08  fritz
+ * Bugfix: Setting ndev->do_ioctl had beed accidetly removed at abc-cleanup.
+ *
  * Revision 1.70  1998/06/17 19:50:49  he
  * merged with 2.1.10[34] (cosmetics and udelay() -> mdelay())
  * brute force fix to avoid Ugh's in isdn_tty_write()
@@ -322,7 +325,6 @@
 /* Prototypes */
 
 int isdn_net_force_dial_lp(isdn_net_local *);
-static int isdn_net_wildmat(char *s, char *p);
 static int isdn_net_start_xmit(struct sk_buff *, struct device *);
 static int isdn_net_xmit(struct device *, isdn_net_local *, struct sk_buff *);
 
@@ -2005,75 +2007,6 @@ isdn_net_init(struct device *ndev)
 	return 0;
 }
 
-/*
- * I picked the pattern-matching-functions from an old GNU-tar version (1.10)
- * It was originally written and put to PD by rs@mirror.TMC.COM (Rich Salz)
- */
-
-static int
-isdn_net_Star(char *s, char *p)
-{
-	while (isdn_net_wildmat(s, p) == 0)
-		if (*++s == '\0')
-			return (0);
-	return (1);
-}
-
-/*
- * Shell-type Pattern-matching for incoming caller-Ids
- * This function gets a string in s and checks, if it matches the pattern
- * given in p. It returns 1 on success, 0 otherwise.
- *
- * Possible Patterns:
- *
- * '?'     matches one character
- * '*'     matches zero or more characters
- * [xyz]   matches the set of characters in brackets.
- * [^xyz]  matches any single character not in the set of characters
- */
-
-static int
-isdn_net_wildmat(char *s, char *p)
-{
-	register int last;
-	register int matched;
-	register int reverse;
-
-	for (; *p; s++, p++)
-		switch (*p) {
-			case '\\':
-				/*
-				 * Literal match with following character,
-				 * fall through.
-				 */
-				p++;
-			default:
-				if (*s != *p)
-					return (0);
-				continue;
-			case '?':
-				/* Match anything. */
-				if (*s == '\0')
-					return (0);
-				continue;
-			case '*':
-				/* Trailing star matches everything. */
-				return (*++p ? isdn_net_Star(s, p) : 1);
-			case '[':
-				/* [^....] means inverse character class. */
-				if ((reverse = (p[1] == '^')))
-					p++;
-				for (last = 0, matched = 0; *++p && (*p != ']'); last = *p)
-					/* This next line requires a good C compiler. */
-					if (*p == '-' ? *s <= *++p && *s >= last : *s == *p)
-						matched = 1;
-				if (matched == reverse)
-					return (0);
-				continue;
-		}
-	return (*s == '\0');
-}
-
 static void
 isdn_net_swapbind(int drvidx)
 {
@@ -2126,6 +2059,8 @@ isdn_net_swap_usage(int i1, int i2)
  *               2 = Reject call, wait cbdelay, then call back
  *               3 = Reject call
  *               4 = Wait cbdelay, then call back
+ *               5 = No appropriate interface for this call,
+ *                   would eventually match if CID was longer.
  */
 int
 isdn_net_find_icall(int di, int ch, int idx, setup_parm setup)
@@ -2134,6 +2069,7 @@ isdn_net_find_icall(int di, int ch, int idx, setup_parm setup)
 	int si1;
 	int si2;
 	int ematch;
+	int wret;
 	int swapped;
 	int sidx = 0;
 	isdn_net_dev *p;
@@ -2168,13 +2104,13 @@ isdn_net_find_icall(int di, int ch, int idx, setup_parm setup)
 	}
 	n = (isdn_net_phone *) 0;
 	p = dev->netdev;
-	ematch = 0;
+	ematch = wret = swapped = 0;
 #ifdef ISDN_DEBUG_NET_ICALL
 	printk(KERN_DEBUG "n_fi: di=%d ch=%d idx=%d usg=%d\n", di, ch, idx,
 	       dev->usage[idx]);
 #endif
-	swapped = 0;
 	while (p) {
+		int matchret;
 		isdn_net_local *lp = p->local;
 
 		/* If last check has triggered as binding-swap, revert it */
@@ -2187,17 +2123,20 @@ isdn_net_find_icall(int di, int ch, int idx, setup_parm setup)
 				break;
 		}
 		swapped = 0;
-		if (!strcmp(isdn_map_eaz2msn(lp->msn, di), eaz))
+		if (!(matchret = isdn_wildmat(eaz, isdn_map_eaz2msn(lp->msn, di))))
 			ematch = 1;
+		/* Remember if more numbers eventually can match */
+		if (matchret > wret)
+			wret = matchret;
 #ifdef ISDN_DEBUG_NET_ICALL
 		printk(KERN_DEBUG "n_fi: if='%s', l.msn=%s, l.flags=%d, l.dstate=%d\n",
 		       lp->name, lp->msn, lp->flags, lp->dialstate);
 #endif
-		if ((!strcmp(isdn_map_eaz2msn(lp->msn, di), eaz)) &&	/* EAZ is matching   */
-		    (((!(lp->flags & ISDN_NET_CONNECTED)) &&	/* but not connected */
-		      (USG_NONE(dev->usage[idx]))) ||	/* and ch. unused or */
-		     ((((lp->dialstate == 4) || (lp->dialstate == 12)) &&	/* if dialing        */
-		       (!(lp->flags & ISDN_NET_CALLBACK)))	/* but no callback   */
+		if ((!matchret) &&                                        /* EAZ is matching   */
+		    (((!(lp->flags & ISDN_NET_CONNECTED)) &&              /* but not connected */
+		      (USG_NONE(dev->usage[idx]))) ||                     /* and ch. unused or */
+		     ((((lp->dialstate == 4) || (lp->dialstate == 12)) && /* if dialing        */
+		       (!(lp->flags & ISDN_NET_CALLBACK)))                /* but no callback   */
 		     )))
 			 {
 #ifdef ISDN_DEBUG_NET_ICALL
@@ -2278,7 +2217,7 @@ isdn_net_find_icall(int di, int ch, int idx, setup_parm setup)
 			n = lp->phone[0];
 			if (lp->flags & ISDN_NET_SECURE) {
 				while (n) {
-					if (isdn_net_wildmat(nr, n->num))
+					if (!isdn_wildmat(nr, n->num))
 						break;
 					n = (isdn_net_phone *) n->next;
 				}
@@ -2402,7 +2341,7 @@ isdn_net_find_icall(int di, int ch, int idx, setup_parm setup)
 	if (ematch || dev->net_verbose)
 		printk(KERN_INFO "isdn_net: call from %s -> %d %s ignored\n", nr, di, eaz);
 	restore_flags(flags);
-	return 0;
+	return (wret == 2)?5:0;
 }
 
 /*

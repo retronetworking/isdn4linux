@@ -7,6 +7,14 @@
  *              Fritz Elfert
  *
  * $Log$
+ * Revision 2.19  1998/05/25 14:08:06  keil
+ * HiSax 3.0
+ * fixed X.75 and leased line to work again
+ * Point2Point and fixed TEI are runtime options now:
+ *    hisaxctrl <id> 7 1  set PTP
+ *    hisaxctrl <id> 8 <TEIVALUE *2 >
+ *    set fixed TEI to TEIVALUE (0-63)
+ *
  * Revision 2.18  1998/05/25 12:57:40  keil
  * HiSax golden code from certification, Don't use !!!
  * No leased lines, no X75, but many changes.
@@ -323,7 +331,7 @@ lli_d_established(struct FsmInst *fi, int event, void *arg)
 			sprintf(txt, "statcallb ret=%d", ret);
 			link_debug(chanp, txt, 1);
 		}
-		if (!ret) {
+		if ((ret == 0) || (ret == 3)) {
 			chanp->cs->cardmsg(chanp->cs, MDL_INFO_REL, (void *) (long)chanp->chan);
 			FsmChangeState(fi, ST_NULL);
 		}

@@ -6,6 +6,9 @@
  * Copyright 1997 by Carsten Paeth (calle@calle.in-berlin.de)
  *
  * $Log$
+ * Revision 1.12  1998/03/29 16:06:03  calle
+ * changes from 2.0 tree merged.
+ *
  * Revision 1.3.2.10  1998/03/20 14:38:24  calle
  * capidrv: prepared state machines for suspend/resume/hold
  * capidrv: fix bug in state machine if B1/T1 is out of nccis
@@ -911,6 +914,7 @@ static void handle_incoming_call(capidrv_contr * card, _cmsg * cmsg)
 
 	switch (card->interface.statcallb(&cmd)) {
 	case 0:
+	case 3:
 		/* No device matching this call.
 		 * and isdn_common.c has send a HANGUP command
 		 * which is ignored in state ST_PLCI_INCOMING,

@@ -21,6 +21,11 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.66  1998/06/17 19:50:41  he
+ * merged with 2.1.10[34] (cosmetics and udelay() -> mdelay())
+ * brute force fix to avoid Ugh's in isdn_tty_write()
+ * cleaned up some dead code
+ *
  * Revision 1.65  1998/06/07 00:20:00  fritz
  * abc cleanup.
  *
@@ -342,6 +347,82 @@ isdn_dumppkt(char *s, u_char * p, int len, int dumplen)
 }
 #endif
 
+/*
+ * I picked the pattern-matching-functions from an old GNU-tar version (1.10)
+ * It was originally written and put to PD by rs@mirror.TMC.COM (Rich Salz)
+ */
+static int
+isdn_star(char *s, char *p)
+{
+	while (isdn_wildmat(s, p)) {
+		if (*++s == '\0')
+			return (2);
+	}
+	return (0);
+}
+
+/*
+ * Shell-type Pattern-matching for incoming caller-Ids
+ * This function gets a string in s and checks, if it matches the pattern
+ * given in p.
+ *
+ * Return:
+ *   0 = match.
+ *   1 = no match.
+ *   2 = no match. Would eventually match, if s would be longer.
+ *
+ * Possible Patterns:
+ *
+ * '?'     matches one character
+ * '*'     matches zero or more characters
+ * [xyz]   matches the set of characters in brackets.
+ * [^xyz]  matches any single character not in the set of characters
+ */
+
+int
+isdn_wildmat(char *s, char *p)
+{
+	register int last;
+	register int matched;
+	register int reverse;
+	register int nostar = 1;
+
+	for (; *p; s++, p++)
+		switch (*p) {
+			case '\\':
+				/*
+				 * Literal match with following character,
+				 * fall through.
+				 */
+				p++;
+			default:
+				if (*s != *p)
+					return (*s == '\0')?2:1;
+				continue;
+			case '?':
+				/* Match anything. */
+				if (*s == '\0')
+					return (2);
+				continue;
+			case '*':
+				nostar = 0;	
+				/* Trailing star matches everything. */
+				return (*++p ? isdn_star(s, p) : 0);
+			case '[':
+				/* [^....] means inverse character class. */
+				if ((reverse = (p[1] == '^')))
+					p++;
+				for (last = 0, matched = 0; *++p && (*p != ']'); last = *p)
+					/* This next line requires a good C compiler. */
+					if (*p == '-' ? *s <= *++p && *s >= last : *s == *p)
+						matched = 1;
+				if (matched == reverse)
+					return (1);
+				continue;
+		}
+	return (*s == '\0')?0:nostar;
+}
+
 static void
 isdn_free_queue(struct sk_buff_head *queue)
 {
@@ -623,11 +704,13 @@ isdn_status_callback(isdn_ctrl * c)
 			switch (r) {
 				case 0:
 					/* No network-device replies.
-					 * Try ttyI's
+					 * Try ttyI's.
+					 * These return 0 on no match, 1 on match and
+					 * 3 on eventually match, if CID is longer.
 					 */
-					if (isdn_tty_find_icall(di, c->arg, c->parm.setup) >= 0)
-						retval = 1;
-					else if (dev->drv[di]->reject_bus) {
+					retval = isdn_tty_find_icall(di, c->arg, c->parm.setup);
+					if ((!retval) && dev->drv[di]->reject_bus) {
+						/* No tty responding */
 						cmd.driver = di;
 						cmd.arg = c->arg;
 						cmd.command = ISDN_CMD_HANGUP;
@@ -659,6 +742,10 @@ isdn_status_callback(isdn_ctrl * c)
 					/* ... then start callback. */
 					isdn_net_dial();
 					break;
+				case 5:
+					/* Number would eventually match, if longer */
+					retval = 3;
+					break;
 			}
 			if (retval != 1) {
 				cmd.driver = di;
@@ -666,6 +753,7 @@ isdn_status_callback(isdn_ctrl * c)
 				cmd.command = ISDN_CMD_UNLOCK;
 				isdn_command(&cmd);
 			}
+			printk(KERN_DEBUG "ICALL: ret=%d\n", retval);
 			return retval;
 			break;
 		case ISDN_STAT_CINF:
@@ -948,8 +1036,6 @@ isdn_minor2chan(int minor)
 {
 	return (dev->chanmap[minor]);
 }
-
-#define INF_DV 0x01             /* Data version for /dev/isdninfo */
 
 static char *
 isdn_statstr(void)
@@ -1508,7 +1594,7 @@ isdn_ioctl(struct inode *inode, struct file *file, uint cmd, ulong arg)
 					int i;
 
 					if ((ret = verify_area(VERIFY_WRITE, (void *) arg,
-					(ISDN_MODEM_ANZREG + ISDN_MSNLEN)
+					(ISDN_MODEM_ANZREG + ISDN_MSNLEN + ISDN_LMSNLEN)
 						   * ISDN_MAX_CHANNELS)))
 						return ret;
 
@@ -1520,8 +1606,11 @@ isdn_ioctl(struct inode *inode, struct file *file, uint cmd, ulong arg)
 						if (copy_to_user(p, dev->mdm.info[i].emu.pmsn, ISDN_MSNLEN))
 							return -EFAULT;
 						p += ISDN_MSNLEN;
+						if (copy_to_user(p, dev->mdm.info[i].emu.plmsn, ISDN_LMSNLEN))
+							return -EFAULT;
+						p += ISDN_LMSNLEN;
 					}
-					return (ISDN_MODEM_ANZREG + ISDN_MSNLEN) * ISDN_MAX_CHANNELS;
+					return (ISDN_MODEM_ANZREG + ISDN_MSNLEN + ISDN_LMSNLEN) * ISDN_MAX_CHANNELS;
 				} else
 					return -EINVAL;
 				break;
