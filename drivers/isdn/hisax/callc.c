@@ -7,6 +7,9 @@
  *              Fritz Elfert
  *
  * $Log$
+ * Revision 1.26  1997/04/13 19:55:21  keil
+ * Changes in debugging code
+ *
  * Revision 1.25  1997/04/06 22:54:08  keil
  * Using SKB's
  *
@@ -1914,7 +1917,6 @@ HiSax_writebuf_skb(int id, int chan, struct sk_buff *skb)
 	int len = skb->len;
 	unsigned long flags;
 	struct sk_buff *nskb;
-	int i;
 	char tmp[64];
 
 	if (!csta) {
