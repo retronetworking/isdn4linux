@@ -86,9 +86,6 @@ if [ $# != 0 ]; then
     $DOCP $i $KERNELDIR/$i
   done
 else
-	for i in drivers/isdn/abc*.[ch] ; do
-		$DOCP $i $KERNELDIR/$i
-	done
   for i in drivers/isdn/isdn_*.[ch] ; do
     $DOCP $i $KERNELDIR/$i
   done
