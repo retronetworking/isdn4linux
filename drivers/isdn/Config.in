@@ -133,4 +133,9 @@ if [ "$CONFIG_ISDN_DRV_AVMB1" != "n" ]; then
    fi
    bool '  Verbose reason code reporting (kernel size +=7K)' CONFIG_ISDN_DRV_AVMB1_VERBOSE_REASON
 fi
+if [ "$CONFIG_PROC_FS" != "n" ]; then
+if [ "$CONFIG_MODULES" != "n" ]; then
+   bool 'Hypercope HYSDN cards (Champ, Ergo, Metro) support (module)' CONFIG_HYSDN
+fi
+fi
 endmenu
