@@ -6,6 +6,9 @@
  *
  *
  * $Log$
+ * Revision 1.1  1998/08/13 23:33:47  keil
+ * First version, only init
+ *
  *
  */
 
