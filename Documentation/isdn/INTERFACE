@@ -497,6 +497,11 @@ Description of the Interface between Linklevel and Hardwarelevel
       num         = ASCII-String in the following format:
                     "%s,%d,%d,%s",CallerNumber,ServiceIndicator,AddInfo,
                     CalledNumber.
+    Return:
+      0           = No device matching this call or call will be rejected.
+      1           = At least one device matching this call (RING on ttyI).
+                    HL-driver may send ALERTING on the D-channel in this case.
+      -1          = An error happened. (Invalid parameters for example.)
 
   ISDN_STAT_RUN:
 
