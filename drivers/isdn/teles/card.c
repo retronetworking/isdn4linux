@@ -7,6 +7,10 @@
  * Beat Doebeli         log all D channel traffic
  * 
  * $Log$
+ * Revision 1.4  1996/05/06 10:17:57  fritz
+ * Added voice-send stuff
+ *  (Not reporting EXIR when in voice-mode, since it's normal).
+ *
  * Revision 1.3  1996/04/30 22:02:40  isdn4dev
  * Bugfixes for 16.3
  *     -improved IO allocation
@@ -356,15 +360,6 @@ hscx_empty_fifo(struct HscxState *hsp, int count)
                 readhscx_s(hsp->iobase, hsp->hscx, 0x3e, ptr, count);
                 writehscxCMDR_3(hsp->iobase, hsp->hscx, 0x80);
         }
-#ifdef BCHAN_VERBOSE
-        {
-                int i;
-                printk(KERN_DEBUG "hscx_empty_fifo");
-                for (i = 0; i < count; i++)
-                        printk(" %2x", ptr[i]);
-                printk("\n");
-        }
-#endif				/* BCHAN_VERBOSE */
 }
 
 static void
@@ -432,7 +427,7 @@ hscx_interrupt(struct IsdnCardState *sp, byte val, byte hscx)
 			if (!r & 0x80)
 				printk(KERN_WARNING
                                        "Teles: HSCX invalid frame\n");
-			if ((r & 0x40) && (hsp->mode > 1))
+			if (r & 0x40)
 				printk(KERN_WARNING "Teles: HSCX RDO mode=%d\n",hsp->mode);
 			if (!r & 0x20)
 				printk(KERN_WARNING "Teles: HSCX CRC error\n");
@@ -447,7 +442,7 @@ hscx_interrupt(struct IsdnCardState *sp, byte val, byte hscx)
 			if (BufPoolGet(&hsp->rcvibh, &hsp->rbufpool,
                                        GFP_ATOMIC, (void *) 1, 1)) {
 				printk(KERN_WARNING
-                                       "HSCX RME (1) out of buffers at %ld\n",
+                                       "HSCX RME out of buffers at %ld\n",
                                        jiffies);
 				WRITEHSCX_CMDR(hsp->membase, hsp->iobase,
                                                hsp->hscx, 0x80);
@@ -471,7 +466,7 @@ hscx_interrupt(struct IsdnCardState *sp, byte val, byte hscx)
 			if (BufPoolGet(&hsp->rcvibh, &hsp->rbufpool,
 				       GFP_ATOMIC, (void *) 1, 2)) {
 				printk(KERN_WARNING
-                                       "HSCX RME (2) out of buffers at %ld\n",
+                                       "HSCX RPF out of buffers at %ld\n",
                                        jiffies);
 				WRITEHSCX_CMDR(hsp->membase, hsp->iobase,
                                                hsp->hscx, 0x80);
@@ -482,7 +477,7 @@ hscx_interrupt(struct IsdnCardState *sp, byte val, byte hscx)
 		hscx_empty_fifo(hsp, 32);
                 if (hsp->mode == 1) {
                         /* receive audio data */
-                        hsp->rcvibh->datasize = hsp->rcvptr - 1;
+                        hsp->rcvibh->datasize = hsp->rcvptr;
                         BufQueueLink(&hsp->rq, hsp->rcvibh);
                         hsp->rcvibh = NULL;
                         hscx_sched_event(hsp, HSCX_RCVBUFREADY);
