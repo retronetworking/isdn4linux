@@ -77,6 +77,7 @@ static void set_global_features(void);
 static void isdn_register_devfs(int);
 static void isdn_unregister_devfs(int);
 #endif /* HAVE_DEVFS_FS */
+static int isdn_wildmat(char *s, char *p);
 
 void
 isdn_MOD_INC_USE_COUNT(void)
@@ -158,7 +159,7 @@ isdn_star(char *s, char *p)
  * [^xyz]  matches any single character not in the set of characters
  */
 
-int
+static int
 isdn_wildmat(char *s, char *p)
 {
 	register int last;
@@ -202,6 +203,23 @@ isdn_wildmat(char *s, char *p)
 				continue;
 		}
 	return (*s == '\0')?0:nostar;
+}
+
+int isdn_msncmp( const char * msn1, const char * msn2 )
+{
+	char TmpMsn1[ ISDN_MSNLEN ];
+	char TmpMsn2[ ISDN_MSNLEN ];
+	char *p;
+
+	for ( p = TmpMsn1; *msn1 && *msn1 != ':'; )  // Strip off a SPID
+		*p++ = *msn1++;
+	*p = '\0';
+
+	for ( p = TmpMsn2; *msn2 && *msn2 != ':'; )  // Strip off a SPID
+		*p++ = *msn2++;
+	*p = '\0';
+
+	return isdn_wildmat( TmpMsn1, TmpMsn2 );
 }
 
 static void
@@ -427,6 +445,7 @@ isdn_status_callback(isdn_ctrl * c)
 	int r;
 	int retval = 0;
 	isdn_ctrl cmd;
+	isdn_net_dev *p;
 
 	di = c->driver;
 	i = isdn_dc2minor(di, c->arg);
@@ -475,7 +494,7 @@ isdn_status_callback(isdn_ctrl * c)
 				return 0;
 			}
 			/* Try to find a network-interface which will accept incoming call */
-			r = ((c->command == ISDN_STAT_ICALLW) ? 0 : isdn_net_find_icall(di, c->arg, i, c->parm.setup));
+			r = ((c->command == ISDN_STAT_ICALLW) ? 0 : isdn_net_find_icall(di, c->arg, i, &c->parm.setup));
 			switch (r) {
 				case 0:
 					/* No network-device replies.
@@ -484,7 +503,7 @@ isdn_status_callback(isdn_ctrl * c)
 					 * 3 on eventually match, if CID is longer.
 					 */
                                         if (c->command == ISDN_STAT_ICALL)
-					  if ((retval = isdn_tty_find_icall(di, c->arg, c->parm.setup))) return(retval);
+					  if ((retval = isdn_tty_find_icall(di, c->arg, &c->parm.setup))) return(retval);
 #ifdef CONFIG_ISDN_DIVERSION 
                                          if (divert_if)
                  	                  if ((retval = divert_if->stat_callback(c))) 
@@ -505,9 +524,16 @@ isdn_status_callback(isdn_ctrl * c)
 					cmd.driver = di;
 					cmd.arg = c->arg;
 					cmd.command = ISDN_CMD_ACCEPTD;
-					isdn_command(&cmd);
-					retval = 1;
+					for ( p = dev->netdev; p; p = p->next )
+						if ( p->local->isdn_channel == cmd.arg )
+						{
+							strcpy( cmd.parm.setup.eazmsn, p->local->msn );
+							isdn_command(&cmd);
+							retval = 1;
+							break;
+						}
 					break;
+
 				case 2:	/* For calling back, first reject incoming call ... */
 				case 3:	/* Interface found, but down, reject call actively  */
 					retval = 2;
