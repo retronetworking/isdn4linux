@@ -21,6 +21,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.20  1997/01/17 00:41:19  fritz
+ * Increased TTY_DV.
+ *
  * Revision 1.19  1997/01/14 01:41:07  fritz
  * Added ATI2 related variables.
  * Added variables for audio support in skbuffs.
@@ -183,7 +186,7 @@ typedef struct {
   int  outgoing;
 } isdn_net_ioctl_phone;
 
-#define NET_DV 0x01 /* Data version for net_cfg     */
+#define NET_DV 0x02 /* Data version for net_cfg     */
 #define TTY_DV 0x02 /* Data version for iprofd etc. */
 
 typedef struct {
@@ -207,6 +210,7 @@ typedef struct {
   int  callback;     /* Flag: Callback                        */
   int  cbhup;        /* Flag: Reject Call before Callback     */
   int  pppbind;      /* ippp device for bindings              */
+  int  chargeint;    /* Use fixed charge interval length      */
 } isdn_net_ioctl_cfg;
 
 #ifdef __KERNEL__
@@ -365,6 +369,7 @@ typedef struct isdn_net_local_s {
 				       /* bit0: chargeint is invalid       */
 				       /* bit1: Getting charge-interval    */
                                        /* bit2: Do charge-unit-hangup      */
+                                       /* bit3: Do hangup even on incoming */
   int                    outgoing;     /* Flag: outgoing call              */
   int                    onhtime;      /* Time to keep link up             */
   int                    chargeint;    /* Interval between charge-infos    */

@@ -21,10 +21,20 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.2  1996/04/20 16:29:43  fritz
+ * Misc. typos
+ *
  * Revision 1.1  1996/02/11 02:35:13  fritz
  * Initial revision
  *
  */
+
+                              /* Definitions for hupflags:                */
+#define ISDN_WAITCHARGE  1    /* did not get a charge info yet            */
+#define ISDN_HAVECHARGE  2    /* We know a charge info                    */
+#define ISDN_CHARGEHUP   4    /* We want to use the charge mechanism      */
+#define ISDN_INHUP       8    /* Even if incoming, close after huptimeout */
+#define ISDN_MANCHARGE  16    /* Charge Interval manually set             */
 
 extern char*         isdn_net_new(char *, struct device *);
 extern char*         isdn_net_newslave(char *);

@@ -21,6 +21,11 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.30  1997/01/14 01:27:47  fritz
+ * Changed audio receive not to rely on skb->users and skb->lock.
+ * Added ATI2 and related variables.
+ * Started adding full-duplex audio capability.
+ *
  * Revision 1.29  1997/01/12 23:33:03  fritz
  * Made isdn_all_eaz foolproof.
  *
@@ -1213,8 +1218,9 @@ static int isdn_get_allcfg(char *dest)
 		cfg.p_encap = p->local.p_encap;
 		cfg.secure = (p->local.flags & ISDN_NET_SECURE) ? 1 : 0;
 		cfg.callback = (p->local.flags & ISDN_NET_CALLBACK) ? 1 : 0;
-		cfg.chargehup = (p->local.hupflags & 4) ? 1 : 0;
-		cfg.ihup = (p->local.hupflags & 8) ? 1 : 0;
+		cfg.chargehup = (p->local.hupflags & ISDN_CHARGEHUP) ? 1 : 0;
+		cfg.ihup = (p->local.hupflags & ISDN_INHUP) ? 1 : 0;
+		cfg.chargeint = p->local.chargeint;
 		copy_to_user(dest, p->local.name, 10);
 		dest += 10;
 		copy_to_user(dest, (char *) &cfg, sizeof(cfg));

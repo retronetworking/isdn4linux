@@ -21,6 +21,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.32  1997/01/14 01:29:31  fritz
+ * Bugfix: isdn_net_hangup() did not reset ISDN_NET_CONNECTED.
+ *
  * Revision 1.31  1997/01/11 23:30:42  fritz
  * Speed up dial statemachine.
  *
@@ -294,15 +297,28 @@ isdn_net_autohup()
                         anymore = 1;
 			l->huptimer++;
 			if ((l->onhtime) && (l->huptimer > l->onhtime))
-				if (l->outgoing) {
-					if (l->hupflags & 4) {
-						if (l->hupflags & 1)
+				if (l->hupflags & ISDN_MANCHARGE &&
+					l->hupflags & ISDN_CHARGEHUP) {
+					while (jiffies - l->chargetime > l->chargeint)
+						l->chargetime += l->chargeint;
+					if (jiffies - l->chargetime >= l->chargeint - 2*HZ)
+						if (l->outgoing || l->hupflags & ISDN_INHUP)
+							isdn_net_hangup (&p->dev);
+				} else if (l->outgoing) {
+					if (l->hupflags & ISDN_CHARGEHUP) {
+						if (l->hupflags & ISDN_WAITCHARGE) {
+							printk(KERN_DEBUG "isdn_net: Hupflags of %s are %X\n",
+							       l->name, l->hupflags);
 							isdn_net_hangup(&p->dev);
-						else if (jiffies - l->chargetime > l->chargeint)
+						} else if (jiffies - l->chargetime > l->chargeint) {
+							printk(KERN_DEBUG
+							       "isdn_net: %s: chtime = %d, chint = %d\n",
+							       l->name, l->chargetime, l->chargeint);
 							isdn_net_hangup(&p->dev);
+						}
 					} else
 						isdn_net_hangup(&p->dev);
-				} else if (l->hupflags & 8)
+				} else if (l->hupflags & ISDN_INHUP)
 					isdn_net_hangup(&p->dev);
 		}
 		p = (isdn_net_dev *) p->next;
@@ -411,6 +427,8 @@ isdn_net_stat_callback(int idx, int cmd)
                                                  * we correct the timestamp here.
                                                  */
                                                 lp->chargetime = jiffies;
+						printk(KERN_DEBUG "isdn_net: chargetime of %s now %d\n",
+						       lp->name, lp->chargetime);
                                                 /* Immediately send first skb to speed up arp */
 #ifdef CONFIG_ISDN_PPP
 						if(lp->p_encap == ISDN_NET_ENCAP_SYNCPPP)
@@ -436,13 +454,15 @@ isdn_net_stat_callback(int idx, int cmd)
 				 * usage by isdn_net_autohup()
 				 */
 				lp->charge++;
-				if (lp->hupflags & 2) {
-					lp->hupflags &= ~1;
+				if (lp->hupflags & ISDN_HAVECHARGE) {
+					lp->hupflags &= ~ISDN_WAITCHARGE;
 					lp->chargeint = jiffies - lp->chargetime - (2 * HZ);
 				}
-				if (lp->hupflags & 1)
-					lp->hupflags |= 2;
+				if (lp->hupflags & ISDN_WAITCHARGE)
+					lp->hupflags |= ISDN_HAVECHARGE;
 				lp->chargetime = jiffies;
+				printk(KERN_DEBUG "isdn_net: Got CINF chargetime of %s now %d\n",
+				       lp->name, lp->chargetime);
 				return 1;
                 }
 	}
@@ -528,8 +548,13 @@ isdn_net_dial(void)
 			cmd.arg = p->local.isdn_channel;
 			p->local.huptimer = 0;
 			p->local.outgoing = 1;
-			p->local.hupflags |= 1;
-                        p->local.hupflags &= ~2;
+			if (p->local.chargeint) {
+                            p->local.hupflags |= ISDN_HAVECHARGE;
+                            p->local.hupflags &= ~ISDN_WAITCHARGE;
+                        } else {
+			    p->local.hupflags |= ISDN_WAITCHARGE;
+                            p->local.hupflags &= ~ISDN_HAVECHARGE;
+			}
 			if (!strcmp(p->local.dial->num, "LEASED")) {
 				p->local.dialstate = 4;
 				printk(KERN_INFO "%s: Open leased line ...\n", p->local.name);
@@ -1792,8 +1817,8 @@ isdn_net_find_icall(int di, int ch, int idx, char *num)
 					p->local.dtimer = 0;
 					p->local.outgoing = 0;
 					p->local.huptimer = 0;
-					p->local.hupflags |= 1;
-                                        p->local.hupflags &= ~2;
+					p->local.hupflags |= ISDN_WAITCHARGE;
+                                        p->local.hupflags &= ~ISDN_HAVECHARGE;
 #ifdef CONFIG_ISDN_PPP
 					if (lp->p_encap == ISDN_NET_ENCAP_SYNCPPP)
 						if (isdn_ppp_bind(lp) < 0) {
@@ -1964,7 +1989,7 @@ isdn_net_new(char *name, struct device *master)
 	netdev->local.l3_proto = ISDN_PROTO_L3_TRANS;
 	netdev->local.slavedelay = 10 * HZ;
 	netdev->local.srobin = &netdev->dev;
-	netdev->local.hupflags = 8;	/* Do hangup even on incoming calls */
+	netdev->local.hupflags = ISDN_INHUP; /* Do hangup even on incoming calls */
 	netdev->local.onhtime = 10;	/* Default hangup-time for saving costs
 					   of those who forget configuring this */
 	netdev->local.dialmax = 1;
@@ -2133,13 +2158,17 @@ int isdn_net_setcfg(isdn_net_ioctl_cfg * cfg)
                                 break;
                 }
 		if (cfg->chargehup)
-			p->local.hupflags |= 4;
+			p->local.hupflags |= ISDN_CHARGEHUP;
 		else
-			p->local.hupflags &= ~4;
+			p->local.hupflags &= ~ISDN_CHARGEHUP;
 		if (cfg->ihup)
-			p->local.hupflags |= 8;
+			p->local.hupflags |= ISDN_INHUP;
 		else
-			p->local.hupflags &= ~8;
+			p->local.hupflags &= ~ISDN_INHUP;
+		if (cfg->chargeint > 10) {
+			p->local.hupflags |= ISDN_CHARGEHUP | ISDN_HAVECHARGE | ISDN_MANCHARGE;
+			p->local.chargeint = cfg->chargeint * HZ;
+		}
 		if (cfg->p_encap != p->local.p_encap) {
                         if (cfg->p_encap == ISDN_NET_ENCAP_RAWIP) {
                                 p->dev.hard_header         = NULL;
@@ -2197,6 +2226,8 @@ int isdn_net_getcfg(isdn_net_ioctl_cfg * cfg)
                 cfg->cbdelay = p->local.cbdelay;
                 cfg->dialmax = p->local.dialmax;
 		cfg->slavedelay = p->local.slavedelay / HZ;
+		cfg->chargeint = (p->local.hupflags & ISDN_CHARGEHUP) ?
+				(p->local.chargeint / HZ) : 0;
 		cfg->pppbind = p->local.pppbind;
 		if (p->local.slave)
 			strcpy(cfg->slave, ((isdn_net_local *) p->local.slave->priv)->name);
