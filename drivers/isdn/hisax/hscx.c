@@ -6,6 +6,9 @@
  *
  *
  * $Log$
+ * Revision 1.5  1997/11/06 17:09:34  keil
+ * New 2.1 init code
+ *
  * Revision 1.4  1997/10/29 19:01:06  keil
  * changes for 2.1
  *
@@ -153,7 +156,7 @@ close_hscxstate(struct BCState *bcs)
 	struct sk_buff *skb;
 
 	modehscx(bcs, 0, 0);
-	if (test_bit(BC_FLG_INIT, &bcs->Flag)) {
+	if (test_and_clear_bit(BC_FLG_INIT, &bcs->Flag)) {
 		if (bcs->hw.hscx.rcvbuf) {
 			kfree(bcs->hw.hscx.rcvbuf);
 			bcs->hw.hscx.rcvbuf = NULL;
@@ -170,7 +173,6 @@ close_hscxstate(struct BCState *bcs)
 			test_and_clear_bit(BC_FLG_BUSY, &bcs->Flag);
 		}
 	}
-	test_and_clear_bit(BC_FLG_INIT, &bcs->Flag);
 }
 
 static int

@@ -6,6 +6,9 @@
  *
  *
  * $Log$
+ * Revision 1.9  1997/11/06 17:09:07  keil
+ * New 2.1 init code
+ *
  * Revision 1.8  1997/10/29 19:00:03  keil
  * new layer1,changes for 2.1
  *
@@ -603,8 +606,10 @@ initisac(struct IsdnCardState *cs))
 {
 	cs->tqueue.routine = (void *) (void *) isac_bh;
 	cs->l1cmd = isac_l1cmd;
+	cs->setstack_d = setstack_isac;
 	cs->dbusytimer.function = (void *) dbusy_timer_handler;
 	cs->dbusytimer.data = (long) cs;
+	init_timer(&cs->dbusytimer);
   	cs->writeisac(cs, ISAC_MASK, 0xff);
   	cs->mocr = 0xaa;
 	if (test_bit(HW_IOM1, &cs->HW_Flags)) {
