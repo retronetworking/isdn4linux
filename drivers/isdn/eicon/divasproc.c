@@ -91,12 +91,26 @@ static char *d_l1_down_proc_name = "dynamic_l1_down";
 extern struct proc_dir_entry *proc_net_isdn_eicon;
 static struct proc_dir_entry *divas_proc_entry = NULL;
 
+void
+diva_get_vserial_number(PISDN_ADAPTER IoAdapter, char *buf)
+{
+  int contr = 0;
+
+  if ((contr = ((IoAdapter->serialNo & 0xff000000) >> 24))) { 
+    sprintf(buf, "%ld-%d",
+            IoAdapter->serialNo & 0x00ffffff, contr + 1);
+  } else {
+    sprintf(buf, "%ld", IoAdapter->serialNo);
+  }
+}
+
 static ssize_t
 divas_read(struct file *file, char *buf, size_t count, loff_t * off)
 {
   int len = 0;
   int cadapter;
   char tmpbuf[80];
+  char tmpser[16];
 
   if (*off)
       return 0;
@@ -110,9 +124,10 @@ divas_read(struct file *file, char *buf, size_t count, loff_t * off)
 
   for(cadapter = 0; cadapter < MAX_ADAPTER; cadapter++) {
     if (IoAdapters[cadapter]) {
-      sprintf(tmpbuf, "%2d: %-30s Serial:%-10ld IRQ:%2d\n", cadapter + 1,
+      diva_get_vserial_number(IoAdapters[cadapter], tmpser);
+      sprintf(tmpbuf, "%2d: %-30s Serial:%-10s IRQ:%2d\n", cadapter + 1,
           IoAdapters[cadapter]->Properties.Name,
-          IoAdapters[cadapter]->serialNo,
+          tmpser,
           IoAdapters[cadapter]->irq_info.irq_nr);
       if((strlen(tmpbuf)+len) > count)
         break;
@@ -372,6 +387,7 @@ info_read(char *page, char **start, off_t off, int count, int *eof, void *data)
   int i = 0;
   int len = 0;
   char *p;
+  char tmpser[16];
   diva_os_xdi_adapter_t* a = (diva_os_xdi_adapter_t*)data;
   PISDN_ADAPTER IoAdapter = IoAdapters[a->controller-1];
 
@@ -381,7 +397,8 @@ info_read(char *page, char **start, off_t off, int count, int *eof, void *data)
                                           IoAdapter->Properties.Channels);
   len += sprintf(page+len, "E. max/used : %03d/%03d\n",
                                           IoAdapter->e_max, IoAdapter->e_count);
-  len += sprintf(page+len, "Serial      : %ld\n", IoAdapter->serialNo);
+  diva_get_vserial_number(IoAdapter, tmpser);
+  len += sprintf(page+len, "Serial      : %s\n", tmpser);
   len += sprintf(page+len, "IRQ         : %d\n", IoAdapter->irq_info.irq_nr);
   len += sprintf(page+len, "CardIndex   : %d\n", a->CardIndex);
   len += sprintf(page+len, "CardOrdinal : %d\n", a->CardOrdinal);

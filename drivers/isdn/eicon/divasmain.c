@@ -62,7 +62,7 @@ MODULE_AUTHOR(      "Cytronics & Melware, Eicon Networks");
 
 static char *DRIVERNAME = "Eicon DIVA Server driver (http://www.melware.net)";
 static char *DRIVERLNAME = "divas";
-static char *DRIVERRELEASE = "1.0beta6";
+static char *DRIVERRELEASE = "1.0beta7";
 
 #define DBG_MINIMUM  (DL_LOG + DL_FTL + DL_ERR)
 #define DBG_DEFAULT  (DBG_MINIMUM + DL_XLOG + DL_REG)
@@ -73,6 +73,7 @@ extern int create_divas_proc(void);
 extern void remove_divas_proc(void);
 extern int create_adapters_proc(void);
 extern void remove_adapters_proc(void);
+extern void diva_get_vserial_number(PISDN_ADAPTER IoAdapter, char *buf);
 
 extern PISDN_ADAPTER IoAdapters[MAX_ADAPTER];
 
@@ -88,6 +89,7 @@ typedef struct _diva_os_thread_dpc {
   int pid;
   atomic_t thread_running;
   diva_os_soft_isr_t* psoft_isr;
+  int trapped;
 } diva_os_thread_dpc_t;
 
 
@@ -184,14 +186,20 @@ diva_os_free (unsigned long unused, void* ptr)
 
 #define TRAP_PROG  "/usr/sbin/divas_trap.rc"
 static int
-exec_user_script(void * data)
+exec_user_script(void *data)
 { 
+  PISDN_ADAPTER IoAdapter = (PISDN_ADAPTER) data;
   static char * envp[] = { "HOME=/", "TERM=linux", "PATH=/usr/sbin:/sbin:/bin:/usr/bin", NULL };
-  char *argv[] = { TRAP_PROG, "trap", NULL };
+  char *argv[] = { TRAP_PROG, "trap", NULL, NULL };
+  char anum[6];
   int i;
+
+  sprintf(anum, "%ld", IoAdapter->ANum);
+  argv[2] = anum;
 
   current->session = 1;
   current->pgrp = 1;
+  current->policy = SCHED_OTHER;
 
   spin_lock_irq(&current->sigmask_lock);
   flush_signals(current);
@@ -215,17 +223,29 @@ exec_user_script(void * data)
   return(0);
 }
 
-void
-start_trap_script(void * data)
+static void
+start_trap_script(PISDN_ADAPTER IoAdapter)
 {
   int pid = -1;
 
-  pid = kernel_thread(exec_user_script, data, 0);
+  pid = kernel_thread(exec_user_script, IoAdapter, 0);
   if (pid < 0) {
     printk(KERN_ERR "%s: couldn't start thread for executing trap script, errno %d\n",
           DRIVERLNAME, -pid);
   }
   waitpid(pid, NULL, __WCLONE);
+}
+
+static void
+diva_run_trap_script(PISDN_ADAPTER IoAdapter, dword ANum)
+{
+  diva_os_soft_isr_t* pisr = &IoAdapter->isr_soft_isr;
+  diva_os_thread_dpc_t* tisr = (diva_os_thread_dpc_t*)pisr->object;
+
+  if(!tisr->trapped) {
+    tisr->trapped = 1;
+    diva_os_schedule_soft_isr(pisr);
+  }
 }
 
 /*********************************************************
@@ -454,6 +474,7 @@ diva_os_remove_irq (void* context, byte irq)
 static int
 diva_os_dpc_proc(void* context)
 {
+  int i;
   diva_os_thread_dpc_t* psoft_isr = (diva_os_thread_dpc_t*)context;
   diva_os_soft_isr_t* pisr = psoft_isr->psoft_isr;
 
@@ -464,9 +485,11 @@ diva_os_dpc_proc(void* context)
   }
 
   printk(KERN_INFO "%s: thread started with pid %d\n", DRIVERLNAME, current->pid);
+
   exit_mm(current);
-  exit_files(current);
-  exit_fs(current);
+  for (i = 0; i < current->files->max_fds; i++ ) {
+    if (current->files->fd[i]) close(i);
+  }
 
   /* Set to RealTime */
   current->policy = SCHED_FIFO;
@@ -484,7 +507,12 @@ diva_os_dpc_proc(void* context)
          flush_signals(current);
          spin_unlock_irq(&current->sigmask_lock);
     } else {
-         (*(pisr->callback))(pisr, pisr->callback_context);
+         if(psoft_isr->trapped) {
+           start_trap_script(pisr->callback_context);
+           psoft_isr->trapped = 0;
+         } else {
+           (*(pisr->callback))(pisr, pisr->callback_context);
+         }
     }
   }
   up(&psoft_isr->divas_end);
@@ -559,6 +587,7 @@ diva_xdi_didd_register_adapter (int card)
 {
   DESCRIPTOR d;
   IDI_SYNC_REQ req;
+  char tmpser[16];
 
   if (card && ((card-1) < MAX_ADAPTER) && IoAdapters[card-1] && Requests[card-1])
   {
@@ -577,8 +606,10 @@ diva_xdi_didd_register_adapter (int card)
     if (req.didd_add_adapter.e.Rc != 0xff) {
       DBG_ERR(("DIDD register A(%d) failed !", card))
     } else {
-      printk(KERN_INFO "%s: %s (%ld) started\n", DRIVERLNAME,
-                  IoAdapters[card-1]->Properties.Name, IoAdapters[card-1]->serialNo);
+      IoAdapters[card-1]->os_trap_nfy_Fnc = diva_run_trap_script;
+      diva_get_vserial_number(IoAdapters[card-1], tmpser);
+      printk(KERN_INFO "%s: %s (%s) started\n", DRIVERLNAME,
+                  IoAdapters[card-1]->Properties.Name, tmpser);
     }
   }
 }
@@ -588,14 +619,17 @@ diva_xdi_didd_remove_adapter (int card)
 {
   IDI_SYNC_REQ req;
   ADAPTER *a = &IoAdapters[card-1]->a;
+  char tmpser[16];
 
+  IoAdapters[card-1]->os_trap_nfy_Fnc = NULL;
   DBG_TRC(("DIDD de-register A(%d)", card))
   req.didd_remove_adapter.e.Req = 0;
   req.didd_remove_adapter.e.Rc = IDI_SYNC_REQ_DIDD_REMOVE_ADAPTER;
   req.didd_remove_adapter.info.p_request = (IDI_CALL)Requests[card-1];
   DAdapter.request((ENTITY *)&req);
-  printk(KERN_INFO "%s: %s (%ld) stopped\n", DRIVERLNAME,
-               IoAdapters[card-1]->Properties.Name, IoAdapters[card-1]->serialNo);
+  diva_get_vserial_number(IoAdapters[card-1], tmpser);
+  printk(KERN_INFO "%s: %s (%s) stopped\n", DRIVERLNAME,
+               IoAdapters[card-1]->Properties.Name, tmpser);
   memset(&(a->IdTable), 0x00, 256);
 }
 
@@ -696,6 +730,17 @@ divas_init(void)
   strcpy(tmprev, main_revision);
   printk("%s  Build: %s(%s)\n", getrev(tmprev),
         diva_xdi_common_code_build, DIVA_BUILD);
+  printk(KERN_INFO "%s: support for: ", DRIVERLNAME);
+#ifdef CONFIG_ISDN_DIVAS_BRIPCI
+  printk("BRI/PCI ");
+#endif
+#ifdef CONFIG_ISDN_DIVAS_4BRIPCI
+  printk("4BRI/PCI ");
+#endif
+#ifdef CONFIG_ISDN_DIVAS_PRIPCI
+  printk("PRI/PCI ");
+#endif
+  printk("\n");
 
   if(!pci_present()) {
   /* Maybe some day we support BRI-ISA and this is obsolete */

@@ -418,14 +418,14 @@ static int load_bri_hardware (PISDN_ADAPTER IoAdapter) {
 static int bri_ISR (struct _ISDN_ADAPTER* IoAdapter) {
  if ( !(inpp (IoAdapter->ctlReg) & 0x01) )
   return (0) ;
- IoAdapter->IrqCount++ ;
- if ( IoAdapter->Initialized ) {
-  diva_os_schedule_soft_isr (&IoAdapter->isr_soft_isr);
- }
  /*
   clear interrupt line
   */
  outpp (IoAdapter->ctlReg, 0x08) ;
+ IoAdapter->IrqCount++ ;
+ if ( IoAdapter->Initialized ) {
+  diva_os_schedule_soft_isr (&IoAdapter->isr_soft_isr);
+ }
  return (1) ;
 }
 /* --------------------------------------------------------------------------

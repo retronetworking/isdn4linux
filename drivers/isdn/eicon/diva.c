@@ -14,14 +14,21 @@
 #include "di_defs.h"
 #include "di.h"
 #include "io.h"
+#include "pc_maint.h"
 
 #include "xdi_msg.h"
 #include "xdi_adapter.h"
 #include "diva.h"
 
-#include "os_pri.h"
-#include "os_4bri.h"
-#include "os_bri.h"
+#ifdef CONFIG_ISDN_DIVAS_PRIPCI
+  #include "os_pri.h"
+#endif
+#ifdef CONFIG_ISDN_DIVAS_4BRIPCI
+  #include "os_4bri.h"
+#endif
+#ifdef CONFIG_ISDN_DIVAS_BRIPCI
+  #include "os_bri.h"
+#endif
 
 PISDN_ADAPTER IoAdapters[MAX_ADAPTER];
 extern IDI_CALL Requests[MAX_ADAPTER];
@@ -73,12 +80,20 @@ struct pt_regs;
 */
 diva_entity_queue_t adapter_queue;
 
+typedef struct _diva_get_xlog {
+  word command;
+  byte req;
+  byte rc;
+  byte data [sizeof(struct mi_pc_maint)];
+} diva_get_xlog_t;
+
 typedef struct _diva_supported_cards_info {
   int CardOrdinal;
   diva_init_card_proc_t init_card;
 } diva_supported_cards_info_t;
 
 static diva_supported_cards_info_t divas_supported_cards [] = {
+#ifdef CONFIG_ISDN_DIVAS_PRIPCI
   /*
     PRI Cards
   */
@@ -91,6 +106,8 @@ static diva_supported_cards_info_t divas_supported_cards [] = {
     PRI Rev.2 VoIP Cards
   */
   { CARDTYPE_DIVASRV_VOICE_P_30M_V2_PCI, diva_pri_init_card },
+#endif
+#ifdef CONFIG_ISDN_DIVAS_4BRIPCI
   /*
     4BRI Rev 1 Cards
   */
@@ -101,10 +118,13 @@ static diva_supported_cards_info_t divas_supported_cards [] = {
   */
   { CARDTYPE_DIVASRV_Q_8M_V2_PCI,    diva_4bri_init_card },
   { CARDTYPE_DIVASRV_VOICE_Q_8M_V2_PCI, diva_4bri_init_card },
+#endif
+#ifdef CONFIG_ISDN_DIVAS_BRIPCI
   /*
     BRI
   */
   { CARDTYPE_MAESTRA_PCI,		diva_bri_init_card },
+#endif
 
   /*
     EOL
@@ -466,5 +486,50 @@ diva_add_slave_adapter (diva_os_xdi_adapter_t* a)
   diva_os_enter_spin_lock (&adapter_lock, &old_irql, "add_slave");
   diva_q_add_tail (&adapter_queue, &a->link);
   diva_os_leave_spin_lock (&adapter_lock, &old_irql, "add_slave");
+}
+
+int
+diva_card_read_xlog (diva_os_xdi_adapter_t* a)
+{
+  diva_get_xlog_t *req;
+  byte* data;
+
+  if (!a->xdi_adapter.Initialized || !a->xdi_adapter.DIRequest) {
+    return (-1);                                                                                         }
+  if (!(data = diva_os_malloc (0, sizeof(struct mi_pc_maint)))) {
+    return (-1);
+  }
+  memset (data, 0x00, sizeof(struct mi_pc_maint));
+
+  if (!(req = diva_os_malloc (0, sizeof(*req)))) {
+    diva_os_free (0, data);
+    return (-1);
+  }
+  req->command = 0x0400;
+  req->req = LOG;
+  req->rc = 0x00;
+
+  (*(a->xdi_adapter.DIRequest))(&a->xdi_adapter, (ENTITY*)req);
+
+  if (!req->rc || req->req) {
+    diva_os_free (0, data);
+    diva_os_free (0, req);
+    return (-1);
+  }
+
+  memcpy (data, &req->req, sizeof(struct mi_pc_maint));
+
+  diva_os_free (0, req);
+
+  a->xdi_mbox.data_length = sizeof(struct mi_pc_maint);
+  a->xdi_mbox.data = data;
+  a->xdi_mbox.status = DIVA_XDI_MBOX_BUSY;
+
+  return (0);
+}
+
+void
+xdiFreeFile (void* handle)
+{
 }
 

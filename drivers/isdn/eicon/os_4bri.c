@@ -878,6 +878,8 @@ check_qBri_interrupt (PISDN_ADAPTER IoAdapter)
 
   IoAdapter->reset[PLX9054_INTCSR] = PLX9054_INT_ENABLE ;
 
+  diva_os_wait(100);
+
   return (0) ;
 #endif	/* SUPPORT_INTERRUPT_TEST_ON_4BRI */
 }

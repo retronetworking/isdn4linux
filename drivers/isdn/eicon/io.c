@@ -342,6 +342,12 @@ void request(PISDN_ADAPTER IoAdapter, ENTITY * e)
   if ( !IoAdapter->trapped && IoAdapter->trapFnc )
   {
    IoAdapter->trapFnc (IoAdapter) ;
+      /*
+        Firs trap, also notify user if supported
+       */
+      if (IoAdapter->trapped && IoAdapter->os_trap_nfy_Fnc) {
+        (*(IoAdapter->os_trap_nfy_Fnc))(IoAdapter, IoAdapter->ANum);
+      }
   }
   diva_os_leave_spin_lock (&IoAdapter->data_spin_lock, &irql, "data_req");
   return ;
@@ -500,7 +506,14 @@ pcm_req (PISDN_ADAPTER IoAdapter, ENTITY *e)
 Trapped:
  if ( IoAdapter->trapFnc )
  {
+    int trapped = IoAdapter->trapped;
   IoAdapter->trapFnc (IoAdapter) ;
+    /*
+      Firs trap, also notify user if supported
+     */
+    if (!trapped && IoAdapter->trapped && IoAdapter->os_trap_nfy_Fnc) {
+      (*(IoAdapter->os_trap_nfy_Fnc))(IoAdapter, IoAdapter->ANum);
+    }
  }
 }
 /*------------------------------------------------------------------*/

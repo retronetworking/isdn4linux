@@ -15,14 +15,21 @@ export-objs     := diva_didd.o
 # Multipart objects.
 
 list-multi      := diva2i4l.o divadidd.o divacapi.o divas.o diva_mnt.o diva_idi.o
-divas-objs      := divasmain.o di.o io.o istream.o diva.o dlist.o \
-                   os_bri.o os_4bri.o os_pri.o s_bri.o s_4bri.o s_pri.o \
-                   divasproc.o
+divas-objs      := divasmain.o di.o io.o istream.o diva.o dlist.o divasproc.o
+
 diva2i4l-objs   := i4l_idi.o i4lididrv.o
 divacapi-objs   := capimain.o message.o 
 divadidd-objs   := diva_didd.o dadapter.o
 diva_mnt-objs   := divamnt.o debug.o
 diva_idi-objs   := divasi.o um_idi.o dqueue.o dlist.o
+
+# Optional parts of multipart objects.
+
+divas-objs-$(CONFIG_ISDN_DIVAS_BRIPCI)  += os_bri.o  s_bri.o
+divas-objs-$(CONFIG_ISDN_DIVAS_4BRIPCI) += os_4bri.o s_4bri.o
+divas-objs-$(CONFIG_ISDN_DIVAS_PRIPCI)  += os_pri.o  s_pri.o
+
+divas-objs += $(sort $(divas-objs-y))
 
 # Object file lists.
 

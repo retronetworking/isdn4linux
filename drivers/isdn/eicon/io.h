@@ -179,6 +179,7 @@ struct _ISDN_ADAPTER {
  void        (* stop)(PISDN_ADAPTER) ;
  void        (* rstFnc)(PISDN_ADAPTER) ;
  void        (* trapFnc)(PISDN_ADAPTER) ;
+ void        (* os_trap_nfy_Fnc)(PISDN_ADAPTER, dword) ;
  diva_os_isr_callback_t diva_isr_handler;
  dword        sdram_bar;
  volatile int    pcm_pending;

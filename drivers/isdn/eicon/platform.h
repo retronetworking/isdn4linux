@@ -30,6 +30,8 @@
 #define DIVA_BUILD "local"
 #endif
 
+#include <linux/config.h>
+
 #include "cardtype.h"
 
 #define DIVA_USER_MODE_CARD_CONFIG 1

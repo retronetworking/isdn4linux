@@ -316,15 +316,15 @@ static int load_pri_hardware (PISDN_ADAPTER IoAdapter) {
 static int pri_ISR (struct _ISDN_ADAPTER* IoAdapter) {
  if ( !(*((dword *)IoAdapter->cfg) & 0x80000000) )
   return (0) ;
+ /*
+  clear interrupt line
+  */
+ *((dword *)IoAdapter->cfg) = (dword)~0x03E00000 ;
  IoAdapter->IrqCount++ ;
  if ( IoAdapter->Initialized )
  {
   diva_os_schedule_soft_isr (&IoAdapter->isr_soft_isr);
  }
- /*
-  clear interrupt line
-  */
- *((dword *)IoAdapter->cfg) = (dword)~0x03E00000 ;
  return (1) ;
 }
 /* -------------------------------------------------------------------------

@@ -28,7 +28,7 @@
 
 #define DIVA_PRI_NO_PCI_BIOS_WORKAROUND 1
 
-int diva_card_read_xlog (diva_os_xdi_adapter_t* a);
+extern int diva_card_read_xlog (diva_os_xdi_adapter_t* a);
 
 /*
 **  IMPORTS
@@ -36,16 +36,6 @@ int diva_card_read_xlog (diva_os_xdi_adapter_t* a);
 extern void prepare_pri_functions  (PISDN_ADAPTER IoAdapter);
 extern void prepare_pri2_functions (PISDN_ADAPTER IoAdapter);
 extern void diva_xdi_display_adapter_features (int card);
-
-/*
-**  LOCALS
-*/
-typedef struct _diva_get_xlog {
-  word command;
-  byte req;
-  byte rc;
-  byte data [sizeof(struct mi_pc_maint)];
-} diva_get_xlog_t;
 
 static int diva_pri_cleanup_adapter (diva_os_xdi_adapter_t* a);
 static int diva_pri_cmd_card_proc (struct _diva_os_xdi_adapter* a,
@@ -775,47 +765,6 @@ pri_get_serial_number (diva_os_xdi_adapter_t* a)
   return (0);
 }
 
-int
-diva_card_read_xlog (diva_os_xdi_adapter_t* a)
-{
-  diva_get_xlog_t *req;
-  byte* data;
-
-  if (!a->xdi_adapter.Initialized || !a->xdi_adapter.DIRequest) {
-    return (-1);
-  }
-  if (!(data = diva_os_malloc (0, sizeof(struct mi_pc_maint)))) {
-    return (-1);
-  }
-  memset (data, 0x00, sizeof(struct mi_pc_maint));
-
-  if (!(req = diva_os_malloc (0, sizeof(*req)))) {
-    diva_os_free (0, data);
-    return (-1);
-  }
-  req->command = 0x0400;
-  req->req = LOG;
-  req->rc = 0x00;
-
-  (*(a->xdi_adapter.DIRequest))(&a->xdi_adapter, (ENTITY*)req);
-
-  if (!req->rc || req->req) {
-    diva_os_free (0, data);
-    diva_os_free (0, req);
-    return (-1);
-  }
-
-  memcpy (data, &req->req, sizeof(struct mi_pc_maint));
-
-  diva_os_free (0, req);
-	
-  a->xdi_mbox.data_length = sizeof(struct mi_pc_maint);
-  a->xdi_mbox.data = data;
-  a->xdi_mbox.status = DIVA_XDI_MBOX_BUSY;
-
-  return (0);
-}
-
 void
 diva_os_prepare_pri2_functions (PISDN_ADAPTER IoAdapter)
 {
@@ -823,11 +772,6 @@ diva_os_prepare_pri2_functions (PISDN_ADAPTER IoAdapter)
 
 void
 diva_os_prepare_pri_functions (PISDN_ADAPTER IoAdapter)
-{
-}
-
-void
-xdiFreeFile (void* handle)
 {
 }
 

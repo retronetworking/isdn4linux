@@ -556,6 +556,13 @@ static int qBri_ISR (struct _ISDN_ADAPTER* IoAdapter) {
  int               serviced = 0 ;
  if ( !(IoAdapter->reset[PLX9054_INTCSR] & 0x80) )
   return (0) ;
+ /*
+  * clear interrupt line (reset Local Interrupt Test Register)
+  */
+ qBriIrq = (dword volatile *)(&IoAdapter->ctlReg[ \
+              DIVA_4BRI_REVISION(IoAdapter) ? \
+                (MQ2_BREG_IRQ_TEST)  : (MQ_BREG_IRQ_TEST)]) ;
+ *qBriIrq = MQ_IRQ_REQ_OFF ;
  for ( i = 0 ; i < 4 ; ++i )
  {
   IoAdapter = QuadroList->QuadroAdapter[i] ;
@@ -567,13 +574,6 @@ static int qBri_ISR (struct _ISDN_ADAPTER* IoAdapter) {
    diva_os_schedule_soft_isr (&IoAdapter->isr_soft_isr);
   }
  }
-/*
- * clear interrupt line (reset Local Interrupt Test Register)
- */
- qBriIrq = (dword volatile *)(&IoAdapter->ctlReg[ \
-              DIVA_4BRI_REVISION(IoAdapter) ? \
-                (MQ2_BREG_IRQ_TEST)  : (MQ_BREG_IRQ_TEST)]) ;
- *qBriIrq = MQ_IRQ_REQ_OFF ;
  return (serviced) ;
 }
 /* --------------------------------------------------------------------------

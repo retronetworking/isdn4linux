@@ -57,7 +57,7 @@ static char *DRIVERNAME = "Eicon DIVA - CAPI Interface driver (http://www.melwar
 static char *DRIVERLNAME = "divacapi";
 #define DRRELMAJOR  1
 #define DRRELMINOR  0
-#define DRRELEXTRA  "beta6"
+#define DRRELEXTRA  "beta7"
 static char DRIVERRELEASE[16];
 
 #define M_COMPANY "Eicon Networks"
@@ -954,7 +954,12 @@ diva_add_card(DESCRIPTOR *d)
   sync_req.GetSerial.Rc = IDI_SYNC_REQ_GET_SERIAL;
   sync_req.GetSerial.serial = 0;
   card->d.request((ENTITY *)&sync_req);
-  sprintf(serial, "%ld", sync_req.GetSerial.serial);
+  if ((i = ((sync_req.GetSerial.serial & 0xff000000) >> 24))) {
+    sprintf(serial, "%ld-%d",
+            sync_req.GetSerial.serial & 0x00ffffff, i + 1);
+  } else {
+    sprintf(serial, "%ld", sync_req.GetSerial.serial);
+  }
   serial[CAPI_SERIAL_LEN-1] = 0;
   strncpy(ctrl->serial, serial, CAPI_SERIAL_LEN);
 

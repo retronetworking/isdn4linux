@@ -23,4 +23,4 @@
   Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  */
-static char diva_xdi_common_code_build[] = "101-19";  
+static char diva_xdi_common_code_build[] = "101-20";  
