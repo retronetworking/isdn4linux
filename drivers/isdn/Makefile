@@ -1,6 +1,6 @@
 SUB_DIRS     :=
 MOD_SUB_DIRS :=
-ALL_SUB_DIRS := icn pcbit hisax avmb1 act2000
+ALL_SUB_DIRS := icn pcbit hisax avmb1 act2000 eicon
 
 L_OBJS :=
 LX_OBJS :=
@@ -127,13 +127,13 @@ else
   endif
 endif
 
-ifeq ($(CONFIG_ISDN_DRV_DIEHL),y)
-  L_OBJS += diehl/diehl.o
-  SUB_DIRS += diehl
-  MOD_SUB_DIRS += diehl
+ifeq ($(CONFIG_ISDN_DRV_EICON),y)
+  L_OBJS += eicon/eicon.o
+  SUB_DIRS += eicon
+  MOD_SUB_DIRS += eicon
 else
-  ifeq ($(CONFIG_ISDN_DRV_DIEHL),m)
-    MOD_SUB_DIRS += diehl
+  ifeq ($(CONFIG_ISDN_DRV_EICON),m)
+    MOD_SUB_DIRS += eicon
   endif
 endif
 
