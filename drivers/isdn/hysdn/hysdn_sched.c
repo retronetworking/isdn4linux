@@ -12,9 +12,11 @@
  */
 
 #include <linux/config.h>
+#include <linux/sched.h>
 #include <linux/signal.h>
 #include <linux/kernel.h>
 #include <linux/ioport.h>
+#include <linux/interrupt.h>
 #include <asm/io.h>
 
 #include "hysdn_defs.h"
@@ -149,19 +151,22 @@ hysdn_tx_cfgline(hysdn_card * card, uchar * line, word chan)
 
 	if (card->debug_flags & LOG_SCHED_ASYN)
 		hysdn_addlog(card, "async tx-cfg chan=%d len=%d", chan, strlen(line) + 1);
-	HYSDN_SPIN_LOCK(&card->irq_lock, flags);
+
+	save_flags(flags);
+	cli();
 	while (card->async_busy) {
-		HYSDN_SPIN_UNLOCK(&card->irq_lock, flags);
+		sti();
+
 		if (card->debug_flags & LOG_SCHED_ASYN)
 			hysdn_addlog(card, "async tx-cfg delayed");
 
 		set_current_state(TASK_INTERRUPTIBLE);
 		schedule_timeout((20 * HZ) / 1000);	/* Timeout 20ms */
 		if (!--cnt) {
-			HYSDN_SPIN_UNLOCK(&card->irq_lock, flags);
+			restore_flags(flags);
 			return (-ERR_ASYNC_TIME);	/* timed out */
 		}
-		HYSDN_SPIN_LOCK(&card->irq_lock, flags);
+		cli();
 	}			/* wait for buffer to become free */
 
 	strcpy(card->async_data, line);
@@ -170,28 +175,32 @@ hysdn_tx_cfgline(hysdn_card * card, uchar * line, word chan)
 	card->async_busy = 1;	/* request transfer */
 
 	/* now queue the task */
-	queue_task(&card->irq_queue, &tq_immediate);
-	mark_bh(IMMEDIATE_BH);
-	HYSDN_SPIN_UNLOCK(&card->irq_lock, flags);
+	schedule_work(&card->irq_queue);
+	sti();
+
 	if (card->debug_flags & LOG_SCHED_ASYN)
 		hysdn_addlog(card, "async tx-cfg data queued");
 
 	cnt++;			/* short delay */
-	HYSDN_SPIN_LOCK(&card->irq_lock, flags);
+	cli();
+
 	while (card->async_busy) {
-		HYSDN_SPIN_UNLOCK(&card->irq_lock, flags);
+		sti();
+
 		if (card->debug_flags & LOG_SCHED_ASYN)
 			hysdn_addlog(card, "async tx-cfg waiting for tx-ready");
 
 		set_current_state(TASK_INTERRUPTIBLE);
 		schedule_timeout((20 * HZ) / 1000);	/* Timeout 20ms */
 		if (!--cnt) {
-			HYSDN_SPIN_UNLOCK(&card->irq_lock, flags);
+			restore_flags(flags);
 			return (-ERR_ASYNC_TIME);	/* timed out */
 		}
-		HYSDN_SPIN_LOCK(&card->irq_lock, flags);
+		cli();
 	}			/* wait for buffer to become free again */
-	HYSDN_SPIN_UNLOCK(&card->irq_lock, flags);
+
+	restore_flags(flags);
+
 	if (card->debug_flags & LOG_SCHED_ASYN)
 		hysdn_addlog(card, "async tx-cfg data send");
 

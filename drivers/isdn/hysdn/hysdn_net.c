@@ -13,7 +13,6 @@
  *
  */
 
-#define __NO_VERSION__
 #include <linux/module.h>
 #include <linux/version.h>
 #include <linux/signal.h>
@@ -45,10 +44,6 @@ struct net_local {
 	/* additional vars may be added here */
 	char dev_name[9];	/* our own device name */
 
-#ifdef COMPAT_NO_SOFTNET
-	struct sk_buff *tx_skb;	/* buffer for tx operation */
-
-#else
 	/* Tx control lock.  This protects the transmit buffer ring
 	 * state along with the "tx full" state of the driver.  This
 	 * means all netif_queue flow control actions are protected
@@ -60,7 +55,6 @@ struct net_local {
 	int sk_count;		/* number of buffers currently in ring */
 
 	int is_open;		/* flag controlling module locking */
-#endif
 };				/* net_local */
 
 
@@ -88,19 +82,11 @@ net_open(struct net_device *dev)
 	hysdn_card *card = dev->priv;
 	int i;
 
-#ifdef COMPAT_NO_SOFTNET
-	dev->tbusy = 0;		/* non busy state */
-	dev->interrupt = 0;
-	if (!dev->start)
-		MOD_INC_USE_COUNT;	/* increment only if device is down */
-	dev->start = 1;		/* and started */
-#else
 	if (!((struct net_local *) dev)->is_open)
 		MOD_INC_USE_COUNT;	/* increment only if interface is actually down */
 	((struct net_local *) dev)->is_open = 1;	/* device actually open */
 
 	netif_start_queue(dev);	/* start tx-queueing */
-#endif
 
 	/* Fill in the MAC-level header (if not already set) */
 	if (!card->mac_addr[0]) {
@@ -117,7 +103,6 @@ net_open(struct net_device *dev)
 	return (0);
 }				/* net_open */
 
-#ifndef COMPAT_NO_SOFTNET
 /*******************************************/
 /* flush the currently occupied tx-buffers */
 /* must only be called when device closed  */
@@ -133,7 +118,6 @@ flush_tx_buffers(struct net_local *nl)
 		nl->sk_count--;
 	}
 }				/* flush_tx_buffers */
-#endif
 
 
 /*********************************************************************/
@@ -144,15 +128,6 @@ static int
 net_close(struct net_device *dev)
 {
 
-#ifdef COMPAT_NO_SOFTNET
-	dev->tbusy = 1;		/* we are busy */
-
-	if (dev->start)
-		MOD_DEC_USE_COUNT;	/* dec only if device has been active */
-
-	dev->start = 0;		/* and not started */
-
-#else
 	netif_stop_queue(dev);	/* disable queueing */
 
 	if (((struct net_local *) dev)->is_open)
@@ -160,52 +135,9 @@ net_close(struct net_device *dev)
 	((struct net_local *) dev)->is_open = 0;
 	flush_tx_buffers((struct net_local *) dev);
 
-#endif
 	return (0);		/* success */
 }				/* net_close */
 
-#ifdef COMPAT_NO_SOFTNET
-/************************************/
-/* send a packet on this interface. */
-/* only for kernel versions < 2.3.33 */
-/************************************/
-static int
-net_send_packet(struct sk_buff *skb, struct net_device *dev)
-{
-	struct net_local *lp = (struct net_local *) dev;
-
-	if (dev->tbusy) {
-		/*
-		 * If we get here, some higher level has decided we are broken.
-		 * There should really be a "kick me" function call instead.
-		 * As ISDN may have higher timeouts than real ethernet 10s timeout
-		 */
-		int tickssofar = jiffies - dev->trans_start;
-		if (tickssofar < (10000 * HZ) / 1000)
-			return 1;
-		printk(KERN_WARNING "%s: transmit timed out. \n", dev->name);
-		dev->tbusy = 0;
-		dev->trans_start = jiffies;
-	}
-	/*
-	 * Block a timer-based transmit from overlapping. This could better be
-	 * done with atomic_swap(1, dev->tbusy), but set_bit() works as well.
-	 */
-	if (test_and_set_bit(0, (void *) &dev->tbusy) != 0)
-		printk(KERN_WARNING "%s: Transmitter access conflict.\n", dev->name);
-
-	else {
-		lp->stats.tx_bytes += skb->len;
-		dev->trans_start = jiffies;
-		lp->tx_skb = skb;	/* remember skb pointer */
-		queue_task(&((hysdn_card *) dev->priv)->irq_queue, &tq_immediate);
-		mark_bh(IMMEDIATE_BH);
-	}
-
-	return (0);		/* success */
-}				/* net_send_packet */
-
-#else
 /************************************/
 /* send a packet on this interface. */
 /* new style for kernel >= 2.3.33   */
@@ -237,13 +169,11 @@ net_send_packet(struct sk_buff *skb, struct net_device *dev)
 	spin_unlock_irq(&lp->lock);
 
 	if (lp->sk_count <= 3) {
-		queue_task(&((hysdn_card *) dev->priv)->irq_queue, &tq_immediate);
-		mark_bh(IMMEDIATE_BH);
+		schedule_work(&((hysdn_card *) dev->priv)->irq_queue);
 	}
 	return (0);		/* success */
 }				/* net_send_packet */
 
-#endif
 
 
 /***********************************************************************/
@@ -258,15 +188,6 @@ hysdn_tx_netack(hysdn_card * card)
 	if (!lp)
 		return;		/* non existing device */
 
-#ifdef COMPAT_NO_SOFTNET
-	if (lp->tx_skb)
-		dev_kfree_skb(lp->tx_skb);	/* free tx pointer */
-	lp->tx_skb = NULL;	/* reset pointer */
-
-	lp->stats.tx_packets++;
-	lp->netdev.tbusy = 0;
-	mark_bh(NET_BH);	/* Inform upper layers. */
-#else
 
 	if (!lp->sk_count)
 		return;		/* error condition */
@@ -280,7 +201,6 @@ hysdn_tx_netack(hysdn_card * card)
 
 	if (lp->sk_count-- == MAX_SKB_BUFFERS)	/* dec usage count */
 		netif_start_queue((struct net_device *) lp);
-#endif
 }				/* hysdn_tx_netack */
 
 /*****************************************************/
@@ -328,15 +248,10 @@ hysdn_tx_netget(hysdn_card * card)
 	if (!lp)
 		return (NULL);	/* non existing device */
 
-#ifdef COMPAT_NO_SOFTNET
-	return (lp->tx_skb);	/* return packet pointer */
-
-#else
 	if (!lp->sk_count)
 		return (NULL);	/* nothing available */
 
 	return (lp->skbs[lp->out_idx]);		/* next packet to send */
-#endif
 }				/* hysdn_tx_netget */
 
 
@@ -379,21 +294,15 @@ hysdn_net_create(hysdn_card * card)
 	}
 	memset(dev, 0, sizeof(struct net_local));	/* clean the structure */
 
-#ifndef COMPAT_NO_SOFTNET
 	spin_lock_init(&((struct net_local *) dev)->lock);
-#endif
 
 	/* initialise necessary or informing fields */
 	dev->base_addr = card->iobase;	/* IO address */
 	dev->irq = card->irq;	/* irq */
 	dev->init = net_init;	/* the init function of the device */
-#ifdef COMPAT_NO_SOFTNET
-	dev->name = ((struct net_local *) dev)->dev_name;	/* device name */
-#else
 	if(dev->name) {
 		strcpy(dev->name, ((struct net_local *) dev)->dev_name);
 	} 
-#endif
 	if ((i = register_netdev(dev))) {
 		printk(KERN_WARNING "HYSDN: unable to create network device\n");
 		kfree(dev);
@@ -422,12 +331,10 @@ hysdn_net_release(hysdn_card * card)
 	card->netif = NULL;	/* clear out pointer */
 	dev->stop(dev);		/* close the device */
 
-#ifndef COMPAT_NO_SOFTNET
 	flush_tx_buffers((struct net_local *) dev);	/* empty buffers */
-#endif
 
 	unregister_netdev(dev);	/* release the device */
-	kfree(dev);		/* release the memory allocated */
+	free_netdev(dev);	/* release the memory allocated */
 	if (card->debug_flags & LOG_NET_INIT)
 		hysdn_addlog(card, "network device deleted");
 

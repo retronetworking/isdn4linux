@@ -10,7 +10,6 @@
  *
  */
 
-#include <linux/isdn_compat.h>
 
 /************************************************/
 /* defines for the dual port memory of the card */

@@ -10,15 +10,12 @@
  *
  */
 
-#define __NO_VERSION__
 #include <linux/module.h>
 #include <linux/version.h>
 #include <linux/poll.h>
 #include <linux/proc_fs.h>
 #include <linux/pci.h>
-#ifndef COMPAT_USE_MODCOUNT_LOCK
 #include <linux/smp_lock.h>
-#endif
 
 #include "hysdn_defs.h"
 
@@ -101,7 +98,8 @@ put_log_buffer(hysdn_card * card, char *cp)
 {
 	struct log_data *ib;
 	struct procdata *pd = card->proclog;
-	int i, flags;
+	int i;
+	unsigned long flags;
 
 	if (!pd)
 		return;
@@ -117,7 +115,8 @@ put_log_buffer(hysdn_card * card, char *cp)
 	strcpy(ib->log_start, cp);	/* set output string */
 	ib->next = NULL;
 	ib->proc_ctrl = pd;	/* point to own control structure */
-	HYSDN_SPIN_LOCK(&card->irq_lock, flags);
+	save_flags(flags);
+	cli();
 	ib->usage_cnt = pd->if_used;
 	if (!pd->log_head)
 		pd->log_head = ib;	/* new head */
@@ -125,7 +124,7 @@ put_log_buffer(hysdn_card * card, char *cp)
 		pd->log_tail->next = ib;	/* follows existing messages */
 	pd->log_tail = ib;	/* new tail */
 	i = pd->del_lock++;	/* get lock state */
-	HYSDN_SPIN_UNLOCK(&card->irq_lock, flags);
+	restore_flags(flags);
 
 	/* delete old entrys */
 	if (!i)
@@ -208,7 +207,7 @@ hysdn_log_read(struct file *file, char *buf, size_t count, loff_t * off)
 {
 	struct log_data *inf;
 	int len;
-	word ino;
+	struct proc_dir_entry *pde = PDE(file->f_dentry->d_inode);
 	struct procdata *pd = NULL;
 	hysdn_card *card;
 
@@ -217,11 +216,10 @@ hysdn_log_read(struct file *file, char *buf, size_t count, loff_t * off)
 			return (-EAGAIN);
 
 		/* sorry, but we need to search the card */
-		ino = file->f_dentry->d_inode->i_ino & 0xFFFF;	/* low-ino */
 		card = card_root;
 		while (card) {
 			pd = card->proclog;
-			if (pd->log->low_ino == ino)
+			if (pd->log == pde)
 				break;
 			card = card->next;	/* search next entry */
 		}
@@ -255,24 +253,16 @@ hysdn_log_open(struct inode *ino, struct file *filep)
 	struct procdata *pd = NULL;
 	ulong flags;
 
-#ifdef COMPAT_USE_MODCOUNT_LOCK
-	MOD_INC_USE_COUNT;
-#else
 	lock_kernel();
-#endif
 	card = card_root;
 	while (card) {
 		pd = card->proclog;
-		if (pd->log->low_ino == (ino->i_ino & 0xFFFF))
+		if (pd->log == PDE(ino))
 			break;
 		card = card->next;	/* search next entry */
 	}
 	if (!card) {
-#ifdef COMPAT_USE_MODCOUNT_LOCK
-		MOD_DEC_USE_COUNT;
-#else
 		unlock_kernel();
-#endif
 		return (-ENODEV);	/* device is unknown/invalid */
 	}
 	filep->private_data = card;	/* remember our own card */
@@ -282,24 +272,19 @@ hysdn_log_open(struct inode *ino, struct file *filep)
 	} else if ((filep->f_mode & (FMODE_READ | FMODE_WRITE)) == FMODE_READ) {
 
 		/* read access -> log/debug read */
-		HYSDN_SPIN_LOCK(&card->irq_lock, flags);
+		save_flags(flags);
+		cli();
 		pd->if_used++;
 		if (pd->log_head)
 			(struct log_data **) filep->private_data = &(pd->log_tail->next);
 		else
 			(struct log_data **) filep->private_data = &(pd->log_head);
-		HYSDN_SPIN_UNLOCK(&card->irq_lock, flags);
+		restore_flags(flags);
 	} else {		/* simultaneous read/write access forbidden ! */
-#ifdef COMPAT_USE_MODCOUNT_LOCK
-		MOD_DEC_USE_COUNT;
-#else
 		unlock_kernel();
-#endif
 		return (-EPERM);	/* no permission this time */
 	}
-#ifndef COMPAT_USE_MODCOUNT_LOCK
 	unlock_kernel();
-#endif
 	return (0);
 }				/* hysdn_log_open */
 
@@ -316,12 +301,11 @@ hysdn_log_close(struct inode *ino, struct file *filep)
 	struct log_data *inf;
 	struct procdata *pd;
 	hysdn_card *card;
-	int flags, retval = 0;
+	int retval = 0;
+	unsigned long flags;
 
 
-#ifndef COMPAT_USE_MODCOUNT_LOCK
 	lock_kernel();
-#endif
 	if ((filep->f_mode & (FMODE_READ | FMODE_WRITE)) == FMODE_WRITE) {
 		/* write only access -> write debug level written */
 		retval = 0;	/* success */
@@ -329,7 +313,8 @@ hysdn_log_close(struct inode *ino, struct file *filep)
 		/* read access -> log/debug read, mark one further file as closed */
 
 		pd = NULL;
-		HYSDN_SPIN_LOCK(&card->irq_lock, flags);
+		save_flags(flags);
+		cli();
 		inf = *((struct log_data **) filep->private_data);	/* get first log entry */
 		if (inf)
 			pd = (struct procdata *) inf->proc_ctrl;	/* still entries there */
@@ -338,7 +323,7 @@ hysdn_log_close(struct inode *ino, struct file *filep)
 			card = card_root;
 			while (card) {
 				pd = card->proclog;
-				if (pd->log->low_ino == (ino->i_ino & 0xFFFF))
+				if (pd->log == PDE(ino))
 					break;
 				card = card->next;	/* search next entry */
 			}
@@ -352,7 +337,7 @@ hysdn_log_close(struct inode *ino, struct file *filep)
 			inf->usage_cnt--;	/* decrement usage count for buffers */
 			inf = inf->next;
 		}
-		HYSDN_SPIN_UNLOCK(&card->irq_lock, flags);
+		restore_flags(flags);
 
 		if (pd)
 			if (pd->if_used <= 0)	/* delete buffers if last file closed */
@@ -362,11 +347,7 @@ hysdn_log_close(struct inode *ino, struct file *filep)
 					kfree(inf);
 				}
 	}			/* read access */
-#ifdef COMPAT_USE_MODCOUNT_LOCK
-	MOD_DEC_USE_COUNT;
-#else
 	unlock_kernel();
-#endif
 
 	return (retval);
 }				/* hysdn_log_close */
@@ -378,7 +359,7 @@ static unsigned int
 hysdn_log_poll(struct file *file, poll_table * wait)
 {
 	unsigned int mask = 0;
-	word ino;
+	struct proc_dir_entry *pde = PDE(file->f_dentry->d_inode);
 	hysdn_card *card;
 	struct procdata *pd = NULL;
 
@@ -386,11 +367,10 @@ hysdn_log_poll(struct file *file, poll_table * wait)
 		return (mask);	/* no polling for write supported */
 
 	/* we need to search the card */
-	ino = file->f_dentry->d_inode->i_ino & 0xFFFF;	/* low-ino */
 	card = card_root;
 	while (card) {
 		pd = card->proclog;
-		if (pd->log->low_ino == ino)
+		if (pd->log == pde)
 			break;
 		card = card->next;	/* search next entry */
 	}
@@ -410,17 +390,14 @@ hysdn_log_poll(struct file *file, poll_table * wait)
 /**************************************************/
 static struct file_operations log_fops =
 {
-	llseek:         no_llseek,
-	read:           hysdn_log_read,
-	write:          hysdn_log_write,
-	poll:           hysdn_log_poll,
-	open:           hysdn_log_open,
-	release:        hysdn_log_close,                                        
+	.llseek         = no_llseek,
+	.read           = hysdn_log_read,
+	.write          = hysdn_log_write,
+	.poll           = hysdn_log_poll,
+	.open           = hysdn_log_open,
+	.release        = hysdn_log_close,                                        
 };
 
-#ifdef COMPAT_NO_SOFTNET
-struct inode_operations log_inode_operations;
-#endif
 
 /***********************************************************************************/
 /* hysdn_proclog_init is called when the module is loaded after creating the cards */
@@ -435,20 +412,10 @@ hysdn_proclog_init(hysdn_card * card)
 
 	if ((pd = (struct procdata *) kmalloc(sizeof(struct procdata), GFP_KERNEL)) != NULL) {
 		memset(pd, 0, sizeof(struct procdata));
-#ifdef COMPAT_NO_SOFTNET
-		memset(&log_inode_operations, 0, sizeof(struct inode_operations));
-		log_inode_operations.default_file_ops = &log_fops;
-#endif
 		sprintf(pd->log_name, "%s%d", PROC_LOG_BASENAME, card->myid);
 		if ((pd->log = create_proc_entry(pd->log_name, S_IFREG | S_IRUGO | S_IWUSR, hysdn_proc_entry)) != NULL) {
-#ifdef COMPAT_NO_SOFTNET
-			pd->log->ops = &log_inode_operations;	/* set new operations table */
-#else
 		        pd->log->proc_fops = &log_fops; 
-#ifdef COMPAT_HAS_FILEOP_OWNER
 		        pd->log->owner = THIS_MODULE;
-#endif
-#endif
 		}
 
 		init_waitqueue_head(&(pd->rd_queue));

@@ -38,12 +38,8 @@ static int eicon_isa_valid_irq[] = {
 static void
 eicon_isa_release_shmem(eicon_isa_card *card) {
 	if (card->mvalid) {
-#ifdef COMPAT_HAS_ISA_IOREMAP
 		iounmap(card->shmem);
 		release_mem_region(card->physmem, card->ramsize);
-#else
-		release_shmem((unsigned long)card->shmem, card->ramsize);
-#endif
 	}
 	card->mvalid = 0;
 }
@@ -94,24 +90,16 @@ eicon_isa_find_card(int Mem, int Irq, char * Id)
 	if ((Mem < 0x0c0000) ||
 	    (Mem > 0x0fc000) ||
 	    (Mem & 0xfff)) { 
-		printk(KERN_WARNING "eicon_isa: illegal membase 0x%x for %s\n",
+		printk(KERN_WARNING "eicon_isa: invalid membase 0x%x for %s\n",
 			 Mem, Id);
 		return -1;
 	}
-#ifdef COMPAT_HAS_ISA_IOREMAP
 	if (check_mem_region(Mem, RAMSIZE)) {
-#else
-	if (check_shmem(Mem, RAMSIZE)) {
-#endif
 		printk(KERN_WARNING "eicon_isa_boot: memory at 0x%x already in use.\n", Mem);
 		return -1;
 	}
 
-#ifdef COMPAT_HAS_ISA_IOREMAP
 	amem = (unsigned long) ioremap(Mem, RAMSIZE);
-#else
-	amem = (unsigned long) Mem;
-#endif
         writew(0x55aa, amem + 0x402);
         if (readw(amem + 0x402) != 0x55aa) primary = 0;
 	writew(0, amem + 0x402);
@@ -121,16 +109,12 @@ eicon_isa_find_card(int Mem, int Irq, char * Id)
 	if (primary) {
 		printk(KERN_INFO "Eicon: assuming pri card at 0x%x\n", Mem);
 		writeb(0, amem + 0x3ffe);
-#ifdef COMPAT_HAS_ISA_IOREMAP
 		iounmap((unsigned char *)amem);
-#endif
 		return EICON_CTYPE_ISAPRI;
 	} else {
 		printk(KERN_INFO "Eicon: assuming bri card at 0x%x\n", Mem);
 		writeb(0, amem + 0x400);
-#ifdef COMPAT_HAS_ISA_IOREMAP
 		iounmap((unsigned char *)amem);
-#endif
 		return EICON_CTYPE_ISABRI;
 	}
 	return -1;
@@ -139,7 +123,7 @@ eicon_isa_find_card(int Mem, int Irq, char * Id)
 int
 eicon_isa_bootload(eicon_isa_card *card, eicon_isa_codebuf *cb) {
 	int	tmp;
-	int               timeout;
+	unsigned long     timeout;
 	eicon_isa_codebuf cbuf;
 	unsigned char     *code;
 	eicon_isa_boot    *boot;
@@ -167,7 +151,6 @@ eicon_isa_bootload(eicon_isa_card *card, eicon_isa_codebuf *cb) {
 	else
 		card->ramsize  = RAMSIZE;
 
-#ifdef COMPAT_HAS_ISA_IOREMAP
 	if (check_mem_region(card->physmem, card->ramsize)) {
 		printk(KERN_WARNING "eicon_isa_boot: memory at 0x%lx already in use.\n",
 			card->physmem);
@@ -176,16 +159,6 @@ eicon_isa_bootload(eicon_isa_card *card, eicon_isa_codebuf *cb) {
 	}
 	request_mem_region(card->physmem, card->ramsize, "Eicon ISA ISDN");
 	card->shmem = (eicon_isa_shmem *) ioremap(card->physmem, card->ramsize);
-#else
-	/* Register shmem */
-	if (check_shmem((unsigned long)card->shmem, card->ramsize)) {
-		printk(KERN_WARNING "eicon_isa_boot: memory at 0x%lx already in use.\n",
-			(unsigned long)card->shmem);
-		kfree(code);
-		return -EBUSY;
-	}
-	request_shmem((unsigned long)card->shmem, card->ramsize, "Eicon ISA ISDN");
-#endif
 #ifdef EICON_MCA_DEBUG
 	printk(KERN_INFO "eicon_isa_boot: card->ramsize = %d.\n", card->ramsize);
 #endif
@@ -327,7 +300,7 @@ int
 eicon_isa_load(eicon_isa_card *card, eicon_isa_codebuf *cb) {
 	eicon_isa_boot    *boot;
 	int               tmp;
-	int               timeout;
+	unsigned long     timeout;
 	int 		  j;
 	eicon_isa_codebuf cbuf;
 	unsigned char     *code;
@@ -353,7 +326,7 @@ eicon_isa_load(eicon_isa_card *card, eicon_isa_codebuf *cb) {
 		/* Check for valid IRQ */
 		if ((card->irq < 0) || (card->irq > 15) || 
 		    (!((1 << card->irq) & eicon_isa_valid_irq[card->type & 0x0f]))) {
-			printk(KERN_WARNING "eicon_isa_load: illegal irq: %d\n", card->irq);
+			printk(KERN_WARNING "eicon_isa_load: invalid irq: %d\n", card->irq);
 			eicon_isa_release_shmem(card);
 			kfree(code);
 			return -EINVAL;

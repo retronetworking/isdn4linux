@@ -15,7 +15,6 @@
  *     +1 (416) 297-6433 Facsimile
  */
 
-#define __NO_VERSION__
 #include "includes.h"
 #include "hardware.h"
 #include "message.h"
@@ -63,8 +62,7 @@ void check_reset(unsigned long data)
 	/* Setup the io ports */
 	setup_ports(card);
 
-  	save_flags(flags);
-	cli();
+	spin_lock_irqsave(&adapter[card]->lock, flags);
 	outb(adapter[card]->ioport[adapter[card]->shmem_pgport],
 		(adapter[card]->shmem_magic>>14) | 0x80);	
 	sig = (unsigned long) *((unsigned long *)(adapter[card]->rambase + SIG_OFFSET));	
@@ -72,18 +70,16 @@ void check_reset(unsigned long data)
 	/* check the signature */
 	if(sig == SIGNATURE) {
 		flushreadfifo(card);
-		restore_flags(flags);
+		spin_unlock_irqrestore(&adapter[card]->lock, flags);
 		/* See if we need to do a startproc */
 		if (adapter[card]->StartOnReset)
 			startproc(card);
-	}
-	else  {
+	} else  {
 		pr_debug("%s: No signature yet, waiting another %d jiffies.\n", 
 			adapter[card]->devicename, CHECKRESET_TIME);
 		mod_timer(&adapter[card]->reset_timer, jiffies+CHECKRESET_TIME);
+		spin_unlock_irqrestore(&adapter[card]->lock, flags);
 	}
-	restore_flags(flags);
-		
 }
 
 /*
@@ -123,10 +119,9 @@ void check_phystat(unsigned long data)
 	adapter[card]->phystat = adapter[card]->nphystat;
 
 	/* Reinitialize the timer */
-	save_flags(flags);
-	cli();
+	spin_lock_irqsave(&adapter[card]->lock, flags);
 	mod_timer(&adapter[card]->stat_timer, jiffies+CHECKSTAT_TIME);
-	restore_flags(flags);
+	spin_unlock_irqrestore(&adapter[card]->lock, flags);
 
 	/* Send a new cePhyStatus message */
 	sendmessage(card, CEPID,ceReqTypePhy,ceReqClass2,
@@ -147,11 +142,5 @@ void check_phystat(unsigned long data)
  */
 void trace_timer(unsigned long data)
 {
-	unsigned long flags;
-
-	/*
-	 * Disable interrupts and swap the first page
-	 */
-	save_flags(flags);
-	cli();
+	/* not implemented */
 }

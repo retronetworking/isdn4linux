@@ -17,8 +17,6 @@
  *		
  */
 
-#define __NO_VERSION__
-
 #include <linux/module.h>
 
 #include <linux/sched.h>
@@ -35,9 +33,7 @@
 #include <linux/isdnif.h>
 #include <asm/string.h>
 #include <asm/io.h>
-#ifdef COMPAT_HAS_ISA_IOREMAP
 #include <linux/ioport.h>
-#endif
 
 #include "pcbit.h"
 #include "edss1.h"
@@ -91,21 +87,15 @@ int pcbit_init_dev(int board, int mem_base, int irq)
 
 	if (mem_base >= 0xA0000 && mem_base <= 0xFFFFF ) {
 		dev->ph_mem = mem_base;
-#ifdef COMPAT_HAS_ISA_IOREMAP
-		if (check_mem_region(dev->ph_mem, 4096)) {
+		if (!request_mem_region(dev->ph_mem, 4096, "PCBIT mem")) {
 			printk(KERN_WARNING
 				"PCBIT: memory region %lx-%lx already in use\n",
 				dev->ph_mem, dev->ph_mem + 4096);
 			kfree(dev);
 			dev_pcbit[board] = NULL;
 			return -EACCES;
-		} else {
-			request_mem_region(dev->ph_mem, 4096, "PCBIT mem");
 		}
 		dev->sh_mem = (unsigned char*)ioremap(dev->ph_mem, 4096);
-#else
-		dev->sh_mem = (unsigned char*) mem_base;
-#endif
 	}
 	else 
 	{
@@ -118,10 +108,8 @@ int pcbit_init_dev(int board, int mem_base, int irq)
 	dev->b1 = kmalloc(sizeof(struct pcbit_chan), GFP_KERNEL);
 	if (!dev->b1) {
 		printk("pcbit_init: couldn't malloc pcbit_chan struct\n");
-#ifdef COMPAT_HAS_ISA_IOREMAP
 		iounmap((unsigned char*)dev->sh_mem);
 		release_mem_region(dev->ph_mem, 4096);
-#endif
 		kfree(dev);
 		return -ENOMEM;
 	}
@@ -130,10 +118,8 @@ int pcbit_init_dev(int board, int mem_base, int irq)
 	if (!dev->b2) {
 		printk("pcbit_init: couldn't malloc pcbit_chan struct\n");
 		kfree(dev->b1);
-#ifdef COMPAT_HAS_ISA_IOREMAP
 		iounmap((unsigned char*)dev->sh_mem);
 		release_mem_region(dev->ph_mem, 4096);
-#endif
 		kfree(dev);
 		return -ENOMEM;
 	}
@@ -142,9 +128,7 @@ int pcbit_init_dev(int board, int mem_base, int irq)
 	memset(dev->b2, 0, sizeof(struct pcbit_chan));
 	dev->b2->id = 1;
 
-	dev->qdelivery.sync = 0;
-	dev->qdelivery.routine = pcbit_deliver;
-	dev->qdelivery.data = dev;
+	INIT_WORK(&dev->qdelivery, pcbit_deliver, dev);
 
 	/*
 	 *  interrupts
@@ -154,10 +138,8 @@ int pcbit_init_dev(int board, int mem_base, int irq)
 	{
 		kfree(dev->b1);
 		kfree(dev->b2);
-#ifdef COMPAT_HAS_ISA_IOREMAP
 		iounmap((unsigned char*)dev->sh_mem);
 		release_mem_region(dev->ph_mem, 4096);
-#endif
 		kfree(dev);
 		dev_pcbit[board] = NULL;
 		return -EIO;
@@ -178,10 +160,8 @@ int pcbit_init_dev(int board, int mem_base, int irq)
 		free_irq(irq, dev);
 		kfree(dev->b1);
 		kfree(dev->b2);
-#ifdef COMPAT_HAS_ISA_IOREMAP
 		iounmap((unsigned char*)dev->sh_mem);
 		release_mem_region(dev->ph_mem, 4096);
-#endif
 		kfree(dev);
 		dev_pcbit[board] = NULL;
 		return -EIO;
@@ -189,9 +169,10 @@ int pcbit_init_dev(int board, int mem_base, int irq)
 
 	dev->dev_if = dev_if;
 
+	dev_if->owner = THIS_MODULE;
+
 	dev_if->channels = 2;
-
-
+	
 	dev_if->features = (ISDN_FEATURE_P_EURO  | ISDN_FEATURE_L3_TRANS | 
 			    ISDN_FEATURE_L2_HDLC | ISDN_FEATURE_L2_TRANS );
 
@@ -211,10 +192,8 @@ int pcbit_init_dev(int board, int mem_base, int irq)
 		free_irq(irq, dev);
 		kfree(dev->b1);
 		kfree(dev->b2);
-#ifdef COMPAT_HAS_ISA_IOREMAP
 		iounmap((unsigned char*)dev->sh_mem);
 		release_mem_region(dev->ph_mem, 4096);
-#endif
 		kfree(dev);
 		dev_pcbit[board] = NULL;
 		return -EIO;
@@ -251,10 +230,8 @@ void pcbit_terminate(int board)
 			del_timer(&dev->b2->fsm_timer);
 		kfree(dev->b1);
 		kfree(dev->b2);
-#ifdef COMPAT_HAS_ISA_IOREMAP
 		iounmap((unsigned char*)dev->sh_mem);
 		release_mem_region(dev->ph_mem, 4096);
-#endif
 		kfree(dev);
 	}
 }
@@ -298,15 +275,6 @@ int pcbit_command(isdn_ctrl* ctl)
 	case ISDN_CMD_SETL2:
 		chan->proto = (ctl->arg >> 8);
 		break;
-	case ISDN_CMD_GETL2:
-		return chan->proto;
-		break;
-	case ISDN_CMD_LOCK:
-		MOD_INC_USE_COUNT;
-		break;
-	case ISDN_CMD_UNLOCK:
-		MOD_DEC_USE_COUNT;
-		break;
 	case ISDN_CMD_CLREAZ:
 		pcbit_clear_msn(dev);
 		break;
@@ -316,14 +284,6 @@ int pcbit_command(isdn_ctrl* ctl)
 	case ISDN_CMD_SETL3:
 		if ((ctl->arg >> 8) != ISDN_PROTO_L3_TRANS)
 			printk(KERN_DEBUG "L3 protocol unknown\n");
-		break;
-	case ISDN_CMD_GETL3:
-		return ISDN_PROTO_L3_TRANS;
-		break;
-	case ISDN_CMD_GETEAZ:
-	case ISDN_CMD_SETSIL:
-	case ISDN_CMD_GETSIL:
-		printk(KERN_DEBUG "pcbit_command: code %d not implemented yet\n", ctl->command);
 		break;
 	default:
 		printk(KERN_DEBUG "pcbit_command: unknown command\n");
@@ -448,7 +408,7 @@ int pcbit_writecmd(const u_char* buf, int len, int user, int driver, int channel
 	switch(dev->l2_state) {
 	case L2_LWMODE:
 		/* check (size <= rdp_size); write buf into board */
-		if (len > BANK4 + 1)
+		if (len < 0 || len > BANK4 + 1 || len > 1024)
 		{
 			printk("pcbit_writecmd: invalid length %d\n", len);
 			return -EINVAL;
@@ -627,20 +587,6 @@ void pcbit_l3_receive(struct pcbit_dev * dev, ulong msg,
 		       dev->b1->s_refnum, 
 		       dev->b2->s_refnum);
 #endif
-#if 0	
-		if (dev->b1->s_refnum == refnum)
-			chan = dev->b1;
-		else { 
-		   
-			if (dev->b2->s_refnum == refnum)
-				chan = dev->b2;
-			else {
-				chan = NULL;
-				printk(KERN_WARNING "Connection Confirm - refnum doesn't match chan\n");
-				break;
-			}
-		}
-#else
 		/* We just try to find a channel in the right state */
 
 		if (dev->b1->fsm_state == ST_CALL_INIT)
@@ -654,7 +600,6 @@ void pcbit_l3_receive(struct pcbit_dev * dev, ulong msg,
 				break;
 			}
 		}
-#endif
 		if (capi_decode_conn_conf(chan, skb, &complete)) {
 			printk(KERN_DEBUG "conn_conf indicates error\n");
 			pcbit_fsm_event(dev, chan, EV_ERROR, NULL);
@@ -1124,6 +1069,7 @@ static void pcbit_set_msn(struct pcbit_dev *dev, char *list)
 		ptr->msn = kmalloc(len, GFP_ATOMIC);
 		if (!ptr->msn) {
 			printk(KERN_WARNING "kmalloc failed\n");
+			kfree(ptr);
 			return;
 		}
 

@@ -21,8 +21,7 @@
 
 #include "hysdn_defs.h"
 
-#ifndef COMPAT_HAS_2_2_PCI
-static struct pci_device_id hysdn_pci_tbl[] __initdata = {
+static struct pci_device_id hysdn_pci_tbl[] = {
 	{PCI_VENDOR_ID_HYPERCOPE, PCI_DEVICE_ID_HYPERCOPE_PLX, PCI_ANY_ID, PCI_SUBDEVICE_ID_HYPERCOPE_METRO},
 	{PCI_VENDOR_ID_HYPERCOPE, PCI_DEVICE_ID_HYPERCOPE_PLX, PCI_ANY_ID, PCI_SUBDEVICE_ID_HYPERCOPE_CHAMP2},
 	{PCI_VENDOR_ID_HYPERCOPE, PCI_DEVICE_ID_HYPERCOPE_PLX, PCI_ANY_ID, PCI_SUBDEVICE_ID_HYPERCOPE_ERGO},
@@ -30,7 +29,6 @@ static struct pci_device_id hysdn_pci_tbl[] __initdata = {
 	{ }				/* Terminating entry */
 };
 MODULE_DEVICE_TABLE(pci, hysdn_pci_tbl);
-#endif
 MODULE_DESCRIPTION("ISDN4Linux: Driver for HYSDN cards");
 MODULE_AUTHOR("Werner Cornelius");
 MODULE_LICENSE("GPL");
@@ -93,11 +91,11 @@ search_cards(void)
 		card->myid = cardmax;	/* set own id */
 		card->bus = akt_pcidev->bus->number;
 		card->devfn = akt_pcidev->devfn;	/* slot + function */
-		pci_get_sub_system(akt_pcidev,card->subsysid);
+		card->subsysid = akt_pcidev->subsystem_device;
 		card->irq = akt_pcidev->irq;
-		card->iobase = pci_resource_start_io(akt_pcidev, PCI_REG_PLX_IO_BASE);
-		card->plxbase = pci_resource_start_mem(akt_pcidev, PCI_REG_PLX_MEM_BASE);
-		card->membase = pci_resource_start_mem(akt_pcidev, PCI_REG_MEMORY_BASE);
+		card->iobase = pci_resource_start(akt_pcidev, PCI_REG_PLX_IO_BASE);
+		card->plxbase = pci_resource_start(akt_pcidev, PCI_REG_PLX_MEM_BASE);
+		card->membase = pci_resource_start(akt_pcidev, PCI_REG_MEMORY_BASE);
 		card->brdtype = BD_NONE;	/* unknown */
 		card->debug_flags = DEF_DEB_FLAGS;	/* set default debug */
 		card->faxchans = 0;	/* default no fax channels */
@@ -205,10 +203,6 @@ hysdn_init(void)
 	printk(KERN_NOTICE "HYSDN: module Rev: %s loaded\n", hysdn_getrev(tmp));
 	strcpy(tmp, hysdn_net_revision);
 	printk(KERN_NOTICE "HYSDN: network interface Rev: %s \n", hysdn_getrev(tmp));
-	if (!pci_present()) {
-		printk(KERN_ERR "HYSDN: no PCI bus present, module not loaded\n");
-		return (-1);
-	}
 	search_cards();
 	printk(KERN_INFO "HYSDN: %d card(s) found.\n", cardmax);
 

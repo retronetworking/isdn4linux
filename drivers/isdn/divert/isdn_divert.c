@@ -84,9 +84,6 @@ static void deflect_timer_expire(ulong arg)
        restore_flags(flags); 
        break;
 
-     case NETWORK_DIAL:
-       divert_if.dial_net_name(cs->deflect_dest);  
-
      case DEFLECT_AUTODEL:
      default:
        save_flags(flags);
@@ -455,7 +452,6 @@ int isdn_divert_icall(isdn_ctrl *ic)
          case DEFLECT_PROCEED:
          case DEFLECT_REPORT:
          case DEFLECT_REJECT:
-         case NETWORK_DIAL:
            if (dv->rule.action == DEFLECT_PROCEED)
 	    if ((!if_used) || ((!extern_wait_max) && (!dv->rule.waittime))) 
               return(0); /* no external deflection needed */  
@@ -499,11 +495,6 @@ int isdn_divert_icall(isdn_ctrl *ic)
            else
              { cs->deflect_dest[0] = '\0';
 	       retval = 4; /* only proceed */
-	       if (cs->akt_state == NETWORK_DIAL) {
-		 strcpy(cs->deflect_dest,dv->rule.to_nr);
-		 cs->timer.expires = jiffies + 10;
-		 retval = 0;
-	       }
              }  
            sprintf(cs->info,"%d 0x%lx %s %s %s %s 0x%x 0x%x %d %d %s\n",
                    cs->akt_state,
@@ -748,18 +739,6 @@ int prot_stat_callback(isdn_ctrl *ic)
                       } 
 
 
-#if 0
-  sprintf(st, "0x%lx 0x%lx",ic->arg, ic->parm.dss1_io.ll_id);
-  p = st + strlen(st);
-  p1 = ic->parm.dss1_io.data;
-  i = ic->parm.dss1_io.datalen;
-  while ((i > 0) && (p - st < 530))
-   { p += sprintf(p," %02x",(*p1++) & 0xFF);
-     i--;
-   }
-  sprintf(p, "\n");
-  put_info_buffer(st);
-#endif
                    break;
  
 		   default:

@@ -11,15 +11,12 @@
  *
  */
 
-#define __NO_VERSION__
 #include <linux/module.h>
 #include <linux/version.h>
 #include <linux/poll.h>
 #include <linux/proc_fs.h>
 #include <linux/pci.h>
-#ifndef COMPAT_USE_MODCOUNT_LOCK
 #include <linux/smp_lock.h>
-#endif
 
 #include "hysdn_defs.h"
 
@@ -253,24 +250,16 @@ hysdn_conf_open(struct inode *ino, struct file *filep)
 	char *cp, *tmp;
 
 	/* now search the addressed card */
-#ifdef COMPAT_USE_MODCOUNT_LOCK
-	MOD_INC_USE_COUNT;
-#else
 	lock_kernel();
-#endif
 	card = card_root;
 	while (card) {
 		pd = card->procconf;
-		if (pd->low_ino == (ino->i_ino & 0xFFFF))
+		if (pd == PDE(ino))
 			break;
 		card = card->next;	/* search next entry */
 	}
 	if (!card) {
-#ifdef COMPAT_USE_MODCOUNT_LOCK
-		MOD_DEC_USE_COUNT;
-#else
 		unlock_kernel();
-#endif
 		return (-ENODEV);	/* device is unknown/invalid */
 	}
 	if (card->debug_flags & (LOG_PROC_OPEN | LOG_PROC_ALL))
@@ -281,11 +270,7 @@ hysdn_conf_open(struct inode *ino, struct file *filep)
 		/* write only access -> write boot file or conf line */
 
 		if (!(cnf = kmalloc(sizeof(struct conf_writedata), GFP_KERNEL))) {
-#ifdef COMPAT_USE_MODCOUNT_LOCK
-			MOD_DEC_USE_COUNT;
-#else
 			unlock_kernel();
-#endif
 			return (-EFAULT);
 		}
 		cnf->card = card;
@@ -297,11 +282,7 @@ hysdn_conf_open(struct inode *ino, struct file *filep)
 		/* read access -> output card info data */
 
 		if (!(tmp = (char *) kmalloc(INFO_OUT_LEN * 2 + 2, GFP_KERNEL))) {
-#ifdef COMPAT_USE_MODCOUNT_LOCK
-			MOD_DEC_USE_COUNT;
-#else
 			unlock_kernel();
-#endif
 			return (-EFAULT);	/* out of memory */
 		}
 		filep->private_data = tmp;	/* start of string */
@@ -335,16 +316,10 @@ hysdn_conf_open(struct inode *ino, struct file *filep)
 		*cp++ = '\n';
 		*cp = 0;	/* end of string */
 	} else {		/* simultaneous read/write access forbidden ! */
-#ifdef COMPAT_USE_MODCOUNT_LOCK
-		MOD_DEC_USE_COUNT;
-#else
 		unlock_kernel();
-#endif
 		return (-EPERM);	/* no permission this time */
 	}
-#ifndef COMPAT_USE_MODCOUNT_LOCK
 	unlock_kernel();
-#endif
 	return (0);
 }				/* hysdn_conf_open */
 
@@ -359,21 +334,17 @@ hysdn_conf_close(struct inode *ino, struct file *filep)
 	int retval = 0;
 	struct proc_dir_entry *pd;
 
-#ifndef COMPAT_USE_MODCOUNT_LOCK
 	lock_kernel();
-#endif
 	/* search the addressed card */
 	card = card_root;
 	while (card) {
 		pd = card->procconf;
-		if (pd->low_ino == (ino->i_ino & 0xFFFF))
+		if (pd == PDE(ino))
 			break;
 		card = card->next;	/* search next entry */
 	}
 	if (!card) {
-#ifndef COMPAT_USE_MODCOUNT_LOCK
 		unlock_kernel();
-#endif
 		return (-ENODEV);	/* device is unknown/invalid */
 	}
 	if (card->debug_flags & (LOG_PROC_OPEN | LOG_PROC_ALL))
@@ -396,11 +367,7 @@ hysdn_conf_close(struct inode *ino, struct file *filep)
 		if (filep->private_data)
 			kfree(filep->private_data);	/* release memory */
 	}
-#ifdef COMPAT_USE_MODCOUNT_LOCK
-	MOD_DEC_USE_COUNT;
-#else
 	unlock_kernel();
-#endif
 	return (retval);
 }				/* hysdn_conf_close */
 
@@ -409,16 +376,13 @@ hysdn_conf_close(struct inode *ino, struct file *filep)
 /******************************************************/
 static struct file_operations conf_fops =
 {
-	llseek:         no_llseek,
-	read:           hysdn_conf_read,
-	write:          hysdn_conf_write,
-	open:           hysdn_conf_open,
-	release:        hysdn_conf_close,                                       
+	.llseek         = no_llseek,
+	.read           = hysdn_conf_read,
+	.write          = hysdn_conf_write,
+	.open           = hysdn_conf_open,
+	.release        = hysdn_conf_close,                                       
 };
 
-#ifdef COMPAT_NO_SOFTNET
-static struct inode_operations conf_inode_operations;
-#endif
 /*****************************/
 /* hysdn subdir in /proc/net */
 /*****************************/
@@ -447,17 +411,8 @@ hysdn_procconf_init(void)
 		if ((card->procconf = (void *) create_proc_entry(conf_name,
 					     S_IFREG | S_IRUGO | S_IWUSR,
 					    hysdn_proc_entry)) != NULL) {
-#ifdef COMPAT_NO_SOFTNET
-			memset(&conf_inode_operations, 0, sizeof(struct inode_operations));
-			conf_inode_operations.default_file_ops = &conf_fops;
-
-			((struct proc_dir_entry *) card->procconf)->ops = &conf_inode_operations;
-#else
 			((struct proc_dir_entry *) card->procconf)->proc_fops = &conf_fops;
-#ifdef COMPAT_HAS_FILEOP_OWNER
 			((struct proc_dir_entry *) card->procconf)->owner = THIS_MODULE;
-#endif
-#endif
 			hysdn_proclog_init(card);	/* init the log file entry */
 		}
 		card = card->next;	/* next entry */

@@ -14,7 +14,6 @@
 #include <linux/sched.h>
 #include <linux/string.h>
 #include <linux/kernel.h>
-#include <linux/tqueue.h>
 #include <linux/skbuff.h>
 
 #include <linux/isdnif.h>
@@ -83,16 +82,17 @@ static int __init pcbit_init(void)
 
 static void __exit pcbit_exit(void)
 {
+#ifdef MODULE
 	int board;
 
 	for (board = 0; board < num_boards; board++)
 		pcbit_terminate(board);
 	printk(KERN_NOTICE 
 	       "PCBIT-D module unloaded\n");
+#endif
 }
 
 #ifndef MODULE
-#ifdef COMPAT_HAS_NEW_SETUP
 #define MAX_PARA	(MAX_PCBIT_CARDS * 2)
 static int __init pcbit_setup(char *line)
 {
@@ -101,11 +101,6 @@ static int __init pcbit_setup(char *line)
 	int ints[MAX_PARA+1];
 
 	str = get_options(line, MAX_PARA, ints);
-#else
-void pcbit_setup(char *str, int *ints)
-{
-	int i, j, argc;
-#endif
 	argc = ints[0];
 	i = 0;
 	j = 1;
@@ -124,13 +119,9 @@ void pcbit_setup(char *str, int *ints)
 
 		i++;
 	}
-#ifdef COMPAT_HAS_NEW_SETUP
 	return(1);
 }
 __setup("pcbit=", pcbit_setup);
-#else
-}
-#endif
 #endif
 
 module_init(pcbit_init);

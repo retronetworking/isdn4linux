@@ -29,11 +29,12 @@
 #include <linux/init.h>
 #ifdef CONFIG_MCA
 #include <linux/mca.h>
+#include <linux/mca-legacy.h>
 #endif /* CONFIG_MCA */
 
 #include "eicon.h"
 
-#include "../avmb1/capicmd.h"  /* this should be moved in a common place */
+#include <linux/isdn/capicmd.h>
 
 #undef N_DATA
 #include "adapter.h"
@@ -53,10 +54,6 @@ extern char *eicon_idi_revision;
 extern int do_ioctl(struct inode *pDivasInode, struct file *pDivasFile,
 			unsigned int command, unsigned long arg);
 extern void eicon_pci_init_conf(eicon_card *card);
-
-#ifdef MODULE
-#define MOD_USE_COUNT (GET_USE_COUNT (&__this_module))
-#endif
 
 #define EICON_CTRL_VERSION 2 
 
@@ -142,8 +139,10 @@ eicon_findnpcicard(int driverid)
 #endif /* CONFIG_PCI */
 
 static void
-eicon_rcv_dispatch(struct eicon_card *card)
+eicon_rcv_dispatch(unsigned long context)
 {
+	struct eicon_card *card = (struct eicon_card *)context;
+
 	switch (card->bus) {
 		case EICON_BUS_ISA:
 		case EICON_BUS_MCA:
@@ -152,13 +151,15 @@ eicon_rcv_dispatch(struct eicon_card *card)
 			break;
 		default:
 			eicon_log(card, 1,
-			       "eicon_ack_dispatch: Illegal bustype %d\n", card->bus);
+			       "eicon_rcv_dispatch: Illegal bustype %d\n", card->bus);
 	}
 }
 
 static void
-eicon_ack_dispatch(struct eicon_card *card)
+eicon_ack_dispatch(unsigned long context)
 {
+	struct eicon_card *card = (struct eicon_card *)context;
+
 	switch (card->bus) {
 		case EICON_BUS_ISA:
 		case EICON_BUS_MCA:
@@ -172,8 +173,10 @@ eicon_ack_dispatch(struct eicon_card *card)
 }
 
 static void
-eicon_transmit(struct eicon_card *card)
+eicon_transmit(unsigned long context)
 {
+	struct eicon_card *card = (struct eicon_card *)context;
+
 	switch (card->bus) {
 		case EICON_BUS_ISA:
 		case EICON_BUS_MCA:
@@ -213,7 +216,10 @@ eicon_command(eicon_card * card, isdn_ctrl * c)
 					return(EICON_CTRL_VERSION);
 				case EICON_IOCTL_GETTYPE:
 					if (card->bus == EICON_BUS_PCI) {
-						copy_to_user((char *)a, &card->hwif.pci.master, sizeof(int));
+						if (copy_to_user((char *)a,
+							&card->hwif.pci.master,
+								 sizeof(int)))
+							return -EFAULT;
 					}
 					return(card->type);
 				case EICON_IOCTL_GETMMIO:
@@ -240,7 +246,7 @@ eicon_command(eicon_card * card, isdn_ctrl * c)
 							card->hwif.isa.shmem = (eicon_isa_shmem *)a;
 							return 0;
 						case EICON_BUS_MCA:
-#if CONFIG_MCA
+#ifdef CONFIG_MCA
 							if (eicon_mca_find_card(
 								0, a,
 								card->hwif.isa.irq,
@@ -351,7 +357,8 @@ eicon_command(eicon_card * card, isdn_ctrl * c)
 					return -ENODEV;
 
 				case EICON_IOCTL_ADDCARD:
-					if ((ret = copy_from_user(&cdef, (char *)a, sizeof(cdef))))
+					if (copy_from_user(&cdef, (char *)a,
+							   sizeof(cdef)))
 						return -EFAULT;
 					if (!(eicon_addcard(0, cdef.membase, cdef.irq, cdef.id, 0)))
 						return -EIO;
@@ -360,12 +367,6 @@ eicon_command(eicon_card * card, isdn_ctrl * c)
 					DebugVar = a;
 					eicon_log(card, 1, "Eicon: Debug Value set to %ld\n", DebugVar);
 					return 0;
-#ifdef MODULE
-				case EICON_IOCTL_FREEIT:
-					while (MOD_USE_COUNT > 0) MOD_DEC_USE_COUNT;
-					MOD_INC_USE_COUNT;
-					return 0;
-#endif
 				case EICON_IOCTL_LOADPCI:
 					eicon_log(card, 1, "Eicon: Wrong version of load-utility,\n");
 					eicon_log(card, 1, "Eicon: re-compile eiconctrl !\n");
@@ -376,8 +377,9 @@ eicon_command(eicon_card * card, isdn_ctrl * c)
 #ifdef CONFIG_ISDN_DRV_EICON_PCI
 					if (c->arg < EICON_IOCTL_DIA_OFFSET)
 						return -EINVAL;
-					if (copy_from_user(&dstart, (char *)a, sizeof(dstart)))
-						return -1;
+					if (copy_from_user(&dstart, (char *)a,
+							   sizeof(dstart)))
+						return -EFAULT;
 					if (!(card = eicon_findnpcicard(dstart.card_id)))
 						return -EINVAL;
 					ret = do_ioctl(NULL, NULL,
@@ -518,12 +520,6 @@ eicon_command(eicon_card * card, isdn_ctrl * c)
 				break;
 			chan->l2prot = (c->arg >> 8);
 			return 0;
-		case ISDN_CMD_GETL2:
-			if (!card->flags & EICON_FLAGS_RUNNING)
-				return -ENODEV;
-			if (!(chan = find_channel(card, c->arg & 0x1f)))
-				break;
-			return chan->l2prot;
 		case ISDN_CMD_SETL3:
 			if (!card->flags & EICON_FLAGS_RUNNING)
 				return -ENODEV;
@@ -536,33 +532,6 @@ eicon_command(eicon_card * card, isdn_ctrl * c)
 				eicon_log(card, 128, "idi_cmd: Ch%d: SETL3 struct fax=0x%x\n",chan->No, chan->fax);
 			}
 #endif
-			return 0;
-		case ISDN_CMD_GETL3:
-			if (!card->flags & EICON_FLAGS_RUNNING)
-				return -ENODEV;
-			if (!(chan = find_channel(card, c->arg & 0x1f)))
-				break;
-			return chan->l3prot;
-		case ISDN_CMD_GETEAZ:
-			if (!card->flags & EICON_FLAGS_RUNNING)
-				return -ENODEV;
-			eicon_log(card, 1, "eicon CMD_GETEAZ not implemented\n");
-			return 0;
-		case ISDN_CMD_SETSIL:
-			if (!card->flags & EICON_FLAGS_RUNNING)
-				return -ENODEV;
-			eicon_log(card, 1, "eicon CMD_SETSIL not implemented\n");
-			return 0;
-		case ISDN_CMD_GETSIL:
-			if (!card->flags & EICON_FLAGS_RUNNING)
-				return -ENODEV;
-			eicon_log(card, 1, "eicon CMD_GETSIL not implemented\n");
-			return 0;
-		case ISDN_CMD_LOCK:
-			MOD_INC_USE_COUNT;
-			return 0;
-		case ISDN_CMD_UNLOCK:
-			MOD_DEC_USE_COUNT;
 			return 0;
 #ifdef CONFIG_ISDN_TTY_FAX
 		case ISDN_CMD_FAXCMD:
@@ -639,18 +608,6 @@ if_command(isdn_ctrl * c)
 static int
 if_writecmd(const u_char * buf, int len, int user, int id, int channel)
 {
-#if 0
-	/* Not yet used */
-        eicon_card *card = eicon_findcard(id);
-
-        if (card) {
-                if (!card->flags & EICON_FLAGS_RUNNING)
-                        return (len);
-                return (len);
-        }
-        printk(KERN_ERR
-               "eicon: if_writecmd called with invalid driverId!\n");
-#endif
         return (len);
 }
 
@@ -677,8 +634,12 @@ if_readstatus(u_char * buf, int len, int user, int id, int channel)
 			else
 				cnt = skb->len;
 
-			if (user)
-				copy_to_user(p, skb->data, cnt);
+			if (user) {
+				spin_unlock_irqrestore(&eicon_lock, flags);
+				if (copy_to_user(p, skb->data, cnt))
+					return -EFAULT;
+				spin_lock_irqsave(&eicon_lock, flags);
+			}
 			else
 				memcpy(p, skb->data, cnt);
 
@@ -871,12 +832,10 @@ eicon_alloccard(int Type, int membase, int irq, char *id, int card_id)
 		skb_queue_head_init(&card->sackq);
 		skb_queue_head_init(&card->statq);
 		card->statq_entries = 0;
-		card->snd_tq.routine = (void *) (void *) eicon_transmit;
-		card->snd_tq.data = card;
-		card->rcv_tq.routine = (void *) (void *) eicon_rcv_dispatch;
-		card->rcv_tq.data = card;
-		card->ack_tq.routine = (void *) (void *) eicon_ack_dispatch;
-		card->ack_tq.data = card;
+		tasklet_init(&card->snd_tq, eicon_transmit, (unsigned long)card);
+		tasklet_init(&card->rcv_tq, eicon_rcv_dispatch, (unsigned long)card);
+		tasklet_init(&card->ack_tq, eicon_ack_dispatch, (unsigned long)card);
+		card->interface.owner = THIS_MODULE;
 		card->interface.maxbufsize = 4000;
 		card->interface.command = if_command;
 		card->interface.writebuf_skb = if_sendbuf;
@@ -890,12 +849,12 @@ eicon_alloccard(int Type, int membase, int irq, char *id, int card_id)
 			ISDN_FEATURE_P_UNKNOWN;
 		card->interface.hl_hdrlen = 20;
 		card->ptype = ISDN_PTYPE_UNKNOWN;
-		strncpy(card->interface.id, id, sizeof(card->interface.id) - 1);
+		strlcpy(card->interface.id, id, sizeof(card->interface.id));
 		card->myid = -1;
 		card->type = Type;
 		switch (Type) {
 #ifdef CONFIG_ISDN_DRV_EICON_ISA
-#if CONFIG_MCA /* only needed for MCA */
+#ifdef CONFIG_MCA /* only needed for MCA */
                         case EICON_CTYPE_S:
                         case EICON_CTYPE_SX:
                         case EICON_CTYPE_SCOM:
@@ -1384,7 +1343,7 @@ card_t DivasCards[1];
 static void __exit
 eicon_exit(void)
 {
-#if CONFIG_PCI	
+#ifdef CONFIG_PCI	
 #ifdef CONFIG_ISDN_DRV_EICON_PCI
 	card_t *pCard;
 	word wCardIndex;
@@ -1416,7 +1375,7 @@ eicon_exit(void)
 		eicon_freecard(last);
         }
 
-#if CONFIG_PCI	
+#ifdef CONFIG_PCI	
 #ifdef CONFIG_ISDN_DRV_EICON_PCI
 	pCard = DivasCards;
 	for (wCardIndex = 0; wCardIndex < MAX_CARDS; wCardIndex++)
@@ -1468,7 +1427,6 @@ eicon_exit(void)
 
 #ifndef MODULE
 
-#ifdef COMPAT_HAS_NEW_SETUP
 static int __init
 eicon_setup(char *line)
 {
@@ -1477,12 +1435,6 @@ eicon_setup(char *line)
 	char *str;
 
 	str = get_options(line, 4, ints);
-#else
-void
-eicon_setup(char *str, int *ints)
-{
-        int i, argc;
-#endif
 
         argc = ints[0];
         i = 1;
@@ -1510,13 +1462,9 @@ eicon_setup(char *str, int *ints)
 #else
 	printk(KERN_INFO "Eicon ISDN active driver setup\n");
 #endif
-#ifdef COMPAT_HAS_NEW_SETUP
 	return(1);
 }
 __setup("eicon=", eicon_setup);
-#else
-}
-#endif
 
 #endif /* MODULE */
 

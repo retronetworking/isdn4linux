@@ -34,13 +34,17 @@
 static int debug = 1;
 MODULE_PARM(debug, "i");
 
-static char *ISACVer[] __devinitdata = {
+static char *ISACVer[] = {
   "2086/2186 V1.1", 
   "2085 B1", 
   "2085 B2",
   "2085 V2.3"
 };
 #endif
+
+MODULE_AUTHOR("Kai Germaschewski <kai.germaschewski@gmx.de>/Karsten Keil <kkeil@suse.de>");
+MODULE_DESCRIPTION("ISAC/ISAC-SX driver");
+MODULE_LICENSE("GPL");
 
 #define DBG_WARN      0x0001
 #define DBG_IRQ       0x0002
@@ -434,7 +438,7 @@ static void l1m_debug(struct FsmInst *fi, char *fmt, ...)
 	va_end(args);
 }
 
-static void __devinit isac_version(struct isac *cs)
+static void isac_version(struct isac *cs)
 {
 	int val;
 
@@ -446,7 +450,7 @@ static void isac_empty_fifo(struct isac *isac, int count)
 {
 	// this also works for isacsx, since
 	// CMDR(D) register works the same
-	u_char *ptr;
+	u8 *ptr;
 
 	DBG(DBG_IRQ, "count %d", count);
 
@@ -470,7 +474,7 @@ static void isac_fill_fifo(struct isac *isac)
 
 	int count;
 	unsigned char cmd;
-	u_char *ptr;
+	u8 *ptr;
 
 	if (!isac->tx_skb)
 		BUG();
@@ -598,7 +602,7 @@ static inline void isac_exi_interrupt(struct isac *isac)
 	}
 }
 
-void isac_interrupt(struct isac *isac)
+void isac_irq(struct isac *isac)
 {
 	unsigned char val;
 
@@ -631,6 +635,8 @@ void isac_interrupt(struct isac *isac)
 	if (val & ISAC_ISTA_SIN) {
 		DBG(DBG_WARN, "SIN");
 	}
+	isac->write_isac(isac, ISAC_MASK, 0xff);
+	isac->write_isac(isac, ISAC_MASK, 0x00);
 }
 
 // ======================================================================
@@ -736,7 +742,7 @@ static inline void isacsx_icd_interrupt(struct isac *isac)
 	}
 }
 
-void isacsx_interrupt(struct isac *isac)
+void isacsx_irq(struct isac *isac)
 {
 	unsigned char val;
 
@@ -749,7 +755,7 @@ void isacsx_interrupt(struct isac *isac)
 		isacsx_cic_interrupt(isac);
 }
 
-void __devinit isac_init(struct isac *isac)
+void isac_init(struct isac *isac)
 {
 	isac->tx_skb = NULL;
 	isac->l1m.fsm = &l1fsm;
@@ -764,7 +770,7 @@ void __devinit isac_init(struct isac *isac)
 	FsmInitTimer(&isac->l1m, &isac->timer);
 }
 
-void __devinit isac_setup(struct isac *isac)
+void hisax_isac_setup(struct isac *isac)
 {
 	int val, eval;
 
@@ -775,7 +781,7 @@ void __devinit isac_setup(struct isac *isac)
 
   	isac->write_isac(isac, ISAC_MASK, 0xff);
   	isac->mocr = 0xaa;
-	if (test_bit(HW_IOM1, &isac->flags)) {
+	if (test_bit(ISAC_IOM1, &isac->flags)) {
 		/* IOM 1 Mode */
 		isac->write_isac(isac, ISAC_ADF2, 0x0);
 		isac->write_isac(isac, ISAC_SPCR, 0xa);
@@ -811,7 +817,7 @@ void __devinit isac_setup(struct isac *isac)
 	FsmEvent(&isac->l1m, (val >> 2) & 0xf, NULL);
 
 	isac->write_isac(isac, ISAC_MASK, 0x0);
-	/* RESET Receiver and Transmitter */
+	// RESET Receiver and Transmitter
 	isac->write_isac(isac, ISAC_CMDR, ISAC_CMDR_XRES | ISAC_CMDR_RRES);
 }
 
@@ -882,10 +888,10 @@ EXPORT_SYMBOL(isac_init);
 EXPORT_SYMBOL(isac_d_l2l1);
 
 EXPORT_SYMBOL(isacsx_setup);
-EXPORT_SYMBOL(isacsx_interrupt);
+EXPORT_SYMBOL(isacsx_irq);
 
-EXPORT_SYMBOL(isac_setup);
-EXPORT_SYMBOL(isac_interrupt);
+EXPORT_SYMBOL(hisax_isac_setup);
+EXPORT_SYMBOL(isac_irq);
 
 module_init(hisax_isac_init);
 module_exit(hisax_isac_exit);

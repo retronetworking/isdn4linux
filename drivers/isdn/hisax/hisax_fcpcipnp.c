@@ -20,57 +20,54 @@
  *
  * o POWER PC
  * o clean up debugging
+ * o tx_skb at PH_DEACTIVATE time
  */
 
 #include <linux/version.h>
 #include <linux/module.h>
 #include <linux/init.h>
 #include <linux/pci.h>
-#include "hisax_isapnp.h"
+#include <linux/pnp.h>
 #include <linux/kmod.h>
 #include <linux/slab.h>
 #include <linux/skbuff.h>
 #include <linux/netdevice.h>
 #include "hisax_fcpcipnp.h"
-#include "hisax_isac.h"
 
 // debugging cruft
 #define __debug_variable debug
 #include "hisax_debug.h"
+
+// #define CONFIG_PNP_CARD	1
 
 #ifdef CONFIG_HISAX_DEBUG
 static int debug = 0;
 MODULE_PARM(debug, "i");
 #endif
 
-MODULE_AUTHOR("Kai Germaschewski <kai.germaschewski@gmx.de>");
+MODULE_AUTHOR("Kai Germaschewski <kai.germaschewski@gmx.de>/Karsten Keil <kkeil@suse.de>");
 MODULE_DESCRIPTION("AVM Fritz!PCI/PnP ISDN driver");
 
-#ifndef PCI_DEVICE_ID_AVM_A1_V2
-#define PCI_DEVICE_ID_AVM_A1_V2 0x0e00
-#endif
-
-static struct pci_device_id fcpci_ids[] __initdata = {
-	{ PCI_VENDOR_ID_AVM, PCI_DEVICE_ID_AVM_A1   , PCI_ANY_ID, PCI_ANY_ID,
-	  0, 0, (unsigned long) "Fritz!Card PCI" },
-	{ PCI_VENDOR_ID_AVM, PCI_DEVICE_ID_AVM_A1_V2, PCI_ANY_ID, PCI_ANY_ID,
-	  0, 0, (unsigned long) "Fritz!Card PCI v2" },
-	{ }
+static struct pci_device_id fcpci_ids[] = {
+	{ .vendor      = PCI_VENDOR_ID_AVM,
+	  .device      = PCI_DEVICE_ID_AVM_A1,
+	  .subvendor   = PCI_ANY_ID,
+	  .subdevice   = PCI_ANY_ID,
+	  .driver_data = (unsigned long) "Fritz!Card PCI",
+	},
+	{ .vendor      = PCI_VENDOR_ID_AVM,
+	  .device      = PCI_DEVICE_ID_AVM_A1_V2,
+	  .subvendor   = PCI_ANY_ID,
+	  .subdevice   = PCI_ANY_ID,
+	  .driver_data = (unsigned long) "Fritz!Card PCI v2" },
+	{}
 };
+
 MODULE_DEVICE_TABLE(pci, fcpci_ids);
-
-static struct isapnp_device_id fcpnp_ids[] __initdata = {
-	{ ISAPNP_VENDOR('A', 'V', 'M'), ISAPNP_FUNCTION(0x0900),
-	  ISAPNP_VENDOR('A', 'V', 'M'), ISAPNP_FUNCTION(0x0900), 
-	  (unsigned long) "Fritz!Card PnP" },
-	{ }
-};
-MODULE_DEVICE_TABLE(isapnp, fcpnp_ids);
 
 static int protocol = 2;       /* EURO-ISDN Default */
 MODULE_PARM(protocol, "i");
-
-static LIST_HEAD(adapter_list);
+MODULE_LICENSE("GPL");
 
 // ----------------------------------------------------------------------
 
@@ -149,7 +146,7 @@ static unsigned char fcpci_read_isac(struct isac *isac, unsigned char offset)
 	outb(idx, adapter->io + AVM_INDEX);
 	val = inb(adapter->io + AVM_DATA + (offset & 0xf));
  	spin_unlock_irqrestore(&adapter->hw_lock, flags);
-	DBG(0x1000, __FUNCTION__ " port %#x, value %#x",
+	DBG(0x1000, " port %#x, value %#x",
 	    offset, val);
 	return val;
 }
@@ -162,7 +159,7 @@ static void fcpci_write_isac(struct isac *isac, unsigned char offset,
 		AVM_IDX_ISAC_REG_HIGH : AVM_IDX_ISAC_REG_LOW;
 	unsigned long flags;
 
-	DBG(0x1000, __FUNCTION__ " port %#x, value %#x",
+	DBG(0x1000, " port %#x, value %#x",
 	    offset, value);
 	spin_lock_irqsave(&adapter->hw_lock, flags);
 	outb(idx, adapter->io + AVM_INDEX);
@@ -242,7 +239,7 @@ static unsigned char fcpci2_read_isac(struct isac *isac, unsigned char offset)
 	outl(offset, adapter->io + AVM_ISACSX_INDEX);
 	val = inl(adapter->io + AVM_ISACSX_DATA);
  	spin_unlock_irqrestore(&adapter->hw_lock, flags);
-	DBG(0x1000, __FUNCTION__ " port %#x, value %#x",
+	DBG(0x1000, " port %#x, value %#x",
 	    offset, val);
 
 	return val;
@@ -254,7 +251,7 @@ static void fcpci2_write_isac(struct isac *isac, unsigned char offset,
 	struct fritz_adapter *adapter = isac->priv;
 	unsigned long flags;
 
-	DBG(0x1000, __FUNCTION__ " port %#x, value %#x",
+	DBG(0x1000, " port %#x, value %#x",
 	    offset, value);
 	spin_lock_irqsave(&adapter->hw_lock, flags);
 	outl(offset, adapter->io + AVM_ISACSX_INDEX);
@@ -370,15 +367,12 @@ static void hdlc_fill_fifo(struct fritz_bcs *bcs)
 {
 	struct fritz_adapter *adapter = bcs->adapter;
 	struct sk_buff *skb = bcs->tx_skb;
-	int count;
-	int fifo_size = 32;
+	u_int count;
+	u_int fifo_size = 32;
 	unsigned long flags;
 	unsigned char *p;
 
 	DBG(0x40, "hdlc_fill_fifo");
-
-	if (!skb)
-		BUG();
 
 	if (skb->len == 0)
 		BUG();
@@ -536,11 +530,10 @@ static inline void hdlc_xpr_irq(struct fritz_bcs *bcs)
 	}
 	bcs->tx_cnt = 0;
 	bcs->tx_skb = NULL;
-	B_L1L2(bcs, PH_DATA | CONFIRM, (void *) skb->truesize);
-	dev_kfree_skb_irq(skb);
+	B_L1L2(bcs, PH_DATA | CONFIRM, skb);
 }
 
-static void hdlc_irq(struct fritz_bcs *bcs, u32 stat)
+static void hdlc_irq_one(struct fritz_bcs *bcs, u32 stat)
 {
 	DBG(0x10, "ch%d stat %#x", bcs->channel, stat);
 	if (stat & HDLC_INT_RPR) {
@@ -557,7 +550,7 @@ static void hdlc_irq(struct fritz_bcs *bcs, u32 stat)
 	}
 }
 
-static inline void hdlc_interrupt(struct fritz_adapter *adapter)
+static inline void hdlc_irq(struct fritz_adapter *adapter)
 {
 	int nr;
 	u32 stat;
@@ -566,7 +559,7 @@ static inline void hdlc_interrupt(struct fritz_adapter *adapter)
 		stat = adapter->read_hdlc_status(adapter, nr);
 		DBG(0x10, "HDLC %c stat %#x", 'A' + nr, stat);
 		if (stat & HDLC_INT_MASK)
-			hdlc_irq(&adapter->bcs[nr], stat);
+			hdlc_irq_one(&adapter->bcs[nr], stat);
 	}
 }
 
@@ -588,14 +581,14 @@ static void modehdlc(struct fritz_bcs *bcs, int mode)
 		adapter->write_ctrl(bcs, 5);
 		break;
 	case L1_MODE_TRANS:
-		bcs->ctrl.sr.mode = HDLC_MODE_TRANS;
-		adapter->write_ctrl(bcs, 5);
-		bcs->ctrl.sr.cmd = HDLC_CMD_XRS;
-		adapter->write_ctrl(bcs, 1);
-		bcs->ctrl.sr.cmd = 0;
-		break;
 	case L1_MODE_HDLC:
-		bcs->ctrl.sr.mode = HDLC_MODE_ITF_FLG;
+		bcs->rcvidx = 0;
+		bcs->tx_cnt = 0;
+		bcs->tx_skb = NULL;
+		if (mode == L1_MODE_TRANS)
+			bcs->ctrl.sr.mode = HDLC_MODE_TRANS;
+		else
+			bcs->ctrl.sr.mode = HDLC_MODE_ITF_FLG;
 		adapter->write_ctrl(bcs, 5);
 		bcs->ctrl.sr.cmd = HDLC_CMD_XRS;
 		adapter->write_ctrl(bcs, 1);
@@ -638,7 +631,7 @@ static void fritz_b_l2l1(struct hisax_if *ifc, int pr, void *arg)
 
 // ----------------------------------------------------------------------
 
-static void fcpci2_irq(int intno, void *dev, struct pt_regs *regs)
+static irqreturn_t fcpci2_irq(int intno, void *dev, struct pt_regs *regs)
 {
 	struct fritz_adapter *adapter = dev;
 	unsigned char val;
@@ -646,16 +639,17 @@ static void fcpci2_irq(int intno, void *dev, struct pt_regs *regs)
 	val = inb(adapter->io + AVM_STATUS0);
 	if (!(val & AVM_STATUS0_IRQ_MASK))
 		/* hopefully a shared  IRQ reqest */
-		return;
+		return IRQ_NONE;
 	DBG(2, "STATUS0 %#x", val);
 	if (val & AVM_STATUS0_IRQ_ISAC)
-		isacsx_interrupt(&adapter->isac);
+		isacsx_irq(&adapter->isac);
 
 	if (val & AVM_STATUS0_IRQ_HDLC)
-		hdlc_interrupt(adapter);
+		hdlc_irq(adapter);
+	return IRQ_HANDLED;
 }
 
-static void fcpci_irq(int intno, void *dev, struct pt_regs *regs)
+static irqreturn_t fcpci_irq(int intno, void *dev, struct pt_regs *regs)
 {
 	struct fritz_adapter *adapter = dev;
 	unsigned char sval;
@@ -663,13 +657,14 @@ static void fcpci_irq(int intno, void *dev, struct pt_regs *regs)
 	sval = inb(adapter->io + 2);
 	if ((sval & AVM_STATUS0_IRQ_MASK) == AVM_STATUS0_IRQ_MASK)
 		/* possibly a shared  IRQ reqest */
-		return;
+		return IRQ_NONE;
 	DBG(2, "sval %#x", sval);
 	if (!(sval & AVM_STATUS0_IRQ_ISAC))
-		isac_interrupt(&adapter->isac);
+		isac_irq(&adapter->isac);
 
 	if (!(sval & AVM_STATUS0_IRQ_HDLC))
-		hdlc_interrupt(adapter);
+		hdlc_irq(adapter);
+	return IRQ_HANDLED;
 }
 
 // ----------------------------------------------------------------------
@@ -685,6 +680,11 @@ static inline void fcpci_init(struct fritz_adapter *adapter)
 {
 	outb(AVM_STATUS0_DIS_TIMER | AVM_STATUS0_RES_TIMER | 
 	     AVM_STATUS0_ENA_IRQ, adapter->io + AVM_STATUS0);
+
+	outb(AVM_STATUS1_ENA_IOM | adapter->irq, 
+	     adapter->io + AVM_STATUS1);
+	set_current_state(TASK_UNINTERRUPTIBLE);
+	schedule_timeout(50*HZ / 1000); /* Timeout 50ms */
 }
 
 // ----------------------------------------------------------------------
@@ -692,7 +692,6 @@ static inline void fcpci_init(struct fritz_adapter *adapter)
 static int __devinit fcpcipnp_setup(struct fritz_adapter *adapter)
 {
 	u32 val = 0;
-	struct pci_dev *pdev = adapter->pci_dev;
 	int retval;
 
 	DBG(1,"");
@@ -700,21 +699,21 @@ static int __devinit fcpcipnp_setup(struct fritz_adapter *adapter)
 	isac_init(&adapter->isac); // FIXME is this okay now
 
 	retval = -EBUSY;
-	if (!request_region(adapter->io, 32, "hisax_fcpcipnp"))
+	if (!request_region(adapter->io, 32, "fcpcipnp"))
 		goto err;
 
 	switch (adapter->type) {
 	case AVM_FRITZ_PCIV2:
-		retval = request_irq(pdev->irq, fcpci2_irq, SA_SHIRQ, 
-				     "hisax_fcpcipnp", adapter);
+		retval = request_irq(adapter->irq, fcpci2_irq, SA_SHIRQ, 
+				     "fcpcipnp", adapter);
 		break;
 	case AVM_FRITZ_PCI:
-		retval = request_irq(pdev->irq, fcpci_irq, SA_SHIRQ,
-				     "hisax_fcpcipnp", adapter);
+		retval = request_irq(adapter->irq, fcpci_irq, SA_SHIRQ,
+				     "fcpcipnp", adapter);
 		break;
 	case AVM_FRITZ_PNP:
-		retval = request_irq(pdev->irq, fcpci_irq, 0,
-				     "hisax_fcpcipnp", adapter);
+		retval = request_irq(adapter->irq, fcpci_irq, 0,
+				     "fcpcipnp", adapter);
 		break;
 	}
 	if (retval)
@@ -785,7 +784,7 @@ static int __devinit fcpcipnp_setup(struct fritz_adapter *adapter)
 	case AVM_FRITZ_PCI:
 	case AVM_FRITZ_PNP:
 		fcpci_init(adapter);
-		isac_setup(&adapter->isac);
+		hisax_isac_setup(&adapter->isac);
 		break;
 	}
 	val = adapter->read_hdlc_status(adapter, 0);
@@ -808,23 +807,11 @@ static int __devinit fcpcipnp_setup(struct fritz_adapter *adapter)
 
 static void __devexit fcpcipnp_release(struct fritz_adapter *adapter)
 {
-	struct pci_dev *pdev = adapter->pci_dev;
-
 	DBG(1,"");
 
 	outb(0, adapter->io + AVM_STATUS0);
-	free_irq(pdev->irq, adapter);
+	free_irq(adapter->irq, adapter);
 	release_region(adapter->io, 32);
-
-	switch (adapter->type) {
-	case AVM_FRITZ_PCI:
-	case AVM_FRITZ_PCIV2:
-		pci_disable_device(pdev);
-		break;
-	case AVM_FRITZ_PNP:
-		pdev->deactivate(pdev);
-		break;
-	}
 }
 
 // ----------------------------------------------------------------------
@@ -842,9 +829,7 @@ new_adapter(struct pci_dev *pdev)
 
 	memset(adapter, 0, sizeof(struct fritz_adapter));
 
-	adapter->pci_dev = pdev;
-
-	SET_MODULE_OWNER(&adapter->isac.hisax_d_if);
+	adapter->isac.hisax_d_if.owner = THIS_MODULE;
 	adapter->isac.hisax_d_if.ifc.priv = &adapter->isac;
 	adapter->isac.hisax_d_if.ifc.l2l1 = isac_d_l2l1;
 	
@@ -854,7 +839,6 @@ new_adapter(struct pci_dev *pdev)
 		adapter->bcs[i].b_if.ifc.priv = &adapter->bcs[i];
 		adapter->bcs[i].b_if.ifc.l2l1 = fritz_b_l2l1;
 	}
-	list_add(&adapter->list, &adapter_list);
 
 	pci_set_drvdata(pdev, adapter);
 
@@ -869,7 +853,6 @@ new_adapter(struct pci_dev *pdev)
 static void delete_adapter(struct fritz_adapter *adapter)
 {
 	hisax_unregister(&adapter->isac.hisax_d_if);
-	list_del(&adapter->list);
 	kfree(adapter);
 }
 
@@ -879,15 +862,12 @@ static int __devinit fcpci_probe(struct pci_dev *pdev,
 	struct fritz_adapter *adapter;
 	int retval;
 
-	printk(KERN_INFO "hisax_fcpcipnp: found adapter %s at %s\n",
-	       (char *) ent->driver_data, pdev->slot_name);
-
 	retval = -ENOMEM;
 	adapter = new_adapter(pdev);
 	if (!adapter)
 		goto err;
 
-	if (pdev->device == 0x0e00) 
+	if (pdev->device == PCI_DEVICE_ID_AVM_A1_V2) 
 		adapter->type = AVM_FRITZ_PCIV2;
 	else
 		adapter->type = AVM_FRITZ_PCI;
@@ -895,7 +875,12 @@ static int __devinit fcpci_probe(struct pci_dev *pdev,
 	retval = pci_enable_device(pdev);
 	if (retval)
 		goto err_free;
+
 	adapter->io = pci_resource_start(pdev, 1);
+	adapter->irq = pdev->irq;
+
+	printk(KERN_INFO "hisax_fcpcipnp: found adapter %s at %s\n",
+	       (char *) ent->driver_data, pci_name(pdev));
 
 	retval = fcpcipnp_setup(adapter);
 	if (retval)
@@ -909,89 +894,118 @@ static int __devinit fcpci_probe(struct pci_dev *pdev,
 	return retval;
 }
 
-static int __devinit fcpnp_probe(struct pci_dev *pdev,
-				 const struct isapnp_device_id *ent)
-{
-	struct fritz_adapter *adapter;
-	int retval;
-
-	printk(KERN_INFO "hisax_fcpcipnp: found adapter %s\n",
-	       (char *) ent->driver_data);
-
-	retval = -ENOMEM;
-	adapter = new_adapter(pdev);
-	if (!adapter)
-		goto err;
-
-	adapter->type = AVM_FRITZ_PNP;
-
-	pdev->prepare(pdev);
-	pdev->deactivate(pdev); // why?
-	pdev->activate(pdev);
-	adapter->io = pdev->resource[0].start;
-	pdev->irq = pdev->irq_resource[0].start;
-	
-	retval = fcpcipnp_setup(adapter);
-	if (retval)
-		goto err_free;
-
-	return 0;
-	
- err_free:
-	delete_adapter(adapter);
- err:
-	return retval;
-}
-
-static void __devexit fcpcipnp_remove(struct pci_dev *pdev)
+static void __devexit fcpci_remove(struct pci_dev *pdev)
 {
 	struct fritz_adapter *adapter = pci_get_drvdata(pdev);
+
+	fcpcipnp_release(adapter);
+	pci_disable_device(pdev);
+	delete_adapter(adapter);
+}
+
+static struct pci_driver fcpci_driver = {
+	.name     = "fcpci",
+	.probe    = fcpci_probe,
+	.remove   = __devexit_p(fcpci_remove),
+	.id_table = fcpci_ids,
+};
+
+#ifdef CONFIG_PNP_CARD
+
+static int __devinit fcpnp_probe(struct pnp_card *card,
+				 const struct pnp_card_device_id *card_id)
+{
+	struct fritz_adapter *adapter;
+	struct pnp_dev *pnp_dev;
+	int retval;
+
+	retval = -ENODEV;
+	pnp_dev = pnp_request_card_device(card, card_id->devs[0].id, NULL);
+	if (!pnp_dev)
+		goto err;
+
+	if (!pnp_port_valid(pnp_dev, 0) || !pnp_irq_valid(pnp_dev, 0))
+		goto err;
+
+	retval = -ENOMEM;
+	adapter = new_adapter((struct pci_dev *)pnp_dev); // FIXME
+	if (!adapter)
+		goto err;
+	
+	adapter->type = AVM_FRITZ_PNP;
+	adapter->io = pnp_port_start(pnp_dev, 0);
+	adapter->irq = pnp_irq(pnp_dev, 0);
+	
+	printk(KERN_INFO "hisax_fcpcipnp: found adapter %s at IO %#x irq %d\n",
+	       (char *) card_id->driver_data, adapter->io, adapter->irq);
+	
+	retval = fcpcipnp_setup(adapter);
+	if (retval)
+		goto err_delete;
+	
+	return 0;
+	
+ err_delete:
+	delete_adapter(adapter);
+ err:
+	return retval;
+}
+
+static void __devexit fcpnp_remove(struct pnp_card *pcard)
+{
+	struct fritz_adapter *adapter = pnpc_get_drvdata(pcard);
 
 	fcpcipnp_release(adapter);
 	delete_adapter(adapter);
 }
 
-static struct pci_driver fcpci_driver = {
-	name: "fcpci",
-	probe: fcpci_probe,
-	remove: fcpcipnp_remove,
-	id_table: fcpci_ids,
+static struct pnp_card_device_id fcpnp_ids[] __devinitdata = {
+	{ .id          = "AVM0900", 
+	  .driver_data = (unsigned long) "Fritz!Card PnP",
+	  .devs        = { { "AVM0900" } },
+	},
+	{}
 };
 
-static struct isapnp_driver fcpnp_driver = {
-	name: "fcpnp",
-	probe: fcpnp_probe,
-	remove: fcpcipnp_remove,
-	id_table: fcpnp_ids,
+static struct pnpc_driver fcpnp_driver = {
+	.name     = "fcpnp",
+	.probe    = fcpnp_probe,
+	.remove   = __devexit_p(fcpnp_remove),
+	.id_table = fcpnp_ids,
 };
 
-static LIST_HEAD(isapnp_drivers);
+#endif
 
-static int __init hisax_fcpci_init(void)
+static int __init hisax_fcpcipnp_init(void)
 {
-	int retval, pci_nr_found;
+	int retval = 0, pci_nr_found;
 
-	printk(KERN_INFO "hisax_fcpcipnp: Fritz!PCI/PnP ISDN driver v0.0.1\n");
+	printk(KERN_INFO "hisax_fcpcipnp: Fritz!Card PCI/PCIv2/PnP ISDN driver v0.0.1\n");
 
 	retval = pci_register_driver(&fcpci_driver);
 	if (retval < 0)
 		goto out;
 	pci_nr_found = retval;
 
-	retval = isapnp_register_driver(&fcpnp_driver);
+#ifdef CONFIG_PNP_CARD
+	retval = pnpc_register_driver(&fcpnp_driver);
+#endif
 	if (retval < 0)
 		goto out_unregister_pci;
 
-#if !defined(CONFIG_HOTPLUG) && defined(MODULE)
+#if !defined(CONFIG_HOTPLUG) || defined(MODULE)
 	if (pci_nr_found + retval == 0) {
 		retval = -ENODEV;
-		goto out_unregister_isapnp;
+		goto out_unregister_pnp;
+	}
 #endif
 	return 0;
 
-#if !defined(CONFIG_HOTPLUG) && defined(MODULE)
- out_unregister_isapnp:
-	isapnp_unregister_driver(&fcpnp_driver);
+#if !defined(CONFIG_HOTPLUG) || defined(MODULE)
+ out_unregister_pnp:
+#ifdef CONFIG_PNP_CARD
+	pnpc_unregister_driver(&fcpnp_driver);
+#endif
 #endif
  out_unregister_pci:
 	pci_unregister_driver(&fcpci_driver);
@@ -999,15 +1013,13 @@ static int __init hisax_fcpci_init(void)
 	return retval;
 }
 
-static void __exit hisax_fcpci_exit(void)
+static void __exit hisax_fcpcipnp_exit(void)
 {
-	isapnp_unregister_driver(&fcpnp_driver);
+#ifdef CONFIG_PNP_CARD
+	pnpc_unregister_driver(&fcpnp_driver);
+#endif
 	pci_unregister_driver(&fcpci_driver);
 }
 
-module_init(hisax_fcpci_init);
-module_exit(hisax_fcpci_exit);
-
-#ifdef __ISAPNP__
-#include "hisax_isapnp.c"
-#endif
+module_init(hisax_fcpcipnp_init);
+module_exit(hisax_fcpcipnp_exit);

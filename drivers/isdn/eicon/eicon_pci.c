@@ -26,7 +26,7 @@
 
 char *eicon_pci_revision = "$Revision$";
 
-#if CONFIG_PCI	         /* intire stuff is only for PCI */
+#ifdef CONFIG_PCI	         /* entire stuff is only for PCI */
 #ifdef CONFIG_ISDN_DRV_EICON_PCI
 
 int eicon_pci_find_card(char *ID)

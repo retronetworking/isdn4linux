@@ -12,7 +12,6 @@
  *
  */
 
-#define __NO_VERSION__
 #include "act2000.h"
 #include "act2000_isa.h"
 #include "capi.h"
@@ -70,7 +69,7 @@ act2000_isa_detect(unsigned short portbase)
         return ret;
 }
 
-static void
+static irqreturn_t
 act2000_isa_interrupt(int irq, void *dev_id, struct pt_regs *regs)
 {
         act2000_card *card = irq2card_map[irq];
@@ -79,7 +78,7 @@ act2000_isa_interrupt(int irq, void *dev_id, struct pt_regs *regs)
         if (!card) {
                 printk(KERN_WARNING
                        "act2000: Spurious interrupt!\n");
-                return;
+                return IRQ_NONE;
         }
         istatus = (inb(ISA_PORT_ISR) & 0x07);
         if (istatus & ISA_ISR_OUT) {
@@ -96,6 +95,7 @@ act2000_isa_interrupt(int irq, void *dev_id, struct pt_regs *regs)
         }
 	if (istatus)
 		printk(KERN_DEBUG "act2000: ?IRQ %d %02x\n", irq, istatus);
+	return IRQ_HANDLED;
 }
 
 static void
@@ -178,7 +178,8 @@ act2000_isa_config_port(act2000_card * card, unsigned short portbase)
                 card->flags &= ~ACT2000_FLAGS_PVALID;
         }
         if (!check_region(portbase, ISA_REGION)) {
-                request_region(portbase, ACT2000_PORTLEN, card->regname);
+                if (request_region(portbase, ACT2000_PORTLEN, card->regname) == NULL)
+			return -EIO;
                 card->port = portbase;
                 card->flags |= ACT2000_FLAGS_PVALID;
                 return 0;
@@ -340,9 +341,6 @@ act2000_isa_send(act2000_card * card)
 		while (skb->len) {
 			if (act2000_isa_writeb(card, *(skb->data))) {
 				/* Fifo is full, but more data to send */
-#if 0
-				printk(KERN_DEBUG "act2000_isa_send: %d bytes\n", l);
-#endif
 				test_and_clear_bit(ACT2000_LOCK_TX, (void *) &card->ilock);
 				/* Schedule myself */
 				act2000_schedule_tx(card);
@@ -365,9 +363,6 @@ act2000_isa_send(act2000_card * card)
 		} else
 			dev_kfree_skb(skb);
 		card->sbuf = NULL;
-#if 0
-		printk(KERN_DEBUG "act2000_isa_send: %d bytes\n", l);
-#endif
 	}
 }
 

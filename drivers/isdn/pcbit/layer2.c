@@ -30,7 +30,7 @@
 #include <linux/types.h>
 #include <linux/slab.h>
 #include <linux/interrupt.h>
-#include <linux/tqueue.h>
+#include <linux/workqueue.h>
 #include <linux/mm.h>
 #include <linux/skbuff.h>
 
@@ -81,8 +81,7 @@ static void pcbit_firmware_bug(struct pcbit_dev *dev);
 static __inline__ void
 pcbit_sched_delivery(struct pcbit_dev *dev)
 {
-	queue_task(&dev->qdelivery, &tq_immediate);
-	mark_bh(IMMEDIATE_BH);
+	schedule_work(&dev->qdelivery);
 }
 
 
@@ -369,16 +368,11 @@ pcbit_receive(struct pcbit_dev *dev)
 
 		if (dev->read_frame) {
 			printk(KERN_DEBUG "pcbit_receive: Type 0 frame and read_frame != NULL\n");
-#if 0
-			pcbit_l2_error(dev);
-			return;
-#else
 			/* discard previous queued frame */
 			if (dev->read_frame->skb)
 				kfree_skb(dev->read_frame->skb);
 			kfree(dev->read_frame);
 			dev->read_frame = NULL;
-#endif
 		}
 		frame = kmalloc(sizeof(struct frame_buf), GFP_ATOMIC);
 
@@ -454,14 +448,10 @@ pcbit_receive(struct pcbit_dev *dev)
 
 		if (!(frame = dev->read_frame)) {
 			printk("Type 1 frame and no frame queued\n");
-#if 1
 			/* usually after an error: toss frame */
 			dev->readptr += tt;
 			if (dev->readptr > dev->sh_mem + BANK2 + BANKLEN)
 				dev->readptr -= BANKLEN;
-#else
-			pcbit_l2_error(dev);
-#endif
 			return;
 
 		}
@@ -534,7 +524,7 @@ pcbit_firmware_bug(struct pcbit_dev *dev)
 	}
 }
 
-void
+irqreturn_t
 pcbit_irq_handler(int interrupt, void *devptr, struct pt_regs *regs)
 {
 	struct pcbit_dev *dev;
@@ -546,11 +536,11 @@ pcbit_irq_handler(int interrupt, void *devptr, struct pt_regs *regs)
 
 	if (!dev) {
 		printk(KERN_WARNING "pcbit_irq_handler: wrong device\n");
-		return;
+		return IRQ_NONE;
 	}
 	if (dev->interrupt) {
 		printk(KERN_DEBUG "pcbit: reentering interrupt hander\n");
-		return;
+		return IRQ_HANDLED;
 	}
 	dev->interrupt = 1;
 
@@ -559,7 +549,7 @@ pcbit_irq_handler(int interrupt, void *devptr, struct pt_regs *regs)
 	if (dev->l2_state == L2_STARTING || dev->l2_state == L2_ERROR) {
 		pcbit_l2_active_conf(dev, info);
 		dev->interrupt = 0;
-		return;
+		return IRQ_HANDLED;
 	}
 	if (info & 0x40U) {     /* E bit set */
 #ifdef DEBUG
@@ -567,11 +557,11 @@ pcbit_irq_handler(int interrupt, void *devptr, struct pt_regs *regs)
 #endif
 		pcbit_l2_error(dev);
 		dev->interrupt = 0;
-		return;
+		return IRQ_HANDLED;
 	}
 	if (dev->l2_state != L2_RUNNING && dev->l2_state != L2_LOADING) {
 		dev->interrupt = 0;
-		return;
+		return IRQ_HANDLED;
 	}
 	ack_seq = (info >> 3) & 0x07U;
 	read_seq = (info & 0x07U);
@@ -592,6 +582,7 @@ pcbit_irq_handler(int interrupt, void *devptr, struct pt_regs *regs)
 	info |= dev->send_seq;
 
 	writeb(info, dev->sh_mem + BANK4);
+	return IRQ_HANDLED;
 }
 
 
