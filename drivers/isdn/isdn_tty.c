@@ -20,6 +20,10 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.36  1997/03/04 21:41:55  fritz
+ * Fix: Excessive stack usage of isdn_tty_senddown()
+ *      and isdn_tty_end_vrx() could lead to problems.
+ *
  * Revision 1.35  1997/03/02 19:05:52  fritz
  * Bugfix: Avoid recursion.
  *
@@ -221,21 +225,29 @@ isdn_tty_try_read(modem_info * info, struct sk_buff *skb)
 		if ((tty = info->tty)) {
 			if (info->mcr & UART_MCR_RTS) {
 				c = TTY_FLIPBUF_SIZE - tty->flip.count;
-				len = skb->len + ISDN_AUDIO_SKB_DLECOUNT(skb);
+				len = skb->len
+#ifdef CONFIG_ISDN_AUDIO
+					+ ISDN_AUDIO_SKB_DLECOUNT(skb)
+#endif
+					;
 				if (c >= len) {
+#ifdef CONFIG_ISDN_AUDIO
 					if (ISDN_AUDIO_SKB_DLECOUNT(skb))
 						while (skb->len--) {
 							if (*skb->data == DLE)
 								tty_insert_flip_char(tty, DLE, 0);
 							tty_insert_flip_char(tty, *skb->data++, 0);
 					} else {
+#endif
 						memcpy(tty->flip.char_buf_ptr,
 						       skb->data, len);
 						tty->flip.count += len;
 						tty->flip.char_buf_ptr += len;
 						memset(tty->flip.flag_buf_ptr, 0, len);
 						tty->flip.flag_buf_ptr += len;
+#ifdef CONFIG_ISDN_AUDIO
 					}
+#endif
 					if (info->emu.mdmreg[12] & 128)
 						tty->flip.flag_buf_ptr[len - 1] = 0xff;
 					queue_task_irq_off(&tty->flip.tqueue, &tq_timer);
@@ -329,27 +341,30 @@ isdn_tty_rcv_skb(int i, int di, int channel, struct sk_buff *skb)
 	if (info->vonline)
 		isdn_audio_calc_dtmf(info, skb->data, skb->len, ifmt);
 #endif
-	if ((info->online < 2) &&
-	    (!(info->vonline & 1))) {
+	if ((info->online < 2)
+#ifdef CONFIG_ISDN_AUDIO
+	    && (!(info->vonline & 1))
+#endif
+		) {
 		/* If Modem not listening, drop data */
-	    SET_SKB_FREE(skb);
-    	kfree_skb(skb, FREE_READ);
+		SET_SKB_FREE(skb);
+		kfree_skb(skb, FREE_READ);
 		return 1;
 	}
 	if (info->emu.mdmreg[13] & 2)
 		/* T.70 decoding: Simply throw away the T.70 header (4 bytes) */
 		if ((skb->data[0] == 1) && ((skb->data[1] == 0) || (skb->data[1] == 1)))
 			skb_pull(skb, 4);
+#ifdef CONFIG_ISDN_AUDIO
 	if (skb_headroom(skb) < sizeof(isdn_audio_skb)) {
 		printk(KERN_WARNING
 		       "isdn_audio: insufficient skb_headroom, dropping\n");
-	    SET_SKB_FREE(skb);
-    	kfree_skb(skb, FREE_READ);
+		SET_SKB_FREE(skb);
+		kfree_skb(skb, FREE_READ);
 		return 1;
 	}
 	ISDN_AUDIO_SKB_DLECOUNT(skb) = 0;
 	ISDN_AUDIO_SKB_LOCK(skb) = 0;
-#ifdef CONFIG_ISDN_AUDIO
 	if (info->vonline & 1) {
 		/* voice conversion/compression */
 		switch (info->emu.vpar[3]) {
@@ -394,7 +409,11 @@ isdn_tty_rcv_skb(int i, int di, int channel, struct sk_buff *skb)
 	 */
 	__skb_queue_tail(&dev->drv[di]->rpqueue[channel], skb);
 	dev->drv[di]->rcvcount[channel] +=
-		(skb->len + ISDN_AUDIO_SKB_DLECOUNT(skb));
+		(skb->len
+#ifdef CONFIG_ISDN_AUDIO
+		 + ISDN_AUDIO_SKB_DLECOUNT(skb)
+#endif
+			);
 	restore_flags(flags);
 	/* Schedule dequeuing */
 	if ((dev->modempoll) && (info->rcvsched))
@@ -415,11 +434,13 @@ isdn_tty_cleanup_xmit(modem_info * info)
 			SET_SKB_FREE(skb);
 			kfree_skb(skb, FREE_WRITE);
 		}
+#ifdef CONFIG_ISDN_AUDIO
 	if (skb_queue_len(&info->dtmf_queue))
 		while ((skb = skb_dequeue(&info->dtmf_queue))) {
 			SET_SKB_FREE(skb);
 			kfree_skb(skb, FREE_WRITE);
 		}
+#endif
 	restore_flags(flags);
 }
 
@@ -434,7 +455,7 @@ isdn_tty_tint(modem_info * info)
 		return;
 	len = skb->len;
 	if ((slen = isdn_writebuf_skb_stub(info->isdn_driver,
-				      info->isdn_channel, skb)) == len) {
+					   info->isdn_channel, skb)) == len) {
 		struct tty_struct *tty = info->tty;
 		info->send_outstanding++;
 		info->msr |= UART_MSR_CTS;
@@ -445,7 +466,13 @@ isdn_tty_tint(modem_info * info)
 		wake_up_interruptible(&tty->write_wait);
 		return;
 	}
-	if (slen > 0)
+	if (slen < 0) {
+		/* Error: no channel, already shutdown, or wrong parameter */
+		SET_SKB_FREE(skb);
+		dev_kfree_skb(skb, FREE_WRITE);
+		return;
+	}
+	if (slen)
 		skb_pull(skb, slen);
 	skb_queue_head(&info->xmit_queue, skb);
 }
@@ -564,10 +591,13 @@ isdn_tty_senddown(modem_info * info)
 {
 	int buflen;
 	int skb_res;
+#ifdef CONFIG_ISDN_AUDIO
 	int audio_len;
+#endif
 	struct sk_buff *skb;
 	unsigned long flags;
 
+#ifdef CONFIG_ISDN_AUDIO
 	if (info->vonline & 4) {
 		info->vonline &= ~6;
 		if (!info->vonline) {
@@ -579,6 +609,7 @@ isdn_tty_senddown(modem_info * info)
 			isdn_tty_at_cout("\r\nVCON\r\n", info);
 		}
 	}
+#endif
 	save_flags(flags);
 	cli();
 	if (!(buflen = info->xmit_count)) {
@@ -591,11 +622,15 @@ isdn_tty_senddown(modem_info * info)
 		return;
 	}
 	skb_res = dev->drv[info->isdn_driver]->interface->hl_hdrlen + 4;
+#ifdef CONFIG_ISDN_AUDIO
 	if (info->vonline & 2)
 		audio_len = buflen * voice_cf[info->emu.vpar[3]];
 	else
 		audio_len = 0;
 	skb = dev_alloc_skb(skb_res + buflen + audio_len);
+#else
+	skb = dev_alloc_skb(skb_res + buflen);
+#endif
 	if (!skb) {
 		restore_flags(flags);
 		printk(KERN_WARNING
@@ -642,7 +677,7 @@ isdn_tty_senddown(modem_info * info)
 			case 6:
 				/* u-law */
 				if (ifmt)
-					isdn_audio_alaw2ulaw(skb->data,
+					isdn_audio_ulaw2alaw(skb->data,
 							     buflen);
 				break;
 		}
@@ -1005,11 +1040,16 @@ isdn_tty_write(struct tty_struct *tty, int from_user, const u_char * buf, int co
 			c = MIN(c, dev->drv[info->isdn_driver]->maxbufsize);
 		if (c <= 0)
 			break;
-		if ((info->online > 1) ||
-		    (info->vonline & 3)) {
+		if ((info->online > 1)
+#ifdef CONFIG_ISDN_AUDIO
+		    || (info->vonline & 3)
+#endif
+			) {
 			atemu *m = &info->emu;
 
+#ifdef CONFIG_ISDN_AUDIO
 			if (!info->vonline)
+#endif
 				isdn_tty_check_esc(buf, m->mdmreg[2], c,
 						   &(m->pluscount),
 						   &(m->lastplus),
@@ -1059,8 +1099,6 @@ isdn_tty_write(struct tty_struct *tty, int from_user, const u_char * buf, int co
 		} else {
 			info->msr |= UART_MSR_CTS;
 			info->lsr |= UART_LSR_TEMT;
-#ifdef CONFIG_ISDN_AUDIO
-#endif
 			if (info->dialing) {
 				info->dialing = 0;
 #ifdef ISDN_DEBUG_MODEM_HUP
@@ -1746,6 +1784,7 @@ isdn_tty_reset_profile(atemu * m)
 	m->pmsn[0] = '\0';
 }
 
+#ifdef CONFIG_ISDN_AUDIO
 static void
 isdn_tty_modem_reset_vpar(atemu * m)
 {
@@ -1754,6 +1793,7 @@ isdn_tty_modem_reset_vpar(atemu * m)
 	m->vpar[2] = 70;        /* Silence interval        (7 sec.        ) */
 	m->vpar[3] = 2;         /* Compression type        (1 = ADPCM-2   ) */
 }
+#endif
 
 static void
 isdn_tty_modem_reset_regs(modem_info * info, int force)
@@ -1764,7 +1804,9 @@ isdn_tty_modem_reset_regs(modem_info * info, int force)
 		memcpy(m->msn, m->pmsn, ISDN_MSNLEN);
 		info->xmit_size = m->mdmreg[16] * 16;
 	}
+#ifdef CONFIG_ISDN_AUDIO
 	isdn_tty_modem_reset_vpar(m);
+#endif
 	m->mdmcmdl = 0;
 }
 
@@ -1858,7 +1900,9 @@ isdn_tty_modem_init(void)
 		info->drv_index = -1;
 		info->xmit_size = ISDN_SERIAL_XMIT_SIZE;
 		skb_queue_head_init(&info->xmit_queue);
+#ifdef CONFIG_ISDN_AUDIO
 		skb_queue_head_init(&info->dtmf_queue);
+#endif
 		if (!(info->xmit_buf = kmalloc(ISDN_SERIAL_XMIT_SIZE + 5, GFP_KERNEL))) {
 			printk(KERN_ERR "Could not allocate modem xmit-buffer\n");
 			return -3;
@@ -2229,6 +2273,7 @@ isdn_tty_modem_result(int code, modem_info * info)
 				return;
 			}
 			restore_flags(flags);
+#ifdef CONFIG_ISDN_AUDIO
 			if (info->vonline & 1) {
 #ifdef ISDN_DEBUG_MODEM_VOICE
 				printk(KERN_DEBUG "res3: send DLE-ETX on ttyI%d\n",
@@ -2245,6 +2290,7 @@ isdn_tty_modem_result(int code, modem_info * info)
 				/* voice-playing, add DLE-DC4 */
 				isdn_tty_at_cout("\020\024", info);
 			}
+#endif
 			break;
 		case 1:
 		case 5:
@@ -3132,7 +3178,9 @@ isdn_tty_parse_at(modem_info * info)
 				PARSE_ERROR;
 		}
 	}
+#ifdef CONFIG_ISDN_AUDIO
 	if (!info->vonline)
+#endif
 		isdn_tty_modem_result(0, info);
 }
 
