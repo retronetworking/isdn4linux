@@ -6,6 +6,9 @@
  *
  *
  * $Log$
+ * Revision 1.4  1997/07/30 17:11:59  keil
+ * fixed Timer3
+ *
  * Revision 1.3  1997/07/27 21:37:40  keil
  * T3 implemented; supervisor l1timer; B-channel TEST_LOOP
  *
@@ -301,7 +304,7 @@ isac_interrupt(struct IsdnCardState *cs, u_char val)
 			if (exval & 0x40)
 				if (cs->debug & L1_DEB_WARN)
 					debugl1(cs, "ISAC RDO");
-			if (!exval & 0x20)
+			if (!(exval & 0x20))
 				if (cs->debug & L1_DEB_WARN)
 					debugl1(cs, "ISAC CRC error");
 			cs->writeisac(cs, ISAC_CMDR, 0x80);
