@@ -6,6 +6,13 @@
  * (c) Copyright 1999 by Carsten Paeth (calle@calle.in-berlin.de)
  * 
  * $Log$
+ * Revision 1.8  1999/11/05 16:38:01  calle
+ * Cleanups before kernel 2.4:
+ * - Changed all messages to use card->name or driver->name instead of
+ *   constant string.
+ * - Moved some data from struct avmcard into new struct avmctrl_info.
+ *   Changed all lowlevel capi driver to match the new structur.
+ *
  * Revision 1.7  1999/09/15 08:16:03  calle
  * Implementation of 64Bit extention complete.
  *
@@ -494,6 +501,10 @@ static int t1isa_add_card(struct capi_driver *driver, struct capicardparams *p)
 		kfree(card);
 		return -EBUSY;
 	}
+
+	printk(KERN_INFO
+		"%s: AVM T1 ISA at i/o %#x, irq %d, card %d\n",
+		driver->name, card->port, card->irq, card->cardnr);
 
 	MOD_INC_USE_COUNT;
 	return 0;

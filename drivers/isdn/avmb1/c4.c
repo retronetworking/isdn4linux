@@ -6,6 +6,9 @@
  * (c) Copyright 1999 by Carsten Paeth (calle@calle.in-berlin.de)
  * 
  * $Log$
+ * Revision 1.2  2000/01/21 20:52:58  keil
+ * pci_find_subsys as local function for 2.2.X kernel
+ *
  * Revision 1.1  2000/01/20 10:51:37  calle
  * Added driver for C4.
  *
@@ -1186,6 +1189,10 @@ static int c4_add_card(struct capi_driver *driver, struct capicardparams *p)
 
 	skb_queue_head_init(&card->dma->send_queue);
 
+	printk(KERN_INFO
+		"%s: AVM C4 at i/o %#x, irq %d, mem %#lx\n",
+		driver->name, card->port, card->irq, card->membase);
+
 	MOD_INC_USE_COUNT;
 
 	return 0;
@@ -1275,9 +1282,9 @@ int c4_init(void)
 			PCI_VENDOR_ID_AVM, PCI_DEVICE_ID_AVM_C4, dev))) {
 		struct capicardparams param;
 
-		param.port = dev->base_address[ 1] & PCI_BASE_ADDRESS_IO_MASK;
+		param.port = get_pcibase(dev, 1) & PCI_BASE_ADDRESS_IO_MASK;
 		param.irq = dev->irq;
-		param.membase = dev->base_address[ 0] & PCI_BASE_ADDRESS_MEM_MASK;
+		param.membase = get_pcibase(dev, 0) & PCI_BASE_ADDRESS_MEM_MASK;
 
 		printk(KERN_INFO
 			"%s: PCI BIOS reports AVM-C4 at i/o %#x, irq %d, mem %#x\n",

@@ -6,6 +6,13 @@
  * (c) Copyright 1999 by Carsten Paeth (calle@calle.in-berlin.de)
  * 
  * $Log$
+ * Revision 1.5  1999/11/05 16:38:01  calle
+ * Cleanups before kernel 2.4:
+ * - Changed all messages to use card->name or driver->name instead of
+ *   constant string.
+ * - Moved some data from struct avmcard into new struct avmctrl_info.
+ *   Changed all lowlevel capi driver to match the new structur.
+ *
  * Revision 1.4  1999/08/22 20:26:24  calle
  * backported changes from kernel 2.3.14:
  * - several #include "config.h" gone, others come.
@@ -63,10 +70,6 @@ MODULE_AUTHOR("Carsten Paeth <calle@calle.in-berlin.de>");
 
 /* ------------------------------------------------------------- */
 
-static struct capi_driver_interface *di;
-
-/* ------------------------------------------------------------- */
-
 static void b1isa_interrupt(int interrupt, void *devptr, struct pt_regs *regs)
 {
 	avmcard *card;
@@ -88,6 +91,10 @@ static void b1isa_interrupt(int interrupt, void *devptr, struct pt_regs *regs)
 
 	card->interrupt = 0;
 }
+/* ------------------------------------------------------------- */
+
+static struct capi_driver_interface *di;
+
 /* ------------------------------------------------------------- */
 
 static void b1isa_remove_ctr(struct capi_ctr *ctrl)
@@ -167,6 +174,7 @@ static int b1isa_add_card(struct capi_driver *driver, struct capicardparams *p)
 		return -EIO;
 	}
 	b1_reset(card->port);
+	b1_getrevision(card);
 
 	request_region(p->port, AVMB1_PORTLEN, card->name);
 
@@ -189,6 +197,10 @@ static int b1isa_add_card(struct capi_driver *driver, struct capicardparams *p)
 		return -EBUSY;
 	}
 
+	printk(KERN_INFO
+		"%s: AVM B1 ISA at i/o %#x, irq %d, revision %d\n",
+		driver->name, card->port, card->irq, card->revision);
+
 	MOD_INC_USE_COUNT;
 	return 0;
 }
@@ -199,11 +211,12 @@ static char *b1isa_procinfo(struct capi_ctr *ctrl)
 
 	if (!cinfo)
 		return "";
-	sprintf(cinfo->infobuf, "%s %s 0x%x %d",
+	sprintf(cinfo->infobuf, "%s %s 0x%x %d r%d",
 		cinfo->cardname[0] ? cinfo->cardname : "-",
 		cinfo->version[VER_DRIVER] ? cinfo->version[VER_DRIVER] : "-",
 		cinfo->card ? cinfo->card->port : 0x0,
-		cinfo->card ? cinfo->card->irq : 0
+		cinfo->card ? cinfo->card->irq : 0,
+		cinfo->card ? cinfo->card->revision : 0
 		);
 	return cinfo->infobuf;
 }

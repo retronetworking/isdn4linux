@@ -6,6 +6,13 @@
  * (c) Copyright 1999 by Carsten Paeth (calle@calle.in-berlin.de)
  * 
  * $Log$
+ * Revision 1.5  1999/11/05 16:38:01  calle
+ * Cleanups before kernel 2.4:
+ * - Changed all messages to use card->name or driver->name instead of
+ *   constant string.
+ * - Moved some data from struct avmcard into new struct avmctrl_info.
+ *   Changed all lowlevel capi driver to match the new structur.
+ *
  * Revision 1.4  1999/08/22 20:26:26  calle
  * backported changes from kernel 2.3.14:
  * - several #include "config.h" gone, others come.
@@ -120,6 +127,7 @@ static int b1pcmcia_add_card(struct capi_driver *driver,
 {
 	avmctrl_info *cinfo;
 	avmcard *card;
+	char *cardname;
 	int retval;
 
 	card = (avmcard *) kmalloc(sizeof(avmcard), GFP_ATOMIC);
@@ -156,6 +164,7 @@ static int b1pcmcia_add_card(struct capi_driver *driver,
 		return -EIO;
 	}
 	b1_reset(card->port);
+	b1_getrevision(card);
 
 	retval = request_irq(card->irq, b1pcmcia_interrupt, 0, card->name, card);
 	if (retval) {
@@ -175,6 +184,15 @@ static int b1pcmcia_add_card(struct capi_driver *driver,
 		kfree(card);
 		return -EBUSY;
 	}
+	switch (cardtype) {
+		case avm_m1: cardname = "M1"; break;
+		case avm_m2: cardname = "M2"; break;
+		default    : cardname = "B1 PCMCIA"; break;
+	}
+
+	printk(KERN_INFO
+		"%s: AVM %s at i/o %#x, irq %d, revision %d\n",
+		driver->name, cardname, card->port, card->irq, card->revision);
 
 	MOD_INC_USE_COUNT;
 	return cinfo->capi_ctrl->cnr;
@@ -188,11 +206,12 @@ static char *b1pcmcia_procinfo(struct capi_ctr *ctrl)
 
 	if (!cinfo)
 		return "";
-	sprintf(cinfo->infobuf, "%s %s 0x%x %d",
+	sprintf(cinfo->infobuf, "%s %s 0x%x %d r%d",
 		cinfo->cardname[0] ? cinfo->cardname : "-",
 		cinfo->version[VER_DRIVER] ? cinfo->version[VER_DRIVER] : "-",
 		cinfo->card ? cinfo->card->port : 0x0,
-		cinfo->card ? cinfo->card->irq : 0
+		cinfo->card ? cinfo->card->irq : 0,
+		cinfo->card ? cinfo->card->revision : 0
 		);
 	return cinfo->infobuf;
 }
