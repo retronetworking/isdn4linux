@@ -6,6 +6,21 @@
  * Heavily based on devpts filesystem from H. Peter Anvin
  * 
  * $Log$
+ * Revision 1.4  2000/03/08 17:06:33  calle
+ * - changes for devfs and 2.3.49
+ * - capifs now configurable (no need with devfs)
+ * - New Middleware ioctl CAPI_NCCI_GETUNIT
+ * - Middleware again tested with 2.2.14 and 2.3.49 (with and without devfs)
+ *
+ * Revision 1.3  2000/03/06 18:00:23  calle
+ * - Middleware extention now working with 2.3.49 (capifs).
+ * - Fixed typos in debug section of capi.c
+ * - Bugfix: Makefile corrected for b1pcmcia.c
+ *
+ * Revision 1.2  2000/03/06 09:17:07  calle
+ * - capifs: fileoperations now in inode (change for 2.3.49)
+ * - Config.in: Middleware extention not a tristate, uups.
+ *
  * Revision 1.1  2000/03/03 16:48:38  calle
  * - Added CAPI2.0 Middleware support (CONFIG_ISDN_CAPI)
  *   It is now possible to create a connection with a CAPI2.0 applikation
@@ -34,6 +49,7 @@
 #include <linux/malloc.h>
 #include <linux/stat.h>
 #include <linux/tty.h>
+#include <linux/ctype.h>
 #include <asm/bitops.h>
 #include <asm/uaccess.h>
 
@@ -43,9 +59,10 @@ static char *revision = "$Revision$";
 
 struct capifs_ncci {
 	struct inode *inode;
-	u16 applid;
-	u32 ncci;
-	char type[4];
+	char used;
+	char type;
+	unsigned int num;
+	kdev_t kdev;
 };
 
 struct capifs_sb_info {
@@ -77,17 +94,20 @@ static struct dentry *capifs_root_lookup(struct inode *,struct dentry *);
 static int capifs_revalidate(struct dentry *, int);
 
 static struct file_operations capifs_root_operations = {
-	NULL,                   /* llseek */
-	NULL,                   /* read */
-	NULL,                   /* write */
-	capifs_root_readdir,    /* readdir */
+#ifdef COMPAT_has_generic_read_dir
+	read:		generic_read_dir,
+#endif
+	readdir:	capifs_root_readdir,
 };
 
 struct inode_operations capifs_root_inode_operations = {
+#ifndef COMPAT_has_fileops_in_inode
 	&capifs_root_operations, /* file operations */
-	NULL,                   /* create */
-	capifs_root_lookup,     /* lookup */
+#endif
+	lookup: capifs_root_lookup,
 };
+
+struct inode_operations capifs_inode_operations;
 
 static struct dentry_operations capifs_dentry_operations = {
 	capifs_revalidate,	/* d_revalidate */
@@ -96,9 +116,8 @@ static struct dentry_operations capifs_dentry_operations = {
 };
 
 /*
- * The normal naming convention is simply
- * /dev/capi/tty<appl>-<ncci>
- * /dev/capi/raw<appl>-<ncci>
+ * /dev/capi/%d
+ * /dev/capi/r%d
  */
 
 static int capifs_root_readdir(struct file *filp, void *dirent, filldir_t filldir)
@@ -123,13 +142,13 @@ static int capifs_root_readdir(struct file *filp, void *dirent, filldir_t filldi
 		filp->f_pos = ++nr;
 		/* fall through */
 	default:
-		while ( nr < sbi->max_ncci ) {
+		while (nr < sbi->max_ncci) {
 			int n = nr - 2;
-			if ( sbi->nccis[n].inode ) {
-				memcpy(numbuf, sbi->nccis[n].type, 3);
-				sprintf(numbuf+3, "%u-%x",
-					sbi->nccis[n].applid,
-					sbi->nccis[n].ncci);
+			struct capifs_ncci *np = &sbi->nccis[n];
+			if (np->inode && np->used) {
+				char *p = numbuf;
+				if (np->type) *p++ = np->type;
+				sprintf(p, "%u", np->num);
 				if ( filldir(dirent, numbuf, strlen(numbuf), nr, nr) < 0 )
 					return 0;
 			}
@@ -164,30 +183,26 @@ static struct dentry *capifs_root_lookup(struct inode * dir, struct dentry * den
 	struct capifs_ncci *np;
 	unsigned int i;
 	char numbuf[32];
-	const char *p;
-	char *tmp;
-	u16 applid;
-	u32 ncci;
+	char *p, *tmp;
+	unsigned int num;
+	char type = 0;
 
 	dentry->d_inode = NULL;	/* Assume failure */
 	dentry->d_op    = &capifs_dentry_operations;
 
-	if ( dentry->d_name.len < 6 || dentry->d_name.len >= sizeof(numbuf) )
+	if (dentry->d_name.len >= sizeof(numbuf) )
 		return NULL;
 	strncpy(numbuf, dentry->d_name.name, dentry->d_name.len);
 	numbuf[dentry->d_name.len] = 0;
-        p = tmp = numbuf+3;
-	applid = (u16)simple_strtoul(p, &tmp, 10);
-	if (applid == 0 || tmp == p || *tmp != '-')
-		return NULL;
-	p = ++tmp;
-	ncci = (u32)simple_strtoul(p, &tmp, 16);
-	if (ncci == 0 || tmp == p || *tmp)
+        p = numbuf;
+	if (!isdigit(*p)) type = *p++;
+	tmp = p;
+	num = (unsigned int)simple_strtoul(p, &tmp, 10);
+	if (tmp == p || *tmp)
 		return NULL;
 
 	for (i = 0, np = sbi->nccis ; i < sbi->max_ncci; i++, np++) {
-		if (np->applid == applid && np->ncci == ncci
-			&& memcmp(numbuf, np->type, 3) == 0)
+		if (np->used && np->num == num && np->type == type)
 			break;
 	}
 
@@ -238,16 +253,10 @@ static void capifs_read_inode(struct inode *inode);
 static void capifs_write_inode(struct inode *inode);
 
 static struct super_operations capifs_sops = {
-	capifs_read_inode,
-	capifs_write_inode,
-	NULL,			/* put_inode */
-	NULL,			/* delete_inode */
-	NULL,			/* notify_change */
-	capifs_put_super,
-	NULL,			/* write_super */
-	capifs_statfs,
-	NULL,			/* remount_fs */
-	NULL,			/* clear_inode */
+	read_inode:	capifs_read_inode,
+	write_inode:	capifs_write_inode,
+	put_super:	capifs_put_super,
+	statfs:		capifs_statfs,
 };
 
 static int capifs_parse_options(char *options, struct capifs_sb_info *sbi)
@@ -454,20 +463,26 @@ static void capifs_read_inode(struct inode *inode)
 	if ( ino == 1 ) {
 		inode->i_mode = S_IFDIR | S_IRUGO | S_IXUGO | S_IWUSR;
 		inode->i_op = &capifs_root_inode_operations;
+#ifdef COMPAT_has_fileops_in_inode
+		inode->i_fop = &capifs_root_operations;
+#endif
 		inode->i_nlink = 2;
 		return;
 	} 
+
+#ifdef COMPAT_has_fileops_in_inode
+	/* need dummy inode operations .... */
+	inode->i_op = &capifs_inode_operations;
+#endif
 
 	ino -= 2;
 	if ( ino >= sbi->max_ncci )
 		return;		/* Bogus */
 	
 #ifdef COMPAT_HAS_init_special_inode
-	/* Gets filled in by capifs_new_ncci() */
-	init_special_inode(inode,S_IFCHR,0);
+	init_special_inode(inode, S_IFCHR, 0);
 #else
 	inode->i_mode = S_IFCHR;
-	inode->i_rdev = MKDEV(0,0); /* Gets filled in by devpts_pty_new() */
 	inode->i_op = &chrdev_inode_operations;
 #endif
 
@@ -485,32 +500,22 @@ static struct file_system_type capifs_fs_type = {
 	NULL
 };
 
-void capifs_new_ncci(__u16 applid, __u32 ncci, char *type, kdev_t device)
+void capifs_new_ncci(char type, unsigned int num, kdev_t device)
 {
 	struct super_block *sb;
 	struct capifs_sb_info *sbi;
 	struct capifs_ncci *np;
-	char stype[4];
-	char *s = type;
 	ino_t ino;
-	int i;
 
-	for (i=0; i < 3; i++) {
-		if (*s) 
-			stype[i] = *s++;
-		else
-			stype[i] = '-';
-	}
-	stype[3] = 0;
-		
 	for ( sb = mounts ; sb ; sb = sbi->next ) {
 		sbi = SBI(sb);
 
 		for (ino = 0, np = sbi->nccis ; ino < sbi->max_ncci; ino++, np++) {
-			if (np->applid == 0 && np->ncci == 0) {
-				np->applid = applid;
-				np->ncci = ncci;
-				memcpy(np->type, stype, 4);
+			if (np->used == 0) {
+				np->used = 1;
+				np->type = type;
+				np->num = num;
+				np->kdev = device;
 				break;
 			}
 		}
@@ -520,40 +525,29 @@ void capifs_new_ncci(__u16 applid, __u32 ncci, char *type, kdev_t device)
 			inode->i_uid = sbi->setuid ? sbi->uid : current->fsuid;
 			inode->i_gid = sbi->setgid ? sbi->gid : current->fsgid;
 			inode->i_mode = sbi->mode | S_IFCHR;
-			inode->i_rdev = device;
+			inode->i_rdev = np->kdev;
 			inode->i_nlink++;
 		}
 	}
 }
 
-void capifs_free_ncci(__u16 applid, __u32 ncci, char *type)
+void capifs_free_ncci(char type, unsigned int num)
 {
 	struct super_block *sb;
 	struct capifs_sb_info *sbi;
 	struct inode *inode;
 	struct capifs_ncci *np;
-	char stype[4];
-	char *s = type;
 	ino_t ino;
-	int i;
-
-	for (i=0; i < 3; i++) {
-		if (*s) 
-			stype[i] = *s++;
-		else
-			stype[i] = '-';
-	}
-	stype[3] = 0;
 
 	for ( sb = mounts ; sb ; sb = sbi->next ) {
 		sbi = SBI(sb);
 
 		for (ino = 0, np = sbi->nccis ; ino < sbi->max_ncci; ino++, np++) {
-			if (np->applid != applid || np->ncci != ncci)
+			if (!np->used || np->type != type || np->num != num)
 				continue;
-			if (np->inode && memcmp(stype, np->type, 4) == 0) {
+			if (np->inode) {
 				inode = np->inode;
-				memset(np, 0, sizeof(struct capifs_ncci));
+				np->used = 0;
 				inode->i_nlink--;
 				iput(inode);
 				break;

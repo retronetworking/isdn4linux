@@ -4,6 +4,12 @@
  * (c) Copyright 2000 by Carsten Paeth (calle@calle.de)
  *
  * $Log$
+ * Revision 1.2  2000/03/08 17:06:33  calle
+ * - changes for devfs and 2.3.49
+ * - capifs now configurable (no need with devfs)
+ * - New Middleware ioctl CAPI_NCCI_GETUNIT
+ * - Middleware again tested with 2.2.14 and 2.3.49 (with and without devfs)
+ *
  * Revision 1.1  2000/03/03 16:48:38  calle
  * - Added CAPI2.0 Middleware support (CONFIG_ISDN_CAPI)
  *   It is now possible to create a connection with a CAPI2.0 applikation
@@ -15,5 +21,5 @@
  *
  */
 
-void capifs_new_ncci(__u16 applid, __u32 ncci, char *type, kdev_t device);
-void capifs_free_ncci(__u16 applid, __u32 ncci, char *type);
+void capifs_new_ncci(char type, unsigned int num, kdev_t device);
+void capifs_free_ncci(char type, unsigned int num);
