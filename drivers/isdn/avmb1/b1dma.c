@@ -5,53 +5,6 @@
  * 
  * (c) Copyright 2000 by Carsten Paeth (calle@calle.in-berlin.de)
  * 
- * $Log$
- * Revision 1.14  2001/04/18 12:26:15  calle
- * support for AVM ISDN Controller C2 added.
- *
- * Revision 1.13  2001/03/20 13:14:50  calle
- * - the revision strings in 2.4.3-pre4 get to long, changed handling
- *   to support revision strings > 9 ...
- *
- * Revision 1.12  2001/03/15 15:48:04  kai
- * compatibility changes from KERNEL_2_4
- *
- * Revision 1.11  2000/11/19 17:02:47  kai
- * compatibility cleanup - part 3
- *
- * Revision 1.10  2000/11/19 17:01:53  kai
- * compatibility cleanup - part 2
- *
- * Revision 1.9  2000/11/01 14:05:02  calle
- * - use module_init/module_exit from linux/init.h.
- * - all static struct variables are initialized with "membername:" now.
- * - avm_cs.c, let it work with newer pcmcia-cs.
- *
- * Revision 1.8  2000/10/10 17:44:19  kai
- * changes from/for 2.2.18
- *
- * Revision 1.7  2000/08/04 12:20:08  calle
- * - Fix unsigned/signed warning in the right way ...
- *
- * Revision 1.6  2000/06/29 13:59:06  calle
- * Bugfix: reinit txdma without interrupt will confuse some AMCC chips.
- *
- * Revision 1.5  2000/06/19 16:51:53  keil
- * don't free skb in irq context
- *
- * Revision 1.4  2000/04/03 16:38:05  calle
- * made suppress_pollack static.
- *
- * Revision 1.3  2000/02/26 01:00:53  keil
- * changes from 2.3.47
- *
- * Revision 1.2  2000/01/25 14:44:47  calle
- * typo in b1pciv4_detect().
- *
- * Revision 1.1  2000/01/25 14:36:43  calle
- * common function for  T1 PCI and B1 PCI V4.
- *
- *
  */
 
 #include <linux/config.h>

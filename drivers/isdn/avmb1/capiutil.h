@@ -6,30 +6,6 @@
  * From CAPI 2.0 Development Kit AVM 1995 (capi20.h)
  * Rewritten for Linux 1996 by Carsten Paeth (calle@calle.in-berlin.de)
  * 
- * $Log$
- * Revision 1.4  1999/09/15 08:16:03  calle
- * Implementation of 64Bit extention complete.
- *
- * Revision 1.3  1999/09/07 09:02:53  calle
- * SETDATA removed. Now inside the kernel the datapart of DATA_B3_REQ and
- * DATA_B3_IND is always directly after the CAPI message. The "Data" member
- * ist never used inside the kernel.
- *
- * Revision 1.2  1997/05/18 09:24:19  calle
- * added verbose disconnect reason reporting to avmb1.
- * some fixes in capi20 interface.
- * changed info messages for B1-PCI
- *
- * Revision 1.1  1997/03/04 21:50:35  calle
- * Frirst version in isdn4linux
- *
- * Revision 2.2  1997/02/12 09:31:39  calle
- * new version
- *
- * Revision 1.1  1997/01/31 10:32:20  calle
- * Initial revision
- *
- * 
  */
 #ifndef __CAPIUTIL_H__
 #define __CAPIUTIL_H__
