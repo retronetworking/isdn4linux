@@ -21,6 +21,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.31  1997/01/11 23:30:42  fritz
+ * Speed up dial statemachine.
+ *
  * Revision 1.30  1996/11/25 17:20:50  hipp
  * fixed pppbind bug in isdn_net_find_icall()
  *
@@ -677,6 +680,7 @@ isdn_net_hangup(struct device *d)
 	isdn_ctrl cmd;
 
 	if (lp->flags & ISDN_NET_CONNECTED) {
+		lp->flags &= ~ISDN_NET_CONNECTED;
 		printk(KERN_INFO "isdn_net: local hangup %s\n", lp->name);
 #ifdef CONFIG_ISDN_PPP
 		isdn_ppp_free(lp);
