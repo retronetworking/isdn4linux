@@ -6,6 +6,9 @@
  * (c) Copyright 1999 by Carsten Paeth (calle@calle.in-berlin.de)
  * 
  * $Log$
+ * Revision 1.16  1999/08/11 21:01:07  keil
+ * new PCI codefix
+ *
  * Revision 1.15  1999/08/10 16:02:27  calle
  * struct pci_dev changed in 2.3.13. Made the necessary changes.
  *
@@ -168,7 +171,7 @@ static int b1pci_add_card(struct capi_driver *driver, struct capicardparams *p)
 
 	request_region(p->port, AVMB1_PORTLEN, card->name);
 
-	retval = request_irq(card->irq, b1pci_interrupt, 0, card->name, card);
+	retval = request_irq(card->irq, b1pci_interrupt, SA_SHIRQ, card->name, card);
 	if (retval) {
 		printk(KERN_ERR "b1pci: unable to get IRQ %d.\n", card->irq);
 		release_region(card->port, AVMB1_PORTLEN);
