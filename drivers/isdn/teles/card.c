@@ -7,6 +7,9 @@
  * Beat Doebeli         log all D channel traffic
  * 
  * $Log$
+ * Revision 1.1  1996/04/13 10:22:42  fritz
+ * Initial revision
+ *
  *
  */
 
@@ -18,6 +21,7 @@
 #include <linux/interrupt.h>
 
 #undef DCHAN_VERBOSE
+#define FRITZ_EXPERIMENTAL
 
 extern void     tei_handler(struct PStack *st, byte pr,
 			    struct BufHeader *ibh);
@@ -180,11 +184,16 @@ waitforCEC_3(int iobase, byte hscx)
 static inline void
 waitforXFW_0(byte * base, byte hscx)
 {
+#ifdef FRITZ_EXPERIMENTAL
+	long            to = 20;
+
+	while ((!(readhscx_0(base, hscx, HSCX_STAR) & 0x44)==0x40) && to) {
+#else
 	long            to = 10;
 
 	waitforCEC_0(base, hscx);
-
 	while ((!(readhscx_0(base, hscx, HSCX_STAR) & 0x40)) && to) {
+#endif
 		udelay(5);
 		to--;
 	}
@@ -195,11 +204,16 @@ waitforXFW_0(byte * base, byte hscx)
 static inline void
 waitforXFW_3(int iobase, byte hscx)
 {
+#ifdef FRITZ_EXPERIMENTAL
+	long            to = 20;
+
+	while ((!(readhscx_3(iobase, hscx, HSCX_STAR) & 0x44)==0x40) && to) {
+#else
 	long            to = 10;
 
 	waitforCEC_3(iobase, hscx);
-
 	while ((!(readhscx_3(iobase, hscx, HSCX_STAR) & 0x40)) && to) {
+#endif
 		udelay(5);
 		to--;
 	}
@@ -340,6 +354,28 @@ hscx_empty_fifo(struct HscxState *hsp, int count)
 #endif				/* BCHAN_VERBOSE */
 }
 
+static inline void
+hscx_fill32(struct HscxState *hsp, byte *ptr, int count, int more)
+{
+        if (hsp->membase) {
+                waitforXFW_0(hsp->membase, hsp->hscx);
+                while (count--)
+                        writehscx_0(hsp->membase, hsp->hscx, 0x0, *ptr++);
+                writehscxCMDR_0(hsp->membase, hsp->hscx, more ? 0x8 : 0xa);
+        } else {
+                waitforXFW_3(hsp->iobase, hsp->hscx);
+                writehscx_s(hsp->iobase, hsp->hscx, 0x3e, ptr, count);
+                writehscxCMDR_3(hsp->iobase, hsp->hscx, more ? 0x8 : 0xa);
+        }
+}
+
+static byte hscx_silence[32] = {
+  0xAA,0xAA,0xAA,0xAA,0xAA,0xAA,0xAA,0xAA,
+  0xAA,0xAA,0xAA,0xAA,0xAA,0xAA,0xAA,0xAA,
+  0xAA,0xAA,0xAA,0xAA,0xAA,0xAA,0xAA,0xAA,
+  0xAA,0xAA,0xAA,0xAA,0xAA,0xAA,0xAA,0xAA
+};
+
 static void
 hscx_fill_fifo(struct HscxState *hsp)
 {
@@ -351,12 +387,18 @@ hscx_fill_fifo(struct HscxState *hsp)
 		printk(KERN_DEBUG "hscx_fill_fifo\n");
 
 	ibh = hsp->xmtibh;
-	if (!ibh)
+	if (!ibh) {
+                if (hsp->mode == 1)
+                        hscx_fill32(hsp, hscx_silence, 32, 1);
 		return;
+        }
 
 	count = ibh->datasize - hsp->sendptr;
-	if (count <= 0)
+	if (count <= 0) {
+                if (hsp->mode == 1)
+                        hscx_fill32(hsp, hscx_silence, 32, 1);
 		return;
+        }
 
 #if 0
 	if (!hsp->sendptr) {
@@ -384,16 +426,7 @@ hscx_fill_fifo(struct HscxState *hsp)
                 printk("\n");
         }
 #endif
-        if (hsp->membase) {
-                waitforXFW_0(hsp->membase, hsp->hscx);
-                while (count--)
-                        writehscx_0(hsp->membase, hsp->hscx, 0x0, *ptr++);
-                writehscxCMDR_0(hsp->membase, hsp->hscx, more ? 0x8 : 0xa);
-        } else {
-                waitforXFW_3(hsp->iobase, hsp->hscx);
-                writehscx_s(hsp->iobase, hsp->hscx, 0x3e, ptr, count);
-                writehscxCMDR_3(hsp->iobase, hsp->hscx, more ? 0x8 : 0xa);
-        }
+        hscx_fill32(hsp, ptr, count, more);
 }
 
 static inline void
@@ -461,12 +494,14 @@ hscx_interrupt(struct IsdnCardState *sp, byte val, byte hscx)
 				hsp->rcvptr = 0;
 
 		hscx_empty_fifo(hsp, 32);
-#ifdef VOICE
-		hsp->rcvibh->datasize = hsp->rcvptr - 1;
-		BufQueueLink(&hsp->rq, hsp->rcvibh);
-		hsp->rcvibh = NULL;
-		hscx_sched_event(hsp, HSCX_RCVBUFREADY);
-#endif
+                if (hsp->mode == 1) {
+                        /* receive audio data */
+                        hsp->rcvibh->datasize = hsp->rcvptr - 1;
+                        BufQueueLink(&hsp->rq, hsp->rcvibh);
+                        hsp->rcvibh = NULL;
+                        hscx_sched_event(hsp, HSCX_RCVBUFREADY);
+                }
+                
 	}
       afterRPF:
 	if (val & 0x10) {	/* XPR */
@@ -649,6 +684,7 @@ isac_new_ph(struct IsdnCardState *sp)
 		  break;
 	  case (12):
 	  case (13):
+                  ph_command(sp, 8);
 		  sp->ph_active = 5;
 		  isac_sched_event(sp, ISAC_PHCHANGE);
 		  if (!sp->xmtibh)
@@ -1053,17 +1089,8 @@ checkcard(int cardnr)
                         case 0x180:
                         case 0x280:
                         case 0x380:
-                                printk(KERN_INFO "teles: port 0x%x specified, assuming 0x%x\n",
-                                       card->iobase, (card->iobase | 0xc00));
                                 card->iobase |= 0xc00;
                                 break;
-                }
-                if (check_region(card->iobase, 8)) {
-                        printk(KERN_WARNING
-                               "teles: ports %x-%x already in use\n",
-                               card->iobase,
-                               card->iobase + 8 );
-                        return -1;
                 }
                 switch (card->interrupt) {
                 case 2:
@@ -1094,6 +1121,13 @@ checkcard(int cardnr)
                         cfval = 0x00;
                         break;
                 }
+                if (check_region(card->iobase, 8)) {
+                        printk(KERN_WARNING
+                               "teles: ports %x-%x already in use\n",
+                               card->iobase,
+                               card->iobase + 8 );
+                        return -1;
+                }
                 if (card->membase) {
                         cfval |= (((unsigned int) card->membase >> 9) & 0xF0);
                         
@@ -1118,6 +1152,32 @@ checkcard(int cardnr)
                                        bytein(card->iobase + 2));
                                 return -2;
                         }
+                } else {
+                        /* The Teles 16.3 uses additional ports */
+                        if (check_region(card->iobase - 0x400, 32)) {
+                                printk(KERN_WARNING
+                                       "teles: ports %x-%x already in use\n",
+                                       card->iobase,
+                                       card->iobase + 32 );
+                                return -1;
+                        }
+                        if (check_region(card->iobase - 0x800, 32)) {
+                                printk(KERN_WARNING
+                                       "teles: ports %x-%x already in use\n",
+                                       card->iobase,
+                                       card->iobase + 32 );
+                                return -1;
+                        }
+                        if (check_region(card->iobase - 0xc00, 32)) {
+                                printk(KERN_WARNING
+                                       "teles: ports %x-%x already in use\n",
+                                       card->iobase,
+                                       card->iobase + 32 );
+                                return -1;
+                        }
+                        request_region(card->iobase - 0x400, 32, "teles");
+                        request_region(card->iobase - 0x800, 32, "teles");
+                        request_region(card->iobase - 0xc00, 32, "teles");
                 }
                 request_region(card->iobase, 8, "teles");
                 cli();
@@ -1181,6 +1241,7 @@ modehscx(struct HscxState *hs, int mode,
 	if (hscx == 0)
 		ichan = 1 - ichan;	/* raar maar waar... */
 
+        hs->mode = mode;
         if (sp->membase) {
                 writehscx_0(sp->membase, hscx, HSCX_CCR1, 0x85);
                 writehscx_0(sp->membase, hscx, HSCX_XAD1, 0xFF);
@@ -1581,6 +1642,11 @@ closecard(int cardnr)
 
 	if (cards[cardnr].iobase)
 		release_region(cards[cardnr].iobase, 8);
+        if (!cards[cardnr].membase) {
+                release_region(cards[cardnr].iobase - 0x400, 32);
+                release_region(cards[cardnr].iobase - 0x800, 32);
+                release_region(cards[cardnr].iobase - 0xc00, 32);
+        }
 
 	Sfree((void *) sp);
 }
@@ -1774,7 +1840,5 @@ setstack_hscx(struct PStack *st, struct HscxState *hs)
 void
 teles_reportcard(int cardnr)
 {
-
 	printk(KERN_DEBUG "teles_reportcard\n");
-
 }
