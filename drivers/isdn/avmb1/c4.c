@@ -6,6 +6,11 @@
  * (c) Copyright 1999 by Carsten Paeth (calle@calle.in-berlin.de)
  * 
  * $Log$
+ * Revision 1.4.2.1  2000/03/17 14:05:48  calle
+ * Merged changes from main tree.
+ * - Bugfix: c4
+ * - make capi.c and capifs.c compile with 2.3.x
+ *
  * Revision 1.6  2000/03/17 12:21:08  calle
  * send patchvalues now working.
  *
@@ -71,7 +76,7 @@ static char *revision = "$Revision$";
 
 /* ------------------------------------------------------------- */
 
-int suppress_pollack = 0;
+static int suppress_pollack = 0;
 
 MODULE_AUTHOR("Carsten Paeth <calle@calle.in-berlin.de>");
 
@@ -1316,6 +1321,8 @@ int c4_init(void)
 	char *p;
 	int retval;
 
+	MOD_INC_USE_COUNT;
+
 	if ((p = strchr(revision, ':'))) {
 		strncpy(driver->revision, p + 1, sizeof(driver->revision));
 		p = strchr(driver->revision, '$');
@@ -1329,6 +1336,7 @@ int c4_init(void)
 	if (!di) {
 		printk(KERN_ERR "%s: failed to attach capi_driver\n",
 				driver->name);
+		MOD_DEC_USE_COUNT;
 		return -EIO;
 	}
 
@@ -1336,6 +1344,7 @@ int c4_init(void)
 	if (!pci_present()) {
 		printk(KERN_ERR "%s: no PCI bus present\n", driver->name);
     		detach_capi_driver(driver);
+		MOD_DEC_USE_COUNT;
 		return -EIO;
 	}
 
@@ -1359,6 +1368,7 @@ int c4_init(void)
 #ifdef MODULE
 			cleanup_module();
 #endif
+			MOD_DEC_USE_COUNT;
 			return retval;
 		}
 		ncards++;
@@ -1366,12 +1376,15 @@ int c4_init(void)
 	if (ncards) {
 		printk(KERN_INFO "%s: %d C4 card(s) detected\n",
 				driver->name, ncards);
+		MOD_DEC_USE_COUNT;
 		return 0;
 	}
 	printk(KERN_ERR "%s: NO C4 card detected\n", driver->name);
+	MOD_DEC_USE_COUNT;
 	return -ESRCH;
 #else
 	printk(KERN_ERR "%s: kernel not compiled with PCI.\n", driver->name);
+	MOD_DEC_USE_COUNT;
 	return -EIO;
 #endif
 }

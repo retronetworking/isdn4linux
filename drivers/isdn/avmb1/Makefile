@@ -11,6 +11,11 @@
 # parent makes..
 #
 # $Log$
+# Revision 1.8.2.3  2000/03/17 14:05:48  calle
+# Merged changes from main tree.
+# - Bugfix: c4
+# - make capi.c and capifs.c compile with 2.3.x
+#
 # Revision 1.16  2000/03/17 12:15:44  calle
 # ALL_SUB_DIRS were wrong.
 #
@@ -109,7 +114,7 @@
 
 SUB_DIRS     :=
 MOD_SUB_DIRS :=
-ALL_SUB_DIRS := # fcpci fcclassic
+ALL_SUB_DIRS := # fcpci fcclassic fcpnp fcpcmcia
 #
 # Objects that don't export a symtab
 #
@@ -146,6 +151,11 @@ ifeq ($(CONFIG_ISDN_CAPI),y)
   endif
   ifdef CONFIG_ISDN_DRV_AVMB1_B1PCMCIA
   	OX_OBJS   += b1pcmcia.o
+	ifeq ($(CONFIG_HOTPLUG),y)
+		ifneq ($(CONFIG_PCMCIA),n)
+			M_OBJS   += avm_cs.o
+		endif
+	endif
   endif
   ifdef CONFIG_ISDN_DRV_AVMB1_T1PCI
   	O_OBJS   += t1pci.o
@@ -160,6 +170,19 @@ ifeq ($(CONFIG_ISDN_CAPI),y)
   ifdef CONFIG_ISDN_DRV_AVMB1_FCCLASSIC
 	SUB_DIRS += fcclassic
 	MOD_SUB_DIRS += fcclassic
+  endif
+  ifdef CONFIG_ISDN_DRV_AVMB1_FCPNP
+	SUB_DIRS += fcpnp
+	MOD_SUB_DIRS += fcpnp
+  endif
+  ifdef CONFIG_ISDN_DRV_AVMB1_FCPCMCIA
+	SUB_DIRS += fcpcmcia
+	MOD_SUB_DIRS += fcpcmcia
+	ifeq ($(CONFIG_HOTPLUG),y)
+		ifneq ($(CONFIG_PCMCIA),n)
+			M_OBJS   += fcpcmcia_cs.o
+		endif
+	endif
   endif
   OX_OBJS  += capiutil.o capidrv.o b1.o b1dma.o
 else
@@ -198,6 +221,17 @@ else
 	endif
   	ifdef CONFIG_ISDN_DRV_AVMB1_FCCLASSIC
     		MOD_SUB_DIRS += fcclassic
+	endif
+  	ifdef CONFIG_ISDN_DRV_AVMB1_FCPNP
+    		MOD_SUB_DIRS += fcpnp
+	endif
+  	ifdef CONFIG_ISDN_DRV_AVMB1_FCPCMCIA
+    		MOD_SUB_DIRS += fcpcmcia
+		ifeq ($(CONFIG_HOTPLUG),y)
+			ifneq ($(CONFIG_PCMCIA),n)
+				M_OBJS   += fcpcmcia_cs.o
+			endif
+		endif
 	endif
   	MX_OBJS  += capiutil.o capidrv.o b1.o b1dma.o
   endif
