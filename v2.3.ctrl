@@ -21,6 +21,9 @@
 #define COMPAT_HAS_NEW_SETUP
 #define COMPAT_HAS_ISA_IOREMAP
 #define COMPAT_HAS_pci_find_subsys
+#define COMPAT_HAS_kmem_cache
+#define COMPAT_d_alloc_root_one_parameter
+#define COMPAT_HAS_init_special_inode
 #define ISDN_TTY_FCLASS1
 
 #undef CONFIG_ISDN_WITH_ABC

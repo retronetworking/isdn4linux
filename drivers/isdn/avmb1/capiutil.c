@@ -7,6 +7,9 @@
  * Rewritten for Linux 1996 by Carsten Paeth (calle@calle.in-berlin.de)
  *
  * $Log$
+ * Revision 1.10  1999/08/31 11:19:54  paul
+ * various spelling corrections (new checksums may be needed, Karsten!)
+ *
  * Revision 1.9  1999/07/09 15:05:46  keil
  * compat.h is now isdn_compat.h
  *
@@ -792,7 +795,7 @@ static char *pnames[] =
     /*15 */ "Class",
     /*16 */ "ConnectedNumber",
     /*17 */ "ConnectedSubaddress",
-    /*18 */ "Data",
+    /*18 */ "Data32",
     /*19 */ "DataHandle",
     /*1a */ "DataLength",
     /*1b */ "FacilityConfirmationParameter",
@@ -890,13 +893,7 @@ static void protocol_message_2_pars(_cmsg * cmsg, int level)
 			cmsg->l += 2;
 			break;
 		case _CDWORD:
-			if (strcmp(NAME, "Data") == 0) {
-				bufprint("%-*s = ", slen, NAME);
-				printstructlen((__u8 *) * (__u32 *) (cmsg->m + cmsg->l),
-					       *(__u16 *) (cmsg->m + cmsg->l + sizeof(__u32)));
-				bufprint("\n");
-			} else
-				bufprint("%-*s = 0x%lx\n", slen, NAME, *(__u32 *) (cmsg->m + cmsg->l));
+			bufprint("%-*s = 0x%lx\n", slen, NAME, *(__u32 *) (cmsg->m + cmsg->l));
 			cmsg->l += 4;
 			break;
 		case _CSTRUCT:

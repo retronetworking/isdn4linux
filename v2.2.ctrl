@@ -24,6 +24,11 @@
 #define net_device device
 #define set_current_state(sta) current->state = sta
 #undef COMPAT_HAS_pci_find_subsys
+#undef COMPAT_HAS_kmem_cache
+#undef COMPAT_d_alloc_root_one_parameter
+#undef COMPAT_HAS_init_special_inode
+#define THIS_MODULE	&__this_module
+
 #define ISDN_TTY_FCLASS1
 #undef CONFIG_ISDN_WITH_ABC
 #undef CONFIG_ISDN_WITH_ABC_CALLB

@@ -11,6 +11,11 @@
 # parent makes..
 #
 # $Log$
+# Revision 1.8  2000/01/25 14:33:38  calle
+# - Added Support AVM B1 PCI V4.0 (tested with prototype)
+#   - splitted up t1pci.c into b1dma.c for common function with b1pciv4
+#   - support for revision register
+#
 # Revision 1.7  1999/09/15 08:16:03  calle
 # Implementation of 64Bit extention complete.
 #
@@ -82,48 +87,48 @@ ifeq ($(CONFIG_ISDN_DRV_AVMB1),y)
   OX_OBJS  += kcapi.o
   O_OBJS   += capi.o
   ifdef CONFIG_ISDN_DRV_AVMB1_B1ISA
-  O_OBJS   += b1isa.o
+  	O_OBJS   += b1isa.o
   endif
   ifdef CONFIG_ISDN_DRV_AVMB1_B1PCI
-  O_OBJS  += b1pci.o
+  	O_OBJS  += b1pci.o
   endif
   ifdef CONFIG_ISDN_DRV_AVMB1_T1ISA
-  O_OBJS   += t1isa.o
+  	O_OBJS   += t1isa.o
   endif
   ifdef CONFIG_ISDN_DRV_AVMB1_B1PCMCIA
-  OX_OBJS   += b1pcmcia.o
+  	OX_OBJS   += b1pcmcia.o
   endif
   ifdef CONFIG_ISDN_DRV_AVMB1_T1PCI
-  O_OBJS   += t1pci.o
+  	O_OBJS   += t1pci.o
   endif
   ifdef CONFIG_ISDN_DRV_AVMB1_C4
-  O_OBJS   += c4.o
+  	O_OBJS   += c4.o
   endif
   OX_OBJS  += capiutil.o capidrv.o b1.o b1dma.o
 else
   ifeq ($(CONFIG_ISDN_DRV_AVMB1),m)
-  O_TARGET += kernelcapi.o
-  OX_OBJS  += kcapi.o
-  M_OBJS   += capi.o kernelcapi.o
-  ifdef CONFIG_ISDN_DRV_AVMB1_B1ISA
-  M_OBJS   += b1isa.o
-  endif
-  ifdef CONFIG_ISDN_DRV_AVMB1_B1PCI
-  M_OBJS  += b1pci.o
-  endif
-  ifdef CONFIG_ISDN_DRV_AVMB1_T1ISA
-  M_OBJS   += t1isa.o
-  endif
-  ifdef CONFIG_ISDN_DRV_AVMB1_B1PCMCIA
-  MX_OBJS  += b1pcmcia.o
-  endif
-  ifdef CONFIG_ISDN_DRV_AVMB1_T1PCI
-  M_OBJS   += t1pci.o
-  endif
-  ifdef CONFIG_ISDN_DRV_AVMB1_C4
-  M_OBJS   += c4.o
-  endif
-  MX_OBJS  += capiutil.o capidrv.o b1.o b1dma.o
+  	O_TARGET += kernelcapi.o
+  	OX_OBJS  += kcapi.o
+  	M_OBJS   += capi.o kernelcapi.o
+  	ifdef CONFIG_ISDN_DRV_AVMB1_B1ISA
+  		M_OBJS   += b1isa.o
+  	endif
+  	ifdef CONFIG_ISDN_DRV_AVMB1_B1PCI
+  		M_OBJS  += b1pci.o
+  	endif
+  	ifdef CONFIG_ISDN_DRV_AVMB1_T1ISA
+  		M_OBJS   += t1isa.o
+  	endif
+  	ifdef CONFIG_ISDN_DRV_AVMB1_B1PCMCIA
+  		MX_OBJS  += b1pcmcia.o
+  	endif
+  	ifdef CONFIG_ISDN_DRV_AVMB1_T1PCI
+  		M_OBJS   += t1pci.o
+  	endif
+  	ifdef CONFIG_ISDN_DRV_AVMB1_C4
+  		M_OBJS   += c4.o
+  	endif
+  	MX_OBJS  += capiutil.o capidrv.o b1.o b1dma.o
   endif
 endif
 

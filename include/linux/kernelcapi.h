@@ -6,6 +6,10 @@
  * (c) Copyright 1997 by Carsten Paeth (calle@calle.in-berlin.de)
  * 
  * $Log$
+ * Revision 1.5  2000/01/28 16:45:40  calle
+ * new manufacturer command KCAPI_CMD_ADDCARD (generic addcard),
+ * will search named driver and call the add_card function if one exist.
+ *
  * Revision 1.4  1999/09/10 17:24:19  calle
  * Changes for proposed standard for CAPI2.0:
  * - AK148 "Linux Exention"
@@ -90,8 +94,8 @@ struct capi_interface {
 	__u16 (*capi_put_message) (__u16 applid, struct sk_buff * msg);
 	__u16 (*capi_get_message) (__u16 applid, struct sk_buff ** msgp);
 	__u16 (*capi_set_signal) (__u16 applid,
-			      void (*signal) (__u16 applid, __u32 param),
-				  __u32 param);
+			      void (*signal) (__u16 applid, void *param),
+				  void *param);
 	__u16 (*capi_get_manufacturer) (__u32 contr, __u8 buf[CAPI_MANUFACTURER_LEN]);
 	__u16 (*capi_get_version) (__u32 contr, struct capi_version * verp);
 	 __u16(*capi_get_serial) (__u32 contr, __u8 serial[CAPI_SERIAL_LEN]);
@@ -104,8 +108,15 @@ struct capi_interface {
 
 };
 
-#define	KCI_CONTRUP	0
-#define	KCI_CONTRDOWN	1
+struct capi_ncciinfo {
+	__u16 applid;
+	__u32 ncci;
+};
+
+#define	KCI_CONTRUP	0	/* struct capi_profile */
+#define	KCI_CONTRDOWN	1	/* NULL */
+#define	KCI_NCCIUP	2	/* struct capi_ncciinfo */
+#define	KCI_NCCIDOWN	3	/* struct capi_ncciinfo */
 
 struct capi_interface_user {
 	char name[20];
@@ -143,6 +154,7 @@ int detach_capi_interface(struct capi_interface_user *);
 #define CAPI_MSGNOTINSTALLED 	          0x1109
 #define CAPI_MSGCTRLERNOTSUPPORTEXTEQUIP  0x110a
 #define CAPI_MSGCTRLERONLYSUPPORTEXTEQUIP 0x110b
+
 
 #endif				/* __KERNEL__ */
 
