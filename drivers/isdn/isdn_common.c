@@ -21,6 +21,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.27  1996/10/27 22:02:41  keil
+ * return codes for ISDN_STAT_ICALL
+ *
  * Revision 1.26  1996/10/23 11:59:40  fritz
  * More compatibility changes.
  *
@@ -1829,8 +1832,8 @@ void isdn_free_channel(int di, int ch, int usage)
                         cmd.driver = di;
                         cmd.arg = ch;
                         cmd.command = ISDN_CMD_UNLOCK;
-                        (void) dev->drv[di]->interface->command(&cmd);
                         restore_flags(flags);
+                        (void) dev->drv[di]->interface->command(&cmd);
 			return;
 		}
 	restore_flags(flags);
