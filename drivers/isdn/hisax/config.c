@@ -5,6 +5,10 @@
  *
  *
  * $Log$
+ * Revision 2.36  1999/09/07 05:43:58  werner
+ *
+ * Added io as parameter 0 for HFC-PCI cards, if manual selection needed.
+ *
  * Revision 2.35  1999/09/04 06:35:09  keil
  * Winbond W6692 support
  *
@@ -1381,6 +1385,7 @@ HiSax_inithardware(int *busy_flag))
 				kfree((void *) cards[i].cs);
 			cards[i].cs = NULL;
 			HiSax_shiftcards(i);
+			nrcards--;
 		}
 	}
 	return foundcards;

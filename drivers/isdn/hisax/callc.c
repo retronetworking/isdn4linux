@@ -11,6 +11,9 @@
  *              Fritz Elfert
  *
  * $Log$
+ * Revision 2.35  1999/09/04 06:20:05  keil
+ * Changes from kernel set_current_state()
+ *
  * Revision 2.34  1999/08/25 20:02:34  werner
  * Changed return values for stat_icall(w) from 3->4 and 4->5 because of conflicts
  * with existing software definitions. (PtP incomplete called party number)
@@ -1122,12 +1125,36 @@ dchan_l3l4(struct PStack *st, int pr, void *arg)
 }
 
 static void
+dummy_pstack(struct PStack *st, int pr, void *arg) {
+	printk(KERN_WARNING"call to dummy_pstack pr=%04x arg %lx\n", pr, (long)arg);
+}
+
+static void
+init_PStack(struct PStack **stp) {
+	*stp = kmalloc(sizeof(struct PStack), GFP_ATOMIC);
+	(*stp)->next = NULL;
+	(*stp)->l1.l1l2 = dummy_pstack;
+	(*stp)->l1.l1hw = dummy_pstack;
+	(*stp)->l1.l1tei = dummy_pstack;
+	(*stp)->l2.l2tei = dummy_pstack;
+	(*stp)->l2.l2l1 = dummy_pstack;
+	(*stp)->l2.l2l3 = dummy_pstack;
+	(*stp)->l3.l3l2 = dummy_pstack;
+        (*stp)->l3.l3ml3 = dummy_pstack;
+	(*stp)->l3.l3l4 = dummy_pstack;
+	(*stp)->lli.l4l3 = dummy_pstack;
+	(*stp)->ma.layer = dummy_pstack;
+}
+
+static void
 init_d_st(struct Channel *chanp)
 {
 	struct PStack *st = chanp->d_st;
 	struct IsdnCardState *cs = chanp->cs;
 	char tmp[16];
 
+	init_PStack(&st);
+	st->next = NULL;
 	HiSax_addlist(cs, st);
 	setstack_HiSax(st, cs);
 	st->l2.sap = 0;
@@ -1166,28 +1193,6 @@ callc_debug(struct FsmInst *fi, char *fmt, ...)
 }
 
 static void
-dummy_pstack(struct PStack *st, int pr, void *arg) {
-	printk(KERN_WARNING"call to dummy_pstack pr=%04x arg %lx\n", pr, (long)arg);
-}
-
-static void
-init_PStack(struct PStack **stp) {
-	*stp = kmalloc(sizeof(struct PStack), GFP_ATOMIC);
-	(*stp)->next = NULL;
-	(*stp)->l1.l1l2 = dummy_pstack;
-	(*stp)->l1.l1hw = dummy_pstack;
-	(*stp)->l1.l1tei = dummy_pstack;
-	(*stp)->l2.l2tei = dummy_pstack;
-	(*stp)->l2.l2l1 = dummy_pstack;
-	(*stp)->l2.l2l3 = dummy_pstack;
-	(*stp)->l3.l3l2 = dummy_pstack;
-        (*stp)->l3.l3ml3 = dummy_pstack;
-	(*stp)->l3.l3l4 = dummy_pstack;
-	(*stp)->lli.l4l3 = dummy_pstack;
-	(*stp)->ma.layer = dummy_pstack;
-}
-
-static void
 init_chan(int chan, struct IsdnCardState *csta)
 {
 	struct Channel *chanp = csta->channel + chan;
@@ -1209,10 +1214,6 @@ init_chan(int chan, struct IsdnCardState *csta)
 	FsmInitTimer(&chanp->fi, &chanp->dial_timer);
 	FsmInitTimer(&chanp->fi, &chanp->drel_timer);
 	if (!chan || test_bit(FLG_TWO_DCHAN, &csta->HW_Flags)) {
-		init_PStack(&chanp->d_st);
-		if (chan)
-			csta->channel->d_st->next = chanp->d_st;
-		chanp->d_st->next = NULL;
 		init_d_st(chanp);
 	} else {
 		chanp->d_st = csta->channel->d_st;
