@@ -9,10 +9,10 @@ int ParseRESInterrogationDiversion(struct asn1_parm *parm, u_char *p, u_char *en
 int ParseARGInterrogateServedUserNumbers(struct asn1_parm *parm, u_char *p, u_char *end, int dummy);
 int ParseRESInterrogateServedUserNumbers(struct asn1_parm *parm, u_char *p, u_char *end, int dummy);
 int ParseARGDiversionInformation(struct asn1_parm *parm, u_char *p, u_char *end, int dummy);
-int ParseIntResult(struct asn1_parm *parm, u_char *p, u_char *end, int dummy);
-int ParseIntResultList(struct asn1_parm *parm, u_char *p, u_char *end, int dummy);
+int ParseIntResult(struct asn1_parm *parm, u_char *p, u_char *end, struct IntResult *intResult);
+int ParseIntResultList(struct asn1_parm *parm, u_char *p, u_char *end, struct IntResultList *intResultList);
 int ParseServedUserNr(struct asn1_parm *parm, u_char *p, u_char *end, struct ServedUserNr *servedUserNr);
 int ParseProcedure(struct asn1_parm *pc, u_char *p, u_char *end, int *procedure);
-int ParseServedUserNumberList(struct asn1_parm *parm, u_char *p, u_char *end, char *str);
+int ParseServedUserNumberList(struct asn1_parm *parm, u_char *p, u_char *end, struct ServedUserNumberList *list);
 int ParseDiversionReason(struct asn1_parm *parm, u_char *p, u_char *end, char *str);
 

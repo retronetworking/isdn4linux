@@ -139,6 +139,8 @@ void applGetSupportedServices(struct Appl *appl, _cmsg *cmsg);
 void applFacListen(struct Appl *appl, _cmsg *cmsg);
 void applFacCFActivate(struct Appl *appl, _cmsg *cmsg);
 void applFacCFDeactivate(struct Appl *appl, _cmsg *cmsg);
+void applFacCFInterrogateNumbers(struct Appl *appl, _cmsg *cmsg);
+void applFacCFInterrogateParameters(struct Appl *appl, _cmsg *cmsg);
 void applManufacturerReq(struct Appl *appl, struct sk_buff *skb);
 void applD2Trace(struct Appl *appl, u_char *buf, int len);
 struct Cplci *applNewCplci(struct Appl *appl, struct Plci *plci);
@@ -239,7 +241,12 @@ L4L3(struct Layer4 *l4, int pr, void *arg)
 int capiEncodeWord(__u8 *dest, __u16 i);
 int capiEncodeDWord(__u8 *dest, __u32 i);
 int capiEncodeFacIndCFact(__u8 *dest, __u16 SupplementaryServiceReason, __u32 Handle);
+int capiEncodeFacIndCFdeact(__u8 *dest, __u16 SupplementaryServiceReason, __u32 Handle);
 int capiEncodeFacIndCFNotAct(__u8 *dest, struct ActDivNotification *actNot);
 int capiEncodeFacIndCFNotDeact(__u8 *dest, struct DeactDivNotification *deactNot);
+int capiEncodeFacIndCFinterParameters(__u8 *dest, __u16 SupplementaryServiceReason, __u32 Handle, 
+				      struct IntResultList *intResultList);
+int capiEncodeFacIndCFinterNumbers(__u8 *dest, __u16 SupplementaryServiceReason, __u32 Handle, 
+				   struct ServedUserNumberList *list);
 
 #endif

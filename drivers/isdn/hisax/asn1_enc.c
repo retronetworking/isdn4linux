@@ -152,3 +152,25 @@ int encodeDeactivationDiversion(__u8 *dest, __u16 procedure, __u16 basicService,
 	return p - dest;
 }
 
+int encodeInterrogationDiversion(__u8 *dest, __u16 procedure, __u16 basicService, 
+				__u8 *servedUserNumber)
+{
+	__u8 *p;
+
+	dest[0] = 0x30;  // sequence
+	dest[1] = 0;     // length
+	p = &dest[2];
+
+	p += encodeEnum(p, procedure);
+#if 0
+	if (basicService == 0)
+		p += encodeNull(p);
+	else
+#endif
+		p += encodeEnum(p, basicService);
+	p += encodeServedUserNumber(p, servedUserNumber);
+
+	dest[1] = p - &dest[2];
+	return p - dest;
+}
+

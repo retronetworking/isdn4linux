@@ -55,7 +55,7 @@ init_st_2(struct PStack *st, int b2_mode)
 		test_and_set_bit(FLG_MOD128, &st->l2.flag);
 		test_and_set_bit(FLG_LAPD, &st->l2.flag);
 		test_and_set_bit(FLG_ORIG, &st->l2.flag);
-		st->l2.maxlen = MAX_DFRAME_LEN;
+		st->l2.maxlen = MAX_DFRAME_LEN; // FIXME!
 		st->l2.window = 1;
 		st->l2.T200 = 1000;	/* 1000 milliseconds  */
 		st->l2.N200 = 3;	/* try 3 times        */

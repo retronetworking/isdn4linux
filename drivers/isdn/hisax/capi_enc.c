@@ -17,17 +17,6 @@ int capiEncodeDWord(__u8 *p, __u32 i)
 	return 4;
 }
 
-int capiEncodeFacIndCFact(__u8 *dest, __u16 SupplementaryServiceReason, __u32 Handle)
-{
-	__u8 *p;
-
-	p = &dest[1];
-	p += capiEncodeWord(p, SupplementaryServiceReason);
-	p += capiEncodeDWord(p, Handle);
-	dest[0] = p - &dest[1];
-	return p - dest;
-}
-
 int capiEncodeFacilityPartyNumber(__u8 *dest, struct PartyNumber *partyNumber)
 {
 	__u8 *p;
@@ -61,6 +50,97 @@ int capiEncodeFacilityPartyNumber2(__u8 *dest, struct ServedUserNr *servedUserNr
 		return 1;
 	}
 	return capiEncodeFacilityPartyNumber(dest, &servedUserNr->partyNumber);
+}
+
+int capiEncodeServedUserNumbers(__u8 *dest, struct ServedUserNumberList *list)
+{
+	__u8 *p;
+	int i;
+
+	p = &dest[1];
+	for (i = 0; i < 10; i++) {
+		if (list->partyNumber[i].type >= 0)
+			p += capiEncodeFacilityPartyNumber(p, &list->partyNumber[i]);
+	}
+	dest[0] = p - &dest[1];
+	return p - dest;
+}
+
+int capiEncodeInterrogateResponse(__u8 *dest, struct IntResult *intResult)
+{
+	__u8 *p;
+
+	p = &dest[1];
+	p += capiEncodeWord(p, intResult->procedure);
+	p += capiEncodeWord(p, intResult->basicService);
+	p += capiEncodeFacilityPartyNumber2(p, &intResult->servedUserNr);
+	p += capiEncodeFacilityPartyNumber(p, &intResult->address.partyNumber);
+	*p++ = 0; // subaddress
+
+	dest[0] = p - &dest[1];
+	return p - dest;
+}
+
+int capiEncodeInterrogateResponseList(__u8 *dest, struct IntResultList *list)
+{
+	__u8 *p;
+	int i;
+
+	p = &dest[1];
+	for (i = 0; i < 10; i++) {
+		if (list->intResult[i].basicService >= 0)
+			p += capiEncodeInterrogateResponse(p, &list->intResult[i]);
+	}
+	dest[0] = p - &dest[1];
+	return p - dest;
+}
+
+int capiEncodeFacIndCFact(__u8 *dest, __u16 SupplementaryServiceReason, __u32 Handle)
+{
+	__u8 *p;
+
+	p = &dest[1];
+	p += capiEncodeWord(p, SupplementaryServiceReason);
+	p += capiEncodeDWord(p, Handle);
+	dest[0] = p - &dest[1];
+	return p - dest;
+}
+
+int capiEncodeFacIndCFdeact(__u8 *dest, __u16 SupplementaryServiceReason, __u32 Handle)
+{
+	__u8 *p;
+
+	p = &dest[1];
+	p += capiEncodeWord(p, SupplementaryServiceReason);
+	p += capiEncodeDWord(p, Handle);
+	dest[0] = p - &dest[1];
+	return p - dest;
+}
+
+int capiEncodeFacIndCFinterParameters(__u8 *dest, __u16 SupplementaryServiceReason, __u32 Handle, 
+				      struct IntResultList *list)
+{
+	__u8 *p;
+
+	p = &dest[1];
+	p += capiEncodeWord(p, SupplementaryServiceReason);
+	p += capiEncodeDWord(p, Handle);
+	p += capiEncodeInterrogateResponseList(p, list);
+	dest[0] = p - &dest[1];
+	return p - dest;
+}
+
+int capiEncodeFacIndCFinterNumbers(__u8 *dest, __u16 SupplementaryServiceReason, __u32 Handle, 
+				   struct ServedUserNumberList *list)
+{
+	__u8 *p;
+
+	p = &dest[1];
+	p += capiEncodeWord(p, SupplementaryServiceReason);
+	p += capiEncodeDWord(p, Handle);
+	p += capiEncodeServedUserNumbers(p, list);
+	dest[0] = p - &dest[1];
+	return p - dest;
 }
 
 int capiEncodeFacIndCFNotAct(__u8 *dest, struct ActDivNotification *actNot)

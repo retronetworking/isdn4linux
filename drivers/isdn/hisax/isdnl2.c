@@ -305,8 +305,9 @@ iframe_error(struct PStack *st, struct sk_buff *skb)
 		return 'N';
 
 	if ((skb->len - i) > st->l2.maxlen)
+	{printk("O %d\n", skb->len - i);
 		return 'O';
-
+	}
 
 	return 0;
 }
@@ -1670,7 +1671,6 @@ isdnl2_l1l2(struct PStack *st, int pr, void *arg)
 				ret = 0;
 			}
 			if(c) {
-				hdebug();
 				FreeSkb(skb);
 				FsmEvent(&st->l2.l2m, EV_L2_FRAME_ERROR, (void *)(long)c);
 				ret = 0;

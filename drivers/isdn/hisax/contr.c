@@ -426,7 +426,25 @@ void contrDummyFacility(struct Contr *contr, struct sk_buff *skb)
 				 appl->MsgId++, contr->adrController);
 		p = &tmp[1];
 		p += capiEncodeWord(p, dummy_pc->Function);
-		p += capiEncodeFacIndCFact(p, 0, dummy_pc->Handle);
+		switch (dummy_pc->Function) {
+		case 0x0009:
+			p += capiEncodeFacIndCFact(p, 0, dummy_pc->Handle);
+			break;
+		case 0x000a:
+			p += capiEncodeFacIndCFdeact(p, 0, dummy_pc->Handle);
+			break;
+		case 0x000b:
+			p += capiEncodeFacIndCFinterParameters(p, 0, dummy_pc->Handle, 
+							       &parm.c.retResult.o.resultList);
+			break;
+		case 0x000c:
+			p += capiEncodeFacIndCFinterNumbers(p, 0, dummy_pc->Handle, 
+							    &parm.c.retResult.o.list);
+			break;
+		default:
+			int_error();
+			break;
+		}
 		tmp[0] = p - &tmp[1];
 		cmsg.FacilityIndicationParameter = tmp;
 		contrRecvCmsg(contr, &cmsg);

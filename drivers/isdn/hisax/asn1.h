@@ -46,6 +46,21 @@ struct DeactDivNotification {
 	struct ServedUserNr servedUserNr;
 };
 
+struct ServedUserNumberList {
+	struct PartyNumber partyNumber[10];
+};
+
+struct IntResult {
+	struct ServedUserNr servedUserNr;
+	int procedure;
+	int basicService;
+	struct Address address;
+};
+
+struct IntResultList {
+	struct IntResult intResult[10];
+};
+
 struct asn1Invoke {
 	__u16 invokeId;
 	__u16 operationValue;
@@ -57,6 +72,10 @@ struct asn1Invoke {
 
 struct asn1ReturnResult {
 	__u16 invokeId;
+	union {
+		struct ServedUserNumberList list;
+		struct IntResultList resultList;
+	} o;
 };
 
 struct asn1ReturnError {
@@ -87,6 +106,8 @@ int encodeActivationDiversion(__u8 *dest, __u16 procedure, __u16 basicService,
 			      __u8 *forwardedToNumber, __u8 *forwardedToSubaddress, 
 			      __u8 *servedUserNumber);
 int encodeDeactivationDiversion(__u8 *dest, __u16 procedure, __u16 basicService, 
+				__u8 *servedUserNumber);
+int encodeInterrogationDiversion(__u8 *dest, __u16 procedure, __u16 basicService, 
 				__u8 *servedUserNumber);
 
 

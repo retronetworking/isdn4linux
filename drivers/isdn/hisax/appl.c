@@ -178,6 +178,12 @@ void applSuppFacilityReq(struct Appl *appl, _cmsg *cmsg)
 	case 0x000a: // CF Deactivate
 		applFacCFDeactivate(appl, cmsg);
 		break;
+	case 0x000b: // CF Interrogate Parameters
+		applFacCFInterrogateParameters(appl, cmsg);
+		break;
+	case 0x000c: // CF Interrogate Numbers
+		applFacCFInterrogateNumbers(appl, cmsg);
+		break;
 	default:
 		capi_cmsg_answer(cmsg);
 		cmsg->Info = 0x0000;
@@ -347,7 +353,6 @@ void applFacCFDeactivate(struct Appl *appl, _cmsg *cmsg)
 	basicService |= *p++ << 8;
 	
 	servedUserNumber = p;
-	p += *p + 1;
 	
 	tmp[0] = MT_FACILITY;
 	tmp[1] = IE_FACILITY;
@@ -386,6 +391,146 @@ void applFacCFDeactivate(struct Appl *appl, _cmsg *cmsg)
 	cmsg->FacilityConfirmationParameter = "\x05\x0a\x00\x02\x00\x00";
 	// 0x05 struct len
 	//   0x000a Function CFDeactivate
+	//   0x02   struct len
+	//     0x0000      success
+	contrRecvCmsg(appl->contr, cmsg);
+}
+
+void applFacCFInterrogateParameters(struct Appl *appl, _cmsg *cmsg)
+{
+        __u8 tmp[255], t2[255];
+	__u8 *p;
+	__u32 handle;
+	__u16 procedure;
+	__u16 basicService;
+	__u8 *servedUserNumber;
+	struct sk_buff *skb;
+	struct DummyProcess *dummy_pc;
+	int len;
+
+	lastInvokeId = (lastInvokeId + 1) & 0xffff;
+
+	dummy_pc = contrNewDummyPc(appl->contr, lastInvokeId);
+	if (!dummy_pc) {
+		int_error(); // FIXME
+		return;
+	}
+
+	p = cmsg->FacilityRequestParameter + 4;
+
+	handle = *p++;
+	handle |= *p++ << 8;
+	handle |= *p++ << 16;
+	handle |= *p++ << 24;
+
+	procedure = *p++;
+	procedure |= *p++ << 8;
+
+	basicService = *p++;
+	basicService |= *p++ << 8;
+	
+	servedUserNumber = p;
+	
+	tmp[0] = MT_FACILITY;
+	tmp[1] = IE_FACILITY;
+	tmp[2] = 0;     // length
+	tmp[3] = 0x91;  // remote operations protocol
+	tmp[4] = 0xa1;  // invoke component
+	tmp[5] = 0;     // length
+
+	p = &tmp[6];
+
+	len = encodeInt(t2, lastInvokeId);
+	memcpy(p, t2, len); p += len;
+
+	len = encodeInt(t2, 0x0b); // interrogationDiversion
+	memcpy(p, t2, len); p += len;
+
+	len = encodeInterrogationDiversion(t2, procedure, basicService, servedUserNumber);
+	memcpy(p, t2, len); p += len;
+
+	tmp[5] = p - &tmp[6];
+	tmp[2] = p - &tmp[3];
+
+	len = p - tmp;
+	skb = alloc_skb(len+16, GFP_ATOMIC);
+	skb_reserve(skb, 16);
+	memcpy(skb_put(skb, len), tmp, len); \
+
+	L4L3(&appl->contr->l4, CC_DUMMY | REQUEST, skb);
+
+	dummy_pc->Handle = handle;
+	dummy_pc->Function = 0x000b;
+	dummy_pc->ApplId = appl->ApplId;
+
+	capi_cmsg_answer(cmsg);
+	cmsg->Info = 0x0000;
+	cmsg->FacilityConfirmationParameter = "\x05\x0b\x00\x02\x00\x00";
+	// 0x05 struct len
+	//   0x000b Function CFInterrogateParameters
+	//   0x02   struct len
+	//     0x0000      success
+	contrRecvCmsg(appl->contr, cmsg);
+}
+
+void applFacCFInterrogateNumbers(struct Appl *appl, _cmsg *cmsg)
+{
+        __u8 tmp[255], t2[255];
+	__u8 *p;
+	__u32 handle;
+	struct sk_buff *skb;
+	struct DummyProcess *dummy_pc;
+	int len;
+
+	lastInvokeId = (lastInvokeId + 1) & 0xffff;
+
+	dummy_pc = contrNewDummyPc(appl->contr, lastInvokeId);
+	if (!dummy_pc) {
+		int_error(); // FIXME
+		return;
+	}
+
+	p = cmsg->FacilityRequestParameter + 4;
+
+	handle = *p++;
+	handle |= *p++ << 8;
+	handle |= *p++ << 16;
+	handle |= *p++ << 24;
+
+	tmp[0] = MT_FACILITY;
+	tmp[1] = IE_FACILITY;
+	tmp[2] = 0;     // length
+	tmp[3] = 0x91;  // remote operations protocol
+	tmp[4] = 0xa1;  // invoke component
+	tmp[5] = 0;     // length
+
+	p = &tmp[6];
+
+	len = encodeInt(t2, lastInvokeId);
+	memcpy(p, t2, len); p += len;
+
+	len = encodeInt(t2, 0x11); // InterrogateServedUserNumbers
+	memcpy(p, t2, len); p += len;
+
+	tmp[5] = p - &tmp[6];
+	tmp[2] = p - &tmp[3];
+
+	len = p - tmp;
+	skb = alloc_skb(len+16, GFP_ATOMIC);
+	skb_reserve(skb, 16);
+	memcpy(skb_put(skb, len), tmp, len); \
+
+	L4L3(&appl->contr->l4, CC_DUMMY | REQUEST, skb);
+
+	dummy_pc->Handle = handle;
+	dummy_pc->Function = 0x000c;
+	dummy_pc->ApplId = appl->ApplId;
+
+	capi_cmsg_answer(cmsg);
+	cmsg->Info = 0x0000;
+	cmsg->FacilityConfirmationParameter = "\x05\x0c\x00\x02\x00\x00";
+	// 0x05 struct len
+	//   0x000a Function CFInterrogateNumbers
 	//   0x02   struct len
 	//     0x0000      success
 	contrRecvCmsg(appl->contr, cmsg);

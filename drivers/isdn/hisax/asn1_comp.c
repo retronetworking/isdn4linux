@@ -73,10 +73,8 @@ ParseReturnResultComponentSequence(struct asn1_parm *pc, u_char *p, u_char *end,
 
 	XSEQUENCE_1(ParseOperationValue, ASN1_TAG_INTEGER, ASN1_NOT_TAGGED, &operationValue);
 	switch (operationValue) {
-#if 0
  	case 11: XSEQUENCE(ParseRESInterrogationDiversion, ASN1_TAG_SET, ASN1_NOT_TAGGED); break;
  	case 17: XSEQUENCE(ParseRESInterrogateServedUserNumbers, ASN1_TAG_SET, ASN1_NOT_TAGGED); break;
-#endif
 	default: return -1;
 	}
 		
@@ -92,7 +90,7 @@ ParseReturnResultComponent(struct asn1_parm *pc, u_char *p, u_char *end, int dum
 	pc->comp = returnResult;
 	XSEQUENCE_1(ParseInvokeId, ASN1_TAG_INTEGER, ASN1_NOT_TAGGED, &invokeId);
 	XSEQUENCE_OPT(ParseReturnResultComponentSequence, ASN1_TAG_SEQUENCE, ASN1_NOT_TAGGED);
-	pc->c.inv.invokeId = invokeId;
+	pc->c.retResult.invokeId = invokeId;
 
 	return p - beg;
 }

@@ -66,6 +66,7 @@ ParseARGDeactivationStatusNotificationDiv(struct asn1_parm *pc, u_char *p, u_cha
 	return p - beg;
 }
 
+#if 0
 int 
 ParseARGInterrogationDiversion(struct asn1_parm *pc, u_char *p, u_char *end, int dummy)
 {
@@ -81,34 +82,34 @@ ParseARGInterrogationDiversion(struct asn1_parm *pc, u_char *p, u_char *end, int
 		procedure, basicService);
 	return p - beg;
 }
+#endif
 
 int 
 ParseRESInterrogationDiversion(struct asn1_parm *pc, u_char *p, u_char *end, int dummy)
 {
 	print_msg(PRT_SHOWNUMBERS, "Interrogation Diversion Result\n");
-
-	return ParseIntResultList(pc, p,  end, dummy);
+	return ParseIntResultList(pc, p,  end, &pc->c.retResult.o.resultList);
 }
 
+#if 0
 int 
 ParseARGInterrogateServedUserNumbers(struct asn1_parm *pc, u_char *p, u_char *end, int dummy)
 {
 	print_msg(PRT_SHOWNUMBERS, "Interrogate Served User Numbers\n");
 	return 0;
 }
+#endif
 
 int 
 ParseRESInterrogateServedUserNumbers(struct asn1_parm *pc, u_char *p, u_char *end, int dummy)
 {
 	int ret;
-	char servedUserNumberList[200] = { 0, };
 
-	ret = ParseServedUserNumberList(pc, p, end, servedUserNumberList);
+	ret = ParseServedUserNumberList(pc, p, end, &pc->c.retResult.o.list);
 	if (ret < 0)
 		return ret;
 
-	print_msg(PRT_SHOWNUMBERS, "Interrogate Served User Numbers: %s\n", 
-		  servedUserNumberList);
+	print_msg(PRT_SHOWNUMBERS, "Interrogate Served User Numbers:\n");
 	
 	return ret;
 }
@@ -148,30 +149,29 @@ ParseARGDiversionInformation(struct asn1_parm *pc, u_char *p, u_char *end, int d
 }
 
 int 
-ParseIntResultList(struct asn1_parm *pc, u_char *p, u_char *end, int dummy)
+ParseIntResultList(struct asn1_parm *pc, u_char *p, u_char *end, struct IntResultList *intResultList)
 {
 	int i;
 	INIT;
 
-	for (i = 0; i < 29; i++) {
-		XSEQUENCE_OPT(ParseIntResult, ASN1_TAG_SEQUENCE, ASN1_NOT_TAGGED);
+	for (i = 0; i < 10; i++) {
+		intResultList->intResult[i].basicService = -1;
+		XSEQUENCE_OPT_1(ParseIntResult, ASN1_TAG_SEQUENCE, ASN1_NOT_TAGGED, 
+				&intResultList->intResult[i] );
 	}
 
 	return p - beg;
 }
 
 int 
-ParseIntResult(struct asn1_parm *pc, u_char *p, u_char *end, int dummy)
+ParseIntResult(struct asn1_parm *pc, u_char *p, u_char *end, struct IntResult *intResult)
 {
-	int procedure, basicService;
-	struct ServedUserNr servedUserNr;
-	struct Address address;
 	INIT;
 
-	XSEQUENCE_1(ParseServedUserNr, ASN1_NOT_TAGGED, ASN1_NOT_TAGGED, &servedUserNr);
-	XSEQUENCE_1(ParseBasicService, ASN1_TAG_ENUM, ASN1_NOT_TAGGED, &basicService);
-	XSEQUENCE_1(ParseProcedure, ASN1_TAG_ENUM, ASN1_NOT_TAGGED, &procedure);
-	XSEQUENCE_1(ParseAddress, ASN1_TAG_SEQUENCE, ASN1_NOT_TAGGED, &address);
+	XSEQUENCE_1(ParseServedUserNr, ASN1_NOT_TAGGED, ASN1_NOT_TAGGED, &intResult->servedUserNr);
+	XSEQUENCE_1(ParseBasicService, ASN1_TAG_ENUM, ASN1_NOT_TAGGED, &intResult->basicService);
+	XSEQUENCE_1(ParseProcedure, ASN1_TAG_ENUM, ASN1_NOT_TAGGED, &intResult->procedure);
+	XSEQUENCE_1(ParseAddress, ASN1_TAG_SEQUENCE, ASN1_NOT_TAGGED, &intResult->address);
 
 	return p - beg;
 }
@@ -206,20 +206,14 @@ ParseProcedure(struct asn1_parm *pc, u_char *p, u_char *end, int *procedure)
 	return ParseEnum(pc, p, end, procedure);
 }
 
-int 
-ParseServedUserNumberList(struct asn1_parm *pc, u_char *p, u_char *end, char *str)
+int ParseServedUserNumberList(struct asn1_parm *pc, u_char *p, u_char *end, struct ServedUserNumberList *list)
 {
-	struct PartyNumber partyNumber;
 	int i;
 	INIT;
 
-	for (i = 0; i < 9; i++) { // 99
-		XSEQUENCE_OPT_1(ParsePartyNumber, ASN1_NOT_TAGGED, ASN1_NOT_TAGGED, &partyNumber);
-#if 0
-		if (partyNumber[0]) {
-			str += sprintf(str, "%s ", partyNumber);
-		}
-#endif
+	for (i = 0; i < 10; i++) {
+		list->partyNumber[i].type = -1;
+		XSEQUENCE_OPT_1(ParsePartyNumber, ASN1_NOT_TAGGED, ASN1_NOT_TAGGED, &list->partyNumber[i]);
 	}
 
 	return p - beg;
