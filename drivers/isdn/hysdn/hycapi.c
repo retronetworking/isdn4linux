@@ -43,8 +43,8 @@
 
 static char hycapi_revision[]="$Revision$";
 
-static unsigned int capi_enable = 0xffffffff; 
-MODULE_PARM(capi_enable, "i");
+unsigned int hycapi_enable = 0xffffffff; 
+MODULE_PARM(hycapi_enable, "i");
 
 typedef struct _hycapi_appl {
 	unsigned int ctrl_mask;
@@ -545,15 +545,11 @@ hycapi_rx_capipkt(hysdn_card * card, uchar * buf, word len)
 	printk(KERN_NOTICE "hycapi_rx_capipkt\n");    
 #endif
 	if(!cinfo) {
-		printk(KERN_ERR "HYSDN Card%d: no HYCAPI-controller!\n",
-		       card->myid);
 		return;
 	}
 	ctrl = cinfo->capi_ctrl;
 	if(!ctrl)
 	{
-		printk(KERN_ERR "HYSDN Card%d: no CAPI-controller (1)!\n",
-		       card->myid);
 		return;
 	}
 	if(len < CAPI_MSG_BASELEN) {
@@ -647,8 +643,6 @@ void hycapi_tx_capiack(hysdn_card * card)
 	printk(KERN_NOTICE "hycapi_tx_capiack\n");    
 #endif
 	if(!cinfo) {
-		printk(KERN_ERR "HYSDN Card%d: no CAPI-controller (2)!\n",
-		       card->myid);
 		return;
 	}
 	spin_lock_irq(&cinfo->lock);
@@ -674,8 +668,6 @@ hycapi_tx_capiget(hysdn_card *card)
 {
 	hycapictrl_info *cinfo = card->hyctrlinfo;
 	if(!cinfo) {
-		printk(KERN_ERR "HYSDN Card%d: no CAPI-controller! (3)\n",
-		       card->myid);
 		return (struct sk_buff *)NULL;
 	}
 	if (!cinfo->sk_count)
@@ -795,7 +787,7 @@ hycapi_capi_create(hysdn_card *card)
 #ifdef HYCAPI_PRINTFNAMES
 	printk(KERN_NOTICE "hycapi_capi_create\n");        
 #endif
-	if((capi_enable & (1 << card->myid)) == 0) {
+	if((hycapi_enable & (1 << card->myid)) == 0) {
 		return 1;
 	}
 	if (!card->hyctrlinfo) {
