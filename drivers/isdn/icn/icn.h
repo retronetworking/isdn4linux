@@ -19,6 +19,11 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.14  1996/05/02 00:40:29  fritz
+ * Major rewrite to support more than one card
+ * with a single module.
+ * Support for new firmware.
+ *
  * Revision 1.13  1996/04/20 16:51:41  fritz
  * Increased status buffer.
  * Misc. typos
@@ -137,7 +142,6 @@ typedef struct icn_cdef {
 
 #define ICN_MAX_SQUEUE 65536     /* Max. outstanding send-data              */
 #define ICN_FRAGSIZE (250)       /* Max. size of send-fragments             */
-#define ICN_MAXCARDS 32          /* Max. number of supported cards          */
 #define ICN_BCH 2                /* Number of supported channels per card   */
 
 /* type-definitions for accessing the mmap-io-areas */
