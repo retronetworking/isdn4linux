@@ -3,6 +3,9 @@
  *   Basic declarations, defines and prototypes
  *
  * $Log$
+ * Revision 1.13.2.8  1998/02/11 14:23:10  keil
+ * support for Dr Neuhaus Niccy PnP and PCI
+ *
  * Revision 1.13.2.7  1998/02/09 11:21:22  keil
  * Sedlbauer PCMCIA support from Marcus Niemann
  *
@@ -198,14 +201,14 @@
  */
 
 struct Fsm {
-	int *jumpmatrix;
-	int state_count, event_count;
+	long *jumpmatrix;
+	long state_count, event_count;
 	char **strEvent, **strState;
 };
 
 struct FsmInst {
 	struct Fsm *fsm;
-	int state;
+	long state;
 	int debug;
 	void *userdata;
 	int userint;
@@ -213,7 +216,7 @@ struct FsmInst {
 };
 
 struct FsmNode {
-	int state, event;
+	long state, event;
 	void (*routine) (struct FsmInst *, int, void *);
 };
 

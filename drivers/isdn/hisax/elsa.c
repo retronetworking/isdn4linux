@@ -11,6 +11,9 @@
  *
  *
  * $Log$
+ * Revision 1.14.2.7  1998/01/27 22:37:36  keil
+ * fast io
+ *
  * Revision 1.14.2.6  1998/01/11 22:57:10  keil
  * add PCMCIA maintainer Klaus
  *
@@ -682,19 +685,19 @@ Elsa_card_msg(struct IsdnCardState *cs, int mt, void *arg)
 			cs->hw.elsa.status |= ELSA_ASSIGN;
 			break;
 		case MDL_INFO_SETUP:
-			if ((int) arg)
+			if ((long) arg)
 				cs->hw.elsa.status |= 0x0200;
 			else
 				cs->hw.elsa.status |= 0x0100;
 			break;
 		case MDL_INFO_CONN:
-			if ((int) arg)
+			if ((long) arg)
 				cs->hw.elsa.status |= 0x2000;
 			else
 				cs->hw.elsa.status |= 0x1000;
 			break;
 		case MDL_INFO_REL:
-			if ((int) arg) {
+			if ((long) arg) {
 				cs->hw.elsa.status &= ~0x2000;
 				cs->hw.elsa.status &= ~0x0200;
 			} else {

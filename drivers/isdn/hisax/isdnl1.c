@@ -11,6 +11,9 @@
  *
  *
  * $Log$
+ * Revision 1.15.2.7  1998/02/11 14:23:14  keil
+ * support for Dr Neuhaus Niccy PnP and PCI
+ *
  * Revision 1.15.2.6  1998/02/09 11:24:11  keil
  * New leased line support (Read README.HiSax!)
  *
@@ -1290,11 +1293,11 @@ dch_manl1(struct PStack *st, int pr,
 			}
 			break;
 		case PH_TESTLOOP_REQ:
-			if (1 & (int) arg)
+			if (1 & (long) arg)
 				debugl1(cs, "PH_TEST_LOOP B1");
-			if (2 & (int) arg)
+			if (2 & (long) arg)
 				debugl1(cs, "PH_TEST_LOOP B2");
-			if (!(3 & (int) arg))
+			if (!(3 & (long) arg))
 				debugl1(cs, "PH_TEST_LOOP DISABLED");
 			cs->l1cmd(cs, PH_TESTLOOP_REQ, arg);
 			break;

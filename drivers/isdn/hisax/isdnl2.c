@@ -7,6 +7,9 @@
  *              Fritz Elfert
  *
  * $Log$
+ * Revision 1.10.2.4  1998/01/27 22:44:38  keil
+ * fixed window size calculation
+ *
  * Revision 1.10.2.3  1997/11/15 18:54:03  keil
  * cosmetics
  *
@@ -986,7 +989,7 @@ l2_got_tei(struct FsmInst *fi, int event, void *arg)
 {
 	struct PStack *st = fi->userdata;
 
-	st->l2.tei = (int) arg;
+	st->l2.tei = (long) arg;
 
 	if (fi->state == ST_L2_3) {
 		establishlink(fi);

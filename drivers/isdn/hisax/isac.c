@@ -6,6 +6,9 @@
  *
  *
  * $Log$
+ * Revision 1.7.2.4  1998/02/09 11:24:06  keil
+ * New leased line support (Read README.HiSax!)
+ *
  * Revision 1.7.2.3  1998/01/11 22:58:55  keil
  * new setstack interface
  *
@@ -545,9 +548,9 @@ isac_l1cmd(struct IsdnCardState *cs, int msg, void *arg)
 			break;
 		case PH_TESTLOOP_REQ:
 			val = 0;
-			if (1 & (int) arg)
+			if (1 & (long) arg)
 				val |= 0x0c;
-			if (2 & (int) arg)
+			if (2 & (long) arg)
 				val |= 0x3;
 			if (test_bit(HW_IOM1, &cs->HW_Flags)) {
 				/* IOM 1 Mode */

@@ -10,6 +10,9 @@
  *              Beat Doebeli
  *
  * $Log$
+ * Revision 1.8.2.7  1998/02/03 23:17:16  keil
+ * IRQ 9
+ *
  * Revision 1.8.2.6  1998/01/27 22:37:43  keil
  * fast io
  *
@@ -56,7 +59,7 @@ readisac(unsigned int adr, u_char off)
 static inline void
 writeisac(unsigned int adr, u_char off, u_char data)
 {
-	writeb(data, adr + ((off & 1) ? 0x2ff : 0x100) + off);
+	writeb(data, adr + ((off & 1) ? 0x2ff : 0x100) + off); mb();
 }
 
 
@@ -71,14 +74,14 @@ static inline void
 writehscx(unsigned int adr, int hscx, u_char off, u_char data)
 {
 	writeb(data, adr + (hscx ? 0x1c0 : 0x180) +
-	       ((off & 1) ? 0x1ff : 0) + off);
+	       ((off & 1) ? 0x1ff : 0) + off); mb();
 }
 
 static inline void
 read_fifo_isac(unsigned int adr, u_char * data, int size)
 {
 	register int i;
-	register u_char *ad = (u_char *) (adr + 0x100);
+	register u_char *ad = (u_char *) ((long)adr + 0x100);
 	for (i = 0; i < size; i++)
 		data[i] = readb(ad);
 }
@@ -87,16 +90,17 @@ static inline void
 write_fifo_isac(unsigned int adr, u_char * data, int size)
 {
 	register int i;
-	register u_char *ad = (u_char *) (adr + 0x100);
-	for (i = 0; i < size; i++)
-		writeb(data[i], ad);
+	register u_char *ad = (u_char *) ((long)adr + 0x100);
+	for (i = 0; i < size; i++) {
+		writeb(data[i], ad); mb();
+	}
 }
 
 static inline void
 read_fifo_hscx(unsigned int adr, int hscx, u_char * data, int size)
 {
 	register int i;
-	register u_char *ad = (u_char *) (adr + (hscx ? 0x1c0 : 0x180));
+	register u_char *ad = (u_char *) ((long)adr + (hscx ? 0x1c0 : 0x180));
 	for (i = 0; i < size; i++)
 		data[i] = readb(ad);
 }
@@ -105,9 +109,10 @@ static inline void
 write_fifo_hscx(unsigned int adr, int hscx, u_char * data, int size)
 {
 	int i;
-	register u_char *ad = (u_char *) (adr + (hscx ? 0x1c0 : 0x180));
-	for (i = 0; i < size; i++)
-		writeb(data[i], ad);
+	register u_char *ad = (u_char *) ((long)adr + (hscx ? 0x1c0 : 0x180));
+	for (i = 0; i < size; i++) {
+		writeb(data[i], ad); mb();
+	}
 }
 
 /* Interface functions */
@@ -258,9 +263,9 @@ reset_teles0(struct IsdnCardState *cs)
 		byteout(cs->hw.teles0.cfg_reg + 4, cfval | 1);
 		HZDELAY(HZ / 10 + 1);
 	}
-	writeb(0, cs->hw.teles0.membase + 0x80);
+	writeb(0, cs->hw.teles0.membase + 0x80); mb();
 	HZDELAY(HZ / 5 + 1);
-	writeb(1, cs->hw.teles0.membase + 0x80);
+	writeb(1, cs->hw.teles0.membase + 0x80); mb();
 	HZDELAY(HZ / 5 + 1);
 	restore_flags(flags);
 	return(0);

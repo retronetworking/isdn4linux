@@ -7,6 +7,9 @@
  *              Fritz Elfert
  *
  * $Log$
+ * Revision 1.8.2.4  1998/01/27 22:43:49  keil
+ * fixed MDL_ASSIGN_REQ
+ *
  * Revision 1.8.2.3  1997/11/15 18:54:20  keil
  * cosmetics
  *
@@ -191,7 +194,7 @@ tei_id_assign(struct FsmInst *fi, int event, void *arg)
 	} else if (ri == st->ma.ri) {
 		FsmDelTimer(&st->ma.t202, 1);
 		FsmChangeState(&st->ma.tei_m, ST_TEI_NOP);
-		st->ma.manl2(st, MDL_ASSIGN_REQ, (void *) (int) tei);
+		st->ma.manl2(st, MDL_ASSIGN_REQ, (void *) (long) tei);
 		cs = (struct IsdnCardState *) st->l1.hardware;
 		cs->cardmsg(cs, MDL_ASSIGN_REQ, NULL);
 	}
@@ -388,7 +391,7 @@ tei_l2tei(struct PStack *st, int pr, void *arg)
 				sprintf(tmp, "fixed assign tei %d", TEI_FIXED);
 				st->ma.tei_m.printdebug(&st->ma.tei_m, tmp);
 			}
-			st->ma.manl2(st, MDL_ASSIGN_REQ, (void *) (int) TEI_FIXED);
+			st->ma.manl2(st, MDL_ASSIGN_REQ, (void *) (long) TEI_FIXED);
 #else
 			FsmEvent(&st->ma.tei_m, EV_IDREQ, arg);
 #endif

@@ -8,6 +8,9 @@
  *
  *
  * $Log$
+ * Revision 1.1.2.3  1998/01/27 22:37:35  keil
+ * fast io
+ *
  * Revision 1.1.2.2  1997/11/15 18:50:44  keil
  * new common init function
  *
@@ -312,19 +315,19 @@ Diva_card_msg(struct IsdnCardState *cs, int mt, void *arg)
 			cs->hw.diva.status |= DIVA_ASSIGN;
 			break;
 		case MDL_INFO_SETUP:
-			if ((int)arg) 
+			if ((long)arg) 
 				cs->hw.diva.status |=  0x0200;
 			else
 				cs->hw.diva.status |=  0x0100;
 			break;
 		case MDL_INFO_CONN:
-			if ((int)arg) 
+			if ((long)arg) 
 				cs->hw.diva.status |=  0x2000;
 			else
 				cs->hw.diva.status |=  0x1000;
 			break;
 		case MDL_INFO_REL:
-			if ((int)arg) {
+			if ((long)arg) {
 				cs->hw.diva.status &=  ~0x2000;
 				cs->hw.diva.status &=  ~0x0200;
 			} else {

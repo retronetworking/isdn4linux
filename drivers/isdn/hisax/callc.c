@@ -7,6 +7,9 @@
  *              Fritz Elfert
  *
  * $Log$
+ * Revision 1.30.2.5  1998/02/09 11:24:17  keil
+ * New leased line support (Read README.HiSax!)
+ *
  * Revision 1.30.2.4  1998/01/27 22:46:00  keil
  * B-channel send delay now configurable
  *
@@ -317,7 +320,7 @@ lli_d_established(struct FsmInst *fi, int event, void *arg)
 		int ret;
 		char txt[32];
 
-		chanp->cs->cardmsg(chanp->cs, MDL_INFO_SETUP, (void *) chanp->chan);
+		chanp->cs->cardmsg(chanp->cs, MDL_INFO_SETUP, (void *) (long)chanp->chan);
 		FsmChangeState(fi, ST_IN_WAIT_LL);
 		test_and_set_bit(FLG_CALL_REC, &chanp->Flags);
 		if (chanp->debug & 1)
@@ -337,7 +340,7 @@ lli_d_established(struct FsmInst *fi, int event, void *arg)
 			link_debug(chanp, txt, 1);
 		}
 		if (!ret) {
-			chanp->cs->cardmsg(chanp->cs, MDL_INFO_REL, (void *) chanp->chan);
+			chanp->cs->cardmsg(chanp->cs, MDL_INFO_REL, (void *) (long)chanp->chan);
 			FsmChangeState(fi, ST_NULL);
 		}
 	} else if (fi->state == ST_WAIT_DSHUTDOWN)
@@ -396,7 +399,7 @@ lli_do_dialout(struct FsmInst *fi, int event, void *arg)
 	struct Channel *chanp = fi->userdata;
 
 	FsmChangeState(fi, ST_OUT_DIAL);
-	chanp->cs->cardmsg(chanp->cs, MDL_INFO_SETUP, (void *) chanp->chan);
+	chanp->cs->cardmsg(chanp->cs, MDL_INFO_SETUP, (void *) (long)chanp->chan);
 	if (chanp->leased) {
 		FsmEvent(&chanp->fi, EV_SETUP_CNF, NULL);
 	} else {
@@ -441,7 +444,7 @@ lli_go_active(struct FsmInst *fi, int event, void *arg)
 	ic.command = ISDN_STAT_BCONN;
 	ic.arg = chanp->chan;
 	chanp->cs->iif.statcallb(&ic);
-	chanp->cs->cardmsg(chanp->cs, MDL_INFO_CONN, (void *) chanp->chan);
+	chanp->cs->cardmsg(chanp->cs, MDL_INFO_CONN, (void *) (long)chanp->chan);
 }
 
 /* incomming call */
@@ -475,7 +478,7 @@ lli_deliver_call(struct FsmInst *fi, int event, void *arg)
 	int ret;
 	char txt[32];
 
-	chanp->cs->cardmsg(chanp->cs, MDL_INFO_SETUP, (void *) chanp->chan);
+	chanp->cs->cardmsg(chanp->cs, MDL_INFO_SETUP, (void *) (long)chanp->chan);
 	/*
 	 * Report incoming calls only once to linklevel, use CallFlags
 	 * which is set to 3 with each broadcast message in isdnl1.c
@@ -519,7 +522,7 @@ lli_deliver_call(struct FsmInst *fi, int event, void *arg)
 			case 0:	/* OK, nobody likes this call */
 			default:	/* statcallb problems */
 				chanp->d_st->lli.l4l3(chanp->d_st, CC_IGNORE, chanp->proc);
-				chanp->cs->cardmsg(chanp->cs, MDL_INFO_REL, (void *) chanp->chan);
+				chanp->cs->cardmsg(chanp->cs, MDL_INFO_REL, (void *) (long)chanp->chan);
 				FsmChangeState(fi, ST_NULL);
 #ifndef LAYER2_WATCHING
 				if (test_bit(FLG_ESTAB_D, &chanp->Flags))
@@ -529,7 +532,7 @@ lli_deliver_call(struct FsmInst *fi, int event, void *arg)
 		}
 	} else {
 		chanp->d_st->lli.l4l3(chanp->d_st, CC_IGNORE, chanp->proc);
-		chanp->cs->cardmsg(chanp->cs, MDL_INFO_REL, (void *) chanp->chan);
+		chanp->cs->cardmsg(chanp->cs, MDL_INFO_REL, (void *) (long)chanp->chan);
 		FsmChangeState(fi, ST_NULL);
 #ifndef LAYER2_WATCHING
 		if (test_bit(FLG_ESTAB_D, &chanp->Flags))
@@ -703,7 +706,7 @@ lli_timeout_d(struct FsmInst *fi, int event, void *arg)
 #ifndef LAYER2_WATCHING
 	FsmAddTimer(&chanp->drel_timer, DREL_TIMER_VALUE, EV_SHUTDOWN_D, NULL, 60);
 #endif
-	chanp->cs->cardmsg(chanp->cs, MDL_INFO_REL, (void *) chanp->chan);
+	chanp->cs->cardmsg(chanp->cs, MDL_INFO_REL, (void *) (long)chanp->chan);
 }
 
 static void
@@ -714,7 +717,7 @@ lli_go_null(struct FsmInst *fi, int event, void *arg)
 	FsmChangeState(fi, ST_NULL);
 	chanp->Flags = 0;
 	FsmDelTimer(&chanp->drel_timer, 63);
-	chanp->cs->cardmsg(chanp->cs, MDL_INFO_REL, (void *) chanp->chan);
+	chanp->cs->cardmsg(chanp->cs, MDL_INFO_REL, (void *) (long)chanp->chan);
 }
 
 static void
@@ -1098,7 +1101,7 @@ lli_got_dlrl(struct FsmInst *fi, int event, void *arg)
 		chanp->Flags = 0;
 		FsmEvent(&chanp->lc_d->lcfi, EV_LC_RELEASE, NULL);
 	}
-	chanp->cs->cardmsg(chanp->cs, MDL_INFO_REL, (void *) chanp->chan);
+	chanp->cs->cardmsg(chanp->cs, MDL_INFO_REL, (void *) (long)chanp->chan);
 }
 
 /* *INDENT-OFF* */
@@ -2117,7 +2120,7 @@ HiSax_command(isdn_ctrl * ic)
 					num = *(unsigned int *) ic->parm.num;
 					if (csta->stlist)
 						csta->stlist->ma.manl1(csta->stlist,
-							PH_TESTLOOP_REQ, (void *) num);
+							PH_TESTLOOP_REQ, (void *) (long)num);
 					break;
 #ifdef MODULE
 				case (55):

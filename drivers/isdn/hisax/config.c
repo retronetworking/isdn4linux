@@ -5,6 +5,9 @@
  *
  *
  * $Log$
+ * Revision 1.15.2.8  1998/02/11 19:21:37  keil
+ * fix typo
+ *
  * Revision 1.15.2.7  1998/02/11 14:23:08  keil
  * support for Dr Neuhaus Niccy PnP and PCI
  *
@@ -563,7 +566,7 @@ int elsa_init_pcmcia(void *pcm_iob, int pcm_irq, int *busy_flag, int prot)
 		}
 	}
 	cards[0].para[0] = pcm_irq;
-	cards[0].para[1] = (int)pcm_iob;
+	cards[0].para[1] = (long)pcm_iob;
 	cards[0].protocol = prot;
 	cards[0].typ = 10;
 	nzproto = 1;
