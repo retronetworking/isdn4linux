@@ -5,6 +5,10 @@
  *
  *
  * $Log$
+ * Revision 1.8  1997/02/09 00:28:05  keil
+ * new interface handling, one interface per card
+ * default protocol now works again
+ *
  * Revision 1.7  1997/01/27 15:56:57  keil
  * Teles PCMCIA ITK ix1 micro added
  *
@@ -345,9 +349,13 @@ HiSax_init(void)
 	if (HiSax_inithardware()) {
 		/* Install only, if at least one card found */
 		/* No symbols to export, hide all symbols */
-		register_symtab(NULL);
 
 #ifdef MODULE
+#if (LINUX_VERSION_CODE < 0x020111)
+		register_symtab(NULL);
+#else
+		EXPORT_NO_SYMBOLS;
+#endif
 		printk(KERN_NOTICE "HiSax: module installed\n");
 #endif
 		return (0);

@@ -1,6 +1,9 @@
 /* $Id$
  *
  * $Log$
+ * Revision 1.1  1996/04/13 10:27:02  fritz
+ * Initial revision
+ *
  *
  */
 #include "teles.h"
@@ -113,9 +116,13 @@ teles_init(void)
                 ll_init();
 
 		/* No symbols to export, hide all symbols */
-		register_symtab(NULL);
 
 #ifdef MODULE
+#if (LINUX_VERSION_CODE < 0x020111)
+			register_symtab(NULL);
+#else
+			EXPORT_NO_SYMBOLS;
+#endif
                 printk(KERN_NOTICE "Teles module installed\n");
 #endif
                 return (0);

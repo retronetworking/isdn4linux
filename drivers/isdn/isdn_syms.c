@@ -7,7 +7,7 @@
 #include "isdn_common.h"
 
 #if (LINUX_VERSION_CODE < 0x020111)
-static int has_exported
+static int has_exported;
 
 static struct symbol_table isdn_syms = {
 #include <linux/symtab_begin.h>
