@@ -20,7 +20,6 @@
 #include <linux/kernel.h>
 #include <linux/major.h>
 #include <linux/sched.h>
-#include <linux/malloc.h>
 #include <linux/fcntl.h>
 #include <linux/fs.h>
 #include <linux/signal.h>
@@ -28,6 +27,7 @@
 #include <linux/smp_lock.h>
 #include <linux/timer.h>
 #include <linux/wait.h>
+#include <linux/slab.h>
 #ifdef CONFIG_ISDN_KCAPI_MIDDLEWARE
 #include <linux/tty.h>
 #ifdef CONFIG_PPP
@@ -54,9 +54,6 @@
 #include <net/capi/command.h>
 #if defined(CONFIG_ISDN_KCAPI_CAPIFS) || defined(CONFIG_ISDN_KCAPI_CAPIFS_MODULE)
 #include "capifs.h"
-#endif
-#ifdef COMPAT_HAS_kmem_cache
-#include <linux/slab.h>
 #endif
 
 static char *revision = "$Revision$";

@@ -29,7 +29,7 @@
 #include <linux/kernel.h>
 #include <linux/locks.h>
 #include <linux/major.h>
-#include <linux/malloc.h>
+#include <linux/slab.h>
 #include <linux/ctype.h>
 #include <asm/bitops.h>
 #include <asm/uaccess.h>
