@@ -9,6 +9,9 @@
  *              Fritz Elfert
  *
  * $Log$
+ * Revision 2.5  1998/02/02 13:34:28  keil
+ * Support australian Microlink net and german AOCD
+ *
  * Revision 2.4  1997/11/06 17:12:25  keil
  * KERN_NOTICE --> KERN_INFO
  *
@@ -42,6 +45,8 @@
 
 extern char *HiSax_getrev(const char *revision);
 const char *dss1_revision = "$Revision$";
+
+#define EXT_BEARER_CAPS 1
 
 #define	MsgHead(ptr, cref, mty) \
 	*ptr++ = 0x8; \
@@ -223,8 +228,8 @@ l3dss1_parse_facility(struct l3_process *pc, u_char *p)
 		    break;
 	}
 }
-
 #endif	
+
 static int 
 l3dss1_check_messagetype_validity(int mt) {
 /* verify if a message type exists */
@@ -306,6 +311,166 @@ l3dss1_release_cmpl(struct l3_process *pc, u_char pr, void *arg)
 	pc->st->l3.l3l4(pc, CC_RELEASE_CNF, NULL);
 	release_l3_process(pc);
 }
+
+#ifdef EXT_BEARER_CAPS
+
+u_char *EncodeASyncParams(u_char *p, u_char si2)
+{ // 7c 06 88  90 21 42 00 bb
+
+  p[0] = p[1] = 0; p[2] = 0x80;
+  if (si2 & 32) // 7 data bits
+    p[2] += 16;
+  else          // 8 data bits
+    p[2] +=24;
+
+  if (si2 & 16) // 2 stop bits
+    p[2] += 96;
+  else          // 1 stop bit
+    p[2] = 32;
+
+  if (si2 & 8)  // even parity
+    p[2] += 2;
+  else          // no parity
+    p[2] += 3;
+
+  switch (si2 & 0x07)
+  {
+    case 0:     p[0] = 66;      // 1200 bit/s
+                break;
+    case 1:     p[0] = 88;      // 1200/75 bit/s
+                break;
+    case 2:     p[0] = 87;      // 75/1200 bit/s
+                break;
+    case 3:     p[0] = 67;      // 2400 bit/s
+                break;
+    case 4:     p[0] = 69;      // 4800 bit/s
+                break;
+    case 5:     p[0] = 72;      // 9600 bit/s
+                break;
+    case 6:     p[0] = 73;      // 14400 bit/s
+                break;
+    case 7:     p[0] = 75;      // 19200 bit/s
+                break;
+  }
+  return p+3;
+}
+
+u_char EncodeSyncParams(u_char si2, u_char ai)
+{
+
+  switch (si2)
+  {
+    case 0:     return ai + 2;  // 1200 bit/s
+    case 1:     return ai + 24; // 1200/75 bit/s
+    case 2:     return ai + 23; // 75/1200 bit/s
+    case 3:     return ai + 3;  // 2400 bit/s
+    case 4:     return ai + 5;  // 4800 bit/s
+    case 5:     return ai + 8;  // 9600 bit/s
+    case 6:     return ai + 9;  // 14400 bit/s
+    case 7:     return ai + 11; // 19200 bit/s
+    case 8:     return ai + 14; // 48000 bit/s
+    case 9:     return ai + 15; // 56000 bit/s
+    case 15:    return ai + 40; // negotiate bit/s
+    default:    break;
+  }
+  return ai;
+}
+
+
+static u_char DecodeASyncParams(u_char si2, u_char *p)
+{ u_char info;
+
+  switch (p[5])
+  {
+    case 66: // 1200 bit/s
+             break; // si2 bleibt gleich
+    case 88: // 1200/75 bit/s
+             si2 += 1;
+             break;
+    case 87: // 75/1200 bit/s
+             si2 += 2;
+             break;
+    case 67: // 2400 bit/s
+             si2 += 3;
+             break;
+    case 69: // 4800 bit/s
+             si2 += 4;
+             break;
+    case 72: // 9600 bit/s
+             si2 += 5;
+             break;
+    case 73: // 14400 bit/s
+             si2 += 6;
+             break;
+    case 75: // 19200 bit/s
+             si2 += 7;
+             break;
+  }
+
+  info = p[7] & 0x7f;
+  if ((info & 16) && (!(info & 8)))   // 7 data bits
+    si2 += 32;                        // else 8 data bits
+  if ((info & 96) == 96)              // 2 stop bits
+    si2 += 16;                        // else 1 stop bit
+  if ((info & 2) && (!(info & 1)))    // even parity
+    si2 += 8;                         // else no parity
+
+  return si2;
+}
+
+
+static u_char DecodeSyncParams(u_char si2, u_char info)
+{
+  info &= 0x7f;
+  switch (info)
+  {
+    case 40: // bit/s aushandeln  --- hat nicht geklappt, ai wird 165 statt 175!
+      return si2 + 15;
+    case 15: // 56000 bit/s --- hat nicht geklappt, ai wird 0 statt 169 !
+      return si2 + 9;
+    case 14: // 48000 bit/s
+      return si2 + 8;
+    case 11: // 19200 bit/s
+      return si2 + 7;
+    case 9:  // 14400 bit/s
+      return si2 + 6;
+    case 8:  // 9600  bit/s
+      return si2 + 5;
+    case 5:  // 4800  bit/s
+      return si2 + 4;
+    case 3:  // 2400  bit/s
+      return si2 + 3;
+    case 23: // 75/1200 bit/s
+      return si2 + 2;
+    case 24: // 1200/75 bit/s
+      return si2 + 1;
+    default: // 1200 bit/s
+      return si2;
+  }
+}
+
+static u_char DecodeSI2(struct sk_buff *skb)
+{ u_char *p; //, *pend=skb->data + skb->len;
+
+        if ((p = findie(skb->data, skb->len, 0x7c, 0)))
+        {
+          switch (p[4] & 0x0f)
+          {
+            case 0x01:  if (p[1] == 0x04) // sync. Bitratenadaption
+                          return DecodeSyncParams(160, p[5]); // V.110/X.30
+                        else if (p[1] == 0x06) // async. Bitratenadaption
+                          return DecodeASyncParams(192, p);   // V.110/X.30
+                        break;
+            case 0x08:  // if (p[5] == 0x02) // sync. Bitratenadaption
+                          return DecodeSyncParams(176, p[5]); // V.120
+                        break;
+          }
+        }
+        return 0;
+}
+
+#endif
+
 
 static void
 l3dss1_setup_req(struct l3_process *pc, u_char pr,
@@ -441,6 +606,24 @@ l3dss1_setup_req(struct l3_process *pc, u_char pr,
 			*p++ = *sub++ & 0x7f;
 	}
 
+#ifdef EXT_BEARER_CAPS
+        if ((pc->para.setup.si2 >= 160) && (pc->para.setup.si2 <= 175))
+        { // sync. Bitratenadaption, V.110/X.30
+          *p++ = 0x7c; *p++ = 0x04; *p++ = 0x88; *p++ = 0x90; *p++ = 0x21;
+          *p++ = EncodeSyncParams(pc->para.setup.si2 - 160, 0x80);
+        }
+        else if ((pc->para.setup.si2 >= 176) && (pc->para.setup.si2 <= 191))
+        { // sync. Bitratenadaption, V.120
+          *p++ = 0x7c; *p++ = 0x05; *p++ = 0x88; *p++ = 0x90; *p++ = 0x28;
+          *p++ = EncodeSyncParams(pc->para.setup.si2 - 176, 0);
+          *p++ = 0x82;
+        }
+        else if (pc->para.setup.si2 >= 192)
+        { // async. Bitratenadaption, V.110/X.30
+          *p++ = 0x7c; *p++ = 0x06; *p++ = 0x88; *p++ = 0x90; *p++ = 0x21;
+          p = EncodeASyncParams(p, pc->para.setup.si2 - 192);
+        }
+#endif
 	l = p - tmp;
 	if (!(skb = l3_alloc_skb(l)))
 		return;
@@ -634,6 +817,12 @@ l3dss1_setup(struct l3_process *pc, u_char pr, void *arg)
 			case 0x08:
 				/* Unrestricted digital information */
 				pc->para.setup.si1 = 7;
+/* JIM, 05.11.97 I wanna set service indicator 2 */
+#ifdef EXT_BEARER_CAPS
+                                pc->para.setup.si2 = DecodeSI2(skb);
+                                printk(KERN_DEBUG "HiSax: SI=%d, AI=%d\n",
+                                       pc->para.setup.si1, pc->para.setup.si2);
+#endif
 				break;
 			case 0x09:
 				/* Restricted digital information */
