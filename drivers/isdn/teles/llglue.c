@@ -1,6 +1,9 @@
 /* $Id$
  *
  * $Log$
+ * Revision 1.3  1996/05/01 14:19:57  fritz
+ * Added ISDN_FEADTURE_L2_TRANS
+ *
  * Revision 1.2  1996/04/29 23:01:46  fritz
  * Added driverId and channel to readstatus().
  *
@@ -89,7 +92,7 @@ ll_init(void)
 	}
 
 	iif.channels = CallcNewChan();
-	iif.maxbufsize = BUFFER_SIZE(HSCX_SBUF_ORDER, HSCX_SBUF_BPPS);
+	iif.maxbufsize = BUFFER_SIZE(HSCX_SBUF_ORDER, HSCX_SBUF_BPPS - 4);
 	iif.features =
 	    ISDN_FEATURE_L2_X75I |
 	    ISDN_FEATURE_L2_HDLC |
