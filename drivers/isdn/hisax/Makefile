@@ -35,6 +35,18 @@ ifeq ($(CONFIG_HISAX_16_3),y)
 	 HSCX_OBJ := hscx.o
 endif
 
+ifeq ($(CONFIG_HISAX_TELESPCI),y)
+	 O_OBJS += telespci.o
+	 ISAC_OBJ := isac.o
+	 HSCX_OBJ := hscx.o
+endif
+
+ifeq ($(CONFIG_HISAX_S0BOX),y)
+	 O_OBJS += s0box.o
+	 ISAC_OBJ := isac.o
+	 HSCX_OBJ := hscx.o
+endif
+
 ifeq ($(CONFIG_HISAX_AVM_A1),y)
 	 O_OBJS += avm_a1.o
 	 ISAC_OBJ := isac.o

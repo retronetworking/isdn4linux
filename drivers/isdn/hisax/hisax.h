@@ -3,6 +3,9 @@
  *   Basic declarations, defines and prototypes
  *
  * $Log$
+ * Revision 1.13.2.9  1998/03/07 23:15:21  tsbogend
+ * made HiSax working on Linux/Alpha
+ *
  * Revision 1.13.2.8  1998/02/11 14:23:10  keil
  * support for Dr Neuhaus Niccy PnP and PCI
  *
@@ -477,10 +480,10 @@ struct elsa_hw {
 
 struct teles3_hw {
 	unsigned int cfg_reg;
-	unsigned int isac;
-	unsigned int hscx[2];
-	unsigned int isacfifo;
-	unsigned int hscxfifo[2];
+	signed   int isac;
+	signed   int hscx[2];
+	signed   int isacfifo;
+	signed   int hscxfifo[2];
 };	
 
 struct teles0_hw {
@@ -696,8 +699,9 @@ struct IsdnCardState {
 #define  ISDN_CTYPE_SEDLBAUER_PCMCIA	22
 #define  ISDN_CTYPE_AMD7930	23
 #define  ISDN_CTYPE_NICCY	24
+#define  ISDN_CTYPE_S0BOX	25
 
-#define  ISDN_CTYPE_COUNT	24
+#define  ISDN_CTYPE_COUNT	25
 
 #ifdef ISDN_CHIP_ISAC
 #undef ISDN_CHIP_ISAC
@@ -731,6 +735,15 @@ struct IsdnCardState {
 #endif
 #else
 #define  CARD_TELES3  0
+#endif
+
+#ifdef	CONFIG_HISAX_TELESPCI
+#define  CARD_TELESPCI (1<< ISDN_CTYPE_TELESPCI)
+#ifndef ISDN_CHIP_ISAC
+#define ISDN_CHIP_ISAC 1
+#endif
+#else
+#define  CARD_TELESPCI  0
 #endif
 
 #ifdef	CONFIG_HISAX_AVM_A1
@@ -843,10 +856,21 @@ struct IsdnCardState {
 #else
 #define CARD_NICCY 0
 #endif
+
+#ifdef	CONFIG_HISAX_S0BOX
+#define	CARD_S0BOX (1 << ISDN_CTYPE_S0BOX)
+#ifndef ISDN_CHIP_ISAC
+#define ISDN_CHIP_ISAC 1
+#endif
+#else
+#define CARD_S0BOX 0
+#endif
+
 #define  SUPORTED_CARDS  (CARD_TELES0 | CARD_TELES3 | CARD_AVM_A1 | CARD_ELSA \
 			 | CARD_IX1MICROR2 | CARD_DIEHLDIVA | CARD_ASUSCOM \
 			 | CARD_TELEINT | CARD_SEDLBAUER | CARD_SPORTSTER \
-			 | CARD_MIC | CARD_NETJET | CARD_TELES3C | CARD_NICCY)
+			 | CARD_MIC | CARD_NETJET | CARD_TELES3C | CARD_NICCY \
+			 | CARD_S0BOX | CARD_TELESPCI)
 
 #define TEI_PER_CARD 0
 

@@ -5,6 +5,9 @@
  *
  *
  * $Log$
+ * Revision 1.15.2.9  1998/03/07 23:15:12  tsbogend
+ * made HiSax working on Linux/Alpha
+ *
  * Revision 1.15.2.8  1998/02/11 19:21:37  keil
  * fix typo
  *
@@ -75,10 +78,11 @@
  *   18 ELSA Quickstep 1000PCI  no parameter
  *   19 Compaq ISDN S0 ISA card p0=irq  p1=IO0 (HSCX)  p2=IO1 (ISAC) p3=IO2
  *   20 Travers Technologies NETjet PCI card
- *   21 reserved TELES PCI
+ *   21 TELES PCI               no parameter
  *   22 Sedlbauer Speed Star    p0=irq p1=iobase
  *   23 reserved
  *   24 Dr Neuhaus Niccy PnP/PCI card p0=irq p1=IO0 p2=IO1 (PnP only)
+ *   25 Teles S0Box             p0=irq p1=iobase (from isapnp setup)
  *
  *
  * protocol can be either ISDN_PTYPE_EURO or ISDN_PTYPE_1TR6 or ISDN_PTYPE_NI1
@@ -113,11 +117,24 @@ void register_elsa_symbols(void) {
 #define DEFAULT_CARD ISDN_CTYPE_16_3
 #define DEFAULT_CFG {15,0x180,0,0}
 #endif
+#ifdef CONFIG_HISAX_S0BOX
+#undef DEFAULT_CARD
+#undef DEFAULT_CFG
+#define DEFAULT_CARD ISDN_CTYPE_S0BOX
+#define DEFAULT_CFG {7,0x378,0,0}
+#endif
 #ifdef CONFIG_HISAX_16_0
 #undef DEFAULT_CARD
 #undef DEFAULT_CFG
 #define DEFAULT_CARD ISDN_CTYPE_16_0
 #define DEFAULT_CFG {15,0xd0000,0xd80,0}
+#endif
+
+#ifdef CONFIG_HISAX_TELESPCI
+#undef DEFAULT_CARD
+#undef DEFAULT_CFG
+#define DEFAULT_CARD ISDN_CTYPE_TELESPCI
+#define DEFAULT_CFG {0,0,0,0}
 #endif
 
 #ifdef CONFIG_HISAX_IX1MICROR2
@@ -344,7 +361,7 @@ HiSaxVersion(void))
 	r += sprintf(r, "%s", HiSax_getrev(tmp));
 
 	printk(KERN_INFO "HiSax: Driver for Siemens chip set ISDN cards\n");
-	printk(KERN_INFO "HiSax: Version 2.8\n");
+	printk(KERN_INFO "HiSax: Version 2.9\n");
 	printk(KERN_INFO "HiSax: Revisions %s\n", rev);
 }
 
@@ -485,11 +502,13 @@ HiSax_init(void))
 			case ISDN_CTYPE_SPORTSTER:
 			case ISDN_CTYPE_MIC:
 			case ISDN_CTYPE_TELES3C:
+			case ISDN_CTYPE_S0BOX:
 				cards[i].para[0] = irq[i];
 				cards[i].para[1] = io[i];
 				break;
 			case ISDN_CTYPE_ELSA_PCI:
 			case ISDN_CTYPE_NETJET:
+			case ISDN_CTYPE_TELESPCI:
 				break;
 		}
 	}

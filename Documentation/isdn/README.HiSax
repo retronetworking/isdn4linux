@@ -25,6 +25,9 @@ Supported cards
 Teles 8.0/16.0/16.3 and compatible ones
 Teles 16.3c
 Teles S0/PCMCIA
+Teles PCI
+Teles S0Box
+Creatix S0Box
 Creatix PnP S0 
 Compaq ISDN S0 ISA card
 AVM A1 (Fritz, Teledat 150)
@@ -32,6 +35,7 @@ ELSA Microlink PCC-16, PCF, PCF-Pro, PCC-8
 ELSA Quickstep 1000
 ELSA Quickstep 1000PCI
 ELSA Quickstep 3000 (same settings as QS1000)
+ELSA Quickstep 3000PCI
 ELSA PCMCIA
 ITK ix1-micro Rev.2
 Eicon.Diehl Diva 2.0 ISA and PCI (S0 and U interface, no PRO version)
@@ -50,6 +54,8 @@ Note: PCF, PCF-Pro: up to now, only the ISDN part is supported
       PCC-8: not tested yet
       Teles PCMCIA is EXPERIMENTAL
       Teles 16.3c is EXPERIMENTAL
+      Teles PCI is EXPERIMENTAL
+      Teles S0Box is EXPERIMENTAL
       Eicon.Diehl Diva U interface not tested
 
 If you know other passive cards with the Siemens chipset, please let me know.
@@ -143,14 +149,15 @@ Card types:
    18   ELSA Quickstep 1000PCI   no parameter
    19   Compaq ISDN S0 ISA card  irq, io0, io1, io (from isapnp setup io=IO2)
    20   NETjet PCI card          no parameter
+   21   Teles PCI                no parameter
    22   Sedlbauer Speed Star (PCMCIA) irq, io (set with card manager)
    24   Dr. Neuhaus Niccy PnP    irq, io0, io1 (from isapnp setup)
    24   Dr. Neuhaus Niccy PCI    no parameter
-
+   25   Teles S0Box              irq, io (of the used lpt port)
 
         
-At the moment IRQ sharing is not possible. Please make sure that your IRQ
-is free and enabled for ISA use.
+At the moment IRQ sharing is only possible with PCI cards. Please make sure
+that your IRQ is free and enabled for ISA use.
 Note: For using the ELSA PCMCIA you need the cardmanager under MSDOS for
 enabling in the moment, then boot linux with loadlin.
 
@@ -233,7 +240,11 @@ Card types:
    18   ELSA Quickstep 1000PCI  no parameter
    19   Compaq ISDN S0 ISA card ONLY WORKS AS A MODULE !
    20   NETjet PCI card         no parameter
-   21   Sedlbauer Speed Star (PCMCIA)  pa=irq, pb=io  (set with card manager)
+   21   Teles PCI               no parameter
+   22   Sedlbauer Speed Star (PCMCIA)  pa=irq, pb=io  (set with card manager)
+   24   Dr. Neuhaus Niccy PnP   ONLY WORKS AS A MODULE !
+   24   Dr. Neuhaus Niccy PCI    no parameter
+   25   Teles S0Box              irq, io (of the used lpt port)
 
 Running the driver
 ------------------
@@ -242,7 +253,7 @@ When you insmod isdn.o and hisax.o (or with the in-kernel version, during
 boot time), a few lines should appear in your syslog. Look for something like:
 
 Apr 13 21:01:59 kke01 kernel: HiSax: Driver for Siemens chip set ISDN cards
-Apr 13 21:01:59 kke01 kernel: HiSax: Version 2.1
+Apr 13 21:01:59 kke01 kernel: HiSax: Version 2.9
 Apr 13 21:01:59 kke01 kernel: HiSax: Revisions 1.14/1.9/1.10/1.25/1.8
 Apr 13 21:01:59 kke01 kernel: HiSax: Total 1 card defined
 Apr 13 21:01:59 kke01 kernel: HiSax: Card 1 Protocol EDSS1 Id=HiSax1 (0)
@@ -354,6 +365,8 @@ Special thanks to:
 	Stephan von Krawczynski
 	Juergen Quade for the Leased Line part
 	Klaus Lichtenwalder (Klaus.Lichtenwalder@WebForum.DE), for ELSA PCMCIA support
+	Enrik Berkhan (enrik@starfleet.inka.de) for S0BOX specific stuff
+	Ton van Rosmalen for Teles PCI
         and more people who are hunting bugs. (If I forgot somebody, please
 	send me a mail). 
 
