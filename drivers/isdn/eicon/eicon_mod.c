@@ -26,6 +26,10 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.9  1999/08/18 20:17:02  armin
+ * Added XLOG function for all cards.
+ * Bugfix of alloc_skb NULL pointer.
+ *
  * Revision 1.8  1999/07/25 15:12:08  armin
  * fix of some debug logs.
  * enabled ISA-cards option.
@@ -1002,7 +1006,7 @@ eicon_alloccard(int Type, int membase, int irq, char *id)
 					ISDN_FEATURE_L2_V11019 |
 					ISDN_FEATURE_L2_V11038 |
 					ISDN_FEATURE_L2_MODEM |
-					ISDN_FEATURE_L2_FAX |
+					/* ISDN_FEATURE_L2_FAX | */ 
 					ISDN_FEATURE_L3_TRANSDSP |
 					ISDN_FEATURE_L3_FAX;
                                 card->hwif.pci.card = (void *)card;
@@ -1026,7 +1030,7 @@ eicon_alloccard(int Type, int membase, int irq, char *id)
 					ISDN_FEATURE_L2_V11019 |
 					ISDN_FEATURE_L2_V11038 |
 					ISDN_FEATURE_L2_MODEM |
-					ISDN_FEATURE_L2_FAX |
+					/* ISDN_FEATURE_L2_FAX | */
 					ISDN_FEATURE_L3_TRANSDSP |
 					ISDN_FEATURE_L3_FAX;
                                 card->hwif.pci.card = (void *)card;
