@@ -7,6 +7,9 @@
  * Beat Doebeli         log all D channel traffic
  * 
  * $Log$
+ * Revision 1.9  1996/06/06 14:42:09  fritz
+ * Bugfix: forgot hsp-> in last change.
+ *
  * Revision 1.7  1996/05/31 01:02:21  fritz
  * Cosmetic changes.
  *
@@ -504,10 +507,10 @@ hscx_interrupt(struct IsdnCardState *sp, byte val, byte hscx)
 			} else {
 				if (hsp->releasebuf)
 					BufPoolRelease(hsp->xmtibh);
-				hsp->xmtibh = NULL;
 				hsp->sendptr = 0;
 				if (hsp->st->l4.l1writewakeup)
 					hsp->st->l4.l1writewakeup(hsp->st);
+				hsp->xmtibh = NULL;
 			}
 		if (!BufQueueUnlink(&hsp->xmtibh, &hsp->sq)) {
 			hsp->releasebuf = !0;
@@ -1733,12 +1736,18 @@ hscx_l2l1(struct PStack *st, int pr,
 	struct IsdnCardState *sp = (struct IsdnCardState *)
 	st->l1.hardware;
 	struct HscxState *hsp = sp->hs + st->l1.hscx;
+	long flags;
 
 	switch (pr) {
                 case (PH_DATA):
-                        if (hsp->xmtibh)
+			save_flags(flags);
+			cli();
+                        if (hsp->xmtibh) {
                                 BufQueueLink(&hsp->sq, ibh);
+				restore_flags(flags);
+			}
                         else {
+				restore_flags(flags);
                                 hsp->xmtibh = ibh;
                                 hsp->sendptr = 0;
                                 hsp->releasebuf = !0;
