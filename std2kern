@@ -1,6 +1,7 @@
 #!/bin/sh
 
 KERNELDIR=/usr/src/linux
+DOCP=docp
 
 docpd() {
   if ! cmp -s $1 $2 ; then
@@ -20,12 +21,37 @@ docp() {
   fi
 }
 
-if [ "$1" = "-d" ] ; then
-  DOCP=docpd
-  shift
-else
-  DOCP=docp
-fi
+#
+# Check, if argument is a linux kernel dir
+#
+checkkernel() {
+	if [ -f $1/Makefile ] ; then
+		if [ "`grep do-it-all $1/Makefile | grep vmlinux`" != "" ] ; then
+			return 0
+		fi
+	fi
+	echo "The given argument does not look like a kernel dir"
+	exit 1
+}
+
+while getopts :dk: a ; do
+	case $a in
+		\?)	case $OPTARG in
+				k)	echo "-k requires Kernel directory parameter"
+					;;
+				*)  echo "Unknown option: -$OPTARG"
+					;;
+			esac
+			exit 1
+			;;
+		k)	checkkernel $OPTARG
+			KERNELDIR=$OPTARG
+			;;
+		d)	DOCP=docpd
+	esac
+done
+shift `expr $OPTIND - 1`
+
 if [ $# != 0 ]; then
   for i in $* ; do
     $DOCP $i $KERNELDIR/$i
@@ -49,7 +75,10 @@ else
   for i in drivers/isdn/sc/*.[ch] ; do
     $DOCP $i $KERNELDIR/$i
   done
-  for i in include/linux/isdn*.h ; do
+  for i in drivers/isdn/avmb1/*.[ch] ; do
+    $DOCP $i $KERNELDIR/$i
+  done
+  for i in include/linux/*.h ; do
     $DOCP $i $KERNELDIR/$i
   done
   for i in Documentation/isdn/CREDITS Documentation/isdn/README* \
@@ -61,7 +90,8 @@ else
   done
   for i in drivers/isdn/Makefile drivers/isdn/icn/Makefile \
            drivers/isdn/teles/Makefile drivers/isdn/hisax/Makefile \
-           drivers/isdn/pcbit/Makefile drivers/isdn/sc/Makefile ; do
+           drivers/isdn/pcbit/Makefile drivers/isdn/sc/Makefile \
+           drivers/isdn/avmb1/Makefile; do
     $DOCP $i.kernel $KERNELDIR/$i
   done
 fi
