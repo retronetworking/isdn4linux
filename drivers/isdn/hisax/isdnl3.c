@@ -14,6 +14,7 @@
 
 #include "hisax.h"
 #include "isdnl3.h"
+#include "isdnl4.h"
 #include <linux/config.h>
 
 const char *l3_revision = "$Revision$";
@@ -402,7 +403,7 @@ l3trans_l4l3(struct PStack *st, int pr, void *arg) {
 
 void
 l3trans_l2l3(struct PStack *st, int pr, void *arg) {
-	st->lli.l3l4(st, pr, arg);
+	st->l4->l3l4(st, pr, arg);
 }
 
 void

@@ -78,6 +78,7 @@
 #define MDL_INFO_REL	0x02E8
 
 #define CC_SETUP	0x0300
+#define CC_X_SETUP	0x0308
 #define CC_RESUME	0x0304
 #define CC_MORE_INFO	0x0310
 #define CC_IGNORE	0x0320
@@ -709,8 +710,13 @@ struct IsdnCardState {
 	void   (*DC_Close) (struct IsdnCardState *);
 	void   (*irq_func) (int, void *, struct pt_regs *);
 	int    (*auxcmd) (struct IsdnCardState *, isdn_ctrl *);
+#ifdef CONFIG_HISAX_LLI
 	struct CallcIf *c_if;
-	struct BCState bcs[2+MAX_WAITING_CALLS];
+#endif
+#ifdef CONFIG_HISAX_CAPI
+        struct Contr *contr;
+#endif
+	struct BCState bcs[2];
 	struct PStack *stlist;
 	struct sk_buff_head rq, sq; /* D-channel queues */
 	int cardnr;
@@ -1077,6 +1083,16 @@ struct IsdnCardState {
 #define DEB_DLOG_HEX		0x400
 #define DEB_DLOG_VERBOSE	0x800
 
+#define LL_DEB_INFO      0x00000001
+#define LL_DEB_STATE     0x00000001
+#define LL_DEB_BUFFERING 0x00000800
+#define LL_DEB_WARN      0x10000000
+
+#define debug(lev, cs, id, fmt, args...) do { \
+        if (1 || (cs)->debug & (lev)) \
+                HiSax_putstatus(cs, id, fmt, ## args); \
+        } while (0)
+
 #define L2FRAME_DEBUG
 
 #ifdef L2FRAME_DEBUG
@@ -1133,8 +1149,6 @@ void setstack_isac(struct PStack *st, struct IsdnCardState *cs);
 
 void ll_run(struct IsdnCardState *cs, int addfeatures);
 void ll_stop(struct IsdnCardState *cs);
-void CallcNew(void);
-void CallcFree(void);
 void Isdnl1New(void);
 void Isdnl1Free(void);
 void Isdnl2New(void);

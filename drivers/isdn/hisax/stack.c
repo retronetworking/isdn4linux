@@ -1,3 +1,4 @@
+#include "isdnl4.h"
 #include "stack.h"
 
 static int
@@ -51,6 +52,7 @@ init_st_2(struct PStack *st, int b2_mode)
 		st->l2.flag = 0;
 		test_and_set_bit(FLG_MOD128, &st->l2.flag);
 		test_and_set_bit(FLG_LAPD, &st->l2.flag);
+		test_and_set_bit(FLG_ORIG, &st->l2.flag);
 		st->l2.maxlen = MAX_DFRAME_LEN;
 		st->l2.window = 1;
 		st->l2.T200 = 1000;	/* 1000 milliseconds  */
@@ -133,12 +135,14 @@ release_st_3(struct PStack *st)
 }
 
 int
-init_st(struct PStack *st, struct IsdnCardState *cs, struct StackParams *sp, 
-	int bchannel, struct Channel *chanp, 
-	void (*l3l4)(struct PStack *st, int pr, void *arg))
+init_st(struct Layer4 *l4, struct IsdnCardState *cs, struct StackParams *sp, 
+	int bchannel)
 {
+	struct PStack *st;
 	int ret;
 
+	st = l4->st;
+	st->l4 = l4;
 	st->next = NULL;
 	ret = init_st_1(st, sp->b1_mode, cs, bchannel);
 	if (ret) return ret;
@@ -146,8 +150,6 @@ init_st(struct PStack *st, struct IsdnCardState *cs, struct StackParams *sp,
 	if (ret) return ret;
 	ret = init_st_3(st, sp->b3_mode);
 	if (ret) return ret;
-	st->lli.userdata = chanp;
-	st->lli.l3l4 = l3l4;
 	return 0;
 }
 

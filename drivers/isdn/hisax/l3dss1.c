@@ -141,7 +141,9 @@ l3dss1_search_dummy_proc(struct PStack *st, int id)
 /*******************************************************************/ 
 static void 
 l3dss1_dummy_return_result(struct PStack *st, int id, u_char *p, u_char nlen)
-{ isdn_ctrl ic;
+{
+#ifdef CONFIG_HISAX_LLI
+  isdn_ctrl ic;
   struct IsdnCardState *cs;
   struct l3_process *pc = NULL; 
 
@@ -165,6 +167,7 @@ l3dss1_dummy_return_result(struct PStack *st, int id, u_char *p, u_char nlen)
      dss1_release_l3_process(pc); 
    }
   else
+#endif
    l3_debug(st, "dummy return result id=0x%x result len=%d",id,nlen);
 } /* l3dss1_dummy_return_result */
 
@@ -174,7 +177,9 @@ l3dss1_dummy_return_result(struct PStack *st, int id, u_char *p, u_char nlen)
 /*******************************************************************/ 
 static void 
 l3dss1_dummy_error_return(struct PStack *st, int id, ulong error)
-{ isdn_ctrl ic;
+{ 
+#ifdef CONFIG_HISAX_LLI
+  isdn_ctrl ic;
   struct IsdnCardState *cs;
   struct l3_process *pc = NULL; 
 
@@ -198,6 +203,7 @@ l3dss1_dummy_error_return(struct PStack *st, int id, ulong error)
      dss1_release_l3_process(pc); 
    }
   else
+#endif
    l3_debug(st, "dummy return error id=0x%x error=0x%lx",id,error);
 } /* l3dss1_error_return */
 
@@ -208,7 +214,9 @@ l3dss1_dummy_error_return(struct PStack *st, int id, ulong error)
 static void 
 l3dss1_dummy_invoke(struct PStack *st, int cr, int id, 
                     int ident, u_char *p, u_char nlen)
-{ isdn_ctrl ic;
+{
+#ifdef CONFIG_HISAX_LLI
+  isdn_ctrl ic;
   struct IsdnCardState *cs;
   
   l3_debug(st, "dummy invoke %s id=0x%x ident=0x%x datalen=%d",
@@ -227,6 +235,7 @@ l3dss1_dummy_invoke(struct PStack *st, int cr, int id,
   ic.parm.dss1_io.data = p;
 
   cs->c_if->iif.statcallb(&ic);
+#endif
 } /* l3dss1_dummy_invoke */
 
 static void
@@ -961,7 +970,7 @@ l3dss1_release_cmpl(struct l3_process *pc, u_char pr, void *arg)
 		pc->para.cause = NO_CAUSE;
 	StopAllL3Timer(pc);
 	newl3state(pc, 0);
-	p_L3L4(pc, CC_RELEASE | CONFIRM, 0);
+	p_L3L4(pc, CC_RELEASE | CONFIRM, skb);
 	dss1_release_l3_process(pc);
 }
 
@@ -1453,7 +1462,7 @@ l3dss1_call_proc(struct l3_process *pc, u_char pr, void *arg)
 	L3AddTimer(&pc->timer, T310, CC_T310);
 	if (ret) /* STATUS for none mandatory IE errors after actions are taken */
 		l3dss1_std_ie_err(pc, ret);
-	p_L3L4(pc, CC_PROCEEDING | INDICATION, 0);
+	p_L3L4(pc, CC_PROCEEDING | INDICATION, skb);
 }
 
 static void
@@ -1492,7 +1501,7 @@ l3dss1_setup_ack(struct l3_process *pc, u_char pr, void *arg)
 	L3AddTimer(&pc->timer, T304, CC_T304);
 	if (ret) /* STATUS for none mandatory IE errors after actions are taken */
 		l3dss1_std_ie_err(pc, ret);
-	p_L3L4(pc, CC_MORE_INFO | INDICATION, 0);
+	p_L3L4(pc, CC_MORE_INFO | INDICATION, skb);
 }
 
 static void
@@ -1524,7 +1533,7 @@ l3dss1_disconnect(struct l3_process *pc, u_char pr, void *arg)
 	if (cause)
 		newl3state(pc, 19);
        	if (11 != ret)
-		p_L3L4(pc, CC_DISCONNECT | INDICATION, 0);
+		p_L3L4(pc, CC_DISCONNECT | INDICATION, skb);
        	else if (!cause)
 		l3dss1_release_req(pc, pr, NULL);
 	if (cause) {
@@ -1550,7 +1559,7 @@ l3dss1_connect(struct l3_process *pc, u_char pr, void *arg)
 	/* here should inserted COLP handling KKe */
 	if (ret)
 		l3dss1_std_ie_err(pc, ret);
-	p_L3L4(pc, CC_SETUP | CONFIRM, 0);
+	p_L3L4(pc, CC_SETUP | CONFIRM, skb);
 }
 
 static void
@@ -1568,7 +1577,7 @@ l3dss1_alerting(struct l3_process *pc, u_char pr, void *arg)
 	newl3state(pc, 4);
 	if (ret)
 		l3dss1_std_ie_err(pc, ret);
-	p_L3L4(pc, CC_ALERTING | INDICATION, 0);
+	p_L3L4(pc, CC_ALERTING | INDICATION, skb);
 }
 
 static void
@@ -1734,12 +1743,13 @@ l3dss1_setup(struct l3_process *pc, u_char pr, void *arg)
 	newl3state(pc, 6);
 	if (err) /* STATUS for none mandatory IE errors after actions are taken */
 		l3dss1_std_ie_err(pc, err);
-	pc->st->lli.l3l4(pc->st, CC_NEW_CR | INDICATION, pc);
+	hdebug();
+	pc->st->l4->l3l4(pc->st, CC_NEW_CR | INDICATION, pc);
 	if (!pc->l4pc) { // no l4 process available
 		pc->para.cause = 0x11;	/* User busy */
 		pc->l4l3(pc, CC_REJECT | REQUEST, 0);
 	} else {
-		p_L3L4(pc, CC_SETUP | INDICATION, 0);
+		p_L3L4(pc, CC_SETUP | INDICATION, skb);
 	}
 }
 
@@ -1819,7 +1829,7 @@ l3dss1_connect_ack(struct l3_process *pc, u_char pr, void *arg)
 	L3DelTimer(&pc->timer);
 	if (ret)
 		l3dss1_std_ie_err(pc, ret);
-	p_L3L4(pc, CC_SETUP_COMPL | INDICATION, 0);
+	p_L3L4(pc, CC_SETUP_COMPL | INDICATION, skb);
 }
 
 static void
@@ -1880,7 +1890,7 @@ l3dss1_release(struct l3_process *pc, u_char pr, void *arg)
 		l3dss1_message_cause(pc, MT_RELEASE_COMPLETE, cause);
 	else
 		l3dss1_message(pc, MT_RELEASE_COMPLETE);
-	p_L3L4(pc, CC_RELEASE | INDICATION, 0);
+	p_L3L4(pc, CC_RELEASE | INDICATION, skb);
 	newl3state(pc, 0);
 	dss1_release_l3_process(pc);
 }
@@ -1910,7 +1920,9 @@ l3dss1_proceed_req(struct l3_process *pc, u_char pr,
 /********************************************/
 static void
 l3dss1_deliver_display(struct l3_process *pc, int pr, u_char *infp)
-{       u_char len;
+{
+#ifdef CONFIG_HISAX_LLI
+	u_char len;
         isdn_ctrl ic; 
 	struct IsdnCardState *cs;
         char *p; 
@@ -1928,6 +1940,7 @@ l3dss1_deliver_display(struct l3_process *pc, int pr, u_char *infp)
 	ic.driver = cs->c_if->myid;
 	ic.arg = ((struct Channel *) pc->l4pc->priv)->chan; // FIXME
 	cs->c_if->iif.statcallb(&ic);
+#endif
 } /* l3dss1_deliver_display */
 
 
@@ -1985,7 +1998,7 @@ l3dss1_progress(struct l3_process *pc, u_char pr, void *arg)
 	if (err)
 		l3dss1_std_ie_err(pc, err);
 	if (ERR_IE_COMPREHENSION != err)
-		p_L3L4(pc, CC_PROGRESS | INDICATION, 0);
+		p_L3L4(pc, CC_PROGRESS | INDICATION, skb);
 }
 
 static void
@@ -2026,7 +2039,7 @@ l3dss1_notify(struct l3_process *pc, u_char pr, void *arg)
 	if (err)
 		l3dss1_std_ie_err(pc, err);
 	if (ERR_IE_COMPREHENSION != err)
-		p_L3L4(pc, CC_NOTIFY | INDICATION, 0);
+		p_L3L4(pc, CC_NOTIFY | INDICATION, skb);
 }
 
 static void
@@ -2222,7 +2235,9 @@ static int l3dss1_cmd_global(struct PStack *st, isdn_ctrl *ic)
 
 static void 
 l3dss1_io_timer(struct l3_process *pc)
-{ isdn_ctrl ic;
+{ 
+#ifdef CONFIG_HISAX_LLI
+  isdn_ctrl ic;
   struct IsdnCardState *cs = pc->st->l1.hardware;
 
   L3DelTimer(&pc->timer); /* remove timer */
@@ -2242,6 +2257,7 @@ l3dss1_io_timer(struct l3_process *pc)
   cs->c_if->iif.statcallb(&ic);
 
   dss1_release_l3_process(pc); 
+#endif
 } /* l3dss1_io_timer */
 
 static void
@@ -2261,11 +2277,11 @@ l3dss1_release_ind(struct l3_process *pc, u_char pr, void *arg)
 		/* ETS 300-104 7.6.1, 8.6.1, 10.6.1... and 16.1
 		 * set down layer 3 without sending any message
 		 */
-		p_L3L4(pc, CC_RELEASE | INDICATION, 0);
+		p_L3L4(pc, CC_RELEASE | INDICATION, skb);
 		newl3state(pc, 0);
 		dss1_release_l3_process(pc);
 	} else {
-		p_L3L4(pc, CC_IGNORE | INDICATION, 0);
+		p_L3L4(pc, CC_IGNORE | INDICATION, skb);
 	}
 }
 
@@ -2505,7 +2521,7 @@ l3dss1_suspend_ack(struct l3_process *pc, u_char pr, void *arg)
 	L3DelTimer(&pc->timer);
 	newl3state(pc, 0);
 	pc->para.cause = NO_CAUSE;
-	p_L3L4(pc, CC_SUSPEND | CONFIRM, 0);
+	p_L3L4(pc, CC_SUSPEND | CONFIRM, skb);
 	/* We don't handle suspend_ack for IE errors now */
 	if ((ret = check_infoelements(pc, skb, ie_SUSPEND_ACKNOWLEDGE)))
 		if (pc->debug & L3_DEB_WARN)
@@ -2602,7 +2618,7 @@ l3dss1_resume_ack(struct l3_process *pc, u_char pr, void *arg)
 		return;
 	}
 	L3DelTimer(&pc->timer);
-	p_L3L4(pc, CC_RESUME | CONFIRM, 0);
+	p_L3L4(pc, CC_RESUME | CONFIRM, skb);
 	newl3state(pc, 10);
 	if (ret) /* STATUS for none mandatory IE errors after actions are taken */
 		l3dss1_std_ie_err(pc, ret);
@@ -2920,6 +2936,7 @@ dss1up(struct PStack *st, int pr, void *arg)
 	struct sk_buff *skb = arg;
 	struct l3_process *proc;
 
+	hdebug();
 	switch (pr) {
 		case (DL_DATA | INDICATION):
 		case (DL_UNIT_DATA | INDICATION):

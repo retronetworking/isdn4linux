@@ -1634,6 +1634,7 @@ isdnl2_l1l2(struct PStack *st, int pr, void *arg)
 			if (skb->len > len)
 				datap += len;
 			else {
+				hdebug();
 				FsmEvent(&st->l2.l2m, EV_L2_FRAME_ERROR, (void *) 'N');
 				FreeSkb(skb);
 				return;
@@ -1668,6 +1669,7 @@ isdnl2_l1l2(struct PStack *st, int pr, void *arg)
 				ret = 0;
 			}
 			if(c) {
+				hdebug();
 				FreeSkb(skb);
 				FsmEvent(&st->l2.l2m, EV_L2_FRAME_ERROR, (void *)(long)c);
 				ret = 0;

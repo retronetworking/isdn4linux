@@ -52,18 +52,18 @@ Dp_L4L3(struct Channel *chanp, int pr, void *arg)
 static inline void
 D_L4L3(struct Channel *chanp, int pr, void *arg)
 {
-	chanp->d_st->l3.l4l3(chanp->d_st, pr, arg);
+	chanp->d_l4.l4.st->l3.l4l3(chanp->d_l4.l4.st, pr, arg);
 }
 
 static inline void
 B_L4L3(struct Channel *chanp, int pr, void *arg)
 {
-	if (!chanp->b_st) {
+	if (!chanp->l4.st) {
 		int_error();
 		return;
 	}
 
-	chanp->b_st->l3.l4l3(chanp->b_st, pr, arg);
+	chanp->l4.st->l3.l4l3(chanp->l4.st, pr, arg);
 }
 
 
@@ -83,19 +83,6 @@ findCallcIf(int driverid)
 	return 0;
 }
 
-int
-discard_queue(struct sk_buff_head *q)
-{
-	struct sk_buff *skb;
-	int ret=0;
-
-	while ((skb = skb_dequeue(q))) {
-		idev_kfree_skb(skb, FREE_READ);
-		ret++;
-	}
-	return(ret);
-}
-
 static struct PStack *
 new_b_st(struct Channel *chanp)
 {
@@ -104,13 +91,15 @@ new_b_st(struct Channel *chanp)
 	struct StackParams sp;
 	int bchannel;
 
-	if (chanp->b_st) {
+	if (chanp->l4.st) {
 		int_error();
 	}
 
 	st = kmalloc(sizeof(struct PStack), GFP_ATOMIC);
 	if (!st)
 		return 0;
+
+	chanp->l4.st = st;
 
 	st->l1.delay = DEFAULT_B_DELAY;
 
@@ -141,7 +130,8 @@ new_b_st(struct Channel *chanp)
 	}
 	sp.b3_mode = B3_MODE_TRANS;
 	bchannel = chanp->leased ? chanp->chan & 1 : chanp->l4pc.l3pc->para.bchannel - 1;
-	init_st(st, cs, &sp, bchannel, chanp, lldata_handler);
+	chanp->l4.l3l4 = lldata_handler;
+	init_st(&chanp->l4, cs, &sp, bchannel);
 
 	st->l2.l2m.debug = chanp->debug & 0x10;
 	st->l2.debug = chanp->debug & 0x40;
@@ -152,18 +142,14 @@ new_b_st(struct Channel *chanp)
 static void
 del_b_st(struct Channel *chanp)
 {
-	if (!chanp->b_st) {
+	if (!chanp->l4.st) {
 		int_error();
 		return;
 	}
-	release_st(chanp->b_st);
-	kfree(chanp->b_st);
-	chanp->b_st = NULL;
+	release_st(chanp->l4.st);
+	kfree(chanp->l4.st);
+	chanp->l4.st = NULL;
 }
-
-#define LL_DEB_INFO      0x00000001
-#define LL_DEB_BUFFERING 0x00000800
-#define LL_DEB_WARN      0x10000000
 
 static void
 ll_debug(int level, struct CallcIf *c_if, char *fmt, ...)
@@ -412,7 +398,7 @@ lli_init_bchan_out(struct FsmInst *fi, int event, void *arg)
 	FsmChangeState(fi, ST_WAIT_BCONN);
 	HL_LL(chanp, ISDN_STAT_DCONN, &ic);
 	chanp->tx_cnt = 0;
-	chanp->b_st = new_b_st(chanp);
+	chanp->l4.st = new_b_st(chanp);
 	B_L4L3(chanp, DL_ESTABLISH | REQUEST, 0);
 }
 
@@ -461,8 +447,8 @@ lli_go_active(struct FsmInst *fi, int event, void *arg)
 
 	FsmChangeState(fi, ST_ACTIVE);
 	chanp->data_open = !0;
-	if (chanp->b_st->l1.bcs->conmsg)
-		strcpy(ic.parm.num, chanp->b_st->l1.bcs->conmsg);
+	if (chanp->l4.st->l1.bcs->conmsg)
+		strcpy(ic.parm.num, chanp->l4.st->l1.bcs->conmsg);
 	else
 		ic.parm.num[0] = 0;
 	HL_LL(chanp, ISDN_STAT_BCONN, &ic);
@@ -564,7 +550,7 @@ lli_init_bchan_in(struct FsmInst *fi, int event, void *arg)
 	HL_LL(chanp, ISDN_STAT_DCONN, &ic);
 	chanp->l2_active_protocol = chanp->l2_protocol;
 	chanp->tx_cnt = 0;
-	chanp->b_st = new_b_st(chanp);
+	chanp->l4.st = new_b_st(chanp);
 	B_L4L3(chanp, PH_ACTIVATE | REQUEST, NULL); 
 }
 
@@ -962,7 +948,7 @@ struct Channel
 *selectfreechannel(struct PStack *st, int bch)
 {
 	struct IsdnCardState *cs = st->l1.hardware;
-	struct Channel *chanp = st->lli.userdata;
+	struct Channel *chanp = ((struct D_Layer4 *)st->l4)->chan;
 	int i;
 
 	if (test_bit(FLG_TWO_DCHAN, &cs->HW_Flags))
@@ -984,7 +970,7 @@ struct Channel
 
 	if (bch) /* number of channels is limited */ {
 		i = 2; /* virtual channel */
-		chanp = st->lli.userdata;
+		chanp = ((struct D_Layer4 *)st->l4)->chan;
 		chanp += i;
 		while (i < (2 + MAX_WAITING_CALLS)) {
 			if (chanp->fi.state == ST_NULL)
@@ -1111,8 +1097,7 @@ channelConstr(struct Channel *chanp, struct CallcIf *c_if, int chan)
 	chanp->l4pc.l3l4 = dchan_l3l4proc;
 	chanp->chan = chan;
 	chanp->leased = 0;
-	chanp->d_st = 0;
-	chanp->b_st = 0;
+	chanp->l4.st = 0;
 	chanp->fi.fsm = &callcfsm;
 	chanp->fi.state = ST_NULL;
 	chanp->fi.debug = LL_DEB_WARN;
@@ -1121,17 +1106,19 @@ channelConstr(struct Channel *chanp, struct CallcIf *c_if, int chan)
 	if (chan == 0 || test_bit(FLG_TWO_DCHAN, &c_if->cs->HW_Flags)) {
 		struct StackParams sp;
 		
-		chanp->d_st = kmalloc(sizeof(struct PStack), GFP_ATOMIC);
-		if (!chanp->d_st) {
+		chanp->d_l4.l4.st = kmalloc(sizeof(struct PStack), GFP_ATOMIC);
+		if (!chanp->d_l4.l4.st) {
 			int_error();
 			return;
 		}
 		sp.b1_mode = B1_MODE_HDLC;
 		sp.b2_mode = B2_MODE_LAPD;
 		sp.b3_mode = chanp->c_if->b3_mode;
-		init_st(chanp->d_st, chanp->cs, &sp, CHANNEL_D, chanp, dchan_l3l4);
+		chanp->d_l4.l4.l3l4 = dchan_l3l4;
+		chanp->d_l4.chan = chanp;
+		init_st(&chanp->d_l4.l4, chanp->cs, &sp, CHANNEL_D);
 	} else {
-	        chanp->d_st = c_if->channel[0].d_st;
+	        chanp->d_l4.l4.st = c_if->channel[0].d_l4.l4.st;
 	}
 	chanp->data_open = 0;
 	chanp->tx_cnt = 0;
@@ -1141,16 +1128,16 @@ static void
 channelDestr(struct Channel *chanp)
 {
 	if ((chanp->chan == 0) || test_bit(FLG_TWO_DCHAN, &chanp->cs->HW_Flags)) {
-		if (!chanp->d_st) {
+		if (!chanp->d_l4.l4.st) {
 			int_error();
 			return;
 		}
-		release_st(chanp->d_st);
-		kfree(chanp->d_st);
+		release_st(chanp->d_l4.l4.st);
+		kfree(chanp->d_l4.l4.st);
 	}
-	chanp->d_st = NULL;
+	chanp->d_l4.l4.st = NULL;
 
-	if (chanp->b_st) {
+	if (chanp->l4.st) {
 		printk(KERN_WARNING "CallcFreeChan b_st ch%d not yet freed\n", chanp->chan);
 		del_b_st(chanp);
 	}
@@ -1168,7 +1155,7 @@ ll_writewakeup(struct Channel *chanp, int len)
 static void
 lldata_handler(struct PStack *st, int pr, void *arg)
 {
-	struct Channel *chanp = (struct Channel *) st->lli.userdata;
+	struct Channel *chanp = (struct Channel *) st->l4;
 	struct sk_buff *skb = arg;
 
 	switch (pr) {
@@ -1203,7 +1190,7 @@ lldata_handler(struct PStack *st, int pr, void *arg)
 static void
 leased_l4l3(struct PStack *st, int pr, void *arg)
 {
-	struct Channel *chanp = (struct Channel *) st->lli.userdata;
+	struct Channel *chanp = ((struct D_Layer4 *)st->l4)->chan;
 	struct sk_buff *skb = arg;
 
 	switch (pr) {
@@ -1226,7 +1213,7 @@ leased_l4l3(struct PStack *st, int pr, void *arg)
 static void
 leased_l1l2(struct PStack *st, int pr, void *arg)
 {
-	struct Channel *chanp = (struct Channel *) st->lli.userdata;
+	struct Channel *chanp = (struct Channel *) st->l4;
 	struct sk_buff *skb = arg;
 	int i,event = EV_LEASED_REL;
 
@@ -1272,10 +1259,10 @@ distr_debug(struct CallcIf *c_if, int debugflags)
 	for (i = 0; i < (2 + MAX_WAITING_CALLS) ; i++) {
 		chanp[i].debug = debugflags | LL_DEB_WARN;
 		chanp[i].fi.debug = debugflags & 2;
-		chanp[i].d_st->l2.l2m.debug = debugflags & 8;
-		chanp[i].d_st->l2.debug = debugflags & 0x20;
-		chanp[i].d_st->l3.l3m.debug = debugflags & 0x80;
-		chanp[i].d_st->l1.l1m.debug = debugflags & 0x1000;
+		chanp[i].d_l4.l4.st->l2.l2m.debug = debugflags & 8;
+		chanp[i].d_l4.l4.st->l2.debug = debugflags & 0x20;
+		chanp[i].d_l4.l4.st->l3.l3m.debug = debugflags & 0x80;
+		chanp[i].d_l4.l4.st->l1.l1m.debug = debugflags & 0x1000;
 	}
 	if (debugflags & 4)
 		c_if->cs->debug |= DEB_DLOG_HEX;
@@ -1401,8 +1388,8 @@ int HiSax_ioctl(struct CallcIf *c_if, isdn_ctrl *ic)
 			HiSax_putstatus(c_if->cs, "Card",
 					"%d channel %d set leased mode\n",
 					c_if->cs->cardnr + 1, num + 1);
-			chanp->d_st->l1.l1l2 = leased_l1l2;
-			chanp->d_st->l3.l4l3 = leased_l4l3;
+			chanp->d_l4.l4.st->l1.l1l2 = leased_l1l2;
+			chanp->d_l4.l4.st->l3.l4l3 = leased_l4l3;
 			D_L4L3(chanp, DL_ESTABLISH | REQUEST, NULL);
 		}
 		break;
@@ -1417,16 +1404,16 @@ int HiSax_ioctl(struct CallcIf *c_if, isdn_ctrl *ic)
 		if (test_bit(FLG_TWO_DCHAN, &c_if->cs->HW_Flags)) {
 			printk(KERN_ERR "HiSax PTP mode only with one TEI possible\n");
 		} else if (num) {
-			test_and_set_bit(FLG_PTP, &c_if->channel[0].d_st->l2.flag);
-			test_and_set_bit(FLG_FIXED_TEI, &c_if->channel[0].d_st->l2.flag);
-			c_if->channel[0].d_st->l2.tei = 0;
+			test_and_set_bit(FLG_PTP, &c_if->channel[0].d_l4.l4.st->l2.flag);
+			test_and_set_bit(FLG_FIXED_TEI, &c_if->channel[0].d_l4.l4.st->l2.flag);
+			c_if->channel[0].d_l4.l4.st->l2.tei = 0;
 			HiSax_putstatus(c_if->cs, "set card ", "in PTP mode");
 			printk(KERN_DEBUG "HiSax: set card in PTP mode\n");
 			printk(KERN_INFO "LAYER2 WATCHING ESTABLISH\n");
 			D_L4L3(&c_if->channel[0], DL_ESTABLISH | REQUEST, NULL);
 		} else {
-			test_and_clear_bit(FLG_PTP, &c_if->channel[0].d_st->l2.flag);
-			test_and_clear_bit(FLG_FIXED_TEI, &c_if->channel[0].d_st->l2.flag);
+			test_and_clear_bit(FLG_PTP, &c_if->channel[0].d_l4.l4.st->l2.flag);
+			test_and_clear_bit(FLG_FIXED_TEI, &c_if->channel[0].d_l4.l4.st->l2.flag);
 			HiSax_putstatus(c_if->cs, "set card ", "in PTMP mode");
 			printk(KERN_DEBUG "HiSax: set card in PTMP mode\n");
 		}
@@ -1436,13 +1423,13 @@ int HiSax_ioctl(struct CallcIf *c_if, isdn_ctrl *ic)
 		chanp = c_if->channel + (num & 1);
 		num = num >>1;
 		if (num == 127) {
-			test_and_clear_bit(FLG_FIXED_TEI, &chanp->d_st->l2.flag);
-			chanp->d_st->l2.tei = -1;
+			test_and_clear_bit(FLG_FIXED_TEI, &chanp->d_l4.l4.st->l2.flag);
+			chanp->d_l4.l4.st->l2.tei = -1;
 			HiSax_putstatus(c_if->cs, "set card ", "in VAR TEI mode");
 			printk(KERN_DEBUG "HiSax: set card in VAR TEI mode\n");
 		} else {
-			test_and_set_bit(FLG_FIXED_TEI, &chanp->d_st->l2.flag);
-			chanp->d_st->l2.tei = num;
+			test_and_set_bit(FLG_FIXED_TEI, &chanp->d_l4.l4.st->l2.flag);
+			chanp->d_l4.l4.st->l2.tei = num;
 			HiSax_putstatus(c_if->cs, "set card ", "in FIXED TEI (%d) mode", num);
 			printk(KERN_DEBUG "HiSax: set card in FIXED TEI (%d) mode\n",
 			       num);
@@ -1463,8 +1450,8 @@ int HiSax_ioctl(struct CallcIf *c_if, isdn_ctrl *ic)
 		       c_if->cs->cardnr + 1, c_if->cs->debug);
 		break;
 	case 13:
-		c_if->channel[0].d_st->l3.debug = *(unsigned int *) ic->parm.num;
-		c_if->channel[1].d_st->l3.debug = *(unsigned int *) ic->parm.num;
+		c_if->channel[0].d_l4.l4.st->l3.debug = *(unsigned int *) ic->parm.num;
+		c_if->channel[1].d_l4.l4.st->l3.debug = *(unsigned int *) ic->parm.num;
 		HiSax_putstatus(c_if->cs, "l3 debugging ",
 				"flags card %d set to %x\n", c_if->cs->cardnr + 1,
 				*(unsigned int *) ic->parm.num);
@@ -1599,7 +1586,8 @@ HiSax_command(isdn_ctrl * ic)
 		/* protocol specific io commands */
 	case ISDN_CMD_PROT_IO:
 		if (c_if->b3_mode - B3_MODE_CC == (ic->arg & 0xFF))
-			return c_if->channel[0].d_st->l3.l4l3_proto(c_if->channel[0].d_st, ic);
+			return c_if->channel[0].d_l4.l4.st->l3.l4l3_proto(c_if->channel[0].d_l4.l4.st
+, ic);
 		return -EINVAL;
 	case ISDN_CMD_LOCK:
 		HiSax_mod_inc_use_count(c_if->cs);
@@ -1634,7 +1622,7 @@ HiSax_writebuf_skb(int id, int chan, int ack, struct sk_buff *skb)
 		return -ENODEV;
 	}
 	chanp = c_if->channel + chan;
-	st = chanp->b_st;
+	st = chanp->l4.st;
 	if (!st || !chanp->data_open) {
 		link_debug(LL_DEB_WARN, chanp, 1, "writebuf: channel not open");
 		return -EIO;

@@ -47,6 +47,35 @@ struct stateentry {
 	void (*rout) (struct l3_process *, u_char, void *);
 };
 
+// =================================================================
+//
+
+struct setup_req_parm {
+	unsigned char sending_complete[1];
+	unsigned char bearer_capability[13];
+	unsigned char channel_identification[3]; // BRI
+	unsigned char facility[128];
+	unsigned char progress_indicator[4];
+	unsigned char network_specific_facilities[1]; // na
+	unsigned char keypad_facility[34];
+	unsigned char calling_party_number[24];
+	unsigned char calling_party_subaddress[23];
+	unsigned char called_party_number[23];
+	unsigned char called_party_subaddress[23];
+	unsigned char transit_network_selection[1]; // na
+	unsigned char low_layer_compatibility[16];
+	unsigned char high_layer_compatibility[4];
+	unsigned char user_user[131];
+};
+
+struct alerting_req_parm {
+	unsigned char facility[128];
+	unsigned char progress_indicator[4];
+	unsigned char user_user[131];
+};
+
+
+
 #define l3_debug(st, fmt, args...) HiSax_putstatus(st->l1.hardware, "l3 ", fmt, ## args)
 
 extern void newl3state(struct l3_process *pc, int state);

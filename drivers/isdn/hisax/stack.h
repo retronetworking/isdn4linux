@@ -67,11 +67,6 @@ struct Layer3 {
 	char debug_id[8];
 };
 
-struct LLInterface {
-	void (*l3l4) (struct PStack *, int, void *);
-	void *userdata;
-};
-
 struct Management {
 	int	ri;
 	struct FsmInst tei_m;
@@ -86,7 +81,7 @@ struct PStack {
 	struct Layer1 l1;
 	struct Layer2 l2;
 	struct Layer3 l3;
-	struct LLInterface lli;
+	struct Layer4 *l4;
 	struct Management ma;
 
         /* protocol specific data fields */
@@ -132,11 +127,8 @@ struct StackParams {
 	int b3_mode;
 };
 
-int 
-init_st(struct PStack *st, struct IsdnCardState *cs, struct StackParams *sp, 
-	int bchannel, struct Channel *chanp, 
-	void (*l3l4)(struct PStack *st, int pr, void *arg));
-void
-release_st(struct PStack *st);
+int init_st(struct Layer4 *l4, struct IsdnCardState *cs, struct StackParams *sp, 
+	    int bchannel);
+void release_st(struct PStack *st);
 
 #endif

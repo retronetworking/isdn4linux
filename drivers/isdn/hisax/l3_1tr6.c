@@ -237,7 +237,7 @@ l3_1tr6_setup(struct l3_process *pc, u_char pr, void *arg)
 			l3_debug(pc->st, tmp);
 		}
 		newl3state(pc, 6);
-		pc->st->lli.l3l4(pc->st, CC_NEW_CR | INDICATION, pc);
+		pc->st->l4->l3l4(pc->st, CC_NEW_CR | INDICATION, pc);
 		if (!pc->l4pc) { // no l4 process available
 			pc->para.cause = 0x11;	/* User busy */
 			pc->l4l3(pc, CC_REJECT | REQUEST, 0);

@@ -13,7 +13,7 @@
 #include <linux/init.h>
 #endif
 #include "hisax.h"
-#include "callc.h"
+#include "callc.h" // FIXME rename
 #include <linux/module.h>
 #include <linux/kernel_stat.h>
 #include <linux/tqueue.h>
@@ -412,7 +412,6 @@ int nrcards;
 extern char *l1_revision;
 extern char *l2_revision;
 extern char *l3_revision;
-extern char *lli_revision;
 extern char *tei_revision;
 
 HISAX_INITFUNC(char *
@@ -449,8 +448,10 @@ HiSaxVersion(void))
 	printk(KERN_INFO "HiSax: TeiMgr Revision %s\n", HiSax_getrev(tmp));
 	strcpy(tmp, l3_revision);
 	printk(KERN_INFO "HiSax: Layer3 Revision %s\n", HiSax_getrev(tmp));
+#ifdef CONFIG_HISAX_LLI
 	strcpy(tmp, lli_revision);
 	printk(KERN_INFO "HiSax: LinkLayer Revision %s\n", HiSax_getrev(tmp));
+#endif
 	certification_check(1);
 }
 
@@ -459,11 +460,11 @@ HiSax_mod_dec_use_count(struct IsdnCardState *cs)
 {
 #ifdef MODULE
 	MOD_DEC_USE_COUNT;
-	if (!cs->c_if) 
-		return;
+#ifdef CONFIG_HISAX_LLI
 	if (cs->c_if && cs->c_if->channel[0].debug & 0x400)
 		HiSax_putstatus(cs, "   UNLOCK ", "modcnt %lx",
 				MOD_USE_COUNT);
+#endif
 #endif
 }
 
@@ -472,11 +473,11 @@ HiSax_mod_inc_use_count(struct IsdnCardState *cs)
 {
 #ifdef MODULE
 	MOD_INC_USE_COUNT;
-	if (!cs->c_if) 
-		return;
+#ifdef CONFIG_HISAX_LLI
 	if (cs->c_if->channel[0].debug & 0x400)
 		HiSax_putstatus(cs, "   LOCK ", "modcnt %lx",
 				MOD_USE_COUNT);
+#endif
 #endif
 }
 
@@ -723,11 +724,12 @@ VHiSax_putstatus(struct IsdnCardState *cs, char *head, char *fmt, va_list args)
 	} else {
 		p = fmt;
 	}
-	if (cs->c_if) {
+#ifdef XCONFIG_HISAX_LLI
+	if (cs->c_if)
 		callcIfPutStatus(cs->c_if, p);
-	} else {
+	else 
+#endif
 		printk(KERN_DEBUG "HiSax: %s", p);
-	}
 	restore_flags(flags);
 }
 
@@ -745,13 +747,23 @@ void
 ll_run(struct IsdnCardState *cs, int addfeatures)
 {
 	cs->features |= addfeatures;
+#ifdef CONFIG_HISAX_LLI
 	callcIfRun(cs->c_if);
+#endif
+#ifdef CONFIG_HISAX_CAPI
+	contrRun(cs->contr);
+#endif
 }
 
 void
 ll_stop(struct IsdnCardState *cs)
 {
+#ifdef CONFIG_HISAX_LLI
 	callcIfStop(cs->c_if);
+#endif
+#ifdef CONFIG_HISAX_CAPI
+	contrStop(cs->contr);
+#endif
 }
 
 static void
@@ -759,10 +771,14 @@ ll_unload(struct IsdnCardState *cs)
 {
 	kfree(cs->dlog);
 
-	if (cs->c_if) {
-		delCallcIf(cs->c_if);
-		cs->c_if = 0;
-	}
+#ifdef CONFIG_HISAX_LLI
+	delCallcIf(cs->c_if);
+	cs->c_if = 0;
+#endif
+#ifdef CONFIG_HISAX_CAPI
+	delContr(cs->contr);
+	cs->contr = 0;
+#endif
 }
 
 static void
@@ -1086,11 +1102,20 @@ checkcard(int cardnr, char *id, int *busy_flag))
 	skb_queue_head_init(&cs->rq);
 	skb_queue_head_init(&cs->sq);
 
+#ifdef CONFIG_HISAX_LLI
 	cs->c_if = newCallcIf(cs, id, card->protocol);
 	if (!cs->c_if) {
 		printk(KERN_INFO "could not alloc CallcIf!\n");
 		return 0;
 	}
+#endif
+#ifdef CONFIG_HISAX_CAPI
+	cs->contr = newContr(cs, id, card->protocol);
+	if (!cs->contr) {
+		printk(KERN_INFO "could not alloc Contr!\n");
+		return 0;
+	}
+#endif
 
 	init_bcstate(cs, 0);
 	init_bcstate(cs, 1);
@@ -1405,7 +1430,12 @@ HiSax_init(void))
 	printk(KERN_DEBUG "HiSax: Total %d card%s defined\n",
 	       nrcards, (nrcards > 1) ? "s" : "");
 
+#ifdef CONFIG_HISAX_LLI
 	CallcNew();
+#endif
+#ifdef CONFIG_HISAX_CAPI
+	CapiNew();
+#endif
 	Isdnl3New();
 	Isdnl2New();
 	TeiNew();
@@ -1425,7 +1455,12 @@ HiSax_init(void))
 		TeiFree();
 		Isdnl2Free();
 		Isdnl3Free();
+#ifdef CONFIG_HISAX_LLI
 		CallcFree();
+#endif
+#ifdef CONFIG_HISAX_CAPI
+		CapiFree();
+#endif
 		return -EIO;
 	}
 }
@@ -1445,7 +1480,12 @@ cleanup_module(void)
 	TeiFree();
 	Isdnl2Free();
 	Isdnl3Free();
+#ifdef CONFIG_HISAX_LLI
 	CallcFree();
+#endif
+#ifdef CONFIG_HISAX_CAPI
+	CapiFree();
+#endif
 	restore_flags(flags);
 	printk(KERN_INFO "HiSax module removed\n");
 }
@@ -1597,3 +1637,17 @@ int avm_a1_init_pcmcia(void *pcm_iob, int pcm_irq, int *busy_flag, int prot)
 	return (0);
 }
 #endif
+
+int
+discard_queue(struct sk_buff_head *q)
+{
+	struct sk_buff *skb;
+	int ret=0;
+
+	while ((skb = skb_dequeue(q))) {
+		idev_kfree_skb(skb, FREE_READ);
+		ret++;
+	}
+	return ret;
+}
+

@@ -8,9 +8,17 @@ L_TARGET :=
 O_TARGET :=
 
 O_OBJS := isdnl1.o tei.o isdnl2.o isdnl3.o \
-          lmgr.o stack.o q931.o callc.o fsm.o cert.o
+          lmgr.o stack.o q931.o fsm.o cert.o
 
 # EXTRA_CFLAGS += -S
+
+ifeq ($(CONFIG_HISAX_LLI),y)
+        O_OBJS += callc.o
+endif
+
+ifeq ($(CONFIG_HISAX_CAPI),y)
+        O_OBJS += capi.o contr.o listen.o appl.o plci.o cplci.o ncci.o
+endif
 
 ifeq ($(CONFIG_HISAX_EURO),y)
 	 O_OBJS += l3dss1.o

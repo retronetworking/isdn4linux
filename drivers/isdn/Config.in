@@ -66,8 +66,12 @@ if [ "$CONFIG_ISDN_DRV_HISAX" != "n" ]; then
       bool '    Disable sending complete' CONFIG_HISAX_NO_SENDCOMPLETE
       bool '    Disable sending low layer compatibility' CONFIG_HISAX_NO_LLC
       bool '    Disable keypad protocol option' CONFIG_HISAX_NO_KEYPAD
+      if [ "$CONFIG_EXPERIMENTAL" != "n" ]; then
+         bool '    Interface to CAPI' CONFIG_HISAX_CAPI
+      fi
    fi
    bool '  HiSax Support for german 1TR6' CONFIG_HISAX_1TR6
+   bool '  Interface to current link level' CONFIG_HISAX_LLI
    comment '  HiSax supported cards'
    bool '  Teles 16.0/8.0' CONFIG_HISAX_16_0
    bool '  Teles 16.3 or PNP or PCMCIA' CONFIG_HISAX_16_3
