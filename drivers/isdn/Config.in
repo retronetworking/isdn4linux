@@ -18,7 +18,7 @@ dep_tristate 'PCBIT-D support' CONFIG_ISDN_DRV_PCBIT $CONFIG_ISDN
 dep_tristate 'HiSax SiemensChipSet driver support' CONFIG_ISDN_DRV_HISAX $CONFIG_ISDN
 if [ "$CONFIG_ISDN_DRV_HISAX" != "n" ]; then
     bool 'HiSax Support for EURO/DSS1' CONFIG_HISAX_EURO
-    if [ "$CONFIG_ISDN_DRV_HISAX" != "n" ]; then
+    if [ "$CONFIG_HISAX_EURO" != "n" ]; then
 	    bool 'Support for german tarifinfo' CONFIG_DE_AOC
 	    bool 'Support for australian Microlink service (not for std. EURO)' CONFIG_HISAX_ML
     fi
@@ -36,6 +36,9 @@ if [ "$CONFIG_ISDN_DRV_HISAX" != "n" ]; then
     bool 'HiSax Support for USR Sportster internal TA' CONFIG_HISAX_SPORTSTER
     bool 'HiSax Support for MIC card' CONFIG_HISAX_MIC
     bool 'HiSax Support for NETjet card' CONFIG_HISAX_NETJET
+    if [ "$CONFIG_EXPERIMENTAL" != "n" ]; then
+        bool 'HiSax Support for Am7930' CONFIG_HISAX_AMD7930
+    fi
 fi
 if [ "$CONFIG_EXPERIMENTAL" != "n" ]; then
 	dep_tristate 'Spellcaster support (EXPERIMENTAL)' CONFIG_ISDN_DRV_SC $CONFIG_ISDN
