@@ -20,6 +20,12 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.3  1999/08/22 20:26:12  calle
+ * backported changes from kernel 2.3.14:
+ * - several #include "config.h" gone, others come.
+ * - "struct device" changed to "struct net_device" in 2.3.14, added a
+ *   define in isdn_compat.h for older kernel versions.
+ *
  * Revision 1.2  1999/08/05 10:36:10  armin
  * Bugfix: kernel oops on getting revision.
  *
@@ -92,7 +98,7 @@ static void isdn_tty_fax_modem_result(int code, modem_info * info)
 			break;
 		case 2:	/* +FCON */
 			/* Append CPN, if enabled */
-			if ((m->mdmreg[REG_CPN] & BIT_CPN) &&
+			if ((m->mdmreg[REG_CPN] & BIT_CPNFCON) &&
 				(!(dev->usage[info->isdn_channel] & ISDN_USAGE_OUTGOING))) {
 				sprintf(rs, "/%s", m->cpn);
 				isdn_tty_at_cout(rs, info);
