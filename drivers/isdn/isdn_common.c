@@ -1785,6 +1785,9 @@ isdn_close(struct inode *ino, struct file *filep)
 {
 	uint minor = MINOR(ino->i_rdev);
 
+#ifdef COMPAT_HAS_FILEOP_OWNER
+	lock_kernel();
+#endif
 	if (minor == ISDN_MINOR_STATUS) {
 		infostruct *p = dev->infochain;
 		infostruct *q = NULL;
@@ -1826,6 +1829,9 @@ isdn_close(struct inode *ino, struct file *filep)
  out:
 #ifndef COMPAT_HAS_FILEOP_OWNER
 	MOD_DEC_USE_COUNT;
+#endif
+#ifdef COMPAT_HAS_FILEOP_OWNER
+	unlock_kernel();
 #endif
 	return 0;
 }
