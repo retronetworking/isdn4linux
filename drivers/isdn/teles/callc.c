@@ -1,6 +1,9 @@
 /* $Id$
  *
  * $Log$
+ * Revision 1.4  1996/04/30 22:04:05  isdn4dev
+ *   improved callback  Karsten Keil
+ *
  * Revision 1.3  1996/04/30 10:04:19  fritz
  * Started voice support.
  * Added printk() to debug-switcher for easier
@@ -838,6 +841,7 @@ release_ds(int chan)
                   releasestack_isdnl2(st);
                   break;
           case (ISDN_PROTO_L2_HDLC):
+          case (ISDN_PROTO_L2_TRANS):
                   releasestack_transl2(st);
                   break;
         }
