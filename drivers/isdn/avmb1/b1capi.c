@@ -6,6 +6,14 @@
  * (c) Copyright 1997 by Carsten Paeth (calle@calle.in-berlin.de)
  * 
  * $Log$
+ * Revision 1.4.2.17  1998/03/20 14:38:17  calle
+ * capidrv: prepared state machines for suspend/resume/hold
+ * capidrv: fix bug in state machine if B1/T1 is out of nccis
+ * b1capi: changed some errno returns.
+ * b1capi: detect if you try to add same T1 to different io address.
+ * b1capi: change number of nccis depending on number of channels.
+ * b1lli: cosmetics
+ *
  * Revision 1.4.2.16  1998/03/20 09:01:08  calle
  * Changes capi_register handling to get full support for 30 bchannels.
  *
@@ -616,7 +624,7 @@ int avmb1_detectcard(int port, int irq, int cardtype)
 	}
 	if (!B1_valid_port(port, cardtype)) {
 		printk(KERN_WARNING "b1capi: port 0x%x not valid for %s-card.\n",
-				irq, cardtype2str(cardtype));
+				port, cardtype2str(cardtype));
 		return -EINVAL;
 	}
 	B1_reset(port);

@@ -6,6 +6,14 @@
  * (c) Copyright 1997 by Carsten Paeth (calle@calle.in-berlin.de)
  * 
  * $Log$
+ * Revision 1.1.2.9  1998/03/20 14:38:20  calle
+ * capidrv: prepared state machines for suspend/resume/hold
+ * capidrv: fix bug in state machine if B1/T1 is out of nccis
+ * b1capi: changed some errno returns.
+ * b1capi: detect if you try to add same T1 to different io address.
+ * b1capi: change number of nccis depending on number of channels.
+ * b1lli: cosmetics
+ *
  * Revision 1.1.2.8  1998/03/18 17:43:29  calle
  * T1 with fastlink, bugfix for multicontroller support in capidrv.c
  *
@@ -454,6 +462,7 @@ int B1_valid_port(unsigned port, int cardtype)
 	   case AVM_CARDTYPE_M1:
 	   case AVM_CARDTYPE_M2:
 	   case AVM_CARDTYPE_B1:
+#if 0	/* problem with PCMCIA and PCI cards */
 		switch (port) {
 			case 0x150:
 			case 0x250:
@@ -462,6 +471,9 @@ int B1_valid_port(unsigned port, int cardtype)
 				return 1;
 		}
 		return 0;
+#else
+		return 1;
+#endif
 	   case AVM_CARDTYPE_T1:
 		return ((port & 0x7) == 0) && ((port & 0x30) != 0x30);
    }
