@@ -1,6 +1,7 @@
 VERSION=3.1.91
 SUBDIRS=drivers/isdn
 # Where to install the modules ($KERNELDIR/modules)
+# Huhu
 export KERNELDIR = /usr/src/linux
 export INCLUDES=../../include
 export CC = gcc -I $(INCLUDES)
