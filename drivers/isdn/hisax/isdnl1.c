@@ -11,6 +11,9 @@
  *
  *
  * $Log$
+ * Revision 1.9  1997/03/12 21:44:21  keil
+ * change Interrupt routine from atomic quick to normal
+ *
  * Revision 1.8  1997/02/09 00:24:31  keil
  * new interface handling, one interface per card
  *
@@ -233,7 +236,7 @@ void
 hscx_sched_event(struct HscxState *hsp, int event)
 {
 	hsp->event |= 1 << event;
-	queue_task_irq_off(&hsp->tqueue, &tq_immediate);
+	queue_task(&hsp->tqueue, &tq_immediate);
 	mark_bh(IMMEDIATE_BH);
 }
 
@@ -251,7 +254,7 @@ void
 isac_sched_event(struct IsdnCardState *sp, int event)
 {
 	sp->event |= 1 << event;
-	queue_task_irq_off(&sp->tqueue, &tq_immediate);
+	queue_task(&sp->tqueue, &tq_immediate);
 	mark_bh(IMMEDIATE_BH);
 }
 
