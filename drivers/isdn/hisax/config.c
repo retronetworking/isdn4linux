@@ -5,6 +5,9 @@
  *
  *
  * $Log$
+ * Revision 1.15.2.23  1998/11/11 11:04:36  keil
+ * update version
+ *
  * Revision 1.15.2.22  1998/11/08 13:00:56  niemann
  * Added doc for Sedlbauer ISDN cards,
  * added info for downloading firmware (Sedlbauer speed fax+)
@@ -428,7 +431,7 @@ HiSaxVersion(void))
 
 	printk(KERN_INFO "HiSax: Linux Driver for passive ISDN cards\n");
 #ifdef MODULE
-	printk(KERN_INFO "HiSax: Version 3.1 (modul)\n");
+	printk(KERN_INFO "HiSax: Version 3.1 (module)\n");
 #else
 	printk(KERN_INFO "HiSax: Version 3.1 (kernel)\n");
 #endif
