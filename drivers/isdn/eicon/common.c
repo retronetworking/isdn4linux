@@ -75,7 +75,7 @@ DESCRIPTOR DIDD_Table[32];
 
 void    DIVA_DIDD_Read( DESCRIPTOR *table, int tablelength )
 {
-        bzero(table, tablelength);
+        memset(table, 0, tablelength);
 
         if (tablelength > sizeof(DIDD_Table))
           tablelength = sizeof(DIDD_Table);
@@ -106,7 +106,7 @@ void    init_idi_tab(void)
 {
     DESCRIPTOR d[32];
 
-    bzero(d, sizeof(d));
+    memset(d, 0, sizeof(d));
 
     d[0].type = IDI_DIMAINT;  /* identify the DIMAINT entry */
     d[0].channels = 0; /* zero channels associated with dimaint*/
@@ -662,7 +662,7 @@ static int idi_register(card_t *card, byte channels)
 		return -1;
 	}
 
-	bzero(card->e_tbl, sizeof(E_INFO) * num_entities);
+	memset(card->e_tbl, 0, sizeof(E_INFO) * num_entities);
 	card->e_max = num_entities;
 
     DIVA_DIDD_Read(d, sizeof(d));
@@ -849,7 +849,7 @@ int DivasGetList(dia_card_list_t *card_list)
 {
 	int i;
 
-	bzero(card_list, sizeof(dia_card_list_t));
+	memset(card_list, 0, sizeof(dia_card_list_t));
 
 	for(i = 0; i < DivasCardNext; i++)
 	{
