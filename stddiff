@@ -78,9 +78,6 @@ if [ $# != 0 ]; then
 		dodiff $i $KERNELDIR/$i
 	done
 else
-	for i in drivers/isdn/abc*.[ch] ; do
-		dodiff $i $KERNELDIR/$i
-	done
 	for i in drivers/isdn/isdn_*.[ch] ; do
 		dodiff $i $KERNELDIR/$i
 	done
@@ -99,6 +96,9 @@ else
 	for i in drivers/isdn/pcbit/*.[ch] ; do
 		dodiff $i $KERNELDIR/$i
 	done
+	for i in drivers/isdn/isdnloop/*.[ch] ; do
+		dodiff $i $KERNELDIR/$i
+	done
 	for i in include/linux/*.h ; do
 		dodiff $i $KERNELDIR/$i
 	done
@@ -114,6 +114,7 @@ else
 		drivers/isdn/sc/Makefile \
 		drivers/isdn/avmb1/Makefile \
 		drivers/isdn/hisax/Makefile \
+		drivers/isdn/isdnloop/Makefile \
 		drivers/isdn/pcbit/Makefile ; do
 		if [ -f $i.kernel ] ; then
     		dodiff $i.kernel $KERNELDIR/$i
