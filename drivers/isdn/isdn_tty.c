@@ -20,6 +20,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.9  1996/05/11 21:52:07  fritz
+ * Changed queue management to use sk_buffs.
+ *
  * Revision 1.8  1996/05/10 08:49:43  fritz
  * Checkin before major changes of tty-code.
  *
@@ -88,31 +91,42 @@ char *isdn_tty_revision        = "$Revision$";
 /* isdn_tty_try_read() is called from within isdn_receive_callback()
  * to stuff incoming data directly into a tty's flip-buffer. This
  * is done to speed up tty-receiving if the receive-queue is empty.
+ * This routine MUST be called with interrupts off.
  * Return:
  *  1 = Success
  *  0 = Failure, data has to be bufferd and later processed by
  *      isdn_tty_readmodem().
  */
+#define DLE 0x10
+#define ETX 0x03
 int isdn_tty_try_read(modem_info *info, struct sk_buff *skb)
 {
         int c;
+        int len;
         struct tty_struct *tty;
 
 	if (info->online) {
 		if ((tty = info->tty)) {
 			if (info->mcr & UART_MCR_RTS) {
-				c = TTY_FLIPBUF_SIZE - tty->flip.count - 1;
-				if (c >= skb->len) {
-					if (skb->len > 1) {
-						memcpy(tty->flip.char_buf_ptr, skb->data, skb->len);
-						tty->flip.count += skb->len;
-						memset(tty->flip.flag_buf_ptr, 0, skb->len);
-						if (info->emu.mdmreg[12] & 128)
-							tty->flip.flag_buf_ptr[skb->len - 1] = 0xff;
-						tty->flip.flag_buf_ptr += skb->len;
-						tty->flip.char_buf_ptr += skb->len;
-					} else
-						tty_insert_flip_char(tty, skb->data[0], 0);
+				c = TTY_FLIPBUF_SIZE - tty->flip.count;
+                                len = skb->len + skb->users;
+				if (c >= len) {
+                                        if (skb->users)
+                                                while (skb->len--) {
+                                                        if (*skb->data == DLE)
+                                                                tty_insert_flip_char(tty, DLE, 0);
+                                                        tty_insert_flip_char(tty, *skb->data++, 0);
+                                                }
+                                        else {
+                                                memcpy(tty->flip.char_buf_ptr,
+                                                       skb->data, len);
+                                                tty->flip.count += len;
+                                                tty->flip.char_buf_ptr += len;
+                                                memset(tty->flip.flag_buf_ptr, 0, len);
+                                                tty->flip.flag_buf_ptr += len;
+                                        }
+                                        if (info->emu.mdmreg[12] & 128)
+                                                tty->flip.flag_buf_ptr[len - 1] = 0xff;
 					queue_task_irq_off(&tty->flip.tqueue, &tq_timer);
                                         skb->free = 1;
                                         kfree_skb(skb, FREE_READ);
@@ -143,13 +157,13 @@ void isdn_tty_readmodem(void)
 		if ((midx = dev->m_idx[i]) >= 0) {
                         info = &dev->mdm.info[midx];
 			if (info->online) {
-				save_flags(flags);
-				cli();
 				r = 0;
 				if ((tty = info->tty)) {
 					if (info->mcr & UART_MCR_RTS) {
-						c = TTY_FLIPBUF_SIZE - tty->flip.count - 1;
+						c = TTY_FLIPBUF_SIZE - tty->flip.count;
 						if (c > 0) {
+                                                        save_flags(flags);
+                                                        cli();
 							r = isdn_readbchan(info->isdn_driver, info->isdn_channel,
 								      tty->flip.char_buf_ptr,
 								      tty->flip.flag_buf_ptr, c, 0);
@@ -161,12 +175,12 @@ void isdn_tty_readmodem(void)
 							tty->flip.char_buf_ptr += r;
 							if (r)
 								queue_task_irq_off(&tty->flip.tqueue, &tq_timer);
+                                                        restore_flags(flags);
 						}
 					} else
 						r = 1;
 				} else
 					r = 1;
-				restore_flags(flags);
 				if (r) {
 					info->rcvsched = 0;
 					resched = 1;
@@ -567,27 +581,14 @@ static void isdn_tty_shutdown(modem_info * info)
 
 #ifdef CONFIG_ISDN_AUDIO
 
-#define DLE 0x10
-#define ETX 0x03
 
-/* This routine is called from within isdn_receive_callback()
- * to perform DLE-escaping when receiving audio-data.
- */
-int isdn_tty_handleDLEup(unsigned char *buf, int len)
+int isdn_tty_countDLE(unsigned char *buf, int len)
 {
         int count = 0;
-        char *p = buf;
 
-        while (len) {
-                if (*p == DLE) {
-                        memmove(p+1,p,len);
+        while (len--)
+                if (*buf++ == DLE)
                         count++;
-                        p++;
-                }
-                p++;
-                count++;
-                len--;
-        }
         return count;
 }
 
@@ -606,7 +607,6 @@ static int isdn_tty_handleDLEdown(modem_info *info, atemu *m, struct sk_buff *sk
                         switch (*p) {
                                 case DLE:
                                         /* Escape code */
-                                        printk(KERN_DEBUG "dledown: DLE-DLE\n");
                                         if (len>1)
                                                 memmove(p,p+1,len-1);
                                         p--;
@@ -614,14 +614,12 @@ static int isdn_tty_handleDLEdown(modem_info *info, atemu *m, struct sk_buff *sk
                                         break;
                                 case ETX:
                                         /* End of data */
-                                        printk(KERN_DEBUG "dledown: DLE-ETX\n");
                                         info->vonline = 0;
                                         isdn_tty_at_cout("\r\nVCON\r\n",info);
                                         return count;
                                 case 'q':
                                 case 's':
                                         /* Silence */
-                                        printk(KERN_DEBUG "dledown: DLE-q/s\n");
                                         if (len>1)
                                                 memmove(p,p+1,len-1);
                                         p--;

@@ -20,6 +20,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.4  1996/05/11 21:52:34  fritz
+ * Changed queue management to use sk_buffs.
+ *
  * Revision 1.3  1996/05/07 09:16:34  fritz
  * Changed isdn_try_read parameter.
  *
@@ -40,6 +43,6 @@ extern int   isdn_tty_modem_init(void);
 extern void  isdn_tty_readmodem(void);
 extern int   isdn_tty_try_read(modem_info *, struct sk_buff *);
 extern int   isdn_tty_find_icall(int, int, char *);
-extern int   isdn_tty_handleDLEup(unsigned char *, int);
+extern int   isdn_tty_countDLE(unsigned char *, int);
 extern void  isdn_tty_bsent(int, int);
 extern void  isdn_tty_cleanup_xmit(modem_info *);
