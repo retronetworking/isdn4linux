@@ -11,6 +11,9 @@
  *
  *
  * $Log$
+ * Revision 1.11  1997/03/25 23:11:23  keil
+ * US NI-1 protocol
+ *
  * Revision 1.10  1997/03/13 14:45:05  keil
  * using IRQ proof queue_task
  *
@@ -82,7 +85,12 @@ const char *l1_revision = "$Revision$";
 
 const char *CardType[] =
 {"No Card", "Teles 16.0", "Teles 8.0", "Teles 16.3",
- "Creatix PnP", "AVM A1", "Elsa ML", "Elsa Quickstep",
+ "Creatix/Teles PnP", "AVM A1", "Elsa ML",
+#ifdef CONFIG_HISAX_ELSA_PCMCIA
+ "Elsa PCMCIA",
+#else
+ "Elsa Quickstep",
+#endif
  "Teles PCMCIA", "ITK ix1-micro Rev.2"};
 
 static char *HSCXVer[] =
