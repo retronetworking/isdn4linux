@@ -93,5 +93,10 @@
 
 #define COMPAT_PCI_COMMON_ID
 
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2,2,18)
+#define module_init(x)	int init_module(void) { return x(); }
+#define module_exit(x)	void cleanup_module(void) { x(); }
+#endif
+
 #endif /* __KERNEL__ */
 #endif /* _LINUX_ISDN_COMPAT_H */
