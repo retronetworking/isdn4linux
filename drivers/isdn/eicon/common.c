@@ -86,7 +86,7 @@ void    DIVA_DIDD_Read( DESCRIPTOR *table, int tablelength )
         }
 
         if (tablelength > 0)
-          bcopy((void *)DIDD_Table, (void *)table, tablelength);
+          memcpy((void *)table, (void *)DIDD_Table, tablelength);
 
 	return;
 }
@@ -96,7 +96,7 @@ void 	DIVA_DIDD_Write(DESCRIPTOR *table, int tablelength)
         if (tablelength > sizeof(DIDD_Table))
           tablelength = sizeof(DIDD_Table);
 
-	bcopy((void *)table, (void *)DIDD_Table, tablelength);
+	memcpy((void *)DIDD_Table, (void *)table, tablelength);
 
 	return;
 }

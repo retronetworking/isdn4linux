@@ -71,13 +71,13 @@ void	xlog_to_klog(byte *b, int size, int card_num)
 	{
 		klog.type = KLOG_XTXT_MSG;
 		klog.code = 0;
-		bcopy(&x->xcode, klog.buffer, klog.length);
+		memcpy(klog.buffer, &x->xcode, klog.length);
 	}
 	else if (x->code == 2)
 	{
 		klog.type = KLOG_XLOG_MSG;
 		klog.code = x->xcode;
-		bcopy(&x->data, klog.buffer, klog.length);
+		memcpy(klog.buffer, &x->data, klog.length);
 	}
 	else
 	{

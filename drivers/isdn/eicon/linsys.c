@@ -38,13 +38,6 @@ struct pt_regs;
 
 #include "uxio.h"
 
-#ifdef MODULE
-void bcopy(void *pSource, void *pDest, dword dwLength)
-{
-	memcpy(pDest, pSource, dwLength);
-}
-#endif
-
 int Divas4BRIInitPCI(card_t *card, dia_card_t *cfg)
 {
 	/* Use UxPciConfigWrite	routines to initialise PCI config space */

@@ -40,9 +40,6 @@
 #include "uxio.h"
 
 #include <linux/pci.h>
-#ifndef COMPAT_HAS_2_2_PCI
-#include <linux/pci_ids.h>
-#endif
 #include <linux/kernel.h>
 #include <linux/ioport.h>
 
