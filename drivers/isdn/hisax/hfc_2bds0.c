@@ -6,6 +6,9 @@
  *
  *
  * $Log$
+ * Revision 1.1.2.5  1998/05/27 18:05:23  keil
+ * HiSax 3.0
+ *
  * Revision 1.1.2.4  1998/04/08 21:54:35  keil
  * Fix "ll_trans ..." message
  *
@@ -1191,7 +1194,7 @@ HFCD_l1hw(struct PStack *st, int pr, void *arg)
 void
 setstack_hfcd(struct PStack *st, struct IsdnCardState *cs)
 {
-	st->l2.l2l1 = HFCD_l1hw;
+	st->l1.l1hw = HFCD_l1hw;
 }
 
 static void
