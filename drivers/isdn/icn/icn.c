@@ -19,6 +19,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.32  1996/11/14 23:49:18  fritz
+ * Bugfix: copy_to_user/copy_from_user mismatch in debugging-ioctl.
+ *
  * Revision 1.31  1996/11/13 02:36:25  fritz
  * Fixed a race condition in writecmd.
  * Some optimizations and cleanup.
@@ -481,6 +484,7 @@ static icn_stat icn_stat_table[] = {
         {"TEI OK",         ISDN_STAT_RUN,   0}, /* Card connected to wallplug */
         {"NO D-CHAN",      ISDN_STAT_NODCH, 0}, /* No D-channel available     */
         {"E_L1: ACT FAIL", ISDN_STAT_BHUP,  8}, /* Layer-1 activation failed  */
+        {"E_L2: DATA LIN", ISDN_STAT_BHUP,  8}, /* Layer-2 data link lost     */
         {NULL,             0             , -1}
 };
 
