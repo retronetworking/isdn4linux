@@ -21,6 +21,11 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.22  1996/06/24 17:37:37  fritz
+ * Bugfix: isdn_timer_ctrl() did restart timer, even if it
+ *         was already running.
+ *         lowlevel driver locking did use wrong parameters.
+ *
  * Revision 1.21  1996/06/15 14:58:20  fritz
  * Added version signatures for data structures used
  * by userlevel programs.
@@ -1068,7 +1073,8 @@ static int isdn_set_allcfg(char *src)
 		restore_flags(flags);
 		return ret;
 	}
-	memcpy_tofs((char *) &i, src, sizeof(int));
+	memcpy_fromfs((char *) &i, src, sizeof(int));
+        src += sizeof(int);
 	while (i) {
 		char *c;
 		char *c2;
