@@ -50,6 +50,27 @@
 #include "hysdn_defs.h"
 #include <linux/kernelcapi.h>
 
+static char hycapi_revision[]="$Revision$";
+
+typedef struct _hycapi_appl {
+	unsigned int ctrl_mask;
+	capi_register_params rp;
+	struct sk_buff *listen_req[CAPI_MAXCONTR];
+} hycapi_appl;
+
+static hycapi_appl hycapi_applications[CAPI_MAXAPPL];
+
+static inline int _hycapi_appCheck(int app_id, int ctrl_no)
+{
+	if((ctrl_no <= 0) || (ctrl_no > CAPI_MAXCONTR) || (app_id <= 0) ||
+	   (app_id > CAPI_MAXAPPL))
+	{
+		printk(KERN_ERR "HYCAPI: Invalid request app_id %d for controller %d", app_id, ctrl_no);
+		return -1;
+	}
+	return ((hycapi_applications[app_id-1].ctrl_mask & (1 << (ctrl_no-1))) != 0);
+}
+
 struct capi_driver_interface *hy_di = NULL;
 
 /******************************
@@ -72,6 +93,7 @@ Kernel-Capi callback remove_ctr
 void 
 hycapi_remove_ctr(struct capi_ctr *ctrl)
 {
+	int i;
 	hycapictrl_info *cinfo = NULL;
 	hysdn_card *card = NULL;
 #ifdef HYCAPI_PRINTFNAMES
@@ -88,28 +110,18 @@ hycapi_remove_ctr(struct capi_ctr *ctrl)
 	}    
 	card = cinfo->card;
 	ctrl->suspend_output(ctrl);
+	for(i=0; i<CAPI_MAXAPPL;i++) {
+		if(hycapi_applications[i].listen_req[ctrl->cnr-1]) {
+			kfree_skb(hycapi_applications[i].listen_req[ctrl->cnr-1]);
+			hycapi_applications[i].listen_req[ctrl->cnr-1] = NULL;
+		}
+	}
 	hy_di->detach_ctr(ctrl);
 	ctrl->driverdata = 0;
 	kfree(card->hyctrlinfo);
+
+		
 	card->hyctrlinfo = NULL;
-}
-
-/*********************************************************************
-
-We keep track of all registered applications in a private list so we 
-can re-establish the registration after a card-reboot. Here's a 
-helper-function.
-
-*********************************************************************/
-
-static appl_rec*
-hycapi_find_appl(hycapictrl_info *cinfo, __u16 appl)
-{
-	appl_rec *apr;
-	for(apr = cinfo->_appl.next; apr != NULL; apr = apr->next) {
-		if(apr->app_id == appl) return apr;
-	}
-	return (appl_rec*)NULL;
 }
 
 /***********************************************************
@@ -166,7 +178,6 @@ hycapi_register_internal(struct capi_ctr *ctrl, __u16 appl,
 	__u16 MessageNumber = 0x0000;
 	__u16 MessageBufferSize = 0;
 	int slen = strlen(ExtFeatureDefaults);
-
 #ifdef HYCAPI_PRINTFNAMES
 	printk(KERN_NOTICE "hycapi_register_appl\n"); 
 #endif
@@ -188,7 +199,7 @@ hycapi_register_internal(struct capi_ctr *ctrl, __u16 appl,
 	memcpy(skb_put(skb,sizeof(__u16)), &(rp->datablkcnt), sizeof(__u16));
 	memcpy(skb_put(skb,sizeof(__u16)), &(rp->datablklen), sizeof(__u16));
 	memcpy(skb_put(skb,slen), ExtFeatureDefaults, slen);
-    
+	hycapi_applications[appl-1].ctrl_mask |= (1 << (ctrl->cnr-1));    
 	hycapi_send_message(ctrl, skb);    
 }
 
@@ -202,16 +213,19 @@ send a LISTEN_REQ (if there has been such a thing )
 
 static void hycapi_restart_internal(struct capi_ctr *ctrl)
 {
-	appl_rec *p;
+	int i;
 	hycapictrl_info *cinfo = (hycapictrl_info *)(ctrl->driverdata);
 #ifdef HYCAPI_PRINTFNAMES
 	printk(KERN_WARNING "HYSDN: hycapi_restart_internal");
 #endif
-	for (p = cinfo->_appl.next; p != NULL; p = p->next)
-	{
-		hycapi_register_internal(ctrl, p->app_id, &(p->rp));
-		if(p->listen_req) {
-			hycapi_sendmsg_internal(ctrl, p->listen_req);
+	for(i=0; i<CAPI_MAXAPPL; i++) {
+		if(_hycapi_appCheck(i+1, ctrl->cnr) == 1) {
+			hycapi_register_internal(ctrl, i+1, 
+						 &hycapi_applications[i].rp);
+			if(hycapi_applications[i].listen_req[ctrl->cnr-1]) {
+				hycapi_sendmsg_internal(ctrl, 
+							hycapi_applications[i].listen_req[ctrl->cnr-1]);
+			}
 		}
 	}
 }
@@ -229,27 +243,20 @@ hycapi_register_appl(struct capi_ctr *ctrl, __u16 appl,
 {
 	int MaxLogicalConnections = 0, MaxBDataBlocks = 0, MaxBDataLen = 0;
 	hycapictrl_info *cinfo = (hycapictrl_info *)(ctrl->driverdata);
-	appl_rec *ap, *p;
 	hysdn_card *card = cinfo->card;
-
-	ap = kmalloc(sizeof(appl_rec), GFP_ATOMIC);
-	if (!cinfo) {
-		printk(KERN_WARNING "HYSDN: no memory for capi-appl_rec.\n");
+	int chk = _hycapi_appCheck(appl, ctrl->cnr);
+	if(chk < 0) {
 		return;
 	}
-	memset(ap, 0, sizeof(appl_rec));
-	for (p = &(cinfo->_appl); (p!= NULL) && (p->next != NULL); p = p->next)
-	{
+	if(chk == 1) {
+		printk(KERN_INFO "HYSDN: apl %d allready registered\n", appl);
+		return;
 	}
-	p->next = ap;
-	ap->app_id = appl;
-
-
 	MaxBDataBlocks = rp->datablkcnt > CAPI_MAXDATAWINDOW ? CAPI_MAXDATAWINDOW : rp->datablkcnt;
 	rp->datablkcnt = MaxBDataBlocks;
 	MaxBDataLen = rp->datablklen < 1024 ? 1024 : rp->datablklen ;
 	rp->datablklen = MaxBDataLen;
-
+	
 	MaxLogicalConnections = rp->level3cnt;
 	if (MaxLogicalConnections < 0) {
 		MaxLogicalConnections = card->bchans * -MaxLogicalConnections; 
@@ -257,13 +264,12 @@ hycapi_register_appl(struct capi_ctr *ctrl, __u16 appl,
 	if (MaxLogicalConnections == 0) {
 		MaxLogicalConnections = card->bchans;
 	}
-
+	
 	rp->level3cnt = MaxLogicalConnections;
-
-
-	memcpy(&(ap->rp), rp, sizeof(capi_register_params));
-	hycapi_register_internal(ctrl, appl, rp);
-        MOD_INC_USE_COUNT;
+	memcpy(&hycapi_applications[appl-1].rp, 
+	       rp, sizeof(capi_register_params));
+	
+/*        MOD_INC_USE_COUNT; */
 	ctrl->appl_registered(ctrl, appl);
 }
 
@@ -297,6 +303,7 @@ static void hycapi_release_internal(struct capi_ctr *ctrl, __u16 appl)
 	memcpy(skb_put(skb,sizeof(__u8)), &_subcommand, sizeof(_subcommand));
 	memcpy(skb_put(skb,sizeof(__u16)), &MessageNumber, sizeof(__u16));    
 	hycapi_send_message(ctrl, skb);    
+	hycapi_applications[appl-1].ctrl_mask &= ~(1 << (ctrl->cnr-1));    
 }
 
 /******************************************************************
@@ -309,29 +316,24 @@ registration at controller-level
 void 
 hycapi_release_appl(struct capi_ctr *ctrl, __u16 appl)
 {
-	appl_rec *ap, *p = NULL;
+	int chk;
 	hycapictrl_info *cinfo = (hycapictrl_info *)(ctrl->driverdata);
 
-	for (ap = &(cinfo->_appl); (ap!= NULL) && (ap->next != NULL); ap = ap->next)
-	{
-		p = ap->next;
-		if (p->app_id == appl) {
-			ap->next = p->next;
-			break;
-		}
-		p = NULL;
-	}
-	if (!p) {
-		printk(KERN_WARNING "HYSDN: releasing unknown Application???\n");
+	chk = _hycapi_appCheck(appl, ctrl->cnr);
+	if(chk<0) {
+		printk(KERN_ERR "HYCAPI: Releasing invalid appl %d on controller %d\n", appl, ctrl->cnr);
 		return;
 	}
-	if(p->listen_req) {
-		kfree_skb(p->listen_req);
+	if(hycapi_applications[appl-1].listen_req[ctrl->cnr-1]) {
+		kfree_skb(hycapi_applications[appl-1].listen_req[ctrl->cnr-1]);
+		hycapi_applications[appl-1].listen_req[ctrl->cnr-1] = NULL;
 	}
-	kfree(p);
+	if(chk == 1)
+	{
+		hycapi_release_internal(ctrl, appl);
+	}
 	ctrl->appl_released(ctrl, appl);
-	hycapi_release_internal(ctrl, appl);
-        MOD_DEC_USE_COUNT;  
+/*        MOD_DEC_USE_COUNT;  */
 }
 
 
@@ -369,7 +371,9 @@ int hycapi_capi_stop(hysdn_card *card)
 	if(cinfo) {
 		if(cinfo->capi_ctrl) {
 			ctrl = cinfo->capi_ctrl;
-			ctrl->suspend_output(ctrl);
+/*			ctrl->suspend_output(ctrl); */
+			ctrl->reseted(ctrl);
+
 		} else {
 			printk(KERN_NOTICE "hycapi_capi_stop: cinfo but no capi_ctrl\n");
 		}
@@ -392,14 +396,29 @@ firmware-releases that do not check the MsgLen-Indication!
 
 void hycapi_send_message(struct capi_ctr *ctrl, struct sk_buff *skb)
 {
+	__u16 appl_id;
 	hycapictrl_info *cinfo = (hycapictrl_info *)(ctrl->driverdata);
-	appl_rec *ap;
 	int _len, _len2;
 	__u8 msghead[64];
-
+	
+	appl_id = CAPIMSG_APPID(skb->data);
+	switch(_hycapi_appCheck(appl_id, ctrl->cnr))
+	{
+		case 0:
+			printk(KERN_INFO "Need to register\n");
+			hycapi_register_internal(ctrl, 
+						 appl_id,
+						 &(hycapi_applications[appl_id-1].rp));
+			break;
+		case 1:
+			break;
+		default:
+			printk(KERN_ERR "HYCAPI: Controller mixup!\n");
+			return;
+	}
 	switch(CAPIMSG_CMD(skb->data)) {		
 		case CAPI_DISCONNECT_B3_RESP:
-			ctrl->free_ncci(ctrl, CAPIMSG_APPID(skb->data), 
+			ctrl->free_ncci(ctrl, appl_id, 
 					CAPIMSG_NCCI(skb->data));
 			break;
 		case CAPI_DATA_B3_REQ:
@@ -413,18 +432,15 @@ void hycapi_send_message(struct capi_ctr *ctrl, struct sk_buff *skb)
 			}
 			break;
 		case CAPI_LISTEN_REQ:
-			_len = CAPIMSG_LEN(skb->data);
-			ap = hycapi_find_appl(cinfo, CAPIMSG_APPID(skb->data));
-			if(ap) {
-				if(ap->listen_req) {
-					kfree_skb(ap->listen_req);
-				}
-				if (!(ap->listen_req = skb_copy(skb, GFP_ATOMIC))) {
-					printk(KERN_ERR "HYSDN: memory squeeze in private_listen\n");
-				} 
-			} else {
-				printk(KERN_ERR "HYSDN: listen without appid?\n");
+			if(hycapi_applications[appl_id-1].listen_req[ctrl->cnr-1])
+			{
+				kfree_skb(hycapi_applications[appl_id-1].listen_req[ctrl->cnr-1]);
+				hycapi_applications[appl_id-1].listen_req[ctrl->cnr-1] = NULL;
 			}
+			if (!(hycapi_applications[appl_id-1].listen_req[ctrl->cnr-1] = skb_copy(skb, GFP_ATOMIC))) 
+			{
+				printk(KERN_ERR "HYSDN: memory squeeze in private_listen\n");
+			} 
 			break;
 		default:
 			break;
@@ -504,12 +520,12 @@ char *hycapi_procinfo(struct capi_ctr *ctrl)
 #endif
 	if (!cinfo)
 		return "";
-	sprintf(cinfo->infobuf, "%s %s 0x%x %d r%d",
+	sprintf(cinfo->infobuf, "%s %s 0x%x %d %s",
 		cinfo->cardname[0] ? cinfo->cardname : "-",
 		cinfo->version[VER_DRIVER] ? cinfo->version[VER_DRIVER] : "-",
 		cinfo->card ? cinfo->card->iobase : 0x0,
 		cinfo->card ? cinfo->card->irq : 0,
-		3
+		hycapi_revision
 		);
 	return cinfo->infobuf;
 }
@@ -532,7 +548,6 @@ hycapi_rx_capipkt(hysdn_card * card, uchar * buf, word len)
 	__u16 ApplId;
 	__u16 MsgLen, info;
 	__u16 len2, CapiCmd;
-	appl_rec *applr;
 	__u32 CP64[2] = {0,0};
 #ifdef HYCAPI_PRINTFNAMES
 	printk(KERN_NOTICE "hycapi_rx_capipkt\n");    
@@ -586,13 +601,9 @@ hycapi_rx_capipkt(hysdn_card * card, uchar * buf, word len)
 			switch(info)
 			{
 				case 0:
-					applr = hycapi_find_appl(cinfo, ApplId);
-					if(!applr) {
-						printk(KERN_ERR "NCCI without registration! How come?\n");
-					} else {
-						ctrl->new_ncci(ctrl, ApplId, CAPIMSG_NCCI(skb->data), 
-							       applr->rp.datablkcnt); /* CAPI_MAXDATAWINDOW -1*/
-					}
+					ctrl->new_ncci(ctrl, ApplId, CAPIMSG_NCCI(skb->data), 
+						       hycapi_applications[ApplId-1].rp.datablkcnt); 
+					
 					break;
 				case 0x0001:
 					printk(KERN_ERR "HYSDN Card%d: NCPI not supported by current "
@@ -619,13 +630,9 @@ hycapi_rx_capipkt(hysdn_card * card, uchar * buf, word len)
 			}
 			break;
 		case CAPI_CONNECT_B3_IND:
-			applr = hycapi_find_appl(cinfo, ApplId);
-			if(!applr) {
-				printk(KERN_ERR "NCCI without registration! How come?\n");
-			} else {
-				ctrl->new_ncci(ctrl, ApplId, CAPIMSG_NCCI(skb->data), 
-					       applr->rp.datablkcnt); /* CAPI_MAXDATAWINDOW -1*/
-			}
+			ctrl->new_ncci(ctrl, ApplId, 
+				       CAPIMSG_NCCI(skb->data), 
+				       hycapi_applications[ApplId-1].rp.datablkcnt);
 			break;
 		default:
 			break;
@@ -712,6 +719,7 @@ attach the capi-driver to the kernel-capi.
 int hycapi_init()
 {
 	struct capi_driver *driver;
+	int i,j;
 	if(hy_di) {
 		printk(KERN_NOTICE "HyDI allready set\n");
 		return 0;
@@ -722,6 +730,9 @@ int hycapi_init()
 	if (!hy_di) {
 		printk(KERN_ERR "HYCAPI: failed to attach capi_driver\n");
 		return(-1);
+	}
+	for(i=0;i<CAPI_MAXAPPL;i++) {
+		memset(&(hycapi_applications[i]), 0, sizeof(hycapi_appl));
 	}
 	return(0);
 }
@@ -753,6 +764,36 @@ hycapi_capi_create(hysdn_card *card)
 
 Attach the card with it's capi-ctrl.
 *********************************************************************/
+
+static void hycapi_fill_profile(hysdn_card *card)
+{
+	hycapictrl_info *cinfo = NULL;
+	struct capi_ctr *ctrl = NULL;
+	cinfo = card->hyctrlinfo;
+	if(!cinfo) return;
+	ctrl = cinfo->capi_ctrl;
+	if(!ctrl) return;
+	strcpy(ctrl->manu, "Hypercope");	
+	ctrl->version.majorversion = 2;
+	ctrl->version.minorversion = 0;
+	ctrl->version.majormanuversion = 3;
+	ctrl->version.minormanuversion = 2;
+	ctrl->profile.ncontroller = card->myid;
+	ctrl->profile.nbchannel = card->bchans;
+	ctrl->profile.goptions = GLOBAL_OPTION_INTERNAL_CONTROLLER |
+		GLOBAL_OPTION_B_CHANNEL_OPERATION;
+	ctrl->profile.support1 =  B1_PROT_64KBIT_HDLC |
+		(card->faxchans ? B1_PROT_T30 : 0) |
+		B1_PROT_64KBIT_TRANSPARENT;
+	ctrl->profile.support2 = B2_PROT_ISO7776 |
+		(card->faxchans ? B2_PROT_T30 : 0) |
+		B2_PROT_TRANSPARENT;
+	ctrl->profile.support3 = B3_PROT_TRANSPARENT |
+		B3_PROT_T90NL |
+		(card->faxchans ? B3_PROT_T30 : 0) |
+		(card->faxchans ? B3_PROT_T30EXT : 0) |
+		B3_PROT_ISO8208;
+}	
 
 int 
 hycapi_capi_create(hysdn_card *card)
@@ -791,33 +832,16 @@ hycapi_capi_create(hysdn_card *card)
 			return -EBUSY;
 		}
 		/* fill in the blanks: */
-		strcpy(ctrl->manu, "Hypercope");	
-		ctrl->version.majorversion = 2;
-		ctrl->version.minorversion = 0;
-		ctrl->version.majormanuversion = 3;
-		ctrl->version.minormanuversion = 2;
-		ctrl->profile.ncontroller = card->myid;
-		ctrl->profile.nbchannel = card->bchans;
-		ctrl->profile.goptions = GLOBAL_OPTION_INTERNAL_CONTROLLER |
-			GLOBAL_OPTION_B_CHANNEL_OPERATION;
-		ctrl->profile.support1 =  B1_PROT_64KBIT_HDLC |
-			(card->faxchans ? B1_PROT_T30 : 0) |
-			B1_PROT_64KBIT_TRANSPARENT;
-		ctrl->profile.support2 = B2_PROT_ISO7776 |
-			(card->faxchans ? B2_PROT_T30 : 0) |
-			B2_PROT_TRANSPARENT;
-		ctrl->profile.support3 = B3_PROT_TRANSPARENT |
-			B3_PROT_T90NL |
-			(card->faxchans ? B3_PROT_T30 : 0) |
-			(card->faxchans ? B3_PROT_T30EXT : 0) |
-			B3_PROT_ISO8208;
+		hycapi_fill_profile(card);
 		ctrl->ready(ctrl);
 	} else {
 		/* resume output on stopped ctrl */
 		ctrl = card->hyctrlinfo->capi_ctrl;
 		if(ctrl) {
-			hycapi_restart_internal(ctrl);
-			ctrl->resume_output(ctrl);
+			hycapi_fill_profile(card);
+			ctrl->ready(ctrl);
+			hycapi_restart_internal(ctrl); 
+/*			ctrl->resume_output(ctrl); */
 		} else {
 			printk(KERN_WARNING "HYSDN: No ctrl???? How come?\n");
 		}
