@@ -2483,6 +2483,13 @@ static void isdn_ppp_receive_ccp(isdn_net_dev *net_dev, isdn_net_local *lp,
 
 	switch(skb->data[0]) {
 	case CCP_CONFREQ:
+		if(is->debug & 0x10)
+			printk(KERN_DEBUG "Disable compression here!\n");
+		if(proto == PPP_CCP)
+			mis->compflags &= ~SC_COMP_ON;		
+		else
+			is->compflags &= ~SC_LINK_COMP_ON;		
+		break;
 	case CCP_TERMREQ:
 	case CCP_TERMACK:
 		if(is->debug & 0x10)
@@ -2598,6 +2605,17 @@ static void isdn_ppp_receive_ccp(isdn_net_dev *net_dev, isdn_net_local *lp,
 
 /* TODO: Clean this up with new Reset semantics */
 
+/* I believe the CCP handling as-is is done wrong. Compressed frames
+ * should only be sent/received after CCP reaches UP state, which means
+ * both sides have sent CONF_ACK. Currently, we handle both directions
+ * independently, which means we may accept compressed frames too early
+ * (supposedly not a problem), but may also mean we send compressed frames
+ * too early, which may turn out to be a problem.
+ * This part of state machine should actually be handled by (i)pppd, but
+ * that's too big of a change now. --kai
+ */
+
+
 static void isdn_ppp_send_ccp(isdn_net_dev *net_dev, isdn_net_local *lp, struct sk_buff *skb)
 {
 	struct ippp_struct *mis,*is = ippp_table[lp->ppp_slot];
@@ -2632,6 +2650,13 @@ static void isdn_ppp_send_ccp(isdn_net_dev *net_dev, isdn_net_local *lp, struct 
 	
         switch(data[2]) {
 	case CCP_CONFREQ:
+		if(is->debug & 0x10)
+			printk(KERN_DEBUG "Disable decompression here!\n");
+		if(proto == PPP_CCP)
+			is->compflags &= ~SC_DECOMP_ON;
+		else
+			is->compflags &= ~SC_LINK_DECOMP_ON;
+		break;
 	case CCP_TERMREQ:
 	case CCP_TERMACK:
 		if(is->debug & 0x10)
