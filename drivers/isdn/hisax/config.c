@@ -1033,6 +1033,7 @@ checkcard(int cardnr, char *id, int *busy_flag))
 		cs->iif.features =
 			ISDN_FEATURE_L2_X75I |
 			ISDN_FEATURE_L2_HDLC |
+			ISDN_FEATURE_L2_HDLC_56K |
 			ISDN_FEATURE_L2_TRANS |
 			ISDN_FEATURE_L3_TRANS |
 #ifdef	CONFIG_HISAX_1TR6

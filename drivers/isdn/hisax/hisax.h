@@ -478,6 +478,7 @@ struct amd7930_hw {
 #define L1_MODE_TRANS	1
 #define L1_MODE_HDLC	2
 #define L1_MODE_EXTRN	3
+#define L1_MODE_HDLC_56K 4
 #define L1_MODE_MODEM	7
 #define L1_MODE_V32	8
 #define L1_MODE_FAX	9
