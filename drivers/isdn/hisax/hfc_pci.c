@@ -23,6 +23,10 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.1.2.7  1999/08/07 21:08:01  werner
+ * Fixed another memcpy problem in fifo handling.
+ * Thanks for debugging aid from Olaf Kordwittenborg.
+ *
  * Revision 1.1.2.6  1999/07/23 14:23:42  werner
  * Some smaller bug fixes and prepared support for GCI/IOM bus
  *
@@ -1438,8 +1442,12 @@ __initfunc(int
 			printk(KERN_ERR "HFC-PCI: no PCI bus present\n");
 			return (0);
 		}
-		if ((dev_hfcpci = pci_find_device(PCI_VENDOR_CCD,
-					  PCI_CCD_PCI_ID, dev_hfcpci))) {
+                dev_hfcpci = pci_find_device(PCI_VENDOR_CCD2,PCI_CCD_PCI_ID2,
+					     dev_hfcpci);
+		if (!dev_hfcpci)
+		  dev_hfcpci = pci_find_device(PCI_VENDOR_CCD,PCI_CCD_PCI_ID,
+					       dev_hfcpci);
+		if (dev_hfcpci) {
 			cs->hw.hfcpci.pci_bus = dev_hfcpci->bus->number;
 			cs->hw.hfcpci.pci_device_fn = dev_hfcpci->devfn;
 			cs->irq = dev_hfcpci->irq;
@@ -1460,6 +1468,9 @@ __initfunc(int
 			if (pcibios_find_device(PCI_VENDOR_CCD,
 						PCI_CCD_PCI_ID, pci_index,
 						&cs->hw.hfcpci.pci_bus, &cs->hw.hfcpci.pci_device_fn) != 0) {
+			if (pcibios_find_device(PCI_VENDOR_CCD2,
+						PCI_CCD_PCI_ID2, pci_index,
+						&cs->hw.hfcpci.pci_bus, &cs->hw.hfcpci.pci_device_fn) != 0) 
 				continue;
 			}
 			pcibios_read_config_byte(cs->hw.hfcpci.pci_bus, cs->hw.hfcpci.pci_device_fn,
