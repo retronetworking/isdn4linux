@@ -7,6 +7,9 @@
  * Beat Doebeli         log all D channel traffic
  * 
  * $Log$
+ * Revision 1.10  1996/06/11 14:57:20  hipp
+ * minor changes to ensure, that SKBs are sent in the right order
+ *
  * Revision 1.9  1996/06/06 14:42:09  fritz
  * Bugfix: forgot hsp-> in last change.
  *
@@ -52,7 +55,6 @@
 #include <linux/interrupt.h>
 
 #undef DCHAN_VERBOSE
-#define FRITZ_EXPERIMENTAL
 
 extern void     tei_handler(struct PStack *st, byte pr,
 			    struct BufHeader *ibh);
@@ -215,16 +217,9 @@ waitforCEC_3(int iobase, byte hscx)
 static inline void
 waitforXFW_0(byte * base, byte hscx)
 {
-#ifdef FRITZ_EXPERIMENTAL
 	long            to = 20;
 
 	while ((!(readhscx_0(base, hscx, HSCX_STAR) & 0x44)==0x40) && to) {
-#else
-	long            to = 10;
-
-	waitforCEC_0(base, hscx);
-	while ((!(readhscx_0(base, hscx, HSCX_STAR) & 0x40)) && to) {
-#endif
 		udelay(5);
 		to--;
 	}
@@ -235,16 +230,9 @@ waitforXFW_0(byte * base, byte hscx)
 static inline void
 waitforXFW_3(int iobase, byte hscx)
 {
-#ifdef FRITZ_EXPERIMENTAL
 	long            to = 20;
 
 	while ((!(readhscx_3(iobase, hscx, HSCX_STAR) & 0x44)==0x40) && to) {
-#else
-	long            to = 10;
-
-	waitforCEC_3(iobase, hscx);
-	while ((!(readhscx_3(iobase, hscx, HSCX_STAR) & 0x40)) && to) {
-#endif
 		udelay(5);
 		to--;
 	}
@@ -709,7 +697,7 @@ isac_new_ph(struct IsdnCardState *sp)
 static void
 teles_interrupt(int intno, void *dev_id, struct pt_regs *regs)
 {
-	byte                 val, val2, r, exval;
+	byte                 val, r, exval;
 	struct IsdnCardState *sp;
 	unsigned int         count;
 	struct HscxState     *hsp;
@@ -725,11 +713,20 @@ teles_interrupt(int intno, void *dev_id, struct pt_regs *regs)
 	if (val & 0x01) {
 		hsp = sp->hs + 1;
                 exval = READHSCX(sp->membase, sp->iobase, 1, HSCX_EXIR);
-                if ((hsp->mode == 1) || (exval == 0x40))
-                        hscx_fill_fifo(hsp);
-                else
-                        printk(KERN_WARNING "HSCX B EXIR %x xmitbh %lx rcvibh %lx\n",
-                               exval, (long) hsp->xmtibh, (long) hsp->rcvibh);
+                if (exval == 0x40) {
+                        if (hsp->mode == 1)
+                                hscx_fill_fifo(hsp);
+                        else {
+                                /* Here we lost an TX interrupt, so
+                                 * restart transmitting the whole frame.
+                                 */
+                                hsp->sendptr = 0;
+			        WRITEHSCX_CMDR(hsp->membase, hsp->iobase,
+                                               hsp->hscx, 0x01);
+                                printk(KERN_DEBUG "HSCX B EXIR %x\n", exval);
+                        }
+                } else
+                        printk(KERN_WARNING "HSCX B EXIR %x\n", exval);
 	}
 	if (val & 0xf8) {
 		if (sp->debug)
@@ -739,33 +736,28 @@ teles_interrupt(int intno, void *dev_id, struct pt_regs *regs)
 	if (val & 0x02) {
 		hsp = sp->hs;
                 exval = READHSCX(sp->membase, sp->iobase, 0, HSCX_EXIR);
-                if ((hsp->mode == 1) && (exval == 0x40))
-                        hscx_fill_fifo(hsp);
-                else
-                        printk(KERN_WARNING "HSCX A EXIR %x\n",exval);
+                if (exval == 0x40) {
+                        if (hsp->mode == 1)
+                                hscx_fill_fifo(hsp);
+                        else {
+                                /* Here we lost an TX interrupt, so
+                                 * restart transmitting the whole frame.
+                                 */
+                                hsp->sendptr = 0;
+			        WRITEHSCX_CMDR(hsp->membase, hsp->iobase,
+                                               hsp->hscx, 0x01);
+                                printk(KERN_DEBUG "HSCX A EXIR %x\n", exval);
+                        }
+                } else
+                        printk(KERN_WARNING "HSCX A EXIR %x\n", exval);
 	}
-
-/* ??? Why do that vvvvvvvvvvvvvvvvvvvvv different on Teles 16-3 ??? */
-        if (sp->membase) {
-                if (val & 0x04) {
-                        val = readhscx_0(sp->membase, 0, HSCX_ISTA);
-                        if (sp->debug)
-                                printk(KERN_DEBUG "HSCX A interrupt %x\n",
-                                       val);
-                        hscx_interrupt(sp, val, 0);
-                }
-        } else {
-                val2 = readhscx_3(sp->iobase, 0, HSCX_ISTA);
+        if (val & 0x04) {
+                val = READHSCX(sp->membase, sp->iobase, 0, HSCX_ISTA);
                 if (sp->debug)
-                        printk(KERN_DEBUG "HSCX A ISTA %x\n", val2);
-                if (val & 0x04) {
-                        if (sp->debug)
-                                printk(KERN_DEBUG "HSCX A interrupt %x\n",
-                                       val2);
-                        hscx_interrupt(sp, val2, 0);
-                }
+                        printk(KERN_DEBUG "HSCX A interrupt %x\n",
+                               val);
+                hscx_interrupt(sp, val, 0);
         }
-/* ??? Why do that ^^^^^^^^^^^^^^^^^^^^^ different on Teles 16-3 ??? */
 
 	val = READISAC(sp->membase, sp->iobase, ISAC_ISTA);
 
