@@ -17,6 +17,10 @@
  *            Edgar Toernig
  *
  * $Log$
+ * Revision 1.11  1999/07/12 21:05:27  keil
+ * fix race in IRQ handling
+ * added watchdog for lost IRQs
+ *
  * Revision 1.10  1999/07/01 08:12:09  keil
  * Common HiSax version for 2.0, 2.1, 2.2 and 2.3 kernel
  *
@@ -429,9 +433,11 @@ sedlbauer_interrupt_isar(int intno, void *dev_id, struct pt_regs *regs)
 void
 release_io_sedlbauer(struct IsdnCardState *cs)
 {
-	int bytecnt = (cs->subtyp == SEDL_SPEED_FAX) ? 16 : 8;
+	int bytecnt = 8;
 
-	if (cs->hw.sedl.bus == SEDL_BUS_PCI) {
+	if (cs->subtyp == SEDL_SPEED_FAX) {
+		bytecnt = 16;
+	} else if (cs->hw.sedl.bus == SEDL_BUS_PCI) {
 		bytecnt = 256;
 	}
 	if (cs->hw.sedl.cfg_reg)
@@ -484,6 +490,13 @@ Sedl_card_msg(struct IsdnCardState *cs, int mt, void *arg)
 			reset_sedlbauer(cs);
 			return(0);
 		case CARD_RELEASE:
+			if (cs->hw.sedl.chip == SEDL_CHIP_ISAC_ISAR) {
+				reset_sedlbauer(cs);
+				writereg(cs->hw.sedl.adr, cs->hw.sedl.hscx,
+					ISAR_IRQBIT, 0);
+				writereg(cs->hw.sedl.adr, cs->hw.sedl.isac,
+					ISAC_MASK, 0xFF);
+			}
 			release_io_sedlbauer(cs);
 			return(0);
 		case CARD_INIT:
