@@ -22,6 +22,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.10  1999/11/18 21:14:30  armin
+ * New ISA memory mapped IO
+ *
  * Revision 1.9  1999/09/08 20:17:31  armin
  * Added microchannel patch from Erik Weber (exrz73@ibm.net).
  *
@@ -264,19 +267,21 @@ eicon_isa_bootload(eicon_isa_card *card, eicon_isa_codebuf *cb) {
 	/* clear any pending irq's */
 	readb(card->intack);
 #ifdef CONFIG_MCA
-	if (card->type == EICON_CTYPE_SCOM) {
-		outb_p(0,card->io+1);
-	}
-	else {
-		printk(KERN_WARNING "eicon_isa_boot: Card type yet not supported.\n");
-		eicon_isa_release_shmem(card);
-		return -EINVAL;
-	};
+	if (MCA_bus) {
+		if (card->type == EICON_CTYPE_SCOM) {
+			outb_p(0,card->io+1);
+		}
+		else {
+			printk(KERN_WARNING "eicon_isa_boot: Card type not supported yet.\n");
+			eicon_isa_release_shmem(card);
+			return -EINVAL;
+		};
 
 #ifdef EICON_MCA_DEBUG
 	printk(KERN_INFO "eicon_isa_boot: card->io      = %x.\n", card->io);
 	printk(KERN_INFO "eicon_isa_boot: card->irq     = %d.\n", (int)card->irq);
 #endif
+	}
 #else
 	/* set reset-line active */
 	writeb(0, card->stopcpu); 
@@ -308,7 +313,9 @@ eicon_isa_bootload(eicon_isa_card *card, eicon_isa_codebuf *cb) {
 	/* Start CPU */
 	writeb(cbuf.boot_opt, &boot->ctrl);
 #ifdef CONFIG_MCA
-	outb_p(0, card->io);
+	if (MCA_bus) {
+		outb_p(0, card->io);
+	}
 #else 
 	writeb(0, card->startcpu); 
 #endif /* CONFIG_MCA */
