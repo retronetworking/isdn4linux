@@ -27,6 +27,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.38  1998/03/07 18:21:29  cal
+ * Dynamic Timeout-Rule-Handling vs. 971110 included
+ *
  * Revision 1.37  1998/02/22 19:45:24  fritz
  * Some changes regarding V.110
  *
@@ -789,61 +792,79 @@ typedef struct {
 	char *private;
 } infostruct;
 
+typedef struct isdn_module {
+	struct isdn_module *prev;
+	struct isdn_module *next;
+	char *name;
+	int (*get_free_channel)(int, int, int, int, int);
+	int (*free_channel)(int, int, int);
+	int (*status_callback)(isdn_ctrl *);
+	int (*command)(isdn_ctrl *);
+	int (*receive_callback)(int, int, struct sk_buff *);
+	int (*writebuf_skb)(int, int, int, struct sk_buff *);
+	int (*net_start_xmit)(struct sk_buff *, struct device *);
+	int (*net_receive)(struct device *, struct sk_buff *);
+	int (*net_open)(struct device *);
+	int (*net_close)(struct device *);
+	int priority;
+} isdn_module;
+
 /* Description of hardware-level-driver */
 typedef struct {
-  ulong               flags;            /* Flags                            */
-  int                 channels;         /* Number of channels               */
-  int                 reject_bus;       /* Flag: Reject rejected call on bus*/
-  struct wait_queue  *st_waitq;         /* Wait-Queue for status-read's     */
-  int                 maxbufsize;       /* Maximum Buffersize supported     */
-  unsigned long       pktcount;         /* Until now: unused                */
-  int                 running;          /* Flag: Protocolcode running       */
-  int                 loaded;           /* Flag: Driver loaded              */
-  int                 stavail;          /* Chars avail on Status-device     */
-  isdn_if            *interface;        /* Interface to driver              */
-  int                *rcverr;           /* Error-counters for B-Ch.-receive */
-  int                *rcvcount;         /* Byte-counters for B-Ch.-receive  */
+	ulong               flags;            /* Flags                            */
+	int                 channels;         /* Number of channels               */
+	int                 reject_bus;       /* Flag: Reject rejected call on bus*/
+	struct wait_queue  *st_waitq;         /* Wait-Queue for status-read's     */
+	int                 maxbufsize;       /* Maximum Buffersize supported     */
+	unsigned long       pktcount;         /* Until now: unused                */
+	int                 running;          /* Flag: Protocolcode running       */
+	int                 loaded;           /* Flag: Driver loaded              */
+	int                 stavail;          /* Chars avail on Status-device     */
+	isdn_if            *interface;        /* Interface to driver              */
+	int                *rcverr;           /* Error-counters for B-Ch.-receive */
+	int                *rcvcount;         /* Byte-counters for B-Ch.-receive  */
 #ifdef CONFIG_ISDN_AUDIO
-  unsigned long      DLEflag;           /* Flags: Insert DLE at next read   */
+	unsigned long      DLEflag;           /* Flags: Insert DLE at next read   */
 #endif
-  struct sk_buff_head *rpqueue;         /* Pointers to start of Rcv-Queue   */
-  struct wait_queue  **rcv_waitq;       /* Wait-Queues for B-Channel-Reads  */
-  struct wait_queue  **snd_waitq;       /* Wait-Queue for B-Channel-Send's  */
-  char               msn2eaz[10][ISDN_MSNLEN];  /* Mapping-Table MSN->EAZ   */
+	struct sk_buff_head *rpqueue;         /* Pointers to start of Rcv-Queue   */
+	struct wait_queue  **rcv_waitq;       /* Wait-Queues for B-Channel-Reads  */
+	struct wait_queue  **snd_waitq;       /* Wait-Queue for B-Channel-Send's  */
+	char               msn2eaz[10][ISDN_MSNLEN];  /* Mapping-Table MSN->EAZ   */
 } driver;
 
 /* Main driver-data */
 typedef struct isdn_devt {
-  unsigned short    flags;		       /* Bitmapped Flags:           */
-				               /*                            */
-  int               drivers;		       /* Current number of drivers  */
-  int               channels;		       /* Current number of channels */
-  int               net_verbose;               /* Verbose-Flag               */
-  int               modempoll;		       /* Flag: tty-read active      */
-  int               tflags;                    /* Timer-Flags:               */
-				               /*  see ISDN_TIMER_..defines  */
-  int               global_flags;
-  infostruct        *infochain;                /* List of open info-devs.    */
-  struct wait_queue *info_waitq;               /* Wait-Queue for isdninfo    */
-  struct timer_list timer;		       /* Misc.-function Timer       */
-  int               chanmap[ISDN_MAX_CHANNELS];/* Map minor->device-channel  */
-  int               drvmap[ISDN_MAX_CHANNELS]; /* Map minor->driver-index    */
-  int               usage[ISDN_MAX_CHANNELS];  /* Used by tty/ip/voice       */
-  char              num[ISDN_MAX_CHANNELS][ISDN_MSNLEN];
-                                               /* Remote number of active ch.*/
-  int               m_idx[ISDN_MAX_CHANNELS];  /* Index for mdm....          */
-  driver            *drv[ISDN_MAX_DRIVERS];    /* Array of drivers           */
-  isdn_net_dev      *netdev;		       /* Linked list of net-if's    */
-  char              drvid[ISDN_MAX_DRIVERS][20];/* Driver-ID                 */
-  struct task_struct *profd;                   /* For iprofd                 */
-  modem             mdm;		       /* tty-driver-data            */
-  isdn_net_dev      *rx_netdev[ISDN_MAX_CHANNELS]; /* rx netdev-pointers     */
-  isdn_net_dev      *st_netdev[ISDN_MAX_CHANNELS]; /* stat netdev-pointers   */
-  ulong             ibytes[ISDN_MAX_CHANNELS]; /* Statistics incoming bytes  */
-  ulong             obytes[ISDN_MAX_CHANNELS]; /* Statistics outgoing bytes  */
-  int               v110emu[ISDN_MAX_CHANNELS];/* V.110 emulator-mode 0=none */
-  atomic_t          v110use[ISDN_MAX_CHANNELS];/* Usage-Semaphore for stream */
-  isdn_v110_stream  *v110[ISDN_MAX_CHANNELS];  /* V.110 private data         */
+	unsigned short    flags;		       /* Bitmapped Flags:           */
+	/*                            */
+	int               drivers;		       /* Current number of drivers  */
+	int               channels;		       /* Current number of channels */
+	int               net_verbose;               /* Verbose-Flag               */
+	int               modempoll;		       /* Flag: tty-read active      */
+	int               tflags;                    /* Timer-Flags:               */
+	/*  see ISDN_TIMER_..defines  */
+	int               global_flags;
+	infostruct        *infochain;                /* List of open info-devs.    */
+	struct wait_queue *info_waitq;               /* Wait-Queue for isdninfo    */
+	struct timer_list timer;		       /* Misc.-function Timer       */
+	int               chanmap[ISDN_MAX_CHANNELS];/* Map minor->device-channel  */
+	int               drvmap[ISDN_MAX_CHANNELS]; /* Map minor->driver-index    */
+	int               usage[ISDN_MAX_CHANNELS];  /* Used by tty/ip/voice       */
+	char              num[ISDN_MAX_CHANNELS][ISDN_MSNLEN];
+	/* Remote number of active ch.*/
+	int               m_idx[ISDN_MAX_CHANNELS];  /* Index for mdm....          */
+	driver            *drv[ISDN_MAX_DRIVERS];    /* Array of drivers           */
+	isdn_net_dev      *netdev;		       /* Linked list of net-if's    */
+	char              drvid[ISDN_MAX_DRIVERS][20];/* Driver-ID                 */
+	struct task_struct *profd;                   /* For iprofd                 */
+	modem             mdm;		       /* tty-driver-data            */
+	isdn_net_dev      *rx_netdev[ISDN_MAX_CHANNELS]; /* rx netdev-pointers     */
+	isdn_net_dev      *st_netdev[ISDN_MAX_CHANNELS]; /* stat netdev-pointers   */
+	ulong             ibytes[ISDN_MAX_CHANNELS]; /* Statistics incoming bytes  */
+	ulong             obytes[ISDN_MAX_CHANNELS]; /* Statistics outgoing bytes  */
+	int               v110emu[ISDN_MAX_CHANNELS];/* V.110 emulator-mode 0=none */
+	atomic_t          v110use[ISDN_MAX_CHANNELS];/* Usage-Semaphore for stream */
+	isdn_v110_stream  *v110[ISDN_MAX_CHANNELS];  /* V.110 private data         */
+	isdn_module       *modules;
 } isdn_dev;
 
 extern isdn_dev *dev;
