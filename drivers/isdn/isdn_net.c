@@ -21,6 +21,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.111.2.11  2000/03/21 23:52:37  kai
+ * fix backwards compatibility
+ *
  * Revision 1.122  2000/03/20 22:37:46  detabc
  * modify abc-extension to work together with the new LL.
  * remove abc frame-counter (is obsolete now).
@@ -1794,7 +1797,10 @@ void isdn_net_write_super(isdn_net_local *lp, struct sk_buff *skb)
 void isdn_net_write_super(isdn_net_local *lp, struct sk_buff *skb)
 {
 	if (in_interrupt()) {
-		printk("isdn BUG at %s:%d!\n", __FILE__, __LINE__);
+		// we can't grab the lock from irq context, 
+		// so we just queue the packet
+		skb_queue_tail(&lp->super_tx_queue, skb); 
+		queue_task(&lp->tqueue, &tq_immediate);
 		return;
 	}
 
