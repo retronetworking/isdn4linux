@@ -6,6 +6,9 @@
  *
  *
  * $Log$
+ * Revision 1.3.2.1  1997/10/17 22:10:45  keil
+ * new files on 2.0
+ *
  * Revision 1.3  1997/07/27 21:38:35  keil
  * new B-channel interface
  *
@@ -44,3 +47,4 @@ extern void hscx_sched_event(struct BCState *bcs, int event);
 extern void modehscx(struct BCState *bcs, int mode, int bc);
 extern void clear_pending_hscx_ints(struct IsdnCardState *cs);
 extern void inithscx(struct IsdnCardState *cs);
+extern void inithscxisac(struct IsdnCardState *cs, int part);

@@ -6,6 +6,9 @@
  *
  *
  * $Log$
+ * Revision 1.7.2.5  1998/03/07 23:15:24  tsbogend
+ * made HiSax working on Linux/Alpha
+ *
  * Revision 1.7.2.4  1998/02/09 11:24:06  keil
  * New leased line support (Read README.HiSax!)
  *
@@ -632,13 +635,12 @@ initisac(struct IsdnCardState *cs))
 		cs->writeisac(cs, ISAC_ADF1, 0x00);
 	}
 	ph_command(cs, ISAC_CMD_RS);
-	cs->writeisac(cs, ISAC_MASK, 0x0);
 }
 
 HISAX_INITFUNC(void
 clear_pending_isac_ints(struct IsdnCardState *cs))
 {
-	int val;
+	int val, eval;
 	char tmp[64];
 
 	val = cs->readisac(cs, ISAC_STAR);
@@ -654,19 +656,15 @@ clear_pending_isac_ints(struct IsdnCardState *cs))
 	sprintf(tmp, "ISAC ISTA %x", val);
 	debugl1(cs, tmp);
 	if (val & 0x01) {
-		val = cs->readisac(cs, ISAC_EXIR);
-		sprintf(tmp, "ISAC EXIR %x", val);
+		eval = cs->readisac(cs, ISAC_EXIR);
+		sprintf(tmp, "ISAC EXIR %x", eval);
 		debugl1(cs, tmp);
-	} else if (val & 0x04) {
-		val = cs->readisac(cs, ISAC_CIR0);
-		sprintf(tmp, "ISAC CIR0 %x", val);
-		debugl1(cs, tmp);
-		cs->ph_state = (val >> 2) & 0xf;
-	} else {
-		cs->ph_state = (cs->readisac(cs, ISAC_CIX0) >> 2) & 0xf;
 	}
+	val = cs->readisac(cs, ISAC_CIR0);
+	sprintf(tmp, "ISAC CIR0 %x", val);
+	debugl1(cs, tmp);
+	cs->ph_state = (val >> 2) & 0xf;
 	isac_sched_event(cs, D_L1STATECHANGE);
+	/* Disable all IRQ */
 	cs->writeisac(cs, ISAC_MASK, 0xFF);
-	cs->writeisac(cs, ISAC_MASK, 0);
-	cs->writeisac(cs, ISAC_CMDR, 0x41);
 }
