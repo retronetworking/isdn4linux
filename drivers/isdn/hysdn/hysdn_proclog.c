@@ -128,8 +128,7 @@ put_log_buffer(hysdn_card * card, char *cp)
 	strcpy(ib->log_start, cp);	/* set output string */
 	ib->next = NULL;
 	ib->proc_ctrl = pd;	/* point to own control structure */
-	save_flags(flags);
-	cli();
+	HYSDN_SPIN_LOCK(&card->irq_lock, flags);
 	ib->usage_cnt = pd->if_used;
 	if (!pd->log_head)
 		pd->log_head = ib;	/* new head */
@@ -137,7 +136,7 @@ put_log_buffer(hysdn_card * card, char *cp)
 		pd->log_tail->next = ib;	/* follows existing messages */
 	pd->log_tail = ib;	/* new tail */
 	i = pd->del_lock++;	/* get lock state */
-	restore_flags(flags);
+	HYSDN_SPIN_UNLOCK(&card->irq_lock, flags);
 
 	/* delete old entrys */
 	if (!i)
@@ -294,14 +293,13 @@ hysdn_log_open(struct inode *ino, struct file *filep)
 	} else if ((filep->f_mode & (FMODE_READ | FMODE_WRITE)) == FMODE_READ) {
 
 		/* read access -> log/debug read */
-		save_flags(flags);
-		cli();
+		HYSDN_SPIN_LOCK(&card->irq_lock, flags);
 		pd->if_used++;
 		if (pd->log_head)
 			(struct log_data **) filep->private_data = &(pd->log_tail->next);
 		else
 			(struct log_data **) filep->private_data = &(pd->log_head);
-		restore_flags(flags);
+		HYSDN_SPIN_UNLOCK(&card->irq_lock, flags);
 	} else {		/* simultaneous read/write access forbidden ! */
 #ifdef COMPAT_USE_MODCOUNT_LOCK
 		MOD_DEC_USE_COUNT;
@@ -342,8 +340,7 @@ hysdn_log_close(struct inode *ino, struct file *filep)
 		/* read access -> log/debug read, mark one further file as closed */
 
 		pd = NULL;
-		save_flags(flags);
-		cli();
+		HYSDN_SPIN_LOCK(&card->irq_lock, flags);
 		inf = *((struct log_data **) filep->private_data);	/* get first log entry */
 		if (inf)
 			pd = (struct procdata *) inf->proc_ctrl;	/* still entries there */
@@ -366,7 +363,7 @@ hysdn_log_close(struct inode *ino, struct file *filep)
 			inf->usage_cnt--;	/* decrement usage count for buffers */
 			inf = inf->next;
 		}
-		restore_flags(flags);
+		HYSDN_SPIN_UNLOCK(&card->irq_lock, flags);
 
 		if (pd)
 			if (pd->if_used <= 0)	/* delete buffers if last file closed */

@@ -30,6 +30,10 @@
 #include <linux/tqueue.h>
 #include <linux/skbuff.h>
 #include <linux/isdn_compat.h>
+#include <linux/spinlock.h>
+
+#define HYSDN_SPIN_LOCK(a,b) spin_lock(a)
+#define HYSDN_SPIN_UNLOCK(a,b) spin_unlock(a)
 
 /****************************/
 /* storage type definitions */

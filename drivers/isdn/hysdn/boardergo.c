@@ -59,11 +59,10 @@ ergo_interrupt(int intno, void *dev_id, struct pt_regs *regs)
 	if (!card->irq_enabled)
 		return;		/* other device interrupting or irq switched off */
 
-	save_flags(flags);
-	cli();			/* no further irqs allowed */
+	HYSDN_SPIN_LOCK(&card->irq_lock, flags);
 
 	if (!(bytein(card->iobase + PCI9050_INTR_REG) & PCI9050_INTR_REG_STAT1)) {
-		restore_flags(flags);	/* restore old state */
+		HYSDN_SPIN_UNLOCK(&card->irq_lock, flags);
 		return;		/* no interrupt requested by E1 */
 	}
 	/* clear any pending ints on the board */
@@ -77,7 +76,7 @@ ergo_interrupt(int intno, void *dev_id, struct pt_regs *regs)
 		queue_task(&card->irq_queue, &tq_immediate);
 		mark_bh(IMMEDIATE_BH);
 	}
-	restore_flags(flags);
+	HYSDN_SPIN_UNLOCK(&card->irq_lock, flags);
 }				/* ergo_interrupt */
 
 /******************************************************************************/
@@ -97,17 +96,15 @@ ergo_irq_bh(hysdn_card * card)
 		return;		/* invalid call */
 
 	dpr = card->dpram;	/* point to DPRAM */
+	HYSDN_SPIN_LOCK(&card->irq_lock, flags);
 
-	save_flags(flags);
-	cli();
 	if (card->hw_lock) {
-		restore_flags(flags);	/* hardware currently unavailable */
+		HYSDN_SPIN_UNLOCK(&card->irq_lock, flags);
 		return;
 	}
 	card->hw_lock = 1;	/* we now lock the hardware */
 
 	do {
-		sti();		/* reenable other ints */
 		again = 0;	/* assume loop not to be repeated */
 
 		if (!dpr->ToHyFlag) {
@@ -127,15 +124,13 @@ ergo_irq_bh(hysdn_card * card)
 				again = 1;	/* restart loop */
 			}
 		}		/* a message has arrived for us */
-		cli();		/* no further ints */
 		if (again) {
 			dpr->ToHyInt = 1;
 			dpr->ToPcInt = 1;	/* interrupt to E1 for all cards */
 		} else
 			card->hw_lock = 0;	/* free hardware again */
 	} while (again);	/* until nothing more to do */
-
-	restore_flags(flags);
+	HYSDN_SPIN_UNLOCK(&card->irq_lock, flags);
 }				/* ergo_irq_bh */
 
 
@@ -152,8 +147,7 @@ ergo_stopcard(hysdn_card * card)
 #ifdef CONFIG_HYSDN_CAPI
 	hycapi_capi_stop(card);
 #endif /* CONFIG_HYSDN_CAPI */
-	save_flags(flags);
-	cli();
+	HYSDN_SPIN_LOCK(&card->irq_lock, flags);
 	val = bytein(card->iobase + PCI9050_INTR_REG);	/* get actual value */
 	val &= ~(PCI9050_INTR_REG_ENPCI | PCI9050_INTR_REG_EN1);	/* mask irq */
 	byteout(card->iobase + PCI9050_INTR_REG, val);
@@ -161,8 +155,7 @@ ergo_stopcard(hysdn_card * card)
 	byteout(card->iobase + PCI9050_USER_IO, PCI9050_E1_RESET);	/* reset E1 processor */
 	card->state = CARD_STATE_UNUSED;
 	card->err_log_state = ERRLOG_STATE_OFF;		/* currently no log active */
-
-	restore_flags(flags);
+	HYSDN_SPIN_UNLOCK(&card->irq_lock, flags);
 }				/* ergo_stopcard */
 
 /**************************************************************************/
@@ -177,20 +170,17 @@ ergo_set_errlog_state(hysdn_card * card, int on)
 		card->err_log_state = ERRLOG_STATE_OFF;		/* must be off */
 		return;
 	}
-	save_flags(flags);
-	cli();
-
+	HYSDN_SPIN_LOCK(&card->irq_lock, flags);
 	if (((card->err_log_state == ERRLOG_STATE_OFF) && !on) ||
 	    ((card->err_log_state == ERRLOG_STATE_ON) && on)) {
-		restore_flags(flags);
+		HYSDN_SPIN_UNLOCK(&card->irq_lock, flags);
 		return;		/* nothing to do */
 	}
 	if (on)
 		card->err_log_state = ERRLOG_STATE_START;	/* request start */
 	else
 		card->err_log_state = ERRLOG_STATE_STOP;	/* request stop */
-
-	restore_flags(flags);
+	HYSDN_SPIN_UNLOCK(&card->irq_lock, flags);
 	queue_task(&card->irq_queue, &tq_immediate);
 	mark_bh(IMMEDIATE_BH);
 }				/* ergo_set_errlog_state */
@@ -259,9 +249,6 @@ ergo_writebootimg(struct HYSDN_CARD *card, uchar * buf, ulong offs)
 		while (!dpram->ToHyNoDpramErrLog);	/* reread volatile register to flush PCI */
 
 		byteout(card->iobase + PCI9050_USER_IO, PCI9050_E1_RUN);	/* start E1 processor */
-		/* the interrupts are still masked */
-
-		sti();
 		set_current_state(TASK_INTERRUPTIBLE);
 		schedule_timeout((20 * HZ) / 1000);	/* Timeout 20ms */
 
@@ -296,7 +283,6 @@ ergo_writebootseq(struct HYSDN_CARD *card, uchar * buf, int len)
 	dst = sp->Data;		/* point to data in spool structure */
 	buflen = sp->Len;	/* maximum len of spooled data */
 	wr_mirror = sp->WrPtr;	/* only once read */
-	sti();
 
 	/* try until all bytes written or error */
 	i = 0x1000;		/* timeout value */
@@ -372,9 +358,7 @@ ergo_waitpofready(struct HYSDN_CARD *card)
 
 			if (card->debug_flags & LOG_POF_RECORD)
 				hysdn_addlog(card, "ERGO: pof boot success");
-			save_flags(flags);
-			cli();
-
+			HYSDN_SPIN_LOCK(&card->irq_lock, flags);
 			card->state = CARD_STATE_RUN;	/* now card is running */
 			/* enable the cards interrupt */
 			byteout(card->iobase + PCI9050_INTR_REG,
@@ -385,8 +369,7 @@ ergo_waitpofready(struct HYSDN_CARD *card)
 			dpr->ToPcFlag = 0;	/* reset data indicator */
 			dpr->ToHyInt = 1;
 			dpr->ToPcInt = 1;	/* interrupt to E1 for all cards */
-
-			restore_flags(flags);
+			HYSDN_SPIN_UNLOCK(&card->irq_lock, flags);
 			if ((hynet_enable & (1 << card->myid)) 
 			    && (i = hysdn_net_create(card))) 
 			{
@@ -401,7 +384,6 @@ ergo_waitpofready(struct HYSDN_CARD *card)
 #endif /* CONFIG_HYSDN_CAPI */
 			return (0);	/* success */
 		}		/* data has arrived */
-		sti();
 		set_current_state(TASK_INTERRUPTIBLE);
 		schedule_timeout((50 * HZ) / 1000);	/* Timeout 50ms */
 	}			/* wait until timeout */
