@@ -21,6 +21,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.110  2000/02/26 01:00:53  keil
+ * changes from 2.3.47
+ *
  * Revision 1.109  2000/02/25 11:29:17  paul
  * changed chargetime to ulong from int (after about 20 days the "chargetime of
  * ipppX is now 1234" message displays a negative number on alpha).
@@ -1977,13 +1980,13 @@ isdn_net_start_xmit(struct sk_buff *skb, struct net_device *ndev)
 	*/
 
 	if (ndev->tbusy) {
-		printk(KERN_WARNING "isdn_tx_timeout dev %s dialstate %d\n", 
-		       ndev->name, lp->dialstate);
-		
 		if (jiffies - ndev->trans_start < ISDN_NET_TX_TIMEOUT)
 			return 1;
-		if (!lp->dialstate)
+		if (!lp->dialstate){
 			lp->stats.tx_errors++;
+			printk(KERN_WARNING "isdn_tx_timeout dev %s dialstate %d\n",
+				ndev->name, lp->dialstate);
+		}
 		ndev->trans_start = jiffies;
 		netif_wake_queue(ndev);
 	}
