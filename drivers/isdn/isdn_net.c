@@ -441,7 +441,7 @@ isdn_net_autohup()
 	anymore = 0;
 	while (p) {
 		isdn_net_local *l = p->local;
-		if ((jiffies - last_jiffies) == 0)
+		if (jiffies == last_jiffies)
 			l->cps = l->transcount;
 		else
 			l->cps = (l->transcount * HZ) / (jiffies - last_jiffies);
@@ -480,9 +480,9 @@ isdn_net_autohup()
 			{
 				if (l->hupflags & ISDN_MANCHARGE &&
 				    l->hupflags & ISDN_CHARGEHUP) {
-					while (jiffies - l->chargetime > l->chargeint)
+					while (time_after(jiffies, l->chargetime + l->chargeint))
 						l->chargetime += l->chargeint;
-					if (jiffies - l->chargetime >= l->chargeint - 2 * HZ)
+					if (time_after(jiffies, l->chargetime + l->chargeint - 2 * HZ))
 						if (l->outgoing || l->hupflags & ISDN_INHUP)
 							isdn_net_hangup(&p->dev);
 				} else if (l->outgoing) {
@@ -491,7 +491,7 @@ isdn_net_autohup()
 							printk(KERN_DEBUG "isdn_net: Hupflags of %s are %X\n",
 							       l->name, l->hupflags);
 							isdn_net_hangup(&p->dev);
-						} else if (jiffies - l->chargetime > l->chargeint) {
+						} else if (time_after(jiffies, l->chargetime + l->chargeint)) {
 							printk(KERN_DEBUG
 							       "isdn_net: %s: chtime = %lu, chint = %d\n",
 							       l->name, l->chargetime, l->chargeint);
@@ -812,7 +812,7 @@ isdn_net_dial(void)
 				anymore = 1;
 
 				if(lp->dialtimeout > 0)
-					if(lp->dialstarted == 0 || jiffies > (lp->dialstarted + lp->dialtimeout + lp->dialwait)) {
+					if(lp->dialstarted == 0 || time_after(jiffies, lp->dialstarted + lp->dialtimeout + lp->dialwait)) {
 						lp->dialstarted = jiffies;
 						lp->dialwait_timer = 0;
 					}
@@ -923,7 +923,7 @@ isdn_net_dial(void)
 					printk(KERN_INFO "%s: Open leased line ...\n", lp->name);
 				} else {
 					if(lp->dialtimeout > 0)
-						if(jiffies > (lp->dialstarted + lp->dialtimeout)) {
+						if (time_after(jiffies, lp->dialstarted + lp->dialtimeout)) {
 							restore_flags(flags);
 							lp->dialwait_timer = jiffies + lp->dialwait;
 							lp->dialstarted = 0;
@@ -1548,7 +1548,7 @@ isdn_net_xmit(struct net_device *ndev, struct sk_buff *skb)
 				lp->sqfull_stamp = jiffies;
 			} else {
 				/* subsequent overload: if slavedelay exceeded, start dialing */
-				if ((jiffies - lp->sqfull_stamp) > lp->slavedelay) {
+				if (time_after(jiffies, lp->sqfull_stamp + lp->slavedelay)) {
 					slp = lp->slave->priv;
 					if (!(slp->flags & ISDN_NET_CONNECTED)) {
 						isdn_net_force_dial_lp((isdn_net_local *) lp->slave->priv);
@@ -1557,7 +1557,7 @@ isdn_net_xmit(struct net_device *ndev, struct sk_buff *skb)
 			}
 		}
 	} else {
-		if (lp->sqfull && ((jiffies - lp->sqfull_stamp) > (lp->slavedelay + (10 * HZ)))) {
+		if (lp->sqfull && time_after(jiffies, lp->sqfull_stamp + lp->slavedelay + (10 * HZ))) {
 			lp->sqfull = 0;
 		}
 		/* this is a hack to allow auto-hangup for slaves on moderate loads */
@@ -2004,11 +2004,11 @@ isdn_net_start_xmit(struct sk_buff *skb, struct net_device *ndev)
 				cli();
 
 				if(lp->dialwait_timer <= 0)
-					if(lp->dialstarted > 0 && lp->dialtimeout > 0 && jiffies < lp->dialstarted + lp->dialtimeout + lp->dialwait)
+					if(lp->dialstarted > 0 && lp->dialtimeout > 0 && time_before(jiffies, lp->dialstarted + lp->dialtimeout + lp->dialwait))
 						lp->dialwait_timer = lp->dialstarted + lp->dialtimeout + lp->dialwait;
 
 				if(lp->dialwait_timer > 0) {
-					if(jiffies < lp->dialwait_timer) {
+					if(time_before(jiffies, lp->dialwait_timer)) {
 						isdn_net_unreachable(ndev, skb, "dial rejected: retry-time not reached");
 						dev_kfree_skb(skb);
 						restore_flags(flags);

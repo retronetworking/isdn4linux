@@ -2598,11 +2598,11 @@ isdn_tty_check_esc(const u_char * p, u_char plus, int count, int *pluscount,
 		if (*(p++) == plus) {
 			if ((*pluscount)++) {
 				/* Time since last '+' > 0.5 sec. ? */
-				if ((jiffies - *lastplus) > PLUSWAIT1)
+				if (time_after(jiffies, *lastplus + PLUSWAIT1))
 					*pluscount = 1;
 			} else {
 				/* Time since last non-'+' < 1.5 sec. ? */
-				if ((jiffies - *lastplus) < PLUSWAIT2)
+				if (time_before(jiffies, *lastplus + PLUSWAIT2))
 					*pluscount = 0;
 			}
 			if ((*pluscount == 3) && (count == 1))
@@ -3982,7 +3982,7 @@ isdn_tty_modem_escape(void)
 				if (info->online) {
 					ton = 1;
 					if ((info->emu.pluscount == 3) &&
-					    ((jiffies - info->emu.lastplus) > PLUSWAIT2)) {
+					    time_after(jiffies , info->emu.lastplus + PLUSWAIT2)) {
 						info->emu.pluscount = 0;
 						info->online = 0;
 						isdn_tty_modem_result(RESULT_OK, info);
