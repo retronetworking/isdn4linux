@@ -235,7 +235,7 @@ niccy_card_msg(struct IsdnCardState *cs, int mt, void *arg)
 	return(0);
 }
 
-static struct pci_dev *niccy_dev __initdata;
+static struct pci_dev *niccy_dev __initdata = NULL;
 
 int __init
 setup_niccy(struct IsdnCard *card)

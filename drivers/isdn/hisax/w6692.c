@@ -974,7 +974,7 @@ w6692_card_msg(struct IsdnCardState *cs, int mt, void *arg)
 
 static int id_idx ;
 
-static struct pci_dev *dev_w6692 __initdata;
+static struct pci_dev *dev_w6692 __initdata = NULL;
 
 int __init 
 setup_w6692(struct IsdnCard *card)

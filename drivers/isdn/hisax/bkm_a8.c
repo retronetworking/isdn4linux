@@ -283,12 +283,12 @@ sct_alloc_io(u_int adr, u_int len)
 	return(0);
 }
 
-static struct pci_dev *dev_a8 __initdata;
-static u16  sub_vendor_id __initdata;
-static u16  sub_sys_id __initdata;
-static u_char pci_bus __initdata;
-static u_char pci_device_fn __initdata;
-static u_char pci_irq __initdata;
+static struct pci_dev *dev_a8 __initdata = NULL;
+static u16  sub_vendor_id __initdata = 0;
+static u16  sub_sys_id __initdata = 0;
+static u_char pci_bus __initdata = 0;
+static u_char pci_device_fn __initdata = 0;
+static u_char pci_irq __initdata = 0;
 
 #endif /* CONFIG_PCI */
 
