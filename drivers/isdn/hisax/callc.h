@@ -33,12 +33,10 @@ struct CallcIf {
 	struct IsdnCardState *cs;
 	int myid;
 	isdn_if iif;
-#if 0
 	u_char *status_buf;
 	u_char *status_read;
 	u_char *status_write;
 	u_char *status_end;
-#endif
 	struct Channel channel[2+MAX_WAITING_CALLS];
 };
 
@@ -46,8 +44,6 @@ struct CallcIf *newCallcIf(struct IsdnCardState *cs, char *id);
 void delCallcIf(struct CallcIf *c_if);
 void callcIfRun(struct CallcIf *c_if);
 void callcIfStop(struct CallcIf *c_if);
-#if 0
-void callcPutStatus(struct CallcIf *c_if, char *msg);
-#endif
+void callcIfPutStatus(struct CallcIf *c_if, char *msg);
 
 #endif

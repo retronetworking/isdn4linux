@@ -18,7 +18,6 @@
 #include <linux/kernel_stat.h>
 #include <linux/tqueue.h>
 #include <linux/interrupt.h>
-#define HISAX_STATUS_BUFSIZE 4096
 #define INCLUDE_INLINE_FUNCS
 
 #ifdef MODULE
@@ -663,21 +662,6 @@ extern int setup_w6692(struct IsdnCard *card);
 #endif
 
 /*
- * Find card with given driverId
- */
-static inline struct IsdnCardState
-*hisax_findcard(int driverid)
-{
-	int i;
-
-	for (i = 0; i < nrcards; i++)
-		if (cards[i].cs)
-			if (cards[i].cs->c_if->myid == driverid)
-				return (cards[i].cs);
-	return (NULL);
-}
-
-/*
  * Find card with given card number
  */
 struct IsdnCardState
@@ -687,51 +671,6 @@ struct IsdnCardState
 		if (cards[cardnr-1].cs)
 			return (cards[cardnr-1].cs);
 	return (NULL);
-}
-
-int
-HiSax_read_status(u_char * buf, int len, int user, int id, int channel)
-{
-	int count,cnt;
-	u_char *p = buf;
-	struct IsdnCardState *cs = hisax_findcard(id);
-
-	if (cs) {
-		if (len > HISAX_STATUS_BUFSIZE) {
-			printk(KERN_WARNING "HiSax: status overflow readstat %d/%d\n",
-				len, HISAX_STATUS_BUFSIZE);
-		}
-		count = cs->status_end - cs->status_read +1;
-		if (count >= len)
-			count = len;
-		if (user)
-			copy_to_user(p, cs->status_read, count);
-		else
-			memcpy(p, cs->status_read, count);
-		cs->status_read += count;
-		if (cs->status_read > cs->status_end)
-			cs->status_read = cs->status_buf;
-		p += count;
-		count = len - count;
-		while (count) {
-			if (count > HISAX_STATUS_BUFSIZE)
-				cnt = HISAX_STATUS_BUFSIZE;
-			else
-				cnt = count;
-			if (user)
-				copy_to_user(p, cs->status_read, cnt);
-			else
-				memcpy(p, cs->status_read, cnt);
-			p += cnt;
-			cs->status_read += cnt % HISAX_STATUS_BUFSIZE;
-			count -= cnt;
-		}
-		return len;
-	} else {
-		printk(KERN_ERR
-		 "HiSax: if_readstatus called with invalid driverId!\n");
-		return -ENODEV;
-	}
 }
 
 inline int
@@ -756,78 +695,41 @@ jiftime(char *s, long mark)
 	return(8);
 }
 
-static u_char tmpbuf[HISAX_STATUS_BUFSIZE];
+#define MAX_MSG_LEN 1024
+static u_char tmpbuf[MAX_MSG_LEN+2];
 
 void
 VHiSax_putstatus(struct IsdnCardState *cs, char *head, char *fmt, va_list args)
 {
+	long flags;
+	u_char *p;
+
 /* if head == NULL the fmt contains the full info */
 
-	long flags;
-	int count, i;
-	u_char *p;
-	isdn_ctrl ic;
-	int len;
-
+	if (!cs) {
+		printk(KERN_WARNING "HiSax: No CardStatus for message %s", fmt);
+		return;
+	}
 	save_flags(flags);
 	cli();
 	p = tmpbuf;
+
 	if (head) {
 		p += jiftime(p, jiffies);
 		p += sprintf(p, " %s", head);
 		p += vsprintf(p, fmt, args);
 		*p++ = '\n';
 		*p = 0;
-		len = p - tmpbuf;
 		p = tmpbuf;
 	} else {
 		p = fmt;
-		len = strlen(fmt);
 	}
-	if (!cs) {
-		printk(KERN_WARNING "HiSax: No CardStatus for message %s", p);
-		restore_flags(flags);
-		return;
+	if (cs->c_if) {
+		callcIfPutStatus(cs->c_if, p);
+	} else {
+		printk(KERN_DEBUG "HiSax: %s", p);
 	}
-	if (len > HISAX_STATUS_BUFSIZE) {
-		printk(KERN_WARNING "HiSax: status overflow %d/%d\n",
-			len, HISAX_STATUS_BUFSIZE);
-		restore_flags(flags);
-		return;
-	}
-	count = len;
-	i = cs->status_end - cs->status_write +1;
-	if (i >= len)
-		i = len;
-	len -= i;
-	memcpy(cs->status_write, p, i);
-	cs->status_write += i;
-	if (cs->status_write > cs->status_end)
-		cs->status_write = cs->status_buf;
-	p += i;
-	if (len) {
-		memcpy(cs->status_write, p, len);
-		cs->status_write += len;
-	}
-#ifdef KERNELSTACK_DEBUG
-	i = (ulong)&len - current->kernel_stack_page;
-	sprintf(tmpbuf, "kstack %s %lx use %ld\n", current->comm,
-		current->kernel_stack_page, i);
-	len = strlen(tmpbuf);
-	for (p = tmpbuf, i = len; i > 0; i--, p++) {
-		*cs->status_write++ = *p;
-		if (cs->status_write > cs->status_end)
-			cs->status_write = cs->status_buf;
-		count++;
-	}
-#endif
 	restore_flags(flags);
-	if (count) {
-		ic.command = ISDN_STAT_STAVAIL;
-		ic.driver = cs->c_if->myid;
-		ic.arg = count;
-		cs->c_if->iif.statcallb(&ic);
-	}
 }
 
 void
@@ -857,16 +759,6 @@ ll_stop(struct IsdnCardState *cs)
 static void
 ll_unload(struct IsdnCardState *cs)
 {
-	isdn_ctrl ic;
-
-	ic.command = ISDN_STAT_UNLOAD;
-	ic.driver = cs->c_if->myid;
-	cs->c_if->iif.statcallb(&ic);
-	if (cs->status_buf)
-		kfree(cs->status_buf);
-	cs->status_read = NULL;
-	cs->status_write = NULL;
-	cs->status_end = NULL;
 	kfree(cs->dlog);
 
 	if (cs->c_if) {
@@ -992,18 +884,7 @@ checkcard(int cardnr, char *id, int *busy_flag))
 			restore_flags(flags);
 			return (0);
 		}
-		if (!(cs->status_buf = kmalloc(HISAX_STATUS_BUFSIZE, GFP_ATOMIC))) {
-			printk(KERN_WARNING
-				"HiSax: No memory for status_buf(card %d)\n",
-				cardnr + 1);
-			kfree(cs->dlog);
-			restore_flags(flags);
-			return (0);
-		}
 		cs->stlist = NULL;
-		cs->status_read = cs->status_buf;
-		cs->status_write = cs->status_buf;
-		cs->status_end = cs->status_buf + HISAX_STATUS_BUFSIZE - 1;
 		cs->typ = card->typ;
 		cs->features =
 			ISDN_FEATURE_L2_X75I |

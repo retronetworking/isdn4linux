@@ -860,10 +860,6 @@ struct IsdnCardState {
 		struct gazel_hw gazel;
 		struct w6692_hw w6692;
 	} hw;
-	u_char *status_buf;
-	u_char *status_read;
-	u_char *status_write;
-	u_char *status_end;
 	u_char (*readisac) (struct IsdnCardState *, u_char);
 	void   (*writeisac) (struct IsdnCardState *, u_char, u_char);
 	void   (*readisacfifo) (struct IsdnCardState *, u_char *, int);

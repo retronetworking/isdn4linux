@@ -12,11 +12,13 @@
  *
  */
 
+const char *lli_revision = "$Revision$";
+
 #include "hisax.h"
 #include "callc.h"
 #include "../avmb1/capicmd.h"  /* this should be moved in a common place */
 
-const char *lli_revision = "$Revision$";
+#define HISAX_STATUS_BUFSIZE 4096
 
 static struct CallcIf *c_ifs[HISAX_MAX_CARDS] = { 0, };
 
@@ -1755,11 +1757,53 @@ HiSax_writebuf_skb(int id, int chan, int ack, struct sk_buff *skb)
 	return (len);
 }
 
+int
+HiSax_read_status(u_char * buf, int len, int user, int id, int channel)
+{
+	int count,cnt;
+	u_char *p = buf;
+	struct CallcIf *c_if = findCallcIf(id);
+
+	if (!c_if) {
+		printk(KERN_ERR
+		       "HiSax: if_readstatus called with invalid driverId!\n");
+		return -ENODEV;
+	}
+
+	if (len > HISAX_STATUS_BUFSIZE) {
+		printk(KERN_WARNING "HiSax: status overflow readstat %d/%d\n",
+		       len, HISAX_STATUS_BUFSIZE);
+	}
+	count = c_if->status_end - c_if->status_read + 1;
+	if (count >= len)
+		count = len;
+	if (user)
+		copy_to_user(p, c_if->status_read, count);
+	else
+		memcpy(p, c_if->status_read, count);
+	c_if->status_read += count;
+	if (c_if->status_read > c_if->status_end)
+		c_if->status_read = c_if->status_buf;
+	p += count;
+	count = len - count;
+	while (count) {
+		if (count > HISAX_STATUS_BUFSIZE)
+			cnt = HISAX_STATUS_BUFSIZE;
+		else
+			cnt = count;
+		if (user)
+			copy_to_user(p, c_if->status_read, cnt);
+		else
+			memcpy(p, c_if->status_read, cnt);
+		p += cnt;
+		c_if->status_read += cnt % HISAX_STATUS_BUFSIZE;
+		count -= cnt;
+	}
+	return len;
+}
+
 // =================================================================
 // Interface to config.c
-
-int
-HiSax_read_status(u_char * buf, int len, int user, int id, int channel);
 
 int
 callcIfConstr(struct CallcIf *c_if, struct IsdnCardState *cs, char *id)
@@ -1768,7 +1812,6 @@ callcIfConstr(struct CallcIf *c_if, struct IsdnCardState *cs, char *id)
 
 	c_if->cs = cs;
 
-#if 0
 	// status ring buffer
 
  	if (!(c_if->status_buf = kmalloc(HISAX_STATUS_BUFSIZE, GFP_KERNEL))) {
@@ -1780,7 +1823,6 @@ callcIfConstr(struct CallcIf *c_if, struct IsdnCardState *cs, char *id)
 	c_if->status_read = c_if->status_buf;
 	c_if->status_write = c_if->status_buf;
 	c_if->status_end = c_if->status_buf + HISAX_STATUS_BUFSIZE - 1;
-#endif
 	
 	// register to LL
 
@@ -1812,19 +1854,17 @@ callcIfConstr(struct CallcIf *c_if, struct IsdnCardState *cs, char *id)
 void 
 callcIfDestr(struct CallcIf *c_if)
 {
-#if 0
 	isdn_ctrl ic;
 
 	// unregister from LL
 
-	statcallb(c_if, ISDN_STAT_UNLOAD, &ic);
+	statcallb(c_if->cs, ISDN_STAT_UNLOAD, &ic);
 
 	// status ring buffer
 
 	if (c_if->status_buf) {
 		kfree(c_if->status_buf);
 	}
-#endif
 }
 
 void
@@ -1867,6 +1907,38 @@ callcIfStop(struct CallcIf *c_if)
 	for (i = 0; i < 2 + MAX_WAITING_CALLS; i++) 
 		channelDestr(&c_if->channel[i]);
 #endif
+}
+
+void
+callcIfPutStatus(struct CallcIf *c_if, char *msg)
+{
+	int i;
+	int len, count;
+	isdn_ctrl ic;
+
+	count = strlen(msg);
+	if (count > HISAX_STATUS_BUFSIZE) {
+		printk(KERN_WARNING "HiSax: status overflow %d/%d\n",
+			count, HISAX_STATUS_BUFSIZE);
+		return;
+	}
+	len = count;
+	i = c_if->status_end - c_if->status_write +1;
+	if (i >= len)
+		i = len;
+	len -= i;
+	memcpy(c_if->status_write, msg, i);
+	c_if->status_write += i;
+	if (c_if->status_write > c_if->status_end) {
+		c_if->status_write = c_if->status_buf;
+	}
+	msg += i;
+	if (len) {
+	        memcpy(c_if->status_write, msg, len);
+		c_if->status_write += len;
+	}
+	ic.arg = count;
+	statcallb(c_if->cs, ISDN_STAT_STAVAIL, &ic);
 }
 
 struct CallcIf *
