@@ -6,6 +6,9 @@
  *
  *
  * $Log$
+ * Revision 1.4  1997/01/21 22:24:33  keil
+ * cleanups
+ *
  * Revision 1.3  1996/12/08 19:48:34  keil
  * adding Monitor channel registers
  *
@@ -20,7 +23,6 @@
 
 
 /* All Registers without FIFOs (original Siemens Spec - 20 hex) */
-
 #define ISAC_MASK 0x0
 #define ISAC_ISTA 0x0
 #define ISAC_STAR 0x1
