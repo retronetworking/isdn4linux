@@ -26,6 +26,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.30  2000/02/16 16:08:46  armin
+ * Fixed virtual channel handling of IDI.
+ *
  * Revision 1.29  2000/01/23 21:21:23  armin
  * Added new trace capability and some updates.
  * DIVA Server BRI now supports data for ISDNLOG.
@@ -2358,7 +2361,7 @@ eicon_parse_trace(eicon_card *ccard, unsigned char *buffer, int len)
 		unsigned char data[1];
 	} *q;
 
-	if (!(p = kmalloc(buflen, GFP_KERNEL))) {
+	if (!(p = kmalloc(buflen, GFP_ATOMIC))) {
 		eicon_log(ccard, 1, "idi_err: Ch??: could not allocate trace buffer\n");
 		return;
 	}

@@ -31,6 +31,10 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.24  2000/01/23 21:21:23  armin
+ * Added new trace capability and some updates.
+ * DIVA Server BRI now supports data for ISDNLOG.
+ *
  * Revision 1.23  2000/01/20 19:55:34  keil
  * Add FAX Class 1 support
  *
@@ -984,8 +988,10 @@ eicon_putstatus(eicon_card * card, char * buf)
 	u_char *p;
 	struct sk_buff *skb;
 
-	if (!card)
-		return;
+	if (!card) {
+		if (!(card = cards))
+			return;
+	}
 
 	save_flags(flags);
 	cli();

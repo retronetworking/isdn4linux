@@ -22,6 +22,10 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.13  2000/01/23 21:21:23  armin
+ * Added new trace capability and some updates.
+ * DIVA Server BRI now supports data for ISDNLOG.
+ *
  * Revision 1.12  1999/11/27 12:56:19  armin
  * Forgot some iomem changes for last ioremap compat.
  *
@@ -144,6 +148,9 @@ eicon_isa_find_card(int Mem, int Irq, char * Id)
 	unsigned long amem;
 
 	if (!strlen(Id))
+		return -1;
+
+	if (Mem == -1)
 		return -1;
 
 	/* Check for valid membase address */
