@@ -19,6 +19,19 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.45.2.2  1998/03/07 23:35:36  detabc
+ * added the abc-extension to the linux isdn-kernel
+ * for kernel-version 2.0.xx
+ * DO NOT USE FOR HIGHER KERNELS-VERSIONS
+ * all source-lines are switched with the define  CONFIG_ISDN_WITH_ABC
+ * (make config and answer ABC-Ext. Support (Compress,TCP-Keepalive ...) with yes
+ *
+ * you need also a modified isdnctrl-source the switch on the
+ * features of the abc-extension
+ *
+ * please use carefully. more detail will be follow.
+ * thanks
+ *
  * Revision 1.45.2.1  1997/08/21 15:56:50  fritz
  * Synchronized 2.0.X branch with 2.0.31-pre7
  *
@@ -643,17 +656,22 @@ icn_parse_status(u_char * status, int channel, icn_card * card)
 				char *t = status + 6;
 				char *s = strpbrk(t, ",");
 
+				memset(&cmd.parm.setup, 0, sizeof(cmd.parm.setup));
+				if (!s)
+					break;
 				*s++ = '\0';
 				strncpy(cmd.parm.setup.phone, t,
 					sizeof(cmd.parm.setup.phone));
-				s = strpbrk(t = s, ",");
+				if (!(s = strpbrk(t = s, ",")))
+					break;
 				*s++ = '\0';
 				if (!strlen(t))
 					cmd.parm.setup.si1 = 0;
 				else
 					cmd.parm.setup.si1 =
 					    simple_strtoul(t, NULL, 10);
-				s = strpbrk(t = s, ",");
+				if (!(s = strpbrk(t = s, ",")))
+					break;
 				*s++ = '\0';
 				if (!strlen(t))
 					cmd.parm.setup.si2 = 0;
@@ -663,8 +681,6 @@ icn_parse_status(u_char * status, int channel, icn_card * card)
 				strncpy(cmd.parm.setup.eazmsn, s,
 					sizeof(cmd.parm.setup.eazmsn));
 			}
-			cmd.parm.setup.plan = 0;
-			cmd.parm.setup.screen = 0;
 			break;
 		case 4:
 			sprintf(cmd.parm.setup.phone, "LEASED%d", card->myid);
