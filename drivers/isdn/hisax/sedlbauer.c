@@ -667,15 +667,16 @@ setup_sedlbauer(struct IsdnCard *card)
 	if (cs->hw.sedl.bus != SEDL_BUS_PCI) {
 		val = readreg(cs->hw.sedl.cfg_reg + SEDL_IPAC_ANY_ADR,
         	        cs->hw.sedl.cfg_reg + SEDL_IPAC_ANY_IPAC, IPAC_ID);
-	        if (val == 1) {
-		/* IPAC */
+                printk(KERN_DEBUG "Sedlbauer: testing IPAC version %x\n", val);
+	        if ((val == 1) || (val == 2)) {
+			/* IPAC */
                 	cs->subtyp = SEDL_SPEED_WIN2_PC104;
 			if (cs->hw.sedl.bus == SEDL_BUS_PCMCIA) {
 				cs->subtyp = SEDL_SPEED_STAR2;
 			}
 			cs->hw.sedl.chip = SEDL_CHIP_IPAC;
 		} else {
-		/* ISAC_HSCX oder ISAC_ISAR */
+			/* ISAC_HSCX oder ISAC_ISAR */
 			if (cs->hw.sedl.chip == SEDL_CHIP_TEST) {
 				cs->hw.sedl.chip = SEDL_CHIP_ISAC_HSCX;
 			}
