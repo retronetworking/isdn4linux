@@ -6,6 +6,9 @@
  * (c) Copyright 1997 by Carsten Paeth (calle@calle.in-berlin.de)
  * 
  * $Log$
+ * Revision 1.14  1999/04/15 19:49:29  calle
+ * fix fuer die B1-PCI. Jetzt geht z.B. auch IRQ 17 ...
+ *
  * Revision 1.13  1999/01/05 18:29:31  he
  * merged remaining schedule_timeout() changes from 2.1.127
  *
@@ -102,6 +105,7 @@
 #include <linux/interrupt.h>
 #include <linux/ioport.h>
 #include <asm/segment.h>
+#include <linux/proc_fs.h>
 #include <linux/skbuff.h>
 #include <linux/tqueue.h>
 #include <linux/capi.h>
@@ -134,6 +138,7 @@ typedef struct avmb1_ncci {
 	__u16 applid;
 	__u32 ncci;
 	__u32 winsize;
+	int   nmsg;
 	struct msgidqueue *msgidqueue;
 	struct msgidqueue *msgidlast;
 	struct msgidqueue *msgidfree;
@@ -147,6 +152,7 @@ typedef struct avmb1_appl {
 	__u32 param;
 	void (*signal) (__u16 applid, __u32 param);
 	struct sk_buff_head recv_queue;
+	int nncci;
 	struct avmb1_ncci *nccilist;
 } avmb1_appl;
 
@@ -193,6 +199,19 @@ static char *cardtype2str(int cardtype)
 	}
 }
 
+static char *cardstate2str(unsigned short cardstate)
+{
+	switch (cardstate) {
+        	default:
+		case CARD_FREE:		return "free";
+		case CARD_DETECTED:	return "detected";
+		case CARD_LOADING:	return "loading";
+		case CARD_INITSTATE:	return "initstate";
+		case CARD_RUNNING:	return "running";
+		case CARD_ACTIVE:	return "active";
+	}
+}
+
 static inline int capi_cmd_valid(__u8 cmd)
 {
 	switch (cmd) {
@@ -228,6 +247,195 @@ static inline int capi_subcmd_valid(__u8 subcmd)
 	return 0;
 }
 
+/* -------- /proc functions ----------------------------------- */
+/*
+ * /proc/capi/applications:
+ *      applid l3cnt dblkcnt dblklen #ncci recvqueuelen
+ */
+static int proc_applications_read_proc(char *page, char **start, off_t off,
+                                       int count, int *eof, void *data)
+{
+	avmb1_appl *ap;
+	int i;
+	int len = 0;
+	off_t begin = 0;
+
+	for (i=0; i < CAPI_MAXAPPL; i++) {
+		ap = &applications[i];
+		if (ap->applid == 0) continue;
+		len += sprintf(page+len, "%u %d %d %d %d %d\n",
+			ap->applid,
+			ap->rparam.level3cnt,
+			ap->rparam.datablkcnt,
+			ap->rparam.datablklen,
+			ap->nncci,
+                        skb_queue_len(&ap->recv_queue));
+		if (len+begin > off+count)
+			goto endloop;
+		if (len+begin < off) {
+			begin += len;
+			len = 0;
+		}
+	}
+endloop:
+	if (i >= CAPI_MAXAPPL)
+		*eof = 1;
+	if (off >= len+begin)
+		return 0;
+	*start = page + (begin-off);
+	return ((count < begin+len-off) ? count : begin+len-off);
+}
+
+/*
+ * /proc/capi/ncci:
+ *	applid ncci winsize nblk
+ */
+static int proc_ncci_read_proc(char *page, char **start, off_t off,
+                                       int count, int *eof, void *data)
+{
+	avmb1_appl *ap;
+	struct avmb1_ncci *np;
+	int i;
+	int len = 0;
+	off_t begin = 0;
+
+	for (i=0; i < CAPI_MAXAPPL; i++) {
+		ap = &applications[i];
+		if (ap->applid == 0) continue;
+		for (np = ap->nccilist; np; np = np->next) {
+			len += sprintf(page+len, "%d 0x%x %d %d\n",
+				np->applid,
+				np->ncci,
+				np->winsize,
+				np->nmsg);
+			if (len+begin > off+count)
+				goto endloop;
+			if (len+begin < off) {
+				begin += len;
+				len = 0;
+			}
+		}
+	}
+endloop:
+	if (i >= CAPI_MAXAPPL)
+		*eof = 1;
+	if (off >= len+begin)
+		return 0;
+	*start = page + (begin-off);
+	return ((count < begin+len-off) ? count : begin+len-off);
+}
+
+/*
+ * /proc/capi/cards:
+ *	cnr type cardnr cardstate name cardtype firmwareversion port irq
+ */
+static int proc_cards_read_proc(char *page, char **start, off_t off,
+                                       int count, int *eof, void *data)
+{
+	avmb1_card *cp;
+	int i;
+	int len = 0;
+	off_t begin = 0;
+
+	for (i=0; i < CAPI_MAXCONTR; i++) {
+		cp = &cards[i];
+		if (cp->cardstate == CARD_FREE) continue;
+		len += sprintf(page+len, "%d %-6s %d %-8s %-10.10s %s %s 0x%x %d\n",
+			cp->cnr, cardtype2str(cp->cardtype), cp->cardnr,
+			cardstate2str(cp->cardstate),
+			cp->name,
+		        cp->version[VER_CARDTYPE]
+                        	? cp->version[VER_CARDTYPE]
+				: "-",
+ 			cp->version[VER_DRIVER]
+ 				? cp->version[VER_DRIVER]
+				: "-",
+			cp->port, cp->irq);
+		if (len+begin > off+count)
+			goto endloop;
+		if (len+begin < off) {
+			begin += len;
+			len = 0;
+		}
+	}
+endloop:
+	if (i >= CAPI_MAXCONTR)
+		*eof = 1;
+	if (off >= len+begin)
+		return 0;
+	*start = page + (begin-off);
+	return ((count < begin+len-off) ? count : begin+len-off);
+}
+
+/*
+ * /proc/capi/users:
+ *	name
+ */
+static int proc_users_read_proc(char *page, char **start, off_t off,
+                                       int count, int *eof, void *data)
+{
+        struct capi_interface_user *cp;
+	int len = 0;
+	off_t begin = 0;
+
+        for (cp = capi_users; cp ; cp = cp->next) {
+		len += sprintf(page+len, "%s\n", cp->name);
+		if (len+begin > off+count)
+			goto endloop;
+		if (len+begin < off) {
+			begin += len;
+			len = 0;
+		}
+	}
+endloop:
+	if (cp == 0)
+		*eof = 1;
+	if (off >= len+begin)
+		return 0;
+	*start = page + (begin-off);
+	return ((count < begin+len-off) ? count : begin+len-off);
+}
+
+static struct procfsentries {
+  char *name;
+  mode_t mode;
+  int (*read_proc)(char *page, char **start, off_t off,
+                                       int count, int *eof, void *data);
+  struct proc_dir_entry *procent;
+} procfsentries[] = {
+   { "capi",		  S_IFDIR, 0 },
+   { "capi/applications", 0	 , proc_applications_read_proc },
+   { "capi/ncci", 	  0	 , proc_ncci_read_proc },
+   { "capi/cards", 	  0	 , proc_cards_read_proc },
+   { "capi/users", 	  0	 , proc_users_read_proc },
+};
+
+static void proc_capi_init(void)
+{
+    int nelem = sizeof(procfsentries)/sizeof(procfsentries[0]);
+    int i;
+
+    for (i=0; i < nelem; i++) {
+        struct procfsentries *p = procfsentries + i;
+	p->procent = create_proc_entry(p->name, p->mode, 0);
+	if (p->procent) p->procent->read_proc = p->read_proc;
+    }
+}
+
+static void proc_capi_exit(void)
+{
+    int nelem = sizeof(procfsentries)/sizeof(procfsentries[0]);
+    int i;
+
+    for (i=nelem-1; i >= 0; i--) {
+        struct procfsentries *p = procfsentries + i;
+	if (p->procent) {
+	   remove_proc_entry(p->name, 0);
+	   p->procent = 0;
+	}
+    }
+}
+
 /* -------- NCCI Handling ------------------------------------- */
 
 static inline void mq_init(avmb1_ncci * np)
@@ -235,6 +443,7 @@ static inline void mq_init(avmb1_ncci * np)
 	int i;
 	np->msgidqueue = 0;
 	np->msgidlast = 0;
+	np->nmsg = 0;
 	memset(np->msgidpool, 0, sizeof(np->msgidpool));
 	np->msgidfree = &np->msgidpool[0];
 	for (i = 1; i < np->winsize; i++) {
@@ -256,6 +465,7 @@ static inline int mq_enqueue(avmb1_ncci * np, __u16 msgid)
 	np->msgidlast = mq;
 	if (!np->msgidqueue)
 		np->msgidqueue = mq;
+	np->nmsg++;
 	return 1;
 }
 
@@ -270,6 +480,7 @@ static inline int mq_dequeue(avmb1_ncci * np, __u16 msgid)
 				np->msgidlast = 0;
 			mq->next = np->msgidfree;
 			np->msgidfree = mq;
+			np->nmsg--;
 			return 1;
 		}
 	}
@@ -299,6 +510,7 @@ void avmb1_handle_new_ncci(avmb1_card * card,
 	mq_init(np);
 	np->next = APPL(appl)->nccilist;
 	APPL(appl)->nccilist = np;
+	APPL(appl)->nncci++;
 	printk(KERN_INFO "b1capi: appl %d ncci 0x%x up\n", appl, ncci);
 
 }
@@ -317,6 +529,7 @@ void avmb1_handle_free_ncci(avmb1_card * card,
 				avmb1_ncci *np = *pp;
 				*pp = np->next;
 				kfree(np);
+				APPL(appl)->nncci--;
 				printk(KERN_INFO "b1capi: appl %d ncci 0x%x down\n", appl, ncci);
 				return;
 			}
@@ -330,6 +543,7 @@ void avmb1_handle_free_ncci(avmb1_card * card,
 				*pp = np->next;
 				printk(KERN_INFO "b1capi: appl %d ncci 0x%x down!\n", appl, np->ncci);
 				kfree(np);
+				APPL(appl)->nncci--;
 				nextpp = pp;
 			} else {
 				nextpp = &(*pp)->next;
@@ -737,6 +951,7 @@ static __u16 capi_register(capi_register_params * rparam, __u16 * applidp)
 
 	APPL_MARK_USED(appl);
 	skb_queue_head_init(&APPL(appl)->recv_queue);
+	APPL(appl)->nncci = 0;
 
 	memcpy(&APPL(appl)->rparam, rparam, sizeof(capi_register_params));
 
@@ -1214,6 +1429,7 @@ int avmb1_init(void)
 	tq_recv_notify.routine = recv_handler;
 	tq_recv_notify.data = 0;
 
+        proc_capi_init();
 
 	if ((p = strchr(revision, ':'))) {
 		strcpy(rev, p + 1);
@@ -1259,6 +1475,7 @@ void cleanup_module(void)
 		}
 	}
 	schedule(); /* execute queued tasks .... */
+        proc_capi_exit();
 	printk(KERN_NOTICE "AVM-B1-CAPI-driver Rev%s: unloaded\n", rev);
 }
 #endif
