@@ -22,25 +22,35 @@ written by Fritz Elfert.
 Supported cards
 ---------------
 
-Teles 8.0/16.0/16.3 and compatible ones
+Teles 8.0/16.0/16.3 and compatible ones (no 16.3c)
 Teles S0/PCMCIA
 Creatix PnP S0 
-AVM A1 (Fritz)
+AVM A1 (Fritz, Teledat 150)
 ELSA Microlink PCC-16, PCF, PCF-Pro, PCC-8
 ELSA Quickstep 1000
+ELSA Quickstep 1000PCI
+ELSA Quickstep 3000 (same settings as QS1000)
 ELSA PCMCIA
 ITK ix1-micro Rev.2
+Eicon.Diehl Diva 2.0 ISA and PCI (S0 and U interface, no PRO version)
+Eicon.Diehl Diva Piccola
+ASUSCOM NETWORK INC. ISDNLink 128K PC adapter (order code I-IN100-ST-D)
+Dynalink IS64PH (OEM version of ASUSCOM NETWORK INC. ISDNLink 128K adapter)
+HFC-2BS0 based cards (TeleInt SA1)
+Sedlbauer Speed Card (WinSpeed, Teledat 100)
+USR Sportster internal TA (compatible Stollmann tina-pp V3)
+ith Kommunikationstechnik GmbH MIC 16 ISA card 
 
 Note: PCF, PCF-Pro: up to now, only the ISDN part is supported
       PCC-8: not tested yet
       Teles PCMCIA is EXPERIMENTAL
+      Teles 16.3c is not supported
+      Eicon.Diehl Diva U interface not tested
 
 If you know other passive cards with the Siemens chipset, please let me know.
 To use the PNP cards you need the isapnptools.
 You can combine any card, if there is no conflict between the ressources
-(io, mem, irq), with one exception: The ELSA PCMCIA cannot work with an other
-non PCMCIA ELSA card at the same time. You cannot select ELSA ISA and ELSA
-PCMCIA support at the same time during kernel config.
+(io, mem, irq).
 
 
 Configuring the driver
@@ -113,10 +123,18 @@ Card types:
     6   ELSA PCC/PCF cards       io or nothing for autodetect (the iobase is
                                  required only if you have more than one ELSA
                                  card in your PC)
-    7   ELSA Quickstep 1000	 irq, io  (from isapnp setup)
-    7   ELSA PCMCIA		 irq, io  (set with card manager)
+    7   ELSA Quickstep 1000      irq, io  (from isapnp setup)
     8   Teles 16.3 PCMCIA     	 irq, io
     9   ITK ix1-micro Rev.2      irq, io
+   10   ELSA PCMCIA		 irq, io  (set with card manager)
+   11   Eicon.Diehl Diva ISA PnP irq, io
+   11   Eicon.Diehl Diva PCI     no parameter
+   12   ASUS COM ISDNLink        irq, io  (from isapnp setup)
+   13   HFC-2BS0 based cards     irq, io  
+   15   Sedlbauer Speed Card     irq, io  
+   16   USR Sportster internal   irq, io  
+   17   MIC card                 irq, io  
+   18   ELSA Quickstep 1000PCI   no parameter
         
 At the moment IRQ sharing is not possible. Please make sure that your IRQ
 is free and enabled for ISA use.
@@ -181,17 +199,24 @@ where
 Card types:
        
   type  
-    1 	Teles 16.0     		pa=irq	pb=membase	pc=iobase
-    2 	Teles  8.0      	pa=irq	pb=membase
-    3 	Teles 16.3      	pa=irq	pb=iobase
+    1 	Teles 16.0     	        pa=irq  pb=membase  pc=iobase
+    2 	Teles  8.0              pa=irq  pb=membase
+    3 	Teles 16.3              pa=irq  pb=iobase
     4 	Creatix/Teles PNP     	ONLY WORKS AS A MODULE !
-    5 	AVM A1 (Fritz)  	pa=irq	pb=iobase
+    5 	AVM A1 (Fritz)          pa=irq  pb=iobase
     6 	ELSA PCC/PCF cards      pa=iobase or nothing for autodetect
-    7   ELSA Quickstep 1000	ONLY WORKS AS A MODULE !
-    7   ELSA PCMCIA		irq, io  (set with card manager)
-    8   Teles S0 PCMCIA    	pa=irq  pb=iobase
+    7   ELSA Quickstep 1000     ONLY WORKS AS A MODULE !
+    8   Teles S0 PCMCIA         pa=irq  pb=iobase
     9   ITK ix1-micro Rev.2     pa=irq  pb=iobase
-
+   10   ELSA PCMCIA             pa=irq, pb=io  (set with card manager)
+   11   Eicon.Diehl Diva ISAPnP ONLY WORKS AS A MODULE !
+   11   Eicon.Diehl Diva PCI    no parameter
+   12   ASUS COM ISDNLink       ONLY WORKS AS A MODULE !
+   13	HFC-2BS0 based cards    pa=irq  pb=io
+   15	Sedlbauer Speed Card    pa=irq  pb=io (WinSpeed only as module !)  
+   16   USR Sportster internal  pa=irq  pb=io
+   17   MIC card                pa=irq  pb=io
+   18   ELSA Quickstep 1000PCI  no parameter
 
 Running the driver
 ------------------
@@ -215,8 +240,8 @@ Apr 13 21:01:59 kke01 kernel: HiSax: DSS1 Rev. 1.14
 Apr 13 21:01:59 kke01 kernel: HiSax: 2 channels added
 
 This means that the card is ready for use.
-Cabling problems or line-downs are not detected, and only ELSA cards can detect
-the S0 power.
+Cabling problems or line-downs are not detected, and only some ELSA cards can 
+detect the S0 power.
 
 Remember that, according to the new strategy for accessing low-level drivers
 from within isdn4linux, you should also define a driver ID while doing
@@ -284,7 +309,7 @@ illegal.
 Limitations
 -----------
 At this time, HiSax only works on Euro ISDN lines and German 1TR6 lines.
-
+For leased lines see appendix. 
 
 Bugs 
 ----
@@ -301,10 +326,18 @@ Special thanks to:
         Andreas Kool, Pekka Sarnila, Sim Yskes, Johan Myrre'en,
 	Klaus-Peter Nischke (ITK AG), Christof Petig, Werner Fehn (ELSA GmbH),
 	Volker Schmidt
+	Edgar Toernig and Marcus Niemann for the Sedlbauer driver
+	Stephan von Krawczynski
+	Juergen Quade for the Leased Line part
         and more people who are hunting bugs. (If I forgot somebody, please
 	send me a mail). 
 
         Firma ELSA GmbH
+        Firma Eicon.Diehl GmbH
+        Firma Dynalink NL
+	Firma ASUSCOM NETWORK INC. Taiwan
+	Firma S.u.S.E
+	Firma ith Kommunikationstechnik GmbH
         
         My girl friend and partner in life Ute for her patience with me.
 
@@ -321,3 +354,149 @@ Appendix: Teles PCMCIA driver
 See 
    http://www.stud.uni-wuppertal.de/~ea0141/pcmcia.html
 for instructions.
+
+Appendix: Linux and ISDN-leased lines
+-------------------------------------
+
+From Juergen Quade
+
+You can use HiSax to connect your Linux-Box via an ISDN leased line
+to i.e. the internet:
+
+1. Build a kernel which includes the HiSax driver either as a module
+   or as part of the kernel. The HiSax driver is part of the kernel
+   for versions >2.0.30. If you have 2.0.30 you have to upgrade
+   (see http://www.linuxhq.com for newer kernel versions or for
+   patches).
+     cd /usr/src/linux
+     make menuconfig
+     <ISDN subsystem - ISDN support -- HiSax>
+     make clean; make dep; make zImage; make modules; make modules_install
+2. Install the new kernel
+     cp /usr/src/linux/arch/i386/boot/zImage /etc/kernel/linux.isdn
+     vi /etc/lilo.conf
+     <add new kernel in the bootable image section>
+     lilo
+3. in case the hisax driver is a "fixed" part of the kernel, configure
+   the driver with lilo:
+     vi /etc/lilo.conf
+     <add HiSax driver parameter in the global section (see below)>
+     lilo
+   Your lilo.conf _might_ look as the following:
+
+	# LILO configuration-file
+	# global section
+    # teles 16.0 on IRQ=5, MEM=0xd8000, PORT=0xd80
+	append="hisax=1,3,5,0xd8000,0xd80,HiSax"
+    # teles 16.3 (non pnp) on IRQ=15, PORT=0xd80
+	# append="hisax=3,3,5,0xd8000,0xd80,HiSax"
+	boot=/dev/sda
+	compact        # faster, but won't work on all systems.
+	linear
+	read-only
+	prompt
+	timeout=100
+	vga = normal    # force sane state
+	# Linux bootable partition config begins
+	image = /etc/kernel/linux.isdn
+	root = /dev/sda1
+	label = linux.isdn
+	#
+	image = /etc/kernel/linux-2.0.30
+	root = /dev/sda1
+	label = linux.secure
+
+   In the line starting with "append" you have to adapt the parameters
+   according to your card (see above in this file)
+
+3. boot the new linux.isdn kernel
+4. start the ISDN subsystem:
+   a) load - if necessary - the modules (depends, whether you compiled
+      the ISDN driver as module or not)
+      According to the type of card you have to specify the necessary
+      driver parameter (irq, io, mem, type, protocol).
+      For the leased line the protocol is "3". See the table above for
+      the parameters, which you have to specify depending on your card.
+   b) switch the card into leased mode
+      /sbin/hisaxctrl HiSax 5 0
+   c) configure i4l
+      /sbin/isdnctrl huptimeout isdn0 0
+      /sbin/isdnctrl eaz isdn0 1
+      /sbin/isdnctrl l2_prot isdn0 hdlc
+      /sbin/isdnctrl addphone isdn0 out 2
+      /sbin/isdnctrl addphone isdn0 in 3
+      /sbin/isdnctrl bind isdn0 HiSax,0
+   d) in case the remote partner is a CISCO:
+      /sbin/isdnctrl encap isdn0 cisco-h
+   d) configure the interface
+      /sbin/ifconfig isdn0 ${LOCAL_IP} pointopoint ${REMOTE_IP}
+   e) set the routes
+      /sbin/route add -host ${REMOTE_IP} isdn0
+      /sbin/route add default gw ${REMOTE_IP}
+   f) establish the connection
+      /sbin/isdnctrl dial isdn0
+ 
+Remarks:
+a) In the current version of the HiSax driver it is not possible to 
+   terminate the ISDN subsystem and to restart it (without rebooting
+   the machine _OR_ unloading the driver module)
+b) If you have a CISCO don´t forget to switch off the KEEP ALIVE option!
+c) the program telesctrl has now been called hisaxctrl
+
+The following script for starting the ISDN subsystem is untested:
+
+#!/bin/sh
+# Tue Aug 19 15:06:26 MEST 1997
+# Start/Stop ISDN lesaed line connection
+
+I4L_AS_MODULE=yes
+I4L_REMOTE_IS_CISCO=yes
+I4L_MODULE_PARAMS="type=3 io=0x180 protocol=3 irq=10 id=HiSax"
+LOCAL_IP=192.168.1.1
+REMOTE_IP=192.168.211.1
+
+case "$1" in
+    start)
+        echo "Starting ISDN ..."
+        if [ ${I4L_AS_MODULE} = "yes" ]; then
+            echo "loading modules..."
+            cd /usr/src/linux/modules
+            /sbin/insmod -m isdn.o
+            /sbin/insmod -m hisax.o ${I4L_MODULE_PARAMS}
+        fi
+
+		# switch to leased mode
+		/sbin/hisaxctrl HiSax 5 0
+		# configure interface
+		/sbin/isdnctrl addif isdn0
+        if [ ${I4L_REMOTE_IS_CISCO} = "yes" ]; then
+            echo "WARNING! KEEP ALIVE HAS TO BE SWITCHED OFF ON THE CISCO!"
+		    /sbin/isdnctrl encap isdn0 cisco-h
+        fi
+		/sbin/isdnctrl huptimeout isdn0 0
+		/sbin/isdnctrl eaz isdn0 1
+		/sbin/isdnctrl l2_prot isdn0 hdlc
+		/sbin/isdnctrl addphone isdn0 out 2
+		/sbin/isdnctrl addphone isdn0 in 3
+		/sbin/isdnctrl bind isdn0 HiSax,0
+		# configure tcp/ip
+		/sbin/ifconfig isdn0 ${LOCAL_IP} pointopoint ${REMOTE_IP}
+		/sbin/route add -host ${REMOTE_IP} isdn0
+		# start connection
+		/sbin/isdnctrl dial isdn0
+		# set default route
+		/sbin/route add default gw ${REMOTE_IP}
+		;;
+	stop)
+		/sbin/ifconfig isdn0 down
+		/sbin/isdnctrl delif isdn0
+        if [ ${I4L_AS_MODULE} = "yes" ]; then
+            /sbin/rmmod hisax.o
+            /sbin/rmmod isdn.o
+		fi
+		;;
+	*)
+		echo "Usage: $0 {start|stop}"
+		exit 1
+esac
+exit 0
