@@ -6,6 +6,9 @@
  * Copyright 1996 by Carsten Paeth (calle@calle.in-berlin.de)
  *
  * $Log$
+ * Revision 1.1.2.6  1998/02/24 17:57:36  calle
+ * changes for T1.
+ *
  * Revision 1.1.2.5  1998/01/27 16:11:50  calle
  * support for PCMCIA B1/M1/M2 ready.
  *
@@ -91,6 +94,7 @@ typedef struct avmb1_extcarddef {
 #define	AVMB1_LOAD_AND_CONFIG	3	/* load image and config to card */
 #define	AVMB1_ADDCARD_WITH_TYPE	4	/* add a new card, with cardtype */
 #define AVMB1_GET_CARDINFO	5	/* get cardtype */
+#define AVMB1_REMOVECARD	6	/* remove a card (usefull for T1) */
 
 
 
@@ -159,8 +163,7 @@ void B1_reset(unsigned short base);
 int B1_load_t4file(unsigned short base, avmb1_t4file * t4file);
 int B1_load_config(unsigned short base, avmb1_t4file * config);
 int B1_loaded(unsigned short base);
-unsigned char B1_assign_irq(unsigned short base, unsigned irq, int cardtype);
-unsigned char B1_enable_irq(unsigned short base);
+void B1_setinterrupt(unsigned short base, unsigned irq, int cardtype);
 unsigned char B1_disable_irq(unsigned short base);
 int B1_valid_irq(unsigned irq, int cardtype);
 void B1_handle_interrupt(avmb1_card * card);
