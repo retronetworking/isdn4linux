@@ -21,6 +21,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.11  1996/05/31 01:37:47  fritz
+ * Minor changes, due to changes in isdn_tty.c
+ *
  * Revision 1.10  1996/05/18 01:37:18  fritz
  * Added spelling corrections and some minor changes
  * to stay in sync with kernel.
@@ -29,7 +32,7 @@
  * Added flags for DLE handling.
  *
  * Revision 1.8  1996/05/11 21:49:55  fritz
- * Removed queue mamagement variables.
+ * Removed queue management variables.
  * Changed queue management to use sk_buffs.
  *
  * Revision 1.7  1996/05/07 09:10:06  fritz

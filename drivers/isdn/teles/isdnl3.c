@@ -1,6 +1,9 @@
 /* $Id$
  *
  * $Log$
+ * Revision 1.6  1996/05/21 11:33:50  keil
+ * Adding SETUP_ACKNOWLEGDE as answer of a SETUP message.
+ *
  * Revision 1.5  1996/05/18 01:37:16  fritz
  * Added spelling corrections and some minor changes
  * to stay in sync with kernel.
@@ -572,7 +575,7 @@ l3down(struct PStack *st,
 				  break;
 		  if (i == downsllen) {
 			  if (DEBUG_1TR6 > 0) {
-				  printk(KERN_INFO "isdnl3down unhandled E-DSS1 state %d primitiv %x\n", st->l3.state, pr);
+				  printk(KERN_INFO "isdnl3down unhandled E-DSS1 state %d primitive %x\n", st->l3.state, pr);
 			  }
 		  } else
 			  downstatelist[i].rout(st, pr, ibh);

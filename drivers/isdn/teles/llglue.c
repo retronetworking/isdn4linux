@@ -1,11 +1,14 @@
 /* $Id$
  *
  * $Log$
+ * Revision 1.5  1996/05/31 00:58:47  fritz
+ * Errata: Reverted change from rev 1.4.
+ *
  * Revision 1.4  1996/05/26 14:59:57  fritz
  * Bugfix: maxbufsize had been set without respect to possible X.75 header.
  *
  * Revision 1.3  1996/05/01 14:19:57  fritz
- * Added ISDN_FEADTURE_L2_TRANS
+ * Added ISDN_FEATURE_L2_TRANS
  *
  * Revision 1.2  1996/04/29 23:01:46  fritz
  * Added driverId and channel to readstatus().

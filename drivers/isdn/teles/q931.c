@@ -14,6 +14,9 @@
  *
  * 
  * $Log$
+ * Revision 1.4  1996/05/17 03:46:17  fritz
+ * General cleanup.
+ *
  * Revision 1.3  1996/04/30 22:06:50  isdn4dev
  *   logging 1TR6 messages correctly   Karsten Keil
  *
@@ -227,7 +230,7 @@ struct MessageType mt_n1[] =
 	{MT_N1_FAC_CAN, "FACility CANcel"},
 	{MT_N1_FAC_REG, "FACility REGister"},
 	{MT_N1_FAC_REJ, "FACility REJect"},
-	{MT_N1_INFO, "INFOmation"},
+	{MT_N1_INFO, "INFOrmation"},
 	{MT_N1_REG_ACK, "REGister ACKnowledge"},
 	{MT_N1_REG_REJ, "REGister REJect"},
 	{MT_N1_STAT, "STATus"}
