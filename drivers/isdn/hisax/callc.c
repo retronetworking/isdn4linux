@@ -11,6 +11,9 @@
  *              Fritz Elfert
  *
  * $Log$
+ * Revision 1.30.2.19  1999/07/15 13:16:45  keil
+ * sync to 2.2
+ *
  * Revision 1.30.2.18  1999/07/09 08:28:43  keil
  * cosmetics
  *
@@ -1521,6 +1524,34 @@ lli_got_manufacturer(struct Channel *chanp, struct IsdnCardState *cs, capi_msg *
 	}
 }
 
+/***************************************************************/
+/* Limit the available number of channels for the current card */
+/***************************************************************/
+static int 
+set_channel_limit(struct IsdnCardState *cs, int chanmax)
+{ isdn_ctrl ic;
+  int i, ii;
+  
+  if ((chanmax < 0) || (chanmax > 2))
+    return(-EINVAL);
+  cs->chanlimit = 0;
+  for (ii = 0; ii < 2; ii++) {
+    ic.driver = cs->myid;
+    ic.command = ISDN_STAT_DISCH;
+    ic.arg = ii;
+    if (ii >= chanmax)
+      ic.parm.num[0] = 0; /* disabled */
+    else
+      ic.parm.num[0] = 1; /* enabled */
+    i = cs->iif.statcallb(&ic); 
+    if (i) return(-EINVAL);
+    if (ii < chanmax) 
+      cs->chanlimit++;
+  }
+  return(0);
+} /* set_channel_limit */
+
+
 int
 HiSax_command(isdn_ctrl * ic)
 {
@@ -1721,6 +1752,22 @@ HiSax_command(isdn_ctrl * ic)
 					csta->cardmsg(csta, CARD_LOAD_FIRM,
 						(void *) adr);
 					break;
+			        case  (10):
+				        i = *(unsigned int *) ic->parm.num;
+					if ((i < 0) || (i > 2))
+					  return(-EINVAL); /* invalid number */
+					return(set_channel_limit(csta, i));
+				        break;
+			        case  (12):
+				        i = *(unsigned int *) ic->parm.num;
+#ifdef CONFIG_HISAX_HFC_PCI
+					if (csta->typ != ISDN_CTYPE_HFC_PCI)
+					  return(-EINVAL);
+					return(hfcpci_set_echo(csta,i));    
+#else
+					return(-EINVAL);    
+#endif
+				        break;
 #ifdef MODULE
 				case (55):
 					MOD_USE_COUNT = 0;
