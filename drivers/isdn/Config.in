@@ -26,7 +26,6 @@ if [ "$CONFIG_ISDN_DRV_HISAX" != "n" ]; then
     bool 'HiSax Support for german 1TR6' CONFIG_HISAX_1TR6
     bool 'HiSax Support for Teles 16.0/8.0' CONFIG_HISAX_16_0
     bool 'HiSax Support for Teles 16.3 or PNP or PCMCIA' CONFIG_HISAX_16_3
-    bool 'HiSax Support for Teles 16.3c' CONFIG_HISAX_TELES3C 
     bool 'HiSax Support for Teles PCI' CONFIG_HISAX_TELESPCI 
     bool 'HiSax Support for Teles S0Box' CONFIG_HISAX_S0BOX 
     bool 'HiSax Support for AVM A1 (Fritz)' CONFIG_HISAX_AVM_A1
@@ -37,15 +36,22 @@ if [ "$CONFIG_ISDN_DRV_HISAX" != "n" ]; then
     bool 'HiSax Support for Eicon.Diehl Diva cards' CONFIG_HISAX_DIEHLDIVA
     bool 'HiSax Support for ASUSCOM cards' CONFIG_HISAX_ASUSCOM
     bool 'HiSax Support for TELEINT cards' CONFIG_HISAX_TELEINT
-    bool 'HiSax Support for Sedlbauer speed card/win/star/fax' CONFIG_HISAX_SEDLBAUER
+    bool 'HiSax Support for HFC-S based cards' CONFIG_HISAX_HFCS
+    bool 'HiSax Support for Sedlbauer cards' CONFIG_HISAX_SEDLBAUER
     bool 'HiSax Support for USR Sportster internal TA' CONFIG_HISAX_SPORTSTER
     bool 'HiSax Support for MIC card' CONFIG_HISAX_MIC
     bool 'HiSax Support for NETjet card' CONFIG_HISAX_NETJET
     bool 'HiSax Support for Niccy PnP/PCI card' CONFIG_HISAX_NICCY
+    bool 'HiSax Support for Siemens I-Surf card' CONFIG_HISAX_ISURF
+    bool 'HiSax Support for HST Saphir card' CONFIG_HISAX_HSTSAPHIR
+    bool 'HiSax Support for Telekom A4T card' CONFIG_HISAX_BKM_A4T
+    bool 'HiSax Support for Scitel Quadro card' CONFIG_HISAX_SCT_QUADRO
     if [ "$CONFIG_EXPERIMENTAL" != "n" ]; then
-      if [ "$ARCH" = "sparc" -o "$ARCH" = "sparc64" ]; then
-        bool 'HiSax Support for Am7930' CONFIG_HISAX_AMD7930
-      fi
+	bool 'HiSax Support for HFC PCI-Bus cards (EXPERIMENTAL)' CONFIG_HISAX_HFC_PCI
+#	bool 'HiSax Support for TESTEMULATOR (EXPERIMENTAL)' CONFIG_HISAX_TESTEMU
+	if [ "$ARCH" = "sparc" -o "$ARCH" = "sparc64" ]; then
+		bool 'HiSax Support for Am7930' CONFIG_HISAX_AMD7930
+	fi
     fi
 fi
 if [ "$CONFIG_EXPERIMENTAL" != "n" ]; then
