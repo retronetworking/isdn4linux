@@ -7,6 +7,17 @@
  * Rewritten for Linux 1996 by Carsten Paeth (calle@calle.in-berlin.de)
  *
  * $Log$
+ * Revision 1.11  2000/03/03 15:50:42  calle
+ * - kernel CAPI:
+ *   - Changed parameter "param" in capi_signal from __u32 to void *.
+ *   - rewrote notifier handling in kcapi.c
+ *   - new notifier NCCI_UP and NCCI_DOWN
+ * - User CAPI:
+ *   - /dev/capi20 is now a cloning device.
+ *   - middleware extentions prepared.
+ * - capidrv.c
+ *   - locking of list operations and module count updates.
+ *
  * Revision 1.10  1999/08/31 11:19:54  paul
  * various spelling corrections (new checksums may be needed, Karsten!)
  *
@@ -70,6 +81,7 @@
 #include <linux/stddef.h>
 #include <linux/kernel.h>
 #include <linux/mm.h>
+#include <linux/init.h>
 #include <asm/segment.h>
 #include <linux/config.h>
 
@@ -968,7 +980,6 @@ char *capi_cmsg2str(_cmsg * cmsg)
 	return buf;
 }
 
-
 EXPORT_SYMBOL(capi_cmsg2message);
 EXPORT_SYMBOL(capi_message2cmsg);
 EXPORT_SYMBOL(capi_cmsg_header);
@@ -977,15 +988,7 @@ EXPORT_SYMBOL(capi_cmsg2str);
 EXPORT_SYMBOL(capi_message2str);
 EXPORT_SYMBOL(capi_info2str);
 
-#ifdef MODULE
-
-int init_module(void)
-{
-	return 0;
-}
-
-void cleanup_module(void)
-{
-}
-
-#endif
+int __init capiutil_init(void) { return 0; }
+void __exit capiutil_exit(void) { }
+module_init(capiutil_init);
+module_exit(capiutil_exit);

@@ -6,6 +6,9 @@
  * (c) Copyright 1999 by Carsten Paeth (calle@calle.in-berlin.de)
  * 
  * $Log$
+ * Revision 1.14  2000/10/10 17:44:19  kai
+ * changes from/for 2.2.18
+ *
  * Revision 1.13  2000/08/04 15:36:31  calle
  * copied wrong from file to file :-(
  *
@@ -85,6 +88,7 @@
 #include <linux/interrupt.h>
 #include <linux/ioport.h>
 #include <linux/capi.h>
+#include <linux/init.h>
 #include <asm/io.h>
 #include <linux/isdn_compat.h>
 #include "capicmd.h"
@@ -589,28 +593,23 @@ static char *t1isa_procinfo(struct capi_ctr *ctrl)
 /* ------------------------------------------------------------- */
 
 static struct capi_driver t1isa_driver = {
-    "t1isa",
-    "0.0",
-    t1isa_load_firmware,
-    t1isa_reset_ctr,
-    t1isa_remove_ctr,
-    b1_register_appl,
-    b1_release_appl,
-    t1isa_send_message,
+    name: "t1isa",
+    revision: "0.0",
+    load_firmware: t1isa_load_firmware,
+    reset_ctr: t1isa_reset_ctr,
+    remove_ctr: t1isa_remove_ctr,
+    register_appl: b1_register_appl,
+    release_appl: b1_release_appl,
+    send_message: t1isa_send_message,
 
-    t1isa_procinfo,
-    b1ctl_read_proc,
-    0,	/* use standard driver_read_proc */
+    procinfo: t1isa_procinfo,
+    ctr_read_proc: b1ctl_read_proc,
+    driver_read_proc: 0,	/* use standard driver_read_proc */
 
-    t1isa_add_card,
+    add_card: t1isa_add_card,
 };
 
-#ifdef MODULE
-#define t1isa_init init_module
-void cleanup_module(void);
-#endif
-
-int t1isa_init(void)
+int __init t1isa_init(void)
 {
 	struct capi_driver *driver = &t1isa_driver;
 	char *p;
@@ -638,9 +637,10 @@ int t1isa_init(void)
 	return retval;
 }
 
-#ifdef MODULE
-void cleanup_module(void)
+void __exit t1isa_exit(void)
 {
     detach_capi_driver(&t1isa_driver);
 }
-#endif
+
+module_init(t1isa_init);
+module_exit(t1isa_exit);

@@ -6,6 +6,9 @@
  * (c) Copyright 1999 by Carsten Paeth (calle@calle.in-berlin.de)
  * 
  * $Log$
+ * Revision 1.16  2000/08/04 15:36:31  calle
+ * copied wrong from file to file :-(
+ *
  * Revision 1.15  2000/08/04 12:20:08  calle
  * - Fix unsigned/signed warning in the right way ...
  *
@@ -91,6 +94,7 @@
 #include <linux/ioport.h>
 #include <linux/capi.h>
 #include <asm/io.h>
+#include <linux/init.h>
 #include <linux/isdn_compat.h>
 #ifdef COMPAT_NEED_UACCESS
 #include <asm/uaccess.h>
@@ -730,12 +734,7 @@ EXPORT_SYMBOL(b1_handle_interrupt);
 
 EXPORT_SYMBOL(b1ctl_read_proc);
 
-#ifdef MODULE
-#define b1_init init_module
-void cleanup_module(void);
-#endif
-
-int b1_init(void)
+int __init b1_init(void)
 {
 	char *p;
 	char rev[10];
@@ -752,8 +751,9 @@ int b1_init(void)
 	return 0;
 }
 
-#ifdef MODULE
-void cleanup_module(void)
+void __exit b1_exit(void)
 {
 }
-#endif
+
+module_init(b1_init);
+module_exit(b1_exit);

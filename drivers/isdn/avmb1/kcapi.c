@@ -6,6 +6,9 @@
  * (c) Copyright 1999 by Carsten Paeth (calle@calle.in-berlin.de)
  * 
  * $Log$
+ * Revision 1.18  2000/07/20 10:22:27  calle
+ * - Made procfs function cleaner and removed variable "begin".
+ *
  * Revision 1.17  2000/04/21 13:00:56  calle
  * Bugfix: driver_proc_info was also wrong.
  *
@@ -107,6 +110,7 @@
 #include <linux/capi.h>
 #include <linux/kernelcapi.h>
 #include <linux/locks.h>
+#include <linux/init.h>
 #include <linux/isdn_compat.h>
 #ifdef COMPAT_NEED_UACCESS
 #include <asm/uaccess.h>
@@ -1749,11 +1753,7 @@ extern int c4_init(void);
  * init / exit functions
  */
 
-#ifdef MODULE
-#define kcapi_init init_module
-#endif
-
-int kcapi_init(void)
+int __init kcapi_init(void)
 {
 	char *p;
 	char rev[10];
@@ -1805,8 +1805,7 @@ int kcapi_init(void)
 	return 0;
 }
 
-#ifdef MODULE
-void cleanup_module(void)
+void __exit kcapi_exit(void)
 {
 	char rev[10];
 	char *p;
@@ -1822,4 +1821,6 @@ void cleanup_module(void)
         proc_capi_exit();
 	printk(KERN_NOTICE "CAPI-driver Rev%s: unloaded\n", rev);
 }
-#endif
+
+module_init(kcapi_init);
+module_exit(kcapi_exit);

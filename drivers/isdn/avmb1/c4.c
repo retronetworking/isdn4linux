@@ -6,6 +6,9 @@
  * (c) Copyright 1999 by Carsten Paeth (calle@calle.in-berlin.de)
  * 
  * $Log$
+ * Revision 1.17  2000/10/10 17:44:19  kai
+ * changes from/for 2.2.18
+ *
  * Revision 1.16  2000/08/20 07:30:13  keil
  * changes for 2.4
  *
@@ -72,6 +75,7 @@
 #include <linux/ioport.h>
 #include <linux/pci.h>
 #include <linux/capi.h>
+#include <linux/init.h>
 #ifdef COMPAT_HAS_2_2_PCI
 #include <linux/isdn.h>
 #endif
@@ -1308,26 +1312,21 @@ static int c4_add_card(struct capi_driver *driver, struct capicardparams *p)
 /* ------------------------------------------------------------- */
 
 static struct capi_driver c4_driver = {
-    "c4",
-    "0.0",
-    c4_load_firmware,
-    c4_reset_ctr,
-    c4_remove_ctr,
-    c4_register_appl,
-    c4_release_appl,
-    c4_send_message,
+    name: "c4",
+    revision: "0.0",
+    load_firmware: c4_load_firmware,
+    reset_ctr: c4_reset_ctr,
+    remove_ctr: c4_remove_ctr,
+    register_appl: c4_register_appl,
+    release_appl: c4_release_appl,
+    send_message: c4_send_message,
 
-    c4_procinfo,
-    c4_read_proc,
-    0,	/* use standard driver_read_proc */
+    procinfo: c4_procinfo,
+    ctr_read_proc: c4_read_proc,
+    driver_read_proc: 0,	/* use standard driver_read_proc */
 
-    0, /* no add_card function */
+    add_card: 0, /* no add_card function */
 };
-
-#ifdef MODULE
-#define c4_init init_module
-void cleanup_module(void);
-#endif
 
 #ifndef COMPAT_HAS_pci_find_subsys
 #ifndef PCI_ANY_ID
@@ -1354,7 +1353,7 @@ pci_find_subsys(unsigned int vendor, unsigned int device,
 
 static int ncards = 0;
 
-int c4_init(void)
+int __init c4_init(void)
 {
 	struct capi_driver *driver = &c4_driver;
 	struct pci_dev *dev = NULL;
@@ -1440,9 +1439,10 @@ int c4_init(void)
 #endif
 }
 
-#ifdef MODULE
-void cleanup_module(void)
+void __exit c4_exit(void)
 {
     detach_capi_driver(&c4_driver);
 }
-#endif
+
+module_init(c4_init);
+module_exit(c4_exit);

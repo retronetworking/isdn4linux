@@ -75,3 +75,7 @@
 #undef COMPAT_HAS_FILEOP_OWNER
 #define COMPAT_USE_MODCOUNT_LOCK
 #undef COMPAT_HAVE_NEW_FILLDIR
+
+#define module_init(x)	int init_module(void) { return x(); }
+#define module_exit(x)	void cleanup_module(void) { x(); }
+#define __exit

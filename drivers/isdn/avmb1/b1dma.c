@@ -6,6 +6,9 @@
  * (c) Copyright 2000 by Carsten Paeth (calle@calle.in-berlin.de)
  * 
  * $Log$
+ * Revision 1.8  2000/10/10 17:44:19  kai
+ * changes from/for 2.2.18
+ *
  * Revision 1.7  2000/08/04 12:20:08  calle
  * - Fix unsigned/signed warning in the right way ...
  *
@@ -40,6 +43,7 @@
 #include <linux/ioport.h>
 #include <linux/capi.h>
 #include <asm/io.h>
+#include <linux/init.h>
 #include <linux/isdn_compat.h>
 #ifdef COMPAT_NEED_UACCESS
 #include <asm/uaccess.h>
@@ -975,11 +979,6 @@ EXPORT_SYMBOL(b1dma_release_appl);
 EXPORT_SYMBOL(b1dma_send_message);
 EXPORT_SYMBOL(b1dmactl_read_proc);
 
-#ifdef MODULE
-#define b1dma_init init_module
-void cleanup_module(void);
-#endif
-
 int b1dma_init(void)
 {
 	char *p;
@@ -997,8 +996,9 @@ int b1dma_init(void)
 	return 0;
 }
 
-#ifdef MODULE
-void cleanup_module(void)
+void b1dma_exit(void)
 {
 }
-#endif
+
+module_init(b1dma_init);
+module_exit(b1dma_exit);

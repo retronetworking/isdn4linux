@@ -6,6 +6,9 @@
  * (c) Copyright 1999 by Carsten Paeth (calle@calle.in-berlin.de)
  * 
  * $Log$
+ * Revision 1.11  2000/08/08 09:24:19  calle
+ * calls to pci_enable_device surounded by #ifndef COMPAT_HAS_2_2_PCI
+ *
  * Revision 1.10  2000/07/20 10:21:21  calle
  * Bugfix: driver will not be unregistered, if not cards were detected.
  *         this result in an oops in kcapi.c
@@ -59,6 +62,7 @@
 #include <linux/ioport.h>
 #include <linux/pci.h>
 #include <linux/capi.h>
+#include <linux/init.h>
 #include <linux/isdn_compat.h>
 #include <asm/io.h>
 #include "capicmd.h"
@@ -257,30 +261,25 @@ static char *t1pci_procinfo(struct capi_ctr *ctrl)
 /* ------------------------------------------------------------- */
 
 static struct capi_driver t1pci_driver = {
-    "t1pci",
-    "0.0",
-    b1dma_load_firmware,
-    b1dma_reset_ctr,
-    t1pci_remove_ctr,
-    b1dma_register_appl,
-    b1dma_release_appl,
-    b1dma_send_message,
+    name: "t1pci",
+    revision: "0.0",
+    load_firmware: b1dma_load_firmware,
+    reset_ctr: b1dma_reset_ctr,
+    remove_ctr: t1pci_remove_ctr,
+    register_appl: b1dma_register_appl,
+    release_appl: b1dma_release_appl,
+    send_message: b1dma_send_message,
 
-    t1pci_procinfo,
-    b1dmactl_read_proc,
-    0,	/* use standard driver_read_proc */
+    procinfo: t1pci_procinfo,
+    ctr_read_proc: b1dmactl_read_proc,
+    driver_read_proc: 0,	/* use standard driver_read_proc */
 
-    0, /* no add_card function */
+    add_card: 0, /* no add_card function */
 };
-
-#ifdef MODULE
-#define t1pci_init init_module
-void cleanup_module(void);
-#endif
 
 static int ncards = 0;
 
-int t1pci_init(void)
+int __init t1pci_init(void)
 {
 	struct capi_driver *driver = &t1pci_driver;
 	struct pci_dev *dev = NULL;
@@ -364,9 +363,10 @@ int t1pci_init(void)
 #endif
 }
 
-#ifdef MODULE
-void cleanup_module(void)
+void __exit t1pci_exit(void)
 {
     detach_capi_driver(&t1pci_driver);
 }
-#endif
+
+module_init(t1pci_init);
+module_exit(t1pci_exit);

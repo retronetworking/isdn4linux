@@ -11,6 +11,9 @@
 # parent makes..
 #
 # $Log$
+# Revision 1.20  2000/10/18 06:13:34  ostoyke
+# Removing CAPI4Linux from I4L CVS.
+#
 # Revision 1.19  2000/08/10 14:46:25  ostoyke
 # CAPI4Linux.
 #
@@ -118,7 +121,7 @@
 
 SUB_DIRS     :=
 MOD_SUB_DIRS :=
-ALL_SUB_DIRS := # fcpci fcclassic fcpnp fcpcmcia
+ALL_SUB_DIRS :=
 #
 # Objects that don't export a symtab
 #
@@ -167,27 +170,6 @@ ifeq ($(CONFIG_ISDN_CAPI),y)
   ifdef CONFIG_ISDN_DRV_AVMB1_C4
   	O_OBJS   += c4.o
   endif
-  ifdef CONFIG_ISDN_DRV_AVMB1_FCPCI
-	SUB_DIRS += fcpci
-	MOD_SUB_DIRS += fcpci
-  endif
-  ifdef CONFIG_ISDN_DRV_AVMB1_FCCLASSIC
-	SUB_DIRS += fcclassic
-	MOD_SUB_DIRS += fcclassic
-  endif
-  ifdef CONFIG_ISDN_DRV_AVMB1_FCPNP
-	SUB_DIRS += fcpnp
-	MOD_SUB_DIRS += fcpnp
-  endif
-  ifdef CONFIG_ISDN_DRV_AVMB1_FCPCMCIA
-	SUB_DIRS += fcpcmcia
-	MOD_SUB_DIRS += fcpcmcia
-	ifeq ($(CONFIG_HOTPLUG),y)
-		ifneq ($(CONFIG_PCMCIA),n)
-			M_OBJS   += fcpcmcia_cs.o
-		endif
-	endif
-  endif
   OX_OBJS  += capiutil.o capidrv.o b1.o b1dma.o
 else
   ifeq ($(CONFIG_ISDN_CAPI),m)
@@ -220,23 +202,6 @@ else
   	ifdef CONFIG_ISDN_DRV_AVMB1_C4
   		M_OBJS   += c4.o
   	endif
-  	ifdef CONFIG_ISDN_DRV_AVMB1_FCPCI
-    		MOD_SUB_DIRS += fcpci
-	endif
-  	ifdef CONFIG_ISDN_DRV_AVMB1_FCCLASSIC
-    		MOD_SUB_DIRS += fcclassic
-	endif
-  	ifdef CONFIG_ISDN_DRV_AVMB1_FCPNP
-    		MOD_SUB_DIRS += fcpnp
-	endif
-  	ifdef CONFIG_ISDN_DRV_AVMB1_FCPCMCIA
-    		MOD_SUB_DIRS += fcpcmcia
-		ifeq ($(CONFIG_HOTPLUG),y)
-			ifneq ($(CONFIG_PCMCIA),n)
-				M_OBJS   += fcpcmcia_cs.o
-			endif
-		endif
-	endif
   	MX_OBJS  += capiutil.o capidrv.o b1.o b1dma.o
   endif
 endif

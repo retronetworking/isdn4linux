@@ -6,6 +6,9 @@
  * Heavily based on devpts filesystem from H. Peter Anvin
  * 
  * $Log$
+ * Revision 1.11  2000/10/24 15:08:47  calle
+ * Too much includes.
+ *
  * Revision 1.10  2000/10/12 10:12:35  calle
  * Bugfix: second iput(inode) on umount, destroies a foreign inode.
  *
@@ -625,7 +628,7 @@ int __init capifs_init(void)
 	return 0;
 }
 
-void capifs_exit(void)
+void __exit capifs_exit(void)
 {
 	unregister_filesystem(&capifs_fs_type);
 }
@@ -633,16 +636,5 @@ void capifs_exit(void)
 EXPORT_SYMBOL(capifs_new_ncci);
 EXPORT_SYMBOL(capifs_free_ncci);
 
-#ifdef MODULE
-
-int init_module(void)
-{
-	return capifs_init();
-}
-
-void cleanup_module(void)
-{
-	capifs_exit();
-}
-
-#endif
+module_init(capifs_init);
+module_exit(capifs_exit);

@@ -27,6 +27,7 @@
 #undef BIG_PHONE_NUMBERS
 #undef COMPAT_HAS_ISA_IOREMAP
 #define net_device device
+#define set_current_state(sta) current->state = sta
 #undef COMPAT_HAS_pci_find_subsys
 #undef COMPAT_HAS_kmem_cache
 #undef COMPAT_d_alloc_root_one_parameter
@@ -46,14 +47,12 @@
 #undef CONFIG_ISDN_WITH_ABC_LCR_SUPPORT
 #undef CONFIG_ISDN_WITH_ABC_IPV4_TCP_KEEPALIVE
 #undef CONFIG_ISDN_WITH_ABC_IPV4_DYNADDR
-#undef CONFIG_ISDN_WITH_ABC_IPV4_RW_SOCKADDR
 #undef CONFIG_ISDN_WITH_ABC_RCV_NO_HUPTIMER
 #undef CONFIG_ISDN_WITH_ABC_ICALL_BIND
 #undef CONFIG_ISDN_WITH_ABC_CH_EXTINUSE
 #undef CONFIG_ISDN_WITH_ABC_CONN_ERROR
 #undef CONFIG_ISDN_WITH_ABC_RAWIPCOMPRESS
 #undef CONFIG_ISDN_WITH_ABC_FRAME_LIMIT
-#undef CONFIG_ISDN_WITH_ABC_IPTABLES_NETFILTER
 #define COMPAT_NO_SOFTNET
 #undef HAVE_DEVFS_FS
 #define devfs_register_chrdev(m,n,f) register_chrdev(m,n,f)
@@ -71,9 +70,5 @@
 #define i_count_read(ic) ic
 #define i_count_inc(ic)  ic++
 #undef COMPAT_HAS_FILEOP_OWNER
-#define COMPAT_USE_MODCOUNT_LOCK
-#undef COMPAT_HAVE_NEW_FILLDIR
 
-#define module_init(x)	int init_module(void) { return x(); }
-#define module_exit(x)	void cleanup_module(void) { x(); }
 #define __exit

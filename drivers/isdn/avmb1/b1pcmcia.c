@@ -6,6 +6,10 @@
  * (c) Copyright 1999 by Carsten Paeth (calle@calle.in-berlin.de)
  * 
  * $Log$
+ * Revision 1.10  2000/05/06 00:52:36  kai
+ * merged changes from kernel tree
+ * fixed timer and net_device->name breakage
+ *
  * Revision 1.9  2000/04/03 13:29:24  calle
  * make Tim Waugh happy (module unload races in 2.3.99-pre3).
  * no real problem there, but now it is much cleaner ...
@@ -71,6 +75,7 @@
 #include <linux/mm.h>
 #include <linux/interrupt.h>
 #include <linux/ioport.h>
+#include <linux/init.h>
 #include <asm/io.h>
 #include <linux/capi.h>
 #include <linux/b1pcmcia.h>
@@ -242,20 +247,20 @@ static char *b1pcmcia_procinfo(struct capi_ctr *ctrl)
 /* ------------------------------------------------------------- */
 
 static struct capi_driver b1pcmcia_driver = {
-    "b1pcmcia",
-    "0.0",
-    b1_load_firmware,
-    b1_reset_ctr,
-    b1pcmcia_remove_ctr,
-    b1_register_appl,
-    b1_release_appl,
-    b1_send_message,
+    name: "b1pcmcia",
+    revision: "0.0",
+    load_firmware: b1_load_firmware,
+    reset_ctr: b1_reset_ctr,
+    remove_ctr: b1pcmcia_remove_ctr,
+    register_appl: b1_register_appl,
+    release_appl: b1_release_appl,
+    send_message: b1_send_message,
 
-    b1pcmcia_procinfo,
-    b1ctl_read_proc,
-    0,	/* use standard driver_read_proc */
+    procinfo: b1pcmcia_procinfo,
+    ctr_read_proc: b1ctl_read_proc,
+    driver_read_proc: 0,	/* use standard driver_read_proc */
 
-    0,
+    add_card: 0,
 };
 
 /* ------------------------------------------------------------- */
@@ -297,12 +302,7 @@ EXPORT_SYMBOL(b1pcmcia_delcard);
 
 /* ------------------------------------------------------------- */
 
-#ifdef MODULE
-#define b1pcmcia_init init_module
-void cleanup_module(void);
-#endif
-
-int b1pcmcia_init(void)
+int __init b1pcmcia_init(void)
 {
 	struct capi_driver *driver = &b1pcmcia_driver;
 	char *p;
@@ -329,9 +329,10 @@ int b1pcmcia_init(void)
 	return retval;
 }
 
-#ifdef MODULE
-void cleanup_module(void)
+void __exit b1pcmcia_exit(void)
 {
     detach_capi_driver(&b1pcmcia_driver);
 }
-#endif
+
+module_init(b1pcmcia_init);
+module_exit(b1pcmcia_exit);

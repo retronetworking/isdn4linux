@@ -6,6 +6,12 @@
  * Copyright 1996 by Carsten Paeth (calle@calle.in-berlin.de)
  *
  * $Log$
+ * Revision 1.40  2000/10/24 15:15:04  calle
+ * Workaround: pppd calls restoretty before reseting the ldisc and
+ *   ldisc "ppp_sync" didn't support this. So we call n_tty_ioctl
+ *   in the driver ioctl function. (remember: driver ioctl function is
+ *   only called if ldisc ioctl function did not handle the call)
+ *
  * Revision 1.39  2000/07/24 13:42:50  calle
  * - lock_kernel/unlock_kernel for _release functions. (from 2.4)
  *
@@ -214,10 +220,12 @@
 #include <linux/poll.h>
 #include <linux/capi.h>
 #include <linux/kernelcapi.h>
+#include <linux/init.h>
 #ifdef HAVE_DEVFS_FS
 #include <linux/devfs_fs_kernel.h>
 #endif /* HAVE_DEVFS_FS */
 #include <linux/isdn_compat.h>
+#include <linux/init.h>
 #include "capiutil.h"
 #include "capicmd.h"
 #ifdef CONFIG_ISDN_CAPI_MIDDLEWARE
@@ -2074,7 +2082,7 @@ static struct procfsentries {
    { "capi/capi20ncci",   0	 , proc_capincci_read_proc },
 };
 
-static void proc_init(void)
+static void __init proc_init(void)
 {
     int nelem = sizeof(procfsentries)/sizeof(procfsentries[0]);
     int i;
@@ -2086,7 +2094,7 @@ static void proc_init(void)
     }
 }
 
-static void proc_exit(void)
+static void __exit proc_exit(void)
 {
     int nelem = sizeof(procfsentries)/sizeof(procfsentries[0]);
     int i;
@@ -2104,7 +2112,7 @@ static void proc_exit(void)
 
 #ifdef COMPAT_HAS_kmem_cache
 
-static void alloc_exit(void)
+static void __exit alloc_exit(void)
 {
 	if (capidev_cachep) {
 		(void)kmem_cache_destroy(capidev_cachep);
@@ -2126,7 +2134,7 @@ static void alloc_exit(void)
 #endif /* CONFIG_ISDN_CAPI_MIDDLEWARE */
 }
 
-static int alloc_init(void)
+static int __init alloc_init(void)
 {
 	capidev_cachep = kmem_cache_create("capi20_dev",
 					 sizeof(struct capidev),
@@ -2198,18 +2206,14 @@ static void lower_callback(unsigned int cmd, __u32 contr, void *data)
 	}
 }
 
-#ifdef MODULE
-#define	 capi_init	init_module
-#endif
-
 static struct capi_interface_user cuser = {
-	"capi20",
-	lower_callback,
+	name: "capi20",
+	callback: lower_callback,
 };
 
 static char rev[10];
 
-int capi_init(void)
+int __init capi_init(void)
 {
 	char *p;
 
@@ -2310,8 +2314,7 @@ int capi_init(void)
 	return 0;
 }
 
-#ifdef MODULE
-void cleanup_module(void)
+static void __exit capi_exit(void)
 {
 #ifdef CONFIG_ISDN_CAPI_MIDDLEWARE
 #ifdef HAVE_DEVFS_FS
@@ -2343,4 +2346,5 @@ void cleanup_module(void)
 	printk(KERN_NOTICE "capi: Rev%s: unloaded\n", rev);
 }
 
-#endif
+module_init(capi_init);
+module_exit(capi_exit);
