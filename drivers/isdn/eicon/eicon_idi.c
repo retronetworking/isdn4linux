@@ -26,6 +26,11 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.32  2000/03/04 17:04:21  armin
+ * Fix of statemachine, B-connect before D-connect,
+ * thanks to Helmut Adams <adams@ipcon.de>
+ * Minor change in send-data packet handling.
+ *
  * Revision 1.31  2000/02/22 16:26:40  armin
  * Fixed membase error message.
  * Fixed missing log buffer struct.
@@ -2552,15 +2557,7 @@ idi_handle_ind(eicon_card *ccard, struct sk_buff *skb)
 						break;
 					case 3: /* incomplete number */
 						eicon_log(ccard, 8, "idi_req: Ch%d: Incomplete Number\n", chan->No);
-					        switch(ccard->type) {
-					                case EICON_CTYPE_MAESTRAP:
-					                case EICON_CTYPE_S2M:
-								/* TODO (other protocols) */
-								chan->fsm_state = EICON_STATE_ICALLW;
-								break;
-							default:
-								idi_do_req(ccard, chan, HANGUP, 0);
-						}
+						chan->fsm_state = EICON_STATE_ICALLW;
 						break;
 				}
 				break;
