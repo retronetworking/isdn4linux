@@ -23,6 +23,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.11  1999/08/09 19:13:32  werner
+ * moved constant pci ids to pci id table
+ *
  * Revision 1.10  1999/08/08 10:17:34  werner
  * added new PCI vendor and card ids for Manufacturer 0x1043
  *
@@ -1484,7 +1487,11 @@ __initfunc(int
 				return (0);
 			}
 			cs->hw.hfcpci.pci_io = (char *)
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2,3,13)
 			    dev_hfcpci->base_address[1];
+#else
+			    dev_hfcpci->resource[1].start;
+#endif
 		} else {
 			printk(KERN_WARNING "HFC-PCI: No PCI card found\n");
 			return (0);

@@ -7,6 +7,10 @@
  *
  *
  * $Log$
+ * Revision 1.9  1999/07/12 21:04:57  keil
+ * fix race in IRQ handling
+ * added watchdog for lost IRQs
+ *
  * Revision 1.8  1999/07/01 08:11:19  keil
  * Common HiSax version for 2.0, 2.1, 2.2 and 2.3 kernel
  *
@@ -798,8 +802,12 @@ setup_avm_pcipnp(struct IsdnCard *card))
 				printk(KERN_WARNING "FritzPCI: No IRQ for PCI card found\n");
 				return(0);
 			}
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2,3,12)
 			cs->hw.avm.cfg_reg = dev_avm->base_address[1] &
 				PCI_BASE_ADDRESS_IO_MASK; 
+#else
+			cs->hw.avm.cfg_reg = dev_avm->resource[1].start;
+#endif
 			if (!cs->hw.avm.cfg_reg) {
 				printk(KERN_WARNING "FritzPCI: No IO-Adr for PCI card found\n");
 				return(0);

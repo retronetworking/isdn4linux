@@ -14,6 +14,11 @@
  *              for ELSA PCMCIA support
  *
  * $Log$
+ * Revision 2.15  1999/08/09 19:25:21  keil
+ * Support (alpha version) for the '98 model of ELSA Microlink ISDN/MC
+ * by Christer Weinigel, Cendio Systems AB <wingel@cendio.se>
+ * Add support for IPAC 1.2
+ *
  * Revision 2.14  1999/07/12 21:05:07  keil
  * fix race in IRQ handling
  * added watchdog for lost IRQs
@@ -1035,18 +1040,28 @@ setup_elsa(struct IsdnCard *card)
 			 dev_qs1000))) {
 				cs->subtyp = ELSA_QS1000PCI;
 			cs->irq = dev_qs1000->irq;
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2,3,13)
 			cs->hw.elsa.cfg = dev_qs1000->base_address[1] & 
 				PCI_BASE_ADDRESS_IO_MASK;
 			cs->hw.elsa.base = dev_qs1000->base_address[3] & 
 				PCI_BASE_ADDRESS_IO_MASK;
+#else
+			cs->hw.elsa.cfg = dev_qs1000->resource[1].start;
+			cs->hw.elsa.base = dev_qs1000->resource[3].start;
+#endif
 		} else if ((dev_qs3000 = pci_find_device(PCI_VENDOR_ELSA,
 			PCI_QS3000_ID, dev_qs3000))) {
 			cs->subtyp = ELSA_QS3000PCI;
 			cs->irq = dev_qs3000->irq;
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2,3,13)
 			cs->hw.elsa.cfg = dev_qs3000->base_address[1] & 
 				PCI_BASE_ADDRESS_IO_MASK;
 			cs->hw.elsa.base = dev_qs3000->base_address[3] & 
 				PCI_BASE_ADDRESS_IO_MASK;
+#else
+			cs->hw.elsa.cfg = dev_qs3000->resource[1].start;
+			cs->hw.elsa.base = dev_qs3000->resource[3].start;
+#endif
 		} else {
 			printk(KERN_WARNING "Elsa: No PCI card found\n");
 			return(0);

@@ -6,6 +6,9 @@
  * (c) Copyright 1999 by Carsten Paeth (calle@calle.in-berlin.de)
  * 
  * $Log$
+ * Revision 1.14  1999/07/09 15:05:41  keil
+ * compat.h is now isdn_compat.h
+ *
  * Revision 1.13  1999/07/05 15:09:50  calle
  * - renamed "appl_release" to "appl_released".
  * - version und profile data now cleared on controller reset
@@ -243,7 +246,11 @@ int b1pci_init(void)
 	while ((dev = pci_find_device(PCI_VENDOR_ID_AVM, PCI_DEVICE_ID_AVM_B1, dev))) {
 		struct capicardparams param;
 
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2,3,13)
 		param.port = dev->base_address[1] & PCI_BASE_ADDRESS_IO_MASK;
+#else
+		param.port = dev->resource[1].start;
+#endif
 		param.irq = dev->irq;
 		printk(KERN_INFO
 			"%s: PCI BIOS reports AVM-B1 at i/o %#x, irq %d\n",

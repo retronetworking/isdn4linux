@@ -8,6 +8,10 @@
  * Thanks to Dr. Neuhaus and SAGEM for informations
  *
  * $Log$
+ * Revision 1.6  1999/07/12 21:05:23  keil
+ * fix race in IRQ handling
+ * added watchdog for lost IRQs
+ *
  * Revision 1.5  1999/07/01 08:12:07  keil
  * Common HiSax version for 2.0, 2.1, 2.2 and 2.3 kernel
  *
@@ -310,6 +314,7 @@ setup_niccy(struct IsdnCard *card))
 				return(0);
 			}
 			cs->irq = niccy_dev->irq;
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2,3,13)
 			if (!niccy_dev->base_address[0]) {
 				printk(KERN_WARNING "Niccy: No IO-Adr for PCI cfg found\n");
 				return(0);
@@ -320,6 +325,18 @@ setup_niccy(struct IsdnCard *card))
 				return(0);
 			}
 			pci_ioaddr = niccy_dev->base_address[1] & PCI_BASE_ADDRESS_IO_MASK;
+#else
+			if (!niccy_dev->resource[0].start) {
+				printk(KERN_WARNING "Niccy: No IO-Adr for PCI cfg found\n");
+				return(0);
+			}
+			cs->hw.niccy.cfg_reg = niccy_dev->resource[0].start;
+			if (!niccy_dev->resource[1].start) {
+				printk(KERN_WARNING "Niccy: No IO-Adr for PCI card found\n");
+				return(0);
+			}
+			pci_ioaddr = niccy_dev->resource[1].start;
+#endif
 			cs->subtyp = NICCY_PCI;
 		} else {
 			printk(KERN_WARNING "Niccy: No PCI card found\n");

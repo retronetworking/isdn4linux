@@ -17,6 +17,9 @@
  *            Edgar Toernig
  *
  * $Log$
+ * Revision 1.12  1999/08/05 20:43:22  keil
+ * ISAR analog modem support
+ *
  * Revision 1.11  1999/07/12 21:05:27  keil
  * fix race in IRQ handling
  * added watchdog for lost IRQs
@@ -585,8 +588,12 @@ setup_sedlbauer(struct IsdnCard *card))
 				printk(KERN_WARNING "Sedlbauer: No IRQ for PCI card found\n");
 				return(0);
 			}
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2,3,13)
 			cs->hw.sedl.cfg_reg = dev_sedl->base_address[0] &
 				PCI_BASE_ADDRESS_IO_MASK; 
+#else
+			cs->hw.sedl.cfg_reg = dev_sedl->resource[0].start;
+#endif
 		} else {
 			printk(KERN_WARNING "Sedlbauer: No PCI card found\n");
 			return(0);

@@ -7,6 +7,9 @@
  * Author       Roland Klabunde (R.Klabunde@Berkom.de)
  *
  * $Log$
+ * Revision 1.4  1999/07/14 11:43:14  keil
+ * correct PCI_SUBSYSTEM_VENDOR_ID
+ *
  * Revision 1.3  1999/07/12 21:04:58  keil
  * fix race in IRQ handling
  * added watchdog for lost IRQs
@@ -311,7 +314,11 @@ __initfunc(int
 			&sub_sys_id);
 		if (sub_sys_id == ((A4T_SUBSYS_ID << 16) | A4T_SUBVEN_ID)) {
 			found = 1;
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2,3,13)
 			pci_memaddr = dev_a4t->base_address[0];
+#else
+			pci_memaddr = dev_a4t->resource[0].start;
+#endif
 			cs->irq = dev_a4t->irq;
 		}
 	}

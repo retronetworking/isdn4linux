@@ -26,6 +26,10 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.7  1999/06/09 19:31:29  armin
+ * Wrong PLX size for request_region() corrected.
+ * Added first MCA code from Erik Weber.
+ *
  * Revision 1.6  1999/04/01 12:48:37  armin
  * Changed some log outputs.
  *
@@ -135,8 +139,13 @@ int eicon_pci_find_card(char *ID)
           aparms->type = EICON_CTYPE_MAESTRA;
 
           aparms->irq = pdev->irq;
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2,3,13)
           preg = pdev->base_address[2] & 0xfffffffc;
           pcfg = pdev->base_address[1] & 0xffffff80;
+#else
+          preg = pdev->resource[2].start & 0xfffffffc;
+          pcfg = pdev->resource[1].start & 0xffffff80;
+#endif
 
 #ifdef EICON_PCI_DEBUG
           printk(KERN_DEBUG "eicon_pci: irq=%d\n", aparms->irq);
@@ -157,9 +166,15 @@ int eicon_pci_find_card(char *ID)
          printk(KERN_INFO "Eicon: DIVA Server PRI/PCI detected !\n");
           aparms->type = EICON_CTYPE_MAESTRAP; /*includes 9M,30M*/
           aparms->irq = pdev->irq;
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2,3,13)
           pram = pdev->base_address[0] & 0xfffff000;
           preg = pdev->base_address[2] & 0xfffff000;
           pcfg = pdev->base_address[4] & 0xfffff000;
+#else
+          pram = pdev->resource[0].start & 0xfffff000;
+          preg = pdev->resource[2].start & 0xfffff000;
+          pcfg = pdev->resource[4].start & 0xfffff000;
+#endif
 
 #ifdef EICON_PCI_DEBUG
           printk(KERN_DEBUG "eicon_pci: irq=%d\n", aparms->irq);

@@ -7,6 +7,10 @@
  * Thanks to Traverse Technologie Australia for documents and informations
  *
  * $Log$
+ * Revision 1.11  1999/08/07 17:32:00  keil
+ * Asymetric buffers for improved ping times.  Interframe spacing
+ * fix for NJ<->NJ thoughput.  Matt Henderson - www.traverse.com.au
+ *
  *
  * Revision 1.10  1999/07/12 21:05:22  keil
  * fix race in IRQ handling
@@ -1100,8 +1104,12 @@ setup_netjet(struct IsdnCard *card))
 			printk(KERN_WARNING "NETjet: No IRQ for PCI card found\n");
 			return(0);
 		}
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2,3,13)
 		cs->hw.njet.base = dev_netjet->base_address[0]
 			& PCI_BASE_ADDRESS_IO_MASK; 
+#else
+		cs->hw.njet.base = dev_netjet->resource[0].start;
+#endif
 		if (!cs->hw.njet.base) {
 			printk(KERN_WARNING "NETjet: No IO-Adr for PCI card found\n");
 			return(0);
