@@ -27,6 +27,10 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.48  1998/04/26 19:58:14  detabc
+ * include the new abc-extension-items from 2.0.xx kernels
+ * remove some unused code
+ *
  * Revision 1.47  1998/04/21 18:00:25  detabc
  * Add items for secure-callback (abc-extension only)
  *
@@ -603,6 +607,7 @@ typedef struct isdn_net_local_s {
 	u_char  abc_rx_key[ISDN_MSNLEN];
 	u_char  abc_out_msn[ISDN_MSNLEN];  /* MSNs/EAZs for outgoing calls */
 	struct sk_buff_head abc_tx_que[ABC_ANZ_TX_QUE];
+	u_long	abc_unreached_jiffies;
 #endif
 } isdn_net_local;
 
