@@ -1212,24 +1212,16 @@ unregister_card(eicon_card * card)
 static void
 eicon_freecard(eicon_card *card) {
 	int i;
-	struct sk_buff *skb;
 
 	for(i = 0; i < (card->nchannels + 1); i++) {
-		while((skb = skb_dequeue(&card->bch[i].e.X)))
-			dev_kfree_skb(skb);
-		while((skb = skb_dequeue(&card->bch[i].e.R)))
-			dev_kfree_skb(skb);
+		skb_queue_purge(&card->bch[i].e.X);
+		skb_queue_purge(&card->bch[i].e.R);
 	}
-	while((skb = skb_dequeue(&card->sndq)))
-		dev_kfree_skb(skb);
-	while((skb = skb_dequeue(&card->rcvq)))
-		dev_kfree_skb(skb);
-	while((skb = skb_dequeue(&card->rackq)))
-		dev_kfree_skb(skb);
-	while((skb = skb_dequeue(&card->sackq)))
-		dev_kfree_skb(skb);
-	while((skb = skb_dequeue(&card->statq)))
-		dev_kfree_skb(skb);
+	skb_queue_purge(&card->sndq);
+	skb_queue_purge(&card->rcvq);
+	skb_queue_purge(&card->rackq);
+	skb_queue_purge(&card->sackq);
+	skb_queue_purge(&card->statq);
 
 #ifdef CONFIG_ISDN_DRV_EICON_PCI
 	kfree(card->sbufp);
