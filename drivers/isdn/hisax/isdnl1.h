@@ -1,6 +1,9 @@
 /* $Id$
 
  * $Log$
+ * Revision 2.4  1997/11/08 21:35:49  keil
+ * new l1 init
+ *
  * Revision 2.3  1997/10/29 19:07:53  keil
  * changes for 2.1
  *
@@ -29,7 +32,7 @@
 #define	L1_DEB_HSCX_FIFO	0x20
 #define	L1_DEB_LAPD	        0x40
 #define	L1_DEB_IPAC	        0x80
-
+#define	L1_DEB_RECEIVE_FRAME    0x100
 
 #define D_RCVBUFREADY	0
 #define D_XMTBUFREADY	1
