@@ -19,6 +19,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.16  1996/01/22 05:01:55  fritz
+ * Revert to GPL.
+ *
  * Revision 1.15  1996/01/10 20:57:39  fritz
  * Bugfix: Loading firmware twice caused the device stop working.
  *
@@ -75,10 +78,7 @@
 
 #include "icn.h"
 
-/*
- * Firmware with switchable L2-Protocol
- */
-#define HDLC_FIRMWARE
+DEF_VERSION
 
 /*
  * Verbose bootcode- and protocol-downloading.
@@ -604,7 +604,7 @@ static void icn_pollit(icn_dev * dev)
 				}
 			} else {
 				dev->imsg[dev->iptr] = c;
-				if (dev->iptr < 39)
+				if (dev->iptr < 59)
 					dev->iptr++;
 			}
 		}
@@ -1246,7 +1246,6 @@ static int icn_command(isdn_ctrl * c, icn_dev * ldev)
 		}
 		break;
 	case ISDN_CMD_SETL2:
-#ifdef HDLC_FIRMWARE
 		if ((c->arg & 255) < ICN_BCH) {
 			a = c->arg;
 			switch (a >> 8) {
@@ -1262,7 +1261,6 @@ static int icn_command(isdn_ctrl * c, icn_dev * ldev)
 			i = icn_writecmd(cbuf, strlen(cbuf), 0, ldev, 1);
 			ldev->l2_proto[a & 255] = (a >> 8);
 		}
-#endif
 		break;
 	case ISDN_CMD_GETL2:
 		if ((c->arg & 255) < ICN_BCH)
