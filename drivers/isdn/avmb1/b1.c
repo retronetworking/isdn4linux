@@ -6,6 +6,13 @@
  * (c) Copyright 1999 by Carsten Paeth (calle@calle.in-berlin.de)
  * 
  * $Log$
+ * Revision 1.12  1999/11/05 16:38:01  calle
+ * Cleanups before kernel 2.4:
+ * - Changed all messages to use card->name or driver->name instead of
+ *   constant string.
+ * - Moved some data from struct avmcard into new struct avmctrl_info.
+ *   Changed all lowlevel capi driver to match the new structur.
+ *
  * Revision 1.11  1999/10/11 22:04:12  keil
  * COMPAT_NEED_UACCESS (no include in isdn_compat.h)
  *
@@ -152,6 +159,12 @@ int b1_detect(unsigned int base, enum avmcardtype cardtype)
 	   return 5;
 
 	return 0;
+}
+
+void b1_getrevision(avmcard *card)
+{
+    card->class = inb(card->port + B1_ANALYSE);
+    card->revision = inb(card->port + B1_REVISION);
 }
 
 int b1_load_t4file(avmcard *card, capiloaddatapart * t4file)
@@ -684,6 +697,7 @@ int b1ctl_read_proc(char *page, char **start, off_t off,
 EXPORT_SYMBOL(b1_irq_table);
 
 EXPORT_SYMBOL(b1_detect);
+EXPORT_SYMBOL(b1_getrevision);
 EXPORT_SYMBOL(b1_load_t4file);
 EXPORT_SYMBOL(b1_load_config);
 EXPORT_SYMBOL(b1_loaded);
