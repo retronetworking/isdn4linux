@@ -20,6 +20,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.28  1997/02/10 22:07:08  fritz
+ * Added 2 modem registers for numbering plan and screening info.
+ *
  * Revision 1.27  1997/02/10 21:31:14  fritz
  * Changed setup-interface (incoming and outgoing).
  *
@@ -693,6 +696,7 @@ isdn_tty_modem_hup(modem_info * info, int local)
 		cmd.arg = info->isdn_channel;
 		dev->drv[info->isdn_driver]->interface->command(&cmd);
 		isdn_all_eaz(info->isdn_driver, info->isdn_channel);
+		info->emu.mdmreg[1] = 0;
 		usage = (info->emu.mdmreg[20] == 1) ?
 		    ISDN_USAGE_VOICE : ISDN_USAGE_MODEM;
 		isdn_free_channel(info->isdn_driver, info->isdn_channel,
@@ -1974,6 +1978,7 @@ isdn_tty_modem_result(int code, modem_info * info)
 			/* NO CARRIER */
 			save_flags(flags);
 			cli();
+			m->mdmreg[1] = 0;
 #ifdef ISDN_DEBUG_MODEM_HUP
 			printk(KERN_DEBUG "modem_result: NO CARRIER %d %d\n",
 			       (info->flags & ISDN_ASYNC_CLOSING),
@@ -2013,17 +2018,26 @@ isdn_tty_modem_result(int code, modem_info * info)
 			sprintf(s, "%d", code);
 			isdn_tty_at_cout(s, info);
 		} else {
-			if (code == 2) {
+			if ((code == 2) && (!(m->mdmreg[13] & 16))) {
 				isdn_tty_at_cout("CALLER NUMBER: ", info);
 				isdn_tty_at_cout(dev->num[info->drv_index], info);
 				isdn_tty_at_cout("\r\n", info);
 			}
 			isdn_tty_at_cout(msg[code], info);
 			switch (code) {
+				case 2:
+					/* Print CID only once, _after_ 1.st RING */
+					if ((m->mdmreg[13] & 16) && (m->mdmreg[1] == 1)) {
+						isdn_tty_at_cout("\r\n", info);
+						isdn_tty_at_cout("CALLER NUMBER: ", info);
+						isdn_tty_at_cout(dev->num[info->drv_index], info);
+					}
+					break;
 				case 3:
 				case 6:
 				case 7:
 				case 8:
+					m->mdmreg[1] = 0;
 					/* Append Cause-Message if enabled */
 					if (m->mdmreg[13] & 8) {
 						sprintf(s, "/%s", info->last_cause);

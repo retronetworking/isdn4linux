@@ -183,6 +183,8 @@ README for the ISDN-subsystem
                                       1 = Hangup on DTR low.
 			    Bit 3:    0 = Standard response messages
 				      1 = Extended response messages
+                            Bit 4:    0 = CALLER NUMBER before every RING.
+                                      1 = CALLER NUMBER after first RING.
 	     14   0         Layer-2 protocol:
 				      0 = X75/LAPB with I-frames
 				      1 = X75/LAPB with UI-frames
