@@ -13,6 +13,9 @@
  *              Fritz Elfert
  *
  * $Log$
+ * Revision 1.16.2.12  1999/05/01 20:03:31  werner
+ * added support for keypad protocol (K prefix in destnr)
+ *
  * Revision 1.16.2.11  1999/04/28 21:49:07  keil
  * More CTS2 tests
  *
@@ -1254,7 +1257,7 @@ l3dss1_setup_req(struct l3_process *pc, u_char pr,
 	u_char tmp[128];
 	u_char *p = tmp;
 	u_char channel = 0;
-        u_char send_keypad = 0;
+        u_char send_keypad;
 	u_char screen = 0x80;
 	u_char *teln;
 	u_char *msn;
@@ -1264,13 +1267,17 @@ l3dss1_setup_req(struct l3_process *pc, u_char pr,
 
 	MsgHead(p, pc->callref, MT_SETUP);
 
+	teln = pc->para.setup.phone;
+        send_keypad = (strchr(teln,'*') || strchr(teln,'#')) ? 1 : 0; 
 	/*
 	 * Set Bearer Capability, Map info from 1TR6-convention to EDSS1
 	 */
 #if HISAX_EURO_SENDCOMPLETE
-	*p++ = 0xa1;		/* complete indicator */
+	if (!send_keypad)
+	  *p++ = 0xa1;		/* complete indicator */
 #endif
-	switch (pc->para.setup.si1) {
+        if (!send_keypad)
+	  switch (pc->para.setup.si1) {
 		case 1:	/* Telephony                               */
 			*p++ = 0x4;	/* BC-IE-code                              */
 			*p++ = 0x3;	/* Length                                  */
@@ -1286,12 +1293,26 @@ l3dss1_setup_req(struct l3_process *pc, u_char pr,
 			*p++ = 0x88;	/* Coding Std. CCITT, unrestr. dig. Inform. */
 			*p++ = 0x90;	/* Circuit-Mode 64kbps                      */
 			break;
-	}
+	  }
+	else {  *p++ = 0x4; /* assumptions for bearer services with keypad  */
+		*p++ = 0x3;
+		*p++ = 0x80;
+                *p++ = 0x90;
+                *p++ = 0xa3;
+		*p++ = 0x18; /* no specific channel */
+                *p++ = 0x01;
+                *p++ = 0x83;
+		*p++ = 0x2C; /* IE keypad */
+		*p++ = strlen(teln);
+		while (*teln)
+		  *p++ = (*teln++) & 0x7F;
+	  }
+	  
+       
 	/*
 	 * What about info2? Mapping to High-Layer-Compatibility?
 	 */
-	teln = pc->para.setup.phone;
-	if (*teln) {
+	if ((*teln) && (!send_keypad)) {
 		/* parse number for special things */
 		if (!isdigit(*teln)) {
 			switch (0x5f & *teln) {
@@ -1311,10 +1332,6 @@ l3dss1_setup_req(struct l3_process *pc, u_char pr,
 				case 'D':
 					screen = 0x80;
 					break;
-			        case 'K': /* teln is keypad */
-				        channel = 0x83; /* no real chan */
-                                        send_keypad = 1;     
-                                        break;
 				
 			        default:
 					if (pc->debug & L3_DEB_WARN)
@@ -1370,17 +1387,11 @@ l3dss1_setup_req(struct l3_process *pc, u_char pr,
 			sp++;
 	}
 	
-        if (send_keypad) {
-	  *p++ = 0x2C; /* IE keypad */
-          *p++ = strlen(teln);
-          while (*teln)
-                  *p++ = *teln & 0x7F;
-        }
-        else {      
-        *p++ = 0x70;
-	*p++ = strlen(teln) + 1;
-	/* Classify as AnyPref. */
-	*p++ = 0x81;		/* Ext = '1'B, Type = '000'B, Plan = '0001'B. */
+        if (!send_keypad) {      
+	  *p++ = 0x70;
+	  *p++ = strlen(teln) + 1;
+	  /* Classify as AnyPref. */
+	  *p++ = 0x81;		/* Ext = '1'B, Type = '000'B, Plan = '0001'B. */
 	  while (*teln)
 		  *p++ = *teln++ & 0x7f;
 
@@ -1395,7 +1406,13 @@ l3dss1_setup_req(struct l3_process *pc, u_char pr,
 	  }
         }
 #if EXT_BEARER_CAPS
-	if ((pc->para.setup.si2 >= 160) && (pc->para.setup.si2 <= 175)) {	// sync. Bitratenadaption, V.110/X.30
+        if (send_keypad) { /* special handling independant of si2 */
+                *p++ = 0x7c;
+                *p++ = 0x03;
+                *p++ = 0x80;
+                *p++ = 0x90;
+                *p++ = 0xa3;
+	} else if ((pc->para.setup.si2 >= 160) && (pc->para.setup.si2 <= 175)) {	// sync. Bitratenadaption, V.110/X.30
 
 		*p++ = 0x7c;
 		*p++ = 0x04;
@@ -1539,10 +1556,10 @@ l3dss1_disconnect(struct l3_process *pc, u_char pr, void *arg)
 	newl3state(pc, 12);
 	if (cause)
 		newl3state(pc, 19);
-	if (11 != ret)
+       	if (11 != ret)
 		pc->st->l3.l3l4(pc->st, CC_DISCONNECT | INDICATION, pc);
-	else if (!cause)
-		l3dss1_release_req(pc, pr, NULL);
+       	else if (!cause)
+		   l3dss1_release_req(pc, pr, NULL);
 	if (cause) {
 		l3dss1_message_cause(pc, MT_RELEASE, cause);
 		L3AddTimer(&pc->timer, T308, CC_T308_1);
@@ -1932,6 +1949,32 @@ l3dss1_proceed_req(struct l3_process *pc, u_char pr,
 	l3dss1_message(pc, MT_CALL_PROCEEDING);
 	pc->st->l3.l3l4(pc->st, CC_PROCEED_SEND | INDICATION, pc); 
 }
+
+/********************************************/
+/* deliver a incoming display message to HL */
+/********************************************/
+static void
+l3dss1_deliver_display(struct l3_process *pc, int pr, u_char *infp)
+{       u_char len;
+        isdn_ctrl ic; 
+	struct IsdnCardState *cs;
+        char *p; 
+
+        if (*infp++ != IE_DISPLAY) return;
+        if ((len = *infp++) > 80) return; /* total length <= 82 */
+	if (!pc->chan) return;
+
+	p = ic.parm.display; 
+        while (len--)
+	  *p++ = *infp++;
+	*p = '\0';
+	ic.command = ISDN_STAT_DISPLAY;
+	cs = pc->st->l1.hardware;
+	ic.driver = cs->myid;
+	ic.arg = pc->chan->chan; 
+	cs->iif.statcallb(&ic);
+} /* l3dss1_deliver_display */
+
 
 static void
 l3dss1_progress(struct l3_process *pc, u_char pr, void *arg)
@@ -2999,6 +3042,8 @@ dss1up(struct PStack *st, int pr, void *arg)
 		idev_kfree_skb(skb, FREE_READ);
 		return;
 	}
+	if ((p = findie(skb->data, skb->len, IE_DISPLAY, 0)) != NULL) 
+	  l3dss1_deliver_display(proc, pr, p); /* Display IE included */
 	for (i = 0; i < DATASLLEN; i++)
 		if ((mt == datastatelist[i].primitive) &&
 		    ((1 << proc->state) & datastatelist[i].state))
