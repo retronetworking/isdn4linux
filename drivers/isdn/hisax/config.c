@@ -130,7 +130,7 @@ EXPORT_SYMBOL(elsa_init_pcmcia);
 #define DEFAULT_CFG {11,0x170,0,0}
 int avm_a1_init_pcmcia(void *, int, int *, int);
 EXPORT_SYMBOL(avm_a1_init_pcmcia);
-#endif				/* CONFIG_HISAX_AVM_A1_PCMCIA */
+#endif
 
 #ifdef CONFIG_HISAX_FRITZPCI
 #undef DEFAULT_CARD
@@ -202,7 +202,7 @@ EXPORT_SYMBOL(avm_a1_init_pcmcia);
 #define DEFAULT_CFG {11,0x270,0,0}
 int sedl_init_pcmcia(void *, int, int *, int);
 EXPORT_SYMBOL(sedl_init_pcmcia);
-#endif				/* CONFIG_HISAX_SEDLBAUER */
+#endif
 
 #ifdef CONFIG_HISAX_SPORTSTER
 #undef DEFAULT_CARD
@@ -403,8 +403,8 @@ MODULE_PARM(id, "s");
 #ifdef IO0_IO1
 MODULE_PARM(io0, "1-8i");
 MODULE_PARM(io1, "1-8i");
-#endif				/* IO0_IO1 */
-#endif				/* MODULE */
+#endif
+#endif /* MODULE */
 
 int nrcards;
 
@@ -414,8 +414,7 @@ extern char *l3_revision;
 extern char *lli_revision;
 extern char *tei_revision;
 
-char *
-HiSax_getrev(const char *revision)
+char *HiSax_getrev(const char *revision)
 {
 	char *rev;
 	char *p;
@@ -429,8 +428,7 @@ HiSax_getrev(const char *revision)
 	return rev;
 }
 
-void __init
-HiSaxVersion(void)
+void __init HiSaxVersion(void)
 {
 	char tmp[64];
 
@@ -454,14 +452,12 @@ HiSaxVersion(void)
 	certification_check(1);
 }
 
-void
-HiSax_mod_dec_use_count(void)
+void HiSax_mod_dec_use_count(void)
 {
 	MOD_DEC_USE_COUNT;
 }
 
-void
-HiSax_mod_inc_use_count(void)
+void HiSax_mod_inc_use_count(void)
 {
 	MOD_INC_USE_COUNT;
 }
@@ -469,8 +465,7 @@ HiSax_mod_inc_use_count(void)
 #ifndef MODULE
 #ifdef COMPAT_HAS_NEW_SETUP
 #define MAX_ARG	(HISAX_MAX_CARDS*5)
-static int __init
-HiSax_setup(char *line)
+static int __init HiSax_setup(char *line)
 {
 	int i, j, argc;
 	int ints[MAX_ARG + 1];
@@ -478,8 +473,7 @@ HiSax_setup(char *line)
 
 	str = get_options(line, MAX_ARG, ints);
 #else
-static void __init
-HiSax_setup(char *str, int *ints)
+static void __init HiSax_setup(char *str, int *ints)
 {
 	int i, j, argc;
 #endif
@@ -523,14 +517,14 @@ HiSax_setup(char *str, int *ints)
 		HiSax_id = HiSaxID;
 	}
 #ifdef COMPAT_HAS_NEW_SETUP
-	return (1);
+	return 1;
 }
 
 __setup("hisax=", HiSax_setup);
 #else
 }
-#endif				/* COMPAT_HAS_NEW_SETUP */
-#endif				/* MODULES */
+#endif /* COMPAT_HAS_NEW_SETUP */
+#endif /* MODULES */
 
 #if CARD_TELES0
 extern int setup_teles0(struct IsdnCard *card);
@@ -731,8 +725,7 @@ HiSax_readstatus(u_char * buf, int len, int user, int id, int channel)
 	}
 }
 
-inline int
-jiftime(char *s, long mark)
+int jiftime(char *s, long mark)
 {
 	s += 8;
 
@@ -750,16 +743,15 @@ jiftime(char *s, long mark)
 	*s-- = mark % 10 + '0';
 	mark /= 10;
 	*s-- = mark % 10 + '0';
-	return (8);
+	return 8;
 }
 
 static u_char tmpbuf[HISAX_STATUS_BUFSIZE];
 
-void
-VHiSax_putstatus(struct IsdnCardState *cs, char *head, char *fmt,
-		 va_list args)
+void VHiSax_putstatus(struct IsdnCardState *cs, char *head, char *fmt,
+		      va_list args)
 {
-/* if head == NULL the fmt contains the full info */
+	/* if head == NULL the fmt contains the full info */
 
 	long flags;
 	int count, i;
@@ -829,8 +821,7 @@ VHiSax_putstatus(struct IsdnCardState *cs, char *head, char *fmt,
 	}
 }
 
-void
-HiSax_putstatus(struct IsdnCardState *cs, char *head, char *fmt, ...)
+void HiSax_putstatus(struct IsdnCardState *cs, char *head, char *fmt, ...)
 {
 	va_list args;
 
@@ -839,8 +830,7 @@ HiSax_putstatus(struct IsdnCardState *cs, char *head, char *fmt, ...)
 	va_end(args);
 }
 
-int
-ll_run(struct IsdnCardState *cs, int addfeatures)
+int ll_run(struct IsdnCardState *cs, int addfeatures)
 {
 	long flags;
 	isdn_ctrl ic;
@@ -855,19 +845,17 @@ ll_run(struct IsdnCardState *cs, int addfeatures)
 	return 0;
 }
 
-void
-ll_stop(struct IsdnCardState *cs)
+void ll_stop(struct IsdnCardState *cs)
 {
 	isdn_ctrl ic;
 
 	ic.command = ISDN_STAT_STOP;
 	ic.driver = cs->myid;
 	cs->iif.statcallb(&ic);
-//      CallcFreeChan(cs);
+	//      CallcFreeChan(cs);
 }
 
-static void
-ll_unload(struct IsdnCardState *cs)
+static void ll_unload(struct IsdnCardState *cs)
 {
 	isdn_ctrl ic;
 
@@ -882,8 +870,7 @@ ll_unload(struct IsdnCardState *cs)
 	kfree(cs->dlog);
 }
 
-static void
-closecard(int cardnr)
+static void closecard(int cardnr)
 {
 	struct IsdnCardState *csta = cards[cardnr].cs;
 
@@ -911,14 +898,13 @@ closecard(int cardnr)
 	ll_unload(csta);
 }
 
-static int __devinit
-init_card(struct IsdnCardState *cs)
+static int __devinit init_card(struct IsdnCardState *cs)
 {
 	int irq_cnt, cnt = 3;
 	long flags;
 
 	if (!cs->irq)
-		return (cs->cardmsg(cs, CARD_INIT, NULL));
+		return cs->cardmsg(cs, CARD_INIT, NULL);
 	save_flags(flags);
 	cli();
 	irq_cnt = kstat_irqs(cs->irq);
@@ -928,7 +914,7 @@ init_card(struct IsdnCardState *cs)
 		printk(KERN_WARNING "HiSax: couldn't get interrupt %d\n",
 		       cs->irq);
 		restore_flags(flags);
-		return (1);
+		return 1;
 	}
 	while (cnt) {
 		cs->cardmsg(cs, CARD_INIT, NULL);
@@ -1019,20 +1005,21 @@ checkcard(int cardnr, char *id, int *busy_flag, void *load_drv)
 	cs->iif.maxbufsize = MAX_DATA_SIZE;
 	cs->iif.hl_hdrlen = MAX_HEADER_LEN;
 	cs->iif.features =
-	    ISDN_FEATURE_L2_X75I |
-	    ISDN_FEATURE_L2_HDLC |
-	    ISDN_FEATURE_L2_HDLC_56K |
-	    ISDN_FEATURE_L2_TRANS | ISDN_FEATURE_L3_TRANS |
+		ISDN_FEATURE_L2_X75I |
+		ISDN_FEATURE_L2_HDLC |
+		ISDN_FEATURE_L2_HDLC_56K |
+		ISDN_FEATURE_L2_TRANS |
+		ISDN_FEATURE_L3_TRANS |
 #ifdef	CONFIG_HISAX_1TR6
-	    ISDN_FEATURE_P_1TR6 |
+		ISDN_FEATURE_P_1TR6 |
 #endif
 #ifdef	CONFIG_HISAX_EURO
-	    ISDN_FEATURE_P_EURO |
+		ISDN_FEATURE_P_EURO |
 #endif
 #ifdef	CONFIG_HISAX_NI1
-	    ISDN_FEATURE_P_NI1 |
+		ISDN_FEATURE_P_NI1 |
 #endif
-	    0;
+		0;
 
 	cs->iif.command = HiSax_command;
 	cs->iif.writecmd = NULL;
@@ -1260,24 +1247,24 @@ checkcard(int cardnr, char *id, int *busy_flag, void *load_drv)
 		ret = 0;
 		goto outf_cs;
 	}
-	    /* ISAR needs firmware download first */
-	    if (!test_bit(HW_ISAR, &cs->HW_Flags))
+	/* ISAR needs firmware download first */
+	if (!test_bit(HW_ISAR, &cs->HW_Flags))
 		ll_run(cs, 0);
+
 	ret = 1;
 	goto out;
 
-      outf_dlog:
+ outf_dlog:
 	kfree(cs->dlog);
-      outf_cs:
+ outf_cs:
 	kfree(cs);
 	card->cs = NULL;
-      out:
+ out:
 	restore_flags(flags);
 	return ret;
 }
 
-void __devinit
-HiSax_shiftcards(int idx)
+void __devinit HiSax_shiftcards(int idx)
 {
 	int i;
 
@@ -1285,8 +1272,7 @@ HiSax_shiftcards(int idx)
 		memcpy(&cards[i], &cards[i + 1], sizeof(cards[i]));
 }
 
-int __devinit
-HiSax_inithardware(int *busy_flag)
+int __devinit HiSax_inithardware(int *busy_flag)
 {
 	int foundcards = 0;
 	int i = 0;
@@ -1330,8 +1316,7 @@ HiSax_inithardware(int *busy_flag)
 	return foundcards;
 }
 
-void
-HiSax_closecard(int cardnr)
+void HiSax_closecard(int cardnr)
 {
 	int i, last = nrcards - 1;
 
@@ -1356,8 +1341,7 @@ HiSax_closecard(int cardnr)
 	nrcards--;
 }
 
-void
-HiSax_reportcard(int cardnr, int sel)
+void HiSax_reportcard(int cardnr, int sel)
 {
 	struct IsdnCardState *cs = cards[cardnr].cs;
 
@@ -1385,17 +1369,17 @@ HiSax_reportcard(int cardnr, int sel)
 	       cs->bcs[1].err_inv, cs->bcs[1].err_rdo, cs->bcs[1].err_crc,
 	       cs->bcs[1].err_tx);
 	if (sel == 99) {
-		cs->err_rx = 0;
+		cs->err_rx  = 0;
 		cs->err_crc = 0;
-		cs->err_tx = 0;
+		cs->err_tx  = 0;
 		cs->bcs[0].err_inv = 0;
 		cs->bcs[0].err_rdo = 0;
 		cs->bcs[0].err_crc = 0;
-		cs->bcs[0].err_tx = 0;
+		cs->bcs[0].err_tx  = 0;
 		cs->bcs[1].err_inv = 0;
 		cs->bcs[1].err_rdo = 0;
 		cs->bcs[1].err_crc = 0;
-		cs->bcs[1].err_tx = 0;
+		cs->bcs[1].err_tx  = 0;
 	}
 #endif
 #if 0
@@ -1525,8 +1509,6 @@ HiSax_init(void)
 #ifdef MODULE
 	if (!type[0]) {
 		/* We 'll register drivers later, but init basic functions */
-		for (i = 0; i < HISAX_MAX_CARDS; i++)
-			cards[i].typ = 0;
 		return 0;
 	}
 #ifdef CONFIG_HISAX_ELSA
@@ -1689,22 +1671,21 @@ HiSax_init(void)
 
 	return 0;
 
-      out_isdnl1:
+ out_isdnl1:
 	Isdnl1Free();
-      out_tei:
+ out_tei:
 	TeiFree();
-      out_isdnl2:
+ out_isdnl2:
 	Isdnl2Free();
-      out_isdnl3:
+ out_isdnl3:
 	Isdnl3Free();
-      out_callc:
+ out_callc:
 	CallcFree();
-      out:
+ out:
 	return retval;
 }
 
-static void __exit
-HiSax_exit(void)
+static void __exit HiSax_exit(void)
 {
 	int cardnr = nrcards - 1;
 	long flags;
@@ -1723,8 +1704,7 @@ HiSax_exit(void)
 }
 
 #ifdef CONFIG_HISAX_ELSA
-int
-elsa_init_pcmcia(void *pcm_iob, int pcm_irq, int *busy_flag, int prot)
+int elsa_init_pcmcia(void *pcm_iob, int pcm_irq, int *busy_flag, int prot)
 {
 #ifdef MODULE
 	int i;
@@ -1732,7 +1712,7 @@ elsa_init_pcmcia(void *pcm_iob, int pcm_irq, int *busy_flag, int prot)
 	nrcards = 0;
 	/* Initialize all structs, even though we only accept
 	   two pcmcia cards
-	 */
+	*/
 	for (i = 0; i < HISAX_MAX_CARDS; i++) {
 		cards[i].para[0] = irq[i];
 		cards[i].para[1] = io[i];
@@ -1759,13 +1739,12 @@ elsa_init_pcmcia(void *pcm_iob, int pcm_irq, int *busy_flag, int prot)
 	HiSax_inithardware(busy_flag);
 	printk(KERN_NOTICE "HiSax: module installed\n");
 #endif
-	return (0);
+	return 0;
 }
 #endif
 
 #ifdef CONFIG_HISAX_HFC_SX
-int
-hfc_init_pcmcia(void *pcm_iob, int pcm_irq, int *busy_flag, int prot)
+int hfc_init_pcmcia(void *pcm_iob, int pcm_irq, int *busy_flag, int prot)
 {
 #ifdef MODULE
 	int i;
@@ -1774,7 +1753,7 @@ hfc_init_pcmcia(void *pcm_iob, int pcm_irq, int *busy_flag, int prot)
 	nrcards = 0;
 	/* Initialize all structs, even though we only accept
 	   two pcmcia cards
-	 */
+	*/
 	for (i = 0; i < HISAX_MAX_CARDS; i++) {
 		cards[i].para[0] = irq[i];
 		cards[i].para[1] = io[i];
@@ -1803,13 +1782,12 @@ hfc_init_pcmcia(void *pcm_iob, int pcm_irq, int *busy_flag, int prot)
 	HiSax_inithardware(busy_flag);
 	printk(KERN_NOTICE "HiSax: module installed\n");
 #endif
-	return (0);
+	return 0;
 }
 #endif
 
 #ifdef CONFIG_HISAX_SEDLBAUER
-int
-sedl_init_pcmcia(void *pcm_iob, int pcm_irq, int *busy_flag, int prot)
+int sedl_init_pcmcia(void *pcm_iob, int pcm_irq, int *busy_flag, int prot)
 {
 #ifdef MODULE
 	int i;
@@ -1818,7 +1796,7 @@ sedl_init_pcmcia(void *pcm_iob, int pcm_irq, int *busy_flag, int prot)
 	nrcards = 0;
 	/* Initialize all structs, even though we only accept
 	   two pcmcia cards
-	 */
+	*/
 	for (i = 0; i < HISAX_MAX_CARDS; i++) {
 		cards[i].para[0] = irq[i];
 		cards[i].para[1] = io[i];
@@ -1847,13 +1825,12 @@ sedl_init_pcmcia(void *pcm_iob, int pcm_irq, int *busy_flag, int prot)
 	HiSax_inithardware(busy_flag);
 	printk(KERN_NOTICE "HiSax: module installed\n");
 #endif
-	return (0);
+	return 0;
 }
 #endif
 
 #ifdef CONFIG_HISAX_AVM_A1_PCMCIA
-int
-avm_a1_init_pcmcia(void *pcm_iob, int pcm_irq, int *busy_flag, int prot)
+int avm_a1_init_pcmcia(void *pcm_iob, int pcm_irq, int *busy_flag, int prot)
 {
 #ifdef MODULE
 	int i;
@@ -1862,7 +1839,7 @@ avm_a1_init_pcmcia(void *pcm_iob, int pcm_irq, int *busy_flag, int prot)
 	nrcards = 0;
 	/* Initialize all structs, even though we only accept
 	   two pcmcia cards
-	 */
+	*/
 	for (i = 0; i < HISAX_MAX_CARDS; i++) {
 		cards[i].para[0] = irq[i];
 		cards[i].para[1] = io[i];
@@ -1957,99 +1934,64 @@ hisax_init_pcmcia(void *pcm_iob, int *busy_flag, struct IsdnCard *card)
 
 static struct pci_device_id hisax_pci_tbl[] __initdata = {
 #ifdef CONFIG_HISAX_FRITZPCI
-	{PCI_VENDOR_ID_AVM, PCI_DEVICE_ID_AVM_A1, PCI_ANY_ID, PCI_ANY_ID},
+	{PCI_VENDOR_ID_AVM,      PCI_DEVICE_ID_AVM_A1,          PCI_ANY_ID, PCI_ANY_ID},
 #endif
 #ifdef CONFIG_HISAX_DIEHLDIVA
-	{PCI_VENDOR_ID_EICON, PCI_DEVICE_ID_EICON_DIVA20, PCI_ANY_ID,
-	 PCI_ANY_ID},
-	{PCI_VENDOR_ID_EICON, PCI_DEVICE_ID_EICON_DIVA20_U, PCI_ANY_ID,
-	 PCI_ANY_ID},
-	{PCI_VENDOR_ID_EICON, PCI_DEVICE_ID_EICON_DIVA201, PCI_ANY_ID,
-	 PCI_ANY_ID},
+	{PCI_VENDOR_ID_EICON,    PCI_DEVICE_ID_EICON_DIVA20,     PCI_ANY_ID, PCI_ANY_ID},
+	{PCI_VENDOR_ID_EICON,    PCI_DEVICE_ID_EICON_DIVA20_U,   PCI_ANY_ID, PCI_ANY_ID},
+	{PCI_VENDOR_ID_EICON,    PCI_DEVICE_ID_EICON_DIVA201,    PCI_ANY_ID, PCI_ANY_ID},
 #endif
 #ifdef CONFIG_HISAX_ELSA
-	{PCI_VENDOR_ID_ELSA, PCI_DEVICE_ID_ELSA_MICROLINK, PCI_ANY_ID,
-	 PCI_ANY_ID},
-	{PCI_VENDOR_ID_ELSA, PCI_DEVICE_ID_ELSA_QS3000, PCI_ANY_ID,
-	 PCI_ANY_ID},
+	{PCI_VENDOR_ID_ELSA,     PCI_DEVICE_ID_ELSA_MICROLINK,   PCI_ANY_ID, PCI_ANY_ID},
+	{PCI_VENDOR_ID_ELSA,     PCI_DEVICE_ID_ELSA_QS3000,      PCI_ANY_ID, PCI_ANY_ID},
 #endif
 #ifdef CONFIG_HISAX_GAZEL
-	{PCI_VENDOR_ID_PLX, PCI_DEVICE_ID_PLX_R685, PCI_ANY_ID,
-	 PCI_ANY_ID},
-	{PCI_VENDOR_ID_PLX, PCI_DEVICE_ID_PLX_R753, PCI_ANY_ID,
-	 PCI_ANY_ID},
-	{PCI_VENDOR_ID_PLX, PCI_DEVICE_ID_PLX_DJINN_ITOO, PCI_ANY_ID,
-	 PCI_ANY_ID},
+	{PCI_VENDOR_ID_PLX,      PCI_DEVICE_ID_PLX_R685,         PCI_ANY_ID, PCI_ANY_ID},
+	{PCI_VENDOR_ID_PLX,      PCI_DEVICE_ID_PLX_R753,         PCI_ANY_ID, PCI_ANY_ID},
+	{PCI_VENDOR_ID_PLX,      PCI_DEVICE_ID_PLX_DJINN_ITOO,   PCI_ANY_ID, PCI_ANY_ID},
 #endif
 #ifdef CONFIG_HISAX_QUADRO
-	{PCI_VENDOR_ID_PLX, PCI_DEVICE_ID_PLX_9050, PCI_ANY_ID,
-	 PCI_ANY_ID},
+	{PCI_VENDOR_ID_PLX,      PCI_DEVICE_ID_PLX_9050,         PCI_ANY_ID, PCI_ANY_ID},
 #endif
 #ifdef CONFIG_HISAX_NICCY
-	{PCI_VENDOR_ID_SATSAGEM, PCI_DEVICE_ID_SATSAGEM_NICCY, PCI_ANY_ID,
-	 PCI_ANY_ID},
+	{PCI_VENDOR_ID_SATSAGEM, PCI_DEVICE_ID_SATSAGEM_NICCY,   PCI_ANY_ID,PCI_ANY_ID},
 #endif
 #ifdef CONFIG_HISAX_SEDLBAUER
-	{PCI_VENDOR_ID_TIGERJET, PCI_DEVICE_ID_TIGERJET_100, PCI_ANY_ID,
-	 PCI_ANY_ID},
+	{PCI_VENDOR_ID_TIGERJET, PCI_DEVICE_ID_TIGERJET_100,     PCI_ANY_ID,PCI_ANY_ID},
 #endif
 #if defined(CONFIG_HISAX_NETJET) || defined(CONFIG_HISAX_NETJET_U)
-	{PCI_VENDOR_ID_TIGERJET, PCI_DEVICE_ID_TIGERJET_300, PCI_ANY_ID,
-	 PCI_ANY_ID},
+	{PCI_VENDOR_ID_TIGERJET, PCI_DEVICE_ID_TIGERJET_300,     PCI_ANY_ID,PCI_ANY_ID},
 #endif
 #if defined(CONFIG_HISAX_TELESPCI) || defined(CONFIG_HISAX_SCT_QUADRO)
-	{PCI_VENDOR_ID_ZORAN, PCI_DEVICE_ID_ZORAN_36120, PCI_ANY_ID,
-	 PCI_ANY_ID},
+	{PCI_VENDOR_ID_ZORAN,    PCI_DEVICE_ID_ZORAN_36120,      PCI_ANY_ID,PCI_ANY_ID},
 #endif
 #ifdef CONFIG_HISAX_W6692
-	{PCI_VENDOR_ID_DYNALINK, PCI_DEVICE_ID_DYNALINK_IS64PH, PCI_ANY_ID,
-	 PCI_ANY_ID},
-	{PCI_VENDOR_ID_WINBOND2, PCI_DEVICE_ID_WINBOND2_6692, PCI_ANY_ID,
-	 PCI_ANY_ID},
+	{PCI_VENDOR_ID_DYNALINK, PCI_DEVICE_ID_DYNALINK_IS64PH,  PCI_ANY_ID,PCI_ANY_ID},
+	{PCI_VENDOR_ID_WINBOND2, PCI_DEVICE_ID_WINBOND2_6692,    PCI_ANY_ID,PCI_ANY_ID},
 #endif
 #ifdef CONFIG_HISAX_HFC_PCI
-	{PCI_VENDOR_ID_CCD, PCI_DEVICE_ID_CCD_2BD0, PCI_ANY_ID,
-	 PCI_ANY_ID},
-	{PCI_VENDOR_ID_CCD, PCI_DEVICE_ID_CCD_B000, PCI_ANY_ID,
-	 PCI_ANY_ID},
-	{PCI_VENDOR_ID_CCD, PCI_DEVICE_ID_CCD_B006, PCI_ANY_ID,
-	 PCI_ANY_ID},
-	{PCI_VENDOR_ID_CCD, PCI_DEVICE_ID_CCD_B007, PCI_ANY_ID,
-	 PCI_ANY_ID},
-	{PCI_VENDOR_ID_CCD, PCI_DEVICE_ID_CCD_B008, PCI_ANY_ID,
-	 PCI_ANY_ID},
-	{PCI_VENDOR_ID_CCD, PCI_DEVICE_ID_CCD_B009, PCI_ANY_ID,
-	 PCI_ANY_ID},
-	{PCI_VENDOR_ID_CCD, PCI_DEVICE_ID_CCD_B00A, PCI_ANY_ID,
-	 PCI_ANY_ID},
-	{PCI_VENDOR_ID_CCD, PCI_DEVICE_ID_CCD_B00B, PCI_ANY_ID,
-	 PCI_ANY_ID},
-	{PCI_VENDOR_ID_CCD, PCI_DEVICE_ID_CCD_B00C, PCI_ANY_ID,
-	 PCI_ANY_ID},
-	{PCI_VENDOR_ID_CCD, PCI_DEVICE_ID_CCD_B100, PCI_ANY_ID,
-	 PCI_ANY_ID},
-	{PCI_VENDOR_ID_ABOCOM, PCI_DEVICE_ID_ABOCOM_2BD1, PCI_ANY_ID,
-	 PCI_ANY_ID},
-	{PCI_VENDOR_ID_ASUSTEK, PCI_DEVICE_ID_ASUSTEK_0675, PCI_ANY_ID,
-	 PCI_ANY_ID},
-	{PCI_VENDOR_ID_BERKOM, PCI_DEVICE_ID_BERKOM_T_CONCEPT, PCI_ANY_ID,
-	 PCI_ANY_ID},
-	{PCI_VENDOR_ID_BERKOM, PCI_DEVICE_ID_BERKOM_A1T, PCI_ANY_ID,
-	 PCI_ANY_ID},
-	{PCI_VENDOR_ID_ANIGMA, PCI_DEVICE_ID_ANIGMA_MC145575, PCI_ANY_ID,
-	 PCI_ANY_ID},
-	{PCI_VENDOR_ID_ZOLTRIX, PCI_DEVICE_ID_ZOLTRIX_2BD0, PCI_ANY_ID,
-	 PCI_ANY_ID},
-	{PCI_VENDOR_ID_DIGI, PCI_DEVICE_ID_DIGI_DF_M_IOM2_E, PCI_ANY_ID,
-	 PCI_ANY_ID},
-	{PCI_VENDOR_ID_DIGI, PCI_DEVICE_ID_DIGI_DF_M_E, PCI_ANY_ID,
-	 PCI_ANY_ID},
-	{PCI_VENDOR_ID_DIGI, PCI_DEVICE_ID_DIGI_DF_M_IOM2_A, PCI_ANY_ID,
-	 PCI_ANY_ID},
-	{PCI_VENDOR_ID_DIGI, PCI_DEVICE_ID_DIGI_DF_M_A, PCI_ANY_ID,
-	 PCI_ANY_ID},
+	{PCI_VENDOR_ID_CCD,      PCI_DEVICE_ID_CCD_2BD0,         PCI_ANY_ID, PCI_ANY_ID},
+	{PCI_VENDOR_ID_CCD,      PCI_DEVICE_ID_CCD_B000,         PCI_ANY_ID, PCI_ANY_ID},
+	{PCI_VENDOR_ID_CCD,      PCI_DEVICE_ID_CCD_B006,         PCI_ANY_ID, PCI_ANY_ID},
+	{PCI_VENDOR_ID_CCD,      PCI_DEVICE_ID_CCD_B007,         PCI_ANY_ID, PCI_ANY_ID},
+	{PCI_VENDOR_ID_CCD,      PCI_DEVICE_ID_CCD_B008,         PCI_ANY_ID, PCI_ANY_ID},
+	{PCI_VENDOR_ID_CCD,      PCI_DEVICE_ID_CCD_B009,         PCI_ANY_ID, PCI_ANY_ID},
+	{PCI_VENDOR_ID_CCD,      PCI_DEVICE_ID_CCD_B00A,         PCI_ANY_ID, PCI_ANY_ID},
+	{PCI_VENDOR_ID_CCD,      PCI_DEVICE_ID_CCD_B00B,         PCI_ANY_ID, PCI_ANY_ID},
+	{PCI_VENDOR_ID_CCD,      PCI_DEVICE_ID_CCD_B00C,         PCI_ANY_ID, PCI_ANY_ID},
+	{PCI_VENDOR_ID_CCD,      PCI_DEVICE_ID_CCD_B100,         PCI_ANY_ID, PCI_ANY_ID},
+	{PCI_VENDOR_ID_ABOCOM,   PCI_DEVICE_ID_ABOCOM_2BD1,      PCI_ANY_ID, PCI_ANY_ID},
+	{PCI_VENDOR_ID_ASUSTEK,  PCI_DEVICE_ID_ASUSTEK_0675,     PCI_ANY_ID, PCI_ANY_ID},
+	{PCI_VENDOR_ID_BERKOM,   PCI_DEVICE_ID_BERKOM_T_CONCEPT, PCI_ANY_ID, PCI_ANY_ID},
+	{PCI_VENDOR_ID_BERKOM,   PCI_DEVICE_ID_BERKOM_A1T,       PCI_ANY_ID, PCI_ANY_ID},
+	{PCI_VENDOR_ID_ANIGMA,   PCI_DEVICE_ID_ANIGMA_MC145575,  PCI_ANY_ID, PCI_ANY_ID},
+	{PCI_VENDOR_ID_ZOLTRIX,  PCI_DEVICE_ID_ZOLTRIX_2BD0,     PCI_ANY_ID, PCI_ANY_ID},
+	{PCI_VENDOR_ID_DIGI,     PCI_DEVICE_ID_DIGI_DF_M_IOM2_E, PCI_ANY_ID, PCI_ANY_ID},
+	{PCI_VENDOR_ID_DIGI,     PCI_DEVICE_ID_DIGI_DF_M_E,      PCI_ANY_ID, PCI_ANY_ID},
+	{PCI_VENDOR_ID_DIGI,     PCI_DEVICE_ID_DIGI_DF_M_IOM2_A, PCI_ANY_ID, PCI_ANY_ID},
+	{PCI_VENDOR_ID_DIGI,     PCI_DEVICE_ID_DIGI_DF_M_A,      PCI_ANY_ID, PCI_ANY_ID},
 #endif
-	{}			/* Terminating entry */
+	{ }				/* Terminating entry */
 };
 
 MODULE_DEVICE_TABLE(pci, hisax_pci_tbl);

@@ -805,7 +805,7 @@ icn_loadboot(u_char * buffer, icn_card * card)
 {
 	int ret;
 	u_char *codebuf;
-	unsigned long flags; // FIXME?
+	unsigned long flags;
 
 #ifdef BOOT_DEBUG
 	printk(KERN_DEBUG "icn_loadboot called, buffaddr=%08lx\n", (ulong) buffer);
