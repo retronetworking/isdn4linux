@@ -1,11 +1,19 @@
 /* $Id$
  *
- * Author       Karsten Keil (keil@isdn4linux.de)
- *              based on the teles driver from Jan den Ouden
+ * Author       Karsten Keil
+ * Copyright    by Karsten Keil      <keil@isdn4linux.de>
+ *              by Kai Germaschewski <kai.germaschewski@gmx.de>
+ * 
+ * This software may be used and distributed according to the terms
+ * of the GNU General Public License, incorporated herein by reference.
  *
- * This file is (c) under GNU General Public License
+ * For changes and modifications please read
+ * ../../../Documentation/isdn/HiSax.cert
+ *
+ * based on the teles driver from Jan den Ouden
  *
  */
+
 #include <linux/types.h>
 #include <linux/stddef.h>
 #include <linux/timer.h>

@@ -1,14 +1,16 @@
-// $Id$
-//-----------------------------------------------------------------------------
-//
-// NETjet common header file
-//
-// Author       Kerstern Keil repackaged by
-//              Matt Henderson - Traverse Technologies P/L www.traverse.com.au
-//
-// This file is (c) under GNU General Public License
-//
-//-----------------------------------------------------------------------------
+/* $Id$
+ *
+ * NETjet common header file
+ *
+ * Author       Karsten Keil
+ * Copyright    by Karsten Keil      <keil@isdn4linux.de>
+ *              by Matt Henderson,
+ *                 Traverse Technologies P/L www.traverse.com.au
+ * 
+ * This software may be used and distributed according to the terms
+ * of the GNU General Public License, incorporated herein by reference.
+ *
+ */
 
 extern const char *CardType[];
 

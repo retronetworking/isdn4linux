@@ -1,9 +1,11 @@
-/*
- * $Id$
+/* $Id$
  *
  * ISDN4Linux Driver, using capi20 interface (kernelcapi)
  *
- * Copyright 1997 by Carsten Paeth (calle@calle.in-berlin.de)
+ * Copyright 1997 by Carsten Paeth <calle@calle.de>
+ *
+ * This software may be used and distributed according to the terms
+ * of the GNU General Public License, incorporated herein by reference.
  *
  */
 
@@ -36,7 +38,9 @@
 static char *revision = "$Revision$";
 static int debugmode = 0;
 
-MODULE_AUTHOR("Carsten Paeth <calle@calle.in-berlin.de>");
+MODULE_DESCRIPTION("CAPI4Linux: Interface to ISDN4Linux");
+MODULE_AUTHOR("Carsten Paeth");
+MODULE_LICENSE("GPL");
 MODULE_PARM(debugmode, "i");
 
 /* -------- type definitions ----------------------------------------- */

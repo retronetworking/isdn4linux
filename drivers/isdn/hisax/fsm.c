@@ -1,15 +1,21 @@
 /* $Id$
  *
- * Author       Karsten Keil (keil@isdn4linux.de)
- *              based on the teles driver from Jan den Ouden
+ * Finite state machine
+ *
+ * Author       Karsten Keil
+ * Copyright    by Karsten Keil      <keil@isdn4linux.de>
+ *              by Kai Germaschewski <kai.germaschewski@gmx.de>
+ * 
+ * This software may be used and distributed according to the terms
+ * of the GNU General Public License, incorporated herein by reference.
  *
  * Thanks to    Jan den Ouden
  *              Fritz Elfert
  *
- * This file is (c) under GNU General Public License
- *
  */
+
 #define __NO_VERSION__
+#include <linux/module.h>
 #include <linux/init.h>
 #include "hisax.h"
 

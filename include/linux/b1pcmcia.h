@@ -1,10 +1,12 @@
-/*
- * $Id$
+/* $Id$
  *
  * Exported functions of module b1pcmcia to be called by
  * avm_cs card services module.
  *
  * Copyright 1999 by Carsten Paeth (calle@calle.in-berlin.de)
+ *
+ * This software may be used and distributed according to the terms
+ * of the GNU General Public License, incorporated herein by reference.
  *
  */
 

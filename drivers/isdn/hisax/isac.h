@@ -1,13 +1,14 @@
 /* $Id$
  *
- * isac.h   ISAC specific defines
+ * ISAC specific defines
  *
- * Author       Karsten Keil (keil@isdn4linux.de)
- *
- * This file is (c) under GNU General Public License
+ * Author       Karsten Keil
+ * Copyright    by Karsten Keil      <keil@isdn4linux.de>
+ * 
+ * This software may be used and distributed according to the terms
+ * of the GNU General Public License, incorporated herein by reference.
  *
  */
-
 
 /* All Registers original Siemens Spec  */
 

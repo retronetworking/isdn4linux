@@ -1,15 +1,16 @@
 /* $Id$
  *
- * saphir.c low level stuff for HST Saphir 1
+ * low level stuff for HST Saphir 1
  *
- * Author     Karsten Keil (keil@isdn4linux.de)
+ * Author       Karsten Keil
+ * Copyright    by Karsten Keil      <keil@isdn4linux.de>
+ * 
+ * This software may be used and distributed according to the terms
+ * of the GNU General Public License, incorporated herein by reference.
  *
  * Thanks to    HST High Soft Tech GmbH
  *
- * This file is (c) under GNU General Public License
- *
  */
-
 
 #define __NO_VERSION__
 #include <linux/init.h>

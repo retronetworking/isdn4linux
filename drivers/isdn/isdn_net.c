@@ -1,35 +1,20 @@
 /* $Id$
-
+ *
  * Linux ISDN subsystem, network interfaces and related functions (linklevel).
  *
  * Copyright 1994-1998  by Fritz Elfert (fritz@isdn4linux.de)
  * Copyright 1995,96    by Thinking Objects Software GmbH Wuerzburg
  * Copyright 1995,96    by Michael Hipp (Michael.Hipp@student.uni-tuebingen.de)
  *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2, or (at your option)
- * any later version.
+ * This software may be used and distributed according to the terms
+ * of the GNU General Public License, incorporated herein by reference.
  *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
- *
- */
-
-/* Jan 2001: fix CISCO HDLC      Bjoern A. Zeeb <i4l@zabbadoz.net>
+ * Jan 2001: fix CISCO HDLC      Bjoern A. Zeeb <i4l@zabbadoz.net>
  *           for info on the protocol, see 
  *           http://i4l.zabbadoz.net/i4l/cisco-hdlc.txt
  */
 
 #include <linux/config.h>
-#define __NO_VERSION__
-#include <linux/module.h>
 #include <linux/isdn.h>
 #include <net/arp.h>
 #include <net/dst.h>
@@ -751,7 +736,7 @@ isdn_net_dial(void)
 	isdn_net_dev *p = dev->netdev;
 	int anymore = 0;
 	int i;
-	int flags;
+	unsigned long flags;
 	isdn_ctrl cmd;
 
 	while (p) {
@@ -2496,13 +2481,16 @@ isdn_net_ciscohdlck_slarp_in(isdn_net_local *lp, struct sk_buff *skb)
 		break;
 	case CISCO_SLARP_REPLY:
 		/* Ignore replies - at least for now */
-		if (lp->cisco_debserint) {
-			p += get_u32(p, &addr);
-			p += get_u32(p, &mask);
-			p += get_u16(p, &unused);
-			printk(KERN_DEBUG "%s: got slarp reply (%ul/%ul) - "
-				"ignored\n", lp->name, addr, mask);
-		}
+		addr = p[0] + (p[1] << 8) + (p[2] << 16) + (p[3] << 24);
+		p += 4;
+		mask = p[0] + (p[1] << 8) + (p[2] << 16) + (p[3] << 24);
+		p += 4;
+		p += get_u16(p, &unused);
+		printk(KERN_DEBUG "%s: got slarp reply "
+			"(%d.%d.%d.%d/%d.%d.%d.%d) - ignored\n",
+			lp->name,
+			NIPQUAD(addr),
+			NIPQUAD(mask));
 		break;
 	case CISCO_SLARP_KEEPALIVE:
 		period = (int)((jiffies - lp->cisco_last_slarp_in
@@ -2555,17 +2543,10 @@ isdn_net_ciscohdlck_receive(isdn_net_local *lp, struct sk_buff *skb)
 	switch (type) {
 	case CISCO_TYPE_INET:
 		skb->protocol = htons(ETH_P_IP);
-#ifdef CONFIG_ISDN_WITH_ABC_CONN_ERROR
-		if(isdn_dwabc_conerr_ippktok(skb))
-			lp->dw_abc_bchan_errcnt = 0;
-#endif
 		netif_rx(skb);
 		break;
 	case CISCO_TYPE_SLARP:
 		isdn_net_ciscohdlck_slarp_in(lp, skb);
-#ifdef CONFIG_ISDN_WITH_ABC_CONN_ERROR
-		lp->dw_abc_bchan_errcnt = 0;
-#endif
 		goto out_free;
 	case CISCO_TYPE_CDP:
 		if (lp->cisco_debserint)
@@ -3859,7 +3840,7 @@ isdn_net_setcfg(isdn_net_ioctl_cfg * cfg)
 			chidx = lp->pre_channel;
 		}
 		if (cfg->exclusive > 0) {
-			int flags;
+			unsigned long flags;
 
 			/* If binding is exclusive, try to grab the channel */
 			save_flags(flags);
@@ -4124,7 +4105,7 @@ isdn_net_delphone(isdn_net_ioctl_phone * phone)
 	int inout = phone->outgoing & 1;
 	isdn_net_phone *n;
 	isdn_net_phone *m;
-	int flags;
+	unsigned long flags;
 
 	if (p) {
 		save_flags(flags);
@@ -4163,7 +4144,7 @@ isdn_net_rmallphone(isdn_net_dev * p)
 {
 	isdn_net_phone *n;
 	isdn_net_phone *m;
-	int flags;
+	unsigned long flags;
 	int i;
 
 	save_flags(flags);
@@ -4215,7 +4196,7 @@ isdn_net_force_hangup(char *name)
 static int
 isdn_net_realrm(isdn_net_dev * p, isdn_net_dev * q)
 {
-	int flags;
+	unsigned long flags;
 
 	save_flags(flags);
 	cli();
@@ -4306,7 +4287,7 @@ isdn_net_rm(char *name)
 int
 isdn_net_rmall(void)
 {
-	int flags;
+	unsigned long flags;
 	int ret;
 
 	/* Walk through netdev-chain */

@@ -1,12 +1,15 @@
-/*
- * $Id$
+/* $Id$
  *
  * CAPI 2.0 convert capi message to capi message struct
  *
  * From CAPI 2.0 Development Kit AVM 1995 (msg.c)
- * Rewritten for Linux 1996 by Carsten Paeth (calle@calle.in-berlin.de)
+ * Rewritten for Linux 1996 by Carsten Paeth <calle@calle.de>
+ *
+ * This software may be used and distributed according to the terms
+ * of the GNU General Public License, incorporated herein by reference.
  *
  */
+
 #include <linux/module.h>
 #include <linux/string.h>
 #include <linux/ctype.h>
@@ -18,6 +21,10 @@
 #include <linux/config.h>
 #include <linux/isdn_compat.h>
 #include "capiutil.h"
+
+MODULE_DESCRIPTION("CAPI4Linux: CAPI message conversion support");
+MODULE_AUTHOR("Carsten Paeth");
+MODULE_LICENSE("GPL");
 
 /* from CAPI2.0 DDK AVM Berlin GmbH */
 

@@ -1,12 +1,15 @@
 /* $Id$
  *
- * sportster.c     low level stuff for USR Sportster internal TA
+ * low level stuff for USR Sportster internal TA
  *
- * Author       Karsten Keil (keil@isdn4linux.de)
+ * Author       Karsten Keil
+ * Copyright    by Karsten Keil      <keil@isdn4linux.de>
+ * 
+ * This software may be used and distributed according to the terms
+ * of the GNU General Public License, incorporated herein by reference.
  *
  * Thanks to Christian "naddy" Weisgerber (3Com, US Robotics) for documentation
  *
- * This file is (c) under GNU General Public License
  *
  */
 #define __NO_VERSION__

@@ -1,12 +1,12 @@
 /* $Id$
  *
- * mic.c  low level stuff for mic cards
+ * low level stuff for mic cards
  *
- * Copyright (C) 1997 
- *
- * Author  Stephan von Krawczynski <skraw@ithnet.com>
- *
- * This file is (c) under GNU General Public License
+ * Author       Stephan von Krawczynski
+ * Copyright    by Stephan von Krawczynski <skraw@ithnet.com>
+ * 
+ * This software may be used and distributed according to the terms
+ * of the GNU General Public License, incorporated herein by reference.
  *
  */
 

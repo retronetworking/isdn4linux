@@ -1,11 +1,14 @@
-/*
- * $Id$
+/* $Id$
  * 
  * CAPI 2.0 Interface for Linux
  * 
- * Copyright 1997 by Carsten Paeth (calle@calle.in-berlin.de)
+ * Copyright 1997 by Carsten Paeth <calle@calle.de>
  * 
+ * This software may be used and distributed according to the terms
+ * of the GNU General Public License, incorporated herein by reference.
+ *
  */
+
 #ifndef __CAPICMD_H__
 #define __CAPICMD_H__
 

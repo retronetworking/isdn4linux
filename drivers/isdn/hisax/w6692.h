@@ -1,10 +1,12 @@
 /* $Id$
  *
- * w6692.h   Winbond W6692 specific defines
+ * Winbond W6692 specific defines
  *
- * Author       Petr Novak <petr.novak@i.cz>
- *
- * This file is (c) under GNU General Public License
+ * Author       Petr Novak
+ * Copyright    by Petr Novak        <petr.novak@i.cz>
+ * 
+ * This software may be used and distributed according to the terms
+ * of the GNU General Public License, incorporated herein by reference.
  *
  */
 

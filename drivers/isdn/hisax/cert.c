@@ -1,10 +1,13 @@
 /* $Id$
  *
- * Author       Karsten Keil (keil@isdn4linux.de)
+ * Author       Karsten Keil
+ * Copyright    by Karsten Keil      <keil@isdn4linux.de>
+ * 
+ * This software may be used and distributed according to the terms
+ * of the GNU General Public License, incorporated herein by reference.
  *
- *		This file is (c) under GNU General Public License
- *		For changes and modifications please read
- *		../../../Documentation/isdn/HiSax.cert
+ * For changes and modifications please read
+ * ../../../Documentation/isdn/HiSax.cert
  *
  */
  
@@ -21,7 +24,6 @@ certification_check(int output) {
 		printk(KERN_INFO "HiSax: Approved with Eicon Technology Diva 2.01 PCI cards\n");
 		printk(KERN_INFO "HiSax: Approved with Sedlbauer Speedfax + cards\n");
 		printk(KERN_INFO "HiSax: Approved with HFC-S PCI A based cards\n");
-		printk(KERN_INFO "HiSax: Approved with HFC-S USB based USB TAs\n");
 	}
 	return(0);
 #endif

@@ -1,14 +1,18 @@
 /* $Id$
  *
- * avm_a1p.c    low level stuff for the following AVM cards:
- *              A1 PCMCIA
- *		FRITZ!Card PCMCIA
- *		FRITZ!Card PCMCIA 2.0
+ * low level stuff for the following AVM cards:
+ * A1 PCMCIA
+ * FRITZ!Card PCMCIA
+ * FRITZ!Card PCMCIA 2.0
  *
- * Author       Carsten Paeth (calle@calle.in-berlin.de)
+ * Author       Carsten Paeth
+ * Copyright    by Carsten Paeth     <calle@calle.de>
  *
- *  This file is (c) under GNU General Public License
+ * This software may be used and distributed according to the terms
+ * of the GNU General Public License, incorporated herein by reference.
+ *
  */
+
 #define __NO_VERSION__
 #include <linux/init.h>
 #include "hisax.h"

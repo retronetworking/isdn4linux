@@ -1,10 +1,12 @@
-/*
- * $Id$
+/* $Id$
  * 
  * Module for AVM T1 PCI-card.
  * 
- * (c) Copyright 1999 by Carsten Paeth (calle@calle.in-berlin.de)
+ * Copyright 1999 by Carsten Paeth <calle@calle.de>
  * 
+ * This software may be used and distributed according to the terms
+ * of the GNU General Public License, incorporated herein by reference.
+ *
  */
 
 #include <linux/config.h>
@@ -40,7 +42,9 @@ static struct pci_device_id t1pci_pci_tbl[] __initdata = {
 
 MODULE_DEVICE_TABLE(pci, t1pci_pci_tbl);
 #endif
-MODULE_AUTHOR("Carsten Paeth <calle@calle.in-berlin.de>");
+MODULE_DESCRIPTION("CAPI4Linux: Driver for AVM T1 PCI card");
+MODULE_AUTHOR("Carsten Paeth");
+MODULE_LICENSE("GPL");
 
 /* ------------------------------------------------------------- */
 

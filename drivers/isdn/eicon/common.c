@@ -1,26 +1,12 @@
-
 /*
- *
  * Copyright (C) Eicon Technology Corporation, 2000.
  *
  * Eicon File Revision :    1.15  
  *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2, or (at your option)
- * any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY OF ANY KIND WHATSOEVER INCLUDING ANY 
- * implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  
- * See the GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
+ * This software may be used and distributed according to the terms
+ * of the GNU General Public License, incorporated herein by reference.
  *
  */
-
 
 #include "eicon.h"
 #include "sys.h"
@@ -86,7 +72,7 @@ void    DIVA_DIDD_Read( DESCRIPTOR *table, int tablelength )
         }
 
         if (tablelength > 0)
-          bcopy((void *)DIDD_Table, (void *)table, tablelength);
+          memcpy((void *)table, (void *)DIDD_Table, tablelength);
 
 	return;
 }
@@ -96,7 +82,7 @@ void 	DIVA_DIDD_Write(DESCRIPTOR *table, int tablelength)
         if (tablelength > sizeof(DIDD_Table))
           tablelength = sizeof(DIDD_Table);
 
-	bcopy((void *)table, (void *)DIDD_Table, tablelength);
+	memcpy((void *)DIDD_Table, (void *)table, tablelength);
 
 	return;
 }

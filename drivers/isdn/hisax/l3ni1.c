@@ -1,24 +1,23 @@
-// $Id$
-//
-//-----------------------------------------------------------------------------
-//
-// NI1 D-channel protocol
-//
-// Authors:
-// Matt Henderson & Guy Ellis - Traverse Tecnologies Pty Ltd
-// www.traverse.com.au
-//
-// 2000.6.6 Initial implementation of routines for US NI1 
-// Layer 3 protocol based on the EURO/DSS1 D-channel protocol 
-// driver written by Karsten Keil et al.  
-// NI-1 Hall of Fame - Thanks to.... 
-// Ragnar Paulson - for some handy code fragments
-// Will Scales - beta tester extraordinaire
-// Brett Whittacre - beta tester and remote devel system in Vegas
-//
-// This file is (c) under GNU General Public License
-//
-//-----------------------------------------------------------------------------
+/* $Id$
+ *
+ * NI1 D-channel protocol
+ *
+ * Author       Matt Henderson & Guy Ellis
+ * Copyright    by Traverse Technologies Pty Ltd, www.travers.com.au
+ * 
+ * This software may be used and distributed according to the terms
+ * of the GNU General Public License, incorporated herein by reference.
+ *
+ * 2000.6.6 Initial implementation of routines for US NI1 
+ * Layer 3 protocol based on the EURO/DSS1 D-channel protocol 
+ * driver written by Karsten Keil et al.  
+ * NI-1 Hall of Fame - Thanks to.... 
+ * Ragnar Paulson - for some handy code fragments
+ * Will Scales - beta tester extraordinaire
+ * Brett Whittacre - beta tester and remote devel system in Vegas
+ *
+ */
+
 #define __NO_VERSION__
 #include "hisax.h"
 #include "isdnl3.h"
@@ -48,7 +47,8 @@ const char *ni1_revision = "$Revision$";
 static unsigned char new_invoke_id(struct PStack *p)
 {
 	unsigned char retval;
-	int flags,i;
+	unsigned long flags;
+	int i;
   
 	i = 32; /* maximum search depth */
 
@@ -76,7 +76,7 @@ static unsigned char new_invoke_id(struct PStack *p)
 /* free a used invoke id */
 /*************************/
 static void free_invoke_id(struct PStack *p, unsigned char id)
-{ int flags;
+{ unsigned long flags;
 
   if (!id) return; /* 0 = invalid value */
 

@@ -1,30 +1,17 @@
 /* $Id$
-
+ *
  * Linux ISDN subsystem, tty functions and AT-command emulator (linklevel).
  *
  * Copyright 1994-1999  by Fritz Elfert (fritz@isdn4linux.de)
  * Copyright 1995,96    by Thinking Objects Software GmbH Wuerzburg
  *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2, or (at your option)
- * any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
+ * This software may be used and distributed according to the terms
+ * of the GNU General Public License, incorporated herein by reference.
  *
  */
 #undef ISDN_TTY_STAT_DEBUG
 
-#define __NO_VERSION__
 #include <linux/config.h>
-#include <linux/module.h>
 #include <linux/isdn.h>
 #include "isdn_common.h"
 #include "isdn_tty.h"

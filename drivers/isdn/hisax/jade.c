@@ -1,10 +1,12 @@
 /* $Id$
  *
- * jade.c   JADE stuff (derived from original hscx.c)
+ * JADE stuff (derived from original hscx.c)
  *
- * Author   Roland Klabunde (R.Klabunde@Berkom.de)
- *
- * This file is (c) under GNU General Public License
+ * Author       Roland Klabunde
+ * Copyright    by Roland Klabunde   <R.Klabunde@Berkom.de>
+ * 
+ * This software may be used and distributed according to the terms
+ * of the GNU General Public License, incorporated herein by reference.
  *
  */
 

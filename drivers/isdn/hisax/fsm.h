@@ -1,3 +1,16 @@
+/* $Id$
+ *
+ * Finite state machine
+ *
+ * Author       Karsten Keil
+ * Copyright    by Karsten Keil      <keil@isdn4linux.de>
+ *              by Kai Germaschewski <kai.germaschewski@gmx.de>
+ * 
+ * This software may be used and distributed according to the terms
+ * of the GNU General Public License, incorporated herein by reference.
+ *
+ */
+
 #ifndef __FSM_H__
 #define __FSM_H__
 

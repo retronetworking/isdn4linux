@@ -1,11 +1,14 @@
-/*
- * $Id$
+/* $Id$
  * 
  * Kernel CAPI 2.0 Module
  * 
- * (c) Copyright 1999 by Carsten Paeth (calle@calle.in-berlin.de)
+ * Copyright 1999 by Carsten Paeth <calle@calle.de>
  * 
+ * This software may be used and distributed according to the terms
+ * of the GNU General Public License, incorporated herein by reference.
+ *
  */
+
 #define CONFIG_AVMB1_COMPAT
 
 #include <linux/config.h>
@@ -42,10 +45,12 @@ static char *revision = "$Revision$";
 
 /* ------------------------------------------------------------- */
 
-int showcapimsgs = 0;
+static int showcapimsgs = 0;
 
-MODULE_AUTHOR("Carsten Paeth <calle@calle.in-berlin.de>");
-MODULE_PARM(showcapimsgs, "0-4i");
+MODULE_DESCRIPTION("CAPI4Linux: kernel CAPI layer");
+MODULE_AUTHOR("Carsten Paeth");
+MODULE_LICENSE("GPL");
+MODULE_PARM(showcapimsgs, "i");
 
 /* ------------------------------------------------------------- */
 

@@ -1,13 +1,17 @@
 /* $Id$
  *
- * avm_pci.c    low level stuff for AVM Fritz!PCI and ISA PnP isdn cards
- *              Thanks to AVM, Berlin for informations
+ * low level stuff for AVM Fritz!PCI and ISA PnP isdn cards
  *
- * Author       Karsten Keil (keil@isdn4linux.de)
+ * Author       Karsten Keil
+ * Copyright    by Karsten Keil      <keil@isdn4linux.de>
  *
- * This file is (c) under GNU General Public License
+ * This software may be used and distributed according to the terms
+ * of the GNU General Public License, incorporated herein by reference.
+ *
+ * Thanks to AVM, Berlin for information
  *
  */
+
 #define __NO_VERSION__
 #include <linux/config.h>
 #include <linux/init.h>

@@ -1,24 +1,13 @@
 /* $Id$
-
+ *
  * header for Linux ISDN subsystem, network related functions (linklevel).
  *
  * Copyright 1994-1999  by Fritz Elfert (fritz@isdn4linux.de)
  * Copyright 1995,96    by Thinking Objects Software GmbH Wuerzburg
  * Copyright 1995,96    by Michael Hipp (Michael.Hipp@student.uni-tuebingen.de)
  *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2, or (at your option)
- * any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
+ * This software may be used and distributed according to the terms
+ * of the GNU General Public License, incorporated herein by reference.
  *
  */
 
@@ -39,8 +28,8 @@
 #define CISCO_TYPE_CDP        0x2000
 #define CISCO_TYPE_INET       0x0800
 #define CISCO_TYPE_SLARP      0x8035
-#define CISCO_SLARP_REPLY     0
-#define CISCO_SLARP_REQUEST   1
+#define CISCO_SLARP_REQUEST   0
+#define CISCO_SLARP_REPLY     1
 #define CISCO_SLARP_KEEPALIVE 2
 
 extern char *isdn_net_new(char *, struct net_device *);
