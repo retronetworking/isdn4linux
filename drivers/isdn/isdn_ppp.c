@@ -19,6 +19,11 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.21  1997/02/03 23:29:38  fritz
+ * Reformatted according CodingStyle
+ * Bugfix: removed isdn_ppp_skb_destructor, used by upper layers.
+ * Misc changes for Kernel 2.1.X compatibility.
+ *
  * Revision 1.20  1996/10/30 12:21:58  fritz
  * Cosmetic fix: Compiler warning when compiling without MPP.
  *
@@ -92,6 +97,9 @@
 
 /* TODO: right tbusy handling when using MP */
 
+/*
+ * experimental for dynamic addressing: readdress IP frames 
+ */
 #undef ISDN_SYNCPPP_READDRESS
 
 #include <linux/config.h>
@@ -925,7 +933,11 @@ isdn_ppp_receive(isdn_net_dev * net_dev, isdn_net_local * lp, struct sk_buff *sk
 				}
 			}
 			if ((BEbyte & (MP_BEGIN_FRAG | MP_END_FRAG)) != (MP_BEGIN_FRAG | MP_END_FRAG)) {
-				printk(KERN_DEBUG "ippp: trying ;) to fill mp_queue %d .. UNTESTED!!\n", lp->ppp_slot);
+				static int dmes = 0;
+				if( !dmes ) {
+					printk(KERN_DEBUG "ippp: trying ;) to fill mp_queue %d .. UNTESTED!!\n", lp->ppp_slot);
+					dmes = 1;
+				}
 				if ((sqno_end = isdn_ppp_fill_mpqueue(net_dev, &skb, BEbyte, &sqno, min_sqno)) < 0) {
 					net_dev->ib.modify = 1;	/* block timeout-timer */
 					isdn_ppp_cleanup_sqqueue(net_dev, lp, min_sqno);
@@ -1163,6 +1175,10 @@ isdn_ppp_xmit(struct sk_buff *skb, struct device *dev)
 		case ETH_P_IPX:
 			proto = PPP_IPX;	/* untested */
 			break;
+		default:
+			dev_kfree_skb(skb,FREE_WRITE);
+			printk(KERN_ERR "isdn_ppp: skipped frame with unsupported protocoll: %#x.\n",skb->protocol);
+			return 0;
 	}
 
 	lp = nd->queue;         /* get lp on top of queue */
@@ -1378,7 +1394,7 @@ isdn_ppp_fill_mpqueue(isdn_net_dev * dev, struct sk_buff **skb, int BEbyte, long
 	 sqno_end;
 	int sqno = *sqnop;
 
-	q1 = (struct mpqueue *) kmalloc(sizeof(struct mpqueue), GFP_KERNEL);
+	q1 = (struct mpqueue *) kmalloc(sizeof(struct mpqueue), GFP_ATOMIC);
 	if (!q1) {
 		printk(KERN_WARNING "isdn_ppp_fill_mpqueue: Can't alloc struct memory.\n");
 		save_flags(flags);
