@@ -15,6 +15,10 @@
  *
  *
  * $Log$
+ * Revision 1.15.2.19  1998/11/03 00:06:48  keil
+ * certification related changes
+ * fixed logging for smaller stack use
+ *
  * Revision 1.15.2.18  1998/09/30 22:26:35  keil
  * Add init of l1.Flags
  *
@@ -280,9 +284,18 @@ DChannel_proc_rcv(struct IsdnCardState *cs)
 			Logl2Frame(cs, skb, "PH_DATA", 1);
 #endif
 		stptr = cs->stlist;
+		if (skb->len<3) {
+			debugl1(cs, "D-channel frame too short(%d)",skb->len);
+			dev_kfree_skb(skb, FREE_READ);
+			return;
+		}
+		if ((skb->data[0] & 1) || !(skb->data[1] &1)) {
+			debugl1(cs, "D-channel frame wrong EA0/EA1");
+			dev_kfree_skb(skb, FREE_READ);
+			return;
+		}
 		sapi = skb->data[0] >> 2;
 		tei = skb->data[1] >> 1;
-
 		if (cs->debug & DEB_DLOG_HEX)
 			LogFrame(cs, skb->data, skb->len);
 		if (cs->debug & DEB_DLOG_VERBOSE)

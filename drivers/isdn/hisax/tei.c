@@ -11,6 +11,10 @@
  *              Fritz Elfert
  *
  * $Log$
+ * Revision 1.8.2.7  1998/11/03 00:07:35  keil
+ * certification related changes
+ * fixed logging for smaller stack use
+ *
  * Revision 1.8.2.6  1998/05/27 18:06:21  keil
  * HiSax 3.0
  *
@@ -334,8 +338,8 @@ tei_l1l2(struct PStack *st, int pr, void *arg)
 		if (skb->len < 3) {
 			st->ma.tei_m.printdebug(&st->ma.tei_m,
 				"short mgr frame %ld/3", skb->len);
-		} else if (((skb->data[0] >> 2) != TEI_SAPI) ||
-			   ((skb->data[1] >> 1) != GROUP_TEI)) {
+		} else if ((skb->data[0] != ((TEI_SAPI << 2) | 2)) ||
+			   (skb->data[1] != ((GROUP_TEI << 1) | 1))) {
 			st->ma.tei_m.printdebug(&st->ma.tei_m,
 				"wrong mgr sapi/tei %x/%x",
 				skb->data[0], skb->data[1]);

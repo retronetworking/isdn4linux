@@ -13,6 +13,10 @@
  *              Fritz Elfert
  *
  * $Log$
+ * Revision 1.16.2.8  1998/11/03 00:07:14  keil
+ * certification related changes
+ * fixed logging for smaller stack use
+ *
  * Revision 1.16.2.7  1998/10/25 18:16:25  fritz
  * Replaced some read-only variables by defines.
  *
@@ -1773,6 +1777,11 @@ dss1up(struct PStack *st, int pr, void *arg)
 			return;
 			break;
 	}
+	if (skb->len < 3) {
+		l3_debug(st, "dss1up frame too short(%d)", skb->len);
+		dev_kfree_skb(skb, FREE_READ);
+		return;
+	}
 	if (skb->data[0] != PROTO_DIS_EURO) {
 		if (st->l3.debug & L3_DEB_PROTERR) {
 			l3_debug(st, "dss1up%sunexpected discriminator %x message len %d",
@@ -1783,12 +1792,24 @@ dss1up(struct PStack *st, int pr, void *arg)
 		return;
 	}
 	cr = getcallref(skb->data);
+	if (skb->len < ((skb->data[1] & 0x0f) + 3)) {
+		l3_debug(st, "dss1up frame too short(%d)", skb->len);
+		dev_kfree_skb(skb, FREE_READ);
+		return;
+	}
 	mt = skb->data[skb->data[1] + 2];
-	if (!cr) {		/* Global CallRef */
-		global_handler(st, mt, skb);
+	if (cr == -2) {  /* wrong Callref */
+		l3_debug(st, "dss1up wrong Callref");
+		dev_kfree_skb(skb, FREE_READ);
 		return;
 	} else if (cr == -1) {	/* Dummy Callref */
+		l3_debug(st, "dss1up dummy Callref");
 		dev_kfree_skb(skb, FREE_READ);
+		return;
+	} else if ((((skb->data[1] & 0x0f) == 1) && (0==(cr & 0x7f))) ||
+		(((skb->data[1] & 0x0f) == 2) && (0==(cr & 0x7fff)))) {	/* Global CallRef */
+		l3_debug(st, "dss1up Global CallRef");
+		global_handler(st, mt, skb);
 		return;
 	} else if (!(proc = getl3proc(st, cr))) {
 		/* No transaction process exist, that means no call with

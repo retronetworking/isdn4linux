@@ -11,6 +11,10 @@
  *              Fritz Elfert
  *
  * $Log$
+ * Revision 1.10.2.11  1998/11/03 00:06:57  keil
+ * certification related changes
+ * fixed logging for smaller stack use
+ *
  * Revision 1.10.2.10  1998/09/27 13:06:30  keil
  * Apply most changes from 2.1.X (HiSax 3.1)
  *
@@ -305,6 +309,7 @@ legalnr(struct PStack *st, int nr)
 	lvs = (l2->vs >= l2->va) ? l2->vs :
 	    (l2->vs + (test_bit(FLG_MOD128, &l2->flag) ? 128 : 8));
 	lnr = (nr >= l2->va) ? nr : (test_bit(FLG_MOD128, &l2->flag) ? 128 : 8);
+//	l2m_debug(&st->l2.l2m, "nr(%d),vs(%d) legal %s",lnr,lvs,(lnr <= lvs)?"true":"false");
 	return (lnr <= lvs);
 }
 
@@ -559,7 +564,7 @@ l2_got_SABMX(struct FsmInst *fi, int event, void *arg)
 	if (est)
 		st->l2.l2l3(st, DL_ESTABLISH | INDICATION, NULL);
 
-	if (ST_L2_8 == state)
+	if ((ST_L2_7==state) || (ST_L2_8 == state))
 		if (skb_queue_len(&st->l2.i_queue) && cansend(st))
 			st->l2.l2l1(st, PH_PULL | REQUEST, NULL);
 }
@@ -652,6 +657,7 @@ l2_got_ua(struct FsmInst *fi, int event, void *arg)
 
 	if (test_and_clear_bit(FLG_T200_RUN, &st->l2.flag))
 		FsmDelTimer(&st->l2.t200, 2);
+//	l2m_debug(&st->l2.l2m, "vs(%d),va(%d)", st->l2.vs, st->l2.va);
 	if (fi->state == ST_L2_5) {
 		if (test_and_clear_bit(FLG_PEND_REL, &st->l2.flag)) {
 			discard_queue(&st->l2.i_queue);
@@ -672,8 +678,12 @@ l2_got_ua(struct FsmInst *fi, int event, void *arg)
 			st->l2.vr = 0;
 			st->l2.sow = 0;
 			FsmChangeState(fi, ST_L2_7);
-			if (pr > -1)
+			if (pr > -1) {
 				st->l2.l2l3(st, pr, NULL);
+			} else { /* CTS2 T25101 error */
+				if (skb_queue_len(&st->l2.i_queue) && cansend(st))
+					st->l2.l2l1(st, PH_PULL | REQUEST, NULL);
+			}
 		}
 	} else {		/* ST_L2_6 */
 		if (test_bit(FLG_LAPB, &st->l2.flag))
@@ -1248,13 +1258,15 @@ l2_got_st8_super(struct FsmInst *fi, int event, void *arg)
 				fi->userint &= ~LC_FLUSH_WAIT;
 				st->l2.l2l3(st, DL_FLUSH | INDICATION, NULL);
 			}
-		}
+		} else /* CTS2 T25102 error */
+			nrerrorrecovery(fi);
 	} else {
 		if (!rsp && PollFlag)
 			enquiry_response(st);
 		if (legalnr(st, nr)) {
 			setva(st, nr);
-		}
+		} else /* CTS2 T25102 error */
+			nrerrorrecovery(fi);
 	}
 }
 

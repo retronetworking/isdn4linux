@@ -11,6 +11,10 @@
  *              Fritz Elfert
  *
  * $Log$
+ * Revision 1.10.2.6  1998/11/03 00:07:06  keil
+ * certification related changes
+ * fixed logging for smaller stack use
+ *
  * Revision 1.10.2.5  1998/09/27 13:06:39  keil
  * Apply most changes from 2.1.X (HiSax 3.1)
  *
@@ -147,6 +151,9 @@ getcallref(u_char * p)
 {
 	int l, m = 1, cr = 0;
 	p++;			/* prot discr */
+	
+	if (*p & 0xf0)		/* wrong callref */
+		return(-2);
 	l = 0xf & *p++;		/* callref length */
 	if (!l)			/* dummy CallRef */
 		return(-1);
