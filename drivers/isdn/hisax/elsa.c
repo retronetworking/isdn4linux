@@ -8,6 +8,9 @@
  *
  * 
  * $Log$
+ * Revision 1.5  1996/12/08 19:46:14  keil
+ * PCC-8 correct IRQs; starting ARCOFI support
+ *
  * Revision 1.4  1996/11/18 20:50:54  keil
  * with PCF Pro release 16 Byte IO
  *
@@ -1131,8 +1134,8 @@ probe_elsa_adr(unsigned int adr)
 		in2 = inb(adr + CARD_CONFIG);  /* jedem Zugriff */
 		p16_1 += 0x04 & in1;
 		p16_2 += 0x04 & in2;
-		pcc_1 += 0x02 & in1;
-		pcc_2 += 0x02 & in2;
+		pcc_1 += 0x01 & in1;
+		pcc_2 += 0x01 & in2;
 		pfp_1 += 0x40 & in1;
 		pfp_2 += 0x40 & in2;
 	}
@@ -1144,7 +1147,7 @@ probe_elsa_adr(unsigned int adr)
         } else if (1025 == ++pfp_1 * ++pfp_2) {
                 printk(" PCF-Pro found\n");
                 return(2);
-        } else if (33 == ++pcc_1 * ++pcc_2) {
+        } else if (17 == ++pcc_1 * ++pcc_2) {
                 printk(" PCC8 found\n");
                 return(1);
         } else {
@@ -1221,7 +1224,7 @@ setup_elsa(struct IsdnCard *card)
 
 	switch (sp->subtyp) {
 		case ELSA_PCC:  bytecnt = 8;
-				sp->mask1 = TIMER_RUN_PCC;
+				sp->mask1 = TIMER_RUN;
 				break;
 		case ELSA_PCFPRO:bytecnt = 16;
 				sp->mask1 = TIMER_RUN;
@@ -1253,8 +1256,9 @@ setup_elsa(struct IsdnCard *card)
 	bytein(sp->cfg_reg +CARD_START_TIMER);
 	if (!(bytein(sp->cfg_reg +CARD_CONFIG) & sp->mask1)) {
 		bytein(sp->cfg_reg +CARD_START_TIMER); /* 2. Versuch */
-		if (!(bytein(sp->cfg_reg +CARD_CONFIG) & sp->mask1)) { 
-        		printk(KERN_WARNING "Elsa: timer do not start\n");
+		if (!((val=bytein(sp->cfg_reg +CARD_CONFIG)) & sp->mask1)) { 
+        		printk(KERN_WARNING 
+        			"Elsa: timer do not start (%02x)\n",val);
         		release_io_elsa(card);
         		return(0);
         	}
