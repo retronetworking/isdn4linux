@@ -151,4 +151,9 @@ if [ "$CONFIG_MODULES" != "n" ]; then
    bool 'Hypercope HYSDN cards (Champ, Ergo, Metro) support (module)' CONFIG_HYSDN
 fi
 fi
+if [ "$CONFIG_HYSDN" != "n"]; then
+if [ "$CONFIG_ISDN_CAPI" != "n" ]; then
+   bool 'HYSDN CAPI 2.0 support' CONFIG_HYSDN_CAPI
+fi
+fi
 endmenu
