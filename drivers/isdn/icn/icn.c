@@ -20,8 +20,11 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.12  1995/04/29  13:07:35  fritz
+ * Added support for new Euro-ISDN-firmware
+ *
  * Revision 1.11  1995/04/23  13:40:45  fritz
- * Added support for SVP's.
+ * Added support for SPV's.
  * Changed Dial-Command to support MSN's on DSS1-Lines.
  *
  * Revision 1.10  1995/03/25  23:23:24  fritz
@@ -64,9 +67,9 @@
 #include "icn.h"
 
 /*
- * Experimental Firmware with switchable L2-Protocol
+ * Firmware with switchable L2-Protocol
  */
-#undef HDLC_FIRMWARE
+#define HDLC_FIRMWARE
 
 /*
  * Verbose bootcode- and protocol-downloading.
@@ -188,8 +191,8 @@ trymaplock_channel(int channel) {
   cli();
   if ((!dev->chanlock) || (dev->channel == channel)) {
     dev->chanlock++;
-    restore_flags(flags);
     map_channel(channel);
+    restore_flags(flags);
     return 1;
   }
   restore_flags(flags);
@@ -334,19 +337,21 @@ pollbchan(unsigned long dummy) {
   unsigned long flags;
 
   dev->flags |= ICN_FLAGS_RBTIMER;
-  if (dev->flags & ICN_FLAGS_B1ACTIVE)
+  if (dev->flags & ICN_FLAGS_B1ACTIVE) {
     pollbchan_receive(0);
     pollbchan_send(0);
-  if (dev->flags & ICN_FLAGS_B2ACTIVE)
+  }
+  if (dev->flags & ICN_FLAGS_B2ACTIVE) {
     pollbchan_receive(1);
     pollbchan_send(1);
+  }
   if (dev->flags & (ICN_FLAGS_B1ACTIVE | ICN_FLAGS_B2ACTIVE)) {
     /* schedule b-channel polling again */
     save_flags(flags);
     cli();
     del_timer(&dev->rb_timer);
     dev->rb_timer.function = pollbchan;
-    dev->rb_timer.expires  = ICN_TIMER_BCREAD;
+    dev->rb_timer.expires  = RUN_AT(ICN_TIMER_BCREAD);
     add_timer(&dev->rb_timer);
     restore_flags(flags);
   } else dev->flags &= ~ICN_FLAGS_RBTIMER;
@@ -447,6 +452,17 @@ pollcard(unsigned long dummy) {
 	    dev->interface.statcallb(&cmd);
 	    continue;
 	  }
+	  if (!strncmp(p,"E_L1: ACT FAIL",14)) {
+	    cmd.command = ISDN_STAT_BHUP;
+	    cmd.arg     = 0;
+	    cmd.driver  = dev->myid;
+	    dev->interface.statcallb(&cmd);
+	    cmd.command = ISDN_STAT_DHUP;
+	    cmd.arg     = 0;
+	    cmd.driver  = dev->myid;
+	    dev->interface.statcallb(&cmd);
+	    continue;
+	  }
 	  if (!strncmp(p,"CIF",3)) {
 	    cmd.command = ISDN_STAT_CINF;
 	    cmd.arg     = ch-1;
@@ -468,6 +484,14 @@ pollcard(unsigned long dummy) {
 	    cmd.driver  = dev->myid;
 	    cmd.arg     = ch-1;
 	    strncpy(cmd.num,p+6,sizeof(cmd.num)-1);
+	    dev->interface.statcallb(&cmd);
+	    continue;
+	  }
+	  if (!strncmp(p,"FCALL",5)) {
+	    cmd.command = ISDN_STAT_ICALL;
+	    cmd.driver  = dev->myid;
+	    cmd.arg     = ch-1;
+	    strcpy(cmd.num,"LEASED,07,00,1");
 	    dev->interface.statcallb(&cmd);
 	    continue;
 	  }
@@ -527,7 +551,7 @@ pollcard(unsigned long dummy) {
       cli();
       del_timer(&dev->rb_timer);
       dev->rb_timer.function = pollbchan;
-      dev->rb_timer.expires  = ICN_TIMER_BCREAD;
+      dev->rb_timer.expires  = RUN_AT(ICN_TIMER_BCREAD);
       add_timer(&dev->rb_timer);
       restore_flags(flags);
     }
@@ -536,7 +560,7 @@ pollcard(unsigned long dummy) {
   cli();
   del_timer(&dev->st_timer);
   dev->st_timer.function = pollcard;
-  dev->st_timer.expires  = ICN_TIMER_DCREAD;
+  dev->st_timer.expires  = RUN_AT(ICN_TIMER_DCREAD);
   add_timer(&dev->st_timer);
   restore_flags(flags);
 }
@@ -592,13 +616,20 @@ sendbuf(int channel, u_char *buffer, int len, int user) {
 static int
 loadboot(u_char *buffer) {
   int timer;
+  int ret;
   ulong flags;
 
+#ifdef BOOT_DEBUG
+    printk(KERN_DEBUG "loadboot called, buffaddr=%08lx\n",buffer);
+#endif
+  if ((ret = verify_area(VERIFY_READ,(void*)buffer,ICN_CODE_STAGE1)))
+    return ret;
   save_flags(flags);
   cli();
   if (check_region(dev->port,ICN_PORTLEN)) {
     printk(KERN_WARNING "icn: ports 0x%03x-0x%03x in use.\n",dev->port,
 	   dev->port+ICN_PORTLEN);
+    restore_flags(flags);
     return -EBUSY;
   }
   request_region(dev->port,ICN_PORTLEN,"icn-isdn");
@@ -644,8 +675,14 @@ loadproto(u_char *buffer) {
   uint  left  = ICN_CODE_STAGE2;
   uint  cnt;
   int   timer;
+  int   ret;
   unsigned long flags;
 
+#ifdef BOOT_DEBUG
+      printk(KERN_DEBUG "loadproto called\n");
+#endif
+  if ((ret = verify_area(VERIFY_READ,(void*)buffer, ICN_CODE_STAGE2)))
+    return ret;
   timer = 0;
   while (left) {
     if (sbfree) {                   /* If there is a free buffer...  */
@@ -690,7 +727,7 @@ loadproto(u_char *buffer) {
       save_flags(flags);
       cli();
       init_timer(&dev->st_timer);
-      dev->st_timer.expires  = ICN_TIMER_DCREAD;
+      dev->st_timer.expires  = RUN_AT(ICN_TIMER_DCREAD);
       dev->st_timer.function = pollcard;
       add_timer(&dev->st_timer);
       restore_flags(flags);
@@ -789,10 +826,11 @@ command (isdn_ctrl *c) {
   ulong flags;
   int   i;
   char  cbuf[60];
+  isdn_ctrl cmd;
 
   switch (c->command) {
     case ISDN_CMD_IOCTL:
-      memcpy(&a,c->num,sizeof(unsigned long));
+      memcpy(&a,c->num,sizeof(ulong));
       switch (c->arg) {
 	case ICN_IOCTL_SETMMIO:
 	  if ((unsigned long)dev->shmem != (a & 0x0ffc000)) {
@@ -838,11 +876,44 @@ command (isdn_ctrl *c) {
 	  stopdriver();
 	  return(loadproto((u_char*)a));
 #endif
+	case ICN_IOCTL_LEASEDCFG:
+	  if (a) {
+	    if (!dev->leased) {
+	      dev->leased = 1;
+	      while (!dev->ptype) {
+		current->timeout = jiffies + ICN_BOOT_TIMEOUT1;
+		schedule();
+	      }
+	      current->timeout = jiffies + ICN_BOOT_TIMEOUT1;
+	      schedule();
+	      sprintf(cbuf,"00;FV2ON\n01;EAZ1\n");
+	      i = writecmd(cbuf,strlen(cbuf),0);
+	      printk(KERN_INFO "icn: Leased-line mode enabled\n");
+	      cmd.command = ISDN_STAT_RUN;
+	      cmd.driver  = dev->myid;
+	      cmd.arg     = 0;
+	      dev->interface.statcallb(&cmd);
+	    }
+	  } else {
+	    if (dev->leased) {
+	      dev->leased = 0;
+	      sprintf(cbuf,"00;FV2OFF\n");
+	      i = writecmd(cbuf,strlen(cbuf),0);
+	      printk(KERN_INFO "icn: Leased-line mode disabled\n");
+	      cmd.command = ISDN_STAT_RUN;
+	      cmd.driver  = dev->myid;
+	      cmd.arg     = 0;
+	      dev->interface.statcallb(&cmd);
+	    }
+	  }
+	  return 0;
 	default:
 	  return -EINVAL;
       }
       break;
     case ISDN_CMD_DIAL:
+      if (dev->leased)
+	break;
       if ((c->arg & 255)<ICN_BCH) {
 	char *p = c->num;
 	char dial[50];
@@ -884,6 +955,8 @@ command (isdn_ctrl *c) {
       }
       break;
     case ISDN_CMD_SETEAZ:
+      if (dev->leased)
+	break;
       if (c->arg<ICN_BCH) {
 	a = c->arg+1;
 	if (dev->ptype == ICN_TYPE_EURO) {
@@ -894,6 +967,8 @@ command (isdn_ctrl *c) {
       }
       break;
     case ISDN_CMD_CLREAZ:
+      if (dev->leased)
+	break;
       if (c->arg<ICN_BCH) {
 	a = c->arg+1;
 	if (dev->ptype == ICN_TYPE_EURO)
@@ -978,6 +1053,7 @@ init_module( void) {
                               ISDN_FEATURE_L2_HDLC |
 #endif
                               ISDN_FEATURE_L3_TRANS ;
+  strncpy(dev->interface.id,id,sizeof(dev->interface.id)-1);
   dev->msg_buf_write        = dev->msg_buf;
   dev->msg_buf_read         = dev->msg_buf;
   dev->msg_buf_end          = &dev->msg_buf[sizeof(dev->msg_buf)-1];
@@ -994,13 +1070,13 @@ init_module( void) {
     *p = 0;
   } else
     strcpy(rev," ??? ");
-  printk(KERN_INFO "ICN-ISDN-driver Rev%sport=0x%03x mmio=0x%08x\n",rev,
-	 dev->port,(uint)dev->shmem);
+  printk(KERN_INFO "ICN-ISDN-driver Rev%sport=0x%03x mmio=0x%08x id='%s'\n",
+	 rev,dev->port,(uint)dev->shmem,dev->interface.id);
 #ifdef LOADEXTERN
   save_flags(flags);
   cli();
   init_timer(&dev->st_timer);
-  dev->st_timer.expires  = ICN_TIMER_DCREAD;
+  dev->st_timer.expires  = RUN_AT(ICN_TIMER_DCREAD);
   dev->st_timer.function = pollcard;
   add_timer(&dev->st_timer);
   restore_flags(flags);
