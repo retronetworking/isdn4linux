@@ -21,6 +21,12 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.89  1999/08/22 20:26:03  calle
+ * backported changes from kernel 2.3.14:
+ * - several #include "config.h" gone, others come.
+ * - "struct device" changed to "struct net_device" in 2.3.14, added a
+ *   define in isdn_compat.h for older kernel versions.
+ *
  * Revision 1.88  1999/07/07 10:13:31  detabc
  * remove unused messages
  *
@@ -352,6 +358,12 @@
 #ifdef CONFIG_ISDN_X25
 #include <linux/concap.h>
 #include "isdn_concap.h"
+#endif
+
+#ifdef CONFIG_ISDN_WITH_ABC_UDP_CHECK
+#include <net/udp.h>
+#include <net/checksum.h>
+static int abc_udp_test(struct sk_buff *skb,struct net_device *ndev);
 #endif
 
 /* Prototypes */
@@ -827,7 +839,12 @@ isdn_net_dial(void)
 				cmd.arg = lp->isdn_channel;
 				cmd.command = ISDN_CMD_CLREAZ;
 				isdn_command(&cmd);
+#ifdef CONFIG_ISDN_WITH_ABC_OUTGOING_EAZ
+				sprintf(cmd.parm.num, "%s",
+					isdn_map_eaz2msn((*lp->dw_out_msn) ? lp->dw_out_msn : lp->msn, cmd.driver));
+#else
 				sprintf(cmd.parm.num, "%s", isdn_map_eaz2msn(lp->msn, cmd.driver));
+#endif
 				cmd.command = ISDN_CMD_SETEAZ;
 				isdn_command(&cmd);
 				lp->dialretry = 0;
@@ -907,15 +924,27 @@ isdn_net_dial(void)
 					cmd.command = ISDN_CMD_DIAL;
 					cmd.parm.setup.si1 = 7;
 					cmd.parm.setup.si2 = 0;
+#ifdef CONFIG_ISDN_WITH_ABC_OUTGOING_EAZ 
+					sprintf(cmd.parm.setup.eazmsn, "%s",
+						isdn_map_eaz2msn((*lp->dw_out_msn) ? lp->dw_out_msn : lp->msn, cmd.driver));
+#else
 					sprintf(cmd.parm.setup.eazmsn, "%s",
 						isdn_map_eaz2msn(lp->msn, cmd.driver));
+#endif
 					i = isdn_dc2minor(lp->isdn_device, lp->isdn_channel);
 					if (i >= 0) {
 						strcpy(dev->num[i], cmd.parm.setup.phone);
 						isdn_info_update();
 					}
+#ifdef CONFIG_ISDN_WITH_ABC_OUTGOING_EAZ 
+					printk(KERN_INFO "%s: dialing %d %s -> %s...\n", lp->name,
+					       lp->dialretry, 
+						   cmd.parm.setup.eazmsn,
+						   cmd.parm.setup.phone);
+#else
 					printk(KERN_INFO "%s: dialing %d %s...\n", lp->name,
 					       lp->dialretry, cmd.parm.setup.phone);
+#endif
 					lp->dtimer = 0;
 #ifdef ISDN_DEBUG_NET_DIAL
 					printk(KERN_DEBUG "dial: d=%d c=%d\n", lp->isdn_device,
@@ -1292,7 +1321,12 @@ isdn_net_start_xmit(struct sk_buff *skb, struct net_device *ndev)
 #ifdef CONFIG_ISDN_X25
 	struct concap_proto * cprot = lp -> netdev -> cprot;
 #endif
-
+#ifdef CONFIG_ISDN_WITH_ABC_UDP_CHECK
+	if(abc_udp_test(skb,ndev)) {
+		dev_kfree_skb(skb);
+		return 0;
+	}
+#endif
 	if (ndev->tbusy) {
 		if (jiffies - ndev->trans_start < (2 * HZ))
 			return 1;
@@ -2096,16 +2130,124 @@ isdn_net_find_icall(int di, int ch, int idx, setup_parm setup)
 		printk(KERN_DEBUG "n_fi: if='%s', l.msn=%s, l.flags=%d, l.dstate=%d\n",
 		       lp->name, lp->msn, lp->flags, lp->dialstate);
 #endif
+#ifdef CONFIG_ISDN_WITH_ABC_CALLB
+		if ((!matchret) &&                                        /* EAZ is matching   */
+		    (((!(lp->flags & ISDN_NET_CONNECTED)) &&              /* but not connected */
+		      (USG_NONE(dev->usage[idx]))) ||                     /* and ch. unused or */
+		     (lp->dialstate == 4) || (lp->dialstate == 12) ||		/* if dialing        */
+			  ((lp->flags & ISDN_NET_CBOUT) != 0 &&		  		/* init a callback	*/
+			  lp->outgoing != 0 )))
+
+		/*
+		** we dont stop call's anymore (both sides call's syncron)
+		** it will be problem in any case.
+		** both sides will make the same.
+		** i try later to make a switch (check the phon-numbers)
+		** to detect with side must be stop the call.
+		*/
+#else
 		if ((!matchret) &&                                        /* EAZ is matching   */
 		    (((!(lp->flags & ISDN_NET_CONNECTED)) &&              /* but not connected */
 		      (USG_NONE(dev->usage[idx]))) ||                     /* and ch. unused or */
 		     ((((lp->dialstate == 4) || (lp->dialstate == 12)) && /* if dialing        */
 		       (!(lp->flags & ISDN_NET_CALLBACK)))                /* but no callback   */
 		     )))
+#endif
 			 {
 #ifdef ISDN_DEBUG_NET_ICALL
 			printk(KERN_DEBUG "n_fi: match1, pdev=%d pch=%d\n",
 			       lp->pre_device, lp->pre_channel);
+#endif
+#ifdef CONFIG_ISDN_WITH_ABC_CALLB
+			{
+#ifdef CONFIG_ISDN_WITH_ABC_CALL_CHECK_SYNCRO
+			int use_this_call = 0;
+
+			if(!(lp->flags & ISDN_NET_CBOUT) && ((lp->dialstate == 4) || (lp->dialstate == 12))) {
+
+				/*
+				** searching for a diff. in the calling-number and the EAZ
+				** the remote will make the same
+				*/
+
+				char *pnr = nr;
+				char *pea = eaz;
+
+				for(;*pnr;pnr++);
+				for(;*pea;pea++);
+				for(pnr--,pea--;pnr >= nr && pea >= eaz && *pea != *pnr;pnr--,pea--);
+
+				if(pnr < nr || pea < eaz || *pea > *pnr) {
+
+					p = (isdn_net_dev *) p->next;
+					continue;
+				}
+
+				use_this_call = 1;
+			}
+#endif
+			
+			if(
+#ifdef CONFIG_ISDN_WITH_ABC_CALL_CHECK_SYNCRO
+				use_this_call || 
+#endif
+				((lp->flags & ISDN_NET_CBOUT) && (lp->flags & ISDN_NET_CONNECTED))) {
+
+				/*
+				** the incoming call was to quick.
+				** the callback-delay-time ist not reached.
+				** in that case we can stop the call
+				*/
+
+				if(lp->isdn_device > -1 && lp->isdn_channel > -1) {
+
+					int minor = isdn_dc2minor(lp->isdn_device,lp->isdn_channel);
+
+					if(lp->isdn_device != di || lp->isdn_channel != ch) {
+
+						isdn_ctrl cmd;
+
+						memset((void *)&cmd,0,sizeof(cmd));
+						cmd.driver = lp->isdn_device;
+						cmd.command = ISDN_CMD_HANGUP;
+						cmd.arg = lp->isdn_channel;
+						(void) dev->drv[cmd.driver]->interface->command(&cmd);
+						isdn_all_eaz(lp->isdn_device, lp->isdn_channel);
+
+						if(dev->net_verbose > 1) {
+
+							printk(KERN_INFO 
+			"%s: found outgoing call hangup old call on di %d ch %d\n",
+								lp->name,lp->isdn_device,lp->isdn_channel);
+						}
+
+					} else if (dev->net_verbose > 1) {
+
+						printk(KERN_INFO "%s: found outgoing call on same di %d ch %d\n",
+							lp->name,lp->isdn_device,lp->isdn_channel);
+					}
+
+					if(minor >= 0) {
+
+						dev->rx_netdev[minor] = NULL;
+						dev->st_netdev[minor] = NULL;
+					}
+
+					isdn_free_channel(lp->isdn_device,
+						lp->isdn_channel, ISDN_USAGE_NET);
+
+				} else if (dev->net_verbose > 1) {
+
+					printk(KERN_INFO "%s: found outgoing call reset callstate \n",lp->name);
+				}
+
+				lp->flags &= ~ISDN_NET_CONNECTED;
+				lp->isdn_device = -1;
+				lp->isdn_channel = -1;
+				lp->dtimer = 0;
+				lp->dialstate = 0;
+			}
+			}
 #endif
 			if (dev->usage[idx] & ISDN_USAGE_EXCLUSIVE) {
 				if ((lp->pre_channel != ch) ||
@@ -2281,6 +2423,47 @@ isdn_net_find_icall(int di, int ch, int idx, setup_parm setup)
 					restore_flags(flags);
 					return 0;
 				} else {
+#ifdef CONFIG_ISDN_WITH_ABC_CALLB
+					{
+					/*
+					** this is a sanity-check.
+					** check for double use (device and channel)
+					** will be very near to a kernel-crash in that case
+					*/
+					isdn_net_dev *sp = dev->netdev;
+					int s_shl;
+					isdn_net_local *ml;
+
+					for(s_shl=0; s_shl < 2048 && sp != NULL; sp = (isdn_net_dev *)sp->next, s_shl++) {
+
+						if(sp == p || (ml = sp->local) == NULL)
+							continue;
+
+						if(ml->isdn_device != di || ml->isdn_channel != ch)
+							continue;
+
+						if(ml->dialstate != 4 && ml->dialstate != 12) {
+
+							/*
+							** wrong situation
+							*/
+							break;
+						}
+
+						isdn_net_unbind_channel(ml);
+					}
+
+					if(sp != NULL) {
+
+						printk(KERN_DEBUG
+"%s: call from %s -> %s (drv %d chan %d duplicatet with %s) \n",
+							lp->name, nr, eaz,di,ch,
+							sp->local->name	);
+
+						restore_flags(flags);
+						return 3;
+					}}
+#endif
 					printk(KERN_DEBUG "%s: call from %s -> %s accepted\n", lp->name, nr,
 					       eaz);
 					/* if this interface is dialing, it does it probably on a different
@@ -2851,6 +3034,10 @@ isdn_net_addphone(isdn_net_ioctl_phone * phone)
 		strcpy(n->num, phone->phone);
 		n->next = p->local->phone[phone->outgoing & 1];
 		p->local->phone[phone->outgoing & 1] = n;
+#ifdef CONFIG_ISDN_WITH_ABC_OUTGOING_EAZ
+		if(*(phone->phone) == '>')
+			strncpy(p->local->dw_out_msn,phone->phone + 1,ISDN_MSNLEN - 1);
+#endif
 		return 0;
 	}
 	return -ENODEV;
@@ -2931,6 +3118,10 @@ isdn_net_delphone(isdn_net_ioctl_phone * phone)
 	int flags;
 
 	if (p) {
+#ifdef CONFIG_ISDN_WITH_ABC_OUTGOING_EAZ
+		if(*(phone->phone) == '>')
+			*p->local->dw_out_msn = 0;
+#endif
 		save_flags(flags);
 		cli();
 		n = p->local->phone[inout];
@@ -3126,3 +3317,115 @@ isdn_net_rmall(void)
 	restore_flags(flags);
 	return 0;
 }
+
+
+#ifdef CONFIG_ISDN_WITH_ABC_UDP_CHECK
+static int abc_udp_test(struct sk_buff *skb,struct net_device *ndev)
+{
+#define NBYTEORDER_30BYTES      0x1e00 
+	if(ndev != NULL && skb != NULL && skb->protocol == htons(ETH_P_IP)) {
+		struct iphdr *iph = (struct iphdr *)skb->data;
+		isdn_net_local *lp = (isdn_net_local *) ndev->priv;
+		if(skb->len >= 20 && iph->version == 4) {
+			if(	iph->tot_len == NBYTEORDER_30BYTES	&& iph->protocol == IPPROTO_UDP) {
+				struct udphdr *udp = (struct udphdr *)(skb->data + (iph->ihl << 2));
+				if(udp->dest == htons(25001) && udp->source >= htons(20000) && udp->source < htons(25000)) {
+					char *p = (char *)(udp + 1);
+					if(p[0] == p[1]) {
+						char mc = 0;
+						switch(*p) {
+						case 0x11:
+							mc = *p + 1;
+							/**********
+							lp->conn_start =
+							lp->conn_count =
+							lp->anz_conf_err = 0;
+							lp->last_pkt_rcv = jiffies;
+							*************/
+							break;
+						case 0x28:	mc = *p + 1;	break;
+						case 0x2a:
+						case 0x2c:
+#ifdef CONFIG_ISDN_WITH_ABC_UDP_CHECK_HANGUP
+							{
+								ulong flags;
+								mc = *p;
+								save_flags(flags);
+								cli();
+
+								if(lp->dialstate == 20) {
+
+									lp->dialstate = 0;
+
+									if(lp->first_skb) {
+
+										dev_kfree_skb(lp->first_skb);
+										lp->first_skb = NULL;
+									}
+
+									mc = *p + 1;
+								}
+
+								restore_flags(flags);
+
+								if(lp->isdn_device >= 0) {
+
+									isdn_net_hangup(ndev);
+									mc = *p + 1;
+								}
+							}
+#else
+							printk(KERN_DEBUG "%s: UDP-INFO-HANGUP not supportet\n",
+								lp->name);
+#endif
+							break;
+						}
+
+						if(mc) {
+							struct sk_buff *nskb;
+							int need = 2+sizeof(struct iphdr)+sizeof(struct udphdr);
+							int hneed = need + ndev->hard_header_len;
+							if((nskb = (struct sk_buff *)dev_alloc_skb(hneed)) != NULL) {
+								ushort n = sizeof(struct udphdr) + 2;
+								struct iphdr *niph;
+								struct udphdr *nup;
+								skb_reserve(nskb,ndev->hard_header_len);
+								if((niph = (struct iphdr *)skb_put(nskb,need))==NULL){
+									printk(KERN_DEBUG "%s: skb_put failt (%d bytes)\n", lp->name,hneed);
+									dev_kfree_skb(nskb);
+									return(0);
+								}
+								nup = (struct udphdr *)(niph + 1);
+								((char *)(nup + 1))[0] = mc;
+								((char *)(nup + 1))[1] = mc;
+								nup->source=udp->dest;
+								nup->dest=udp->source;
+								nup->len=htons(n);
+								nup->check=0; /* dont need checksum */
+								memset((void *)niph,0,sizeof(*niph));
+								niph->version=4;
+								niph->ihl=5;
+								niph->tot_len=NBYTEORDER_30BYTES;
+								niph->ttl = 32;
+								niph->protocol = IPPROTO_UDP;
+								niph->saddr=iph->daddr;
+								niph->daddr=iph->saddr;
+								niph->id=iph->id;
+								niph->check=ip_fast_csum((unsigned char *)niph,niph->ihl);
+								nskb->dev = ndev;
+								nskb->pkt_type = PACKET_HOST;
+								nskb->protocol = htons(ETH_P_IP);
+								nskb->mac.raw = nskb->data;
+								netif_rx(nskb);
+							}
+							return(1);
+						}
+					}
+				}
+			}
+		}
+	}
+	return(0);
+#undef NBYTEORDER_30BYTES 
+}
+#endif

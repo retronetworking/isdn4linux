@@ -77,3 +77,19 @@ if [ "$CONFIG_ISDN_DRV_AVMB1" != "n" ]; then
     bool 'Verbose reason code reporting (kernel size +=7K)' CONFIG_ISDN_DRV_AVMB1_VERBOSE_REASON
 fi
 
+if [ "$CONFIG_EXPERIMENTAL" != "n" ]; then
+	bool 'Include isdn-abc-dw-extension' CONFIG_ISDN_WITH_ABC
+
+	if [ "$CONFIG_ISDN_WITH_ABC" != "n" ]; then
+		bool 'Use D-Channel-Callback with Channel in use check' 	CONFIG_ISDN_WITH_ABC_CALLB
+		bool 'Use Phonenumber and EAZ for async-calls'				CONFIG_ISDN_WITH_ABC_CALL_CHECK_SYNCRO
+		bool 'Enable UDP-Info-Support' 								CONFIG_ISDN_WITH_ABC_UDP_CHECK
+
+		if [ "$CONFIG_ISDN_WITH_ABC_UDP_CHECK" != "n" ]; then
+			bool 'Enable Hangup-Support with UDP-INFO' 				CONFIG_ISDN_WITH_ABC_UDP_CHECK_HANGUP
+		fi
+
+		bool 'Enable Outgoing-EAZ-Support'      CONFIG_ISDN_WITH_ABC_OUTGOING_EAZ
+	fi
+fi
+

@@ -21,6 +21,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.71  1999/08/23 15:54:22  keil
+ * more backported changes from kernel 2.3.14
+ *
  * Revision 1.70  1999/07/31 12:59:58  armin
  * Added tty fax capabilities.
  *
@@ -275,6 +278,13 @@
 #define ISDN_MINOR_PPP      128
 #define ISDN_MINOR_PPPMAX   (128 + (ISDN_MAX_CHANNELS-1))
 #define ISDN_MINOR_STATUS   255
+
+#ifndef CONFIG_ISDN_WITH_ABC
+#undef CONFIG_ISDN_WITH_ABC_CALLB
+#undef CONFIG_ISDN_WITH_ABC_UDP_CHECK
+#undef CONFIG_ISDN_WITH_ABC_UDP_CHECK_HANGUP
+#undef CONFIG_ISDN_WITH_ABC_OUTGOING_EAZ
+#endif
 
 /* New ioctl-codes */
 #define IIOCNETAIF  _IO('I',1)
@@ -609,6 +619,11 @@ typedef struct isdn_net_local_s {
   int  cisco_loop;                     /* Loop counter for Cisco-SLARP     */
   ulong cisco_myseq;                   /* Local keepalive seq. for Cisco   */
   ulong cisco_yourseq;                 /* Remote keepalive seq. for Cisco  */
+#ifdef CONFIG_ISDN_WITH_ABC
+#ifdef CONFIG_ISDN_WITH_ABC_OUTGOING_EAZ
+  char	dw_out_msn[ISDN_MSNLEN]; /* eaz for outgoing call if *out_msn != 0 */
+#endif
+#endif
 } isdn_net_local;
 
 /* the interface itself */
