@@ -7,6 +7,9 @@
  *              Fritz Elfert
  *
  * $Log$
+ * Revision 2.11  1998/02/02 13:35:19  keil
+ * config B-channel delay
+ *
  * Revision 2.10  1997/11/06 17:09:15  keil
  * New 2.1 init code
  *
@@ -309,7 +312,35 @@ lli_d_established(struct FsmInst *fi, int event, void *arg)
 	struct Channel *chanp = fi->userdata;
 
 	test_and_set_bit(FLG_ESTAB_D, &chanp->Flags);
-	if (fi->state == ST_WAIT_DSHUTDOWN)
+	if (chanp->leased) {
+		isdn_ctrl ic;
+		int ret;
+		char txt[32];
+
+		chanp->cs->cardmsg(chanp->cs, MDL_INFO_SETUP, (void *) chanp->chan);
+		FsmChangeState(fi, ST_IN_WAIT_LL);
+		test_and_set_bit(FLG_CALL_REC, &chanp->Flags);
+		if (chanp->debug & 1)
+			link_debug(chanp, "STAT_ICALL_LEASED", 0);
+		ic.driver = chanp->cs->myid;
+		ic.command = ISDN_STAT_ICALL;
+		ic.arg = chanp->chan;
+		ic.parm.setup.si1 = 7;
+		ic.parm.setup.si2 = 0;
+		ic.parm.setup.plan = 0;
+		ic.parm.setup.screen = 0;
+		sprintf(ic.parm.setup.eazmsn,"%d", chanp->chan + 1); 
+		sprintf(ic.parm.setup.phone,"LEASED%d", chanp->cs->myid);
+		ret = chanp->cs->iif.statcallb(&ic);
+		if (chanp->debug & 1) {
+			sprintf(txt, "statcallb ret=%d", ret);
+			link_debug(chanp, txt, 1);
+		}
+		if (!ret) {
+			chanp->cs->cardmsg(chanp->cs, MDL_INFO_REL, (void *) chanp->chan);
+			FsmChangeState(fi, ST_NULL);
+		}
+	} else if (fi->state == ST_WAIT_DSHUTDOWN)
 		FsmChangeState(fi, ST_NULL);
 }
 
@@ -527,7 +558,12 @@ lli_do_action(struct FsmInst *fi, int event, void *arg)
 	struct Channel *chanp = fi->userdata;
 
 	test_and_set_bit(FLG_ESTAB_D, &chanp->Flags);
-	if (test_and_clear_bit(FLG_DO_CONNECT, &chanp->Flags) &&
+	if (chanp->leased) {
+		FsmChangeState(fi, ST_IN_WAIT_CONN_ACK);
+		test_and_clear_bit(FLG_DO_ALERT, &chanp->Flags);
+		test_and_clear_bit(FLG_DO_CONNECT, &chanp->Flags);
+		FsmEvent(&chanp->fi, EV_SETUP_CMPL_IND, NULL);
+	} else if (test_and_clear_bit(FLG_DO_CONNECT, &chanp->Flags) &&
 		!test_bit(FLG_DO_HANGUP, &chanp->Flags)) {
 		FsmChangeState(fi, ST_IN_WAIT_CONN_ACK);
 		test_and_clear_bit(FLG_DO_ALERT, &chanp->Flags);
@@ -1030,27 +1066,41 @@ lli_got_dlrl(struct FsmInst *fi, int event, void *arg)
 	}
 	if (test_and_clear_bit(FLG_START_B, &chanp->Flags))
 		release_b_st(chanp);
-	if (test_and_clear_bit(FLG_LL_DCONN, &chanp->Flags)) {
-		if (chanp->debug & 1)
-			link_debug(chanp, "STAT_DHUP", 0);
-		if (chanp->cs->protocol == ISDN_PTYPE_EURO) {
-			chanp->proc->para.cause = 0x2f;
-			chanp->proc->para.loc = 0;
-		} else {
-			chanp->proc->para.cause = 0x70;
-			chanp->proc->para.loc = 0;
-		}
-		lli_deliver_cause(chanp);
+	if (chanp->leased) {
+		ic.driver = chanp->cs->myid;
+		ic.command = ISDN_STAT_CAUSE;
+		ic.arg = chanp->chan;
+		sprintf(ic.parm.num, "L%02X%02X", 0, 0x2f);
+		chanp->cs->iif.statcallb(&ic);
 		ic.driver = chanp->cs->myid;
 		ic.command = ISDN_STAT_DHUP;
 		ic.arg = chanp->chan;
 		chanp->cs->iif.statcallb(&ic);
+		chanp->Flags = 0;
+	} else {
+		if (test_and_clear_bit(FLG_LL_DCONN, &chanp->Flags)) {
+			if (chanp->debug & 1)
+				link_debug(chanp, "STAT_DHUP", 0);
+			if (chanp->cs->protocol == ISDN_PTYPE_EURO) {
+				chanp->proc->para.cause = 0x2f;
+				chanp->proc->para.loc = 0;
+			} else {
+				chanp->proc->para.cause = 0x70;
+				chanp->proc->para.loc = 0;
+			}
+			lli_deliver_cause(chanp);
+			ic.driver = chanp->cs->myid;
+			ic.command = ISDN_STAT_DHUP;
+			ic.arg = chanp->chan;
+			chanp->cs->iif.statcallb(&ic);
+		}
+		chanp->d_st->lli.l4l3(chanp->d_st, CC_DLRL, chanp->proc);
+		chanp->Flags = 0;
+		FsmEvent(&chanp->lc_d->lcfi, EV_LC_RELEASE, NULL);
 	}
-	chanp->d_st->lli.l4l3(chanp->d_st, CC_DLRL, chanp->proc);
-	chanp->Flags = 0;
-	FsmEvent(&chanp->lc_d->lcfi, EV_LC_RELEASE, NULL);
 	chanp->cs->cardmsg(chanp->cs, MDL_INFO_REL, (void *) chanp->chan);
 }
+
 /* *INDENT-OFF* */
 static struct FsmNode fnlist[] HISAX_INITDATA =
 {
@@ -1161,7 +1211,14 @@ lc_activate_l1(struct FsmInst *fi, int event, void *arg)
 static void
 lc_activated_from_l1(struct FsmInst *fi, int event, void *arg)
 {
-	FsmChangeState(fi, ST_LC_DELAY);
+	struct LcFsm *lf = fi->userdata;
+
+	if (lf->l2_establish)
+		FsmChangeState(fi, ST_LC_DELAY);
+	else {
+		FsmChangeState(fi, ST_LC_CONNECTED);
+		lf->lccall(lf, LC_ESTABLISH, NULL);
+	}
 }
 
 static void
@@ -1917,8 +1974,11 @@ HiSax_command(isdn_ctrl * ic)
 	switch (ic->command) {
 		case (ISDN_CMD_SETEAZ):
 			chanp = csta->channel + ic->arg;
-			if (chanp->debug & 1)
-				link_debug(chanp, "SETEAZ", 1);
+			if (chanp->debug & 1) {
+				sprintf(tmp, "SETEAZ card %d %s", csta->cardnr + 1,
+					ic->parm.num);
+				link_debug(chanp, tmp, 1);
+			}
 			break;
 		case (ISDN_CMD_SETL2):
 			chanp = csta->channel + (ic->arg & 0xff);
@@ -2038,13 +2098,21 @@ HiSax_command(isdn_ctrl * ic)
 						HiSax_mod_inc_use_count();
 					break;
 				case (5):	/* set card in leased mode */
-					csta->channel[0].leased = 1;
-					csta->channel[1].leased = 1;
-					csta->channel[0].lc_d->l2_establish = 0;
-					csta->channel[1].lc_d->l2_establish = 0;
-					sprintf(tmp, "card %d set into leased mode\n",
-						csta->cardnr + 1);
-					HiSax_putstatus(csta, tmp);
+					num = *(unsigned int *) ic->parm.num;
+					if ((num <1) || (num > 2)) {
+						sprintf(tmp, "Set LEASED wrong channel %d\n",
+							num);
+						HiSax_putstatus(csta, tmp);
+						printk(KERN_WARNING "HiSax: %s", tmp);
+					} else {
+						num--;
+						csta->channel[num].leased = 1;
+						csta->channel[num].lc_d->l2_establish = 0;
+						sprintf(tmp, "card %d channel %d set leased mode\n",
+							csta->cardnr + 1, num + 1);
+						HiSax_putstatus(csta, tmp);
+						FsmEvent(&csta->channel[num].lc_d->lcfi, EV_LC_ESTABLISH, NULL);
+					}
 					break;
 				case (6):	/* set B-channel test loop */
 					num = *(unsigned int *) ic->parm.num;

@@ -376,16 +376,15 @@ for instructions.
 Appendix: Linux and ISDN-leased lines
 -------------------------------------
 
-From Juergen Quade
+Original from Juergen Quade, new version KKe.
+
+Attention NEW VERSION, the old leased line syntax won't work !!!
 
 You can use HiSax to connect your Linux-Box via an ISDN leased line
 to i.e. the internet:
 
 1. Build a kernel which includes the HiSax driver either as a module
-   or as part of the kernel. The HiSax driver is part of the kernel
-   for versions >2.0.30. If you have 2.0.30 you have to upgrade
-   (see http://www.linuxhq.com for newer kernel versions or for
-   patches).
+   or as part of the kernel.
      cd /usr/src/linux
      make menuconfig
      <ISDN subsystem - ISDN support -- HiSax>
@@ -435,86 +434,109 @@ to i.e. the internet:
       driver parameter (irq, io, mem, type, protocol).
       For the leased line the protocol is "3". See the table above for
       the parameters, which you have to specify depending on your card.
-   b) switch the card into leased mode
-      /sbin/hisaxctrl HiSax 5 0
-   c) configure i4l
-      /sbin/isdnctrl huptimeout isdn0 0
+   b) configure i4l
+      /sbin/isdnctrl addif isdn0
+      # EAZ  1 -- B1 channel   2 --B2 channel
       /sbin/isdnctrl eaz isdn0 1
+      /sbin/isdnctrl secure isdn0 on
+      /sbin/isdnctrl huptimeout isdn0 0
       /sbin/isdnctrl l2_prot isdn0 hdlc
-      /sbin/isdnctrl addphone isdn0 out 2
-      /sbin/isdnctrl addphone isdn0 in 3
-      /sbin/isdnctrl bind isdn0 HiSax,0
-   d) in case the remote partner is a CISCO:
+      # Attention you must not set a outgoing number !!! This won't work !!!
+      # The incomming number is LEASED0 for the first card, LEASED1 for the
+      # second and so on. 
+      /sbin/isdnctrl addphone isdn0 in LEASED0
+      # Here is no need to bind the channel.
+   c) in case the remote partner is a CISCO:
       /sbin/isdnctrl encap isdn0 cisco-h
    d) configure the interface
       /sbin/ifconfig isdn0 ${LOCAL_IP} pointopoint ${REMOTE_IP}
    e) set the routes
       /sbin/route add -host ${REMOTE_IP} isdn0
       /sbin/route add default gw ${REMOTE_IP}
-   f) establish the connection
-      /sbin/isdnctrl dial isdn0
+   f) switch the card into leased mode for each used B-channel 
+      /sbin/hisaxctrl HiSax 5 1
  
 Remarks:
-a) In the current version of the HiSax driver it is not possible to 
-   terminate the ISDN subsystem and to restart it (without rebooting
-   the machine _OR_ unloading the driver module)
-b) If you have a CISCO don´t forget to switch off the KEEP ALIVE option!
-c) the program telesctrl has now been called hisaxctrl
+a) If you have a CISCO don´t forget to switch off the KEEP ALIVE option!
 
-The following script for starting the ISDN subsystem is untested:
-
+Here an example script:
 #!/bin/sh
-# Tue Aug 19 15:06:26 MEST 1997
 # Start/Stop ISDN lesaed line connection
 
 I4L_AS_MODULE=yes
-I4L_REMOTE_IS_CISCO=yes
-I4L_MODULE_PARAMS="type=3 io=0x180 protocol=3 irq=10 id=HiSax"
+I4L_REMOTE_IS_CISCO=no
+I4L_MODULE_PARAMS="type=16 io=0x268 irq=7 "
+I4L_DEBUG=no
+I4L_LEASED_128K=yes
 LOCAL_IP=192.168.1.1
-REMOTE_IP=192.168.211.1
+REMOTE_IP=192.168.2.1
 
 case "$1" in
     start)
-        echo "Starting ISDN ..."
+	echo "Starting ISDN ..."
         if [ ${I4L_AS_MODULE} = "yes" ]; then
-            echo "loading modules..."
-            cd /usr/src/linux/modules
-            /sbin/insmod -m isdn.o
-            /sbin/insmod -m hisax.o ${I4L_MODULE_PARAMS}
-        fi
-
-		# switch to leased mode
-		/sbin/hisaxctrl HiSax 5 0
-		# configure interface
-		/sbin/isdnctrl addif isdn0
-        if [ ${I4L_REMOTE_IS_CISCO} = "yes" ]; then
-            echo "WARNING! KEEP ALIVE HAS TO BE SWITCHED OFF ON THE CISCO!"
-		    /sbin/isdnctrl encap isdn0 cisco-h
-        fi
-		/sbin/isdnctrl huptimeout isdn0 0
-		/sbin/isdnctrl eaz isdn0 1
-		/sbin/isdnctrl l2_prot isdn0 hdlc
-		/sbin/isdnctrl addphone isdn0 out 2
-		/sbin/isdnctrl addphone isdn0 in 3
-		/sbin/isdnctrl bind isdn0 HiSax,0
-		# configure tcp/ip
-		/sbin/ifconfig isdn0 ${LOCAL_IP} pointopoint ${REMOTE_IP}
-		/sbin/route add -host ${REMOTE_IP} isdn0
-		# start connection
-		/sbin/isdnctrl dial isdn0
-		# set default route
-		/sbin/route add default gw ${REMOTE_IP}
-		;;
-	stop)
-		/sbin/ifconfig isdn0 down
-		/sbin/isdnctrl delif isdn0
-        if [ ${I4L_AS_MODULE} = "yes" ]; then
-            /sbin/rmmod hisax.o
-            /sbin/rmmod isdn.o
+		echo "loading modules..."
+		/sbin/modprobe hisax ${I4L_MODULE_PARAMS}
+	fi
+	# configure interface
+	/sbin/isdnctrl addif isdn0
+	/sbin/isdnctrl secure isdn0 on
+	if [ ${I4L_DEBUG} = "yes" ]; then
+		/sbin/isdnctrl verbose 7
+		/sbin/hisaxctrl HiSax 1 0xffff
+		/sbin/hisaxctrl HiSax 11 0xff
+		cat  /dev/isdnctrl >/tmp/lea.log &
+	fi
+	if [ ${I4L_REMOTE_IS_CISCO} = "yes" ]; then
+		/sbin/isdnctrl encap isdn0 cisco-h
+	fi
+	/sbin/isdnctrl huptimeout isdn0 0
+	# B-CHANNEL 1
+	/sbin/isdnctrl eaz isdn0 1
+	/sbin/isdnctrl l2_prot isdn0 hdlc
+	# 1. card
+	/sbin/isdnctrl addphone isdn0 in LEASED0
+        if [ ${I4L_LEASED_128K} = "yes" ]; then
+		/sbin/isdnctrl addslave isdn0 isdn0s
+		/sbin/isdnctrl secure isdn0s on
+		/sbin/isdnctrl huptimeout isdn0s 0
+		# B-CHANNEL 2
+		/sbin/isdnctrl eaz isdn0s 2
+		/sbin/isdnctrl l2_prot isdn0s hdlc
+		# 1. card
+		/sbin/isdnctrl addphone isdn0s in LEASED0
+		if [ ${I4L_REMOTE_IS_CISCO} = "yes" ]; then
+			/sbin/isdnctrl encap isdn0s cisco-h
 		fi
-		;;
-	*)
-		echo "Usage: $0 {start|stop}"
-		exit 1
+	fi
+	# configure tcp/ip
+	/sbin/ifconfig isdn0 ${LOCAL_IP} pointopoint ${REMOTE_IP}
+	/sbin/route add -host ${REMOTE_IP} isdn0
+	/sbin/route add default gw ${REMOTE_IP}
+	# switch to leased mode
+	# B-CHANNEL 1
+	/sbin/hisaxctrl HiSax 5 1
+        if [ ${I4L_LEASED_128K} = "yes" ]; then
+		# B-CHANNEL 2
+		/sbin/hisaxctrl HiSax 5 2
+	fi
+	;;
+    stop)
+	/sbin/ifconfig isdn0 down
+	/sbin/isdnctrl delif isdn0
+	if [ ${I4L_DEBUG} = "yes" ]; then
+		killall cat
+	fi
+	if [ ${I4L_AS_MODULE} = "yes" ]; then
+		/sbin/rmmod hisax
+		/sbin/rmmod isdn
+		/sbin/rmmod ppp
+		/sbin/rmmod slhc
+	fi
+	;;
+    *)
+	echo "Usage: $0 {start|stop}"
+	exit 1
 esac
 exit 0
+
