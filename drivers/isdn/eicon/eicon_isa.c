@@ -22,6 +22,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.5  1999/04/01 12:48:33  armin
+ * Changed some log outputs.
+ *
  * Revision 1.4  1999/03/29 11:19:46  armin
  * I/O stuff now in seperate file (eicon_io.c)
  * Old ISA type cards (S,SX,SCOM,Quadro,S2M) implemented.
@@ -51,6 +54,8 @@
 #define request_shmem request_region
 
 char *eicon_isa_revision = "$Revision$";
+
+#ifdef CONFIG_ISDN_DRV_EICON_ISA
 
 /* Mask for detecting invalid IRQ parameter */
 static int eicon_isa_valid_irq[] = {
@@ -427,3 +432,5 @@ eicon_isa_load(eicon_isa_card *card, eicon_isa_codebuf *cb) {
 	card->irqprobe = 0;
 	return 0;
 }
+
+#endif /* CONFIG_ISDN_DRV_EICON_ISA */

@@ -21,6 +21,11 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.7  1999/07/11 17:16:23  armin
+ * Bugfixes in queue handling.
+ * Added DSP-DTMF decoder functions.
+ * Reorganized ack_handler.
+ *
  * Revision 1.6  1999/06/09 19:31:24  armin
  * Wrong PLX size for request_region() corrected.
  * Added first MCA code from Erik Weber.
@@ -339,6 +344,22 @@ typedef struct {
   __u16                 ref;            /* saved reference          */
 } entity;
 
+#define FAX_MAX_SCANLINE 256
+
+typedef struct {
+	__u8		PrevObject;
+	__u8		NextObject;
+	__u8		abLine[FAX_MAX_SCANLINE];
+	__u8		abFrame[FAX_MAX_SCANLINE];
+	unsigned int	LineLen;
+	unsigned int	LineDataLen;
+	__u32		LineData;
+	unsigned int	NullBytesPos;
+	__u8		NullByteExist;
+	int		PageCount;
+	__u8		Dle;
+	__u8		Eop;
+} eicon_ch_fax_buf;
 
 typedef struct {
 	int	       No;		 /* Channel Number	        */
@@ -352,6 +373,10 @@ typedef struct {
 	unsigned short ncci;
 	unsigned char  l2prot;           /* Layer 2 protocol            */
 	unsigned char  l3prot;           /* Layer 3 protocol            */
+#ifdef CONFIG_ISDN_TTY_FAX
+	T30_s		*fax;		 /* pointer to fax data in LL	*/
+	eicon_ch_fax_buf fax2;		 /* fax related struct		*/
+#endif
 	entity		e;		 /* Entity  			*/
 	char		cpn[32];	 /* remember cpn		*/
 	char		oad[32];	 /* remember oad		*/
