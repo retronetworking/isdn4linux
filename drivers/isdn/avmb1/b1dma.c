@@ -6,6 +6,9 @@
  * (c) Copyright 2000 by Carsten Paeth (calle@calle.in-berlin.de)
  * 
  * $Log$
+ * Revision 1.7  2000/08/04 12:20:08  calle
+ * - Fix unsigned/signed warning in the right way ...
+ *
  * Revision 1.6  2000/06/29 13:59:06  calle
  * Bugfix: reinit txdma without interrupt will confuse some AMCC chips.
  *
@@ -245,14 +248,14 @@ void b1dma_reset(avmcard *card)
 	restore_flags(flags);
 
 	b1dmaoutmeml(card->mbase+AMCC_MCSR, 0);
-	udelay(10 * 1000);
+	mdelay(10);
 	b1dmaoutmeml(card->mbase+AMCC_MCSR, 0x0f000000); /* reset all */
-	udelay(10 * 1000);
+	mdelay(10);
 	b1dmaoutmeml(card->mbase+AMCC_MCSR, 0);
 	if (card->cardtype == avm_t1pci)
-		udelay(42 * 1000);
+		mdelay(42);
 	else
-		udelay(10 * 1000);
+		mdelay(10);
 }
 
 /* ------------------------------------------------------------- */
@@ -260,11 +263,11 @@ void b1dma_reset(avmcard *card)
 int b1dma_detect(avmcard *card)
 {
 	b1dmaoutmeml(card->mbase+AMCC_MCSR, 0);
-	udelay(10 * 1000);
+	mdelay(10);
 	b1dmaoutmeml(card->mbase+AMCC_MCSR, 0x0f000000); /* reset all */
-	udelay(10 * 1000);
+	mdelay(10);
 	b1dmaoutmeml(card->mbase+AMCC_MCSR, 0);
-	udelay(42 * 1000);
+	mdelay(42);
 
 	b1dmaoutmeml(card->mbase+AMCC_RXLEN, 0);
 	b1dmaoutmeml(card->mbase+AMCC_TXLEN, 0);

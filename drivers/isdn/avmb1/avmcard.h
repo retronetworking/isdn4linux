@@ -4,6 +4,11 @@
  * Copyright 1999 by Carsten Paeth (calle@calle.in-berlin.de)
  *
  * $Log$
+ * Revision 1.7  2000/01/25 14:33:38  calle
+ * - Added Support AVM B1 PCI V4.0 (tested with prototype)
+ *   - splitted up t1pci.c into b1dma.c for common function with b1pciv4
+ *   - support for revision register
+ *
  * Revision 1.6  1999/11/05 16:38:01  calle
  * Cleanups before kernel 2.4:
  * - Changed all messages to use card->name or driver->name instead of
@@ -342,13 +347,13 @@ static inline unsigned int b1_rd_reg(unsigned int base,
 static inline void b1_reset(unsigned int base)
 {
 	b1outp(base, B1_RESET, 0);
-	udelay(55 * 2 * 1000);	/* 2 TIC's */
+	mdelay(55 * 2);	/* 2 TIC's */
 
 	b1outp(base, B1_RESET, 1);
-	udelay(55 * 2 * 1000);	/* 2 TIC's */
+	mdelay(55 * 2);	/* 2 TIC's */
 
 	b1outp(base, B1_RESET, 0);
-	udelay(55 * 2 * 1000);	/* 2 TIC's */
+	mdelay(55 * 2);	/* 2 TIC's */
 }
 
 static inline unsigned char b1_disable_irq(unsigned int base)
