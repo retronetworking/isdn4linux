@@ -6,6 +6,9 @@
  * Copyright 1996 by Carsten Paeth (calle@calle.in-berlin.de)
  *
  * $Log$
+ * Revision 1.44.6.6  2001/03/13 16:17:07  kai
+ * spelling fixes from 2.4.3-pre
+ *
  * Revision 1.44.6.5  2001/02/13 11:43:29  kai
  * more compatility changes for 2.2.19
  *
@@ -237,6 +240,7 @@
 #include <linux/smp_lock.h>
 #include <linux/timer.h>
 #include <linux/wait.h>
+#include <linux/isdn_compat.h>
 #ifdef CONFIG_ISDN_CAPI_MIDDLEWARE
 #include <linux/tty.h>
 #ifdef CONFIG_PPP

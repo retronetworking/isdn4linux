@@ -6,6 +6,9 @@
  * (c) Copyright 1999 by Carsten Paeth (calle@calle.in-berlin.de)
  * 
  * $Log$
+ * Revision 1.21.6.3  2001/03/13 16:17:08  kai
+ * spelling fixes from 2.4.3-pre
+ *
  * Revision 1.21.6.2  2001/02/13 11:43:29  kai
  * more compatility changes for 2.2.19
  *
@@ -127,6 +130,7 @@
 #include <linux/proc_fs.h>
 #include <linux/skbuff.h>
 #include <linux/tqueue.h>
+#include <linux/isdn_compat.h>
 #include <linux/capi.h>
 #include <linux/kernelcapi.h>
 #include <linux/locks.h>

@@ -1,118 +1,135 @@
 #!/bin/sh
 
 KERNELDIR=/usr/src/linux
-DOCP=docpd
 PREPARSER="./preparser"
 UNIQUE=false
 VERBOSE=false
 NOTEST=true
-
-docpd() {
-  BASENAME=`basename $2`; 
-  if [ "$BASENAME" = "Makefile" ] ; then
-    if [ $VERSION -gt 3 -o $PATCHLEVEL -gt 3 ]; then
-      rm -f $2
-      cat $1 | sed -e "s/drivers\/isdn\/Rules\.make/Rules\.make/" > $2
-    fi
-  else
-    if ! cmp -s $1 $2 ; then
-      if $NOTEST ; then
-          echo Copying $1 ...
-	  mkdir -p `dirname $2`
-  	  rm -f $2 # unlink first
-          cp $1 $2
-      else
-          echo $1 was changed
-      fi
-    else
-      if $VERBOSE ; then
-	      echo $2 is up to date, NOT converted
-      fi
-    fi
-  fi
-}
+DODIFF=false
+ALLOW_ANY_DIR=true
 
 docp() {
-  if [ $1 -nt $2 -o ! -f $2 ] ; then
-    if $NOTEST ; then
-        echo Copying $1 ...
-	mkdir -p `dirname $2`
-	rm -f $2 # unlink first
-        cp $1 $2
-    else
-        echo $1 was changed
-    fi
-  else
-    if $VERBOSE ; then
-	    echo $2 is up to date, NOT converted
-    fi
-  fi
-}
 
-docpuni() {
-    if $VERBOSE ; then
-    	echo -n "Processing $1 ... "
+    SRCNAME=$1;
+    if $VERBOSE; then
+	echo -n "$SRCNAME... "
     fi
+
+    # special cases
+    
     TMPNAME=/tmp/`basename $1`.$$
-    $PREPARSER -c $CTRLNAME $1 $TMPNAME
-    RES=$?
-    if [ "$RES" -eq "0" ] ; then 
-	if ! cmp -s $1 $2 ; then
-		if $NOTEST ; then
-			if $VERBOSE ; then
-				echo copying original
-			else
-				echo "Processing $1 ... copying original"
-			fi
-			mkdir -p `dirname $2`
-			rm -rf $2 # unlink first
-			cp $1 $2
-		else
-			if $VERBOSE ; then
-				echo original was changed
-			else
-				echo "Processing $1 ... original was changed"
-			fi
-		fi
-	else
-		if $VERBOSE ; then
-			echo original file is up to date
-		fi
+    
+    # Makefiles
+    BASENAME=`basename $2`; 
+    if [ "$BASENAME" = "Makefile" ]; then
+	if [ $VERSION -gt 3 -o \( $VERSION -eq 2 -a $PATCHLEVEL -gt 3 \) ]; then
+	    sed -e "s/drivers\/isdn\/Rules\.make/Rules\.make/" < $SRCNAME > $TMPNAME
+	    if $VERBOSE ; then
+		echo -n "processing... modified..."
+	    fi
+	    SRCNAME=$TMPNAME
 	fi
-	rm $TMPNAME
-	return 0
     fi
-    if [ "$RES" -eq "2" ] ; then
-	if ! cmp -s $TMPNAME $2 ; then
-		if $NOTEST ; then
-			if $VERBOSE ; then
-				echo copying modified
-			else
-				echo "Processing $1 ... copying modified"
-			fi
-			mkdir -p `dirname $2`
-			rm -rf $2 # unlink first
-			cp $TMPNAME $2
-		else
-			if $VERBOSE ; then
-				echo modified was changed
-			else
-				echo "Processing $1 ... modified was changed"
-			fi
-		fi
-	else
-		if $VERBOSE ; then
-			echo modified file is up to date
-		fi
-	fi 
-	rm $TMPNAME
-	return 0
-    fi
-    echo
-    echo "problem with $PREPARSER retcode $RES"
-    exit 1
-}
 
+    # Rules.make
+    if [ "$BASENAME" = "Rules.make" ]; then
+	if ! [ $VERSION -gt 3 -o \( $VERSION -eq 2 -a $PATCHLEVEL -gt 3 \) ]; then
+	    if $VERBOSE; then
+		echo "skipped"
+	    fi
+	    return
+	fi
+    fi
+
+    # Config.in
+    if [ "$1" = "drivers/isdn/Config.in" ]; then
+	if ! [ $VERSION -gt 3 -o \( $VERSION -eq 2 -a $PATCHLEVEL -gt 3 \) ]; then
+	    grep -v "CONFIG_PCMCIA" < $SRCNAME > $TMPNAME
+	    if $VERBOSE ; then
+		echo -n "processing... modified..."
+	    fi
+	    SRCNAME=$TMPNAME
+	fi
+    fi
+
+    # Configure.help bits // FIXME
+    if echo $SRCNAME | grep -q "Configure.help"; then
+	    if $VERBOSE; then
+		echo "skipped"
+	    fi
+	    return
+    fi;
+
+    # MD5SUM
+    if [ "SRCNAME" = "drivers/isdn/hisax/md5sums.asc" ] ; then
+	if $UNIQUE; then
+	    if $VERBOSE; then
+		echo "skipped"
+	    fi
+	    return
+	fi
+    fi
+
+    # *.[hc] : preparse if selected
+    if $UNIQUE ; then
+        if echo $SRCNAME | egrep -q '.[hc]$'; then
+	    # only copy isdn_compat.h if we don't have a
+	    # delete #include <linux/isdn_compat.h> in the ctrlfile
+	    if [ "$1" = "include/linux/isdn_compat.h" ]; then
+		if grep -q isdn_compat.h $CTRLNAME; then
+		    if $VERBOSE; then
+			echo "skipped"
+		    fi
+		    return
+		fi;
+	    fi
+	    if $VERBOSE; then
+		echo -n "processing... "
+	    fi
+	    $PREPARSER -c $CTRLNAME $SRCNAME $TMPNAME
+	    RETVAL=$?
+	    if [ $RETVAL -ne 2 -a $RETVAL -ne 0 ] ; then 
+		echo "Problem with preparser retval $RETVAL"
+		exit 1
+	    fi
+	    if [ $RETVAL -eq 2 ] ; then
+		if $VERBOSE; then
+		    echo -n "modified... "
+		fi
+		SRCNAME=$TMPNAME
+	    fi
+	fi
+    fi
+
+    if $DODIFF; then
+	if $VERBOSE; then
+	    echo
+	fi
+	diff -u $SRCNAME $2
+    else
+	# do the actual copy, if necessary
+	if ! cmp -s $SRCNAME $2 ; then
+	    if $VERBOSE; then
+		echo "copying"
+	    else
+		echo "$1... copying"
+	    fi
+	    if $NOTEST ; then
+		    mkdir -p `dirname $2`
+		    rm -f $2 # unlink first
+		    cp $SRCNAME $2
+	    fi
+	else
+	    if $VERBOSE; then
+		echo "up to date"
+	    fi
+	fi
+    fi
+	
+    if [ -f $TMPNAME ]; then
+	rm -f $TMPNAME
+    fi
+}
 
 #
 # Print usage and exit
@@ -123,12 +140,11 @@ usage() {
 	std2kern is used for updating your kernel-tree from within
 	this directory.
 
-	std2kern [-d] [-h] [-k DIR] [-v] [-u] [-c FILE] [files ...]
+	std2kern [-h] [-k DIR] [-v] [-u] [-c FILE] [files ...]
 
 	Options:
 
 	-h	This Text.
-	-d	Copy depends on modification date instead of file-compare.
 	-k DIR	Kerneltree is in DIR instead of /usr/src/linux
         -v      More mesages about processing
 	-u      Make a diff for a unique kernel-tree 
@@ -154,15 +170,15 @@ checkkernel() {
 		fi
 	fi
 	echo "The given argument does not look like a kernel dir"
-	exit 1
+	if ! $ALLOW_ANY_DIR; then
+	    exit 1
+	fi
 }
 
 #
 # Determine a control file name
 #
 calc_ctrl_file() {
-	eval `sed -n 's/^\([A-Z]*\) = \([0-9]*\)$/\1=\2/p' $KERNELDIR/Makefile`
-	echo "Current kernel version is $VERSION.$PATCHLEVEL.$SUBLEVEL"
 	if [ -z "$CTRLNAME" ] ; then
 		CTRLNAME=v$VERSION.$PATCHLEVEL.$SUBLEVEL.ctrl
 		if [ -f $CTRLNAME ] ; then
@@ -181,7 +197,7 @@ calc_ctrl_file() {
 	exit 1
 }
 
-while getopts :dhk:uc:vt a ; do
+while getopts :dhk:uc:vtid a ; do
 	case $a in
 		\?)	case $OPTARG in
 				k)	echo "-k requires Kernel directory parameter"
@@ -203,7 +219,9 @@ while getopts :dhk:uc:vt a ; do
 			;;
 		t)	NOTEST=false
 			;;
-		d)	DOCP=docp
+		i)      ALLOW_ANY_DIR=true;
+			;;
+		d)      DODIFF=true;
 			;;
 		h)	usage
 			;;
@@ -211,65 +229,37 @@ while getopts :dhk:uc:vt a ; do
 done
 shift `expr $OPTIND - 1`
 
-calc_ctrl_file
-
-if $UNIQUE ; then
-	DOCP=docpuni
+if [ -z "$VERSION" -o -z "$PATCHLEVEL" ] ; then
+    if ! [ -f $KERNELDIR/Makefile ] ; then
+	echo "VERSION/PATCHLEVEL not set and no Makefile to read from"
+	exit 1
+    fi
+    eval `sed -n 's/^\([A-Z]*\) = \([0-9]*\)$/\1=\2/p' $KERNELDIR/Makefile`
 fi
-
-echo -n "Using $DOCP"
+echo "Current kernel version is $VERSION.$PATCHLEVEL.$SUBLEVEL"
 
 if $UNIQUE ; then
-	echo " with controlfile $CTRLNAME"
-else
-	echo
+    calc_ctrl_file
+    echo "Controlfile $CTRLNAME"
 fi
 
 if [ $# != 0 ]; then
-  for i in $* ; do
-    $DOCP $i $KERNELDIR/$i
-  done
+    for i in $* ; do
+	docp $i $KERNELDIR/$i
+    done
 else
-  for i in drivers/isdn/isdn_*.[ch] ; do
-    $DOCP $i $KERNELDIR/$i
-  done
-  for i in drivers/isdn/icn/icn.[ch] ; do
-    $DOCP $i $KERNELDIR/$i
-  done
-  for i in drivers/isdn/pcbit/*.[ch] ; do
-    $DOCP $i $KERNELDIR/$i
-  done
-  for i in drivers/isdn/hisax/*.[ch] drivers/isdn/hisax/md5sums.asc ; do
-	if [ "$i" = "drivers/isdn/hisax/md5sums.asc" -a \
-	     "$UNIQUE" = "true" ] ; then
-		if $VERBOSE ; then
-			echo "$i skipped"
-		fi
-	else
-		$DOCP $i $KERNELDIR/$i
-	fi
-  done
-  for i in drivers/isdn/sc/*.[ch] ; do
-    $DOCP $i $KERNELDIR/$i
-  done
-  for i in drivers/isdn/avmb1/*.[ch] ; do
-    $DOCP $i $KERNELDIR/$i
-  done
-  for i in drivers/isdn/act2000/*.[ch] ; do
-    $DOCP $i $KERNELDIR/$i
-  done
-  for i in drivers/isdn/isdnloop/*.[ch] ; do
-    $DOCP $i $KERNELDIR/$i
-  done
-  for i in drivers/isdn/hysdn/*.[ch] ; do
-    $DOCP $i $KERNELDIR/$i
-  done
-  if [ ! -d $KERNELDIR/drivers/isdn/divert ] ; then
-    mkdir $KERNELDIR/drivers/isdn/divert
-  fi
-  for i in drivers/isdn/divert/*.[ch] ; do
-    $DOCP $i $KERNELDIR/$i
-  done
+    for i in `find drivers -type f | grep -v CVS`; do
+	docp $i $KERNELDIR/$i
+    done
+    for i in `find include -type f | grep -v CVS`; do
+	docp $i $KERNELDIR/$i
+    done
+    for i in `find Documentation -type f | grep -v CVS`; do
+	docp $i $KERNELDIR/$i
+    done
+fi
+exit 0
+
   if [ -f $KERNELDIR/Documentation/Configure.help ] ; then
     grep -q CONFIG_ISDN_DIVERSION $KERNELDIR/Documentation/Configure.help
     if [ $? != 0 ] ; then
@@ -282,70 +272,17 @@ else
       patch -d $KERNELDIR/Documentation < Documentation/Configure.help.eicon.diff
     fi
   fi
-  for i in drivers/isdn/eicon/*.[ch] ; do
-    $DOCP $i $KERNELDIR/$i
-  done
-  COPY_COMPAT=false
-  if [ -n "$CTRLNAME" ] ; then
-        grep "linux/isdn_compat.h" $CTRLNAME >/dev/null || COPY_COMPAT=true;
+  if $NOTEST ; then
+    if [ -f $KERNELDIR/Documentation/Configure.help ] ; then
+      grep -q CONFIG_ISDN_WITH_ABC $KERNELDIR/Documentation/Configure.help
+      if [ $? != 0 ] ; then
+	  if [ -f  Documentation/Configure.help.dwabc.diff ] ; then
+            patch -d $KERNELDIR/Documentation < Documentation/Configure.help.dwabc.diff
+	  fi
+      fi
+    fi
   fi
-  for i in include/linux/*.h ; do
-	if [ "$i" = "include/linux/isdn_compat.h" -a \
-	     "$UNIQUE" = "true" -a "$COPY_COMPAT" = "false" ] ; then
-		if $VERBOSE ; then
-			echo "$i skipped"
-		fi
-	else
-		$DOCP $i $KERNELDIR/$i
-	fi
-  done
-  for i in Documentation/isdn/CREDITS Documentation/isdn/README* \
-           Documentation/isdn/*.FAQ Documentation/isdn/INTERFACE* \
-           Documentation/isdn/HiSax* Documentation/isdn/00-INDEX ; do
-	if $UNIQUE ; then
-		docpd $i $KERNELDIR/$i
-	else
-		$DOCP $i $KERNELDIR/$i
-	fi
-  done
-  for i in drivers/isdn/Config.in ; do
-	if $UNIQUE ; then
-		docpd $i $KERNELDIR/$i
-	else
-		$DOCP $i $KERNELDIR/$i
-	fi
-  done
-  for i in drivers/isdn/Makefile \
-	   drivers/isdn/icn/Makefile \
-           drivers/isdn/hisax/Makefile \
-           drivers/isdn/pcbit/Makefile \
-	   drivers/isdn/sc/Makefile \
-           drivers/isdn/act2000/Makefile \
-           drivers/isdn/isdnloop/Makefile \
-           drivers/isdn/eicon/Makefile \
-           drivers/isdn/divert/Makefile \
-           drivers/isdn/avmb1/Makefile \
-           drivers/isdn/hysdn/Makefile; do
-	if [ -f $i.kernel ] ; then
-		if $UNIQUE ; then
-			docpd $i.kernel $KERNELDIR/$i
-		else
-			$DOCP $i.kernel $KERNELDIR/$i
-		fi
-	else
-		if $UNIQUE ; then
-			docpd $i $KERNELDIR/$i
-		else
-			$DOCP $i $KERNELDIR/$i
-		fi
-	fi
-  done
-	if [ $VERSION -le 2 -o $PATCHLEVEL -le 3 ]; then
-		if $UNIQUE ; then
-			docpd drivers/isdn/Rules.make $KERNELDIR/drivers/isdn/Rules.make
-		else
-			$DOCP drivers/isdn/Rules.make $KERNELDIR/drivers/isdn/Rules.make
-		fi
-
-	fi
+    if [ $VERSION -le 2 -o \( $VERSION -eq 2 -a $PATCHLEVEL -le 2 \) ]; then
+	docp drivers/isdn/Rules.make $KERNELDIR/drivers/isdn/Rules.make
+    fi
 fi

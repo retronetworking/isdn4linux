@@ -6,6 +6,9 @@
  * (c) Copyright 1999 by Carsten Paeth (calle@calle.in-berlin.de)
  * 
  * $Log$
+ * Revision 1.20.6.1  2001/02/13 11:43:29  kai
+ * more compatility changes for 2.2.19
+ *
  * Revision 1.20  2000/11/23 20:45:14  kai
  * fixed module_init/exit stuff
  * Note: compiled-in kernel doesn't work pre 2.2.18 anymore.
@@ -110,10 +113,9 @@
 #include <linux/capi.h>
 #include <asm/io.h>
 #include <linux/init.h>
+#include <linux/isdn_compat.h>
 #include <asm/uaccess.h>
-#ifndef COMPAT_NO_SOFTNET
 #include <linux/netdevice.h>
-#endif
 #include "capilli.h"
 #include "avmcard.h"
 #include "capicmd.h"

@@ -6,6 +6,9 @@
  * Heavily based on devpts filesystem from H. Peter Anvin
  * 
  * $Log$
+ * Revision 1.14.6.3  2001/02/13 11:43:29  kai
+ * more compatility changes for 2.2.19
+ *
  * Revision 1.14.6.2  2001/02/10 14:41:20  kai
  * Changes from kernel tree
  *
@@ -91,6 +94,7 @@
 #include <linux/major.h>
 #include <linux/slab.h>
 #include <linux/ctype.h>
+#include <linux/isdn_compat.h>
 #include <asm/bitops.h>
 #include <asm/uaccess.h>
 

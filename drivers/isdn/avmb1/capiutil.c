@@ -7,6 +7,9 @@
  * Rewritten for Linux 1996 by Carsten Paeth (calle@calle.in-berlin.de)
  *
  * $Log$
+ * Revision 1.13.6.1  2001/02/13 11:43:29  kai
+ * more compatility changes for 2.2.19
+ *
  * Revision 1.13  2000/11/23 20:45:14  kai
  * fixed module_init/exit stuff
  * Note: compiled-in kernel doesn't work pre 2.2.18 anymore.
@@ -93,7 +96,7 @@
 #include <linux/init.h>
 #include <asm/segment.h>
 #include <linux/config.h>
-
+#include <linux/isdn_compat.h>
 #include "capiutil.h"
 
 /* from CAPI2.0 DDK AVM Berlin GmbH */

@@ -6,6 +6,9 @@
  * (c) Copyright 1999 by Carsten Paeth (calle@calle.in-berlin.de)
  * 
  * $Log$
+ * Revision 1.10.6.2  2001/02/16 16:43:23  kai
+ * Changes from -ac16, little bug fixes, typos and the like
+ *
  * Revision 1.10.6.1  2001/02/13 11:43:29  kai
  * more compatility changes for 2.2.19
  *
@@ -81,6 +84,7 @@
 #include <linux/capi.h>
 #include <linux/init.h>
 #include <asm/io.h>
+#include <linux/isdn_compat.h>
 #include "capicmd.h"
 #include "capiutil.h"
 #include "capilli.h"
