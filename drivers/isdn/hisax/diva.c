@@ -8,6 +8,9 @@
  *
  *
  * $Log$
+ * Revision 1.4  1997/11/08 21:35:44  keil
+ * new l1 init
+ *
  * Revision 1.3  1997/11/06 17:13:33  keil
  * New 2.1 init code
  *
@@ -33,8 +36,8 @@ extern const char *CardType[];
 
 const char *Diva_revision = "$Revision$";
 
-#define byteout(addr,val) outb_p(val,addr)
-#define bytein(addr) inb_p(addr)
+#define byteout(addr,val) outb(val,addr)
+#define bytein(addr) inb(addr)
 
 #define DIVA_HSCX_DATA		0
 #define DIVA_HSCX_ADR		4

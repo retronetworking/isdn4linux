@@ -13,6 +13,9 @@
  *            Edgar Toernig
  *
  * $Log$
+ * Revision 1.4  1997/11/08 21:35:52  keil
+ * new l1 init
+ *
  * Revision 1.3  1997/11/06 17:09:28  keil
  * New 2.1 init code
  *
@@ -35,8 +38,8 @@ extern const char *CardType[];
 
 const char *Sedlbauer_revision = "$Revision$";
 
-#define byteout(addr,val) outb_p(val,addr)
-#define bytein(addr) inb_p(addr)
+#define byteout(addr,val) outb(val,addr)
+#define bytein(addr) inb(addr)
 
 #define SEDL_RES_ON	0
 #define SEDL_RES_OFF	1

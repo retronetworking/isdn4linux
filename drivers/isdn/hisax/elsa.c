@@ -8,6 +8,9 @@
  *
  *
  * $Log$
+ * Revision 2.5  1998/01/31 21:41:45  keil
+ * changes for newer 2.1 kernels
+ *
  * Revision 2.4  1997/11/08 21:35:46  keil
  * new l1 init
  *
@@ -58,8 +61,8 @@ const char *ITACVer[] =
 {"?0?", "?1?", "?2?", "?3?", "?4?", "V2.2",
  "B1", "A1"};
 
-#define byteout(addr,val) outb_p(val,addr)
-#define bytein(addr) inb_p(addr)
+#define byteout(addr,val) outb(val,addr)
+#define bytein(addr) inb(addr)
 
 #define ELSA_ISAC	0
 #define ELSA_ISAC_PCM	1

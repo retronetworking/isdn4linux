@@ -10,6 +10,9 @@
  *              Beat Doebeli
  *
  * $Log$
+ * Revision 2.4  1997/11/08 21:35:54  keil
+ * new l1 init
+ *
  * Revision 2.3  1997/11/06 17:09:31  keil
  * New 2.1 init code
  *
@@ -41,8 +44,8 @@ extern const char *CardType[];
 
 const char *teles0_revision = "$Revision$";
 
-#define byteout(addr,val) outb_p(val,addr)
-#define bytein(addr) inb_p(addr)
+#define byteout(addr,val) outb(val,addr)
+#define bytein(addr) inb(addr)
 
 static inline u_char
 readisac(unsigned int adr, u_char off)

@@ -11,6 +11,9 @@
  *              Beat Doebeli
  *
  * $Log$
+ * Revision 2.6  1997/11/13 16:22:44  keil
+ * COMPAQ_ISA reset
+ *
  * Revision 2.5  1997/11/12 15:01:25  keil
  * COMPAQ_ISA changes
  *
@@ -65,8 +68,8 @@
 extern const char *CardType[];
 const char *teles3_revision = "$Revision$";
 
-#define byteout(addr,val) outb_p(val,addr)
-#define bytein(addr) inb_p(addr)
+#define byteout(addr,val) outb(val,addr)
+#define bytein(addr) inb(addr)
 
 static inline u_char
 readreg(unsigned int adr, u_char off)
@@ -230,6 +233,7 @@ reset_teles3(struct IsdnCardState *cs)
 		if ((cs->hw.teles3.cfg_reg) && (cs->typ != ISDN_CTYPE_COMPAQ_ISA)) {
 			switch (cs->irq) {
 				case 2:
+				case 9:
 					irqcfg = 0x00;
 					break;
 				case 3:
@@ -447,12 +451,13 @@ setup_teles3(struct IsdnCard *card))
 			release_io_teles3(cs);
 			return (0);
 		}
-		val = bytein(cs->hw.teles3.cfg_reg + 2);	/* 0x1e=without AB
-								   * 0x1f=with AB
-								   * 0x1c 16.3 ???
-								   * 0x46 16.3 with AB + Video (Teles-Vision)
-								 */
-		if (val != 0x46 && val != 0x1c && val != 0x1e && val != 0x1f) {
+		val = bytein(cs->hw.teles3.cfg_reg + 2);/* 0x1e=without AB
+							 * 0x1f=with AB
+							 * 0x1c 16.3 ???
+							 * 0x39 16.3 1.1
+							 * 0x46 16.3 with AB + Video (Teles-Vision)
+							 */
+		if (val != 0x46 && val != 0x39 && val != 0x1c && val != 0x1e && val != 0x1f) {
 			printk(KERN_WARNING "Teles: 16.3 Byte at %x is %x\n",
 			       cs->hw.teles3.cfg_reg + 2, val);
 			release_io_teles3(cs);

@@ -11,6 +11,9 @@
  *              Beat Doebeli
  *
  * $Log$
+ * Revision 2.4  1997/11/08 21:35:50  keil
+ * new l1 init
+ *
  * Revision 2.3  1997/11/06 17:09:35  keil
  * New 2.1 init code
  *
@@ -74,8 +77,8 @@
 extern const char *CardType[];
 const char *ix1_revision = "$Revision$";
 
-#define byteout(addr,val) outb_p(val,addr)
-#define bytein(addr) inb_p(addr)
+#define byteout(addr,val) outb(val,addr)
+#define bytein(addr) inb(addr)
 
 #define SPECIAL_PORT_OFFSET 3
 

@@ -8,6 +8,9 @@
  *
  *
  * $Log$
+ * Revision 1.4  1997/11/08 21:35:51  keil
+ * new l1 init
+ *
  * Revision 1.3  1997/11/06 17:09:11  keil
  * New 2.1 init code
  *
@@ -30,8 +33,8 @@ extern const char *CardType[];
 
 const char *mic_revision = "$Revision$";
 
-#define byteout(addr,val) outb_p(val,addr)
-#define bytein(addr) inb_p(addr)
+#define byteout(addr,val) outb(val,addr)
+#define bytein(addr) inb(addr)
 
 #define MIC_ISAC	2
 #define MIC_HSCX	1
