@@ -10,7 +10,7 @@ if [ "$CONFIG_INET" != "n" ]; then
 fi
 bool '  Support audio via ISDN' CONFIG_ISDN_AUDIO
 if [ "$CONFIG_ISDN_AUDIO" != "n" ]; then
-   bool '    Support AT-Fax Class 2 commands' CONFIG_ISDN_TTY_FAX
+   bool '    Support AT-Fax Class 1 and 2 commands' CONFIG_ISDN_TTY_FAX
 fi
 if [ "$CONFIG_X25" != "n" ]; then
    bool '  X.25 PLP on top of ISDN' CONFIG_ISDN_X25
@@ -31,6 +31,20 @@ if [ "$CONFIG_EXPERIMENTAL" != "n" ]; then
 		bool '    Rewrite socket and frame saddr-field (udp-ip4 only and very experimental)' CONFIG_ISDN_WITH_ABC_IPV4_RWUDP_SOCKADDR
 		fi
 		bool '  RX dont reset hanguptimeout' CONFIG_ISDN_WITH_ABC_RCV_NO_HUPTIMER
+		if [ "$CONFIG_NETFILTER" != "n" ]; then
+			if [ "$CONFIG_IP_NF_IPTABLES" != "n" ]; then
+			bool '  Iptables-support (IPV4 kernel >= 2.4.0)' CONFIG_ISDN_WITH_ABC_IPTABLES_NETFILTER
+			fi
+			if [ "$CONFIG_IP6_NF_IPTABLES" != "n" ]; then
+			bool '  Iptables-support (IPV6 kernel >= 2.4.0)' CONFIG_ISDN_WITH_ABC_IPV6TABLES_NETFILTER
+			fi
+			bool '  Iptables_DWISDN target support (kernel >= 2.4.0' CONFIG_ISDN_WITH_ABC_IPT_TARGET
+			if [ "$CONFIG_ISDN_WITH_ABC_IPT_TARGET" != "n" ]; then
+			int  '  skb->nfmark bit (1-32) for tx without huptime-reset' CONFIG_ISDN_WITH_ABC_IPT_TARGET_HBIT 25
+			int  '  Bit (1-32) for send icmp-unreach in offline case ' CONFIG_ISDN_WITH_ABC_IPT_TARGET_DBIT 26
+			fi
+		fi
+
 		bool '  Support (device-channel)<->(bind-groups)' CONFIG_ISDN_WITH_ABC_ICALL_BIND 
 		bool '  Skip channel if used external (dial only)' CONFIG_ISDN_WITH_ABC_CH_EXTINUSE
 		bool '  Support interface-auto-disable if config-error' CONFIG_ISDN_WITH_ABC_CONN_ERROR
@@ -65,12 +79,9 @@ if [ "$CONFIG_ISDN_DRV_HISAX" != "n" ]; then
       bool '    Disable sending complete' CONFIG_HISAX_NO_SENDCOMPLETE
       bool '    Disable sending low layer compatibility' CONFIG_HISAX_NO_LLC
       bool '    Disable keypad protocol option' CONFIG_HISAX_NO_KEYPAD
-      if [ "$CONFIG_EXPERIMENTAL" != "n" ]; then
-         bool '    Interface to CAPI' CONFIG_HISAX_CAPI
-      fi
    fi
    bool '  HiSax Support for german 1TR6' CONFIG_HISAX_1TR6
-   bool '  Interface to current link level' CONFIG_HISAX_LLI                   
+   bool '  HiSax Support for US NI1' CONFIG_HISAX_NI1
    comment '  HiSax supported cards'
    bool '  Teles 16.0/8.0' CONFIG_HISAX_16_0
    bool '  Teles 16.3 or PNP or PCMCIA' CONFIG_HISAX_16_3
@@ -89,6 +100,7 @@ if [ "$CONFIG_ISDN_DRV_HISAX" != "n" ]; then
    bool '  USR Sportster internal TA' CONFIG_HISAX_SPORTSTER
    bool '  MIC card' CONFIG_HISAX_MIC
    bool '  NETjet card' CONFIG_HISAX_NETJET
+   bool '  NETspider U card' CONFIG_HISAX_NETJET_U
    bool '  Niccy PnP/PCI card' CONFIG_HISAX_NICCY
    bool '  Siemens I-Surf card' CONFIG_HISAX_ISURF
    bool '  HST Saphir card' CONFIG_HISAX_HSTSAPHIR
@@ -148,6 +160,10 @@ if [ "$CONFIG_ISDN_CAPI" != "n" ]; then
    if [ "$CONFIG_EXPERIMENTAL" != "n" ]; then
       bool '  AVM C4 support' CONFIG_ISDN_DRV_AVMB1_C4
    fi
+   bool '  AVM FRITZ!Card PCI support' CONFIG_ISDN_DRV_AVMB1_FCPCI
+   bool '  AVM FRITZ!Card Classic support' CONFIG_ISDN_DRV_AVMB1_FCCLASSIC
+   bool '  AVM FRITZ!Card PNP support' CONFIG_ISDN_DRV_AVMB1_FCPNP
+   bool '  AVM FRITZ!Card PCMCIA support' CONFIG_ISDN_DRV_AVMB1_FCPCMCIA
    bool '  Verbose reason code reporting (kernel size +=7K)' CONFIG_ISDN_DRV_AVMB1_VERBOSE_REASON
 fi
 if [ "$CONFIG_PROC_FS" != "n" ]; then

@@ -6,6 +6,16 @@
  * (c) Copyright 1999 by Carsten Paeth (calle@calle.in-berlin.de)
  * 
  * $Log$
+ * Revision 1.13  2000/08/04 15:36:31  calle
+ * copied wrong from file to file :-(
+ *
+ * Revision 1.12  2000/08/04 12:20:08  calle
+ * - Fix unsigned/signed warning in the right way ...
+ *
+ * Revision 1.11  2000/04/03 13:29:25  calle
+ * make Tim Waugh happy (module unload races in 2.3.99-pre3).
+ * no real problem there, but now it is much cleaner ...
+ *
  * Revision 1.10  2000/02/02 18:36:04  calle
  * - Modules are now locked while init_module is running
  * - fixed problem with memory mapping if address is not aligned
@@ -279,24 +289,29 @@ static void t1_handle_interrupt(avmcard * card)
 		case RECEIVE_TASK_READY:
 			ApplId = (unsigned) b1_get_word(card->port);
 			MsgLen = t1_get_slice(card->port, card->msgbuf);
-			card->msgbuf[MsgLen--] = 0;
-			while (    MsgLen >= 0
-			       && (   card->msgbuf[MsgLen] == '\n'
-				   || card->msgbuf[MsgLen] == '\r'))
-				card->msgbuf[MsgLen--] = 0;
+			card->msgbuf[MsgLen] = 0;
+			while (    MsgLen > 0
+			       && (   card->msgbuf[MsgLen-1] == '\n'
+				   || card->msgbuf[MsgLen-1] == '\r')) {
+				card->msgbuf[MsgLen-1] = 0;
+				MsgLen--;
+			}
 			printk(KERN_INFO "%s: task %d \"%s\" ready.\n",
 					card->name, ApplId, card->msgbuf);
 			break;
 
 		case RECEIVE_DEBUGMSG:
 			MsgLen = t1_get_slice(card->port, card->msgbuf);
-			card->msgbuf[MsgLen--] = 0;
-			while (    MsgLen >= 0
-			       && (   card->msgbuf[MsgLen] == '\n'
-				   || card->msgbuf[MsgLen] == '\r'))
-				card->msgbuf[MsgLen--] = 0;
+			card->msgbuf[MsgLen] = 0;
+			while (    MsgLen > 0
+			       && (   card->msgbuf[MsgLen-1] == '\n'
+				   || card->msgbuf[MsgLen-1] == '\r')) {
+				card->msgbuf[MsgLen-1] = 0;
+				MsgLen--;
+			}
 			printk(KERN_INFO "%s: DEBUG: %s\n", card->name, card->msgbuf);
 			break;
+
 
 		case 0xff:
 			printk(KERN_ERR "%s: card reseted ?\n", card->name);
@@ -599,6 +614,9 @@ int t1isa_init(void)
 {
 	struct capi_driver *driver = &t1isa_driver;
 	char *p;
+	int retval = 0;
+
+	MOD_INC_USE_COUNT;
 
 	if ((p = strchr(revision, ':'))) {
 		strncpy(driver->revision, p + 1, sizeof(driver->revision));
@@ -613,9 +631,11 @@ int t1isa_init(void)
 	if (!di) {
 		printk(KERN_ERR "%s: failed to attach capi_driver\n",
 				driver->name);
-		return -EIO;
+		retval = -EIO;
 	}
-	return 0;
+
+	MOD_DEC_USE_COUNT;
+	return retval;
 }
 
 #ifdef MODULE

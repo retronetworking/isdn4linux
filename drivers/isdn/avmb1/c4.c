@@ -6,10 +6,38 @@
  * (c) Copyright 1999 by Carsten Paeth (calle@calle.in-berlin.de)
  * 
  * $Log$
- * Revision 1.4.2.1  2000/03/17 14:05:48  calle
- * Merged changes from main tree.
- * - Bugfix: c4
- * - make capi.c and capifs.c compile with 2.3.x
+ * Revision 1.16  2000/08/20 07:30:13  keil
+ * changes for 2.4
+ *
+ * Revision 1.15  2000/08/08 09:24:19  calle
+ * calls to pci_enable_device surounded by #ifndef COMPAT_HAS_2_2_PCI
+ *
+ * Revision 1.14  2000/08/04 12:20:08  calle
+ * - Fix unsigned/signed warning in the right way ...
+ *
+ * Revision 1.13  2000/07/20 10:21:21  calle
+ * Bugfix: driver will not be unregistered, if not cards were detected.
+ *         this result in an oops in kcapi.c
+ *
+ * Revision 1.12  2000/06/19 16:51:53  keil
+ * don't free skb in irq context
+ *
+ * Revision 1.11  2000/06/19 15:11:24  keil
+ * avoid use of freed structs
+ * changes from 2.4.0-ac21
+ *
+ * Revision 1.10  2000/05/29 12:29:18  keil
+ * make pci_enable_dev compatible to 2.2 kernel versions
+ *
+ * Revision 1.9  2000/05/19 15:43:22  calle
+ * added calls to pci_device_start().
+ *
+ * Revision 1.8  2000/04/03 16:38:05  calle
+ * made suppress_pollack static.
+ *
+ * Revision 1.7  2000/04/03 13:29:24  calle
+ * make Tim Waugh happy (module unload races in 2.3.99-pre3).
+ * no real problem there, but now it is much cleaner ...
  *
  * Revision 1.6  2000/03/17 12:21:08  calle
  * send patchvalues now working.
@@ -44,8 +72,15 @@
 #include <linux/ioport.h>
 #include <linux/pci.h>
 #include <linux/capi.h>
+#ifdef COMPAT_HAS_2_2_PCI
+#include <linux/isdn.h>
+#endif
 #include <asm/io.h>
 #include <asm/uaccess.h>
+#ifndef COMPAT_NO_SOFTNET
+#include <linux/netdevice.h>
+#endif
+#include <linux/isdn_compat.h>
 #include "capicmd.h"
 #include "capiutil.h"
 #include "capilli.h"
@@ -76,7 +111,7 @@ static char *revision = "$Revision$";
 
 /* ------------------------------------------------------------- */
 
-int suppress_pollack = 0;
+static int suppress_pollack = 0;
 
 MODULE_AUTHOR("Carsten Paeth <calle@calle.in-berlin.de>");
 
@@ -508,7 +543,7 @@ static void c4_dispatch_tx(avmcard *card)
 	c4outmeml(card->mbase+DOORBELL, DBELL_DOWN_ARM);
 
 	restore_flags(flags);
-	dev_kfree_skb(skb);
+	idev_kfree_skb_any(skb, FREE_WRITE);
 }
 
 /* ------------------------------------------------------------- */
@@ -662,22 +697,26 @@ static void c4_handle_rx(avmcard *card)
 	case RECEIVE_TASK_READY:
 		ApplId = (unsigned) _get_word(&p);
 		MsgLen = _get_slice(&p, card->msgbuf);
-		card->msgbuf[MsgLen--] = 0;
-		while (    MsgLen >= 0
-		       && (   card->msgbuf[MsgLen] == '\n'
-			   || card->msgbuf[MsgLen] == '\r'))
-			card->msgbuf[MsgLen--] = 0;
+		card->msgbuf[MsgLen] = 0;
+		while (    MsgLen > 0
+		       && (   card->msgbuf[MsgLen-1] == '\n'
+			   || card->msgbuf[MsgLen-1] == '\r')) {
+			card->msgbuf[MsgLen-1] = 0;
+			MsgLen--;
+		}
 		printk(KERN_INFO "%s: task %d \"%s\" ready.\n",
 				card->name, ApplId, card->msgbuf);
 		break;
 
 	case RECEIVE_DEBUGMSG:
 		MsgLen = _get_slice(&p, card->msgbuf);
-		card->msgbuf[MsgLen--] = 0;
-		while (    MsgLen >= 0
-		       && (   card->msgbuf[MsgLen] == '\n'
-			   || card->msgbuf[MsgLen] == '\r'))
-			card->msgbuf[MsgLen--] = 0;
+		card->msgbuf[MsgLen] = 0;
+		while (    MsgLen > 0
+		       && (   card->msgbuf[MsgLen-1] == '\n'
+			   || card->msgbuf[MsgLen-1] == '\r')) {
+			card->msgbuf[MsgLen-1] = 0;
+			MsgLen--;
+		}
 		printk(KERN_INFO "%s: DEBUG: %s\n", card->name, card->msgbuf);
 		break;
 
@@ -947,8 +986,10 @@ static void c4_remove_ctr(struct capi_ctr *ctrl)
 
         for (i=0; i < 4; i++) {
 		cinfo = &card->ctrlinfo[i];
-		if (cinfo->capi_ctrl)
+		if (cinfo->capi_ctrl) {
 			di->detach_ctr(cinfo->capi_ctrl);
+			cinfo->capi_ctrl = NULL;
+		}
 	}
 
 	free_irq(card->irq, card);
@@ -1161,7 +1202,6 @@ static int c4_add_card(struct capi_driver *driver, struct capicardparams *p)
         cinfo = (avmctrl_info *) kmalloc(sizeof(avmctrl_info)*4, GFP_ATOMIC);
 	if (!cinfo) {
 		printk(KERN_WARNING "%s: no memory.\n", driver->name);
-	        kfree(card->ctrlinfo);
 		kfree(card->dma);
 		kfree(card);
 	        MOD_DEC_USE_COUNT;
@@ -1321,6 +1361,8 @@ int c4_init(void)
 	char *p;
 	int retval;
 
+	MOD_INC_USE_COUNT;
+
 	if ((p = strchr(revision, ':'))) {
 		strncpy(driver->revision, p + 1, sizeof(driver->revision));
 		p = strchr(driver->revision, '$');
@@ -1334,6 +1376,7 @@ int c4_init(void)
 	if (!di) {
 		printk(KERN_ERR "%s: failed to attach capi_driver\n",
 				driver->name);
+		MOD_DEC_USE_COUNT;
 		return -EIO;
 	}
 
@@ -1341,6 +1384,7 @@ int c4_init(void)
 	if (!pci_present()) {
 		printk(KERN_ERR "%s: no PCI bus present\n", driver->name);
     		detach_capi_driver(driver);
+		MOD_DEC_USE_COUNT;
 		return -EIO;
 	}
 
@@ -1349,9 +1393,21 @@ int c4_init(void)
 			PCI_VENDOR_ID_AVM, PCI_DEVICE_ID_AVM_C4, dev))) {
 		struct capicardparams param;
 
-		param.port = get_pcibase(dev, 1) & PCI_BASE_ADDRESS_IO_MASK;
+		param.port = pci_resource_start_io(dev, 1);
 		param.irq = dev->irq;
-		param.membase = get_pcibase(dev, 0) & PCI_BASE_ADDRESS_MEM_MASK;
+		param.membase = pci_resource_start_mem(dev, 0);
+
+#ifndef COMPAT_HAS_2_2_PCI
+		retval = pci_enable_device (dev);
+		if (retval != 0) {
+		        printk(KERN_ERR
+			"%s: failed to enable AVM-C4 at i/o %#x, irq %d, mem %#x err=%d\n",
+			driver->name, param.port, param.irq, param.membase, retval);
+    			detach_capi_driver(driver);
+			MOD_DEC_USE_COUNT;
+			return -EIO;
+		}
+#endif
 
 		printk(KERN_INFO
 			"%s: PCI BIOS reports AVM-C4 at i/o %#x, irq %d, mem %#x\n",
@@ -1361,9 +1417,8 @@ int c4_init(void)
 		        printk(KERN_ERR
 			"%s: no AVM-C4 at i/o %#x, irq %d detected, mem %#x\n",
 			driver->name, param.port, param.irq, param.membase);
-#ifdef MODULE
-			cleanup_module();
-#endif
+    			detach_capi_driver(driver);
+			MOD_DEC_USE_COUNT;
 			return retval;
 		}
 		ncards++;
@@ -1371,12 +1426,16 @@ int c4_init(void)
 	if (ncards) {
 		printk(KERN_INFO "%s: %d C4 card(s) detected\n",
 				driver->name, ncards);
+		MOD_DEC_USE_COUNT;
 		return 0;
 	}
 	printk(KERN_ERR "%s: NO C4 card detected\n", driver->name);
+	detach_capi_driver(driver);
+	MOD_DEC_USE_COUNT;
 	return -ESRCH;
 #else
 	printk(KERN_ERR "%s: kernel not compiled with PCI.\n", driver->name);
+	MOD_DEC_USE_COUNT;
 	return -EIO;
 #endif
 }

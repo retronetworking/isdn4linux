@@ -339,7 +339,7 @@ void    Divas_vsprintf(   char    *buffer,
         switch (f)
         {
         case 'c' :
-            string[0] = va_arg(argptr, char);
+            string[0] = (char) va_arg(argptr, int);
             string[1] = '\0';
             fmax = 0;
             fill = ' ';

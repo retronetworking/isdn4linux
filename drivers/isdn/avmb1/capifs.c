@@ -6,10 +6,18 @@
  * Heavily based on devpts filesystem from H. Peter Anvin
  * 
  * $Log$
- * Revision 1.1.2.3  2000/03/17 14:05:48  calle
- * Merged changes from main tree.
- * - Bugfix: c4
- * - make capi.c and capifs.c compile with 2.3.x
+ * Revision 1.9  2000/08/20 07:30:13  keil
+ * changes for 2.4
+ *
+ * Revision 1.8  2000/07/20 10:23:13  calle
+ * Include isdn_compat.h for people that don't use -p option of std2kern.
+ *
+ * Revision 1.7  2000/06/18 16:09:54  keil
+ * more changes for 2.4
+ *
+ * Revision 1.6  2000/04/03 13:29:25  calle
+ * make Tim Waugh happy (module unload races in 2.3.99-pre3).
+ * no real problem there, but now it is much cleaner ...
  *
  * Revision 1.5  2000/03/13 17:49:52  calle
  * make it running with 2.3.51.
@@ -61,6 +69,7 @@
 #include <linux/ctype.h>
 #include <asm/bitops.h>
 #include <asm/uaccess.h>
+#include <linux/isdn_compat.h>
 
 MODULE_AUTHOR("Carsten Paeth <calle@calle.de>");
 
@@ -139,12 +148,20 @@ static int capifs_root_readdir(struct file *filp, void *dirent, filldir_t filldi
 	switch(nr)
 	{
 	case 0:
+#ifdef COMPAT_HAVE_NEW_FILLDIR
+		if (filldir(dirent, ".", 1, nr, inode->i_ino, DT_DIR) < 0)
+#else
 		if (filldir(dirent, ".", 1, nr, inode->i_ino) < 0)
+#endif
 			return 0;
 		filp->f_pos = ++nr;
 		/* fall through */
 	case 1:
+#ifdef COMPAT_HAVE_NEW_FILLDIR
+		if (filldir(dirent, "..", 2, nr, inode->i_ino, DT_DIR) < 0)
+#else
 		if (filldir(dirent, "..", 2, nr, inode->i_ino) < 0)
+#endif
 			return 0;
 		filp->f_pos = ++nr;
 		/* fall through */
@@ -156,7 +173,11 @@ static int capifs_root_readdir(struct file *filp, void *dirent, filldir_t filldi
 				char *p = numbuf;
 				if (np->type) *p++ = np->type;
 				sprintf(p, "%u", np->num);
+#ifdef COMPAT_HAVE_NEW_FILLDIR
+				if ( filldir(dirent, numbuf, strlen(numbuf), nr, nr, DT_UNKNOWN) < 0 )
+#else
 				if ( filldir(dirent, numbuf, strlen(numbuf), nr, nr) < 0 )
+#endif
 					return 0;
 			}
 			filp->f_pos = ++nr;
@@ -218,7 +239,7 @@ static struct dentry *capifs_root_lookup(struct inode * dir, struct dentry * den
 
 	dentry->d_inode = np->inode;
 	if ( dentry->d_inode )
-		dentry->d_inode->i_count++;
+		i_count_inc(dentry->d_inode->i_count);
 	
 	d_add(dentry, dentry->d_inode);
 
@@ -237,9 +258,9 @@ static void capifs_put_super(struct super_block *sb)
 
 	for ( i = 0 ; i < sbi->max_ncci ; i++ ) {
 		if ( (inode = sbi->nccis[i].inode) ) {
-			if ( inode->i_count != 1 )
+			if (i_count_read(inode->i_count) != 1 )
 				printk("capifs_put_super: badness: entry %d count %d\n",
-				       i, inode->i_count);
+				       i, (unsigned)i_count_read(inode->i_count));
 			inode->i_nlink--;
 			iput(inode);
 		}
@@ -580,6 +601,8 @@ int __init capifs_init(void)
 	char *p;
 	int err;
 
+	MOD_INC_USE_COUNT;
+
 	if ((p = strchr(revision, ':'))) {
 		strcpy(rev, p + 1);
 		p = strchr(rev, '$');
@@ -588,13 +611,16 @@ int __init capifs_init(void)
 		strcpy(rev, "1.0");
 
 	err = register_filesystem(&capifs_fs_type);
-	if (err)
+	if (err) {
+		MOD_DEC_USE_COUNT;
 		return err;
+	}
 #ifdef MODULE
         printk(KERN_NOTICE "capifs: Rev%s: loaded\n", rev);
 #else
 	printk(KERN_NOTICE "capifs: Rev%s: started\n", rev);
 #endif
+	MOD_DEC_USE_COUNT;
 	return 0;
 }
 

@@ -188,6 +188,9 @@ static inline unsigned long copy_to_user(void *to, const void *from, unsigned lo
 
 #if LINUX_VERSION_CODE > KERNEL_VERSION(2,4,0)
 #define COMPAT_HAS_FILEOP_OWNER
+#define COMPAT_HAVE_NEW_FILLDIR
+#else
+#define COMPAT_USE_MODCOUNT_LOCK
 #endif
 
 #define COMPAT_PCI_COMMON_ID

@@ -6,7 +6,7 @@
  * This source file is supplied for the exclusive use with Eicon
  * Technology Corporation's range of DIVA Server Adapters.
  *
- * Eicon File Revision :    1.4  
+ * Eicon File Revision :    1.6  
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -63,6 +63,7 @@ struct ux_diva_card_s
 
 void bcopy(void *pSource, void *pDest, dword dwLength);
 void bzero(void *pDataArea, dword dwLength);
+
 
 /*
  * Get a card handle to enable card to be accessed
@@ -212,5 +213,8 @@ void	UxIsrRemove(ux_diva_card_t *card, void *);
  */
 
 void	UxCardLog(int turn_on);
+
+long	UxInterlockedIncrement(ux_diva_card_t *card, long *dst);
+long	UxInterlockedDecrement(ux_diva_card_t *card, long *dst);
 
 #endif /* of UXIO_H */

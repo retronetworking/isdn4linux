@@ -328,7 +328,7 @@ eicon_isa_bootload(eicon_isa_card *card, eicon_isa_codebuf *cb) {
 	printk(KERN_INFO "%s: startup-code loaded\n", eicon_ctype_name[card->type]); 
 	if ((card->type == EICON_CTYPE_QUADRO) && (card->master)) {
 		tmp = eicon_addcard(card->type, card->physmem, card->irq, 
-					((eicon_card *)card->card)->regname);
+				((eicon_card *)card->card)->regname, 0);
 		printk(KERN_INFO "Eicon: %d adapters added\n", tmp);
 	}
 	return 0;

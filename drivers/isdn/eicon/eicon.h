@@ -137,7 +137,6 @@ typedef struct {
 #include <linux/major.h>
 #include <asm/segment.h>
 #include <asm/io.h>
-#include <asm/spinlock.h>
 #include <linux/kernel.h>
 #include <linux/signal.h>
 #include <linux/malloc.h>
@@ -379,7 +378,7 @@ extern __inline__ void eicon_schedule_ack(eicon_card *card)
         mark_bh(IMMEDIATE_BH);
 }
 
-extern int eicon_addcard(int, int, int, char *);
+extern int eicon_addcard(int, int, int, char *, int);
 extern void eicon_io_transmit(eicon_card *card);
 extern void eicon_irq(int irq, void *dev_id, struct pt_regs *regs);
 extern void eicon_io_rcv_dispatch(eicon_card *ccard);

@@ -32,7 +32,7 @@
 
 #define DRIVERNAME "Eicon active ISDN driver"
 #define DRIVERRELEASE "2.0"
-#define DRIVERPATCH ".6"
+#define DRIVERPATCH ".15"
 
 
 #include <linux/config.h>
@@ -78,8 +78,7 @@ ulong DebugVar;
 
 spinlock_t eicon_lock;
 
-DESCRIPTOR idi_d[16];
-int idi_dlength;
+DESCRIPTOR idi_d[32];
 
 /* Parameters to be set by insmod */
 #ifdef CONFIG_ISDN_DRV_EICON_ISA
@@ -210,6 +209,7 @@ eicon_command(eicon_card * card, isdn_ctrl * c)
 #ifdef CONFIG_PCI
 #ifdef CONFIG_ISDN_DRV_EICON_PCI
 	dia_start_t dstart;
+        int idi_length = 0;
 #endif
 #endif
 	isdn_ctrl cmd;
@@ -226,6 +226,9 @@ eicon_command(eicon_card * card, isdn_ctrl * c)
 				case EICON_IOCTL_GETVER:
 					return(EICON_CTRL_VERSION);
 				case EICON_IOCTL_GETTYPE:
+					if (card->bus == EICON_BUS_PCI) {
+						copy_to_user((char *)a, &card->hwif.pci.master, sizeof(int));
+					}
 					return(card->type);
 				case EICON_IOCTL_GETMMIO:
 					switch (card->bus) {
@@ -364,7 +367,7 @@ eicon_command(eicon_card * card, isdn_ctrl * c)
 				case EICON_IOCTL_ADDCARD:
 					if ((ret = copy_from_user(&cdef, (char *)a, sizeof(cdef))))
 						return -EFAULT;
-					if (!(eicon_addcard(0, cdef.membase, cdef.irq, cdef.id)))
+					if (!(eicon_addcard(0, cdef.membase, cdef.irq, cdef.id, 0)))
 						return -EIO;
 					return 0;
 				case EICON_IOCTL_DEBUGVAR:
@@ -396,8 +399,15 @@ eicon_command(eicon_card * card, isdn_ctrl * c)
 						(unsigned long) a);
 					if (((c->arg - EICON_IOCTL_DIA_OFFSET)==DIA_IOCTL_START) && (!ret)) {
 						if (card->type != EICON_CTYPE_MAESTRAQ) {
-							EtdM_DIDD_Read(idi_d, &idi_dlength);
-							card->d = &idi_d[idi_dlength - 1];
+							DIVA_DIDD_Read(idi_d, sizeof(idi_d));
+                                                        for(idi_length = 0; idi_length < 32; idi_length++) {
+                                                          if (idi_d[idi_length].type == 0) break;
+                                                        }
+                                                        if ((idi_length < 1) || (idi_length >= 32)) {
+					                  eicon_log(card, 1, "eicon: invalid idi table length.\n");
+                                                          break;
+                                                        }
+							card->d = &idi_d[idi_length - 1];
 							card->flags |= EICON_FLAGS_LOADED;
 							card->flags |= EICON_FLAGS_RUNNING;
 							eicon_pci_init_conf(card);
@@ -416,14 +426,20 @@ eicon_command(eicon_card * card, isdn_ctrl * c)
 								card->d->channels, card->d->features);
 						} else {
 							int i;
-							EtdM_DIDD_Read(idi_d, &idi_dlength);
+							DIVA_DIDD_Read(idi_d, sizeof(idi_d));
+                                                        for(idi_length = 0; idi_length < 32; idi_length++)
+                                                          if (idi_d[idi_length].type == 0) break;
+                                                        if ((idi_length < 1) || (idi_length >= 32)) {
+					                  eicon_log(card, 1, "eicon: invalid idi table length.\n");
+                                                          break;
+                                                        }
         						for(i = 3; i >= 0; i--) {
 								if (!(card = eicon_findnpcicard(dstart.card_id - i)))
 									return -EINVAL;
 	
 								card->flags |= EICON_FLAGS_LOADED;
 								card->flags |= EICON_FLAGS_RUNNING;
-								card->d = &idi_d[idi_dlength - (i+1)];
+								card->d = &idi_d[idi_length - (i+1)];
 								eicon_pci_init_conf(card);
 								if (card->d->channels > 1) {
 									cmd.command = ISDN_STAT_ADDCH;
@@ -557,10 +573,14 @@ eicon_command(eicon_card * card, isdn_ctrl * c)
 			eicon_log(card, 1, "eicon CMD_GETSIL not implemented\n");
 			return 0;
 		case ISDN_CMD_LOCK:
+#ifdef MODULE
 			mod_inc_use_count();
+#endif
 			return 0;
 		case ISDN_CMD_UNLOCK:
+#ifdef MODULE
 			mod_dec_use_count();
+#endif
 			return 0;
 #ifdef CONFIG_ISDN_TTY_FAX
 		case ISDN_CMD_FAXCMD:
@@ -845,7 +865,7 @@ eicon_log(eicon_card * card, int level, const char *fmt, ...)
  * link it into cards-list.
  */
 static void
-eicon_alloccard(int Type, int membase, int irq, char *id)
+eicon_alloccard(int Type, int membase, int irq, char *id, int card_id)
 {
 	int i;
 	int j;
@@ -976,7 +996,7 @@ eicon_alloccard(int Type, int membase, int irq, char *id)
 					ISDN_FEATURE_L3_TRANSDSP |
 					ISDN_FEATURE_L3_FCLASS2;
                                 card->hwif.pci.card = (void *)card;
-                                card->hwif.pci.master = 1;
+                                card->hwif.pci.master = card_id;
                                 card->hwif.pci.irq = irq;
                                 card->hwif.pci.type = Type;
 				card->flags = 0;
@@ -995,7 +1015,7 @@ eicon_alloccard(int Type, int membase, int irq, char *id)
 					ISDN_FEATURE_L3_TRANSDSP |
 					ISDN_FEATURE_L3_FCLASS2;
                                 card->hwif.pci.card = (void *)card;
-                                card->hwif.pci.master = 1;
+                                card->hwif.pci.master = card_id;
                                 card->hwif.pci.irq = irq;
                                 card->hwif.pci.type = Type;
 				card->flags = 0;
@@ -1014,6 +1034,7 @@ eicon_alloccard(int Type, int membase, int irq, char *id)
 					ISDN_FEATURE_L3_TRANSDSP |
 					ISDN_FEATURE_L3_FCLASS2;
                                 card->hwif.pci.card = (void *)card;
+                                card->hwif.pci.master = card_id;
                                 card->hwif.pci.irq = irq;
                                 card->hwif.pci.type = Type;
 				card->flags = 0;
@@ -1229,7 +1250,7 @@ eicon_freecard(eicon_card *card) {
 }
 
 int
-eicon_addcard(int Type, int membase, int irq, char *id)
+eicon_addcard(int Type, int membase, int irq, char *id, int card_id)
 {
 	eicon_card *p;
 	eicon_card *q = NULL;
@@ -1242,7 +1263,7 @@ eicon_addcard(int Type, int membase, int irq, char *id)
 		if ((Type = eicon_isa_find_card(membase, irq, id)) < 0)
 			return 0;
 #endif
-	eicon_alloccard(Type, membase, irq, id);
+	eicon_alloccard(Type, membase, irq, id, card_id);
         p = cards;
         while (p) {
 		registered = 0;
@@ -1350,7 +1371,7 @@ eicon_init(void)
                        card_count++;
         };
 #else
-	card_count = eicon_addcard(0, membase, irq, id);
+	card_count = eicon_addcard(0, membase, irq, id, 0);
 #endif /* CONFIG_MCA */
 #endif /* CONFIG_ISDN_DRV_EICON_ISA */
  
@@ -1396,9 +1417,9 @@ void mod_dec_use_count(void)
 }
 
 #ifdef CONFIG_ISDN_DRV_EICON_PCI
-void EtdM_DIDD_Write(DESCRIPTOR *, int);
-EXPORT_SYMBOL_NOVERS(EtdM_DIDD_Read);
-EXPORT_SYMBOL_NOVERS(EtdM_DIDD_Write);
+void DIVA_DIDD_Write(DESCRIPTOR *, int);
+EXPORT_SYMBOL_NOVERS(DIVA_DIDD_Read);
+EXPORT_SYMBOL_NOVERS(DIVA_DIDD_Write);
 EXPORT_SYMBOL_NOVERS(DivasPrintf);
 #else
 int DivasCardNext;
@@ -1692,7 +1713,7 @@ int eicon_mca_probe(int slot,  /* slot-nr where the card was detected         */
 			return  ENODEV;
 	};
 	/* matching membase & irq */
-	if ( 1 == eicon_addcard(type, membase, irq, id)) { 
+	if ( 1 == eicon_addcard(type, membase, irq, id, 0)) { 
 		mca_set_adapter_name(slot, eicon_mca_adapters[a_idx].name);
   		mca_set_adapter_procfn(slot, (MCA_ProcFn) eicon_info, cards);
 

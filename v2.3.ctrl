@@ -16,6 +16,10 @@
 #define MINOR_PART(f)   MINOR(f->f_dentry->d_inode->i_rdev)
 #define COMPAT_HAS_NEW_PCI
 #define get_pcibase(ps, nr) ps->resource[nr].start
+#define pci_resource_start_io(pdev, nr) pci_resource_start(pdev, nr)
+#define pci_resource_start_mem(pdev, nr) pci_resource_start(pdev, nr)
+#define pci_get_sub_vendor(pdev, id)	id = pdev->subsystem_vendor
+#define pci_get_sub_system(pdev, id)	id = pdev->subsystem_device
 #define FILEOP_HAS_FLUSH
 #define COMPAT_HAS_NEW_WAITQ
 #define COMPAT_HAS_NEW_SETUP
@@ -44,8 +48,21 @@
 #undef CONFIG_ISDN_WITH_ABC_CONN_ERROR
 #undef CONFIG_ISDN_WITH_ABC_RAWIPCOMPRESS
 #undef CONFIG_ISDN_WITH_ABC_FRAME_LIMIT
+#undef CONFIG_ISDN_WITH_ABC_IPTABLES_NETFILTER
+#undef CONFIG_ISDN_WITH_ABC_IPV6TABLES_NETFILTER
+#undef CONFIG_ISDN_WITH_ABC_IPT_TARGET
 #define BIG_PHONE_NUMBERS
 #undef COMPAT_NO_SOFTNET
 #define HAVE_DEVFS_FS
 
 #undef COMPAT_NEED_MPPP_DEFS
+#define COMPAT_HAVE_READ_LOCK_KERNEL
+#define COMPAT_HAVE_WRITE_LOCK_KERNEL
+#define COMPAT_HAVE_POLL_LOCK_KERNEL
+#undef COMPAT_HAS_2_2_PCI
+#define COMPAT_PCI_COMMON_ID
+#define i_count_read(ic) atomic_read(&ic)
+#define i_count_inc(ic)  atomic_inc(&ic)
+#undef COMPAT_HAS_FILEOP_OWNER
+#define COMPAT_USE_MODCOUNT_LOCK
+#undef COMPAT_HAVE_NEW_FILLDIR

@@ -70,10 +70,36 @@
 #undef CONFIG_ISDN_WITH_ABC_RAWIPCOMPRESS
 #undef CONFIG_ISDN_WITH_ABC_IPV4_RW_SOCKADDR 
 #undef CONFIG_ISDN_WITH_ABC_IPV4_RWUDP_SOCKADDR 
+#undef CONFIG_ISDN_WITH_ABC_IPTABLES_NETFILTER
+#undef CONFIG_ISDN_WITH_ABC_IPV6TABLES_NETFILTER
+#undef CONFIG_ISDN_WITH_ABC_IPT_TARGET
 #else
 #include <linux/isdn_dwabc.h>
 
-volatile u_long dwsjiffies;
+#ifndef CONFIG_NETFILTER
+#undef CONFIG_ISDN_WITH_ABC_IPTABLES_NETFILTER
+#endif
+
+#ifdef __KERNEL__
+
+typedef struct DWABCJIFFIES {
+
+	u_long	msec_1000;
+	u_long  msec_500;
+	u_long	msec_400;
+	u_long	msec_200;
+	u_long	msec_100;
+
+} DWABCJIFFIES;
+
+#ifdef CONFIG_ISDN_WITH_ABC_NEED_DWSJIFFIES
+DWABCJIFFIES isdn_dwabc_jiffies;
+#else
+extern DWABCJIFFIES isdn_dwabc_jiffies;
+#endif
+#define dwsjiffies (isdn_dwabc_jiffies.msec_1000)
+#endif
+
 #define ISDN_DW_ABC_FLAG_NO_TCP_KEEPALIVE	0x00000001L
 #define ISDN_DW_ABC_FLAG_NO_UDP_CHECK		0x00000002L
 #define ISDN_DW_ABC_FLAG_NO_UDP_HANGUP		0x00000004L
@@ -88,13 +114,13 @@ volatile u_long dwsjiffies;
 #define ISDN_DW_ABC_FLAG_RWUDP_SOCKADDR		0x00000800L
 #define ISDN_DW_ABC_FLAG_LEASED_LINE		0x00001000L
 
-#define ISDN_DW_ABC_IFFLAG_NODCHAN		0x00000001L
-#define ISDN_DW_ABC_IFFLAG_BSDAKTIV		0x00000002L
+#define ISDN_DW_ABC_IFFLAG_NODCHAN			0x00000001L
+#define ISDN_DW_ABC_IFFLAG_BSDAKTIV			0x00000002L
 
-#define ISDN_DW_ABC_BITLOCK_SEND		0
-#define ISDN_DW_ABC_BITLOCK_RECEIVE		1
+#define ISDN_DW_ABC_BITLOCK_SEND			0
+#define ISDN_DW_ABC_BITLOCK_RECEIVE			1
 
-#define ISDN_DW_ABC_MAX_CH_P_RIVER		(32)
+#define ISDN_DW_ABC_MAX_CH_P_RIVER			(32)
 #endif
 
 
@@ -364,7 +390,7 @@ typedef struct {
 typedef struct isdn_net_local_s {
   ulong                  magic;
   char                   name[10];     /* Name of device                   */
-  struct enet_statistics stats;        /* Ethernet Statistics              */
+  struct net_device_stats stats;       /* Ethernet Statistics              */
   int                    isdn_device;  /* Index to isdn-device             */
   int                    isdn_channel; /* Index to isdn-channel            */
   int			 ppp_slot;     /* PPPD device slot number          */
@@ -856,9 +882,10 @@ static void __inline__ netif_stop_queue(struct net_device * dev)
 {
 	dev->tbusy = 1;
 }
-#endif /* COMPAT_NO_SOFTNET */
 
+#endif /* COMPAT_NO_SOFTNET */
 #ifdef COMPAT_HAS_2_2_PCI 
+
 struct pci_dev;
 
 static int __inline__ pci_enable_device(struct pci_dev * pdev)

@@ -20,12 +20,11 @@ else
 
  OX_OBJS += eicon_mod.o
  O_OBJS := eicon_isa.o eicon_pci.o eicon_idi.o eicon_io.o
- O_OBJS += linio.o
  O_OBJS += fcheck.o
  ifeq ($(CONFIG_PCI),y)
   ifeq ($(CONFIG_ISDN_DRV_EICON_PCI),y)
    O_OBJS += common.o idi.o bri.o pri.o log.o xlog.o kprintf.o fpga.o fourbri.o
-   O_OBJS += lincfg.o linchr.o linsys.o
+   O_OBJS += lincfg.o linchr.o linsys.o linio.o
   endif
  endif
 

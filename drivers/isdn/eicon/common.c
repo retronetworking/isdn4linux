@@ -6,7 +6,7 @@
  * This source file is supplied for the exclusive use with Eicon
  * Technology Corporation's range of DIVA Server Adapters.
  *
- * Eicon File Revision :    1.11  
+ * Eicon File Revision :    1.15  
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -81,29 +81,33 @@ card_t	DivasCards[MAX_CARDS];
 dia_config_t *DivasConfig(card_t *, dia_config_t *);
 
 static
-DESCRIPTOR DIDD_Table[16];
-static
-int DIDD_Length = 0;
+DESCRIPTOR DIDD_Table[32];
 
-void    EtdM_DIDD_Read( DESCRIPTOR *table, int *tablelength )
+void    DIVA_DIDD_Read( DESCRIPTOR *table, int tablelength )
 {
-	int table_size = sizeof(DIDD_Table);
+        bzero(table, tablelength);
 
-    bcopy((caddr_t)DIDD_Table, (caddr_t)table, table_size);
+        if (tablelength > sizeof(DIDD_Table))
+          tablelength = sizeof(DIDD_Table);
 
-	*tablelength = DIDD_Length;
+        if(tablelength % sizeof(DESCRIPTOR)) {
+          tablelength /= sizeof(DESCRIPTOR);
+          tablelength *= sizeof(DESCRIPTOR);
+        }
+
+        if (tablelength > 0)
+          bcopy((caddr_t)DIDD_Table, (caddr_t)table, tablelength);
 
 	return;
 }
 
 static
-void 	EtdM_DIDD_Write(DESCRIPTOR *table, int tablelength)
+void 	DIVA_DIDD_Write(DESCRIPTOR *table, int tablelength)
 {
-	int table_size = sizeof(DIDD_Table);
+        if (tablelength > sizeof(DIDD_Table))
+          tablelength = sizeof(DIDD_Table);
 
-	bcopy((caddr_t)table, (caddr_t)DIDD_Table, table_size);
-
-	DIDD_Length = tablelength;	
+	bcopy((caddr_t)table, (caddr_t)DIDD_Table, tablelength);
 
 	return;
 }
@@ -111,19 +115,16 @@ void 	EtdM_DIDD_Write(DESCRIPTOR *table, int tablelength)
 static
 void    init_idi_tab(void)
 {
-    int length = 0;
+    DESCRIPTOR d[32];
 
-    DESCRIPTOR d[16];
+    bzero(d, sizeof(d));
 
-    EtdM_DIDD_Read(d, &length);
-
-    d[length].type = IDI_DIMAINT;  /* identify the DIMAINT entry */
-    d[length].channels = 0; /* zero channels associated with dimaint*/
-    d[length].features = 0; /* no features associated with dimaint */
-    d[length].request = (IDI_CALL) DivasPrintf;
-    length++;
+    d[0].type = IDI_DIMAINT;  /* identify the DIMAINT entry */
+    d[0].channels = 0; /* zero channels associated with dimaint*/
+    d[0].features = 0; /* no features associated with dimaint */
+    d[0].request = (IDI_CALL) DivasPrintf;
     
-    EtdM_DIDD_Write(d, length);
+    DIVA_DIDD_Write(d, sizeof(d));
 
     return;
 }
@@ -452,22 +453,34 @@ void card_isr (void *dev_id)
 {
 	card_t *card = (card_t *) dev_id;
 	ADAPTER *a = &card->a;
+	int ipl;
 
 	if (card->test_int_pend)
 	{
+		ipl = UxCardLock(card->hw);
+		card->int_pend=0;
 		test_int(card);
+		UxCardUnlock(card->hw,ipl);
 		return;
 	}
-
-	if ((card->test_int)(a))
+	
+	if(card->card_isr)
 	{
-		card->int_pend = TRUE;
-
-		DivasDpcSchedule();
-
-		(card->reset_int)(card);
+		(*(card->card_isr))(card);
 	}
-	return;
+	else
+	{
+		ipl = UxCardLock(card->hw);
+	
+		if ((card->test_int)(a))
+		{
+			(card->reset_int)(card);
+		}
+		
+		UxCardUnlock(card->hw,ipl);
+		
+	}
+
 }
 
 int DivasCardNew(dia_card_t *card_info)
@@ -651,7 +664,7 @@ int DivasCardLoad(dia_load_t *load)
 
 static int idi_register(card_t *card, byte channels)
 {
-    DESCRIPTOR d[16];
+    DESCRIPTOR d[32];
     int length, num_entities;
 
 	DPRINTF(("divas: registering card with IDI"));
@@ -668,9 +681,12 @@ static int idi_register(card_t *card, byte channels)
 	bzero(card->e_tbl, sizeof(E_INFO) * num_entities);
 	card->e_max = num_entities;
 
-    EtdM_DIDD_Read(d, &length);
+    DIVA_DIDD_Read(d, sizeof(d));
 
-	if (length == DIM(d))
+        for(length=0; length < DIM(d); length++)
+          if (d[length].type == 0) break;
+
+	if (length >= DIM(d))
 	{
 		KDPRINTF((KERN_WARNING "Divas: IDI register failed - table full"));
 		return -1;
@@ -680,14 +696,18 @@ static int idi_register(card_t *card, byte channels)
 	{
 		case DIA_CARD_TYPE_DIVA_SERVER:
 		d[length].type = IDI_ADAPTER_PR;
+		/* d[length].serial = card->serial_no; */
 		break;
 
 		case DIA_CARD_TYPE_DIVA_SERVER_B:
 		d[length].type = IDI_ADAPTER_MAESTRA;
+		/* d[length].serial = card->serial_no; */
 		break;
 
+		// 4BRI is treated as 4 BRI adapters
 		case DIA_CARD_TYPE_DIVA_SERVER_Q:
-		d[length].type = IDI_ADAPTER_MAESTRAQ;
+		d[length].type = IDI_ADAPTER_MAESTRA;
+		/* d[length].serial = card->cfg.serial; */
 	}
 
 	d[length].features = 0;
@@ -711,7 +731,7 @@ static int idi_register(card_t *card, byte channels)
 
 	length++;
 
-	EtdM_DIDD_Write(d, length);
+	DIVA_DIDD_Write(d, sizeof(d));
 
     return 0;
 }
@@ -784,38 +804,47 @@ int DivasGetMem(mem_block_t *mem_block)
 	return (*card->card_mem_get)(card, mem_block);
 }
 
+
 /*
  * Deleyed Procedure Call for handling interrupts from card
  */
 
-void	DivasDoDpc(void *pData)
-
+void	DivaDoCardDpc(card_t *card)
 {
-	int		ipl, i;
-	card_t 	*card;
+	ADAPTER	*a;
 
-	card = DivasCards;
-	for (i = 0; i < DivasCardNext; i++)
+	a = &card->a;
+
+	if(UxInterlockedIncrement(card->hw, &card->dpc_reentered) > 1)
 	{
-		if (card->int_pend)
-		{
-			ipl = UxCardLock(card->hw);
-			(card->dpc)(&card->a);
-			(card->clear_int)(&card->a);
-			card->int_pend = FALSE;
-			UxCardUnlock(card->hw, ipl);
-		}
-
-		/* if XLOG active, use opportunity to poll card */
-
-		if (card->log_types & DIVAS_LOG_XLOG)
-		{
-			DivasXlogRetrieve(card);
-		}
-		card++;
+		return;
 	}
 
-	return;
+	do{
+		if((*(card->test_int))(a))
+		{
+			(*(card->dpc))(a);
+			(*(card->clear_int))(a);
+		}
+			(*(card->out))(a);
+	}while(UxInterlockedDecrement(card->hw, &card->dpc_reentered));
+			
+}
+
+void	DivasDoDpc(void *pData)
+{
+	card_t	*card = DivasCards;
+	int 	i = DivasCardNext;
+	
+	while(i--)
+	{
+		DivaDoCardDpc(card++);
+	}
+}
+
+void	DivasDoRequestDpc(void *pData)
+{
+	DivasDoDpc(pData);
 }
 
 /*
@@ -868,3 +897,4 @@ void	DivasLog(dia_log_t *log)
 
 	return;
 }
+

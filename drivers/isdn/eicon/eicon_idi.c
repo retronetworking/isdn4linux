@@ -40,18 +40,6 @@ char *eicon_idi_revision = "$Revision$";
 
 eicon_manifbuf *manbuf;
 
-static char BC_Speech[3] = 	{ 0x80, 0x90, 0xa3 };
-static char BC_31khz[3] =  	{ 0x90, 0x90, 0xa3 };
-static char BC_64k[2] =    	{ 0x88, 0x90 };
-static char BC_video[3] =  	{ 0x91, 0x90, 0xa5 };
-
-#ifdef EICON_FULL_SERVICE_OKTETT
-/* 
-static char HLC_telephony[2] =	{ 0x91, 0x81 }; 
-*/
-static char HLC_faxg3[2] =  	{ 0x91, 0x84 };
-#endif
-
 int eicon_idi_manage_assign(eicon_card *card);
 int eicon_idi_manage_remove(eicon_card *card);
 int idi_fill_in_T30(eicon_chan *chan, unsigned char *buffer);
@@ -93,6 +81,9 @@ idi_assign_req(eicon_REQ *reqbuf, int signet, eicon_chan *chan)
 	reqbuf->XBuffer.P[l++] = LLC;
 	reqbuf->XBuffer.P[l++] = 2;
 	switch(chan->l2prot) {
+		case ISDN_PROTO_L2_V11096:
+		case ISDN_PROTO_L2_V11019:
+		case ISDN_PROTO_L2_V11038:
 		case ISDN_PROTO_L2_TRANS:
 			reqbuf->XBuffer.P[l++] = 2; /* transparent */
 			break;
@@ -534,7 +525,14 @@ idi_connect_req(eicon_card *card, eicon_chan *chan, char *phone,
 			reqbuf->XBuffer.P[l++] = *sub++ & 0x7f;
 	}
 
-	if ((tmp = idi_si2bc(si1, si2, bc, hlc)) > 0) {
+	if (si2 > 2) {
+		reqbuf->XBuffer.P[l++] = SHIFT|6;
+		reqbuf->XBuffer.P[l++] = SIN;
+		reqbuf->XBuffer.P[l++] = 2;
+		reqbuf->XBuffer.P[l++] = si1;
+		reqbuf->XBuffer.P[l++] = si2;
+	}
+	else if ((tmp = idi_si2bc(si1, si2, bc, hlc)) > 0) {
 		reqbuf->XBuffer.P[l++] = BC;
 		reqbuf->XBuffer.P[l++] = tmp;
 		for(i=0; i<tmp;i++) 
@@ -781,7 +779,7 @@ idi_IndParse(eicon_card *ccard, eicon_chan *chan, idi_ind_message *message, unsi
 				}
 				for(i=0; i < wlen; i++) 
 					message->llc[i] = buffer[pos++];
-				eicon_log(ccard, 4, "idi_inf: Ch%d: LLC=%d %d %d %d\n", chan->No, message->llc[0],
+				eicon_log(ccard, 4, "idi_inf: Ch%d: LLC=%d %d %d %d ...\n", chan->No, message->llc[0],
 					message->llc[1],message->llc[2],message->llc[3]);
 				break;
 			case HLC:
@@ -791,7 +789,7 @@ idi_IndParse(eicon_card *ccard, eicon_chan *chan, idi_ind_message *message, unsi
 				}
 				for(i=0; i < wlen; i++) 
 					message->hlc[i] = buffer[pos++];
-				eicon_log(ccard, 4, "idi_inf: Ch%d: HLC=%x %x %x %x %x\n", chan->No,
+				eicon_log(ccard, 4, "idi_inf: Ch%d: HLC=%x %x %x %x %x ...\n", chan->No,
 					message->hlc[0], message->hlc[1],
 					message->hlc[2], message->hlc[3], message->hlc[4]);
 				break;
@@ -983,31 +981,55 @@ idi_IndParse(eicon_card *ccard, eicon_chan *chan, idi_ind_message *message, unsi
 }
 
 void
-idi_bc2si(unsigned char *bc, unsigned char *hlc, unsigned char *si1, unsigned char *si2)
+idi_bc2si(unsigned char *bc, unsigned char *hlc, unsigned char *sin, unsigned char *si1, unsigned char *si2)
 {
-  si1[0] = 0;
-  si2[0] = 0;
-  if (memcmp(bc, BC_Speech, 3) == 0) {		/* Speech */
-	si1[0] = 1;
+	si1[0] = 0;
+	si2[0] = 0;
+
+	switch (bc[0] & 0x7f) {
+		case 0x00: /* Speech */
+			si1[0] = 1;
 #ifdef EICON_FULL_SERVICE_OKTETT
-	si2[0] = 1;
+			si1[0] = sin[0];
+			si2[0] = sin[1];
 #endif
-  }
-  if (memcmp(bc, BC_31khz, 3) == 0) {		/* 3.1kHz audio */
-	si1[0] = 1;
+			break;
+		case 0x10: /* 3.1 Khz audio */
+			si1[0] = 1;
 #ifdef EICON_FULL_SERVICE_OKTETT
-	si2[0] = 2;
-  	if (memcmp(hlc, HLC_faxg3, 2) == 0) {	/* Fax Gr.2/3 */
-		si1[0] = 2;
+			si1[0] = sin[0];
+			si2[0] = sin[1];
+#endif
+			break;
+		case 0x08: /* Unrestricted digital information */
+			si1[0] = 7;
+			si2[0] = sin[1];
+			break;
+		case 0x09: /* Restricted digital information */
+			si1[0] = 2;
+			break;
+		case 0x11:
+			/* Unrestr. digital information  with
+			 * tones/announcements ( or 7 kHz audio
+			 */
+			si1[0] = 3;
+			break;
+		case 0x18: /* Video */
+			si1[0] = 4;
+			break;
 	}
-#endif
-  }
-  if (memcmp(bc, BC_64k, 2) == 0) {		/* unrestricted 64 kbits */
-	si1[0] = 7;
-  }
-  if (memcmp(bc, BC_video, 3) == 0) {		/* video */
-	si1[0] = 4;
-  }
+	switch (bc[1] & 0x7f) {
+		case 0x40: /* packed mode */
+			si1[0] = 8;
+			break;
+		case 0x10: /* 64 kbit */
+		case 0x11: /* 2*64 kbit */
+		case 0x13: /* 384 kbit */
+		case 0x15: /* 1536 kbit */
+		case 0x17: /* 1920 kbit */
+			/* moderate = bc[1] & 0x7f; */
+			break;
+	}
 }
 
 /********************* FAX stuff ***************************/
@@ -2437,7 +2459,7 @@ idi_handle_ind(eicon_card *ccard, struct sk_buff *skb)
 					break;
 				}
 				chan->fsm_state = EICON_STATE_ICALL;
-				idi_bc2si(message.bc, message.hlc, &chan->si1, &chan->si2);
+				idi_bc2si(message.bc, message.hlc, message.sin, &chan->si1, &chan->si2);
 				strcpy(chan->cpn, message.cpn + 1);
 				strcpy(chan->oad, message.oad);
 				strcpy(chan->dsa, message.dsa);
@@ -2515,6 +2537,9 @@ idi_handle_ind(eicon_card *ccard, struct sk_buff *skb)
 						case ISDN_PROTO_L2_MODEM:
 							/* do nothing, wait for connect */
 							break;
+						case ISDN_PROTO_L2_V11096:
+						case ISDN_PROTO_L2_V11019:
+						case ISDN_PROTO_L2_V11038:
 						case ISDN_PROTO_L2_TRANS:
 							idi_do_req(ccard, chan, N_CONNECT, 1);
 							break;
@@ -2970,12 +2995,8 @@ idi_send_data(eicon_card *card, eicon_chan *chan, int ack, struct sk_buff *skb, 
         if (!len)
                 return 0;
 
-	if (chk) {
-		if (chan->pqueued > 1)
-			return 0;
-		if (chan->queued + len > EICON_MAX_QUEUE)
-			return 0;
-	}
+	if ((chk) && (chan->pqueued > 1))
+		return 0;
 
 	eicon_log(card, 128, "idi_snd: Ch%d: %d bytes (Pqueue=%d)\n",
 		chan->No, len, chan->pqueued);
@@ -3002,10 +3023,7 @@ idi_send_data(eicon_card *card, eicon_chan *chan, int ack, struct sk_buff *skb, 
         	chan2->ptr = chan;
 
 	        reqbuf = (eicon_REQ *)skb_put(xmit_skb, plen + sizeof(eicon_REQ));
-		if (((len - offset) > 270) &&
-			(chan->l2prot != ISDN_PROTO_L2_MODEM) &&
-			(chan->l2prot != ISDN_PROTO_L2_FAX) &&
-			(chan->l2prot != ISDN_PROTO_L2_TRANS)) {
+		if ((len - offset) > 270) { 
 		        reqbuf->Req = N_MDATA;
 		} else {
 		        reqbuf->Req = N_DATA;

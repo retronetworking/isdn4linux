@@ -1416,6 +1416,15 @@ isdn_net_xmit(struct net_device *ndev, struct sk_buff *skb)
 	isdn_net_local *slp;
 	isdn_net_local *lp = (isdn_net_local *) ndev->priv;
 	int retv = 0;
+#ifdef CONFIG_ISDN_WITH_ABC_IPT_TARGET
+	ulong old_huptimer = lp->huptimer;
+
+	short d_reset_frame = 
+		skb != NULL									&&
+		CONFIG_ISDN_WITH_ABC_IPT_TARGET_HBIT > 0 	&&
+		CONFIG_ISDN_WITH_ABC_IPT_TARGET_HBIT < 33 	&&
+		(skb->nfmark & ( 1lu << (CONFIG_ISDN_WITH_ABC_IPT_TARGET_HBIT - 1)));
+#endif 
 
 	if (((isdn_net_local *) (ndev->priv))->master) {
 		printk("isdn BUG at %s:%d!\n", __FILE__, __LINE__);
@@ -1426,12 +1435,19 @@ isdn_net_xmit(struct net_device *ndev, struct sk_buff *skb)
 	/* For the other encaps the header has already been built */
 #ifdef CONFIG_ISDN_PPP
 	if (lp->p_encap == ISDN_NET_ENCAP_SYNCPPP) {
+#ifdef CONFIG_ISDN_WITH_ABC_IPT_TARGET
+		int r = isdn_ppp_xmit(skb, ndev);
+		
+		if(d_reset_frame)
+			lp->huptimer = old_huptimer;
+
+		return(r);
+#else
 		return isdn_ppp_xmit(skb, ndev);
+#endif
 	}
 #endif
-	
 	nd = ((isdn_net_local *) ndev->priv)->netdev;
-
 	lp = isdn_net_get_locked_lp(nd);
 	if (!lp) {
 		printk(KERN_WARNING "%s: all channels busy - requeuing!\n", ndev->name);
@@ -1442,6 +1458,10 @@ isdn_net_xmit(struct net_device *ndev, struct sk_buff *skb)
 	/* Reset hangup-timeout */
 	lp->huptimer = 0; // FIXME?
 #ifdef CONFIG_ISDN_WITH_ABC
+#ifdef CONFIG_ISDN_WITH_ABC_IPT_TARGET
+	if(d_reset_frame)
+		lp->huptimer = old_huptimer;
+#endif
 #ifdef CONFIG_ISDN_WITH_ABC_RAWIPCOMPRESS
 	if(	(lp->dw_abc_flags & ISDN_DW_ABC_FLAG_LEASED_LINE) 	&&
 		(lp->dw_abc_flags & ISDN_DW_ABC_FLAG_BSD_COMPRESS)	&&
@@ -1451,7 +1471,7 @@ isdn_net_xmit(struct net_device *ndev, struct sk_buff *skb)
 		dwabc_bsd_first_gen(lp);
 	}
 #endif
-
+  
 	{
 		struct sk_buff *t_skb = NULL;
 
@@ -1755,6 +1775,25 @@ isdn_net_start_xmit(struct sk_buff *skb, struct net_device *ndev)
 #endif
 		if (!(lp->flags & ISDN_NET_CONNECTED)) {
 			int chi;
+#ifdef CONFIG_ISDN_WITH_ABC
+#ifdef CONFIG_ISDN_WITH_ABC_IPT_TARGET
+			if(	CONFIG_ISDN_WITH_ABC_IPT_TARGET_HBIT > 0 	&&
+				CONFIG_ISDN_WITH_ABC_IPT_TARGET_HBIT < 33 	&&
+				(skb->nfmark & ( 1lu << (CONFIG_ISDN_WITH_ABC_IPT_TARGET_HBIT - 1)))) {
+
+				if(	CONFIG_ISDN_WITH_ABC_IPT_TARGET_DBIT > 0 	&&
+					CONFIG_ISDN_WITH_ABC_IPT_TARGET_DBIT < 33 	&&
+					(skb->nfmark & ( 1lu << (CONFIG_ISDN_WITH_ABC_IPT_TARGET_DBIT - 1)))) {
+
+					isdn_net_unreachable(ndev, skb, 
+						"dial rejected: Iptables_DWISDN --hutimer --unreach");
+				}
+
+				dev_kfree_skb(skb);
+				return 0;
+			}
+#endif
+#endif
 			/* only do autodial if allowed by config */
 			if (!(ISDN_NET_DIALMODE(*lp) == ISDN_NET_DM_AUTO)) {
 				isdn_net_unreachable(ndev, skb, "dial rejected: interface not in dialmode `auto'");
@@ -1917,7 +1956,7 @@ isdn_net_close(struct net_device *dev)
 /*
  * Get statistics
  */
-static struct enet_statistics *
+static struct net_device_stats *
 isdn_net_get_stats(struct net_device *dev)
 {
 	isdn_net_local *lp = (isdn_net_local *) dev->priv;
@@ -2081,6 +2120,10 @@ isdn_net_receive(struct net_device *ndev, struct sk_buff *skb)
 #endif
 #ifdef CONFIG_ISDN_WITH_ABC
 	struct net_device *ondev = ndev;
+#ifdef CONFIG_ISDN_WITH_ABC_RCV_NO_HUPTIMER
+	ulong lp_huptimer  = 0;
+	ulong olp_huptimer = 0;
+#endif
 #endif
 	cisco_hdr *ch;
 
@@ -2097,7 +2140,10 @@ isdn_net_receive(struct net_device *ndev, struct sk_buff *skb)
 		lp->stats.rx_packets++;
 		lp->stats.rx_bytes += skb->len;
 	}
-
+#ifdef CONFIG_ISDN_WITH_ABC_RCV_NO_HUPTIMER
+	lp_huptimer  = lp->huptimer;
+	olp_huptimer = olp->huptimer;
+#endif
 	skb->dev = ndev;
 	skb->pkt_type = PACKET_HOST;
 	skb->mac.raw = skb->data;
@@ -2107,26 +2153,14 @@ isdn_net_receive(struct net_device *ndev, struct sk_buff *skb)
 	switch (lp->p_encap) {
 		case ISDN_NET_ENCAP_ETHER:
 			/* Ethernet over ISDN */
-#ifdef CONFIG_ISDN_WITH_ABC_RCV_NO_HUPTIMER
-			if(!(olp->dw_abc_flags & ISDN_DW_ABC_FLAG_RCV_NO_HUPTIMER)) {
-#endif
 			olp->huptimer = 0;
 			lp->huptimer = 0;
-#ifdef CONFIG_ISDN_WITH_ABC_RCV_NO_HUPTIMER
-			}
-#endif
 			skb->protocol = isdn_net_type_trans(skb, ndev);
 			break;
 		case ISDN_NET_ENCAP_UIHDLC:
 			/* HDLC with UI-frame (for ispa with -h1 option) */
-#ifdef CONFIG_ISDN_WITH_ABC_RCV_NO_HUPTIMER
-			if(!(olp->dw_abc_flags & ISDN_DW_ABC_FLAG_RCV_NO_HUPTIMER)) {
-#endif
 			olp->huptimer = 0;
 			lp->huptimer = 0;
-#ifdef CONFIG_ISDN_WITH_ABC_RCV_NO_HUPTIMER
-			}
-#endif
 			skb_pull(skb, 2);
 			/* Fall through */
 		case ISDN_NET_ENCAP_RAWIP:
@@ -2158,14 +2192,8 @@ isdn_net_receive(struct net_device *ndev, struct sk_buff *skb)
 				}
 			}
 #endif
-#ifdef CONFIG_ISDN_WITH_ABC_RCV_NO_HUPTIMER
-			if(!(olp->dw_abc_flags & ISDN_DW_ABC_FLAG_RCV_NO_HUPTIMER)) {
-#endif
 			olp->huptimer = 0;
 			lp->huptimer = 0;
-#ifdef CONFIG_ISDN_WITH_ABC_RCV_NO_HUPTIMER
-			}
-#endif
 			skb->protocol = htons(ETH_P_IP);
 #ifdef CONFIG_ISDN_WITH_ABC_CONN_ERROR
 			if(isdn_dwabc_conerr_ippktok(skb))
@@ -2216,14 +2244,8 @@ isdn_net_receive(struct net_device *ndev, struct sk_buff *skb)
 			/* Fall through */
 		case ISDN_NET_ENCAP_IPTYP:
 			/* IP with type field */
-#ifdef CONFIG_ISDN_WITH_ABC_RCV_NO_HUPTIMER
-			if(!(olp->dw_abc_flags & ISDN_DW_ABC_FLAG_RCV_NO_HUPTIMER)) {
-#endif
 			olp->huptimer = 0;
 			lp->huptimer = 0;
-#ifdef CONFIG_ISDN_WITH_ABC_RCV_NO_HUPTIMER
-			}
-#endif
 			skb->protocol = *(unsigned short *) &(skb->data[0]);
 			skb_pull(skb, 2);
 			if (*(unsigned short *) skb->data == 0xFFFF)
@@ -2236,18 +2258,20 @@ isdn_net_receive(struct net_device *ndev, struct sk_buff *skb)
 			 * huptimer on LCP packets.
 			 */
 			if (proto != PPP_LCP) {
-#ifdef CONFIG_ISDN_WITH_ABC_RCV_NO_HUPTIMER
-				if(!(olp->dw_abc_flags & ISDN_DW_ABC_FLAG_RCV_NO_HUPTIMER)) {
-#endif
 				olp->huptimer = 0;
 				lp->huptimer = 0;
-#ifdef CONFIG_ISDN_WITH_ABC_RCV_NO_HUPTIMER
-				}
-#endif
 			}
 			isdn_ppp_receive(lp->netdev, olp, skb);
+#ifdef CONFIG_ISDN_WITH_ABC_RCV_NO_HUPTIMER
+			if(olp->dw_abc_flags & ISDN_DW_ABC_FLAG_RCV_NO_HUPTIMER) {
+
+				lp->huptimer = lp_huptimer + 1;
+				olp->huptimer = olp_huptimer+ 1;
+			}
+#endif
 			return;
 #endif
+
 		default:
 #ifdef CONFIG_ISDN_X25
 		  /* try if there are generic sync_device receiver routines */
@@ -2256,6 +2280,12 @@ isdn_net_receive(struct net_device *ndev, struct sk_buff *skb)
 					cprot -> pops -> data_ind(cprot,skb);
 #ifdef CONFIG_ISDN_WITH_ABC_CONN_ERROR
 					lp->dw_abc_bchan_errcnt = 0;
+#ifdef CONFIG_ISDN_WITH_ABC_RCV_NO_HUPTIMER
+					if(olp->dw_abc_flags & ISDN_DW_ABC_FLAG_RCV_NO_HUPTIMER) {
+						lp->huptimer = lp_huptimer;
+						olp->huptimer = olp_huptimer;
+					}
+#endif
 #endif
 					return;
 				};
@@ -2266,9 +2296,17 @@ isdn_net_receive(struct net_device *ndev, struct sk_buff *skb)
 			return;
 	}
 
+#ifdef CONFIG_ISDN_WITH_ABC_CONN_ERROR
+#ifdef CONFIG_ISDN_WITH_ABC_RCV_NO_HUPTIMER
+	if(olp->dw_abc_flags & ISDN_DW_ABC_FLAG_RCV_NO_HUPTIMER) {
+		lp->huptimer = lp_huptimer;
+		olp->huptimer = olp_huptimer;
+	}
+#endif
 #ifdef CONFIG_ISDN_WITH_ABC_IPV4_TCP_KEEPALIVE  
 	if(!(lp->dw_abc_flags & ISDN_DW_ABC_FLAG_NO_TCP_KEEPALIVE))
 		(void)isdn_dw_abc_ip4_keepalive_test(NULL,skb);
+#endif
 #endif
 	netif_rx(skb);
 	return;

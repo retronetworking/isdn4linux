@@ -6,6 +6,18 @@
  * (c) Copyright 2000 by Carsten Paeth (calle@calle.in-berlin.de)
  * 
  * $Log$
+ * Revision 1.7  2000/08/04 12:20:08  calle
+ * - Fix unsigned/signed warning in the right way ...
+ *
+ * Revision 1.6  2000/06/29 13:59:06  calle
+ * Bugfix: reinit txdma without interrupt will confuse some AMCC chips.
+ *
+ * Revision 1.5  2000/06/19 16:51:53  keil
+ * don't free skb in irq context
+ *
+ * Revision 1.4  2000/04/03 16:38:05  calle
+ * made suppress_pollack static.
+ *
  * Revision 1.3  2000/02/26 01:00:53  keil
  * changes from 2.3.47
  *
@@ -32,6 +44,9 @@
 #ifdef COMPAT_NEED_UACCESS
 #include <asm/uaccess.h>
 #endif
+#ifndef COMPAT_NO_SOFTNET
+#include <linux/netdevice.h>
+#endif
 #include "capilli.h"
 #include "avmcard.h"
 #include "capicmd.h"
@@ -43,7 +58,7 @@ static char *revision = "$Revision$";
 
 MODULE_AUTHOR("Carsten Paeth <calle@calle.in-berlin.de>");
 
-int suppress_pollack = 0;
+static int suppress_pollack = 0;
 MODULE_PARM(suppress_pollack, "0-1i");
 
 /* ------------------------------------------------------------- */
@@ -430,7 +445,7 @@ static void b1dma_dispatch_tx(avmcard *card)
 		b1dmaoutmeml(card->mbase+AMCC_INTCSR, card->csr);
 
 	restore_flags(flags);
-	dev_kfree_skb(skb);
+	idev_kfree_skb_any(skb, FREE_WRITE);
 }
 
 /* ------------------------------------------------------------- */
@@ -554,22 +569,26 @@ static void b1dma_handle_rx(avmcard *card)
 	case RECEIVE_TASK_READY:
 		ApplId = (unsigned) _get_word(&p);
 		MsgLen = _get_slice(&p, card->msgbuf);
-		card->msgbuf[MsgLen--] = 0;
-		while (    MsgLen >= 0
-		       && (   card->msgbuf[MsgLen] == '\n'
-			   || card->msgbuf[MsgLen] == '\r'))
-			card->msgbuf[MsgLen--] = 0;
+		card->msgbuf[MsgLen] = 0;
+		while (    MsgLen > 0
+		       && (   card->msgbuf[MsgLen-1] == '\n'
+			   || card->msgbuf[MsgLen-1] == '\r')) {
+			card->msgbuf[MsgLen-1] = 0;
+			MsgLen--;
+		}
 		printk(KERN_INFO "%s: task %d \"%s\" ready.\n",
 				card->name, ApplId, card->msgbuf);
 		break;
 
 	case RECEIVE_DEBUGMSG:
 		MsgLen = _get_slice(&p, card->msgbuf);
-		card->msgbuf[MsgLen--] = 0;
-		while (    MsgLen >= 0
-		       && (   card->msgbuf[MsgLen] == '\n'
-			   || card->msgbuf[MsgLen] == '\r'))
-			card->msgbuf[MsgLen--] = 0;
+		card->msgbuf[MsgLen] = 0;
+		while (    MsgLen > 0
+		       && (   card->msgbuf[MsgLen-1] == '\n'
+			   || card->msgbuf[MsgLen-1] == '\r')) {
+			card->msgbuf[MsgLen-1] = 0;
+			MsgLen--;
+		}
 		printk(KERN_INFO "%s: DEBUG: %s\n", card->name, card->msgbuf);
 		break;
 
@@ -615,13 +634,6 @@ static void b1dma_handle_interrupt(avmcard *card)
 	if ((status & TX_TC_INT) != 0) {
 		card->csr &= ~EN_TX_TC_INT;
 	        b1dma_dispatch_tx(card);
-#if 1
-	} else if (card->csr & EN_TX_TC_INT) {
-		if (b1dmainmeml(card->mbase+AMCC_TXLEN) == 0) {
-			card->csr &= ~EN_TX_TC_INT;
-			b1dma_dispatch_tx(card);
-		}
-#endif
 	}
 	b1dmaoutmeml(card->mbase+AMCC_INTCSR, card->csr);
 }

@@ -6,11 +6,25 @@
  * (c) Copyright 1999 by Carsten Paeth (calle@calle.in-berlin.de)
  * 
  * $Log$
- * Revision 1.12.2.3  2000/04/08 14:29:09  kai
- * *** empty log message ***
+ * Revision 1.18  2000/07/20 10:22:27  calle
+ * - Made procfs function cleaner and removed variable "begin".
  *
- * Revision 1.12.2.1  2000/03/03 17:14:12  kai
- * Merged changes from the main tree
+ * Revision 1.17  2000/04/21 13:00:56  calle
+ * Bugfix: driver_proc_info was also wrong.
+ *
+ * Revision 1.16  2000/04/21 12:38:42  calle
+ * Bugfix: error in proc_ functions, begin-off => off-begin
+ *
+ * Revision 1.15  2000/04/06 15:01:25  calle
+ * Bugfix: crash in capidrv.c when reseting a capi controller.
+ * - changed code order on remove of controller.
+ * - using tq_schedule for notifier in kcapi.c.
+ * - now using spin_lock_irqsave() and spin_unlock_irqrestore().
+ * strange: sometimes even MP hang on unload of isdn.o ...
+ *
+ * Revision 1.14  2000/04/03 13:29:25  calle
+ * make Tim Waugh happy (module unload races in 2.3.99-pre3).
+ * no real problem there, but now it is much cleaner ...
  *
  * Revision 1.13  2000/03/03 15:50:42  calle
  * - kernel CAPI:
@@ -255,7 +269,6 @@ static int proc_applications_read_proc(char *page, char **start, off_t off,
 	struct capi_appl *ap;
 	int i;
 	int len = 0;
-	off_t begin = 0;
 
 	for (i=0; i < CAPI_MAXAPPL; i++) {
 		ap = &applications[i];
@@ -267,20 +280,21 @@ static int proc_applications_read_proc(char *page, char **start, off_t off,
 			ap->rparam.datablklen,
 			ap->nncci,
                         skb_queue_len(&ap->recv_queue));
-		if (len+begin > off+count)
-			goto endloop;
-		if (len+begin < off) {
-			begin += len;
+		if (len <= off) {
+			off -= len;
 			len = 0;
+		} else {
+			if (len-off > count)
+				goto endloop;
 		}
 	}
 endloop:
-	if (i >= CAPI_MAXAPPL)
+	*start = page+off;
+	if (len < count)
 		*eof = 1;
-	if (off >= len+begin)
-		return 0;
-	*start = page + (begin-off);
-	return ((count < begin+len-off) ? count : begin+len-off);
+	if (len>count) len = count;
+	if (len<0) len = 0;
+	return len;
 }
 
 /*
@@ -294,7 +308,6 @@ static int proc_ncci_read_proc(char *page, char **start, off_t off,
 	struct capi_ncci *np;
 	int i;
 	int len = 0;
-	off_t begin = 0;
 
 	for (i=0; i < CAPI_MAXAPPL; i++) {
 		ap = &applications[i];
@@ -305,21 +318,22 @@ static int proc_ncci_read_proc(char *page, char **start, off_t off,
 				np->ncci,
 				np->winsize,
 				np->nmsg);
-			if (len+begin > off+count)
-				goto endloop;
-			if (len+begin < off) {
-				begin += len;
+			if (len <= off) {
+				off -= len;
 				len = 0;
+			} else {
+				if (len-off > count)
+					goto endloop;
 			}
 		}
 	}
 endloop:
-	if (i >= CAPI_MAXAPPL)
+	*start = page+off;
+	if (len < count)
 		*eof = 1;
-	if (off >= len+begin)
-		return 0;
-	*start = page + (begin-off);
-	return ((count < begin+len-off) ? count : begin+len-off);
+	if (len>count) len = count;
+	if (len<0) len = 0;
+	return len;
 }
 
 /*
@@ -331,7 +345,6 @@ static int proc_driver_read_proc(char *page, char **start, off_t off,
 {
 	struct capi_driver *driver;
 	int len = 0;
-	off_t begin = 0;
 
 	spin_lock(&drivers_lock);
 	for (driver = drivers; driver; driver = driver->next) {
@@ -339,21 +352,22 @@ static int proc_driver_read_proc(char *page, char **start, off_t off,
 					driver->name,
 					driver->ncontroller,
 					driver->revision);
-		if (len+begin > off+count)
-			goto endloop;
-		if (len+begin < off) {
-			begin += len;
+		if (len <= off) {
+			off -= len;
 			len = 0;
+		} else {
+			if (len-off > count)
+				goto endloop;
 		}
 	}
 endloop:
 	spin_unlock(&drivers_lock);
-	if (!driver)
+	*start = page+off;
+	if (len < count)
 		*eof = 1;
-	if (off >= len+begin)
-		return 0;
-	*start = page + (begin-off);
-	return ((count < begin+len-off) ? count : begin+len-off);
+	if (len>count) len = count;
+	if (len<0) len = 0;
+	return len;
 }
 
 /*
@@ -365,26 +379,26 @@ static int proc_users_read_proc(char *page, char **start, off_t off,
 {
         struct capi_interface_user *cp;
 	int len = 0;
-	off_t begin = 0;
 
 	spin_lock(&capi_users_lock);
         for (cp = capi_users; cp ; cp = cp->next) {
 		len += sprintf(page+len, "%s\n", cp->name);
-		if (len+begin > off+count)
-			goto endloop;
-		if (len+begin < off) {
-			begin += len;
+		if (len <= off) {
+			off -= len;
 			len = 0;
+		} else {
+			if (len-off > count)
+				goto endloop;
 		}
 	}
 endloop:
 	spin_unlock(&capi_users_lock);
-	if (cp == 0)
+	*start = page+off;
+	if (len < count)
 		*eof = 1;
-	if (off >= len+begin)
-		return 0;
-	*start = page + (begin-off);
-	return ((count < begin+len-off) ? count : begin+len-off);
+	if (len>count) len = count;
+	if (len<0) len = 0;
+	return len;
 }
 
 /*
@@ -397,7 +411,6 @@ static int proc_controller_read_proc(char *page, char **start, off_t off,
 	struct capi_ctr *cp;
 	int i;
 	int len = 0;
-	off_t begin = 0;
 
 	for (i=0; i < CAPI_MAXCONTR; i++) {
 		cp = &cards[i];
@@ -408,20 +421,21 @@ static int proc_controller_read_proc(char *page, char **start, off_t off,
 			cp->name,
 			cp->driver->procinfo ?  cp->driver->procinfo(cp) : ""
 			);
-		if (len+begin > off+count)
-			goto endloop;
-		if (len+begin < off) {
-			begin += len;
+		if (len <= off) {
+			off -= len;
 			len = 0;
+		} else {
+			if (len-off > count)
+				goto endloop;
 		}
 	}
 endloop:
-	if (i >= CAPI_MAXCONTR)
+	*start = page+off;
+	if (len < count)
 		*eof = 1;
-	if (off >= len+begin)
-		return 0;
-	*start = page + (begin-off);
-	return ((count < begin+len-off) ? count : begin+len-off);
+	if (len>count) len = count;
+	if (len<0) len = 0;
+	return len;
 }
 
 /*
@@ -434,7 +448,6 @@ static int proc_applstats_read_proc(char *page, char **start, off_t off,
 	struct capi_appl *ap;
 	int i;
 	int len = 0;
-	off_t begin = 0;
 
 	for (i=0; i < CAPI_MAXAPPL; i++) {
 		ap = &applications[i];
@@ -445,20 +458,21 @@ static int proc_applstats_read_proc(char *page, char **start, off_t off,
 			ap->nrecvdatapkt,
 			ap->nsentctlpkt,
 			ap->nsentdatapkt);
-		if (len+begin > off+count)
-			goto endloop;
-		if (len+begin < off) {
-			begin += len;
+		if (len <= off) {
+			off -= len;
 			len = 0;
+		} else {
+			if (len-off > count)
+				goto endloop;
 		}
 	}
 endloop:
-	if (i >= CAPI_MAXAPPL)
+	*start = page+off;
+	if (len < count)
 		*eof = 1;
-	if (off >= len+begin)
-		return 0;
-	*start = page + (begin-off);
-	return ((count < begin+len-off) ? count : begin+len-off);
+	if (len>count) len = count;
+	if (len<0) len = 0;
+	return len;
 }
 
 /*
@@ -471,7 +485,6 @@ static int proc_contrstats_read_proc(char *page, char **start, off_t off,
 	struct capi_ctr *cp;
 	int i;
 	int len = 0;
-	off_t begin = 0;
 
 	for (i=0; i < CAPI_MAXCONTR; i++) {
 		cp = &cards[i];
@@ -482,20 +495,21 @@ static int proc_contrstats_read_proc(char *page, char **start, off_t off,
 			cp->nrecvdatapkt,
 			cp->nsentctlpkt,
 			cp->nsentdatapkt);
-		if (len+begin > off+count)
-			goto endloop;
-		if (len+begin < off) {
-			begin += len;
+		if (len <= off) {
+			off -= len;
 			len = 0;
+		} else {
+			if (len-off > count)
+				goto endloop;
 		}
 	}
 endloop:
-	if (i >= CAPI_MAXCONTR)
+	*start = page+off;
+	if (len < count)
 		*eof = 1;
-	if (off >= len+begin)
-		return 0;
-	*start = page + (begin-off);
-	return ((count < begin+len-off) ? count : begin+len-off);
+	if (len>count) len = count;
+	if (len<0) len = 0;
+	return len;
 }
 
 static struct procfsentries {
@@ -550,20 +564,21 @@ static struct capi_notifier_list{
 	struct capi_notifier *tail;
 } notifier_list;
 
+static spinlock_t notifier_lock = SPIN_LOCK_UNLOCKED;
+
 static inline void notify_enqueue(struct capi_notifier *np)
 {
 	struct capi_notifier_list *q = &notifier_list;
 	unsigned long flags;
 
-	save_flags(flags);
-	cli();
+	spin_lock_irqsave(&notifier_lock, flags);
 	if (q->tail) {
 		q->tail->next = np;
 		q->tail = np;
 	} else {
 		q->head = q->tail = np;
 	}
-	restore_flags(flags);
+	spin_unlock_irqrestore(&notifier_lock, flags);
 }
 
 static inline struct capi_notifier *notify_dequeue(void)
@@ -572,15 +587,14 @@ static inline struct capi_notifier *notify_dequeue(void)
 	struct capi_notifier *np = 0;
 	unsigned long flags;
 
-	save_flags(flags);
-	cli();
+	spin_lock_irqsave(&notifier_lock, flags);
 	if (q->head) {
 		np = q->head;
 		if ((q->head = np->next) == 0)
  			q->tail = 0;
 		np->next = 0;
 	}
-	restore_flags(flags);
+	spin_unlock_irqrestore(&notifier_lock, flags);
 	return np;
 }
 
@@ -589,18 +603,24 @@ static int notify_push(unsigned int cmd, __u32 controller,
 {
 	struct capi_notifier *np;
 
+	MOD_INC_USE_COUNT;
 	np = (struct capi_notifier *)kmalloc(sizeof(struct capi_notifier), GFP_ATOMIC);
-	if (!np)
+	if (!np) {
+		MOD_DEC_USE_COUNT;
 		return -1;
+	}
 	memset(np, 0, sizeof(struct capi_notifier));
 	np->cmd = cmd;
 	np->controller = controller;
 	np->applid = applid;
 	np->ncci = ncci;
 	notify_enqueue(np);
-	MOD_INC_USE_COUNT;
-	queue_task(&tq_state_notify, &tq_immediate);
-	mark_bh(IMMEDIATE_BH);
+	/*
+	 * The notifier will result in adding/deleteing
+	 * of devices. Devices can only removed in
+	 * user process, not in bh.
+	 */
+	queue_task(&tq_state_notify, &tq_scheduler);
 	return 0;
 }
 
@@ -896,9 +916,6 @@ static void controllercb_handle_capimsg(struct capi_ctr * card,
 	if (cmd == CAPI_DATA_B3 && subcmd == CAPI_IND) {
 		card->nrecvdatapkt++;
 	        if (card->traceflag > 2) showctl |= 2;
-	} else if (cmd == CAPI_DATA_B3 && subcmd == CAPI_CONF) {
-		card->nrecvctlpkt++;
-	        if (card->traceflag > 2) showctl |= 2;
 	} else {
 		card->nrecvctlpkt++;
 	        if (card->traceflag) showctl |= 2;
@@ -1095,7 +1112,7 @@ static int driver_read_proc(char *page, char **start, off_t off,
 	if (len < off) 
            return 0;
 	*eof = 1;
-	*start = page - off;
+	*start = page + off;
 	return ((count < len-off) ? count : len-off);
 }
 
@@ -1250,7 +1267,7 @@ static __u16 capi_put_message(__u16 applid, struct sk_buff *skb)
 	cmd = CAPIMSG_COMMAND(skb->data);
         subcmd = CAPIMSG_SUBCOMMAND(skb->data);
 
-	if (cmd == CAPI_DATA_B3 && subcmd == CAPI_REQ) {
+	if (cmd == CAPI_DATA_B3 && subcmd== CAPI_REQ) {
 	    	if ((np = find_ncci(APPL(applid), CAPIMSG_NCCI(skb->data))) != 0
 	            && mq_enqueue(np, CAPIMSG_MSGID(skb->data)) == 0)
 			return CAPI_SENDQUEUEFULL;
@@ -1260,11 +1277,7 @@ static __u16 capi_put_message(__u16 applid, struct sk_buff *skb)
 	} else {
 		CARD(contr)->nsentctlpkt++;
 		APPL(applid)->nsentctlpkt++;
-		if (cmd == CAPI_DATA_B3 && subcmd == CAPI_RESP) {
-			if (CARD(contr)->traceflag > 2) showctl |= 2;
-		} else {
-			if (CARD(contr)->traceflag) showctl |= 2;
-		}
+	        if (CARD(contr)->traceflag) showctl |= 2;
 	}
 	showctl |= (CARD(contr)->traceflag & 1);
 	if (showctl & 2) {
@@ -1748,6 +1761,8 @@ int kcapi_init(void)
 	char *p;
 	char rev[10];
 
+	MOD_INC_USE_COUNT;
+
 	skb_queue_head_init(&recv_queue);
 	/* init_bh(CAPI_BH, do_capi_bh); */
 
@@ -1789,6 +1804,7 @@ int kcapi_init(void)
 	(void)c4_init();
 #endif
 #endif
+	MOD_DEC_USE_COUNT;
 	return 0;
 }
 

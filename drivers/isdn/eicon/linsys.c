@@ -6,7 +6,7 @@
  * This source file is supplied for the exclusive use with Eicon
  * Technology Corporation's range of DIVA Server Adapters.
  *
- * Eicon File Revision :    1.8  
+ * Eicon File Revision :    1.10  
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -41,10 +41,12 @@ struct pt_regs;
 
 #include "uxio.h"
 
+#ifdef MODULE
 void bcopy(void *pSource, void *pDest, dword dwLength)
 {
 	memcpy(pDest, pSource, dwLength);
 }
+#endif
 
 void bzero(void *pDataArea, dword dwLength)
 {
@@ -103,11 +105,25 @@ int DivasBRIInitPCI(card_t *card, dia_card_t *cfg)
 {
 }
 */
-struct tq_struct DivasTask;
 
 int	DivasDpcSchedule(void)
 {
+	static	struct tq_struct DivasTask;
+
 	DivasTask.routine = DivasDoDpc;
+	DivasTask.data = (void *) 0;
+
+	queue_task(&DivasTask, &tq_immediate);
+	mark_bh(IMMEDIATE_BH);
+
+	return 0;
+}
+
+int	DivasScheduleRequestDpc(void)
+{
+	static	struct tq_struct DivasTask;
+
+	DivasTask.routine = DivasDoRequestDpc;
 	DivasTask.data = (void *) 0;
 
 	queue_task(&DivasTask, &tq_immediate);

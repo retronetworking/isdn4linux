@@ -6,7 +6,7 @@
  * This source file is supplied for the exclusive use with Eicon
  * Technology Corporation's range of DIVA Server Adapters.
  *
- * Eicon File Revision :    1.4  
+ * Eicon File Revision :    1.7  
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -41,13 +41,6 @@
 #define XBUSY  0x40
 #define RMORE  0x80
 
-/* buffer definition */
-#if 0
-typedef struct {
-  word length;          /* length of data/parameter field           */
-  byte P[270];          /* data/parameter field                     */
-} PBUFFER;
-#endif
         /* structure for all information we have to keep on a per   */
         /* adapater basis                                           */
 
@@ -104,7 +97,6 @@ struct card
 	int 				state;			/* State of the adapter */
 	dword 				serial_no;		/* serial number */
 	int 				test_int_pend;	/* set for interrupt testing */
-	int 				int_pend;		/* interrupt pending */
 	ux_diva_card_t		*hw;			/* O/S-specific handle */
 	card_reset_fn_t		*card_reset;	/* call this to reset card */
 	card_load_fn_t		*card_load;		/* call this to load card */
@@ -120,11 +112,20 @@ struct card
 	PBUFFER				RBuffer;		/* Copy of receive lookahead buffer */
 	int					log_types;		/* bit-mask of active logs */
 	word				xlog_offset;	/* offset to XLOG buffer on card */
-	void				(*out)(ADAPTER *a);
-	byte				(*dpc)(ADAPTER * a);
-	byte				(*test_int)(ADAPTER * a);
-	void				(*clear_int)(ADAPTER * a);
-	void				(*reset_int)(card_t *c);
+	void		(*out)(ADAPTER *a);
+	byte		(*dpc)(ADAPTER * a);
+	byte		(*test_int)(ADAPTER * a);
+	void		(*clear_int)(ADAPTER * a);
+	void		(*reset_int)(card_t *c);
+	int  		is_live;
+
+	int		(*card_isr)(card_t *card);
+
+	int 		int_pend;		/* interrupt pending */
+	long		interrupt_reentered;
+	long 		dpc_reentered;
+	int 		set_xlog_request;
+
 } ;
 
 /* card information */
@@ -191,8 +192,10 @@ extern	void    DivasLogAdd(void *buffer, int length);
 /* public functions of misc. platform-specific code         		*/
 /*------------------------------------------------------------------*/
 
-int			DivasDpcSchedule(void);
+int		DivasDpcSchedule(void);
 void		DivasDoDpc(void *);
+void		DivasDoRequestDpc(void *pData);
+int		DivasScheduleRequestDpc(void);
 
 /* table of IDI request functions */
 

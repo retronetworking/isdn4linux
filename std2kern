@@ -275,16 +275,25 @@ else
       patch -d $KERNELDIR/Documentation < Documentation/Configure.help.eicon.diff
     fi
   fi
-  if [ -f $KERNELDIR/Documentation/Configure.help ] ; then
-    grep -q CONFIG_ISDN_WITH_ABC $KERNELDIR/Documentation/Configure.help
-    if [ $? != 0 ] ; then
+  if $NOTEST ; then
+    if [ -f $KERNELDIR/Documentation/Configure.help ] ; then
+      grep -q CONFIG_ISDN_WITH_ABC $KERNELDIR/Documentation/Configure.help
+      if [ $? != 0 ] ; then
 	  if [ -f  Documentation/Configure.help.dwabc.diff ] ; then
-        patch -d $KERNELDIR/Documentation < Documentation/Configure.help.dwabc.diff
+            patch -d $KERNELDIR/Documentation < Documentation/Configure.help.dwabc.diff
 	  fi
+      fi
     fi
   fi
   for i in drivers/isdn/eicon/*.[ch] drivers/isdn/eicon/md5sums.asc ; do
-    $DOCP $i $KERNELDIR/$i
+	if [ "$i" = "drivers/isdn/eicon/md5sums.asc" -a \
+	     "$UNIQUE" = "true" ] ; then
+		if $VERBOSE ; then
+			echo "$i skipped"
+		fi
+	else
+		$DOCP $i $KERNELDIR/$i
+	fi
   done
   for i in include/linux/*.h ; do
 	if [ "$i" = "include/linux/isdn_compat.h" -a \

@@ -6,7 +6,7 @@
  * This source file is supplied for the exclusive use with Eicon
  * Technology Corporation's range of DIVA Server Adapters.
  *
- * Eicon File Revision :    1.5  
+ * Eicon File Revision :    1.8  
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -72,12 +72,15 @@ static int diva_server_bri_test_int(card_t *card);
 #define REG_ADDRHI		0x0C
 #define REG_IOCTRL		0x10
 
+#define M_PCI_RESET	0x10
+
 byte UxCardPortIoIn(ux_diva_card_t *card, byte *base, int offset);
 word UxCardPortIoInW(ux_diva_card_t *card, byte *base, int offset);
 void UxCardPortIoOut(ux_diva_card_t *card, byte *base, int offset, byte);
 void UxCardPortIoOutW(ux_diva_card_t *card, byte *base, int offset, word);
 
 int DivasBRIInitPCI(card_t *card, dia_card_t *cfg);
+int bri_ISR (card_t* card);
 
 static
 int	diva_server_bri_reset(card_t *card)
@@ -142,6 +145,8 @@ int diva_server_bri_start(card_t *card, byte *channels)
 
 	DPRINTF(("divas: starting Diva Server BRI card"));
 
+	card->is_live = FALSE;
+
 	DivasIOBase = UxCardMemAttach(card->hw, DIVAS_IOBASE);
 
 	UxCardPortIoOut(card->hw, DivasIOBase, REG_ADDRHI, 0xFF);
@@ -173,6 +178,8 @@ int diva_server_bri_start(card_t *card, byte *channels)
 		UxCardMemDetach(card->hw, DivasIOBase);
 		return -1;
 	}
+
+	card->is_live = TRUE;
 
 	UxCardPortIoOut(card->hw, DivasIOBase, REG_ADDRHI, 0xFF);
 	UxCardPortIoOutW(card->hw, DivasIOBase, REG_ADDRLO, 0x3F6);
@@ -289,7 +296,7 @@ int diva_server_bri_load(card_t *card, dia_load_t *load)
 
 	DivasIOBase = UxCardMemAttach(card->hw, DIVAS_IOBASE);
 
-	UxCardLog(1);
+	DPRINTF(("divas: Attached to 0x%04X", DivasIOBase));
 
 	dwLength = load->length;
 
@@ -448,6 +455,12 @@ void DivasBriPatch(card_t *card)
 	PLXIOBase = card->cfg.reset_base;
 	DivasIOBase = card->cfg.io_base;
 
+	if(card->hw == NULL)
+	{
+		DPRINTF(("Divas: BRI PATCH (PLX chip) card->hw is null"));
+		return;
+	}
+
 	if (PLXIOBase == 0)
 	{
 		DPRINTF(("Divas: BRI (PLX chip) cannot be patched. The BRI adapter may"));
@@ -488,7 +501,6 @@ void DivasBriPatch(card_t *card)
 		dwCmd = 5;
 		UxPciConfigWrite(card->hw, 4, PCI_COMMAND, &dwCmd);
 
-		UxCardLog(1);
 		bPLX9060 = UxCardPortIoInW(card->hw, (void *) card->cfg.reset_base, 0x6C) | 
 			   UxCardPortIoInW(card->hw, (void *) card->cfg.reset_base, 0x6E);
 
@@ -534,6 +546,7 @@ void DivasBriPatch(card_t *card)
 	DPRINTF(("Divas: After patching:"));
 	DPRINTF(("Divas: PLX I/O Base 0x%x", PLXIOBase));
 	DPRINTF(("Divas: Divas I/O Base 0x%x", DivasIOBase));
+
 }
 
 #define TEST_INT_DIVAS_BRI	0x12
@@ -620,10 +633,11 @@ int DivasBriInit(card_t *card, dia_card_t *cfg)
 
 	card->xlog_offset 		= DIVAS_MAINT_OFFSET;
 
-	card->out 				= DivasOut;
+	card->out 			= DivasOut;
 	card->test_int 			= DivasTestInt;
-	card->dpc 				= DivasDpc;
+	card->dpc 			= DivasDpc;
 	card->clear_int 		= DivasClearInt;
+	card->card_isr 			= bri_ISR;
 
 	card->a.ram_out 		= io_out;
 	card->a.ram_outw 		= io_outw;
@@ -680,3 +694,24 @@ word GetProtFeatureValue(char *sw_id)
 
 	return features;
 }
+
+
+int bri_ISR (card_t* card) 
+{
+	int served = 0;
+	byte *DivasIOBase = UxCardMemAttach(card->hw, DIVAS_IOBASE);
+
+	if (UxCardPortIoIn (card->hw, DivasIOBase, M_PCI_RESET) & 0x01) 
+	{
+		served = 1;
+		card->int_pend  += 1;
+		DivasDpcSchedule(); /* ISR DPC */
+		UxCardPortIoOut (card->hw, DivasIOBase, M_PCI_RESET, 0x08);
+	}
+
+	UxCardMemDetach(card->hw, DivasIOBase);
+
+	return (served != 0);
+}
+
+

@@ -6,11 +6,13 @@
  * (c) Copyright 1999 by Carsten Paeth (calle@calle.in-berlin.de)
  * 
  * $Log$
- * Revision 1.7.2.3  2000/04/08 14:29:08  kai
- * *** empty log message ***
+ * Revision 1.10  2000/05/06 00:52:36  kai
+ * merged changes from kernel tree
+ * fixed timer and net_device->name breakage
  *
- * Revision 1.7.2.1  2000/03/08 17:28:43  calle
- * Merged changes from main tree.
+ * Revision 1.9  2000/04/03 13:29:24  calle
+ * make Tim Waugh happy (module unload races in 2.3.99-pre3).
+ * no real problem there, but now it is much cleaner ...
  *
  * Revision 1.8  2000/03/06 18:00:23  calle
  * - Middleware extention now working with 2.3.49 (capifs).
@@ -308,6 +310,9 @@ int b1pcmcia_init(void)
 {
 	struct capi_driver *driver = &b1pcmcia_driver;
 	char *p;
+	int retval = 0;
+
+	MOD_INC_USE_COUNT;
 
 	if ((p = strchr(revision, ':'))) {
 		strncpy(driver->revision, p + 1, sizeof(driver->revision));
@@ -322,9 +327,10 @@ int b1pcmcia_init(void)
 	if (!di) {
 		printk(KERN_ERR "%s: failed to attach capi_driver\n",
 				driver->name);
-		return -EIO;
+		retval = -EIO;
 	}
-	return 0;
+	MOD_DEC_USE_COUNT;
+	return retval;
 }
 
 #ifdef MODULE

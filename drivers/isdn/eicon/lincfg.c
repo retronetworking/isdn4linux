@@ -77,199 +77,6 @@ int DivasCardsDiscover(void)
 	while (wDeviceIndex < 10)
 	{
 		wPCIConsultation = pcibios_find_device(HW_ID_EICON_PCI, 
-				HW_ID_DIVA_SERVER_B_ST, 
-				wDeviceIndex, 
-				&byBus, &byFunc);
-
-		if (wPCIConsultation == PCIBIOS_SUCCESSFUL)
-		{
-			dword dwPLXIOBase, dwDivasIOBase;
-			byte byIRQ;
-
-			printk(KERN_DEBUG "Divas: DIVA Server BRI (S/T) Found\n");
-			pcibios_read_config_dword(byBus, byFunc, PCI_BASE_ADDRESS_1, (unsigned int *) &dwPLXIOBase);
-			dwPLXIOBase &= 0xFFFFFF80;
-
-			pcibios_read_config_dword(byBus, byFunc, PCI_BASE_ADDRESS_2, (unsigned int *) &dwDivasIOBase);
-			dwDivasIOBase &= 0xFFFFFFFC;
-
-			pcibios_read_config_byte(byBus, byFunc, PCI_INTERRUPT_LINE, &byIRQ);
-
-			Card.card_id = wNumCards;
-			Card.card_type = DIA_CARD_TYPE_DIVA_SERVER_B;
-			Card.bus_type = DIA_BUS_TYPE_PCI;
-			Card.irq = byIRQ;
-			Card.reset_base = dwPLXIOBase;
-			Card.io_base = dwDivasIOBase;
-			Card.bus_num = byBus;
-			Card.func_num = byFunc;
-			Card.slot = -1;
-			Card.name[0] = 'D';
-			Card.name[1] = 'I';
-			Card.name[2] = 'V';
-			Card.name[3] = 'A';
-			Card.name[4] = 'S';
-			Card.name[5] = 'B';
-			Card.name[6] = '\0';
-
-			if (check_region(Card.io_base, 0x20))
-			{
-				printk(KERN_WARNING "Divas: DIVA I/O Base already in use 0x%x-0x%x\n", Card.io_base, Card.io_base + 0x1F);
-				wDeviceIndex++;
-				continue;
-			}
-
-			if (check_region(Card.reset_base, 0x80))
-			{
-				printk(KERN_WARNING "Divas: PLX I/O Base already in use 0x%x-0x%x\n", Card.reset_base, Card.reset_base + 0xFF);
-				wDeviceIndex++;
-				continue;
-			}
-
-			if (DivasCardNew(&Card) != 0)
-			{
-				wDeviceIndex++;
-				continue;
-			}
-			wNumCards++;
-		}
-
-		wPCIConsultation = pcibios_find_device(HW_ID_EICON_PCI, 
-				HW_ID_DIVA_SERVER_B_U, 
-				wDeviceIndex, 
-				&byBus, &byFunc);
-
-		if (wPCIConsultation == PCIBIOS_SUCCESSFUL)
-		{
-			dword dwPLXIOBase, dwDivasIOBase;
-			byte byIRQ;
-
-			printk(KERN_DEBUG "Divas: DIVA Server BRI (U) Found\n");
-
-			pcibios_read_config_dword(byBus, byFunc, PCI_BASE_ADDRESS_1, (unsigned int *) &dwPLXIOBase);
-			dwPLXIOBase &= 0xFFFFFF80;
-
-			pcibios_read_config_dword(byBus, byFunc, PCI_BASE_ADDRESS_2, (unsigned int *) &dwDivasIOBase);
-			dwDivasIOBase &= 0xFFFFFFFC;
-
-			pcibios_read_config_byte(byBus, byFunc, PCI_INTERRUPT_LINE, &byIRQ);
-
-			Card.card_id = wNumCards;
-			Card.card_type = DIA_CARD_TYPE_DIVA_SERVER_B;
-			Card.bus_type = DIA_BUS_TYPE_PCI;
-			Card.irq = byIRQ;
-			Card.reset_base = dwPLXIOBase;
-			Card.io_base = dwDivasIOBase;
-			Card.bus_num = byBus;
-			Card.func_num = byFunc;
-			Card.slot = -1;
-			Card.name[0] = 'D';
-			Card.name[1] = 'I';
-			Card.name[2] = 'V';
-			Card.name[3] = 'A';
-			Card.name[4] = 'S';
-			Card.name[5] = 'B';
-			Card.name[6] = '\0';
-
-			if (check_region(Card.io_base, 0x20))
-			{
-				printk(KERN_WARNING "Divas: DIVA I/O Base already in use 0x%x-0x%x\n", Card.io_base, Card.io_base + 0x1F);	
-				wDeviceIndex++;
-				continue;
-			}
-
-			if (check_region(Card.reset_base, 0x80))
-			{
-				printk(KERN_WARNING "Divas: PLX I/O Base already in use 0x%x-0x%x\n", Card.reset_base, Card.reset_base + 0xFF);
-				wDeviceIndex++;
-				continue;
-			}
-
-			if (DivasCardNew(&Card) != 0)
-			{
-				wDeviceIndex++;
-				continue;
-			}
-			wNumCards++;
-		}
-
-		wDeviceIndex++;
-	}
-
-	wDeviceIndex = 0;
-
-	while (wDeviceIndex < 10)
-	{
-		wPCIConsultation = pcibios_find_device(HW_ID_EICON_PCI, 
-				HW_ID_DIVA_SERVER_P, 
-				wDeviceIndex, 
-				&byBus, &byFunc);
-
-		if (wPCIConsultation == PCIBIOS_SUCCESSFUL)
-		{
-			dword dwRAM, dwREG, dwCFG;
-			byte byIRQ;
-
-			printk(KERN_DEBUG "Divas: DIVA Server PRI Found\n");
-
-			pcibios_read_config_dword(byBus, byFunc, PCI_BASE_ADDRESS_0, (unsigned int *) &dwRAM);
-			dwRAM &= 0xFFFFF000;
-
-			pcibios_read_config_dword(byBus, byFunc, PCI_BASE_ADDRESS_2, (unsigned int *) &dwREG);
-			dwREG &= 0xFFFFF000;
-			
-			pcibios_read_config_dword(byBus, byFunc, PCI_BASE_ADDRESS_4, (unsigned int *) &dwCFG);
-			dwCFG &= 0xFFFFF000;
-
-			pcibios_read_config_byte(byBus, byFunc, PCI_INTERRUPT_LINE, &byIRQ);
-
-			Card.memory[DIVAS_RAM_MEMORY] = ioremap(dwRAM, 0x10000);
-			Card.memory[DIVAS_REG_MEMORY] = ioremap(dwREG, 0x4000);
-			Card.memory[DIVAS_CFG_MEMORY] = ioremap(dwCFG, 0x1000);
-			Card.memory[DIVAS_SHARED_MEMORY] = Card.memory[DIVAS_RAM_MEMORY] + DIVAS_SHARED_OFFSET;
-
-/*			pcibios_read_config_dword(byBus, byFunc, PCI_BASE_ADDRESS_1, (unsigned int *) &dwPLXIOBase);
-			dwPLXIOBase &= 0xFFFFFFFc;
-
-			pcibios_read_config_dword(byBus, byFunc, PCI_BASE_ADDRESS_2, (unsigned int *) &dwDivasIOBase);
-			dwDivasIOBase &= 0xFFFFFF80;
-
-			pcibios_read_config_byte(byBus, byFunc, PCI_INTERRUPT_LINE, &byIRQ);
-*/
-			Card.card_id = wNumCards;
-			Card.card_type = DIA_CARD_TYPE_DIVA_SERVER;
-			Card.bus_type = DIA_BUS_TYPE_PCI;
-			Card.irq = byIRQ;
-/*			Card.reset_base = dwPLXIOBase;
-			Card.io_base = dwDivasIOBase;*/
-			Card.bus_num = byBus;
-			Card.func_num = byFunc;
-			Card.slot = -1;
-			Card.name[0] = 'D';
-			Card.name[1] = 'I';
-			Card.name[2] = 'V';
-			Card.name[3] = 'A';
-			Card.name[4] = 'S';
-			Card.name[5] = 'P';
-			Card.name[6] = '\0';
-
-			if (DivasCardNew(&Card) != 0)
-			{
-				wDeviceIndex++;
-				continue;
-			}
-			wNumCards++;
-		}
-
-		wDeviceIndex++;
-	}
-
-
-	wDeviceIndex = 0;
-
-	while (wDeviceIndex < 10)
-	{
-		wPCIConsultation = pcibios_find_device(HW_ID_EICON_PCI, 
 				HW_ID_DIVA_SERVER_Q, 
 				wDeviceIndex, 
 				&byBus, &byFunc);
@@ -365,6 +172,199 @@ int DivasCardsDiscover(void)
 		}
 		wDeviceIndex++;
 	}
+
+	wDeviceIndex = 0;
+
+	while (wDeviceIndex < 10)
+	{
+		wPCIConsultation = pcibios_find_device(HW_ID_EICON_PCI, 
+				HW_ID_DIVA_SERVER_B_ST, 
+				wDeviceIndex, 
+				&byBus, &byFunc);
+
+		if (wPCIConsultation == PCIBIOS_SUCCESSFUL)
+		{
+			dword dwPLXIOBase, dwDivasIOBase;
+			byte byIRQ;
+
+			printk(KERN_DEBUG "Divas: DIVA Server BRI (S/T) Found\n");
+			pcibios_read_config_dword(byBus, byFunc, PCI_BASE_ADDRESS_1, (unsigned int *) &dwPLXIOBase);
+			dwPLXIOBase &= 0xFFFFFF80;
+
+			pcibios_read_config_dword(byBus, byFunc, PCI_BASE_ADDRESS_2, (unsigned int *) &dwDivasIOBase);
+			dwDivasIOBase &= 0xFFFFFFFC;
+
+			pcibios_read_config_byte(byBus, byFunc, PCI_INTERRUPT_LINE, &byIRQ);
+
+			Card.card_id = wNumCards;
+			Card.card_type = DIA_CARD_TYPE_DIVA_SERVER_B;
+			Card.bus_type = DIA_BUS_TYPE_PCI;
+			Card.irq = byIRQ;
+			Card.reset_base = dwPLXIOBase;
+			Card.io_base = dwDivasIOBase;
+			Card.bus_num = byBus;
+			Card.func_num = byFunc;
+			Card.slot = -1;
+			Card.name[0] = 'D';
+			Card.name[1] = 'I';
+			Card.name[2] = 'V';
+			Card.name[3] = 'A';
+			Card.name[4] = 'S';
+			Card.name[5] = 'B';
+			Card.name[6] = '\0';
+
+			if (check_region(Card.io_base, 0x20))
+			{
+				printk(KERN_WARNING "Divas: DIVA I/O Base already in use 0x%x-0x%x\n", Card.io_base, Card.io_base + 0x1F);
+				wDeviceIndex++;
+				continue;
+			}
+
+			if (check_region(Card.reset_base, 0x80))
+			{
+				printk(KERN_WARNING "Divas: PLX I/O Base already in use 0x%x-0x%x\n", Card.reset_base, Card.reset_base + 0x7F);
+				wDeviceIndex++;
+				continue;
+			}
+
+			if (DivasCardNew(&Card) != 0)
+			{
+				wDeviceIndex++;
+				continue;
+			}
+			wNumCards++;
+		}
+
+		wPCIConsultation = pcibios_find_device(HW_ID_EICON_PCI, 
+				HW_ID_DIVA_SERVER_B_U, 
+				wDeviceIndex, 
+				&byBus, &byFunc);
+
+		if (wPCIConsultation == PCIBIOS_SUCCESSFUL)
+		{
+			dword dwPLXIOBase, dwDivasIOBase;
+			byte byIRQ;
+
+			printk(KERN_DEBUG "Divas: DIVA Server BRI (U) Found\n");
+
+			pcibios_read_config_dword(byBus, byFunc, PCI_BASE_ADDRESS_1, (unsigned int *) &dwPLXIOBase);
+			dwPLXIOBase &= 0xFFFFFF80;
+
+			pcibios_read_config_dword(byBus, byFunc, PCI_BASE_ADDRESS_2, (unsigned int *) &dwDivasIOBase);
+			dwDivasIOBase &= 0xFFFFFFFC;
+
+			pcibios_read_config_byte(byBus, byFunc, PCI_INTERRUPT_LINE, &byIRQ);
+
+			Card.card_id = wNumCards;
+			Card.card_type = DIA_CARD_TYPE_DIVA_SERVER_B;
+			Card.bus_type = DIA_BUS_TYPE_PCI;
+			Card.irq = byIRQ;
+			Card.reset_base = dwPLXIOBase;
+			Card.io_base = dwDivasIOBase;
+			Card.bus_num = byBus;
+			Card.func_num = byFunc;
+			Card.slot = -1;
+			Card.name[0] = 'D';
+			Card.name[1] = 'I';
+			Card.name[2] = 'V';
+			Card.name[3] = 'A';
+			Card.name[4] = 'S';
+			Card.name[5] = 'B';
+			Card.name[6] = '\0';
+
+			if (check_region(Card.io_base, 0x20))
+			{
+				printk(KERN_WARNING "Divas: DIVA I/O Base already in use 0x%x-0x%x\n", Card.io_base, Card.io_base + 0x1F);	
+				wDeviceIndex++;
+				continue;
+			}
+
+			if (check_region(Card.reset_base, 0x80))
+			{
+				printk(KERN_WARNING "Divas: PLX I/O Base already in use 0x%x-0x%x\n", Card.reset_base, Card.reset_base + 0x7F);
+				wDeviceIndex++;
+				continue;
+			}
+
+			if (DivasCardNew(&Card) != 0)
+			{
+				wDeviceIndex++;
+				continue;
+			}
+			wNumCards++;
+		}
+
+		wDeviceIndex++;
+	}
+
+	wDeviceIndex = 0;
+
+	while (wDeviceIndex < 10)
+	{
+		wPCIConsultation = pcibios_find_device(HW_ID_EICON_PCI, 
+				HW_ID_DIVA_SERVER_P, 
+				wDeviceIndex, 
+				&byBus, &byFunc);
+
+		if (wPCIConsultation == PCIBIOS_SUCCESSFUL)
+		{
+			dword dwRAM, dwREG, dwCFG;
+			byte byIRQ;
+
+			printk(KERN_DEBUG "Divas: DIVA Server PRI Found\n");
+
+			pcibios_read_config_dword(byBus, byFunc, PCI_BASE_ADDRESS_0, (unsigned int *) &dwRAM);
+			dwRAM &= 0xFFFFF000;
+
+			pcibios_read_config_dword(byBus, byFunc, PCI_BASE_ADDRESS_2, (unsigned int *) &dwREG);
+			dwREG &= 0xFFFFF000;
+			
+			pcibios_read_config_dword(byBus, byFunc, PCI_BASE_ADDRESS_4, (unsigned int *) &dwCFG);
+			dwCFG &= 0xFFFFF000;
+
+			pcibios_read_config_byte(byBus, byFunc, PCI_INTERRUPT_LINE, &byIRQ);
+
+			Card.memory[DIVAS_RAM_MEMORY] = ioremap(dwRAM, 0x10000);
+			Card.memory[DIVAS_REG_MEMORY] = ioremap(dwREG, 0x4000);
+			Card.memory[DIVAS_CFG_MEMORY] = ioremap(dwCFG, 0x1000);
+			Card.memory[DIVAS_SHARED_MEMORY] = Card.memory[DIVAS_RAM_MEMORY] + DIVAS_SHARED_OFFSET;
+
+/*			pcibios_read_config_dword(byBus, byFunc, PCI_BASE_ADDRESS_1, (unsigned int *) &dwPLXIOBase);
+			dwPLXIOBase &= 0xFFFFFFFc;
+
+			pcibios_read_config_dword(byBus, byFunc, PCI_BASE_ADDRESS_2, (unsigned int *) &dwDivasIOBase);
+			dwDivasIOBase &= 0xFFFFFF80;
+
+			pcibios_read_config_byte(byBus, byFunc, PCI_INTERRUPT_LINE, &byIRQ);
+*/
+			Card.card_id = wNumCards;
+			Card.card_type = DIA_CARD_TYPE_DIVA_SERVER;
+			Card.bus_type = DIA_BUS_TYPE_PCI;
+			Card.irq = byIRQ;
+/*			Card.reset_base = dwPLXIOBase;
+			Card.io_base = dwDivasIOBase;*/
+			Card.bus_num = byBus;
+			Card.func_num = byFunc;
+			Card.slot = -1;
+			Card.name[0] = 'D';
+			Card.name[1] = 'I';
+			Card.name[2] = 'V';
+			Card.name[3] = 'A';
+			Card.name[4] = 'S';
+			Card.name[5] = 'P';
+			Card.name[6] = '\0';
+
+			if (DivasCardNew(&Card) != 0)
+			{
+				wDeviceIndex++;
+				continue;
+			}
+			wNumCards++;
+		}
+
+		wDeviceIndex++;
+	}
+
 
 	printk(KERN_INFO "Divas: %d cards detected\n", wNumCards);
 

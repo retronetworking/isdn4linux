@@ -80,11 +80,10 @@ static void isdn_unregister_devfs(int);
 static int isdn_wildmat(char *s, char *p);
 
 void
-isdn_MOD_INC_USE_COUNT(void)
+isdn_lock_drivers(void)
 {
 	int i;
 
-	MOD_INC_USE_COUNT;
 	for (i = 0; i < dev->drivers; i++) {
 		isdn_ctrl cmd;
 
@@ -97,11 +96,17 @@ isdn_MOD_INC_USE_COUNT(void)
 }
 
 void
-isdn_MOD_DEC_USE_COUNT(void)
+isdn_MOD_INC_USE_COUNT(void)
+{
+	MOD_INC_USE_COUNT;
+	isdn_lock_drivers();
+}
+
+void
+isdn_unlock_drivers(void)
 {
 	int i;
 
-	MOD_DEC_USE_COUNT;
 	for (i = 0; i < dev->drivers; i++)
 		if (dev->drv[i]->locks > 0) {
 			isdn_ctrl cmd;
@@ -112,6 +117,13 @@ isdn_MOD_DEC_USE_COUNT(void)
 			isdn_command(&cmd);
 			dev->drv[i]->locks--;
 		}
+}
+
+void
+isdn_MOD_DEC_USE_COUNT(void)
+{
+	MOD_DEC_USE_COUNT;
+	isdn_unlock_drivers();
 }
 
 #if defined(ISDN_DEBUG_NET_DUMP) || defined(ISDN_DEBUG_MODEM_DUMP)
@@ -1696,8 +1708,6 @@ isdn_ioctl(struct inode *inode, struct file *file, uint cmd, ulong arg)
 
 /*
  * Open the device code.
- * MOD_INC_USE_COUNT make sure that the driver memory is not freed
- * while the device is in use.
  */
 static int
 isdn_open(struct inode *ino, struct file *filep)
@@ -1705,55 +1715,69 @@ isdn_open(struct inode *ino, struct file *filep)
 	uint minor = MINOR(ino->i_rdev);
 	int drvidx;
 	int chidx;
+	int retval = -ENODEV;
+
+#ifdef COMPAT_USE_MODCOUNT_LOCK
+	MOD_INC_USE_COUNT;
+#endif
 
 	if (minor == ISDN_MINOR_STATUS) {
 		infostruct *p;
 
 		if ((p = (infostruct *) kmalloc(sizeof(infostruct), GFP_KERNEL))) {
-			MOD_INC_USE_COUNT;
 			p->next = (char *) dev->infochain;
 			p->private = (char *) &(filep->private_data);
 			dev->infochain = p;
 			/* At opening we allow a single update */
 			filep->private_data = (char *) 1;
-			return 0;
-		} else
-			return -ENOMEM;
+			retval = 0;
+			goto out;
+		} else {
+			retval = -ENOMEM;
+			goto out;
+		}
 	}
 	if (!dev->channels)
-		return -ENODEV;
+		goto out;
 	if (minor < ISDN_MINOR_CTRL) {
 		printk(KERN_WARNING "isdn_open minor %d obsolete!\n", minor);
 		drvidx = isdn_minor2drv(minor);
 		if (drvidx < 0)
-			return -ENODEV;
+			goto out;
 		chidx = isdn_minor2chan(minor);
 		if (!(dev->drv[drvidx]->flags & DRV_FLAG_RUNNING))
-			return -ENODEV;
+			goto out;
 		if (!(dev->drv[drvidx]->online & (1 << chidx)))
-			return -ENODEV;
-		isdn_MOD_INC_USE_COUNT();
-		return 0;
+			goto out;
+		isdn_lock_drivers();
+		retval = 0;
+		goto out;
 	}
 	if (minor <= ISDN_MINOR_CTRLMAX) {
 		drvidx = isdn_minor2drv(minor - ISDN_MINOR_CTRL);
 		if (drvidx < 0)
-			return -ENODEV;
-		isdn_MOD_INC_USE_COUNT();
+			goto out;
+		isdn_lock_drivers();
 #ifdef CONFIG_ISDN_WITH_ABC_LCR_SUPPORT
 		if(!drvidx) isdn_dw_abc_lcr_open();
 #endif
-		return 0;
+		retval = 0;
+		goto out;
 	}
 #ifdef CONFIG_ISDN_PPP
 	if (minor <= ISDN_MINOR_PPPMAX) {
-		int ret;
-		if (!(ret = isdn_ppp_open(minor - ISDN_MINOR_PPP, filep)))
-			isdn_MOD_INC_USE_COUNT();
-		return ret;
+		retval = isdn_ppp_open(minor - ISDN_MINOR_PPP, filep);
+		if (retval == 0)
+			isdn_lock_drivers();
+		goto out;
 	}
 #endif
-	return -ENODEV;
+ out:
+#ifdef COMPAT_USE_MODCOUNT_LOCK
+	if (retval)
+		MOD_DEC_USE_COUNT;
+#endif
+	return retval;
 }
 
 static int
@@ -1761,11 +1785,13 @@ isdn_close(struct inode *ino, struct file *filep)
 {
 	uint minor = MINOR(ino->i_rdev);
 
+#ifndef COMPAT_USE_MODCOUNT_LOCK
+	lock_kernel();
+#endif
 	if (minor == ISDN_MINOR_STATUS) {
 		infostruct *p = dev->infochain;
 		infostruct *q = NULL;
 
-		MOD_DEC_USE_COUNT;
 		while (p) {
 			if (p->private == (char *) &(filep->private_data)) {
 				if (q)
@@ -1773,17 +1799,17 @@ isdn_close(struct inode *ino, struct file *filep)
 				else
 					dev->infochain = (infostruct *) (p->next);
 				kfree(p);
-				return 0;
+				goto out;
 			}
 			q = p;
 			p = (infostruct *) (p->next);
 		}
 		printk(KERN_WARNING "isdn: No private data while closing isdnctrl\n");
-		return 0;
+		goto out;
 	}
-	isdn_MOD_DEC_USE_COUNT();
+	isdn_unlock_drivers();
 	if (minor < ISDN_MINOR_CTRL)
-		return 0;
+		goto out;
 	if (minor <= ISDN_MINOR_CTRLMAX) {
 		if (dev->profd == current)
 			dev->profd = NULL;
@@ -1793,17 +1819,27 @@ isdn_close(struct inode *ino, struct file *filep)
 			if(!drvidx) isdn_dw_abc_lcr_close();
 		}
 #endif
-		return 0;
+		goto out;
 	}
 #ifdef CONFIG_ISDN_PPP
 	if (minor <= ISDN_MINOR_PPPMAX)
 		isdn_ppp_release(minor - ISDN_MINOR_PPP, filep);
+#endif
+
+ out:
+#ifdef COMPAT_USE_MODCOUNT_LOCK
+	MOD_DEC_USE_COUNT;
+#else
+	unlock_kernel();
 #endif
 	return 0;
 }
 
 static struct file_operations isdn_fops =
 {
+#ifdef COMPAT_HAS_FILEOP_OWNER
+	owner:		THIS_MODULE,
+#endif
 	llseek:		isdn_llseek,
 	read:		isdn_read,
 	write:		isdn_write,
@@ -2005,7 +2041,6 @@ isdn_writebuf_skb_stub(int drvidx, int chan, int ack, struct sk_buff *skb)
 		skb_pull(nskb, sizeof(int));
 		if (!nskb->len) {
 			dev_kfree_skb(nskb);
-			dev_kfree_skb(skb);
 			return v110_ret;
 		}
 		/* V.110 must always be acknowledged */
@@ -2044,9 +2079,10 @@ isdn_writebuf_skb_stub(int drvidx, int chan, int ack, struct sk_buff *skb)
 			atomic_inc(&dev->v110use[idx]);
 			dev->v110[idx]->skbuser++;
 			atomic_dec(&dev->v110use[idx]);
-			dev_kfree_skb(skb);
 			/* For V.110 return unencoded data length */
 			ret = v110_ret;
+			/* if the complete frame was send we free the skb;
+			   if not upper function will requeue the skb */ 
 			if (ret == skb->len)
 				dev_kfree_skb(skb);
 		}
@@ -2388,14 +2424,14 @@ static void isdn_register_devfs(int k)
 
 	sprintf (buf, "isdn%d", k);
 	dev->devfs_handle_isdnX[k] =
-	    devfs_register (devfs_handle, buf, 0, DEVFS_FL_DEFAULT,
-			    ISDN_MAJOR, ISDN_MINOR_B + k,0600 | S_IFCHR, 0, 0,
+	    devfs_register (devfs_handle, buf, DEVFS_FL_DEFAULT,
+			    ISDN_MAJOR, ISDN_MINOR_B + k,0600 | S_IFCHR,
 			    &isdn_fops, NULL);
 	sprintf (buf, "isdnctrl%d", k);
 	dev->devfs_handle_isdnctrlX[k] =
-	    devfs_register (devfs_handle, buf, 0, DEVFS_FL_DEFAULT,
+	    devfs_register (devfs_handle, buf, DEVFS_FL_DEFAULT,
 			    ISDN_MAJOR, ISDN_MINOR_CTRL + k, 0600 | S_IFCHR,
-			    0, 0, &isdn_fops, NULL);
+			    &isdn_fops, NULL);
 }
 
 static void isdn_unregister_devfs(int k)
@@ -2410,26 +2446,26 @@ static void isdn_init_devfs(void)
 	int i;
 #  endif
 
-	devfs_handle = devfs_mk_dir (NULL, "isdn", 4, NULL);
+	devfs_handle = devfs_mk_dir (NULL, "isdn", NULL);
 #  ifdef CONFIG_ISDN_PPP
 	for (i = 0; i < ISDN_MAX_CHANNELS; i++) {
 		char buf[8];
 
 		sprintf (buf, "ippp%d", i);
 		dev->devfs_handle_ipppX[i] =
-		    devfs_register (devfs_handle, buf, 0, DEVFS_FL_DEFAULT,
+		    devfs_register (devfs_handle, buf, DEVFS_FL_DEFAULT,
 				    ISDN_MAJOR, ISDN_MINOR_PPP + i,
-				    0600 | S_IFCHR, 0, 0, &isdn_fops, NULL);
+				    0600 | S_IFCHR, &isdn_fops, NULL);
 	}
 #  endif
 
 	dev->devfs_handle_isdninfo =
-	    devfs_register (devfs_handle, "isdninfo", 0, DEVFS_FL_DEFAULT,
+	    devfs_register (devfs_handle, "isdninfo", DEVFS_FL_DEFAULT,
 			    ISDN_MAJOR, ISDN_MINOR_STATUS, 0600 | S_IFCHR,
-			    0, 0, &isdn_fops, NULL);
+			    &isdn_fops, NULL);
 	dev->devfs_handle_isdnctrl =
-	    devfs_register (devfs_handle, "isdnctrl", 0, DEVFS_FL_DEFAULT,
-			    ISDN_MAJOR, ISDN_MINOR_CTRL, 0600 | S_IFCHR, 0, 0, 
+	    devfs_register (devfs_handle, "isdnctrl", DEVFS_FL_DEFAULT,
+			    ISDN_MAJOR, ISDN_MINOR_CTRL, 0600 | S_IFCHR, 
 			    &isdn_fops, NULL);
 }
 
