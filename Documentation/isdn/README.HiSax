@@ -54,6 +54,7 @@ Sedlbauer ISDN-Controller PC/104
 USR Sportster internal TA (compatible Stollmann tina-pp V3)
 ith Kommunikationstechnik GmbH MIC 16 ISA card
 Traverse Technologie NETjet PCI S0 card and NETspider U card
+Ovislink ISDN sc100-p card (NETjet driver)
 Dr. Neuhaus Niccy PnP/PCI
 Siemens I-Surf 1.0
 Siemens I-Surf 2.0 (with IPAC, try type 12 asuscom) 
