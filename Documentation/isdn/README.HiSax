@@ -188,6 +188,7 @@ Card types:
     5 	AVM A1 (Fritz)  	pa=irq	pb=iobase
     6 	ELSA PCC/PCF cards      pa=iobase or nothing for autodetect
     7   ELSA Quickstep 1000	ONLY WORKS AS A MODULE !
+    7   ELSA PCMCIA		irq, io  (set with card manager)
     8   Teles S0 PCMCIA    	pa=irq  pb=iobase
     9   ITK ix1-micro Rev.2     pa=irq  pb=iobase
 
@@ -198,16 +199,20 @@ Running the driver
 When you insmod isdn.o and hisax.o (or with the in-kernel version, during 
 boot time), a few lines should appear in your syslog. Look for something like:
 
-Oct 13 20:46:39 kke01 kernel: ISDN subsystem Rev: 1.23/1.21/1.18/1.13/none loaded
-Oct 13 20:46:41 kke01 kernel: HiSax: Driver for Siemens Chipset ISDN cards
-Oct 13 20:46:41 kke01 kernel: HiSax: Revision (1.3)
-Oct 13 20:46:41 kke01 kernel: HiSax: Total 1 card defined
-Oct 13 20:46:41 kke01 kernel: HiSax: Card 1 Protocol EDSS1
+Apr 13 21:01:59 kke01 kernel: HiSax: Driver for Siemens chip set ISDN cards
+Apr 13 21:01:59 kke01 kernel: HiSax: Version 2.1
+Apr 13 21:01:59 kke01 kernel: HiSax: Revisions 1.14/1.9/1.10/1.25/1.8
+Apr 13 21:01:59 kke01 kernel: HiSax: Total 1 card defined
+Apr 13 21:01:59 kke01 kernel: HiSax: Card 1 Protocol EDSS1 Id=HiSax1 (0)
+Apr 13 21:01:59 kke01 kernel: HiSax: Elsa driver Rev. 1.13
 ...
-Oct 13 20:46:41 kke01 kernel: Elsa: PCC16 found at 0x360 Rev.:B IRQ 9
+Apr 13 21:01:59 kke01 kernel: Elsa: PCF-Pro found at 0x360 Rev.:C IRQ 10
+Apr 13 21:01:59 kke01 kernel: Elsa: timer OK; resetting card
+Apr 13 21:01:59 kke01 kernel: Elsa: HSCX version A: V2.1  B: V2.1
+Apr 13 21:01:59 kke01 kernel: Elsa: ISAC 2086/2186 V1.1
 ...
-Oct 13 20:46:41 kke01 kernel: HiSax: 2 channels available
-Oct 13 20:46:41 kke01 kernel: HiSax: module installed
+Apr 13 21:01:59 kke01 kernel: HiSax: DSS1 Rev. 1.14
+Apr 13 21:01:59 kke01 kernel: HiSax: 2 channels added
 
 This means that the card is ready for use.
 Cabling problems or line-downs are not detected, and only ELSA cards can detect
@@ -247,6 +252,7 @@ With DebugCmd set to 1:
        256  B-Channel link state debugging
        512  TEI debug
       1024  LOCK debug in callc.c
+      2048  More paranoid debug in callc.c (not for normal use)
 
 With DebugCmd set to 11:
 
@@ -312,54 +318,6 @@ keil@temic-ech.spacenet.de
 Appendix: Teles PCMCIA driver
 -----------------------------
 
-Up to now, the Teles PCMCIA driver is a complete hack. I had no
-documentation about the card - it might destroy your hardware (though mine
-at last works fine).
-
-Secondly, I'm working on a module for Linux PCMCIA services. This version
-clearly assumes some (unrealistic) facts about your hardware:
-  - you MUST have an i82365
-  - Teles PCMCIA MUST be in slot 0 (the upper one) and the ONLY card
-    (Since you can't use cardmgr, there's no use for a second one.)
-  - ports 0x180-0x1e0 must be free, it uses IRQ 15
-
-The following program will initialize the PCMCIA chip to the values I probed
-inside Windows95 (native Teles driver).
-
-------------------telesinit.c-----------------------------------------
-/* telesinit.c, compile with
- *   gcc -O -o telesinit telesinit.c
- */
-#include <asm/io.h>
-#define inportb(x) inb(x)
-#define outportb(x,v) outb(v,x)
-#define BASE 0x180
-#define NUM 97
-#define CARD 0x3e0
-#define i365(x) ( outportb(CARD,x), inportb(CARD+1) )
-#define i365w(x,y) ( outportb(CARD,x), outportb(CARD+1,y) )
-
-void main(int argc,char **argv)
-{  int i;
-   static unsigned char i365_cont[]=
-   { 0x83,0x7f,0xf5,0x6f, 0x00,0x08,0x60,0x00, 
-     0x80,0x01,0xe0,0x01, 0xff,0xff,0xff,0xff,
-     0xd0,0x00,0xd0,0x00, 0x30,0x7f,0x00,0x0f,
-     0xff,0x07,0xff,0x07, 0x00,0x00,0x00,0xff
-   };
-
-   ioperm(BASE,NUM,1); ioperm(CARD,2,1);
-   for (i=0;i<32;i++)
-   {  if (i365_cont[i]==i365(i)) continue;
-      outportb(CARD+1,i365_cont[i]);
-   }
-
-   outportb(BASE+0x18,0x41); 
-   /* enable the teles card and its IRQ */
-   /* this was found by brute force */
-}
-------------------------------------------------------------------------
-
-If you want to wait for the PCMCIA services driver ... I finish my diploma
-about end of February 1997 ... please be patient with me.
-    Christof Petig (ea0141@uni-wuppertal.de)
+See 
+   http://www.stud.uni-wuppertal.de/~ea0141/pcmcia.html
+for instructions.
