@@ -8,6 +8,9 @@
  *
  * 
  * $Log$
+ * Revision 1.4  1996/11/18 20:50:54  keil
+ * with PCF Pro release 16 Byte IO
+ *
  * Revision 1.3  1996/11/18 15:33:04  keil
  * PCC and PCFPro support
  *
@@ -19,6 +22,9 @@
  *
  *
 */
+
+#define ARCOFI_USE	0
+
 #define __NO_VERSION__
 #include "siemens.h"
 #include "hisax.h"
@@ -28,7 +34,7 @@
 
 extern const   char    *CardType[];
 
-const  char    *Elsa_Types[] = {"None","PCC-8","PCF-Pro","PCC-16/PCF"};
+const  char    *Elsa_Types[] = {"None","PCC-8","PCF-Pro","PCC-16","PCF"};
 
 #define byteout(addr,val) outb_p(val,addr)
 #define bytein(addr) inb_p(addr)
@@ -539,9 +545,13 @@ ph_command(struct IsdnCardState *sp, unsigned int command)
 
 static inline void
 isac_interrupt(struct IsdnCardState *sp, byte val) {
-	byte		exval;
-	unsigned int    count;
-	char		tmp[32];    
+	byte			exval,v1;
+	unsigned int    	count;
+	char			tmp[32];    
+#if ARCOFI_USE 
+	struct BufHeader	*ibh;
+	byte			*ptr;
+#endif
 
 	if (sp->debug & L1_DEB_ISAC) {
 		sprintf(tmp, "ISAC interrupt %x", val);
@@ -637,7 +647,123 @@ isac_interrupt(struct IsdnCardState *sp, byte val) {
         		sprintf(tmp, "ISAC EXIR %02x", exval);
         		debugl1(sp, tmp);
         	}
-
+        	if (exval & 0x08) {
+			v1 = readisac(sp->cfg_reg, ISAC_MOSR); 
+			if (sp->debug & L1_DEB_WARN) {
+        			sprintf(tmp, "ISAC MOSR %02x", v1);
+        			debugl1(sp, tmp);
+        		}
+#if ARCOFI_USE
+        		if (v1 & 0x08) {
+				if (!sp->mon_rx)
+					if (BufPoolGet(&(sp->mon_rx), &(sp->rbufpool),
+                        			GFP_ATOMIC,(void *) 1, 3)) {
+						if (sp->debug & L1_DEB_WARN)
+        						debugl1(sp, "ISAC MON RX out of buffers!");
+						writeisac(sp->cfg_reg, ISAC_MOCR, 0x0a);
+						goto afterMONR0;
+					} else
+						sp->mon_rxp = 0;
+				ibh = sp->mon_rx;
+				ptr = DATAPTR(ibh);
+				ptr += sp->mon_rxp;
+				sp->mon_rxp++;
+				if (sp->mon_rxp>= 3072) {
+					writeisac(sp->cfg_reg, ISAC_MOCR, 0x0a);
+					sp->mon_rxp = 0;
+					if (sp->debug & L1_DEB_WARN)
+        					debugl1(sp, "ISAC MON RX overflow!");
+					goto afterMONR0;
+				}
+				*ptr = readisac(sp->cfg_reg, ISAC_MOR0); 
+				if (sp->debug & L1_DEB_WARN) {
+        				sprintf(tmp, "ISAC MOR0 %02x", *ptr);
+        				debugl1(sp, tmp);
+        			}
+        		} 
+afterMONR0:
+        		if (v1 & 0x80) {
+				if (!sp->mon_rx)
+					if (BufPoolGet(&(sp->mon_rx), &(sp->rbufpool),
+                        			GFP_ATOMIC,(void *) 1, 3)) {
+						if (sp->debug & L1_DEB_WARN)
+        						debugl1(sp, "ISAC MON RX out of buffers!");
+						writeisac(sp->cfg_reg, ISAC_MOCR, 0xa0);
+						goto afterMONR1;
+					} else
+						sp->mon_rxp = 0;
+				ibh = sp->mon_rx;
+				ptr = DATAPTR(ibh);
+				ptr += sp->mon_rxp;
+				sp->mon_rxp++;
+				if (sp->mon_rxp>= 3072) {
+					writeisac(sp->cfg_reg, ISAC_MOCR, 0xa0);
+					sp->mon_rxp = 0;
+					if (sp->debug & L1_DEB_WARN)
+        					debugl1(sp, "ISAC MON RX overflow!");
+					goto afterMONR1;
+				}
+				*ptr = readisac(sp->cfg_reg, ISAC_MOR1); 
+				if (sp->debug & L1_DEB_WARN) {
+        				sprintf(tmp, "ISAC MOR1 %02x", *ptr);
+        				debugl1(sp, tmp);
+        			}
+        		} 
+afterMONR1:
+        		if (v1 & 0x04) {
+        			writeisac(sp->cfg_reg, ISAC_MOCR, 0x0a);
+				sp->mon_rx->datasize = sp->mon_rxp;
+				sp->mon_flg |= MON0_RX;
+        		} 
+        		if (v1 & 0x40) {
+        			writeisac(sp->cfg_reg, ISAC_MOCR, 0xa0);
+				sp->mon_rx->datasize = sp->mon_rxp;
+				sp->mon_flg |= MON1_RX;
+        		} 
+        		if (v1 == 0x02) {
+				ibh = sp->mon_tx;
+				if (!ibh) {
+					writeisac(sp->cfg_reg, ISAC_MOCR, 0x0a);
+					goto AfterMOX0;
+				}
+				count = ibh->datasize - sp->mon_txp;
+				if (count <= 0) {
+					writeisac(sp->cfg_reg, ISAC_MOCR, 0x0f);
+					BufPoolRelease(sp->mon_tx);
+					sp->mon_tx  = NULL;
+					sp->mon_txp = 0;
+					sp->mon_flg |= MON0_TX;
+					goto AfterMOX0;
+				}
+				ptr = DATAPTR(ibh);
+				ptr += sp->mon_txp;
+				sp->mon_txp++;
+        			writeisac(sp->cfg_reg, ISAC_MOX0, *ptr);
+        		} 
+AfterMOX0:
+        		if (v1 == 0x20) {
+				ibh = sp->mon_tx;
+				if (!ibh) {
+					writeisac(sp->cfg_reg, ISAC_MOCR, 0xa0);
+					goto AfterMOX1;
+				}
+				count = ibh->datasize - sp->mon_txp;
+				if (count <= 0) {
+					writeisac(sp->cfg_reg, ISAC_MOCR, 0xf0);
+					BufPoolRelease(sp->mon_tx);
+					sp->mon_tx  = NULL;
+					sp->mon_txp = 0;
+					sp->mon_flg |= MON1_TX;
+					goto AfterMOX1; 
+				}
+				ptr = DATAPTR(ibh);
+				ptr += sp->mon_txp;
+				sp->mon_txp++;
+        			writeisac(sp->cfg_reg, ISAC_MOX1, *ptr);
+        		} 
+AfterMOX1:
+#endif
+        	}
 	}
 }
 
@@ -869,55 +995,66 @@ void release_io_elsa(struct IsdnCard *card) {
 static void
 clear_pending_ints(struct IsdnCardState *sp)
 {
-#if 0
-	int	val;
-	char	tmp[64];
-	
-        val = readhscx(sp->cfg_reg, 1, HSCX_ISTA);
-        sprintf(tmp, "HSCX B ISTA %x", val);
-	debugl1(sp, tmp);
-        if (val & 0x01) {
-        	val = readhscx(sp->cfg_reg, 1, HSCX_EXIR);
-		sprintf(tmp, "HSCX B EXIR %x", val);
-		debugl1(sp, tmp);
-        } else if (val & 0x02) {
-        	val = readhscx(sp->cfg_reg, 0, HSCX_EXIR);
-		sprintf(tmp, "HSCX A EXIR %x", val);
-		debugl1(sp, tmp);
-        }
-        val = readhscx(sp->cfg_reg, 0, HSCX_ISTA);
-        sprintf(tmp, "HSCX A ISTA %x", val);
-	debugl1(sp, tmp);
-        val = readhscx(sp->cfg_reg, 1, HSCX_STAR);
-        sprintf(tmp, "HSCX B STAR %x", val);
-	debugl1(sp, tmp);
-        val = readhscx(sp->cfg_reg, 0, HSCX_STAR);
-        sprintf(tmp, "HSCX A STAR %x", val);
-	debugl1(sp, tmp);
-        val = readisac(sp->cfg_reg, ISAC_STAR);
-        sprintf(tmp, "ISAC STAR %x", val);
-	debugl1(sp, tmp);
-        val = readisac(sp->cfg_reg, ISAC_MODE);
-        sprintf(tmp, "ISAC MODE %x", val);
-	debugl1(sp, tmp);
-        val = readisac(sp->cfg_reg, ISAC_ADF2);
-        sprintf(tmp, "ISAC ADF2 %x", val);
-	debugl1(sp, tmp);
-        val = readisac(sp->cfg_reg, ISAC_ISTA);
-        sprintf(tmp, "ISAC ISTA %x", val);
-	debugl1(sp, tmp);
-        if (val & 0x01) {
-        	val = readisac(sp->cfg_reg, ISAC_EXIR);
-                sprintf(tmp, "ISAC EXIR %x", val);
-		debugl1(sp, tmp);
-        } else if (val & 0x04) {
-        	val = readisac(sp->cfg_reg, ISAC_CIR0);
-                sprintf(tmp, "ISAC CIR0 %x", val);
-		debugl1(sp, tmp);
-        }
-#endif
         writeisac(sp->cfg_reg, ISAC_MASK, 0);
         writeisac(sp->cfg_reg, ISAC_CMDR, 0x41);
+}
+
+static void
+check_arcofi(struct IsdnCardState *sp)
+{
+#if 0
+	byte 	val;
+	char  	tmp[40];
+	char	*t;
+	ulong	timeout;
+	long	flags;
+	byte    *p;
+	
+	if (BufPoolGet(&(sp->mon_tx), &(sp->sbufpool),
+        	GFP_ATOMIC,(void *) 1, 3)) {
+		if (sp->debug & L1_DEB_WARN)
+        		debugl1(sp, "ISAC MON TX out of buffers!");
+		return;
+	} else
+		sp->mon_txp = 0;
+	p = DATAPTR(sp->mon_tx);
+	*p++ = 0xa0;
+	*p++ = 0x0;
+	sp->mon_tx->datasize = 2;
+	sp->mon_txp = 1;
+	sp->mon_flg = 0;
+        writeisac(sp->cfg_reg, ISAC_MOCR, 0xa0);
+        val=readisac(sp->cfg_reg,ISAC_MOSR);
+        writeisac(sp->cfg_reg, ISAC_MOX1, 0xa0);
+        writeisac(sp->cfg_reg, ISAC_MOCR, 0xb0);
+	save_flags(flags);
+	timeout = jiffies +3;
+	sti();
+	while (timeout != jiffies);  /* Warte auf Startflanke */
+	restore_flags(flags);
+	if (sp->mon_flg & MON1_TX) {
+		if (sp->mon_flg & MON1_RX) {
+			sprintf(tmp,"Arcofi response received %d bytes", sp->mon_rx->datasize);
+			debugl1(sp, tmp);
+			p = DATAPTR(sp->mon_rx);
+			t=tmp;
+			t += sprintf(tmp,"Arcofi data");
+                        QuickHex(t,p,sp->mon_rx->datasize);
+			debugl1(sp, tmp);
+			BufPoolRelease(sp->mon_rx);
+			sp->mon_rx  = NULL;
+			sp->mon_rxp = 0;
+			sp->mon_flg = 0;
+		}
+	} else if (sp->mon_tx) {
+		BufPoolRelease(sp->mon_tx);
+		sp->mon_tx  = NULL;
+		sp->mon_txp = 0;
+		sprintf(tmp,"Arcofi not detected");
+		debugl1(sp, tmp);
+	}
+	sp->mon_flg = 0;
+#endif
 }
 
 int
@@ -938,7 +1075,6 @@ initelsa(struct IsdnCardState *sp)
 		initisac(sp);
 		sp->modehscx(sp->hs, 0, 0);
 		sp->modehscx(sp->hs + 1, 0, 0);
-		
 		save_flags(flags);
 		sp->counter = 0;
 		timeout = jiffies +1;
@@ -969,6 +1105,7 @@ initelsa(struct IsdnCardState *sp)
         		free_irq(sp->irq, NULL);
         		return(0); 
         	}
+		check_arcofi(sp); 
 	}
 	sp->counter=0;
 	return(ret);
@@ -1043,7 +1180,7 @@ setup_elsa(struct IsdnCard *card)
 		
         sp->cfg_reg = card->para[0];
 
- 	printk(KERN_INFO "Elsa: Mircolink PCC IO probing\n");
+ 	printk(KERN_INFO "Elsa: Mircolink IO probing\n");
         if (sp->cfg_reg) {
         	if (!(sp->subtyp = probe_elsa_adr(sp->cfg_reg))) {
                 	printk(KERN_WARNING 
@@ -1054,9 +1191,14 @@ setup_elsa(struct IsdnCard *card)
         } else 
         	sp->cfg_reg = probe_elsa(sp);
         if (sp->cfg_reg) {
-        	const byte CARD_IrqTab[8] = { 15, 10, 15, 3, 11, 5, 11, 9};
                 val=bytein(sp->cfg_reg + CARD_CONFIG);
-                sp->irq = CARD_IrqTab[(val & 0x38) >>3];
+        	if (sp->subtyp == ELSA_PCC) {
+        		const byte CARD_IrqTab[8] = { 7, 3, 5, 9, 0, 0, 0, 0 };
+        		sp->irq = CARD_IrqTab[(val & 0x0c) >>2];
+        	} else {
+        		const byte CARD_IrqTab[8] = { 15, 10, 15, 3, 11, 5, 11, 9};
+        		sp->irq = CARD_IrqTab[(val & 0x38) >>3];
+        	}
                 val = bytein(sp->cfg_reg + CARD_ALE) & 0x7;
                 if (val < 3) val |= 8;
                 val += 'A' - 3;
@@ -1081,10 +1223,13 @@ setup_elsa(struct IsdnCard *card)
 		case ELSA_PCC:  bytecnt = 8;
 				sp->mask1 = TIMER_RUN_PCC;
 				break;
+		case ELSA_PCFPRO:bytecnt = 16;
+				sp->mask1 = TIMER_RUN;
+				break;
 		case ELSA_PCC16:bytecnt = 8;
 				sp->mask1 = TIMER_RUN;
 				break;
-		case ELSA_PCFPRO:bytecnt = 16;
+		case ELSA_PCF:  bytecnt = 16;
 				sp->mask1 = TIMER_RUN;
 				break;
 		default:
