@@ -11,6 +11,12 @@
 # parent makes..
 #
 # $Log$
+# Revision 1.13  2000/03/08 17:06:33  calle
+# - changes for devfs and 2.3.49
+# - capifs now configurable (no need with devfs)
+# - New Middleware ioctl CAPI_NCCI_GETUNIT
+# - Middleware again tested with 2.2.14 and 2.3.49 (with and without devfs)
+#
 # Revision 1.12  2000/03/06 18:00:23  calle
 # - Middleware extention now working with 2.3.49 (capifs).
 # - Fixed typos in debug section of capi.c
@@ -155,6 +161,11 @@ else
   	endif
   	ifdef CONFIG_ISDN_DRV_AVMB1_B1PCMCIA
   		MX_OBJS  += b1pcmcia.o
+		ifeq ($(CONFIG_HOTPLUG),y)
+			ifneq ($(CONFIG_PCMCIA),n)
+  				M_OBJS   += avm_cs.o
+			endif
+		endif
   	endif
   	ifdef CONFIG_ISDN_DRV_AVMB1_T1PCI
   		M_OBJS   += t1pci.o
