@@ -6,6 +6,9 @@
  * Copyright 1996 by Carsten Paeth (calle@calle.in-berlin.de)
  *
  * $Log$
+ * Revision 1.48  2001/01/25 14:58:56  calle
+ * - insert ncci in list after registering to capifs, not before.
+ *
  * Revision 1.47  2000/12/07 00:00:03  kai
  * fix compatiblity to 2.4 when using std2kern w/o -u
  *
@@ -2229,6 +2232,7 @@ static char rev[10];
 static int __init capi_init(void)
 {
 	char *p;
+	char *compileinfo;
 
 	MOD_INC_USE_COUNT;
 
@@ -2320,8 +2324,17 @@ static int __init capi_init(void)
 
 	(void)proc_init();
 
-	printk(KERN_NOTICE "capi20: Rev%s: started up with major %d\n",
-				rev, capi_major);
+#ifdef CONFIG_ISDN_CAPI_MIDDLEWARE
+#if defined(CONFIG_ISDN_CAPI_CAPIFS) || defined(CONFIG_ISDN_CAPI_CAPIFS_MODULE)
+        compileinfo = " (middleware+capifs)";
+#else
+        compileinfo = " (no capifs)";
+#endif
+#else
+        compileinfo = " (no middleware)";
+#endif
+	printk(KERN_NOTICE "capi20: Rev%s: started up with major %d%s\n",
+				rev, capi_major, compileinfo);
 
 	MOD_DEC_USE_COUNT;
 	return 0;
