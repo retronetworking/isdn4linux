@@ -19,6 +19,10 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.6  1995/01/31  15:48:45  fritz
+ * Added Cause-Messages to be signaled to upper layers.
+ * Added Revision-Info on load.
+ *
  * Revision 1.5  1995/01/29  23:34:59  fritz
  * Added stopdriver() and appropriate calls.
  * Changed printk-statements to support loglevels.
@@ -66,6 +70,7 @@ new_buf(pqueue **queue, int length) {
   } else
     p = *queue = (pqueue*)kmalloc(sizeof(pqueue)+length,GFP_ATOMIC);
   if (p) {
+    p->size = sizeof(pqueue)+length;
     p->length = length;
     p->next = NULL;
     p->rptr = p->buffer;
@@ -84,7 +89,7 @@ free_queue(pqueue **queue) {
   while (p) {
     q = p;
     p = (pqueue*) p->next;
-    kfree(q);
+    kfree_s(q,q->size);
   }
   *queue = (pqueue *)0;
 }
@@ -206,9 +211,12 @@ pollbchan_work(int channel) {
       rbnext;
       maprelease_channel(0);
       if (!eflag) {
+	save_flags(flags);
+	cli();
 	dev->interface.rcvcallb(dev->myid,channel,dev->rcvbuf[channel],
 				dev->rcvidx[channel]);
 	dev->rcvidx[channel] = 0;
+	restore_flags(flags);
       }
       if (!trymaplock_channel(channel)) break;
     }
@@ -234,7 +242,7 @@ pollbchan_work(int channel) {
 	dev->spqueue[channel] = (pqueue*)dev->spqueue[channel]->next;
       restore_flags(flags);
       if (eflag)
-	kfree(p);
+	kfree_s(p,p->size);
       if (!trymaplock_channel(channel)) break;
     }
     maprelease_channel(0);
@@ -249,15 +257,15 @@ pollbchan_work(int channel) {
 
 static void
 pollbchan(unsigned long dummy) {
-unsigned long flags;
+  unsigned long flags;
 
+  dev->flags |= ICN_FLAGS_RBTIMER;
   if (dev->flags & ICN_FLAGS_B1ACTIVE)
     pollbchan_work(0);
   if (dev->flags & ICN_FLAGS_B2ACTIVE)
     pollbchan_work(1);
   if (dev->flags & (ICN_FLAGS_B1ACTIVE | ICN_FLAGS_B2ACTIVE)) {
     /* schedule b-channel polling again */
-    dev->flags |= ICN_FLAGS_RBTIMER;
     save_flags(flags);
     cli();
     del_timer(&dev->rb_timer);
@@ -461,13 +469,13 @@ sendbuf(int channel, u_char *buffer, int len, int user) {
     restore_flags(flags);
     if (!p)
       return 0;
+    save_flags(flags);
+    cli();
     if (user) {
       memcpy_fromfs(p,buffer,len);
     } else {
       memcpy(p,buffer,len);
     }
-    save_flags(flags);
-    cli();
     dev->sndcount[channel] += len;
     restore_flags(flags);
   }
@@ -487,14 +495,18 @@ sendbuf(int channel, u_char *buffer, int len, int user) {
 static int
 loadboot(u_char *buffer) {
   int timer;
+  ulong flags;
 
-#if 0
+  save_flags(flags);
+  cli();
   if (check_region(dev->port,ICN_PORTLEN)) {
     printk(KERN_WARNING "icn: ports 0x%03x-0x%03x in use.\n",dev->port,
 	   dev->port+ICN_PORTLEN);
-    return -EIO;
+    return -EBUSY;
   }
-#endif
+  request_region(dev->port,ICN_PORTLEN,"icn-isdn");
+  dev->rvalid = 1;
+  restore_flags(flags);
   OUTB_P(0,ICN_RUN);                                 /* Reset Controler */
   OUTB_P(0,ICN_MAPRAM);                              /* Disable RAM     */
   shiftout(ICN_CFG,0x0f,3,4);                        /* Windowsize= 16k */
@@ -678,6 +690,7 @@ stopdriver(void) {
 static int
 command (isdn_ctrl *c) {
   ulong a;
+  ulong flags;
   int   i;
   static char cbuf[60];
 
@@ -699,15 +712,19 @@ command (isdn_ctrl *c) {
 	  if (a == 0x300 || a == 0x310 || a == 0x320 || a == 0x330
 	      || a == 0x340 || a == 0x350 || a == 0x360) {
 	    if (dev->port != (unsigned short)a) {
-#if 0
-	      if (check_region(dev->port,ICN_PORTLEN)) {
+	      if (check_region((unsigned short)a,ICN_PORTLEN)) {
 		printk(KERN_WARNING "icn: ports 0x%03x-0x%03x in use.\n",
-		       dev->port,dev->port+ICN_PORTLEN);
+		       (int)a,(int)a+ICN_PORTLEN);
 		return -EINVAL;
 	      }
-#endif
 	      stopdriver();
+	      save_flags(flags);
+	      cli();
+	      if (dev->rvalid)
+		release_region(dev->port,ICN_PORTLEN);
 	      dev->port = (unsigned short)a;
+	      dev->rvalid = 0;
+	      restore_flags(flags);
 	      printk(KERN_INFO "icn: port set to 0x%03x\n",dev->port);
 	    }
 	  } else
@@ -852,8 +869,11 @@ cleanup_module( void) {
   cmd.command = ISDN_STAT_UNLOAD;
   cmd.driver = dev->myid;
   dev->interface.statcallb(&cmd);
-  OUTB_P(0,ICN_RUN);                              /* Reset Controler      */
-  OUTB_P(0,ICN_MAPRAM);                           /* Disable RAM          */
+  if (dev->rvalid) {
+    OUTB_P(0,ICN_RUN);                              /* Reset Controler      */
+    OUTB_P(0,ICN_MAPRAM);                           /* Disable RAM          */
+    release_region(dev->port,ICN_PORTLEN);
+  }
   for (i=0;i<ICN_BCH;i++)
     free_queue(&dev->spqueue[1]);
   kfree(dev);
