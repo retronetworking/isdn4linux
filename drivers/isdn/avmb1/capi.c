@@ -6,6 +6,10 @@
  * Copyright 1996 by Carsten Paeth (calle@calle.in-berlin.de)
  *
  * $Log$
+ * Revision 1.35  2000/06/19 15:11:24  keil
+ * avoid use of freed structs
+ * changes from 2.4.0-ac21
+ *
  * Revision 1.34  2000/06/18 16:09:54  keil
  * more changes for 2.4
  *
@@ -2211,13 +2215,13 @@ int capi_init(void)
         devfs_register_series (NULL, "capi/r%u", CAPINC_NR_PORTS,
 			      DEVFS_FL_DEFAULT,
                               capi_rawmajor, 0,
-                              S_IFCHR | S_IRUSR | S_IWUSR, 0, 0,
+                              S_IFCHR | S_IRUSR | S_IWUSR,
                               &capinc_raw_fops, NULL);
 #endif
 #endif /* CONFIG_ISDN_CAPI_MIDDLEWARE */
 #ifdef HAVE_DEVFS_FS
-	devfs_register (NULL, "isdn/capi20", 0, DEVFS_FL_DEFAULT,
-			capi_major, 0, S_IFCHR | S_IRUSR | S_IWUSR, 0, 0,
+	devfs_register (NULL, "isdn/capi20", DEVFS_FL_DEFAULT,
+			capi_major, 0, S_IFCHR | S_IRUSR | S_IWUSR,
 			&capi_fops, NULL);
 #endif
 	printk(KERN_NOTICE "capi20: started up with major %d\n", capi_major);
