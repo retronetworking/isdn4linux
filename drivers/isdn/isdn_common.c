@@ -21,6 +21,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.2  1996/01/21 16:52:40  fritz
+ * Support for sk_buffs added, changed header-stuffing.
+ *
  * Revision 1.1  1996/01/09 04:12:52  fritz
  * Initial revision
  *
@@ -1096,8 +1099,15 @@ static int isdn_ioctl(struct inode *inode, struct file *file, uint cmd, ulong ar
                                 } else
                                         return -EINVAL;
                         case IIOCNETALN:
-                                /* clone interface and dial; removed for i4l 0.7.1 */
-                                return 2;
+                                if(arg) {
+                                        if ((ret = verify_area(VERIFY_READ,
+                                                               (void*)arg,
+                                                               sizeof(name))))
+                                                return ret;
+                                } else
+                                        return -EINVAL;
+                                memcpy_fromfs(name,(char*)arg,sizeof(name));
+                                return isdn_ppp_dial_slave(name);
                         case IIOCNETDLN:
                                 /* remove one link from bundle; removed for i4l 0.7.1  */
                                 return 2;
@@ -1271,7 +1281,7 @@ static int isdn_ioctl(struct inode *inode, struct file *file, uint cmd, ulong ar
                                 break;
                         default:
                                 if ((cmd&IIOCDRVCTL)==IIOCDRVCTL)
-                                        cmd = ((cmd>>_IOC_NRSHIFT)&_IOC_NRMASK);
+                                        cmd = ((cmd>>_IOC_NRSHIFT)&_IOC_NRMASK)& ISDN_DRVIOCTL_MASK;
 				else
 					return -EINVAL;
                                 if (arg) {
