@@ -7,6 +7,9 @@
  *              Fritz Elfert
  *
  * $Log$
+ * Revision 1.19  1997/02/14 12:23:10  fritz
+ * Added support for new insmod parameter handling.
+ *
  * Revision 1.18  1997/02/11 01:36:58  keil
  * Changed setup-interface (incoming and outgoing), cause reporting
  *
@@ -712,11 +715,11 @@ l4_received_d_rel(struct FsmInst *fi, int event, void *arg)
 		release_ds(chanp);
 		RESBIT(chanp->Flags, FLG_START_B);
 	}
-	if (chanp->Flags & (FLG_LL_DCONN | FLG_CALL_ALERT)) {
+	if (chanp->Flags & (FLG_LL_DCONN | FLG_CALL_SEND)) {
 		if (chanp->debug & 1)
 			link_debug(chanp, "STAT_DHUP", 0);
 		RESBIT(chanp->Flags, FLG_LL_DCONN);
-		RESBIT(chanp->Flags, FLG_CALL_ALERT);
+		RESBIT(chanp->Flags, FLG_CALL_SEND);
 		l4_deliver_cause(chanp);
 		ic.driver = chanp->sp->myid;
 		ic.command = ISDN_STAT_DHUP;
@@ -727,7 +730,7 @@ l4_received_d_rel(struct FsmInst *fi, int event, void *arg)
 	RESBIT(chanp->Flags, FLG_ESTAB_D);
 	RESBIT(chanp->Flags, FLG_DISC_SEND);
 	RESBIT(chanp->Flags, FLG_CALL_REC);
-	RESBIT(chanp->Flags, FLG_CALL_SEND);
+	RESBIT(chanp->Flags, FLG_CALL_ALERT);
 }
 
 static void
@@ -756,11 +759,11 @@ l4_received_d_relcnf(struct FsmInst *fi, int event, void *arg)
 		release_ds(chanp);
 		RESBIT(chanp->Flags, FLG_START_B);
 	}
-	if (chanp->Flags & (FLG_LL_DCONN | FLG_CALL_ALERT)) {
+	if (chanp->Flags & (FLG_LL_DCONN | FLG_CALL_SEND)) {
 		if (chanp->debug & 1)
 			link_debug(chanp, "STAT_DHUP", 0);
 		RESBIT(chanp->Flags, FLG_LL_DCONN);
-		RESBIT(chanp->Flags, FLG_CALL_ALERT);
+		RESBIT(chanp->Flags, FLG_CALL_SEND);
 		l4_deliver_cause(chanp);
 		ic.driver = chanp->sp->myid;
 		ic.command = ISDN_STAT_DHUP;
@@ -771,7 +774,7 @@ l4_received_d_relcnf(struct FsmInst *fi, int event, void *arg)
 	RESBIT(chanp->Flags, FLG_ESTAB_D);
 	RESBIT(chanp->Flags, FLG_DISC_SEND);
 	RESBIT(chanp->Flags, FLG_CALL_REC);
-	RESBIT(chanp->Flags, FLG_CALL_SEND);
+	RESBIT(chanp->Flags, FLG_CALL_ALERT);
 }
 
 static void
@@ -796,10 +799,11 @@ l4_received_d_disc(struct FsmInst *fi, int event, void *arg)
 		release_ds(chanp);
 		RESBIT(chanp->Flags, FLG_START_B);
 	}
-	if (chanp->Flags & (FLG_LL_DCONN | FLG_CALL_ALERT)) {
+	if (chanp->Flags & (FLG_LL_DCONN | FLG_CALL_SEND)) {
 		if (chanp->debug & 1)
 			link_debug(chanp, "STAT_DHUP", 0);
 		RESBIT(chanp->Flags, FLG_LL_DCONN);
+		RESBIT(chanp->Flags, FLG_CALL_SEND);
 		RESBIT(chanp->Flags, FLG_CALL_ALERT);
 		l4_deliver_cause(chanp);
 		ic.driver = chanp->sp->myid;
@@ -807,6 +811,7 @@ l4_received_d_disc(struct FsmInst *fi, int event, void *arg)
 		ic.arg = chanp->chan;
 		chanp->sp->iif.statcallb(&ic);
 	}
+	RESBIT(chanp->Flags, FLG_CALL_ALERT);
 	chanp->is.l4.l4l3(&chanp->is, CC_RELEASE_REQ, NULL);
 }
 
