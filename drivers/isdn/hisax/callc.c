@@ -11,6 +11,9 @@
  *              Fritz Elfert
  *
  * $Log$
+ * Revision 2.28  1999/07/09 08:30:02  keil
+ * cosmetics
+ *
  * Revision 2.27  1999/07/05 23:51:38  werner
  * Allow limiting of available HiSax B-chans per card. Controlled by hisaxctrl
  * hisaxctrl id 10 <nr. of chans 0-2>
@@ -1524,32 +1527,25 @@ lli_got_manufacturer(struct Channel *chanp, struct IsdnCardState *cs, capi_msg *
 /***************************************************************/
 static int 
 set_channel_limit(struct IsdnCardState *cs, int chanmax)
-{ long l;
-  struct Channel *chanp;
-  isdn_ctrl ic;
-  int i;
+{ isdn_ctrl ic;
+  int i, ii;
   
   if ((chanmax < 0) || (chanmax > 2))
     return(-EINVAL);
-  for (i = 0; i < 2 + MAX_WAITING_CALLS; i++) {
-    chanp = cs->channel + i;
-    if (chanp->fi.state != ST_NULL) 
-      return(-EINVAL); /* card busy */
-  }
-  l = chanmax - cs->chanlimit; /* chan difference */
-  if (l) {
+  cs->chanlimit = 0;
+  for (ii = 0; ii < 2; ii++) {
     ic.driver = cs->myid;
-    ic.command = ISDN_STAT_STOP;
-    cs->iif.statcallb(&ic);
-    ic.command = ISDN_STAT_ADDCH;
-    ((long)ic.arg) = l;
+    ic.command = ISDN_STAT_DISCH;
+    ic.arg = ii;
+    if (ii >= chanmax)
+      ic.parm.num[0] = 0; /* disabled */
+    else
+      ic.parm.num[0] = 1; /* enabled */
     i = cs->iif.statcallb(&ic); 
-    if (!i) cs->chanlimit = chanmax;
-    ic.command = ISDN_STAT_RUN;
-    cs->iif.statcallb(&ic);
     if (i) return(-EINVAL);
-  }  
-    
+    if (ii < chanmax) 
+      cs->chanlimit++;
+  }
   return(0);
 } /* set_channel_limit */
 
@@ -1784,6 +1780,16 @@ HiSax_command(isdn_ctrl * ic)
 					if ((i < 0) || (i > 2))
 					  return(-EINVAL); /* invalid number */
 					return(set_channel_limit(csta, i));
+				        break;
+			        case  (12):
+				        i = *(unsigned int *) ic->parm.num;
+#ifdef CONFIG_HISAX_HFC_PCI
+					if (csta->typ != ISDN_CTYPE_HFC_PCI)
+					  return(-EINVAL);
+					return(hfcpci_set_echo(csta,i));    
+#else
+					return(-EINVAL);    
+#endif
 				        break;
 				default:
 					printk(KERN_DEBUG "HiSax: invalid ioclt %d\n",
