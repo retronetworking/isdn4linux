@@ -20,6 +20,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.76  1999/10/11 22:16:26  keil
+ * Suspend/Resume is possible without explicit ID too
+ *
  * Revision 1.75  1999/10/08 18:59:32  armin
  * Bugfix of too small MSN buffer and checking phone number
  * in isdn_tty_getdial()
@@ -3118,8 +3121,8 @@ static void
 isdn_tty_getdial(char *p, char *q,int cnt)
 {
 	int first = 1;
-	int limit = 31;	/* MUST match the size of interface var to avoid
-				buffer overflow */
+	int limit = ISDN_MSNLEN - 1;	/* MUST match the size of interface var to avoid
+					buffer overflow */
 
 	while (strchr(" 0123456789,#.*WPTS-", *p) && *p && --cnt>0) {
 		if ((*p >= '0' && *p <= '9') || ((*p == 'S') && first) ||
