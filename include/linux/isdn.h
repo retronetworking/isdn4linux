@@ -21,6 +21,10 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.61  1999/03/02 11:43:21  armin
+ * Added variable to store connect-message of Modem.
+ * Added Timer-define for RegS7 (Wait for Carrier).
+ *
  * Revision 1.60  1998/10/25 14:50:29  fritz
  * Backported from MIPS (Cobalt).
  *
@@ -832,16 +836,19 @@ typedef struct isdn_module {
 	int priority;
 } isdn_module;
 
+#define DRV_FLAG_RUNNING 1
+#define DRV_FLAG_REJBUS  2
+#define DRV_FLAG_LOADED  4
+
 /* Description of hardware-level-driver */
 typedef struct {
-	ulong               flags;            /* Flags                            */
+	ulong               online;           /* Channel-Online flags             */
+	ulong               flags;            /* Misc driver Flags                */
+	int                 locks;            /* Number of locks for this driver  */
 	int                 channels;         /* Number of channels               */
-	int                 reject_bus;       /* Flag: Reject rejected call on bus*/
 	struct wait_queue  *st_waitq;         /* Wait-Queue for status-read's     */
 	int                 maxbufsize;       /* Maximum Buffersize supported     */
 	unsigned long       pktcount;         /* Until now: unused                */
-	int                 running;          /* Flag: Protocolcode running       */
-	int                 loaded;           /* Flag: Driver loaded              */
 	int                 stavail;          /* Chars avail on Status-device     */
 	isdn_if            *interface;        /* Interface to driver              */
 	int                *rcverr;           /* Error-counters for B-Ch.-receive */

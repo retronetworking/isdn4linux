@@ -21,6 +21,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.73  1999/04/12 12:33:15  fritz
+ * Changes from 2.0 tree.
+ *
  * Revision 1.72  1999/03/02 12:04:44  armin
  * -added ISDN_STAT_ADDCH to increase supported channels after
  *  register_isdn().
@@ -1970,7 +1973,6 @@ isdn_get_free_channel(int usage, int l2_proto, int l3_proto, int pre_dev
 	ulong flags;
 	ulong features;
 	ulong vfeatures;
-	isdn_ctrl cmd;
 
 	save_flags(flags);
 	cli();
