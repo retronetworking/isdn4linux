@@ -295,7 +295,7 @@ setup_bkm_a4t(struct IsdnCard *card)
 
 		pci_get_sub_vendor(dev_a4t,sub_vendor);
 		pci_get_sub_system(dev_a4t,sub_sys);
-		if ((sub_sys == A4T_SUBSYS_ID) && (sub_vendor == A4T_SUBVEN_ID)) {
+		if ((sub_sys == PCI_DEVICE_ID_BERKOM_A4T) && (sub_vendor == PCI_VENDOR_ID_BERKOM)) {
 			if (pci_enable_device(dev_a4t))
 				return(0);
 			found = 1;

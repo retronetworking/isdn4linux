@@ -6,6 +6,17 @@
  * (c) Copyright 1999 by Carsten Paeth (calle@calle.in-berlin.de)
  * 
  * $Log$
+ * Revision 1.20.2.2  2000/11/26 17:47:53  kai
+ * added PCI_DEV_TABLE for 2.4
+ *
+ * Revision 1.20.2.1  2000/11/26 17:14:19  kai
+ * fix device ids
+ * also needs patches to include/linux/pci_ids.h
+ *
+ * Revision 1.20  2000/11/23 20:45:14  kai
+ * fixed module_init/exit stuff
+ * Note: compiled-in kernel doesn't work pre 2.2.18 anymore.
+ *
  * Revision 1.19  2000/11/19 17:02:47  kai
  * compatibility cleanup - part 3
  *
@@ -105,28 +116,17 @@ static char *revision = "$Revision$";
 
 /* ------------------------------------------------------------- */
 
-#ifndef PCI_VENDOR_ID_DEC
-#define PCI_VENDOR_ID_DEC	0x1011
+static int suppress_pollack;
+
+#ifndef COMPAT_HAS_2_2_PCI
+static struct pci_device_id c4_pci_tbl[] __initdata = {
+	{ PCI_VENDOR_ID_DEC,PCI_DEVICE_ID_DEC_21285, PCI_VENDOR_ID_AVM, PCI_DEVICE_ID_AVM_C4 },
+	{ }			/* Terminating entry */
+};
+
+MODULE_DEVICE_TABLE(pci, c4_pci_tbl);
 #endif
-
-#ifndef PCI_DEVICE_ID_DEC_21285
-#define PCI_DEVICE_ID_DEC_21285	0x1065
-#endif
-
-#ifndef PCI_VENDOR_ID_AVM
-#define PCI_VENDOR_ID_AVM	0x1244
-#endif
-
-#ifndef PCI_DEVICE_ID_AVM_C4
-#define PCI_DEVICE_ID_AVM_C4	0x0800
-#endif
-
-/* ------------------------------------------------------------- */
-
-static int suppress_pollack = 0;
-
 MODULE_AUTHOR("Carsten Paeth <calle@calle.in-berlin.de>");
-
 MODULE_PARM(suppress_pollack, "0-1i");
 
 /* ------------------------------------------------------------- */

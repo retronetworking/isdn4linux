@@ -317,8 +317,8 @@ setup_sct_quadro(struct IsdnCard *card)
 			CardType[card->typ]);
 		return (0);
 	}
-	if ((cs->subtyp != SCT_1) && ((sub_sys_id != SCT_SUBSYS_ID) ||
-		(sub_vendor_id != SCT_SUBVEN_ID)))
+	if ((cs->subtyp != SCT_1) && ((sub_sys_id != PCI_DEVICE_ID_BERKOM_SCITEL_QUADRO) ||
+		(sub_vendor_id != PCI_VENDOR_ID_BERKOM)))
 		return (0);
 	if (cs->subtyp == SCT_1) {
 		if (!pci_present()) {
@@ -330,8 +330,8 @@ setup_sct_quadro(struct IsdnCard *card)
 			
 			pci_get_sub_vendor(dev_a8,sub_vendor_id);
 			pci_get_sub_system(dev_a8,sub_sys_id);
-			if ((sub_sys_id == SCT_SUBSYS_ID) &&
-				(sub_vendor_id == SCT_SUBVEN_ID)) {
+			if ((sub_sys_id == PCI_DEVICE_ID_BERKOM_SCITEL_QUADRO) &&
+				(sub_vendor_id == PCI_VENDOR_ID_BERKOM)) {
 				if (pci_enable_device(dev_a8))
 					return(0);
 				pci_ioaddr1 = pci_resource_start_io(dev_a8, 1);

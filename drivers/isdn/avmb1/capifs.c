@@ -6,6 +6,13 @@
  * Heavily based on devpts filesystem from H. Peter Anvin
  * 
  * $Log$
+ * Revision 1.14.2.1  2000/11/26 17:47:53  kai
+ * added PCI_DEV_TABLE for 2.4
+ *
+ * Revision 1.14  2000/11/23 20:45:14  kai
+ * fixed module_init/exit stuff
+ * Note: compiled-in kernel doesn't work pre 2.2.18 anymore.
+ *
  * Revision 1.13  2000/11/18 16:17:25  kai
  * change from 2.4 tree
  *
@@ -131,7 +138,7 @@ static struct file_operations capifs_root_operations = {
 
 struct inode_operations capifs_root_inode_operations = {
 #ifndef COMPAT_has_fileops_in_inode
-	&capifs_root_operations, /* file operations */
+	default_file_ops: &capifs_root_operations, /* file operations */
 #endif
 	lookup: capifs_root_lookup,
 };

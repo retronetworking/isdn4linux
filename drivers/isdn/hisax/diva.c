@@ -47,20 +47,6 @@ const char *Diva_revision = "$Revision$";
 #define DIVA_IPAC_ISA	3
 #define DIVA_IPAC_PCI	4
 
-/* PCI stuff */
-#ifndef PCI_VENDOR_ID_EICON
-#define PCI_VENDOR_ID_EICON	0x1133
-#endif
-#ifndef PCI_DEVICE_ID_EICON_DIVA20
-#define PCI_DEVICE_ID_EICON_DIVA20	0xe002
-#endif
-#ifndef PCI_DEVICE_ID_EICON_DIVA20_U
-#define PCI_DEVICE_ID_EICON_DIVA20_U	0xe004
-#endif
-#ifndef PCI_DEVICE_ID_EICON_DIVA201
-#define PCI_DEVICE_ID_EICON_DIVA201	0xe005
-#endif
-
 /* CTRL (Read) */
 #define DIVA_IRQ_STAT	0x01
 #define DIVA_EEPROM_SDA	0x02
