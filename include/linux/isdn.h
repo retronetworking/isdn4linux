@@ -21,6 +21,10 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.31.2.6  1998/04/26 11:10:46  detabc
+ * add items for the abc_tx_queus and the abc_delayed_hangup
+ * only used if the abc-extension is enabled
+ *
  * Revision 1.31.2.5  1998/04/18 17:39:45  detabc
  * remove some unused abc-lines
  * added defines und items for abc-secure callback (only used with abc-extenrsion)
@@ -594,7 +598,6 @@ extern struct sk_buff *abc_test_receive(struct device *,struct sk_buff *);
 extern struct sk_buff *abc_snd_data(struct device *,struct sk_buff *);
 extern void abc_free_receive(void);
 extern int abc_test_rcvq(struct device *ndev);
-extern struct sk_buff *abc_get_uncomp(struct sk_buff *);
 extern int abcgmbh_getpack_mem(void);
 extern int abc_clean_up_memory(void);
 extern int abcgmbh_depack(u_char *,int,u_char *,int);
