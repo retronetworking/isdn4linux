@@ -21,6 +21,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.25  1996/10/22 23:13:54  fritz
+ * Changes for compatibility to 2.0.X and 2.1.X kernels.
+ *
  * Revision 1.24  1996/10/11 14:02:03  fritz
  * Bugfix: call to isdn_ppp_timer_timeout() never compiled, because of
  *         typo in #ifdef.
@@ -473,7 +476,7 @@ static int isdn_status_callback(isdn_ctrl * c)
                                                 info->msr |= UART_MSR_RI;
                                                 isdn_tty_modem_result(2, info);
                                                 isdn_timer_ctrl(ISDN_TIMER_MODEMRING, 1);
-                                                return 0;
+                                                return 1;
                                         } else if (dev->drv[di]->reject_bus) {
                                                 cmd.driver = di;
                                                 cmd.arg = c->arg;
@@ -488,7 +491,7 @@ static int isdn_status_callback(isdn_ctrl * c)
                                         cmd.arg = c->arg;
                                         cmd.command = ISDN_CMD_ACCEPTD;
                                         dev->drv[di]->interface->command(&cmd);
-                                        return 0;
+                                        return 1;
                                         break;
                                 case 2:	/* For calling back, first reject incoming call ... */
                                 case 3:	/* Interface found, but down, reject call actively  */

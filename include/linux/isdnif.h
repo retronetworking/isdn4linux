@@ -22,6 +22,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.10  1996/10/22 23:14:19  fritz
+ * Changes for compatibility to 2.0.X and 2.1.X kernels.
+ *
  * Revision 1.9  1996/06/06 21:24:24  fritz
  * Started adding support for suspend/resume.
  *
@@ -311,16 +314,16 @@ extern int register_isdn(isdn_if*);
 #define copy_from_user memcpy_fromfs
 #define copy_to_user memcpy_tofs
 #define GET_USER(x, addr) ( x = get_user(addr) )
-typedef int RWTYPE;
-typedef int LSTYPE;
-typedef int RWARG;
-typedef int LSARG;
+#define RWTYPE int
+#define LSTYPE int
+#define RWARG int
+#define LSARG off_t
 #else
 #define GET_USER get_user
-typedef long RWTYPE;
-typedef long long LSTYPE;
-typedef unsigned long RWARG;
-typedef long long LSARG;
+#define RWTYPE long
+#define LSTYPE long long
+#define RWARG unsigned long
+#define LSARG long long
 #endif
 
 #endif /* __KERNEL__ */
