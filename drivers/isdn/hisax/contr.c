@@ -6,7 +6,7 @@
         debug(lev, contr->cs, "Contr ", fmt, ## args)
 
 static void contr_l3l4(struct PStack *st, int pr, void *arg);
-//static void d2_listener(struct IsdnCardState *cs, u_char *buf, int len);
+static void d2_listener(struct IsdnCardState *cs, u_char *buf, int len);
 
 int contrConstr(struct Contr *contr, struct IsdnCardState *cs, char *id, int protocol)
 { 
@@ -56,7 +56,7 @@ void contrRun(struct Contr *contr)
 		return;
 	}
 
-//	contr->cs->d2_listener = d2_listener;
+	contr->cs->d2_listener = d2_listener;
 	
 	sp.b1_mode = B1_MODE_HDLC;
 	sp.b2_mode = B2_MODE_LAPD;
@@ -81,7 +81,7 @@ void contrRun(struct Contr *contr)
 
 void contrStop(struct Contr *contr)
 {
-//	contr->cs->d2_listener = 0;
+	contr->cs->d2_listener = 0;
 
 	if (contr->l4.st) {
 		release_st(contr->l4.st);
@@ -287,7 +287,6 @@ void delContr(struct Contr *contr)
 	kfree(contr);
 }
 
-#if 0
 static void d2_listener(struct IsdnCardState *cs, u_char *buf, int len)
 {
 	struct Contr *contr = cs->contr;
@@ -299,4 +298,3 @@ static void d2_listener(struct IsdnCardState *cs, u_char *buf, int len)
 
 	contrD2Trace(contr, buf, len);
 }
-#endif

@@ -12,7 +12,7 @@ struct D_Layer4 {
 // struct Channel
 
 struct Channel {
-	struct Layer4 l4;
+	struct Layer4 l4; // derived from Layer 4
 	struct CallcIf *c_if;
 	struct D_Layer4 d_l4;
 	struct IsdnCardState *cs;
@@ -23,7 +23,6 @@ struct Channel {
 	int l3_protocol;
 	int data_open;
 	struct l4_process l4pc;
-	setup_parm setup;	/* from isdnif.h numbers and Serviceindicator */
 	int leased;
 	int debug;
 };

@@ -406,10 +406,10 @@ static void
 lli_prep_dialout(struct FsmInst *fi, int event, void *arg)
 {
 	struct Channel *chanp = fi->userdata;
+	setup_parm *setup = (setup_parm *) arg;
 
-	chanp->setup = *(setup_parm *) arg;
-	if (!strcmp(chanp->setup.eazmsn, "0"))
-		chanp->setup.eazmsn[0] = '\0';
+	if (!strcmp(setup->eazmsn, "0"))
+		setup->eazmsn[0] = '\0';
 
 	chanp->l2_active_protocol = chanp->l2_protocol;
 	chanp->cs->cardmsg(chanp->cs, MDL_INFO_SETUP, (void *) (long)chanp->chan);
@@ -418,7 +418,7 @@ lli_prep_dialout(struct FsmInst *fi, int event, void *arg)
 	} else {
 		FsmChangeState(fi, ST_OUT_DIAL);
 		D_L4L3(chanp, CC_NEW_CR | REQUEST, &chanp->l4pc);
-		Dp_L4L3(chanp, CC_SETUP | REQUEST, &chanp->setup);
+		Dp_L4L3(chanp, CC_SETUP | REQUEST, setup);
 	}
 }
 
@@ -426,6 +426,7 @@ static void
 lli_resume(struct FsmInst *fi, int event, void *arg)
 {
 	struct Channel *chanp = fi->userdata;
+	setup_parm *setup = (setup_parm *arg);
 
 	chanp->l2_active_protocol = chanp->l2_protocol;
 	chanp->cs->cardmsg(chanp->cs, MDL_INFO_SETUP, (void *) (long)chanp->chan);
@@ -434,7 +435,7 @@ lli_resume(struct FsmInst *fi, int event, void *arg)
 	} else {
 		FsmChangeState(fi, ST_OUT_DIAL);
 		D_L4L3(chanp, CC_NEW_CR | REQUEST, &chanp->l4pc);
-		Dp_L4L3(chanp, CC_RESUME | REQUEST, &chanp->setup);
+		Dp_L4L3(chanp, CC_RESUME | REQUEST, setup);
 	}
 }
 
@@ -455,10 +456,6 @@ lli_go_active(struct FsmInst *fi, int event, void *arg)
 	chanp->cs->cardmsg(chanp->cs, MDL_INFO_CONN, (void *) (long)chanp->chan);
 }
 
-
-/*
- * RESUME
- */
 
 /* incomming call */
 
@@ -495,8 +492,7 @@ lli_deliver_call(struct FsmInst *fi, int event, void *arg)
 				FsmChangeState(fi, ST_IN_PROCEED_SEND);
 				Dp_L4L3(chanp, CC_PROCEED_SEND | REQUEST, 0);
 				if (ret == 5) {
-					chanp->setup = ic.parm.setup;
-					Dp_L4L3(chanp, CC_REDIR | REQUEST, 0);
+					Dp_L4L3(chanp, CC_REDIR | REQUEST, &ic.parm.setup);
 				}
 				break;
 			case 2:	/* Rejecting Call */
@@ -536,8 +532,9 @@ static void
 lli_send_redir(struct FsmInst *fi, int event, void *arg)
 {
 	struct Channel *chanp = fi->userdata;
+	setup_parm *setup = (setup_parm *) arg;
 
-	Dp_L4L3(chanp, CC_REDIR | REQUEST, 0);
+	Dp_L4L3(chanp, CC_REDIR | REQUEST, setup);
 }
 
 static void
@@ -576,8 +573,9 @@ static void
 lli_suspend(struct FsmInst *fi, int event, void *arg)
 {
 	struct Channel *chanp = fi->userdata;
+	setup_parm *setup = (setup_parm *) arg;
 
-	Dp_L4L3(chanp, CC_SUSPEND | REQUEST, 0);
+	Dp_L4L3(chanp, CC_SUSPEND | REQUEST, setup);
 }
 
 /* Call clearing */
@@ -1284,7 +1282,10 @@ capi_debug(struct Channel *chanp, capi_msg *cm)
 }
 
 void
-lli_got_fac_req(struct Channel *chanp, capi_msg *cm) {
+lli_got_fac_req(struct Channel *chanp, capi_msg *cm) 
+{
+	setup_parm setup;
+
 	if ((cm->para[0] != 3) || (cm->para[1] != 0))
 		return;
 	if (cm->para[2]<3)
@@ -1293,12 +1294,12 @@ lli_got_fac_req(struct Channel *chanp, capi_msg *cm) {
 		return;
 	switch(cm->para[3]) {
 		case 4: /* Suspend */
-			strncpy(chanp->setup.phone, &cm->para[5], cm->para[5] +1);
-			FsmEvent(&chanp->fi, EV_SUSPEND, cm);
+			strncpy(setup.phone, &cm->para[5], cm->para[5] +1);
+			FsmEvent(&chanp->fi, EV_SUSPEND, &setup);
 			break;
 		case 5: /* Resume */
-			strncpy(chanp->setup.phone, &cm->para[5], cm->para[5] +1);
-			FsmEvent(&chanp->fi, EV_RESUME, cm);
+			strncpy(setup.phone, &cm->para[5], cm->para[5] +1);
+			FsmEvent(&chanp->fi, EV_RESUME, &setup);
 			break;
 	}
 }
@@ -1579,8 +1580,7 @@ HiSax_command(isdn_ctrl * ic)
 		break;
 
 	case ISDN_CMD_REDIR:
-		chanp->setup = ic->parm.setup;
-		FsmEvent(&chanp->fi, EV_REDIR, NULL);
+		FsmEvent(&chanp->fi, EV_REDIR, &ic->parm.setup);
 		break;
 
 		/* protocol specific io commands */

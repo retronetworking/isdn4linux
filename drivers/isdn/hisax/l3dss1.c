@@ -2170,7 +2170,7 @@ l3dss1_information(struct l3_process *pc, u_char pr, void *arg)
 /******************************/
 static void l3dss1_redir_req(struct l3_process *pc, u_char pr, void *arg)
 {
-	struct Channel *chanp = pc->l4pc->priv; // FIXME
+	setup_parm *setup = (setup_parm *) arg;
 	struct sk_buff *skb;
 	u_char tmp[128];
 	u_char *p = tmp;
@@ -2180,8 +2180,8 @@ static void l3dss1_redir_req(struct l3_process *pc, u_char pr, void *arg)
 	int l; 
 
 	
-        strcpy(pc->prot.dss1.uus1_data,chanp->setup.eazmsn); /* copy uus element if available */
-        if (!chanp->setup.phone[0])
+        strcpy(pc->prot.dss1.uus1_data,setup->eazmsn); /* copy uus element if available */
+        if (!setup->phone[0])
           { pc->para.cause = -1;
             l3dss1_disconnect_req(pc,pr,arg); /* disconnect immediately */
             return;
@@ -2195,7 +2195,7 @@ static void l3dss1_redir_req(struct l3_process *pc, u_char pr, void *arg)
 
         MsgHead(p, pc->callref, MT_FACILITY);
 
-        for (subp = chanp->setup.phone; (*subp) && (*subp != '.'); subp++) len_phone++; /* len of phone number */
+        for (subp = setup->phone; (*subp) && (*subp != '.'); subp++) len_phone++; /* len of phone number */
         if (*subp++ == '.') len_sub = strlen(subp) + 2; /* length including info subadress element */ 
 
 	*p++ = 0x1c;   /* Facility info element */
@@ -2219,7 +2219,7 @@ static void l3dss1_redir_req(struct l3_process *pc, u_char pr, void *arg)
         *p++ = 0x80; /* NumberDigits */
 	*p++ = len_phone; /* length */
         for (l = 0; l < len_phone; l++)
-	 *p++ = chanp->setup.phone[l];
+	 *p++ = setup->phone[l];
 
         if (len_sub)
 	  { *p++ = 0x04; /* called party subadress */
@@ -2229,7 +2229,7 @@ static void l3dss1_redir_req(struct l3_process *pc, u_char pr, void *arg)
 
         *p++ = 0x01; /* screening identifier */
         *p++ = 0x01;
-        *p++ = chanp->setup.screen;
+        *p++ = setup->screen;
 
 	l = p - tmp;
 	if (!(skb = l3_alloc_skb(l))) return;
@@ -2587,11 +2587,11 @@ static void
 l3dss1_suspend_req(struct l3_process *pc, u_char pr, void *arg)
 {
 	struct sk_buff *skb;
-	struct Channel *chanp = pc->l4pc->priv;
 	u_char tmp[32];
 	u_char *p = tmp;
 	u_char i, l;
-	u_char *msg = chanp->setup.phone;
+	setup_parm *setup = (setup_parm *) arg;
+	u_char *msg = setup->phone;
 
 	MsgHead(p, pc->callref, MT_SUSPEND);
 	l = *msg++;

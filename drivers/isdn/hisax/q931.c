@@ -945,6 +945,9 @@ LogFrame(struct IsdnCardState *cs, u_char * buf, int size)
 {
 	char *dp;
 
+        if (cs->d2_listener) {
+                cs->d2_listener(cs, buf, size);
+        }
 	if (size < 1)
 		return;
 	dp = cs->dlog;

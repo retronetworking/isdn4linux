@@ -375,7 +375,6 @@ static void plci_connect_ind(struct FsmInst *fi, int event, void *arg)
 
 static void plci_alert_req(struct FsmInst *fi, int event, void *arg)
 {
-#if 0
 	struct Cplci *cplci = fi->userdata;
 	struct Plci *plci = cplci->plci;
 	struct alerting_req_parm alerting_req;
@@ -395,7 +394,6 @@ static void plci_alert_req(struct FsmInst *fi, int event, void *arg)
 	capi_cmsg_answer(cmsg);
 	cmsg->Info = Info;
 	cplciRecvCmsg(cplci, cmsg);
-#endif
 }
 
 static void plci_connect_resp(struct FsmInst *fi, int event, void *arg)

@@ -737,6 +737,7 @@ struct IsdnCardState {
 	struct tq_struct tqueue;
 	struct timer_list dbusytimer;
 	int features;
+        void (*d2_listener)(struct IsdnCardState *cs, u_char *buf, int len);
 #ifdef ERROR_STATISTIC
 	int err_crc;
 	int err_tx;

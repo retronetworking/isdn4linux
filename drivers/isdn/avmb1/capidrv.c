@@ -6,6 +6,9 @@
  * Copyright 1997 by Carsten Paeth (calle@calle.in-berlin.de)
  *
  * $Log$
+ * Revision 1.29.2.2  2000/03/08 17:28:43  calle
+ * Merged changes from main tree.
+ *
  * Revision 1.29.2.1  2000/03/03 17:14:12  kai
  * Merged changes from the main tree
  *
@@ -957,11 +960,13 @@ static void handle_controller(_cmsg * cmsg)
 		      len = (cmsg->ManuData[1] | (cmsg->ManuData[2] << 8));
 		      data += 2;
 		   }
+
 		   len -= 2;
 		   layer = ((*(data-1)) << 8) | *(data-2);
 		   if (layer & 0x300)
-			direction = (layer & 0x200) ? 0 : 1;
-		   else direction = (layer & 0x800) ? 0 : 1;
+			   direction = (layer & 0x200) ? 0 : 1;
+		   else 
+			   direction = (layer & 0x800) ? 0 : 1;
 		   if (layer & 0x0C00) {
 		   	if ((layer & 0xff) == 0x80) {
 		           handle_dtrace_data(card, direction, 1, data, len);
@@ -2120,25 +2125,13 @@ static int if_readstat(__u8 *buf, int len, int user, int id, int channel)
 
 }
 
-static void enable_dchannel_trace(capidrv_contr *card)
+static void enable_dchannel_trace_avm(capidrv_contr *card)
 {
-        __u8 manufacturer[CAPI_MANUFACTURER_LEN];
-        capi_version version;
 	__u16 contr = card->contrnr;
 	__u16 errcode;
+        capi_version version;
 	__u16 avmversion[3];
 
-        errcode = (*capifuncs->capi_get_manufacturer)(contr, manufacturer);
-        if (errcode != CAPI_NOERROR) {
-	   printk(KERN_ERR "%s: can't get manufacturer (0x%x)\n",
-			card->name, errcode);
-	   return;
-	}
-	if (strstr(manufacturer, "AVM") == 0) {
-	   printk(KERN_ERR "%s: not from AVM, no d-channel trace possible (%s)\n",
-			card->name, manufacturer);
-	   return;
-	}
         errcode = (*capifuncs->capi_get_version)(contr, &version);
         if (errcode != CAPI_NOERROR) {
 	   printk(KERN_ERR "%s: can't get version (0x%x)\n",
@@ -2148,7 +2141,7 @@ static void enable_dchannel_trace(capidrv_contr *card)
 	avmversion[0] = (version.majormanuversion >> 4) & 0x0f;
 	avmversion[1] = (version.majormanuversion << 4) & 0xf0;
 	avmversion[1] |= (version.minormanuversion >> 4) & 0x0f;
-	avmversion[2] |= version.minormanuversion & 0x0f;
+	avmversion[2] = version.minormanuversion & 0x0f;
 
         if (avmversion[0] > 3 || (avmversion[0] == 3 && avmversion[1] > 5)) {
 		printk(KERN_INFO "%s: D2 trace enabled\n", card->name);
@@ -2172,13 +2165,26 @@ static void enable_dchannel_trace(capidrv_contr *card)
 	send_message(card, &cmdcmsg);
 }
 
-static void disable_dchannel_trace(capidrv_contr *card)
+static void enable_dchannel_trace_i4l(capidrv_contr *card)
+{
+	__u16 contr = card->contrnr;
+
+	printk(KERN_INFO "%s: D2 trace enabled\n", card->name);
+	capi_fill_MANUFACTURER_REQ(&cmdcmsg, global.appid,
+				   card->msgid++,
+				   contr,
+				   0x214D5641,  /* ManuID */
+				   0,           /* Class */
+				   1,           /* Function */
+				   (_cstruct)"\004\200\014\000\000");
+	send_message(card, &cmdcmsg);
+}
+
+static void enable_dchannel_trace(capidrv_contr *card)
 {
         __u8 manufacturer[CAPI_MANUFACTURER_LEN];
-        capi_version version;
 	__u16 contr = card->contrnr;
 	__u16 errcode;
-	__u16 avmversion[3];
 
         errcode = (*capifuncs->capi_get_manufacturer)(contr, manufacturer);
         if (errcode != CAPI_NOERROR) {
@@ -2186,11 +2192,26 @@ static void disable_dchannel_trace(capidrv_contr *card)
 			card->name, errcode);
 	   return;
 	}
-	if (strstr(manufacturer, "AVM") == 0) {
-	   printk(KERN_ERR "%s: not from AVM, no d-channel trace possible (%s)\n",
-			card->name, manufacturer);
-	   return;
+	if (strstr(manufacturer, "AVM")) {
+		enable_dchannel_trace_avm(card);
+		return;
+	} else if (strstr(manufacturer, "ISDN4Linux")) {
+		enable_dchannel_trace_i4l(card);
+		return;
 	}
+	printk(KERN_ERR "%s: no d-channel trace possible (%s)\n",
+	       card->name, manufacturer);
+	return;
+
+}
+
+static void disable_dchannel_trace_avm(capidrv_contr *card)
+{
+        capi_version version;
+	__u16 contr = card->contrnr;
+	__u16 errcode;
+	__u16 avmversion[3];
+
         errcode = (*capifuncs->capi_get_version)(contr, &version);
         if (errcode != CAPI_NOERROR) {
 	   printk(KERN_ERR "%s: can't get version (0x%x)\n",
@@ -2215,6 +2236,46 @@ static void disable_dchannel_trace(capidrv_contr *card)
 				   1,           /* Function */
 				   (_cstruct)"\004\000\000\000\000");
 	send_message(card, &cmdcmsg);
+}
+
+static void disable_dchannel_trace_i4l(capidrv_contr *card)
+{
+	__u16 contr = card->contrnr;
+
+	printk(KERN_INFO "%s: D2 trace disabled\n", card->name);
+	capi_fill_MANUFACTURER_REQ(&cmdcmsg, global.appid,
+				   card->msgid++,
+				   contr,
+				   0x214D5641,  /* ManuID */
+				   0,           /* Class */
+				   1,           /* Function */
+				   (_cstruct)"\004\000\000\000\000");
+	send_message(card, &cmdcmsg);
+}
+
+static void disable_dchannel_trace(capidrv_contr *card)
+{
+        __u8 manufacturer[CAPI_MANUFACTURER_LEN];
+	__u16 contr = card->contrnr;
+	__u16 errcode;
+
+        errcode = (*capifuncs->capi_get_manufacturer)(contr, manufacturer);
+        if (errcode != CAPI_NOERROR) {
+	   printk(KERN_ERR "%s: can't get manufacturer (0x%x)\n",
+			card->name, errcode);
+	   return;
+	}
+	if (strstr(manufacturer, "AVM")) {
+		disable_dchannel_trace_avm(card);
+		return;
+	} else if (strstr(manufacturer, "ISDN4Linux")) {
+		disable_dchannel_trace_i4l(card);
+		return;
+	}
+	printk(KERN_ERR "%s: no d-channel trace possible (%s)\n",
+	       card->name, manufacturer);
+	return;
+
 }
 
 static void send_listen(capidrv_contr *card)

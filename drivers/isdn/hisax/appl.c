@@ -264,12 +264,6 @@ void applManufacturerReqI4L(struct Appl *appl, struct sk_buff *skb)
 
 void applManufacturerReq(struct Appl *appl, struct sk_buff *skb)
 {
-#if 0
-	int i;
-	for (i = 0; i < skb->len; i++) printk("%02x ", skb->data[i]);
-	printk("\n");
-#endif
-
 	if (skb->len < 16 + 8) {
 		return;
 	}
