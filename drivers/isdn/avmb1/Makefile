@@ -11,6 +11,9 @@
 # parent makes..
 #
 # $Log$
+# Revision 1.17  2000/04/03 16:38:05  calle
+# made suppress_pollack static.
+#
 # Revision 1.16  2000/03/17 12:15:44  calle
 # ALL_SUB_DIRS were wrong.
 #
@@ -109,7 +112,7 @@
 
 SUB_DIRS     :=
 MOD_SUB_DIRS :=
-ALL_SUB_DIRS := fcpci fcclassic fcpnp fcpcmcia
+ALL_SUB_DIRS := # fcpci fcclassic fcpnp fcpcmcia
 #
 # Objects that don't export a symtab
 #
