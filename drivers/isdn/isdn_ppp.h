@@ -19,6 +19,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.5  1996/09/07 12:51:34  hipp
+ * *** empty log message ***
+ *
  * Revision 1.4  1996/05/06 11:34:56  hipp
  * fixed a few bugs
  *
@@ -34,6 +37,7 @@
  *
  */
 
+#include <linux/ppp_defs.h> /* for PPP_PROTOCOL */
 extern void isdn_ppp_timer_timeout(void);
 extern int  isdn_ppp_read(int , struct file *, char *, int);
 extern int  isdn_ppp_write(int , struct file *, const char *, int);

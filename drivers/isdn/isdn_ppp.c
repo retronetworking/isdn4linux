@@ -19,6 +19,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.15  1996/09/07 12:50:12  hipp
+ * bugfixes (unknown device after failed dial attempt, minor bugs)
+ *
  * Revision 1.14  1996/08/12 16:26:47  hipp
  * code cleanup
  * changed connection management from minors to slots
@@ -661,6 +664,8 @@ int isdn_ppp_write(int min, struct file *file,  const char *buf, int count)
 {
 	isdn_net_local *lp;
 	struct ippp_struct *is;
+        int proto;
+        unsigned char protobuf[4];
 
 	is = file->private_data;
 
@@ -674,7 +679,15 @@ int isdn_ppp_write(int min, struct file *file,  const char *buf, int count)
 	if (!lp)
 		printk(KERN_DEBUG "isdn_ppp_write: lp == NULL\n");
 	else {
-		lp->huptimer = 0;
+                /*
+                 * Don't reset huptimer for
+                 * LCP packets. (Echo requests).
+                 */
+                memcpy_fromfs(protobuf, buf, 4);
+                proto = PPP_PROTOCOL(protobuf);
+                if (proto != PPP_LCP)
+		        lp->huptimer = 0;
+
 		if (lp->isdn_device < 0 || lp->isdn_channel < 0)
 			return 0;
 
@@ -682,13 +695,13 @@ int isdn_ppp_write(int min, struct file *file,  const char *buf, int count)
 		    (lp->flags & ISDN_NET_CONNECTED)) {
 			struct sk_buff *skb;
 			skb = dev_alloc_skb(count);
-			if(!skb) {
+			if (!skb) {
 				printk(KERN_WARNING "isdn_ppp_write: out of memory!\n");
 				return count;
 			}
 			skb->free = 1;
 			memcpy_fromfs(skb_put(skb, count), buf, count);
-			if(isdn_writebuf_skb_stub(lp->isdn_device,lp->isdn_channel,skb) != count) {
+			if (isdn_writebuf_skb_stub(lp->isdn_device,lp->isdn_channel,skb) != count) {
 				if(lp->sav_skb) {
 					dev_kfree_skb(lp->sav_skb,FREE_WRITE);
 					printk(KERN_INFO "isdn_ppp_write: freeing sav_skb!\n");
@@ -1008,8 +1021,10 @@ static void isdn_ppp_push_higher(isdn_net_dev *net_dev, isdn_net_local *lp, stru
 
 	netif_rx(skb);
 /* net_dev->local.stats.rx_packets++; */ /* done in isdn_net.c */
+
 	/* Reset hangup-timer */
-	lp->huptimer = 0;
+        if (proto != PPP_LCP)
+	        lp->huptimer = 0;
 
 	return;
 }
