@@ -19,6 +19,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.40  1997/02/23 23:34:45  fritz
+ * Minor bugfixes in debugging code.
+ *
  * Revision 1.39  1997/02/23 16:21:56  fritz
  * Bugfix: Check for NULL pointer in icn_parse_status().
  *
@@ -521,6 +524,8 @@ static icn_stat icn_stat_table[] =
 	{"NO D-CHAN",      ISDN_STAT_NODCH, 0},	/* No D-channel available     */
 	{"E_L1: ACT FAIL", ISDN_STAT_BHUP,  8},	/* Layer-1 activation failed  */
 	{"E_L2: DATA LIN", ISDN_STAT_BHUP,  8},	/* Layer-2 data link lost     */
+	{"E_L1: ACTIVATION FAILED",
+					   ISDN_STAT_BHUP,  8},	/* Layer-1 activation failed  */
 	{NULL, 0, -1}
 };
 /* *INDENT-ON* */
@@ -619,6 +624,13 @@ icn_parse_status(u_char * status, int channel, icn_card * card)
 				strncpy(cmd.parm.num, status + 1, sizeof(cmd.parm.num) - 1);
 			break;
 		case 8:
+			dflag = 3;
+			card->flags &= ~ICN_FLAGS_B1ACTIVE;
+			icn_free_queue(&card->spqueue[0]);
+			save_flags(flags);
+			cli();
+			card->rcvidx[0] = 0;
+			restore_flags(flags);
 			cmd.arg = 0;
 			cmd.driver = card->myid;
 			card->interface.statcallb(&cmd);
@@ -627,6 +639,12 @@ icn_parse_status(u_char * status, int channel, icn_card * card)
 			cmd.driver = card->myid;
 			card->interface.statcallb(&cmd);
 			cmd.command = ISDN_STAT_BHUP;
+			card->flags &= ~ICN_FLAGS_B2ACTIVE;
+			icn_free_queue(&card->spqueue[1]);
+			save_flags(flags);
+			cli();
+			card->rcvidx[1] = 0;
+			restore_flags(flags);
 			cmd.arg = 1;
 			cmd.driver = card->myid;
 			card->interface.statcallb(&cmd);
