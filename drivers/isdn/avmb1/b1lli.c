@@ -6,6 +6,11 @@
  * (c) Copyright 1997 by Carsten Paeth (calle@calle.in-berlin.de)
  * 
  * $Log$
+ * Revision 1.1.2.2  1997/11/26 10:46:55  calle
+ * prepared for M1 (Mobile) and T1 (PMX) cards.
+ * prepared to set configuration after load to support other D-channel
+ * protocols, point-to-point and leased lines.
+ *
  * Revision 1.1.2.1  1997/07/13 12:16:46  calle
  * bug fix for more than one controller in connect_req.
  *
@@ -716,10 +721,9 @@ void B1_handle_interrupt(avmb1_card * card)
 		card->versionlen = B1_get_slice(card->port, card->versionbuf);
 		card->cardstate = CARD_ACTIVE;
 		parse_version(card);
-		printk(KERN_INFO "b1lli: %s-card (%s) with %s now active\n",
+		printk(KERN_INFO "b1lli: %s-card (%s) now active\n",
 		       card->version[VER_CARDTYPE],
-		       card->version[VER_DRIVER],
-		       card->version[VER_PROTO]);
+		       card->version[VER_DRIVER]);
 		avmb1_card_ready(card);
 		break;
 	default:

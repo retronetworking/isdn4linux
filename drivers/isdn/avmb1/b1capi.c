@@ -6,6 +6,9 @@
  * (c) Copyright 1997 by Carsten Paeth (calle@calle.in-berlin.de)
  * 
  * $Log$
+ * Revision 1.4.2.6  1997/12/08 06:58:41  calle
+ * correct typo.
+ *
  * Revision 1.4.2.5  1997/12/07 19:59:54  calle
  * more changes for M1/T1/B1 + config
  *
@@ -416,8 +419,12 @@ static void notify_handler(void *dummy)
 
 void avmb1_card_ready(avmb1_card * card)
 {
-	__u16 appl;
+        struct capi_profile *profp =
+			(struct capi_profile *)card->version[VER_PROFILE];
 	char *dversion = card->version[VER_DRIVER];
+	__u16 appl;
+	char *cardname, cname[20];
+	__u32 flag;
 
 	card->cversion.majorversion = 2;
 	card->cversion.minorversion = 0;
@@ -440,7 +447,40 @@ void avmb1_card_ready(avmb1_card * card)
 
         set_bit(CARDNR(card), &notify_up_set);
         queue_task(&tq_state_notify, &tq_scheduler);
-        printk(KERN_NOTICE "b1capi: card %d ready.\n", CARDNR(card));
+
+        flag = ((__u8 *)(profp->manu))[1];
+        switch (flag) {
+	case 0: cardname = "B1 ISA"; break;
+	case 3: cardname = "PCMCIA B"; break;
+	case 4: cardname = "PCMCIA M1"; break;
+	case 5: cardname = "PCMCIA M2"; break;
+	case 6: cardname = "B1 V3.0"; break;
+	case 7: cardname = "B1 PCI"; break;
+	default: cardname = cname; break;
+                 sprintf(cname, "%u", (unsigned int)flag);
+                 break;
+        }
+        printk(KERN_NOTICE "b1capi: card %d \"%s\" ready.\n",
+		CARDNR(card), cardname);
+        flag = ((__u8 *)(profp->manu))[3];
+        printk(KERN_NOTICE "b1capi: card %d Protocol:%s%s%s%s%s%s%s\n",
+		CARDNR(card),
+		(flag & 0x01) ? " DSS1" : "",
+		(flag & 0x02) ? " CT1" : "",
+		(flag & 0x04) ? " VN3" : "",
+		(flag & 0x08) ? " NI1" : "",
+		(flag & 0x10) ? " AUSTEL" : "",
+		(flag & 0x20) ? " ESS" : "",
+		(flag & 0x40) ? " 1TR6" : ""
+		);
+        flag = ((__u8 *)(profp->manu))[5];
+        printk(KERN_NOTICE "b1capi: card %d Linetype:%s%s%s%s\n",
+		CARDNR(card),
+		(flag & 0x01) ? " point to point" : "",
+		(flag & 0x02) ? " point to multipoint" : "",
+		(flag & 0x04) ? " leased line without D-channel" : "",
+		(flag & 0x08) ? " leased line with D-channel" : ""
+		);
 }
 
 static void avmb1_card_down(avmb1_card * card)
@@ -469,6 +509,16 @@ static void avmb1_card_down(avmb1_card * card)
 }
 
 /* ------------------------------------------------------------- */
+
+static char *cardtype2str(int cardtype)
+{
+	switch (cardtype) {
+		default:
+		case AVM_CARDTYPE_B1: return "B1";
+		case AVM_CARDTYPE_M1: return "M1";
+		case AVM_CARDTYPE_T1: return "T1";
+	}
+}
 
 int avmb1_addcard(int port, int irq, int cardtype)
 {
@@ -508,24 +558,24 @@ int avmb1_probecard(int port, int irq, int cardtype)
 		return -EIO;
 	}
 	if (!B1_valid_irq(irq, cardtype)) {
-		printk(KERN_WARNING "b1capi: irq %d not valid.\n", irq);
+		printk(KERN_WARNING "b1capi: irq %d not valid for %s-card.\n",
+				irq, cardtype2str(cardtype));
 		return -EIO;
 	}
 	if ((rc = B1_detect(port, cardtype)) != 0) {
-		printk(KERN_NOTICE "b1capi: NO card at 0x%x (%d)\n", port, rc);
+		printk(KERN_NOTICE "b1capi: NO %s-card at 0x%x (%d)\n",
+					  cardtype2str(cardtype), port, rc);
 		return -EIO;
 	}
 	B1_reset(port);
 	switch (cardtype) {
-	   	default:
-	   	case AVM_CARDTYPE_B1:
-	    		printk(KERN_NOTICE "b1capi: AVM-B1-Controller detected at 0x%x\n", port);
-			break;
+		default:
 	   	case AVM_CARDTYPE_M1:
-	    		printk(KERN_NOTICE "b1capi: AVM-M1-Controller detected at 0x%x\n", port);
+	   	case AVM_CARDTYPE_B1:
+	    		printk(KERN_NOTICE "b1capi: AVM-%s-Controller detected at 0x%x\n", cardtype2str(cardtype), port);
 			break;
 	   	case AVM_CARDTYPE_T1:
-	    		printk(KERN_NOTICE "b1capi: AVM-T1-Controller may be at 0x%x\n", port);
+	    		printk(KERN_NOTICE "b1capi: AVM-%s-Controller may be at 0x%x\n", cardtype2str(cardtype), port);
 			break;
 	}
 
@@ -740,8 +790,6 @@ static int capi_manufacturer(unsigned int cmd, void *data)
 					    sizeof(avmb1_extcarddef))))
 			   return rc;
 		}
-		if (!B1_valid_irq(cdef.irq, cdef.cardtype))
-			return -EINVAL;
 
 		if ((rc = avmb1_probecard(cdef.port, cdef.irq, cdef.cardtype)) != 0)
 			return rc;
