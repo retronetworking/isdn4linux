@@ -3,6 +3,9 @@
  *   Basic declarations, defines and prototypes
  *
  * $Log$
+ * Revision 2.35  1999/09/04 06:35:09  keil
+ * Winbond W6692 support
+ *
  * Revision 2.34  1999/08/25 17:00:04  keil
  * Make ISAR V32bis modem running
  * Make LL->HL interface open for additional commands
@@ -752,7 +755,8 @@ struct hfcPCI_hw {
 	unsigned char fifo;
         unsigned char fifo_en;
         unsigned char bswapped;
-  /*	unsigned int *send; */
+        unsigned char nt_mode;
+        int nt_timer;
 	unsigned char pci_bus;
         unsigned char pci_device_fn;
         unsigned char *pci_io; /* start of PCI IO memory */
