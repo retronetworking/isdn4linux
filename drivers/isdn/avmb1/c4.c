@@ -6,6 +6,9 @@
  * (c) Copyright 1999 by Carsten Paeth (calle@calle.in-berlin.de)
  * 
  * $Log$
+ * Revision 1.28  2001/01/22 10:26:03  calle
+ * - Didn't compile with 2.2.X (pci_resource_start not defined).
+ *
  * Revision 1.27  2000/12/10 22:51:05  kai
  * add pci_set_master
  * ioremap is handling unaligned regions since
@@ -98,7 +101,7 @@
  * - fixed problem with memory mapping if address is not aligned
  *
  * Revision 1.3  2000/01/25 14:37:39  calle
- * new message after successfull detection including card revision and
+ * new message after successful detection including card revision and
  * used resources.
  *
  * Revision 1.2  2000/01/21 20:52:58  keil
@@ -138,18 +141,6 @@ static char *revision = "$Revision$";
 #undef CONFIG_C4_POLLDEBUG
 
 /* ------------------------------------------------------------- */
-#ifndef PCI_VENDOR_ID_DEC
-#define PCI_VENDOR_ID_DEC      0x1011
-#endif
-#ifndef PCI_DEVICE_ID_DEC_21285
-#define PCI_DEVICE_ID_DEC_21285        0x1065
-#endif
-#ifndef PCI_VENDOR_ID_AVM
-#define PCI_VENDOR_ID_AVM      0x1244
-#endif
-#ifndef PCI_DEVICE_ID_AVM_C4
-#define PCI_DEVICE_ID_AVM_C4   0x0800
-#endif
 
 static int suppress_pollack;
 

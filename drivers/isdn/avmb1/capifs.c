@@ -6,6 +6,9 @@
  * Heavily based on devpts filesystem from H. Peter Anvin
  * 
  * $Log$
+ * Revision 1.16  2000/11/28 11:42:19  kai
+ * merged MODULE_DEV_TABLE changes
+ *
  * Revision 1.14.2.1  2000/11/26 17:47:53  kai
  * added PCI_DEV_TABLE for 2.4
  *
@@ -83,7 +86,7 @@
 #include <linux/kernel.h>
 #include <linux/locks.h>
 #include <linux/major.h>
-#include <linux/malloc.h>
+#include <linux/slab.h>
 #include <linux/ctype.h>
 #include <asm/bitops.h>
 #include <asm/uaccess.h>

@@ -7,7 +7,7 @@
  * 
  * Thanks to Dr. Neuhaus and SAGEM for informations
  *
- * This file is (c) under GNU PUBLIC LICENSE
+ * This file is (c) under GNU General Public License
  *
  */
 

@@ -12,7 +12,7 @@
 // code provided by Ragnar Paulson.
 //
 //
-// This file is (c) under GNU PUBLIC LICENSE
+// This file is (c) under GNU General Public License
 //
 //-----------------------------------------------------------------------------
 

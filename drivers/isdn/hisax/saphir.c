@@ -6,7 +6,7 @@
  *
  * Thanks to    HST High Soft Tech GmbH
  *
- * This file is (c) under GNU PUBLIC LICENSE
+ * This file is (c) under GNU General Public License
  *
  */
 

@@ -3,7 +3,7 @@
  * Author       Karsten Keil (keil@isdn4linux.de)
  *              based on the teles driver from Jan den Ouden
  *
- *		This file is (c) under GNU PUBLIC LICENSE
+ *		This file is (c) under GNU General Public License
  *		For changes and modifications please read
  *		../../../Documentation/isdn/HiSax.cert
  *
@@ -337,7 +337,7 @@ lli_go_active(struct FsmInst *fi, int event, void *arg)
  * RESUME
  */
 
-/* incomming call */
+/* incoming call */
 
 static void
 lli_deliver_call(struct FsmInst *fi, int event, void *arg)

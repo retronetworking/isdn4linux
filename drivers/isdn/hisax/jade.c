@@ -4,7 +4,7 @@
  *
  * Author   Roland Klabunde (R.Klabunde@Berkom.de)
  *
- * This file is (c) under GNU PUBLIC LICENSE
+ * This file is (c) under GNU General Public License
  *
  */
 

@@ -6,6 +6,9 @@
  * (c) Copyright 1999 by Carsten Paeth (calle@calle.in-berlin.de)
  * 
  * $Log$
+ * Revision 1.20  2001/01/22 10:26:03  calle
+ * - Didn't compile with 2.2.X (pci_resource_start not defined).
+ *
  * Revision 1.19  2000/12/10 22:51:05  kai
  * add pci_set_master
  * ioremap is handling unaligned regions since
@@ -115,12 +118,6 @@ static char *revision = "$Revision$";
 #undef CONFIG_T1PCI_POLLDEBUG
 
 /* ------------------------------------------------------------- */
-#ifndef PCI_VENDOR_ID_AVM
-#define PCI_VENDOR_ID_AVM      0x1244
-#endif
-#ifndef PCI_DEVICE_ID_AVM_T1
-#define PCI_DEVICE_ID_AVM_T1   0x1200
-#endif
 
 #ifndef COMPAT_HAS_2_2_PCI
 static struct pci_device_id t1pci_pci_tbl[] __initdata = {

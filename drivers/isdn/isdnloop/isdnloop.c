@@ -21,6 +21,7 @@
  */
 
 #include <linux/config.h>
+#include <linux/module.h>
 #include <linux/init.h>
 #include "isdnloop.h"
 
@@ -976,7 +977,7 @@ isdnloop_parse_cmd(isdnloop_card * card)
  *   user = flag: 1 = called form userlevel, 0 called from kernel.
  *   card = pointer to card struct.
  * Return:
- *   number of bytes transfered (currently always equals len).
+ *   number of bytes transferred (currently always equals len).
  */
 static int
 isdnloop_writecmd(const u_char * buf, int len, int user, isdnloop_card * card)

@@ -22,7 +22,7 @@
 
 #include <linux/string.h>
 #include <linux/kernel.h>
-#include <linux/malloc.h>
+#include <linux/slab.h>
 #include <linux/mm.h>
 
 #include <linux/isdn.h>
@@ -70,7 +70,7 @@ static unsigned char V110_OffMatrix_38400[] =
  * FlipBits reorders sequences of keylen bits in one byte.
  * E.g. source order 7654321 will be converted to 45670123 when keylen = 4,
  * and to 67452301 when keylen = 2. This is necessary because ordering on
- * the isdn line is the the other way.
+ * the isdn line is the other way.
  */
 static __inline unsigned char
 FlipBits(unsigned char c, int keylen)
@@ -608,7 +608,7 @@ isdn_v110_stat_callback(int idx, isdn_ctrl * c)
 					case ISDN_PROTO_L2_V11038:
 						dev->v110[idx] = isdn_v110_open(V110_38400, hdrlen, maxsize);
 						break;
-					default:
+					default:;
 				}
 				if ((v = dev->v110[idx])) {
 					while (v->SyncInit) {

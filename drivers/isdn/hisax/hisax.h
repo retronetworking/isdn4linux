@@ -2,7 +2,7 @@
  *
  *   Basic declarations, defines and prototypes
  *
- * This file is (c) under GNU PUBLIC LICENSE
+ * This file is (c) under GNU General Public License
  *
  */
 #include <linux/config.h>
@@ -16,7 +16,7 @@
 #include <linux/delay.h>
 #include <linux/kernel.h>
 #include <linux/signal.h>
-#include <linux/malloc.h>
+#include <linux/slab.h>
 #include <linux/mm.h>
 #include <linux/mman.h>
 #include <linux/ioport.h>
@@ -128,13 +128,13 @@
   #define l3dss1_process
   #include "l3dss1.h" 
   #undef  l3dss1_process
-#endif CONFIG_HISAX_EURO
+#endif /* CONFIG_HISAX_EURO */
 
 #ifdef CONFIG_HISAX_NI1
   #define l3ni1_process
   #include "l3ni1.h" 
   #undef  l3ni1_process
-#endif CONFIG_HISAX_NI1
+#endif /* CONFIG_HISAX_NI1 */
 
 #define MAX_DFRAME_LEN	260
 #define MAX_DFRAME_LEN_L1	300
@@ -320,10 +320,10 @@ struct PStack {
 	 { u_char uuuu; /* only as dummy */
 #ifdef CONFIG_HISAX_EURO
            dss1_stk_priv dss1; /* private dss1 data */
-#endif CONFIG_HISAX_EURO              
+#endif /* CONFIG_HISAX_EURO */              
 #ifdef CONFIG_HISAX_NI1
            ni1_stk_priv ni1; /* private ni1 data */
-#endif CONFIG_HISAX_NI1              
+#endif /* CONFIG_HISAX_NI1 */             
 	 } prot;
 };
 
@@ -344,10 +344,10 @@ struct l3_process {
 	 { u_char uuuu; /* only when euro not defined, avoiding empty union */
 #ifdef CONFIG_HISAX_EURO 
            dss1_proc_priv dss1; /* private dss1 data */
-#endif CONFIG_HISAX_EURO            
+#endif /* CONFIG_HISAX_EURO */            
 #ifdef CONFIG_HISAX_NI1
            ni1_proc_priv ni1; /* private ni1 data */
-#endif CONFIG_HISAX_NI1              
+#endif /* CONFIG_HISAX_NI1 */             
 	 } prot;
 };
 

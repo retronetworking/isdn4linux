@@ -26,7 +26,7 @@
 
 #include <asm/io.h>
 #include <asm/system.h>
-#include <linux/malloc.h>
+#include <linux/slab.h>
 #include <linux/pci.h>
 #include <linux/delay.h>
 #include <linux/isdn_compat.h>

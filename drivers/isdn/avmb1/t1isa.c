@@ -6,6 +6,10 @@
  * (c) Copyright 1999 by Carsten Paeth (calle@calle.in-berlin.de)
  * 
  * $Log$
+ * Revision 1.16  2000/11/23 20:45:14  kai
+ * fixed module_init/exit stuff
+ * Note: compiled-in kernel doesn't work pre 2.2.18 anymore.
+ *
  * Revision 1.15  2000/11/01 14:05:02  calle
  * - use module_init/module_exit from linux/init.h.
  * - all static struct variables are initialized with "membername:" now.
@@ -29,7 +33,7 @@
  * - fixed problem with memory mapping if address is not aligned
  *
  * Revision 1.9  2000/01/25 14:37:39  calle
- * new message after successfull detection including card revision and
+ * new message after successful detection including card revision and
  * used resources.
  *
  * Revision 1.8  1999/11/05 16:38:01  calle

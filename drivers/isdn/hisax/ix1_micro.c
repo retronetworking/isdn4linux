@@ -14,7 +14,7 @@
 
 /*
    For the modification done by the author the following terms and conditions
-   apply (GNU PUBLIC LICENSE)
+   apply (GNU General Public License)
 
 
    This program is free software; you can redistribute it and/or modify

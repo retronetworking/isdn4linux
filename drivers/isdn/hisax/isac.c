@@ -4,7 +4,7 @@
  *
  * Author       Karsten Keil (keil@isdn4linux.de)
  *
- *		This file is (c) under GNU PUBLIC LICENSE
+ *		This file is (c) under GNU General Public License
  *		For changes and modifications please read
  *		../../../Documentation/isdn/HiSax.cert
  */
@@ -445,7 +445,7 @@ isac_interrupt(struct IsdnCardState *cs, u_char val)
 				if (cs->debug & L1_DEB_MONITOR)
 					debugl1(cs, "ISAC %02x -> MOX1", cs->dc.isac.mon_tx[cs->dc.isac.mon_txp -1]);
 			}
-		      AfterMOX1:
+		      AfterMOX1:;
 #endif
 		}
 	}

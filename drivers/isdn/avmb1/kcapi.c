@@ -6,6 +6,9 @@
  * (c) Copyright 1999 by Carsten Paeth (calle@calle.in-berlin.de)
  * 
  * $Log$
+ * Revision 1.22  2000/12/11 00:10:33  kai
+ * add the tq_scheduler -> schedule_task change from 2.4
+ *
  * Revision 1.21  2000/11/23 20:45:14  kai
  * fixed module_init/exit stuff
  * Note: compiled-in kernel doesn't work pre 2.2.18 anymore.
@@ -816,7 +819,7 @@ static void controllercb_appl_released(struct capi_ctr * card, __u16 appl)
 	}
 }
 /*
- * ncci managment
+ * ncci management
  */
 
 static void controllercb_new_ncci(struct capi_ctr * card,

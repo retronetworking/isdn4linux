@@ -6,7 +6,7 @@
  *
  * Thanks to Traverse Technologie Australia for documents and informations
  *
- * This file is (c) under GNU PUBLIC LICENSE
+ * This file is (c) under GNU General Public License
  *
  */
 

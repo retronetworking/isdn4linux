@@ -6,7 +6,7 @@
  *
  * This is an include file for fast inline IRQ stuff
  *
- * This file is (c) under GNU PUBLIC LICENSE
+ * This file is (c) under GNU General Public License
  *
  */
 

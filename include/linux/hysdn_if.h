@@ -20,13 +20,20 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.1.8.1  2001/03/13 16:17:10  kai
+ * spelling fixes from 2.4.3-pre
+ *
+ * Revision 1.1  2000/02/10 19:47:50  werner
+ *
+ * Initial release
+ *
  *
  */
 
 /****************/
 /* error values */
 /****************/
-#define ERR_NONE             0 /* no error occured */
+#define ERR_NONE             0 /* no error occurred */
 #define ERR_ALREADY_BOOT  1000 /* we are already booting */
 #define EPOF_BAD_MAGIC    1001 /* bad magic in POF header */
 #define ERR_BOARD_DPRAM   1002 /* board DPRAM failed */

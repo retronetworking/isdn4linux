@@ -1,5 +1,4 @@
 /* $Id$
- *
  * bkm_a4t.c    low level stuff for T-Berkom A4T
  *              derived from the original file sedlbauer.c
  *              derived from the original file niccy.c
@@ -7,7 +6,7 @@
  *
  * Author       Roland Klabunde (R.Klabunde@Berkom.de)
  *
- * This file is (c) under GNU PUBLIC LICENSE
+ * This file is (c) under GNU General Public License
  *
  */
 

@@ -441,7 +441,7 @@ hysdn_net_release(hysdn_card * card)
 	if (card->debug_flags & LOG_NET_INIT)
 		hysdn_addlog(card, "network device deleted");
 
-	return (0);		/* always successfull */
+	return (0);		/* always successful */
 }				/* hysdn_net_release */
 
 /*****************************************************************************/

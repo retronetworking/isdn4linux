@@ -6,6 +6,9 @@
  * Copyright 1996 by Carsten Paeth (calle@calle.in-berlin.de)
  *
  * $Log$
+ * Revision 1.49  2001/01/29 13:13:44  calle
+ * - added compile info to revision output.
+ *
  * Revision 1.48  2001/01/25 14:58:56  calle
  * - insert ncci in list after registering to capifs, not before.
  *
@@ -227,7 +230,7 @@
 #include <linux/kernel.h>
 #include <linux/major.h>
 #include <linux/sched.h>
-#include <linux/malloc.h>
+#include <linux/slab.h>
 #include <linux/fcntl.h>
 #include <linux/fs.h>
 #include <linux/signal.h>

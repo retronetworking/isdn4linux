@@ -2,7 +2,7 @@
  *
  *  German 1TR6 D-channel protocol defines
  *
- * This file is (c) under GNU PUBLIC LICENSE
+ * This file is (c) under GNU General Public License
  *
  */
 #ifndef l3_1tr6

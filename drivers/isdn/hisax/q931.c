@@ -4,7 +4,7 @@
  *
  * Author       Jan den Ouden
  *
- * This file is (c) under GNU PUBLIC LICENSE
+ * This file is (c) under GNU General Public License
  *
  * Changelog
  *
@@ -1253,7 +1253,7 @@ dlogframe(struct IsdnCardState *cs, struct sk_buff *skb, int dir)
 				finish = 1;
 			}
 		} else if (sapi == TEI_SAPI) {
-			dp += sprintf(dp, "tei managment\n");
+			dp += sprintf(dp, "tei management\n");
 			finish = 1;
 		} else {
 			dp += sprintf(dp, "unknown sapi %d broadcast\n", sapi);

@@ -27,7 +27,7 @@
 #include <linux/version.h>
 #include <linux/poll.h>
 #include <linux/vmalloc.h>
-#include <linux/malloc.h>
+#include <linux/slab.h>
 #include <linux/pci.h>
 
 #include "hysdn_defs.h"
@@ -199,7 +199,7 @@ hysdn_getrev(const char *revision)
 /****************************************************************************/
 /* init_module is called once when the module is loaded to do all necessary */
 /* things like autodetect...                                                */
-/* If the return value of this function is 0 the init has been successfull  */
+/* If the return value of this function is 0 the init has been successful   */
 /* and the module is added to the list in /proc/modules, otherwise an error */
 /* is assumed and the module will not be kept in memory.                    */
 /****************************************************************************/
@@ -237,7 +237,7 @@ hysdn_init(void)
 
 /***********************************************************************/
 /* cleanup_module is called when the module is released by the kernel. */
-/* The routine is only called if init_module has been successfull and  */
+/* The routine is only called if init_module has been successful and   */
 /* the module counter has a value of 0. Otherwise this function will   */
 /* not be called. This function must release all resources still allo- */
 /* cated as after the return from this function the module code will   */

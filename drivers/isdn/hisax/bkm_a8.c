@@ -1,5 +1,4 @@
 /* $Id$
- *
  * bkm_a8.c     low level stuff for Scitel Quadro (4*S0, passive)
  *              derived from the original file sedlbauer.c
  *              derived from the original file niccy.c
@@ -7,7 +6,7 @@
  *
  * Author       Roland Klabunde (R.Klabunde@Berkom.de)
  *
- * This file is (c) under GNU PUBLIC LICENSE
+ * This file is (c) under GNU General Public License
  *
  */
 #define __NO_VERSION__

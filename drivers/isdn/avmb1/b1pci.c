@@ -6,6 +6,10 @@
  * (c) Copyright 1999 by Carsten Paeth (calle@calle.in-berlin.de)
  * 
  * $Log$
+ * Revision 1.36  2000/12/17 21:14:58  kai
+ * sync with kernel. std2kern hopefully takes care of the Makefile
+ * difference for the time being
+ *
  * Revision 1.35  2000/12/10 22:51:05  kai
  * add pci_set_master
  * ioremap is handling unaligned regions since
@@ -146,13 +150,6 @@
 static char *revision = "$Revision$";
 
 /* ------------------------------------------------------------- */
-
-#ifndef PCI_VENDOR_ID_AVM
-#define PCI_VENDOR_ID_AVM      0x1244
-#endif
-#ifndef PCI_DEVICE_ID_AVM_B1
-#define PCI_DEVICE_ID_AVM_B1   0x700
-#endif
 
 #ifndef COMPAT_HAS_2_2_PCI
 static struct pci_device_id b1pci_pci_tbl[] __initdata = {
