@@ -3,6 +3,10 @@
  *   Basic declarations, defines and prototypes
  *
  * $Log$
+ * Revision 2.0  1997/06/26 11:06:27  keil
+ * New card and L1 interface.
+ * Eicon.Diehl Diva and Dynalink IS64PH support
+ *
  * Revision 1.13  1997/04/06 22:54:12  keil
  * Using SKB's
  *
@@ -29,12 +33,12 @@
 #include <linux/isdnif.h>
 #include <linux/tty.h>
 
-#define PH_ACTIVATE   1
-#define PH_DATA       2
-#define PH_DEACTIVATE 3
-
-#define MDL_ASSIGN	4
-#define DL_UNIT_DATA	5
+#define PH_ACTIVATE	1
+#define PH_DATA		2
+#define PH_DEACTIVATE	3
+#define PH_TEST_LOOP	4
+#define MDL_ASSIGN	5
+#define DL_UNIT_DATA	6
 #define CC_ESTABLISH	7
 #define DL_ESTABLISH	8
 #define DL_DATA		9
@@ -106,48 +110,9 @@
 #define CC_CONNECT_ERR		72
 #define CC_RELEASE_ERR		73
 
-/*
- * Message-Types
- */
-
-#define MT_ALERTING            0x01
-#define MT_CALL_PROCEEDING     0x02
-#define MT_CONNECT             0x07
-#define MT_CONNECT_ACKNOWLEDGE 0x0f
-#define MT_PROGRESS            0x03
-#define MT_SETUP               0x05
-#define MT_SETUP_ACKNOWLEDGE   0x0d
-#define MT_RESUME              0x26
-#define MT_RESUME_ACKNOWLEDGE  0x2e
-#define MT_RESUME_REJECT       0x22
-#define MT_SUSPEND             0x25
-#define MT_SUSPEND_ACKNOWLEDGE 0x2d
-#define MT_SUSPEND_REJECT      0x21
-#define MT_USER_INFORMATION    0x20
-#define MT_DISCONNECT          0x45
-#define MT_RELEASE             0x4d
-#define MT_RELEASE_COMPLETE    0x5a
-#define MT_RESTART             0x46
-#define MT_RESTART_ACKNOWLEDGE 0x4e
-#define MT_SEGMENT             0x60
-#define MT_CONGESTION_CONTROL  0x79
-#define MT_INFORMATION         0x7b
-#define MT_FACILITY            0x62
-#define MT_NOTIFY              0x6e
-#define MT_STATUS              0x7d
-#define MT_STATUS_ENQUIRY      0x75
-
-#define IE_CAUSE               0x08
-
-struct HscxIoctlArg {
-	int channel;
-	int mode;
-	int transbufsize;
-};
-
 #ifdef __KERNEL__
 
-#define MAX_DFRAME_LEN	3072
+#define MAX_DFRAME_LEN	 260
 #define HSCX_BUFMAX	4096
 #define MAX_DATA_SIZE	(HSCX_BUFMAX - 4)
 #define MAX_DATA_MEM    (HSCX_BUFMAX * 2)
@@ -185,20 +150,25 @@ struct FsmTimer {
 };
 
 struct L3Timer {
-	struct PStack *st;
+	struct l3_process *pc;
 	struct timer_list tl;
 	int event;
 };
 
 struct Layer1 {
 	void *hardware;
-	int hscx;
+	struct BCState *bcs;
 	struct PStack **stlistp;
 	int act_state;
 	void (*l1l2) (struct PStack *, int, void *);
 	void (*l1man) (struct PStack *, int, void *);
-	int hscxmode, hscxchannel, requestpull;
+	void (*l1tei) (struct PStack *, int, void *);
+	int mode, bc, requestpull;
 };
+
+#define GROUP_TEI	127
+#define TEI_SAPI	63
+#define CTRL_SAPI	0
 
 /* Layer2 Flags */
 
@@ -215,56 +185,59 @@ struct Layer1 {
 #define FLG_PEER_BUSY	0x0800
 
 struct Layer2 {
-	int sap, tei, ces, ri;
+	int tei;
+	int tei_wanted;
+	int sap;
 	unsigned int flag;
-	int uihsize, ihsize;
 	int vs, va, vr;
+	int rc;
+	int window;
+	int sow;
+	struct sk_buff *windowar[MAX_WINDOW];
 	struct sk_buff_head i_queue;
 	struct sk_buff_head ui_queue;
-	int window, orig;
-	int debug;
-	struct sk_buff *windowar[MAX_WINDOW];
-	int sow;
-	struct FsmInst l2m;
 	void (*l2l1) (struct PStack *, int, void *);
 	void (*l2man) (struct PStack *, int, void *);
 	void (*l2l3) (struct PStack *, int, void *);
 	void (*l2tei) (struct PStack *, int, void *);
-	struct FsmTimer t200_timer, t203_timer;
-	int t200, n200, t203;
-	int rc;
+	struct FsmInst l2m;
+	struct FsmTimer t200, t203;
+	int T200, N200, T203;
+	int debug;
 	char debug_id[32];
 };
 
 struct Layer3 {
-	void (*l3l4) (struct PStack *, int, void *);
+	void (*l3l4) (struct l3_process *, int, void *);
 	void (*l3l2) (struct PStack *, int, void *);
-	int state, callref;
-	struct L3Timer timer;
-	int t303, t304, t305, t308, t310, t313, t318, t319;
-	int n_t303;
+	struct l3_process *proc;
+	int N303;
 	int debug;
-	int channr;
 };
 
-struct Layer4 {
+struct LLInterface {
 	void (*l4l3) (struct PStack *, int, void *);
 	void *userdata;
 	void (*l1writewakeup) (struct PStack *);
 	void (*l2writewakeup) (struct PStack *);
 };
 
+
 struct Management {
+	int	ri;
+	struct FsmInst tei_m;
+	struct FsmTimer t202;
+	int T202, N202, debug;
 	void (*layer) (struct PStack *, int, void *);
 	void (*manl1) (struct PStack *, int, void *);
 	void (*manl2) (struct PStack *, int, void *);
 };
 
+
 struct Param {
 	int cause;
 	int loc;
 	int bchannel;
-	int callref;		/* Callreferenz Number */
 	setup_parm setup;	/* from isdnif.h numbers and Serviceindicator */
 	int chargeinfo;		/* Charge Info - only for 1tr6 in
 				 * the moment
@@ -272,36 +245,74 @@ struct Param {
 	int spv;		/* SPV Flag */
 };
 
+
 struct PStack {
 	struct PStack *next;
 	struct Layer1 l1;
 	struct Layer2 l2;
 	struct Layer3 l3;
-	struct Layer4 l4;
+	struct LLInterface lli; 
 	struct Management ma;
-	struct Param *pa;
 	int protocol;		/* EDSS1 or 1TR6 */
 };
 
-struct HscxState {
-	int inuse, init, active;
-	struct IsdnCardState *sp;
-	int hscx, mode;
-	u_char *rcvbuf;		/* B-Channel receive Buffer */
-	int rcvidx;		/* B-Channel receive Buffer Index */
-	struct sk_buff *tx_skb;	/* B-Channel transmit Buffer */
+struct l3_process {
+	int callref;
+	int state;
+	struct L3Timer timer;
+	int N303;
+	int debug;
+	struct Param para;
+	struct Channel *chan;
+	struct PStack *st;
+	struct l3_process *next;
+};
+
+struct hscx_hw {
+	int rcvidx;
+	int count;              /* Current skb sent count */
+	u_char *rcvbuf;         /* B-Channel receive Buffer */
+	struct sk_buff *tx_skb; /* B-Channel transmit Buffer */
+};
+
+struct hfc_hw {
+	int rcvidx;
+	int count;              /* Current skb sent count */
+	u_char *rcvbuf;         /* B-Channel receive Buffer */
+	struct sk_buff *tx_skb; /* B-Channel transmit Buffer */
+};
+
+#define BC_FLG_INIT	0x01
+#define BC_FLG_ACTIV	0x02
+#define BC_FLG_BUSY	0x04
+
+#define L1_MODE_NULL     0
+#define L1_MODE_TRANS    1
+#define L1_MODE_HDLC     2
+
+struct BCState {
+	int channel;
+	int mode;
+	int Flag;
+	struct IsdnCardState *cs;
 	int tx_cnt;		/* B-Channel transmit counter */
-	int count;		/* Current skb sent count */
 	struct sk_buff_head rqueue;	/* B-Channel receive Queue */
-	struct sk_buff_head squeue;	/* B-Channel receive Queue */
+	struct sk_buff_head squeue;	/* B-Channel send Queue */
 	struct PStack *st;
 	struct tq_struct tqueue;
 	int event;
+	int  (*BC_SetStack) (struct PStack *, struct BCState *);
+	void (*BC_Close) (struct BCState *);
+	union {
+		struct hscx_hw hscx;
+		struct hfc_hw  hfc;
+	} hw;
 };
 
 struct LcFsm {
-	struct FsmInst lcfi;
 	int type;
+	int delay;
+	struct FsmInst lcfi;
 	struct Channel *ch;
 	void (*lccall) (struct LcFsm *, int, void *);
 	struct PStack *st;
@@ -312,25 +323,25 @@ struct LcFsm {
 };
 
 struct Channel {
-	struct PStack ds, is;
-	struct IsdnCardState *sp;
-	int hscx;
+	struct PStack *b_st, *d_st;
+	struct IsdnCardState *cs;
+	struct BCState *bcs;
 	int chan;
 	int incoming;
 	struct FsmInst fi;
 	struct LcFsm lc_d, lc_b;
-	struct Param para;
 	struct FsmTimer drel_timer, dial_timer;
 	int debug;
 	int l2_protocol, l2_active_protocol;
-	int l2_primitive, l2_headersize;
 	int data_open;
-	int outcallref;
+	struct l3_process *proc;
+	setup_parm setup;	/* from isdnif.h numbers and Serviceindicator */
 	int Flags;		/* for remembering action done in l4 */
 	int leased;
 };
 
 #define HW_IOM1	1
+#define FLG_TWO_DCHAN 0x10
 
 struct elsa_hw {
 	unsigned int base;
@@ -399,7 +410,23 @@ struct dyna_hw {
 	unsigned int pots;
 };
 
+struct ti_hw {
+	unsigned int data;
+	unsigned int stat;
+	unsigned char cirm;
+	unsigned char ctmt;
+	unsigned char cip;
+};
 
+
+
+#define HW_IOM1	1
+#define FLG_TWO_DCHAN 0x10
+
+#define FLG_L1TIMER       0xf00
+#define FLG_L1TIMER_ACT   0x100
+#define FLG_L1TIMER_DEACT 0x200
+#define FLG_L1TIMER_DBUSY 0x400
 
 struct IsdnCardState {
 	unsigned char typ;
@@ -415,6 +442,7 @@ struct IsdnCardState {
 		struct ix1_hw ix1;
 		struct diva_hw diva;
 		struct dyna_hw dyna;
+		struct ti_hw ti;
 	} hw;
 	int myid;
 	isdn_if iif;
@@ -426,11 +454,12 @@ struct IsdnCardState {
 	void   (*writeisac) (struct IsdnCardState *, u_char, u_char);
 	void   (*readisacfifo) (struct IsdnCardState *, u_char *, int);
 	void   (*writeisacfifo) (struct IsdnCardState *, u_char *, int);
-	u_char (*readhscx) (struct IsdnCardState *, int, u_char);
-	void   (*writehscx) (struct IsdnCardState *, int, u_char, u_char);
-	void   (*hscx_fill_fifo) (struct HscxState *);
+	u_char (*BC_Read_Reg) (struct IsdnCardState *, int, u_char);
+	void   (*BC_Write_Reg) (struct IsdnCardState *, int, u_char, u_char);
+	void   (*BC_Send_Data) (struct BCState *);
 	void   (*cardmsg) (struct IsdnCardState *, int, void *);
 	struct Channel channel[2];
+	struct BCState bcs[2];
 	struct PStack *stlist;
 	u_char *rcvbuf;
 	int rcvidx;
@@ -438,12 +467,12 @@ struct IsdnCardState {
 	int tx_cnt;
 	int event;
 	struct tq_struct tqueue;
+	struct timer_list t3;
+	struct timer_list l1timer;
 	int ph_active;
 	struct sk_buff_head rq, sq; /* D-channel queues */
 	int cardnr;
 	int ph_state;
-	struct PStack *teistack;
-	struct HscxState hs[2];
 	int dlogflag;
 	char *dlogspace;
 	int debug;
@@ -467,8 +496,9 @@ struct IsdnCardState {
 #define  ISDN_CTYPE_ELSA_PCMCIA	10
 #define  ISDN_CTYPE_DIEHLDIVA   11
 #define  ISDN_CTYPE_DYNALINK    12
+#define  ISDN_CTYPE_TELEINT	13
 
-#define  ISDN_CTYPE_COUNT	12
+#define  ISDN_CTYPE_COUNT	13
 
 #ifdef	CONFIG_HISAX_16_0
 #define  CARD_TELES0 (1<< ISDN_CTYPE_16_0) | (1<< ISDN_CTYPE_8_0)
@@ -515,16 +545,26 @@ struct IsdnCardState {
 #define CARD_DYNALINK 0
 #endif
 
+#ifdef  CONFIG_HISAX_TELEINT
+#define CARD_TELEINT (1 << ISDN_CTYPE_TELEINT)
+#else
+#define CARD_TELEINT 0
+#endif
+
 
 
 #define  SUPORTED_CARDS  (CARD_TELES0 | CARD_TELES3 | CARD_AVM_A1 | CARD_ELSA \
-			 | CARD_IX1MICROR2 | CARD_DIEHLDIVA | CARD_DYNALINK)
+			 | CARD_IX1MICROR2 | CARD_DIEHLDIVA | CARD_DYNALINK \
+			 | CARD_TELEINT)
+
+#define TEI_PER_CARD 0
+
 
 struct IsdnCard {
 	int typ;
 	int protocol;		/* EDSS1 or 1TR6 */
 	unsigned int para[3];
-	struct IsdnCardState *sp;
+	struct IsdnCardState *cs;
 };
 
 void setstack_isdnl2(struct PStack *st, char *debug_id);
@@ -538,11 +578,10 @@ void HiSax_addlist(struct IsdnCardState *sp, struct PStack *st);
 void releasestack_isdnl2(struct PStack *st);
 void releasestack_isdnl3(struct PStack *st);
 void HiSax_rmlist(struct IsdnCardState *sp, struct PStack *st);
-void newcallref(struct PStack *st);
 
-int setstack_hscx(struct PStack *st, struct HscxState *hs);
 u_char *findie(u_char * p, int size, u_char ie, int wanted_set);
 int getcallref(u_char * p);
+int newcallref(void);
 
 void FsmNew(struct Fsm *fsm, struct FsmNode *fnlist, int fncount);
 void FsmFree(struct Fsm *fsm);
@@ -566,7 +605,6 @@ void dlogframe(struct IsdnCardState *sp, u_char * p, int size, char *comment);
 void iecpy(u_char * dest, u_char * iestart, int ieoffset);
 void setstack_transl2(struct PStack *st);
 void releasestack_transl2(struct PStack *st);
-void close_hscxstate(struct HscxState *);
 void setstack_tei(struct PStack *st);
 void setstack_manager(struct PStack *st);
 
