@@ -10,6 +10,9 @@
  * goes to another -- device related -- concap_proto support source file.
  *
  * $Log$
+ * Revision 1.2  1998/01/31 22:49:22  keil
+ * correct comments
+ *
  * Revision 1.1  1998/01/31 22:27:58  keil
  * New files from Henner Eisen for X.25 support
  *
@@ -204,7 +207,7 @@ int isdn_x25iface_receive(struct concap_proto *cprot, struct sk_buff *skb)
 		}
 	}
 	printk(KERN_WARNING "isdn_x25iface_receive %s: not connected, skb dropped\n", MY_DEVNAME(cprot->net_dev) );
-	dev_kfree_skb(skb,FREE_READ);
+	dev_kfree_skb(skb);
 	return -1;
 }
 
@@ -329,6 +332,6 @@ int isdn_x25iface_xmit(struct concap_proto *cprot, struct sk_buff *skb)
 		printk(KERN_WARNING "isdn_x25iface_xmit: frame with illegal"
 		       " first byte %x ignored:\n", firstbyte);
 	}
-	dev_kfree_skb(skb,FREE_WRITE);
+	dev_kfree_skb(skb);
 	return 0;
 }
