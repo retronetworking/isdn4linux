@@ -21,6 +21,10 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.48.2.11  1998/05/07 19:54:53  detabc
+ * bugfix in abc_delayed_hangup
+ * optimize keepalive-tests for abc_rawip
+ *
  * Revision 1.48.2.10  1998/05/06 08:34:04  detabc
  * change ICMP_HOST_UNREACH to ICMP_NET_UNREACH (only abc-ext.)
  * set dev->tbusy to zero in isdn_net_unreachable() (only abc-ext.)
@@ -307,12 +311,12 @@ isdn_net_unreachable(struct device *dev, struct sk_buff *skb, char *reason)
 
 	if(skb != NULL) {
 
-		printk(KERN_DEBUG "isdn_net: %s: %s, send ICMP\n",
+		printk(KERN_DEBUG "isdn_net: %s: %s, send ICMP !\n",
 			   dev->name, (reason != NULL) ? reason : "reason unknown");
 
 		icmp_send(skb, ICMP_DEST_UNREACH,
 #ifdef CONFIG_ISDN_WITH_ABC
-			ICMP_NET_UNREACH,
+			ICMP_NET_UNKNOWN,
 #else
 			ICMP_HOST_UNREACH,
 #endif
@@ -841,7 +845,7 @@ isdn_net_stat_callback(int idx, int cmd)
 abc_next_dchannel:;
 
 				if(dev->abc_not_avail_jiffies[idx]  < jiffies) 
-					dev->abc_not_avail_jiffies[idx] = jiffies + HZ * 10;
+					dev->abc_not_avail_jiffies[idx] = jiffies + HZ * 20;
 
 				if (lp->dialstate > 3) {
 
@@ -933,9 +937,12 @@ isdn_net_dial(void)
 		if (p->local.dialstate)
 			printk(KERN_DEBUG "%s: dialstate=%d\n", p->local.name, p->local.dialstate);
 #endif
+
 		switch (p->local.dialstate) {
 			case 0:
 #ifdef CONFIG_ISDN_WITH_ABC
+
+abc_nodchan_redial:;
 
 				if(p->local.abc_flags & ABC_NODCHAN) {
 
@@ -961,9 +968,9 @@ isdn_net_dial(void)
 							lp->pre_device,
 							lp->pre_channel)) < 0) {
 
-							printk(KERN_DEBUG
-							"ABC_REDIAL: No channel for %s\n",
-							lp->name);
+							isdn_net_unreachable(&p->dev, 
+								p->local.first_skb, 
+								"ABC_REDIAL: No free channel");
 
 
 					} else {
@@ -1156,6 +1163,12 @@ isdn_net_dial(void)
 								p->local.first_skb = skb;
 								restore_flags(flags);
 								p->local.abc_call_disabled = 0;
+								p->local.abc_flags |= ABC_NODCHAN;
+
+								/*
+								** try once more with a new channel (redial)
+								*/
+								goto abc_nodchan_redial;
 
 							} else isdn_net_hangup(&p->dev);
 
@@ -1749,7 +1762,7 @@ isdn_net_start_xmit(struct sk_buff *skb, struct device *ndev)
 
 			abc_clear_tx_que(lp);
 
-			icmp_send(skb, ICMP_DEST_UNREACH, ICMP_NET_UNREACH, 0
+			icmp_send(skb, ICMP_DEST_UNREACH, ICMP_NET_UNKNOWN, 0
 #if (LINUX_VERSION_CODE < 0x02010f)	/* 2.1.15 */
 				,ndev
 #endif
