@@ -6,6 +6,11 @@
  * (c) Copyright 1997 by Carsten Paeth (calle@calle.in-berlin.de)
  * 
  * $Log$
+ * Revision 1.8  1998/06/17 19:51:16  he
+ * merged with 2.1.10[34] (cosmetics and udelay() -> mdelay())
+ * brute force fix to avoid Ugh's in isdn_tty_write()
+ * cleaned up some dead code
+ *
  * Revision 1.7  1998/03/29 16:06:02  calle
  * changes from 2.0 tree merged.
  *
@@ -103,13 +108,13 @@ int b1pci_init(void)
 		printk(KERN_INFO
 			"b1pci: PCI BIOS reports AVM-B1 at i/o %#x, irq %d\n",
 			ioaddr, irq);
-		if ((rc = avmb1_probecard(ioaddr, irq, AVM_CARDTYPE_B1)) != 0) {
+		if ((rc = avmb1_probecard(ioaddr, irq, AVM_CARDTYPE_B1PCI)) != 0) {
 		        printk(KERN_ERR
 			"b1pci: no AVM-B1 at i/o %#x, irq %d detected\n",
 			ioaddr, irq);
 			return rc;
 		}
-		if ((rc = avmb1_addcard(ioaddr, irq, AVM_CARDTYPE_B1)) < 0)
+		if ((rc = avmb1_addcard(ioaddr, irq, AVM_CARDTYPE_B1PCI)) < 0)
 			return rc;
 	}
 	return 0;

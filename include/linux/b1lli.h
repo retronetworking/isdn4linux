@@ -6,6 +6,9 @@
  * Copyright 1996 by Carsten Paeth (calle@calle.in-berlin.de)
  *
  * $Log$
+ * Revision 1.5  1998/10/25 14:50:28  fritz
+ * Backported from MIPS (Cobalt).
+ *
  * Revision 1.4  1998/03/29 16:05:02  calle
  * changes from 2.0 tree merged.
  *
@@ -86,10 +89,11 @@ typedef struct avmb1_carddef {
 	int irq;
 } avmb1_carddef;
 
-#define AVM_CARDTYPE_B1	0
-#define AVM_CARDTYPE_T1	1
-#define AVM_CARDTYPE_M1	2
-#define AVM_CARDTYPE_M2	3
+#define AVM_CARDTYPE_B1		0
+#define AVM_CARDTYPE_T1		1
+#define AVM_CARDTYPE_M1		2
+#define AVM_CARDTYPE_M2		3
+#define AVM_CARDTYPE_B1PCI	4
 
 typedef struct avmb1_extcarddef {
 	int port;

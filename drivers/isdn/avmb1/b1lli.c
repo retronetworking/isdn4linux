@@ -6,6 +6,9 @@
  * (c) Copyright 1997 by Carsten Paeth (calle@calle.in-berlin.de)
  * 
  * $Log$
+ * Revision 1.9  1999/01/05 18:33:23  he
+ * merged remaining 2.2pre{1,2} changes (jiffies and Config)
+ *
  * Revision 1.8  1998/10/25 14:39:00  fritz
  * Backported from MIPS (Cobalt).
  *
@@ -471,6 +474,8 @@ int B1_valid_irq(unsigned irq, int cardtype)
 	   	return irq_table[irq & 0xf] != 0;
 	   case AVM_CARDTYPE_T1:
 	   	return hema_irq_table[irq & 0xf] != 0;
+	   case AVM_CARDTYPE_B1PCI:
+		return 1;
 	}
 }
 
@@ -493,6 +498,8 @@ int B1_valid_port(unsigned port, int cardtype)
 #else
 		return 1;
 #endif
+	   case AVM_CARDTYPE_B1PCI:
+		return 1;
 	   case AVM_CARDTYPE_T1:
 		return ((port & 0x7) == 0) && ((port & 0x30) != 0x30);
    }
@@ -506,6 +513,7 @@ void B1_setinterrupt(unsigned int base,
               t1outp(base, B1_INSTAT, 0x00);
               t1outp(base, B1_INSTAT, 0x02);
 	      t1outp(base, T1_IRQMASTER, 0x08);
+	      break;
 	   default:
 	   case AVM_CARDTYPE_M1:
 	   case AVM_CARDTYPE_M2:
@@ -513,6 +521,12 @@ void B1_setinterrupt(unsigned int base,
 	      b1outp(base, B1_INSTAT, 0x00);
 	      b1outp(base, B1_RESET, irq_table[irq]);
 	      b1outp(base, B1_INSTAT, 0x02);
+	      break;
+	   case AVM_CARDTYPE_B1PCI:
+	      b1outp(base, B1_INSTAT, 0x00);
+	      b1outp(base, B1_RESET, 0xf0);
+	      b1outp(base, B1_INSTAT, 0x02);
+	      break;
 	 }
 }
 

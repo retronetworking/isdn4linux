@@ -6,6 +6,9 @@
  * (c) Copyright 1997 by Carsten Paeth (calle@calle.in-berlin.de)
  * 
  * $Log$
+ * Revision 1.13  1999/01/05 18:29:31  he
+ * merged remaining schedule_timeout() changes from 2.1.127
+ *
  * Revision 1.12  1998/10/25 14:38:58  fritz
  * Backported from MIPS (Cobalt).
  *
@@ -182,10 +185,11 @@ static char *cardtype2str(int cardtype)
 {
 	switch (cardtype) {
 		default:
-		case AVM_CARDTYPE_B1: return "B1";
-		case AVM_CARDTYPE_M1: return "M1";
-		case AVM_CARDTYPE_M2: return "M2";
-		case AVM_CARDTYPE_T1: return "T1";
+		case AVM_CARDTYPE_B1:    return "B1-ISA";
+		case AVM_CARDTYPE_B1PCI: return "B1-PCI";
+		case AVM_CARDTYPE_M1:    return "M1";
+		case AVM_CARDTYPE_M2:    return "M2";
+		case AVM_CARDTYPE_T1:    return "T1";
 	}
 }
 
@@ -636,6 +640,7 @@ int avmb1_detectcard(int port, int irq, int cardtype)
 	   	case AVM_CARDTYPE_M1:
 	   	case AVM_CARDTYPE_M2:
 	   	case AVM_CARDTYPE_B1:
+	   	case AVM_CARDTYPE_B1PCI:
 	    		printk(KERN_NOTICE "b1capi: AVM-%s-Controller detected at 0x%x\n", cardtype2str(cardtype), port);
 			break;
 	   	case AVM_CARDTYPE_T1:
