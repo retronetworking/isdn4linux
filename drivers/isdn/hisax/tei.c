@@ -7,6 +7,9 @@
  *              Fritz Elfert
  *
  * $Log$
+ * Revision 1.2  1996/12/08 19:52:39  keil
+ * minor debug fix
+ *
  * Revision 1.1  1996/10/13 20:04:57  keil
  * Initial revision
  *
@@ -48,13 +51,96 @@ findtei(struct PStack *st, int tei)
 	return (NULL);
 }
 
-void 
+static void
+mdl_unit_data_res(struct PStack *st, unsigned int ri, byte mt, byte ai )
+{
+    struct BufHeader *ibh;
+    byte *bp;
+
+    if (BufPoolGet(&ibh, st->l1.smallpool, GFP_ATOMIC, (void *) st, 7))
+	return ;
+    bp = DATAPTR(ibh);
+    bp += 3;
+    bp[0] = 0xf;
+    bp[1] = ri >> 8;
+    bp[2] = ri & 0xff;
+    bp[3] = mt ;
+    bp[4] = ( ai << 1) | 1;
+    ibh->datasize = 8;
+    st->l3.l3l2(st, DL_UNIT_DATA, ibh);
+}
+
+static void
+mdl_unit_data_ind(struct PStack *st, unsigned int ri, byte mt, byte ai )
+{
+    unsigned int    tces;
+    struct PStack  *otsp, *ptr;
+
+    switch (mt) {
+	case (2):
+	    tces = ri ;
+	    if (st->l3.debug)
+		printk(KERN_DEBUG "tei identity assigned for %d=%d\n",
+					tces, ai );
+	    if ((otsp = findces(st, tces)))
+		otsp->ma.teil2(otsp, MDL_ASSIGN, (void *)(int)ai );
+	    break;
+	case (4):
+	    if (st->l3.debug)
+		printk(KERN_DEBUG "checking identity for %d\n", ai );
+	    if (ai == 0x7f) {
+		ptr = *(st->l1.stlistp);
+		while (ptr) {
+		    if ((ptr->l2.tei & 0x7f) != 0x7f) {
+			/* send identity check response (user->network) */
+			mdl_unit_data_res( st, ptr->l2.ces, 5, ptr->l2.tei );
+		    }
+		    ptr = ptr->next;
+		}
+	    } else {
+		otsp = findtei(st, ai);
+		if (!otsp)
+		    break;
+		if (st->l3.debug)
+		    printk(KERN_DEBUG "ces is %d\n", otsp->l2.ces);
+		/* send identity check response (user->network) */
+		mdl_unit_data_res( st, otsp->l2.ces, 5, otsp->l2.tei );
+	    }
+	    break;
+	case (6) :
+	    if( st->l3.debug ) {
+		printk(KERN_DEBUG "tei removal for %d\n", ai );
+	    }
+	    if (ai == 0x7f) {
+		ptr = *(st->l1.stlistp);
+		while (ptr) {
+		    if ((ptr->l2.tei & 0x7f) != 0x7f) {
+			if (st->l3.debug)
+			    printk(KERN_DEBUG "rem ces is %d\n", ptr->l2.ces);
+			ptr->ma.teil2(ptr, MDL_REMOVE, 0 );
+		    }
+		    ptr = ptr->next;
+		}
+	    } else {
+		otsp = findtei(st, ai);
+		if (!otsp)
+		    break;
+		if (st->l3.debug)
+		    printk(KERN_DEBUG "rem ces is %d\n", otsp->l2.ces);
+		otsp->ma.teil2(otsp, MDL_REMOVE, 0 );
+	    }
+	    break ;
+	default:
+	    if (st->l3.debug)
+		printk(KERN_DEBUG "tei message unknown %d ai %d\n", mt, ai );
+    }
+}
+
+void
 tei_handler(struct PStack *st,
 	    byte pr, struct BufHeader *ibh)
 {
 	byte           *bp;
-	unsigned int    tces;
-	struct PStack  *otsp, *ptr;
 	unsigned int    data;
 
 	if (st->l2.debug)
@@ -77,76 +163,23 @@ tei_handler(struct PStack *st,
 		  st->l3.l3l2(st, DL_UNIT_DATA, ibh);
 		  break;
 	  case (DL_UNIT_DATA):
-		  bp = DATAPTR(ibh);
-		  bp += 3;
-		  if (bp[0] != 0xf)
-			  break;
-		  switch (bp[3]) {
-		    case (2):
-			    tces = (bp[1] << 8) | bp[2];
-			    BufPoolRelease(ibh);
-			    if (st->l3.debug)
-				    printk(KERN_DEBUG "tei identity assigned for %d=%d\n", tces,
-					   bp[4] >> 1);
-			    if ((otsp = findces(st, tces)))
-				    otsp->ma.teil2(otsp, MDL_ASSIGN,
-						   (void *)(bp[4] >> 1));
-			    break;
-		    case (4):
-			    if (st->l3.debug)
-				    printk(KERN_DEBUG "checking identity for %d\n", bp[4] >> 1);
-			    if (bp[4] >> 1 == 0x7f) {
-				    BufPoolRelease(ibh);
-				    ptr = *(st->l1.stlistp);
-				    while (ptr) {
-					    if ((ptr->l2.tei & 0x7f) != 0x7f) {
-						    if (BufPoolGet(&ibh, st->l1.smallpool, GFP_ATOMIC, (void *) st, 7))
-							    break;
-						    bp = DATAPTR(ibh);
-						    bp += 3;
-						    bp[0] = 0xf;
-						    bp[1] = ptr->l2.ces >> 8;
-						    bp[2] = ptr->l2.ces & 0xff;
-						    bp[3] = 0x5;
-						    bp[4] = (ptr->l2.tei << 1) | 1;
-						    ibh->datasize = 8;
-						    st->l3.l3l2(st, DL_UNIT_DATA, ibh);
-					    }
-					    ptr = ptr->next;
-				    }
-			    } else {
-				    otsp = findtei(st, bp[4] >> 1);
-				    BufPoolRelease(ibh);
-				    if (!otsp)
-					    break;
-				    if (st->l3.debug)
-					    printk(KERN_DEBUG "ces is %d\n", otsp->l2.ces);
-				    if (BufPoolGet(&ibh, st->l1.smallpool, GFP_ATOMIC, (void *) st, 7))
-					    break;
-				    bp = DATAPTR(ibh);
-				    bp += 3;
-				    bp[0] = 0xf;
-				    bp[1] = otsp->l2.ces >> 8;
-				    bp[2] = otsp->l2.ces & 0xff;
-				    bp[3] = 0x5;
-				    bp[4] = (otsp->l2.tei << 1) | 1;
-				    ibh->datasize = 8;
-				    st->l3.l3l2(st, DL_UNIT_DATA, ibh);
-			    }
-			    break;
-		    default:
-			    BufPoolRelease(ibh);
-			    if (st->l3.debug)
-				    printk(KERN_DEBUG "tei message unknown %d ai %d\n", bp[3], bp[4] >> 1);
-		  }
-		  break;
+		bp = DATAPTR(ibh);
+		bp += 3;
+		if (bp[0] != 0xf) {
+		    /* wrong management entity identifier, ignore */
+		    /* shouldn't ibh be released??? */
+		    break ;
+		}
+		mdl_unit_data_ind( st, (bp[1] << 8) | bp[2], bp[3], bp[4] >> 1 );
+		BufPoolRelease(ibh);
+		break;
 	  default:
 		  printk(KERN_WARNING "tei handler unknown primitive %d\n", pr);
 		  break;
 	}
 }
 
-unsigned int 
+unsigned int
 randomces(void)
 {
 	int             x = jiffies & 0xffff;
@@ -154,13 +187,13 @@ randomces(void)
 	return (x);
 }
 
-static void 
+static void
 tei_man(struct PStack *sp, int i, void *v)
 {
 	printk(KERN_DEBUG "tei_man\n");
 }
 
-static void 
+static void
 tei_l2tei(struct PStack *st, int pr, void *arg)
 {
 	struct IsdnCardState *sp = st->l1.hardware;
@@ -168,13 +201,13 @@ tei_l2tei(struct PStack *st, int pr, void *arg)
 	tei_handler(sp->teistack, pr, arg);
 }
 
-void 
+void
 setstack_tei(struct PStack *st)
 {
 	st->l2.l2tei = tei_l2tei;
 }
 
-static void 
+static void
 init_tei(struct IsdnCardState *sp, int protocol)
 {
 	struct PStack  *st;
@@ -212,7 +245,8 @@ init_tei(struct IsdnCardState *sp, int protocol)
 	sprintf(tmp, "Card %d tei ", sp->cardnr+1);
 	setstack_isdnl2(st, tmp);
 	st->l2.debug = 0;
-	st->l3.debug = 0;
+/* SGY 	st->l3.debug = 0; */
+	st->l3.debug = 0xff ;
 
 	st->ma.manl2(st, MDL_NOTEIPROC, NULL);
 
@@ -220,12 +254,12 @@ init_tei(struct IsdnCardState *sp, int protocol)
 	st->l1.l1man = tei_man;
 	st->l2.l2man = tei_man;
 	st->l4.l2writewakeup = NULL;
-	
+
 	HiSax_addlist(sp, st);
 	sp->teistack = st;
 }
 
-static void 
+static void
 release_tei(struct IsdnCardState *sp)
 {
 	struct PStack  *st = sp->teistack;
@@ -234,7 +268,7 @@ release_tei(struct IsdnCardState *sp)
 	Sfree((void *) st);
 }
 
-void 
+void
 TeiNew(void)
 {
 	int             i;
@@ -244,7 +278,7 @@ TeiNew(void)
 			init_tei(cards[i].sp, cards[i].protocol);
 }
 
-void 
+void
 TeiFree(void)
 {
 	int             i;
