@@ -1,9 +1,11 @@
 /* $Id$
  *
  * $Log$
+ * Revision 1.1  1996/04/13 10:25:16  fritz
+ * Initial revision
+ *
  *
  */
-#define DEBUG_1TR6 0
 
 char           *
 mt_trans(int pd, int mt)
@@ -15,15 +17,15 @@ mt_trans(int pd, int mt)
 			if (mt == mtdesc_n0[i].mt)
 				return (mtdesc_n0[i].descr);
 		}
-		return ("unkown Message Type PD=N0");
+		return ("unknown Message Type PD=N0");
 	} else if (pd == PROTO_DIS_N1) {
 		for (i = 0; i < (sizeof(mtdesc_n1) / sizeof(struct MTypeDesc)); i++) {
 			if (mt == mtdesc_n1[i].mt)
 				return (mtdesc_n1[i].descr);
 		}
-		return ("unkown Message Type PD=N1");
+		return ("unknown Message Type PD=N1");
 	}
-	return ("unkown Protokolldiscriminator");
+	return ("unknown Protokolldiscriminator");
 }
 
 static void
@@ -106,14 +108,14 @@ l3_1tr6_tu_setup(struct PStack *st, byte pr, void *arg)
 	byte           *p;
 	struct BufHeader *ibh = arg;
 
-#if DEBUG_1TR6
-	printk(KERN_INFO "1tr6: TU_SETUP\n");
-#endif
-
 	p = DATAPTR(ibh);
 	p += st->l2.uihsize;
 	st->pa->callref = getcallref(p);
 	st->l3.callref = 0x80 + st->pa->callref;
+
+#if DEBUG_1TR6
+        printk(KERN_INFO "1tr6: TU_SETUP cr=%d\n",st->l3.callref);
+#endif
 
 	/*
          * Channel Identification
@@ -149,10 +151,14 @@ l3_1tr6_tu_setup(struct PStack *st, byte pr, void *arg)
 
 	BufPoolRelease(ibh);
 
-	if (st->pa->info == 7) {
-		newl3state(st, 6);
-		st->l3.l3l4(st, CC_SETUP_IND, NULL);
+        /* Signal all services, linklevel takes care of Service-Indicator */
+	if (st->pa->info != 7) {
+                printk(KERN_INFO "non-digital call: %s -> %s\n",
+                       st->pa->calling,
+                       st->pa->called);
 	}
+        newl3state(st, 6);
+        st->l3.l3l4(st, CC_SETUP_IND, NULL);
 }
 
 static void
@@ -418,13 +424,14 @@ static void
 l3_1tr6_disconn_req(struct PStack *st, byte pr, void *arg)
 {
 	struct BufHeader *dibh;
-	byte           *p;
+	byte             *p;
+        byte             rejflg;
 
 #if DEBUG_1TR6
 	printk(KERN_INFO "1tr6: send DISCON\n");
 #endif
 
-	BufPoolGet(&dibh, st->l1.sbufpool, GFP_ATOMIC, (void *) st, 20);
+	BufPoolGet(&dibh, st->l1.sbufpool, GFP_ATOMIC, (void *) st, 21);
 	p = DATAPTR(dibh);
 	p += st->l2.ihsize;
 
@@ -433,14 +440,25 @@ l3_1tr6_disconn_req(struct PStack *st, byte pr, void *arg)
 	*p++ = st->l3.callref;
 	*p++ = MT_N1_DISC;
 
-	*p++ = WE0_cause;
-	*p++ = 0x0;		/* Laenge = 0 normales Ausloesen */
+        if (st->l3.state == 7) {
+                rejflg = 1;
+                *p++ = WE0_cause;       /* Anruf abweisen                */
+                *p++ = 0x01;            /* Laenge = 1                    */
+                *p++ = CAUSE_CallRejected;
+        } else {
+                rejflg = 0;
+                *p++ = WE0_cause;
+                *p++ = 0x0;             /* Laenge = 0 normales Ausloesen */
+        }
 
 	dibh->datasize = p - DATAPTR(dibh);
 
 	i_down(st, dibh);
 
-	newl3state(st, 11);
+        if (rejflg)
+                newl3state(st, 0);
+        else
+                newl3state(st, 11);
 }
 
 static void
@@ -455,11 +473,13 @@ l3_1tr6_rel_req(struct PStack *st, byte pr, void *arg)
 static struct stateentry downstatelist_1tr6t[] =
 {
 	{0, CC_SETUP_REQ, l3_1tr6_setup},
+	{4, CC_DISCONNECT_REQ, l3_1tr6_disconn_req},
 	{6, CC_REJECT_REQ, l3_1tr6_ignore},
 	{6, CC_SETUP_RSP, l3_1tr6_conn},
 	{6, CC_ALERTING_REQ, l3_1tr6_alert},
 	{7, CC_SETUP_RSP, l3_1tr6_conn},
 	{7, CC_DISCONNECT_REQ, l3_1tr6_disconn_req},
+        {7, CC_DLRL, l3_1tr6_disconn_req},
 	{8, CC_DISCONNECT_REQ, l3_1tr6_disconn_req},
 	{10, CC_DISCONNECT_REQ, l3_1tr6_disconn_req},
 	{12, CC_RELEASE_REQ, l3_1tr6_rel_req}
