@@ -14,6 +14,9 @@
  *              for ELSA PCMCIA support
  *
  * $Log$
+ * Revision 2.16  1999/08/10 16:01:51  calle
+ * struct pci_dev changed in 2.3.13. Made the necessary changes.
+ *
  * Revision 2.15  1999/08/09 19:25:21  keil
  * Support (alpha version) for the '98 model of ELSA Microlink ISDN/MC
  * by Christer Weinigel, Cendio Systems AB <wingel@cendio.se>
@@ -1008,7 +1011,7 @@ setup_elsa(struct IsdnCard *card)
 		cs->hw.elsa.base = card->para[1];
 		cs->irq = card->para[0];
 		val = readreg(cs->hw.elsa.base + 0, cs->hw.elsa.base + 2, IPAC_ID);
-		if ((val == 0) || (val == 2)) { /* IPAC version 1.1/1.2 */
+		if ((val == 1) || (val == 2)) { /* IPAC version 1.1/1.2 */
 			cs->subtyp = ELSA_PCMCIA_IPAC;
 			cs->hw.elsa.ale = cs->hw.elsa.base + 0;
 			cs->hw.elsa.isac = cs->hw.elsa.base + 2;
@@ -1040,28 +1043,18 @@ setup_elsa(struct IsdnCard *card)
 			 dev_qs1000))) {
 				cs->subtyp = ELSA_QS1000PCI;
 			cs->irq = dev_qs1000->irq;
-#if LINUX_VERSION_CODE < KERNEL_VERSION(2,3,13)
-			cs->hw.elsa.cfg = dev_qs1000->base_address[1] & 
+			cs->hw.elsa.cfg = get_pcibase(dev_qs1000, 1) & 
 				PCI_BASE_ADDRESS_IO_MASK;
-			cs->hw.elsa.base = dev_qs1000->base_address[3] & 
+			cs->hw.elsa.base = get_pcibase(dev_qs1000, 3) & 
 				PCI_BASE_ADDRESS_IO_MASK;
-#else
-			cs->hw.elsa.cfg = dev_qs1000->resource[1].start;
-			cs->hw.elsa.base = dev_qs1000->resource[3].start;
-#endif
 		} else if ((dev_qs3000 = pci_find_device(PCI_VENDOR_ELSA,
 			PCI_QS3000_ID, dev_qs3000))) {
 			cs->subtyp = ELSA_QS3000PCI;
 			cs->irq = dev_qs3000->irq;
-#if LINUX_VERSION_CODE < KERNEL_VERSION(2,3,13)
-			cs->hw.elsa.cfg = dev_qs3000->base_address[1] & 
+			cs->hw.elsa.cfg = get_pcibase(dev_qs3000, 1) & 
 				PCI_BASE_ADDRESS_IO_MASK;
-			cs->hw.elsa.base = dev_qs3000->base_address[3] & 
+			cs->hw.elsa.base = get_pcibase(dev_qs3000, 3) & 
 				PCI_BASE_ADDRESS_IO_MASK;
-#else
-			cs->hw.elsa.cfg = dev_qs3000->resource[1].start;
-			cs->hw.elsa.base = dev_qs3000->resource[3].start;
-#endif
 		} else {
 			printk(KERN_WARNING "Elsa: No PCI card found\n");
 			return(0);
