@@ -986,6 +986,7 @@ dw_abc_lcr_next_click:;
 					i = isdn_dc2minor(lp->isdn_device, lp->isdn_channel);
 					if (i >= 0) {
 						strcpy(dev->num[i], cmd.parm.setup.phone);
+						dev->usage[i] |= ISDN_USAGE_OUTGOING;
 						isdn_info_update();
 					}
 #ifdef CONFIG_ISDN_WITH_ABC
