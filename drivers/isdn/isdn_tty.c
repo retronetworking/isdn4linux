@@ -20,6 +20,11 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.14  1996/06/03 20:12:19  fritz
+ * Fixed typos.
+ * Added call to write_wakeup via isdn_tty_flush_buffer()
+ * in isdn_tty_modem_hup().
+ *
  * Revision 1.13  1996/05/31 01:33:29  fritz
  * Changed buffering due to bad performance with mgetty.
  * Now sk_buff is delayed allocated in isdn_tty_senddown
@@ -1103,7 +1108,7 @@ static int isdn_tty_ioctl(struct tty_struct *tty, struct file *file,
                         return isdn_tty_set_modem_info(info, cmd, (uint *) arg);
                 case TIOCSERGETLSR:	/* Get line status register */
 #ifdef ISDN_DEBUG_MODEM_IOCTL
-                        printk(KERN_DEBUG "ttyI%d ioctl TIOSERGETLSR\n", info->line);
+                        printk(KERN_DEBUG "ttyI%d ioctl TIOCSERGETLSR\n", info->line);
 #endif
                         error = verify_area(VERIFY_WRITE, (void *) arg, sizeof(uint));
                         if (error)
