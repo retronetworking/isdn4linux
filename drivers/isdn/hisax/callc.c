@@ -7,6 +7,9 @@
  *              Fritz Elfert
  *
  * $Log$
+ * Revision 1.22  1997/02/27 13:51:55  keil
+ * Reset B-channel (dlc) statemachine in every release
+ *
  * Revision 1.21  1997/02/19 09:24:27  keil
  * Bugfix: Hangup to LL if a ttyI rings
  *
@@ -307,18 +310,18 @@ static inline void
 l4_deliver_cause(struct Channel *chanp)
 {
 	isdn_ctrl ic;
-	
-	if (chanp->para.cause<0)
+
+	if (chanp->para.cause < 0)
 		return;
 	ic.driver = chanp->sp->myid;
 	ic.command = ISDN_STAT_CAUSE;
 	ic.arg = chanp->chan;
 	if (chanp->sp->protocol == ISDN_PTYPE_EURO)
-		sprintf(ic.parm.num, "E%02X%02X", chanp->para.loc,
-			chanp->para.cause);
+		sprintf(ic.parm.num, "E%02X%02X", chanp->para.loc & 0x7f,
+			chanp->para.cause & 0x7f);
 	else
-		sprintf(ic.parm.num, "%02X%02X", chanp->para.loc,
-			chanp->para.cause);
+		sprintf(ic.parm.num, "%02X%02X", chanp->para.loc & 0x7f,
+			chanp->para.cause & 0x7f);
 	chanp->sp->iif.statcallb(&ic);
 }
 
@@ -328,15 +331,11 @@ l4_deliver_cause(struct Channel *chanp)
 static void
 l4_prep_dialout(struct FsmInst *fi, int event, void *arg)
 {
-	isdn_ctrl *ic = arg;
 	struct Channel *chanp = fi->userdata;
 
 	FsmChangeState(fi, ST_OUT_WAIT_D);
 	FsmDelTimer(&chanp->drel_timer, 60);
 	FsmDelTimer(&chanp->dial_timer, 73);
-	chanp->para.setup = ic->parm.setup;
-	if (!strcmp(chanp->para.setup.eazmsn, "0"))
-		chanp->para.setup.eazmsn[0] = '\0';
 
 	chanp->l2_active_protocol = chanp->l2_protocol;
 	chanp->incoming = 0;
@@ -966,11 +965,11 @@ l4_active_dlrl(struct FsmInst *fi, int event, void *arg)
 			link_debug(chanp, "STAT_DHUP", 0);
 		RESBIT(chanp->Flags, FLG_LL_DCONN);
 		if (chanp->sp->protocol == ISDN_PTYPE_EURO) {
-			chanp->para.cause  = 0x2f;
-			chanp->para.loc    = 0;
+			chanp->para.cause = 0x2f;
+			chanp->para.loc = 0;
 		} else {
-			chanp->para.cause  = 0x70;
-			chanp->para.loc    = 0;
+			chanp->para.cause = 0x70;
+			chanp->para.loc = 0;
 		}
 		l4_deliver_cause(chanp);
 		ic.driver = chanp->sp->myid;
@@ -1055,12 +1054,6 @@ static struct FsmNode fnlist[] =
 	{ST_WAIT_DSHUTDOWN,	EV_SETUP_IND,		l4_start_dchan},
 };
 /* *INDENT-ON* */
-
-
-
-
-
-
 
 
 #define FNCOUNT (sizeof(fnlist)/sizeof(struct FsmNode))
@@ -1189,6 +1182,7 @@ static struct FsmNode LcFnList[] =
 	{ST_LC_ESTABLISH_WAIT,	EV_LC_DL_RELEASE,	lc_r5},
 };
 /* *INDENT-ON* */
+
 
 
 
@@ -1731,16 +1725,19 @@ HiSax_command(isdn_ctrl * ic)
 			if (chanp->debug & 1) {
 				sprintf(tmp, "DIAL %s -> %s (%d,%d)",
 					ic->parm.setup.eazmsn, ic->parm.setup.phone,
-					ic->parm.setup.si1, ic->parm.setup.si2);
+				 ic->parm.setup.si1, ic->parm.setup.si2);
 				link_debug(chanp, tmp, 1);
 			}
+			chanp->para.setup = ic->parm.setup;
+			if (!strcmp(chanp->para.setup.eazmsn, "0"))
+				chanp->para.setup.eazmsn[0] = '\0';
 			/* this solution is dirty and may be change, if
 			 * we make a callreference based callmanager */
 			if (chanp->fi.state == ST_NULL) {
-				FsmEvent(&chanp->fi, EV_DIAL, ic);
+				FsmEvent(&chanp->fi, EV_DIAL, NULL);
 			} else {
 				FsmDelTimer(&chanp->dial_timer, 70);
-				FsmAddTimer(&chanp->dial_timer, 50, EV_DIAL, ic, 71);
+				FsmAddTimer(&chanp->dial_timer, 50, EV_DIAL, NULL, 71);
 			}
 			break;
 		case (ISDN_CMD_ACCEPTB):
@@ -1854,7 +1851,7 @@ HiSax_command(isdn_ctrl * ic)
 				case (11):
 					csta->debug = *(unsigned int *) ic->parm.num;
 					sprintf(tmp, "l1 debugging flags card %d set to %x\n",
-						csta->cardnr + 1, csta->debug);
+					  csta->cardnr + 1, csta->debug);
 					HiSax_putstatus(cards[0].sp, tmp);
 					printk(KERN_DEBUG "HiSax: %s", tmp);
 					break;
