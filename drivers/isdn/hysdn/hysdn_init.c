@@ -20,6 +20,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.3  2000/06/13 09:15:07  ualbrecht
+ * Module will now unload more gracefully.
+ *
  * Revision 1.2  2000/05/17 11:41:30  ualbrecht
  * CAPI 2.0 support added
  *
@@ -80,14 +83,16 @@ search_cards(void)
 {
 	struct pci_dev *akt_pcidev = NULL;
 	hysdn_card *card, *card_last;
-	uchar irq;
 	int i;
 
 	card_root = NULL;
 	card_last = NULL;
 	while ((akt_pcidev = pci_find_device(PCI_VENDOR_ID_HYPERCOPE, PCI_DEVICE_ID_PLX,
 					     akt_pcidev)) != NULL) {
-
+#ifndef COMPAT_HAS_2_2_PCI
+		if (pci_enable_device(akt_pcidev))
+			continue;
+#endif
 		if (!(card = kmalloc(sizeof(hysdn_card), GFP_KERNEL))) {
 			printk(KERN_ERR "HYSDN: unable to alloc device mem \n");
 			return;
@@ -96,12 +101,11 @@ search_cards(void)
 		card->myid = cardmax;	/* set own id */
 		card->bus = akt_pcidev->bus->number;
 		card->devfn = akt_pcidev->devfn;	/* slot + function */
-		pcibios_read_config_word(card->bus, card->devfn, PCI_SUBSYSTEM_ID, &card->subsysid);
-		pcibios_read_config_byte(card->bus, card->devfn, PCI_INTERRUPT_LINE, &irq);
-		card->irq = irq;
-		card->iobase = get_pcibase(akt_pcidev, PCI_REG_PLX_IO_BASE) & PCI_BASE_ADDRESS_IO_MASK;
-		card->plxbase = get_pcibase(akt_pcidev, PCI_REG_PLX_MEM_BASE);
-		card->membase = get_pcibase(akt_pcidev, PCI_REG_MEMORY_BASE);
+		pci_get_sub_system(akt_pcidev,card->subsysid);
+		card->irq = akt_pcidev->irq;
+		card->iobase = pci_resource_start_io(akt_pcidev, PCI_REG_PLX_IO_BASE);
+		card->plxbase = pci_resource_start_mem(akt_pcidev, PCI_REG_PLX_MEM_BASE);
+		card->membase = pci_resource_start_mem(akt_pcidev, PCI_REG_MEMORY_BASE);
 		card->brdtype = BD_NONE;	/* unknown */
 		card->debug_flags = DEF_DEB_FLAGS;	/* set default debug */
 		card->faxchans = 0;	/* default no fax channels */

@@ -20,6 +20,12 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.4  2000/06/13 09:13:06  ualbrecht
+ * Changed internal application handling: Registration is now deferred
+ * until a CAPI-message is actually sent to the controller (no good
+ * wasting memory on the card if it's never used anyways).
+ * Module will now unload more gracefully.
+ *
  * Revision 1.2  2000/05/22 10:31:22  ualbrecht
  * Parameter-checking for app-registration fixed
  *
@@ -214,7 +220,6 @@ send a LISTEN_REQ (if there has been such a thing )
 static void hycapi_restart_internal(struct capi_ctr *ctrl)
 {
 	int i;
-	hycapictrl_info *cinfo = (hycapictrl_info *)(ctrl->driverdata);
 #ifdef HYCAPI_PRINTFNAMES
 	printk(KERN_WARNING "HYSDN: hycapi_restart_internal");
 #endif
@@ -317,7 +322,6 @@ void
 hycapi_release_appl(struct capi_ctr *ctrl, __u16 appl)
 {
 	int chk;
-	hycapictrl_info *cinfo = (hycapictrl_info *)(ctrl->driverdata);
 
 	chk = _hycapi_appCheck(appl, ctrl->cnr);
 	if(chk<0) {
@@ -397,7 +401,6 @@ firmware-releases that do not check the MsgLen-Indication!
 void hycapi_send_message(struct capi_ctr *ctrl, struct sk_buff *skb)
 {
 	__u16 appl_id;
-	hycapictrl_info *cinfo = (hycapictrl_info *)(ctrl->driverdata);
 	int _len, _len2;
 	__u8 msghead[64];
 	
@@ -719,7 +722,7 @@ attach the capi-driver to the kernel-capi.
 int hycapi_init()
 {
 	struct capi_driver *driver;
-	int i,j;
+	int i;
 	if(hy_di) {
 		printk(KERN_NOTICE "HyDI allready set\n");
 		return 0;

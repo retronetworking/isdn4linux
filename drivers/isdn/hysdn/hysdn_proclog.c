@@ -20,6 +20,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.5  2000/04/23 14:18:36  kai
+ * merge changes from main tree
+ *
  * Revision 1.4  2000/03/03 16:37:12  kai
  * incorporated some cosmetic changes from the official kernel tree back
  * into CVS
@@ -47,8 +50,6 @@
 #include <linux/pci.h>
 
 #include "hysdn_defs.h"
-
-static char *hysdn_proclog_revision = "$Revision$";
 
 /* the proc subdir for the interface is defined in the procconf module */
 extern struct proc_dir_entry *hysdn_proc_entry;
