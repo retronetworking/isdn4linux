@@ -2,10 +2,13 @@
  *
  *  specific routines for CCD's HFC 2BDS0
  *
- * Author       Karsten Keil (keil@temic-ech.spacenet.de)
+ * Author       Karsten Keil (keil@isdn4linux.de)
  *
  *
  * $Log$
+ * Revision 1.10  1999/10/14 20:25:28  keil
+ * add a statistic for error monitoring
+ *
  * Revision 1.9  1999/07/01 08:11:35  keil
  * Common HiSax version for 2.0, 2.1, 2.2 and 2.3 kernel
  *

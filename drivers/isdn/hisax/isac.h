@@ -2,10 +2,14 @@
 
  * isac.h   ISAC specific defines
  *
- * Author       Karsten Keil (keil@temic-ech.spacenet.de)
+ * Author       Karsten Keil (keil@isdn4linux.de)
  *
  *
  * $Log$
+ * Revision 1.5  1998/05/25 12:58:03  keil
+ * HiSax golden code from certification, Don't use !!!
+ * No leased lines, no X75, but many changes.
+ *
  * Revision 1.4  1997/10/29 19:09:34  keil
  * new L1
  *

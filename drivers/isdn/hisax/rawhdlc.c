@@ -2,7 +2,7 @@
 
  * rawhdlc.c     support routines for cards that don't support HDLC
  *
- * Author     Karsten Keil (keil@temic-ech.spacenet.de)
+ * Author     Karsten Keil (keil@isdn4linux.de)
  *            Brent Baccala <baccala@FreeSoft.org>
  *
  *

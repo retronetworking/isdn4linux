@@ -4,13 +4,16 @@
  *
  *              based on the teles driver from Jan den Ouden
  *
- * Author       Karsten Keil (keil@temic-ech.spacenet.de)
+ * Author       Karsten Keil (keil@isdn4linux.de)
  *
  * Thanks to    Jan den Ouden
  *              Fritz Elfert
  *              Beat Doebeli
  *
  * $Log$
+ * Revision 2.13  1999/08/30 12:01:28  keil
+ * HW version v1.3 support
+ *
  * Revision 2.12  1999/07/12 21:05:32  keil
  * fix race in IRQ handling
  * added watchdog for lost IRQs

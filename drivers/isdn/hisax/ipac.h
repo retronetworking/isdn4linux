@@ -2,10 +2,13 @@
 
  * ipac.h   IPAC specific defines
  *
- * Author       Karsten Keil (keil@temic-ech.spacenet.de)
+ * Author       Karsten Keil (keil@isdn4linux.de)
  *
  *
  * $Log$
+ * Revision 1.3  1998/04/15 16:48:09  keil
+ * IPAC_ATX added
+ *
  * Revision 1.2  1997/10/29 18:51:21  keil
  * New files
  *

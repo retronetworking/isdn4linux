@@ -2,11 +2,14 @@
 
  * arcofi.h   Ansteuerung ARCOFI 2165
  *
- * Author     Karsten Keil (keil@temic-ech.spacenet.de)
+ * Author     Karsten Keil (keil@isdn4linux.de)
  *
  *
  *
  * $Log$
+ * Revision 1.4  1999/07/01 08:11:18  keil
+ * Common HiSax version for 2.0, 2.1, 2.2 and 2.3 kernel
+ *
  * Revision 1.3  1998/05/25 12:57:39  keil
  * HiSax golden code from certification, Don't use !!!
  * No leased lines, no X75, but many changes.

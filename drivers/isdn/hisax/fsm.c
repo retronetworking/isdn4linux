@@ -1,12 +1,15 @@
 /* $Id$
 
- * Author       Karsten Keil (keil@temic-ech.spacenet.de)
+ * Author       Karsten Keil (keil@isdn4linux.de)
  *              based on the teles driver from Jan den Ouden
  *
  * Thanks to    Jan den Ouden
  *              Fritz Elfert
  *
  * $Log$
+ * Revision 1.10  1998/11/15 23:54:39  keil
+ * changes from 2.0
+ *
  * Revision 1.9  1998/03/26 07:10:02  paul
  * The jumpmatrix table in struct Fsm was an array of "int". This is not
  * large enough for pointers to functions on Linux/Alpha (instant crash

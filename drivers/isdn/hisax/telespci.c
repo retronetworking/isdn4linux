@@ -3,10 +3,13 @@
  * telespci.c     low level stuff for Teles PCI isdn cards
  *
  * Author       Ton van Rosmalen 
- *              Karsten Keil (keil@temic-ech.spacenet.de)
+ *              Karsten Keil (keil@isdn4linux.de)
  *
  *
  * $Log$
+ * Revision 2.10  1999/11/15 14:20:05  keil
+ * 64Bit compatibility
+ *
  * Revision 2.9  1999/08/11 21:01:34  keil
  * new PCI codefix
  *

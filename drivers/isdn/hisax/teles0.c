@@ -3,13 +3,16 @@
  * teles0.c     low level stuff for Teles Memory IO isdn cards
  *              based on the teles driver from Jan den Ouden
  *
- * Author       Karsten Keil (keil@temic-ech.spacenet.de)
+ * Author       Karsten Keil (keil@isdn4linux.de)
  *
  * Thanks to    Jan den Ouden
  *              Fritz Elfert
  *              Beat Doebeli
  *
  * $Log$
+ * Revision 2.10  1999/11/14 23:37:03  keil
+ * new ISA memory mapped IO
+ *
  * Revision 2.9  1999/07/12 21:05:31  keil
  * fix race in IRQ handling
  * added watchdog for lost IRQs

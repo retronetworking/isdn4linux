@@ -2,11 +2,15 @@
 
  * arcofi.c   Ansteuerung ARCOFI 2165
  *
- * Author     Karsten Keil (keil@temic-ech.spacenet.de)
+ * Author     Karsten Keil (keil@isdn4linux.de)
  *
  *
  *
  * $Log$
+ * Revision 1.9  1999/12/19 13:09:41  keil
+ * changed TASK_INTERRUPTIBLE into TASK_UNINTERRUPTIBLE for
+ * signal proof delays
+ *
  * Revision 1.8  1999/08/25 16:50:51  keil
  * Fix bugs which cause 2.3.14 hangs (waitqueue init)
  *

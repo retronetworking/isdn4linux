@@ -2,10 +2,13 @@
 
  * hscx.h   HSCX specific defines
  *
- * Author       Karsten Keil (keil@temic-ech.spacenet.de)
+ * Author       Karsten Keil (keil@isdn4linux.de)
  *
  *
  * $Log$
+ * Revision 1.4  1998/04/15 16:45:34  keil
+ * new init code
+ *
  * Revision 1.3  1997/07/27 21:38:35  keil
  * new B-channel interface
  *
