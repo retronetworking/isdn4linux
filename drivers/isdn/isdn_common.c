@@ -21,6 +21,11 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.12  1996/05/17 03:55:43  fritz
+ * Changed DLE handling for audio receive.
+ * Some cleanup.
+ * Added display of isdn_audio_revision.
+ *
  * Revision 1.11  1996/05/11 21:51:32  fritz
  * Changed queue management to use sk_buffs.
  *
@@ -742,7 +747,7 @@ int isdn_readbchan(int di, int channel, u_char * buf, u_char * fp, int len, int 
 			skb_pull(skb,count_pull);
                         skb->lock = 0;
                 }
-		dev->drv[di]->rcvcount[channel] -= count;
+		dev->drv[di]->rcvcount[channel] -= count_put;
 	}
 	return count;
 }
