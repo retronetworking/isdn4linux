@@ -350,4 +350,12 @@ else
 		fi
 	fi
   done
+	if [ $VERSION -le 2 -o $PATCHLEVEL -le 3 ]; then
+		if $UNIQUE ; then
+			docpd drivers/isdn/Rules.make $KERNELDIR/drivers/isdn/Rules.make
+		else
+			$DOCP drivers/isdn/Rules.make $KERNELDIR/drivers/isdn/Rules.make
+		fi
+
+	fi
 fi
