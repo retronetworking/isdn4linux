@@ -21,6 +21,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.67  1999/07/07 10:17:24  detabc
+ * remove unused messages
+ *
  * Revision 1.66  1999/07/01 08:35:37  keil
  * compatibility to 2.3
  *
@@ -71,8 +74,6 @@
  * merged with 2.1.10[34] (cosmetics and udelay() -> mdelay())
  * brute force fix to avoid Ugh's in isdn_tty_write()
  * cleaned up some dead code
- *
- *
  *
  * Revision 1.46  1998/04/14 16:28:59  he
  * Fixed user space access with interrupts off and remaining
@@ -319,7 +320,7 @@
 #define ISDN_USAGE_EXCLUSIVE 64 /* This bit is set, if channel is exclusive */
 #define ISDN_USAGE_OUTGOING 128 /* This bit is set, if channel is outgoing  */
 
-#define ISDN_MODEM_ANZREG    23        /* Number of Modem-Registers        */
+#define ISDN_MODEM_ANZREG    24        /* Number of Modem-Registers        */
 #define ISDN_MSNLEN          20
 #define ISDN_LMSNLEN         255 /* Length of tty's Listen-MSN string */
 #define ISDN_CMSGLEN	     50	 /* Length of CONNECT-Message to add for Modem */
@@ -450,6 +451,7 @@ typedef struct {
 #define USG_MODEM(x)        ((x & ISDN_USAGE_MASK)==ISDN_USAGE_MODEM)
 #define USG_VOICE(x)        ((x & ISDN_USAGE_MASK)==ISDN_USAGE_VOICE)
 #define USG_NET(x)          ((x & ISDN_USAGE_MASK)==ISDN_USAGE_NET)
+#define USG_FAX(x)          ((x & ISDN_USAGE_MASK)==ISDN_USAGE_FAX)
 #define USG_OUTGOING(x)     ((x & ISDN_USAGE_OUTGOING)==ISDN_USAGE_OUTGOING)
 #define USG_MODEMORVOICE(x) (((x & ISDN_USAGE_MASK)==ISDN_USAGE_MODEM) || \
                              ((x & ISDN_USAGE_MASK)==ISDN_USAGE_VOICE)     )

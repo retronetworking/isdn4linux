@@ -22,6 +22,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.26  1999/07/01 08:35:44  keil
+ * compatibility to 2.3
+ *
  * Revision 1.25  1998/06/17 19:51:55  he
  * merged with 2.1.10[34] (cosmetics and udelay() -> mdelay())
  * brute force fix to avoid Ugh's in isdn_tty_write()
@@ -147,12 +150,15 @@
 #define ISDN_PROTO_L2_V11019 8   /* V.110 bitrate adaption 19200 Baud */
 #define ISDN_PROTO_L2_V11038 9   /* V.110 bitrate adaption 38400 Baud */
 #define ISDN_PROTO_L2_MODEM  10  /* Analog Modem on Board */
+#define ISDN_PROTO_L2_FAX    11  /* Fax Group 2/3         */
 #define ISDN_PROTO_L2_MAX    15  /* Max. 16 Protocols                 */
 
 /*
  * Values for Layer-3-protocol-selection
  */
 #define ISDN_PROTO_L3_TRANS  0   /* Transparent                 */
+#define ISDN_PROTO_L3_TRANSDSP 1   /* Transparent with DSP    */
+#define ISDN_PROTO_L3_FAX    2   /* Fax Group 2/3             */
 #define ISDN_PROTO_L3_MAX    7   /* Max. 8 Protocols            */
 
 #ifdef __KERNEL__
@@ -270,6 +276,8 @@ typedef struct
 #define ISDN_CMD_REDIR   20       /* Redir a incoming call                 */
 #define ISDN_CMD_PROT_IO 21       /* Protocol specific commands            */
 #define CAPI_PUT_MESSAGE 22       /* CAPI message send down or up          */
+#define ISDN_CMD_FAXCMD  23       /* FAX commands to HL-driver             */
+#define ISDN_CMD_AUDIO   24       /* DSP, DTMF, ... settings               */
 
 /*
  * Status-Values delivered from lowlevel to linklevel via
@@ -296,6 +304,14 @@ typedef struct
 #define ISDN_STAT_PROT    273    /* protocol IO specific callback         */
 #define ISDN_STAT_DISPLAY 274    /* deliver a received display message    */
 #define ISDN_STAT_L1ERR   275    /* Signal Layer-1 Error                  */
+#define ISDN_STAT_FAXIND  276    /* FAX indications from HL-driver        */
+#define ISDN_STAT_AUDIO   277    /* DTMF, DSP indications                 */
+
+/*
+ * Audio commands
+ */
+#define ISDN_AUDIO_SETDD	0	/* Set DTMF detection           */
+#define ISDN_AUDIO_DTMF		1	/* Rx/Tx DTMF                   */
 
 /*
  * Values for errcode field
@@ -318,12 +334,15 @@ typedef struct
 #define ISDN_FEATURE_L2_V11019  (0x0001 << ISDN_PROTO_L2_V11019)
 #define ISDN_FEATURE_L2_V11038  (0x0001 << ISDN_PROTO_L2_V11038)
 #define ISDN_FEATURE_L2_MODEM   (0x0001 << ISDN_PROTO_L2_MODEM)
+#define ISDN_FEATURE_L2_FAX	(0x0001 << ISDN_PROTO_L2_FAX)
 
 #define ISDN_FEATURE_L2_MASK    (0x0FFFF) /* Max. 16 protocols */
 #define ISDN_FEATURE_L2_SHIFT   (0)
 
 /* Layer 3 */
 #define ISDN_FEATURE_L3_TRANS   (0x10000 << ISDN_PROTO_L3_TRANS)
+#define ISDN_FEATURE_L3_TRANSDSP (0x10000 << ISDN_PROTO_L3_TRANSDSP)
+#define ISDN_FEATURE_L3_FAX	(0x10000 << ISDN_PROTO_L3_FAX)
 
 #define ISDN_FEATURE_L3_MASK    (0x0FF0000) /* Max. 8 Protocols */
 #define ISDN_FEATURE_L3_SHIFT   (16)
