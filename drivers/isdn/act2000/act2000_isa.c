@@ -20,6 +20,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.7  1998/11/05 22:12:41  fritz
+ * Changed mail-address.
+ *
  * Revision 1.6  1998/06/17 19:51:09  he
  * merged with 2.1.10[34] (cosmetics and udelay() -> mdelay())
  * brute force fix to avoid Ugh's in isdn_tty_write()
@@ -66,8 +69,7 @@ isa_delay(long t)
 {
         sti();
         current->state = TASK_INTERRUPTIBLE;
-        current->timeout = jiffies + t;
-        schedule();
+        schedule_timeout(t);
         sti();
 }
 

@@ -6,6 +6,9 @@
  * (c) Copyright 1997 by Carsten Paeth (calle@calle.in-berlin.de)
  * 
  * $Log$
+ * Revision 1.12  1998/10/25 14:38:58  fritz
+ * Backported from MIPS (Cobalt).
+ *
  * Revision 1.11  1998/03/29 16:05:58  calle
  * changes from 2.0 tree merged.
  *
@@ -1065,9 +1068,8 @@ static int capi_manufacturer(unsigned int cmd, void *data)
 
 		while (card->cardstate != CARD_RUNNING) {
 
-			current->timeout = jiffies + HZ / 10;	/* 0.1 sec */
 			current->state = TASK_INTERRUPTIBLE;
-			schedule();
+			schedule_timeout(HZ/10);	/* 0.1 sec */
 
 			if (signal_pending(current))
 				return -EINTR;

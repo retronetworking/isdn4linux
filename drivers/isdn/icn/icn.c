@@ -19,6 +19,11 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.53  1998/06/17 19:51:28  he
+ * merged with 2.1.10[34] (cosmetics and udelay() -> mdelay())
+ * brute force fix to avoid Ugh's in isdn_tty_write()
+ * cleaned up some dead code
+ *
  * Revision 1.52  1998/05/20 19:29:58  tsbogend
  * fixed bug introduced by changes for new BSENT callback
  *
@@ -958,8 +963,7 @@ icn_check_loader(int cardnumber)
 			printk(KERN_DEBUG "Loader %d TO?\n", cardnumber);
 #endif
 			current->state = TASK_INTERRUPTIBLE;
-			current->timeout = jiffies + ICN_BOOT_TIMEOUT1;
-			schedule();
+			schedule_timeout(ICN_BOOT_TIMEOUT1);
 		} else {
 #ifdef BOOT_DEBUG
 			printk(KERN_DEBUG "Loader %d OK\n", cardnumber);
@@ -985,8 +989,7 @@ int slsec = sec; \
   printk(KERN_DEBUG "SLEEP(%d)\n",slsec); \
   while (slsec) { \
     current->state = TASK_INTERRUPTIBLE; \
-    current->timeout = jiffies + HZ; \
-    schedule(); \
+    schedule_timeout(HZ); \
     slsec--; \
   } \
 }
@@ -1148,8 +1151,7 @@ icn_loadproto(u_char * buffer, icn_card * card)
 				return -EIO;
 			}
 			current->state = TASK_INTERRUPTIBLE;
-			current->timeout = jiffies + 10;
-			schedule();
+			schedule_timeout(10);
 		}
 	}
 	writeb(0x20, &sbuf_n);
@@ -1173,8 +1175,7 @@ icn_loadproto(u_char * buffer, icn_card * card)
 			printk(KERN_DEBUG "Proto TO?\n");
 #endif
 			current->state = TASK_INTERRUPTIBLE;
-			current->timeout = jiffies + ICN_BOOT_TIMEOUT1;
-			schedule();
+			schedule_timeout(ICN_BOOT_TIMEOUT1);
 		} else {
 			if ((card->secondhalf) || (!card->doubleS0)) {
 #ifdef BOOT_DEBUG
@@ -1469,11 +1470,9 @@ icn_command(isdn_ctrl * c, icn_card * card)
 						if (!card->leased) {
 							card->leased = 1;
 							while (card->ptype == ISDN_PTYPE_UNKNOWN) {
-								current->timeout = jiffies + ICN_BOOT_TIMEOUT1;
-								schedule();
+								schedule_timeout(ICN_BOOT_TIMEOUT1);
 							}
-							current->timeout = jiffies + ICN_BOOT_TIMEOUT1;
-							schedule();
+							schedule_timeout(ICN_BOOT_TIMEOUT1);
 							sprintf(cbuf, "00;FV2ON\n01;EAZ%c\n02;EAZ%c\n",
 								(a & 1)?'1':'C', (a & 2)?'2':'C');
 							i = icn_writecmd(cbuf, strlen(cbuf), 0, card);
