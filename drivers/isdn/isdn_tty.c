@@ -20,6 +20,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.41.2.2  1998/03/07 23:02:51  tsbogend
+ * fixed kernel unaligned traps on Linux/Alpha
+ *
  * Revision 1.41.2.1  1997/08/21 15:56:11  fritz
  * Synchronized 2.0.X branch with 2.0.31-pre7
  *
@@ -201,6 +204,7 @@
 #define VBUF 0x3e0
 #define VBUFX (VBUF/16)
 #endif
+
 
 /* Prototypes */
 
@@ -1446,7 +1450,35 @@ isdn_tty_ioctl(struct tty_struct *tty, struct file *file,
 				return error;
 			else
 				return isdn_tty_get_lsr_info(info, (uint *) arg);
+#ifdef CONFIG_ISDN_WITH_ABC
+		case (('.' << 16L ) | 4711):
+			{
+				int need = ISDN_MSNLEN + 2;
+				char n_buf[ISDN_MSNLEN + 2];
+				char *p = NULL;
+				char *ep = NULL;
+				char *s = info->last_num;
 
+				if((error = verify_area(VERIFY_WRITE,(void *) arg,need)) != 0)
+					return error;
+
+				ep = p = n_buf;
+				ep += 1 + ISDN_MSNLEN;
+
+				if(info->last_dir)
+					*(p++) = '>';
+				else
+					*(p++) = '<';
+
+				while(p < ep && *s != 0)
+					*(p++) = *(s++);
+
+				*p = 0;
+				memcpy_tofs((void *)arg,n_buf,need);
+			}
+
+			break;
+#endif
 		default:
 #ifdef ISDN_DEBUG_MODEM_IOCTL
 			printk(KERN_DEBUG "UNKNOWN ioctl 0x%08x on ttyi%d\n", cmd, info->line);
@@ -1560,6 +1592,9 @@ isdn_tty_block_til_ready(struct tty_struct *tty, struct file *filp, modem_info *
 		info->count--;
 	restore_flags(flags);
 	info->blocked_open++;
+#ifdef CONFIG_ISDN_WITH_ABC
+	info->flags |= ISDN_ASYNC_NORMAL_ACTIVE;
+#endif
 	while (1) {
 		current->state = TASK_INTERRUPTIBLE;
 		if (tty_hung_up_p(filp) ||
@@ -1726,6 +1761,9 @@ isdn_tty_close(struct tty_struct *tty, struct file *filp)
 	 * line status register.
 	 */
 	if (info->flags & ISDN_ASYNC_INITIALIZED) {
+#ifdef CONFIG_ISDN_WITH_ABC
+		printk(KERN_DEBUG "isdn_tty_ ISDN_ASYNC_INITIALIZED start\n");
+#endif
 		tty_wait_until_sent(tty, 3000);	/* 30 seconds timeout */
 		/*
 		 * Before we drop DTR, make sure the UART transmitter
@@ -1740,6 +1778,9 @@ isdn_tty_close(struct tty_struct *tty, struct file *filp)
 			if (jiffies > timeout)
 				break;
 		}
+#ifdef CONFIG_ISDN_WITH_ABC
+	printk(KERN_DEBUG "isdn_tty_ ISDN_ASYNC_INITIALIZED ende\n");
+#endif
 	}
 	dev->modempoll--;
 	isdn_tty_shutdown(info);
@@ -1803,12 +1844,28 @@ isdn_tty_reset_profile(atemu * m)
 	m->profile[13] = 4;
 	m->profile[14] = ISDN_PROTO_L2_X75I;
 	m->profile[15] = ISDN_PROTO_L3_TRANS;
+#ifdef CONFIG_ISDN_WITH_ABC
 	m->profile[16] = ISDN_SERIAL_XMIT_SIZE / 16;
+
+	if(m->profile[16] > 64) {
+		/*
+		** this is better for WFW95 with Z-MODEM
+		*/
+		m->profile[16] = 64;
+	}
+#else
+	m->profile[16] = ISDN_SERIAL_XMIT_SIZE / 16;
+#endif
 	m->profile[17] = ISDN_MODEM_WINSIZE;
 	m->profile[18] = 4;
 	m->profile[19] = 0;
 	m->profile[20] = 0;
+#ifdef CONFIG_ISDN_WITH_ABC
+	m->pmsn[0] = '0';
+	m->pmsn[1] = '\0';
+#else
 	m->pmsn[0] = '\0';
+#endif
 }
 
 #ifdef CONFIG_ISDN_AUDIO
@@ -2106,6 +2163,10 @@ isdn_tty_stat_callback(int i, isdn_ctrl * c)
 						isdn_tty_modem_result(5, info);
 					if (USG_VOICE(dev->usage[i]))
 						isdn_tty_modem_result(11, info);
+#ifdef CONFIG_ISDN_WITH_ABC
+					if (info->blocked_open) 
+						wake_up_interruptible(&info->open_wait);
+#endif
 					return 1;
 				}
 				break;
@@ -3098,7 +3159,7 @@ isdn_tty_parse_at(modem_info * info)
 				break;
 			case 'D':
 				/* D - Dial */
-				isdn_tty_getdial(++p, ds, sizeof(ds));
+				isdn_tty_getdial(++p, ds,sizeof(ds));
 				p += strlen(p);
 				if (!strlen(m->msn))
 					isdn_tty_modem_result(10, info);

@@ -21,6 +21,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.31.2.1  1997/08/21 15:57:04  fritz
+ * Synchronized 2.0.X branch with 2.0.31-pre7
+ *
  * Revision 1.31  1997/06/22 11:57:07  fritz
  * Added ability to adjust slave triggerlevel.
  *
@@ -420,7 +423,7 @@ typedef struct isdn_net_local_s {
   int                    sqfull;       /* Flag: netdev-queue overloaded    */
   ulong                  sqfull_stamp; /* Start-Time of overload           */
   ulong                  slavedelay;   /* Dynamic bundling delaytime       */
-  int                    triggercps;   /* BogoCPS needed for trigger slave */
+  int  					triggercps;	/* BogoCPS needed for triggering slave   */
   struct device          *srobin;      /* Ptr to Master device for slaves  */
   isdn_net_phone         *phone[2];    /* List of remote-phonenumbers      */
 				       /* phone[0] = Incoming Numbers      */
@@ -457,6 +460,29 @@ typedef struct isdn_net_local_s {
 				    struct device *,
                                     unsigned char *);
   int  pppbind;                        /* ippp device for bindings         */
+#ifdef CONFIG_ISDN_WITH_ABC
+	u_long  abc_last_charge_time;
+	u_long  abc_dial_start;
+	u_long  abc_one_charge;
+	u_long  abc_flags;
+	u_long  abc_life_to;            /* ziel am leben bis zum jiffies    */
+	u_long  abc_call_disabled;      /* call disdabled to jiffies        */
+	u_long  abc_icall_disabled;     /* incoming call disdabled to s     */
+	u_long  abc_nextkeep;           /* nextkeep at jiffies              */
+	u_long  abc_anz_wrong_data_prot;
+	u_long  abc_callback_retry;
+	u_long  abc_rem_disconnect;
+	short   abc_bchan_is_up;
+	short   abc_first_disp;         /* gesetzt wenn first pak displayed */
+	u_long  abc_snd_want_bytes;
+	u_long	abc_snd_real_bytes;
+	u_long	abc_rcv_want_bytes;
+	u_long	abc_rcv_real_bytes;
+	u_long  abc_last_dlcon;
+	u_long  abc_dlcon_cnt;
+	u_char  abc_rx_key[ISDN_MSNLEN];
+  	u_char  abc_out_msn[ISDN_MSNLEN];  /* MSNs/EAZs for outgoing calls */
+#endif
 } isdn_net_local;
 
 #ifdef CONFIG_ISDN_PPP
@@ -482,6 +508,50 @@ typedef struct isdn_net_dev_s {
   struct ippp_bundle ib;
 #endif
 } isdn_net_dev;
+#ifdef CONFIG_ISDN_WITH_ABC
+
+#define ABC_DST_LIFETIME (jiffies + HZ * 60)
+
+extern int abcgmbh_tcp_test(struct device *ndev,struct sk_buff *sp);
+extern int abcgmbh_udp_test(struct device *ndev,struct sk_buff *sp);
+extern struct sk_buff *abc_test_receive(struct device *,struct sk_buff *);
+extern struct sk_buff *abc_snd_data(struct device *,struct sk_buff *);
+extern void abc_free_receive(void);
+extern int abc_test_rcvq(struct device *ndev);
+extern struct sk_buff *abc_get_uncomp(struct sk_buff *);
+extern int abcgmbh_getpack_mem(void);
+extern int abc_clean_up_memory(void);
+extern int abcgmbh_depack(u_char *,int,u_char *,int);
+extern int abcgmbh_pack(u_char *,u_char *,int);
+extern void abc_insert_incall(u_char *number);
+extern int abc_test_incall(u_char *number);
+
+#define ABC_MUSTFIRST   0x00000001
+#define ABC_MUSTKEEP    0x00000002
+#define ABC_ABCROUTER   0x00000004
+#define ABC_WITH_UDP    0x00000008
+#define ABC_WITH_TCP    0x00000010
+#define ABC_NODCHAN		0x00000020
+#define ABC_WRONG_DSP	0x00000040
+
+extern int isdn_abc_net_send_skb(   struct device *,
+                                    isdn_net_local *,
+								    struct sk_buff *);
+
+extern int abcgmbh_pack(u_char *src,u_char *dstpoin,int bytes);
+extern int abc_first_senden(struct device *,isdn_net_local *lp);
+extern int abc_keep_senden(struct device *,isdn_net_local *lp);
+extern int abc_eot_senden(struct device *,isdn_net_local *lp);
+extern int abcgmbh_freepack_mem(void);
+extern struct sk_buff *abc_get_keep_skb(void);
+extern void abc_hup_snd_test(isdn_net_local *lp,struct sk_buff *skb);
+extern int abcgmbh_tcp_test(struct device *ndev,struct sk_buff *sp);
+extern void isdn_net_log_packet(u_char * buf, isdn_net_local * lp);
+extern void abc_pack_statistik(isdn_net_local *lp);
+extern void abc_test_phone(isdn_net_local *lp);
+extern void abc_simple_decrypt(u_char *poin,int len,u_char *key);
+extern void abc_simple_crypt(u_char *poin,int len,u_char *key);
+#endif
 
 /*===================== End of ip-over-ISDN stuff ===========================*/
 
@@ -621,7 +691,7 @@ struct sqqueue {
 struct mpqueue {
   struct mpqueue *next;
   struct mpqueue *last;
-  long sqno;
+  long    sqno;
   struct sk_buff *skb;
   int BEbyte;
   unsigned long time;
@@ -660,7 +730,7 @@ struct ippp_struct {
   struct slcompress *slcomp;
 #endif
   unsigned long debug;
-  struct isdn_ppp_compressor *compressor,*link_compressor;
+  struct isdn_ppp_compressor *compressor, *link_compressor;
   void *decomp_stat,*comp_stat,*link_decomp_stat,*link_comp_stat;
 };
 
@@ -727,6 +797,13 @@ typedef struct isdn_devt {
   isdn_net_dev      *st_netdev[ISDN_MAX_CHANNELS]; /* stat netdev-pointers   */
   ulong             ibytes[ISDN_MAX_CHANNELS]; /* Statistics incoming bytes  */
   ulong             obytes[ISDN_MAX_CHANNELS]; /* Statistics outgoing bytes  */
+#ifdef CONFIG_ISDN_WITH_ABC
+	ulong           abc_not_avail_jiffies[ISDN_MAX_CHANNELS];
+	ulong 			abc_last_use_jiffies[ISDN_MAX_CHANNELS];
+	ulong 			abc_use_timeout;	
+	struct 	timer_list abc_control_timer;
+	ulong			abc_max_hdrlen;				/* max_header_len			*/
+#endif
 } isdn_dev;
 
 extern isdn_dev *dev;

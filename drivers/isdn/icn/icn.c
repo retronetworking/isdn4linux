@@ -1,4 +1,4 @@
-/* $Id$
+ /* $Id$
 
  * ISDN low-level module for the ICN active ISDN-Card.
  *
@@ -19,6 +19,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.45.2.1  1997/08/21 15:56:50  fritz
+ * Synchronized 2.0.X branch with 2.0.31-pre7
+ *
  * Revision 1.45  1997/06/21 10:42:06  fritz
  * Added availability to select leased mode on only one channel.
  *
@@ -531,8 +534,13 @@ static icn_stat icn_stat_table[] =
 {
 	{"BCON_",          ISDN_STAT_BCONN, 1},	/* B-Channel connected        */
 	{"BDIS_",          ISDN_STAT_BHUP,  2},	/* B-Channel disconnected     */
-	{"DCON_",          ISDN_STAT_DCONN, 0},	/* D-Channel connected        */
-	{"DDIS_",          ISDN_STAT_DHUP,  0},	/* D-Channel disconnected     */
+#ifdef CONFIG_ISDN_WITH_ABC
+	{"DCON_",          ISDN_STAT_DCONN, 10}, /* D-Channel connected       */
+	{"DDIS_",          ISDN_STAT_DHUP,  11}, /* D-Channel disconnected    */
+#else
+	{"DCON_",          ISDN_STAT_DCONN, 0}, /* D-Channel connected        */
+	{"DDIS_",          ISDN_STAT_DHUP,  0}, /* D-Channel disconnected     */
+#endif
 	{"DCAL_I",         ISDN_STAT_ICALL, 3},	/* Incoming call dialup-line  */
 	{"DSCA_I",         ISDN_STAT_ICALL, 3},	/* Incoming call 1TR6-SPV     */
 	{"FCALL",          ISDN_STAT_ICALL, 4},	/* Leased line connection up  */
@@ -582,7 +590,41 @@ icn_parse_status(u_char * status, int channel, icn_card * card)
 	cmd.driver = card->myid;
 	cmd.arg = channel;
 	switch (action) {
+#ifdef CONFIG_ISDN_WITH_ABC
+	case 11:
+
+		save_flags(flags);
+		cli();
+		icn_free_queue(card,channel);
+		card->rcvidx[channel] = 0;
+
+		if( card->flags & 
+			((channel)?ICN_FLAGS_B2ACTIVE:ICN_FLAGS_B1ACTIVE)) {
+
+			isdn_ctrl ncmd;
+
+			printk(KERN_INFO "icn: D-Channel hangup before B-Channel hangup\n");
+
+			card->flags &= ~((channel)?
+					ICN_FLAGS_B2ACTIVE:ICN_FLAGS_B1ACTIVE);
+
+			memset(&ncmd,0,sizeof(ncmd));
+
+			ncmd.driver = card->myid;
+			ncmd.arg = channel;
+			ncmd.command = ISDN_STAT_BHUP;
+			restore_flags(flags);
+			card->interface.statcallb(&cmd);
+			dflag |= (channel+1);
+
+		} else restore_flags(flags);
+		
+		break;
+#endif
 		case 1:
+#ifdef CONFIG_ISDN_WITH_ABC
+			icn_free_queue(card,channel);
+#endif
 			card->flags |= (channel) ?
 			    ICN_FLAGS_B2ACTIVE : ICN_FLAGS_B1ACTIVE;
 			break;
