@@ -19,6 +19,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.27  1996/06/25 18:38:59  fritz
+ * Fixed function name in error message.
+ *
  * Revision 1.26  1996/06/24 17:20:35  fritz
  * Bugfixes in pollbchan_send():
  *   - Using lock field of skbuff breaks networking.
@@ -118,21 +121,6 @@
  */
 
 #include "icn.h"
-
-/*
- * there is no memcpy_fromfs_toio, so we use a very generic
- * version. It might be good to generate a much better optimized
- * routine for each hardware architecture
- */
-static inline void memcpy_fromfs_toio(unsigned long to, void * from, unsigned long count)
-{
-    while (count) {
-	count--;
-	writeb(get_user((char *)from), to);
-	((char *) from)++;
-	to++;
-    }
-}
 
 /*
  * Verbose bootcode- and protocol-downloading.
@@ -777,12 +765,17 @@ static int icn_loadboot(u_char * buffer, icn_card * card)
 {
         int ret;
         ulong flags;
+	u_char *codebuf;
 
 #ifdef BOOT_DEBUG
         printk(KERN_DEBUG "icn_loadboot called, buffaddr=%08lx\n", (ulong) buffer);
 #endif
         if ((ret = verify_area(VERIFY_READ, (void *) buffer, ICN_CODE_STAGE1)))
                 return ret;
+        if (!(codebuf = kmalloc(ICN_CODE_STAGE1,GFP_KERNEL))) {
+                printk(KERN_WARNING "icn: Could not allocate code buffer\n");
+                return -ENOMEM;
+        }
         save_flags(flags);
         cli();
         if (!card->rvalid) {
@@ -793,6 +786,7 @@ static int icn_loadboot(u_char * buffer, icn_card * card)
                                card->port,
                                card->port + ICN_PORTLEN);
                         restore_flags(flags);
+                        kfree(codebuf);
                         return -EBUSY;
                 }
                 request_region(card->port, ICN_PORTLEN, card->regname);
@@ -829,7 +823,8 @@ static int icn_loadboot(u_char * buffer, icn_card * card)
         icn_lock_channel(card,0);                                  /* Lock Bank 0      */
         restore_flags(flags);
         SLEEP(1);
-        memcpy_fromfs_toio((unsigned long)dev.shmem, buffer, ICN_CODE_STAGE1);           /* Copy code        */
+        memcpy_fromfs(codebuf, buffer, ICN_CODE_STAGE1);
+        memcpy_toio(dev.shmem, codebuf, ICN_CODE_STAGE1);           /* Copy code        */
 #ifdef BOOT_DEBUG
         printk(KERN_DEBUG "Bootloader transfered\n");
 #endif
@@ -845,11 +840,12 @@ static int icn_loadboot(u_char * buffer, icn_card * card)
                 icn_lock_channel(card,2);                          /* Lock Bank 8     */
                 restore_flags(flags);
                 SLEEP(1);
-                memcpy_fromfs_toio((unsigned long)dev.shmem, buffer, ICN_CODE_STAGE1);   /* Copy code        */
+                memcpy_toio(dev.shmem, codebuf, ICN_CODE_STAGE1);           /* Copy code        */
 #ifdef BOOT_DEBUG
                 printk(KERN_DEBUG "Bootloader transfered\n");
 #endif
         }
+        kfree(codebuf);
         SLEEP(1);
         OUTB_P(0xff, ICN_RUN);                                     /* Start Boot-Code */
         if ((ret = icn_check_loader(card->doubleS0 ? 2 : 1)))
@@ -872,6 +868,7 @@ static int icn_loadboot(u_char * buffer, icn_card * card)
 static int icn_loadproto(u_char * buffer, icn_card * card)
 {
         register u_char *p = buffer;
+        u_char codebuf[256];
         uint left = ICN_CODE_STAGE2;
         uint cnt;
         int timer;
@@ -897,7 +894,8 @@ static int icn_loadproto(u_char * buffer, icn_card * card)
         while (left) {
                 if (sbfree) {                           /* If there is a free buffer...  */
                         cnt = MIN(256, left);
-                        memcpy_fromfs_toio((unsigned long)&sbuf_l, p, cnt); /* copy data                     */ 
+                        memcpy_fromfs(codebuf, p, cnt);
+                        memcpy_toio(&sbuf_l, codebuf, cnt); /* copy data                     */ 
                         sbnext;                         /* switch to next buffer         */
                         p += cnt;
                         left -= cnt;
