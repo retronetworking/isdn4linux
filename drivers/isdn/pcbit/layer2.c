@@ -389,7 +389,7 @@ static void pcbit_receive(struct pcbit_dev * dev)
 #else
 			/* discard previous queued frame */
 			if (dev->read_frame->skb) {
-				dev->read_frame->skb->free = 1;
+				SET_SKB_FREE(dev->read_frame->skb);
 				kfree_skb(dev->read_frame->skb, FREE_READ);
 			}
 			kfree(dev->read_frame);
@@ -684,7 +684,7 @@ static void pcbit_l2_err_recover(unsigned long data)
 	{
                 if (dev->read_frame->skb)
 		{
-			dev->read_frame->skb->free = 1; 
+			SET_SKB_FREE(dev->read_frame->skb); 
                         kfree_skb(dev->read_frame->skb, FREE_READ);
 		}
                 kfree(dev->read_frame);
