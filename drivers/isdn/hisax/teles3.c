@@ -11,6 +11,9 @@
  * 	        Beat Doebeli
  * 
  * $Log$
+ * Revision 1.3  1996/11/05 19:56:54  keil
+ * debug output fixed
+ *
  * Revision 1.2  1996/10/27 22:09:15  keil
  * cosmetic changes
  *
@@ -963,6 +966,12 @@ setup_teles3(struct IsdnCard *card)
                 cli();
                 timout = jiffies + (HZ / 10) + 1;
                 byteout(sp->cfg_reg + 4, cfval | 1);
+                sti();
+                while (jiffies <= timout);
+	} else { 
+		/* Reset off for 16.3 PnP , thanks to Georg Acher */
+		byteout(sp->isac + 0x1c, 1);
+                timout = jiffies + 2;
                 sti();
                 while (jiffies <= timout);
 	}
