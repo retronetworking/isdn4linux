@@ -6,6 +6,11 @@
  * Heavily based on devpts filesystem from H. Peter Anvin
  * 
  * $Log$
+ * Revision 1.12  2000/11/01 14:05:02  calle
+ * - use module_init/module_exit from linux/init.h.
+ * - all static struct variables are initialized with "membername:" now.
+ * - avm_cs.c, let it work with newer pcmcia-cs.
+ *
  * Revision 1.11  2000/10/24 15:08:47  calle
  * Too much includes.
  *
@@ -127,8 +132,6 @@ struct inode_operations capifs_root_inode_operations = {
 #endif
 	lookup: capifs_root_lookup,
 };
-
-struct inode_operations capifs_inode_operations;
 
 static struct dentry_operations capifs_dentry_operations = {
 	d_revalidate: capifs_revalidate,
@@ -493,10 +496,8 @@ static void capifs_read_inode(struct inode *inode)
 	ino_t ino = inode->i_ino;
 	struct capifs_sb_info *sbi = SBI(inode->i_sb);
 
-	inode->i_op = NULL;
 	inode->i_mode = 0;
 	inode->i_nlink = 0;
-	inode->i_size = 0;
 	inode->i_mtime = inode->i_atime = inode->i_ctime = CURRENT_TIME;
 	inode->i_blocks = 0;
 	inode->i_blksize = 1024;
@@ -511,11 +512,6 @@ static void capifs_read_inode(struct inode *inode)
 		inode->i_nlink = 2;
 		return;
 	} 
-
-#ifdef COMPAT_has_fileops_in_inode
-	/* need dummy inode operations .... */
-	inode->i_op = &capifs_inode_operations;
-#endif
 
 	ino -= 2;
 	if ( ino >= sbi->max_ncci )
