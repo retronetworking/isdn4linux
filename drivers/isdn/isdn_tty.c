@@ -1422,8 +1422,7 @@ isdn_tty_get_lsr_info(modem_info * info, uint * value)
 	status = info->lsr;
 	restore_flags(flags);
 	result = ((status & UART_LSR_TEMT) ? TIOCSER_TEMT : 0);
-	put_user(result, (uint *) value);
-	return 0;
+	return put_user(result, (uint *) value);
 }
 
 
@@ -1446,8 +1445,7 @@ isdn_tty_get_modem_info(modem_info * info, uint * value)
 	    | ((status & UART_MSR_RI) ? TIOCM_RNG : 0)
 	    | ((status & UART_MSR_DSR) ? TIOCM_DSR : 0)
 	    | ((status & UART_MSR_CTS) ? TIOCM_CTS : 0);
-	put_user(result, (uint *) value);
-	return 0;
+	return put_user(result, (uint *) value);
 }
 
 static int
@@ -1456,7 +1454,8 @@ isdn_tty_set_modem_info(modem_info * info, uint cmd, uint * value)
 	uint arg;
 	int pre_dtr;
 
-	get_user(arg, (uint *) value);
+	if (get_user(arg, (uint *) value))
+		return -EFAULT;
 	switch (cmd) {
 		case TIOCMBIS:
 #ifdef ISDN_DEBUG_MODEM_IOCTL
@@ -1524,7 +1523,6 @@ isdn_tty_ioctl(struct tty_struct *tty, struct file *file,
 	       uint cmd, ulong arg)
 {
 	modem_info *info = (modem_info *) tty->driver_data;
-	int error;
 	int retval;
 
 	if (isdn_tty_paranoia_check(info, tty->device, "isdn_tty_ioctl"))
@@ -1554,19 +1552,13 @@ isdn_tty_ioctl(struct tty_struct *tty, struct file *file,
 #ifdef ISDN_DEBUG_MODEM_IOCTL
 			printk(KERN_DEBUG "ttyI%d ioctl TIOCGSOFTCAR\n", info->line);
 #endif
-			error = verify_area(VERIFY_WRITE, (void *) arg, sizeof(long));
-			if (error)
-				return error;
-			put_user(C_CLOCAL(tty) ? 1 : 0, (ulong *) arg);
-			return 0;
+			return put_user(C_CLOCAL(tty) ? 1 : 0, (ulong *) arg);
 		case TIOCSSOFTCAR:
 #ifdef ISDN_DEBUG_MODEM_IOCTL
 			printk(KERN_DEBUG "ttyI%d ioctl TIOCSSOFTCAR\n", info->line);
 #endif
-			error = verify_area(VERIFY_READ, (void *) arg, sizeof(long));
-			if (error)
-				return error;
-			get_user(arg, (ulong *) arg);
+			if (get_user(arg, (ulong *) arg))
+				return -EFAULT;
 			tty->termios->c_cflag =
 			    ((tty->termios->c_cflag & ~CLOCAL) |
 			     (arg ? CLOCAL : 0));
@@ -1575,26 +1567,16 @@ isdn_tty_ioctl(struct tty_struct *tty, struct file *file,
 #ifdef ISDN_DEBUG_MODEM_IOCTL
 			printk(KERN_DEBUG "ttyI%d ioctl TIOCMGET\n", info->line);
 #endif
-			error = verify_area(VERIFY_WRITE, (void *) arg, sizeof(uint));
-			if (error)
-				return error;
 			return isdn_tty_get_modem_info(info, (uint *) arg);
 		case TIOCMBIS:
 		case TIOCMBIC:
 		case TIOCMSET:
-			error = verify_area(VERIFY_READ, (void *) arg, sizeof(uint));
-			if (error)
-				return error;
 			return isdn_tty_set_modem_info(info, cmd, (uint *) arg);
 		case TIOCSERGETLSR:	/* Get line status register */
 #ifdef ISDN_DEBUG_MODEM_IOCTL
 			printk(KERN_DEBUG "ttyI%d ioctl TIOCSERGETLSR\n", info->line);
 #endif
-			error = verify_area(VERIFY_WRITE, (void *) arg, sizeof(uint));
-			if (error)
-				return error;
-			else
-				return isdn_tty_get_lsr_info(info, (uint *) arg);
+			return isdn_tty_get_lsr_info(info, (uint *) arg);
 		default:
 #ifdef ISDN_DEBUG_MODEM_IOCTL
 			printk(KERN_DEBUG "UNKNOWN ioctl 0x%08x on ttyi%d\n", cmd, info->line);
