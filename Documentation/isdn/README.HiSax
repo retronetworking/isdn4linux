@@ -28,6 +28,7 @@ Creatix PnP S0
 AVM A1 (Fritz)
 ELSA Microlink PCC-16, PCF, PCF-Pro, PCC-8
 ELSA Quickstep 1000
+ELSA PCMCIA
 ITK ix1-micro Rev.2
 
 Note: PCF, PCF-Pro: up to now, only the ISDN part is supported
@@ -36,6 +37,10 @@ Note: PCF, PCF-Pro: up to now, only the ISDN part is supported
 
 If you know other passive cards with the Siemens chipset, please let me know.
 To use the PNP cards you need the isapnptools.
+You can combine any card, if there is no conflict between the ressources
+(io, mem, irq), with one exception: The ELSA PCMCIA cannot work with an other
+non PCMCIA ELSA card at the same time. You cannot select ELSA ISA and ELSA
+PCMCIA support at the same time during kernel config.
 
 
 Configuring the driver
@@ -45,6 +50,9 @@ The HiSax driver can either be built directly into the kernel or as a module.
 It can be configured using the command line feature while loading the kernel
 with LILO or LOADLIN or, if built as a module, using insmod/modprobe with
 parameters.
+There is also some config needed before you compile the kernel and/or
+modules. It is enclose in the normal "make [menu]config" target at the
+kernel. Don't forget it, especially to select the right D-channel protocol.
 
 Please note: All PnP cards need to be configured with isapnp and will work
 only with the HiSax driver used as a module.
@@ -106,11 +114,15 @@ Card types:
                                  required only if you have more than one ELSA
                                  card in your PC)
     7   ELSA Quickstep 1000	 irq, io  (from isapnp setup)
+    7   ELSA PCMCIA		 irq, io  (set with card manager)
     8   Teles 16.3 PCMCIA     	 irq, io
     9   ITK ix1-micro Rev.2      irq, io
         
 At the moment IRQ sharing is not possible. Please make sure that your IRQ
 is free and enabled for ISA use.
+Note: For using the ELSA PCMCIA you need the cardmanager under MSDOS for
+enabling in the moment, then boot linux with loadlin.
+
 
 Examples for module loading
 
@@ -297,8 +309,8 @@ Karsten Keil
 keil@temic-ech.spacenet.de
 
 
-Appendix: PCMCIA driver
------------------------
+Appendix: Teles PCMCIA driver
+-----------------------------
 
 Up to now, the Teles PCMCIA driver is a complete hack. I had no
 documentation about the card - it might destroy your hardware (though mine
