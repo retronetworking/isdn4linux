@@ -1,7 +1,5 @@
 # Makefile for the kernel ISDN subsystem and device drivers.
 
-# The target object and module list name.
-
 O_TARGET	:= isdn.a
 
 # Objects that export symbols.
@@ -23,14 +21,8 @@ isdn-objs-$(CONFIG_ISDN_WITH_ABC)	+= isdn_dwabc.o
 
 isdn-objs				+= $(isdn-objs-y)
 
-# Object file lists.
-
-obj-y	:=
-obj-m	:=
-obj-n	:=
-obj-	:=
-
-# Ordering constraints: isdn.o first, rest doesn't matter
+# Ordering constraints: isdn.o ahead of legacy modules
+#                       kernelcapi.o ahead of capi driver/users
 
 # Each configuration option enables a list of files.
 
@@ -39,37 +31,29 @@ obj-$(CONFIG_ISDN_PPP_BSDCOMP)		+= isdn_bsdcomp.o
 
 # Object files in subdirectories
 
+mod-subdirs				:= avmb1 avm
+
 subdir-$(CONFIG_ISDN_DIVERSION)		+= divert
 subdir-$(CONFIG_ISDN_DRV_HISAX)		+= hisax
-subobj-$(CONFIG_ISDN_DRV_HISAX)		+= hisax/hisax_drv.o
 subdir-$(CONFIG_ISDN_DRV_ICN)		+= icn
-subobj-$(CONFIG_ISDN_DRV_ICN)		+= icn/icn_drv.o
 subdir-$(CONFIG_ISDN_DRV_PCBIT)		+= pcbit
-subobj-$(CONFIG_ISDN_DRV_PCBIT)		+= pcbit/pcbit_drv.o
 subdir-$(CONFIG_ISDN_DRV_SC)		+= sc
-subobj-$(CONFIG_ISDN_DRV_SC)		+= sc/sc_drv.o
-subdir-$(CONFIG_ISDN_CAPI)		+= avmb1
-subobj-$(CONFIG_ISDN_CAPI)		+= avmb1/avmb1.o
-subdir-$(CONFIG_ISDN_KCAPI)		+= kernelcapi
-subobj-$(CONFIG_ISDN_KCAPI)		+= kernelcapi/kcapi_drv.o
-subdir-$(CONFIG_ISDN_KCAPI_CAPI20)	+= capi20
-subobj-$(CONFIG_ISDN_KCAPI_CAPI20)	+= capi20/capi_drv.o
-subdir-$(CONFIG_ISDN_KCAPI_CAPIDRV)	+= capidrv
-subobj-$(CONFIG_ISDN_KCAPI_CAPIDRV)	+= capidrv/capidrv_drv.o
 subdir-$(CONFIG_ISDN_DRV_LOOP)		+= isdnloop
-subobj-$(CONFIG_ISDN_DRV_LOOP)		+= isdnloop/isdnloop_drv.o
 subdir-$(CONFIG_ISDN_DRV_ACT2000)	+= act2000
-subobj-$(CONFIG_ISDN_DRV_ACT2000)	+= act2000/act2000_drv.o
-subdir-$(CONFIG_ISDN_DIVAS)		+= eicon
-subobj-$(CONFIG_ISDN_DIVAS)		+= eicon/divas_drv.o
 subdir-$(CONFIG_HYSDN)			+= hysdn
-subobj-$(CONFIG_HYSDN)			+= hysdn/hysdn_drv.o
+subdir-$(CONFIG_ISDN_CAPI)		+= avmb1
 
-obj-y					+= $(subobj-y)
+subdir-$(CONFIG_ISDN_KCAPI)		+= kernelcapi
+subdir-$(CONFIG_ISDN_KCAPI_CAPI20)	+= capi20
+subdir-$(CONFIG_ISDN_KCAPI_CAPIDRV)	+= capidrv
+subdir-$(CONFIG_ISDN_DRV_AVM)		+= avm
+subdir-$(CONFIG_ISDN_DIVAS)		+= eicon
+
+obj-y += $(addsuffix /vmlinux-obj.o, $(subdir-y))
 
 # The global Rules.make.
 
-include $(TOPDIR)/drivers/isdn/Rules.make
+include $(TOPDIR)/Rules.make
 
 # Link rules for multi-part drivers.
 

@@ -1,26 +1,11 @@
 # Makefile for the AVM ISDN device drivers and CAPI subsystem.
 
-# The target object and module list name.
-
-O_TARGET	:= avmb1.o
-
-# Objects that export symbols.
+O_TARGET	:= vmlinux-obj.o
 
 export-objs	:= kcapi.o capiutil.o b1dma.o b1pcmcia.o b1.o capifs.o
 
-# Multipart objects.
-
 list-multi	:= kernelcapi.o
 kernelcapi-objs	:= kcapi.o
-
-# Object file lists.
-
-obj-y	:=
-obj-m	:=
-obj-n	:=
-obj-	:=
-
-# Each configuration option enables a list of files.
 
 # Ordering constraints: kernelcapi.o first
 
@@ -36,11 +21,7 @@ obj-$(CONFIG_ISDN_DRV_AVMB1_T1ISA)	+= t1isa.o b1.o
 obj-$(CONFIG_ISDN_DRV_AVMB1_T1PCI)	+= t1pci.o b1.o b1dma.o
 obj-$(CONFIG_ISDN_DRV_AVMB1_C4)		+= c4.o b1.o
 
-# The global Rules.make.
-
-include $(TOPDIR)/drivers/isdn/Rules.make
-
-# Link rules for multi-part drivers.
+include $(TOPDIR)/Rules.make
 
 kernelcapi.o: $(kernelcapi-objs)
 	$(LD) -r -o $@ $(kernelcapi-objs)

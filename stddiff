@@ -154,7 +154,10 @@ else
 	for i in drivers/isdn/kernelcapi/*.[ch] ; do
 		$DODIFF $i $KERNELDIR/$i
 	done
-	for i in drivers/isdn/divert/*.[ch] ; do
+	for i in drivers/isdn/capi20/*.[ch] ; do
+		$DODIFF $i $KERNELDIR/$i
+	done
+	for i in drivers/isdn/capidrv/*.[ch] ; do
 		$DODIFF $i $KERNELDIR/$i
 	done
 	for i in drivers/isdn/hysdn/*.[ch] ; do

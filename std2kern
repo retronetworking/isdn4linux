@@ -279,6 +279,14 @@ else
   for i in drivers/isdn/divert/*.[ch] ; do
     $DOCP $i $KERNELDIR/$i
   done
+  for i in drivers/isdn/eicon/*.[ch] ; do
+    $DOCP $i $KERNELDIR/$i
+  done
+  for i in drivers/isdn/avm/*.[ch] ; do
+    $DOCP $i $KERNELDIR/$i
+  done
+
+
   if [ -f $KERNELDIR/Documentation/Configure.help ] ; then
     grep -q CONFIG_ISDN_DIVERSION $KERNELDIR/Documentation/Configure.help
     if [ $? != 0 ] ; then
@@ -301,9 +309,6 @@ else
       fi
     fi
   fi
-  for i in drivers/isdn/eicon/*.[ch] ; do
-    $DOCP $i $KERNELDIR/$i
-  done
   COPY_COMPAT=false
   if [ -n "$CTRLNAME" ] ; then
         grep "linux/isdn_compat.h" $CTRLNAME >/dev/null || COPY_COMPAT=true;
@@ -350,6 +355,7 @@ else
            drivers/isdn/eicon/Makefile \
            drivers/isdn/divert/Makefile \
            drivers/isdn/avmb1/Makefile \
+           drivers/isdn/avm/Makefile \
            drivers/isdn/hysdn/Makefile; do
 	if [ -f $i.kernel ] ; then
 		if $UNIQUE ; then

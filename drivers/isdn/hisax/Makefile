@@ -1,20 +1,12 @@
 # Makefile for the hisax ISDN device driver
 
-# The target object and module list name.
-
-O_TARGET	:= hisax_drv.o
-
-# Objects that export symbols.
+O_TARGET	:= vmlinux-obj.o
 
 export-objs	:= config.o
-
-# Multipart objects.
 
 list-multi	:= hisax.o
 hisax-objs	:= config.o isdnl1.o tei.o isdnl2.o isdnl3.o \
 		   lmgr.o q931.o callc.o fsm.o cert.o
-
-# Optional parts of multipart objects.
 
 hisax-objs-$(CONFIG_HISAX_EURO) += l3dss1.o
 hisax-objs-$(CONFIG_HISAX_NI1) += l3ni1.o
@@ -52,29 +44,16 @@ hisax-objs-$(CONFIG_HISAX_W6692) += w6692.o
 
 hisax-objs += $(sort $(hisax-objs-y))
 
-# Object file lists.
-
-obj-y	:=
-obj-m	:=
-obj-n	:=
-obj-	:=
-
-# Each configuration option enables a list of files.
-
 obj-$(CONFIG_ISDN_DRV_HISAX)	+= hisax.o
 
-include $(TOPDIR)/drivers/isdn/Rules.make
+MD5FILES 	:= isac.c isdnl1.c isdnl2.c isdnl3.c \
+		   tei.c callc.c cert.c l3dss1.c l3_1tr6.c \
+		   elsa.c diva.c sedlbauer.c
+CERT := $(shell md5sum -c md5sums.asc >> /dev/null;echo $$?)
+CFLAGS_cert.o := -DCERTIFICATION=$(CERT)
 
-# Link rules for multi-part drivers.
+include $(TOPDIR)/Rules.make
 
 hisax.o: $(hisax-objs)
 	$(LD) -r -o $@ $(hisax-objs)
 
-MD5FILES += isac.c isdnl1.c isdnl2.c isdnl3.c \
-	    tei.c callc.c cert.c l3dss1.c l3_1tr6.c \
-	    elsa.c diva.c sedlbauer.c
-
-CERT = $(shell md5sum -c md5sums.asc >> /dev/null;echo $$?)
-
-cert.o:	$(MD5FILES) md5sums.asc
-	$(CC) $(CFLAGS) $(EXTRA_CFLAGS) -D CERTIFICATION=$(CERT) -c -o cert.o cert.c

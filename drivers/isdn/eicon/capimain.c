@@ -119,18 +119,15 @@ static diva_card *cards;
 static struct capi_driver_interface *di;
 
 static struct capi_driver divas_driver = {
-    "",
-    "",
-    diva_reset_ctr,		/* reset_ctr */
-    diva_remove_ctr,		/* remove_ctr */
-    diva_register_appl,		/* register_appl */
-    diva_release_appl,		/* release_appl */
-    diva_send_message,		/* send_message */
-    diva_procinfo,		/* procinfo */
-    diva_ctl_read_proc,		/* read_proc */
-    diva_driver_read_proc,	/* driver_read_proc */
-    0,				/* conf_driver */
-    0,				/* conf_controller */
+    owner:            THIS_MODULE,
+    name:             "",
+    revision:         "",
+    register_appl:    diva_register_appl,
+    release_appl:     diva_release_appl,
+    send_message:     diva_send_message,
+    procinfo:         diva_procinfo,
+    read_proc:        diva_ctl_read_proc,
+    driver_read_proc: diva_driver_read_proc,
 };
 
 static spinlock_t api_lock;
@@ -509,20 +506,6 @@ static char *diva_procinfo(struct capi_ctr *ctrl)
 {
   return(ctrl->serial);
 }
-
-
-/************** not needed ***************/
-
-void diva_reset_ctr(struct capi_ctr *ctrl)
-{
-	/* not needed */
-}
-
-void diva_remove_ctr(struct capi_ctr *ctrl)
-{
-	/* not needed */
-}
-
 
 
 /************** capi functions ***********/

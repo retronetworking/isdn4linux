@@ -43,13 +43,6 @@ static char *revision = "$Revision$";
 
 /* ------------------------------------------------------------- */
 
-#define CARD_FREE	0
-#define CARD_DETECTED	1
-#define CARD_LOADING	2
-#define CARD_RUNNING	3
-
-/* ------------------------------------------------------------- */
-
 int showcapimsgs = 0;
 
 MODULE_AUTHOR("Carsten Paeth <calle@calle.in-berlin.de>");
@@ -108,8 +101,8 @@ static char capi_manufakturer[64] = "CAPI4Linux";
 #define APPL(a)		   (&applications[(a)-1])
 #define	VALID_APPLID(a)	   ((a) && (a) <= CAPI_MAXAPPL && APPL(a)->applid == a)
 #define APPL_IS_FREE(a)    (APPL(a)->applid == 0)
-#define APPL_MARK_FREE(a)  do{ APPL(a)->applid=0; MOD_DEC_USE_COUNT; }while(0);
-#define APPL_MARK_USED(a)  do{ APPL(a)->applid=(a); MOD_INC_USE_COUNT; }while(0);
+#define APPL_MARK_FREE(a)  APPL(a)->applid=0
+#define APPL_MARK_USED(a)  APPL(a)->applid=(a)
 
 #define NCCI2CTRL(ncci)    (((ncci) >> 24) & 0x7f)
 
@@ -987,6 +980,10 @@ static void controllercb_ready(struct capi_ctr * card)
 	for (appl = 1; appl <= CAPI_MAXAPPL; appl++) {
 		if (!VALID_APPLID(appl)) continue;
 		if (APPL(appl)->releasing) continue;
+
+		if (!try_inc_mod_count(card->driver->owner))
+			continue;
+
 		card->driver->register_appl(card, appl, &APPL(appl)->rparam);
 	}
 
@@ -1070,9 +1067,9 @@ drivercb_attach_ctr(struct capi_driver *driver, char *name, void *driverdata)
 	   	return 0;
 	}
 	card = &cards[i];
-	card->cardstate = CARD_DETECTED;
         spin_unlock(&cards_lock);
 	memset(card, 0, sizeof(struct capi_ctr));
+	card->cardstate = CARD_DETECTED;
 	card->driver = driver;
 	card->cnr = CARDNR(card);
 	strncpy(card->name, name, sizeof(card->name));
@@ -1106,7 +1103,7 @@ drivercb_attach_ctr(struct capi_driver *driver, char *name, void *driverdata)
 	}
 
 	ncards++;
-	printk(KERN_NOTICE "kcapi: Controller %d: %s attached\n",
+	printk(KERN_INFO "kcapi: Controller %d: %s attached\n",
 			card->cnr, card->name);
 	return card;
 }
@@ -1135,8 +1132,8 @@ static int drivercb_detach_ctr(struct capi_ctr *card)
 	   card->procent = 0;
 	}
 	card->cardstate = CARD_FREE;
-	printk(KERN_NOTICE "kcapi: Controller %d: %s unregistered\n",
-			card->cnr, card->name);
+	printk(KERN_INFO "kcapi: Controller %d: %s unregistered\n",
+	       card->cnr, card->name);
 	return 0;
 }
 
@@ -1171,13 +1168,12 @@ struct capi_driver_interface *attach_capi_driver(struct capi_driver *driver)
 {
 	struct capi_driver **pp;
 
-	MOD_INC_USE_COUNT;
 	spin_lock(&drivers_lock);
 	for (pp = &drivers; *pp; pp = &(*pp)->next) ;
 	driver->next = 0;
 	*pp = driver;
 	spin_unlock(&drivers_lock);
-	printk(KERN_NOTICE "kcapi: driver %s attached\n", driver->name);
+	printk(KERN_INFO "kcapi: driver %s attached\n", driver->name);
 	sprintf(driver->procfn, "capi/drivers/%s", driver->name);
 	driver->procent = create_proc_entry(driver->procfn, 0, 0);
 	if (driver->procent) {
@@ -1200,7 +1196,7 @@ void detach_capi_driver(struct capi_driver *driver)
 	for (pp = &drivers; *pp && *pp != driver; pp = &(*pp)->next) ;
 	if (*pp) {
 		*pp = (*pp)->next;
-		printk(KERN_NOTICE "kcapi: driver %s detached\n", driver->name);
+		printk(KERN_INFO "kcapi: driver %s detached\n", driver->name);
 	} else {
 		printk(KERN_ERR "kcapi: driver %s double detach ?\n", driver->name);
 	}
@@ -1209,7 +1205,6 @@ void detach_capi_driver(struct capi_driver *driver)
 	   remove_proc_entry(driver->procfn, 0);
 	   driver->procent = 0;
 	}
-	MOD_DEC_USE_COUNT;
 }
 
 /* ------------------------------------------------------------- */
@@ -1255,8 +1250,12 @@ static __u16 capi_register(capi_register_params * rparam, __u16 * applidp)
 	for (i = 0; i < CAPI_MAXCONTR; i++) {
 		if (cards[i].cardstate != CARD_RUNNING)
 			continue;
+		
+		if (!try_inc_mod_count(cards[i].driver->owner))
+			continue;
+
 		cards[i].driver->register_appl(&cards[i], appl,
-						&APPL(appl)->rparam);
+					       &APPL(appl)->rparam);
 	}
 	*applidp = appl;
 	printk(KERN_INFO "kcapi: appl %d up\n", appl);
@@ -1279,6 +1278,8 @@ static __u16 capi_release(__u16 applid)
 			continue;
 		APPL(applid)->releasing++;
 		cards[i].driver->release_appl(&cards[i], applid);
+		if (cards[i].driver->owner)
+			__MOD_DEC_USE_COUNT(cards[i].driver->owner);
 	}
 	APPL(applid)->releasing--;
 	if (APPL(applid)->releasing <= 0) {
@@ -1437,79 +1438,85 @@ static struct capi_driver *find_driver(char *name)
 static int capi_manufacturer(unsigned int cmd, void *data)
 {
         struct capi_ctr *card;
-	int retval;
 
 	switch (cmd) {
 	case KCAPI_CMD_TRACE:
 	{
 		kcapi_flagdef fdef;
 
-		if ((retval = copy_from_user((void *) &fdef, data,
-					 sizeof(kcapi_flagdef))))
-			return retval;
+		if (copy_from_user(&fdef, data, sizeof(fdef)))
+			return -EFAULT;
 
 		if (!VALID_CARD(fdef.contr))
-			return -ESRCH;
+			return -ENODEV;
 		card = CARD(fdef.contr);
 		if (card->cardstate == CARD_FREE)
-			return -ESRCH;
+			return -ENODEV;
 		card->traceflag = fdef.flag;
 		printk(KERN_INFO "kcapi: contr %d set trace=%d\n",
-			card->cnr, card->traceflag);
+		       card->cnr, card->traceflag);
 		return 0;
 	}
 
 	case KCAPI_CMD_CONF_DRIVER:
 	{
 		struct capi_driver *driver;
-		kcapi_confdef cdef;
+		struct kcapi_conf_drvdef cdef;
 
-		if ((retval = copy_from_user((void *) &cdef, data,
-							sizeof(cdef))))
-			return retval;
+		if (copy_from_user(&cdef, data, sizeof(cdef)))
+			return -EFAULT;
 
 		cdef.driver[sizeof(cdef.driver)-1] = 0;
 
 		if ((driver = find_driver(cdef.driver)) == 0) {
-			printk(KERN_ERR "kcapi: driver \"%s\" not loaded.\n",
-					cdef.driver);
-			return -ESRCH;
+			printk(KERN_INFO "kcapi: driver \"%s\" not loaded.\n",
+			       cdef.driver);
+			return -ENODEV;
 		}
 
 		if (!driver->conf_driver) {
-			printk(KERN_ERR "kcapi: driver \"%s\" has no conf_driver function.\n", cdef.driver);
+			printk(KERN_INFO "kcapi: driver \"%s\" has no conf_driver function.\n", cdef.driver);
 			return -EIO;
 		}
 
-		return driver->conf_driver(driver, cdef.data);
+		return driver->conf_driver(driver, cdef.cmd, cdef.data);
 	}
 
 	case KCAPI_CMD_CONF_CONTROLLER:
 	{
 		struct capi_driver *driver;
-		kcapi_confdef cdef;
+		struct capi_ctr *ctr;
+		kcapi_conf_contrdef cdef;
 
-		if ((retval = copy_from_user((void *) &cdef, data,
-							sizeof(cdef))))
-			return retval;
+		if (copy_from_user(&cdef, data, sizeof(cdef)))
+			return -EFAULT;
 
-		if ((driver = CARD(cdef.controller)->driver) == 0) {
-			printk(KERN_ERR "kcapi: controller \"%d\" not loaded.\n",
-					cdef.controller);
-			return -ESRCH;
+		printk("cdef.contr %d\n", cdef.contr);
+		if (!VALID_CARD(cdef.contr))
+			return -ENODEV;
+
+		ctr = CARD(cdef.contr);
+		if (ctr->cardstate == CARD_FREE)
+			return -ENODEV;
+
+		driver = ctr->driver;
+		if (!driver) {
+			printk(KERN_INFO "kcapi: controller \"%d\" not loaded.\n",
+			       cdef.contr);
+			return -ENODEV;
 		}
 
 		if (!driver->conf_controller) {
-			printk(KERN_ERR "kcapi: driver \"%s\" has no conf_controller function.\n", cdef.driver);
+			printk(KERN_INFO "kcapi: driver \"%s\" has no conf_controller function.\n", driver->name);
 			return -EIO;
 		}
 
-		return driver->conf_controller(driver, cdef.controller, cdef.data);
+		return driver->conf_controller(ctr, cdef.cmd, cdef.data);
         }
 
 	default:
-		printk(KERN_ERR "kcapi: manufacturer command %d unknown.\n",
-					cmd);
+		printk(KERN_INFO "kcapi: manufacturer command %d unknown.\n",
+		       cmd);
 		break;
 
 	}
@@ -1539,7 +1546,6 @@ struct capi_interface *attach_capi_interface(struct capi_interface_user *userp)
 {
 	struct capi_interface_user *p;
 
-	MOD_INC_USE_COUNT;
 	spin_lock(&capi_users_lock);
 	for (p = capi_users; p; p = p->next) {
 		if (p == userp) {
@@ -1553,7 +1559,7 @@ struct capi_interface *attach_capi_interface(struct capi_interface_user *userp)
 	userp->next = capi_users;
 	capi_users = userp;
 	spin_unlock(&capi_users_lock);
-	printk(KERN_NOTICE "kcapi: %s attached\n", userp->name);
+	printk(KERN_INFO "kcapi: %s attached\n", userp->name);
 
 	return &kcapi_interface;
 }
@@ -1568,8 +1574,7 @@ int detach_capi_interface(struct capi_interface_user *userp)
 			*pp = userp->next;
 			spin_unlock(&capi_users_lock);
 			userp->next = 0;
-			printk(KERN_NOTICE "kcapi: %s detached\n", userp->name);
-			MOD_DEC_USE_COUNT;
+			printk(KERN_INFO "kcapi: %s detached\n", userp->name);
 			return 0;
 		}
 	}
@@ -1611,7 +1616,7 @@ static int __init kcapi_init(void)
 	} else
 		strcpy(rev, "1.0");
 
-        printk(KERN_NOTICE "CAPI4Linux kernel driver Rev%s: ", rev);
+        printk(KERN_INFO "CAPI4Linux kernel driver Rev%s: ", rev);
 #ifdef MODULE
         printk("loaded\n");
 #else
@@ -1639,7 +1644,7 @@ static void __exit kcapi_exit(void)
 
         proc_capi_exit();
         stop_kcapi_thread();
-	printk(KERN_NOTICE "CAPI4Linux kernel driver Rev%s: unloaded\n", rev);
+	printk(KERN_INFO "CAPI4Linux kernel driver Rev%s: unloaded\n", rev);
 }
 
 module_init(kcapi_init);

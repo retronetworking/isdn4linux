@@ -20,20 +20,16 @@
 #define CAPI_MAXDATAWINDOW	8
 
 
+#define KCAPI_CMD_TRACE            0x10
+#define KCAPI_CMD_CONF_DRIVER      0x20
+#define KCAPI_CMD_CONF_CONTROLLER  0x21
+
+/* ------------------------------------------------------------ */
+
 typedef struct kcapi_flagdef {
 	int contr;
 	int flag;
 } kcapi_flagdef;
-
-typedef struct kcapi_confdef {
-	char  driver[32];
-        int   controller;
-        void *data;
-} kcapi_confdef;
-
-#define KCAPI_CMD_TRACE            0x10
-#define KCAPI_CMD_CONF_DRIVER      0x11
-#define KCAPI_CMD_CONF_CONTROLLER  0x12
 
 /* 
  * flag > 2 => trace also data
@@ -45,6 +41,31 @@ typedef struct kcapi_confdef {
 #define KCAPI_TRACE_SHORT		3
 #define KCAPI_TRACE_FULL		4
 
+/* ------------------------------------------------------------ */
+
+typedef struct kcapi_conf_drvdef {
+	char  driver[32];
+	int   cmd;
+        void *data;
+} kcapi_conf_drvdef;
+
+/* ------------------------------------------------------------ */
+
+typedef struct kcapi_conf_contrdef {
+        int   contr;
+	int   cmd; /* one of KCAPI_CMD_CONTR_... */
+        void *data;
+} kcapi_conf_contrdef;
+
+/* generic */
+
+#define KCAPI_CMD_CONTR_RESET                 0x01
+
+/* AVM active card specific */
+
+#define KCAPI_CMD_CONTR_AVMB1_LOAD_AND_CONFIG 0x101
+
+/* ------------------------------------------------------------ */
 
 #ifdef __KERNEL__
 
