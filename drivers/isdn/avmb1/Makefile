@@ -11,6 +11,15 @@
 # parent makes..
 #
 # $Log$
+# Revision 1.16  2000/03/17 12:15:44  calle
+# ALL_SUB_DIRS were wrong.
+#
+# Revision 1.15  2000/03/16 15:21:03  calle
+# Bugfix in c4_remove: loop 5 times instead of 4 :-(
+#
+# Revision 1.14  2000/03/13 17:50:55  calle
+# Added avm_cs.c for 2.3.x PCMCIA support.
+#
 # Revision 1.13  2000/03/08 17:06:33  calle
 # - changes for devfs and 2.3.49
 # - capifs now configurable (no need with devfs)
@@ -98,6 +107,9 @@
 #
 #
 
+SUB_DIRS     :=
+MOD_SUB_DIRS :=
+ALL_SUB_DIRS := # fcpci fcclassic
 #
 # Objects that don't export a symtab
 #
@@ -141,6 +153,14 @@ ifeq ($(CONFIG_ISDN_CAPI),y)
   ifdef CONFIG_ISDN_DRV_AVMB1_C4
   	O_OBJS   += c4.o
   endif
+  ifdef CONFIG_ISDN_DRV_AVMB1_FCPCI
+	SUB_DIRS += fcpci
+	MOD_SUB_DIRS += fcpci
+  endif
+  ifdef CONFIG_ISDN_DRV_AVMB1_FCCLASSIC
+	SUB_DIRS += fcclassic
+	MOD_SUB_DIRS += fcclassic
+  endif
   OX_OBJS  += capiutil.o capidrv.o b1.o b1dma.o
 else
   ifeq ($(CONFIG_ISDN_CAPI),m)
@@ -161,6 +181,11 @@ else
   	endif
   	ifdef CONFIG_ISDN_DRV_AVMB1_B1PCMCIA
   		MX_OBJS  += b1pcmcia.o
+		ifeq ($(CONFIG_HOTPLUG),y)
+			ifneq ($(CONFIG_PCMCIA),n)
+  				M_OBJS   += avm_cs.o
+			endif
+		endif
   	endif
   	ifdef CONFIG_ISDN_DRV_AVMB1_T1PCI
   		M_OBJS   += t1pci.o
@@ -168,6 +193,12 @@ else
   	ifdef CONFIG_ISDN_DRV_AVMB1_C4
   		M_OBJS   += c4.o
   	endif
+  	ifdef CONFIG_ISDN_DRV_AVMB1_FCPCI
+    		MOD_SUB_DIRS += fcpci
+	endif
+  	ifdef CONFIG_ISDN_DRV_AVMB1_FCCLASSIC
+    		MOD_SUB_DIRS += fcclassic
+	endif
   	MX_OBJS  += capiutil.o capidrv.o b1.o b1dma.o
   endif
 endif

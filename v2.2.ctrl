@@ -27,9 +27,11 @@
 #undef COMPAT_HAS_kmem_cache
 #undef COMPAT_d_alloc_root_one_parameter
 #undef COMPAT_HAS_init_special_inode
+#undef COMPAT_has_fileops_in_inode
+#undef COMPAT_has_generic_read_dir
 #define THIS_MODULE	&__this_module
-
 #define ISDN_TTY_FCLASS1
+
 #undef CONFIG_ISDN_WITH_ABC
 #undef CONFIG_ISDN_WITH_ABC_CALLB
 #undef CONFIG_ISDN_WITH_ABC_UDP_CHECK

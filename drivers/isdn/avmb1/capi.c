@@ -6,6 +6,9 @@
  * Copyright 1996 by Carsten Paeth (calle@calle.in-berlin.de)
  *
  * $Log$
+ * Revision 1.29  2000/03/13 17:48:13  calle
+ * removed unused variable.
+ *
  * Revision 1.28  2000/03/08 17:06:33  calle
  * - changes for devfs and 2.3.49
  * - capifs now configurable (no need with devfs)
@@ -2277,7 +2280,6 @@ void cleanup_module(void)
 	devfs_unregister_chrdev(capi_rawmajor, "capi/r%d");
 #ifdef HAVE_DEVFS_FS
 	for (j = 0; j < CAPINC_NR_PORTS; j++) {
-		devfs_handle_t handle;
 		char devname[32];
 		sprintf(devname, "capi/r%u", j);
 		devfs_unregister(devfs_find_handle(NULL, devname, 0, capi_rawmajor, j, DEVFS_SPECIAL_CHR, 0));
