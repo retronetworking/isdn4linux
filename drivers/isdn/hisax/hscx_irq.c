@@ -7,6 +7,9 @@
  * This is an include file for fast inline IRQ stuff
  *
  * $Log$
+ * Revision 1.8  1998/04/10 10:35:22  paul
+ * fixed (silly?) warnings from egcs on Alpha.
+ *
  * Revision 1.7  1998/02/12 23:07:37  keil
  * change for 2.1.86 (removing FREE_READ/FREE_WRITE from [dev]_kfree_skb()
  *
@@ -254,7 +257,7 @@ hscx_int_main(struct IsdnCardState *cs, u_char val)
 	if (val & 0x01) {
 		bcs = cs->bcs + 1;
 		exval = READHSCX(cs, 1, HSCX_EXIR);
-		if (exval == 0x40) {
+		if (exval & 0x40) {
 			if (bcs->mode == 1)
 				hscx_fill_fifo(bcs);
 			else {
@@ -287,7 +290,7 @@ hscx_int_main(struct IsdnCardState *cs, u_char val)
 	if (val & 0x02) {
 		bcs = cs->bcs;
 		exval = READHSCX(cs, 0, HSCX_EXIR);
-		if (exval == 0x40) {
+		if (exval & 0x40) {
 			if (bcs->mode == L1_MODE_TRANS)
 				hscx_fill_fifo(bcs);
 			else {
