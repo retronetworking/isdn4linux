@@ -23,6 +23,12 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.15  1999/08/22 20:27:05  calle
+ * backported changes from kernel 2.3.14:
+ * - several #include "config.h" gone, others come.
+ * - "struct device" changed to "struct net_device" in 2.3.14, added a
+ *   define in isdn_compat.h for older kernel versions.
+ *
  * Revision 1.14  1999/08/12 18:59:45  werner
  * Added further manufacturer and device ids to PCI list
  *
@@ -634,9 +640,12 @@ hfcpci_fill_fifo(struct BCState *bcs)
 /***********************/
 /* set/reset echo mode */
 /***********************/ 
-int hfcpci_set_echo(struct IsdnCardState *cs, int i)
-{ int flags;
-
+static int
+hfcpci_auxcmd(struct IsdnCardState *cs, isdn_ctrl *ic)
+{
+  int flags;
+  int i = *(unsigned int *) ic->parm.num;
+  
   if (cs->chanlimit > 1)
     return(-EINVAL);
 
@@ -667,7 +676,7 @@ int hfcpci_set_echo(struct IsdnCardState *cs, int i)
   Write_hfc(cs, HFCPCI_INT_M1, cs->hw.hfcpci.int_m1);
   restore_flags(flags);
   return(0);
-} /* hfcpci_set_echo */ 
+} /* hfcpci_auxcmd */ 
 
 /*****************************/
 /* E-channel receive routine */
@@ -1595,6 +1604,7 @@ __initfunc(int
 
 	reset_hfcpci(cs);
 	cs->cardmsg = &hfcpci_card_msg;
+	cs->auxcmd  = &hfcpci_auxcmd;
 	return (1);
 #else
 	printk(KERN_WARNING "HFC-PCI: NO_PCI_BIOS\n");
