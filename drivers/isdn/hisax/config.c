@@ -5,6 +5,9 @@
  *
  *
  * $Log$
+ * Revision 2.8  1998/02/02 13:32:59  keil
+ * New card support
+ *
  * Revision 2.7  1998/01/31 21:41:44  keil
  * changes for newer 2.1 kernels
  *
@@ -161,6 +164,13 @@ EXPORT_SYMBOL(elsa_init_pcmcia);
 #undef DEFAULT_CFG
 #define DEFAULT_CARD ISDN_CTYPE_TELES3C
 #define DEFAULT_CFG {5,0x500,0,0}
+#endif
+
+#ifdef CONFIG_HISAX_AMD7930
+#undef DEFAULT_CARD
+#undef DEFAULT_CFG
+#define DEFAULT_CARD ISDN_CTYPE_AMD7930
+#define DEFAULT_CFG {12,0x3e0,0,0}
 #endif
 
 #ifdef CONFIG_HISAX_1TR6
@@ -432,6 +442,7 @@ HiSax_init(void))
 				break;
 			case ISDN_CTYPE_ELSA_PCI:
 			case ISDN_CTYPE_NETJET:
+			case ISDN_CTYPE_AMD7930:
 				break;
 		}
 	}

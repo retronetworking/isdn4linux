@@ -11,6 +11,9 @@
  *
  *
  * $Log$
+ * Revision 2.13  1998/02/02 13:33:02  keil
+ * New card support
+ *
  * Revision 2.12  1998/01/31 21:41:48  keil
  * changes for newer 2.1 kernels
  *
@@ -126,6 +129,10 @@ extern int setup_netjet(struct IsdnCard *card);
 extern int setup_t163c(struct IsdnCard *card);
 #endif
 
+#if CARD_AMD7930
+extern int setup_amd7930(struct IsdnCard *card);
+#endif
+
 #define HISAX_STATUS_BUFSIZE 4096
 #define ISDN_CTRL_DEBUG 1
 #define INCLUDE_INLINE_FUNCS
@@ -136,7 +143,7 @@ const char *CardType[] =
  "AVM A1", "Elsa ML", "Elsa Quickstep", "Teles PCMCIA", "ITK ix1-micro Rev.2",
  "Elsa PCMCIA", "Eicon.Diehl Diva", "ISDNLink", "TeleInt", "Teles 16.3c", 
  "Sedlbauer Speed Card", "USR Sportster", "ith mic Linux", "Elsa PCI",
- "Compaq ISA", "NETjet"
+ "Compaq ISA", "NETjet", "Teles PCI", "Sedlbauer PCMCIA", "AMD 7930", "NICCY"
 };
 
 extern struct IsdnCard cards[];
@@ -808,6 +815,11 @@ checkcard(int cardnr, char *id, int *busy_flag))
 #if CARD_TELES3C
 		case ISDN_CTYPE_TELES3C:
 			ret = setup_t163c(card);
+			break;
+#endif
+#if CARD_AMD7930
+		case ISDN_CTYPE_AMD7930:
+			ret = setup_amd7930(card);
 			break;
 #endif
 		default:

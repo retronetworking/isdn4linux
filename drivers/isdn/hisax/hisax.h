@@ -3,6 +3,9 @@
  *   Basic declarations, defines and prototypes
  *
  * $Log$
+ * Revision 2.11  1998/02/02 13:33:00  keil
+ * New card support
+ *
  * Revision 2.10  1997/11/08 21:37:52  keil
  * new l1 init;new Compaq card
  *
@@ -385,6 +388,18 @@ struct tiger_hw {
 	u_char s_state;
 };
 
+struct amd7930_hw {
+	u_char *tx_buff;
+	u_char *rv_buff;
+	int rv_buff_in;
+	int rv_buff_out;
+	struct sk_buff *rv_skb;
+	struct hdlc_state *hdlc_state;
+	struct tq_struct tq_rcv;
+	struct tq_struct tq_xmt;
+	struct sk_buff *tx_skb; /* B-Channel transmit Buffer */
+};
+
 #define BC_FLG_INIT	1
 #define BC_FLG_ACTIV	2
 #define BC_FLG_BUSY	3
@@ -413,6 +428,7 @@ struct BCState {
 		struct hscx_hw hscx;
 		struct hfcB_hw hfc;
 		struct tiger_hw tiger;
+		struct amd7930_hw  amd7930;
 	} hw;
 };
 
@@ -680,8 +696,12 @@ struct IsdnCardState {
 #define  ISDN_CTYPE_ELSA_PCI	18
 #define  ISDN_CTYPE_COMPAQ_ISA	19
 #define  ISDN_CTYPE_NETJET	20
+#define  ISDN_CTYPE_TELESPCI	21
+#define  ISDN_CTYPE_SEDLPCMCIA	22
+#define  ISDN_CTYPE_AMD7930	23
+#define  ISDN_CTYPE_NICCY	24
 
-#define  ISDN_CTYPE_COUNT	20
+#define  ISDN_CTYPE_COUNT	24
 
 #ifdef ISDN_CHIP_ISAC
 #undef ISDN_CHIP_ISAC
@@ -811,10 +831,17 @@ struct IsdnCardState {
 #define  CARD_TELES3C  0
 #endif
 
+#ifdef  CONFIG_HISAX_AMD7930
+#define CARD_AMD7930 (1 << ISDN_CTYPE_AMD7930)
+#else
+#define CARD_AMD7930 0
+#endif
+
+
 #define  SUPORTED_CARDS  (CARD_TELES0 | CARD_TELES3 | CARD_AVM_A1 | CARD_ELSA \
 			 | CARD_IX1MICROR2 | CARD_DIEHLDIVA | CARD_ASUSCOM \
 			 | CARD_TELEINT | CARD_SEDLBAUER | CARD_SPORTSTER \
-			 | CARD_MIC | CARD_NETJET | CARD_TELES3C)
+			 | CARD_MIC | CARD_NETJET | CARD_TELES3C | CARD_AMD7930)
 
 #define TEI_PER_CARD 0
 
