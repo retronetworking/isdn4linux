@@ -4,8 +4,9 @@
 if [ "$CONFIG_INET" != "n" ]; then
    bool '  Support synchronous PPP' CONFIG_ISDN_PPP
    if [ "$CONFIG_ISDN_PPP" != "n" ]; then
-      bool '    Use VJ-compression with synchronous PPP' CONFIG_ISDN_PPP_VJ
-      bool '    Support generic MP (RFC 1717)' CONFIG_ISDN_MPP
+      bool     '    Use VJ-compression with synchronous PPP' CONFIG_ISDN_PPP_VJ
+      bool     '    Support generic MP (RFC 1717)' CONFIG_ISDN_MPP
+      tristate '    Support BSD compression with sync PPP' CONFIG_ISDN_PPP_BSDCOMP
    fi
 fi
 bool '  Support audio via ISDN' CONFIG_ISDN_AUDIO
@@ -137,22 +138,26 @@ fi
 # CAPI subsystem
 
 tristate     'CAPI2.0 support' CONFIG_ISDN_CAPI
-dep_mbool    '  CAPI2.0 Middleware support' CONFIG_ISDN_CAPI_MIDDLEWARE $CONFIG_ISDN_CAPI $CONFIG_EXPERIMENTAL
-dep_tristate '  CAPI2.0 filesystem support' CONFIG_ISDN_CAPI_CAPIFS $CONFIG_ISDN_CAPI $CONFIG_ISDN_CAPI_MIDDLEWARE
-dep_tristate '  CAPI2.0 /dev/capi support' CONFIG_ISDN_CAPI_CAPI20 $CONFIG_ISDN_CAPI $CONFIG_ISDN_CAPIFS
-dep_tristate '  CAPI2.0 capidrv interface support' CONFIG_ISDN_CAPI_CAPIDRV $CONFIG_ISDN_CAPI $CONFIG_ISDN
-dep_mbool    '  Verbose reason code reporting (kernel size +=7K)' CONFIG_ISDN_DRV_AVMB1_VERBOSE_REASON $CONFIG_ISDN_CAPI
+if [ "$CONFIG_ISDN_CAPI" != "n" ]; then
+   dep_bool     '  CAPI2.0 Middleware support (EXPERIMENTAL)' CONFIG_ISDN_CAPI_MIDDLEWARE $CONFIG_EXPERIMENTAL
+   dep_tristate '  CAPI2.0 filesystem support' CONFIG_ISDN_CAPI_CAPIFS $CONFIG_ISDN_CAPI_MIDDLEWARE
+   dep_tristate '  CAPI2.0 /dev/capi support' CONFIG_ISDN_CAPI_CAPI20 $CONFIG_ISDN_CAPIFS
+   dep_tristate '  CAPI2.0 capidrv interface support' CONFIG_ISDN_CAPI_CAPIDRV $CONFIG_ISDN
+   bool         '  Verbose reason code reporting (kernel size +=7K)' CONFIG_ISDN_DRV_AVMB1_VERBOSE_REASON
+fi
 
 # CAPI drivers
 
-dep_tristate '  AVM B1 ISA support' CONFIG_ISDN_DRV_AVMB1_B1ISA $CONFIG_ISDN_CAPI
-dep_tristate '  AVM B1 PCI support' CONFIG_ISDN_DRV_AVMB1_B1PCI $CONFIG_ISDN_CAPI $CONFIG_PCI
-dep_mbool    '    AVM B1 PCI V4 support' CONFIG_ISDN_DRV_AVMB1_B1PCIV4 $CONFIG_ISDN_DRV_AVMB1_B1PCI $CONFIG_EXPERIMENTAL
-dep_tristate '  AVM T1/T1-B ISA support' CONFIG_ISDN_DRV_AVMB1_T1ISA $CONFIG_ISDN_CAPI
-dep_tristate '  AVM B1/M1/M2 PCMCIA support' CONFIG_ISDN_DRV_AVMB1_B1PCMCIA $CONFIG_ISDN_CAPI
-dep_tristate '  AVM B1/M1/M2 PCMCIA cs module' CONFIG_ISDN_DRV_AVMB1_AVM_CS $CONFIG_ISDN_DRV_AVMB1_B1PCMCIA $CONFIG_PCMCIA
-dep_tristate '  AVM T1/T1-B PCI support' CONFIG_ISDN_DRV_AVMB1_T1PCI $CONFIG_ISDN_CAPI $CONFIG_PCI
-dep_tristate '  AVM C4 support' CONFIG_ISDN_DRV_AVMB1_C4 $CONFIG_ISDN_CAPI $CONFIG_PCI
+if [ "$CONFIG_ISDN_CAPI" != "n" ]; then
+   tristate     '  AVM B1 ISA support' CONFIG_ISDN_DRV_AVMB1_B1ISA
+   dep_tristate '  AVM B1 PCI support' CONFIG_ISDN_DRV_AVMB1_B1PCI $CONFIG_PCI
+   dep_mbool    '    AVM B1 PCI V4 support' CONFIG_ISDN_DRV_AVMB1_B1PCIV4 $CONFIG_ISDN_DRV_AVMB1_B1PCI
+   tristate     '  AVM T1/T1-B ISA support' CONFIG_ISDN_DRV_AVMB1_T1ISA
+   dep_tristate '  AVM B1/M1/M2 PCMCIA support' CONFIG_ISDN_DRV_AVMB1_B1PCMCIA $CONFIG_PCMCIA
+   dep_tristate '  AVM B1/M1/M2 PCMCIA cs module' CONFIG_ISDN_DRV_AVMB1_AVM_CS $CONFIG_ISDN_DRV_AVMB1_B1PCMCIA
+   dep_tristate '  AVM T1/T1-B PCI support' CONFIG_ISDN_DRV_AVMB1_T1PCI $CONFIG_PCI
+   dep_tristate '  AVM C4 support' CONFIG_ISDN_DRV_AVMB1_C4 $CONFIG_PCI
+fi
 
 # HYSDN
 

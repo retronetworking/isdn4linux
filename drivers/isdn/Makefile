@@ -26,21 +26,13 @@ isdn-objs	:= isdn_net.o isdn_tty.o isdn_cards.o isdn_v110.o \
 
 # Optional parts of multipart objects.
 
-ifeq ($(CONFIG_ISDN_PPP),y)
-	isdn-objs	+= isdn_ppp.o
-endif
-ifeq ($(CONFIG_ISDN_X25),y)
-	isdn-objs	+= isdn_concap.o isdn_x25iface.o
-endif
-ifeq ($(CONFIG_ISDN_AUDIO),y)
-	isdn-objs	+= isdn_audio.o
-endif
-ifeq ($(CONFIG_ISDN_TTY_FAX),y)
-	isdn-objs	+= isdn_ttyfax.o
-endif
-ifeq ($(CONFIG_ISDN_WITH_ABC),y)
-	isdn-objs	+= isdn_dwabc.o
-endif
+isdn-objs-$(CONFIG_ISDN_PPP)		+= isdn_ppp.o
+isdn-objs-$(CONFIG_ISDN_X25)		+= isdn_concap.o isdn_x25iface.o
+isdn-objs-$(CONFIG_ISDN_AUDIO)		+= isdn_audio.o
+isdn-objs-$(CONFIG_ISDN_TTY_FAX)	+= isdn_ttyfax.o
+isdn-objs-$(CONFIG_ISDN_WITH_ABC)	+= isdn_dwabc.o
+
+isdn-objs				+= $(isdn-objs-y)
 
 # Object file lists.
 
@@ -76,8 +68,9 @@ MOD_SUB_DIRS	+= $(subdir-m)
 
 # Each configuration option enables a list of files.
 
-obj-$(CONFIG_ISDN)	+= isdn.o
-obj-y			+= $(subobj-y)
+obj-$(CONFIG_ISDN)			+= isdn.o
+obj-$(CONFIG_ISDN_PPP_BSDCOMP)		+= isdn_bsdcomp.o
+obj-y					+= $(subobj-y)
 
 # Extract lists of the multi-part drivers.
 # The 'int-*' lists are the intermediate files used to build the multi's.
