@@ -11,6 +11,9 @@
  *
  *
  * $Log$
+ * Revision 2.27  1998/08/13 23:36:39  keil
+ * HiSax 3.1 - don't work stable with current LinkLevel
+ *
  * Revision 2.26  1998/07/15 15:01:31  calle
  * Support for AVM passive PCMCIA cards:
  *    A1 PCMCIA, FRITZ!Card PCMCIA and FRITZ!Card PCMCIA 2.0
@@ -679,7 +682,8 @@ closecard(int cardnr)
 		csta->mon_tx = NULL;
 	}
 	csta->cardmsg(csta, CARD_RELEASE, NULL);
-	del_timer(&csta->dbusytimer);
+	if (csta->dbusytimer.function != NULL)
+		del_timer(&csta->dbusytimer);
 	ll_unload(csta);
 }
 
@@ -747,6 +751,7 @@ checkcard(int cardnr, char *id, int *busy_flag))
 		restore_flags(flags);
 		return (0);
 	}
+	memset(cs, 0, sizeof(struct IsdnCardState));
 	card->cs = cs;
 	cs->cardnr = cardnr;
 	cs->debug = L1_DEB_WARN;
