@@ -6,6 +6,9 @@
  *
  *
  * $Log$
+ * Revision 1.3.2.5  1998/05/27 18:05:34  keil
+ * HiSax 3.0
+ *
  * Revision 1.3.2.4  1998/04/08 21:57:04  keil
  * Fix "lltrans ..." message
  * New init code to fix problems during init if S0 is allready activ
@@ -165,10 +168,9 @@ hscx_l2l1(struct PStack *st, int pr, void *arg)
 			break;
 		case (PH_DEACTIVATE | CONFIRM):
 			test_and_clear_bit(BC_FLG_ACTIV, &st->l1.bcs->Flag);
-			if (!test_bit(BC_FLG_BUSY, &st->l1.bcs->Flag)) {
-				modehscx(st->l1.bcs, 0, st->l1.bc);
-				st->l1.l1l2(st, PH_DEACTIVATE | CONFIRM, NULL);
-			}
+			test_and_clear_bit(BC_FLG_BUSY, &st->l1.bcs->Flag);
+			modehscx(st->l1.bcs, 0, st->l1.bc);
+			st->l1.l1l2(st, PH_DEACTIVATE | CONFIRM, NULL);
 			break;
 	}
 }
