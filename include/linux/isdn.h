@@ -21,6 +21,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.63  1999/04/18 14:07:18  fritz
+ * Removed TIMRU stuff.
+ *
  * Revision 1.62  1999/04/12 13:16:54  fritz
  * Changes from 2.0 tree.
  *
@@ -299,11 +302,6 @@
 #define IIOCNETDIL  _IO('I',20)
 #define IIOCGETCPS  _IO('I',21)
 #define IIOCGETDVR  _IO('I',22)
-#define IIOCNETARU  _IO('I',23)
-#define IIOCNETDRU  _IO('I',24)
-#define IIOCNETGRU  _IO('I',25)
-
-#define IIOCNETBUD  _IO('I',26)
 
 #define IIOCNETALN  _IO('I',32)
 #define IIOCNETDLN  _IO('I',33)
