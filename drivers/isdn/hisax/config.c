@@ -5,6 +5,9 @@
  *
  *
  * $Log$
+ * Revision 2.22  1999/02/04 21:41:53  keil
+ * Fix printk msg
+ *
  * Revision 2.21  1999/02/04 10:48:52  keil
  * Fix readstat bug
  *
@@ -1169,6 +1172,8 @@ HiSax_closecard(int cardnr)
 	}
 	nrcards--;
 }
+
+EXPORT_SYMBOL(HiSax_closecard);
 
 void
 HiSax_reportcard(int cardnr)
