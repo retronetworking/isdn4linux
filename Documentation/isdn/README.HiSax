@@ -39,7 +39,8 @@ Eicon.Diehl Diva Piccola
 ASUSCOM NETWORK INC. ISDNLink 128K PC adapter (order code I-IN100-ST-D)
 Dynalink IS64PH (OEM version of ASUSCOM NETWORK INC. ISDNLink 128K adapter)
 HFC-2BS0 based cards (TeleInt SA1)
-Sedlbauer Speed Card (WinSpeed, Teledat 100)
+Sedlbauer Speed Card (Speed Win, Teledat 100)
+Sedlbauer Speed Star (PCMCIA)
 USR Sportster internal TA (compatible Stollmann tina-pp V3)
 ith Kommunikationstechnik GmbH MIC 16 ISA card 
 Traverse Technologie NETjet PCI S0 card
@@ -141,6 +142,7 @@ Card types:
    18   ELSA Quickstep 1000PCI   no parameter
    19   Compaq ISDN S0 ISA card  irq, io0, io1, io (from isapnp setup io=IO2)
    20   NETjet PCI card          no parameter
+   22   Sedlbauer Speed Star (PCMCIA) irq, io (set with card manager)
         
 At the moment IRQ sharing is not possible. Please make sure that your IRQ
 is free and enabled for ISA use.
@@ -220,12 +222,13 @@ Card types:
    12   ASUS COM ISDNLink       ONLY WORKS AS A MODULE !
    13	HFC-2BS0 based cards    pa=irq  pb=io
    14   Teles 16.3c PnP         ONLY WORKS AS A MODULE !
-   15	Sedlbauer Speed Card    pa=irq  pb=io (WinSpeed only as module !)  
+   15	Sedlbauer Speed Card    pa=irq  pb=io (Speed Win only as module !)  
    16   USR Sportster internal  pa=irq  pb=io
    17   MIC card                pa=irq  pb=io
    18   ELSA Quickstep 1000PCI  no parameter
    19   Compaq ISDN S0 ISA card ONLY WORKS AS A MODULE !
    20   NETjet PCI card         no parameter
+   21   Sedlbauer Speed Star (PCMCIA)  pa=irq, pb=io  (set with card manager)
 
 Running the driver
 ------------------

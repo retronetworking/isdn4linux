@@ -11,6 +11,9 @@
  *
  *
  * $Log$
+ * Revision 2.15  1998/02/09 10:54:51  keil
+ * fixes for leased mode
+ *
  * Revision 2.14  1998/02/03 23:31:31  keil
  * add AMD7930 support
  *
@@ -146,7 +149,8 @@ const char *CardType[] =
  "AVM A1", "Elsa ML", "Elsa Quickstep", "Teles PCMCIA", "ITK ix1-micro Rev.2",
  "Elsa PCMCIA", "Eicon.Diehl Diva", "ISDNLink", "TeleInt", "Teles 16.3c", 
  "Sedlbauer Speed Card", "USR Sportster", "ith mic Linux", "Elsa PCI",
- "Compaq ISA", "NETjet", "Teles PCI", "Sedlbauer PCMCIA", "AMD 7930", "NICCY"
+ "Compaq ISA", "NETjet", "Teles PCI", "Sedlbauer Speed Star (PCMCIA)",
+ "AMD 7930", "NICCY"
 };
 
 extern struct IsdnCard cards[];
@@ -797,6 +801,7 @@ checkcard(int cardnr, char *id, int *busy_flag))
 #endif
 #if CARD_SEDLBAUER
 		case ISDN_CTYPE_SEDLBAUER:
+		case ISDN_CTYPE_SEDLBAUER_PCMCIA:
 			ret = setup_sedlbauer(card);
 			break;
 #endif

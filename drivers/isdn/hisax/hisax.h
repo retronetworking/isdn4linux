@@ -3,6 +3,9 @@
  *   Basic declarations, defines and prototypes
  *
  * $Log$
+ * Revision 2.12  1998/02/03 23:31:30  keil
+ * add AMD7930 support
+ *
  * Revision 2.11  1998/02/02 13:33:00  keil
  * New card support
  *
@@ -547,8 +550,8 @@ struct sedl_hw {
 	unsigned int adr;
 	unsigned int isac;
 	unsigned int hscx;
-	unsigned int res_on;
-	unsigned int res_off;
+	unsigned int reset_on;
+	unsigned int reset_off;
 };
 
 struct spt_hw {
@@ -697,7 +700,7 @@ struct IsdnCardState {
 #define  ISDN_CTYPE_COMPAQ_ISA	19
 #define  ISDN_CTYPE_NETJET	20
 #define  ISDN_CTYPE_TELESPCI	21
-#define  ISDN_CTYPE_SEDLPCMCIA	22
+#define  ISDN_CTYPE_SEDLBAUER_PCMCIA	22
 #define  ISDN_CTYPE_AMD7930	23
 #define  ISDN_CTYPE_NICCY	24
 
@@ -790,7 +793,7 @@ struct IsdnCardState {
 #endif
 
 #ifdef  CONFIG_HISAX_SEDLBAUER
-#define CARD_SEDLBAUER (1 << ISDN_CTYPE_SEDLBAUER)
+#define CARD_SEDLBAUER (1 << ISDN_CTYPE_SEDLBAUER) | (1 << ISDN_CTYPE_SEDLBAUER_PCMCIA)
 #ifndef ISDN_CHIP_ISAC
 #define ISDN_CHIP_ISAC 1
 #endif
