@@ -21,6 +21,13 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.44  1997/05/27 15:17:23  fritz
+ * Added changes for recent 2.1.x kernels:
+ *   changed return type of isdn_close
+ *   queue_task_* -> queue_task
+ *   clear/set_bit -> test_and_... where apropriate.
+ *   changed type of hard_header_cache parameter.
+ *
  * Revision 1.43  1997/03/31 14:09:43  fritz
  * Fixed memory leak in isdn_close().
  *
@@ -1005,7 +1012,11 @@ static unsigned int
 isdn_poll(struct file *file, poll_table * wait)
 {
 	unsigned int mask = 0;
+#if (LINUX_VERSION_CODE >= 0x02012d)
+	unsigned int minor = MINOR(file->f_dentry->d_inode->i_rdev);
+#else
 	unsigned int minor = MINOR(file->f_inode->i_rdev);
+#endif
 	int drvidx = isdn_minor2drv(minor - ISDN_MINOR_CTRL);
 
 	if (minor == ISDN_MINOR_STATUS) {

@@ -6,6 +6,13 @@
  * Copyright 1996 by Carsten Paeth (calle@calle.in-berlin.de)
  *
  * $Log$
+ * Revision 1.4  1997/05/27 15:17:50  fritz
+ * Added changes for recent 2.1.x kernels:
+ *   changed return type of isdn_close
+ *   queue_task_* -> queue_task
+ *   clear/set_bit -> test_and_... where apropriate.
+ *   changed type of hard_header_cache parameter.
+ *
  * Revision 1.3  1997/05/18 09:24:14  calle
  * added verbose disconnect reason reporting to avmb1.
  * some fixes in capi20 interface.
@@ -246,7 +253,11 @@ static unsigned int
 capi_poll(struct file *file, poll_table * wait)
 {
 	unsigned int mask = 0;
+#if (LINUX_VERSION_CODE >= 0x02012d)
+	unsigned int minor = MINOR(file->f_dentry->d_inode->i_rdev);
+#else
 	unsigned int minor = MINOR(file->f_inode->i_rdev);
+#endif
 	struct capidev *cdev;
 
 	if (!minor || minor > CAPI_MAXMINOR || !capidevs[minor].is_registered)

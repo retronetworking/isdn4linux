@@ -19,6 +19,13 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.28  1997/06/17 13:05:57  hipp
+ * Applied Eric's underflow-patches (slightly modified)
+ * more compression changes (but disabled at the moment)
+ * changed one copy_to_user() to run with enabled IRQs
+ * a few MP changes
+ * changed 'proto' handling in the isdn_ppp receive code
+ *
  * Revision 1.27  1997/03/30 16:51:17  calle
  * changed calls to copy_from_user/copy_to_user and removed verify_area
  * were possible.
@@ -711,7 +718,14 @@ isdn_ppp_poll(struct file *file, poll_table * wait)
 	is = file->private_data;
 
 	if (is->debug & 0x2)
-		printk(KERN_DEBUG "isdn_ppp_poll: minor: %d\n", MINOR(file->f_inode->i_rdev));
+#if (LINUX_VERSION_CODE >= 0x02012d)
+		printk(KERN_DEBUG "isdn_ppp_poll: minor: %d\n",
+				MINOR(file->f_dentry->d_inode->i_rdev));
+#else
+		printk(KERN_DEBUG "isdn_ppp_poll: minor: %d\n",
+				MINOR(file->f_inode->i_rdev));
+#endif
+ 
 
 	poll_wait(&is->wq, wait);
 
