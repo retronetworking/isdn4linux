@@ -21,6 +21,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.35  1997/02/10 20:12:45  fritz
+ * Changed interface for reporting incoming calls.
+ *
  * Revision 1.34  1997/02/03 23:15:07  fritz
  * Reformatted according CodingStyle.
  * replaced arp_find prototype by proper include.
@@ -565,7 +568,10 @@ isdn_net_dial(void)
 					printk(KERN_INFO "%s: Open leased line ...\n", p->local.name);
 				} else {
 					cmd.command = ISDN_CMD_DIAL;
-					sprintf(cmd.parm.num, "%s,%s,7,0", p->local.dial->num,
+					cmd.parm.setup.si1 = 7;
+					cmd.parm.setup.si2 = 0;
+					sprintf(cmd.parm.setup.phone, "%s", p->local.dial->num);
+					sprintf(cmd.parm.setup.eazmsn, "%s",
 						isdn_map_eaz2msn(p->local.msn, cmd.driver));
 					i = isdn_dc2minor(p->local.isdn_device, p->local.isdn_channel);
 					if (i >= 0) {

@@ -20,6 +20,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.26  1997/02/10 20:12:48  fritz
+ * Changed interface for reporting incoming calls.
+ *
  * Revision 1.25  1997/02/03 23:04:30  fritz
  * Reformatted according CodingStyle.
  * skb->free stuff replaced by macro.
@@ -623,8 +626,11 @@ isdn_tty_dial(char *n, modem_info * info, atemu * m)
 		dev->drv[info->isdn_driver]->interface->command(&cmd);
 		cmd.driver = info->isdn_driver;
 		cmd.arg = info->isdn_channel;
-		sprintf(cmd.parm.num, "%s,%s,%d,%d", n, isdn_map_eaz2msn(m->msn, info->isdn_driver),
-			si, m->mdmreg[19]);
+		sprintf(cmd.parm.setup.phone, "%s", n);
+		sprintf(cmd.parm.setup.eazmsn, "%s",
+			isdn_map_eaz2msn(m->msn, info->isdn_driver));
+		cmd.parm.setup.si1 = si;
+		cmd.parm.setup.si2 = m->mdmreg[19];
 		cmd.command = ISDN_CMD_DIAL;
 		info->dialing = 1;
 		strcpy(dev->num[i], n);

@@ -19,6 +19,11 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.35  1997/02/10 10:10:28  fritz
+ * Changes for Kernel 2.1.X compatibility.
+ * Enhanced initialization, can recover from
+ * misconfiguration by other autoprobing drivers.
+ *
  * Revision 1.34  1997/01/29 22:34:44  fritz
  * Cleanup, Corrected D64S setup of 2nd channel.
  *
@@ -557,26 +562,43 @@ icn_parse_status(u_char * status, int channel, icn_card * card)
 			dflag |= (channel + 1);
 			break;
 		case 3:
-			strncpy(cmd.num, status + 6, sizeof(cmd.num) - 1);
+			{
+				char *s = strtok(status+6, ",");
+				strncpy(cmd.parm.setup.phone, s, sizeof(cmd.parm.setup.phone));
+				s = strtok(NULL,",");
+				if (!strlen(s))
+					cmd.parm.setup.si1 = 0;
+				else
+					cmd.parm.setup.si1 = simple_strtoul(s,NULL,10);
+				s = strtok(NULL,",");
+				if (!strlen(s))
+					cmd.parm.setup.si2 = 0;
+				else
+					cmd.parm.setup.si2 = simple_strtoul(s,NULL,10);
+				s = strtok(NULL,",");
+				strncpy(cmd.parm.setup.eazmsn, s, sizeof(cmd.parm.setup.eazmsn));
+			}
 			break;
 		case 4:
-			sprintf(cmd.num, "LEASED%d,07,00,%d",
-				card->myid, channel + 1);
+			sprintf(cmd.parm.setup.phone, "LEASED%d", card->myid);
+			sprintf(cmd.parm.setup.eazmsn, "%d", channel+1);
+			cmd.parm.setup.si1 = 7;
+			cmd.parm.setup.si2 = 0;
 			break;
 		case 5:
-			strncpy(cmd.num, status + 3, sizeof(cmd.num) - 1);
+			strncpy(cmd.parm.num, status + 3, sizeof(cmd.parm.num) - 1);
 			break;
 		case 6:
-			sprintf(cmd.num, "%d",
+			sprintf(cmd.parm.num, "%d",
 			     (int) simple_strtoul(status + 7, NULL, 16));
 			break;
 		case 7:
 			status += 3;
 			if (strlen(status) == 4)
-				sprintf(cmd.num, "%s%c%c",
+				sprintf(cmd.parm.num, "%s%c%c",
 				     status + 2, *status, *(status + 1));
 			else
-				strncpy(cmd.num, status + 1, sizeof(cmd.num) - 1);
+				strncpy(cmd.parm.num, status + 1, sizeof(cmd.parm.num) - 1);
 			break;
 		case 8:
 			cmd.arg = 0;
@@ -1194,7 +1216,7 @@ icn_command(isdn_ctrl * c, icn_card * card)
 
 	switch (c->command) {
 		case ISDN_CMD_IOCTL:
-			memcpy(&a, c->num, sizeof(ulong));
+			memcpy(&a, c->parm.num, sizeof(ulong));
 			switch (c->arg) {
 				case ICN_IOCTL_SETMMIO:
 					if ((unsigned long) dev.shmem != (a & 0x0ffc000)) {
@@ -1338,21 +1360,11 @@ icn_command(isdn_ctrl * c, icn_card * card)
 				break;
 			if ((c->arg & 255) < ICN_BCH) {
 				char *p;
-				char *p2;
 				char dial[50];
-				char sis[50];
 				char dcode[4];
-				int si1,
-				 si2;
 
 				a = c->arg;
-				strcpy(sis, c->num);
-				p = strrchr(sis, ',');
-				*p++ = '\0';
-				si2 = simple_strtoul(p, NULL, 10);
-				p = strrchr(sis, ',') + 1;
-				si1 = simple_strtoul(p, NULL, 10);
-				p = c->num;
+				p = c->parm.setup.phone;
 				if (*p == 's' || *p == 'S') {
 					/* Dial for SPV */
 					p++;
@@ -1361,12 +1373,9 @@ icn_command(isdn_ctrl * c, icn_card * card)
 					/* Normal Dial */
 					strcpy(dcode, "CAL");
 				strcpy(dial, p);
-				p = strchr(dial, ',');
-				*p++ = '\0';
-				p2 = strchr(p, ',');
-				*p2 = '\0';
-				sprintf(cbuf, "%02d;D%s_R%s,%02d,%02d,%s\n", (int) (a + 1), dcode, dial, si1,
-					si2, p);
+				sprintf(cbuf, "%02d;D%s_R%s,%02d,%02d,%s\n", (int) (a + 1),
+					dcode, dial, c->parm.setup.si1,
+					c->parm.setup.si2, c->parm.setup.eazmsn);
 				i = icn_writecmd(cbuf, strlen(cbuf), 0, card);
 			}
 			break;
@@ -1426,10 +1435,10 @@ icn_command(isdn_ctrl * c, icn_card * card)
 				a = c->arg + 1;
 				if (card->ptype == ISDN_PTYPE_EURO) {
 					sprintf(cbuf, "%02d;MS%s%s\n", (int) a,
-					c->num[0] ? "N" : "ALL", c->num);
+					c->parm.num[0] ? "N" : "ALL", c->parm.num);
 				} else
 					sprintf(cbuf, "%02d;EAZ%s\n", (int) a,
-						c->num[0] ? c->num : "0123456789");
+						c->parm.num[0] ? c->parm.num : "0123456789");
 				i = icn_writecmd(cbuf, strlen(cbuf), 0, card);
 			}
 			break;
