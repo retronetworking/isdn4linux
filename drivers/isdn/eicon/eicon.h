@@ -21,6 +21,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.13  1999/09/06 07:29:35  fritz
+ * Changed my mail-address.
+ *
  * Revision 1.12  1999/09/04 06:20:05  keil
  * Changes from kernel set_current_state()
  *
@@ -605,8 +608,9 @@ typedef struct eicon_card {
         isdn_if interface;               /* Interface to upper layer         */
         char regname[35];                /* Name used for request_region     */
 #ifdef CONFIG_MCA
-        int  mca_slot;                   /* # of cards MCA slot              */
-#endif
+        int	mca_slot;	 	 /* # of cards MCA slot              */
+	int	mca_io;			 /* MCA cards IO port		     */
+#endif /* CONFIG_MCA */
 } eicon_card;
 
 /* -----------------------------------------------------------**

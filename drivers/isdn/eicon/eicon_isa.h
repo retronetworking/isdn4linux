@@ -21,6 +21,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.4  1999/09/06 07:29:35  fritz
+ * Changed my mail-address.
+ *
  * Revision 1.3  1999/03/29 11:19:47  armin
  * I/O stuff now in seperate file (eicon_io.c)
  * Old ISA type cards (S,SX,SCOM,Quadro,S2M) implemented.
@@ -106,6 +109,9 @@ typedef union {
 typedef struct {
 	int               ramsize;
 	int               irq;	    /* IRQ                        */
+#ifdef CONFIG_MCA
+	int		  io;	    /* IO-port for MCA brand      */
+#endif /* CONFIG_MCA */
 	void*             card;
 	eicon_isa_shmem*  shmem;    /* Shared-memory area         */
 	unsigned char*    intack;   /* Int-Acknowledge            */

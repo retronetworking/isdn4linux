@@ -26,6 +26,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.14  1999/09/06 07:29:35  fritz
+ * Changed my mail-address.
+ *
  * Revision 1.13  1999/09/04 17:37:59  armin
  * Removed not used define, did not work and caused error
  * in 2.3.16
@@ -89,7 +92,7 @@
 #include <linux/init.h>
 #ifdef CONFIG_MCA
 #include <linux/mca.h>
-#endif
+#endif /* CONFIG_MCA */
 
 #include "eicon.h"
 
@@ -447,13 +450,22 @@ eicon_command(eicon_card * card, isdn_ctrl * c)
 						return -EBUSY;
 					switch (card->bus) {
 						case EICON_BUS_ISA:
-						case EICON_BUS_MCA:
 							if (eicon_isa_find_card(a,
 								card->hwif.isa.irq,
 								card->regname) < 0)
 								return -EFAULT;
 							card->hwif.isa.shmem = (eicon_isa_shmem *)a;
 							return 0;
+						case EICON_BUS_MCA:
+#if CONFIG_MCA
+							if (eicon_mca_find_card(
+								0, a,
+								card->hwif.isa.irq,
+								card->regname) < 0)
+								return -EFAULT;
+							card->hwif.isa.shmem = (eicon_isa_shmem *)a;
+							return 0;
+#endif /* CONFIG_MCA */
 						default:
 							if (DebugVar & 1)
 								printk(KERN_WARNING
@@ -1138,7 +1150,7 @@ eicon_registercard(eicon_card * card)
 		case EICON_BUS_MCA:
 			eicon_isa_printpar(&card->hwif.isa);
 			break;
-#endif
+#endif /* CONFIG_MCA */
 #endif
 		case EICON_BUS_PCI:
 #if CONFIG_PCI
@@ -1177,7 +1189,7 @@ unregister_card(eicon_card * card)
 		case EICON_BUS_ISA:
 #ifdef CONFIG_MCA
 		case EICON_BUS_MCA:
-#endif
+#endif /* CONFIG_MCA */
 			eicon_isa_release(&card->hwif.isa);
 			break;
 #endif
@@ -1368,12 +1380,14 @@ cleanup_module(void)
         eicon_card *card = cards;
         eicon_card *last;
         while (card) {
+#ifdef CONFIG_ISDN_DRV_EICON_ISA
 #ifdef CONFIG_MCA
         	if (MCA_bus)
                         {
                         mca_mark_as_unused (card->mca_slot);
                         mca_set_adapter_procfn(card->mca_slot, NULL, NULL);
                         };
+#endif /* CONFIG_MCA */
 #endif
                 unregister_card(card); 
                 card = card->next;
@@ -1549,7 +1563,7 @@ int eicon_mca_probe(int slot,  /* slot-nr where the card was detected         */
 			if (irq == -1) { 
 				irq = cards_irq;
 			} else {
-				if (irq != irq)
+				if (irq != cards_irq)
 					return ENODEV;
 			};
 			cards_io= 0xC00 + ((adf_pos0>>4)*0x10);
@@ -1582,7 +1596,7 @@ int eicon_mca_probe(int slot,  /* slot-nr where the card was detected         */
 			if (irq == -1) { 
 				irq = cards_irq;
 			} else {
-				if (irq != irq)
+				if (irq != cards_irq)
 					return ENODEV;
 			};
 			type = 0; 
@@ -1598,8 +1612,13 @@ int eicon_mca_probe(int slot,  /* slot-nr where the card was detected         */
         	mca_mark_as_used(slot);
 		cards->mca_slot = slot; 
 		/* card->io noch setzen  oder ?? */
+		cards->mca_io = cards_io;
+		cards->hwif.isa.io = cards_io;
+		/* reset card */
+		outb_p(0,cards_io+1);
+
 		if (DebugVar & 8)
-			printk("eicon_addcard: successful for slot: %d.\n", 
+			printk(KERN_INFO "eicon_addcard: successful for slot # %d.\n", 
 			cards->mca_slot+1);
 		return  0 ; /* eicon_addcard hat eine Karte zugefuegt */
 	} else {
