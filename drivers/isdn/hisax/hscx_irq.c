@@ -7,6 +7,9 @@
  * This is an include file for fast inline IRQ stuff
  *
  * $Log$
+ * Revision 1.3  1997/07/27 21:38:36  keil
+ * new B-channel interface
+ *
  * Revision 1.2  1997/06/26 11:16:19  keil
  * first version
  *
@@ -174,7 +177,7 @@ hscx_interrupt(struct IsdnCardState *cs, u_char val, u_char hscx)
 					debugl1(cs, tmp);
 				}
 				if (!(skb = dev_alloc_skb(count)))
-					printk(KERN_WARNING "Elsa: receive out of memory\n");
+					printk(KERN_WARNING "HSCX: receive out of memory\n");
 				else {
 					SET_SKB_FREE(skb);
 					memcpy(skb_put(skb, count), bcs->hw.hscx.rcvbuf, count);
