@@ -19,6 +19,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.3  1997/02/03 23:31:14  fritz
+ * Reformatted according CodingStyle
+ *
  * Revision 1.2  1996/10/13 19:52:17  keil
  * HiSax support
  *
@@ -45,6 +48,12 @@ extern void HiSax_init(void);
 extern void pcbit_init(void);
 #endif
 
+#ifdef CONFIG_ISDN_DRV_AVMB1
+extern void avmb1_init(void);
+extern void capi_init(void);
+extern void capidrv_init(void);
+#endif
+
 void
 isdn_cards_init(void)
 {
@@ -59,5 +68,10 @@ isdn_cards_init(void)
 #endif
 #if CONFIG_ISDN_DRV_PCBIT
 	pcbit_init();
+#endif
+#ifdef CONFIG_ISDN_DRV_AVMB1
+	avmb1_init();
+	capi_init();
+	capidrv_init();
 #endif
 }

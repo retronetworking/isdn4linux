@@ -1,7 +1,7 @@
 MODULES=isdn.o
 OBJS=isdn_common.o isdn_net.o isdn_tty.o isdn_ppp.o isdn_audio.o
 PROGS=debugvar
-SUBDIRS=teles icn pcbit hisax
+SUBDIRS=teles icn pcbit hisax avmb1
 
 CFLAGS=$(MCFLAGS)
 
