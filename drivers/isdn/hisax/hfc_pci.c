@@ -68,7 +68,10 @@ static const PCI_ENTRY id_list[] =
 	{0x1051, 0x0100, "Motorola MC145575", "MC145575"},
 	{0x1397, 0xB100, "Seyeon", "B100"},
 	{0x15B0, 0x2BD0, "Zoltrix", "2BD0"},
-	{0x114f, 0x71,   "Digi intl.","Digicom"}, 
+	{0x114F, 0x70,"Digi International", "Digi DataFire Micro V IOM2 (Europe)"},
+	{0x114F, 0x71,"Digi International", "Digi DataFire Micro V (Europe)"},
+	{0x114F, 0x72,"Digi International", "Digi DataFire Micro V IOM2 (North America)"},
+	{0x114F, 0x73,"Digi International", "Digi DataFire Micro V (North America)"},
 	{0, 0, NULL, NULL},
 };
 
