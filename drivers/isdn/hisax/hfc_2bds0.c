@@ -6,6 +6,9 @@
  *
  *
  * $Log$
+ * Revision 1.1.2.7  1998/09/27 13:06:01  keil
+ * Apply most changes from 2.1.X (HiSax 3.1)
+ *
  * Revision 1.1.2.6  1998/06/27 22:54:07  keil
  * make 16.3c working with 3.0
  *
@@ -364,7 +367,7 @@ hfc_fill_fifo(struct BCState *bcs)
 	}
 	count = GetFreeFifoBytes_B(bcs);
 	if (cs->debug & L1_DEB_HSCX) {
-		sprintf(tmp, "hfc_fill_fifo %d count(%d/%d),%lx",
+		sprintf(tmp, "hfc_fill_fifo %d count(%ld/%d),%lx",
 			bcs->channel, bcs->tx_skb->len,
 			count, current->state);
 		debugl1(cs, tmp);
@@ -643,6 +646,7 @@ setstack_2b(struct PStack *st, struct BCState *bcs)
 	st->l2.l2l1 = hfc_l2l1;
 	setstack_manager(st);
 	bcs->st = st;
+	setstack_l1_B(st);
 	return (0);
 }
 

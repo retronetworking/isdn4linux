@@ -8,6 +8,9 @@
  *
  *
  * $Log$
+ * Revision 1.1.2.8  1998/09/27 13:06:56  keil
+ * Apply most changes from 2.1.X (HiSax 3.1)
+ *
  * Revision 1.1.2.7  1998/05/27 18:06:17  keil
  * HiSax 3.0
  *
@@ -369,7 +372,7 @@ static int make_raw_data(struct BCState *bcs) {
 		val >>= 1;
 	}
 	if (bcs->cs->debug & L1_DEB_HSCX) {
-		sprintf(tmp,"tiger make_raw: in %d out %d.%d",
+		sprintf(tmp,"tiger make_raw: in %ld out %d.%d",
 			bcs->tx_skb->len, s_cnt, bitcnt);
 		debugl1(bcs->cs,tmp);
 	}
@@ -869,12 +872,12 @@ static int
 open_tigerstate(struct IsdnCardState *cs, struct BCState *bcs)
 {
 	if (!test_and_set_bit(BC_FLG_INIT, &bcs->Flag)) {
-		if (!(bcs->hw.tiger.rcvbuf = kmalloc(HSCX_BUFMAX, GFP_KERNEL))) {
+		if (!(bcs->hw.tiger.rcvbuf = kmalloc(HSCX_BUFMAX, GFP_ATOMIC))) {
 			printk(KERN_WARNING
 			       "HiSax: No memory for tiger.rcvbuf\n");
 			return (1);
 		}
-		if (!(bcs->hw.tiger.sendbuf = kmalloc(RAW_BUFMAX, GFP_KERNEL))) {
+		if (!(bcs->hw.tiger.sendbuf = kmalloc(RAW_BUFMAX, GFP_ATOMIC))) {
 			printk(KERN_WARNING
 			       "HiSax: No memory for tiger.sendbuf\n");
 			return (1);
@@ -900,6 +903,7 @@ setstack_tiger(struct PStack *st, struct BCState *bcs)
 	st->l2.l2l1 = tiger_l2l1;
 	setstack_manager(st);
 	bcs->st = st;
+	setstack_l1_B(st);
 	return (0);
 }
 
