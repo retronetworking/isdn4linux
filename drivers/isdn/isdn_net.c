@@ -21,6 +21,10 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.23  1996/09/23 01:58:08  fritz
+ * Fix: With syncPPP encapsulation, discard LCP packets
+ *      when calculating hangup timeout.
+ *
  * Revision 1.22  1996/09/23 00:03:37  fritz
  * Fix: did not compile without CONFIG_ISDN_PPP
  *
@@ -244,6 +248,8 @@ isdn_net_unbind_channel(isdn_net_local * lp)
  * Since this function is called every second, simply reset the
  * byte-counter of the interface after copying it to the cps-variable.
  */
+unsigned long last_jiffies = -HZ;
+
 void
 isdn_net_autohup()
 {
@@ -256,7 +262,8 @@ isdn_net_autohup()
         anymore = 0;
 	while (p) {
 		isdn_net_local *l = (isdn_net_local *) & (p->local);
-		l->cps = l->transcount;
+		l->cps = l->transcount / (jiffies - last_jiffies);
+		last_jiffies = jiffies;
 		l->transcount = 0;
 		if (dev->net_verbose > 3)
 			printk(KERN_DEBUG "%s: %d bogocps\n", l->name, l->cps);
