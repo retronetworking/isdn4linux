@@ -6,6 +6,14 @@
  * Copyright 1996 by Carsten Paeth (calle@calle.in-berlin.de)
  *
  * $Log$
+ * Revision 1.26  2000/03/03 16:48:38  calle
+ * - Added CAPI2.0 Middleware support (CONFIG_ISDN_CAPI)
+ *   It is now possible to create a connection with a CAPI2.0 applikation
+ *   and than to handle the data connection from /dev/capi/ (capifs) and also
+ *   using async or sync PPP on this connection.
+ *   The two major device number 190 and 191 are not confirmed yet,
+ *   but I want to save the code in cvs, before I go on.
+ *
  * Revision 1.25  2000/03/03 16:37:11  kai
  * incorporated some cosmetic changes from the official kernel tree back
  * into CVS
@@ -882,7 +890,7 @@ static void capi_signal(__u16 applid, void *param)
 #ifdef _DEBUG_DATAFLOW
 		printk(KERN_DEBUG "capi_signal: DATA_B3_CONF %u 0x%x\n",
 				datahandle,
-				CAPIMSG_U16(skb->data, CAPIMSG_BASELEN+4+2);
+				CAPIMSG_U16(skb->data, CAPIMSG_BASELEN+4+2));
 #endif
 		kfree_skb(skb);
 		(void)capiminor_del_ack(mp, datahandle);
@@ -2207,7 +2215,7 @@ void cleanup_module(void)
 
 #ifdef CONFIG_ISDN_CAPI_MIDDLEWARE
 	capinc_tty_exit();
-	devfs_unregister_chrdev(capi_major, "capinc_raw");
+	devfs_unregister_chrdev(capi_rawmajor, "capinc_raw");
 #endif /* CONFIG_ISDN_CAPI_MIDDLEWARE */
 	devfs_unregister_chrdev(capi_major, "capi20");
 #ifdef HAVE_DEVFS_FS

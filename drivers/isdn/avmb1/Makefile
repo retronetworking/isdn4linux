@@ -11,6 +11,10 @@
 # parent makes..
 #
 # $Log$
+# Revision 1.11  2000/03/06 09:17:07  calle
+# - capifs: fileoperations now in inode (change for 2.3.49)
+# - Config.in: Middleware extention not a tristate, uups.
+#
 # Revision 1.10  2000/03/03 16:48:38  calle
 # - Added CAPI2.0 Middleware support (CONFIG_ISDN_CAPI)
 #   It is now possible to create a connection with a CAPI2.0 applikation
@@ -118,7 +122,7 @@ ifeq ($(CONFIG_ISDN_CAPI),y)
   	O_OBJS   += t1isa.o
   endif
   ifdef CONFIG_ISDN_DRV_AVMB1_B1PCMCIA
-  	O_OBJS   += b1pcmcia.o
+  	OX_OBJS   += b1pcmcia.o
   endif
   ifdef CONFIG_ISDN_DRV_AVMB1_T1PCI
   	O_OBJS   += t1pci.o
@@ -145,7 +149,7 @@ else
   		M_OBJS   += t1isa.o
   	endif
   	ifdef CONFIG_ISDN_DRV_AVMB1_B1PCMCIA
-  		M_OBJS  += b1pcmcia.o
+  		MX_OBJS  += b1pcmcia.o
   	endif
   	ifdef CONFIG_ISDN_DRV_AVMB1_T1PCI
   		M_OBJS   += t1pci.o

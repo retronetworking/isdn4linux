@@ -6,6 +6,10 @@
  * Heavily based on devpts filesystem from H. Peter Anvin
  * 
  * $Log$
+ * Revision 1.2  2000/03/06 09:17:07  calle
+ * - capifs: fileoperations now in inode (change for 2.3.49)
+ * - Config.in: Middleware extention not a tristate, uups.
+ *
  * Revision 1.1  2000/03/03 16:48:38  calle
  * - Added CAPI2.0 Middleware support (CONFIG_ISDN_CAPI)
  *   It is now possible to create a connection with a CAPI2.0 applikation
@@ -77,7 +81,9 @@ static struct dentry *capifs_root_lookup(struct inode *,struct dentry *);
 static int capifs_revalidate(struct dentry *, int);
 
 static struct file_operations capifs_root_operations = {
+#ifdef COMPAT_has_generic_read_dir
 	read:		generic_read_dir,
+#endif
 	readdir:	capifs_root_readdir,
 };
 
@@ -87,6 +93,8 @@ struct inode_operations capifs_root_inode_operations = {
 #endif
 	lookup: capifs_root_lookup,
 };
+
+struct inode_operations capifs_inode_operations;
 
 static struct dentry_operations capifs_dentry_operations = {
 	capifs_revalidate,	/* d_revalidate */
@@ -454,16 +462,19 @@ static void capifs_read_inode(struct inode *inode)
 		return;
 	} 
 
+#ifdef COMPAT_has_fileops_in_inode
+	/* need dummy inode operations .... */
+	inode->i_op = &capifs_inode_operations;
+#endif
+
 	ino -= 2;
 	if ( ino >= sbi->max_ncci )
 		return;		/* Bogus */
 	
 #ifdef COMPAT_HAS_init_special_inode
-	/* Gets filled in by capifs_new_ncci() */
-	init_special_inode(inode,S_IFCHR,0);
+	init_special_inode(inode, S_IFCHR, 0);
 #else
 	inode->i_mode = S_IFCHR;
-	inode->i_rdev = MKDEV(0,0); /* Gets filled in by devpts_pty_new() */
 	inode->i_op = &chrdev_inode_operations;
 #endif
 
