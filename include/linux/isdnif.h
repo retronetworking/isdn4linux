@@ -22,6 +22,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.11  1996/10/23 11:59:42  fritz
+ * More compatibility changes.
+ *
  * Revision 1.10  1996/10/22 23:14:19  fritz
  * Changes for compatibility to 2.0.X and 2.1.X kernels.
  *
@@ -311,6 +314,7 @@ extern int register_isdn(isdn_if*);
 #include <linux/version.h>
 #endif
 #if (LINUX_VERSION_CODE < 0x020100)
+#include <linux/mm.h>
 #define copy_from_user memcpy_fromfs
 #define copy_to_user memcpy_tofs
 #define GET_USER(x, addr) ( x = get_user(addr) )
@@ -319,6 +323,7 @@ extern int register_isdn(isdn_if*);
 #define RWARG int
 #define LSARG off_t
 #else
+#include <asm/uaccess.h>
 #define GET_USER get_user
 #define RWTYPE long
 #define LSTYPE long long

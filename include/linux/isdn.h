@@ -21,6 +21,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.17  1996/09/07 12:53:57  hipp
+ * moved a few isdn_ppp.c specific defines to drives/isdn/isdn_ppp.h
+ *
  * Revision 1.16  1996/08/12 16:20:56  hipp
  * renamed ppp_minor to ppp_slot
  *
@@ -212,7 +215,6 @@ typedef struct {
 #include <linux/kernel.h>
 #include <linux/signal.h>
 #include <linux/malloc.h>
-#include <linux/mm.h>
 #include <linux/timer.h>
 #include <linux/wait.h>
 #include <linux/tty.h>
