@@ -322,6 +322,8 @@ struct BCState {
 	int err_rdo;
 	int err_inv;
 #endif
+	int headroom; /* alloc this much headroom in addition, to allow
+			 for higher layer headers */
 	union {
 		struct hscx_hw hscx;
 		struct hdlc_hw hdlc;
@@ -1151,5 +1153,16 @@ char *HiSax_getrev(const char *revision);
 void TeiNew(void);
 void TeiFree(void);
 int certification_check(int output);
+
+static __inline__ struct sk_buff *
+dev_alloc_skb_headroom(unsigned int length, unsigned int headroom)
+{
+	struct sk_buff *skb;
+
+	skb = dev_alloc_skb(length + headroom);
+	if (skb)
+		skb_reserve(skb, headroom);
+	return skb;
+}
 
 #endif

@@ -16,6 +16,7 @@ init_st_1(struct PStack *st, int b1_mode, struct IsdnCardState *cs, int bchannel
 	case CHANNEL_B2:
 		if (cs->bcs[bchannel].BC_SetStack(st, &cs->bcs[bchannel]))
 			return -1;
+		cs->bcs[bchannel].headroom = 22; /* needed for CAPI only, FIXME */
 		st->l1.bcs->conmsg = NULL;
 		break;
 	default:

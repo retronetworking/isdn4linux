@@ -54,6 +54,8 @@ void contrDebug(struct Contr *contr, __u32 level, char *fmt, ...);
 void contrRegisterAppl(struct Contr *contr, __u16 ApplId, capi_register_params *rp);
 void contrReleaseAppl(struct Contr *contr, __u16 ApplId);
 void contrSendMessage(struct Contr *contr, struct sk_buff *skb);
+void contrLoadFirmware(struct Contr *contr);
+void contrReset(struct Contr *contr);
 void contrRecvCmsg(struct Contr *contr, _cmsg *cmsg);
 void contrAnswerCmsg(struct Contr *contr, _cmsg *cmsg, __u16 Info);
 void contrAnswerMessage(struct Contr *contr, struct sk_buff *skb, __u16 Info);

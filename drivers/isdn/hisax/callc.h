@@ -61,7 +61,6 @@ void CallcFree(void);
 struct Contr *newContr(struct IsdnCardState *cs, char *id, int protocol);
 void delContr(struct Contr *contr);
 void contrRun(struct Contr *contr);
-void contrStop(struct Contr *contr);
 void contrPutStatus(struct Contr *contr, char *msg);
 int CapiNew(void);
 void CapiFree(void);

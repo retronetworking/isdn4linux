@@ -399,7 +399,7 @@ HDLC_irq(struct BCState *bcs, u_int stat) {
 			if ((stat & HDLC_STAT_RME) || (bcs->mode == B1_MODE_TRANS)) {
 				if (((stat & HDLC_STAT_CRCVFRRAB)==HDLC_STAT_CRCVFR) ||
 					(bcs->mode == B1_MODE_TRANS)) {
-					if (!(skb = dev_alloc_skb(bcs->hw.hdlc.rcvidx)))
+					if (!(skb = dev_alloc_skb_headroom(bcs->hw.hdlc.rcvidx, bcs->headroom)))
 						printk(KERN_WARNING "HDLC: receive out of memory\n");
 					else {
 						memcpy(skb_put(skb, bcs->hw.hdlc.rcvidx),

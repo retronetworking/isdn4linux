@@ -163,6 +163,7 @@ static void
 dss1_release_l3_process(struct l3_process *p)
 {
    free_invoke_id(p->st,p->prot.dss1.invoke_id);
+   p_L3L4(p, CC_RELEASE_CR | INDICATION, 0);
    release_l3_process(p);
 } /* dss1_release_l3_process */
  
@@ -2824,7 +2825,7 @@ l3dss1_dl_release(struct l3_process *pc, u_char pr, void *arg)
         pc->para.cause = 0x1b;          /* Destination out of order */
         pc->para.loc = 0;
         p_L3L4(pc, CC_RELEASE | INDICATION, 0);
-        release_l3_process(pc);
+        dss1_release_l3_process(pc);
 }
 
 static void

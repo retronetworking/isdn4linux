@@ -1,4 +1,5 @@
 #include "hisax_capi.h"
+#include "callc.h"
 #include "l4l3if.h"
 #include "stack.h"
 
@@ -56,8 +57,6 @@ void contrRun(struct Contr *contr)
 		return;
 	}
 
-	contr->cs->d2_listener = d2_listener;
-	
 	sp.b1_mode = B1_MODE_HDLC;
 	sp.b2_mode = B2_MODE_LAPD;
 	sp.b3_mode = contr->b3_mode;
@@ -76,17 +75,10 @@ void contrRun(struct Contr *contr)
 	ctrl->profile.support2 = 3; // X75SLP, TRANS
 	ctrl->profile.support3 = 1; // TRANS
 
+	contr->cs->d2_listener = d2_listener;
+	
+	HiSax_mod_inc_use_count(contr->cs);
 	ctrl->ready(ctrl);
-}
-
-void contrStop(struct Contr *contr)
-{
-	contr->cs->d2_listener = 0;
-
-	if (contr->l4.st) {
-		release_st(contr->l4.st);
-		kfree(contr->l4.st);
-	}
 }
 
 struct Appl *contrId2appl(struct Contr *contr, __u16 ApplId)
@@ -155,6 +147,35 @@ void contrSendMessage(struct Contr *contr, struct sk_buff *skb)
 		return;
 	}
 	applSendMessage(appl, skb);
+}
+
+void contrLoadFirmware(struct Contr *contr)
+{
+	contrRun(contr); // loading firmware is not necessary, so we just go running
+}
+
+void contrReset(struct Contr *contr)
+{
+	int ApplId;
+	struct Appl *appl;
+
+	for (ApplId = 1; ApplId <= CAPI_MAXAPPL; ApplId++) {
+		appl = contrId2appl(contr, ApplId);
+		if (appl)
+			applDestr(appl);
+		kfree(appl);
+		contr->appls[ApplId - 1] = 0;
+	}
+
+	contr->cs->d2_listener = 0;
+
+	if (contr->l4.st) {
+		release_st(contr->l4.st);
+		kfree(contr->l4.st);
+		contr->l4.st = 0;
+	}
+	contr->ctrl->reseted(contr->ctrl);
+	HiSax_mod_dec_use_count(contr->cs);
 }
 
 void contrD2Trace(struct Contr *contr, u_char *buf, int len)
@@ -251,7 +272,7 @@ static void contr_l3l4(struct PStack *st, int pr, void *arg)
 		pc = arg;
 		plci = contrNewPlci(contr);
 		if (!plci) {
-			int_error();
+			pc->l4pc = NULL;
 			return;
 		} 
 		plciNewCrInd(plci, pc);

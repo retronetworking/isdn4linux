@@ -9,16 +9,24 @@ const char *capi_revision = "$Revision$";
 
 int hisax_load_firmware(struct capi_ctr *ctrl, capiloaddata *data)
 {
-	return -EIO;
+	struct Contr *contr = ctrl->driverdata;
+
+	printk(KERN_INFO __FUNCTION__ "\n");
+	contrLoadFirmware(contr);
+	return 0;
 }
 
 void hisax_reset_ctr(struct capi_ctr *ctrl)
 {
-	int_error();
+	struct Contr *contr = ctrl->driverdata;
+
+	printk(KERN_INFO __FUNCTION__ "\n");
+	contrReset(contr);
 }
 
 void hisax_remove_ctr(struct capi_ctr *ctrl)
 {
+	printk(KERN_INFO __FUNCTION__ "\n");
 	int_error();
 }
 
@@ -26,6 +34,7 @@ static char *hisax_procinfo(struct capi_ctr *ctrl)
 {
 	struct Contr *contr = (ctrl->driverdata);
 
+	printk(KERN_INFO __FUNCTION__ "\n");
 	if (!contr)
 		return "";
 	sprintf(contr->infobuf, "-");
@@ -37,6 +46,7 @@ void hisax_register_appl(struct capi_ctr *ctrl,
 {
 	struct Contr *contr = ctrl->driverdata;
 
+	printk(KERN_INFO __FUNCTION__ "\n");
 	contrRegisterAppl(contr, ApplId, rp);
 }
 
@@ -44,6 +54,7 @@ void hisax_release_appl(struct capi_ctr *ctrl, __u16 ApplId)
 {
 	struct Contr *contr = ctrl->driverdata;
 
+	printk(KERN_INFO __FUNCTION__ "\n");
 	contrReleaseAppl(contr, ApplId);
 }
 

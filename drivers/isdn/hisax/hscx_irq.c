@@ -169,7 +169,7 @@ hscx_interrupt(struct IsdnCardState *cs, u_char val, u_char hscx)
 			hscx_empty_fifo(bcs, count);
 			if ((count = bcs->hw.hscx.rcvidx - 1) > 0) {
 				debugl1(L1_DEB_HSCX_FIFO, cs, "HX Frame %d", count);
-				if (!(skb = dev_alloc_skb(count)))
+				if (!(skb = dev_alloc_skb_headroom(count, bcs->headroom)))
 					printk(KERN_WARNING "HSCX: receive out of memory\n");
 				else {
 					SET_SKB_FREE(skb);
@@ -185,7 +185,7 @@ hscx_interrupt(struct IsdnCardState *cs, u_char val, u_char hscx)
 		hscx_empty_fifo(bcs, fifo_size);
 		if (bcs->mode == B1_MODE_TRANS) {
 			/* receive audio data */
-			if (!(skb = dev_alloc_skb(fifo_size)))
+			if (!(skb = dev_alloc_skb_headroom(fifo_size, bcs->headroom)))
 				printk(KERN_WARNING "HiSax: receive out of memory\n");
 			else {
 				SET_SKB_FREE(skb);

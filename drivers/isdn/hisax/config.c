@@ -761,9 +761,6 @@ ll_stop(struct IsdnCardState *cs)
 #ifdef CONFIG_HISAX_LLI
 	callcIfStop(cs->c_if);
 #endif
-#ifdef CONFIG_HISAX_CAPI
-	contrStop(cs->contr);
-#endif
 }
 
 static void
