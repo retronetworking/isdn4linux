@@ -689,6 +689,7 @@ struct hfcPCI_hw {
         unsigned char *pci_io; /* start of PCI IO memory */
         void *share_start; /* shared memory for Fifos start */
         void *fifos; /* FIFO memory */ 
+        int last_bfifo_cnt[2]; /* marker saving last b-fifo frame count */
 	struct timer_list timer;
 };
 
