@@ -17,6 +17,7 @@ ifeq ($(CONFIG_ISDN),y)
   LX_OBJS += isdn_common.o 
   ifdef CONFIG_ISDN_PPP
     L_OBJS += isdn_ppp.o
+    M_OBJS += isdn_bsdcomp.o
   endif
   ifdef CONFIG_ISDN_X25
     L_OBJS += isdn_x25iface.o

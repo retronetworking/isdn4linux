@@ -1192,7 +1192,6 @@ checkcard(int cardnr, char *id, int *busy_flag)
 	cs->tx_skb = NULL;
 	cs->tx_cnt = 0;
 	cs->event = 0;
-	cs->tqueue.next = 0;
 	cs->tqueue.sync = 0;
 	cs->tqueue.data = cs;
 
