@@ -5,6 +5,9 @@
  *
  *
  * $Log$
+ * Revision 1.15.2.5  1998/01/27 23:28:48  keil
+ * v2.8
+ *
  * Revision 1.15.2.4  1998/01/27 22:33:53  keil
  * dynalink ----> asuscom
  *
@@ -63,7 +66,8 @@
  *   18 ELSA Quickstep 1000PCI  no parameter
  *   19 Compaq ISDN S0 ISA card p0=irq  p1=IO0 (HSCX)  p2=IO1 (ISAC) p3=IO2
  *   20 Travers Technologies NETjet PCI card
- *
+ *   21 reserved
+ *   22 Sedlbauer Speed Star    p0=irq p1=iobase
  *
  * protocol can be either ISDN_PTYPE_EURO or ISDN_PTYPE_1TR6 or ISDN_PTYPE_NI1
  *
@@ -137,6 +141,17 @@ void register_elsa_symbols(void) {
 #undef DEFAULT_CFG
 #define DEFAULT_CARD ISDN_CTYPE_SEDLBAUER
 #define DEFAULT_CFG {11,0x270,0,0}
+int sedl_init_pcmcia(void*, int, int*, int);
+#ifdef MODULE
+static struct symbol_table hisax_syms = {
+#include <linux/symtab_begin.h>
+	X(sedl_init_pcmcia),
+#include <linux/symtab_end.h>
+};
+void register_sedl_symbols(void) {
+	register_symtab(&hisax_syms);
+}
+#endif
 #endif
 
 #ifdef CONFIG_HISAX_SPORTSTER
@@ -381,6 +396,13 @@ HiSax_init(void))
 		return 0;
 	}
 #endif
+#ifdef CONFIG_HISAX_SEDLBAUER
+	if (type[0] == ISDN_CTYPE_SEDLBAUER_PCMCIA) {
+		/* we have to export  and return in this case */
+		register_sedl_symbols();
+		return 0;
+	}
+#endif
 #endif
 	HiSaxVersion();
 	nrcards = 0;
@@ -431,6 +453,7 @@ HiSax_init(void))
 			case ISDN_CTYPE_ASUSCOM:
 			case ISDN_CTYPE_TELEINT:
 			case ISDN_CTYPE_SEDLBAUER:
+			case ISDN_CTYPE_SEDLBAUER_PCMCIA:
 			case ISDN_CTYPE_SPORTSTER:
 			case ISDN_CTYPE_MIC:
 			case ISDN_CTYPE_TELES3C:
@@ -518,6 +541,53 @@ int elsa_init_pcmcia(void *pcm_iob, int pcm_irq, int *busy_flag, int prot)
 	cards[0].para[1] = (int)pcm_iob;
 	cards[0].protocol = prot;
 	cards[0].typ = 10;
+	nzproto = 1;
+
+	if (!HiSax_id)
+		HiSax_id = HiSaxID;
+	if (!HiSaxID[0])
+		strcpy(HiSaxID, "HiSax");
+	for (i = 0; i < 16; i++)
+		if (cards[i].typ > 0)
+			nrcards++;
+	printk(KERN_DEBUG "HiSax: Total %d card%s defined\n",
+	       nrcards, (nrcards > 1) ? "s" : "");
+
+	Isdnl1New();
+	CallcNew();
+	Isdnl2New();
+	TeiNew();
+	HiSax_inithardware(busy_flag);
+	printk(KERN_NOTICE "HiSax: module installed\n");
+	return (0);
+}
+#endif
+#ifdef CONFIG_HISAX_SEDLBAUER
+int sedl_init_pcmcia(void *pcm_iob, int pcm_irq, int *busy_flag, int prot)
+{
+	int i;
+	int nzproto = 0;
+
+	nrcards = 0;
+	HiSaxVersion();
+	if (id)			/* If id= string used */
+		HiSax_id = id;
+	/* Initialize all 16 structs, even though we only accept
+	   two pcmcia cards
+	   */
+	for (i = 0; i < 16; i++) {
+		cards[i].para[0] = irq[i];
+		cards[i].para[1] = io[i];
+		cards[i].typ = type[i];
+		if (protocol[i]) {
+			cards[i].protocol = protocol[i];
+			nzproto++;
+		}
+	}
+	cards[0].para[0] = pcm_irq;
+	cards[0].para[1] = (int)pcm_iob;
+	cards[0].protocol = prot;
+	cards[0].typ = ISDN_CTYPE_SEDLBAUER_PCMCIA;
 	nzproto = 1;
 
 	if (!HiSax_id)

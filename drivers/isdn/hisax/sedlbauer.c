@@ -1,18 +1,22 @@
 /* $Id$
 
  * sedlbauer.c  low level stuff for Sedlbauer cards
+ *              includes Support for the Sedlbauer Speed Star 
  *              derived from the original file dynalink.c from Karsten Keil
  *
- * Copyright (C) 1997 Marcus Niemann (for the modifications to
- *                                    the original file dynalink.c)
+ * Copyright (C) 1997,1998 Marcus Niemann (for the modifications to
+ *                                         the original file dynalink.c)
  *
- * Author     Marcus Niemann (niemann@parallel.fh-bielefeld.de)
+ * Author     Marcus Niemann (niemann@www-bib.fh-bielefeld.de)
  *
  * Thanks to  Karsten Keil
  *            Sedlbauer AG for informations
  *            Edgar Toernig
  *
  * $Log$
+ * Revision 1.1.2.3  1998/01/27 22:37:29  keil
+ * fast io
+ *
  * Revision 1.1.2.2  1997/11/15 18:50:56  keil
  * new common init function
  *
@@ -35,16 +39,27 @@ extern const char *CardType[];
 
 const char *Sedlbauer_revision = "$Revision$";
 
+const char *Sedlbauer_Types[] =
+{"None", "Speed Card", "Speed Win", "Speed Star"};
+ 
+#define SEDL_SPEED_CARD 1
+#define SEDL_SPEED_WIN  2
+#define SEDL_SPEED_STAR 3
+
 #define byteout(addr,val) outb(val,addr)
 #define bytein(addr) inb(addr)
 
-#define SEDL_RES_ON	0
-#define SEDL_RES_OFF	1
+#define SEDL_RESET_ON	0
+#define SEDL_RESET_OFF	1
 #define SEDL_ISAC	2
 #define SEDL_HSCX	3
 #define SEDL_ADR	4
 
-/* CARD_ADR (Write) */
+#define SEDL_PCMCIA_RESET	0
+#define SEDL_PCMCIA_ISAC	1
+#define SEDL_PCMCIA_HSCX	2
+#define SEDL_PCMCIA_ADR		4
+
 #define SEDL_RESET      0x3	/* same as DOS driver */
 
 static inline u_char
@@ -158,6 +173,14 @@ sedlbauer_interrupt(int intno, void *dev_id, struct pt_regs *regs)
 		printk(KERN_WARNING "Sedlbauer: Spurious interrupt!\n");
 		return;
 	}
+
+        if ((cs->typ == ISDN_CTYPE_SEDLBAUER_PCMCIA) && (*cs->busy_flag == 1)) {
+          /* The card tends to generate interrupts while being removed
+             causing us to just crash the kernel. bad. */
+          printk(KERN_WARNING "Sedlbauer: card not available!\n");
+          return;
+        }
+
 	val = readreg(cs->hw.sedl.adr, cs->hw.sedl.hscx, HSCX_ISTA + 0x40);
       Start_HSCX:
 	if (val) {
@@ -208,17 +231,19 @@ reset_sedlbauer(struct IsdnCardState *cs)
 {
 	long flags;
 
-	byteout(cs->hw.sedl.res_on, SEDL_RESET);	/* Reset On */
-	save_flags(flags);
-	sti();
-	current->state = TASK_INTERRUPTIBLE;
-	current->timeout = jiffies + 1;
-	schedule();
-	byteout(cs->hw.sedl.res_off, 0);	/* Reset Off */
-	current->state = TASK_INTERRUPTIBLE;
-	current->timeout = jiffies + 1;
-	schedule();
-	restore_flags(flags);
+	if (cs->typ != ISDN_CTYPE_SEDLBAUER_PCMCIA) {
+		byteout(cs->hw.sedl.reset_on, SEDL_RESET);	/* Reset On */
+		save_flags(flags);
+		sti();
+		current->state = TASK_INTERRUPTIBLE;
+		current->timeout = jiffies + 1;
+		schedule();
+		byteout(cs->hw.sedl.reset_off, 0);	/* Reset Off */
+		current->state = TASK_INTERRUPTIBLE;
+		current->timeout = jiffies + 1;
+		schedule();
+		restore_flags(flags);
+	}
 }
 
 static int
@@ -255,19 +280,35 @@ setup_sedlbauer(struct IsdnCard *card))
 
 	strcpy(tmp, Sedlbauer_revision);
 	printk(KERN_INFO "HiSax: Sedlbauer driver Rev. %s\n", HiSax_getrev(tmp));
-	if (cs->typ != ISDN_CTYPE_SEDLBAUER)
+ 	if (cs->typ == ISDN_CTYPE_SEDLBAUER) {
+ 		cs->subtyp = SEDL_SPEED_CARD;
+ 	} else if (cs->typ == ISDN_CTYPE_SEDLBAUER_PCMCIA) {	
+ 		cs->subtyp = SEDL_SPEED_STAR;
+ 	} else
 		return (0);
 
 	bytecnt = 8;
 	cs->hw.sedl.cfg_reg = card->para[1];
 	cs->irq = card->para[0];
-	cs->hw.sedl.adr = cs->hw.sedl.cfg_reg + SEDL_ADR;
-	cs->hw.sedl.isac = cs->hw.sedl.cfg_reg + SEDL_ISAC;
-	cs->hw.sedl.hscx = cs->hw.sedl.cfg_reg + SEDL_HSCX;
-	cs->hw.sedl.res_on = cs->hw.sedl.cfg_reg + SEDL_RES_ON;
-	cs->hw.sedl.res_off = cs->hw.sedl.cfg_reg + SEDL_RES_OFF;
-
-	if (check_region((cs->hw.sedl.cfg_reg), bytecnt)) {
+	if (cs->subtyp == SEDL_SPEED_STAR) {
+		cs->hw.sedl.adr = cs->hw.sedl.cfg_reg + SEDL_PCMCIA_ADR;
+		cs->hw.sedl.isac = cs->hw.sedl.cfg_reg + SEDL_PCMCIA_ISAC;
+		cs->hw.sedl.hscx = cs->hw.sedl.cfg_reg + SEDL_PCMCIA_HSCX;
+		cs->hw.sedl.reset_on = cs->hw.sedl.cfg_reg + SEDL_PCMCIA_RESET;
+		cs->hw.sedl.reset_off = cs->hw.sedl.cfg_reg + SEDL_PCMCIA_RESET;
+	} else {
+		cs->hw.sedl.adr = cs->hw.sedl.cfg_reg + SEDL_ADR;
+		cs->hw.sedl.isac = cs->hw.sedl.cfg_reg + SEDL_ISAC;
+		cs->hw.sedl.hscx = cs->hw.sedl.cfg_reg + SEDL_HSCX;
+		cs->hw.sedl.reset_on = cs->hw.sedl.cfg_reg + SEDL_RESET_ON;
+		cs->hw.sedl.reset_off = cs->hw.sedl.cfg_reg + SEDL_RESET_OFF;
+	}
+        
+	/* In case of the sedlbauer pcmcia card, this region is in use,
+           reserved for us by the card manager. So we do not check it
+           here, it would fail. */
+	if (cs->typ != ISDN_CTYPE_SEDLBAUER_PCMCIA &&
+	   check_region((cs->hw.sedl.cfg_reg), bytecnt)) {
 		printk(KERN_WARNING
 		       "HiSax: %s config port %x-%x already in use\n",
 		       CardType[card->typ],
@@ -282,6 +323,12 @@ setup_sedlbauer(struct IsdnCard *card))
 	       "Sedlbauer: defined at 0x%x IRQ %d\n",
 	       cs->hw.sedl.cfg_reg,
 	       cs->irq);
+	printk(KERN_WARNING
+		       "Sedlbauer %s uses ports 0x%x-0x%x\n",
+		       Sedlbauer_Types[cs->subtyp],
+		       cs->hw.sedl.cfg_reg,
+		       cs->hw.sedl.cfg_reg + bytecnt);
+
 	printk(KERN_INFO "Sedlbauer: resetting card\n");
 	reset_sedlbauer(cs);
 	cs->readisac = &ReadISAC;

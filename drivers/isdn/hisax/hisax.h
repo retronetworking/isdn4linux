@@ -3,6 +3,9 @@
  *   Basic declarations, defines and prototypes
  *
  * $Log$
+ * Revision 1.13.2.6  1998/02/03 23:16:12  keil
+ * german AOC
+ *
  * Revision 1.13.2.5  1998/01/27 22:42:42  keil
  * changes for new teles 16.3c and dynalink ---> asuscom
  *
@@ -533,8 +536,8 @@ struct sedl_hw {
 	unsigned int adr;
 	unsigned int isac;
 	unsigned int hscx;
-	unsigned int res_on;
-	unsigned int res_off;
+	unsigned int reset_on;
+	unsigned int reset_off;
 };
 
 struct spt_hw {
@@ -682,8 +685,10 @@ struct IsdnCardState {
 #define  ISDN_CTYPE_ELSA_PCI	18
 #define  ISDN_CTYPE_COMPAQ_ISA	19
 #define  ISDN_CTYPE_NETJET	20
+#define  ISDN_CTYPE_RESERVED21	21
+#define  ISDN_CTYPE_SEDLBAUER_PCMCIA	22
 
-#define  ISDN_CTYPE_COUNT	20
+#define  ISDN_CTYPE_COUNT	22
 
 #ifdef ISDN_CHIP_ISAC
 #undef ISDN_CHIP_ISAC
@@ -780,7 +785,7 @@ struct IsdnCardState {
 #endif
 
 #ifdef  CONFIG_HISAX_SEDLBAUER
-#define CARD_SEDLBAUER (1 << ISDN_CTYPE_SEDLBAUER)
+#define CARD_SEDLBAUER (1 << ISDN_CTYPE_SEDLBAUER) | (1 << ISDN_CTYPE_SEDLBAUER_PCMCIA)
 #ifndef ISDN_CHIP_ISAC
 #define ISDN_CHIP_ISAC 1
 #endif
