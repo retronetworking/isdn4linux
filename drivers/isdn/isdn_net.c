@@ -21,6 +21,10 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.118  2000/03/17 18:20:46  kai
+ * moved to frame_cnt based flow control
+ * some races still need to be fixed
+ *
  * Revision 1.117  2000/03/17 17:01:00  kai
  * cleanup
  *
@@ -605,7 +609,7 @@ static __inline__ void isdn_net_dec_frame_cnt(isdn_net_local *lp)
 {
 	atomic_dec(&lp->frame_cnt);
 	if (!(isdn_net_lp_busy(lp))) {
-		if (lp->sav_skb) {
+		if (!skb_queue_empty(&lp->super_tx_queue)) {
 			queue_task(&lp->tqueue, &tq_immediate);
 		} else {
 			isdn_net_lp_xon(lp);
@@ -1763,6 +1767,7 @@ void isdn_net_write_super(isdn_net_local *lp, struct sk_buff *skb)
 static void
 isdn_net_softint(void *private)
 {
+	isdn_net_local *lp = private;
 	struct sk_buff *skb;
 	
 	while (atomic_read(&lp->frame_cnt) < ISDN_NET_MAX_QUEUE_LENGTH) {
@@ -1977,7 +1982,7 @@ isdn_net_xmit(struct net_device *ndev, isdn_net_local * lp, struct sk_buff *skb)
 				if (!((slp->flags & ISDN_NET_CONNECTED) && (slp->dialstate == 0)))
 					lp->srobin = ndev;
 				slp = (isdn_net_local *) (lp->srobin->priv);
-				if (save++ > 100) {
+				if (safe++ > 100) {
 					printk("isdn_net: should never happen\n");
 					return 1;
 				}
