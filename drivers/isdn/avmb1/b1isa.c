@@ -6,6 +6,10 @@
  * (c) Copyright 1999 by Carsten Paeth (calle@calle.in-berlin.de)
  * 
  * $Log$
+ * Revision 1.6  2000/01/25 14:37:39  calle
+ * new message after successfull detection including card revision and
+ * used resources.
+ *
  * Revision 1.5  1999/11/05 16:38:01  calle
  * Cleanups before kernel 2.4:
  * - Changed all messages to use card->name or driver->name instead of
@@ -123,10 +127,13 @@ static int b1isa_add_card(struct capi_driver *driver, struct capicardparams *p)
 	avmcard *card;
 	int retval;
 
+	MOD_INC_USE_COUNT;
+
 	card = (avmcard *) kmalloc(sizeof(avmcard), GFP_ATOMIC);
 
 	if (!card) {
 		printk(KERN_WARNING "b1isa: no memory.\n");
+	        MOD_DEC_USE_COUNT;
 		return -ENOMEM;
 	}
 	memset(card, 0, sizeof(avmcard));
@@ -134,6 +141,7 @@ static int b1isa_add_card(struct capi_driver *driver, struct capicardparams *p)
 	if (!cinfo) {
 		printk(KERN_WARNING "b1isa: no memory.\n");
 		kfree(card);
+	        MOD_DEC_USE_COUNT;
 		return -ENOMEM;
 	}
 	memset(cinfo, 0, sizeof(avmctrl_info));
@@ -150,12 +158,14 @@ static int b1isa_add_card(struct capi_driver *driver, struct capicardparams *p)
 		       card->port, card->port + AVMB1_PORTLEN);
 	        kfree(card->ctrlinfo);
 		kfree(card);
+	        MOD_DEC_USE_COUNT;
 		return -EBUSY;
 	}
 	if (b1_irq_table[card->irq & 0xf] == 0) {
 		printk(KERN_WARNING "b1isa: irq %d not valid.\n", card->irq);
 	        kfree(card->ctrlinfo);
 		kfree(card);
+	        MOD_DEC_USE_COUNT;
 		return -EINVAL;
 	}
 	if (   card->port != 0x150 && card->port != 0x250
@@ -163,6 +173,7 @@ static int b1isa_add_card(struct capi_driver *driver, struct capicardparams *p)
 		printk(KERN_WARNING "b1isa: illegal port 0x%x.\n", card->port);
 	        kfree(card->ctrlinfo);
 		kfree(card);
+	        MOD_DEC_USE_COUNT;
 		return -EINVAL;
 	}
 	b1_reset(card->port);
@@ -171,6 +182,7 @@ static int b1isa_add_card(struct capi_driver *driver, struct capicardparams *p)
 					card->port, retval);
 	        kfree(card->ctrlinfo);
 		kfree(card);
+	        MOD_DEC_USE_COUNT;
 		return -EIO;
 	}
 	b1_reset(card->port);
@@ -184,6 +196,7 @@ static int b1isa_add_card(struct capi_driver *driver, struct capicardparams *p)
 		release_region(card->port, AVMB1_PORTLEN);
 	        kfree(card->ctrlinfo);
 		kfree(card);
+	        MOD_DEC_USE_COUNT;
 		return -EBUSY;
 	}
 
@@ -194,6 +207,7 @@ static int b1isa_add_card(struct capi_driver *driver, struct capicardparams *p)
 		release_region(card->port, AVMB1_PORTLEN);
 	        kfree(card->ctrlinfo);
 		kfree(card);
+	        MOD_DEC_USE_COUNT;
 		return -EBUSY;
 	}
 
@@ -201,7 +215,6 @@ static int b1isa_add_card(struct capi_driver *driver, struct capicardparams *p)
 		"%s: AVM B1 ISA at i/o %#x, irq %d, revision %d\n",
 		driver->name, card->port, card->irq, card->revision);
 
-	MOD_INC_USE_COUNT;
 	return 0;
 }
 

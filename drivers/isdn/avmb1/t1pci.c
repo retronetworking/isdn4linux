@@ -6,6 +6,11 @@
  * (c) Copyright 1999 by Carsten Paeth (calle@calle.in-berlin.de)
  * 
  * $Log$
+ * Revision 1.4  2000/01/25 14:33:38  calle
+ * - Added Support AVM B1 PCI V4.0 (tested with prototype)
+ *   - splitted up t1pci.c into b1dma.c for common function with b1pciv4
+ *   - support for revision register
+ *
  * Revision 1.3  1999/11/13 21:27:16  keil
  * remove KERNELVERSION
  *
@@ -87,15 +92,18 @@ static void t1pci_remove_ctr(struct capi_ctr *ctrl)
 
 static int t1pci_add_card(struct capi_driver *driver, struct capicardparams *p)
 {
-	unsigned long page_offset, base;
+	unsigned long base, page_offset;
 	avmcard *card;
 	avmctrl_info *cinfo;
 	int retval;
+
+	MOD_INC_USE_COUNT;
 
 	card = (avmcard *) kmalloc(sizeof(avmcard), GFP_ATOMIC);
 
 	if (!card) {
 		printk(KERN_WARNING "%s: no memory.\n", driver->name);
+	        MOD_DEC_USE_COUNT;
 		return -ENOMEM;
 	}
 	memset(card, 0, sizeof(avmcard));
@@ -103,6 +111,7 @@ static int t1pci_add_card(struct capi_driver *driver, struct capicardparams *p)
 	if (!card->dma) {
 		printk(KERN_WARNING "%s: no memory.\n", driver->name);
 		kfree(card);
+	        MOD_DEC_USE_COUNT;
 		return -ENOMEM;
 	}
 	memset(card->dma, 0, sizeof(avmcard_dmainfo));
@@ -111,6 +120,7 @@ static int t1pci_add_card(struct capi_driver *driver, struct capicardparams *p)
 		printk(KERN_WARNING "%s: no memory.\n", driver->name);
 		kfree(card->dma);
 		kfree(card);
+	        MOD_DEC_USE_COUNT;
 		return -ENOMEM;
 	}
 	memset(cinfo, 0, sizeof(avmctrl_info));
@@ -129,12 +139,24 @@ static int t1pci_add_card(struct capi_driver *driver, struct capicardparams *p)
 	        kfree(card->ctrlinfo);
 		kfree(card->dma);
 		kfree(card);
+	        MOD_DEC_USE_COUNT;
 		return -EBUSY;
 	}
 
-        base = card->membase & PAGE_MASK;
+	base = card->membase & PAGE_MASK;
 	page_offset = card->membase - base;
 	card->mbase = ioremap_nocache(base, page_offset + 64);
+	if (card->mbase) {
+		card->mbase += page_offset;
+	} else {
+		printk(KERN_NOTICE "%s: can't remap memory at 0x%lx\n",
+					driver->name, card->membase);
+	        kfree(card->ctrlinfo);
+		kfree(card->dma);
+		kfree(card);
+	        MOD_DEC_USE_COUNT;
+		return -EIO;
+	}
 
 	b1dma_reset(card);
 
@@ -145,6 +167,7 @@ static int t1pci_add_card(struct capi_driver *driver, struct capicardparams *p)
 	        kfree(card->ctrlinfo);
 		kfree(card->dma);
 		kfree(card);
+	        MOD_DEC_USE_COUNT;
 		return -EIO;
 	}
 	b1dma_reset(card);
@@ -160,6 +183,7 @@ static int t1pci_add_card(struct capi_driver *driver, struct capicardparams *p)
 	        kfree(card->ctrlinfo);
 		kfree(card->dma);
 		kfree(card);
+	        MOD_DEC_USE_COUNT;
 		return -EBUSY;
 	}
 
@@ -172,6 +196,7 @@ static int t1pci_add_card(struct capi_driver *driver, struct capicardparams *p)
 	        kfree(card->ctrlinfo);
 		kfree(card->dma);
 		kfree(card);
+	        MOD_DEC_USE_COUNT;
 		return -EBUSY;
 	}
 	card->cardnr = cinfo->capi_ctrl->cnr;
@@ -181,8 +206,6 @@ static int t1pci_add_card(struct capi_driver *driver, struct capicardparams *p)
 	printk(KERN_INFO
 		"%s: AVM T1 PCI at i/o %#x, irq %d, mem %#lx\n",
 		driver->name, card->port, card->irq, card->membase);
-
-	MOD_INC_USE_COUNT;
 
 	return 0;
 }
