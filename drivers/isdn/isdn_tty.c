@@ -20,6 +20,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.41.2.11  1998/11/05 22:12:12  fritz
+ * Changed mail-address.
+ *
  * Revision 1.41.2.10  1998/11/03 14:31:35  fritz
  * Reduced stack usage in various functions.
  * Adapted statemachine to work with certified HiSax.
@@ -816,12 +819,12 @@ isdn_tty_dial(char *n, modem_info * info, atemu * m)
 			si = bit2si[j];
 			break;
 		}
-#ifdef CONFIG_ISDN_AUDIO
+#ifdef CONFIG_ISDN_AUDIO 
 	if (si == 1) {
 		l2 = 4;
 		usg = ISDN_USAGE_VOICE;
 	}
-#endif
+#endif 
 	m->mdmreg[20] = si2bit[si];
 	save_flags(flags);
 	cli();
@@ -2101,6 +2104,18 @@ isdn_tty_stat_callback(int i, isdn_ctrl * c)
 				/* Signal cause to tty-device */
 				strncpy(info->last_cause, c->parm.num, 5);
 				return 1;
+			case ISDN_STAT_DISPLAY:
+#ifdef ISDN_TTY_STAT_DEBUG
+				printk(KERN_DEBUG "tty_STAT_DISPLAY ttyI%d\n", info->line);
+#endif
+				/* Signal display to tty-device */
+				if ((info->emu.mdmreg[13] & 32) && !(info->emu.mdmreg[12] & 2)) {
+				  isdn_tty_at_cout("\r\n", info);
+				  isdn_tty_at_cout("DISPLAY: ", info);
+				  isdn_tty_at_cout(c->parm.display, info);
+				  isdn_tty_at_cout("\r\n", info);
+				}
+				return 1;
 			case ISDN_STAT_DCONN:
 #ifdef ISDN_TTY_STAT_DEBUG
 				printk(KERN_DEBUG "tty_STAT_DCONN ttyI%d\n", info->line);
@@ -2496,7 +2511,8 @@ isdn_tty_getdial(char *p, char *q, int max)
 
 	max--;
 	while (strchr("0123456789,#.*WPTS-", *p) && *p && (max > 0)) {
-		if ((*p >= '0' && *p <= '9') || ((*p == 'S') && first)) {
+		if ((*p >= '0' && *p <= '9') || ((*p == 'S') && first) ||
+		    (*p == '*') || (*p == '#')) {
 			*q++ = *p;
 			max--;
 		}
