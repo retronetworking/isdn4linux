@@ -20,6 +20,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.2  1999/07/04 21:37:30  werner
+ * Ported from kernel version 2.0
+ *
  *
  *
  */
@@ -44,13 +47,6 @@ isdn_divert_if divert_if =
     NULL,             /* command still not specified */
     NULL,             /* drv_to_name */
     NULL,             /* name_to_drv */
-    NULL,             /* open routine */        
-    NULL,             /* close routine */        
-    NULL,             /* ioctl routine */        
-    NULL,             /* poll routine */        
-    NULL,             /* select routine */        
-    NULL,             /* read routine */        
-    NULL,             /* write routine */        
   };
 
 /*************************/

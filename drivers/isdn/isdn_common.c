@@ -21,6 +21,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.77  1999/07/01 08:29:50  keil
+ * compatibility to 2.3 kernel
+ *
  * Revision 1.76  1999/06/29 16:16:44  calle
  * Let ISDN_CMD_UNLOAD work with open isdn devices without crash again.
  * Also right unlocking (ISDN_CMD_UNLOCK) is done now.
@@ -340,6 +343,9 @@
 #ifdef CONFIG_ISDN_AUDIO
 #include "isdn_audio.h"
 #endif
+#ifdef CONFIG_ISDN_DIVERSION
+#include <linux/isdn_divertif.h>
+#endif CONFIG_ISDN_DIVERSION
 #include "isdn_v110.h"
 #include "isdn_cards.h"
 
@@ -363,6 +369,11 @@ extern char *isdn_audio_revision;
 static char *isdn_audio_revision = ": none $";
 #endif
 extern char *isdn_v110_revision;
+
+#ifdef CONFIG_ISDN_DIVERSION
+isdn_divert_if *divert_if = NULL; /* interface to diversion module */
+#endif CONFIG_ISDN_DIVERSION
+
 
 static int isdn_writebuf_stub(int, int, const u_char *, int, int);
 
@@ -765,7 +776,7 @@ isdn_status_callback(isdn_ctrl * c)
 				return 0;
 			}
 			/* Try to find a network-interface which will accept incoming call */
-			r = isdn_net_find_icall(di, c->arg, i, c->parm.setup);
+			r = ((c->command == ISDN_STAT_ICALLW) ? 0 : isdn_net_find_icall(di, c->arg, i, c->parm.setup));
 			switch (r) {
 				case 0:
 					/* No network-device replies.
@@ -773,7 +784,13 @@ isdn_status_callback(isdn_ctrl * c)
 					 * These return 0 on no match, 1 on match and
 					 * 3 on eventually match, if CID is longer.
 					 */
-					retval = isdn_tty_find_icall(di, c->arg, c->parm.setup);
+                                        if (c->command == ISDN_STAT_ICALL)
+					  if ((retval = isdn_tty_find_icall(di, c->arg, c->parm.setup))) return(retval);
+#ifdef CONFIG_ISDN_DIVERSION 
+                                         if (divert_if)
+                 	                  if ((retval = divert_if->stat_callback(c))) 
+					    return(retval); /* processed */
+#endif CONFIG_ISDN_DIVERSION                        
 					if ((!retval) && (dev->drv[di]->flags & DRV_FLAG_REJBUS)) {
 						/* No tty responding */
 						cmd.driver = di;
@@ -836,6 +853,20 @@ isdn_status_callback(isdn_ctrl * c)
 			printk(KERN_INFO "isdn: %s,ch%ld cause: %s\n",
 			       dev->drvid[di], c->arg, c->parm.num);
 			isdn_tty_stat_callback(i, c);
+#ifdef CONFIG_ISDN_DIVERSION
+                        if (divert_if)
+                         divert_if->stat_callback(c); 
+#endif CONFIG_ISDN_DIVERSION
+			break;
+		case ISDN_STAT_DISPLAY:
+#ifdef ISDN_DEBUG_STATCALLB
+			printk(KERN_DEBUG "DISPLAY: %ld %s\n", c->arg, c->parm.display);
+#endif
+			isdn_tty_stat_callback(i, c);
+#ifdef CONFIG_ISDN_DIVERSION
+                        if (divert_if)
+                         divert_if->stat_callback(c); 
+#endif CONFIG_ISDN_DIVERSION
 			break;
 		case ISDN_STAT_DCONN:
 			if (i < 0)
@@ -874,6 +905,11 @@ isdn_status_callback(isdn_ctrl * c)
 			isdn_v110_stat_callback(i, c);
 			if (isdn_tty_stat_callback(i, c))
 				break;
+#ifdef CONFIG_ISDN_DIVERSION
+                        if (divert_if)
+                         divert_if->stat_callback(c); 
+#endif CONFIG_ISDN_DIVERSION
+			break;
 			break;
 		case ISDN_STAT_BCONN:
 			if (i < 0)
@@ -967,6 +1003,12 @@ isdn_status_callback(isdn_ctrl * c)
 			break;
 		case CAPI_PUT_MESSAGE:
 			return(isdn_capi_rec_hl_msg(&c->parm.cmsg));
+#ifdef CONFIG_ISDN_DIVERSION
+	        case ISDN_STAT_PROT:
+	        case ISDN_STAT_REDIR:
+                        if (divert_if)
+                          return(divert_if->stat_callback(c));
+#endif CONFIG_ISDN_DIVERSION
 		default:
 			return -1;
 	}
@@ -2257,6 +2299,60 @@ isdn_add_channels(driver *d, int drvidx, int n, int adding)
 /*
  * Low-level-driver registration
  */
+
+
+#ifdef CONFIG_ISDN_DIVERSION
+extern isdn_divert_if *divert_if;
+
+static char *map_drvname(int di)
+{
+  if ((di < 0) || (di >= ISDN_MAX_DRIVERS)) 
+    return(NULL);
+  return(dev->drvid[di]); /* driver name */
+} /* map_drvname */
+
+static int map_namedrv(char *id)
+{  int i;
+
+   for (i = 0; i < ISDN_MAX_DRIVERS; i++)
+    { if (!strcmp(dev->drvid[i],id)) 
+        return(i);
+    }
+   return(-1);
+} /* map_namedrv */
+
+int DIVERT_REG_NAME(isdn_divert_if *i_div)
+{
+  if (i_div->if_magic != DIVERT_IF_MAGIC) 
+    return(DIVERT_VER_ERR);
+  switch (i_div->cmd)
+    {
+      case DIVERT_CMD_REL:
+        if (divert_if != i_div) 
+          return(DIVERT_REL_ERR);
+        divert_if = NULL; /* free interface */
+        MOD_DEC_USE_COUNT;
+        return(DIVERT_NO_ERR);
+
+      case DIVERT_CMD_REG:
+        if (divert_if) 
+          return(DIVERT_REG_ERR);
+        i_div->ll_cmd = isdn_command; /* set command function */
+        i_div->drv_to_name = map_drvname; 
+        i_div->name_to_drv = map_namedrv; 
+        MOD_INC_USE_COUNT;
+        divert_if = i_div; /* remember interface */
+        return(DIVERT_NO_ERR);
+
+      default:
+        return(DIVERT_CMD_ERR);   
+    }
+} /* DIVERT_REG_NAME */
+
+EXPORT_SYMBOL(DIVERT_REG_NAME);
+
+#endif CONFIG_ISDN_DIVERSION
+
 
 EXPORT_SYMBOL(register_isdn);
 EXPORT_SYMBOL(register_isdn_module);

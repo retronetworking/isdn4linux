@@ -20,6 +20,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.2  1999/07/04 21:38:38  werner
+ * ported from kernel version 2.0
+ *
  *
  */
 
@@ -47,13 +50,6 @@ typedef struct
     int (*ll_cmd)(isdn_ctrl *); /* supplied by hl on return */
     char * (*drv_to_name)(int); /* map a driver id to name, supplied by hl */
     int (*name_to_drv)(char *); /* map a driver id to name, supplied by hl */
-    int (*open_dev)(void *, void *); /* open routine of device, supplied by divert */
-    int (*close_dev)(void *, void *); /* close routine of device, supplied by divert */
-    int (*ioctl_dev)(void *, void *, uint, ulong); /* close routine of dev, supplied by divert */
-    int (*poll_dev)(void *, void *); /* poll routine of dev, supplied by divert */
-    int (*select_dev)(void *, void *, int, void *); /* select of dev, supplied by divert */
-    int (*read_dev)(void *, void *, const void *, int); /* read of dev, supplied by divert */
-    int (*write_dev)(void *, void *, const void *, int); /* write of dev, supplied by divert */
   } isdn_divert_if;
 
 /*********************/
