@@ -6,8 +6,12 @@
  *
  * Thanks to Traverse Technologie Australia for documents and informations
  *
- *
  * $Log$
+ *
+ * Revision 1.10  1999/07/12 21:05:22  keil
+ * fix race in IRQ handling
+ * added watchdog for lost IRQs
+ *
  * Revision 1.9  1999/07/01 08:12:05  keil
  * Common HiSax version for 2.0, 2.1, 2.2 and 2.3 kernel
  *
@@ -97,7 +101,8 @@ const char *NETjet_revision = "$Revision$";
 #define NETJET_IRQM0_WRITE_1	0x01
 #define NETJET_IRQM0_WRITE_2	0x02
 
-#define NETJET_DMA_SIZE 512
+#define NETJET_DMA_TXSIZE 512
+#define NETJET_DMA_RXSIZE 128
 
 #define HDLC_ZERO_SEARCH 0
 #define HDLC_FLAG_SEARCH 1
@@ -225,7 +230,7 @@ mode_tiger(struct BCState *bcs, int mode, int bc)
 	switch (mode) {
 		case (L1_MODE_NULL):
 			fill_mem(bcs, bcs->hw.tiger.send,
-				NETJET_DMA_SIZE, bc, 0xff);
+				NETJET_DMA_TXSIZE, bc, 0xff);
 			if (cs->debug & L1_DEB_HSCX)
 				debugl1(cs, "Tiger stat rec %d/%d send %d",
 					bcs->hw.tiger.r_tot, bcs->hw.tiger.r_err,
@@ -242,7 +247,7 @@ mode_tiger(struct BCState *bcs, int mode, int bc)
 			break;
 		case (L1_MODE_HDLC): 
 			fill_mem(bcs, bcs->hw.tiger.send,
-				NETJET_DMA_SIZE, bc, 0xff);
+				NETJET_DMA_TXSIZE, bc, 0xff);
 			bcs->hw.tiger.r_state = HDLC_ZERO_SEARCH;
 			bcs->hw.tiger.r_tot = 0;
 			bcs->hw.tiger.r_bitcnt = 0;
@@ -251,14 +256,14 @@ mode_tiger(struct BCState *bcs, int mode, int bc)
 			bcs->hw.tiger.s_tot = 0;
 			if (! cs->hw.njet.dmactrl) {
 				fill_mem(bcs, bcs->hw.tiger.send,
-					NETJET_DMA_SIZE, !bc, 0xff);
+					NETJET_DMA_TXSIZE, !bc, 0xff);
 				cs->hw.njet.dmactrl = 1;
 				byteout(cs->hw.njet.base + NETJET_DMACTRL,
 					cs->hw.njet.dmactrl);
 				byteout(cs->hw.njet.base + NETJET_IRQMASK0, 0x3f);
 			}
 			bcs->hw.tiger.sendp = bcs->hw.tiger.send;
-			bcs->hw.tiger.free = NETJET_DMA_SIZE;
+			bcs->hw.tiger.free = NETJET_DMA_TXSIZE;
 			test_and_set_bit(BC_FLG_EMPTY, &bcs->Flag);
 			break;
 	}
@@ -377,6 +382,7 @@ static int make_raw_data(struct BCState *bcs) {
 			s_val |= 0x80;
 		}
 		bcs->hw.tiger.sendbuf[s_cnt++] = s_val;
+		bcs->hw.tiger.sendbuf[s_cnt++] = 0xff;	// NJ<->NJ thoughput bug fix
 	}
 	bcs->hw.tiger.sendcnt = s_cnt;
 	bcs->tx_cnt -= bcs->tx_skb->len;
@@ -408,7 +414,7 @@ static void read_raw(struct BCState *bcs, u_int *buf, int cnt){
 	int i;
 	register u_char j;
 	register u_char val;
-	u_int  *pend = bcs->hw.tiger.rec +NETJET_DMA_SIZE -1;
+	u_int  *pend = bcs->hw.tiger.rec +NETJET_DMA_RXSIZE -1;
 	register u_char state = bcs->hw.tiger.r_state;
 	register u_char r_one = bcs->hw.tiger.r_one;
 	register u_char r_val = bcs->hw.tiger.r_val;
@@ -563,7 +569,7 @@ static void read_raw(struct BCState *bcs, u_int *buf, int cnt){
 
 static void read_tiger(struct IsdnCardState *cs) {
 	u_int *p;
-	int cnt = NETJET_DMA_SIZE/2;
+	int cnt = NETJET_DMA_RXSIZE/2;
 	
 	if ((cs->hw.njet.irqstat0 & cs->hw.njet.last_is0) & NETJET_IRQM0_READ) {
 		debugl1(cs,"tiger warn read double dma %x/%x",
@@ -574,7 +580,7 @@ static void read_tiger(struct IsdnCardState *cs) {
 		cs->hw.njet.last_is0 |= (cs->hw.njet.irqstat0 & NETJET_IRQM0_READ);
 	}	
 	if (cs->hw.njet.irqstat0 & NETJET_IRQM0_READ_1)
-		p = cs->bcs[0].hw.tiger.rec + NETJET_DMA_SIZE - 1;
+		p = cs->bcs[0].hw.tiger.rec + NETJET_DMA_RXSIZE - 1;
 	else
 		p = cs->bcs[0].hw.tiger.rec + cnt - 1;
 	if (cs->bcs[0].mode == L1_MODE_HDLC)
@@ -631,12 +637,12 @@ static void fill_dma(struct BCState *bcs)
 		cnt = bcs->hw.tiger.s_end - p;
 		if (cnt < 2) {
 			p = bcs->hw.tiger.send + 1;
-			cnt = NETJET_DMA_SIZE/2 - 2;
+			cnt = NETJET_DMA_TXSIZE/2 - 2;
 		} else {
 			p++;
 			p++;
-			if (cnt <= (NETJET_DMA_SIZE/2))
-				cnt += NETJET_DMA_SIZE/2;
+			if (cnt <= (NETJET_DMA_TXSIZE/2))
+				cnt += NETJET_DMA_TXSIZE/2;
 			cnt--;
 			cnt--;
 		}
@@ -694,7 +700,7 @@ static void write_raw(struct BCState *bcs, u_int *buf, int cnt) {
 			}
 			test_and_clear_bit(BC_FLG_BUSY, &bcs->Flag);
 			bcs->hw.tiger.free = cnt - s_cnt;
-			if (bcs->hw.tiger.free > (NETJET_DMA_SIZE/2))
+			if (bcs->hw.tiger.free > (NETJET_DMA_TXSIZE/2))
 				test_and_set_bit(BC_FLG_HALF, &bcs->Flag);
 			else {
 				test_and_clear_bit(BC_FLG_HALF, &bcs->Flag);
@@ -734,7 +740,7 @@ static void write_raw(struct BCState *bcs, u_int *buf, int cnt) {
 }
 
 static void write_tiger(struct IsdnCardState *cs) {
-	u_int *p, cnt = NETJET_DMA_SIZE/2;
+	u_int *p, cnt = NETJET_DMA_TXSIZE/2;
 	
 	if ((cs->hw.njet.irqstat0 & cs->hw.njet.last_is0) & NETJET_IRQM0_WRITE) {
 		debugl1(cs,"tiger warn write double dma %x/%x",
@@ -745,7 +751,7 @@ static void write_tiger(struct IsdnCardState *cs) {
 		cs->hw.njet.last_is0 |= (cs->hw.njet.irqstat0 & NETJET_IRQM0_WRITE);
 	}	
 	if (cs->hw.njet.irqstat0  & NETJET_IRQM0_WRITE_1)
-		p = cs->bcs[0].hw.tiger.send + NETJET_DMA_SIZE - 1;
+		p = cs->bcs[0].hw.tiger.send + NETJET_DMA_TXSIZE - 1;
 	else
 		p = cs->bcs[0].hw.tiger.send + cnt - 1;
 	if (cs->bcs[0].mode == L1_MODE_HDLC)
@@ -876,42 +882,42 @@ setstack_tiger(struct PStack *st, struct BCState *bcs)
 __initfunc(void
 inittiger(struct IsdnCardState *cs))
 {
-	if (!(cs->bcs[0].hw.tiger.send = kmalloc(NETJET_DMA_SIZE * sizeof(unsigned int),
+	if (!(cs->bcs[0].hw.tiger.send = kmalloc(NETJET_DMA_TXSIZE * sizeof(unsigned int),
 		GFP_KERNEL | GFP_DMA))) {
 		printk(KERN_WARNING
 		       "HiSax: No memory for tiger.send\n");
 		return;
 	}
-	cs->bcs[0].hw.tiger.s_irq = cs->bcs[0].hw.tiger.send + NETJET_DMA_SIZE/2 - 1;
-	cs->bcs[0].hw.tiger.s_end = cs->bcs[0].hw.tiger.send + NETJET_DMA_SIZE - 1;
+	cs->bcs[0].hw.tiger.s_irq = cs->bcs[0].hw.tiger.send + NETJET_DMA_TXSIZE/2 - 1;
+	cs->bcs[0].hw.tiger.s_end = cs->bcs[0].hw.tiger.send + NETJET_DMA_TXSIZE - 1;
 	cs->bcs[1].hw.tiger.send = cs->bcs[0].hw.tiger.send;
 	cs->bcs[1].hw.tiger.s_irq = cs->bcs[0].hw.tiger.s_irq;
 	cs->bcs[1].hw.tiger.s_end = cs->bcs[0].hw.tiger.s_end;
 	
-	memset(cs->bcs[0].hw.tiger.send, 0xff, NETJET_DMA_SIZE * sizeof(unsigned int));
+	memset(cs->bcs[0].hw.tiger.send, 0xff, NETJET_DMA_TXSIZE * sizeof(unsigned int));
 	debugl1(cs, "tiger: send buf %x - %x", (u_int)cs->bcs[0].hw.tiger.send,
-		(u_int)(cs->bcs[0].hw.tiger.send + NETJET_DMA_SIZE - 1));
+		(u_int)(cs->bcs[0].hw.tiger.send + NETJET_DMA_TXSIZE - 1));
 	outl(virt_to_bus(cs->bcs[0].hw.tiger.send),
 		cs->hw.njet.base + NETJET_DMA_READ_START);
 	outl(virt_to_bus(cs->bcs[0].hw.tiger.s_irq),
 		cs->hw.njet.base + NETJET_DMA_READ_IRQ);
 	outl(virt_to_bus(cs->bcs[0].hw.tiger.s_end),
 		cs->hw.njet.base + NETJET_DMA_READ_END);
-	if (!(cs->bcs[0].hw.tiger.rec = kmalloc(NETJET_DMA_SIZE * sizeof(unsigned int),
+	if (!(cs->bcs[0].hw.tiger.rec = kmalloc(NETJET_DMA_RXSIZE * sizeof(unsigned int),
 		GFP_KERNEL | GFP_DMA))) {
 		printk(KERN_WARNING
 		       "HiSax: No memory for tiger.rec\n");
 		return;
 	}
 	debugl1(cs, "tiger: rec buf %x - %x", (u_int)cs->bcs[0].hw.tiger.rec,
-		(u_int)(cs->bcs[0].hw.tiger.rec + NETJET_DMA_SIZE - 1));
+		(u_int)(cs->bcs[0].hw.tiger.rec + NETJET_DMA_RXSIZE - 1));
 	cs->bcs[1].hw.tiger.rec = cs->bcs[0].hw.tiger.rec;
-	memset(cs->bcs[0].hw.tiger.rec, 0xff, NETJET_DMA_SIZE * sizeof(unsigned int));
+	memset(cs->bcs[0].hw.tiger.rec, 0xff, NETJET_DMA_RXSIZE * sizeof(unsigned int));
 	outl(virt_to_bus(cs->bcs[0].hw.tiger.rec),
 		cs->hw.njet.base + NETJET_DMA_WRITE_START);
-	outl(virt_to_bus(cs->bcs[0].hw.tiger.rec + NETJET_DMA_SIZE/2 - 1),
+	outl(virt_to_bus(cs->bcs[0].hw.tiger.rec + NETJET_DMA_RXSIZE/2 - 1),
 		cs->hw.njet.base + NETJET_DMA_WRITE_IRQ);
-	outl(virt_to_bus(cs->bcs[0].hw.tiger.rec + NETJET_DMA_SIZE - 1),
+	outl(virt_to_bus(cs->bcs[0].hw.tiger.rec + NETJET_DMA_RXSIZE - 1),
 		cs->hw.njet.base + NETJET_DMA_WRITE_END);
 	debugl1(cs, "tiger: dmacfg  %x/%x  pulse=%d",
 		inl(cs->hw.njet.base + NETJET_DMA_WRITE_ADR),
