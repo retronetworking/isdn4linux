@@ -157,8 +157,6 @@ endif
 
 include $(TOPDIR)/Rules.make
 
-CFLAGS += -S
-
 MD5FILES += isac.c isdnl1.c isdnl2.c isdnl3.c \
 	    tei.c callc.c cert.c l3dss1.c l3_1tr6.c elsa.c
 
