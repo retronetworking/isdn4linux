@@ -11,6 +11,9 @@
  *              Beat Doebeli
  *
  * $Log$
+ * Revision 1.11.2.5  1997/11/15 18:51:03  keil
+ * new common init function
+ *
  * Revision 1.11.2.4  1997/10/17 22:14:30  keil
  * update to last hisax version
  *
@@ -438,12 +441,13 @@ setup_teles3(struct IsdnCard *card))
 			release_io_teles3(cs);
 			return (0);
 		}
-		val = bytein(cs->hw.teles3.cfg_reg + 2);	/* 0x1e=without AB
-								   * 0x1f=with AB
-								   * 0x1c 16.3 ???
-								   * 0x46 16.3 with AB + Video (Teles-Vision)
-								 */
-		if (val != 0x46 && val != 0x1c && val != 0x1e && val != 0x1f) {
+		val = bytein(cs->hw.teles3.cfg_reg + 2);/* 0x1e=without AB
+							 * 0x1f=with AB
+							 * 0x1c 16.3 ???
+							 * 0x39 16.3 1.1
+							 * 0x46 16.3 with AB + Video (Teles-Vision)
+							 */
+		if (val != 0x46 && val != 0x39 && val != 0x1c && val != 0x1e && val != 0x1f) {
 			printk(KERN_WARNING "Teles: 16.3 Byte at %x is %x\n",
 			       cs->hw.teles3.cfg_reg + 2, val);
 			release_io_teles3(cs);
