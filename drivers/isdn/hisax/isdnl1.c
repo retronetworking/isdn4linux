@@ -11,6 +11,10 @@
  *
  *
  * $Log$
+ * Revision 1.15.2.14  1998/08/25 14:01:35  calle
+ * Ported driver for AVM Fritz!Card PCI from the 2.1 tree.
+ * I could not test it.
+ *
  * Revision 1.15.2.13  1998/07/15 14:43:37  calle
  * Support for AVM passive PCMCIA cards:
  *    A1 PCMCIA, FRITZ!Card PCMCIA and FRITZ!Card PCMCIA 2.0
@@ -175,7 +179,7 @@ const char *CardType[] =
 {"No Card", "Teles 16.0", "Teles 8.0", "Teles 16.3", "Creatix/Teles PnP",
  "AVM A1", "Elsa ML", "Elsa Quickstep", "Teles PCMCIA", "ITK ix1-micro Rev.2",
  "Elsa PCMCIA", "Eicon.Diehl Diva", "ISDNLink", "TeleInt", "Teles 16.3c", 
- "Sedlbauer Speed Card", "USR Sportster", "ith mic Linux", "Elsa PCI",
+ "Sedlbauer ISDN Card", "USR Sportster", "ith mic Linux", "Elsa PCI",
  "Compaq ISA", "NETjet", "Teles PCI", "Sedlbauer Speed Star (PCMCIA)",
  "AMD 7930", "NICCY", "S0Box", "AVM A1 (PCMCIA)", "AVM Fritz!Card PCI"
 };

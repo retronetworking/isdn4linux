@@ -5,8 +5,12 @@
  *
  *
  * $Log$
+ * Revision 1.15.2.14  1998/08/25 14:01:27  calle
+ * Ported driver for AVM Fritz!Card PCI from the 2.1 tree.
+ * I could not test it.
+ *
  * Revision 1.15.2.13  1998/07/30 20:51:24  niemann
- * Fixed Sedlbauer Speed Fax PCMCIA missing isdnl3new
+ * Fixed Sedlbauer Speed Card PCMCIA missing isdnl3new
  *
  * Revision 1.15.2.12  1998/07/15 14:43:29  calle
  * Support for AVM passive PCMCIA cards:
