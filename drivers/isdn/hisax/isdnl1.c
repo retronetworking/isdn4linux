@@ -11,6 +11,9 @@
  *
  *
  * $Log$
+ * Revision 2.28  1998/09/27 12:52:23  keil
+ * Fix against segfault, if the driver cannot allocate an IRQ channel
+ *
  * Revision 2.27  1998/08/13 23:36:39  keil
  * HiSax 3.1 - don't work stable with current LinkLevel
  *
@@ -570,7 +573,6 @@ BChannel_proc_xmt(struct BCState *bcs)
 
 	if (test_bit(BC_FLG_BUSY, &bcs->Flag)) {
 		debugl1(bcs->cs, "BC_BUSY Error");
-		printk(KERN_WARNING "HiSax: BC_BUSY Error\n");
 		return;
 	}
 
