@@ -4,6 +4,9 @@
  *
  * Definition of the interface between the subsystem and it's lowlevel-drivers.
  *
+ * Copyright 1994,95,96 by Fritz Elfert (fritz@wuemaus.franken.de)
+ * Copyright 1995,96    Thinking Objects Software GmbH Wuerzburg
+ * 
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation; either version 2, or (at your option)
@@ -19,10 +22,17 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.1  1996/01/09 05:50:51  fritz
+ * Initial revision
+ *
  */
 
 #ifndef isdnif_h
 #define isdnif_h
+
+#ifdef STANDALONE
+#include <linux/k_compat.h>
+#endif
 
 /*
  * Values for general protocol-selection
@@ -45,6 +55,9 @@
 #define ISDN_PROTO_L3_TRANS  0   /* Transparent                 */
 
 #ifdef __KERNEL__
+
+#include <linux/skbuff.h>
+
 /*
  * Commands from linklevel to lowlevel
  *
@@ -137,6 +150,13 @@ typedef struct {
    */
   unsigned long features;
 
+  /*
+   * Needed for calculating
+   * dev->hard_header_len = linklayer header + hl_hdrlen;
+   * Drivers, not supporting sk_buff's should set this to 0.
+   */
+  unsigned short hl_hdrlen;
+
   /* Receive-Callback
    * Parameters:
    *             int    Driver-ID
@@ -145,6 +165,16 @@ typedef struct {
    *             int    length of data
    */
   void (*rcvcallb)(int, int, u_char*, int);
+
+  /*
+   * Receive-Callback using sk_buff's
+   * Parameters:
+   *             int                    Driver-ID
+   *             int                    local channel-number (0 ...)
+   *             struct sk_buff *skb    received Data
+   */
+  void (*rcvcallb_skb)(int, int, struct sk_buff *);
+
   /* Status-Callback
    * Parameters:
    *             isdn_ctrl*
@@ -165,6 +195,7 @@ typedef struct {
   int (*command)(isdn_ctrl*);
   /* Send Data
    * Parameters:
+   *             int    driverId
    *             int    local channel-number (0 ...)
    *             u_char pointer to data
    *             int    length of data
@@ -173,7 +204,17 @@ typedef struct {
    *                          1 = Data is in User-Space (use memcpy_fromfs,
    *                              may schedule)
    */
-  int (*writebuf)(int, const u_char*, int, int);
+  int (*writebuf)(int, int, const u_char*, int, int);
+
+  /*
+   * Send data using sk_buff's
+   * Parameters:
+   *             int                    driverId
+   *             int                    local channel-number (0...)
+   *             struct sk_buff *skb    Data to send
+   */
+  int (*writebuf_skb) (int, int, struct sk_buff *);
+
   /* Send raw D-Channel-Commands
    * Parameters:
    *             u_char pointer data
@@ -200,22 +241,26 @@ typedef struct {
  * Function which must be called by lowlevel-driver at loadtime with
  * the following fields of above struct set:
  *
- * channels (Number of channels that will be supported)
- * command  Address of Command-Handler
- * features Bitwise coded Features of this driver (use ISDN_FEATURE_...)
- * writebuf Address of Send-Command-Handler
- * writecmd    "    "  D-Channel  " which accepts raw D-Ch-Commands
- * readstat    "    "  D-Channel  " which delivers raw Status-Data
+ * channels     Number of channels that will be supported.
+ * hl_hdrlen    Space to preserve in sk_buff's when sending. Drivers, not
+ *              supporting sk_buff's should set this to 0.
+ * command      Address of Command-Handler.
+ * features     Bitwise coded Features of this driver. (use ISDN_FEATURE_...)
+ * writebuf     Address of Send-Command-Handler.
+ * writebuf_skb Address of Skbuff-Send-Handler. (NULL if not supported)
+ * writecmd        "    "  D-Channel  " which accepts raw D-Ch-Commands.
+ * readstat        "    "  D-Channel  " which delivers raw Status-Data.
  *
  * The linklevel-driver fills the following fields:
  *
- * channels  Driver-ID assigned to this driver. (Must be used on all
- *           subsequent callbacks.
- * rcvcallb  Address of handler for received data
- * statcallb    "    "     "    for status-changes
+ * channels      Driver-ID assigned to this driver. (Must be used on all
+ *               subsequent callbacks.
+ * rcvcallb      Address of handler for received data.
+ * rcvcallb_skb  Address of handler for received Skbuff's. (NULL if not supp.)
+ * statcallb        "    "     "    for status-changes.
  *
  */
-int register_isdn(isdn_if*);
+extern int register_isdn(isdn_if*);
 
 #endif /* __KERNEL__ */
 #endif /* isdnif_h */
