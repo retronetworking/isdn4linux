@@ -2,7 +2,7 @@
  *
  * Linux ISDN subsystem
  *
- * Definition of the interface between the subsystem and its lowlevel-drivers.
+ * Definition of the interface between the subsystem and its low-level drivers.
  *
  * Copyright 1994,95,96 by Fritz Elfert (fritz@wuemaus.franken.de)
  * Copyright 1995,96    Thinking Objects Software GmbH Wuerzburg
@@ -22,6 +22,10 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.7  1996/05/18 01:37:19  fritz
+ * Added spelling corrections and some minor changes
+ * to stay in sync with kernel.
+ *
  * Revision 1.6  1996/05/17 03:59:28  fritz
  * Marked rcvcallb and writebuf obsolete.
  *
