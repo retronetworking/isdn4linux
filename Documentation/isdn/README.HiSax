@@ -41,9 +41,10 @@ ELSA Quickstep 3000 (same settings as QS1000)
 ELSA Quickstep 3000PCI
 ELSA PCMCIA
 ITK ix1-micro Rev.2
-Eicon.Diehl Diva 2.0 ISA and PCI (S0 and U interface, no PRO version)
-Eicon.Diehl Diva 2.01 ISA and PCI
-Eicon.Diehl Diva Piccola
+Eicon Diva 2.0 ISA and PCI (S0 and U interface, no PRO version)
+Eicon Diva 2.01 ISA and PCI
+Eicon Diva 2.02 PCI
+Eicon Diva Piccola
 ASUSCOM NETWORK INC. ISDNLink 128K PC adapter (order code I-IN100-ST-D)
 Dynalink IS64PH (OEM version of ASUSCOM NETWORK INC. ISDNLink 128K adapter)
 PCBIT-DP (OEM version of ASUSCOM NETWORK INC. ISDNLink)
@@ -52,6 +53,7 @@ Sedlbauer Speed Card (Speed Win, Teledat 100, PCI, Fax+)
 Sedlbauer Speed Star/Speed Star2 (PCMCIA)
 Sedlbauer ISDN-Controller PC/104
 USR Sportster internal TA (compatible Stollmann tina-pp V3)
+USR internal TA PCI
 ith Kommunikationstechnik GmbH MIC 16 ISA card
 Traverse Technologie NETjet PCI S0 card and NETspider U card
 Ovislink ISDN sc100-p card (NETjet driver)
@@ -66,13 +68,14 @@ Gazel ISDN cards
 HFC-PCI based cards
 Winbond W6692 based cards
 HFC-S+, HFC-SP/PCMCIA cards
+formula-n enternow
+Gerdes Power ISDN
 
 Note: PCF, PCF-Pro: up to now, only the ISDN part is supported
       PCC-8: not tested yet
       Eicon.Diehl Diva U interface not tested
 
 If you know other passive cards with the Siemens chipset, please let me know.
-To use the PNP cards you need the isapnptools.
 You can combine any card, if there is no conflict between the resources
 (io, mem, irq).
 
@@ -87,9 +90,6 @@ parameters.
 There is also some config needed before you compile the kernel and/or
 modules. It is included in the normal "make [menu]config" target at the
 kernel. Don't forget it, especially to select the right D-channel protocol.
-
-Please note: All PnP cards need to be configured with isapnp and will work
-only with the HiSax driver used as a module.
 
 a) when built as a module
 -------------------------
@@ -137,9 +137,6 @@ With US NI1 you have to include your SPID into the MSN setting in the form
 AT&E1234:5678                       on ttyI interfaces
 isdnctrl eaz ippp0 1234:5678        on network devices
 
-The Creatix/Teles PnP cards use io1= and io2= instead of io= for specifying
-the I/O addresses of the ISAC and HSCX chips, respectively.
-
 Card types:
 
     Type                Required parameters (in addition to type and protocol)
@@ -147,39 +144,39 @@ Card types:
     1   Teles 16.0               irq, mem, io
     2   Teles  8.0               irq, mem
     3   Teles 16.3 (non PnP)     irq, io
-    4   Creatix/Teles PnP        irq, io0 (ISAC), io1 (HSCX)
+    4   Creatix/Teles PnP        no parameter
     5   AVM A1 (Fritz)           irq, io
     6   ELSA PCC/PCF cards       io or nothing for autodetect (the iobase is
                                  required only if you have more than one ELSA
                                  card in your PC)
-    7   ELSA Quickstep 1000      irq, io  (from isapnp setup)
+    7   ELSA Quickstep 1000      no parameter
     8   Teles 16.3 PCMCIA     	 irq, io
     9   ITK ix1-micro Rev.2      irq, io
    10   ELSA PCMCIA		 irq, io  (set with card manager)
    11   Eicon.Diehl Diva ISA PnP irq, io
    11   Eicon.Diehl Diva PCI     no parameter
-   12   ASUS COM ISDNLink        irq, io  (from isapnp setup)
+   12   ASUS COM ISDNLink        no parameter
    13   HFC-2BS0 based cards     irq, io
-   14   Teles 16.3c PnP          irq, io
+   14   Teles 16.3c PnP          no parameter
    15   Sedlbauer Speed Card     irq, io
    15   Sedlbauer PC/104         irq, io
    15   Sedlbauer Speed PCI	 no parameter
    16   USR Sportster internal   irq, io
    17   MIC card                 irq, io
    18   ELSA Quickstep 1000PCI   no parameter
-   19   Compaq ISDN S0 ISA card  irq, io0, io1, io (from isapnp setup io=IO2)
+   19   Compaq ISDN S0 ISA card  no parameter
    20   NETjet PCI card          no parameter
    21   Teles PCI                no parameter
    22   Sedlbauer Speed Star (PCMCIA) irq, io (set with card manager)
-   24   Dr. Neuhaus Niccy PnP    irq, io0, io1 (from isapnp setup)
+   24   Dr. Neuhaus Niccy PnP    no parameter
    24   Dr. Neuhaus Niccy PCI    no parameter
    25   Teles S0Box              irq, io (of the used lpt port)
    26   AVM A1 PCMCIA (Fritz!)   irq, io (set with card manager)
-   27   AVM PnP (Fritz!PnP)      irq, io  (from isapnp setup)
+   27   AVM PnP (Fritz!PnP)      no parameter
    27   AVM PCI (Fritz!PCI)      no parameter
-   28   Sedlbauer Speed Fax+     irq, io (from isapnp setup)
-   29	Siemens I-Surf 1.0       irq, io, memory (from isapnp setup)   
-   30	ACER P10                 irq, io (from isapnp setup)   
+   28   Sedlbauer Speed Fax+     no parameter
+   29	Siemens I-Surf 1.0       no parameter
+   30	ACER P10                 no parameter
    31	HST Saphir               irq, io
    32	Telekom A4T              none
    33	Scitel Quadro		 subcontroller (4*S0, subctrl 1...4)
@@ -190,6 +187,8 @@ Card types:
    37	HFC 2BDS0 S+, SP         irq,io 
    38	NETspider U PCI card     none
    39	HFC 2BDS0 SP/PCMCIA      irq,io (set with cardmgr)
+   40   hotplug interface
+   41   Formula-n enter:now PCI  none
 
 At the moment IRQ sharing is only possible with PCI cards. Please make sure
 that your IRQ is free and enabled for ISA use.
@@ -209,11 +208,8 @@ Examples for module loading
 4. Any ELSA PCC/PCF card, Euro ISDN
    modprobe hisax type=6 protocol=2
 
-5. Teles 16.3 PnP, Euro ISDN, with isapnp configured
-   isapnp config:  (INT 0 (IRQ 10 (MODE +E)))
- 		   (IO 0 (BASE 0x0580))
-                   (IO 1 (BASE 0x0180))
-   modprobe hisax type=4 protocol=2 irq=10 io0=0x580 io1=0x180
+5. Teles 16.3 PnP, Euro ISDN
+   modprobe hisax type=4 protocol=2
 
 6. Teles 16.3, Euro ISDN, I/O base 280 hex, IRQ 12 and
    Teles 16.0, 1TR6, IRQ 5, Memory d0000 hex
@@ -295,7 +291,9 @@ type
    36	W6692 based PCI cards   none
    37	HFC 2BDS0 S+,SP/PCMCIA  ONLY WORKS AS A MODULE !
    38	NETspider U PCI card    none
-
+   39	HFC 2BDS0 SP/PCMCIA     ONLY WORKS AS A MODULE !
+   40   hotplug interface	ONLY WORKS AS A MODULE !
+   41   Formula-n enter:now PCI none
 
 Running the driver
 ------------------
