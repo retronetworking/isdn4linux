@@ -19,6 +19,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.45  1997/06/21 10:42:06  fritz
+ * Added availability to select leased mode on only one channel.
+ *
  * Revision 1.44  1997/03/30 16:51:26  calle
  * changed calls to copy_from_user/copy_to_user and removed verify_area
  * were possible.
@@ -1382,7 +1385,7 @@ icn_command(isdn_ctrl * c, icn_card * card)
 							}
 							current->timeout = jiffies + ICN_BOOT_TIMEOUT1;
 							schedule();
-							sprintf(cbuf, "00;FV2ON\n01;EAZ%c\n)02;EAZ%c\n",
+							sprintf(cbuf, "00;FV2ON\n01;EAZ%c\n02;EAZ%c\n",
 								(a & 1)?'1':'C', (a & 2)?'2':'C');
 							i = icn_writecmd(cbuf, strlen(cbuf), 0, card);
 							printk(KERN_INFO
