@@ -7,6 +7,9 @@
  *              Fritz Elfert
  *
  * $Log$
+ * Revision 2.8  1997/10/10 20:56:44  fritz
+ * New HL interface.
+ *
  * Revision 2.7  1997/10/01 09:21:28  fritz
  * Removed old compatibility stuff for 2.0.X kernels.
  * From now on, this code is for 2.1.X ONLY!
@@ -69,24 +72,22 @@ static int chancount = 0;
 
 /* Flags for remembering action done in lli */
 
-#define  FLG_START_D	0x000001
-#define  FLG_ESTAB_D	0x000002
-#define  FLG_CALL_SEND	0x000004
-#define  FLG_CALL_REC   0x000008
-#define  FLG_CALL_ALERT	0x000010
-#define  FLG_START_B	0x000020
-#define  FLG_CONNECT_B	0x000040
-#define  FLG_LL_DCONN	0x000080
-#define  FLG_LL_BCONN	0x000100
-#define  FLG_DISC_SEND	0x000200
-#define  FLG_DISC_REC	0x000400
-#define  FLG_REL_REC	0x000800
-#define  FLG_DO_ALERT	0x001000
-#define  FLG_DO_HANGUP	0x002000
-#define  FLG_DO_CONNECT	0x004000
-
-#define  SETBIT(flg, item)  flg |= item
-#define  RESBIT(flg, item)  flg &= (~item)
+#define  FLG_START_D	0
+#define  FLG_ESTAB_D	1
+#define  FLG_CALL_SEND	2
+#define  FLG_CALL_REC   3
+#define  FLG_CALL_ALERT	4
+#define  FLG_START_B	5
+#define  FLG_CONNECT_B	6
+#define  FLG_LL_DCONN	7
+#define  FLG_LL_BCONN	8
+#define  FLG_DISC_SEND	9
+#define  FLG_DISC_REC	10
+#define  FLG_REL_REC	11
+#define  FLG_DO_ALERT	12
+#define  FLG_DO_HANGUP	13
+#define  FLG_DO_CONNECT	14
+#define  FLG_DO_ESTAB	15
 
 /*
  * Because of callback it's a good idea to delay the shutdown of the d-channel
@@ -174,7 +175,7 @@ enum {
 	EV_SETUP_CMPL_IND,	/* 10 */
 	EV_BC_EST,		/* 11 */
 	EV_WRITEBUF,		/* 12 */
-	EV_DATAIN,		/* 13 */
+	EV_ESTABLISH,		/* 13 */
 	EV_HANGUP,		/* 14 */
 	EV_BC_REL,		/* 15 */
 	EV_CINF,		/* 16 */
@@ -204,7 +205,7 @@ static char *strEvent[] =
 	"EV_SETUP_CMPL_IND",
 	"EV_BC_EST",
 	"EV_WRITEBUF",
-	"EV_DATAIN",
+	"EV_ESTABLISH",
 	"EV_HANGUP",
 	"EV_BC_REL",
 	"EV_CINF",
@@ -290,7 +291,7 @@ lli_d_established(struct FsmInst *fi, int event, void *arg)
 {
 	struct Channel *chanp = fi->userdata;
 
-	SETBIT(chanp->Flags, FLG_ESTAB_D);
+	test_and_set_bit(FLG_ESTAB_D, &chanp->Flags);
 	if (fi->state == ST_WAIT_DSHUTDOWN)
 		FsmChangeState(fi, ST_NULL);
 }
@@ -300,8 +301,7 @@ lli_d_released(struct FsmInst *fi, int event, void *arg)
 {
 	struct Channel *chanp = fi->userdata;
 
-	RESBIT(chanp->Flags, FLG_START_D);
-	RESBIT(chanp->Flags, FLG_ESTAB_D);
+	test_and_clear_bit(FLG_START_D, &chanp->Flags);
 }
 
 /*
@@ -330,10 +330,11 @@ lli_prep_dialout(struct FsmInst *fi, int event, void *arg)
 			printk(KERN_WARNING "lli_prep_dialout unknown protocol\n");
 			break;
 	}
-	if (chanp->Flags & FLG_ESTAB_D) {
+	if (test_bit(FLG_ESTAB_D, &chanp->Flags)) {
 		FsmEvent(fi, EV_DLEST, NULL);
 	} else {
-		chanp->Flags = FLG_START_D;
+		chanp->Flags = 0;
+		test_and_set_bit(FLG_START_D, &chanp->Flags);
 		if (chanp->leased) {
 			chanp->lc_d->l2_establish = 0;
 		}
@@ -349,12 +350,11 @@ lli_do_dialout(struct FsmInst *fi, int event, void *arg)
 	FsmChangeState(fi, ST_OUT_DIAL);
 	chanp->cs->cardmsg(chanp->cs, MDL_INFO_SETUP, (void *) chanp->chan);
 	if (chanp->leased) {
-		chanp->proc->para.bchannel = (chanp->chan & 1) + 1;
 		FsmEvent(&chanp->fi, EV_SETUP_CNF, NULL);
 	} else {
-		SETBIT(chanp->Flags, FLG_ESTAB_D);
+		test_and_set_bit(FLG_ESTAB_D, &chanp->Flags);
 		chanp->d_st->lli.l4l3(chanp->d_st, CC_SETUP_REQ, chanp);
-		SETBIT(chanp->Flags, FLG_CALL_SEND);
+		test_and_set_bit(FLG_CALL_SEND, &chanp->Flags);
 	}
 }
 
@@ -365,7 +365,7 @@ lli_init_bchan_out(struct FsmInst *fi, int event, void *arg)
 	isdn_ctrl ic;
 
 	FsmChangeState(fi, ST_WAIT_BCONN);
-	SETBIT(chanp->Flags, FLG_LL_DCONN);
+	test_and_set_bit(FLG_LL_DCONN, &chanp->Flags);
 	if (chanp->debug & 1)
 		link_debug(chanp, "STAT_DCONN", 0);
 	ic.driver = chanp->cs->myid;
@@ -373,7 +373,7 @@ lli_init_bchan_out(struct FsmInst *fi, int event, void *arg)
 	ic.arg = chanp->chan;
 	chanp->cs->iif.statcallb(&ic);
 	init_b_st(chanp, 0);
-	SETBIT(chanp->Flags, FLG_START_B);
+	test_and_set_bit(FLG_START_B, &chanp->Flags);
 	FsmEvent(&chanp->lc_b->lcfi, EV_LC_ESTABLISH, NULL);
 }
 
@@ -385,10 +385,10 @@ lli_go_active(struct FsmInst *fi, int event, void *arg)
 
 	FsmChangeState(fi, ST_ACTIVE);
 	chanp->data_open = !0;
-	SETBIT(chanp->Flags, FLG_CONNECT_B);
+	test_and_set_bit(FLG_CONNECT_B, &chanp->Flags);
 	if (chanp->debug & 1)
 		link_debug(chanp, "STAT_BCONN", 0);
-	SETBIT(chanp->Flags, FLG_LL_BCONN);
+	test_and_set_bit(FLG_LL_BCONN, &chanp->Flags);
 	ic.driver = chanp->cs->myid;
 	ic.command = ISDN_STAT_BCONN;
 	ic.arg = chanp->chan;
@@ -406,19 +406,17 @@ lli_start_dchan(struct FsmInst *fi, int event, void *arg)
 	FsmChangeState(fi, ST_IN_WAIT_D);
 	FsmDelTimer(&chanp->drel_timer, 61);
 	if (event == EV_ACCEPTD)
-		SETBIT(chanp->Flags, FLG_DO_CONNECT);
+		test_and_set_bit(FLG_DO_CONNECT, &chanp->Flags);
 	else if (event == EV_HANGUP) {
-		SETBIT(chanp->Flags, FLG_DO_HANGUP);
+		test_and_set_bit(FLG_DO_HANGUP, &chanp->Flags);
 #ifdef ALERT_REJECT		
-		SETBIT(chanp->Flags, FLG_DO_ALERT);
+		test_and_set_bit(FLG_DO_ALERT, &chanp->Flags);
 #endif
 	} 
-	if (chanp->Flags & FLG_ESTAB_D) {
+	if (test_bit(FLG_ESTAB_D, &chanp->Flags)) {
 		FsmEvent(fi, EV_DLEST, NULL);
-	} else if (!(chanp->Flags & FLG_START_D)) {
-		SETBIT(chanp->Flags, FLG_START_D);
+	} else if (!test_and_set_bit(FLG_START_D, &chanp->Flags))
 		FsmEvent(&chanp->lc_d->lcfi, EV_LC_ESTABLISH, NULL);
-	}
 }
 
 static void
@@ -435,9 +433,9 @@ lli_deliver_call(struct FsmInst *fi, int event, void *arg)
 	 * which is set to 3 with each broadcast message in isdnl1.c
 	 * and resetted if a interface  answered the STAT_ICALL.
 	 */
-	if (((chanp->cs) && (chanp->cs->CallFlags == 3)) || !(chanp->cs->HW_Flags & FLG_TWO_DCHAN)) {
+	if (1) { /* for only one TEI */
 		FsmChangeState(fi, ST_IN_WAIT_LL);
-		SETBIT(chanp->Flags, FLG_CALL_REC);
+		test_and_set_bit(FLG_CALL_REC, &chanp->Flags);
 		if (chanp->debug & 1)
 			link_debug(chanp, "STAT_ICALL", 0);
 		ic.driver = chanp->cs->myid;
@@ -453,26 +451,22 @@ lli_deliver_call(struct FsmInst *fi, int event, void *arg)
 			sprintf(txt, "statcallb ret=%d", ret);
 			link_debug(chanp, txt, 1);
 		}
-		if (ret)	/* if a interface knows this call, reset the CallFlag
-				   * to avoid a second Call report to the linklevel
-				 */
-			chanp->cs->CallFlags &= ~(chanp->chan + 1);
 		switch (ret) {
 			case 1:	/* OK, anybody likes this call */
 				FsmDelTimer(&chanp->drel_timer, 61);
-				if (chanp->Flags & FLG_ESTAB_D) {
+				if (test_bit(FLG_ESTAB_D, &chanp->Flags)) {
 					FsmChangeState(fi, ST_IN_ALERT_SEND);
-					SETBIT(chanp->Flags, FLG_CALL_ALERT);
+					test_and_set_bit(FLG_CALL_ALERT, &chanp->Flags);
 					chanp->d_st->lli.l4l3(chanp->d_st, CC_ALERTING_REQ, chanp->proc);
 				} else {
-					SETBIT(chanp->Flags, FLG_DO_ALERT);
+					test_and_set_bit(FLG_DO_ALERT, &chanp->Flags);
 					FsmChangeState(fi, ST_IN_WAIT_D);
-					SETBIT(chanp->Flags, FLG_START_D);
+					test_and_set_bit(FLG_START_D, &chanp->Flags);
 					FsmEvent(&chanp->lc_d->lcfi, EV_LC_ESTABLISH, NULL);
 				}
 				break;
 			case 2:	/* Rejecting Call */
-				RESBIT(chanp->Flags, FLG_CALL_REC);
+				test_and_clear_bit(FLG_CALL_REC, &chanp->Flags);
 				break;
 			case 0:	/* OK, nobody likes this call */
 			default:	/* statcallb problems */
@@ -480,7 +474,7 @@ lli_deliver_call(struct FsmInst *fi, int event, void *arg)
 				chanp->cs->cardmsg(chanp->cs, MDL_INFO_REL, (void *) chanp->chan);
 				FsmChangeState(fi, ST_NULL);
 #ifndef LAYER2_WATCHING
-				if (chanp->Flags & FLG_ESTAB_D)
+				if (test_bit(FLG_ESTAB_D, &chanp->Flags))
 					FsmRestartTimer(&chanp->drel_timer, DREL_TIMER_VALUE, EV_SHUTDOWN_D, NULL, 61);
 #endif
 				break;
@@ -490,10 +484,24 @@ lli_deliver_call(struct FsmInst *fi, int event, void *arg)
 		chanp->cs->cardmsg(chanp->cs, MDL_INFO_REL, (void *) chanp->chan);
 		FsmChangeState(fi, ST_NULL);
 #ifndef LAYER2_WATCHING
-		if (chanp->Flags & FLG_ESTAB_D)
+		if (test_bit(FLG_ESTAB_D, &chanp->Flags))
 			FsmRestartTimer(&chanp->drel_timer, DREL_TIMER_VALUE, EV_SHUTDOWN_D, NULL, 62);
 #endif
 	}
+}
+
+static void
+lli_establish_d(struct FsmInst *fi, int event, void *arg)
+{
+	/* This establish the D-channel for pending L3 messages 
+	 * without blocking th channel
+	 */
+	struct Channel *chanp = fi->userdata;
+
+	test_and_set_bit(FLG_DO_ESTAB, &chanp->Flags);
+	FsmChangeState(fi, ST_IN_WAIT_D);
+	test_and_set_bit(FLG_START_D, &chanp->Flags);
+	FsmEvent(&chanp->lc_d->lcfi, EV_LC_ESTABLISH, NULL);
 }
 
 static void
@@ -501,27 +509,32 @@ lli_do_action(struct FsmInst *fi, int event, void *arg)
 {
 	struct Channel *chanp = fi->userdata;
 
-	SETBIT(chanp->Flags, FLG_ESTAB_D);
-	if ((chanp->Flags & FLG_DO_CONNECT) && !(chanp->Flags & FLG_DO_HANGUP)) {
+	test_and_set_bit(FLG_ESTAB_D, &chanp->Flags);
+	if (test_and_clear_bit(FLG_DO_CONNECT, &chanp->Flags) &&
+		!test_bit(FLG_DO_HANGUP, &chanp->Flags)) {
 		FsmChangeState(fi, ST_IN_WAIT_CONN_ACK);
-		RESBIT(chanp->Flags, FLG_DO_CONNECT);
-		RESBIT(chanp->Flags, FLG_DO_ALERT);
+		test_and_clear_bit(FLG_DO_ALERT, &chanp->Flags);
 		chanp->d_st->lli.l4l3(chanp->d_st, CC_SETUP_RSP, chanp->proc);
-	} else if (chanp->Flags & FLG_DO_ALERT) {
-		if (chanp->Flags & FLG_DO_HANGUP)
+	} else if (test_and_clear_bit(FLG_DO_ALERT, &chanp->Flags)) {
+		if (test_bit(FLG_DO_HANGUP, &chanp->Flags))
 			FsmRestartTimer(&chanp->drel_timer, 40, EV_HANGUP, NULL, 63);
 		FsmChangeState(fi, ST_IN_ALERT_SEND);
-		RESBIT(chanp->Flags, FLG_DO_ALERT);
-		SETBIT(chanp->Flags, FLG_CALL_ALERT);
+		test_and_set_bit(FLG_CALL_ALERT, &chanp->Flags);
 		chanp->d_st->lli.l4l3(chanp->d_st, CC_ALERTING_REQ, chanp->proc);
-	} else if (chanp->Flags & FLG_DO_HANGUP) {
+	} else if (test_and_clear_bit(FLG_DO_HANGUP, &chanp->Flags)) {
 		FsmChangeState(fi, ST_WAIT_DRELEASE);
-		RESBIT(chanp->Flags, FLG_DO_HANGUP);
-		RESBIT(chanp->Flags, FLG_DO_CONNECT);
-		RESBIT(chanp->Flags, FLG_DO_ALERT);
 		chanp->proc->para.cause = 0x15;		/* Call Rejected */
 		chanp->d_st->lli.l4l3(chanp->d_st, CC_REJECT_REQ, chanp->proc);
-		SETBIT(chanp->Flags, FLG_DISC_SEND);
+		test_and_set_bit(FLG_DISC_SEND, &chanp->Flags);
+	} else if (test_and_clear_bit(FLG_DO_ESTAB, &chanp->Flags)) {
+		FsmChangeState(fi, ST_NULL);
+		chanp->Flags = 0;
+		test_and_set_bit(FLG_ESTAB_D, &chanp->Flags);
+		chanp->d_st->lli.l4l3(chanp->d_st, CC_ESTABLISH, chanp->proc);
+		chanp->proc = NULL;
+#ifndef LAYER2_WATCHING
+		FsmAddTimer(&chanp->drel_timer, DREL_TIMER_VALUE, EV_SHUTDOWN_D, NULL, 60);
+#endif
 	}
 }
 
@@ -541,7 +554,7 @@ lli_init_bchan_in(struct FsmInst *fi, int event, void *arg)
 	isdn_ctrl ic;
 
 	FsmChangeState(fi, ST_WAIT_BCONN);
-	SETBIT(chanp->Flags, FLG_LL_DCONN);
+	test_and_set_bit(FLG_LL_DCONN, &chanp->Flags);
 	if (chanp->debug & 1)
 		link_debug(chanp, "STAT_DCONN", 0);
 	ic.driver = chanp->cs->myid;
@@ -564,7 +577,7 @@ lli_init_bchan_in(struct FsmInst *fi, int event, void *arg)
 			break;
 	}
 	init_b_st(chanp, !0);
-	SETBIT(chanp->Flags, FLG_START_B);
+	test_and_set_bit(FLG_START_B, &chanp->Flags);
 	FsmEvent(&chanp->lc_b->lcfi, EV_LC_ESTABLISH, NULL);
 }
 
@@ -577,22 +590,19 @@ lli_cancel_call(struct FsmInst *fi, int event, void *arg)
 	isdn_ctrl ic;
 
 	FsmChangeState(fi, ST_WAIT_DRELEASE);
-	if (chanp->Flags & FLG_LL_BCONN) {
+	if (test_and_clear_bit(FLG_LL_BCONN, &chanp->Flags)) {
 		if (chanp->debug & 1)
 			link_debug(chanp, "STAT_BHUP", 0);
-		RESBIT(chanp->Flags, FLG_LL_BCONN);
 		ic.driver = chanp->cs->myid;
 		ic.command = ISDN_STAT_BHUP;
 		ic.arg = chanp->chan;
 		chanp->cs->iif.statcallb(&ic);
 	}
-	if (chanp->Flags & FLG_START_B) {
+	if (test_and_clear_bit(FLG_START_B, &chanp->Flags))
 		release_b_st(chanp);
-		RESBIT(chanp->Flags, FLG_START_B);
-	}
 	chanp->proc->para.cause = 0x10;		/* Normal Call Clearing */
 	chanp->d_st->lli.l4l3(chanp->d_st, CC_DISCONNECT_REQ, chanp->proc);
-	SETBIT(chanp->Flags, FLG_DISC_SEND);
+	test_and_set_bit(FLG_DISC_SEND, &chanp->Flags);
 }
 
 static void
@@ -604,7 +614,7 @@ lli_shutdown_d(struct FsmInst *fi, int event, void *arg)
 #ifdef LAYER2_WATCHING
 	FsmChangeState(fi, ST_NULL);
 #else
-	if (!(chanp->cs->HW_Flags & FLG_TWO_DCHAN)) {
+	if (!test_bit(FLG_TWO_DCHAN, &chanp->cs->HW_Flags)) {
 		if (chanp->chan) {
 			if (chanp->cs->channel[0].fi.state != ST_NULL)
 				return;
@@ -614,7 +624,7 @@ lli_shutdown_d(struct FsmInst *fi, int event, void *arg)
 		}
 	}
 	FsmChangeState(fi, ST_WAIT_DSHUTDOWN);
-	RESBIT(chanp->Flags, FLG_ESTAB_D);
+	test_and_clear_bit(FLG_ESTAB_D, &chanp->Flags);
 	FsmEvent(&chanp->lc_d->lcfi, EV_LC_RELEASE, NULL);
 #endif
 }
@@ -625,10 +635,9 @@ lli_timeout_d(struct FsmInst *fi, int event, void *arg)
 	struct Channel *chanp = fi->userdata;
 	isdn_ctrl ic;
 
-	if (chanp->Flags & FLG_LL_DCONN) {
+	if (test_and_clear_bit(FLG_LL_DCONN, &chanp->Flags)) {
 		if (chanp->debug & 1)
 			link_debug(chanp, "STAT_DHUP", 0);
-		RESBIT(chanp->Flags, FLG_LL_DCONN);
 		lli_deliver_cause(chanp);
 		ic.driver = chanp->cs->myid;
 		ic.command = ISDN_STAT_DHUP;
@@ -636,7 +645,8 @@ lli_timeout_d(struct FsmInst *fi, int event, void *arg)
 		chanp->cs->iif.statcallb(&ic);
 	}
 	FsmChangeState(fi, ST_NULL);
-	chanp->Flags = FLG_ESTAB_D;
+	chanp->Flags = 0;
+	test_and_set_bit(FLG_ESTAB_D, &chanp->Flags);
 #ifndef LAYER2_WATCHING
 	FsmAddTimer(&chanp->drel_timer, DREL_TIMER_VALUE, EV_SHUTDOWN_D, NULL, 60);
 #endif
@@ -661,7 +671,7 @@ lli_disconn_bchan(struct FsmInst *fi, int event, void *arg)
 
 	chanp->data_open = 0;
 	FsmChangeState(fi, ST_WAIT_BRELEASE);
-	RESBIT(chanp->Flags, FLG_CONNECT_B);
+	test_and_clear_bit(FLG_CONNECT_B, &chanp->Flags);
 	FsmEvent(&chanp->lc_b->lcfi, EV_LC_RELEASE, NULL);
 }
 
@@ -671,29 +681,42 @@ lli_send_d_disc(struct FsmInst *fi, int event, void *arg)
 	struct Channel *chanp = fi->userdata;
 	isdn_ctrl ic;
 
-	if (chanp->Flags & (FLG_DISC_REC | FLG_REL_REC))
+	if (test_bit(FLG_DISC_REC, &chanp->Flags) ||
+		test_bit(FLG_REL_REC, &chanp->Flags))
 		return;
 	FsmChangeState(fi, ST_WAIT_DRELEASE);
-	if (chanp->Flags & FLG_LL_BCONN) {
+	if (test_and_clear_bit(FLG_LL_BCONN, &chanp->Flags)) {
 		if (chanp->debug & 1)
 			link_debug(chanp, "STAT_BHUP", 0);
-		RESBIT(chanp->Flags, FLG_LL_BCONN);
 		ic.driver = chanp->cs->myid;
 		ic.command = ISDN_STAT_BHUP;
 		ic.arg = chanp->chan;
 		chanp->cs->iif.statcallb(&ic);
 	}
-	if (chanp->Flags & FLG_START_B) {
+	if (test_and_clear_bit(FLG_START_B, &chanp->Flags))
 		release_b_st(chanp);
-		RESBIT(chanp->Flags, FLG_START_B);
+	if (chanp->leased) {
+		ic.command = ISDN_STAT_CAUSE;
+		ic.arg = chanp->chan;
+		sprintf(ic.parm.num, "L0010");
+		chanp->cs->iif.statcallb(&ic);
+		if (chanp->debug & 1)
+			link_debug(chanp, "STAT_DHUP", 0);
+		ic.driver = chanp->cs->myid;
+		ic.command = ISDN_STAT_DHUP;
+		ic.arg = chanp->chan;
+		chanp->cs->iif.statcallb(&ic);
+		FsmChangeState(fi, ST_WAIT_DSHUTDOWN);
+		test_and_clear_bit(FLG_ESTAB_D, &chanp->Flags);
+		FsmEvent(&chanp->lc_d->lcfi, EV_LC_RELEASE, NULL);
+	} else {
+		if (test_and_clear_bit(FLG_DO_HANGUP, &chanp->Flags))
+			chanp->proc->para.cause = 0x15;		/* Call Reject */
+		else
+			chanp->proc->para.cause = 0x10;		/* Normal Call Clearing */
+		chanp->d_st->lli.l4l3(chanp->d_st, CC_DISCONNECT_REQ, chanp->proc);
+		test_and_set_bit(FLG_DISC_SEND, &chanp->Flags);
 	}
-	if (chanp->Flags & FLG_DO_HANGUP) {
-		RESBIT(chanp->Flags, FLG_DO_HANGUP);
-		chanp->proc->para.cause = 0x15;		/* Call Reject */
-	} else
-		chanp->proc->para.cause = 0x10;		/* Normal Call Clearing */
-	chanp->d_st->lli.l4l3(chanp->d_st, CC_DISCONNECT_REQ, chanp->proc);
-	SETBIT(chanp->Flags, FLG_DISC_SEND);
 }
 
 static void
@@ -704,17 +727,16 @@ lli_released_bchan(struct FsmInst *fi, int event, void *arg)
 
 	FsmChangeState(fi, ST_WAIT_DCOMMAND);
 	chanp->data_open = 0;
-	if (chanp->Flags & FLG_LL_BCONN) {
+	if (test_and_clear_bit(FLG_LL_BCONN, &chanp->Flags)) {
 		if (chanp->debug & 1)
 			link_debug(chanp, "STAT_BHUP", 0);
-		RESBIT(chanp->Flags, FLG_LL_BCONN);
 		ic.driver = chanp->cs->myid;
 		ic.command = ISDN_STAT_BHUP;
 		ic.arg = chanp->chan;
 		chanp->cs->iif.statcallb(&ic);
 	}
 	release_b_st(chanp);
-	RESBIT(chanp->Flags, FLG_START_B);
+	test_and_clear_bit(FLG_START_B, &chanp->Flags);
 }
 
 
@@ -724,9 +746,9 @@ lli_release_bchan(struct FsmInst *fi, int event, void *arg)
 	struct Channel *chanp = fi->userdata;
 
 	chanp->data_open = 0;
-	SETBIT(chanp->Flags, FLG_DISC_REC);
+	test_and_set_bit(FLG_DISC_REC, &chanp->Flags);
 	FsmChangeState(fi, ST_WAIT_BREL_DISC);
-	RESBIT(chanp->Flags, FLG_CONNECT_B);
+	test_and_clear_bit(FLG_CONNECT_B, &chanp->Flags);
 	FsmEvent(&chanp->lc_b->lcfi, EV_LC_RELEASE, NULL);
 }
 
@@ -738,26 +760,24 @@ lli_received_d_rel(struct FsmInst *fi, int event, void *arg)
 
 	chanp->data_open = 0;
 	FsmChangeState(fi, ST_NULL);
-	SETBIT(chanp->Flags, FLG_REL_REC);
-	if (chanp->Flags & FLG_CONNECT_B) {
+	test_and_set_bit(FLG_REL_REC, &chanp->Flags);
+	if (test_and_clear_bit(FLG_CONNECT_B, &chanp->Flags)) {
 		chanp->lc_b->l2_establish = 0;	/* direct reset in lc_b->lcfi */
 		FsmEvent(&chanp->lc_b->lcfi, EV_LC_RELEASE, NULL);
-		RESBIT(chanp->Flags, FLG_CONNECT_B);
 	}
-	if (chanp->Flags & FLG_LL_BCONN) {
+	if (test_and_clear_bit(FLG_LL_BCONN, &chanp->Flags)) {
 		if (chanp->debug & 1)
 			link_debug(chanp, "STAT_BHUP", 0);
 		ic.driver = chanp->cs->myid;
 		ic.command = ISDN_STAT_BHUP;
 		ic.arg = chanp->chan;
 		chanp->cs->iif.statcallb(&ic);
-		RESBIT(chanp->Flags, FLG_LL_BCONN);
 	}
-	if (chanp->Flags & FLG_START_B) {
+	if (test_and_clear_bit(FLG_START_B, &chanp->Flags))
 		release_b_st(chanp);
-		RESBIT(chanp->Flags, FLG_START_B);
-	}
-	if (chanp->Flags & (FLG_LL_DCONN | FLG_CALL_SEND | FLG_CALL_ALERT)) {
+	if (test_bit(FLG_LL_DCONN, &chanp->Flags) ||
+		test_bit(FLG_CALL_SEND, &chanp->Flags) ||
+		test_bit(FLG_CALL_ALERT, &chanp->Flags)) {
 		if (chanp->debug & 1)
 			link_debug(chanp, "STAT_DHUP", 0);
 		lli_deliver_cause(chanp);
@@ -766,11 +786,11 @@ lli_received_d_rel(struct FsmInst *fi, int event, void *arg)
 		ic.arg = chanp->chan;
 		chanp->cs->iif.statcallb(&ic);
 	}
-	RESBIT(chanp->Flags, FLG_DISC_SEND);
-	RESBIT(chanp->Flags, FLG_CALL_REC);
-	RESBIT(chanp->Flags, FLG_CALL_ALERT);
-	RESBIT(chanp->Flags, FLG_LL_DCONN);
-	RESBIT(chanp->Flags, FLG_CALL_SEND);
+	test_and_clear_bit(FLG_DISC_SEND, &chanp->Flags);
+	test_and_clear_bit(FLG_CALL_REC, &chanp->Flags);
+	test_and_clear_bit(FLG_CALL_ALERT, &chanp->Flags);
+	test_and_clear_bit(FLG_LL_DCONN, &chanp->Flags);
+	test_and_clear_bit(FLG_CALL_SEND, &chanp->Flags);
 	lli_timeout_d(fi, event, arg);
 }
 
@@ -782,25 +802,23 @@ lli_received_d_relcnf(struct FsmInst *fi, int event, void *arg)
 
 	chanp->data_open = 0;
 	FsmChangeState(fi, ST_NULL);
-	if (chanp->Flags & FLG_CONNECT_B) {
+	if (test_and_clear_bit(FLG_CONNECT_B, &chanp->Flags)) {
 		chanp->lc_b->l2_establish = 0;	/* direct reset in lc_b->lcfi */
 		FsmEvent(&chanp->lc_b->lcfi, EV_LC_RELEASE, NULL);
-		RESBIT(chanp->Flags, FLG_CONNECT_B);
 	}
-	if (chanp->Flags & FLG_LL_BCONN) {
+	if (test_and_clear_bit(FLG_LL_BCONN, &chanp->Flags)) {
 		if (chanp->debug & 1)
 			link_debug(chanp, "STAT_BHUP", 0);
 		ic.driver = chanp->cs->myid;
 		ic.command = ISDN_STAT_BHUP;
 		ic.arg = chanp->chan;
 		chanp->cs->iif.statcallb(&ic);
-		RESBIT(chanp->Flags, FLG_LL_BCONN);
 	}
-	if (chanp->Flags & FLG_START_B) {
+	if (test_and_clear_bit(FLG_START_B, &chanp->Flags))
 		release_b_st(chanp);
-		RESBIT(chanp->Flags, FLG_START_B);
-	}
-	if (chanp->Flags & (FLG_LL_DCONN | FLG_CALL_SEND | FLG_CALL_ALERT)) {
+	if (test_bit(FLG_LL_DCONN, &chanp->Flags) ||
+		test_bit(FLG_CALL_SEND, &chanp->Flags) ||
+		test_bit(FLG_CALL_ALERT, &chanp->Flags)) {
 		if (chanp->debug & 1)
 			link_debug(chanp, "STAT_DHUP", 0);
 		lli_deliver_cause(chanp);
@@ -809,11 +827,11 @@ lli_received_d_relcnf(struct FsmInst *fi, int event, void *arg)
 		ic.arg = chanp->chan;
 		chanp->cs->iif.statcallb(&ic);
 	}
-	RESBIT(chanp->Flags, FLG_DISC_SEND);
-	RESBIT(chanp->Flags, FLG_CALL_REC);
-	RESBIT(chanp->Flags, FLG_CALL_ALERT);
-	RESBIT(chanp->Flags, FLG_LL_DCONN);
-	RESBIT(chanp->Flags, FLG_CALL_SEND);
+	test_and_clear_bit(FLG_DISC_SEND, &chanp->Flags);
+	test_and_clear_bit(FLG_CALL_REC, &chanp->Flags);
+	test_and_clear_bit(FLG_CALL_ALERT, &chanp->Flags);
+	test_and_clear_bit(FLG_LL_DCONN, &chanp->Flags);
+	test_and_clear_bit(FLG_CALL_SEND, &chanp->Flags);
 	lli_timeout_d(fi, event, arg);
 }
 
@@ -825,21 +843,20 @@ lli_received_d_disc(struct FsmInst *fi, int event, void *arg)
 
 	chanp->data_open = 0;
 	FsmChangeState(fi, ST_WAIT_D_REL_CNF);
-	SETBIT(chanp->Flags, FLG_DISC_REC);
-	if (chanp->Flags & FLG_LL_BCONN) {
+	test_and_set_bit(FLG_DISC_REC, &chanp->Flags);
+	if (test_and_clear_bit(FLG_LL_BCONN, &chanp->Flags)) {
 		if (chanp->debug & 1)
 			link_debug(chanp, "STAT_BHUP", 0);
 		ic.driver = chanp->cs->myid;
 		ic.command = ISDN_STAT_BHUP;
 		ic.arg = chanp->chan;
 		chanp->cs->iif.statcallb(&ic);
-		RESBIT(chanp->Flags, FLG_LL_BCONN);
 	}
-	if (chanp->Flags & FLG_START_B) {
+	if (test_and_clear_bit(FLG_START_B, &chanp->Flags))
 		release_b_st(chanp);
-		RESBIT(chanp->Flags, FLG_START_B);
-	}
-	if (chanp->Flags & (FLG_LL_DCONN | FLG_CALL_SEND | FLG_CALL_ALERT)) {
+	if (test_bit(FLG_LL_DCONN, &chanp->Flags) ||
+		test_bit(FLG_CALL_SEND, &chanp->Flags) ||
+		test_bit(FLG_CALL_ALERT, &chanp->Flags)) {
 		if (chanp->debug & 1)
 			link_debug(chanp, "STAT_DHUP", 0);
 		lli_deliver_cause(chanp);
@@ -848,9 +865,9 @@ lli_received_d_disc(struct FsmInst *fi, int event, void *arg)
 		ic.arg = chanp->chan;
 		chanp->cs->iif.statcallb(&ic);
 	}
-	RESBIT(chanp->Flags, FLG_LL_DCONN);
-	RESBIT(chanp->Flags, FLG_CALL_SEND);
-	RESBIT(chanp->Flags, FLG_CALL_ALERT);
+	test_and_clear_bit(FLG_CALL_ALERT, &chanp->Flags);
+	test_and_clear_bit(FLG_LL_DCONN, &chanp->Flags);
+	test_and_clear_bit(FLG_CALL_SEND, &chanp->Flags);
 	chanp->d_st->lli.l4l3(chanp->d_st, CC_RELEASE_REQ, chanp->proc);
 }
 
@@ -926,7 +943,7 @@ lli_no_setup_rsp(struct FsmInst *fi, int event, void *arg)
 	isdn_ctrl ic;
 
 	FsmChangeState(fi, ST_NULL);
-	RESBIT(chanp->Flags, FLG_CALL_SEND);
+	test_and_clear_bit(FLG_CALL_SEND, &chanp->Flags);
 	if (chanp->debug & 1)
 		link_debug(chanp, "STAT_DHUP", 0);
 	ic.driver = chanp->cs->myid;
@@ -943,17 +960,16 @@ lli_setup_err(struct FsmInst *fi, int event, void *arg)
 	isdn_ctrl ic;
 
 	FsmChangeState(fi, ST_WAIT_DRELEASE);
-	if (chanp->Flags & FLG_LL_DCONN) {
+	if (test_and_clear_bit(FLG_LL_DCONN, &chanp->Flags)) {
 		if (chanp->debug & 1)
 			link_debug(chanp, "STAT_DHUP", 0);
-		RESBIT(chanp->Flags, FLG_LL_DCONN);
 		lli_deliver_cause(chanp);
 		ic.driver = chanp->cs->myid;
 		ic.command = ISDN_STAT_DHUP;
 		ic.arg = chanp->chan;
 		chanp->cs->iif.statcallb(&ic);
 	}
-	SETBIT(chanp->Flags, FLG_DISC_SEND);	/* DISCONN was sent from L3 */
+	test_and_set_bit(FLG_DISC_SEND, &chanp->Flags);	/* DISCONN was sent from L3 */
 }
 
 static void
@@ -963,17 +979,16 @@ lli_connect_err(struct FsmInst *fi, int event, void *arg)
 	isdn_ctrl ic;
 
 	FsmChangeState(fi, ST_WAIT_DRELEASE);
-	if (chanp->Flags & FLG_LL_DCONN) {
+	if (test_and_clear_bit(FLG_LL_DCONN, &chanp->Flags)) {
 		if (chanp->debug & 1)
 			link_debug(chanp, "STAT_DHUP", 0);
-		RESBIT(chanp->Flags, FLG_LL_DCONN);
 		lli_deliver_cause(chanp);
 		ic.driver = chanp->cs->myid;
 		ic.command = ISDN_STAT_DHUP;
 		ic.arg = chanp->chan;
 		chanp->cs->iif.statcallb(&ic);
 	}
-	SETBIT(chanp->Flags, FLG_DISC_SEND);	/* DISCONN was sent from L3 */
+	test_and_set_bit(FLG_DISC_SEND, &chanp->Flags);	/* DISCONN was sent from L3 */
 }
 
 static void
@@ -984,28 +999,23 @@ lli_got_dlrl(struct FsmInst *fi, int event, void *arg)
 
 	chanp->data_open = 0;
 	FsmChangeState(fi, ST_NULL);
-	if (chanp->Flags & FLG_CONNECT_B) {
+	if (test_and_clear_bit(FLG_CONNECT_B, &chanp->Flags)) {
 		chanp->lc_b->l2_establish = 0;	/* direct reset in lc_b->lcfi */
 		FsmEvent(&chanp->lc_b->lcfi, EV_LC_RELEASE, NULL);
-		RESBIT(chanp->Flags, FLG_CONNECT_B);
 	}
-	if (chanp->Flags & FLG_LL_BCONN) {
+	if (test_and_clear_bit(FLG_LL_BCONN, &chanp->Flags)) {
 		if (chanp->debug & 1)
 			link_debug(chanp, "STAT_BHUP", 0);
 		ic.driver = chanp->cs->myid;
 		ic.command = ISDN_STAT_BHUP;
 		ic.arg = chanp->chan;
 		chanp->cs->iif.statcallb(&ic);
-		RESBIT(chanp->Flags, FLG_LL_BCONN);
 	}
-	if (chanp->Flags & FLG_START_B) {
+	if (test_and_clear_bit(FLG_START_B, &chanp->Flags))
 		release_b_st(chanp);
-		RESBIT(chanp->Flags, FLG_START_B);
-	}
-	if (chanp->Flags & FLG_LL_DCONN) {
+	if (test_and_clear_bit(FLG_LL_DCONN, &chanp->Flags)) {
 		if (chanp->debug & 1)
 			link_debug(chanp, "STAT_DHUP", 0);
-		RESBIT(chanp->Flags, FLG_LL_DCONN);
 		if (chanp->cs->protocol == ISDN_PTYPE_EURO) {
 			chanp->proc->para.cause = 0x2f;
 			chanp->proc->para.loc = 0;
@@ -1032,6 +1042,7 @@ static struct FsmNode fnlist[] =
 	{ST_NULL,		EV_SHUTDOWN_D,		lli_shutdown_d},
 	{ST_NULL,		EV_DLRL,		lli_go_null},
 	{ST_NULL,		EV_DLEST,		lli_d_established},
+	{ST_NULL,		EV_ESTABLISH,		lli_establish_d},
 	{ST_OUT_WAIT_D,		EV_DLEST,		lli_do_dialout},
 	{ST_OUT_WAIT_D,		EV_DLRL,		lli_no_dchan},
 	{ST_OUT_WAIT_D,		EV_HANGUP,		lli_no_dchan},
@@ -1074,6 +1085,7 @@ static struct FsmNode fnlist[] =
 	{ST_WAIT_BCONN,		EV_RELEASE_IND,		lli_received_d_rel},
 	{ST_WAIT_BCONN,		EV_RELEASE_CNF,		lli_received_d_relcnf},
 	{ST_WAIT_BCONN,		EV_DLRL,		lli_got_dlrl},
+	{ST_WAIT_BCONN,		EV_CINF,		lli_charge_info},
 	{ST_ACTIVE,		EV_CINF,		lli_charge_info},
 	{ST_ACTIVE,		EV_BC_REL,		lli_released_bchan},
 	{ST_ACTIVE,		EV_HANGUP,		lli_disconn_bchan},
@@ -1102,6 +1114,8 @@ static struct FsmNode fnlist[] =
 	{ST_WAIT_DRELEASE,	EV_DLRL,		lli_got_dlrl},
 	{ST_WAIT_D_REL_CNF,	EV_RELEASE_CNF,		lli_timeout_d},
 	{ST_WAIT_D_REL_CNF,	EV_RELEASE_ERR,		lli_timeout_d},
+/* ETS 300-104 16.1 */
+	{ST_WAIT_D_REL_CNF,     EV_RELEASE_IND,         lli_timeout_d},
 	{ST_WAIT_D_REL_CNF,	EV_DIAL,		lli_no_dchan_ready},
 	{ST_WAIT_D_REL_CNF,	EV_DLRL,		lli_got_dlrl},
 	{ST_WAIT_DSHUTDOWN,	EV_DLRL,		lli_go_null},
@@ -1123,7 +1137,7 @@ lc_activate_l1(struct FsmInst *fi, int event, void *arg)
 	FsmChangeState(fi, ST_LC_ACTIVATE_WAIT);
 	/* This timeout is to avoid a hang if no L1 activation is possible */
 	FsmAddTimer(&lf->act_timer, 30000, EV_LC_TIMER, NULL, 50);
-	lf->st->ma.manl1(lf->st, PH_ACTIVATE, NULL);
+	lf->st->ma.manl1(lf->st, PH_ACTIVATE_REQ, NULL);
 }
 
 static void
@@ -1152,9 +1166,9 @@ lc_start_l2(struct FsmInst *fi, int event, void *arg)
 {
 	struct LcFsm *lf = fi->userdata;
 
-	if (!lf->st->l1.act_state)
+/*	if (!lf->st->l1.act_state)
 		lf->st->l1.act_state = 2;
-	if (lf->l2_establish) {
+*/	if (lf->l2_establish) {
 		FsmChangeState(fi, ST_LC_ESTABLISH_WAIT);
 		if (lf->l2_start)
 			lf->st->ma.manl2(lf->st, DL_ESTABLISH, NULL);
@@ -1184,7 +1198,7 @@ lc_release_l2(struct FsmInst *fi, int event, void *arg)
 		lf->st->ma.manl2(lf->st, DL_RELEASE, NULL);
 	} else {
 		FsmChangeState(fi, ST_LC_NULL);
-		lf->st->ma.manl1(lf->st, PH_DEACTIVATE, NULL);
+		lf->st->ma.manl1(lf->st, PH_DEACTIVATE_REQ, NULL);
 		lf->lccall(lf, LC_RELEASE, NULL);
 	}
 }
@@ -1209,7 +1223,7 @@ lc_release_l1(struct FsmInst *fi, int event, void *arg)
 
 	FsmDelTimer(&lf->act_timer, 54);
 	FsmChangeState(fi, ST_LC_NULL);
-	lf->st->ma.manl1(lf->st, PH_DEACTIVATE, NULL);
+	lf->st->ma.manl1(lf->st, PH_DEACTIVATE_REQ, NULL);
 	lf->lccall(lf, LC_RELEASE, NULL);
 }
 
@@ -1227,6 +1241,7 @@ static struct FsmNode LcFnList[] =
 {
 	{ST_LC_NULL,  		EV_LC_ESTABLISH,	lc_activate_l1},
 	{ST_LC_NULL,  		EV_LC_PH_ACTIVATE,	lc_activated_from_l1},
+	{ST_LC_NULL,  		EV_LC_DL_ESTABLISH,	lc_connected},
 	{ST_LC_ACTIVATE_WAIT,	EV_LC_PH_ACTIVATE,	lc_l1_activated},
 	{ST_LC_ACTIVATE_WAIT,	EV_LC_TIMER,		lc_release_l1},
 	{ST_LC_ACTIVATE_WAIT,  	EV_LC_PH_DEACTIVATE,	lc_l1_deactivated},
@@ -1303,10 +1318,11 @@ dc_l1man(struct PStack *st, int pr, void *arg)
 
 	chanp = (struct Channel *) st->lli.userdata;
 	switch (pr) {
-		case (PH_ACTIVATE):
+		case (PH_ACTIVATE_CNF):
+		case (PH_ACTIVATE_IND):
 			FsmEvent(&chanp->lc_d->lcfi, EV_LC_PH_ACTIVATE, NULL);
 			break;
-		case (PH_DEACTIVATE):
+		case (PH_DEACTIVATE_IND):
 			FsmEvent(&chanp->lc_d->lcfi, EV_LC_PH_DEACTIVATE, NULL);
 			break;
 	}
@@ -1333,10 +1349,11 @@ bc_l1man(struct PStack *st, int pr, void *arg)
 	struct Channel *chanp = (struct Channel *) st->lli.userdata;
 
 	switch (pr) {
-		case (PH_ACTIVATE):
+		case (PH_ACTIVATE_IND):
+		case (PH_ACTIVATE_CNF):
 			FsmEvent(&chanp->lc_b->lcfi, EV_LC_PH_ACTIVATE, NULL);
 			break;
-		case (PH_DEACTIVATE):
+		case (PH_DEACTIVATE_IND):
 			FsmEvent(&chanp->lc_b->lcfi, EV_LC_PH_DEACTIVATE, NULL);
 			break;
 	}
@@ -1364,7 +1381,7 @@ struct Channel
 	struct Channel *chanp = st->lli.userdata;
 	int i;
 
-	if (cs->HW_Flags & FLG_TWO_DCHAN)
+	if (test_bit(FLG_TWO_DCHAN, &cs->HW_Flags))
 		i=1;
 	else
 		i=0;
@@ -1375,6 +1392,26 @@ struct Channel
 		i++;
 	}		
 	return (NULL);
+}
+
+int
+is_activ(struct PStack *st)
+{
+	struct IsdnCardState *cs = st->l1.hardware;
+	struct Channel *chanp = st->lli.userdata;
+	int i;
+
+	if (test_bit(FLG_TWO_DCHAN, &cs->HW_Flags))
+		i=1;
+	else
+		i=0;
+	while (i<2) {
+		if (test_bit(FLG_ESTAB_D, &chanp->Flags))
+			return (1);
+		chanp++;
+		i++;
+	}		
+	return (0);
 }
 
 static void
@@ -1393,6 +1430,20 @@ ll_handler(struct l3_process *pc, int pr, void *arg)
 			FsmEvent(&chanp->fi, EV_SETUP_IND, NULL);
 			return;
 		}
+	} else if (pr == CC_ESTABLISH) {
+		if (is_activ(pc->st)) {
+			pc->st->lli.l4l3(pc->st, CC_ESTABLISH, pc);
+			return;
+		} else if (!(chanp = selectfreechannel(pc->st))) {
+			pc->st->lli.l4l3(pc->st, CC_DLRL, pc);
+			return;
+		} else {
+			chanp->proc = pc;
+			FsmEvent(&chanp->fi, EV_ESTABLISH, NULL);
+			return;
+		}
+
+			
 	}
 	chanp = pc->chan;
 	switch (pr) {
@@ -1430,7 +1481,7 @@ ll_handler(struct l3_process *pc, int pr, void *arg)
 		case (CC_ALERTING_IND):
 			break;
 		default:
-			if (chanp->debug & 2048) {
+			if (chanp->debug & 0x800) {
 				jiftime(tm, jiffies);
 				sprintf(tmp, "%s Channel %d L3->L4 unknown primitiv %d\n",
 					tm, chanp->chan, pr);
@@ -1450,14 +1501,18 @@ init_d_st(struct Channel *chanp)
 	setstack_HiSax(st, cs);
 	st->l2.sap = 0;
 	st->l2.tei = -1;
-	st->l2.flag = FLG_MOD128 | FLG_LAPD | FLG_ORIG;
+	st->l2.flag = 0;
+	test_and_set_bit(FLG_MOD128, &st->l2.flag);
+	test_and_set_bit(FLG_LAPD, &st->l2.flag);
+	test_and_set_bit(FLG_ORIG, &st->l2.flag);
+	st->l2.maxlen = MAX_DFRAME_LEN;
 	st->l2.window = 1;
 	st->l2.T200 = 1000;	/* 1000 milliseconds  */
 	st->l2.N200 = 3;	/* try 3 times        */
 	if (st->protocol == ISDN_PTYPE_1TR6)
 		st->l2.T203 = 10000;	/* 10000 milliseconds */
 	else
-		st->l2.T203 = 5000;	/* 5000 milliseconds  */
+		st->l2.T203 = 10000;	/* 5000 milliseconds  */
 	
 	sprintf(tmp, "Channel %d q.921", chanp->chan);
 	setstack_isdnl2(st, tmp);
@@ -1509,7 +1564,7 @@ lccall_d(struct LcFsm *lf, int pr, void *arg)
 	struct Channel *chanp;
 	int i;
 
-	if (cs->HW_Flags & FLG_TWO_DCHAN) {
+	if (test_bit(FLG_TWO_DCHAN, &cs->HW_Flags)) {
 		chanp = lf->ch;
 		i = 1;
 	} else {
@@ -1567,7 +1622,7 @@ init_chan(int chan, struct IsdnCardState *csta)
 	chanp->fi.printdebug = callc_debug;
 	FsmInitTimer(&chanp->fi, &chanp->dial_timer);
 	FsmInitTimer(&chanp->fi, &chanp->drel_timer);
-	if (!chan || (csta->HW_Flags & FLG_TWO_DCHAN)) {
+	if (!chan || test_bit(FLG_TWO_DCHAN, &csta->HW_Flags)) {
 		chanp->d_st = kmalloc(sizeof(struct PStack), GFP_ATOMIC);
 		chanp->d_st->next = NULL;
 		init_d_st(chanp);
@@ -1615,7 +1670,7 @@ CallcNewChan(struct IsdnCardState *csta)
 	printk(KERN_INFO "HiSax: 2 channels added\n");
 #ifdef LAYER2_WATCHING
 	printk(KERN_INFO "LAYER2 ESTABLISH\n");
-	SETBIT(csta->channel->Flags, FLG_START_D);
+	test_and_set_bit(FLG_START_D, &csta->channel->Flags);
 	FsmEvent(&csta->channel->lc_d->lcfi, EV_LC_ESTABLISH, NULL);
 #endif
 	return (2);
@@ -1645,10 +1700,10 @@ CallcFreeChan(struct IsdnCardState *csta)
 		FsmDelTimer(&csta->channel[i].dial_timer, 75);
 		FsmDelTimer(&csta->channel[i].lc_d->act_timer, 77);
 		FsmDelTimer(&csta->channel[i].lc_b->act_timer, 76);
-		if (i || (csta->HW_Flags & FLG_TWO_DCHAN))
+		if (i || test_bit(FLG_TWO_DCHAN, &csta->HW_Flags))
 			release_d_st(csta->channel + i);
 		if (csta->channel[i].b_st) {
-			if (csta->channel[i].Flags & FLG_START_B)
+			if (test_and_clear_bit(FLG_START_B, &csta->channel[i].Flags))
 				release_b_st(csta->channel + i);
 			kfree(csta->channel[i].b_st);
 			csta->channel[i].b_st = NULL;
@@ -1658,7 +1713,7 @@ CallcFreeChan(struct IsdnCardState *csta)
 			kfree(csta->channel[i].lc_b);
 			csta->channel[i].b_st = NULL;
 		}
-		if (i || (csta->HW_Flags & FLG_TWO_DCHAN)) {
+		if (i || test_bit(FLG_TWO_DCHAN, &csta->HW_Flags)) {
 			release_d_st(csta->channel + i);
 			FsmDelTimer(&csta->channel[i].lc_d->act_timer, 77);
 			if (csta->channel[i].lc_d) {
@@ -1699,7 +1754,7 @@ lltrans_handler(struct PStack *st, int pr, void *arg)
 	struct sk_buff *skb = arg;
 
 	switch (pr) {
-		case (PH_DATA):
+		case (PH_DATA_IND):
 			if (chanp->data_open)
 				chanp->cs->iif.rcvcallb_skb(chanp->cs->myid, chanp->chan, skb);
 			else {
@@ -1721,7 +1776,7 @@ lltrans_handler(struct PStack *st, int pr, void *arg)
 }
 
 static void
-ll_writewakeup(struct PStack *st)
+ll_writewakeup(struct PStack *st, int len)
 {
 	struct Channel *chanp = st->lli.userdata;
 	isdn_ctrl ic;
@@ -1729,6 +1784,7 @@ ll_writewakeup(struct PStack *st)
 	ic.driver = chanp->cs->myid;
 	ic.command = ISDN_STAT_BSENT;
 	ic.arg = chanp->chan;
+	ic.parm.length = len;
 	chanp->cs->iif.statcallb(&ic);
 }
 
@@ -1743,8 +1799,11 @@ init_b_st(struct Channel *chanp, int incoming)
 	chanp->bcs->mode = 2;
 	if (chanp->bcs->BC_SetStack(st, chanp->bcs))
 		return (-1);
-
-	st->l2.flag = FLG_LAPB | (incoming ? 0 : FLG_ORIG);
+	st->l2.flag = 0;
+	test_and_set_bit(FLG_LAPB, &st->l2.flag);
+	st->l2.maxlen = MAX_DATA_SIZE;
+	if (!incoming)
+		test_and_set_bit(FLG_ORIG, &st->l2.flag);
 	st->l2.T200 = 1000;	/* 1000 milliseconds */
 	st->l2.window = 7;
 	st->l2.N200 = 4;	/* try 4 times       */
@@ -1764,7 +1823,10 @@ init_b_st(struct Channel *chanp, int incoming)
 			st->l2.debug = chanp->debug & 64;
 			st->ma.manl2(st, MDL_NOTEIPROC, NULL);
 			st->l1.mode = L1_MODE_HDLC;
-			st->l1.bc = chanp->proc->para.bchannel - 1;
+			if (chanp->leased)
+				st->l1.bc = chanp->chan & 1;
+			else
+				st->l1.bc = chanp->proc->para.bchannel - 1;
 			break;
 		case (ISDN_PROTO_L2_HDLC):
 			st->l1.l1l2 = lltrans_handler;
@@ -1772,7 +1834,10 @@ init_b_st(struct Channel *chanp, int incoming)
 			st->lli.userdata = chanp;
 			st->lli.l1writewakeup = ll_writewakeup;
 			st->l1.mode = L1_MODE_HDLC;
-			st->l1.bc = chanp->proc->para.bchannel - 1;
+			if (chanp->leased)
+				st->l1.bc = chanp->chan & 1;
+			else
+				st->l1.bc = chanp->proc->para.bchannel - 1;
 			break;
 		case (ISDN_PROTO_L2_TRANS):
 			st->l1.l1l2 = lltrans_handler;
@@ -1780,7 +1845,10 @@ init_b_st(struct Channel *chanp, int incoming)
 			st->lli.userdata = chanp;
 			st->lli.l1writewakeup = ll_writewakeup;
 			st->l1.mode = L1_MODE_TRANS;
-			st->l1.bc = chanp->proc->para.bchannel - 1;
+			if (chanp->leased)
+				st->l1.bc = chanp->chan & 1;
+			else
+				st->l1.bc = chanp->proc->para.bchannel - 1;
 			break;
 	}
 	return (0);
@@ -1801,13 +1869,14 @@ distr_debug(struct IsdnCardState *csta, int debugflags)
 		chanp[i].debug = debugflags;
 		chanp[i].fi.debug = debugflags & 2;
 		chanp[i].d_st->l2.l2m.debug = debugflags & 8;
-		chanp[i].b_st->l2.l2m.debug = debugflags & 16;
-		chanp[i].d_st->l2.debug = debugflags & 32;
-		chanp[i].b_st->l2.debug = debugflags & 64;
-		chanp[i].lc_d->lcfi.debug = debugflags & 128;
-		chanp[i].lc_b->lcfi.debug = debugflags & 256;
-		chanp[i].b_st->ma.tei_m.debug = debugflags & 512;
-		chanp[i].b_st->ma.debug = debugflags & 512;
+		chanp[i].b_st->l2.l2m.debug = debugflags & 0x10;
+		chanp[i].d_st->l2.debug = debugflags & 0x20;
+		chanp[i].b_st->l2.debug = debugflags & 0x40;
+		chanp[i].lc_d->lcfi.debug = debugflags & 0x80;
+		chanp[i].lc_b->lcfi.debug = debugflags & 0x100;
+		chanp[i].b_st->ma.tei_m.debug = debugflags & 0x200;
+		chanp[i].b_st->ma.debug = debugflags & 0x200;
+		chanp[i].d_st->l1.l1m.debug = debugflags & 0x1000;
 	}
 	csta->dlogflag = debugflags & 4;
 }
@@ -1899,7 +1968,7 @@ HiSax_command(isdn_ctrl * ic)
 		case (ISDN_CMD_LOCK):
 			HiSax_mod_inc_use_count();
 #ifdef MODULE
-			if (csta->channel[0].debug & 1024) {
+			if (csta->channel[0].debug & 0x400) {
 				jiftime(tmp, jiffies);
 				i = strlen(tmp);
 				sprintf(tmp + i, "   LOCK modcnt %lx\n", MOD_USE_COUNT);
@@ -1910,7 +1979,7 @@ HiSax_command(isdn_ctrl * ic)
 		case (ISDN_CMD_UNLOCK):
 			HiSax_mod_dec_use_count();
 #ifdef MODULE
-			if (csta->channel[0].debug & 1024) {
+			if (csta->channel[0].debug & 0x400) {
 				jiftime(tmp, jiffies);
 				i = strlen(tmp);
 				sprintf(tmp + i, " UNLOCK modcnt %lx\n", MOD_USE_COUNT);
@@ -1944,6 +2013,8 @@ HiSax_command(isdn_ctrl * ic)
 				case (5):	/* set card in leased mode */
 					csta->channel[0].leased = 1;
 					csta->channel[1].leased = 1;
+					csta->channel[0].lc_d->l2_establish = 0;
+					csta->channel[1].lc_d->l2_establish = 0;
 					sprintf(tmp, "card %d set into leased mode\n",
 						csta->cardnr + 1);
 					HiSax_putstatus(csta, tmp);
@@ -1952,7 +2023,7 @@ HiSax_command(isdn_ctrl * ic)
 					num = *(unsigned int *) ic->parm.num;
 					if (csta->stlist)
 						csta->stlist->ma.manl1(csta->stlist,
-								       PH_TEST_LOOP, (void *) num);
+							PH_TESTLOOP_REQ, (void *) num);
 					break;
 #ifdef MODULE
 				case (55):
@@ -1963,7 +2034,7 @@ HiSax_command(isdn_ctrl * ic)
 				case (11):
 					csta->debug = *(unsigned int *) ic->parm.num;
 					sprintf(tmp, "l1 debugging flags card %d set to %x\n",
-					  csta->cardnr + 1, csta->debug);
+						csta->cardnr + 1, csta->debug);
 					HiSax_putstatus(cards[0].cs, tmp);
 					printk(KERN_DEBUG "HiSax: %s", tmp);
 					break;
@@ -2021,7 +2092,7 @@ HiSax_writebuf_skb(int id, int chan, int ack, struct sk_buff *skb)
 			/* Must return 0 here, since this is not an error
 			 * but a temporary lack of resources.
 			 */
-			if (chanp->debug & 2048) {
+			if (chanp->debug & 0x800) {
 				sprintf(tmp, "writebuf: no buffers for %d bytes", len);
 				link_debug(chanp, tmp, 1);
 			}
@@ -2031,11 +2102,13 @@ HiSax_writebuf_skb(int id, int chan, int ack, struct sk_buff *skb)
 		cli();
 		nskb = skb_clone(skb, GFP_ATOMIC);
 		if (nskb) {
+			if (!ack)
+				nskb->pkt_type = PACKET_NOACK;
 			if (chanp->lc_b->l2_establish)
 				st->l3.l3l2(st, DL_DATA, nskb);
 			else {
 				chanp->bcs->tx_cnt += len;
-				st->l2.l2l1(st, PH_DATA, nskb);
+				st->l2.l2l1(st, PH_DATA_REQ, nskb);
 			}
 			dev_kfree_skb(skb, FREE_WRITE);
 		} else
