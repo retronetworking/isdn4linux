@@ -23,6 +23,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.3  1999/07/01 09:43:19  keil
+ * removed additional schedules in timeouts
+ *
  * Revision 1.2  1999/07/01 08:07:51  keil
  * Initial version
  *
@@ -559,8 +562,7 @@ hfcpci_interrupt(int intno, void *dev_id, struct pt_regs *regs)
 		printk(KERN_WARNING "HFC-PCI: Spurious interrupt!\n");
 		return;
 	}
-	if ((HFCPCI_ANYINT | HFCPCI_NBUSY) &
-	    (stat = Read_hfc(cs, HFCPCI_STATUS))) {
+	if (HFCPCI_ANYINT & (stat = Read_hfc(cs, HFCPCI_STATUS))) {
 		val = Read_hfc(cs, HFCPCI_INT_S1);
 		if (cs->debug & L1_DEB_ISAC)
 			debugl1(cs, "HFC-PCI: stat(%02x) s1(%02x)", stat, val);
@@ -1274,8 +1276,13 @@ __initfunc(int
 		       (u_int) cs->hw.hfcpci.fifos,
 		       (u_int) virt_to_bus(cs->hw.hfcpci.fifos),
 		       cs->irq, HZ);
+		pcibios_write_config_word(cs->hw.hfcpci.pci_bus, cs->hw.hfcpci.pci_device_fn, PCI_COMMAND, PCI_ENA_MEMIO);	/* enable memory mapped ports, disable busmaster */
+		cs->hw.hfcpci.int_m2 = 0; /* disable alle interrupts */
+		cs->hw.hfcpci.int_m1 = 0;
+		Write_hfc(cs, HFCPCI_INT_M1, cs->hw.hfcpci.int_m1);
+		Write_hfc(cs, HFCPCI_INT_M2, cs->hw.hfcpci.int_m2);
 		/* At this point the needed PCI config is done */
-		/* registers and fifos are still not enabled */
+		/* fifos are still not enabled */
 	} else
 		return (0);	/* no valid card type */
 
