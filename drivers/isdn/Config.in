@@ -16,7 +16,7 @@ dep_tristate 'HiSax SiemensChipSet driver support' CONFIG_ISDN_DRV_HISAX $CONFIG
 if [ "$CONFIG_ISDN_DRV_HISAX" != "n" ]; then
     bool 'HiSax Support for EURO/DSS1' CONFIG_HISAX_EURO
     if [ "$CONFIG_HISAX_EURO" != "n" ]; then
-	    bool 'Support for german tarifinfo' CONFIG_DE_AOC
+	    bool 'Support for german chargeinfo' CONFIG_DE_AOC
 	    bool 'Support for australian Microlink service (not for std. EURO)' CONFIG_HISAX_ML
     fi
     bool 'HiSax Support for german 1TR6' CONFIG_HISAX_1TR6
