@@ -3,6 +3,7 @@
  * ISDN lowlevel-module for Diehl active cards.
  *
  * Copyright 1997 by Fritz Elfert (fritz@wuemaus.franken.de)
+ * Copyright 1998 by Armin Schindler (mac@gismo.telekom.de) 
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -19,6 +20,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.1  1998/06/04 10:23:37  fritz
+ * First check in. YET UNUSABLE!
+ *
  */
 
 #include <linux/config.h>
@@ -52,10 +56,12 @@ char *diehl_ctype_name[] = {
 	"ISDN-SX",
 	"ISDN-SCOM",
 	"ISDN-QUADRO",
-	"ISDN-PRI"
+	"ISDN-PRI",
+	"DIVA Server BRI/PCI",
+	"DIVA Server 4BRI/PCI",
+	"DIVA Server 4BRI/PCI",
+	"DIVA Server PRI/PCI"
 };
-
-static int diehl_addcard(int, int, int, char *);
 
 static diehl_chan *
 find_channel(diehl_card *card, int channel)
@@ -255,6 +261,10 @@ diehl_command(diehl_card * card, isdn_ctrl * c)
 					switch (card->bus) {
 						case DIEHL_BUS_ISA:
 							return card->hwif.isa.irq;
+#if CONFIG_PCI
+						case DIEHL_BUS_PCI:
+							return card->hwif.pci.irq;
+#endif
 						default:
 							printk(KERN_WARNING
 							       "diehl: Illegal BUS type %d\n",
@@ -660,6 +670,9 @@ diehl_alloccard(int type, int membase, int irq, char *id)
 	int j;
 	int qloop;
         diehl_card *card;
+#if CONFIG_PCI
+	diehl_pci_card *pcic;
+#endif
 
 	qloop = (type == DIEHL_CTYPE_QUADRO)?3:0;
 	type &= 0x0f;
@@ -744,6 +757,23 @@ diehl_alloccard(int type, int membase, int irq, char *id)
 				card->hwif.isa.type = type;
 				card->nchannels = 30;
 				break;
+#if CONFIG_PCI
+			case DIEHL_CTYPE_MAESTRAP:
+				(diehl_pci_card *)pcic = (diehl_pci_card *)membase;
+                                card->bus = DIEHL_BUS_PCI;
+                                card->hwif.pci.card = (void *)card;
+                                card->hwif.pci.shmem = (diehl_pci_shmem *)pcic->shmem;
+				card->hwif.pci.PCIreg = (void *)pcic->PCIreg;
+				card->hwif.pci.PCIram = (void *)pcic->PCIram;
+				card->hwif.pci.PCIcfg = (void *)pcic->PCIcfg;
+                                card->hwif.pci.master = 1;
+                                card->hwif.pci.mvalid = pcic->mvalid;
+                                card->hwif.pci.ivalid = 0;
+                                card->hwif.pci.irq = irq;
+                                card->hwif.pci.type = type;
+                                card->nchannels = 30;
+				break;
+#endif
 			default:
 				printk(KERN_WARNING "diehl_alloccard: Invalid type %d\n", type);
 				kfree(card);
@@ -779,8 +809,10 @@ diehl_registercard(diehl_card * card)
 		case DIEHL_BUS_ISA:
 			diehl_isa_printpar(&card->hwif.isa);
 			break;
-		case DIEHL_BUS_MCA:
 		case DIEHL_BUS_PCI:
+			diehl_pci_printpar(&card->hwif.pci); 
+			break;
+		case DIEHL_BUS_MCA:
 		default:
 			printk(KERN_WARNING
 			       "diehl_registercard: Illegal BUS type %d\n",
@@ -810,8 +842,12 @@ unregister_card(diehl_card * card)
 		case DIEHL_BUS_ISA:
 			diehl_isa_release(&card->hwif.isa);
 			break;
-		case DIEHL_BUS_MCA:
 		case DIEHL_BUS_PCI:
+#if CONFIG_PCI
+			diehl_pci_release(&card->hwif.pci);
+			break;
+#endif
+		case DIEHL_BUS_MCA:
 		default:
 			printk(KERN_WARNING
 			       "diehl: Invalid BUS type %d\n",
@@ -827,7 +863,7 @@ diehl_freecard(diehl_card *card) {
 	kfree(card);
 }
 
-static int
+int
 diehl_addcard(int type, int membase, int irq, char *id)
 {
 	diehl_card *p;
@@ -851,8 +887,14 @@ diehl_addcard(int type, int membase, int irq, char *id)
 						break;
 					registered = 1;
 					break;
-				case DIEHL_BUS_MCA:
 				case DIEHL_BUS_PCI:
+#if CONFIG_PCI
+					if (diehl_registercard(p))
+						break;
+					registered = 1;
+					break;
+#endif
+				case DIEHL_BUS_MCA:
 				default:
 					printk(KERN_WARNING
 					       "diehl: addcard: Invalid BUS type %d\n",
@@ -899,6 +941,9 @@ diehl_init(void)
         printk(KERN_INFO "%s\n", DRIVERNAME);
         if ((!cards) && (diehl_type != -1))
 		tmp = diehl_addcard(diehl_type, diehl_membase, diehl_irq, diehl_id);
+#if CONFIG_PCI
+	tmp += diehl_pci_find_card(diehl_id);
+#endif
         if (!cards)
                 printk(KERN_INFO "diehl: No cards defined yet\n");
 	else
@@ -915,7 +960,7 @@ cleanup_module(void)
         diehl_card *card = cards;
         diehl_card *last;
         while (card) {
-                unregister_card(card);
+                unregister_card(card); 
                 card = card->next;
         }
         card = cards;

@@ -3,6 +3,7 @@
  * ISDN low-level module for DIEHL active ISDN-Cards.
  *
  * Copyright 1994,95 by Fritz Elfert (fritz@wuemaus.franken.de)
+ * Copyright 1998    by Armin Schindler (mac@gismo.telekom.de) 
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -19,7 +20,11 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.1  1998/06/04 10:23:32  fritz
+ * First check in. YET UNUSABLE!
+ *
  */
+
 
 #ifndef diehl_h
 #define diehl_h
@@ -46,8 +51,13 @@
 #define DIEHL_CTYPE_SCOM         2
 #define DIEHL_CTYPE_QUADRO       3
 #define DIEHL_CTYPE_PRI          4
+#define DIEHL_CTYPE_MAESTRA      5
+#define DIEHL_CTYPE_MAESTRAQ     6
+#define DIEHL_CTYPE_MAESTRAQ_U   7
+#define DIEHL_CTYPE_MAESTRAP     8
 #define DIEHL_CTYPE_MASK         0x0f
 #define DIEHL_CTYPE_QUADRO_NR(n) (n<<4)
+
 
 /* Struct for adding new cards */
 typedef struct diehl_cdef {
@@ -86,10 +96,38 @@ typedef struct {
 	unsigned char code[1]; /* Rest (bootstrap- and firmware code) will be allocated */
 } diehl_isa_codebuf;
 
+/* Struct for downloading protocol via ioctl for PCI cards */
+typedef struct {
+        /* start-up parameters */
+        unsigned char tei;
+        unsigned char nt2;
+        unsigned char WatchDog;
+        unsigned char Permanent;
+        unsigned char XInterface;
+        unsigned char StableL2;
+        unsigned char NoOrderCheck;
+        unsigned char HandsetType;
+        unsigned char LowChannel;
+        unsigned char ProtVersion;
+        unsigned char Crc4;
+        unsigned char NoHscx30Mode;  /* switch PRI into No HSCX30 test mode */
+        unsigned char Loopback;      /* switch card into Loopback mode */
+        struct q931_link_s
+        {
+          unsigned char oad[32];
+          unsigned char osa[32];
+          unsigned char spid[32];
+        } l[2];
+        unsigned long protocol_len;
+        unsigned long dsp_code_len;
+        unsigned char code[1]; /* Rest (protocol- and dsp code) will be allocated */
+} diehl_pci_codebuf;
+
 /* Data for downloading protocol via ioctl */
 typedef union {
 	diehl_isa_codebuf isa;
-	/* diehl_pci_codebuf pci etc. ... */
+	diehl_pci_codebuf pci;
+	/* diehl_mca_codebuf mca etc. ... */
 } diehl_codebuf;
 
 #ifdef __KERNEL__
@@ -118,6 +156,7 @@ typedef union {
 
 #include <linux/isdnif.h>
 #include "diehl_isa.h"
+#include "diehl_pci.h"
 
 #define DIEHL_FLAGS_RUNNING  1 /* Cards driver activated */
 #define DIEHL_FLAGS_PVALID   2 /* Cards port is valid    */
@@ -151,10 +190,6 @@ typedef union {
 typedef struct {
 	int dummy;
 } diehl_mca_card;
-
-typedef struct {
-	int dummy;
-} diehl_pci_card;
 
 typedef union {
 	diehl_isa_card isa;
@@ -254,6 +289,7 @@ extern __inline__ void diehl_schedule_ack(diehl_card *card)
 }
 
 extern char *diehl_find_eaz(diehl_card *, char);
+extern int diehl_addcard(int, int, int, char *);
 
 #endif  /* __KERNEL__ */
 
