@@ -20,6 +20,11 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.83  2000/02/16 14:59:33  paul
+ * translated ISDN_MODEM_ANZREG to ISDN_MODEM_NUMREG for english speakers;
+ * used defines for result codes;
+ * fixed RING ... RUNG problem (no empty lines in between).
+ *
  * Revision 1.82  2000/01/23 18:45:37  keil
  * Change EAZ mapping to forbit the use of cards (insert a "-" for the MSN)
  *
@@ -2462,6 +2467,13 @@ isdn_tty_modem_init(void)
 	return 0;
 }
 
+
+/*
+ * isdn_tty_match_icall(char *MSN, atemu *tty_emulator, int dev_idx)
+ *      match the MSN against the MSNs (glob patterns) defined for tty_emulator,
+ *      and return 0 for match, 1 for no match, 2 if MSN could match if longer.
+ */
+
 static int
 isdn_tty_match_icall(char *cid, atemu *emu, int di)
 {
@@ -2527,15 +2539,14 @@ isdn_tty_find_icall(int di, int ch, setup_parm setup)
 	int idx;
 	int si1;
 	int si2;
-	char nr[32];
+	char *nr;
 	ulong flags;
 
 	if (!setup.phone[0]) {
-		nr[0] = '0';
-		nr[1] = '\0';
+		nr = "0";
 		printk(KERN_INFO "isdn_tty: Incoming call without OAD, assuming '0'\n");
 	} else
-		strcpy(nr, setup.phone);
+		nr = setup.phone;
 	si1 = (int) setup.si1;
 	si2 = (int) setup.si2;
 	if (!setup.eazmsn[0]) {
@@ -2552,6 +2563,8 @@ isdn_tty_find_icall(int di, int ch, setup_parm setup)
 	for (i = 0; i < ISDN_MAX_CHANNELS; i++) {
 		modem_info *info = &dev->mdm.info[i];
 
+                if (info->count == 0)
+                    continue;
 		if ((info->emu.mdmreg[REG_SI1] & si2bit[si1]) &&  /* SI1 is matching */
 		    (info->emu.mdmreg[REG_SI2] == si2))	{         /* SI2 is matching */
 			idx = isdn_dc2minor(di, ch);
