@@ -37,6 +37,9 @@
 #ifdef CONFIG_ISDN_AUDIO
 #include "isdn_audio.h"
 #endif
+#ifdef CONFIG_ISDN_DIVERSION_MODULE
+#define CONFIG_ISDN_DIVERSION
+#endif
 #ifdef CONFIG_ISDN_DIVERSION
 #include <linux/isdn_divertif.h>
 #endif CONFIG_ISDN_DIVERSION
@@ -67,7 +70,7 @@ static char *isdn_audio_revision = ": none $";
 extern char *isdn_v110_revision;
 
 #ifdef CONFIG_ISDN_DIVERSION
-isdn_divert_if *divert_if; /* interface to diversion module */
+static isdn_divert_if *divert_if; /* = NULL */
 #endif CONFIG_ISDN_DIVERSION
 
 
@@ -2197,7 +2200,6 @@ set_global_features(void)
 }
 
 #ifdef CONFIG_ISDN_DIVERSION
-extern isdn_divert_if *divert_if;
 
 static char *map_drvname(int di)
 {
