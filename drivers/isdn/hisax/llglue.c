@@ -1,5 +1,5 @@
 /* $Id$
- *
+
  * Author       Karsten Keil (keil@temic-ech.spacenet.de)
  *              based on the teles driver from Jan den Ouden
  *
@@ -7,6 +7,9 @@
  *              Fritz Elfert
  *
  * $Log$
+ * Revision 1.5  1997/01/22 08:33:40  keil
+ * CONFIG 1TR6 fixed
+ *
  * Revision 1.4  1997/01/21 22:25:27  keil
  * cleanups for 2.0
  *
@@ -27,25 +30,26 @@
 #include <linux/malloc.h>
 #include <linux/timer.h>
 
+const char *ll_revision = "$Revision$";
 
 extern struct Channel *chanlist;
-int     	HiSax_Installed=0;
-int             drid;
-extern		char            *HiSax_id;
+int HiSax_Installed = 0;
+int drid;
+extern char *HiSax_id;
 
-isdn_if         iif;
+isdn_if iif;
 
 #define HISAX_STATUS_BUFSIZE 4096
-static byte    *HiSax_status_buf = NULL;
-static byte    *HiSax_status_read = NULL;
-static byte    *HiSax_status_write = NULL;
-static byte    *HiSax_status_end = NULL;
+static byte *HiSax_status_buf = NULL;
+static byte *HiSax_status_read = NULL;
+static byte *HiSax_status_write = NULL;
+static byte *HiSax_status_end = NULL;
 
 int
 HiSax_readstatus(byte * buf, int len, int user, int id, int channel)
 {
-	int             count;
-	byte           *p;
+	int count;
+	byte *p;
 
 	for (p = buf, count = 0; count < len; p++, count++) {
 		if (user)
@@ -61,10 +65,10 @@ HiSax_readstatus(byte * buf, int len, int user, int id, int channel)
 void
 HiSax_putstatus(char *buf)
 {
-	long            flags;
-	int             len, count, i;
-	byte           *p;
-	isdn_ctrl       ic;
+	long flags;
+	int len, count, i;
+	byte *p;
+	isdn_ctrl ic;
 
 	save_flags(flags);
 	cli();
@@ -94,8 +98,8 @@ HiSax_putstatus(char *buf)
 int
 ll_init(void)
 {
-	long            flags;
-	isdn_ctrl       ic;
+	long flags;
+	isdn_ctrl ic;
 
 	save_flags(flags);
 	cli();
@@ -145,7 +149,7 @@ ll_init(void)
 void
 ll_stop(void)
 {
-	isdn_ctrl       ic;
+	isdn_ctrl ic;
 
 	ic.command = ISDN_STAT_STOP;
 	ic.driver = drid;
@@ -157,14 +161,14 @@ ll_stop(void)
 void
 ll_unload(void)
 {
-	isdn_ctrl       ic;
+	isdn_ctrl ic;
 
 	ic.command = ISDN_STAT_UNLOAD;
 	ic.driver = drid;
 	iif.statcallb(&ic);
 	if (HiSax_status_buf)
 		Sfree(HiSax_status_buf);
-	HiSax_status_read  = NULL;
+	HiSax_status_read = NULL;
 	HiSax_status_write = NULL;
-	HiSax_status_end   = NULL;
+	HiSax_status_end = NULL;
 }
