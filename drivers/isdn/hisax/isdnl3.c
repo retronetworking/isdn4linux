@@ -11,6 +11,9 @@
  *              Fritz Elfert
  *
  * $Log$
+ * Revision 1.10.2.7  1999/01/20 14:36:37  keil
+ * Fixes for full CTS2 tests
+ *
  * Revision 1.10.2.6  1998/11/03 00:07:06  keil
  * certification related changes
  * fixed logging for smaller stack use
@@ -133,7 +136,14 @@ findie(u_char * p, int size, u_char ie, int wanted_set)
 		else {
 			if (codeset == wanted_set) {
 				if (*p == ie)
-					return (p);
+                                  { /* improved length check (Werner Cornelius) */
+                                    if ((pend - p) < 2) 
+                                      return(NULL); 
+                                    if (*(p+1) > (pend - (p+2))) 
+                                      return(NULL); 
+                                    return (p);
+                                  }           
+                                  
 				if (*p > ie)
 					return (NULL);
 			}
@@ -150,8 +160,8 @@ int
 getcallref(u_char * p)
 {
 	int l, m = 1, cr = 0;
+
 	p++;			/* prot discr */
-	
 	if (*p & 0xf0)		/* wrong callref */
 		return(-2);
 	l = 0xf & *p++;		/* callref length */
@@ -248,8 +258,15 @@ no_l3_proto(struct PStack *st, int pr, void *arg)
 
 	HiSax_putstatus(st->l1.hardware, "L3", "no D protocol");
 	if (skb) {
-		dev_kfree_skb(skb, FREE_READ);
+		idev_kfree_skb(skb, FREE_READ);
 	}
+}
+
+static int
+no_l3_proto_spec(struct PStack *st, isdn_ctrl *ic)
+{
+        printk(KERN_WARNING "HiSax: no specific protocol handler for proto %lu\n",ic->arg & 0xFF);
+        return(-1);
 }
 
 #ifdef	CONFIG_HISAX_EURO
@@ -295,7 +312,7 @@ struct l3_process
 		np->next = p;
 	}
 	p->next = NULL;
-	p->debug = L3_DEB_WARN;
+	p->debug = st->l3.debug;
 	p->callref = cr;
 	p->state = 0;
 	p->chan = NULL;
@@ -320,7 +337,7 @@ release_l3_process(struct l3_process *p)
 				pp->next = np->next;
 			else
 				p->st->l3.proc = np->next;
-			kfree(p);
+                        kfree(p);
 			return;
 		}
 		pp = np;
@@ -345,6 +362,7 @@ setstack_l3dc(struct PStack *st, struct Channel *chanp)
 	st->l3.l3m.userint = 0;
 	st->l3.l3m.printdebug = l3m_debug;
 	strcpy(st->l3.debug_id, "L3DC ");
+        st->lli.l4l3_proto = no_l3_proto_spec;
 
 #ifdef	CONFIG_HISAX_EURO
 	if (st->protocol == ISDN_PTYPE_EURO) {

@@ -6,6 +6,9 @@
  *
  *
  * $Log$
+ * Revision 1.3.2.11  1998/11/05 21:14:01  keil
+ * minor fixes
+ *
  * Revision 1.3.2.10  1998/11/03 00:06:37  keil
  * certification related changes
  * fixed logging for smaller stack use
@@ -207,7 +210,7 @@ close_hscxstate(struct BCState *bcs)
 		discard_queue(&bcs->rqueue);
 		discard_queue(&bcs->squeue);
 		if (bcs->tx_skb) {
-			dev_kfree_skb(bcs->tx_skb, FREE_WRITE);
+			idev_kfree_skb(bcs->tx_skb, FREE_WRITE);
 			bcs->tx_skb = NULL;
 			test_and_clear_bit(BC_FLG_BUSY, &bcs->Flag);
 		}

@@ -21,6 +21,10 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.44.2.9  1998/11/06 00:07:25  fritz
+ * Bugfix: loading additional driver while /dev/isdnctrl opened resulted in
+ *         wrong module usage count after closing /dev/isdnctrl.
+ *
  * Revision 1.44.2.8  1998/11/05 22:11:43  fritz
  * Changed mail-address.
  *
@@ -244,10 +248,13 @@
 #ifdef CONFIG_ISDN_AUDIO
 #include "isdn_audio.h"
 #endif
+#ifdef CONFIG_ISDN_DIVERSION
+#include <linux/isdn_divertif.h>
+#endif CONFIG_ISDN_DIVERSION
 #include "isdn_cards.h"
 
 /* Debugflags */
-#undef ISDN_DEBUG_STATCALLB
+#define ISDN_DEBUG_STATCALLB
 
 isdn_dev *dev = (isdn_dev *) 0;
 
@@ -265,6 +272,10 @@ extern char *isdn_audio_revision;
 #else
 static char *isdn_audio_revision = ": none $";
 #endif
+
+#ifdef CONFIG_ISDN_DIVERSION
+isdn_divert_if *divert_if = NULL; /* interface to diversion module */
+#endif CONFIG_ISDN_DIVERSION
 
 static int isdn_writebuf_stub(int, int, const u_char *, int, int);
 
@@ -513,10 +524,13 @@ isdn_status_callback(isdn_ctrl * c)
 			dev->drv[di]->flags &= ~DRV_FLAG_RUNNING;
 			break;
 		case ISDN_STAT_ICALL:
-			if (i < 0)
+	        case ISDN_STAT_ICALLW:
+			if ((i < 0) && (c->command != ISDN_STAT_ICALLW))
 				return -1;
 #ifdef ISDN_DEBUG_STATCALLB
-			printk(KERN_DEBUG "ICALL (net): %d %ld %s\n", di, c->arg, c->parm.num);
+			printk(KERN_DEBUG "%s (net): %d %ld %s\n", 
+                               ((c->command == ISDN_STAT_ICALL) ? "ICALL" : "ICALLW"),
+                                di, c->arg, c->parm.num);
 #endif
 			if (dev->global_flags & ISDN_GLOBAL_STOPPED) {
 				cmd.driver = di;
@@ -526,20 +540,26 @@ isdn_status_callback(isdn_ctrl * c)
 				return 0;
 			}
 			/* Try to find a network-interface which will accept incoming call */
-			r = isdn_net_find_icall(di, c, i);
+			r = ((c->command == ISDN_STAT_ICALLW) ? 0 : isdn_net_find_icall(di, c, i));
 			switch (r) {
 				case 0:
 					/* No network-device replies.
 					 * Try ttyI's
 					 */
-					if (isdn_tty_find_icall(di, c) >= 0)
-						retval = 1;
-					else if (dev->drv[di]->flags & DRV_FLAG_REJBUS) {
-						cmd.driver = di;
-						cmd.arg = c->arg;
-						cmd.command = ISDN_CMD_HANGUP;
-						isdn_command(&cmd);
-						retval = 2;
+                                        if (c->command == ISDN_STAT_ICALL)
+                                         if (isdn_tty_find_icall(di, c) >= 0) 
+                                           return(1);
+#ifdef CONFIG_ISDN_DIVERSION 
+                                         if (divert_if)
+                 	                  if ((retval = divert_if->stat_callback(c))) 
+					    return(retval); /* processed */
+#endif CONFIG_ISDN_DIVERSION                        
+					if (dev->drv[di]->flags & DRV_FLAG_REJBUS) {
+					    cmd.driver = di;
+					    cmd.arg = c->arg;
+					    cmd.command = ISDN_CMD_HANGUP;
+					    isdn_command(&cmd);
+					    retval = 2;
 					}
 					break;
 				case 1:
@@ -587,6 +607,10 @@ isdn_status_callback(isdn_ctrl * c)
 			printk(KERN_INFO "isdn: %s,ch%ld cause: %s\n",
 			       dev->drvid[di], c->arg, c->parm.num);
 			isdn_tty_stat_callback(i, c);
+#ifdef CONFIG_ISDN_DIVERSION
+                        if (divert_if)
+                         divert_if->stat_callback(c); 
+#endif CONFIG_ISDN_DIVERSION
 			break;
 		case ISDN_STAT_DCONN:
 			if (i < 0)
@@ -623,6 +647,11 @@ isdn_status_callback(isdn_ctrl * c)
 				break;
 			if (isdn_tty_stat_callback(i, c))
 				break;
+#ifdef CONFIG_ISDN_DIVERSION
+                        if (divert_if)
+                         if (divert_if->stat_callback(c))
+                           break;
+#endif CONFIG_ISDN_DIVERSION
 			break;
 		case ISDN_STAT_BCONN:
 			if (i < 0)
@@ -692,6 +721,12 @@ isdn_status_callback(isdn_ctrl * c)
 			isdn_info_update();
 			restore_flags(flags);
 			return 0;
+#ifdef CONFIG_ISDN_DIVERSION
+	        case ISDN_STAT_PROT:
+	        case ISDN_STAT_REDIR:
+                        if (divert_if)
+                          return(divert_if->stat_callback(c));
+#endif CONFIG_ISDN_DIVERSION
 		default:
 			return -1;
 	}
@@ -975,6 +1010,12 @@ isdn_read(struct inode *inode, struct file *file, char *buf, RWARG count)
 	if (minor <= ISDN_MINOR_PPPMAX)
 		return (isdn_ppp_read(minor - ISDN_MINOR_PPP, file, buf, count));
 #endif
+#ifdef CONFIG_ISDN_DIVERSION
+        if (minor == ISDN_MINOR_DIVERT)
+         if (divert_if)
+          if (divert_if->read_dev)
+            return(divert_if->read_dev(inode, file, buf, count));
+#endif CONFIG_ISDN_DIVERSION
 	return -ENODEV;
 }
 
@@ -1026,6 +1067,12 @@ isdn_write(struct inode *inode, struct file *file, const char *buf, RWARG count)
 	if (minor <= ISDN_MINOR_PPPMAX)
 		return (isdn_ppp_write(minor - ISDN_MINOR_PPP, file, buf, count));
 #endif
+#ifdef CONFIG_ISDN_DIVERSION
+        if (minor == ISDN_MINOR_DIVERT)
+         if (divert_if)
+          if (divert_if->write_dev)
+            return(divert_if->write_dev(inode, file, buf, count));
+#endif CONFIG_ISDN_DIVERSION
 	return -ENODEV;
 }
 
@@ -1061,6 +1108,12 @@ isdn_select(struct inode *inode, struct file *file, int type, select_table * st)
 	if (minor <= ISDN_MINOR_PPPMAX)
 		return (isdn_ppp_select(minor - ISDN_MINOR_PPP, file, type, st));
 #endif
+#ifdef CONFIG_ISDN_DIVERSION
+        if (minor == ISDN_MINOR_DIVERT)
+         if (divert_if)
+          if (divert_if->select_dev)
+            return(divert_if->select_dev(inode, file, type, st));
+#endif CONFIG_ISDN_DIVERSION
 	return -ENODEV;
 }
 #else
@@ -1095,6 +1148,12 @@ isdn_poll(struct file *file, poll_table * wait)
 	if (minor <= ISDN_MINOR_PPPMAX)
 		return (isdn_ppp_poll(file, wait));
 #endif
+#ifdef CONFIG_ISDN_DIVERSION
+        if (minor == ISDN_MINOR_DIVERT)
+         if (divert_if)
+          if (divert_if->poll_dev)
+            return(divert_if->poll_dev(file, wait));
+#endif CONFIG_ISDN_DIVERSION
 	printk(KERN_ERR "isdn_common: isdn_poll 2 -> what the hell\n");
 	return POLLERR;
 }
@@ -1553,6 +1612,12 @@ isdn_ioctl(struct inode *inode, struct file *file, uint cmd, ulong arg)
 	if (minor <= ISDN_MINOR_PPPMAX)
 		return (isdn_ppp_ioctl(minor - ISDN_MINOR_PPP, file, cmd, arg));
 #endif
+#ifdef CONFIG_ISDN_DIVERSION
+        if (minor == ISDN_MINOR_DIVERT)
+         if (divert_if)
+          if (divert_if->ioctl_dev)
+            return(divert_if->ioctl_dev(inode, file, cmd, arg));
+#endif CONFIG_ISDN_DIVERSION
 	return -ENODEV;
 
 #undef name
@@ -1627,6 +1692,16 @@ isdn_open(struct inode *ino, struct file *filep)
 		return ret;
 	}
 #endif
+#ifdef CONFIG_ISDN_DIVERSION
+        if (minor == ISDN_MINOR_DIVERT)
+         if (divert_if)
+          if (divert_if->open_dev)
+	   { int ret;
+             if (!(ret = divert_if->open_dev(ino, filep)))
+               isdn_MOD_INC_USE_COUNT();
+             return(ret);
+           }  
+#endif CONFIG_ISDN_DIVERSION
 	return -ENODEV;
 }
 
@@ -1668,6 +1743,15 @@ isdn_close(struct inode *ino, struct file *filep)
 	if (minor <= ISDN_MINOR_PPPMAX)
 		isdn_ppp_release(minor - ISDN_MINOR_PPP, filep);
 #endif
+#ifdef CONFIG_ISDN_DIVERSION
+        if (minor == ISDN_MINOR_DIVERT)
+         if (divert_if)
+          if (divert_if->close_dev)
+	   { int ret;
+             if (!(ret = divert_if->close_dev(ino, filep)))
+               isdn_MOD_DEC_USE_COUNT();
+           }  
+#endif CONFIG_ISDN_DIVERSION
 	return CLOSEVAL;
 }
 
@@ -2093,6 +2177,7 @@ isdn_init(void)
 		return -EIO;
 	}
 #endif                          /* CONFIG_ISDN_PPP */
+
 
 	isdn_export_syms();
 

@@ -21,6 +21,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.31.2.17  1998/11/05 22:13:28  fritz
+ * Changed mail-address.
+ *
  * Revision 1.31.2.16  1998/11/04 17:22:53  fritz
  * Replaced broken lowlevel-driver locking.
  *
@@ -225,6 +228,10 @@
 #define ISDN_MINOR_PPP      128
 #define ISDN_MINOR_PPPMAX   (128 + (ISDN_MAX_CHANNELS-1))
 #define ISDN_MINOR_STATUS   255
+
+#ifdef CONFIG_ISDN_DIVERSION
+#define ISDN_MINOR_DIVERT  (ISDN_MINOR_STATUS - 1) 
+#endif CONFIG_ISDN_DIVERSION
 
 /* New ioctl-codes */
 #define IIOCNETAIF  _IO('I',1)

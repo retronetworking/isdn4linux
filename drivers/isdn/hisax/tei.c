@@ -11,6 +11,9 @@
  *              Fritz Elfert
  *
  * $Log$
+ * Revision 1.8.2.8  1999/01/20 14:36:58  keil
+ * Fixes for full CTS2 tests
+ *
  * Revision 1.8.2.7  1998/11/03 00:07:35  keil
  * certification related changes
  * fixed logging for smaller stack use
@@ -330,7 +333,7 @@ tei_l1l2(struct PStack *st, int pr, void *arg)
 	int mt;
 
 	if (test_bit(FLG_FIXED_TEI, &st->l2.flag)) {
-		dev_kfree_skb(skb, FREE_READ);
+		idev_kfree_skb(skb, FREE_READ);
 		return;
 	}
 
@@ -376,7 +379,7 @@ tei_l1l2(struct PStack *st, int pr, void *arg)
 		st->ma.tei_m.printdebug(&st->ma.tei_m,
 			"tei handler wrong pr %x\n", pr);
 	}
-	dev_kfree_skb(skb, FREE_READ);
+	idev_kfree_skb(skb, FREE_READ);
 }
 
 static void

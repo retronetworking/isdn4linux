@@ -10,6 +10,10 @@
  *
  *
  * $Log$
+ * Revision 1.11.2.6  1998/11/03 00:07:10  keil
+ * certification related changes
+ * fixed logging for smaller stack use
+ *
  * Revision 1.11.2.5  1998/10/25 18:16:21  fritz
  * Replaced some read-only variables by defines.
  *
@@ -83,14 +87,14 @@ l3_1tr6_invalid(struct l3_process *pc, u_char pr, void *arg)
 {
 	struct sk_buff *skb = arg;
 
-	dev_kfree_skb(skb, FREE_READ);
+	idev_kfree_skb(skb, FREE_READ);
 	l3_1tr6_release_req(pc, 0, NULL);
 }
 
 static void
 l3_1tr6_error(struct l3_process *pc, u_char *msg, struct sk_buff *skb)
 {
-	dev_kfree_skb(skb, FREE_READ);
+	idev_kfree_skb(skb, FREE_READ);
 	if (pc->st->l3.debug & L3_DEB_WARN)
 		l3_debug(pc->st, msg);
 	l3_1tr6_release_req(pc, 0, NULL);
@@ -240,7 +244,7 @@ l3_1tr6_setup(struct l3_process *pc, u_char pr, void *arg)
 		if ((FAC_SPV == p[3]) || (FAC_Activate == p[3]))
 			pc->para.spv = 1;
 	}
-	dev_kfree_skb(skb, FREE_READ);
+	idev_kfree_skb(skb, FREE_READ);
 
 	/* Signal all services, linklevel takes care of Service-Indicator */
 	if (bcfound) {
@@ -279,7 +283,7 @@ l3_1tr6_setup_ack(struct l3_process *pc, u_char pr, void *arg)
 		l3_1tr6_error(pc, "missing setup_ack WE0_chanID", skb);
 		return;
 	}
-	dev_kfree_skb(skb, FREE_READ);
+	idev_kfree_skb(skb, FREE_READ);
 	L3AddTimer(&pc->timer, T304, CC_T304);
 	pc->st->l3.l3l4(pc->st, CC_MORE_INFO | INDICATION, pc);
 }
@@ -310,7 +314,7 @@ l3_1tr6_call_sent(struct l3_process *pc, u_char pr, void *arg)
 		l3_1tr6_error(pc, "missing call sent WE0_chanID", skb);
 		return;
 	}
-	dev_kfree_skb(skb, FREE_READ);
+	idev_kfree_skb(skb, FREE_READ);
 	L3AddTimer(&pc->timer, T310, CC_T310);
 	newl3state(pc, 3);
 	pc->st->l3.l3l4(pc->st, CC_PROCEEDING | INDICATION, pc);
@@ -321,7 +325,7 @@ l3_1tr6_alert(struct l3_process *pc, u_char pr, void *arg)
 {
 	struct sk_buff *skb = arg;
 
-	dev_kfree_skb(skb, FREE_READ);
+	idev_kfree_skb(skb, FREE_READ);
 	L3DelTimer(&pc->timer);	/* T304 */
 	newl3state(pc, 4);
 	pc->st->l3.l3l4(pc->st, CC_ALERTING | INDICATION, pc);
@@ -352,7 +356,7 @@ l3_1tr6_info(struct l3_process *pc, u_char pr, void *arg)
 		}
 	} else if (pc->st->l3.debug & L3_DEB_CHARGE)
 		l3_debug(pc->st, "charging info not found");
-	dev_kfree_skb(skb, FREE_READ);
+	idev_kfree_skb(skb, FREE_READ);
 
 }
 
@@ -361,7 +365,7 @@ l3_1tr6_info_s2(struct l3_process *pc, u_char pr, void *arg)
 {
 	struct sk_buff *skb = arg;
 
-	dev_kfree_skb(skb, FREE_READ);
+	idev_kfree_skb(skb, FREE_READ);
 }
 
 static void
@@ -375,7 +379,7 @@ l3_1tr6_connect(struct l3_process *pc, u_char pr, void *arg)
 		return;
 	}
 	newl3state(pc, 10);
-	dev_kfree_skb(skb, FREE_READ);
+	idev_kfree_skb(skb, FREE_READ);
 	pc->para.chargeinfo = 0;
 	pc->st->l3.l3l4(pc->st, CC_SETUP | CONFIRM, pc);
 }
@@ -399,11 +403,11 @@ l3_1tr6_rel(struct l3_process *pc, u_char pr, void *arg)
 			pc->para.loc = 0;
 		}
 	} else {
-		pc->para.cause = -1;
+		pc->para.cause = NO_CAUSE;
 		l3_1tr6_error(pc, "missing REL cause", skb);
 		return;
 	}
-	dev_kfree_skb(skb, FREE_READ);
+	idev_kfree_skb(skb, FREE_READ);
 	StopAllL3Timer(pc);
 	newl3state(pc, 0);
 	l3_1TR6_message(pc, MT_N1_REL_ACK, PROTO_DIS_N1);
@@ -416,10 +420,10 @@ l3_1tr6_rel_ack(struct l3_process *pc, u_char pr, void *arg)
 {
 	struct sk_buff *skb = arg;
 
-	dev_kfree_skb(skb, FREE_READ);
+	idev_kfree_skb(skb, FREE_READ);
 	StopAllL3Timer(pc);
 	newl3state(pc, 0);
-	pc->para.cause = -1;
+	pc->para.cause = NO_CAUSE;
 	pc->st->l3.l3l4(pc->st, CC_RELEASE | CONFIRM, pc);
 	release_l3_process(pc);
 }
@@ -467,13 +471,13 @@ l3_1tr6_disc(struct l3_process *pc, u_char pr, void *arg)
 	} else {
 		if (pc->st->l3.debug & L3_DEB_WARN)
 			l3_debug(pc->st, "cause not found");
-		pc->para.cause = -1;
+		pc->para.cause = NO_CAUSE;
 	}
 	if (!findie(skb->data, skb->len, WE6_date, 6)) {
 		l3_1tr6_error(pc, "missing connack date", skb);
 		return;
 	}
-	dev_kfree_skb(skb, FREE_READ);
+	idev_kfree_skb(skb, FREE_READ);
 	newl3state(pc, 12);
 	pc->st->l3.l3l4(pc->st, CC_DISCONNECT | INDICATION, pc);
 }
@@ -488,7 +492,7 @@ l3_1tr6_connect_ack(struct l3_process *pc, u_char pr, void *arg)
 		l3_1tr6_error(pc, "missing connack date", skb);
 		return;
 	}
-	dev_kfree_skb(skb, FREE_READ);
+	idev_kfree_skb(skb, FREE_READ);
 	newl3state(pc, 10);
 	pc->para.chargeinfo = 0;
 	L3DelTimer(&pc->timer);
@@ -612,7 +616,7 @@ l3_1tr6_t305(struct l3_process *pc, u_char pr, void *arg)
 	u_char clen = 1;
 
 	L3DelTimer(&pc->timer);
-	if (pc->para.cause > 0)
+	if (pc->para.cause != NO_CAUSE)
 		cause = pc->para.cause;
 	/* Map DSS1 causes */
 	switch (cause & 0x7f) {
@@ -773,7 +777,7 @@ up1tr6(struct PStack *st, int pr, void *arg)
 			sprintf(tmp, "up1tr6 len only %ld", skb->len);
 			l3_debug(st, tmp);
 		}
-		dev_kfree_skb(skb, FREE_READ);
+		idev_kfree_skb(skb, FREE_READ);
 		return;
 	}
 	if ((skb->data[0] & 0xfe) != PROTO_DIS_N0) {
@@ -783,7 +787,7 @@ up1tr6(struct PStack *st, int pr, void *arg)
 				skb->data[0], skb->len);
 			l3_debug(st, tmp);
 		}
-		dev_kfree_skb(skb, FREE_READ);
+		idev_kfree_skb(skb, FREE_READ);
 		return;
 	}
 	if (skb->data[1] != 1) {
@@ -791,13 +795,13 @@ up1tr6(struct PStack *st, int pr, void *arg)
 			sprintf(tmp, "up1tr6 CR len not 1");
 			l3_debug(st, tmp);
 		}
-		dev_kfree_skb(skb, FREE_READ);
+		idev_kfree_skb(skb, FREE_READ);
 		return;
 	}
 	cr = skb->data[2];
 	mt = skb->data[3];
 	if (skb->data[0] == PROTO_DIS_N0) {
-		dev_kfree_skb(skb, FREE_READ);
+		idev_kfree_skb(skb, FREE_READ);
 		if (st->l3.debug & L3_DEB_STATE) {
 			sprintf(tmp, "up1tr6%s N0 mt %x unhandled",
 			     (pr == (DL_DATA | INDICATION)) ? " " : "(broadcast) ", mt);
@@ -812,11 +816,11 @@ up1tr6(struct PStack *st, int pr, void *arg)
 							sprintf(tmp, "up1tr6 no roc mem");
 							l3_debug(st, tmp);
 						}
-						dev_kfree_skb(skb, FREE_READ);
+						idev_kfree_skb(skb, FREE_READ);
 						return;
 					}
 				} else {
-					dev_kfree_skb(skb, FREE_READ);
+					idev_kfree_skb(skb, FREE_READ);
 					return;
 				}
 			} else if ((mt == MT_N1_REL) || (mt == MT_N1_REL_ACK) ||
@@ -824,7 +828,7 @@ up1tr6(struct PStack *st, int pr, void *arg)
 				(mt == MT_N1_REG_ACK) || (mt == MT_N1_REG_REJ) ||
 				(mt == MT_N1_SUSP_ACK) || (mt == MT_N1_RES_REJ) ||
 				(mt == MT_N1_INFO)) {
-				dev_kfree_skb(skb, FREE_READ);
+				idev_kfree_skb(skb, FREE_READ);
 				return;
 			} else {
 				if (!(proc = new_l3_process(st, cr))) {
@@ -832,7 +836,7 @@ up1tr6(struct PStack *st, int pr, void *arg)
 						sprintf(tmp, "up1tr6 no roc mem");
 						l3_debug(st, tmp);
 					}
-					dev_kfree_skb(skb, FREE_READ);
+					idev_kfree_skb(skb, FREE_READ);
 					return;
 				}
 				mt = MT_N1_INVALID;
@@ -843,7 +847,7 @@ up1tr6(struct PStack *st, int pr, void *arg)
 			    ((1 << proc->state) & datastln1[i].state))
 				break;
 		if (i == DATASTLN1_LEN) {
-			dev_kfree_skb(skb, FREE_READ);
+			idev_kfree_skb(skb, FREE_READ);
 			if (st->l3.debug & L3_DEB_STATE) {
 				sprintf(tmp, "up1tr6%sstate %d mt %x unhandled",
 				  (pr == (DL_DATA | INDICATION)) ? " " : "(broadcast) ",

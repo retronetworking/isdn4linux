@@ -1,6 +1,6 @@
 SUB_DIRS     :=
 MOD_SUB_DIRS :=
-ALL_SUB_DIRS := icn pcbit hisax avmb1
+ALL_SUB_DIRS := icn pcbit hisax avmb1 divert
 
 L_OBJS :=
 LX_OBJS :=
@@ -34,6 +34,12 @@ else
       O_OBJS += isdn_audio.o
     endif
   endif
+endif
+
+ifeq ($(CONFIG_ISDN_DIVERSION),y)
+ ifeq ($(CONFIG_MODULES),y)
+    MOD_SUB_DIRS += divert
+ endif
 endif
 
 ifeq ($(CONFIG_ISDN_DRV_HISAX),y)

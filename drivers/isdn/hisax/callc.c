@@ -11,6 +11,10 @@
  *              Fritz Elfert
  *
  * $Log$
+ *
+ * Revision 1.30.2.13  1998/11/05 21:13:32  keil
+ * minor fixes
+ *
  * Revision 1.30.2.12  1998/11/03 00:05:51  keil
  * certification related changes
  * fixed logging for smaller stack use
@@ -133,6 +137,8 @@ static int chancount = 0;
 #define  FLG_DO_CONNECT	14
 #define  FLG_DO_ESTAB	15
 #define  FLG_RESUME	16
+#define  FLG_DO_PROCEED 17
+#define  FLG_DO_REDIR   18
 
 /*
  * Because of callback it's a good idea to delay the shutdown of the d-channel
@@ -162,7 +168,7 @@ discard_queue(struct sk_buff_head *q)
 	int ret=0;
 
 	while ((skb = skb_dequeue(q))) {
-		dev_kfree_skb(skb, FREE_READ);
+		idev_kfree_skb(skb, FREE_READ);
 		ret++;
 	}
 	return(ret);
@@ -197,10 +203,11 @@ enum {
 	ST_WAIT_DCOMMAND,	/* 11 call clear. (receiver), awaiting DCHANNEL message */
 	ST_WAIT_DRELEASE,	/* 12 DISCONNECT sent, awaiting RELEASE */
 	ST_WAIT_D_REL_CNF,	/* 13 RELEASE sent, awaiting RELEASE confirm */
-	ST_WAIT_DSHUTDOWN,	/*  14 awaiting d-channel shutdown */
+	ST_WAIT_DSHUTDOWN,	/* 14 awaiting d-channel shutdown */
+        ST_IN_PROCEED_SEND,     /* 15 incoming call, proceeding send */ 
 };
 
-#define STATE_COUNT (ST_WAIT_DSHUTDOWN +1)
+#define STATE_COUNT (ST_IN_PROCEED_SEND + 1)
 
 static char *strState[] =
 {
@@ -219,6 +226,7 @@ static char *strState[] =
 	"ST_WAIT_DRELEASE",
 	"ST_WAIT_D_REL_CNF",
 	"ST_WAIT_DSHUTDOWN",
+        "ST_IN_PROCEED_SEND",
 };
 
 enum {
@@ -246,9 +254,12 @@ enum {
 	EV_SETUP_ERR,		/* 21 */
 	EV_CONNECT_ERR,		/* 22 */
 	EV_RELEASE_ERR,		/* 23 */
+        EV_PROCEED,             /* 24 */
+        EV_ALERT,               /* 25 */ 
+        EV_REDIR,               /* 26 */ 
 };
 
-#define EVENT_COUNT (EV_RELEASE_ERR +1)
+#define EVENT_COUNT (EV_REDIR + 1)
 
 static char *strEvent[] =
 {
@@ -276,12 +287,15 @@ static char *strEvent[] =
 	"EV_SETUP_ERR",
 	"EV_CONNECT_ERR",
 	"EV_RELEASE_ERR",
+        "EV_PROCEED",
+        "EV_ALERT",
+        "EV_REDIR",
 };
 
 static inline void
 lli_deliver_cause(struct Channel *chanp, isdn_ctrl *ic)
 {
-	if (chanp->proc->para.cause < 0)
+	if (chanp->proc->para.cause == NO_CAUSE)
 		return;
 	ic->driver = chanp->cs->myid;
 	ic->command = ISDN_STAT_CAUSE;
@@ -311,7 +325,7 @@ lli_d_established(struct FsmInst *fi, int event, void *arg)
 		if (chanp->debug & 1)
 			link_debug(chanp, 0, "STAT_ICALL_LEASED");
 		ic.driver = chanp->cs->myid;
-		ic.command = ISDN_STAT_ICALL;
+		ic.command = ((chanp->chan < 2) ? ISDN_STAT_ICALL : ISDN_STAT_ICALLW);
 		ic.arg = chanp->chan;
 		ic.parm.setup.si1 = 7;
 		ic.parm.setup.si2 = 0;
@@ -442,6 +456,8 @@ lli_start_dchan(struct FsmInst *fi, int event, void *arg)
 		test_and_set_bit(FLG_DO_ALERT, &chanp->Flags);
 #endif
 	}
+        else if (event == EV_PROCEED) 
+                test_and_set_bit(FLG_DO_PROCEED, &chanp->Flags);
 	if (test_bit(FLG_ESTAB_D, &chanp->Flags)) {
 		FsmEvent(fi, EV_DLEST, NULL);
 	} else if (!test_and_set_bit(FLG_START_D, &chanp->Flags))
@@ -465,9 +481,10 @@ lli_deliver_call(struct FsmInst *fi, int event, void *arg)
 		FsmChangeState(fi, ST_IN_WAIT_LL);
 		test_and_set_bit(FLG_CALL_REC, &chanp->Flags);
 		if (chanp->debug & 1)
-			link_debug(chanp, 0, "STAT_ICALL");
+			link_debug(chanp, 0, (chanp->chan < 2) ? "STAT_ICALL" : "STAT_ICALLW");
 		ic.driver = chanp->cs->myid;
-		ic.command = ISDN_STAT_ICALL;
+		ic.command = ((chanp->chan < 2) ? ISDN_STAT_ICALL : ISDN_STAT_ICALLW);
+
 		ic.arg = chanp->chan;
 		/*
 		 * No need to return "unknown" for calls without OAD,
@@ -490,6 +507,26 @@ lli_deliver_call(struct FsmInst *fi, int event, void *arg)
 					test_and_set_bit(FLG_START_D, &chanp->Flags);
 					chanp->d_st->lli.l4l3(chanp->d_st,
 						DL_ESTABLISH | REQUEST, NULL);
+				}
+				break;
+	      	        case 4: /* direct redirect */
+		        case 3: /* Proceeding desired */
+				FsmDelTimer(&chanp->drel_timer, 61);
+                                if (ret == 4)
+				 { chanp->setup = ic.parm.setup;
+                                   test_and_set_bit(FLG_DO_REDIR, &chanp->Flags);
+                                 }   
+				if (test_bit(FLG_ESTAB_D, &chanp->Flags)) 
+                                {
+				    FsmChangeState(fi, ST_IN_PROCEED_SEND);
+                                    test_and_set_bit(FLG_DO_PROCEED, &chanp->Flags);
+                                    chanp->d_st->lli.l4l3(chanp->d_st, CC_PROCEED_SEND | REQUEST, chanp->proc);
+				} else 
+				  { test_and_set_bit(FLG_DO_PROCEED, &chanp->Flags);
+                                    FsmChangeState(fi, ST_IN_WAIT_D);
+				    test_and_set_bit(FLG_START_D, &chanp->Flags);
+				    chanp->d_st->lli.l4l3(chanp->d_st,
+				           DL_ESTABLISH | REQUEST, NULL);
 				}
 				break;
 			case 2:	/* Rejecting Call */
@@ -539,21 +576,32 @@ lli_do_action(struct FsmInst *fi, int event, void *arg)
 		FsmChangeState(fi, ST_IN_WAIT_CONN_ACK);
 		test_and_clear_bit(FLG_DO_ALERT, &chanp->Flags);
 		test_and_clear_bit(FLG_DO_CONNECT, &chanp->Flags);
+                test_and_clear_bit(FLG_DO_PROCEED, &chanp->Flags);
 		FsmEvent(&chanp->fi, EV_SETUP_CMPL_IND, NULL);
 	} else if (test_and_clear_bit(FLG_DO_CONNECT, &chanp->Flags) &&
 		!test_bit(FLG_DO_HANGUP, &chanp->Flags)) {
 		FsmChangeState(fi, ST_IN_WAIT_CONN_ACK);
 		test_and_clear_bit(FLG_DO_ALERT, &chanp->Flags);
+                test_and_clear_bit(FLG_DO_PROCEED, &chanp->Flags);
+                test_and_clear_bit(FLG_DO_REDIR, &chanp->Flags); 
 		chanp->d_st->lli.l4l3(chanp->d_st, CC_SETUP | RESPONSE, chanp->proc);
 	} else if (test_and_clear_bit(FLG_DO_ALERT, &chanp->Flags)) {
 		if (test_bit(FLG_DO_HANGUP, &chanp->Flags))
 			FsmRestartTimer(&chanp->drel_timer, 40, EV_HANGUP, NULL, 63);
 		FsmChangeState(fi, ST_IN_ALERT_SEND);
 		test_and_set_bit(FLG_CALL_ALERT, &chanp->Flags);
+                test_and_clear_bit(FLG_DO_PROCEED, &chanp->Flags);
 		chanp->d_st->lli.l4l3(chanp->d_st, CC_ALERTING | REQUEST, chanp->proc);
+        } else if (test_bit(FLG_DO_PROCEED, &chanp->Flags))
+		 { FsmChangeState(fi,ST_IN_PROCEED_SEND);
+                   test_and_clear_bit(FLG_DO_PROCEED, &chanp->Flags); 
+                   chanp->d_st->lli.l4l3(chanp->d_st, CC_PROCEED_SEND | REQUEST, chanp->proc);
+        } else if (test_bit(FLG_DO_REDIR, &chanp->Flags))
+		 { test_and_clear_bit(FLG_DO_REDIR, &chanp->Flags); 
+                   chanp->d_st->lli.l4l3(chanp->d_st, CC_REDIR | REQUEST, chanp->proc);
 	} else if (test_and_clear_bit(FLG_DO_HANGUP, &chanp->Flags)) {
 		FsmChangeState(fi, ST_WAIT_DRELEASE);
-		chanp->proc->para.cause = 0x15;		/* Call Rejected */
+		chanp->proc->para.cause = 21;		/* Call Rejected */
 		chanp->d_st->lli.l4l3(chanp->d_st, CC_REJECT | REQUEST, chanp->proc);
 		test_and_set_bit(FLG_DISC_SEND, &chanp->Flags);
 	}
@@ -566,6 +614,24 @@ lli_send_dconnect(struct FsmInst *fi, int event, void *arg)
 
 	FsmChangeState(fi, ST_IN_WAIT_CONN_ACK);
 	chanp->d_st->lli.l4l3(chanp->d_st, CC_SETUP | RESPONSE, chanp->proc);
+}
+
+static void
+lli_send_alert(struct FsmInst *fi, int event, void *arg)
+{
+	struct Channel *chanp = fi->userdata;
+
+	FsmChangeState(fi, ST_IN_ALERT_SEND);
+	chanp->d_st->lli.l4l3(chanp->d_st, CC_ALERTING | REQUEST, chanp->proc);
+}
+
+static void
+lli_send_redir(struct FsmInst *fi, int event, void *arg)
+{
+	struct Channel *chanp = fi->userdata;
+
+        test_and_clear_bit(FLG_DO_REDIR, &chanp->Flags); 
+	chanp->d_st->lli.l4l3(chanp->d_st, CC_REDIR | REQUEST, chanp->proc);
 }
 
 static void
@@ -618,7 +684,7 @@ lli_cancel_call(struct FsmInst *fi, int event, void *arg)
 	}
 	if (test_and_clear_bit(FLG_START_B, &chanp->Flags))
 		release_b_st(chanp);
-	chanp->proc->para.cause = 0x10;		/* Normal Call Clearing */
+	chanp->proc->para.cause = 16;		/* Normal Call Clearing */
 	chanp->d_st->lli.l4l3(chanp->d_st, CC_DISCONNECT | REQUEST, chanp->proc);
 	test_and_set_bit(FLG_DISC_SEND, &chanp->Flags);
 }
@@ -727,9 +793,9 @@ lli_send_d_disc(struct FsmInst *fi, int event, void *arg)
 		chanp->d_st->lli.l4l3(chanp->d_st, DL_RELEASE | REQUEST, NULL);
 	} else {
 		if (test_and_clear_bit(FLG_DO_HANGUP, &chanp->Flags))
-			chanp->proc->para.cause = 0x15;		/* Call Reject */
+			chanp->proc->para.cause = 21;		/* Call Reject */
 		else
-			chanp->proc->para.cause = 0x10;		/* Normal Call Clearing */
+			chanp->proc->para.cause = 16;		/* Normal Call Clearing */
 		chanp->d_st->lli.l4l3(chanp->d_st, CC_DISCONNECT | REQUEST, chanp->proc);
 		test_and_set_bit(FLG_DISC_SEND, &chanp->Flags);
 	}
@@ -1028,7 +1094,7 @@ lli_got_dlrl(struct FsmInst *fi, int event, void *arg)
 		if (chanp->debug & 1)
 			link_debug(chanp, 0, "STAT_DHUP");
 		if (chanp->cs->protocol == ISDN_PTYPE_EURO) {
-			chanp->proc->para.cause = 0x2f;
+			chanp->proc->para.cause = 47;
 			chanp->proc->para.loc = 0;
 		} else {
 			chanp->proc->para.cause = 0x70;
@@ -1074,6 +1140,7 @@ static struct FsmNode fnlist[] HISAX_INITDATA =
 	{ST_IN_WAIT_LL,		EV_DLEST,		lli_d_established},
 	{ST_IN_WAIT_LL,		EV_DLRL,		lli_d_released},
 	{ST_IN_WAIT_LL,		EV_ACCEPTD,		lli_start_dchan},
+        {ST_IN_WAIT_LL,         EV_PROCEED,             lli_start_dchan},  
 	{ST_IN_WAIT_LL,		EV_HANGUP,		lli_start_dchan},
 	{ST_IN_WAIT_LL,		EV_DISCONNECT_IND,	lli_received_d_disc},
 	{ST_IN_WAIT_LL,		EV_RELEASE_IND,		lli_received_d_rel},
@@ -1085,6 +1152,15 @@ static struct FsmNode fnlist[] HISAX_INITDATA =
 	{ST_IN_ALERT_SEND,	EV_RELEASE_IND,		lli_received_d_rel},
 	{ST_IN_ALERT_SEND,	EV_RELEASE_CNF,		lli_received_d_relcnf},
 	{ST_IN_ALERT_SEND,	EV_DLRL,		lli_got_dlrl},
+        {ST_IN_ALERT_SEND,      EV_REDIR,               lli_send_redir},
+        {ST_IN_PROCEED_SEND,    EV_REDIR,               lli_send_redir},
+        {ST_IN_PROCEED_SEND,    EV_ALERT,               lli_send_alert},
+        {ST_IN_PROCEED_SEND,    EV_ACCEPTD,             lli_send_dconnect},
+	{ST_IN_PROCEED_SEND,	EV_HANGUP,		lli_send_d_disc},
+	{ST_IN_PROCEED_SEND,	EV_DISCONNECT_IND,	lli_received_d_disc},
+	{ST_IN_PROCEED_SEND,	EV_RELEASE_IND,		lli_received_d_rel},
+	{ST_IN_PROCEED_SEND,	EV_RELEASE_CNF,		lli_received_d_relcnf},
+	{ST_IN_PROCEED_SEND,	EV_DLRL,		lli_got_dlrl},
 	{ST_IN_WAIT_CONN_ACK,	EV_SETUP_CMPL_IND,	lli_init_bchan_in},
 	{ST_IN_WAIT_CONN_ACK,	EV_HANGUP,		lli_send_d_disc},
 	{ST_IN_WAIT_CONN_ACK,	EV_DISCONNECT_IND,	lli_received_d_disc},
@@ -1179,7 +1255,7 @@ release_b_st(struct Channel *chanp)
 }
 
 struct Channel
-*selectfreechannel(struct PStack *st)
+*selectfreechannel(struct PStack *st, int bch)
 {
 	struct IsdnCardState *cs = st->l1.hardware;
 	struct Channel *chanp = st->lli.userdata;
@@ -1189,7 +1265,13 @@ struct Channel
 		i=1;
 	else
 		i=0;
-	while (i<2) {
+
+        if (!bch) 
+         { i = 2; /* virtual channel */
+           chanp += 2;
+         }
+
+	while (i < ((bch) ? 2 : (2 + MAX_WAITING_CALLS))) {
 		if (chanp->fi.state == ST_NULL)
 			return (chanp);
 		chanp++;
@@ -1218,6 +1300,16 @@ is_activ(struct PStack *st)
 	return (0);
 }
 
+static void stat_redir_result(struct IsdnCardState *cs, int chan, ulong result)
+{ isdn_ctrl ic;
+  
+  ic.driver = cs->myid;
+  ic.command = ISDN_STAT_REDIR;
+  ic.arg = chan; 
+  (ulong)(ic.parm.num[0]) = result;
+  cs->iif.statcallb(&ic);
+} /* stat_redir_result */
+
 static void
 dchan_l3l4(struct PStack *st, int pr, void *arg)
 {
@@ -1245,14 +1337,14 @@ dchan_l3l4(struct PStack *st, int pr, void *arg)
 			i = 1;
 		else
 			i = 0;
-		while (i < 2) {
+		while (i < 2 + MAX_WAITING_CALLS) {
 			FsmEvent(&chanp->fi, event, NULL);
 			chanp++;
 			i++;
 		}
 		return;
 	} else if (pr == (CC_SETUP | INDICATION)) {
-		if (!(chanp = selectfreechannel(pc->st))) {
+		if (!(chanp = selectfreechannel(pc->st, pc->para.bchannel))) {
 			pc->st->lli.l4l3(pc->st, CC_DLRL | REQUEST, pc);
 		} else {
 			chanp->proc = pc;
@@ -1304,9 +1396,18 @@ dchan_l3l4(struct PStack *st, int pr, void *arg)
 		case (CC_RELEASE_ERR):
 			FsmEvent(&chanp->fi, EV_RELEASE_ERR, NULL);
 			break;
+	        case (CC_PROCEED_SEND | INDICATION):
+                        if (test_bit(FLG_DO_REDIR, &chanp->Flags))
+			  FsmEvent(&chanp->fi, EV_REDIR, NULL); 
+                        break; 
 		case (CC_PROCEEDING | INDICATION):
 		case (CC_ALERTING | INDICATION):
+		case (CC_PROGRESS | INDICATION):
+		case (CC_NOTIFY | INDICATION):
 			break;
+	        case (CC_REDIR | INDICATION):
+                        stat_redir_result(cs, chanp->chan, pc->redir_result); 
+                        break;                         
 		default:
 			if (chanp->debug & 0x800) {
 				HiSax_putstatus(chanp->cs, "Ch",
@@ -1416,11 +1517,17 @@ init_chan(int chan, struct IsdnCardState *csta)
 
 int
 CallcNewChan(struct IsdnCardState *csta)
-{
+{       int i;
+
 	chancount += 2;
 	init_chan(0, csta);
 	init_chan(1, csta);
 	printk(KERN_INFO "HiSax: 2 channels added\n");
+        
+        for (i = 0; i < MAX_WAITING_CALLS; i++) 
+          init_chan(i+2,csta);
+        printk(KERN_INFO "HiSax: MAX_WAITING_CALLS added\n");        
+  
 	if (test_bit(FLG_PTP, &csta->channel->d_st->l2.flag)) {
 		printk(KERN_INFO "LAYER2 WATCHING ESTABLISH\n");
 		test_and_set_bit(FLG_START_D, &csta->channel->Flags);
@@ -1479,7 +1586,7 @@ lldata_handler(struct PStack *st, int pr, void *arg)
 			if (chanp->data_open)
 				chanp->cs->iif.rcvcallb_skb(chanp->cs->myid, chanp->chan, skb);
 			else {
-				dev_kfree_skb(skb, FREE_READ);
+				idev_kfree_skb(skb, FREE_READ);
 			}
 			break;
 		case (DL_ESTABLISH | INDICATION):
@@ -1509,7 +1616,7 @@ lltrans_handler(struct PStack *st, int pr, void *arg)
 				chanp->cs->iif.rcvcallb_skb(chanp->cs->myid, chanp->chan, skb);
 			else {
 				link_debug(chanp, 0, "channel not open");
-				dev_kfree_skb(skb, FREE_READ);
+				idev_kfree_skb(skb, FREE_READ);
 			}
 			break;
 		case (PH_ACTIVATE | INDICATION):
@@ -1612,7 +1719,7 @@ leased_l4l3(struct PStack *st, int pr, void *arg)
 	switch (pr) {
 		case (DL_DATA | REQUEST):
 			link_debug(chanp, 0, "leased line d-channel DATA");
-			dev_kfree_skb(skb, FREE_READ);
+			idev_kfree_skb(skb, FREE_READ);
 			break;
 		case (DL_ESTABLISH | REQUEST):
 			st->l2.l2l1(st, PH_ACTIVATE | REQUEST, NULL);
@@ -1636,7 +1743,7 @@ leased_l1l2(struct PStack *st, int pr, void *arg)
 	switch (pr) {
 		case (PH_DATA | INDICATION):
 			link_debug(chanp, 0, "leased line d-channel DATA");
-			dev_kfree_skb(skb, FREE_READ);
+			idev_kfree_skb(skb, FREE_READ);
 			break;
 		case (PH_ACTIVATE | INDICATION):
 		case (PH_ACTIVATE | CONFIRM):
@@ -1671,7 +1778,7 @@ distr_debug(struct IsdnCardState *csta, int debugflags)
 	int i;
 	struct Channel *chanp = csta->channel;
 
-	for (i = 0; i < 2; i++) {
+	for (i = 0; i < (2 + MAX_WAITING_CALLS) ; i++) {
 		chanp[i].debug = debugflags;
 		chanp[i].fi.debug = debugflags & 2;
 		chanp[i].d_st->l2.l2m.debug = debugflags & 8;
@@ -1750,6 +1857,7 @@ int
 HiSax_command(isdn_ctrl * ic)
 {
 	struct IsdnCardState *csta = hisax_findcard(ic->driver);
+        struct PStack *st;
 	struct Channel *chanp;
 	int i;
 	u_int num;
@@ -1980,6 +2088,36 @@ HiSax_command(isdn_ctrl * ic)
 					return (-EINVAL);
 			}
 			break;
+		
+		case (ISDN_CMD_PROCEED):
+			chanp = csta->channel + ic->arg;
+			if (chanp->debug & 1)
+				link_debug(chanp, 1, "PROCEED");
+			FsmEvent(&chanp->fi, EV_PROCEED, NULL);
+			break;
+
+		case (ISDN_CMD_ALERT):
+			chanp = csta->channel + ic->arg;
+			if (chanp->debug & 1)
+				link_debug(chanp, 1, "ALERT");
+			FsmEvent(&chanp->fi, EV_ALERT, NULL);
+			break;
+
+		case (ISDN_CMD_REDIR):
+			chanp = csta->channel + ic->arg;
+			if (chanp->debug & 1)
+				link_debug(chanp, 1, "REDIR");
+			chanp->setup = ic->parm.setup;
+			FsmEvent(&chanp->fi, EV_REDIR, NULL);
+			break;
+
+		/* protocol specific io commands */
+	        case (ISDN_CMD_PROT_IO):
+		        for (st = csta->stlist; st; st = st->next)
+                          if (st->protocol == (ic->arg & 0xFF))
+			    return(st->lli.l4l3_proto(st, ic));
+                        return(-EINVAL);                     
+                        break;
 		default:
 			break;
 	}
@@ -2035,7 +2173,7 @@ HiSax_writebuf_skb(int id, int chan, struct sk_buff *skb)
 				chanp->bcs->tx_cnt += len;
 				st->l2.l2l1(st, PH_DATA | REQUEST, nskb);
 			}
-			dev_kfree_skb(skb, FREE_WRITE);
+			idev_kfree_skb(skb, FREE_WRITE);
 		} else
 			len = 0;
 		restore_flags(flags);

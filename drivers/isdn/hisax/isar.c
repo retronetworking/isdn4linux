@@ -6,6 +6,10 @@
  *
  *
  * $Log$
+ * Revision 1.1.2.4  1998/11/03 00:06:44  keil
+ * certification related changes
+ * fixed logging for smaller stack use
+ *
  * Revision 1.1.2.3  1998/10/04 23:04:58  keil
  * ISAR works now
  *
@@ -565,7 +569,7 @@ send_frames(struct BCState *bcs)
 			if (bcs->st->lli.l1writewakeup &&
 				(PACKET_NOACK != bcs->tx_skb->pkt_type))
 					bcs->st->lli.l1writewakeup(bcs->st, bcs->hw.isar.txcnt);
-			dev_kfree_skb(bcs->tx_skb, FREE_WRITE);
+			idev_kfree_skb(bcs->tx_skb, FREE_WRITE);
 			bcs->hw.isar.txcnt = 0; 
 			bcs->tx_skb = NULL;
 		}
@@ -890,7 +894,7 @@ close_isarstate(struct BCState *bcs)
 		discard_queue(&bcs->rqueue);
 		discard_queue(&bcs->squeue);
 		if (bcs->tx_skb) {
-			dev_kfree_skb(bcs->tx_skb, FREE_WRITE);
+			idev_kfree_skb(bcs->tx_skb, FREE_WRITE);
 			bcs->tx_skb = NULL;
 			test_and_clear_bit(BC_FLG_BUSY, &bcs->Flag);
 			if (bcs->cs->debug & L1_DEB_HSCX)

@@ -15,6 +15,9 @@
  *
  *
  * $Log$
+ * Revision 1.14.2.16  1998/11/05 21:13:55  keil
+ * minor fixes
+ *
  * Revision 1.14.2.15  1998/11/03 00:06:14  keil
  * certification related changes
  * fixed logging for smaller stack use
@@ -168,16 +171,26 @@ const char *ITACVer[] =
 #define ELSA_IPAC_LINE_LED	0x40	/* Bit 6 Gelbe LED */
 #define ELSA_IPAC_STAT_LED	0x80	/* Bit 7 Gruene LED */
 
-const u_char ARCOFI_VERSION[] = {2,0xa0,0};
-const u_char ARCOFI_COP_5[] = {4,0xa1,0x25,0xbb,0x4a}; /* GTX */
-const u_char ARCOFI_COP_6[] = {6,0xa1,0x26,0,0,0x82,0x7c}; /* GRL GRH */
-const u_char ARCOFI_COP_7[] = {4,0xa1,0x27,0x80,0x80}; /* GZ */
-const u_char ARCOFI_COP_8[] = {10,0xa1,0x28,0x49,0x31,0x8,0x13,0x6e,0x88,0x2a,0x61}; /* TX */
-const u_char ARCOFI_COP_9[] = {10,0xa1,0x29,0x80,0xcb,0xe9,0x88,0x00,0xc8,0xd8,0x80}; /* RX */
-const u_char ARCOFI_XOP_0[] = {2,0xa1,0x30}; /* PWR Down */
-const u_char ARCOFI_XOP_1[] = {2,0xa1,0x31}; /* PWR UP */
-const u_char ARCOFI_XOP_F[] = {2,0xa1,0x3f}; /* Normal OP */
-const u_char ARCOFI_SOP_F[] = {10,0xa1,0x1f,0x00,0x50,0x10,0x00,0x00,0x80,0x02,0x12};
+static struct arcofi_msg ARCOFI_XOP_F =
+	{NULL,0,2,{0xa1,0x3f,0,0,0,0,0,0,0,0}}; /* Normal OP */
+static struct arcofi_msg ARCOFI_XOP_1 =
+	{&ARCOFI_XOP_F,0,2,{0xa1,0x31,0,0,0,0,0,0,0,0}}; /* PWR UP */
+static struct arcofi_msg ARCOFI_SOP_F = 
+	{&ARCOFI_XOP_1,0,10,{0xa1,0x1f,0x00,0x50,0x10,0x00,0x00,0x80,0x02,0x12}};
+static struct arcofi_msg ARCOFI_COP_9 =
+	{&ARCOFI_SOP_F,0,10,{0xa1,0x29,0x80,0xcb,0xe9,0x88,0x00,0xc8,0xd8,0x80}}; /* RX */
+static struct arcofi_msg ARCOFI_COP_8 =
+	{&ARCOFI_COP_9,0,10,{0xa1,0x28,0x49,0x31,0x8,0x13,0x6e,0x88,0x2a,0x61}}; /* TX */
+static struct arcofi_msg ARCOFI_COP_7 =
+	{&ARCOFI_COP_8,0,4,{0xa1,0x27,0x80,0x80,0,0,0,0,0,0}}; /* GZ */
+static struct arcofi_msg ARCOFI_COP_6 =
+	{&ARCOFI_COP_7,0,6,{0xa1,0x26,0,0,0x82,0x7c,0,0,0,0}}; /* GRL GRH */
+static struct arcofi_msg ARCOFI_COP_5 =
+	{&ARCOFI_COP_6,0,4,{0xa1,0x25,0xbb,0x4a,0,0,0,0,0,0}}; /* GTX */
+static struct arcofi_msg ARCOFI_VERSION =
+	{NULL,1,2,{0xa0,0,0,0,0,0,0,0,0,0}};
+static struct arcofi_msg ARCOFI_XOP_0 =
+	{NULL,0,2,{0xa1,0x30,0,0,0,0,0,0,0,0}}; /* PWR Down */
 
 static void set_arcofi(struct IsdnCardState *cs, int bc);
 
@@ -490,6 +503,7 @@ release_io_elsa(struct IsdnCardState *cs)
 	int bytecnt = 8;
 
 	del_timer(&cs->hw.elsa.tl);
+	clear_arcofi(cs);
 	if (cs->hw.elsa.ctrl)
 		byteout(cs->hw.elsa.ctrl, 0);	/* LEDs Out */
 	if (cs->subtyp == ELSA_QS1000PCI) {
@@ -562,40 +576,10 @@ reset_elsa(struct IsdnCardState *cs)
 }
 
 static void
-init_arcofi(struct IsdnCardState *cs) {
-	send_arcofi(cs, ARCOFI_XOP_0, 1, 0);
-/*	send_arcofi(cs, ARCOFI_XOP_F, 1);
-*/
-}
-
-#define ARCDEL 500
-
-static void
 set_arcofi(struct IsdnCardState *cs, int bc) {
-	long flags;
-
-	debugl1(cs,"set_arcofi bc=%d", bc);
-	save_flags(flags);
-	sti();
-	send_arcofi(cs, ARCOFI_XOP_0, bc, 0);
-	udelay(ARCDEL);
-	send_arcofi(cs, ARCOFI_COP_5, bc, 0);
-	udelay(ARCDEL);
-	send_arcofi(cs, ARCOFI_COP_6, bc, 0);
-	udelay(ARCDEL);
-	send_arcofi(cs, ARCOFI_COP_7, bc, 0);
-	udelay(ARCDEL);
-	send_arcofi(cs, ARCOFI_COP_8, bc, 0);
-	udelay(ARCDEL);
-	send_arcofi(cs, ARCOFI_COP_9, bc, 0);
-	udelay(ARCDEL);
-	send_arcofi(cs, ARCOFI_SOP_F, bc, 0);
-	udelay(ARCDEL);
-	send_arcofi(cs, ARCOFI_XOP_1, bc, 0);
-	udelay(ARCDEL);
-	send_arcofi(cs, ARCOFI_XOP_F, bc, 0);
-	restore_flags(flags);
-	debugl1(cs,"end set_arcofi bc=%d", bc);
+	cs->dc.isac.arcofi_bc = bc;
+	arcofi_fsm(cs, ARCOFI_START, &ARCOFI_COP_5);
+	interruptible_sleep_on(&cs->dc.isac.arcofi_wait);
 }
 
 static int
@@ -607,23 +591,24 @@ check_arcofi(struct IsdnCardState *cs)
 	char *t;
 	u_char *p;
 
-	if (!cs->mon_tx)
-		if (!(cs->mon_tx=kmalloc(MAX_MON_FRAME, GFP_ATOMIC))) {
+	if (!cs->dc.isac.mon_tx)
+		if (!(cs->dc.isac.mon_tx=kmalloc(MAX_MON_FRAME, GFP_ATOMIC))) {
 			if (cs->debug & L1_DEB_WARN)
 				debugl1(cs, "ISAC MON TX out of buffers!");
 			return(0);
 		}
-	send_arcofi(cs, ARCOFI_VERSION, 0, 1);
-	if (test_and_clear_bit(HW_MON1_TX_END, &cs->HW_Flags)) {
-		if (test_and_clear_bit(HW_MON1_RX_END, &cs->HW_Flags)) {
-			debugl1(cs, "Arcofi response received %d bytes", cs->mon_rxp);
-			p = cs->mon_rx;
+	cs->dc.isac.arcofi_bc = 0;
+	arcofi_fsm(cs, ARCOFI_START, &ARCOFI_VERSION);
+	interruptible_sleep_on(&cs->dc.isac.arcofi_wait);
+	if (!test_and_clear_bit(FLG_ARCOFI_ERROR, &cs->HW_Flags)) {
+			debugl1(cs, "Arcofi response received %d bytes", cs->dc.isac.mon_rxp);
+			p = cs->dc.isac.mon_rx;
 			t = tmp;
 			t += sprintf(tmp, "Arcofi data");
-			QuickHex(t, p, cs->mon_rxp);
+			QuickHex(t, p, cs->dc.isac.mon_rxp);
 			debugl1(cs, tmp);
-			if ((cs->mon_rxp == 2) && (cs->mon_rx[0] == 0xa0)) {
-				switch(cs->mon_rx[1]) {
+			if ((cs->dc.isac.mon_rxp == 2) && (cs->dc.isac.mon_rx[0] == 0xa0)) {
+				switch(cs->dc.isac.mon_rx[1]) {
 					case 0x80:
 						debugl1(cs, "Arcofi 2160 detected");
 						arcofi_present = 1;
@@ -642,9 +627,8 @@ check_arcofi(struct IsdnCardState *cs)
 				}
 			} else
 				debugl1(cs, "undefined Monitor response");
-			cs->mon_rxp = 0;
-		}
-	} else if (cs->mon_tx) {
+			cs->dc.isac.mon_rxp = 0;
+	} else if (cs->dc.isac.mon_tx) {
 		debugl1(cs, "Arcofi not detected");
 	}
 	if (arcofi_present) {
@@ -685,7 +669,8 @@ check_arcofi(struct IsdnCardState *cs)
 				"Elsa: %s detected modem at 0x%x\n",
 				Elsa_Types[cs->subtyp],
 				cs->hw.elsa.base+8);
-		init_arcofi(cs);
+		arcofi_fsm(cs, ARCOFI_START, &ARCOFI_XOP_0);
+		interruptible_sleep_on(&cs->dc.isac.arcofi_wait);
 		return(1);
 	}
 #endif
@@ -1143,6 +1128,7 @@ setup_elsa(struct IsdnCard *card)
 			request_region(cs->hw.elsa.cfg, 0x80, "elsa isdn pci");
 		}
 	}
+	init_arcofi(cs);
 	cs->hw.elsa.tl.function = (void *) elsa_led_handler;
 	cs->hw.elsa.tl.data = (long) cs;
 	init_timer(&cs->hw.elsa.tl);

@@ -7,6 +7,10 @@
  * This is an include file for fast inline IRQ stuff
  *
  * $Log$
+ * Revision 1.5.2.5  1998/11/03 00:06:39  keil
+ * certification related changes
+ * fixed logging for smaller stack use
+ *
  * Revision 1.5.2.4  1998/09/27 13:06:16  keil
  * Apply most changes from 2.1.X (HiSax 3.1)
  *
@@ -223,7 +227,7 @@ hscx_interrupt(struct IsdnCardState *cs, u_char val, u_char hscx)
 				if (bcs->st->lli.l1writewakeup &&
 					(PACKET_NOACK != bcs->tx_skb->pkt_type))
 					bcs->st->lli.l1writewakeup(bcs->st, bcs->hw.hscx.count);
-				dev_kfree_skb(bcs->tx_skb, FREE_WRITE);
+				idev_kfree_skb(bcs->tx_skb, FREE_WRITE);
 				bcs->hw.hscx.count = 0; 
 				bcs->tx_skb = NULL;
 			}

@@ -6,6 +6,9 @@
  *
  *
  * $Log$
+ * Revision 1.1.2.3  1998/05/27 18:04:50  keil
+ * HiSax 3.0
+ *
  * Revision 1.1.2.2  1998/04/11 18:45:14  keil
  * New interface
  *
@@ -17,4 +20,16 @@
  
 #define ARCOFI_USE	1
 
-extern int send_arcofi(struct IsdnCardState *cs, const u_char *msg, int bc, int receive);
+/* states */
+#define ARCOFI_NOP	0
+#define ARCOFI_TRANSMIT	1
+#define ARCOFI_RECEIVE	2
+/* events */
+#define ARCOFI_START	1
+#define ARCOFI_TX_END	2
+#define ARCOFI_RX_END	3
+#define ARCOFI_TIMEOUT	4
+
+extern int arcofi_fsm(struct IsdnCardState *cs, int event, void *data);
+extern void init_arcofi(struct IsdnCardState *cs);
+extern void clear_arcofi(struct IsdnCardState *cs);

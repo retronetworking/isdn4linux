@@ -11,6 +11,9 @@
  *              Fritz Elfert
  *
  * $Log$
+ * Revision 1.10.2.12  1999/01/20 14:36:41  keil
+ * Fixes for full CTS2 tests
+ *
  * Revision 1.10.2.11  1998/11/03 00:06:57  keil
  * certification related changes
  * fixed logging for smaller stack use
@@ -158,7 +161,7 @@ ReleaseWin(struct Layer2 *l2)
 	for (i = 0; i < MAX_WINDOW; i++) {
 		if (l2->windowar[i]) {
 			cnt++;
-			dev_kfree_skb(l2->windowar[i], FREE_WRITE);
+			idev_kfree_skb(l2->windowar[i], FREE_WRITE);
 			l2->windowar[i] = NULL;
 		}
 	}
@@ -324,7 +327,7 @@ setva(struct PStack *st, int nr)
 		len = l2->windowar[l2->sow]->len;
 		if (PACKET_NOACK == l2->windowar[l2->sow]->pkt_type)
 			len = -1;
-		dev_kfree_skb(l2->windowar[l2->sow], FREE_WRITE);
+		idev_kfree_skb(l2->windowar[l2->sow], FREE_WRITE);
 		l2->windowar[l2->sow] = NULL;
 		l2->sow = (l2->sow + 1) % l2->window;
 		if (st->lli.l2writewakeup && (len >=0))
@@ -359,7 +362,7 @@ get_PollFlag(struct PStack * st, struct sk_buff * skb)
 inline void
 FreeSkb(struct sk_buff *skb)
 {
-	dev_kfree_skb(skb, FREE_READ);
+	idev_kfree_skb(skb, FREE_READ);
 }
 
 
@@ -1159,7 +1162,7 @@ l2_pull_iqueue(struct FsmInst *fi, int event, void *arg)
 	if (l2->windowar[p1]) {
 		printk(KERN_WARNING "isdnl2 try overwrite ack queue entry %d\n",
 		       p1);
-		dev_kfree_skb(l2->windowar[p1], FREE_WRITE);
+		idev_kfree_skb(l2->windowar[p1], FREE_WRITE);
 	}
 	l2->windowar[p1] = skb_clone(skb, GFP_ATOMIC);
 
@@ -1519,12 +1522,12 @@ isdnl2_l3l2(struct PStack *st, int pr, void *arg)
 	switch (pr) {
 		case (DL_DATA | REQUEST):
 			if (FsmEvent(&st->l2.l2m, EV_L2_DL_DATA, arg)) {
-				dev_kfree_skb((struct sk_buff *) arg, FREE_READ);
+				idev_kfree_skb((struct sk_buff *) arg, FREE_READ);
 			}
 			break;
 		case (DL_UNIT_DATA | REQUEST):
 			if (FsmEvent(&st->l2.l2m, EV_L2_DL_UNIT_DATA, arg)) {
-				dev_kfree_skb((struct sk_buff *) arg, FREE_READ);
+				idev_kfree_skb((struct sk_buff *) arg, FREE_READ);
 			}
 			break;
 		case (DL_ESTABLISH | REQUEST):

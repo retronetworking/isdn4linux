@@ -8,6 +8,10 @@
  *
  *
  * $Log$
+ * Revision 1.1.2.10  1998/11/03 00:07:24  keil
+ * certification related changes
+ * fixed logging for smaller stack use
+ *
  * Revision 1.1.2.9  1998/09/30 22:24:02  keil
  * Fix missing line in setstack*
  *
@@ -687,7 +691,7 @@ static void write_raw(struct BCState *bcs, u_int *buf, int cnt) {
 				if (bcs->st->lli.l1writewakeup &&
 					(PACKET_NOACK != bcs->tx_skb->pkt_type))
 					bcs->st->lli.l1writewakeup(bcs->st, bcs->tx_skb->len);
-				dev_kfree_skb(bcs->tx_skb, FREE_WRITE);
+				idev_kfree_skb(bcs->tx_skb, FREE_WRITE);
 				bcs->tx_skb = NULL;
 			}
 			test_and_clear_bit(BC_FLG_BUSY, &bcs->Flag);
@@ -824,7 +828,7 @@ close_tigerstate(struct BCState *bcs)
 		discard_queue(&bcs->rqueue);
 		discard_queue(&bcs->squeue);
 		if (bcs->tx_skb) {
-			dev_kfree_skb(bcs->tx_skb, FREE_WRITE);
+			idev_kfree_skb(bcs->tx_skb, FREE_WRITE);
 			bcs->tx_skb = NULL;
 			test_and_clear_bit(BC_FLG_BUSY, &bcs->Flag);
 		}

@@ -7,6 +7,9 @@
  *
  *
  * $Log$
+ * Revision 1.1.2.8  1998/11/05 21:11:12  keil
+ * AVM PnP support
+ *
  * Revision 1.1.2.7  1998/11/03 00:05:48  keil
  * certification related changes
  * fixed logging for smaller stack use
@@ -472,7 +475,7 @@ HDLC_irq(struct BCState *bcs, u_int stat) {
 				if (bcs->st->lli.l1writewakeup &&
 					(PACKET_NOACK != bcs->tx_skb->pkt_type))
 					bcs->st->lli.l1writewakeup(bcs->st, bcs->hw.hdlc.count);
-				dev_kfree_skb(bcs->tx_skb, FREE_WRITE);
+				idev_kfree_skb(bcs->tx_skb, FREE_WRITE);
 				bcs->hw.hdlc.count = 0;
 				bcs->tx_skb = NULL;
 			}
@@ -599,7 +602,7 @@ close_hdlcstate(struct BCState *bcs)
 		discard_queue(&bcs->rqueue);
 		discard_queue(&bcs->squeue);
 		if (bcs->tx_skb) {
-			dev_kfree_skb(bcs->tx_skb, FREE_WRITE);
+			idev_kfree_skb(bcs->tx_skb, FREE_WRITE);
 			bcs->tx_skb = NULL;
 			test_and_clear_bit(BC_FLG_BUSY, &bcs->Flag);
 		}

@@ -6,6 +6,10 @@
  *
  *
  * $Log$
+ * Revision 1.1.2.9  1998/11/03 00:06:24  keil
+ * certification related changes
+ * fixed logging for smaller stack use
+ *
  * Revision 1.1.2.8  1998/09/30 22:23:55  keil
  * Fix missing line in setstack*
  *
@@ -283,7 +287,7 @@ static struct sk_buff
 			sti();
 			debugl1(cs, "RFIFO BUSY error");
 			printk(KERN_WARNING "HFC FIFO channel %d BUSY Error\n", bcs->channel);
-			dev_kfree_skb(skb, FREE_READ);
+			idev_kfree_skb(skb, FREE_READ);
 			skb = NULL;
 		} else {
 			cli();
@@ -299,7 +303,7 @@ static struct sk_buff
 					bcs->channel, chksum, stat);
 			if (stat) {
 				debugl1(cs, "FIFO CRC error");
-				dev_kfree_skb(skb, FREE_READ);
+				idev_kfree_skb(skb, FREE_READ);
 				skb = NULL;
 			}
 		}
@@ -388,7 +392,7 @@ hfc_fill_fifo(struct BCState *bcs)
 		if (bcs->st->lli.l1writewakeup &&
 			(PACKET_NOACK != bcs->tx_skb->pkt_type))
 			bcs->st->lli.l1writewakeup(bcs->st, bcs->tx_skb->len);
-		dev_kfree_skb(bcs->tx_skb, FREE_WRITE);
+		idev_kfree_skb(bcs->tx_skb, FREE_WRITE);
 		bcs->tx_skb = NULL;
 	}
 	WaitForBusy(cs);
@@ -590,7 +594,7 @@ close_2bs0(struct BCState *bcs)
 		discard_queue(&bcs->rqueue);
 		discard_queue(&bcs->squeue);
 		if (bcs->tx_skb) {
-			dev_kfree_skb(bcs->tx_skb, FREE_WRITE);
+			idev_kfree_skb(bcs->tx_skb, FREE_WRITE);
 			bcs->tx_skb = NULL;
 			test_and_clear_bit(BC_FLG_BUSY, &bcs->Flag);
 		}
@@ -644,7 +648,7 @@ hfcd_bh(struct IsdnCardState *cs)
 	}
 #endif
 	if (test_and_clear_bit(D_L1STATECHANGE, &cs->event)) {
-		switch (cs->ph_state) {
+		switch (cs->dc.hfcd.ph_state) {
 			case (0):
 				l1_msg(cs, HW_RESET | INDICATION, NULL);
 				break;
@@ -750,7 +754,7 @@ int receive_dmsg(struct IsdnCardState *cs)
 				sti();
 				debugl1(cs, "RFIFO D BUSY error");
 				printk(KERN_WARNING "HFC DFIFO channel BUSY Error\n");
-				dev_kfree_skb(skb, FREE_READ);
+				idev_kfree_skb(skb, FREE_READ);
 				skb = NULL;
 			} else {
 				cli();
@@ -766,7 +770,7 @@ int receive_dmsg(struct IsdnCardState *cs)
 						chksum, stat);
 				if (stat) {
 					debugl1(cs, "FIFO CRC error");
-					dev_kfree_skb(skb, FREE_READ);
+					idev_kfree_skb(skb, FREE_READ);
 					skb = NULL;
 				} else {
 					skb_queue_tail(&cs->rq, skb);
@@ -863,7 +867,7 @@ hfc_fill_dfifo(struct IsdnCardState *cs)
 	cli();
 	WaitNoBusy(cs);
 	ReadReg(cs, HFCD_DATA, HFCD_FIFO | HFCD_F1_INC | HFCD_SEND);
-	dev_kfree_skb(cs->tx_skb, FREE_WRITE);
+	idev_kfree_skb(cs->tx_skb, FREE_WRITE);
 	cs->tx_skb = NULL;
 	sti();
 	WaitForBusy(cs);
@@ -898,9 +902,9 @@ hfc2bds0_interrupt(struct IsdnCardState *cs, u_char val)
 	if (val & 0x40) { /* TE state machine irq */
 		exval = cs->readisac(cs, HFCD_STATES) & 0xf;
 		if (cs->debug & L1_DEB_ISAC)
-			debugl1(cs, "ph_state chg %d->%d", cs->ph_state,
+			debugl1(cs, "ph_state chg %d->%d", cs->dc.hfcd.ph_state,
 				exval);
-		cs->ph_state = exval;
+		cs->dc.hfcd.ph_state = exval;
 		sched_event_D(cs, D_L1STATECHANGE);
 		val &= ~0x40;
 	}
@@ -997,7 +1001,7 @@ hfc2bds0_interrupt(struct IsdnCardState *cs, u_char val)
 					}
 					goto afterXPR;
 				} else {
-					dev_kfree_skb(cs->tx_skb, FREE_WRITE);
+					idev_kfree_skb(cs->tx_skb, FREE_WRITE);
 					cs->tx_cnt = 0;
 					cs->tx_skb = NULL;
 				}

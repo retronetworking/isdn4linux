@@ -15,6 +15,9 @@
  *
  *
  * $Log$
+ * Revision 1.15.2.20  1999/01/20 14:36:49  keil
+ * Fixes for full CTS2 tests
+ *
  * Revision 1.15.2.19  1998/11/03 00:06:48  keil
  * certification related changes
  * fixed logging for smaller stack use
@@ -286,12 +289,12 @@ DChannel_proc_rcv(struct IsdnCardState *cs)
 		stptr = cs->stlist;
 		if (skb->len<3) {
 			debugl1(cs, "D-channel frame too short(%d)",skb->len);
-			dev_kfree_skb(skb, FREE_READ);
+			idev_kfree_skb(skb, FREE_READ);
 			return;
 		}
 		if ((skb->data[0] & 1) || !(skb->data[1] &1)) {
 			debugl1(cs, "D-channel frame wrong EA0/EA1");
-			dev_kfree_skb(skb, FREE_READ);
+			idev_kfree_skb(skb, FREE_READ);
 			return;
 		}
 		sapi = skb->data[0] >> 2;
@@ -318,7 +321,7 @@ DChannel_proc_rcv(struct IsdnCardState *cs)
 					stptr = stptr->next;
 				}
 			}
-			dev_kfree_skb(skb, FREE_READ);
+			idev_kfree_skb(skb, FREE_READ);
 		} else if (sapi == CTRL_SAPI) { /* sapi 0 */
 			found = 0;
 			while (stptr != NULL)
@@ -329,7 +332,7 @@ DChannel_proc_rcv(struct IsdnCardState *cs)
 				} else
 					stptr = stptr->next;
 			if (!found)
-				dev_kfree_skb(skb, FREE_READ);
+				idev_kfree_skb(skb, FREE_READ);
 		}
 	}
 }

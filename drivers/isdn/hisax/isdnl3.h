@@ -1,6 +1,10 @@
 /* $Id$
 
  * $Log$
+ * Revision 1.3.2.3  1998/11/03 00:07:08  keil
+ * certification related changes
+ * fixed logging for smaller stack use
+ *
  * Revision 1.3.2.2  1998/05/27 18:06:02  keil
  * HiSax 3.0
  *
@@ -28,12 +32,14 @@
 #define SBIT(state) (1<<state)
 #define ALL_STATES  0x00ffffff
 
-#define	PROTO_DIS_EURO	0x08
+#define PROTO_DIS_EURO	0x08
 
 #define L3_DEB_WARN	0x01
-#define	L3_DEB_PROTERR	0x02
-#define	L3_DEB_STATE	0x04
-#define	L3_DEB_CHARGE	0x08
+#define L3_DEB_PROTERR	0x02
+#define L3_DEB_STATE	0x04
+#define L3_DEB_CHARGE	0x08
+#define L3_DEB_CHECK	0x10
+#define L3_DEB_SI	0x20
 
 struct stateentry {
 	int state;
