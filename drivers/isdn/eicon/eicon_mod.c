@@ -31,6 +31,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.22  1999/11/27 12:56:19  armin
+ * Forgot some iomem changes for last ioremap compat.
+ *
  * Revision 1.21  1999/11/25 11:35:10  armin
  * Microchannel fix from Erik Weber (exrz73@ibm.net).
  * Minor cleanup.
@@ -756,7 +759,7 @@ eicon_command(eicon_card * card, isdn_ctrl * c)
 				break;
 			chan->l3prot = (c->arg >> 8);
 #ifdef CONFIG_ISDN_TTY_FAX
-			if (chan->l3prot == ISDN_PROTO_L3_FAX)
+			if (chan->l3prot == ISDN_PROTO_L3_FCLASS2)
 				chan->fax = c->parm.fax;
 #endif
 			return 0;
@@ -948,8 +951,7 @@ if_sendbuf(int id, int channel, int ack, struct sk_buff *skb)
 }
 
 /* jiftime() copied from HiSax */
-inline int
-jiftime(char *s, long mark)
+static inline int jiftime(char *s, long mark)
 {
         s += 8;
 
@@ -1186,7 +1188,7 @@ eicon_alloccard(int Type, int membase, int irq, char *id)
 					ISDN_FEATURE_L2_MODEM |
 					ISDN_FEATURE_L2_FAX | 
 					ISDN_FEATURE_L3_TRANSDSP |
-					ISDN_FEATURE_L3_FAX;
+					ISDN_FEATURE_L3_FCLASS2;
                                 card->hwif.pci.card = (void *)card;
 				card->hwif.pci.PCIreg = pcic->PCIreg;
 				card->hwif.pci.PCIcfg = pcic->PCIcfg;
@@ -1210,7 +1212,7 @@ eicon_alloccard(int Type, int membase, int irq, char *id)
 					ISDN_FEATURE_L2_MODEM |
 					ISDN_FEATURE_L2_FAX |
 					ISDN_FEATURE_L3_TRANSDSP |
-					ISDN_FEATURE_L3_FAX;
+					ISDN_FEATURE_L3_FCLASS2;
                                 card->hwif.pci.card = (void *)card;
                                 card->hwif.pci.shmem = (eicon_pci_shmem *)pcic->shmem;
 				card->hwif.pci.PCIreg = pcic->PCIreg;

@@ -21,6 +21,10 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.87  2000/01/09 20:43:15  detabc
+ * exand logical bind-group's for both call's (in and out).
+ * add first part of kernel-config-help for abc-extension.
+ *
  * Revision 1.86  1999/12/05 16:06:09  detabc
  * add resethandling for rawip-compression.
  * at now all B2-Protocols are usable with rawip-compression
@@ -376,21 +380,21 @@
 #define ISDN_DW_ABC_FLAG_NO_UDP_CHECK		0x00000002L
 #define ISDN_DW_ABC_FLAG_NO_UDP_HANGUP		0x00000004L
 #define ISDN_DW_ABC_FLAG_NO_UDP_DIAL		0x00000008L
-#define ISDN_DW_ABC_FLAG_DYNADDR			0x00000010L
+#define ISDN_DW_ABC_FLAG_DYNADDR		0x00000010L
 #define ISDN_DW_ABC_FLAG_RCV_NO_HUPTIMER	0x00000020L
 #define ISDN_DW_ABC_FLAG_NO_CH_EXTINUSE		0x00000040L
 #define ISDN_DW_ABC_FLAG_NO_CONN_ERROR		0x00000080L
 #define ISDN_DW_ABC_FLAG_BSD_COMPRESS		0x00000100L
-#define ISDN_DW_ABC_FLAG_NO_LCR				0x00000200L
+#define ISDN_DW_ABC_FLAG_NO_LCR			0x00000200L
 
-#define ISDN_DW_ABC_IFFLAG_NODCHAN			0x00000001L
-#define ISDN_DW_ABC_IFFLAG_BSDAKTIV			0x00000002L
+#define ISDN_DW_ABC_IFFLAG_NODCHAN		0x00000001L
+#define ISDN_DW_ABC_IFFLAG_BSDAKTIV		0x00000002L
 #define ISDN_DW_ABC_IFFLAG_RSTREMOTE		0x00000004L
 
-#define ISDN_DW_ABC_BITLOCK_SEND			0
-#define ISDN_DW_ABC_BITLOCK_RECEIVE			1
+#define ISDN_DW_ABC_BITLOCK_SEND		0
+#define ISDN_DW_ABC_BITLOCK_RECEIVE		1
 
-#define ISDN_DW_ABC_MAX_CH_P_RIVER			(32)
+#define ISDN_DW_ABC_MAX_CH_P_RIVER		(32)
 #endif
 
 
@@ -1053,35 +1057,36 @@ typedef struct isdn_devt {
 	isdn_v110_stream  *v110[ISDN_MAX_CHANNELS];  /* V.110 private data         */
 	struct semaphore  sem;                       /* serialize list access*/
 	isdn_module       *modules;
+	unsigned long     global_features;
 #ifdef CONFIG_ISDN_WITH_ABC_ICALL_BIND
-	u_long 			dwabc_lch_check;			/* lasttime a locical chanelmap checked */
+	u_long	          dwabc_lch_check;           /* lasttime a locical chanelmap checked */
 #endif
 } isdn_dev;
 
 extern isdn_dev *dev;
 
 #ifdef CONFIG_ISDN_WITH_ABC
-extern void	isdn_net_unreachable(struct net_device *,struct sk_buff *,char *);
+extern void isdn_net_unreachable(struct net_device *,struct sk_buff *,char *);
 extern void isdn_net_log_skb_dwabc(struct sk_buff *,isdn_net_local *,char *);
 extern void isdn_net_hangup(struct net_device *d);
 extern void isdn_dw_clear_if(ulong pm,isdn_net_local *);
-extern void	isdn_dwabc_test_phone(isdn_net_local *);
+extern void isdn_dwabc_test_phone(isdn_net_local *);
 extern void isdn_dw_abc_init_func(void);
 extern void isdn_dw_abc_release_func(void);
-extern int  isdn_dw_abc_reset_interface(isdn_net_local *,int);
-extern int	dwabc_bsd_init(isdn_net_local *lp);
-extern void	dwabc_bsd_free(isdn_net_local *lp);
+extern int isdn_dw_abc_reset_interface(isdn_net_local *,int);
+extern int dwabc_bsd_init(isdn_net_local *lp);
+extern void dwabc_bsd_free(isdn_net_local *lp);
 extern struct sk_buff *dwabc_bsd_compress(isdn_net_local *,struct sk_buff *,struct net_device *);
 extern void dwabc_bsd_first_gen(isdn_net_local *);
 extern struct sk_buff *dwabc_bsd_rx_pkt(isdn_net_local *,struct sk_buff *,struct net_device *);
 #ifdef CONFIG_ISDN_WITH_ABC_LCR_SUPPORT
-extern size_t	isdn_dw_abc_lcr_readstat(char *,size_t);
-extern ulong	isdn_dw_abc_lcr_call_number(isdn_net_local *,isdn_ctrl *);
-extern void		isdn_dw_abc_lcr_open(void);
-extern void		isdn_dw_abc_lcr_close(void);
-extern void		isdn_dw_abc_lcr_ioctl(u_long);
-extern void 	isdn_dw_abc_lcr_clear(isdn_net_local *);
-extern void		isdn_dw_abc_free_lch_with_pch(int,int);
+extern size_t isdn_dw_abc_lcr_readstat(char *,size_t);
+extern ulong isdn_dw_abc_lcr_call_number(isdn_net_local *,isdn_ctrl *);
+extern void isdn_dw_abc_lcr_open(void);
+extern void isdn_dw_abc_lcr_close(void);
+extern void isdn_dw_abc_lcr_ioctl(u_long);
+extern void isdn_dw_abc_lcr_clear(isdn_net_local *);
+extern void isdn_dw_abc_free_lch_with_pch(int,int);
 #endif
 #ifdef CONFIG_ISDN_WITH_ABC_UDP_CHECK
 extern int dw_abc_udp_test(struct sk_buff *skb,struct net_device *ndev); 

@@ -20,6 +20,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.80  1999/11/07 13:34:30  armin
+ * Fixed AT command line editor
+ *
  * Revision 1.79  1999/10/29 18:35:08  armin
  * Check number len in isdn_get_msnstr() to avoid buffer overflow.
  *
@@ -345,6 +348,7 @@
 #endif
 
 #define FIX_FILE_TRANSFER
+#define	DUMMY_HAYES_AT
 
 /* Prototypes */
 
@@ -1552,6 +1556,25 @@ isdn_tty_write(struct tty_struct *tty, int from_user, const u_char * buf, int co
 					}
 				}
 			} else
+#ifdef ISDN_TTY_FCLASS1
+			if (TTY_IS_FCLASS1(info)) {
+				int cc = isdn_tty_handleDLEdown(info, m, c);
+				
+				if (info->vonline & 4) { /* ETX seen */
+					isdn_ctrl c;
+
+					c.command = ISDN_CMD_FAXCMD;
+					c.driver = info->isdn_driver;
+					c.arg = info->isdn_channel;
+					c.parm.aux.cmd = ISDN_FAX_CLASS1_CTRL;
+					c.parm.aux.subcmd = ETX;
+					isdn_command(&c);
+				}
+				info->vonline = 0;
+				printk(KERN_DEBUG "fax dle cc/c %d/%d\n", cc,c);
+				info->xmit_count += cc;
+			} else
+#endif
 #endif
 				info->xmit_count += c;
 		} else {
@@ -2578,7 +2601,7 @@ isdn_tty_find_icall(int di, int ch, setup_parm setup)
 	(info->flags & (ISDN_ASYNC_NORMAL_ACTIVE | ISDN_ASYNC_CALLOUT_ACTIVE))
 
 int
-isdn_tty_stat_callback(int i, isdn_ctrl * c)
+isdn_tty_stat_callback(int i, isdn_ctrl *c)
 {
 	int mi;
 	modem_info *info;
@@ -2679,8 +2702,7 @@ isdn_tty_stat_callback(int i, isdn_ctrl * c)
 						if (info->emu.mdmreg[REG_L2PROT] == ISDN_PROTO_L2_MODEM) {
 							strcpy(info->emu.connmsg, c->parm.num);
 							isdn_tty_modem_result(1, info);
-						}
-						else
+						} else
 							isdn_tty_modem_result(5, info);
 					}
 					if (USG_VOICE(dev->usage[i]))
@@ -2731,7 +2753,7 @@ isdn_tty_stat_callback(int i, isdn_ctrl * c)
 #ifdef CONFIG_ISDN_TTY_FAX
 			case ISDN_STAT_FAXIND:
 				if (TTY_IS_ACTIVE(info)) {
-					isdn_tty_fax_command(info); 
+					isdn_tty_fax_command(info, c); 
 				}
 				break;
 #endif
@@ -3258,8 +3280,22 @@ isdn_tty_cmd_ATand(char **p, modem_info * info)
 					info->xmit_size /= 10;		
 			}
 			break;
+		case 'C':
+			/* &C - DCD Status */
+			p[0]++;
+			switch (isdn_getnum(p)) {
+				case 0:
+					m->mdmreg[REG_DCD] &= ~BIT_DCD;
+					break;
+				case 1:
+					m->mdmreg[REG_DCD] |= BIT_DCD;
+					break;
+				default:
+					PARSE_ERROR1
+			}
+			break;
 		case 'D':
-			/* &D - Set DCD-Low-behavior */
+			/* &D - Set DTR-Low-behavior */
 			p[0]++;
 			switch (isdn_getnum(p)) {
 				case 0:
@@ -3291,6 +3327,14 @@ isdn_tty_cmd_ATand(char **p, modem_info * info)
 			isdn_tty_reset_profile(m);
 			isdn_tty_modem_reset_regs(info, 1);
 			break;
+#ifdef DUMMY_HAYES_AT
+		case 'K':
+			/* only for be compilant with common scripts */
+			/* &K Flowcontrol - no function */
+			p[0]++;
+			isdn_getnum(p);
+			break;
+#endif
 		case 'L':
 			/* &L -Set Numbers to listen on */
 			p[0]++;
@@ -3576,8 +3620,12 @@ isdn_tty_cmd_PLUSF(char **p, modem_info * info)
 				sprintf(rs, "\r\n%d",
 					(m->mdmreg[REG_SI1] & 1) ? 8 : 0);
 #ifdef CONFIG_ISDN_TTY_FAX
-				if (m->mdmreg[REG_L2PROT] == ISDN_PROTO_L2_FAX)
-				sprintf(rs, "\r\n2");
+				if (TTY_IS_FCLASS2(info))
+						sprintf(rs, "\r\n2");
+#ifdef ISDN_TTY_FCLASS1
+				else if (TTY_IS_FCLASS1(info))
+						sprintf(rs, "\r\n1");
+#endif
 #endif
 				isdn_tty_at_cout(rs, info);
 				break;
@@ -3593,11 +3641,27 @@ isdn_tty_cmd_PLUSF(char **p, modem_info * info)
 						    m->mdmreg[REG_PSIZE] * 16;
 						break;
 #ifdef CONFIG_ISDN_TTY_FAX
-					case '2':
+#ifdef ISDN_TTY_FCLASS1
+					case '1':
 						p[0]++;
+						if (!(dev->global_features &
+							ISDN_FEATURE_L3_FCLASS1))
+							PARSE_ERROR1;
 						m->mdmreg[REG_SI1] = 1;
 						m->mdmreg[REG_L2PROT] = ISDN_PROTO_L2_FAX;
-						m->mdmreg[REG_L3PROT] = ISDN_PROTO_L3_FAX;
+						m->mdmreg[REG_L3PROT] = ISDN_PROTO_L3_FCLASS1;
+						info->xmit_size =
+						    m->mdmreg[REG_PSIZE] * 16;
+						break;
+#endif
+					case '2':
+						p[0]++;
+						if (!(dev->global_features &
+							ISDN_FEATURE_L3_FCLASS2))
+							PARSE_ERROR1;
+						m->mdmreg[REG_SI1] = 1;
+						m->mdmreg[REG_L2PROT] = ISDN_PROTO_L2_FAX;
+						m->mdmreg[REG_L3PROT] = ISDN_PROTO_L3_FCLASS2;
 						info->xmit_size =
 						    m->mdmreg[REG_PSIZE] * 16;
 						break;
@@ -3612,11 +3676,19 @@ isdn_tty_cmd_PLUSF(char **p, modem_info * info)
 						break;
 					case '?':
 						p[0]++;
+						strcpy(rs, "\r\n0,");
 #ifdef CONFIG_ISDN_TTY_FAX
-						isdn_tty_at_cout("\r\n0,2,8", info);
-#else
-						isdn_tty_at_cout("\r\n0,8", info);
+#ifdef ISDN_TTY_FCLASS1
+						if (dev->global_features &
+							ISDN_FEATURE_L3_FCLASS1)
+							strcat(rs, "1,");
 #endif
+						if (dev->global_features &
+							ISDN_FEATURE_L3_FCLASS2)
+							strcat(rs, "2,");
+#endif
+						strcat(rs, "8");
+						isdn_tty_at_cout(rs, info);
 						break;
 					default:
 						PARSE_ERROR1;
@@ -4006,6 +4078,15 @@ isdn_tty_parse_at(modem_info * info)
 					default:
 				}
 				break;
+#ifdef DUMMY_HAYES_AT
+			case 'L':
+			case 'M':
+				/* only for be compilant with common scripts */
+				/* no function */
+				p++;
+				isdn_getnum(&p);
+				break;
+#endif
 			case 'O':
 				/* O - Go online */
 				p++;

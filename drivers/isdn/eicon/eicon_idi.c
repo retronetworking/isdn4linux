@@ -26,6 +26,10 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.27  1999/11/29 13:12:03  armin
+ * Autoconnect on L2_TRANS doesn't work with link_level correctly,
+ * changed back to former mode.
+ *
  * Revision 1.26  1999/11/25 11:43:27  armin
  * Fixed statectrl and connect message.
  * X.75 fix and HDLC/transparent with autoconnect.
@@ -220,7 +224,7 @@ idi_assign_req(eicon_REQ *reqbuf, int signet, eicon_chan *chan)
 			reqbuf->XBuffer.P[l++] = 1;
 	}
 	switch(chan->l3prot) {
-		case ISDN_PROTO_L3_FAX:
+		case ISDN_PROTO_L3_FCLASS2:
 #ifdef CONFIG_ISDN_TTY_FAX
 			reqbuf->XBuffer.P[l++] = 6;
 			reqbuf->XBuffer.P[l++] = NLC;

@@ -21,6 +21,10 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.95  2000/01/09 20:43:13  detabc
+ * exand logical bind-group's for both call's (in and out).
+ * add first part of kernel-config-help for abc-extension.
+ *
  * Revision 1.94  1999/11/20 22:14:13  detabc
  * added channel dial-skip in case of external use
  * (isdn phone or another isdn device) on the same NTBA.
@@ -454,6 +458,7 @@ isdn_divert_if *divert_if = NULL; /* interface to diversion module */
 
 
 static int isdn_writebuf_stub(int, int, const u_char *, int, int);
+static void set_global_features(void);
 
 void
 isdn_MOD_INC_USE_COUNT(void)
@@ -736,29 +741,33 @@ isdn_receive_skb_callback(int di, int channel, struct sk_buff *skb)
 int
 isdn_command(isdn_ctrl *cmd)
 {
+	if (cmd->driver == -1) {
+		printk(KERN_WARNING "isdn_command command(%x) driver -1\n", cmd->command);
+		return(1);
+	}
 	if (cmd->command == ISDN_CMD_SETL2) {
-			int idx = isdn_dc2minor(cmd->driver, cmd->arg & 255);
-			unsigned long l2prot = (cmd->arg >> 8) & 255;
-			unsigned long features = (dev->drv[cmd->driver]->interface->features
-						 >> ISDN_FEATURE_L2_SHIFT) &
-				ISDN_FEATURE_L2_MASK;
-			unsigned long l2_feature = (1 << l2prot);
+		int idx = isdn_dc2minor(cmd->driver, cmd->arg & 255);
+		unsigned long l2prot = (cmd->arg >> 8) & 255;
+		unsigned long features = (dev->drv[cmd->driver]->interface->features
+						>> ISDN_FEATURE_L2_SHIFT) &
+						ISDN_FEATURE_L2_MASK;
+		unsigned long l2_feature = (1 << l2prot);
 
-			switch (l2prot) {
-				case ISDN_PROTO_L2_V11096:
-				case ISDN_PROTO_L2_V11019:
-				case ISDN_PROTO_L2_V11038:
-						/* If V.110 requested, but not supported by
-						 * HL-driver, set emulator-flag and change
-						 * Layer-2 to transparent
-						 */
-					if (!(features & l2_feature)) {
-						dev->v110emu[idx] = l2prot;
-						cmd->arg = (cmd->arg & 255) |
-								   (ISDN_PROTO_L2_TRANS << 8);
-					} else
-						dev->v110emu[idx] = 0;
-			}
+		switch (l2prot) {
+			case ISDN_PROTO_L2_V11096:
+			case ISDN_PROTO_L2_V11019:
+			case ISDN_PROTO_L2_V11038:
+			/* If V.110 requested, but not supported by
+			 * HL-driver, set emulator-flag and change
+			 * Layer-2 to transparent
+			 */
+				if (!(features & l2_feature)) {
+					dev->v110emu[idx] = l2prot;
+					cmd->arg = (cmd->arg & 255) |
+						(ISDN_PROTO_L2_TRANS << 8);
+				} else
+					dev->v110emu[idx] = 0;
+		}
 	}
 	return dev->drv[cmd->driver]->interface->command(cmd);
 }
@@ -838,6 +847,7 @@ isdn_status_callback(isdn_ctrl * c)
 			for (i = 0; i < ISDN_MAX_CHANNELS; i++)
 				if (dev->drvmap[i] == di)
 					isdn_all_eaz(di, dev->chanmap[i]);
+			set_global_features();
 			break;
 		case ISDN_STAT_STOP:
 			dev->drv[di]->flags &= ~DRV_FLAG_RUNNING;
@@ -1097,6 +1107,7 @@ isdn_status_callback(isdn_ctrl * c)
 			dev->drv[di] = NULL;
 			dev->drvid[di][0] = '\0';
 			isdn_info_update();
+			set_global_features();
 			restore_flags(flags);
 			return 0;
 		case ISDN_STAT_L1ERR:
@@ -2503,6 +2514,19 @@ isdn_add_channels(driver *d, int drvidx, int n, int adding)
  * Low-level-driver registration
  */
 
+static void
+set_global_features(void)
+{
+	int drvidx;
+
+	dev->global_features = 0;
+	for (drvidx = 0; drvidx < ISDN_MAX_DRIVERS; drvidx++) {
+		if (!dev->drv[drvidx])
+			continue;
+		if (dev->drv[drvidx]->interface)
+			dev->global_features |= dev->drv[drvidx]->interface->features;
+	}
+}
 
 #ifdef CONFIG_ISDN_DIVERSION
 extern isdn_divert_if *divert_if;
@@ -2616,6 +2640,7 @@ register_isdn(isdn_if * i)
 	strcpy(dev->drvid[drvidx], i->id);
 	isdn_info_update();
 	dev->drivers++;
+	set_global_features();
 	restore_flags(flags);
 	return 1;
 }

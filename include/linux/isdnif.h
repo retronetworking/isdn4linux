@@ -22,6 +22,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.32  1999/10/11 22:03:00  keil
+ * COMPAT_NEED_UACCESS (no include in isdn_compat.h)
+ *
  * Revision 1.31  1999/09/06 07:29:36  fritz
  * Changed my mail-address.
  *
@@ -173,10 +176,11 @@
 /*
  * Values for Layer-3-protocol-selection
  */
-#define ISDN_PROTO_L3_TRANS  0   /* Transparent                 */
-#define ISDN_PROTO_L3_TRANSDSP 1   /* Transparent with DSP    */
-#define ISDN_PROTO_L3_FAX    2   /* Fax Group 2/3             */
-#define ISDN_PROTO_L3_MAX    7   /* Max. 8 Protocols            */
+#define ISDN_PROTO_L3_TRANS	0	/* Transparent */
+#define ISDN_PROTO_L3_TRANSDSP	1	/* Transparent with DSP */
+#define ISDN_PROTO_L3_FCLASS2	2	/* Fax Group 2/3 CLASS 2 */
+#define ISDN_PROTO_L3_FCLASS1	3	/* Fax Group 2/3 CLASS 1 */
+#define ISDN_PROTO_L3_MAX	7	/* Max. 8 Protocols */
 
 #ifdef __KERNEL__
 
@@ -360,7 +364,8 @@ typedef struct
 /* Layer 3 */
 #define ISDN_FEATURE_L3_TRANS   (0x10000 << ISDN_PROTO_L3_TRANS)
 #define ISDN_FEATURE_L3_TRANSDSP (0x10000 << ISDN_PROTO_L3_TRANSDSP)
-#define ISDN_FEATURE_L3_FAX	(0x10000 << ISDN_PROTO_L3_FAX)
+#define ISDN_FEATURE_L3_FCLASS2	(0x10000 << ISDN_PROTO_L3_FCLASS2)
+#define ISDN_FEATURE_L3_FCLASS1	(0x10000 << ISDN_PROTO_L3_FCLASS1)
 
 #define ISDN_FEATURE_L3_MASK    (0x0FF0000) /* Max. 8 Protocols */
 #define ISDN_FEATURE_L3_SHIFT   (16)
@@ -461,6 +466,33 @@ typedef struct T30_s {
 
 #endif /* TTY_FAX */
 
+#define ISDN_FAX_CLASS1_FAE	0
+#define ISDN_FAX_CLASS1_FTS	1
+#define ISDN_FAX_CLASS1_FRS	2
+#define ISDN_FAX_CLASS1_FTM	3
+#define ISDN_FAX_CLASS1_FRM	4
+#define ISDN_FAX_CLASS1_FTH	5
+#define ISDN_FAX_CLASS1_FRH	6
+#define ISDN_FAX_CLASS1_CTRL	7
+
+#define ISDN_FAX_CLASS1_OK	0
+#define ISDN_FAX_CLASS1_CONNECT	1
+#define ISDN_FAX_CLASS1_NOCARR	2
+#define ISDN_FAX_CLASS1_ERROR	3
+#define ISDN_FAX_CLASS1_FCERROR	4
+#define ISDN_FAX_CLASS1_QUERY	5
+
+typedef struct {
+	__u8	cmd;
+	__u8	subcmd;
+	__u8	para[50];
+} aux_s;
+
+#define AT_COMMAND	0
+#define AT_EQ_VALUE	1
+#define AT_QUERY	2
+#define AT_EQ_QUERY	3
+
 /* CAPI structs */
 
 /* this is compatible to the old union size */
@@ -492,13 +524,14 @@ typedef struct {
 	int   command;		/* Command or Status (see above) */
 	ulong arg;		/* Additional Data               */
 	union {
-		ulong errcode;	/* Type of error with STAT_L1ERR         */
-		int length;	/* Amount of bytes sent with STAT_BSENT  */
-		u_char num[50];/* Additional Data			*/
+		ulong errcode;	/* Type of error with STAT_L1ERR	*/
+		int length;	/* Amount of bytes sent with STAT_BSENT	*/
+		u_char num[50];	/* Additional Data			*/
 		setup_parm setup;/* For SETUP msg			*/
 		capi_msg cmsg;	/* For CAPI like messages		*/
-		char display[85];/* display message data          */ 
-		dss1_cmd_stat dss1_io; /* DSS1 IO-parameter/result */
+		char display[85];/* display message data		*/ 
+		dss1_cmd_stat dss1_io; /* DSS1 IO-parameter/result	*/
+		aux_s aux;	/* for modem commands/indications	*/
 #ifdef CONFIG_ISDN_TTY_FAX
 		T30_s	*fax;	/* Pointer to ttys fax struct		*/
 #endif
