@@ -121,7 +121,7 @@ int DivasCardsDiscover(void)
 
 			if (check_region(Card.reset_base, 0x80))
 			{
-				printk(KERN_WARNING "Divas: PLX I/O Base already in use 0x%x-0x%x\n", Card.reset_base, Card.reset_base + 0xFF);
+				printk(KERN_WARNING "Divas: PLX I/O Base already in use 0x%x-0x%x\n", Card.reset_base, Card.reset_base + 0x7F);
 				wDeviceIndex++;
 				continue;
 			}
@@ -180,7 +180,7 @@ int DivasCardsDiscover(void)
 
 			if (check_region(Card.reset_base, 0x80))
 			{
-				printk(KERN_WARNING "Divas: PLX I/O Base already in use 0x%x-0x%x\n", Card.reset_base, Card.reset_base + 0xFF);
+				printk(KERN_WARNING "Divas: PLX I/O Base already in use 0x%x-0x%x\n", Card.reset_base, Card.reset_base + 0x7F);
 				wDeviceIndex++;
 				continue;
 			}
