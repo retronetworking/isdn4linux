@@ -19,6 +19,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.1  1996/04/20 16:04:36  fritz
+ * Initial revision
+ *
  */
 
 #include <linux/config.h>
@@ -29,6 +32,10 @@ extern void icn_init(void);
 
 #ifdef CONFIG_ISDN_DRV_TELES
 extern void teles_init(void);
+#endif
+
+#ifdef CONFIG_ISDN_DRV_HISAX
+extern void HiSax_init(void);
 #endif
 
 #ifdef CONFIG_ISDN_DRV_PCBIT
@@ -42,6 +49,9 @@ void isdn_cards_init(void)
 #endif
 #if CONFIG_ISDN_DRV_TELES
         teles_init();
+#endif
+#ifdef CONFIG_ISDN_DRV_HISAX
+	HiSax_init();
 #endif
 #if CONFIG_ISDN_DRV_PCBIT
         pcbit_init();
