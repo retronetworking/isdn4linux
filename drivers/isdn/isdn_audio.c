@@ -607,7 +607,9 @@ isdn_audio_calc_dtmf(modem_info * info, unsigned char *buf, int len, int fmt)
 	int c;
 
 	while (len) {
-		c = MIN(len, (DTMF_NPOINTS - s->idx));
+		c = DTMF_NPOINTS - s->idx;
+		if (c > len)
+			c = len;
 		if (c <= 0)
 			break;
 		for (i = 0; i < c; i++) {

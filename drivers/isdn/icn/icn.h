@@ -285,8 +285,5 @@ MODULE_PARM_DESC(icn_id2, "ID-String of first card, second S0 (4B only)");
 
 #define CID (card->interface.id)
 
-#define MIN(a,b) ((a<b)?a:b)
-#define MAX(a,b) ((a>b)?a:b)
-
 #endif                          /* defined(__KERNEL__) || defined(__DEBUGVAR__) */
 #endif                          /* icn_h */

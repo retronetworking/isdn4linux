@@ -758,9 +758,6 @@ extern int dwabc_isdn_get_net_free_channel(isdn_net_local *);
 #endif
 #endif
 
-/* Utility-Macros */
-#define MIN(a,b) ((a<b)?a:b)
-#define MAX(a,b) ((a>b)?a:b)
 #endif /* __KERNEL__ */
 
 #endif /* __ISDN_H__ */

@@ -18,8 +18,6 @@
 #define DBG_LOADFIRM	0
 #define DUMP_MBOXFRAME	2
 
-#define MIN(a,b) ((a<b)?a:b)
-
 #define DLE	0x10
 #define ETX	0x03
 
@@ -272,7 +270,9 @@ isar_load_firmware(struct IsdnCardState *cs, u_char *buf)
 			ret = 1;goto reterror;
 		}
 		while (left>0) {
-			noc = MIN(126, left);
+			noc = left;
+			if (noc > 126)
+				noc = 126;
 			nom = 2*noc;
 			mp  = msg;
 			*mp++ = sadr / 256;
