@@ -7,6 +7,10 @@
  *              Fritz Elfert
  *
  * $Log$
+ * Revision 1.17  1997/02/09 00:23:10  keil
+ * new interface handling, one interface per card
+ * some changes in debug and leased line mode
+ *
  * Revision 1.16  1997/01/27 23:17:03  keil
  * delete timers while unloading
  *
@@ -72,7 +76,6 @@ extern void HiSax_mod_inc_use_count(void);
 
 static int init_ds(struct Channel *chanp, int incoming);
 static void release_ds(struct Channel *chanp);
-static char *strcpyupto(char *dest, char *src, char upto);
 
 static struct Fsm callcfsm =
 {NULL, 0, 0};
@@ -283,17 +286,23 @@ static char *strLcEvent[] =
 #define LC_D  0
 #define LC_B  1
 
-static int
-my_atoi(char *s)
+static inline void
+l4_deliver_cause(struct Channel *chanp)
 {
-	int i, n;
-
-	n = 0;
-	if (!s)
-		return -1;
-	for (i = 0; *s >= '0' && *s <= '9'; i++, s++)
-		n = 10 * n + (*s - '0');
-	return n;
+	isdn_ctrl ic;
+	
+	if (chanp->para.cause<0)
+		return;
+	ic.driver = chanp->sp->myid;
+	ic.command = ISDN_STAT_CAUSE;
+	ic.arg = chanp->chan;
+	if (chanp->sp->protocol == ISDN_PTYPE_EURO)
+		sprintf(ic.parm.num, "E%02X%02X", chanp->para.loc,
+			chanp->para.cause);
+	else
+		sprintf(ic.parm.num, "%02X%02X", chanp->para.loc,
+			chanp->para.cause);
+	chanp->sp->iif.statcallb(&ic);
 }
 
 /*
@@ -304,26 +313,13 @@ l4_prep_dialout(struct FsmInst *fi, int event, void *arg)
 {
 	isdn_ctrl *ic = arg;
 	struct Channel *chanp = fi->userdata;
-	char *ptr;
-	char sis[3];
 
 	FsmChangeState(fi, ST_OUT_WAIT_D);
 	FsmDelTimer(&chanp->drel_timer, 60);
 	FsmDelTimer(&chanp->dial_timer, 73);
-	/* Destination Phone-Number */
-	ptr = strcpyupto(chanp->para.called, ic->num, ',');
-	/* Source Phone-Number */
-	ptr = strcpyupto(chanp->para.calling, ptr + 1, ',');
-	if (!strcmp(chanp->para.calling, "0"))
-		chanp->para.calling[0] = '\0';
-
-	/* Service-Indicator 1 */
-	ptr = strcpyupto(sis, ptr + 1, ',');
-	chanp->para.info = my_atoi(sis);
-
-	/* Service-Indicator 2 */
-	ptr = strcpyupto(sis, ptr + 1, '\0');
-	chanp->para.info2 = my_atoi(sis);
+	chanp->para.setup = ic->parm.setup;
+	if (!strcmp(chanp->para.setup.eazmsn, "0"))
+		chanp->para.setup.eazmsn[0] = '\0';
 
 	chanp->l2_active_protocol = chanp->l2_protocol;
 	chanp->incoming = 0;
@@ -345,7 +341,6 @@ l4_prep_dialout(struct FsmInst *fi, int event, void *arg)
 	} else {
 		chanp->Flags = FLG_START_D;
 		if (chanp->leased) {
-/*                      chanp->is.ma.manl1(&chanp->is, PH_DEACTIVATE, NULL); */
 			chanp->lc_d.l2_establish = 0;
 		}
 		FsmEvent(&chanp->lc_d.lcfi, EV_LC_ESTABLISH, NULL);
@@ -452,8 +447,7 @@ l4_deliver_call(struct FsmInst *fi, int event, void *arg)
 		 * No need to return "unknown" for calls without OAD,
 		 * cause that's handled in linklevel now (replaced by '0')
 		 */
-		sprintf(ic.num, "%s,%d,0,%s", chanp->para.calling, chanp->para.info,
-			chanp->para.called);
+		ic.parm.setup = chanp->para.setup;
 		ret = chanp->sp->iif.statcallb(&ic);
 		if (chanp->debug & 1) {
 			sprintf(txt, "statcallb ret=%d", ret);
@@ -590,6 +584,7 @@ l4_timeout_d(struct FsmInst *fi, int event, void *arg)
 		if (chanp->debug & 1)
 			link_debug(chanp, "STAT_DHUP", 0);
 		RESBIT(chanp->Flags, FLG_LL_DCONN);
+		l4_deliver_cause(chanp);
 		ic.driver = chanp->sp->myid;
 		ic.command = ISDN_STAT_DHUP;
 		ic.arg = chanp->chan;
@@ -714,6 +709,7 @@ l4_received_d_rel(struct FsmInst *fi, int event, void *arg)
 			link_debug(chanp, "STAT_DHUP", 0);
 		RESBIT(chanp->Flags, FLG_LL_DCONN);
 		RESBIT(chanp->Flags, FLG_CALL_ALERT);
+		l4_deliver_cause(chanp);
 		ic.driver = chanp->sp->myid;
 		ic.command = ISDN_STAT_DHUP;
 		ic.arg = chanp->chan;
@@ -757,6 +753,7 @@ l4_received_d_relcnf(struct FsmInst *fi, int event, void *arg)
 			link_debug(chanp, "STAT_DHUP", 0);
 		RESBIT(chanp->Flags, FLG_LL_DCONN);
 		RESBIT(chanp->Flags, FLG_CALL_ALERT);
+		l4_deliver_cause(chanp);
 		ic.driver = chanp->sp->myid;
 		ic.command = ISDN_STAT_DHUP;
 		ic.arg = chanp->chan;
@@ -796,6 +793,7 @@ l4_received_d_disc(struct FsmInst *fi, int event, void *arg)
 			link_debug(chanp, "STAT_DHUP", 0);
 		RESBIT(chanp->Flags, FLG_LL_DCONN);
 		RESBIT(chanp->Flags, FLG_CALL_ALERT);
+		l4_deliver_cause(chanp);
 		ic.driver = chanp->sp->myid;
 		ic.command = ISDN_STAT_DHUP;
 		ic.arg = chanp->chan;
@@ -814,7 +812,7 @@ l4_charge_info(struct FsmInst *fi, int event, void *arg)
 	ic.driver = chanp->sp->myid;
 	ic.command = ISDN_STAT_CINF;
 	ic.arg = chanp->chan;
-	sprintf(ic.num, "%d", chanp->para.chargeinfo);
+	sprintf(ic.parm.num, "%d", chanp->para.chargeinfo);
 	chanp->sp->iif.statcallb(&ic);
 }
 
@@ -890,6 +888,7 @@ l4_setup_err(struct FsmInst *fi, int event, void *arg)
 		if (chanp->debug & 1)
 			link_debug(chanp, "STAT_DHUP", 0);
 		RESBIT(chanp->Flags, FLG_LL_DCONN);
+		l4_deliver_cause(chanp);
 		ic.driver = chanp->sp->myid;
 		ic.command = ISDN_STAT_DHUP;
 		ic.arg = chanp->chan;
@@ -909,6 +908,7 @@ l4_connect_err(struct FsmInst *fi, int event, void *arg)
 		if (chanp->debug & 1)
 			link_debug(chanp, "STAT_DHUP", 0);
 		RESBIT(chanp->Flags, FLG_LL_DCONN);
+		l4_deliver_cause(chanp);
 		ic.driver = chanp->sp->myid;
 		ic.command = ISDN_STAT_DHUP;
 		ic.arg = chanp->chan;
@@ -947,6 +947,14 @@ l4_active_dlrl(struct FsmInst *fi, int event, void *arg)
 		if (chanp->debug & 1)
 			link_debug(chanp, "STAT_DHUP", 0);
 		RESBIT(chanp->Flags, FLG_LL_DCONN);
+		if (chanp->sp->protocol == ISDN_PTYPE_EURO) {
+			chanp->para.cause  = 0x2f;
+			chanp->para.loc    = 0;
+		} else {
+			chanp->para.cause  = 0x70;
+			chanp->para.loc    = 0;
+		}
+		l4_deliver_cause(chanp);
 		ic.driver = chanp->sp->myid;
 		ic.command = ISDN_STAT_DHUP;
 		ic.arg = chanp->chan;
@@ -1672,7 +1680,7 @@ HiSax_command(isdn_ctrl * ic)
 {
 	struct IsdnCardState *csta = hisax_findcard(ic->driver);
 	struct Channel *chanp;
-	char tmp[64];
+	char tmp[128];
 	int i;
 	unsigned int num;
 
@@ -1700,7 +1708,9 @@ HiSax_command(isdn_ctrl * ic)
 		case (ISDN_CMD_DIAL):
 			chanp = csta->channel + (ic->arg & 0xff);
 			if (chanp->debug & 1) {
-				sprintf(tmp, "DIAL %s", ic->num);
+				sprintf(tmp, "DIAL %s -> %s (%d,%d)",
+					ic->parm.setup.eazmsn, ic->parm.setup.phone,
+					ic->parm.setup.si1, ic->parm.setup.si2);
 				link_debug(chanp, tmp, 1);
 			}
 			/* this solution is dirty and may be change, if
@@ -1733,7 +1743,7 @@ HiSax_command(isdn_ctrl * ic)
 		case (ISDN_CMD_SUSPEND):
 			chanp = csta->channel + ic->arg;
 			if (chanp->debug & 1) {
-				sprintf(tmp, "SUSPEND %s", ic->num);
+				sprintf(tmp, "SUSPEND %s", ic->parm.num);
 				link_debug(chanp, tmp, 1);
 			}
 			FsmEvent(&chanp->fi, EV_SUSPEND, ic);
@@ -1741,7 +1751,7 @@ HiSax_command(isdn_ctrl * ic)
 		case (ISDN_CMD_RESUME):
 			chanp = csta->channel + ic->arg;
 			if (chanp->debug & 1) {
-				sprintf(tmp, "RESUME %s", ic->num);
+				sprintf(tmp, "RESUME %s", ic->parm.num);
 				link_debug(chanp, tmp, 1);
 			}
 			FsmEvent(&chanp->fi, EV_RESUME, ic);
@@ -1776,7 +1786,7 @@ HiSax_command(isdn_ctrl * ic)
 						channel_report(&csta->channel[i]);
 					break;
 				case (1):
-					num = *(unsigned int *) ic->num;
+					num = *(unsigned int *) ic->parm.num;
 					distr_debug(csta, num);
 					sprintf(tmp, "debugging flags card %d set to %x\n",
 						csta->cardnr + 1, num);
@@ -1784,7 +1794,7 @@ HiSax_command(isdn_ctrl * ic)
 					printk(KERN_DEBUG "HiSax: %s", tmp);
 					break;
 				case (2):
-					num = *(unsigned int *) ic->num;
+					num = *(unsigned int *) ic->parm.num;
 					i = num >> 8;
 					if (i >= 2)
 						break;
@@ -1796,11 +1806,11 @@ HiSax_command(isdn_ctrl * ic)
 					}
 					break;
 				case (3):
-					for (i = 0; i < *(unsigned int *) ic->num; i++)
+					for (i = 0; i < *(unsigned int *) ic->parm.num; i++)
 						HiSax_mod_dec_use_count();
 					break;
 				case (4):
-					for (i = 0; i < *(unsigned int *) ic->num; i++)
+					for (i = 0; i < *(unsigned int *) ic->parm.num; i++)
 						HiSax_mod_inc_use_count();
 					break;
 				case (5):	/* set card in leased mode */
@@ -1817,17 +1827,17 @@ HiSax_command(isdn_ctrl * ic)
 					break;
 #endif				/* MODULE */
 				case (11):
-					csta->debug = *(unsigned int *) ic->num;
+					csta->debug = *(unsigned int *) ic->parm.num;
 					sprintf(tmp, "l1 debugging flags card %d set to %x\n",
-						csta->cardnr + 1, *(unsigned int *) ic->num);
+						csta->cardnr + 1, csta->debug);
 					HiSax_putstatus(cards[0].sp, tmp);
 					printk(KERN_DEBUG "HiSax: %s", tmp);
 					break;
 				case (13):
-					csta->channel[0].is.l3.debug = *(unsigned int *) ic->num;
-					csta->channel[1].is.l3.debug = *(unsigned int *) ic->num;
+					csta->channel[0].is.l3.debug = *(unsigned int *) ic->parm.num;
+					csta->channel[1].is.l3.debug = *(unsigned int *) ic->parm.num;
 					sprintf(tmp, "l3 debugging flags card %d set to %x\n",
-						csta->cardnr + 1, *(unsigned int *) ic->num);
+						csta->cardnr + 1, *(unsigned int *) ic->parm.num);
 					HiSax_putstatus(cards[0].sp, tmp);
 					printk(KERN_DEBUG "HiSax: %s", tmp);
 					break;
@@ -1913,13 +1923,4 @@ HiSax_writebuf(int id, int chan, const u_char * buf, int count, int user)
 		BufPoolRelease(ibh);
 		return (0);
 	}
-}
-
-static char *
-strcpyupto(char *dest, char *src, char upto)
-{
-	while (*src && (*src != upto) && (*src != '\0'))
-		*dest++ = *src++;
-	*dest = '\0';
-	return (src);
 }
