@@ -21,6 +21,11 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.115  2000/03/17 12:49:42  kai
+ * calling statcallb with ISDN_STAT_BSENT in hard-IRQ context is now
+ * officially allowed. writebuf_skb() will never be called in hard-IRQ context
+ * anymore.
+ *
  * Revision 1.114  2000/03/16 16:37:41  kai
  * Allow phone numbers starting with "*" as outgoing numbers for
  * networking interface. Some PBX's need this to allow dialing internal
@@ -509,11 +514,38 @@
  * --KG
  */
 
+static __inline__ void isdn_net_inc_frame_cnt(isdn_net_local *lp)
+{
+       atomic_inc(&lp->frame_cnt);
+#if 0
+       printk(KERN_DEBUG "%s: inc_frame_cnt now %d\n", lp->name, 
+	      atomic_read(&p->frame_cnt));
+#endif
+}
+
+static __inline__ void isdn_net_dec_frame_cnt(isdn_net_local *lp)
+{
+       atomic_dec(&lp->frame_cnt);
+#if 0
+       printk(KERN_DEBUG "%s: dec_frame_cnt now %d\n", lp->name, 
+	      atomic_read(&p->frame_cnt));
+#endif
+}
+
+static __inline__ void isdn_net_zero_frame_cnt(isdn_net_local *lp)
+{
+       atomic_set(&lp->frame_cnt, 0);
+#if 0
+       printk(KERN_DEBUG "%s: zero_frame_cnt now %d\n", lp->name,
+	      atomic_read(&lp->frame_cnt));
+#endif
+}
+
 /* 
  * Find out if the netdevice has been ifup-ed yet.
  * For slaves, look at the corresponding master.
  */
-static int __inline__ isdn_net_started(isdn_net_dev *n)
+static __inline__ int isdn_net_started(isdn_net_dev *n)
 {
 	isdn_net_local *lp = n->local;
 	struct net_device *dev;
@@ -533,7 +565,7 @@ static int __inline__ isdn_net_started(isdn_net_dev *n)
  * wake up the network -> net_device queue.
  * For slaves, wake the corresponding master interface.
  */
-static void __inline__ isdn_net_lp_xon(isdn_net_local * lp)
+static __inline__ void isdn_net_lp_xon(isdn_net_local * lp)
 {
 	if (lp->master) 
 		netif_wake_queue(lp->master);
@@ -907,6 +939,7 @@ isdn_net_stat_callback(int idx, isdn_ctrl *c)
 				/* A packet has successfully been sent out */
 				if ((lp->flags & ISDN_NET_CONNECTED) &&
 				    (!lp->dialstate)) {
+					isdn_net_dec_frame_cnt(lp);
 					lp->stats.tx_packets++;
 					lp->stats.tx_bytes += c->parm.length;
 #ifdef CONFIG_ISDN_WITH_ABC
@@ -916,6 +949,10 @@ isdn_net_stat_callback(int idx, isdn_ctrl *c)
 #endif
 					/* some HL drivers deliver 
 					   ISDN_STAT_BSENT from hw interrupt.
+					   So we use a task queue for further processing,
+					   particularly we want writebuf_skb() called single-
+					   threaded.
+
 					   Output routines in isdn_ppp are now
 					   called with irq disabled such that
 					   dequeueing the sav_skb while another
@@ -1002,6 +1039,7 @@ isdn_net_stat_callback(int idx, isdn_ctrl *c)
 #endif /* CONFIG_ISDN_X25 */
 			case ISDN_STAT_BCONN:
 				/* B-Channel is up */
+				isdn_net_zero_frame_cnt(lp);                   
 				switch (lp->dialstate) {
 					case 5:
 					case 6:
@@ -1667,6 +1705,47 @@ isdn_net_log_skb(struct sk_buff * skb, isdn_net_local * lp)
 	}
 }
 
+/* 
+ * all frames sent from the (net) LL to a HL driver should go via this function
+ */
+
+int isdn_net_writebuf_skb(isdn_net_local *lp, struct sk_buff *skb)
+{
+	int ret;
+	int len = skb->len;     /* save len */
+#if 0
+
+	if (atomic_read(&lp->frame_cnt) >= ISDN_NET_MAX_QUEUE_LENGTH) {
+		/* we should never get here */
+		printk(KERN_WARNING "%s: frame_cnt %d too large\n", lp->name, 
+		       atomic_read(&lp->frame_cnt));
+		goto error;
+	}
+#endif
+	ret = isdn_writebuf_skb_stub(lp->isdn_device, lp->isdn_channel, 1, skb);
+	if (ret != len) {
+		return ret;
+	}
+#if 0
+	if (ret != len) {
+		/* we should never get here either */
+		printk(KERN_WARNING "%s: HL driver queue full\n", lp->name);
+		goto error;
+	}
+#endif
+	
+	lp->transcount += len;
+	isdn_net_inc_frame_cnt(lp);
+	return 0;
+
+#if 0
+ error:
+	dev_kfree_skb(skb);
+	lp->stats.tx_errors++;
+	return;
+#endif
+}
+
 /*
  * Generic routine to send out an skbuf.
  * If lowlevel-device does not support support skbufs, use
@@ -1791,9 +1870,8 @@ int isdn_net_send_skb
 	int ret;
 	int len = skb->len;     /* save len */
 
-	ret = isdn_writebuf_skb_stub(lp->isdn_device, lp->isdn_channel, 1, skb);
+	ret = isdn_net_writebuf_skb(lp, skb);
 	if (ret == len) {
-		lp->transcount += len;
 #ifdef CONFIG_ISDN_WITH_ABC
 #ifdef CONFIG_ISDN_WITH_ABC_FRAME_LIMIT
 		atomic_inc(&lp->dw_abc_pkt_onl);
@@ -2298,7 +2376,7 @@ isdn_net_slarp_send(isdn_net_local *lp, int is_reply)
 	s->t1 = t >> 16;
 	s->t0 = t & 0xffff;
 	len = skb->len;
-	if (isdn_writebuf_skb_stub(lp->isdn_device, lp->isdn_channel, 0, skb) != len)
+	if (isdn_net_writebuf_skb(lp, skb) != len)
 		dev_kfree_skb(skb);
 }
 

@@ -19,6 +19,13 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.64  2000/03/17 10:43:56  kai
+ * 2.3.99 contains MPPP constants which cause a warning because we
+ * redefine them in include/linux/isdn_ppp.h
+ *
+ * So from now on we use the generic PPP constants, change is backwards
+ * compatible, though
+ *
  * Revision 1.63  2000/03/16 15:46:37  kai
  * a little bugfix and cosmetic changes
  *
@@ -1088,7 +1095,7 @@ isdn_ppp_write(int min, struct file *file, const char *buf, int count)
 
 			save_flags(flags);
 			cli();
-			if ((cnt = isdn_writebuf_skb_stub(lp->isdn_device, lp->isdn_channel, 1, skb)) != count) {
+			if ((cnt = isdn_net_writebuf_skb(lp, skb)) != count) {
 				if (lp->sav_skb) {
 					dev_kfree_skb(lp->sav_skb);
 					printk(KERN_INFO "isdn_ppp_write: freeing sav_skb (%d,%d)!\n", cnt, count);
@@ -2347,8 +2354,7 @@ static void isdn_ppp_ccp_xmit_reset(struct ippp_struct *is, int proto,
 	count = skb->len;
 	save_flags(flags);
 	cli();
-	if ((cnt = isdn_writebuf_skb_stub(lp->isdn_device, lp->isdn_channel,
-					  1, skb)) != count) {
+	if ((cnt = isdn_net_writebuf_skb(lp, skb)) != count) {
 		if (lp->sav_skb) {
 			dev_kfree_skb(lp->sav_skb);
 			printk(KERN_INFO

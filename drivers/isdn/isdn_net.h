@@ -21,6 +21,12 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.10  1999/08/22 20:26:06  calle
+ * backported changes from kernel 2.3.14:
+ * - several #include "config.h" gone, others come.
+ * - "struct device" changed to "struct net_device" in 2.3.14, added a
+ *   define in isdn_compat.h for older kernel versions.
+ *
  * Revision 1.9  1999/04/12 12:33:27  fritz
  * Changes from 2.0 tree.
  *
@@ -123,3 +129,4 @@ extern int isdn_net_send_skb(struct net_device *, isdn_net_local *,
 extern int isdn_net_rcv_skb(int, struct sk_buff *);
 extern void isdn_net_slarp_out(void);
 extern int isdn_net_dial_req(isdn_net_local *);
+extern int isdn_net_writebuf_skb(isdn_net_local *lp, struct sk_buff *skb);
