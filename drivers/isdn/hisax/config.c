@@ -5,6 +5,10 @@
  *
  *
  * $Log$
+ * Revision 1.15.2.12  1998/07/15 14:43:29  calle
+ * Support for AVM passive PCMCIA cards:
+ *    A1 PCMCIA, FRITZ!Card PCMCIA and FRITZ!Card PCMCIA 2.0
+ *
  * Revision 1.15.2.11  1998/05/27 18:05:07  keil
  * HiSax 3.0
  *
@@ -686,10 +690,11 @@ int sedl_init_pcmcia(void *pcm_iob, int pcm_irq, int *busy_flag, int prot)
 	printk(KERN_DEBUG "HiSax: Total %d card%s defined\n",
 	       nrcards, (nrcards > 1) ? "s" : "");
 
-	Isdnl1New();
 	CallcNew();
+	Isdnl3New();
 	Isdnl2New();
 	TeiNew();
+	Isdnl1New();
 	HiSax_inithardware(busy_flag);
 	printk(KERN_NOTICE "HiSax: module installed\n");
 	return (0);
