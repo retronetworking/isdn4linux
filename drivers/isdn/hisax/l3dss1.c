@@ -9,6 +9,9 @@
  *              Fritz Elfert
  *
  * $Log$
+ * Revision 1.16.2.6  1998/10/23 15:00:56  fritz
+ * Eliminated a compiler warning.
+ *
  * Revision 1.16.2.5  1998/09/27 13:06:48  keil
  * Apply most changes from 2.1.X (HiSax 3.1)
  *
@@ -1639,8 +1642,8 @@ static struct stateentry downstatelist[] =
 	 CC_T308_2, l3dss1_t308_2},
 };
 
-static int downsllen = sizeof(downstatelist) /
-sizeof(struct stateentry);
+#define DOWNSLLEN \
+	(sizeof(downstatelist) / sizeof(struct stateentry))
 
 static struct stateentry datastatelist[] =
 {
@@ -1697,7 +1700,8 @@ static struct stateentry datastatelist[] =
 	 MT_INVALID, l3dss1_status_req},
 };
 
-static int datasllen = sizeof(datastatelist) / sizeof(struct stateentry);
+#define DATASLLEN \
+	(sizeof(datastatelist) / sizeof(struct stateentry))
 
 static struct stateentry globalmes_list[] =
 {
@@ -1709,8 +1713,8 @@ static struct stateentry globalmes_list[] =
 	 MT_RESTART_ACKNOWLEDGE, l3dss1_restart_ack},
 */
 };
-static int globalm_len = sizeof(globalmes_list) / sizeof(struct stateentry);
-
+#define GLOBALM_LEN \
+	(sizeof(globalmes_list) / sizeof(struct stateentry))
 /* *INDENT-ON* */
 
 
@@ -1720,11 +1724,11 @@ global_handler(struct PStack *st, int mt, struct sk_buff *skb)
 	int i;
 	struct l3_process *proc = st->l3.global;
 
-	for (i = 0; i < globalm_len; i++)
+	for (i = 0; i < GLOBALM_LEN; i++)
 		if ((mt == globalmes_list[i].primitive) &&
 		    ((1 << proc->state) & globalmes_list[i].state))
 			break;
-	if (i == globalm_len) {
+	if (i == GLOBALM_LEN) {
 		dev_kfree_skb(skb, FREE_READ);
 		if (st->l3.debug & L3_DEB_STATE) {
 			l3_debug(st, "dss1 global state %d mt %x unhandled",
@@ -1850,11 +1854,11 @@ dss1up(struct PStack *st, int pr, void *arg)
 		 */
 		mt = MT_INVALID;	/* sorry, not clean, but do the right thing ;-) */
 	}
-	for (i = 0; i < datasllen; i++)
+	for (i = 0; i < DATASLLEN; i++)
 		if ((mt == datastatelist[i].primitive) &&
 		    ((1 << proc->state) & datastatelist[i].state))
 			break;
-	if (i == datasllen) {
+	if (i == DATASLLEN) {
 		dev_kfree_skb(skb, FREE_READ);
 		if (st->l3.debug & L3_DEB_STATE) {
 			l3_debug(st, "dss1up%sstate %d mt %x unhandled",
@@ -1899,11 +1903,11 @@ dss1down(struct PStack *st, int pr, void *arg)
 		printk(KERN_ERR "HiSax dss1down without proc pr=%04x\n", pr);
 		return;
 	}
-	for (i = 0; i < downsllen; i++)
+	for (i = 0; i < DOWNSLLEN; i++)
 		if ((pr == downstatelist[i].primitive) &&
 		    ((1 << proc->state) & downstatelist[i].state))
 			break;
-	if (i == downsllen) {
+	if (i == DOWNSLLEN) {
 		if (st->l3.debug & L3_DEB_STATE) {
 			l3_debug(st, "dss1down state %d prim %d unhandled",
 				proc->state, pr);

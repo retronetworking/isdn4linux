@@ -14,6 +14,9 @@
  *
  *
  * $Log$
+ * Revision 1.5.2.1  1997/10/17 22:14:20  keil
+ * update to last hisax version
+ *
  * Revision 1.6  1997/07/27 21:09:44  keil
  * move functions to isdnl3.c
  *
@@ -159,7 +162,7 @@ struct MessageType mt_n0[] =
 	{MT_N0_CLO_ACK, "CLOse ACKnowledge"}
 };
 
-int mt_n0_len = (sizeof(mt_n0) / sizeof(struct MessageType));
+#define MT_N0_LEN (sizeof(mt_n0) / sizeof(struct MessageType))
 
 static
 struct MessageType mt_n1[] =
@@ -196,7 +199,7 @@ struct MessageType mt_n1[] =
 	{MT_N1_STAT, "STATus"}
 };
 
-int mt_n1_len = (sizeof(mt_n1) / sizeof(struct MessageType));
+#define MT_N1_LEN (sizeof(mt_n1) / sizeof(struct MessageType))
 
 static struct MessageType fac_1tr6[] =
 {
@@ -220,9 +223,7 @@ static struct MessageType fac_1tr6[] =
 	{FAC_Rueckwechsel, "Rueckwechsel"},
 	{FAC_Umleitung, "Umleitung"}
 };
-int fac_1tr6_len = (sizeof(fac_1tr6) / sizeof(struct MessageType));
-
-
+#define FAC_1TR6_LEN (sizeof(fac_1tr6) / sizeof(struct MessageType))
 
 static int
 prbits(char *dest, u_char b, int start, int len)
@@ -925,7 +926,7 @@ static struct InformationElement we_0[] =
 	{WE0_userInfo, "User Info", general}
 };
 
-static int we_0_len = (sizeof(we_0) / sizeof(struct InformationElement));
+#define WE_0_LEN (sizeof(we_0) / sizeof(struct InformationElement))
 
 static struct InformationElement we_6[] =
 {
@@ -937,7 +938,7 @@ static struct InformationElement we_6[] =
 	{WE6_statusCalled, "Status Called", general},
 	{WE6_addTransAttr, "Additional Transmission Attributes", general}
 };
-static int we_6_len = (sizeof(we_6) / sizeof(struct InformationElement));
+#define WE_6_LEN (sizeof(we_6) / sizeof(struct InformationElement))
 
 int
 QuickHex(char *txt, u_char * p, int cnt)
@@ -1007,11 +1008,11 @@ dlogframe(struct IsdnCardState *sp, u_char * buf, int size, char *comment)
 			cr = 0;
 		mt = *buf++;
 		if (pd == PROTO_DIS_N0) {	/* N0 */
-			for (i = 0; i < mt_n0_len; i++)
+			for (i = 0; i < MT_N0_LEN; i++)
 				if (mt_n0[i].nr == mt)
 					break;
 			/* display message type if it exists */
-			if (i == mt_n0_len)
+			if (i == MT_N0_LEN)
 				dp += sprintf(dp, "callref %d %s size %d unknown message type N0 %x!\n",
 					      cr & 0x7f, (cr & 0x80) ? "called" : "caller",
 					      size, mt);
@@ -1020,11 +1021,11 @@ dlogframe(struct IsdnCardState *sp, u_char * buf, int size, char *comment)
 					      cr & 0x7f, (cr & 0x80) ? "called" : "caller",
 					      size, mt_n0[i].descr);
 		} else {	/* N1 */
-			for (i = 0; i < mt_n1_len; i++)
+			for (i = 0; i < MT_N1_LEN; i++)
 				if (mt_n1[i].nr == mt)
 					break;
 			/* display message type if it exists */
-			if (i == mt_n1_len)
+			if (i == MT_N1_LEN)
 				dp += sprintf(dp, "callref %d %s size %d unknown message type N1 %x!\n",
 					      cr & 0x7f, (cr & 0x80) ? "called" : "caller",
 					      size, mt);
@@ -1067,23 +1068,23 @@ dlogframe(struct IsdnCardState *sp, u_char * buf, int size, char *comment)
 			}
 			/* No, locate it in the table */
 			if (cs == 0) {
-				for (i = 0; i < we_0_len; i++)
+				for (i = 0; i < WE_0_LEN; i++)
 					if (*buf == we_0[i].nr)
 						break;
 
 				/* When found, give appropriate msg */
-				if (i != we_0_len) {
+				if (i != WE_0_LEN) {
 					dp += sprintf(dp, "  %s\n", we_0[i].descr);
 					dp += we_0[i].f(dp, buf);
 				} else
 					dp += sprintf(dp, "  Codeset %d attribute %x attribute size %d\n", cs, *buf, buf[1]);
 			} else if (cs == 6) {
-				for (i = 0; i < we_6_len; i++)
+				for (i = 0; i < WE_6_LEN; i++)
 					if (*buf == we_6[i].nr)
 						break;
 
 				/* When found, give appropriate msg */
-				if (i != we_6_len) {
+				if (i != WE_6_LEN) {
 					dp += sprintf(dp, "  %s\n", we_6[i].descr);
 					dp += we_6[i].f(dp, buf);
 				} else
