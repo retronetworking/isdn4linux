@@ -19,6 +19,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.9  1999/09/06 07:29:36  fritz
+ * Changed my mail-address.
+ *
  * Revision 1.8  1998/11/18 18:59:43  armin
  * changes for 2.1.127
  *
@@ -862,6 +865,7 @@ isdnloop_parse_cmd(isdnloop_card * card)
 			if (card->rcard[ch - 1]) {
 				isdnloop_fake(card->rcard[ch - 1], "BCON_I",
 					      card->rch[ch - 1] + 1);
+				isdnloop_fake(card, "BCON_C", ch);
 			}
 			break;
 		case 17:
