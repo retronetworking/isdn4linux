@@ -4,6 +4,9 @@
  * Copyright 1999 by Carsten Paeth (calle@calle.in-berlin.de)
  *
  * $Log$
+ * Revision 1.4  1999/08/04 10:10:08  calle
+ * Bugfix: corrected /proc functions, added structure for new AVM cards.
+ *
  * Revision 1.3  1999/07/23 08:41:47  calle
  * prepared for new AVM cards.
  *
@@ -91,7 +94,7 @@ typedef struct avmcard {
 	int interrupt;
 
 	void *mbase;
-	__u32 csr;
+	volatile __u32 csr;
 	avmcard_dmainfo *dma;
 
 	struct capi_ctr *ctrl;

@@ -6,6 +6,9 @@
  * Copyright 1996 by Carsten Paeth (calle@calle.in-berlin.de)
  *
  * $Log$
+ * Revision 1.19  1999/07/09 15:05:42  keil
+ * compat.h is now isdn_compat.h
+ *
  * Revision 1.18  1999/07/06 07:42:01  calle
  * - changes in /proc interface
  * - check and changed calls to [dev_]kfree_skb and [dev_]alloc_skb.
@@ -198,9 +201,6 @@ static ssize_t capi_read(struct file *file, char *buf,
 		skb_queue_head(&cdev->recv_queue, skb);
 		return -EMSGSIZE;
 	}
-	if (CAPIMSG_COMMAND(skb->data) == CAPI_DATA_B3
-	    && CAPIMSG_SUBCOMMAND(skb->data) == CAPI_IND)
-		CAPIMSG_SETDATA(skb->data, buf + CAPIMSG_LEN(skb->data));
 	retval = copy_to_user(buf, skb->data, skb->len);
 	if (retval) {
 		skb_queue_head(&cdev->recv_queue, skb);

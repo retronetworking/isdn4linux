@@ -6,6 +6,12 @@
  * (c) Copyright 1999 by Carsten Paeth (calle@calle.in-berlin.de)
  * 
  * $Log$
+ * Revision 1.8  1999/08/22 20:26:22  calle
+ * backported changes from kernel 2.3.14:
+ * - several #include "config.h" gone, others come.
+ * - "struct device" changed to "struct net_device" in 2.3.14, added a
+ *   define in isdn_compat.h for older kernel versions.
+ *
  * Revision 1.7  1999/08/04 10:10:09  calle
  * Bugfix: corrected /proc functions, added structure for new AVM cards.
  *
@@ -481,7 +487,6 @@ void b1_handle_interrupt(avmcard * card)
 		} else {
 			memcpy(skb_put(skb, MsgLen), card->msgbuf, MsgLen);
 			memcpy(skb_put(skb, DataB3Len), card->databuf, DataB3Len);
-			CAPIMSG_SETDATA(skb->data, skb->data + MsgLen);
 			ctrl->handle_capimsg(ctrl, ApplId, skb);
 		}
 		break;

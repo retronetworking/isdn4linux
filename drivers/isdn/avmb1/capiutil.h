@@ -7,6 +7,11 @@
  * Rewritten for Linux 1996 by Carsten Paeth (calle@calle.in-berlin.de)
  * 
  * $Log$
+ * Revision 1.2  1997/05/18 09:24:19  calle
+ * added verbose disconnect reason reporting to avmb1.
+ * some fixes in capi20 interface.
+ * changed info messages for B1-PCI
+ *
  * Revision 1.1  1997/03/04 21:50:35  calle
  * Frirst version in isdn4linux
  *
@@ -38,14 +43,6 @@
 	do { \
 		((__u8 *)m)[2] = (__u16)(applid) & 0xff; \
 		((__u8 *)m)[3] = ((__u16)(applid) >> 8) & 0xff; \
-	} while (0)
-
-#define	CAPIMSG_SETDATA(m, data) \
-	do { \
-		((__u8 *)m)[12] = (__u32)(data) & 0xff; \
-		((__u8 *)m)[13] = ((__u32)(data) >> 8) & 0xff; \
-		((__u8 *)m)[14] = ((__u32)(data) >> 16) & 0xff; \
-		((__u8 *)m)[15] = ((__u32)(data) >> 24) & 0xff; \
 	} while (0)
 
 /*----- basic-type definitions -----*/
