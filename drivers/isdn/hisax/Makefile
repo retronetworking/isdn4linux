@@ -19,6 +19,7 @@ endif
 
 ISAC_OBJ :=
 HSCX_OBJ :=
+HFC_OBJ :=
 
 ifeq ($(CONFIG_HISAX_16_0),y)
 	 O_OBJS += teles0.o
@@ -65,9 +66,10 @@ endif
 ifeq ($(CONFIG_HISAX_TELEINT),y)
 	 O_OBJS += teleint.o
 	 ISAC_OBJ := isac.o
+	 HFC_OBJ := hfc_2bs0.o
 endif
 
-O_OBJS += config.o $(ISAC_OBJ) $(HSCX_OBJ)
+O_OBJS += config.o $(ISAC_OBJ) $(HSCX_OBJ) $(HFC_OBJ)
 
 O_TARGET :=
 
