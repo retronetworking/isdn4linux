@@ -22,6 +22,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.3  1996/04/28 15:19:23  fritz
+ * adapted to new ioctl names.
+ *
  * Revision 1.2  1996/01/04 02:46:16  fritz
  * Changed copying policy to GPL.
  *
@@ -32,7 +35,7 @@
 
 #include <sys/types.h>
 #include <sys/fcntl.h>
-#include <sys/mman.h>
+/* #include <sys/mman.h> */
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
