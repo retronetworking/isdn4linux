@@ -2995,12 +2995,8 @@ idi_send_data(eicon_card *card, eicon_chan *chan, int ack, struct sk_buff *skb, 
         if (!len)
                 return 0;
 
-	if (chk) {
-		if (chan->pqueued > 7)
-			return 0;
-		if (chan->queued + len > EICON_MAX_QUEUE)
-			return 0;
-	}
+	if ((chk) && (chan->pqueued > 1))
+		return 0;
 
 	eicon_log(card, 128, "idi_snd: Ch%d: %d bytes (Pqueue=%d)\n",
 		chan->No, len, chan->pqueued);
