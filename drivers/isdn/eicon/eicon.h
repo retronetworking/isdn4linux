@@ -21,6 +21,11 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.16  1999/10/08 22:09:33  armin
+ * Some fixes of cards interface handling.
+ * Bugfix of NULL pointer occurence.
+ * Changed a few log outputs.
+ *
  * Revision 1.15  1999/09/26 14:17:53  armin
  * Improved debug and log via readstat()
  *
@@ -237,6 +242,7 @@ typedef struct {
 #include <linux/delay.h>
 #include <linux/ctype.h>
 
+#include <linux/isdn.h>
 #include <linux/isdnif.h>
 
 #include <linux/isdn_compat.h>

@@ -26,6 +26,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.23  1999/10/11 18:13:25  armin
+ * Added fax capabilities for Eicon Diva Server cards.
+ *
  * Revision 1.22  1999/10/08 22:09:33  armin
  * Some fixes of cards interface handling.
  * Bugfix of NULL pointer occurence.
@@ -2305,6 +2308,7 @@ void
 idi_handle_ind(eicon_card *ccard, struct sk_buff *skb)
 {
 	int tmp;
+	char tnum[64];
 	int dlev;
 	int free_buff;
 	ulong flags;
@@ -2401,18 +2405,20 @@ idi_handle_ind(eicon_card *ccard, struct sk_buff *skb)
 				cmd.arg = chan->No;
 				cmd.parm.setup.si1 = chan->si1;
 				cmd.parm.setup.si2 = chan->si2;
-				strcpy(cmd.parm.setup.eazmsn, chan->cpn);
+				strcpy(tnum, chan->cpn);
 				if (strlen(chan->dsa)) {
-					chan->dsa[30 - strlen(chan->cpn)] = 0;
-					strcat(cmd.parm.setup.eazmsn, ".");
-					strcat(cmd.parm.setup.eazmsn, chan->dsa);
+					strcat(tnum, ".");
+					strcat(tnum, chan->dsa);
 				}
-				strcpy(cmd.parm.setup.phone, chan->oad);
+				tnum[ISDN_MSNLEN - 1] = 0;
+				strcpy(cmd.parm.setup.eazmsn, tnum);
+				strcpy(tnum, chan->oad);
 				if (strlen(chan->osa)) {
-					chan->osa[30 - strlen(chan->oad)] = 0;
-					strcat(cmd.parm.setup.phone, ".");
-					strcat(cmd.parm.setup.phone, chan->osa);
+					strcat(tnum, ".");
+					strcat(tnum, chan->osa);
 				}
+				tnum[ISDN_MSNLEN - 1] = 0;
+				strcpy(cmd.parm.setup.phone, tnum);
 				cmd.parm.setup.plan = chan->plan;
 				cmd.parm.setup.screen = chan->screen;
 				tmp = ccard->interface.statcallb(&cmd);
