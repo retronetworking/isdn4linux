@@ -21,6 +21,10 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.48  1997/11/02 23:55:50  keil
+ * Andi Kleen's changes for 2.1.60
+ * without it the isdninfo and isdnctrl devices won't work
+ *
  * Revision 1.47  1997/10/09 21:28:46  fritz
  * New HL<->LL interface:
  *   New BSENT callback with nr. of bytes included.
@@ -865,16 +869,15 @@ isdn_info_update(void)
 }
 
 static ssize_t
-isdn_read(struct file *file, char *buf, size_t count, loff_t *ppos)
+isdn_read(struct file *file, char *buf, size_t count, loff_t *off)
 {
-	struct inode *inode = file->f_dentry->d_inode;
-	uint minor = MINOR(inode->i_rdev);
+	uint minor = MINOR(file->f_dentry->d_inode->i_rdev);
 	int len = 0;
 	ulong flags;
 	int drvidx;
 	int chidx;
 
-	if (ppos != &file->f_pos)
+	if (off != &file->f_pos)
 		return -ESPIPE;
 
 	if (minor == ISDN_MINOR_STATUS) {
@@ -889,7 +892,7 @@ isdn_read(struct file *file, char *buf, size_t count, loff_t *ppos)
 		if ((len = strlen(p)) <= count) {
 			if (copy_to_user(buf, p, len))
 				return -EFAULT;
-			file->f_pos += len;
+			*off += len;
 			return len;
 		}
 		return 0;
@@ -906,7 +909,7 @@ isdn_read(struct file *file, char *buf, size_t count, loff_t *ppos)
 		save_flags(flags);
 		cli();
 		len = isdn_readbchan(drvidx, chidx, buf, 0, count, 1);
-		file->f_pos += len;
+		*off += len;
 		restore_flags(flags);
 		return len;
 	}
@@ -932,7 +935,7 @@ isdn_read(struct file *file, char *buf, size_t count, loff_t *ppos)
 		else
 			dev->drv[drvidx]->stavail = 0;
 		restore_flags(flags);
-		file->f_pos += len;
+		*off += len;
 		return len;
 	}
 #ifdef CONFIG_ISDN_PPP
@@ -949,14 +952,13 @@ isdn_lseek(struct file *file, long long offset, int orig)
 }
 
 static ssize_t
-isdn_write(struct file *file, const char *buf, size_t count, loff_t *ppos)
+isdn_write(struct file *file, const char *buf, size_t count, loff_t *off)
 {
-	struct inode *inode = file->f_dentry->d_inode;
-	uint minor = MINOR(inode->i_rdev);
+	uint minor = MINOR(file->f_dentry->d_inode->i_rdev);
 	int drvidx;
 	int chidx;
 
-	if (ppos != &file->f_pos)
+	if (off != &file->f_pos)
 		return -ESPIPE;
 
 	if (minor == ISDN_MINOR_STATUS)
