@@ -5,6 +5,9 @@
  *
  *
  * $Log$
+ * Revision 1.15.2.38  1999/09/04 06:58:18  keil
+ * Winbond W6692 support
+ *
  * Revision 1.15.2.37  1999/09/04 06:50:04  keil
  * Changes from kernel set_current_state()
  *
@@ -1366,6 +1369,7 @@ HiSax_inithardware(int *busy_flag))
 				kfree((void *) cards[i].cs);
 			cards[i].cs = NULL;
 			HiSax_shiftcards(i);
+			nrcards--;
 		}
 	}
 	return foundcards;
