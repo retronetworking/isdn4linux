@@ -21,6 +21,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.44.2.10  1999/04/22 21:09:22  werner
+ * Added support for dss1 diversion services
+ *
  * Revision 1.44.2.9  1998/11/06 00:07:25  fritz
  * Bugfix: loading additional driver while /dev/isdnctrl opened resulted in
  *         wrong module usage count after closing /dev/isdnctrl.
@@ -606,6 +609,16 @@ isdn_status_callback(isdn_ctrl * c)
 #endif
 			printk(KERN_INFO "isdn: %s,ch%ld cause: %s\n",
 			       dev->drvid[di], c->arg, c->parm.num);
+			isdn_tty_stat_callback(i, c);
+#ifdef CONFIG_ISDN_DIVERSION
+                        if (divert_if)
+                         divert_if->stat_callback(c); 
+#endif CONFIG_ISDN_DIVERSION
+			break;
+		case ISDN_STAT_DISPLAY:
+#ifdef ISDN_DEBUG_STATCALLB
+			printk(KERN_DEBUG "DISPLAY: %ld %s\n", c->arg, c->parm.display);
+#endif
 			isdn_tty_stat_callback(i, c);
 #ifdef CONFIG_ISDN_DIVERSION
                         if (divert_if)
