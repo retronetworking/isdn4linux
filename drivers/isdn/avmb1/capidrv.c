@@ -6,6 +6,10 @@
  * Copyright 1997 by Carsten Paeth (calle@calle.in-berlin.de)
  *
  * $Log$
+ * Revision 1.35  2000/06/19 15:11:25  keil
+ * avoid use of freed structs
+ * changes from 2.4.0-ac21
+ *
  * Revision 1.34  2000/06/19 13:13:55  calle
  * Added Modemsupport!
  *
@@ -2293,11 +2297,11 @@ static int capidrv_addcontr(__u16 contr, struct capi_profile *profp)
 				   ISDN_FEATURE_L2_X75UI |
 				   ISDN_FEATURE_L2_X75BUI;
 	if (profp->support1 & (1<<2))
-		card->interface.features = ISDN_FEATURE_L2_V11096 |
-	    				   ISDN_FEATURE_L2_V11019 |
-	    				   ISDN_FEATURE_L2_V11038;
+		card->interface.features |= ISDN_FEATURE_L2_V11096 |
+	    				    ISDN_FEATURE_L2_V11019 |
+	    				    ISDN_FEATURE_L2_V11038;
 	if (profp->support1 & (1<<8))
-		card->interface.features = ISDN_FEATURE_L2_MODEM;
+		card->interface.features |= ISDN_FEATURE_L2_MODEM;
 	card->interface.hl_hdrlen = 22; /* len of DATA_B3_REQ */
 	strncpy(card->interface.id, id, sizeof(card->interface.id) - 1);
 
