@@ -19,6 +19,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.56  1999/04/12 13:15:07  fritz
+ * Fixed a cast.
+ *
  * Revision 1.55  1999/04/12 12:34:02  fritz
  * Changes from 2.0 tree.
  *
@@ -35,10 +38,6 @@
  *
  * Revision 1.51  1998/03/07 22:29:55  fritz
  * Adapted Detlef's chenges for 2.1.
- *
- * Revision 1.50  1998/03/07 17:41:54  detabc
- * add d-channel connect and disconnect support statcallback
- * from icn low-level to link->level
  *
  * Revision 1.49  1998/02/13 11:14:15  keil
  * change for 2.1.86 (removing FREE_READ/FREE_WRITE from [dev]_kfree_skb()
