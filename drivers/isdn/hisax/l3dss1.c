@@ -9,6 +9,9 @@
  *              Fritz Elfert
  *
  * $Log$
+ * Revision 1.4  1996/11/05 19:44:36  keil
+ * some fixes from Henner Eisen
+ *
  * Revision 1.3  1996/10/30 10:18:01  keil
  * bugfixes in debugging output
  *
@@ -337,6 +340,8 @@ l3s18_6(struct PStack *st, byte pr, void *arg)
 
 	MsgHead(p, st->l3.callref, MT_RELEASE_COMPLETE);
 
+	/* we should really get the cause from call control:
+	   busy, incomp. facility ...   (psa) */
 	*p++ = IE_CAUSE;
 	*p++ = 0x2;
 	*p++ = 0x80;
@@ -409,7 +414,7 @@ static struct stateentry downstatelist[] =
         	SBIT(19),
         	CC_DLRL,l3s13},
         {SBIT(6),
-        	CC_DISCONNECT_REQ,l3s18_6},
+        	CC_REJECT_REQ,l3s18_6},
         {SBIT(6),
         	CC_ALERTING_REQ,l3s20},
         {SBIT(6)| SBIT(7),
