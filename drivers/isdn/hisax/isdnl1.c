@@ -2,15 +2,18 @@
  *
  * isdnl1.c     common low level stuff for Siemens Chipsetbased isdn cards
  *              based on the teles driver from Jan den Ouden
- * 
+ *
  * Author	Karsten Keil (keil@temic-ech.spacenet.de)
  *
  * Thanks to	Jan den Ouden
- *	        Fritz Elfert	
+ *	        Fritz Elfert
  * 	        Beat Doebeli
- *            
- * 
+ *
+ *
  * $Log$
+ * Revision 1.4  1996/12/08 19:44:53  keil
+ * L2FRAME_DEBUG and other changes from Pekka Sarnila
+ *
  * Revision 1.3  1996/11/18 15:34:47  keil
  * fix HSCX version code
  *
@@ -58,7 +61,7 @@ static	char	*HSCXVer[] = {"A1","?1","A2","?3","A3","V2.1","?6","?7",
 
 static  char    *ISACVer[] = {"2086/2186 V1.1","2085 B1","2085 B2",
 			      "2085 V2.3"};
- 
+
 extern void     tei_handler(struct PStack *st, byte pr,
 			    struct BufHeader *ibh);
 extern struct   IsdnCard cards[];
@@ -72,7 +75,7 @@ void debugl1(struct IsdnCardState *sp, char *msg)
 
 	jiftime(tm, jiffies);
 	sprintf(tmp, "%s Card %d %s\n", tm, sp->cardnr+1, msg);
-	HiSax_putstatus(tmp); 
+	HiSax_putstatus(tmp);
 }
 
 /*
@@ -338,7 +341,7 @@ l2l1(struct PStack *st, int pr,
 		  break;
 	  case (PH_DATA_PULLED):
 		  if (sp->xmtibh) {
-			  if (sp->debug & L1_DEB_WARN) 
+			  if (sp->debug & L1_DEB_WARN)
         			debugl1(sp, " l2l1 xmtibh exist this shouldn't happen");
 			  break;
 		  }
@@ -646,7 +649,7 @@ checkcard(int cardnr)
 	sp->cardnr = cardnr;
 	sp->cfg_reg  = 0;
 	sp->protocol = card->protocol;
-	
+
 	if ((card->typ>0) && (card->typ<31)) {
 		if (!((1<<card->typ) & SUPORTED_CARDS)) {
                         printk(KERN_WARNING
@@ -663,7 +666,7 @@ checkcard(int cardnr)
 	sp->dlogspace = Smalloc(4096, GFP_KERNEL, "dlogspace");
 	sp->typ      = card->typ;
 	sp->CallFlags = 0;
-	
+
 	printk(KERN_NOTICE
 		"HiSax: Card %d Protocol %s\n", cardnr+1,
                 (card->protocol == ISDN_PTYPE_1TR6) ? "1TR6" : "EDSS1");
@@ -691,7 +694,7 @@ checkcard(int cardnr)
                 ret=setup_elsa(card);
                 break;
 #endif
-          default: 
+          default:
                 printk(KERN_WARNING  "HiSax: Unknown Card Typ %d\n",
                   			card->typ);
 				Sfree(sp->dlogspace);
@@ -708,7 +711,7 @@ checkcard(int cardnr)
 	BufPoolInit(&sp->smallpool, ISAC_SMALLBUF_ORDER, ISAC_SMALLBUF_BPPS,
 		    ISAC_SMALLBUF_MAXPAGES);
 
-	
+
 	sp->rcvibh  = NULL;
 	sp->rcvptr  = 0;
 	sp->xmtibh  = NULL;
@@ -862,7 +865,7 @@ hscx_l2l1(struct PStack *st, int pr,
                                 st->l1.requestpull = !0;
                         break;
 	}
-        
+
 }
 extern struct IsdnBuffers *tracebuf;
 
@@ -959,7 +962,7 @@ void
 HiSax_reportcard(int cardnr)
 {
 	struct IsdnCardState *sp = cards[cardnr].sp;
-	
+
 	printk(KERN_DEBUG "HiSax: reportcard No %d\n",cardnr+1);
 	printk(KERN_DEBUG "HiSax: Type %s\n", CardType[sp->typ]);
 	printk(KERN_DEBUG "HiSax: debuglevel %x\n", sp->debug);
