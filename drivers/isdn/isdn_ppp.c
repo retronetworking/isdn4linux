@@ -19,6 +19,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.62.2.2  2000/03/13 19:51:38  kai
+ * use a skb_queue instead of sav_skb
+ *
  * Revision 1.62.2.1  2000/03/13 08:18:09  kai
  * first step to frame_cnt
  *
@@ -1062,8 +1065,6 @@ isdn_ppp_write(int min, struct file *file, const char *buf, int count)
 			lp->dialstate == 0 &&
 		    (lp->flags & ISDN_NET_CONNECTED)) {
 			unsigned short hl;
-			unsigned long flags;
-			int cnt;
 			struct sk_buff *skb;
 			/*
 			 * we need to reserve enought space in front of
@@ -1086,11 +1087,7 @@ isdn_ppp_write(int min, struct file *file, const char *buf, int count)
 
 			isdn_ppp_send_ccp(lp->netdev,lp,skb); /* keeps CCP/compression states in sync */
 
-			save_flags(flags);
-			cli();
-			if ((cnt = isdn_writebuf_skb_stub(lp->isdn_device, lp->isdn_channel, 1, skb)) != count)
-				skb_queue_tail(&lp->super_tx_queue, skb);
-			restore_flags(flags);
+			isdn_net_write_super(lp, skb);
 		}
 	}
 	return count;
@@ -1522,7 +1519,6 @@ isdn_ppp_xmit(struct sk_buff *skb, struct net_device *netdev)
 	isdn_net_dev *nd;
 	unsigned int proto = PPP_IP;     /* 0x21 */
 	struct ippp_struct *ipt,*ipts;
-	unsigned long flags;
 
 	if (mdev)
 		mlp = (isdn_net_local *) (mdev->priv);
@@ -1548,21 +1544,21 @@ isdn_ppp_xmit(struct sk_buff *skb, struct net_device *netdev)
 			break;
 		default:
 			dev_kfree_skb(skb);
-			printk(KERN_ERR "isdn_ppp: skipped frame with unsupported protocoll: %#x.\n", skb->protocol);
+			printk(KERN_ERR "isdn_ppp: skipped unsupported protocol: %#x.\n", 
+			       skb->protocol);
 			return 0;
 	}
 
 	lp = nd->queue;         /* get lp on top of queue */
-
-	if (!skb_queue_empty(&lp->super_tx_queue)) { /* find a non-busy device */
-		isdn_net_local *nlp = lp->next;
-		while (!skb_queue_empty(&lp->super_tx_queue)) {
-			if (lp == nlp)
-				return 1;
-			nlp = nd->queue = nd->queue->next;
+	/* find a non-busy device */
+	while (atomic_read(&nd->queue->frame_cnt) >= ISDN_NET_MAX_QUEUE_LENGTH) {
+		nd->queue = nd->queue->next;
+		if (nd->queue == lp) { /* not found -- should never happen */
+			printk(KERN_WARNING "%s: all channels busy!", lp->name);
+			return 1;
 		}
-		lp = nlp;
 	}
+
 	ipt = ippp_table[lp->ppp_slot];
 	lp->huptimer = 0;
 
@@ -1571,8 +1567,8 @@ isdn_ppp_xmit(struct sk_buff *skb, struct net_device *netdev)
 	 */
 
 	/* Pull off the fake header we stuck on earlier to keep
-     * the fragemntation code happy.
-     */
+	 * the fragemntation code happy.
+	 */
 	skb_pull(skb,IPPP_MAX_HEADER);
 
 	if (ipt->debug & 0x4)
@@ -1701,12 +1697,9 @@ isdn_ppp_xmit(struct sk_buff *skb, struct net_device *netdev)
 		printk(KERN_DEBUG "skb xmit: len: %d\n", (int) skb->len);
 		isdn_ppp_frame_log("xmit", skb->data, skb->len, 32,ipt->unit,lp->ppp_slot);
 	}
-	save_flags(flags);
-	cli();
-	if (isdn_net_send_skb(netdev, lp, skb)) {
-		skb_queue_tail(&lp->super_tx_queue, skb);
-	}
-	restore_flags(flags);
+	
+	if (isdn_net_writebuf_skb(lp, skb))
+		dev_kfree_skb(skb);
 	return 0;
 }
 
@@ -2287,8 +2280,7 @@ static void isdn_ppp_ccp_xmit_reset(struct ippp_struct *is, int proto,
 {
 	struct sk_buff *skb;
 	unsigned char *p;
-	int count, hl;
-	unsigned long flags;
+	int hl;
 	int cnt = 0;
 	isdn_net_local *lp = is->lp;
 
@@ -2332,14 +2324,7 @@ static void isdn_ppp_ccp_xmit_reset(struct ippp_struct *is, int proto,
 	/* Just ripped from isdn_ppp_write. Dunno whether it makes sense,
 	   especially dunno what the sav_skb stuff is good for. */
 
-	count = skb->len;
-	save_flags(flags);
-	cli();
-	if ((cnt = isdn_writebuf_skb_stub(lp->isdn_device, lp->isdn_channel,
-					  1, skb)) != count) {
-		skb_queue_tail(&lp->super_tx_queue, skb);
-	}
-	restore_flags(flags);
+	isdn_net_write_super(lp, skb);
 }
 
 /* Allocate the reset state vector */

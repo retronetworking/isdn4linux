@@ -21,6 +21,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.10.2.2  2000/03/13 19:51:38  kai
+ * use a skb_queue instead of sav_skb
+ *
  * Revision 1.10.2.1  2000/03/13 08:18:09  kai
  * first step to frame_cnt
  *
@@ -132,4 +135,9 @@ extern int isdn_net_send_skb(struct net_device *, isdn_net_local *,
 extern int isdn_net_rcv_skb(int, struct sk_buff *);
 extern void isdn_net_slarp_out(void);
 extern int isdn_net_dial_req(isdn_net_local *);
+extern void isdn_net_writebuf_skb(isdn_net_local *lp, struct sk_buff *skb);
+extern void isdn_net_write_super(isdn_net_local *lp, struct sk_buff *skb);
+
+#define ISDN_NET_MAX_QUEUE_LENGTH 2
+
 

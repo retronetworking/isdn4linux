@@ -21,6 +21,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.94.2.3  2000/03/13 19:51:39  kai
+ * use a skb_queue instead of sav_skb
+ *
  * Revision 1.94.2.2  2000/03/13 08:18:10  kai
  * first step to frame_cnt
  *
@@ -815,6 +818,8 @@ typedef struct isdn_net_local_s {
   ulong	dw_abc_bsd_bsd_rcv;
 #endif
   atomic_t frame_cnt; /* number of frames currently queued in HL driver */
+  struct tq_struct tqueue; /* STAT_BSENT will wake tqueue to send out queued
+			      supervisory frames */
 } isdn_net_local;
 
 /* the interface itself */
