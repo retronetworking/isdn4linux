@@ -6,6 +6,9 @@
  * (c) Copyright 1997 by Carsten Paeth (calle@calle.in-berlin.de)
  * 
  * $Log$
+ * Revision 1.15  1999/05/25 14:51:42  calle
+ * Added /proc/capi/* to track states in kernelcapi.
+ *
  * Revision 1.14  1999/04/15 19:49:29  calle
  * fix fuer die B1-PCI. Jetzt geht z.B. auch IRQ 17 ...
  *
@@ -807,7 +810,8 @@ int avmb1_registercard(int port, int irq, int cardtype, int allocio)
 		request_region(port, AVMB1_PORTLEN, card->name);
 
 	if ((irqval = request_irq(irq, avmb1_interrupt,
-				 SA_SHIRQ, card->name, card)) != 0) {
+		                 cardtype == AVM_CARDTYPE_B1PCI ? SA_SHIRQ : 0,
+				 card->name, card)) != 0) {
 		printk(KERN_ERR "b1capi: unable to get IRQ %d (irqval=%d).\n",
 		       irq, irqval);
 		release_region(port, AVMB1_PORTLEN);
@@ -820,6 +824,9 @@ int avmb1_registercard(int port, int irq, int cardtype, int allocio)
 	card->port = port;
 	card->irq = irq;
 	card->cardtype = cardtype;
+	printk(KERN_NOTICE "b1capi: Controller %d: %s (0x%x,%d) registered\n",
+			card->cnr, cardtype2str(card->cardtype),
+			card->port, card->irq);
 	return card->cnr;
 }
 
@@ -890,6 +897,10 @@ int avmb1_unregistercard(int cnr, int freeio)
 	if (card->cardstate != CARD_FREE)
 		if (card->cardtype == AVM_CARDTYPE_T1)
 			T1_reset(card->port);
+
+	printk(KERN_NOTICE "b1capi: Controller %d: %s (0x%x,%d) unregistered\n",
+			card->cnr, cardtype2str(card->cardtype),
+			card->port, card->irq);
 
 	free_irq(card->irq, card);
 	if (freeio)

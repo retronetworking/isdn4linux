@@ -6,6 +6,10 @@
  * Copyright 1997 by Carsten Paeth (calle@calle.in-berlin.de)
  *
  * $Log$
+ * Revision 1.16  1999/05/31 11:50:33  calle
+ * Bugfix: In if_sendbuf, skb_push'ed DATA_B3 header was not skb_pull'ed
+ *         on failure, result in data block with DATA_B3 header transmitted
+ *
  * Revision 1.15  1999/05/25 21:26:16  calle
  * Include CAPI-Channelallocation (leased lines) from the 2.0 tree.
  *
@@ -1930,7 +1934,7 @@ static int if_sendbuf(int id, int channel, int doack, struct sk_buff *skb)
 	capi_cmsg2message(&sendcmsg, sendcmsg.buf);
 	msglen = CAPIMSG_LEN(sendcmsg.buf);
 	if (skb_headroom(skb) < msglen) {
-		struct sk_buff *nskb = dev_alloc_skb(msglen + skb->len);
+		struct sk_buff *nskb = skb_realloc_headroom(skb, msglen);
 		if (!nskb) {
 			printk(KERN_ERR "capidrv-%d: if_sendbuf: no memory\n",
 				card->contrnr);
@@ -1941,8 +1945,7 @@ static int if_sendbuf(int id, int channel, int doack, struct sk_buff *skb)
 		printk(KERN_DEBUG "capidrv-%d: only %d bytes headroom, need %d\n",
 		       card->contrnr, skb_headroom(skb), msglen);
 #endif
-		memcpy(skb_put(nskb, msglen), sendcmsg.buf, msglen);
-		memcpy(skb_put(nskb, skb->len), skb->data, skb->len);
+		memcpy(skb_push(nskb, msglen), sendcmsg.buf, msglen);
 		errcode = (*capifuncs->capi_put_message) (global.appid, nskb);
 		if (errcode == CAPI_NOERROR) {
 			dev_kfree_skb(skb);

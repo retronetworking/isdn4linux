@@ -6,6 +6,9 @@
  * (c) Copyright 1997 by Carsten Paeth (calle@calle.in-berlin.de)
  * 
  * $Log$
+ * Revision 1.9  1999/04/15 19:49:32  calle
+ * fix fuer die B1-PCI. Jetzt geht z.B. auch IRQ 17 ...
+ *
  * Revision 1.8  1998/06/17 19:51:16  he
  * merged with 2.1.10[34] (cosmetics and udelay() -> mdelay())
  * brute force fix to avoid Ugh's in isdn_tty_write()
@@ -77,7 +80,12 @@ MODULE_AUTHOR("Carsten Paeth <calle@calle.in-berlin.de>");
 
 #ifdef MODULE
 #define b1pci_init init_module
+void cleanup_module(void);
+static int ncards = 0;
+static int card[4];
 #endif
+
+static 
 
 int b1pci_init(void)
 {
@@ -112,11 +120,20 @@ int b1pci_init(void)
 		        printk(KERN_ERR
 			"b1pci: no AVM-B1 at i/o %#x, irq %d detected\n",
 			ioaddr, irq);
+#ifdef MODULE
+			if (ncards) cleanup_module();
+#endif
 			return rc;
 		}
-		if ((rc = avmb1_addcard(ioaddr, irq, AVM_CARDTYPE_B1PCI)) < 0)
+		if ((rc = avmb1_addcard(ioaddr, irq, AVM_CARDTYPE_B1PCI)) < 0) {
+#ifdef MODULE
+			if (ncards) cleanup_module();
+#endif
 			return rc;
+		}
+		card[ncards++] = rc;
 	}
+	printk(KERN_INFO "b1pci: %d B1-PCI card(s) detected\n", ncards);
 	return 0;
 #else
 	printk(KERN_ERR "b1pci: kernel not compiled with PCI.\n");
@@ -127,5 +144,9 @@ int b1pci_init(void)
 #ifdef MODULE
 void cleanup_module(void)
 {
+    int i;
+    for (i=0; i < ncards; i++) {
+        (void)avmb1_unregistercard(card[i], 1);
+    }
 }
 #endif
