@@ -6,6 +6,9 @@
  * Heavily based on devpts filesystem from H. Peter Anvin
  * 
  * $Log$
+ * Revision 1.5  2000/03/13 17:49:52  calle
+ * make it running with 2.3.51.
+ *
  * Revision 1.4  2000/03/08 17:06:33  calle
  * - changes for devfs and 2.3.49
  * - capifs now configurable (no need with devfs)
@@ -572,6 +575,8 @@ int __init capifs_init(void)
 	char *p;
 	int err;
 
+	MOD_INC_USE_COUNT;
+
 	if ((p = strchr(revision, ':'))) {
 		strcpy(rev, p + 1);
 		p = strchr(rev, '$');
@@ -580,13 +585,16 @@ int __init capifs_init(void)
 		strcpy(rev, "1.0");
 
 	err = register_filesystem(&capifs_fs_type);
-	if (err)
+	if (err) {
+		MOD_DEC_USE_COUNT;
 		return err;
+	}
 #ifdef MODULE
         printk(KERN_NOTICE "capifs: Rev%s: loaded\n", rev);
 #else
 	printk(KERN_NOTICE "capifs: Rev%s: started\n", rev);
 #endif
+	MOD_DEC_USE_COUNT;
 	return 0;
 }
 

@@ -6,6 +6,11 @@
  * (c) Copyright 1999 by Carsten Paeth (calle@calle.in-berlin.de)
  * 
  * $Log$
+ * Revision 1.8  2000/03/06 18:00:23  calle
+ * - Middleware extention now working with 2.3.49 (capifs).
+ * - Fixed typos in debug section of capi.c
+ * - Bugfix: Makefile corrected for b1pcmcia.c
+ *
  * Revision 1.7  2000/02/02 18:36:03  calle
  * - Modules are now locked while init_module is running
  * - fixed problem with memory mapping if address is not aligned
@@ -298,6 +303,9 @@ int b1pcmcia_init(void)
 {
 	struct capi_driver *driver = &b1pcmcia_driver;
 	char *p;
+	int retval = 0;
+
+	MOD_INC_USE_COUNT;
 
 	if ((p = strchr(revision, ':'))) {
 		strncpy(driver->revision, p + 1, sizeof(driver->revision));
@@ -312,9 +320,10 @@ int b1pcmcia_init(void)
 	if (!di) {
 		printk(KERN_ERR "%s: failed to attach capi_driver\n",
 				driver->name);
-		return -EIO;
+		retval = -EIO;
 	}
-	return 0;
+	MOD_DEC_USE_COUNT;
+	return retval;
 }
 
 #ifdef MODULE

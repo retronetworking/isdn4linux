@@ -6,6 +6,9 @@
  * Copyright 1996 by Carsten Paeth (calle@calle.in-berlin.de)
  *
  * $Log$
+ * Revision 1.30  2000/03/19 12:31:36  calle
+ * PPP over CAPI raw driver disabled for now, ppp_generic has been changed.
+ *
  * Revision 1.29  2000/03/13 17:48:13  calle
  * removed unused variable.
  *
@@ -395,16 +398,17 @@ struct capiminor *capiminor_alloc(__u16 applid, __u32 ncci)
 	struct capiminor *mp, **pp;
         unsigned int minor = 0;
 
+	MOD_INC_USE_COUNT;
 #ifdef COMPAT_HAS_kmem_cache
 	mp = (struct capiminor *)kmem_cache_alloc(capiminor_cachep, GFP_ATOMIC);
 #else
 	mp = (struct capiminor *)kmalloc(sizeof(struct capiminor), GFP_ATOMIC);
 #endif
 	if (!mp) {
+		MOD_DEC_USE_COUNT;
 		printk(KERN_ERR "capi: can't alloc capiminor\n");
 		return 0;
 	}
-	MOD_INC_USE_COUNT;
 #ifdef _DEBUG_REFCOUNT
 	printk(KERN_DEBUG "capiminor_alloc %d\n", GET_USE_COUNT(THIS_MODULE));
 #endif

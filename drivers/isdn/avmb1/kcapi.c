@@ -6,6 +6,17 @@
  * (c) Copyright 1999 by Carsten Paeth (calle@calle.in-berlin.de)
  * 
  * $Log$
+ * Revision 1.13  2000/03/03 15:50:42  calle
+ * - kernel CAPI:
+ *   - Changed parameter "param" in capi_signal from __u32 to void *.
+ *   - rewrote notifier handling in kcapi.c
+ *   - new notifier NCCI_UP and NCCI_DOWN
+ * - User CAPI:
+ *   - /dev/capi20 is now a cloning device.
+ *   - middleware extentions prepared.
+ * - capidrv.c
+ *   - locking of list operations and module count updates.
+ *
  * Revision 1.12  2000/01/28 16:45:39  calle
  * new manufacturer command KCAPI_CMD_ADDCARD (generic addcard),
  * will search named driver and call the add_card function if one exist.
@@ -533,20 +544,21 @@ static struct capi_notifier_list{
 	struct capi_notifier *tail;
 } notifier_list;
 
+static spinlock_t notifier_lock = SPIN_LOCK_UNLOCKED;
+
 static inline void notify_enqueue(struct capi_notifier *np)
 {
 	struct capi_notifier_list *q = &notifier_list;
 	unsigned long flags;
 
-	save_flags(flags);
-	cli();
+	spin_lock_irqsave(&notifier_lock, flags);
 	if (q->tail) {
 		q->tail->next = np;
 		q->tail = np;
 	} else {
 		q->head = q->tail = np;
 	}
-	restore_flags(flags);
+	spin_unlock_irqrestore(&notifier_lock, flags);
 }
 
 static inline struct capi_notifier *notify_dequeue(void)
@@ -555,15 +567,14 @@ static inline struct capi_notifier *notify_dequeue(void)
 	struct capi_notifier *np = 0;
 	unsigned long flags;
 
-	save_flags(flags);
-	cli();
+	spin_lock_irqsave(&notifier_lock, flags);
 	if (q->head) {
 		np = q->head;
 		if ((q->head = np->next) == 0)
  			q->tail = 0;
 		np->next = 0;
 	}
-	restore_flags(flags);
+	spin_unlock_irqrestore(&notifier_lock, flags);
 	return np;
 }
 
@@ -572,16 +583,18 @@ static int notify_push(unsigned int cmd, __u32 controller,
 {
 	struct capi_notifier *np;
 
+	MOD_INC_USE_COUNT;
 	np = (struct capi_notifier *)kmalloc(sizeof(struct capi_notifier), GFP_ATOMIC);
-	if (!np)
+	if (!np) {
+		MOD_DEC_USE_COUNT;
 		return -1;
+	}
 	memset(np, 0, sizeof(struct capi_notifier));
 	np->cmd = cmd;
 	np->controller = controller;
 	np->applid = applid;
 	np->ncci = ncci;
 	notify_enqueue(np);
-	MOD_INC_USE_COUNT;
 	queue_task(&tq_state_notify, &tq_immediate);
 	mark_bh(IMMEDIATE_BH);
 	return 0;
@@ -1724,6 +1737,8 @@ int kcapi_init(void)
 	char *p;
 	char rev[10];
 
+	MOD_INC_USE_COUNT;
+
 	skb_queue_head_init(&recv_queue);
 	/* init_bh(CAPI_BH, do_capi_bh); */
 
@@ -1765,6 +1780,7 @@ int kcapi_init(void)
 	(void)c4_init();
 #endif
 #endif
+	MOD_DEC_USE_COUNT;
 	return 0;
 }
 

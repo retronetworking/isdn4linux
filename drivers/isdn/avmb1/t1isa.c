@@ -6,6 +6,10 @@
  * (c) Copyright 1999 by Carsten Paeth (calle@calle.in-berlin.de)
  * 
  * $Log$
+ * Revision 1.10  2000/02/02 18:36:04  calle
+ * - Modules are now locked while init_module is running
+ * - fixed problem with memory mapping if address is not aligned
+ *
  * Revision 1.9  2000/01/25 14:37:39  calle
  * new message after successfull detection including card revision and
  * used resources.
@@ -595,6 +599,9 @@ int t1isa_init(void)
 {
 	struct capi_driver *driver = &t1isa_driver;
 	char *p;
+	int retval = 0;
+
+	MOD_INC_USE_COUNT;
 
 	if ((p = strchr(revision, ':'))) {
 		strncpy(driver->revision, p + 1, sizeof(driver->revision));
@@ -609,9 +616,11 @@ int t1isa_init(void)
 	if (!di) {
 		printk(KERN_ERR "%s: failed to attach capi_driver\n",
 				driver->name);
-		return -EIO;
+		retval = -EIO;
 	}
-	return 0;
+
+	MOD_DEC_USE_COUNT;
+	return retval;
 }
 
 #ifdef MODULE
