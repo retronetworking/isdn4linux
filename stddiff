@@ -183,7 +183,7 @@ else
 	done
 	for i in include/linux/*.h ; do
 		if [ "$i" = "include/linux/isdn_compat.h" -a \
-		     "$UNIQUE" = "true" ] ; then
+		     "$UNIQUE" = "true" -a ! -f $KERNELDIR/$i ] ; then
 			echo "$i skipped"
 		else
 			$DODIFF $i $KERNELDIR/$i
