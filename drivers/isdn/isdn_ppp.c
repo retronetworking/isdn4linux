@@ -19,6 +19,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.39  1998/03/25 22:46:53  hipp
+ * Some additional CCP changes.
+ *
  * Revision 1.38  1998/03/24 16:33:06  hipp
  * More CCP changes. BSD compression now "works" on a local loopback link.
  * Moved some isdn_ppp stuff from isdn.h to isdn_ppp.h
@@ -1484,7 +1487,8 @@ isdn_ppp_xmit(struct sk_buff *skb, struct device *dev)
 	/*
 	 * normal (single link) or bundle compression
 	 */
-	skb = isdn_ppp_compress(skb,&proto,ipt,ipts,0);
+	if(ipts->compflags & SC_COMP_ON)
+		skb = isdn_ppp_compress(skb,&proto,ipt,ipts,0);
 
 	if (ipt->debug & 0x24)
 		printk(KERN_DEBUG "xmit2 skb, len %d, proto %04x\n", (int) skb->len, proto);
@@ -1520,7 +1524,8 @@ isdn_ppp_xmit(struct sk_buff *skb, struct device *dev)
 	/*
 	 * 'link in bundle' compression  ...
 	 */
-	skb = isdn_ppp_compress(skb,&proto,ipt,ipts,1);
+	if(ipt->compflags & SC_LINK_COMP_ON)
+		skb = isdn_ppp_compress(skb,&proto,ipt,ipts,1);
 
 	if( (ipt->pppcfg & SC_COMP_PROT) && (proto <= 0xff) ) {
 		unsigned char *data = isdn_ppp_skb_push(&skb,1);
