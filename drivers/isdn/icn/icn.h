@@ -19,6 +19,11 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.27  1997/10/01 09:21:56  fritz
+ * Removed old compatibility stuff for 2.0.X kernels.
+ * From now on, this code is for 2.1.X ONLY!
+ * Old stuff is still in the separate branch.
+ *
  * Revision 1.26  1997/02/14 12:23:16  fritz
  * Added support for new insmod parameter handling.
  *
@@ -265,6 +270,9 @@ typedef struct icn_card {
 	char *msg_buf_read;     /* Readpointer for statusbuffer     */
 	char *msg_buf_end;      /* Pointer to end of statusbuffer   */
 	int sndcount[ICN_BCH];  /* Byte-counters for B-Ch.-send     */
+	int xlen[ICN_BCH];      /* Byte-counters/Flags for sent-ACK */
+	struct sk_buff *xskb[ICN_BCH];
+	                        /* Current transmitted skb          */
 	struct sk_buff_head
 	 spqueue[ICN_BCH];      /* Sendqueue                        */
 	char regname[35];       /* Name used for request_region     */
