@@ -64,3 +64,5 @@
 #undef COMPAT_HAVE_NEW_FILLDIR
 #define COMPAT_USE_MODCOUNT_LOCK
 #undef COMPAT_HAS_pci_find_subsys
+
+#define in_irq(dummy) (local_irq_count[smp_processor_id()] != 0)
