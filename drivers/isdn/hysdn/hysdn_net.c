@@ -24,6 +24,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.6  2000/05/17 11:43:03  ualbrecht
+ * Fixed a NULL-pointer kernel-oops assigning the device-name
+ *
  * Revision 1.5  2000/05/06 00:52:38  kai
  * merged changes from kernel tree
  * fixed timer and net_device->name breakage
@@ -423,9 +426,7 @@ hysdn_net_create(hysdn_card * card)
 #else
 	if(dev->name) {
 		strcpy(dev->name, ((struct net_local *) dev)->dev_name);
-	} else {
-		dev->name = ((struct net_local *) dev)->dev_name;	/* device name */
-	}		
+	} 
 #endif
 	if ((i = register_netdev(dev))) {
 		printk(KERN_WARNING "HYSDN: unable to create network device\n");
