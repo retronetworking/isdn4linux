@@ -110,6 +110,11 @@ if [ "$CONFIG_ISDN_DRV_HISAX" != "n" ]; then
       if [ "$ARCH" = "sparc" -o "$ARCH" = "sparc64" ]; then
 	 bool '  Am7930' CONFIG_HISAX_AMD7930
       fi
+      if [ "$CONFIG_MODULES" != "n" ]; then
+       if [ "CONFIG_USB" != "n" ]; then	
+      	bool '  Colognechip HFC-USB support' CONFIG_HISAX_HFC_USB 
+       fi	
+      fi	
    fi
    dep_tristate 'Sedlbauer PCMCIA cards' CONFIG_HISAX_SEDLBAUER_CS $CONFIG_PCMCIA
    dep_tristate 'ELSA PCMCIA MicroLink cards' CONFIG_HISAX_ELSA_CS $CONFIG_PCMCIA
