@@ -19,6 +19,11 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.11  1997/10/01 09:20:44  fritz
+ * Removed old compatibility stuff for 2.0.X kernels.
+ * From now on, this code is for 2.1.X ONLY!
+ * Old stuff is still in the separate branch.
+ *
  * Revision 1.10  1997/06/17 13:06:00  hipp
  * Applied Eric's underflow-patches (slightly modified)
  * more compression changes (but disabled at the moment)
@@ -70,7 +75,7 @@ extern int isdn_ppp_bind(isdn_net_local *);
 extern int isdn_ppp_xmit(struct sk_buff *, struct device *);
 extern void isdn_ppp_receive(isdn_net_dev *, isdn_net_local *, struct sk_buff *);
 extern int isdn_ppp_dev_ioctl(struct device *, struct ifreq *, int);
-extern unsigned int isdn_ppp_poll(struct file *, poll_table *);
+extern unsigned int isdn_ppp_poll(struct file *, struct poll_table_struct *);
 extern int isdn_ppp_ioctl(int, struct file *, unsigned int, unsigned long);
 extern void isdn_ppp_release(int, struct file *);
 extern int isdn_ppp_dial_slave(char *);

@@ -20,6 +20,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.44  1998/01/31 19:30:02  calle
+ * Merged changes from and for 2.1.82, not tested only compiled ...
+ *
  * Revision 1.43  1997/10/09 21:29:04  fritz
  * New HL<->LL interface:
  *   New BSENT callback with nr. of bytes included.
@@ -1582,7 +1585,12 @@ isdn_tty_block_til_ready(struct tty_struct *tty, struct file *filp, modem_info *
 		    (do_clocal || (info->msr & UART_MSR_DCD))) {
 			break;
 		}
-		if (signal_pending(current)) {
+#if (LINUX_VERSION_CODE >= 0x020139) /* 2.1.57 */
+		if (signal_pending(current))
+#else
+		if (current->signal & ~current->blocked)
+#endif
+		{
 			retval = -ERESTARTSYS;
 			break;
 		}
@@ -2451,14 +2459,18 @@ isdn_tty_get_msnstr(char *n, char **p)
  * Get phone-number from modem-commandbuffer
  */
 static void
-isdn_tty_getdial(char *p, char *q)
+isdn_tty_getdial(char *p, char *q,int cnt)
 {
 	int first = 1;
+	int limit=39;	/* MUST match the size in isdn_tty_parse to avoid
+				buffer overflow */
 
-	while (strchr("0123456789,#.*WPTS-", *p) && *p) {
+	while (strchr("0123456789,#.*WPTS-", *p) && *p && --cnt>0) {
 		if ((*p >= '0' && *p <= '9') || ((*p == 'S') && first))
 			*q++ = *p;
 		p++;
+		if(!--limit)
+			break;
 		first = 0;
 	}
 	*q = 0;
@@ -2595,7 +2607,7 @@ isdn_tty_cmd_ATand(char **p, modem_info * info)
 					m->mdmreg[i], ((i + 1) % 10) ? " " : "\r\n");
 				isdn_tty_at_cout(rb, info);
 			}
-			sprintf(rb, "\r\nEAZ/MSN: %s\r\n",
+			sprintf(rb, "\r\nEAZ/MSN: %.50s\r\n",
 				strlen(m->msn) ? m->msn : "None");
 			isdn_tty_at_cout(rb, info);
 			break;
@@ -3098,7 +3110,7 @@ isdn_tty_parse_at(modem_info * info)
 				break;
 			case 'D':
 				/* D - Dial */
-				isdn_tty_getdial(++p, ds);
+				isdn_tty_getdial(++p, ds, sizeof ds);
 				p += strlen(p);
 				if (!strlen(m->msn))
 					isdn_tty_modem_result(10, info);
