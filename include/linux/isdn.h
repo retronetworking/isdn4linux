@@ -21,6 +21,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.32  1997/08/21 09:49:46  fritz
+ * Increased NET_DV
+ *
  * Revision 1.31  1997/06/22 11:57:07  fritz
  * Added ability to adjust slave triggerlevel.
  *
@@ -242,7 +245,6 @@ typedef struct {
   int  exclusive;    /* Channel, if bound exclusive           */
   int  dialmax;      /* Dial Retry-Counter                    */
   int  slavedelay;   /* Delay until slave starts up           */
-  int  triggercps;   /* BogoCPS needed for triggering slave   */
   int  cbdelay;      /* Delay before Callback                 */
   int  chargehup;    /* Flag: Charge-Hangup                   */
   int  ihup;         /* Flag: Hangup-Timeout on incoming line */
@@ -251,6 +253,7 @@ typedef struct {
   int  cbhup;        /* Flag: Reject Call before Callback     */
   int  pppbind;      /* ippp device for bindings              */
   int  chargeint;    /* Use fixed charge interval length      */
+  int  triggercps;   /* BogoCPS needed for triggering slave   */
 } isdn_net_ioctl_cfg;
 
 #ifdef __KERNEL__
