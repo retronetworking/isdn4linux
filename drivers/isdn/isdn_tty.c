@@ -20,6 +20,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.77  1999/10/26 21:13:14  armin
+ * using define for checking phone number len in isdn_tty_getdial()
+ *
  * Revision 1.76  1999/10/11 22:16:26  keil
  * Suspend/Resume is possible without explicit ID too
  *
@@ -1024,7 +1027,6 @@ void
 isdn_tty_modem_hup(modem_info * info, int local)
 {
 	isdn_ctrl cmd;
-	int usage;
 
 	if (!info)
 		return;
@@ -1078,10 +1080,7 @@ isdn_tty_modem_hup(modem_info * info, int local)
 		}
 		isdn_all_eaz(info->isdn_driver, info->isdn_channel);
 		info->emu.mdmreg[REG_RINGCNT] = 0;
-		usage = isdn_calc_usage(info->emu.mdmreg[REG_SI1I],
-					info->emu.mdmreg[REG_L2PROT]);
-		isdn_free_channel(info->isdn_driver, info->isdn_channel,
-				  usage);
+		isdn_free_channel(info->isdn_driver, info->isdn_channel, 0);
 	}
 	info->isdn_driver = -1;
 	info->isdn_channel = -1;
@@ -3276,6 +3275,8 @@ isdn_tty_cmd_ATand(char **p, modem_info * info)
 		case 'F':
 			/* &F -Set Factory-Defaults */
 			p[0]++;
+			if (info->msr & UART_MSR_DCD)
+				PARSE_ERROR1;
 			isdn_tty_reset_profile(m);
 			isdn_tty_modem_reset_regs(info, 1);
 			break;
@@ -3927,6 +3928,12 @@ isdn_tty_parse_at(modem_info * info)
 				break;
 			case 'D':
 				/* D - Dial */
+				if (info->msr & UART_MSR_DCD)
+					PARSE_ERROR;
+				if (info->msr & UART_MSR_RI) {
+					isdn_tty_modem_result(3, info);
+					return;
+				}
 				isdn_tty_getdial(++p, ds, sizeof ds);
 				p += strlen(p);
 				if (!strlen(m->msn))
