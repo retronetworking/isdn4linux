@@ -319,7 +319,7 @@ isdn_timer_ctrl(int tf, int onoff)
 		isdn_timer_cnt1 = 0;
 		isdn_timer_cnt2 = 0;
 	}
-	old_tflags = tflags;
+	old_tflags = dev->tflags;
 	if (onoff)
 		dev->tflags |= tf;
 	else
