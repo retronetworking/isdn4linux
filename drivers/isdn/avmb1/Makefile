@@ -11,6 +11,22 @@
 # parent makes..
 #
 # $Log$
+# Revision 1.5  1999/07/01 15:26:20  calle
+# complete new version (I love it):
+# + new hardware independed "capi_driver" interface that will make it easy to:
+#   - support other controllers with CAPI-2.0 (i.e. USB Controller)
+#   - write a CAPI-2.0 for the passive cards
+#   - support serial link CAPI-2.0 boxes.
+# + wrote "capi_driver" for all supported cards.
+# + "capi_driver" (supported cards) now have to be configured with
+#   make menuconfig, in the past all supported cards where included
+#   at once.
+# + new and better informations in /proc/capi/
+# + new ioctl to switch trace of capi messages per controller
+#   using "avmcapictrl trace [contr] on|off|...."
+# + complete testcircle with all supported cards and also the
+#   PCMCIA cards (now patch for pcmcia-cs-3.0.13 needed) done.
+#
 # Revision 1.4  1997/03/30 17:10:40  calle
 # added support for AVM-B1-PCI card.
 #
@@ -57,7 +73,7 @@ L_TARGET := # used for .a targets (from L and LX objects)
 ifeq ($(CONFIG_ISDN_DRV_AVMB1),y)
   O_TARGET += avmb1.o
   OX_OBJS  += kcapi.o
-  O_OBJS   += capi.o kernelcapi.o
+  O_OBJS   += capi.o
   ifdef CONFIG_ISDN_DRV_AVMB1_B1ISA
   O_OBJS   += b1isa.o
   endif

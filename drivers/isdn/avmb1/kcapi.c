@@ -6,6 +6,9 @@
  * (c) Copyright 1999 by Carsten Paeth (calle@calle.in-berlin.de)
  * 
  * $Log$
+ * Revision 1.5  1999/07/09 15:05:48  keil
+ * compat.h is now isdn_compat.h
+ *
  * Revision 1.4  1999/07/08 14:15:17  calle
  * Forgot to count down ncards in drivercb_detach_ctr.
  *
@@ -1459,6 +1462,21 @@ EXPORT_SYMBOL(detach_capi_interface);
 EXPORT_SYMBOL(attach_capi_driver);
 EXPORT_SYMBOL(detach_capi_driver);
 
+#ifndef MODULE
+#ifdef CONFIG_ISDN_DRV_AVMB1_B1ISA
+extern int b1isa_init(void);
+#endif
+#ifdef CONFIG_ISDN_DRV_AVMB1_B1PCI
+extern int b1pci_init(void);
+#endif
+#ifdef CONFIG_ISDN_DRV_AVMB1_T1ISA
+extern int t1isa_init(void);
+#endif
+#ifdef CONFIG_ISDN_DRV_AVMB1_B1PCMCIA
+extern int b1pcmcia_init(void);
+#endif
+#endif
+
 /*
  * init / exit functions
  */
@@ -1494,6 +1512,18 @@ int kcapi_init(void)
         printk(KERN_NOTICE "CAPI-driver Rev%s: loaded\n", rev);
 #else
 	printk(KERN_NOTICE "CAPI-driver Rev%s: started\n", rev);
+#ifdef CONFIG_ISDN_DRV_AVMB1_B1ISA
+	(void)b1isa_init();
+#endif
+#ifdef CONFIG_ISDN_DRV_AVMB1_B1PCI
+	(void)b1pci_init();
+#endif
+#ifdef CONFIG_ISDN_DRV_AVMB1_T1ISA
+	(void)t1isa_init();
+#endif
+#ifdef CONFIG_ISDN_DRV_AVMB1_B1PCMCIA
+	(void)b1pcmcia_init();
+#endif
 #endif
 	return 0;
 }

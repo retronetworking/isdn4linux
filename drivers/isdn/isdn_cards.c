@@ -19,6 +19,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.9  1999/04/12 12:33:11  fritz
+ * Changes from 2.0 tree.
+ *
  * Revision 1.8  1999/03/29 11:13:23  armin
  * Added eicon driver init.
  *
@@ -64,12 +67,9 @@ extern void eicon_init(void);
 #endif
 
 #ifdef CONFIG_ISDN_DRV_AVMB1
-extern void avmb1_init(void);
+extern void kcapi_init(void);
 extern void capi_init(void);
 extern void capidrv_init(void);
-#ifdef CONFIG_PCI
-extern int b1pci_init(void);
-#endif
 #endif
 
 void
@@ -85,10 +85,7 @@ isdn_cards_init(void)
 	pcbit_init();
 #endif
 #ifdef CONFIG_ISDN_DRV_AVMB1
-	avmb1_init();
-#ifdef CONFIG_PCI
-	b1pci_init();
-#endif
+	kcapi_init();
 	capi_init();
 	capidrv_init();
 #endif
