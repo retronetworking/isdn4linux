@@ -12,11 +12,23 @@
  *   than 80, change the LINEWIDTH below.#
  *
  *   For use with modules, you have to export screen_pos and fg_console
- *   from console.c
+ *   from console.c and selection.h
+ *   For recent kernels (e.g. 2.1.86) do this, by adding modifying
+ *   kernel/ksyms.c:
+ *
+ *   At end of other include-lines:
+ *     Add an #include <linux/selection.h>
+ *   
+ *   At section /* tty routines */ add the following lines:
+ *     EXPORT_SYMBOL(fg_console)
+ *     EXPORT_SYMBOL(screen_pos)
+ *
+ *   Finally, rebuild the kernel. Now you can create modules using
+ *   kdebug.h
  *
  * Functionality:
  *
- *  -If you are defined CLI_DEBUG
+ *  -If you have defined CLI_DEBUG
  *   cli(), sti() and restore_flags() are redefined. Every time, cli()
  *   is called, the filename and linenumber of the caller is printed
  *   on the console, preceeded by a "!". Once interrupts are enabled
@@ -35,6 +47,10 @@
  *   position x,y.
  *
  * $Log$
+ * Revision 1.3  1998/02/08 20:47:17  keil
+ * Changes for 2.1 (virtual address mapping; SMP stuff)
+ * New CLI_DEBUG define to enable cli/sti/restore_flags debugging
+ *
  * Revision 1.2  1997/02/03 23:33:22  fritz
  * Reformatted according CodingStyle
  *
@@ -167,6 +183,12 @@ extern void __global_restore_flags(unsigned long);
   gput_str("Enter " #x " ", 40, 0); \
   x; \
   gput_str("Leave " #x " ", 40, 0); \
+}
+
+#define CTRXY(x, y, fn) { \
+  gput_str("Enter " #fn " ", x, y); \
+  fn; \
+  gput_str("Leave " #fn " ", x, y); \
 }
 
 #define DBGCNTDEF(n,x,y) { \

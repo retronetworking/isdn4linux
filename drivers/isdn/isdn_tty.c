@@ -20,6 +20,10 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.53  1998/06/02 12:10:16  detabc
+ * wegen einer einstweiliger verfuegung gegen DW ist zur zeit
+ * die abc-extension bis zur klaerung der rechtslage nicht verfuegbar
+ *
  * Revision 1.52  1998/03/19 13:18:21  keil
  * Start of a CAPI like interface for supplementary Service
  * first service: SUSPEND
@@ -246,13 +250,6 @@
 #define VBUF 0x3e0
 #define VBUFX (VBUF/16)
 #endif
-
-#undef CONFIG_ISDN_WITH_ABC
-/*
-** wegen einstweiliger verfuegung gegen DW ist zur zeit
-** die abc-extension bis zur klaerung der rechtslage nicht
-** im internet verfuegbar
-*/
 
 #define FIX_FILE_TRANSFER
 
@@ -605,8 +602,6 @@ isdn_tty_tint(modem_info * info)
 		dev_kfree_skb(skb);
 		return;
 	}
-	if (slen)
-		skb_pull(skb, slen);
 	skb_queue_head(&info->xmit_queue, skb);
 }
 
@@ -1613,41 +1608,6 @@ isdn_tty_set_modem_info(modem_info * info, uint cmd, uint * value)
 					isdn_tty_modem_ncarrier(info);
 			}
 			break;
-#ifdef CONFIG_ISDN_WITH_ABC
-		case (('.' << 16L ) | 4711):
-			/*
-			** internal ioctl to get the phone-number over a filedesc
-			** returns
-			**
-			** <NUMBER  (incoming call and number. if any)
-			** >NUMBER  (outgoing call and number. if any)
-			**/
-			{
-				int need = ISDN_MSNLEN + 2;
-				char n_buf[ISDN_MSNLEN + 2];
-				char *p = NULL;
-				char *ep = NULL;
-				char *s = info->last_num;
-
-				ep = p = n_buf;
-				ep += 1 + ISDN_MSNLEN;
-
-				if(info->last_dir)
-					*(p++) = '>';
-				else
-					*(p++) = '<';
-
-				while(p < ep && *s != 0)
-					*(p++) = *(s++);
-
-				*p = 0;
-
-				if(copy_to_user((void *)arg,n_buf,need))
-					return -EFAULT;
-			}
-
-			break;
-#endif
 		default:
 			return -EINVAL;
 	}
@@ -1843,9 +1803,6 @@ isdn_tty_block_til_ready(struct tty_struct *tty, struct file *filp, modem_info *
 		info->count--;
 	restore_flags(flags);
 	info->blocked_open++;
-#ifdef CONFIG_ISDN_WITH_ABC
-    info->flags |= ISDN_ASYNC_NORMAL_ACTIVE;
-#endif
 	while (1) {
 		current->state = TASK_INTERRUPTIBLE;
 		if (tty_hung_up_p(filp) ||
@@ -2094,12 +2051,7 @@ isdn_tty_reset_profile(atemu * m)
 	m->profile[18] = 4;
 	m->profile[19] = 0;
 	m->profile[20] = 0;
-#ifdef CONFIG_ISDN_WITH_ABC
-	m->pmsn[0] = '0';
-	m->pmsn[1] = '\0';
-#else
     m->pmsn[0] = '\0';
-#endif
 }
 
 #ifdef CONFIG_ISDN_AUDIO
@@ -2410,10 +2362,6 @@ isdn_tty_stat_callback(int i, isdn_ctrl * c)
 						isdn_tty_modem_result(5, info);
 					if (USG_VOICE(dev->usage[i]))
 						isdn_tty_modem_result(11, info);
-#ifdef CONFIG_ISDN_WITH_ABC
-					if (info->blocked_open)
-						wake_up_interruptible(&info->open_wait);
-#endif
 					return 1;
 				}
 				break;

@@ -13,7 +13,7 @@ O_TARGET :=
 
 ifeq ($(CONFIG_ISDN),y)
   L_TARGET := isdn.a
-  L_OBJS += isdn_net.o isdn_tty.o isdn_cards.o isdn_v110.o abccompress.o abcrout_net.o
+  L_OBJS += isdn_net.o isdn_tty.o isdn_cards.o isdn_v110.o
   LX_OBJS += isdn_common.o 
   ifdef CONFIG_ISDN_PPP
     L_OBJS += isdn_ppp.o
@@ -35,7 +35,7 @@ else
   ifeq ($(CONFIG_ISDN),m)
     M_OBJS += isdn.o
     O_TARGET += isdn.o
-    O_OBJS += isdn_net.o isdn_tty.o isdn_v110.o abccompress.o abcrout_net.o
+    O_OBJS += isdn_net.o isdn_tty.o isdn_v110.o
     OX_OBJS += isdn_common.o
     ifdef CONFIG_ISDN_PPP
       O_OBJS += isdn_ppp.o
@@ -124,6 +124,16 @@ ifeq ($(CONFIG_ISDN_DRV_ACT2000),y)
 else
   ifeq ($(CONFIG_ISDN_DRV_ACT2000),m)
     MOD_SUB_DIRS += act2000
+  endif
+endif
+
+ifeq ($(CONFIG_ISDN_DRV_DIEHL),y)
+  L_OBJS += diehl/diehl.o
+  SUB_DIRS += diehl
+  MOD_SUB_DIRS += diehl
+else
+  ifeq ($(CONFIG_ISDN_DRV_DIEHL),m)
+    MOD_SUB_DIRS += diehl
   endif
 endif
 

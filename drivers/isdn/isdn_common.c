@@ -21,6 +21,10 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.64  1998/06/02 12:10:03  detabc
+ * wegen einer einstweiliger verfuegung gegen DW ist zur zeit
+ * die abc-extension bis zur klaerung der rechtslage nicht verfuegbar
+ *
  * Revision 1.63  1998/05/03 17:40:38  detabc
  * Include abc-extension-support for >= 2.1.x Kernels in
  * isdn_net.c and isdn_common.c. alpha-test OK and running !
@@ -287,13 +291,6 @@
 #include "isdn_v110.h"
 #include "isdn_cards.h"
 
-#undef CONFIG_ISDN_WITH_ABC
-/*
-** wegen einstweiliger verfuegung gegen DW ist zur zeit
-** die abc-extension bis zur klaerung der rechtslage nicht
-** im internet verfuegbar
-*/
-
 /* Debugflags */
 #undef ISDN_DEBUG_STATCALLB
 
@@ -316,80 +313,6 @@ static char *isdn_audio_revision = ": none $";
 extern char *isdn_v110_revision;
 
 static int isdn_writebuf_stub(int, int, const u_char *, int, int);
-
-#ifdef CONFIG_ISDN_WITH_ABC
-extern struct sk_buff_head abc_receive_q;
-
-static void abc_control_t(ulong dummy)
-{
-	ulong flags;
-	ulong xt = dev->abc_use_timeout;
-	save_flags(flags);
-
-	if(xt > 0 && jiffies > xt) {	
-
-		int i;
-		ulong jt = jiffies - xt;
-		int anz = 0;
-
-		for (i = 0; i < ISDN_MAX_CHANNELS; i++) {
-			
-			int di;
-			int ch;
-			driver *d;
-			isdn_ctrl cmd;
-
-			if(!dev->abc_last_use_jiffies[i] ||
-				dev->abc_last_use_jiffies[i] > jt) 
-				continue;
-
-			dev->abc_last_use_jiffies[i] = 0;
-
-			if(	(di = dev->drvmap[i]) < 0	||
-				(ch = dev->chanmap[i]) < 0)
-				continue;
-
-
-			if((d = dev->drv[di]) == NULL)
-				continue;
-
-			if(	d->interface == NULL		||
-				d->interface->command == NULL)
-				continue;
-
-			if(dev->abc_last_use_jiffies[i] > jt) 
-				continue;
-
-			anz++;
-			memset(&cmd,0,sizeof(cmd));
-			cmd.driver = di;
-			cmd.arg = ch;
-			cmd.command = ISDN_CMD_HANGUP;
-			(void) d->interface->command(&cmd);
-			dev->abc_last_use_jiffies[i] = 0;
-		}
-
-		if(dev->net_verbose > 1 && anz > 0)
-			printk(KERN_DEBUG "abc_timer_control send %d Hangups\n",anz);
-	}
-
-	save_flags(flags);
-	cli();
-	del_timer(&dev->abc_control_timer);
-	dev->abc_control_timer.expires = jiffies + HZ * 60;
-	add_timer(&dev->abc_control_timer);
-	restore_flags(flags);
-}
-
-static __inline void abc_set_last_jiffies(int di,int ch)
-{
-	if(di > -1 && ch > -1) {
-		int i;
-		if((i = isdn_dc2minor(di,ch)) > -1)
-			dev->abc_last_use_jiffies[i] = jiffies;
-	}
-}
-#endif
 
 void
 isdn_MOD_INC_USE_COUNT(void)
@@ -449,9 +372,6 @@ static void
 isdn_timer_funct(ulong dummy)
 {
 	int tf = dev->tflags;
-#ifdef CONFIG_ISDN_WITH_ABC
-	int once_more_timer = abc_test_rcvq(NULL);
-#endif
 	if (tf & ISDN_TIMER_FAST) {
 		if (tf & ISDN_TIMER_MODEMREAD)
 			isdn_tty_readmodem();
@@ -486,11 +406,7 @@ isdn_timer_funct(ulong dummy)
 #endif
 		}
 	}
-#ifdef CONFIG_ISDN_WITH_ABC
-	if(once_more_timer || tf)
-#else
 	if (tf) 
-#endif
 	{
 		int flags;
 
@@ -539,9 +455,6 @@ isdn_receive_skb_callback(int di, int channel, struct sk_buff *skb)
 		dev_kfree_skb(skb);
 		return;
 	}
-#ifdef CONFIG_ISDN_WITH_ABC
-	dev->abc_last_use_jiffies[i] = jiffies;
-#endif
 	/* Update statistics */
 	dev->ibytes[i] += skb->len;
 	
@@ -613,9 +526,6 @@ isdn_all_eaz(int di, int ch)
 
 	if (di < 0)
 		return;
-#ifdef CONFIG_ISDN_WITH_ABC
-	abc_set_last_jiffies(di,ch);
-#endif
 	cmd.driver = di;
 	cmd.arg = ch;
 	cmd.command = ISDN_CMD_SETEAZ;
@@ -694,13 +604,6 @@ isdn_status_callback(isdn_ctrl * c)
 #ifdef ISDN_DEBUG_STATCALLB
 			printk(KERN_DEBUG "ICALL (net): %d %ld %s\n", di, c->arg, c->parm.num);
 #endif
-#ifdef CONFIG_ISDN_WITH_ABC
-			dev->abc_last_use_jiffies[i] = jiffies;
-
-			if(dev->net_verbose > 2)
-				printk(KERN_DEBUG "ICALL driver %d ch %d  i= %d\n",
-					(int)di,(int)c->arg,(int)i);
-#endif
 			if (dev->global_flags & ISDN_GLOBAL_STOPPED) {
 				cmd.driver = di;
 				cmd.arg = c->arg;
@@ -719,36 +622,6 @@ isdn_status_callback(isdn_ctrl * c)
 					/* No network-device replies.
 					 * Try ttyI's
 					 */
-#ifdef CONFIG_ISDN_WITH_ABC
-					if(abc_test_incall(c->parm.setup.phone)) {
-
-						printk(KERN_DEBUG "ICALL rejecting <%s>\n",
-							c->parm.setup.phone);
-
-						cmd.driver = di;
-						cmd.arg = c->arg;
-						cmd.command = ISDN_CMD_HANGUP;
-						isdn_command(&cmd);
-						retval = 2;
-
-					} else {
-
-						if (isdn_tty_find_icall(di, 
-							c->arg, c->parm.setup) >= 0) {
-
-							retval = 1;
-							abc_insert_incall(c->parm.setup.phone);
-
-						} else if (dev->drv[di]->reject_bus) {
-
-							cmd.driver = di;
-							cmd.arg = c->arg;
-							cmd.command = ISDN_CMD_HANGUP;
-							isdn_command(&cmd);
-							retval = 2;
-						}
-					}
-#else
 					if (isdn_tty_find_icall(di, c->arg, c->parm.setup) >= 0)
 						retval = 1;
 					else if (dev->drv[di]->reject_bus) {
@@ -758,7 +631,6 @@ isdn_status_callback(isdn_ctrl * c)
 						isdn_command(&cmd);
 						retval = 2;
 					}
-#endif
 					break;
 				case 1:
 					/* Schedule connection-setup */
@@ -1725,19 +1597,8 @@ isdn_ioctl(struct inode *inode, struct file *file, uint cmd, ulong arg)
 #endif /* CONFIG_ISDN_BUDGET */
 #endif                          /* CONFIG_NETDEVICES */
 			case IIOCSETVER:
-#ifdef CONFIG_ISDN_WITH_ABC
-				dev->abc_use_timeout = 0;
-				if(arg > 99)
-					dev->abc_use_timeout = HZ * 60 * (arg / 100);
-
-				dev->net_verbose = arg % 100;
-				printk(KERN_INFO
-					"isdn: Verbose-Level is %d ABC-Timeout %ld Min.\n",
-					dev->net_verbose,dev->abc_use_timeout / (HZ * 60));
-#else
 				dev->net_verbose = arg;
 				printk(KERN_INFO "isdn: Verbose-Level is %d\n", dev->net_verbose);
-#endif
 				return 0;
 			case IIOCSETGST:
 				if (arg)
@@ -2043,9 +1904,6 @@ isdn_close(struct inode *ino, struct file *filep)
 		infostruct *q = NULL;
 		while (p) {
 			if (p->private == (char *) &(filep->private_data)) {
-#ifdef CONFIG_ISDN_WITH_ABC
-				abc_free_receive();
-#endif
 				if (q)
 					q->next = p->next;
 				else
@@ -2147,12 +2005,6 @@ isdn_get_free_channel(int usage, int l2_proto, int l3_proto, int pre_dev
 			if ((dev->usage[i] & ISDN_USAGE_EXCLUSIVE) &&
 			((pre_dev != d) || (pre_chan != dev->chanmap[i])))
 				continue;
-#ifdef CONFIG_ISDN_WITH_ABC
-			if(dev->abc_not_avail_jiffies[i] > jiffies)
-				continue;
-
-			dev->abc_last_use_jiffies[i] = jiffies;
-#endif
 			if ((dev->drv[d]->running)) {
 				if (((dev->drv[d]->interface->features & features) == features) ||
 				    (((dev->drv[d]->interface->features & vfeatures) == vfeatures) &&
@@ -2259,9 +2111,6 @@ isdn_writebuf_stub(int drvidx, int chan, const u_char * buf, int len,
 		copy_from_user(skb_put(skb, len), buf, len);
 	else
 		memcpy(skb_put(skb, len), buf, len);
-#ifdef CONFIG_ISDN_WITH_ABC
-	abc_set_last_jiffies(drvidx,chan);
-#endif
 	ret = dev->drv[drvidx]->interface->writebuf_skb(drvidx, chan, 1, skb);
 	if (ret <= 0)
 		dev_kfree_skb(skb);
@@ -2280,9 +2129,7 @@ isdn_writebuf_skb_stub(int drvidx, int chan, int ack, struct sk_buff *skb)
 	struct sk_buff *nskb = NULL;
 	int v110_ret = skb->len;
 	int idx = isdn_dc2minor(drvidx, chan);
-#ifdef CONFIG_ISDN_WITH_ABC
-	abc_set_last_jiffies(drvidx,chan);
-#endif
+
 	if (dev->v110[idx]) {
 		atomic_inc(&dev->v110use[idx]);
 		nskb = isdn_v110_encode(dev->v110[idx], skb);
@@ -2531,12 +2378,6 @@ isdn_init(void)
 	init_timer(&dev->timer);
 	dev->timer.function = isdn_timer_funct;
 	dev->sem = MUTEX;
-#ifdef CONFIG_ISDN_WITH_ABC
-	init_timer(&dev->abc_control_timer);
-	dev->abc_control_timer.function = abc_control_t;
-	skb_queue_head_init(&abc_receive_q);
-	abcgmbh_getpack_mem();
-#endif
 	for (i = 0; i < ISDN_MAX_CHANNELS; i++) {
 		dev->drvmap[i] = -1;
 		dev->chanmap[i] = -1;
@@ -2583,16 +2424,6 @@ isdn_init(void)
 	printk("%s/", isdn_getrev(tmprev));
 	strcpy(tmprev, isdn_v110_revision);
 	printk("%s", isdn_getrev(tmprev));
-#ifdef CONFIG_ISDN_WITH_ABC
-	{
-		ulong flags;
-		save_flags(flags);
-		cli();
-		dev->abc_control_timer.expires = jiffies + HZ * 60;
-		add_timer(&dev->abc_control_timer);
-		restore_flags(flags);
-	}
-#endif
 
 #ifdef MODULE
 	printk(" loaded\n");
@@ -2641,12 +2472,6 @@ cleanup_module(void)
 	if (unregister_chrdev(ISDN_MAJOR, "isdn") != 0) {
 		printk(KERN_WARNING "isdn: controldevice busy, remove cancelled\n");
 	} else {
-#ifdef CONFIG_ISDN_WITH_ABC
-		del_timer(&dev->abc_control_timer);
-		abc_free_receive();
-		(void)abc_clean_up_memory();
-		(void)abcgmbh_freepack_mem();
-#endif
 		del_timer(&dev->timer);
 		kfree(dev);
 		printk(KERN_NOTICE "ISDN-subsystem unloaded\n");

@@ -2,7 +2,6 @@
 # ISDN device configuration
 #
 if [ "$CONFIG_INET" != "n" ]; then
-#	bool 'ABC-Ext. Support (alpha-test) (>= 2.1.x Kernels)' CONFIG_ISDN_WITH_ABC
   bool 'Support synchronous PPP' CONFIG_ISDN_PPP
   if [ "$CONFIG_ISDN_PPP" != "n" ]; then
     bool 'Use VJ-compression with synchronous PPP' CONFIG_ISDN_PPP_VJ
@@ -52,6 +51,7 @@ fi
 if [ "$CONFIG_EXPERIMENTAL" != "n" ]; then
 	dep_tristate 'Spellcaster support (EXPERIMENTAL)' CONFIG_ISDN_DRV_SC $CONFIG_ISDN
 	dep_tristate 'IBM Active 2000 support (EXPERIMENTAL)' CONFIG_ISDN_DRV_ACT2000 $CONFIG_ISDN
+	dep_tristate 'Diehl active card support (EXPERIMENTAL)' CONFIG_ISDN_DRV_DIEHL $CONFIG_ISDN
 fi
 dep_tristate 'AVM-B1 with CAPI2.0 support' CONFIG_ISDN_DRV_AVMB1 $CONFIG_ISDN
 if [ "$CONFIG_ISDN_DRV_AVMB1" != "n" ]; then
