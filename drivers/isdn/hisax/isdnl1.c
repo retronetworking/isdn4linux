@@ -11,6 +11,9 @@
  *
  *
  * $Log$
+ * Revision 2.5  1997/09/11 17:24:45  keil
+ * Add new cards
+ *
  * Revision 2.4  1997/08/15 17:47:09  keil
  * avoid oops because a uninitialised timer
  *
@@ -90,7 +93,7 @@ const char *l1_revision = "$Revision$";
 #define I4L_IRQ_FLAG    0
 
 #define HISAX_STATUS_BUFSIZE 4096
-
+#define ISDN_CTRL_DEBUG 1
 #define INCLUDE_INLINE_FUNCS
 #include <linux/tqueue.h>
 #include <linux/interrupt.h>
