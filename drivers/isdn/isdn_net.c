@@ -21,6 +21,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.38  1997/02/23 23:41:14  fritz
+ * Bugfix: Slave interfaces have to be hung up before master.
+ *
  * Revision 1.37  1997/02/11 18:32:51  fritz
  * Bugfix in isdn_ppp_free_mpqueue().
  *
@@ -170,6 +173,7 @@
 #include <linux/isdn.h>
 #include <linux/if_arp.h>
 #include <net/arp.h>
+#include <net/icmp.h>
 #include "isdn_common.h"
 #include "isdn_net.h"
 #ifdef CONFIG_ISDN_PPP
@@ -189,6 +193,14 @@ char *isdn_net_revision = "$Revision$";
  /*
   * Code for raw-networking over ISDN
   */
+
+static void
+isdn_net_unreachable(struct device *dev, struct sk_buff *skb, char *reason)
+{
+	printk(KERN_DEBUG "isdn_net: %s: %s, send ICMP\n",
+	       dev->name, reason);
+	icmp_send(skb, ICMP_DEST_UNREACH, ICMP_HOST_UNREACH, 0, dev);
+}
 
 static void
 isdn_net_reset(struct device *dev)
@@ -956,13 +968,21 @@ isdn_net_start_xmit(struct sk_buff *skb, struct device *ndev)
 							   lp->l3_proto,
 							   lp->pre_device,
 						 lp->pre_channel)) < 0) {
+					restore_flags(flags);
+#if 0
 					printk(KERN_WARNING
 					       "isdn_net_start_xmit: No channel for %s\n",
 					       ndev->name);
-					restore_flags(flags);
 					/* we probably should drop the skb here and return 0 to omit
 					   'socket destroy delayed' messages */
 					return 1;
+#else
+					isdn_net_unreachable(ndev, skb,
+							     "No channel");
+					dev_kfree_skb(skb, FREE_WRITE);
+					ndev->tbusy = 0;
+					return 0;
+#endif
 				}
 				/* Log packet, which triggered dialing */
 				if (dev->net_verbose)
@@ -1000,20 +1020,8 @@ isdn_net_start_xmit(struct sk_buff *skb, struct device *ndev)
 				isdn_net_dial();
 				return 0;
 			} else {
-				/*
-				 * Having no phone-number is a permanent
-				 * failure or misconfiguration.
-				 * Instead of just dropping, we should also
-				 * have the upper layers to respond
-				 * with an ICMP No route to host in the
-				 * future, however at the moment, i don't
-				 * know a simple way to do that.
-				 * The same applies, when the telecom replies
-				 * "no destination" to our dialing-attempt.
-				 */
-				printk(KERN_WARNING
-				       "isdn_net: No phone number for %s, packet dropped\n",
-				       ndev->name);
+				isdn_net_unreachable(ndev, skb,
+						     "No phone number");
 				dev_kfree_skb(skb, FREE_WRITE);
 				ndev->tbusy = 0;
 				return 0;
