@@ -20,6 +20,10 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.6  2000/02/14 19:23:03  werner
+ *
+ * Changed handling of proc filesystem tables to a more portable version
+ *
  * Revision 1.5  1999/09/14 20:31:01  werner
  *
  * Removed obsoleted functions for proc fs and synced with new ones.
@@ -316,7 +320,9 @@ static struct file_operations isdn_fops =
 	NULL			/* fsync */
 };
 
+#ifdef COMPAT_NO_SOFTNET
 struct inode_operations divert_file_inode_operations;
+#endif
 
 /****************************/
 /* isdn subdir in /proc/net */
@@ -345,9 +351,14 @@ divert_dev_init(void)
 		remove_proc_entry("isdn", proc_net);
 		return (-1);
 	}
+#ifdef COMPAT_NO_SOFTNET
 	memset(&divert_file_inode_operations, 0, sizeof(struct inode_operations));
 	divert_file_inode_operations.default_file_ops = &isdn_fops;
 	isdn_divert_entry->ops = &divert_file_inode_operations;
+#else
+	isdn_divert_entry->proc_fops = &isdn_fops; 
+#endif
+
 #endif	/* CONFIG_PROC_FS */
 
 	return (0);

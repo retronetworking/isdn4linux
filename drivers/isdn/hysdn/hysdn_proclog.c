@@ -20,6 +20,10 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.2  2000/02/14 19:23:03  werner
+ *
+ * Changed handling of proc filesystem tables to a more portable version
+ *
  * Revision 1.1  2000/02/10 19:45:18  werner
  *
  * Initial release
@@ -434,7 +438,9 @@ static struct file_operations log_fops =
 	NULL			/* fsync */
 };
 
+#ifdef COMPAT_NO_SOFTNET
 struct inode_operations log_inode_operations;
+#endif
 
 /***********************************************************************************/
 /* hysdn_proclog_init is called when the module is loaded after creating the cards */
@@ -449,12 +455,17 @@ hysdn_proclog_init(hysdn_card * card)
 
 	if ((pd = (struct procdata *) kmalloc(sizeof(struct procdata), GFP_KERNEL)) != NULL) {
 		memset(pd, 0, sizeof(struct procdata));
+#ifdef COMPAT_NO_SOFTNET
 		memset(&log_inode_operations, 0, sizeof(struct inode_operations));
 		log_inode_operations.default_file_ops = &log_fops;
-
+#endif
 		sprintf(pd->log_name, "%s%d", PROC_LOG_BASENAME, card->myid);
 		if ((pd->log = create_proc_entry(pd->log_name, S_IFREG | S_IRUGO | S_IWUSR, hysdn_proc_entry)) != NULL)
+#ifdef COMPAT_NO_SOFTNET
 			pd->log->ops = &log_inode_operations;	/* set new operations table */
+#else
+		        pd->log->proc_fops = &log_fops; 
+#endif
 
 #ifdef COMPAT_HAS_NEW_WAITQ
 		init_waitqueue_head(&(pd->rd_queue));
