@@ -727,9 +727,19 @@ void
 isdn_tty_modem_hup(modem_info * info, int local)
 {
 	isdn_ctrl cmd;
+	int di, ch;
 
 	if (!info)
 		return;
+
+	di = info->isdn_driver;
+	ch = info->isdn_channel;
+	if (di < 0 || ch < 0)
+		return;
+
+	info->isdn_driver = -1;
+	info->isdn_channel = -1;
+
 #ifdef ISDN_DEBUG_MODEM_HUP
 	printk(KERN_DEBUG "Mhup ttyI%d\n", info->line);
 #endif
@@ -770,19 +780,18 @@ isdn_tty_modem_hup(modem_info * info, int local)
 		isdn_tty_modem_result(RESULT_RUNG, info);
 	info->msr &= ~(UART_MSR_DCD | UART_MSR_RI);
 	info->lsr |= UART_LSR_TEMT;
-	if (info->isdn_driver >= 0) {
-		if (local) {
-			cmd.driver = info->isdn_driver;
-			cmd.command = ISDN_CMD_HANGUP;
-			cmd.arg = info->isdn_channel;
-			isdn_command(&cmd);
-		}
-		isdn_all_eaz(info->isdn_driver, info->isdn_channel);
-		info->emu.mdmreg[REG_RINGCNT] = 0;
-		isdn_free_channel(info->isdn_driver, info->isdn_channel, 0);
+
+	if (local) {
+		cmd.driver = di;
+		cmd.command = ISDN_CMD_HANGUP;
+		cmd.arg = ch;
+		isdn_command(&cmd);
 	}
-	info->isdn_driver = -1;
-	info->isdn_channel = -1;
+
+	isdn_all_eaz(di, ch);
+	info->emu.mdmreg[REG_RINGCNT] = 0;
+	isdn_free_channel(di, ch, 0);
+
 	if (info->drv_index >= 0) {
 		dev->m_idx[info->drv_index] = -1;
 		info->drv_index = -1;
