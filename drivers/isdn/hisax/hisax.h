@@ -3,6 +3,9 @@
  *   Basic declarations, defines and prototypes
  *
  * $Log$
+ * Revision 1.13.2.22  1999/04/28 21:47:53  keil
+ * Add HST Saphir support
+ *
  * Revision 1.13.2.21  1999/04/22 21:10:41  werner
  * Added support for dss1 diversion services
  *
@@ -721,6 +724,18 @@ struct saphir_hw {
 	struct timer_list timer;
 };
 
+struct bkm_hw {
+	unsigned int base;
+	/* A4T stuff */
+	unsigned int isac_adr;
+	unsigned int isac_ale;
+	unsigned int jade_adr;
+	unsigned int jade_ale;
+	/* Scitel Quadro stuff */
+	unsigned int plx_adr;
+    unsigned int data_adr;
+};	
+
 #ifdef  CONFIG_HISAX_TESTEMU
 struct te_hw {
 	unsigned char *sfifo;
@@ -797,6 +812,7 @@ struct IsdnCardState {
 #ifdef CONFIG_HISAX_TESTEMU
 		struct te_hw te;
 #endif
+		struct bkm_hw ax;
 	} hw;
 	int myid;
 	isdn_if iif;
@@ -872,7 +888,10 @@ struct IsdnCardState {
 #define  ISDN_CTYPE_ISURF	29
 #define  ISDN_CTYPE_ACERP10	30
 #define  ISDN_CTYPE_HSTSAPHIR	31
-#define  ISDN_CTYPE_COUNT	31
+#define	 ISDN_CTYPE_BKM_A4T	32
+#define	 ISDN_CTYPE_SCT_QUADRO	33
+#define  ISDN_CTYPE_COUNT	33
+
 
 #ifdef ISDN_CHIP_ISAC
 #undef ISDN_CHIP_ISAC
@@ -1083,6 +1102,24 @@ struct IsdnCardState {
 #define  ISDN_CTYPE_COUNT ISDN_CTYPE_TESTEMU
 #else
 #define CARD_TESTEMU 0
+#endif
+
+#ifdef	CONFIG_HISAX_BKM_A4T
+#define	CARD_BKM_A4T 1
+#ifndef ISDN_CHIP_ISAC
+#define ISDN_CHIP_ISAC 1
+#endif
+#else
+#define CARD_BKM_A4T 0
+#endif
+
+#ifdef	CONFIG_HISAX_SCT_QUADRO
+#define	CARD_SCT_QUADRO 1
+#ifndef ISDN_CHIP_ISAC
+#define ISDN_CHIP_ISAC 1
+#endif
+#else
+#define CARD_SCT_QUADRO 0
 #endif
 
 #define TEI_PER_CARD 0

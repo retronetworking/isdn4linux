@@ -5,6 +5,9 @@
  *
  *
  * $Log$
+ * Revision 1.15.2.29  1999/04/28 21:47:59  keil
+ * Add HST Saphir support
+ *
  * Revision 1.15.2.28  1999/04/22 21:10:17  werner
  * Added support for dss1 diversion services
  *
@@ -153,7 +156,8 @@
  *   29 Siemens I-Surf          p0=irq p1=iobase p2=memory (from isapnp setup)   
  *   30 ACER P10                p0=irq p1=iobase (from isapnp setup)   
  *   31 HST Saphir              p0=irq  p1=iobase
- *
+ *   32 Telekom A4T             none
+ *   33 Scitel Quadro			p0=subcontroller (4*S0, subctrl 1...4)
  * protocol can be either ISDN_PTYPE_EURO or ISDN_PTYPE_1TR6 or ISDN_PTYPE_NI1
  *
  *
@@ -166,7 +170,8 @@ const char *CardType[] =
  "Sedlbauer Speed Card", "USR Sportster", "ith mic Linux", "Elsa PCI",
  "Compaq ISA", "NETjet", "Teles PCI", "Sedlbauer Speed Star (PCMCIA)",
  "AMD 7930", "NICCY", "S0Box", "AVM A1 (PCMCIA)", "AVM Fritz PnP/PCI",
- "Sedlbauer Speed Fax +", "Siemens I-Surf", "Acer P10", "HST Saphir"
+ "Sedlbauer Speed Fax +", "Siemens I-Surf", "Acer P10", "HST Saphir",
+ "Telekom A4T", "Scitel Quadro"
 };
 
 #ifdef CONFIG_HISAX_ELSA
@@ -338,6 +343,20 @@ static struct symbol_table hisax_syms_sedl= {
 #undef DEFAULT_CFG
 #define DEFAULT_CARD ISDN_CTYPE_HSTSAPHIR
 #define DEFAULT_CFG {5,0x250,0,0}
+#endif
+
+#ifdef CONFIG_HISAX_BKM_A4T            
+#undef DEFAULT_CARD
+#undef DEFAULT_CFG
+#define DEFAULT_CARD ISDN_CTYPE_BKM_A4T
+#define DEFAULT_CFG {0,0x0,0,0}
+#endif
+
+#ifdef CONFIG_HISAX_SCT_QUADRO
+#undef DEFAULT_CARD
+#undef DEFAULT_CFG
+#define DEFAULT_CARD ISDN_CTYPE_SCT_QUADRO
+#define DEFAULT_CFG {1,0x0,0,0}
 #endif
 
 #ifdef CONFIG_HISAX_1TR6
@@ -626,6 +645,14 @@ extern int setup_saphir(struct IsdnCard *card);
 
 #if CARD_TESTEMU
 extern int setup_testemu(struct IsdnCard *card);
+#endif
+
+#if	CARD_BKM_A4T
+extern int setup_bkm_a4t(struct IsdnCard *card);
+#endif
+
+#if	CARD_SCT_QUADRO
+extern int setup_sct_quadro(struct IsdnCard *card);
 #endif
 
 /*
@@ -1131,6 +1158,16 @@ checkcard(int cardnr, char *id, int *busy_flag))
 				ret = setup_testemu(card);
 				break;
 #endif
+#if	CARD_BKM_A4T       
+           	case ISDN_CTYPE_BKM_A4T:
+	        	ret = setup_bkm_a4t(card);
+			break;
+#endif
+#if	CARD_SCT_QUADRO
+	        case ISDN_CTYPE_SCT_QUADRO:
+    			ret = setup_sct_quadro(card);
+			break;
+#endif
 		default:
 			printk(KERN_WARNING
 				"HiSax: Support for %s Card not selected\n",
@@ -1418,6 +1455,11 @@ HiSax_init(void))
 			case ISDN_CTYPE_NETJET:
 			case ISDN_CTYPE_AMD7930:
 			case ISDN_CTYPE_TELESPCI:
+				break;
+			case ISDN_CTYPE_BKM_A4T:
+	  		   	break;
+			case ISDN_CTYPE_SCT_QUADRO:
+	          	cards[i].para[0] = irq[i];
 				break;
 		}
 	}
