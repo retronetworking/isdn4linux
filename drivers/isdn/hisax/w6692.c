@@ -8,6 +8,10 @@
  *              This file is (c) under GNU PUBLIC LICENSE
  *
  * $Log$
+ * Revision 1.3  2000/03/16 22:41:36  werner
+ *
+ * Tried to fix second B-channel problem (still not tested)
+ *
  * Revision 1.2  2000/02/26 00:35:13  keil
  * Fix skb freeing in interrupt context
  *
@@ -320,9 +324,12 @@ W6692B_interrupt(struct IsdnCardState *cs, u_char bchan)
 {
 	u_char val;
 	u_char r;
-	struct BCState *bcs = cs->bcs + bchan;
+	struct BCState *bcs = cs->bcs;
 	struct sk_buff *skb;
 	int count;
+
+	if (bcs->channel != bchan)
+	  bcs++; /* hardware bchan must match ! */
 
 	val = cs->BC_Read_Reg(cs, bchan, W_B_EXIR);
 	debugl1(cs, "W6692B chan %d B_EXIR 0x%02X", bchan, val);
