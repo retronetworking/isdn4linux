@@ -30,42 +30,59 @@ static irqreturn_t
 netjet_s_interrupt(int intno, void *dev_id, struct pt_regs *regs)
 {
 	struct IsdnCardState *cs = dev_id;
-	u_char val, sval;
+	u_char val, s1val, s0val;
 	u_long flags;
 
 	spin_lock_irqsave(&cs->lock, flags);
-	if (!((sval = bytein(cs->hw.njet.base + NETJET_IRQSTAT1)) &
-		NETJET_ISACIRQ)) {
+	s1val = bytein(cs->hw.njet.base + NETJET_IRQSTAT1);
+	if (!(s1val & NETJET_ISACIRQ)) {
 		val = NETjet_ReadIC(cs, ISAC_ISTA);
 		if (cs->debug & L1_DEB_ISAC)
-			debugl1(cs, "tiger: i1 %x %x", sval, val);
+			debugl1(cs, "tiger: i1 %x %x", s1val, val);
 		if (val) {
 			isac_interrupt(cs, val);
 			NETjet_WriteIC(cs, ISAC_MASK, 0xFF);
 			NETjet_WriteIC(cs, ISAC_MASK, 0x0);
 		}
-	}
+		s1val = 1;
+	} else
+		s1val = 0;
+	/* 
+	 * read/write stat0 is better, because lower IRQ rate
+	 * Note the IRQ is on for 125 us if a condition match
+	 * thats long on modern CPU and so the IRQ is reentered
+	 * all the time.
+	 */
+	s0val = bytein(cs->hw.njet.base + NETJET_IRQSTAT0);
+	if ((s0val | s1val)==0) { // shared IRQ
+		spin_unlock_irqrestore(&cs->lock, flags);
+		return IRQ_NONE;
+	} 
+	if (s0val)
+		byteout(cs->hw.njet.base + NETJET_IRQSTAT0, s0val);
 	/* start new code 13/07/00 GE */
 	/* set bits in sval to indicate which page is free */
 	if (inl(cs->hw.njet.base + NETJET_DMA_WRITE_ADR) <
 		inl(cs->hw.njet.base + NETJET_DMA_WRITE_IRQ))
 		/* the 2nd write page is free */
-		sval = 0x08;
+		s0val = 0x08;
 	else	/* the 1st write page is free */
-		sval = 0x04;	
+		s0val = 0x04;	
 	if (inl(cs->hw.njet.base + NETJET_DMA_READ_ADR) <
 		inl(cs->hw.njet.base + NETJET_DMA_READ_IRQ))
 		/* the 2nd read page is free */
-		sval = sval | 0x02;
+		s0val |= 0x02;
 	else	/* the 1st read page is free */
-		sval = sval | 0x01;	
-	if (sval != cs->hw.njet.last_is0) /* we have a DMA interrupt */
+		s0val |= 0x01;	
+	if (s0val != cs->hw.njet.last_is0) /* we have a DMA interrupt */
 	{
 		if (test_and_set_bit(FLG_LOCK_ATOMIC, &cs->HW_Flags)) {
+			printk(KERN_WARNING "nj LOCK_ATOMIC s0val %x->%x\n",
+				cs->hw.njet.last_is0, s0val);
 			spin_unlock_irqrestore(&cs->lock, flags);
 			return IRQ_HANDLED;;
 		}
-		cs->hw.njet.irqstat0 = sval;
+		cs->hw.njet.irqstat0 = s0val;
 		if ((cs->hw.njet.irqstat0 & NETJET_IRQM0_READ) != 
 			(cs->hw.njet.last_is0 & NETJET_IRQM0_READ))
 			/* we have a read dma int */
@@ -87,8 +104,9 @@ reset_netjet_s(struct IsdnCardState *cs)
 	cs->hw.njet.ctrl_reg = 0xff;  /* Reset On */
 	byteout(cs->hw.njet.base + NETJET_CTRL, cs->hw.njet.ctrl_reg);
 	mdelay(10);
-	cs->hw.njet.ctrl_reg = 0x40;  /* Reset Off and status read clear */
+	cs->hw.njet.ctrl_reg = 0x00;  /* Reset Off and status read clear */
 	/* now edge triggered for TJ320 GE 13/07/00 */
+	/* see comment in IRQ function */
 	byteout(cs->hw.njet.base + NETJET_CTRL, cs->hw.njet.ctrl_reg);
 	mdelay(10);
 	cs->hw.njet.auxd = 0;
@@ -101,19 +119,26 @@ reset_netjet_s(struct IsdnCardState *cs)
 static int
 NETjet_S_card_msg(struct IsdnCardState *cs, int mt, void *arg)
 {
+	u_long flags;
+
 	switch (mt) {
 		case CARD_RESET:
+			spin_lock_irqsave(&cs->lock, flags);
 			reset_netjet_s(cs);
+			spin_unlock_irqrestore(&cs->lock, flags);
 			return(0);
 		case CARD_RELEASE:
 			release_io_netjet(cs);
 			return(0);
 		case CARD_INIT:
+			reset_netjet_s(cs);
 			inittiger(cs);
+			spin_lock_irqsave(&cs->lock, flags);
 			clear_pending_isac_ints(cs);
 			initisac(cs);
 			/* Reenable all IRQ */
 			cs->writeisac(cs, ISAC_MASK, 0);
+			spin_unlock_irqrestore(&cs->lock, flags);
 			return(0);
 		case CARD_TEST:
 			return(0);
