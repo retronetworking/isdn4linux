@@ -21,6 +21,10 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.77  1998/10/23 10:18:44  paul
+ * Implementation of "dialmode" (successor of "status")
+ * You also need current isdnctrl for this!
+ *
  * Revision 1.76  1998/09/07 22:00:05  he
  * flush method for 2.1.118 and above
  * updated IIOCTLNETGPN
@@ -2221,6 +2225,7 @@ isdn_net_find_icall(int di, int ch, int idx, setup_parm setup)
 									swapped = 1;
 								} else {
 									/* ... else iterate next device */
+									p = (isdn_net_dev *) p->next;
 									continue;
 								}
 							} else {
@@ -2242,6 +2247,7 @@ isdn_net_find_icall(int di, int ch, int idx, setup_parm setup)
 #ifdef ISDN_DEBUG_NET_ICALL
 								printk(KERN_DEBUG "n_fi: final check failed\n");
 #endif
+								p = (isdn_net_dev *) p->next;
 								continue;
 							}
 						}
@@ -2250,6 +2256,7 @@ isdn_net_find_icall(int di, int ch, int idx, setup_parm setup)
 #ifdef ISDN_DEBUG_NET_ICALL
 						printk(KERN_DEBUG "n_fi: already on 2nd channel\n");
 #endif
+						p = (isdn_net_dev *) p->next;
 						continue;
 					}
 				}
@@ -2312,6 +2319,7 @@ isdn_net_find_icall(int di, int ch, int idx, setup_parm setup)
 					/* Found parent, if it's offline iterate next device */
 					printk(KERN_DEBUG "mlpf: %d\n", mlp->flags & ISDN_NET_CONNECTED);
 					if (!(mlp->flags & ISDN_NET_CONNECTED)) {
+						p = (isdn_net_dev *) p->next;
 						continue;
 					}
 				}
@@ -2402,6 +2410,7 @@ isdn_net_find_icall(int di, int ch, int idx, setup_parm setup)
 				}
 			}
 		}
+		p = (isdn_net_dev *) p->next;
 	}
 	/* If none of configured EAZ/MSN matched and not verbose, be silent */
 	if (!ematch || dev->net_verbose)
