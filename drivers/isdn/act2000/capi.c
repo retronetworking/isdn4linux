@@ -21,6 +21,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.1  1997/09/23 18:00:08  fritz
+ * New driver for IBM Active 2000.
+ *
  */
 
 #define __NO_VERSION__
@@ -966,6 +969,10 @@ actcapi_debug_msg(struct sk_buff *skb, int direction)
 	int i;
 	char tmp[170];
 	
+#ifndef DEBUG_DATA_MSG
+	if (msg->hdr.cmd.cmd == 0x86)
+		return;
+#endif
 	descr = "INVALID";
 	for (i = 0; i < num_valid_imsg; i++)
 		if ((msg->hdr.cmd.cmd == valid_imsg[i].cmd.cmd) &&
