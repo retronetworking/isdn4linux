@@ -6,6 +6,9 @@
  * (c) Copyright 1999 by Carsten Paeth (calle@calle.in-berlin.de)
  * 
  * $Log$
+ * Revision 1.13.6.1  2000/11/28 12:02:45  kai
+ * MODULE_DEVICE_TABLE for 2.4
+ *
  * Revision 1.13.2.2  2000/11/26 17:47:53  kai
  * added PCI_DEV_TABLE for 2.4
  *
@@ -77,9 +80,9 @@
 #include <linux/interrupt.h>
 #include <linux/ioport.h>
 #include <linux/pci.h>
+#include <linux/isdn_compat.h>
 #include <linux/capi.h>
 #include <linux/init.h>
-#include <linux/isdn_compat.h>
 #include <asm/io.h>
 #include "capicmd.h"
 #include "capiutil.h"

@@ -6,6 +6,9 @@
  * Heavily based on devpts filesystem from H. Peter Anvin
  * 
  * $Log$
+ * Revision 1.14.6.2  2001/02/10 14:41:20  kai
+ * Changes from kernel tree
+ *
  * Revision 1.14.6.1  2000/11/28 12:02:45  kai
  * MODULE_DEVICE_TABLE for 2.4
  *
@@ -90,7 +93,6 @@
 #include <linux/ctype.h>
 #include <asm/bitops.h>
 #include <asm/uaccess.h>
-#include <linux/isdn_compat.h>
 
 MODULE_AUTHOR("Carsten Paeth <calle@calle.de>");
 

@@ -32,7 +32,6 @@
 #include <linux/slab.h>
 #include <linux/pci.h>
 #include <linux/delay.h>
-#include <linux/isdn_compat.h>
 #undef N_DATA
 
 #include "uxio.h"

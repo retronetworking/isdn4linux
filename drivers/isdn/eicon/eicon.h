@@ -151,8 +151,6 @@ typedef struct {
 #include <linux/isdn.h>
 #include <linux/isdnif.h>
 
-#include <linux/isdn_compat.h>
-
 typedef struct {
   __u16 length __attribute__ ((packed)); /* length of data/parameter field */
   __u8  P[1];                          /* data/parameter field */

@@ -6,6 +6,9 @@
  * (c) Copyright 1999 by Carsten Paeth (calle@calle.in-berlin.de)
  * 
  * $Log$
+ * Revision 1.20.6.1  2000/11/28 12:02:45  kai
+ * MODULE_DEVICE_TABLE for 2.4
+ *
  * Revision 1.20.2.2  2000/11/26 17:47:53  kai
  * added PCI_DEV_TABLE for 2.4
  *
@@ -93,17 +96,16 @@
 #include <linux/interrupt.h>
 #include <linux/ioport.h>
 #include <linux/pci.h>
+#ifdef COMPAT_HAS_2_2_PCI
+#include <linux/isdn_compat.h>
+#endif
 #include <linux/capi.h>
 #include <linux/init.h>
-#ifdef COMPAT_HAS_2_2_PCI
-#include <linux/isdn.h>
-#endif
 #include <asm/io.h>
 #include <asm/uaccess.h>
 #ifndef COMPAT_NO_SOFTNET
 #include <linux/netdevice.h>
 #endif
-#include <linux/isdn_compat.h>
 #include "capicmd.h"
 #include "capiutil.h"
 #include "capilli.h"
@@ -1335,29 +1337,6 @@ static struct capi_driver c4_driver = {
 
     add_card: 0, /* no add_card function */
 };
-
-#ifndef COMPAT_HAS_pci_find_subsys
-#ifndef PCI_ANY_ID
-#define PCI_ANY_ID (~0)
-#endif
-
-static struct pci_dev *
-pci_find_subsys(unsigned int vendor, unsigned int device,
-		unsigned int ss_vendor, unsigned int ss_device,
-		struct pci_dev *from)
-{
-	unsigned short subsystem_vendor, subsystem_device;
-
-	while ((from = pci_find_device(vendor, device, from))) {
-		pci_read_config_word(from, PCI_SUBSYSTEM_VENDOR_ID, &subsystem_vendor);
-		pci_read_config_word(from, PCI_SUBSYSTEM_ID, &subsystem_device);
-		if ((ss_vendor == PCI_ANY_ID || subsystem_vendor == ss_vendor) &&
-		    (ss_device == PCI_ANY_ID || subsystem_device == ss_device))
-			return from;
-	}
-	return NULL;
-}
-#endif
 
 static int ncards = 0;
 

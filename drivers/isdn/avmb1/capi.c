@@ -6,6 +6,9 @@
  * Copyright 1996 by Carsten Paeth (calle@calle.in-berlin.de)
  *
  * $Log$
+ * Revision 1.44.6.4  2001/02/10 14:41:20  kai
+ * Changes from kernel tree
+ *
  * Revision 1.44.6.3  2000/12/17 22:45:08  kai
  * That's hopefully it for test13-4
  *
@@ -249,7 +252,6 @@
 #include <linux/capi.h>
 #include <linux/kernelcapi.h>
 #include <linux/init.h>
-#include <linux/isdn_compat.h>
 #ifdef HAVE_DEVFS_FS
 #include <linux/devfs_fs_kernel.h>
 #endif /* HAVE_DEVFS_FS */

@@ -6,6 +6,10 @@
  * (c) Copyright 1999 by Carsten Paeth (calle@calle.in-berlin.de)
  * 
  * $Log$
+ * Revision 1.16  2000/11/23 20:45:14  kai
+ * fixed module_init/exit stuff
+ * Note: compiled-in kernel doesn't work pre 2.2.18 anymore.
+ *
  * Revision 1.15  2000/11/01 14:05:02  calle
  * - use module_init/module_exit from linux/init.h.
  * - all static struct variables are initialized with "membername:" now.
@@ -95,7 +99,6 @@
 #include <linux/capi.h>
 #include <linux/init.h>
 #include <asm/io.h>
-#include <linux/isdn_compat.h>
 #include "capicmd.h"
 #include "capiutil.h"
 #include "capilli.h"

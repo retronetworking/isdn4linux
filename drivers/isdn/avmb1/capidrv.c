@@ -6,6 +6,9 @@
  * Copyright 1997 by Carsten Paeth (calle@calle.in-berlin.de)
  *
  * $Log$
+ * Revision 1.39.6.1  2001/02/10 14:41:20  kai
+ * Changes from kernel tree
+ *
  * Revision 1.39  2000/11/23 20:45:14  kai
  * fixed module_init/exit stuff
  * Note: compiled-in kernel doesn't work pre 2.2.18 anymore.
@@ -215,7 +218,6 @@
 #include <linux/init.h>
 #include <asm/segment.h>
 
-#include <linux/isdn_compat.h>
 #include "capiutil.h"
 #include "capicmd.h"
 #include "capidrv.h"

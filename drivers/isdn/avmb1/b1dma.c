@@ -6,6 +6,9 @@
  * (c) Copyright 2000 by Carsten Paeth (calle@calle.in-berlin.de)
  * 
  * $Log$
+ * Revision 1.11  2000/11/19 17:02:47  kai
+ * compatibility cleanup - part 3
+ *
  * Revision 1.10  2000/11/19 17:01:53  kai
  * compatibility cleanup - part 2
  *
@@ -52,7 +55,6 @@
 #include <linux/capi.h>
 #include <asm/io.h>
 #include <linux/init.h>
-#include <linux/isdn_compat.h>
 #include <asm/uaccess.h>
 #ifndef COMPAT_NO_SOFTNET
 #include <linux/netdevice.h>

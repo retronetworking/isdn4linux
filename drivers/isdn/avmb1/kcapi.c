@@ -6,6 +6,11 @@
  * (c) Copyright 1999 by Carsten Paeth (calle@calle.in-berlin.de)
  * 
  * $Log$
+ * Revision 1.21.6.1  2000/12/10 23:39:19  kai
+ * in 2.4 we don't have tq_scheduler anymore.
+ * also add one supported card to hfc_pci.c
+ * (from main branch)
+ *
  * Revision 1.21  2000/11/23 20:45:14  kai
  * fixed module_init/exit stuff
  * Note: compiled-in kernel doesn't work pre 2.2.18 anymore.
@@ -123,7 +128,6 @@
 #include <linux/kernelcapi.h>
 #include <linux/locks.h>
 #include <linux/init.h>
-#include <linux/isdn_compat.h>
 #include <asm/uaccess.h>
 #include "capicmd.h"
 #include "capiutil.h"

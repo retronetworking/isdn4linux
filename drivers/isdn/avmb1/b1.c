@@ -6,6 +6,10 @@
  * (c) Copyright 1999 by Carsten Paeth (calle@calle.in-berlin.de)
  * 
  * $Log$
+ * Revision 1.20  2000/11/23 20:45:14  kai
+ * fixed module_init/exit stuff
+ * Note: compiled-in kernel doesn't work pre 2.2.18 anymore.
+ *
  * Revision 1.19  2000/11/19 17:02:47  kai
  * compatibility cleanup - part 3
  *
@@ -106,7 +110,6 @@
 #include <linux/capi.h>
 #include <asm/io.h>
 #include <linux/init.h>
-#include <linux/isdn_compat.h>
 #include <asm/uaccess.h>
 #ifndef COMPAT_NO_SOFTNET
 #include <linux/netdevice.h>
