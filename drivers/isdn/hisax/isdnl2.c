@@ -7,6 +7,9 @@
  *              Fritz Elfert
  *
  * $Log$
+ * Revision 2.1  1997/07/27 21:34:38  keil
+ * cosmetics
+ *
  * Revision 2.0  1997/06/26 11:07:29  keil
  * New q.921 and X.75 Layer2
  *
@@ -67,6 +70,7 @@ enum {
 	EV_L2_DL_RELEASE,
 	EV_L2_MDL_ASSIGN,
 	EV_L2_MDL_REMOVE,
+	EV_L2_MDL_ERROR,
 	EV_L2_MDL_NOTEIPROC,
 	EV_L2_T200,
 	EV_L2_T203,
@@ -91,6 +95,7 @@ static char *strL2Event[] =
 	"EV_L2_DL_RELEASE",
 	"EV_L2_MDL_ASSIGN",
 	"EV_L2_MDL_REMOVE",
+	"EV_L2_MDL_ERROR",
 	"EV_L2_MDL_NOTEIPROC",
 	"EV_L2_T200",
 	"EV_L2_T203",
@@ -374,10 +379,11 @@ static void
 l2_dl_establish(struct FsmInst *fi, int event, void *arg)
 {
 	struct PStack *st = fi->userdata;
+	int state = fi->state;
 
-	if (fi->state == ST_L2_1)
+	FsmChangeState(fi, ST_L2_3); 
+	if (state == ST_L2_1)
 		st->l2.l2tei(st, MDL_ASSIGN, NULL);
-	FsmChangeState(fi, ST_L2_3);
 }
 
 static void
@@ -403,8 +409,8 @@ l2_put_ui(struct FsmInst *fi, int event, void *arg)
 
 	skb_queue_tail(&st->l2.ui_queue, skb);
 	if (fi->state == ST_L2_1) {
-		st->l2.l2tei(st, MDL_ASSIGN, NULL);
 		FsmChangeState(fi, ST_L2_2);
+		st->l2.l2tei(st, MDL_ASSIGN, NULL);
 	}
 	if (fi->state > ST_L2_3)
 		l2_send_ui(st);
@@ -1207,6 +1213,8 @@ static struct FsmNode L2FnList[] =
 	{ST_L2_1, EV_L2_MDL_ASSIGN, l2_got_tei},
 	{ST_L2_2, EV_L2_MDL_ASSIGN, l2_got_tei},
 	{ST_L2_3, EV_L2_MDL_ASSIGN, l2_got_tei},
+	{ST_L2_2, EV_L2_MDL_ERROR, l2_tei_remove},
+	{ST_L2_3, EV_L2_MDL_ERROR, l2_tei_remove},
 	{ST_L2_4, EV_L2_MDL_REMOVE, l2_tei_remove},
 	{ST_L2_5, EV_L2_MDL_REMOVE, l2_tei_remove},
 	{ST_L2_6, EV_L2_MDL_REMOVE, l2_tei_remove},
@@ -1341,6 +1349,9 @@ isdnl2_manl2(struct PStack *st, int pr, void *arg)
 			break;
 		case (MDL_REMOVE):
 			FsmEvent(&st->l2.l2m, EV_L2_MDL_REMOVE, arg);
+			break;
+		case (MDL_ERROR):
+			FsmEvent(&st->l2.l2m, EV_L2_MDL_ERROR, arg);
 			break;
 	}
 }
