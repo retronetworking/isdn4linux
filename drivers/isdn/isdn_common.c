@@ -2,8 +2,9 @@
  *
  * Linux ISDN subsystem, common used functions (linklevel).
  *
- * Copyright 1994 by Fritz Elfert (fritz@wuemaus.franken.de)
- * Copyright 1995 Thinking Objects Software GmbH Wuerzburg
+ * Copyright 1994,95,96 by Fritz Elfert (fritz@wuemaus.franken.de)
+ * Copyright 1995,96    Thinking Objects Software GmbH Wuerzburg
+ * Copyright 1995,96    by Michael Hipp (Michael.Hipp@student.uni-tuebingen.de)
  * 
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -20,28 +21,37 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.1  1996/01/09 04:12:52  fritz
+ * Initial revision
+ *
  */
 
 #include <linux/config.h>
+#ifndef __GENKSYMS__      /* Don't want genksyms report unneeded structs */
 #include <linux/module.h>
 #include <linux/version.h>
-
 #include <linux/isdn.h>
+#endif
 #include "isdn_common.h"
 #include "isdn_tty.h"
 #include "isdn_net.h"
 #include "isdn_ppp.h"
+#include "isdn_cards.h"
+
+#ifdef MODULE
+#ifdef DEF_VERSION
+char kernel_version[] = UTS_RELEASE;
+#endif
+#endif
 
 /* Debugflags */
 #undef  ISDN_DEBUG_STATCALLB
 
-#ifdef DEF_VERSION
-char kernel_version[] = UTS_RELEASE;
-#endif
-
 isdn_dev *dev = (isdn_dev *) 0;
 
+static int  has_exported = 0;
 static char *isdn_revision      = "$Revision$";
+
 extern char *isdn_net_revision;
 extern char *isdn_tty_revision;
 extern char *isdn_ppp_revision;
@@ -57,7 +67,7 @@ void isdn_MOD_DEC_USE_COUNT(void)
 }
 
 #if defined(ISDN_DEBUG_NET_DUMP) || defined(ISDN_DEBUG_MODEM_DUMP)
-static void isdn_dumppkt(char *s, u_char * p, int len, int dumplen)
+void isdn_dumppkt(char *s, u_char * p, int len, int dumplen)
 {
 	int dumpc;
 
@@ -146,7 +156,7 @@ static void isdn_timer_funct(ulong dummy)
 			isdn_net_autohup();
 		if (tf & ISDN_TIMER_MODEMRING)
 			isdn_tty_modem_ring();
-#ifdef CONFIG_ISDN_PPP
+#if (defined CONFIG_ISDN_PPP ) && (defined ISDN_CONFIG_MPP)
 		if (tf & ISDN_TIMER_IPPP)
 			isdn_ppp_timer_timeout();
 #endif
@@ -532,21 +542,6 @@ static int isdn_status_callback(isdn_ctrl * c)
 }
 
 /*
- * Simple atoi, since it is not available from within modules.
- */
-int isdn_my_atoi(char *s)
-{
-	int i, n;
-
-	n = 0;
-	if (!s)
-		return -1;
-	for (i = 0; *s >= '0' && *s <= '9'; i++, s++)
-		n = 10 * n + (*s - '0');
-	return n;
-}
-
-/*
  * Get integer from char-pointer, set pointer to end of number
  */
 int isdn_getnum(char **p)
@@ -622,12 +617,12 @@ int isdn_readbchan(int di, int channel, u_char * buf, u_char * fp, int len, int 
 	return count;
 }
 
-static int isdn_minor2drv(int minor)
+static __inline int isdn_minor2drv(int minor)
 {
 	return (dev->drvmap[minor]);
 }
 
-static int isdn_minor2chan(int minor)
+static __inline int isdn_minor2chan(int minor)
 {
 	return (dev->chanmap[minor]);
 }
@@ -780,7 +775,7 @@ static int isdn_write(struct inode *inode, struct file *file, FOPS_CONST char *b
 		if (!dev->drv[drvidx]->running)
 			return -ENODEV;
 		chidx = isdn_minor2chan(minor);
-		while (dev->drv[drvidx]->interface->writebuf(chidx, buf, count, 1) != count)
+		while (dev->drv[drvidx]->interface->writebuf(drvidx, chidx, buf, count, 1) != count)
 			interruptible_sleep_on(&dev->drv[drvidx]->snd_waitq[chidx]);
 		return count;
 	}
@@ -823,7 +818,7 @@ static int isdn_select(struct inode *inode, struct file *file, int type, select_
 		return 1;
 #ifdef CONFIG_ISDN_PPP
 	if (minor <= ISDN_MINOR_PPPMAX)
-		return (ippp_select(minor - ISDN_MINOR_PPP, file, type, st));
+		return (isdn_ppp_select(minor - ISDN_MINOR_PPP, file, type, st));
 #endif
 	return -ENODEV;
 }
@@ -1001,319 +996,322 @@ static int isdn_ioctl(struct inode *inode, struct file *file, uint cmd, ulong ar
 	if (minor <= ISDN_MINOR_CTRLMAX) {
 		switch (cmd) {
 #ifdef CONFIG_NETDEVICES
-		case ISDN_IOCTL_NET_ADDIF:
-			/* Add a network-interface */
-			if (arg) {
-				if ((ret = verify_area(VERIFY_READ, (void *) arg, sizeof(name))))
-					return ret;
-				memcpy_fromfs(name, (char *) arg, sizeof(name));
-				s = name;
-			} else
-				s = NULL;
-			if ((s = isdn_net_new(s, NULL))) {
-				if ((ret = verify_area(VERIFY_WRITE, (void *) arg, strlen(s) + 1)))
-					return ret;
-				memcpy_tofs((char *) arg, s, strlen(s) + 1);
-				return 0;
-			} else
-				return -ENODEV;
-		case ISDN_IOCTL_NET_ADDSLAVE:
-			/* Add a slave to a network-interface */
-			if (arg) {
-				if ((ret = verify_area(VERIFY_READ, (void *) arg, sizeof(bname))))
-					return ret;
-				memcpy_fromfs(bname, (char *) arg, sizeof(bname));
-			} else
-				return -EINVAL;
-			if ((s = isdn_net_newslave(bname))) {
-				if ((ret = verify_area(VERIFY_WRITE, (void *) arg, strlen(s) + 1)))
-					return ret;
-				memcpy_tofs((char *) arg, s, strlen(s) + 1);
-				return 0;
-			} else
-				return -ENODEV;
-		case ISDN_IOCTL_NET_DELIF:
-			/* Delete a network-interface */
-			if (arg) {
-				if ((ret = verify_area(VERIFY_READ, (void *) arg, sizeof(name))))
-					return ret;
-				memcpy_fromfs(name, (char *) arg, sizeof(name));
-				return isdn_net_rm(name);
-			} else
-				return -EINVAL;
-		case ISDN_IOCTL_NET_SETCFG:
-			/* Set configurable parameters of a network-interface */
-			if (arg) {
-				if ((ret = verify_area(VERIFY_READ, (void *) arg, sizeof(cfg))))
-					return ret;
-				memcpy_fromfs((char *) &cfg, (char *) arg, sizeof(cfg));
-				return isdn_net_setcfg(&cfg);
-			} else
-				return -EINVAL;
-		case ISDN_IOCTL_NET_GETCFG:
-			/* Get configurable parameters of a network-interface */
-			if (arg) {
-				if ((ret = verify_area(VERIFY_READ, (void *) arg, sizeof(cfg))))
-					return ret;
-				memcpy_fromfs((char *) &cfg, (char *) arg, sizeof(cfg));
-				if (!(ret = isdn_net_getcfg(&cfg))) {
-					if ((ret = verify_area(VERIFY_WRITE, (void *) arg, sizeof(cfg))))
-						return ret;
-					memcpy_tofs((char *) arg, (char *) &cfg, sizeof(cfg));
-				}
-				return ret;
-			} else
-				return -EINVAL;
-		case ISDN_IOCTL_NET_ADDNUM:
-			/* Add a phone-number to a network-interface */
-			if (arg) {
-				if ((ret = verify_area(VERIFY_READ, (void *) arg, sizeof(phone))))
-					return ret;
-				memcpy_fromfs((char *) &phone, (char *) arg, sizeof(phone));
-				return isdn_net_addphone(&phone);
-			} else
-				return -EINVAL;
-		case ISDN_IOCTL_NET_GETNUM:
-			/* Get list of phone-numbers of a network-interface */
-			if (arg) {
-				if ((ret = verify_area(VERIFY_READ, (void *) arg, sizeof(phone))))
-					return ret;
-				memcpy_fromfs((char *) &phone, (char *) arg, sizeof(phone));
-				return isdn_net_getphones(&phone, (char *) arg);
-			} else
-				return -EINVAL;
-		case ISDN_IOCTL_NET_DELNUM:
-			/* Delete a phone-number of a network-interface */
-			if (arg) {
-				memcpy_fromfs((char *) &phone, (char *) arg, sizeof(phone));
-				if ((ret = verify_area(VERIFY_READ, (void *) arg, sizeof(phone))))
-					return ret;
-				return isdn_net_delphone(&phone);
-			} else
-				return -EINVAL;
-		case ISDN_IOCTL_NET_DIAL:
-			/* Force dialing of a network-interface */
-			if (arg) {
-				if ((ret = verify_area(VERIFY_READ, (void *) arg, sizeof(name))))
-					return ret;
-				memcpy_fromfs(name, (char *) arg, sizeof(name));
-				return isdn_net_force_dial(name);
-			} else
-				return -EINVAL;
-		case ISDN_IOCTL_NET_ADD_LINK:
-			/* clone interface and dial; removed for i4l 0.7.1 */
-			return 2;
-		case ISDN_IOCTL_NET_REMOVE_LINK:
-			/* remove one link from bundle; removed for i4l 0.7.1  */
-			return 2;
-		case ISDN_IOCTL_NET_HANGUP:
-			/* Force hangup of a network-interface */
-			if (arg) {
-				if ((ret = verify_area(VERIFY_READ, (void *) arg, sizeof(name))))
-					return ret;
-				memcpy_fromfs(name, (char *) arg, sizeof(name));
-				return isdn_net_force_hangup(name);
-			} else
-				return -EINVAL;
-			break;
-#endif				/* CONFIG_NET */
-		case ISDN_IOCTL_SET_VERBOSE:
-			dev->net_verbose = arg;
-			printk(KERN_INFO "isdn: Verbose-Level is %d\n", dev->net_verbose);
-			return 0;
-		case ISDN_IOCTL_SET_GLOBALSTOP:
-			if (arg)
-				dev->global_flags |= ISDN_GLOBAL_STOPPED;
-			else
-				dev->global_flags &= ~ISDN_GLOBAL_STOPPED;
-			printk(KERN_INFO "isdn: Global Mode %s\n",
-			       (dev->global_flags & ISDN_GLOBAL_STOPPED) ? "stopped" : "running");
-			return 0;
-		case ISDN_IOCTL_SET_BUSREJECT:
-			drvidx = -1;
-			if (arg) {
-				int i;
-				char *p;
-				if ((ret = verify_area(VERIFY_READ, (void *) arg,
-					     sizeof(isdn_ioctl_struct))))
-					return ret;
-				memcpy_fromfs((char *) &iocts, (char *) arg, sizeof(isdn_ioctl_struct));
-				if (strlen(iocts.drvid)) {
-					if ((p = strchr(iocts.drvid, ',')))
-						*p = 0;
-					drvidx = -1;
-					for (i = 0; i < ISDN_MAX_DRIVERS; i++)
-						if (!(strcmp(dev->drvid[i], iocts.drvid))) {
-							drvidx = i;
-							break;
-						}
-				}
-			}
-			if (drvidx == -1)
-				return -ENODEV;
-			dev->drv[drvidx]->reject_bus = iocts.arg;
-			return 0;
-		case ISDN_IOCTL_GET_SETUP:
-			/* Get complete setup (all network-interfaces and profile-
-			   settings of all tty-devices */
-			if (arg)
-				return (isdn_get_allcfg((char *) arg));
-			else
-				return -EINVAL;
-			break;
-		case ISDN_IOCTL_SET_SETUP:
-			/* Set complete setup (all network-interfaces and profile-
-			   settings of all tty-devices */
-			if (arg)
-				return (isdn_set_allcfg((char *) arg));
-			else
-				return -EINVAL;
-			break;
-		case ISDN_IOCTL_PROFILESIG:
-			dev->profd = current;
-			return 0;
-			break;
-		case ISDN_IOCTL_PROFILEGET:
-			/* Get all Modem-Profiles */
-			if (arg) {
-				char *p = (char *) arg;
-				int i;
-
-				if ((ret = verify_area(VERIFY_WRITE, (void *) arg,
-					(ISDN_MODEM_ANZREG + ISDN_MSNLEN)
-						   * ISDN_MAX_CHANNELS)))
-					return ret;
-
-				for (i = 0; i < ISDN_MAX_CHANNELS; i++) {
-					memcpy_tofs(p, dev->mdm.atmodem[i].profile, ISDN_MODEM_ANZREG);
-					p += ISDN_MODEM_ANZREG;
-					memcpy_tofs(p, dev->mdm.atmodem[i].pmsn, ISDN_MSNLEN);
-					p += ISDN_MSNLEN;
-				}
-				return (ISDN_MODEM_ANZREG + ISDN_MSNLEN) * ISDN_MAX_CHANNELS;
-			} else
-				return -EINVAL;
-			break;
-		case ISDN_IOCTL_PROFILESET:
-			/* Get all Modem-Profiles */
-			if (arg) {
-				char *p = (char *) arg;
-				int i;
-
-				if ((ret = verify_area(VERIFY_READ, (void *) arg,
-					(ISDN_MODEM_ANZREG + ISDN_MSNLEN)
-						   * ISDN_MAX_CHANNELS)))
-					return ret;
-
-				for (i = 0; i < ISDN_MAX_CHANNELS; i++) {
-					memcpy_fromfs(dev->mdm.atmodem[i].profile, p, ISDN_MODEM_ANZREG);
-					p += ISDN_MODEM_ANZREG;
-					memcpy_fromfs(dev->mdm.atmodem[i].pmsn, p, ISDN_MSNLEN);
-					p += ISDN_MSNLEN;
-				}
-				return 0;
-			} else
-				return -EINVAL;
-			break;
-		case ISDN_IOCTL_SETMAPPING:
-		case ISDN_IOCTL_GETMAPPING:
-			/* Set MSN->EAZ-Mapping for a driver */
-			if (arg) {
-				int i;
-				char *p;
-				char nstring[255];
-
-				if ((ret = verify_area(VERIFY_READ, (void *) arg,
-					     sizeof(isdn_ioctl_struct))))
-					return ret;
-				memcpy_fromfs((char *) &iocts, (char *) arg, sizeof(isdn_ioctl_struct));
-				if (strlen(iocts.drvid)) {
-					drvidx = -1;
-					for (i = 0; i < ISDN_MAX_DRIVERS; i++)
-						if (!(strcmp(dev->drvid[i], iocts.drvid))) {
-							drvidx = i;
-							break;
-						}
-				} else
-					drvidx = 0;
-				if (drvidx == -1)
-					return -ENODEV;
-				if (cmd == ISDN_IOCTL_SETMAPPING) {
-					if ((ret = verify_area(VERIFY_READ, (void *) iocts.arg, 255)))
-						return ret;
-					memcpy_fromfs(nstring, (char *) iocts.arg, 255);
-					memset(dev->drv[drvidx]->msn2eaz, 0,
-					       sizeof(dev->drv[drvidx]->msn2eaz));
-					p = strtok(nstring, ",");
-					i = 0;
-					while ((p) && (i < 10)) {
-						strcpy(dev->drv[drvidx]->msn2eaz[i++], p);
-						p = strtok(NULL, ",");
-					}
-				} else {
-					p = nstring;
-					for (i = 0; i < 10; i++)
-						p += sprintf(p, "%s%s",
-							     strlen(dev->drv[drvidx]->msn2eaz[i]) ?
-							     dev->drv[drvidx]->msn2eaz[i] : "-",
-						   (i < 9) ? "," : "\0");
-					if ((ret = verify_area(VERIFY_WRITE, (void *) iocts.arg,
-						   strlen(nstring) + 1)))
-						return ret;
-					memcpy_tofs((char *) iocts.arg, nstring, strlen(nstring) + 1);
-				}
-				return 0;
-			} else
-				return -EINVAL;
-		case ISDN_IOCTL_DEBUGVAR:
-			if (arg) {
-				if ((ret = verify_area(VERIFY_WRITE, (void *) arg, sizeof(ulong))))
-					return ret;
-				memcpy_tofs((char *) arg, (char *) &dev, sizeof(ulong));
-				return 0;
-			} else
-				return -EINVAL;
-			break;
-		default:
-			cmd -= ISDN_IOCTL_DRVIOCTL;
-			if (arg) {
-				int i;
-				char *p;
-				if ((ret = verify_area(VERIFY_READ, (void *) arg,
-					     sizeof(isdn_ioctl_struct))))
-					return ret;
-				memcpy_fromfs((char *) &iocts, (char *) arg, sizeof(isdn_ioctl_struct));
-				if (strlen(iocts.drvid)) {
-					if ((p = strchr(iocts.drvid, ',')))
-						*p = 0;
-					drvidx = -1;
-					for (i = 0; i < ISDN_MAX_DRIVERS; i++)
-						if (!(strcmp(dev->drvid[i], iocts.drvid))) {
-							drvidx = i;
-							break;
-						}
-				} else
-					drvidx = 0;
-				if (drvidx == -1)
-					return -ENODEV;
-				if ((ret = verify_area(VERIFY_WRITE, (void *) arg,
-					     sizeof(isdn_ioctl_struct))))
-					return ret;
-				c.driver = drvidx;
-				c.command = ISDN_CMD_IOCTL;
-				c.arg = cmd;
-				memcpy(c.num, (char *) &iocts.arg, sizeof(ulong));
-				ret = dev->drv[drvidx]->interface->command(&c);
-				memcpy((char *) &iocts.arg, c.num, sizeof(ulong));
-				memcpy_tofs((char *) arg, &iocts, sizeof(isdn_ioctl_struct));
-				return ret;
-			} else
-				return -EINVAL;
+                        case IIOCNETAIF:
+                                /* Add a network-interface */
+                                if (arg) {
+                                        if ((ret = verify_area(VERIFY_READ, (void *) arg, sizeof(name))))
+                                                return ret;
+                                        memcpy_fromfs(name, (char *) arg, sizeof(name));
+                                        s = name;
+                                } else
+                                        s = NULL;
+                                if ((s = isdn_net_new(s, NULL))) {
+                                        if ((ret = verify_area(VERIFY_WRITE, (void *) arg, strlen(s) + 1)))
+                                                return ret;
+                                        memcpy_tofs((char *) arg, s, strlen(s) + 1);
+                                        return 0;
+                                } else
+                                        return -ENODEV;
+                        case IIOCNETASL:
+                                /* Add a slave to a network-interface */
+                                if (arg) {
+                                        if ((ret = verify_area(VERIFY_READ, (void *) arg, sizeof(bname))))
+                                                return ret;
+                                        memcpy_fromfs(bname, (char *) arg, sizeof(bname));
+                                } else
+                                        return -EINVAL;
+                                if ((s = isdn_net_newslave(bname))) {
+                                        if ((ret = verify_area(VERIFY_WRITE, (void *) arg, strlen(s) + 1)))
+                                                return ret;
+                                        memcpy_tofs((char *) arg, s, strlen(s) + 1);
+                                        return 0;
+                                } else
+                                        return -ENODEV;
+                        case IIOCNETDIF:
+                                /* Delete a network-interface */
+                                if (arg) {
+                                        if ((ret = verify_area(VERIFY_READ, (void *) arg, sizeof(name))))
+                                                return ret;
+                                        memcpy_fromfs(name, (char *) arg, sizeof(name));
+                                        return isdn_net_rm(name);
+                                } else
+                                        return -EINVAL;
+                        case IIOCNETSCF:
+                                /* Set configurable parameters of a network-interface */
+                                if (arg) {
+                                        if ((ret = verify_area(VERIFY_READ, (void *) arg, sizeof(cfg))))
+                                                return ret;
+                                        memcpy_fromfs((char *) &cfg, (char *) arg, sizeof(cfg));
+                                        return isdn_net_setcfg(&cfg);
+                                } else
+                                        return -EINVAL;
+                        case IIOCNETGCF:
+                                /* Get configurable parameters of a network-interface */
+                                if (arg) {
+                                        if ((ret = verify_area(VERIFY_READ, (void *) arg, sizeof(cfg))))
+                                                return ret;
+                                        memcpy_fromfs((char *) &cfg, (char *) arg, sizeof(cfg));
+                                        if (!(ret = isdn_net_getcfg(&cfg))) {
+                                                if ((ret = verify_area(VERIFY_WRITE, (void *) arg, sizeof(cfg))))
+                                                        return ret;
+                                                memcpy_tofs((char *) arg, (char *) &cfg, sizeof(cfg));
+                                        }
+                                        return ret;
+                                } else
+                                        return -EINVAL;
+                        case IIOCNETANM:
+                                /* Add a phone-number to a network-interface */
+                                if (arg) {
+                                        if ((ret = verify_area(VERIFY_READ, (void *) arg, sizeof(phone))))
+                                                return ret;
+                                        memcpy_fromfs((char *) &phone, (char *) arg, sizeof(phone));
+                                        return isdn_net_addphone(&phone);
+                                } else
+                                        return -EINVAL;
+                        case IIOCNETGNM:
+                                /* Get list of phone-numbers of a network-interface */
+                                if (arg) {
+                                        if ((ret = verify_area(VERIFY_READ, (void *) arg, sizeof(phone))))
+                                                return ret;
+                                        memcpy_fromfs((char *) &phone, (char *) arg, sizeof(phone));
+                                        return isdn_net_getphones(&phone, (char *) arg);
+                                } else
+                                        return -EINVAL;
+                        case IIOCNETDNM:
+                                /* Delete a phone-number of a network-interface */
+                                if (arg) {
+                                        memcpy_fromfs((char *) &phone, (char *) arg, sizeof(phone));
+                                        if ((ret = verify_area(VERIFY_READ, (void *) arg, sizeof(phone))))
+                                                return ret;
+                                        return isdn_net_delphone(&phone);
+                                } else
+                                        return -EINVAL;
+                        case IIOCNETDIL:
+                                /* Force dialing of a network-interface */
+                                if (arg) {
+                                        if ((ret = verify_area(VERIFY_READ, (void *) arg, sizeof(name))))
+                                                return ret;
+                                        memcpy_fromfs(name, (char *) arg, sizeof(name));
+                                        return isdn_net_force_dial(name);
+                                } else
+                                        return -EINVAL;
+                        case IIOCNETALN:
+                                /* clone interface and dial; removed for i4l 0.7.1 */
+                                return 2;
+                        case IIOCNETDLN:
+                                /* remove one link from bundle; removed for i4l 0.7.1  */
+                                return 2;
+                        case IIOCNETHUP:
+                                /* Force hangup of a network-interface */
+                                if (arg) {
+                                        if ((ret = verify_area(VERIFY_READ, (void *) arg, sizeof(name))))
+                                                return ret;
+                                        memcpy_fromfs(name, (char *) arg, sizeof(name));
+                                        return isdn_net_force_hangup(name);
+                                } else
+                                        return -EINVAL;
+                                break;
+#endif				/* CONFIG_NETDEVICES */
+                        case IIOCSETVER:
+                                dev->net_verbose = arg;
+                                printk(KERN_INFO "isdn: Verbose-Level is %d\n", dev->net_verbose);
+                                return 0;
+                        case IIOCSETGST:
+                                if (arg)
+                                        dev->global_flags |= ISDN_GLOBAL_STOPPED;
+                                else
+                                        dev->global_flags &= ~ISDN_GLOBAL_STOPPED;
+                                printk(KERN_INFO "isdn: Global Mode %s\n",
+                                       (dev->global_flags & ISDN_GLOBAL_STOPPED) ? "stopped" : "running");
+                                return 0;
+                        case IIOCSETBRJ:
+                                drvidx = -1;
+                                if (arg) {
+                                        int i;
+                                        char *p;
+                                        if ((ret = verify_area(VERIFY_READ, (void *) arg,
+                                                               sizeof(isdn_ioctl_struct))))
+                                                return ret;
+                                        memcpy_fromfs((char *) &iocts, (char *) arg, sizeof(isdn_ioctl_struct));
+                                        if (strlen(iocts.drvid)) {
+                                                if ((p = strchr(iocts.drvid, ',')))
+                                                        *p = 0;
+                                                drvidx = -1;
+                                                for (i = 0; i < ISDN_MAX_DRIVERS; i++)
+                                                        if (!(strcmp(dev->drvid[i], iocts.drvid))) {
+                                                                drvidx = i;
+                                                                break;
+                                                        }
+                                        }
+                                }
+                                if (drvidx == -1)
+                                        return -ENODEV;
+                                dev->drv[drvidx]->reject_bus = iocts.arg;
+                                return 0;
+                        case IIOCGETSET:
+                                /* Get complete setup (all network-interfaces and profile-
+                                   settings of all tty-devices */
+                                if (arg)
+                                        return (isdn_get_allcfg((char *) arg));
+                                else
+                                        return -EINVAL;
+                                break;
+                        case IIOCSETSET:
+                                /* Set complete setup (all network-interfaces and profile-
+                                   settings of all tty-devices */
+                                if (arg)
+                                        return (isdn_set_allcfg((char *) arg));
+                                else
+                                        return -EINVAL;
+                                break;
+                        case IIOCSIGPRF:
+                                dev->profd = current;
+                                return 0;
+                                break;
+                        case IIOCGETPRF:
+                                /* Get all Modem-Profiles */
+                                if (arg) {
+                                        char *p = (char *) arg;
+                                        int i;
+                                        
+                                        if ((ret = verify_area(VERIFY_WRITE, (void *) arg,
+                                                               (ISDN_MODEM_ANZREG + ISDN_MSNLEN)
+                                                               * ISDN_MAX_CHANNELS)))
+                                                return ret;
+                                        
+                                        for (i = 0; i < ISDN_MAX_CHANNELS; i++) {
+                                                memcpy_tofs(p, dev->mdm.atmodem[i].profile, ISDN_MODEM_ANZREG);
+                                                p += ISDN_MODEM_ANZREG;
+                                                memcpy_tofs(p, dev->mdm.atmodem[i].pmsn, ISDN_MSNLEN);
+                                                p += ISDN_MSNLEN;
+                                        }
+                                        return (ISDN_MODEM_ANZREG + ISDN_MSNLEN) * ISDN_MAX_CHANNELS;
+                                } else
+                                        return -EINVAL;
+                                break;
+                        case IIOCSETPRF:
+                                /* Get all Modem-Profiles */
+                                if (arg) {
+                                        char *p = (char *) arg;
+                                        int i;
+                                        
+                                        if ((ret = verify_area(VERIFY_READ, (void *) arg,
+                                                               (ISDN_MODEM_ANZREG + ISDN_MSNLEN)
+                                                               * ISDN_MAX_CHANNELS)))
+                                                return ret;
+                                        
+                                        for (i = 0; i < ISDN_MAX_CHANNELS; i++) {
+                                                memcpy_fromfs(dev->mdm.atmodem[i].profile, p, ISDN_MODEM_ANZREG);
+                                                p += ISDN_MODEM_ANZREG;
+                                                memcpy_fromfs(dev->mdm.atmodem[i].pmsn, p, ISDN_MSNLEN);
+                                                p += ISDN_MSNLEN;
+                                        }
+                                        return 0;
+                                } else
+                                        return -EINVAL;
+                                break;
+                        case IIOCSETMAP:
+                        case IIOCGETMAP:
+                                /* Set/Get MSN->EAZ-Mapping for a driver */
+                                if (arg) {
+                                        int i;
+                                        char *p;
+                                        char nstring[255];
+                                        
+                                        if ((ret = verify_area(VERIFY_READ, (void *) arg,
+                                                               sizeof(isdn_ioctl_struct))))
+                                                return ret;
+                                        memcpy_fromfs((char *) &iocts, (char *) arg, sizeof(isdn_ioctl_struct));
+                                        if (strlen(iocts.drvid)) {
+                                                drvidx = -1;
+                                                for (i = 0; i < ISDN_MAX_DRIVERS; i++)
+                                                        if (!(strcmp(dev->drvid[i], iocts.drvid))) {
+                                                                drvidx = i;
+                                                                break;
+                                                        }
+                                        } else
+                                                drvidx = 0;
+                                        if (drvidx == -1)
+                                                return -ENODEV;
+                                        if (cmd == IIOCSETMAP) {
+                                                if ((ret = verify_area(VERIFY_READ, (void *) iocts.arg, 255)))
+                                                        return ret;
+                                                memcpy_fromfs(nstring, (char *) iocts.arg, 255);
+                                                memset(dev->drv[drvidx]->msn2eaz, 0,
+                                                       sizeof(dev->drv[drvidx]->msn2eaz));
+                                                p = strtok(nstring, ",");
+                                                i = 0;
+                                                while ((p) && (i < 10)) {
+                                                        strcpy(dev->drv[drvidx]->msn2eaz[i++], p);
+                                                        p = strtok(NULL, ",");
+                                                }
+                                        } else {
+                                                p = nstring;
+                                                for (i = 0; i < 10; i++)
+                                                        p += sprintf(p, "%s%s",
+                                                                     strlen(dev->drv[drvidx]->msn2eaz[i]) ?
+                                                                     dev->drv[drvidx]->msn2eaz[i] : "-",
+                                                                     (i < 9) ? "," : "\0");
+                                                if ((ret = verify_area(VERIFY_WRITE, (void *) iocts.arg,
+                                                                       strlen(nstring) + 1)))
+                                                        return ret;
+                                                memcpy_tofs((char *) iocts.arg, nstring, strlen(nstring) + 1);
+                                        }
+                                        return 0;
+                                } else
+                                        return -EINVAL;
+                        case IIOCDBGVAR:
+                                if (arg) {
+                                        if ((ret = verify_area(VERIFY_WRITE, (void *) arg, sizeof(ulong))))
+                                                return ret;
+                                        memcpy_tofs((char *) arg, (char *) &dev, sizeof(ulong));
+                                        return 0;
+                                } else
+                                        return -EINVAL;
+                                break;
+                        default:
+                                if ((cmd&IIOCDRVCTL)==IIOCDRVCTL)
+                                        cmd = ((cmd>>_IOC_NRSHIFT)&_IOC_NRMASK);
+				else
+					return -EINVAL;
+                                if (arg) {
+                                        int i;
+                                        char *p;
+                                        if ((ret = verify_area(VERIFY_READ, (void *) arg,
+                                                               sizeof(isdn_ioctl_struct))))
+                                                return ret;
+                                        memcpy_fromfs((char *) &iocts, (char *) arg, sizeof(isdn_ioctl_struct));
+                                        if (strlen(iocts.drvid)) {
+                                                if ((p = strchr(iocts.drvid, ',')))
+                                                        *p = 0;
+                                                drvidx = -1;
+                                                for (i = 0; i < ISDN_MAX_DRIVERS; i++)
+                                                        if (!(strcmp(dev->drvid[i], iocts.drvid))) {
+                                                                drvidx = i;
+                                                                break;
+                                                        }
+                                        } else
+                                                drvidx = 0;
+                                        if (drvidx == -1)
+                                                return -ENODEV;
+                                        if ((ret = verify_area(VERIFY_WRITE, (void *) arg,
+                                                               sizeof(isdn_ioctl_struct))))
+                                                return ret;
+                                        c.driver = drvidx;
+                                        c.command = ISDN_CMD_IOCTL;
+                                        c.arg = cmd;
+                                        memcpy(c.num, (char *) &iocts.arg, sizeof(ulong));
+                                        ret = dev->drv[drvidx]->interface->command(&c);
+                                        memcpy((char *) &iocts.arg, c.num, sizeof(ulong));
+                                        memcpy_tofs((char *) arg, &iocts, sizeof(isdn_ioctl_struct));
+                                        return ret;
+                                } else
+                                        return -EINVAL;
 		}
 	}
 #ifdef CONFIG_ISDN_PPP
 	if (minor <= ISDN_MINOR_PPPMAX)
-		return (ippp_ioctl(minor - ISDN_MINOR_PPP, file, cmd, arg));
+		return (isdn_ppp_ioctl(minor - ISDN_MINOR_PPP, file, cmd, arg));
 #endif
 	return -ENODEV;
 }
@@ -1375,8 +1373,13 @@ static int isdn_open(struct inode *ino, struct file *filep)
 	if (minor <= ISDN_MINOR_PPPMAX) {
 		int ret;
 		ret = isdn_ppp_open(minor - ISDN_MINOR_PPP, filep);
-		if (!ret)
-			MOD_INC_USE_COUNT;
+		if (!ret) {
+		        drvidx = isdn_minor2drv(minor - ISDN_MINOR_PPP);
+		        c.command = ISDN_CMD_LOCK;
+		        c.driver = drvidx;
+		        MOD_INC_USE_COUNT;
+		        (void) dev->drv[drvidx]->interface->command(&c);
+                }
 		return ret;
 	}
 #endif
@@ -1429,8 +1432,15 @@ static void isdn_close(struct inode *ino, struct file *filep)
 		return;
 	}
 #ifdef CONFIG_ISDN_PPP
-	if (minor <= ISDN_MINOR_PPPMAX)
-		ippp_release(minor - ISDN_MINOR_PPP, filep);
+	if (minor <= ISDN_MINOR_PPPMAX) {
+		isdn_ppp_release(minor - ISDN_MINOR_PPP, filep);
+		drvidx = isdn_minor2drv(minor - ISDN_MINOR_PPP);
+		if (drvidx < 0)
+			return;
+		c.command = ISDN_CMD_UNLOCK;
+		c.driver = drvidx;
+		(void) dev->drv[drvidx]->interface->command(&c);
+        }
 #endif
 }
 
@@ -1553,8 +1563,46 @@ void isdn_unexclusive_channel(int di, int ch)
 }
 
 /*
+ *  receive callback handler for drivers supporting sk_buff's.
+ */
+
+void isdn_receive_skb_callback(int drvidx, int chan, struct sk_buff *skb) 
+{
+	if (isdn_net_rcv_skb(drvidx, chan, skb) == 0) {
+		isdn_receive_callback(drvidx, chan, skb->data, skb->len);
+		skb->free = 1;
+		kfree_skb(skb, FREE_READ);
+	}
+}
+
+/*
+ *  writebuf replacement for SKB_ABLE drivers
+ */
+
+int isdn_writebuf_stub(int drvidx, int chan, const u_char *buf, int len, 
+		       int user)
+{
+        struct sk_buff * skb;
+        
+        skb = alloc_skb(dev->drv[drvidx]->interface->hl_hdrlen + len, GFP_ATOMIC);
+        if (skb == NULL)
+                return 0;
+
+        skb_reserve(skb, dev->drv[drvidx]->interface->hl_hdrlen);
+        skb->free = 1;
+
+        if (user)
+                memcpy_fromfs(skb_put(skb, len), buf, len);
+        else
+                memcpy(skb_put(skb, len), buf, len);
+
+        return dev->drv[drvidx]->interface->writebuf_skb(drvidx, chan, skb);
+}
+ 
+/*
  * Low-level-driver registration
  */
+
 
 int register_isdn(isdn_if * i)
 {
@@ -1633,8 +1681,13 @@ int register_isdn(isdn_if * i)
 		if (!dev->drv[drvidx])
 			break;
 	i->channels = drvidx;
-	i->rcvcallb = isdn_receive_callback;
-	i->statcallb = isdn_status_callback;
+
+	if (i->writebuf_skb && (!i->writebuf))
+                i->writebuf = isdn_writebuf_stub;
+ 
+	i->rcvcallb_skb = isdn_receive_skb_callback;
+	i->rcvcallb     = isdn_receive_callback;
+	i->statcallb    = isdn_status_callback;
 	if (!strlen(i->id))
 		sprintf(i->id, "line%d", drvidx);
 	save_flags(flags);
@@ -1663,36 +1716,45 @@ int register_isdn(isdn_if * i)
 
 extern int printk(const char *fmt,...);
 
-#if 0
-static void isdn_sleep(u_int time)
-{
-	sti();
-	current->state = TASK_INTERRUPTIBLE;
-	current->timeout = jiffies + time;
-	schedule();
-	sti();
-}
-
-void DBG(const char *s)
-{
-	printk(KERN_NOTICE "%s\n\n", s);
-	isdn_sleep(100);
-}
-
-#endif
-
 #ifdef MODULE
 #define isdn_init init_module
 #endif
+
+static char *isdn_getrev(const char *revision)
+{
+	static char rev[20];
+	char *p;
+
+	if ((p = strchr(revision, ':'))) {
+		strcpy(rev, p + 2);
+		p = strchr(rev, '$');
+		*--p = 0;
+	} else
+		strcpy(rev, "???");
+	return rev;
+}
+
+static struct symbol_table isdn_syms = {
+#include <linux/symtab_begin.h>
+        X(register_isdn),
+#include <linux/symtab_end.h>
+};
+
+static void isdn_export_syms(void)
+{
+        register_symtab(&isdn_syms);
+        has_exported = 1;
+}
 
 /*
  * Allocate and initialize all data, register modem-devices
  */
 int isdn_init(void)
 {
+#ifndef CONFIG_ISDN_PPP
+	char *isdn_ppp_revision = ": none $";
+#endif
 	int i;
-	char rev[10];
-	char *p;
 
 	sti();
 	if (!(dev = (isdn_dev *) kmalloc(sizeof(isdn_dev), GFP_KERNEL))) {
@@ -1734,16 +1796,21 @@ int isdn_init(void)
 		return -EIO;
 	}
 #endif				/* CONFIG_ISDN_PPP */
-	if ((p = strchr(isdn_revision, ':'))) {
-		strcpy(rev, p + 1);
-		p = strchr(rev, '$');
-		*p = 0;
-	} else
-		strcpy(rev, " ??? ");
+
+        if (!has_exported)
+                isdn_export_syms();
+
+	printk(KERN_NOTICE "ISDN subsystem Rev: %s/%s/%s/%s",
+	       isdn_getrev(isdn_revision),
+	       isdn_getrev(isdn_tty_revision),
+	       isdn_getrev(isdn_net_revision),
+	       isdn_getrev(isdn_ppp_revision));
+
 #ifdef MODULE
-	printk(KERN_NOTICE "ISDN-subsystem Rev%sloaded\n", rev);
+	printk(" loaded\n");
 #else
-	printk(KERN_NOTICE "ISDN-subsystem Rev%sinitialized\n", rev);
+	printk("\n");
+	isdn_cards_init();
 #endif
 	isdn_info_update();
 	return 0;
@@ -1785,7 +1852,7 @@ void cleanup_module(void)
 	} else {
 		del_timer(&dev->timer);
 		kfree(dev);
-		printk(KERN_INFO "ISDN-subsystem unloaded\n");
+		printk(KERN_NOTICE "ISDN-subsystem unloaded\n");
 	}
 	restore_flags(flags);
 }
