@@ -29,6 +29,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.25.2.5  2000/04/08 11:36:55  armin
+ * changes from main tree and cleanup.
+ *
  * Revision 1.25.2.4  2000/04/02 21:26:38  armin
  * removes unnecessary #ifdef
  *
@@ -140,7 +143,7 @@
 
 #define DRIVERNAME "Eicon active ISDN driver"
 #define DRIVERRELEASE "2.0"
-#define DRIVERPATCH ".1b"
+#define DRIVERPATCH ".2b"
 
 
 #include <linux/config.h>

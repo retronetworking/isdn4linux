@@ -135,7 +135,8 @@ static
 int diva_server_bri_start(card_t *card, byte *channels)
 {
 	byte *DivasIOBase, *PLXIOBase;
-	word wSig, i;
+	word wSig = 0;
+	word i;
 	dword dwSerialNum;
 	byte bPLX9060 = FALSE;
 
