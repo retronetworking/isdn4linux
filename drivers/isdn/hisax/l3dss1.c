@@ -9,6 +9,9 @@
  *              Fritz Elfert
  *
  * $Log$
+ * Revision 1.2  1996/10/27 22:15:16  keil
+ * bugfix reject handling
+ *
  * Revision 1.1  1996/10/13 20:04:55  keil
  * Initial revision
  *
@@ -518,7 +521,7 @@ dss1down(struct PStack *st,
 	if (i == downsllen) {
         	if (st->l3.debug & L3_DEB_STATE) {
         		sprintf(tmp,"dss1down state %d prim %d unhandled",
-        			pr, st->l3.state);
+        			st->l3.state, pr);
 			l3_debug(st, tmp);
 		}
 	} else {

@@ -6,6 +6,9 @@
  *
  *
  * $Log$
+ * Revision 1.3  1996/10/27 22:15:37  keil
+ * bugfix reject handling
+ *
  * Revision 1.2  1996/10/13 23:08:56  keil
  * added missing state for callback reject
  *
@@ -579,7 +582,7 @@ down1tr6(struct PStack *st,
 	if (i == downstl_len) {
         	if (st->l3.debug & L3_DEB_STATE) {
         		sprintf(tmp,"down1tr6 state %d prim %d unhandled",
-        			pr, st->l3.state);
+        			st->l3.state, pr);
 			l3_debug(st, tmp);
 		}
 	} else {
