@@ -3,6 +3,10 @@
  *   Basic declarations, defines and prototypes
  *
  * $Log$
+ * Revision 1.13.2.12  1998/07/15 14:43:33  calle
+ * Support for AVM passive PCMCIA cards:
+ *    A1 PCMCIA, FRITZ!Card PCMCIA and FRITZ!Card PCMCIA 2.0
+ *
  * Revision 1.13.2.11  1998/05/27 18:05:30  keil
  * HiSax 3.0
  *
@@ -352,6 +356,15 @@ struct hscx_hw {
 	struct sk_buff *tx_skb; /* B-Channel transmit Buffer */
 };
 
+struct hdlc_hw {
+	u_int ctrl;
+	u_int stat;
+	int rcvidx;
+	int count;              /* Current skb sent count */
+	u_char *rcvbuf;         /* B-Channel receive Buffer */
+	struct sk_buff *tx_skb; /* B-Channel transmit Buffer */
+};
+
 struct hfcB_hw {
 	unsigned int *send;
 	int f1;
@@ -422,6 +435,7 @@ struct BCState {
 	void (*BC_Close) (struct BCState *);
 	union {
 		struct hscx_hw hscx;
+		struct hdlc_hw hdlc;
 		struct hfcB_hw hfc;
 		struct tiger_hw tiger;
 		struct amd7930_hw  amd7930;
@@ -697,8 +711,9 @@ struct IsdnCardState {
 #define  ISDN_CTYPE_NICCY	24
 #define  ISDN_CTYPE_S0BOX	25
 #define  ISDN_CTYPE_A1_PCMCIA	26
+#define  ISDN_CTYPE_FRITZPCI	27
 
-#define  ISDN_CTYPE_COUNT	26
+#define  ISDN_CTYPE_COUNT	27
 
 #ifdef ISDN_CHIP_ISAC
 #undef ISDN_CHIP_ISAC
@@ -759,6 +774,15 @@ struct IsdnCardState {
 #endif
 #else
 #define  CARD_AVM_A1_PCMCIA  0
+#endif
+
+#ifdef	CONFIG_HISAX_FRITZPCI
+#define  CARD_FRITZPCI (1<< ISDN_CTYPE_FRITZPCI)
+#ifndef ISDN_CHIP_ISAC 
+#define ISDN_CHIP_ISAC 1
+#endif
+#else
+#define  CARD_FRITZPCI  0
 #endif
 
 #ifdef	CONFIG_HISAX_ELSA
@@ -882,7 +906,7 @@ struct IsdnCardState {
 			 | CARD_IX1MICROR2 | CARD_DIEHLDIVA | CARD_ASUSCOM \
 			 | CARD_TELEINT | CARD_SEDLBAUER | CARD_SPORTSTER \
 			 | CARD_MIC | CARD_NETJET | CARD_TELES3C | CARD_AMD7930 \
-			 | CARD_AVM_A1_PCMCIA \
+			 | CARD_AVM_A1_PCMCIA | CARD_FRITZPCI \
 			 | CARD_NICCY | CARD_S0BOX | CARD_TELESPCI)
 
 #define TEI_PER_CARD 0

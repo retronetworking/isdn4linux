@@ -11,6 +11,10 @@
  *
  *
  * $Log$
+ * Revision 1.15.2.13  1998/07/15 14:43:37  calle
+ * Support for AVM passive PCMCIA cards:
+ *    A1 PCMCIA, FRITZ!Card PCMCIA and FRITZ!Card PCMCIA 2.0
+ *
  * Revision 1.15.2.12  1998/05/27 18:05:43  keil
  * HiSax 3.0
  *
@@ -110,6 +114,10 @@ extern int setup_avm_a1(struct IsdnCard *card);
 extern int setup_avm_a1_pcmcia(struct IsdnCard *card);
 #endif
 
+#if CARD_FRITZPCI
+extern int setup_avm_pci(struct IsdnCard *card);
+#endif
+
 #if CARD_ELSA
 extern int setup_elsa(struct IsdnCard *card);
 #endif
@@ -169,7 +177,7 @@ const char *CardType[] =
  "Elsa PCMCIA", "Eicon.Diehl Diva", "ISDNLink", "TeleInt", "Teles 16.3c", 
  "Sedlbauer Speed Card", "USR Sportster", "ith mic Linux", "Elsa PCI",
  "Compaq ISA", "NETjet", "Teles PCI", "Sedlbauer Speed Star (PCMCIA)",
- "AMD 7930", "NICCY", "S0Box", "AVM A1 (PCMCIA)"
+ "AMD 7930", "NICCY", "S0Box", "AVM A1 (PCMCIA)", "AVM Fritz!Card PCI"
 };
 
 extern struct IsdnCard cards[];
@@ -829,6 +837,11 @@ checkcard(int cardnr, char *id, int *busy_flag))
 #if CARD_AVM_A1_PCMCIA
 		case ISDN_CTYPE_A1_PCMCIA:
 			ret = setup_avm_a1_pcmcia(card);
+			break;
+#endif
+#if CARD_FRITZPCI
+		case ISDN_CTYPE_FRITZPCI:
+			ret = setup_avm_pci(card);
 			break;
 #endif
 #if CARD_ELSA

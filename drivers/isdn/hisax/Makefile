@@ -59,6 +59,11 @@ ifeq ($(CONFIG_HISAX_AVM_A1_PCMCIA),y)
 	 HSCX_OBJ := hscx.o
 endif
 
+ifeq ($(CONFIG_HISAX_FRITZPCI),y)
+	 O_OBJS += avm_pci.o
+	 ISAC_OBJ := isac.o
+endif
+
 ifeq ($(CONFIG_HISAX_ELSA),y)
 	 O_OBJS += elsa.o
 	 ISAC_OBJ := isac.o

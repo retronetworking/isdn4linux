@@ -31,6 +31,8 @@ Creatix S0Box
 Creatix PnP S0 
 Compaq ISDN S0 ISA card
 AVM A1 (Fritz, Teledat 150)
+AVM A1 PCMICA (Fritz!Card)
+AVM Fritz!Card PCI
 ELSA Microlink PCC-16, PCF, PCF-Pro, PCC-8
 ELSA Quickstep 1000
 ELSA Quickstep 1000PCI
@@ -154,6 +156,8 @@ Card types:
    24   Dr. Neuhaus Niccy PnP    irq, io0, io1 (from isapnp setup)
    24   Dr. Neuhaus Niccy PCI    no parameter
    25   Teles S0Box              irq, io (of the used lpt port)
+   26   AVM A1 PCMCIA (Fritz!)   irq, io (set with card manager)
+   27   AVM PCI (Fritz!PCI)      no parameter
 
         
 At the moment IRQ sharing is only possible with PCI cards. Please make sure
@@ -245,6 +249,8 @@ Card types:
    24   Dr. Neuhaus Niccy PnP   ONLY WORKS AS A MODULE !
    24   Dr. Neuhaus Niccy PCI    no parameter
    25   Teles S0Box              irq, io (of the used lpt port)
+   26   AVM A1 PCMCIA (Fritz!)   irq, io (set with card manager)
+   27   AVM PCI (Fritz!PCI)      no parameter
 
 Running the driver
 ------------------

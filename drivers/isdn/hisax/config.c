@@ -5,6 +5,9 @@
  *
  *
  * $Log$
+ * Revision 1.15.2.13  1998/07/30 20:51:24  niemann
+ * Fixed Sedlbauer Speed Fax PCMCIA missing isdnl3new
+ *
  * Revision 1.15.2.12  1998/07/15 14:43:29  calle
  * Support for AVM passive PCMCIA cards:
  *    A1 PCMCIA, FRITZ!Card PCMCIA and FRITZ!Card PCMCIA 2.0
@@ -94,6 +97,7 @@
  *   24 Dr Neuhaus Niccy PnP/PCI card p0=irq p1=IO0 p2=IO1 (PnP only)
  *   25 Teles S0Box             p0=irq p1=iobase (from isapnp setup)
  *   26 AVM A1 PCMCIA (Fritz)   p0=irq p1=iobase
+ *   27 AVM Fritz!Card PCI      no parameter
  *
  *
  * protocol can be either ISDN_PTYPE_EURO or ISDN_PTYPE_1TR6 or ISDN_PTYPE_NI1
@@ -141,6 +145,12 @@ void register_avm_a1_symbols(void) {
 	register_symtab(&hisax_syms_avm_a1);
 }
 #endif
+#endif
+#ifdef CONFIG_HISAX_FRITZPCI
+#undef DEFAULT_CARD
+#undef DEFAULT_CFG
+#define DEFAULT_CARD ISDN_CTYPE_FRITZPCI
+#define DEFAULT_CFG {0,0,0,0}
 #endif
 #ifdef CONFIG_HISAX_16_3
 #undef DEFAULT_CARD
@@ -541,6 +551,7 @@ HiSax_init(void))
 			case ISDN_CTYPE_NETJET:
 			case ISDN_CTYPE_AMD7930:
 			case ISDN_CTYPE_TELESPCI:
+			case ISDN_CTYPE_FRITZPCI:
 				break;
 		}
 	}
