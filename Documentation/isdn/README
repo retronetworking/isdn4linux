@@ -172,7 +172,7 @@ README for the ISDN-subsystem
               4    10       Line feed character (ASCII).
               5    8        Backspace character (ASCII).
               6    3        Delay in seconds before dialing.
-              7    60       Wait for carrier (ignored).
+              7    60       Wait for carrier.
               8    2        Pause time for comma (ignored)
               9    6        Carrier detect time (ignored)
              10    7        Carrier loss to disconnect time (ignored).
@@ -224,6 +224,7 @@ README for the ISDN-subsystem
                                       7 = V.110, 9600 baud
                                       8 = V.110, 19200 baud
                                       9 = V.110, 38400 baud
+                                     10 = Analog Modem (only if hardware supports this)
              15   0         Layer-3 protocol: (at the moment always 0)
                                       0 = transparent
              16   250       Send-Packet-size/16
