@@ -19,6 +19,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.4  1995/01/09  07:40:46  fritz
+ * Added GPL-Notice
+ *
  * Revision 1.3  1995/01/04  05:15:18  fritz
  * Added undocumented "bootload-finished"-command in download-code
  * to satisfy some brain-damaged icn card-versions.
@@ -33,7 +36,11 @@
 
 #include "icn.h"
 
-/* Use external Loader. Undefine this when loadprot() is debugged */
+#undef BOOT_DEBUG
+
+/* If defined, no bootcode- and protocol-downloading is supported and
+ * you must use an external loader
+ */
 #undef LOADEXTERN
 
 /* Try to allocate a new buffer, link it into queue. */
@@ -180,7 +187,8 @@ pollbchan_work(int channel) {
     while (rbavl) {
       cnt = rbuf_l;
       if ((dev->rcvidx[channel]+cnt)>4000) {
-        printk("icn: bogus packet on ch%d, dropping.\n",channel+1);
+        printk(KERN_WARNING "icn: bogus packet on ch%d, dropping.\n",
+	       channel+1);
         dev->rcvidx[channel] = 0;
         eflag = 0;
       } else {
@@ -461,15 +469,13 @@ sendbuf(int channel, u_char *buffer, int len, int user) {
  *        0 if successfully loaded
  */
 
-#undef BOOT_DEBUG
-
 static int
 loadboot(u_char *buffer) {
   int timer;
 
 #if 0
   if (check_region(dev->port,ICN_PORTLEN)) {
-    printk("icn: ports 0x%03x-0x%03x in use.\n",dev->port,
+    printk(KERN_WARNING "icn: ports 0x%03x-0x%03x in use.\n",dev->port,
 	   dev->port+ICN_PORTLEN);
     return -EIO;
   }
@@ -485,23 +491,23 @@ loadboot(u_char *buffer) {
   timer = 0;
   while (1) {
 #ifdef BOOT_DEBUG
-    printk("Loader?\n");
+    printk(KERN_DEBUG "Loader?\n");
 #endif
     if (dev->shmem->data_control.scns || 
 	dev->shmem->data_control.scnr) {
       if (timer++ > 5) {
-	printk("icn: Boot-Loader timed out.\n");
+	printk(KERN_WARNING "icn: Boot-Loader timed out.\n");
 	return -EIO;
       }
 #ifdef BOOT_DEBUG
-      printk("Loader TO?\n");
+      printk(KERN_DEBUG "Loader TO?\n");
 #endif
       current->state = TASK_INTERRUPTIBLE;
       current->timeout = jiffies + ICN_BOOT_TIMEOUT1;
       schedule();
     } else {
 #ifdef BOOT_DEBUG
-      printk("Loader OK\n");
+      printk(KERN_DEBUG "Loader OK\n");
 #endif
       return 0;
     }
@@ -527,7 +533,7 @@ loadproto(u_char *buffer) {
       timer = 0;
     } else {
 #ifdef BOOT_DEBUG
-      printk("boot 2 !sbfree\n");
+      printk(KERN_DEBUG "boot 2 !sbfree\n");
 #endif
       if (timer++ > 5)
 	return -EIO;
@@ -541,23 +547,23 @@ loadproto(u_char *buffer) {
   while (1) {
     if (cmd_o || cmd_i) {
 #ifdef BOOT_DEBUG
-      printk("Proto?\n");
+      printk(KERN_DEBUG "Proto?\n");
 #endif
       if (timer++ > 5) {
-	printk("icn: Protocol timed out.\n");
+	printk(KERN_WARNING "icn: Protocol timed out.\n");
 #ifdef BOOT_DEBUG
-	printk("Proto TO!\n");
+	printk(KERN_DEBUG "Proto TO!\n");
 #endif
 	return -EIO;
       }
 #ifdef BOOT_DEBUG
-      printk("Proto TO?\n");
+      printk(KERN_DEBUG "Proto TO?\n");
 #endif
       current->state = TASK_INTERRUPTIBLE;
       current->timeout = jiffies + ICN_BOOT_TIMEOUT1;
       schedule();
     } else {
-      printk("icn: Protocol loaded and running\n");
+      printk(KERN_INFO "icn: Protocol loaded and running\n");
       save_flags(flags);
       cli();
       init_timer(&dev->st_timer);
@@ -617,21 +623,6 @@ writecmd (u_char *buf, int len, int user) {
     for (p=msg,pp=cmd_i,i=count;i>0;i--,p++,pp++) {
       dev->shmem->comm_buffers.pcio_buf[pp & 0xff] = (*p=='\n')?0xff:*p;
       *dev->msg_buf_write++ = *p;
-#undef SPECIAL
-#ifdef SPECIAL
-      if (*p=='X') {
-	dev->flags |= ICN_FLAGS_B1ACTIVE;
-	dev->flags |= ICN_FLAGS_RBTIMER;
-	del_timer(&dev->rb_timer);
-	dev->rb_timer.function = pollbchan;
-	dev->rb_timer.expires  = ICN_TIMER_BCREAD;
-	add_timer(&dev->rb_timer);
-	cmd.command = ISDN_STAT_BCONN;
-	cmd.driver  = dev->myid;
-	cmd.arg     = 0;
-	dev->interface.statcallb(&cmd);
-      }
-#endif
       if ((*p == '\n') && (i>1)) {
 	*dev->msg_buf_write++ = '>';
 	if (dev->msg_buf_write>dev->msg_buf_end)
@@ -654,6 +645,21 @@ writecmd (u_char *buf, int len, int user) {
   return count;
 }
 
+static void
+stopdriver(void) {
+  unsigned long flags;
+  isdn_ctrl cmd;
+
+  save_flags(flags);
+  cli();
+  del_timer(&dev->st_timer);
+  del_timer(&dev->rb_timer);
+  cmd.command = ISDN_STAT_STOP;
+  cmd.driver = dev->myid;
+  dev->interface.statcallb(&cmd);
+  restore_flags(flags);
+}
+
 static int
 command (isdn_ctrl *c) {
   ulong a;
@@ -666,8 +672,10 @@ command (isdn_ctrl *c) {
       switch (c->arg) {
 	case ICN_IOCTL_SETMMIO:
 	  if ((unsigned long)dev->shmem != (a & 0x0ffc000)) {
+	    stopdriver();
 	    dev->shmem = (icn_shmem *)(a & 0x0ffc000);
-	    printk("icn: mmio set to 0x%08lx\n",(unsigned long)dev->shmem);
+	    printk(KERN_INFO "icn: mmio set to 0x%08lx\n",
+		   (unsigned long)dev->shmem);
 	  }
 	  break;
 	case ICN_IOCTL_GETMMIO:
@@ -676,15 +684,16 @@ command (isdn_ctrl *c) {
 	  if (a == 0x300 || a == 0x310 || a == 0x320 || a == 0x330
 	      || a == 0x340 || a == 0x350 || a == 0x360) {
 	    if (dev->port != (unsigned short)a) {
-	      dev->port = (unsigned short)a;
 #if 0
 	      if (check_region(dev->port,ICN_PORTLEN)) {
-		printk("icn: ports 0x%03x-0x%03x in use.\n",dev->port,
-		       dev->port+ICN_PORTLEN);
+		printk(KERN_WARNING "icn: ports 0x%03x-0x%03x in use.\n",
+		       dev->port,dev->port+ICN_PORTLEN);
 		return -EINVAL;
 	      }
 #endif
-	      printk("icn: port set to 0x%03x\n",dev->port);
+	      stopdriver();
+	      dev->port = (unsigned short)a;
+	      printk(KERN_INFO "icn: port set to 0x%03x\n",dev->port);
 	    }
 	  } else
 	    return -EINVAL;
@@ -693,8 +702,10 @@ command (isdn_ctrl *c) {
 	  return (int)dev->port;
 #ifndef LOADEXTERN
 	case ICN_IOCTL_LOADBOOT:
+	  stopdriver();
 	  return(loadboot((u_char*)a));
 	case ICN_IOCTL_LOADPROTO:
+	  stopdriver();
 	  return(loadproto((u_char*)a));
 #endif
 	default:
@@ -768,7 +779,7 @@ init_module( void) {
 #endif
 
   if (!(dev = (icn_devptr)kmalloc(sizeof(icn_dev),GFP_KERNEL))) {
-    printk("icn: Insufficient memory while allocating device-struct.\n");
+    printk(KERN_WARNING "icn: Could not allocate device-struct.\n");
     return -EIO;
   }
   memset((char *)dev,0,sizeof(icn_dev));
@@ -779,16 +790,18 @@ init_module( void) {
   dev->interface.writebuf  = sendbuf;
   dev->interface.writecmd  = writecmd;
   dev->interface.readstat  = readstatus;
+  dev->interface.features  = ISDN_FEATURE_L2_X75I |
+                             ISDN_FEATURE_L3_TRANS ;
   dev->msg_buf_write       = dev->msg_buf;
   dev->msg_buf_read        = dev->msg_buf;
   dev->msg_buf_end         = &dev->msg_buf[sizeof(dev->msg_buf)-1];
   if (!register_isdn(&dev->interface)) {
-    printk("icn: Unable to register\n");
+    printk(KERN_WARNING "icn: Unable to register\n");
     kfree(dev);
     return -EIO;
   }
   dev->myid = dev->interface.channels;
-  printk("ICN-ISDN-driver port=0x%03x mmio=0x%08x\n",dev->port,
+  printk(KERN_INFO "ICN-ISDN-driver port=0x%03x mmio=0x%08x\n",dev->port,
 	 (uint)dev->shmem);
 #ifdef LOADEXTERN
   save_flags(flags);
@@ -808,14 +821,10 @@ cleanup_module( void) {
   int i;
 
   if (MOD_IN_USE) {
-    printk("icn: device busy, remove cancelled\n");
+    printk(KERN_WARNING "icn: device busy, remove cancelled\n");
     return;
   }
-  del_timer(&dev->st_timer);
-  del_timer(&dev->rb_timer);
-  cmd.command = ISDN_STAT_STOP;
-  cmd.driver = dev->myid;
-  dev->interface.statcallb(&cmd);
+  stopdriver();
   cmd.command = ISDN_STAT_UNLOAD;
   cmd.driver = dev->myid;
   dev->interface.statcallb(&cmd);
@@ -824,17 +833,8 @@ cleanup_module( void) {
   for (i=0;i<ICN_BCH;i++)
     free_queue(&dev->spqueue[1]);
   kfree(dev);
-  printk("ICN-ISDN-driver unloaded\n");
+  printk(KERN_INFO "ICN-ISDN-driver unloaded\n");
 }
-
-
-
-
-
-
-
-
-
 
 
 
