@@ -11,6 +11,9 @@
  *              Fritz Elfert
  *
  * $Log$
+ * Revision 2.29  1999/07/13 21:05:41  werner
+ * Modified set_channel_limit to use new callback ISDN_STAT_DISCH.
+ *
  * Revision 2.28  1999/07/09 08:30:02  keil
  * cosmetics
  *
@@ -1744,6 +1747,8 @@ HiSax_command(isdn_ctrl * ic)
 					HiSax_putstatus(csta, "set card ", "in FIXED TEI (%d) mode", num);
 					printk(KERN_DEBUG "HiSax: set card in FIXED TEI (%d) mode\n",
 						num);
+					chanp->d_st->lli.l4l3(chanp->d_st,
+						DL_ESTABLISH | REQUEST, NULL);
 					break;
 				case (9): /* load firmware */
 					memcpy(&adr, ic->parm.num, sizeof(ulong));
