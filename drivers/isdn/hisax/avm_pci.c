@@ -7,6 +7,9 @@
  *
  *
  * $Log$
+ * Revision 1.1.2.4  1998/10/04 23:03:41  keil
+ * PCI has 255 device entries
+ *
  * Revision 1.1.2.3  1998/09/27 23:52:57  keil
  * Fix error handling
  *
@@ -708,6 +711,7 @@ setup_avm_pci(struct IsdnCard *card))
 			return(0);
 		}
 		cs->hw.avm.isac = cs->hw.avm.cfg_reg + 0x10;
+		break;
 	}	
 	if (pci_index == 255) {
 		printk(KERN_WARNING "FritzPCI: No PCI card found\n");
