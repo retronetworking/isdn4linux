@@ -5,7 +5,7 @@ Eicon.Diehl active ISDN cards.
 
 
 NOTE : Since the eicon driver is still experimental, this README file
-       is incomplete and not up to date.
+       may be incomplete and not up to date.
 
 
 However, the driver should work under following conditions :
@@ -16,10 +16,8 @@ Supported Cards
 - DIVA Server BRI/PCI 2M
 - DIVA Server PRI/PCI 2M (9M 23M 30M)
 
-  (The DSP functions are not implemented at this time)
+(Only analog modem functions of the DSPs are currently implemented)
 
-
-****** You will need kernel version 2.1.127 or newer. *******
 
 ISDN D-Channel Protocols
 ------------------------
@@ -65,5 +63,5 @@ Any reports about bugs, errors and even wishes are welcome.
 Have fun !
 
 Armin Schindler
-mac@topmail.de
-
+mac@melware.de
+http://www.melware.de
