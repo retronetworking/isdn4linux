@@ -53,6 +53,7 @@ if [ "$CONFIG_ISDN_DRV_HISAX" != "n" ]; then
     bool 'HiSax Support for Gazel cards' CONFIG_HISAX_GAZEL
     bool 'HiSax Support for HFC PCI-Bus cards' CONFIG_HISAX_HFC_PCI
     if [ "$CONFIG_EXPERIMENTAL" != "n" ]; then
+        bool 'HiSax Support for Winbond W6692 based cards (EXPERIMENTAL)' CONFIG_HISAX_W6692
 #	bool 'HiSax Support for TESTEMULATOR (EXPERIMENTAL)' CONFIG_HISAX_TESTEMU
 	if [ "$ARCH" = "sparc" -o "$ARCH" = "sparc64" ]; then
 		bool 'HiSax Support for Am7930' CONFIG_HISAX_AMD7930

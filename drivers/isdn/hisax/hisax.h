@@ -3,6 +3,10 @@
  *   Basic declarations, defines and prototypes
  *
  * $Log$
+ * Revision 2.34  1999/08/25 17:00:04  keil
+ * Make ISAR V32bis modem running
+ * Make LL->HL interface open for additional commands
+ *
  * Revision 2.33  1999/08/05 20:43:16  keil
  * ISAR analog modem support
  *
@@ -443,6 +447,13 @@ struct hscx_hw {
 	u_char tsaxr1;
 };
 
+struct w6692B_hw {
+	int bchan;
+	int rcvidx;
+	int count;              /* Current skb sent count */
+	u_char *rcvbuf;         /* B-Channel receive Buffer */
+};
+
 struct isar_reg {
 	unsigned int Flags;
 	volatile u_char bstat;
@@ -574,6 +585,7 @@ struct BCState {
 		struct hfcB_hw hfc;
 		struct tiger_hw tiger;
 		struct amd7930_hw  amd7930;
+		struct w6692B_hw w6692;
 	} hw;
 };
 
@@ -809,6 +821,11 @@ struct gazel_hw {
 	unsigned char iom2;
 };
 
+struct w6692_hw {
+	unsigned int iobase;
+	struct timer_list timer;
+};
+
 #ifdef  CONFIG_HISAX_TESTEMU
 struct te_hw {
 	unsigned char *sfifo;
@@ -862,6 +879,10 @@ struct hfcpci_chip {
 	int ph_state;
 };
 
+struct w6692_chip {
+	int ph_state;
+};
+
 #define HW_IOM1			0
 #define HW_IPAC			1
 #define HW_ISAR			2
@@ -906,6 +927,7 @@ struct IsdnCardState {
 #endif
 		struct bkm_hw ax;
 		struct gazel_hw gazel;
+		struct w6692_hw w6692;
 	} hw;
 	int myid;
 	isdn_if iif;
@@ -936,6 +958,7 @@ struct IsdnCardState {
 		struct isac_chip isac;
 		struct hfcd_chip hfcd;
 		struct hfcpci_chip hfcpci;
+		struct w6692_chip w6692;
 	} dc;
 	u_char *rcvbuf;
 	int rcvidx;
@@ -988,7 +1011,8 @@ struct IsdnCardState {
 #define	 ISDN_CTYPE_SCT_QUADRO	33
 #define  ISDN_CTYPE_GAZEL	34
 #define  ISDN_CTYPE_HFC_PCI	35
-#define  ISDN_CTYPE_COUNT	35
+#define  ISDN_CTYPE_W6692	36
+#define  ISDN_CTYPE_COUNT	36
 
 
 #ifdef ISDN_CHIP_ISAC
@@ -1233,6 +1257,15 @@ struct IsdnCardState {
 #endif
 #else
 #define  CARD_GAZEL  0
+#endif
+
+#ifdef	CONFIG_HISAX_W6692
+#define	CARD_W6692	1
+#ifndef	ISDN_CHIP_W6692
+#define	ISDN_CHIP_W6692	1
+#endif
+#else
+#define	CARD_W6692	0
 #endif
 
 #define TEI_PER_CARD 0
