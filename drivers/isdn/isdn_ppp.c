@@ -2367,7 +2367,7 @@ static struct sk_buff *isdn_ppp_decompress(struct sk_buff *skb,struct ippp_struc
 	if (!stat) // if we have a compressor, stat has been set as well
 		BUG();
 
-	if((master && *proto == PPP_COMP) || (!master && *proto == PPP_LINK_COMP) ) {
+	if((master && *proto == PPP_COMP) || (!master && *proto == PPP_COMPFRAG) ) {
 		// compressed packets are compressed by their protocol type
 
 		// Set up reset params for the decompressor
