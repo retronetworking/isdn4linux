@@ -83,8 +83,6 @@ static void isdn_ppp_mp_receive(isdn_net_dev * net_dev, isdn_net_local * lp,
 static void isdn_ppp_mp_cleanup( isdn_net_local * lp );
 
 static int isdn_ppp_bundle(struct ippp_struct *, int unit);
-  
-#define MP_UNLOCK(b)	up(&(b)->lock)
 #endif	/* CONFIG_ISDN_MPP */
   
 char *isdn_ppp_revision = "$Revision$";
