@@ -206,9 +206,9 @@ bkm_interrupt_ipac(int intno, void *dev_id, struct pt_regs *regs)
 void
 release_io_sct_quadro(struct IsdnCardState *cs)
 {
-	release_region(cs->hw.ax.base & 0xffffffc0, 256);
+	release_region(cs->hw.ax.base & 0xffffffc0, 128);
 	if (cs->subtyp == SCT_1)
-		release_region(cs->hw.ax.plx_adr, 256);
+		release_region(cs->hw.ax.plx_adr, 64);
 }
 
 static void
@@ -404,9 +404,9 @@ setup_sct_quadro(struct IsdnCard *card)
 	switch(cs->subtyp) {
 		case 1:
 			cs->hw.ax.base = pci_ioaddr5 + 0x00;
-			if (sct_alloc_io(pci_ioaddr1, 256))
+			if (sct_alloc_io(pci_ioaddr1, 128))
 				return(0);
-			if (sct_alloc_io(pci_ioaddr5, 256))
+			if (sct_alloc_io(pci_ioaddr5, 64))
 				return(0);
 			/* disable all IPAC */
 			writereg(pci_ioaddr5, pci_ioaddr5 + 4,
@@ -420,17 +420,17 @@ setup_sct_quadro(struct IsdnCard *card)
 			break;
 		case 2:
 			cs->hw.ax.base = pci_ioaddr4 + 0x08;
-			if (sct_alloc_io(pci_ioaddr4, 256))
+			if (sct_alloc_io(pci_ioaddr4, 64))
 				return(0);
 			break;
 		case 3:
 			cs->hw.ax.base = pci_ioaddr3 + 0x10;
-			if (sct_alloc_io(pci_ioaddr3, 256))
+			if (sct_alloc_io(pci_ioaddr3, 64))
 				return(0);
 			break;
 		case 4:
 			cs->hw.ax.base = pci_ioaddr2 + 0x20;
-			if (sct_alloc_io(pci_ioaddr2, 256))
+			if (sct_alloc_io(pci_ioaddr2, 64))
 				return(0);
 			break;
 	}	
