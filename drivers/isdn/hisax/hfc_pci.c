@@ -649,9 +649,14 @@ hfcpci_fill_fifo(struct BCState *bcs)
 				debugl1(cs, "hfcpci_fill_fifo_trans %d frame length %d discarded",
 					bcs->channel, bcs->tx_skb->len);
 
-			if (bcs->st->lli.l1writewakeup &&
-                           (PACKET_NOACK != bcs->tx_skb->pkt_type))
-				bcs->st->lli.l1writewakeup(bcs->st, bcs->tx_skb->len);
+			if (test_bit(FLG_LLI_L1WAKEUP,&bcs->st->lli.flag) &&
+				(PACKET_NOACK != bcs->tx_skb->pkt_type)) {
+				u_long	flags;
+				spin_lock_irqsave(&bcs->aclock, flags);
+				bcs->ackcnt += bcs->tx_skb->len;
+				spin_unlock_irqrestore(&bcs->aclock, flags);
+				schedule_event(bcs, B_ACKPENDING);
+			}
 
 			dev_kfree_skb_any(bcs->tx_skb);
 			bcs->tx_skb = skb_dequeue(&bcs->squeue);	/* fetch next data */
@@ -707,9 +712,14 @@ hfcpci_fill_fifo(struct BCState *bcs)
 		memcpy(dst, src, count);
 	}
 	bcs->tx_cnt -= bcs->tx_skb->len;
-	if (bcs->st->lli.l1writewakeup &&
-	    (PACKET_NOACK != bcs->tx_skb->pkt_type))
-		bcs->st->lli.l1writewakeup(bcs->st, bcs->tx_skb->len);
+	if (test_bit(FLG_LLI_L1WAKEUP,&bcs->st->lli.flag) &&
+		(PACKET_NOACK != bcs->tx_skb->pkt_type)) {
+		u_long	flags;
+		spin_lock_irqsave(&bcs->aclock, flags);
+		bcs->ackcnt += bcs->tx_skb->len;
+		spin_unlock_irqrestore(&bcs->aclock, flags);
+		schedule_event(bcs, B_ACKPENDING);
+	}
 
 	bz->za[new_f1].z1 = new_z1;	/* for next buffer */
 	bz->f1 = new_f1;	/* next frame */

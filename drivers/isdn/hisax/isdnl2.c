@@ -420,8 +420,8 @@ setva(struct PStack *st, unsigned int nr)
 		l2->windowar[l2->sow] = NULL;
 		l2->sow = (l2->sow + 1) % l2->window;
 		spin_unlock_irqrestore(&l2->lock, flags);
-		if (st->lli.l2writewakeup && (len >=0))
-			st->lli.l2writewakeup(st, len);
+		if (test_bit(FLG_LLI_L2WAKEUP, &st->lli.flag) && (len >=0))
+			lli_writewakeup(st, len);
 		spin_lock_irqsave(&l2->lock, flags);
 	}
 	spin_unlock_irqrestore(&l2->lock, flags);
