@@ -26,6 +26,7 @@
  *     +1 (416) 297-6433 Facsimile
  */
 
+#define __NO_VERSION__
 #include "includes.h"
 #include "hardware.h"
 #include "message.h"
@@ -34,6 +35,7 @@
 extern int cinst;
 extern board *adapter[];
 
+#ifdef DEBUG
 static char *events[] = { "ISDN_STAT_STAVAIL",
 			  "ISDN_STAT_ICALL",
 			  "ISDN_STAT_RUN",
@@ -49,6 +51,7 @@ static char *events[] = { "ISDN_STAT_STAVAIL",
 			  "ISDN_STAT_NODCH",
 			  "ISDN_STAT_ADDCH",
 			  "ISDN_STAT_CAUSE" };
+#endif
 
 int indicate_status(int card, int event,ulong Channel,char *Data)
 {

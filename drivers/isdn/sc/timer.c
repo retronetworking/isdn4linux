@@ -26,12 +26,20 @@
  *     +1 (416) 297-6433 Facsimile
  */
 
+#define __NO_VERSION__
 #include "includes.h"
 #include "hardware.h"
 #include "message.h"
 #include "card.h"
 
 extern board *adapter[];
+
+extern void flushreadfifo(int);
+extern int  startproc(int);
+extern int  indicate_status(int, int, unsigned long, char *);
+extern int  sendmessage(int, unsigned int, unsigned int, unsigned int,
+        unsigned int, unsigned int, unsigned int, unsigned int *);
+
 
 /*
  * Write the proper values into the I/O ports following a reset
@@ -115,14 +123,14 @@ void check_phystat(unsigned long data)
 		pr_debug("PhyStat transition to RUN\n");
 		pr_info("%s: Switch contacted, transmitter enabled\n", 
 			adapter[card]->devicename);
-		indicate_status(card, ISDN_STAT_RUN, NULL, NULL);
+		indicate_status(card, ISDN_STAT_RUN, 0, NULL);
 	}
 	else if (!adapter[card]->nphystat && adapter[card]->phystat) {   /* All is not well */
 		pr_debug("PhyStat transition to STOP\n");
 		pr_info("%s: Switch connection lost, transmitter disabled\n", 
 			adapter[card]->devicename);
 
-		indicate_status(card, ISDN_STAT_STOP, NULL, NULL);
+		indicate_status(card, ISDN_STAT_STOP, 0, NULL);
 	}
 
 	adapter[card]->phystat = adapter[card]->nphystat;

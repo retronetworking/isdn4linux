@@ -26,14 +26,19 @@
  *     +1 (416) 297-6433 Facsimile
  */
 
+#define __NO_VERSION__
 #include "includes.h"
 #include "hardware.h"
 #include "message.h"
 #include "card.h"
 
-extern indicate_status(int, int,ulong,char *);
+extern indicate_status(int, int, ulong, char *);
 extern void check_phystat(unsigned long);
 extern void dump_messages(int);
+extern int receivemessage(int, RspMessage *);
+extern int sendmessage(int, unsigned int, unsigned int, unsigned int,
+        unsigned int, unsigned int, unsigned int, unsigned int *);
+extern void rcvpkt(int, RspMessage *);
 
 extern int cinst;
 extern board *adapter[];
@@ -54,7 +59,6 @@ int get_card_from_irq(int irq)
  */
 void interrupt_handler(int interrupt, void * cardptr, struct pt_regs *regs ) {
 
-	LLData linkdata;
 	RspMessage rcvmsg;
 	int channel;
 	int card;
@@ -220,6 +224,7 @@ void interrupt_handler(int interrupt, void * cardptr, struct pt_regs *regs ) {
 		 */
 		if(IS_CE_MESSAGE(rcvmsg, Call, 0, GetFrameFormat)) {
 			if(rcvmsg.msg_data.byte_array[0] != HDLC_PROTO) {
+				unsigned int proto = HDLC_PROTO;
 				/*
 				 * Set board format to HDLC if it wasn't already
 				 */
@@ -230,7 +235,7 @@ void interrupt_handler(int interrupt, void * cardptr, struct pt_regs *regs ) {
 						ceReqClass0,
 						ceReqCallSetFrameFormat,
 						(unsigned char) channel +1,
-						1,HDLC_PROTO);
+						1,&proto);
 				}
 			continue;
 		}

@@ -28,6 +28,7 @@
  *     +1 (416) 297-6433 Facsimile
  */
 
+#define __NO_VERSION__
 #include "includes.h"
 #include "hardware.h"
 #include "message.h"
@@ -41,6 +42,7 @@ extern unsigned int cinst;
  */
 extern int indicate_status(int,ulong,char*);
 extern int scm_command(isdn_ctrl *);
+extern void *memcpy_fromshmem(int, void *, const void *, size_t);
 
 /*
  * Dump message queue in shared memory to screen
@@ -60,7 +62,7 @@ void dump_messages(int card)
 	cli();
 	outb(adapter[card]->ioport[adapter[card]->shmem_pgport], 
 		(adapter[card]->shmem_magic >> 14) | 0x80);
-	memcpy_fromshmem(&dpm, 0, sizeof(dpm));
+	memcpy_fromshmem(card, &dpm, 0, sizeof(dpm));
 	restore_flags(flags);
 
 	pr_debug("%s: Dumping Request Queue\n", adapter[card]->devicename);
@@ -92,7 +94,6 @@ void dump_messages(int card)
 int receivemessage(int card, RspMessage *rspmsg) 
 {
 	DualPortMemory *dpm;
-	int status;
 	unsigned long flags;
 
 	if (!IS_VALID_CARD(card)) {

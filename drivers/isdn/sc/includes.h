@@ -1,8 +1,6 @@
-#ifdef MODULE
-#	include <linux/module.h>
-#endif
-#include <stdio.h>
+#include <linux/module.h>
 #include <linux/version.h>
+#include <stdio.h>
 #include <linux/errno.h>
 #include <asm/segment.h>
 #include <asm/io.h>

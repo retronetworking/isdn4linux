@@ -1,3 +1,4 @@
+#define __NO_VERSION__
 #include "includes.h"
 #include "hardware.h"
 #include "card.h"
@@ -22,6 +23,9 @@ static int sup_irq[] = { 11, 10, 9, 5, 12, 14, 7, 3, 4, 6 };
 extern void interrupt_handler(int, void *, struct pt_regs *);
 extern int sndpkt(int, int, struct sk_buff *);
 extern int command(isdn_ctrl *);
+extern int indicate_status(int, int, ulong, char*);
+extern int reset(int);
+
 int identify_board(unsigned long, unsigned int);
 
 int irq_supported(int irq_x)
@@ -52,12 +56,12 @@ int init_sc(void)
 	int i, j;
 	int status = -ENODEV;
 
+	unsigned long memsize = 0;
+	unsigned long features = 0;
 	isdn_if *interface;
-	unsigned long memsize;
 	unsigned char channels;
 	unsigned char pgport;
 	unsigned long magic;
-	unsigned long features;
 	int model;
 	int last_base = IOBASE_MIN;
 	int probe_exhasted = 0;
@@ -387,7 +391,7 @@ int init_sc(void)
 		adapter[cinst]->rambase = ram[b];
 		request_region(adapter[cinst]->rambase, SRAM_PAGESIZE, interface->id);
 
-		pr_info("  %s (%d) - %s %d channels IRQ %d, I/O Base 0x%x, RAM Base 0x%x\n", 
+		pr_info("  %s (%d) - %s %d channels IRQ %d, I/O Base 0x%x, RAM Base 0x%lx\n", 
 			adapter[cinst]->devicename, adapter[cinst]->driverId, 
 			boardname[model], channels, irq[b], io[b], ram[b]);
 		
@@ -497,15 +501,29 @@ int identify_board(unsigned long rambase, unsigned int iobase)
 		pgport = iobase + PG3_OFFSET;
 		pr_debug("Page Register offset is 0x%x\n", PG3_OFFSET);
 		break;
+	default:
+		pr_debug("Invalid rambase 0x%lx\n", rambase);
+		return -1;
 	}
 
 	/*
 	 * Try to identify a PRI card
 	 */
 	outb(PRI_BASEPG_VAL, pgport);
-	sig = (unsigned long) *((unsigned long *)(rambase + SIG_OFFSET));
+	current->state = TASK_INTERRUPTIBLE;
+	current->timeout = jiffies + HZ;
+	schedule();
+	sig = readl(rambase + SIG_OFFSET);
 	pr_debug("Looking for a signature, got 0x%x\n", sig);
+#if 0
+/*
+ * For Gary: 
+ * If it's a timing problem, it should be gone with the above schedule()
+ * Another possible reason may be the missing volatile in the original
+ * code. readl() does this for us.
+ */
 	printk("");	/* Hack! Doesn't work without this !!!??? */
+#endif
 	if(sig == SIGNATURE)
 		return PRI_BOARD;
 
@@ -513,9 +531,14 @@ int identify_board(unsigned long rambase, unsigned int iobase)
 	 * Try to identify a PRI card
 	 */
 	outb(BRI_BASEPG_VAL, pgport);
-	sig = (unsigned long) *((unsigned long *)(rambase + SIG_OFFSET));
+	current->state = TASK_INTERRUPTIBLE;
+	current->timeout = jiffies + HZ;
+	schedule();
+	sig = readl(rambase + SIG_OFFSET);
 	pr_debug("Looking for a signature, got 0x%x\n", sig);
+#if 0
 	printk("");	/* Hack! Doesn't work without this !!!??? */
+#endif
 	if(sig == SIGNATURE)
 		return BRI_BOARD;
 
@@ -524,7 +547,7 @@ int identify_board(unsigned long rambase, unsigned int iobase)
 	/*
 	 * Try to spot a card
 	 */
-	sig = (unsigned long) *((unsigned long *)(rambase + SIG_OFFSET));
+	sig = readl(rambase + SIG_OFFSET);
 	pr_debug("Looking for a signature, got 0x%x\n", sig);
 	if(sig != SIGNATURE)
 		return -1;

@@ -26,6 +26,7 @@
  *     +1 (416) 297-6433 Facsimile
  */
 
+#define __NO_VERSION__
 #include "includes.h"
 #include "hardware.h"
 #include "message.h"
@@ -35,12 +36,17 @@ extern board *adapter[];
 extern unsigned int cinst;
 
 extern int get_card_from_id(int);
+extern int indicate_status(int, int,ulong,char*);
+extern void *memcpy_toshmem(int, void *, const void *, size_t);
+extern void *memcpy_fromshmem(int, void *, const void *, size_t);
+extern int sendmessage(int, unsigned int, unsigned int, unsigned int,
+                unsigned int, unsigned int, unsigned int, unsigned int *);
 
 int sndpkt(int devId, int channel, struct sk_buff *data)
 {
 	LLData	ReqLnkWrite;
 	int status;
-	int card,i;
+	int card;
 
 	card = get_card_from_id(devId);
 
@@ -71,7 +77,7 @@ int sndpkt(int devId, int channel, struct sk_buff *data)
 	ReqLnkWrite.msg_len = data->len; /* sk_buff size */
 	pr_debug("%s: Writing %d bytes to buffer offset 0x%x\n", adapter[card]->devicename,
 			ReqLnkWrite.msg_len, ReqLnkWrite.buff_offset);
-	memcpy_toshmem(card, ReqLnkWrite.buff_offset, data->data, ReqLnkWrite.msg_len);
+	memcpy_toshmem(card, (char *)ReqLnkWrite.buff_offset, data->data, ReqLnkWrite.msg_len);
 
 	/*
 	 * sendmessage
@@ -82,7 +88,7 @@ int sndpkt(int devId, int channel, struct sk_buff *data)
 		adapter[card]->channel[channel].next_sendbuf);
 
 	status = sendmessage(card, CEPID, ceReqTypeLnk, ceReqClass1, ceReqLnkWrite,
-				channel+1, sizeof(LLData), &ReqLnkWrite);
+				channel+1, sizeof(LLData), (unsigned int*)&ReqLnkWrite);
 	if(status) {
 		pr_debug("%s: Failed to send packet, status = %d\n", adapter[card]->devicename, status);
 		return -1;
@@ -94,8 +100,7 @@ int sndpkt(int devId, int channel, struct sk_buff *data)
 			adapter[card]->channel[channel].num_sendbufs ? 0 :
 			adapter[card]->channel[channel].next_sendbuf;
 			pr_debug("%s: Packet sent successfully\n", adapter[card]->devicename);
-		data->free=1;
-		kfree_skb(data, FREE_WRITE);
+		dev_kfree_skb(data, FREE_WRITE);
 		indicate_status(card,ISDN_STAT_BSENT,channel,NULL);
 	}
 	return data->len;
@@ -105,31 +110,30 @@ void rcvpkt(int card, RspMessage *rcvmsg)
 {
 	LLData newll;
 	struct sk_buff *skb;
-	int i;
 
 	if(!IS_VALID_CARD(card)) {
 		pr_debug("Invalid param: %d is not a valid card id\n", card);
 		return;
 	}
 
-	skb = alloc_skb(rcvmsg->msg_data.response.msg_len, GFP_ATOMIC);
-	if(skb == NULL) {
-		return;
-	}
-	skb->free = 1;
-
 	switch(rcvmsg->rsp_status){
 	case 0x01:
 	case 0x02:
 	case 0x70:
 		pr_debug("%s: Error status code: 0x%x\n", adapter[card]->devicename, rcvmsg->rsp_status);
-		kfree_skb(skb,FREE_WRITE);
 		return;
 	case 0x00: 
+	    if (!(skb = dev_alloc_skb(rcvmsg->msg_data.response.msg_len))) {
+			printk(KERN_WARNING "%s: rcvpkt out of memory, dropping packet\n",
+				adapter[card]->devicename);
+			return;
+		}
 		skb_put(skb, rcvmsg->msg_data.response.msg_len);
 		pr_debug("%s: getting data from offset: 0x%x\n",
 			adapter[card]->devicename,rcvmsg->msg_data.response.buff_offset);
-		memcpy_fromshmem(card,skb->data,rcvmsg->msg_data.response.buff_offset,
+		memcpy_fromshmem(card,
+			skb_put(skb, rcvmsg->msg_data.response.msg_len),
+		 	(char *)rcvmsg->msg_data.response.buff_offset,
 			rcvmsg->msg_data.response.msg_len);
 		adapter[card]->card->rcvcallb_skb(adapter[card]->driverId,
 			rcvmsg->phy_link_no-1, skb);
@@ -145,7 +149,7 @@ void rcvpkt(int card, RspMessage *rcvmsg)
 		pr_debug("%s: recycled buffer at offset 0x%x size %d\n", adapter[card]->devicename,
 			newll.buff_offset, newll.msg_len);
 		sendmessage(card, CEPID, ceReqTypeLnk, ceReqClass1, ceReqLnkRead,
-			rcvmsg->phy_link_no, sizeof(LLData), &newll);
+			rcvmsg->phy_link_no, sizeof(LLData), (unsigned int *)&newll);
 	}
 
 }
@@ -201,13 +205,13 @@ int setup_buffers(int card, int c)
 				i + 1, RcvBuffOffset.buff_offset, 
 				RcvBuffOffset.msg_len,buffer_size);
 		sendmessage(card, CEPID, ceReqTypeLnk, ceReqClass1, ceReqLnkRead,
-				c, sizeof(LLData), &RcvBuffOffset);
+				c, sizeof(LLData), (unsigned int *)&RcvBuffOffset);
 	} 
 	return 0;
 }
 
 int print_skb(int card,char *skb_p, int len){
-	int i,j,data;
+	int i,data;
 	pr_debug("%s: data at 0x%x len: 0x%x\n",adapter[card]->devicename,
 			skb_p,len);
 	for(i=1;i<=len;i++,skb_p++){
@@ -219,5 +223,6 @@ int print_skb(int card,char *skb_p, int len){
 			pr_debug("\n");
 	}
 	pr_debug("\n");
+	return 0;
 }		
 

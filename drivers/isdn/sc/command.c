@@ -26,6 +26,7 @@
  *     +1 (416) 297-6433 Facsimile
  */
 
+#define __NO_VERSION__
 #include "includes.h"		/* This must be first */
 #include "hardware.h"
 #include "message.h"
@@ -44,8 +45,9 @@ int setl2(int card, unsigned long arg);
 int getl2(int card, unsigned long arg);
 int setl3(int card, unsigned long arg);
 int getl3(int card, unsigned long arg);
-int lock();
-int unlock();
+int lock(void);
+int unlock(void);
+int acceptb(int card, unsigned long channel);
 
 extern int cinst;
 extern board *adapter[];
@@ -54,7 +56,14 @@ extern int sc_ioctl(int, scs_ioctl *);
 extern int setup_buffers(int, int, unsigned int);
 extern int indicate_status(int, int,ulong,char*);
 extern void check_reset(unsigned long);
+extern int send_and_receive(int, unsigned int, unsigned char, unsigned char,
+                unsigned char, unsigned char, unsigned char, unsigned char *,
+                RspMessage *, int);
+extern int sendmessage(int, unsigned int, unsigned int, unsigned int,
+                unsigned int, unsigned int, unsigned int, unsigned int *);
+extern inline void pullphone(char *, char *);
 
+#ifdef DEBUG
 /*
  * Translate command codes to strings
  */
@@ -86,6 +95,7 @@ static char *l2protos[] = { "ISDN_PROTO_L2_X75I",
 			    "ISDN_PROTO_L2_X75BUI",
 			    "ISDN_PROTO_L2_HDLC",
 			    "ISDN_PROTO_L2_TRANS" };
+#endif
 
 int get_card_from_id(int driver)
 {
@@ -126,14 +136,14 @@ int command(isdn_ctrl *cmd)
 		int		err;
 
 		memcpy(&cmdptr, cmd->num, sizeof(unsigned long));
-		if(err = verify_area(VERIFY_READ, 
-			(scs_ioctl *) cmdptr, sizeof(scs_ioctl))) {
+		if((err = verify_area(VERIFY_READ, 
+			(scs_ioctl *) cmdptr, sizeof(scs_ioctl)))) {
 			pr_debug("%s: Failed to verify user space 0x%x\n",
 				adapter[card]->devicename, cmdptr);
 			return err;
 
 		}
-		memcpy_fromfs(&ioc, (scs_ioctl *) cmdptr, 
+		copy_from_user(&ioc, (scs_ioctl *) cmdptr, 
 			sizeof(scs_ioctl));
 		return sc_ioctl(card, &ioc);
 	}
@@ -183,7 +193,6 @@ int loopback(int card)
 	int status;
 	static char testmsg[] = "Test Message";
 	RspMessage rspmsg;
-	int i = 0;	
 
 	if(!IS_VALID_CARD(card)) {
 		pr_debug("Invalid param: %d is not a valid card id\n", card);
@@ -202,7 +211,7 @@ int loopback(int card)
 				  cmReqMsgLpbk,
 				  0,
 				  (unsigned char) strlen(testmsg),
-				  (unsigned int *)testmsg,
+				  (unsigned char *)testmsg,
 				  &rspmsg, SAR_TIMEOUT);
 
 
@@ -230,7 +239,6 @@ int loopback(int card)
 int startproc(int card) 
 {
 	int status;
-	RspMessage rspmsg;
 
 	if(!IS_VALID_CARD(card)) {
 		pr_debug("Invalid param: %d is not a valid card id\n", card);
@@ -335,9 +343,7 @@ int hangup(int card, unsigned long channel)
  */
 int setl2(int card, unsigned long arg) 
 {
-	unsigned long flags;
 	int status =0;
-	RspMessage rspmsg;
 	int protocol,channel;
 
 	if(!IS_VALID_CARD(card)) {
@@ -370,8 +376,6 @@ int setl2(int card, unsigned long arg)
  * Get the layer 2 protocol
  */
 int getl2(int card, unsigned long channel) {
-
-	int status;
 
 	if(!IS_VALID_CARD(card)) {
 		pr_debug("Invalid param: %d is not a valid card id\n", card);
@@ -507,6 +511,7 @@ int getsil(int card, unsigned long arg, char *num)
 	pr_debug("%s: SIL for channel %d reported: %s\n",
 		adapter[card]->devicename, arg+1,
 		adapter[card]->channel[arg].sillist);
+	return 0;
 }
 
 
@@ -525,7 +530,6 @@ int unlock()
 int reset(int card)
 {
 	unsigned long flags;
-	unsigned long timeout;
 
 	if(!IS_VALID_CARD(card)) {
 		pr_debug("Invalid param: %d is not a valid card id\n", card);
@@ -557,7 +561,6 @@ int reset(int card)
 
 void flushreadfifo (int card)
 {
-	int i;
 	while(inb(adapter[card]->ioport[FIFO_STATUS]) & RF_HAS_DATA)
 		inb(adapter[card]->ioport[FIFO_READ]);
 }

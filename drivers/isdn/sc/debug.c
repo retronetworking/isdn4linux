@@ -25,6 +25,7 @@
  *     +1 (416) 297-8565
  *     +1 (416) 297-6433 Facsimile
  */
+#include <linux/kernel.h>
 
 #define NULL	0x0
 
@@ -41,7 +42,7 @@ inline char *strcpy(char *, const char *);
 int dbg_level = 0;
 static char dbg_funcname[255];
 
-void dbg_endfunc()
+void dbg_endfunc(void)
 {
 	if (dbg_level) {
 		printk("<-- Leaving function %s\n", dbg_funcname);
