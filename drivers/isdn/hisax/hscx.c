@@ -6,6 +6,9 @@
  *
  *
  * $Log$
+ * Revision 1.3.2.7  1998/06/26 22:02:55  keil
+ * send flags between hdlc frames
+ *
  * Revision 1.3.2.6  1998/06/09 18:26:32  keil
  * PH_DEACTIVATE B-channel every time signaled to higher layer
  *
@@ -78,6 +81,8 @@ modehscx(struct BCState *bcs, int mode, int bc)
 	cs->BC_Write_Reg(cs, hscx, HSCX_RAH2, 0xFF);
 	cs->BC_Write_Reg(cs, hscx, HSCX_XBCH, 0x0);
 	cs->BC_Write_Reg(cs, hscx, HSCX_RLCR, 0x0);
+	cs->BC_Write_Reg(cs, hscx, HSCX_CCR1, 
+		test_bit(HW_IPAC, &cs->HW_Flags) ? 0x82 : 0x85);
 	cs->BC_Write_Reg(cs, hscx, HSCX_CCR2, 0x30);
 	cs->BC_Write_Reg(cs, hscx, HSCX_XCCR, 7);
 	cs->BC_Write_Reg(cs, hscx, HSCX_RCCR, 7);
