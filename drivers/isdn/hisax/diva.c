@@ -1133,6 +1133,7 @@ ready:
 		(cs->subtyp == DIVA_ISA) ? "ISA" : 
 		(cs->subtyp == DIVA_IPAC_ISA) ? "IPAC ISA" :
 		(cs->subtyp == DIVA_IPAC_PCI) ? "IPAC PCI" : "IPACX PCI",
+		cs->hw.diva.cfg_reg, cs->irq);
 	if ((cs->subtyp == DIVA_IPAC_PCI)  || 
 	    (cs->subtyp == DIVA_IPACX_PCI) || 
 	    (cs->subtyp == DIVA_PCI)         )
