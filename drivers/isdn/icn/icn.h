@@ -1,9 +1,13 @@
 /* $Id$
+ *
  * ISDN lowlevel-module for the ICN active ISDN-Card.
  *
  * Copyright 1994 by Fritz Elfert (fritz@wuemaus.franken.de)
  *
  * $Log$
+ * Revision 1.1  1994/12/14  18:02:38  fritz
+ * Initial revision
+ *
  */
 
 #ifndef icn_h
@@ -18,6 +22,7 @@
 #ifdef __KERNEL__
 /* Kernel includes */
 
+#include <linux/version.h>
 #include <linux/errno.h>
 #include <linux/fs.h>
 #include <linux/major.h>
@@ -33,79 +38,69 @@
 #include <linux/ioport.h>
 #include <linux/timer.h>
 #include <linux/wait.h>
-#include "isdnif.h"
+#include <isdnif.h>
+
+char kernel_version[] = UTS_RELEASE;
 
 /* some useful macros for debugging */
 #ifdef ICN_DEBUG_PORT
 #define OUTB_P(v,p) {printk("icn: outb_p(0x%02x,0x%03x)\n",v,p); outb_p(v,p);}
 #else
-#define OUTB_P outb_p
+#define OUTB_P outb
 #endif
 
+/* Defaults for Port-Address and shared-memory */
 #define ICN_BASEADDR 0x320
 #define ICN_PORTLEN (0x08)
 #define ICN_MEMADDR 0x0d0000
 
+/* Macros for accessing ports */
 #define ICN_CFG    (dev->port)
 #define ICN_MAPRAM (dev->port+1)
 #define ICN_RUN    (dev->port+2)
 #define ICN_BANK   (dev->port+3)
 
-#define ISDN_SERVICE_VOICE 1
-#define ISDN_SERVICE_AB    1<<1 
-#define ISDN_SERVICE_X21   1<<2
-#define ISDN_SERVICE_G4    1<<3
-#define ISDN_SERVICE_BTX   1<<4
-#define ISDN_SERVICE_DFUE  1<<5
-#define ISDN_SERVICE_X25   1<<6
-#define ISDN_SERVICE_TTX   1<<7
-#define ISDN_SERVICE_MIXED 1<<8
-#define ISDN_SERVICE_FW    1<<9
-#define ISDN_SERVICE_GTEL  1<<10
-#define ISDN_SERVICE_BTXN  1<<11
-#define ISDN_SERVICE_BTEL  1<<12
+#define ICN_FLAGS_B1ACTIVE 1     /* B-Channel-1 is open                 */
+#define ICN_FLAGS_B2ACTIVE 2     /* B-Channel-2 is open                 */
+#define ICN_FLAGS_RBTIMER  4     /* cyclic scheduling of B-Channel-poll */
 
-#define ICN_FLAGS_CTLOPEN 1
-#define ICN_FLAGS_B1ACTIVE 2
-#define ICN_FLAGS_B2ACTIVE 4
-#define ICN_FLAGS_RBTIMER 8
-#define ICN_FLAGS_MODEMONLINE 16
+#define ICN_BOOT_TIMEOUT1  100   /* Delay for Boot-download (jiffies)   */
+#define ICN_CHANLOCK_DELAY  10   /* Delay for Channel-mapping (jiffies) */
 
-#define ICN_BOOT_TIMEOUT1 100 /* jiffies */
-#define ICN_BOOT_TIMEOUT2 1000 /* jiffies */
-#define ICN_CHANLOCK_DELAY 10
-#define ICN_SEND_TIMEOUT   10
+#define ICN_TIMER_BCREAD 5       /* B-Channel poll-cycle                */
+#define ICN_TIMER_DCREAD 50      /* D-Channel poll-cycle                */
 
-#define ICN_TIMER_BCREAD 20
-#define ICN_TIMER_DCREAD 50
+#define ICN_CODE_STAGE1 4096     /* Size of bootcode                    */
+#define ICN_CODE_STAGE2 65536    /* Size of protocol-code               */
 
-#define ICN_CODE_STAGE1 4096
-#define ICN_CODE_STAGE2 65536
+#define ICN_MAX_SQUEUE 20        /* Max. length of sendbuffer-chain     */
+#define ICN_FRAGSIZE (250)       /* Max. size of send-fragments         */
+#define ICN_BCH 2                /* Number of supported channels        */
 
-#define ICN_FRAGSIZE (250)
-#define ICN_BCH 2
+/* Sendbuffer-queue-element */
+typedef struct pqueue {
+  char   *next;
+  short   length;
+  u_char *rptr;
+  u_char  buffer[1];
+} pqueue;
 
 typedef struct icn_devt *icn_devptr;
 typedef struct icn_devt {
   unsigned short   port;                /* Base-port-adress                 */
-  union icn_shmt *shmem;               /* Pointer to memory-mapped-buffers */
+  union icn_shmt *shmem;                /* Pointer to memory-mapped-buffers */
   unsigned short   bootstate;           /* Boot-State of driver             */
 				        /*  0 = Uninitialized               */
-                                        /*  1 = prepare to store bootcode   */
-                                        /*  2 = loading bootcode            */
-                                        /*  3 = wait for bootcode ready     */
-                                        /*  4 = start loading protocolcode  */
-                                        /*  5 = loading protocolcode        */
-                                        /*  6 = wait for protocolcode ready */
-                                        /*  7 = protocol running            */
+                                        /*  1 = load bootcode               */
+                                        /*  2 = load protocolcode           */
+                                        /*  3 = protocol running            */
+  int              codelen;             /* Length of code downloaded        */
+  u_char           *codeptr;            /* Bootcode-destination             */
+  int              myid;                /* Driver-Nr. assigned by linklevel */
   unsigned short   flags;               /* Statusflags                      */
-  unsigned short   timer1;              /* Timeout-counter                  */
+  unsigned short   timer1;              /* Timeout-counter for booting      */
   struct timer_list st_timer;           /* Timer for Status-Polls           */
   struct timer_list rb_timer;           /* Timer for B-Channel-Polls        */
-  struct wait_queue *st_waitq;          /* Wait-Queue for status-read's     */
-  int              myid;
-  int              codelen;
-  u_char           *codeptr;
   int              channel;             /* Currently mapped Channel         */
   int              chanlock;            /* Semaphore for Channel-Mapping    */
   u_char           rcvbuf[ICN_BCH][4096]; /* B-Channel-Receive-Buffers      */
@@ -113,10 +108,12 @@ typedef struct icn_devt {
   isdn_if          interface;           /* Interface to upper layer         */
   int              iptr;                /* Index to imsg-buffer             */
   char             imsg[40];            /* Internal buf for status-parsing  */
-  char             msg_buf[1024];       /* Buffer for status-messages       */
-  char             *msg_buf_write;
-  char             *msg_buf_read;
-  char             *msg_buf_end;
+  char             msg_buf[2048];       /* Buffer for status-messages       */
+  char             *msg_buf_write;      /* Writepointer for statusbuffer    */
+  char             *msg_buf_read;       /* Readpointer for statusbuffer     */
+  char             *msg_buf_end;        /* Pointer to end of statusbuffer   */
+  int              sndcount[ICN_BCH];   /* Byte-counters for B-Ch.-send     */
+  pqueue           *spqueue[ICN_BCH];   /* Pointers to start of Send-Queue  */
 } icn_dev;
 
 /* type-definitions for accessing the mmap-io-areas */
@@ -212,6 +209,9 @@ static icn_dev *dev = (icn_dev *)0;
 
 /* Return length of Message, if avail. */
 #define msg_avail ((msg_o>msg_i)?0x100-msg_o+msg_i:msg_i-msg_o)
+
+#define MIN(a,b) ((a<b)?a:b)
+#define MAX(a,b) ((a>b)?a:b)
 
 #endif /* __KERNEL__ */
 #endif /* icn_h */
