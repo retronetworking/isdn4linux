@@ -5,8 +5,9 @@
  * Author       (C) 2001 Werner Cornelius (werner@isdn-development.de)
  *              modular driver for Colognechip HFC-USB chip
  *              as plugin for HiSax isdn driver
+ *              type approval valid for HFC-S USB based TAs
  *
- * Copyright 2001  by Werner Cornelius (werner@isdn4linux.de)
+ * Copyright 2001  by Werner Cornelius (werner@isdn-development.de)
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -54,7 +55,6 @@
 #define HFCUSB_L1_DTX           4	/* D-frames completed */
 
 #define MAX_BCH_SIZE        2048	/* allowed B-channel packet size */
-#define MAX_DCH_SIZE        264	/* allowed D-channel packet size */
 
 #define HFCUSB_RX_THRESHOLD 64	/* threshold for fifo report bit rx */
 #define HFCUSB_TX_THRESHOLD 64	/* threshold for fifo report bit tx */
@@ -75,6 +75,7 @@
 #define HFCUSB_F_USAGE    0x1a	/* fifo usage register */
 #define HFCUSB_MST_MODE0  0x14
 #define HFCUSB_MST_MODE1  0x15
+#define HFCUSB_P_DATA     0x1f
 #define HFCUSB_INC_RES_F  0x0e
 #define HFCUSB_STATES     0x30
 
@@ -93,6 +94,12 @@
 #define HFCUSB_PCM_TX      6
 #define HFCUSB_PCM_RX      7
 
+/************/
+/* LED mask */
+/************/
+#define LED_DRIVER         0x1
+#define LED_L1             0x2
+#define LED_BCH            0x4
 
 /**********/
 /* macros */
@@ -104,8 +111,9 @@
 /****************************************/
 /* data defining the devices to be used */
 /****************************************/
-static __devinitdata const struct usb_device_id hfc_usb_idtab[2] = {
+static __devinitdata const struct usb_device_id hfc_usb_idtab[3] = {
 	{USB_DEVICE(0x959, 0x2bd0)},	/* Colognechip ROM */
+	{USB_DEVICE(0x7b0, 0x0006)},	/* USB TA 128 */
 	{}			/* end with an all-zeroes entry */
 };
 #endif
@@ -166,6 +174,8 @@ typedef struct hfcusb_data {
 	volatile __u8 service_request;	/* fifo needs service from task */
 	volatile __u8 ctrl_fifo;	/* last selected fifo */
 	volatile __u8 bch_enables;	/* or mask for sctrl_r and sctrl register values */
+        volatile __u8 led_req;          /* request status of adapters leds */ 
+        volatile __u8 led_act;          /* active status of adapters leds */ 
 	usb_fifo fifos[HFCUSB_NUM_FIFOS];	/* structure holding all fifo data */
 
 	/* layer 1 activation/deactivation handling */
@@ -173,6 +183,7 @@ typedef struct hfcusb_data {
 	volatile ulong l1_event;	/* event mask */
 	struct tq_struct l1_tq;	/* l1 bh structure */
 	struct timer_list t3_timer;	/* timer for activation/deactivation */
+	struct timer_list t4_timer;	/* timer for activation/deactivation */
 } hfcusb_data;
 
 #if 0
@@ -209,12 +220,18 @@ usb_l1d_bh(hfcusb_data * hfc)
 	while (hfc->l1_event) {
 		if (test_and_clear_bit
 		    (HFCUSB_L1_STATECHANGE, &hfc->l1_event)) {
-			hfc->regd.dch_l1l2(hfc->regd.arg_hisax,
-					   (hfc->l1_state ==
-					    7) ? (PH_DEACTIVATE |
-						  INDICATION)
-					   : (PH_ACTIVATE | INDICATION),
-					   NULL);
+			if (hfc->l1_state == 7)
+			    hfc->led_req |= LED_L1;
+			else
+			    hfc->led_req &= ~LED_L1;
+			if ((hfc->l1_state == 7) ||
+			    (hfc->l1_state == 3))
+			    hfc->regd.dch_l1l2(hfc->regd.arg_hisax,
+					       (hfc->l1_state ==
+						7) ? (PH_ACTIVATE |
+						      INDICATION)
+					       : (PH_DEACTIVATE | INDICATION),
+					       NULL);
 		}
 		if (test_and_clear_bit(HFCUSB_L1_DRX, &hfc->l1_event)) {
 			hfc->regd.dch_l1l2(hfc->regd.arg_hisax,
@@ -232,16 +249,6 @@ usb_l1d_bh(hfcusb_data * hfc)
 		}
 	}			/* while */
 }				/* usb_l1d_bh */
-
-/********************************/
-/* called when timer t3 expires */
-/********************************/
-static void
-timer_t3_expire(hfcusb_data * hfc)
-{
-	hfc->regd.dch_l1l2(hfc->regd.arg_hisax, PH_DEACTIVATE | INDICATION,
-			   NULL);
-}				/* timer_t3_expire */
 
 /******************************************************/
 /* start next background transfer for control channel */
@@ -302,6 +309,21 @@ queue_control_request(hfcusb_data * hfc, __u8 reg, __u8 val)
 		ctrl_start_transfer(hfc);
 	return (0);
 }				/* queue_control_request */
+
+/**************************************/
+/* called when timer t3 or t4 expires */
+/**************************************/
+static void
+l1_timer_expire(hfcusb_data * hfc)
+{
+    if (timer_pending(&hfc->t4_timer))
+	del_timer(&hfc->t4_timer);
+    queue_control_request(hfc, HFCUSB_STATES, 0x40);
+    test_and_set_bit(HFCUSB_L1_STATECHANGE,
+		     &hfc->l1_event);
+    queue_task(&hfc->l1_tq, &tq_immediate);
+    mark_bh(IMMEDIATE_BH);
+} /* l1_timer_expire */
 
 /**************************************************/
 /* (re)fills a tx-fifo urb. Queuing is done later */
@@ -439,6 +461,7 @@ rx_complete(purb_t urb)
 	int i, ii, currcnt, hdlci;
 	struct sk_buff *skb;
 
+	urb->dev = hfc->dev; /* security init */
 	if ((!fifo->active) || (urb->status)) {
 		hfc->service_request &= ~fifo->fifo_mask;	/* no further handling */
 		hfc->active_fifos &= ~fifo->fifo_mask;	/* we are inactive */
@@ -458,6 +481,9 @@ rx_complete(purb_t urb)
 	if (fifo->rx_offset) {
 		hfc->threshold_mask = fifo->buffer[1];	/* update threshold status */
 		fifo->next_complete = fifo->buffer[0] & 1;
+		if ((fifo->fifonum == HFCUSB_D_RX) &&
+		    (hfc->led_req != hfc->led_act))
+		    queue_control_request(hfc, HFCUSB_P_DATA, hfc->led_req);
 
 		/* check if rescheduling needed */
 		if ((i =
@@ -486,7 +512,16 @@ rx_complete(purb_t urb)
 		if ((fifo->buffer[0] >> 4) != hfc->l1_state) {
 			last_state = hfc->l1_state;
 			hfc->l1_state = fifo->buffer[0] >> 4;	/* update status */
-			if ((hfc->l1_state == 7) || (last_state == 7)) {
+			if (timer_pending(&hfc->t4_timer))
+			    del_timer(&hfc->t4_timer);
+			if (((hfc->l1_state == 3) && 
+			     ((last_state == 7) || 
+			      (last_state == 8))) || 
+			    ((timer_pending(&hfc->t3_timer) &&
+			    (hfc->l1_state == 8)))) {
+			    hfc->t4_timer.expires = jiffies + 2;
+			    add_timer(&hfc->t4_timer);
+			} else { 
 				if (timer_pending(&hfc->t3_timer)
 				    && (hfc->l1_state == 7))
 					del_timer(&hfc->t3_timer);	/* no longer needed */
@@ -512,99 +547,94 @@ rx_complete(purb_t urb)
 			    (urb->actual_length - fifo->rx_offset);
 		} else
 			fifo->buff->len = fifo->max_size + 4;	/* mark frame as to long */
-		if (((fifo->next_complete)
-		     && (urb->actual_length < fifo->usb_maxlen)
-		     && (!*(fifo->act_ptr - 1))) || fifo->transmode) {
-			/* the frame is complete, hdlc with correct crc, check validity */
-			fifo->next_complete = 0;
-			if ((fifo->buff->len >= (hdlci + 1))
-			    && (fifo->buff->len <=
-				(fifo->max_size + hdlci))
-			    &&
-			    ((skb =
-			      dev_alloc_skb(fifo->max_size + hdlci)) !=
-			     NULL)) {
-				fifo->buff->len -= hdlci;	/* adjust size */
-				switch (fifo->fifonum) {
-					case HFCUSB_D_RX:
-						skb_queue_tail(hfc->regd.
-							       drq,
-							       fifo->buff);
-						test_and_set_bit
-						    (HFCUSB_L1_DRX,
-						     &hfc->l1_event);
-						queue_task(&hfc->l1_tq,
-							   &tq_immediate);
-						mark_bh(IMMEDIATE_BH);
-						break;
+		if (fifo->next_complete && (urb->actual_length < fifo->usb_maxlen)) {
+		    /* the frame is complete */
+		    fifo->next_complete = 0;
+		    if (((!*(fifo->act_ptr - 1)) || fifo->transmode) &&
+			(fifo->buff->len >= (hdlci + 1))
+			&& (fifo->buff->len <=
+			    (fifo->max_size + hdlci)) &&
+			((skb = dev_alloc_skb(fifo->max_size + hdlci)) != NULL)) {
+			fifo->buff->len -= hdlci;	/* adjust size */
+			switch (fifo->fifonum) {
+			    case HFCUSB_D_RX:
+				skb_queue_tail(hfc->regd.
+					       drq,
+					       fifo->buff);
+				test_and_set_bit
+				    (HFCUSB_L1_DRX,
+				     &hfc->l1_event);
+				queue_task(&hfc->l1_tq,
+					   &tq_immediate);
+				mark_bh(IMMEDIATE_BH);
+				break;
 
-					case HFCUSB_B1_RX:
-						if (hfc->regd.brq[0]) {
-							skb_queue_tail
-							    (hfc->regd.
-							     brq[0],
-							     fifo->buff);
-							hfc->regd.
-							    bch_l1l2(hfc->
-								     regd.
-								     arg_hisax,
-								     0,
-								     PH_DATA
-								     |
-								     INDICATION,
-								     (void
-								      *)
-								     fifo->
-								     buff);
-						} else
-							dev_kfree_skb_any
-							    (fifo->buff);
-						break;
+			    case HFCUSB_B1_RX:
+				if (hfc->regd.brq[0]) {
+				    skb_queue_tail
+					(hfc->regd.
+					 brq[0],
+					 fifo->buff);
+				    hfc->regd.
+					bch_l1l2(hfc->
+						 regd.
+						 arg_hisax,
+						 0,
+						 PH_DATA
+						 |
+						 INDICATION,
+						 (void *)
+						 fifo->
+						 buff);
+				} else
+				    dev_kfree_skb_any
+					(fifo->buff);
+				break;
+				
+			    case HFCUSB_B2_RX:
+				if (hfc->regd.brq[1]) {
+				    skb_queue_tail
+					(hfc->regd.
+					 brq[1],
+					 fifo->buff);
+				    hfc->regd.
+					bch_l1l2(hfc->
+						 regd.
+						 arg_hisax,
+						 1,
+						 PH_DATA
+						 |
+						 INDICATION,
+						 (void
+						  *)
+						 fifo->
+						 buff);
+				} else
+				    dev_kfree_skb_any
+					(fifo->buff);
+				break;
 
-					case HFCUSB_B2_RX:
-						if (hfc->regd.brq[1]) {
-							skb_queue_tail
-							    (hfc->regd.
-							     brq[1],
-							     fifo->buff);
-							hfc->regd.
-							    bch_l1l2(hfc->
-								     regd.
-								     arg_hisax,
-								     1,
-								     PH_DATA
-								     |
-								     INDICATION,
-								     (void
-								      *)
-								     fifo->
-								     buff);
-						} else
-							dev_kfree_skb_any
-							    (fifo->buff);
-						break;
+			    case HFCUSB_PCM_RX:
+				skb_queue_tail(&hfc->regd.
+					       erq,
+					       fifo->buff);
+				test_and_set_bit
+				    (HFCUSB_L1_ERX,
+				     &hfc->l1_event);
+				queue_task(&hfc->l1_tq,
+					   &tq_immediate);
+				mark_bh(IMMEDIATE_BH);
+				break;
 
-					case HFCUSB_PCM_RX:
-						skb_queue_tail(&hfc->regd.
-							       erq,
-							       fifo->buff);
-						test_and_set_bit
-						    (HFCUSB_L1_ERX,
-						     &hfc->l1_event);
-						queue_task(&hfc->l1_tq,
-							   &tq_immediate);
-						mark_bh(IMMEDIATE_BH);
-						break;
-
-					default:
-						dev_kfree_skb_any(fifo->
-								  buff);
-						break;
-				}
-				fifo->buff = skb;
+			    default:
+				dev_kfree_skb_any(fifo->
+						  buff);
+				break;
 			}
-			fifo->buff->len = 0;	/* reset counter */
-			fifo->act_ptr = fifo->buff->data;	/* and pointer */
+			fifo->buff = skb;
+		    } 
+		    fifo->buff->len = 0;	/* reset counter */
+		    fifo->act_ptr = fifo->buff->data;	/* and pointer */
 		}
 	}
 	fifo->rx_offset = (urb->actual_length < fifo->usb_maxlen) ? 2 : 0;
@@ -688,6 +718,15 @@ ctrl_complete(purb_t urb)
 								      HFCUSB_B2_RX);
 						break;
 				}
+				if (hfc->bch_enables & 3)
+				    hfc->led_req |= LED_BCH;
+				else
+				    hfc->led_req &= ~LED_BCH;
+				break;
+			case HFCUSB_P_DATA:
+				hfc->led_act =
+				    hfc->ctrl_buff[hfc->ctrl_out_idx].
+				    reg_val;
 				break;
 		}
 		hfc->ctrl_cnt--;	/* decrement actual count */
@@ -720,17 +759,29 @@ hfcusb_l1_access(void *drvarg, int pr, void *arg)
 			}
 			break;
 		case (PH_ACTIVATE | REQUEST):
-			if (hfc->l1_state < 6) {
+		    switch (hfc->l1_state) {
+			case 6:
+			case 8:
+				hfc->regd.dch_l1l2(hfc->regd.arg_hisax,
+						   (PH_DEACTIVATE |
+						   INDICATION), NULL);
+
+				break;
+			case 7:
+				hfc->regd.dch_l1l2(hfc->regd.arg_hisax,
+						   (PH_ACTIVATE |
+						   INDICATION), NULL);
+
+				break;
+			default:
 				queue_control_request(hfc, HFCUSB_STATES, 0x60);	/* start activation */
 				hfc->t3_timer.expires =
 				    jiffies + (HFC_TIMER_T3 * HZ) / 1000;
 				if (!timer_pending(&hfc->t3_timer))
 					add_timer(&hfc->t3_timer);
-			} else
-				hfc->regd.dch_l1l2(hfc->regd.arg_hisax,
-						   (PH_ACTIVATE |
-						    INDICATION), NULL);
-			break;
+				break;
+		    }
+		    break;
 
 		case (PH_DEACTIVATE | REQUEST):
 			queue_control_request(hfc, HFCUSB_STATES, 0x40);	/* start deactivation */
@@ -855,8 +906,12 @@ usb_init(hfcusb_data * hfc)
 	usb_set_configuration(hfc->dev, 1);
 	usb_set_interface(hfc->dev, hfc->if_used, hfc->alt_used);
 
+        /* init the led state request */
+	hfc->led_req = LED_DRIVER;
+
 	/* now we initialise the chip */
 	Write_hfc(hfc, HFCUSB_CIRM, 0x10);	/* aux = output, reset off */
+	Write_hfc(hfc, HFCUSB_P_DATA, 0);       /* leds = off */
 	Write_hfc(hfc, HFCUSB_USB_SIZE,
 		  (hfc->fifos[HFCUSB_B1_TX].usb_maxlen >> 3) |
 		  ((hfc->fifos[HFCUSB_B1_RX].usb_maxlen >> 3) << 4));
@@ -876,7 +931,7 @@ usb_init(hfcusb_data * hfc)
 		fifo->transmode = 0;	/* hdlc mode selected */
 		fifo->buff = NULL;	/* init buffer pointer */
 		fifo->max_size =
-		    (i <= HFCUSB_B2_RX) ? MAX_BCH_SIZE : MAX_DCH_SIZE;
+		    (i <= HFCUSB_B2_RX) ? MAX_BCH_SIZE : MAX_DFRAME_LEN;
 		Write_hfc(hfc, HFCUSB_HDLC_PAR, ((i <= HFCUSB_B2_RX) ? 0 : 2));	/* data length */
 		Write_hfc(hfc, HFCUSB_CON_HDLC, ((i & 1) ? 0x08 : 0x09));	/* rx hdlc, tx fill 1 */
 		Write_hfc(hfc, HFCUSB_INC_RES_F, 2);	/* reset the fifo */
@@ -892,7 +947,9 @@ usb_init(hfcusb_data * hfc)
 	/* init the l1 timer */
 	init_timer(&hfc->t3_timer);
 	hfc->t3_timer.data = (long) hfc;
-	hfc->t3_timer.function = (void *) timer_t3_expire;
+	hfc->t3_timer.function = (void *) l1_timer_expire;
+	hfc->t4_timer.data = (long) hfc;
+	hfc->t4_timer.function = (void *) l1_timer_expire;
 	hfc->l1_tq.routine = (void *) (void *) usb_l1d_bh;
 	hfc->l1_tq.sync = 0;
 	hfc->l1_tq.data = hfc;
@@ -965,11 +1022,12 @@ hfc_usb_probe(struct usb_device *dev, unsigned int interface
 	if (id_table && (dev->descriptor.idVendor == id_table->idVendor) &&
 	    (dev->descriptor.idProduct == id_table->idProduct) &&
 #else
-	if ((dev->descriptor.idVendor == 0x959) &&
-	    (dev->descriptor.idProduct == 0x2bd0) &&
+	if ((((dev->descriptor.idVendor == 0x959) &&
+	    (dev->descriptor.idProduct == 0x2bd0)) ||
+	    ((dev->descriptor.idVendor == 0x7b0) &&
+	    (dev->descriptor.idProduct == 0x0006))) &&
 #endif
 	    (ifdp->bNumEndpoints >= 6) && (ifdp->bNumEndpoints <= 16)) {
-
 		if (!(context = kmalloc(sizeof(hfcusb_data), GFP_KERNEL))) {
 			return (NULL);	/* got no mem */
 		};

@@ -1,6 +1,7 @@
 /* $Id$
 
  * hfc_usb.c  low level driver for CCD´s hfc-usb single chip controllers
+ *            type approval valid for HFC-S USB based TAs
  *
  * Author     Werner Cornelius (werner@isdn-development.de)
  *
@@ -251,7 +252,7 @@ mode_hfcusb(struct BCState *bcs, int mode, int bc)
 	if (!drv)
 		return;
 	if (cs->debug & L1_DEB_HSCX)
-		debugl1(cs, "HFCSX bchannel mode %d bchan %d/%d",
+		debugl1(cs, "HFCUSB bchannel mode %d bchan %d/%d",
 			mode, bc, bcs->channel);
 	bcs->mode = mode;
 	bcs->channel = bc;
@@ -286,9 +287,7 @@ hfcusb_b_l2l1(struct PStack *st, int pr, void *arg)
 				restore_flags(flags);
 			} else {
 				st->l1.bcs->tx_skb = skb;
-/*                              test_and_set_bit(BC_FLG_BUSY, &st->l1.bcs->Flag);
- */ st->l1.bcs->cs->BC_Send_Data(st->l1.
-								 bcs);
+				st->l1.bcs->cs->BC_Send_Data(st->l1.bcs);
 				restore_flags(flags);
 			}
 			break;
@@ -300,8 +299,7 @@ hfcusb_b_l2l1(struct PStack *st, int pr, void *arg)
 			}
 			save_flags(flags);
 			cli();
-/*                      test_and_set_bit(BC_FLG_BUSY, &st->l1.bcs->Flag);
- */ st->l1.bcs->tx_skb = skb;
+			st->l1.bcs->tx_skb = skb;
 			st->l1.bcs->cs->BC_Send_Data(st->l1.bcs);
 			restore_flags(flags);
 			break;
@@ -413,7 +411,7 @@ static int
 hfcusb_card_msg(struct IsdnCardState *cs, int mt, void *arg)
 {
 	if (cs->debug & L1_DEB_ISAC)
-		debugl1(cs, "HFCSX: card_msg %x", mt);
+		debugl1(cs, "HFCUSB: card_msg %x", mt);
 	switch (mt) {
 		case CARD_INIT:
 			inithfcusb(cs);
