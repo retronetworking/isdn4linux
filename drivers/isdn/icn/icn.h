@@ -4,7 +4,24 @@
  *
  * Copyright 1994 by Fritz Elfert (fritz@wuemaus.franken.de)
  *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 2, or (at your option)
+ * any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
+ *
  * $Log$
+ * Revision 1.3  1995/01/04  05:14:20  fritz
+ * removed include of linux/asm/string.h for compiling with Linux 1.1.76
+ *
  * Revision 1.2  1995/01/02  02:15:57  fritz
  * Misc. Bugfixes
  *
@@ -15,12 +32,12 @@
 
 #ifndef icn_h
 
-#define ICN_IOCTL_SETMMIO 0
-#define ICN_IOCTL_GETMMIO 1
-#define ICN_IOCTL_SETPORT 2
-#define ICN_IOCTL_GETPORT 3
-#define ICN_IOCTL_MAP0    4
-#define ICN_IOCTL_MAP1    5
+#define ICN_IOCTL_SETMMIO   0
+#define ICN_IOCTL_GETMMIO   1
+#define ICN_IOCTL_SETPORT   2
+#define ICN_IOCTL_GETPORT   3
+#define ICN_IOCTL_LOADBOOT  4
+#define ICN_IOCTL_LOADPROTO 5
 
 #ifdef __KERNEL__
 /* Kernel includes */
@@ -91,16 +108,8 @@ typedef struct icn_devt *icn_devptr;
 typedef struct icn_devt {
   unsigned short   port;                /* Base-port-adress                 */
   union icn_shmt *shmem;                /* Pointer to memory-mapped-buffers */
-  unsigned short   bootstate;           /* Boot-State of driver             */
-				        /*  0 = Uninitialized               */
-                                        /*  1 = load bootcode               */
-                                        /*  2 = load protocolcode           */
-                                        /*  3 = protocol running            */
-  int              codelen;             /* Length of code downloaded        */
-  u_char           *codeptr;            /* Bootcode-destination             */
   int              myid;                /* Driver-Nr. assigned by linklevel */
   unsigned short   flags;               /* Statusflags                      */
-  unsigned short   timer1;              /* Timeout-counter for booting      */
   struct timer_list st_timer;           /* Timer for Status-Polls           */
   struct timer_list rb_timer;           /* Timer for B-Channel-Polls        */
   int              channel;             /* Currently mapped Channel         */

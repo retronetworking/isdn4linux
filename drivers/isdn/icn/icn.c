@@ -4,8 +4,25 @@
  *
  * Copyright 1994 by Fritz Elfert (fritz@wuemaus.franken.de)
  *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 2, or (at your option)
+ * any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.3  1995/01/04  05:15:18  fritz
+ * Added undocumented "bootload-finished"-command in download-code
+ * to satisfy some brain-damaged icn card-versions.
+ *
  * Revision 1.2  1995/01/02  02:14:45  fritz
  * Misc Bugfixes
  *
@@ -18,11 +35,6 @@
 
 /* Use external Loader. Undefine this when loadprot() is debugged */
 #undef LOADEXTERN
-#ifdef LOADEXTERN
-#define ICN_BOOTSTART 4
-#else
-#define ICN_BOOTSTART 0
-#endif
 
 /* Try to allocate a new buffer, link it into queue. */
 static  u_char*
@@ -439,159 +451,125 @@ sendbuf(int channel, u_char *buffer, int len, int user) {
   return len;
 }
 
-/* Load the protocol-code into the transmit-buffers.
+#ifndef LOADEXTERN
+/* Load the boot-code into the interface-card's memory and start it.
  * Always called from user-process.
  * 
  * Parameters:
  *            buffer = pointer to packet
- *            len    = size of packet
  * Return:
- *        Number of bytes transferred
+ *        0 if successfully loaded
  */
 
 #undef BOOT_DEBUG
 
 static int
-loadproto(u_char *buffer, int len) {
-  register u_char *p = buffer;
-  uint  total = 0;
-  uint  left  = len;
-  uint  cnt;
-  unsigned long flags;
+loadboot(u_char *buffer) {
+  int timer;
 
-  while (left) {
-    switch (dev->bootstate) {
-      case 0:
-#ifdef BOOT_DEBUG
-	printk("boot 0 l=%d\n",left);
-#endif
-	dev->codeptr = (char *)dev->shmem;
-	dev->codelen = 0;
 #if 0
-	if (check_region(dev->port,ICN_PORTLEN)) {
-	  printk("icn: ports 0x%03x-0x%03x in use.\n",dev->port,
-		 dev->port+ICN_PORTLEN);
-	  dev->bootstate = 0;
-	  return -EIO;
-	}
+  if (check_region(dev->port,ICN_PORTLEN)) {
+    printk("icn: ports 0x%03x-0x%03x in use.\n",dev->port,
+	   dev->port+ICN_PORTLEN);
+    return -EIO;
+  }
 #endif
-	OUTB_P(0,ICN_RUN);                             /* Reset Controler */
-	OUTB_P(0,ICN_MAPRAM);                          /* Disable RAM     */
-	shiftout(ICN_CFG,0x0f,3,4);                    /* Windowsize= 16k */
-	shiftout(ICN_CFG,(unsigned long)dev->shmem,23,10);
-				/* Set RAM-Addr.   */
-	shiftout(ICN_BANK,0,3,4);                      /* Select Bank 0   */
-	OUTB_P(0xff,ICN_MAPRAM);                       /* Enable  RAM     */
-	dev->bootstate = 1;
-	break;
-      case 1:
+  OUTB_P(0,ICN_RUN);                                 /* Reset Controler */
+  OUTB_P(0,ICN_MAPRAM);                              /* Disable RAM     */
+  shiftout(ICN_CFG,0x0f,3,4);                        /* Windowsize= 16k */
+  shiftout(ICN_CFG,(unsigned long)dev->shmem,23,10); /* Set RAM-Addr.   */
+  shiftout(ICN_BANK,0,3,4);                          /* Select Bank 0   */
+  OUTB_P(0xff,ICN_MAPRAM);                           /* Enable  RAM     */
+  memcpy_fromfs(dev->shmem,buffer,ICN_CODE_STAGE1);  /* Copy code       */
+  OUTB_P(0xff,ICN_RUN);                              /* Start Boot-Code */
+  timer = 0;
+  while (1) {
 #ifdef BOOT_DEBUG
-	printk("boot 1 l=%d\n",left);
+    printk("Loader?\n");
 #endif
-	cnt = ((dev->codelen+left)>ICN_CODE_STAGE1)?
-	  ICN_CODE_STAGE1-dev->codelen:left;
-	memcpy_fromfs(dev->codeptr,p,cnt);
-	dev->codeptr += cnt;
-	dev->codelen += cnt;
-	left -= cnt;
-	total += cnt;
-	p += cnt;
-	if (dev->codelen >= ICN_CODE_STAGE1) {
-	  dev->codelen = 0;
-	  OUTB_P(0xff,ICN_RUN);                  /* Start Boot-Code      */
-	  dev->timer1 = 0;
-	  while (1) {
+    if (dev->shmem->data_control.scns || 
+	dev->shmem->data_control.scnr) {
+      if (timer++ > 5) {
+	printk("icn: Boot-Loader timed out.\n");
+	return -EIO;
+      }
 #ifdef BOOT_DEBUG
-	    printk("Loader?\n");
+      printk("Loader TO?\n");
 #endif
-	    if (dev->shmem->data_control.scns || 
-		dev->shmem->data_control.scnr) {
-	      if (dev->timer1 > 5) {
-		dev->bootstate = 0;
-		printk("icn: Boot-Loader timed out.\n");
-		return -EIO;
-	      }
-	      dev->timer1++;
+      current->state = TASK_INTERRUPTIBLE;
+      current->timeout = jiffies + ICN_BOOT_TIMEOUT1;
+      schedule();
+    } else {
 #ifdef BOOT_DEBUG
-	      printk("Loader TO?\n");
+      printk("Loader OK\n");
 #endif
-	      current->state = TASK_INTERRUPTIBLE;
-	      current->timeout = jiffies + ICN_BOOT_TIMEOUT1;
-	      schedule();
-	    } else {
-	      dev->bootstate = 2;
-#ifdef BOOT_DEBUG
-	      printk("Loader OK\n");
-#endif
-	      break;
-	    }
-	  }
-	}
-	break;
-      case 2:
-	if (sbfree) {                   /* If there is a free buffer...  */
-	  cnt = MIN(256,left);
-	  memcpy_fromfs(&sbuf_l,p,cnt); /* copy data                     */
-	  sbnext;                       /* switch to next buffer         */
-	  p += cnt;
-	  total += cnt;
-	  left  -= cnt;
-	  dev->codelen += cnt;
-	  if (dev->codelen >= ICN_CODE_STAGE2) {
-	    sbuf_n = 0x20;
-	    total += left;
-	    left = 0;
-	    dev->timer1 = 0;
-	    while (1) {
-	      if (cmd_o || cmd_i) {
-#ifdef BOOT_DEBUG
-		printk("Proto?\n");
-#endif
-		if (dev->timer1 > 10) {
-		  dev->bootstate = 0;
-#ifdef BOOT_DEBUG
-		  printk("Proto TO!\n");
-#endif
-		  return -EIO;
-		}
-#ifdef BOOT_DEBUG
-		printk("Proto TO?\n");
-#endif
-		dev->timer1++;
-		current->state = TASK_INTERRUPTIBLE;
-		current->timeout = jiffies + ICN_BOOT_TIMEOUT1;
-		schedule();
-	      } else {
-		dev->bootstate = 3;
-		printk("icn: Protocol loaded and running\n");
-		save_flags(flags);
-		cli();
-		init_timer(&dev->st_timer);
-		dev->st_timer.expires  = ICN_TIMER_DCREAD;
-		dev->st_timer.function = pollcard;
-		add_timer(&dev->st_timer);
-		restore_flags(flags);
-		break;
-	      }
-	    }
-	  }
-	} else {
-#ifdef BOOT_DEBUG
-	  printk("boot 2 !sbfree\n");
-#endif
-	  current->state = TASK_INTERRUPTIBLE;
-	  current->timeout = jiffies + 10;
-	  schedule();
-	}
-	break;
-      default:
-	total = left;
-        left = 0;
-	break;
+      return 0;
     }
   }
-  return (int)total;
 }
+
+static int
+loadproto(u_char *buffer) {
+  register u_char *p = buffer;
+  uint  left  = ICN_CODE_STAGE2;
+  uint  cnt;
+  int   timer;
+  unsigned long flags;
+
+  timer = 0;
+  while (left) {
+    if (sbfree) {                   /* If there is a free buffer...  */
+      cnt = MIN(256,left);
+      memcpy_fromfs(&sbuf_l,p,cnt); /* copy data                     */
+      sbnext;                       /* switch to next buffer         */
+      p += cnt;
+      left  -= cnt;
+      timer = 0;
+    } else {
+#ifdef BOOT_DEBUG
+      printk("boot 2 !sbfree\n");
+#endif
+      if (timer++ > 5)
+	return -EIO;
+      current->state = TASK_INTERRUPTIBLE;
+      current->timeout = jiffies + 10;
+      schedule();
+    }
+  }
+  sbuf_n = 0x20;
+  timer = 0;
+  while (1) {
+    if (cmd_o || cmd_i) {
+#ifdef BOOT_DEBUG
+      printk("Proto?\n");
+#endif
+      if (timer++ > 5) {
+	printk("icn: Protocol timed out.\n");
+#ifdef BOOT_DEBUG
+	printk("Proto TO!\n");
+#endif
+	return -EIO;
+      }
+#ifdef BOOT_DEBUG
+      printk("Proto TO?\n");
+#endif
+      current->state = TASK_INTERRUPTIBLE;
+      current->timeout = jiffies + ICN_BOOT_TIMEOUT1;
+      schedule();
+    } else {
+      printk("icn: Protocol loaded and running\n");
+      save_flags(flags);
+      cli();
+      init_timer(&dev->st_timer);
+      dev->st_timer.expires  = ICN_TIMER_DCREAD;
+      dev->st_timer.function = pollcard;
+      add_timer(&dev->st_timer);
+      restore_flags(flags);
+      return 0;
+    }
+  }
+}
+#endif /* !LOADEXTERN */
 
 /* Read the Status-replies from the Interface */
 static int
@@ -684,11 +662,11 @@ command (isdn_ctrl *c) {
 
   switch (c->command) {
     case ISDN_CMD_IOCTL:
-      switch (a = c->arg) {
+      memcpy(&a,c->num,sizeof(unsigned long));
+      switch (c->arg) {
 	case ICN_IOCTL_SETMMIO:
 	  if ((unsigned long)dev->shmem != (a & 0x0ffc000)) {
 	    dev->shmem = (icn_shmem *)(a & 0x0ffc000);
-	    dev->bootstate = ICN_BOOTSTART;
 	    printk("icn: mmio set to 0x%08lx\n",(unsigned long)dev->shmem);
 	  }
 	  break;
@@ -699,13 +677,13 @@ command (isdn_ctrl *c) {
 	      || a == 0x340 || a == 0x350 || a == 0x360) {
 	    if (dev->port != (unsigned short)a) {
 	      dev->port = (unsigned short)a;
-	      dev->bootstate = ICN_BOOTSTART;
+#if 0
 	      if (check_region(dev->port,ICN_PORTLEN)) {
 		printk("icn: ports 0x%03x-0x%03x in use.\n",dev->port,
 		       dev->port+ICN_PORTLEN);
-		dev->bootstate = ICN_BOOTSTART;
 		return -EINVAL;
 	      }
+#endif
 	      printk("icn: port set to 0x%03x\n",dev->port);
 	    }
 	  } else
@@ -713,6 +691,12 @@ command (isdn_ctrl *c) {
 	  break;
 	case ICN_IOCTL_GETPORT:
 	  return (int)dev->port;
+#ifndef LOADEXTERN
+	case ICN_IOCTL_LOADBOOT:
+	  return(loadboot((u_char*)a));
+	case ICN_IOCTL_LOADPROTO:
+	  return(loadproto((u_char*)a));
+#endif
 	default:
 	  return -EINVAL;
       }
@@ -788,11 +772,9 @@ init_module( void) {
     return -EIO;
   }
   memset((char *)dev,0,sizeof(icn_dev));
-  dev->bootstate           = ICN_BOOTSTART;
   dev->port                = portbase;
   dev->shmem               = (icn_shmem *)(membase & 0x0ffc000);
   dev->interface.channels  = ICN_BCH;
-  dev->interface.loadproto = loadproto;
   dev->interface.command   = command;
   dev->interface.writebuf  = sendbuf;
   dev->interface.writecmd  = writecmd;
