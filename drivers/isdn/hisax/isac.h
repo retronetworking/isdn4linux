@@ -6,6 +6,9 @@
  *
  *
  * $Log$
+ * Revision 1.2  1997/06/26 11:16:16  keil
+ * first version
+ *
  *
  */
 
@@ -35,6 +38,28 @@
 #define ISAC_MOX0 0x32
 #define ISAC_MOR1 0x34
 #define ISAC_MOX1 0x34
+
+#define ISAC_CMD_TIM	0x0
+#define ISAC_CMD_RS	0x1
+#define ISAC_CMD_SCZ	0x4
+#define ISAC_CMD_SSZ	0x2
+#define ISAC_CMD_AR8	0x8
+#define ISAC_CMD_AR10	0x9
+#define ISAC_CMD_ARL	0xA
+#define ISAC_CMD_DUI	0xF
+
+#define ISAC_IND_PU	0x7
+#define ISAC_IND_DR	0x0
+#define ISAC_IND_SD	0x2
+#define ISAC_IND_DIS	0x3
+#define ISAC_IND_EI	0x6
+#define ISAC_IND_RSY	0x4
+#define ISAC_IND_ARD	0x8
+#define ISAC_IND_TI	0xA
+#define ISAC_IND_ATI	0xB
+#define ISAC_IND_AI8	0xC
+#define ISAC_IND_AI10	0xD
+#define ISAC_IND_DID	0xF
 
 extern void ISACVersion(struct IsdnCardState *cs, char *s);
 extern void initisac(struct IsdnCardState *cs);
