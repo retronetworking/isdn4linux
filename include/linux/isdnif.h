@@ -434,6 +434,7 @@ typedef struct {
 #ifdef CONFIG_ISDN_TTY_FAX
 		T30_s	*fax;	/* Pointer to ttys fax struct		*/
 #endif
+		ulong userdata;	/* User Data */
 	} parm;
 } isdn_ctrl;
 
