@@ -6,6 +6,9 @@
  * (c) Copyright 1999 by Carsten Paeth (calle@calle.in-berlin.de)
  * 
  * $Log$
+ * Revision 1.20.6.2  2001/03/15 15:11:23  kai
+ * *** empty log message ***
+ *
  * Revision 1.20.6.1  2001/02/13 11:43:29  kai
  * more compatility changes for 2.2.19
  *
@@ -751,12 +754,13 @@ EXPORT_SYMBOL(b1ctl_read_proc);
 static int __init b1_init(void)
 {
 	char *p;
-	char rev[10];
+	char rev[32];
 
-	if ((p = strchr(revision, ':'))) {
-		strncpy(rev, p + 1, sizeof(rev));
-		p = strchr(rev, '$');
-		*p = 0;
+	if ((p = strchr(revision, ':')) != 0 && p[1]) {
+		strncpy(rev, p + 2, sizeof(rev));
+		rev[sizeof(rev)-1] = 0;
+		if ((p = strchr(rev, '$')) != 0 && p > rev)
+		   *(p-1) = 0;
 	} else
 		strcpy(rev, "1.0");
 

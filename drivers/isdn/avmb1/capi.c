@@ -6,6 +6,9 @@
  * Copyright 1996 by Carsten Paeth (calle@calle.in-berlin.de)
  *
  * $Log$
+ * Revision 1.44.6.7  2001/03/15 15:11:24  kai
+ * *** empty log message ***
+ *
  * Revision 1.44.6.6  2001/03/13 16:17:07  kai
  * spelling fixes from 2.4.3-pre
  *
@@ -2228,7 +2231,7 @@ static struct capi_interface_user cuser = {
 	callback: lower_callback,
 };
 
-static char rev[10];
+static char rev[32];
 
 static int __init capi_init(void)
 {
@@ -2236,12 +2239,13 @@ static int __init capi_init(void)
 
 	MOD_INC_USE_COUNT;
 
-	if ((p = strchr(revision, ':'))) {
-		strcpy(rev, p + 2);
-		p = strchr(rev, '$');
-		*(p-1) = 0;
+	if ((p = strchr(revision, ':')) != 0 && p[1]) {
+		strncpy(rev, p + 2, sizeof(rev));
+		rev[sizeof(rev)-1] = 0;
+		if ((p = strchr(rev, '$')) != 0 && p > rev)
+		   *(p-1) = 0;
 	} else
-		strcpy(rev, "???");
+		strcpy(rev, "1.0");
 
 	if (devfs_register_chrdev(capi_major, "capi20", &capi_fops)) {
 		printk(KERN_ERR "capi20: unable to get major %d\n", capi_major);
@@ -2360,7 +2364,7 @@ static void __exit capi_exit(void)
 #endif
 #endif
 	(void) detach_capi_interface(&cuser);
-	printk(KERN_NOTICE "capi: Rev%s: unloaded\n", rev);
+	printk(KERN_NOTICE "capi: Rev %s: unloaded\n", rev);
 }
 
 module_init(capi_init);

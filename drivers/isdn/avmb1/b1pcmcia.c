@@ -6,6 +6,9 @@
  * (c) Copyright 1999 by Carsten Paeth (calle@calle.in-berlin.de)
  * 
  * $Log$
+ * Revision 1.12.6.2  2001/02/16 16:43:23  kai
+ * Changes from -ac16, little bug fixes, typos and the like
+ *
  * Revision 1.12.6.1  2001/02/13 11:43:29  kai
  * more compatility changes for 2.2.19
  *
@@ -321,10 +324,11 @@ static int __init b1pcmcia_init(void)
 
 	MOD_INC_USE_COUNT;
 
-	if ((p = strchr(revision, ':'))) {
-		strncpy(driver->revision, p + 1, sizeof(driver->revision));
-		p = strchr(driver->revision, '$');
-		*p = 0;
+	if ((p = strchr(revision, ':')) != 0 && p[1]) {
+		strncpy(driver->revision, p + 2, sizeof(driver->revision));
+		driver->revision[sizeof(driver->revision)-1] = 0;
+		if ((p = strchr(driver->revision, '$')) != 0 && p > driver->revision)
+			*(p-1) = 0;
 	}
 
 	printk(KERN_INFO "%s: revision %s\n", driver->name, driver->revision);
