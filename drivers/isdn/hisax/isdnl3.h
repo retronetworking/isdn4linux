@@ -1,9 +1,12 @@
 /* $Id$
  *
  * $Log$
+ * Revision 1.1  1996/10/13 20:03:47  keil
+ * Initial revision
+ *
  *
  */
-    
+
 #define SBIT(state) (1<<state)
 #define ALL_STATES  0x00ffffff
 
@@ -22,3 +25,7 @@ struct stateentry {
 
 extern void l3_debug(struct PStack *st, char *s);
 extern void newl3state(struct PStack *st, int state);
+extern void L3InitTimer(struct PStack *st, struct L3Timer *t);
+extern void L3DelTimer(struct L3Timer *t);
+extern int  L3AddTimer(struct L3Timer *t, int millisec, int event);
+extern void StopAllL3Timer(struct PStack *st);

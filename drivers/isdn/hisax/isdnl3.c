@@ -7,6 +7,9 @@
  *              Fritz Elfert
  *
  * $Log$
+ * Revision 1.2  1996/11/05 19:42:04  keil
+ * using config.h
+ *
  * Revision 1.1  1996/10/13 20:04:54  keil
  * Initial revision
  *
@@ -17,6 +20,8 @@
 #include "hisax.h"
 #include "isdnl3.h"
 #include <linux/config.h>
+
+const	char	*l3_revision        = "$Revision$";
 
 void
 l3_debug(struct PStack *st, char *s)
@@ -41,10 +46,58 @@ newl3state(struct PStack *st, int state)
 	}
 	st->l3.state = state;
 }
+
+static void
+L3ExpireTimer(struct L3Timer *t)
+{
+        t->st->l4.l4l3(t->st, t->event, NULL);
+}
+
+void
+L3InitTimer(struct PStack *st, struct L3Timer *t)
+{
+	t->st = st;
+	t->tl.function = (void *) L3ExpireTimer;
+	t->tl.data = (long) t;
+	init_timer(&t->tl);
+}
+
+void
+L3DelTimer(struct L3Timer *t)
+{
+	long            flags;
+
+	save_flags(flags);
+	cli();
+	if (t->tl.next)
+		del_timer(&t->tl);
+	restore_flags(flags);
+}
+
+int
+L3AddTimer(struct L3Timer *t,
+	    int millisec, int event)
+{
+	if (t->tl.next) {
+		printk(KERN_WARNING "L3AddTimer: timer already active!\n");
+		return -1;
+	}
+	init_timer(&t->tl);
+	t->event = event;
+	t->tl.expires = jiffies + (millisec * HZ) / 1000;
+	add_timer(&t->tl);
+	return 0;
+}
+
+void
+StopAllL3Timer(struct PStack *st) {
+	L3DelTimer(&st->l3.timer);
+}
+
 static void
 no_l3_proto(struct PStack *st, int pr, void *arg) {
 	struct BufHeader *ibh = arg;
-	
+
 	l3_debug(st, "no protocol");
 	if (ibh)
 		BufPoolRelease(ibh);
@@ -66,16 +119,17 @@ setstack_isdnl3(struct PStack *st, int chan)
 
 	st->l3.debug   = L3_DEB_WARN;
 	st->l3.channr  = chan;
+	L3InitTimer(st, &st->l3.timer);
 
 #ifdef	CONFIG_HISAX_EURO
 	if (st->protocol == ISDN_PTYPE_EURO) {
 		setstack_dss1(st);
-	} else 
+	} else
 #endif
 #ifdef	CONFIG_HISAX_1TR6
 	if (st->protocol == ISDN_PTYPE_1TR6) {
 		setstack_1tr6(st);
-	} else 
+	} else
 #endif
 	{
 		sprintf(tmp,"protocol %s not supported",
