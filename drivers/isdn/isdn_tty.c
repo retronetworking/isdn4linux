@@ -20,6 +20,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.79  1999/10/29 18:35:08  armin
+ * Check number len in isdn_get_msnstr() to avoid buffer overflow.
+ *
  * Revision 1.78  1999/10/28 23:03:51  armin
  * Bugfix: now freeing channel on modem_hup() even when
  * usage on ttyI has changed and error-report for
@@ -4136,7 +4139,7 @@ isdn_tty_edit_at(const char *p, int count, modem_info * info, int user)
 			c = *p;
 		total++;
 		if (c == m->mdmreg[REG_CR] || c == m->mdmreg[REG_LF]) {
-			/* Separator (CR oder LF) */
+			/* Separator (CR or LF) */
 			m->mdmcmd[m->mdmcmdl] = 0;
 			if (m->mdmreg[REG_ECHO] & BIT_ECHO) {
 				eb[0] = c;
@@ -4149,7 +4152,7 @@ isdn_tty_edit_at(const char *p, int count, modem_info * info, int user)
 			continue;
 		}
 		if (c == m->mdmreg[REG_BS] && m->mdmreg[REG_BS] < 128) {
-			/* Backspace-Funktion */
+			/* Backspace-Function */
 			if ((m->mdmcmdl > 2) || (!m->mdmcmdl)) {
 				if (m->mdmcmdl)
 					m->mdmcmdl--;
@@ -4167,18 +4170,24 @@ isdn_tty_edit_at(const char *p, int count, modem_info * info, int user)
 			if (m->mdmcmdl < 255) {
 				c = my_toupper(c);
 				switch (m->mdmcmdl) {
-					case 0:
-						if (c == 'A')
-							m->mdmcmd[m->mdmcmdl] = c;
-						break;
 					case 1:
-						if (c == 'T')
+						if (c == 'T') {
 							m->mdmcmd[m->mdmcmdl] = c;
+							m->mdmcmd[++m->mdmcmdl] = 0;
+							break;
+						} else
+							m->mdmcmdl = 0;
+						/* Fall through, check for 'A' */
+					case 0:
+						if (c == 'A') {
+							m->mdmcmd[m->mdmcmdl] = c;
+							m->mdmcmd[++m->mdmcmdl] = 0;
+						}
 						break;
 					default:
 						m->mdmcmd[m->mdmcmdl] = c;
+						m->mdmcmd[++m->mdmcmdl] = 0;
 				}
-				m->mdmcmd[++m->mdmcmdl] = 0;
 			}
 		}
 	}
