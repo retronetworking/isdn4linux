@@ -41,6 +41,7 @@ HFC-2BS0 based cards (TeleInt SA1)
 Sedlbauer Speed Card (WinSpeed, Teledat 100)
 USR Sportster internal TA (compatible Stollmann tina-pp V3)
 ith Kommunikationstechnik GmbH MIC 16 ISA card 
+Traverse Technologie NETjet PCI S0 card
 
 Note: PCF, PCF-Pro: up to now, only the ISDN part is supported
       PCC-8: not tested yet
@@ -343,6 +344,7 @@ Special thanks to:
 	Firma ASUSCOM NETWORK INC. Taiwan
 	Firma S.u.S.E
 	Firma ith Kommunikationstechnik GmbH
+	Firma Traverse Technologie Australia
         
         My girl friend and partner in life Ute for her patience with me.
 
