@@ -20,6 +20,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.15  1996/06/03 20:35:01  fritz
+ * Fixed typos.
+ *
  * Revision 1.14  1996/06/03 20:12:19  fritz
  * Fixed typos.
  * Added call to write_wakeup via isdn_tty_flush_buffer()
@@ -100,6 +103,7 @@ static void isdn_tty_check_esc(const u_char *, u_char, int, int *, int *, int);
 static void isdn_tty_modem_reset_regs(atemu *, int);
 static void isdn_tty_cmd_ATA(modem_info *);
 static void isdn_tty_at_cout(char *, modem_info *);
+static void isdn_tty_flush_buffer(struct tty_struct *);
 
 /* Leave this unchanged unless you know what you do! */
 #define MODEM_PARANOIA_CHECK
@@ -184,6 +188,7 @@ void isdn_tty_readmodem(void)
                         info = &dev->mdm.info[midx];
 			if (info->online) {
 				r = 0;
+				isdn_audio_eval_dtmf(info);
 				if ((tty = info->tty)) {
 					if (info->mcr & UART_MCR_RTS) {
 						c = TTY_FLIPBUF_SIZE - tty->flip.count;
@@ -228,6 +233,11 @@ void isdn_tty_cleanup_xmit(modem_info *info)
         cli();
         if (skb_queue_len(&info->xmit_queue))
                 while ((skb = skb_dequeue(&info->xmit_queue))) {
+                        skb->free = 1;
+                        kfree_skb(skb, FREE_WRITE);
+                }
+        if (skb_queue_len(&info->dtmf_queue))
+                while ((skb = skb_dequeue(&info->dtmf_queue))) {
                         skb->free = 1;
                         kfree_skb(skb, FREE_WRITE);
                 }
@@ -399,7 +409,7 @@ static void isdn_tty_senddown(modem_info * info)
                                 /* adpcm, compatible to ZyXel 1496 modem
                                  * with ROM revision 6.01
                                  */
-                                buflen = isdn_audio_adpcm2xlaw(info->adpcms,
+                                buflen = isdn_audio_adpcm2xlaw(info->audio_ss,
                                                                ifmt,
                                                                hbuf,
                                                                skb_put(skb,skb_len),
@@ -573,13 +583,13 @@ void isdn_tty_modem_hup(modem_info * info)
                 isdn_tty_at_cout("\020\024", info);
         }
         info->vonline = 0;
-        if (info->adpcms) {
-                kfree(info->adpcms);
-                info->adpcms = NULL;
+        if (info->audio_ss) {
+                kfree(info->audio_ss);
+                info->audio_ss = NULL;
         }
-        if (info->adpcmr) {
-                kfree(info->adpcmr);
-                info->adpcmr = NULL;
+        if (info->audio_sr) {
+                kfree(info->audio_sr);
+                info->audio_sr = NULL;
         }
         info->msr &= ~(UART_MSR_DCD | UART_MSR_RI);
         info->lsr |= UART_LSR_TEMT;
@@ -1571,6 +1581,7 @@ int isdn_tty_modem_init(void)
 		info->drv_index = -1;
 		info->xmit_size = ISDN_SERIAL_XMIT_SIZE;
                 skb_queue_head_init(&info->xmit_queue);
+                skb_queue_head_init(&info->dtmf_queue);
                 if (!(info->xmit_buf = kmalloc(ISDN_SERIAL_XMIT_SIZE + 5, GFP_KERNEL))) {
                         printk(KERN_ERR "Could not allocate modem xmit-buffer\n");
                         return -3;
@@ -2276,12 +2287,10 @@ static int isdn_tty_cmd_PLUSV(char **p, modem_info * info)
                         /* AT+VRX - Start recording */
                         if (!m->vpar[0])
                                 PARSE_ERROR1;
-                        if (m->vpar[3] < 5) {
-                                info->adpcmr = isdn_audio_adpcm_init(m->vpar[3]);
-                                if (!info->adpcmr) {
-                                        printk(KERN_WARNING "isdn_tty: Couldn't malloc adpcm state\n");
-                                        PARSE_ERROR1;
-                                }
+                        info->audio_sr = isdn_audio_state_init(m->vpar[3]);
+                        if (!info->audio_sr) {
+                                printk(KERN_WARNING "isdn_tty: Couldn't malloc audio state\n");
+                                PARSE_ERROR1;
                         }
                         info->vonline = 1;
                         isdn_tty_modem_result(1, info);
@@ -2377,12 +2386,10 @@ static int isdn_tty_cmd_PLUSV(char **p, modem_info * info)
                         /* AT+VTX - Start sending */
                         if (!m->vpar[0])
                                 PARSE_ERROR1;
-                        if (m->vpar[3] < 5) {
-                                info->adpcms = isdn_audio_adpcm_init(m->vpar[3]);
-                                if (!info->adpcms) {
-                                        printk(KERN_WARNING "isdn_tty: Couldn't malloc adpcm state\n");
-                                        PARSE_ERROR1;
-                                }
+                        info->audio_ss = isdn_audio_state_init(m->vpar[3]);
+                        if (!info->audio_ss) {
+                                printk(KERN_WARNING "isdn_tty: Couldn't malloc audio state\n");
+                                PARSE_ERROR1;
                         }
                         m->lastDLE = 0;
                         info->vonline = 2;

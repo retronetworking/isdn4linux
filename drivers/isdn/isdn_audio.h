@@ -19,22 +19,31 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.2  1996/05/10 08:48:32  fritz
+ * Corrected adpcm bugs.
+ *
  * Revision 1.1  1996/04/30 09:29:06  fritz
  * Taken under CVS control.
  *
  */
 
-typedef struct adpcm_state {
-        int a;
-        int d;
-        int word;
-        int nleft;
-        int nbits;
-} adpcm_state;
+#define DTMF_NPOINTS 205       /* Number of samples for DTMF recognition */
+typedef struct audio_state {
+        int  a;
+        int  d;
+        int  word;
+        int  nleft;
+        int  nbits;
+        char dtmf_last;
+        int  dtmf_idx;
+        int  dtmf_buf[DTMF_NPOINTS];
+} audio_state;
 
 extern void isdn_audio_ulaw2alaw(unsigned char *, unsigned long);
 extern void isdn_audio_alaw2ulaw(unsigned char *, unsigned long);
-extern adpcm_state *isdn_audio_adpcm_init(int);
-extern int isdn_audio_adpcm2xlaw(adpcm_state *, int, unsigned char *, unsigned char *, int);
-extern int isdn_audio_xlaw2adpcm(adpcm_state *, int, unsigned char *, unsigned char *, int);
-extern int isdn_audio_2adpcm_flush(adpcm_state *s, unsigned char *out);
+extern audio_state *isdn_audio_state_init(int);
+extern int  isdn_audio_adpcm2xlaw(audio_state *, int, unsigned char *, unsigned char *, int);
+extern int  isdn_audio_xlaw2adpcm(audio_state *, int, unsigned char *, unsigned char *, int);
+extern int  isdn_audio_2adpcm_flush(audio_state *s, unsigned char *out);
+extern void isdn_audio_calc_dtmf(modem_info *, unsigned char *, int, int);
+extern void isdn_audio_eval_dtmf(modem_info *);

@@ -21,6 +21,10 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.16  1996/06/03 20:09:05  fritz
+ * Bugfix: called wrong function pointer for locking in
+ *         isdn_get_free_channel().
+ *
  * Revision 1.15  1996/05/31 01:10:54  fritz
  * Bugfixes:
  *   Lowlevel modules did not get locked correctly.
@@ -290,6 +294,7 @@ static void isdn_receive_skb_callback(int di, int channel, struct sk_buff *skb)
                 if (info->vonline & 1) {
                         int ifmt = 1;
                         /* voice conversion/compression */
+                        isdn_audio_calc_dtmf(info, skb->data, skb->len, ifmt);
                         switch (info->emu.vpar[3]) {
                                 case 2:
                                 case 3:
@@ -298,7 +303,7 @@ static void isdn_receive_skb_callback(int di, int channel, struct sk_buff *skb)
                                          * Since compressed data takes less
                                          * space, we can overwrite the buffer.
                                          */
-                                        skb_trim(skb,isdn_audio_xlaw2adpcm(info->adpcmr,
+                                        skb_trim(skb,isdn_audio_xlaw2adpcm(info->audio_sr,
                                                                            ifmt,
                                                                            skb->data,
                                                                            skb->data,
