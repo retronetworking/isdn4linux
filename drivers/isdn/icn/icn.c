@@ -19,6 +19,10 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.25  1996/06/11 22:53:35  tsbogend
+ * fixed problem with large array on stack
+ * made the driver working on Linux/alpha
+ *
  * Revision 1.24  1996/06/06 13:58:33  fritz
  * Changed code to be architecture independent
  *
@@ -150,10 +154,8 @@ static void icn_free_queue(struct sk_buff_head *queue)
         
         save_flags(flags);
         cli();
-        while ((skb = skb_dequeue(queue))) {
-                skb->free = 1;
-                kfree_skb(skb, FREE_WRITE);
-        }
+        while ((skb = skb_dequeue(queue)))
+                dev_kfree_skb(skb, FREE_WRITE);
         restore_flags(flags);
 }
 
@@ -382,17 +384,15 @@ static void icn_pollbchan_send(int channel, icn_card *card)
                 while (sbfree && card->sndcount[channel]) {
                         save_flags(flags);
                         cli();
-                        skb = skb_peek(&card->spqueue[channel]);
-                        if (!skb) {
+                        if (card->xmit_lock[channel]) {
                                 restore_flags(flags);
                                 break;
                         }
-                        if (skb->lock) {
-                                restore_flags(flags);
-                                break;
-                        }
-                        skb->lock = 1;
+                        card->xmit_lock[channel]++;
                         restore_flags(flags);
+                        skb = skb_dequeue(&card->spqueue[channel]);
+                        if (!skb)
+                                break;
 		        if (skb->len > ICN_FRAGSIZE) {
 			    writeb (0xff, &sbuf_f);
 			    cnt = ICN_FRAGSIZE;
@@ -407,16 +407,14 @@ static void icn_pollbchan_send(int channel, icn_card *card)
                         sbnext;        /* switch to next buffer        */
                         icn_maprelease_channel(card, mch & 2);
                         if (!skb->len) {
-                                skb = skb_dequeue(&card->spqueue[channel]);
-                                skb->free = 1;
-                                skb->lock = 0;
-                                kfree_skb(skb, FREE_WRITE);
+                                dev_kfree_skb(skb, FREE_WRITE);
                                 cmd.command = ISDN_STAT_BSENT;
                                 cmd.driver = card->myid;
                                 cmd.arg = channel;
                                 card->interface.statcallb(&cmd);
                         } else
-                                skb->lock = 0;
+                                skb_queue_head(&card->spqueue[channel], skb);
+                        card->xmit_lock[channel] = 0;
                         if (!icn_trymaplock_channel(card, mch))
                                 break;
                 }
@@ -446,6 +444,7 @@ static void icn_pollbchan(unsigned long data)
                         /* schedule b-channel polling again */
                         save_flags(flags);
                         cli();
+                        del_timer(&card->rb_timer);
                         card->rb_timer.expires = jiffies + ICN_TIMER_BCREAD;
                         add_timer(&card->rb_timer);
                         card->flags |= ICN_FLAGS_RBTIMER;
@@ -669,6 +668,7 @@ static void icn_polldchan(unsigned long data)
         /* schedule again */
         save_flags(flags);
         cli();
+        del_timer(&card->st_timer);
         card->st_timer.expires = jiffies + ICN_TIMER_DCREAD;
         add_timer(&card->st_timer);
         restore_flags(flags);
@@ -691,8 +691,8 @@ static int icn_sendbuf(int channel, struct sk_buff *skb, icn_card * card)
         unsigned long flags;
 
         if (len > 4000) {
-                skb->free = 1;
-                kfree_skb(skb, FREE_WRITE);
+                printk(KERN_WARNING
+                       "icn: Send packet too large\n");
                 return -EINVAL;
         }
         if (len) {
@@ -705,7 +705,6 @@ static int icn_sendbuf(int channel, struct sk_buff *skb, icn_card * card)
                 card->sndcount[channel] += len;
                 skb_queue_tail(&card->spqueue[channel], skb);
                 restore_flags(flags);
-                icn_pollbchan_send(channel, card);
         }
         return len;
 }
@@ -823,7 +822,7 @@ static int icn_loadboot(u_char * buffer, icn_card * card)
         icn_lock_channel(card,0);                                  /* Lock Bank 0      */
         restore_flags(flags);
         SLEEP(1);
-        memcpy_fromfs_toio(dev.shmem, buffer, ICN_CODE_STAGE1);           /* Copy code        */
+        memcpy_fromfs_toio((unsigned long)dev.shmem, buffer, ICN_CODE_STAGE1);           /* Copy code        */
 #ifdef BOOT_DEBUG
         printk(KERN_DEBUG "Bootloader transfered\n");
 #endif
@@ -839,7 +838,7 @@ static int icn_loadboot(u_char * buffer, icn_card * card)
                 icn_lock_channel(card,2);                          /* Lock Bank 8     */
                 restore_flags(flags);
                 SLEEP(1);
-                memcpy_fromfs_toio(dev.shmem, buffer, ICN_CODE_STAGE1);   /* Copy code        */
+                memcpy_fromfs_toio((unsigned long)dev.shmem, buffer, ICN_CODE_STAGE1);   /* Copy code        */
 #ifdef BOOT_DEBUG
                 printk(KERN_DEBUG "Bootloader transfered\n");
 #endif
@@ -891,7 +890,7 @@ static int icn_loadproto(u_char * buffer, icn_card * card)
         while (left) {
                 if (sbfree) {                           /* If there is a free buffer...  */
                         cnt = MIN(256, left);
-                        memcpy_fromfs_toio(&sbuf_l, p, cnt); /* copy data                     */ 
+                        memcpy_fromfs_toio((unsigned long)&sbuf_l, p, cnt); /* copy data                     */ 
                         sbnext;                         /* switch to next buffer         */
                         p += cnt;
                         left -= cnt;
@@ -1111,7 +1110,7 @@ static int icn_command(isdn_ctrl * c, icn_card * card)
                                 }
                                 break;
                         case ICN_IOCTL_GETMMIO:
-                                return (int) dev.shmem;
+                                return (long) dev.shmem;
                         case ICN_IOCTL_SETPORT:
                                 if (a == 0x300 || a == 0x310 || a == 0x320 || a == 0x330
                                     || a == 0x340 || a == 0x350 || a == 0x360 ||
@@ -1408,7 +1407,8 @@ static int if_command(isdn_ctrl * c)
         if (card)
                 return (icn_command(c, card));
         printk(KERN_ERR
-               "icn: if_command called with invalid driverId!\n");
+               "icn: if_command %d called with invalid driverId %d!\n",
+		c->command, c->driver);
         return -ENODEV;
 }
 
@@ -1472,9 +1472,6 @@ static icn_card *icn_initcard(int port, char *id) {
         card->interface.channels = ICN_BCH;
         card->interface.maxbufsize = 4000;
         card->interface.command = if_command;
-	/*
-        card->interface.writebuf = if_sendbuf;
-	*/
 	card->interface.writebuf_skb = if_sendbuf;
         card->interface.writecmd = if_writecmd;
         card->interface.readstat = if_readstatus;
@@ -1575,7 +1572,7 @@ int icn_init(void)
         char rev[10];
 
         memset(&dev, 0, sizeof(icn_dev));
-        dev.shmem = (icn_shmem *) (membase & 0x0ffc000);
+        dev.shmem = (icn_shmem *) ((unsigned long)membase & 0x0ffc000);
         dev.channel = -1;
         dev.mcard   = NULL;
 
@@ -1588,8 +1585,8 @@ int icn_init(void)
                 *p = 0;
         } else
                 strcpy(rev, " ??? ");
-        printk(KERN_NOTICE "ICN-ISDN-driver Rev%smem=0x%08x\n", rev,
-               (uint) dev.shmem);
+        printk(KERN_NOTICE "ICN-ISDN-driver Rev%smem=0x%08lx\n", rev,
+               (ulong) dev.shmem);
         return (icn_addcard(portbase,icn_id,icn_id2));
 }
 

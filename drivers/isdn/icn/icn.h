@@ -19,6 +19,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.19  1996/06/06 13:58:35  fritz
+ * Changed code to be architecture independent
+ *
  * Revision 1.18  1996/06/03 19:59:30  fritz
  * Removed include of config.h
  *
@@ -152,7 +155,7 @@ typedef struct icn_cdef {
 #define ICN_CODE_STAGE1 4096     /* Size of bootcode                        */
 #define ICN_CODE_STAGE2 65536    /* Size of protocol-code                   */
 
-#define ICN_MAX_SQUEUE 65536     /* Max. outstanding send-data              */
+#define ICN_MAX_SQUEUE 8000      /* Max. outstanding send-data (2* hw-buf.) */
 #define ICN_FRAGSIZE (250)       /* Max. size of send-fragments             */
 #define ICN_BCH 2                /* Number of supported channels per card   */
 
@@ -237,6 +240,7 @@ typedef struct icn_card {
         struct sk_buff_head
                 spqueue[ICN_BCH];     /* Sendqueue                        */
         char regname[35];             /* Name used for request_region     */
+        u_char xmit_lock[ICN_BCH];    /* Semaphore for pollbchan_send()   */
 } icn_card;
 
 /*
