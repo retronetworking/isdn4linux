@@ -6,6 +6,9 @@
  * Copyright 1997 by Carsten Paeth (calle@calle.in-berlin.de)
  *
  * $Log$
+ * Revision 1.3.2.3  1997/10/24 06:37:00  calle
+ * changed LISTEN cipmask, now we can distinguish voice, fax und data calls.
+ *
  * Revision 1.3.2.2  1997/10/08 05:42:25  calle
  * Added isdnlog support. patch to isdnlog needed.
  *
@@ -154,7 +157,8 @@ typedef struct capidrv_bchan capidrv_bchan;
 static capidrv_data global;
 static struct capi_interface *capifuncs;
 
-static void handle_q931_data(capidrv_contr *card, int send, __u8 *data, __u16 len);
+static void handle_dtrace_data(capidrv_contr *card,
+	int send, int level2, __u8 *data, __u16 len);
 
 /* -------- convert functions ---------------------------------------- */
 
@@ -706,19 +710,47 @@ static void handle_controller(_cmsg * cmsg)
 		    && cmsg->Function == 1) {
 		   __u8  *data = cmsg->ManuData+3;
 		   __u16  len = cmsg->ManuData[0];
+		   __u16 layer;
+		   int direction;
 		   if (len == 255) {
 		      len = (cmsg->ManuData[1] | (cmsg->ManuData[2] << 8));
 		      data += 2;
 		   }
 		   len -= 2;
-		   if ((*(data-2) & 0x0f) == 0x02) {
-		      handle_q931_data(card, (*(data-1) & 0x2) ? 1 : 0,
-		                             data, len);
+		   layer = ((*(data-1)) << 8) | *(data-2);
+		   if (layer & 0x300)
+			direction = (layer & 0x200) ? 0 : 1;
+		   else direction = (layer & 0x800) ? 0 : 1;
+		   if (layer & 0x0C00) {
+		   	if ((layer & 0xff) == 0x80) {
+		           handle_dtrace_data(card, direction, 1, data, len);
+		           break;
+		   	}
+		   } else if ((layer & 0xff) < 0x80) {
+		      handle_dtrace_data(card, direction, 0, data, len);
 		      break;
 		   }
+	           printk(KERN_INFO "capidrv: %s from controller 0x%x layer 0x%x, ignored\n",
+			capi_cmd2str(cmsg->Command, cmsg->Subcommand),
+			cmsg->adr.adrController, layer);
+                   break;
 		}
 		goto ignored;
 	case CAPI_MANUFACTURER_CONF:	/* Controller */
+		if (cmsg->ManuID == 0x214D5641) {
+		   char *s = 0;
+		   switch (cmsg->Class) {
+		      case 0: break;
+		      case 1: s = "unknown class"; break;
+		      case 2: s = "unknown function"; break;
+		      default: s = "unkown error"; break;
+		   }
+		   if (s)
+	           printk(KERN_INFO "capidrv: %s from controller 0x%x function %d: %s\n",
+			capi_cmd2str(cmsg->Command, cmsg->Subcommand),
+			cmsg->adr.adrController,
+			cmsg->Function, s);
+		}
 		goto ignored;
 	case CAPI_FACILITY_IND:	/* Controller/plci/ncci */
 		goto ignored;
@@ -1244,8 +1276,8 @@ static void capidrv_signal(__u16 applid, __u32 dummy)
 	  		(card)->q931_write = (card)->q931_buf; \
 	} while (0)
 
-static void handle_q931_data(capidrv_contr *card,
-			     int send, __u8 *data, __u16 len)
+static void handle_dtrace_data(capidrv_contr *card,
+			     int send, int level2, __u8 *data, __u16 len)
 {
     long flags;
     __u8 *p, *end;
@@ -1259,10 +1291,17 @@ static void handle_q931_data(capidrv_contr *card,
     save_flags(flags);
     cli();
 
-    PUTBYTE_TO_STATUS(card, 'D');
-    PUTBYTE_TO_STATUS(card, '3');
-    PUTBYTE_TO_STATUS(card, send ? '>' : '<');
-    PUTBYTE_TO_STATUS(card, ':');
+    if (level2) {
+        PUTBYTE_TO_STATUS(card, 'H');
+        PUTBYTE_TO_STATUS(card, 'E');
+        PUTBYTE_TO_STATUS(card, 'X');
+        PUTBYTE_TO_STATUS(card, ':');
+    } else {
+        PUTBYTE_TO_STATUS(card, 'D');
+        PUTBYTE_TO_STATUS(card, '3');
+        PUTBYTE_TO_STATUS(card, send ? '>' : '<');
+        PUTBYTE_TO_STATUS(card, ':');
+    }
 
     for (p = data, end = data+len; p < end; p++) {
        __u8 w;
@@ -1641,6 +1680,58 @@ static int if_readstat(__u8 *buf, int len, int user, int id, int channel)
 
 }
 
+static void enable_dchannel_trace(capidrv_contr *card)
+{
+        __u8 manufacturer[CAPI_MANUFACTURER_LEN];
+        capi_version version;
+	__u16 contr = card->contrnr;
+	__u16 errcode;
+	__u16 avmversion[3];
+
+        errcode = (*capifuncs->capi_get_manufacturer)(contr, manufacturer);
+        if (errcode != CAPI_NOERROR) {
+	   printk(KERN_ERR "%s: can't get manufacturer (0x%x)\n",
+			card->name, errcode);
+	   return;
+	}
+	if (strstr(manufacturer, "AVM") == 0) {
+	   printk(KERN_ERR "%s: not from AVM, no d-channel trace possible\n",
+			card->name);
+	   return;
+	}
+        errcode = (*capifuncs->capi_get_version)(contr, &version);
+        if (errcode != CAPI_NOERROR) {
+	   printk(KERN_ERR "%s: can't get version (0x%x)\n",
+			card->name, errcode);
+	   return;
+	}
+	avmversion[0] = (version.majormanuversion >> 4) & 0x0f;
+	avmversion[1] = (version.majormanuversion << 4) & 0xf0;
+	avmversion[1] |= (version.minormanuversion >> 4) & 0x0f;
+	avmversion[2] |= version.minormanuversion & 0x0f;
+
+        if (avmversion[0] > 3 || (avmversion[0] == 3 && avmversion[1] > 5)) {
+		printk(KERN_INFO "%s: D2 trace enabled\n", card->name);
+		capi_fill_MANUFACTURER_REQ(&cmdcmsg, global.appid,
+					   card->msgid++,
+					   contr,
+					   0x214D5641,  /* ManuID */
+					   0,           /* Class */
+					   1,           /* Function */
+					   (_cstruct)"\004\200\014\000\000");
+	} else {
+		printk(KERN_INFO "%s: D3 trace enabled\n", card->name);
+		capi_fill_MANUFACTURER_REQ(&cmdcmsg, global.appid,
+					   card->msgid++,
+					   contr,
+					   0x214D5641,  /* ManuID */
+					   0,           /* Class */
+					   1,           /* Function */
+					   (_cstruct)"\004\002\003\000\000");
+	}
+	send_message(card, &cmdcmsg);
+}
+
 static int capidrv_addcontr(__u16 contr, struct capi_profile *profp)
 {
 	capidrv_contr *card;
@@ -1721,14 +1812,7 @@ static int capidrv_addcontr(__u16 contr, struct capi_profile *profp)
 	printk(KERN_INFO "%s: now up (%d B channels)\n",
 		card->name, card->nbchan);
 
-        capi_fill_MANUFACTURER_REQ(&cmdcmsg, global.appid,
-				   card->msgid++,
-				   contr,
-				   0x214D5641,  /* ManuID */
-				   0,           /* Class */
-				   1,           /* Function */
-				   (_cstruct)"\004\002\003\000\000");
-	send_message(card, &cmdcmsg);
+        enable_dchannel_trace(card);
 
 	return 0;
 }
