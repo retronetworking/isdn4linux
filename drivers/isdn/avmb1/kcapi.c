@@ -6,6 +6,11 @@
  * (c) Copyright 1999 by Carsten Paeth (calle@calle.in-berlin.de)
  * 
  * $Log$
+ * Revision 1.19  2000/11/01 14:05:02  calle
+ * - use module_init/module_exit from linux/init.h.
+ * - all static struct variables are initialized with "membername:" now.
+ * - avm_cs.c, let it work with newer pcmcia-cs.
+ *
  * Revision 1.18  2000/07/20 10:22:27  calle
  * - Made procfs function cleaner and removed variable "begin".
  *
@@ -112,9 +117,7 @@
 #include <linux/locks.h>
 #include <linux/init.h>
 #include <linux/isdn_compat.h>
-#ifdef COMPAT_NEED_UACCESS
 #include <asm/uaccess.h>
-#endif
 #include "capicmd.h"
 #include "capiutil.h"
 #include "capilli.h"

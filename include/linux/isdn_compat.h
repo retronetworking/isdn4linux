@@ -8,8 +8,6 @@
 #include <linux/version.h>
 #endif
 
-#define COMPAT_NEED_UACCESS
-
 #if LINUX_VERSION_CODE < KERNEL_VERSION(2,1,15)
 #define SET_SKB_FREE(x) ( x->free = 1 )
 #define idev_kfree_skb(a,b) dev_kfree_skb(a,b)

@@ -558,9 +558,7 @@ typedef struct {
  *
  */
 extern int register_isdn(isdn_if*);
-#ifdef COMPAT_NEED_UACCESS
 #include <asm/uaccess.h>
-#endif
 
 #endif /* __KERNEL__ */
 #endif /* isdnif_h */

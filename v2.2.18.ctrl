@@ -1,5 +1,4 @@
 #delete #include <linux/isdn_compat.h>
-#define COMPAT_NEED_UACCESS
 #define SET_SKB_FREE(x)
 #define idev_kfree_skb(a,b) dev_kfree_skb(a)
 #define idev_kfree_skb_irq(a,b) dev_kfree_skb(a)

@@ -6,6 +6,11 @@
  * (c) Copyright 1999 by Carsten Paeth (calle@calle.in-berlin.de)
  * 
  * $Log$
+ * Revision 1.17  2000/11/01 14:05:02  calle
+ * - use module_init/module_exit from linux/init.h.
+ * - all static struct variables are initialized with "membername:" now.
+ * - avm_cs.c, let it work with newer pcmcia-cs.
+ *
  * Revision 1.16  2000/08/04 15:36:31  calle
  * copied wrong from file to file :-(
  *
@@ -96,9 +101,7 @@
 #include <asm/io.h>
 #include <linux/init.h>
 #include <linux/isdn_compat.h>
-#ifdef COMPAT_NEED_UACCESS
 #include <asm/uaccess.h>
-#endif
 #ifndef COMPAT_NO_SOFTNET
 #include <linux/netdevice.h>
 #endif
