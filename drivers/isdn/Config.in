@@ -9,6 +9,7 @@ if [ "$CONFIG_INET" != "n" ]; then
   fi
 fi
 bool 'Support audio via ISDN' CONFIG_ISDN_AUDIO
+bool 'Support isdn diversion services' CONFIG_ISDN_DIVERSION
 if [ "$CONFIG_X25" != "n" ]; then
   bool 'X.25 PLP on top of ISDN (EXPERIMENTAL)' CONFIG_ISDN_X25
 fi
