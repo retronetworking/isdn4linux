@@ -20,6 +20,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.29  1997/02/16 12:11:51  fritz
+ * Added S13,Bit4 option.
+ *
  * Revision 1.28  1997/02/10 22:07:08  fritz
  * Added 2 modem registers for numbering plan and screening info.
  *
@@ -2237,9 +2240,10 @@ isdn_tty_cmd_ATand(char **p, modem_info * info)
 		case 'V':
 			/* &V - Show registers */
 			p[0]++;
+			isdn_tty_at_cout("\r\n", info);
 			for (i = 0; i < ISDN_MODEM_ANZREG; i++) {
-				sprintf(rb, "S%d=%d%s", i,
-				  m->mdmreg[i], (i == 6) ? "\r\n" : " ");
+				sprintf(rb, "S%02d=%03d%s", i,
+				  m->mdmreg[i], ((i + 1) % 10) ? " " : "\r\n");
 				isdn_tty_at_cout(rb, info);
 			}
 			sprintf(rb, "\r\nEAZ/MSN: %s\r\n",
@@ -2283,6 +2287,33 @@ isdn_tty_cmd_ATand(char **p, modem_info * info)
 	return 0;
 }
 
+static int
+isdn_tty_check_ats(int mreg, int mval, modem_info * info, atemu *m)
+{
+	/* Some plausibility checks */
+	switch (mreg) {
+		case 14:
+			if (mval > ISDN_PROTO_L2_TRANS)
+				return 1;
+			break;
+		case 16:
+			if ((mval * 16) > ISDN_SERIAL_XMIT_SIZE)
+				return 1;
+#ifdef CONFIG_ISDN_AUDIO
+			if ((m->mdmreg[18] & 1) && (mval > VBUFX))
+				return 1;
+#endif
+			info->xmit_size = mval * 16;
+			break;
+		case 20:
+		case 21:
+		case 22:
+			/* readonly registers */
+			return 1;
+	}
+	return 0;
+}
+
 /*
  * Perform ATS command
  */
@@ -2290,8 +2321,10 @@ static int
 isdn_tty_cmd_ATS(char **p, modem_info * info)
 {
 	atemu *m = &info->emu;
+	int bitpos;
 	int mreg;
 	int mval;
+	int bval;
 
 	mreg = isdn_getnum(p);
 	if (mreg < 0 || mreg > ISDN_MODEM_ANZREG)
@@ -2302,25 +2335,39 @@ isdn_tty_cmd_ATS(char **p, modem_info * info)
 			mval = isdn_getnum(p);
 			if (mval < 0 || mval > 255)
 				PARSE_ERROR1;
-			switch (mreg) {
-					/* Some plausibility checks */
-				case 14:
-					if (mval > ISDN_PROTO_L2_TRANS)
+			if (isdn_tty_check_ats(mreg, mval, info, m))
+				PARSE_ERROR1;
+			m->mdmreg[mreg] = mval;
+			break;
+		case '.':
+			/* Set/Clear a single bit */
+			p[0]++;
+			bitpos = isdn_getnum(p);
+			if ((bitpos < 0) || (bitpos > 7))
+				PARSE_ERROR1;
+			switch (*p[0]) {
+				case '=':
+					p[0]++;
+					bval = isdn_getnum(p);
+					if (bval < 0 || bval > 1)
 						PARSE_ERROR1;
+					if (bval)
+						mval = m->mdmreg[mreg] | (1 << bitpos);
+					else
+						mval = m->mdmreg[mreg] & ~(1 << bitpos);
+					if (isdn_tty_check_ats(mreg, mval, info, m))
+						PARSE_ERROR1;
+					m->mdmreg[mreg] = mval;
 					break;
-				case 16:
-					if ((mval * 16) > ISDN_SERIAL_XMIT_SIZE)
-						PARSE_ERROR1;
-#ifdef CONFIG_ISDN_AUDIO
-					if ((m->mdmreg[18] & 1) && (mval > VBUFX))
-						PARSE_ERROR1;
-#endif
-					info->xmit_size = mval * 16;
+				case '?':
+					p[0]++;
+					isdn_tty_at_cout("\r\n", info);
+					isdn_tty_at_cout((m->mdmreg[mreg] & (1 << bitpos))?"1":"0",
+									 info);
 					break;
-				case 20:
+				default:
 					PARSE_ERROR1;
 			}
-			m->mdmreg[mreg] = mval;
 			break;
 		case '?':
 			p[0]++;
