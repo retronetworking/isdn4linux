@@ -21,6 +21,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.26  1996/10/23 11:59:40  fritz
+ * More compatibility changes.
+ *
  * Revision 1.25  1996/10/22 23:13:54  fritz
  * Changes for compatibility to 2.0.X and 2.1.X kernels.
  *
@@ -414,6 +417,7 @@ static int isdn_status_callback(isdn_ctrl * c)
 	ulong flags;
 	int i;
 	int r;
+	int retval=0;
         modem_info *info;
 	isdn_ctrl cmd;
 
@@ -482,6 +486,7 @@ static int isdn_status_callback(isdn_ctrl * c)
                                                 cmd.arg = c->arg;
                                                 cmd.command = ISDN_CMD_HANGUP;
                                                 dev->drv[di]->interface->command(&cmd);
+                                                retval=2;
                                         }
                                         break;
                                 case 1:
@@ -495,6 +500,7 @@ static int isdn_status_callback(isdn_ctrl * c)
                                         break;
                                 case 2:	/* For calling back, first reject incoming call ... */
                                 case 3:	/* Interface found, but down, reject call actively  */
+                                	retval=2;
                                         printk(KERN_INFO "isdn: Rejecting Call\n");
                                         cmd.driver = di;
                                         cmd.arg = c->arg;
@@ -506,13 +512,13 @@ static int isdn_status_callback(isdn_ctrl * c)
                                 case 4:
                                         /* ... then start callback. */
                                         isdn_net_dial();
-                                        return 0;
+                                        return 2;
 			}
                         cmd.driver = di;
                         cmd.arg = c->arg;
                         cmd.command = ISDN_CMD_UNLOCK;
                         dev->drv[di]->interface->command(&cmd);
-                        return 0;
+                        return retval;
                         break;
                 case ISDN_STAT_CINF:
 			if (i<0)
