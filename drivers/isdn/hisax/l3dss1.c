@@ -9,6 +9,9 @@
  *              Fritz Elfert
  *
  * $Log$
+ * Revision 2.3  1997/10/29 19:03:01  keil
+ * changes for 2.1
+ *
  * Revision 2.2  1997/08/07 17:44:36  keil
  * Fix RESTART
  *
@@ -1266,5 +1269,5 @@ setstack_dss1(struct PStack *st)
 		L3InitTimer(st->l3.global, &st->l3.global->timer);
 	}
 	strcpy(tmp, dss1_revision);
-	printk(KERN_NOTICE "HiSax: DSS1 Rev. %s\n", HiSax_getrev(tmp));
+	printk(KERN_INFO "HiSax: DSS1 Rev. %s\n", HiSax_getrev(tmp));
 }
