@@ -21,6 +21,16 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.8  1997/10/09 21:28:49  fritz
+ * New HL<->LL interface:
+ *   New BSENT callback with nr. of bytes included.
+ *   Sending without ACK.
+ *   New L1 error status (not yet in use).
+ *   Cleaned up obsolete structures.
+ * Implemented Cisco-SLARP.
+ * Changed local net-interface data to be dynamically allocated.
+ * Removed old 2.0 compatibility stuff.
+ *
  * Revision 1.7  1997/10/01 09:20:30  fritz
  * Removed old compatibility stuff for 2.0.X kernels.
  * From now on, this code is for 2.1.X ONLY!
@@ -66,6 +76,7 @@ extern void isdn_MOD_INC_USE_COUNT(void);
 extern void isdn_MOD_DEC_USE_COUNT(void);
 extern void isdn_free_channel(int di, int ch, int usage);
 extern void isdn_all_eaz(int di, int ch);
+extern int isdn_command(isdn_ctrl *);
 extern int isdn_dc2minor(int di, int ch);
 extern void isdn_info_update(void);
 extern char *isdn_map_eaz2msn(char *msn, int di);
