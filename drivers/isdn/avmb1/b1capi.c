@@ -6,6 +6,10 @@
  * (c) Copyright 1997 by Carsten Paeth (calle@calle.in-berlin.de)
  * 
  * $Log$
+ * Revision 1.4.2.1  1997/07/12 08:18:59  calle
+ * Correct bug in CARD_NR macro, so now more than one card will work.
+ * Allow card reset, even if card is in running state.
+ *
  * Revision 1.4  1997/05/27 15:17:45  fritz
  * Added changes for recent 2.1.x kernels:
  *   changed return type of isdn_close
@@ -95,7 +99,7 @@ typedef struct avmb1_appl {
 
 /* ------------------------------------------------------------- */
 
-static struct capi_version driver_version = {2, 0, 0, 9};
+static struct capi_version driver_version = {2, 0, 1, 1<<4};
 static char driver_serial[CAPI_SERIAL_LEN] = "4711";
 static char capi_manufakturer[64] = "AVM Berlin";
 
@@ -403,16 +407,16 @@ static void notify_handler(void *dummy)
 void avmb1_card_ready(avmb1_card * card)
 {
 	__u16 appl;
+	char *dversion = card->version[VER_DRIVER];
 
 	card->cversion.majorversion = 2;
 	card->cversion.minorversion = 0;
-	card->cversion.majormanuversion = (card->version[VER_DRIVER][0] - '0') << 4;
-	card->cversion.majormanuversion |= (card->version[VER_DRIVER][2] - '0');
-	card->cversion.minormanuversion = (card->version[VER_DRIVER][3] - '0') << 4;
-	card->cversion.minormanuversion |= (card->version[VER_DRIVER][5] - '0') * 10;
-	card->cversion.minormanuversion |= (card->version[VER_DRIVER][6] - '0');
+	card->cversion.majormanuversion = (((dversion[0] - '0') & 0xf) << 4);
+	card->cversion.majormanuversion |= ((dversion[2] - '0') & 0xf);
+	card->cversion.minormanuversion = (dversion[3] - '0') << 4;
+	card->cversion.minormanuversion |=
+		(dversion[5] - '0') * 10 + ((dversion[6] - '0') & 0xf);
 	card->cardstate = CARD_RUNNING;
-
 
 	for (appl = 1; appl <= CAPI_MAXAPPL; appl++) {
 		if (VALID_APPLID(appl) && !APPL(appl)->releasing) {
@@ -657,7 +661,7 @@ static __u16 capi_get_version(__u16 contr, struct capi_version *verp)
 	if (!VALID_CARD(contr) || CARD(contr)->cardstate != CARD_RUNNING) 
 		return 0x2002;
 
-	memcpy((void *) verp, CARD(contr)->version[VER_SERIAL],
+	memcpy((void *) verp, &CARD(contr)->cversion,
 	       sizeof(capi_version));
 	return CAPI_NOERROR;
 }
