@@ -103,6 +103,8 @@ options you wish enabled:
 	4   D channel Q.931 (call control messages)
 	8   D channel Q.921 
 	16  B channel X.75
+	32  discarded
+	64  LOCK debug in callc.c
 
 For example 'telesctrl line0 1 31' enables full debugging.
 
