@@ -21,6 +21,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.25  1997/02/23 16:54:23  hipp
+ * some initial changes for future PPP compresion
+ *
  * Revision 1.24  1997/02/18 09:42:45  fritz
  * Bugfix: Increased ISDN_MODEM_ANZREG.
  * Increased TTY_DV.
@@ -510,8 +513,12 @@ typedef struct modem_info {
   int			blocked_open;	 /* # of blocked opens             */
   long			session;	 /* Session of opening process     */
   long			pgrp;		 /* pgrp of opening process        */
-  int                   online;          /* B-Channel is up                */
+  int                   online;          /* 1 = B-Channel is up, drop data */
+					 /* 2 = B-Channel is up, deliver d.*/
   int                   vonline;         /* Voice-channel status           */
+					 /* Bit 0 = recording              */
+					 /* Bit 1 = playback               */
+					 /* Bit 2 = playback, DLE-ETX seen */
   int                   dialing;         /* Dial in progress               */
   int                   rcvsched;        /* Receive needs schedule         */
   int                   isdn_driver;	 /* Index to isdn-driver           */
