@@ -6,6 +6,12 @@
  * Heavily based on devpts filesystem from H. Peter Anvin
  * 
  * $Log$
+ * Revision 1.4  2000/03/08 17:06:33  calle
+ * - changes for devfs and 2.3.49
+ * - capifs now configurable (no need with devfs)
+ * - New Middleware ioctl CAPI_NCCI_GETUNIT
+ * - Middleware again tested with 2.2.14 and 2.3.49 (with and without devfs)
+ *
  * Revision 1.3  2000/03/06 18:00:23  calle
  * - Middleware extention now working with 2.3.49 (capifs).
  * - Fixed typos in debug section of capi.c
@@ -26,6 +32,7 @@
  *
  */
 
+#include <linux/version.h>
 #include <linux/fs.h>
 #include <linux/tty.h>
 #include <linux/types.h>
@@ -104,9 +111,7 @@ struct inode_operations capifs_root_inode_operations = {
 struct inode_operations capifs_inode_operations;
 
 static struct dentry_operations capifs_dentry_operations = {
-	capifs_revalidate,	/* d_revalidate */
-	NULL,			/* d_hash */
-	NULL,			/* d_compare */
+	d_revalidate: capifs_revalidate,
 };
 
 /*
@@ -238,17 +243,24 @@ static void capifs_put_super(struct super_block *sb)
 
 	kfree(sbi->nccis);
 	kfree(sbi);
-
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2,3,51)
 	MOD_DEC_USE_COUNT;
+#endif
 }
 
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2,3,51)
 static int capifs_statfs(struct super_block *sb, struct statfs *buf, int bufsiz);
+static void capifs_write_inode(struct inode *inode) { };
+#else
+static int capifs_statfs(struct super_block *sb, struct statfs *buf);
+#endif
 static void capifs_read_inode(struct inode *inode);
-static void capifs_write_inode(struct inode *inode);
 
 static struct super_operations capifs_sops = {
 	read_inode:	capifs_read_inode,
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2,3,51)
 	write_inode:	capifs_write_inode,
+#endif
 	put_super:	capifs_put_super,
 	statfs:		capifs_statfs,
 };
@@ -319,28 +331,23 @@ struct super_block *capifs_read_super(struct super_block *s, void *data,
 	struct dentry * root;
 	struct capifs_sb_info *sbi;
 
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2,3,51)
 	MOD_INC_USE_COUNT;
-
 	lock_super(s);
+#endif
 	/* Super block already completed? */
-	if (s->s_root) {
-		unlock_super(s);
+	if (s->s_root)
 		goto out;
-	}
 
 	sbi = (struct capifs_sb_info *) kmalloc(sizeof(struct capifs_sb_info), GFP_KERNEL);
-	if ( !sbi ) {
-		unlock_super(s);
+	if ( !sbi )
 		goto fail;
-	}
 
 	memset(sbi, 0, sizeof(struct capifs_sb_info));
 	sbi->magic  = CAPIFS_SBI_MAGIC;
 
-	/* Can this call block?  (It shouldn't) */
 	if ( capifs_parse_options(data,sbi) ) {
 		kfree(sbi);
-		unlock_super(s);
 		printk("capifs: called with bogus options\n");
 		goto fail;
 	}
@@ -348,7 +355,6 @@ struct super_block *capifs_read_super(struct super_block *s, void *data,
 	sbi->nccis = kmalloc(sizeof(struct capifs_ncci) * sbi->max_ncci, GFP_KERNEL);
 	if ( !sbi->nccis ) {
 		kfree(sbi);
-		unlock_super(s);
 		goto fail;
 	}
 	memset(sbi->nccis, 0, sizeof(struct capifs_ncci) * sbi->max_ncci);
@@ -359,7 +365,6 @@ struct super_block *capifs_read_super(struct super_block *s, void *data,
 	s->s_magic = CAPIFS_SUPER_MAGIC;
 	s->s_op = &capifs_sops;
 	s->s_root = NULL;
-	unlock_super(s); /* shouldn't we keep it locked a while longer? */
 
 	/*
 	 * Get the root inode and dentry, but defer checking for errors.
@@ -385,7 +390,6 @@ struct super_block *capifs_read_super(struct super_block *s, void *data,
 		/*
 	 	* iput() can block, so we clear the super block first.
 	 	*/
-		s->s_dev = 0;
 		iput(root_inode);
 		kfree(sbi->nccis);
 		kfree(sbi);
@@ -401,7 +405,6 @@ struct super_block *capifs_read_super(struct super_block *s, void *data,
 	/*
 	 * Success! Install the root dentry now to indicate completion.
 	 */
-	lock_super(s);
 	s->s_root = root;
 
 	sbi->next = mounts;
@@ -410,21 +413,20 @@ struct super_block *capifs_read_super(struct super_block *s, void *data,
 	sbi->back = &mounts;
 	mounts = s;
 
+out:	/* Success ... somebody else completed the super block for us. */ 
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2,3,51)
 	unlock_super(s);
-	return s;
-
-	/*
-	 * Success ... somebody else completed the super block for us. 
-	 */ 
-out:
-	MOD_DEC_USE_COUNT;
+#endif
 	return s;
 fail:
-	s->s_dev = 0;
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2,3,51)
+	unlock_super(s);
 	MOD_DEC_USE_COUNT;
+#endif
 	return NULL;
 }
 
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2,3,51)
 static int capifs_statfs(struct super_block *sb, struct statfs *buf, int bufsiz)
 {
 	struct statfs tmp;
@@ -439,6 +441,20 @@ static int capifs_statfs(struct super_block *sb, struct statfs *buf, int bufsiz)
 	tmp.f_namelen = NAME_MAX;
 	return copy_to_user(buf, &tmp, bufsiz) ? -EFAULT : 0;
 }
+#else
+static int capifs_statfs(struct super_block *sb, struct statfs *buf)
+{
+	buf->f_type = CAPIFS_SUPER_MAGIC;
+	buf->f_bsize = 1024;
+	buf->f_blocks = 0;
+	buf->f_bfree = 0;
+	buf->f_bavail = 0;
+	buf->f_files = 0;
+	buf->f_ffree = 0;
+	buf->f_namelen = NAME_MAX;
+	return 0;
+}
+#endif
 
 static void capifs_read_inode(struct inode *inode)
 {
@@ -483,16 +499,16 @@ static void capifs_read_inode(struct inode *inode)
 	return;
 }
 
-static void capifs_write_inode(struct inode *inode)
-{
-}
-
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2,3,51)
 static struct file_system_type capifs_fs_type = {
 	"capifs",
 	0,
 	capifs_read_super,
 	NULL
 };
+#else
+static DECLARE_FSTYPE(capifs_fs_type, "capifs", capifs_read_super, 0);
+#endif
 
 void capifs_new_ncci(char type, unsigned int num, kdev_t device)
 {
