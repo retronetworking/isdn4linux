@@ -21,6 +21,11 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.55  1998/06/26 15:13:17  fritz
+ * Added handling of STAT_ICALL with incomplete CPN.
+ * Added AT&L for ttyI emulator.
+ * Added more locking stuff in tty_write.
+ *
  * Revision 1.54  1998/06/18 23:32:01  fritz
  * Replaced cli()/restore_flags() in isdn_tty_write() by locking.
  * Removed direct-senddown feature in isdn_tty_write because it will
@@ -716,6 +721,7 @@ typedef struct modem_info {
   void                  *adpcms;         /* state for adpcm decompression  */
   void                  *adpcmr;         /* state for adpcm compression    */
   void                  *dtmf_state;     /* state for dtmf decoder         */
+  void                  *silence_state;  /* state for silence detection    */
 #endif
   struct tty_struct 	*tty;            /* Pointer to corresponding tty   */
   atemu                 emu;             /* AT-emulator data               */

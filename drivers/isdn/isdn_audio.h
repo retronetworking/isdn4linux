@@ -19,6 +19,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.5  1997/02/03 22:45:21  fritz
+ * Reformatted according CodingStyle
+ *
  * Revision 1.4  1996/06/06 14:43:32  fritz
  * Changed to support DTMF decoding on audio playback also.
  *
@@ -48,6 +51,11 @@ typedef struct dtmf_state {
 	int buf[DTMF_NPOINTS];
 } dtmf_state;
 
+typedef struct silence_state {
+	int state;
+	unsigned int idx;
+} silence_state;
+
 extern void isdn_audio_ulaw2alaw(unsigned char *, unsigned long);
 extern void isdn_audio_alaw2ulaw(unsigned char *, unsigned long);
 extern adpcm_state *isdn_audio_adpcm_init(adpcm_state *, int);
@@ -57,3 +65,6 @@ extern int isdn_audio_2adpcm_flush(adpcm_state * s, unsigned char *out);
 extern void isdn_audio_calc_dtmf(modem_info *, unsigned char *, int, int);
 extern void isdn_audio_eval_dtmf(modem_info *);
 dtmf_state *isdn_audio_dtmf_init(dtmf_state *);
+extern void isdn_audio_calc_silence(modem_info *, unsigned char *, int, int);
+extern void isdn_audio_eval_silence(modem_info *);
+silence_state *isdn_audio_silence_init(silence_state *);

@@ -20,6 +20,11 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.57  1998/06/26 15:12:36  fritz
+ * Added handling of STAT_ICALL with incomplete CPN.
+ * Added AT&L for ttyI emulator.
+ * Added more locking stuff in tty_write.
+ *
  * Revision 1.56  1998/06/18 23:31:51  fritz
  * Replaced cli()/restore_flags() in isdn_tty_write() by locking.
  * Removed direct-senddown feature in isdn_tty_write because it will
@@ -425,6 +430,8 @@ isdn_tty_readmodem(void)
 				r = 0;
 #ifdef CONFIG_ISDN_AUDIO
 				isdn_audio_eval_dtmf(info);
+				if (info->emu.vpar[1])
+					isdn_audio_eval_silence(info);
 #endif
 				if ((tty = info->tty)) {
 					if (info->mcr & UART_MCR_RTS) {
@@ -481,6 +488,8 @@ isdn_tty_rcv_skb(int i, int di, int channel, struct sk_buff *skb)
 	
 	if (info->vonline)
 		isdn_audio_calc_dtmf(info, skb->data, skb->len, ifmt);
+	if ((info->vonline & 1) && (info->emu.vpar[1]))
+		isdn_audio_calc_silence(info, skb->data, skb->len, ifmt);
 #endif
 	if ((info->online < 2)
 #ifdef CONFIG_ISDN_AUDIO
@@ -3462,6 +3471,11 @@ isdn_tty_cmd_PLUSV(char **p, modem_info * info)
 				printk(KERN_WARNING "isdn_tty: Couldn't malloc dtmf state\n");
 				PARSE_ERROR1;
 			}
+			info->silence_state = isdn_audio_silence_init(info->silence_state);
+			if (!info->silence_state) {
+				printk(KERN_WARNING "isdn_tty: Couldn't malloc silence state\n");
+				PARSE_ERROR1;
+			}
 			if (m->vpar[3] < 5) {
 				info->adpcmr = isdn_audio_adpcm_init(info->adpcmr, m->vpar[3]);
 				if (!info->adpcmr) {
@@ -3488,31 +3502,27 @@ isdn_tty_cmd_PLUSV(char **p, modem_info * info)
 					break;
 				case '=':
 					p[0]++;
-					switch (*p[0]) {
-						case '0':
-						case '1':
-						case '2':
-						case '3':
-							par1 = isdn_getnum(p);
-							if ((par1 < 0) || (par1 > 31))
-								PARSE_ERROR1;
-							if (*p[0] != ',')
-								PARSE_ERROR1;
-							p[0]++;
-							par2 = isdn_getnum(p);
-							if ((par2 < 0) || (par2 > 255))
-								PARSE_ERROR1;
-							m->vpar[1] = par1;
-							m->vpar[2] = par2;
-							break;
-						case '?':
-							p[0]++;
-							isdn_tty_at_cout("\r\n<0-31>,<0-255>",
-								   info);
-							break;
-						default:
+					if ((*p[0]>='0') && (*p[0]<='9')) {
+						par1 = isdn_getnum(p);
+						if ((par1 < 0) || (par1 > 31))
 							PARSE_ERROR1;
-					}
+						if (*p[0] != ',')
+							PARSE_ERROR1;
+						p[0]++;
+						par2 = isdn_getnum(p);
+						if ((par2 < 0) || (par2 > 255))
+							PARSE_ERROR1;
+						m->vpar[1] = par1;
+						m->vpar[2] = par2;
+						break;
+					} else 
+					if (*p[0] == '?') {
+						p[0]++;
+						isdn_tty_at_cout("\r\n<0-31>,<0-255>",
+							   info);
+						break;
+					} else
+					PARSE_ERROR1;
 					break;
 				default:
 					PARSE_ERROR1;
