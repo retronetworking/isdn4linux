@@ -5,8 +5,8 @@
  * Author     Karsten Keil (keil@temic-ech.spacenet.de)
  *
  *
- *
  * $Log$
+ *
  */
  
 #define ARCOFI_USE	1
