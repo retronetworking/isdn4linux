@@ -5,28 +5,6 @@
  * 
  * Copyright 1997 by Carsten Paeth (calle@calle.in-berlin.de)
  * 
- * $Log$
- * Revision 1.2  2000/03/03 15:50:42  calle
- * - kernel CAPI:
- *   - Changed parameter "param" in capi_signal from __u32 to void *.
- *   - rewrote notifier handling in kcapi.c
- *   - new notifier NCCI_UP and NCCI_DOWN
- * - User CAPI:
- *   - /dev/capi20 is now a cloning device.
- *   - middleware extentions prepared.
- * - capidrv.c
- *   - locking of list operations and module count updates.
- *
- * Revision 1.1  1997/03/04 21:27:33  calle
- * First version in isdn4linux
- *
- * Revision 2.2  1997/02/12 09:31:39  calle
- * new version
- *
- * Revision 1.1  1997/01/31 10:32:20  calle
- * Initial revision
- *
- * 
  */
 
 #ifndef __LINUX_CAPI_H__
