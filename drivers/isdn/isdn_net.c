@@ -3159,7 +3159,11 @@ isdn_net_new(char *name, struct net_device *master)
 		strcpy(netdev->local->name, "         ");
 	else
 		strcpy(netdev->local->name, name);
+#ifdef COMPAT_NO_SOFTNET
 	netdev->dev.name = netdev->local->name;
+#else
+	strcpy(netdev->dev.name, netdev->local->name);
+#endif
 	netdev->dev.priv = netdev->local;
 	netdev->dev.init = isdn_net_init;
 	netdev->local->p_encap = ISDN_NET_ENCAP_RAWIP;

@@ -265,9 +265,7 @@ isdn_timer_funct(ulong dummy)
 
 		save_flags(flags);
 		cli();
-		del_timer(&dev->timer);
-		dev->timer.expires = jiffies + ISDN_TIMER_RES;
-		add_timer(&dev->timer);
+		mod_timer(&dev->timer, jiffies+ISDN_TIMER_RES);
 		restore_flags(flags);
 	}
 }
@@ -288,11 +286,8 @@ isdn_timer_ctrl(int tf, int onoff)
 		dev->tflags |= tf;
 	else
 		dev->tflags &= ~tf;
-	if (dev->tflags) {
-		if (!del_timer(&dev->timer))	/* del_timer is 1, when active */
-			dev->timer.expires = jiffies + ISDN_TIMER_RES;
-		add_timer(&dev->timer);
-	}
+	if (dev->tflags)
+		mod_timer(&dev->timer, jiffies+ISDN_TIMER_RES);
 	restore_flags(flags);
 }
 

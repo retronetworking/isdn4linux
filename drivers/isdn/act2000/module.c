@@ -20,6 +20,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.11  1999/10/30 09:48:04  keil
+ * miss one prefix act2000
+ *
  * Revision 1.10  1999/10/24 18:46:05  fritz
  * Changed isa_ prefix to act2000_isa_ to prevent name-clash in latest
  * kernels.
@@ -276,9 +279,7 @@ act2000_poll(unsigned long data)
 	act2000_receive(card);
         save_flags(flags);
         cli();
-        del_timer(&card->ptimer);
-        card->ptimer.expires = jiffies + 3;
-        add_timer(&card->ptimer);
+        mod_timer(&card->ptimer, jiffies+3);
         restore_flags(flags);
 }
 

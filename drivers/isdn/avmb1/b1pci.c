@@ -6,6 +6,9 @@
  * (c) Copyright 1999 by Carsten Paeth (calle@calle.in-berlin.de)
  * 
  * $Log$
+ * Revision 1.20.2.2  2000/04/08 14:29:08  kai
+ * *** empty log message ***
+ *
  * Revision 1.20  2000/02/02 18:36:03  calle
  * - Modules are now locked while init_module is running
  * - fixed problem with memory mapping if address is not aligned
@@ -463,12 +466,12 @@ static int add_card(struct pci_dev *dev)
 	struct capicardparams param;
 	int retval;
 
-	if (get_pcibase(dev, 2) & PCI_BASE_ADDRESS_IO_MASK) { /* B1 PCI V4 */
+	if (pci_resource_start_io(dev, 2)) { /* B1 PCI V4 */
 #ifdef CONFIG_ISDN_DRV_AVMB1_B1PCIV4
 		driver = &b1pciv4_driver;
 #endif
-		param.membase = get_pcibase(dev, 0) & PCI_BASE_ADDRESS_MEM_MASK;
-		param.port = get_pcibase(dev, 2) & PCI_BASE_ADDRESS_IO_MASK;
+		param.membase = pci_resource_start_mem(dev, 0);
+		param.port = pci_resource_start_io(dev, 2);
 		param.irq = dev->irq;
 		printk(KERN_INFO
 		"%s: PCI BIOS reports AVM-B1 V4 at i/o %#x, irq %d, mem %#x\n",
@@ -485,7 +488,7 @@ static int add_card(struct pci_dev *dev)
 		}
 	} else {
 		param.membase = 0;
-		param.port = get_pcibase(dev, 1) & PCI_BASE_ADDRESS_IO_MASK;
+		param.port = pci_resource_start_io(dev, 1);
 		param.irq = dev->irq;
 		printk(KERN_INFO
 		"%s: PCI BIOS reports AVM-B1 at i/o %#x, irq %d\n",

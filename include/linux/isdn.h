@@ -21,6 +21,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.94.2.7  2000/04/08 17:17:22  kai
+ * rewrite of MPPP code by semyon@ariel.com
+ *
  * Revision 1.94.2.6  2000/03/20 14:39:44  kai
  * merged LL changes from main tree
  *
@@ -1213,5 +1216,15 @@ static void __inline__ netif_stop_queue(struct net_device * dev)
 	dev->tbusy = 1;
 }
 #endif /* COMPAT_NO_SOFTNET */
+
+#ifdef COMPAT_HAS_2_2_PCI 
+struct pci_dev;
+
+static int __inline__ pci_enable_device(struct pci_dev * pdev)
+{
+	return 0;
+}
+#endif
+
 #endif /* __KERNEL__ */
 #endif /* isdn_h */

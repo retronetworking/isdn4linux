@@ -19,6 +19,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.62  1999/09/06 07:29:35  fritz
+ * Changed my mail-address.
+ *
  * Revision 1.61  1999/09/03 14:06:58  fritz
  * Fixed a memory leak.
  *
@@ -599,9 +602,7 @@ icn_pollbchan(unsigned long data)
 		/* schedule b-channel polling again */
 		save_flags(flags);
 		cli();
-		del_timer(&card->rb_timer);
-		card->rb_timer.expires = jiffies + ICN_TIMER_BCREAD;
-		add_timer(&card->rb_timer);
+		mod_timer(&card->rb_timer, jiffies+ICN_TIMER_BCREAD);
 		card->flags |= ICN_FLAGS_RBTIMER;
 		restore_flags(flags);
 	} else
@@ -902,9 +903,7 @@ icn_polldchan(unsigned long data)
 	/* schedule again */
 	save_flags(flags);
 	cli();
-	del_timer(&card->st_timer);
-	card->st_timer.expires = jiffies + ICN_TIMER_DCREAD;
-	add_timer(&card->st_timer);
+	mod_timer(&card->st_timer, jiffies+ICN_TIMER_DCREAD);
 	restore_flags(flags);
 }
 

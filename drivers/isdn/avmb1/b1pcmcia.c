@@ -6,6 +6,9 @@
  * (c) Copyright 1999 by Carsten Paeth (calle@calle.in-berlin.de)
  * 
  * $Log$
+ * Revision 1.7.2.3  2000/04/08 14:29:08  kai
+ * *** empty log message ***
+ *
  * Revision 1.7.2.1  2000/03/08 17:28:43  calle
  * Merged changes from main tree.
  *
@@ -63,7 +66,6 @@
  *
  */
 
-#include <linux/config.h>
 #include <linux/module.h>
 #include <linux/kernel.h>
 #include <linux/skbuff.h>

@@ -185,7 +185,7 @@ l3pc_addtimer(struct l3_process *pc, int millisec, int event)
 {
 	struct L3Timer *t = &pc->timer;
 
-	if (t->tl.next || t->tl.prev) {
+	if (timer_pending(&t->tl)) {
 		printk(KERN_WARNING "L3AddTimer: timer already active!\n");
 		return;
 	}
