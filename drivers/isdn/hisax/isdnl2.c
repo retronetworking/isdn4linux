@@ -7,6 +7,9 @@
  *              Fritz Elfert
  *
  * $Log$
+ * Revision 2.5  1997/11/06 17:09:22  keil
+ * New 2.1 init code
+ *
  * Revision 2.4  1997/10/29 19:02:01  keil
  * new LL interface
  *
@@ -146,7 +149,7 @@ cansend(struct PStack *st)
 {
 	int p1;
 
-	p1 = st->l2.va - st->l2.vs;
+	p1 = st->l2.vs - st->l2.va;
 	if (p1 < 0)
 		p1 += (test_bit(FLG_MOD128, &st->l2.flag) ? 128 : 8);
 	return ((p1 < st->l2.window) && !test_bit(FLG_PEER_BUSY, &st->l2.flag));
