@@ -27,6 +27,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.39  1998/03/07 22:42:49  fritz
+ * Starting generic module support (Nothing usable yet).
+ *
  * Revision 1.38  1998/03/07 18:21:29  cal
  * Dynamic Timeout-Rule-Handling vs. 971110 included
  *
@@ -266,7 +269,7 @@ typedef struct {
   int  outgoing;
 } isdn_net_ioctl_phone;
 
-#define NET_DV 0x04 /* Data version for net_cfg     */
+#define NET_DV 0x05 /* Data version for net_cfg     */
 #define TTY_DV 0x04 /* Data version for iprofd etc. */
 
 typedef struct {
