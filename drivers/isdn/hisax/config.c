@@ -5,6 +5,10 @@
  *
  *
  * $Log$
+ * Revision 2.15  1998/05/25 12:57:43  keil
+ * HiSax golden code from certification, Don't use !!!
+ * No leased lines, no X75, but many changes.
+ *
  * Revision 2.14  1998/04/15 16:38:25  keil
  * Add S0Box and Teles PCI support
  *
@@ -260,29 +264,20 @@ struct IsdnCard cards[] =
 	EMPTY_CARD,
 	EMPTY_CARD,
 	EMPTY_CARD,
-	EMPTY_CARD,
-	EMPTY_CARD,
-	EMPTY_CARD,
-	EMPTY_CARD,
-	EMPTY_CARD,
-	EMPTY_CARD,
-	EMPTY_CARD,
-	EMPTY_CARD,
 };
 
-static char HiSaxID[96] HISAX_INITDATA = "\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0" \
+static char HiSaxID[64] HISAX_INITDATA = "\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0" \
 "\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0" \
-"\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0" \
-"\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0";
+"\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0";
 char *HiSax_id HISAX_INITDATA = HiSaxID;
 #ifdef MODULE
 /* Variables for insmod */
 static int type[] HISAX_INITDATA =
-{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+{0, 0, 0, 0, 0, 0, 0, 0};
 static int protocol[] HISAX_INITDATA =
-{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+{0, 0, 0, 0, 0, 0, 0, 0};
 static int io[] HISAX_INITDATA =
-{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+{0, 0, 0, 0, 0, 0, 0, 0};
 #undef IO0_IO1
 #ifdef CONFIG_HISAX_16_3
 #define IO0_IO1
@@ -293,14 +288,14 @@ static int io[] HISAX_INITDATA =
 #endif
 #ifdef IO0_IO1
 static int io0[] HISAX_INITDATA =
-{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+{0, 0, 0, 0, 0, 0, 0, 0};
 static int io1[] HISAX_INITDATA =
-{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+{0, 0, 0, 0, 0, 0, 0, 0};
 #endif
 static int irq[] HISAX_INITDATA =
-{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+{0, 0, 0, 0, 0, 0, 0, 0};
 static int mem[] HISAX_INITDATA =
-{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+{0, 0, 0, 0, 0, 0, 0, 0};
 static char *id HISAX_INITDATA = HiSaxID;
 
 MODULE_AUTHOR("Karsten Keil");
@@ -343,23 +338,20 @@ HiSax_getrev(const char *revision))
 HISAX_INITFUNC(void
 HiSaxVersion(void))
 {
-	char tmp[64], rev[64];
-	char *r = rev;
+	char tmp[64];
 
+	printk(KERN_INFO "HiSax: Linux Driver for passive ISDN cards\n");
+	printk(KERN_INFO "HiSax: Version 3.0\n");
 	strcpy(tmp, l1_revision);
-	r += sprintf(r, "%s/", HiSax_getrev(tmp));
+	printk(KERN_INFO "HiSax: Layer1 Revision %s\n", HiSax_getrev(tmp)); 
 	strcpy(tmp, l2_revision);
-	r += sprintf(r, "%s/", HiSax_getrev(tmp));
-	strcpy(tmp, l3_revision);
-	r += sprintf(r, "%s/", HiSax_getrev(tmp));
-	strcpy(tmp, lli_revision);
-	r += sprintf(r, "%s/", HiSax_getrev(tmp));
+	printk(KERN_INFO "HiSax: Layer2 Revision %s\n", HiSax_getrev(tmp)); 
 	strcpy(tmp, tei_revision);
-	r += sprintf(r, "%s", HiSax_getrev(tmp));
-
-	printk(KERN_INFO "HiSax: Driver for Siemens chip set ISDN cards\n");
-	printk(KERN_INFO "HiSax: Version 2.99\n");
-	printk(KERN_INFO "HiSax: Revisions %s\n", rev);
+	printk(KERN_INFO "HiSax: TeiMgr Revision %s\n", HiSax_getrev(tmp)); 
+	strcpy(tmp, l3_revision);
+	printk(KERN_INFO "HiSax: Layer3 Revision %s\n", HiSax_getrev(tmp)); 
+	strcpy(tmp, lli_revision);
+	printk(KERN_INFO "HiSax: LinkLayer Revision %s\n", HiSax_getrev(tmp)); 
 }
 
 void
@@ -385,7 +377,7 @@ HiSax_setup(char *str, int *ints))
 	argc = ints[0];
 	i = 0;
 	j = 1;
-	while (argc && (i < 16)) {
+	while (argc && (i < HISAX_MAX_CARDS)) {
 		if (argc) {
 			cards[i].typ = ints[j];
 			j++;
@@ -448,7 +440,7 @@ HiSax_init(void))
 #ifdef MODULE
 	if (id)			/* If id= string used */
 		HiSax_id = id;
-	for (i = 0; i < 16; i++) {
+	for (i = 0; i < HISAX_MAX_CARDS; i++) {
 		cards[i].typ = type[i];
 		if (protocol[i]) {
 			cards[i].protocol = protocol[i];
@@ -518,7 +510,7 @@ HiSax_init(void))
 		HiSax_id = HiSaxID;
 	if (!HiSaxID[0])
 		strcpy(HiSaxID, "HiSax");
-	for (i = 0; i < 16; i++)
+	for (i = 0; i < HISAX_MAX_CARDS; i++)
 		if (cards[i].typ > 0)
 			nrcards++;
 	printk(KERN_DEBUG "HiSax: Total %d card%s defined\n",
@@ -578,10 +570,10 @@ int elsa_init_pcmcia(void *pcm_iob, int pcm_irq, int *busy_flag, int prot)
 	HiSaxVersion();
 	if (id)			/* If id= string used */
 		HiSax_id = id;
-	/* Initialize all 16 structs, even though we only accept
+	/* Initialize all 8 structs, even though we only accept
 	   two pcmcia cards
 	   */
-	for (i = 0; i < 16; i++) {
+	for (i = 0; i < HISAX_MAX_CARDS; i++) {
 		cards[i].para[0] = irq[i];
 		cards[i].para[1] = io[i];
 		cards[i].typ = type[i];
@@ -600,7 +592,7 @@ int elsa_init_pcmcia(void *pcm_iob, int pcm_irq, int *busy_flag, int prot)
 		HiSax_id = HiSaxID;
 	if (!HiSaxID[0])
 		strcpy(HiSaxID, "HiSax");
-	for (i = 0; i < 16; i++)
+	for (i = 0; i < HISAX_MAX_CARDS; i++)
 		if (cards[i].typ > 0)
 			nrcards++;
 	printk(KERN_DEBUG "HiSax: Total %d card%s defined\n",
@@ -626,10 +618,10 @@ int sedl_init_pcmcia(void *pcm_iob, int pcm_irq, int *busy_flag, int prot)
 	HiSaxVersion();
 	if (id)			/* If id= string used */
 		HiSax_id = id;
-	/* Initialize all 16 structs, even though we only accept
+	/* Initialize all 8 structs, even though we only accept
 	   two pcmcia cards
 	   */
-	for (i = 0; i < 16; i++) {
+	for (i = 0; i < HISAX_MAX_CARDS; i++) {
 		cards[i].para[0] = irq[i];
 		cards[i].para[1] = io[i];
 		cards[i].typ = type[i];
@@ -648,7 +640,7 @@ int sedl_init_pcmcia(void *pcm_iob, int pcm_irq, int *busy_flag, int prot)
 		HiSax_id = HiSaxID;
 	if (!HiSaxID[0])
 		strcpy(HiSaxID, "HiSax");
-	for (i = 0; i < 16; i++)
+	for (i = 0; i < HISAX_MAX_CARDS; i++)
 		if (cards[i].typ > 0)
 			nrcards++;
 	printk(KERN_DEBUG "HiSax: Total %d card%s defined\n",

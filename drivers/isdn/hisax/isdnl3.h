@@ -1,6 +1,10 @@
 /* $Id$
 
  * $Log$
+ * Revision 2.1  1998/05/25 12:58:13  keil
+ * HiSax golden code from certification, Don't use !!!
+ * No leased lines, no X75, but many changes.
+ *
  * Revision 2.0  1997/07/27 21:15:42  keil
  * New Callref based layer3
  *
@@ -31,11 +35,11 @@
 
 struct stateentry {
 	int state;
-	u_char primitive;
+	int primitive;
 	void (*rout) (struct l3_process *, u_char, void *);
 };
 
-extern void l3_debug(struct PStack *st, char *s);
+extern void l3_debug(struct PStack *st, const char *fmt, ...);
 extern void newl3state(struct l3_process *pc, int state);
 extern void L3InitTimer(struct l3_process *pc, struct L3Timer *t);
 extern void L3DelTimer(struct L3Timer *t);

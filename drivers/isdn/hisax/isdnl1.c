@@ -11,6 +11,10 @@
  *
  *
  * $Log$
+ * Revision 2.24  1998/05/25 12:58:04  keil
+ * HiSax golden code from certification, Don't use !!!
+ * No leased lines, no X75, but many changes.
+ *
  * Revision 2.22  1998/04/15 16:40:13  keil
  * Add S0Box and Teles PCI support
  * Fix cardnr overwrite bug
@@ -551,7 +555,7 @@ BChannel_proc_xmt(struct BCState *bcs)
 		st->l1.l1l2(st, PH_PULL | CONFIRM, NULL);
 	if (!test_bit(BC_FLG_ACTIV, &bcs->Flag)) {
 		if (!test_bit(BC_FLG_BUSY, &bcs->Flag) && (!skb_queue_len(&bcs->squeue))) {
-			st->l2.l2l1(st, PH_DEACTIVATE | REQUEST, NULL);
+			st->l2.l2l1(st, PH_DEACTIVATE | CONFIRM, NULL);
 		}
 	}
 }
@@ -947,7 +951,7 @@ HiSax_shiftcards(int idx))
 {
 	int i;
 
-	for (i = idx; i < 15; i++)
+	for (i = idx; i < (HISAX_MAX_CARDS - 1); i++)
 		memcpy(&cards[i], &cards[i + 1], sizeof(cards[i]));
 }
 
@@ -1358,7 +1362,7 @@ l1b_timer_deact(struct FsmInst *fi, int event, void *arg)
 	struct PStack *st = fi->userdata;
 
 	FsmChangeState(fi, ST_L1_NULL);
-	st->l1.l1l2(st, PH_DEACTIVATE | CONFIRM, NULL);
+	st->l2.l2l1(st, PH_DEACTIVATE | CONFIRM, NULL);
 }
 
 static struct FsmNode L1BFnList[] HISAX_INITDATA =

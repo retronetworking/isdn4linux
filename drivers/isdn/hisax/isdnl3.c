@@ -7,6 +7,10 @@
  *              Fritz Elfert
  *
  * $Log$
+ * Revision 2.6  1998/05/25 12:58:11  keil
+ * HiSax golden code from certification, Don't use !!!
+ * No leased lines, no X75, but many changes.
+ *
  * Revision 2.5  1998/02/12 23:07:52  keil
  * change for 2.1.86 (removing FREE_READ/FREE_WRITE from [dev]_kfree_skb()
  *
@@ -168,25 +172,28 @@ newcallref(void)
 }
 
 void
-l3_debug(struct PStack *st, char *s)
+l3_debug(struct PStack *st, const char *fmt, ...)
 {
+	va_list args;
 	char str[256], tm[32];
+	char *t = str;
 
+	va_start(args, fmt);
 	jiftime(tm, jiffies);
-	sprintf(str, "%s l3 %s\n", tm, s);
+	t += sprintf(str, "%s l3 ", tm);
+	t += vsprintf(t, fmt, args);
+	va_end(args);
+	*t++ = '\n';
+	*t++ = 0;
 	HiSax_putstatus(st->l1.hardware, str);
 }
 
 void
 newl3state(struct l3_process *pc, int state)
 {
-	char tmp[80];
-
-	if (pc->debug & L3_DEB_STATE) {
-		sprintf(tmp, "newstate cr %d %d --> %d", pc->callref,
+	if (pc->debug & L3_DEB_STATE)
+		l3_debug(pc->st, "newstate cr %d %d --> %d", pc->callref,
 			pc->state, state);
-		l3_debug(pc->st, tmp);
-	}
 	pc->state = state;
 }
 
@@ -413,7 +420,7 @@ setstack_l3bc(struct PStack *st, struct Channel *chanp)
 	st->l3.l3m.userint = 0;
 	st->l3.l3m.printdebug = l3m_debug;
 	strcpy(st->l3.debug_id, "L3BC");
-	st->lli.l4l3 = l3_msg;
+	st->lli.l4l3 = isdnl3_trans;
 }
 
 static void
@@ -468,8 +475,8 @@ static struct FsmNode L3FnList[] HISAX_INITDATA =
 	{ST_L3_LC_REL,		EV_ESTABLISH_CNF,	lc_connect},
 	{ST_L3_LC_ESTAB_WAIT,	EV_ESTABLISH_CNF,	lc_connect},
 	{ST_L3_LC_ESTAB_WAIT,	EV_RELEASE_REQ,		lc_release_req},
-	{ST_L3_LC_ESTAB,	EV_RELEASE_IND,		lc_release_ind},
 	{ST_L3_LC_ESTAB_WAIT,	EV_RELEASE_IND,		lc_release_ind},
+	{ST_L3_LC_ESTAB,	EV_RELEASE_IND,		lc_release_ind},
 	{ST_L3_LC_ESTAB,	EV_RELEASE_REQ,		lc_release_req},
 	{ST_L3_LC_REL_WAIT,	EV_RELEASE_CNF,		lc_release_ind},
 	{ST_L3_LC_REL_WAIT,	EV_ESTABLISH_REQ,	lc_activate},

@@ -3,6 +3,10 @@
  *   Basic declarations, defines and prototypes
  *
  * $Log$
+ * Revision 2.20  1998/05/25 12:57:57  keil
+ * HiSax golden code from certification, Don't use !!!
+ * No leased lines, no X75, but many changes.
+ *
  * Revision 2.19  1998/04/15 16:39:15  keil
  * Add S0Box and Teles PCI support
  *
@@ -106,6 +110,12 @@
 #define HW_INFO4_P10	0x0048
 #define HW_RSYNC	0x0060
 #define HW_TESTLOOP	0x0070
+#define CARD_RESET	0x00F0
+#define CARD_SETIRQ	0x00F1
+#define CARD_INIT	0x00F2
+#define CARD_RELEASE	0x00F3
+#define CARD_TEST	0x00F4
+#define CARD_AUX_IND	0x00F5
 
 #define PH_ACTIVATE	0x0100
 #define PH_DEACTIVATE	0x0110
@@ -123,72 +133,44 @@
 #define DL_FLUSH	0x0224
 #define DL_UNIT_DATA	0x0230
 #define MDL_ASSIGN	0x0280
-#define MDL_REMOVE	0x0290
-#define MDL_ERROR	0x02A0
+#define MDL_REMOVE	0x0284
+#define MDL_ERROR	0x0288
+#define MDL_INFO_SETUP	0x02E0
+#define MDL_INFO_CONN	0x02E4
+#define MDL_INFO_REL	0x02E8
 
-#define CARD_AUX_IND	0x005E
 
-#define CC_CONNECT	15
-#define CC_REJECT	23
-#define CC_SETUP_REQ	24
-#define CC_SETUP_CNF	25
-#define CC_SETUP_IND	26
-#define CC_SETUP_RSP	27
-#define CC_SETUP_COMPLETE_IND	28
+#define CC_SETUP	0x0300
+#define CC_RESUME	0x0304
+#define CC_MORE_INFO	0x0310
+#define CC_IGNORE	0x0320
+#define CC_REJECT	0x0324
+#define CC_SETUP_COMPL	0x0330
+#define CC_PROCEEDING	0x0340
+#define CC_ALERTING	0x0344
+#define CC_CONNECT	0x0350
+#define CC_CHARGE	0x0354
+#define CC_DISCONNECT	0x0360
+#define CC_RELEASE	0x0368
+#define CC_SUSPEND	0x0370
+#define CC_T303		0x0383
+#define CC_T304		0x0384
+#define CC_T305		0x0385
+#define CC_T308_1	0x0388
+#define CC_T308_2	0x0389
+#define CC_T310		0x0390
+#define CC_T313		0x0393
+#define CC_T318		0x0398
+#define CC_T319		0x0399
+#define CC_NOSETUP_RSP	0x03E0
+#define CC_SETUP_ERR	0x03E1
+#define CC_SUSPEND_ERR	0x03E2
+#define CC_RESUME_ERR	0x03E3
+#define CC_CONNECT_ERR	0x03E4
+#define CC_RELEASE_ERR	0x03E5
+#define CC_DLRL		0x03F0
+#define CC_RESTART	0x03F4
 
-#define CC_DISCONNECT_REQ	29
-#define CC_DISCONNECT_IND	30
-
-#define CC_RELEASE_CNF	31
-#define CC_RELEASE_IND	32
-#define CC_RELEASE_REQ	33
-#define CC_REJECT_REQ	34
-
-#define CC_PROCEEDING_IND	35
-
-#define CC_DLRL		36
-#define CC_DLEST	37
-
-#define CC_ALERTING_REQ	38
-#define CC_ALERTING_IND	39
-
-#define MDL_INFO_SETUP	42
-#define MDL_INFO_CONN	43
-#define MDL_INFO_REL	44
-#define MDL_NOTEIPROC	46
-
-#define CC_INFO_CHARGE	52
-
-#define CC_MORE_INFO	53
-#define CC_IGNORE	54
-#define CC_RESTART	55
-#define CC_SUSPEND_REQ	56
-#define CC_SUSPEND_ACK	57
-#define CC_SUSPEND_ERR	58
-#define CC_RESUME_REQ	59
-#define CC_RESUME_ACK	60
-#define CC_RESUME_ERR	61
-
-#define CC_T303		70
-#define CC_T304		71
-#define CC_T305		72
-#define CC_T308_1	74
-#define CC_T308_2	75
-#define CC_T310		76
-#define CC_T313		77
-#define CC_T318		78
-#define CC_T319		79
-
-#define CC_NOSETUP_RSP_ERR	80
-#define CC_SETUP_ERR		81
-#define CC_CONNECT_ERR		82
-#define CC_RELEASE_ERR		83
-
-#define CARD_RESET	0x1001
-#define CARD_SETIRQ	0x1002
-#define CARD_INIT	0x1003
-#define CARD_RELEASE	0x1004
-#define CARD_TEST	0x1005
 
 #ifdef __KERNEL__
 
@@ -285,12 +267,13 @@ struct Layer1 {
 #define FLG_OWN_BUSY	9
 #define FLG_PEER_BUSY	10
 #define FLG_DCHAN_BUSY	11
-#define FLG_DCHAN_ACTIV	12
+#define FLG_L1_ACTIV	12
 #define FLG_ESTAB_PEND	13
+#define FLG_PTP		14
+#define FLG_FIXED_TEI	15
 
 struct Layer2 {
 	int tei;
-	int tei_wanted;
 	int sap;
 	int maxlen;
 	unsigned int flag;
@@ -698,6 +681,8 @@ struct IsdnCardState {
 #define  MON0_TX	4
 #define  MON1_TX	8
 
+#define	 HISAX_MAX_CARDS	8
+
 #define  ISDN_CTYPE_16_0	1
 #define  ISDN_CTYPE_8_0		2
 #define  ISDN_CTYPE_16_3	3
@@ -911,19 +896,6 @@ struct IsdnCardState {
 #ifdef CONFIG_DE_AOC
 #define HISAX_DE_AOC 1
 #endif
-#endif
-
-#if TEI_PER_CARD
-#undef TEI_FIXED
-#endif
-
-#undef PTP_DATA_LINK
-#define PTP_DATA_LINK
-
-#ifdef PTP_DATA_LINK
-#undef TEI_FIXED
-#define TEI_FIXED 0
-#define LAYER2_WATCHING
 #endif
 
 struct IsdnCard {

@@ -6,6 +6,10 @@
  *
  *
  * $Log$
+ * Revision 1.10  1998/05/25 12:57:59  keil
+ * HiSax golden code from certification, Don't use !!!
+ * No leased lines, no X75, but many changes.
+ *
  * Revision 1.9  1998/04/15 16:45:33  keil
  * new init code
  *
@@ -72,7 +76,8 @@ modehscx(struct BCState *bcs, int mode, int bc)
 		debugl1(cs, tmp);
 	}
 	bcs->mode = mode;
-	cs->BC_Write_Reg(cs, hscx, HSCX_CCR1, 0x85);
+	cs->BC_Write_Reg(cs, hscx, HSCX_CCR1, 
+		test_bit(HW_IPAC, &cs->HW_Flags) ? 0x82 : 0x85);
 	cs->BC_Write_Reg(cs, hscx, HSCX_XAD1, 0xFF);
 	cs->BC_Write_Reg(cs, hscx, HSCX_XAD2, 0xFF);
 	cs->BC_Write_Reg(cs, hscx, HSCX_RAH2, 0xFF);
@@ -165,11 +170,14 @@ hscx_l2l1(struct PStack *st, int pr, void *arg)
 			l1_msg_b(st, pr, arg);
 			break;
 		case (PH_DEACTIVATE | REQUEST):
+			l1_msg_b(st, pr, arg);
+			break;
+		case (PH_DEACTIVATE | CONFIRM):
+			test_and_clear_bit(BC_FLG_ACTIV, &st->l1.bcs->Flag);
 			if (!test_bit(BC_FLG_BUSY, &st->l1.bcs->Flag)) {
 				modehscx(st->l1.bcs, 0, st->l1.bc);
-				l1_msg_b(st, pr, arg);
+				st->l1.l1l2(st, PH_DEACTIVATE | CONFIRM, NULL);
 			}
-			test_and_clear_bit(BC_FLG_ACTIV, &st->l1.bcs->Flag);
 			break;
 	}
 }
