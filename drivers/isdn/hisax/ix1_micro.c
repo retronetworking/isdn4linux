@@ -11,6 +11,9 @@
  *              Beat Doebeli
  *
  * $Log$
+ * Revision 1.3.2.6  1998/01/27 22:37:33  keil
+ * fast io
+ *
  * Revision 1.3.2.5  1997/11/15 18:50:51  keil
  * new common init function
  *
@@ -322,8 +325,8 @@ setup_ix1micro(struct IsdnCard *card))
 	cs->BC_Write_Reg = &WriteHSCX;
 	cs->BC_Send_Data = &hscx_fill_fifo;
 	cs->cardmsg = &ix1_card_msg;
-	ISACVersion(cs, "Diva:");
-	if (HscxVersion(cs, "Diva:")) {
+	ISACVersion(cs, "ix1-Micro:");
+	if (HscxVersion(cs, "ix1-Micro:")) {
 		printk(KERN_WARNING
 		    "ix1-Micro: wrong HSCX versions check IO address\n");
 		release_io_ix1micro(cs);
