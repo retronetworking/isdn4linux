@@ -872,7 +872,6 @@ checkcard(int cardnr, char *id, int *busy_flag))
 #else
 	test_and_set_bit(FLG_TWO_DCHAN, &cs->HW_Flags);
 #endif
-	cs->protocol = card->protocol;
 
 	if ((card->typ > 0) && (card->typ <= ISDN_CTYPE_COUNT)) {
 		if (!(cs->dlog = kmalloc(MAX_DLOG_SPACE, GFP_ATOMIC))) {
@@ -1087,7 +1086,7 @@ checkcard(int cardnr, char *id, int *busy_flag))
 	skb_queue_head_init(&cs->rq);
 	skb_queue_head_init(&cs->sq);
 
-	cs->c_if = newCallcIf(cs, id);
+	cs->c_if = newCallcIf(cs, id, card->protocol);
 	if (!cs->c_if) {
 		printk(KERN_INFO "could not alloc CallcIf!\n");
 		return 0;
@@ -1101,7 +1100,7 @@ checkcard(int cardnr, char *id, int *busy_flag))
 		restore_flags(flags);
 		return (0);
 	}
-	init_tei(cs, cs->protocol);
+	init_tei(cs, card->protocol);
 	/* ISAR needs firmware download first */
 	if (!test_bit(HW_ISAR, &cs->HW_Flags))
 		ll_run(cs, 0);

@@ -2,6 +2,7 @@
 #define __L4L3IF_H__
 
 #include "isdnl4.h"
+#include "isdnl3.h"
 
 // =================================================================
 // process

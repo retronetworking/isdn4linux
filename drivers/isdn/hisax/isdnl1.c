@@ -756,7 +756,6 @@ void
 setstack_HiSax(struct PStack *st, struct IsdnCardState *cs)
 {
 	st->l1.hardware = cs;
-	st->protocol = cs->protocol;
 	st->l1.l1m.fsm = &l1fsm_d;
 	st->l1.l1m.state = ST_L1_F3;
 	st->l1.l1m.debug = cs->debug;

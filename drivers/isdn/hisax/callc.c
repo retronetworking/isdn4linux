@@ -288,7 +288,7 @@ lli_deliver_cause(struct Channel *chanp)
 
 	if (chanp->l4pc.l3pc->para.cause == NO_CAUSE)
 		return;
-	if (chanp->cs->protocol == ISDN_PTYPE_EURO)
+	if (chanp->c_if->b3_mode == B3_MODE_DSS1)
 		sprintf(ic.parm.num, "E%02X%02X", chanp->l4pc.l3pc->para.loc & 0x7f,
 			chanp->l4pc.l3pc->para.cause & 0x7f);
 	else
@@ -1100,7 +1100,7 @@ init_d_st(struct Channel *chanp)
 	else
 		sprintf(tmp, "DCh Q.921 ");
 	setstack_isdnl2(st, tmp);
-	setstack_l3dc(st, chanp);
+	setstack_l3dc(st, chanp, chanp->c_if->b3_mode);
 	st->lli.userdata = chanp;
 	st->l3.l3l4 = dchan_l3l4;
 }
@@ -1455,7 +1455,6 @@ int
 HiSax_command(isdn_ctrl * ic)
 {
 	struct CallcIf *c_if = findCallcIf(ic->driver);
-	struct PStack *st;
 	struct Channel *chanp;
 	int i;
 	u_int num;
@@ -1684,9 +1683,8 @@ HiSax_command(isdn_ctrl * ic)
 
 		/* protocol specific io commands */
 		case (ISDN_CMD_PROT_IO):
-			for (st = c_if->cs->stlist; st; st = st->next)
-				if (st->protocol == (ic->arg & 0xFF))
-					return(st->lli.l4l3_proto(st, ic));
+			if (c_if->b3_mode - B3_MODE_CC == (ic->arg & 0xFF))
+				return(c_if->channel[0].d_st->lli.l4l3_proto(c_if->channel[0].d_st, ic));
 			return(-EINVAL);
 			break;
 		default:
@@ -1804,10 +1802,11 @@ HiSax_read_status(u_char * buf, int len, int user, int id, int channel)
 // Interface to config.c
 
 int
-callcIfConstr(struct CallcIf *c_if, struct IsdnCardState *cs, char *id)
+callcIfConstr(struct CallcIf *c_if, struct IsdnCardState *cs, char *id, int protocol)
 {
 	memset(c_if, 0, sizeof(struct CallcIf));
 
+	c_if->b3_mode = protocol + B3_MODE_CC;
 	c_if->cs = cs;
 
 	// status ring buffer
@@ -1840,10 +1839,10 @@ callcIfConstr(struct CallcIf *c_if, struct IsdnCardState *cs, char *id)
 
 	printk(KERN_INFO
 	       "HiSax: Card %d Protocol %s Id=%s (%d)\n", cs->cardnr + 1,
-	       (cs->protocol == ISDN_PTYPE_1TR6) ? "1TR6" :
-	       (cs->protocol == ISDN_PTYPE_EURO) ? "EDSS1" :
-	       (cs->protocol == ISDN_PTYPE_LEASED) ? "LEASED" :
-	       (cs->protocol == ISDN_PTYPE_NI1) ? "NI1" :
+	       (c_if->b3_mode == B3_MODE_1TR6) ? "1TR6" :
+	       (c_if->b3_mode == B3_MODE_DSS1) ? "EDSS1" :
+	       (c_if->b3_mode == B3_MODE_LEASED) ? "LEASED" :
+	       (c_if->b3_mode == B3_MODE_NI1) ? "NI1" :
 	       "NONE", c_if->iif.id, c_if->myid);
 
 	return 0;
@@ -1937,7 +1936,7 @@ callcIfPutStatus(struct CallcIf *c_if, char *msg)
 }
 
 struct CallcIf *
-newCallcIf(struct IsdnCardState *cs, char *id)
+newCallcIf(struct IsdnCardState *cs, char *id, int protocol)
 {
 	struct CallcIf *c_if;
 	int i;
@@ -1946,7 +1945,7 @@ newCallcIf(struct IsdnCardState *cs, char *id)
 	if (!c_if) {
 		return 0;
 	}
-	if (callcIfConstr(c_if, cs, id)) {
+	if (callcIfConstr(c_if, cs, id, protocol)) {
 		kfree(c_if);
 		return 0;
 	}

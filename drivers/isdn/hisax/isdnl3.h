@@ -2,6 +2,31 @@
 
  */
 
+#ifndef __ISDNL3_H__
+#define __ISDNL3_H__
+
+struct l3_process {
+	int callref;
+	int state;
+	void (*l4l3)(struct l3_process *pc, int pr, void *arg);
+	struct L3Timer timer;
+	int N303;
+	int debug;
+	struct Param para;
+	struct l4_process *l4pc;
+	struct PStack *st;
+	struct l3_process *next;
+        ulong redir_result;
+
+        /* protocol specific data fields */
+        union 
+	 { u_char uuuu; /* only when euro not defined, avoiding empty union */
+#ifdef CONFIG_HISAX_EURO 
+           dss1_proc_priv dss1; /* private dss1 data */
+#endif CONFIG_HISAX_EURO            
+	 } prot;
+};
+
 #define SBIT(state) (1<<state)
 #define ALL_STATES  0x03ffffff
 
@@ -32,3 +57,5 @@ extern struct l3_process *new_l3_process(struct PStack *st, int cr);
 extern void release_l3_process(struct l3_process *p);
 extern struct l3_process *getl3proc(struct PStack *st, int cr);
 extern void l3_msg(struct PStack *st, int pr, void *arg);
+
+#endif

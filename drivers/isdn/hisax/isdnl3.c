@@ -333,10 +333,8 @@ l3ml3p(struct PStack *st, int pr)
 }
 
 void
-setstack_l3dc(struct PStack *st, struct Channel *chanp)
+setstack_l3dc(struct PStack *st, struct Channel *chanp, int b3_mode)
 {
-	char tmp[64];
-
 	st->l3.proc   = NULL;
 	st->l3.global = NULL;
 	skb_queue_head_init(&st->l3.squeue);
@@ -350,37 +348,37 @@ setstack_l3dc(struct PStack *st, struct Channel *chanp)
 	strcpy(st->l3.debug_id, "L3DC ");
 	st->lli.l4l3_proto = no_l3_proto_spec;
 
-#ifdef	CONFIG_HISAX_EURO
-	if (st->protocol == ISDN_PTYPE_EURO) {
+	switch (b3_mode) {
+#ifdef CONFIG_HISAX_EURO
+	case B3_MODE_DSS1:
 		setstack_dss1(st);
-	} else
+		break;
 #endif
-#ifdef        CONFIG_HISAX_NI1
-	if (st->protocol == ISDN_PTYPE_NI1) {
+#ifdef CONFIG_HISAX_NI1
+	case B3_MODE_NI1:
 		setstack_ni1(st);
-	} else
+		break;
 #endif
-#ifdef	CONFIG_HISAX_1TR6
-	if (st->protocol == ISDN_PTYPE_1TR6) {
+#ifdef CONFIG_HISAX_1TR6
+	case B3_MODE_1TR6:
 		setstack_1tr6(st);
-	} else
+		break;
 #endif
-	if (st->protocol == ISDN_PTYPE_LEASED) {
+	case B3_MODE_LEASED:
 		st->lli.l4l3 = no_l3_proto;
 		st->l2.l2l3 = no_l3_proto;
                 st->l3.l3ml3 = no_l3_proto;
 		printk(KERN_INFO "HiSax: Leased line mode\n");
-	} else {
+		break;
+	default:
 		st->lli.l4l3 = no_l3_proto;
 		st->l2.l2l3 = no_l3_proto;
                 st->l3.l3ml3 = no_l3_proto;
-		sprintf(tmp, "protocol %s not supported",
-			(st->protocol == ISDN_PTYPE_1TR6) ? "1tr6" :
-			(st->protocol == ISDN_PTYPE_EURO) ? "euro" :
-			(st->protocol == ISDN_PTYPE_NI1) ? "ni1" :
+		printk(KERN_WARNING "HiSax: protocol %s not supported\n",
+			(b3_mode == B3_MODE_1TR6) ? "1tr6" :
+			(b3_mode == B3_MODE_DSS1) ? "euro" :
+			(b3_mode == B3_MODE_NI1) ? "ni1" :
 			"unknown");
-		printk(KERN_WARNING "HiSax: %s\n", tmp);
-		st->protocol = -1;
 	}
 }
 

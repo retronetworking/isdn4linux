@@ -299,7 +299,6 @@ struct PStack {
 	struct Layer3 l3;
 	struct LLInterface lli;
 	struct Management ma;
-	int protocol;		/* EDSS1 or 1TR6 */
 
         /* protocol specific data fields */
         union
@@ -307,28 +306,6 @@ struct PStack {
 #ifdef CONFIG_HISAX_EURO
            dss1_stk_priv dss1; /* private dss1 data */
 #endif CONFIG_HISAX_EURO              
-	 } prot;
-};
-
-struct l3_process {
-	int callref;
-	int state;
-	void (*l4l3)(struct l3_process *pc, int pr, void *arg);
-	struct L3Timer timer;
-	int N303;
-	int debug;
-	struct Param para;
-	struct l4_process *l4pc;
-	struct PStack *st;
-	struct l3_process *next;
-        ulong redir_result;
-
-        /* protocol specific data fields */
-        union 
-	 { u_char uuuu; /* only when euro not defined, avoiding empty union */
-#ifdef CONFIG_HISAX_EURO 
-           dss1_proc_priv dss1; /* private dss1 data */
-#endif CONFIG_HISAX_EURO            
 	 } prot;
 };
 
@@ -448,13 +425,20 @@ struct amd7930_hw {
 #define BC_FLG_LL_CONN	15
 
 
-#define B1_MODE_NULL	0x100
-#define B1_MODE_EXTRN	0x101
+#define B1_MODE_HDLC	  0
+#define B1_MODE_TRANS	  1
+#define B1_MODE_FAX	  4
+#define B1_MODE_MODEM	  7
+#define B1_MODE_EXTRN	  0x101
+#define B1_MODE_NULL	  0x1000
 
-#define B1_MODE_HDLC	0
-#define B1_MODE_TRANS	1
-#define B1_MODE_FAX	4
-#define B1_MODE_MODEM	7
+#define B3_MODE_TRANS     0
+#define B3_MODE_CC        (0x100) // isdnif values are shifted by this value
+#define B3_MODE_1TR6      (B3_MODE_CC + ISDN_PTYPE_1TR6)
+#define B3_MODE_DSS1      (B3_MODE_CC + ISDN_PTYPE_EURO)
+#define B3_MODE_LEASED    (B3_MODE_CC + ISDN_PTYPE_LEASED)
+#define B3_MODE_NI1       (B3_MODE_CC + ISDN_PTYPE_NI1)
+#define B3_MODE_NULL      (0x1000)
 
 struct BCState {
 	int channel;
@@ -811,7 +795,6 @@ struct w6692_chip {
 struct IsdnCardState {
 	unsigned char typ;
 	unsigned char subtyp;
-	int protocol;
 	unsigned int irq;
 	unsigned long irq_flags;
 	int HW_Flags;
@@ -1256,7 +1239,7 @@ void releasestack_transl2(struct PStack *st);
 
 struct Channel;
 
-void setstack_l3dc(struct PStack *st, struct Channel *chanp);
+void setstack_l3dc(struct PStack *st, struct Channel *chanp, int b3_mode);
 void setstack_l3bc(struct PStack *st, struct Channel *chanp);
 void releasestack_isdnl3(struct PStack *st);
 

@@ -34,6 +34,7 @@ void HiSax_mod_dec_use_count(struct IsdnCardState *cs);
 
 struct CallcIf {
 	struct IsdnCardState *cs;
+	int b3_mode;
 	int myid;
 	isdn_if iif;
 	u_char *status_buf;
@@ -43,7 +44,7 @@ struct CallcIf {
 	struct Channel channel[2+MAX_WAITING_CALLS];
 };
 
-struct CallcIf *newCallcIf(struct IsdnCardState *cs, char *id);
+struct CallcIf *newCallcIf(struct IsdnCardState *cs, char *id, int protocol);
 void delCallcIf(struct CallcIf *c_if);
 void callcIfRun(struct CallcIf *c_if);
 void callcIfStop(struct CallcIf *c_if);
