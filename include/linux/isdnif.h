@@ -22,6 +22,10 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.2  1996/04/20 17:02:40  fritz
+ * Changes to support skbuffs for Lowlevel-Drivers.
+ * Misc. typos
+ *
  * Revision 1.1  1996/01/09 05:50:51  fritz
  * Initial revision
  *
@@ -48,6 +52,7 @@
 #define ISDN_PROTO_L2_X75UI  1   /* X75/LAPB with UI-Frames     */
 #define ISDN_PROTO_L2_X75BUI 2   /* X75/LAPB with UI-Frames     */
 #define ISDN_PROTO_L2_HDLC   3   /* HDLC                        */
+#define ISDN_PROTO_L2_TRANS  4   /* Transparent (Voice)         */
 
 /*
  * Values for Layer-3-protocol-selection
@@ -223,8 +228,10 @@ typedef struct {
    *                              no schedule allowed) 
    *                          1 = Data is in User-Space (use memcpy_fromfs,
    *                              may schedule)
+   *             int    driverId
+   *             int    local channel-number (0 ...)
    */
-  int (*writecmd)(const u_char*, int, int);
+  int (*writecmd)(const u_char*, int, int, int, int);
   /* Read raw Status replies
    *             u_char pointer data (volatile)
    *             int    length of buffer
@@ -232,8 +239,10 @@ typedef struct {
    *                              no schedule allowed) 
    *                          1 = Data is in User-Space (use memcpy_fromfs,
    *                              may schedule)
+   *             int    driverId
+   *             int    local channel-number (0 ...)
    */
-  int (*readstat)(u_char*, int, int);
+  int (*readstat)(u_char*, int, int, int, int);
   char id[20];
 } isdn_if;
 
