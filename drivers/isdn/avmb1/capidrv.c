@@ -6,6 +6,9 @@
  * Copyright 1997 by Carsten Paeth (calle@calle.in-berlin.de)
  *
  * $Log$
+ * Revision 1.29.2.7  2000/05/06 01:21:36  kai
+ * merged changes from main tree
+ *
  * Revision 1.29.2.6  2000/05/06 01:20:31  kai
  * latest update
  *
@@ -2263,7 +2266,6 @@ static void disable_dchannel_trace_i4l(capidrv_contr *card)
 	send_message(card, &cmdcmsg);
 }
 
-#if 0
 static void disable_dchannel_trace(capidrv_contr *card)
 {
         __u8 manufacturer[CAPI_MANUFACTURER_LEN];
@@ -2310,8 +2312,6 @@ static void listentimerfunc(unsigned long x)
         send_listen(card);
 	mod_timer(&card->listentimer, jiffies + 60*HZ);
 }
-#endif
-
 
 static int capidrv_addcontr(__u16 contr, struct capi_profile *profp)
 {

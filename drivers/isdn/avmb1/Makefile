@@ -11,6 +11,9 @@
 # parent makes..
 #
 # $Log$
+# Revision 1.8.2.6  2000/05/06 01:20:31  kai
+# latest update
+#
 # Revision 1.8.2.5  2000/04/08 14:29:08  kai
 # *** empty log message ***
 #
@@ -175,7 +178,7 @@ else
   	O_TARGET += kernelcapi.o
   	OX_OBJS  += kcapi.o
   	M_OBJS   += capi.o kernelcapi.o
-	MX_OBJS  += capi_lib.o
+#	MX_OBJS  += capi_lib.o
   	ifdef CONFIG_ISDN_CAPIFS
   		MX_OBJS   += capifs.o
   	endif
