@@ -245,11 +245,11 @@ setup_netjet_u(struct IsdnCard *card)
 	bytecnt = 256;
 
 	printk(KERN_INFO
-		"NETspider-U: PCI card configured at 0x%x IRQ %d\n",
+		"NETspider-U: PCI card configured at %#lx IRQ %d\n",
 		cs->hw.njet.base, cs->irq);
 	if (check_region(cs->hw.njet.base, bytecnt)) {
 		printk(KERN_WARNING
-		       "HiSax: %s config port %x-%x already in use\n",
+		       "HiSax: %s config port %#lx-%#lx already in use\n",
 		       CardType[card->typ],
 		       cs->hw.njet.base,
 		       cs->hw.njet.base + bytecnt);

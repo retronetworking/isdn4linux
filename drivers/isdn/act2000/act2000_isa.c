@@ -26,16 +26,7 @@
 #include "act2000_isa.h"
 #include "capi.h"
 
-static act2000_card *irq2card_map[16] =
-{
-	0, 0, 0, 0, 0, 0, 0, 0,	0, 0, 0, 0, 0, 0, 0, 0
-};
-
-static int act2000_isa_irqs[] =
-{
-        3, 5, 7, 10, 11, 12, 15
-};
-#define ISA_NRIRQS (sizeof(act2000_isa_irqs)/sizeof(int))
+static act2000_card *irq2card_map[16];
 
 static void
 act2000_isa_delay(long t)
@@ -163,8 +154,6 @@ act2000_isa_enable_irq(act2000_card * card)
 int
 act2000_isa_config_irq(act2000_card * card, short irq)
 {
-        int i;
-
         if (card->flags & ACT2000_FLAGS_IVALID) {
                 free_irq(card->irq, NULL);
                 irq2card_map[card->irq] = NULL;

@@ -1517,7 +1517,7 @@ setup_hfcsx(struct IsdnCard *card)
 	        if ((!cs->hw.hfcsx.base) || 
 		    check_region((cs->hw.hfcsx.base), 2)) {
 		  printk(KERN_WARNING
-			 "HiSax: HFC-SX io-base 0x%x already in use\n",
+			 "HiSax: HFC-SX io-base %#lx already in use\n",
 		          cs->hw.hfcsx.base);
 		  return(0);
 		} else {

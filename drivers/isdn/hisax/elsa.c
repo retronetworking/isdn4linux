@@ -882,7 +882,7 @@ setup_elsa(struct IsdnCard *card)
 			if (!(cs->subtyp = probe_elsa_adr(cs->hw.elsa.base,
 							  cs->typ))) {
 				printk(KERN_WARNING
-				     "Elsa: no Elsa Microlink at 0x%x\n",
+				       "Elsa: no Elsa Microlink at %#lx\n",
 				       cs->hw.elsa.base);
 				return (0);
 			}
@@ -920,7 +920,7 @@ setup_elsa(struct IsdnCard *card)
 			if ((cs->subtyp == ELSA_PCFPRO) && (val = 'G'))
 				val = 'C';
 			printk(KERN_INFO
-			       "Elsa: %s found at 0x%x Rev.:%c IRQ %d\n",
+			       "Elsa: %s found at %#lx Rev.:%c IRQ %d\n",
 			       Elsa_Types[cs->subtyp],
 			       cs->hw.elsa.base,
 			       val, cs->irq);
@@ -947,7 +947,7 @@ setup_elsa(struct IsdnCard *card)
 		cs->hw.elsa.timer = cs->hw.elsa.base + ELSA_START_TIMER;
 		cs->hw.elsa.ctrl = cs->hw.elsa.base + ELSA_CONTROL;
 		printk(KERN_INFO
-		       "Elsa: %s defined at 0x%x IRQ %d\n",
+		       "Elsa: %s defined at %#lx IRQ %d\n",
 		       Elsa_Types[cs->subtyp],
 		       cs->hw.elsa.base,
 		       cs->irq);
@@ -971,7 +971,7 @@ setup_elsa(struct IsdnCard *card)
 		cs->hw.elsa.trig = 0;
 		cs->hw.elsa.ctrl = 0;
 		printk(KERN_INFO
-		       "Elsa: %s defined at 0x%x IRQ %d\n",
+		       "Elsa: %s defined at %#lx IRQ %d\n",
 		       Elsa_Types[cs->subtyp],
 		       cs->hw.elsa.base,
 		       cs->irq);
@@ -1029,7 +1029,7 @@ setup_elsa(struct IsdnCard *card)
 		cs->hw.elsa.trig  = 0;
 		cs->irq_flags |= SA_SHIRQ;
 		printk(KERN_INFO
-		       "Elsa: %s defined at 0x%x/0x%x IRQ %d\n",
+		       "Elsa: %s defined at %#lx/0x%x IRQ %d\n",
 		       Elsa_Types[cs->subtyp],
 		       cs->hw.elsa.base,
 		       cs->hw.elsa.cfg,
@@ -1069,7 +1069,7 @@ setup_elsa(struct IsdnCard *card)
 	   here, it would fail. */
 	if (cs->typ != ISDN_CTYPE_ELSA_PCMCIA && check_region(cs->hw.elsa.base, bytecnt)) {
 		printk(KERN_WARNING
-		       "HiSax: %s config port %x-%x already in use\n",
+		       "HiSax: %s config port %#lx-%#lx already in use\n",
 		       CardType[card->typ],
 		       cs->hw.elsa.base,
 		       cs->hw.elsa.base + bytecnt);
