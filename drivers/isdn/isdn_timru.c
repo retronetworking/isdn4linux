@@ -1,4 +1,4 @@
-/* isdn_timru.c
+/* $Id$
  *
  * Linux ISDN subsystem, timeout-rules for network interfaces.
  *
@@ -18,6 +18,7 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
+ * $Log$
  */
 
 /*
@@ -218,7 +219,9 @@ isdn_net_recalc_timeout(int type, int prot, struct device *ndev, void *buf, ulon
 
 			if(dev->net_verbose >= 5) {
 				printk("PPP/? (%x)\n", ppp_proto);
+#ifdef ISDN_DEBUG_NET_DUMP
 				isdn_dumppkt("R:", (u_char *)buf, 40, 40);
+#endif
 			}
 			break;
 		}
@@ -342,7 +345,9 @@ isdn_net_recalc_timeout(int type, int prot, struct device *ndev, void *buf, ulon
 				match_rule.rule.ip.protocol = ISDN_TIMRU_IP_WILDCARD;
 				if(dev->net_verbose >= 5) {
 					printk("IP/? (%x)\n", ip->protocol);
+#ifdef ISDN_DEBUG_NET_DUMP
 					isdn_dumppkt("R:", (u_char *)skb, skb->len, 180);
+#endif
 				}
 				break;
 			}
@@ -367,7 +372,9 @@ isdn_net_recalc_timeout(int type, int prot, struct device *ndev, void *buf, ulon
 		default:
 			if(dev->net_verbose >= 5) {
 				printk("?/? (%x)\n", ntohs(skb->protocol));
+#ifdef ISDN_DEBUG_NET_DUMP
 				isdn_dumppkt("R:", (u_char *)skb, skb->len, 1800);
+#endif
 			}
 			break;
 		}
