@@ -11,6 +11,10 @@
  *              Fritz Elfert
  *
  * $Log$
+ * Revision 2.20.2.1  2000/03/03 15:26:23  kai
+ * remove the layer-breaking writewakeup callbacks and use PH_DATA / DL_DATA
+ * | CONFIRM instead
+ *
  * Revision 2.20  1999/08/25 16:52:04  keil
  * Make gcc on AXP happy
  *
@@ -1875,25 +1879,51 @@ setstack_isdnl2(struct PStack *st, char *debug_id)
 }
 
 static void
+transl2_l1l2(struct PStack *st, int pr, void *arg)
+{
+	switch (pr) {
+	case (PH_DATA | INDICATION):
+		st->l2.l2l3(st, DL_UNIT_DATA | INDICATION, arg); 
+		break;
+	case (PH_DATA | CONFIRM):
+		st->l2.l2l3(st, DL_DATA | CONFIRM, arg);
+		break;
+	case (PH_ACTIVATE | INDICATION):
+		st->l2.l2l3(st, DL_ESTABLISH | INDICATION, arg);
+		break;
+	case (PH_ACTIVATE | CONFIRM):
+		st->l2.l2l3(st, DL_ESTABLISH | CONFIRM, arg);
+		break;
+	case (PH_DEACTIVATE | INDICATION):
+		st->l2.l2l3(st, DL_RELEASE | INDICATION, arg);
+		break;
+	case (PH_DEACTIVATE | CONFIRM):
+		st->l2.l2l3(st, DL_RELEASE | CONFIRM, arg);
+		break;
+	}
+}
+
+static void
 transl2_l3l2(struct PStack *st, int pr, void *arg)
 {
 	switch (pr) {
-		case (DL_DATA | REQUEST):
-		case (DL_UNIT_DATA | REQUEST):
-			st->l2.l2l1(st, PH_DATA | REQUEST, arg);
-			break;
-		case (DL_ESTABLISH | REQUEST):
-			st->l2.l2l1(st, PH_ACTIVATE | REQUEST, NULL);
-			break;
-		case (DL_RELEASE | REQUEST):
-			st->l2.l2l1(st, PH_DEACTIVATE | REQUEST, NULL);
-			break;
+	case (DL_DATA | REQUEST):
+	case (DL_UNIT_DATA | REQUEST):
+		st->l2.l2l1(st, PH_DATA | REQUEST, arg);
+		break;
+	case (DL_ESTABLISH | REQUEST):
+		st->l2.l2l1(st, PH_ACTIVATE | REQUEST, NULL);
+		break;
+	case (DL_RELEASE | REQUEST):
+		st->l2.l2l1(st, PH_DEACTIVATE | REQUEST, NULL);
+		break;
 	}
 }
 
 void
 setstack_transl2(struct PStack *st)
 {
+	st->l1.l1l2 = transl2_l1l2;
 	st->l3.l3l2 = transl2_l3l2;
 }
 

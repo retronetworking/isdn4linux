@@ -11,6 +11,10 @@
  *              Fritz Elfert
  *
  * $Log$
+ * Revision 2.40.2.2  2000/03/03 15:26:22  kai
+ * remove the layer-breaking writewakeup callbacks and use PH_DATA / DL_DATA
+ * | CONFIRM instead
+ *
  * Revision 2.40.2.1  2000/03/03 13:11:32  kai
  * changed L1_MODE_... to B1_MODE_... using constants defined in CAPI
  *
@@ -1365,41 +1369,6 @@ lldata_handler(struct PStack *st, int pr, void *arg)
 	}
 }
 
-static void
-lltrans_handler(struct PStack *st, int pr, void *arg)
-{
-	struct Channel *chanp = (struct Channel *) st->lli.userdata;
-	struct sk_buff *skb = arg;
-
-	switch (pr) {
-		case (PH_DATA | INDICATION):
-			if (chanp->data_open)
-				chanp->cs->iif.rcvcallb_skb(chanp->cs->myid, chanp->chan, skb);
-			else {
-				link_debug(chanp, 0, "channel not open");
-				idev_kfree_skb(skb, FREE_READ);
-			}
-			break;
-      	        case (PH_DATA | CONFIRM):
-		        /* the original length of the skb is saved in priority */
-			if (skb->pkt_type != PACKET_NOACK)
-				ll_writewakeup(chanp, skb->priority);
-			break;
-		case (PH_ACTIVATE | INDICATION):
-		case (PH_ACTIVATE | CONFIRM):
-			FsmEvent(&chanp->fi, EV_BC_EST, NULL);
-			break;
-		case (PH_DEACTIVATE | INDICATION):
-		case (PH_DEACTIVATE | CONFIRM):
-			FsmEvent(&chanp->fi, EV_BC_REL, NULL);
-			break;
-		default:
-			printk(KERN_WARNING "lltrans_handler unknown primitive %#x\n",
-				pr);
-			break;
-	}
-}
-
 static int
 init_b_st(struct Channel *chanp, int incoming)
 {
@@ -1442,11 +1411,8 @@ init_b_st(struct Channel *chanp, int incoming)
 	st->l3.debug = 0;
 	switch (chanp->l2_active_protocol) {
 		case (ISDN_PROTO_L2_X75I):
-			sprintf(tmp, "Ch%d X.75", chanp->chan);
 			setstack_isdnl2(st, tmp);
-			setstack_l3bc(st, chanp);
-			st->l2.l2l3 = lldata_handler;
-			st->lli.userdata = chanp;
+			sprintf(tmp, "Ch%d X.75", chanp->chan);
 			st->l2.l2m.debug = chanp->debug & 16;
 			st->l2.debug = chanp->debug & 64;
 			break;
@@ -1454,13 +1420,13 @@ init_b_st(struct Channel *chanp, int incoming)
 		case (ISDN_PROTO_L2_TRANS):
 		case (ISDN_PROTO_L2_MODEM):
 		case (ISDN_PROTO_L2_FAX):
-			st->l1.l1l2 = lltrans_handler;
-			st->lli.userdata = chanp;
 			setstack_transl2(st);
-			setstack_l3bc(st, chanp);
 			break;
 	}
+	st->l2.l2l3 = lldata_handler;
+	st->lli.userdata = chanp;
 	test_and_set_bit(FLG_START_B, &chanp->Flags);
+	setstack_l3bc(st, chanp);
 	return (0);
 }
 
