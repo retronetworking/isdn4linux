@@ -6,6 +6,10 @@
  * (c) Copyright 1999 by Carsten Paeth (calle@calle.in-berlin.de)
  * 
  * $Log$
+ * Revision 1.26  2000/07/20 10:21:21  calle
+ * Bugfix: driver will not be unregistered, if not cards were detected.
+ *         this result in an oops in kcapi.c
+ *
  * Revision 1.25  2000/05/29 12:29:18  keil
  * make pci_enable_dev compatible to 2.2 kernel versions
  *
@@ -87,7 +91,7 @@
 #include <linux/pci.h>
 #include <linux/capi.h>
 #include <asm/io.h>
-#include <linux/isdn.h>
+#include <linux/isdn_compat.h>
 #include "capicmd.h"
 #include "capiutil.h"
 #include "capilli.h"
@@ -496,6 +500,7 @@ static int add_card(struct pci_dev *dev)
 		param.port = pci_resource_start_io(dev, 2);
 		param.irq = dev->irq;
 
+#ifndef COMPAT_HAS_2_2_PCI
 		retval = pci_enable_device (dev);
 		if (retval != 0) {
 		        printk(KERN_ERR
@@ -503,6 +508,7 @@ static int add_card(struct pci_dev *dev)
 			driver->name, param.port, param.irq, param.membase, retval);
 			return -EIO;
 		}
+#endif
 
 		printk(KERN_INFO
 		"%s: PCI BIOS reports AVM-B1 V4 at i/o %#x, irq %d, mem %#x\n",
@@ -522,6 +528,7 @@ static int add_card(struct pci_dev *dev)
 		param.port = pci_resource_start_io(dev, 1);
 		param.irq = dev->irq;
 
+#ifndef COMPAT_HAS_2_2_PCI
 		retval = pci_enable_device (dev);
 		if (retval != 0) {
 		        printk(KERN_ERR
@@ -529,6 +536,7 @@ static int add_card(struct pci_dev *dev)
 			driver->name, param.port, param.irq, retval);
 			return -EIO;
 		}
+#endif
 		printk(KERN_INFO
 		"%s: PCI BIOS reports AVM-B1 at i/o %#x, irq %d\n",
 		driver->name, param.port, param.irq);

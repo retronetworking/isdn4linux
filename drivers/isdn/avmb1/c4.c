@@ -6,6 +6,9 @@
  * (c) Copyright 1999 by Carsten Paeth (calle@calle.in-berlin.de)
  * 
  * $Log$
+ * Revision 1.14  2000/08/04 12:20:08  calle
+ * - Fix unsigned/signed warning in the right way ...
+ *
  * Revision 1.13  2000/07/20 10:21:21  calle
  * Bugfix: driver will not be unregistered, if not cards were detected.
  *         this result in an oops in kcapi.c
@@ -63,9 +66,9 @@
 #include <linux/ioport.h>
 #include <linux/pci.h>
 #include <linux/capi.h>
-#include <linux/isdn.h>
 #include <asm/io.h>
 #include <asm/uaccess.h>
+#include <linux/isdn_compat.h>
 #include "capicmd.h"
 #include "capiutil.h"
 #include "capilli.h"
@@ -1382,6 +1385,7 @@ int c4_init(void)
 		param.irq = dev->irq;
 		param.membase = pci_resource_start_mem(dev, 0);
 
+#ifndef COMPAT_HAS_2_2_PCI
 		retval = pci_enable_device (dev);
 		if (retval != 0) {
 		        printk(KERN_ERR
@@ -1391,6 +1395,7 @@ int c4_init(void)
 			MOD_DEC_USE_COUNT;
 			return -EIO;
 		}
+#endif
 
 		printk(KERN_INFO
 			"%s: PCI BIOS reports AVM-C4 at i/o %#x, irq %d, mem %#x\n",
