@@ -8,6 +8,9 @@
  *
  *
  * $Log$
+ * Revision 1.1.2.3  1997/12/01 09:09:57  keil
+ * IRQ bit clearing
+ *
  * Revision 1.1.2.2  1997/11/27 12:32:01  keil
  * Working netjet driver
  *
@@ -34,8 +37,8 @@ extern const char *CardType[];
 
 const char *NETjet_revision = "$Revision$";
 
-#define byteout(addr,val) outb_p(val,addr)
-#define bytein(addr) inb_p(addr)
+#define byteout(addr,val) outb(val,addr)
+#define bytein(addr) inb(addr)
 
 /* PCI stuff */
 #define PCI_VENDOR_TRAVERSE_TECH 0xe159
@@ -201,8 +204,8 @@ mode_tiger(struct BCState *bcs, int mode, int bc)
 			bytein(cs->hw.njet.base + NETJET_DMACTRL),
 			bytein(cs->hw.njet.base + NETJET_IRQMASK0),
 			bytein(cs->hw.njet.base + NETJET_IRQSTAT0),
-			inl_p(cs->hw.njet.base + NETJET_DMA_READ_ADR),
-			inl_p(cs->hw.njet.base + NETJET_DMA_WRITE_ADR),
+			inl(cs->hw.njet.base + NETJET_DMA_READ_ADR),
+			inl(cs->hw.njet.base + NETJET_DMA_WRITE_ADR),
 			bytein(cs->hw.njet.base + NETJET_PULSE_CNT));
 		debugl1(cs, tmp);
 	}
@@ -546,7 +549,7 @@ static void fill_dma(struct BCState *bcs)
 	if (test_and_clear_bit(BC_FLG_NOFRAME, &bcs->Flag)) {
 		write_raw(bcs, bcs->hw.tiger.sendp, bcs->hw.tiger.free);
 	} else if (test_and_clear_bit(BC_FLG_HALF, &bcs->Flag)) {
-		p = (u_int *) inl_p(bcs->cs->hw.njet.base + NETJET_DMA_READ_ADR);
+		p = (u_int *) inl(bcs->cs->hw.njet.base + NETJET_DMA_READ_ADR);
 		sp = bcs->hw.tiger.sendp;
 		if (p == bcs->hw.tiger.s_end)
 			p = bcs->hw.tiger.send -1;
@@ -567,7 +570,7 @@ static void fill_dma(struct BCState *bcs)
 			write_raw(bcs, p, bcs->hw.tiger.free - cnt);
 		}
 	} else if (test_and_clear_bit(BC_FLG_EMPTY, &bcs->Flag)) {
-		p = (u_int *) inl_p(bcs->cs->hw.njet.base + NETJET_DMA_READ_ADR);
+		p = (u_int *) inl(bcs->cs->hw.njet.base + NETJET_DMA_READ_ADR);
 		cnt = bcs->hw.tiger.s_end - p;
 		if (cnt < 2) {
 			p = bcs->hw.tiger.send + 1;
@@ -842,11 +845,11 @@ inittiger(struct IsdnCardState *cs))
 	sprintf(tmp, "tiger: send buf %x - %x", (u_int)cs->bcs[0].hw.tiger.send,
 		(u_int)(cs->bcs[0].hw.tiger.send + NETJET_DMA_SIZE - 1));
 	debugl1(cs, tmp);
-	outl_p((u_int)cs->bcs[0].hw.tiger.send,
+	outl((u_int)cs->bcs[0].hw.tiger.send,
 		cs->hw.njet.base + NETJET_DMA_READ_START);
-	outl_p((u_int)(cs->bcs[0].hw.tiger.s_irq),
+	outl((u_int)(cs->bcs[0].hw.tiger.s_irq),
 		cs->hw.njet.base + NETJET_DMA_READ_IRQ);
-	outl_p((u_int)(cs->bcs[0].hw.tiger.s_end),
+	outl((u_int)(cs->bcs[0].hw.tiger.s_end),
 		cs->hw.njet.base + NETJET_DMA_READ_END);
 	if (!(cs->bcs[0].hw.tiger.rec = kmalloc(NETJET_DMA_SIZE * sizeof(unsigned int),
 		GFP_ATOMIC | GFP_DMA))) {
@@ -859,15 +862,15 @@ inittiger(struct IsdnCardState *cs))
 	debugl1(cs, tmp);
 	cs->bcs[1].hw.tiger.rec = cs->bcs[0].hw.tiger.rec;
 	memset(cs->bcs[0].hw.tiger.rec, 0xff, NETJET_DMA_SIZE * sizeof(unsigned int));
-	outl_p((u_int)cs->bcs[0].hw.tiger.rec,
+	outl((u_int)cs->bcs[0].hw.tiger.rec,
 		cs->hw.njet.base + NETJET_DMA_WRITE_START);
-	outl_p((u_int)(cs->bcs[0].hw.tiger.rec + NETJET_DMA_SIZE/2 - 1),
+	outl((u_int)(cs->bcs[0].hw.tiger.rec + NETJET_DMA_SIZE/2 - 1),
 		cs->hw.njet.base + NETJET_DMA_WRITE_IRQ);
-	outl_p((u_int)(cs->bcs[0].hw.tiger.rec + NETJET_DMA_SIZE - 1),
+	outl((u_int)(cs->bcs[0].hw.tiger.rec + NETJET_DMA_SIZE - 1),
 		cs->hw.njet.base + NETJET_DMA_WRITE_END);
 	sprintf(tmp, "tiger: dmacfg  %x/%x  pulse=%d",
-		inl_p(cs->hw.njet.base + NETJET_DMA_WRITE_ADR),
-		inl_p(cs->hw.njet.base + NETJET_DMA_READ_ADR),
+		inl(cs->hw.njet.base + NETJET_DMA_WRITE_ADR),
+		inl(cs->hw.njet.base + NETJET_DMA_READ_ADR),
 		bytein(cs->hw.njet.base + NETJET_PULSE_CNT));
 	debugl1(cs, tmp);
 	cs->hw.njet.last_is0 = 0;
@@ -924,8 +927,8 @@ netjet_interrupt(int intno, void *dev_id, struct pt_regs *regs)
 			sval, 
 			bytein(cs->hw.njet.base + NETJET_DMACTRL),
 			bytein(cs->hw.njet.base + NETJET_IRQMASK0),
-			inl_p(cs->hw.njet.base + NETJET_DMA_READ_ADR),
-			inl_p(cs->hw.njet.base + NETJET_DMA_WRITE_ADR),
+			inl(cs->hw.njet.base + NETJET_DMA_READ_ADR),
+			inl(cs->hw.njet.base + NETJET_DMA_WRITE_ADR),
 			bytein(cs->hw.njet.base + NETJET_PULSE_CNT));
 		debugl1(cs, tmp);
 */

@@ -11,6 +11,9 @@
  *
  *
  * $Log$
+ * Revision 1.14.2.6  1998/01/11 22:57:10  keil
+ * add PCMCIA maintainer Klaus
+ *
  * Revision 1.14.2.5  1997/11/15 18:50:47  keil
  * new common init function
  *
@@ -58,8 +61,8 @@ const char *ITACVer[] =
 {"?0?", "?1?", "?2?", "?3?", "?4?", "V2.2",
  "B1", "A1"};
 
-#define byteout(addr,val) outb_p(val,addr)
-#define bytein(addr) inb_p(addr)
+#define byteout(addr,val) outb(val,addr)
+#define bytein(addr) inb(addr)
 
 #define ELSA_ISAC	0
 #define ELSA_ISAC_PCM	1

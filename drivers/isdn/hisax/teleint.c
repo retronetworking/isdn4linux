@@ -6,6 +6,9 @@
  *
  *
  * $Log$
+ * Revision 1.1.2.2  1997/11/15 18:50:58  keil
+ * new common init function
+ *
  * Revision 1.1.2.1  1997/10/17 22:11:00  keil
  * new files on 2.0
  *
@@ -25,8 +28,8 @@ extern const char *CardType[];
 
 const char *TeleInt_revision = "$Revision$";
 
-#define byteout(addr,val) outb_p(val,addr)
-#define bytein(addr) inb_p(addr)
+#define byteout(addr,val) outb(val,addr)
+#define bytein(addr) inb(addr)
 
 static inline u_char
 readreg(unsigned int ale, unsigned int adr, u_char off)

@@ -6,6 +6,9 @@
  *
  *
  * $Log$
+ * Revision 1.6.2.7  1998/01/13 23:06:11  keil
+ * really disable internal timer
+ *
  * Revision 1.6.2.6  1998/01/02 06:49:01  calle
  * Perodic timer of A1 now disabled, no need for linux driver.
  *
@@ -54,8 +57,8 @@ const char *avm_revision = "$Revision$";
 #define	 AVM_A1_STAT_HSCX	0x02
 #define	 AVM_A1_STAT_TIMER	0x04
 
-#define byteout(addr,val) outb_p(val,addr)
-#define bytein(addr) inb_p(addr)
+#define byteout(addr,val) outb(val,addr)
+#define bytein(addr) inb(addr)
 
 static inline u_char
 readreg(unsigned int adr, u_char off)

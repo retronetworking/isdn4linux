@@ -11,6 +11,9 @@
  *              Beat Doebeli
  *
  * $Log$
+ * Revision 1.11.2.7  1998/01/11 22:58:01  keil
+ * make IRQ 9 working again
+ *
  * Revision 1.11.2.6  1997/12/01 22:35:43  keil
  * ID Byte for 16.3 version 1.1
  *
@@ -62,8 +65,8 @@
 extern const char *CardType[];
 const char *teles3_revision = "$Revision$";
 
-#define byteout(addr,val) outb_p(val,addr)
-#define bytein(addr) inb_p(addr)
+#define byteout(addr,val) outb(val,addr)
+#define bytein(addr) inb(addr)
 
 static inline u_char
 readreg(unsigned int adr, u_char off)

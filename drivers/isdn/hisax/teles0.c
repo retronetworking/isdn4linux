@@ -10,6 +10,9 @@
  *              Beat Doebeli
  *
  * $Log$
+ * Revision 1.8.2.5  1997/11/15 18:51:00  keil
+ * new common init function
+ *
  * Revision 1.8.2.4  1997/10/17 22:14:26  keil
  * update to last hisax version
  *
@@ -38,8 +41,8 @@ extern const char *CardType[];
 
 const char *teles0_revision = "$Revision$";
 
-#define byteout(addr,val) outb_p(val,addr)
-#define bytein(addr) inb_p(addr)
+#define byteout(addr,val) outb(val,addr)
+#define bytein(addr) inb(addr)
 
 static inline u_char
 readisac(unsigned int adr, u_char off)
