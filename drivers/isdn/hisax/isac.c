@@ -9,6 +9,9 @@
  *		../../../Documentation/isdn/HiSax.cert
  *
  * $Log$
+ * Revision 1.20  1999/07/09 08:23:06  keil
+ * Fix ISAC lost TX IRQ handling
+ *
  * Revision 1.19  1999/07/01 08:11:43  keil
  * Common HiSax version for 2.0, 2.1, 2.2 and 2.3 kernel
  *
@@ -640,7 +643,8 @@ dbusy_timer_handler(struct IsdnCardState *cs)
 		rbch = cs->readisac(cs, ISAC_RBCH);
 		star = cs->readisac(cs, ISAC_STAR);
 		if (cs->debug) 
-			debugl1(cs, "D-Channel Busy RBCH %02x STAR %02x", rbch, star);
+			debugl1(cs, "D-Channel Busy RBCH %02x STAR %02x",
+				rbch, star);
 		if (rbch & ISAC_RBCH_XAC) { /* D-Channel Busy */
 			test_and_set_bit(FLG_L1_DBUSY, &cs->HW_Flags);
 			stptr = cs->stlist;
@@ -650,6 +654,7 @@ dbusy_timer_handler(struct IsdnCardState *cs)
 			}
 		} else {
 			/* discard frame; reset transceiver */
+			test_and_clear_bit(FLG_DBUSY_TIMER, &cs->HW_Flags);
 			if (cs->tx_skb) {
 				idev_kfree_skb(cs->tx_skb, FREE_WRITE);
 				cs->tx_cnt = 0;
@@ -659,6 +664,7 @@ dbusy_timer_handler(struct IsdnCardState *cs)
 				debugl1(cs, "D-Channel Busy no skb");
 			}
 			cs->writeisac(cs, ISAC_CMDR, 0x01); /* Transmitter reset */
+			cs->irq_func(cs->irq, cs, NULL);
 		}
 	}
 }

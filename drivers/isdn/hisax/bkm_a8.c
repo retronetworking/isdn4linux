@@ -7,6 +7,9 @@
  * Author       Roland Klabunde (R.Klabunde@Berkom.de)
  *
  * $Log$
+ * Revision 1.2  1999/07/01 08:07:54  keil
+ * Initial version
+ *
  *
  */
 #define __NO_VERSION__
@@ -174,7 +177,7 @@ static void
 bkm_interrupt_ipac(int intno, void *dev_id, struct pt_regs *regs)
 {
 	struct IsdnCardState *cs = dev_id;
-	u_char ista, val, icnt = 20;
+	u_char ista, val, icnt = 5;
 	int i;
 	if (!cs) {
 		printk(KERN_WARNING "HiSax: Scitel Quadro: Spurious interrupt!\n");
@@ -305,8 +308,6 @@ BKM_card_msg(struct IsdnCardState *cs, int mt, void *arg)
 			reset_bkm(cs);
 			release_io_sct_quadro(cs);
 			return (0);
-		case CARD_SETIRQ:
-			return (request_irq(cs->irq, &bkm_interrupt_ipac, I4L_IRQ_FLAG | SA_SHIRQ, "HiSax", cs));
 		case CARD_INIT:
 			cs->debug |= L1_DEB_IPAC;
 			set_ipac_active(cs->subtyp, 1);
@@ -446,6 +447,7 @@ __initfunc(int
 	pci_ioaddr5 &= PCI_BASE_ADDRESS_IO_MASK;
 	/* Take over */
 	cs->irq = pci_irq;
+	cs->irq_flags |= SA_SHIRQ;
 	/* pci_ioaddr1 is unique to all subdevices */
 	/* pci_ioaddr2 is for the fourth subdevice only */
 	/* pci_ioaddr3 is for the third subdevice only */
@@ -502,6 +504,7 @@ __initfunc(int
 	cs->BC_Write_Reg = &WriteHSCX;
 	cs->BC_Send_Data = &hscx_fill_fifo;
 	cs->cardmsg = &BKM_card_msg;
+	cs->irq_func = &bkm_interrupt_ipac;
 
 	printk(KERN_INFO "HiSax: %s (%s): IPAC Version %d\n",
 		CardType[card->typ],

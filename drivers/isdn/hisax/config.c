@@ -5,6 +5,9 @@
  *
  *
  * $Log$
+ * Revision 2.26  1999/07/08 21:27:17  keil
+ * version 3.2
+ *
  * Revision 2.25  1999/07/05 23:51:44  werner
  * Allow limiting of available HiSax B-chans per card. Controlled by hisaxctrl
  * hisaxctrl id 10 <nr. of chans 0-2>
@@ -498,9 +501,9 @@ HiSaxVersion(void))
 
 	printk(KERN_INFO "HiSax: Linux Driver for passive ISDN cards\n");
 #ifdef MODULE
-	printk(KERN_INFO "HiSax: Version 3.2 (module)\n");
+	printk(KERN_INFO "HiSax: Version 3.2a (module)\n");
 #else
-	printk(KERN_INFO "HiSax: Version 3.2 (kernel)\n");
+	printk(KERN_INFO "HiSax: Version 3.2a (kernel)\n");
 #endif
 	strcpy(tmp, l1_revision);
 	printk(KERN_INFO "HiSax: Layer1 Revision %s\n", HiSax_getrev(tmp));
@@ -941,7 +944,7 @@ HISAX_INITFUNC(static int init_card(struct IsdnCardState *cs))
 	irq_cnt = kstat_irqs(cs->irq);
 	printk(KERN_INFO "%s: IRQ %d count %d\n", CardType[cs->typ], cs->irq,
 		irq_cnt);
-	if (cs->cardmsg(cs, CARD_SETIRQ, NULL)) {
+	if (request_irq(cs->irq, cs->irq_func, cs->irq_flags, "HiSax", cs)) {
 		printk(KERN_WARNING "HiSax: couldn't get interrupt %d\n",
 			cs->irq);
 		restore_flags(flags);
@@ -1001,6 +1004,7 @@ checkcard(int cardnr, char *id, int *busy_flag))
 	cs->debug = L1_DEB_WARN;
 	cs->HW_Flags = 0;
 	cs->busy_flag = busy_flag;
+	cs->irq_flags = I4L_IRQ_FLAG;
 #if TEI_PER_CARD
 #else
 	test_and_set_bit(FLG_TWO_DCHAN, &cs->HW_Flags);

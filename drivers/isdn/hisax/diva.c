@@ -8,6 +8,9 @@
  *
  *
  * $Log$
+ * Revision 1.11  1999/07/01 08:11:29  keil
+ * Common HiSax version for 2.0, 2.1, 2.2 and 2.3 kernel
+ *
  * Revision 1.10  1998/11/15 23:54:31  keil
  * changes from 2.0
  *
@@ -293,7 +296,7 @@ diva_interrupt(int intno, void *dev_id, struct pt_regs *regs)
 {
 	struct IsdnCardState *cs = dev_id;
 	u_char val, sval;
-	int cnt=8;
+	int cnt=5;
 
 	if (!cs) {
 		printk(KERN_WARNING "Diva: Spurious interrupt!\n");
@@ -323,7 +326,7 @@ diva_irq_ipac_isa(int intno, void *dev_id, struct pt_regs *regs)
 {
 	struct IsdnCardState *cs = dev_id;
 	u_char ista,val;
-	int icnt=20;
+	int icnt=5;
 
 	if (!cs) {
 		printk(KERN_WARNING "Diva: Spurious interrupt!\n");
@@ -645,7 +648,7 @@ diva_irq_ipac_pci(int intno, void *dev_id, struct pt_regs *regs)
 {
 	struct IsdnCardState *cs = dev_id;
 	u_char ista,val;
-	int icnt=20;
+	int icnt=5;
 	u_char *cfg;
 
 	if (!cs) {
@@ -806,7 +809,6 @@ diva_led_handler(struct IsdnCardState *cs)
 static int
 Diva_card_msg(struct IsdnCardState *cs, int mt, void *arg)
 {
-	u_int irq_flag = I4L_IRQ_FLAG;
 	u_int *ireg;
 
 	switch (mt) {
@@ -816,19 +818,6 @@ Diva_card_msg(struct IsdnCardState *cs, int mt, void *arg)
 		case CARD_RELEASE:
 			release_io_diva(cs);
 			return(0);
-		case CARD_SETIRQ:
-			if (cs->subtyp == DIVA_IPAC_ISA) {
-				irq_flag |= SA_SHIRQ;
-				return(request_irq(cs->irq, &diva_irq_ipac_isa,
-					irq_flag, "HiSax", cs));
-			} else if (cs->subtyp == DIVA_IPAC_PCI) {
-				irq_flag |= SA_SHIRQ;
-				return(request_irq(cs->irq, &diva_irq_ipac_pci,
-					irq_flag, "HiSax", cs));
-			} else {
-				return(request_irq(cs->irq, &diva_interrupt,
-					irq_flag, "HiSax", cs));
-			}
 		case CARD_INIT:
 			if (cs->subtyp == DIVA_IPAC_PCI) {
 				ireg = (unsigned int *)cs->hw.diva.pci_cfg;
@@ -1021,6 +1010,7 @@ setup_diva(struct IsdnCard *card))
 		}
 		cs->irq = pci_irq;
 #endif /* COMPAT_HAS_NEW_PCI */
+		cs->irq_flags |= SA_SHIRQ;
 #else
 		printk(KERN_WARNING "Diva: cfgreg 0 and NO_PCI_BIOS\n");
 		printk(KERN_WARNING "Diva: unable to config DIVA PCI\n");
@@ -1076,6 +1066,7 @@ setup_diva(struct IsdnCard *card))
 		cs->writeisac = &WriteISAC_IPAC;
 		cs->readisacfifo  = &ReadISACfifo_IPAC;
 		cs->writeisacfifo = &WriteISACfifo_IPAC;
+		cs->irq_func = &diva_irq_ipac_isa;
 		val = readreg(cs->hw.diva.isac_adr, cs->hw.diva.isac, IPAC_ID);
 		printk(KERN_INFO "Diva: IPAC version %x\n", val);
 	} else if (cs->subtyp == DIVA_IPAC_PCI) {
@@ -1086,6 +1077,7 @@ setup_diva(struct IsdnCard *card))
 		cs->BC_Read_Reg  = &MemReadHSCX;
 		cs->BC_Write_Reg = &MemWriteHSCX;
 		cs->BC_Send_Data = &Memhscx_fill_fifo;
+		cs->irq_func = &diva_irq_ipac_pci;
 		val = memreadreg(cs->hw.diva.cfg_reg, IPAC_ID);
 		printk(KERN_INFO "Diva: IPAC version %x\n", val);
 	} else { /* DIVA 2.0 */
@@ -1096,6 +1088,7 @@ setup_diva(struct IsdnCard *card))
 		cs->writeisac = &WriteISAC;
 		cs->readisacfifo  = &ReadISACfifo;
 		cs->writeisacfifo = &WriteISACfifo;
+		cs->irq_func = &diva_interrupt;
 		ISACVersion(cs, "Diva:");
 		if (HscxVersion(cs, "Diva:")) {
 			printk(KERN_WARNING

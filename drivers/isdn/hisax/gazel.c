@@ -265,9 +265,9 @@ WriteHSCX(struct IsdnCardState *cs, int hscx, u_char offset, u_char value)
 static void
 gazel_interrupt(int intno, void *dev_id, struct pt_regs *regs)
 {
-#define MAXCOUNT 20
+#define MAXCOUNT 5
 	struct IsdnCardState *cs = dev_id;
-	u_char valisac, valhscx, stat = 0;
+	u_char valisac, valhscx;
 	int count = 0;
 
 	if (!cs) {
@@ -275,31 +275,21 @@ gazel_interrupt(int intno, void *dev_id, struct pt_regs *regs)
 		return;
 	}
 	do {
-
 		valhscx = ReadHSCX(cs, 1, HSCX_ISTA);
-		if (valhscx) {
+		if (valhscx)
 			hscx_int_main(cs, valhscx);
-			stat |= 1;
-		}
 		valisac = ReadISAC(cs, ISAC_ISTA);
-		if (valisac) {
+		if (valisac)
 			isac_interrupt(cs, valisac);
-			stat |= 2;
-		}
 		count++;
-	}
-	while ((valhscx || valisac) && (count < MAXCOUNT));
+	} while ((valhscx || valisac) && (count < MAXCOUNT));
 
-	if (stat & 1) {
-		WriteHSCX(cs, 0, HSCX_MASK, 0xFF);
-		WriteHSCX(cs, 1, HSCX_MASK, 0xFF);
-		WriteHSCX(cs, 0, HSCX_MASK, 0x0);
-		WriteHSCX(cs, 1, HSCX_MASK, 0x0);
-	}
-	if (stat & 2) {
-		WriteISAC(cs, ISAC_MASK, 0xFF);
-		WriteISAC(cs, ISAC_MASK, 0x0);
-	}
+	WriteHSCX(cs, 0, HSCX_MASK, 0xFF);
+	WriteHSCX(cs, 1, HSCX_MASK, 0xFF);
+	WriteISAC(cs, ISAC_MASK, 0xFF);
+	WriteISAC(cs, ISAC_MASK, 0x0);
+	WriteHSCX(cs, 0, HSCX_MASK, 0x0);
+	WriteHSCX(cs, 1, HSCX_MASK, 0x0);
 }
 
 
@@ -440,18 +430,6 @@ Gazel_card_msg(struct IsdnCardState *cs, int mt, void *arg)
 			return (0);
 		case CARD_RELEASE:
 			release_io_gazel(cs);
-			return (0);
-		case CARD_SETIRQ:
-			switch (cs->subtyp) {
-				case R647:
-				case R685:
-					return request_irq(cs->irq, &gazel_interrupt,
-					      I4L_IRQ_FLAG, "HiSax", cs);
-				case R753:
-				case R742:
-					return request_irq(cs->irq, &gazel_interrupt_ipac,
-					      I4L_IRQ_FLAG, "HiSax", cs);
-			}
 			return (0);
 		case CARD_INIT:
 			inithscxisac(cs, 1);
@@ -667,6 +645,7 @@ setup_gazelpci(struct IsdnCardState *cs)
 	cs->hw.gazel.hscxfifo[0] = cs->hw.gazel.hscx[0];
 	cs->hw.gazel.hscxfifo[1] = cs->hw.gazel.hscx[1];
 	cs->irq = pci_irq;
+	cs->irq_flags |= SA_SHIRQ;
 
 	switch (seekcard) {
 		case GAZEL_R685:
@@ -741,6 +720,7 @@ __initfunc(int
 	switch (cs->subtyp) {
 		case R647:
 		case R685:
+			cs->irq_func = &gazel_interrupt;
 			ISACVersion(cs, "Gazel:");
 			if (HscxVersion(cs, "Gazel:")) {
 				printk(KERN_WARNING
@@ -751,6 +731,7 @@ __initfunc(int
 			break;
 		case R742:
 		case R753:
+			cs->irq_func = &gazel_interrupt_ipac;
 			val = ReadISAC(cs, IPAC_ID - 0x80);
 			printk(KERN_INFO "Gazel: IPAC version %x\n", val);
 			break;

@@ -23,6 +23,11 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.4  1999/07/04 21:51:39  werner
+ * Changes to solve problems with irq sharing and smp machines
+ * Thanks to Karsten Keil and Alex Holden for giving aid with
+ * testing and debugging
+ *
  * Revision 1.3  1999/07/01 09:43:19  keil
  * removed additional schedules in timeouts
  *
@@ -1157,11 +1162,6 @@ hfcpci_card_msg(struct IsdnCardState *cs, int mt, void *arg)
 		case CARD_RELEASE:
 			release_io_hfcpci(cs);
 			return (0);
-		case CARD_SETIRQ:
-			cs->hw.hfcpci.timer.expires = jiffies + 75;
-			add_timer(&cs->hw.hfcpci.timer);
-			return (request_irq(cs->irq, &hfcpci_interrupt,
-				  I4L_IRQ_FLAG | SA_SHIRQ, "HiSax", cs));
 		case CARD_INIT:
 			inithfcpci(cs);
 			save_flags(flags);
@@ -1293,6 +1293,8 @@ __initfunc(int
 	cs->writeisacfifo = NULL;
 	cs->BC_Read_Reg = NULL;
 	cs->BC_Write_Reg = NULL;
+	cs->irq_func = &hfcpci_interrupt;
+	cs->irq_flags |= SA_SHIRQ;
 
 	cs->hw.hfcpci.timer.function = (void *) hfcpci_Timer;
 	cs->hw.hfcpci.timer.data = (long) cs;

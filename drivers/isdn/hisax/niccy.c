@@ -8,6 +8,9 @@
  * Thanks to Dr. Neuhaus and SAGEM for informations
  *
  * $Log$
+ * Revision 1.5  1999/07/01 08:12:07  keil
+ * Common HiSax version for 2.0, 2.1, 2.2 and 2.3 kernel
+ *
  * Revision 1.4  1998/04/16 19:16:48  keil
  * need config.h
  *
@@ -157,7 +160,7 @@ static void
 niccy_interrupt(int intno, void *dev_id, struct pt_regs *regs)
 {
 	struct IsdnCardState *cs = dev_id;
-	u_char val, stat = 0;
+	u_char val;
 
 	if (!cs) {
 		printk(KERN_WARNING "Niccy: Spurious interrupt!\n");
@@ -172,16 +175,12 @@ niccy_interrupt(int intno, void *dev_id, struct pt_regs *regs)
 	}
 	val = readreg(cs->hw.niccy.hscx_ale, cs->hw.niccy.hscx, HSCX_ISTA + 0x40);
       Start_HSCX:
-	if (val) {
+	if (val)
 		hscx_int_main(cs, val);
-		stat |= 1;
-	}
 	val = readreg(cs->hw.niccy.isac_ale, cs->hw.niccy.isac, ISAC_ISTA);
       Start_ISAC:
-	if (val) {
+	if (val)
 		isac_interrupt(cs, val);
-		stat |= 2;
-	}
 	val = readreg(cs->hw.niccy.hscx_ale, cs->hw.niccy.hscx, HSCX_ISTA + 0x40);
 	if (val) {
 		if (cs->debug & L1_DEB_HSCX)
@@ -194,16 +193,12 @@ niccy_interrupt(int intno, void *dev_id, struct pt_regs *regs)
 			debugl1(cs, "ISAC IntStat after IntRoutine");
 		goto Start_ISAC;
 	}
-	if (stat & 1) {
-		writereg(cs->hw.niccy.hscx_ale, cs->hw.niccy.hscx, HSCX_MASK, 0xFF);
-		writereg(cs->hw.niccy.hscx_ale, cs->hw.niccy.hscx, HSCX_MASK + 0x40, 0xFF);
-		writereg(cs->hw.niccy.hscx_ale, cs->hw.niccy.hscx, HSCX_MASK, 0);
-		writereg(cs->hw.niccy.hscx_ale, cs->hw.niccy.hscx, HSCX_MASK + 0x40, 0);
-	}
-	if (stat & 2) {
-		writereg(cs->hw.niccy.isac_ale, cs->hw.niccy.isac, ISAC_MASK, 0xFF);
-		writereg(cs->hw.niccy.isac_ale, cs->hw.niccy.isac, ISAC_MASK, 0);
-	}
+	writereg(cs->hw.niccy.hscx_ale, cs->hw.niccy.hscx, HSCX_MASK, 0xFF);
+	writereg(cs->hw.niccy.hscx_ale, cs->hw.niccy.hscx, HSCX_MASK + 0x40, 0xFF);
+	writereg(cs->hw.niccy.isac_ale, cs->hw.niccy.isac, ISAC_MASK, 0xFF);
+	writereg(cs->hw.niccy.isac_ale, cs->hw.niccy.isac, ISAC_MASK, 0);
+	writereg(cs->hw.niccy.hscx_ale, cs->hw.niccy.hscx, HSCX_MASK, 0);
+	writereg(cs->hw.niccy.hscx_ale, cs->hw.niccy.hscx, HSCX_MASK + 0x40, 0);
 }
 
 void
@@ -238,8 +233,6 @@ niccy_reset(struct IsdnCardState *cs)
 static int
 niccy_card_msg(struct IsdnCardState *cs, int mt, void *arg)
 {
-	int imode;
-	
 	switch (mt) {
 		case CARD_RESET:
 			niccy_reset(cs);
@@ -247,14 +240,6 @@ niccy_card_msg(struct IsdnCardState *cs, int mt, void *arg)
 		case CARD_RELEASE:
 			release_io_niccy(cs);
 			return(0);
-		case CARD_SETIRQ:
-			if (cs->subtyp == NICCY_PCI)
-				imode = I4L_IRQ_FLAG | SA_SHIRQ;
-			else
-				imode = I4L_IRQ_FLAG;
-			return(request_irq(cs->irq, &niccy_interrupt,
-				imode, "HiSax", cs));
-			break;
 		case CARD_INIT:
 			niccy_reset(cs);
 			return(0);
@@ -385,6 +370,7 @@ setup_niccy(struct IsdnCard *card))
 		pci_ioaddr &= ~3; /* remove io/mem flag */
 		cs->irq = pci_irq;
 #endif /* COMPAT_HAS_NEW_PCI */
+		cs->irq_flags |= SA_SHIRQ;
 		cs->hw.niccy.isac = pci_ioaddr + ISAC_PCI_DATA;
 		cs->hw.niccy.isac_ale = pci_ioaddr + ISAC_PCI_ADDR;
 		cs->hw.niccy.hscx = pci_ioaddr + HSCX_PCI_DATA;
@@ -427,6 +413,7 @@ setup_niccy(struct IsdnCard *card))
 	cs->BC_Write_Reg = &WriteHSCX;
 	cs->BC_Send_Data = &hscx_fill_fifo;
 	cs->cardmsg = &niccy_card_msg;
+	cs->irq_func = &niccy_interrupt;
 	ISACVersion(cs, "Niccy:");
 	if (HscxVersion(cs, "Niccy:")) {
 		printk(KERN_WARNING

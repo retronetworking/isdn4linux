@@ -15,6 +15,9 @@
  *
  *
  * $Log$
+ * Revision 2.13  1999/07/01 08:11:31  keil
+ * Common HiSax version for 2.0, 2.1, 2.2 and 2.3 kernel
+ *
  * Revision 2.12  1998/11/15 23:54:35  keil
  * changes from 2.0
  *
@@ -355,7 +358,7 @@ elsa_interrupt(int intno, void *dev_id, struct pt_regs *regs)
 {
 	struct IsdnCardState *cs = dev_id;
 	u_char val;
-	int icnt=20;
+	int icnt=5;
 
 	if (!cs) {
 		printk(KERN_WARNING "Elsa: Spurious interrupt!\n");
@@ -432,7 +435,7 @@ elsa_interrupt_ipac(int intno, void *dev_id, struct pt_regs *regs)
 {
 	struct IsdnCardState *cs = dev_id;
 	u_char ista,val;
-	int icnt=20;
+	int icnt=5;
 
 	if (!cs) {
 		printk(KERN_WARNING "Elsa: Spurious interrupt!\n");
@@ -718,15 +721,6 @@ Elsa_card_msg(struct IsdnCardState *cs, int mt, void *arg)
 		case CARD_RELEASE:
 			release_io_elsa(cs);
 			return(0);
-		case CARD_SETIRQ:
-			if ((cs->subtyp == ELSA_QS1000PCI) ||
-				(cs->subtyp == ELSA_QS3000PCI))
-				ret = request_irq(cs->irq, &elsa_interrupt_ipac,
-					I4L_IRQ_FLAG | SA_SHIRQ, "HiSax", cs);
-			else
-				ret = request_irq(cs->irq, &elsa_interrupt,
-					I4L_IRQ_FLAG, "HiSax", cs);
-			return(ret);
 		case CARD_INIT:
 			cs->debug |= L1_DEB_IPAC;
 			inithscxisac(cs, 1);
@@ -1040,18 +1034,6 @@ setup_elsa(struct IsdnCard *card)
 			printk(KERN_WARNING "Elsa: No IO-Adr for PCI card found\n");
 			return(0);
 		}
-		cs->hw.elsa.ale  = cs->hw.elsa.base;
-		cs->hw.elsa.isac = cs->hw.elsa.base +1;
-		cs->hw.elsa.hscx = cs->hw.elsa.base +1; 
-		test_and_set_bit(HW_IPAC, &cs->HW_Flags);
-		cs->hw.elsa.timer = 0;
-		cs->hw.elsa.trig  = 0;
-		printk(KERN_INFO
-			"Elsa: %s defined at 0x%x/0x%x IRQ %d\n",
-			Elsa_Types[cs->subtyp],
-			cs->hw.elsa.base,
-			cs->hw.elsa.cfg,
-			cs->irq);
 		if ((cs->hw.elsa.cfg & 0xff) || (cs->hw.elsa.base & 0xf)) {
 			printk(KERN_WARNING "Elsa: You may have a wrong PCI bios\n");
 			printk(KERN_WARNING "Elsa: If your system hangs now, read\n");
@@ -1108,20 +1090,21 @@ setup_elsa(struct IsdnCard *card)
 		}
 		pci_ioaddr &= ~3; /* remove io/mem flag */
 		cs->hw.elsa.base = pci_ioaddr;
-		cs->hw.elsa.ale  = pci_ioaddr;
-		cs->hw.elsa.isac = pci_ioaddr +1;
-		cs->hw.elsa.hscx = pci_ioaddr +1;
 		cs->irq = pci_irq;
+#endif /* COMPAT_HAS_NEW_PCI */
+		cs->hw.elsa.ale  = cs->hw.elsa.base;
+		cs->hw.elsa.isac = cs->hw.elsa.base +1;
+		cs->hw.elsa.hscx = cs->hw.elsa.base +1; 
 		test_and_set_bit(HW_IPAC, &cs->HW_Flags);
 		cs->hw.elsa.timer = 0;
 		cs->hw.elsa.trig  = 0;
+		cs->irq_flags |= SA_SHIRQ;
 		printk(KERN_INFO
 		       "Elsa: %s defined at 0x%x/0x%x IRQ %d\n",
 		       Elsa_Types[cs->subtyp],
 		       cs->hw.elsa.base,
 		       cs->hw.elsa.cfg,
 		       cs->irq);
-#endif /* COMPAT_HAS_NEW_PCI */
 #else
 		printk(KERN_WARNING "Elsa: Elsa PCI and NO_PCI_BIOS\n");
 		printk(KERN_WARNING "Elsa: unable to config Elsa PCI\n");
@@ -1215,6 +1198,7 @@ setup_elsa(struct IsdnCard *card)
 		cs->writeisac = &WriteISAC_IPAC;
 		cs->readisacfifo = &ReadISACfifo_IPAC;
 		cs->writeisacfifo = &WriteISACfifo_IPAC;
+		cs->irq_func = &elsa_interrupt_ipac;
 		val = readreg(cs->hw.elsa.ale, cs->hw.elsa.isac, IPAC_ID);
 		printk(KERN_INFO "Elsa: IPAC version %x\n", val);
 	} else {
@@ -1222,6 +1206,7 @@ setup_elsa(struct IsdnCard *card)
 		cs->writeisac = &WriteISAC;
 		cs->readisacfifo = &ReadISACfifo;
 		cs->writeisacfifo = &WriteISACfifo;
+		cs->irq_func = &elsa_interrupt;
 		ISACVersion(cs, "Elsa:");
 		if (HscxVersion(cs, "Elsa:")) {
 			printk(KERN_WARNING

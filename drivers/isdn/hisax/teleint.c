@@ -6,6 +6,9 @@
  *
  *
  * $Log$
+ * Revision 1.8  1999/07/01 08:12:12  keil
+ * Common HiSax version for 2.0, 2.1, 2.2 and 2.3 kernel
+ *
  * Revision 1.7  1998/11/15 23:55:26  keil
  * changes from 2.0
  *
@@ -191,7 +194,7 @@ static void
 TeleInt_interrupt(int intno, void *dev_id, struct pt_regs *regs)
 {
 	struct IsdnCardState *cs = dev_id;
-	u_char val, stat = 0;
+	u_char val;
 
 	if (!cs) {
 		printk(KERN_WARNING "TeleInt: Spurious interrupt!\n");
@@ -199,20 +202,16 @@ TeleInt_interrupt(int intno, void *dev_id, struct pt_regs *regs)
 	}
 	val = readreg(cs->hw.hfc.addr | 1, cs->hw.hfc.addr, ISAC_ISTA);
       Start_ISAC:
-	if (val) {
+	if (val)
 		isac_interrupt(cs, val);
-		stat |= 2;
-	}
 	val = readreg(cs->hw.hfc.addr | 1, cs->hw.hfc.addr, ISAC_ISTA);
 	if (val) {
 		if (cs->debug & L1_DEB_ISAC)
 			debugl1(cs, "ISAC IntStat after IntRoutine");
 		goto Start_ISAC;
 	}
-	if (stat & 2) {
-		writereg(cs->hw.hfc.addr | 1, cs->hw.hfc.addr, ISAC_MASK, 0xFF);
-		writereg(cs->hw.hfc.addr | 1, cs->hw.hfc.addr, ISAC_MASK, 0x0);
-	}
+	writereg(cs->hw.hfc.addr | 1, cs->hw.hfc.addr, ISAC_MASK, 0xFF);
+	writereg(cs->hw.hfc.addr | 1, cs->hw.hfc.addr, ISAC_MASK, 0x0);
 }
 
 static void
@@ -270,9 +269,6 @@ TeleInt_card_msg(struct IsdnCardState *cs, int mt, void *arg)
 		case CARD_RELEASE:
 			release_io_TeleInt(cs);
 			return(0);
-		case CARD_SETIRQ:
-			return(request_irq(cs->irq, &TeleInt_interrupt,
-					I4L_IRQ_FLAG, "HiSax", cs));
 		case CARD_INIT:
 			inithfc(cs);
 			clear_pending_isac_ints(cs);
@@ -365,6 +361,7 @@ setup_TeleInt(struct IsdnCard *card))
 	cs->BC_Read_Reg = &ReadHFC;
 	cs->BC_Write_Reg = &WriteHFC;
 	cs->cardmsg = &TeleInt_card_msg;
+	cs->irq_func = &TeleInt_interrupt;
 	ISACVersion(cs, "TeleInt:");
 	return (1);
 }

@@ -7,6 +7,9 @@
  *
  *
  * $Log$
+ * Revision 1.8  1999/07/01 08:11:19  keil
+ * Common HiSax version for 2.0, 2.1, 2.2 and 2.3 kernel
+ *
  * Revision 1.7  1999/02/22 18:26:30  keil
  * Argh ! ISAC address was only set with PCI
  *
@@ -690,7 +693,7 @@ static void
 avm_pcipnp_interrupt(int intno, void *dev_id, struct pt_regs *regs)
 {
 	struct IsdnCardState *cs = dev_id;
-	u_char val, stat = 0;
+	u_char val;
 	u_char sval;
 
 	if (!cs) {
@@ -704,15 +707,12 @@ avm_pcipnp_interrupt(int intno, void *dev_id, struct pt_regs *regs)
 	if (!(sval & AVM_STATUS0_IRQ_ISAC)) {
 		val = ReadISAC(cs, ISAC_ISTA);
 		isac_interrupt(cs, val);
-		stat |= 2;
 	}
 	if (!(sval & AVM_STATUS0_IRQ_HDLC)) {
 		HDLC_irq_main(cs);
 	}
-	if (stat & 2) {
-		WriteISAC(cs, ISAC_MASK, 0xFF);
-		WriteISAC(cs, ISAC_MASK, 0x0);
-	}
+	WriteISAC(cs, ISAC_MASK, 0xFF);
+	WriteISAC(cs, ISAC_MASK, 0x0);
 }
 
 static void
@@ -736,8 +736,6 @@ reset_avmpcipnp(struct IsdnCardState *cs)
 static int
 AVM_card_msg(struct IsdnCardState *cs, int mt, void *arg)
 {
-	u_int irq_flag;
-
 	switch (mt) {
 		case CARD_RESET:
 			reset_avmpcipnp(cs);
@@ -746,13 +744,6 @@ AVM_card_msg(struct IsdnCardState *cs, int mt, void *arg)
 			outb(0, cs->hw.avm.cfg_reg + 2);
 			release_region(cs->hw.avm.cfg_reg, 32);
 			return(0);
-		case CARD_SETIRQ:
-			if (cs->subtyp == AVM_FRITZ_PCI)
-				irq_flag = I4L_IRQ_FLAG | SA_SHIRQ;
-			else
-				irq_flag = I4L_IRQ_FLAG;
-			return(request_irq(cs->irq, &avm_pcipnp_interrupt,
-					irq_flag, "HiSax", cs));
 		case CARD_INIT:
 			clear_pending_isac_ints(cs);
 			initisac(cs);
@@ -848,6 +839,7 @@ setup_avm_pcipnp(struct IsdnCard *card))
 		}
 		pci_index++;
 #endif /* COMPAT_HAS_NEW_PCI */
+		cs->irq_flags |= SA_SHIRQ;
 #else
 		printk(KERN_WARNING "FritzPCI: NO_PCI_BIOS\n");
 		return (0);
@@ -896,6 +888,7 @@ setup_avm_pcipnp(struct IsdnCard *card))
 	cs->writeisacfifo = &WriteISACfifo;
 	cs->BC_Send_Data = &fill_hdlc;
 	cs->cardmsg = &AVM_card_msg;
+	cs->irq_func = &avm_pcipnp_interrupt;
 	ISACVersion(cs, (cs->subtyp == AVM_FRITZ_PCI) ? "AVM PCI:" : "AVM PnP:");
 	return (1);
 }

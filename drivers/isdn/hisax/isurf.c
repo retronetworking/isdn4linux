@@ -5,6 +5,9 @@
  * Author     Karsten Keil (keil@isdn4linux.de)
  *
  * $Log$
+ * Revision 1.2  1999/07/01 08:07:56  keil
+ * Initial version
+ *
  *
  *
  */
@@ -86,7 +89,7 @@ isurf_interrupt(int intno, void *dev_id, struct pt_regs *regs)
 {
 	struct IsdnCardState *cs = dev_id;
 	u_char val;
-	int cnt = 20;
+	int cnt = 5;
 
 	if (!cs) {
 		printk(KERN_WARNING "ISurf: Spurious interrupt!\n");
@@ -156,9 +159,6 @@ ISurf_card_msg(struct IsdnCardState *cs, int mt, void *arg)
 		case CARD_RELEASE:
 			release_io_isurf(cs);
 			return(0);
-		case CARD_SETIRQ:
-			return(request_irq(cs->irq, &isurf_interrupt,
-				I4L_IRQ_FLAG, "HiSax", cs));
 		case CARD_INIT:
 			clear_pending_isac_ints(cs);
 			writeb(0, cs->hw.isurf.isar+ISAR_IRQBIT);mb();
@@ -224,6 +224,7 @@ setup_isurf(struct IsdnCard *card))
 	       cs->irq);
 
 	cs->cardmsg = &ISurf_card_msg;
+	cs->irq_func = &isurf_interrupt;
 	cs->readisac = &ReadISAC;
 	cs->writeisac = &WriteISAC;
 	cs->readisacfifo = &ReadISACfifo;

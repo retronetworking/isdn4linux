@@ -8,6 +8,9 @@
  *
  *
  * $Log$
+ * Revision 1.9  1999/07/01 08:12:05  keil
+ * Common HiSax version for 2.0, 2.1, 2.2 and 2.3 kernel
+ *
  * Revision 1.8  1998/11/15 23:55:14  keil
  * changes from 2.0
  *
@@ -1042,9 +1045,6 @@ NETjet_card_msg(struct IsdnCardState *cs, int mt, void *arg)
 		case CARD_RELEASE:
 			release_io_netjet(cs);
 			return(0);
-		case CARD_SETIRQ:
-			return(request_irq(cs->irq, &netjet_interrupt,
-					I4L_IRQ_FLAG | SA_SHIRQ, "HiSax", cs));
 		case CARD_INIT:
 			inittiger(cs);
 			clear_pending_isac_ints(cs);
@@ -1169,6 +1169,8 @@ setup_netjet(struct IsdnCard *card))
 	cs->BC_Write_Reg = &dummywr;
 	cs->BC_Send_Data = &fill_dma;
 	cs->cardmsg = &NETjet_card_msg;
+	cs->irq_func = &netjet_interrupt;
+	cs->irq_flags |= SA_SHIRQ;
 	ISACVersion(cs, "NETjet:");
 	return (1);
 }

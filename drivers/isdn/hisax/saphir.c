@@ -8,6 +8,9 @@
  *
  *
  * $Log$
+ * Revision 1.2  1999/07/01 08:07:55  keil
+ * Initial version
+ *
  *
  */
 
@@ -132,7 +135,7 @@ static void
 saphir_interrupt(int intno, void *dev_id, struct pt_regs *regs)
 {
 	struct IsdnCardState *cs = dev_id;
-	u_char val, stat = 0;
+	u_char val;
 
 	if (!cs) {
 		printk(KERN_WARNING "saphir: Spurious interrupt!\n");
@@ -140,16 +143,12 @@ saphir_interrupt(int intno, void *dev_id, struct pt_regs *regs)
 	}
 	val = readreg(cs->hw.saphir.ale, cs->hw.saphir.hscx, HSCX_ISTA + 0x40);
       Start_HSCX:
-	if (val) {
+	if (val)
 		hscx_int_main(cs, val);
-		stat |= 1;
-	}
 	val = readreg(cs->hw.saphir.ale, cs->hw.saphir.isac, ISAC_ISTA);
       Start_ISAC:
-	if (val) {
+	if (val)
 		isac_interrupt(cs, val);
-		stat |= 2;
-	}
 	val = readreg(cs->hw.saphir.ale, cs->hw.saphir.hscx, HSCX_ISTA + 0x40);
 	if (val) {
 		if (cs->debug & L1_DEB_HSCX)
@@ -169,16 +168,12 @@ saphir_interrupt(int intno, void *dev_id, struct pt_regs *regs)
 		add_timer(&cs->hw.saphir.timer);
 	} else
 		printk(KERN_WARNING "saphir: Spurious timer!\n");
-	if (stat & 1) {
-		writereg(cs->hw.saphir.ale, cs->hw.saphir.hscx, HSCX_MASK, 0xFF);
-		writereg(cs->hw.saphir.ale, cs->hw.saphir.hscx, HSCX_MASK + 0x40, 0xFF);
-		writereg(cs->hw.saphir.ale, cs->hw.saphir.hscx, HSCX_MASK, 0);
-		writereg(cs->hw.saphir.ale, cs->hw.saphir.hscx, HSCX_MASK + 0x40, 0);
-	}
-	if (stat & 2) {
-		writereg(cs->hw.saphir.ale, cs->hw.saphir.isac, ISAC_MASK, 0xFF);
-		writereg(cs->hw.saphir.ale, cs->hw.saphir.isac, ISAC_MASK, 0);
-	}
+	writereg(cs->hw.saphir.ale, cs->hw.saphir.hscx, HSCX_MASK, 0xFF);
+	writereg(cs->hw.saphir.ale, cs->hw.saphir.hscx, HSCX_MASK + 0x40, 0xFF);
+	writereg(cs->hw.saphir.ale, cs->hw.saphir.isac, ISAC_MASK, 0xFF);
+	writereg(cs->hw.saphir.ale, cs->hw.saphir.isac, ISAC_MASK, 0);
+	writereg(cs->hw.saphir.ale, cs->hw.saphir.hscx, HSCX_MASK, 0);
+	writereg(cs->hw.saphir.ale, cs->hw.saphir.hscx, HSCX_MASK + 0x40, 0);
 }
 
 static void
@@ -256,9 +251,6 @@ saphir_card_msg(struct IsdnCardState *cs, int mt, void *arg)
 		case CARD_RELEASE:
 			release_io_saphir(cs);
 			return(0);
-		case CARD_SETIRQ:
-			return(request_irq(cs->irq, &saphir_interrupt,
-					I4L_IRQ_FLAG, "HiSax", cs));
 		case CARD_INIT:
 			inithscxisac(cs, 3);
 			return(0);
@@ -318,6 +310,7 @@ setup_saphir(struct IsdnCard *card))
 	cs->BC_Write_Reg = &WriteHSCX;
 	cs->BC_Send_Data = &hscx_fill_fifo;
 	cs->cardmsg = &saphir_card_msg;
+	cs->irq_func = &saphir_interrupt;
 	ISACVersion(cs, "saphir:");
 	if (HscxVersion(cs, "saphir:")) {
 		printk(KERN_WARNING

@@ -7,6 +7,9 @@
  *
  *
  * $Log$
+ * Revision 1.2  1998/02/12 23:07:10  keil
+ * change for 2.1.86 (removing FREE_READ/FREE_WRITE from [dev]_kfree_skb()
+ *
  * Revision 1.1  1998/02/03 23:20:51  keil
  * New files for SPARC isdn support
  *
@@ -730,8 +733,6 @@ amd7930_card_msg(struct IsdnCardState *cs, int mt, void *arg)
 			return(0);
 		case CARD_RELEASE:
 			release_amd7930(cs);
-			return(0);
-		case CARD_SETIRQ:
 			return(0);
 		case CARD_INIT:
 			cs->l1cmd = amd7930_l1cmd;
