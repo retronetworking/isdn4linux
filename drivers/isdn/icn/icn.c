@@ -19,6 +19,11 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.20  1996/05/02 00:40:27  fritz
+ * Major rewrite to support more than one card
+ * with a single module.
+ * Support for new firmware.
+ *
  * Revision 1.19  1996/04/21 17:43:32  fritz
  * Changes for Support of new Firmware BRV3.02
  *
@@ -1508,18 +1513,18 @@ static int icn_addcard(int port, char *id1, char *id2)
                 restore_flags(flags);
                 return -EIO;
         }
-        if (!strlen(icn_id2)) {
+        if (!strlen(id2)) {
                 restore_flags(flags);
                 printk(KERN_INFO
                        "icn: (%s) ICN-2B, port 0x%x added\n",
-                       id1, port);
+                       card->interface.id, port);
                 return 0;
         }
         if (!(card2 = icn_initcard(port,id2))) {
                 restore_flags(flags);
                 printk(KERN_INFO
                        "icn: (%s) half ICN-4B, port 0x%x added\n",
-                       id1, port);
+                       card2->interface.id, port);
                 return 0;
         }
         card->doubleS0 = 1;
@@ -1531,7 +1536,7 @@ static int icn_addcard(int port, char *id1, char *id2)
         restore_flags(flags);
         printk(KERN_INFO
                "icn: (%s and %s) ICN-4B, port 0x%x added\n",
-               id1, id2, port);
+               card->interface.id, card2->interface.id, port);
         return 0;
 }
 
