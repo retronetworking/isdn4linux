@@ -155,27 +155,34 @@ ISARVersion(struct IsdnCardState *cs, char *s)
 	u_char msg[] = ISAR_MSG_HWVER;
 	u_char tmp[64];
 	u_char len;
+	u_long flags;
 	int debug;
 
 	cs->cardmsg(cs, CARD_RESET,  NULL);
+	spin_lock_irqsave(&cs->lock, flags);
 	/* disable ISAR IRQ */
 	cs->BC_Write_Reg(cs, 0, ISAR_IRQBIT, 0);
 	debug = cs->debug;
 	cs->debug &= ~(L1_DEB_HSCX | L1_DEB_HSCX_FIFO);
-	if (!sendmsg(cs, ISAR_HIS_VNR, 0, 3, msg))
+	if (!sendmsg(cs, ISAR_HIS_VNR, 0, 3, msg)) {
+		spin_unlock_irqrestore(&cs->lock, flags);
 		return(-1);
-	if (!waitrecmsg(cs, &len, tmp, 100000))
-		 return(-2);
+	}
+	if (!waitrecmsg(cs, &len, tmp, 100000)) {
+		spin_unlock_irqrestore(&cs->lock, flags);
+		return(-2);
+	}
 	cs->debug = debug;
 	if (cs->bcs[0].hw.isar.reg->iis == ISAR_IIS_VNR) {
 		if (len == 1) {
 			ver = tmp[0] & 0xf;
 			printk(KERN_INFO "%s ISAR version %d\n", s, ver);
-			return(ver);
-		}
-		return(-3);
-	}
-	return(-4);
+		} else
+			ver = -3;
+	} else
+		ver = -4;
+	spin_unlock_irqrestore(&cs->lock, flags);
+	return(ver);
 }
 
 int
@@ -194,18 +201,15 @@ isar_load_firmware(struct IsdnCardState *cs, u_char *buf)
 		u_short d_key;
 	} blk_head;
 		
-	spin_lock_irqsave(&cs->lock, flags);
 #define	BLK_HEAD_SIZE 6
 	if (1 != (ret = ISARVersion(cs, "Testing"))) {
 		printk(KERN_ERR"isar_load_firmware wrong isar version %d\n", ret);
-		spin_unlock_irqrestore(&cs->lock, flags);
 		return(1);
 	}
 	debug = cs->debug;
 #if DBG_LOADFIRM<2
 	cs->debug &= ~(L1_DEB_HSCX | L1_DEB_HSCX_FIFO);
 #endif
-	spin_unlock_irqrestore(&cs->lock, flags);
 	
 	if ((ret = copy_from_user(&size, p, sizeof(int)))) {
 		printk(KERN_ERR"isar_load_firmware copy_from_user ret %d\n", ret);
@@ -213,10 +217,6 @@ isar_load_firmware(struct IsdnCardState *cs, u_char *buf)
 	}
 	p += sizeof(int);
 	printk(KERN_DEBUG"isar_load_firmware size: %d\n", size);
-	if ((ret = verify_area(VERIFY_READ, (void *) p, size))) {
-		printk(KERN_ERR"isar_load_firmware verify_area ret %d\n", ret);
-		return ret;
-	}
 	cnt = 0;
 	/* disable ISAR IRQ */
 	cs->BC_Write_Reg(cs, 0, ISAR_IRQBIT, 0);
@@ -230,10 +230,13 @@ isar_load_firmware(struct IsdnCardState *cs, u_char *buf)
 		return (1);
 	}
 	spin_lock_irqsave(&cs->lock, flags);
+	/* disable ISAR IRQ */
+	cs->BC_Write_Reg(cs, 0, ISAR_IRQBIT, 0);
+	spin_unlock_irqrestore(&cs->lock, flags);
 	while (cnt < size) {
 		if ((ret = copy_from_user(&blk_head, p, BLK_HEAD_SIZE))) {
 			printk(KERN_ERR"isar_load_firmware copy_from_user ret %d\n", ret);
-			goto reterr_unlock;
+			goto reterror;
 		}
 #ifdef __BIG_ENDIAN
 		sadr = (blk_head.sadr & 0xff)*256 + blk_head.sadr/256;
@@ -249,6 +252,7 @@ isar_load_firmware(struct IsdnCardState *cs, u_char *buf)
 			blk_head.sadr, blk_head.len, blk_head.d_key & 0xff);
 		sadr = blk_head.sadr;
 		left = blk_head.len;
+		spin_lock_irqsave(&cs->lock, flags);
 		if (!sendmsg(cs, ISAR_HIS_DKEY, blk_head.d_key & 0xff, 0, NULL)) {
 			printk(KERN_ERR"isar sendmsg dkey failed\n");
 			ret = 1;goto reterr_unlock;
@@ -262,6 +266,7 @@ isar_load_firmware(struct IsdnCardState *cs, u_char *buf)
 				ireg->iis, ireg->cmsb, len);
 			ret = 1;goto reterr_unlock;
 		}
+		spin_unlock_irqrestore(&cs->lock, flags);
 		while (left>0) {
 			if (left > 126)
 				noc = 126;
@@ -275,7 +280,7 @@ isar_load_firmware(struct IsdnCardState *cs, u_char *buf)
 			*mp++ = noc;
 			if ((ret = copy_from_user(tmpmsg, p, nom))) {
 				printk(KERN_ERR"isar_load_firmware copy_from_user ret %d\n", ret);
-				goto reterr_unlock;
+				goto reterror;
 			}
 			p += nom;
 			cnt += nom;
@@ -297,6 +302,7 @@ isar_load_firmware(struct IsdnCardState *cs, u_char *buf)
 				sp++;
 				noc--;
 			}
+			spin_lock_irqsave(&cs->lock, flags);
 			if (!sendmsg(cs, ISAR_HIS_FIRM, 0, nom, msg)) {
 				printk(KERN_ERR"isar sendmsg prog failed\n");
 				ret = 1;goto reterr_unlock;
@@ -310,6 +316,7 @@ isar_load_firmware(struct IsdnCardState *cs, u_char *buf)
 					ireg->iis, ireg->cmsb, len);
 				ret = 1;goto reterr_unlock;
 			}
+			spin_unlock_irqrestore(&cs->lock, flags);
 		}
 		printk(KERN_DEBUG"isar firmware block %5d words loaded\n",
 			blk_head.len);
@@ -321,6 +328,7 @@ isar_load_firmware(struct IsdnCardState *cs, u_char *buf)
 	msg[0] = 0xff;
 	msg[1] = 0xfe;
 	ireg->bstat = 0;
+	spin_lock_irqsave(&cs->lock, flags);
 	if (!sendmsg(cs, ISAR_HIS_STDSP, 0, 2, msg)) {
 		printk(KERN_ERR"isar sendmsg start dsp failed\n");
 		ret = 1;goto reterr_unlock;
@@ -1709,9 +1717,6 @@ open_isarstate(struct IsdnCardState *cs, struct BCState *bcs)
 	bcs->event = 0;
 	bcs->hw.isar.rcvidx = 0;
 	bcs->tx_cnt = 0;
-	bcs->hw.isar.ftimer.function = (void *) ftimer_handler;
-	bcs->hw.isar.ftimer.data = (long) bcs;
-	init_timer(&bcs->hw.isar.ftimer);
 	return (0);
 }
 
@@ -1890,4 +1895,10 @@ initisar(struct IsdnCardState *cs)
 	cs->bcs[1].BC_SetStack = setstack_isar;
 	cs->bcs[0].BC_Close = close_isarstate;
 	cs->bcs[1].BC_Close = close_isarstate;
+	cs->bcs[0].hw.isar.ftimer.function = (void *) ftimer_handler;
+	cs->bcs[0].hw.isar.ftimer.data = (long) &cs->bcs[0];
+	init_timer(&cs->bcs[0].hw.isar.ftimer);
+	cs->bcs[1].hw.isar.ftimer.function = (void *) ftimer_handler;
+	cs->bcs[1].hw.isar.ftimer.data = (long) &cs->bcs[1];
+	init_timer(&cs->bcs[1].hw.isar.ftimer);
 }

@@ -833,6 +833,7 @@ Diva_card_msg(struct IsdnCardState *cs, int mt, void *arg)
 				ireg = (unsigned int *)cs->hw.diva.pci_cfg;
 				*ireg = PITA_INT0_ENABLE;
 				init_ipacx(cs, 3); // init chip and enable interrupts
+				spin_unlock_irqrestore(&cs->lock, flags);
 				return (0);
 			}
 			if (cs->subtyp == DIVA_IPAC_PCI) {
