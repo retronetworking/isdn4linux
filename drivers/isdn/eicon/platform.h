@@ -153,8 +153,8 @@ void diva_os_wait(dword mSec);
 /*
 **  PCI Configuration space access
 */
-void PCIwrite (byte bus, byte func, int offset, void* data, int length);
-void PCIread (byte bus, byte func, int offset, void* data, int length);
+void PCIwrite (byte bus, byte func, int offset, void* data, int length, void* pci_dev_handle);
+void PCIread (byte bus, byte func, int offset, void* data, int length, void* pci_dev_handle);
 
 /*
 **  I/O Port utilities

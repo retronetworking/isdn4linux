@@ -376,6 +376,11 @@ info_read(char *page, char **start, off_t off, int count, int *eof, void *data)
   PISDN_ADAPTER IoAdapter = IoAdapters[a->controller-1];
 
   len += sprintf(page+len, "Name        : %s\n", IoAdapter->Properties.Name);
+  len += sprintf(page+len, "DSP state   : %08lx\n", a->dsp_mask);
+  len += sprintf(page+len, "Channels    : %02d\n",
+                                          IoAdapter->Properties.Channels);
+  len += sprintf(page+len, "E. max/used : %03d/%03d\n",
+                                          IoAdapter->e_max, IoAdapter->e_count);
   len += sprintf(page+len, "Serial      : %ld\n", IoAdapter->serialNo);
   len += sprintf(page+len, "IRQ         : %d\n", IoAdapter->irq_info.irq_nr);
   len += sprintf(page+len, "CardIndex   : %d\n", a->CardIndex);

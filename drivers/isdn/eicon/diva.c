@@ -113,7 +113,7 @@ static diva_supported_cards_info_t divas_supported_cards [] = {
 };
 
 static void diva_detect_pci_cards (void);
-static void divas_found_pci_card (int handle, unsigned char bus, unsigned char func);
+static void divas_found_pci_card (int handle, unsigned char bus, unsigned char func, void* pci_dev_handle);
 static void diva_init_request_array (void);
 
 static diva_os_spin_lock_t adapter_lock;
@@ -200,7 +200,7 @@ diva_detect_pci_cards(void)
 **  Called if one PCI card was found
 */
 static void
-divas_found_pci_card (int handle, unsigned char bus, unsigned char func)
+divas_found_pci_card (int handle, unsigned char bus, unsigned char func, void* pci_dev_handle)
 {
   diva_os_xdi_adapter_t* a;
   diva_supported_cards_info_t* pI = &divas_supported_cards[handle];
@@ -222,6 +222,7 @@ divas_found_pci_card (int handle, unsigned char bus, unsigned char func)
   a->xdi_adapter.cardType = a->CardOrdinal;
   a->resources.pci.bus	= bus;
   a->resources.pci.func = func;
+  a->resources.pci.hdev = pci_dev_handle;
 
   /*
     Add master adapter first, so slave adapters will receive higher

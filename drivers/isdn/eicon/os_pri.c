@@ -108,7 +108,8 @@ diva_pri_init_card (diva_os_xdi_adapter_t* a)
   for (bar = 0; bar < 5; bar++) {
     a->resources.pci.bar[bar] = divasa_get_pci_bar (a->resources.pci.bus,
                                                     a->resources.pci.func,
-                                                    bar);
+                                                    bar,
+                                                    a->resources.pci.hdev);
     if (!a->resources.pci.bar[bar] ||
         (a->resources.pci.bar[bar] == 0xFFFFFFF0)) {
       DBG_ERR(("A: invalid bar[%d]=%08x", bar, a->resources.pci.bar[bar]))
@@ -116,7 +117,8 @@ diva_pri_init_card (diva_os_xdi_adapter_t* a)
     }
   }
   a->resources.pci.irq = (byte)divasa_get_pci_irq (a->resources.pci.bus,
-                                                   a->resources.pci.func);
+                                                   a->resources.pci.func,
+                                                   a->resources.pci.hdev);
   if (!a->resources.pci.irq) {
     DBG_ERR(("A: invalid irq"));
     return (-1);
@@ -142,7 +144,7 @@ diva_pri_init_card (diva_os_xdi_adapter_t* a)
     serNo  = a->resources.pci.bar[1] & 0xffff0000;
     serNo |= ((dword)a->resources.pci.bus) << 8;
     serNo += (a->resources.pci.func + a->controller + 1);
-    a->xdi_adapter.serialNo = serNo & ~0x80000000;
+    a->xdi_adapter.serialNo = serNo & ~0xFF000000;
     DBG_ERR(("A: A(%d) can't get Serial Number, generated serNo=%ld",
               a->controller, a->xdi_adapter.serialNo))
   }
@@ -215,7 +217,7 @@ diva_pri_init_card (diva_os_xdi_adapter_t* a)
   a->xdi_adapter.cfg = a->resources.pci.addr[4];
   a->xdi_adapter.cfg += MP_IRQ_RESET;
 
-  diva_pri_detect_dsps (a);
+  a->dsp_mask = diva_pri_detect_dsps (a);
 
   /*
     Set IRQ handler
@@ -691,6 +693,7 @@ pri_get_serial_number (diva_os_xdi_adapter_t* a)
     void* addr;
     dword addr1, addr3, addr4;
     byte Bus, Slot;
+    void* hdev;
     addr4  = a->resources.pci.bar[4];
     addr3  = a->resources.pci.bar[3]; /* flash  */
     addr1  = a->resources.pci.bar[1]; /* unused */
@@ -702,13 +705,14 @@ pri_get_serial_number (diva_os_xdi_adapter_t* a)
 
     Bus = a->resources.pci.bus;
     Slot = a->resources.pci.func;
-    PCIread (Bus, Slot, 0x04, &cmd_org, sizeof(cmd_org));
-    PCIwrite (Bus, Slot, 0x04, &cmd, sizeof(cmd));
+    hdev = a->resources.pci.hdev;
+    PCIread (Bus, Slot, 0x04, &cmd_org, sizeof(cmd_org), hdev);
+    PCIwrite (Bus, Slot, 0x04, &cmd, sizeof(cmd), hdev);
 
-    PCIwrite (Bus, Slot, 0x14, &addr4, sizeof(addr4));
-    PCIwrite (Bus, Slot, 0x20, &addr1, sizeof(addr1)) ;
+    PCIwrite (Bus, Slot, 0x14, &addr4, sizeof(addr4), hdev);
+    PCIwrite (Bus, Slot, 0x20, &addr1, sizeof(addr1), hdev) ;
 
-    PCIwrite (Bus, Slot, 0x04, &cmd_org, sizeof(cmd_org));
+    PCIwrite (Bus, Slot, 0x04, &cmd_org, sizeof(cmd_org), hdev);
 
     addr = a->resources.pci.addr[1];
     a->resources.pci.addr[1] = a->resources.pci.addr[4];

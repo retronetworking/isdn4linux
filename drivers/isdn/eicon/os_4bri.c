@@ -139,7 +139,8 @@ diva_4bri_init_card (diva_os_xdi_adapter_t* a)
   for (bar = 0; bar < 4; bar++) {
     a->resources.pci.bar[bar] = divasa_get_pci_bar (a->resources.pci.bus,
                                                     a->resources.pci.func,
-                                                    bar);
+                                                    bar,
+                                                    a->resources.pci.hdev);
     if (!a->resources.pci.bar[bar] ||
         (a->resources.pci.bar[bar] == 0xFFFFFFF0)) {
       DBG_ERR(("A: invalid bar[%d]=%08x", bar, a->resources.pci.bar[bar]))
@@ -147,7 +148,8 @@ diva_4bri_init_card (diva_os_xdi_adapter_t* a)
     }
   }
   a->resources.pci.irq = (byte)divasa_get_pci_irq (a->resources.pci.bus,
-                                                   a->resources.pci.func);
+                                                   a->resources.pci.func,
+                                                   a->resources.pci.hdev);
   if (!a->resources.pci.irq) {
     DBG_ERR(("A: invalid irq"));
     return (-1);
@@ -244,6 +246,8 @@ diva_4bri_init_card (diva_os_xdi_adapter_t* a)
 
   for (i = 0; i < 4; i++) {
     current = adapter_list[i];
+
+    current->dsp_mask = 0x00000003;
 
     current->xdi_adapter.a.io = &current->xdi_adapter;
     current->xdi_adapter.DIRequest = request;
@@ -445,18 +449,20 @@ _4bri_get_serial_number (diva_os_xdi_adapter_t* a)
   dword serNo ;
   word addr, status, i, j ;
   byte Bus, Slot;
+  void* hdev;
 
   Bus = a->resources.pci.bus;
   Slot = a->resources.pci.func;
+  hdev = a->resources.pci.hdev;
 
   for ( i = 0 ; i < 64 ; ++i )
   {
     addr = i * 4 ;
     for ( j = 0 ; j < 5; ++j )
     {
-      PCIwrite (Bus, Slot, 0x4E, &addr, sizeof(addr)) ;
+      PCIwrite (Bus, Slot, 0x4E, &addr, sizeof(addr), hdev) ;
       diva_os_wait (1) ;
-      PCIread (Bus, Slot, 0x4E, &status, sizeof(status)) ;
+      PCIread (Bus, Slot, 0x4E, &status, sizeof(status), hdev) ;
       if (status & 0x8000)
         break ;
     }
@@ -464,7 +470,7 @@ _4bri_get_serial_number (diva_os_xdi_adapter_t* a)
       DBG_ERR(("EEPROM[%d] read failed (0x%x)", i * 4, addr))
       return(0) ;
     }
-    PCIread (Bus, Slot, 0x50, &data[i], sizeof (data[i])) ;
+    PCIread (Bus, Slot, 0x50, &data[i], sizeof (data[i]), hdev) ;
   }
   DBG_BLK(( (char *)&data[0], sizeof(data) ))
 

@@ -9,6 +9,7 @@
 typedef struct _divas_pci_card_resources {
 	byte	bus;
 	byte	func;
+	void* hdev;
 
 	dword bar[8]; /* contains context of appropriate BAR Register */
 	void* addr[8]; /* same bar, but mapped into memory */
@@ -60,6 +61,7 @@ typedef struct _diva_os_xdi_adapter {
   void*  proc_grp_opt;      /* group_optimization  */
   void*  proc_d_l1_down;    /* dynamic_l1_down     */
   volatile diva_xdi_clear_interrupts_proc_t clear_interrupts_proc;
+  dword dsp_mask;
 } diva_os_xdi_adapter_t;
 
 #endif

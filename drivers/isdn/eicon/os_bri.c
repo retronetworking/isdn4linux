@@ -62,6 +62,7 @@ diva_bri_init_card (diva_os_xdi_adapter_t* a)
   dword bar2 = 0, bar2_length = 0xffffffff;
   word cmd = 0, cmd_org;
   byte Bus, Slot;
+	void* hdev;
 
   /*
     Set properties
@@ -75,7 +76,8 @@ diva_bri_init_card (diva_os_xdi_adapter_t* a)
   for (bar = 0; bar < 3; bar++) {
     a->resources.pci.bar[bar] = divasa_get_pci_bar (a->resources.pci.bus,
                                                     a->resources.pci.func,
-                                                    bar);
+                                                    bar,
+                                                    a->resources.pci.hdev);
     if (!a->resources.pci.bar[bar]) {
       DBG_ERR(("A: can't get BAR[%d]", bar))
       return (-1);
@@ -83,7 +85,8 @@ diva_bri_init_card (diva_os_xdi_adapter_t* a)
   }
 
   a->resources.pci.irq = (byte)divasa_get_pci_irq (a->resources.pci.bus,
-                                                   a->resources.pci.func);
+                                                   a->resources.pci.func,
+                                                   a->resources.pci.hdev);
   if (!a->resources.pci.irq) {
     DBG_ERR(("A: invalid irq"));
     return (-1);
@@ -95,23 +98,24 @@ diva_bri_init_card (diva_os_xdi_adapter_t* a)
   */
   Bus  = a->resources.pci.bus;
   Slot = a->resources.pci.func;
+  hdev = a->resources.pci.hdev;
 
   /*
     Get plain original values of the BAR2 CDM registers
   */
-  PCIread (Bus, Slot, 0x18, &bar2, sizeof(bar2)) ;
-  PCIread (Bus, Slot, 0x04, &cmd_org, sizeof(cmd_org));
+  PCIread (Bus, Slot, 0x18, &bar2, sizeof(bar2), hdev) ;
+  PCIread (Bus, Slot, 0x04, &cmd_org, sizeof(cmd_org), hdev);
   /*
     Disable device and get BAR2 length
   */
-  PCIwrite (Bus, Slot, 0x04, &cmd, sizeof(cmd));
-  PCIwrite (Bus, Slot, 0x18, &bar2_length, sizeof(bar2_length));
-  PCIread  (Bus, Slot, 0x18, &bar2_length, sizeof(bar2_length));
+  PCIwrite (Bus, Slot, 0x04, &cmd, sizeof(cmd), hdev);
+  PCIwrite (Bus, Slot, 0x18, &bar2_length, sizeof(bar2_length), hdev);
+  PCIread  (Bus, Slot, 0x18, &bar2_length, sizeof(bar2_length), hdev);
   /*
     Restore BAR2 and CMD registers
   */
-  PCIwrite (Bus, Slot, 0x18, &bar2 ,sizeof(bar2)) ;
-  PCIwrite (Bus, Slot, 0x04, &cmd_org, sizeof(cmd_org));
+  PCIwrite (Bus, Slot, 0x18, &bar2 ,sizeof(bar2), hdev) ;
+  PCIwrite (Bus, Slot, 0x04, &cmd_org, sizeof(cmd_org), hdev);
 
   /*
     Calculate BAR2 length
@@ -222,6 +226,8 @@ diva_bri_init_card (diva_os_xdi_adapter_t* a)
   outpp (a->xdi_adapter.reset, 0x41) ;
 
   prepare_maestra_functions (&a->xdi_adapter);
+
+  a->dsp_mask = 0x00000003;
 
   /*
     Set IRQ handler

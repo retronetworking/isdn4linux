@@ -238,59 +238,35 @@ divasa_find_card_by_type (unsigned short device_id, divasa_find_pci_proc_t signa
  
   unsigned char bus = 0;
   unsigned char func = 0;
-  unsigned short wDeviceIndex = 0;
-  unsigned short wPCIret;
+	struct pci_dev	*dev = 0;
  
-  while (wDeviceIndex < 10)
-  {
-    wPCIret = pcibios_find_device (HW_ID_EICON_PCI, device_id, wDeviceIndex, &bus, &func);
-      if (wPCIret == PCIBIOS_SUCCESSFUL)
-      {
-        (*signal_card_fn) (handle, bus, func);
-      }
-    wDeviceIndex++;
-  }
+  while ((dev = pci_find_device(HW_ID_EICON_PCI, device_id, dev))) {
+    func = (byte)dev->devfn;
+		bus  = (dev->bus) ? (byte)dev->bus->number : 0;
+    (*signal_card_fn) (handle, bus, func, dev);
+	}
 } 
 
 unsigned long
-divasa_get_pci_irq (unsigned char bus, unsigned char func)
+divasa_get_pci_irq (unsigned char bus, unsigned char func, void* pci_dev_handle)
 {
   unsigned char irq = 0;
+  struct pci_dev	*dev = (struct pci_dev*)pci_dev_handle;
+
+	irq = dev->irq;
  
-  pcibios_read_config_byte (bus, func, PCI_INTERRUPT_LINE, &irq);
   return ((unsigned long)irq);
 } 
 
 unsigned long
-divasa_get_pci_bar (unsigned char bus, unsigned char func, int bar)
+divasa_get_pci_bar (unsigned char bus, unsigned char func, int bar, void* pci_dev_handle)
 {
-  unsigned long ret;
-  unsigned char offset;
+  unsigned long ret = 0;
+  struct pci_dev	*dev = (struct pci_dev*)pci_dev_handle;
 
-  switch (bar) {
-    case 0:
-        offset = PCI_BASE_ADDRESS_0;
-        break;
-    case 1:
-        offset = PCI_BASE_ADDRESS_1;
-        break;
-    case 2:
-        offset = PCI_BASE_ADDRESS_2;
-        break;
-    case 3:
-        offset = PCI_BASE_ADDRESS_3;
-        break;
-    case 4:
-        offset = PCI_BASE_ADDRESS_4;
-        break;
-    case 5:
-        offset = PCI_BASE_ADDRESS_5;
-        break;
-    default:
-        return(0);
+  if (bar < 6) {
+    ret = get_pcibase(dev, bar);
   }
-
-  pcibios_read_config_dword (bus, func, offset, (unsigned int*)&ret);
 
   DBG_TRC(("GOT BAR[%d]=%08x", bar, ret));
 
@@ -310,17 +286,19 @@ divasa_get_pci_bar (unsigned char bus, unsigned char func, int bar)
 }
 
 void
-PCIwrite (byte bus, byte func, int offset, void* data, int length)
+PCIwrite (byte bus, byte func, int offset, void* data, int length, void* pci_dev_handle)
 {
+  struct pci_dev	*dev = (struct pci_dev*)pci_dev_handle;
+
   switch (length) {
       case 1: /* byte */
-          pcibios_write_config_byte (bus, func, offset, *(unsigned char*)data);
+          pci_write_config_byte (dev, offset, *(unsigned char*)data);
           break;
       case 2: /* word */
-          pcibios_write_config_word (bus, func, offset, *(unsigned short*)data);
+          pci_write_config_word (dev, offset, *(unsigned short*)data);
           break;
       case 4: /* dword */
-          pcibios_write_config_dword (bus, func, offset, *(unsigned int*)data);
+          pci_write_config_dword (dev, offset, *(unsigned int*)data);
           break;
  
       default: /* buffer */
@@ -329,30 +307,32 @@ PCIwrite (byte bus, byte func, int offset, void* data, int length)
             length /= 4;
  
             while (length--) {
-              pcibios_write_config_dword (bus, func, offset, *(unsigned int*)p++);
+              pci_write_config_dword (dev, offset, *(unsigned int*)p++);
             }
           } else { /* copy as byte stream */
             byte* p = (byte*)data;
  
             while (length--) {
-              pcibios_write_config_byte (bus, func, offset, *(unsigned char*)p++);
+              pci_write_config_byte (dev, offset, *(unsigned char*)p++);
             }
           }
   } 
 }
 
 void
-PCIread (byte bus, byte func, int offset, void* data, int length)
+PCIread (byte bus, byte func, int offset, void* data, int length, void* pci_dev_handle)
 {
+  struct pci_dev	*dev = (struct pci_dev*)pci_dev_handle;
+
   switch (length) {
       case 1: /* byte */
-          pcibios_read_config_byte (bus, func, offset, (unsigned char*)data);
+          pci_read_config_byte (dev, offset, (unsigned char*)data);
           break;
       case 2: /* word */
-          pcibios_read_config_word (bus, func, offset, (unsigned short*)data);
+          pci_read_config_word (dev, offset, (unsigned short*)data);
           break;
       case 4: /* dword */
-          pcibios_read_config_dword (bus, func, offset, (unsigned int*)data);
+          pci_read_config_dword (dev, offset, (unsigned int*)data);
           break;
  
       default: /* buffer */
@@ -361,13 +341,13 @@ PCIread (byte bus, byte func, int offset, void* data, int length)
               length /= 4;
  
               while (length--) {
-                pcibios_read_config_dword (bus, func, offset, (unsigned int*)p++);
+                pci_read_config_dword (dev, offset, (unsigned int*)p++);
               }
           } else { /* copy as byte stream */
               byte* p = (byte*) data;
  
               while (length--) {
-                pcibios_read_config_byte (bus, func, offset, (unsigned char*)p++);
+                pci_read_config_byte (dev, offset, (unsigned char*)p++);
               }
           }
   }
