@@ -43,6 +43,7 @@ ELSA PCMCIA
 ITK ix1-micro Rev.2
 Eicon.Diehl Diva 2.0 ISA and PCI (S0 and U interface, no PRO version)
 Eicon.Diehl Diva Piccola
+Eicon.Diehl Diva 2.01
 ASUSCOM NETWORK INC. ISDNLink 128K PC adapter (order code I-IN100-ST-D)
 Dynalink IS64PH (OEM version of ASUSCOM NETWORK INC. ISDNLink 128K adapter)
 PCBIT-DP (OEM version of ASUSCOM NETWORK INC. ISDNLink)
@@ -55,6 +56,8 @@ ith Kommunikationstechnik GmbH MIC 16 ISA card
 Traverse Technologie NETjet PCI S0 card
 Dr. Neuhaus Niccy PnP/PCI
 Siemens I-Surf
+Acer P10
+HST Saphir
 
 Note: PCF, PCF-Pro: up to now, only the ISDN part is supported
       PCC-8: not tested yet
@@ -167,6 +170,8 @@ Card types:
    27   AVM PCI (Fritz!PCI)      no parameter
    28   Sedlbauer Speed Fax+     irq, io (from isapnp setup)
    29   Siemens I-Surf           irq, io, mem (from isapnp setup)
+   30   Acer P10                 irq, io (from isapnp setup)
+   31   HST Saphir               irq, io
 
 
 At the moment IRQ sharing is only possible with PCI cards. Please make sure
@@ -263,6 +268,8 @@ type
    27   AVM PCI (Fritz!PCI)     no parameter
    28   Sedlbauer Speed Fax+    ONLY WORKS AS A MODULE !
    29   Siemens I-Surf          ONLY WORKS AS A MODULE !
+   30   Acer P10                ONLY WORKS AS A MODULE !
+   31   HST Saphir              irq, io
 
 
 Running the driver
@@ -581,6 +588,8 @@ case "$1" in
 	/sbin/hisaxctrl HiSax 5 1
         if [ ${I4L_LEASED_128K} = "yes" ]; then
 		# B-CHANNEL 2
+		# wait for master is up
+		sleep 5;
 		/sbin/hisaxctrl HiSax 5 2
 	fi
 	;;
