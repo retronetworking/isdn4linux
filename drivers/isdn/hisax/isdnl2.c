@@ -7,6 +7,9 @@
  *              Fritz Elfert
  *
  * $Log$
+ * Revision 1.9  1997/04/07 23:02:11  keil
+ * missing braces
+ *
  * Revision 1.8  1997/04/06 22:59:59  keil
  * Using SKB's; changing function names; some minor changes
  *
@@ -38,14 +41,12 @@
 #include "hisax.h"
 #include "isdnl2.h"
 
-#define TIMER_1 2000
-
 const char *l2_revision = "$Revision$";
 
 static void l2m_debug(struct FsmInst *fi, char *s);
 
 struct Fsm l2fsm =
-{NULL, 0, 0};
+{NULL, 0, 0, NULL, NULL};
 
 enum {
 	ST_L2_1,
@@ -243,9 +244,9 @@ setva(struct PStack *st, int nr)
 			dev_kfree_skb(l2->windowar[l2->sow], FREE_WRITE);
 			l2->windowar[l2->sow] = NULL;
 			l2->sow = (l2->sow + 1) % l2->window;
+			if (st->l4.l2writewakeup)
+				st->l4.l2writewakeup(st);
 		}
-		if (st->l4.l2writewakeup)
-			st->l4.l2writewakeup(st);
 	}
 }
 
@@ -292,7 +293,7 @@ send_uframe(struct PStack *st, u_char cmd, u_char cr)
 	i = sethdraddr(&st->l2, tmp, cr);
 	tmp[i++] = cmd;
 	if (!(skb = alloc_skb(i, GFP_ATOMIC))) {
-		printk(KERN_WARNING "isdl2 can't alloc sbbuff for send_ucmd\n");
+		printk(KERN_WARNING "isdl2 can't alloc sbbuff for send_uframe\n");
 		return;
 	}
 	memcpy(skb_put(skb, i), tmp, i);
@@ -313,10 +314,7 @@ establishlink(struct FsmInst *fi)
 			l2m_debug(&st->l2.l2m, "FAT 1");
 
 
-	if (st->l2.extended)
-		cmd = SABME | 0x10;
-	else
-		cmd = 0x3f;
+	cmd = (st->l2.extended ? SABME : SABM) | 0x10; 
 	send_uframe(st, cmd, CMD);
 }
 
@@ -380,7 +378,7 @@ l2_got_SABMX(struct FsmInst *fi, int event, void *arg)
 	if (ST_L2_7 != state)
 		FsmChangeState(fi, ST_L2_7);
 
-	send_uframe(st, UA | PollFlag, CMD);
+	send_uframe(st, UA | PollFlag, RSP);
 
 	if (st->l2.t200_running) {
 		FsmDelTimer(&st->l2.t200_timer, 15);
@@ -488,7 +486,7 @@ l2_got_ua_disconn(struct FsmInst *fi, int event, void *arg)
 }
 
 inline void
-enquiry_cr(struct PStack *st, u_char typ, u_char cr)
+enquiry_cr(struct PStack *st, u_char typ, u_char cr, u_char pf)
 {
 	struct sk_buff *skb;
 	struct Layer2 *l2;
@@ -499,9 +497,9 @@ enquiry_cr(struct PStack *st, u_char typ, u_char cr)
 	i = sethdraddr(l2, tmp, cr);
 	if (l2->extended) {
 		tmp[i++] = typ;
-		tmp[i++] = (l2->vr << 1) | 0x1;
+		tmp[i++] = (l2->vr << 1) | (pf ? 1 : 0);
 	} else
-		tmp[i++] = (l2->vr << 5) | 0x1 | 0x10;
+		tmp[i++] = (l2->vr << 5) | typ | (pf ? 0x10 : 0);
 	if (!(skb = alloc_skb(i, GFP_ATOMIC))) {
 		printk(KERN_WARNING "isdl2 can't alloc sbbuff for enquiry_cr\n");
 		return;
@@ -511,15 +509,15 @@ enquiry_cr(struct PStack *st, u_char typ, u_char cr)
 }
 
 inline void
-enquiry_response(struct PStack *st, u_char typ)
+enquiry_response(struct PStack *st, u_char typ, u_char final)
 {
-	enquiry_cr(st, typ, RSP);
+	enquiry_cr(st, typ, RSP, final);
 }
 
 inline void
-enquiry_command(struct PStack *st, u_char typ)
+enquiry_command(struct PStack *st, u_char typ, u_char poll)
 {
-	enquiry_cr(st, typ, CMD);
+	enquiry_cr(st, typ, CMD, poll);
 }
 
 static void
@@ -559,7 +557,7 @@ l2_got_st7_RR(struct FsmInst *fi, int event, void *arg)
 
 	if (!((chanp->impair == 4) && (st->l2.laptype == LAPB)))
 		if ((!rsp) && PollFlag)
-			enquiry_response(st, RR);
+			enquiry_response(st, RR, PollFlag);
 
 	if (legalnr(st, seq)) {
 		if (seq == l2->vs) {
@@ -637,7 +635,8 @@ icommandreceived(struct FsmInst *fi, int event, void *arg, int *nr)
 					  skb->len - l2->ihsize, str);
 			}
 		if (!((chanp->impair == 3) && (st->l2.laptype == LAPB)))
-			enquiry_response(st, RR);
+			if (p || (!skb_queue_len(&st->l2.i_queue)))
+				enquiry_response(st, RR, p);
 		skb_pull(skb, l2headersize(l2, 0));
 	} else {
 		/* n(s)!=v(r) */
@@ -647,10 +646,10 @@ icommandreceived(struct FsmInst *fi, int event, void *arg, int *nr)
 		if (st->l2.rejexp) {
 			if (p)
 				if (!((chanp->impair == 3) && (st->l2.laptype == LAPB)))
-					enquiry_response(st, RR);
+					enquiry_response(st, RR, p);
 		} else {
 			st->l2.rejexp = !0;
-			enquiry_response(st, REJ);
+			enquiry_command(st, REJ, 1);
 		}
 	}
 	return wasok;
@@ -741,7 +740,8 @@ invoke_retransmission(struct PStack *st, int nr)
 				p1 += l2->extended ? 128 : 8;
 			p1 = (p1 + l2->sow) % l2->window;
 
-			skb_queue_head(&l2->i_queue, skb_clone(l2->windowar[p1], GFP_ATOMIC));
+			skb_queue_head(&l2->i_queue, l2->windowar[p1]);
+			l2->windowar[p1] = NULL;
 		}
 		st->l2.l2l1(st, PH_REQUEST_PULL, NULL);
 	}
@@ -775,7 +775,7 @@ l2_got_st7_rej(struct FsmInst *fi, int event, void *arg)
 	dev_kfree_skb(skb, FREE_READ);
 
 	if ((!rsp) && PollFlag)
-		enquiry_response(st, RR);
+		enquiry_response(st, RR, PollFlag);
 
 	if (!legalnr(st, seq))
 		return;
@@ -807,10 +807,7 @@ l2_st5_tout_200(struct FsmInst *fi, int event, void *arg)
 			if (st->l2.l2m.debug)
 				l2m_debug(&st->l2.l2m, "FAT 7");
 
-		if (st->l2.extended)
-			cmd = SABME | 0x10;
-		else
-			cmd = 0x3f;
+		cmd = (st->l2.extended ? SABME : SABM) | 0x10; 
 		send_uframe(st, cmd, CMD);
 	}
 }
@@ -895,7 +892,7 @@ static void
 transmit_enquiry(struct PStack *st)
 {
 
-	enquiry_command(st, RR);
+	enquiry_command(st, RR, 1);
 	if (FsmAddTimer(&st->l2.t200_timer, st->l2.t200, EV_L2_T200, NULL, 12))
 		if (st->l2.l2m.debug)
 			l2m_debug(&st->l2.l2m, "FAT 10");
@@ -965,7 +962,7 @@ l2_got_st8_rr_rej(struct FsmInst *fi, int event, void *arg)
 		}
 	} else {
 		if (!rsp && PollFlag)
-			enquiry_response(st, RR);
+			enquiry_response(st, RR, PollFlag);
 		if (legalnr(st, seq)) {
 			setva(st, seq);
 		}
@@ -1079,7 +1076,9 @@ IsI(u_char * data, int ext)
 inline int
 IsSABMX(u_char * data, int ext)
 {
-	return (ext ? (data[0] & ~0x10) == SABME : data[0] == 0x3f);
+	u_char d = data[0] & ~0x10;
+	
+	return (ext ? d == SABME : d == SABM);
 }
 
 inline int
