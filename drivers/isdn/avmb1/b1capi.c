@@ -6,6 +6,9 @@
  * (c) Copyright 1997 by Carsten Paeth (calle@calle.in-berlin.de)
  * 
  * $Log$
+ * Revision 1.4.2.4  1997/11/26 16:57:20  calle
+ * more changes for B1/M1/T1.
+ *
  * Revision 1.4.2.3  1997/11/26 10:46:52  calle
  * prepared for M1 (Mobile) and T1 (PMX) cards.
  * prepared to set configuration after load to support other D-channel
@@ -756,9 +759,12 @@ static int capi_manufacturer(unsigned int cmd, void *data)
 					    	sizeof(avmb1_loadandconfigdef))))
 				return rc;
 		}
-		if (!VALID_CARD(ldef.contr) || ldef.t4file.len <= 0) {
+		if (!VALID_CARD(ldef.contr))
+			return -ESRCH;
+
+		if (ldef.t4file.len <= 0) {
 			if (loaddebug)
-				printk(KERN_DEBUG "b1capi: load: invalid parameter contr=%d len=%d\n", ldef.contr, ldef.t4file.len);
+				printk(KERN_DEBUG "b1capi: load: invalid parameter length of t4file is %d ?\n", ldef.t4file.len);
 			return -EINVAL;
 		}
 
@@ -854,7 +860,7 @@ static int capi_manufacturer(unsigned int cmd, void *data)
 			return rc;
 
 		if (!VALID_CARD(rdef.contr))
-			return -EINVAL;
+			return -ESRCH;
 
 		card = CARD(rdef.contr);
 
@@ -873,7 +879,7 @@ static int capi_manufacturer(unsigned int cmd, void *data)
 			return rc;
 
 		if (!VALID_CARD(gdef.contr))
-			return -EINVAL;
+			return -ESRCH;
 
 		card = CARD(gdef.contr);
 
