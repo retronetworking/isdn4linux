@@ -21,6 +21,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.37  1997/02/11 18:32:51  fritz
+ * Bugfix in isdn_ppp_free_mpqueue().
+ *
  * Revision 1.36  1997/02/10 21:31:11  fritz
  * Changed setup-interface (incoming and outgoing).
  *
@@ -1042,7 +1045,6 @@ isdn_net_close(struct device *dev)
 
 	dev->tbusy = 1;
 	dev->start = 0;
-	isdn_net_hangup(dev);
 	if ((p = (((isdn_net_local *) dev->priv)->slave))) {
 		/* If this interface has slaves, stop them also */
 		while (p) {
@@ -1052,6 +1054,7 @@ isdn_net_close(struct device *dev)
 			p = (((isdn_net_local *) p->priv)->slave);
 		}
 	}
+	isdn_net_hangup(dev);
 	isdn_MOD_DEC_USE_COUNT();
 	return 0;
 }
@@ -2396,13 +2399,13 @@ isdn_net_force_hangup(char *name)
 	if (p) {
 		if (p->local.isdn_device < 0)
 			return 1;
-		isdn_net_hangup(&p->dev);
 		q = p->local.slave;
 		/* If this interface has slaves, do a hangup for them also. */
 		while (q) {
 			isdn_net_hangup(q);
 			q = (((isdn_net_local *) q->priv)->slave);
 		}
+		isdn_net_hangup(&p->dev);
 		return 0;
 	}
 	return -ENODEV;
