@@ -66,16 +66,19 @@ static inline struct capifs_sb_info *SBI(struct super_block *sb)
 static int capifs_root_readdir(struct file *,void *,filldir_t);
 static struct dentry *capifs_root_lookup(struct inode *,struct dentry *);
 static int capifs_revalidate(struct dentry *, int);
+#ifdef COMPAT_VFS_2_4
+static struct inode *capifs_new_inode(struct super_block *sb);
+#endif
 
 static struct file_operations capifs_root_operations = {
-#ifdef COMPAT_has_generic_read_dir
+#ifdef COMPAT_VFS_2_4
 	read:		generic_read_dir,
 #endif
 	readdir:	capifs_root_readdir,
 };
 
 struct inode_operations capifs_root_inode_operations = {
-#ifndef COMPAT_has_fileops_in_inode
+#ifndef COMPAT_VFS_2_4
 	default_file_ops: &capifs_root_operations, /* file operations */
 #endif
 	lookup: capifs_root_lookup,
@@ -102,7 +105,7 @@ static int capifs_root_readdir(struct file *filp, void *dirent, filldir_t filldi
 	switch(nr)
 	{
 	case 0:
-#ifdef COMPAT_HAVE_NEW_FILLDIR
+#ifdef COMPAT_VFS_2_4
 		if (filldir(dirent, ".", 1, nr, inode->i_ino, DT_DIR) < 0)
 #else
 		if (filldir(dirent, ".", 1, nr, inode->i_ino) < 0)
@@ -111,7 +114,7 @@ static int capifs_root_readdir(struct file *filp, void *dirent, filldir_t filldi
 		filp->f_pos = ++nr;
 		/* fall through */
 	case 1:
-#ifdef COMPAT_HAVE_NEW_FILLDIR
+#ifdef COMPAT_VFS_2_4
 		if (filldir(dirent, "..", 2, nr, inode->i_ino, DT_DIR) < 0)
 #else
 		if (filldir(dirent, "..", 2, nr, inode->i_ino) < 0)
@@ -127,7 +130,7 @@ static int capifs_root_readdir(struct file *filp, void *dirent, filldir_t filldi
 				char *p = numbuf;
 				if (np->type) *p++ = np->type;
 				sprintf(p, "%u", np->num);
-#ifdef COMPAT_HAVE_NEW_FILLDIR
+#ifdef COMPAT_VFS_2_4
 				if ( filldir(dirent, numbuf, strlen(numbuf), nr, nr, DT_UNKNOWN) < 0 )
 #else
 				if ( filldir(dirent, numbuf, strlen(numbuf), nr, nr) < 0 )
@@ -226,22 +229,22 @@ static void capifs_put_super(struct super_block *sb)
 
 	kfree(sbi->nccis);
 	kfree(sbi);
-#if LINUX_VERSION_CODE < KERNEL_VERSION(2,3,51)
+#ifndef COMPAT_VFS_2_4
 	MOD_DEC_USE_COUNT;
 #endif
 }
 
-#if LINUX_VERSION_CODE < KERNEL_VERSION(2,3,51)
+#ifdef COMPAT_VFS_2_4
+static int capifs_statfs(struct super_block *sb, struct statfs *buf);
+#else
 static int capifs_statfs(struct super_block *sb, struct statfs *buf, int bufsiz);
 static void capifs_write_inode(struct inode *inode) { };
-#else
-static int capifs_statfs(struct super_block *sb, struct statfs *buf);
-#endif
 static void capifs_read_inode(struct inode *inode);
+#endif
 
 static struct super_operations capifs_sops = {
+#ifndef COMPAT_VFS_2_4
 	read_inode:	capifs_read_inode,
-#if LINUX_VERSION_CODE < KERNEL_VERSION(2,3,51)
 	write_inode:	capifs_write_inode,
 #endif
 	put_super:	capifs_put_super,
@@ -314,7 +317,7 @@ struct super_block *capifs_read_super(struct super_block *s, void *data,
 	struct dentry * root;
 	struct capifs_sb_info *sbi;
 
-#if LINUX_VERSION_CODE < KERNEL_VERSION(2,3,51)
+#ifndef COMPAT_VFS_2_4
 	MOD_INC_USE_COUNT;
 	lock_super(s);
 #endif
@@ -352,10 +355,18 @@ struct super_block *capifs_read_super(struct super_block *s, void *data,
 	/*
 	 * Get the root inode and dentry, but defer checking for errors.
 	 */
-	root_inode = iget(s, 1); /* inode 1 == root directory */
-#ifdef COMPAT_d_alloc_root_one_parameter
+#ifdef COMPAT_VFS_2_4
+	root_inode = capifs_new_inode(s);
+	if (root_inode) {
+		root_inode->i_ino = 1;
+		root_inode->i_mode = S_IFDIR | S_IRUGO | S_IXUGO | S_IWUSR;
+		root_inode->i_op = &capifs_root_inode_operations;
+		root_inode->i_fop = &capifs_root_operations;
+		root_inode->i_nlink = 2;
+	} 
 	root = d_alloc_root(root_inode);
 #else
+	root_inode = iget(s, 1); /* inode 1 == root directory */
 	root = d_alloc_root(root_inode, NULL);
 #endif
 
@@ -397,19 +408,19 @@ struct super_block *capifs_read_super(struct super_block *s, void *data,
 	mounts = s;
 
 out:	/* Success ... somebody else completed the super block for us. */ 
-#if LINUX_VERSION_CODE < KERNEL_VERSION(2,3,51)
+#ifndef COMPAT_VFS_2_4
 	unlock_super(s);
 #endif
 	return s;
 fail:
-#if LINUX_VERSION_CODE < KERNEL_VERSION(2,3,51)
+#ifndef COMPAT_VFS_2_4
 	unlock_super(s);
 	MOD_DEC_USE_COUNT;
 #endif
 	return NULL;
 }
 
-#if LINUX_VERSION_CODE < KERNEL_VERSION(2,3,51)
+#ifndef COMPAT_VFS_2_4
 static int capifs_statfs(struct super_block *sb, struct statfs *buf, int bufsiz)
 {
 	struct statfs tmp;
@@ -439,6 +450,19 @@ static int capifs_statfs(struct super_block *sb, struct statfs *buf)
 }
 #endif
 
+#ifdef COMPAT_VFS_2_4
+static struct inode *capifs_new_inode(struct super_block *sb)
+{
+	struct inode *inode = new_inode(sb);
+	if (inode) {
+		inode->i_mtime = inode->i_atime = inode->i_ctime = CURRENT_TIME;
+		inode->i_blocks = 0;
+		inode->i_blksize = 1024;
+		inode->i_uid = inode->i_gid = 0;
+	}
+	return inode;
+}
+#else
 static void capifs_read_inode(struct inode *inode)
 {
 	ino_t ino = inode->i_ino;
@@ -454,9 +478,6 @@ static void capifs_read_inode(struct inode *inode)
 	if ( ino == 1 ) {
 		inode->i_mode = S_IFDIR | S_IRUGO | S_IXUGO | S_IWUSR;
 		inode->i_op = &capifs_root_inode_operations;
-#ifdef COMPAT_has_fileops_in_inode
-		inode->i_fop = &capifs_root_operations;
-#endif
 		inode->i_nlink = 2;
 		return;
 	} 
@@ -465,7 +486,7 @@ static void capifs_read_inode(struct inode *inode)
 	if ( ino >= sbi->max_ncci )
 		return;		/* Bogus */
 	
-#ifdef COMPAT_HAS_init_special_inode
+#ifdef COMPAT_VFS_2_4
 	init_special_inode(inode, S_IFCHR, 0);
 #else
 	inode->i_mode = S_IFCHR;
@@ -474,8 +495,9 @@ static void capifs_read_inode(struct inode *inode)
 
 	return;
 }
+#endif
 
-#if LINUX_VERSION_CODE < KERNEL_VERSION(2,3,51)
+#ifndef COMPAT_VFS_2_4
 static struct file_system_type capifs_fs_type = {
 	"capifs",
 	0,
@@ -505,14 +527,26 @@ void capifs_new_ncci(char type, unsigned int num, kdev_t device)
 				break;
 			}
 		}
+#ifdef COMPAT_VFS_2_4
+		if ( ino >= sbi->max_ncci )
+			continue;
 
-		if ((np->inode = iget(sb, ino+2)) != 0) {
+		if ((np->inode = capifs_new_inode(sb)) != NULL) {
+#else
+		if ((np->inode = iget(sb, ino+2)) != NULL) {
+#endif
 			struct inode *inode = np->inode;
 			inode->i_uid = sbi->setuid ? sbi->uid : current->fsuid;
 			inode->i_gid = sbi->setgid ? sbi->gid : current->fsgid;
+#ifdef COMPAT_VFS_2_4
+			inode->i_nlink = 1;
+			inode->i_ino = ino + 2;
+			init_special_inode(inode, sbi->mode|S_IFCHR, np->kdev);
+#else
 			inode->i_mode = sbi->mode | S_IFCHR;
 			inode->i_rdev = np->kdev;
 			inode->i_nlink++;
+#endif
 		}
 	}
 }
@@ -564,11 +598,7 @@ static int __init capifs_init(void)
 		MOD_DEC_USE_COUNT;
 		return err;
 	}
-#ifdef MODULE
-        printk(KERN_NOTICE "capifs: Rev %s: loaded\n", rev);
-#else
-	printk(KERN_NOTICE "capifs: Rev %s: started\n", rev);
-#endif
+        printk(KERN_NOTICE "capifs: Rev %s\n", rev);
 	MOD_DEC_USE_COUNT;
 	return 0;
 }
