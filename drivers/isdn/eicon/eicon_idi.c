@@ -21,6 +21,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.19  1999/09/21 20:06:40  armin
+ * Added pointer checks.
+ *
  * Revision 1.18  1999/09/07 12:48:05  armin
  * Prepared for sub-address usage.
  *
@@ -659,9 +662,10 @@ idi_IndParse(eicon_card *ccard, eicon_chan *chan, idi_ind_message *message, unsi
 	__u16 code;
 	isdn_ctrl cmd;
 
-  memset(message, 0, sizeof(idi_ind_message));
+	memset(message, 0, sizeof(idi_ind_message));
 
-  if ((!len) || (!buffer[pos])) return;
+	if ((!len) || (!buffer[pos])) return;
+
   while(pos <= len) {
 	w = buffer[pos++];
 	if (!w) return;
@@ -691,8 +695,24 @@ idi_IndParse(eicon_card *ccard, eicon_chan *chan, idi_ind_message *message, unsi
 		else code = w;
 		code |= (codeset<<8);
 
+		if (pos + wlen > len) {
+			if (DebugVar & 1) {
+				printk(KERN_WARNING"idi_err: Ch%d: IElen %d of %x exceeds Ind_Length (+%d)\n", chan->No, 
+					wlen, code, (pos + wlen) - len);
+				printk(KERN_WARNING"idi_err: Ch%d: ", chan->No);
+				for (i = 0; i < len; i++)
+					printk("%02x ", buffer[i]);
+				printk("\n");
+			}
+			return;
+		}
+
 		switch(code) {
 			case OAD:
+				if (wlen > sizeof(message->oad)) {
+					pos += wlen;
+					break;
+				}
 				j = 1;
 				if (wlen) {
 					message->plan = buffer[pos++];
@@ -710,6 +730,10 @@ idi_IndParse(eicon_card *ccard, eicon_chan *chan, idi_ind_message *message, unsi
 						message->plan, message->screen, message->oad);
 				break;
 			case RDN:
+				if (wlen > sizeof(message->rdn)) {
+					pos += wlen;
+					break;
+				}
 				j = 1;
 				if (wlen) {
 					if (!(buffer[pos++] & 0x80)) {
@@ -724,6 +748,10 @@ idi_IndParse(eicon_card *ccard, eicon_chan *chan, idi_ind_message *message, unsi
 						message->rdn);
 				break;
 			case CPN:
+				if (wlen > sizeof(message->cpn)) {
+					pos += wlen;
+					break;
+				}
 				for(i=0; i < wlen; i++) 
 					message->cpn[i] = buffer[pos++];
 				if (DebugVar & 2)
@@ -731,6 +759,10 @@ idi_IndParse(eicon_card *ccard, eicon_chan *chan, idi_ind_message *message, unsi
 						(__u8)message->cpn[0], message->cpn + 1);
 				break;
 			case DSA:
+				if (wlen > sizeof(message->dsa)) {
+					pos += wlen;
+					break;
+				}
 				pos += 2;
 				for(i=0; i < wlen-2; i++) 
 					message->dsa[i] = buffer[pos++];
@@ -738,6 +770,10 @@ idi_IndParse(eicon_card *ccard, eicon_chan *chan, idi_ind_message *message, unsi
 					printk(KERN_DEBUG"idi_inf: Ch%d: DSA=%s\n", chan->No, message->dsa);
 				break;
 			case OSA:
+				if (wlen > sizeof(message->osa)) {
+					pos += wlen;
+					break;
+				}
 				pos += 2;
 				for(i=0; i < wlen-2; i++) 
 					message->osa[i] = buffer[pos++];
@@ -745,6 +781,10 @@ idi_IndParse(eicon_card *ccard, eicon_chan *chan, idi_ind_message *message, unsi
 					printk(KERN_DEBUG"idi_inf: Ch%d: OSA=%s\n", chan->No, message->osa);
 				break;
 			case BC:
+				if (wlen > sizeof(message->bc)) {
+					pos += wlen;
+					break;
+				}
 				for(i=0; i < wlen; i++) 
 					message->bc[i] = buffer[pos++];
 				if (DebugVar & 4)
@@ -752,12 +792,20 @@ idi_IndParse(eicon_card *ccard, eicon_chan *chan, idi_ind_message *message, unsi
 						message->bc[0],message->bc[1],message->bc[2]);
 				break;
 			case 0x800|BC:
+				if (wlen > sizeof(message->e_bc)) {
+					pos += wlen;
+					break;
+				}
 				for(i=0; i < wlen; i++) 
 					message->e_bc[i] = buffer[pos++];
 				if (DebugVar & 4)
 					printk(KERN_DEBUG"idi_inf: Ch%d: ESC/BC=%d\n", chan->No, message->bc[0]);
 				break;
 			case LLC:
+				if (wlen > sizeof(message->llc)) {
+					pos += wlen;
+					break;
+				}
 				for(i=0; i < wlen; i++) 
 					message->llc[i] = buffer[pos++];
 				if (DebugVar & 4)
@@ -765,6 +813,10 @@ idi_IndParse(eicon_card *ccard, eicon_chan *chan, idi_ind_message *message, unsi
 						message->llc[1],message->llc[2],message->llc[3]);
 				break;
 			case HLC:
+				if (wlen > sizeof(message->hlc)) {
+					pos += wlen;
+					break;
+				}
 				for(i=0; i < wlen; i++) 
 					message->hlc[i] = buffer[pos++];
 				if (DebugVar & 4)
@@ -774,6 +826,10 @@ idi_IndParse(eicon_card *ccard, eicon_chan *chan, idi_ind_message *message, unsi
 				break;
 			case DSP:
 			case 0x600|DSP:
+				if (wlen > sizeof(message->display)) {
+					pos += wlen;
+					break;
+				}
 				for(i=0; i < wlen; i++) 
 					message->display[i] = buffer[pos++];
 				if (DebugVar & 4)
@@ -781,6 +837,10 @@ idi_IndParse(eicon_card *ccard, eicon_chan *chan, idi_ind_message *message, unsi
 						message->display);
 				break;
 			case 0x600|KEY:
+				if (wlen > sizeof(message->keypad)) {
+					pos += wlen;
+					break;
+				}
 				for(i=0; i < wlen; i++) 
 					message->keypad[i] = buffer[pos++];
 				if (DebugVar & 4)
@@ -841,6 +901,10 @@ idi_IndParse(eicon_card *ccard, eicon_chan *chan, idi_ind_message *message, unsi
 				pos += wlen;
 				break;
 			case CAU:
+				if (wlen > sizeof(message->cau)) {
+					pos += wlen;
+					break;
+				}
 				for(i=0; i < wlen; i++) 
 					message->cau[i] = buffer[pos++];
 				memcpy(&chan->cause, &message->cau, 2);
@@ -849,6 +913,10 @@ idi_IndParse(eicon_card *ccard, eicon_chan *chan, idi_ind_message *message, unsi
 						message->cau[0],message->cau[1]);
 				break;
 			case 0x800|CAU:
+				if (wlen > sizeof(message->e_cau)) {
+					pos += wlen;
+					break;
+				}
 				for(i=0; i < wlen; i++) 
 					message->e_cau[i] = buffer[pos++];
 				if (DebugVar & 4)
@@ -856,6 +924,10 @@ idi_IndParse(eicon_card *ccard, eicon_chan *chan, idi_ind_message *message, unsi
 						message->e_cau[0],message->e_cau[1]);
 				break;
 			case 0x800|CHI:
+				if (wlen > sizeof(message->e_chi)) {
+					pos += wlen;
+					break;
+				}
 				for(i=0; i < wlen; i++) 
 					message->e_chi[i] = buffer[pos++];
 				if (DebugVar & 4)
@@ -869,6 +941,10 @@ idi_IndParse(eicon_card *ccard, eicon_chan *chan, idi_ind_message *message, unsi
 					printk(KERN_DEBUG"idi_inf: Ch%d: EMT=0x%x\n", chan->No, message->e_mt);
 				break;
 			case DT:
+				if (wlen > sizeof(message->dt)) {
+					pos += wlen;
+					break;
+				}
 				for(i=0; i < wlen; i++) 
 					message->dt[i] = buffer[pos++];
 				if (DebugVar & 4)
@@ -877,6 +953,10 @@ idi_IndParse(eicon_card *ccard, eicon_chan *chan, idi_ind_message *message, unsi
 						message->dt[3], message->dt[4], message->dt[5]);
 				break;
 			case 0x600|SIN:
+				if (wlen > sizeof(message->sin)) {
+					pos += wlen;
+					break;
+				}
 				for(i=0; i < wlen; i++) 
 					message->sin[i] = buffer[pos++];
 				if (DebugVar & 2)
@@ -1242,6 +1322,7 @@ idi_handle_ind(eicon_card *ccard, struct sk_buff *skb)
 {
 	int tmp;
 	int free_buff;
+	ulong flags;
 	struct sk_buff *skb2;
         eicon_IND *ind = (eicon_IND *)skb->data;
 	eicon_chan *chan;
@@ -1273,10 +1354,13 @@ idi_handle_ind(eicon_card *ccard, struct sk_buff *skb)
 		                while((skb2 = skb_dequeue(&chan->e.X))) {
 					dev_kfree_skb(skb2);
 				}
+				save_flags(flags);
+				cli();
 				chan->e.busy = 0;
 				chan->queued = 0;
 				chan->waitq = 0;
 				chan->waitpq = 0;
+				restore_flags(flags);
 				if (message.e_cau[0] & 0x7f) {
 					cmd.driver = ccard->myid;
 					cmd.arg = chan->No;
@@ -1333,6 +1417,7 @@ idi_handle_ind(eicon_card *ccard, struct sk_buff *skb)
 				switch(tmp) {
 					case 0: /* no user responding */
 						idi_do_req(ccard, chan, HANGUP, 0);
+						chan->fsm_state = EICON_STATE_NULL;
 						break;
 					case 1: /* alert */
 						if (DebugVar & 8)
@@ -1508,9 +1593,12 @@ idi_handle_ind(eicon_card *ccard, struct sk_buff *skb)
 					idi_fax_hangup(ccard, chan);
 				}
 #endif
+				save_flags(flags);
+				cli();
 				chan->queued = 0;
 				chan->waitq = 0;
 				chan->waitpq = 0;
+				restore_flags(flags);
 				idi_do_req(ccard, chan, HANGUP, 0);
 				if (chan->fsm_state == EICON_STATE_ACTIVE) {
 					cmd.driver = ccard->myid;
@@ -1573,6 +1661,7 @@ idi_handle_ind(eicon_card *ccard, struct sk_buff *skb)
 int
 idi_handle_ack_ok(eicon_card *ccard, eicon_chan *chan, eicon_RC *ack)
 {
+	ulong flags;
 	isdn_ctrl cmd;
 
 	if (ack->RcId != ((chan->e.ReqCh) ? chan->e.B2Id : chan->e.D3Id)) {
@@ -1598,6 +1687,8 @@ idi_handle_ack_ok(eicon_card *ccard, eicon_chan *chan, eicon_RC *ack)
 					ack->Reference, chan->e.ref);
 			return 0;
 		}
+		save_flags(flags);
+		cli();
 		ccard->IdTable[ack->RcId] = NULL;
 		if (DebugVar & 16)
 			printk(KERN_DEBUG "idi_ack: Ch%d: Removed : Id=%x Ch=%d (%s)\n", chan->No,
@@ -1606,6 +1697,7 @@ idi_handle_ack_ok(eicon_card *ccard, eicon_chan *chan, eicon_RC *ack)
 			chan->e.D3Id = 0;
 		else
 			chan->e.B2Id = 0;
+		restore_flags(flags);
 		return 1;
 	}
 
@@ -1627,7 +1719,10 @@ idi_handle_ack_ok(eicon_card *ccard, eicon_chan *chan, eicon_RC *ack)
 						cmd.parm.length = chan->waitpq;
 						ccard->interface.statcallb(&cmd);
 					}
+					save_flags(flags);
+					cli();
 					chan->waitpq = 0;
+					restore_flags(flags);
 #ifdef CONFIG_ISDN_TTY_FAX
 					if (chan->l2prot == ISDN_PROTO_L2_FAX) {
 						if (((chan->queued - chan->waitq) < 1) &&
@@ -1648,8 +1743,11 @@ idi_handle_ack_ok(eicon_card *ccard, eicon_chan *chan, eicon_RC *ack)
 					}
 #endif
 				}
+				save_flags(flags);
+				cli();
 				chan->queued -= chan->waitq;
 				if (chan->queued < 0) chan->queued = 0;
+				restore_flags(flags);
 				break;
 			default:
 				if (DebugVar & 16)
@@ -1664,6 +1762,7 @@ void
 idi_handle_ack(eicon_card *ccard, struct sk_buff *skb)
 {
 	int j;
+	ulong flags;
         eicon_RC *ack = (eicon_RC *)skb->data;
 	eicon_chan *chan;
 	isdn_ctrl cmd;
@@ -1672,9 +1771,11 @@ idi_handle_ack(eicon_card *ccard, struct sk_buff *skb)
 	if (!ccard)
 		return;
 
+	save_flags(flags);
+	cli();
 	if ((chan = ccard->IdTable[ack->RcId]) != NULL)
 		dCh = chan->No;
-	
+	restore_flags(flags);
 
 	switch (ack->Rc) {
 		case OK_FC:
@@ -1705,6 +1806,8 @@ idi_handle_ack(eicon_card *ccard, struct sk_buff *skb)
 					printk(KERN_ERR "idi_ack: Ch%d: ASSIGN-OK on chan already assigned (%x,%x)\n",
 						chan->No, chan->e.D3Id, chan->e.B2Id);
 			}
+			save_flags(flags);
+			cli();
 			for(j = 0; j < ccard->nchannels + 1; j++) {
 				if (ccard->bch[j].e.ref == ack->Reference) {
 					if (!ccard->bch[j].e.ReqCh) 
@@ -1720,6 +1823,7 @@ idi_handle_ack(eicon_card *ccard, struct sk_buff *skb)
 					break;
 				}
 			}		
+			restore_flags(flags);
 			if (j > ccard->nchannels) {
 				if (DebugVar & 24)
 					printk(KERN_DEBUG"idi_ack: Ch??: ref %d not found for Id %d\n", 
@@ -1755,8 +1859,11 @@ idi_handle_ack(eicon_card *ccard, struct sk_buff *skb)
 				ccard->interface.statcallb(&cmd);
 			}
 	}
+	save_flags(flags);
+	cli();
 	if (chan)
 		chan->e.busy = 0;
+	restore_flags(flags);
 	dev_kfree_skb(skb);
 	eicon_schedule_tx(ccard);
 }

@@ -24,6 +24,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.5  1999/08/31 11:20:11  paul
+ * various spelling corrections (new checksums may be needed, Karsten!)
+ *
  * Revision 1.4  1999/08/22 20:26:47  calle
  * backported changes from kernel 2.3.14:
  * - several #include "config.h" gone, others come.
@@ -51,6 +54,7 @@
 
 void
 eicon_io_rcv_dispatch(eicon_card *ccard) {
+	ulong flags;
         struct sk_buff *skb, *skb2, *skb_new;
         eicon_IND *ind, *ind2, *ind_new;
         eicon_chan *chan;
@@ -64,6 +68,8 @@ eicon_io_rcv_dispatch(eicon_card *ccard) {
 	while((skb = skb_dequeue(&ccard->rcvq))) {
         	ind = (eicon_IND *)skb->data;
 
+		save_flags(flags);
+		cli();
         	if ((chan = ccard->IdTable[ind->IndId]) == NULL) {
 			if (DebugVar & 1) {
 				switch(ind->Ind) {
@@ -76,9 +82,11 @@ eicon_io_rcv_dispatch(eicon_card *ccard) {
 							ind->Ind,ind->IndId,ind->IndCh,ind->MInd,ind->MLength,ind->RBuffer.length);
 				}
 			}
+			restore_flags(flags);
 	                dev_kfree_skb(skb);
 	                continue;
 	        }
+		restore_flags(flags);
 
 		if (chan->e.complete) { /* check for rec-buffer chaining */
 			if (ind->MLength == ind->RBuffer.length) {
@@ -94,10 +102,13 @@ eicon_io_rcv_dispatch(eicon_card *ccard) {
 			}
 		}
 		else {
+			save_flags(flags);
+			cli();
 			if (!(skb2 = skb_dequeue(&chan->e.R))) {
 				chan->e.complete = 1;
 				if (DebugVar & 1)
 	                		printk(KERN_ERR "eicon: buffer incomplete, but 0 in queue\n");
+				restore_flags(flags);
 	                	dev_kfree_skb(skb);
 				continue;	
 			}
@@ -107,6 +118,7 @@ eicon_io_rcv_dispatch(eicon_card *ccard) {
 			if (!skb_new) {
 				if (DebugVar & 1)
 	                		printk(KERN_ERR "eicon_io: skb_alloc failed in rcv_dispatch()\n");
+				restore_flags(flags);
 	                	dev_kfree_skb(skb);
 	                	dev_kfree_skb(skb2);
 				continue;	
@@ -125,12 +137,14 @@ eicon_io_rcv_dispatch(eicon_card *ccard) {
                 	dev_kfree_skb(skb2);
 			if (ind->MLength == ind->RBuffer.length) {
 				chan->e.complete = 2;
+				restore_flags(flags);
 				idi_handle_ind(ccard, skb_new);
 				continue;
 			}
 			else {
 				chan->e.complete = 0;
 				skb_queue_tail(&chan->e.R, skb_new);
+				restore_flags(flags);
 				continue;
 			}
 		}
