@@ -22,6 +22,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.15  1997/02/09 00:18:42  keil
+ * leased line support
+ *
  * Revision 1.14  1997/02/03 23:43:00  fritz
  * Misc changes for Kernel 2.1.X compatibility.
  *
@@ -161,6 +164,14 @@
 #define ISDN_FEATURE_P_1TR6     (0x1000 << ISDN_PTYPE_1TR6)
 #define ISDN_FEATURE_P_EURO     (0x1000 << ISDN_PTYPE_EURO)
 
+typedef struct setup_parm {
+    char phone[32];         /* Remote Phone-Number */
+    char eazmsn[32];        /* Local EAZ or MSN    */
+    unsigned char si1;      /* Service Indicator 1 */
+    unsigned char si2;      /* Service Indicator 2 */
+    unsigned short plan;    /* Numbering plan      */
+} setup_parm;
+
 /*
  * Structure for exchanging above infos
  *
@@ -169,7 +180,10 @@ typedef struct {
   int   driver;                  /* Lowlevel-Driver-ID                    */
   int   command;                 /* Command or Status (see above)         */
   ulong arg;                     /* Additional Data                       */
-  char  num[50];                 /* Additional Data                       */
+  union {
+	char  num[50];               /* Additional Data                       */
+	setup_parm setup;
+  } parm;
 } isdn_ctrl;
 
 /*
