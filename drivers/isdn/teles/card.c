@@ -7,6 +7,9 @@
  * Beat Doebeli         log all D channel traffic
  * 
  * $Log$
+ * Revision 1.7  1996/05/31 01:02:21  fritz
+ * Cosmetic changes.
+ *
  * Revision 1.6  1996/05/26 14:58:10  fritz
  * Bugfix: Did not show port correctly, when no card found.
  *
@@ -435,7 +438,7 @@ hscx_interrupt(struct IsdnCardState *sp, byte val, byte hscx)
 			if (!r & 0x80)
 				printk(KERN_WARNING
                                        "Teles: HSCX invalid frame\n");
-			if (r & 0x40)
+			if ((r & 0x40) && mode)
 				printk(KERN_WARNING "Teles: HSCX RDO mode=%d\n",hsp->mode);
 			if (!r & 0x20)
 				printk(KERN_WARNING "Teles: HSCX CRC error\n");
