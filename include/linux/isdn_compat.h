@@ -8,55 +8,7 @@
 #include <linux/version.h>
 #endif
 
-#ifndef KERNEL_VERSION
-#define KERNEL_VERSION(x,y,z) (((x)<<16)+((y)<<8)+(z))
-#endif
-
-#if LINUX_VERSION_CODE < KERNEL_VERSION(2,1,0)
-#include <linux/mm.h>
-
-#define ioremap vremap
-#define ioremap_nocache vremap
-#define iounmap vfree
-
-static inline unsigned long copy_from_user(void *to, const void *from, unsigned long n)
-{
-	int i;
-	if ((i = verify_area(VERIFY_READ, from, n)) != 0)
-		return i;
-	memcpy_fromfs(to, from, n);
-	return 0;
-}
-
-static inline unsigned long copy_to_user(void *to, const void *from, unsigned long n)
-{
-	int i;
-	if ((i = verify_area(VERIFY_WRITE, to, n)) != 0)
-		return i;
-	memcpy_tofs(to, from, n);
-	return 0;
-}
-
-#define GET_USER(x, addr) ( x = get_user(addr) )
-#ifdef __alpha__ /* needed for 2.0.x with alpha-patches */
-#define RWTYPE long
-#define LSTYPE long
-#define RWARG unsigned long
-#else
-#define RWTYPE int
-#define LSTYPE int
-#define RWARG int
-#endif
-#define LSARG off_t
-#else
 #define COMPAT_NEED_UACCESS
-#define GET_USER get_user
-#define PUT_USER put_user
-#define RWTYPE long
-#define LSTYPE long long
-#define RWARG unsigned long
-#define LSARG long long
-#endif /* LINUX_VERSION_CODE */
 
 #if LINUX_VERSION_CODE < KERNEL_VERSION(2,1,15)
 #define SET_SKB_FREE(x) ( x->free = 1 )

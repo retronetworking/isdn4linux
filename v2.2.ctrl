@@ -1,10 +1,4 @@
 #delete #include <linux/isdn_compat.h>
-#define GET_USER get_user
-#define PUT_USER put_user
-#define RWTYPE long
-#define LSTYPE long long
-#define RWARG unsigned long
-#define LSARG long long
 #define COMPAT_NEED_UACCESS
 #define SET_SKB_FREE(x)
 #define idev_kfree_skb(a,b) dev_kfree_skb(a)
