@@ -1,33 +1,34 @@
 
 /*
  *
- * Copyright (C) Eicon Technology Corporation, 2000.
+  Copyright (c) Eicon Networks, 2000.
  *
- * This source file is supplied for the exclusive use with Eicon
- * Technology Corporation's range of DIVA Server Adapters.
+  This source file is supplied for the exclusive use with
+  Eicon Networks range of DIVA Server Adapters.
  *
- * Eicon File Revision :    1.0  
+  Eicon File Revision :    1.9
  *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2, or (at your option)
- * any later version.
+  This program is free software; you can redistribute it and/or modify
+  it under the terms of the GNU General Public License as published by
+  the Free Software Foundation; either version 2, or (at your option)
+  any later version.
  *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY OF ANY KIND WHATSOEVER INCLUDING ANY 
- * implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  
- * See the GNU General Public License for more details.
+  This program is distributed in the hope that it will be useful,
+  but WITHOUT ANY WARRANTY OF ANY KIND WHATSOEVER INCLUDING ANY
+  implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+  See the GNU General Public License for more details.
  *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
+  You should have received a copy of the GNU General Public License
+  along with this program; if not, write to the Free Software
+  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  */
-
-
-#if !defined(PR_PC_H)
-#define PR_PC_H
-
+/*------------------------------------------------------------------*/
+/* file pr_pc.h                                                     */
+/* Copyright (c) Diehl Elektronik GmbH 1989-1991                    */
+/*                                                                  */
+/* interface definition PC - ISDN-P                                 */
+/*------------------------------------------------------------------*/
 struct pr_ram {
   word NextReq;         /* pointer to next Req Buffer               */
   word NextRc;          /* pointer to next Rc Buffer                */
@@ -47,7 +48,6 @@ struct pr_ram {
   word Signature;       /* ISDN-P initialized indication            */
   byte B[1];            /* buffer space for Req,Ind and Rc          */
 };
-
 typedef struct {
   word next;
   byte Req;
@@ -58,7 +58,6 @@ typedef struct {
   byte Reserved[8];
   PBUFFER XBuffer;
 } REQ;
-
 typedef struct {
   word next;
   byte Rc;
@@ -68,7 +67,6 @@ typedef struct {
   word Reference;
   byte Reserved2[8];
 } RC;
-
 typedef struct {
   word next;
   byte Ind;
@@ -82,5 +80,3 @@ typedef struct {
   dword Ack;
   PBUFFER RBuffer;
 } IND;
-
-#endif

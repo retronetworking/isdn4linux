@@ -1,50 +1,61 @@
-# Makefile for the eicon ISDN device driver
+#
+# Makefile for the eicon diva isdn drivers.
+#
 
 # The target object and module list name.
 
-O_TARGET	:= eicon_drv.o
+O_TARGET        := divas_drv.o
+M_OBJS          :=
+O_OBJS          :=
 
 # Objects that export symbols.
 
-export-objs	:= Divas_mod.o eicon_mod.o
+export-objs     := diva_didd.o 
 
 # Multipart objects.
 
-list-multi	:= eicon.o divas.o
-eicon-objs	:= eicon_mod.o eicon_isa.o eicon_pci.o eicon_idi.o \
-		   eicon_io.o
-divas-objs	:= common.o idi.o bri.o pri.o log.o xlog.o kprintf.o fpga.o \
-		   fourbri.o lincfg.o linchr.o linsys.o linio.o \
-		   Divas_mod.o
-
-# Optional parts of multipart objects.
-
-eicon-objs-$(CONFIG_ISDN_DRV_EICON_PCI) += common.o idi.o bri.o pri.o log.o \
-		   xlog.o kprintf.o fpga.o fourbri.o lincfg.o linchr.o \
-		   linsys.o linio.o
-
-eicon-objs 	+= $(eicon-objs-y)
+list-multi      := diva2i4l.o divadidd.o divacapi.o divas.o diva_mnt.o diva_idi.o
+divas-objs      := divasmain.o di.o io.o istream.o diva.o dlist.o \
+                   os_bri.o os_4bri.o os_pri.o s_bri.o s_4bri.o s_pri.o \
+                   divasproc.o
+diva2i4l-objs   := i4l_idi.o i4lididrv.o
+divacapi-objs   := capimain.o message.o 
+divadidd-objs   := diva_didd.o dadapter.o
+diva_mnt-objs   := divamnt.o debug.o
+diva_idi-objs   := divasi.o um_idi.o dqueue.o dlist.o
 
 # Object file lists.
 
-obj-y	:=
-obj-m	:=
-obj-n	:=
-obj-	:=
+obj-y   :=
+obj-m   :=
+obj-n   :=
+obj-    :=
 
 # Each configuration option enables a list of files.
 
-obj-$(CONFIG_ISDN_DRV_EICON_OLD)    	+= eicon.o
-obj-$(CONFIG_ISDN_DRV_EICON_DIVAS)	+= divas.o
+obj-$(CONFIG_ISDN_DIVAS)               += divadidd.o divas.o diva_mnt.o diva_idi.o
+obj-$(CONFIG_ISDN_DIVAS_DIVA2I4L)      += diva2i4l.o
+obj-$(CONFIG_ISDN_DIVAS_DIVACAPI)      += divacapi.o
 
 include $(TOPDIR)/drivers/isdn/Rules.make
 
 # Link rules for multi-part drivers.
 
-eicon.o: $(eicon-objs)
-	$(LD) -r -o $@ $(eicon-objs)
-
 divas.o: $(divas-objs)
-	$(LD) -r -o $@ $(divas-objs)
+		$(LD) -r -o $@ $(divas-objs)
 
+diva2i4l.o: $(diva2i4l-objs)
+		$(LD) -r -o $@ $(diva2i4l-objs)
+
+divacapi.o: $(divacapi-objs)
+		$(LD) -r -o $@ $(divacapi-objs)
+
+divadidd.o: $(divadidd-objs)
+		$(LD) -r -o $@ $(divadidd-objs)
+
+diva_mnt.o: $(diva_mnt-objs)
+		$(LD) -r -o $@ $(diva_mnt-objs)
+
+diva_idi.o: $(diva_idi-objs)
+		$(LD) -r -o $@ $(diva_idi-objs)
 

@@ -1,45 +1,52 @@
 
 /*
  *
- * Copyright (C) Eicon Technology Corporation, 2000.
+  Copyright (c) Eicon Networks, 2000.
  *
- * This source file is supplied for the exclusive use with Eicon
- * Technology Corporation's range of DIVA Server Adapters.
+  This source file is supplied for the exclusive use with
+  Eicon Networks range of DIVA Server Adapters.
  *
- * Eicon File Revision :    1.0  
+  Eicon File Revision :    1.9
  *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2, or (at your option)
- * any later version.
+  This program is free software; you can redistribute it and/or modify
+  it under the terms of the GNU General Public License as published by
+  the Free Software Foundation; either version 2, or (at your option)
+  any later version.
  *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY OF ANY KIND WHATSOEVER INCLUDING ANY 
- * implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  
- * See the GNU General Public License for more details.
+  This program is distributed in the hope that it will be useful,
+  but WITHOUT ANY WARRANTY OF ANY KIND WHATSOEVER INCLUDING ANY
+  implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+  See the GNU General Public License for more details.
  *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
+  You should have received a copy of the GNU General Public License
+  along with this program; if not, write to the Free Software
+  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  */
-
-
-#ifndef PC_MAINT_H
-#define PC_MAINT_H
-
+/*------------------------------------------------------------------*/
+/* file pc_maint.h                                                  */
+/* Copyright (c) Diehl Elektronik GmbH 1989-1991                    */
+/*                                                                  */
+/* interface definition PC - ISDN maintainance interface            */
+/*------------------------------------------------------------------*/
 #if !defined(MIPS_SCOM)
 #define BUFFER_SZ  48
 #define MAINT_OFFS 0x380
 #else
 #define BUFFER_SZ  128
+#if defined(PRI)
+#define MAINT_OFFS 0xef00
+#else
 #define MAINT_OFFS 0xff00
 #endif
-
+#endif
 #define MIPS_BUFFER_SZ  128
+#if defined(PRI)
+#define MIPS_MAINT_OFFS 0xef00
+#else
 #define MIPS_MAINT_OFFS 0xff00
-
-#define DO_LOG                     1
+#endif
+#define LOG                     1
 #define MEMR                    2
 #define MEMW                    3
 #define IOR                     4
@@ -58,15 +65,13 @@
 #define XLOG_GET_MASK           17
 #define DSP_READ                20
 #define DSP_WRITE               21
-
 #define OK 0xff
 #define MORE_EVENTS 0xfe
 #define NO_EVENT 1
-
 struct DSigStruc
 {
   byte Id;
-  byte uX;
+  byte u;
   byte listen;
   byte active;
   byte sin[3];
@@ -75,7 +80,6 @@ struct DSigStruc
   byte hlc[6];
   byte oad[20];
 };
-
 struct BL1Struc {
   dword cx_b1;
   dword cx_b2;
@@ -88,18 +92,15 @@ struct BL1Struc {
   word er_b1;
   word er_b2;
 };
-
 struct L2Struc {
   dword XTotal;
   dword RTotal;
   word XError;
   word RError;
 };
-
 struct OSStruc {
-  word free_n;
+  dword free_n;
 };
-
 typedef union
 {
   struct DSigStruc DSigStats;
@@ -111,7 +112,6 @@ typedef union
   word   l[BUFFER_SZ>>2]; /* word is wrong, do not use! Use 'd' instead. */
   dword  d[BUFFER_SZ>>2];
 } BUFFER;
-
 typedef union
 {
   struct DSigStruc DSigStats;
@@ -123,14 +123,12 @@ typedef union
   word   l[BUFFER_SZ>>2]; /* word is wrong, do not use! Use 'd' instead. */
   dword  d[MIPS_BUFFER_SZ>>2];
 } MIPS_BUFFER;
-
-
 #if !defined(MIPS_SCOM)
 struct pc_maint
 {
   byte req;
   byte rc;
-  byte *mem;  /*far*/
+  byte  *mem;
   short length;
   word port;
   byte fill[6];
@@ -142,24 +140,21 @@ struct pc_maint
   byte req;
   byte rc;
   byte reserved[2];     /* R3000 alignment ... */
-  byte far *mem;
+  byte  *mem;
   short length;
   word port;
   byte fill[4];         /* data at offset 16   */
   BUFFER data;
 };
 #endif
-
 struct mi_pc_maint
 {
   byte req;
   byte rc;
   byte reserved[2];     /* R3000 alignment ... */
-  byte *mem; /*far*/
+  byte  *mem;
   short length;
   word port;
   byte fill[4];         /* data at offset 16   */
   MIPS_BUFFER data;
 };
-
-#endif /* PC_MAINT_H */
