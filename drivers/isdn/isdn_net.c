@@ -21,6 +21,12 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.93  1999/09/23 22:22:41  detabc
+ * added tcp-keepalive-detect with local response (ipv4 only)
+ * added host-only-interface support
+ * (source ipaddr == interface ipaddr) (ipv4 only)
+ * ok with kernel 2.3.18 and 2.2.12
+ *
  * Revision 1.92  1999/09/13 23:25:17  he
  * serialized xmitting frames from isdn_ppp and BSENT statcallb
  *
@@ -378,6 +384,49 @@
 #include <linux/isdn_dwabc.h>
 #endif
 
+#ifndef ISDN_NEW_TBUSY
+#define ISDN_NEW_TBUSY
+#endif
+#ifdef ISDN_NEW_TBUSY
+/*
+ * Outline of new tbusy handling: 
+ *
+ * Old method, roughly spoken, consisted of setting tbusy when entering
+ * isdn_net_start_xmit() and at several other locations and clearing
+ * it from isdn_net_start_xmit() thread when sending was successful.
+ *
+ * With 2.3.x multithreaded network core, to prevent problems, tbusy should
+ * only be set by the isdn_net_start_xmit() thread and only when a tx-busy
+ * condition is detected. Other threads (in particular isdn_net_stat_callb())
+ * are only allowed to clear tbusy.
+ *
+ * -HE
+ */
+
+/*
+ * Tell upper layers that the network device is ready to xmit more frames.
+ */
+static void __inline__ isdn_net_dev_xon(struct net_device * dev)
+{
+	dev->tbusy = 0;
+	mark_bh(NET_BH);
+}
+
+static void __inline__ isdn_net_lp_xon(isdn_net_local * lp)
+{
+	lp->netdev->dev.tbusy = 0;
+	if(lp->master) lp->master->tbusy = 0;
+	mark_bh(NET_BH);
+}
+
+/*
+ * Ask upper layers to temporarily cease passing us more xmit frames.
+ */
+static void __inline__ isdn_net_dev_xoff(struct net_device * dev)
+{
+	dev->tbusy = 1;
+}
+#endif
 
 /* Prototypes */
 
@@ -431,7 +480,11 @@ isdn_net_reset(struct net_device *dev)
 	save_flags(flags);
 	cli();                  /* Avoid glitch on writes to CMD regs */
 	dev->interrupt = 0;
+#ifdef ISDN_NEW_TBUSY
+	isdn_net_dev_xon(dev);
+#else
 	dev->tbusy = 0;
+#endif
 #ifdef CONFIG_ISDN_X25
 	if( cprot && cprot -> pops && dops )
 		cprot -> pops -> restart ( cprot, dev, dops );
@@ -648,13 +701,19 @@ isdn_net_stat_callback(int idx, isdn_ctrl *c)
 							mdev = &lp->netdev->dev;
 						if (!isdn_net_send_skb(mdev, lp, lp->sav_skb)) {
 							lp->sav_skb = NULL;
+#ifndef ISDN_NEW_TBUSY
 							mark_bh(NET_BH);
+#endif
 						} else {
 							return 1;
 						}
 					}
+#ifdef ISDN_NEW_TBUSY
+					isdn_net_lp_xon(lp);
+#else
 					if (test_and_clear_bit(0, (void *) &(p->dev.tbusy)))
 						mark_bh(NET_BH);
+#endif
 				}
 				return 1;
 			case ISDN_STAT_DCONN:
@@ -737,7 +796,6 @@ isdn_net_stat_callback(int idx, isdn_ctrl *c)
 						lp->dialstarted = 0;
 						lp->dialwait_timer = 0;
 
-						/* Immediately send first skb to speed up arp */
 #ifdef CONFIG_ISDN_PPP
 						if (lp->p_encap == ISDN_NET_ENCAP_SYNCPPP)
 							isdn_ppp_wakeup_daemon(lp);
@@ -748,11 +806,15 @@ isdn_net_stat_callback(int idx, isdn_ctrl *c)
 							if( pops->connect_ind)
 								pops->connect_ind(cprot);
 #endif /* CONFIG_ISDN_X25 */
+						/* Immediately send first skb to speed up arp */
 						if (lp->first_skb) {
 
 							if (!(isdn_net_xmit(&p->dev, lp, lp->first_skb)))
 								lp->first_skb = NULL;
 						}
+#ifdef ISDN_NEW_TBUSY
+						if(! lp->first_skb) isdn_net_lp_xon(lp);
+#else
 						else {
 							/*
 							 * dev.tbusy is usually cleared implicitly by isdn_net_xmit(,,lp->first_skb).
@@ -761,6 +823,7 @@ isdn_net_stat_callback(int idx, isdn_ctrl *c)
 							lp->netdev->dev.tbusy = 0;
 							mark_bh(NET_BH);
 						}
+#endif /* ISDN_NEW_TBUSY */
 						return 1;
 				}
 				break;
@@ -1295,8 +1358,12 @@ isdn_net_log_skb(struct sk_buff * skb, isdn_net_local * lp)
  * standard send-routine, else send directly.
  *
  * Return: 0 on success, !0 on failure.
+ */
+#ifndef ISDN_NEW_TBUSY
+/*
  * Side-effects: ndev->tbusy is cleared on success.
  */
+#endif
 int
 isdn_net_send_skb(struct net_device *ndev, isdn_net_local * lp,
 		  struct sk_buff *skb)
@@ -1307,13 +1374,17 @@ isdn_net_send_skb(struct net_device *ndev, isdn_net_local * lp,
 	ret = isdn_writebuf_skb_stub(lp->isdn_device, lp->isdn_channel, 1, skb);
 	if (ret == len) {
 		lp->transcount += len;
+#ifndef ISDN_NEW_TBUSY
 		clear_bit(0, (void *) &(ndev->tbusy));
+#endif
 		return 0;
 	}
 	if (ret < 0) {
 		dev_kfree_skb(skb);
 		lp->stats.tx_errors++;
+#ifndef ISDN_NEW_TBUSY
 		clear_bit(0, (void *) &(ndev->tbusy));
+#endif
 		return 0;
 	}
 	return 1;
@@ -1359,7 +1430,11 @@ isdn_net_xmit(struct net_device *ndev, isdn_net_local * lp, struct sk_buff *skb)
 			if (lp->srobin == ndev)
 				ret = isdn_net_send_skb(ndev, lp, skb);
 			else
+#ifdef ISDN_NEW_TBUSY
+				ret = isdn_net_start_xmit(skb, lp->srobin);
+#else
 				ret = ndev->tbusy = isdn_net_start_xmit(skb, lp->srobin);
+#endif
 			lp->srobin = (slp->slave) ? slp->slave : ndev;
 			slp = (isdn_net_local *) (lp->srobin->priv);
 			if (!((slp->flags & ISDN_NET_CONNECTED) && (slp->dialstate == 0)))
@@ -1437,8 +1512,13 @@ isdn_net_start_xmit(struct sk_buff *skb, struct net_device *ndev)
 		if (!lp->dialstate)
 			lp->stats.tx_errors++;
 		ndev->trans_start = jiffies;
+#ifdef ISDN_NEW_TBUSY
+		isdn_net_dev_xon(ndev);
+#endif
 	}
+#ifndef ISDN_NEW_TBUSY
 	ndev->tbusy = 1; /* left instead of obsolete test_and_set_bit() */
+#endif
 #ifdef CONFIG_ISDN_X25
 /* At this point hard_start_xmit() passes control to the encapsulation
    protocol (if present).
@@ -1452,7 +1532,11 @@ isdn_net_start_xmit(struct sk_buff *skb, struct net_device *ndev)
    when a dl_establish request is received from the upper layer.
 */
 	if( cprot ) {
-		return  cprot -> pops -> encap_and_xmit ( cprot , skb);
+		int ret = cprot -> pops -> encap_and_xmit ( cprot , skb);
+#ifdef ISDN_NEW_TBUSY
+		if(ret) isdn_net_dev_xoff(ndev);
+#endif
+		return ret;
 	} else
 #endif
 	/* auto-dialing xmit function */
@@ -1471,7 +1555,9 @@ isdn_net_start_xmit(struct sk_buff *skb, struct net_device *ndev)
 			if (!(ISDN_NET_DIALMODE(*lp) == ISDN_NET_DM_AUTO)) {
 				isdn_net_unreachable(ndev, skb, "dial rejected: interface not in dialmode `auto'");
 				dev_kfree_skb(skb);
+#ifndef ISDN_NEW_TBUSY
 				ndev->tbusy = 0;
+#endif
 				return 0;
 			}
 			if (lp->phone[1]) {
@@ -1487,7 +1573,9 @@ isdn_net_start_xmit(struct sk_buff *skb, struct net_device *ndev)
 					if(jiffies < lp->dialwait_timer) {
 						isdn_net_unreachable(ndev, skb, "dial rejected: retry-time not reached");
 						dev_kfree_skb(skb);
+#ifndef ISDN_NEW_TBUSY
 						ndev->tbusy = 0;
+#endif
 						restore_flags(flags);
 						return 0;
 					} else
@@ -1511,7 +1599,9 @@ isdn_net_start_xmit(struct sk_buff *skb, struct net_device *ndev)
 					isdn_net_unreachable(ndev, skb,
 							   "No channel");
 					dev_kfree_skb(skb);
+#ifndef ISDN_NEW_TBUSY
 					ndev->tbusy = 0;
+#endif
 					return 0;
 				}
 				/* Log packet, which triggered dialing */
@@ -1531,6 +1621,9 @@ isdn_net_start_xmit(struct sk_buff *skb, struct net_device *ndev)
 					}
 					restore_flags(flags);
 					isdn_net_dial();	/* Initiate dialing */
+#ifdef ISDN_NEW_TBUSY
+					isdn_net_dev_xoff(ndev);
+#endif
 					return 1;	/* let upper layer requeue skb packet */
 				}
 #endif
@@ -1544,7 +1637,9 @@ isdn_net_start_xmit(struct sk_buff *skb, struct net_device *ndev)
 				}
 				lp->first_skb = skb;
 				/* Initiate dialing */
+#ifndef ISDN_NEW_TBUSY
 				ndev->tbusy = 0;
+#endif
 				restore_flags(flags);
 				isdn_net_dial();
 				return 0;
@@ -1552,21 +1647,37 @@ isdn_net_start_xmit(struct sk_buff *skb, struct net_device *ndev)
 				isdn_net_unreachable(ndev, skb,
 						     "No phone number");
 				dev_kfree_skb(skb);
+#ifndef ISDN_NEW_TBUSY
 				ndev->tbusy = 0;
+#endif
 				return 0;
 			}
 		} else {
-			/* Connection is established, try sending */
+			/* Device is connected to an ISDN channel */ 
 			ndev->trans_start = jiffies;
 			if (!lp->dialstate) {
+				/* ISDN connection is established, try sending */
+				int ret;
 				if (lp->first_skb) {
-					if (isdn_net_xmit(ndev, lp, lp->first_skb))
+					if (isdn_net_xmit(ndev, lp, lp->first_skb)){
+#ifdef ISDN_NEW_TBUSY
+						isdn_net_dev_xoff(ndev);
+#endif
 						return 1;
+}
 					lp->first_skb = NULL;
 				}
-				return (isdn_net_xmit(ndev, lp, skb));
+				ret = (isdn_net_xmit(ndev, lp, skb));
+#ifdef ISDN_NEW_TBUSY
+				if(ret) isdn_net_dev_xoff(ndev);
+#endif
+				return ret;
 			} else
+#ifdef ISDN_NEW_TBUSY
+				isdn_net_dev_xoff(ndev);
+#else
 				ndev->tbusy = 1;
+#endif
 		}
 	}
 	return 1;
@@ -3429,4 +3540,3 @@ isdn_net_rmall(void)
 	restore_flags(flags);
 	return 0;
 }
-
