@@ -21,6 +21,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.16  1996/08/12 16:20:56  hipp
+ * renamed ppp_minor to ppp_slot
+ *
  * Revision 1.15  1996/06/15 14:56:57  fritz
  * Added version signatures for data structures used
  * by userlevel programs.
@@ -500,11 +503,6 @@ typedef struct {
 
 #define NUM_RCV_BUFFS     64
 #define PPP_HARD_HDR_LEN 4
-
-#define IPPP_OPEN        0x1
-#define IPPP_CONNECT     0x2
-#define IPPP_CLOSEWAIT   0x4
-#define IPPP_NOBLOCK     0x8
 
 #ifdef CONFIG_ISDN_PPP
 
