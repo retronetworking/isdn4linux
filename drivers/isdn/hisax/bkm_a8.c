@@ -7,6 +7,9 @@
  * Author       Roland Klabunde (R.Klabunde@Berkom.de)
  *
  * $Log$
+ * Revision 1.8  1999/09/04 06:20:05  keil
+ * Changes from kernel set_current_state()
+ *
  * Revision 1.7  1999/08/22 20:26:58  calle
  * backported changes from kernel 2.3.14:
  * - several #include "config.h" gone, others come.
@@ -298,13 +301,13 @@ reset_bkm(struct IsdnCardState *cs)
 
 			save_flags(flags);
 			sti();
-			set_current_state(TASK_INTERRUPTIBLE);
+			set_current_state(TASK_UNINTERRUPTIBLE);
 			schedule_timeout((10 * HZ) / 1000);
 
 			/* Remove the soft reset */
 			wordout(cs->hw.ax.plx_adr + 0x50, (wordin(cs->hw.ax.plx_adr + 0x50) | 4));
 
-			set_current_state(TASK_INTERRUPTIBLE);
+			set_current_state(TASK_UNINTERRUPTIBLE);
 			schedule_timeout((10 * HZ) / 1000);
 			restore_flags(flags);
 		}

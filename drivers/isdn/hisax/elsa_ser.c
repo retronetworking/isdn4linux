@@ -410,7 +410,7 @@ static inline void check_modem_status(struct IsdnCardState *cs)
 		}
 		if (status & UART_MSR_DCTS)
 			icount->cts++;
-//		wake_up_interruptible(&info->delta_msr_wait);
+//		wake_up(&info->delta_msr_wait);
 	}
 
 	if ((info->flags & ASYNC_CHECK_CD) && (status & UART_MSR_DDCD)) {
@@ -419,7 +419,7 @@ static inline void check_modem_status(struct IsdnCardState *cs)
 		       (status & UART_MSR_DCD) ? "on" : "off");
 #endif		
 		if (status & UART_MSR_DCD)
-//			wake_up_interruptible(&info->open_wait);
+//			wake_up(&info->open_wait);
 ;
 		else if (!((info->flags & ASYNC_CALLOUT_ACTIVE) &&
 			   (info->flags & ASYNC_CALLOUT_NOHUP))) {

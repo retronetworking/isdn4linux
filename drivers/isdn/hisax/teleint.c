@@ -6,6 +6,9 @@
  *
  *
  * $Log$
+ * Revision 1.11  1999/09/04 06:20:06  keil
+ * Changes from kernel set_current_state()
+ *
  * Revision 1.10  1999/08/31 11:20:27  paul
  * various spelling corrections (new checksums may be needed, Karsten!)
  *
@@ -257,11 +260,11 @@ reset_TeleInt(struct IsdnCardState *cs)
 	byteout(cs->hw.hfc.addr | 1, cs->hw.hfc.cirm);	/* Reset On */
 	save_flags(flags);
 	sti();
-	set_current_state(TASK_INTERRUPTIBLE);
+	set_current_state(TASK_UNINTERRUPTIBLE);
 	schedule_timeout((30*HZ)/1000);
 	cs->hw.hfc.cirm &= ~HFC_RESET;
 	byteout(cs->hw.hfc.addr | 1, cs->hw.hfc.cirm);	/* Reset Off */
-	set_current_state(TASK_INTERRUPTIBLE);
+	set_current_state(TASK_UNINTERRUPTIBLE);
 	schedule_timeout((10*HZ)/1000);
 	restore_flags(flags);
 }

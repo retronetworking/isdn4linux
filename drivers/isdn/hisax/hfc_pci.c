@@ -23,6 +23,10 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.24  1999/11/17 23:59:55  werner
+ *
+ * removed unneeded data
+ *
  * Revision 1.23  1999/11/07 17:01:55  keil
  * fix for 2.3 pci structs
  *
@@ -167,7 +171,7 @@ release_io_hfcpci(struct IsdnCardState *cs)
 	restore_flags(flags);
 	Write_hfc(cs, HFCPCI_CIRM, HFCPCI_RESET);	/* Reset On */
 	sti();
-	set_current_state(TASK_INTERRUPTIBLE);
+	set_current_state(TASK_UNINTERRUPTIBLE);
 	schedule_timeout((30 * HZ) / 1000);	/* Timeout 30ms */
 	Write_hfc(cs, HFCPCI_CIRM, 0);	/* Reset Off */
 #if CONFIG_PCI
@@ -198,10 +202,10 @@ reset_hfcpci(struct IsdnCardState *cs)
 	pcibios_write_config_word(cs->hw.hfcpci.pci_bus, cs->hw.hfcpci.pci_device_fn, PCI_COMMAND, PCI_ENA_MEMIO + PCI_ENA_MASTER);	/* enable memory ports + busmaster */
 	Write_hfc(cs, HFCPCI_CIRM, HFCPCI_RESET);	/* Reset On */
 	sti();
-	set_current_state(TASK_INTERRUPTIBLE);
+	set_current_state(TASK_UNINTERRUPTIBLE);
 	schedule_timeout((30 * HZ) / 1000);	/* Timeout 30ms */
 	Write_hfc(cs, HFCPCI_CIRM, 0);	/* Reset Off */
-	set_current_state(TASK_INTERRUPTIBLE);
+	set_current_state(TASK_UNINTERRUPTIBLE);
 	schedule_timeout((20 * HZ) / 1000);	/* Timeout 20ms */
 	if (Read_hfc(cs, HFCPCI_STATUS) & 2)
 		printk(KERN_WARNING "HFC-PCI init bit busy\n");
@@ -1705,7 +1709,7 @@ hfcpci_card_msg(struct IsdnCardState *cs, int mt, void *arg)
 			inithfcpci(cs);
 			save_flags(flags);
 			sti();
-			set_current_state(TASK_INTERRUPTIBLE);
+			set_current_state(TASK_UNINTERRUPTIBLE);
 			schedule_timeout((80 * HZ) / 1000);	/* Timeout 80ms */
 			/* now switch timer interrupt off */
 			cs->hw.hfcpci.int_m1 &= ~HFCPCI_INTS_TIMER;

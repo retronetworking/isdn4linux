@@ -8,6 +8,9 @@
  *
  *
  * $Log$
+ * Revision 1.4  1999/09/04 06:20:06  keil
+ * Changes from kernel set_current_state()
+ *
  * Revision 1.3  1999/07/12 21:05:26  keil
  * fix race in IRQ handling
  * added watchdog for lost IRQs
@@ -234,10 +237,10 @@ saphir_reset(struct IsdnCardState *cs)
 	save_flags(flags);
 	sti();
 	byteout(cs->hw.saphir.cfg_reg + RESET_REG, 1);
-	set_current_state(TASK_INTERRUPTIBLE);
+	set_current_state(TASK_UNINTERRUPTIBLE);
 	schedule_timeout((30*HZ)/1000);	/* Timeout 30ms */
 	byteout(cs->hw.saphir.cfg_reg + RESET_REG, 0);
-	set_current_state(TASK_INTERRUPTIBLE);
+	set_current_state(TASK_UNINTERRUPTIBLE);
 	schedule_timeout((30*HZ)/1000);	/* Timeout 30ms */
 	restore_flags(flags);
 	byteout(cs->hw.saphir.cfg_reg + IRQ_REG, irq_val);

@@ -8,6 +8,9 @@
  *
  *
  * $Log$
+ * Revision 1.8  1999/09/04 06:20:05  keil
+ * Changes from kernel set_current_state()
+ *
  * Revision 1.7  1999/07/12 21:04:53  keil
  * fix race in IRQ handling
  * added watchdog for lost IRQs
@@ -288,13 +291,13 @@ reset_asuscom(struct IsdnCardState *cs)
 		byteout(cs->hw.asus.adr, ASUS_RESET);	/* Reset On */
 	save_flags(flags);
 	sti();
-	set_current_state(TASK_INTERRUPTIBLE);
+	set_current_state(TASK_UNINTERRUPTIBLE);
 	schedule_timeout((10*HZ)/1000);
 	if (cs->subtyp == ASUS_IPAC)
 		writereg(cs->hw.asus.adr, cs->hw.asus.isac, IPAC_POTA2, 0x0);
 	else
 		byteout(cs->hw.asus.adr, 0);	/* Reset Off */
-	set_current_state(TASK_INTERRUPTIBLE);
+	set_current_state(TASK_UNINTERRUPTIBLE);
 	schedule_timeout((10*HZ)/1000);
 	if (cs->subtyp == ASUS_IPAC) {
 		writereg(cs->hw.asus.adr, cs->hw.asus.isac, IPAC_CONF, 0x0);

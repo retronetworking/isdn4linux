@@ -205,7 +205,6 @@
  *   34	Gazel ISDN cards
  *   35 HFC 2BDS0 PCI           none
  *   36 Winbond 6692 PCI        none
- *   37 HFC 2BDS0 S+/SP         p0=irq p1=iobase
  *
  * protocol can be either ISDN_PTYPE_EURO or ISDN_PTYPE_1TR6 or ISDN_PTYPE_NI1
  *
@@ -221,7 +220,6 @@ const char *CardType[] =
  "AMD 7930", "NICCY", "S0Box", "AVM A1 (PCMCIA)", "AVM Fritz PnP/PCI",
  "Sedlbauer Speed Fax +", "Siemens I-Surf", "Acer P10", "HST Saphir",
  "Telekom A4T", "Scitel Quadro", "Gazel", "HFC 2BDS0 PCI", "Winbond 6692",
- "HFC 2BDS0 SX",
 };
 
 void HiSax_closecard(int cardnr);
@@ -380,13 +378,6 @@ static struct symbol_table hisax_syms_sedl= {
 #undef DEFAULT_CFG
 #define DEFAULT_CARD ISDN_CTYPE_HFC_PCI
 #define DEFAULT_CFG {0,0,0,0}
-#endif
-
-#ifdef CONFIG_HISAX_HFC_SX
-#undef DEFAULT_CARD
-#undef DEFAULT_CFG
-#define DEFAULT_CARD ISDN_CTYPE_HFC_SX
-#define DEFAULT_CFG {5,0x2E0,0,0}
 #endif
 
 
@@ -737,10 +728,6 @@ extern int setup_hfcs(struct IsdnCard *card);
 extern int setup_hfcpci(struct IsdnCard *card);
 #endif
 
-#if CARD_HFC_SX
-extern int setup_hfcsx(struct IsdnCard *card);
-#endif
-
 #if CARD_AMD7930
 extern int setup_amd7930(struct IsdnCard *card);
 #endif
@@ -1048,7 +1035,7 @@ HISAX_INITFUNC(static int init_card(struct IsdnCardState *cs))
 	while (cnt) {
 		cs->cardmsg(cs, CARD_INIT, NULL);
 		sti();
-		set_current_state(TASK_INTERRUPTIBLE);
+		set_current_state(TASK_UNINTERRUPTIBLE);
 		/* Timeout 10ms */
 		schedule_timeout((10*HZ)/1000);
 		restore_flags(flags);
@@ -1260,11 +1247,6 @@ checkcard(int cardnr, char *id, int *busy_flag))
 #if CARD_HFC_PCI
 		        case ISDN_CTYPE_HFC_PCI: 
 				ret = setup_hfcpci(card);
-				break;
-#endif
-#if CARD_HFC_SX
-		        case ISDN_CTYPE_HFC_SX: 
-				ret = setup_hfcsx(card);
 				break;
 #endif
 #if CARD_NICCY
@@ -1624,7 +1606,6 @@ HiSax_init(void))
 			case ISDN_CTYPE_FRITZPCI:
 			case ISDN_CTYPE_HSTSAPHIR:
 			case ISDN_CTYPE_GAZEL:
-		        case ISDN_CTYPE_HFC_SX:
 				cards[i].para[0] = irq[i];
 				cards[i].para[1] = io[i];
 				break;

@@ -14,6 +14,9 @@
  *              for ELSA PCMCIA support
  *
  * $Log$
+ * Revision 2.19  1999/09/04 06:20:06  keil
+ * Changes from kernel set_current_state()
+ *
  * Revision 2.18  1999/08/25 16:50:54  keil
  * Fix bugs which cause 2.3.14 hangs (waitqueue init)
  *
@@ -578,10 +581,10 @@ reset_elsa(struct IsdnCardState *cs)
 		save_flags(flags);
 		sti();
 		writereg(cs->hw.elsa.ale, cs->hw.elsa.isac, IPAC_POTA2, 0x20);
-		set_current_state(TASK_INTERRUPTIBLE);
+		set_current_state(TASK_UNINTERRUPTIBLE);
 		schedule_timeout((10*HZ)/1000); /* Timeout 10ms */
 		writereg(cs->hw.elsa.ale, cs->hw.elsa.isac, IPAC_POTA2, 0x00);
-		set_current_state(TASK_INTERRUPTIBLE);
+		set_current_state(TASK_UNINTERRUPTIBLE);
 		writereg(cs->hw.elsa.ale, cs->hw.elsa.isac, IPAC_MASK, 0xc0);
 		schedule_timeout((10*HZ)/1000); /* Timeout 10ms */
 		restore_flags(flags);
@@ -785,7 +788,7 @@ Elsa_card_msg(struct IsdnCardState *cs, int mt, void *arg)
 				cs->hw.elsa.status |= ELSA_TIMER_AKTIV;
 				byteout(cs->hw.elsa.ctrl, cs->hw.elsa.ctrl_reg);
 				byteout(cs->hw.elsa.timer, 0);
-				set_current_state(TASK_INTERRUPTIBLE);
+				set_current_state(TASK_UNINTERRUPTIBLE);
 				schedule_timeout((110*HZ)/1000);
 				restore_flags(flags);
 				cs->hw.elsa.ctrl_reg &= ~ELSA_ENA_TIMER_INT;

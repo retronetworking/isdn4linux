@@ -7,6 +7,9 @@
  *
  *
  * $Log$
+ * Revision 1.13  1999/12/03 12:10:14  keil
+ * Bugfix: Wrong channel use on hangup of channel 2
+ *
  * Revision 1.12  1999/09/04 06:20:05  keil
  * Changes from kernel set_current_state()
  *
@@ -747,11 +750,11 @@ reset_avmpcipnp(struct IsdnCardState *cs)
 	save_flags(flags);
 	sti();
 	outb(AVM_STATUS0_RESET | AVM_STATUS0_DIS_TIMER, cs->hw.avm.cfg_reg + 2);
-	set_current_state(TASK_INTERRUPTIBLE);
+	set_current_state(TASK_UNINTERRUPTIBLE);
 	schedule_timeout((10*HZ)/1000); /* Timeout 10ms */
 	outb(AVM_STATUS0_DIS_TIMER | AVM_STATUS0_RES_TIMER | AVM_STATUS0_ENA_IRQ, cs->hw.avm.cfg_reg + 2);
 	outb(AVM_STATUS1_ENA_IOM | cs->irq, cs->hw.avm.cfg_reg + 3);
-	set_current_state(TASK_INTERRUPTIBLE);
+	set_current_state(TASK_UNINTERRUPTIBLE);
 	schedule_timeout((10*HZ)/1000); /* Timeout 10ms */
 	printk(KERN_INFO "AVM PCI/PnP: S1 %x\n", inb(cs->hw.avm.cfg_reg + 3));
 }

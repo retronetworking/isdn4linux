@@ -12,6 +12,9 @@
  *
  *
  * $Log$
+ * Revision 1.17  1999/09/04 06:20:06  keil
+ * Changes from kernel set_current_state()
+ *
  * Revision 1.16  1999/08/11 21:01:25  keil
  * new PCI codefix
  *
@@ -752,30 +755,30 @@ reset_diva(struct IsdnCardState *cs)
 	sti();
 	if (cs->subtyp == DIVA_IPAC_ISA) {
 		writereg(cs->hw.diva.isac_adr, cs->hw.diva.isac, IPAC_POTA2, 0x20);
-		set_current_state(TASK_INTERRUPTIBLE);
+		set_current_state(TASK_UNINTERRUPTIBLE);
 		schedule_timeout((10*HZ)/1000);
 		writereg(cs->hw.diva.isac_adr, cs->hw.diva.isac, IPAC_POTA2, 0x00);
-		set_current_state(TASK_INTERRUPTIBLE);
+		set_current_state(TASK_UNINTERRUPTIBLE);
 		schedule_timeout((10*HZ)/1000);
 		writereg(cs->hw.diva.isac_adr, cs->hw.diva.isac, IPAC_MASK, 0xc0);
 	} else if (cs->subtyp == DIVA_IPAC_PCI) {
 		unsigned int *ireg = (unsigned int *)(cs->hw.diva.pci_cfg +
 					PITA_MISC_REG);
 		*ireg = PITA_PARA_SOFTRESET | PITA_PARA_MPX_MODE;
-		set_current_state(TASK_INTERRUPTIBLE);
+		set_current_state(TASK_UNINTERRUPTIBLE);
 		schedule_timeout((10*HZ)/1000);
 		*ireg = PITA_PARA_MPX_MODE;
-		set_current_state(TASK_INTERRUPTIBLE);
+		set_current_state(TASK_UNINTERRUPTIBLE);
 		schedule_timeout((10*HZ)/1000);
 		memwritereg(cs->hw.diva.cfg_reg, IPAC_MASK, 0xc0);
 	} else { /* DIVA 2.0 */
 		cs->hw.diva.ctrl_reg = 0;        /* Reset On */
 		byteout(cs->hw.diva.ctrl, cs->hw.diva.ctrl_reg);
-		set_current_state(TASK_INTERRUPTIBLE);
+		set_current_state(TASK_UNINTERRUPTIBLE);
 		schedule_timeout((10*HZ)/1000);
 		cs->hw.diva.ctrl_reg |= DIVA_RESET;  /* Reset Off */
 		byteout(cs->hw.diva.ctrl, cs->hw.diva.ctrl_reg);
-		set_current_state(TASK_INTERRUPTIBLE);
+		set_current_state(TASK_UNINTERRUPTIBLE);
 		schedule_timeout((10*HZ)/1000);
 		if (cs->subtyp == DIVA_ISA)
 			cs->hw.diva.ctrl_reg |= DIVA_ISA_LED_A;

@@ -5,6 +5,9 @@
  * Author     Karsten Keil (keil@isdn4linux.de)
  *
  * $Log$
+ * Revision 1.7  1999/11/14 23:37:03  keil
+ * new ISA memory mapped IO
+ *
  * Revision 1.6  1999/09/04 06:20:06  keil
  * Changes from kernel set_current_state()
  *
@@ -161,10 +164,10 @@ reset_isurf(struct IsdnCardState *cs, u_char chips)
 	byteout(cs->hw.isurf.reset, chips); /* Reset On */
 	save_flags(flags);
 	sti();
-	set_current_state(TASK_INTERRUPTIBLE);
+	set_current_state(TASK_UNINTERRUPTIBLE);
 	schedule_timeout((10*HZ)/1000);
 	byteout(cs->hw.isurf.reset, ISURF_ISAR_EA); /* Reset Off */
-	set_current_state(TASK_INTERRUPTIBLE);
+	set_current_state(TASK_UNINTERRUPTIBLE);
 	schedule_timeout((10*HZ)/1000);
 	restore_flags(flags);
 }

@@ -7,6 +7,9 @@
  *
  *
  * $Log$
+ * Revision 1.8  1999/08/25 16:50:51  keil
+ * Fix bugs which cause 2.3.14 hangs (waitqueue init)
+ *
  * Revision 1.7  1999/07/01 08:11:17  keil
  * Common HiSax version for 2.0, 2.1, 2.2 and 2.3 kernel
  *
@@ -80,7 +83,7 @@ arcofi_fsm(struct IsdnCardState *cs, int event, void *data) {
 	if (event == ARCOFI_TIMEOUT) {
 		cs->dc.isac.arcofi_state = ARCOFI_NOP;
 		test_and_set_bit(FLG_ARCOFI_ERROR, &cs->HW_Flags);
-		wake_up_interruptible(&cs->dc.isac.arcofi_wait);
+		wake_up(&cs->dc.isac.arcofi_wait);
  		return(1);
 	}
 	switch (cs->dc.isac.arcofi_state) {
@@ -106,7 +109,7 @@ arcofi_fsm(struct IsdnCardState *cs, int event, void *data) {
 							del_timer(&cs->dc.isac.arcofitimer);
 						}
 						cs->dc.isac.arcofi_state = ARCOFI_NOP;
-						wake_up_interruptible(&cs->dc.isac.arcofi_wait);
+						wake_up(&cs->dc.isac.arcofi_wait);
 					}
 				}
 			}
@@ -123,7 +126,7 @@ arcofi_fsm(struct IsdnCardState *cs, int event, void *data) {
 						del_timer(&cs->dc.isac.arcofitimer);
 					}
 					cs->dc.isac.arcofi_state = ARCOFI_NOP;
-					wake_up_interruptible(&cs->dc.isac.arcofi_wait);
+					wake_up(&cs->dc.isac.arcofi_wait);
 				}
 			}
 			break;

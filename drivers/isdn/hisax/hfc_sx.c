@@ -22,6 +22,11 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.1  1999/11/18 00:09:18  werner
+ *
+ * Initial release of files for HFC-S+ and HFC-SP cards with 32K-RAM.
+ * Audio and Echo are supported.
+ *
  *
  *
  */
@@ -330,7 +335,7 @@ release_io_hfcsx(struct IsdnCardState *cs)
 	restore_flags(flags);
 	Write_hfc(cs, HFCSX_CIRM, HFCSX_RESET);	/* Reset On */
 	sti();
-	set_current_state(TASK_INTERRUPTIBLE);
+	set_current_state(TASK_UNINTERRUPTIBLE);
 	schedule_timeout((30 * HZ) / 1000);	/* Timeout 30ms */
 	Write_hfc(cs, HFCSX_CIRM, 0);	/* Reset Off */
 	del_timer(&cs->hw.hfcsx.timer);
@@ -377,10 +382,10 @@ reset_hfcsx(struct IsdnCardState *cs)
 	while (1) {
 	  Write_hfc(cs, HFCSX_CIRM, HFCSX_RESET | cs->hw.hfcsx.cirm ); /* Reset */
 	  sti();
-	  set_current_state(TASK_INTERRUPTIBLE);
+	  set_current_state(TASK_UNINTERRUPTIBLE);
 	  schedule_timeout((30 * HZ) / 1000);	/* Timeout 30ms */
 	  Write_hfc(cs, HFCSX_CIRM, cs->hw.hfcsx.cirm); /* Reset Off */
-	  set_current_state(TASK_INTERRUPTIBLE);
+	  set_current_state(TASK_UNINTERRUPTIBLE);
 	  schedule_timeout((20 * HZ) / 1000);	/* Timeout 20ms */
 	  if (Read_hfc(cs, HFCSX_STATUS) & 2)
 	    printk(KERN_WARNING "HFC-SX init bit busy\n");
@@ -1465,7 +1470,7 @@ hfcsx_card_msg(struct IsdnCardState *cs, int mt, void *arg)
 			inithfcsx(cs);
 			save_flags(flags);
 			sti();
-			set_current_state(TASK_INTERRUPTIBLE);
+			set_current_state(TASK_UNINTERRUPTIBLE);
 			schedule_timeout((80 * HZ) / 1000);	/* Timeout 80ms */
 			/* now switch timer interrupt off */
 			cs->hw.hfcsx.int_m1 &= ~HFCSX_INTS_TIMER;
