@@ -11,6 +11,9 @@
  *              Beat Doebeli
  *
  * $Log$
+ * Revision 1.2  1997/04/06 22:54:21  keil
+ * Using SKB's
+ *
  * Revision 1.1  1997/01/27 15:43:10  keil
  * first version
  *
@@ -832,6 +835,7 @@ int
 initix1micro(struct IsdnCardState *sp)
 {
 	int ret;
+	int loop = 0;
 	char tmp[40];
 
 	sp->counter = kstat.interrupts[sp->irq];
@@ -843,6 +847,16 @@ initix1micro(struct IsdnCardState *sp)
 		initisac(sp);
 		sp->modehscx(sp->hs, 0, 0);
 		sp->modehscx(sp->hs + 1, 0, 0);
+		while (loop++ < 10) {
+			/* At least 1-3 irqs must happen
+			 * (one from HSCX A, one from HSCX B, 3rd from ISAC)
+			 */
+			if (kstat.interrupts[sp->irq] > sp->counter)
+				break;
+			current->state = TASK_INTERRUPTIBLE;
+			current->timeout = jiffies + 1;
+			schedule();
+		}
 		sprintf(tmp, "IRQ %d count %d", sp->irq,
 			kstat.interrupts[sp->irq]);
 		debugl1(sp, tmp);

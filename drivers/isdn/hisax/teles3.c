@@ -11,6 +11,9 @@
  *              Beat Doebeli
  *
  * $Log$
+ * Revision 1.10  1997/04/06 22:54:05  keil
+ * Using SKB's
+ *
  * Revision 1.9  1997/03/22 02:01:07  fritz
  * -Reworked toplevel Makefile. From now on, no different Makefiles
  *  for standalone- and in-kernel-compilation are needed any more.
@@ -574,8 +577,10 @@ hscx_int_main(struct IsdnCardState *sp, u_char val)
 static void
 teles3_interrupt(int intno, void *dev_id, struct pt_regs *regs)
 {
+#define MAXCOUNT 20
 	struct IsdnCardState *sp;
 	u_char val, stat = 0;
+	int count = 0;
 
 	sp = (struct IsdnCardState *) irq2dev_map[intno];
 
@@ -595,18 +600,21 @@ teles3_interrupt(int intno, void *dev_id, struct pt_regs *regs)
 		isac_interrupt(sp, val);
 		stat |= 2;
 	}
+	count++;
 	val = readreg(sp->hscx[1], HSCX_ISTA);
-	if (val) {
+	if (val && count < MAXCOUNT) {
 		if (sp->debug & L1_DEB_HSCX)
 			debugl1(sp, "HSCX IntStat after IntRoutine");
 		goto Start_HSCX;
 	}
 	val = readreg(sp->isac, ISAC_ISTA);
-	if (val) {
+	if (val && count < MAXCOUNT) {
 		if (sp->debug & L1_DEB_ISAC)
 			debugl1(sp, "ISAC IntStat after IntRoutine");
 		goto Start_ISAC;
 	}
+	if (count >= MAXCOUNT)
+		printk(KERN_WARNING "Teles3: more than %d loops in teles3_interrupt\n", count);
 	if (stat & 1) {
 		writereg(sp->hscx[0], HSCX_MASK, 0xFF);
 		writereg(sp->hscx[1], HSCX_MASK, 0xFF);
@@ -793,7 +801,6 @@ initteles3(struct IsdnCardState *sp)
 	sp->counter = kstat.interrupts[sp->irq];
 	sprintf(tmp, "IRQ %d count %d", sp->irq, sp->counter);
 	debugl1(sp, tmp);
-	sp->counter += 2;
 	clear_pending_ints(sp);
 	ret = get_irq(sp->cardnr, &teles3_interrupt);
 	if (ret) {
@@ -803,7 +810,7 @@ initteles3(struct IsdnCardState *sp)
 		sp->modehscx(sp->hs + 1, 0, 0);
 		writereg(sp->hscx[(sp->hs + 1)->hscx], HSCX_CMDR, 0x01);
 		while (loop++ < 10) {
-			/* At least 3 irqs must happen
+			/* At least 1-3 irqs must happen
 			 * (one from HSCX A, one from HSCX B, 3rd from ISAC)
 			 */
 			if (kstat.interrupts[sp->irq] > sp->counter)
