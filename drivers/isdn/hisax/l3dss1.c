@@ -9,6 +9,9 @@
  *              Fritz Elfert
  *
  * $Log$
+ * Revision 1.12  1997/02/17 00:34:26  keil
+ * Bugfix: Wrong cause delivered
+ *
  * Revision 1.11  1997/02/16 12:12:47  fritz
  * Bugfix: SI2 was nont initialized on incoming calls.
  *
@@ -49,6 +52,7 @@
 #define __NO_VERSION__
 #include "hisax.h"
 #include "isdnl3.h"
+#include <linux/ctype.h>
 
 extern char *HiSax_getrev(const char *revision);
 const char *dss1_revision = "$Revision$";
@@ -112,7 +116,10 @@ l3dss1_setup_req(struct PStack *st, byte pr,
 {
 	struct BufHeader *dibh;
 	byte *p;
-	char *teln;
+	byte channel=0;
+	byte screen=0;
+	byte *teln;
+	byte *msn;
 
 	st->l3.callref = st->pa->callref;
 	BufPoolGet(&dibh, st->l1.sbufpool, GFP_ATOMIC, (void *) st, 19);
@@ -124,7 +131,7 @@ l3dss1_setup_req(struct PStack *st, byte pr,
 	/*
 	 * Set Bearer Capability, Map info from 1TR6-convention to EDSS1
 	 */
-	*p++ = 0xa1;
+	*p++ = 0xa1; /* complete indicator */
 	switch (st->pa->setup.si1) {
 	case 1:		/* Telephony                               */
 		*p++ = 0x4;	/* BC-IE-code                              */
@@ -145,21 +152,53 @@ l3dss1_setup_req(struct PStack *st, byte pr,
 	/*
 	 * What about info2? Mapping to High-Layer-Compatibility?
 	 */
-	if (st->pa->setup.eazmsn[0]) {
+        teln = st->pa->setup.phone;
+	if (*teln) {
+                /* parse number for special things */
+                if (!isdigit(*teln)) {
+                	switch (0x5f & *teln) {
+                		case 'C': channel = 0x08;
+                	        case 'P': channel |= 0x80;
+                	        	  teln++;
+                	        	  if (*teln=='1')
+                	        	  	channel |= 0x01;
+                	        	  else
+                	        	  	channel |= 0x02;
+                	        	  break;
+                	        case 'R': screen = 0xA0;
+                	        	  break;
+                	        case 'D': screen = 0x80;
+                	        	  break;
+                	        default:  if (st->l3.debug & L3_DEB_WARN)
+                	                        l3_debug(st, "Wrong MSN Code");
+                	                  break;
+                	}
+                	teln++;
+                }
+	}
+	if (channel) {
+		*p++ = 0x18; /* channel indicator */
+		*p++ = 1;
+		*p++ = channel;
+	}
+	msn = st->pa->setup.eazmsn;
+	if (*msn) {
 		*p++ = 0x6c;
-		*p++ = strlen(st->pa->setup.eazmsn) + 1;
+		*p++ = strlen(msn) + (screen ? 2 : 1);
 		/* Classify as AnyPref. */
-		*p++ = 0x81;	/* Ext = '1'B, Type = '000'B, Plan = '0001'B. */
-		teln = st->pa->setup.eazmsn;
-		while (*teln)
-			*p++ = *teln++ & 0x7f;
+		if (screen) {
+			*p++ = 0x01;	/* Ext = '0'B, Type = '000'B, Plan = '0001'B. */
+			*p++ = screen;
+		} else
+			*p++ = 0x81;	/* Ext = '1'B, Type = '000'B, Plan = '0001'B. */
+ 		while (*msn)
+			*p++ = *msn++ & 0x7f;
 	}
 	*p++ = 0x70;
-	*p++ = strlen(st->pa->setup.phone) + 1;
+	*p++ = strlen(teln) + 1;
 	/* Classify as AnyPref. */
 	*p++ = 0x81;		/* Ext = '1'B, Type = '000'B, Plan = '0001'B. */
 
-	teln = st->pa->setup.phone;
 	while (*teln)
 		*p++ = *teln++ & 0x7f;
 
