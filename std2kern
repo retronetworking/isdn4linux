@@ -6,6 +6,7 @@ UNIQUE=false
 VERBOSE=false
 NOTEST=true
 DODIFF=false
+DIFFREV=false
 ALLOW_ANY_DIR=true
 
 docp() {
@@ -105,7 +106,11 @@ docp() {
 	if $VERBOSE; then
 	    echo
 	fi
-	diff -u $SRCNAME $2
+	if $DIFFREV; then
+	    diff -u $2 $SRCNAME
+        else
+	    diff -u $SRCNAME $2
+	fi
     else
 	# do the actual copy, if necessary
 	if ! cmp -s $SRCNAME $2 ; then
@@ -147,8 +152,9 @@ usage() {
 	-h	This Text.
 	-k DIR	Kerneltree is in DIR instead of /usr/src/linux
         -v      More mesages about processing
-	-u      Make a diff for a unique kernel-tree 
-                (preprocessing with $PREPARSER)
+	-u      preprocessing with $PREPARSER
+	-d      don't copy but do a unified diff instead
+	-r      reverse directions of diff
 	-c FILE	Use FILE as control file for $PREPARSER (only with -u)
 	-t      Test, don't really copy files
 
@@ -197,7 +203,7 @@ calc_ctrl_file() {
 	exit 1
 }
 
-while getopts :dhk:uc:vtid a ; do
+while getopts :dhk:uc:vtidr a ; do
 	case $a in
 		\?)	case $OPTARG in
 				k)	echo "-k requires Kernel directory parameter"
@@ -222,6 +228,8 @@ while getopts :dhk:uc:vtid a ; do
 		i)      ALLOW_ANY_DIR=true;
 			;;
 		d)      DODIFF=true;
+			;;
+		r)      DIFFREV=true;
 			;;
 		h)	usage
 			;;
