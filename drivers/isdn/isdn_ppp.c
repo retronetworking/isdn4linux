@@ -269,8 +269,6 @@
  *
  */
 
-/* TODO: right tbusy handling when using MP */
-
 #define CONFIG_ISDN_CCP 1
 
 #include <linux/config.h>
@@ -1558,6 +1556,7 @@ isdn_ppp_xmit(struct sk_buff *skb, struct net_device *netdev)
 			return 1;
 		}
 	}
+	lp = nd->queue;
 
 	ipt = ippp_table[lp->ppp_slot];
 	lp->huptimer = 0;
@@ -1698,8 +1697,7 @@ isdn_ppp_xmit(struct sk_buff *skb, struct net_device *netdev)
 		isdn_ppp_frame_log("xmit", skb->data, skb->len, 32,ipt->unit,lp->ppp_slot);
 	}
 	
-	if (isdn_net_writebuf_skb(lp, skb))
-		dev_kfree_skb(skb);
+	isdn_net_writebuf_skb(lp, skb);
 	return 0;
 }
 

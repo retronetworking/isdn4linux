@@ -507,24 +507,6 @@
  * --KG
  */
 
-static __inline__ void isdn_net_inc_frame_cnt(isdn_net_local *lp)
-{
-	atomic_inc(&lp->frame_cnt);
-	printk(KERN_DEBUG "%s: inc_frame_cnt now %d\n", lp->name, atomic_read(&lp->frame_cnt));
-}
-
-static __inline__ void isdn_net_dec_frame_cnt(isdn_net_local *lp)
-{
-	atomic_dec(&lp->frame_cnt);
-	printk(KERN_DEBUG "%s: dec_frame_cnt now %d\n", lp->name, atomic_read(&lp->frame_cnt));
-}
-
-static __inline__ void isdn_net_zero_frame_cnt(isdn_net_local *lp)
-{
-	atomic_set(&lp->frame_cnt, 0);
-	printk(KERN_DEBUG "%s: zero_frame_cnt now %d\n", lp->name, atomic_read(&lp->frame_cnt));
-}
-
 /* 
  * Find out if the netdevice has been ifup-ed yet.
  * For slaves, look at the corresponding master.
@@ -567,6 +549,51 @@ static __inline__ void isdn_net_lp_xoff(isdn_net_local * lp)
 		netif_stop_queue(lp->master);
 	else
 		netif_stop_queue(&lp->netdev->dev);
+}
+
+static __inline__ int isdn_net_lp_busy(isdn_net_local *lp)
+{
+	if (atomic_read(&lp->frame_cnt) < ISDN_NET_MAX_QUEUE_LENGTH)
+		return 0;
+	/* multilink raw-ip and syncppp need to be handled differently */
+	if (lp->p_encap == ISDN_NET_ENCAP_SYNCPPP) {
+		isdn_net_local *nlp = lp->next;
+		while (nlp != lp) {
+			if (atomic_read(&nlp->frame_cnt) < ISDN_NET_MAX_QUEUE_LENGTH)
+				return 0;
+			nlp = nlp->next;
+		}
+	} else {
+		printk("isdn_net_lp_busy: not done yet!\n");
+	}
+	return 1;
+}
+
+static __inline__ void isdn_net_inc_frame_cnt(isdn_net_local *lp)
+{
+	atomic_inc(&lp->frame_cnt);
+	if (isdn_net_lp_busy(lp))
+		isdn_net_lp_xoff(lp);
+	printk(KERN_DEBUG "%s: inc_frame_cnt now %d\n", lp->name, atomic_read(&lp->frame_cnt));
+}
+
+static __inline__ void isdn_net_dec_frame_cnt(isdn_net_local *lp)
+{
+	atomic_dec(&lp->frame_cnt);
+	if (!(isdn_net_lp_busy(lp))) {
+		if (!skb_queue_empty(&lp->super_tx_queue)) {
+			queue_task(&lp->tqueue, &tq_scheduler);
+		} else {
+			isdn_net_lp_xon(lp);
+		}
+	}
+	printk(KERN_DEBUG "%s: dec_frame_cnt now %d\n", lp->name, atomic_read(&lp->frame_cnt));
+}
+
+static __inline__ void isdn_net_zero_frame_cnt(isdn_net_local *lp)
+{
+	atomic_set(&lp->frame_cnt, 0);
+	printk(KERN_DEBUG "%s: zero_frame_cnt now %d\n", lp->name, atomic_read(&lp->frame_cnt));
 }
 
 /* For 2.2.x we leave the transmitter busy timeout at 2 secs, just 
@@ -936,13 +963,6 @@ isdn_net_stat_callback(int idx, isdn_ctrl *c)
 				if ((lp->flags & ISDN_NET_CONNECTED) &&
 				    (!lp->dialstate)) {
 					isdn_net_dec_frame_cnt(lp);
-					if (atomic_read(&lp->frame_cnt) < ISDN_NET_MAX_QUEUE_LENGTH) {
-						if (!skb_queue_empty(&lp->super_tx_queue)) {
-							queue_task(&lp->tqueue, &tq_scheduler);
-						} else {
-							isdn_net_lp_xon(lp);
-						}
-					}
 					lp->stats.tx_packets++;
 					lp->stats.tx_bytes += c->parm.length;
 #ifdef CONFIG_ISDN_WITH_ABC
@@ -1757,8 +1777,6 @@ void isdn_net_writebuf_skb(isdn_net_local *lp, struct sk_buff *skb)
 
 	lp->transcount += len;
 	isdn_net_inc_frame_cnt(lp);
-	if (atomic_read(&lp->frame_cnt) >= ISDN_NET_MAX_QUEUE_LENGTH)
-		isdn_net_lp_xoff(lp);
 	return;
 
  error:
