@@ -136,48 +136,44 @@ static __inline__ void isdn_net_rm_from_bundle(isdn_net_local *lp)
 }
 
 static inline int
-put_u8(unsigned char *p, __u8 x)
+put_u8(unsigned char *p, u8 x)
 {
-	p[0] = x;
+	*p = x;
 	return 1;
 }
 
 static inline int
-put_u16(unsigned char *p, __u16 x)
+put_u16(unsigned char *p, u16 x)
 {
-	p[0] = x >> 8;
-	p[1] = x;
+	*((u16 *)p) = htons(x);
 	return 2;
 }
 
 static inline int
-put_u32(unsigned char *p, __u32 x)
+put_u32(unsigned char *p, u32 x)
 {
-	p[0] = x >> 24;
-	p[1] = x >> 16;
-	p[2] = x >> 8;
-	p[3] = x;
+	*((u32 *)p) = htonl(x);
 	return 4;
 }
 
 static inline int
-get_u8(unsigned char *p, __u8 *x)
+get_u8(unsigned char *p, u8 *x)
 {
-	*x = p[0];
+	*x = *p;
 	return 1;
 }
 
 static inline int
-get_u16(unsigned char *p, __u16 *x)
+get_u16(unsigned char *p, u16 *x)
 {
-	*x = (p[0] << 8) + p[1];
+	*x = ntohs(*((u16 *)p));
 	return 2;
 }
 
 static inline int
-get_u32(unsigned char *p, __u32 *x)
+get_u32(unsigned char *p, u32 *x)
 {
-	*x = (p[0] << 24) + (p[1] << 16) + (p[2] << 8) + p[3];
+	*x = ntohl(*((u32 *)p));
 	return 4;
 }
 

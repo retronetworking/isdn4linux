@@ -850,7 +850,7 @@ capi_write(struct file *file, const char *buf, size_t count, loff_t *ppos)
 
 	if ((retval = copy_from_user(skb_put(skb, count), buf, count))) {
 		kfree_skb(skb);
-		return retval;
+		return -EFAULT;
 	}
 	mlen = CAPIMSG_LEN(skb->data);
 	if (CAPIMSG_CMD(skb->data) == CAPI_DATA_B3_REQ) {
@@ -1266,7 +1266,7 @@ capinc_raw_write(struct file *file, const char *buf, size_t count, loff_t *ppos)
 	skb_reserve(skb, CAPI_DATA_B3_REQ_LEN);
 	if ((retval = copy_from_user(skb_put(skb, count), buf, count))) {
 		kfree_skb(skb);
-		return retval;
+		return -EFAULT;
 	}
 
 	while (skb_queue_len(&mp->outqueue) > CAPINC_MAX_SENDQUEUE) {
@@ -1485,7 +1485,7 @@ int capinc_tty_write(struct tty_struct * tty, int from_user,
 #ifdef _DEBUG_TTYFUNCS
 			printk(KERN_DEBUG "capinc_tty_write: copy_from_user=%d\n", retval);
 #endif
-			return retval;
+			return -EFAULT;
 		}
 	} else {
 		memcpy(skb_put(skb, count), buf, count);
