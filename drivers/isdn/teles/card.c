@@ -7,6 +7,13 @@
  * Beat Doebeli         log all D channel traffic
  * 
  * $Log$
+ * Revision 1.2  1996/04/30 10:00:59  fritz
+ * Bugfix: Added ph_command(8) for 16.3.
+ * Bugfix: Ports did not get registered correctly
+ *         when using a 16.3.
+ *         Started voice support.
+ *         Some experimental changes of waitforXFW().
+ *
  * Revision 1.1  1996/04/13 10:22:42  fritz
  * Initial revision
  *
@@ -683,8 +690,17 @@ isac_new_ph(struct IsdnCardState *sp)
 			  ph_command(sp, 9);
 		  break;
 	  case (12):
+	          ph_command(sp, 8);
+		  sp->ph_active = 5;
+		  isac_sched_event(sp, ISAC_PHCHANGE);
+		  if (!sp->xmtibh)
+			  if (!BufQueueUnlink(&sp->xmtibh, &sp->sq))
+				  sp->sendptr = 0;
+		  if (sp->xmtibh)
+			  fill_fifo(sp);
+		  break;
 	  case (13):
-                  ph_command(sp, 8);
+	          ph_command(sp, 9);
 		  sp->ph_active = 5;
 		  isac_sched_event(sp, ISAC_PHCHANGE);
 		  if (!sp->xmtibh)
@@ -1092,6 +1108,44 @@ checkcard(int cardnr)
                                 card->iobase |= 0xc00;
                                 break;
                 }
+                if (card->membase) {  /* 16.0 */
+                	if (check_region(card->iobase, 8)) {
+                        	printk(KERN_WARNING
+                               		"teles: ports %x-%x already in use\n",
+                               		card->iobase,
+                               		card->iobase + 8 );
+                        	return -1;
+                	}
+                } else { /* 16.3 */
+                	if (check_region(card->iobase, 16)) {
+                        	printk(KERN_WARNING
+                               		"teles: 16.3 ports %x-%x already in use\n",
+                               		card->iobase,
+                               		card->iobase + 16 );
+                        	return -1;
+                	}
+                	if (check_region((card->iobase - 0xc00) , 32)) {
+                        	printk(KERN_WARNING
+                  			"teles: 16.3 ports %x-%x already in use\n",
+                               		card->iobase - 0xc00,
+                               		card->iobase - 0xc00 + 32);
+                        	return -1;
+                        }
+                	if (check_region((card->iobase - 0x800) , 32)) {
+                        	printk(KERN_WARNING
+                  			"teles: 16.3 ports %x-%x already in use\n",
+                               		card->iobase - 0x800,
+                               		card->iobase - 0x800 + 32);
+                        	return -1;
+                        }
+                	if (check_region((card->iobase - 0x400) , 32)) {
+                        	printk(KERN_WARNING
+                  			"teles: 16.3 ports %x-%x already in use\n",
+                               		card->iobase - 0x400,
+                               		card->iobase - 0x400 + 32);
+                        	return -1;
+                        }
+                }
                 switch (card->interrupt) {
                 case 2:
                         cfval = 0x00;
@@ -1121,65 +1175,39 @@ checkcard(int cardnr)
                         cfval = 0x00;
                         break;
                 }
-                if (check_region(card->iobase, 8)) {
-                        printk(KERN_WARNING
-                               "teles: ports %x-%x already in use\n",
-                               card->iobase,
-                               card->iobase + 8 );
-                        return -1;
-                }
                 if (card->membase) {
                         cfval |= (((unsigned int) card->membase >> 9) & 0xF0);
-                        
-                        if (bytein(card->iobase + 0) != 0x51) {
-                                printk(KERN_INFO "XXX Byte at %x is %x\n",
-                                       card->iobase + 0,
-                                       bytein(card->iobase + 0));
-                                return -2;
-                        }
-                        if (bytein(card->iobase + 1) != 0x93) {
-                                printk(KERN_INFO "XXX Byte at %x is %x\n",
-                                       card->iobase + 1,
-                                       bytein(card->iobase + 1));
-                                return -2;
-                        }
-                        val = bytein(card->iobase + 2);	/* 0x1e=without AB
-                                                         * 0x1f=with AB
-                                                         */
-                        if (val != 0x1e && val != 0x1f) {
-                                printk(KERN_INFO "XXX Byte at %x is %x\n",
-                                       card->iobase + 2,
-                                       bytein(card->iobase + 2));
-                                return -2;
-                        }
-                } else {
-                        /* The Teles 16.3 uses additional ports */
-                        if (check_region(card->iobase - 0x400, 32)) {
-                                printk(KERN_WARNING
-                                       "teles: ports %x-%x already in use\n",
-                                       card->iobase,
-                                       card->iobase + 32 );
-                                return -1;
-                        }
-                        if (check_region(card->iobase - 0x800, 32)) {
-                                printk(KERN_WARNING
-                                       "teles: ports %x-%x already in use\n",
-                                       card->iobase,
-                                       card->iobase + 32 );
-                                return -1;
-                        }
-                        if (check_region(card->iobase - 0xc00, 32)) {
-                                printk(KERN_WARNING
-                                       "teles: ports %x-%x already in use\n",
-                                       card->iobase,
-                                       card->iobase + 32 );
-                                return -1;
-                        }
-                        request_region(card->iobase - 0x400, 32, "teles");
-                        request_region(card->iobase - 0x800, 32, "teles");
-                        request_region(card->iobase - 0xc00, 32, "teles");
+                }   
+                if (bytein(card->iobase + 0) != 0x51) {
+                        printk(KERN_INFO "XXX Byte at %x is %x\n",
+                                card->iobase + 0,
+                                bytein(card->iobase + 0));
+                        return -2;
                 }
-                request_region(card->iobase, 8, "teles");
+                if (bytein(card->iobase + 1) != 0x93) {
+                        printk(KERN_INFO "XXX Byte at %x is %x\n",
+                                card->iobase + 1,
+                                bytein(card->iobase + 1));
+                        return -2;
+                }
+                val = bytein(card->iobase + 2);	/* 0x1e=without AB
+                                                 * 0x1f=with AB
+                                                 * 0x1c 16.3 ???
+                                                 */
+                if (val != 0x1c && val != 0x1e && val != 0x1f) {
+                        printk(KERN_INFO "XXX Byte at %x is %x\n",
+                                card->iobase + 2,
+                                bytein(card->iobase + 2));
+                        return -2;
+                }
+                if (card->membase) {  /* 16.0 */
+                        request_region(card->iobase, 8, "teles 16.0");
+                } else {
+                	request_region(card->iobase, 16, "teles 16.3");
+                	request_region(card->iobase - 0xC00, 32, "teles HSCX0");
+                	request_region(card->iobase - 0x800, 32, "teles HSCX1");
+                	request_region(card->iobase - 0x400, 32, "teles ISAC");
+                }
                 cli();
                 timout = jiffies + (HZ / 10) + 1;
                 byteout(card->iobase + 4, cfval);
@@ -1238,11 +1266,11 @@ modehscx(struct HscxState *hs, int mode,
 	printk(KERN_DEBUG "modehscx hscx %d mode %d ichan %d\n",
 	       hscx, mode, ichan);
 
-	if (hscx == 0)
-		ichan = 1 - ichan;	/* raar maar waar... */
-
         hs->mode = mode;
         if (sp->membase) {
+                /* What's that ??? KKeil */
+		if (hscx == 0)
+			ichan = 1 - ichan;	/* raar maar waar... */
                 writehscx_0(sp->membase, hscx, HSCX_CCR1, 0x85);
                 writehscx_0(sp->membase, hscx, HSCX_XAD1, 0xFF);
                 writehscx_0(sp->membase, hscx, HSCX_XAD2, 0xFF);
@@ -1604,7 +1632,7 @@ get_irq(int cardnr)
 static void
 release_irq(int cardnr)
 {
-	struct IsdnCard *card = cards + cardnr;
+	struct	IsdnCard *card = cards + cardnr;
 
 	irq2dev_map[card->interrupt] = NULL;
 	free_irq(card->interrupt, NULL);
@@ -1641,12 +1669,14 @@ closecard(int cardnr)
 	close_hscxstate(sp->hs);
 
 	if (cards[cardnr].iobase)
-		release_region(cards[cardnr].iobase, 8);
-        if (!cards[cardnr].membase) {
-                release_region(cards[cardnr].iobase - 0x400, 32);
-                release_region(cards[cardnr].iobase - 0x800, 32);
-                release_region(cards[cardnr].iobase - 0xc00, 32);
-        }
+        	if (cards[cardnr].membase) {  /* 16.0 */
+			release_region(cards[cardnr].iobase, 8);
+        	} else {
+			release_region(cards[cardnr].iobase, 16);
+                	release_region(cards[cardnr].iobase - 0xC00, 32);
+                	release_region(cards[cardnr].iobase - 0x800, 32);
+                	release_region(cards[cardnr].iobase - 0x400, 32);
+                }
 
 	Sfree((void *) sp);
 }
