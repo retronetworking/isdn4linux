@@ -21,6 +21,11 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.48.2.25  1998/11/03 14:31:05  fritz
+ * Reduced stack usage in various functions.
+ * Adapted statemachine to work with certified HiSax.
+ * Some fixes in callback handling.
+ *
  * Revision 1.48.2.24  1998/10/25 22:08:22  fritz
  * Bugfix: Only first number was dialed.
  *
@@ -2196,7 +2201,7 @@ isdn_net_find_icall(int di, isdn_ctrl *c, int idx)
 					isdn_net_local *mlp = (isdn_net_local *) lp->master->priv;
 					printk(KERN_DEBUG "ICALLslv: %s\n", lp->name);
 					printk(KERN_DEBUG "master=%s\n", mlp->name);
-					if (mlp->flags & ISDN_NET_CONNECTED) {
+					if ((mlp->flags & ISDN_NET_CONNECTED) && (!mlp->dialstate)) {
 						printk(KERN_DEBUG "master online\n");
 						/* Master is online, find parent-slave (master if first slave) */
 						while (mlp->slave) {
@@ -2208,7 +2213,7 @@ isdn_net_find_icall(int di, isdn_ctrl *c, int idx)
 						printk(KERN_DEBUG "master offline\n");
 					/* Found parent, if it's offline iterate next device */
 					printk(KERN_DEBUG "mlpf: %d\n", mlp->flags & ISDN_NET_CONNECTED);
-					if (!(mlp->flags & ISDN_NET_CONNECTED)) {
+					if (!(mlp->flags & ISDN_NET_CONNECTED) || mlp->dialstate) {
 						continue;
 					}
 				}
