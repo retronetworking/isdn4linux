@@ -8,6 +8,9 @@
  *
  *
  * $Log$
+ * Revision 1.2  1996/11/18 15:33:35  keil
+ * PCC and PCFPro support
+ *
  * Revision 1.1  1996/10/13 20:03:45  keil
  * Initial revision
  *
@@ -25,6 +28,7 @@
 #define ELSA_PCC     1
 #define ELSA_PCFPRO  2
 #define ELSA_PCC16   3
+#define ELSA_PCF     4
 
 /***                                                                    ***
  ***   Makros als Befehle fuer die Kartenregister                       ***
