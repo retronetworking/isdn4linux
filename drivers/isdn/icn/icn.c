@@ -19,6 +19,10 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.31  1996/11/13 02:36:25  fritz
+ * Fixed a race condition in writecmd.
+ * Some optimizations and cleanup.
+ *
  * Revision 1.30  1996/10/22 23:14:09  fritz
  * Changes for compatibility to 2.0.X and 2.1.X kernels.
  *
@@ -1189,12 +1193,12 @@ static int icn_command(isdn_ctrl * c, icn_card * card)
                                                     (void *) a,
                                                     sizeof(ulong) * 2)))
                                         return i;
-                                copy_from_user((char *)a,
+                                copy_to_user((char *)a,
                                             (char *)&card, sizeof(ulong));
 				a += sizeof(ulong);
 				{
                                         ulong l = (ulong)&dev;
-                                        copy_from_user((char *)a,
+                                        copy_to_user((char *)a,
                                                     (char *)&l, sizeof(ulong));
                                 }
                                 return 0;
@@ -1225,7 +1229,7 @@ static int icn_command(isdn_ctrl * c, icn_card * card)
                                                 }
                                                 current->timeout = jiffies + ICN_BOOT_TIMEOUT1;
                                                 schedule();
-                                                sprintf(cbuf, "00;FV2ON\n01;EAZ1\n");
+                                                sprintf(cbuf, "00;FV2ON\n01;EAZ1\n02;EAZ2\n");
                                                 i = icn_writecmd(cbuf, strlen(cbuf), 0, card);
                                                 printk(KERN_INFO
                                                        "icn: (%s) Leased-line mode enabled\n",
