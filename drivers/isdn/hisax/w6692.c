@@ -28,7 +28,7 @@ typedef struct {
 
 static const PCI_ENTRY id_list[] =
 {
-	{PCI_VENDOR_ID_DYNALINK, PCI_DEVICE_ID_DYNALINK_TA1, "Dynalink/AsusCom", "TA XXX"},
+	{PCI_VENDOR_ID_DYNALINK, PCI_DEVICE_ID_DYNALINK_IS64PH, "Dynalink/AsusCom", "IS64PH"},
 	{PCI_VENDOR_ID_WINBOND2, PCI_DEVICE_ID_WINBOND2_6692, "Winbond", "W6692"},
 	{0, 0, NULL, NULL}
 };

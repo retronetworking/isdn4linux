@@ -53,6 +53,7 @@
 #define COMPAT_USE_MODCOUNT_LOCK
 #define devfs_register_chrdev(m,n,f) register_chrdev(m,n,f)
 #define devfs_unregister_chrdev(m,n) unregister_chrdev(m,n)
+#define COMPAT_NEED_PCI_IDS
 
 #else /* 2.4.0 and later */
 
@@ -143,7 +144,7 @@ typedef struct wait_queue *wait_queue_head_t;
 #define PCI_ANY_ID (~0)
 
 #define PCI_VENDOR_ID_DYNALINK          0x0675
-#define PCI_DEVICE_ID_DYNALINK_TA1      0x1702
+#define PCI_DEVICE_ID_DYNALINK_IS64PH   0x1702
 
 #define PCI_DEVICE_ID_WINBOND2_6692	0x6692
 
