@@ -1,12 +1,9 @@
+/* -*- mode: c; c-basic-offset: 2 -*- */
+
 #ifndef _LINUX_ISDN_PPP_H
 #define _LINUX_ISDN_PPP_H
 
 #include <linux/config.h>
-#ifdef COMPAT_HAVE_LINUX_SPINLOCK_H
-#include <linux/spinlock.h>
-#else
-#include <asm/spinlock.h>
-#endif
 #include <linux/isdn_compat.h>
 
 #define CALLTYPE_INCOMING 0x1
@@ -73,6 +70,8 @@ struct isdn_ppp_comp_data {
 };
 
 #ifdef __KERNEL__
+
+#include <asm/spinlock.h>
 
 /*
  * We need a way for the decompressor to influence the generation of CCP
@@ -150,7 +149,7 @@ typedef struct {
 } isdn_mppp_stats;
 
 typedef struct {
-  int mp_mrru;                  /* unused                             */
+  int mp_mrru;                        /* unused                             */
   struct sk_buff * frags;	/* fragments sl list -- use skb->next */
   long frames;			/* number of frames in the frame list */
   unsigned int seq;		/* last processed packet seq #: any packets

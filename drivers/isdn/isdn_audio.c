@@ -1,6 +1,6 @@
 /* $Id$
- *
- * Linux ISDN subsystem, audio conversion and compression
+
+ * Linux ISDN subsystem, audio conversion and compression (linklevel).
  *
  * Copyright 1994-1999 by Fritz Elfert (fritz@isdn4linux.de)
  * DTMF code (c) 1996 by Christian Mock (cm@kukuruz.ping.at)
@@ -22,13 +22,13 @@
  *
  */
 
-char *isdn_audio_revision = "$Revision$";
-
 #define __NO_VERSION__
 #include <linux/module.h>
 #include <linux/isdn.h>
 #include "isdn_audio.h"
 #include "isdn_common.h"
+
+char *isdn_audio_revision = "$Revision$";
 
 /*
  * Misc. lookup-tables.

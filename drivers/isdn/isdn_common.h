@@ -1,6 +1,6 @@
 /* $Id$
- *
- * Linux ISDN subsystem, common used functions and debugging-switches
+
+ * header for Linux ISDN subsystem, common used functions and debugging-switches (linklevel).
  *
  * Copyright 1994-1999  by Fritz Elfert (fritz@isdn4linux.de)
  * Copyright 1995,96    by Thinking Objects Software GmbH Wuerzburg
@@ -34,25 +34,10 @@
 #undef  ISDN_DEBUG_NET_DIAL
 #undef  ISDN_DEBUG_NET_ICALL
 
-extern char *isdn_net_revision;
-extern char *isdn_tty_revision;
-#ifdef CONFIG_ISDN_PPP
-extern char *isdn_ppp_revision;
-#else
-static char *isdn_ppp_revision = ": none $";
-#endif
-#ifdef CONFIG_ISDN_AUDIO
-extern char *isdn_audio_revision;
-#else
-static char *isdn_audio_revision = ": none $";
-#endif
-extern char *isdn_v110_revision;
-
-
-/* Prototypes */
 #ifdef CONFIG_ISDN_WITH_ABC
 int isdn_net_force_dial_lp(isdn_net_local *);
 #endif
+/* Prototypes */
 extern void isdn_MOD_INC_USE_COUNT(void);
 extern void isdn_MOD_DEC_USE_COUNT(void);
 extern void isdn_free_channel(int di, int ch, int usage);

@@ -1,5 +1,5 @@
 /* $Id$
- *
+
  * Linux ISDN subsystem, network interfaces and related functions (linklevel).
  *
  * Copyright 1994-1998  by Fritz Elfert (fritz@isdn4linux.de)
@@ -21,8 +21,6 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  */
-
-char *isdn_net_revision = "$Revision$";
 
 #include <linux/config.h>
 #define __NO_VERSION__
@@ -209,6 +207,8 @@ int isdn_net_force_dial_lp(isdn_net_local *);
 #endif
 static int isdn_net_start_xmit(struct sk_buff *, struct net_device *);
 
+char *isdn_net_revision = "$Revision$";
+
  /*
   * Code for raw-networking over ISDN
   */
@@ -216,6 +216,9 @@ static int isdn_net_start_xmit(struct sk_buff *, struct net_device *);
 #ifdef CONFIG_ISDN_WITH_ABC_CONN_ERROR
 static int isdn_dwabc_encap_with_conerr(isdn_net_local *lp)
 {
+	if(lp->dw_abc_flags & ISDN_DW_ABC_FLAG_NO_CONN_ERROR)
+		return(0);
+
 	return( 
 		lp->p_encap == ISDN_NET_ENCAP_SYNCPPP			||
 		lp->p_encap == ISDN_NET_ENCAP_RAWIP 			||
@@ -1297,38 +1300,6 @@ isdn_net_log_skb(struct sk_buff * skb, isdn_net_local * lp)
  * not received from the network layer, but e.g. frames from ipppd, CCP
  * reset frames etc.
  */
-#ifdef CONFIG_ISDN_WITH_ABC
-void isdn_net_write_super(isdn_net_local *lp, struct sk_buff *skb)
-{
-
-	if (in_interrupt()) {
-
-	//	printk("isdn BUG at %s:%d!\n", __FILE__, __LINE__);
-		
-		if(dev->net_verbose > 1)
-			printk(KERN_INFO "%s: NOTE isdn_net_write_super called in interrupt\n",lp->name);
-
-		if (skb_queue_empty(&lp->super_tx_queue)) {
-
-			skb_queue_tail(&lp->super_tx_queue, skb);
-			queue_task(&lp->tqueue, &tq_immediate);
-		
-		} else queue_task(&lp->tqueue, &tq_immediate);
-
-	} else {
-
-		spin_lock_bh(&lp->xmit_lock);
-
-		if (!isdn_net_lp_busy(lp)) {
-			isdn_net_writebuf_skb(lp, skb);
-		} else {
-			skb_queue_tail(&lp->super_tx_queue, skb);
-		}
-
-		spin_unlock_bh(&lp->xmit_lock);
-	}
-}
-#else
 void isdn_net_write_super(isdn_net_local *lp, struct sk_buff *skb)
 {
 	if (in_interrupt()) {
@@ -1340,14 +1311,17 @@ void isdn_net_write_super(isdn_net_local *lp, struct sk_buff *skb)
 	}
 
 	spin_lock_bh(&lp->xmit_lock);
+#ifdef CONFIG_ISDN_WITH_ABC
+	if(skb_queue_empty(&lp->super_tx_queue) && !isdn_net_lp_busy(lp)) {
+#else
 	if (!isdn_net_lp_busy(lp)) {
+#endif
 		isdn_net_writebuf_skb(lp, skb);
 	} else {
 		skb_queue_tail(&lp->super_tx_queue, skb);
 	}
 	spin_unlock_bh(&lp->xmit_lock);
 }
-#endif
 
 /*
  * called from tq_immediate
@@ -1453,7 +1427,7 @@ isdn_net_xmit(struct net_device *ndev, struct sk_buff *skb)
 
 	lp = isdn_net_get_locked_lp(nd);
 	if (!lp) {
-		printk(KERN_WARNING "%s: all channels busy - requeuing!\n", lp->name);
+		printk(KERN_WARNING "%s: all channels busy - requeuing!\n", ndev->name);
 		return 1;
 	}
 	/* we have our lp locked from now on */
@@ -1461,12 +1435,21 @@ isdn_net_xmit(struct net_device *ndev, struct sk_buff *skb)
 	/* Reset hangup-timeout */
 	lp->huptimer = 0; // FIXME?
 #ifdef CONFIG_ISDN_WITH_ABC
+#ifdef CONFIG_ISDN_WITH_ABC_RAWIPCOMPRESS
+	if(	(lp->dw_abc_flags & ISDN_DW_ABC_FLAG_LEASED_LINE) 	&&
+		(lp->dw_abc_flags & ISDN_DW_ABC_FLAG_BSD_COMPRESS)	&&
+		(dwsjiffies - lp->dw_abc_comhd_last_send) > 1800	&&
+		lp->dw_abc_bsd_compressor != NULL					) {
+
+		dwabc_bsd_first_gen(lp);
+	}
+#endif
+
 	{
 		struct sk_buff *t_skb = NULL;
 
-		while (!isdn_net_lp_busy(lp) && (t_skb = skb_dequeue(&lp->super_tx_queue)) != NULL)
+		while (!isdn_net_lp_busy(lp) && (t_skb = skb_dequeue(&lp->super_tx_queue)) != NULL) 
 			isdn_net_writebuf_skb(lp, t_skb);                                
-
 	}
 
 	if(isdn_net_lp_busy(lp)) retv = 1; 
@@ -1689,13 +1672,14 @@ static int isdn_net_start_xmit(struct sk_buff *skb, struct net_device *ndev)
 		if((myskb = isdn_dw_abc_ip4_keepalive_test(ndev,skb)) == skb)
 			return(dwabc_isdn_net_start_xmit(skb,ndev));
 
-		if(dwabc_isdn_net_start_xmit(myskb,ndev)) {
+		dev_kfree_skb(skb);
 
-			dev_kfree_skb(myskb);
-			return(1);
+		if(myskb != NULL) {
+		
+			if(dwabc_isdn_net_start_xmit(myskb,ndev))
+				dev_kfree_skb(myskb);
 		}
 
-		dev_kfree_skb(skb);
 		return(0);
 	}
 #else

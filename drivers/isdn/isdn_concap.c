@@ -1,5 +1,5 @@
 /* $Id$
- *
+ 
  * Linux ISDN subsystem, protocol encapsulation
  *
  * This program is free software; you can redistribute it and/or modify
@@ -18,8 +18,7 @@
  *
  */
 
-/* 
- * Stuff to support the concap_proto by isdn4linux. isdn4linux - specific
+/* Stuff to support the concap_proto by isdn4linux. isdn4linux - specific
  * stuff goes here. Stuff that depends only on the concap protocol goes to
  * another -- protocol specific -- source file.
  *

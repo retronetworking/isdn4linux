@@ -1,11 +1,11 @@
 
 /* $Id$
- *
+
  * Linux ISDN subsystem, abc-extension releated funktions.
  *
- * Copyright           by abc GmbH 
+ * Copyright           by abc GmbH
  *                     written by Detlef Wengorz <detlefw@isdn4linux.de>
- * 
+ *
  * Many thanks for testing, debugging and writing Doku to:
  * Mario Schugowski <mario@mediatronix.de>
  *
@@ -25,16 +25,17 @@
  *
  */
 
-static char *dwabcrevison = "$Revision$";
-
 #include <linux/config.h>
 #define __NO_VERSION__
 
 #ifdef CONFIG_ISDN_WITH_ABC
 
+static char *dwabcrevison = "$Revision$";
+
 #include <asm/semaphore.h>
 #include <linux/isdn.h>
 #include "isdn_common.h"
+#include "isdn_net.h"
 
 struct PSH { 
 	u_long saddr;
@@ -57,7 +58,6 @@ struct PSH {
 #include <net/checksum.h>
 #include <linux/isdn_dwabc.h>
 
-volatile u_long dwsjiffies;
 
 #if CONFIG_ISDN_WITH_ABC_RAWIPCOMPRESS && CONFIG_ISDN_PPP
 #include <linux/isdn_ppp.h>
@@ -227,15 +227,13 @@ void isdn_dw_abc_lcr_clear(isdn_net_local *lp)
 	if(lp != NULL) {
 
 		u_long flags;
+		void *a,*b;
 
 		save_flags(flags);
 		cli();
 
-		if(lp->dw_abc_lcr_cmd != NULL) 
-			kfree(lp->dw_abc_lcr_cmd);
-
-		if(lp->dw_abc_lcr_io != NULL) 
-			kfree(lp->dw_abc_lcr_io);
+		a = lp->dw_abc_lcr_cmd;  
+		b = lp->dw_abc_lcr_io;
 
 		lp->dw_abc_lcr_io = NULL;
 		lp->dw_abc_lcr_cmd = NULL;
@@ -245,6 +243,9 @@ void isdn_dw_abc_lcr_clear(isdn_net_local *lp)
 		lp->dw_abc_lcr_end_request = 0;
 
 		restore_flags(flags);
+		
+		if(a) kfree(a);
+		if(b) kfree(b);
 	}
 }
 
@@ -1123,48 +1124,53 @@ struct sk_buff *isdn_dw_abc_ip4_keepalive_test(struct net_device *ndev,struct sk
 #endif
 			if((ip->saddr ^ ipaddr)) {
 #if CONFIG_ISDN_WITH_ABC_IPV4_RW_SOCKADDR || CONFIG_ISDN_WITH_ABC_IPV4_RWUDP_SOCKADDR 
-
 				struct sock *sk = skb->sk;
 				struct tcphdr *tcp;
 				struct udphdr *udp;
 				char *drpmsg = "isdn_dynaddr drop";
-				char isudp = ip->protocol == IPPROTO_UDP;
+				char isudp = 0;
 				struct sk_buff *newskb = NULL;
-
-				if(isudp) {
-#ifndef CONFIG_ISDN_WITH_ABC_IPV4_RWUDP_SOCKADDR 
-					isdn_net_log_skb_dwabc(skb,lp,drpmsg);
-					return(NULL);
-#else
-					if(!(lp->dw_abc_flags & ISDN_DW_ABC_FLAG_RWUDP_SOCKADDR) ||
-						(rklen < sizeof(*udp))) {
-
-						isdn_net_log_skb_dwabc(skb,lp,drpmsg);
-						return(NULL);
-					}
-#endif
-				} else {
-#ifndef CONFIG_ISDN_WITH_ABC_IPV4_RW_SOCKADDR
-					isdn_net_log_skb_dwabc(skb,lp,drpmsg);
-					return(NULL);
-#else
-					if(!(lp->dw_abc_flags & ISDN_DW_ABC_FLAG_RW_SOCKADDR) ||
-						(rklen < sizeof(*tcp))) {
-
-						isdn_net_log_skb_dwabc(skb,lp,drpmsg);
-						return(NULL);
-					}
-#endif
-				}
 
 				if(	sk == NULL						||
 					sk->prot == NULL				||
 					sk->prot->unhash == NULL		||
 					sk->prot->hash == NULL			) {
 
+					isdn_net_log_skb_dwabc(skb,lp,
+						"isdn_dynaddr no socket (drop)");
+					return(NULL);
+				}
+
+				switch(ip->protocol) {
+				default:
 					isdn_net_log_skb_dwabc(skb,lp,drpmsg);
 					return(NULL);
-				} 
+#ifdef CONFIG_ISDN_WITH_ABC_IPV4_RWUDP_SOCKADDR 
+				case IPPROTO_UDP:
+
+					if(!(lp->dw_abc_flags & ISDN_DW_ABC_FLAG_RWUDP_SOCKADDR) ||
+						(rklen < sizeof(*udp))) {
+
+						isdn_net_log_skb_dwabc(skb,lp,drpmsg);
+						return(NULL);
+					}
+
+					isudp = 1;
+					break;
+#endif
+#ifdef CONFIG_ISDN_WITH_ABC_IPV4_RW_SOCKADDR
+				case IPPROTO_TCP:
+
+					if(!(lp->dw_abc_flags & ISDN_DW_ABC_FLAG_RW_SOCKADDR) ||
+						(rklen < sizeof(*tcp))) {
+
+						isdn_net_log_skb_dwabc(skb,lp,drpmsg);
+						return(NULL);
+					}
+
+					break;
+#endif
+				}
 
 				if(sk->saddr != ipaddr && sk->saddr != 0) {
 
@@ -1388,12 +1394,10 @@ void isdn_dw_abc_init_func(void)
 #ifdef CONFIG_ISDN_WITH_ABC_RAWIPCOMPRESS
 		"CONFIG_ISDN_WITH_ABC_RAWIPCOMPRESS\n"
 #endif
-#ifdef CONFIG_ISDN_WITH_ABC_FRAME_LIMIT
-		"CONFIG_ISDN_WITH_ABC_FRAME_LIMIT\n"
-#endif
 		"loaded\n",
 		dwabcrevison);
 
+		dwsjiffies = 0;
 		dw_abc_timer.expires = jiffies + DWABC_TMRES;
 		add_timer(&dw_abc_timer);
 }
@@ -1477,6 +1481,7 @@ void isdn_dwabc_test_phone(isdn_net_local *lp)
 				case 'T':	lp->dw_abc_flags |= ISDN_DW_ABC_FLAG_RW_SOCKADDR;			break;
 				case 'U':	lp->dw_abc_flags |= ISDN_DW_ABC_FLAG_RWUDP_SOCKADDR;		break;
 				case 'B':	lp->dw_abc_flags |= ISDN_DW_ABC_FLAG_BSD_COMPRESS;			break;
+				case 'L': 	lp->dw_abc_flags |= ISDN_DW_ABC_FLAG_LEASED_LINE;			break;
 
 				case '"':
 				case ' ':
@@ -1488,6 +1493,23 @@ void isdn_dwabc_test_phone(isdn_net_local *lp)
 					break;
 				}
 			}
+		}
+
+		if(lp->dw_abc_flags & ISDN_DW_ABC_FLAG_LEASED_LINE) {
+
+			lp->dw_abc_flags &= ~(
+					ISDN_DW_ABC_FLAG_DYNADDR		|
+					ISDN_DW_ABC_FLAG_RW_SOCKADDR	|
+					ISDN_DW_ABC_FLAG_RWUDP_SOCKADDR );
+
+			lp->dw_abc_flags |= 
+					ISDN_DW_ABC_FLAG_NO_TCP_KEEPALIVE	|
+					ISDN_DW_ABC_FLAG_NO_UDP_CHECK		|
+					ISDN_DW_ABC_FLAG_NO_UDP_HANGUP		|
+					ISDN_DW_ABC_FLAG_NO_UDP_DIAL		|
+					ISDN_DW_ABC_FLAG_NO_CH_EXTINUSE		|
+					ISDN_DW_ABC_FLAG_NO_CONN_ERROR		|
+					ISDN_DW_ABC_FLAG_NO_LCR;
 		}
 
 		if(dev->net_verbose  && (lp->dw_abc_flags != oflags || dev->net_verbose > 4))
@@ -1931,12 +1953,6 @@ void dwabc_bsd_first_gen(isdn_net_local *lp)
 		char *p = NULL;
 		char *ep = NULL;
 
-		if(lp->dw_abc_next_skb != NULL)
-			dev_kfree_skb(lp->dw_abc_next_skb);
-
-		lp->dw_abc_next_skb = NULL;
-		lp->dw_abc_if_flags &= ~ISDN_DW_ABC_IFFLAG_RSTREMOTE;
-
 		if((skb =(struct sk_buff *)dev_alloc_skb(128)) == NULL) {
 
 			printk(KERN_INFO "%s: dwabc: alloc-skb failed for 128 bytes\n",lp->name);
@@ -1950,7 +1966,9 @@ void dwabc_bsd_first_gen(isdn_net_local *lp)
 		*(p++) = DWBSD_PKT_SWITCH;
 		*(p++) = DWBSD_VERSION;
 		for(;p < ep;p++)	*(p++) = 0;
-		lp->dw_abc_next_skb = skb;
+
+		isdn_net_write_super(lp, skb);
+		lp->dw_abc_comhd_last_send = dwsjiffies;
 
 		if(dev->net_verbose > 2)
 			printk(KERN_INFO "%s: dwabc: sending comm-header version 0x%x\n",lp->name,DWBSD_VERSION);
@@ -2007,13 +2025,6 @@ void dwabc_bsd_free(isdn_net_local *lp)
 		lp->dw_abc_bsd_bsd_rcv	=
 		lp->dw_abc_bsd_snd 		=
 		lp->dw_abc_bsd_bsd_snd 	= 0;
-		atomic_set(&lp->dw_abc_pkt_onl,0);
-
-		if(lp->dw_abc_next_skb) {
-
-			dev_kfree_skb(lp->dw_abc_next_skb);
-			lp->dw_abc_next_skb = NULL;
-		}
 	}
 }
 
@@ -2198,7 +2209,7 @@ struct sk_buff *dwabc_bsd_rx_pkt(isdn_net_local *lp,struct sk_buff *skb,struct n
 
 				printk(KERN_INFO "%s: bsd-decomp called recursivly\n",lp->name);
 				kfree_skb(skb);
-				lp->dw_abc_if_flags |= ISDN_DW_ABC_IFFLAG_RSTREMOTE;
+				dwabc_bsd_first_gen(lp);
 				return(NULL);
 			} 
 			
@@ -2222,7 +2233,7 @@ struct sk_buff *dwabc_bsd_rx_pkt(isdn_net_local *lp,struct sk_buff *skb,struct n
 					dev_kfree_skb(nskb);
 					dev_kfree_skb(skb);
 					nskb = NULL;
-					lp->dw_abc_if_flags |= ISDN_DW_ABC_IFFLAG_RSTREMOTE;
+					dwabc_bsd_first_gen(lp);
 
 				} else {
 
@@ -2241,7 +2252,7 @@ struct sk_buff *dwabc_bsd_rx_pkt(isdn_net_local *lp,struct sk_buff *skb,struct n
 
 				printk(KERN_INFO "%s: PANIC abc-decomp no memory\n",lp->name);
 				dev_kfree_skb(skb);
-				lp->dw_abc_if_flags |= ISDN_DW_ABC_IFFLAG_RSTREMOTE;
+				dwabc_bsd_first_gen(lp);
 			}
 
 			clear_bit(ISDN_DW_ABC_BITLOCK_RECEIVE,&lp->dw_abc_bitlocks);

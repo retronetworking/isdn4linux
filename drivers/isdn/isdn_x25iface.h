@@ -1,5 +1,5 @@
 /* $Id$
- *
+
  * header for Linux ISDN subsystem, x.25 related functions
  *
  * This program is free software; you can redistribute it and/or modify

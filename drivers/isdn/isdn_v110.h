@@ -1,6 +1,6 @@
 /* $Id$
- *
- * Linux ISDN subsystem, V.110 related functions
+
+ * Linux ISDN subsystem, V.110 related functions (linklevel).
  *
  * Copyright by Thomas Pfeiffer (pfeiffer@pds.de)
  *
@@ -19,7 +19,6 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  */
-
 #ifndef _isdn_v110_h_
 #define _isdn_v110_h_
 

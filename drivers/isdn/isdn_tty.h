@@ -1,6 +1,6 @@
 /* $Id$
- *
- * Linux ISDN subsystem, tty related functions
+
+ * header for Linux ISDN subsystem, tty related functions (linklevel).
  *
  * Copyright 1994-1999  by Fritz Elfert (fritz@isdn4linux.de)
  * Copyright 1995,96    by Thinking Objects Software GmbH Wuerzburg

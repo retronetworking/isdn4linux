@@ -1,6 +1,6 @@
 /* $Id$
- *
- * Linux ISDN subsystem, tty_fax related functions
+
+ * header for Linux ISDN subsystem, tty_fax related functions (linklevel).
  *
  * Copyright 1999   by Armin Schindler (mac@melware.de)
  * Copyright 1999   by Ralf Spachmann (mel@melware.de)
@@ -21,6 +21,7 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  */
+
 
 #define XON	0x11
 #define XOFF	0x13

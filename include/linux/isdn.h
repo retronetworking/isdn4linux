@@ -1,5 +1,5 @@
 /* $Id$
- *
+
  * Main header for the Linux ISDN subsystem (linklevel).
  *
  * Copyright 1994,95,96 by Fritz Elfert (fritz@isdn4linux.de)
@@ -68,28 +68,28 @@
 #undef CONFIG_ISDN_WITH_ABC_CH_EXTINUSE
 #undef CONFIG_ISDN_WITH_ABC_CONN_ERROR
 #undef CONFIG_ISDN_WITH_ABC_RAWIPCOMPRESS
-#undef CONFIG_ISDN_WITH_ABC_FRAME_LIMIT
 #undef CONFIG_ISDN_WITH_ABC_IPV4_RW_SOCKADDR 
 #undef CONFIG_ISDN_WITH_ABC_IPV4_RWUDP_SOCKADDR 
 #else
 #include <linux/isdn_dwabc.h>
 
+volatile u_long dwsjiffies;
 #define ISDN_DW_ABC_FLAG_NO_TCP_KEEPALIVE	0x00000001L
 #define ISDN_DW_ABC_FLAG_NO_UDP_CHECK		0x00000002L
 #define ISDN_DW_ABC_FLAG_NO_UDP_HANGUP		0x00000004L
 #define ISDN_DW_ABC_FLAG_NO_UDP_DIAL		0x00000008L
-#define ISDN_DW_ABC_FLAG_DYNADDR		0x00000010L
+#define ISDN_DW_ABC_FLAG_DYNADDR			0x00000010L
 #define ISDN_DW_ABC_FLAG_RCV_NO_HUPTIMER	0x00000020L
 #define ISDN_DW_ABC_FLAG_NO_CH_EXTINUSE		0x00000040L
 #define ISDN_DW_ABC_FLAG_NO_CONN_ERROR		0x00000080L
 #define ISDN_DW_ABC_FLAG_BSD_COMPRESS		0x00000100L
-#define ISDN_DW_ABC_FLAG_NO_LCR			0x00000200L
+#define ISDN_DW_ABC_FLAG_NO_LCR				0x00000200L
 #define ISDN_DW_ABC_FLAG_RW_SOCKADDR		0x00000400L
 #define ISDN_DW_ABC_FLAG_RWUDP_SOCKADDR		0x00000800L
+#define ISDN_DW_ABC_FLAG_LEASED_LINE		0x00001000L
 
 #define ISDN_DW_ABC_IFFLAG_NODCHAN		0x00000001L
 #define ISDN_DW_ABC_IFFLAG_BSDAKTIV		0x00000002L
-#define ISDN_DW_ABC_IFFLAG_RSTREMOTE		0x00000004L
 
 #define ISDN_DW_ABC_BITLOCK_SEND		0
 #define ISDN_DW_ABC_BITLOCK_RECEIVE		1
@@ -312,7 +312,6 @@ typedef struct {
 #define ISDN_TIMER_MODEMXMIT   8
 #define ISDN_TIMER_NETDIAL    16 
 #define ISDN_TIMER_NETHANGUP  32
-#define ISDN_TIMER_IPPP       64 
 #define ISDN_TIMER_KEEPALIVE 128 /* Cisco-Keepalive */
 #define ISDN_TIMER_CARRIER   256 /* Wait for Carrier */
 #define ISDN_TIMER_FAST      (ISDN_TIMER_MODEMREAD | ISDN_TIMER_MODEMPLUS | \
@@ -455,10 +454,9 @@ typedef struct isdn_net_local_s {
   ulong 	dw_abc_flags;
   ulong 	dw_abc_if_flags;
   int   	dw_abc_inuse_secure;
-  volatile atomic_t dw_abc_pkt_onl;
+  ulong 	dw_abc_comhd_last_send;
   ulong 	dw_abc_dialstart;
   int   	dw_abc_old_onhtime;
-  struct sk_buff *dw_abc_next_skb;
   int 		dw_abc_remote_version;
   int		dw_abc_bitlocks;
 #ifdef CONFIG_ISDN_WITH_ABC_OUTGOING_EAZ
@@ -810,7 +808,7 @@ extern size_t isdn_dw_abc_lcr_readstat(char *,size_t);
 extern ulong isdn_dw_abc_lcr_call_number(isdn_net_local *,isdn_ctrl *);
 extern void isdn_dw_abc_lcr_open(void);
 extern void isdn_dw_abc_lcr_close(void);
-extern void isdn_dw_abc_lcr_ioctl(u_long);
+extern void isdn_dw_abc_lcr_ioctl(ulong);
 extern void isdn_dw_abc_lcr_clear(isdn_net_local *);
 extern void isdn_dw_abc_free_lch_with_pch(int,int);
 #endif

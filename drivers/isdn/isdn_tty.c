@@ -1,5 +1,5 @@
 /* $Id$
- *
+
  * Linux ISDN subsystem, tty functions and AT-command emulator (linklevel).
  *
  * Copyright 1994-1999  by Fritz Elfert (fritz@isdn4linux.de)
@@ -20,11 +20,7 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  */
-
-char *isdn_tty_revision = "$Revision$";
-
 #undef ISDN_TTY_STAT_DEBUG
-#define ISDN_DEBUG_MODEM_IOCTL
 
 #define __NO_VERSION__
 #include <linux/config.h>
@@ -63,6 +59,8 @@ static int bit2si[8] =
 {1, 5, 7, 7, 7, 7, 7, 7};
 static int si2bit[8] =
 {4, 1, 4, 4, 4, 4, 4, 4};
+
+char *isdn_tty_revision = "$Revision$";
 
 
 /* isdn_tty_try_read() is called from within isdn_tty_rcv_skb()
@@ -1530,9 +1528,6 @@ isdn_tty_ioctl(struct tty_struct *tty, struct file *file,
 		return -ENODEV;
 	if (tty->flags & (1 << TTY_IO_ERROR))
 		return -EIO;
-#ifdef ISDN_DEBUG_MODEM_IOCTL
-	printk(KERN_DEBUG "ttyI%d ioctl cmd %#x\n", info->line, cmd);
-#endif
 	switch (cmd) {
 		case TCSBRK:   /* SVID version: non-zero arg --> no break */
 #ifdef ISDN_DEBUG_MODEM_IOCTL
@@ -1611,9 +1606,6 @@ isdn_tty_set_termios(struct tty_struct *tty, struct termios *old_termios)
 {
 	modem_info *info = (modem_info *) tty->driver_data;
 
-#ifdef ISDN_DEBUG_MODEM_IOCTL
-	printk(KERN_DEBUG "ttyI%d set_termios cmd %#x\n", info->line, cmd);
-#endif
 	if (!old_termios)
 		isdn_tty_change_speed(info);
 	else {
@@ -2391,11 +2383,21 @@ isdn_tty_stat_callback(int i, isdn_ctrl *c)
 #ifdef ISDN_TTY_STAT_DEBUG
 				printk(KERN_DEBUG "tty_STAT_BCONN ttyI%d\n", info->line);
 #endif
+				/* Wake up any processes waiting
+				 * for incoming call of this device when
+				 * DCD follow the state of incoming carrier
+				 */
+				if (info->blocked_open &&
+				   (info->emu.mdmreg[REG_DCD] & BIT_DCD)) {
+					wake_up_interruptible(&info->open_wait);
+				}
+
 				/* Schedule CONNECT-Message to any tty
 				 * waiting for it and
 				 * set DCD-bit of its modem-status.
 				 */
-				if (TTY_IS_ACTIVE(info)) {
+				if (TTY_IS_ACTIVE(info) ||
+				    (info->blocked_open && (info->emu.mdmreg[REG_DCD] & BIT_DCD))) {
 					info->msr |= UART_MSR_DCD;
 					info->emu.charge = 0;
 					if (info->dialing & 0xf)

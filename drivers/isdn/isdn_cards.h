@@ -1,5 +1,5 @@
 /* $Id$
- *
+
  * Linux ISDN subsystem, initialization for non-modularized drivers.
  *
  * Copyright 1994-1999 by Fritz Elfert (fritz@isdn4linux.de)

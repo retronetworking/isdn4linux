@@ -1,6 +1,6 @@
 /* $Id$
- *
- * Linux ISDN subsystem, network related functions
+
+ * header for Linux ISDN subsystem, network related functions (linklevel).
  *
  * Copyright 1994-1999  by Fritz Elfert (fritz@isdn4linux.de)
  * Copyright 1995,96    by Thinking Objects Software GmbH Wuerzburg
@@ -116,13 +116,15 @@ static __inline__ isdn_net_local * isdn_net_get_locked_lp(isdn_net_dev *nd)
 	while (isdn_net_lp_busy(nd->queue)) {
 		spin_unlock_bh(&nd->queue->xmit_lock);
 		nd->queue = nd->queue->next;
-		if (nd->queue == lp)
-			return 0;
+		if (nd->queue == lp) { /* not found -- should never happen */
+			lp = NULL;
+			goto errout;
+		}
 		spin_lock_bh(&nd->queue->xmit_lock);
 	}
 	lp = nd->queue;
-
 	nd->queue = nd->queue->next;
+errout:
 	spin_unlock_irqrestore(&nd->queue_lock, flags);
 	return lp;
 }
@@ -139,9 +141,9 @@ static __inline__ void isdn_net_add_to_bundle(isdn_net_dev *nd, isdn_net_local *
 
 	lp = nd->queue;
 	nlp->last = lp->last;
-	nlp->next = lp;
 	lp->last->next = nlp;
 	lp->last = nlp;
+	nlp->next = lp;
 	nd->queue = nlp;
 
 	spin_unlock_irqrestore(&nd->queue_lock, flags);
@@ -152,26 +154,17 @@ static __inline__ void isdn_net_add_to_bundle(isdn_net_dev *nd, isdn_net_local *
 static __inline__ void isdn_net_rm_from_bundle(isdn_net_local *lp)
 {
 	isdn_net_local *master_lp = lp;
-	isdn_net_local *nlp;
 	unsigned long flags;
 
-  	if (lp->master)
-  		master_lp = (isdn_net_local *) lp->master->priv;
-	
+	if (lp->master)
+		master_lp = (isdn_net_local *) lp->master->priv;
+
 	spin_lock_irqsave(&master_lp->netdev->queue_lock, flags);
- 	/* make sure none of the queue pointers will point to the 
- 	 * interface being removed */
- 	for (nlp=lp->next; nlp != lp; nlp=nlp->next) {
- 		if (nlp->netdev->queue == lp )
- 			nlp->netdev->queue = lp->next;
-	}
-  	lp->last->next = lp->next;
-  	lp->next->last = lp->last;
- 	
- 	if (master_lp->netdev->queue == lp)
- 		master_lp->netdev->queue = lp->next;
- 	lp->next = lp->last = lp;	/* (re)set own pointers */
- 	lp->netdev->queue = lp;
+	lp->last->next = lp->next;
+	lp->next->last = lp->last;
+	if (master_lp->netdev->queue == lp)
+		master_lp->netdev->queue = lp->next;
+	lp->next = lp->last = lp;	/* (re)set own pointers */
 	spin_unlock_irqrestore(&master_lp->netdev->queue_lock, flags);
 }
 

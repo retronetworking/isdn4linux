@@ -1,5 +1,5 @@
 /* $Id$
- *
+
  * Header for the diversion supplementary interface for i4l.
  *
  * Copyright 1998       by Werner Cornelius (werner@isdn4linux.de)

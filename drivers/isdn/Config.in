@@ -33,13 +33,12 @@ if [ "$CONFIG_EXPERIMENTAL" != "n" ]; then
 		bool '  RX dont reset hanguptimeout' CONFIG_ISDN_WITH_ABC_RCV_NO_HUPTIMER
 		bool '  Support (device-channel)<->(bind-groups)' CONFIG_ISDN_WITH_ABC_ICALL_BIND 
 		bool '  Skip channel if used external (dial only)' CONFIG_ISDN_WITH_ABC_CH_EXTINUSE
-		bool '  Support interface-auto-disble if config-error' CONFIG_ISDN_WITH_ABC_CONN_ERROR
+		bool '  Support interface-auto-disable if config-error' CONFIG_ISDN_WITH_ABC_CONN_ERROR
 		bool '  Enable UDP-Info-Support' CONFIG_ISDN_WITH_ABC_UDP_CHECK
 		if [ "$CONFIG_ISDN_WITH_ABC_UDP_CHECK" != "n" ]; then
 		bool '    Enable Hangup-Support with UDP-INFO' CONFIG_ISDN_WITH_ABC_UDP_CHECK_HANGUP
 		bool '    Enable Dial-Support with UDP-INFO' CONFIG_ISDN_WITH_ABC_UDP_CHECK_DIAL
 		fi
-		bool '  Limit on the line frames to 2' CONFIG_ISDN_WITH_ABC_FRAME_LIMIT
 		if [ "$CONFIG_ISDN_PPP" != "n" ]; then
 		bool '  Enable Compression with rawip and x75i' CONFIG_ISDN_WITH_ABC_RAWIPCOMPRESS
 		fi
@@ -154,6 +153,11 @@ fi
 if [ "$CONFIG_PROC_FS" != "n" ]; then
 if [ "$CONFIG_MODULES" != "n" ]; then
    bool 'Hypercope HYSDN cards (Champ, Ergo, Metro) support (module)' CONFIG_HYSDN
+fi
+fi
+if [ "$CONFIG_HYSDN" != "n"]; then
+if [ "$CONFIG_ISDN_CAPI" != "n" ]; then
+   bool 'HYSDN CAPI 2.0 support' CONFIG_HYSDN_CAPI
 fi
 fi
 endmenu

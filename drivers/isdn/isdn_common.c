@@ -1,6 +1,6 @@
 /* $Id$
- *
- * Linux ISDN subsystem, common used functions
+
+ * Linux ISDN subsystem, common used functions (linklevel).
  *
  * Copyright 1994-1999  by Fritz Elfert (fritz@isdn4linux.de)
  * Copyright 1995,96    Thinking Objects Software GmbH Wuerzburg
@@ -21,8 +21,6 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  */
-
-static char *isdn_revision = "$Revision$";
 
 #include <linux/config.h>
 #include <linux/module.h>
@@ -51,6 +49,22 @@ static char *isdn_revision = "$Revision$";
 #undef ISDN_DEBUG_STATCALLB
 
 isdn_dev *dev = (isdn_dev *) 0;
+
+static char *isdn_revision = "$Revision$";
+
+extern char *isdn_net_revision;
+extern char *isdn_tty_revision;
+#ifdef CONFIG_ISDN_PPP
+extern char *isdn_ppp_revision;
+#else
+static char *isdn_ppp_revision = ": none $";
+#endif
+#ifdef CONFIG_ISDN_AUDIO
+extern char *isdn_audio_revision;
+#else
+static char *isdn_audio_revision = ": none $";
+#endif
+extern char *isdn_v110_revision;
 
 #ifdef CONFIG_ISDN_DIVERSION
 isdn_divert_if *divert_if = NULL; /* interface to diversion module */
@@ -253,10 +267,6 @@ isdn_timer_funct(ulong dummy)
 			}
 			if (tf & ISDN_TIMER_CARRIER)
 				isdn_tty_carrier_timeout();
-#if (defined CONFIG_ISDN_PPP) && (defined CONFIG_ISDN_MPP)
-			if (tf & ISDN_TIMER_IPPP)
-				isdn_ppp_timer_timeout();
-#endif
 		}
 	}
 	if (tf) 
@@ -2567,15 +2577,17 @@ cleanup_module(void)
 	}
 	if (devfs_unregister_chrdev(ISDN_MAJOR, "isdn") != 0) {
 		printk(KERN_WARNING "isdn: controldevice busy, remove cancelled\n");
+		restore_flags(flags);
 	} else {
 #ifdef HAVE_DEVFS_FS
 		isdn_cleanup_devfs();
 #endif /* HAVE_DEVFS_FS */
 		del_timer(&dev->timer);
+		restore_flags(flags);
+		/* call vfree with interrupts enabled, else it will hang */
 		vfree(dev);
 		printk(KERN_NOTICE "ISDN-subsystem unloaded\n");
 	}
-	restore_flags(flags);
 #ifdef CONFIG_ISDN_WITH_ABC
 	isdn_dw_abc_release_func();
 #endif

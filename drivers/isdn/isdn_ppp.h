@@ -1,6 +1,6 @@
 /* $Id$
- *
- * Linux ISDN subsystem, functions for synchronous PPP
+
+ * header for Linux ISDN subsystem, functions for synchronous PPP (linklevel).
  *
  * Copyright 1995,96 by Michael Hipp (Michael.Hipp@student.uni-tuebingen.de)
  *
@@ -21,7 +21,6 @@
  */
 
 #include <linux/ppp_defs.h>     /* for PPP_PROTOCOL */
-extern void isdn_ppp_timer_timeout(void);
 extern int isdn_ppp_read(int, struct file *, char *, int);
 extern int isdn_ppp_write(int, struct file *, const char *, int);
 extern int isdn_ppp_open(int, struct file *);

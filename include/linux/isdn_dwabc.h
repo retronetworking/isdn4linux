@@ -1,8 +1,9 @@
 /* $Id$
-
+ *
  * Header for the Linux ISDN abc-extension.
  *
- * Author: abc GmbH written by Detlef Wengorz <detlefw@isdn4linux.de> 
+ * Copyright           by abc GmbH
+ *                     written by Detlef Wengorz <detlefw@isdn4linux.de>
  * 
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by

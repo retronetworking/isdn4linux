@@ -1,6 +1,6 @@
 /* $Id$
- *
- * Linux ISDN subsystem, V.110 related functions
+
+ * Linux ISDN subsystem, V.110 related functions (linklevel).
  *
  * Copyright by Thomas Pfeiffer (pfeiffer@pds.de)
  *
@@ -20,8 +20,6 @@
  *
  */
 
-char *isdn_v110_revision = "$Revision$";
-
 #include <linux/string.h>
 #include <linux/kernel.h>
 #include <linux/malloc.h>
@@ -31,6 +29,8 @@ char *isdn_v110_revision = "$Revision$";
 #include "isdn_v110.h"
 
 #undef ISDN_V110_DEBUG
+
+char *isdn_v110_revision = "$Revision$";
 
 #define V110_38400 255
 #define V110_19200  15

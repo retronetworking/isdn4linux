@@ -1,6 +1,6 @@
 /* $Id$
- *
- * Linux ISDN subsystem, audio conversion and compression
+
+ * Linux ISDN subsystem, audio conversion and compression (linklevel).
  *
  * Copyright 1994-1999 by Fritz Elfert (fritz@isdn4linux.de)
  *

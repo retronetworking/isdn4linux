@@ -1,5 +1,5 @@
 /* $Id$
- *
+
  * Linux ISDN subsystem, tty_fax AT-command emulator (linklevel).
  *
  * Copyright 1999    by Armin Schindler (mac@melware.de)
@@ -22,8 +22,6 @@
  *
  */
 
-static char *isdn_tty_fax_revision = "$Revision$";
-
 #undef ISDN_TTY_FAX_STAT_DEBUG
 #undef ISDN_TTY_FAX_CMD_DEBUG
 
@@ -34,6 +32,8 @@ static char *isdn_tty_fax_revision = "$Revision$";
 #include "isdn_tty.h"
 #include "isdn_ttyfax.h"
 
+
+static char *isdn_tty_fax_revision = "$Revision$";
 
 #define PARSE_ERROR1 { isdn_tty_fax_modem_result(1, info); return 1; }
 
