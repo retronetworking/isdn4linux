@@ -1,6 +1,9 @@
 /* $Id$
  *
  * $Log$
+ * Revision 1.2  1996/04/29 23:01:46  fritz
+ * Added driverId and channel to readstatus().
+ *
  * Revision 1.1  1996/04/13 10:26:29  fritz
  * Initial revision
  *
@@ -90,6 +93,7 @@ ll_init(void)
 	iif.features =
 	    ISDN_FEATURE_L2_X75I |
 	    ISDN_FEATURE_L2_HDLC |
+	    ISDN_FEATURE_L2_TRANS |
 	    ISDN_FEATURE_L3_TRANS |
 	    ISDN_FEATURE_P_1TR6 |
 	    ISDN_FEATURE_P_EURO;
