@@ -52,6 +52,17 @@ struct alerting_req_parm {
 	unsigned char user_user[131];
 };
 
+struct Param {
+	u_char cause;
+	u_char loc;
+	u_char diag[6];
+	int bchannel;
+	int chargeinfo;
+	int spv;		/* SPV Flag */
+	setup_parm setup;	/* from isdnif.h numbers and Serviceindicator */
+	u_char moderate;	/* transfer mode and rate (bearer octet 4) */
+};
+
 struct l3_process {
 	int callref;
 	int state;

@@ -1261,13 +1261,12 @@ DecodeSI2(struct sk_buff *skb)
 #endif
 
 
+static void l3dss1_gen_setup_req(struct l3_process *pc, u_char pr, void *arg);
+
 static void
-l3dss1_setup_req(struct l3_process *pc, u_char pr,
-		 void *arg)
+l3dss1_setup_req(struct l3_process *pc, u_char pr, void *arg)
 {
-	struct sk_buff *skb;
-	u_char tmp[128];
-	u_char *p = tmp;
+	u_char *p;
 	u_char channel = 0;
 
         u_char send_keypad;
@@ -1276,13 +1275,12 @@ l3dss1_setup_req(struct l3_process *pc, u_char pr,
 	u_char *msn;
 	u_char *sub;
 	u_char *sp;
-	int l;
+	setup_parm *setup = (setup_parm *) arg;
+	struct setup_req_parm setup_req;
 
-	pc->para.setup = *(setup_parm *)arg;
+	memset(&setup_req, 0, sizeof(struct setup_req_parm));
 
-	MsgHead(p, pc->callref, MT_SETUP);
-
-	teln = pc->para.setup.phone;
+	teln = setup->phone;
 #ifndef CONFIG_HISAX_NO_KEYPAD
         send_keypad = (strchr(teln,'*') || strchr(teln,'#')) ? 1 : 0; 
 #else
@@ -1290,12 +1288,14 @@ l3dss1_setup_req(struct l3_process *pc, u_char pr,
 #endif
 #ifndef CONFIG_HISAX_NO_SENDCOMPLETE
 	if (!send_keypad)
-		*p++ = 0xa1;		/* complete indicator */
+		setup_req.sending_complete[0] = IE_COMPLETE;
 #endif
+
 	/*
 	 * Set Bearer Capability, Map info from 1TR6-convention to EDSS1
 	 */
-	switch (pc->para.setup.si1) {
+	p = setup_req.bearer_capability;
+	switch (setup->si1) {
 	case 1:	                  /* Telephony                                */
 		*p++ = IE_BEARER;
 		*p++ = 0x3;	  /* Length                                   */
@@ -1314,6 +1314,7 @@ l3dss1_setup_req(struct l3_process *pc, u_char pr,
 	}
 
 	if (send_keypad) {
+		p = setup_req.keypad_facility;
 		*p++ = IE_KEYPAD;
 		*p++ = strlen(teln);
 		while (*teln)
@@ -1353,11 +1354,12 @@ l3dss1_setup_req(struct l3_process *pc, u_char pr,
 		}
 	}
 	if (channel) {
+		p = setup_req.channel_identification;
 		*p++ = IE_CHANNEL_ID;
 		*p++ = 1;
 		*p++ = channel;
 	}
-	msn = pc->para.setup.eazmsn;
+	msn = setup->eazmsn;
 	sub = NULL;
 	sp = msn;
 	while (*sp) {
@@ -1368,6 +1370,7 @@ l3dss1_setup_req(struct l3_process *pc, u_char pr,
 			sp++;
 	}
 	if (*msn) {
+		p = setup_req.calling_party_number;
 		*p++ = IE_CALLING_PN;
 		*p++ = strlen(msn) + (screen ? 2 : 1);
 		/* Classify as AnyPref. */
@@ -1381,6 +1384,7 @@ l3dss1_setup_req(struct l3_process *pc, u_char pr,
 	}
 	if (sub) {
 		*sub++ = '.';
+		p = setup_req.calling_party_subaddress;
 		*p++ = IE_CALLING_SUB;
 		*p++ = strlen(sub) + 2;
 		*p++ = 0x80;	/* NSAP coded */
@@ -1399,6 +1403,7 @@ l3dss1_setup_req(struct l3_process *pc, u_char pr,
 	}
 	
         if (!send_keypad) {      
+		p = setup_req.called_party_number;
 		*p++ = IE_CALLED_PN;
 		*p++ = strlen(teln) + 1;
 		/* Classify as AnyPref. */
@@ -1408,6 +1413,7 @@ l3dss1_setup_req(struct l3_process *pc, u_char pr,
 		
 		if (sub) {
 			*sub++ = '.';
+			p = setup_req.called_party_subaddress;
 			*p++ = IE_CALLED_SUB;
 			*p++ = strlen(sub) + 2;
 			*p++ = 0x80;	/* NSAP coded */
@@ -1416,35 +1422,36 @@ l3dss1_setup_req(struct l3_process *pc, u_char pr,
 				*p++ = *sub++ & 0x7f;
 		}
         }
+	p = setup_req.low_layer_compatibility;
 #if EXT_BEARER_CAPS
-	if ((pc->para.setup.si2 >= 160) && (pc->para.setup.si2 <= 175)) {	// sync. Bitratenadaption, V.110/X.30
+	if ((setup->si2 >= 160) && (setup->si2 <= 175)) {	// sync. Bitratenadaption, V.110/X.30
 
 		*p++ = IE_LLC;
 		*p++ = 0x04;
 		*p++ = 0x88;
 		*p++ = 0x90;
 		*p++ = 0x21;
-		*p++ = EncodeSyncParams(pc->para.setup.si2 - 160, 0x80);
-	} else if ((pc->para.setup.si2 >= 176) && (pc->para.setup.si2 <= 191)) {	// sync. Bitratenadaption, V.120
+		*p++ = EncodeSyncParams(setup->si2 - 160, 0x80);
+	} else if ((setup->si2 >= 176) && (setup->si2 <= 191)) {	// sync. Bitratenadaption, V.120
 
 		*p++ = IE_LLC;
 		*p++ = 0x05;
 		*p++ = 0x88;
 		*p++ = 0x90;
 		*p++ = 0x28;
-		*p++ = EncodeSyncParams(pc->para.setup.si2 - 176, 0);
+		*p++ = EncodeSyncParams(setup->si2 - 176, 0);
 		*p++ = 0x82;
-	} else if (pc->para.setup.si2 >= 192) {		// async. Bitratenadaption, V.110/X.30
+	} else if (setup->si2 >= 192) {		// async. Bitratenadaption, V.110/X.30
 
 		*p++ = IE_LLC;
 		*p++ = 0x06;
 		*p++ = 0x88;
 		*p++ = 0x90;
 		*p++ = 0x21;
-		p = EncodeASyncParams(p, pc->para.setup.si2 - 192);
+		p = EncodeASyncParams(p, setup->si2 - 192);
 #ifndef CONFIG_HISAX_NO_LLC
 	} else {
-	  switch (pc->para.setup.si1) {
+	  switch (setup->si1) {
 		case 1:	                /* Telephony                                */
 			*p++ = IE_LLC;
 			*p++ = 0x3;	/* Length                                   */
@@ -1464,22 +1471,14 @@ l3dss1_setup_req(struct l3_process *pc, u_char pr,
 #endif
 	}
 #endif
-	l = p - tmp;
-	if (!(skb = l3_alloc_skb(l)))
-		return;
-	memcpy(skb_put(skb, l), tmp, l);
-	l3pc_deltimer(pc);
-	l3pc_addtimer(pc, T303, CC_T303);
-	l3pc_newstate(pc, 1);
-	l3_msg(pc->st, DL_DATA | REQUEST, skb);
+	l3dss1_gen_setup_req(pc, pr, &setup_req);
 }
 
 #ifdef CONFIG_HISAX_CAPI
 
 
 static void
-l3dss1_gen_setup_req(struct l3_process *pc, u_char pr,
-		 void *arg)
+l3dss1_gen_setup_req(struct l3_process *pc, u_char pr, void *arg)
 {
 	MsgDeclare(128);
 	struct setup_req_parm *setup_req = &pc->setup_req;
@@ -1690,6 +1689,7 @@ l3dss1_setup(struct l3_process *pc, u_char pr, void *arg)
 	struct sk_buff *skb = arg;
 	int id;
 	int err = 0;
+	setup_parm *setup = &pc->para.setup;
 
 	/*
 	 * Bearer Capabilities
@@ -1700,30 +1700,30 @@ l3dss1_setup(struct l3_process *pc, u_char pr, void *arg)
 		if ((p[1] < 2) || (p[1] > 11))
 			err = 1;
 		else {
-			pc->para.setup.si2 = 0;
+			setup->si2 = 0;
 			switch (p[2] & 0x7f) {
 				case 0x00: /* Speech */
 				case 0x10: /* 3.1 Khz audio */
-					pc->para.setup.si1 = 1;
+					setup->si1 = 1;
 					break;
 				case 0x08: /* Unrestricted digital information */
-					pc->para.setup.si1 = 7;
+					setup->si1 = 7;
 /* JIM, 05.11.97 I wanna set service indicator 2 */
 #if EXT_BEARER_CAPS
-					pc->para.setup.si2 = DecodeSI2(skb);
+					setup->si2 = DecodeSI2(skb);
 #endif
 					break;
 				case 0x09: /* Restricted digital information */
-					pc->para.setup.si1 = 2;
+					setup->si1 = 2;
 					break;
 				case 0x11:
 					/* Unrestr. digital information  with 
 					 * tones/announcements ( or 7 kHz audio
 					 */
-					pc->para.setup.si1 = 3;
+					setup->si1 = 3;
 					break;
 				case 0x18: /* Video */
-					pc->para.setup.si1 = 4;
+					setup->si1 = 4;
 					break;
 				default:
 					err = 2;
@@ -1731,7 +1731,7 @@ l3dss1_setup(struct l3_process *pc, u_char pr, void *arg)
 			}
 			switch (p[3] & 0x7f) {
 				case 0x40: /* packed mode */
-					pc->para.setup.si1 = 8;
+					setup->si1 = 8;
 					break;
 				case 0x10: /* 64 kbit */
 				case 0x11: /* 2*64 kbit */
@@ -1747,7 +1747,7 @@ l3dss1_setup(struct l3_process *pc, u_char pr, void *arg)
 		}
 		if (pc->debug & L3_DEB_SI)
 			l3_debug(pc->st, "SI=%d, AI=%d",
-				pc->para.setup.si1, pc->para.setup.si2);
+				setup->si1, setup->si2);
 		if (err) {
 			if (pc->debug & L3_DEB_WARN)
 				l3_debug(pc->st, "setup with wrong bearer(l=%d:%x,%x)",
@@ -1802,9 +1802,9 @@ l3dss1_setup(struct l3_process *pc, u_char pr, void *arg)
 	}
 	p = skb->data;
 	if ((p = findie(p, skb->len, 0x70, 0)))
-		iecpy(pc->para.setup.eazmsn, p, 1);
+		iecpy(setup->eazmsn, p, 1);
 	else
-		pc->para.setup.eazmsn[0] = 0;
+		setup->eazmsn[0] = 0;
 
 	p = skb->data;
 	if ((p = findie(p, skb->len, 0x71, 0))) {
@@ -1812,24 +1812,24 @@ l3dss1_setup(struct l3_process *pc, u_char pr, void *arg)
 		if ((p[1] >= 2) && (p[2] == 0x80) && (p[3] == 0x50)) {
 			tmp[0] = '.';
 			iecpy(&tmp[1], p, 2);
-			strcat(pc->para.setup.eazmsn, tmp);
+			strcat(setup->eazmsn, tmp);
 		} else if (pc->debug & L3_DEB_WARN)
 			l3_debug(pc->st, "wrong called subaddress");
 	}
 	p = skb->data;
 	if ((p = findie(p, skb->len, 0x6c, 0))) {
-		pc->para.setup.plan = p[2];
+		setup->plan = p[2];
 		if (p[2] & 0x80) {
-			iecpy(pc->para.setup.phone, p, 1);
-			pc->para.setup.screen = 0;
+			iecpy(setup->phone, p, 1);
+			setup->screen = 0;
 		} else {
-			iecpy(pc->para.setup.phone, p, 2);
-			pc->para.setup.screen = p[3];
+			iecpy(setup->phone, p, 2);
+			setup->screen = p[3];
 		}
 	} else {
-		pc->para.setup.phone[0] = 0;
-		pc->para.setup.plan = 0;
-		pc->para.setup.screen = 0;
+		setup->phone[0] = 0;
+		setup->plan = 0;
+		setup->screen = 0;
 	}
 	p = skb->data;
 	if ((p = findie(p, skb->len, 0x6d, 0))) {
@@ -1837,7 +1837,7 @@ l3dss1_setup(struct l3_process *pc, u_char pr, void *arg)
 		if ((p[1] >= 2) && (p[2] == 0x80) && (p[3] == 0x50)) {
 			tmp[0] = '.';
 			iecpy(&tmp[1], p, 2);
-			strcat(pc->para.setup.phone, tmp);
+			strcat(setup->phone, tmp);
 		} else if (pc->debug & L3_DEB_WARN)
 			l3_debug(pc->st, "wrong calling subaddress");
 	}
@@ -2397,7 +2397,7 @@ l3dss1_t303(struct l3_process *pc, u_char pr, void *arg)
 	if (pc->N303 > 0) {
 		pc->N303--;
 		l3pc_deltimer(pc);
-		l3dss1_setup_req(pc, pr, arg);
+		l3dss1_gen_setup_req(pc, pr, 0);
 	} else {
 		l3pc_deltimer(pc);
 		l3dss1_message_cause(pc, MT_RELEASE_COMPLETE, 102);
@@ -2666,9 +2666,9 @@ l3dss1_resume_req(struct l3_process *pc, u_char pr, void *arg)
 	u_char *p = tmp;
 	u_char i, l;
 	u_char *msg;
+	setup_parm *setup = (setup_parm *) arg;
 
-	pc->para.setup = *(setup_parm *)arg;
-	msg = pc->para.setup.phone;
+	msg = setup->phone;
 
 	MsgHead(p, pc->callref, MT_RESUME);
 
