@@ -13,6 +13,10 @@
  *              Fritz Elfert
  *
  * $Log$
+ * Revision 1.16.2.16  1999/07/01 10:31:21  keil
+ * Version is the same as outside isdn4kernel_2_0 branch,
+ * only version numbers are different
+ *
  * Revision 2.13  1999/07/01 08:11:58  keil
  * Common HiSax version for 2.0, 2.1, 2.2 and 2.3 kernel
  *
@@ -3083,7 +3087,7 @@ dss1up(struct PStack *st, int pr, void *arg)
 			break;
 	if (i == DATASLLEN) {
 		if (st->l3.debug & L3_DEB_STATE) {
-			l3_debug(st, "dss1up%sstate %d mt %x unhandled",
+			l3_debug(st, "dss1up%sstate %d mt %#x unhandled",
 				(pr == (DL_DATA | INDICATION)) ? " " : "(broadcast) ",
 				proc->state, mt);
 		}
@@ -3142,12 +3146,12 @@ dss1down(struct PStack *st, int pr, void *arg)
 			break;
 	if (i == DOWNSLLEN) {
 		if (st->l3.debug & L3_DEB_STATE) {
-			l3_debug(st, "dss1down state %d prim %x unhandled",
+			l3_debug(st, "dss1down state %d prim %#x unhandled",
 				proc->state, pr);
 		}
 	} else {
 		if (st->l3.debug & L3_DEB_STATE) {
-			l3_debug(st, "dss1down state %d prim %d",
+			l3_debug(st, "dss1down state %d prim %#x",
 				proc->state, pr);
 		}
 		downstatelist[i].rout(proc, pr, arg);
@@ -3170,12 +3174,12 @@ dss1man(struct PStack *st, int pr, void *arg)
                         break;
         if (i == MANSLLEN) {
                 if (st->l3.debug & L3_DEB_STATE) {
-                        l3_debug(st, "cr %d dss1man state %d prim %d unhandled",
+                        l3_debug(st, "cr %d dss1man state %d prim %#x unhandled",
                                 proc->callref & 0x7f, proc->state, pr);
                 }
         } else {
                 if (st->l3.debug & L3_DEB_STATE) {
-                        l3_debug(st, "cr %d dss1man state %d prim %d",
+                        l3_debug(st, "cr %d dss1man state %d prim %#x",
                                 proc->callref & 0x7f, proc->state, pr);
                 }
                 manstatelist[i].rout(proc, pr, arg);
