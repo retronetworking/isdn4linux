@@ -6,6 +6,9 @@
  *
  *
  * $Log$
+ * Revision 1.1.2.3  1998/01/27 22:37:41  keil
+ * fast io
+ *
  * Revision 1.1.2.2  1997/11/15 18:50:58  keil
  * new common init function
  *
@@ -58,17 +61,20 @@ static inline void
 readfifo(unsigned int ale, unsigned int adr, u_char off, u_char * data, int size)
 {
 	register u_char ret;
-	int max_delay = 2000;
+	register int max_delay = 20000;
+	register int i;
+	
 	byteout(ale, off);
-
-	ret = HFC_BUSY & bytein(ale);
-	while (ret && --max_delay)
+	for (i = 0; i<size; i++) {
 		ret = HFC_BUSY & bytein(ale);
-	if (!max_delay) {
-		printk(KERN_WARNING "TeleInt Busy not inaktive\n");
-		return;
+		while (ret && --max_delay)
+			ret = HFC_BUSY & bytein(ale);
+		if (!max_delay) {
+			printk(KERN_WARNING "TeleInt Busy not inaktive\n");
+			return;
+		}
+		data[i] = bytein(adr);
 	}
-	insb(adr, data, size);
 }
 
 
@@ -98,18 +104,21 @@ static inline void
 writefifo(unsigned int ale, unsigned int adr, u_char off, u_char * data, int size)
 {
 	register u_char ret;
-	int max_delay = 2000;
-
+	register int max_delay = 20000;
+	register int i;
+	
 	/* fifo write without cli because it's allready done  */
 	byteout(ale, off);
-	ret = HFC_BUSY & bytein(ale);
-	while (ret && --max_delay)
+	for (i = 0; i<size; i++) {
 		ret = HFC_BUSY & bytein(ale);
-	if (!max_delay) {
-		printk(KERN_WARNING "TeleInt Busy not inaktive\n");
-		return;
+		while (ret && --max_delay)
+			ret = HFC_BUSY & bytein(ale);
+		if (!max_delay) {
+			printk(KERN_WARNING "TeleInt Busy not inaktive\n");
+			return;
+		}
+		byteout(adr, data[i]);
 	}
-	outsb(adr, data, size);
 }
 
 /* Interface functions */
