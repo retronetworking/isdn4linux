@@ -5,12 +5,17 @@ DOCP=docpd
 PREPARSER="./preparser"
 UNIQUE=false
 VERBOSE=false
+NOTEST=true
 
 docpd() {
   if ! cmp -s $1 $2 ; then
-    echo Copying $1 ...
+    if $NOTEST ; then
+        echo Copying $1 ...
 	mkdir -p `dirname $2`
-    cp $1 $2
+        cp $1 $2
+    else
+        echo $1 was changed
+    fi
   else
     if $VERBOSE ; then
 	    echo $2 is up to date, NOT converted
@@ -20,9 +25,13 @@ docpd() {
 
 docp() {
   if [ $1 -nt $2 -o ! -f $2 ] ; then
-    echo Copying $1 ...
+    if $NOTEST ; then
+        echo Copying $1 ...
 	mkdir -p `dirname $2`
-    cp $1 $2
+        cp $1 $2
+    else
+        echo $1 was changed
+    fi
   else
     if $VERBOSE ; then
 	    echo $2 is up to date, NOT converted
@@ -39,13 +48,21 @@ docpuni() {
     RES=$?
     if [ "$RES" -eq "0" ] ; then 
 	if ! cmp -s $1 $2 ; then
-		if $VERBOSE ; then
-			echo copying original
+		if $NOTEST ; then
+			if $VERBOSE ; then
+				echo copying original
+			else
+				echo "Processing $1 ... copying original"
+			fi
+			mkdir -p `dirname $2`
+			cp $1 $2
 		else
-			echo "Processing $1 ... copying original"
+			if $VERBOSE ; then
+				echo original was changed
+			else
+				echo "Processing $1 ... original was changed"
+			fi
 		fi
-		mkdir -p `dirname $2`
-		cp $1 $2
 	else
 		if $VERBOSE ; then
 			echo original file is up to date
@@ -56,13 +73,21 @@ docpuni() {
     fi
     if [ "$RES" -eq "2" ] ; then
 	if ! cmp -s $TMPNAME $2 ; then
-		if $VERBOSE ; then
-			echo copying modified
+		if $NOTEST ; then
+			if $VERBOSE ; then
+				echo copying modified
+			else
+				echo "Processing $1 ... copying modified"
+			fi
+			mkdir -p `dirname $2`
+			cp $TMPNAME $2
 		else
-			echo "Processing $1 ... copying modified"
+			if $VERBOSE ; then
+				echo modified was changed
+			else
+				echo "Processing $1 ... modified was changed"
+			fi
 		fi
-		mkdir -p `dirname $2`
-		cp $TMPNAME $2
 	else
 		if $VERBOSE ; then
 			echo modified file is up to date
@@ -97,6 +122,7 @@ usage() {
 	-u      Make a diff for a unique kernel-tree 
                 (preprocessing with $PREPARSER)
 	-c FILE	Use FILE as control file for $PREPARSER (only with -u)
+	-t      Test, don't really copy files
 
 	Without any files given, within the whole tree, the "right"
 	files are copied. When any files are given in the commandline,
@@ -143,7 +169,7 @@ calc_ctrl_file() {
 	exit 1
 }
 
-while getopts :dhk:uc:v a ; do
+while getopts :dhk:uc:vt a ; do
 	case $a in
 		\?)	case $OPTARG in
 				k)	echo "-k requires Kernel directory parameter"
@@ -162,6 +188,8 @@ while getopts :dhk:uc:v a ; do
 		u)	UNIQUE=true
 			;;
 		v)	VERBOSE=true
+			;;
+		t)	NOTEST=false
 			;;
 		d)	DOCP=docp
 			;;
