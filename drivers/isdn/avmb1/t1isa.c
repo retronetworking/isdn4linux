@@ -6,6 +6,9 @@
  * (c) Copyright 1999 by Carsten Paeth (calle@calle.in-berlin.de)
  * 
  * $Log$
+ * Revision 1.12  2000/08/04 12:20:08  calle
+ * - Fix unsigned/signed warning in the right way ...
+ *
  * Revision 1.11  2000/04/03 13:29:25  calle
  * make Tim Waugh happy (module unload races in 2.3.99-pre3).
  * no real problem there, but now it is much cleaner ...
@@ -281,8 +284,8 @@ static void t1_handle_interrupt(avmcard * card)
 			break;
 
 		case RECEIVE_TASK_READY:
-			ApplId = (unsigned) _get_word(&p);
-			MsgLen = _get_slice(&p, card->msgbuf);
+			ApplId = (unsigned) b1_get_word(card->port);
+			MsgLen = t1_get_slice(card->port, card->msgbuf);
 			card->msgbuf[MsgLen] = 0;
 			while (    MsgLen > 0
 			       && (   card->msgbuf[MsgLen-1] == '\n'
@@ -295,7 +298,7 @@ static void t1_handle_interrupt(avmcard * card)
 			break;
 
 		case RECEIVE_DEBUGMSG:
-			MsgLen = _get_slice(&p, card->msgbuf);
+			MsgLen = t1_get_slice(card->port, card->msgbuf);
 			card->msgbuf[MsgLen] = 0;
 			while (    MsgLen > 0
 			       && (   card->msgbuf[MsgLen-1] == '\n'
