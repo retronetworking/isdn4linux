@@ -10,6 +10,9 @@
  * 	        Beat Doebeli
  * 
  * $Log$
+ * Revision 1.3  1996/10/30 10:22:58  keil
+ * Changes for 2.1 kernels
+ *
  * Revision 1.2  1996/10/27 22:08:34  keil
  * cosmetic changes
  *
@@ -967,11 +970,11 @@ setup_teles0(struct IsdnCard *card)
 	}
         cli();
         timout = jiffies + (HZ / 5) + 1;
-        *(byte *) (sp->membase + 0x80) = 0;
+        writeb(0, sp->membase + 0x80);
         sti();
         while (jiffies <= timout);
         cli();
-        *(byte *) (sp->membase + 0x80) = 1;
+        writeb(1, sp->membase + 0x80);
         timout = jiffies + (HZ / 5) + 1;
         sti();
         while (jiffies <= timout);
