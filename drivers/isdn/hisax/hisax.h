@@ -3,6 +3,9 @@
  *   Basic declarations, defines and prototypes
  *
  * $Log$
+ * Revision 1.13.2.4  1998/01/11 22:55:17  keil
+ * 16.3c support
+ *
  * Revision 1.13.2.3  1997/11/27 12:31:59  keil
  * Working netjet driver
  *
@@ -502,7 +505,7 @@ struct diva_hw {
 	u_char ctrl_reg;
 };	
 
-struct dyna_hw {
+struct asus_hw {
 	unsigned int cfg_reg;
 	unsigned int adr;
 	unsigned int isac;
@@ -571,6 +574,7 @@ struct hfcD_hw {
 	unsigned char int_s1;
 	unsigned char sctrl;
 	unsigned char stat;
+	unsigned char fifo;
 	unsigned char f1;
 	unsigned char f2;
 	unsigned int *send;
@@ -582,6 +586,7 @@ struct hfcD_hw {
 #define FLG_TWO_DCHAN	4
 #define FLG_L1_DBUSY	5
 #define FLG_DBUSY_TIMER 6
+#define FLG_LOCK_ATOMIC 7
 #define HW_MON0_RX_END	8
 #define HW_MON1_RX_END	9
 #define HW_MON0_TX_END	10
@@ -601,7 +606,7 @@ struct IsdnCardState {
 		struct avm_hw avm;
 		struct ix1_hw ix1;
 		struct diva_hw diva;
-		struct dyna_hw dyna;
+		struct asus_hw asus;
 		struct hfc_hw hfc;
 		struct sedl_hw sedl;
 		struct spt_hw spt;
@@ -664,8 +669,8 @@ struct IsdnCardState {
 #define  ISDN_CTYPE_TELESPCMCIA	8
 #define  ISDN_CTYPE_IX1MICROR2	9
 #define  ISDN_CTYPE_ELSA_PCMCIA	10
-#define  ISDN_CTYPE_DIEHLDIVA   11
-#define  ISDN_CTYPE_DYNALINK    12
+#define  ISDN_CTYPE_DIEHLDIVA	11
+#define  ISDN_CTYPE_ASUSCOM	12
 #define  ISDN_CTYPE_TELEINT	13
 #define  ISDN_CTYPE_TELES3C	14
 #define  ISDN_CTYPE_SEDLBAUER	15
@@ -753,13 +758,13 @@ struct IsdnCardState {
 #define CARD_DIEHLDIVA 0
 #endif
 
-#ifdef  CONFIG_HISAX_DYNALINK
-#define CARD_DYNALINK (1 << ISDN_CTYPE_DYNALINK)
+#ifdef  CONFIG_HISAX_ASUSCOM
+#define CARD_ASUSCOM (1 << ISDN_CTYPE_ASUSCOM)
 #ifndef ISDN_CHIP_ISAC
 #define ISDN_CHIP_ISAC 1
 #endif
 #else
-#define CARD_DYNALINK 0
+#define CARD_ASUSCOM 0
 #endif
 
 #ifdef  CONFIG_HISAX_TELEINT
@@ -814,7 +819,7 @@ struct IsdnCardState {
 #endif
 
 #define  SUPORTED_CARDS  (CARD_TELES0 | CARD_TELES3 | CARD_AVM_A1 | CARD_ELSA \
-			 | CARD_IX1MICROR2 | CARD_DIEHLDIVA | CARD_DYNALINK \
+			 | CARD_IX1MICROR2 | CARD_DIEHLDIVA | CARD_ASUSCOM \
 			 | CARD_TELEINT | CARD_SEDLBAUER | CARD_SPORTSTER \
 			 | CARD_MIC | CARD_NETJET | CARD_TELES3C)
 
