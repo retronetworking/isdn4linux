@@ -20,6 +20,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.21  1996/06/24 17:40:28  fritz
+ * Bugfix: Did not compile without CONFIG_ISDN_AUDIO
+ *
  * Revision 1.20  1996/06/15 14:59:39  fritz
  * Fixed isdn_tty_tint() to handle partially sent
  * sk_buffs.
@@ -122,7 +125,7 @@
 
 static int  isdn_tty_edit_at(const char *, int, modem_info *, int);
 static void isdn_tty_check_esc(const u_char *, u_char, int, int *, int *, int);
-static void isdn_tty_modem_reset_regs(atemu *, int);
+static void isdn_tty_modem_reset_regs(modem_info *, int);
 static void isdn_tty_cmd_ATA(modem_info *);
 static void isdn_tty_at_cout(char *, modem_info *);
 static void isdn_tty_flush_buffer(struct tty_struct *);
@@ -707,7 +710,7 @@ static void isdn_tty_change_speed(modem_info * info)
 #endif
                         if (info->online)
                                 info->ncarrier = 1;
-                        isdn_tty_modem_reset_regs(&info->emu, 0);
+                        isdn_tty_modem_reset_regs(info, 0);
                         isdn_tty_modem_hup(info);
                 }
                 return;
@@ -782,7 +785,7 @@ static void isdn_tty_shutdown(modem_info * info)
 	if (!info->tty || (info->tty->termios->c_cflag & HUPCL)) {
 		info->mcr &= ~(UART_MCR_DTR | UART_MCR_RTS);
                 if (info->emu.mdmreg[13] & 4) {
-                        isdn_tty_modem_reset_regs(&info->emu, 0);
+                        isdn_tty_modem_reset_regs(info, 0);
 #ifdef ISDN_DEBUG_MODEM_HUP
                         printk(KERN_DEBUG "Mhup in isdn_tty_shutdown\n");
 #endif
@@ -1064,7 +1067,7 @@ static int isdn_tty_set_modem_info(modem_info * info, uint cmd, uint * value)
                         if (arg & TIOCM_DTR) {
                                 info->mcr &= ~UART_MCR_DTR;
                                 if (info->emu.mdmreg[13] & 4) {
-                                        isdn_tty_modem_reset_regs(&info->emu, 0);
+                                        isdn_tty_modem_reset_regs(info, 0);
 #ifdef ISDN_DEBUG_MODEM_HUP
                                         printk(KERN_DEBUG "Mhup in TIOCMBIC\n");
 #endif
@@ -1085,7 +1088,7 @@ static int isdn_tty_set_modem_info(modem_info * info, uint cmd, uint * value)
                         if (pre_dtr |= (info->mcr & UART_MCR_DTR)) {
                                 if (!(info->mcr & UART_MCR_DTR)) {
                                         if (info->emu.mdmreg[13] & 4) {
-                                                isdn_tty_modem_reset_regs(&info->emu, 0);
+                                                isdn_tty_modem_reset_regs(info, 0);
 #ifdef ISDN_DEBUG_MODEM_HUP
                                                 printk(KERN_DEBUG "Mhup in TIOCMSET\n");
 #endif
@@ -1543,11 +1546,13 @@ static void isdn_tty_modem_reset_vpar(atemu *m)
         m->vpar[3] = 2;  /* Compression type        (1 = ADPCM-2   ) */
 }
 
-static void isdn_tty_modem_reset_regs(atemu * m, int force)
+static void isdn_tty_modem_reset_regs(modem_info *info, int force)
 {
+        atemu *m = &info->emu;
 	if ((m->mdmreg[12] & 32) || force) {
 		memcpy(m->mdmreg, m->profile, ISDN_MODEM_ANZREG);
 		memcpy(m->msn, m->pmsn, ISDN_MSNLEN);
+                info->xmit_size = m->mdmreg[16] * 16;
 	}
         isdn_tty_modem_reset_vpar(m);
 	m->mdmcmdl = 0;
@@ -1619,7 +1624,7 @@ int isdn_tty_modem_init(void)
 	for (i = 0; i < ISDN_MAX_CHANNELS; i++) {
 		info = &m->info[i];
 		isdn_tty_reset_profile(&info->emu);
-		isdn_tty_modem_reset_regs(&info->emu, 1);
+		isdn_tty_modem_reset_regs(info, 1);
 		info->magic = ISDN_ASYNC_MAGIC;
 		info->line = i;
 		info->tty = 0;
@@ -2051,7 +2056,7 @@ static int isdn_tty_cmd_ATand(char **p, modem_info * info)
                         /* &F -Set Factory-Defaults */
                         p[0]++;
                         isdn_tty_reset_profile(m);
-                        isdn_tty_modem_reset_regs(m, 1);
+                        isdn_tty_modem_reset_regs(info, 1);
                         break;
                 case 'S':
                         /* &S - Set Windowsize */
@@ -2609,7 +2614,7 @@ static void isdn_tty_parse_at(modem_info * info)
                         case 'Z':
                                 /* Z - Load Registers from Profile */
                                 p++;
-                                isdn_tty_modem_reset_regs(m, 1);
+                                isdn_tty_modem_reset_regs(info, 1);
                                 break;
 #ifdef CONFIG_ISDN_AUDIO
                         case '+':
