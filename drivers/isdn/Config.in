@@ -47,6 +47,7 @@ if [ "$CONFIG_ISDN_DRV_HISAX" != "n" ]; then
     bool 'HiSax Support for HST Saphir card' CONFIG_HISAX_HSTSAPHIR
     bool 'HiSax Support for Telekom A4T card' CONFIG_HISAX_BKM_A4T
     bool 'HiSax Support for Scitel Quadro card' CONFIG_HISAX_SCT_QUADRO
+    bool 'HiSax Support for Gazel cards' CONFIG_HISAX_GAZEL
     if [ "$CONFIG_EXPERIMENTAL" != "n" ]; then
 	bool 'HiSax Support for HFC PCI-Bus cards (EXPERIMENTAL)' CONFIG_HISAX_HFC_PCI
 #	bool 'HiSax Support for TESTEMULATOR (EXPERIMENTAL)' CONFIG_HISAX_TESTEMU

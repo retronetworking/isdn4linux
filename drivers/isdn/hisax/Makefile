@@ -164,6 +164,12 @@ ifeq ($(CONFIG_HISAX_SCT_QUADRO),y)
 	 HSCX_OBJ := hscx.o
 endif
 
+ifeq ($(CONFIG_HISAX_GAZEL),y)
+	 O_OBJS += gazel.o
+	 ISAC_OBJ := isac.o
+	 HSCX_OBJ := hscx.o
+endif
+
 # ifeq ($(CONFIG_HISAX_TESTEMU),y)
 #	 O_OBJS += testemu.o
 # endif
