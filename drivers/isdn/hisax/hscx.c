@@ -6,6 +6,10 @@
  *
  *
  * $Log$
+ * Revision 1.11  1998/05/25 14:10:07  keil
+ * HiSax 3.0
+ * X.75 and leased are working again.
+ *
  * Revision 1.10  1998/05/25 12:57:59  keil
  * HiSax golden code from certification, Don't use !!!
  * No leased lines, no X75, but many changes.
@@ -174,10 +178,9 @@ hscx_l2l1(struct PStack *st, int pr, void *arg)
 			break;
 		case (PH_DEACTIVATE | CONFIRM):
 			test_and_clear_bit(BC_FLG_ACTIV, &st->l1.bcs->Flag);
-			if (!test_bit(BC_FLG_BUSY, &st->l1.bcs->Flag)) {
-				modehscx(st->l1.bcs, 0, st->l1.bc);
-				st->l1.l1l2(st, PH_DEACTIVATE | CONFIRM, NULL);
-			}
+			test_and_clear_bit(BC_FLG_BUSY, &st->l1.bcs->Flag);
+			modehscx(st->l1.bcs, 0, st->l1.bc);
+			st->l1.l1l2(st, PH_DEACTIVATE | CONFIRM, NULL);
 			break;
 	}
 }
