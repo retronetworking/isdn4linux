@@ -19,6 +19,10 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.38  1998/03/24 16:33:06  hipp
+ * More CCP changes. BSD compression now "works" on a local loopback link.
+ * Moved some isdn_ppp stuff from isdn.h to isdn_ppp.h
+ *
  * Revision 1.37  1998/03/22 18:50:49  hipp
  * Added BSD Compression for syncPPP .. UNTESTED at the moment
  *
@@ -195,7 +199,7 @@ static int isdn_ppp_set_compressor(struct ippp_struct *is,struct isdn_ppp_comp_d
 static struct sk_buff *isdn_ppp_decompress(struct sk_buff *,
 				struct ippp_struct *,struct ippp_struct *,int proto);
 static void isdn_ppp_receive_ccp(isdn_net_dev * net_dev, isdn_net_local * lp,
-				struct sk_buff *skb);
+				struct sk_buff *skb,int proto);
 static struct sk_buff *isdn_ppp_compress(struct sk_buff *skb_in,int *proto,
 	struct ippp_struct *is,struct ippp_struct *master,int type);
 static void isdn_ppp_send_ccp(isdn_net_dev *net_dev, isdn_net_local *lp,
@@ -437,10 +441,10 @@ isdn_ppp_open(int min, struct file *file)
 		printk(KERN_DEBUG "ippp, open, slot: %d, minor: %d, state: %04x\n", slot, min, is->state);
 
 	/* compression stuff */
-	is->compressor = NULL;
-	is->decompressor = NULL;
-	is->decomp_stat = is->comp_stat = NULL;
-	is->link_decomp_stat = is->link_comp_stat = NULL;
+	is->link_compressor   = is->compressor = NULL;
+	is->link_decompressor = is->decompressor = NULL;
+	is->link_comp_stat    = is->comp_stat = NULL;
+	is->link_decomp_stat  = is->decomp_stat = NULL;
 	is->compflags = 0;
 
 	is->lp = NULL;
@@ -506,24 +510,24 @@ isdn_ppp_release(int min, struct file *file)
 	is->last = is->rq;
 
 #ifdef CONFIG_ISDN_PPP_VJ
-	/* TODO: if this was the previous master: link the slcomp to the new master */
+/* TODO: if this was the previous master: link the slcomp to the new master */
 	slhc_free(is->slcomp);
 	is->slcomp = NULL;
 #endif
 
-	/* TODO: if this was the previous master: link the the stuff to the new master */
+/* TODO: if this was the previous master: link the the stuff to the new master */
 	if(is->comp_stat)
 		is->compressor->free(is->comp_stat);
 	if(is->link_comp_stat)
-		is->compressor->free(is->link_comp_stat);
+		is->link_compressor->free(is->link_comp_stat);
 	if(is->link_decomp_stat)
-		is->decompressor->free(is->link_decomp_stat);
+		is->link_decompressor->free(is->link_decomp_stat);
 	if(is->decomp_stat)
 		is->decompressor->free(is->decomp_stat);
-        is->compressor = NULL;
-        is->decompressor = NULL;
-        is->decomp_stat = is->comp_stat = NULL;
-        is->link_decomp_stat = is->link_comp_stat = NULL;
+        is->compressor   = is->link_compressor   = NULL;
+        is->decompressor = is->link_decompressor = NULL;
+	is->comp_stat    = is->link_comp_stat    = NULL;
+        is->decomp_stat  = is->link_decomp_stat  = NULL;
 
 	/* this slot is ready for new connections */
 	is->state = 0;
@@ -1032,17 +1036,19 @@ void isdn_ppp_receive(isdn_net_dev * net_dev, isdn_net_local * lp, struct sk_buf
 #ifdef CONFIG_ISDN_MPP
 	if (!(is->mpppcfg & SC_REJ_MP_PROT)) {
 		int sqno_end;
-	
-		if(proto == PPP_LINK_COMP) {
-			if(is->debug & 0x10)
-				printk(KERN_DEBUG "received single link compressed frame\n");
-			skb = isdn_ppp_decompress(skb,is,NULL,proto);
-			if(!skb)
-				return;
-			proto = isdn_ppp_strip_proto(skb);
+
+		if(is->compflags & SC_LINK_DECOMP_ON) {	
+			if(proto == PPP_LINK_COMP) {
+				if(is->debug & 0x10)
+					printk(KERN_DEBUG "received single link compressed frame\n");
+				skb = isdn_ppp_decompress(skb,is,NULL,proto);
+				if(!skb)
+					return;
+				proto = isdn_ppp_strip_proto(skb);
+			}
+			else
+				isdn_ppp_decompress(skb,is,NULL,proto);
 		}
-		else if(is->compflags & SC_DECOMP_ON) 
-			isdn_ppp_decompress(skb,is,NULL,proto);
 
 		if (proto == PPP_MP) {
 			isdn_net_local *lpq;
@@ -1294,7 +1300,8 @@ isdn_ppp_push_higher(isdn_net_dev * net_dev, isdn_net_local * lp, struct sk_buff
 #endif
 			break;
 		case PPP_CCP:
-			isdn_ppp_receive_ccp(net_dev,lp,skb);
+		case PPP_LINK_CCP:
+			isdn_ppp_receive_ccp(net_dev,lp,skb,proto);
 			/* fall through */
 		default:
 #ifdef CONFIG_ISDN_TIMEOUT_RULES
@@ -1636,17 +1643,6 @@ isdn_ppp_bundle(struct ippp_struct *is, int unit)
 	if (ippp_table[nlp->ppp_slot]->mpppcfg != ippp_table[lp->ppp_slot]->mpppcfg) {
 		printk(KERN_WARNING "isdn_ppp_bundle: different MP options %04x and %04x\n",
 		       ippp_table[nlp->ppp_slot]->mpppcfg, ippp_table[lp->ppp_slot]->mpppcfg);
-	}
-#endif
-
-#ifdef CONFIG_ISDN_CCP
-	if(ippp_table[lp->ppp_slot]->link_comp_stat) {
-		/* Duplicate link_compressor here */
-		printk(KERN_ERR "isdn_ppp: TODO, duplicate link compressor!\n");
-	}
-	if(ippp_table[lp->ppp_slot]->link_decomp_stat) {
-		/* Duplicate link_decompressor here */
-		printk(KERN_ERR "isdn_ppp: TODO, duplicate link decompressor!\n");
 	}
 #endif
 
@@ -2109,18 +2105,18 @@ static struct sk_buff *isdn_ppp_decompress(struct sk_buff *skb,struct ippp_struc
 		/* 
 		 * single link decompression 
 		 */
-		if(!is->decompressor) {
-			printk(KERN_ERR "ippp: no (link) decompressor defined!\n");
+		if(!is->link_decompressor) {
+			printk(KERN_ERR "ippp: no link decompressor defined!\n");
 			dev_kfree_skb(skb);
 			return NULL;
 		}
 		if(!is->link_decomp_stat) {
-			printk(KERN_DEBUG "ippp: no decompressor data allocated\n");
+			printk(KERN_DEBUG "ippp: no link decompressor data allocated\n");
 			dev_kfree_skb(skb);
 			return NULL;
 		}
 		stat = is->link_decomp_stat;
-		ipc = is->decompressor;
+		ipc = is->link_decompressor;
 	}
 	else {
 		/*
@@ -2177,8 +2173,8 @@ static struct sk_buff *isdn_ppp_compress(struct sk_buff *skb_in,int *proto,
     struct sk_buff *skb_out;
 
 #ifdef CONFIG_ISDN_CCP
-	/* we do not compress LCP,CCP and links in bundles */
-    if(*proto == PPP_LCP || *proto == PPP_CCP || type == 1) {
+	/* we do not compress control protocols */
+    if(*proto < 0 || *proto > 0x3fff) {
 #else
     {
 #endif
@@ -2186,9 +2182,13 @@ static struct sk_buff *isdn_ppp_compress(struct sk_buff *skb_in,int *proto,
     }
 
 	if(type) { /* type=1 => Link compression */
-		compressor = is->compressor;
+#if 0
+		compressor = is->link_compressor;
 		stat = is->link_comp_stat;
 		new_proto = PPP_LINK_COMP;
+#else
+		return skb_in;
+#endif
 	}
 	else {
 		if(!master) {
@@ -2231,9 +2231,15 @@ static struct sk_buff *isdn_ppp_compress(struct sk_buff *skb_in,int *proto,
  * not a clean solution, but we MUST handle a few cases in the kernel
  */
 static void isdn_ppp_receive_ccp(isdn_net_dev *net_dev, isdn_net_local *lp,
-	 struct sk_buff *skb)
+	 struct sk_buff *skb,int proto)
 {
 	struct ippp_struct *is = ippp_table[lp->ppp_slot];
+	struct ippp_struct *mis;
+
+	if(lp->master)
+		mis = ippp_table[((isdn_net_local *) (lp->master->priv))->ppp_slot];
+	else
+		mis = is;
 
 	switch(skb->data[0]) {
 		case CCP_CONFREQ:
@@ -2241,24 +2247,33 @@ static void isdn_ppp_receive_ccp(isdn_net_dev *net_dev, isdn_net_local *lp,
 		case CCP_TERMACK:
 			if(is->debug & 0x10)
 				printk(KERN_DEBUG "Disable (de)compression here!\n");
-			is->compflags &= ~(SC_DECOMP_ON|SC_COMP_ON);		
+			if(proto == PPP_CCP)
+				mis->compflags &= ~(SC_DECOMP_ON|SC_COMP_ON);		
+			else
+				is->compflags &= ~(SC_LINK_DECOMP_ON|SC_LINK_COMP_ON);		
 			break;
 		case CCP_CONFACK:
 			/* if we RECEIVE an ackowledge we enable the decompressor */
 			if(is->debug & 0x10)
 				printk(KERN_DEBUG "Enable decompression here!\n");
-			is->compflags |= SC_DECOMP_ON;
+			if(proto == PPP_CCP)
+				mis->compflags |= SC_DECOMP_ON;
+			else
+				is->compflags |= SC_LINK_DECOMP_ON;
 			break;
 		case CCP_RESETACK:
 			if(is->debug & 0x10)
 				printk(KERN_DEBUG "Reset decompression state here!\n");
-			if(is->decompressor) {
-				if(is->link_decomp_stat)
-					is->decompressor->reset(is->link_decomp_stat);
-				if(is->decomp_stat)
-					is->decompressor->reset(is->link_decomp_stat);
+			if(proto == PPP_CCP) {
+				if(mis->decompressor && mis->decomp_stat)
+					mis->decompressor->reset(mis->decomp_stat);
+				mis->compflags &= ~SC_DECOMP_DISCARD;
 			}
-			is->compflags &= ~SC_DECOMP_DISCARD;
+			else {
+				if(is->link_decompressor && is->link_decomp_stat)
+					is->link_decompressor->reset(is->link_decomp_stat);
+				is->compflags &= ~SC_LINK_DECOMP_DISCARD;
+			}
                         break;
 	}
 }
@@ -2268,10 +2283,22 @@ static void isdn_ppp_receive_ccp(isdn_net_dev *net_dev, isdn_net_local *lp,
  */
 static void isdn_ppp_send_ccp(isdn_net_dev *net_dev, isdn_net_local *lp, struct sk_buff *skb)
 {
-	struct ippp_struct *is = ippp_table[lp->ppp_slot];
+	struct ippp_struct *mis,*is = ippp_table[lp->ppp_slot];
+	int proto;
 
-	if( !skb || skb->len < 3 || (((int)skb->data[0]<<8)+skb->data[1]) != PPP_CCP )
+	if(!skb || skb->len < 3)
 		return;
+	proto = ((int)skb->data[0]<<8)+skb->data[1];
+	if(proto != PPP_CCP && proto != PPP_LINK_CCP)
+		return;
+
+        if(lp->master)
+                mis = ippp_table[((isdn_net_local *) (lp->master->priv))->ppp_slot];
+        else
+                mis = is;
+
+	if(mis != is)
+		printk(KERN_DEBUG "isdn_ppp: Ouch! Master CCP sends on slave slot!\n");
 
         switch(skb->data[2]) {
                 case CCP_CONFREQ:
@@ -2279,25 +2306,34 @@ static void isdn_ppp_send_ccp(isdn_net_dev *net_dev, isdn_net_local *lp, struct 
                 case CCP_TERMACK:
 			if(is->debug & 0x10)
                         	printk(KERN_DEBUG "Disable (de)compression here!\n");
-                        is->compflags &= ~(SC_DECOMP_ON|SC_COMP_ON);
+			if(proto == PPP_CCP)
+                        	is->compflags &= ~(SC_DECOMP_ON|SC_COMP_ON);
+			else
+                        	is->compflags &= ~(SC_LINK_DECOMP_ON|SC_LINK_COMP_ON);
                         break;
                 case CCP_CONFACK:
                         /* if we SEND an ackowledge we can/must enable the compressor */
 			if(is->debug & 0x10)
                         	printk(KERN_DEBUG "Enable compression here!\n");
-                        is->compflags |= SC_COMP_ON;
+			if(proto == PPP_CCP)
+                        	is->compflags |= SC_COMP_ON;
+			else
+                        	is->compflags |= SC_LINK_COMP_ON;
                         break;
                 case CCP_RESETACK:
 			/* If we send a ACK we should reset our compressor */
 			if(is->debug & 0x10)
 				printk(KERN_DEBUG "Reset decompression state here!\n");
-                        if(is->compressor) {
-                                if(is->link_comp_stat)
-                                        is->compressor->reset(is->link_comp_stat);
+			if(proto == PPP_CCP) {
 /* link to master? */
-                                if(is->comp_stat)
-                                        is->compressor->reset(is->link_comp_stat);
+				if(is->compressor && is->comp_stat)
+					is->compressor->reset(is->comp_stat);
 				is->compflags &= ~SC_COMP_DISCARD;	
+			}
+			else {
+                                if(is->link_compressor && is->link_comp_stat)
+                                        is->link_compressor->reset(is->link_comp_stat);
+				is->compflags &= ~SC_LINK_COMP_DISCARD;	
                         }
 			break;
 	}
@@ -2331,11 +2367,12 @@ static int isdn_ppp_set_compressor(struct ippp_struct *is, struct isdn_ppp_comp_
 {
 	struct isdn_ppp_compressor *ipc = ipc_head;
 	int ret;
-	void *stat,*link_stat;
+	void *stat;
 	int num = data->num;
 
 	if(is->debug & 0x10)
-		printk(KERN_DEBUG "[%d] Set %s type %d\n",is->unit,data->xmit?"compressor":"decompressor",num);
+		printk(KERN_DEBUG "[%d] Set %s type %d\n",is->unit,
+			(data->flags&IPPP_COMP_FLAG_XMIT)?"compressor":"decompressor",num);
 
 	while(ipc) {
 		if(ipc->num == num) {
@@ -2354,38 +2391,33 @@ static int isdn_ppp_set_compressor(struct ippp_struct *is, struct isdn_ppp_comp_
 				break;
 			}
 
-			link_stat = ipc->alloc(data);
-			if(link_stat) {
-				ret = ipc->init(link_stat,data,is->unit,0);
-				if(!ret) {
-					printk(KERN_ERR "Can't init link (de)compression!\n");
-					ipc->free(link_stat);
-					link_stat = NULL;
-					break;
+                        if(data->flags & IPPP_COMP_FLAG_XMIT) {
+				if(data->flags & IPPP_COMP_FLAG_LINK) {
+					if(is->link_comp_stat)
+						is->link_compressor->free(is->link_comp_stat);
+					is->link_comp_stat = stat;
+                                	is->link_compressor = ipc;
+				}
+				else {
+					if(is->comp_stat)
+						is->compressor->free(is->comp_stat);
+					is->comp_stat = stat;
+                                	is->compressor = ipc;
 				}
 			}
-			else {
-				printk(KERN_ERR "Can't alloc link (de)compression!\n");
-				break;
-			}
-
-                        if(data->xmit) {
-				if(is->comp_stat)
-					is->compressor->free(is->comp_stat);
-				is->comp_stat = stat;
-				if(is->link_comp_stat)
-					is->compressor->free(is->link_comp_stat);
-				is->link_comp_stat = link_stat;
-                                is->compressor = ipc;
-			}
                         else {
-				if(is->decomp_stat)
-					is->decompressor->free(is->decomp_stat);
-				is->decomp_stat = stat;
-				if(is->link_decomp_stat)
-					is->decompressor->free(is->link_decomp_stat);
-				is->link_decomp_stat = link_stat;
-                                is->decompressor = ipc;
+				if(data->flags & IPPP_COMP_FLAG_LINK) {
+					if(is->link_decomp_stat)
+						is->link_decompressor->free(is->link_decomp_stat);
+					is->link_decomp_stat = stat;
+        	                        is->link_decompressor = ipc;
+				}
+				else {
+					if(is->decomp_stat)
+						is->decompressor->free(is->decomp_stat);
+					is->decomp_stat = stat;
+        	                        is->decompressor = ipc;
+				}
 			}
 			return 0;
 		}

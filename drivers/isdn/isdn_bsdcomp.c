@@ -337,7 +337,7 @@ static void *bsd_alloc (struct isdn_ppp_comp_data *data)
 
 	memset (db, 0, sizeof(struct bsd_db));
 
-	db->xmit = data->xmit;
+	db->xmit = data->flags & IPPP_COMP_FLAG_XMIT;
 	decomp = db->xmit ? 0 : 1;
 
 	/*
@@ -706,7 +706,7 @@ static int bsd_decompress (void *state, struct sk_buff *skb_in, struct sk_buff *
 	if(skb_tailroom(skb_out) > 0)
 		*(skb_put(skb_out,1)) = 0;
 	else
-		return DECOMP_NOROOM;
+		return DECOMP_ERR_NOMEM;
     
 	oldcode = CLEAR;
 
