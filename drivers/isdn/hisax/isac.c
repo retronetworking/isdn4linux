@@ -9,6 +9,9 @@
  *		../../../Documentation/isdn/HiSax.cert
  *
  * $Log$
+ * Revision 1.22  1999/08/09 19:04:40  keil
+ * Fix race condition - Thanks to Christer Weinigel
+ *
  * Revision 1.21  1999/07/12 21:05:17  keil
  * fix race in IRQ handling
  * added watchdog for lost IRQs
@@ -165,10 +168,14 @@ isac_bh(struct IsdnCardState *cs)
 		DChannel_proc_rcv(cs);
 	if (test_and_clear_bit(D_XMTBUFREADY, &cs->event))
 		DChannel_proc_xmt(cs);
+#if ARCOFI_USE
+	if (!test_bit(HW_ARCOFI, &cs->HW_Flags))
+		return;
 	if (test_and_clear_bit(D_RX_MON1, &cs->event))
 		arcofi_fsm(cs, ARCOFI_RX_END, NULL);
 	if (test_and_clear_bit(D_TX_MON1, &cs->event))
 		arcofi_fsm(cs, ARCOFI_TX_END, NULL);
+#endif
 }
 
 void

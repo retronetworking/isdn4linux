@@ -14,6 +14,10 @@
  *              for ELSA PCMCIA support
  *
  * $Log$
+ * Revision 2.17  1999/08/11 20:57:40  keil
+ * bugfix IPAC version 1.1
+ * new PCI codefix
+ *
  * Revision 2.16  1999/08/10 16:01:51  calle
  * struct pci_dev changed in 2.3.13. Made the necessary changes.
  *
@@ -176,6 +180,7 @@ const char *ITACVer[] =
 #define ELSA_IPAC_LINE_LED	0x40	/* Bit 6 Gelbe LED */
 #define ELSA_IPAC_STAT_LED	0x80	/* Bit 7 Gruene LED */
 
+#if ARCOFI_USE
 static struct arcofi_msg ARCOFI_XOP_F =
 	{NULL,0,2,{0xa1,0x3f,0,0,0,0,0,0,0,0}}; /* Normal OP */
 static struct arcofi_msg ARCOFI_XOP_1 =
@@ -199,9 +204,8 @@ static struct arcofi_msg ARCOFI_XOP_0 =
 
 static void set_arcofi(struct IsdnCardState *cs, int bc);
 
-#if ARCOFI_USE
 #include "elsa_ser.c"
-#endif
+#endif /* ARCOFI_USE */
 
 static inline u_char
 readreg(unsigned int ale, unsigned int adr, u_char off)
@@ -428,6 +432,7 @@ elsa_interrupt(int intno, void *dev_id, struct pt_regs *regs)
 			cs->hw.elsa.counter++;
 		}
 	}
+#if ARCOFI_USE
 	if (cs->hw.elsa.MFlag) {
 		val = serial_inp(cs, UART_MCR);
 		val ^= 0x8;
@@ -436,6 +441,7 @@ elsa_interrupt(int intno, void *dev_id, struct pt_regs *regs)
 		val ^= 0x8;
 		serial_outp(cs, UART_MCR, val);
 	}
+#endif
 	if (cs->hw.elsa.trig)
 		byteout(cs->hw.elsa.trig, 0x00);
 	writereg(cs->hw.elsa.ale, cs->hw.elsa.hscx, HSCX_MASK, 0x0);
@@ -510,7 +516,9 @@ release_io_elsa(struct IsdnCardState *cs)
 	int bytecnt = 8;
 
 	del_timer(&cs->hw.elsa.tl);
+#if ARCOFI_USE
 	clear_arcofi(cs);
+#endif
 	if (cs->hw.elsa.ctrl)
 		byteout(cs->hw.elsa.ctrl, 0);	/* LEDs Out */
 	if (cs->subtyp == ELSA_QS1000PCI) {
@@ -532,7 +540,9 @@ release_io_elsa(struct IsdnCardState *cs)
 		(cs->subtyp == ELSA_PCF) ||
 		(cs->subtyp == ELSA_QS3000PCI)) {
 		bytecnt = 16;
+#if ARCOFI_USE
 		release_modem(cs);
+#endif
 	}
 	if (cs->hw.elsa.base)
 		release_region(cs->hw.elsa.base, bytecnt);
@@ -588,6 +598,8 @@ reset_elsa(struct IsdnCardState *cs)
 	}
 }
 
+#if ARCOFI_USE
+
 static void
 set_arcofi(struct IsdnCardState *cs, int bc) {
 	cs->dc.isac.arcofi_bc = bc;
@@ -598,7 +610,6 @@ set_arcofi(struct IsdnCardState *cs, int bc) {
 static int
 check_arcofi(struct IsdnCardState *cs)
 {
-#if ARCOFI_USE
 	int arcofi_present = 0;
 	char tmp[40];
 	char *t;
@@ -686,9 +697,9 @@ check_arcofi(struct IsdnCardState *cs)
 		interruptible_sleep_on(&cs->dc.isac.arcofi_wait);
 		return(1);
 	}
-#endif
 	return(0);
 }
+#endif /* ARCOFI_USE */
 
 static void
 elsa_led_handler(struct IsdnCardState *cs)
@@ -734,8 +745,7 @@ elsa_led_handler(struct IsdnCardState *cs)
 static int
 Elsa_card_msg(struct IsdnCardState *cs, int mt, void *arg)
 {
-	int len, ret = 0;
-	u_char *msg;
+	int ret = 0;
 	long flags;
 
 	switch (mt) {
@@ -824,8 +834,12 @@ Elsa_card_msg(struct IsdnCardState *cs, int mt, void *arg)
 				cs->hw.elsa.status &= ~0x0100;
 			}
 			break;
+#if ARCOFI_USE
 		case CARD_AUX_IND:
 			if (cs->hw.elsa.MFlag) {
+				int len;
+				u_char *msg;
+
 				if (!arg)
 					return(0);
 				msg = arg;
@@ -834,6 +848,7 @@ Elsa_card_msg(struct IsdnCardState *cs, int mt, void *arg)
 				modem_write_cmd(cs, msg, len);
 			}
 			break;
+#endif
 	}
 	if (cs->typ == ISDN_CTYPE_ELSA) {
 		int pwr = bytein(cs->hw.elsa.ale);
@@ -1195,7 +1210,9 @@ setup_elsa(struct IsdnCard *card)
 			request_region(cs->hw.elsa.cfg, 0x80, "elsa isdn pci");
 		}
 	}
+#if ARCOFI_USE
 	init_arcofi(cs);
+#endif
 	cs->hw.elsa.tl.function = (void *) elsa_led_handler;
 	cs->hw.elsa.tl.data = (long) cs;
 	init_timer(&cs->hw.elsa.tl);

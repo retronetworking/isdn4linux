@@ -15,6 +15,12 @@
  *
  *
  * $Log$
+ * Revision 2.35  1999/08/22 20:27:07  calle
+ * backported changes from kernel 2.3.14:
+ * - several #include "config.h" gone, others come.
+ * - "struct device" changed to "struct net_device" in 2.3.14, added a
+ *   define in isdn_compat.h for older kernel versions.
+ *
  * Revision 2.34  1999/07/09 13:50:15  keil
  * remove unused variable
  *
@@ -390,7 +396,7 @@ BChannel_proc_rcv(struct BCState *bcs)
 	}
 }
 
-static void
+void
 BChannel_bh(struct BCState *bcs)
 {
 	if (!bcs)

@@ -7,6 +7,9 @@
  *
  *
  * $Log$
+ * Revision 1.7  1999/07/01 08:11:17  keil
+ * Common HiSax version for 2.0, 2.1, 2.2 and 2.3 kernel
+ *
  * Revision 1.6  1998/09/30 22:21:56  keil
  * cosmetics
  *
@@ -148,4 +151,8 @@ init_arcofi(struct IsdnCardState *cs) {
 	cs->dc.isac.arcofitimer.function = (void *) arcofi_timer;
 	cs->dc.isac.arcofitimer.data = (long) cs;
 	init_timer(&cs->dc.isac.arcofitimer);
+#ifdef COMPAT_HAS_NEW_WAITQ
+	init_waitqueue_head(&cs->dc.isac.arcofi_wait);
+#endif
+	test_and_set_bit(HW_ARCOFI, &cs->HW_Flags);
 }
