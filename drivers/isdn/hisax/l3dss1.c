@@ -9,6 +9,9 @@
  *              Fritz Elfert
  *
  * $Log$
+ * Revision 1.15  1997/04/17 11:50:48  keil
+ * pa->loc was undefined, if it was not send by the exchange
+ *
  * Revision 1.14  1997/04/06 22:54:20  keil
  * Using SKB's
  *
@@ -122,7 +125,7 @@ l3dss1_setup_req(struct PStack *st, u_char pr,
 	u_char tmp[128];
 	u_char *p = tmp;
 	u_char channel = 0;
-	u_char screen = 0;
+	u_char screen = 0x80;
 	u_char *teln;
 	u_char *msn;
 	int l;
