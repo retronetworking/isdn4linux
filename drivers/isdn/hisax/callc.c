@@ -7,6 +7,9 @@
  *              Fritz Elfert
  *
  * $Log$
+ * Revision 1.10  1996/11/26 18:06:07  keil
+ * fixed missing break statement,ioctl 555 reset modcount
+ *
  * Revision 1.9  1996/11/18 20:23:19  keil
  * log writebuf channel not open changed
  *
@@ -1453,7 +1456,7 @@ HiSax_command(isdn_ctrl * ic)
                  	    	HiSax_mod_inc_use_count();
                  	    break;
 #ifdef MODULE
-                    case (555):
+                    case (55):
                   	    mod_use_count_ &= 0xF0000000;
                   	    HiSax_mod_inc_use_count();
                   	    break;
@@ -1487,6 +1490,7 @@ HiSax_command(isdn_ctrl * ic)
                        	    }
                        	    break;
                     default:  
+                    	    printk(KERN_DEBUG "HiSax: invalid ioclt %d\n",ic->arg);
                     	    return (-EINVAL);
                   }
                   break;
