@@ -62,7 +62,7 @@ MODULE_AUTHOR(      "Cytronics & Melware, Eicon Networks");
 
 static char *DRIVERNAME = "Eicon DIVA Server driver (http://www.melware.net)";
 static char *DRIVERLNAME = "divas";
-static char *DRIVERRELEASE = "1.0beta7";
+static char *DRIVERRELEASE = "1.0beta8";
 
 #define DBG_MINIMUM  (DL_LOG + DL_FTL + DL_ERR)
 #define DBG_DEFAULT  (DBG_MINIMUM + DL_XLOG + DL_REG)

@@ -57,7 +57,7 @@ static char *DRIVERNAME = "Eicon DIVA - CAPI Interface driver (http://www.melwar
 static char *DRIVERLNAME = "divacapi";
 #define DRRELMAJOR  1
 #define DRRELMINOR  0
-#define DRRELEXTRA  "beta7"
+#define DRRELEXTRA  "beta8"
 static char DRIVERRELEASE[16];
 
 #define M_COMPANY "Eicon Networks"

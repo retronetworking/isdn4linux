@@ -31,6 +31,7 @@
 #endif
 
 #include <linux/config.h>
+#include <linux/version.h>
 
 #include "cardtype.h"
 
@@ -187,7 +188,11 @@ void diva_os_remove_irq (void* context, byte irq);
 /*
 **  Spin Lock framework
 */
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2,4,0)
 #include <asm/spinlock.h>
+#else
+#include <linux/spinlock.h>
+#endif
 
 typedef long diva_os_spin_lock_magic_t;
 
@@ -273,5 +278,8 @@ diva_os_atomic_decrement(diva_os_atomic_t* pv)
 #define WRITE_WORD(b,w) { *(word *)(b)=(w); }
 #define WRITE_DWORD(b,w) { *(dword *)(b)=(w); }
 #endif
+
+#undef ID_MASK
+#undef N_DATA
 
 #endif	/* __PLATFORM_H__ */
