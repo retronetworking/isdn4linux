@@ -44,9 +44,9 @@ struct CallcIf {
 
 struct CallcIf *newCallcIf(struct IsdnCardState *cs, char *id);
 void delCallcIf(struct CallcIf *c_if);
+void callcIfRun(struct CallcIf *c_if);
+void callcIfStop(struct CallcIf *c_if);
 #if 0
-void callcRun(struct CallcIf *c_if);
-void callcStop(struct CallcIf *c_if);
 void callcPutStatus(struct CallcIf *c_if, char *msg);
 #endif
 

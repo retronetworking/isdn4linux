@@ -897,6 +897,7 @@ struct IsdnCardState {
 	int event;
 	struct tq_struct tqueue;
 	struct timer_list dbusytimer;
+	int features;
 #ifdef ERROR_STATISTIC
 	int err_crc;
 	int err_tx;
@@ -1308,7 +1309,7 @@ void setstack_isac(struct PStack *st, struct IsdnCardState *cs);
 #endif	/* ISDN_CHIP_ISAC */
 #endif	/* __KERNEL__ */
 
-int ll_run(struct IsdnCardState *cs, int addfeatures);
+void ll_run(struct IsdnCardState *cs, int addfeatures);
 void ll_stop(struct IsdnCardState *cs);
 void CallcNew(void);
 void CallcFree(void);

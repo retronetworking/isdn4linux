@@ -1759,6 +1759,9 @@ HiSax_writebuf_skb(int id, int chan, int ack, struct sk_buff *skb)
 // Interface to config.c
 
 int
+HiSax_read_status(u_char * buf, int len, int user, int id, int channel);
+
+int
 callcIfConstr(struct CallcIf *c_if, struct IsdnCardState *cs, char *id)
 {
 	memset(c_if, 0, sizeof(struct CallcIf));
@@ -1777,6 +1780,7 @@ callcIfConstr(struct CallcIf *c_if, struct IsdnCardState *cs, char *id)
 	c_if->status_read = c_if->status_buf;
 	c_if->status_write = c_if->status_buf;
 	c_if->status_end = c_if->status_buf + HISAX_STATUS_BUFSIZE - 1;
+#endif
 	
 	// register to LL
 
@@ -1802,7 +1806,6 @@ callcIfConstr(struct CallcIf *c_if, struct IsdnCardState *cs, char *id)
 	       (cs->protocol == ISDN_PTYPE_NI1) ? "NI1" :
 	       "NONE", c_if->iif.id, c_if->myid);
 
-#endif
 	return 0;
 }
 
@@ -1821,6 +1824,48 @@ callcIfDestr(struct CallcIf *c_if)
 	if (c_if->status_buf) {
 		kfree(c_if->status_buf);
 	}
+#endif
+}
+
+void
+callcIfRun(struct CallcIf *c_if)
+{
+	int i;
+	long flags;
+	isdn_ctrl ic;
+
+#if 0
+	// init Channels
+
+	for (i = 0; i < 2 + MAX_WAITING_CALLS; i++) 
+		channelConstr(&c_if->channel[i], c_if, i);
+	printk(KERN_INFO "HiSax: 2 channels added\n");
+	printk(KERN_INFO "HiSax: MAX_WAITING_CALLS added\n");
+#endif
+	// signal to LL
+
+	save_flags(flags);
+	cli();
+	c_if->iif.features = c_if->cs->features;
+	statcallb(c_if->cs, ISDN_STAT_RUN, &ic);
+	restore_flags(flags);
+}
+
+void 
+callcIfStop(struct CallcIf *c_if)
+{
+	int i;
+	isdn_ctrl ic;
+
+	// signal to LL
+
+	statcallb(c_if->cs, ISDN_STAT_STOP, &ic);
+
+#if 0
+	// release Channels
+
+	for (i = 0; i < 2 + MAX_WAITING_CALLS; i++) 
+		channelDestr(&c_if->channel[i]);
 #endif
 }
 

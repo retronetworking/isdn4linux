@@ -460,6 +460,9 @@ HiSax_mod_dec_use_count(struct IsdnCardState *cs)
 {
 #ifdef MODULE
 	MOD_DEC_USE_COUNT;
+	if (!cs->c_if) 
+		return; // FIXME
+
 	if (cs->c_if->channel[0].debug & 0x400)
 		HiSax_putstatus(cs, "   UNLOCK ", "modcnt %lx",
 				MOD_USE_COUNT);
@@ -471,6 +474,8 @@ HiSax_mod_inc_use_count(struct IsdnCardState *cs)
 {
 #ifdef MODULE
 	MOD_INC_USE_COUNT;
+	if (!cs->c_if) 
+		return; // FIXME
 	if (cs->c_if->channel[0].debug & 0x400)
 		HiSax_putstatus(cs, "   LOCK ", "modcnt %lx",
 				MOD_USE_COUNT);
@@ -685,7 +690,7 @@ struct IsdnCardState
 }
 
 int
-HiSax_readstatus(u_char * buf, int len, int user, int id, int channel)
+HiSax_read_status(u_char * buf, int len, int user, int id, int channel)
 {
 	int count,cnt;
 	u_char *p = buf;
@@ -835,30 +840,17 @@ HiSax_putstatus(struct IsdnCardState *cs, char *head, char *fmt, ...)
 	va_end(args);
 }
 
-int
+void
 ll_run(struct IsdnCardState *cs, int addfeatures)
 {
-	long flags;
-	isdn_ctrl ic;
-
-	save_flags(flags);
-	cli();
-	ic.driver = cs->c_if->myid;
-	ic.command = ISDN_STAT_RUN;
-	cs->c_if->iif.features |= addfeatures;
-	cs->c_if->iif.statcallb(&ic);
-	restore_flags(flags);
-	return 0;
+	cs->features |= addfeatures;
+	callcIfRun(cs->c_if);
 }
 
 void
 ll_stop(struct IsdnCardState *cs)
 {
-	isdn_ctrl ic;
-
-	ic.command = ISDN_STAT_STOP;
-	ic.driver = cs->c_if->myid;
-	cs->c_if->iif.statcallb(&ic);
+	callcIfStop(cs->c_if);
 	CallcFreeChan(cs);
 }
 
@@ -1013,11 +1005,7 @@ checkcard(int cardnr, char *id, int *busy_flag))
 		cs->status_write = cs->status_buf;
 		cs->status_end = cs->status_buf + HISAX_STATUS_BUFSIZE - 1;
 		cs->typ = card->typ;
-		strcpy(cs->c_if->iif.id, id);
-		cs->c_if->iif.channels = 2;
-		cs->c_if->iif.maxbufsize = MAX_DATA_SIZE;
-		cs->c_if->iif.hl_hdrlen = MAX_HEADER_LEN;
-		cs->c_if->iif.features =
+		cs->features =
 			ISDN_FEATURE_L2_X75I |
 			ISDN_FEATURE_L2_HDLC |
 			ISDN_FEATURE_L2_TRANS |
@@ -1033,19 +1021,6 @@ checkcard(int cardnr, char *id, int *busy_flag))
 #endif
 			0;
 
-		cs->c_if->iif.command = HiSax_command;
-		cs->c_if->iif.writecmd = NULL;
-		cs->c_if->iif.writebuf_skb = HiSax_writebuf_skb;
-		cs->c_if->iif.readstat = HiSax_readstatus;
-		register_isdn(&cs->c_if->iif);
-		cs->c_if->myid = cs->c_if->iif.channels;
-		printk(KERN_INFO
-			"HiSax: Card %d Protocol %s Id=%s (%d)\n", cardnr + 1,
-			(card->protocol == ISDN_PTYPE_1TR6) ? "1TR6" :
-			(card->protocol == ISDN_PTYPE_EURO) ? "EDSS1" :
-			(card->protocol == ISDN_PTYPE_LEASED) ? "LEASED" :
-			(card->protocol == ISDN_PTYPE_NI1) ? "NI1" :
-			"NONE", cs->c_if->iif.id, cs->c_if->myid);
 		switch (card->typ) {
 #if CARD_TELES0
 			case ISDN_CTYPE_16_0:
