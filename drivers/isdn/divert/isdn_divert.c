@@ -187,7 +187,7 @@ int cf_command(int drvid, int mode,
   restore_flags(flags);
   *procid = cs->ics.parm.dss1_io.ll_id;  
 
-  sprintf(cs->info,"%d 0x%lx %s%s 0 %s %0x %d%s%s\n",
+  sprintf(cs->info,"%d 0x%lx %s%s 0 %s %02x %d%s%s\n",
 	  (!mode ) ? DIVERT_DEACTIVATE : (mode == 1) ? DIVERT_ACTIVATE : DIVERT_REPORT,
           cs->ics.parm.dss1_io.ll_id,
           (mode != 2) ? "" : "0 ",

@@ -166,6 +166,7 @@ static __inline__ void isdn_net_dec_frame_cnt(isdn_net_local *lp)
 	if (!(isdn_net_device_busy(lp))) {
 		if (!skb_queue_empty(&lp->super_tx_queue)) {
 			queue_task(&lp->tqueue, &tq_immediate);
+			mark_bh(IMMEDIATE_BH);
 		} else {
 			isdn_net_device_wake_queue(lp);
 		}
@@ -1325,11 +1326,12 @@ isdn_net_log_skb(struct sk_buff * skb, isdn_net_local * lp)
  */
 void isdn_net_write_super(isdn_net_local *lp, struct sk_buff *skb)
 {
-	if (in_interrupt()) {
+	if (in_irq()) {
 		// we can't grab the lock from irq context, 
 		// so we just queue the packet
 		skb_queue_tail(&lp->super_tx_queue, skb); 
 		queue_task(&lp->tqueue, &tq_immediate);
+		mark_bh(IMMEDIATE_BH);
 		return;
 	}
 

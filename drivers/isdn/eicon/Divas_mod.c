@@ -41,6 +41,8 @@
 #include "adapter.h"
 #include "uxio.h"
 
+#include <linux/isdn_compat.h>
+
 #ifdef MODULE
 #include "idi.h"
 void DIVA_DIDD_Write(DESCRIPTOR *, int);
