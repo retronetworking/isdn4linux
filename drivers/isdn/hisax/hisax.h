@@ -1373,3 +1373,7 @@ char *HiSax_getrev(const char *revision);
 int TeiNew(void);
 void TeiFree(void);
 int certification_check(int output);
+
+#ifndef PCI_DEVICE_ID_EICON_DIVA202
+#define PCI_DEVICE_ID_EICON_DIVA202	0xe00b
+#endif
