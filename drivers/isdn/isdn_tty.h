@@ -20,6 +20,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.5  1996/05/17 03:52:31  fritz
+ * Changed DLE handling for audio receive.
+ *
  * Revision 1.4  1996/05/11 21:52:34  fritz
  * Changed queue management to use sk_buffs.
  *
@@ -38,7 +41,7 @@ extern void  isdn_tty_modem_result(int, modem_info *);
 extern void  isdn_tty_modem_escape(void);
 extern void  isdn_tty_modem_ring(void);
 extern void  isdn_tty_modem_xmit(void);
-extern void  isdn_tty_modem_hup(modem_info *);
+extern void  isdn_tty_modem_hup(modem_info *, int);
 extern int   isdn_tty_modem_init(void);
 extern void  isdn_tty_readmodem(void);
 extern int   isdn_tty_try_read(modem_info *, struct sk_buff *);
