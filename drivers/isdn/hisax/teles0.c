@@ -1,17 +1,20 @@
 /* $Id$
  *
- * teles0.c     low level stuff for Teles Memory IO isdn cards
- *              based on the teles driver from Jan den Ouden
+ * low level stuff for Teles Memory IO isdn cards
  *
- * Author       Karsten Keil (keil@isdn4linux.de)
+ * Author       Karsten Keil
+ *              based on the teles driver from Jan den Ouden
+ * Copyright    by Karsten Keil      <keil@isdn4linux.de>
+ * 
+ * This software may be used and distributed according to the terms
+ * of the GNU General Public License, incorporated herein by reference.
  *
  * Thanks to    Jan den Ouden
  *              Fritz Elfert
  *              Beat Doebeli
  *
- * This file is (c) under GNU General Public License
- *
  */
+
 #define __NO_VERSION__
 #include <linux/init.h>
 #include "hisax.h"

@@ -1,10 +1,10 @@
 /* $Id$
  *
- * rawhdlc.h     support routines for cards that don't support HDLC
+ * Author     Brent Baccala
+ * Copyright  by Brent Baccala <baccala@FreeSoft.org>
  *
- * Author     Brent Baccala <baccala@FreeSoft.org>
- *
- * This file is (c) under GNU General Public License
+ * This software may be used and distributed according to the terms
+ * of the GNU General Public License, incorporated herein by reference.
  *
  */
 

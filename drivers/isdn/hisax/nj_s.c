@@ -1,7 +1,9 @@
-// $Id$
-//
-// This file is (c) under GNU General Public License
-//
+/* $Id$
+ *
+ * This software may be used and distributed according to the terms
+ * of the GNU General Public License, incorporated herein by reference.
+ *
+ */
 
 #define __NO_VERSION__
 #include <linux/config.h>

@@ -1,4 +1,12 @@
-/* Compatibility for various Linux kernel versions */
+/* $Id$
+ *
+ * Linux ISDN subsystem
+ * Compatibility for various Linux kernel versions
+ *
+ * This software may be used and distributed according to the terms
+ * of the GNU General Public License, incorporated herein by reference.
+ *
+ */
 
 #ifndef _LINUX_ISDN_COMPAT_H
 #define _LINUX_ISDN_COMPAT_H

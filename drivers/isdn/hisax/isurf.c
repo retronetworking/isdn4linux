@@ -1,10 +1,12 @@
 /* $Id$
  *
- * isurf.c  low level stuff for Siemens I-Surf/I-Talk cards
+ * low level stuff for Siemens I-Surf/I-Talk cards
  *
- * Author     Karsten Keil (keil@isdn4linux.de)
- *
- * This file is (c) under GNU General Public License
+ * Author       Karsten Keil
+ * Copyright    by Karsten Keil      <keil@isdn4linux.de>
+ * 
+ * This software may be used and distributed according to the terms
+ * of the GNU General Public License, incorporated herein by reference.
  *
  */
 

@@ -1,10 +1,13 @@
 /* $Id$
  *
- * Author       Karsten Keil (keil@isdn4linux.de)
+ * Author       Karsten Keil
+ * Copyright    by Karsten Keil      <keil@isdn4linux.de>
+ * 
+ * This software may be used and distributed according to the terms
+ * of the GNU General Public License, incorporated herein by reference.
  *
- *		This file is (c) under GNU General Public License
- *		For changes and modifications please read
- *		../../../Documentation/isdn/HiSax.cert
+ * For changes and modifications please read
+ * ../../../Documentation/isdn/HiSax.cert
  *
  */
  

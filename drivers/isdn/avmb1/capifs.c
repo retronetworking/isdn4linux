@@ -1,10 +1,12 @@
-/*
- * $Id$
+/* $Id$
  * 
- * (c) Copyright 2000 by Carsten Paeth (calle@calle.de)
+ * Copyright 2000 by Carsten Paeth <calle@calle.de>
  *
  * Heavily based on devpts filesystem from H. Peter Anvin
  * 
+ * This software may be used and distributed according to the terms
+ * of the GNU General Public License, incorporated herein by reference.
+ *
  */
 
 #include <linux/version.h>
@@ -27,7 +29,9 @@
 #include <asm/bitops.h>
 #include <asm/uaccess.h>
 
-MODULE_AUTHOR("Carsten Paeth <calle@calle.de>");
+MODULE_DESCRIPTION("CAPI4Linux: /dev/capi/ filesystem");
+MODULE_AUTHOR("Carsten Paeth");
+MODULE_LICENSE("GPL");
 
 static char *revision = "$Revision$";
 

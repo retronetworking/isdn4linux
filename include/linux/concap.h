@@ -1,5 +1,11 @@
 /* $Id$
-*/
+ *
+ * Copyright 1997 by Henner Eisen <eis@baty.hanse.de>
+ *
+ * This software may be used and distributed according to the terms
+ * of the GNU General Public License, incorporated herein by reference.
+ */
+
 #ifndef _LINUX_CONCAP_H
 #define _LINUX_CONCAP_H
 #ifdef __KERNEL__
@@ -10,15 +16,12 @@
 /* Stuff to support encapsulation protocols genericly. The encapsulation
    protocol is processed at the uppermost layer of the network interface.
 
-   (c) 1997 by Henner Eisen <eis@baty.hanse.de>
-   This software is subject to the GNU General Public License.
-
    Based on a ideas developed in a 'synchronous device' thread in the
    linux-x25 mailing list contributed by Alan Cox, Thomasz Motylewski
    and Jonathan Naylor.
 
    For more documetation on this refer to Documentation/isdn/README.concap
-   */
+*/
 
 struct concap_proto_ops;
 struct concap_device_ops;

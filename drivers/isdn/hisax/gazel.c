@@ -1,13 +1,16 @@
 /* $Id$
  *
- * gazel.c     low level stuff for Gazel isdn cards
+ * low level stuff for Gazel isdn cards
  *
  * Author       BeWan Systems
  *              based on source code from Karsten Keil
- *
- * This file is (c) under GNU General Public License
+ * Copyright    by BeWan Systems
+ * 
+ * This software may be used and distributed according to the terms
+ * of the GNU General Public License, incorporated herein by reference.
  *
  */
+
 #include <linux/config.h>
 #include <linux/init.h>
 #define __NO_VERSION__

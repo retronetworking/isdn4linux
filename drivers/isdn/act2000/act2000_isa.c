@@ -2,22 +2,13 @@
  *
  * ISDN lowlevel-module for the IBM ISDN-S0 Active 2000 (ISA-Version).
  *
- * Copyright 1998 by Fritz Elfert (fritz@isdn4linux.de)
+ * Author       Fritz Elfert
+ * Copyright    by Fritz Elfert      <fritz@isdn4linux.de>
+ * 
+ * This software may be used and distributed according to the terms
+ * of the GNU General Public License, incorporated herein by reference.
+ *
  * Thanks to Friedemann Baitinger and IBM Germany
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2, or (at your option)
- * any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  */
 
@@ -424,7 +415,7 @@ act2000_isa_getid(act2000_card * card)
 int
 act2000_isa_download(act2000_card * card, act2000_ddef * cb)
 {
-        int length;
+        unsigned int length;
         int ret;
         int l;
         int c;
@@ -437,9 +428,8 @@ act2000_isa_download(act2000_card * card, act2000_ddef * cb)
         if (!act2000_isa_reset(card->port))
                 return -ENXIO;
         act2000_isa_delay(HZ / 2);
-        if ((ret = verify_area(VERIFY_READ, (void *) cb, sizeof(cblock))))
-                return ret;
-        copy_from_user(&cblock, (char *) cb, sizeof(cblock));
+        if(copy_from_user(&cblock, (char *) cb, sizeof(cblock)))
+        	return -EFAULT;
         length = cblock.length;
         p = cblock.buffer;
         if ((ret = verify_area(VERIFY_READ, (void *) p, length)))

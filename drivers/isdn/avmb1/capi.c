@@ -1,9 +1,11 @@
-/*
- * $Id$
+/* $Id$
  *
  * CAPI 2.0 Interface for Linux
  *
- * Copyright 1996 by Carsten Paeth (calle@calle.in-berlin.de)
+ * Copyright 1996 by Carsten Paeth <calle@calle.de>
+ *
+ * This software may be used and distributed according to the terms
+ * of the GNU General Public License, incorporated herein by reference.
  *
  */
 
@@ -51,7 +53,9 @@
 
 static char *revision = "$Revision$";
 
-MODULE_AUTHOR("Carsten Paeth (calle@calle.in-berlin.de)");
+MODULE_DESCRIPTION("CAPI4Linux: Userspace /dev/capi20 interface");
+MODULE_AUTHOR("Carsten Paeth");
+MODULE_LICENSE("GPL");
 
 #undef _DEBUG_REFCOUNT		/* alloc/free and open/close debug */
 #undef _DEBUG_TTYFUNCS		/* call to tty_driver */

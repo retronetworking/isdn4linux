@@ -1,12 +1,15 @@
 /* $Id$
  *
- * s0box.c      low level stuff for Creatix S0BOX
+ * low level stuff for Creatix S0BOX
  *
- * Author       S0BOX specific stuff: Enrik Berkhan (enrik@starfleet.inka.de)
+ * Author       Enrik Berkhan
+ * Copyright    by Enrik Berkhan <enrik@starfleet.inka.de>
  *
- * This file is (c) under GNU General Public License
+ * This software may be used and distributed according to the terms
+ * of the GNU General Public License, incorporated herein by reference.
  *
  */
+
 #define __NO_VERSION__
 #include <linux/init.h>
 #include "hisax.h"

@@ -1,23 +1,12 @@
 /* $Id$
-
+ *
  * Linux driver for HYSDN cards, init functions.
- * written by Werner Cornelius (werner@titro.de) for Hypercope GmbH
  *
- * Copyright 1999  by Werner Cornelius (werner@titro.de)
+ * Author    Werner Cornelius (werner@titro.de) for Hypercope GmbH
+ * Copyright 1999 by Werner Cornelius (werner@titro.de)
  *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2, or (at your option)
- * any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
+ * This software may be used and distributed according to the terms
+ * of the GNU General Public License, incorporated herein by reference.
  *
  */
 
@@ -31,6 +20,20 @@
 #include <linux/pci.h>
 
 #include "hysdn_defs.h"
+
+#ifndef COMPAT_HAS_2_2_PCI
+static struct pci_device_id hysdn_pci_tbl[] __initdata = {
+	{PCI_VENDOR_ID_HYPERCOPE, PCI_DEVICE_ID_HYPERCOPE_PLX, PCI_ANY_ID, PCI_SUBDEVICE_ID_HYPERCOPE_METRO},
+	{PCI_VENDOR_ID_HYPERCOPE, PCI_DEVICE_ID_HYPERCOPE_PLX, PCI_ANY_ID, PCI_SUBDEVICE_ID_HYPERCOPE_CHAMP2},
+	{PCI_VENDOR_ID_HYPERCOPE, PCI_DEVICE_ID_HYPERCOPE_PLX, PCI_ANY_ID, PCI_SUBDEVICE_ID_HYPERCOPE_ERGO},
+	{PCI_VENDOR_ID_HYPERCOPE, PCI_DEVICE_ID_HYPERCOPE_PLX, PCI_ANY_ID, PCI_SUBDEVICE_ID_HYPERCOPE_OLD_ERGO},
+	{ }				/* Terminating entry */
+};
+MODULE_DEVICE_TABLE(pci, hysdn_pci_tbl);
+#endif
+MODULE_DESCRIPTION("ISDN4Linux: Driver for HYSDN cards");
+MODULE_AUTHOR("Werner Cornelius");
+MODULE_LICENSE("GPL");
 
 static char *hysdn_init_revision = "$Revision$";
 int cardmax;			/* number of found cards */
@@ -62,16 +65,6 @@ static struct {
 	}			/* terminating entry */
 };
 
-#ifndef COMPAT_HAS_2_2_PCI
-static struct pci_device_id hysdn_pci_tbl[] __initdata = {
-	{PCI_VENDOR_ID_HYPERCOPE, PCI_DEVICE_ID_HYPERCOPE_PLX, PCI_ANY_ID, PCI_SUBDEVICE_ID_HYPERCOPE_METRO},
-	{PCI_VENDOR_ID_HYPERCOPE, PCI_DEVICE_ID_HYPERCOPE_PLX, PCI_ANY_ID, PCI_SUBDEVICE_ID_HYPERCOPE_CHAMP2},
-	{PCI_VENDOR_ID_HYPERCOPE, PCI_DEVICE_ID_HYPERCOPE_PLX, PCI_ANY_ID, PCI_SUBDEVICE_ID_HYPERCOPE_ERGO},
-	{PCI_VENDOR_ID_HYPERCOPE, PCI_DEVICE_ID_HYPERCOPE_PLX, PCI_ANY_ID, PCI_SUBDEVICE_ID_HYPERCOPE_OLD_ERGO},
-	{ }				/* Terminating entry */
-};
-MODULE_DEVICE_TABLE(pci, hysdn_pci_tbl);
-#endif
 
 /*********************************************************************/
 /* search_cards searches for available cards in the pci config data. */

@@ -2,12 +2,17 @@
  *
  * EURO/DSS1 D-channel protocol
  *
- * Author       Karsten Keil (keil@isdn4linux.de)
- *              based on the teles driver from Jan den Ouden
+ * German 1TR6 D-channel protocol
  *
- *		This file is (c) under GNU General Public License
- *		For changes and modifications please read
- *		../../../Documentation/isdn/HiSax.cert
+ * Author       Karsten Keil
+ *              based on the teles driver from Jan den Ouden
+ * Copyright    by Karsten Keil      <keil@isdn4linux.de>
+ * 
+ * This software may be used and distributed according to the terms
+ * of the GNU General Public License, incorporated herein by reference.
+ *
+ * For changes and modifications please read
+ * ../../../Documentation/isdn/HiSax.cert
  *
  * Thanks to    Jan den Ouden
  *              Fritz Elfert
@@ -44,7 +49,8 @@ const char *dss1_revision = "$Revision$";
 static unsigned char new_invoke_id(struct PStack *p)
 {
 	unsigned char retval;
-	int flags,i;
+	unsigned long flags;
+	int i;
   
 	i = 32; /* maximum search depth */
 
@@ -72,7 +78,7 @@ static unsigned char new_invoke_id(struct PStack *p)
 /* free a used invoke id */
 /*************************/
 static void free_invoke_id(struct PStack *p, unsigned char id)
-{ int flags;
+{ unsigned long flags;
 
   if (!id) return; /* 0 = invalid value */
 

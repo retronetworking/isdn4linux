@@ -1,13 +1,15 @@
 /* $Id$
  *
- * niccy.c  low level stuff for Dr. Neuhaus NICCY PnP and NICCY PCI and
- *          compatible (SAGEM cybermodem)
+ * low level stuff for Dr. Neuhaus NICCY PnP and NICCY PCI and
+ * compatible (SAGEM cybermodem)
  *
- * Author   Karsten Keil
+ * Author       Karsten Keil
+ * Copyright    by Karsten Keil      <keil@isdn4linux.de>
  * 
- * Thanks to Dr. Neuhaus and SAGEM for informations
- *
- * This file is (c) under GNU General Public License
+ * This software may be used and distributed according to the terms
+ * of the GNU General Public License, incorporated herein by reference.
+ * 
+ * Thanks to Dr. Neuhaus and SAGEM for information
  *
  */
 

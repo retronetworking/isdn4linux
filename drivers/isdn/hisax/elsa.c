@@ -1,14 +1,17 @@
 /* $Id$
  *
- * elsa.c     low level stuff for Elsa isdn cards
+ * low level stuff for Elsa isdn cards
  *
- * Author     Karsten Keil (keil@isdn4linux.de)
+ * Author       Karsten Keil
+ * Copyright    by Karsten Keil      <keil@isdn4linux.de>
+ * 
+ * This software may be used and distributed according to the terms
+ * of the GNU General Public License, incorporated herein by reference.
  *
- *		This file is (c) under GNU General Public License
- *		For changes and modifications please read
- *		../../../Documentation/isdn/HiSax.cert
+ * For changes and modifications please read
+ * ../../../Documentation/isdn/HiSax.cert
  *
- * Thanks to    Elsa GmbH for documents and informations
+ * Thanks to    Elsa GmbH for documents and information
  *
  *              Klaus Lichtenwalder (Klaus.Lichtenwalder@WebForum.DE)
  *              for ELSA PCMCIA support

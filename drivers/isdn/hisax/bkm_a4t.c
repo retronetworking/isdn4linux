@@ -1,12 +1,12 @@
 /* $Id$
- * bkm_a4t.c    low level stuff for T-Berkom A4T
- *              derived from the original file sedlbauer.c
- *              derived from the original file niccy.c
- *              derived from the original file netjet.c
  *
- * Author       Roland Klabunde (R.Klabunde@Berkom.de)
+ * low level stuff for T-Berkom A4T
  *
- * This file is (c) under GNU General Public License
+ * Author       Roland Klabunde
+ * Copyright    by Roland Klabunde   <R.Klabunde@Berkom.de>
+ * 
+ * This software may be used and distributed according to the terms
+ * of the GNU General Public License, incorporated herein by reference.
  *
  */
 

@@ -2,7 +2,11 @@
  *
  * HiSax ISDN driver - chip specific routines for AMD 7930
  *
- * Author       Brent Baccala (baccala@FreeSoft.org)
+ * Author       Brent Baccala
+ * Copyright    by Brent Baccala <baccala@FreeSoft.org>
+ *
+ * This software may be used and distributed according to the terms
+ * of the GNU General Public License, incorporated herein by reference.
  *
  *    - Existing ISDN HiSax driver provides all the smarts
  *    - it compiles, runs, talks to an isolated phone switch, connects

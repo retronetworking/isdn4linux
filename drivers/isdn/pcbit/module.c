@@ -1,14 +1,12 @@
 /*
+ * PCBIT-D module support
+ *
  * Copyright (C) 1996 Universidade de Lisboa
  * 
  * Written by Pedro Roque Marques (roque@di.fc.ul.pt)
  *
  * This software may be used and distributed according to the terms of 
  * the GNU General Public License, incorporated herein by reference.
- */
-
-/*        
- *        PCBIT-D module support
  */
 
 #include <linux/module.h>
@@ -21,6 +19,12 @@
 
 #include <linux/isdnif.h>
 #include "pcbit.h"
+
+MODULE_DESCRIPTION("ISDN4Linux: Driver for PCBIT-T card");
+MODULE_AUTHOR("Pedro Roque Marques");
+MODULE_LICENSE("GPL");
+MODULE_PARM(mem, "1-" __MODULE_STRING(MAX_PCBIT_CARDS) "i");
+MODULE_PARM(irq, "1-" __MODULE_STRING(MAX_PCBIT_CARDS) "i");
 
 static int mem[MAX_PCBIT_CARDS] = {0, };
 static int irq[MAX_PCBIT_CARDS] = {0, };
@@ -128,9 +132,6 @@ __setup("pcbit=", pcbit_setup);
 }
 #endif
 #endif
-
-MODULE_PARM(mem, "1-" __MODULE_STRING(MAX_PCBIT_CARDS) "i");
-MODULE_PARM(irq, "1-" __MODULE_STRING(MAX_PCBIT_CARDS) "i");
 
 module_init(pcbit_init);
 module_exit(pcbit_exit);

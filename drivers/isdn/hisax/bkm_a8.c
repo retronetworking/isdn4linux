@@ -1,14 +1,15 @@
 /* $Id$
- * bkm_a8.c     low level stuff for Scitel Quadro (4*S0, passive)
- *              derived from the original file sedlbauer.c
- *              derived from the original file niccy.c
- *              derived from the original file netjet.c
  *
- * Author       Roland Klabunde (R.Klabunde@Berkom.de)
+ * low level stuff for Scitel Quadro (4*S0, passive)
  *
- * This file is (c) under GNU General Public License
+ * Author       Roland Klabunde
+ * Copyright    by Roland Klabunde   <R.Klabunde@Berkom.de>
+ * 
+ * This software may be used and distributed according to the terms
+ * of the GNU General Public License, incorporated herein by reference.
  *
  */
+
 #define __NO_VERSION__
 
 #include <linux/config.h>

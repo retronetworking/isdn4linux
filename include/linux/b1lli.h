@@ -1,9 +1,11 @@
-/*
- * $Id$
+/* $Id$
  *
  * ISDN lowlevel-module for AVM B1-card.
  *
  * Copyright 1996 by Carsten Paeth (calle@calle.in-berlin.de)
+ *
+ * This software may be used and distributed according to the terms
+ * of the GNU General Public License, incorporated herein by reference.
  *
  */
 

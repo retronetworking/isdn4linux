@@ -1,9 +1,11 @@
-/*
- * $Id$
+/* $Id$
  *
  * Header for isdn_lzscomp.c
  * Concentrated here to not mess up half a dozen kernel headers with code
  * snippets
+ *
+ * This software may be used and distributed according to the terms
+ * of the GNU General Public License, incorporated herein by reference.
  *
  */
 

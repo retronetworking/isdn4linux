@@ -1,13 +1,17 @@
 /* $Id$
  *
- * telespci.c     low level stuff for Teles PCI isdn cards
+ * low level stuff for Teles PCI isdn cards
  *
- * Author       Ton van Rosmalen 
- *              Karsten Keil (keil@isdn4linux.de)
- *
- * This file is (c) under GNU General Public License
+ * Author       Ton van Rosmalen
+ *              Karsten Keil
+ * Copyright    by Ton van Rosmalen
+ *              by Karsten Keil      <keil@isdn4linux.de>
+ * 
+ * This software may be used and distributed according to the terms
+ * of the GNU General Public License, incorporated herein by reference.
  *
  */
+
 #define __NO_VERSION__
 #include <linux/init.h>
 #include <linux/config.h>
