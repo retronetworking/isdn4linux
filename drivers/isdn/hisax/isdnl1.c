@@ -11,6 +11,9 @@
  *
  *
  * $Log$
+ * Revision 2.2  1997/07/30 17:11:08  keil
+ * L1deactivated exported
+ *
  * Revision 2.1  1997/07/27 21:35:38  keil
  * new layer1 interface
  *
@@ -86,7 +89,7 @@ const char *CardType[] =
 {"No Card", "Teles 16.0", "Teles 8.0", "Teles 16.3",
  "Creatix/Teles PnP", "AVM A1", "Elsa ML",
  "Elsa Quickstep", "Teles PCMCIA",
- "ITK ix1-micro Rev.2", "Elsa PCMCIA", "Eicon.Diehl Diva", "Dynalink"
+ "ITK ix1-micro Rev.2", "Elsa PCMCIA", "Eicon.Diehl Diva", "ISDNLink"
 };
 
 extern struct IsdnCard cards[];

@@ -1,13 +1,16 @@
 /* $Id$
 
- * dynalink.c     low level stuff for Dynalink isdn cards
+ * dynalink.c     low level stuff for ASUSCOM NETWORK INC. ISDNLink cards
  *
  * Author     Karsten Keil (keil@temic-ech.spacenet.de)
  *
- * Thanks to    Dynalink NL for informations
+ * Thanks to  ASUSCOM NETWORK INC. Taiwan and  Dynalink NL for informations
  *
  *
  * $Log$
+ * Revision 1.2  1997/07/27 21:47:59  keil
+ * new interface structures
+ *
  * Revision 1.1  1997/06/26 11:21:41  keil
  * first version
  *
@@ -140,7 +143,7 @@ dynalink_interrupt(int intno, void *dev_id, struct pt_regs *regs)
 	cs = (struct IsdnCardState *) irq2dev_map[intno];
 
 	if (!cs) {
-		printk(KERN_WARNING "Dynalink: Spurious interrupt!\n");
+		printk(KERN_WARNING "ISDNLink: Spurious interrupt!\n");
 		return;
 	}
 	val = readreg(cs->hw.dyna.adr, cs->hw.dyna.hscx, HSCX_ISTA + 0x40);
@@ -212,18 +215,18 @@ initdynalink(struct IsdnCardState *cs)
 	int ret, irq_cnt, cnt = 3;
 
 	irq_cnt = kstat.interrupts[cs->irq];
-	printk(KERN_INFO "Dynalink: IRQ %d count %d\n", cs->irq, irq_cnt);
+	printk(KERN_INFO "ISDNLink: IRQ %d count %d\n", cs->irq, irq_cnt);
 	ret = get_irq(cs->cardnr, &dynalink_interrupt);
 	while (ret && cnt) {
 		clear_pending_isac_ints(cs);
 		clear_pending_hscx_ints(cs);
 		initisac(cs);
 		inithscx(cs);
-		printk(KERN_INFO "Dynalink: IRQ %d count %d\n", cs->irq,
+		printk(KERN_INFO "ISDNLink: IRQ %d count %d\n", cs->irq,
 		       kstat.interrupts[cs->irq]);
 		if (kstat.interrupts[cs->irq] == irq_cnt) {
 			printk(KERN_WARNING
-			       "Dynalink: IRQ(%d) getting no interrupts during init %d\n",
+			       "ISDNLink: IRQ(%d) getting no interrupts during init %d\n",
 			       cs->irq, 4 - cnt);
 			if (cnt == 1) {
 				irq2dev_map[cs->irq] = NULL;
@@ -252,7 +255,7 @@ setup_dynalink(struct IsdnCard *card)
 	char tmp[64];
 
 	strcpy(tmp, Dynalink_revision);
-	printk(KERN_NOTICE "HiSax: Dynalink driver Rev. %s\n", HiSax_getrev(tmp));
+	printk(KERN_NOTICE "HiSax: ISDNLink driver Rev. %s\n", HiSax_getrev(tmp));
 	if (cs->typ != ISDN_CTYPE_DYNALINK)
 		return (0);
 
@@ -277,10 +280,10 @@ setup_dynalink(struct IsdnCard *card)
 	}
 
 	printk(KERN_INFO
-	       "Dynalink: defined at 0x%x IRQ %d\n",
+	       "ISDNLink: defined at 0x%x IRQ %d\n",
 	       cs->hw.dyna.cfg_reg,
 	       cs->irq);
-	printk(KERN_INFO "Dynalink: resetting card\n");
+	printk(KERN_INFO "ISDNLink: resetting card\n");
 	reset_dynalink(cs);
 	cs->readisac = &ReadISAC;
 	cs->writeisac = &WriteISAC;
@@ -290,10 +293,10 @@ setup_dynalink(struct IsdnCard *card)
 	cs->BC_Write_Reg = &WriteHSCX;
 	cs->BC_Send_Data = &hscx_fill_fifo;
 	cs->cardmsg = &Dyna_card_msg;
-	ISACVersion(cs, "Dynalink:");
-	if (HscxVersion(cs, "Dynalink:")) {
+	ISACVersion(cs, "ISDNLink:");
+	if (HscxVersion(cs, "ISDNLink:")) {
 		printk(KERN_WARNING
-		     "Dynalink: wrong HSCX versions check IO address\n");
+		     "ISDNLink: wrong HSCX versions check IO address\n");
 		release_io_dynalink(card);
 		return (0);
 	}

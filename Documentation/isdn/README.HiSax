@@ -32,7 +32,8 @@ ELSA PCMCIA
 ITK ix1-micro Rev.2
 Eicon.Diehl Diva 2.0 ISA and PCI (S0 and U interface, no PRO version)
 Eicon.Diehl Diva Piccola
-Dynalink IS64PH
+ASUSCOM NETWORK INC. ISDNLink 128K PC adapter (order code I-IN100-ST-D)
+Dynalink IS64PH (OEM version of ASUSCOM NETWORK INC. ISDNLink 128K adapter)
 
 Note: PCF, PCF-Pro: up to now, only the ISDN part is supported
       PCC-8: not tested yet
@@ -122,7 +123,7 @@ Card types:
    10   ELSA PCMCIA		 irq, io  (set with card manager)
    11   Eicon.Diehl Diva ISA PnP irq, io
    11   Eicon.Diehl Diva PCI     no parameter
-   12   Dynalink IS64PH          irq, io  (from isapnp setup)
+   12   ASUS COM ISDNLink        irq, io  (from isapnp setup)
         
 At the moment IRQ sharing is not possible. Please make sure that your IRQ
 is free and enabled for ISA use.
@@ -199,7 +200,7 @@ Card types:
    10   ELSA PCMCIA             irq, io  (set with card manager)
    11   Eicon.Diehl Diva ISAPnP ONLY WORKS AS A MODULE !
    11   Eicon.Diehl Diva PCI    no parameter
-   12   Dynalink IS64PH         ^ONLY WORKS AS A MODULE !
+   12   ASUS COM ISDNLink       ONLY WORKS AS A MODULE !
 
 
 Running the driver
@@ -315,7 +316,8 @@ Special thanks to:
 
         Firma ELSA GmbH
         Firma Eicon.Diehl GmbH
-        Firma Dynalink
+        Firma Dynalink NL
+	Firma ASUSCOM NETWORK INC. Taiwan
         
         My girl friend and partner in life Ute for her patience with me.
 

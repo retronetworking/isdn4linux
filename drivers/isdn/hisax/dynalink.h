@@ -1,10 +1,13 @@
 /* $Id$
 
- * dynalink.h   Header for Dynalink ISDN cards
+ * dynalink.h   Header for ASUSCOM NETWORK INC. ISDNLink ISDN cards
  *
  * Author       Karsten Keil (keil@temic-ech.spacenet.de)
  *
  * $Log$
+ * Revision 1.1  1997/06/26 11:21:41  keil
+ * first version
+ *
  *
  */
 #include <linux/config.h>
