@@ -7,6 +7,11 @@
  *              Fritz Elfert
  *
  * $Log$
+ * Revision 2.20  1998/06/26 15:13:05  fritz
+ * Added handling of STAT_ICALL with incomplete CPN.
+ * Added AT&L for ttyI emulator.
+ * Added more locking stuff in tty_write.
+ *
  * Revision 2.19  1998/05/25 14:08:06  keil
  * HiSax 3.0
  * fixed X.75 and leased line to work again
@@ -107,7 +112,7 @@ static struct Fsm callcfsm =
 static int chancount = 0;
 
 /* experimental REJECT after ALERTING for CALLBACK to beat the 4s delay */ 
-#define ALERT_REJECT 1
+#define ALERT_REJECT 0
 
 /* Value to delay the sending of the first B-channel paket after CONNECT
  * here is no value given by ITU, but experience shows that 300 ms will
@@ -642,20 +647,20 @@ lli_shutdown_d(struct FsmInst *fi, int event, void *arg)
 
 	FsmDelTimer(&chanp->drel_timer, 62);
 	if (test_bit(FLG_PTP, &chanp->d_st->l2.flag)) {
-	FsmChangeState(fi, ST_NULL);
+		FsmChangeState(fi, ST_NULL);
 	} else {
-	if (!test_bit(FLG_TWO_DCHAN, &chanp->cs->HW_Flags)) {
-		if (chanp->chan) {
-			if (chanp->cs->channel[0].fi.state != ST_NULL)
-				return;
-		} else {
-			if (chanp->cs->channel[1].fi.state != ST_NULL)
-				return;
+		if (!test_bit(FLG_TWO_DCHAN, &chanp->cs->HW_Flags)) {
+			if (chanp->chan) {
+				if (chanp->cs->channel[0].fi.state != ST_NULL)
+					return;
+			} else {
+				if (chanp->cs->channel[1].fi.state != ST_NULL)
+					return;
+			}
 		}
-	}
-	FsmChangeState(fi, ST_WAIT_DSHUTDOWN);
-	test_and_clear_bit(FLG_ESTAB_D, &chanp->Flags);
-	chanp->d_st->lli.l4l3(chanp->d_st, DL_RELEASE | REQUEST, NULL);
+		FsmChangeState(fi, ST_WAIT_DSHUTDOWN);
+		test_and_clear_bit(FLG_ESTAB_D, &chanp->Flags);
+		chanp->d_st->lli.l4l3(chanp->d_st, DL_RELEASE | REQUEST, NULL);
 	}
 }
 
@@ -665,7 +670,8 @@ lli_timeout_d(struct FsmInst *fi, int event, void *arg)
 	struct Channel *chanp = fi->userdata;
 	isdn_ctrl ic;
 
-	if (test_and_clear_bit(FLG_LL_DCONN, &chanp->Flags)) {
+// BZT	
+	test_and_clear_bit(FLG_LL_DCONN, &chanp->Flags);
 		if (chanp->debug & 1)
 			link_debug(chanp, "STAT_DHUP", 0);
 		lli_deliver_cause(chanp);
@@ -673,12 +679,12 @@ lli_timeout_d(struct FsmInst *fi, int event, void *arg)
 		ic.command = ISDN_STAT_DHUP;
 		ic.arg = chanp->chan;
 		chanp->cs->iif.statcallb(&ic);
-	}
+// BZT	}
 	FsmChangeState(fi, ST_NULL);
 	chanp->Flags = 0;
 	test_and_set_bit(FLG_ESTAB_D, &chanp->Flags);
 	if (!test_bit(FLG_PTP, &chanp->d_st->l2.flag))
-	FsmAddTimer(&chanp->drel_timer, DREL_TIMER_VALUE, EV_SHUTDOWN_D, NULL, 60);
+		FsmAddTimer(&chanp->drel_timer, DREL_TIMER_VALUE, EV_SHUTDOWN_D, NULL, 60);
 	chanp->cs->cardmsg(chanp->cs, MDL_INFO_REL, (void *) (long)chanp->chan);
 }
 
@@ -803,9 +809,9 @@ lli_received_d_rel(struct FsmInst *fi, int event, void *arg)
 	}
 	if (test_and_clear_bit(FLG_START_B, &chanp->Flags))
 		release_b_st(chanp);
-	if (test_bit(FLG_LL_DCONN, &chanp->Flags) ||
-		test_bit(FLG_CALL_SEND, &chanp->Flags) ||
-		test_bit(FLG_CALL_ALERT, &chanp->Flags)) {
+// BZT	if (test_bit(FLG_LL_DCONN, &chanp->Flags) ||
+// BZT		test_bit(FLG_CALL_SEND, &chanp->Flags) ||
+// BZT		test_bit(FLG_CALL_ALERT, &chanp->Flags)) {
 		if (chanp->debug & 1)
 			link_debug(chanp, "STAT_DHUP", 0);
 		lli_deliver_cause(chanp);
@@ -813,7 +819,7 @@ lli_received_d_rel(struct FsmInst *fi, int event, void *arg)
 		ic.command = ISDN_STAT_DHUP;
 		ic.arg = chanp->chan;
 		chanp->cs->iif.statcallb(&ic);
-	}
+//BZT	}
 	test_and_clear_bit(FLG_DISC_SEND, &chanp->Flags);
 	test_and_clear_bit(FLG_CALL_REC, &chanp->Flags);
 	test_and_clear_bit(FLG_CALL_ALERT, &chanp->Flags);
@@ -843,9 +849,9 @@ lli_received_d_relcnf(struct FsmInst *fi, int event, void *arg)
 	}
 	if (test_and_clear_bit(FLG_START_B, &chanp->Flags))
 		release_b_st(chanp);
-	if (test_bit(FLG_LL_DCONN, &chanp->Flags) ||
-		test_bit(FLG_CALL_SEND, &chanp->Flags) ||
-		test_bit(FLG_CALL_ALERT, &chanp->Flags)) {
+//BZT	if (test_bit(FLG_LL_DCONN, &chanp->Flags) ||
+//BZT		test_bit(FLG_CALL_SEND, &chanp->Flags) ||
+//BZT		test_bit(FLG_CALL_ALERT, &chanp->Flags)) {
 		if (chanp->debug & 1)
 			link_debug(chanp, "STAT_DHUP", 0);
 		lli_deliver_cause(chanp);
@@ -853,7 +859,7 @@ lli_received_d_relcnf(struct FsmInst *fi, int event, void *arg)
 		ic.command = ISDN_STAT_DHUP;
 		ic.arg = chanp->chan;
 		chanp->cs->iif.statcallb(&ic);
-	}
+//BZT	}
 	test_and_clear_bit(FLG_DISC_SEND, &chanp->Flags);
 	test_and_clear_bit(FLG_CALL_REC, &chanp->Flags);
 	test_and_clear_bit(FLG_CALL_ALERT, &chanp->Flags);
@@ -881,17 +887,13 @@ lli_received_d_disc(struct FsmInst *fi, int event, void *arg)
 	}
 	if (test_and_clear_bit(FLG_START_B, &chanp->Flags))
 		release_b_st(chanp);
-	if (test_bit(FLG_LL_DCONN, &chanp->Flags) ||
-		test_bit(FLG_CALL_SEND, &chanp->Flags) ||
-		test_bit(FLG_CALL_ALERT, &chanp->Flags)) {
-		if (chanp->debug & 1)
-			link_debug(chanp, "STAT_DHUP", 0);
-		lli_deliver_cause(chanp);
-		ic.driver = chanp->cs->myid;
-		ic.command = ISDN_STAT_DHUP;
-		ic.arg = chanp->chan;
-		chanp->cs->iif.statcallb(&ic);
-	}
+	if (chanp->debug & 1)
+		link_debug(chanp, "STAT_DHUP", 0);
+	lli_deliver_cause(chanp);
+	ic.driver = chanp->cs->myid;
+	ic.command = ISDN_STAT_DHUP;
+	ic.arg = chanp->chan;
+	chanp->cs->iif.statcallb(&ic);
 	test_and_clear_bit(FLG_CALL_ALERT, &chanp->Flags);
 	test_and_clear_bit(FLG_LL_DCONN, &chanp->Flags);
 	test_and_clear_bit(FLG_CALL_SEND, &chanp->Flags);
@@ -987,15 +989,14 @@ lli_setup_err(struct FsmInst *fi, int event, void *arg)
 	isdn_ctrl ic;
 
 	FsmChangeState(fi, ST_WAIT_DRELEASE);
-	if (test_and_clear_bit(FLG_LL_DCONN, &chanp->Flags)) {
-		if (chanp->debug & 1)
-			link_debug(chanp, "STAT_DHUP", 0);
-		lli_deliver_cause(chanp);
-		ic.driver = chanp->cs->myid;
-		ic.command = ISDN_STAT_DHUP;
-		ic.arg = chanp->chan;
-		chanp->cs->iif.statcallb(&ic);
-	}
+	test_and_clear_bit(FLG_LL_DCONN, &chanp->Flags);
+	if (chanp->debug & 1)
+		link_debug(chanp, "STAT_DHUP", 0);
+	lli_deliver_cause(chanp);
+	ic.driver = chanp->cs->myid;
+	ic.command = ISDN_STAT_DHUP;
+	ic.arg = chanp->chan;
+	chanp->cs->iif.statcallb(&ic);
 	test_and_set_bit(FLG_DISC_SEND, &chanp->Flags);	/* DISCONN was sent from L3 */
 }
 
@@ -1006,15 +1007,14 @@ lli_connect_err(struct FsmInst *fi, int event, void *arg)
 	isdn_ctrl ic;
 
 	FsmChangeState(fi, ST_WAIT_DRELEASE);
-	if (test_and_clear_bit(FLG_LL_DCONN, &chanp->Flags)) {
-		if (chanp->debug & 1)
-			link_debug(chanp, "STAT_DHUP", 0);
-		lli_deliver_cause(chanp);
-		ic.driver = chanp->cs->myid;
-		ic.command = ISDN_STAT_DHUP;
-		ic.arg = chanp->chan;
-		chanp->cs->iif.statcallb(&ic);
-	}
+	test_and_clear_bit(FLG_LL_DCONN, &chanp->Flags);
+	if (chanp->debug & 1)
+		link_debug(chanp, "STAT_DHUP", 0);
+	lli_deliver_cause(chanp);
+	ic.driver = chanp->cs->myid;
+	ic.command = ISDN_STAT_DHUP;
+	ic.arg = chanp->chan;
+	chanp->cs->iif.statcallb(&ic);
 	test_and_set_bit(FLG_DISC_SEND, &chanp->Flags);	/* DISCONN was sent from L3 */
 }
 
@@ -1051,22 +1051,21 @@ lli_got_dlrl(struct FsmInst *fi, int event, void *arg)
 		chanp->cs->iif.statcallb(&ic);
 		chanp->Flags = 0;
 	} else {
-		if (test_and_clear_bit(FLG_LL_DCONN, &chanp->Flags)) {
-			if (chanp->debug & 1)
-				link_debug(chanp, "STAT_DHUP", 0);
-			if (chanp->cs->protocol == ISDN_PTYPE_EURO) {
-				chanp->proc->para.cause = 0x2f;
-				chanp->proc->para.loc = 0;
-			} else {
-				chanp->proc->para.cause = 0x70;
-				chanp->proc->para.loc = 0;
-			}
-			lli_deliver_cause(chanp);
-			ic.driver = chanp->cs->myid;
-			ic.command = ISDN_STAT_DHUP;
-			ic.arg = chanp->chan;
-			chanp->cs->iif.statcallb(&ic);
+		test_and_clear_bit(FLG_LL_DCONN, &chanp->Flags);
+		if (chanp->debug & 1)
+			link_debug(chanp, "STAT_DHUP", 0);
+		if (chanp->cs->protocol == ISDN_PTYPE_EURO) {
+			chanp->proc->para.cause = 0x2f;
+			chanp->proc->para.loc = 0;
+		} else {
+			chanp->proc->para.cause = 0x70;
+			chanp->proc->para.loc = 0;
 		}
+		lli_deliver_cause(chanp);
+		ic.driver = chanp->cs->myid;
+		ic.command = ISDN_STAT_DHUP;
+		ic.arg = chanp->chan;
+		chanp->cs->iif.statcallb(&ic);
 		chanp->d_st->lli.l4l3(chanp->d_st, CC_DLRL | REQUEST, chanp->proc);
 		chanp->Flags = 0;
 		chanp->d_st->lli.l4l3(chanp->d_st, DL_RELEASE | REQUEST, NULL);
@@ -1291,7 +1290,9 @@ dchan_l3l4(struct PStack *st, int pr, void *arg)
 		}
 		return;
 	}
-	chanp = pc->chan;
+	if (!(chanp = pc->chan))
+		return;
+	
 	switch (pr) {
 		case (CC_DISCONNECT | INDICATION):
 			FsmEvent(&chanp->fi, EV_DISCONNECT_IND, NULL);
@@ -1364,10 +1365,7 @@ init_d_st(struct Channel *chanp)
 	st->l2.window = 1;
 	st->l2.T200 = 1000;	/* 1000 milliseconds  */
 	st->l2.N200 = 3;	/* try 3 times        */
-	if (st->protocol == ISDN_PTYPE_1TR6)
-		st->l2.T203 = 10000;	/* 10000 milliseconds */
-	else
-		st->l2.T203 = 10000;	/* 5000 milliseconds  */
+	st->l2.T203 = 10000;	/* 10000 milliseconds */
 	if (test_bit(FLG_TWO_DCHAN, &cs->HW_Flags))
 		sprintf(tmp, "DCh%d Q.921", chanp->chan);
 	else
@@ -1453,9 +1451,9 @@ CallcNewChan(struct IsdnCardState *csta)
 	printk(KERN_INFO "HiSax: 2 channels added\n");
 	if (test_bit(FLG_PTP, &csta->channel->d_st->l2.flag)) {
 		printk(KERN_INFO "LAYER2 WATCHING ESTABLISH\n");
-	test_and_set_bit(FLG_START_D, &csta->channel->Flags);
-	csta->channel->d_st->lli.l4l3(csta->channel->d_st,
-		DL_ESTABLISH | REQUEST, NULL);
+		test_and_set_bit(FLG_START_D, &csta->channel->Flags);
+		csta->channel->d_st->lli.l4l3(csta->channel->d_st,
+			DL_ESTABLISH | REQUEST, NULL);
 	}
 	return (2);
 }
@@ -1578,7 +1576,10 @@ init_b_st(struct Channel *chanp, int incoming)
 	char tmp[128];
 
 	st->l1.hardware = cs;
-	chanp->bcs->mode = 2;
+	if (chanp->leased)
+		st->l1.bc = chanp->chan & 1;
+	else
+		st->l1.bc = chanp->proc->para.bchannel - 1;
 	switch (chanp->l2_active_protocol) {
 		case (ISDN_PROTO_L2_X75I):
 		case (ISDN_PROTO_L2_HDLC):
@@ -1625,10 +1626,6 @@ init_b_st(struct Channel *chanp, int incoming)
 			setstack_l3bc(st, chanp);
 			break;
 	}
-	if (chanp->leased)
-		st->l1.bc = chanp->chan & 1;
-	else
-		st->l1.bc = chanp->proc->para.bchannel - 1;
 	return (0);
 }
 
@@ -1777,7 +1774,8 @@ HiSax_command(isdn_ctrl * ic)
 	struct Channel *chanp;
 	char tmp[128];
 	int i;
-	unsigned int num;
+	u_int num;
+	u_long adr;
 
 	if (!csta) {
 		printk(KERN_ERR
@@ -1805,7 +1803,7 @@ HiSax_command(isdn_ctrl * ic)
 			if (chanp->debug & 1) {
 				sprintf(tmp, "DIAL %s -> %s (%d,%d)",
 					ic->parm.setup.eazmsn, ic->parm.setup.phone,
-				 ic->parm.setup.si1, ic->parm.setup.si2);
+					ic->parm.setup.si1, ic->parm.setup.si2);
 				link_debug(chanp, tmp, 1);
 			}
 			chanp->setup = ic->parm.setup;
@@ -1938,13 +1936,25 @@ HiSax_command(isdn_ctrl * ic)
 							PH_TESTLOOP | REQUEST, (void *) (long)num);
 					break;
 				case (7):	/* set card in PTP mode */
+					num = *(unsigned int *) ic->parm.num;
 					if (test_bit(FLG_TWO_DCHAN, &csta->HW_Flags)) {
 						printk(KERN_ERR "HiSax PTP mode only with one TEI possible\n");
-					} else {
+					} else if (num) {
 						test_and_set_bit(FLG_PTP, &csta->channel[0].d_st->l2.flag);
 						test_and_set_bit(FLG_FIXED_TEI, &csta->channel[0].d_st->l2.flag);
 						csta->channel[0].d_st->l2.tei = 0;
 						sprintf(tmp, "set card in PTP mode\n");
+						HiSax_putstatus(csta, tmp);
+						printk(KERN_DEBUG "HiSax: %s", tmp);
+						printk(KERN_INFO "LAYER2 WATCHING ESTABLISH\n");
+						test_and_set_bit(FLG_START_D, &csta->channel[0].Flags);
+						test_and_set_bit(FLG_START_D, &csta->channel[1].Flags);
+						csta->channel[0].d_st->lli.l4l3(csta->channel[0].d_st,
+							DL_ESTABLISH | REQUEST, NULL);
+					} else {
+						test_and_clear_bit(FLG_PTP, &csta->channel[0].d_st->l2.flag);
+						test_and_clear_bit(FLG_FIXED_TEI, &csta->channel[0].d_st->l2.flag);
+						sprintf(tmp, "set card in PTMP mode\n");
 						HiSax_putstatus(csta, tmp);
 						printk(KERN_DEBUG "HiSax: %s", tmp);
 					}
@@ -1958,6 +1968,11 @@ HiSax_command(isdn_ctrl * ic)
 					sprintf(tmp, "set card in FIXED TEI (%d) mode\n", num);
 					HiSax_putstatus(csta, tmp);
 					printk(KERN_DEBUG "HiSax: %s", tmp);
+					break;
+				case (9): /* load firmware */
+					memcpy(&adr, ic->parm.num, sizeof(ulong));
+					csta->cardmsg(csta, CARD_LOAD_FIRM,
+						(void *) adr);
 					break;
 #ifdef MODULE
 				case (55):

@@ -11,6 +11,10 @@
  *
  *
  * $Log$
+ * Revision 2.9  1998/05/25 12:57:48  keil
+ * HiSax golden code from certification, Don't use !!!
+ * No leased lines, no X75, but many changes.
+ *
  * Revision 2.8  1998/04/15 16:41:42  keil
  * QS3000 PCI support
  * new init code
@@ -59,7 +63,7 @@
 
 extern const char *CardType[];
 
-const char *Elsa_revision = "$Revision$";
+static const char *Elsa_revision = "$Revision$";
 const char *Elsa_Types[] =
 {"None", "PC", "PCC-8", "PCC-16", "PCF", "PCF-Pro",
  "PCMCIA", "QS 1000", "QS 3000", "QS 1000 PCI", "QS 3000 PCI"};
@@ -414,7 +418,7 @@ elsa_interrupt_ipac(int intno, void *dev_id, struct pt_regs *regs)
 	}
 	val = bytein(cs->hw.elsa.cfg + 0x4c); /* PCI IRQ */
 	if (!(val & ELSA_PCI_IRQ_MASK))
-	  return;
+		return;
 	ista = readreg(cs->hw.elsa.ale, cs->hw.elsa.isac, IPAC_ISTA);
 Start_IPAC:
 	if (cs->debug & L1_DEB_IPAC) {
@@ -468,7 +472,7 @@ release_io_elsa(struct IsdnCardState *cs)
 		release_region(cs->hw.elsa.cfg, 0x80);
 	}
 	if (cs->subtyp == ELSA_QS3000PCI) {
-		byteout(cs->hw.elsa.cfg + 0x4c, 0x03); /* enable ELSA PCI IRQ */
+		byteout(cs->hw.elsa.cfg + 0x4c, 0x03); /* disable ELSA PCI IRQ */
 		writereg(cs->hw.elsa.ale, cs->hw.elsa.isac, IPAC_ATX, 0xff);
 		release_region(cs->hw.elsa.cfg, 0x80);
 	}
@@ -524,7 +528,7 @@ reset_elsa(struct IsdnCardState *cs)
 		writereg(cs->hw.elsa.ale, cs->hw.elsa.isac, IPAC_AOE, 0x3c);
 		writereg(cs->hw.elsa.ale, cs->hw.elsa.isac, IPAC_ATX, 0xff);
 		if (cs->subtyp == ELSA_QS1000PCI) 
-		byteout(cs->hw.elsa.cfg + 0x4c, 0x41); /* enable ELSA PCI IRQ */
+			byteout(cs->hw.elsa.cfg + 0x4c, 0x41); /* enable ELSA PCI IRQ */
 		else if (cs->subtyp == ELSA_QS3000PCI)
 			byteout(cs->hw.elsa.cfg + 0x4c, 0x43); /* enable ELSA PCI IRQ */
 	}
@@ -723,10 +727,11 @@ Elsa_card_msg(struct IsdnCardState *cs, int mt, void *arg)
 			if ((cs->subtyp == ELSA_QS1000PCI) ||
 				(cs->subtyp == ELSA_QS3000PCI))
 				ret = request_irq(cs->irq, &elsa_interrupt_ipac,
-					I4L_IRQ_FLAG, "HiSax", cs);
+					I4L_IRQ_FLAG | SA_SHIRQ, "HiSax", cs);
 			else
 				ret = request_irq(cs->irq, &elsa_interrupt,
 					I4L_IRQ_FLAG, "HiSax", cs);
+			reset_elsa(cs);
 			return(ret);
 		case CARD_INIT:
 			cs->debug |= L1_DEB_IPAC;
@@ -1042,11 +1047,21 @@ setup_elsa(struct IsdnCard *card)
 		cs->hw.elsa.timer = 0;
 		cs->hw.elsa.trig  = 0;
 		printk(KERN_INFO
-		       "Elsa: %s defined at 0x%x/0x%x IRQ %d\n",
-		       Elsa_Types[cs->subtyp],
-		       cs->hw.elsa.base,
-		       cs->hw.elsa.cfg,
-		       cs->irq);
+			"Elsa: %s defined at 0x%x/0x%x IRQ %d\n",
+			Elsa_Types[cs->subtyp],
+			cs->hw.elsa.base,
+			cs->hw.elsa.cfg,
+			cs->irq);
+		if ((cs->hw.elsa.cfg & 0xff) || (cs->hw.elsa.base & 0xf)) {
+			printk(KERN_WARNING "Elsa: You may have a wrong PCI bios\n");
+			printk(KERN_WARNING "Elsa: If your system hangs now, read\n");
+			printk(KERN_WARNING "Elsa: Documentation/isdn/README.HiSax\n");
+			printk(KERN_WARNING "Elsa: Waiting 5 sec to sync discs\n");
+			save_flags(flags);
+			sti();
+			HZDELAY(500);	/* wait 500*10 ms */
+			restore_flags(flags);
+		}
 #else
 		printk(KERN_WARNING "Elsa: Elsa PCI and NO_PCI_BIOS\n");
 		printk(KERN_WARNING "Elsa: unable to config Elsa PCI\n");
@@ -1129,7 +1144,6 @@ setup_elsa(struct IsdnCard *card)
 		}
 		printk(KERN_INFO "Elsa: timer OK; resetting card\n");
 	}
-	reset_elsa(cs);
 	cs->BC_Read_Reg = &ReadHSCX;
 	cs->BC_Write_Reg = &WriteHSCX;
 	cs->BC_Send_Data = &hscx_fill_fifo;

@@ -11,6 +11,10 @@
  *
  *
  * $Log$
+ * Revision 2.26  1998/07/15 15:01:31  calle
+ * Support for AVM passive PCMCIA cards:
+ *    A1 PCMCIA, FRITZ!Card PCMCIA and FRITZ!Card PCMCIA 2.0
+ *
  * Revision 2.25  1998/05/25 14:10:09  keil
  * HiSax 3.0
  * X.75 and leased are working again.
@@ -132,6 +136,10 @@ extern int setup_avm_a1(struct IsdnCard *card);
 extern int setup_avm_a1_pcmcia(struct IsdnCard *card);
 #endif
 
+#if CARD_FRITZPCI
+extern int setup_avm_pci(struct IsdnCard *card);
+#endif
+
 #if CARD_ELSA
 extern int setup_elsa(struct IsdnCard *card);
 #endif
@@ -191,7 +199,8 @@ const char *CardType[] =
  "Elsa PCMCIA", "Eicon.Diehl Diva", "ISDNLink", "TeleInt", "Teles 16.3c", 
  "Sedlbauer Speed Card", "USR Sportster", "ith mic Linux", "Elsa PCI",
  "Compaq ISA", "NETjet", "Teles PCI", "Sedlbauer Speed Star (PCMCIA)",
- "AMD 7930", "NICCY", "S0Box", "AVM A1 (PCMCIA)"
+ "AMD 7930", "NICCY", "S0Box", "AVM A1 (PCMCIA)", "AVM Fritz!PCI",
+ "Sedlbauer Speed Fax +"
 };
 
 extern struct IsdnCard cards[];
@@ -556,8 +565,11 @@ BChannel_proc_xmt(struct BCState *bcs)
 {
 	struct PStack *st = bcs->st;
 
-	if (test_bit(BC_FLG_BUSY, &bcs->Flag))
+	if (test_bit(BC_FLG_BUSY, &bcs->Flag)) {
+		debugl1(bcs->cs, "BC_BUSY Error");
+		printk(KERN_WARNING "HiSax: BC_BUSY Error\n");
 		return;
+	}
 
 	if (test_and_clear_bit(FLG_L1_PULL_REQ, &st->l1.Flags))
 		st->l1.l1l2(st, PH_PULL | CONFIRM, NULL);
@@ -853,6 +865,11 @@ checkcard(int cardnr, char *id, int *busy_flag))
 			ret = setup_avm_a1_pcmcia(card);
 			break;
 #endif
+#if CARD_FRITZPCI
+		case ISDN_CTYPE_FRITZPCI:
+			ret = setup_avm_pci(card);
+			break;
+#endif
 #if CARD_ELSA
 		case ISDN_CTYPE_ELSA:
 		case ISDN_CTYPE_ELSA_PNP:
@@ -884,6 +901,7 @@ checkcard(int cardnr, char *id, int *busy_flag))
 #if CARD_SEDLBAUER
 		case ISDN_CTYPE_SEDLBAUER:
 		case ISDN_CTYPE_SEDLBAUER_PCMCIA:
+		case ISDN_CTYPE_SEDLBAUER_FAX:
 			ret = setup_sedlbauer(card);
 			break;
 #endif
@@ -929,7 +947,7 @@ checkcard(int cardnr, char *id, int *busy_flag))
 		restore_flags(flags);
 		return (0);
 	}
-	if (!(cs->rcvbuf = kmalloc(MAX_DFRAME_LEN, GFP_ATOMIC))) {
+	if (!(cs->rcvbuf = kmalloc(MAX_DFRAME_LEN_L1, GFP_ATOMIC))) {
 		printk(KERN_WARNING
 		       "HiSax: No memory for isac rcvbuf\n");
 		return (1);
@@ -955,7 +973,9 @@ checkcard(int cardnr, char *id, int *busy_flag))
 	}
 	init_tei(cs, cs->protocol);
 	CallcNewChan(cs);
-	ll_run(cs);
+	/* ISAR needs firmware download first */
+	if (!test_bit(HW_ISAR, &cs->HW_Flags))
+		ll_run(cs);
 	restore_flags(flags);
 	return (1);
 }
@@ -1052,6 +1072,12 @@ HiSax_reportcard(int cardnr)
 	printk(KERN_DEBUG "HiSax: HiSax_reportcard address 0x%lX\n",
 	       (ulong) & HiSax_reportcard);
 	printk(KERN_DEBUG "HiSax: cs 0x%lX\n", (ulong) cs);
+	printk(KERN_DEBUG "HiSax: HW_Flags %x bc0 flg %x bc0 flg %x\n",
+		cs->HW_Flags, cs->bcs[0].Flag, cs->bcs[1].Flag);
+	printk(KERN_DEBUG "HiSax: bcs 0 mode %d ch%d\n",
+		cs->bcs[0].mode, cs->bcs[0].channel);
+	printk(KERN_DEBUG "HiSax: bcs 1 mode %d ch%d\n",
+		cs->bcs[1].mode, cs->bcs[1].channel);
 	printk(KERN_DEBUG "HiSax: cs stl 0x%lX\n", (ulong) & (cs->stlist));
 	stptr = cs->stlist;
 	while (stptr != NULL) {
@@ -1295,9 +1321,22 @@ l1_activate(struct FsmInst *fi, int event, void *arg)
 	st->l1.l1hw(st, HW_RESET | REQUEST, NULL);
 }
 
+static void
+l1_activate_no(struct FsmInst *fi, int event, void *arg)
+{
+	struct PStack *st = fi->userdata;
+
+	if ((!test_bit(FLG_L1_DEACTTIMER, &st->l1.Flags)) && (!test_bit(FLG_L1_T3RUN, &st->l1.Flags))) {
+		test_and_clear_bit(FLG_L1_ACTIVATING, &st->l1.Flags);
+		L1deactivated(st->l1.hardware);
+	}
+}
+
 static struct FsmNode L1DFnList[] HISAX_INITDATA =
 {
 	{ST_L1_F3, EV_PH_ACTIVATE, l1_activate},
+	{ST_L1_F6, EV_PH_ACTIVATE, l1_activate_no},
+	{ST_L1_F8, EV_PH_ACTIVATE, l1_activate_no},
 	{ST_L1_F3, EV_RESET_IND, l1_reset},
 	{ST_L1_F4, EV_RESET_IND, l1_reset},
 	{ST_L1_F5, EV_RESET_IND, l1_reset},

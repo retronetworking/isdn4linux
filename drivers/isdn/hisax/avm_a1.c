@@ -6,6 +6,9 @@
  *
  *
  * $Log$
+ * Revision 2.8  1998/04/15 16:44:27  keil
+ * new init code
+ *
  * Revision 2.7  1998/02/02 13:29:37  keil
  * fast io
  *
@@ -57,7 +60,7 @@
 #include "isdnl1.h"
 
 extern const char *CardType[];
-const char *avm_revision = "$Revision$";
+static const char *avm_revision = "$Revision$";
 
 #define	 AVM_A1_STAT_ISAC	0x01
 #define	 AVM_A1_STAT_HSCX	0x02

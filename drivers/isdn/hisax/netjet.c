@@ -8,6 +8,10 @@
  *
  *
  * $Log$
+ * Revision 1.5  1998/05/25 12:58:21  keil
+ * HiSax golden code from certification, Don't use !!!
+ * No leased lines, no X75, but many changes.
+ *
  * Revision 1.4  1998/04/15 16:42:35  keil
  * new init code
  * new PCI init (2.1.94)
@@ -319,14 +323,14 @@ static int make_raw_data(struct BCState *bcs) {
 	u_int fcs;
 	char tmp[64];
 	
-	if (!bcs->hw.tiger.tx_skb) {
+	if (!bcs->tx_skb) {
 		debugl1(bcs->cs, "tiger make_raw: NULL skb");
 		return(1);
 	}
 	bcs->hw.tiger.sendbuf[s_cnt++] = HDLC_FLAG_VALUE;
 	fcs = PPP_INITFCS;
-	for (i=0; i<bcs->hw.tiger.tx_skb->len; i++) {
-		val = bcs->hw.tiger.tx_skb->data[i];
+	for (i=0; i<bcs->tx_skb->len; i++) {
+		val = bcs->tx_skb->data[i];
 		fcs = PPP_FCS (fcs, val);
 		MAKE_RAW_BYTE;
 	}
@@ -351,7 +355,7 @@ static int make_raw_data(struct BCState *bcs) {
 	}
 	if (bcs->cs->debug & L1_DEB_HSCX) {
 		sprintf(tmp,"tiger make_raw: in %d out %d.%d",
-			bcs->hw.tiger.tx_skb->len, s_cnt, bitcnt);
+			bcs->tx_skb->len, s_cnt, bitcnt);
 		debugl1(bcs->cs,tmp);
 	}
 	if (bitcnt) {
@@ -362,7 +366,7 @@ static int make_raw_data(struct BCState *bcs) {
 		bcs->hw.tiger.sendbuf[s_cnt++] = s_val;
 	}
 	bcs->hw.tiger.sendcnt = s_cnt;
-	bcs->tx_cnt -= bcs->hw.tiger.tx_skb->len;
+	bcs->tx_cnt -= bcs->tx_skb->len;
 	bcs->hw.tiger.sp = bcs->hw.tiger.sendbuf;
 	return(0);
 }
@@ -585,7 +589,7 @@ static void fill_dma(struct BCState *bcs)
 	register u_int *p, *sp;
 	register int cnt;
 
-	if (!bcs->hw.tiger.tx_skb)
+	if (!bcs->tx_skb)
 		return;
 	if (bcs->cs->debug & L1_DEB_HSCX) {
 		sprintf(tmp,"tiger fill_dma1: c%d %4x", bcs->channel,
@@ -686,15 +690,15 @@ static void write_raw(struct BCState *bcs, u_int *buf, int cnt) {
 		bcs->hw.tiger.sp += s_cnt;
 		bcs->hw.tiger.sendp = p;
 		if (!bcs->hw.tiger.sendcnt) {
-			if (!bcs->hw.tiger.tx_skb) {
+			if (!bcs->tx_skb) {
 				sprintf(tmp,"tiger write_raw: NULL skb s_cnt %d", s_cnt);
 				debugl1(bcs->cs, tmp);
 			} else {
 				if (bcs->st->lli.l1writewakeup &&
-					(PACKET_NOACK != bcs->hw.tiger.tx_skb->pkt_type))
-					bcs->st->lli.l1writewakeup(bcs->st, bcs->hw.tiger.tx_skb->len);
-				dev_kfree_skb(bcs->hw.tiger.tx_skb);
-				bcs->hw.tiger.tx_skb = NULL;
+					(PACKET_NOACK != bcs->tx_skb->pkt_type))
+					bcs->st->lli.l1writewakeup(bcs->st, bcs->tx_skb->len);
+				dev_kfree_skb(bcs->tx_skb);
+				bcs->tx_skb = NULL;
 			}
 			test_and_clear_bit(BC_FLG_BUSY, &bcs->Flag);
 			bcs->hw.tiger.free = cnt - s_cnt;
@@ -704,7 +708,7 @@ static void write_raw(struct BCState *bcs, u_int *buf, int cnt) {
 				test_and_clear_bit(BC_FLG_HALF, &bcs->Flag);
 				test_and_set_bit(BC_FLG_NOFRAME, &bcs->Flag);
 			}
-			if ((bcs->hw.tiger.tx_skb = skb_dequeue(&bcs->squeue))) {
+			if ((bcs->tx_skb = skb_dequeue(&bcs->squeue))) {
 				fill_dma(bcs);
 			} else {
 				mask ^= 0xffffffff;
@@ -777,28 +781,28 @@ tiger_l2l1(struct PStack *st, int pr, void *arg)
 		case (PH_DATA | REQUEST):
 			save_flags(flags);
 			cli();
-			if (st->l1.bcs->hw.tiger.tx_skb) {
+			if (st->l1.bcs->tx_skb) {
 				skb_queue_tail(&st->l1.bcs->squeue, skb);
 				restore_flags(flags);
 			} else {
-				st->l1.bcs->hw.tiger.tx_skb = skb;
+				st->l1.bcs->tx_skb = skb;
 				st->l1.bcs->cs->BC_Send_Data(st->l1.bcs);
 				restore_flags(flags);
 			}
 			break;
 		case (PH_PULL | INDICATION):
-			if (st->l1.bcs->hw.tiger.tx_skb) {
+			if (st->l1.bcs->tx_skb) {
 				printk(KERN_WARNING "tiger_l2l1: this shouldn't happen\n");
 				break;
 			}
 			save_flags(flags);
 			cli();
-			st->l1.bcs->hw.tiger.tx_skb = skb;
+			st->l1.bcs->tx_skb = skb;
 			st->l1.bcs->cs->BC_Send_Data(st->l1.bcs);
 			restore_flags(flags);
 			break;
 		case (PH_PULL | REQUEST):
-			if (!st->l1.bcs->hw.tiger.tx_skb) {
+			if (!st->l1.bcs->tx_skb) {
 				test_and_clear_bit(FLG_L1_PULL_REQ, &st->l1.Flags);
 				st->l1.l1l2(st, PH_PULL | CONFIRM, NULL);
 			} else
@@ -807,12 +811,16 @@ tiger_l2l1(struct PStack *st, int pr, void *arg)
 		case (PH_ACTIVATE | REQUEST):
 			test_and_set_bit(BC_FLG_ACTIV, &st->l1.bcs->Flag);
 			mode_tiger(st->l1.bcs, st->l1.mode, st->l1.bc);
-			st->l1.l1l2(st, PH_ACTIVATE | CONFIRM, NULL);
+			l1_msg_b(st, pr, arg);
 			break;
 		case (PH_DEACTIVATE | REQUEST):
-			if (!test_bit(BC_FLG_BUSY, &st->l1.bcs->Flag))
-				mode_tiger(st->l1.bcs, 0, 0);
+			l1_msg_b(st, pr, arg);
+			break;
+		case (PH_DEACTIVATE | CONFIRM):
 			test_and_clear_bit(BC_FLG_ACTIV, &st->l1.bcs->Flag);
+			test_and_clear_bit(BC_FLG_BUSY, &st->l1.bcs->Flag);
+			mode_tiger(st->l1.bcs, 0, st->l1.bc);
+			st->l1.l1l2(st, PH_DEACTIVATE | CONFIRM, NULL);
 			break;
 	}
 }
@@ -821,7 +829,7 @@ tiger_l2l1(struct PStack *st, int pr, void *arg)
 void
 close_tigerstate(struct BCState *bcs)
 {
-	mode_tiger(bcs, 0, 0);
+	mode_tiger(bcs, 0, bcs->channel);
 	if (test_and_clear_bit(BC_FLG_INIT, &bcs->Flag)) {
 		if (bcs->hw.tiger.rcvbuf) {
 			kfree(bcs->hw.tiger.rcvbuf);
@@ -833,19 +841,17 @@ close_tigerstate(struct BCState *bcs)
 		}
 		discard_queue(&bcs->rqueue);
 		discard_queue(&bcs->squeue);
-		if (bcs->hw.tiger.tx_skb) {
-			dev_kfree_skb(bcs->hw.tiger.tx_skb);
-			bcs->hw.tiger.tx_skb = NULL;
+		if (bcs->tx_skb) {
+			dev_kfree_skb(bcs->tx_skb);
+			bcs->tx_skb = NULL;
 			test_and_clear_bit(BC_FLG_BUSY, &bcs->Flag);
 		}
 	}
 }
 
 static int
-open_tigerstate(struct IsdnCardState *cs, int bc)
+open_tigerstate(struct IsdnCardState *cs, struct BCState *bcs)
 {
-	struct BCState *bcs = cs->bcs + bc;
-
 	if (!test_and_set_bit(BC_FLG_INIT, &bcs->Flag)) {
 		if (!(bcs->hw.tiger.rcvbuf = kmalloc(HSCX_BUFMAX, GFP_KERNEL))) {
 			printk(KERN_WARNING
@@ -860,7 +866,7 @@ open_tigerstate(struct IsdnCardState *cs, int bc)
 		skb_queue_head_init(&bcs->rqueue);
 		skb_queue_head_init(&bcs->squeue);
 	}
-	bcs->hw.tiger.tx_skb = NULL;
+	bcs->tx_skb = NULL;
 	bcs->hw.tiger.sendcnt = 0;
 	test_and_clear_bit(BC_FLG_BUSY, &bcs->Flag);
 	bcs->event = 0;
@@ -871,7 +877,8 @@ open_tigerstate(struct IsdnCardState *cs, int bc)
 int
 setstack_tiger(struct PStack *st, struct BCState *bcs)
 {
-	if (open_tigerstate(st->l1.hardware, bcs->channel))
+	bcs->channel = st->l1.bc;
+	if (open_tigerstate(st->l1.hardware, bcs))
 		return (-1);
 	st->l1.bcs = bcs;
 	st->l2.l2l1 = tiger_l2l1;

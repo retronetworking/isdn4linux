@@ -5,6 +5,9 @@
  *
  *
  * $Log$
+ * Revision 2.18  1998/07/30 21:01:37  niemann
+ * Fixed Sedlbauer Speed Fax PCMCIA missing isdnl3new
+ *
  * Revision 2.17  1998/07/15 15:01:26  calle
  * Support for AVM passive PCMCIA cards:
  *    A1 PCMCIA, FRITZ!Card PCMCIA and FRITZ!Card PCMCIA 2.0
@@ -72,6 +75,7 @@
 #include <linux/stddef.h>
 #include <linux/timer.h>
 #include <linux/config.h>
+#include <linux/module.h>
 #include "hisax.h"
 
 /*
@@ -107,7 +111,8 @@
  *   24 Dr Neuhaus Niccy PnP/PCI card p0=irq p1=IO0 p2=IO1 (PnP only)
  *   25 Teles S0Box             p0=irq p1=iobase (from isapnp setup)
  *   26 AVM A1 PCMCIA (Fritz)   p0=irq p1=iobase
- *
+ *   27 AVM PCI (Fritz!PCI)     no parameter
+ *   28 Sedlbauer Speed Fax+ 	p0=irq p1=iobase
  *
  * protocol can be either ISDN_PTYPE_EURO or ISDN_PTYPE_1TR6 or ISDN_PTYPE_NI1
  *
@@ -133,19 +138,16 @@ EXPORT_SYMBOL(elsa_init_pcmcia);
 #define DEFAULT_CARD ISDN_CTYPE_A1_PCMCIA
 #define DEFAULT_CFG {11,0x170,0,0}
 int avm_a1_init_pcmcia(void*, int, int*, int);
-void HiSax_closecard(int cardnr);
-#ifdef MODULE
-static struct symbol_table hisax_syms_avm_a1= {
-#include <linux/symtab_begin.h>
-	X(avm_a1_init_pcmcia),
-	X(HiSax_closecard),
-#include <linux/symtab_end.h>
-};
-void register_avm_a1_symbols(void) {
-	register_symtab(&hisax_syms_avm_a1);
-}
+EXPORT_SYMBOL(avm_a1_init_pcmcia);
 #endif
+
+#ifdef CONFIG_HISAX_FRITZPCI
+#undef DEFAULT_CARD
+#undef DEFAULT_CFG
+#define DEFAULT_CARD ISDN_CTYPE_FRITZPCI
+#define DEFAULT_CFG {0,0,0,0}
 #endif
+
 #ifdef CONFIG_HISAX_16_3
 #undef DEFAULT_CARD
 #undef DEFAULT_CFG
@@ -371,7 +373,7 @@ HiSaxVersion(void))
 	char tmp[64];
 
 	printk(KERN_INFO "HiSax: Linux Driver for passive ISDN cards\n");
-	printk(KERN_INFO "HiSax: Version 3.0\n");
+	printk(KERN_INFO "HiSax: Version 3.1\n");
 	strcpy(tmp, l1_revision);
 	printk(KERN_INFO "HiSax: Layer1 Revision %s\n", HiSax_getrev(tmp)); 
 	strcpy(tmp, l2_revision);
@@ -467,7 +469,6 @@ HiSax_init(void))
 #ifdef CONFIG_HISAX_AVM_A1_PCMCIA
 	if (type[0] == ISDN_CTYPE_A1_PCMCIA) {
 		/* we have to export  and return in this case */
-		register_avm_a1_symbols();
 		return 0;
 	}
 #endif
@@ -524,6 +525,7 @@ HiSax_init(void))
 			case ISDN_CTYPE_TELEINT:
 			case ISDN_CTYPE_SEDLBAUER:
 			case ISDN_CTYPE_SEDLBAUER_PCMCIA:
+			case ISDN_CTYPE_SEDLBAUER_FAX:
 			case ISDN_CTYPE_SPORTSTER:
 			case ISDN_CTYPE_MIC:
 			case ISDN_CTYPE_TELES3C:
@@ -535,6 +537,7 @@ HiSax_init(void))
 			case ISDN_CTYPE_NETJET:
 			case ISDN_CTYPE_AMD7930:
 			case ISDN_CTYPE_TELESPCI:
+			case ISDN_CTYPE_FRITZPCI:
 				break;
 		}
 	}
@@ -687,8 +690,8 @@ int sedl_init_pcmcia(void *pcm_iob, int pcm_irq, int *busy_flag, int prot)
 	CallcNew();
 	Isdnl3New();
 	Isdnl2New();
-	TeiNew();
 	Isdnl1New();
+	TeiNew();
 	HiSax_inithardware(busy_flag);
 	printk(KERN_NOTICE "HiSax: module installed\n");
 	return (0);

@@ -6,6 +6,10 @@
  *
  *
  * $Log$
+ * Revision 1.16  1998/05/25 12:58:01  keil
+ * HiSax golden code from certification, Don't use !!!
+ * No leased lines, no X75, but many changes.
+ *
  * Revision 1.15  1998/04/15 16:45:32  keil
  * new init code
  *
@@ -164,7 +168,7 @@ isac_empty_fifo(struct IsdnCardState *cs, int count)
 	if ((cs->debug & L1_DEB_ISAC) && !(cs->debug & L1_DEB_ISAC_FIFO))
 		debugl1(cs, "isac_empty_fifo");
 
-	if ((cs->rcvidx + count) >= MAX_DFRAME_LEN) {
+	if ((cs->rcvidx + count) >= MAX_DFRAME_LEN_L1) {
 		if (cs->debug & L1_DEB_WARN) {
 			char tmp[40];
 			sprintf(tmp, "isac_empty_fifo overrun %d",

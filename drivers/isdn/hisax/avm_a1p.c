@@ -8,6 +8,10 @@
  * Author       Carsten Paeth (calle@calle.in-berlin.de)
  *
  * $Log$
+ * Revision 2.1  1998/07/15 15:01:23  calle
+ * Support for AVM passive PCMCIA cards:
+ *    A1 PCMCIA, FRITZ!Card PCMCIA and FRITZ!Card PCMCIA 2.0
+ *
  * Revision 1.1.2.1  1998/07/15 14:43:26  calle
  * Support for AVM passive PCMCIA cards:
  *    A1 PCMCIA, FRITZ!Card PCMCIA and FRITZ!Card PCMCIA 2.0
@@ -57,7 +61,7 @@
 #define byteout(addr,val) outb(val,addr)
 #define bytein(addr) inb(addr)
 
-const char *avm_revision = "$Revision$";
+static const char *avm_revision = "$Revision$";
 
 static inline u_char
 ReadISAC(struct IsdnCardState *cs, u_char offset)
@@ -192,7 +196,7 @@ avm_a1p_interrupt(int intno, void *dev_id, struct pt_regs *regs)
 		printk(KERN_WARNING "AVM A1 PCMCIA: Spurious interrupt!\n");
 		return;
 	}
-	while (sval = (~bytein(cs->hw.avm.cfg_reg+ASL0_OFFSET) & ASL0_R_IRQPENDING)) {
+	while ((sval = (~bytein(cs->hw.avm.cfg_reg+ASL0_OFFSET) & ASL0_R_IRQPENDING))) {
 		if (cs->debug & L1_DEB_INTSTAT) {
 			sprintf(tmp, "avm IntStatus %x", sval);
 			debugl1(cs, tmp);
@@ -272,7 +276,7 @@ AVM_card_msg(struct IsdnCardState *cs, int mt, void *arg)
 __initfunc(int
 setup_avm_a1_pcmcia(struct IsdnCard *card))
 {
-	u_char val, model, vers;
+	u_char model, vers;
 	struct IsdnCardState *cs = card->cs;
 	long flags;
 	char tmp[64];

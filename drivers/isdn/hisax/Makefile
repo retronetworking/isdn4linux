@@ -27,6 +27,7 @@ endif
 ISAC_OBJ :=
 ARCOFI_OBJ :=
 HSCX_OBJ :=
+ISAR_OBJ :=
 HFC_OBJ :=
 HFC_2BDS0 :=
 RAWHDLC_OBJ :=
@@ -67,6 +68,11 @@ ifeq ($(CONFIG_HISAX_AVM_A1_PCMCIA),y)
 	 HSCX_OBJ := hscx.o
 endif
  
+ifeq ($(CONFIG_HISAX_FRITZPCI),y)
+	 O_OBJS += avm_pci.o
+ 	 ISAC_OBJ := isac.o
+endif
+
 
 ifeq ($(CONFIG_HISAX_ELSA),y)
 	 O_OBJS += elsa.o
@@ -103,6 +109,7 @@ ifeq ($(CONFIG_HISAX_SEDLBAUER),y)
 	 O_OBJS += sedlbauer.o
 	 ISAC_OBJ := isac.o
 	 HSCX_OBJ := hscx.o
+	 ISAR_OBJ := isar.o
 endif
 
 ifeq ($(CONFIG_HISAX_SPORTSTER),y)
@@ -138,7 +145,8 @@ ifeq ($(CONFIG_HISAX_NICCY),y)
 	 HSCX_OBJ := hscx.o
 endif
 
-O_OBJS += $(ISAC_OBJ) $(HSCX_OBJ) $(HFC_OBJ) $(ARCOFI_OBJ) $(HFC_2BDS0) $(RAWHDLC_OBJ)
+O_OBJS += $(ISAC_OBJ) $(HSCX_OBJ) $(ISAR_OBJ) $(ARCOFI_OBJ) 
+O_OBJS += $(HFC_OBJ) $(HFC_2BDS0) $(RAWHDLC_OBJ) 
 OX_OBJS += config.o
 
 O_TARGET :=

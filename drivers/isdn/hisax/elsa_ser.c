@@ -207,7 +207,7 @@ static void mshutdown(struct IsdnCardState *cs)
 
 
 #ifdef SERIAL_DEBUG_OPEN
-	printk("Shutting down serial ....");
+	printk(KERN_DEBUG"Shutting down serial ....");
 #endif
 	
 	save_flags(flags); cli(); /* Disable interrupts */
@@ -232,6 +232,9 @@ static void mshutdown(struct IsdnCardState *cs)
 	serial_inp(cs, UART_RX);    /* read data port to reset things */
 	
 	restore_flags(flags);
+#ifdef SERIAL_DEBUG_OPEN
+	printk(" done\n");
+#endif
 }
 
 inline int
@@ -241,25 +244,25 @@ write_modem(struct BCState *bcs) {
 	int count, len, fp, buflen;
 	long flags;
 	
-	if (!bcs->hw.hscx.tx_skb)
+	if (!bcs->tx_skb)
 		return 0;
-	if (bcs->hw.hscx.tx_skb->len <= 0)
+	if (bcs->tx_skb->len <= 0)
 		return 0;
 	save_flags(flags);
 	cli();
 	buflen = MAX_MODEM_BUF - cs->hw.elsa.transcnt;
-	len = MIN(buflen, bcs->hw.hscx.tx_skb->len);		
+	len = MIN(buflen, bcs->tx_skb->len);		
 	fp = cs->hw.elsa.transcnt + cs->hw.elsa.transp;
 	fp &= (MAX_MODEM_BUF -1);
 	count = MIN(len, MAX_MODEM_BUF - fp);
 	if (count < len) {
-		memcpy(cs->hw.elsa.transbuf + fp, skb_pull(bcs->hw.hscx.tx_skb, count), count);
+		memcpy(cs->hw.elsa.transbuf + fp, skb_pull(bcs->tx_skb, count), count);
 		cs->hw.elsa.transcnt += count;
 		ret = count;
 		count = len - count;
 		fp = 0;
 	}
-	memcpy(cs->hw.elsa.transbuf + fp, skb_pull(bcs->hw.hscx.tx_skb, count), count);
+	memcpy(cs->hw.elsa.transbuf + fp, skb_pull(bcs->tx_skb, count), count);
 	cs->hw.elsa.transcnt += count;
 	ret += count;
 	
@@ -275,20 +278,20 @@ write_modem(struct BCState *bcs) {
 inline void
 modem_fill(struct BCState *bcs) {
 		
-	if (bcs->hw.hscx.tx_skb) {
-		if (bcs->hw.hscx.tx_skb->len) {
+	if (bcs->tx_skb) {
+		if (bcs->tx_skb->len) {
 			write_modem(bcs);
 			return;
 		} else {
 			if (bcs->st->lli.l1writewakeup &&
-				(PACKET_NOACK != bcs->hw.hscx.tx_skb->pkt_type))
+				(PACKET_NOACK != bcs->tx_skb->pkt_type))
 					bcs->st->lli.l1writewakeup(bcs->st,
 						bcs->hw.hscx.count);
-			dev_kfree_skb(bcs->hw.hscx.tx_skb);
-			bcs->hw.hscx.tx_skb = NULL;
+			dev_kfree_skb(bcs->tx_skb);
+			bcs->tx_skb = NULL;
 		}
 	}
-	if ((bcs->hw.hscx.tx_skb = skb_dequeue(&bcs->squeue))) {
+	if ((bcs->tx_skb = skb_dequeue(&bcs->squeue))) {
 		bcs->hw.hscx.count = 0;
 		test_and_set_bit(BC_FLG_BUSY, &bcs->Flag);
 		write_modem(bcs);
@@ -485,7 +488,7 @@ static void rs_interrupt_elsa(int irq, struct IsdnCardState *cs)
 #endif
 }
 
-extern int open_hscxstate(struct IsdnCardState *cs, int bc);
+extern int open_hscxstate(struct IsdnCardState *cs, struct BCState *bcs);
 extern void modehscx(struct BCState *bcs, int mode, int bc);
 extern void hscx_l2l1(struct PStack *st, int pr, void *arg);
 
@@ -507,9 +510,9 @@ close_elsastate(struct BCState *bcs)
 		while ((skb = skb_dequeue(&bcs->squeue))) {
 			dev_kfree_skb(skb);
 		}
-		if (bcs->hw.hscx.tx_skb) {
-			dev_kfree_skb(bcs->hw.hscx.tx_skb);
-			bcs->hw.hscx.tx_skb = NULL;
+		if (bcs->tx_skb) {
+			dev_kfree_skb(bcs->tx_skb);
+			bcs->tx_skb = NULL;
 			test_and_clear_bit(BC_FLG_BUSY, &bcs->Flag);
 		}
 	}
@@ -524,11 +527,11 @@ modem_l2l1(struct PStack *st, int pr, void *arg)
 	if (pr == (PH_DATA | REQUEST)) {
 		save_flags(flags);
 		cli();
-		if (st->l1.bcs->hw.hscx.tx_skb) {
+		if (st->l1.bcs->tx_skb) {
 			skb_queue_tail(&st->l1.bcs->squeue, skb);
 			restore_flags(flags);
 		} else {
-			st->l1.bcs->hw.hscx.tx_skb = skb;
+			st->l1.bcs->tx_skb = skb;
 			test_and_set_bit(BC_FLG_BUSY, &st->l1.bcs->Flag);
 			st->l1.bcs->hw.hscx.count = 0;
 			restore_flags(flags);
@@ -611,10 +614,11 @@ int
 setstack_elsa(struct PStack *st, struct BCState *bcs)
 {
 
+	bcs->channel = st->l1.bc;
 	switch (st->l1.mode) {
 		case L1_MODE_HDLC:
 		case L1_MODE_TRANS:
-			if (open_hscxstate(st->l1.hardware, bcs->channel))
+			if (open_hscxstate(st->l1.hardware, bcs))
 				return (-1);
 			st->l2.l2l1 = hscx_l2l1;
 			break;
@@ -625,7 +629,7 @@ setstack_elsa(struct PStack *st, struct BCState *bcs)
 				skb_queue_head_init(&bcs->rqueue);
 				skb_queue_head_init(&bcs->squeue);
 			}
-			bcs->hw.hscx.tx_skb = NULL;
+			bcs->tx_skb = NULL;
 			test_and_clear_bit(BC_FLG_BUSY, &bcs->Flag);
 			bcs->event = 0;
 			bcs->hw.hscx.rcvidx = 0;
