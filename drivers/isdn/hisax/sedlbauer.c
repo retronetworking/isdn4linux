@@ -529,7 +529,7 @@ Sedl_card_msg(struct IsdnCardState *cs, int mt, void *arg)
 	return(0);
 }
 
-static 	struct pci_dev *dev_sedl __devinitdata;
+static struct pci_dev *dev_sedl __devinitdata = NULL;
 
 int __devinit
 setup_sedlbauer(struct IsdnCard *card)

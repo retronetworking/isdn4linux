@@ -341,14 +341,14 @@ struct IsdnCard cards[] =
 	EMPTY_CARD,
 };
 
-static char HiSaxID[64] __devinitdata;
+static char HiSaxID[64] __devinitdata = { 0, };
 
 char *HiSax_id __devinitdata = HiSaxID;
 #ifdef MODULE
 /* Variables for insmod */
-static int type[8] __devinitdata;
-static int protocol[8] __devinitdata;
-static int io[8] __devinitdata;
+static int type[8] __devinitdata = { 0, };
+static int protocol[8] __devinitdata = { 0, };
+static int io[8] __devinitdata = { 0, };
 #undef IO0_IO1
 #ifdef CONFIG_HISAX_16_3
 #define IO0_IO1
@@ -358,11 +358,11 @@ static int io[8] __devinitdata;
 #define IO0_IO1
 #endif
 #ifdef IO0_IO1
-static int io0[8] __devinitdata;
-static int io1[8] __devinitdata;
+static int io0[8] __devinitdata = { 0, };
+static int io1[8] __devinitdata = { 0, };
 #endif
-static int irq[8] __devinitdata;
-static int mem[8] __devinitdata;
+static int irq[8] __devinitdata = { 0, };
+static int mem[8] __devinitdata = { 0, };
 static char *id __devinitdata = HiSaxID;
 
 MODULE_AUTHOR("Karsten Keil");
