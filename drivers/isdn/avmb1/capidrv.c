@@ -6,6 +6,9 @@
  * Copyright 1997 by Carsten Paeth (calle@calle.in-berlin.de)
  *
  * $Log$
+ * Revision 1.3.2.4  1997/10/26 15:04:24  calle
+ * prepared isdnlog interface for d2-trace in newer firmware.
+ *
  * Revision 1.3.2.3  1997/10/24 06:37:00  calle
  * changed LISTEN cipmask, now we can distinguish voice, fax und data calls.
  *
@@ -1718,7 +1721,7 @@ static void enable_dchannel_trace(capidrv_contr *card)
 					   0x214D5641,  /* ManuID */
 					   0,           /* Class */
 					   1,           /* Function */
-					   (_cstruct)"\004\200\014\000\000");
+					   (_cstruct)"\004\014\200\000\000");
 	} else {
 		printk(KERN_INFO "%s: D3 trace enabled\n", card->name);
 		capi_fill_MANUFACTURER_REQ(&cmdcmsg, global.appid,
