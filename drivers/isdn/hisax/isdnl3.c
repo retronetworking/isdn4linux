@@ -11,6 +11,7 @@
  *              Fritz Elfert
  *
  */
+
 #define __NO_VERSION__
 #include "hisax.h"
 #include "isdnl3.h"
@@ -304,7 +305,10 @@ release_l3_process(struct l3_process *p)
 				if (!skb_queue_len(&p->st->l3.squeue)) {
 					if (p->debug)
 						l3_debug(p->st, "release_l3_process: release link");
-					FsmEvent(&p->st->l3.l3m, EV_RELEASE_REQ, NULL);
+					if (p->st->protocol != ISDN_PTYPE_NI1)
+						FsmEvent(&p->st->l3.l3m, EV_RELEASE_REQ, NULL);
+					else
+						FsmEvent(&p->st->l3.l3m, EV_RELEASE_IND, NULL);
 				} else {
 					if (p->debug)
 						l3_debug(p->st, "release_l3_process: not release link");
@@ -484,6 +488,18 @@ lc_start_delay(struct FsmInst *fi, int event, void *arg)
 }
 
 static void
+lc_start_delay_check(struct FsmInst *fi, int event, void *arg)
+/* 20/09/00 - GE timer not user for NI-1 as layer 2 should stay up */
+{
+       struct PStack *st = fi->userdata;
+
+       FsmChangeState(fi, ST_L3_LC_REL_DELAY);
+       /* 19/09/00 - GE timer not user for NI-1 */
+       if (st->protocol != ISDN_PTYPE_NI1) 
+       		FsmAddTimer(&st->l3.l3m_timer, DREL_TIMER_VALUE, EV_TIMEOUT, NULL, 50);
+}
+
+static void
 lc_release_req(struct FsmInst *fi, int event, void *arg)
 {
 	struct PStack *st = fi->userdata;
@@ -531,7 +547,7 @@ static struct FsmNode L3FnList[] HISAX_INITDATA =
 	{ST_L3_LC_ESTAB_WAIT,	EV_RELEASE_REQ,		lc_start_delay},
 	{ST_L3_LC_ESTAB_WAIT,	EV_RELEASE_IND,		lc_release_ind},
 	{ST_L3_LC_ESTAB,	EV_RELEASE_IND,		lc_release_ind},
-	{ST_L3_LC_ESTAB,	EV_RELEASE_REQ,		lc_start_delay},
+	{ST_L3_LC_ESTAB,	EV_RELEASE_REQ,		lc_start_delay_check},
         {ST_L3_LC_REL_DELAY,    EV_RELEASE_IND,         lc_release_ind},
         {ST_L3_LC_REL_DELAY,    EV_ESTABLISH_REQ,       lc_connected},
         {ST_L3_LC_REL_DELAY,    EV_TIMEOUT,             lc_release_req},
