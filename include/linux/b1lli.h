@@ -6,6 +6,22 @@
  * Copyright 1996 by Carsten Paeth (calle@calle.in-berlin.de)
  *
  * $Log$
+ * Revision 1.8  1999/07/01 15:26:54  calle
+ * complete new version (I love it):
+ * + new hardware independed "capi_driver" interface that will make it easy to:
+ *   - support other controllers with CAPI-2.0 (i.e. USB Controller)
+ *   - write a CAPI-2.0 for the passive cards
+ *   - support serial link CAPI-2.0 boxes.
+ * + wrote "capi_driver" for all supported cards.
+ * + "capi_driver" (supported cards) now have to be configured with
+ *   make menuconfig, in the past all supported cards where included
+ *   at once.
+ * + new and better informations in /proc/capi/
+ * + new ioctl to switch trace of capi messages per controller
+ *   using "avmcapictrl trace [contr] on|off|...."
+ * + complete testcircle with all supported cards and also the
+ *   PCMCIA cards (now patch for pcmcia-cs-3.0.13 needed) done.
+ *
  * Revision 1.7  1999/06/21 15:24:25  calle
  * extend information in /proc.
  *
@@ -113,7 +129,7 @@ typedef struct avmb1_extcarddef {
 #define	AVMB1_LOAD_AND_CONFIG	3	/* load image and config to card */
 #define	AVMB1_ADDCARD_WITH_TYPE	4	/* add a new card, with cardtype */
 #define AVMB1_GET_CARDINFO	5	/* get cardtype */
-#define AVMB1_REMOVECARD	6	/* remove a card (usefull for T1) */
+#define AVMB1_REMOVECARD	6	/* remove a card (useful for T1) */
 
 #define	AVMB1_REGISTERCARD_IS_OBSOLETE
 
