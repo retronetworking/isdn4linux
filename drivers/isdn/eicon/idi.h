@@ -112,6 +112,7 @@ typedef struct {
   byte                  type;
   byte                  channels;
   word                  features;
+  dword			serial;
   IDI_CALL              request;
 } DESCRIPTOR;
 

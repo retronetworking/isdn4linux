@@ -6,8 +6,6 @@
  *  For changes and modifications please read
  *  ../../../Documentation/isdn/README.eicon
  *
- * $Log$
- *
  *
  */
  

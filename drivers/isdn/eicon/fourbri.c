@@ -6,7 +6,7 @@
  * This source file is supplied for the exclusive use with Eicon
  * Technology Corporation's range of DIVA Server Adapters.
  *
- * Eicon File Revision :    1.4  
+ * Eicon File Revision :    1.7  
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -54,6 +54,9 @@
 #define PLX9054_INTCSR      0x69 
 #define PLX9054_INT_ENA     0x09
 
+#define DIVAS_IOBASE	0x01
+#define M_PCI_RESET	0x10
+
 byte mem_in(ADAPTER *a, void *adr);
 word mem_inw(ADAPTER *a, void *adr);
 void mem_in_buffer(ADAPTER *a, void *adr, void *P, word length);
@@ -64,10 +67,13 @@ void mem_out_buffer(ADAPTER *a, void *adr, void *P, word length);
 void mem_inc(ADAPTER *a, void *adr);
 
 int Divas4BRIInitPCI(card_t *card, dia_card_t *cfg);
+int fourbri_ISR (card_t* card);
+
 int FPGA_Download(word, dword, byte *, byte *, int);
 extern byte FPGA_Bytes[];
 extern void *get_card(int);
 
+byte UxCardPortIoIn(ux_diva_card_t *card, byte *base, int offset);
 void UxCardPortIoOut(ux_diva_card_t *card, byte *base, int offset, byte);
 word GetProtFeatureValue(char *sw_id);
 
@@ -249,7 +255,7 @@ static int diva_server_4bri_load(card_t *card, dia_load_t *load)
 	switch(load->code_type)
 	{
 		case DIA_CPU_CODE:
-			DPRINTF(("divas: RISC code LRLRLRLR"));
+			DPRINTF(("divas: RISC code"));
 			print_hdr(load->code, 0x80);
 			card->hw->features = GetProtFeatureValue((char *)&load->code[0x80]);
 			download_offset = 0; // Protocol code written to offset 0
@@ -352,6 +358,7 @@ static int diva_server_4bri_start(card_t *card, byte *channels)
 
 	DPRINTF(("divas: start Diva Server 4BRI"));
 	*channels = 0;
+	card->is_live = FALSE;
 
 	ctl = UxCardMemAttach(card->hw, DIVAS_CTL_MEMORY);
 
@@ -399,6 +406,7 @@ static int diva_server_4bri_start(card_t *card, byte *channels)
 
 		if (qbri_card)
 		{
+			qbri_card->is_live = TRUE;
 			shared = UxCardMemAttach(qbri_card->hw, DIVAS_SHARED_MEMORY);
 			*channels += UxCardMemIn(qbri_card->hw, &shared[0x3F6]);
 			UxCardMemDetach(qbri_card->hw, shared);
@@ -489,6 +497,7 @@ int Divas4BriInit(card_t *card, dia_card_t *cfg)
 	card->test_int = DivasTestInt;
 	card->dpc = DivasDpc;
 	card->clear_int = DivasClearInt;
+	card->card_isr = fourbri_ISR;
 
 	card->a.ram_out = mem_out;
 	card->a.ram_outw = mem_outw;
@@ -528,4 +537,47 @@ int memcm(byte *dst, byte *src, dword dwLen)
 	}
 
 	return 0;
+}
+
+
+
+/*int fourbri_ISR (card_t* card) 
+{
+	int served = 0;
+	byte *DivasIOBase = UxCardMemAttach(card->hw, DIVAS_IOBASE);
+	
+
+	if (UxCardPortIoIn (card->hw, DivasIOBase, M_PCI_RESET) & 0x01) 
+	{
+		served = 1;
+		card->int_pend  += 1;
+		DivasDpcSchedule(); 
+		UxCardPortIoOut (card->hw, DivasIOBase, M_PCI_RESET, 0x08);
+	}
+
+	UxCardMemDetach(card->hw, DivasIOBase);
+
+	return (served != 0);
+}*/
+
+
+int fourbri_ISR (card_t* card) 
+{
+	int served = 0;
+	byte *ctl;
+	byte *reg = UxCardMemAttach(card->hw, DIVAS_REG_MEMORY);
+
+	if (UxCardPortIoIn(card->hw, reg, PLX9054_INTCSR) & 0x80) 
+	{
+		served = 1;
+		card->int_pend  += 1;
+		DivasDpcSchedule(); /* ISR DPC */
+
+		ctl = UxCardMemAttach(card->hw, DIVAS_CTL_MEMORY);
+		UxCardMemOut(card->hw, &ctl[MQ_BREG_IRQ_TEST], MQ_IRQ_REQ_OFF);
+		UxCardMemDetach(card->hw, ctl);
+	}
+
+	UxCardMemDetach(card->hw, reg);
+	return (served != 0);
 }

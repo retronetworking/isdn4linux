@@ -6,7 +6,7 @@
  * This source file is supplied for the exclusive use with Eicon
  * Technology Corporation's range of DIVA Server Adapters.
  *
- * Eicon File Revision :    1.6  
+ * Eicon File Revision :    1.8  
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -112,13 +112,13 @@ void	*PTR_P(ADAPTER *a, ENTITY *e, void *P)
 static
 void	*PTR_R(ADAPTER *a, ENTITY *e)
 {
-	return(e->R);
+	return((void*)e->R);
 }
 
 static
 void	*PTR_X(ADAPTER *a, ENTITY *e)
 {
-	return(e->X);
+	return((void*)e->X);
 }
 
 static
@@ -169,7 +169,7 @@ byte	get_assign(ADAPTER *a, word ref)
 
 	ipl = UxCardLock(card->hw);
 
-	e_no = card->assign;
+	e_no = (byte)card->assign;
 	while (e_no)
 	{
 		if (card->e_tbl[e_no].assign_ref == ref)
@@ -348,8 +348,8 @@ void	request(card_t *card, ENTITY *e)
 
 	UxCardUnlock(card->hw, ipl);
 
-    card->out(&card->a);
-	
+	DivasScheduleRequestDpc();
+
 	return;
 }
 

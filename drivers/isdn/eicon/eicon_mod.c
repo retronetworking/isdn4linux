@@ -32,7 +32,7 @@
 
 #define DRIVERNAME "Eicon active ISDN driver"
 #define DRIVERRELEASE "2.0"
-#define DRIVERPATCH ".6"
+#define DRIVERPATCH ".10"
 
 
 #include <linux/config.h>
@@ -226,6 +226,9 @@ eicon_command(eicon_card * card, isdn_ctrl * c)
 				case EICON_IOCTL_GETVER:
 					return(EICON_CTRL_VERSION);
 				case EICON_IOCTL_GETTYPE:
+					if (card->bus == EICON_BUS_PCI) {
+						copy_to_user((char *)a, &card->hwif.pci.master, sizeof(int));
+					}
 					return(card->type);
 				case EICON_IOCTL_GETMMIO:
 					switch (card->bus) {
@@ -364,7 +367,7 @@ eicon_command(eicon_card * card, isdn_ctrl * c)
 				case EICON_IOCTL_ADDCARD:
 					if ((ret = copy_from_user(&cdef, (char *)a, sizeof(cdef))))
 						return -EFAULT;
-					if (!(eicon_addcard(0, cdef.membase, cdef.irq, cdef.id)))
+					if (!(eicon_addcard(0, cdef.membase, cdef.irq, cdef.id, 0)))
 						return -EIO;
 					return 0;
 				case EICON_IOCTL_DEBUGVAR:
@@ -411,9 +414,9 @@ eicon_command(eicon_card * card, isdn_ctrl * c)
 							cmd.driver = card->myid;        
 							cmd.arg = 0;                    
 							card->interface.statcallb(&cmd);
-							eicon_log(card, 1, "Eicon: %s started, %d channels (feat. 0x%x)\n",
+							eicon_log(card, 1, "Eicon: %s started, %d channels (feat. 0x%x, SerNo. %d)\n",
 								(card->type == EICON_CTYPE_MAESTRA) ? "BRI" : "PRI",
-								card->d->channels, card->d->features);
+								card->d->channels, card->d->features, card->d->serial);
 						} else {
 							int i;
 							EtdM_DIDD_Read(idi_d, &idi_dlength);
@@ -435,8 +438,8 @@ eicon_command(eicon_card * card, isdn_ctrl * c)
 								cmd.driver = card->myid;        
 								cmd.arg = 0;                    
 								card->interface.statcallb(&cmd);
-								eicon_log(card, 1, "Eicon: %d/4BRI started, %d channels (feat. 0x%x)\n",
-									4-i, card->d->channels, card->d->features);
+								eicon_log(card, 1, "Eicon: %d/4BRI started, %d channels (feat. 0x%x, SerNo. %d)\n",
+									4-i, card->d->channels, card->d->features, card->d->serial);
 							}
 						}
 					}
@@ -845,7 +848,7 @@ eicon_log(eicon_card * card, int level, const char *fmt, ...)
  * link it into cards-list.
  */
 static void
-eicon_alloccard(int Type, int membase, int irq, char *id)
+eicon_alloccard(int Type, int membase, int irq, char *id, int card_id)
 {
 	int i;
 	int j;
@@ -976,7 +979,7 @@ eicon_alloccard(int Type, int membase, int irq, char *id)
 					ISDN_FEATURE_L3_TRANSDSP |
 					ISDN_FEATURE_L3_FCLASS2;
                                 card->hwif.pci.card = (void *)card;
-                                card->hwif.pci.master = 1;
+                                card->hwif.pci.master = card_id;
                                 card->hwif.pci.irq = irq;
                                 card->hwif.pci.type = Type;
 				card->flags = 0;
@@ -995,7 +998,7 @@ eicon_alloccard(int Type, int membase, int irq, char *id)
 					ISDN_FEATURE_L3_TRANSDSP |
 					ISDN_FEATURE_L3_FCLASS2;
                                 card->hwif.pci.card = (void *)card;
-                                card->hwif.pci.master = 1;
+                                card->hwif.pci.master = card_id;
                                 card->hwif.pci.irq = irq;
                                 card->hwif.pci.type = Type;
 				card->flags = 0;
@@ -1014,6 +1017,7 @@ eicon_alloccard(int Type, int membase, int irq, char *id)
 					ISDN_FEATURE_L3_TRANSDSP |
 					ISDN_FEATURE_L3_FCLASS2;
                                 card->hwif.pci.card = (void *)card;
+                                card->hwif.pci.master = card_id;
                                 card->hwif.pci.irq = irq;
                                 card->hwif.pci.type = Type;
 				card->flags = 0;
@@ -1229,7 +1233,7 @@ eicon_freecard(eicon_card *card) {
 }
 
 int
-eicon_addcard(int Type, int membase, int irq, char *id)
+eicon_addcard(int Type, int membase, int irq, char *id, int card_id)
 {
 	eicon_card *p;
 	eicon_card *q = NULL;
@@ -1242,7 +1246,7 @@ eicon_addcard(int Type, int membase, int irq, char *id)
 		if ((Type = eicon_isa_find_card(membase, irq, id)) < 0)
 			return 0;
 #endif
-	eicon_alloccard(Type, membase, irq, id);
+	eicon_alloccard(Type, membase, irq, id, card_id);
         p = cards;
         while (p) {
 		registered = 0;
@@ -1350,7 +1354,7 @@ eicon_init(void)
                        card_count++;
         };
 #else
-	card_count = eicon_addcard(0, membase, irq, id);
+	card_count = eicon_addcard(0, membase, irq, id, 0);
 #endif /* CONFIG_MCA */
 #endif /* CONFIG_ISDN_DRV_EICON_ISA */
  
@@ -1692,7 +1696,7 @@ int eicon_mca_probe(int slot,  /* slot-nr where the card was detected         */
 			return  ENODEV;
 	};
 	/* matching membase & irq */
-	if ( 1 == eicon_addcard(type, membase, irq, id)) { 
+	if ( 1 == eicon_addcard(type, membase, irq, id, 0)) { 
 		mca_set_adapter_name(slot, eicon_mca_adapters[a_idx].name);
   		mca_set_adapter_procfn(slot, (MCA_ProcFn) eicon_info, cards);
 

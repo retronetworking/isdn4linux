@@ -6,7 +6,7 @@
  * This source file is supplied for the exclusive use with Eicon
  * Technology Corporation's range of DIVA Server Adapters.
  *
- * Eicon File Revision :    1.11  
+ * Eicon File Revision :    1.15  
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -452,22 +452,34 @@ void card_isr (void *dev_id)
 {
 	card_t *card = (card_t *) dev_id;
 	ADAPTER *a = &card->a;
+	int ipl;
 
 	if (card->test_int_pend)
 	{
+		ipl = UxCardLock(card->hw);
+		card->int_pend=0;
 		test_int(card);
+		UxCardUnlock(card->hw,ipl);
 		return;
 	}
-
-	if ((card->test_int)(a))
+	
+	if(card->card_isr)
 	{
-		card->int_pend = TRUE;
-
-		DivasDpcSchedule();
-
-		(card->reset_int)(card);
+		(*(card->card_isr))(card);
 	}
-	return;
+	else
+	{
+		ipl = UxCardLock(card->hw);
+	
+		if ((card->test_int)(a))
+		{
+			(card->reset_int)(card);
+		}
+		
+		UxCardUnlock(card->hw,ipl);
+		
+	}
+
 }
 
 int DivasCardNew(dia_card_t *card_info)
@@ -680,14 +692,18 @@ static int idi_register(card_t *card, byte channels)
 	{
 		case DIA_CARD_TYPE_DIVA_SERVER:
 		d[length].type = IDI_ADAPTER_PR;
+		d[length].serial = card->serial_no;
 		break;
 
 		case DIA_CARD_TYPE_DIVA_SERVER_B:
 		d[length].type = IDI_ADAPTER_MAESTRA;
+		d[length].serial = card->serial_no;
 		break;
 
+		// 4BRI is treated as 4 BRI adapters
 		case DIA_CARD_TYPE_DIVA_SERVER_Q:
-		d[length].type = IDI_ADAPTER_MAESTRAQ;
+		d[length].type = IDI_ADAPTER_MAESTRA;
+		d[length].serial = card->cfg.serial;
 	}
 
 	d[length].features = 0;
@@ -784,38 +800,47 @@ int DivasGetMem(mem_block_t *mem_block)
 	return (*card->card_mem_get)(card, mem_block);
 }
 
+
 /*
  * Deleyed Procedure Call for handling interrupts from card
  */
 
-void	DivasDoDpc(void *pData)
-
+void	DivaDoCardDpc(card_t *card)
 {
-	int		ipl, i;
-	card_t 	*card;
+	ADAPTER	*a;
 
-	card = DivasCards;
-	for (i = 0; i < DivasCardNext; i++)
+	a = &card->a;
+
+	if(UxInterlockedIncrement(card->hw, &card->dpc_reentered) > 1)
 	{
-		if (card->int_pend)
-		{
-			ipl = UxCardLock(card->hw);
-			(card->dpc)(&card->a);
-			(card->clear_int)(&card->a);
-			card->int_pend = FALSE;
-			UxCardUnlock(card->hw, ipl);
-		}
-
-		/* if XLOG active, use opportunity to poll card */
-
-		if (card->log_types & DIVAS_LOG_XLOG)
-		{
-			DivasXlogRetrieve(card);
-		}
-		card++;
+		return;
 	}
 
-	return;
+	do{
+		if((*(card->test_int))(a))
+		{
+			(*(card->dpc))(a);
+			(*(card->clear_int))(a);
+		}
+			(*(card->out))(a);
+	}while(UxInterlockedDecrement(card->hw, &card->dpc_reentered));
+			
+}
+
+void	DivasDoDpc(void *pData)
+{
+	card_t	*card = DivasCards;
+	int 	i = DivasCardNext;
+	
+	while(i--)
+	{
+		DivaDoCardDpc(card++);
+	}
+}
+
+void	DivasDoRequestDpc(void *pData)
+{
+	DivasDoDpc(pData);
 }
 
 /*
@@ -868,3 +893,4 @@ void	DivasLog(dia_log_t *log)
 
 	return;
 }
+

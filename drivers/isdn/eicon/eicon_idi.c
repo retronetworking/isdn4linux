@@ -2971,7 +2971,7 @@ idi_send_data(eicon_card *card, eicon_chan *chan, int ack, struct sk_buff *skb, 
                 return 0;
 
 	if (chk) {
-		if (chan->pqueued > 1)
+		if (chan->pqueued > 7)
 			return 0;
 		if (chan->queued + len > EICON_MAX_QUEUE)
 			return 0;

@@ -6,7 +6,7 @@
  * This source file is supplied for the exclusive use with Eicon
  * Technology Corporation's range of DIVA Server Adapters.
  *
- * Eicon File Revision :    1.3  
+ * Eicon File Revision :    1.5  
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -82,6 +82,7 @@ void mem_out_buffer(ADAPTER *a, void *adr, void *P, word length);
 void mem_inc(ADAPTER *a, void *adr);
 
 int DivasPRIInitPCI(card_t *card, dia_card_t *cfg);
+int pri_ISR (card_t* card);
 
 static int diva_server_reset(card_t *card)
 {
@@ -392,6 +393,8 @@ static int diva_server_start(card_t *card, byte *channels)
 
 	DPRINTF(("divas: start Diva Server PRI"));
 
+	card->is_live = FALSE;
+
 	boot = UxCardMemAttach(card->hw, DIVAS_RAM_MEMORY);
 
 	UxCardMemOutD(card->hw, &boot->addr, MP_PROTOCOL_ADDR);
@@ -416,6 +419,8 @@ static int diva_server_start(card_t *card, byte *channels)
 		DPRINTF(("divas: timeout waiting for card to run protocol code (sig = 0x%x)", signature));
 		return -1;
 	}
+
+	card->is_live = TRUE;
 
 	ram = (byte *) boot;
 	ram += DIVAS_SHARED_OFFSET;
@@ -488,6 +493,7 @@ int DivasPriInit(card_t *card, dia_card_t *cfg)
 	card->test_int = DivasTestInt;
 	card->dpc = DivasDpc;
 	card->clear_int = DivasClearInt;
+	card->card_isr  = pri_ISR;
 
 	card->a.ram_out = mem_out;
 	card->a.ram_outw = mem_outw;
@@ -501,3 +507,27 @@ int DivasPriInit(card_t *card, dia_card_t *cfg)
 
 	return 0;
 }
+
+
+int pri_ISR (card_t* card) 
+{
+	int served = 0;
+	byte* cfg = UxCardMemAttach(card->hw, DIVAS_CFG_MEMORY);
+	volatile unsigned long* isr = (unsigned long*)&cfg[DIVAS_IRQ_RESET];
+	register unsigned long val = *isr;
+	
+	if (val & 0x80000000)  /* our card had caused interrupt ??? */
+	{
+		served = 1;
+		card->int_pend  += 1;
+		DivasDpcSchedule(); /* ISR DPC */
+
+		*isr = (unsigned long)~0x03E00000; /* Clear interrupt line */
+	}
+
+	UxCardMemDetach(card->hw, cfg);
+
+	return (served != 0);
+}
+
+

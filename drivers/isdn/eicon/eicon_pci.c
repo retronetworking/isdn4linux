@@ -43,6 +43,8 @@ char *eicon_pci_revision = "$Revision$";
 int eicon_pci_find_card(char *ID)
 {
 	int pci_cards = 0;
+	int card_id = 0;
+	int had_q = 0;
 	int ctype = 0;
 	char did[20];
 	card_t *pCard;
@@ -56,22 +58,35 @@ int eicon_pci_find_card(char *ID)
 			switch(pCard->hw->card_type) {
 				case DIA_CARD_TYPE_DIVA_SERVER:
 					ctype = EICON_CTYPE_MAESTRAP;
+					card_id++;
+					had_q = 0;
 					break;
 				case DIA_CARD_TYPE_DIVA_SERVER_B:
 					ctype = EICON_CTYPE_MAESTRA;
+					card_id++;
+					had_q = 0;
 					break;
 				case DIA_CARD_TYPE_DIVA_SERVER_Q:
 					ctype = EICON_CTYPE_MAESTRAQ;
+					if (!had_q)
+						card_id++;
+					if (++had_q >=4)
+						had_q = 0;
 					break;
 				default:
+					printk(KERN_ERR "eicon_pci: unknown card type %d !\n",
+						pCard->hw->card_type);
+					goto err;
 			}
 			sprintf(did, "%s%d", (strlen(ID) < 1) ? "eicon":ID, pci_cards);
-			if ((!ctype) || (!(eicon_addcard(ctype, 0, pCard->hw->irq, did)))) {
+			if ((!ctype) || (!(eicon_addcard(ctype, 0, pCard->hw->irq, did, card_id)))) {
 				printk(KERN_ERR "eicon_pci: Card could not be added !\n");
 			} else {
 				pci_cards++;
-				printk(KERN_INFO "%s: DriverID: '%s'\n",eicon_ctype_name[ctype] , did);
+				printk(KERN_INFO "%s: DriverID='%s' CardID=%d\n",
+					eicon_ctype_name[ctype], did, card_id);
 			}
+err:
 		}
 		pCard++;
 	}

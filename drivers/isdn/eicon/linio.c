@@ -6,7 +6,7 @@
  * This source file is supplied for the exclusive use with Eicon
  * Technology Corporation's range of DIVA Server Adapters.
  *
- * Eicon File Revision :    1.11  
+ * Eicon File Revision :    1.16  
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -38,20 +38,20 @@
 #include "uxio.h"
 
 static
-int log_on;
+int log_on=0;
 
 int		Divasdevflag = 0;
 
+//spinlock_t diva_lock = SPIN_LOCK_UNLOCKED;
 
 static
 ux_diva_card_t card_pool[MAX_CARDS];
 
 void UxPause(long int ms)
 {
-	int timeout = (ms * HZ) / 1000;
+	int timeout = jiffies + ((ms * HZ) / 1000);
 
-	set_current_state(TASK_UNINTERRUPTIBLE);
-	schedule_timeout(timeout);
+	while (time_before(jiffies, timeout));
 }
 
 int UxCardHandleGet(ux_diva_card_t **card, dia_card_t *cfg)
@@ -272,24 +272,26 @@ word UxCardPortIoInW(ux_diva_card_t *card, void *AttachedBase, int offset)
 byte UxCardMemIn(ux_diva_card_t *card, void *address)
 {
 	byte	b;
+	volatile byte* t = (byte*)address;
 
-    b = (byte) * ((byte *) address);
+	b = *t;
 
 	if (log_on)
-    {
+	{
 		byte *a = address;
 		a -= (int) card->mapped;
 		DPRINTF(("divas hw: read 0x%02x from 0x%x (memory mapped)", b & 0xff, a));
-    }
+    	}
 
-    return (byte) * ((byte *) address);
+    return(b); 
 }
 
 word UxCardMemInW(ux_diva_card_t *card, void *address)
 {
 	word	w;
+	volatile word* t = (word*)address;
 
-    w = (word) * ((word *) address);
+    w = *t;
 
 	if (log_on)
     {
@@ -298,14 +300,15 @@ word UxCardMemInW(ux_diva_card_t *card, void *address)
 		DPRINTF(("divas hw: read 0x%04x from 0x%x (memory mapped)", w & 0xffff, a));
     }
 
-    return w;
+    return (w);
 }
 
 dword UxCardMemInD(ux_diva_card_t *card, void *address)
 {
 	dword	dw;
+	volatile dword* t = (dword*)address;
 
-    dw = (dword) * ((dword *) address);
+    dw = *t;
 
 	if (log_on)
     {
@@ -314,12 +317,12 @@ dword UxCardMemInD(ux_diva_card_t *card, void *address)
 		DPRINTF(("divas hw: read 0x%08x from 0x%x (memory mapped)", dw, a));
     }
 
-    return dw;
+    return (dw);
 }
 
 void UxCardMemInBuffer(ux_diva_card_t *card, void *address, void *buffer, int length)
 {
-	byte *pSource = address;
+	volatile byte *pSource = address;
 	byte *pDest = buffer;
 
 	while (length--)
@@ -343,43 +346,47 @@ void UxCardMemInBuffer(ux_diva_card_t *card, void *address, void *buffer, int le
 
 void UxCardMemOut(ux_diva_card_t *card, void *address, byte data)
 {
+	volatile byte* t = (byte*)address;
+
 	if (log_on)
-    {
+	{
 		byte *a = address;
 		a -= (int) card->mapped;
 		DPRINTF(("divas hw: wrote 0x%02x to 0x%x (memory mapped)", data & 0xff, a));
-    }
+	}
 
-	* ((byte *) address) = data & 0xFF;
+	*t = data;
 
-    return;
+    	return;
 }
 
 void UxCardMemOutW(ux_diva_card_t *card, void *address, word data)
 {
+	volatile word* t = (word*)address;
+
 	if (log_on)
-    {
+	{
 		byte *a = address;
 		a -= (int) card->mapped;
 		DPRINTF(("divas hw: wrote 0x%04x to 0x%x (memory mapped)", data & 0xffff, a));
-    }
+	}
 
-	*((word *)address) = data & 0xFFFF;
-
+	*t = data;
     return;
 }
 
 void UxCardMemOutD(ux_diva_card_t *card, void *address, dword data)
 {
+	volatile dword* t = (dword*)address;
+
 	if (log_on)
-    {
+	{
 		byte *a = address;
 		a -= (int) card->mapped;
 		DPRINTF(("divas hw: wrote 0x%08x to 0x%x (memory mapped)", data, a));
-    }
+	}
 
-	*((dword *)address) = data & 0xFFFFFFFF;
-
+	*t = data;
     return;
 }
 
@@ -590,26 +597,22 @@ void 	Divasintr(int arg, void *unused, struct pt_regs *unused_regs)
 	card_t *card = NULL;
 	ux_diva_card_t *ux_ref = NULL;
 
-	DPRINTF(("divas: interrupt received"));
-	
-	
 	for (i = 0; i < DivasCardNext; i++)
 	{
 
 		if (arg == DivasCards[i].cfg.irq)
 		{
-		
 			card = &DivasCards[i];
 			ux_ref = card->hw;
 	
-	  
-			if (ux_ref)
+			if ((ux_ref) && (card->is_live))
 			{
-		
 				(*ux_ref->user_isr)(ux_ref->user_isr_arg);	
-		
 			}
-			else DPRINTF(("divas: ISR couldn't locate card"));
+			else 
+			{
+				DPRINTF(("divas: ISR couldn't locate card"));
+			}
 		}
 	}
 
@@ -624,14 +627,14 @@ int UxIsrInstall(ux_diva_card_t *card, isr_fn_t *isr_fn, void *isr_arg)
         card->user_isr = isr_fn;
         card->user_isr_arg = isr_arg;
 
-	result = request_irq(card->irq, Divasintr, SA_INTERRUPT, "Divas", (void *) NULL);
+	result = request_irq(card->irq, Divasintr, SA_INTERRUPT | SA_SHIRQ, "Divas", (void *) isr_arg);
 
 	return result;
 }
 
 void UxIsrRemove(ux_diva_card_t *card, void *dev_id)
 {
-	free_irq(card->irq, NULL);
+	free_irq(card->irq, card->user_isr_arg);
 }
 
 void UxPciConfigWrite(ux_diva_card_t *card, int size, int offset, void *value)
@@ -688,18 +691,61 @@ int UxCardLock(ux_diva_card_t *card)
 {
 	unsigned long flags;
 
+ 	//spin_lock_irqsave(&diva_lock, flags);
+	
 	save_flags(flags);
 	cli();
-
 	return flags;
+	
 }
 
 void UxCardUnlock(ux_diva_card_t *card, int ipl)
 {
+	//spin_unlock_irqrestore(&diva_lock, ipl);
+
 	restore_flags(ipl);
+
 }
 
 dword UxTimeGet(void)
 {
 	return jiffies;
+}
+
+long UxInterlockedIncrement(ux_diva_card_t *card, long *dst)
+{
+	register volatile long *p;
+	register long ret;
+	int ipl;
+
+	p =dst;
+	
+	ipl = UxCardLock(card);
+
+	*p += 1;
+	ret = *p;
+
+	UxCardUnlock(card,ipl);
+
+	return(ret);
+
+}
+
+long UxInterlockedDecrement(ux_diva_card_t *card, long *dst)
+{
+	register volatile long *p;
+	register long ret;
+	int ipl;
+
+	p =dst;
+	
+	ipl = UxCardLock(card);
+
+	*p -= 1;
+	ret = *p;
+
+	UxCardUnlock(card,ipl);
+
+	return(ret);
+
 }
