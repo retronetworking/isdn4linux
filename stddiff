@@ -99,6 +99,12 @@ else
 	for i in drivers/isdn/act2000/*.[ch] ; do
 		dodiff $i $KERNELDIR/$i
 	done
+	for i in drivers/isdn/isdnloop/*.[ch] ; do
+		dodiff $i $KERNELDIR/$i
+	done
+	for i in drivers/isdn/eicon/*.[ch] ; do
+		dodiff $i $KERNELDIR/$i
+	done
 	for i in include/linux/*.h ; do
 		dodiff $i $KERNELDIR/$i
 	done
@@ -111,9 +117,11 @@ else
 		dodiff $i $KERNELDIR/$i
 	done
 	for i in drivers/isdn/Makefile drivers/isdn/icn/Makefile \
+		drivers/isdn/isdnloop/Makefile \
 		drivers/isdn/sc/Makefile \
 		drivers/isdn/avmb1/Makefile \
 		drivers/isdn/act2000/Makefile \
+		drivers/isdn/eicon/Makefile \
 		drivers/isdn/hisax/Makefile \
 		drivers/isdn/pcbit/Makefile ; do
 		if [ -f $i.kernel ] ; then

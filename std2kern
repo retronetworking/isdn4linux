@@ -1,11 +1,12 @@
 #!/bin/sh
 
 KERNELDIR=/usr/src/linux
-DOCP=docp
+DOCP=docpd
 
 docpd() {
   if ! cmp -s $1 $2 ; then
     echo Copying $1 ...
+	mkdir -p `dirname $2`
     cp $1 $2
 #  else
 #    echo $2 is up to date, NOT converted
@@ -15,6 +16,7 @@ docpd() {
 docp() {
   if [ $1 -nt $2 -o ! -f $2 ] ; then
     echo Copying $1 ...
+	mkdir -p `dirname $2`
     cp $1 $2
 #  else
 #    echo $2 is up to date, NOT converted
@@ -35,7 +37,7 @@ usage() {
 	Options:
 
 	-h	This Text.
-	-d	Copy depends on file-compare instead on modification date.
+	-d	Copy depends on modification date instead of file-compare.
 	-k DIR	Kerneltree is in DIR instead of /usr/src/linux
 
 	Without any files given, within the whole tree, the "right"
@@ -73,7 +75,7 @@ while getopts :dhk: a ; do
 		k)	checkkernel $OPTARG
 			KERNELDIR=$OPTARG
 			;;
-		d)	DOCP=docpd
+		d)	DOCP=docp
 			;;
 		h)	usage
 			;;
