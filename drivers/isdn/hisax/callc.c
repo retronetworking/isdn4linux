@@ -7,6 +7,9 @@
  *              Fritz Elfert
  *
  * $Log$
+ * Revision 1.12  1996/11/26 20:20:03  keil
+ * fixed warning while compile
+ *
  * Revision 1.11  1996/11/26 18:43:17  keil
  * change ioctl 555 --> 55 (555 didn't work)
  *
@@ -96,7 +99,7 @@ enum {
         ST_PRO_W,          /* 13 call clear. (initiator), DISCONNECT req. sent          */
         ST_ANT_W,          /* 14 call clear. (receiver), awaiting DISCONNECT ind.       */
         ST_DISC_BC_HANGUP, /* 15 d channel gone, wait for b channel deactivation        */
-	ST_OUT_W_HANGUP,   /* 16 Outgoing waiting for D-Channel hangup received */ 
+	ST_OUT_W_HANGUP,   /* 16 Outgoing waiting for D-Channel hangup received         */
         ST_D_ERR,          /* 17 d channel released while active                        */
 };
 
@@ -180,6 +183,8 @@ enum {
         ST_LC_DELAY,
         ST_LC_ESTABLISH_WAIT,
         ST_LC_CONNECTED,
+        ST_LC_FLUSH_WAIT,
+        ST_LC_FLUSH_DELAY,
         ST_LC_RELEASE_WAIT,
 };
 
@@ -192,6 +197,8 @@ static char    *strLcState[] =
         "ST_LC_DELAY",
         "ST_LC_ESTABLISH_WAIT",
         "ST_LC_CONNECTED",
+        "ST_LC_FLUSH_WAIT",
+        "ST_LC_FLUSH_DELAY",
         "ST_LC_RELEASE_WAIT",
 };
 
@@ -201,7 +208,9 @@ enum {
         EV_LC_PH_DEACTIVATE,
         EV_LC_DL_ESTABLISH,
         EV_LC_TIMER,
+        EV_LC_DL_FLUSH,
         EV_LC_DL_RELEASE,
+        EV_LC_FLUSH,
         EV_LC_RELEASE,
 };
 
@@ -214,7 +223,9 @@ static char    *strLcEvent[] =
         "EV_LC_PH_DEACTIVATE",
         "EV_LC_DL_ESTABLISH",
         "EV_LC_TIMER",
+        "EV_LC_DL_FLUSH",
         "EV_LC_DL_RELEASE",
+        "EV_LC_FLUSH",
         "EV_LC_RELEASE",
 };
 
@@ -320,7 +331,7 @@ r2_1(struct FsmInst *fi, int event, void *arg)
         struct Channel *chanp = fi->userdata;
 
         FsmChangeState(fi, ST_OUT_W_HANGUP);
-        chanp->is.l4.l4l3(&chanp->is, CC_DISCONNECT_REQ, NULL);
+        chanp->is.l4.l4l3(&chanp->is, CC_REJECT_REQ, NULL);
 }
 
 
@@ -332,6 +343,27 @@ r2_2(struct FsmInst *fi, int event, void *arg)
         FsmChangeState(fi, ST_REL_W);
         FsmEvent(&chanp->lc_d.lcfi, EV_LC_RELEASE, NULL);
         ll_hangup(chanp, 0);
+}
+
+
+static void
+r2_3(struct FsmInst *fi, int event, void *arg)
+{
+        struct Channel *chanp = fi->userdata;
+
+        FsmChangeState(fi, ST_REL_W);
+        FsmEvent(&chanp->lc_d.lcfi, EV_LC_FLUSH, NULL);
+        ll_hangup(chanp, 0);
+}
+
+
+static void
+r2_4(struct FsmInst *fi, int event, void *arg)
+{
+        struct Channel *chanp = fi->userdata;
+
+        FsmChangeState(fi, ST_OUT_W_HANGUP);
+        chanp->is.l4.l4l3(&chanp->is, CC_DISCONNECT_REQ, NULL);
 }
 
 
@@ -352,9 +384,8 @@ r3_1(struct FsmInst *fi, int event, void *arg)
 
 	chanp->is.l4.l4l3(&chanp->is,CC_DLRL,NULL); 
 	
-        FsmEvent(&chanp->lc_d.lcfi, EV_LC_RELEASE, NULL);
-        ll_hangup(chanp, 0);
         FsmChangeState(fi, ST_NULL);
+        ll_hangup(chanp, 0);
 }
 
 static void
@@ -577,7 +608,7 @@ r18(struct FsmInst *fi, int event, void *arg)
         struct Channel *chanp = fi->userdata;
 
         FsmChangeState(fi, ST_REL_W);
-        FsmEvent(&chanp->lc_d.lcfi, EV_LC_RELEASE, NULL);
+        FsmEvent(&chanp->lc_d.lcfi, EV_LC_FLUSH, NULL);
 
         ll_hangup(chanp, !0);
 }
@@ -715,7 +746,7 @@ static struct FsmNode fnlist[] =
         {ST_OUT,              EV_RELEASE_CNF,         r20},
         {ST_OUT,              EV_DLRL,                r2_2},
         {ST_OUT_W_HANGUP,     EV_RELEASE_CNF,         r2_2},
-        {ST_OUT_W_HANGUP,     EV_RELEASE_IND,         r2_2},
+        {ST_OUT_W_HANGUP,     EV_RELEASE_IND,         r2_3},
         {ST_OUT_W_HANGUP,     EV_DLRL,                r20},
         {ST_CLEAR,            EV_RELEASE_CNF,         r3},
         {ST_CLEAR,            EV_DLRL,                r20},
@@ -726,13 +757,13 @@ static struct FsmNode fnlist[] =
         {ST_IN_W,             EV_DLRL,                r3_1},
         {ST_IN,               EV_DLRL,                r3_1},
         {ST_IN,               EV_HANGUP,              r2_1},
-        {ST_IN,               EV_RELEASE_IND,         r2_2},
+        {ST_IN,               EV_RELEASE_IND,         r2_3},
         {ST_IN,               EV_RELEASE_CNF,         r2_2},
         {ST_IN,               EV_ACCEPTD,             r8},
         {ST_IN,               EV_ICALL_TIMER,         r27},
-        {ST_IN_SETUP,         EV_HANGUP,              r2_1},
+        {ST_IN_SETUP,         EV_HANGUP,              r2_4},
         {ST_IN_SETUP,         EV_SETUP_CMPL_IND,      r9},
-        {ST_IN_SETUP,         EV_RELEASE_IND,         r2_2},
+        {ST_IN_SETUP,         EV_RELEASE_IND,         r2_3},
         {ST_IN_SETUP,         EV_DISCONNECT_IND,      r2},
         {ST_IN_SETUP,         EV_DLRL,                r20},
         {ST_OUT_ESTB,         EV_BC_EST,              r12},
@@ -806,6 +837,15 @@ lc_r3(struct FsmInst *fi, int event, void *arg)
 }
 
 static void
+lc_r7(struct FsmInst *fi, int event, void *arg)
+{
+        struct LcFsm   *lf = fi->userdata;
+
+        FsmChangeState(fi, ST_LC_FLUSH_WAIT);
+	lf->st->ma.manl2(lf->st, DL_FLUSH, NULL);
+}
+
+static void
 lc_r4(struct FsmInst *fi, int event, void *arg)
 {
         struct LcFsm   *lf = fi->userdata;
@@ -818,6 +858,15 @@ lc_r4(struct FsmInst *fi, int event, void *arg)
                 lf->st->ma.manl1(lf->st, PH_DEACTIVATE, NULL);
                 lf->lccall(lf, LC_RELEASE, NULL);
         }
+}
+
+static void
+lc_r4_1(struct FsmInst *fi, int event, void *arg)
+{
+        struct LcFsm   *lf = fi->userdata;
+
+        FsmChangeState(fi, ST_LC_FLUSH_DELAY);
+        FsmAddTimer(&lf->act_timer, 50, EV_LC_TIMER, NULL, 52);
 }
 
 static void
@@ -838,8 +887,11 @@ static struct FsmNode LcFnList[] =
         {ST_LC_DELAY,                 EV_LC_DL_ESTABLISH,     lc_r3},
         {ST_LC_ESTABLISH_WAIT,        EV_LC_DL_ESTABLISH,     lc_r3},
         {ST_LC_ESTABLISH_WAIT,        EV_LC_RELEASE,          lc_r5},
+        {ST_LC_CONNECTED,             EV_LC_FLUSH,            lc_r7},
         {ST_LC_CONNECTED,             EV_LC_RELEASE,          lc_r4},
         {ST_LC_CONNECTED,             EV_LC_DL_RELEASE,       lc_r5},
+        {ST_LC_FLUSH_WAIT,            EV_LC_DL_FLUSH,         lc_r4_1},
+        {ST_LC_FLUSH_DELAY,           EV_LC_TIMER,            lc_r4},
         {ST_LC_RELEASE_WAIT,          EV_LC_DL_RELEASE,       lc_r5},
         {ST_LC_ACTIVATE_WAIT,         EV_LC_TIMER,            lc_r5},
         {ST_LC_ESTABLISH_WAIT,        EV_LC_DL_RELEASE,       lc_r5},
@@ -919,6 +971,9 @@ cc_l2man(struct PStack *st, int pr, void *arg)
                   break;
           case (DL_RELEASE):
                   FsmEvent(&chanp->lc_d.lcfi, EV_LC_DL_RELEASE, NULL);
+                  break;
+          case (DL_FLUSH):
+                  FsmEvent(&chanp->lc_d.lcfi, EV_LC_DL_FLUSH, NULL);
                   break;
         }
 }
@@ -1336,11 +1391,13 @@ distr_debug(void)
                 chanlist[i].fi.debug = debugflags & 2;
                 chanlist[i].is.l2.l2m.debug = debugflags & 8;
                 chanlist[i].ds.l2.l2m.debug = debugflags & 16;
+                chanlist[i].lc_d.lcfi.debug = debugflags & 128;
+                chanlist[i].lc_b.lcfi.debug = debugflags & 256;
         }
         for (i = 0; i < nrcards; i++)
                 if (cards[i].sp) {
                         cards[i].sp->dlogflag = debugflags & 4;
-                        cards[i].sp->debug = debugflags & 32;
+                        cards[i].sp->teistack->l2.l2m.debug = debugflags & 512;
                 }
 }
 
