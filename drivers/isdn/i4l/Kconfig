@@ -105,3 +105,27 @@ config ISDN_DIVERSION
 	  Please read the file <file:Documentation/isdn/README.diversion>.
 
 endmenu
+
+comment "ISDN4Linux hardware drivers"
+	depends on NET && ISDN_BOOL && ISDN
+
+source "drivers/isdn/hisax/Kconfig"
+
+
+menu "Active cards"
+	depends on NET && ISDN_BOOL && ISDN!=n
+
+source "drivers/isdn/icn/Kconfig"
+
+source "drivers/isdn/pcbit/Kconfig"
+
+source "drivers/isdn/sc/Kconfig"
+
+source "drivers/isdn/act2000/Kconfig"
+
+source "drivers/isdn/tpam/Kconfig"
+
+source "drivers/isdn/hysdn/Kconfig"
+
+endmenu
+

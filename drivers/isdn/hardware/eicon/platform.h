@@ -117,6 +117,8 @@
 #define MEM_TYPE_CONFIG		7
 #define MEM_TYPE_CONTROL	8
 
+#define MAX_MEM_TYPE		10
+
 #define DIVA_OS_MEM_ATTACH_RAM(a)	((a)->ram)
 #define DIVA_OS_MEM_ATTACH_PORT(a)	((a)->port)
 #define DIVA_OS_MEM_ATTACH_PROM(a)	((a)->prom)

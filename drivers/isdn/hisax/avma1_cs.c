@@ -13,11 +13,11 @@
 
 
 #include <linux/kernel.h>
+#include <linux/init.h>
 #include <linux/sched.h>
 #include <linux/ptrace.h>
 #include <linux/slab.h>
 #include <linux/string.h>
-#include <linux/timer.h>
 #include <asm/io.h>
 #include <asm/system.h>
 
@@ -26,14 +26,11 @@
 #include <pcmcia/cs.h>
 #include <pcmcia/cistpl.h>
 #include <pcmcia/ds.h>
+#include "hisax_cfg.h"
 
 MODULE_DESCRIPTION("ISDN4Linux: PCMCIA client driver for AVM A1/Fritz!PCMCIA cards");
 MODULE_AUTHOR("Carsten Paeth");
 MODULE_LICENSE("GPL");
-
-int avm_a1_init_pcmcia(void *pcm_iob, int pcm_irq, int *busy_flag, int prot);
-void HiSax_closecard(int cardnr);
-
 
 /*
    All the PCMCIA modules use PCMCIA_DEBUG to control debugging.  If
@@ -75,7 +72,7 @@ MODULE_PARM(isdnprot, "1-4i");
 */
 
 static void avma1cs_config(dev_link_t *link);
-static void avma1cs_release(u_long arg);
+static void avma1cs_release(dev_link_t *link);
 static int avma1cs_event(event_t event, int priority,
 			  event_callback_args_t *args);
 
@@ -129,14 +126,6 @@ typedef struct local_info_t {
     dev_node_t	node;
 } local_info_t;
 
-/*====================================================================*/
-
-static void cs_error(client_handle_t handle, int func, int ret)
-{
-    error_info_t err = { func, ret };
-    CardServices(ReportError, handle, &err);
-}
-
 /*======================================================================
 
     avma1cs_attach() creates an "instance" of the driver, allocating
@@ -160,9 +149,18 @@ static dev_link_t *avma1cs_attach(void)
 
     /* Initialize the dev_link_t structure */
     link = kmalloc(sizeof(struct dev_link_t), GFP_KERNEL);
+    if (!link)
+	return NULL;
     memset(link, 0, sizeof(struct dev_link_t));
-    link->release.function = &avma1cs_release;
-    link->release.data = (u_long)link;
+
+    /* Allocate space for private device-specific data */
+    local = kmalloc(sizeof(local_info_t), GFP_KERNEL);
+    if (!local) {
+	kfree(link);
+	return NULL;
+    }
+    memset(local, 0, sizeof(local_info_t));
+    link->priv = local;
 
     /* The io structure describes IO port mapping */
     link->io.NumPorts1 = 16;
@@ -191,11 +189,6 @@ static dev_link_t *avma1cs_attach(void)
     link->conf.ConfigIndex = 1;
     link->conf.Present = PRESENT_OPTION;
 
-    /* Allocate space for private device-specific data */
-    local = kmalloc(sizeof(local_info_t), GFP_KERNEL);
-    memset(local, 0, sizeof(local_info_t));
-    link->priv = local;
-    
     /* Register with Card Services */
     link->next = dev_list;
     dev_list = link;
@@ -208,7 +201,7 @@ static dev_link_t *avma1cs_attach(void)
     client_reg.event_handler = &avma1cs_event;
     client_reg.Version = 0x0210;
     client_reg.event_callback_args.client_data = link;
-    ret = CardServices(RegisterClient, &link->handle, &client_reg);
+    ret = pcmcia_register_client(&link->handle, &client_reg);
     if (ret != 0) {
 	cs_error(link->handle, RegisterClient, ret);
 	avma1cs_detach(link);
@@ -256,7 +249,7 @@ static void avma1cs_detach(dev_link_t *link)
 
     /* Break the link with Card Services */
     if (link->handle)
-	CardServices(DeregisterClient, link->handle);
+    	pcmcia_deregister_client(link->handle);
     
     /* Unlink device structure, free pieces */
     *linkp = link->next;
@@ -275,19 +268,29 @@ static void avma1cs_detach(dev_link_t *link)
     
 ======================================================================*/
 
-static int get_tuple(int fn, client_handle_t handle, tuple_t *tuple,
+static int get_tuple(client_handle_t handle, tuple_t *tuple,
 		     cisparse_t *parse)
 {
-    int i;
-    i = CardServices(fn, handle, tuple);
+    int i = pcmcia_get_tuple_data(handle, tuple);
     if (i != CS_SUCCESS) return i;
-    i = CardServices(GetTupleData, handle, tuple);
-    if (i != CS_SUCCESS) return i;
-    return CardServices(ParseTuple, handle, tuple, parse);
+    return pcmcia_parse_tuple(handle, tuple, parse);
 }
 
-#define first_tuple(a, b, c) get_tuple(GetFirstTuple, a, b, c)
-#define next_tuple(a, b, c) get_tuple(GetNextTuple, a, b, c)
+static int first_tuple(client_handle_t handle, tuple_t *tuple,
+		     cisparse_t *parse)
+{
+    int i = pcmcia_get_first_tuple(handle, tuple);
+    if (i != CS_SUCCESS) return i;
+    return get_tuple(handle, tuple, parse);
+}
+
+static int next_tuple(client_handle_t handle, tuple_t *tuple,
+		     cisparse_t *parse)
+{
+    int i = pcmcia_get_next_tuple(handle, tuple);
+    if (i != CS_SUCCESS) return i;
+    return get_tuple(handle, tuple, parse);
+}
 
 static void avma1cs_config(dev_link_t *link)
 {
@@ -299,6 +302,7 @@ static void avma1cs_config(dev_link_t *link)
     int i;
     u_char buf[64];
     char devname[128];
+    IsdnCard_t	icard;
     int busy = 0;
     
     handle = link->handle;
@@ -312,14 +316,14 @@ static void avma1cs_config(dev_link_t *link)
     */
     do {
 	tuple.DesiredTuple = CISTPL_CONFIG;
-	i = CardServices(GetFirstTuple, handle, &tuple);
+	i = pcmcia_get_first_tuple(handle, &tuple);
 	if (i != CS_SUCCESS) break;
 	tuple.TupleData = buf;
 	tuple.TupleDataMax = 64;
 	tuple.TupleOffset = 0;
-	i = CardServices(GetTupleData, handle, &tuple);
+	i = pcmcia_get_tuple_data(handle, &tuple);
 	if (i != CS_SUCCESS) break;
-	i = CardServices(ParseTuple, handle, &tuple, &parse);
+	i = pcmcia_parse_tuple(handle, &tuple, &parse);
 	if (i != CS_SUCCESS) break;
 	link->conf.ConfigBase = parse.config.base;
     } while (0);
@@ -342,7 +346,7 @@ static void avma1cs_config(dev_link_t *link)
 
 	devname[0] = 0;
 	if( !first_tuple(handle, &tuple, &parse) && parse.version_1.ns > 1 ) {
-	    strncpy(devname,parse.version_1.str + parse.version_1.ofs[1], 
+	    strlcpy(devname,parse.version_1.str + parse.version_1.ofs[1], 
 			sizeof(devname));
 	}
 	/*
@@ -359,10 +363,10 @@ static void avma1cs_config(dev_link_t *link)
 		link->io.BasePort1 = cf->io.win[0].base;
 		link->io.NumPorts1 = cf->io.win[0].len;
 		link->io.NumPorts2 = 0;
-                printk(KERN_INFO "avma1_cs: testing i/o %#x-%#x\n",
+		printk(KERN_INFO "avma1_cs: testing i/o %#x-%#x\n",
 			link->io.BasePort1,
-		        link->io.BasePort1+link->io.NumPorts1 - 1);
-		i = CardServices(RequestIO, link->handle, &link->io);
+			link->io.BasePort1+link->io.NumPorts1 - 1);
+		i = pcmcia_request_io(link->handle, &link->io);
 		if (i == CS_SUCCESS) goto found_port;
 	    }
 	    i = next_tuple(handle, &tuple, &parse);
@@ -377,21 +381,21 @@ found_port:
 	/*
 	 * allocate an interrupt line
 	 */
-	i = CardServices(RequestIRQ, link->handle, &link->irq);
+	i = pcmcia_request_irq(link->handle, &link->irq);
 	if (i != CS_SUCCESS) {
 	    cs_error(link->handle, RequestIRQ, i);
-	    CardServices(ReleaseIO, link->handle, &link->io);
+	    pcmcia_release_io(link->handle, &link->io);
 	    break;
 	}
 	
 	/*
-         * configure the PCMCIA socket
-	  */
-	i = CardServices(RequestConfiguration, link->handle, &link->conf);
+	 * configure the PCMCIA socket
+	 */
+	i = pcmcia_request_configuration(link->handle, &link->conf);
 	if (i != CS_SUCCESS) {
 	    cs_error(link->handle, RequestConfiguration, i);
-	    CardServices(ReleaseIO, link->handle, &link->io);
-	    CardServices(ReleaseIRQ, link->handle, &link->irq);
+	    pcmcia_release_io(link->handle, &link->io);
+	    pcmcia_release_irq(link->handle, &link->irq);
 	    break;
 	}
 
@@ -408,22 +412,24 @@ found_port:
     link->state &= ~DEV_CONFIG_PENDING;
     /* If any step failed, release any partially configured state */
     if (i != 0) {
-	avma1cs_release((u_long)link);
+	avma1cs_release(link);
 	return;
     }
 
     printk(KERN_NOTICE "avma1_cs: checking at i/o %#x, irq %d\n",
 				link->io.BasePort1, link->irq.AssignedIRQ);
 
-    if (avm_a1_init_pcmcia((void *)(int)link->io.BasePort1,
-                           link->irq.AssignedIRQ,
-                           &busy, isdnprot) != 0) {
-       printk(KERN_ERR "avma1_cs: failed to initialize AVM A1 PCMCIA %d at i/o %#x\n", i, link->io.BasePort1);
-       return;
+    icard.para[0] = link->irq.AssignedIRQ;
+    icard.para[1] = link->io.BasePort1;
+    icard.protocol = isdnprot;
+    icard.typ = ISDN_CTYPE_A1_PCMCIA;
+    
+    i = hisax_init_pcmcia(link, &busy, &icard);
+    if (i < 0) {
+    	printk(KERN_ERR "avma1_cs: failed to initialize AVM A1 PCMCIA %d at i/o %#x\n", i, link->io.BasePort1);
+	avma1cs_release(link);
+	return;
     }
-
-    i = 0; /* no returncode for cardnr :-( */
-
     dev->node.minor = i;
 
 } /* avma1cs_config */
@@ -436,23 +442,11 @@ found_port:
     
 ======================================================================*/
 
-static void avma1cs_release(u_long arg)
+static void avma1cs_release(dev_link_t *link)
 {
-    dev_link_t *link = (dev_link_t *)arg;
     local_info_t *local = link->priv;
 
     DEBUG(0, "avma1cs_release(0x%p)\n", link);
-
-    /*
-       If the device is currently in use, we won't release until it
-       is actually closed.
-    */
-    if (link->open) {
-	DEBUG(1, "avma1_cs: release postponed, '%s' still open\n",
-	      link->dev->dev_name);
-	link->state |= DEV_STALE_CONFIG;
-	return;
-    }
 
     /* no unregister function with hisax */
     HiSax_closecard(local->node.minor);
@@ -461,14 +455,13 @@ static void avma1cs_release(u_long arg)
     link->dev = NULL;
     
     /* Don't bother checking to see if these succeed or not */
-    CardServices(ReleaseConfiguration, link->handle);
-    CardServices(ReleaseIO, link->handle, &link->io);
-    CardServices(ReleaseIRQ, link->handle, &link->irq);
+    pcmcia_release_configuration(link->handle);
+    pcmcia_release_io(link->handle, &link->io);
+    pcmcia_release_irq(link->handle, &link->irq);
     link->state &= ~DEV_CONFIG;
     
     if (link->state & DEV_STALE_LINK)
 	avma1cs_detach(link);
-    
 } /* avma1cs_release */
 
 /*======================================================================
@@ -493,59 +486,58 @@ static int avma1cs_event(event_t event, int priority,
     DEBUG(1, "avma1cs_event(0x%06x)\n", event);
     
     switch (event) {
-    case CS_EVENT_CARD_REMOVAL:
-	link->state &= ~DEV_PRESENT;
-	if (link->state & DEV_CONFIG) {
-	    link->release.expires =  jiffies + HZ/20;
-	    add_timer(&link->release);
-	}
-	break;
-    case CS_EVENT_CARD_INSERTION:
-	link->state |= DEV_PRESENT | DEV_CONFIG_PENDING;
-	avma1cs_config(link);
-	break;
-    case CS_EVENT_PM_SUSPEND:
-	link->state |= DEV_SUSPEND;
-	/* Fall through... */
-    case CS_EVENT_RESET_PHYSICAL:
-	if (link->state & DEV_CONFIG)
-	    CardServices(ReleaseConfiguration, link->handle);
-	break;
-    case CS_EVENT_PM_RESUME:
-	link->state &= ~DEV_SUSPEND;
-	/* Fall through... */
-    case CS_EVENT_CARD_RESET:
-	if (link->state & DEV_CONFIG)
-	    CardServices(RequestConfiguration, link->handle, &link->conf);
-	break;
+	case CS_EVENT_CARD_REMOVAL:
+	    if (link->state & DEV_CONFIG)
+		avma1cs_release(link);
+	    break;
+	case CS_EVENT_CARD_INSERTION:
+	    link->state |= DEV_PRESENT | DEV_CONFIG_PENDING;
+	    avma1cs_config(link);
+	    break;
+	case CS_EVENT_PM_SUSPEND:
+	    link->state |= DEV_SUSPEND;
+	    /* Fall through... */
+	case CS_EVENT_RESET_PHYSICAL:
+	    if (link->state & DEV_CONFIG)
+		pcmcia_release_configuration(link->handle);
+	    break;
+	case CS_EVENT_PM_RESUME:
+	    link->state &= ~DEV_SUSPEND;
+	    /* Fall through... */
+	case CS_EVENT_CARD_RESET:
+ 	    if (link->state & DEV_CONFIG)
+		pcmcia_request_configuration(link->handle, &link->conf);
+	    break;
     }
     return 0;
 } /* avma1cs_event */
 
+static struct pcmcia_driver avma1cs_driver = {
+	.owner		= THIS_MODULE,
+	.drv		= {
+		.name	= "avma1_cs",
+	},
+	.attach		= avma1cs_attach,
+	.detach		= avma1cs_detach,
+};
+ 
 /*====================================================================*/
 
 static int __init init_avma1_cs(void)
 {
-    servinfo_t serv;
-    DEBUG(0, "%s\n", version);
-    CardServices(GetCardServicesInfo, &serv);
-    if (serv.Revision != CS_RELEASE_CODE) {
-        printk(KERN_NOTICE "avma1_cs: Card Services release "
-               "does not match!\n");
-        return -1;
-    }
-    register_pccard_driver(&dev_info, &avma1cs_attach, &avma1cs_detach);
-    return 0;
+	return(pcmcia_register_driver(&avma1cs_driver));
 }
 
 static void __exit exit_avma1_cs(void)
 {
-    DEBUG(0, "avma1_cs: unloading\n");
-    unregister_pccard_driver(&dev_info);
-    while (dev_list != NULL)
-	if (dev_list->state & DEV_CONFIG)
-	    avma1cs_release((u_long)dev_list);
-        avma1cs_detach(dev_list);
+	pcmcia_unregister_driver(&avma1cs_driver);
+
+	/* XXX: this really needs to move into generic code.. */
+	while (dev_list != NULL) {
+		if (dev_list->state & DEV_CONFIG)
+			avma1cs_release(dev_list);
+		avma1cs_detach(dev_list);
+	}
 }
 
 module_init(init_avma1_cs);

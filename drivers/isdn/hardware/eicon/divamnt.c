@@ -53,7 +53,7 @@ static struct timeval start_time;
 
 extern int mntfunc_init(int *, void **, unsigned long);
 extern void mntfunc_finit(void);
-extern int maint_read_write(void *buf);
+extern int maint_read_write(void *buf, int count);
 
 /*
  *  helper functions
@@ -363,13 +363,13 @@ static void remove_maint_proc(void)
 static ssize_t divas_maint_write(struct file *file, const char *buf,
 				 size_t count, loff_t * ppos)
 {
-	return (maint_read_write((char *) buf));
+	return (maint_read_write((char *) buf, (int) count));
 }
 
 static ssize_t divas_maint_read(struct file *file, char *buf,
 				size_t count, loff_t * ppos)
 {
-	return (maint_read_write(buf));
+	return (maint_read_write(buf, (int) count));
 }
 
 static struct file_operations divas_maint_fops = {

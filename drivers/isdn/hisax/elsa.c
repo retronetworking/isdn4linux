@@ -1015,6 +1015,7 @@ setup_elsa(struct IsdnCard *card)
 		cs->hw.elsa.timer = 0;
 		cs->hw.elsa.trig = 0;
 		cs->hw.elsa.ctrl = 0;
+		cs->irq_flags |= SA_SHIRQ;
 		printk(KERN_INFO
 		       "Elsa: %s defined at %#lx IRQ %d\n",
 		       Elsa_Types[cs->subtyp],

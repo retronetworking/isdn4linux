@@ -14,7 +14,7 @@ typedef struct _divas_pci_card_resources {
 	dword bar[8];		/* contains context of appropriate BAR Register */
 	void *addr[8];		/* same bar, but mapped into memory */
 	dword length[8];	/* bar length */
-	int mem_type_id[10];
+	int mem_type_id[MAX_MEM_TYPE];
 	unsigned int qoffset;
 	byte irq;
 } divas_pci_card_resources_t;

@@ -252,7 +252,7 @@ void *divas_um_idi_create_entity(dword adapter_nr, void *file)
 			diva_os_free(0, e);
 			return (0);
 		}
-		if ((diva_data_q_init(&e->rc, 64, 2))) {
+		if ((diva_data_q_init(&e->rc, sizeof(diva_um_idi_ind_hdr_t), 2))) {
 			diva_data_q_finit(&e->data);
 			diva_os_free(0, e->os_context);
 			diva_os_free(0, e);

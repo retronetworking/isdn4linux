@@ -98,13 +98,9 @@ const char *CardType[] = {
 	"Hotplug", "Formula-n enter:now PCI a/b", 
 };
 
-void HiSax_closecard(int cardnr);
-
 #ifdef CONFIG_HISAX_ELSA
 #define DEFAULT_CARD ISDN_CTYPE_ELSA
 #define DEFAULT_CFG {0,0,0,0}
-int elsa_init_pcmcia(void *, int, int *, int);
-EXPORT_SYMBOL(elsa_init_pcmcia);
 #endif
 
 #ifdef CONFIG_HISAX_AVM_A1
@@ -119,8 +115,6 @@ EXPORT_SYMBOL(elsa_init_pcmcia);
 #undef DEFAULT_CFG
 #define DEFAULT_CARD ISDN_CTYPE_A1_PCMCIA
 #define DEFAULT_CFG {11,0x170,0,0}
-int avm_a1_init_pcmcia(void *, int, int *, int);
-EXPORT_SYMBOL(avm_a1_init_pcmcia);
 #endif
 
 #ifdef CONFIG_HISAX_FRITZPCI
@@ -191,8 +185,6 @@ EXPORT_SYMBOL(avm_a1_init_pcmcia);
 #undef DEFAULT_CFG
 #define DEFAULT_CARD ISDN_CTYPE_SEDLBAUER
 #define DEFAULT_CFG {11,0x270,0,0}
-int sedl_init_pcmcia(void *, int, int *, int);
-EXPORT_SYMBOL(sedl_init_pcmcia);
 #endif
 
 #ifdef CONFIG_HISAX_SPORTSTER
@@ -235,8 +227,6 @@ EXPORT_SYMBOL(sedl_init_pcmcia);
 #undef DEFAULT_CFG
 #define DEFAULT_CARD ISDN_CTYPE_HFC_SX
 #define DEFAULT_CFG {5,0x2E0,0,0}
-int hfc_init_pcmcia(void *, int, int *, int);
-EXPORT_SYMBOL(hfc_init_pcmcia);
 #endif
 
 
@@ -328,10 +318,6 @@ EXPORT_SYMBOL(hfc_init_pcmcia);
 #define DEFAULT_CFG {0,0,0,0}
 #endif
 
-int hisax_init_pcmcia(void *, int *, struct IsdnCard *);
-EXPORT_SYMBOL(hisax_init_pcmcia);
-EXPORT_SYMBOL(HiSax_closecard);
-
 #define FIRST_CARD { \
 	DEFAULT_CARD, \
 	DEFAULT_PROTO, \
@@ -344,14 +330,14 @@ struct IsdnCard cards[HISAX_MAX_CARDS] = {
 };
 
 #define HISAX_IDSIZE (HISAX_MAX_CARDS*8)
-static char HiSaxID[HISAX_IDSIZE] __devinitdata = { 0, };
+static char HiSaxID[HISAX_IDSIZE] = { 0, };
 
-char *HiSax_id __devinitdata = HiSaxID;
+char *HiSax_id = HiSaxID;
 #ifdef MODULE
 /* Variables for insmod */
-static int type[HISAX_MAX_CARDS] __devinitdata = { 0, };
-static int protocol[HISAX_MAX_CARDS] __devinitdata = { 0, };
-static int io[HISAX_MAX_CARDS] __devinitdata = { 0, };
+static int type[HISAX_MAX_CARDS] = { 0, };
+static int protocol[HISAX_MAX_CARDS] = { 0, };
+static int io[HISAX_MAX_CARDS] = { 0, };
 #undef IO0_IO1
 #ifdef CONFIG_HISAX_16_3
 #define IO0_IO1
@@ -366,7 +352,7 @@ static int io1[HISAX_MAX_CARDS] __devinitdata = { 0, };
 #endif
 static int irq[HISAX_MAX_CARDS] __devinitdata = { 0, };
 static int mem[HISAX_MAX_CARDS] __devinitdata = { 0, };
-static char *id __devinitdata = HiSaxID;
+static char *id = HiSaxID;
 
 #define PARM_PARA "1-" __MODULE_STRING(HISAX_MAX_CARDS) "i"
 
@@ -1207,7 +1193,7 @@ static int checkcard(int cardnr, char *id, int *busy_flag, struct module *lockow
 	return ret;
 }
 
-void __devinit HiSax_shiftcards(int idx)
+void HiSax_shiftcards(int idx)
 {
 	int i;
 
@@ -1215,7 +1201,7 @@ void __devinit HiSax_shiftcards(int idx)
 		memcpy(&cards[i], &cards[i + 1], sizeof(cards[i]));
 }
 
-int __devinit HiSax_inithardware(int *busy_flag)
+int HiSax_inithardware(int *busy_flag)
 {
 	int foundcards = 0;
 	int i = 0;
@@ -1266,7 +1252,7 @@ void HiSax_closecard(int cardnr)
 {
 	int i, last = nrcards - 1;
 
-	if (cardnr > last)
+	if (cardnr > last || cardnr < 0)
 		return;
 	if (cards[cardnr].cs) {
 		ll_stop(cards[cardnr].cs);
@@ -1544,180 +1530,7 @@ static void __exit HiSax_exit(void)
 	printk(KERN_INFO "HiSax module removed\n");
 }
 
-#ifdef CONFIG_HISAX_ELSA
-int elsa_init_pcmcia(void *pcm_iob, int pcm_irq, int *busy_flag, int prot)
-{
-#ifdef MODULE
-	int i;
-
-	nrcards = 0;
-	/* Initialize all structs, even though we only accept
-	   two pcmcia cards
-	*/
-	for (i = 0; i < HISAX_MAX_CARDS; i++) {
-		cards[i].para[0] = irq[i];
-		cards[i].para[1] = io[i];
-		cards[i].typ = type[i];
-		if (protocol[i]) {
-			cards[i].protocol = protocol[i];
-		} else {
-			cards[i].protocol = DEFAULT_PROTO;
-		}
-	}
-	cards[0].para[0] = pcm_irq;
-	cards[0].para[1] = (int) pcm_iob;
-	cards[0].protocol = prot;
-	cards[0].typ = ISDN_CTYPE_ELSA_PCMCIA;
-
-	if (!HiSax_id)
-		HiSax_id = HiSaxID;
-	if (!HiSaxID[0])
-		strcpy(HiSaxID, "HiSax");
-	for (i = 0; i < HISAX_MAX_CARDS; i++)
-		if (cards[i].typ > 0)
-			nrcards++;
-	printk(KERN_DEBUG "HiSax: Total %d card%s defined\n",
-	       nrcards, (nrcards > 1) ? "s" : "");
-
-	if (!HiSax_inithardware(busy_flag))
-		return -ENODEV;
-	printk(KERN_NOTICE "HiSax: module installed\n");
-#endif
-	return 0;
-}
-#endif
-
-#ifdef CONFIG_HISAX_HFC_SX
-int hfc_init_pcmcia(void *pcm_iob, int pcm_irq, int *busy_flag, int prot)
-{
-#ifdef MODULE
-	int i;
-
-	nrcards = 0;
-	/* Initialize all structs, even though we only accept
-	   two pcmcia cards
-	*/
-	for (i = 0; i < HISAX_MAX_CARDS; i++) {
-		cards[i].para[0] = irq[i];
-		cards[i].para[1] = io[i];
-		cards[i].typ = type[i];
-		if (protocol[i]) {
-			cards[i].protocol = protocol[i];
-		} else {
-			cards[i].protocol = DEFAULT_PROTO;
-		}
-	}
-	cards[0].para[0] = pcm_irq;
-	cards[0].para[1] = (int) pcm_iob;
-	cards[0].protocol = prot;
-	cards[0].typ = ISDN_CTYPE_HFC_SP_PCMCIA;
-
-	if (!HiSax_id)
-		HiSax_id = HiSaxID;
-	if (!HiSaxID[0])
-		strcpy(HiSaxID, "HiSax");
-	for (i = 0; i < HISAX_MAX_CARDS; i++)
-		if (cards[i].typ > 0)
-			nrcards++;
-	printk(KERN_DEBUG "HiSax: Total %d card%s defined\n",
-	       nrcards, (nrcards > 1) ? "s" : "");
-
-	if (!HiSax_inithardware(busy_flag))
-		return -ENODEV;
-	printk(KERN_NOTICE "HiSax: module installed\n");
-#endif
-	return 0;
-}
-#endif
-
-#ifdef CONFIG_HISAX_SEDLBAUER
-int sedl_init_pcmcia(void *pcm_iob, int pcm_irq, int *busy_flag, int prot)
-{
-#ifdef MODULE
-	int i;
-
-	nrcards = 0;
-	/* Initialize all structs, even though we only accept
-	   two pcmcia cards
-	*/
-	for (i = 0; i < HISAX_MAX_CARDS; i++) {
-		cards[i].para[0] = irq[i];
-		cards[i].para[1] = io[i];
-		cards[i].typ = type[i];
-		if (protocol[i]) {
-			cards[i].protocol = protocol[i];
-		} else {
-			cards[i].protocol = DEFAULT_PROTO;
-		}
-	}
-	cards[0].para[0] = pcm_irq;
-	cards[0].para[1] = (int) pcm_iob;
-	cards[0].protocol = prot;
-	cards[0].typ = ISDN_CTYPE_SEDLBAUER_PCMCIA;
-
-	if (!HiSax_id)
-		HiSax_id = HiSaxID;
-	if (!HiSaxID[0])
-		strcpy(HiSaxID, "HiSax");
-	for (i = 0; i < HISAX_MAX_CARDS; i++)
-		if (cards[i].typ > 0)
-			nrcards++;
-	printk(KERN_DEBUG "HiSax: Total %d card%s defined\n",
-	       nrcards, (nrcards > 1) ? "s" : "");
-
-	if (!HiSax_inithardware(busy_flag))
-		return -ENODEV;
-	printk(KERN_NOTICE "HiSax: module installed\n");
-#endif
-	return 0;
-}
-#endif
-
-#ifdef CONFIG_HISAX_AVM_A1_PCMCIA
-int avm_a1_init_pcmcia(void *pcm_iob, int pcm_irq, int *busy_flag, int prot)
-{
-#ifdef MODULE
-	int i;
-
-	nrcards = 0;
-	/* Initialize all structs, even though we only accept
-	   two pcmcia cards
-	*/
-	for (i = 0; i < HISAX_MAX_CARDS; i++) {
-		cards[i].para[0] = irq[i];
-		cards[i].para[1] = io[i];
-		cards[i].typ = type[i];
-		if (protocol[i]) {
-			cards[i].protocol = protocol[i];
-		} else {
-			cards[i].protocol = DEFAULT_PROTO;
-		}
-	}
-	cards[0].para[0] = pcm_irq;
-	cards[0].para[1] = (int) pcm_iob;
-	cards[0].protocol = prot;
-	cards[0].typ = ISDN_CTYPE_A1_PCMCIA;
-
-	if (!HiSax_id)
-		HiSax_id = HiSaxID;
-	if (!HiSaxID[0])
-		strcpy(HiSaxID, "HiSax");
-	for (i = 0; i < HISAX_MAX_CARDS; i++)
-		if (cards[i].typ > 0)
-			nrcards++;
-	printk(KERN_DEBUG "HiSax: Total %d card%s defined\n",
-	       nrcards, (nrcards > 1) ? "s" : "");
-
-	if (!HiSax_inithardware(busy_flag))
-		return -ENODEV;
-	printk(KERN_NOTICE "HiSax: module installed\n");
-#endif
-	return 0;
-}
-#endif
-
-int __devinit hisax_init_pcmcia(void *pcm_iob, int *busy_flag,
-				struct IsdnCard *card)
+int hisax_init_pcmcia(void *pcm_iob, int *busy_flag, struct IsdnCard *card)
 {
 	u_char ids[16];
 	int ret = -1;
@@ -1727,13 +1540,17 @@ int __devinit hisax_init_pcmcia(void *pcm_iob, int *busy_flag,
 		sprintf(ids, "HiSax%d", nrcards);
 	else
 		sprintf(ids, "HiSax");
-	if (!checkcard(nrcards, ids, busy_flag, THIS_MODULE)) {
-		return -1;
-	}
+	if (!checkcard(nrcards, ids, busy_flag, THIS_MODULE))
+		goto error;
+
 	ret = nrcards;
 	nrcards++;
+error:
 	return ret;
 }
+
+EXPORT_SYMBOL(hisax_init_pcmcia);
+EXPORT_SYMBOL(HiSax_closecard);
 
 #include "hisax_if.h"
 

@@ -17,11 +17,11 @@
 #include "isdnl1.h"
 #include <linux/interrupt.h>
 
-static char *HSCXVer[] __initdata =
+static char *HSCXVer[] =
 {"A1", "?1", "A2", "?3", "A3", "V2.1", "?6", "?7",
  "?8", "?9", "?10", "?11", "?12", "?13", "?14", "???"};
 
-int __init
+int
 HscxVersion(struct IsdnCardState *cs, char *s)
 {
 	int verA, verB;
@@ -217,7 +217,7 @@ setstack_hscx(struct PStack *st, struct BCState *bcs)
 	return (0);
 }
 
-void __init
+void
 clear_pending_hscx_ints(struct IsdnCardState *cs)
 {
 	int val, eval;
@@ -243,7 +243,7 @@ clear_pending_hscx_ints(struct IsdnCardState *cs)
 	cs->BC_Write_Reg(cs, 1, HSCX_MASK, 0xFF);
 }
 
-void __init
+void
 inithscx(struct IsdnCardState *cs)
 {
 	cs->bcs[0].BC_SetStack = setstack_hscx;
@@ -260,7 +260,7 @@ inithscx(struct IsdnCardState *cs)
 	modehscx(cs->bcs + 1, 0, 0);
 }
 
-void __init
+void
 inithscxisac(struct IsdnCardState *cs, int part)
 {
 	if (part & 1) {
