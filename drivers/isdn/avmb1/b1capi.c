@@ -6,6 +6,9 @@
  * (c) Copyright 1997 by Carsten Paeth (calle@calle.in-berlin.de)
  * 
  * $Log$
+ * Revision 1.1  1997/03/04 21:50:27  calle
+ * Frirst version in isdn4linux
+ *
  * Revision 2.2  1997/02/12 09:31:39  calle
  * new version
  *
@@ -15,7 +18,6 @@
  * 
  */
 
-#include <linux/config.h>
 #include <linux/module.h>
 #include <linux/kernel.h>
 #include <linux/mm.h>
