@@ -21,6 +21,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.17  1996/06/05 02:24:10  fritz
+ * Added DTMF decoder for audio mode.
+ *
  * Revision 1.16  1996/06/03 20:09:05  fritz
  * Bugfix: called wrong function pointer for locking in
  *         isdn_get_free_channel().
@@ -256,6 +259,9 @@ static void isdn_receive_skb_callback(int di, int channel, struct sk_buff *skb)
 	ulong flags;
 	int i;
         int midx;
+#ifdef CONFIG_ISDN_AUDIO
+        int ifmt;
+#endif
 	modem_info *info;
         
         if ((i = isdn_dc2minor(di,channel))==-1) {
@@ -275,6 +281,12 @@ static void isdn_receive_skb_callback(int di, int channel, struct sk_buff *skb)
                         return;
                 }
                 info  = &dev->mdm.info[midx];
+#ifdef CONFIG_ISDN_AUDIO
+                ifmt = 1;
+
+                if (info->vonline)
+                        isdn_audio_calc_dtmf(info, skb->data, skb->len, ifmt);
+#endif
                 if ((info->online < 2) &&
                     (!(info->vonline & 1))) {
                         /* If Modem not listening, drop data */
@@ -292,9 +304,7 @@ static void isdn_receive_skb_callback(int di, int channel, struct sk_buff *skb)
                 skb->users = 0;
 #ifdef CONFIG_ISDN_AUDIO
                 if (info->vonline & 1) {
-                        int ifmt = 1;
                         /* voice conversion/compression */
-                        isdn_audio_calc_dtmf(info, skb->data, skb->len, ifmt);
                         switch (info->emu.vpar[3]) {
                                 case 2:
                                 case 3:
@@ -303,7 +313,7 @@ static void isdn_receive_skb_callback(int di, int channel, struct sk_buff *skb)
                                          * Since compressed data takes less
                                          * space, we can overwrite the buffer.
                                          */
-                                        skb_trim(skb,isdn_audio_xlaw2adpcm(info->audio_sr,
+                                        skb_trim(skb,isdn_audio_xlaw2adpcm(info->adpcmr,
                                                                            ifmt,
                                                                            skb->data,
                                                                            skb->data,
