@@ -2560,6 +2560,11 @@ isdn_net_ciscohdlck_receive(isdn_net_local *lp, struct sk_buff *skb)
 	case CISCO_TYPE_SLARP:
 		isdn_net_ciscohdlck_slarp_in(lp, skb);
 		goto out_free;
+	case CISCO_TYPE_CDP:
+		if (lp->cisco_debserint)
+			printk(KERN_DEBUG "%s: Received CDP packet. use "
+				"\"no cdp enable\" on cisco.\n", lp->name);
+		goto out_free;
 	default:
 		printk(KERN_WARNING "%s: Unknown Cisco type 0x%04x\n",
 		       lp->name, type);
