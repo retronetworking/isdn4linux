@@ -13,6 +13,9 @@
  *              Fritz Elfert
  *
  * $Log$
+ * Revision 1.16.2.17  1999/07/09 08:29:01  keil
+ * cosmetics
+ *
  * Revision 1.16.2.16  1999/07/01 10:31:21  keil
  * Version is the same as outside isdn4kernel_2_0 branch,
  * only version numbers are different
@@ -653,18 +656,20 @@ l3dss1_msg_without_setup(struct l3_process *pc, u_char pr, void *arg)
 	dss1_release_l3_process(pc);
 }
 
-static int ie_ALERTING[] = {IE_BEARER, IE_FACILITY, IE_PROGRESS, IE_DISPLAY,
-		IE_HLC, IE_USER_USER, -1};
+static int ie_ALERTING[] = {IE_BEARER, IE_CHANNEL_ID | IE_MANDATORY_1,
+		IE_FACILITY, IE_PROGRESS, IE_DISPLAY, IE_HLC, IE_USER_USER, -1};
 static int ie_CALL_PROCEEDING[] = {IE_BEARER, IE_CHANNEL_ID | IE_MANDATORY_1,
 		IE_FACILITY, IE_PROGRESS, IE_DISPLAY, IE_HLC, -1};
 static int ie_CONNECT[] = {IE_BEARER, IE_CHANNEL_ID | IE_MANDATORY_1, 
 		IE_FACILITY, IE_PROGRESS, IE_DISPLAY, IE_DATE, IE_CONNECT_PN,
 		IE_CONNECT_SUB, IE_LLC, IE_HLC, IE_USER_USER, -1};
-static int ie_CONNECT_ACKNOWLEDGE[] = {IE_DISPLAY, -1};
+static int ie_CONNECT_ACKNOWLEDGE[] = {IE_CHANNEL_ID, IE_DISPLAY, -1};
 static int ie_DISCONNECT[] = {IE_CAUSE | IE_MANDATORY, IE_FACILITY,
 		IE_PROGRESS, IE_DISPLAY, IE_USER_USER, -1};
-static int ie_INFORMATION[] = {IE_COMPLETE, IE_DISPLAY, IE_KEYPAD,
-		IE_CALLED_PN, -1};
+/* not used
+ * static int ie_INFORMATION[] = {IE_COMPLETE, IE_DISPLAY, IE_KEYPAD,
+ *		IE_CALLED_PN, -1};
+ */
 static int ie_NOTIFY[] = {IE_BEARER, IE_NOTIFY | IE_MANDATORY, IE_DISPLAY, -1};
 static int ie_PROGRESS[] = {IE_BEARER, IE_CAUSE, IE_FACILITY, IE_PROGRESS |
 		IE_MANDATORY, IE_DISPLAY, IE_HLC, IE_USER_USER, -1};
@@ -686,11 +691,13 @@ static int ie_STATUS[] = {IE_CAUSE | IE_MANDATORY, IE_CALL_STATE |
 static int ie_STATUS_ENQUIRY[] = {IE_DISPLAY, -1};
 static int ie_SUSPEND_ACKNOWLEDGE[] = {IE_DISPLAY, IE_FACILITY, -1};
 static int ie_SUSPEND_REJECT[] = {IE_CAUSE | IE_MANDATORY, IE_DISPLAY, -1};
-static int ie_CONGESTION_CONTROL[] = {IE_CONGESTION | IE_MANDATORY,
-		IE_CAUSE | IE_MANDATORY, IE_DISPLAY, -1};
-static int ie_USER_INFORMATION[] = {IE_MORE_DATA, IE_USER_USER | IE_MANDATORY, -1};
-static int ie_RESTART[] = {IE_CHANNEL_ID, IE_DISPLAY, IE_RESTART_IND |
-		IE_MANDATORY, -1};
+/* not used 
+ * static int ie_CONGESTION_CONTROL[] = {IE_CONGESTION | IE_MANDATORY,
+ *		IE_CAUSE | IE_MANDATORY, IE_DISPLAY, -1};
+ * static int ie_USER_INFORMATION[] = {IE_MORE_DATA, IE_USER_USER | IE_MANDATORY, -1};
+ * static int ie_RESTART[] = {IE_CHANNEL_ID, IE_DISPLAY, IE_RESTART_IND |
+ *		IE_MANDATORY, -1};
+ */
 static int ie_FACILITY[] = {IE_FACILITY | IE_MANDATORY, IE_DISPLAY, -1};
 static int comp_required[] = {1,2,3,5,6,7,9,10,11,14,15,-1};
 static int l3_valid_states[] = {0,1,2,3,4,6,7,8,9,10,11,12,15,17,19,25,-1};
@@ -1717,8 +1724,8 @@ l3dss1_setup(struct l3_process *pc, u_char pr, void *arg)
 		return;
 	}
 	/* Now we are on none mandatory IEs */
-#if 0
- !!!!!! this check seems to be a problem ? info bugfix to Karsten */
+#if 1
+/* !!!!!! this check seems to be a problem ? info bugfix to Karsten */
 	err = check_infoelements(pc, skb, ie_SETUP);
 	if (ERR_IE_COMPREHENSION == err) {
 		pc->para.cause = 96;
