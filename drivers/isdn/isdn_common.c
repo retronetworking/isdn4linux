@@ -21,6 +21,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.44.2.13  1999/07/07 10:29:27  detabc
+ * remove unused messages
+ *
  * Revision 1.44.2.12  1999/07/01 10:41:27  keil
  * added ack parameter in writebuf_skb (is only a dummy in 2.0 branch)
  *
@@ -702,6 +705,25 @@ isdn_status_callback(isdn_ctrl * c)
 			break;
 		case ISDN_STAT_ADDCH:
 			break;
+		case ISDN_STAT_DISCH:
+			save_flags(flags);
+			cli();
+			for (i = 0; i < ISDN_MAX_CHANNELS; i++)
+				if ((dev->drvmap[i] == di) &&
+				    (dev->chanmap[i] == c->arg)) {
+				    if (c->parm.num[0])
+				      dev->usage[i] &= ~ISDN_USAGE_DISABLED;
+				    else
+				      if (USG_NONE(dev->usage[i])) {
+					dev->usage[i] |= ISDN_USAGE_DISABLED;
+				      }
+				      else 
+					retval = -1;
+				    break;
+				}
+			restore_flags(flags);
+			isdn_info_update();
+			break;
 		case ISDN_STAT_UNLOAD:
 			save_flags(flags);
 			cli();
@@ -710,6 +732,7 @@ isdn_status_callback(isdn_ctrl * c)
 				if (dev->drvmap[i] == di) {
 					dev->drvmap[i] = -1;
 					dev->chanmap[i] = -1;
+					dev->usage[i] &= ~ISDN_USAGE_DISABLED;
 				}
 			dev->drivers--;
 			dev->channels -= dev->drv[di]->channels;
@@ -1815,6 +1838,8 @@ isdn_get_free_channel(int usage, int l2_proto, int l3_proto, int pre_dev
 			if ((dev->usage[i] & ISDN_USAGE_EXCLUSIVE) &&
 			((pre_dev != d) || (pre_chan != dev->chanmap[i])))
 				continue;
+			if (dev->usage[i] & ISDN_USAGE_DISABLED)
+			        continue; /* usage not allowed */
 			if (dev->drv[d]->flags & DRV_FLAG_RUNNING) {
 				if ((dev->drv[d]->interface->features & features) == features) {
 					if ((pre_dev < 0) || (pre_chan < 0)) {
