@@ -224,12 +224,6 @@
 #define VBUFX (VBUF/16)
 #endif
 
-#undef CONFIG_ISDN_WITH_ABC
-/*
-** wegen einstweiliger verfuegung gegen DW ist zur zeit 
-** die abc-extension bis zur klaerung der rechtslage nicht 
-** im internet verfuegbar
-*/
 
 /* Prototypes */
 
@@ -1475,35 +1469,6 @@ isdn_tty_ioctl(struct tty_struct *tty, struct file *file,
 				return error;
 			else
 				return isdn_tty_get_lsr_info(info, (uint *) arg);
-#ifdef CONFIG_ISDN_WITH_ABC
-		case (('.' << 16L ) | 4711):
-			{
-				int need = ISDN_MSNLEN + 2;
-				char n_buf[ISDN_MSNLEN + 2];
-				char *p = NULL;
-				char *ep = NULL;
-				char *s = info->last_num;
-
-				if((error = verify_area(VERIFY_WRITE,(void *) arg,need)) != 0)
-					return error;
-
-				ep = p = n_buf;
-				ep += 1 + ISDN_MSNLEN;
-
-				if(info->last_dir)
-					*(p++) = '>';
-				else
-					*(p++) = '<';
-
-				while(p < ep && *s != 0)
-					*(p++) = *(s++);
-
-				*p = 0;
-				memcpy_tofs((void *)arg,n_buf,need);
-			}
-
-			break;
-#endif
 		default:
 #ifdef ISDN_DEBUG_MODEM_IOCTL
 			printk(KERN_DEBUG "UNKNOWN ioctl 0x%08x on ttyi%d\n", cmd, info->line);
@@ -1617,9 +1582,6 @@ isdn_tty_block_til_ready(struct tty_struct *tty, struct file *filp, modem_info *
 		info->count--;
 	restore_flags(flags);
 	info->blocked_open++;
-#ifdef CONFIG_ISDN_WITH_ABC
-	info->flags |= ISDN_ASYNC_NORMAL_ACTIVE;
-#endif
 	while (1) {
 		current->state = TASK_INTERRUPTIBLE;
 		if (tty_hung_up_p(filp) ||
@@ -1868,12 +1830,7 @@ isdn_tty_reset_profile(atemu * m)
 	m->profile[18] = 4;
 	m->profile[19] = 0;
 	m->profile[20] = 0;
-#ifdef CONFIG_ISDN_WITH_ABC
-	m->pmsn[0] = '0';
-	m->pmsn[1] = '\0';
-#else
 	m->pmsn[0] = '\0';
-#endif
 }
 
 #ifdef CONFIG_ISDN_AUDIO
@@ -2171,10 +2128,6 @@ isdn_tty_stat_callback(int i, isdn_ctrl * c)
 						isdn_tty_modem_result(5, info);
 					if (USG_VOICE(dev->usage[i]))
 						isdn_tty_modem_result(11, info);
-#ifdef CONFIG_ISDN_WITH_ABC
-					if (info->blocked_open) 
-						wake_up_interruptible(&info->open_wait);
-#endif
 					return 1;
 				}
 				break;

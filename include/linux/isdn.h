@@ -21,6 +21,10 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.31.2.9  1998/06/02 12:12:49  detabc
+ * wegen einer einstweiliger verfuegung gegen DW ist zur zeit
+ * die abc-extension bis zur klaerung der rechtslage nicht verfuegbar
+ *
  * Revision 1.31.2.8  1998/05/06 08:30:44  detabc
  * add Item to stop icmp-unreach (max. 6 times of dialwait delay)
  *
@@ -341,14 +345,6 @@ typedef struct {
 
 #include <linux/isdnif.h>
 
-#undef CONFIG_ISDN_WITH_ABC
-/*
-** wegen einstweiliger verfuegung gegen DW ist zur zeit 
-** die abc-extension bis zur klaerung der rechtslage nicht 
-** im internet verfuegbar
-*/
-
-
 #define ISDN_DRVIOCTL_MASK       0x7f  /* Mask for Device-ioctl */
 
 /* Until now unused */
@@ -401,11 +397,6 @@ typedef struct {
 #define ISDN_GLOBAL_STOPPED 1
 
 /*=================== Start of ip-over-ISDN stuff =========================*/
-#ifdef CONFIG_ISDN_WITH_ABC
-#define ABC_ANZ_TX_QUE 5
-#define ABC_DELAYED_MAXHANGUP_WAIT		((u_long)HZ * 24LU)
-#define ABC_DELAYED_TRAFFICHANGUP_WAIT	((u_long)HZ * 6LU)
-#endif
 
 /* Feature- and status-flags for a net-interface */
 #define ISDN_NET_CONNECTED  0x01       /* Bound to ISDN-Channel             */
@@ -545,35 +536,6 @@ typedef struct isdn_net_local_s {
   ulong			dialstarted;	/* jiffies of first dialing-attempt */
   ulong			dialwait_timer;	/* jiffies of earliest next dialing-attempt */
   int			huptimeout;	/* How long will the connection be up? (seconds) */
-#ifdef CONFIG_ISDN_WITH_ABC
-	u_long  abc_last_charge_time;
-	u_long  abc_dial_start;
-	u_long  abc_one_charge;
-	u_long  abc_flags;
-	u_long  abc_life_to;            /* ziel am leben bis zum jiffies    */
-	u_long  abc_call_disabled;      /* call disdabled to jiffies        */
-	u_long  abc_icall_disabled;     /* incoming call disdabled to s     */
-	u_long  abc_nextkeep;           /* nextkeep at jiffies              */
-	u_long  abc_anz_wrong_data_prot;
-	u_long  abc_rem_disconnect;
-	short   abc_first_disp;         /* gesetzt wenn first pak displayed */
-	short 	abc_short_reserve;
-	u_long  abc_snd_want_bytes;
-	u_long	abc_snd_real_bytes;
-	u_long	abc_rcv_want_bytes;
-	u_long	abc_rcv_real_bytes;
-	u_long  abc_last_dlcon;
-	u_long  abc_dlcon_cnt;
-	u_long	abc_cbout_secure;
-	u_long  abc_last_disp_disabled;
-	u_long	abc_last_traffic;
-	u_long	abc_delayed_hangup;
-	u_char  abc_rx_key[ISDN_MSNLEN];
-  	u_char  abc_out_msn[ISDN_MSNLEN];  /* MSNs/EAZs for outgoing calls */
-	struct sk_buff_head abc_tx_que[ABC_ANZ_TX_QUE];
-	u_long 	abc_max_unreached_jiffies;
-	u_long	abc_unreached_jiffies;
-#endif
 #ifdef CONFIG_ISDN_TIMEOUT_RULES
   struct isdn_timeout_rules	*timeout_rules;
 #endif
@@ -605,50 +567,6 @@ typedef struct isdn_net_dev_s {
   struct ippp_bundle ib;
 #endif
 } isdn_net_dev;
-#ifdef CONFIG_ISDN_WITH_ABC
-
-#define ABC_DST_LIFETIME (jiffies + HZ * 60)
-
-extern int abcgmbh_tcp_test(struct device *ndev,struct sk_buff *sp);
-extern int abcgmbh_udp_test(struct device *ndev,struct sk_buff *sp);
-extern struct sk_buff *abc_test_receive(struct device *,struct sk_buff *);
-extern struct sk_buff *abc_snd_data(struct device *,struct sk_buff *);
-extern void abc_free_receive(void);
-extern int abc_test_rcvq(struct device *ndev);
-extern int abcgmbh_getpack_mem(void);
-extern int abc_clean_up_memory(void);
-extern int abcgmbh_depack(u_char *,int,u_char *,int);
-extern int abcgmbh_pack(u_char *,u_char *,int);
-extern void abc_insert_incall(u_char *number);
-extern int abc_test_incall(u_char *number);
-
-#define ABC_ABCROUTER   0x00000004
-#define ABC_WITH_UDP    0x00000008
-#define ABC_WITH_TCP    0x00000010
-#define ABC_NODCHAN		0x00000020
-#define ABC_WRONG_DSP	0x00000040
-#define ABC_MUST_DISCON	0x00000080
-
-
-extern int isdn_abc_net_send_skb(   struct device *,
-                                    isdn_net_local *,
-								    struct sk_buff *);
-
-extern int abcgmbh_pack(u_char *src,u_char *dstpoin,int bytes);
-extern int abc_first_senden(struct device *,isdn_net_local *lp);
-extern int abc_keep_senden(struct device *,isdn_net_local *lp);
-extern int abc_eot_senden(struct device *,isdn_net_local *lp);
-extern int abcgmbh_freepack_mem(void);
-extern struct sk_buff *abc_get_keep_skb(void);
-extern int abcgmbh_tcp_test(struct device *ndev,struct sk_buff *sp);
-extern void isdn_net_log_packet(u_char * buf, isdn_net_local * lp);
-extern void abc_pack_statistik(isdn_net_local *lp);
-extern void abc_test_phone(isdn_net_local *lp);
-extern void abc_simple_decrypt(u_char *poin,int len,u_char *key);
-extern void abc_simple_crypt(u_char *poin,int len,u_char *key);
-extern void abc_clear_tx_que(isdn_net_local *lp);
-extern void abc_put_tx_que(isdn_net_local *,int,int,struct sk_buff *);
-#endif
 
 /*===================== End of ip-over-ISDN stuff ===========================*/
 
@@ -899,13 +817,6 @@ typedef struct isdn_devt {
   isdn_net_dev      *st_netdev[ISDN_MAX_CHANNELS]; /* stat netdev-pointers   */
   ulong             ibytes[ISDN_MAX_CHANNELS]; /* Statistics incoming bytes  */
   ulong             obytes[ISDN_MAX_CHANNELS]; /* Statistics outgoing bytes  */
-#ifdef CONFIG_ISDN_WITH_ABC
-	ulong           abc_not_avail_jiffies[ISDN_MAX_CHANNELS];
-	ulong 			abc_last_use_jiffies[ISDN_MAX_CHANNELS];
-	ulong 			abc_use_timeout;	
-	struct 	timer_list abc_control_timer;
-	ulong			abc_max_hdrlen;				/* max_header_len			*/
-#endif
 } isdn_dev;
 
 extern isdn_dev *dev;
