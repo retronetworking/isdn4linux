@@ -61,3 +61,5 @@
 #define i_count_read(ic) atomic_read(&ic)
 #define i_count_inc(ic)  atomic_inc(&ic)
 #undef COMPAT_HAS_FILEOP_OWNER
+#define COMPAT_USE_MODCOUNT_LOCK
+#undef COMPAT_HAVE_NEW_FILLDIR
