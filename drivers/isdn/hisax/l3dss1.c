@@ -9,6 +9,9 @@
  *              Fritz Elfert
  *
  * $Log$
+ * Revision 1.5  1996/12/08 19:53:31  keil
+ * fixes from Pekka Sarnila
+ *
  * Revision 1.4  1996/11/05 19:44:36  keil
  * some fixes from Henner Eisen
  *
@@ -263,7 +266,10 @@ l3s12(struct PStack *st, byte pr, void *arg)
 	p = DATAPTR(ibh);
 	if ((p = findie(p + st->l2.uihsize, ibh->datasize - st->l2.uihsize,
 			0x6c, 0))) 
-		iecpy(st->pa->calling, p, 2);
+		if (p[2] & 0x80) 
+			iecpy(st->pa->calling, p, 1);
+		else
+			iecpy(st->pa->calling, p, 2);
 	else
 		strcpy(st->pa->calling, "");
 	BufPoolRelease(ibh);
