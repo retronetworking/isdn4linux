@@ -30,6 +30,9 @@ else
   for i in drivers/isdn/teles/*.[ch] ; do
     dodiff $i $KERNELDIR/$i
   done
+  for i in drivers/isdn/hisax/*.[ch] ; do
+    dodiff $i $KERNELDIR/$i
+  done
   for i in drivers/isdn/pcbit/*.[ch] ; do
     dodiff $i $KERNELDIR/$i
   done

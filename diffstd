@@ -16,6 +16,9 @@ else
   for i in drivers/isdn/teles/*.[ch] ; do
     diff -u $KERNELDIR/$i $i
   done
+  for i in drivers/isdn/hisax/*.[ch] ; do
+    diff -u $KERNELDIR/$i $i
+  done
   for i in drivers/isdn/pcbit/*.[ch] ; do
     diff -u $KERNELDIR/$i $i
   done
