@@ -21,6 +21,10 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.48.2.20  1998/08/03 15:52:00  paul
+ * various changes from 2.0.3[45] kernel sources, as suggested by
+ * Oliver.Lauer@coburg.baynet.de
+ *
  * Revision 1.48.2.19  1998/07/30 11:29:32  paul
  * printk message only appeared when status is off and interface is rawIP,
  * which is confusing for people who don't know about "isdnctrl status <if> on".
@@ -494,10 +498,18 @@ isdn_net_autohup()
 		if ((l->flags & ISDN_NET_CONNECTED) && (!l->dialstate)) {
 			anymore = 1;
 			l->huptimer++;
+ 			/*
+ 			 * only do timeout-hangup
+ 			 * if interface is configured as AUTO
+ 			 */
 #ifdef CONFIG_ISDN_TIMEOUT_RULES
-			if ((l->timeout_rules || l->huptimeout) && l->huptimer > l->huptimeout)
+ 			if ((ISDN_NET_DIALMODE(*l) == ISDN_NET_DM_AUTO) &&
+ 			    (l->timeout_rules || l->huptimeout) &&
+ 			    (l->huptimer > l->huptimeout))
 #else
-			if ((l->onhtime) && (l->huptimer > l->onhtime))
+  			if ((ISDN_NET_DIALMODE(*l) == ISDN_NET_DM_AUTO) &&
+ 			    (l->onhtime) &&
+ 			    (l->huptimer > l->onhtime))
 #endif
 				if (l->hupflags & ISDN_MANCHARGE &&
 				    l->hupflags & ISDN_CHARGEHUP) {
@@ -524,12 +536,13 @@ isdn_net_autohup()
 					isdn_net_hangup(&p->dev);
 
 #ifdef CONFIG_ISDN_BUDGET
-			if(isdn_net_budget(ISDN_BUDGET_CHECK_ONLINE, &p->dev)) {
+			if((ISDN_NET_DIALMODE(*l) == ISDN_NET_DM_AUTO) &&
+			   isdn_net_budget(ISDN_BUDGET_CHECK_ONLINE, &p->dev)) {
 				isdn_net_hangup(&p->dev);
 			}
 #endif
 
-			if(dev->global_flags & ISDN_GLOBAL_STOPPED || p->local.flags & ISDN_NET_STOPPED) {
+			if(dev->global_flags & ISDN_GLOBAL_STOPPED || (ISDN_NET_DIALMODE(p->local) == ISDN_NET_DM_OFF)) {
 				isdn_net_hangup(&p->dev);
 				break;
 			}
@@ -772,14 +785,19 @@ isdn_net_dial(void)
 				p->local.dialretry = 0;
 				anymore = 1;
 				p->local.dialstate++;
-				/* Falls through */
+				/* Fall through */
 			case 3:
 				/* Setup interface, dial current phone-number, switch to next number.
 				 * If list of phone-numbers is exhausted, increment
 				 * retry-counter.
 				 */
-				if(dev->global_flags & ISDN_GLOBAL_STOPPED || p->local.flags & ISDN_NET_STOPPED) {
-					isdn_net_unreachable(&p->dev, p->local.first_skb, "dial suppressed: isdn stopped");
+				if(dev->global_flags & ISDN_GLOBAL_STOPPED || (ISDN_NET_DIALMODE(p->local) == ISDN_NET_DM_OFF)) {
+ 					char *s;
+ 					if (dev->global_flags & ISDN_GLOBAL_STOPPED)
+ 						s = "dial suppressed: isdn system stopped";
+ 					else
+ 						s = "dial suppressed: dialmode `off'";
+					isdn_net_unreachable(&p->dev, p->local.first_skb, s);
 					isdn_net_hangup(&p->dev);
 					break;
 				}
@@ -1230,6 +1248,13 @@ isdn_net_start_xmit(struct sk_buff *skb, struct device *ndev)
 #endif
 		if (!(lp->flags & ISDN_NET_CONNECTED)) {
 			int chi;
+			/* only do autodial if allowed by config */
+			if (!(ISDN_NET_DIALMODE(*lp) == ISDN_NET_DM_AUTO)) {
+				isdn_net_unreachable(ndev, skb, "dial rejected: interface not in dialmode `auto'");
+				dev_kfree_skb(skb, FREE_WRITE);
+				ndev->tbusy = 0;
+				return 0;
+			}
 			if (lp->phone[1]) {
 				ulong flags;
 				save_flags(flags);
@@ -1960,14 +1985,14 @@ isdn_net_find_icall(int di, int ch, int idx, setup_parm setup)
 		return 0;
 	}
 	n = (isdn_net_phone *) 0;
-	p = dev->netdev;
 	ematch = 0;
 #ifdef ISDN_DEBUG_NET_ICALL
 	printk(KERN_DEBUG "n_fi: di=%d ch=%d idx=%d usg=%d\n", di, ch, idx,
 	       dev->usage[idx]);
 #endif
 	swapped = 0;
-	while (p) {
+
+	for (p = dev->netdev; p; p = (isdn_net_dev *) p->next) {
 		/* If last check has triggered as binding-swap, revert it */
 		switch (swapped) {
 			case 2:
@@ -1978,19 +2003,19 @@ isdn_net_find_icall(int di, int ch, int idx, setup_parm setup)
 				break;
 		}
 		swapped = 0;
-		if (!strcmp(isdn_map_eaz2msn(p->local.msn, di), eaz))
-			ematch = 1;
+		if (strcmp(isdn_map_eaz2msn(p->local.msn, di), eaz))
+			continue;	/* next loop for next device */
+		ematch = 1;	/* EAZ matches! */
 #ifdef ISDN_DEBUG_NET_ICALL
 		printk(KERN_DEBUG "n_fi: if='%s', l.msn=%s, l.flags=%d, l.dstate=%d\n",
 		       p->local.name, p->local.msn, p->local.flags, p->local.dialstate);
 #endif
-		if ((!strcmp(isdn_map_eaz2msn(p->local.msn, di), eaz)) &&	/* EAZ is matching   */
-		    (((!(p->local.flags & ISDN_NET_CONNECTED)) &&	/* but not connected */
-		      (USG_NONE(dev->usage[idx]))) ||	/* and ch. unused or */
-		     ((((p->local.dialstate == 4) || (p->local.dialstate == 12)) &&	/* if dialing        */
-		       (!(p->local.flags & ISDN_NET_CALLBACK)))	/* but no callback   */
-		     )))
-			{
+		if ( (!(p->local.flags & ISDN_NET_CONNECTED) &&	/* not connected  */
+		      USG_NONE(dev->usage[idx]))		/* and ch. unused */
+ 		    ||						/* or */
+		     (((p->local.dialstate == 4) || (p->local.dialstate == 12)) &&	/* if dialing        */
+		       !(p->local.flags & ISDN_NET_CALLBACK))                 		/* but no callback   */
+		   ) /*if*/ {
 #ifdef ISDN_DEBUG_NET_ICALL
 			printk(KERN_DEBUG "n_fi: match1, pdev=%d pch=%d\n",
 			       p->local.pre_device, p->local.pre_channel);
@@ -2027,7 +2052,6 @@ isdn_net_find_icall(int di, int ch, int idx, setup_parm setup)
 									swapped = 1;
 								} else {
 									/* ... else iterate next device */
-									p = (isdn_net_dev *) p->next;
 									continue;
 								}
 							} else {
@@ -2049,7 +2073,6 @@ isdn_net_find_icall(int di, int ch, int idx, setup_parm setup)
 #ifdef ISDN_DEBUG_NET_ICALL
 								printk(KERN_DEBUG "n_fi: final check failed\n");
 #endif
-								p = (isdn_net_dev *) p->next;
 								continue;
 							}
 						}
@@ -2058,7 +2081,6 @@ isdn_net_find_icall(int di, int ch, int idx, setup_parm setup)
 #ifdef ISDN_DEBUG_NET_ICALL
 						printk(KERN_DEBUG "n_fi: already on 2nd channel\n");
 #endif
-						p = (isdn_net_dev *) p->next;
 						continue;
 					}
 				}
@@ -2079,12 +2101,26 @@ isdn_net_find_icall(int di, int ch, int idx, setup_parm setup)
 #ifdef ISDN_DEBUG_NET_ICALL
 				printk(KERN_DEBUG "n_fi: match3\n");
 #endif
-				/* Here we got an interface matched, now see if it is up.
+				/* matching interface found */
+
+				/*
+				 * Is the state STOPPED?
+				 * If so, no dialin is allowed,
+				 * so reject actively.
+				 * */
+				if (ISDN_NET_DIALMODE(*lp) == ISDN_NET_DM_OFF) {
+					restore_flags(flags);
+					printk(KERN_INFO "incoming call, interface `%s' dialmode `off' -> rejected\n",
+					       lp->name);
+					return 3;
+				}
+				/*
+				 * Is the interface up?
 				 * If not, reject the call actively.
 				 */
 				if (!p->dev.start) {
 					restore_flags(flags);
-					printk(KERN_INFO "%s: incoming call, if down -> rejected\n",
+					printk(KERN_INFO "incoming call, interface `%s' down -> rejected\n",
 					       lp->name);
 					return 3;
 				}
@@ -2108,12 +2144,22 @@ isdn_net_find_icall(int di, int ch, int idx, setup_parm setup)
 					/* Found parent, if it's offline iterate next device */
 					printk(KERN_DEBUG "mlpf: %d\n", mlp->flags & ISDN_NET_CONNECTED);
 					if (!(mlp->flags & ISDN_NET_CONNECTED)) {
-						p = (isdn_net_dev *) p->next;
 						continue;
 					}
 				}
 				if (lp->flags & ISDN_NET_CALLBACK) {
 					int chi;
+					/*
+					 * Is the state MANUAL?
+					 * If so, no callback can be made,
+					 * so reject actively.
+					 * */
+					if (ISDN_NET_DIALMODE(*lp) != ISDN_NET_DM_AUTO) {
+						restore_flags(flags);
+						printk(KERN_INFO "incoming call for callback, interface `%s' dialmode not `auto' -> rejected\n",
+						       lp->name);
+						return 3;
+					}
 					printk(KERN_DEBUG "%s: call from %s -> %s, start callback\n",
 					       lp->name, nr, eaz);
 					if (lp->phone[1]) {
@@ -2188,10 +2234,9 @@ isdn_net_find_icall(int di, int ch, int idx, setup_parm setup)
 				}
 			}
 		}
-		p = (isdn_net_dev *) p->next;
 	}
 	/* If none of configured EAZ/MSN matched and not verbose, be silent */
-	if (ematch || dev->net_verbose)
+	if (!ematch || dev->net_verbose)
 		printk(KERN_INFO "isdn_net: call from %s -> %d %s ignored\n", nr, di, eaz);
 	restore_flags(flags);
 	return 0;
@@ -2349,9 +2394,9 @@ isdn_net_new(char *name, struct device *master)
 	netdev->local.srobin = &netdev->dev;
 	netdev->local.hupflags = ISDN_INHUP;	/* Do hangup even on incoming calls */
 	netdev->local.onhtime = 10;	/* Default hangup-time for saving costs
-	   of those who forget configuring this */
+	                                   of those who forget configuring this */
 	netdev->local.dialmax = 1;
-	netdev->local.flags = ISDN_NET_CBHUP | ISDN_NET_STOPPED;	/* Hangup before Callback, Autodial initially suppressed */
+ 	netdev->local.flags = ISDN_NET_CBHUP | ISDN_NET_DM_MANUAL; /* Hangup before Callback, manual dial */
 	netdev->local.cbdelay = 25;	/* Wait 5 secs before Callback */
 	netdev->local.dialtimeout = -1;  /* Infinite Dial-Timeout */
 	netdev->local.dialwait = 5 * HZ; /* Wait 5 sec. after failed dial */
@@ -2543,10 +2588,16 @@ isdn_net_setcfg(isdn_net_ioctl_cfg * cfg)
 				p->local.flags &= ~ISDN_NET_CALLBACK;
 				break;
 		}
-		if (cfg->stopped)
-			p->local.flags |= ISDN_NET_STOPPED;
-		else
-			p->local.flags &= ~ISDN_NET_STOPPED;
+ 		p->local.flags &= ~ISDN_NET_DIALMODE_MASK;	/* first all bits off */
+ 		if (cfg->dialmode && !(cfg->dialmode & ISDN_NET_DIALMODE_MASK)) {
+ 			/* old isdnctrl version, where only 0 or 1 is given */
+ 			printk(KERN_WARNING 
+ 			     "Old isdnctrl version detected! Please update.\n");
+ 			p->local.flags |= ISDN_NET_DM_OFF; /* turn on 'off' bit */
+ 		}
+ 		else {
+ 			p->local.flags |= cfg->dialmode;   /* turn on selected bits */
+ 		}
 		if (cfg->chargehup)
 			p->local.hupflags |= ISDN_CHARGEHUP;
 		else
@@ -2628,7 +2679,7 @@ isdn_net_getcfg(isdn_net_ioctl_cfg * cfg)
 		if (p->local.flags & ISDN_NET_CBOUT)
 			cfg->callback = 2;
 		cfg->cbhup = (p->local.flags & ISDN_NET_CBHUP) ? 1 : 0;
-		cfg->stopped = (p->local.flags & ISDN_NET_STOPPED) ? 1 : 0;
+ 		cfg->dialmode = p->local.flags & ISDN_NET_DIALMODE_MASK;
 		cfg->chargehup = (p->local.hupflags & 4) ? 1 : 0;
 		cfg->ihup = (p->local.hupflags & 8) ? 1 : 0;
 		cfg->cbdelay = p->local.cbdelay;

@@ -21,6 +21,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.31.2.12  1998/08/22 16:41:25  armin
+ * Added silence detection in audio receive mode (AT+VSD).
+ *
  * Revision 1.31.2.11  1998/07/15 15:04:19  calle
  * make isdn4k-utils compile again.
  *
@@ -307,8 +310,14 @@ typedef struct {
   int  triggercps;   /* BogoCPS needed for triggering slave   */
   int  dialtimeout;  /* Dial-Timeout                          */
   int  dialwait;     /* Time to wait after failed dial        */
-  int  stopped;      /* Flag: Stopped                         */
+  int  dialmode;     /* Flag: off / on / auto                 */
 } isdn_net_ioctl_cfg;
+
+#define ISDN_NET_DIALMODE_MASK 0xC0  /* bits for status                   */
+#define  ISDN_NET_DM_OFF	0x00    /* this interface is stopped      */
+#define  ISDN_NET_DM_MANUAL	0x40    /* this interface is on (manual)  */
+#define  ISDN_NET_DM_AUTO	0x80    /* this interface is autodial     */
+#define ISDN_NET_DIALMODE(x) ((&(x))->flags & ISDN_NET_DIALMODE_MASK)
 
 #ifdef __KERNEL__
 
@@ -419,7 +428,10 @@ typedef struct {
 #define ISDN_NET_DYNAMIC    0x20       /* this link is dynamically allocated */
 #endif
 
-#define ISDN_NET_STOPPED    0x40       /* this interface is stopped         */
+/*
+ * also see the ISDN_NET_DM_* defines earlier
+ * (they are not here, as we need access to those in userspace)
+ */
 
 #define ISDN_NET_MAGIC      0x49344C02 /* for paranoia-checking             */
 
