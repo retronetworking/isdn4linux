@@ -21,6 +21,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.51  1998/01/31 19:17:29  calle
+ * merged changes from and for 2.1.82
+ *
  * Revision 1.50  1997/12/12 06:12:11  calle
  * moved EXPORT_SYMBOL(register_isdn) from isdn_syms.c to isdn_common.c
  *
@@ -225,7 +228,6 @@
  */
 
 #include <linux/config.h>
-#define __NO_VERSION__
 #include <linux/module.h>
 #include <linux/version.h>
 #include <linux/poll.h>
@@ -618,6 +620,11 @@ isdn_status_callback(isdn_ctrl * c)
 				return 0;
 			dev->drv[di]->flags &= ~(1 << (c->arg));
 			isdn_info_update();
+#ifdef CONFIG_ISDN_X25
+			/* Signal hangup to network-devices */
+			if (isdn_net_stat_callback(i, c))
+				break;
+#endif
 			if (isdn_tty_stat_callback(i, c))
 				break;
 			break;
@@ -951,8 +958,8 @@ isdn_read(struct file *file, char *buf, size_t count, loff_t *off)
 	return -ENODEV;
 }
 
-static long long
-isdn_lseek(struct file *file, long long offset, int orig)
+static loff_t
+isdn_lseek(struct file *file, loff_t offset, int orig)
 {
 	return -ESPIPE;
 }
