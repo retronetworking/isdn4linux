@@ -20,6 +20,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.41.2.13  1999/07/01 10:43:01  keil
+ * added ack parameter in writebuf_skb (is only a dummy in 2.0 branch)
+ *
  * Revision 1.41.2.12  1999/05/05 21:43:47  werner
  * support for keypad added (every destination with * or # = keypad)
  * enable display messages announce with S13 Bit 5 = 1
@@ -2113,7 +2116,7 @@ isdn_tty_stat_callback(int i, isdn_ctrl * c)
 				printk(KERN_DEBUG "tty_STAT_DISPLAY ttyI%d\n", info->line);
 #endif
 				/* Signal display to tty-device */
-				if ((info->emu.mdmreg[13] & 32) && !(info->emu.mdmreg[12] & 2)) {
+				if ((info->emu.mdmreg[13] & 128) && !(info->emu.mdmreg[12] & 2)) {
 				  isdn_tty_at_cout("\r\n", info);
 				  isdn_tty_at_cout("DISPLAY: ", info);
 				  isdn_tty_at_cout(c->parm.display, info);
