@@ -393,6 +393,12 @@ config HISAX_ST5481
 	  This enables the driver for ST5481 based USB ISDN adapters,
 	  e.g. the BeWan Gazel 128 USB
 
+config HISAX_HFCUSB
+	tristate "HFC USB based ISDN modems (EXPERIMENTAL)"
+	depends on USB && EXPERIMENTAL
+	help
+	  This enables the driver for HFC USB based ISDN modems.
+
 config HISAX_FRITZ_PCIPNP
 	tristate "AVM Fritz!Card PCI/PCIv2/PnP support (EXPERIMENTAL)"
 	depends on EXPERIMENTAL
@@ -401,6 +407,11 @@ config HISAX_FRITZ_PCIPNP
 	  Fritz!Card PCI v2 and Fritz!Card PnP.
 	  (the latter also needs you to select "ISA Plug and Play support"
 	  from the menu "Plug and Play configuration")
+
+config HISAX_HDLC
+	bool
+	depends on HISAX_ST5481
+	default y
 
 endif
 
