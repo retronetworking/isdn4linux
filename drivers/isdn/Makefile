@@ -13,7 +13,7 @@ O_TARGET :=
 
 ifeq ($(CONFIG_ISDN),y)
   L_TARGET := isdn.a
-  L_OBJS += isdn_net.o isdn_tty.o isdn_cards.o
+  L_OBJS += isdn_net.o isdn_tty.o isdn_cards.o isdn_v110.o
   LX_OBJS += isdn_common.o 
   ifdef CONFIG_ISDN_PPP
     L_OBJS += isdn_ppp.o
@@ -29,7 +29,7 @@ else
   ifeq ($(CONFIG_ISDN),m)
     M_OBJS += isdn.o
     O_TARGET += isdn.o
-    O_OBJS += isdn_net.o isdn_tty.o
+    O_OBJS += isdn_net.o isdn_tty.o isdn_v110.o
     OX_OBJS += isdn_common.o
     ifdef CONFIG_ISDN_PPP
       O_OBJS += isdn_ppp.o
