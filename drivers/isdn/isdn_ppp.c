@@ -1358,8 +1358,8 @@ isdn_ppp_xmit(struct sk_buff *skb, struct net_device *netdev)
 
 static int isdn_ppp_mp_bundle_array_init(void)
 {
-   int i;
-   int sz = ISDN_MAX_CHANNELS*sizeof(ippp_bundle);
+	int i;
+	int sz = ISDN_MAX_CHANNELS*sizeof(ippp_bundle);
 	if( (isdn_ppp_bundle_arr = (ippp_bundle*)kmalloc(sz, 
 							GFP_KERNEL)) == NULL )
 		return -ENOMEM;
@@ -1371,7 +1371,7 @@ static int isdn_ppp_mp_bundle_array_init(void)
 
 static ippp_bundle * isdn_ppp_mp_bundle_alloc(void)
 {
-    int i;
+	int i;
 	for( i = 0; i < ISDN_MAX_CHANNELS; i++ )
 		if (isdn_ppp_bundle_arr[i].ref_ct <= 0)
 			return (isdn_ppp_bundle_arr + i);
@@ -1380,7 +1380,7 @@ static ippp_bundle * isdn_ppp_mp_bundle_alloc(void)
 
 static int isdn_ppp_mp_init( isdn_net_local * lp, ippp_bundle * add_to )
 {
-   struct ippp_struct * is = ippp_table[lp->ppp_slot];
+	struct ippp_struct * is = ippp_table[lp->ppp_slot];
    
 	if (add_to) {
 		if( lp->netdev->pb )
@@ -1618,8 +1618,8 @@ static void isdn_ppp_mp_receive(isdn_net_dev * net_dev, isdn_net_local * lp,
 
 static void isdn_ppp_mp_cleanup( isdn_net_local * lp )
 {
-    struct sk_buff * frag = lp->netdev->pb->frags;
-    struct sk_buff * nextfrag;
+	struct sk_buff * frag = lp->netdev->pb->frags;
+	struct sk_buff * nextfrag;
     	while( frag ) {
 		nextfrag = frag->next;
 		isdn_ppp_mp_free_skb(lp->netdev->pb, frag);
@@ -1631,8 +1631,8 @@ static void isdn_ppp_mp_cleanup( isdn_net_local * lp )
 static u32 isdn_ppp_mp_get_seq( int short_seq, 
 					struct sk_buff * skb, u32 last_seq )
 {
-   u32 seq;
-   int flags = skb->data[0] & (MP_BEGIN_FRAG | MP_END_FRAG);
+	u32 seq;
+	int flags = skb->data[0] & (MP_BEGIN_FRAG | MP_END_FRAG);
    
    	if( !short_seq )
 	{
