@@ -9,6 +9,10 @@
  *		../../../Documentation/isdn/HiSax.cert
  *
  * $Log$
+ * Revision 1.21  1999/07/12 21:05:17  keil
+ * fix race in IRQ handling
+ * added watchdog for lost IRQs
+ *
  * Revision 1.20  1999/07/09 08:23:06  keil
  * Fix ISAC lost TX IRQ handling
  *
@@ -229,7 +233,6 @@ isac_fill_fifo(struct IsdnCardState *cs)
 	cs->tx_cnt += count;
 	cs->writeisacfifo(cs, ptr, count);
 	cs->writeisac(cs, ISAC_CMDR, more ? 0x8 : 0xa);
-	restore_flags(flags);
 	if (test_and_set_bit(FLG_DBUSY_TIMER, &cs->HW_Flags)) {
 		debugl1(cs, "isac_fill_fifo dbusytimer running");
 		del_timer(&cs->dbusytimer);
@@ -237,6 +240,7 @@ isac_fill_fifo(struct IsdnCardState *cs)
 	init_timer(&cs->dbusytimer);
 	cs->dbusytimer.expires = jiffies + ((DBUSY_TIMER_VALUE * HZ)/1000);
 	add_timer(&cs->dbusytimer);
+	restore_flags(flags);
 	if (cs->debug & L1_DEB_ISAC_FIFO) {
 		char *t = cs->dlog;
 
