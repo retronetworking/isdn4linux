@@ -6,6 +6,9 @@
  * (c) Copyright 1999 by Carsten Paeth (calle@calle.in-berlin.de)
  * 
  * $Log$
+ * Revision 1.1  2000/01/20 10:51:37  calle
+ * Added driver for C4.
+ *
  *
  */
 
@@ -20,10 +23,7 @@
 #include <linux/pci.h>
 #include <linux/capi.h>
 #include <asm/io.h>
-#include <linux/isdn_compat.h>
-#ifdef COMPAT_NEED_UACCESS
 #include <asm/uaccess.h>
-#endif
 #include "capicmd.h"
 #include "capiutil.h"
 #include "capilli.h"
@@ -702,13 +702,11 @@ static void c4_handle_interrupt(avmcard *card)
 	if ((status & DBELL_DOWN_HOST) != 0) {
 		card->csr &= ~DBELL_DOWN_ARM;
 	        c4_dispatch_tx(card);
-#if 1
 	} else if (card->csr & DBELL_DOWN_HOST) {
 		if (c4inmeml(card->mbase+MBOX_DOWN_LEN) == 0) {
 		        card->csr &= ~DBELL_DOWN_ARM;
 			c4_dispatch_tx(card);
 		}
-#endif
 	}
 }
 
@@ -1217,6 +1215,29 @@ static struct capi_driver c4_driver = {
 void cleanup_module(void);
 #endif
 
+#ifndef COMPAT_HAS_pci_find_subsys
+#ifndef PCI_ANY_ID
+#define PCI_ANY_ID (~0)
+#endif
+
+static struct pci_dev *
+pci_find_subsys(unsigned int vendor, unsigned int device,
+		unsigned int ss_vendor, unsigned int ss_device,
+		struct pci_dev *from)
+{
+	unsigned short subsystem_vendor, subsystem_device;
+
+	while ((from = pci_find_device(vendor, device, from))) {
+		pci_read_config_word(from, PCI_SUBSYSTEM_VENDOR_ID, &subsystem_vendor);
+		pci_read_config_word(from, PCI_SUBSYSTEM_ID, &subsystem_device);
+		if ((ss_vendor == PCI_ANY_ID || subsystem_vendor == ss_vendor) &&
+		    (ss_device == PCI_ANY_ID || subsystem_device == ss_device))
+			return from;
+	}
+	return NULL;
+}
+#endif
+
 static int ncards = 0;
 
 int c4_init(void)
@@ -1254,9 +1275,9 @@ int c4_init(void)
 			PCI_VENDOR_ID_AVM, PCI_DEVICE_ID_AVM_C4, dev))) {
 		struct capicardparams param;
 
-		param.port = get_pcibase(dev, 1) & PCI_BASE_ADDRESS_IO_MASK;
+		param.port = dev->base_address[ 1] & PCI_BASE_ADDRESS_IO_MASK;
 		param.irq = dev->irq;
-		param.membase = get_pcibase(dev, 0) & PCI_BASE_ADDRESS_MEM_MASK;
+		param.membase = dev->base_address[ 0] & PCI_BASE_ADDRESS_MEM_MASK;
 
 		printk(KERN_INFO
 			"%s: PCI BIOS reports AVM-C4 at i/o %#x, irq %d, mem %#x\n",
