@@ -21,6 +21,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.82  1999/07/12 21:06:50  werner
+ * Fixed problem when loading more than one driver temporary
+ *
  * Revision 1.81  1999/07/11 17:14:09  armin
  * Added new layer 2 and 3 protocols for Fax and DSP functions.
  * Moved "Add CPN to RING message" to new register S23,
@@ -973,8 +976,27 @@ isdn_status_callback(isdn_ctrl * c)
 				break;
 			break;
 		case ISDN_STAT_ADDCH:
-			if (isdn_add_channels(dev->drv[di], di, ((long)(c->arg)), 1))
+			if (isdn_add_channels(dev->drv[di], di, c->arg, 1))
 				return -1;
+			isdn_info_update();
+			break;
+		case ISDN_STAT_DISCH:
+			save_flags(flags);
+			cli();
+			for (i = 0; i < ISDN_MAX_CHANNELS; i++)
+				if ((dev->drvmap[i] == di) &&
+				    (dev->chanmap[i] == c->arg)) {
+				    if (c->parm.num[0])
+				      dev->usage[i] &= ~ISDN_USAGE_DISABLED;
+				    else
+				      if (USG_NONE(dev->usage[i])) {
+					dev->usage[i] |= ISDN_USAGE_DISABLED;
+				      }
+				      else 
+					retval = -1;
+				    break;
+				}
+			restore_flags(flags);
 			isdn_info_update();
 			break;
 		case ISDN_STAT_UNLOAD:
@@ -993,6 +1015,7 @@ isdn_status_callback(isdn_ctrl * c)
 				if (dev->drvmap[i] == di) {
 					dev->drvmap[i] = -1;
 					dev->chanmap[i] = -1;
+					dev->usage[i] &= ~ISDN_USAGE_DISABLED;
 				}
 			dev->drivers--;
 			dev->channels -= dev->drv[di]->channels;
@@ -2010,6 +2033,8 @@ isdn_get_free_channel(int usage, int l2_proto, int l3_proto, int pre_dev
 			if ((dev->usage[i] & ISDN_USAGE_EXCLUSIVE) &&
 			((pre_dev != d) || (pre_chan != dev->chanmap[i])))
 				continue;
+			if (dev->usage[i] & ISDN_USAGE_DISABLED)
+			        continue; /* usage not allowed */
 			if (dev->drv[d]->flags & DRV_FLAG_RUNNING) {
 				if (((dev->drv[d]->interface->features & features) == features) ||
 				    (((dev->drv[d]->interface->features & vfeatures) == vfeatures) &&
@@ -2209,7 +2234,7 @@ isdn_add_channels(driver *d, int drvidx, int n, int adding)
 #endif
 	if (d->flags & DRV_FLAG_RUNNING)
 		return -1;
-	/*	if (n < 1) return 0;*/
+       	if (n < 1) return 0;
 
 	m = (adding) ? d->channels + n : n;
 
@@ -2307,11 +2332,6 @@ isdn_add_channels(driver *d, int drvidx, int n, int adding)
 				dev->drvmap[k] = drvidx;
 				break;
 			}
-	if (n < 0)
-	  for (k = m; k < ISDN_MAX_CHANNELS; k++) { 
-	    dev->chanmap[k] = -1;
-	    dev->drvmap[k] = -1;
-	  }  
 	restore_flags(flags);
 	d->channels = m;
 	return 0;
