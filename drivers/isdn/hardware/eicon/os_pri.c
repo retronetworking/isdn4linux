@@ -3,7 +3,6 @@
 #include "platform.h"
 #include "debuglib.h"
 #include "cardtype.h"
-#include "dlist.h"
 #include "pc.h"
 #include "pr_pc.h"
 #include "di_defs.h"

@@ -15,10 +15,10 @@
 #include <linux/kernel.h>
 #include <linux/poll.h>
 #include <linux/proc_fs.h>
+#include <linux/list.h>
 
 #include "platform.h"
 #include "debuglib.h"
-#include "dlist.h"
 #undef ID_MASK
 #undef N_DATA
 #include "pc.h"
@@ -33,7 +33,6 @@
 
 
 extern PISDN_ADAPTER IoAdapters[MAX_ADAPTER];
-extern diva_entity_queue_t adapter_queue;
 extern void divas_get_version(char *);
 extern void diva_get_vserial_number(PISDN_ADAPTER IoAdapter, char *buf);
 

@@ -22,6 +22,7 @@
 #include <linux/pci.h>
 #include <linux/smp_lock.h>
 #include <linux/interrupt.h>
+#include <linux/list.h>
 #include <linux/poll.h>
 #include <linux/kmod.h>
 
@@ -29,7 +30,6 @@
 #undef ID_MASK
 #undef N_DATA
 #include "pc.h"
-#include "dlist.h"
 #include "di_defs.h"
 #include "divasync.h"
 #include "diva.h"
@@ -69,7 +69,7 @@ extern int divasfunc_init(int dbgmask);
 extern void divasfunc_exit(void);
 
 typedef struct _diva_os_thread_dpc {
-	struct work_struct divas_task;
+	struct tasklet_struct divas_task;
 	struct work_struct trap_script_task;
 	diva_os_soft_isr_t *psoft_isr;
 	int card_failed;
@@ -552,7 +552,7 @@ void diva_os_remove_irq(void *context, byte irq)
 /* --------------------------------------------------------------------------
     DPC framework implementation
    -------------------------------------------------------------------------- */
-static void diva_os_dpc_proc(void *context)
+static void diva_os_dpc_proc(unsigned long context)
 {
 	diva_os_thread_dpc_t *psoft_isr = (diva_os_thread_dpc_t *) context;
 	diva_os_soft_isr_t *pisr = psoft_isr->psoft_isr;
@@ -575,7 +575,7 @@ int diva_os_initialize_soft_isr(diva_os_soft_isr_t * psoft_isr,
 	psoft_isr->callback_context = callback_context;
 	pdpc->psoft_isr = psoft_isr;
 	INIT_WORK(&pdpc->trap_script_task, diva_adapter_trapped, pdpc);
-	INIT_WORK(&pdpc->divas_task, diva_os_dpc_proc, pdpc);
+	tasklet_init(&pdpc->divas_task, diva_os_dpc_proc, (unsigned long)pdpc);
 
 	return (0);
 }
@@ -586,7 +586,7 @@ int diva_os_schedule_soft_isr(diva_os_soft_isr_t * psoft_isr)
 		diva_os_thread_dpc_t *pdpc =
 		    (diva_os_thread_dpc_t *) psoft_isr->object;
 
-		schedule_work(&pdpc->divas_task);
+		tasklet_schedule(&pdpc->divas_task);
 	}
 
 	return (1);
@@ -594,14 +594,22 @@ int diva_os_schedule_soft_isr(diva_os_soft_isr_t * psoft_isr)
 
 int diva_os_cancel_soft_isr(diva_os_soft_isr_t * psoft_isr)
 {
+	if (psoft_isr && psoft_isr->object) {
+		diva_os_thread_dpc_t *pdpc =
+		    (diva_os_thread_dpc_t *) psoft_isr->object;
+		tasklet_kill(&pdpc->divas_task);
+	}
 	return (0);
 }
 
 void diva_os_remove_soft_isr(diva_os_soft_isr_t * psoft_isr)
 {
 	if (psoft_isr && psoft_isr->object) {
+		diva_os_thread_dpc_t *pdpc =
+		    (diva_os_thread_dpc_t *) psoft_isr->object;
 		void *mem;
 
+		tasklet_kill(&pdpc->divas_task);
 		flush_scheduled_work();
 		mem = psoft_isr->object;
 		psoft_isr->object = 0;
