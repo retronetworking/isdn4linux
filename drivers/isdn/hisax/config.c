@@ -1971,6 +1971,8 @@ static void hisax_b_l1l2(struct hisax_if *ifc, int pr, void *arg)
 		break;
 	case PH_DEACTIVATE | INDICATION:
 		st->l1.l1l2(st, pr, NULL);
+		clear_bit(BC_FLG_BUSY, &bcs->Flag);
+		skb_queue_purge(&bcs->squeue);
 		bcs->hw.b_if = NULL;
 		break;
 	case PH_DATA | INDICATION:
@@ -2058,6 +2060,9 @@ static void hisax_b_l2l1(struct PStack *st, int pr, void *arg)
 		else
 			set_bit(FLG_L1_PULL_REQ, &st->l1.Flags);
 		break;
+	case PH_DEACTIVATE | REQUEST:
+		test_and_clear_bit(BC_FLG_BUSY, &bcs->Flag);
+		skb_queue_purge(&bcs->squeue);
 	default:
 		B_L2L1(b_if, pr, arg);
 		break;
@@ -2158,9 +2163,7 @@ static struct pci_device_id hisax_pci_tbl[] __initdata = {
 	{PCI_VENDOR_ID_EICON,    PCI_DEVICE_ID_EICON_DIVA20,     PCI_ANY_ID, PCI_ANY_ID},
 	{PCI_VENDOR_ID_EICON,    PCI_DEVICE_ID_EICON_DIVA20_U,   PCI_ANY_ID, PCI_ANY_ID},
 	{PCI_VENDOR_ID_EICON,    PCI_DEVICE_ID_EICON_DIVA201,    PCI_ANY_ID, PCI_ANY_ID},
-//#########################################################################################	
 	{PCI_VENDOR_ID_EICON,    PCI_DEVICE_ID_EICON_DIVA202,    PCI_ANY_ID, PCI_ANY_ID},
-//#########################################################################################	
 #endif
 #ifdef CONFIG_HISAX_ELSA
 	{PCI_VENDOR_ID_ELSA,     PCI_DEVICE_ID_ELSA_MICROLINK,   PCI_ANY_ID, PCI_ANY_ID},
