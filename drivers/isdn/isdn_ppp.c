@@ -19,6 +19,10 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.65  2000/03/17 16:22:55  kai
+ * we keep track of outstanding packets (given to HL, but not confirmed yet)
+ * now, but we don't use it for flow control yet.
+ *
  * Revision 1.64  2000/03/17 10:43:56  kai
  * 2.3.99 contains MPPP constants which cause a warning because we
  * redefine them in include/linux/isdn_ppp.h
@@ -1069,8 +1073,6 @@ isdn_ppp_write(int min, struct file *file, const char *buf, int count)
 			lp->dialstate == 0 &&
 		    (lp->flags & ISDN_NET_CONNECTED)) {
 			unsigned short hl;
-			unsigned long flags;
-			int cnt;
 			struct sk_buff *skb;
 			/*
 			 * we need to reserve enought space in front of
@@ -1092,18 +1094,7 @@ isdn_ppp_write(int min, struct file *file, const char *buf, int count)
 			}
 
 			isdn_ppp_send_ccp(lp->netdev,lp,skb); /* keeps CCP/compression states in sync */
-
-			save_flags(flags);
-			cli();
-			if ((cnt = isdn_net_writebuf_skb(lp, skb)) != count) {
-				if (lp->sav_skb) {
-					dev_kfree_skb(lp->sav_skb);
-					printk(KERN_INFO "isdn_ppp_write: freeing sav_skb (%d,%d)!\n", cnt, count);
-				} else
-					printk(KERN_INFO "isdn_ppp_write: Can't write PPP frame to LL (%d,%d)!\n", cnt, count);
-				lp->sav_skb = skb;
-			}
-			restore_flags(flags);
+			isdn_net_write_super(lp, skb);                         
 		}
 	}
 	return count;
@@ -2306,8 +2297,7 @@ static void isdn_ppp_ccp_xmit_reset(struct ippp_struct *is, int proto,
 {
 	struct sk_buff *skb;
 	unsigned char *p;
-	int count, hl;
-	unsigned long flags;
+	int hl;
 	int cnt = 0;
 	isdn_net_local *lp = is->lp;
 
@@ -2347,26 +2337,7 @@ static void isdn_ppp_ccp_xmit_reset(struct ippp_struct *is, int proto,
 	/* skb is now ready for xmit */
 	printk(KERN_DEBUG "Sending CCP Frame:\n");
 	isdn_ppp_frame_log("ccp-xmit", skb->data, skb->len, 32, is->unit,lp->ppp_slot);
-
-	/* Just ripped from isdn_ppp_write. Dunno whether it makes sense,
-	   especially dunno what the sav_skb stuff is good for. */
-
-	count = skb->len;
-	save_flags(flags);
-	cli();
-	if ((cnt = isdn_net_writebuf_skb(lp, skb)) != count) {
-		if (lp->sav_skb) {
-			dev_kfree_skb(lp->sav_skb);
-			printk(KERN_INFO
-			       "isdn_ppp_write: freeing sav_skb (%d,%d)!\n",
-			       cnt, count);
-		} else
-			printk(KERN_INFO
-			       "isdn_ppp_write: Can't write PPP frame to LL (%d,%d)!\n",
-			       cnt, count);
-		lp->sav_skb = skb;
-	}
-	restore_flags(flags);
+	isdn_net_write_super(lp, skb);                         
 }
 
 /* Allocate the reset state vector */

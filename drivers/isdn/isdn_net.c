@@ -21,6 +21,10 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.116  2000/03/17 16:22:55  kai
+ * we keep track of outstanding packets (given to HL, but not confirmed yet)
+ * now, but we don't use it for flow control yet.
+ *
  * Revision 1.115  2000/03/17 12:49:42  kai
  * calling statcallb with ISDN_STAT_BSENT in hard-IRQ context is now
  * officially allowed. writebuf_skb() will never be called in hard-IRQ context
@@ -958,7 +962,7 @@ isdn_net_stat_callback(int idx, isdn_ctrl *c)
 					   dequeueing the sav_skb while another
 					   frame is sent will not occur.
 					*/
-					if (lp->p_encap == ISDN_NET_ENCAP_SYNCPPP && lp->sav_skb) {
+					if (lp->sav_skb) {
 						queue_task(&lp->tqueue, &tq_immediate);
 					}
 					isdn_net_lp_xon(lp);
@@ -1747,6 +1751,35 @@ int isdn_net_writebuf_skb(isdn_net_local *lp, struct sk_buff *skb)
 }
 
 /*
+ * this function is used to send supervisory data, i.e. data which was
+ * not received from the network layer, but e.g. frames from ipppd, CCP
+ * reset frames etc.
+ */
+void
+isdn_net_write_super(isdn_net_local *lp, struct sk_buff *skb)
+{
+	unsigned long flags;
+	int cnt, count;
+	
+	count = skb->len;
+	save_flags(flags);
+	cli();
+	if ((cnt = isdn_net_writebuf_skb(lp, skb)) != count) {
+		if (lp->sav_skb) {
+			dev_kfree_skb(lp->sav_skb);
+			printk(KERN_INFO "isdn_ppp_write: freeing sav_skb (%d,%d)!\n",
+			       cnt, count);
+		} else
+			printk(KERN_INFO "isdn_ppp_write: Can't write PPP frame to LL (%d,%d)!\n",
+			       cnt, count);
+		lp->sav_skb = skb;
+	}
+	restore_flags(flags);
+}
+
+
+
+/*
  * Generic routine to send out an skbuf.
  * If lowlevel-device does not support support skbufs, use
  * standard send-routine, else send directly.
@@ -2347,7 +2380,6 @@ isdn_net_slarp_send(isdn_net_local *lp, int is_reply)
 	unsigned short hl = dev->drv[lp->isdn_device]->interface->hl_hdrlen;
 	struct sk_buff *skb = alloc_skb(hl + sizeof(cisco_hdr) + sizeof(cisco_slarp), GFP_ATOMIC);
 	unsigned long t = (jiffies / HZ * 1000000);
-	int len;
 	cisco_hdr *ch;
 	cisco_slarp *s;
 
@@ -2375,9 +2407,7 @@ isdn_net_slarp_send(isdn_net_local *lp, int is_reply)
 	s->rel = 0xffff;
 	s->t1 = t >> 16;
 	s->t0 = t & 0xffff;
-	len = skb->len;
-	if (isdn_net_writebuf_skb(lp, skb) != len)
-		dev_kfree_skb(skb);
+	isdn_net_write_super(lp, skb);
 }
 
 static void
@@ -3496,17 +3526,11 @@ static void
 isdn_net_send_sav_skb(void *private)
 {
        isdn_net_local *lp = private;
-       struct net_device *mdev;
        unsigned long flags;
-
-       if (lp->master)
-	       mdev = lp->master;
-       else
-	       mdev = &lp->netdev->dev;
 
        save_flags(flags);
        cli();
-       if (!isdn_net_send_skb(mdev, lp, lp->sav_skb))
+       if (isdn_net_writebuf_skb(lp, lp->sav_skb) > 0)
 	       lp->sav_skb = 0;
        restore_flags(flags);
 }
