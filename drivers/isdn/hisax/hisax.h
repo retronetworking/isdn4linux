@@ -3,6 +3,10 @@
  *   Basic declarations, defines and prototypes
  *
  * $Log$
+ * Revision 2.45  2000/06/18 16:15:55  keil
+ * - 2.4 PCI changes
+ * - Changes for Power PC with BIG ENDIAN
+ *
  * Revision 2.44  2000/06/16 13:08:47  keil
  * Support for U interface cards
  * Support for NI1 D-channel protocol
@@ -1539,7 +1543,8 @@ void TeiFree(void);
 int certification_check(int output);
 #ifdef COMPAT_HAS_2_2_PCI
 #ifdef __powerpc__
-inline int pci_enable_device(dev)
+#include <linux/pci.h>
+static inline int pci_enable_device(struct pci_dev *dev)
 {
 	u16 cmd;
 	pci_read_config_word(dev, PCI_COMMAND, &cmd);
