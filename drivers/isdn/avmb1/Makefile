@@ -22,6 +22,8 @@ obj-	:=
 
 # Each configuration option enables a list of files.
 
+# Ordering constraints: kernelcapi.o first
+
 obj-$(CONFIG_ISDN_CAPI)			+= kernelcapi.o capiutil.o
 obj-$(CONFIG_ISDN_CAPI_CAPI20)		+= capi.o 
 obj-$(CONFIG_ISDN_CAPI_CAPIDRV)		+= capidrv.o

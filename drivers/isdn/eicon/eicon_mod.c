@@ -376,7 +376,7 @@ eicon_command(eicon_card * card, isdn_ctrl * c)
 #ifdef MODULE
 				case EICON_IOCTL_FREEIT:
 					while (MOD_USE_COUNT > 0) MOD_DEC_USE_COUNT;
-					mod_inc_use_count();
+					MOD_INC_USE_COUNT;
 					return 0;
 #endif
 				case EICON_IOCTL_LOADPCI:
@@ -572,14 +572,10 @@ eicon_command(eicon_card * card, isdn_ctrl * c)
 			eicon_log(card, 1, "eicon CMD_GETSIL not implemented\n");
 			return 0;
 		case ISDN_CMD_LOCK:
-#ifdef MODULE
-			mod_inc_use_count();
-#endif
+			MOD_INC_USE_COUNT;
 			return 0;
 		case ISDN_CMD_UNLOCK:
-#ifdef MODULE
-			mod_dec_use_count();
-#endif
+			MOD_DEC_USE_COUNT;
 			return 0;
 #ifdef CONFIG_ISDN_TTY_FAX
 		case ISDN_CMD_FAXCMD:
@@ -1556,9 +1552,6 @@ __setup("eicon=", eicon_setup);
 
 #endif /* MODULE */
 
-module_init(eicon_init);
-module_exit(eicon_exit);
-
 #ifdef CONFIG_ISDN_DRV_EICON_ISA
 #ifdef CONFIG_MCA
 
@@ -1729,3 +1722,5 @@ int eicon_mca_probe(int slot,  /* slot-nr where the card was detected         */
 #endif /* CONFIG_MCA */
 #endif /* CONFIG_ISDN_DRV_EICON_ISA */
 
+module_init(eicon_init);
+module_exit(eicon_exit);

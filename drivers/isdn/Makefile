@@ -11,8 +11,7 @@ export-objs	:= isdn_common.o
 # Multipart objects.
 
 list-multi	:= isdn.o
-isdn-objs	:= isdn_net.o isdn_tty.o isdn_cards.o isdn_v110.o \
-		   isdn_common.o
+isdn-objs	:= isdn_net.o isdn_tty.o isdn_v110.o isdn_common.o
 
 # Optional parts of multipart objects.
 
@@ -31,6 +30,13 @@ obj-m	:=
 obj-n	:=
 obj-	:=
 
+# Ordering constraints: isdn.o first, rest doesn't matter
+
+# Each configuration option enables a list of files.
+
+obj-$(CONFIG_ISDN)			+= isdn.o
+obj-$(CONFIG_ISDN_PPP_BSDCOMP)		+= isdn_bsdcomp.o
+
 # Object files in subdirectories
 
 subdir-$(CONFIG_ISDN_DIVERSION)		+= divert
@@ -48,17 +54,14 @@ subdir-$(CONFIG_ISDN_DRV_LOOP)		+= isdnloop
 subobj-$(CONFIG_ISDN_DRV_LOOP)		+= isdnloop/isdnloop_drv.o
 subdir-$(CONFIG_ISDN_DRV_ACT2000)	+= act2000
 subobj-$(CONFIG_ISDN_DRV_ACT2000)	+= act2000/act2000_drv.o
-subdir-$(CONFIG_ISDN_DRV_EICON)		+= eicon
-subobj-$(CONFIG_ISDN_DRV_EICON)		+= eicon/eicon_drv.o
+subdir-$(CONFIG_ISDN_DRV_EICON_OLD)	+= eicon
+subobj-$(CONFIG_ISDN_DRV_EICON_OLD)	+= eicon/eicon_drv.o
+subdir-$(CONFIG_ISDN_DRV_EICON_DIVAS)	+= eicon
+subobj-$(CONFIG_ISDN_DRV_EICON_DIVAS)	+= eicon/eicon_drv.o
 subdir-$(CONFIG_HYSDN)			+= hysdn
 subobj-$(CONFIG_HYSDN)			+= hysdn/hysdn_drv.o
 
 obj-y					+= $(subobj-y)
-
-# Each configuration option enables a list of files.
-
-obj-$(CONFIG_ISDN)			+= isdn.o
-obj-$(CONFIG_ISDN_PPP_BSDCOMP)		+= isdn_bsdcomp.o
 
 # The global Rules.make.
 

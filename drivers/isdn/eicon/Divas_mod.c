@@ -33,6 +33,7 @@
 #include <linux/kernel.h>
 
 #include <linux/module.h>
+#include <linux/init.h>
 #include <linux/pci.h>
 #include <linux/ioport.h>
 #include <linux/malloc.h>
@@ -149,16 +150,6 @@ divas_exit(void)
 	}
 
 	unregister_chrdev(Divas_major, "Divas");
-}
-
-void mod_inc_use_count(void)
-{
-	MOD_INC_USE_COUNT;
-}
-
-void mod_dec_use_count(void)
-{
-	MOD_DEC_USE_COUNT;
 }
 
 module_init(divas_init);
