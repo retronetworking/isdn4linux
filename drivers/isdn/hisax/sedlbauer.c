@@ -16,6 +16,9 @@
  *            Edgar Toernig
  *
  * $Log$
+ * Revision 1.1.2.12  1998/10/13 18:38:53  keil
+ * Fix PCI detection
+ *
  * Revision 1.1.2.11  1998/10/13 10:27:30  keil
  * New cards, minor fixes
  *
@@ -615,6 +618,7 @@ setup_sedlbauer(struct IsdnCard *card))
 			printk(KERN_WARNING "Sedlbauer: No PCI card found\n");
 			return(0);
 		}
+		pci_index++;
 #else
 		printk(KERN_WARNING "Sedlbauer: NO_PCI_BIOS\n");
 		return (0);

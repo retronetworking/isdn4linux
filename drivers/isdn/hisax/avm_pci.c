@@ -7,6 +7,9 @@
  *
  *
  * $Log$
+ * Revision 1.1.2.5  1998/10/13 18:38:50  keil
+ * Fix PCI detection
+ *
  * Revision 1.1.2.4  1998/10/04 23:03:41  keil
  * PCI has 255 device entries
  *
@@ -690,7 +693,7 @@ setup_avm_pci(struct IsdnCard *card))
 	if (cs->typ != ISDN_CTYPE_FRITZPCI)
 		return (0);
 #if CONFIG_PCI
-	for (pci_index = 0; pci_index < 255; pci_index++) {
+	for (; pci_index < 255; pci_index++) {
 		unsigned char pci_bus, pci_device_fn;
 		unsigned int ioaddr;
 		unsigned char irq;
@@ -717,6 +720,7 @@ setup_avm_pci(struct IsdnCard *card))
 		printk(KERN_WARNING "FritzPCI: No PCI card found\n");
 		return(0);
         }
+        pci_index++;
 #else
 	printk(KERN_WARNING "FritzPCI: NO_PCI_BIOS\n");
 	return (0);

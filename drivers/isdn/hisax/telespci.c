@@ -7,6 +7,9 @@
  *
  *
  * $Log$
+ * Revision 1.1.2.2  1998/04/20 08:52:46  keil
+ * Fix register offsets
+ *
  * Revision 1.1.2.1  1998/04/11 18:44:42  keil
  * New files
  *
@@ -281,7 +284,7 @@ TelesPCI_card_msg(struct IsdnCardState *cs, int mt, void *arg)
 			return(0);
 		case CARD_SETIRQ:
 			return(request_irq(cs->irq, &telespci_interrupt,
-					I4L_IRQ_FLAG, "HiSax", cs));
+					I4L_IRQ_FLAG | SA_SHIRQ, "HiSax", cs));
 		case CARD_INIT:
 			inithscxisac(cs, 3);
 			return(0);
@@ -308,7 +311,7 @@ setup_telespci(struct IsdnCard *card))
 		return (0);
 
 #if CONFIG_PCI
-	for (pci_index = 0; pci_index < 0xff; pci_index++) {
+	for (; pci_index < 0xff; pci_index++) {
 		if (pcibios_find_device (0x11DE, 0x6120,
 			pci_index, &pci_bus, &pci_device_fn)
 			== PCIBIOS_SUCCESSFUL) {
