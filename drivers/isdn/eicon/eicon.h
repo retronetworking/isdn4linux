@@ -21,6 +21,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.14  1999/09/08 20:17:31  armin
+ * Added microchannel patch from Erik Weber.
+ *
  * Revision 1.13  1999/09/06 07:29:35  fritz
  * Changed my mail-address.
  *
@@ -123,6 +126,7 @@
 
 #define MAX_HEADER_LEN 10
 
+#define MAX_STATUS_BUFFER	100
 
 /* Struct for adding new cards */
 typedef struct eicon_cdef {
@@ -587,6 +591,8 @@ typedef struct eicon_card {
 	struct sk_buff_head sndq;        /* Send-Message queue               */
 	struct sk_buff_head rackq;       /* Req-Ack-Message queue            */
 	struct sk_buff_head sackq;       /* Data-Ack-Message queue           */
+	struct sk_buff_head statq;       /* Status-Message queue             */
+	int statq_entries;
 	u_char *ack_msg;                 /* Ptr to User Data in User skb     */
 	__u16 need_b3ack;                /* Flag: Need ACK for current skb   */
 	struct sk_buff *sbuf;            /* skb which is currently sent      */
@@ -675,6 +681,7 @@ extern int eicon_info(char *, int , void *);
 #endif /* CONFIG_MCA */
 
 extern ulong DebugVar;
+extern void eicon_log(eicon_card * card, int level, const char *fmt, ...);
 
 #endif  /* __KERNEL__ */
 
