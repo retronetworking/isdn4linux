@@ -1,6 +1,6 @@
 L_OBJS :=
 M_OBJS :=
-O_OBJS := isdnl1.o config.o buffers.o tei.o isdnl2.o isdnl3.o \
+O_OBJS := isdnl1.o config.o tei.o isdnl2.o isdnl3.o \
           q931.o callc.o fsm.o
 
 # EXTRA_CFLAGS += -S
