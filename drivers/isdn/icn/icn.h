@@ -19,6 +19,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.17  1996/05/18 00:47:04  fritz
+ * Removed callback debug code.
+ *
  * Revision 1.16  1996/05/17 15:46:43  fritz
  * Removed own queue management.
  * Changed queue management to use sk_buffs.
@@ -101,7 +104,6 @@ typedef struct icn_cdef {
 #ifdef __KERNEL__
 /* Kernel includes */
 
-#include <linux/config.h>
 #include <linux/module.h>
 #include <linux/version.h>
 #include <linux/errno.h>
