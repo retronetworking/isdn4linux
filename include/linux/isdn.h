@@ -21,6 +21,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.65  1999/06/10 11:51:27  paul
+ * fixed comment for NET_DV
+ *
  * Revision 1.64  1999/04/18 14:57:14  fritz
  * Removed TIMRU stuff
  *
@@ -254,6 +257,7 @@
 #ifndef isdn_h
 #define isdn_h
 
+#include <linux/isdn_compat.h>
 #include <linux/config.h>
 #include <linux/ioctl.h>
 
@@ -743,8 +747,12 @@ typedef struct modem_info {
   atemu                 emu;             /* AT-emulator data               */
   struct termios	normal_termios;  /* For saving termios structs     */
   struct termios	callout_termios;
+#ifdef COMPAT_HAS_NEW_WAITQ
+  wait_queue_head_t	open_wait, close_wait;
+#else
   struct wait_queue	*open_wait;
   struct wait_queue	*close_wait;
+#endif
   struct semaphore      write_sem;
 } modem_info;
 
@@ -822,7 +830,11 @@ typedef struct {
 	ulong               flags;            /* Misc driver Flags                */
 	int                 locks;            /* Number of locks for this driver  */
 	int                 channels;         /* Number of channels               */
+#ifdef COMPAT_HAS_NEW_WAITQ
+	wait_queue_head_t   st_waitq;         /* Wait-Queue for status-read's     */
+#else
 	struct wait_queue  *st_waitq;         /* Wait-Queue for status-read's     */
+#endif
 	int                 maxbufsize;       /* Maximum Buffersize supported     */
 	unsigned long       pktcount;         /* Until now: unused                */
 	int                 stavail;          /* Chars avail on Status-device     */
@@ -833,8 +845,13 @@ typedef struct {
 	unsigned long      DLEflag;           /* Flags: Insert DLE at next read   */
 #endif
 	struct sk_buff_head *rpqueue;         /* Pointers to start of Rcv-Queue   */
+#ifdef COMPAT_HAS_NEW_WAITQ
+	wait_queue_head_t  *rcv_waitq;       /* Wait-Queues for B-Channel-Reads  */
+	wait_queue_head_t  *snd_waitq;       /* Wait-Queue for B-Channel-Send's  */
+#else
 	struct wait_queue  **rcv_waitq;       /* Wait-Queues for B-Channel-Reads  */
 	struct wait_queue  **snd_waitq;       /* Wait-Queue for B-Channel-Send's  */
+#endif
 	char               msn2eaz[10][ISDN_MSNLEN];  /* Mapping-Table MSN->EAZ   */
 } driver;
 
@@ -850,7 +867,11 @@ typedef struct isdn_devt {
 	/*  see ISDN_TIMER_..defines  */
 	int               global_flags;
 	infostruct        *infochain;                /* List of open info-devs.    */
+#ifdef COMPAT_HAS_NEW_WAITQ
+	wait_queue_head_t info_waitq;               /* Wait-Queue for isdninfo    */
+#else
 	struct wait_queue *info_waitq;               /* Wait-Queue for isdninfo    */
+#endif
 	struct timer_list timer;		       /* Misc.-function Timer       */
 	int               chanmap[ISDN_MAX_CHANNELS];/* Map minor->device-channel  */
 	int               drvmap[ISDN_MAX_CHANNELS]; /* Map minor->driver-index    */

@@ -22,6 +22,11 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.25  1998/06/17 19:51:55  he
+ * merged with 2.1.10[34] (cosmetics and udelay() -> mdelay())
+ * brute force fix to avoid Ugh's in isdn_tty_write()
+ * cleaned up some dead code
+ *
  * Revision 1.24  1998/03/19 13:18:57  keil
  * Start of a CAPI like interface for supplementary Service
  * first service: SUSPEND
@@ -116,6 +121,8 @@
 #ifndef isdnif_h
 #define isdnif_h
 
+#include <linux/isdn_compat.h>
+
 /*
  * Values for general protocol-selection
  */
@@ -152,6 +159,90 @@
 
 #include <linux/skbuff.h>
 
+/***************************************************************************/
+/* Extensions made by Werner Cornelius (werner@ikt.de)                     */
+/*                                                                         */ 
+/* The proceed command holds a incoming call in a state to leave processes */
+/* enough time to check whether ist should be accepted.                    */
+/* The PROT_IO Command extends the interface to make protocol dependant    */
+/* features available (call diversion, call waiting...).                   */
+/*                                                                         */ 
+/* The PROT_IO Command is executed with the desired driver id and the arg  */
+/* parameter coded as follows:                                             */
+/* The lower 8 bits of arg contain the desired protocol from ISDN_PTYPE    */
+/* definitions. The upper 24 bits represent the protocol specific cmd/stat.*/
+/* Any additional data is protocol and command specific.                   */
+/* This mechanism also applies to the statcallb callback STAT_PROT.        */    
+/*                                                                         */
+/* This suggested extension permits an easy expansion of protocol specific */
+/* handling. Extensions may be added at any time without changing the HL   */
+/* driver code and not getting conflicts without certifications.           */
+/* The well known CAPI 2.0 interface handles such extensions in a similar  */
+/* way. Perhaps a protocol specific module may be added and separately     */
+/* loaded and linked to the basic isdn module for handling.                */                    
+/***************************************************************************/
+
+/*****************/
+/* DSS1 commands */ 
+/*****************/
+#define DSS1_CMD_INVOKE       ((0x00 << 8) | ISDN_PTYPE_EURO)   /* invoke a supplementary service */
+#define DSS1_CMD_INVOKE_ABORT ((0x01 << 8) | ISDN_PTYPE_EURO)   /* abort a invoke cmd */
+
+/*******************************/
+/* DSS1 Status callback values */
+/*******************************/
+#define DSS1_STAT_INVOKE_RES  ((0x80 << 8) | ISDN_PTYPE_EURO)   /* Result for invocation */
+#define DSS1_STAT_INVOKE_ERR  ((0x81 << 8) | ISDN_PTYPE_EURO)   /* Error Return for invocation */
+#define DSS1_STAT_INVOKE_BRD  ((0x82 << 8) | ISDN_PTYPE_EURO)   /* Deliver invoke broadcast info */
+
+
+/*********************************************************************/
+/* structures for DSS1 commands and callback                         */
+/*                                                                   */
+/* An action is invoked by sending a DSS1_CMD_INVOKE. The ll_id, proc*/
+/* timeout, datalen and data fields must be set before calling.      */
+/*                                                                   */
+/* The return value is a positive hl_id value also delivered in the  */
+/* hl_id field. A value of zero signals no more left hl_id capacitys.*/
+/* A negative return value signals errors in LL. So if the return    */
+/* value is <= 0 no action in LL will be taken -> request ignored    */
+/*                                                                   */
+/* The timeout field must be filled with a positive value specifying */
+/* the amount of time the INVOKED process waits for a reaction from  */
+/* the network.                                                      */
+/* If a response (either error or result) is received during this    */
+/* intervall, a reporting callback is initiated and the process will */
+/* be deleted, the hl identifier will be freed.                      */
+/* If no response is received during the specified intervall, a error*/
+/* callback is initiated with timeout set to -1 and a datalen set    */
+/* to 0.                                                             */
+/* If timeout is set to a value <= 0 during INVOCATION the process is*/
+/* immediately deleted after sending the data. No callback occurs !  */
+/*                                                                   */
+/* A currently waiting process may be aborted with INVOKE_ABORT. No  */
+/* callback will occur when a process has been aborted.              */
+/*                                                                   */
+/* Broadcast invoke frames from the network are reported via the     */
+/* STAT_INVOKE_BRD callback. The ll_id is set to 0, the other fields */
+/* are supplied by the network and not by the HL.                    */   
+/*********************************************************************/
+typedef struct
+  { ulong ll_id; /* ID supplied by LL when executing    */
+		 /* a command and returned by HL for    */
+                 /* INVOKE_RES and INVOKE_ERR           */
+    int hl_id;   /* ID supplied by HL when called       */
+                 /* for executing a cmd and delivered   */
+                 /* for results and errors              */
+                 /* must be supplied by LL when aborting*/  
+    int proc;    /* invoke procedure used by CMD_INVOKE */
+                 /* returned by callback and broadcast  */ 
+    int timeout; /* timeout for INVOKE CMD in ms        */
+                 /* -1  in stat callback when timed out */
+                 /* error value when error callback     */
+    int datalen; /* length of cmd or stat data          */
+    u_char *data;/* pointer to data delivered or send   */
+  } dss1_cmd_stat;
+
 /*
  * Commands from linklevel to lowlevel
  *
@@ -174,7 +265,11 @@
 #define ISDN_CMD_UNLOCK  15       /* Release usage-lock                    */
 #define ISDN_CMD_SUSPEND 16       /* Suspend connection                    */
 #define ISDN_CMD_RESUME  17       /* Resume connection                     */
-#define CAPI_PUT_MESSAGE 18       /* CAPI message send down or up          */
+#define ISDN_CMD_PROCEED 18       /* Proceed with call establishment       */
+#define ISDN_CMD_ALERT   19       /* Alert after Proceeding                */
+#define ISDN_CMD_REDIR   20       /* Redir a incoming call                 */
+#define ISDN_CMD_PROT_IO 21       /* Protocol specific commands            */
+#define CAPI_PUT_MESSAGE 22       /* CAPI message send down or up          */
 
 /*
  * Status-Values delivered from lowlevel to linklevel via
@@ -196,7 +291,11 @@
 #define ISDN_STAT_NODCH   268    /* Signal no D-Channel                   */
 #define ISDN_STAT_ADDCH   269    /* Add more Channels                     */
 #define ISDN_STAT_CAUSE   270    /* Cause-Message                         */
-#define ISDN_STAT_L1ERR   271    /* Signal Layer-1 Error                  */
+#define ISDN_STAT_ICALLW  271    /* Incoming call without B-chan waiting  */
+#define ISDN_STAT_REDIR   272    /* Redir result                          */
+#define ISDN_STAT_PROT    273    /* protocol IO specific callback         */
+#define ISDN_STAT_DISPLAY 274    /* deliver a received display message    */
+#define ISDN_STAT_L1ERR   275    /* Signal Layer-1 Error                  */
 
 /*
  * Values for errcode field
@@ -269,22 +368,23 @@ typedef struct {
 	__u8 para[MAX_CAPI_PARA_LEN];
 } capi_msg;
 
-
 /*
  * Structure for exchanging above infos
  *
  */
 typedef struct {
-  int   driver;                  /* Lowlevel-Driver-ID                    */
-  int   command;                 /* Command or Status (see above)         */
-  ulong arg;                     /* Additional Data                       */
-  union {
-	ulong errcode;               /* Type of error with STAT_L1ERR         */
-	int   length;                /* Amount of bytes sent with STAT_BSENT  */
-	u_char	num[50];	/* Additional Data			*/
-	setup_parm 	setup;	/* For SETUP msg			*/
-	capi_msg  	cmsg;	/* For CAPI like messages		*/
-  } parm;
+	int   driver;		/* Lowlevel-Driver-ID            */
+	int   command;		/* Command or Status (see above) */
+	ulong arg;		/* Additional Data               */
+	union {
+		ulong errcode;	/* Type of error with STAT_L1ERR         */
+		int length;	/* Amount of bytes sent with STAT_BSENT  */
+		u_char num[50];/* Additional Data			*/
+		setup_parm setup;/* For SETUP msg			*/
+		capi_msg cmsg;	/* For CAPI like messages		*/
+		char display[85];/* display message data          */ 
+		dss1_cmd_stat dss1_io; /* DSS1 IO-parameter/result */
+	} parm;
 } isdn_ctrl;
 
 /*
@@ -405,10 +505,6 @@ typedef struct {
  *
  */
 extern int register_isdn(isdn_if*);
-
-#ifndef LINUX_VERSION_CODE
-#include <linux/version.h>
-#endif
 #include <asm/uaccess.h>
 
 #endif /* __KERNEL__ */
