@@ -6,7 +6,6 @@
  *
  * Copyright 1999 by Carsten Paeth (calle@calle.in-berlin.de)
  *
- * $Log$
  */
 
 #ifndef _B1PCMCIA_H_

@@ -19,12 +19,6 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
- * $Log$
- * Revision 1.1  2000/02/10 19:47:50  werner
- *
- * Initial release
- *
- *
  */
 
 /****************/
