@@ -1,6 +1,9 @@
 /* $Id$
  *
  * $Log$
+ * Revision 1.6  1996/05/10 22:42:07  fritz
+ * Added entry for EV_RELEASE_CNF in ST_OUT (if no D-Channel avail.)
+ *
  * Revision 1.5  1996/05/06 10:16:15  fritz
  * Added voice stuff.
  *
@@ -54,17 +57,6 @@ stat_debug(struct Channel *chanp, char *s)
 	sprintf(tmp, "%s Channel %d HL->LL %s\n", tm, chanp->chan, s);
 	teles_putstatus(tmp);
 }
-
-#ifdef DEFINED_BUT_NOT_USED
-static void
-stat_error(struct Channel *chanp, char *s)
-{
-        char            tmp[100];
-
-        sprintf(tmp, "Channel %d: %s\n", chanp->chan, s);
-        teles_putstatus(tmp);
-}
-#endif
 
 enum {
         ST_NULL,           /*  0 inactive                                               */
@@ -480,16 +472,6 @@ r12(struct FsmInst *fi, int event, void *arg)
         ic.arg = chanp->chan;
         iif.statcallb(&ic);
 }
-
-#ifdef DEFINED_BUT_NOT_USED
-static void
-prp(byte * p, int size)
-{
-        while (size--)
-                printk("%2x ", *p++);
-        printk("\n");
-}
-#endif
 
 static void
 r15(struct FsmInst *fi, int event, void *arg)
@@ -1137,22 +1119,13 @@ release_is(int chan)
         BufQueueRelease(&st->l2.i_queue);
 }
 
-static void
-release_chan(int chan)
-{
-#if 0
-        release_ds(chan);
-#endif
-        release_is(chan);
-}
-
 void
 CallcFreeChan(void)
 {
         int             i;
 
         for (i = 0; i < chancount; i++)
-                release_chan(i);
+                release_is(i);
         Sfree((void *) chanlist);
 }
 
