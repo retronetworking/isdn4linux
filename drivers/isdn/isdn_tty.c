@@ -20,6 +20,13 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.13  1996/05/31 01:33:29  fritz
+ * Changed buffering due to bad performance with mgetty.
+ * Now sk_buff is delayed allocated in isdn_tty_senddown
+ * using xmit_buff like in standard serial driver.
+ * Fixed module locking.
+ * Added DLE-DC4 handling in voice mode.
+ *
  * Revision 1.12  1996/05/19 01:34:40  fritz
  * Bugfix: ATS returned error.
  *         Register 20 made readonly.
@@ -70,6 +77,7 @@
  */
 
 #define __NO_VERSION__
+#include <linux/config.h>
 #include <linux/module.h>
 #include <linux/isdn.h>
 #include "isdn_common.h"
@@ -109,7 +117,7 @@ char *isdn_tty_revision        = "$Revision$";
  * This routine MUST be called with interrupts off.
  * Return:
  *  1 = Success
- *  0 = Failure, data has to be bufferd and later processed by
+ *  0 = Failure, data has to be buffered and later processed by
  *      isdn_tty_readmodem().
  */
 int isdn_tty_try_read(modem_info *info, struct sk_buff *skb)
@@ -252,7 +260,7 @@ int isdn_tty_countDLE(unsigned char *buf, int len)
         return count;
 }
 
-/* This routine is called wrom within isdn_tty_write() to perform
+/* This routine is called from within isdn_tty_write() to perform
  * DLE-decoding when sending audio-data.
  */
 static int isdn_tty_handleDLEdown(modem_info *info, atemu *m, int len)
@@ -335,10 +343,10 @@ static int isdn_tty_end_vrx(const char *buf, int c, int from_user)
 
 static int voice_cf[7] = { 1, 1, 4, 3, 2, 1, 1 };
 
-/* isdn_tty_senddwn() is called either directly from within isdn_tty_write()
+/* isdn_tty_senddown() is called either directly from within isdn_tty_write()
  * or via timer-interrupt from within isdn_tty_modem_xmit(). It pulls
  * outgoing data from the tty's xmit-buffer, handles voice-decompression or
- * T.70 if necessary, and finally sends it out via isdn_writebuf_stub.
+ * T.70 if necessary, and finally queues it up for sending via isdn_tty_tint.
  */
 static void isdn_tty_senddown(modem_info * info)
 {
@@ -359,9 +367,9 @@ static void isdn_tty_senddown(modem_info * info)
 #ifdef CONFIG_ISDN_AUDIO
                 /* For now, ifmt is fixed to 1 (alaw), since this
                  * is used with ISDN everywhere in the world, except
-                 * US, Canadia and Japan.
+                 * US, Canada and Japan.
                  * Later, when US-ISDN protocols are implemented,
-                 * this setting will depend on the Layer-3 protocol.
+                 * this setting will depend on the D-channel protocol.
                  */
                 int ifmt = 1;
                 int skb_len;
@@ -385,9 +393,6 @@ static void isdn_tty_senddown(modem_info * info)
                         case 4:
                                 /* adpcm, compatible to ZyXel 1496 modem
                                  * with ROM revision 6.01
-                                 * xmit_size is limited to VBUF bytes
-                                 * so we take the rest of the buffer
-                                 * for decompressed data.
                                  */
                                 buflen = isdn_audio_adpcm2xlaw(info->adpcms,
                                                                ifmt,
@@ -446,7 +451,7 @@ static void isdn_tty_senddown(modem_info * info)
  *
  ************************************************************/
 
-/* The nex routine is called once from within timer-interrupt
+/* The next routine is called once from within timer-interrupt
  * triggered within isdn_tty_modem_ncarrier(). It calls
  * isdn_tty_modem_result() to stuff a "NO CARRIER" Message
  * into the tty's flip-buffer.
@@ -474,7 +479,7 @@ static void isdn_tty_modem_ncarrier(modem_info * info)
 }
 
 /* isdn_tty_dial() performs dialing of a tty an the necessary
- * setup of the lower levels befor that.
+ * setup of the lower levels before that.
  */
 static void isdn_tty_dial(char *n, modem_info * info, atemu * m)
 {
@@ -553,7 +558,7 @@ void isdn_tty_modem_hup(modem_info * info)
                 return;
         info->rcvsched = 0;
         info->online = 0;
-        isdn_tty_cleanup_xmit(info);
+        isdn_tty_flush_buffer(info->tty);
         if (info->vonline & 1) {
                 /* voice-recording, add DLE-ETX */
                 isdn_tty_at_cout("\020\003", info);
@@ -736,7 +741,7 @@ static void isdn_tty_shutdown(modem_info * info)
  * to the lower level. Additional tasks done here:
  *  - If online, check for escape-sequence (+++)
  *  - If sending audio-data, call isdn_tty_DLEdown() to parse DLE-codes.
- *  - If receiving audio-data, call isdn_tty_end_vrx() to abor if needed.
+ *  - If receiving audio-data, call isdn_tty_end_vrx() to abort if needed.
  *  - If dialing, abort dial.
  */
 static int isdn_tty_write(struct tty_struct *tty, int from_user, const u_char * buf, int count)
