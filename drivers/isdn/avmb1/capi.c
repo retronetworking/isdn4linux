@@ -6,6 +6,11 @@
  * Copyright 1996 by Carsten Paeth (calle@calle.in-berlin.de)
  *
  * $Log$
+ * Revision 1.6  1997/10/01 09:21:15  fritz
+ * Removed old compatibility stuff for 2.0.X kernels.
+ * From now on, this code is for 2.1.X ONLY!
+ * Old stuff is still in the separate branch.
+ *
  * Revision 1.5  1997/08/21 23:11:55  fritz
  * Added changes for kernels >= 2.1.45
  *
@@ -93,7 +98,11 @@ static void capi_signal(__u16 applid, __u32 minor)
 
 /* -------- file_operations ----------------------------------------- */
 
-static long long capi_llseek(struct inode *inode, struct file *file,
+static long long capi_llseek(
+#if (LINUX_VERSION_CODE < 0x020138)
+			     struct inode *inode,
+#endif
+			     struct file *file,
 			     long long offset, int origin)
 {
 	return -ESPIPE;
