@@ -37,6 +37,9 @@
 
 #include "hysdn_defs.h"
 
+unsigned int hynet_enable = 0xffffffff; 
+MODULE_PARM(hynet_enable, "i");
+
 /* store the actual version for log reporting */
 char *hysdn_net_revision = "$Revision$";
 
