@@ -6,6 +6,9 @@
  * (c) Copyright 1999 by Carsten Paeth (calle@calle.in-berlin.de)
  * 
  * $Log$
+ * Revision 1.33  2001/04/19 11:00:41  calle
+ * Now the C2 is really running ...
+ *
  * Revision 1.32  2001/04/18 12:26:15  calle
  * support for AVM ISDN Controller C2 added.
  *
@@ -802,6 +805,8 @@ static void c4_handle_interrupt(avmcard *card)
 	if (status & DBELL_RESET_HOST) {
 		int i;
 		c4outmeml(card->mbase+PCI_OUT_INT_MASK, 0x0c);
+		if (card->nlogcontr == 0)
+			return;
 		printk(KERN_ERR "%s: unexpected reset\n", card->name);
                 for (i=0; i < 4; i++) {
 			avmctrl_info *cinfo = &card->ctrlinfo[i];
@@ -809,6 +814,7 @@ static void c4_handle_interrupt(avmcard *card)
 			if (cinfo->capi_ctrl)
 				cinfo->capi_ctrl->reseted(cinfo->capi_ctrl);
 		}
+		card->nlogcontr = 0;
 		return;
 	}
 
@@ -1040,6 +1046,7 @@ void c4_reset_ctr(struct capi_ctr *ctrl)
 		if (cinfo->capi_ctrl)
 			cinfo->capi_ctrl->reseted(cinfo->capi_ctrl);
 	}
+	card->nlogcontr = 0;
 }
 
 static void c4_remove_ctr(struct capi_ctr *ctrl)
