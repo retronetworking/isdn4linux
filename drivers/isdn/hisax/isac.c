@@ -9,6 +9,9 @@
  *		../../../Documentation/isdn/HiSax.cert
  *
  * $Log$
+ * Revision 1.19  1999/07/01 08:11:43  keil
+ * Common HiSax version for 2.0, 2.1, 2.2 and 2.3 kernel
+ *
  * Revision 1.18  1998/11/15 23:54:51  keil
  * changes from 2.0
  *
@@ -345,7 +348,27 @@ isac_interrupt(struct IsdnCardState *cs, u_char val)
 		exval = cs->readisac(cs, ISAC_EXIR);
 		if (cs->debug & L1_DEB_WARN)
 			debugl1(cs, "ISAC EXIR %02x", exval);
-		if (exval & 0x04) {
+		if (exval & 0x80) {  /* XMR */
+			debugl1(cs, "ISAC XMR");
+			printk(KERN_WARNING "HiSax: ISAC XMR\n");
+		}
+		if (exval & 0x40) {  /* XDU */
+			debugl1(cs, "ISAC XDU");
+			printk(KERN_WARNING "HiSax: ISAC XDU\n");
+			if (test_and_clear_bit(FLG_DBUSY_TIMER, &cs->HW_Flags))
+				del_timer(&cs->dbusytimer);
+			if (test_and_clear_bit(FLG_L1_DBUSY, &cs->HW_Flags))
+				isac_sched_event(cs, D_CLEARBUSY);
+			if (cs->tx_skb) { /* Restart frame */
+				skb_push(cs->tx_skb, cs->tx_cnt);
+				cs->tx_cnt = 0;
+				isac_fill_fifo(cs);
+			} else {
+				printk(KERN_WARNING "HiSax: ISAC XDU no skb\n");
+				debugl1(cs, "ISAC XDU no skb");
+			}
+		}
+		if (exval & 0x04) {  /* MOS */
 			v1 = cs->readisac(cs, ISAC_MOSR);
 			if (cs->debug & L1_DEB_MONITOR)
 				debugl1(cs, "ISAC MOSR %02x", v1);
@@ -611,23 +634,31 @@ static void
 dbusy_timer_handler(struct IsdnCardState *cs)
 {
 	struct PStack *stptr;
-	int	val;
+	int	rbch, star;
 
 	if (test_bit(FLG_DBUSY_TIMER, &cs->HW_Flags)) {
-		if (cs->debug) {
-			debugl1(cs, "D-Channel Busy");
-			val = cs->readisac(cs, ISAC_RBCH);
-			if (val & ISAC_RBCH_XAC)
-				debugl1(cs, "ISAC XAC");
-			else
-				debugl1(cs, "ISAC No XAC");
-		}
-		test_and_set_bit(FLG_L1_DBUSY, &cs->HW_Flags);
-		stptr = cs->stlist;
-		
-		while (stptr != NULL) {
-			stptr->l1.l1l2(stptr, PH_PAUSE | INDICATION, NULL);
-			stptr = stptr->next;
+		rbch = cs->readisac(cs, ISAC_RBCH);
+		star = cs->readisac(cs, ISAC_STAR);
+		if (cs->debug) 
+			debugl1(cs, "D-Channel Busy RBCH %02x STAR %02x", rbch, star);
+		if (rbch & ISAC_RBCH_XAC) { /* D-Channel Busy */
+			test_and_set_bit(FLG_L1_DBUSY, &cs->HW_Flags);
+			stptr = cs->stlist;
+			while (stptr != NULL) {
+				stptr->l1.l1l2(stptr, PH_PAUSE | INDICATION, NULL);
+				stptr = stptr->next;
+			}
+		} else {
+			/* discard frame; reset transceiver */
+			if (cs->tx_skb) {
+				idev_kfree_skb(cs->tx_skb, FREE_WRITE);
+				cs->tx_cnt = 0;
+				cs->tx_skb = NULL;
+			} else {
+				printk(KERN_WARNING "HiSax: ISAC D-Channel Busy no skb\n");
+				debugl1(cs, "D-Channel Busy no skb");
+			}
+			cs->writeisac(cs, ISAC_CMDR, 0x01); /* Transmitter reset */
 		}
 	}
 }
