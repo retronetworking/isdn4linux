@@ -1,6 +1,12 @@
 /* $Id$
  *
  * $Log$
+ * Revision 1.3  1996/04/30 10:04:19  fritz
+ * Started voice support.
+ * Added printk() to debug-switcher for easier
+ * synchronization between printk()'s and output
+ * of /dev/isdnctrl.
+ *
  * Revision 1.2  1996/04/20 16:42:29  fritz
  * Changed statemachine to allow reject of incoming calls.
  *
@@ -676,7 +682,7 @@ static struct FsmNode fnlist[] =
         {ST_IN_W,             EV_DLEST,               r7},
         {ST_IN_W,             EV_DLRL,                r3_1},
         {ST_IN,               EV_DLRL,                r3_1},
-        {ST_IN,               EV_HANGUP,              r3_1},
+        {ST_IN,               EV_HANGUP,              r2_1},
         {ST_IN,               EV_RELEASE_IND,         r2_2},
         {ST_IN,               EV_RELEASE_CNF,         r2_2},
         {ST_IN,               EV_ACCEPTD,             r8},
