@@ -57,7 +57,7 @@ Divas_init(void)
 {
 	printk(KERN_DEBUG "DIVA Server Driver - initialising\n");
 	
-	printk(KERN_DEBUG "DIVA Server Driver - Version 2.00 (%s)\n",file_check());
+	printk(KERN_DEBUG "DIVA Server Driver - Version 2.0.12 (%s)\n",file_check());
 
 
 #if !defined(CONFIG_PCI)
