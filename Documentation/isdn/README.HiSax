@@ -540,7 +540,7 @@ case "$1" in
 			/sbin/isdnctrl encap isdn0s cisco-h
 		fi
 	fi
-	/sbin/isdnctrl status isdn0 on
+	/sbin/isdnctrl dialmode isdn0 auto
 	# configure tcp/ip
 	/sbin/ifconfig isdn0 ${LOCAL_IP} pointopoint ${REMOTE_IP}
 	/sbin/route add -host ${REMOTE_IP} isdn0
