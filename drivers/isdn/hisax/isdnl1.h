@@ -1,6 +1,9 @@
 /* $Id$
 
  * $Log$
+ * Revision 2.0  1997/06/26 11:02:55  keil
+ * New Layer and card interface
+ *
  * Revision 1.4  1997/04/06 22:55:52  keil
  * Using SKB's
  *
@@ -32,13 +35,16 @@
 
 #define D_RCVBUFREADY	0
 #define D_XMTBUFREADY	1
-#define L1_PHCHANGE	2
+#define L1_PH_ACT	2
+#define L1_PH_DEACT	3
 
 #define B_RCVBUFREADY 0
 #define B_XMTBUFREADY 1
 
 extern void debugl1(struct IsdnCardState *sp, char *msg);
 extern get_irq(int cardnr, void *routine);
+extern void L1activated(struct IsdnCardState *cs);
+extern int L1act_wanted(struct IsdnCardState *cs);
 
 
 #ifdef L2FRAME_DEBUG
