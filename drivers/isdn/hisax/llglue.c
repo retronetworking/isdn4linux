@@ -7,6 +7,9 @@
  *              Fritz Elfert
  *
  * $Log$
+ * Revision 1.3  1996/11/05 19:35:47  keil
+ * using config.h
+ *
  * Revision 1.2  1996/10/22 23:14:07  fritz
  * Changes for compatibility to 2.0.X and 2.1.X kernels.
  *
@@ -25,7 +28,7 @@
 extern struct Channel *chanlist;
 int     	HiSax_Installed=0;
 int             drid;
-char            *HiSax_id = "\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0";
+extern		char            *HiSax_id;
 
 isdn_if         iif;
 
@@ -118,7 +121,7 @@ ll_init(void)
 	    ISDN_FEATURE_P_EURO |
 #endif
 	    0;
-	    
+
 
 	iif.command = HiSax_command;
 	iif.writebuf = HiSax_writebuf;
@@ -156,7 +159,7 @@ ll_unload(void)
 	ic.command = ISDN_STAT_UNLOAD;
 	ic.driver = drid;
 	iif.statcallb(&ic);
-	if (HiSax_status_buf) 
+	if (HiSax_status_buf)
 		Sfree(HiSax_status_buf);
 	HiSax_status_read  = NULL;
 	HiSax_status_write = NULL;
