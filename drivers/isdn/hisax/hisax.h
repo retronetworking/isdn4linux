@@ -3,6 +3,9 @@
  *   Basic declarations, defines and prototypes
  *
  * $Log$
+ * Revision 1.5  1996/12/08 19:49:19  keil
+ * Monitor channel support
+ *
  * Revision 1.4  1996/11/18 15:35:39  keil
  * some changes for ELSA cards
  *
@@ -94,11 +97,13 @@
 
 #define PH_REQUEST_PULL        49
 #define PH_PULL_ACK            50
-#define	PH_DATA_PULLED	       51
+#define PH_DATA_PULLED	       51
 #define CC_INFO_CHARGE         52
 
+#define MDL_REMOVE             60
+
 /*
- * Message-Types 
+ * Message-Types
  */
 
 #define MT_ALERTING            0x01
@@ -172,7 +177,7 @@ byte           *Smalloc(int size, int pr, char *why);
 void            Sfree(byte * ptr);
 
 /*
- * Statemachine 
+ * Statemachine
  */
 struct Fsm {
 	int            *jumpmatrix;
@@ -301,7 +306,7 @@ struct Param {
 	char            calling[40]; /* Called Id                       */
 	char            called[40];  /* Caller Id                       */
 	int             chargeinfo;  /* Charge Info - only for 1tr6 in
-				      * the moment 
+				      * the moment
 				      */
 	int		spv;	     /* SPV Flag */
 };
@@ -385,7 +390,7 @@ struct IsdnCardState {
 #define  ISDN_CTYPE_8_0		2
 #define  ISDN_CTYPE_16_3	3
 #define  ISDN_CTYPE_PNP		4
-#define  ISDN_CTYPE_A1		5 
+#define  ISDN_CTYPE_A1		5
 #define  ISDN_CTYPE_ELSA	6
 
 #define  ISDN_CTYPE_COUNT	6
