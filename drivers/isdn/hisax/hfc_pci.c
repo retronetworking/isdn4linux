@@ -23,6 +23,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.14  1999/08/12 18:59:45  werner
+ * Added further manufacturer and device ids to PCI list
+ *
  * Revision 1.13  1999/08/11 21:01:28  keil
  * new PCI codefix
  *
@@ -67,6 +70,7 @@
  *
  */
 
+#include <linux/config.h>
 #define __NO_VERSION__
 #include "hisax.h"
 #include "hfc_pci.h"

@@ -6,6 +6,9 @@
  * (c) Copyright 1999 by Carsten Paeth (calle@calle.in-berlin.de)
  * 
  * $Log$
+ * Revision 1.3  1999/07/09 15:05:41  keil
+ * compat.h is now isdn_compat.h
+ *
  * Revision 1.2  1999/07/05 15:09:51  calle
  * - renamed "appl_release" to "appl_released".
  * - version und profile data now cleared on controller reset
@@ -31,7 +34,6 @@
  *
  */
 
-#include <linux/config.h>
 #include <linux/module.h>
 #include <linux/kernel.h>
 #include <linux/skbuff.h>

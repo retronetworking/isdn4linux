@@ -24,6 +24,10 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.3  1999/08/18 20:17:01  armin
+ * Added XLOG function for all cards.
+ * Bugfix of alloc_skb NULL pointer.
+ *
  * Revision 1.2  1999/07/25 15:12:05  armin
  * fix of some debug logs.
  * enabled ISA-cards option.
@@ -36,6 +40,7 @@
  */
 
 
+#include <linux/config.h>
 #include "eicon.h"
 
 void

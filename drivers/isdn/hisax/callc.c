@@ -11,6 +11,9 @@
  *              Fritz Elfert
  *
  * $Log$
+ * Revision 2.31  1999/08/05 20:43:10  keil
+ * ISAR analog modem support
+ *
  * Revision 2.30  1999/07/25 16:24:04  keil
  * Fixed TEI now working again
  *
@@ -123,6 +126,7 @@
  *
  */
 
+#include <linux/config.h>
 #define __NO_VERSION__
 #include "hisax.h"
 #include "../avmb1/capicmd.h"  /* this should be moved in a common place */

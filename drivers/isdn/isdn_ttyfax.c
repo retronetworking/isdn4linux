@@ -20,6 +20,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.2  1999/08/05 10:36:10  armin
+ * Bugfix: kernel oops on getting revision.
+ *
  * Revision 1.1  1999/07/31 12:59:50  armin
  * Added tty fax capabilities.
  *
@@ -30,7 +33,6 @@
 #undef ISDN_TTY_FAX_CMD_DEBUG
 
 #define __NO_VERSION__
-#include <linux/config.h>
 #include <linux/module.h>
 #include <linux/isdn.h>
 #include "isdn_common.h"

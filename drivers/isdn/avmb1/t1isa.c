@@ -6,6 +6,9 @@
  * (c) Copyright 1999 by Carsten Paeth (calle@calle.in-berlin.de)
  * 
  * $Log$
+ * Revision 1.4  1999/07/09 15:05:50  keil
+ * compat.h is now isdn_compat.h
+ *
  * Revision 1.3  1999/07/06 07:42:04  calle
  * - changes in /proc interface
  * - check and changed calls to [dev_]kfree_skb and [dev_]alloc_skb.
@@ -35,7 +38,6 @@
  *
  */
 
-#include <linux/config.h>
 #include <linux/module.h>
 #include <linux/kernel.h>
 #include <linux/skbuff.h>

@@ -21,6 +21,10 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.9  1999/08/18 20:16:57  armin
+ * Added XLOG function for all cards.
+ * Bugfix of alloc_skb NULL pointer.
+ *
  * Revision 1.8  1999/07/25 15:12:01  armin
  * fix of some debug logs.
  * enabled ISA-cards option.
@@ -188,12 +192,15 @@ typedef struct {
 #ifdef __KERNEL__
 
 /* Kernel includes */
+#include <linux/config.h>
 #include <linux/sched.h>
 #include <linux/string.h>
 #include <linux/tqueue.h>
 #include <linux/interrupt.h>
 #include <linux/skbuff.h>
 #include <linux/errno.h>
+#include <linux/fs.h>
+#include <linux/major.h>
 #include <asm/segment.h>
 #include <asm/io.h>
 #include <linux/kernel.h>

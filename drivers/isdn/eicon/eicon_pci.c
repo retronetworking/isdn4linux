@@ -26,6 +26,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.9  1999/08/11 21:01:11  keil
+ * new PCI codefix
+ *
  * Revision 1.8  1999/08/10 16:02:20  calle
  * struct pci_dev changed in 2.3.13. Made the necessary changes.
  *
@@ -61,6 +64,7 @@
  *
  */
 
+#include <linux/config.h>
 #include <linux/pci.h>
 
 #include "eicon.h"

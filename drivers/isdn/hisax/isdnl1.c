@@ -15,6 +15,9 @@
  *
  *
  * $Log$
+ * Revision 2.34  1999/07/09 13:50:15  keil
+ * remove unused variable
+ *
  * Revision 2.33  1999/07/09 13:34:33  keil
  * remove debug code
  *
@@ -129,7 +132,6 @@
 const char *l1_revision = "$Revision$";
 
 #define __NO_VERSION__
-#include <linux/config.h>
 #include "hisax.h"
 #include "isdnl1.h"
 

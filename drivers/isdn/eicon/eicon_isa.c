@@ -22,6 +22,10 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.6  1999/07/25 15:12:06  armin
+ * fix of some debug logs.
+ * enabled ISA-cards option.
+ *
  * Revision 1.5  1999/04/01 12:48:33  armin
  * Changed some log outputs.
  *
@@ -46,6 +50,7 @@
  *
  */
 
+#include <linux/config.h>
 #include "eicon.h"
 #include "eicon_isa.h"
 

@@ -6,6 +6,9 @@
  *              based on source code from Karsten Keil
  *
  * $Log$
+ * Revision 2.5  1999/08/11 21:01:26  keil
+ * new PCI codefix
+ *
  * Revision 2.4  1999/08/10 16:01:54  calle
  * struct pci_dev changed in 2.3.13. Made the necessary changes.
  *
@@ -20,6 +23,7 @@
  * Initial revision
  *
  */
+#include <linux/config.h>
 #define __NO_VERSION__
 #include "hisax.h"
 #include "isac.h"

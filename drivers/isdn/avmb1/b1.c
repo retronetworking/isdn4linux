@@ -6,6 +6,9 @@
  * (c) Copyright 1999 by Carsten Paeth (calle@calle.in-berlin.de)
  * 
  * $Log$
+ * Revision 1.7  1999/08/04 10:10:09  calle
+ * Bugfix: corrected /proc functions, added structure for new AVM cards.
+ *
  * Revision 1.6  1999/07/23 08:51:04  calle
  * small fix and typo in checkin before.
  *
@@ -44,7 +47,6 @@
  *
  */
 
-#include <linux/config.h>
 #include <linux/module.h>
 #include <linux/kernel.h>
 #include <linux/skbuff.h>

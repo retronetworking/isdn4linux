@@ -7,6 +7,9 @@
  * Author       Roland Klabunde (R.Klabunde@Berkom.de)
  *
  * $Log$
+ * Revision 1.6  1999/08/11 21:01:22  keil
+ * new PCI codefix
+ *
  * Revision 1.5  1999/08/10 16:01:46  calle
  * struct pci_dev changed in 2.3.13. Made the necessary changes.
  *
@@ -25,6 +28,7 @@
 
 #define __NO_VERSION__
 
+#include <linux/config.h>
 #include "hisax.h"
 #include "isac.h"
 #include "hscx.h"

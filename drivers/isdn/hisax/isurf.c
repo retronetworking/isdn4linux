@@ -5,6 +5,10 @@
  * Author     Karsten Keil (keil@isdn4linux.de)
  *
  * $Log$
+ * Revision 1.3  1999/07/12 21:05:18  keil
+ * fix race in IRQ handling
+ * added watchdog for lost IRQs
+ *
  * Revision 1.2  1999/07/01 08:07:56  keil
  * Initial version
  *
@@ -13,7 +17,6 @@
  */
 
 #define __NO_VERSION__
-#include <linux/config.h>
 #include "hisax.h"
 #include "isac.h"
 #include "isar.h"

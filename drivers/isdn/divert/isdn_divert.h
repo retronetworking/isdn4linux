@@ -20,13 +20,15 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.2  1999/07/04 21:37:33  werner
+ * Ported from kernel version 2.0
+ *
  *
  *
  */
 
 
 
-#include <linux/config.h>
 #include <linux/ioctl.h>
 #include <linux/types.h>
 

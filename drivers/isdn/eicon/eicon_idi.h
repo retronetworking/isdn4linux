@@ -21,6 +21,10 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.6  1999/07/25 15:12:04  armin
+ * fix of some debug logs.
+ * enabled ISA-cards option.
+ *
  * Revision 1.5  1999/07/11 17:16:26  armin
  * Bugfixes in queue handling.
  * Added DSP-DTMF decoder functions.
@@ -50,6 +54,7 @@
 #ifndef IDI_H
 #define IDI_H
 
+#include <linux/config.h>
 
 #define ASSIGN  0x01
 #define REMOVE  0xff

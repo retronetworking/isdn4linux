@@ -20,6 +20,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.15  1999/07/31 12:59:48  armin
+ * Added tty fax capabilities.
+ *
  * Revision 1.14  1999/07/11 17:14:15  armin
  * Added new layer 2 and 3 protocols for Fax and DSP functions.
  * Moved "Add CPN to RING message" to new register S23,
@@ -83,6 +86,7 @@
  *
  */
 
+#include <linux/config.h>
 
 #define DLE 0x10
 #define ETX 0x03
