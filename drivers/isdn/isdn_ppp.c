@@ -809,7 +809,10 @@ isdn_ppp_write(int min, struct file *file, const char *buf, int count)
 			}
 			skb_reserve(skb, hl);
 			if (copy_from_user(skb_put(skb, count), buf, count))
+			{
+				kfree_skb(skb);
 				return -EFAULT;
+			}
 			if (is->debug & 0x40) {
 				printk(KERN_DEBUG "ppp xmit: len %d\n", (int) skb->len);
 				isdn_ppp_frame_log("xmit", skb->data, skb->len, 32,is->unit,lp->ppp_slot);
@@ -843,7 +846,7 @@ isdn_ppp_init(void)
 		      kmalloc(sizeof(struct ippp_struct), GFP_KERNEL))) {
 			printk(KERN_WARNING "isdn_ppp_init: Could not alloc ippp_table\n");
 			for (j = 0; j < i; j++)
-				kfree(ippp_table[i]);
+				kfree(ippp_table[j]);
 			return -1;
 		}
 		memset((char *) ippp_table[i], 0, sizeof(struct ippp_struct));

@@ -850,14 +850,14 @@ static struct FsmNode fnlist[] __initdata =
 
 #define FNCOUNT (sizeof(fnlist)/sizeof(struct FsmNode))
 
-void __init
+int __init
 CallcNew(void)
 {
 	callcfsm.state_count = STATE_COUNT;
 	callcfsm.event_count = EVENT_COUNT;
 	callcfsm.strEvent = strEvent;
 	callcfsm.strState = strState;
-	FsmNew(&callcfsm, fnlist, FNCOUNT);
+	return FsmNew(&callcfsm, fnlist, FNCOUNT);
 }
 
 void

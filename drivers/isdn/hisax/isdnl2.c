@@ -1831,14 +1831,14 @@ releasestack_transl2(struct PStack *st)
 {
 }
 
-void __init
+int __init
 Isdnl2New(void)
 {
 	l2fsm.state_count = L2_STATE_COUNT;
 	l2fsm.event_count = L2_EVENT_COUNT;
 	l2fsm.strEvent = strL2Event;
 	l2fsm.strState = strL2State;
-	FsmNew(&l2fsm, L2FnList, L2_FN_COUNT);
+	return FsmNew(&l2fsm, L2FnList, L2_FN_COUNT);
 }
 
 void

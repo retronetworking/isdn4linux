@@ -232,6 +232,7 @@ typedef struct wait_queue *wait_queue_head_t;
 
 #define PCI_DEVICE_ID_AVM_B1		0x0700
 #define PCI_DEVICE_ID_AVM_C4		0x0800
+#define PCI_DEVICE_ID_AVM_C2		0x1100
 #define PCI_DEVICE_ID_AVM_T1		0x1200
 
 #define PCI_VENDOR_ID_HYPERCOPE		0x1365
