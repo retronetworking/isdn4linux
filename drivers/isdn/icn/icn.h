@@ -19,6 +19,10 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.16  1996/05/17 15:46:43  fritz
+ * Removed own queue management.
+ * Changed queue management to use sk_buffs.
+ *
  * Revision 1.15  1996/05/02 04:01:57  fritz
  * Removed ICN_MAXCARDS
  *
@@ -228,10 +232,6 @@ typedef struct icn_card {
         struct sk_buff_head
                 spqueue[ICN_BCH];     /* Sendqueue                        */
         char regname[35];             /* Name used for request_region     */
-#ifdef DEBUG_RCVCALLBACK
-        int akt_pending[ICN_BCH];
-        int max_pending[ICN_BCH];
-#endif
 } icn_card;
 
 /*
