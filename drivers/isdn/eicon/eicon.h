@@ -21,6 +21,12 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.10  1999/08/22 20:26:41  calle
+ * backported changes from kernel 2.3.14:
+ * - several #include "config.h" gone, others come.
+ * - "struct device" changed to "struct net_device" in 2.3.14, added a
+ *   define in isdn_compat.h for older kernel versions.
+ *
  * Revision 1.9  1999/08/18 20:16:57  armin
  * Added XLOG function for all cards.
  * Bugfix of alloc_skb NULL pointer.
@@ -215,6 +221,8 @@ typedef struct {
 #include <linux/ctype.h>
 
 #include <linux/isdnif.h>
+
+#include <linux/isdn_compat.h>
 
 typedef struct {
   __u16 length __attribute__ ((packed)); /* length of data/parameter field */
