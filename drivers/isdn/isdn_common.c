@@ -21,6 +21,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.75  1999/04/18 14:06:47  fritz
+ * Removed TIMRU stuff.
+ *
  * Revision 1.74  1999/04/12 13:16:45  fritz
  * Changes from 2.0 tree.
  *
@@ -922,6 +925,14 @@ isdn_status_callback(isdn_ctrl * c)
 			isdn_info_update();
 			break;
 		case ISDN_STAT_UNLOAD:
+			while (dev->drv[di]->locks > 0) {
+				isdn_ctrl cmd;
+				cmd.driver = di;
+				cmd.arg = 0;
+				cmd.command = ISDN_CMD_UNLOCK;
+				isdn_command(&cmd);
+				dev->drv[di]->locks--;
+			}
 			save_flags(flags);
 			cli();
 			isdn_tty_stat_callback(i, c);
@@ -1311,11 +1322,11 @@ isdn_poll(struct file *file, poll_table * wait)
 		return mask;
 	}
 	if (minor >= ISDN_MINOR_CTRL && minor <= ISDN_MINOR_CTRLMAX) {
-		poll_wait(file, &(dev->drv[drvidx]->st_waitq), wait);
 		if (drvidx < 0) {
-			printk(KERN_ERR "isdn_common: isdn_poll 1 -> what the hell\n");
-			return POLLERR;
+			/* driver deregistered while file open */
+		        return POLLHUP;
 		}
+		poll_wait(file, &(dev->drv[drvidx]->st_waitq), wait);
 		mask = POLLOUT | POLLWRNORM;
 		if (dev->drv[drvidx]->stavail) {
 			mask |= POLLIN | POLLRDNORM;

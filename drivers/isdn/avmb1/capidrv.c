@@ -6,6 +6,9 @@
  * Copyright 1997 by Carsten Paeth (calle@calle.in-berlin.de)
  *
  * $Log$
+ * Revision 1.18  1999/06/21 15:24:15  calle
+ * extend information in /proc.
+ *
  * Revision 1.17  1999/06/10 16:53:55  calle
  * Removing of module b1pci will now remove card from lower level.
  *
@@ -1443,7 +1446,7 @@ static void capidrv_signal(__u16 applid, __u32 dummy)
 
 	while ((*capifuncs->capi_get_message) (global.appid, &skb) == CAPI_NOERROR) {
 		capi_message2cmsg(&s_cmsg, skb->data);
-		if (debugmode > 1)
+		if (debugmode > 2)
 			printk(KERN_DEBUG "capidrv_signal: applid=%d %s\n",
 					applid, capi_cmsg2str(&s_cmsg));
 
@@ -1526,6 +1529,11 @@ static _cmsg cmdcmsg;
 static int capidrv_ioctl(isdn_ctrl * c, capidrv_contr * card)
 {
 	switch (c->arg) {
+	case 1:
+		debugmode = (int)(*((unsigned int *)c->parm.num));
+		printk(KERN_DEBUG "capidrv-%d: debugmode=%d\n",
+				card->contrnr, debugmode);
+		return 0;
 	default:
 		printk(KERN_DEBUG "capidrv-%d: capidrv_ioctl(%ld) called ??\n",
 				card->contrnr, c->arg);
@@ -2023,8 +2031,8 @@ static void enable_dchannel_trace(capidrv_contr *card)
 	   return;
 	}
 	if (strstr(manufacturer, "AVM") == 0) {
-	   printk(KERN_ERR "%s: not from AVM, no d-channel trace possible\n",
-			card->name);
+	   printk(KERN_ERR "%s: not from AVM, no d-channel trace possible (%s)\n",
+			card->name, manufacturer);
 	   return;
 	}
         errcode = (*capifuncs->capi_get_version)(contr, &version);
@@ -2057,6 +2065,51 @@ static void enable_dchannel_trace(capidrv_contr *card)
 					   1,           /* Function */
 					   (_cstruct)"\004\002\003\000\000");
 	}
+	send_message(card, &cmdcmsg);
+}
+
+static void disable_dchannel_trace(capidrv_contr *card)
+{
+        __u8 manufacturer[CAPI_MANUFACTURER_LEN];
+        capi_version version;
+	__u16 contr = card->contrnr;
+	__u16 errcode;
+	__u16 avmversion[3];
+
+        errcode = (*capifuncs->capi_get_manufacturer)(contr, manufacturer);
+        if (errcode != CAPI_NOERROR) {
+	   printk(KERN_ERR "%s: can't get manufacturer (0x%x)\n",
+			card->name, errcode);
+	   return;
+	}
+	if (strstr(manufacturer, "AVM") == 0) {
+	   printk(KERN_ERR "%s: not from AVM, no d-channel trace possible (%s)\n",
+			card->name, manufacturer);
+	   return;
+	}
+        errcode = (*capifuncs->capi_get_version)(contr, &version);
+        if (errcode != CAPI_NOERROR) {
+	   printk(KERN_ERR "%s: can't get version (0x%x)\n",
+			card->name, errcode);
+	   return;
+	}
+	avmversion[0] = (version.majormanuversion >> 4) & 0x0f;
+	avmversion[1] = (version.majormanuversion << 4) & 0xf0;
+	avmversion[1] |= (version.minormanuversion >> 4) & 0x0f;
+	avmversion[2] |= version.minormanuversion & 0x0f;
+
+        if (avmversion[0] > 3 || (avmversion[0] == 3 && avmversion[1] > 6)) {
+		printk(KERN_INFO "%s: D2 trace disabled\n", card->name);
+	} else {
+		printk(KERN_INFO "%s: D3 trace disabled\n", card->name);
+	}
+	capi_fill_MANUFACTURER_REQ(&cmdcmsg, global.appid,
+				   card->msgid++,
+				   contr,
+				   0x214D5641,  /* ManuID */
+				   0,           /* Class */
+				   1,           /* Function */
+				   (_cstruct)"\004\000\000\000\000");
 	send_message(card, &cmdcmsg);
 }
 
@@ -2143,8 +2196,7 @@ static int capidrv_addcontr(__u16 contr, struct capi_profile *profp)
 	printk(KERN_INFO "%s: now up (%d B channels)\n",
 		card->name, card->nbchan);
 
-        if (card->nbchan == 2)  /* no T1 */
-        	enable_dchannel_trace(card);
+	enable_dchannel_trace(card);
 
 	return 0;
 }
@@ -2164,6 +2216,15 @@ static int capidrv_delcontr(__u16 contr)
 		return -1;
 	}
 	card = *pp;
+
+	if (debugmode)
+		printk(KERN_DEBUG "capidrv-%d: id=%d unloading\n",
+					card->contrnr, card->myid);
+
+	cmd.command = ISDN_STAT_UNLOAD;
+	cmd.driver = card->myid;
+	card->interface.statcallb(&cmd);
+
 	*pp = (*pp)->next;
 	global.ncontr--;
 
@@ -2177,10 +2238,6 @@ static int capidrv_delcontr(__u16 contr)
 	}
 	kfree(card->bchans);
 
-	cmd.command = ISDN_STAT_UNLOAD;
-	cmd.driver = card->myid;
-	card->interface.statcallb(&cmd);
-
 	printk(KERN_INFO "%s: now down.\n", card->name);
 
 	kfree(card);
@@ -2191,11 +2248,14 @@ static int capidrv_delcontr(__u16 contr)
 
 static void lower_callback(unsigned int cmd, __u16 contr, void *data)
 {
+
 	switch (cmd) {
 	case KCI_CONTRUP:
+		printk(KERN_INFO "capidrv: controller %hu up\n", contr);
 		(void) capidrv_addcontr(contr, (capi_profile *) data);
 		break;
 	case KCI_CONTRDOWN:
+		printk(KERN_INFO "capidrv: controller %hu down\n", contr);
 		(void) capidrv_delcontr(contr);
 		break;
 	}
@@ -2336,6 +2396,7 @@ void cleanup_module(void)
 
 	for (card = global.contr_list; card; card = next) {
 		next = card->next;
+		disable_dchannel_trace(card);
 		capidrv_delcontr(card->contrnr);
 	}
 
