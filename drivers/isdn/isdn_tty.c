@@ -20,6 +20,10 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.32  1997/02/23 15:43:03  fritz
+ * Small change in handling of incoming calls
+ * documented in newest version of ttyI.4
+ *
  * Revision 1.31  1997/02/21 13:05:57  fritz
  * Bugfix: Remote hangup did not set location-info on ttyI's
  *
@@ -164,6 +168,7 @@ static void isdn_tty_modem_reset_regs(modem_info *, int);
 static void isdn_tty_cmd_ATA(modem_info *);
 static void isdn_tty_at_cout(char *, modem_info *);
 static void isdn_tty_flush_buffer(struct tty_struct *);
+static void isdn_tty_modem_result(int, modem_info *);
 
 /* Leave this unchanged unless you know what you do! */
 #define MODEM_PARANOIA_CHECK
@@ -376,9 +381,20 @@ isdn_tty_handleDLEdown(modem_info * info, atemu * m, int len)
 				case DC4:
 					/* Abort RX */
 					info->vonline &= ~1;
+#ifdef ISDN_DEBUG_MODEM_VOICE
+					printk(KERN_DEBUG
+					       "DLEdown: got DLE-DC4, send DLE-ETX on ttyI%d\n",
+					       info->line);
+#endif
 					isdn_tty_at_cout("\020\003", info);
-					if (!info->vonline)
+					if (!info->vonline) {
+#ifdef ISDN_DEBUG_MODEM_VOICE
+						printk(KERN_DEBUG
+						       "DLEdown: send VCON on ttyI%d\n",
+						       info->line);
+#endif
 						isdn_tty_at_cout("\r\nVCON\r\n", info);
+					}
 					/* Fall through */
 				case 'q':
 				case 's':
@@ -450,6 +466,17 @@ isdn_tty_senddown(modem_info * info)
 	struct sk_buff *skb;
 	unsigned long flags;
 
+	if (info->vonline & 4) {
+		info->vonline &= ~6;
+		if (!info->vonline) {
+#ifdef ISDN_DEBUG_MODEM_VOICE
+			printk(KERN_DEBUG
+			       "senddown: send VCON on ttyI%d\n",
+			       info->line);
+#endif
+			isdn_tty_at_cout("\r\nVCON\r\n", info);
+		}
+	}
 	save_flags(flags);
 	cli();
 	if (!(buflen = info->xmit_count)) {
@@ -513,11 +540,6 @@ isdn_tty_senddown(modem_info * info)
 				memcpy(skb_put(skb, buflen), hbuf, buflen);
 				break;
 		}
-		if (info->vonline & 4) {
-			info->vonline &= ~6;
-			if (!info->vonline)
-				isdn_tty_at_cout("\r\nVCON\r\n", info);
-		}
 	} else {
 #endif                          /* CONFIG_ISDN_AUDIO */
 		skb = dev_alloc_skb(buflen + skb_res);
@@ -573,7 +595,6 @@ static void
 isdn_tty_modem_ncarrier(modem_info * info)
 {
 	if (info->ncarrier) {
-		info->ncarrier = 0;
 		info->nc_timer.expires = jiffies + HZ;
 		info->nc_timer.function = isdn_tty_modem_do_ncarrier;
 		info->nc_timer.data = (unsigned long) info;
@@ -659,7 +680,7 @@ isdn_tty_dial(char *n, modem_info * info, atemu * m)
  * ISDN-line (hangup). The usage-status is cleared
  * and some cleanup is done also.
  */
-void
+static void
 isdn_tty_modem_hup(modem_info * info, int local)
 {
 	isdn_ctrl cmd;
@@ -671,20 +692,15 @@ isdn_tty_modem_hup(modem_info * info, int local)
 	printk(KERN_DEBUG "Mhup ttyI%d\n", info->line);
 #endif
 	info->rcvsched = 0;
-	if (info->online || info->vonline)
-		info->last_lhup = local;
-	info->online = 0;
 	isdn_tty_flush_buffer(info->tty);
-	if (info->vonline & 1) {
-		/* voice-recording, add DLE-ETX */
-		isdn_tty_at_cout("\020\003", info);
+	if (info->online) {
+		info->last_lhup = local;
+		/* NO CARRIER message */
+		isdn_tty_modem_result(3, info);
+		info->online = 0;
 	}
-	if (info->vonline & 2) {
-		/* voice-playing, add DLE-DC4 */
-		isdn_tty_at_cout("\020\024", info);
-	}
-	info->vonline = 0;
 #ifdef CONFIG_ISDN_AUDIO
+	info->vonline = 0;
 	if (info->dtmf_state) {
 		kfree(info->dtmf_state);
 		info->dtmf_state = NULL;
@@ -898,10 +914,10 @@ isdn_tty_write(struct tty_struct *tty, int from_user, const u_char * buf, int co
 		if (c <= 0)
 			break;
 		if ((info->online > 1) ||
-		    (info->vonline & 2)) {
+		    (info->vonline & 3)) {
 			atemu *m = &info->emu;
 
-			if (!(info->vonline & 2))
+			if (!info->vonline)
 				isdn_tty_check_esc(buf, m->mdmreg[2], c,
 						   &(m->pluscount),
 						   &(m->lastplus),
@@ -911,21 +927,36 @@ isdn_tty_write(struct tty_struct *tty, int from_user, const u_char * buf, int co
 			else
 				memcpy(&(info->xmit_buf[info->xmit_count]), buf, c);
 #ifdef CONFIG_ISDN_AUDIO
-			if (info->vonline & 2) {
-				int cc;
-
-				if (!(cc = isdn_tty_handleDLEdown(info, m, c))) {
-					/* If DLE decoding results in zero-transmit, but
-					 * c originally was non-zero, do a wakeup.
-					 */
-					if ((tty->flags & (1 << TTY_DO_WRITE_WAKEUP)) &&
-					    tty->ldisc.write_wakeup)
-						(tty->ldisc.write_wakeup) (tty);
-					wake_up_interruptible(&tty->write_wait);
-					info->msr |= UART_MSR_CTS;
-					info->lsr |= UART_LSR_TEMT;
+			if (info->vonline) {
+				int cc = isdn_tty_handleDLEdown(info, m, c);
+				if (info->vonline & 2) {
+					if (!cc) {
+						/* If DLE decoding results in zero-transmit, but
+						 * c originally was non-zero, do a wakeup.
+						 */
+						if ((tty->flags & (1 << TTY_DO_WRITE_WAKEUP)) &&
+						 tty->ldisc.write_wakeup)
+							(tty->ldisc.write_wakeup) (tty);
+						wake_up_interruptible(&tty->write_wait);
+						info->msr |= UART_MSR_CTS;
+						info->lsr |= UART_LSR_TEMT;
+					}
+					info->xmit_count += cc;
 				}
-				info->xmit_count += cc;
+				if ((info->vonline & 3) == 1) {
+					/* Do NOT handle Ctrl-Q or Ctrl-S
+					 * when in full-duplex audio mode.
+					 */
+					if (isdn_tty_end_vrx(buf, c, from_user)) {
+						info->vonline &= ~1;
+#ifdef ISDN_DEBUG_MODEM_VOICE
+						printk(KERN_DEBUG
+						       "got !^Q/^S, send DLE-ETX,VCON on ttyI%d\n",
+						       info->line);
+#endif
+						isdn_tty_at_cout("\020\003\r\nVCON\r\n", info);
+					}
+				}
 			} else
 #endif
 				info->xmit_count += c;
@@ -937,15 +968,6 @@ isdn_tty_write(struct tty_struct *tty, int from_user, const u_char * buf, int co
 			info->msr |= UART_MSR_CTS;
 			info->lsr |= UART_LSR_TEMT;
 #ifdef CONFIG_ISDN_AUDIO
-			if ((info->vonline & 3) == 1) {
-				/* Do NOT handle Ctrl-Q or Ctrl-S
-				 * when in full-duplex audio mode.
-				 */
-				if (isdn_tty_end_vrx(buf, c, from_user)) {
-					info->vonline &= ~1;
-					isdn_tty_at_cout("\020\003\r\nVCON\r\n", info);
-				}
-			} else
 #endif
 			if (info->dialing) {
 				info->dialing = 0;
@@ -1826,6 +1848,9 @@ isdn_tty_find_icall(int di, int ch, setup_parm setup)
 				restore_flags(flags);
 				printk(KERN_INFO "isdn_tty: call from %s, -> RING on ttyI%d\n", nr,
 				       info->line);
+				info->msr |= UART_MSR_RI;
+				isdn_tty_modem_result(2, info);
+				isdn_timer_ctrl(ISDN_TIMER_MODEMRING, 1);
 				return info->line;
 			}
 		}
@@ -1834,6 +1859,116 @@ isdn_tty_find_icall(int di, int ch, setup_parm setup)
 	       dev->drv[di]->reject_bus ? "rejected" : "ignored");
 	restore_flags(flags);
 	return -1;
+}
+
+#define TTY_IS_ACTIVE(info) \
+	(info->flags & (ISDN_ASYNC_NORMAL_ACTIVE | ISDN_ASYNC_CALLOUT_ACTIVE))
+
+int
+isdn_tty_stat_callback(int i, isdn_ctrl * c)
+{
+	int mi;
+	modem_info *info;
+
+	if (i < 0)
+		return 0;
+	if ((mi = dev->m_idx[i]) >= 0) {
+		info = &dev->mdm.info[mi];
+		switch (c->command) {
+			case ISDN_STAT_BSENT:
+				if ((info->isdn_driver == c->driver) &&
+				    (info->isdn_channel == c->arg)) {
+					info->msr |= UART_MSR_CTS;
+					if (info->send_outstanding)
+						if (!(--info->send_outstanding))
+							info->lsr |= UART_LSR_TEMT;
+					isdn_tty_tint(info);
+					return 1;
+				}
+				break;
+			case ISDN_STAT_CAUSE:
+				/* Signal cause to tty-device */
+				strncpy(info->last_cause, c->parm.num, 5);
+				return 1;
+			case ISDN_STAT_DCONN:
+				if (TTY_IS_ACTIVE(info)) {
+					if (info->dialing == 1) {
+						info->dialing = 2;
+						return 1;
+					}
+				}
+				break;
+			case ISDN_STAT_DHUP:
+				if (TTY_IS_ACTIVE(info)) {
+					if (info->dialing == 1) {
+						info->dialing = 0;
+						isdn_tty_modem_result(7, info);
+					}
+#ifdef ISDN_DEBUG_MODEM_HUP
+					printk(KERN_DEBUG "Mhup in ISDN_STAT_DHUP\n");
+#endif
+					isdn_tty_modem_hup(info, 0);
+					return 1;
+				}
+				break;
+			case ISDN_STAT_BCONN:
+				/* Schedule CONNECT-Message to any tty
+				 * waiting for it and
+				 * set DCD-bit of its modem-status.
+				 */
+				if (TTY_IS_ACTIVE(info)) {
+					info->msr |= UART_MSR_DCD;
+					if (info->dialing) {
+						info->dialing = 0;
+						info->last_dir = 1;
+					} else
+						info->last_dir = 0;
+					info->rcvsched = 1;
+					if (USG_MODEM(dev->usage[i]))
+						isdn_tty_modem_result(5, info);
+					if (USG_VOICE(dev->usage[i]))
+						isdn_tty_modem_result(11, info);
+					return 1;
+				}
+				break;
+			case ISDN_STAT_BHUP:
+				if (TTY_IS_ACTIVE(info)) {
+#ifdef ISDN_DEBUG_MODEM_HUP
+					printk(KERN_DEBUG "Mhup in ISDN_STAT_BHUP\n");
+#endif
+					isdn_tty_modem_hup(info, 0);
+					return 1;
+				}
+				break;
+			case ISDN_STAT_NODCH:
+				if (TTY_IS_ACTIVE(info)) {
+					if (info->dialing) {
+						info->dialing = 0;
+						info->last_l2 = -1;
+						info->last_si = 0;
+						sprintf(info->last_cause, "0000");
+						isdn_tty_modem_result(6, info);
+					}
+					info->msr &= ~UART_MSR_DCD;
+					if (info->online) {
+						isdn_tty_modem_result(3, info);
+						info->online = 0;
+					}
+					return 1;
+				}
+				break;
+			case ISDN_STAT_UNLOAD:
+				for (i = 0; i < ISDN_MAX_CHANNELS; i++) {
+					info = &dev->mdm.info[i];
+					if (info->isdn_driver == c->driver) {
+						if (info->online)
+							isdn_tty_modem_hup(info, 1);
+					}
+				}
+				return 1;
+		}
+	}
+	return 0;
 }
 
 /*********************************************************************
@@ -1898,7 +2033,6 @@ isdn_tty_on_hook(modem_info * info)
 #ifdef ISDN_DEBUG_MODEM_HUP
 		printk(KERN_DEBUG "Mhup in isdn_tty_on_hook\n");
 #endif
-		isdn_tty_modem_result(3, info);
 		isdn_tty_modem_hup(info, 1);
 	}
 }
@@ -1968,7 +2102,7 @@ isdn_tty_check_esc(const u_char * p, u_char plus, int count, int *pluscount,
  * For CONNECT-messages also switch to online-mode.
  * For RING-message handle auto-ATA if register 0 != 0
  */
-void
+static void
 isdn_tty_modem_result(int code, modem_info * info)
 {
 	atemu *m = &info->emu;
@@ -1988,24 +2122,34 @@ isdn_tty_modem_result(int code, modem_info * info)
 			break;
 		case 3:
 			/* NO CARRIER */
-			save_flags(flags);
-			cli();
-			m->mdmreg[1] = 0;
 #ifdef ISDN_DEBUG_MODEM_HUP
 			printk(KERN_DEBUG "modem_result: NO CARRIER %d %d\n",
 			       (info->flags & ISDN_ASYNC_CLOSING),
 			       (!info->tty));
 #endif
+			save_flags(flags);
+			cli();
+			m->mdmreg[1] = 0;
+			del_timer(&info->nc_timer);
+			info->ncarrier = 0;
 			if ((info->flags & ISDN_ASYNC_CLOSING) || (!info->tty)) {
 				restore_flags(flags);
 				return;
 			}
 			restore_flags(flags);
 			if (info->vonline & 1) {
+#ifdef ISDN_DEBUG_MODEM_VOICE
+				printk(KERN_DEBUG "res3: send DLE-ETX on ttyI%d\n",
+				       info->line);
+#endif
 				/* voice-recording, add DLE-ETX */
 				isdn_tty_at_cout("\020\003", info);
 			}
 			if (info->vonline & 2) {
+#ifdef ISDN_DEBUG_MODEM_VOICE
+				printk(KERN_DEBUG "res3: send DLE-DC4 on ttyI%d\n",
+				       info->line);
+#endif
 				/* voice-playing, add DLE-DC4 */
 				isdn_tty_at_cout("\020\024", info);
 			}
@@ -2017,6 +2161,10 @@ isdn_tty_modem_result(int code, modem_info * info)
 				info->online = 2;
 			break;
 		case 11:
+#ifdef ISDN_DEBUG_MODEM_VOICE
+			printk(KERN_DEBUG "res3: send VCON on ttyI%d\n",
+			       info->line);
+#endif
 			sprintf(info->last_cause, "0000");
 			if (!info->online)
 				info->online = 1;
@@ -2252,7 +2400,7 @@ isdn_tty_cmd_ATand(char **p, modem_info * info)
 			isdn_tty_at_cout("\r\n", info);
 			for (i = 0; i < ISDN_MODEM_ANZREG; i++) {
 				sprintf(rb, "S%02d=%03d%s", i,
-				  m->mdmreg[i], ((i + 1) % 10) ? " " : "\r\n");
+					m->mdmreg[i], ((i + 1) % 10) ? " " : "\r\n");
 				isdn_tty_at_cout(rb, info);
 			}
 			sprintf(rb, "\r\nEAZ/MSN: %s\r\n",
@@ -2297,7 +2445,7 @@ isdn_tty_cmd_ATand(char **p, modem_info * info)
 }
 
 static int
-isdn_tty_check_ats(int mreg, int mval, modem_info * info, atemu *m)
+isdn_tty_check_ats(int mreg, int mval, modem_info * info, atemu * m)
 {
 	/* Some plausibility checks */
 	switch (mreg) {
@@ -2371,8 +2519,8 @@ isdn_tty_cmd_ATS(char **p, modem_info * info)
 				case '?':
 					p[0]++;
 					isdn_tty_at_cout("\r\n", info);
-					isdn_tty_at_cout((m->mdmreg[mreg] & (1 << bitpos))?"1":"0",
-									 info);
+					isdn_tty_at_cout((m->mdmreg[mreg] & (1 << bitpos)) ? "1" : "0",
+							 info);
 					break;
 				default:
 					PARSE_ERROR1;
@@ -2765,7 +2913,7 @@ isdn_tty_parse_at(modem_info * info)
 				else if (strlen(ds))
 					isdn_tty_dial(ds, info, m);
 				else
-					isdn_tty_modem_result(4, info);
+					PARSE_ERROR;
 				return;
 			case 'E':
 				/* E - Turn Echo on/off */
@@ -2878,6 +3026,8 @@ isdn_tty_parse_at(modem_info * info)
 						if (isdn_tty_cmd_PLUSV(&p, info))
 							return;
 						break;
+					default:
+						PARSE_ERROR;
 				}
 				break;
 #endif                          /* CONFIG_ISDN_AUDIO */
@@ -2887,11 +3037,11 @@ isdn_tty_parse_at(modem_info * info)
 					return;
 				break;
 			default:
-				isdn_tty_modem_result(4, info);
-				return;
+				PARSE_ERROR;
 		}
 	}
-	isdn_tty_modem_result(0, info);
+	if (!info->vonline)
+		isdn_tty_modem_result(0, info);
 }
 
 /* Need own toupper() because standard-toupper is not available
@@ -3042,28 +3192,4 @@ isdn_tty_modem_xmit(void)
 		}
 	}
 	isdn_timer_ctrl(ISDN_TIMER_MODEMXMIT, ton);
-}
-
-/*
- * A packet has been output successfully.
- * Search the tty-devices for an appropriate device, decrement its
- * counter for outstanding packets, and set CTS.
- */
-void
-isdn_tty_bsent(int drv, int chan)
-{
-	int i;
-
-	for (i = 0; i < ISDN_MAX_CHANNELS; i++) {
-		modem_info *info = &dev->mdm.info[i];
-		if ((info->isdn_driver == drv) &&
-		    (info->isdn_channel == chan)) {
-			info->msr |= UART_MSR_CTS;
-			if (info->send_outstanding)
-				if (!(--info->send_outstanding))
-					info->lsr |= UART_LSR_TEMT;
-			isdn_tty_tint(info);
-		}
-	}
-	return;
 }

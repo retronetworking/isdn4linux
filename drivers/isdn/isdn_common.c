@@ -21,6 +21,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.35  1997/02/21 13:01:19  fritz
+ * Changes CAUSE message output in kernel log.
+ *
  * Revision 1.34  1997/02/10 20:12:43  fritz
  * Changed interface for reporting incoming calls.
  *
@@ -470,12 +473,10 @@ static int
 isdn_status_callback(isdn_ctrl * c)
 {
 	int di;
-	int mi;
 	ulong flags;
 	int i;
 	int r;
 	int retval = 0;
-	modem_info *info;
 	isdn_ctrl cmd;
 
 	di = c->driver;
@@ -488,7 +489,8 @@ isdn_status_callback(isdn_ctrl * c)
 				return 0;
 			if (isdn_net_stat_callback(i, c->command))
 				return 0;
-			isdn_tty_bsent(di, c->arg);
+			if (isdn_tty_stat_callback(i, c))
+				return 0;
 			wake_up_interruptible(&dev->drv[di]->snd_waitq[c->arg]);
 			break;
 		case ISDN_STAT_STAVAIL:
@@ -528,16 +530,12 @@ isdn_status_callback(isdn_ctrl * c)
 			r = isdn_net_find_icall(di, c->arg, i, c->parm.setup);
 			switch (r) {
 				case 0:
-					/* No network-device replies. Schedule RING-message to
-					 * tty and set RI-bit of modem-status.
+					/* No network-device replies.
+					 * Try ttyI's
 					 */
-					if ((mi = isdn_tty_find_icall(di, c->arg, c->parm.setup)) >= 0) {
-						info = &dev->mdm.info[mi];
-						info->msr |= UART_MSR_RI;
-						isdn_tty_modem_result(2, info);
-						isdn_timer_ctrl(ISDN_TIMER_MODEMRING, 1);
+					if (isdn_tty_find_icall(di, c->arg, c->parm.setup) >= 0)
 						retval = 1;
-					} else if (dev->drv[di]->reject_bus) {
+					else if (dev->drv[di]->reject_bus) {
 						cmd.driver = di;
 						cmd.arg = c->arg;
 						cmd.command = ISDN_CMD_HANGUP;
@@ -594,12 +592,8 @@ isdn_status_callback(isdn_ctrl * c)
 			printk(KERN_DEBUG "CAUSE: %ld %s\n", c->arg, c->num);
 #endif
 			printk(KERN_INFO "isdn: %s,ch%ld cause: %s\n",
-					dev->drvid[di], c->arg, c->parm.num);
-			if ((mi = dev->m_idx[i]) >= 0) {
-				/* Signal cause to tty-device */
-				info = &dev->mdm.info[mi];
-				strncpy(info->last_cause, c->parm.num, 5);
-			}
+			       dev->drvid[di], c->arg, c->parm.num);
+			isdn_tty_stat_callback(i, c);
 			break;
 		case ISDN_STAT_DCONN:
 			if (i < 0)
@@ -609,24 +603,16 @@ isdn_status_callback(isdn_ctrl * c)
 #endif
 			if (dev->global_flags & ISDN_GLOBAL_STOPPED)
 				return 0;
-			/* Find any network-device, waiting for D-channel setup */
+			/* Find any net-device, waiting for D-channel setup */
 			if (isdn_net_stat_callback(i, c->command))
 				break;
-
-			if ((mi = dev->m_idx[i]) >= 0) {
-				/* If any tty has just dialed-out, setup B-Channel */
-				info = &dev->mdm.info[mi];
-				if (info->flags &
-				    (ISDN_ASYNC_NORMAL_ACTIVE | ISDN_ASYNC_CALLOUT_ACTIVE)) {
-					if (info->dialing == 1) {
-						info->dialing = 2;
-						cmd.driver = di;
-						cmd.arg = c->arg;
-						cmd.command = ISDN_CMD_ACCEPTB;
-						dev->drv[di]->interface->command(&cmd);
-						return 0;
-					}
-				}
+			/* Find any ttyI, waiting for D-channel setup */
+			if (isdn_tty_stat_callback(i, c)) {
+				cmd.driver = di;
+				cmd.arg = c->arg;
+				cmd.command = ISDN_CMD_ACCEPTB;
+				dev->drv[di]->interface->command(&cmd);
+				break;
 			}
 			break;
 		case ISDN_STAT_DHUP:
@@ -642,24 +628,8 @@ isdn_status_callback(isdn_ctrl * c)
 			/* Signal hangup to network-devices */
 			if (isdn_net_stat_callback(i, c->command))
 				break;
-			if ((mi = dev->m_idx[i]) >= 0) {
-				/* Signal hangup to tty-device */
-				info = &dev->mdm.info[mi];
-				if (info->flags &
-				    (ISDN_ASYNC_NORMAL_ACTIVE | ISDN_ASYNC_CALLOUT_ACTIVE)) {
-					if (info->dialing == 1) {
-						info->dialing = 0;
-						isdn_tty_modem_result(7, info);
-					}
-					if (info->online)
-						isdn_tty_modem_result(3, info);
-#ifdef ISDN_DEBUG_MODEM_HUP
-					printk(KERN_DEBUG "Mhup in ISDN_STAT_DHUP\n");
-#endif
-					isdn_tty_modem_hup(info, 0);
-					return 0;
-				}
-			}
+			if (isdn_tty_stat_callback(i, c))
+				break;
 			break;
 		case ISDN_STAT_BCONN:
 			if (i < 0)
@@ -674,26 +644,8 @@ isdn_status_callback(isdn_ctrl * c)
 			isdn_info_update();
 			if (isdn_net_stat_callback(i, c->command))
 				break;
-			if ((mi = dev->m_idx[i]) >= 0) {
-				/* Schedule CONNECT-Message to any tty, waiting for it and
-				 * set DCD-bit of its modem-status.
-				 */
-				info = &dev->mdm.info[mi];
-				if (info->flags &
-				    (ISDN_ASYNC_NORMAL_ACTIVE | ISDN_ASYNC_CALLOUT_ACTIVE)) {
-					info->msr |= UART_MSR_DCD;
-					if (info->dialing) {
-						info->dialing = 0;
-						info->last_dir = 1;
-					} else
-						info->last_dir = 0;
-					info->rcvsched = 1;
-					if (USG_MODEM(dev->usage[i]))
-						isdn_tty_modem_result(5, info);
-					if (USG_VOICE(dev->usage[i]))
-						isdn_tty_modem_result(11, info);
-				}
-			}
+			if (isdn_tty_stat_callback(i, c))
+				break;
 			break;
 		case ISDN_STAT_BHUP:
 			if (i < 0)
@@ -705,20 +657,8 @@ isdn_status_callback(isdn_ctrl * c)
 				return 0;
 			dev->drv[di]->flags &= ~(1 << (c->arg));
 			isdn_info_update();
-			if ((mi = dev->m_idx[i]) >= 0) {
-				/* Signal hangup to tty-device, schedule NO CARRIER-message */
-				info = &dev->mdm.info[mi];
-				if (info->flags &
-				    (ISDN_ASYNC_NORMAL_ACTIVE | ISDN_ASYNC_CALLOUT_ACTIVE)) {
-					if (info->msr & UART_MSR_DCD)
-						isdn_tty_modem_result(3, info);
-					info->msr &= ~(UART_MSR_DCD | UART_MSR_RI);
-#ifdef ISDN_DEBUG_MODEM_HUP
-					printk(KERN_DEBUG "Mhup in ISDN_STAT_BHUP\n");
-#endif
-					isdn_tty_modem_hup(info, 0);
-				}
-			}
+			if (isdn_tty_stat_callback(i, c))
+				break;
 			break;
 		case ISDN_STAT_NODCH:
 			if (i < 0)
@@ -730,47 +670,20 @@ isdn_status_callback(isdn_ctrl * c)
 				return 0;
 			if (isdn_net_stat_callback(i, c->command))
 				break;
-			if ((mi = dev->m_idx[i]) >= 0) {
-				info = &dev->mdm.info[mi];
-				if (info->flags &
-				    (ISDN_ASYNC_NORMAL_ACTIVE | ISDN_ASYNC_CALLOUT_ACTIVE)) {
-					if (info->dialing) {
-						info->dialing = 0;
-						info->last_l2 = -1;
-						info->last_si = 0;
-						sprintf(info->last_cause, "0000");
-						isdn_tty_modem_result(6, info);
-					}
-					info->msr &= ~UART_MSR_DCD;
-					if (info->online) {
-						isdn_tty_modem_result(3, info);
-						info->online = 0;
-					}
-				}
-			}
+			if (isdn_tty_stat_callback(i, c))
+				break;
 			break;
 		case ISDN_STAT_ADDCH:
 			break;
 		case ISDN_STAT_UNLOAD:
 			save_flags(flags);
 			cli();
+			isdn_tty_stat_callback(i, c);
 			for (i = 0; i < ISDN_MAX_CHANNELS; i++)
 				if (dev->drvmap[i] == di) {
 					dev->drvmap[i] = -1;
 					dev->chanmap[i] = -1;
 				}
-			for (i = 0; i < ISDN_MAX_CHANNELS; i++) {
-				modem_info *info = &dev->mdm.info[i];
-
-				if (info->isdn_driver == di) {
-					info->isdn_driver = -1;
-					info->isdn_channel = -1;
-					if (info->online) {
-						isdn_tty_modem_result(3, info);
-						isdn_tty_modem_hup(info, 1);
-					}
-				}
-			}
 			dev->drivers--;
 			dev->channels -= dev->drv[di]->channels;
 			kfree(dev->drv[di]->rcverr);

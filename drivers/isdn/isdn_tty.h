@@ -20,6 +20,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.8  1997/02/10 20:12:50  fritz
+ * Changed interface for reporting incoming calls.
+ *
  * Revision 1.7  1997/02/03 23:06:10  fritz
  * Reformatted according CodingStyle
  *
@@ -43,15 +46,13 @@
  *
  */
 
-extern void isdn_tty_modem_result(int, modem_info *);
 extern void isdn_tty_modem_escape(void);
 extern void isdn_tty_modem_ring(void);
 extern void isdn_tty_modem_xmit(void);
-extern void isdn_tty_modem_hup(modem_info *, int);
 extern int isdn_tty_modem_init(void);
 extern void isdn_tty_readmodem(void);
 extern int isdn_tty_try_read(modem_info *, struct sk_buff *);
 extern int isdn_tty_find_icall(int, int, setup_parm);
 extern int isdn_tty_countDLE(unsigned char *, int);
-extern void isdn_tty_bsent(int, int);
 extern void isdn_tty_cleanup_xmit(modem_info *);
+extern int isdn_tty_stat_callback(int, isdn_ctrl *);

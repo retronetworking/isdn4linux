@@ -21,6 +21,10 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.5  1997/02/10 10:05:45  fritz
+ * More changes for Kernel 2.1.X
+ * Symbol information moved to isdn_syms.c
+ *
  * Revision 1.4  1997/02/03 22:56:50  fritz
  * Removed isdn_writebuf_stub prototype.
  *
@@ -41,6 +45,7 @@
 #undef  ISDN_DEBUG_MODEM_HUP
 #undef  ISDN_DEBUG_MODEM_ICALL
 #undef  ISDN_DEBUG_MODEM_DUMP
+#undef  ISDN_DEBUG_MODEM_VOICE
 #undef  ISDN_DEBUG_AT
 #undef  ISDN_DEBUG_NET_DUMP
 #undef  ISDN_DEBUG_NET_DIAL
