@@ -11,6 +11,9 @@
  *              Fritz Elfert
  *
  * $Log$
+ * Revision 2.18  1999/07/21 14:46:16  keil
+ * changes from EICON certification
+ *
  * Revision 2.17  1999/07/01 08:11:50  keil
  * Common HiSax version for 2.0, 2.1, 2.2 and 2.3 kernel
  *
@@ -1509,11 +1512,14 @@ l2_tei_remove(struct FsmInst *fi, int event, void *arg)
 }
 
 static void
-l2_discard_i(struct FsmInst *fi, int event, void *arg)
+l2_st14_persistant_da(struct FsmInst *fi, int event, void *arg)
 {
 	struct PStack *st = fi->userdata;
 	
 	discard_queue(&st->l2.i_queue);
+	discard_queue(&st->l2.ui_queue);
+	if (test_and_clear_bit(FLG_ESTAB_PEND, &st->l2.flag))
+		st->l2.l2l3(st, DL_RELEASE | INDICATION, NULL);
 }
 
 static void
@@ -1676,9 +1682,10 @@ static struct FsmNode L2FnList[] HISAX_INITDATA =
 	{ST_L2_6, EV_L2_FRAME_ERROR, l2_frame_error},
 	{ST_L2_7, EV_L2_FRAME_ERROR, l2_frame_error_reest},
 	{ST_L2_8, EV_L2_FRAME_ERROR, l2_frame_error_reest},
+	{ST_L2_1, EV_L1_DEACTIVATE, l2_st14_persistant_da},
 	{ST_L2_2, EV_L1_DEACTIVATE, l2_st24_tei_remove},
 	{ST_L2_3, EV_L1_DEACTIVATE, l2_st3_tei_remove},
-	{ST_L2_4, EV_L1_DEACTIVATE, l2_discard_i},
+	{ST_L2_4, EV_L1_DEACTIVATE, l2_st14_persistant_da},
 	{ST_L2_5, EV_L1_DEACTIVATE, l2_st5_persistant_da},
 	{ST_L2_6, EV_L1_DEACTIVATE, l2_st6_persistant_da},
 	{ST_L2_7, EV_L1_DEACTIVATE, l2_persistant_da},
