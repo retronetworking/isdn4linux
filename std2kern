@@ -115,7 +115,7 @@ else
   if [ ! -d $KERNELDIR/drivers/isdn/divert ] ; then
     mkdir $KERNELDIR/drivers/isdn/divert
   fi
-  for i in drivers/isdn/divert/*.[ch] ; do
+  for i in drivers/isdn/divert/*.[ch] drivers/isdn/divert/Makefile ; do
     $DOCP $i $KERNELDIR/$i
   done
   if [ -f $KERNELDIR/Documentation/Configure.help ] ; then
