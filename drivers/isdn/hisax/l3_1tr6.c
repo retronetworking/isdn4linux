@@ -6,6 +6,9 @@
  *
  *
  * $Log$
+ * Revision 1.11  1997/04/06 22:54:18  keil
+ * Using SKB's
+ *
  * Revision 1.10  1997/03/13 20:37:58  keil
  * channel request added
  *
@@ -205,7 +208,6 @@ l3_1tr6_setup(struct PStack *st, u_char pr, void *arg)
 		if ((FAC_SPV == p[3]) || (FAC_Activate == p[3]))
 			st->pa->spv = 1;
 	}
-	SET_SKB_FREE(skb);
 	dev_kfree_skb(skb, FREE_READ);
 
 	/* Signal all services, linklevel takes care of Service-Indicator */
@@ -234,7 +236,6 @@ l3_1tr6_setup_ack(struct PStack *st, u_char pr, void *arg)
 		st->pa->bchannel = p[2] & 0x3;
 	} else if (st->l3.debug & L3_DEB_WARN)
 		l3_debug(st, "setup answer without bchannel");
-	SET_SKB_FREE(skb);
 	dev_kfree_skb(skb, FREE_READ);
 	L3AddTimer(&st->l3.timer, st->l3.t304, CC_T304);
 	st->l3.l3l4(st, CC_MORE_INFO, NULL);
@@ -252,7 +253,6 @@ l3_1tr6_call_sent(struct PStack *st, u_char pr, void *arg)
 		st->pa->bchannel = p[2] & 0x3;
 	} else if (st->l3.debug & L3_DEB_WARN)
 		l3_debug(st, "setup answer without bchannel");
-	SET_SKB_FREE(skb);
 	dev_kfree_skb(skb, FREE_READ);
 	L3AddTimer(&st->l3.timer, st->l3.t310, CC_T310);
 	newl3state(st, 3);
@@ -264,7 +264,6 @@ l3_1tr6_alert(struct PStack *st, u_char pr, void *arg)
 {
 	struct sk_buff *skb = arg;
 
-	SET_SKB_FREE(skb);
 	dev_kfree_skb(skb, FREE_READ);
 	L3DelTimer(&st->l3.timer);	/* T304 */
 	newl3state(st, 4);
@@ -296,7 +295,6 @@ l3_1tr6_info(struct PStack *st, u_char pr, void *arg)
 		}
 	} else if (st->l3.debug & L3_DEB_CHARGE)
 		l3_debug(st, "charging info not found");
-	SET_SKB_FREE(skb);
 	dev_kfree_skb(skb, FREE_READ);
 
 }
@@ -306,7 +304,6 @@ l3_1tr6_info_s2(struct PStack *st, u_char pr, void *arg)
 {
 	struct sk_buff *skb = arg;
 
-	SET_SKB_FREE(skb);
 	dev_kfree_skb(skb, FREE_READ);
 }
 
@@ -317,7 +314,6 @@ l3_1tr6_connect(struct PStack *st, u_char pr, void *arg)
 
 	L3DelTimer(&st->l3.timer);	/* T310 */
 	newl3state(st, 10);
-	SET_SKB_FREE(skb);
 	dev_kfree_skb(skb, FREE_READ);
 	st->pa->chargeinfo = 0;
 	st->l3.l3l4(st, CC_SETUP_CNF, NULL);
@@ -343,7 +339,6 @@ l3_1tr6_rel(struct PStack *st, u_char pr, void *arg)
 		}
 	} else
 		st->pa->cause = -1;
-	SET_SKB_FREE(skb);
 	dev_kfree_skb(skb, FREE_READ);
 	StopAllL3Timer(st);
 	newl3state(st, 0);
@@ -356,7 +351,6 @@ l3_1tr6_rel_ack(struct PStack *st, u_char pr, void *arg)
 {
 	struct sk_buff *skb = arg;
 
-	SET_SKB_FREE(skb);
 	dev_kfree_skb(skb, FREE_READ);
 	StopAllL3Timer(st);
 	newl3state(st, 0);
@@ -409,7 +403,6 @@ l3_1tr6_disc(struct PStack *st, u_char pr, void *arg)
 			l3_debug(st, "cause not found");
 		st->pa->cause = -1;
 	}
-	SET_SKB_FREE(skb);
 	dev_kfree_skb(skb, FREE_READ);
 	newl3state(st, 12);
 	st->l3.l3l4(st, CC_DISCONNECT_IND, NULL);
@@ -421,7 +414,6 @@ l3_1tr6_connect_ack(struct PStack *st, u_char pr, void *arg)
 {
 	struct sk_buff *skb = arg;
 
-	SET_SKB_FREE(skb);
 	dev_kfree_skb(skb, FREE_READ);
 	newl3state(st, 10);
 	st->pa->chargeinfo = 0;
@@ -702,13 +694,11 @@ up1tr6(struct PStack *st, int pr, void *arg)
 				skb->data[0], skb->len, st->l3.state);
 			l3_debug(st, tmp);
 		}
-		SET_SKB_FREE(skb);
 		dev_kfree_skb(skb, FREE_READ);
 		return;
 	}
 	mt = skb->data[skb->data[1] + 2];
 	if (skb->data[0] == PROTO_DIS_N0) {
-		SET_SKB_FREE(skb);
 		dev_kfree_skb(skb, FREE_READ);
 		if (st->l3.debug & L3_DEB_STATE) {
 			sprintf(tmp, "up1tr6%s N0 state %d mt %x unhandled",
@@ -722,7 +712,6 @@ up1tr6(struct PStack *st, int pr, void *arg)
 			    ((1 << st->l3.state) & datastln1[i].state))
 				break;
 		if (i == datastln1_len) {
-			SET_SKB_FREE(skb);
 			dev_kfree_skb(skb, FREE_READ);
 			if (st->l3.debug & L3_DEB_STATE) {
 				sprintf(tmp, "up1tr6%sstate %d mt %x unhandled",

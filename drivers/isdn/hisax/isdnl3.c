@@ -7,6 +7,9 @@
  *              Fritz Elfert
  *
  * $Log$
+ * Revision 1.10  1997/04/06 22:54:16  keil
+ * Using SKB's
+ *
  * Revision 1.9  1997/03/25 23:11:25  keil
  * US NI-1 protocol
  *
@@ -120,6 +123,7 @@ l3_alloc_skb(int len)
 		printk(KERN_WARNING "HiSax: No skb for D-channel\n");
 		return (NULL);
 	}
+	SET_SKB_FREE(skb);
 	skb_reserve(skb, MAX_HEADER_LEN);
 	return (skb);
 }
@@ -131,7 +135,6 @@ no_l3_proto(struct PStack *st, int pr, void *arg)
 
 	l3_debug(st, "no protocol");
 	if (skb) {
-		SET_SKB_FREE(skb);
 		dev_kfree_skb(skb, FREE_READ);
 	}
 }
