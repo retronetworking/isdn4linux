@@ -23,6 +23,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.14  2000/01/25 22:37:14  detabc
+ * modify changes from Karsten ( MSN == - ) for bind-groups
+ *
  * Revision 1.13  2000/01/23 18:45:37  keil
  * Change EAZ mapping to forbit the use of cards (insert a "-" for the MSN)
  *
@@ -109,6 +112,12 @@ static char *dwabcrevison = "$Revision$";
 #include <linux/isdn.h>
 #include "isdn_common.h"
 
+struct PSH { 
+	u_long saddr;
+	u_long daddr;
+	u_char zp[2]; 
+	u_short len;
+};
 
 
 #ifdef CONFIG_ISDN_WITH_ABC_IPV4_TCP_KEEPALIVE
@@ -957,7 +966,7 @@ static int  isdn_tcpipv4_test(struct net_device *ndev, struct iphdr *ip, struct 
 					struct tcphdr  *ntcp;
 					struct iphdr   *iph = (struct iphdr *) ((u_char *) skb->data);
 
-					struct PSH { u_long saddr; u_long daddr; u_char zp[2]; u_short len; } *psh;
+					struct PSH *psh;
 
 					skb_reserve(nskb, hlen);
 					iph = (struct iphdr *) skb_put(nskb, sizeof(*iph));
@@ -1181,9 +1190,81 @@ int isdn_dw_abc_ip4_keepalive_test(struct net_device *ndev,struct sk_buff *skb)
 					ipnr2buf(ipaddr));
 #endif
 			if((ip->saddr ^ ipaddr)) {
+#ifdef CONFIG_ISDN_WITH_ABC_IPV4_RW_SOCKADDR
+				struct sock *sk = skb->sk;
+				struct tcphdr  *tcp;
 
+				if(	!(lp->dw_abc_flags & ISDN_DW_ABC_FLAG_RW_SOCKADDR) ||
+					ip->protocol != IPPROTO_TCP	||
+					sk == NULL					||
+					sk->prot == NULL			||
+					sk->prot->unhash == NULL	||
+					sk->prot->hash == NULL		) {
+
+					isdn_net_log_skb_dwabc(skb,lp,"isdn_dynaddr drop");
+					return(1);
+
+				} else if(sk->saddr != ipaddr) {
+
+					ulong flags;
+
+					if(dev->net_verbose > 0) {
+
+						printk(KERN_DEBUG 
+							"%s rewriting socket->saddr %s->%s->%s rcv_saddr %s\n",
+							lp->name,
+							ipnr2buf(sk->saddr),
+							ipnr2buf(ipaddr),
+							ipnr2buf(sk->daddr),
+							ipnr2buf(sk->rcv_saddr));
+					}
+
+					save_flags(flags);
+					cli();
+					sk->saddr = ipaddr;
+					sk->rcv_saddr = ipaddr;
+					sk->prot->unhash(sk);
+					sk->prot->hash(sk);
+					restore_flags(flags);
+
+				} else if(dev->net_verbose > 0) {
+
+					printk(KERN_DEBUG 
+						"%s rewriting frame->saddr %s->%s->%s\n",
+						lp->name,
+						ipnr2buf(ip->saddr),
+						ipnr2buf(ipaddr),
+						ipnr2buf(ip->daddr));
+				}
+
+				tcp = (struct tcphdr *) (((u_char *) ip) + (ip->ihl << 2));
+
+				{
+					struct PSH XXSTORE;
+					struct PSH *psh;
+					u_char p = ip->protocol;
+					ushort l = ntohs(ip->tot_len) - (ip->ihl << 2);
+					ulong da = ip->daddr;
+
+					psh = (struct PSH *) (((u_char *) tcp) - sizeof(*psh));
+					memcpy(&XXSTORE,psh,sizeof(*psh));
+					memset(psh,0,sizeof(*psh));
+					psh->daddr = da;
+					psh->saddr = ipaddr;
+					psh->zp[1] = p;
+					psh->len = htons(l);
+					tcp->check = 0;
+					tcp->check = ip_compute_csum((void *) psh,l+sizeof(*psh));
+					memcpy(psh,&XXSTORE,sizeof(*psh));
+				}
+
+				ip->check = 0;
+				ip->saddr = ipaddr;
+				ip->check = ip_fast_csum((unsigned char *)ip,ip->ihl);
+#else
 				isdn_net_log_skb_dwabc(skb,lp,"isdn_dynaddr drop");
 				return(1);
+#endif
 			}
 		}
 	}
@@ -1307,8 +1388,11 @@ void isdn_dw_abc_init_func(void)
 #endif
 #ifdef CONFIG_ISDN_WITH_ABC_IPV4_TCP_KEEPALIVE
 		"CONFIG_ISDN_WITH_ABC_IPV4_TCP_KEEPALIVE\n"
+#endif
 #ifdef CONFIG_ISDN_WITH_ABC_IPV4_DYNADDR
 		"CONFIG_ISDN_WITH_ABC_IPV4_DYNADDR\n"
+#ifdef CONFIG_ISDN_WITH_ABC_IPV4_RW_SOCKADDR
+		"CONFIG_ISDN_WITH_ABC_IPV4_RW_SOCKADDR\n"
 #endif
 #endif
 #ifdef CONFIG_ISDN_WITH_ABC_RCV_NO_HUPTIMER
@@ -1344,11 +1428,12 @@ void isdn_dw_abc_release_func(void)
 #endif
 	printk( KERN_INFO
 		"abc-extension %s\n"
-		"Thanks for test's etc. to:\n"
-		"Mario Schugowski <mario@mediatronix.de>\n"
 		"written by\n"
 		"Detlef Wengorz <detlefw@isdn4linux.de>\n"
-		"unloaded\n",
+		"Thanks for test's etc. to:\n"
+		"Mario Schugowski <mario@mediatronix.de>\n"
+		"unloaded\n"
+		"For more details see http://i4l.mediatronix.de\n",
 		dwabcrevison);
 }
 
@@ -1408,6 +1493,7 @@ void isdn_dwabc_test_phone(isdn_net_local *lp)
 				case 'X':	lp->dw_abc_flags |= ISDN_DW_ABC_FLAG_RCV_NO_HUPTIMER;		break;
 
 				case 'D':	lp->dw_abc_flags |= ISDN_DW_ABC_FLAG_DYNADDR;				break;
+				case 'R':	lp->dw_abc_flags |= ISDN_DW_ABC_FLAG_RW_SOCKADDR;			break;
 				case 'B':	lp->dw_abc_flags |= ISDN_DW_ABC_FLAG_BSD_COMPRESS;			break;
 
 				case '"':
