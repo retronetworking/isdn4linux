@@ -1454,12 +1454,7 @@ isdn_net_xmit(struct net_device *ndev, struct sk_buff *skb)
 		return(1);
 	}
 
-	if (!skb_queue_empty(&lp->super_tx_queue)) {
-
-		isdn_net_writebuf_skb(lp,skb_dequeue(&lp->super_tx_queue));
-		retv = 1;
-
-	} else if(skb != NULL) {
+	if(skb != NULL) {
 
 		int l = skb->len;
 		int nl = l;
@@ -1471,6 +1466,7 @@ isdn_net_xmit(struct net_device *ndev, struct sk_buff *skb)
 
 				int r = 0;
 				nl = skb->len;
+				skb_queue_tail(&lp->super_tx_queue,skb);
 
 				if(l != nl && (r = isdn_dc2minor(lp->isdn_device,lp->isdn_channel)) >= 0) {
 
@@ -1478,7 +1474,8 @@ isdn_net_xmit(struct net_device *ndev, struct sk_buff *skb)
 					lp->stats.tx_bytes += l - nl;
 				}
 			}
-		} 
+
+		} else skb_queue_tail(&lp->super_tx_queue,skb);
 
 		if(lp->p_encap == ISDN_NET_ENCAP_RAWIP) {
 
@@ -1487,8 +1484,13 @@ isdn_net_xmit(struct net_device *ndev, struct sk_buff *skb)
 		}
 	}
 	clear_bit(ISDN_DW_ABC_BITLOCK_SEND,&lp->dw_abc_bitlocks);
-#endif
+
+	while(!isdn_net_lp_busy(lp) && (skb = skb_dequeue(&lp->super_tx_queue)))
+		isdn_net_writebuf_skb(lp, skb);
+
+#else
 	isdn_net_writebuf_skb(lp, skb);
+#endif
 	spin_unlock_bh(&lp->xmit_lock);
 
 	/* the following stuff is here for backwards compatibility.
