@@ -1,6 +1,9 @@
 /* $Id$
  *
  * $Log$
+ * Revision 1.1  1996/04/13 10:24:45  fritz
+ * Initial revision
+ *
  *
  */
 #define __NO_VERSION__
@@ -284,14 +287,13 @@ l3s12(struct PStack *st, byte pr, void *arg)
 	BufPoolRelease(ibh);
 
         if (bcfound) {
-                if (st->pa->info == 7) {
-                        newl3state(st, 6);
-                        st->l3.l3l4(st, CC_SETUP_IND, NULL);
-                } else {
+                if (st->pa->info != 7) {
                         printk(KERN_WARNING "non-dgital call: %s -> %s\n",
                                st->pa->calling,
                                st->pa->called);
                 }
+                newl3state(st, 6);
+                st->l3.l3l4(st, CC_SETUP_IND, NULL);
         }
 }
 
@@ -562,7 +564,7 @@ l3down(struct PStack *st,
 				  break;
 		  if (i == downsl_1tr6t_len) {
 			  if (DEBUG_1TR6 > 0) {
-				  printk(KERN_INFO "isdnl3down unhandled 1tr6 state %d primitiv %x\n", st->l3.state, pr);
+				  printk(KERN_INFO "isdnl3down unhandled 1tr6 state %d primitive %x\n", st->l3.state, pr);
 			  }
 		  } else
 			  downstatelist_1tr6t[i].rout(st, pr, ibh);
