@@ -6,6 +6,9 @@
  * Copyright 1997 by Carsten Paeth (calle@calle.in-berlin.de)
  *
  * $Log$
+ * Revision 1.24  1999/07/20 06:48:02  calle
+ * Bugfix: firmware version check for D2 trace was too restrictiv.
+ *
  * Revision 1.23  1999/07/09 15:05:44  keil
  * compat.h is now isdn_compat.h
  *
@@ -285,6 +288,8 @@ static inline __u32 b1prot(int l2, int l3)
         case ISDN_PROTO_L2_V11019:
         case ISDN_PROTO_L2_V11038:
 		return 2;
+        case ISDN_PROTO_L2_FAX:
+		return 4;
 	}
 }
 
@@ -302,6 +307,8 @@ static inline __u32 b2prot(int l2, int l3)
         case ISDN_PROTO_L2_V11019:
         case ISDN_PROTO_L2_V11038:
 		return 1;
+        case ISDN_PROTO_L2_FAX:
+		return 4;
 	}
 }
 
@@ -318,6 +325,8 @@ static inline __u32 b3prot(int l2, int l3)
         case ISDN_PROTO_L2_V11038:
 	default:
 		return 0;
+        case ISDN_PROTO_L2_FAX:
+		return 4;
 	}
 }
 
@@ -2189,6 +2198,10 @@ static int capidrv_addcontr(__u16 contr, struct capi_profile *profp)
 	    ISDN_FEATURE_L2_V11096 |
 	    ISDN_FEATURE_L2_V11019 |
 	    ISDN_FEATURE_L2_V11038 |
+#if 0
+	    ISDN_FEATURE_L2_FAX |
+	    ISDN_FEATURE_L3_FAX |
+#endif
 	    ISDN_FEATURE_P_UNKNOWN;
 	card->interface.hl_hdrlen = 22; /* len of DATA_B3_REQ */
 	strncpy(card->interface.id, id, sizeof(card->interface.id) - 1);
@@ -2312,10 +2325,11 @@ static int proc_capidrv_read_proc(char *page, char **start, off_t off,
 			global.nrecvdatapkt,
 			global.nsentctlpkt,
 			global.nsentdatapkt);
-	if (len < off) 
+	if (off+count >= len)
+	   *eof = 1;
+	if (len < off)
            return 0;
-	*eof = 1;
-	*start = page -off;
+	*start = page + off;
 	return ((count < len-off) ? count : len-off);
 }
 

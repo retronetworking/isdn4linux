@@ -4,6 +4,9 @@
  * Copyright 1999 by Carsten Paeth (calle@calle.in-berlin.de)
  *
  * $Log$
+ * Revision 1.3  1999/07/23 08:41:47  calle
+ * prepared for new AVM cards.
+ *
  * Revision 1.2  1999/07/05 15:09:45  calle
  * - renamed "appl_release" to "appl_released".
  * - version und profile data now cleared on controller reset
@@ -56,8 +59,16 @@ enum avmcardtype {
 	avm_m1,
 	avm_m2,
 	avm_t1isa,
-	avm_t1pci
+	avm_t1pci,
+	avm_c4
 };
+
+typedef struct avmcard_dmainfo {
+	__u32 recvlen;   
+	__u8  recvbuf[128+2048];
+	struct sk_buff_head send_queue;
+	__u8  sendbuf[128+2048];
+} avmcard_dmainfo;
 
 typedef struct avmcard {
 	char name[32];
@@ -80,8 +91,8 @@ typedef struct avmcard {
 	int interrupt;
 
 	void *mbase;
-	unsigned long recvlen;   
 	__u32 csr;
+	avmcard_dmainfo *dma;
 
 	struct capi_ctr *ctrl;
 } avmcard;
@@ -179,7 +190,7 @@ extern int b1_irq_table[16];
 					   * int32 Length message
 					   * 
 					 */
-#define RECEIVE_POLLDWORD	0x73
+#define RECEIVE_POLLDWORD	0x75	/* t1pci in dword mode */
 
 #define WRITE_REGISTER		0x00
 #define READ_REGISTER		0x01
@@ -518,6 +529,7 @@ static inline void b1_setinterrupt(unsigned int base, unsigned irq,
 	      b1outp(base, B1_RESET, 0xf0);
 	      b1outp(base, B1_INSTAT, 0x02);
 	      break;
+	   case avm_c4:
 	   case avm_t1pci:
 	      b1outp(base, B1_RESET, 0xf0);
 	      break;

@@ -6,6 +6,9 @@
  * (c) Copyright 1999 by Carsten Paeth (calle@calle.in-berlin.de)
  * 
  * $Log$
+ * Revision 1.6  1999/07/23 08:51:04  calle
+ * small fix and typo in checkin before.
+ *
  * Revision 1.5  1999/07/23 08:41:48  calle
  * prepared for new AVM cards.
  *
@@ -404,7 +407,10 @@ void b1_parse_version(avmcard *card)
 
 	flag = ((__u8 *)(profp->manu))[1];
 	switch (flag) {
-	case 0: strcpy(card->cardname, "B1"); break;
+	case 0: if (card->version[VER_CARDTYPE])
+	           strcpy(card->cardname, card->version[VER_CARDTYPE]);
+	        else strcpy(card->cardname, "B1");
+		break;
 	case 3: strcpy(card->cardname,"PCMCIA B"); break;
 	case 4: strcpy(card->cardname,"PCMCIA M1"); break;
 	case 5: strcpy(card->cardname,"PCMCIA M2"); break;
@@ -575,8 +581,6 @@ int b1ctl_read_proc(char *page, char **start, off_t off,
 	len += sprintf(page+len, "%-16s %s\n", "name", card->name);
 	len += sprintf(page+len, "%-16s 0x%x\n", "io", card->port);
 	len += sprintf(page+len, "%-16s %d\n", "irq", card->irq);
-	if (card->cardtype == avm_t1pci)
-	   len += sprintf(page+len, "%-16s %ld\n", "membase", card->membase);
 	switch (card->cardtype) {
 	case avm_b1isa: s = "B1 ISA"; break;
 	case avm_b1pci: s = "B1 PCI"; break;
@@ -585,6 +589,7 @@ int b1ctl_read_proc(char *page, char **start, off_t off,
 	case avm_m2: s = "M2"; break;
 	case avm_t1isa: s = "T1 ISA (HEMA)"; break;
 	case avm_t1pci: s = "T1 PCI"; break;
+	case avm_c4: s = "C4"; break;
 	default: s = "???"; break;
 	}
 	len += sprintf(page+len, "%-16s %s\n", "type", s);
@@ -624,10 +629,11 @@ int b1ctl_read_proc(char *page, char **start, off_t off,
 	}
 	len += sprintf(page+len, "%-16s %s\n", "cardname", card->cardname);
 
-	if (len < off) 
+	if (off+count >= len)
+	   *eof = 1;
+	if (len < off)
            return 0;
-	*eof = 1;
-	*start = page - off;
+	*start = page + off;
 	return ((count < len-off) ? count : len-off);
 }
 
