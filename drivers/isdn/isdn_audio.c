@@ -19,62 +19,175 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.2  1996/04/30 09:31:17  fritz
+ * General rewrite.
+ *
  * Revision 1.1.1.1  1996/04/28 12:25:40  fritz
  * Taken under CVS control
  *
  */
 
+#ifndef ATEST
 #define __NO_VERSION__
 #include <linux/module.h>
 #include <linux/isdn.h>
+#else
+#include <stdio.h>
+#include <malloc.h>
+#endif
 #include "isdn_audio.h"
 
 /*
- * 8-bit-linear <-> alaw conversion stuff
- * This is simply done with lookup-tables.
+ * Misc. lookup-tables.
  */
 
-static unsigned char isdn_audio_a2ltable[] = {
-         45,214,122,133,  0,255,107,149, 86,171,126,129,  0,255,117,138,
-         13,246,120,135,  0,255, 99,157, 70,187,124,131,  0,255,113,142,
-         61,198,123,132,  0,255,111,145, 94,163,127,128,  0,255,119,136,
-         29,230,121,134,  0,255,103,153, 78,179,125,130,  0,255,115,140,
-         37,222,122,133,  0,255,105,151, 82,175,126,129,  0,255,116,139,
-          5,254,120,135,  0,255, 97,159, 66,191,124,131,  0,255,112,143,
-         53,206,123,132,  0,255,109,147, 90,167,127,128,  0,255,118,137,
-         21,238,121,134,  0,255,101,155, 74,183,125,130,  0,255,114,141,
-         49,210,123,133,  0,255,108,148, 88,169,127,129,  0,255,118,138,
-         17,242,121,135,  0,255,100,156, 72,185,125,131,  0,255,114,142,
-         64,194,124,132,  0,255,112,144, 96,161,128,128,  1,255,120,136,
-         33,226,122,134,  0,255,104,152, 80,177,126,130,  0,255,116,140,
-         41,218,122,133,  0,255,106,150, 84,173,126,129,  0,255,117,139,
-          9,250,120,135,  0,255, 98,158, 68,189,124,131,  0,255,113,143,
-         57,202,123,132,  0,255,110,146, 92,165,127,128,  0,255,119,137,
-         25,234,121,134,  0,255,102,154, 76,181,125,130,  0,255,115,141
+/* ulaw -> signed 16-bit */
+static short isdn_audio_ulaw_to_s16[] = {
+        0x8284, 0x8684, 0x8a84, 0x8e84, 0x9284, 0x9684, 0x9a84, 0x9e84,
+        0xa284, 0xa684, 0xaa84, 0xae84, 0xb284, 0xb684, 0xba84, 0xbe84,
+        0xc184, 0xc384, 0xc584, 0xc784, 0xc984, 0xcb84, 0xcd84, 0xcf84,
+        0xd184, 0xd384, 0xd584, 0xd784, 0xd984, 0xdb84, 0xdd84, 0xdf84,
+        0xe104, 0xe204, 0xe304, 0xe404, 0xe504, 0xe604, 0xe704, 0xe804,
+        0xe904, 0xea04, 0xeb04, 0xec04, 0xed04, 0xee04, 0xef04, 0xf004,
+        0xf0c4, 0xf144, 0xf1c4, 0xf244, 0xf2c4, 0xf344, 0xf3c4, 0xf444,
+        0xf4c4, 0xf544, 0xf5c4, 0xf644, 0xf6c4, 0xf744, 0xf7c4, 0xf844,
+        0xf8a4, 0xf8e4, 0xf924, 0xf964, 0xf9a4, 0xf9e4, 0xfa24, 0xfa64,
+        0xfaa4, 0xfae4, 0xfb24, 0xfb64, 0xfba4, 0xfbe4, 0xfc24, 0xfc64,
+        0xfc94, 0xfcb4, 0xfcd4, 0xfcf4, 0xfd14, 0xfd34, 0xfd54, 0xfd74,
+        0xfd94, 0xfdb4, 0xfdd4, 0xfdf4, 0xfe14, 0xfe34, 0xfe54, 0xfe74,
+        0xfe8c, 0xfe9c, 0xfeac, 0xfebc, 0xfecc, 0xfedc, 0xfeec, 0xfefc,
+        0xff0c, 0xff1c, 0xff2c, 0xff3c, 0xff4c, 0xff5c, 0xff6c, 0xff7c,
+        0xff88, 0xff90, 0xff98, 0xffa0, 0xffa8, 0xffb0, 0xffb8, 0xffc0,
+        0xffc8, 0xffd0, 0xffd8, 0xffe0, 0xffe8, 0xfff0, 0xfff8, 0x0000,
+        0x7d7c, 0x797c, 0x757c, 0x717c, 0x6d7c, 0x697c, 0x657c, 0x617c,
+        0x5d7c, 0x597c, 0x557c, 0x517c, 0x4d7c, 0x497c, 0x457c, 0x417c,
+        0x3e7c, 0x3c7c, 0x3a7c, 0x387c, 0x367c, 0x347c, 0x327c, 0x307c,
+        0x2e7c, 0x2c7c, 0x2a7c, 0x287c, 0x267c, 0x247c, 0x227c, 0x207c,
+        0x1efc, 0x1dfc, 0x1cfc, 0x1bfc, 0x1afc, 0x19fc, 0x18fc, 0x17fc,
+        0x16fc, 0x15fc, 0x14fc, 0x13fc, 0x12fc, 0x11fc, 0x10fc, 0x0ffc,
+        0x0f3c, 0x0ebc, 0x0e3c, 0x0dbc, 0x0d3c, 0x0cbc, 0x0c3c, 0x0bbc,
+        0x0b3c, 0x0abc, 0x0a3c, 0x09bc, 0x093c, 0x08bc, 0x083c, 0x07bc,
+        0x075c, 0x071c, 0x06dc, 0x069c, 0x065c, 0x061c, 0x05dc, 0x059c,
+        0x055c, 0x051c, 0x04dc, 0x049c, 0x045c, 0x041c, 0x03dc, 0x039c,
+        0x036c, 0x034c, 0x032c, 0x030c, 0x02ec, 0x02cc, 0x02ac, 0x028c,
+        0x026c, 0x024c, 0x022c, 0x020c, 0x01ec, 0x01cc, 0x01ac, 0x018c,
+        0x0174, 0x0164, 0x0154, 0x0144, 0x0134, 0x0124, 0x0114, 0x0104,
+        0x00f4, 0x00e4, 0x00d4, 0x00c4, 0x00b4, 0x00a4, 0x0094, 0x0084,
+        0x0078, 0x0070, 0x0068, 0x0060, 0x0058, 0x0050, 0x0048, 0x0040,
+        0x0038, 0x0030, 0x0028, 0x0020, 0x0018, 0x0010, 0x0008, 0x0000
 };
 
-static unsigned char isdn_audio_l2atable[] = {
-        252,172,172,172,172, 80, 80, 80, 80,208,208,208,208, 16, 16, 16,
-         16,144,144,144,144,112,112,112,112,240,240,240,240, 48, 48, 48,
-         48,176,176,176,176, 64, 64, 64, 64,192,192,192,192,  0,  0,  0,
-          0,128,128,128,128, 96, 96, 96, 96,224,224,224,224, 32, 32, 32,
-        160,160, 88, 88,216,216, 24, 24,152,152,120,120,248,248, 56, 56,
-        184,184, 72, 72,200,200,  8,  8,136,136,104,104,232,232, 40, 40,
-        168, 86,214, 22,150,118,246, 54,182, 70,198,  6,134,102,230, 38,
-        166,222,158,254,190,206,142,238,210,242,194,226,218,250,202,234,
-        235,203,251,219,227,195,243,211,175,239,143,207,191,255,159,223,
-        167, 39,231,103,135,  7,199, 71,183, 55,247,119,151, 23,215, 87,
-         87,169,169, 41, 41,233,233,105,105,137,137,  9,  9,201,201, 73,
-         73,185,185, 57, 57,249,249,121,121,153,153, 25, 25,217,217, 89,
-         89, 89,161,161,161,161, 33, 33, 33, 33,225,225,225,225, 97, 97,
-         97, 97,129,129,129,129,  1,  1,  1,  1,193,193,193,193, 65, 65,
-         65, 65,177,177,177,177, 49, 49, 49, 49,241,241,241,241,113,113,
-        113,113,145,145,145,145, 17, 17, 17, 17,209,209,209,209, 81,253
+/* alaw -> signed 16-bit */
+static short isdn_audio_alaw_to_s16[] = {
+        0x13fc, 0xec04, 0x0144, 0xfebc, 0x517c, 0xae84, 0x051c, 0xfae4,
+        0x0a3c, 0xf5c4, 0x0048, 0xffb8, 0x287c, 0xd784, 0x028c, 0xfd74,
+        0x1bfc, 0xe404, 0x01cc, 0xfe34, 0x717c, 0x8e84, 0x071c, 0xf8e4,
+        0x0e3c, 0xf1c4, 0x00c4, 0xff3c, 0x387c, 0xc784, 0x039c, 0xfc64,
+        0x0ffc, 0xf004, 0x0104, 0xfefc, 0x417c, 0xbe84, 0x041c, 0xfbe4,
+        0x083c, 0xf7c4, 0x0008, 0xfff8, 0x207c, 0xdf84, 0x020c, 0xfdf4,
+        0x17fc, 0xe804, 0x018c, 0xfe74, 0x617c, 0x9e84, 0x061c, 0xf9e4,
+        0x0c3c, 0xf3c4, 0x0084, 0xff7c, 0x307c, 0xcf84, 0x030c, 0xfcf4,
+        0x15fc, 0xea04, 0x0164, 0xfe9c, 0x597c, 0xa684, 0x059c, 0xfa64,
+        0x0b3c, 0xf4c4, 0x0068, 0xff98, 0x2c7c, 0xd384, 0x02cc, 0xfd34,
+        0x1dfc, 0xe204, 0x01ec, 0xfe14, 0x797c, 0x8684, 0x07bc, 0xf844,
+        0x0f3c, 0xf0c4, 0x00e4, 0xff1c, 0x3c7c, 0xc384, 0x03dc, 0xfc24,
+        0x11fc, 0xee04, 0x0124, 0xfedc, 0x497c, 0xb684, 0x049c, 0xfb64,
+        0x093c, 0xf6c4, 0x0028, 0xffd8, 0x247c, 0xdb84, 0x024c, 0xfdb4,
+        0x19fc, 0xe604, 0x01ac, 0xfe54, 0x697c, 0x9684, 0x069c, 0xf964,
+        0x0d3c, 0xf2c4, 0x00a4, 0xff5c, 0x347c, 0xcb84, 0x034c, 0xfcb4,
+        0x12fc, 0xed04, 0x0134, 0xfecc, 0x4d7c, 0xb284, 0x04dc, 0xfb24,
+        0x09bc, 0xf644, 0x0038, 0xffc8, 0x267c, 0xd984, 0x026c, 0xfd94,
+        0x1afc, 0xe504, 0x01ac, 0xfe54, 0x6d7c, 0x9284, 0x06dc, 0xf924,
+        0x0dbc, 0xf244, 0x00b4, 0xff4c, 0x367c, 0xc984, 0x036c, 0xfc94,
+        0x0f3c, 0xf0c4, 0x00f4, 0xff0c, 0x3e7c, 0xc184, 0x03dc, 0xfc24,
+        0x07bc, 0xf844, 0x0008, 0xfff8, 0x1efc, 0xe104, 0x01ec, 0xfe14,
+        0x16fc, 0xe904, 0x0174, 0xfe8c, 0x5d7c, 0xa284, 0x05dc, 0xfa24,
+        0x0bbc, 0xf444, 0x0078, 0xff88, 0x2e7c, 0xd184, 0x02ec, 0xfd14,
+        0x14fc, 0xeb04, 0x0154, 0xfeac, 0x557c, 0xaa84, 0x055c, 0xfaa4,
+        0x0abc, 0xf544, 0x0058, 0xffa8, 0x2a7c, 0xd584, 0x02ac, 0xfd54,
+        0x1cfc, 0xe304, 0x01cc, 0xfe34, 0x757c, 0x8a84, 0x075c, 0xf8a4,
+        0x0ebc, 0xf144, 0x00d4, 0xff2c, 0x3a7c, 0xc584, 0x039c, 0xfc64,
+        0x10fc, 0xef04, 0x0114, 0xfeec, 0x457c, 0xba84, 0x045c, 0xfba4,
+        0x08bc, 0xf744, 0x0018, 0xffe8, 0x227c, 0xdd84, 0x022c, 0xfdd4,
+        0x18fc, 0xe704, 0x018c, 0xfe74, 0x657c, 0x9a84, 0x065c, 0xf9a4,
+        0x0cbc, 0xf344, 0x0094, 0xff6c, 0x327c, 0xcd84, 0x032c, 0xfcd4
+};
+
+/* alaw -> ulaw */
+static char isdn_audio_alaw_to_ulaw[] = {
+        0xab, 0x2b, 0xe3, 0x63, 0x8b, 0x0b, 0xc9, 0x49,
+        0xba, 0x3a, 0xf6, 0x76, 0x9b, 0x1b, 0xd7, 0x57,
+        0xa3, 0x23, 0xdd, 0x5d, 0x83, 0x03, 0xc1, 0x41,
+        0xb2, 0x32, 0xeb, 0x6b, 0x93, 0x13, 0xcf, 0x4f,
+        0xaf, 0x2f, 0xe7, 0x67, 0x8f, 0x0f, 0xcd, 0x4d,
+        0xbe, 0x3e, 0xfe, 0x7e, 0x9f, 0x1f, 0xdb, 0x5b,
+        0xa7, 0x27, 0xdf, 0x5f, 0x87, 0x07, 0xc5, 0x45,
+        0xb6, 0x36, 0xef, 0x6f, 0x97, 0x17, 0xd3, 0x53,
+        0xa9, 0x29, 0xe1, 0x61, 0x89, 0x09, 0xc7, 0x47,
+        0xb8, 0x38, 0xf2, 0x72, 0x99, 0x19, 0xd5, 0x55,
+        0xa1, 0x21, 0xdc, 0x5c, 0x81, 0x01, 0xbf, 0x3f,
+        0xb0, 0x30, 0xe9, 0x69, 0x91, 0x11, 0xce, 0x4e,
+        0xad, 0x2d, 0xe5, 0x65, 0x8d, 0x0d, 0xcb, 0x4b,
+        0xbc, 0x3c, 0xfa, 0x7a, 0x9d, 0x1d, 0xd9, 0x59,
+        0xa5, 0x25, 0xde, 0x5e, 0x85, 0x05, 0xc3, 0x43,
+        0xb4, 0x34, 0xed, 0x6d, 0x95, 0x15, 0xd1, 0x51,
+        0xac, 0x2c, 0xe4, 0x64, 0x8c, 0x0c, 0xca, 0x4a,
+        0xbb, 0x3b, 0xf8, 0x78, 0x9c, 0x1c, 0xd8, 0x58,
+        0xa4, 0x24, 0xde, 0x5e, 0x84, 0x04, 0xc2, 0x42,
+        0xb3, 0x33, 0xec, 0x6c, 0x94, 0x14, 0xd0, 0x50,
+        0xb0, 0x30, 0xe8, 0x68, 0x90, 0x10, 0xce, 0x4e,
+        0xbf, 0x3f, 0xfe, 0x7e, 0xa0, 0x20, 0xdc, 0x5c,
+        0xa8, 0x28, 0xe0, 0x60, 0x88, 0x08, 0xc6, 0x46,
+        0xb7, 0x37, 0xf0, 0x70, 0x98, 0x18, 0xd4, 0x54,
+        0xaa, 0x2a, 0xe2, 0x62, 0x8a, 0x0a, 0xc8, 0x48,
+        0xb9, 0x39, 0xf4, 0x74, 0x9a, 0x1a, 0xd6, 0x56,
+        0xa2, 0x22, 0xdd, 0x5d, 0x82, 0x02, 0xc0, 0x40,
+        0xb1, 0x31, 0xea, 0x6a, 0x92, 0x12, 0xcf, 0x4f,
+        0xae, 0x2e, 0xe6, 0x66, 0x8e, 0x0e, 0xcc, 0x4c,
+        0xbd, 0x3d, 0xfc, 0x7c, 0x9e, 0x1e, 0xda, 0x5a,
+        0xa6, 0x26, 0xdf, 0x5f, 0x86, 0x06, 0xc4, 0x44,
+        0xb5, 0x35, 0xee, 0x6e, 0x96, 0x16, 0xd2, 0x52
+};
+
+/* ulaw -> alaw */
+static char isdn_audio_ulaw_to_alaw[] = {
+        0xab, 0x55, 0xd5, 0x15, 0x95, 0x75, 0xf5, 0x35,
+        0xb5, 0x45, 0xc5, 0x05, 0x85, 0x65, 0xe5, 0x25,
+        0xa5, 0x5d, 0xdd, 0x1d, 0x9d, 0x7d, 0xfd, 0x3d,
+        0xbd, 0x4d, 0xcd, 0x0d, 0x8d, 0x6d, 0xed, 0x2d,
+        0xad, 0x51, 0xd1, 0x11, 0x91, 0x71, 0xf1, 0x31,
+        0xb1, 0x41, 0xc1, 0x01, 0x81, 0x61, 0xe1, 0x21,
+        0x59, 0xd9, 0x19, 0x99, 0x79, 0xf9, 0x39, 0xb9,
+        0x49, 0xc9, 0x09, 0x89, 0x69, 0xe9, 0x29, 0xa9,
+        0xd7, 0x17, 0x97, 0x77, 0xf7, 0x37, 0xb7, 0x47,
+        0xc7, 0x07, 0x87, 0x67, 0xe7, 0x27, 0xa7, 0xdf,
+        0x9f, 0x7f, 0xff, 0x3f, 0xbf, 0x4f, 0xcf, 0x0f,
+        0x8f, 0x6f, 0xef, 0x2f, 0x53, 0x13, 0x73, 0x33,
+        0xb3, 0x43, 0xc3, 0x03, 0x83, 0x63, 0xe3, 0x23,
+        0xa3, 0x5b, 0xdb, 0x1b, 0x9b, 0x7b, 0xfb, 0x3b,
+        0xbb, 0xbb, 0x4b, 0x4b, 0xcb, 0xcb, 0x0b, 0x0b,
+        0x8b, 0x8b, 0x6b, 0x6b, 0xeb, 0xeb, 0x2b, 0x2b,
+        0xab, 0x54, 0xd4, 0x14, 0x94, 0x74, 0xf4, 0x34,
+        0xb4, 0x44, 0xc4, 0x04, 0x84, 0x64, 0xe4, 0x24,
+        0xa4, 0x5c, 0xdc, 0x1c, 0x9c, 0x7c, 0xfc, 0x3c,
+        0xbc, 0x4c, 0xcc, 0x0c, 0x8c, 0x6c, 0xec, 0x2c,
+        0xac, 0x50, 0xd0, 0x10, 0x90, 0x70, 0xf0, 0x30,
+        0xb0, 0x40, 0xc0, 0x00, 0x80, 0x60, 0xe0, 0x20,
+        0x58, 0xd8, 0x18, 0x98, 0x78, 0xf8, 0x38, 0xb8,
+        0x48, 0xc8, 0x08, 0x88, 0x68, 0xe8, 0x28, 0xa8,
+        0xd6, 0x16, 0x96, 0x76, 0xf6, 0x36, 0xb6, 0x46,
+        0xc6, 0x06, 0x86, 0x66, 0xe6, 0x26, 0xa6, 0xde,
+        0x9e, 0x7e, 0xfe, 0x3e, 0xbe, 0x4e, 0xce, 0x0e,
+        0x8e, 0x6e, 0xee, 0x2e, 0x52, 0x12, 0x72, 0x32,
+        0xb2, 0x42, 0xc2, 0x02, 0x82, 0x62, 0xe2, 0x22,
+        0xa2, 0x5a, 0xda, 0x1a, 0x9a, 0x7a, 0xfa, 0x3a,
+        0xba, 0xba, 0x4a, 0x4a, 0xca, 0xca, 0x0a, 0x0a,
+        0x8a, 0x8a, 0x6a, 0x6a, 0xea, 0xea, 0x2a, 0x2a
 };
 
 #if ((CPU == 386) || (CPU == 486) || (CPU == 586))
 static inline void
-isdn_audio_transasm(const void *table, void *buff, unsigned long n)
+isdn_audio_tlookup(const void *table, void *buff, unsigned long n)
 {
         __asm__("cld\n"
                 "1:\tlodsb\n\t"
@@ -84,43 +197,80 @@ isdn_audio_transasm(const void *table, void *buff, unsigned long n)
                 ::"b" ((long)table), "c" (n), "D" ((long)buff), "S" ((long)buff)
                 :"bx","cx","di","si","ax");
 }
-
-void
-isdn_audio_a2l(unsigned char *buff, unsigned long len)
-{
-        isdn_audio_transasm(isdn_audio_a2ltable, buff, len);
-}
-
-void
-isdn_audio_l2a(unsigned char *buff, unsigned long len)
-{
-        isdn_audio_transasm(isdn_audio_l2atable, buff, len);
-}
 #else
-void
-isdn_audio_a2l(unsigned char *buff, unsigned long len)
+static inline void
+isdn_audio_tlookup(const char *table, char *buff, unsigned long n)
 {
-        while (len--) {
-                *buff = isdn_audio_a2ltable[*buff];
-                buff++;
-        }
-}
-
-void
-isdn_audio_l2a(unsigned char *buff, unsigned long len)
-{
-        while (len--) {
-                *buff = isdn_audio_l2atable[*buff];
-                buff++;
-        }
+        while (n--) 
+                *buff++ = table[*buff];
 }
 #endif
 
+void
+isdn_audio_ulaw2alaw(unsigned char *buff, unsigned long len)
+{
+        isdn_audio_tlookup(isdn_audio_ulaw_to_alaw, buff, len);
+}
+
+void
+isdn_audio_alaw2ulaw(unsigned char *buff, unsigned long len)
+{
+        isdn_audio_tlookup(isdn_audio_alaw_to_ulaw, buff, len);
+}
+
 /*
  * linear <-> adpcm conversion stuff
- * Parts from the mgetty-package (C) by Gert Doering and Klaus Weidner
+ * Most parts from the mgetty-package.
+ * (C) by Gert Doering and Klaus Weidner
  * Used by permission of Gert Doering
  */
+
+
+#define ZEROTRAP    /* turn on the trap as per the MIL-STD */
+#undef ZEROTRAP
+#define BIAS 0x84   /* define the add-in bias for 16 bit samples */
+#define CLIP 32635
+
+static unsigned char
+isdn_audio_linear2ulaw(int sample) {
+        static int exp_lut[256] = {
+                0,0,1,1,2,2,2,2,3,3,3,3,3,3,3,3,
+                4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,
+                5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,
+                5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,
+                6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,
+                6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,
+                6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,
+                6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,
+                7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,
+                7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,
+                7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,
+                7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,
+                7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,
+                7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,
+                7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,
+                7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7
+        };
+        int sign, exponent, mantissa;
+        unsigned char ulawbyte;
+
+        /* Get the sample into sign-magnitude. */
+        sign = (sample >> 8) & 0x80;      /* set aside the sign  */
+        if(sign != 0) sample = -sample;   /* get magnitude       */
+        if(sample > CLIP) sample = CLIP;  /* clip the magnitude  */
+
+        /* Convert from 16 bit linear to ulaw. */
+        sample = sample + BIAS;
+        exponent = exp_lut[( sample >> 7 ) & 0xFF];
+        mantissa = (sample >> (exponent + 3)) & 0x0F;
+        ulawbyte = ~(sign | (exponent << 4) | mantissa);
+#ifdef ZEROTRAP
+        /* optional CCITT trap */
+        if (ulawbyte == 0) ulawbyte = 0x02;
+#endif
+        return(ulawbyte);
+}
+
 
 static int Mx[3][8] = {
         { 0x3800, 0x5600, 0,0,0,0,0,0 },
@@ -133,27 +283,27 @@ static int bitmask[9] = {
 }; 
 
 static int
-isdn_audio_get_bits (int nbits, adpcm_state *s, unsigned char *in, int *len)
+isdn_audio_get_bits (adpcm_state *s, unsigned char **in, int *len)
 {
-        while( s->nleft < nbits) {
-                int d = *in++;
+        while( s->nleft < s->nbits) {
+                int d = *((*in)++);
                 (*len)--;
                 s->word = (s->word << 8) | d;
                 s->nleft += 8;
         }
-        s->nleft -= nbits;
-        return (s->word >> s->nleft) & bitmask[nbits];
+        s->nleft -= s->nbits;
+        return (s->word >> s->nleft) & bitmask[s->nbits];
 }
 
 static void
 isdn_audio_put_bits (int data, int nbits, adpcm_state *s,
-                     unsigned char *out, int *len)
+                     unsigned char **out, int *len)
 {
         s->word = (s->word << nbits) | (data & bitmask[nbits]);
         s->nleft += nbits;
         while(s->nleft >= 8) {
                 int d = (s->word >> (s->nleft-8));
-                *out++ = d & 255;
+                *(out[0]++) = d & 255;
                 (*len)++;
                 s->nleft -= 8;
         }
@@ -162,9 +312,13 @@ isdn_audio_put_bits (int data, int nbits, adpcm_state *s,
 adpcm_state *
 isdn_audio_adpcm_init(int nbits)
 {
-        adpcm_state *s;
+static adpcm_state *s;
 
+#ifdef ATEST
+        s = (adpcm_state *) malloc(sizeof(adpcm_state));
+#else
         s = (adpcm_state *) kmalloc(sizeof(adpcm_state), GFP_ATOMIC);
+#endif
         if (s) {
                 s->a     = 0;
                 s->d     = 5;
@@ -176,12 +330,12 @@ isdn_audio_adpcm_init(int nbits)
 }
 
 /*
- * Decompression of adpcm data to 8-bit linear
+ * Decompression of adpcm data to a/u-law
  *
  */
  
 int
-isdn_audio_adpcm2lin (adpcm_state *s, unsigned char *in,
+isdn_audio_adpcm2xlaw (adpcm_state *s, int fmt, unsigned char *in,
                       unsigned char *out, int len)
 {
         int a = s->a;
@@ -190,36 +344,43 @@ isdn_audio_adpcm2lin (adpcm_state *s, unsigned char *in,
         int olen = 0;
         
         while (len) {
+                int e = isdn_audio_get_bits(s, &in, &len);
                 int sign;
-                int e = isdn_audio_get_bits(nbits, s, in, &len);
 
                 if (nbits == 4 && e == 0)
                         d = 4;
                 sign = (e >> (nbits-1))?-1:1;
                 e &= bitmask[nbits-1];
-#if 0                
-                if (rom >= 610 && rom < 612) {
-                        /* modified conversion algorithm for ROM >= 6.10 */
-                        a = (a * 3973 + 2048) >>12;
-                } else if (rom>=612) {
-                        /* modified conversion algorithm for ROM >= 6.12 */
-                        a = (a * 4093 + 2048) >>12;
-                }
-#endif                
                 a += sign * ((e << 1) + 1) * d >> 1;
                 if (d & 1)
                         a++;
-                *out++ = (a << 6);
+                if (fmt)
+                        *out++ = isdn_audio_ulaw_to_alaw[
+                                 isdn_audio_linear2ulaw(a << 2)];
+                else
+                        *out++ = isdn_audio_linear2ulaw(a << 2);
                 olen++;
                 d = (d * Mx[nbits-2][ e ] + 0x2000) >> 14;
                 if ( d < 5 )
                         d = 5;     
         }
+        s->a = a;
+        s->d = d;
         return olen;
 }
 
 int
-isdn_audio_lin2adpcm (adpcm_state *s, unsigned char *in,
+isdn_audio_2adpcm_flush (adpcm_state *s, unsigned char *out)
+{
+	int olen = 0;
+
+        if (s->nleft)
+                isdn_audio_put_bits(0, 8-s->nleft, s, &out, &olen);
+        return olen;
+}
+
+int
+isdn_audio_xlaw2adpcm (adpcm_state *s, int fmt, unsigned char *in,
                       unsigned char *out, int len)
 {
         int a = s->a;
@@ -230,8 +391,11 @@ isdn_audio_lin2adpcm (adpcm_state *s, unsigned char *in,
         while (len--) {
                 int e = 0, nmax = 1 << (nbits - 1);
                 int sign, delta;
-                
-                delta = (*in++ << 6) - a;
+              
+                if (fmt)
+                        delta = (isdn_audio_alaw_to_s16[*in++] >> 2) - a;
+                else
+                        delta = (isdn_audio_ulaw_to_s16[*in++] >> 2) - a;
                 if (delta < 0) {
                         e = nmax;
                         delta = -delta;
@@ -242,16 +406,7 @@ isdn_audio_lin2adpcm (adpcm_state *s, unsigned char *in,
                 }
                 if (nbits == 4 && ((e & 0x0f) == 0))
                         e = 8;
-                isdn_audio_put_bits(e, nbits, s, out, &olen);
-#if 0
-                if(rom >= 610 && rom < 612) {
-                        /* modified conversion algorithm for ROM >= 6.10 */
-                        a = (a * 3973 + 2048) >>12;
-                } else if(rom>=612) {
-                        /* modified conversion algorithm for ROM >= 6.12 */
-                        a = (a * 4093 + 2048) >>12;
-                }
-#endif                
+                isdn_audio_put_bits(e, nbits, s, &out, &olen);
                 sign = (e >> (nbits-1))?-1:1 ;
                 e &= bitmask[nbits-1];
                 
@@ -262,7 +417,8 @@ isdn_audio_lin2adpcm (adpcm_state *s, unsigned char *in,
                 if (d < 5)
                         d=5;
         }
-        if (s->nleft)
-                isdn_audio_put_bits(0, 8-s->nleft, s, out, &olen);
+	s->a = a;
+	s->d = d;
         return olen;
 }
+

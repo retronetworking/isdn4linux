@@ -19,6 +19,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.1  1996/04/30 09:29:06  fritz
+ * Taken under CVS control.
+ *
  */
 
 typedef struct adpcm_state {
@@ -29,8 +32,9 @@ typedef struct adpcm_state {
         int nbits;
 } adpcm_state;
 
-extern void isdn_audio_a2l(unsigned char *, unsigned long);
-extern void isdn_audio_l2a(unsigned char *, unsigned long);
+extern void isdn_audio_ulaw2alaw(unsigned char *, unsigned long);
+extern void isdn_audio_alaw2ulaw(unsigned char *, unsigned long);
 extern adpcm_state *isdn_audio_adpcm_init(int);
-extern int isdn_audio_adpcm2lin(adpcm_state *, unsigned char *, unsigned char *, int);
-extern int isdn_audio_lin2adpcm(adpcm_state *, unsigned char *, unsigned char *, int);
+extern int isdn_audio_adpcm2xlaw(adpcm_state *, int, unsigned char *, unsigned char *, int);
+extern int isdn_audio_xlaw2adpcm(adpcm_state *, int, unsigned char *, unsigned char *, int);
+extern int isdn_audio_2adpcm_flush(adpcm_state *s, unsigned char *out);
