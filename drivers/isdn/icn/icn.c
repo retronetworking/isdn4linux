@@ -19,6 +19,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.49  1998/02/13 11:14:15  keil
+ * change for 2.1.86 (removing FREE_READ/FREE_WRITE from [dev]_kfree_skb()
+ *
  * Revision 1.48  1997/10/10 15:56:14  fritz
  * New HL<->LL interface:
  *   New BSENT callback with nr. of bytes included.
@@ -577,8 +580,11 @@ static icn_stat icn_stat_table[] =
 {
 	{"BCON_",          ISDN_STAT_BCONN, 1},	/* B-Channel connected        */
 	{"BDIS_",          ISDN_STAT_BHUP,  2},	/* B-Channel disconnected     */
-	{"DCON_",          ISDN_STAT_DCONN, 0},	/* D-Channel connected        */
-	{"DDIS_",          ISDN_STAT_DHUP,  0},	/* D-Channel disconnected     */
+	/*
+	** add d-channel connect and disconnect support to link-level
+	*/
+	{"DCON_",          ISDN_STAT_DCONN, 10},	/* D-Channel connected        */
+	{"DDIS_",          ISDN_STAT_DHUP,  11},	/* D-Channel disconnected     */
 	{"DCAL_I",         ISDN_STAT_ICALL, 3},	/* Incoming call dialup-line  */
 	{"DSCA_I",         ISDN_STAT_ICALL, 3},	/* Incoming call 1TR6-SPV     */
 	{"FCALL",          ISDN_STAT_ICALL, 4},	/* Leased line connection up  */
@@ -627,7 +633,35 @@ icn_parse_status(u_char * status, int channel, icn_card * card)
 	cmd.driver = card->myid;
 	cmd.arg = channel;
 	switch (action) {
+	case 11:
+			save_flags(flags);
+			cli();
+			icn_free_queue(card,channel);
+			card->rcvidx[channel] = 0;
+
+			if( card->flags & 
+				((channel)?ICN_FLAGS_B2ACTIVE:ICN_FLAGS_B1ACTIVE)) {
+
+				isdn_ctrl ncmd;
+
+				printk(KERN_INFO "icn: D-Channel hangup before B-Channel hangup\n");
+				card->flags &= ~((channel)?
+						ICN_FLAGS_B2ACTIVE:ICN_FLAGS_B1ACTIVE);
+
+				memset(&ncmd,0,sizeof(ncmd));
+
+				ncmd.driver = card->myid;
+				ncmd.arg = channel;
+				ncmd.command = ISDN_STAT_BHUP;
+				restore_flags(flags);
+				card->interface.statcallb(&cmd);
+				dflag |= (channel+1);
+
+			} else restore_flags(flags);
+			
+			break;
 		case 1:
+			icn_free_queue(card,channel);
 			card->flags |= (channel) ?
 			    ICN_FLAGS_B2ACTIVE : ICN_FLAGS_B1ACTIVE;
 			break;
