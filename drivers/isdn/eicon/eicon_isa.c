@@ -22,6 +22,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.11  1999/11/25 11:33:09  armin
+ * Microchannel fix from Erik Weber (exrz73@ibm.net).
+ *
  * Revision 1.10  1999/11/18 21:14:30  armin
  * New ISA memory mapped IO
  *
@@ -212,10 +215,10 @@ eicon_isa_bootload(eicon_isa_card *card, eicon_isa_codebuf *cb) {
 		return -EFAULT;
 	}
 
-	if (card->type == EICON_CTYPE_ISABRI)
-		card->ramsize  = RAMSIZE;
-	else
+	if (card->type == EICON_CTYPE_ISAPRI)
 		card->ramsize  = RAMSIZE_P;
+	else
+		card->ramsize  = RAMSIZE;
 
 #ifdef COMPAT_HAS_ISA_IOREMAP
 	if (check_mem_region(card->physmem, card->ramsize)) {

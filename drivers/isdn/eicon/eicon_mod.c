@@ -31,6 +31,10 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.21  1999/11/25 11:35:10  armin
+ * Microchannel fix from Erik Weber (exrz73@ibm.net).
+ * Minor cleanup.
+ *
  * Revision 1.20  1999/11/18 21:14:30  armin
  * New ISA memory mapped IO
  *
@@ -1113,6 +1117,7 @@ eicon_alloccard(int Type, int membase, int irq, char *id)
 	                                card->bus = EICON_BUS_MCA;
         	                        card->hwif.isa.card = (void *)card;
                 	                card->hwif.isa.shmem = (eicon_isa_shmem *)membase;
+					card->hwif.isa.physmem = (unsigned long)membase;
                         	        card->hwif.isa.master = 1;
 
 	                                card->hwif.isa.irq = irq;
@@ -1136,6 +1141,7 @@ eicon_alloccard(int Type, int membase, int irq, char *id)
                                 card->bus = EICON_BUS_ISA;
 				card->hwif.isa.card = (void *)card;
 				card->hwif.isa.shmem = (eicon_isa_shmem *)(membase + (i+1) * EICON_ISA_QOFFSET);
+				card->hwif.isa.physmem = (unsigned long)(membase + (i+1) * EICON_ISA_QOFFSET);
 				card->hwif.isa.master = 0;
 				strcpy(card->interface.id, id);
 				if (id[strlen(id) - 1] == 'a') {
