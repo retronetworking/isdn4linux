@@ -69,10 +69,13 @@
 #define i_count_inc(ic)  atomic_inc(&ic)
 #define COMPAT_HAS_FILEOP_OWNER
 #define COMPAT_HAVE_NEW_FILLDIR
+#define COMPAT_has_fileops_in_inode
+#define COMPAT_HAS_init_special_inode
+#define COMPAT_d_alloc_root_one_parameter
+#define COMPAT_HAS_pci_find_subsys
+#define HAVE_DEVFS_FS
 
 #endif
-
-#define COMPAT_NEED_PCI_IDS
 
 #endif /* ISDN_COMPAT_GENERIC */
 

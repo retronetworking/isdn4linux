@@ -6,6 +6,11 @@
  * Copyright 1996 by Carsten Paeth (calle@calle.in-berlin.de)
  *
  * $Log$
+ * Revision 1.46  2000/12/06 16:58:01  kai
+ * patches from 2.4.0-test12-6
+ * o remove unneeded includes
+ * o flags needs to be long for set/test_..._bit
+ *
  * Revision 1.45  2000/12/02 19:47:29  kai
  * Change the Makefiles to new style.
  * There may be problems there that I missed, so this shouldn't go into
@@ -242,10 +247,10 @@
 #include <linux/capi.h>
 #include <linux/kernelcapi.h>
 #include <linux/init.h>
+#include <linux/isdn_compat.h>
 #ifdef HAVE_DEVFS_FS
 #include <linux/devfs_fs_kernel.h>
 #endif /* HAVE_DEVFS_FS */
-#include <linux/isdn_compat.h>
 #include "capiutil.h"
 #include "capicmd.h"
 #if defined(CONFIG_ISDN_CAPI_CAPIFS) || defined(CONFIG_ISDN_CAPI_CAPIFS_MODULE)
