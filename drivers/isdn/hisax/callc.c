@@ -57,13 +57,13 @@ Dp_L4L3(struct Channel *chanp, int pr, void *arg)
 static inline void
 D_L4L3(struct Channel *chanp, int pr, void *arg)
 {
-	chanp->d_st->lli.l4l3(chanp->d_st, pr, arg);
+	chanp->d_st->l3.l4l3(chanp->d_st, pr, arg);
 }
 
 static inline void
 B_L4L3(struct Channel *chanp, int pr, void *arg)
 {
-	chanp->b_st->lli.l4l3(chanp->b_st, pr, arg);
+	chanp->b_st->l3.l4l3(chanp->b_st, pr, arg);
 }
 
 
@@ -1070,11 +1070,11 @@ init_PStack(struct PStack **stp) {
 	(*stp)->l1.l1tei = dummy_pstack;
 	(*stp)->l2.l2tei = dummy_pstack;
 	(*stp)->l2.l2l1 = dummy_pstack;
-	(*stp)->l2.l2l3 = dummy_pstack;
-	(*stp)->l3.l3l2 = dummy_pstack;
+	(*stp)->l2.l3l2 = dummy_pstack;
+	(*stp)->l3.l2l3 = dummy_pstack;
+	(*stp)->l3.l4l3 = dummy_pstack;
 	(*stp)->l3.l3ml3 = dummy_pstack;
-	(*stp)->l3.l3l4 = dummy_pstack;
-	(*stp)->lli.l4l3 = dummy_pstack;
+	(*stp)->lli.l3l4 = dummy_pstack;
 	(*stp)->ma.layer = dummy_pstack;
 }
 
@@ -1179,7 +1179,7 @@ init_st(struct PStack *st, struct IsdnCardState *cs, struct StackParams *sp,
 	ret = init_st_3(st, sp->b3_mode);
 	if (ret) return ret;
 	st->lli.userdata = chanp;
-	st->l3.l3l4 = l3l4;
+	st->lli.l3l4 = l3l4;
 	return 0;
 }
 
@@ -1659,7 +1659,7 @@ HiSax_command(isdn_ctrl * ic)
 							"%d channel %d set leased mode\n",
 							c_if->cs->cardnr + 1, num + 1);
 						chanp->d_st->l1.l1l2 = leased_l1l2;
-						chanp->d_st->lli.l4l3 = leased_l4l3;
+						chanp->d_st->l3.l4l3 = leased_l4l3;
 						D_L4L3(chanp, DL_ESTABLISH | REQUEST, NULL);
 					}
 					break;
@@ -1759,7 +1759,7 @@ HiSax_command(isdn_ctrl * ic)
 		/* protocol specific io commands */
 		case (ISDN_CMD_PROT_IO):
 			if (c_if->b3_mode - B3_MODE_CC == (ic->arg & 0xFF))
-				return(c_if->channel[0].d_st->lli.l4l3_proto(c_if->channel[0].d_st, ic));
+				return(c_if->channel[0].d_st->l3.l4l3_proto(c_if->channel[0].d_st, ic));
 			return(-EINVAL);
 			break;
 		default:
@@ -1819,7 +1819,7 @@ HiSax_writebuf_skb(int id, int chan, int ack, struct sk_buff *skb)
 			 * --KG
 			 */
                         nskb->priority = nskb->len;
-			st->l3.l3l2(st, DL_DATA | REQUEST, nskb);
+			st->l2.l3l2(st, DL_DATA | REQUEST, nskb);
 			idev_kfree_skb(skb, FREE_WRITE);
 		} else
 			len = 0;

@@ -346,7 +346,7 @@ setstack_l3cc(struct PStack *st, int b3_mode)
 	st->l3.l3m.printdebug = l3m_debug;
         FsmInitTimer(&st->l3.l3m, &st->l3.l3m_timer);
 	strcpy(st->l3.debug_id, "L3DC ");
-	st->lli.l4l3_proto = no_l3_proto_spec;
+	st->l3.l4l3_proto = no_l3_proto_spec;
 
 	switch (b3_mode) {
 #ifdef CONFIG_HISAX_EURO
@@ -365,14 +365,14 @@ setstack_l3cc(struct PStack *st, int b3_mode)
 		break;
 #endif
 	case B3_MODE_LEASED:
-		st->lli.l4l3 = no_l3_proto;
-		st->l2.l2l3 = no_l3_proto;
+		st->l3.l4l3 = no_l3_proto;
+		st->l3.l2l3 = no_l3_proto;
                 st->l3.l3ml3 = no_l3_proto;
 		printk(KERN_INFO "HiSax: Leased line mode\n");
 		break;
 	default:
-		st->lli.l4l3 = no_l3_proto;
-		st->l2.l2l3 = no_l3_proto;
+		st->l3.l4l3 = no_l3_proto;
+		st->l3.l2l3 = no_l3_proto;
                 st->l3.l3ml3 = no_l3_proto;
 		printk(KERN_WARNING "HiSax: protocol %s not supported\n",
 			(b3_mode == B3_MODE_1TR6) ? "1tr6" :
@@ -384,12 +384,12 @@ setstack_l3cc(struct PStack *st, int b3_mode)
 
 void
 l3trans_l4l3(struct PStack *st, int pr, void *arg) {
-	st->l3.l3l2(st, pr, arg);
+	st->l2.l3l2(st, pr, arg);
 }
 
 void
 l3trans_l2l3(struct PStack *st, int pr, void *arg) {
-	st->l3.l3l4(st, pr, arg);
+	st->lli.l3l4(st, pr, arg);
 }
 
 void
@@ -420,8 +420,8 @@ setstack_l3trans(struct PStack *st)
 	st->l3.l3m.userint = 0;
 	st->l3.l3m.printdebug = l3m_debug;
 	strcpy(st->l3.debug_id, "L3BC ");
-	st->lli.l4l3 = l3trans_l4l3;
-	st->l2.l2l3 = l3trans_l2l3;
+	st->l3.l4l3 = l3trans_l4l3;
+	st->l3.l2l3 = l3trans_l2l3;
 }
 
 #define DREL_TIMER_VALUE 40000
@@ -432,7 +432,7 @@ lc_activate(struct FsmInst *fi, int event, void *arg)
 	struct PStack *st = fi->userdata;
 
 	FsmChangeState(fi, ST_L3_LC_ESTAB_WAIT);
-	st->l3.l3l2(st, DL_ESTABLISH | REQUEST, NULL);
+	st->l2.l3l2(st, DL_ESTABLISH | REQUEST, NULL);
 }
 
 static void
@@ -444,7 +444,7 @@ lc_connect(struct FsmInst *fi, int event, void *arg)
 
 	FsmChangeState(fi, ST_L3_LC_ESTAB);
 	while ((skb = skb_dequeue(&st->l3.squeue))) {
-		st->l3.l3l2(st, DL_DATA | REQUEST, skb);
+		st->l2.l3l2(st, DL_DATA | REQUEST, skb);
 		dequeued++;
 	}
 	if ((!st->l3.proc) &&  dequeued) {
@@ -465,7 +465,7 @@ lc_connected(struct FsmInst *fi, int event, void *arg)
 	FsmDelTimer(&st->l3.l3m_timer, 51);
 	FsmChangeState(fi, ST_L3_LC_ESTAB);
 	while ((skb = skb_dequeue(&st->l3.squeue))) {
-		st->l3.l3l2(st, DL_DATA | REQUEST, skb);
+		st->l2.l3l2(st, DL_DATA | REQUEST, skb);
 		dequeued++;
 	}
 	if ((!st->l3.proc) &&  dequeued) {
@@ -497,7 +497,7 @@ lc_release_req(struct FsmInst *fi, int event, void *arg)
 		FsmAddTimer(&st->l3.l3m_timer, DREL_TIMER_VALUE, EV_TIMEOUT, NULL, 51);
 	} else {
 		FsmChangeState(fi, ST_L3_LC_REL_WAIT);
-		st->l3.l3l2(st, DL_RELEASE | REQUEST, NULL);
+		st->l2.l3l2(st, DL_RELEASE | REQUEST, NULL);
 	}
 }
 
@@ -551,7 +551,7 @@ l3_msg(struct PStack *st, int pr, void *arg)
 	switch (pr) {
 		case (DL_DATA | REQUEST):
 			if (st->l3.l3m.state == ST_L3_LC_ESTAB) {
-				st->l3.l3l2(st, pr, arg);
+				st->l2.l3l2(st, pr, arg);
 			} else {
 				struct sk_buff *skb = arg;
 

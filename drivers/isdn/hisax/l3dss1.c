@@ -1734,7 +1734,7 @@ l3dss1_setup(struct l3_process *pc, u_char pr, void *arg)
 	newl3state(pc, 6);
 	if (err) /* STATUS for none mandatory IE errors after actions are taken */
 		l3dss1_std_ie_err(pc, err);
-	pc->st->l3.l3l4(pc->st, CC_NEW_CR | INDICATION, pc);
+	pc->st->lli.l3l4(pc->st, CC_NEW_CR | INDICATION, pc);
 	if (!pc->l4pc) { // no l4 process available
 		pc->para.cause = 0x11;	/* User busy */
 		pc->l4l3(pc, CC_REJECT | REQUEST, 0);
@@ -3173,9 +3173,9 @@ setstack_dss1(struct PStack *st)
 	char tmp[64];
 	int i;
 
-	st->lli.l4l3 = dss1down;
-	st->lli.l4l3_proto = l3dss1_cmd_global;
-	st->l2.l2l3 = dss1up;
+	st->l3.l4l3 = dss1down;
+	st->l3.l4l3_proto = l3dss1_cmd_global;
+	st->l3.l2l3 = dss1up;
 	st->l3.l3ml3 = dss1man;
 	st->l3.N303 = 1;
 	st->prot.dss1.last_invoke_id = 0;

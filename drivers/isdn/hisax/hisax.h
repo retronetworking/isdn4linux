@@ -240,7 +240,7 @@ struct Layer2 {
 	struct sk_buff_head i_queue;
 	struct sk_buff_head ui_queue;
 	void (*l2l1) (struct PStack *, int, void *);
-	void (*l2l3) (struct PStack *, int, void *);
+	void (*l3l2) (struct PStack *, int, void *);
 	void (*l2tei) (struct PStack *, int, void *);
 	struct FsmInst l2m;
 	struct FsmTimer t200, t203;
@@ -250,9 +250,10 @@ struct Layer2 {
 };
 
 struct Layer3 {
-	void (*l3l4) (struct PStack *, int, void *);
         void (*l3ml3) (struct PStack *, int, void *);
-	void (*l3l2) (struct PStack *, int, void *);
+	void (*l2l3) (struct PStack *, int, void *);
+	void (*l4l3) (struct PStack *, int, void *);
+        int  (*l4l3_proto) (struct PStack *, isdn_ctrl *);
 	struct FsmInst l3m;
         struct FsmTimer l3m_timer;
 	struct sk_buff_head squeue;
@@ -264,8 +265,7 @@ struct Layer3 {
 };
 
 struct LLInterface {
-	void (*l4l3) (struct PStack *, int, void *);
-        int  (*l4l3_proto) (struct PStack *, isdn_ctrl *);
+	void (*l3l4) (struct PStack *, int, void *);
 	void *userdata;
 };
 

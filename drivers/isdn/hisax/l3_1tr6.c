@@ -237,7 +237,7 @@ l3_1tr6_setup(struct l3_process *pc, u_char pr, void *arg)
 			l3_debug(pc->st, tmp);
 		}
 		newl3state(pc, 6);
-		pc->st->l3.l3l4(pc->st, CC_NEW_CR | INDICATION, pc);
+		pc->st->lli.l3l4(pc->st, CC_NEW_CR | INDICATION, pc);
 		if (!pc->l4pc) { // no l4 process available
 			pc->para.cause = 0x11;	/* User busy */
 			pc->l4l3(pc, CC_REJECT | REQUEST, 0);
@@ -970,8 +970,8 @@ setstack_1tr6(struct PStack *st)
 {
 	char tmp[64];
 
-	st->lli.l4l3 = down1tr6;
-	st->l2.l2l3 = up1tr6;
+	st->l3.l4l3 = down1tr6;
+	st->l3.l2l3 = up1tr6;
 	st->l3.l3ml3 = man1tr6;
 	st->l3.N303 = 0;
 
