@@ -7,6 +7,9 @@
  *              Fritz Elfert
  *
  * $Log$
+ * Revision 1.8  1997/04/06 22:59:59  keil
+ * Using SKB's; changing function names; some minor changes
+ *
  * Revision 1.7  1997/02/09 00:25:44  keil
  * new interface handling, one interface per card
  *
@@ -1182,10 +1185,10 @@ isdnl2_l1l2(struct PStack *st, int pr, void *arg)
 			else if (IsRNR(datap, st->l2.extended))
 				ret = FsmEvent(&st->l2.l2m, EV_L2_RNR, skb);
 
-			if (ret)
+			if (ret) {
 				SET_SKB_FREE(skb);
-			dev_kfree_skb(skb, FREE_READ);
-
+				dev_kfree_skb(skb, FREE_READ);
+			}
 			break;
 		case (PH_PULL_ACK):
 			FsmEvent(&st->l2.l2m, EV_L2_ACK_PULL, arg);
