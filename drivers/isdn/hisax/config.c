@@ -5,6 +5,9 @@
  *
  *
  * $Log$
+ * Revision 2.32  1999/08/28 22:11:10  keil
+ * __setup function should be static
+ *
  * Revision 2.31  1999/08/25 16:47:43  keil
  * Support new __setup; allow to add FEATURES after register_isdn
  *
@@ -224,6 +227,7 @@ static struct symbol_table hisax_syms_elsa = {
 int avm_a1_init_pcmcia(void*, int, int*, int);
 #ifdef COMPAT_HAS_NEW_SYMTAB
 EXPORT_SYMBOL(avm_a1_init_pcmcia);
+EXPORT_SYMBOL(HiSax_closecard);
 #else
 static struct symbol_table hisax_syms_avm_a1= {
 #include <linux/symtab_begin.h>
@@ -521,9 +525,9 @@ HiSaxVersion(void))
 
 	printk(KERN_INFO "HiSax: Linux Driver for passive ISDN cards\n");
 #ifdef MODULE
-	printk(KERN_INFO "HiSax: Version 3.3 (module)\n");
+	printk(KERN_INFO "HiSax: Version 3.3a (module)\n");
 #else
-	printk(KERN_INFO "HiSax: Version 3.3 (kernel)\n");
+	printk(KERN_INFO "HiSax: Version 3.3a (kernel)\n");
 #endif
 	strcpy(tmp, l1_revision);
 	printk(KERN_INFO "HiSax: Layer1 Revision %s\n", HiSax_getrev(tmp));
