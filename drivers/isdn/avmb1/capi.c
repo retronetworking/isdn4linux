@@ -6,6 +6,11 @@
  * Copyright 1996 by Carsten Paeth (calle@calle.in-berlin.de)
  *
  * $Log$
+ * Revision 1.20  1999/09/07 09:02:53  calle
+ * SETDATA removed. Now inside the kernel the datapart of DATA_B3_REQ and
+ * DATA_B3_IND is always directly after the CAPI message. The "Data" member
+ * ist never used inside the kernel.
+ *
  * Revision 1.19  1999/07/09 15:05:42  keil
  * compat.h is now isdn_compat.h
  *
@@ -426,7 +431,7 @@ static int capi_ioctl(struct inode *inode, struct file *file,
 		return data.errcode;
 
 	case CAPI_INSTALLED:
-		if ((*capifuncs->capi_installed) ())
+		if ((*capifuncs->capi_isinstalled)() == CAPI_NOERROR)
 			return 0;
 		return -ENXIO;
 
