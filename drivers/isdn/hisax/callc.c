@@ -7,6 +7,9 @@
  *              Fritz Elfert
  *
  * $Log$
+ * Revision 1.29  1997/04/23 20:09:49  fritz
+ * Removed tmp, used by removed debugging code.
+ *
  * Revision 1.28  1997/04/21 13:42:25  keil
  * Remove unneeded debug
  *
@@ -1501,6 +1504,7 @@ init_chan(int chan, struct IsdnCardState *csta, int hscx,
 	chanp->debug = 0;
 	chanp->Flags = 0;
 	chanp->leased = 0;
+	chanp->impair = 0;
 	init_is(chanp, ces);
 
 	chanp->fi.fsm = &callcfsm;
