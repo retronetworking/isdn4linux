@@ -19,6 +19,11 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.26  1997/02/23 16:53:44  hipp
+ * minor cleanup
+ * some initial changes for future PPP compresion
+ * added AC,PC compression for outgoing frames
+ *
  * Revision 1.25  1997/02/12 20:37:35  hipp
  * New ioctl() PPPIOCGCALLINFO, minor cleanup
  *
@@ -454,9 +459,8 @@ get_arg(void *b, void *val, int len)
 	int r;
 	if (len <= 0)
 		len = sizeof(unsigned long);
-	if ((r = verify_area(VERIFY_READ, (void *) b, len)))
+	if ((r = copy_from_user((void *) val, b, len)))
 		return r;
-	copy_from_user((void *) val, b, len);
 	return 0;
 }
 
@@ -468,13 +472,11 @@ set_arg(void *b, unsigned long val, void *str)
 {
 	int r;
 	if (!str) {
-		if ((r = verify_area(VERIFY_WRITE, b, 4)))
+		if ((r = copy_to_user(b, (void *) &val, 4)))
 			return r;
-		copy_to_user(b, (void *) &val, 4);
 	} else {
-		if ((r = verify_area(VERIFY_WRITE, b, val)))
+		if ((r = copy_to_user(b, str, val)))
 			return r;
-		copy_to_user(b, str, val);
 	}
 	return 0;
 }
@@ -798,9 +800,6 @@ isdn_ppp_read(int min, struct file *file, char *buf, int count)
 	if (!(is->state & IPPP_OPEN))
 		return 0;
 
-	if ((r = verify_area(VERIFY_WRITE, (void *) buf, count)))
-		return r;
-
 	save_flags(flags);
 	cli();
 
@@ -811,7 +810,10 @@ isdn_ppp_read(int min, struct file *file, char *buf, int count)
 	}
 	if (b->len < count)
 		count = b->len;
-	copy_to_user(buf, b->buf, count);
+	if ((r = copy_to_user(buf, b->buf, count))) {
+		restore_flags(flags);
+		return r;
+	}
 	kfree(b->buf);
 	b->buf = NULL;
 	is->first = b;
@@ -848,7 +850,8 @@ isdn_ppp_write(int min, struct file *file, const char *buf, int count)
 		 * Don't reset huptimer for
 		 * LCP packets. (Echo requests).
 		 */
-		copy_from_user(protobuf, buf, 4);
+		if (copy_from_user(protobuf, buf, 4))
+			return -EFAULT;
 		proto = PPP_PROTOCOL(protobuf);
 		if (proto != PPP_LCP)
 			lp->huptimer = 0;
@@ -866,7 +869,8 @@ isdn_ppp_write(int min, struct file *file, const char *buf, int count)
 				return count;
 			}
 			SET_SKB_FREE(skb);
-			copy_from_user(skb_put(skb, count), buf, count);
+			if (copy_from_user(skb_put(skb, count), buf, count))
+				return -EFAULT;
 			if (is->debug & 0x40) {
 				printk(KERN_DEBUG "ppp xmit: len %d\n", (int) skb->len);
 				isdn_ppp_frame_log("xmit", skb->data, skb->len, 32);
@@ -1774,9 +1778,7 @@ isdn_ppp_dev_ioctl_stats(int slot, struct ifreq *ifr, struct device *dev)
 		}
 #endif
 	}
-	copy_to_user(res, &t, sizeof(struct ppp_stats));
-	return 0;
-
+	return copy_to_user(res, &t, sizeof(struct ppp_stats));
 }
 
 int
@@ -1798,9 +1800,7 @@ isdn_ppp_dev_ioctl(struct device *dev, struct ifreq *ifr, int cmd)
 		case SIOCGPPPVER:
 			r = (char *) ifr->ifr_ifru.ifru_data;
 			len = strlen(PPP_VERSION) + 1;
-			error = verify_area(VERIFY_WRITE, r, len);
-			if (!error)
-				copy_to_user(r, PPP_VERSION, len);
+		        error = copy_to_user(r, PPP_VERSION, len);
 			break;
 		case SIOCGPPPSTATS:
 			error = isdn_ppp_dev_ioctl_stats(lp->ppp_slot, ifr, dev);

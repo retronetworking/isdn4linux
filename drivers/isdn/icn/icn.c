@@ -19,6 +19,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.43  1997/03/21 18:27:04  fritz
+ * Corrected parsing of incoming setup.
+ *
  * Revision 1.42  1997/03/05 21:13:18  fritz
  * Bugfix: sndcount was not reset on hangup.
  *
@@ -905,11 +908,13 @@ icn_loadboot(u_char * buffer, icn_card * card)
 #ifdef BOOT_DEBUG
 	printk(KERN_DEBUG "icn_loadboot called, buffaddr=%08lx\n", (ulong) buffer);
 #endif
-	if ((ret = verify_area(VERIFY_READ, (void *) buffer, ICN_CODE_STAGE1)))
-		return ret;
 	if (!(codebuf = kmalloc(ICN_CODE_STAGE1, GFP_KERNEL))) {
 		printk(KERN_WARNING "icn: Could not allocate code buffer\n");
 		return -ENOMEM;
+	}
+	if ((ret = copy_from_user(codebuf, buffer, ICN_CODE_STAGE1))) {
+		kfree(codebuf);
+		return ret;
 	}
 	save_flags(flags);
 	cli();
@@ -958,7 +963,6 @@ icn_loadboot(u_char * buffer, icn_card * card)
 	icn_lock_channel(card, 0);	/* Lock Bank 0      */
 	restore_flags(flags);
 	SLEEP(1);
-	copy_from_user(codebuf, buffer, ICN_CODE_STAGE1);
 	memcpy_toio(dev.shmem, codebuf, ICN_CODE_STAGE1);	/* Copy code        */
 #ifdef BOOT_DEBUG
 	printk(KERN_DEBUG "Bootloader transfered\n");
@@ -1030,7 +1034,10 @@ icn_loadproto(u_char * buffer, icn_card * card)
 	while (left) {
 		if (sbfree) {   /* If there is a free buffer...  */
 			cnt = MIN(256, left);
-			copy_from_user(codebuf, p, cnt);
+			if (copy_from_user(codebuf, p, cnt)) {
+				icn_maprelease_channel(card, 0);
+				return -EFAULT;
+			}
 			memcpy_toio(&sbuf_l, codebuf, cnt);	/* copy data                     */
 			sbnext; /* switch to next buffer         */
 			p += cnt;
@@ -1328,17 +1335,15 @@ icn_command(isdn_ctrl * c, icn_card * card)
 				case ICN_IOCTL_GETDOUBLE:
 					return (int) card->doubleS0;
 				case ICN_IOCTL_DEBUGVAR:
-					if ((i = verify_area(VERIFY_WRITE,
-							     (void *) a,
-						     sizeof(ulong) * 2)))
+					if ((i = copy_to_user((char *) a,
+					  (char *) &card, sizeof(ulong))))
 						return i;
-					copy_to_user((char *) a,
-					  (char *) &card, sizeof(ulong));
 					a += sizeof(ulong);
 					{
 						ulong l = (ulong) & dev;
-						copy_to_user((char *) a,
-							     (char *) &l, sizeof(ulong));
+						if ((i = copy_to_user((char *) a,
+							     (char *) &l, sizeof(ulong))))
+							return i;
 					}
 					return 0;
 				case ICN_IOCTL_LOADBOOT:
@@ -1359,9 +1364,8 @@ icn_command(isdn_ctrl * c, icn_card * card)
 				case ICN_IOCTL_ADDCARD:
 					if (!dev.firstload)
 						return -EBUSY;
-					if ((i = verify_area(VERIFY_READ, (void *) a, sizeof(icn_cdef))))
+					if ((i = copy_from_user((char *) &cdef, (char *) a, sizeof(cdef))))
 						return i;
-					copy_from_user((char *) &cdef, (char *) a, sizeof(cdef));
 					return (icn_addcard(cdef.port, cdef.id1, cdef.id2));
 					break;
 				case ICN_IOCTL_LEASEDCFG:

@@ -21,6 +21,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.42  1997/03/11 08:43:51  fritz
+ * Perform a hangup if number is deleted while dialing.
+ *
  * Revision 1.41  1997/03/08 08:16:31  fritz
  * Bugfix: Deleting a phone number during dial gave unpredictable results.
  *
@@ -2356,11 +2359,10 @@ isdn_net_getphones(isdn_net_ioctl_phone * phone, char *phones)
 			put_user(' ', phones++);
 			count++;
 		}
-		if ((ret = verify_area(VERIFY_WRITE, (void *) phones, strlen(n->num) + 1))) {
+		if ((ret = copy_to_user(phones, n->num, strlen(n->num) + 1))) {
 			restore_flags(flags);
 			return ret;
 		}
-		copy_to_user(phones, n->num, strlen(n->num) + 1);
 		phones += strlen(n->num);
 		count += strlen(n->num);
 		more = 1;
