@@ -6,6 +6,9 @@
  * Copyright 1996 by Carsten Paeth (calle@calle.in-berlin.de)
  *
  * $Log$
+ * Revision 1.37  2000/07/20 10:22:27  calle
+ * - Made procfs function cleaner and removed variable "begin".
+ *
  * Revision 1.36  2000/06/29 13:59:35  calle
  * - call to devfs_register was wrong
  *
@@ -398,7 +401,8 @@ void capiminor_del_all_ack(struct capiminor *mp)
 {
 	struct datahandle_queue **pp, *p;
 
-	for (pp = &mp->ackqueue; *pp; pp = &(*pp)->next) {
+	pp = &mp->ackqueue;
+	while (*pp) {
 		p = *pp;
 		*pp = (*pp)->next;
 #ifdef COMPAT_HAS_kmem_cache
