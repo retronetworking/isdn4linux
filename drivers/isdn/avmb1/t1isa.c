@@ -6,6 +6,10 @@
  * (c) Copyright 1999 by Carsten Paeth (calle@calle.in-berlin.de)
  * 
  * $Log$
+ * Revision 1.3  1999/07/06 07:42:04  calle
+ * - changes in /proc interface
+ * - check and changed calls to [dev_]kfree_skb and [dev_]alloc_skb.
+ *
  * Revision 1.2  1999/07/05 15:09:54  calle
  * - renamed "appl_release" to "appl_released".
  * - version und profile data now cleared on controller reset
@@ -41,7 +45,7 @@
 #include <linux/ioport.h>
 #include <linux/capi.h>
 #include <asm/io.h>
-#include "compat.h"
+#include <linux/isdn_compat.h>
 #include "capicmd.h"
 #include "capiutil.h"
 #include "capilli.h"

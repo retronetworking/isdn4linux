@@ -6,6 +6,9 @@
  * (c) Copyright 1999 by Carsten Paeth (calle@calle.in-berlin.de)
  * 
  * $Log$
+ * Revision 1.4  1999/07/08 14:15:17  calle
+ * Forgot to count down ncards in drivercb_detach_ctr.
+ *
  * Revision 1.3  1999/07/06 07:42:02  calle
  * - changes in /proc interface
  * - check and changed calls to [dev_]kfree_skb and [dev_]alloc_skb.
@@ -47,7 +50,7 @@
 #include <linux/tqueue.h>
 #include <linux/capi.h>
 #include <linux/kernelcapi.h>
-#include "compat.h"
+#include <linux/isdn_compat.h>
 #include "capicmd.h"
 #include "capiutil.h"
 #include "capilli.h"

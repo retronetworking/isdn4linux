@@ -6,6 +6,10 @@
  * Copyright 1997 by Carsten Paeth (calle@calle.in-berlin.de)
  *
  * $Log$
+ * Revision 1.22  1999/07/06 07:24:14  calle
+ * Bugfix: call to kfree_skb in capidrv_signal was too early,
+ *         thanks to Lars Heete <hel@admin.de>.
+ *
  * Revision 1.21  1999/07/01 15:26:34  calle
  * complete new version (I love it):
  * + new hardware independed "capi_driver" interface that will make it easy to:
@@ -142,7 +146,7 @@
 #include <linux/ctype.h>
 #include <asm/segment.h>
 
-#include "compat.h"
+#include <linux/isdn_compat.h>
 #include "capiutil.h"
 #include "capicmd.h"
 #include "capidrv.h"

@@ -6,6 +6,10 @@
  * Copyright 1996 by Carsten Paeth (calle@calle.in-berlin.de)
  *
  * $Log$
+ * Revision 1.18  1999/07/06 07:42:01  calle
+ * - changes in /proc interface
+ * - check and changed calls to [dev_]kfree_skb and [dev_]alloc_skb.
+ *
  * Revision 1.17  1999/07/01 15:26:30  calle
  * complete new version (I love it):
  * + new hardware independed "capi_driver" interface that will make it easy to:
@@ -110,7 +114,7 @@
 #include <linux/capi.h>
 #include <linux/kernelcapi.h>
 
-#include "compat.h"
+#include <linux/isdn_compat.h>
 #include "capiutil.h"
 #include "capicmd.h"
 #include "capidev.h"
