@@ -21,6 +21,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.111.2.6  2000/03/15 20:50:24  kai
+ * working, but not perfect yet
+ *
  * Revision 1.111.2.5  2000/03/15 08:32:53  kai
  * works so far, but not finished
  *
@@ -1147,22 +1150,6 @@ isdn_net_stat_callback(int idx, isdn_ctrl *c)
 	}
 	return 0;
 }
-
-#if 0
-/*
- * Check, if a number contains wildcard-characters, in which case it
- * is for incoming purposes only.
- */
-static int
-isdn_net_checkwild(char *num)
-{
-	return ((strchr(num, '?')) ||
-		(strchr(num, '*')) ||
-		(strchr(num, '[')) ||
-		(strchr(num, ']')) ||
-		(strchr(num, '^')));
-}
-#endif
 
 /*
  * Perform dialout for net-interfaces and timeout-handling for
@@ -4147,20 +4134,6 @@ isdn_net_realrm(isdn_net_dev * p, isdn_net_dev * q)
 
 	save_flags(flags);
 	cli();
-#if 0
-	if (p->local->master) {
-		/* If it's a slave, it may be removed even if it is busy. However
-		 * it has to be hung up first.
-		 *
-		 * Why? It can't be added when the master is up, why should it be 
-		 * possible to remove it? --KG
-		 */
-		isdn_net_hangup(&p->dev);
-#ifdef COMPAT_NO_SOFTNET
-		p->dev.start = 0;
-#endif
-	}
-#endif
 	if (isdn_net_started(p)) {
 		restore_flags(flags);
 		return -EBUSY;
