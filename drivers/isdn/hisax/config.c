@@ -5,6 +5,9 @@
  *
  *
  * $Log$
+ * Revision 1.1  1996/10/13 20:04:51  keil
+ * Initial revision
+ *
  *
  *
  */
@@ -32,12 +35,59 @@
  *
  *
  */
+
+#ifdef CONFIG_HISAX_ELSA_PCC
+#define DEFAULT_CARD ISDN_CTYPE_ELSA
+#define DEFAULT_CFG {15,0xd0000,0xd80}
+#endif
+#ifdef CONFIG_HISAX_AVM_A1
+#undef DEFAULT_CARD
+#undef DEFAULT_CFG
+#define DEFAULT_CARD ISDN_CTYPE_A1
+#define DEFAULT_CFG {15,0xd0000,0xd80}
+#endif
+#ifdef CONFIG_HISAX_16_3
+#undef DEFAULT_CARD
+#undef DEFAULT_CFG
+#define DEFAULT_CARD ISDN_CTYPE_16_3
+#define DEFAULT_CFG {15,0x0,0xd80}
+#endif
+#ifdef CONFIG_HISAX_16_0
+#undef DEFAULT_CARD
+#undef DEFAULT_CFG
+#define DEFAULT_CARD ISDN_CTYPE_16_0
+#define DEFAULT_CFG {15,0xd0000,0xd80}
+#endif
+
+#ifdef CONFIG_HISAX_1TR6
+#define DEFAULT_PROTO ISDN_PTYPE_1TR6
+#endif
+#ifdef CONFIG_HISAX_EURO
+#undef DEFAULT_PROTO
+#define DEFAULT_PROTO ISDN_PTYPE_EURO
+#endif
+#ifndef DEFAULT_PROTO
+#error "HiSax: No D channel protocol configured"
+#endif
+#ifndef DEFAULT_CARD
+#error "HiSax: No cards configured"
+#endif
  
+#define FIRST_CARD { \
+  DEFAULT_CARD, \
+  DEFAULT_PROTO, \
+  DEFAULT_CFG, \
+  NULL, \
+}
+
 #define EMPTY_CARD	{0, 0, {0, 0, 0}, NULL}
 
 struct IsdnCard cards[] =
 {
+#if 0
 	{ISDN_CTYPE_16_0, ISDN_PTYPE_EURO,{15,0xd0000,0xd80}, NULL},	/* example */
+#endif
+	FIRST_CARD,
 	EMPTY_CARD,
 	EMPTY_CARD,
 	EMPTY_CARD,
