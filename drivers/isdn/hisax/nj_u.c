@@ -172,12 +172,11 @@ setup_netjet_u(struct IsdnCard *card))
 		return(0);
 	test_and_clear_bit(FLG_LOCK_ATOMIC, &cs->HW_Flags);
 
-	for ( ;; )
-	{
-
 #if CONFIG_PCI
 #ifdef COMPAT_HAS_NEW_PCI
 
+	for ( ;; )
+	{
 		if (!pci_present()) {
 			printk(KERN_ERR "Netjet: no PCI bus present\n");
 			return(0);
