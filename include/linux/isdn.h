@@ -21,6 +21,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.7  1996/05/07 09:10:06  fritz
+ * Reorganized tty-related structs.
+ *
  * Revision 1.6  1996/05/06 11:38:27  hipp
  * minor change in ippp struct
  *
@@ -443,7 +446,7 @@ typedef struct modem_info {
   struct termios	callout_termios;
   struct wait_queue	*open_wait;
   struct wait_queue	*close_wait;
-  u_char                *xmit_buf;       /* transmit-buffer                */
+  struct sk_buff_head   *xmit_buf;       /* transmit-buffer queue          */
 } modem_info;
 
 #define ISDN_MODEM_WINSIZE 8
@@ -531,15 +534,6 @@ struct ippp_struct {
 
 /*======================= Start of general stuff ===========================*/
 
-/* Packet-queue-element */
-typedef struct pqueue {
-  char   *next;				/* Pointer to next packet           */
-  short   length;			/* Packetlength                     */
-  short   size;                         /* Allocated size                   */
-  u_char *rptr;				/* Read-pointer for stream-reading  */
-  u_char  buffer[1];			/* The data (will be alloc'd)       */
-} pqueue;
-
 typedef struct {
   char *next;
   char *private;
@@ -559,7 +553,7 @@ typedef struct {
   isdn_if            *interface;        /* Interface to driver              */
   int                *rcverr;           /* Error-counters for B-Ch.-receive */
   int                *rcvcount;         /* Byte-counters for B-Ch.-receive  */
-  pqueue             **rpqueue;         /* Pointers to start of Rcv-Queue   */
+  struct sk_buff_head *rpqueue;         /* Pointers to start of Rcv-Queue   */
   struct wait_queue  **rcv_waitq;       /* Wait-Queues for B-Channel-Reads  */
   struct wait_queue  **snd_waitq;       /* Wait-Queue for B-Channel-Send's  */
   char               msn2eaz[10][ISDN_MSNLEN];  /* Mapping-Table MSN->EAZ   */
