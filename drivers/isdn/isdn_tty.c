@@ -20,6 +20,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.27  1997/02/10 21:31:14  fritz
+ * Changed setup-interface (incoming and outgoing).
+ *
  * Revision 1.26  1997/02/10 20:12:48  fritz
  * Changed interface for reporting incoming calls.
  *
@@ -1801,6 +1804,8 @@ isdn_tty_find_icall(int di, int ch, setup_parm setup)
 				dev->usage[idx] |= (si1 == 1) ? ISDN_USAGE_VOICE : ISDN_USAGE_MODEM;
 				strcpy(dev->num[idx], nr);
 				info->emu.mdmreg[20] = si2bit[si1];
+				info->emu.mdmreg[21] = setup.plan;
+				info->emu.mdmreg[22] = setup.screen;
 				isdn_info_update();
 				restore_flags(flags);
 				printk(KERN_INFO "isdn_tty: call from %s, -> RING on ttyI%d\n", nr,

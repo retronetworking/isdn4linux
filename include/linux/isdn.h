@@ -21,6 +21,10 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.22  1997/02/03 23:42:08  fritz
+ * Added ISDN_TIMER_RINGING
+ * Misc. changes for Kernel 2.1.X compatibility
+ *
  * Revision 1.21  1997/01/17 01:19:10  fritz
  * Applied chargeint patch.
  *
@@ -169,7 +173,7 @@
 #define ISDN_USAGE_EXCLUSIVE 64 /* This bit is set, if channel is exclusive */
 #define ISDN_USAGE_OUTGOING 128 /* This bit is set, if channel is outgoing  */
 
-#define ISDN_MODEM_ANZREG    21        /* Number of Modem-Registers        */
+#define ISDN_MODEM_ANZREG    22        /* Number of Modem-Registers        */
 #define ISDN_MSNLEN          20
 
 typedef struct {
@@ -190,7 +194,7 @@ typedef struct {
 } isdn_net_ioctl_phone;
 
 #define NET_DV 0x02 /* Data version for net_cfg     */
-#define TTY_DV 0x02 /* Data version for iprofd etc. */
+#define TTY_DV 0x03 /* Data version for iprofd etc. */
 
 typedef struct {
   char name[10];     /* Name of interface                     */

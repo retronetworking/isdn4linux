@@ -211,6 +211,14 @@ README for the ISDN-subsystem
              20   0         Bit coded register (readonly)
                             Service-Octet-1 of last call.
                             Bit mapping is the same like register 18
+             21   0         Bit coded register (readonly)
+                            Set on incoming call (during RING) to
+                            octet 3 of calling party number IE (Numbering plan)
+                            See section 4.5.10 of ITU Q.931
+             22   0         Bit coded register (readonly)
+                            Set on incoming call (during RING) to
+                            octet 3a of calling party number IE (Screening info)
+                            See section 4.5.10 of ITU Q.931
 
   Last but not least a (at the moment fairly primitive) device to request
   the line-status (/dev/isdninfo) is made available.
