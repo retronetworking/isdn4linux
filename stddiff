@@ -179,8 +179,8 @@ else
 		$DODIFF $i $KERNELDIR/$i
 	done
 	for i in include/linux/*.h ; do
-		if [ "$i" == "include/linux/isdn_compat.h" -a \
-		     "$UNIQUE" == "true" ] ; then
+		if [ "$i" = "include/linux/isdn_compat.h" -a \
+		     "$UNIQUE" = "true" ] ; then
 			echo "$i skipped"
 		else
 			$DODIFF $i $KERNELDIR/$i

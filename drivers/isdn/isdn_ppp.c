@@ -19,6 +19,22 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.61  1999/11/20 22:14:14  detabc
+ * added channel dial-skip in case of external use
+ * (isdn phone or another isdn device) on the same NTBA.
+ * usefull with two or more card's connected the different NTBA's.
+ * global switchable in kernel-config and also per netinterface.
+ *
+ * add auto disable of netinterface's in case of:
+ * 	to many connection's in short time.
+ * 	config mistakes (wrong encapsulation, B2-protokoll or so on) on local
+ * 	or remote side.
+ * 	wrong password's or something else to a ISP (syncppp).
+ *
+ * possible encapsulations for this future are:
+ * ISDN_NET_ENCAP_SYNCPPP, ISDN_NET_ENCAP_UIHDLC, ISDN_NET_ENCAP_RAWIP,
+ * and ISDN_NET_ENCAP_CISCOHDLCK.
+ *
  * Revision 1.60  1999/11/04 20:29:55  he
  * applied Andre Beck's reset_free fix
  *
@@ -721,7 +737,7 @@ isdn_ppp_ioctl(int min, struct file *file, unsigned int cmd, unsigned long arg)
 		case PPPIOCGIFNAME:
 			if(!lp)
 				return -EINVAL;
-			if ((r = set_arg((void *) arg, lp->name,strlen(lp->name))))
+			if ((r = set_arg((void *) arg, lp->name, strlen(lp->name))))
 				return r;
 			break;
 		case PPPIOCGMPFLAGS:	/* get configuration flags */
@@ -743,8 +759,8 @@ isdn_ppp_ioctl(int min, struct file *file, unsigned int cmd, unsigned long arg)
 			}
 			if (val & SC_ENABLE_IP && !(is->pppcfg & SC_ENABLE_IP) && (is->state & IPPP_CONNECT)) {
 				if (lp) {
-					lp->netdev->dev.tbusy = 0;
-					mark_bh(NET_BH);	/* OK .. we are ready to send buffers */
+					/* OK .. we are ready to send buffers */
+					netif_wake_queue(&lp->netdev->dev);
 				}
 			}
 			is->pppcfg = val;

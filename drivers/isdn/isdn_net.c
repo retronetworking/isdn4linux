@@ -21,6 +21,10 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.105  2000/02/12 11:43:26  he
+ * SOFTNET related changes, first try. Compatible with linux 2.2.x, but
+ * not tested for kernels with softnet (>= 2.3.43) yet.
+ *
  * Revision 1.104  2000/02/06 21:49:59  detabc
  * add rewriting of socket's and frame's saddr for udp-ipv4 dynip-connections.
  * Include checksum-recompute of ip- and udp-header's.
@@ -456,34 +460,61 @@
  * -HE
  */
 
+/*
+ * About SOFTNET:
+ * Most of the changes were pretty obvious and basically done by HE already.
+ *
+ * One problem of the isdn net device code is that is uses struct net_device
+ * for masters and slaves. However, only master interface are registered to 
+ * the network layer, and therefore, it only makes sense to call netif_* 
+ * functions on them.
+ *
+ * The old code abused the slaves dev->start to remember the corresponding 
+ * master's interface state (ifup'ed or not). This does not work with SOFTNET 
+ * any more, because there's now dev->start anymore.
+ * Instead I chose to add isdn_net_started() which gives the state of the 
+ * master in case of slaves.
+ * I'm still not sure if this is how it's supposed to be done this way
+ * because it uses test_bit(LINK_STATE_START, &dev->state) which might be 
+ * considered private to the network layer. However, it works for now.
+ * Alternative: set a flag in _open() and clear it in _close() 
+ *
+ * I left some dead code around in #if 0 which I'm not absolutely sure about.
+ * If no problems turn up, it should be removed later
+ *
+ * --KG
+ */
+
+/* 
+ * Find out if the netdevice has been ifup-ed yet.
+ * For slaves, look at the corresponding master.
+ */
+static int __inline__ isdn_net_started(isdn_net_dev *n)
+{
+	isdn_net_local *lp = n->local;
+	struct net_device *dev;
+	
+	if (lp->master) 
+		dev = lp->master;
+	else
+		dev = &n->dev;
 #ifdef COMPAT_NO_SOFTNET
-/*
- * Tell upper layers that the network device is ready to xmit more frames.
- */
-static void __inline__ netif_wake_queue(struct net_device * dev)
-{
-	dev->tbusy = 0;
-	mark_bh(NET_BH);
-}
-
-static void __inline__ netif_start_queue(struct net_device * dev)
-{
-	dev->tbusy = 0;
-}
-
-/*
- * Ask upper layers to temporarily cease passing us more xmit frames.
- */
-static void __inline__ netif_stop_queue(struct net_device * dev)
-{
-	dev->tbusy = 1;
-}
+	return dev->start;
+#else
+	return test_bit(LINK_STATE_START, &dev->state);
 #endif
+}
 
+/*
+ * wake up the network -> net_device queue.
+ * For slaves, wake the corresponding master interface.
+ */
 static void __inline__ isdn_net_lp_xon(isdn_net_local * lp)
 {
-	netif_start_queue(&lp->netdev->dev);
-	if(lp->master) netif_wake_queue(lp->master);
+	if (lp->master) 
+		netif_wake_queue(lp->master);
+	else
+		netif_wake_queue(&lp->netdev->dev);
 }
 
 
@@ -605,12 +636,9 @@ isdn_net_reset(struct net_device *dev)
 #endif
 	ulong flags;
 
+	/* not sure if the cli() is needed at all --KG */
 	save_flags(flags);
 	cli();                  /* Avoid glitch on writes to CMD regs */
-#ifdef COMPAT_NO_SOFTNET
-	dev->interrupt = 0;
-#endif
-	netif_wake_queue(dev);
 #ifdef CONFIG_ISDN_X25
 	if( cprot && cprot -> pops && dops )
 		cprot -> pops -> restart ( cprot, dev, dops );
@@ -626,10 +654,12 @@ isdn_net_open(struct net_device *dev)
 	struct net_device *p;
 	struct in_device *in_dev;
 
+	/* moved here from isdn_net_reset, because only the master has an
+	   interface associated which is supposed to be started. BTW:
+	   we need to call netif_start_queue, not netif_wake_queue here */
+	netif_start_queue(dev);
+
 	isdn_net_reset(dev);
-#ifdef COMPAT_NO_SOFTNET
-	dev->start = 1;
-#endif
 	/* Fill in the MAC-level header (not needed, but for compatibility... */
 	for (i = 0; i < ETH_ALEN - sizeof(u32); i++)
 		dev->dev_addr[i] = 0xfc;
@@ -647,9 +677,6 @@ isdn_net_open(struct net_device *dev)
 	if ((p = (((isdn_net_local *) dev->priv)->slave))) {
 		while (p) {
 			isdn_net_reset(p);
-#ifdef COMPAT_NO_SOFTNET
-			p->start = 1;
-#endif
 			p = (((isdn_net_local *) p->priv)->slave);
 		}
 	}
@@ -1744,8 +1771,7 @@ once_more:;
 
 static int dwabc_helper_isdn_net_send_skb
 #else
-int
-isdn_net_send_skb
+int isdn_net_send_skb
 #endif
 		(struct net_device *ndev, isdn_net_local * lp,struct sk_buff *skb)
 {
@@ -1858,7 +1884,7 @@ void isdn_net_tx_timeout(struct net_device * ndev)
 {
 	isdn_net_local *lp = (isdn_net_local *) ndev->priv;
 
-	printk(KERN_DEBUG "isdn_tx_timeout dev %s dialstate %d\n", ndev->name, lp->dialstate);
+	printk(KERN_WARNING "isdn_tx_timeout dev %s dialstate %d\n", ndev->name, lp->dialstate);
 	if (!lp->dialstate){
 		lp->stats.tx_errors++;
                 /*
@@ -1871,6 +1897,11 @@ void isdn_net_tx_timeout(struct net_device * ndev)
 		 * This is rather primitive right know, we better should
 		 * clean internal queues here, in particular for multilink and
 		 * ppp, and reset HL driver's channel, too.   --HE
+		 *
+		 * actually, this may not matter at all, because ISDN hardware
+		 * should not see transmitter hangs at all IMO
+		 * changed KERN_DEBUG to KERN_WARNING to find out if this is 
+		 * ever called
 		 */
 	}
 	ndev->trans_start = jiffies;
@@ -1907,7 +1938,17 @@ isdn_net_start_xmit(struct sk_buff *skb, struct net_device *ndev)
 #endif
 #endif
 #ifdef COMPAT_NO_SOFTNET 
+	/* some comment as with the softnet TX timeout
+	   when this happens, it's a bug in the HL card driver
+	   and should be fixed there, so we can supposedly get rid of 
+	   this here at all. 
+	   I added a debugging message to find out if it ever occurs --KG
+	*/
+
 	if (ndev->tbusy) {
+		printk(KERN_WARNING "isdn_tx_timeout dev %s dialstate %d\n", 
+		       ndev->name, lp->dialstate);
+		
 		if (jiffies - ndev->trans_start < ISDN_NET_TX_TIMEOUT)
 			return 1;
 		if (!lp->dialstate)
@@ -2112,10 +2153,6 @@ isdn_net_close(struct net_device *dev)
 				cprot -> pops -> close( cprot );
 #endif
 			isdn_net_hangup(p);
-			netif_stop_queue(p);
-#ifdef COMPAT_NO_SOFTNET
-			p->start = 0;
-#endif
 			p = (((isdn_net_local *) p->priv)->slave);
 		}
 	}
@@ -3043,12 +3080,7 @@ isdn_net_find_icall(int di, int ch, int idx, setup_parm setup)
 				 * Is the interface up?
 				 * If not, reject the call actively.
 				 */
-#ifdef COMPAT_NO_SOFTNET				
-				if (!p->dev.start)
-#else
-				if (!test_bit(LINK_STATE_START, &p->dev.start)
-#endif
-				{
+				if (!isdn_net_started(p)) {
 					restore_flags(flags);
 					printk(KERN_INFO "%s: incoming call, interface down -> rejected\n",
 					       lp->name);
@@ -3383,15 +3415,6 @@ isdn_net_new(char *name, struct net_device *master)
 			p = (((isdn_net_local *) p->priv)->slave);
 		}
 		((isdn_net_local *) q->priv)->slave = &(netdev->dev);
-#ifdef COMPAT_NO_SOFTNET
-		q->interrupt = 0;
-#endif
-		netif_start_queue(q);
-#ifdef COMPAT_NO_SOFTNET
-		/* hopefully, this is really obsolete with SOFTNET -HE */
-		q->start = master->start;
-#endif
-
 	} else {
 		/* Device shall be a master */
 #ifndef COMPAT_NO_SOFTNET
@@ -3474,11 +3497,7 @@ isdn_net_newslave(char *parm)
 		if (n->local->master)
 			return NULL;
 		/* Master must not be started yet */
-#ifdef COMPAT_NO_SOFTNET
-		if (n->dev.start)
-#else
-		if (test_bit(LINK_STATE_START, &n->dev.start))
-#endif
+		if (isdn_net_started(n)) 
 			return NULL;
 		return (isdn_net_new(newname, &(n->dev)));
 	}
@@ -3521,14 +3540,8 @@ isdn_net_setcfg(isdn_net_ioctl_cfg * cfg)
 #ifdef CONFIG_ISDN_X25
 			struct concap_proto * cprot = p -> cprot;
 #endif
-#ifdef COMPAT_NO_SOFTNET
-			if (p->dev.start)
-#else
-			if(test_bit(LINK_STATE_START, &p->dev.state)
-#endif
-			{
-				printk(KERN_WARNING
-				"%s: cannot change encap when if is up\n",
+			if (isdn_net_started(p)) {
+				printk(KERN_WARNING "%s: cannot change encap when if is up\n",
 				       lp->name);
 				return -EBUSY;
 			}
@@ -3977,21 +3990,21 @@ isdn_net_realrm(isdn_net_dev * p, isdn_net_dev * q)
 
 	save_flags(flags);
 	cli();
+#if 0
 	if (p->local->master) {
 		/* If it's a slave, it may be removed even if it is busy. However
 		 * it has to be hung up first.
+		 *
+		 * Why? It can't be added when the master is up, why should it be 
+		 * possible to remove it? --KG
 		 */
 		isdn_net_hangup(&p->dev);
 #ifdef COMPAT_NO_SOFTNET
 		p->dev.start = 0;
 #endif
 	}
-#ifdef COMPAT_NO_SOFTNET
-	if (p->dev.start)
-#else
-	if(test_bit(LINK_STATE_START, &p->dev.state)
 #endif
-	{
+	if (isdn_net_started(p)) {
 		restore_flags(flags);
 		return -EBUSY;
 	}

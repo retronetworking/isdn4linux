@@ -227,8 +227,8 @@ else
     $DOCP $i $KERNELDIR/$i
   done
   for i in drivers/isdn/hisax/*.[ch] drivers/isdn/hisax/md5sums.asc ; do
-	if [ "$i" == "drivers/isdn/hisax/md5sums.asc" -a \
-	     "$UNIQUE" == "true" ] ; then
+	if [ "$i" = "drivers/isdn/hisax/md5sums.asc" -a \
+	     "$UNIQUE" = "true" ] ; then
 		if $VERBOSE ; then
 			echo "$i skipped"
 		fi
@@ -246,6 +246,9 @@ else
     $DOCP $i $KERNELDIR/$i
   done
   for i in drivers/isdn/isdnloop/*.[ch] ; do
+    $DOCP $i $KERNELDIR/$i
+  done
+  for i in drivers/isdn/hysdn/*.[ch] drivers/isdn/hysdn/Makefile ; do
     $DOCP $i $KERNELDIR/$i
   done
   if [ ! -d $KERNELDIR/drivers/isdn/divert ] ; then
@@ -278,8 +281,8 @@ else
     $DOCP $i $KERNELDIR/$i
   done
   for i in include/linux/*.h ; do
-	if [ "$i" == "include/linux/isdn_compat.h" -a \
-	     "$UNIQUE" == "true" ] ; then
+	if [ "$i" = "include/linux/isdn_compat.h" -a \
+	     "$UNIQUE" = "true" ] ; then
 		if $VERBOSE ; then
 			echo "$i skipped"
 		fi

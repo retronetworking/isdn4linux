@@ -134,5 +134,38 @@ static inline unsigned long copy_to_user(void *to, const void *from, unsigned lo
 #if LINUX_VERSION_CODE > KERNEL_VERSION(2,3,22)
 #define COMPAT_HAS_ISA_IOREMAP
 #endif
+
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2,3,43)
+#define COMPAT_NO_SOFTNET
+
+/*
+ * Tell upper layers that the network device is ready to xmit more frames.
+ */
+static void __inline__ netif_wake_queue(struct net_device * dev)
+{
+	dev->tbusy = 0;
+	mark_bh(NET_BH);
+}
+
+/*
+ * called during net_device open()
+ */
+static void __inline__ netif_start_queue(struct net_device * dev)
+{
+	dev->tbusy = 0;
+	/* actually, we never use the interrupt flag at all */
+	dev->interrupt = 0;
+	dev->start = 1;
+}
+
+/*
+ * Ask upper layers to temporarily cease passing us more xmit frames.
+ */
+static void __inline__ netif_stop_queue(struct net_device * dev)
+{
+	dev->tbusy = 1;
+}
+#endif
+
 #endif /* __KERNEL__ */
 #endif /* _LINUX_ISDN_COMPAT_H */
