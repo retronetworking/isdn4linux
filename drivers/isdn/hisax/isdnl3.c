@@ -7,6 +7,9 @@
  *              Fritz Elfert
  *
  * $Log$
+ * Revision 1.6  1997/02/16 01:04:08  fritz
+ * Bugfix: Changed timer handling caused hang with 2.1.X
+ *
  * Revision 1.5  1997/02/09 00:26:27  keil
  * new interface handling, one interface per card
  * leased line changes
@@ -141,6 +144,8 @@ setstack_isdnl3(struct PStack *st, struct Channel *chanp)
 		st->l2.l2l3 = no_l3_proto;
 		printk(KERN_NOTICE "HiSax: Leased line mode\n");
 	} else {
+		st->l4.l4l3 = no_l3_proto;
+		st->l2.l2l3 = no_l3_proto;
 		sprintf(tmp, "protocol %s not supported",
 			(st->protocol == ISDN_PTYPE_1TR6) ? "1tr6" :
 			(st->protocol == ISDN_PTYPE_EURO) ? "euro" :
