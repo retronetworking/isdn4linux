@@ -21,6 +21,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.26  1997/02/28 02:37:53  fritz
+ * Added some comments.
+ *
  * Revision 1.25  1997/02/23 16:54:23  hipp
  * some initial changes for future PPP compresion
  *
@@ -199,7 +202,7 @@ typedef struct {
 
 typedef struct {
   char name[10];
-  char phone[20];
+  char phone[ISDN_MSNLEN];
   int  outgoing;
 } isdn_net_ioctl_phone;
 
@@ -343,7 +346,7 @@ typedef struct {
 /* Phone-list-element */
 typedef struct {
   void *next;
-  char num[20];
+  char num[ISDN_MSNLEN];
 } isdn_net_phone;
 
 /* Local interface-data */
@@ -526,7 +529,8 @@ typedef struct modem_info {
   int                   drv_index;       /* Index to dev->usage            */
   int                   ncarrier;        /* Flag: schedule NO CARRIER      */
   unsigned char         last_cause[8];   /* Last cause message             */
-  unsigned char         last_num[20];    /* Last phone-number              */
+  unsigned char         last_num[ISDN_MSNLEN];
+	                                 /* Last phone-number              */
   unsigned char         last_l2;         /* Last layer-2 protocol          */
   unsigned char         last_si;         /* Last service                   */
   unsigned char         last_lhup;       /* Last hangup local?             */
@@ -674,7 +678,8 @@ typedef struct isdn_devt {
   int               chanmap[ISDN_MAX_CHANNELS];/* Map minor->device-channel  */
   int               drvmap[ISDN_MAX_CHANNELS]; /* Map minor->driver-index    */
   int               usage[ISDN_MAX_CHANNELS];  /* Used by tty/ip/voice       */
-  char              num[ISDN_MAX_CHANNELS][20];/* Remote number of active ch.*/
+  char              num[ISDN_MAX_CHANNELS][ISDN_MSNLEN];
+                                               /* Remote number of active ch.*/
   int               m_idx[ISDN_MAX_CHANNELS];  /* Index for mdm....          */
   driver            *drv[ISDN_MAX_DRIVERS];    /* Array of drivers           */
   isdn_net_dev      *netdev;		       /* Linked list of net-if's    */
