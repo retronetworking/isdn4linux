@@ -1094,52 +1094,31 @@ callc_debug(struct FsmInst *fi, char *fmt, ...)
 }
 
 static void
-init_chan(int chan, struct IsdnCardState *csta)
+channelConstr(struct Channel *chanp, struct CallcIf *c_if, int chan)
 {
-	struct Channel *chanp = csta->c_if->channel + chan;
-
-	chanp->cs = csta;
-	chanp->bcs = csta->bcs + chan;
+	chanp->cs = c_if->cs;
+	chanp->c_if = c_if;
+	chanp->bcs = &c_if->cs->bcs[chan];
 	chanp->chan = chan;
 	chanp->incoming = 0;
-	chanp->debug = LL_DEB_WARN;
 	chanp->Flags = 0;
 	chanp->leased = 0;
 	init_PStack(&chanp->b_st);
 	chanp->b_st->l1.delay = DEFAULT_B_DELAY;
 	chanp->fi.fsm = &callcfsm;
 	chanp->fi.state = ST_NULL;
-	chanp->fi.debug = 0;
+	chanp->fi.debug = LL_DEB_WARN;
 	chanp->fi.userdata = chanp;
 	chanp->fi.printdebug = callc_debug;
 	FsmInitTimer(&chanp->fi, &chanp->dial_timer);
 	FsmInitTimer(&chanp->fi, &chanp->drel_timer);
-	if (!chan || test_bit(FLG_TWO_DCHAN, &csta->HW_Flags)) {
+	if (!chan || test_bit(FLG_TWO_DCHAN, &c_if->cs->HW_Flags)) {
 		init_d_st(chanp);
 	} else {
-		chanp->d_st = csta->c_if->channel->d_st;
+	        chanp->d_st = c_if->channel[0].d_st;
 	}
 	chanp->data_open = 0;
 	chanp->tx_cnt = 0;
-}
-
-int
-CallcNewChan(struct IsdnCardState *csta) {
-	int i;
-
-	init_chan(0, csta);
-	init_chan(1, csta);
-	printk(KERN_INFO "HiSax: 2 channels added\n");
-
-	for (i = 0; i < MAX_WAITING_CALLS; i++) 
-		init_chan(i+2,csta);
-	printk(KERN_INFO "HiSax: MAX_WAITING_CALLS added\n");
-	if (test_bit(FLG_PTP, &csta->c_if->channel->d_st->l2.flag)) {
-		printk(KERN_INFO "LAYER2 WATCHING ESTABLISH\n");
-		csta->c_if->channel->d_st->lli.l4l3(csta->c_if->channel->d_st,
-			DL_ESTABLISH | REQUEST, NULL);
-	}
-	return (2);
 }
 
 static void
@@ -1156,26 +1135,21 @@ release_d_st(struct Channel *chanp)
 	chanp->d_st = NULL;
 }
 
-void
-CallcFreeChan(struct IsdnCardState *csta)
+static void
+channelDestr(struct Channel *chanp)
 {
-	int i;
-
-	for (i = 0; i < 2; i++) {
-		FsmDelTimer(&csta->c_if->channel[i].drel_timer, 74);
-		FsmDelTimer(&csta->c_if->channel[i].dial_timer, 75);
-		if (i || test_bit(FLG_TWO_DCHAN, &csta->HW_Flags))
-			release_d_st(csta->c_if->channel + i);
-		if (csta->c_if->channel[i].b_st) {
-			release_b_st(csta->c_if->channel + i);
-			kfree(csta->c_if->channel[i].b_st);
-			csta->c_if->channel[i].b_st = NULL;
-		} else
-			printk(KERN_WARNING "CallcFreeChan b_st ch%d allready freed\n", i);
-		if (i || test_bit(FLG_TWO_DCHAN, &csta->HW_Flags)) {
-			release_d_st(csta->c_if->channel + i);
-		} else
-			csta->c_if->channel[i].d_st = NULL;
+	FsmDelTimer(&chanp->drel_timer, 74);
+	FsmDelTimer(&chanp->dial_timer, 75);
+	if ((chanp->chan == 0) || test_bit(FLG_TWO_DCHAN, &chanp->cs->HW_Flags))
+		release_d_st(chanp);
+	else
+		chanp->d_st = 0;
+	if (chanp->b_st) {
+		release_b_st(chanp);
+		kfree(chanp->b_st);
+		chanp->b_st = 0;
+	} else {
+		printk(KERN_WARNING "CallcFreeChan b_st ch%d allready freed\n", chanp->chan);
 	}
 }
 
@@ -1874,14 +1848,13 @@ callcIfRun(struct CallcIf *c_if)
 	long flags;
 	isdn_ctrl ic;
 
-#if 0
 	// init Channels
 
 	for (i = 0; i < 2 + MAX_WAITING_CALLS; i++) 
 		channelConstr(&c_if->channel[i], c_if, i);
 	printk(KERN_INFO "HiSax: 2 channels added\n");
 	printk(KERN_INFO "HiSax: MAX_WAITING_CALLS added\n");
-#endif
+
 	// signal to LL
 
 	save_flags(flags);
@@ -1901,12 +1874,10 @@ callcIfStop(struct CallcIf *c_if)
 
 	statcallb(c_if->cs, ISDN_STAT_STOP, &ic);
 
-#if 0
 	// release Channels
 
 	for (i = 0; i < 2 + MAX_WAITING_CALLS; i++) 
 		channelDestr(&c_if->channel[i]);
-#endif
 }
 
 void

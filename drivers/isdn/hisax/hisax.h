@@ -486,25 +486,6 @@ struct BCState {
 	} hw;
 };
 
-struct Channel {
-	struct PStack *b_st, *d_st;
-	struct IsdnCardState *cs;
-	struct BCState *bcs;
-	int chan;
-	int incoming;
-	struct FsmInst fi;
-	struct FsmTimer drel_timer, dial_timer;
-	int debug;
-	int l2_protocol, l2_active_protocol;
-	int l3_protocol;
-	int data_open;
-	struct l3_process *proc;
-	setup_parm setup;	/* from isdnif.h numbers and Serviceindicator */
-	int Flags;		/* for remembering action done in l4 */
-	int leased;
-	int tx_cnt;
-};
-
 struct elsa_hw {
 	unsigned int base;
 	unsigned int cfg;
@@ -1290,8 +1271,6 @@ void FsmRestartTimer(struct FsmTimer *ft, int millisec, int event,
 void FsmDelTimer(struct FsmTimer *ft, int where);
 int jiftime(char *s, long mark);
 
-int HiSax_command(isdn_ctrl * ic);
-int HiSax_writebuf_skb(int id, int chan, int ack, struct sk_buff *skb);
 void HiSax_putstatus(struct IsdnCardState *cs, char *head, char *fmt, ...);
 void VHiSax_putstatus(struct IsdnCardState *cs, char *head, char *fmt, va_list args);
 void HiSax_reportcard(int cardnr, int sel);
@@ -1309,8 +1288,6 @@ void ll_run(struct IsdnCardState *cs, int addfeatures);
 void ll_stop(struct IsdnCardState *cs);
 void CallcNew(void);
 void CallcFree(void);
-int CallcNewChan(struct IsdnCardState *cs);
-void CallcFreeChan(struct IsdnCardState *cs);
 void Isdnl1New(void);
 void Isdnl1Free(void);
 void Isdnl2New(void);

@@ -1,7 +1,6 @@
 #ifndef __CALLC_H__
 #define __CALLC_H__
 
-#if 0
 struct Channel {
 	struct PStack *b_st, *d_st;
 	struct CallcIf *c_if;
@@ -24,7 +23,6 @@ struct Channel {
 
 void HiSax_mod_inc_use_count(struct IsdnCardState *cs);
 void HiSax_mod_dec_use_count(struct IsdnCardState *cs);
-#endif
 
 // =================================================================
 // Interface to config.c

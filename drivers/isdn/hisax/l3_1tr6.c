@@ -11,6 +11,7 @@
  */
 
 #include "hisax.h"
+#include "callc.h" // FIXME
 #include "l3_1tr6.h"
 #include "isdnl3.h"
 #include <linux/ctype.h>

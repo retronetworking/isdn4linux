@@ -461,7 +461,6 @@ HiSax_mod_dec_use_count(struct IsdnCardState *cs)
 	MOD_DEC_USE_COUNT;
 	if (!cs->c_if) 
 		return; // FIXME
-
 	if (cs->c_if->channel[0].debug & 0x400)
 		HiSax_putstatus(cs, "   UNLOCK ", "modcnt %lx",
 				MOD_USE_COUNT);
@@ -753,7 +752,6 @@ void
 ll_stop(struct IsdnCardState *cs)
 {
 	callcIfStop(cs->c_if);
-	CallcFreeChan(cs);
 }
 
 static void
@@ -1104,7 +1102,6 @@ checkcard(int cardnr, char *id, int *busy_flag))
 		return (0);
 	}
 	init_tei(cs, cs->protocol);
-	CallcNewChan(cs);
 	/* ISAR needs firmware download first */
 	if (!test_bit(HW_ISAR, &cs->HW_Flags))
 		ll_run(cs, 0);
