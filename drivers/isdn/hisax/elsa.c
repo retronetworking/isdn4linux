@@ -8,6 +8,9 @@
  *
  *
  * $Log$
+ * Revision 1.12  1997/04/06 22:54:14  keil
+ * Using SKB's
+ *
  * Revision 1.11  1997/03/23 21:45:46  keil
  * Add support for ELSA PCMCIA
  *
@@ -47,6 +50,7 @@
 #define ARCOFI_USE	0
 
 #define __NO_VERSION__
+#include <linux/config.h>
 #include "siemens.h"
 #include "hisax.h"
 #include "elsa.h"
