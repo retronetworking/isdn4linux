@@ -17,6 +17,9 @@
  *            Edgar Toernig
  *
  * $Log$
+ * Revision 1.13  1999/08/10 16:02:08  calle
+ * struct pci_dev changed in 2.3.13. Made the necessary changes.
+ *
  * Revision 1.12  1999/08/05 20:43:22  keil
  * ISAR analog modem support
  *
@@ -494,6 +497,10 @@ Sedl_card_msg(struct IsdnCardState *cs, int mt, void *arg)
 			return(0);
 		case CARD_RELEASE:
 			if (cs->hw.sedl.chip == SEDL_CHIP_ISAC_ISAR) {
+				writereg(cs->hw.sedl.adr, cs->hw.sedl.hscx,
+					ISAR_IRQBIT, 0);
+				writereg(cs->hw.sedl.adr, cs->hw.sedl.isac,
+					ISAC_MASK, 0xFF);
 				reset_sedlbauer(cs);
 				writereg(cs->hw.sedl.adr, cs->hw.sedl.hscx,
 					ISAR_IRQBIT, 0);
@@ -588,12 +595,8 @@ setup_sedlbauer(struct IsdnCard *card))
 				printk(KERN_WARNING "Sedlbauer: No IRQ for PCI card found\n");
 				return(0);
 			}
-#if LINUX_VERSION_CODE < KERNEL_VERSION(2,3,13)
-			cs->hw.sedl.cfg_reg = dev_sedl->base_address[0] &
+			cs->hw.sedl.cfg_reg = get_pcibase(dev_sedl, 0) &
 				PCI_BASE_ADDRESS_IO_MASK; 
-#else
-			cs->hw.sedl.cfg_reg = dev_sedl->resource[0].start;
-#endif
 		} else {
 			printk(KERN_WARNING "Sedlbauer: No PCI card found\n");
 			return(0);
