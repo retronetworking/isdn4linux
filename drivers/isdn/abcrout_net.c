@@ -31,6 +31,9 @@
  *
  *
  * $Log$
+ * Revision 1.6  1998/04/27 12:00:23  detabc
+ * *** empty log message ***
+ *
  * Revision 1.5  1998/04/26 20:01:17  detabc
  * add new abc-extension-code from 2.0.xx kernels
  * remove some unused code
@@ -2483,7 +2486,7 @@ int abcgmbh_udp_test(struct device *ndev,struct sk_buff *sp)
 						** ansonsten passiert garnichts
 						*/
 
-						if(!(lp->flags & ISDN_NET_CONNECTED) || !lp->outgoing)
+						if(!(lp->flags & ISDN_NET_CONNECTED))
 							transbuf[0] = transbuf[1] = 0x0;
 
 						retw = !sende_udp(ndev,
