@@ -23,6 +23,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.23  1999/11/07 17:01:55  keil
+ * fix for 2.3 pci structs
+ *
  * Revision 1.22  1999/10/10 20:14:27  werner
  *
  * Correct B2-chan usage in conjuntion with echo mode. First implementation of NT-leased line mode.
@@ -148,21 +151,6 @@ static const PCI_ENTRY id_list[] =
 
 
 #if CONFIG_PCI
-/*****************************/
-/* release D- and B-channels */
-/*****************************/
-void
-releasehfcpci(struct IsdnCardState *cs)
-{
-	if (cs->bcs[0].hw.hfc.send) {
-		kfree(cs->bcs[0].hw.hfc.send);
-		cs->bcs[0].hw.hfc.send = NULL;
-	}
-	if (cs->bcs[1].hw.hfc.send) {
-		kfree(cs->bcs[1].hw.hfc.send);
-		cs->bcs[1].hw.hfc.send = NULL;
-	}
-}
 
 /******************************************/
 /* free hardware resources used by driver */
@@ -185,7 +173,6 @@ release_io_hfcpci(struct IsdnCardState *cs)
 #if CONFIG_PCI
 	pcibios_write_config_word(cs->hw.hfcpci.pci_bus, cs->hw.hfcpci.pci_device_fn, PCI_COMMAND, 0);	/* disable memory mapped ports + busmaster */
 #endif				/* CONFIG_PCI */
-	releasehfcpci(cs);
 	del_timer(&cs->hw.hfcpci.timer);
 	kfree(cs->hw.hfcpci.share_start);
 	cs->hw.hfcpci.share_start = NULL;
@@ -1675,24 +1662,6 @@ hfcpci_bh(struct IsdnCardState *cs)
 }
 
 
-/*************************************/
-/* Alloc memory send data for queues */
-/*************************************/
-__initfunc(unsigned int
-	   *init_send_hfcpci(int cnt))
-{
-	int i, *send;
-
-	if (!(send = kmalloc(cnt * sizeof(unsigned int), GFP_ATOMIC))) {
-		printk(KERN_WARNING
-		       "HiSax: No memory for hfcpci.send\n");
-		return (NULL);
-	}
-	for (i = 0; i < cnt; i++)
-		send[i] = 0x1fff;
-	return (send);
-}
-
 /********************************/
 /* called for card init message */
 /********************************/
@@ -1704,14 +1673,6 @@ __initfunc(void
 	cs->dbusytimer.data = (long) cs;
 	init_timer(&cs->dbusytimer);
 	cs->tqueue.routine = (void *) (void *) hfcpci_bh;
-#if 0
-	if (!cs->hw.hfcpci.send)
-		cs->hw.hfcpci.send = init_send_hfcpci(16);
-#endif
-	if (!cs->bcs[0].hw.hfc.send)
-		cs->bcs[0].hw.hfc.send = init_send_hfcpci(32);
-	if (!cs->bcs[1].hw.hfc.send)
-		cs->bcs[1].hw.hfc.send = init_send_hfcpci(32);
 	cs->BC_Send_Data = &hfcpci_send_data;
 	cs->bcs[0].BC_SetStack = setstack_2b;
 	cs->bcs[1].BC_SetStack = setstack_2b;
@@ -1784,11 +1745,6 @@ __initfunc(int
 	printk(KERN_INFO "HiSax: HFC-PCI driver Rev. %s\n", HiSax_getrev(tmp));
 #if CONFIG_PCI
 	cs->hw.hfcpci.int_s1 = 0;
-#if 0
-	cs->hw.hfcpci.send = NULL;
-#endif
-	cs->bcs[0].hw.hfc.send = NULL;
-	cs->bcs[1].hw.hfc.send = NULL;
 	cs->dc.hfcpci.ph_state = 0;
 	cs->hw.hfcpci.fifo = 255;
 	if (cs->typ == ISDN_CTYPE_HFC_PCI) {
