@@ -6,6 +6,10 @@
  * (c) Copyright 1999 by Carsten Paeth (calle@calle.in-berlin.de)
  * 
  * $Log$
+ * Revision 1.4  2000/02/02 18:36:03  calle
+ * - Modules are now locked while init_module is running
+ * - fixed problem with memory mapping if address is not aligned
+ *
  * Revision 1.3  2000/01/25 14:37:39  calle
  * new message after successfull detection including card revision and
  * used resources.
@@ -900,7 +904,7 @@ static void c4_remove_ctr(struct capi_ctr *ctrl)
 
  	c4_reset(card);
 
-        for (i=0; i <= 4; i++) {
+        for (i=0; i < 4; i++) {
 		cinfo = &card->ctrlinfo[i];
 		if (cinfo->capi_ctrl)
 			di->detach_ctr(cinfo->capi_ctrl);
