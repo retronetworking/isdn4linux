@@ -10,6 +10,7 @@
 #ifndef _AVMCARD_H_
 #define _AVMCARD_H_
 
+#include <asm/io.h>
 #include <linux/delay.h>
 
 #define	AVMB1_PORTLEN		0x1f

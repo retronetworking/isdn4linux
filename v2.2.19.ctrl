@@ -13,7 +13,6 @@
 #undef BIG_PHONE_NUMBERS
 #undef COMPAT_HAS_ISA_IOREMAP
 #define net_device device
-#define set_current_state(sta) current->state = sta
 #undef COMPAT_HAS_kmem_cache
 #undef COMPAT_d_alloc_root_one_parameter
 #undef COMPAT_HAS_init_special_inode
@@ -62,5 +61,9 @@
 
 #define COMPAT_NEED_PCI_IDS
 #undef COMPAT_HAS_SCHEDULE_TASK
+
+#define COMPAT_NEED_TRY_INC_MOD_COUNT
+#define fops_get(fops) fops
+#define fops_put(fops)
 
 #define in_irq(dummy) (local_irq_count[smp_processor_id()] != 0)

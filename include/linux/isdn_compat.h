@@ -59,6 +59,10 @@
 #define COMPAT_NEED_PCI_IDS
 #define in_irq() (local_irq_count[smp_processor_id()] != 0)
 
+#define fops_get(fops) fops
+#define fops_put(fops) do {} while (0)
+#define COMPAT_NEED_TRY_INC_MOD_COUNT
+
 #else /* 2.4.0 and later */
 
 #define pci_resource_start_io(pdev, nr) pci_resource_start(pdev, nr)
@@ -103,6 +107,19 @@ static inline int pci_enable_device(struct pci_dev *dev)
 #endif /* __powerpc__ */
 
 #define PCI_ANY_ID (~0)
+
+struct pci_device_id {
+        unsigned int vendor, device;            /* Vendor and device ID or PCI_ANY_ID */
+        unsigned int subvendor, subdevice;      /* Subsystem ID's or PCI_ANY_ID */
+        unsigned int class, class_mask;         /* (class,subclass,prog-if) triplet */
+        unsigned long driver_data;              /* Data private to the driver */};
+
+#define MODULE_DEVICE_TABLE(a,b)
+
+#define pci_resource_start(dev,bar) \
+(((dev)->base_address[(bar)] & PCI_BASE_ADDRESS_SPACE) ? \
+ ((dev)->base_address[(bar)] & PCI_BASE_ADDRESS_IO_MASK) : \
+ ((dev)->base_address[(bar)] & PCI_BASE_ADDRESS_MEM_MASK))
 
 /* as this is included multiple times, we make it inline */
 
@@ -243,6 +260,16 @@ typedef struct wait_queue *wait_queue_head_t;
 #define PCI_SUBDEVICE_ID_HYPERCOPE_PLEXUS       0x0109
 
 #endif /* COMPAT_NEED_PCI_IDS */
+
+#ifdef COMPAT_NEED_TRY_INC_MOD_COUNT
+static int __inline__ try_inc_mod_count(struct module *mod)
+{
+        if (mod)
+		__MOD_INC_USE_COUNT(mod);
+
+        return 1;
+}
+#endif /* COMPAT_NEED_TRY_INC_MOD_COUNT */
 
 #endif /* __KERNEL__ */
 #endif /* _LINUX_ISDN_COMPAT_H */

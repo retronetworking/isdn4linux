@@ -256,7 +256,7 @@ if [ $# != 0 ]; then
 	docp $i $KERNELDIR/$i
     done
 else
-    for i in `find drivers -type f -name '*.[hc]' -o -name Makefile`; do
+    for i in `find drivers -type f -name '*.[hc]' -o -name Makefile -o -name Config.in`; do
 	docp $i $KERNELDIR/$i
     done
     for i in `find include -type f -name '*.h'`; do

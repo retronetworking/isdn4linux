@@ -14,7 +14,7 @@
 #ifndef __CAPI_H__
 #define __CAPI_H__
 
-#define HDEBUG(dummy) do { printk( "%s:%d %s\n", __FILE__, __LINE__, __FUNCTION__); } while (0)
+#define HDEBUG do { printk( "%s:%d %s\n", __FILE__, __LINE__, __FUNCTION__); } while (0)
 
 #include "syncdev.h"
 

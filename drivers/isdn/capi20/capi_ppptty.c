@@ -23,6 +23,8 @@
 #include <net/capi/capi.h>
 #include <net/capi/command.h>
 #include "capi.h"
+// for __exit
+#include <linux/isdn_compat.h>
 
 // ----------------------------------------------------------------------
 
@@ -66,7 +68,7 @@ receive_buf(struct capi_ppptty *cp, char *buf, int len)
 
 	if (!tty) {
 		// discard frame FIXME?
-		HDEBUG();
+		HDEBUG;
 		return 0;
 	}
 	
@@ -76,7 +78,7 @@ receive_buf(struct capi_ppptty *cp, char *buf, int len)
 		    tty->driver.throttle)
 			tty->driver.throttle(tty);
 		
-		HDEBUG();
+		HDEBUG;
 		return -EBUSY;
 	}
 	tty->ldisc.receive_buf(tty, buf, 0, len);
@@ -94,7 +96,7 @@ run_recv_queue(struct capi_ppptty *cp)
 
 	while ((skb = skb_dequeue(&cp->recv_queue))) {
 		if (receive_buf(cp, skb->data, skb->len) < 0) {
-			HDEBUG();
+			HDEBUG;
 			skb_queue_head(&cp->recv_queue, skb);
 			return;
 		}
@@ -124,8 +126,8 @@ capinc_tty_write_room(struct tty_struct *tty)
 	struct capi_ppptty *cp = tty->driver_data;
 
 	if (!cp) {
-		HDEBUG();
-		return -EBUSY;
+		HDEBUG;
+		return 0;
 	}
 	if (test_bit(XMIT_QUEUE_FULL, &cp->flags))
 		return 0;
@@ -142,8 +144,8 @@ capinc_tty_write(struct tty_struct * tty, int from_user,
 	int retval;
 
 	if (!cp) {
-		HDEBUG();
-		return -EBUSY;
+		HDEBUG;
+		return 0;
 	}
 
 	if (test_bit(XMIT_QUEUE_FULL, &cp->flags))
@@ -200,10 +202,9 @@ capinc_tty_chars_in_buffer(struct tty_struct *tty)
 {
 	struct capi_ppptty *cp = tty->driver_data;
 
-	if (!cp) {
-		HDEBUG();
-		return -EBUSY;
-	}
+	if (!cp)
+		return 0;
+
 	if (test_bit(XMIT_QUEUE_FULL, &cp->flags))
 		return CAPI_MAX_BLKSIZE;
 	else
@@ -237,7 +238,7 @@ ncci_connect(struct capidev *cdev, struct ncci_connect_data *data)
 	struct list_head *p;
         unsigned int minor = 0;
 
-	HDEBUG();
+	HDEBUG;
 	MOD_INC_USE_COUNT;
 	
 	cp = kmalloc(sizeof(struct capi_ppptty), GFP_KERNEL);
@@ -363,7 +364,7 @@ static int __init capi_ppptty_init(void)
 {
 	int retval;
 	
-	HDEBUG();
+	HDEBUG;
 
 	MOD_INC_USE_COUNT;
 

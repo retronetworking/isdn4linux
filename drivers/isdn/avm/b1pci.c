@@ -16,9 +16,11 @@
 #include <linux/init.h>
 #include <linux/kernel.h>
 #include <linux/pci.h>
+#include <linux/ioport.h>
 #include <net/capi/driver.h>
 #include <net/capi/kcapi.h>
 #include "avmcard.h"
+#include <linux/isdn_compat.h>
 
 static char *revision = "$Revision$";
 static char *rev;

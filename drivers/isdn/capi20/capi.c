@@ -43,6 +43,8 @@
 #include <net/capi/util.h>
 #include <net/capi/command.h>
 #include "capi.h"
+// for fops_get/put
+#include <linux/isdn_compat.h>
 
 static char *revision = "$Revision$";
 
@@ -528,35 +530,40 @@ capi_open(struct inode *inode, struct file *file)
 {
 	int minor = MINOR(inode->i_rdev);
 	struct file_operations *old_fops, *new_fops = NULL;
-	int err;
+	int retval;
 
+#ifndef COMPAT_HAS_FILEOP_OWNER
+	MOD_INC_USE_COUNT;
+#endif
 	if (minor == CAPITTY_MINOR) {
 		new_fops = fops_get(capitty_dev_fops);
+		retval = -ENODEV;
 		if (!new_fops)
-			return -ENODEV;
+			goto outf;
 
-		err = 0;
+		retval = 0;
 		old_fops = file->f_op;
 		file->f_op = new_fops;
 		if (file->f_op->open) {
-			err=file->f_op->open(inode,file);
-			if (err) {
+			retval=file->f_op->open(inode,file);
+			if (retval) {
 				fops_put(file->f_op);
 				file->f_op = fops_get(old_fops);
 			}
 		}
 		fops_put(old_fops);
-		return err;
+		goto outf;
 	}
 
-	if (file->private_data)
-		return -EEXIST;
-
+	retval = -ENOMEM;
 	file->private_data = capidev_alloc();
 	if (!file->private_data)
-		return -ENOMEM;
+		goto outf;
 
 	return 0;
+ outf:
+	MOD_DEC_USE_COUNT;
+	return retval;
 }
 
 static int
@@ -567,12 +574,17 @@ capi_release(struct inode *inode, struct file *file)
 	capidev_free(cdev);
 	file->private_data = NULL;
 	
+#ifndef COMPAT_HAS_FILEOP_OWNER
+	MOD_DEC_USE_COUNT;
+#endif
 	return 0;
 }
 
 static struct file_operations capi_fops =
 {
+#ifdef COMPAT_HAS_FILEOP_OWNER
 	owner:		THIS_MODULE,
+#endif
 	llseek:		capi_llseek,
 	read:		capi_read,
 	write:		capi_write,
@@ -617,7 +629,7 @@ capincci_add_ack(struct capincci *mp, u16 datahandle)
         spin_lock(&mp->lock);
 	list_add_tail(&n->list, &mp->ackqueue);
 	mp->nack++;
-        spin_unlock(&mp->unlock);
+        spin_unlock(&mp->lock);
 	return 0;
 }
 
@@ -639,8 +651,7 @@ capincci_del_ack(struct capincci *np, u16 datahandle)
 			break;
 		}
 	}
-
-        spin_unlock(&mp->lock);
+        spin_unlock(&np->lock);
 	return retval;
 }
 
@@ -650,7 +661,7 @@ capincci_purge_ack(struct capincci *np)
 	struct list_head *p;
 	struct datahandle *ack;
 
-        spin_lock(np->lock);
+        spin_lock(&np->lock);
 	while (!list_empty(&np->ackqueue)) {
 		p = np->ackqueue.next;
 		ack = list_entry(p, struct datahandle, list);
@@ -693,7 +704,7 @@ capincci_send(struct capincci *np, struct sk_buff *skb)
 		skb_pull(skb, CAPI_DATA_B3_REQ_LEN);
 		if (errcode == CAPI_SENDQUEUEFULL) {
 			// shouldn't happen
-			HDEBUG();
+			HDEBUG;
 			return -EAGAIN;
 		}
 		return -EIO;
@@ -725,7 +736,7 @@ capincci_recv_data_b3(struct capincci *np, struct sk_buff *skb)
 	if (CAPIMSG_SUBCOMMAND(skb->data) == CAPI_CONF) {
 		datahandle = CAPIMSG_U16(skb->data, CAPIMSG_BASELEN+4);
 		if (capincci_del_ack(np, datahandle)) {
-			HDEBUG();
+			HDEBUG;
 			return -ESRCH;
 		}
 		kfree_skb(skb);
@@ -855,7 +866,7 @@ static int proc_capincci_read_proc(char *page, char **start, off_t off,
 		}
 	}
 endloop:
-        spin_unlock(&capi_list_lock);
+        spin_unlock(&capidev_list_lock);
 	*start = page+off;
 	if (len < count)
 		*eof = 1;

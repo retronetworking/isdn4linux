@@ -23,6 +23,7 @@
 #include <net/capi/util.h>
 #include <net/capi/command.h>
 #include "avmcard.h"
+#include <linux/isdn_compat.h>
 
 static char *revision = "$Revision$";
 

@@ -2,7 +2,7 @@
 
 O_TARGET		:= vmlinux-obj.o
 
-export-objs		:= capifs.o
+export-objs		:= capi.o capifs.o
 
 list-multi		:= capitty.o capi_legacy.o
 
@@ -17,7 +17,7 @@ obj-$(CONFIG_ISDN_KCAPI_LEGACY) 	+= capi_legacy.o
 obj-$(CONFIG_ISDN_KCAPI_PPPTTY) 	+= capi_ppptty.o
 obj-$(CONFIG_ISDN_KCAPI_CAPITTY)	+= capitty.o
 
-include $(TOPDIR)/Rules.make
+include $(TOPDIR)/drivers/isdn/Rules.make
 
 capi_legacy.o: $(capi_legacy-objs)
 	$(LD) -r -o $@ $(capi_legacy-objs)

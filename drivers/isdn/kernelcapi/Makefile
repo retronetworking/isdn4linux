@@ -9,7 +9,7 @@ kernelcapi-objs	:= kcapi.o capiutil.o
 
 obj-$(CONFIG_ISDN_KCAPI)		+= kernelcapi.o
 
-include $(TOPDIR)/Rules.make
+include $(TOPDIR)/drivers/isdn/Rules.make
 
 kernelcapi.o: $(kernelcapi-objs)
 	$(LD) -r -o $@ $(kernelcapi-objs)
