@@ -20,6 +20,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.81  2000/01/20 19:55:33  keil
+ * Add FAX Class 1 support
+ *
  * Revision 1.80  1999/11/07 13:34:30  armin
  * Fixed AT command line editor
  *
@@ -977,7 +980,7 @@ isdn_tty_dial(char *n, modem_info * info, atemu * m)
 	m->mdmreg[REG_SI1I] = si2bit[si];
 	save_flags(flags);
 	cli();
-	i = isdn_get_free_channel(usg, l2, m->mdmreg[REG_L3PROT], -1, -1);
+	i = isdn_get_free_channel(usg, l2, m->mdmreg[REG_L3PROT], -1, -1, m->msn);
 	if (i < 0) {
 		restore_flags(flags);
 		isdn_tty_modem_result(6, info);
@@ -1188,7 +1191,7 @@ isdn_tty_resume(char *id, modem_info * info, atemu * m)
 	m->mdmreg[REG_SI1I] = si2bit[si];
 	save_flags(flags);
 	cli();
-	i = isdn_get_free_channel(usg, l2, m->mdmreg[REG_L3PROT], -1, -1);
+	i = isdn_get_free_channel(usg, l2, m->mdmreg[REG_L3PROT], -1, -1, m->msn);
 	if (i < 0) {
 		restore_flags(flags);
 		isdn_tty_modem_result(6, info);
@@ -1282,7 +1285,7 @@ isdn_tty_send_msg(modem_info * info, atemu * m, char *msg)
 	m->mdmreg[REG_SI1I] = si2bit[si];
 	save_flags(flags);
 	cli();
-	i = isdn_get_free_channel(usg, l2, m->mdmreg[REG_L3PROT], -1, -1);
+	i = isdn_get_free_channel(usg, l2, m->mdmreg[REG_L3PROT], -1, -1, m->msn);
 	if (i < 0) {
 		restore_flags(flags);
 		isdn_tty_modem_result(6, info);

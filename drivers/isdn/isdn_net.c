@@ -21,6 +21,10 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.102  2000/01/09 20:43:14  detabc
+ * exand logical bind-group's for both call's (in and out).
+ * add first part of kernel-config-help for abc-extension.
+ *
  * Revision 1.101  1999/12/05 16:06:08  detabc
  * add resethandling for rawip-compression.
  * at now all B2-Protocols are usable with rawip-compression
@@ -1115,7 +1119,12 @@ isdn_net_dial(void)
 							lp->l2_proto,
 							lp->l3_proto,
 							lp->pre_device,
-						 	lp->pre_channel)
+						 	lp->pre_channel,
+#ifdef CONFIG_ISDN_WITH_ABC_OUTGOING_EAZ
+							(*lp->dw_out_msn) ? lp->dw_out_msn : lp->msn)
+#else
+							lp->msn)
+#endif
 #endif
 							) < 0) {
 
@@ -1994,7 +2003,12 @@ isdn_net_start_xmit(struct sk_buff *skb, struct net_device *ndev)
 							lp->l2_proto,
 							lp->l3_proto,
 							lp->pre_device,
-						 	lp->pre_channel)
+						 	lp->pre_channel,
+#ifdef CONFIG_ISDN_WITH_ABC_OUTGOING_EAZ
+							(*lp->dw_out_msn) ? lp->dw_out_msn : lp->msn)
+#else
+							lp->msn)
+#endif
 #endif
 							) < 0) &&
 					((chi =
@@ -2006,7 +2020,12 @@ isdn_net_start_xmit(struct sk_buff *skb, struct net_device *ndev)
 							lp->l2_proto,
 							lp->l3_proto,
 							lp->pre_device,
-						    lp->pre_channel^1)
+							lp->pre_channel^1,
+#ifdef CONFIG_ISDN_WITH_ABC_OUTGOING_EAZ
+							(*lp->dw_out_msn) ? lp->dw_out_msn : lp->msn)
+#else
+							lp->msn)
+#endif
 #endif
 							) < 0)) {
 					restore_flags(flags);
@@ -3114,9 +3133,10 @@ isdn_net_find_icall(int di, int ch, int idx, setup_parm setup)
 							isdn_get_free_channel(
 								ISDN_USAGE_NET,
 								lp->l2_proto,
-							    lp->l3_proto,
+								lp->l3_proto,
 							  	lp->pre_device,
-						 		lp->pre_channel)
+						 		lp->pre_channel,
+						 		lp->msn)
 #endif
 								) < 0) {
 
@@ -3284,7 +3304,12 @@ isdn_net_force_dial_lp(isdn_net_local * lp)
 							lp->l2_proto,
 							lp->l3_proto,
 							lp->pre_device,
-						 	lp->pre_channel)
+						 	lp->pre_channel,
+#ifdef CONFIG_ISDN_WITH_ABC_OUTGOING_EAZ
+							(*lp->dw_out_msn) ? lp->dw_out_msn : lp->msn)
+#else
+							lp->msn)
+#endif
 #endif
 							) < 0) {
 				printk(KERN_WARNING "isdn_net_force_dial: No channel for %s\n", lp->name);
@@ -3597,10 +3622,9 @@ isdn_net_setcfg(isdn_net_ioctl_cfg * cfg)
 
 			/* If binding is exclusive, try to grab the channel */
 			save_flags(flags);
-			if ((i = isdn_get_free_channel(ISDN_USAGE_NET, lp->l2_proto,
-						       lp->l3_proto,
-						       drvidx,
-						       chidx)) < 0) {
+			if ((i = isdn_get_free_channel(ISDN_USAGE_NET,
+				lp->l2_proto, lp->l3_proto, drvidx,
+				chidx, lp->msn)) < 0) {
 				/* Grab failed, because desired channel is in use */
 				lp->exclusive = -1;
 				restore_flags(flags);

@@ -21,6 +21,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.96  2000/01/20 19:55:33  keil
+ * Add FAX Class 1 support
+ *
  * Revision 1.95  2000/01/09 20:43:13  detabc
  * exand logical bind-group's for both call's (in and out).
  * add first part of kernel-config-help for abc-extension.
@@ -1921,7 +1924,7 @@ isdn_ioctl(struct inode *inode, struct file *file, uint cmd, ulong arg)
 						for (i = 0; i < 10; i++) {
 							sprintf(bname, "%s%s",
 								strlen(dev->drv[drvidx]->msn2eaz[i]) ?
-								dev->drv[drvidx]->msn2eaz[i] : "-",
+								dev->drv[drvidx]->msn2eaz[i] : "_",
 								(i < 9) ? "," : "\0");
 							if (copy_to_user(p, bname, strlen(bname) + 1))
 								return -EFAULT;
@@ -2136,7 +2139,7 @@ isdn_map_eaz2msn(char *msn, int di)
 
 int
 isdn_get_free_channel(int usage, int l2_proto, int l3_proto, int pre_dev
-		      ,int pre_chan)
+		      ,int pre_chan, char *msn)
 {
 	int i;
 	ulong flags;
@@ -2167,6 +2170,8 @@ isdn_get_free_channel(int usage, int l2_proto, int l3_proto, int pre_dev
 #endif
 			if ((dev->usage[i] & ISDN_USAGE_EXCLUSIVE) &&
 			((pre_dev != d) || (pre_chan != dev->chanmap[i])))
+				continue;
+			if (!strcmp(isdn_map_eaz2msn(msn, d), "-"))
 				continue;
 			if (dev->usage[i] & ISDN_USAGE_DISABLED)
 			        continue; /* usage not allowed */

@@ -23,6 +23,10 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.12  2000/01/09 20:43:14  detabc
+ * exand logical bind-group's for both call's (in and out).
+ * add first part of kernel-config-help for abc-extension.
+ *
  * Revision 1.11  1999/12/05 16:06:08  detabc
  * add resethandling for rawip-compression.
  * at now all B2-Protocols are usable with rawip-compression
@@ -1710,7 +1714,9 @@ int dwabc_isdn_get_net_free_channel(isdn_net_local *lp)
 							lp->l2_proto,
 							lp->l3_proto,
 							di,
-							9999)) >= 0) {
+							9999,
+							lp->msn
+							)) >= 0) {
 
 						int c = dev->chanmap[retw];
 
@@ -1738,7 +1744,8 @@ int dwabc_isdn_get_net_free_channel(isdn_net_local *lp)
 							lp->l2_proto,
 							lp->l3_proto,
 							di,
-							9999)) >= 0) {
+							9999,
+							lp->msn)) >= 0) {
 
 						int c = dev->chanmap[retw];
 
@@ -1760,7 +1767,8 @@ int dwabc_isdn_get_net_free_channel(isdn_net_local *lp)
 				lp->l2_proto,
 				lp->l3_proto,
 				lp->pre_device,
-				lp->pre_channel);
+				lp->pre_channel,
+				lp->msn);
 
 		if(retw >= 0) {
 
