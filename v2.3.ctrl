@@ -5,13 +5,26 @@
 #define LSTYPE long long
 #define RWARG unsigned long
 #define LSARG long long
+#define COMPAT_NEED_UACCESS
 #define SET_SKB_FREE(x)
 #define idev_kfree_skb(a,b) dev_kfree_skb(a)
 #define COMPAT_HAS_NEW_SYMTAB
 #define CLOSETYPE int
 #define CLOSEVAL (0)
+#define MINOR_PART(f)   MINOR(f->f_dentry->d_inode->i_rdev)
 #define COMPAT_HAS_NEW_PCI
 #define get_pcibase(ps, nr) ps->resource[nr].start
+#define FILEOP_HAS_FLUSH
 #define COMPAT_HAS_NEW_WAITQ
 #define COMPAT_HAS_NEW_SETUP
+#define COMPAT_HAS_ISA_IOREMAP
+#undef CONFIG_ISDN_WITH_ABC
+#undef CONFIG_ISDN_WITH_ABC_LCR_SUPPORT
+#undef CONFIG_ISDN_WITH_ABC_OUTGOING_EAZ
+#undef CONFIG_ISDN_WITH_ABC_UDP_CHECK
+#undef CONFIG_ISDN_WITH_ABC_CALLB
+#undef CONFIG_ISDN_WITH_ABC_CALL_CHECK_SYNCRO
+#undef CONFIG_ISDN_WITH_ABC_IPV4_TCP_KEEPALIVE
+#undef CONFIG_ISDN_WITH_ABC_ICALL_BIND
+#undef CONFIG_ISDN_WITH_ABC_RCV_NO_HUPTIMER
 #define BIG_PHONE_NUMBERS

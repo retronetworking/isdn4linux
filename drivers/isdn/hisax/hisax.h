@@ -3,6 +3,9 @@
  *   Basic declarations, defines and prototypes
  *
  * $Log$
+ * Revision 2.37  1999/10/14 20:25:28  keil
+ * add a statistic for error monitoring
+ *
  * Revision 2.36  1999/10/10 20:16:15  werner
  *
  * Added variable to hfcpci union.
@@ -660,7 +663,8 @@ struct teles3_hw {
 
 struct teles0_hw {
 	unsigned int cfg_reg;
-	unsigned int membase;
+	unsigned long membase;
+	unsigned long phymem;
 };
 
 struct avm_hw {
@@ -800,8 +804,9 @@ struct hfcD_hw {
 
 struct isurf_hw {
 	unsigned int reset;
-	unsigned int isac;
-	unsigned int isar;
+	unsigned long phymem;
+	unsigned long isac;
+	unsigned long isar;
 	struct isar_reg isar_r;
 };
 

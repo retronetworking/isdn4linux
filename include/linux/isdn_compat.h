@@ -131,5 +131,8 @@ static inline unsigned long copy_to_user(void *to, const void *from, unsigned lo
 #define set_current_state(sta) (current->state = sta)
 #endif
 
+#if LINUX_VERSION_CODE > KERNEL_VERSION(2,3,22)
+#define COMPAT_HAS_ISA_IOREMAP
+#endif
 #endif /* __KERNEL__ */
 #endif /* _LINUX_ISDN_COMPAT_H */

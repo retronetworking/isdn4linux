@@ -18,6 +18,7 @@
 #undef COMPAT_HAS_NEW_WAITQ
 #undef COMPAT_HAS_NEW_SETUP
 #undef BIG_PHONE_NUMBERS
+#undef COMPAT_HAS_ISA_IOREMAP
 #define net_device device
 #define set_current_state(sta) current->state = sta
 

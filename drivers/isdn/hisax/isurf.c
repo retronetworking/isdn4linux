@@ -5,6 +5,9 @@
  * Author     Karsten Keil (keil@isdn4linux.de)
  *
  * $Log$
+ * Revision 1.6  1999/09/04 06:20:06  keil
+ * Changes from kernel set_current_state()
+ *
  * Revision 1.5  1999/08/25 17:00:02  keil
  * Make ISAR V32bis modem running
  * Make LL->HL interface open for additional commands
@@ -47,7 +50,7 @@ static const char *ISurf_revision = "$Revision$";
 
 #define ISURF_ISAR_OFFSET	0
 #define ISURF_ISAC_OFFSET	0x100
-
+#define ISURF_IOMEM_SIZE	0x400
 /* Interface functions */
 
 static u_char
@@ -142,6 +145,10 @@ void
 release_io_isurf(struct IsdnCardState *cs)
 {
 	release_region(cs->hw.isurf.reset, 1);
+#ifdef COMPAT_HAS_ISA_IOREMAP
+	iounmap((unsigned char *)cs->hw.isurf.isar);
+	release_mem_region(cs->hw.isurf.phymem, ISURF_IOMEM_SIZE);
+#endif
 }
 
 static void
@@ -220,8 +227,7 @@ setup_isurf(struct IsdnCard *card))
  		return(0);
 	if (card->para[1] && card->para[2]) {
 		cs->hw.isurf.reset = card->para[1];
-		cs->hw.isurf.isar = card->para[2] + ISURF_ISAR_OFFSET;
-		cs->hw.isurf.isac = card->para[2] + ISURF_ISAC_OFFSET;
+		cs->hw.isurf.phymem = card->para[2];
 		cs->irq = card->para[0];
 	} else {
 		printk(KERN_WARNING "HiSax: %s port/mem not set\n",
@@ -237,11 +243,30 @@ setup_isurf(struct IsdnCard *card))
 	} else {
 		request_region(cs->hw.isurf.reset, 1, "isurf isdn");
 	}
-
+#ifdef COMPAT_HAS_ISA_IOREMAP
+	if (check_mem_region(cs->hw.isurf.phymem, ISURF_IOMEM_SIZE)) {
+		printk(KERN_WARNING
+			"HiSax: %s memory region %lx-%lx already in use\n",
+			CardType[card->typ],
+			cs->hw.isurf.phymem,
+			cs->hw.isurf.phymem + ISURF_IOMEM_SIZE);
+		release_region(cs->hw.isurf.reset, 1);
+		return (0);
+	} else {
+		request_mem_region(cs->hw.isurf.phymem, ISURF_IOMEM_SIZE,
+			"isurf iomem");
+	}
+	cs->hw.isurf.isar =
+		(unsigned long) ioremap(cs->hw.isurf.phymem, ISURF_IOMEM_SIZE);
+	cs->hw.isurf.isac = cs->hw.isurf.isar + ISURF_ISAC_OFFSET;
+#else
+	cs->hw.isurf.isar = cs->hw.isurf.phymem + ISURF_ISAR_OFFSET;
+	cs->hw.isurf.isac = cs->hw.isurf.phymem + ISURF_ISAC_OFFSET;
+#endif
 	printk(KERN_INFO
-	       "ISurf: defined at 0x%x 0x%x IRQ %d\n",
+	       "ISurf: defined at 0x%x 0x%lx IRQ %d\n",
 	       cs->hw.isurf.reset,
-	       cs->hw.isurf.isar,
+	       cs->hw.isurf.phymem,
 	       cs->irq);
 
 	cs->cardmsg = &ISurf_card_msg;

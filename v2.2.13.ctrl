@@ -11,11 +11,14 @@
 #define COMPAT_HAS_NEW_SYMTAB
 #define CLOSETYPE int
 #define CLOSEVAL (0)
+#define MINOR_PART(f)   MINOR(f->f_dentry->d_inode->i_rdev)
 #define COMPAT_HAS_NEW_PCI
 #define get_pcibase(ps,nr) ps->base_address[nr]
+#define FILEOP_HAS_FLUSH
 #undef COMPAT_HAS_NEW_WAITQ
 #undef COMPAT_HAS_NEW_SETUP
 #undef BIG_PHONE_NUMBERS
+#undef COMPAT_HAS_ISA_IOREMAP
 #define net_device device
 #define set_current_state(sta) current->state = sta
 
