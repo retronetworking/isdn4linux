@@ -1,10 +1,10 @@
 /*
  * $Id$
  * 
- * Module for AVM C4 card.
+ * Module for AVM C4 & C2 card.
  * 
  * (c) Copyright 1999 by Carsten Paeth (calle@calle.in-berlin.de)
- * 
+ *
  */
 
 #include <linux/config.h>
@@ -18,6 +18,7 @@
 #include <linux/pci.h>
 #include <linux/isdn_compat.h>
 #include <linux/capi.h>
+#include <linux/kernelcapi.h>
 #include <linux/init.h>
 #include <asm/io.h>
 #include <asm/uaccess.h>
@@ -759,7 +760,7 @@ static void c4_send_init(avmcard *card)
 	_put_byte(&p, 0);
 	_put_byte(&p, 0);
 	_put_byte(&p, SEND_INIT);
-	_put_word(&p, AVM_NAPPS);
+	_put_word(&p, CAPI_MAXAPPL);
 	_put_word(&p, AVM_NCCI_PER_CHANNEL*30);
 	_put_word(&p, card->cardnr - 1);
 	skb_put(skb, (__u8 *)p - (__u8 *)skb->data);

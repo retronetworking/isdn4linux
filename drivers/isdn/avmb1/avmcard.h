@@ -10,7 +10,6 @@
 
 #define	AVMB1_PORTLEN		0x1f
 #define AVM_MAXVERSION		8
-#define AVM_NAPPS		30
 #define AVM_NCCI_PER_CHANNEL	4
 
 /*

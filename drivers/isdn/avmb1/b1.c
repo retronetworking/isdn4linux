@@ -4,7 +4,7 @@
  * Common module for AVM B1 cards.
  * 
  * (c) Copyright 1999 by Carsten Paeth (calle@calle.in-berlin.de)
- * 
+ *
  */
 
 #include <linux/module.h>
@@ -15,6 +15,7 @@
 #include <linux/interrupt.h>
 #include <linux/ioport.h>
 #include <linux/capi.h>
+#include <linux/kernelcapi.h>
 #include <asm/io.h>
 #include <linux/init.h>
 #include <linux/isdn_compat.h>
@@ -270,7 +271,7 @@ int b1_load_firmware(struct capi_ctr *ctrl, capiloaddata *data)
 	cli();
 	b1_setinterrupt(port, card->irq, card->cardtype);
 	b1_put_byte(port, SEND_INIT);
-	b1_put_word(port, AVM_NAPPS);
+	b1_put_word(port, CAPI_MAXAPPL);
 	b1_put_word(port, AVM_NCCI_PER_CHANNEL*2);
 	b1_put_word(port, ctrl->cnr - 1);
 	restore_flags(flags);

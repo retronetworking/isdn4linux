@@ -23,13 +23,10 @@
  *
  */
 
-#ifndef isdnif_h
-#define isdnif_h
+#ifndef __ISDNIF_H__
+#define __ISDNIF_H__
 
-#ifdef __KERNEL__
-#include <linux/config.h>
 #include <linux/isdn_compat.h>
-#endif
 
 /*
  * Values for general protocol-selection
@@ -70,6 +67,7 @@
 
 #ifdef __KERNEL__
 
+#include <linux/config.h>
 #include <linux/skbuff.h>
 
 /***************************************************************************/
@@ -563,4 +561,5 @@ extern int register_isdn(isdn_if*);
 #include <asm/uaccess.h>
 
 #endif /* __KERNEL__ */
-#endif /* isdnif_h */
+
+#endif /* __ISDNIF_H__ */
