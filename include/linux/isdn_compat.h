@@ -43,10 +43,6 @@
 #define net_device device
 #endif
 
-#if LINUX_VERSION_CODE < KERNEL_VERSION(2,2,18)
-#define set_current_state(sta) (current->state = sta)
-#endif
-
 #if LINUX_VERSION_CODE > KERNEL_VERSION(2,3,22)
 #define COMPAT_HAS_ISA_IOREMAP
 #endif
@@ -92,8 +88,10 @@
 #endif
 
 #if LINUX_VERSION_CODE < KERNEL_VERSION(2,2,18)
+#define set_current_state(sta) (current->state = sta)
 #define module_init(x)	int init_module(void) { return x(); }
 #define module_exit(x)	void cleanup_module(void) { x(); }
+#define BUG() do { printk("kernel BUG at %s:%d!\n", __FILE__, __LINE__); *(int *)0 = 0; } while (0)
 #endif
 
 #endif /* __KERNEL__ */
