@@ -22,8 +22,9 @@ struct pppcallinfo
 #define PPPIOCSMPFLAGS _IOW('t',131,int)
 #define PPPIOCSMPMTU   _IOW('t',132,int)
 #define PPPIOCSMPMRU   _IOW('t',133,int)
-#define PPPIOCGCOMPRESSORS _IOR('t',134,unsigned long)
+#define PPPIOCGCOMPRESSORS _IOR('t',134,unsigned long [8])
 #define PPPIOCSCOMPRESSOR _IOW('t',135,int)
+#define PPPIOCGIFNAME      _IOR('t',136, char [IFNAMSIZ] )
 
 #define PPP_MP          0x003d
 #define PPP_LINK_COMP   0x00fb
@@ -36,7 +37,17 @@ struct pppcallinfo
 #define MP_END_FRAG    0x40
 #define MP_BEGIN_FRAG  0x80
 
+#define ISDN_PPP_COMP_MAX_OPTIONS 16
+
+struct isdn_ppp_comp_data {
+        int num;
+        unsigned char options[ISDN_PPP_COMP_MAX_OPTIONS];
+        int optlen;
+        int xmit;
+};
+
 #ifdef __KERNEL__
+
 /*
  * this is an 'old friend' from ppp-comp.h under a new name 
  * check the original include for more information
@@ -44,22 +55,14 @@ struct pppcallinfo
 struct isdn_ppp_compressor {
 	struct isdn_ppp_compressor *next,*prev;
 	int num; /* CCP compression protocol number */
-	void *(*comp_alloc) (unsigned char *options, int opt_len);
-	void (*comp_free) (void *state);
-	int  (*comp_init) (void *state, unsigned char *options, int opt_len,
-		 int unit, int opthdr, int debug);
-	void (*comp_reset) (void *state);
-	int  (*compress) (void *state,struct sk_buff *in, struct sk_buff *skb_out,
-		 int proto);
-	void (*comp_stat) (void *state, struct compstat *stats);
-	void *(*decomp_alloc) (unsigned char *options, int opt_len);
-	void (*decomp_free) (void *state);
-	int  (*decomp_init) (void *state, unsigned char *options,
-			int opt_len, int unit, int opthdr, int mru, int debug);
-	void (*decomp_reset) (void *state);
-	int  (*decompress) (void *state, unsigned char *ibuf, int isize, unsigned char *obuf, int osize);
-	void (*incomp) (void *state, unsigned char *ibuf, int icnt);
-	void (*decomp_stat) (void *state, struct compstat *stats);
+	void *(*alloc) (struct isdn_ppp_comp_data *);
+	void (*free) (void *state);
+	int  (*init) (void *state, struct isdn_ppp_comp_data *,int unit,int debug);
+	void (*reset) (void *state);
+	int  (*compress) (void *state,struct sk_buff *in, struct sk_buff *skb_out, int proto);
+	int  (*decompress) (void *state,struct sk_buff *in, struct sk_buff *skb_out);
+	void (*incomp) (void *state, struct sk_buff *in);
+	void (*stat) (void *state, struct compstat *stats);
 };
 
 extern int isdn_ppp_register_compressor(struct isdn_ppp_compressor *);

@@ -21,6 +21,10 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.60  1998/03/19 13:18:18  keil
+ * Start of a CAPI like interface for supplementary Service
+ * first service: SUSPEND
+ *
  * Revision 1.59  1998/03/09 17:46:23  he
  * merged in 2.1.89 changes
  *
@@ -2149,6 +2153,10 @@ unregister_isdn_module(isdn_module *m) {
 EXPORT_SYMBOL(register_isdn);
 EXPORT_SYMBOL(register_isdn_module);
 EXPORT_SYMBOL(unregister_isdn_module);
+#ifdef CONFIG_ISDN_PPP
+EXPORT_SYMBOL(isdn_ppp_register_compressor);
+EXPORT_SYMBOL(isdn_ppp_unregister_compressor);
+#endif
 
 int
 register_isdn(isdn_if * i)

@@ -39,6 +39,7 @@ else
     OX_OBJS += isdn_common.o
     ifdef CONFIG_ISDN_PPP
       O_OBJS += isdn_ppp.o
+      M_OBJS += isdn_bsdcomp.o
     endif
     ifdef CONFIG_ISDN_X25
       O_OBJS += isdn_x25iface.o

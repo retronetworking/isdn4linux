@@ -19,6 +19,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.12  1998/01/31 22:07:48  keil
+ * changes for newer kernels
+ *
  * Revision 1.11  1997/10/01 09:20:44  fritz
  * Removed old compatibility stuff for 2.0.X kernels.
  * From now on, this code is for 2.1.X ONLY!
@@ -80,6 +83,9 @@ extern int isdn_ppp_ioctl(int, struct file *, unsigned int, unsigned long);
 extern void isdn_ppp_release(int, struct file *);
 extern int isdn_ppp_dial_slave(char *);
 extern void isdn_ppp_wakeup_daemon(isdn_net_local *);
+
+extern int isdn_ppp_register_compressor(struct isdn_ppp_compressor *ipc);
+extern int isdn_ppp_unregister_compressor(struct isdn_ppp_compressor *ipc);
 
 #define IPPP_OPEN	0x01
 #define IPPP_CONNECT	0x02

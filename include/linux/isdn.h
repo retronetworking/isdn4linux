@@ -27,6 +27,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.43  1998/03/09 17:46:44  he
+ * merged in 2.1.89 changes
+ *
  * Revision 1.42  1998/03/08 13:53:46  detabc
  * add ABC-variables in structur isdn_devt
  *
@@ -769,7 +772,6 @@ struct ippp_struct {
   struct ippp_buf_queue *first;  /* pointer to (current) first packet */
   struct ippp_buf_queue *last;   /* pointer to (current) last used packet in queue */
   struct wait_queue *wq;
-  struct wait_queue *wq1;
   struct task_struct *tk;
   unsigned int mpppcfg;
   unsigned int pppcfg;
@@ -788,7 +790,7 @@ struct ippp_struct {
   struct slcompress *slcomp;
 #endif
   unsigned long debug;
-  struct isdn_ppp_compressor *compressor,*link_compressor;
+  struct isdn_ppp_compressor *compressor,*decompressor;
   void *decomp_stat,*comp_stat,*link_decomp_stat,*link_comp_stat;
 };
 
