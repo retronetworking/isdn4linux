@@ -5,6 +5,9 @@
  *
  *
  * $Log$
+ * Revision 1.5  1997/01/09 18:28:20  keil
+ * cosmetic cleanups
+ *
  * Revision 1.4  1996/11/05 19:35:17  keil
  * using config.h; some spelling fixes
  *
@@ -88,16 +91,14 @@
   DEFAULT_CARD, \
   DEFAULT_PROTO, \
   DEFAULT_CFG, \
+  -1, \
   NULL, \
 }
 
-#define EMPTY_CARD	{0, 0, {0, 0, 0}, NULL}
+#define EMPTY_CARD	{0, 0, {0, 0, 0}, -1, NULL}
 
 struct IsdnCard cards[] =
 {
-#if 0
-	{ISDN_CTYPE_16_0, ISDN_PTYPE_EURO,{15,0xd0000,0xd80}, NULL},	/* example */
-#endif
 	FIRST_CARD,
 	EMPTY_CARD,
 	EMPTY_CARD,
@@ -116,10 +117,30 @@ struct IsdnCard cards[] =
 	EMPTY_CARD,
 };
 
-extern char	*HiSax_id;
+static char	HiSaxID[20] = "\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0";
+char		*HiSax_id = HiSaxID;
+#ifdef MODULE
+/* Variables for insmod */
+int             type[]      = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+int             protocol[]  = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+int             io[]        = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+#ifdef CONFIG_HISAX_16_3	/* For Creatix PnP */
+int             io0[]       = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+int             io1[]       = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+#endif
+int             irq[]       = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+int             mem[]       = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+char            *id = HiSaxID;
+#endif
+
 extern char	*l1_revision;
+extern char	*l2_revision;
+extern char	*l3_revision;
+extern char	*l4_revision;
+
 extern int	HiSax_Installed;
-static char *HiSax_getrev(const char *revision)
+
+char	*HiSax_getrev(const char *revision)
 {
 	char *rev;
 	char *p;
@@ -134,34 +155,6 @@ static char *HiSax_getrev(const char *revision)
 }
 
 int             nrcards;
-
-typedef struct {
-	int             typ;
-	unsigned int    protocol;
-	unsigned int    para[3];
-} io_type;
-
-#define EMPTY_IO_TYPE	{0, 0, {0, 0, 0}}
-
-io_type         io[] =
-{
-	EMPTY_IO_TYPE,
-	EMPTY_IO_TYPE,
-	EMPTY_IO_TYPE,
-	EMPTY_IO_TYPE,
-	EMPTY_IO_TYPE,
-	EMPTY_IO_TYPE,
-	EMPTY_IO_TYPE,
-	EMPTY_IO_TYPE,
-	EMPTY_IO_TYPE,
-	EMPTY_IO_TYPE,
-	EMPTY_IO_TYPE,
-	EMPTY_IO_TYPE,
-	EMPTY_IO_TYPE,
-	EMPTY_IO_TYPE,
-	EMPTY_IO_TYPE,
-	EMPTY_IO_TYPE,
-};
 
 void
 HiSax_mod_dec_use_count(void)
@@ -181,37 +174,39 @@ HiSax_mod_inc_use_count(void)
 void HiSax_setup(char *str, int *ints)
 {
         int  i, j, argc;
-	static char sid[20];
 
         argc = ints[0];
         i = 0;
         j = 1;
         while (argc && (i<16)) {
                 if (argc) {
-                        io[i].typ    = ints[j];
+			cards[i].typ = ints[j];
                         j++; argc--;
                 }
                 if (argc) {
-                        io[i].protocol = ints[j];
+			cards[i].protocol = ints[j];
                         j++; argc--;
                 }
                 if (argc) {
-                        io[i].para[0]  = ints[j];
+			cards[i].para[0]  = ints[j];
                         j++; argc--;
                 }
                 if (argc) {
-                        io[i].para[1]  = ints[j];
+			cards[i].para[1]  = ints[j];
                         j++; argc--;
                 }
                 if (argc) {
-                        io[i].para[2]  = ints[j];
+			cards[i].para[2]  = ints[j];
                         j++; argc--;
                 }
                 i++;
         }
 	if (strlen(str)) {
-		strcpy(sid,str);
-		HiSax_id = sid;
+		strcpy(HiSaxID,str);
+		HiSax_id = HiSaxID;
+	} else {
+		strcpy(HiSaxID,"HiSax");
+		HiSax_id = HiSaxID;
 	}
 }
 #endif
@@ -219,25 +214,82 @@ void HiSax_setup(char *str, int *ints)
 int
 HiSax_init(void)
 {
-	int             i,j;
-	char		tmp[256];
+	int             i;
+	char		tmp[64],rev[64];
+	char		*r=rev;
+	int             nzproto = 0;
 
 	nrcards = 0;
 
-	printk(KERN_NOTICE "HiSax: Driver for Siemens chip set ISDN cards\n");
-	printk(KERN_NOTICE "HiSax: Revision (");
 	strcpy(tmp,l1_revision);
-	printk("%s)\n",HiSax_getrev(tmp));
+	r += sprintf(r, "%s/", HiSax_getrev(tmp));
+	strcpy(tmp,l2_revision);
+	r += sprintf(r, "%s/", HiSax_getrev(tmp));
+	strcpy(tmp,l3_revision);
+	r += sprintf(r, "%s/", HiSax_getrev(tmp));
+	strcpy(tmp,l4_revision);
+	r += sprintf(r, "%s", HiSax_getrev(tmp));
 
+	printk(KERN_NOTICE "HiSax: Driver for Siemens chip set ISDN cards\n");
+	printk(KERN_NOTICE "HiSax: Version 2.0.alpha\n");
+	printk(KERN_NOTICE "HiSax: Revisions (%s)\n", rev);
 
+#ifdef MODULE
+	if (id)			/* If id= string used */
+		HiSax_id = id;
 	for (i = 0; i < 16; i++) {
-		if ((io[i].typ>0) && (io[i].typ<=ISDN_CTYPE_COUNT)) {
-			cards[i].typ       = io[i].typ;
-			cards[i].protocol  = io[i].protocol;
-			for (j=0;j<3;j++)
-				cards[i].para[j] = io[i].para[j];
+		cards[i].typ = type[i];
+		if ((cards[i].protocol = protocol[i]))
+			nzproto++;
+
+		switch (type[i]) {
+		case ISDN_CTYPE_16_0:
+			cards[i].para[0] = irq[i];
+			cards[i].para[1] = mem[i];
+			cards[i].para[2] = io[i];
+			break;
+
+		case ISDN_CTYPE_8_0:
+			cards[i].para[0] = irq[i];
+			cards[i].para[1] = mem[i];
+			break;
+
+		case ISDN_CTYPE_16_3:
+			cards[i].para[0] = irq[i];
+			cards[i].para[1] = io[i];
+			break;
+
+		case ISDN_CTYPE_PNP:
+			cards[i].para[0] = irq[i];
+			cards[i].para[1] = io0[i];
+			cards[i].para[2] = io1[i];
+			break;
+
+		case ISDN_CTYPE_A1:
+			cards[i].para[0] = irq[i];
+			cards[i].para[1] = io[i];
+			break;
+
+		case ISDN_CTYPE_ELSA:
+			cards[i].para[0] = io[i];
+			break;
+		case ISDN_CTYPE_ELSA_QS1000:
+			cards[i].para[0] = io[i];
+			cards[i].para[1] = irq[i];
+			break;
 		}
 	}
+	if (!nzproto) {
+		printk(KERN_ERR "HiSax: Error - no protocol specified."
+		                " Note: module load syntax has changed.\n");
+		printk(KERN_ERR "HiSax: Module NOT installed.\n");
+		return -EIO;
+	}
+#endif
+	if (!HiSax_id)
+		HiSax_id = HiSaxID;
+	if (!HiSaxID[0])
+		strcpy(HiSaxID,"HiSax");
 	for (i = 0; i < 16; i++)
                 if (cards[i].typ>0)
                         nrcards++;
