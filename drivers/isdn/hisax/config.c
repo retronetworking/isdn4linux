@@ -5,6 +5,10 @@
  *
  *
  * $Log$
+ * Revision 1.15.2.30  1999/05/09 21:44:09  keil
+ * New cards:Telekom A4T, Scitel Quadro
+ * Thanks to Roland Klabunde (R.Klabunde@Berkom.de)
+ *
  * Revision 1.15.2.29  1999/04/28 21:47:59  keil
  * Add HST Saphir support
  *
@@ -158,6 +162,7 @@
  *   31 HST Saphir              p0=irq  p1=iobase
  *   32 Telekom A4T             none
  *   33 Scitel Quadro			p0=subcontroller (4*S0, subctrl 1...4)
+ *   34 HFC 2BDS0 PCI           none
  * protocol can be either ISDN_PTYPE_EURO or ISDN_PTYPE_1TR6 or ISDN_PTYPE_NI1
  *
  *
@@ -171,7 +176,7 @@ const char *CardType[] =
  "Compaq ISA", "NETjet", "Teles PCI", "Sedlbauer Speed Star (PCMCIA)",
  "AMD 7930", "NICCY", "S0Box", "AVM A1 (PCMCIA)", "AVM Fritz PnP/PCI",
  "Sedlbauer Speed Fax +", "Siemens I-Surf", "Acer P10", "HST Saphir",
- "Telekom A4T", "Scitel Quadro"
+ "Telekom A4T", "Scitel Quadro","HFC 2BDS0 PCI",
 };
 
 #ifdef CONFIG_HISAX_ELSA
@@ -314,6 +319,13 @@ static struct symbol_table hisax_syms_sedl= {
 #undef DEFAULT_CFG
 #define DEFAULT_CARD ISDN_CTYPE_TELES3C
 #define DEFAULT_CFG {5,0x500,0,0}
+#endif
+
+#ifdef CONFIG_HISAX_HFC_PCI
+#undef DEFAULT_CARD
+#undef DEFAULT_CFG
+#define DEFAULT_CARD ISDN_CTYPE_HFC_PCI
+#define DEFAULT_CFG {0,0,0,0}
 #endif
 
 
@@ -625,6 +637,10 @@ extern int setup_netjet(struct IsdnCard *card);
 
 #if CARD_HFCS
 extern int setup_hfcs(struct IsdnCard *card);
+#endif
+
+#if CARD_HFC_PCI
+extern int setup_hfcpci(struct IsdnCard *card);
 #endif
 
 #if CARD_AMD7930
@@ -1131,6 +1147,11 @@ checkcard(int cardnr, char *id, int *busy_flag))
 			case ISDN_CTYPE_TELES3C:
 			case ISDN_CTYPE_ACERP10:
 				ret = setup_hfcs(card);
+				break;
+#endif
+#if CARD_HFC_PCI
+		        case ISDN_CTYPE_HFC_PCI: 
+				ret = setup_hfcpci(card);
 				break;
 #endif
 #if CARD_NICCY

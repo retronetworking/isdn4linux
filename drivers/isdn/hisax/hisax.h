@@ -3,6 +3,9 @@
  *   Basic declarations, defines and prototypes
  *
  * $Log$
+ * Revision 1.13.2.24  1999/05/24 21:51:09  werner
+ * Changes related to new layer management.
+ *
  * Revision 1.13.2.23  1999/05/09 21:44:16  keil
  * New cards:Telekom A4T, Scitel Quadro
  * Thanks to Roland Klabunde (R.Klabunde@Berkom.de)
@@ -694,6 +697,27 @@ struct njet_hw {
 	unsigned char last_is0;
 };
 
+struct hfcPCI_hw {
+	unsigned char cirm;
+	unsigned char ctmt;
+	unsigned char conn;
+	unsigned char mst_m;
+	unsigned char int_m1;
+	unsigned char int_m2;
+	unsigned char int_s1;
+	unsigned char sctrl;
+	unsigned char stat;
+	unsigned char fifo;
+        unsigned char fifo_en;
+  /*	unsigned int *send; */
+	unsigned char pci_bus;
+        unsigned char pci_device_fn;
+        unsigned char *pci_io; /* start of PCI IO memory */
+        void *share_start; /* shared memory for Fifos start */
+        void *fifos; /* FIFO memory */ 
+	struct timer_list timer;
+};
+
 struct hfcD_hw {
 	unsigned int addr;
 	unsigned int bfifosize;
@@ -781,6 +805,10 @@ struct hfcd_chip {
 	int ph_state;
 };
 
+struct hfcpci_chip {
+	int ph_state;
+};
+
 #define HW_IOM1			0
 #define HW_IPAC			1
 #define HW_ISAR			2
@@ -812,6 +840,7 @@ struct IsdnCardState {
 		struct mic_hw mic;
 		struct njet_hw njet;
 		struct hfcD_hw hfcD;
+                struct hfcPCI_hw hfcpci;
 		struct ix1_hw niccy;
 		struct isurf_hw isurf;
 		struct saphir_hw saphir;
@@ -846,6 +875,7 @@ struct IsdnCardState {
 	union {
 		struct isac_chip isac;
 		struct hfcd_chip hfcd;
+	        struct hfcpci_chip hfcpci;
 	} dc;
 	u_char *rcvbuf;
 	int rcvidx;
@@ -896,7 +926,8 @@ struct IsdnCardState {
 #define  ISDN_CTYPE_HSTSAPHIR	31
 #define	 ISDN_CTYPE_BKM_A4T	32
 #define	 ISDN_CTYPE_SCT_QUADRO	33
-#define  ISDN_CTYPE_COUNT	33
+#define  ISDN_CTYPE_HFC_PCI     34
+#define  ISDN_CTYPE_COUNT	34
 
 
 #ifdef ISDN_CHIP_ISAC
@@ -1057,6 +1088,12 @@ struct IsdnCardState {
 #define  CARD_HFCS 1
 #else
 #define  CARD_HFCS 0
+#endif
+
+#ifdef	CONFIG_HISAX_HFC_PCI
+#define  CARD_HFC_PCI 1
+#else
+#define  CARD_HFC_PCI 0
 #endif
 
 #ifdef  CONFIG_HISAX_AMD7930

@@ -131,6 +131,10 @@ ifeq ($(CONFIG_HISAX_HFCS),y)
 	 HFC_2BDS0 := hfc_2bds0.o
 endif
 
+ifeq ($(CONFIG_HISAX_HFC_PCI),y)
+	 HFC_2BDS0 += hfc_pci.o
+endif
+
 ifeq ($(CONFIG_HISAX_NICCY),y)
 	 O_OBJS += niccy.o
 	 ISAC_OBJ := isac.o
