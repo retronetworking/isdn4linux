@@ -7,6 +7,11 @@
  * Rewritten for Linux 1996 by Carsten Paeth (calle@calle.in-berlin.de)
  *
  * $Log$
+ * Revision 1.3  1997/05/18 09:24:18  calle
+ * added verbose disconnect reason reporting to avmb1.
+ * some fixes in capi20 interface.
+ * changed info messages for B1-PCI
+ *
  * Revision 1.2  1997/03/05 21:22:13  fritz
  * Fix: Symbols have to be exported unconditionally.
  *
@@ -937,6 +942,7 @@ EXPORT_SYMBOL(capi_cmsg_header);
 EXPORT_SYMBOL(capi_cmd2str);
 EXPORT_SYMBOL(capi_cmsg2str);
 EXPORT_SYMBOL(capi_message2str);
+EXPORT_SYMBOL(capi_info2str);
 #else
 static struct symbol_table capifunc_syms =
 {
