@@ -20,6 +20,7 @@ This enables the echo mode. If Hex logging is activated the isdnctrlx
 devices show a output with a line beginning of HEX: for the providers
 exchange and ECHO: for isdn devices sending to the provider.
 
-Comments and reports to werner@isdn4linux.de or werner@titro.de
+Comments and reports to werner@isdn4linux.de or werner@titro.de .
+
 
 
