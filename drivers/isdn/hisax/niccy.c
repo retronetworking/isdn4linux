@@ -198,7 +198,7 @@ release_io_niccy(struct IsdnCardState *cs)
 		val = inl(cs->hw.niccy.cfg_reg + PCI_IRQ_CTRL_REG);
 		val &= PCI_IRQ_DISABLE;
 		outl(val, cs->hw.niccy.cfg_reg + PCI_IRQ_CTRL_REG);
-		release_region(cs->hw.niccy.cfg_reg, 0x80);
+		release_region(cs->hw.niccy.cfg_reg, 0x40);
 		release_region(cs->hw.niccy.isac, 4);
 	} else {
 		release_region(cs->hw.niccy.isac, 2);
@@ -325,16 +325,16 @@ setup_niccy(struct IsdnCard *card)
 			return (0);
 		} else
 			request_region(cs->hw.niccy.isac, 4, "niccy");
-		if (check_region(cs->hw.niccy.cfg_reg, 0x80)) {
+		if (check_region(cs->hw.niccy.cfg_reg, 0x40)) {
 			printk(KERN_WARNING
 			       "HiSax: %s pci port %x-%x already in use\n",
 				CardType[card->typ],
 				cs->hw.niccy.cfg_reg,
-				cs->hw.niccy.cfg_reg + 0x80);
+				cs->hw.niccy.cfg_reg + 0x40);
 			release_region(cs->hw.niccy.isac, 4);
 			return (0);
 		} else {
-			request_region(cs->hw.niccy.cfg_reg, 0x80, "niccy pci");
+			request_region(cs->hw.niccy.cfg_reg, 0x40, "niccy pci");
 		}
 #else
 		printk(KERN_WARNING "Niccy: io0 0 and NO_PCI_BIOS\n");
