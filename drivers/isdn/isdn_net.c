@@ -3177,11 +3177,6 @@ isdn_net_new(char *name, struct net_device *master)
 	}
 	netdev->local->magic = ISDN_NET_MAGIC;
 
-#ifdef CONFIG_ISDN_PPP
-	netdev->mp_last = NULL; /* mpqueue is empty */
-	netdev->ib.next_num = 0;
-	netdev->ib.last = NULL;
-#endif
 	netdev->queue = netdev->local;
 	spin_lock_init(&netdev->queue_lock);
 
