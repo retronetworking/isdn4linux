@@ -6,6 +6,9 @@
  * (c) Copyright 1997 by Carsten Paeth (calle@calle.in-berlin.de)
  * 
  * $Log$
+ * Revision 1.4.2.7  1998/01/15 15:33:34  calle
+ * print cardtype, d2 protocol and linetype after load.
+ *
  * Revision 1.4.2.6  1997/12/08 06:58:41  calle
  * correct typo.
  *
@@ -457,30 +460,32 @@ void avmb1_card_ready(avmb1_card * card)
 	case 6: cardname = "B1 V3.0"; break;
 	case 7: cardname = "B1 PCI"; break;
 	default: cardname = cname; break;
-                 sprintf(cname, "%u", (unsigned int)flag);
+                 sprintf(cname, "AVM?%u", (unsigned int)flag);
                  break;
         }
         printk(KERN_NOTICE "b1capi: card %d \"%s\" ready.\n",
 		CARDNR(card), cardname);
         flag = ((__u8 *)(profp->manu))[3];
-        printk(KERN_NOTICE "b1capi: card %d Protocol:%s%s%s%s%s%s%s\n",
-		CARDNR(card),
-		(flag & 0x01) ? " DSS1" : "",
-		(flag & 0x02) ? " CT1" : "",
-		(flag & 0x04) ? " VN3" : "",
-		(flag & 0x08) ? " NI1" : "",
-		(flag & 0x10) ? " AUSTEL" : "",
-		(flag & 0x20) ? " ESS" : "",
-		(flag & 0x40) ? " 1TR6" : ""
-		);
+        if (flag)
+		printk(KERN_NOTICE "b1capi: card %d Protocol:%s%s%s%s%s%s%s\n",
+			CARDNR(card),
+			(flag & 0x01) ? " DSS1" : "",
+			(flag & 0x02) ? " CT1" : "",
+			(flag & 0x04) ? " VN3" : "",
+			(flag & 0x08) ? " NI1" : "",
+			(flag & 0x10) ? " AUSTEL" : "",
+			(flag & 0x20) ? " ESS" : "",
+			(flag & 0x40) ? " 1TR6" : ""
+			);
         flag = ((__u8 *)(profp->manu))[5];
-        printk(KERN_NOTICE "b1capi: card %d Linetype:%s%s%s%s\n",
-		CARDNR(card),
-		(flag & 0x01) ? " point to point" : "",
-		(flag & 0x02) ? " point to multipoint" : "",
-		(flag & 0x04) ? " leased line without D-channel" : "",
-		(flag & 0x08) ? " leased line with D-channel" : ""
-		);
+	if (flag)
+		printk(KERN_NOTICE "b1capi: card %d Linetype:%s%s%s%s\n",
+			CARDNR(card),
+			(flag & 0x01) ? " point to point" : "",
+			(flag & 0x02) ? " point to multipoint" : "",
+			(flag & 0x08) ? " leased line without D-channel" : "",
+			(flag & 0x04) ? " leased line with D-channel" : ""
+			);
 }
 
 static void avmb1_card_down(avmb1_card * card)
