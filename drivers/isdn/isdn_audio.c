@@ -20,6 +20,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.10  1998/02/20 17:09:40  fritz
+ * Changes for recent kernels.
+ *
  * Revision 1.9  1997/10/01 09:20:25  fritz
  * Removed old compatibility stuff for 2.0.X kernels.
  * From now on, this code is for 2.1.X ONLY!
@@ -273,7 +276,7 @@ static inline void
 isdn_audio_tlookup(const char *table, char *buff, unsigned long n)
 {
 	while (n--)
-		*buff++ = table[*buff];
+		*buff++ = table[*(unsigned char *)buff];
 }
 #endif
 

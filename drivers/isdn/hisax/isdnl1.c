@@ -11,6 +11,9 @@
  *
  *
  * $Log$
+ * Revision 2.20  1998/03/09 23:19:27  keil
+ * Changes for PCMCIA
+ *
  * Revision 2.18  1998/02/12 23:07:42  keil
  * change for 2.1.86 (removing FREE_READ/FREE_WRITE from [dev]_kfree_skb()
  *
@@ -1324,11 +1327,11 @@ dch_manl1(struct PStack *st, int pr,
 			}
 			break;
 		case PH_TESTLOOP_REQ:
-			if (1 & (int) arg)
+			if (1 & (long) arg)
 				debugl1(cs, "PH_TEST_LOOP B1");
-			if (2 & (int) arg)
+			if (2 & (long) arg)
 				debugl1(cs, "PH_TEST_LOOP B2");
-			if (!(3 & (int) arg))
+			if (!(3 & (long) arg))
 				debugl1(cs, "PH_TEST_LOOP DISABLED");
 			cs->l1cmd(cs, PH_TESTLOOP_REQ, arg);
 			break;

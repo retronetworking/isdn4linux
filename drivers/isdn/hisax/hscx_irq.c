@@ -7,6 +7,9 @@
  * This is an include file for fast inline IRQ stuff
  *
  * $Log$
+ * Revision 1.7  1998/02/12 23:07:37  keil
+ * change for 2.1.86 (removing FREE_READ/FREE_WRITE from [dev]_kfree_skb()
+ *
  * Revision 1.6  1997/10/29 19:01:07  keil
  * changes for 2.1
  *
@@ -216,7 +219,7 @@ hscx_interrupt(struct IsdnCardState *cs, u_char val, u_char hscx)
 		}
 	}
 	if (val & 0x10) {	/* XPR */
-		if (bcs->hw.hscx.tx_skb)
+		if (bcs->hw.hscx.tx_skb) {
 			if (bcs->hw.hscx.tx_skb->len) {
 				hscx_fill_fifo(bcs);
 				return;
@@ -228,6 +231,7 @@ hscx_interrupt(struct IsdnCardState *cs, u_char val, u_char hscx)
 				bcs->hw.hscx.count = 0; 
 				bcs->hw.hscx.tx_skb = NULL;
 			}
+		}
 		if ((bcs->hw.hscx.tx_skb = skb_dequeue(&bcs->squeue))) {
 			bcs->hw.hscx.count = 0;
 			test_and_set_bit(BC_FLG_BUSY, &bcs->Flag);

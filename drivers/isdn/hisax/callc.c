@@ -7,6 +7,10 @@
  *              Fritz Elfert
  *
  * $Log$
+ * Revision 2.15  1998/03/19 13:18:37  keil
+ * Start of a CAPI like interface for supplementary Service
+ * first service: SUSPEND
+ *
  * Revision 2.14  1998/03/07 22:56:54  tsbogend
  * made HiSax working on Linux/Alpha
  *
@@ -539,7 +543,7 @@ lli_deliver_call(struct FsmInst *fi, int event, void *arg)
 		}
 	} else {
 		chanp->d_st->lli.l4l3(chanp->d_st, CC_IGNORE, chanp->proc);
-		chanp->cs->cardmsg(chanp->cs, MDL_INFO_REL, (void *) chanp->chan);
+		chanp->cs->cardmsg(chanp->cs, MDL_INFO_REL, (void *)(long)chanp->chan);
 		FsmChangeState(fi, ST_NULL);
 #ifndef LAYER2_WATCHING
 		if (test_bit(FLG_ESTAB_D, &chanp->Flags))

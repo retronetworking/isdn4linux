@@ -6,6 +6,9 @@
  *
  *
  * $Log$
+ * Revision 1.13  1998/03/07 22:57:01  tsbogend
+ * made HiSax working on Linux/Alpha
+ *
  * Revision 1.12  1998/02/12 23:07:40  keil
  * change for 2.1.86 (removing FREE_READ/FREE_WRITE from [dev]_kfree_skb()
  *
@@ -305,7 +308,7 @@ isac_interrupt(struct IsdnCardState *cs, u_char val)
 			del_timer(&cs->dbusytimer);
 		if (test_and_clear_bit(FLG_L1_DBUSY, &cs->HW_Flags))
 			isac_sched_event(cs, D_CLEARBUSY);
-		if (cs->tx_skb)
+		if (cs->tx_skb) {
 			if (cs->tx_skb->len) {
 				isac_fill_fifo(cs);
 				goto afterXPR;
@@ -314,6 +317,7 @@ isac_interrupt(struct IsdnCardState *cs, u_char val)
 				cs->tx_cnt = 0;
 				cs->tx_skb = NULL;
 			}
+		}
 		if ((cs->tx_skb = skb_dequeue(&cs->sq))) {
 			cs->tx_cnt = 0;
 			isac_fill_fifo(cs);
@@ -348,7 +352,7 @@ isac_interrupt(struct IsdnCardState *cs, u_char val)
 			}
 #if ARCOFI_USE
 			if (v1 & 0x08) {
-				if (!cs->mon_rx)
+				if (!cs->mon_rx) {
 					if (!(cs->mon_rx = kmalloc(MAX_MON_FRAME, GFP_ATOMIC))) {
 						if (cs->debug & L1_DEB_WARN)
 							debugl1(cs, "ISAC MON RX out of memory!");
@@ -358,6 +362,7 @@ isac_interrupt(struct IsdnCardState *cs, u_char val)
 						goto afterMONR0;
 					} else
 						cs->mon_rxp = 0;
+				}
 				if (cs->mon_rxp >= MAX_MON_FRAME) {
 					cs->mocr &= 0xf0;
 					cs->mocr |= 0x0a;
@@ -379,7 +384,7 @@ isac_interrupt(struct IsdnCardState *cs, u_char val)
 			}
 		      afterMONR0:
 			if (v1 & 0x80) {
-				if (!cs->mon_rx)
+				if (!cs->mon_rx) {
 					if (!(cs->mon_rx = kmalloc(MAX_MON_FRAME, GFP_ATOMIC))) {
 						if (cs->debug & L1_DEB_WARN)
 							debugl1(cs, "ISAC MON RX out of memory!");
@@ -389,6 +394,7 @@ isac_interrupt(struct IsdnCardState *cs, u_char val)
 						goto afterMONR1;
 					} else
 						cs->mon_rxp = 0;
+				}
 				if (cs->mon_rxp >= MAX_MON_FRAME) {
 					cs->mocr &= 0x0f;
 					cs->mocr |= 0xa0;
