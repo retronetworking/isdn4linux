@@ -21,6 +21,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.48.2.17  1998/06/26 22:00:47  keil
+ * tx_queue_len = 5 was too small
+ *
  * Revision 1.48.2.16  1998/06/09 12:24:40  cal
  * Changed default of local netdev flags: ISDN_NET_STOPPED is default now,
  * so autodial is suppressed for that device until it is switched on using
@@ -479,7 +482,11 @@ isdn_net_autohup()
 		if ((l->flags & ISDN_NET_CONNECTED) && (!l->dialstate)) {
 			anymore = 1;
 			l->huptimer++;
+#ifdef CONFIG_ISDN_TIMEOUT_RULES
+			if ((l->timeout_rules || l->huptimeout) && l->huptimer > l->huptimeout)
+#else
 			if ((l->onhtime) && (l->huptimer > l->onhtime))
+#endif
 				if (l->hupflags & ISDN_MANCHARGE &&
 				    l->hupflags & ISDN_CHARGEHUP) {
 					while (jiffies - l->chargetime > l->chargeint)
