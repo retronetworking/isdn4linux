@@ -20,6 +20,10 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.20  1996/06/15 14:59:39  fritz
+ * Fixed isdn_tty_tint() to handle partially sent
+ * sk_buffs.
+ *
  * Revision 1.19  1996/06/12 15:53:56  fritz
  * Bugfix: AT+VTX and AT+VRX could be executed without
  *         having a connection.
@@ -379,9 +383,10 @@ static int isdn_tty_end_vrx(const char *buf, int c, int from_user)
         }
         return 0;
 }
-#endif        /* CONFIG_ISDN_AUDIO */
 
 static int voice_cf[7] = { 1, 1, 4, 3, 2, 1, 1 };
+
+#endif        /* CONFIG_ISDN_AUDIO */
 
 /* isdn_tty_senddown() is called either directly from within isdn_tty_write()
  * or via timer-interrupt from within isdn_tty_modem_xmit(). It pulls
@@ -408,8 +413,8 @@ static void isdn_tty_senddown(modem_info * info)
                 return;
         }
         skb_res = dev->drv[info->isdn_driver]->interface->hl_hdrlen + 4;
-        if (info->vonline & 2) {
 #ifdef CONFIG_ISDN_AUDIO
+        if (info->vonline & 2) {
                 /* For now, ifmt is fixed to 1 (alaw), since this
                  * is used with ISDN everywhere in the world, except
                  * US, Canada and Japan.
@@ -464,8 +469,8 @@ static void isdn_tty_senddown(modem_info * info)
                         if (!info->vonline)
                                 isdn_tty_at_cout("\r\nVCON\r\n",info);
                 }
-#endif        /* CONFIG_ISDN_AUDIO */
         } else {
+#endif        /* CONFIG_ISDN_AUDIO */
                 skb = dev_alloc_skb(buflen + skb_res);
                 if (!skb) {
                         printk(KERN_WARNING
@@ -477,7 +482,9 @@ static void isdn_tty_senddown(modem_info * info)
                 memcpy(skb_put(skb,buflen),buf,buflen);
                 info->xmit_count = 0;
                 restore_flags(flags);
+#ifdef CONFIG_ISDN_AUDIO
         }
+#endif
         skb->free = 1;
         if (info->emu.mdmreg[13] & 2)
                 /* Add T.70 simplified header */
