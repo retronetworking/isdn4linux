@@ -23,6 +23,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.13  2000/01/23 18:45:37  keil
+ * Change EAZ mapping to forbit the use of cards (insert a "-" for the MSN)
+ *
  * Revision 1.12  2000/01/09 20:43:14  detabc
  * exand logical bind-group's for both call's (in and out).
  * add first part of kernel-config-help for abc-extension.
@@ -1660,145 +1663,158 @@ int dwabc_isdn_get_net_free_channel(isdn_net_local *lp)
 	int retw = -1;
 	int isconf = 0;
 
-	if(lp != NULL && lp->pre_device < 0 && lp->pre_channel < 0) {
+	if(lp != NULL) {
+#ifdef CONFIG_ISDN_WITH_ABC_OUTGOING_EAZ 
+		char *now_msn = (*lp->dw_out_msn) ? lp->dw_out_msn : lp->msn;
+#else
+		char *now_msn = lp->msn;
+#endif
 
-		isdn_net_phone *h = lp->phone[0];
-		int secure = 0;
-		dwabc_check_lchmap();
+		if(lp->pre_device < 0 && lp->pre_channel < 0) {
 
-		for(;retw < 0 && h != NULL && secure < 1000;secure++,h = h->next) {
+			isdn_net_phone *h = lp->phone[0];
+			int secure = 0;
+			dwabc_check_lchmap();
 
-			char *p 	= 	h->num;
-			char *ep 	= 	p + ISDN_MSNLEN;
-			int di		=	0;
-			int shl		=	0;
-			ulong bits	=	0;
-			short down  = 	0;
-			driver *dri = NULL;
+			for(;retw < 0 && h != NULL && secure < 1000;secure++,h = h->next) {
 
-			for(;p < ep && *p && (*p <= ' ' || *p == '"' || *p == '\'');p++);
+				char *p 	= 	h->num;
+				char *ep 	= 	p + ISDN_MSNLEN;
+				int di		=	0;
+				int shl		=	0;
+				ulong bits	=	0;
+				short down  = 	0;
+				driver *dri = NULL;
 
-			if(p >= (ep-1) || *p != '>') continue;
-			if(*(++p) != '>') continue;
+				for(;p < ep && *p && (*p <= ' ' || *p == '"' || *p == '\'');p++);
 
-			isconf = 1;
-			p++;
+				if(p >= (ep-1) || *p != '>') continue;
+				if(*(++p) != '>') continue;
 
-			if(p < ep && (*p == '<' || *p == '>')) {
-
-				down = *p == '<';
+				isconf = 1;
 				p++;
-			}
 
-			if((di = get_driverid(lp,p,ep,&bits)) < 0 || di >= ISDN_MAX_DRIVERS)
-				continue;
+				if(p < ep && (*p == '<' || *p == '>')) {
 
-			if((dri = dev->drv[di]) == NULL)
-				continue;
+					down = *p == '<';
+					p++;
+				}
 
-			if(down) for(shl = dri->channels -1 ; shl >= 0  && retw < 0; shl--) {
-
-				if(shl >=  ISDN_DW_ABC_MAX_CH_P_RIVER)
+				if((di = get_driverid(lp,p,ep,&bits)) < 0 || di >= ISDN_MAX_DRIVERS)
 					continue;
 
-				if(bits & (1L << shl)) {
+				if((dri = dev->drv[di]) == NULL)
+					continue;
 
-					if(dri->dwabc_lchmap[shl])
+				if(down) for(shl = dri->channels -1 ; shl >= 0  && retw < 0; shl--) {
+
+					if(shl >=  ISDN_DW_ABC_MAX_CH_P_RIVER)
 						continue;
 
-					if(isdn_dc2minor(di,shl) < 0)
-						continue;
+					if(bits & (1L << shl)) {
 
-					if((retw = isdn_get_free_channel(
-							ISDN_USAGE_NET,
-							lp->l2_proto,
-							lp->l3_proto,
-							di,
-							9999,
-							lp->msn
-							)) >= 0) {
+						if(dri->dwabc_lchmap[shl])
+							continue;
 
-						int c = dev->chanmap[retw];
+						if(isdn_dc2minor(di,shl) < 0)
+							continue;
 
-						if(c >= 0) {
+						if((retw = isdn_get_free_channel(
+								ISDN_USAGE_NET,
+								lp->l2_proto,
+								lp->l3_proto,
+								di,
+								9999,
+								now_msn
+								)) >= 0) {
 
-							dri->dwabc_lchmap[shl] = c + 1;
-							dri->dwabc_lch_use = jiffies;
+							int c = dev->chanmap[retw];
+
+							if(c >= 0) {
+
+								dri->dwabc_lchmap[shl] = c + 1;
+								dri->dwabc_lch_use = jiffies;
+							}
 						}
 					}
-				}
 
-			} else for(shl = 0; shl < ISDN_DW_ABC_MAX_CH_P_RIVER && 
-							retw < 0 && shl < dri->channels; shl++) {
+				} else for(shl = 0; shl < ISDN_DW_ABC_MAX_CH_P_RIVER && 
+								retw < 0 && shl < dri->channels; shl++) {
 
-				if(bits & (1L << shl)) {
+					if(bits & (1L << shl)) {
 
-					if(dri->dwabc_lchmap[shl])
-						continue;
+						if(dri->dwabc_lchmap[shl])
+							continue;
 
-					if(isdn_dc2minor(di,shl) < 0)
-						break;
-
-					if((retw = isdn_get_free_channel(
-							ISDN_USAGE_NET,
-							lp->l2_proto,
-							lp->l3_proto,
-							di,
-							9999,
-							lp->msn)) >= 0) {
-
-						int c = dev->chanmap[retw];
-
-						if(c >= 0) {
-
-							dri->dwabc_lchmap[shl] = c + 1;
-							dri->dwabc_lch_use = jiffies;
-						}
-					}
-				}
-			}
-		}
-	}
-
-	if(!isconf) {
-
-		retw = isdn_get_free_channel(
-				ISDN_USAGE_NET,
-				lp->l2_proto,
-				lp->l3_proto,
-				lp->pre_device,
-				lp->pre_channel,
-				lp->msn);
-
-		if(retw >= 0) {
-
-			int di = dev->drvmap[retw];
-			int ch = dev->chanmap[retw];
-
-			if(di >= 0 && di < ISDN_MAX_DRIVERS && ch >= 0) {
-
-				driver *dri = dev->drv[di];
-
-				if(dri != NULL) {
-
-					int i;
-
-					for(i = 0; i < dri->channels && i < ISDN_DW_ABC_MAX_CH_P_RIVER;i++) {
-
-						if(!dri->dwabc_lchmap[i]) {
-
-							dri->dwabc_lchmap[i] = ch + 1;
-							dri->dwabc_lch_use = jiffies;
+						if(isdn_dc2minor(di,shl) < 0)
 							break;
+
+						if((retw = isdn_get_free_channel(
+								ISDN_USAGE_NET,
+								lp->l2_proto,
+								lp->l3_proto,
+								di,
+								9999,
+								now_msn)) >= 0) {
+
+							int c = dev->chanmap[retw];
+
+							if(c >= 0) {
+
+								dri->dwabc_lchmap[shl] = c + 1;
+								dri->dwabc_lch_use = jiffies;
+							}
 						}
 					}
 				}
 			}
 		}
 
-	} else if(retw < 0 && lp != NULL) {
+		if(!isconf) {
 
-		printk(KERN_INFO "%s: No free locical Channel found\n",lp->name);
+			retw = isdn_get_free_channel(
+					ISDN_USAGE_NET,
+					lp->l2_proto,
+					lp->l3_proto,
+					lp->pre_device,
+					lp->pre_channel,
+					now_msn);
+
+			if(retw >= 0) {
+
+				int di = dev->drvmap[retw];
+				int ch = dev->chanmap[retw];
+
+				if(di >= 0 && di < ISDN_MAX_DRIVERS && ch >= 0) {
+
+					driver *dri = dev->drv[di];
+
+					if(dri != NULL) {
+
+						int i;
+
+						for(i = 0; i < dri->channels && i < ISDN_DW_ABC_MAX_CH_P_RIVER;i++) {
+
+							if(!dri->dwabc_lchmap[i]) {
+
+								dri->dwabc_lchmap[i] = ch + 1;
+								dri->dwabc_lch_use = jiffies;
+								break;
+							}
+						}
+					}
+				}
+			}
+
+		} else if(retw < 0 && lp != NULL) {
+
+			printk(KERN_INFO "%s: No free locical Channel found\n",lp->name);
+		}
+
+	} else {
+
+		printk(KERN_WARNING 
+			"dwabc_isdn_get_net_free_channel  called with *lp == NULL\n");
 	}
 
 	return(retw);
