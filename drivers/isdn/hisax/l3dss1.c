@@ -1449,6 +1449,7 @@ l3dss1_setup_req(struct l3_process *pc, u_char pr, void *arg)
 #endif
 	}
 #endif
+	memcpy(&pc->setup_req, &setup_req, sizeof(struct setup_req_parm));
 	l3dss1_gen_setup_req(pc, pr, &setup_req);
 }
 
