@@ -21,6 +21,10 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.42  1997/03/30 16:51:08  calle
+ * changed calls to copy_from_user/copy_to_user and removed verify_area
+ * were possible.
+ *
  * Revision 1.41  1997/03/24 22:54:41  fritz
  * Some small fixes in debug code.
  *
@@ -1645,6 +1649,7 @@ isdn_close(struct inode *ino, struct file *filep)
 					q->next = p->next;
 				else
 					dev->infochain = (infostruct *) (p->next);
+				kfree(p);
 				return;
 			}
 			q = p;
