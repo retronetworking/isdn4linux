@@ -21,6 +21,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.46  1997/06/17 13:05:24  hipp
+ * Applied Eric's underflow-patches (slightly modified)
+ *
  * Revision 1.45  1997/06/10 16:24:22  hipp
  * hard_header changes for syncPPP (now behaves like RAWIP)
  *
@@ -897,7 +900,6 @@ isdn_net_send_skb(struct device *ndev, isdn_net_local * lp,
 		return 0;
 	}
 	if (ret < 0) {
-		SET_SKB_FREE(skb);
 		dev_kfree_skb(skb, FREE_WRITE);
 		lp->stats.tx_errors++;
 		clear_bit(0, (void *) &(ndev->tbusy));
