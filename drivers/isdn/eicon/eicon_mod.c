@@ -560,10 +560,14 @@ eicon_command(eicon_card * card, isdn_ctrl * c)
 			eicon_log(card, 1, "eicon CMD_GETSIL not implemented\n");
 			return 0;
 		case ISDN_CMD_LOCK:
+#ifdef MODULE
 			mod_inc_use_count();
+#endif
 			return 0;
 		case ISDN_CMD_UNLOCK:
+#ifdef MODULE
 			mod_dec_use_count();
+#endif
 			return 0;
 #ifdef CONFIG_ISDN_TTY_FAX
 		case ISDN_CMD_FAXCMD:
