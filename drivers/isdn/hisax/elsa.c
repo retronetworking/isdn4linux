@@ -8,6 +8,9 @@
  *
  *
  * $Log$
+ * Revision 2.2  1997/10/29 18:57:09  keil
+ * changes for 2.1.60, arcofi support
+ *
  * Revision 2.1  1997/07/27 21:47:08  keil
  * new interface structures
  *
@@ -218,9 +221,9 @@ TimerRun(struct IsdnCardState *cs)
 #include "hscx_irq.c"
 
 static void
-elsa_interrupt(int intno, void *para, struct pt_regs *regs)
+elsa_interrupt(int intno, void *dev_id, struct pt_regs *regs)
 {
-	struct IsdnCardState *cs = para;
+	struct IsdnCardState *cs = dev_id;
 	u_char val;
 	int icnt=20;
 
@@ -272,9 +275,9 @@ elsa_interrupt(int intno, void *para, struct pt_regs *regs)
 }
 
 static void
-elsa_interrupt_ipac(int intno, void *para, struct pt_regs *regs)
+elsa_interrupt_ipac(int intno, void *dev_id, struct pt_regs *regs)
 {
-	struct IsdnCardState *cs = para;
+	struct IsdnCardState *cs = dev_id;
 	u_char ista,val;
 	char   tmp[64];
 	int icnt=20;
@@ -282,6 +285,12 @@ elsa_interrupt_ipac(int intno, void *para, struct pt_regs *regs)
 	if (!cs) {
 		printk(KERN_WARNING "Elsa: Spurious interrupt!\n");
 		return;
+	}
+	if ((cs->typ == ISDN_CTYPE_ELSA_PCMCIA) && (*cs->busy_flag == 1)) {
+	  /* The card tends to generate interrupts while being removed
+	     causing us to just crash the kernel. bad. */
+	  printk(KERN_WARNING "Elsa: card not available!\n");
+	  return;
 	}
 	ista = readreg(cs->hw.elsa.ale, cs->hw.elsa.isac, IPAC_ISTA);
 Start_IPAC:
@@ -635,7 +644,7 @@ initelsa(struct IsdnCardState *cs)
 			       "Elsa: IRQ(%d) getting no interrupts during init %d\n",
 			       cs->irq, 4 - cnt);
 			if (cnt == 1) {
-				free_irq(cs->irq, NULL);
+				free_irq(cs->irq, cs);
 				return (0);
 			} else {
 				reset_elsa(cs);
@@ -652,13 +661,16 @@ initelsa(struct IsdnCardState *cs)
 }
 
 static unsigned char
-probe_elsa_adr(unsigned int adr)
+probe_elsa_adr(unsigned int adr, int typ)
 {
 	int i, in1, in2, p16_1 = 0, p16_2 = 0, p8_1 = 0, p8_2 = 0, pc_1 = 0,
 	 pc_2 = 0, pfp_1 = 0, pfp_2 = 0;
 	long flags;
 
-	if (check_region(adr, 8)) {
+	/* In case of the elsa pcmcia card, this region is in use,
+	   reserved for us by the card manager. So we do not check it
+	   here, it would fail. */
+	if (typ != ISDN_CTYPE_ELSA_PCMCIA && check_region(adr, 8)) {
 		printk(KERN_WARNING
 		       "Elsa: Probing Port 0x%x: already in use\n",
 		       adr);
@@ -706,13 +718,13 @@ probe_elsa(struct IsdnCardState *cs)
 	{0x160, 0x170, 0x260, 0x360, 0};
 
 	for (i = 0; CARD_portlist[i]; i++) {
-		if ((cs->subtyp = probe_elsa_adr(CARD_portlist[i])))
+		if ((cs->subtyp = probe_elsa_adr(CARD_portlist[i], cs->typ)))
 			break;
 	}
 	return (CARD_portlist[i]);
 }
 
-static 	int pci_index = 0;
+static 	int pci_index __initdata = 0;
 
 int
 setup_elsa(struct IsdnCard *card)
@@ -724,14 +736,15 @@ setup_elsa(struct IsdnCard *card)
 	char tmp[64];
 
 	strcpy(tmp, Elsa_revision);
-	printk(KERN_NOTICE "HiSax: Elsa driver Rev. %s\n", HiSax_getrev(tmp));
+	printk(KERN_INFO "HiSax: Elsa driver Rev. %s\n", HiSax_getrev(tmp));
 	cs->hw.elsa.ctrl_reg = 0;
 	cs->hw.elsa.status = 0;
 	if (cs->typ == ISDN_CTYPE_ELSA) {
 		cs->hw.elsa.base = card->para[0];
 		printk(KERN_INFO "Elsa: Microlink IO probing\n");
 		if (cs->hw.elsa.base) {
-			if (!(cs->subtyp = probe_elsa_adr(cs->hw.elsa.base))) {
+			if (!(cs->subtyp = probe_elsa_adr(cs->hw.elsa.base,
+							  cs->typ))) {
 				printk(KERN_WARNING
 				     "Elsa: no Elsa Microlink at 0x%x\n",
 				       cs->hw.elsa.base);
@@ -900,7 +913,10 @@ setup_elsa(struct IsdnCard *card)
 			       "Unknown ELSA subtype %d\n", cs->subtyp);
 			return (0);
 	}
-	if (check_region(cs->hw.elsa.base, bytecnt)) {
+	/* In case of the elsa pcmcia card, this region is in use,
+	   reserved for us by the card manager. So we do not check it
+	   here, it would fail. */
+	if (cs->typ != ISDN_CTYPE_ELSA_PCMCIA && check_region(cs->hw.elsa.base, bytecnt)) {
 		printk(KERN_WARNING
 		       "HiSax: %s config port %x-%x already in use\n",
 		       CardType[card->typ],
@@ -986,3 +1002,4 @@ setup_elsa(struct IsdnCard *card)
 	}
 	return (1);
 }
+

@@ -90,7 +90,8 @@ ifeq ($(CONFIG_HISAX_MIC),y)
 endif
 
 
-O_OBJS += config.o $(ISAC_OBJ) $(HSCX_OBJ) $(HFC_OBJ) $(ARCOFI_OBJ)
+O_OBJS += $(ISAC_OBJ) $(HSCX_OBJ) $(HFC_OBJ) $(ARCOFI_OBJ)
+OX_OBJS += config.o
 
 O_TARGET :=
 
