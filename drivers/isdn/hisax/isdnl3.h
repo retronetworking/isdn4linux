@@ -1,6 +1,9 @@
 /* $Id$
 
  * $Log$
+ * Revision 2.0  1997/07/27 21:15:42  keil
+ * New Callref based layer3
+ *
  * Revision 1.4  1997/06/26 11:20:57  keil
  * ?
  *
@@ -42,3 +45,4 @@ extern struct sk_buff *l3_alloc_skb(int len);
 extern struct l3_process *new_l3_process(struct PStack *st, int cr);
 extern void release_l3_process(struct l3_process *p);
 extern struct l3_process *getl3proc(struct PStack *st, int cr);
+extern void l3_msg(struct PStack *st, int pr, void *arg);

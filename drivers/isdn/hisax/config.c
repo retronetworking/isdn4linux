@@ -5,6 +5,9 @@
  *
  *
  * $Log$
+ * Revision 2.14  1998/04/15 16:38:25  keil
+ * Add S0Box and Teles PCI support
+ *
  * Revision 2.13  1998/03/09 23:19:23  keil
  * Changes for PCMCIA
  *
@@ -301,11 +304,11 @@ static int mem[] HISAX_INITDATA =
 static char *id HISAX_INITDATA = HiSaxID;
 
 MODULE_AUTHOR("Karsten Keil");
-MODULE_PARM(type, "1-3i");
-MODULE_PARM(protocol, "1-2i");
+MODULE_PARM(type, "1-8i");
+MODULE_PARM(protocol, "1-8i");
 MODULE_PARM(io, "1-8i");
-MODULE_PARM(irq, "1-2i");
-MODULE_PARM(mem, "1-12i");
+MODULE_PARM(irq, "1-8i");
+MODULE_PARM(mem, "1-8i");
 MODULE_PARM(id, "s");
 #ifdef CONFIG_HISAX_16_3	/* For Creatix/Teles PnP */
 MODULE_PARM(io0, "1-8i");
@@ -355,7 +358,7 @@ HiSaxVersion(void))
 	r += sprintf(r, "%s", HiSax_getrev(tmp));
 
 	printk(KERN_INFO "HiSax: Driver for Siemens chip set ISDN cards\n");
-	printk(KERN_INFO "HiSax: Version 2.8\n");
+	printk(KERN_INFO "HiSax: Version 2.99\n");
 	printk(KERN_INFO "HiSax: Revisions %s\n", rev);
 }
 
@@ -522,6 +525,7 @@ HiSax_init(void))
 	       nrcards, (nrcards > 1) ? "s" : "");
 
 	CallcNew();
+	Isdnl3New();
 	Isdnl2New();
 	TeiNew();
 	Isdnl1New();
@@ -538,6 +542,7 @@ HiSax_init(void))
 		Isdnl1Free();
 		TeiFree();
 		Isdnl2Free();
+		Isdnl3Free();
 		CallcFree();
 		return -EIO;
 	}
@@ -557,6 +562,7 @@ cleanup_module(void)
 	Isdnl1Free();
 	TeiFree();
 	Isdnl2Free();
+	Isdnl3Free();
 	CallcFree();
 	restore_flags(flags);
 	printk(KERN_INFO "HiSax module removed\n");
@@ -602,6 +608,7 @@ int elsa_init_pcmcia(void *pcm_iob, int pcm_irq, int *busy_flag, int prot)
 
 	Isdnl1New();
 	CallcNew();
+	Isdnl3New();
 	Isdnl2New();
 	TeiNew();
 	HiSax_inithardware(busy_flag);
@@ -649,6 +656,7 @@ int sedl_init_pcmcia(void *pcm_iob, int pcm_irq, int *busy_flag, int prot)
 
 	Isdnl1New();
 	CallcNew();
+	Isdnl3New();
 	Isdnl2New();
 	TeiNew();
 	HiSax_inithardware(busy_flag);

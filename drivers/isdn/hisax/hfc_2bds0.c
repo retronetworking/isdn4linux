@@ -6,6 +6,9 @@
  *
  *
  * $Log$
+ * Revision 1.3  1998/02/12 23:07:22  keil
+ * change for 2.1.86 (removing FREE_READ/FREE_WRITE from [dev]_kfree_skb()
+ *
  * Revision 1.2  1998/02/02 13:26:13  keil
  * New
  *
@@ -540,7 +543,7 @@ hfc_l2l1(struct PStack *st, int pr, void *arg)
 	long flags;
 
 	switch (pr) {
-		case (PH_DATA_REQ):
+		case (PH_DATA | REQUEST):
 			save_flags(flags);
 			cli();
 			if (st->l1.bcs->hw.hfc.tx_skb) {
@@ -553,7 +556,7 @@ hfc_l2l1(struct PStack *st, int pr, void *arg)
 				restore_flags(flags);
 			}
 			break;
-		case (PH_PULL_IND):
+		case (PH_PULL | INDICATION):
 			if (st->l1.bcs->hw.hfc.tx_skb) {
 				printk(KERN_WARNING "hfc_l2l1: this shouldn't happen\n");
 				break;
@@ -565,12 +568,22 @@ hfc_l2l1(struct PStack *st, int pr, void *arg)
 			st->l1.bcs->cs->BC_Send_Data(st->l1.bcs);
 			restore_flags(flags);
 			break;
-		case (PH_PULL_REQ):
+		case (PH_PULL | REQUEST):
 			if (!st->l1.bcs->hw.hfc.tx_skb) {
 				test_and_clear_bit(FLG_L1_PULL_REQ, &st->l1.Flags);
-				st->l1.l1l2(st, PH_PULL_CNF, NULL);
+				st->l1.l1l2(st, PH_PULL | CONFIRM, NULL);
 			} else
 				test_and_set_bit(FLG_L1_PULL_REQ, &st->l1.Flags);
+			break;
+		case (PH_ACTIVATE | REQUEST):
+			test_and_set_bit(BC_FLG_ACTIV, &st->l1.bcs->Flag);
+			mode_2bs0(st->l1.bcs, st->l1.mode, st->l1.bc);
+			st->l1.l1l2(st, PH_ACTIVATE | CONFIRM, NULL);
+			break;
+		case (PH_DEACTIVATE | REQUEST):
+			if (!test_bit(BC_FLG_BUSY, &st->l1.bcs->Flag))
+				mode_2bs0(st->l1.bcs, 0, 0);
+			test_and_clear_bit(BC_FLG_ACTIV, &st->l1.bcs->Flag);
 			break;
 	}
 }
@@ -578,16 +591,10 @@ hfc_l2l1(struct PStack *st, int pr, void *arg)
 void
 close_2bs0(struct BCState *bcs)
 {
-	struct sk_buff *skb;
-
 	mode_2bs0(bcs, 0, 0);
 	if (test_and_clear_bit(BC_FLG_INIT, &bcs->Flag)) {
-		while ((skb = skb_dequeue(&bcs->rqueue))) {
-			dev_kfree_skb(skb);
-		}
-		while ((skb = skb_dequeue(&bcs->squeue))) {
-			dev_kfree_skb(skb);
-		}
+		discard_queue(&bcs->rqueue);
+		discard_queue(&bcs->squeue);
 		if (bcs->hw.hfc.tx_skb) {
 			dev_kfree_skb(bcs->hw.hfc.tx_skb);
 			bcs->hw.hfc.tx_skb = NULL;
@@ -613,24 +620,6 @@ open_hfcstate(struct IsdnCardState *cs,
 	return (0);
 }
 
-static void
-hfc_manl1(struct PStack *st, int pr,
-	  void *arg)
-{
-	switch (pr) {
-		case (PH_ACTIVATE_REQ):
-			test_and_set_bit(BC_FLG_ACTIV, &st->l1.bcs->Flag);
-			mode_2bs0(st->l1.bcs, st->l1.mode, st->l1.bc);
-			st->l1.l1man(st, PH_ACTIVATE_CNF, NULL);
-			break;
-		case (PH_DEACTIVATE_REQ):
-			if (!test_bit(BC_FLG_BUSY, &st->l1.bcs->Flag))
-				mode_2bs0(st->l1.bcs, 0, 0);
-			test_and_clear_bit(BC_FLG_ACTIV, &st->l1.bcs->Flag);
-			break;
-	}
-}
-
 int
 setstack_2b(struct PStack *st, struct BCState *bcs)
 {
@@ -638,21 +627,9 @@ setstack_2b(struct PStack *st, struct BCState *bcs)
 		return (-1);
 	st->l1.bcs = bcs;
 	st->l2.l2l1 = hfc_l2l1;
-	st->ma.manl1 = hfc_manl1;
 	setstack_manager(st);
 	bcs->st = st;
 	return (0);
-}
-
-static void
-manl1_msg(struct IsdnCardState *cs, int msg, void *arg) {
-	struct PStack *st;
-
-	st = cs->stlist;
-	while (st) {
-		st->ma.manl1(st, msg, arg);
-		st = st->next;
-	}
 }
 
 static void
@@ -668,7 +645,7 @@ hfcd_bh(struct IsdnCardState *cs)
 			debugl1(cs, "D-Channel Busy cleared");
 		stptr = cs->stlist;
 		while (stptr != NULL) {
-			stptr->l1.l1l2(stptr, PH_PAUSE_CNF, NULL);
+			stptr->l1.l1l2(stptr, PH_PAUSE | CONFIRM, NULL);
 			stptr = stptr->next;
 		}
 	}
@@ -676,19 +653,19 @@ hfcd_bh(struct IsdnCardState *cs)
 	if (test_and_clear_bit(D_L1STATECHANGE, &cs->event)) {
 		switch (cs->ph_state) {
 			case (0):
-				manl1_msg(cs, PH_RESET_IND, NULL);
+				l1_msg(cs, HW_RESET | INDICATION, NULL);
 				break;
 			case (3):
-				manl1_msg(cs, PH_DEACT_IND, NULL);
+				l1_msg(cs, HW_DEACTIVATE | INDICATION, NULL);
 				break;
 			case (8):
-				manl1_msg(cs, PH_RSYNC_IND, NULL);
+				l1_msg(cs, HW_RSYNC | INDICATION, NULL);
 				break;
 			case (6):
-				manl1_msg(cs, PH_INFO2_IND, NULL);
+				l1_msg(cs, HW_INFO2 | INDICATION, NULL);
 				break;
 			case (7):
-				manl1_msg(cs, PH_I4_P8_IND, NULL);
+				l1_msg(cs, HW_INFO4_P8 | INDICATION, NULL);
 				break;
 			default:
 				break;
@@ -1079,13 +1056,13 @@ hfc2bds0_interrupt(struct IsdnCardState *cs, u_char val)
 }
 
 static void
-HFCD_l2l1(struct PStack *st, int pr, void *arg)
+HFCD_l1hw(struct PStack *st, int pr, void *arg)
 {
 	struct IsdnCardState *cs = (struct IsdnCardState *) st->l1.hardware;
 	struct sk_buff *skb = arg;
 	char str[64];
 	switch (pr) {
-		case (PH_DATA_REQ):
+		case (PH_DATA | REQUEST):
 			if (cs->tx_skb) {
 				skb_queue_tail(&cs->sq, skb);
 #ifdef L2FRAME_DEBUG		/* psa */
@@ -1113,7 +1090,7 @@ HFCD_l2l1(struct PStack *st, int pr, void *arg)
 
 			}
 			break;
-		case (PH_PULL_IND):
+		case (PH_PULL | INDICATION):
 			if (cs->tx_skb) {
 				if (cs->debug & L1_DEB_WARN)
 					debugl1(cs, " l2l1 tx_skb exist this shouldn't happen");
@@ -1138,47 +1115,39 @@ HFCD_l2l1(struct PStack *st, int pr, void *arg)
 			} else
 				debugl1(cs, "hfc_fill_dfifo blocked");
 			break;
-		case (PH_PULL_REQ):
+		case (PH_PULL | REQUEST):
 #ifdef L2FRAME_DEBUG		/* psa */
 			if (cs->debug & L1_DEB_LAPD)
 				debugl1(cs, "-> PH_REQUEST_PULL");
 #endif
 			if (!cs->tx_skb) {
 				test_and_clear_bit(FLG_L1_PULL_REQ, &st->l1.Flags);
-				st->l1.l1l2(st, PH_PULL_CNF, NULL);
+				st->l1.l1l2(st, PH_PULL | CONFIRM, NULL);
 			} else
 				test_and_set_bit(FLG_L1_PULL_REQ, &st->l1.Flags);
 			break;
-	}
-}
-
-void
-hfcd_l1cmd(struct IsdnCardState *cs, int msg, void *arg)
-{
-	char tmp[32];
-	switch(msg) {
-		case PH_RESET_REQ:
+		case (HW_RESET | REQUEST):
 			cs->writeisac(cs, HFCD_STATES, HFCD_LOAD_STATE | 3); /* HFC ST 3 */
 			udelay(6);
 			cs->writeisac(cs, HFCD_STATES, 3); /* HFC ST 2 */
 			cs->hw.hfcD.mst_m |= HFCD_MASTER;
 			cs->writeisac(cs, HFCD_MST_MODE, cs->hw.hfcD.mst_m);
 			cs->writeisac(cs, HFCD_STATES, HFCD_ACTIVATE | HFCD_DO_ACTION);
-			manl1_msg(cs, PH_POWERUP_CNF, NULL);
+			l1_msg(cs, HW_POWERUP | CONFIRM, NULL);
 			break;
-		case PH_ENABLE_REQ:
+		case (HW_ENABLE | REQUEST):
 			cs->writeisac(cs, HFCD_STATES, HFCD_ACTIVATE | HFCD_DO_ACTION);
 			break;
-		case PH_DEACT_ACK:
+		case (HW_DEACTIVATE | REQUEST):
 			cs->hw.hfcD.mst_m &= ~HFCD_MASTER;
 			cs->writeisac(cs, HFCD_MST_MODE, cs->hw.hfcD.mst_m);
 			break;
-		case PH_INFO3_REQ:
+		case (HW_INFO3 | REQUEST):
 			cs->hw.hfcD.mst_m |= HFCD_MASTER;
 			cs->writeisac(cs, HFCD_MST_MODE, cs->hw.hfcD.mst_m);
 			break;
 #if 0
-		case PH_TESTLOOP_REQ:
+		case (HW_TESTLOOP | REQUEST):
 			u_char val = 0;
 			if (1 & (int) arg)
 				val |= 0x0c;
@@ -1205,8 +1174,8 @@ hfcd_l1cmd(struct IsdnCardState *cs, int msg, void *arg)
 #endif
 		default:
 			if (cs->debug & L1_DEB_WARN) {
-				sprintf(tmp, "hfcd_l1cmd unknown %4x", msg);
-				debugl1(cs, tmp);
+				sprintf(str, "hfcd_l1hw unknown pr %4x", pr);
+				debugl1(cs, str);
 			}
 			break;
 	}
@@ -1215,7 +1184,7 @@ hfcd_l1cmd(struct IsdnCardState *cs, int msg, void *arg)
 void
 setstack_hfcd(struct PStack *st, struct IsdnCardState *cs)
 {
-	st->l2.l2l1 = HFCD_l2l1;
+	st->l2.l2l1 = HFCD_l1hw;
 }
 
 static void
@@ -1230,7 +1199,7 @@ hfc_dbusy_timer(struct IsdnCardState *cs)
 		stptr = cs->stlist;
 		
 		while (stptr != NULL) {
-			stptr->l1.l1l2(stptr, PH_PAUSE_IND, NULL);
+			stptr->l1.l1l2(stptr, PH_PAUSE | INDICATION, NULL);
 			stptr = stptr->next;
 		}
 	}
@@ -1256,7 +1225,6 @@ __initfunc(void
 init2bds0(struct IsdnCardState *cs))
 {
 	cs->setstack_d = setstack_hfcd;
-	cs->l1cmd = hfcd_l1cmd;
 	cs->dbusytimer.function = (void *) hfc_dbusy_timer;
 	cs->dbusytimer.data = (long) cs;
 	init_timer(&cs->dbusytimer);

@@ -8,6 +8,10 @@
  *
  *
  * $Log$
+ * Revision 1.4  1998/04/15 16:42:35  keil
+ * new init code
+ * new PCI init (2.1.94)
+ *
  * Revision 1.3  1998/02/12 23:08:05  keil
  * change for 2.1.86 (removing FREE_READ/FREE_WRITE from [dev]_kfree_skb()
  *
@@ -770,7 +774,7 @@ tiger_l2l1(struct PStack *st, int pr, void *arg)
 	long flags;
 
 	switch (pr) {
-		case (PH_DATA_REQ):
+		case (PH_DATA | REQUEST):
 			save_flags(flags);
 			cli();
 			if (st->l1.bcs->hw.tiger.tx_skb) {
@@ -782,7 +786,7 @@ tiger_l2l1(struct PStack *st, int pr, void *arg)
 				restore_flags(flags);
 			}
 			break;
-		case (PH_PULL_IND):
+		case (PH_PULL | INDICATION):
 			if (st->l1.bcs->hw.tiger.tx_skb) {
 				printk(KERN_WARNING "tiger_l2l1: this shouldn't happen\n");
 				break;
@@ -793,21 +797,30 @@ tiger_l2l1(struct PStack *st, int pr, void *arg)
 			st->l1.bcs->cs->BC_Send_Data(st->l1.bcs);
 			restore_flags(flags);
 			break;
-		case (PH_PULL_REQ):
+		case (PH_PULL | REQUEST):
 			if (!st->l1.bcs->hw.tiger.tx_skb) {
 				test_and_clear_bit(FLG_L1_PULL_REQ, &st->l1.Flags);
-				st->l1.l1l2(st, PH_PULL_CNF, NULL);
+				st->l1.l1l2(st, PH_PULL | CONFIRM, NULL);
 			} else
 				test_and_set_bit(FLG_L1_PULL_REQ, &st->l1.Flags);
+			break;
+		case (PH_ACTIVATE | REQUEST):
+			test_and_set_bit(BC_FLG_ACTIV, &st->l1.bcs->Flag);
+			mode_tiger(st->l1.bcs, st->l1.mode, st->l1.bc);
+			st->l1.l1l2(st, PH_ACTIVATE | CONFIRM, NULL);
+			break;
+		case (PH_DEACTIVATE | REQUEST):
+			if (!test_bit(BC_FLG_BUSY, &st->l1.bcs->Flag))
+				mode_tiger(st->l1.bcs, 0, 0);
+			test_and_clear_bit(BC_FLG_ACTIV, &st->l1.bcs->Flag);
 			break;
 	}
 }
 
+
 void
 close_tigerstate(struct BCState *bcs)
 {
-	struct sk_buff *skb;
-
 	mode_tiger(bcs, 0, 0);
 	if (test_and_clear_bit(BC_FLG_INIT, &bcs->Flag)) {
 		if (bcs->hw.tiger.rcvbuf) {
@@ -818,12 +831,8 @@ close_tigerstate(struct BCState *bcs)
 			kfree(bcs->hw.tiger.sendbuf);
 			bcs->hw.tiger.sendbuf = NULL;
 		}
-		while ((skb = skb_dequeue(&bcs->rqueue))) {
-			dev_kfree_skb(skb);
-		}
-		while ((skb = skb_dequeue(&bcs->squeue))) {
-			dev_kfree_skb(skb);
-		}
+		discard_queue(&bcs->rqueue);
+		discard_queue(&bcs->squeue);
 		if (bcs->hw.tiger.tx_skb) {
 			dev_kfree_skb(bcs->hw.tiger.tx_skb);
 			bcs->hw.tiger.tx_skb = NULL;
@@ -859,24 +868,6 @@ open_tigerstate(struct IsdnCardState *cs, int bc)
 	return (0);
 }
 
-static void
-tiger_manl1(struct PStack *st, int pr,
-	  void *arg)
-{
-	switch (pr) {
-		case (PH_ACTIVATE_REQ):
-			test_and_set_bit(BC_FLG_ACTIV, &st->l1.bcs->Flag);
-			mode_tiger(st->l1.bcs, st->l1.mode, st->l1.bc);
-			st->l1.l1man(st, PH_ACTIVATE_CNF, NULL);
-			break;
-		case (PH_DEACTIVATE_REQ):
-			if (!test_bit(BC_FLG_BUSY, &st->l1.bcs->Flag))
-				mode_tiger(st->l1.bcs, 0, 0);
-			test_and_clear_bit(BC_FLG_ACTIV, &st->l1.bcs->Flag);
-			break;
-	}
-}
-
 int
 setstack_tiger(struct PStack *st, struct BCState *bcs)
 {
@@ -884,7 +875,6 @@ setstack_tiger(struct PStack *st, struct BCState *bcs)
 		return (-1);
 	st->l1.bcs = bcs;
 	st->l2.l2l1 = tiger_l2l1;
-	st->ma.manl1 = tiger_manl1;
 	setstack_manager(st);
 	bcs->st = st;
 	return (0);
@@ -970,9 +960,8 @@ static void
 netjet_interrupt(int intno, void *dev_id, struct pt_regs *regs)
 {
 	struct IsdnCardState *cs = dev_id;
-	u_char val, sval, stat = 1;
+	u_char val, sval;
 	char tmp[128];
-	int count=15;
 	long flags;
 
 	if (!cs) {

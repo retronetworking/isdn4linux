@@ -3,6 +3,9 @@
  *   Basic declarations, defines and prototypes
  *
  * $Log$
+ * Revision 2.19  1998/04/15 16:39:15  keil
+ * Add S0Box and Teles PCI support
+ *
  * Revision 2.18  1998/03/26 07:10:04  paul
  * The jumpmatrix table in struct Fsm was an array of "int". This is not
  * large enough for pointers to functions on Linux/Alpha (instant crash
@@ -85,55 +88,48 @@
 #include <linux/isdnif.h>
 #include <linux/tty.h>
 #include <linux/init.h>
+#include <linux/serialP.h>
 
-#define PH_ACTIVATE_REQ	0x0010
-#define PH_ACTIVATE_CNF	0x0011
-#define PH_ACTIVATE_IND	0x0012
-#define PH_DEACTIVATE_REQ 0x0020
-#define PH_DEACTIVATE_CNF 0x0021
-#define PH_DEACTIVATE_IND 0x0022
-#define PH_DEACT_REQ	0x0024
-#define PH_DEACT_CNF	0x0025
-#define PH_DEACT_IND	0x0026
-#define PH_DEACT_ACK	0x0027
-#define PH_TESTLOOP_REQ	0x0030
-#define PH_PAUSE_CNF	0x0035
-#define PH_PAUSE_IND	0x0036
-#define PH_PULL_REQ	0x0038
-#define PH_PULL_CNF	0x0039
-#define	PH_PULL_IND	0x003A
-#define PH_DATA_REQ	0x0040
-#define PH_DATA_IND	0x0042
+#define REQUEST		0
+#define CONFIRM		1
+#define INDICATION	2
+#define RESPONSE	3
 
-#define PH_INFO3_REQ	0x0008
-#define PH_INFO2_IND	0x000A
-#define PH_ENABLE_REQ	0x0004
-#define PH_RSYNC_IND	0x0006
-#define PH_RESET_REQ	0x0000
-#define PH_RESET_IND	0x0002
-#define PH_POWERUP_CNF	0x0003
-#define PH_ACTIV_REQ	0x000C
-#define PH_I4_P8_IND	0x000D
-#define PH_I4_P10_IND	0x000F
+#define HW_ENABLE	0x0000
+#define HW_RESET	0x0004
+#define HW_POWERUP	0x0008
+#define HW_ACTIVATE	0x0010
+#define HW_DEACTIVATE	0x0018
+#define HW_INFO2	0x0020
+#define HW_INFO3	0x0030
+#define HW_INFO4_P8	0x0040
+#define HW_INFO4_P10	0x0048
+#define HW_RSYNC	0x0060
+#define HW_TESTLOOP	0x0070
 
-#define MDL_ASSIGN_REQ	0x0050
-#define MDL_ASSIGN_IND	0x0052
-#define MDL_REMOVE_REQ	0x0054
-#define MDL_ERROR_REQ	0x0058
-#define MDL_ERROR_IND	0x005A
+#define PH_ACTIVATE	0x0100
+#define PH_DEACTIVATE	0x0110
+#define PH_DATA		0x0120
+#define PH_PULL		0x0130
+#define PH_TESTLOOP	0x0140
+#define PH_PAUSE	0x0150
+#define MPH_ACTIVATE	0x0180
+#define MPH_DEACTIVATE	0x0190
+#define MPH_INFORMATION	0x01A0
+
+#define DL_ESTABLISH	0x0200
+#define DL_RELEASE	0x0210
+#define DL_DATA		0x0220
+#define DL_FLUSH	0x0224
+#define DL_UNIT_DATA	0x0230
+#define MDL_ASSIGN	0x0280
+#define MDL_REMOVE	0x0290
+#define MDL_ERROR	0x02A0
+
 #define CARD_AUX_IND	0x005E
 
-#define DL_UNIT_DATA	6
-#define CC_ESTABLISH	7
-#define DL_ESTABLISH	8
-#define DL_DATA		9
-
 #define CC_CONNECT	15
-#define DL_RELEASE	20
-#define DL_FLUSH	21
-
 #define CC_REJECT	23
-
 #define CC_SETUP_REQ	24
 #define CC_SETUP_CNF	25
 #define CC_SETUP_IND	26
@@ -146,7 +142,6 @@
 #define CC_RELEASE_CNF	31
 #define CC_RELEASE_IND	32
 #define CC_RELEASE_REQ	33
-
 #define CC_REJECT_REQ	34
 
 #define CC_PROCEEDING_IND	35
@@ -157,16 +152,10 @@
 #define CC_ALERTING_REQ	38
 #define CC_ALERTING_IND	39
 
-#define DL_STOP		40
-#define DL_START	41
-
 #define MDL_INFO_SETUP	42
 #define MDL_INFO_CONN	43
 #define MDL_INFO_REL	44
 #define MDL_NOTEIPROC	46
-
-#define LC_ESTABLISH	47
-#define LC_RELEASE	48
 
 #define CC_INFO_CHARGE	52
 
@@ -271,9 +260,10 @@ struct Layer1 {
 	struct FsmInst l1m;
 	struct FsmTimer	timer;
 	void (*l1l2) (struct PStack *, int, void *);
-	void (*l1man) (struct PStack *, int, void *);
+	void (*l1hw) (struct PStack *, int, void *);
 	void (*l1tei) (struct PStack *, int, void *);
 	int mode, bc;
+	int delay;
 };
 
 #define GROUP_TEI	127
@@ -295,6 +285,8 @@ struct Layer1 {
 #define FLG_OWN_BUSY	9
 #define FLG_PEER_BUSY	10
 #define FLG_DCHAN_BUSY	11
+#define FLG_DCHAN_ACTIV	12
+#define FLG_ESTAB_PEND	13
 
 struct Layer2 {
 	int tei;
@@ -310,7 +302,6 @@ struct Layer2 {
 	struct sk_buff_head i_queue;
 	struct sk_buff_head ui_queue;
 	void (*l2l1) (struct PStack *, int, void *);
-	void (*l2man) (struct PStack *, int, void *);
 	void (*l2l3) (struct PStack *, int, void *);
 	void (*l2tei) (struct PStack *, int, void *);
 	struct FsmInst l2m;
@@ -321,12 +312,15 @@ struct Layer2 {
 };
 
 struct Layer3 {
-	void (*l3l4) (struct l3_process *, int, void *);
+	void (*l3l4) (struct PStack *, int, void *);
 	void (*l3l2) (struct PStack *, int, void *);
+	struct FsmInst l3m;
+	struct sk_buff_head squeue;
 	struct l3_process *proc;
 	struct l3_process *global;
 	int N303;
 	int debug;
+	char debug_id[32];
 };
 
 struct LLInterface {
@@ -343,8 +337,6 @@ struct Management {
 	struct FsmTimer t202;
 	int T202, N202, debug;
 	void (*layer) (struct PStack *, int, void *);
-	void (*manl1) (struct PStack *, int, void *);
-	void (*manl2) (struct PStack *, int, void *);
 };
 
 
@@ -431,6 +423,7 @@ struct amd7930_hw {
 	struct sk_buff *tx_skb; /* B-Channel transmit Buffer */
 };
 
+
 #define BC_FLG_INIT	1
 #define BC_FLG_ACTIV	2
 #define BC_FLG_BUSY	3
@@ -464,19 +457,6 @@ struct BCState {
 	} hw;
 };
 
-struct LcFsm {
-	int type;
-	int delay;
-	struct FsmInst lcfi;
-	struct Channel *ch;
-	void (*lccall) (struct LcFsm *, int, void *);
-	struct PStack *st;
-	int l2_establish;
-	int l2_start;
-	struct FsmTimer act_timer;
-	char debug_id[32];
-};
-
 struct Channel {
 	struct PStack *b_st, *d_st;
 	struct IsdnCardState *cs;
@@ -484,8 +464,6 @@ struct Channel {
 	int chan;
 	int incoming;
 	struct FsmInst fi;
-	struct LcFsm *lc_d;
-	struct LcFsm *lc_b;
 	struct FsmTimer drel_timer, dial_timer;
 	int debug;
 	int l2_protocol, l2_active_protocol;
@@ -509,8 +487,20 @@ struct elsa_hw {
 	unsigned int counter;
 	unsigned int status;
 	struct timer_list tl;
+	unsigned int MFlag;
+	struct BCState *bcs;
+	u_char *transbuf;
+	u_char *rcvbuf;
+	unsigned int transp;
+	unsigned int rcvp;
+	unsigned int transcnt;
+	unsigned int rcvcnt;
+	u_char IER;
+	u_char FCR;
+	u_char LCR;
+	u_char MCR;
 	u_char ctrl_reg;
-};	
+};
 
 struct teles3_hw {
 	unsigned int cfg_reg;
@@ -678,7 +668,6 @@ struct IsdnCardState {
 	void   (*BC_Write_Reg) (struct IsdnCardState *, int, u_char, u_char);
 	void   (*BC_Send_Data) (struct BCState *);
 	int    (*cardmsg) (struct IsdnCardState *, int, void *);
-	void   (*l1cmd) (struct IsdnCardState *, int, void *);
 	struct Channel channel[2];
 	struct BCState bcs[2];
 	struct PStack *stlist;
@@ -929,6 +918,7 @@ struct IsdnCardState {
 #endif
 
 #undef PTP_DATA_LINK
+#define PTP_DATA_LINK
 
 #ifdef PTP_DATA_LINK
 #undef TEI_FIXED
@@ -943,17 +933,27 @@ struct IsdnCard {
 	struct IsdnCardState *cs;
 };
 
-void setstack_isdnl2(struct PStack *st, char *debug_id);
 int HiSax_inithardware(int *);
 void HiSax_closecard(int cardnr);
 
 void setstack_HiSax(struct PStack *st, struct IsdnCardState *cs);
 unsigned int random_ri(void);
-void setstack_isdnl3(struct PStack *st, struct Channel *chanp);
 void HiSax_addlist(struct IsdnCardState *sp, struct PStack *st);
-void releasestack_isdnl2(struct PStack *st);
-void releasestack_isdnl3(struct PStack *st);
 void HiSax_rmlist(struct IsdnCardState *sp, struct PStack *st);
+
+void setstack_l1_B(struct PStack *st);
+
+void setstack_tei(struct PStack *st);
+void setstack_manager(struct PStack *st);
+
+void setstack_isdnl2(struct PStack *st, char *debug_id);
+void releasestack_isdnl2(struct PStack *st);
+void setstack_transl2(struct PStack *st);
+void releasestack_transl2(struct PStack *st);
+
+void setstack_l3dc(struct PStack *st, struct Channel *chanp);
+void setstack_l3bc(struct PStack *st, struct Channel *chanp);
+void releasestack_isdnl3(struct PStack *st);
 
 u_char *findie(u_char * p, int size, u_char ie, int wanted_set);
 int getcallref(u_char * p);
@@ -979,10 +979,7 @@ int QuickHex(char *txt, u_char * p, int cnt);
 void LogFrame(struct IsdnCardState *sp, u_char * p, int size);
 void dlogframe(struct IsdnCardState *sp, u_char * p, int size, char *comment);
 void iecpy(u_char * dest, u_char * iestart, int ieoffset);
-void setstack_transl2(struct PStack *st);
-void releasestack_transl2(struct PStack *st);
-void setstack_tei(struct PStack *st);
-void setstack_manager(struct PStack *st);
+int discard_queue(struct sk_buff_head *q);
 #ifdef ISDN_CHIP_ISAC
 void setstack_isac(struct PStack *st, struct IsdnCardState *cs);
 #endif	/* ISDN_CHIP_ISAC */
@@ -1000,6 +997,8 @@ void Isdnl1New(void);
 void Isdnl1Free(void);
 void Isdnl2New(void);
 void Isdnl2Free(void);
+void Isdnl3New(void);
+void Isdnl3Free(void);
 void init_tei(struct IsdnCardState *sp, int protocol);
 void release_tei(struct IsdnCardState *sp);
 char *HiSax_getrev(const char *revision);
