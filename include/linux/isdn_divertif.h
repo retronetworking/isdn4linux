@@ -24,7 +24,7 @@
 /***********************************************************/
 /* magic value is also used to control version information */
 /***********************************************************/
-#define DIVERT_IF_MAGIC 0x25873401
+#define DIVERT_IF_MAGIC 0x25873402
 #define DIVERT_CMD_REG  0x00  /* register command */
 #define DIVERT_CMD_REL  0x01  /* release command */
 #define DIVERT_NO_ERR   0x00  /* return value no error */
@@ -44,6 +44,7 @@ typedef struct
     int (*ll_cmd)(isdn_ctrl *); /* supplied by hl on return */
     char * (*drv_to_name)(int); /* map a driver id to name, supplied by hl */
     int (*name_to_drv)(char *); /* map a driver id to name, supplied by hl */
+    int (*dial_net_name)(char *); /* force dial of a ll net interface  */
   } isdn_divert_if;
 
 /*********************/
