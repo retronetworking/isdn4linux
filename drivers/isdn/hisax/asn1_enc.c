@@ -1,3 +1,4 @@
+#include "hisax_capi.h"
 #include "asn1_enc.h"
 
 int encodeNull(__u8 *dest)
@@ -116,9 +117,7 @@ int encodeAddress(__u8 *dest, __u8 *facilityPartyNumber, __u8 *calledPartySubadd
 	return p - dest;
 }
 
-int encodeActivationDiversion(__u8 *dest, __u16 procedure, __u16 basicService, 
-			      __u8 *forwardedToNumber, __u8 *forwardedToSubaddress, 
-			      __u8 *servedUserNumber)
+int encodeActivationDiversion(__u8 *dest, struct FacReqCFActivate *CFActivate)
 {
 	__u8 *p;
 
@@ -126,17 +125,16 @@ int encodeActivationDiversion(__u8 *dest, __u16 procedure, __u16 basicService,
 	dest[1] = 0;     // length
 	p = &dest[2];
 
-	p += encodeEnum(p, procedure);
-	p += encodeEnum(p, basicService);
-	p += encodeAddress(p, forwardedToNumber, forwardedToSubaddress);
-	p += encodeServedUserNumber(p, servedUserNumber);
+	p += encodeEnum(p, CFActivate->Procedure);
+	p += encodeEnum(p, CFActivate->BasicService);
+	p += encodeAddress(p, CFActivate->ForwardedToNumber, CFActivate->ForwardedToSubaddress);
+	p += encodeServedUserNumber(p, CFActivate->ServedUserNumber);
 
 	dest[1] = p - &dest[2];
 	return p - dest;
 }
 
-int encodeDeactivationDiversion(__u8 *dest, __u16 procedure, __u16 basicService, 
-				__u8 *servedUserNumber)
+int encodeDeactivationDiversion(__u8 *dest, struct FacReqCFDeactivate *CFDeactivate)
 {
 	__u8 *p;
 
@@ -144,16 +142,15 @@ int encodeDeactivationDiversion(__u8 *dest, __u16 procedure, __u16 basicService,
 	dest[1] = 0;     // length
 	p = &dest[2];
 
-	p += encodeEnum(p, procedure);
-	p += encodeEnum(p, basicService);
-	p += encodeServedUserNumber(p, servedUserNumber);
+	p += encodeEnum(p, CFDeactivate->Procedure);
+	p += encodeEnum(p, CFDeactivate->BasicService);
+	p += encodeServedUserNumber(p, CFDeactivate->ServedUserNumber);
 
 	dest[1] = p - &dest[2];
 	return p - dest;
 }
 
-int encodeInterrogationDiversion(__u8 *dest, __u16 procedure, __u16 basicService, 
-				__u8 *servedUserNumber)
+int encodeInterrogationDiversion(__u8 *dest, struct FacReqCFInterrogateParameters *params)
 {
 	__u8 *p;
 
@@ -161,14 +158,14 @@ int encodeInterrogationDiversion(__u8 *dest, __u16 procedure, __u16 basicService
 	dest[1] = 0;     // length
 	p = &dest[2];
 
-	p += encodeEnum(p, procedure);
+	p += encodeEnum(p, params->Procedure);
 #if 0
 	if (basicService == 0)
 		p += encodeNull(p);
 	else
 #endif
-		p += encodeEnum(p, basicService);
-	p += encodeServedUserNumber(p, servedUserNumber);
+		p += encodeEnum(p, params->BasicService);
+	p += encodeServedUserNumber(p, params->ServedUserNumber);
 
 	dest[1] = p - &dest[2];
 	return p - dest;

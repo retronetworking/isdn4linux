@@ -6,6 +6,9 @@
  * (c) Copyright 1997 by Carsten Paeth (calle@calle.in-berlin.de)
  * 
  * $Log$
+ * Revision 1.5.2.2  2000/03/27 22:18:49  kai
+ * more merging, doesn't work
+ *
  * Revision 1.5.2.1  2000/03/08 17:28:44  calle
  * Merged changes from main tree.
  *
@@ -195,6 +198,12 @@ typedef enum {
         CapiResetProcedureNotSupportedByCurrentProtocol = 0x300d,
         CapiTeiAssignmentFailed                         = 0x300e,
 } REQUESTED_SERVICES_PROBLEM;
+
+typedef enum {
+	CapiSuccess                                     = 0x0000,
+	CapiSupplementaryServiceNotSupported            = 0x300e,
+	CapiRequestNotAllowedInThisState                = 0x3010,
+} SUPPLEMENTARY_SERVICE_INFO;
 
 #endif				/* __KERNEL__ */
 

@@ -49,6 +49,60 @@ void dummyPcConstr(struct DummyProcess *dummy_pc, struct Contr *contr, __u16 inv
 void dummyPcDestr(struct DummyProcess *dummy_pc);
 void dummyPcAddTimer(struct DummyProcess *dummy_pc, int msec);
 
+struct FacReqListen {
+	__u32 NotificationMask;
+};
+
+struct FacReqCFActivate {
+	__u32 Handle;
+	__u16 Procedure;
+	__u16 BasicService;
+	__u8  *ServedUserNumber;
+	__u8  *ForwardedToNumber;
+	__u8  *ForwardedToSubaddress;
+};
+
+struct FacReqCFDeactivate {
+	__u32 Handle;
+	__u16 Procedure;
+	__u16 BasicService;
+	__u8  *ServedUserNumber;
+};
+
+#define FacReqCFInterrogateParameters FacReqCFDeactivate
+
+struct FacReqCFInterrogateNumbers {
+	__u32 Handle;
+};
+
+struct FacReqParm {
+	__u16 Function;
+	union {
+		struct FacReqListen Listen;
+		struct FacReqCFActivate CFActivate;
+		struct FacReqCFDeactivate CFDeactivate;
+		struct FacReqCFInterrogateParameters CFInterrogateParameters;
+		struct FacReqCFInterrogateNumbers CFInterrogateNumbers;
+	} u;
+};
+
+struct FacConfGetSupportedServices {
+	__u16 SupplementaryServiceInfo;
+	__u32 SupportedServices;
+};
+
+struct FacConfInfo {
+	__u16 SupplementaryServiceInfo;
+};
+
+struct FacConfParm {
+	__u16 Function;
+	union {
+		struct FacConfGetSupportedServices GetSupportedServices;
+		struct FacConfInfo Info;
+	} u;
+};
+
 // ---------------------------------------------------------------------------
 // struct Contr
 
@@ -63,25 +117,28 @@ struct Contr {
 	struct Plci *plcis[CAPI_MAXPLCI];
 	struct Appl *appls[CAPI_MAXAPPL];
 	struct DummyProcess *dummy_pcs[CAPI_MAXDUMMYPCS];
+	__u16 lastInvokeId;
 };
 
-int contrConstr(struct Contr *contr, struct IsdnCardState *cs, char *id, int protocol);
-void contrDestr(struct Contr *contr);
-void contrDebug(struct Contr *contr, __u32 level, char *fmt, ...);
-void contrRegisterAppl(struct Contr *contr, __u16 ApplId, capi_register_params *rp);
-void contrReleaseAppl(struct Contr *contr, __u16 ApplId);
-void contrSendMessage(struct Contr *contr, struct sk_buff *skb);
-void contrLoadFirmware(struct Contr *contr);
-void contrReset(struct Contr *contr);
-void contrRecvCmsg(struct Contr *contr, _cmsg *cmsg);
-void contrAnswerCmsg(struct Contr *contr, _cmsg *cmsg, __u16 Info);
-void contrAnswerMessage(struct Contr *contr, struct sk_buff *skb, __u16 Info);
-struct Plci *contrNewPlci(struct Contr *contr);
-struct Appl *contrId2appl(struct Contr *contr, __u16 ApplId);
-struct Plci *contrAdr2plci(struct Contr *contr, __u32 adr);
-void contrDelPlci(struct Contr *contr, struct Plci *plci);
-struct DummyProcess *contrNewDummyPc(struct Contr* contr, __u16 invokeId);
-struct DummyProcess *contrId2DummyPc(struct Contr* contr, __u16 invokeId);
+int                   contrConstr        (struct Contr *contr, struct IsdnCardState *cs, 
+					                       char *id, int protocol);
+void                  contrDestr         (struct Contr *contr);
+void                  contrDebug         (struct Contr *contr, __u32 level, char *fmt, ...);
+void                  contrRegisterAppl  (struct Contr *contr, __u16 ApplId, capi_register_params *rp);
+void                  contrReleaseAppl   (struct Contr *contr, __u16 ApplId);
+void                  contrSendMessage   (struct Contr *contr, struct sk_buff *skb);
+void                  contrLoadFirmware  (struct Contr *contr);
+void                  contrReset         (struct Contr *contr);
+void                  contrRecvCmsg      (struct Contr *contr, _cmsg *cmsg);
+void                  contrAnswerCmsg    (struct Contr *contr, _cmsg *cmsg, __u16 Info);
+void                  contrAnswerMessage (struct Contr *contr, struct sk_buff *skb, __u16 Info);
+struct Plci *         contrNewPlci       (struct Contr *contr);
+struct Appl *         contrId2appl       (struct Contr *contr, __u16 ApplId);
+struct Plci *         contrAdr2plci      (struct Contr *contr, __u32 adr);
+void                  contrDelPlci       (struct Contr *contr, struct Plci *plci);
+void                  contrDummyInd      (struct Contr *contr, struct sk_buff *skb);
+struct DummyProcess * contrNewDummyPc    (struct Contr* contr);
+struct DummyProcess * contrId2DummyPc    (struct Contr* contr, __u16 invokeId);
 
 // ---------------------------------------------------------------------------
 // struct Listen
@@ -135,14 +192,21 @@ void applDebug(struct Appl *appl, __u32 level, char *fmt, ...);
 void applSendMessage(struct Appl *appl, struct sk_buff *skb);
 void applFacilityReq(struct Appl *appl, struct sk_buff *skb);
 void applSuppFacilityReq(struct Appl *appl, _cmsg *cmsg);
-void applGetSupportedServices(struct Appl *appl, _cmsg *cmsg);
-void applFacListen(struct Appl *appl, _cmsg *cmsg);
-void applFacCFActivate(struct Appl *appl, _cmsg *cmsg);
-void applFacCFDeactivate(struct Appl *appl, _cmsg *cmsg);
-void applFacCFInterrogateNumbers(struct Appl *appl, _cmsg *cmsg);
-void applFacCFInterrogateParameters(struct Appl *appl, _cmsg *cmsg);
+int applGetSupportedServices(struct Appl *appl, struct FacReqParm *facReqParm, 
+			      struct FacConfParm *facConfParm);
+int applFacListen(struct Appl *appl, struct FacReqParm *facReqParm,
+		   struct FacConfParm *facConfParm);
+int applFacCFActivate(struct Appl *appl, struct FacReqParm *facReqParm,
+		       struct FacConfParm *facConfParm);
+int applFacCFDeactivate(struct Appl *appl, struct FacReqParm *facReqParm,
+			 struct FacConfParm *facConfParm);
+int applFacCFInterrogateNumbers(struct Appl *appl, struct FacReqParm *facReqParm,
+				 struct FacConfParm *facConfParm);
+int applFacCFInterrogateParameters(struct Appl *appl, struct FacReqParm *facReqParm,
+				    struct FacConfParm *facConfParm);
 void applManufacturerReq(struct Appl *appl, struct sk_buff *skb);
 void applD2Trace(struct Appl *appl, u_char *buf, int len);
+struct DummyProcess *applNewDummyPc(struct Appl *appl, __u16 Function, __u32 Handle);
 struct Cplci *applNewCplci(struct Appl *appl, struct Plci *plci);
 struct Cplci *applAdr2cplci(struct Appl *appl, __u32 adr);
 void applDelCplci(struct Appl *appl, struct Cplci *cplci);
@@ -248,5 +312,6 @@ int capiEncodeFacIndCFinterParameters(__u8 *dest, __u16 SupplementaryServiceReas
 				      struct IntResultList *intResultList);
 int capiEncodeFacIndCFinterNumbers(__u8 *dest, __u16 SupplementaryServiceReason, __u32 Handle, 
 				   struct ServedUserNumberList *list);
+int capiEncodeFacConfParm(__u8 *dest, struct FacConfParm *facConfParm);
 
 #endif

@@ -89,6 +89,10 @@ struct resume_req_parm {
         unsigned char call_identity[10];
 };
 
+struct facility_req_parm {
+        unsigned char facility[128];
+};
+
 struct Param {
 	u_char cause;
 	u_char loc;

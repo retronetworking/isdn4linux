@@ -105,7 +105,7 @@ const char *dss1_revision = "$Revision$";
 	        l3_msg(pc->st, DL_DATA | REQUEST, __skb); \
         } \
         } while (0)
-//	        l3pc_l3l2(pc, DL_DATA | REQUEST, skb); \
+//	        l3pc_l3l2(pc, DL_DATA | REQUEST, skb);
 
 static void
 dss1down_proc(struct l3_process *pc, int pr, void *arg);
@@ -1487,18 +1487,16 @@ l3dss1_gen_setup_req(struct l3_process *pc, u_char pr, void *arg)
 static void
 l3dss1_dummy_req(struct PStack *st, u_char pr, void *arg)
 {
-	MsgDeclare(255); // FIXME
-	struct sk_buff *skb = arg;
+	MsgDeclare(255);
+	struct facility_req_parm *facility_req = arg;
 	
-	MsgXHead(-1, skb->data[0]);
-	MsgAdd(&skb->data[1]);
+	MsgXHead(-1, MT_FACILITY);
+	MsgAdd(facility_req->facility);
 	__l = __p - __tmp;
 	if ((__skb = l3_alloc_skb(__l))) {
 	        memcpy(skb_put(__skb, __l), __tmp, __l);
 	        l3_msg(st, DL_DATA | REQUEST, __skb);
         }
-
-	dev_kfree_skb(skb);
 }
 
 // ==========================================================================

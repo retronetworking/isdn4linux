@@ -169,3 +169,36 @@ int capiEncodeFacIndCFNotDeact(__u8 *dest, struct DeactDivNotification *deactNot
 	return p - dest;
 }
 
+int capiEncodeFacConfStruct(__u8 *dest, struct FacConfParm *facConfParm)
+{
+	__u8 *p;
+
+	p = &dest[1];
+	switch (facConfParm->Function) {
+	case 0x0000:
+		p += capiEncodeWord(p, facConfParm->u.GetSupportedServices.SupplementaryServiceInfo);
+		p += capiEncodeDWord(p, facConfParm->u.GetSupportedServices.SupportedServices);
+		break;
+	case 0x0009:
+	case 0x000a:
+	case 0x000b:
+	case 0x000c:
+		p += capiEncodeWord(p, facConfParm->u.Info.SupplementaryServiceInfo);
+		break;
+	default:
+		int_error();
+	}
+	dest[0] = p - &dest[1];
+	return p - dest;
+}
+
+int capiEncodeFacConfParm(__u8 *dest, struct FacConfParm *facConfParm)
+{
+	__u8 *p;
+
+	p = &dest[1];
+	p += capiEncodeWord(p, facConfParm->Function);
+	p += capiEncodeFacConfStruct(p, facConfParm);
+	dest[0] = p - &dest[1];
+	return p - dest;
+}
