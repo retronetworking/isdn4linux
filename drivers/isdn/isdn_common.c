@@ -2030,7 +2030,7 @@ isdn_free_channel(int di, int ch, int usage)
 			dev->v110[i] = NULL;
 // 20.10.99 JIM, try to reinitialize v110 !
 			isdn_info_update();
-			isdn_free_queue(&dev->drv[di]->rpqueue[ch]);
+			skb_queue_purge(&dev->drv[di]->rpqueue[ch]);
 		}
 	restore_flags(flags);
 }
@@ -2193,7 +2193,7 @@ isdn_add_channels(driver *d, int drvidx, int n, int adding)
 
 	if ((adding) && (d->rpqueue)) {
 		for (j = 0; j < d->channels; j++)
-			isdn_free_queue(&d->rpqueue[j]);
+			skb_queue_purge(&d->rpqueue[j]);
 		kfree(d->rpqueue);
 	}
 	if (!(d->rpqueue =

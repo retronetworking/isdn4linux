@@ -1379,7 +1379,6 @@ int QuickHex(char *txt, u_char * p, int cnt);
 void LogFrame(struct IsdnCardState *cs, u_char * p, int size);
 void dlogframe(struct IsdnCardState *cs, struct sk_buff *skb, int dir);
 void iecpy(u_char * dest, u_char * iestart, int ieoffset);
-int discard_queue(struct sk_buff_head *q);
 #ifdef ISDN_CHIP_ISAC
 void setstack_isac(struct PStack *st, struct IsdnCardState *cs);
 #endif	/* ISDN_CHIP_ISAC */
