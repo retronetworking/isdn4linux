@@ -22,6 +22,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.12  1996/11/06 17:38:48  keil
+ * more changes for 2.1.X
+ *
  * Revision 1.11  1996/10/23 11:59:42  fritz
  * More compatibility changes.
  *
@@ -325,6 +328,7 @@ extern int register_isdn(isdn_if*);
 #else
 #include <asm/uaccess.h>
 #define GET_USER get_user
+#define PUT_USER put_user
 #define RWTYPE long
 #define LSTYPE long long
 #define RWARG unsigned long
