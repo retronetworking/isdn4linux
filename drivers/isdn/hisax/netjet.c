@@ -8,6 +8,9 @@
  *
  *
  * $Log$
+ * Revision 1.1.2.5  1998/04/08 21:49:29  keil
+ * New init; fix PCI for more as one card
+ *
  * Revision 1.1.2.4  1998/01/27 22:37:27  keil
  * fast io
  *
@@ -1066,6 +1069,7 @@ setup_netjet(struct IsdnCard *card))
 		printk(KERN_WARNING "NETjet: No PCI card found\n");
 		return(0);
 	}
+	pci_index++;
 	if (!pci_irq) {
 		printk(KERN_WARNING "NETjet: No IRQ for PCI card found\n");
 		return(0);

@@ -8,6 +8,9 @@
  *
  *
  * $Log$
+ * Revision 1.1.2.5  1998/04/08 21:49:27  keil
+ * New init; fix PCI for more as one card
+ *
  * Revision 1.1.2.4  1998/03/07 23:15:14  tsbogend
  * made HiSax working on Linux/Alpha
  *
@@ -398,6 +401,7 @@ setup_diva(struct IsdnCard *card))
 			printk(KERN_WARNING "Diva: No PCI card found\n");
 			return(0);
 		}
+		pci_index++;
 		if (!pci_irq) {
 			printk(KERN_WARNING "Diva: No IRQ for PCI card found\n");
 			return(0);

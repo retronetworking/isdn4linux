@@ -8,6 +8,9 @@
  * Thanks to Dr. Neuhaus and SAGEM for informations
  *
  * $Log$
+ * Revision 1.1.2.2  1998/04/08 21:48:23  keil
+ * New init; working Niccy PCI
+ *
  * Revision 1.1.2.1  1998/02/11 14:23:20  keil
  * support for Dr Neuhaus Niccy PnP and PCI
  *
@@ -331,6 +334,7 @@ setup_niccy(struct IsdnCard *card))
 			printk(KERN_WARNING "Niccy: No PCI card found\n");
 			return(0);
 		}
+		pci_index++;
 		if (!pci_irq) {
 			printk(KERN_WARNING "Niccy: No IRQ for PCI card found\n");
 			return(0);
