@@ -27,6 +27,10 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.41  1998/03/08 13:14:37  detabc
+ * abc-extension support for kernels > 2.1.x
+ * first try (sorry experimental)
+ *
  * Revision 1.40  1998/03/08 01:08:29  fritz
  * Increased NET_DV because of TIMRU
  *
@@ -894,6 +898,13 @@ typedef struct isdn_devt {
 	atomic_t          v110use[ISDN_MAX_CHANNELS];/* Usage-Semaphore for stream */
 	isdn_v110_stream  *v110[ISDN_MAX_CHANNELS];  /* V.110 private data         */
 	isdn_module       *modules;
+#ifdef CONFIG_ISDN_WITH_ABC
+	ulong           abc_not_avail_jiffies[ISDN_MAX_CHANNELS];
+	ulong           abc_last_use_jiffies[ISDN_MAX_CHANNELS];
+	ulong           abc_use_timeout;
+	struct  timer_list abc_control_timer;
+	ulong           abc_max_hdrlen;             /* max_header_len           */
+#endif
 } isdn_dev;
 
 extern isdn_dev *dev;
