@@ -131,7 +131,7 @@ Examples for module loading
    example as placeholder.
 
 7. Teles PCMCIA EURO 180 hex IRQ 15 (default values)
-   modprobe hisax io=8,2,15,0x180
+   modprobe hisax type=8 protocol=2 io=0x180 irq=15
 
 
 LILO/LOADLIN with driver compiled direct into the kernel:
@@ -295,7 +295,10 @@ clearly assumes some (unrealistic) facts about your hardware:
 The following program will initialize the PCMCIA chip to the values I probed
 inside Windows95 (native Teles driver).
 
-----------------------------------------------------------------------
+------------------telesinit.c-----------------------------------------
+/* telesinit.c, compile with
+ *   gcc -O -o telesinit telesinit.c
+ */
 #include <asm/io.h>
 #define inportb(x) inb(x)
 #define outportb(x,v) outb(v,x)

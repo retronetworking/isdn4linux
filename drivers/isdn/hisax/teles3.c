@@ -11,6 +11,9 @@
  *              Beat Doebeli
  *
  * $Log$
+ * Revision 1.6  1997/01/27 15:52:55  keil
+ * SMP proof,cosmetics, PCMCIA added
+ *
  * Revision 1.5  1997/01/21 22:28:32  keil
  * cleanups
  *
@@ -844,7 +847,8 @@ setup_teles3(struct IsdnCard *card)
 
 	strcpy(tmp, teles3_revision);
 	printk(KERN_NOTICE "HiSax: Teles IO driver Rev. %s\n", HiSax_getrev(tmp));
-	if ((sp->typ != ISDN_CTYPE_16_3) && (sp->typ != ISDN_CTYPE_PNP))
+	if ((sp->typ != ISDN_CTYPE_16_3) && (sp->typ != ISDN_CTYPE_PNP)
+	    && (sp->typ != ISDN_CTYPE_TELESPCMCIA))
 		return (0);
 
 	if (sp->typ == ISDN_CTYPE_16_3) {
