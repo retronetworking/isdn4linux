@@ -21,6 +21,12 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.3  1996/04/20 16:54:58  fritz
+ * Increased maximum number of channels.
+ * Added some flags for isdn_net to handle callback more reliable.
+ * Fixed delay-definitions to be more accurate.
+ * Misc. typos
+ *
  * Revision 1.2  1996/02/11 02:10:02  fritz
  * Changed IOCTL-names
  * Added rx_netdev, st_netdev, first_skb, org_hcb, and org_hcu to
@@ -104,7 +110,7 @@
 #define ISDN_USAGE_EXCLUSIVE 64 /* This bit is set, if channel is exclusive */
 #define ISDN_USAGE_OUTGOING 128 /* This bit is set, if channel is outgoing  */
 
-#define ISDN_MODEM_ANZREG    20        /* Number of Modem-Registers        */
+#define ISDN_MODEM_ANZREG    21        /* Number of Modem-Registers        */
 #define ISDN_MSNLEN          20
 
 typedef struct {
@@ -208,11 +214,14 @@ typedef struct {
 #define ISDN_SERVICE_BTEL  1<<12
 
 /* Macros checking plain usage */
-#define USG_NONE(x)     ((x & ISDN_USAGE_MASK)==ISDN_USAGE_NONE)
-#define USG_RAW(x)      ((x & ISDN_USAGE_MASK)==ISDN_USAGE_RAW)
-#define USG_MODEM(x)    ((x & ISDN_USAGE_MASK)==ISDN_USAGE_MODEM)
-#define USG_NET(x)      ((x & ISDN_USAGE_MASK)==ISDN_USAGE_NET)
-#define USG_OUTGOING(x) ((x & ISDN_USAGE_OUTGOING)==ISDN_USAGE_OUTGOING)
+#define USG_NONE(x)         ((x & ISDN_USAGE_MASK)==ISDN_USAGE_NONE)
+#define USG_RAW(x)          ((x & ISDN_USAGE_MASK)==ISDN_USAGE_RAW)
+#define USG_MODEM(x)        ((x & ISDN_USAGE_MASK)==ISDN_USAGE_MODEM)
+#define USG_VOICE(x)        ((x & ISDN_USAGE_MASK)==ISDN_USAGE_VOICE)
+#define USG_NET(x)          ((x & ISDN_USAGE_MASK)==ISDN_USAGE_NET)
+#define USG_OUTGOING(x)     ((x & ISDN_USAGE_OUTGOING)==ISDN_USAGE_OUTGOING)
+#define USG_MODEMORVOICE(x) (((x & ISDN_USAGE_MASK)==ISDN_USAGE_MODEM) || \
+                             ((x & ISDN_USAGE_MASK)==ISDN_USAGE_VOICE)     )
 
 /* Timer-delays and scheduling-flags */
 #define ISDN_TIMER_RES       3                     /* Main Timer-Resolution  */
@@ -407,13 +416,16 @@ typedef struct {
 
 /* Private data of AT-command-interpreter */
 typedef struct {
-  u_char              profile[ISDN_MODEM_ANZREG]; /* Modem-Regs. Profile 0  */
-  u_char              mdmreg[ISDN_MODEM_ANZREG];  /* Modem-Registers        */
+  u_char              profile[ISDN_MODEM_ANZREG]; /* Modem-Regs. Profile 0 */
+  u_char              mdmreg[ISDN_MODEM_ANZREG];  /* Modem-Registers       */
+  u_char              vpar[10];        /* Voice-parameters                 */
+  void                *adpcms;         /* state for adpcm compression      */
   char                pmsn[ISDN_MSNLEN]; /* EAZ/MSNs Profile 0             */
   char                msn[ISDN_MSNLEN];/* EAZ/MSN                          */
   int                 mdmcmdl;         /* Length of Modem-Commandbuffer    */
   int                 pluscount;       /* Counter for +++ sequence         */
   int                 lastplus;        /* Timestamp of last +              */
+  int                 lastDLE;         /* Flag for voice-coding: DLE seen  */
   char                mdmcmd[255];     /* Modem-Commandbuffer              */
 } atemu;
 
@@ -423,6 +435,7 @@ typedef struct {
   int                mlr[ISDN_MAX_CHANNELS];	  /* Line-statusregister    */
   int                refcount;			  /* Number of opens        */
   int                online[ISDN_MAX_CHANNELS];	  /* B-Channel is up        */
+  int                vonline[ISDN_MAX_CHANNELS];  /* Voice-channel status   */
   int                dialing[ISDN_MAX_CHANNELS];  /* Dial in progress       */
   int                rcvsched[ISDN_MAX_CHANNELS]; /* Receive needs schedule */
   int                ncarrier[ISDN_MAX_CHANNELS]; /* Output NO CARRIER      */
