@@ -7,6 +7,9 @@
  *              Fritz Elfert
  *
  * $Log$
+ * Revision 1.6  1996/11/05 19:40:33  keil
+ * X.75 windowsize
+ *
  * Revision 1.5  1996/10/30 10:11:06  keil
  * debugging LOCK changed;ST_REL_W EV_HANGUP added
  *
@@ -1384,7 +1387,7 @@ HiSax_command(isdn_ctrl * ic)
           case (ISDN_CMD_LOCK):
                   HiSax_mod_inc_use_count();
 #ifdef MODULE
-		  if (debugflags & 0x64) {
+		  if (debugflags & 64) {
 		  	jiftime(tmp, jiffies);
 		  	i=strlen(tmp);
                   	sprintf(tmp+i, "   LOCK modcnt %lx\n",mod_use_count_);
@@ -1395,7 +1398,7 @@ HiSax_command(isdn_ctrl * ic)
           case (ISDN_CMD_UNLOCK):
                   HiSax_mod_dec_use_count();
 #ifdef MODULE
-		  if (debugflags & 0x64) {
+		  if (debugflags & 64) {
 		  	jiftime(tmp, jiffies);
 		  	i=strlen(tmp);
                   	sprintf(tmp+i, " UNLOCK modcnt %lx\n",mod_use_count_);
