@@ -21,6 +21,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.23  1996/06/25 18:35:38  fritz
+ * Fixed bogus memory access in isdn_set_allcfg().
+ *
  * Revision 1.22  1996/06/24 17:37:37  fritz
  * Bugfix: isdn_timer_ctrl() did restart timer, even if it
  *         was already running.
@@ -228,7 +231,7 @@ static void isdn_timer_funct(ulong dummy)
                                 isdn_net_autohup();
                         if (tf & ISDN_TIMER_MODEMRING)
                                 isdn_tty_modem_ring();
-#if (defined CONFIG_ISDN_PPP ) && (defined ISDN_CONFIG_MPP)
+#if (defined CONFIG_ISDN_PPP) && (defined CONFIG_ISDN_MPP)
                         if (tf & ISDN_TIMER_IPPP)
                                 isdn_ppp_timer_timeout();
 #endif
