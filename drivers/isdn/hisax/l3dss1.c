@@ -9,6 +9,9 @@
  *              Fritz Elfert
  *
  * $Log$
+ * Revision 2.7  1998/02/12 23:08:01  keil
+ * change for 2.1.86 (removing FREE_READ/FREE_WRITE from [dev]_kfree_skb()
+ *
  * Revision 2.6  1998/02/03 23:26:35  keil
  * V110 extensions from Thomas Pfeiffer
  *
@@ -1208,6 +1211,28 @@ l3dss1_t308_2(struct l3_process *pc, u_char pr, void *arg)
 }
 
 static void
+l3dss1_t318(struct l3_process *pc, u_char pr, void *arg)
+{
+	L3DelTimer(&pc->timer);
+	pc->para.cause = 0x66; /* Timer expiry */
+	pc->para.loc = 0; /* local */
+	pc->st->l3.l3l4(pc, CC_RESUME_ERR, NULL);
+	newl3state(pc, 19);
+	l3dss1_message(pc, MT_RELEASE);
+	L3AddTimer(&pc->timer, T308, CC_T308_1);
+}
+
+static void
+l3dss1_t319(struct l3_process *pc, u_char pr, void *arg)
+{
+	L3DelTimer(&pc->timer);
+	pc->para.cause = 0x66; /* Timer expiry */
+	pc->para.loc = 0; /* local */
+	pc->st->l3.l3l4(pc, CC_SUSPEND_ERR, NULL);
+	newl3state(pc, 10);
+}
+
+static void
 l3dss1_restart(struct l3_process *pc, u_char pr, void *arg)
 {
 	L3DelTimer(&pc->timer);
@@ -1278,7 +1303,142 @@ l3dss1_facility(struct l3_process *pc, u_char pr, void *arg)
 	}
 }
 
+static void
+l3dss1_suspend_req(struct l3_process *pc, u_char pr, void *arg)
+{
+	struct sk_buff *skb;
+	u_char tmp[32];
+	u_char *p = tmp;
+	u_char i,l;
+	u_char *msg = pc->chan->setup.phone;
 
+	MsgHead(p, pc->callref, MT_SUSPEND);
+	
+	*p++ = IE_CALLID;
+	l = *msg++;
+	if (l && (l<=10)) { /* Max length 10 octets */
+		*p++ = l;
+		for (i=0;i<l;i++)
+			*p++ = *msg++;
+	} else {
+		sprintf(tmp, "SUS wrong CALLID len %d", l);
+		l3_debug(pc->st, tmp);
+		return;
+        }
+	l = p - tmp;
+	if (!(skb = l3_alloc_skb(l)))
+		return;
+	memcpy(skb_put(skb, l), tmp, l);
+	pc->st->l3.l3l2(pc->st, DL_DATA, skb);
+	newl3state(pc, 15);
+	L3AddTimer(&pc->timer, T319, CC_T319);
+}
+
+static void
+l3dss1_suspend_ack(struct l3_process *pc, u_char pr, void *arg)
+{
+	struct sk_buff *skb = arg;
+
+	L3DelTimer(&pc->timer);
+	newl3state(pc, 0);
+	dev_kfree_skb(skb);
+	pc->para.cause = -1;
+	pc->st->l3.l3l4(pc, CC_SUSPEND_ACK, NULL);
+	release_l3_process(pc);
+}
+
+static void
+l3dss1_suspend_rej(struct l3_process *pc, u_char pr, void *arg)
+{
+	u_char *p;
+	struct sk_buff *skb = arg;
+	int cause = -1;
+
+	L3DelTimer(&pc->timer);
+	p = skb->data;
+	if ((p = findie(p, skb->len, IE_CAUSE, 0))) {
+		p++;
+		if (*p++ == 2)
+			pc->para.loc = *p++;
+		cause = *p & 0x7f;
+	}
+	dev_kfree_skb(skb);
+	pc->para.cause = cause;
+	pc->st->l3.l3l4(pc, CC_SUSPEND_ERR, NULL);
+	newl3state(pc, 10);
+}
+
+static void
+l3dss1_resume_req(struct l3_process *pc, u_char pr, void *arg)
+{
+	struct sk_buff *skb;
+	u_char tmp[32];
+	u_char *p = tmp;
+	u_char i,l;
+	u_char *msg = pc->para.setup.phone;
+
+	MsgHead(p, pc->callref, MT_RESUME);
+	
+	*p++ = IE_CALLID;
+	l = *msg++;
+	if (l && (l<=10)) { /* Max length 10 octets */
+		*p++ = l;
+		for (i=0;i<l;i++)
+			*p++ = *msg++;
+	} else {
+		sprintf(tmp, "RES wrong CALLID len %d", l);
+		l3_debug(pc->st, tmp);
+		return;
+        }
+	l = p - tmp;
+	if (!(skb = l3_alloc_skb(l)))
+		return;
+	memcpy(skb_put(skb, l), tmp, l);
+	pc->st->l3.l3l2(pc->st, DL_DATA, skb);
+	newl3state(pc, 17);
+	L3AddTimer(&pc->timer, T319, CC_T319);
+}
+
+static void
+l3dss1_resume_ack(struct l3_process *pc, u_char pr, void *arg)
+{
+	u_char *p;
+	struct sk_buff *skb = arg;
+
+	L3DelTimer(&pc->timer);
+	p = skb->data;
+	if ((p = findie(p, skb->len, IE_CHANNEL_ID, 0))) {
+		pc->para.bchannel = p[2] & 0x3;
+		if ((!pc->para.bchannel) && (pc->debug & L3_DEB_WARN))
+			l3_debug(pc->st, "resume ack without bchannel");
+	} else if (pc->debug & L3_DEB_WARN)
+		l3_debug(pc->st, "resume ack without bchannel");
+	dev_kfree_skb(skb);
+	pc->st->l3.l3l4(pc, CC_RESUME_ACK, NULL);
+	newl3state(pc, 10);
+}
+
+static void
+l3dss1_resume_rej(struct l3_process *pc, u_char pr, void *arg)
+{
+	u_char *p;
+	struct sk_buff *skb = arg;
+	int cause = -1;
+
+	L3DelTimer(&pc->timer);
+	p = skb->data;
+	if ((p = findie(p, skb->len, IE_CAUSE, 0))) {
+		p++;
+		if (*p++ == 2)
+			pc->para.loc = *p++;
+		cause = *p & 0x7f;
+	}
+	dev_kfree_skb(skb);
+	pc->para.cause = cause;
+	newl3state(pc, 0);
+	pc->st->l3.l3l4(pc, CC_RESUME_ERR, NULL);
+	release_l3_process(pc);
+}
 	
 static void
 l3dss1_global_restart(struct l3_process *pc, u_char pr, void *arg)
@@ -1342,6 +1502,8 @@ static struct stateentry downstatelist[] =
 	 CC_ESTABLISH, l3dss1_msg_without_setup},
 	{SBIT(0),
 	 CC_SETUP_REQ, l3dss1_setup_req},
+	{SBIT(0),
+	 CC_RESUME_REQ, l3dss1_resume_req},
 	{SBIT(1) | SBIT(2) | SBIT(3) | SBIT(4) | SBIT(6) | SBIT(7) | SBIT(8) | SBIT(10),
 	 CC_DISCONNECT_REQ, l3dss1_disconnect_req},
 	{SBIT(12),
@@ -1358,6 +1520,8 @@ static struct stateentry downstatelist[] =
 	 CC_ALERTING_REQ, l3dss1_alert_req},
 	{SBIT(6) | SBIT(7),
 	 CC_SETUP_RSP, l3dss1_setup_rsp},
+	{SBIT(10),
+	 CC_SUSPEND_REQ, l3dss1_suspend_req},
 	{SBIT(1),
 	 CC_T303, l3dss1_t303},
 	{SBIT(2),
@@ -1368,6 +1532,10 @@ static struct stateentry downstatelist[] =
 	 CC_T313, l3dss1_t313},
 	{SBIT(11),
 	 CC_T305, l3dss1_t305},
+	{SBIT(15),
+	 CC_T319, l3dss1_t319},
+	{SBIT(17),
+	 CC_T318, l3dss1_t318},
 	{SBIT(19),
 	 CC_T308_1, l3dss1_t308_1},
 	{SBIT(19),
@@ -1405,10 +1573,10 @@ static struct stateentry datastatelist[] =
 	 SBIT(11) | SBIT(12) | SBIT(15) | SBIT(17) | SBIT(19),
 	 MT_RELEASE_COMPLETE, l3dss1_release_cmpl},
 	{SBIT(1) | SBIT(2) | SBIT(3) | SBIT(4) | SBIT(7) | SBIT(8) | SBIT(10) |
-	 SBIT(11) | SBIT(12) | SBIT(15) | SBIT(17) /*| SBIT(19)*/,
+	 SBIT(11) | SBIT(12) | SBIT(15) /* | SBIT(17) | SBIT(19)*/,
 	 MT_RELEASE, l3dss1_release},
 	{SBIT(19),  MT_RELEASE, l3dss1_release_ind},
-	{SBIT(1) | SBIT(2) | SBIT(3) | SBIT(4) | SBIT(7) | SBIT(8) | SBIT(10),
+	{SBIT(1) | SBIT(2) | SBIT(3) | SBIT(4) | SBIT(7) | SBIT(8) | SBIT(10) | SBIT(15),
 	 MT_DISCONNECT, l3dss1_disconnect},
 	{SBIT(11),
 	 MT_DISCONNECT, l3dss1_release_req},
@@ -1420,7 +1588,15 @@ static struct stateentry datastatelist[] =
 	 MT_CONNECT_ACKNOWLEDGE, l3dss1_status_req},
 	{SBIT(8),
 	 MT_CONNECT_ACKNOWLEDGE, l3dss1_connect_ack},
-	{SBIT(1) | SBIT(2) | SBIT(3) | SBIT(4) | SBIT(8) | SBIT(10) | SBIT(11) | SBIT(19),
+	{SBIT(15),
+	 MT_SUSPEND_ACKNOWLEDGE, l3dss1_suspend_ack},
+	{SBIT(15),
+	 MT_SUSPEND_REJECT, l3dss1_suspend_rej},
+	{SBIT(17),
+	 MT_RESUME_ACKNOWLEDGE, l3dss1_resume_ack},
+	{SBIT(17),
+	 MT_RESUME_REJECT, l3dss1_resume_rej},
+	{SBIT(1) | SBIT(2) | SBIT(3) | SBIT(4) | SBIT(8) | SBIT(10) | SBIT(11) | SBIT(15) | SBIT(17) | SBIT(19),
 	 MT_INVALID, l3dss1_status_req},
 };
 
@@ -1613,7 +1789,7 @@ dss1down(struct PStack *st, int pr, void *arg)
 	struct Channel *chan;
 	char tmp[80];
 
-	if (CC_SETUP_REQ == pr) {
+	if ((CC_SETUP_REQ == pr) || (CC_RESUME_REQ == pr)) {
 		chan = arg;
 		cr = newcallref();
 		cr |= 0x80;

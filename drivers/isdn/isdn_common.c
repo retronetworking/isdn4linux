@@ -21,6 +21,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.59  1998/03/09 17:46:23  he
+ * merged in 2.1.89 changes
+ *
  * Revision 1.58  1998/03/07 22:35:24  fritz
  * Starting generic module support (Nothing usable yet).
  *
@@ -511,6 +514,29 @@ isdn_all_eaz(int di, int ch)
 	isdn_command(&cmd);
 }
 
+/*
+ * Begin of a CAPI like LL<->HL interface, currently used only for 
+ * supplementary service (CAPI 2.0 part III)
+ */
+#include "avmb1/capicmd.h"  /* this should be moved in a common place */
+
+int
+isdn_capi_rec_hl_msg(capi_msg *cm) {
+	
+	int di;
+	int ch;
+	
+	di = (cm->adr.Controller & 0x7f) -1;
+	ch = isdn_dc2minor(di, (cm->adr.Controller>>8)& 0x7f);
+	switch(cm->Command) {
+		case CAPI_FACILITY:
+			/* in the moment only handled in tty */
+			return(isdn_tty_capi_facility(cm));
+		default:
+			return(-1);
+	}
+}
+
 static int
 isdn_status_callback(isdn_ctrl * c)
 {
@@ -755,6 +781,8 @@ isdn_status_callback(isdn_ctrl * c)
 			return 0;
 		case ISDN_STAT_L1ERR:
 			break;
+		case CAPI_PUT_MESSAGE:
+			return(isdn_capi_rec_hl_msg(&c->parm.cmsg));
 		default:
 			return -1;
 	}

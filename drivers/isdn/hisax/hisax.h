@@ -3,6 +3,9 @@
  *   Basic declarations, defines and prototypes
  *
  * $Log$
+ * Revision 2.16  1998/03/09 23:19:25  keil
+ * Changes for PCMCIA
+ *
  * Revision 2.14  1998/02/11 17:28:04  keil
  * Niccy PnP/PCI support
  *
@@ -160,22 +163,27 @@
 #define CC_MORE_INFO	53
 #define CC_IGNORE	54
 #define CC_RESTART	55
+#define CC_SUSPEND_REQ	56
+#define CC_SUSPEND_ACK	57
+#define CC_SUSPEND_ERR	58
+#define CC_RESUME_REQ	59
+#define CC_RESUME_ACK	60
+#define CC_RESUME_ERR	61
 
+#define CC_T303		70
+#define CC_T304		71
+#define CC_T305		72
+#define CC_T308_1	74
+#define CC_T308_2	75
+#define CC_T310		76
+#define CC_T313		77
+#define CC_T318		78
+#define CC_T319		79
 
-#define CC_T303		60
-#define CC_T304		61
-#define CC_T305		62
-#define CC_T308_1	64
-#define CC_T308_2	65
-#define CC_T310		66
-#define CC_T313		67
-#define CC_T318		68
-#define CC_T319		69
-
-#define CC_NOSETUP_RSP_ERR	70
-#define CC_SETUP_ERR		71
-#define CC_CONNECT_ERR		72
-#define CC_RELEASE_ERR		73
+#define CC_NOSETUP_RSP_ERR	80
+#define CC_SETUP_ERR		81
+#define CC_CONNECT_ERR		82
+#define CC_RELEASE_ERR		83
 
 #define CARD_RESET	0x1001
 #define CARD_SETIRQ	0x1002

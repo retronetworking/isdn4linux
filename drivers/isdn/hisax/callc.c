@@ -7,6 +7,9 @@
  *              Fritz Elfert
  *
  * $Log$
+ * Revision 2.14  1998/03/07 22:56:54  tsbogend
+ * made HiSax working on Linux/Alpha
+ *
  * Revision 2.13  1998/02/12 23:07:16  keil
  * change for 2.1.86 (removing FREE_READ/FREE_WRITE from [dev]_kfree_skb()
  *
@@ -60,6 +63,7 @@
 
 #define __NO_VERSION__
 #include "hisax.h"
+#include "../avmb1/capicmd.h"  /* this should be moved in a common place */
 
 #ifdef MODULE
 #define MOD_USE_COUNT ((&__this_module)->usecount)
@@ -640,6 +644,16 @@ lli_init_bchan_in(struct FsmInst *fi, int event, void *arg)
 	FsmEvent(&chanp->lc_b->lcfi, EV_LC_ESTABLISH, NULL);
 }
 
+/* Call suspend */
+
+static void
+lli_suspend(struct FsmInst *fi, int event, void *arg)
+{
+	struct Channel *chanp = fi->userdata;
+
+	chanp->d_st->lli.l4l3(chanp->d_st, CC_SUSPEND_REQ, chanp->proc);
+}
+
 /* Call clearing */
 
 static void
@@ -1162,6 +1176,7 @@ static struct FsmNode fnlist[] HISAX_INITDATA =
 	{ST_WAIT_BCONN,		EV_CINF,		lli_charge_info},
 	{ST_ACTIVE,		EV_CINF,		lli_charge_info},
 	{ST_ACTIVE,		EV_BC_REL,		lli_released_bchan},
+	{ST_ACTIVE,		EV_SUSPEND,		lli_suspend},
 	{ST_ACTIVE,		EV_HANGUP,		lli_disconn_bchan},
 	{ST_ACTIVE,		EV_DISCONNECT_IND,	lli_release_bchan},
 	{ST_ACTIVE,		EV_RELEASE_CNF,		lli_received_d_relcnf},
@@ -1532,6 +1547,9 @@ ll_handler(struct l3_process *pc, int pr, void *arg)
 			FsmEvent(&chanp->fi, EV_DISCONNECT_IND, NULL);
 			break;
 		case (CC_RELEASE_CNF):
+			FsmEvent(&chanp->fi, EV_RELEASE_CNF, NULL);
+			break;
+		case (CC_SUSPEND_ACK):
 			FsmEvent(&chanp->fi, EV_RELEASE_CNF, NULL);
 			break;
 		case (CC_RELEASE_IND):
@@ -1962,6 +1980,39 @@ distr_debug(struct IsdnCardState *csta, int debugflags)
 	csta->dlogflag = debugflags & 4;
 }
 
+static void
+capi_debug(struct Channel *chanp, capi_msg *cm)
+{
+	char tmp[256], tm[32];
+	char *t = tmp;
+
+	jiftime(tm, jiffies);
+	t += sprintf(tmp, "%s Channel %d CAPIMSG", tm, chanp->chan);
+	t += QuickHex(t, (u_char *)cm, (cm->Length>50)? 50: cm->Length);
+	t--;
+	*t++ ='\n';
+	*t++ = 0;
+	HiSax_putstatus(chanp->cs, tmp);
+}
+
+void
+lli_got_fac_req(struct Channel *chanp, capi_msg *cm) {
+	if ((cm->para[0] != 3) || (cm->para[1] != 0))
+		return;
+	if (cm->para[2]<3)
+		return;
+	if (cm->para[4] != 0)
+		return;
+	switch(cm->para[3]) {
+		case 4: /* Suspend */
+			if (cm->para[5]) {
+				strncpy(chanp->setup.phone, &cm->para[5], cm->para[5] +1);
+				FsmEvent(&chanp->fi, EV_SUSPEND, cm);
+			}
+			break;
+	}
+}
+
 int
 HiSax_command(isdn_ctrl * ic)
 {
@@ -1977,14 +2028,10 @@ HiSax_command(isdn_ctrl * ic)
 		       ic->command, ic->driver);
 		return -ENODEV;
 	}
+	
 	switch (ic->command) {
 		case (ISDN_CMD_SETEAZ):
 			chanp = csta->channel + ic->arg;
-			if (chanp->debug & 1) {
-				sprintf(tmp, "SETEAZ card %d %s", csta->cardnr + 1,
-					ic->parm.num);
-				link_debug(chanp, tmp, 1);
-			}
 			break;
 		case (ISDN_CMD_SETL2):
 			chanp = csta->channel + (ic->arg & 0xff);
@@ -2033,21 +2080,20 @@ HiSax_command(isdn_ctrl * ic)
 				link_debug(chanp, "HANGUP", 1);
 			FsmEvent(&chanp->fi, EV_HANGUP, NULL);
 			break;
-		case (ISDN_CMD_SUSPEND):
+		case (CAPI_PUT_MESSAGE):
 			chanp = csta->channel + ic->arg;
-			if (chanp->debug & 1) {
-				sprintf(tmp, "SUSPEND %s", ic->parm.num);
-				link_debug(chanp, tmp, 1);
-			}
-			FsmEvent(&chanp->fi, EV_SUSPEND, ic);
+			if (chanp->debug & 1)
+				capi_debug(chanp, &ic->parm.cmsg);
+			if (ic->parm.cmsg.Length < 8)
+				break;
+			switch(ic->parm.cmsg.Command) {
+				case CAPI_FACILITY:
+					if (ic->parm.cmsg.Subcommand == CAPI_REQ)
+						lli_got_fac_req(chanp, &ic->parm.cmsg);
+					break;
+				default:
 			break;
-		case (ISDN_CMD_RESUME):
-			chanp = csta->channel + ic->arg;
-			if (chanp->debug & 1) {
-				sprintf(tmp, "RESUME %s", ic->parm.num);
-				link_debug(chanp, tmp, 1);
 			}
-			FsmEvent(&chanp->fi, EV_RESUME, ic);
 			break;
 		case (ISDN_CMD_LOCK):
 			HiSax_mod_inc_use_count();
