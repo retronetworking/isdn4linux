@@ -3,11 +3,6 @@
 #ifndef _LINUX_ISDN_PPP_H
 #define _LINUX_ISDN_PPP_H
 
-#ifdef __KERNEL__
-#include <linux/config.h>
-#include <linux/isdn_compat.h>
-#endif
-
 #define CALLTYPE_INCOMING 0x1
 #define CALLTYPE_OUTGOING 0x2
 #define CALLTYPE_CALLBACK 0x4
@@ -32,12 +27,6 @@ struct pppcallinfo
 #define PPPIOCSCOMPRESSOR _IOW('t',135,int)
 #define PPPIOCGIFNAME      _IOR('t',136, char [IFNAMSIZ] )
 
-#ifdef COMPAT_NEED_MPPP_DEFS
-#define PPP_MP          0x003d
-#define PPP_COMPFRAG    0x00fb
-#define PPP_CCPFRAG     0x80fb
-#endif
-
 #define SC_MP_PROT       0x00000200
 #define SC_REJ_MP_PROT   0x00000400
 #define SC_OUT_SHORT_SEQ 0x00000800
@@ -52,13 +41,6 @@ struct pppcallinfo
 #define SC_LINK_DECOMP_DISCARD	0x40
 #define SC_LINK_COMP_DISCARD	0x80
 
-#define DECOMP_ERR_NOMEM	(-10)
-
-#define MP_END_FRAG    0x40
-#define MP_BEGIN_FRAG  0x80
-
-#define MP_MAX_QUEUE_LEN	16
-
 #define ISDN_PPP_COMP_MAX_OPTIONS 16
 
 #define IPPP_COMP_FLAG_XMIT 0x1
@@ -72,6 +54,22 @@ struct isdn_ppp_comp_data {
 };
 
 #ifdef __KERNEL__
+
+#include <linux/config.h>
+#include <linux/isdn_compat.h>
+
+#ifdef COMPAT_NEED_MPPP_DEFS
+#define PPP_MP          0x003d
+#define PPP_COMPFRAG    0x00fb
+#define PPP_CCPFRAG     0x80fb
+#endif
+
+#define DECOMP_ERR_NOMEM	(-10)
+
+#define MP_END_FRAG    0x40
+#define MP_BEGIN_FRAG  0x80
+
+#define MP_MAX_QUEUE_LEN	16
 
 /*
  * We need a way for the decompressor to influence the generation of CCP

@@ -25,107 +25,7 @@
 #ifndef isdn_h
 #define isdn_h
 
-#ifdef __KERNEL__
-#include <linux/isdn_compat.h>
-#include <linux/config.h>
-#endif
 #include <linux/ioctl.h>
-
-#define ISDN_TTY_MAJOR    43
-#define ISDN_TTYAUX_MAJOR 44
-#define ISDN_MAJOR        45
-
-/* The minor-devicenumbers for Channel 0 and 1 are used as arguments for
- * physical Channel-Mapping, so they MUST NOT be changed without changing
- * the correspondent code in isdn.c
- */
-
-#ifdef CONFIG_COBALT_MICRO_SERVER
-/* Save memory */
-#define ISDN_MAX_DRIVERS    2
-#define ISDN_MAX_CHANNELS   8
-#else
-#define ISDN_MAX_DRIVERS    32
-#define ISDN_MAX_CHANNELS   64
-#endif
-#define ISDN_MINOR_B        0
-#define ISDN_MINOR_BMAX     (ISDN_MAX_CHANNELS-1)
-#define ISDN_MINOR_CTRL     64
-#define ISDN_MINOR_CTRLMAX  (64 + (ISDN_MAX_CHANNELS-1))
-#define ISDN_MINOR_PPP      128
-#define ISDN_MINOR_PPPMAX   (128 + (ISDN_MAX_CHANNELS-1))
-#define ISDN_MINOR_STATUS   255
-
-#ifndef CONFIG_ISDN_WITH_ABC
-#undef CONFIG_ISDN_WITH_ABC_CALLB
-#undef CONFIG_ISDN_WITH_ABC_UDP_CHECK
-#undef CONFIG_ISDN_WITH_ABC_UDP_CHECK_HANGUP
-#undef CONFIG_ISDN_WITH_ABC_UDP_CHECK_DIAL
-#undef CONFIG_ISDN_WITH_ABC_OUTGOING_EAZ
-#undef CONFIG_ISDN_WITH_ABC_LCR_SUPPORT
-#undef CONFIG_ISDN_WITH_ABC_IPV4_TCP_KEEPALIVE
-#undef CONFIG_ISDN_WITH_ABC_IPV4_DYNADDR
-#undef CONFIG_ISDN_WITH_ABC_RCV_NO_HUPTIMER
-#undef CONFIG_ISDN_WITH_ABC_ICALL_BIND
-#undef CONFIG_ISDN_WITH_ABC_CH_EXTINUSE
-#undef CONFIG_ISDN_WITH_ABC_CONN_ERROR
-#undef CONFIG_ISDN_WITH_ABC_RAWIPCOMPRESS
-#undef CONFIG_ISDN_WITH_ABC_IPTABLES_NETFILTER
-#else
-#include <linux/isdn_dwabc.h>
-
-#ifndef CONFIG_NETFILTER
-#undef CONFIG_ISDN_WITH_ABC_IPTABLES_NETFILTER
-#endif
-
-#ifdef __KERNEL__
-
-typedef struct DWABCJIFFIES {
-
-	u_long	msec_1000;
-	u_long  msec_500;
-	u_long	msec_400;
-	u_long	msec_200;
-	u_long	msec_100;
-
-} DWABCJIFFIES;
-
-enum ISDN_SKB_BITS {
-
-	ISDN_SKB_BIT_NF_NO_RS_TX = 0,	/* don't reset huptimer on tx			*/
-	ISDN_SKB_BIT_NF_S_UNREACH,		/* send dest-unreach in offline case	*/
-	ISDN_SKB_BIT_NF_DIALLOOP,		/* ISDNDIAL target deadloop detection	*/
-};
-
-#ifdef CONFIG_ISDN_WITH_ABC_NEED_DWSJIFFIES
-DWABCJIFFIES isdn_dwabc_jiffies;
-#else
-extern DWABCJIFFIES isdn_dwabc_jiffies;
-#endif
-#define dwsjiffies (isdn_dwabc_jiffies.msec_1000)
-#endif
-
-#define ISDN_DW_ABC_FLAG_NO_TCP_KEEPALIVE	0x00000001L
-#define ISDN_DW_ABC_FLAG_NO_UDP_CHECK		0x00000002L
-#define ISDN_DW_ABC_FLAG_NO_UDP_HANGUP		0x00000004L
-#define ISDN_DW_ABC_FLAG_NO_UDP_DIAL		0x00000008L
-#define ISDN_DW_ABC_FLAG_DYNADDR			0x00000010L
-#define ISDN_DW_ABC_FLAG_RCV_NO_HUPTIMER	0x00000020L
-#define ISDN_DW_ABC_FLAG_NO_CH_EXTINUSE		0x00000040L
-#define ISDN_DW_ABC_FLAG_NO_CONN_ERROR		0x00000080L
-#define ISDN_DW_ABC_FLAG_BSD_COMPRESS		0x00000100L
-#define ISDN_DW_ABC_FLAG_NO_LCR				0x00000200L
-#define ISDN_DW_ABC_FLAG_LEASED_LINE		0x00001000L
-
-#define ISDN_DW_ABC_IFFLAG_NODCHAN			0x00000001L
-#define ISDN_DW_ABC_IFFLAG_BSDAKTIV			0x00000002L
-
-#define ISDN_DW_ABC_BITLOCK_SEND			0
-#define ISDN_DW_ABC_BITLOCK_RECEIVE			1
-
-#define ISDN_DW_ABC_MAX_CH_P_RIVER			(32)
-#endif
-
 
 /* New ioctl-codes */
 #define IIOCNETAIF  _IO('I',1)
@@ -178,6 +78,7 @@ extern DWABCJIFFIES isdn_dwabc_jiffies;
 #define ISDN_NET_ENCAP_CISCOHDLCK 6 /* With SLARP and keepalive    */
 #define ISDN_NET_ENCAP_X25IFACE   7 /* Documentation/networking/x25-iface.txt*/
 #define ISDN_NET_ENCAP_MAX_ENCAP  ISDN_NET_ENCAP_X25IFACE
+
 /* Facility which currently uses an ISDN-channel */
 #define ISDN_USAGE_NONE       0
 #define ISDN_USAGE_RAW        1
@@ -210,12 +111,6 @@ typedef struct {
   char drvid[25];
   unsigned long arg;
 } isdn_ioctl_struct;
-
-typedef struct {
-  unsigned long isdndev;
-  unsigned long atmodem[ISDN_MAX_CHANNELS];
-  unsigned long info[ISDN_MAX_CHANNELS];
-} debugvar_addr;
 
 typedef struct {
   char name[10];
@@ -251,14 +146,15 @@ typedef struct {
   int  dialmode;     /* Flag: off / on / auto                 */
 } isdn_net_ioctl_cfg;
 
-#define ISDN_NET_DIALMODE_MASK 0xC0  /* bits for status                   */
-#define  ISDN_NET_DM_OFF	0x00    /* this interface is stopped      */
-#define  ISDN_NET_DM_MANUAL	0x40    /* this interface is on (manual)  */
-#define  ISDN_NET_DM_AUTO	0x80    /* this interface is autodial     */
+#define ISDN_NET_DIALMODE_MASK  0xC0    /* bits for status                */
+#define ISDN_NET_DM_OFF	        0x00    /* this interface is stopped      */
+#define ISDN_NET_DM_MANUAL	0x40    /* this interface is on (manual)  */
+#define ISDN_NET_DM_AUTO	0x80    /* this interface is autodial     */
 #define ISDN_NET_DIALMODE(x) ((&(x))->flags & ISDN_NET_DIALMODE_MASK)
 
 #ifdef __KERNEL__
 
+#include <linux/config.h>
 #include <linux/errno.h>
 #include <linux/fs.h>
 #include <linux/major.h>
@@ -281,6 +177,101 @@ typedef struct {
 #include <linux/etherdevice.h>
 #include <linux/skbuff.h>
 #include <linux/tcp.h>
+#include <linux/isdn_compat.h>
+
+#define ISDN_TTY_MAJOR    43
+#define ISDN_TTYAUX_MAJOR 44
+#define ISDN_MAJOR        45
+
+/* The minor-devicenumbers for Channel 0 and 1 are used as arguments for
+ * physical Channel-Mapping, so they MUST NOT be changed without changing
+ * the correspondent code in isdn.c
+ */
+
+#ifdef CONFIG_COBALT_MICRO_SERVER
+/* Save memory */
+#define ISDN_MAX_DRIVERS    2
+#define ISDN_MAX_CHANNELS   8
+#else
+#define ISDN_MAX_DRIVERS    32
+#define ISDN_MAX_CHANNELS   64
+#endif
+#define ISDN_MINOR_B        0
+#define ISDN_MINOR_BMAX     (ISDN_MAX_CHANNELS-1)
+#define ISDN_MINOR_CTRL     64
+#define ISDN_MINOR_CTRLMAX  (64 + (ISDN_MAX_CHANNELS-1))
+#define ISDN_MINOR_PPP      128
+#define ISDN_MINOR_PPPMAX   (128 + (ISDN_MAX_CHANNELS-1))
+#define ISDN_MINOR_STATUS   255
+
+#ifndef CONFIG_ISDN_WITH_ABC
+#undef CONFIG_ISDN_WITH_ABC_CALLB
+#undef CONFIG_ISDN_WITH_ABC_UDP_CHECK
+#undef CONFIG_ISDN_WITH_ABC_UDP_CHECK_HANGUP
+#undef CONFIG_ISDN_WITH_ABC_UDP_CHECK_DIAL
+#undef CONFIG_ISDN_WITH_ABC_OUTGOING_EAZ
+#undef CONFIG_ISDN_WITH_ABC_LCR_SUPPORT
+#undef CONFIG_ISDN_WITH_ABC_IPV4_TCP_KEEPALIVE
+#undef CONFIG_ISDN_WITH_ABC_IPV4_DYNADDR
+#undef CONFIG_ISDN_WITH_ABC_RCV_NO_HUPTIMER
+#undef CONFIG_ISDN_WITH_ABC_ICALL_BIND
+#undef CONFIG_ISDN_WITH_ABC_CH_EXTINUSE
+#undef CONFIG_ISDN_WITH_ABC_CONN_ERROR
+#undef CONFIG_ISDN_WITH_ABC_RAWIPCOMPRESS
+#undef CONFIG_ISDN_WITH_ABC_IPTABLES_NETFILTER
+#else /* CONFIG_ISDN_WITH_ABC */
+#include <linux/isdn_dwabc.h>
+
+#ifndef CONFIG_NETFILTER
+#undef CONFIG_ISDN_WITH_ABC_IPTABLES_NETFILTER
+#endif
+
+typedef struct DWABCJIFFIES {
+
+	u_long	msec_1000;
+	u_long  msec_500;
+	u_long	msec_400;
+	u_long	msec_200;
+	u_long	msec_100;
+
+} DWABCJIFFIES;
+
+enum ISDN_SKB_BITS {
+
+	ISDN_SKB_BIT_NF_NO_RS_TX = 0,	/* don't reset huptimer on tx			*/
+	ISDN_SKB_BIT_NF_S_UNREACH,		/* send dest-unreach in offline case	*/
+	ISDN_SKB_BIT_NF_DIALLOOP,		/* ISDNDIAL target deadloop detection	*/
+};
+
+#ifdef CONFIG_ISDN_WITH_ABC_NEED_DWSJIFFIES
+DWABCJIFFIES isdn_dwabc_jiffies;
+#else
+extern DWABCJIFFIES isdn_dwabc_jiffies;
+#endif
+#define dwsjiffies (isdn_dwabc_jiffies.msec_1000)
+
+#define ISDN_DW_ABC_FLAG_NO_TCP_KEEPALIVE	0x00000001L
+#define ISDN_DW_ABC_FLAG_NO_UDP_CHECK		0x00000002L
+#define ISDN_DW_ABC_FLAG_NO_UDP_HANGUP		0x00000004L
+#define ISDN_DW_ABC_FLAG_NO_UDP_DIAL		0x00000008L
+#define ISDN_DW_ABC_FLAG_DYNADDR			0x00000010L
+#define ISDN_DW_ABC_FLAG_RCV_NO_HUPTIMER	0x00000020L
+#define ISDN_DW_ABC_FLAG_NO_CH_EXTINUSE		0x00000040L
+#define ISDN_DW_ABC_FLAG_NO_CONN_ERROR		0x00000080L
+#define ISDN_DW_ABC_FLAG_BSD_COMPRESS		0x00000100L
+#define ISDN_DW_ABC_FLAG_NO_LCR				0x00000200L
+#define ISDN_DW_ABC_FLAG_LEASED_LINE		0x00001000L
+
+#define ISDN_DW_ABC_IFFLAG_NODCHAN			0x00000001L
+#define ISDN_DW_ABC_IFFLAG_BSDAKTIV			0x00000002L
+
+#define ISDN_DW_ABC_BITLOCK_SEND			0
+#define ISDN_DW_ABC_BITLOCK_RECEIVE			1
+
+#define ISDN_DW_ABC_MAX_CH_P_RIVER			(32)
+#endif /* CONFIG_ISDN_WITH_ABC */
+
+
 
 #ifdef CONFIG_ISDN_PPP
 

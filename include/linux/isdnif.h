@@ -26,11 +26,6 @@
 #ifndef isdnif_h
 #define isdnif_h
 
-#ifdef __KERNEL__
-#include <linux/config.h>
-#include <linux/isdn_compat.h>
-#endif
-
 /*
  * Values for general protocol-selection
  */
@@ -70,7 +65,9 @@
 
 #ifdef __KERNEL__
 
+#include <linux/config.h>
 #include <linux/skbuff.h>
+#include <linux/isdn_compat.h>
 
 /***************************************************************************/
 /* Extensions made by Werner Cornelius (werner@ikt.de)                     */
