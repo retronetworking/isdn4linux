@@ -1,6 +1,6 @@
 /* $Id$
-
- * Linux ISDN subsystem, V.110 related functions (linklevel).
+ *
+ * Linux ISDN subsystem, V.110 related functions
  *
  * Copyright by Thomas Pfeiffer (pfeiffer@pds.de)
  *
@@ -18,19 +18,8 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
- * $Log$
- * Revision 1.3  2000/03/16 16:34:12  kai
- * some translation work
- *
- * there shouldn't be any German comments lurking around anymore ;-)
- *
- * Revision 1.2  1999/10/30 09:49:28  keil
- * Reinit of v110 structs
- *
- * Revision 1.1  1998/02/20 17:32:11  fritz
- * First checkin (not yet completely functionable).
- *
  */
+
 #ifndef _isdn_v110_h_
 #define _isdn_v110_h_
 

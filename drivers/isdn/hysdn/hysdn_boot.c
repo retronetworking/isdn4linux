@@ -21,6 +21,10 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.1.2.1  2000/04/23 15:12:33  kai
+ * lock_kernel for isdn_{write,read,poll}
+ * replace semaphore in MPPP by spinlock
+ *
  * Revision 1.1  2000/02/10 19:45:18  werner
  *
  * Initial release
