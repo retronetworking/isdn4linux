@@ -7,6 +7,9 @@
  *
  *
  * $Log$
+ * Revision 1.6  1998/11/27 19:59:28  keil
+ * set subtype for Fritz!PCI
+ *
  * Revision 1.5  1998/11/27 12:56:45  keil
  * forgot to update setup function name
  *
@@ -799,7 +802,6 @@ setup_avm_pcipnp(struct IsdnCard *card))
 				printk(KERN_WARNING "FritzPCI: No IO-Adr for PCI card found\n");
 				return(0);
 			}
-			cs->hw.avm.isac = cs->hw.avm.cfg_reg + 0x10;
 			cs->subtyp = AVM_FRITZ_PCI;
 		} else {
 			printk(KERN_WARNING "FritzPCI: No PCI card found\n");
@@ -810,6 +812,7 @@ setup_avm_pcipnp(struct IsdnCard *card))
 		return (0);
 #endif /* CONFIG_PCI */
 	}
+	cs->hw.avm.isac = cs->hw.avm.cfg_reg + 0x10;
 	if (check_region((cs->hw.avm.cfg_reg), 32)) {
 		printk(KERN_WARNING
 		       "HiSax: %s config port %x-%x already in use\n",
