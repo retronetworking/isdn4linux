@@ -21,6 +21,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.29  1996/11/13 02:31:38  fritz
+ * Minor cleanup.
+ *
  * Revision 1.28  1996/10/27 20:49:06  keil
  * bugfix to compile without MPP
  *
@@ -1777,7 +1780,6 @@ isdn_net_find_icall(int di, int ch, int idx, char *num)
 					p->local.isdn_device = di;
 					p->local.isdn_channel = ch;
 					p->local.ppp_slot = -1;
-					p->local.pppbind = -1;
 					p->local.flags |= ISDN_NET_CONNECTED;
 					p->local.dialstate = 7;
 					p->local.dtimer = 0;
