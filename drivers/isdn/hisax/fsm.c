@@ -7,6 +7,9 @@
  *              Fritz Elfert
  *
  * $Log$
+ * Revision 1.7  1997/11/06 17:09:13  keil
+ * New 2.1 init code
+ *
  * Revision 1.6  1997/07/27 21:42:25  keil
  * proof Fsm routines
  *
@@ -38,18 +41,18 @@ FsmNew(struct Fsm *fsm,
 {
 	int i;
 
-	fsm->jumpmatrix = (int *)
-	    kmalloc(4L * fsm->state_count * fsm->event_count, GFP_KERNEL);
-	memset(fsm->jumpmatrix, 0, 4L * fsm->state_count * fsm->event_count);
+	fsm->jumpmatrix = (long *)
+	    kmalloc(sizeof (long *) * fsm->state_count * fsm->event_count, GFP_KERNEL);
+	memset(fsm->jumpmatrix, 0, sizeof (long *) * fsm->state_count * fsm->event_count);
 
 	for (i = 0; i < fncount; i++) 
 		if ((fnlist[i].state>=fsm->state_count) || (fnlist[i].event>=fsm->event_count)) {
-			printk(KERN_ERR "FsmNew Error line %d st(%d/%d) ev(%d/%d)\n",
+			printk(KERN_ERR "FsmNew Error line %d st(%ld/%ld) ev(%ld/%ld)\n",
 				i,fnlist[i].state,fsm->state_count,
 				fnlist[i].event,fsm->event_count);
 		} else		
 			fsm->jumpmatrix[fsm->state_count * fnlist[i].event +
-				fnlist[i].state] = (int) fnlist[i].routine;
+				fnlist[i].state] = (long) fnlist[i].routine;
 }
 
 void
@@ -65,7 +68,7 @@ FsmEvent(struct FsmInst *fi, int event, void *arg)
 	char str[80];
 
 	if ((fi->state>=fi->fsm->state_count) || (event >= fi->fsm->event_count)) {
-		printk(KERN_ERR "FsmEvent Error st(%d/%d) ev(%d/%d)\n",
+		printk(KERN_ERR "FsmEvent Error st(%ld/%ld) ev(%d/%ld)\n",
 			fi->state,fi->fsm->state_count,event,fi->fsm->event_count);
 		return(1);
 	}

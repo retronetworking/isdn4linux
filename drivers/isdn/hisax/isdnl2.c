@@ -7,6 +7,9 @@
  *              Fritz Elfert
  *
  * $Log$
+ * Revision 2.7  1998/02/12 23:07:47  keil
+ * change for 2.1.86 (removing FREE_READ/FREE_WRITE from [dev]_kfree_skb()
+ *
  * Revision 2.6  1998/02/02 13:36:15  keil
  * bugfix X.75 win calculation
  *
@@ -996,7 +999,7 @@ l2_got_tei(struct FsmInst *fi, int event, void *arg)
 {
 	struct PStack *st = fi->userdata;
 
-	st->l2.tei = (int) arg;
+	st->l2.tei = (long) arg;
 
 	if (fi->state == ST_L2_3) {
 		establishlink(fi);

@@ -6,6 +6,9 @@
  *
  *
  * $Log$
+ * Revision 1.12  1998/02/12 23:07:40  keil
+ * change for 2.1.86 (removing FREE_READ/FREE_WRITE from [dev]_kfree_skb()
+ *
  * Revision 1.11  1998/02/09 10:54:49  keil
  * fixes for leased mode
  *
@@ -552,9 +555,9 @@ isac_l1cmd(struct IsdnCardState *cs, int msg, void *arg)
 			break;
 		case PH_TESTLOOP_REQ:
 			val = 0;
-			if (1 & (int) arg)
+			if (1 & (long) arg)
 				val |= 0x0c;
-			if (2 & (int) arg)
+			if (2 & (long) arg)
 				val |= 0x3;
 			if (test_bit(HW_IOM1, &cs->HW_Flags)) {
 				/* IOM 1 Mode */

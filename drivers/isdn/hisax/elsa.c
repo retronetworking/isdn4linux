@@ -8,6 +8,9 @@
  *
  *
  * $Log$
+ * Revision 2.6  1998/02/02 13:29:40  keil
+ * fast io
+ *
  * Revision 2.5  1998/01/31 21:41:45  keil
  * changes for newer 2.1 kernels
  *
@@ -682,19 +685,19 @@ Elsa_card_msg(struct IsdnCardState *cs, int mt, void *arg)
 			cs->hw.elsa.status |= ELSA_ASSIGN;
 			break;
 		case MDL_INFO_SETUP:
-			if ((int) arg)
+			if ((long) arg)
 				cs->hw.elsa.status |= 0x0200;
 			else
 				cs->hw.elsa.status |= 0x0100;
 			break;
 		case MDL_INFO_CONN:
-			if ((int) arg)
+			if ((long) arg)
 				cs->hw.elsa.status |= 0x2000;
 			else
 				cs->hw.elsa.status |= 0x1000;
 			break;
 		case MDL_INFO_REL:
-			if ((int) arg) {
+			if ((long) arg) {
 				cs->hw.elsa.status &= ~0x2000;
 				cs->hw.elsa.status &= ~0x0200;
 			} else {

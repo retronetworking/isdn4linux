@@ -7,6 +7,9 @@
  *              Fritz Elfert
  *
  * $Log$
+ * Revision 2.7  1998/02/12 23:08:11  keil
+ * change for 2.1.86 (removing FREE_READ/FREE_WRITE from [dev]_kfree_skb()
+ *
  * Revision 2.6  1998/02/02 13:41:42  keil
  * fix MDL_ASSIGN for PtP
  *
@@ -198,7 +201,7 @@ tei_id_assign(struct FsmInst *fi, int event, void *arg)
 	} else if (ri == st->ma.ri) {
 		FsmDelTimer(&st->ma.t202, 1);
 		FsmChangeState(&st->ma.tei_m, ST_TEI_NOP);
-		st->ma.manl2(st, MDL_ASSIGN_REQ, (void *) (int) tei);
+		st->ma.manl2(st, MDL_ASSIGN_REQ, (void *) (long) tei);
 		cs = (struct IsdnCardState *) st->l1.hardware;
 		cs->cardmsg(cs, MDL_ASSIGN_REQ, NULL);
 	}
@@ -395,7 +398,7 @@ tei_l2tei(struct PStack *st, int pr, void *arg)
 				sprintf(tmp, "fixed assign tei %d", TEI_FIXED);
 				st->ma.tei_m.printdebug(&st->ma.tei_m, tmp);
 			}
-			st->ma.manl2(st, MDL_ASSIGN_REQ, (void *) (int) TEI_FIXED);
+			st->ma.manl2(st, MDL_ASSIGN_REQ, (void *) (long) TEI_FIXED);
 #else
 			FsmEvent(&st->ma.tei_m, EV_IDREQ, arg);
 #endif
