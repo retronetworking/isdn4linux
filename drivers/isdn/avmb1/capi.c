@@ -6,6 +6,12 @@
  * Copyright 1996 by Carsten Paeth (calle@calle.in-berlin.de)
  *
  * $Log$
+ * Revision 1.45  2000/12/02 19:47:29  kai
+ * Change the Makefiles to new style.
+ * There may be problems there that I missed, so this shouldn't go into
+ * an offical kernel any time soon.
+ * However, if I didn't commit it, we wouldn't find the bugs...
+ *
  * Revision 1.44  2000/11/25 17:00:59  kai
  * compatibility cleanup - final part for the time being
  *
@@ -240,7 +246,6 @@
 #include <linux/devfs_fs_kernel.h>
 #endif /* HAVE_DEVFS_FS */
 #include <linux/isdn_compat.h>
-#include <linux/init.h>
 #include "capiutil.h"
 #include "capicmd.h"
 #if defined(CONFIG_ISDN_CAPI_CAPIFS) || defined(CONFIG_ISDN_CAPI_CAPIFS_MODULE)
