@@ -23,6 +23,9 @@
  * detlef@abcbtx.de
  * detlef wengorz
  * $Log$
+ * Revision 1.1.2.4  1998/04/21 17:56:34  detabc
+ * added code to reset secure-counter with a spezial udp-packets
+ *
  * Revision 1.1.2.3  1998/03/20 12:25:50  detabc
  * Insert the timru recalc_timeout function in the abc_test_receive() function.
  * The timru function will be called after decrypt and decompress is done.
@@ -116,7 +119,7 @@ struct sk_buff_head abc_receive_q;
 
 
 #define ABC_ROUT_FIRSTMAGIC 27019413L
-#define ABC_ROUT_VERSION 46
+#define ABC_ROUT_VERSION 47
 
 #define ABCR_NORM 0
 #define ABCR_FIRST_REQ	0x1001
@@ -494,9 +497,6 @@ int abc_first_senden(struct device *ndev,isdn_net_local *lp)
 	u_char *p;
 
 
-	if(!lp->abc_bchan_is_up)
-		return(0);
-
 	len = sizeof(struct ABCR_FIRST_DATA) + 2;
 	skb = dev_alloc_skb(len + dev->abc_max_hdrlen);
 
@@ -518,20 +518,8 @@ int abc_first_senden(struct device *ndev,isdn_net_local *lp)
 	fd.fd_version =  ABC_ROUT_VERSION ;
 	fd.fd_flags =   ABCR_ALLE ;
 	memcpy(p,(void *)&fd,sizeof(struct ABCR_FIRST_DATA));
-
-	retw = isdn_writebuf_skb_stub(lp->isdn_device,lp->isdn_channel,skb);
-
-	if(retw == len) {
-
-		lp->abc_flags &= ~ABC_MUSTFIRST;
-		lp->transcount += len;
-		retw = 0;
-
-	} else {
-
-		kfree_skb(skb,FREE_WRITE);
-		retw = 1;
-	} 
+	lp->abc_snd_want_bytes += sizeof(struct ABCR_FIRST_DATA);
+	abc_put_tx_que(lp,0,0,skb);
 
 	if(dev->net_verbose > 1)
 		printk(KERN_DEBUG " abc_firstdata_send retw %d len %d\n",
@@ -873,12 +861,6 @@ int abc_keep_senden(struct device *ndev,isdn_net_local *lp)
 
 	struct sk_buff *skb;
 
-	if(!lp->abc_bchan_is_up)
-		return(0);
-
-	if(lp->isdn_device < 0 || lp->isdn_channel < 0)
-		return 0;
-
 	if( (skb = abc_get_keep_skb()) == NULL) {
 
 		printk(KERN_DEBUG
@@ -886,61 +868,13 @@ int abc_keep_senden(struct device *ndev,isdn_net_local *lp)
 
 		return -1;
 	}
-			
-	retw = isdn_writebuf_skb_stub(lp->isdn_device,lp->isdn_channel,skb);
-
-	if(retw == len) {
-
-		lp->abc_nextkeep = jiffies + 20 * HZ;
-		lp->abc_flags &= ~ABC_MUSTKEEP;
-		lp->transcount += len;
-		retw = 0;
-
-	} else {
-
-		dev_kfree_skb(skb,FREE_WRITE);
-		retw = -1;
-	} 
+	abc_put_tx_que(lp,0,0,skb);
 
 	if(dev->net_verbose > 5)
 		printk(KERN_DEBUG " %s abc_keepal_send retw %d len %d\n",
 			lp->name,retw,len);
 	
 	return(retw);
-}
-
-
-
-void abc_hup_snd_test(isdn_net_local *lp,struct sk_buff *skb)
-{
-	isdn_net_local *lpm = lp;
-	u_short k;
-	u_char *p = skb->data;
-
-	if(!lp->abc_bchan_is_up) 
-		return;
-
-	if(lp->master)
-		lpm = (isdn_net_local *)lp->master->priv;
-	
-	if(!(lpm->abc_flags & ABC_ABCROUTER)) {
-
-#ifndef CONFIG_ISDN_TIMEOUT_RULE
-		lp->huptimer = 0;
-#endif
-		return;
-	}
-
-	k = *(p++) & 0xFF;
-	k |= (*(p++) & 0xFF) << 8;
-
-	if(k & ABCR_TCPKEEP)
-		return;
-
-#ifndef CONFIG_ISDN_TIMEOUT_RULE
-	lp->huptimer = 0;
-#endif
-	return;
 }
 
 
@@ -1143,8 +1077,6 @@ struct sk_buff *abc_test_receive(struct device *ndev, struct sk_buff *skb)
 		** endof transmission 
 		*/
 
-		lp->abc_bchan_is_up = 0;
-
 		if(dev->net_verbose > 1) {
 
 			printk(KERN_DEBUG 
@@ -1273,6 +1205,9 @@ struct sk_buff *abc_test_receive(struct device *ndev, struct sk_buff *skb)
 
 	is_tcp_keep = !!(k & ABCR_TCPKEEP);
 
+	if(!is_tcp_keep && lp != NULL)
+		lp->abc_last_traffic = jiffies;
+
 	if(lp != NULL && *lp->abc_rx_key != 0 && len > 0) {
 
 		if(*lp->abc_rx_key == '-')
@@ -1386,6 +1321,11 @@ struct sk_buff *abc_test_receive(struct device *ndev, struct sk_buff *skb)
 		return(NULL);
 
 	if(lp != NULL) {
+
+		int i = isdn_dc2minor( lp->isdn_device,lp->isdn_channel);
+
+		if(i > -1)
+			dev->ibytes[i] += skb->len - orig_len;
 
 		lp->abc_rcv_want_bytes += (u_long)skb->len;
 		lp->abc_rcv_real_bytes += orig_len;
@@ -1753,11 +1693,10 @@ static  int sende_ip(	struct device *ndev,
 	struct iphdr *iph = (struct iphdr *)((u_char *)skb->data);
 
 	if(dev->net_verbose > 1)
-		printk(KERN_DEBUG " abc_ipsend called %s->%s proto %d len %d\n",
+		printk(KERN_DEBUG "abc_ipsend %s->%s proto %d\n",
 			abc_h_ipnr(srcadr),
 			abc_h_ipnr(dstadr),
-			proto,
-			bytes);
+			proto);
 
 	iph->version 	= 4;
 	iph->ihl      	= 5;
@@ -2577,7 +2516,8 @@ int abcgmbh_udp_test(struct device *ndev,struct sk_buff *sp)
 							transbuf,
 							2);
 
-					} else if( *udata == 0x2c || *udata == 0x2e ) {
+					} else if( *udata == 0x2c || 
+							*udata == 0x2e || *udata == 0x2a ) {
 
 						int isfull = 0;
 
@@ -2598,6 +2538,10 @@ int abcgmbh_udp_test(struct device *ndev,struct sk_buff *sp)
 									lp->name);
 							}
 
+						} else if(*udata == 0x2a) {
+						
+							transbuf[0] = transbuf[1] = 0x2b;
+
 						} else transbuf[0] = transbuf[1] = 0x2d;
 
 						/*
@@ -2616,37 +2560,8 @@ int abcgmbh_udp_test(struct device *ndev,struct sk_buff *sp)
 							transbuf,
 							2);
 
-						if(!(lp->flags & ISDN_NET_CONNECTED) || !lp->outgoing)
-							isdn_net_hangup(ndev);
-
-					} else if( udata[0] == 0x2a) {
-
-						transbuf[0] = transbuf[1] = 0x2b;
-
-						/*
-						** verbindung soll schnell abgebaut werden
-						** wenn nicht aufgebaut dann anderen retcode
-						*/
-
-						if(!(lp->flags & ISDN_NET_CONNECTED))
-							transbuf[0] = transbuf[1] = 0x0;
-
-						retw = !sende_udp(ndev,
-							ip->daddr,
-							ip->saddr,
-							u->dest,
-							u->source,
-							transbuf,
-							2);
-
-						if(lp->flags & ISDN_NET_CONNECTED) {
-
-							/*
-							** hier verbindung abbauen
-							*/
-
-							isdn_net_hangup(ndev);
-						}
+						lp->abc_delayed_hangup = 
+							jiffies + ABC_DELAYED_MAXHANGUP_WAIT;
 
 					} 
 					/* else und was in zukunft noch 
@@ -2723,6 +2638,48 @@ udp_ausgang:;
 	}
 
 	return(0);
+}
+
+void abc_clear_tx_que(isdn_net_local *lp) 
+{
+	if(lp != NULL) {
+
+		struct sk_buff_head *tq = lp->abc_tx_que;
+		struct sk_buff_head *etq = lp->abc_tx_que + ABC_ANZ_TX_QUE;
+
+		for(;tq < etq;tq++) {
+
+			struct sk_buff *skb = NULL;
+			
+			while((skb = skb_dequeue(tq)) != NULL)
+				dev_kfree_skb(skb,FREE_WRITE);
+		}
+	}
+}
+
+void abc_put_tx_que(isdn_net_local *lp,int qnr,int top,struct sk_buff *skb)
+{
+	if(lp != NULL && skb != NULL) {
+
+		struct sk_buff_head *tq;
+
+		if(qnr >= ABC_ANZ_TX_QUE || qnr < 0) {
+
+			printk(KERN_DEBUG
+				"abc_put_tx_que: qnr %d out of range 0-%d\n",
+				qnr,
+				ABC_ANZ_TX_QUE);
+
+			return;
+		}
+
+		tq = lp->abc_tx_que + qnr;
+
+		if(top)
+			skb_queue_head(tq,skb);
+		else
+			skb_queue_tail(tq,skb);
+	}
 }
 
 
