@@ -16,9 +16,6 @@
 #include "isdnl1.h"
 #include "ipac.h"
 #include <linux/pci.h>
-#ifndef COMPAT_HAS_NEW_PCI
-#include <linux/bios32.h>
-#endif
 
 extern const char *CardType[];
 const char *gazel_revision = "$Revision$";
@@ -562,11 +559,7 @@ setup_gazelisa(struct IsdnCard *card, struct IsdnCardState *cs)
 	return (0);
 }
 
-#ifdef COMPAT_HAS_NEW_PCI
 static struct pci_dev *dev_tel __initdata = NULL;
-#else
-static  int pci_index __initdata = 0;
-#endif
 
 static int
 setup_gazelpci(struct IsdnCardState *cs)
@@ -578,15 +571,12 @@ setup_gazelpci(struct IsdnCardState *cs)
 	printk(KERN_WARNING "Gazel: PCI card automatic recognition\n");
 
 	found = 0;
-#ifdef COMPAT_HAS_NEW_PCI
 	if (!pci_present()) {
 		printk(KERN_WARNING "Gazel: No PCI bus present\n");
 		return 1;
 	}
-#endif
 	seekcard = PCI_DEVICE_ID_PLX_R685;
 	for (nbseek = 0; nbseek < 3; nbseek++) {
-#ifdef COMPAT_HAS_NEW_PCI
 		if ((dev_tel = pci_find_device(PCI_VENDOR_ID_PLX, seekcard, dev_tel))) {
 			if (pci_enable_device(dev_tel))
 				return 1;
@@ -595,26 +585,6 @@ setup_gazelpci(struct IsdnCardState *cs)
 			pci_ioaddr1 = pci_resource_start_io(dev_tel, 2);
 			found = 1;
 		}
-#else
-		for (; pci_index < 0xff; pci_index++) {
-			u_char pci_bus, pci_device_fn;
-			
-			if (pcibios_find_device(PCI_VENDOR_ID_PLX, seekcard,
-				pci_index, &pci_bus, &pci_device_fn)
-				!= PCIBIOS_SUCCESSFUL)
-				break;
-			/* get IRQ */
-			pcibios_read_config_byte(pci_bus, pci_device_fn,
-				PCI_INTERRUPT_LINE, &pci_irq);
-			/* get IO address */
-			pcibios_read_config_dword(pci_bus, pci_device_fn,
-				PCI_BASE_ADDRESS_1, &pci_ioaddr0);
-			pcibios_read_config_dword(pci_bus, pci_device_fn,
-				PCI_BASE_ADDRESS_2, &pci_ioaddr1);
-			found = 1;
-			break;
-		}
-#endif /* COMPAT_HAS_NEW_PCI */
 		if (found)
 			break;
 		else {
@@ -626,9 +596,6 @@ setup_gazelpci(struct IsdnCardState *cs)
 					seekcard = PCI_DEVICE_ID_PLX_DJINN_ITOO;
 					break;
 			}
-#ifndef COMPAT_HAS_NEW_PCI
-			pci_index = 0;
-#endif
 		}
 	}
 	if (!found) {

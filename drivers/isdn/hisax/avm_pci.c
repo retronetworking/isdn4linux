@@ -14,9 +14,6 @@
 #include "isac.h"
 #include "isdnl1.h"
 #include <linux/pci.h>
-#ifndef COMPAT_HAS_NEW_PCI
-#include <linux/bios32.h>
-#endif
 #include <linux/interrupt.h>
 
 extern const char *CardType[];
@@ -769,11 +766,7 @@ AVM_card_msg(struct IsdnCardState *cs, int mt, void *arg)
 	return(0);
 }
 
-#ifdef COMPAT_HAS_NEW_PCI
 static 	struct pci_dev *dev_avm __initdata = NULL;
-#else
-static  int pci_index __initdata = 0;
-#endif
 
 __initfunc(int
 setup_avm_pcipnp(struct IsdnCard *card))
@@ -792,7 +785,6 @@ setup_avm_pcipnp(struct IsdnCard *card))
 		cs->subtyp = AVM_FRITZ_PNP;
 	} else {
 #if CONFIG_PCI
-#ifdef COMPAT_HAS_NEW_PCI
 		if (!pci_present()) {
 			printk(KERN_ERR "FritzPCI: no PCI bus present\n");
 			return(0);
@@ -816,36 +808,6 @@ setup_avm_pcipnp(struct IsdnCard *card))
 			printk(KERN_WARNING "FritzPCI: No PCI card found\n");
 			return(0);
 		}
-#else
-		for (; pci_index < 255; pci_index++) {
-			unsigned char pci_bus, pci_device_fn;
-			unsigned int ioaddr;
-			unsigned char irq;
-
-			if (pcibios_find_device(PCI_VENDOR_ID_AVM,
-				PCI_DEVICE_ID_AVM_FRITZ, pci_index,
-				&pci_bus, &pci_device_fn) != 0) {
-				continue;
-			}
-			pcibios_read_config_byte(pci_bus, pci_device_fn,
-				PCI_INTERRUPT_LINE, &irq);
-			pcibios_read_config_dword(pci_bus, pci_device_fn,
-				PCI_BASE_ADDRESS_1, &ioaddr);
-			cs->irq = irq;
-			cs->hw.avm.cfg_reg = ioaddr & PCI_BASE_ADDRESS_IO_MASK;
-			if (!cs->hw.avm.cfg_reg) {
-				printk(KERN_ERR "FritzPCI: No IO-Adr for PCI card found\n");
-				return(0);
-			}
-			cs->subtyp = AVM_FRITZ_PCI;
-			break;
-		}
-		if (pci_index == 255) {
-			printk(KERN_WARNING "FritzPCI: No PCI card found\n");
-			return(0);
-		}
-		pci_index++;
-#endif /* COMPAT_HAS_NEW_PCI */
 		cs->irq_flags |= SA_SHIRQ;
 #else
 		printk(KERN_WARNING "FritzPCI: NO_PCI_BIOS\n");

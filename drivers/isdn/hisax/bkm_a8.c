@@ -18,9 +18,6 @@
 #include "hscx.h"
 #include "isdnl1.h"
 #include <linux/pci.h>
-#ifndef COMPAT_HAS_NEW_PCI
-#include <linux/bios32.h>
-#endif
 #include "bkm_ax.h"
 
 #if CONFIG_PCI
@@ -285,11 +282,7 @@ sct_alloc_io(u_int adr, u_int len))
 	return(0);
 }
 
-#ifdef COMPAT_HAS_NEW_PCI
 static struct pci_dev *dev_a8 __initdata = NULL;
-#else
-static int pci_index __initdata = 0;
-#endif
 static u16  sub_vendor_id __initdata = 0;
 static u16  sub_sys_id __initdata = 0;
 static u_char pci_bus __initdata = 0;
@@ -327,7 +320,6 @@ setup_sct_quadro(struct IsdnCard *card))
 		(sub_vendor_id != SCT_SUBVEN_ID)))
 		return (0);
 	if (cs->subtyp == SCT_1) {
-#ifdef COMPAT_HAS_NEW_PCI
 		if (!pci_present()) {
 			printk(KERN_ERR "bkm_a4t: no PCI bus present\n");
 			return (0);
@@ -349,39 +341,12 @@ setup_sct_quadro(struct IsdnCard *card))
 				break;
 			}
 		}
-#else
-		for (; pci_index < 0xff; pci_index++) {
-			if (pcibios_find_device(PCI_VENDOR_ID_PLX,
-				PCI_DEVICE_ID_PLX_9050, pci_index, &pci_bus,
-				&pci_device_fn) == PCIBIOS_SUCCESSFUL) {
-				pcibios_read_config_dword(pci_bus,
-					pci_device_fn, PCI_SUBSYSTEM_VENDOR_ID,
-					&sub_sys_id);
-				if (sub_sys_id == ((SCT_SUBSYS_ID << 16) |
-					SCT_SUBVEN_ID)) {
-					found = 1;
-					pcibios_read_config_dword(pci_bus,
-						pci_device_fn,
-						PCI_BASE_ADDRESS_1,
-						&pci_ioaddr1);
-					pcibios_read_config_byte(pci_bus,
-						pci_device_fn,
-						PCI_INTERRUPT_LINE,
-						&pci_irq);
-					break;
-				}
-			}
-		}
-#endif /* COMPAT_HAS_NEW_PCI */
 		if (!found) {
 			printk(KERN_WARNING "HiSax: %s (%s): Card not found\n",
 				CardType[card->typ],
 				sct_quadro_subtypes[cs->subtyp]);
 			return (0);
 		}
-#ifndef COMPAT_HAS_NEW_PCI
-		pci_index++; /* need for more as one card */
-#endif
 #ifdef ATTEMPT_PCI_REMAPPING
 /* HACK: PLX revision 1 bug: PLX address bit 7 must not be set */
 		pcibios_read_config_byte(pci_bus, pci_device_fn,
@@ -398,9 +363,7 @@ setup_sct_quadro(struct IsdnCard *card))
 			pci_ioaddr1 &= PCI_BASE_ADDRESS_IO_MASK;
 			pcibios_write_config_dword(pci_bus, pci_device_fn,
 				PCI_BASE_ADDRESS_1, pci_ioaddr1);
-#ifdef COMPAT_HAS_NEW_PCI
 			get_pcibase(dev_a8, 1) = pci_ioaddr1;
-#endif /* COMPAT_HAS_NEW_PCI */
 		}
 #endif /* End HACK */
 	}

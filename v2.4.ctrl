@@ -1,5 +1,4 @@
 #delete #include <linux/isdn_compat.h>
-#define COMPAT_HAS_NEW_PCI
 #define get_pcibase(ps, nr) ps->resource[nr].start
 #define pci_resource_start_io(pdev,nr)	pci_resource_start(pdev,nr)
 #define pci_resource_start_mem(pdev,nr)	pci_resource_start(pdev,nr)

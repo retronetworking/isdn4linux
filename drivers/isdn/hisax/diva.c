@@ -20,9 +20,6 @@
 #include "ipac.h"
 #include "isdnl1.h"
 #include <linux/pci.h>
-#ifndef COMPAT_HAS_NEW_PCI
-#include <linux/bios32.h>
-#endif
 
 extern const char *CardType[];
 
@@ -838,13 +835,9 @@ Diva_card_msg(struct IsdnCardState *cs, int mt, void *arg)
 	return(0);
 }
 
-#ifdef COMPAT_HAS_NEW_PCI
 static 	struct pci_dev *dev_diva __initdata = NULL;
 static 	struct pci_dev *dev_diva_u __initdata = NULL;
 static 	struct pci_dev *dev_diva201 __initdata = NULL;
-#else
-static  int pci_index __initdata = 0;
-#endif
 
 __initfunc(int
 setup_diva(struct IsdnCard *card))
@@ -885,7 +878,6 @@ setup_diva(struct IsdnCard *card))
 		bytecnt = 8;
 	} else {
 #if CONFIG_PCI
-#ifdef COMPAT_HAS_NEW_PCI
 		if (!pci_present()) {
 			printk(KERN_ERR "Diva: no PCI bus present\n");
 			return(0);
@@ -930,66 +922,6 @@ setup_diva(struct IsdnCard *card))
 			printk(KERN_WARNING "Diva: No IO-Adr for PCI card found\n");
 			return(0);
 		}
-#else
-		u_char pci_bus, pci_device_fn, pci_irq;
-		u_int pci_ioaddr;
-
-		cs->subtyp = 0;
-		for (; pci_index < 0xff; pci_index++) {
-			if (pcibios_find_device(PCI_VENDOR_ID_EICON,
-			   PCI_DEVICE_ID_EICON_DIVA20, pci_index, &pci_bus,
-			   &pci_device_fn) == PCIBIOS_SUCCESSFUL)
-				cs->subtyp = DIVA_PCI;
-			else if (pcibios_find_device(PCI_VENDOR_ID_EICON,
-			   PCI_DEVICE_ID_EICON_DIVA20_U, pci_index, &pci_bus,
-			   &pci_device_fn) == PCIBIOS_SUCCESSFUL)
-			   	cs->subtyp = DIVA_PCI;
-			else if (pcibios_find_device(PCI_VENDOR_ID_EICON,
-			   PCI_DEVICE_ID_EICON_DIVA201, pci_index, &pci_bus,
-			   &pci_device_fn) == PCIBIOS_SUCCESSFUL)
-			   	cs->subtyp = DIVA_IPAC_PCI;
-			else
-				break;
-			/* get IRQ */
-			pcibios_read_config_byte(pci_bus, pci_device_fn,
-				PCI_INTERRUPT_LINE, &pci_irq);
-
-			/* get IO address */
-			if (cs->subtyp == DIVA_IPAC_PCI) {
-				pcibios_read_config_dword(pci_bus, pci_device_fn,
-					PCI_BASE_ADDRESS_0, &pci_ioaddr);
-				cs->hw.diva.pci_cfg = (ulong) ioremap(pci_ioaddr,
-					4096);
-				pcibios_read_config_dword(pci_bus, pci_device_fn,
-					PCI_BASE_ADDRESS_1, &pci_ioaddr);
-				cs->hw.diva.cfg_reg = (ulong) ioremap(pci_ioaddr,
-					4096);
-			} else {
-				pcibios_read_config_dword(pci_bus, pci_device_fn,
-					PCI_BASE_ADDRESS_1, &pci_ioaddr);
-				cs->hw.diva.pci_cfg = pci_ioaddr & ~3;
-				pcibios_read_config_dword(pci_bus, pci_device_fn,
-					PCI_BASE_ADDRESS_2, &pci_ioaddr);
-				cs->hw.diva.cfg_reg = pci_ioaddr & ~3;
-			}
-			if (cs->subtyp)
-				break;
-		}
-		if (!cs->subtyp) {
-			printk(KERN_WARNING "Diva: No PCI card found\n");
-			return(0);
-		}
-		pci_index++;
-		if (!pci_irq) {
-			printk(KERN_WARNING "Diva: No IRQ for PCI card found\n");
-			return(0);
-		}
-		if (!pci_ioaddr) {
-			printk(KERN_WARNING "Diva: No IO-Adr for PCI card found\n");
-			return(0);
-		}
-		cs->irq = pci_irq;
-#endif /* COMPAT_HAS_NEW_PCI */
 		cs->irq_flags |= SA_SHIRQ;
 #else
 		printk(KERN_WARNING "Diva: cfgreg 0 and NO_PCI_BIOS\n");

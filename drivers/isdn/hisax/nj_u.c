@@ -10,9 +10,6 @@
 #include "icc.h"
 #include "isdnl1.h"
 #include <linux/pci.h>
-#ifndef COMPAT_HAS_NEW_PCI
-#include <linux/bios32.h>
-#endif
 #include <linux/interrupt.h>
 #include <linux/ppp_defs.h>
 #include "netjet.h"
@@ -144,11 +141,7 @@ NETjet_U_card_msg(struct IsdnCardState *cs, int mt, void *arg)
 	return(0);
 }
 
-#ifdef COMPAT_HAS_NEW_PCI
 static 	struct pci_dev *dev_netjet __initdata = NULL;
-#else
-static  int pci_index __initdata = 0;
-#endif
 
 __initfunc(int
 setup_netjet_u(struct IsdnCard *card))
@@ -158,10 +151,6 @@ setup_netjet_u(struct IsdnCard *card))
 	char tmp[64];
 	long flags;
 #if CONFIG_PCI
-#ifndef COMPAT_HAS_NEW_PCI
-	u_char pci_bus, pci_device_fn, pci_irq;
-	u_int pci_ioaddr, found;
-#endif
 #endif
 #ifdef __BIG_ENDIAN
 #error "not running on big endian machines now"
@@ -173,7 +162,6 @@ setup_netjet_u(struct IsdnCard *card))
 	test_and_clear_bit(FLG_LOCK_ATOMIC, &cs->HW_Flags);
 
 #if CONFIG_PCI
-#ifdef COMPAT_HAS_NEW_PCI
 
 	for ( ;; )
 	{
@@ -199,42 +187,6 @@ setup_netjet_u(struct IsdnCard *card))
 			printk(KERN_WARNING "NETspider-U: No PCI card found\n");
 			return(0);
 		}
-#else
-		found = 0;
-		for (; pci_index < 0xff; pci_index++) {
-			if (pcibios_find_device(PCI_VENDOR_TRAVERSE_TECH,
-				PCI_NETJET_ID, pci_index, &pci_bus, &pci_device_fn)
-				== PCIBIOS_SUCCESSFUL)
-				found = 1;
-			else
-				continue;
-			/* get IRQ */
-			pcibios_read_config_byte(pci_bus, pci_device_fn,
-				PCI_INTERRUPT_LINE, &pci_irq);
-
-			/* get IO address */
-			pcibios_read_config_dword(pci_bus, pci_device_fn,
-				PCI_BASE_ADDRESS_0, &pci_ioaddr);
-			if (found)
-				break;
-		}
-		if (!found) {
-			printk(KERN_WARNING "NETspider-U: No PCI card found\n");
-			return(0);
-		}
-		pci_index++;
-		if (!pci_irq) {
-			printk(KERN_WARNING "NETspider-U: No IRQ for PCI card found\n");
-			return(0);
-		}
-		if (!pci_ioaddr) {
-			printk(KERN_WARNING "NETspider-U: No IO-Adr for PCI card found\n");
-			return(0);
-		}
-		cs->hw.njet.base = pci_ioaddr & PCI_BASE_ADDRESS_IO_MASK; 
-		cs->irq = pci_irq;
-
-#endif /* COMPAT_HAS_NEW_PCI */
 
 		cs->hw.njet.auxa = cs->hw.njet.base + NETJET_AUXDATA;
 		cs->hw.njet.isac = cs->hw.njet.base | NETJET_ISAC_OFF;

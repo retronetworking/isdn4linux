@@ -48,14 +48,6 @@
 #include "isar.h"
 #include "isdnl1.h"
 #include <linux/pci.h>
-#ifndef COMPAT_HAS_NEW_PCI
-#include <linux/bios32.h>
-/* in old PCI here is an error in defining SUB SYSTEM/VENDOR Ids */
-#undef  PCI_SUBSYSTEM_VENDOR_ID
-#define PCI_SUBSYSTEM_VENDOR_ID	0x2c
-#undef  PCI_SUBSYSTEM_ID
-#define PCI_SUBSYSTEM_ID	0x2e
-#endif
 
 extern const char *CardType[];
 
@@ -542,11 +534,7 @@ Sedl_card_msg(struct IsdnCardState *cs, int mt, void *arg)
 	return(0);
 }
 
-#ifdef COMPAT_HAS_NEW_PCI
 static 	struct pci_dev *dev_sedl __initdata = NULL;
-#else
-static  int pci_index __initdata = 0;
-#endif
 
 __initfunc(int
 setup_sedlbauer(struct IsdnCard *card))
@@ -585,7 +573,6 @@ setup_sedlbauer(struct IsdnCard *card))
 	} else {
 /* Probe for Sedlbauer speed pci */
 #if CONFIG_PCI
-#ifdef COMPAT_HAS_NEW_PCI
 		if (!pci_present()) {
 			printk(KERN_ERR "Sedlbauer: no PCI bus present\n");
 			return(0);
@@ -604,35 +591,6 @@ setup_sedlbauer(struct IsdnCard *card))
 			printk(KERN_WARNING "Sedlbauer: No PCI card found\n");
 			return(0);
 		}
-#else
-		for (; pci_index < 255; pci_index++) {
-			unsigned char pci_bus, pci_device_fn;
-			unsigned int ioaddr;
-			unsigned char irq;
-
-			if (pcibios_find_device (PCI_VENDOR_ID_TIGERJET,
-					PCI_DEVICE_ID_TIGERJET_100, pci_index,
-					&pci_bus, &pci_device_fn) != 0) {
-				continue;
-			}
-			pcibios_read_config_byte(pci_bus, pci_device_fn,
-				PCI_INTERRUPT_LINE, &irq);
-			pcibios_read_config_dword(pci_bus, pci_device_fn,
-				PCI_BASE_ADDRESS_0, &ioaddr);
-			cs->irq = irq;
-			cs->hw.sedl.cfg_reg = ioaddr & PCI_BASE_ADDRESS_IO_MASK; 
-			if (!cs->hw.sedl.cfg_reg) {
-				printk(KERN_WARNING "Sedlbauer: No IO-Adr for PCI card found\n");
-				return(0);
-			}
-			break;
-		}	
-		if (pci_index == 255) {
-			printk(KERN_WARNING "Sedlbauer: No PCI card found\n");
-			return(0);
-		}
-		pci_index++;
-#endif /* COMPAT_HAS_NEW_PCI */
 		cs->irq_flags |= SA_SHIRQ;
 		cs->hw.sedl.bus = SEDL_BUS_PCI;
 		pci_get_sub_vendor(dev_sedl,sub_vendor_id);

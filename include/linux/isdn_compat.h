@@ -21,8 +21,6 @@
 #define poll_wait(f,wq,w) poll_wait((wq),(w))
 #endif
 
-#if LINUX_VERSION_CODE > KERNEL_VERSION(2,1,91)
-#define COMPAT_HAS_NEW_PCI
 #if LINUX_VERSION_CODE < KERNEL_VERSION(2,3,13)
 #define COMPAT_HAS_2_2_PCI
 #define get_pcibase(ps, nr) ps->base_address[nr]
@@ -36,7 +34,6 @@
 #if LINUX_VERSION_CODE < KERNEL_VERSION(2,4,0)
 #define pci_get_sub_vendor(pdev, id)	pci_read_config_word(pdev, PCI_SUBSYSTEM_VENDOR_ID, &id)
 #define pci_get_sub_system(pdev, id)	pci_read_config_word(pdev, PCI_SUBSYSTEM_ID, &id)
-#endif
 #endif
 
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2,1,118)

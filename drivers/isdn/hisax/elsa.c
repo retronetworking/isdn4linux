@@ -24,9 +24,6 @@
 #include "hscx.h"
 #include "isdnl1.h"
 #include <linux/pci.h>
-#ifndef COMPAT_HAS_NEW_PCI
-#include <linux/bios32.h>
-#endif
 #include <linux/serial.h>
 #include <linux/serial_reg.h>
 
@@ -870,12 +867,8 @@ probe_elsa(struct IsdnCardState *cs)
 	return (CARD_portlist[i]);
 }
 
-#ifdef COMPAT_HAS_NEW_PCI
 static 	struct pci_dev *dev_qs1000 __initdata = NULL;
 static 	struct pci_dev *dev_qs3000 __initdata = NULL;
-#else
-static 	int pci_index __initdata = 0;
-#endif
 
 int
 setup_elsa(struct IsdnCard *card)
@@ -993,7 +986,6 @@ setup_elsa(struct IsdnCard *card)
 		       cs->irq);
 	} else if (cs->typ == ISDN_CTYPE_ELSA_PCI) {
 #if CONFIG_PCI
-#ifdef COMPAT_HAS_NEW_PCI
 		if (!pci_present()) {
 			printk(KERN_ERR "Elsa: no PCI bus present\n");
 			return(0);
@@ -1038,54 +1030,6 @@ setup_elsa(struct IsdnCard *card)
 			HZDELAY(500);	/* wait 500*10 ms */
 			restore_flags(flags);
 		}
-#else
-		u_char pci_bus, pci_device_fn, pci_irq;
-		u_int pci_ioaddr;
-
-		cs->subtyp = 0;
-		for (; pci_index < 0xff; pci_index++) {
-			if (pcibios_find_device(PCI_VENDOR_ID_ELSA,
-			   PCI_DEVICE_ID_ELSA_MIRCOLINK, pci_index, &pci_bus,
-			   &pci_device_fn) == PCIBIOS_SUCCESSFUL)
-				cs->subtyp = ELSA_QS1000PCI;
-			else if (pcibios_find_device(PCI_VENDOR_ID_ELSA,
-			   PCI_DEVICE_ID_ELSA_QS3000, pci_index, &pci_bus,
-			   &pci_device_fn) == PCIBIOS_SUCCESSFUL)
-				cs->subtyp = ELSA_QS3000PCI;
-			else
-				break;
-			/* get IRQ */
-			pcibios_read_config_byte(pci_bus, pci_device_fn,
-				PCI_INTERRUPT_LINE, &pci_irq);
-
-			/* get IO address */
-			pcibios_read_config_dword(pci_bus, pci_device_fn,
-				PCI_BASE_ADDRESS_1, &pci_ioaddr);
-			pci_ioaddr &= ~3; /* remove io/mem flag */
-			cs->hw.elsa.cfg = pci_ioaddr;
-			pcibios_read_config_dword(pci_bus, pci_device_fn,
-				PCI_BASE_ADDRESS_3, &pci_ioaddr);
-			if (cs->subtyp)
-				break;
-		}
-		if (!cs->subtyp) {
-			printk(KERN_WARNING "Elsa: No PCI card found\n");
-			return(0);
-		}
-		pci_index++;
-		if (!pci_irq) {
-			printk(KERN_WARNING "Elsa: No IRQ for PCI card found\n");
-			return(0);
-		}
-
-		if (!pci_ioaddr) {
-			printk(KERN_WARNING "Elsa: No IO-Adr for PCI card found\n");
-			return(0);
-		}
-		pci_ioaddr &= ~3; /* remove io/mem flag */
-		cs->hw.elsa.base = pci_ioaddr;
-		cs->irq = pci_irq;
-#endif /* COMPAT_HAS_NEW_PCI */
 		cs->hw.elsa.ale  = cs->hw.elsa.base;
 		cs->hw.elsa.isac = cs->hw.elsa.base +1;
 		cs->hw.elsa.hscx = cs->hw.elsa.base +1; 

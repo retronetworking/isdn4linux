@@ -30,9 +30,6 @@
 #include "hfc_pci.h"
 #include "isdnl1.h"
 #include <linux/pci.h>
-#ifndef COMPAT_HAS_NEW_PCI
-#include <linux/bios32.h>
-#endif
 #include <linux/interrupt.h>
 
 extern const char *CardType[];
@@ -1655,11 +1652,7 @@ hfcpci_card_msg(struct IsdnCardState *cs, int mt, void *arg)
 
 
 /* this variable is used as card index when more than one cards are present */
-#ifdef COMPAT_HAS_NEW_PCI
 static struct pci_dev *dev_hfcpci __initdata = NULL;
-#else
-static int pci_index __initdata = 0;
-#endif
 
 #endif				/* CONFIG_PCI */
 
@@ -1670,9 +1663,7 @@ __initfunc(int
 	unsigned short cmd;
 	char tmp[64];
 	int i;
-#ifdef COMPAT_HAS_NEW_PCI
 	struct pci_dev *tmp_hfcpci = NULL;
-#endif
 
 #ifdef __BIG_ENDIAN
 #error "not running on big endian machines now"
@@ -1684,7 +1675,6 @@ __initfunc(int
 	cs->dc.hfcpci.ph_state = 0;
 	cs->hw.hfcpci.fifo = 255;
 	if (cs->typ == ISDN_CTYPE_HFC_PCI) {
-#ifdef COMPAT_HAS_NEW_PCI
 		if (!pci_present()) {
 			printk(KERN_ERR "HFC-PCI: no PCI bus present\n");
 			return (0);
@@ -1721,44 +1711,6 @@ __initfunc(int
 			printk(KERN_WARNING "HFC-PCI: No PCI card found\n");
 			return (0);
 		}
-#else
-		for (; pci_index < 255; pci_index++) {
-			unsigned char irq;
-
-			i = 0;
-			while (id_list[i].vendor_id) {
-				if (pcibios_find_device(id_list[i].vendor_id,
-					 id_list[i].device_id, pci_index,
-							&cs->hw.hfcpci.pci_bus, &cs->hw.hfcpci.pci_device_fn) == 0)
-					break;
-				i++;
-			}
-			if (!id_list[i].vendor_id)
-				continue;
-
-			if (card->para[0]) {
-				pcibios_read_config_dword(cs->hw.hfcpci.pci_bus,
-							  cs->hw.hfcpci.pci_device_fn, PCI_BASE_ADDRESS_0,
-					 (void *) &cs->hw.hfcpci.pci_io);
-				if (((u32) cs->hw.hfcpci.pci_io & PCI_BASE_ADDRESS_IO_MASK) != card->para[0])
-					continue;
-			}
-			pcibios_read_config_byte(cs->hw.hfcpci.pci_bus, cs->hw.hfcpci.pci_device_fn,
-					       PCI_INTERRUPT_LINE, &irq);
-			cs->irq = irq;
-
-			pcibios_read_config_dword(cs->hw.hfcpci.pci_bus,
-			 cs->hw.hfcpci.pci_device_fn, PCI_BASE_ADDRESS_1,
-					 (void *) &cs->hw.hfcpci.pci_io);
-			printk(KERN_INFO "HiSax: HFC-PCI card manufacturer: %s card name: %s\n", id_list[i].vendor_name, id_list[i].card_name);
-			break;
-		}
-		if (pci_index == 255) {
-			printk(KERN_WARNING "HFC-PCI: No card found\n");
-			return (0);
-		}
-		pci_index++;
-#endif				/* COMPAT_HAS_NEW_PCI */
 		if (((int) cs->hw.hfcpci.pci_io & (PAGE_SIZE - 1))) {
 			printk(KERN_WARNING "HFC-PCI shared mem address will be corrected\n");
 			pcibios_write_config_word(cs->hw.hfcpci.pci_bus,
@@ -1790,9 +1742,7 @@ __initfunc(int
 				printk(KERN_WARNING "HFC-PCI unable to align address %x\n", (unsigned) cs->hw.hfcpci.pci_io);
 				return (0);
 			}
-#ifdef COMPAT_HAS_NEW_PCI
 			get_pcibase(dev_hfcpci,1) = (int) cs->hw.hfcpci.pci_io;
-#endif
 		}
 		if (!cs->hw.hfcpci.pci_io) {
 			printk(KERN_WARNING "HFC-PCI: No IO-Mem for PCI card found\n");

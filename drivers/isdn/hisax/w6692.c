@@ -16,9 +16,6 @@
 #include "isdnl1.h"
 #include <linux/interrupt.h>
 #include <linux/pci.h>
-#ifndef COMPAT_HAS_NEW_PCI
-#include <linux/bios32.h>
-#endif
 
 #ifdef COMPAT_PCI_COMMON_ID
 #ifndef PCI_VENDOR_ID_ASUSCOM
@@ -990,11 +987,7 @@ w6692_card_msg(struct IsdnCardState *cs, int mt, void *arg)
 
 static int id_idx = 0;
 
-#ifdef COMPAT_HAS_NEW_PCI
 static struct pci_dev *dev_w6692 __initdata = NULL;
-#else
-static int pci_index __initdata = 0;
-#endif
 
 __initfunc(int setup_w6692(struct IsdnCard *card))
 {
@@ -1002,9 +995,6 @@ __initfunc(int setup_w6692(struct IsdnCard *card))
 	char tmp[64];
 	u_char found = 0;
 	u_char pci_irq = 0;
-#ifndef COMPAT_HAS_NEW_PCI
-	u_char pci_bus, pci_device_fn;
-#endif
 	u_int pci_ioaddr = 0;
 
 #ifdef __BIG_ENDIAN
@@ -1015,7 +1005,6 @@ __initfunc(int setup_w6692(struct IsdnCard *card))
 	if (cs->typ != ISDN_CTYPE_W6692)
 		return (0);
 #if CONFIG_PCI
-#ifdef COMPAT_HAS_NEW_PCI
 	if (!pci_present()) {
 		printk(KERN_ERR "W6692: no PCI bus present\n");
 		return (0);
@@ -1038,33 +1027,6 @@ __initfunc(int setup_w6692(struct IsdnCard *card))
 		/* and address 1 is the real IO space KKe 03.09.99 */
 		pci_ioaddr = pci_resource_start_io(dev_w6692, 1);
 	}
-#else
-	for (; pci_index < 0xff; pci_index++) {
-		while (id_list[id_idx].vendor_id) {
-			if (pcibios_find_device(id_list[id_idx].vendor_id,
-						id_list[id_idx].device_id,
-				     pci_index, &pci_bus, &pci_device_fn)
-			    == PCIBIOS_SUCCESSFUL) {
-				found = 1;
-				break;
-			} else {
-				id_idx++;
-			}
-		}
-		if (found)
-			break;
-		if (!id_list[id_idx].vendor_id)
-			id_idx = 0;
-	}
-	if (found) {
-		pcibios_read_config_byte(pci_bus, pci_device_fn,
-					 PCI_INTERRUPT_LINE, &pci_irq);
-		pcibios_read_config_dword(pci_bus, pci_device_fn,
-					PCI_BASE_ADDRESS_1, &pci_ioaddr);
-		pci_ioaddr &= PCI_BASE_ADDRESS_IO_MASK;
-		pci_index++;
-	}
-#endif				/* COMPAT_HAS_NEW_PCI */
 	if (!found) {
 		printk(KERN_WARNING "W6692: No PCI card found\n");
 		return (0);

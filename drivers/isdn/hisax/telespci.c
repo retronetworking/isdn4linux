@@ -15,9 +15,6 @@
 #include "hscx.h"
 #include "isdnl1.h"
 #include <linux/pci.h>
-#ifndef COMPAT_HAS_NEW_PCI
-#include <linux/bios32.h>
-#endif
 
 extern const char *CardType[];
 const char *telespci_revision = "$Revision$";
@@ -285,22 +282,13 @@ TelesPCI_card_msg(struct IsdnCardState *cs, int mt, void *arg)
 	return(0);
 }
 
-#ifdef COMPAT_HAS_NEW_PCI
 static 	struct pci_dev *dev_tel __initdata = NULL;
-#else
-static 	int pci_index __initdata = 0;
-#endif
 
 __initfunc(int
 setup_telespci(struct IsdnCard *card))
 {
 	struct IsdnCardState *cs = card->cs;
 	char tmp[64];
-#ifndef COMPAT_HAS_NEW_PCI
-	u_char pci_bus, pci_device_fn, pci_irq;
-	u_int pci_memaddr;
-	u_char found = 0;
-#endif
 
 #ifdef __BIG_ENDIAN
 #error "not running on big endian machines now"
@@ -310,7 +298,6 @@ setup_telespci(struct IsdnCard *card))
 	if (cs->typ != ISDN_CTYPE_TELESPCI)
 		return (0);
 #if CONFIG_PCI
-#ifdef COMPAT_HAS_NEW_PCI
 	if (!pci_present()) {
 		printk(KERN_ERR "TelesPCI: no PCI bus present\n");
 		return(0);
@@ -331,32 +318,6 @@ setup_telespci(struct IsdnCard *card))
 		printk(KERN_WARNING "TelesPCI: No PCI card found\n");
 		return(0);
 	}
-#else
-	for (; pci_index < 0xff; pci_index++) {
-		if (pcibios_find_device (PCI_VENDOR_ID_ZORAN, PCI_DEVICE_ID_ZORAN_36120,
-			pci_index, &pci_bus, &pci_device_fn)
-			== PCIBIOS_SUCCESSFUL) {
-			found = 1;
-		} else {
-			break;
-		}
-		pcibios_read_config_dword(pci_bus, pci_device_fn,
-				PCI_BASE_ADDRESS_0, &pci_memaddr);
-		pcibios_read_config_byte(pci_bus, pci_device_fn,
-				PCI_INTERRUPT_LINE, &pci_irq);
-
-		printk(KERN_INFO "Found: Zoran, base-address: 0x%x,"
-			" irq: 0x%x\n", pci_memaddr, pci_irq);
-		break;
-	}
-	if (!found) {
-		printk(KERN_WARNING "TelesPCI: No PCI card found\n");
-		return(0);
-	}
-	pci_index++;
-	cs->irq = pci_irq;
-	cs->hw.teles0.membase = (u_long) vremap(pci_memaddr, PAGE_SIZE);
-#endif /* COMPAT_HAS_NEW_PCI */
 #else
 	printk(KERN_WARNING "HiSax: Teles/PCI and NO_PCI_BIOS\n");
 	printk(KERN_WARNING "HiSax: Teles/PCI unable to config\n");

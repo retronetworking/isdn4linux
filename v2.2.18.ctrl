@@ -1,7 +1,6 @@
 #delete #include <linux/isdn_compat.h>
 #define dev_kfree_skb_irq(a,b) dev_kfree_skb(a)
 #define dev_kfree_skb_any(a,b) dev_kfree_skb(a)
-#define COMPAT_HAS_NEW_PCI
 #define COMPAT_HAS_2_2_PCI
 #define get_pcibase(ps,nr) ps->base_address[nr]
 #define pci_resource_start_io(pdev,nr)	pdev->base_address[nr] & PCI_BASE_ADDRESS_IO_MASK
