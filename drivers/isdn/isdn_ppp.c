@@ -19,6 +19,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.44  1998/10/30 17:55:34  he
+ * dialmode for x25iface and multulink ppp
+ *
  * Revision 1.43  1998/10/29 17:23:54  hipp
  * Minor MPPP fixes, verboser logging.
  *
@@ -316,7 +319,7 @@ isdn_ppp_free(isdn_net_local * lp)
 	if ((is->state & IPPP_CONNECT))
 		isdn_ppp_closewait(lp->ppp_slot);	/* force wakeup on ippp device */
 	else if (is->state & IPPP_ASSIGNED)
-		is->state = IPPP_OPEN;	/* fallback to 'OPEN but not ASSIGEND' state */
+		is->state = IPPP_OPEN;	/* fallback to 'OPEN but not ASSIGNED' state */
 
 	if (is->debug & 0x1)
 		printk(KERN_DEBUG "isdn_ppp_free %d %lx %lx\n", lp->ppp_slot, (long) lp, (long) is->lp);
@@ -368,9 +371,11 @@ isdn_ppp_bind(isdn_net_local * lp)
 			}
 		}
 	} else {
-		for (i = 0; i < ISDN_MAX_CHANNELS; i++)
-			if (ippp_table[i]->minor == lp->pppbind && ippp_table[i]->state == IPPP_OPEN)
+		for (i = 0; i < ISDN_MAX_CHANNELS; i++) {
+			if (ippp_table[i]->minor == lp->pppbind &&
+			    (ippp_table[i]->state & IPPP_OPEN) == IPPP_OPEN)
 				break;
+		}
 	}
 
 	if (i >= ISDN_MAX_CHANNELS) {
