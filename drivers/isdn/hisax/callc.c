@@ -7,6 +7,9 @@
  *              Fritz Elfert
  *
  * $Log$
+ * Revision 1.30.2.2  1997/11/15 18:54:31  keil
+ * cosmetics
+ *
  * Revision 1.30.2.1  1997/10/17 22:13:32  keil
  * update to last hisax version
  *
@@ -1048,6 +1051,7 @@ static struct FsmNode fnlist[] HISAX_INITDATA =
 	{ST_OUT_WAIT_D,		EV_HANGUP,		lli_no_dchan},
 	{ST_IN_WAIT_D,		EV_DLEST,		lli_do_action},
 	{ST_IN_WAIT_D,		EV_DLRL,		lli_no_dchan_in},
+	{ST_IN_WAIT_D,		EV_ACCEPTD,		lli_start_dchan},
 	{ST_IN_WAIT_D,		EV_HANGUP,		lli_start_dchan},
 	{ST_OUT_DIAL,		EV_SETUP_CNF,		lli_init_bchan_out},
 	{ST_OUT_DIAL,		EV_HANGUP,		lli_cancel_call},
