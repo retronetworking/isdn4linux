@@ -7,6 +7,11 @@
  * Beat Doebeli         log all D channel traffic
  * 
  * $Log$
+ * Revision 1.5  1996/05/17 03:45:02  fritz
+ * Made error messages more clearly.
+ * Bugfix: Only 31 bytes of 32-byte audio frames
+ *         have been transfered to upper layers.
+ *
  * Revision 1.4  1996/05/06 10:17:57  fritz
  * Added voice-send stuff
  *  (Not reporting EXIR when in voice-mode, since it's normal).
@@ -1695,8 +1700,8 @@ teles_inithardware(void)
 			  break;
 		  case (-2):
 			  release_region(cards[i].iobase, 8);
-                          teles_shiftcards(i);
 			  printk(KERN_WARNING "NO Teles card found at 0x%x!\n", cards[i].iobase);
+                          teles_shiftcards(i);
 			  break;
 		}
         }
