@@ -7,6 +7,9 @@
  *              Fritz Elfert
  *
  * $Log$
+ * Revision 1.2  1997/01/09 20:57:27  keil
+ * cleanup & FSM_TIMER_DEBUG
+ *
  * Revision 1.1  1996/10/13 20:04:52  keil
  * Initial revision
  *
@@ -110,8 +113,6 @@ FsmInitTimer(struct FsmInst *fi, struct FsmTimer *ft)
 void
 FsmDelTimer(struct FsmTimer *ft, int where)
 {
-	long            flags;
-
 #if FSM_TIMER_DEBUG
 	if (ft->fi->debug) {
 		char str[40];
@@ -119,11 +120,7 @@ FsmDelTimer(struct FsmTimer *ft, int where)
 		ft->fi->printdebug(ft->fi, str);
 	}
 #endif
-	save_flags(flags);
-	cli();
-	if (ft->tl.next)
-		del_timer(&ft->tl);
-	restore_flags(flags);
+	del_timer(&ft->tl);
 }
 
 int
@@ -139,7 +136,7 @@ FsmAddTimer(struct FsmTimer *ft,
 	}
 #endif
 
-	if (ft->tl.next) {
+	if (ft->tl.next || ft->tl.prev) {
 		printk(KERN_WARNING "FsmAddTimer: timer already active!\n");
 		ft->fi->printdebug(ft->fi, "FsmAddTimer already active!");
 		return -1;

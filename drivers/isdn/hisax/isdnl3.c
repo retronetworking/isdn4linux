@@ -7,6 +7,10 @@
  *              Fritz Elfert
  *
  * $Log$
+ * Revision 1.5  1997/02/09 00:26:27  keil
+ * new interface handling, one interface per card
+ * leased line changes
+ *
  * Revision 1.4  1997/01/27 23:17:44  keil
  * delete timers while unloading
  *
@@ -71,20 +75,14 @@ L3InitTimer(struct PStack *st, struct L3Timer *t)
 void
 L3DelTimer(struct L3Timer *t)
 {
-	long flags;
-
-	save_flags(flags);
-	cli();
-	if (t->tl.next)
-		del_timer(&t->tl);
-	restore_flags(flags);
+	del_timer(&t->tl);
 }
 
 int
 L3AddTimer(struct L3Timer *t,
 	   int millisec, int event)
 {
-	if (t->tl.next) {
+	if (t->tl.next || t->tl.prev) {
 		printk(KERN_WARNING "L3AddTimer: timer already active!\n");
 		return -1;
 	}

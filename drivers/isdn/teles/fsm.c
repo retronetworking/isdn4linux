@@ -1,6 +1,9 @@
 /* $Id$
  *
  * $Log$
+ * Revision 1.2  1996/04/29 22:49:57  fritz
+ * Removed compatibility-macros.
+ *
  * Revision 1.1  1996/04/13 10:23:41  fritz
  * Initial revision
  *
@@ -88,8 +91,6 @@ FsmInitTimer(struct FsmInst *fi, struct FsmTimer *ft)
 void
 FsmDelTimer(struct FsmTimer *ft, int where)
 {
-	long            flags;
-
 #if 0
 	if (ft->fi->debug) {
 		sprintf(str, "FsmDelTimer %lx %d", ft, where);
@@ -97,11 +98,7 @@ FsmDelTimer(struct FsmTimer *ft, int where)
 	}
 #endif
 
-	save_flags(flags);
-	cli();
-	if (ft->tl.next)
-		del_timer(&ft->tl);
-	restore_flags(flags);
+	del_timer(&ft->tl);
 }
 
 int
@@ -116,7 +113,7 @@ FsmAddTimer(struct FsmTimer *ft,
 	}
 #endif
 
-	if (ft->tl.next) {
+	if (ft->tl.next || ft->tl.prev) {
 		printk(KERN_WARNING "FsmAddTimer: timer already active!\n");
 		return -1;
 	}
