@@ -192,15 +192,19 @@ int applGetSupportedServices(struct Appl *appl, struct FacReqParm *facReqParm,
 			      struct FacConfParm *facConfParm)
 {
 	facConfParm->u.GetSupportedServices.SupplementaryServiceInfo = CapiSuccess;
-	facConfParm->u.GetSupportedServices.SupportedServices = 0x00000010;
+	facConfParm->u.GetSupportedServices.SupportedServices = HiSaxSupportedServices;
 	return CapiSuccess;
 }
 
 int applFacListen(struct Appl *appl, struct FacReqParm *facReqParm,
 		   struct FacConfParm *facConfParm)
 {
-	appl->NotificationMask = facReqParm->u.Listen.NotificationMask;
-	facConfParm->u.Info.SupplementaryServiceInfo = CapiSuccess; // FIXME check bits
+	if (facReqParm->u.Listen.NotificationMask &~ HiSaxSupportedServices) {
+		facConfParm->u.Info.SupplementaryServiceInfo = CapiSupplementaryServiceNotSupported;
+	} else {
+		appl->NotificationMask = facReqParm->u.Listen.NotificationMask;
+		facConfParm->u.Info.SupplementaryServiceInfo = CapiSuccess;
+	}
 	return CapiSuccess;
 }
 
@@ -440,6 +444,7 @@ void dummyProcessTimeout(unsigned long arg)
 	contrRecvCmsg(contr, &cmsg);
 }
 
+#if 0
 void printPublicPartyNumber(struct PublicPartyNumber *publicPartyNumber)
 {
 	printk("(%d) %s\n", publicPartyNumber->publicTypeOfNumber, 
@@ -474,6 +479,7 @@ void printAddress(struct Address *address)
 		printk("sub %s\n", address->partySubaddress);
 	}
 }
+#endif
 
 void contrDummyFacility(struct Contr *contr, struct sk_buff *skb)
 {
@@ -484,6 +490,7 @@ void contrDummyFacility(struct Contr *contr, struct sk_buff *skb)
 	_cmsg cmsg;
 	__u8 tmp[255];
         __u8 *p, *end;
+	__u16 ApplId;
 
         p = findie(skb->data, skb->len, IE_FACILITY, 0);
         if (!p) {
@@ -505,52 +512,66 @@ void contrDummyFacility(struct Contr *contr, struct sk_buff *skb)
 	ParseComponent(&parm, p, end);
 	switch (parm.comp) {
 	case invoke:
-		printk("invokeId %d\n", parm.c.inv.invokeId);
-		printk("operationValue %d\n", parm.c.inv.operationValue);
-		switch (parm.c.inv.operationValue) {
+#if 0
+		printk("invokeId %d\n", parm.u.inv.invokeId);
+		printk("operationValue %d\n", parm.u.inv.operationValue);
+#endif
+		switch (parm.u.inv.operationValue) {
 		case 0x0009: 
+#if 0
 			printk("procedure %d basicService %d\n", parm.c.inv.o.actNot.procedure,
 			       parm.c.inv.o.actNot.basicService);
 			printServedUserNr(&parm.c.inv.o.actNot.servedUserNr);
 			printAddress(&parm.c.inv.o.actNot.address);
-
-			appl = contrId2appl(contr, 1); // FIXME !!!!!!!!!!!!!!!!!!!
-			if (!appl)
-				return;
-			
-			capi_cmsg_header(&cmsg, 1/**/, CAPI_FACILITY, CAPI_IND, 
-					 appl->MsgId++, contr->adrController);
-			p = &tmp[1];
-			p += capiEncodeWord(p, 0x8006);
-			p += capiEncodeFacIndCFNotAct(p, &parm.c.inv.o.actNot);
-			tmp[0] = p - &tmp[1];
-			cmsg.FacilityIndicationParameter = tmp;
-			contrRecvCmsg(contr, &cmsg);
+#endif
+			for (ApplId = 1; ApplId <= CAPI_MAXAPPL; ApplId++) {
+				appl = contrId2appl(contr, ApplId);
+				if (!appl)
+					continue;
+				if (!(appl->NotificationMask & 0x00000010))
+					continue;
+				
+				capi_cmsg_header(&cmsg, ApplId, CAPI_FACILITY, CAPI_IND, 
+						 appl->MsgId++, contr->adrController);
+				p = &tmp[1];
+				p += capiEncodeWord(p, 0x8006);
+				p += capiEncodeFacIndCFNotAct(p, &parm.u.inv.o.actNot);
+				tmp[0] = p - &tmp[1];
+				cmsg.FacilitySelector = 0x0003;
+				cmsg.FacilityIndicationParameter = tmp;
+				contrRecvCmsg(contr, &cmsg);
+			}
 			break;
 		case 0x000a: 
+#if 0
 			printk("procedure %d basicService %d\n", parm.c.inv.o.deactNot.procedure,
 			       parm.c.inv.o.deactNot.basicService);
 			printServedUserNr(&parm.c.inv.o.deactNot.servedUserNr);
-
-			appl = contrId2appl(contr, 1); // FIXME !!!!!!!!!!!!!!!!!!!
-			if (!appl)
-				return;
-			
-			capi_cmsg_header(&cmsg, 1/**/, CAPI_FACILITY, CAPI_IND, 
-					 appl->MsgId++, contr->adrController);
-			p = &tmp[1];
-			p += capiEncodeWord(p, 0x8007);
-			p += capiEncodeFacIndCFNotDeact(p, &parm.c.inv.o.deactNot);
-			tmp[0] = p - &tmp[1];
-			cmsg.FacilityIndicationParameter = tmp;
-			contrRecvCmsg(contr, &cmsg);
+#endif
+			for (ApplId = 1; ApplId <= CAPI_MAXAPPL; ApplId++) {
+				appl = contrId2appl(contr, ApplId);
+				if (!appl)
+					continue;
+				if (!(appl->NotificationMask & 0x00000010))
+					continue;
+				
+				capi_cmsg_header(&cmsg, ApplId, CAPI_FACILITY, CAPI_IND, 
+						 appl->MsgId++, contr->adrController);
+				p = &tmp[1];
+				p += capiEncodeWord(p, 0x8007);
+				p += capiEncodeFacIndCFNotDeact(p, &parm.u.inv.o.deactNot);
+				tmp[0] = p - &tmp[1];
+				cmsg.FacilitySelector = 0x0003;
+				cmsg.FacilityIndicationParameter = tmp;
+				contrRecvCmsg(contr, &cmsg);
+			}
 			break;
 		default:
 			int_error();
 		}
 		break;
 	case returnResult:
-		dummy_pc = contrId2DummyPc(contr, parm.c.retResult.invokeId);
+		dummy_pc = contrId2DummyPc(contr, parm.u.retResult.invokeId);
 		if (!dummy_pc)
 			return;
 
@@ -571,11 +592,11 @@ void contrDummyFacility(struct Contr *contr, struct sk_buff *skb)
 			break;
 		case 0x000b:
 			p += capiEncodeFacIndCFinterParameters(p, 0, dummy_pc->Handle, 
-							       &parm.c.retResult.o.resultList);
+							       &parm.u.retResult.o.resultList);
 			break;
 		case 0x000c:
 			p += capiEncodeFacIndCFinterNumbers(p, 0, dummy_pc->Handle, 
-							    &parm.c.retResult.o.list);
+							    &parm.u.retResult.o.list);
 			break;
 		default:
 			int_error();
@@ -587,7 +608,7 @@ void contrDummyFacility(struct Contr *contr, struct sk_buff *skb)
 		contrDelDummyPc(contr, dummy_pc);
 		break;
 	case returnError:
-		dummy_pc = contrId2DummyPc(contr, parm.c.retResult.invokeId);
+		dummy_pc = contrId2DummyPc(contr, parm.u.retResult.invokeId);
 		if (!dummy_pc)
 			return;
 
@@ -599,7 +620,7 @@ void contrDummyFacility(struct Contr *contr, struct sk_buff *skb)
 				 appl->MsgId++, contr->adrController);
 		p = &tmp[1];
 		p += capiEncodeWord(p, dummy_pc->Function);
-		p += capiEncodeFacIndCFact(p, 0x3600 | (parm.c.retError.errorValue &0xff), 
+		p += capiEncodeFacIndCFact(p, 0x3600 | (parm.u.retError.errorValue &0xff), 
 				       dummy_pc->Handle);
 		tmp[0] = p - &tmp[1];
 		cmsg.FacilityIndicationParameter = tmp;

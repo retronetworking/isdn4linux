@@ -37,15 +37,15 @@ ParseInvokeComponent(struct asn1_parm *pc, u_char *p, u_char *end, int dummy)
 	XSEQUENCE_1(ParseInvokeId, ASN1_TAG_INTEGER, ASN1_NOT_TAGGED, &invokeId);
 //	XSEQUENCE_OPT(ParseLinkedId, ASN1_TAG_INTEGER, 0);
 	XSEQUENCE_1(ParseOperationValue, ASN1_TAG_INTEGER, ASN1_NOT_TAGGED, &operationValue);
-	pc->c.inv.invokeId = invokeId;
-	pc->c.inv.operationValue = operationValue;
+	pc->u.inv.invokeId = invokeId;
+	pc->u.inv.operationValue = operationValue;
 	switch (operationValue) {
 #if 0
 	case 7:	 XSEQUENCE(ParseARGActivationDiversion, ASN1_TAG_SEQUENCE, ASN1_NOT_TAGGED); break;
 	case 8:	 XSEQUENCE(ParseARGDeactivationDiversion, ASN1_TAG_SEQUENCE, ASN1_NOT_TAGGED); break;
 #endif
- 	case 9:	 XSEQUENCE_1(ParseARGActivationStatusNotificationDiv, ASN1_TAG_SEQUENCE, ASN1_NOT_TAGGED, &pc->c.inv.o.actNot); break;
- 	case 10: XSEQUENCE_1(ParseARGDeactivationStatusNotificationDiv, ASN1_TAG_SEQUENCE, ASN1_NOT_TAGGED, &pc->c.inv.o.deactNot); break;
+ 	case 9:	 XSEQUENCE_1(ParseARGActivationStatusNotificationDiv, ASN1_TAG_SEQUENCE, ASN1_NOT_TAGGED, &pc->u.inv.o.actNot); break;
+ 	case 10: XSEQUENCE_1(ParseARGDeactivationStatusNotificationDiv, ASN1_TAG_SEQUENCE, ASN1_NOT_TAGGED, &pc->u.inv.o.deactNot); break;
 #if 0
  	case 11: XSEQUENCE(ParseARGInterrogationDiversion, ASN1_TAG_SEQUENCE, ASN1_NOT_TAGGED); break;
  	case 12: XSEQUENCE(ParseARGDiversionInformation, ASN1_TAG_SEQUENCE, ASN1_NOT_TAGGED); break;
@@ -90,7 +90,7 @@ ParseReturnResultComponent(struct asn1_parm *pc, u_char *p, u_char *end, int dum
 	pc->comp = returnResult;
 	XSEQUENCE_1(ParseInvokeId, ASN1_TAG_INTEGER, ASN1_NOT_TAGGED, &invokeId);
 	XSEQUENCE_OPT(ParseReturnResultComponentSequence, ASN1_TAG_SEQUENCE, ASN1_NOT_TAGGED);
-	pc->c.retResult.invokeId = invokeId;
+	pc->u.retResult.invokeId = invokeId;
 
 	return p - beg;
 }
@@ -108,8 +108,8 @@ ParseReturnErrorComponent(struct asn1_parm *pc, u_char *p, u_char *end, int dumm
 	XSEQUENCE_1(ParseInvokeId, ASN1_TAG_INTEGER, ASN1_NOT_TAGGED, &invokeId);
 	XSEQUENCE_1(ParseErrorValue, ASN1_TAG_INTEGER, ASN1_NOT_TAGGED, &errorValue);
 
-	pc->c.retError.invokeId = invokeId;
-	pc->c.retError.errorValue = errorValue;
+	pc->u.retError.invokeId = invokeId;
+	pc->u.retError.errorValue = errorValue;
 
         switch (errorValue) {
         case 0: sprintf(error, "not subscribed"); break;

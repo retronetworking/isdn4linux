@@ -89,22 +89,11 @@ struct asn1_parm {
 		struct asn1Invoke       inv;
 		struct asn1ReturnResult retResult;
 		struct asn1ReturnError  retError;
-	} c;
+	} u;
 };
 
 
-#if 0
-int encodeNull(__u8 *dest);
-int encodeInt(__u8 *dest, __u32 i);
-int encodeEnum(__u8 *dest, __u32 i);
-int encodeNumberDigits(__u8 *dest, __u8 *nd, __u8 len);
-int encodePublicPartyNumber(__u8 *dest, __u8 *facilityPartyNumber);
-int encodePartyNumber(__u8 *dest, __u8 *facilityPartyNumber);
-int encodeServedUserNumber(__u8 *dest, __u8 *servedUserNumber);
-int encodeAddress(__u8 *dest, __u8 *facilityPartyNumber, __u8 *calledPartySubaddress);
-#endif
 #undef ASN1_DEBUG
-#define ASN1_DEBUG
 
 #ifdef ASN1_DEBUG
 #define print_msg(dummy, fmt, args...) printk(fmt, ## args)

@@ -88,7 +88,7 @@ int
 ParseRESInterrogationDiversion(struct asn1_parm *pc, u_char *p, u_char *end, int dummy)
 {
 	print_msg(PRT_SHOWNUMBERS, "Interrogation Diversion Result\n");
-	return ParseIntResultList(pc, p,  end, &pc->c.retResult.o.resultList);
+	return ParseIntResultList(pc, p,  end, &pc->u.retResult.o.resultList);
 }
 
 #if 0
@@ -105,7 +105,7 @@ ParseRESInterrogateServedUserNumbers(struct asn1_parm *pc, u_char *p, u_char *en
 {
 	int ret;
 
-	ret = ParseServedUserNumberList(pc, p, end, &pc->c.retResult.o.list);
+	ret = ParseServedUserNumberList(pc, p, end, &pc->u.retResult.o.list);
 	if (ret < 0)
 		return ret;
 

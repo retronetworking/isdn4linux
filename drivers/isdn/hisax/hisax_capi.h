@@ -20,6 +20,9 @@ void init_listen(void);
 void init_cplci(void);
 void init_ncci(void);
 
+#define SuppServiceCF          0x00000010
+#define HiSaxSupportedServices SuppServiceCF
+
 #define CAPIMSG_REQ_DATAHANDLE(m)	(m[18] | (m[19]<<8))
 #define CAPIMSG_RESP_DATAHANDLE(m)	(m[12] | (m[13]<<8))
 

@@ -164,7 +164,7 @@ int encodeInterrogationDiversion(__u8 *dest, struct FacReqCFInterrogateParameter
 		p += encodeNull(p);
 	else
 #endif
-		p += encodeEnum(p, params->BasicService);
+	p += encodeEnum(p, params->BasicService);
 	p += encodeServedUserNumber(p, params->ServedUserNumber);
 
 	dest[1] = p - &dest[2];
