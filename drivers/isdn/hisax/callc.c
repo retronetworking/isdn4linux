@@ -13,6 +13,7 @@
  */
 
 #include "hisax.h"
+#include "callc.h"
 #include "../avmb1/capicmd.h"  /* this should be moved in a common place */
 
 const char *lli_revision = "$Revision$";
@@ -1116,7 +1117,7 @@ callc_debug(struct FsmInst *fi, char *fmt, ...)
 static void
 init_chan(int chan, struct IsdnCardState *csta)
 {
-	struct Channel *chanp = csta->channel + chan;
+	struct Channel *chanp = csta->c_if->channel + chan;
 
 	chanp->cs = csta;
 	chanp->bcs = csta->bcs + chan;
@@ -1137,7 +1138,7 @@ init_chan(int chan, struct IsdnCardState *csta)
 	if (!chan || test_bit(FLG_TWO_DCHAN, &csta->HW_Flags)) {
 		init_d_st(chanp);
 	} else {
-		chanp->d_st = csta->channel->d_st;
+		chanp->d_st = csta->c_if->channel->d_st;
 	}
 	chanp->data_open = 0;
 	chanp->tx_cnt = 0;
@@ -1155,9 +1156,9 @@ CallcNewChan(struct IsdnCardState *csta) {
 	for (i = 0; i < MAX_WAITING_CALLS; i++) 
 		init_chan(i+2,csta);
 	printk(KERN_INFO "HiSax: MAX_WAITING_CALLS added\n");
-	if (test_bit(FLG_PTP, &csta->channel->d_st->l2.flag)) {
+	if (test_bit(FLG_PTP, &csta->c_if->channel->d_st->l2.flag)) {
 		printk(KERN_INFO "LAYER2 WATCHING ESTABLISH\n");
-		csta->channel->d_st->lli.l4l3(csta->channel->d_st,
+		csta->c_if->channel->d_st->lli.l4l3(csta->c_if->channel->d_st,
 			DL_ESTABLISH | REQUEST, NULL);
 	}
 	return (2);
@@ -1183,20 +1184,20 @@ CallcFreeChan(struct IsdnCardState *csta)
 	int i;
 
 	for (i = 0; i < 2; i++) {
-		FsmDelTimer(&csta->channel[i].drel_timer, 74);
-		FsmDelTimer(&csta->channel[i].dial_timer, 75);
+		FsmDelTimer(&csta->c_if->channel[i].drel_timer, 74);
+		FsmDelTimer(&csta->c_if->channel[i].dial_timer, 75);
 		if (i || test_bit(FLG_TWO_DCHAN, &csta->HW_Flags))
-			release_d_st(csta->channel + i);
-		if (csta->channel[i].b_st) {
-			release_b_st(csta->channel + i);
-			kfree(csta->channel[i].b_st);
-			csta->channel[i].b_st = NULL;
+			release_d_st(csta->c_if->channel + i);
+		if (csta->c_if->channel[i].b_st) {
+			release_b_st(csta->c_if->channel + i);
+			kfree(csta->c_if->channel[i].b_st);
+			csta->c_if->channel[i].b_st = NULL;
 		} else
 			printk(KERN_WARNING "CallcFreeChan b_st ch%d allready freed\n", i);
 		if (i || test_bit(FLG_TWO_DCHAN, &csta->HW_Flags)) {
-			release_d_st(csta->channel + i);
+			release_d_st(csta->c_if->channel + i);
 		} else
-			csta->channel[i].d_st = NULL;
+			csta->c_if->channel[i].d_st = NULL;
 	}
 }
 
@@ -1379,7 +1380,7 @@ static void
 distr_debug(struct IsdnCardState *csta, int debugflags)
 {
 	int i;
-	struct Channel *chanp = csta->channel;
+	struct Channel *chanp = csta->c_if->channel;
 
 	for (i = 0; i < (2 + MAX_WAITING_CALLS) ; i++) {
 		chanp[i].debug = debugflags | LL_DEB_WARN;
@@ -1495,22 +1496,22 @@ HiSax_command(isdn_ctrl * ic)
 	}
 	switch (ic->command) {
 		case (ISDN_CMD_SETEAZ):
-			chanp = csta->channel + ic->arg;
+			chanp = csta->c_if->channel + ic->arg;
 			break;
 		case (ISDN_CMD_SETL2):
-			chanp = csta->channel + (ic->arg & 0xff);
+			chanp = csta->c_if->channel + (ic->arg & 0xff);
 			link_debug(LL_DEB_INFO, chanp, 1, "SETL2 card %d %ld",
 				   csta->cardnr + 1, ic->arg >> 8);
 			chanp->l2_protocol = ic->arg >> 8;
 			break;
 		case (ISDN_CMD_SETL3):
-			chanp = csta->channel + (ic->arg & 0xff);
+			chanp = csta->c_if->channel + (ic->arg & 0xff);
 			link_debug(LL_DEB_INFO, chanp, 1, "SETL3 card %d %ld",
 				   csta->cardnr + 1, ic->arg >> 8);
 			chanp->l3_protocol = ic->arg >> 8;
 			break;
 		case (ISDN_CMD_DIAL):
-			chanp = csta->channel + (ic->arg & 0xff);
+			chanp = csta->c_if->channel + (ic->arg & 0xff);
 			link_debug(LL_DEB_INFO, chanp, 1, "DIAL %s -> %s (%d,%d)",
 				   ic->parm.setup.eazmsn, ic->parm.setup.phone,
 				   ic->parm.setup.si1, ic->parm.setup.si2);
@@ -1527,22 +1528,22 @@ HiSax_command(isdn_ctrl * ic)
 			}
 			break;
 		case (ISDN_CMD_ACCEPTB):
-			chanp = csta->channel + ic->arg;
+			chanp = csta->c_if->channel + ic->arg;
 			link_debug(LL_DEB_INFO, chanp, 1, "ACCEPTB");
 			FsmEvent(&chanp->fi, EV_ACCEPTB, NULL);
 			break;
 		case (ISDN_CMD_ACCEPTD):
-			chanp = csta->channel + ic->arg;
+			chanp = csta->c_if->channel + ic->arg;
 			link_debug(LL_DEB_INFO, chanp, 1, "ACCEPTD");
 			FsmEvent(&chanp->fi, EV_ACCEPTD, NULL);
 			break;
 		case (ISDN_CMD_HANGUP):
-			chanp = csta->channel + ic->arg;
+			chanp = csta->c_if->channel + ic->arg;
 			link_debug(LL_DEB_INFO, chanp, 1, "HANGUP");
 			FsmEvent(&chanp->fi, EV_HANGUP, NULL);
 			break;
 		case (CAPI_PUT_MESSAGE):
-			chanp = csta->channel + ic->arg;
+			chanp = csta->c_if->channel + ic->arg;
 			if (chanp->debug & 1)
 				capi_debug(chanp, &ic->parm.cmsg);
 			if (ic->parm.cmsg.Length < 8)
@@ -1582,8 +1583,8 @@ HiSax_command(isdn_ctrl * ic)
 					break;
 				case (2):
 					num = *(unsigned int *) ic->parm.num;
-					csta->channel[0].b_st->l1.delay = num;
-					csta->channel[1].b_st->l1.delay = num;
+					csta->c_if->channel[0].b_st->l1.delay = num;
+					csta->c_if->channel[1].b_st->l1.delay = num;
 					HiSax_putstatus(csta, "delay ", "card %d set to %d ms",
 						csta->cardnr + 1, num);
 					printk(KERN_DEBUG "HiSax: delay card %d set to %d ms\n",
@@ -1606,7 +1607,7 @@ HiSax_command(isdn_ctrl * ic)
 							num);
 					} else {
 						num--;
-						chanp = csta->channel +num;
+						chanp = csta->c_if->channel +num;
 						chanp->leased = 1;
 						HiSax_putstatus(csta, "Card",
 							"%d channel %d set leased mode\n",
@@ -1628,24 +1629,24 @@ HiSax_command(isdn_ctrl * ic)
 					if (test_bit(FLG_TWO_DCHAN, &csta->HW_Flags)) {
 						printk(KERN_ERR "HiSax PTP mode only with one TEI possible\n");
 					} else if (num) {
-						test_and_set_bit(FLG_PTP, &csta->channel[0].d_st->l2.flag);
-						test_and_set_bit(FLG_FIXED_TEI, &csta->channel[0].d_st->l2.flag);
-						csta->channel[0].d_st->l2.tei = 0;
+						test_and_set_bit(FLG_PTP, &csta->c_if->channel[0].d_st->l2.flag);
+						test_and_set_bit(FLG_FIXED_TEI, &csta->c_if->channel[0].d_st->l2.flag);
+						csta->c_if->channel[0].d_st->l2.tei = 0;
 						HiSax_putstatus(csta, "set card ", "in PTP mode");
 						printk(KERN_DEBUG "HiSax: set card in PTP mode\n");
 						printk(KERN_INFO "LAYER2 WATCHING ESTABLISH\n");
-						csta->channel[0].d_st->lli.l4l3(csta->channel[0].d_st,
+						csta->c_if->channel[0].d_st->lli.l4l3(csta->c_if->channel[0].d_st,
 							DL_ESTABLISH | REQUEST, NULL);
 					} else {
-						test_and_clear_bit(FLG_PTP, &csta->channel[0].d_st->l2.flag);
-						test_and_clear_bit(FLG_FIXED_TEI, &csta->channel[0].d_st->l2.flag);
+						test_and_clear_bit(FLG_PTP, &csta->c_if->channel[0].d_st->l2.flag);
+						test_and_clear_bit(FLG_FIXED_TEI, &csta->c_if->channel[0].d_st->l2.flag);
 						HiSax_putstatus(csta, "set card ", "in PTMP mode");
 						printk(KERN_DEBUG "HiSax: set card in PTMP mode\n");
 					}
 					break;
 				case (8):	/* set card in FIXED TEI mode */
 					num = *(unsigned int *) ic->parm.num;
-					chanp = csta->channel + (num & 1);
+					chanp = csta->c_if->channel + (num & 1);
 					num = num >>1;
 					if (num == 127) {
 						test_and_clear_bit(FLG_FIXED_TEI, &chanp->d_st->l2.flag);
@@ -1673,8 +1674,8 @@ HiSax_command(isdn_ctrl * ic)
 						csta->cardnr + 1, csta->debug);
 					break;
 				case (13):
-					csta->channel[0].d_st->l3.debug = *(unsigned int *) ic->parm.num;
-					csta->channel[1].d_st->l3.debug = *(unsigned int *) ic->parm.num;
+					csta->c_if->channel[0].d_st->l3.debug = *(unsigned int *) ic->parm.num;
+					csta->c_if->channel[1].d_st->l3.debug = *(unsigned int *) ic->parm.num;
 					HiSax_putstatus(cards[0].cs, "l3 debugging ",
 						"flags card %d set to %x\n", csta->cardnr + 1,
 						*(unsigned int *) ic->parm.num);
@@ -1694,19 +1695,19 @@ HiSax_command(isdn_ctrl * ic)
 			break;
 		
 	        case (ISDN_CMD_PROCEED):
-			chanp = csta->channel + ic->arg;
+			chanp = csta->c_if->channel + ic->arg;
 			link_debug(LL_DEB_INFO, chanp, 1, "PROCEED");
 			FsmEvent(&chanp->fi, EV_PROCEED, NULL);
 			break;
 
 		case (ISDN_CMD_ALERT):
-			chanp = csta->channel + ic->arg;
+			chanp = csta->c_if->channel + ic->arg;
 			link_debug(LL_DEB_INFO, chanp, 1, "ALERT");
 			FsmEvent(&chanp->fi, EV_ALERT, NULL);
 			break;
 
 		case (ISDN_CMD_REDIR):
-			chanp = csta->channel + ic->arg;
+			chanp = csta->c_if->channel + ic->arg;
 			link_debug(LL_DEB_INFO, chanp, 1, "REDIR");
 			chanp->setup = ic->parm.setup;
 			FsmEvent(&chanp->fi, EV_REDIR, NULL);
@@ -1742,7 +1743,7 @@ HiSax_writebuf_skb(int id, int chan, int ack, struct sk_buff *skb)
 			"HiSax: if_sendbuf called with invalid driverId!\n");
 		return -ENODEV;
 	}
-	chanp = csta->channel + chan;
+	chanp = csta->c_if->channel + chan;
 	st = chanp->b_st;
 	if (!chanp->data_open) {
 		link_debug(LL_DEB_WARN, chanp, 1, "writebuf: channel not open");
@@ -1784,3 +1785,64 @@ HiSax_writebuf_skb(int id, int chan, int ack, struct sk_buff *skb)
 	}
 	return (len);
 }
+
+// =================================================================
+// Interface to config.c
+
+struct CallcIf *
+newCallcIf(struct IsdnCardState *cs, char *id)
+{
+	struct CallcIf *c_if;
+	int i;
+
+	c_if = kmalloc(sizeof(struct CallcIf), GFP_KERNEL);
+	if (!c_if) {
+		return 0;
+	}
+#if 0
+	if (callcIfConstr(c_if, cs, id)) {
+		kfree(c_if);
+		return 0;
+	}
+	for (i = 0; i < HISAX_MAX_CARDS; i++) {
+		if (!c_ifs[i]) {
+			break;
+		}
+	}
+	if (i == HISAX_MAX_CARDS) {
+		int_error();
+		callcIfDestr(c_if);
+		kfree(c_if);
+		return 0;
+	}
+	c_ifs[i] = c_if;
+#endif
+	return c_if;
+
+}
+
+void
+delCallcIf(struct CallcIf *c_if)
+{
+	int i;
+
+	if (!c_if) {
+		int_error();
+		return;
+	}
+#if 0
+	for (i = 0; i < HISAX_MAX_CARDS; i++) {
+		if (c_ifs[i] == c_if) {
+			break;
+		}
+	}
+	callcIfDestr(c_if);
+	kfree(c_if);
+	if (i == HISAX_MAX_CARDS) {
+		int_error();
+		return;
+	}
+	c_ifs[i] = 0;
+#endif
+}
+

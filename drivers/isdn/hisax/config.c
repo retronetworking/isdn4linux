@@ -13,6 +13,7 @@
 #include <linux/init.h>
 #endif
 #include "hisax.h"
+#include "callc.h"
 #include <linux/module.h>
 #include <linux/kernel_stat.h>
 #include <linux/tqueue.h>
@@ -459,7 +460,7 @@ HiSax_mod_dec_use_count(struct IsdnCardState *cs)
 {
 #ifdef MODULE
 	MOD_DEC_USE_COUNT;
-	if (cs->channel[0].debug & 0x400)
+	if (cs->c_if->channel[0].debug & 0x400)
 		HiSax_putstatus(cs, "   UNLOCK ", "modcnt %lx",
 				MOD_USE_COUNT);
 #endif
@@ -470,7 +471,7 @@ HiSax_mod_inc_use_count(struct IsdnCardState *cs)
 {
 #ifdef MODULE
 	MOD_INC_USE_COUNT;
-	if (cs->channel[0].debug & 0x400)
+	if (cs->c_if->channel[0].debug & 0x400)
 		HiSax_putstatus(cs, "   LOCK ", "modcnt %lx",
 				MOD_USE_COUNT);
 #endif
@@ -875,6 +876,11 @@ ll_unload(struct IsdnCardState *cs)
 	cs->status_write = NULL;
 	cs->status_end = NULL;
 	kfree(cs->dlog);
+
+	if (cs->c_if) {
+		delCallcIf(cs->c_if);
+		cs->c_if = 0;
+	}
 }
 
 static void
@@ -1226,6 +1232,12 @@ checkcard(int cardnr, char *id, int *busy_flag))
 
 	skb_queue_head_init(&cs->rq);
 	skb_queue_head_init(&cs->sq);
+
+	cs->c_if = newCallcIf(cs, id);
+	if (!cs->c_if) {
+		printk(KERN_INFO "could not alloc CallcIf!\n");
+		return 0;
+	}
 
 	init_bcstate(cs, 0);
 	init_bcstate(cs, 1);

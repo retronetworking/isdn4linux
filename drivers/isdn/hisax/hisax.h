@@ -878,7 +878,7 @@ struct IsdnCardState {
 	void   (*DC_Close) (struct IsdnCardState *);
 	void   (*irq_func) (int, void *, struct pt_regs *);
 	int    (*auxcmd) (struct IsdnCardState *, isdn_ctrl *);
-	struct Channel channel[2+MAX_WAITING_CALLS];
+	struct CallcIf *c_if;
 	struct BCState bcs[2+MAX_WAITING_CALLS];
 	struct PStack *stlist;
 	struct sk_buff_head rq, sq; /* D-channel queues */
@@ -1223,6 +1223,13 @@ struct IsdnCardState {
 #undef TEI_PER_CARD
 #define TEI_PER_CARD 1
 #endif
+
+#define int_error() \
+        printk(KERN_ERR "hisax: INTERNAL ERROR in %s:%d\n", \
+	       __FILE__, __LINE__)
+
+#define hdebug() \
+        printk(KERN_ERR "hisax: %s %s:%d\n", __FUNCTION__, __FILE__, __LINE__)
 
 /* L1 Debug */
 #define	L1_DEB_WARN		0x01
