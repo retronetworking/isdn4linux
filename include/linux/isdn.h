@@ -836,7 +836,6 @@ extern void isdn_dw_abc_lcr_open(void);
 extern void isdn_dw_abc_lcr_close(void);
 extern void isdn_dw_abc_lcr_ioctl(ulong);
 extern void isdn_dw_abc_lcr_clear(isdn_net_local *);
-extern void isdn_dw_abc_free_lch_with_pch(int,int);
 #endif
 #ifdef CONFIG_ISDN_WITH_ABC_UDP_CHECK
 extern int dw_abc_udp_test(struct sk_buff *skb,struct net_device *ndev); 
@@ -845,6 +844,7 @@ extern int dw_abc_udp_test(struct sk_buff *skb,struct net_device *ndev);
 struct sk_buff *isdn_dw_abc_ip4_keepalive_test(struct net_device *ndev,struct sk_buff *skb);
 #endif
 #ifdef CONFIG_ISDN_WITH_ABC_ICALL_BIND 
+extern void isdn_dw_abc_free_lch_with_pch(int,int);
 extern int isdn_dwabc_check_icall_bind(isdn_net_local *,int,int);
 extern int dwabc_isdn_get_net_free_channel(isdn_net_local *);
 #endif
