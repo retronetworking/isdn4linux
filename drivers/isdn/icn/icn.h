@@ -3,6 +3,7 @@
  * ISDN lowlevel-module for the ICN active ISDN-Card.
  *
  * Copyright 1994 by Fritz Elfert (fritz@wuemaus.franken.de)
+ * Copyright 1995 Thinking Objects Software GmbH Wuerzburg 
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -19,6 +20,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.8  1995/03/25  23:18:55  fritz
+ * Changed ICN_PORTLEN to reflect correct number of ports.
+ *
  * Revision 1.7  1995/03/15  12:52:06  fritz
  * Some cleanup
  *
@@ -93,6 +97,9 @@ char kernel_version[] = UTS_RELEASE;
 #define ICN_MAPRAM (dev->port+1)
 #define ICN_RUN    (dev->port+2)
 #define ICN_BANK   (dev->port+3)
+
+#define ICN_TYPE_1TR6 0
+#define ICN_TYPE_EURO 1
 
 #define ICN_FLAGS_B1ACTIVE 1     /* B-Channel-1 is open                 */
 #define ICN_FLAGS_B2ACTIVE 2     /* B-Channel-2 is open                 */
@@ -169,6 +176,7 @@ typedef struct {
   int              myid;                /* Driver-Nr. assigned by linklevel */
   int              rvalid;              /* IO-portregion has been requested */
   unsigned short   flags;               /* Statusflags                      */
+  int              ptype;               /* Protocoltype (1TR6 or Euro)      */
   struct timer_list st_timer;           /* Timer for Status-Polls           */
   struct timer_list rb_timer;           /* Timer for B-Channel-Polls        */
   int              channel;             /* Currently mapped Channel         */
