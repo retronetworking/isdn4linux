@@ -6,7 +6,7 @@
  * Copyright 1998-2000 by Armin Schindler (mac@melware.de) 
  * Copyright 1999,2000 Cytronics & Melware (info@melware.de)
  * 
- * Thanks to    Eicon Technology GmbH & Co. oHG for
+ * Thanks to    Eicon Networks for
  *              documents, informations and hardware.
  *
  *		Deutsche Mailbox Saar-Lor-Lux GmbH

@@ -1,13 +1,6 @@
 
 /*
  *
- * Copyright (C) Eicon Technology Corporation, 2000.
- *
- * This source file is supplied for the exclusive use with Eicon
- * Technology Corporation's range of DIVA Server Adapters.
- *
- * Eicon File Revision :    1.15  
- *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation; either version 2, or (at your option)
@@ -40,6 +33,8 @@
 
 #include "adapter.h"
 #include "uxio.h"
+
+#include <linux/isdn_compat.h>
 
 #ifdef MODULE
 #include "idi.h"
