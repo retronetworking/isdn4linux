@@ -20,6 +20,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.41.2.1  1997/08/21 15:56:11  fritz
+ * Synchronized 2.0.X branch with 2.0.31-pre7
+ *
  * Revision 1.41  1997/05/27 15:17:31  fritz
  * Added changes for recent 2.1.x kernels:
  *   changed return type of isdn_close
@@ -1270,7 +1273,7 @@ isdn_tty_get_lsr_info(modem_info * info, uint * value)
 	status = info->lsr;
 	restore_flags(flags);
 	result = ((status & UART_LSR_TEMT) ? TIOCSER_TEMT : 0);
-	put_user(result, (ulong *) value);
+	put_user(result, (uint *) value);
 	return 0;
 }
 
@@ -1294,7 +1297,7 @@ isdn_tty_get_modem_info(modem_info * info, uint * value)
 	    | ((status & UART_MSR_RI) ? TIOCM_RNG : 0)
 	    | ((status & UART_MSR_DSR) ? TIOCM_DSR : 0)
 	    | ((status & UART_MSR_CTS) ? TIOCM_CTS : 0);
-	put_user(result, (ulong *) value);
+	put_user(result, (uint *) value);
 	return 0;
 }
 
