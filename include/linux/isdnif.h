@@ -22,6 +22,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.16  1997/02/10 19:42:57  fritz
+ * New interface for reporting incoming calls.
+ *
  * Revision 1.15  1997/02/09 00:18:42  keil
  * leased line support
  *
@@ -169,7 +172,8 @@ typedef struct setup_parm {
     char eazmsn[32];        /* Local EAZ or MSN    */
     unsigned char si1;      /* Service Indicator 1 */
     unsigned char si2;      /* Service Indicator 2 */
-    unsigned short plan;    /* Numbering plan      */
+    unsigned char plan;     /* Numbering plan      */
+    unsigned char screen;   /* Screening info      */
 } setup_parm;
 
 /*
