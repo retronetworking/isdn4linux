@@ -7,6 +7,12 @@
  * Beat Doebeli         log all D channel traffic
  * 
  * $Log$
+ * Revision 1.3  1996/04/30 22:02:40  isdn4dev
+ * Bugfixes for 16.3
+ *     -improved IO allocation
+ *     -fix second B channel problem
+ *     -correct ph_command patch
+ *
  * Revision 1.2  1996/04/30 10:00:59  fritz
  * Bugfix: Added ph_command(8) for 16.3.
  * Bugfix: Ports did not get registered correctly
@@ -361,28 +367,6 @@ hscx_empty_fifo(struct HscxState *hsp, int count)
 #endif				/* BCHAN_VERBOSE */
 }
 
-static inline void
-hscx_fill32(struct HscxState *hsp, byte *ptr, int count, int more)
-{
-        if (hsp->membase) {
-                waitforXFW_0(hsp->membase, hsp->hscx);
-                while (count--)
-                        writehscx_0(hsp->membase, hsp->hscx, 0x0, *ptr++);
-                writehscxCMDR_0(hsp->membase, hsp->hscx, more ? 0x8 : 0xa);
-        } else {
-                waitforXFW_3(hsp->iobase, hsp->hscx);
-                writehscx_s(hsp->iobase, hsp->hscx, 0x3e, ptr, count);
-                writehscxCMDR_3(hsp->iobase, hsp->hscx, more ? 0x8 : 0xa);
-        }
-}
-
-static byte hscx_silence[32] = {
-  0xAA,0xAA,0xAA,0xAA,0xAA,0xAA,0xAA,0xAA,
-  0xAA,0xAA,0xAA,0xAA,0xAA,0xAA,0xAA,0xAA,
-  0xAA,0xAA,0xAA,0xAA,0xAA,0xAA,0xAA,0xAA,
-  0xAA,0xAA,0xAA,0xAA,0xAA,0xAA,0xAA,0xAA
-};
-
 static void
 hscx_fill_fifo(struct HscxState *hsp)
 {
@@ -394,28 +378,14 @@ hscx_fill_fifo(struct HscxState *hsp)
 		printk(KERN_DEBUG "hscx_fill_fifo\n");
 
 	ibh = hsp->xmtibh;
-	if (!ibh) {
-                if (hsp->mode == 1)
-                        hscx_fill32(hsp, hscx_silence, 32, 1);
+	if (!ibh)
 		return;
-        }
 
 	count = ibh->datasize - hsp->sendptr;
-	if (count <= 0) {
-                if (hsp->mode == 1)
-                        hscx_fill32(hsp, hscx_silence, 32, 1);
+	if (count <= 0)
 		return;
-        }
 
-#if 0
-	if (!hsp->sendptr) {
-		ptr = DATAPTR(ibh);
-		printk(KERN_DEBUG "snd bytes %2x %2x %2x %2x %2x\n", ptr[0], ptr[1], ptr[2],
-		       ptr[3], ptr[4]);
-	}
-#endif
-
-	more = 0;
+	more = (hsp->mode == 1)?1:0;
 	if (count > 32) {
 		more = !0;
 		count = 32;
@@ -433,7 +403,16 @@ hscx_fill_fifo(struct HscxState *hsp)
                 printk("\n");
         }
 #endif
-        hscx_fill32(hsp, ptr, count, more);
+        if (hsp->membase) {
+                waitforXFW_0(hsp->membase, hsp->hscx);
+                while (count--)
+                        writehscx_0(hsp->membase, hsp->hscx, 0x0, *ptr++);
+                writehscxCMDR_0(hsp->membase, hsp->hscx, more ? 0x8 : 0xa);
+        } else {
+                waitforXFW_3(hsp->iobase, hsp->hscx);
+                writehscx_s(hsp->iobase, hsp->hscx, 0x3e, ptr, count);
+                writehscxCMDR_3(hsp->iobase, hsp->hscx, more ? 0x8 : 0xa);
+        }
 }
 
 static inline void
@@ -453,8 +432,8 @@ hscx_interrupt(struct IsdnCardState *sp, byte val, byte hscx)
 			if (!r & 0x80)
 				printk(KERN_WARNING
                                        "Teles: HSCX invalid frame\n");
-			if (r & 0x40)
-				printk(KERN_WARNING "Teles: HSCX RDO\n");
+			if ((r & 0x40) && (hsp->mode > 1))
+				printk(KERN_WARNING "Teles: HSCX RDO mode=%d\n",hsp->mode);
 			if (!r & 0x20)
 				printk(KERN_WARNING "Teles: HSCX CRC error\n");
 			if (hsp->rcvibh)
@@ -468,7 +447,7 @@ hscx_interrupt(struct IsdnCardState *sp, byte val, byte hscx)
 			if (BufPoolGet(&hsp->rcvibh, &hsp->rbufpool,
                                        GFP_ATOMIC, (void *) 1, 1)) {
 				printk(KERN_WARNING
-                                       "HSCX RME out of buffers at %ld\n",
+                                       "HSCX RME (1) out of buffers at %ld\n",
                                        jiffies);
 				WRITEHSCX_CMDR(hsp->membase, hsp->iobase,
                                                hsp->hscx, 0x80);
@@ -492,7 +471,7 @@ hscx_interrupt(struct IsdnCardState *sp, byte val, byte hscx)
 			if (BufPoolGet(&hsp->rcvibh, &hsp->rbufpool,
 				       GFP_ATOMIC, (void *) 1, 2)) {
 				printk(KERN_WARNING
-                                       "HSCX RME out of buffers at %ld\n",
+                                       "HSCX RME (2) out of buffers at %ld\n",
                                        jiffies);
 				WRITEHSCX_CMDR(hsp->membase, hsp->iobase,
                                                hsp->hscx, 0x80);
@@ -721,7 +700,7 @@ isac_new_ph(struct IsdnCardState *sp)
 static void
 teles_interrupt(int intno, void *dev_id, struct pt_regs *regs)
 {
-	byte                 val, val2, r;
+	byte                 val, val2, r, exval;
 	struct IsdnCardState *sp;
 	unsigned int         count;
 	struct HscxState     *hsp;
@@ -736,10 +715,12 @@ teles_interrupt(int intno, void *dev_id, struct pt_regs *regs)
 
 	if (val & 0x01) {
 		hsp = sp->hs + 1;
-		printk(KERN_WARNING "HSCX B EXIR %x xmitbh %lx rcvibh %lx\n",
-                       READHSCX(sp->membase, sp->iobase, 1, HSCX_EXIR),
-                       (long) hsp->xmtibh,
-		       (long) hsp->rcvibh);
+                exval = READHSCX(sp->membase, sp->iobase, 1, HSCX_EXIR);
+                if ((hsp->mode == 1) || (exval == 0x40))
+                        hscx_fill_fifo(hsp);
+                else
+                        printk(KERN_WARNING "HSCX B EXIR %x xmitbh %lx rcvibh %lx\n",
+                               exval, (long) hsp->xmtibh, (long) hsp->rcvibh);
 	}
 	if (val & 0xf8) {
 		if (sp->debug)
@@ -747,8 +728,12 @@ teles_interrupt(int intno, void *dev_id, struct pt_regs *regs)
 		hscx_interrupt(sp, val, 1);
 	}
 	if (val & 0x02) {
-		printk(KERN_WARNING "HSCX A EXIR %x\n",
-                       READHSCX(sp->membase, sp->iobase, 0, HSCX_EXIR));
+		hsp = sp->hs;
+                exval = READHSCX(sp->membase, sp->iobase, 0, HSCX_EXIR);
+                if ((hsp->mode == 1) && (exval == 0x40))
+                        hscx_fill_fifo(hsp);
+                else
+                        printk(KERN_WARNING "HSCX A EXIR %x\n",exval);
 	}
 
 /* ??? Why do that vvvvvvvvvvvvvvvvvvvvv different on Teles 16-3 ??? */
@@ -1744,35 +1729,35 @@ hscx_l2l1(struct PStack *st, int pr,
 	struct HscxState *hsp = sp->hs + st->l1.hscx;
 
 	switch (pr) {
-	  case (PH_DATA):
-		  if (hsp->xmtibh)
-			  BufQueueLink(&hsp->sq, ibh);
-		  else {
-			  hsp->xmtibh = ibh;
-			  hsp->sendptr = 0;
-			  hsp->releasebuf = !0;
-			  hscx_fill_fifo(hsp);
-		  }
-		  break;
-	  case (PH_DATA_PULLED):
-		  if (hsp->xmtibh) {
-			  printk(KERN_DEBUG "hscx_l2l1: this shouldn't happen\n");
-			  break;
-		  }
-		  hsp->xmtibh = ibh;
-		  hsp->sendptr = 0;
-		  hsp->releasebuf = 0;
-		  hscx_fill_fifo(hsp);
-		  break;
-	  case (PH_REQUEST_PULL):
-		  if (!hsp->xmtibh) {
-			  st->l1.requestpull = 0;
-			  st->l1.l1l2(st, PH_PULL_ACK, NULL);
-		  } else
-			  st->l1.requestpull = !0;
-		  break;
+                case (PH_DATA):
+                        if (hsp->xmtibh)
+                                BufQueueLink(&hsp->sq, ibh);
+                        else {
+                                hsp->xmtibh = ibh;
+                                hsp->sendptr = 0;
+                                hsp->releasebuf = !0;
+                                hscx_fill_fifo(hsp);
+                        }
+                        break;
+                case (PH_DATA_PULLED):
+                        if (hsp->xmtibh) {
+                                printk(KERN_DEBUG "hscx_l2l1: this shouldn't happen\n");
+                                break;
+                        }
+                        hsp->xmtibh = ibh;
+                        hsp->sendptr = 0;
+                        hsp->releasebuf = 0;
+                        hscx_fill_fifo(hsp);
+                        break;
+                case (PH_REQUEST_PULL):
+                        if (!hsp->xmtibh) {
+                                st->l1.requestpull = 0;
+                                st->l1.l1l2(st, PH_PULL_ACK, NULL);
+                        } else
+                                st->l1.requestpull = !0;
+                        break;
 	}
-
+        
 }
 
 extern struct IsdnBuffers *tracebuf;
