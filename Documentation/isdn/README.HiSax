@@ -32,7 +32,7 @@ insmod/modprobe
 
 insmod hisax.o \
   io=typ1,dp1,pa_1,pb_1,pc_1[,typ2,dp2,pa_2 ... ,pa_n,pb_n,pc_n] \
-     [hisax_id=idstring]
+     [HiSax_id=idstring]
 
 where
      typ1 = Cardtype of 1st card. (default: 1 = Teles 16.0)
