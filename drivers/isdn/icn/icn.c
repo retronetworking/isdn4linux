@@ -19,6 +19,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.38  1997/02/11 18:29:31  fritz
+ * Bugfix in D64S initialization.
+ *
  * Revision 1.37  1997/02/10 22:43:20  fritz
  * Added plan and screen elements on ISDN_STAT_ICALL
  *
@@ -498,7 +501,6 @@ typedef struct icn_stat {
 	int command;
 	int action;
 } icn_stat;
-
 /* *INDENT-OFF* */
 static icn_stat icn_stat_table[] =
 {
@@ -581,7 +583,11 @@ icn_parse_status(u_char * status, int channel, icn_card * card)
 				else
 					cmd.parm.setup.si2 = simple_strtoul(s, NULL, 10);
 				s = strtok(NULL, ",");
-				strncpy(cmd.parm.setup.eazmsn, s, sizeof(cmd.parm.setup.eazmsn));
+				if (s)
+					strncpy(cmd.parm.setup.eazmsn, s,
+					  sizeof(cmd.parm.setup.eazmsn));
+				else
+					cmd.parm.setup.eazmsn[0] = '\0';
 			}
 			cmd.parm.setup.plan = 0;
 			cmd.parm.setup.screen = 0;
