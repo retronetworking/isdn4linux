@@ -69,6 +69,7 @@
 #define i_count_inc(ic)  atomic_inc(&ic)
 #define COMPAT_HAS_FILEOP_OWNER
 #define COMPAT_HAVE_NEW_FILLDIR
+#define COMPAT_HAS_SCHEDULE_TASK
 
 #endif
 
@@ -178,6 +179,9 @@ typedef struct wait_queue *wait_queue_head_t;
 #define PCI_DEVICE_ID_CCD_B00B	        0xB00B
 #define PCI_DEVICE_ID_CCD_B00C	        0xB00C
 #define PCI_DEVICE_ID_CCD_B100	        0xB100
+
+#define PCI_VENDOR_ID_ABOCOM		0x13D1
+#define PCI_DEVICE_ID_ABOCOM_2BD1       0x2BD1
 
 #define PCI_VENDOR_ID_ASUSTEK           0x1043   
 #define PCI_DEVICE_ID_ASUSTEK_0675      0x0675

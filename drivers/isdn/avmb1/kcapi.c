@@ -6,6 +6,10 @@
  * (c) Copyright 1999 by Carsten Paeth (calle@calle.in-berlin.de)
  * 
  * $Log$
+ * Revision 1.21  2000/11/23 20:45:14  kai
+ * fixed module_init/exit stuff
+ * Note: compiled-in kernel doesn't work pre 2.2.18 anymore.
+ *
  * Revision 1.20  2000/11/19 17:01:53  kai
  * compatibility cleanup - part 2
  *
@@ -627,7 +631,13 @@ static int notify_push(unsigned int cmd, __u32 controller,
 	 * of devices. Devices can only removed in
 	 * user process, not in bh.
 	 */
+#ifdef COMPAT_HAS_SCHEDULE_TASK
+	MOD_INC_USE_COUNT;
+	if (schedule_task(&tq_state_notify) == 0)
+		MOD_DEC_USE_COUNT;
+#else
 	queue_task(&tq_state_notify, &tq_scheduler);
+#endif
 	return 0;
 }
 
@@ -723,6 +733,9 @@ static void notify_handler(void *dummy)
 		kfree(np);
 		MOD_DEC_USE_COUNT;
 	}
+#ifdef COMPAT_HAS_SCHEDULE_TASK
+	MOD_DEC_USE_COUNT;
+#endif
 }
 	
 /* -------- NCCI Handling ------------------------------------- */
