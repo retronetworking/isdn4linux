@@ -6,16 +6,17 @@ O_TARGET	:= vmlinux-obj.o
 
 # Objects that export symbols.
 
-export-objs	:= config.o
+export-objs	:= config.o fsm.o
 
 # Multipart objects.
 
-list-multi	:= hisax.o
+list-multi	:= hisax.o st5481_mod.o
 hisax-objs	:= config.o isdnl1.o tei.o isdnl2.o isdnl3.o \
 		   lmgr.o q931.o callc.o fsm.o cert.o
+st5481-objs	:= st5481_init.o st5481_usb.o st5481_d.o st5481_b.o \
+		   st5481_hdlc.o
 
 # Optional parts of multipart objects.
-
 hisax-objs-$(CONFIG_HISAX_EURO) += l3dss1.o
 hisax-objs-$(CONFIG_HISAX_NI1) += l3ni1.o
 hisax-objs-$(CONFIG_HISAX_1TR6) += l3_1tr6.o
@@ -49,7 +50,6 @@ hisax-objs-$(CONFIG_HISAX_BKM_A4T) += bkm_a4t.o isac.o arcofi.o jade.o
 hisax-objs-$(CONFIG_HISAX_SCT_QUADRO) += bkm_a8.o isac.o arcofi.o hscx.o
 hisax-objs-$(CONFIG_HISAX_GAZEL) += gazel.o isac.o arcofi.o hscx.o
 hisax-objs-$(CONFIG_HISAX_W6692) += w6692.o
-hisax-objs-$(CONFIG_HISAX_ST5481) += st5481.o st5481_hdlc.o
 #hisax-objs-$(CONFIG_HISAX_TESTEMU) += testemu.o
 
 hisax-objs += $(sort $(hisax-objs-y))
@@ -60,7 +60,7 @@ obj-$(CONFIG_ISDN_DRV_HISAX)		+= hisax.o
 obj-$(CONFIG_HISAX_SEDLBAUER_CS)	+= sedlbauer_cs.o
 obj-$(CONFIG_HISAX_ELSA_CS)		+= elsa_cs.o
 obj-$(CONFIG_HISAX_HFC_USB_CS)		+= hfc_usb.o
-obj-$(CONFIG_HISAX_ST5481_CS)		+= st5481_usb.o
+obj-$(CONFIG_HISAX_ST5481_CS)		+= st5481.o
 
 MD5FILES 	:= isac.c isdnl1.c isdnl2.c isdnl3.c \
 		   tei.c callc.c cert.c l3dss1.c l3_1tr6.c \
@@ -75,3 +75,6 @@ include $(TOPDIR)/drivers/isdn/Rules.make
 
 hisax.o: $(hisax-objs)
 	$(LD) -r -o $@ $(hisax-objs)
+
+st5481.o: $(st5481-objs)
+	$(LD) -r -o $@ $(st5481-objs)

@@ -1810,6 +1810,7 @@ HiSax_writebuf_skb(int id, int chan, int ack, struct sk_buff *skb)
 		cli();
 		nskb = skb_clone(skb, GFP_ATOMIC);
 		if (nskb) {
+			nskb->truesize = nskb->len;
 			if (!ack)
 				nskb->pkt_type = PACKET_NOACK;
 			if (chanp->l2_active_protocol == ISDN_PROTO_L2_X75I)

@@ -25,23 +25,18 @@ struct hdlc_vars {
 
 /*
   The return value from hdlc_decode is
-  the frame length with status bits
-  the MS byte.
-
-  +--------+------------------------+
-  !EFCL    !      frame length      !
-  +--------+------------------------+
+  the frame length, 0 if no complete frame was decoded,
+  or a negative error number
 */
 
-#define HDLC_END_OF_FRAME      0x8000
-#define HDLC_FRAMING_ERROR     0x4000
-#define HDLC_CRC_ERROR         0x2000  
-#define HDLC_LENGTH_ERROR      0x1000
+#define HDLC_FRAMING_ERROR     1
+#define HDLC_CRC_ERROR         2
+#define HDLC_LENGTH_ERROR      3
 
 void 
 hdlc_rcv_init(struct hdlc_vars *hdlc, int do_adapt56);
 
-unsigned short
+int
 hdlc_decode(struct hdlc_vars *hdlc, const unsigned char *src, int slen,int *count, 
 	    unsigned char *dst, int dsize);
 

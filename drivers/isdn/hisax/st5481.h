@@ -1,13 +1,6 @@
 #ifndef _ST5481__H_
 #define _ST5481__H_
 
-/* 
-   If you have 4 LEDs on your adapter, set this compile flag to 4. 
-*/
-#ifndef NUMBER_OF_LEDS
-#define NUMBER_OF_LEDS 2
-#endif
-
 #define ST_VENDOR_ID 0x0483
 #define ST5481_PRODUCT_ID 0x4810 /* The Product Id is in the range 0x4810-0x481F */
 #define ST5481_PRODUCT_ID_MASK 0xFFF0
@@ -29,14 +22,18 @@
    Number of isochronous packets. With 20 packets we get
    50 interrupts/sec for each endpoint.
 */ 
-#define NUM_ISO_PACKETS_D    20
-#define NUM_ISO_PACKETS_B    20
+#define NUM_ISO_PACKETS_D      20
+#define NUM_ISO_PACKETS_B      20
 
 /*
   Size of each isochronous packet.
 */
-#define SIZE_ISO_PACKETS_D   16
-#define SIZE_ISO_PACKETS_B   32
+#define SIZE_ISO_PACKETS_D_IN  16
+#define SIZE_ISO_PACKETS_D_OUT 2
+#define SIZE_ISO_PACKETS_B_IN  32
+#define SIZE_ISO_PACKETS_B_OUT 8
+
+#define B_FLOW_ADJUST 2
 
 /* 
    Registers that are written using vendor specific device request
@@ -118,8 +115,6 @@
 #define ANY_REC_INT	(IN_OVERRUN+IN_UP+IN_DOWN+IN_COUNTER_ZEROED)
 #define ANY_XMIT_INT	(OUT_UNDERRUN+OUT_UP+OUT_DOWN+OUT_COUNTER_ZEROED)
 
-
-
 /* Level 1 indications that are found at offset 4 (CCIST)
    in the interrupt packet */
 #define ST5481_IND_DP		 0x0  /* Deactivation Pending */
@@ -143,47 +138,314 @@
 
 
 /* Turn on/off the LEDs using the GPIO device request.
-   To use the B LEDs, NUMBER_OF_LEDS must be set to 4 */
+   To use the B LEDs, number_of_leds must be set to 4 */
 #define B1_LED		0x10U
 #define B2_LED		0x20U
 #define GREEN_LED	0x40U
 #define RED_LED	        0x80U
 
-
-/* D channel out state machine */
+/* D channel out states */
 enum {
-	DOUT_NONE,
+	ST_DOUT_NONE,
 
-	DOUT_STOP,
-	DOUT_INIT,
-	DOUT_INIT_SHORT_FRAME,
-	DOUT_INIT_LONG_FRAME,
-	DOUT_SHORT_WAIT_DEN,
+	ST_DOUT_SHORT_INIT,
+	ST_DOUT_SHORT_WAIT_DEN,
 
-	DOUT_WAIT_DEN,
-	DOUT_NORMAL,
-	DOUT_END_OF_FRAME_BUSY,
-	DOUT_END_OF_FRAME_NOT_BUSY,
-	DOUT_END_OF_SHORT_FRAME,
+	ST_DOUT_LONG_INIT,
+	ST_DOUT_LONG_WAIT_DEN,
+	ST_DOUT_NORMAL,
 
-        DOUT_WAIT_FOR_NOT_BUSY,
-	DOUT_WAIT_FOR_STOP,
-	DOUT_WAIT_FOR_RESET,
-	DOUT_WAIT_FOR_RESET_IDLE,
-	DOUT_IDLE
+	ST_DOUT_WAIT_FOR_UNDERRUN,
+        ST_DOUT_WAIT_FOR_NOT_BUSY,
+	ST_DOUT_WAIT_FOR_STOP,
+	ST_DOUT_WAIT_FOR_RESET,
 };
+
+#define DOUT_STATE_COUNT (ST_DOUT_WAIT_FOR_RESET + 1)
 
 /* D channel out events */
 enum {
-	DNONE_EVENT,
-	DXMIT_INITED,
-	DXMIT_STOPPED,
-	DEN_EVENT,
-	DCOLL_EVENT,
-	DUNDERRUN_EVENT,
+	EV_DOUT_START_XMIT,
+	EV_DOUT_COMPLETE,
+	EV_DOUT_DEN,
+	EV_DOUT_RESETED,
+	EV_DOUT_STOPPED,
+	EV_DOUT_COLL,
+	EV_DOUT_UNDERRUN,
 	DXMIT_NOT_BUSY,
-	DXSHORT_EVENT,
-	DXRESET_EVENT
-}; 
+};
+
+#define DOUT_EVENT_COUNT (DXMIT_NOT_BUSY + 1)
+
+#define MIN(a,b) ((a)<(b) ? (a):(b))
+
+#define ERR(format, arg...) \
+printk(KERN_ERR __FILE__ ": " __FUNCTION__ ": " format "\n" , ## arg)
+
+#define WARN(format, arg...) \
+printk(KERN_WARNING __FILE__ ": " __FUNCTION__ ": " format "\n" , ## arg)
+
+#define INFO(format, arg...) \
+printk(KERN_INFO __FILE__ ": " __FUNCTION__ ": " format "\n" , ## arg)
+
+#include "st5481-debug.h"
+#include "st5481_hdlc.h"
+#include "fsm.h"
+#include "hisax_if.h"
+#include <linux/skbuff.h>
+
+/* ======================================================================
+ * FIFO handling
+ */
+
+/* Generic FIFO structure */ 
+struct fifo {
+	u_char r,w,count,size;
+	spinlock_t lock;
+};
+
+/*
+ * Init an FIFO
+ */
+static inline void fifo_init(struct fifo *fifo, int size)
+{
+	fifo->r = fifo->w = fifo->count = 0;
+	fifo->size = size;
+	spin_lock_init(&fifo->lock);
+}
+
+/*
+ * Add an entry to the FIFO
+ */
+static inline int fifo_add(struct fifo *fifo)
+{
+	unsigned long flags;
+	int index;
+
+	if (!fifo) {
+		return -1;
+	}
+
+	spin_lock_irqsave(&fifo->lock, flags);
+	if (fifo->count == fifo->size) {
+		// FIFO full
+		index = -1;
+	} else {
+		// Return index where to get the next data to add to the FIFO
+		index = fifo->w++ & (fifo->size-1); 
+		fifo->count++;
+	}
+	spin_unlock_irqrestore(&fifo->lock, flags);
+	return index;
+}
+
+/*
+ * Remove an entry from the FIFO with the index returned.
+ */
+static inline int fifo_remove(struct fifo *fifo)
+{
+	unsigned long flags;
+	int index;
+
+	if (!fifo) {
+		return -1;
+	}
+
+	spin_lock_irqsave(&fifo->lock, flags);		
+	if (!fifo->count) {
+		// FIFO empty
+		index = -1;
+	} else {
+		// Return index where to get the next data from the FIFO
+		index = fifo->r++ & (fifo->size-1); 
+		fifo->count--;
+	}
+	spin_unlock_irqrestore(&fifo->lock, flags);
+
+	return index;
+}
+
+// ----------------------------------------------------------------------
+
+/* FIFO of received interrupt events */
+
+struct evt {
+	int pr;
+	void *arg;
+};
+
+#define MAX_EVT_FIFO 16
+struct evt_fifo {
+	struct fifo f;
+	struct evt data[MAX_EVT_FIFO];
+};	
+
+/* ======================================================================
+ * control pipe
+ */
+typedef void (*ctrl_complete_t)(void *);
+
+typedef struct ctrl_msg {
+	devrequest dr;
+	ctrl_complete_t complete;
+	void *context;
+} ctrl_msg; 
+
+/* FIFO of ctrl messages waiting to be sent */
+#define MAX_EP0_MSG 16
+struct ctrl_msg_fifo {
+	struct fifo f;
+	struct ctrl_msg data[MAX_EP0_MSG];
+};	
+
+#define MAX_DFRAME_LEN_L1	300
+#define HSCX_BUFMAX	4096
+
+struct st5481_ctrl {
+	struct ctrl_msg_fifo msg_fifo;
+	unsigned long busy;
+	struct urb *urb;
+};
+
+struct st5481_intr {
+	struct evt_fifo evt_fifo;
+	struct urb *urb;
+};
+
+struct st5481_d_out {
+	struct hdlc_vars hdlc_state;
+	struct urb *urb[2]; /* double buffering */
+	unsigned long busy;
+	struct sk_buff *tx_skb;
+	struct FsmInst fsm;
+};
+
+struct st5481_b_out {
+	struct hdlc_vars hdlc_state;
+	struct urb *urb[2]; /* double buffering */
+	u_char flow_event;
+	u_long busy;
+	struct sk_buff *tx_skb;
+};
+
+struct st5481_in {
+	struct hdlc_vars hdlc_state;
+	struct urb *urb[2]; /* double buffering */
+	int mode;
+	int bufsize;
+	unsigned int num_packets;
+	unsigned int packet_size;
+	unsigned char ep, counter;
+	unsigned char *rcvbuf;
+	struct st5481_adapter *adapter;
+	struct hisax_if *hisax_if;
+};
+
+int st5481_setup_in(struct st5481_in *in);
+void st5481_release_in(struct st5481_in *in);
+void st5481_in_mode(struct st5481_in *in, int mode);
+
+struct st5481_bcs {
+	struct hisax_b_if b_if;
+	struct st5481_adapter *adapter;
+	struct st5481_in b_in;
+	struct st5481_b_out b_out;
+	int channel;
+	int mode;
+};
+
+struct st5481_adapter {
+	struct list_head list;
+	int number_of_leds;
+	struct usb_device *usb_dev;
+	struct hisax_d_if hisax_d_if;
+
+	struct st5481_ctrl ctrl;
+	struct st5481_intr intr;
+	struct st5481_in d_in;
+	struct st5481_d_out d_out;
+
+	unsigned char leds;
+	unsigned int led_counter;
+
+	unsigned long event;
+	struct tq_struct tqueue;
+
+	int ph_state;
+	struct FsmInst l1m;
+	struct FsmTimer timer;
+
+	struct st5481_bcs bcs[2];
+};
+
+#define TIMER3_VALUE 7000
+
+/* ======================================================================
+ *
+ */
+
+/*
+ * Submit an URB with error reporting. This is a macro so
+ * the __FUNCTION__ returns the caller function name.
+ */
+#define SUBMIT_URB(urb) \
+({ \
+	int status; \
+	if ((status = usb_submit_urb(urb)) < 0) { \
+		WARN("usb_submit_urb failed,status=%d", status); \
+	} \
+        status; \
+})
+
+/*
+ * USB double buffering, return the URB index (0 or 1).
+ */
+static inline int get_buf_nr(struct urb *urbs[], struct urb *urb)
+{
+        return (urbs[0]==urb ? 0 : 1); 
+}
+
+/* ---------------------------------------------------------------------- */
+
+/* B Channel */
+
+int  st5481_setup_b(struct st5481_bcs *bcs);
+void st5481_release_b(struct st5481_bcs *bcs);
+void st5481_d_l2l1(struct hisax_if *hisax_d_if, int pr, void *arg);
+
+/* D Channel */
+#define D_L1STATECHANGE 2
+#define D_OUT_EVENT 10
+
+int  st5481_setup_d(struct st5481_adapter *adapter);
+void st5481_release_d(struct st5481_adapter *adapter);
+void st5481_b_l2l1(struct hisax_if *b_if, int pr, void *arg);
+int  st5481_d_init(void);
+void st5481_d_exit(void);
+
+void st5481_sched_event(struct st5481_adapter *adapter, int event);
+void st5481_sched_d_out_event(struct st5481_adapter *adapter,
+			      int event, void *arg);
+/* USB */
+void st5481_ph_command(struct st5481_adapter *adapter, unsigned int command);
+int st5481_setup_isocpipes(struct urb* urb[2], struct usb_device *dev, 
+			   unsigned int pipe, int num_packets,
+			   int packet_size, int buf_size,
+			   usb_complete_t complete, void *context);
+void st5481_release_isocpipes(struct urb* urb[2]);
+
+int  st5481_isoc_flatten(struct urb *urb);
+void st5481_usb_pipe_reset(struct st5481_adapter *adapter,
+		    u_char pipe, ctrl_complete_t complete, void *context);
+void st5481_usb_ctrl_msg(struct st5481_adapter *adapter,
+		  u8 request, u8 requesttype, u16 value, u16 index,
+		  ctrl_complete_t complete, void *context);
+void st5481_usb_device_ctrl_msg(struct st5481_adapter *adapter,
+			 u8 request, u16 value,
+			 ctrl_complete_t complete, void *context);
+int  st5481_setup_usb(struct st5481_adapter *adapter);
+void st5481_release_usb(struct st5481_adapter *adapter);
+void st5481_start(struct st5481_adapter *adapter);
+void st5481_stop(struct st5481_adapter *adapter);
 
 #endif 

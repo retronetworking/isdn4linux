@@ -73,7 +73,6 @@
  *   38 Travers Technologies NETspider-U PCI card
  *   39 HFC 2BDS0-SP PCMCIA     p0=irq p1=iobase
  *   40 HFC-S USB               none
- *   41 ST5481 ISDN USB modem   none
  *
  * protocol can be either ISDN_PTYPE_EURO or ISDN_PTYPE_1TR6 or ISDN_PTYPE_NI1
  *
@@ -92,7 +91,7 @@ const char *CardType[] = {
 	"Siemens I-Surf", "Acer P10", "HST Saphir", "Telekom A4T",
 	"Scitel Quadro", "Gazel", "HFC 2BDS0 PCI", "Winbond 6692",
 	"HFC 2BDS0 SX", "NETspider-U", "HFC-2BDS0-SP PCMCIA",
-	"HFC-S USB", "ST5481 ISDN USB modem",
+	"HFC-S USB",
 };
 
 void HiSax_closecard(int cardnr);
@@ -101,14 +100,14 @@ void HiSax_closecard(int cardnr);
 #define DEFAULT_CARD ISDN_CTYPE_HFC_USB
 #define DEFAULT_CFG {0,0,0,0}
 EXPORT_SYMBOL(hisax_register_hfcusb);
-#endif				/* CONFIG_HISAX_HFC_USB */
+#endif
 
 #ifdef CONFIG_HISAX_ELSA
 #define DEFAULT_CARD ISDN_CTYPE_ELSA
 #define DEFAULT_CFG {0,0,0,0}
 int elsa_init_pcmcia(void *, int, int *, int);
 EXPORT_SYMBOL(elsa_init_pcmcia);
-#endif				/* CONFIG_HISAX_ELSA */
+#endif
 
 #ifdef CONFIG_HISAX_AVM_A1
 #undef DEFAULT_CARD
@@ -306,15 +305,6 @@ EXPORT_SYMBOL(hfc_init_pcmcia);
 #define DEFAULT_CFG {0,0,0,0}
 #endif
 
-#ifdef CONFIG_HISAX_ST5481 
-#undef DEFAULT_CARD
-#undef DEFAULT_CFG
-#define DEFAULT_CARD ISDN_CTYPE_ST5481
-#define DEFAULT_CFG {0,0,0,0}
-int st5481_init_usb(struct usb_device *dev, int typ, int prot, int *cardnr);
-EXPORT_SYMBOL(st5481_init_usb);
-#endif
-
 #ifdef CONFIG_HISAX_1TR6
 #define DEFAULT_PROTO ISDN_PTYPE_1TR6
 #define DEFAULT_PROTO_NAME "1TR6"
@@ -457,7 +447,6 @@ void HiSax_mod_inc_use_count(void)
 }
 
 #ifndef MODULE
-#ifdef COMPAT_HAS_NEW_SETUP
 #define MAX_ARG	(HISAX_MAX_CARDS*5)
 static int __init HiSax_setup(char *line)
 {
@@ -466,11 +455,6 @@ static int __init HiSax_setup(char *line)
 	char *str;
 
 	str = get_options(line, MAX_ARG, ints);
-#else
-static void __init HiSax_setup(char *str, int *ints)
-{
-	int i, j, argc;
-#endif
 	argc = ints[0];
 	printk(KERN_DEBUG "HiSax_setup: argc(%d) str(%s)\n", argc, str);
 	i = 0;
@@ -510,15 +494,11 @@ static void __init HiSax_setup(char *str, int *ints)
 		strcpy(HiSaxID, "HiSax");
 		HiSax_id = HiSaxID;
 	}
-#ifdef COMPAT_HAS_NEW_SETUP
 	return 1;
 }
 
 __setup("hisax=", HiSax_setup);
-#else
-}
-#endif /* COMPAT_HAS_NEW_SETUP */
-#endif /* MODULES */
+#endif				/* MODULES */
 
 #if CARD_TELES0
 extern int setup_teles0(struct IsdnCard *card);
@@ -638,10 +618,6 @@ extern int setup_w6692(struct IsdnCard *card);
 
 #if CARD_NETJET_U
 extern int setup_netjet_u(struct IsdnCard *card);
-#endif
-
-#if CARD_ST5481
-extern int setup_st5481(struct IsdnCard *card);
 #endif
 
 /*
@@ -881,8 +857,9 @@ static void closecard(int cardnr)
 	if (csta->DC_Close != NULL) {
 		csta->DC_Close(csta);
 	}
-	csta->cardmsg(csta, CARD_RELEASE, NULL);
-	if (csta->dbusytimer.function != NULL)
+	if (csta->cardmsg)
+		csta->cardmsg(csta, CARD_RELEASE, NULL);
+	if (csta->dbusytimer.function != NULL) // FIXME?
 		del_timer(&csta->dbusytimer);
 	ll_unload(csta);
 }
@@ -934,7 +911,8 @@ static int __devinit init_card(struct IsdnCardState *cs)
 	return 3;
 }
 
-static int __devinit checkcard(int cardnr, char *id, int *busy_flag, void *load_drv)
+static int __devinit checkcard(int cardnr, char *id, int *busy_flag,
+			       void *load_drv)
 {
 	long flags;
 	int ret = 0;
@@ -1184,11 +1162,9 @@ static int __devinit checkcard(int cardnr, char *id, int *busy_flag, void *load_
 		ret = setup_netjet_u(card);
 		break;
 #endif
-#if CARD_ST5481
-	case ISDN_CTYPE_ST5481:
-		ret = setup_st5481(card);
+	case ISDN_CTYPE_DYNAMIC:
+		ret = 2;
 		break;
-#endif			
 	default:
 		printk(KERN_WARNING
 		       "HiSax: Support for %s Card not selected\n",
@@ -1220,10 +1196,17 @@ static int __devinit checkcard(int cardnr, char *id, int *busy_flag, void *load_
 
 	/* init_card only handles interrupts which are not */
 	/* used here for the loadable driver */
-	if (card->typ != ISDN_CTYPE_HFC_USB)
-		ret = init_card(cs);
-	else
+	switch (card->typ) {
+	case ISDN_CTYPE_DYNAMIC:
+		ret = 0;
+		break;
+	case ISDN_CTYPE_HFC_USB:
 		ret = cs->cardmsg(cs, CARD_INIT, NULL);
+		break;
+	default:
+		ret = init_card(cs);
+		break;
+	}
 	if (ret) {
 		closecard(cardnr);
 		ret = 0;
@@ -1371,58 +1354,6 @@ void HiSax_reportcard(int cardnr, int sel)
 		cs->bcs[1].err_tx  = 0;
 	}
 #endif
-#if 0
-	{
-		struct PStack *stptr;
-		struct l3_process *pc;
-		int j, i = 1;
-
-		printk(KERN_DEBUG "HiSax: cs setstack_d 0x%lX\n",
-		       (ulong) cs->setstack_d);
-		printk(KERN_DEBUG "HiSax: cs stl 0x%lX\n",
-		       (ulong) & (cs->stlist));
-		stptr = cs->stlist;
-		while (stptr != NULL) {
-			printk(KERN_DEBUG "HiSax: dst%d 0x%lX\n", i,
-			       (ulong) stptr);
-			printk(KERN_DEBUG "HiSax: dst%d stp 0x%lX\n", i,
-			       (ulong) stptr->l1.stlistp);
-			printk(KERN_DEBUG "HiSax: dst%d l1.l1hw 0x%lX\n",
-			       i, (ulong) stptr->l1.l1hw);
-			printk(KERN_DEBUG "HiSax:   tei %d sapi %d\n",
-			       stptr->l2.tei, stptr->l2.sap);
-			printk(KERN_DEBUG "HiSax:      man 0x%lX\n",
-			       (ulong) stptr->ma.layer);
-			pc = stptr->l3.proc;
-			while (pc) {
-				printk(KERN_DEBUG
-				       "HiSax: l3proc %x 0x%lX\n",
-				       pc->callref, (ulong) pc);
-				printk(KERN_DEBUG
-				       "HiSax:    state %d  st 0x%lX chan 0x%lX\n",
-				       pc->state, (ulong) pc->st,
-				       (ulong) pc->chan);
-				pc = pc->next;
-			}
-			stptr = stptr->next;
-			i++;
-		}
-		for (j = 0; j < 2; j++) {
-			printk(KERN_DEBUG "HiSax: ch%d 0x%lX\n", j,
-			       (ulong) & cs->channel[j]);
-			stptr = cs->channel[j].b_st;
-			i = 1;
-			while (stptr != NULL) {
-				printk(KERN_DEBUG "HiSax:  b_st%d 0x%lX\n",
-				       i, (ulong) stptr);
-				printk(KERN_DEBUG "HiSax:    man 0x%lX\n",
-				       (ulong) stptr->ma.layer);
-				stptr = stptr->next;
-				i++;
-			}
-		}
-	}
-#endif
 }
 
 #ifdef CONFIG_HISAX_HFC_USB
@@ -1433,39 +1364,38 @@ hisax_register_hfcusb(struct hisax_drvreg *l1drv)
 	char ids[30];
 
 	if (l1drv->version != HISAX_LOAD_VERSION)
-		return (1);
+		return 1;
 
 	switch (l1drv->cmd) {
-		case HISAX_LOAD_CHKVER:
-			break;	/* success */
+	case HISAX_LOAD_CHKVER:
+		break;	/* success */
 
-		case HISAX_LOAD_REGISTER:
-			for (i = 0; i < HISAX_MAX_CARDS; i++) {
-				if (!cards[i].typ)
-					break;
-			}
-			if (i >= HISAX_MAX_CARDS)
-				return (1);	/* no space */
-			cards[i].typ = ISDN_CTYPE_HFC_USB;	/* setup type */
-			type[i] = ISDN_CTYPE_HFC_USB;	/* setup type */
-			cards[i].protocol = DEFAULT_PROTO;
-			sprintf(ids, "%s%d", l1drv->drvname, i);
-			if (checkcard(i, ids, NULL, (void *) l1drv)) {
-				nrcards++;
-				return (0);
-			}
-			if (cards[i].cs)
-				kfree((void *) cards[i].cs);
-			cards[i].cs = NULL;
-			cards[i].typ = 0;	/* no card present */
-			return (1);
-			break;
+	case HISAX_LOAD_REGISTER:
+		for (i = 0; i < HISAX_MAX_CARDS; i++) {
+			if (!cards[i].typ)
+				break;
+		}
+		if (i >= HISAX_MAX_CARDS)
+			return 1;	/* no space */
+		cards[i].typ = ISDN_CTYPE_HFC_USB;	/* setup type */
+		cards[i].protocol = DEFAULT_PROTO;
+		sprintf(ids, "%s%d", l1drv->drvname, i);
+		if (checkcard(i, ids, NULL, (void *) l1drv)) {
+			nrcards++;
+			return 0;
+		}
+		if (cards[i].cs)
+			kfree((void *) cards[i].cs);
+		cards[i].cs = NULL;
+		cards[i].typ = 0;	/* no card present */
+		return 1;
+		break;
 
-		default:
-			return (1);	/* unknown command */
+	default:
+		return 1;	/* unknown command */
 	}
 
-	return (0);
+	return 0;
 }				/* hisax_register_hfcusb */
 #endif
 
@@ -1497,6 +1427,8 @@ static int __init HiSax_init(void)
 #ifdef MODULE
 	if (!type[0]) {
 		/* We 'll register drivers later, but init basic functions */
+		for (i = 0; i < HISAX_MAX_CARDS; i++)
+			cards[i].typ = 0;
 		return 0;
 	}
 #ifdef CONFIG_HISAX_ELSA
@@ -1519,12 +1451,6 @@ static int __init HiSax_init(void)
 #endif
 #ifdef CONFIG_HISAX_HFC_SX
 	if (type[0] == ISDN_CTYPE_HFC_SP_PCMCIA) {
-		/* we have to export  and return in this case */
-		return 0;
-	}
-#endif
-#ifdef CONFIG_HISAX_ST5481
-	if (type[0] == ISDN_CTYPE_ST5481) {
 		/* we have to export  and return in this case */
 		return 0;
 	}
@@ -1607,7 +1533,6 @@ static int __init HiSax_init(void)
 		case ISDN_CTYPE_TELESPCI:
 		case ISDN_CTYPE_W6692:
 		case ISDN_CTYPE_NETJET_U:
-		case ISDN_CTYPE_ST5481:
 			break;
 		case ISDN_CTYPE_BKM_A4T:
 			break;
@@ -1733,7 +1658,6 @@ int hfc_init_pcmcia(void *pcm_iob, int pcm_irq, int *busy_flag, int prot)
 {
 #ifdef MODULE
 	int i;
-	int nzproto = 0;
 
 	nrcards = 0;
 	/* Initialize all structs, even though we only accept
@@ -1745,14 +1669,12 @@ int hfc_init_pcmcia(void *pcm_iob, int pcm_irq, int *busy_flag, int prot)
 		cards[i].typ = type[i];
 		if (protocol[i]) {
 			cards[i].protocol = protocol[i];
-			nzproto++;
 		}
 	}
 	cards[0].para[0] = pcm_irq;
 	cards[0].para[1] = (int) pcm_iob;
 	cards[0].protocol = prot;
 	cards[0].typ = ISDN_CTYPE_HFC_SP_PCMCIA;
-	nzproto = 1;
 
 	if (!HiSax_id)
 		HiSax_id = HiSaxID;
@@ -1776,7 +1698,6 @@ int sedl_init_pcmcia(void *pcm_iob, int pcm_irq, int *busy_flag, int prot)
 {
 #ifdef MODULE
 	int i;
-	int nzproto = 0;
 
 	nrcards = 0;
 	/* Initialize all structs, even though we only accept
@@ -1788,14 +1709,12 @@ int sedl_init_pcmcia(void *pcm_iob, int pcm_irq, int *busy_flag, int prot)
 		cards[i].typ = type[i];
 		if (protocol[i]) {
 			cards[i].protocol = protocol[i];
-			nzproto++;
 		}
 	}
 	cards[0].para[0] = pcm_irq;
 	cards[0].para[1] = (int) pcm_iob;
 	cards[0].protocol = prot;
 	cards[0].typ = ISDN_CTYPE_SEDLBAUER_PCMCIA;
-	nzproto = 1;
 
 	if (!HiSax_id)
 		HiSax_id = HiSaxID;
@@ -1819,7 +1738,6 @@ int avm_a1_init_pcmcia(void *pcm_iob, int pcm_irq, int *busy_flag, int prot)
 {
 #ifdef MODULE
 	int i;
-	int nzproto = 0;
 
 	nrcards = 0;
 	/* Initialize all structs, even though we only accept
@@ -1831,14 +1749,12 @@ int avm_a1_init_pcmcia(void *pcm_iob, int pcm_irq, int *busy_flag, int prot)
 		cards[i].typ = type[i];
 		if (protocol[i]) {
 			cards[i].protocol = protocol[i];
-			nzproto++;
 		}
 	}
 	cards[0].para[0] = pcm_irq;
 	cards[0].para[1] = (int) pcm_iob;
 	cards[0].protocol = prot;
 	cards[0].typ = ISDN_CTYPE_A1_PCMCIA;
-	nzproto = 1;
 
 	if (!HiSax_id)
 		HiSax_id = HiSaxID;
@@ -1853,50 +1769,12 @@ int avm_a1_init_pcmcia(void *pcm_iob, int pcm_irq, int *busy_flag, int prot)
 	HiSax_inithardware(busy_flag);
 	printk(KERN_NOTICE "HiSax: module installed\n");
 #endif
-	return (0);
+	return 0;
 }
 #endif
 
-#ifdef CONFIG_HISAX_ST5481
-int st5481_init_usb(struct usb_device *dev, int typ, int prot, int *cardnr)
-{
-#ifdef MODULE
-	int i;
-
-	nrcards = 0;
-
-	for (i = 0; i < HISAX_MAX_CARDS; i++) {
-		cards[i].para[0] = irq[i];
-		cards[i].para[1] = io[i];
-		cards[i].typ = type[i];
-		if (protocol[i]) {
-			cards[i].protocol = protocol[i];
-		}
-	}
-	cards[0].para[1] = (int) dev; // FIXME: broken for sizeof(void *) != sizeof(int)
-	cards[0].protocol = prot;
-	cards[0].typ = typ;
-	*cardnr = 0;    // FIXME: only 1 adapter possible
-
-	if (!HiSax_id)
-		HiSax_id = HiSaxID;
-	if (!HiSaxID[0])
-		strcpy(HiSaxID, "st5481_usb");
-	for (i = 0; i < HISAX_MAX_CARDS; i++)
-		if (cards[i].typ > 0)
-			nrcards++;
-	printk(KERN_DEBUG "HiSax: Total %d card%s defined\n",
-	       nrcards, (nrcards > 1) ? "s" : "");
-
-	HiSax_inithardware(NULL);
-	printk(KERN_NOTICE "HiSax: module installed\n");
-#endif
-	return (0);
-}
-#endif
-
-int __devinit
-hisax_init_pcmcia(void *pcm_iob, int *busy_flag, struct IsdnCard *card)
+int __devinit hisax_init_pcmcia(void *pcm_iob, int *busy_flag,
+				struct IsdnCard *card)
 {
 	u_char ids[16];
 	int ret = -1;
@@ -1907,19 +1785,273 @@ hisax_init_pcmcia(void *pcm_iob, int *busy_flag, struct IsdnCard *card)
 	else
 		sprintf(ids, "HiSax");
 	if (!checkcard(nrcards, ids, busy_flag, NULL)) {
-		return (-1);
+		return -1;
 	}
 	ret = nrcards;
 	nrcards++;
 	return ret;
 }
 
-#ifndef COMPAT_HAS_2_2_PCI
+#include "hisax_if.h"
+
+EXPORT_SYMBOL(hisax_register);
+EXPORT_SYMBOL(hisax_unregister);
+EXPORT_SYMBOL(hisax_d_l1l2);
+EXPORT_SYMBOL(hisax_b_l1l2);
+
+static void hisax_d_l2l1(struct PStack *st, int pr, void *arg);
+static int hisax_cardmsg(struct IsdnCardState *cs, int mt, void *arg);
+static int hisax_bc_setstack(struct PStack *st, struct BCState *bcs);
+static void hisax_bc_close(struct BCState *bcs);
+static void hisax_bh(struct IsdnCardState *cs);
+
+int hisax_register(struct hisax_if *hisax_if, struct hisax_b_if *b_if[],
+		   int protocol)
+{
+	int i, retval;
+	char id[20];
+	struct IsdnCardState *cs;
+
+	for (i = 0; i < HISAX_MAX_CARDS; i++) {
+		if (!cards[i].typ)
+			break;
+	}
+
+	if (i >= HISAX_MAX_CARDS)
+		return -EBUSY;
+
+	cards[i].typ = ISDN_CTYPE_DYNAMIC;
+	cards[i].protocol = protocol;
+	sprintf(id, "%s%d", hisax_if->name, i);
+	nrcards++;
+	retval = checkcard(i, id, 0, NULL);
+	if (retval == 0) { // yuck
+		cards[i].typ = 0;
+		nrcards--;
+		return retval;
+	}
+	cs = cards[i].cs;
+	hisax_if->cs = cs;
+	cs->hw.hisax_if = hisax_if;
+	cs->cardmsg = hisax_cardmsg;
+	cs->tqueue.routine = (void *) (void *) hisax_bh;
+	cs->channel[0].d_st->l2.l2l1 = hisax_d_l2l1;
+	for (i = 0; i < 2; i++) {
+		cs->bcs[i].BC_SetStack = hisax_bc_setstack;
+		cs->bcs[i].BC_Close = hisax_bc_close;
+
+		hisax_if->b_if[i] = b_if[i];
+	}
+	return 0;
+}
+
+void hisax_unregister(struct hisax_if *hisax_if)
+{
+	HiSax_closecard(hisax_if->cs->cardnr);
+}
+
+#include "isdnl1.h"
+
+static void hisax_sched_event(struct IsdnCardState *cs, int event)
+{
+	cs->event |= 1 << event;
+	queue_task(&cs->tqueue, &tq_immediate);
+	mark_bh(IMMEDIATE_BH);
+}
+
+static void hisax_bh(struct IsdnCardState *cs)
+{
+	if (test_and_clear_bit(D_RCVBUFREADY, &cs->event))
+		DChannel_proc_rcv(cs);
+}
+
+static void hisax_b_sched_event(struct BCState *bcs, int event)
+{
+	bcs->event |= 1 << event;
+	queue_task(&bcs->tqueue, &tq_immediate);
+	mark_bh(IMMEDIATE_BH);
+}
+
+void hisax_d_l1l2(struct hisax_if *hisax_if, int pr, void *arg)
+{
+	struct IsdnCardState *cs = hisax_if->cs;
+	struct PStack *st;
+	struct sk_buff *skb;
+
+	switch (pr) {
+	case PH_ACTIVATE | INDICATION:
+		//		printk(KERN_DEBUG "PH_ACTIVATE IND\n");
+		for (st = cs->stlist; st; st = st->next)
+			st->l1.l1l2(st, pr, NULL);
+		break;
+	case PH_DEACTIVATE | INDICATION:
+		//		printk(KERN_DEBUG "PH_DEACTIVATE IND\n");
+		for (st = cs->stlist; st; st = st->next)
+			st->l1.l1l2(st, pr, NULL);
+		break;
+	case PH_DATA | INDICATION:
+		// 	printk(KERN_DEBUG "PH_DATA IND\n");
+		skb_queue_tail(&cs->rq, arg);
+		hisax_sched_event(cs, D_RCVBUFREADY);
+		break;
+	case PH_DATA | CONFIRM:
+		skb = skb_dequeue(&cs->sq);
+		if (skb) {
+			hisax_if->d_l2l1(hisax_if, PH_DATA | REQUEST, skb);
+		} else {
+			clear_bit(FLG_L1_DBUSY, &cs->HW_Flags);
+			for (st = cs->stlist; st; st = st->next) {
+				if (test_and_clear_bit(FLG_L1_PULL_REQ, &st->l1.Flags))
+
+					st->l1.l1l2(st, PH_PULL | CONFIRM, NULL);
+				break;
+			}
+		}
+		break;
+	default:
+		printk("pr %#x\n", pr);
+		break;
+	}
+}
+
+void hisax_b_l1l2(struct hisax_b_if *b_if, int pr, void *arg)
+{
+	struct BCState *bcs = b_if->bcs;
+	struct PStack *st = bcs->st;
+	struct sk_buff *skb;
+
+	// FIXME use isdnl1?
+	switch (pr) {
+	case PH_ACTIVATE | INDICATION:
+		st->l1.l1l2(st, pr, NULL);
+		break;
+	case PH_DEACTIVATE | INDICATION:
+		st->l1.l1l2(st, pr, NULL);
+		bcs->hw.b_if = NULL;
+		break;
+	case PH_DATA | INDICATION:
+		skb_queue_tail(&bcs->rqueue, arg);
+		hisax_b_sched_event(bcs, B_RCVBUFREADY);
+		break;
+	case PH_DATA | CONFIRM:
+		bcs->tx_cnt -= (int) arg;
+		if (bcs->st->lli.l1writewakeup)
+			bcs->st->lli.l1writewakeup(bcs->st, (int) arg);
+		skb = skb_dequeue(&bcs->squeue);
+		if (skb) {
+			b_if->b_l2l1(b_if, PH_DATA | REQUEST, skb);
+		} else {
+			clear_bit(BC_FLG_BUSY, &bcs->Flag);
+		}
+		break;
+	default:
+		printk("hisax_b_l1l2 pr %#x\n", pr);
+		break;
+	}
+}
+
+static void hisax_d_l2l1(struct PStack *st, int pr, void *arg)
+{
+	struct IsdnCardState *cs = st->l1.hardware;
+	struct hisax_if *hisax_if = cs->hw.hisax_if;
+	struct sk_buff *skb = arg;
+
+	switch (pr) {
+	case PH_DATA | REQUEST:
+	case PH_PULL | INDICATION:
+/* 		if (pr == (PH_DATA | REQUEST)) */
+/* 			printk("PH_DATA REQ %#x\n", pr); */
+/* 		else */
+/* 			printk("PH_PULL IND %#x\n", pr); */
+		if (cs->debug & DEB_DLOG_HEX)
+			LogFrame(cs, skb->data, skb->len);
+		if (cs->debug & DEB_DLOG_VERBOSE)
+			dlogframe(cs, skb, 0);
+		Logl2Frame(cs, skb, "PH_DATA_REQ", 0);
+		// FIXME lock?
+		if (!test_and_set_bit(FLG_L1_DBUSY, &cs->HW_Flags))
+			hisax_if->d_l2l1(hisax_if, PH_DATA | REQUEST, arg);
+		else
+			skb_queue_tail(&cs->sq, arg);
+		break;
+	case PH_PULL | REQUEST:
+/* 		printk("PH_PULL REQ\n"); */
+		if (!test_bit(FLG_L1_DBUSY, &cs->HW_Flags))
+			st->l1.l1l2(st, PH_PULL | CONFIRM, NULL);
+		else
+			set_bit(FLG_L1_PULL_REQ, &st->l1.Flags);
+		break;
+	default:
+		hisax_if->d_l2l1(hisax_if, pr, skb);
+		break;
+	}
+}
+
+static int hisax_cardmsg(struct IsdnCardState *cs, int mt, void *arg)
+{
+	return 0;
+}
+
+static void hisax_b_l2l1(struct PStack *st, int pr, void *arg)
+{
+	struct BCState *bcs = st->l1.bcs;
+	struct hisax_b_if *b_if = bcs->hw.b_if;
+
+	switch (pr) {
+	case PH_ACTIVATE | REQUEST:
+		b_if->b_l2l1(b_if, pr, (void *) st->l1.mode);
+		break;
+	case PH_DATA | REQUEST:
+	case PH_PULL | INDICATION:
+		// FIXME lock?
+		if (!test_and_set_bit(BC_FLG_BUSY, &bcs->Flag)) {
+			b_if->b_l2l1(b_if, pr, arg);
+		} else {
+			skb_queue_tail(&bcs->squeue, arg);
+		}
+		break;
+	case PH_PULL | REQUEST:
+		set_bit(FLG_L1_PULL_REQ, &st->l1.Flags);
+		break;
+	default:
+		b_if->b_l2l1(b_if, pr, arg);
+		break;
+	}
+}
+
+static int hisax_bc_setstack(struct PStack *st, struct BCState *bcs)
+{
+	struct IsdnCardState *cs = st->l1.hardware;
+	struct hisax_if *hisax_if = cs->hw.hisax_if;
+
+	bcs->channel = st->l1.bc;
+
+	bcs->hw.b_if = hisax_if->b_if[st->l1.bc];
+	hisax_if->b_if[st->l1.bc]->bcs = bcs;
+
+	st->l1.bcs = bcs;
+	st->l2.l2l1 = hisax_b_l2l1;
+	setstack_manager(st);
+	bcs->st = st;
+	setstack_l1_B(st);
+	skb_queue_head_init(&bcs->rqueue);
+	skb_queue_head_init(&bcs->squeue);
+	return 0;
+}
+
+static void hisax_bc_close(struct BCState *bcs)
+{
+	struct hisax_b_if *b_if = bcs->hw.b_if;
+
+	if (b_if)
+		b_if->b_l2l1(b_if, PH_DEACTIVATE | REQUEST, NULL);
+}
+
 #include <linux/pci.h>
 
 static struct pci_device_id hisax_pci_tbl[] __initdata = {
 #ifdef CONFIG_HISAX_FRITZPCI
-	{PCI_VENDOR_ID_AVM,      PCI_DEVICE_ID_AVM_A1,          PCI_ANY_ID, PCI_ANY_ID},
+	{PCI_VENDOR_ID_AVM,      PCI_DEVICE_ID_AVM_A1,           PCI_ANY_ID, PCI_ANY_ID},
 #endif
 #ifdef CONFIG_HISAX_DIEHLDIVA
 	{PCI_VENDOR_ID_EICON,    PCI_DEVICE_ID_EICON_DIVA20,     PCI_ANY_ID, PCI_ANY_ID},
@@ -1980,7 +2112,6 @@ static struct pci_device_id hisax_pci_tbl[] __initdata = {
 };
 
 MODULE_DEVICE_TABLE(pci, hisax_pci_tbl);
-#endif
 
 module_init(HiSax_init);
 module_exit(HiSax_exit);
