@@ -5,6 +5,9 @@
  *
  *
  * $Log$
+ * Revision 2.30  1999/08/05 20:43:14  keil
+ * ISAR analog modem support
+ *
  * Revision 2.29  1999/07/21 14:46:00  keil
  * changes from EICON certification
  *
@@ -114,6 +117,10 @@
 #include <linux/stddef.h>
 #include <linux/timer.h>
 #include <linux/config.h>
+#include <linux/isdn_compat.h>
+#ifdef COMPAT_HAS_NEW_SETUP
+#include <linux/init.h>
+#endif
 #include "hisax.h"
 #include <linux/module.h>
 #include <linux/kernel_stat.h>
@@ -543,12 +550,24 @@ HiSax_mod_inc_use_count(void)
 #ifdef MODULE
 #define HiSax_init init_module
 #else
+#ifdef COMPAT_HAS_NEW_SETUP
+#define MAX_ARG	(HISAX_MAX_CARDS*5)
+__initfunc(int
+HiSax_setup(char *line))
+{
+	int i, j, argc;
+	int ints[MAX_ARG + 1];
+	char *str;
+
+	str = get_options(line, MAX_ARG, ints);
+#else
 __initfunc(void
 HiSax_setup(char *str, int *ints))
 {
 	int i, j, argc;
-
+#endif        
 	argc = ints[0];
+	printk(KERN_DEBUG"HiSax_setup: argc(%d) str(%s)\n", argc, str);
 	i = 0;
 	j = 1;
 	while (argc && (i < HISAX_MAX_CARDS)) {
@@ -586,8 +605,15 @@ HiSax_setup(char *str, int *ints))
 		strcpy(HiSaxID, "HiSax");
 		HiSax_id = HiSaxID;
 	}
+#ifdef COMPAT_HAS_NEW_SETUP
+	return(1);
 }
-#endif
+
+__setup("hisax=", HiSax_setup);
+#else
+}
+#endif /* COMPAT_HAS_NEW_SETUP */
+#endif /* MODULES */
 
 #if CARD_TELES0
 extern int setup_teles0(struct IsdnCard *card);
@@ -872,7 +898,7 @@ HiSax_putstatus(struct IsdnCardState *cs, char *head, char *fmt, ...)
 }
 
 int
-ll_run(struct IsdnCardState *cs)
+ll_run(struct IsdnCardState *cs, int addfeatures)
 {
 	long flags;
 	isdn_ctrl ic;
@@ -881,6 +907,7 @@ ll_run(struct IsdnCardState *cs)
 	cli();
 	ic.driver = cs->myid;
 	ic.command = ISDN_STAT_RUN;
+	cs->iif.features |= addfeatures;
 	cs->iif.statcallb(&ic);
 	restore_flags(flags);
 	return 0;
@@ -1050,7 +1077,6 @@ checkcard(int cardnr, char *id, int *busy_flag))
 		cs->iif.features =
 			ISDN_FEATURE_L2_X75I |
 			ISDN_FEATURE_L2_HDLC |
-			ISDN_FEATURE_L2_MODEM |
 			ISDN_FEATURE_L2_TRANS |
 			ISDN_FEATURE_L3_TRANS |
 #ifdef	CONFIG_HISAX_1TR6
@@ -1266,7 +1292,7 @@ checkcard(int cardnr, char *id, int *busy_flag))
 	CallcNewChan(cs);
 	/* ISAR needs firmware download first */
 	if (!test_bit(HW_ISAR, &cs->HW_Flags))
-		ll_run(cs);
+		ll_run(cs, 0);
 	restore_flags(flags);
 	return (1);
 }
