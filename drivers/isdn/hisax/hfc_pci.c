@@ -23,6 +23,11 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.20  1999/09/07 06:18:55  werner
+ *
+ * Added io parameter for HFC-PCI based cards. Needed only with multiple cards
+ * when initialisation/selection order needs to be set.
+ *
  * Revision 1.19  1999/09/04 06:20:06  keil
  * Changes from kernel set_current_state()
  *
@@ -173,11 +178,15 @@ reset_hfcpci(struct IsdnCardState *cs)
 {
 	long flags;
 
+	save_flags(flags);
+	cli();
 	pcibios_write_config_word(cs->hw.hfcpci.pci_bus, cs->hw.hfcpci.pci_device_fn, PCI_COMMAND, PCI_ENA_MEMIO);	/* enable memory mapped ports, disable busmaster */
+       	cs->hw.hfcpci.int_m2 = 0; /* interrupt output off ! */
+	Write_hfc(cs, HFCPCI_INT_M2, cs->hw.hfcpci.int_m2);
+
 	printk(KERN_INFO "HFC_PCI: resetting card\n");
 	pcibios_write_config_word(cs->hw.hfcpci.pci_bus, cs->hw.hfcpci.pci_device_fn, PCI_COMMAND, PCI_ENA_MEMIO + PCI_ENA_MASTER);	/* enable memory ports + busmaster */
 	Write_hfc(cs, HFCPCI_CIRM, HFCPCI_RESET);	/* Reset On */
-	save_flags(flags);
 	sti();
 	set_current_state(TASK_INTERRUPTIBLE);
 	schedule_timeout((30 * HZ) / 1000);	/* Timeout 30ms */
@@ -199,16 +208,13 @@ reset_hfcpci(struct IsdnCardState *cs)
 	cs->hw.hfcpci.bswapped = 0; /* no exchange */
 	cs->hw.hfcpci.ctmt = HFCPCI_TIM3_125 | HFCPCI_AUTO_TIMER;
 	Write_hfc(cs, HFCPCI_CTMT, cs->hw.hfcpci.ctmt);
-
-	cs->hw.hfcpci.int_m2 = HFCPCI_IRQ_ENABLE;
+	
 	cs->hw.hfcpci.int_m1 = HFCPCI_INTS_DTRANS | HFCPCI_INTS_DREC | 
 	                       HFCPCI_INTS_L1STATE | HFCPCI_CLTIMER;
-	Write_hfc(cs, HFCPCI_INT_M1, cs->hw.hfcpci.int_m1);
-	Write_hfc(cs, HFCPCI_INT_M2, cs->hw.hfcpci.int_m2);
-
+       	Write_hfc(cs, HFCPCI_INT_M1, cs->hw.hfcpci.int_m1);
+	
 	/* Clear already pending ints */
 	if (Read_hfc(cs, HFCPCI_INT_S1));
-	if (Read_hfc(cs, HFCPCI_INT_S2));
 
 	Write_hfc(cs, HFCPCI_STATES, HFCPCI_LOAD_STATE | 2);	/* HFC ST 2 */
 	udelay(10);
@@ -234,6 +240,11 @@ reset_hfcpci(struct IsdnCardState *cs)
 	Write_hfc(cs, HFCPCI_B2_SSL, 0x81); /* B2-Slot 1 STIO1 out enabled */
 	Write_hfc(cs, HFCPCI_B1_RSL, 0x80); /* B1-Slot 0 STIO2 in enabled */
 	Write_hfc(cs, HFCPCI_B2_RSL, 0x81); /* B2-Slot 1 STIO2 in enabled */
+        
+	/* Finally enable IRQ output */
+       	cs->hw.hfcpci.int_m2 = HFCPCI_IRQ_ENABLE;
+	Write_hfc(cs, HFCPCI_INT_M2, cs->hw.hfcpci.int_m2);
+	if (Read_hfc(cs, HFCPCI_INT_S2));
 	restore_flags(flags);
 }
 
@@ -922,6 +933,8 @@ hfcpci_interrupt(int intno, void *dev_id, struct pt_regs *regs)
 		printk(KERN_WARNING "HFC-PCI: Spurious interrupt!\n");
 		return;
 	}
+	if (!(cs->hw.hfcpci.int_m2 & 0x08)) return; /* not initialised */
+
 	if (HFCPCI_ANYINT & (stat = Read_hfc(cs, HFCPCI_STATUS))) {
 		val = Read_hfc(cs, HFCPCI_INT_S1);
 		if (cs->debug & L1_DEB_ISAC)
@@ -1611,6 +1624,7 @@ __initfunc(int
 	   setup_hfcpci(struct IsdnCard *card))
 {
 	struct IsdnCardState *cs = card->cs;
+	unsigned short cmd;
 	char tmp[64];
 	int i;
 #ifdef COMPAT_HAS_NEW_PCI
@@ -1683,7 +1697,7 @@ __initfunc(int
 			  pcibios_read_config_dword(cs->hw.hfcpci.pci_bus,
 						    cs->hw.hfcpci.pci_device_fn, PCI_BASE_ADDRESS_0,
 						    (void *) &cs->hw.hfcpci.pci_io);
-			if ((cs->hw.hfcpci.pci_io & PCI_BASE_ADDRESS_IO_MASK) != card->para[0])
+			if (((u32)cs->hw.hfcpci.pci_io & PCI_BASE_ADDRESS_IO_MASK) != card->para[0])
 			  continue;
 			}
 
@@ -1703,6 +1717,41 @@ __initfunc(int
 		}
 		pci_index++;
 #endif				/* COMPAT_HAS_NEW_PCI */
+		if (((int)cs->hw.hfcpci.pci_io & (PAGE_SIZE-1))) {
+		  printk(KERN_WARNING "HFC-PCI shared mem address will be corrected\n");
+		  pcibios_write_config_word(cs->hw.hfcpci.pci_bus,
+ 					   cs->hw.hfcpci.pci_device_fn,
+					   PCI_COMMAND,
+					    0x0103); /* set SERR */ 
+		  pcibios_read_config_word(cs->hw.hfcpci.pci_bus,
+					   cs->hw.hfcpci.pci_device_fn,
+					   PCI_COMMAND,
+					   &cmd);
+		  pcibios_write_config_word(cs->hw.hfcpci.pci_bus,
+					   cs->hw.hfcpci.pci_device_fn,
+				  	   PCI_COMMAND,
+					   cmd & ~2);
+		  (int)cs->hw.hfcpci.pci_io &= ~(PAGE_SIZE-1);
+		  pcibios_write_config_dword(cs->hw.hfcpci.pci_bus,
+					   cs->hw.hfcpci.pci_device_fn,
+					   PCI_BASE_ADDRESS_1,
+					   (int) cs->hw.hfcpci.pci_io);
+		  pcibios_write_config_word(cs->hw.hfcpci.pci_bus,
+					   cs->hw.hfcpci.pci_device_fn,
+					   PCI_COMMAND,
+					   cmd);
+		  pcibios_read_config_dword(cs->hw.hfcpci.pci_bus,
+					   cs->hw.hfcpci.pci_device_fn,
+					   PCI_BASE_ADDRESS_1,
+					   (void *)&cs->hw.hfcpci.pci_io);
+		  if (((int)cs->hw.hfcpci.pci_io & (PAGE_SIZE-1))) {
+		    printk(KERN_WARNING "HFC-PCI unable to align address %x\n",(unsigned) cs->hw.hfcpci.pci_io);
+		    return(0);
+		  }
+#ifdef COMPAT_HAS_NEW_PCI
+		  dev_hfcpci->base_address[1] = (int)cs->hw.hfcpci.pci_io;
+#endif
+		}  
 		if (!cs->hw.hfcpci.pci_io) {
 			printk(KERN_WARNING "HFC-PCI: No IO-Mem for PCI card found\n");
 			return (0);
