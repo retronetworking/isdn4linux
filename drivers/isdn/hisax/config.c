@@ -5,6 +5,9 @@
  *
  *
  * $Log$
+ * Revision 1.14  1997/03/25 23:11:22  keil
+ * US NI-1 protocol
+ *
  * Revision 1.13  1997/03/23 21:45:49  keil
  * Add support for ELSA PCMCIA
  *
@@ -313,7 +316,7 @@ HiSax_init(void)
 	r += sprintf(r, "%s", HiSax_getrev(tmp));
 
 	printk(KERN_NOTICE "HiSax: Driver for Siemens chip set ISDN cards\n");
-	printk(KERN_NOTICE "HiSax: Version 2.0\n");
+	printk(KERN_NOTICE "HiSax: Version 2.1\n");
 	printk(KERN_NOTICE "HiSax: Revisions %s\n", rev);
 
 #ifdef MODULE
