@@ -162,6 +162,12 @@ extern DWABCJIFFIES isdn_dwabc_jiffies;
 
 #define IIOCDRVCTL  _IO('I',128)
 
+/* cisco hdlck device private ioctls */
+#define SIOCGKEEPPERIOD	(SIOCDEVPRIVATE + 0)
+#define SIOCSKEEPPERIOD	(SIOCDEVPRIVATE + 1)
+#define SIOCGDEBSERINT	(SIOCDEVPRIVATE + 2)
+#define SIOCSDEBSERINT	(SIOCDEVPRIVATE + 3)
+
 /* Packet encapsulations for net-interfaces */
 #define ISDN_NET_ENCAP_ETHER      0
 #define ISDN_NET_ENCAP_RAWIP      1
@@ -473,8 +479,14 @@ typedef struct isdn_net_local_s {
 #ifdef CONFIG_ISDN_X25
   struct concap_device_ops *dops;      /* callbacks used by encapsulator   */
 #endif
+  /* use an own struct for that in later versions */
   ulong cisco_myseq;                   /* Local keepalive seq. for Cisco   */
+  ulong cisco_mineseen;                /* returned keepalive seq. from remote */
   ulong cisco_yourseq;                 /* Remote keepalive seq. for Cisco  */
+  int cisco_keepalive_period;		/* keepalive period */
+  ulong cisco_last_slarp_in;		/* jiffie of last keepalive packet we received */
+  char cisco_line_state;		/* state of line according to keepalive packets */
+  char cisco_debserint;			/* debugging flag of cisco hdlc with slarp */
   struct timer_list cisco_timer;
   struct tq_struct tqueue;
 #ifdef CONFIG_ISDN_WITH_ABC

@@ -934,7 +934,7 @@ isdn_net_dial(void)
 					isdn_net_hangup(&p->dev);
 					break;
 				}
-				if (!strcmp(lp->dial->num, "LEASED")) {
+				if (!strncmp(lp->dial->num, "LEASED", strlen("LEASED"))) {
 					restore_flags(flags);
 					lp->dialstate = 4;
 					printk(KERN_INFO "%s: Open leased line ...\n", lp->name);
@@ -2249,6 +2249,74 @@ isdn_net_ciscohdlck_alloc_skb(isdn_net_local *lp, int len)
 	return skb;
 }
 
+/* cisco hdlck device private ioctls */
+int
+isdn_ciscohdlck_dev_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
+{
+	isdn_net_local *lp = (isdn_net_local *) dev->priv;
+	unsigned long len = 0;
+	unsigned long expires = 0;
+	int tmp = 0;
+	int period = lp->cisco_keepalive_period;
+	char debserint = lp->cisco_debserint;
+	int rc = 0;
+
+	if (lp->p_encap != ISDN_NET_ENCAP_CISCOHDLCK)
+		return -EINVAL;
+
+	switch (cmd) {
+		/* get/set keepalive period */
+		case SIOCGKEEPPERIOD:
+			len = (unsigned long)sizeof(lp->cisco_keepalive_period);
+			if (copy_to_user((char *)ifr->ifr_ifru.ifru_data,
+				(int *)&lp->cisco_keepalive_period, len))
+				rc = -EFAULT;
+			break;
+		case SIOCSKEEPPERIOD:
+			tmp = lp->cisco_keepalive_period;
+			len = (unsigned long)sizeof(lp->cisco_keepalive_period);
+			if (copy_from_user((int *)&period,
+				(char *)ifr->ifr_ifru.ifru_data, len))
+				rc = -EFAULT;
+			if ((period > 0) && (period <= 32767))
+				lp->cisco_keepalive_period = period;
+			else
+				rc = -EINVAL;
+			if (!rc && (tmp != lp->cisco_keepalive_period)) {
+				expires = (unsigned long)(jiffies +
+					lp->cisco_keepalive_period * HZ);
+				mod_timer(&lp->cisco_timer, expires);
+				printk(KERN_INFO "%s: Keepalive period set "
+					"to %d seconds.\n",
+					lp->name, lp->cisco_keepalive_period);
+			}
+			break;
+
+		/* get/set debugging */
+		case SIOCGDEBSERINT:
+			len = (unsigned long)sizeof(lp->cisco_debserint);
+			if (copy_to_user((char *)ifr->ifr_ifru.ifru_data,
+				(char *)&lp->cisco_debserint, len))
+				rc = -EFAULT;
+			break;
+		case SIOCSDEBSERINT:
+			len = (unsigned long)sizeof(lp->cisco_debserint);
+			if (copy_from_user((char *)&debserint,
+				(char *)ifr->ifr_ifru.ifru_data, len))
+				rc = -EFAULT;
+			if ((debserint >= 0) && (debserint <= 64))
+				lp->cisco_debserint = debserint;
+			else
+				rc = -EINVAL;
+			break;
+
+		default:
+			rc = -EINVAL;
+			break;
+	}
+	return (rc);
+}
+
 /* called via cisco_timer.function */
 static void
 isdn_net_ciscohdlck_slarp_send_keepalive(unsigned long data)
@@ -2256,12 +2324,40 @@ isdn_net_ciscohdlck_slarp_send_keepalive(unsigned long data)
 	isdn_net_local *lp = (isdn_net_local *) data;
 	struct sk_buff *skb;
 	unsigned char *p;
+	unsigned long last_cisco_myseq = lp->cisco_myseq;
+	int myseq_diff = 0;
 
 	if (!(lp->flags & ISDN_NET_CONNECTED) || lp->dialstate) {
 		printk("isdn BUG at %s:%d!\n", __FILE__, __LINE__);
 		return;
 	}
 	lp->cisco_myseq++;
+
+	myseq_diff = (lp->cisco_myseq - lp->cisco_mineseen);
+	if ((lp->cisco_line_state) && ((myseq_diff >= 3)||(myseq_diff <= -3))) {
+		/* line up -> down */
+		lp->cisco_line_state = 0;
+		printk (KERN_WARNING
+				"UPDOWN: Line protocol on Interface %s,"
+				" changed state to down\n", lp->name);
+		/* should stop routing higher-level data accross */
+	} else if ((!lp->cisco_line_state) &&
+		(myseq_diff >= 0) && (myseq_diff <= 2)) {
+		/* line down -> up */
+		lp->cisco_line_state = 1;
+		printk (KERN_WARNING
+				"UPDOWN: Line protocol on Interface %s,"
+				" changed state to up\n", lp->name);
+		/* restart routing higher-level data accross */
+	}
+
+	if (lp->cisco_debserint)
+		printk (KERN_DEBUG "%s: HDLC "
+			"myseq %lu, mineseen %lu%c, yourseen %lu, %s\n",
+			lp->name, last_cisco_myseq, lp->cisco_mineseen,
+			((last_cisco_myseq == lp->cisco_mineseen) ? '*' : 040),
+			lp->cisco_yourseq,
+			((lp->cisco_line_state) ? "line up" : "line down"));
 
 	skb = isdn_net_ciscohdlck_alloc_skb(lp, 4 + 14);
 	if (!skb)
@@ -2282,31 +2378,13 @@ isdn_net_ciscohdlck_slarp_send_keepalive(unsigned long data)
 
 	isdn_net_write_super(lp, skb);
 
-	lp->cisco_timer.expires = jiffies + ISDN_TIMER_KEEPINT * HZ;
+	lp->cisco_timer.expires = jiffies + lp->cisco_keepalive_period * HZ;
+	
 	add_timer(&lp->cisco_timer);
-}
-
-static void 
-isdn_net_ciscohdlck_connected(isdn_net_local *lp)
-{
-	lp->cisco_myseq = 0;
-	lp->cisco_yourseq = 0;
-
-	init_timer(&lp->cisco_timer);
-	lp->cisco_timer.data = (unsigned long) lp;
-	lp->cisco_timer.function = isdn_net_ciscohdlck_slarp_send_keepalive;
-	lp->cisco_timer.expires = jiffies + ISDN_TIMER_KEEPINT * HZ;
-	add_timer(&lp->cisco_timer);
-}
-
-static void 
-isdn_net_ciscohdlck_disconnected(isdn_net_local *lp)
-{
-	del_timer(&lp->cisco_timer);
 }
 
 static void
-isdn_net_ciscohdlck_slarp_send_reply(isdn_net_local *lp)
+isdn_net_ciscohdlck_slarp_send_request(isdn_net_local *lp)
 {
 	struct sk_buff *skb;
 	unsigned char *p;
@@ -2322,11 +2400,77 @@ isdn_net_ciscohdlck_slarp_send_reply(isdn_net_local *lp)
 	p += put_u8 (p, CISCO_CTRL);
 	p += put_u16(p, CISCO_TYPE_SLARP);
 
-	/* slarp reply, not supported, so we only send a dummy reply */
-	p += put_u32(p, CISCO_SLARP_REPLY);
+	/* slarp request */
+	p += put_u32(p, CISCO_SLARP_REQUEST);
 	p += put_u32(p, 0); // address
 	p += put_u32(p, 0); // netmask
 	p += put_u16(p, 0); // unused
+
+	isdn_net_write_super(lp, skb);
+}
+
+static void 
+isdn_net_ciscohdlck_connected(isdn_net_local *lp)
+{
+	lp->cisco_myseq = 0;
+	lp->cisco_mineseen = 0;
+	lp->cisco_yourseq = 0;
+	lp->cisco_keepalive_period = ISDN_TIMER_KEEPINT;
+	lp->cisco_last_slarp_in = 0;
+	lp->cisco_line_state = 0;
+	lp->cisco_debserint = 0;
+
+	/* send slarp request because interface/seq.no.s reset */
+	isdn_net_ciscohdlck_slarp_send_request(lp);
+
+	init_timer(&lp->cisco_timer);
+	lp->cisco_timer.data = (unsigned long) lp;
+	lp->cisco_timer.function = isdn_net_ciscohdlck_slarp_send_keepalive;
+	lp->cisco_timer.expires = jiffies + lp->cisco_keepalive_period * HZ;
+	add_timer(&lp->cisco_timer);
+}
+
+static void 
+isdn_net_ciscohdlck_disconnected(isdn_net_local *lp)
+{
+	del_timer(&lp->cisco_timer);
+}
+
+static void
+isdn_net_ciscohdlck_slarp_send_reply(isdn_net_local *lp)
+{
+	struct sk_buff *skb;
+	unsigned char *p;
+	struct in_device *in_dev = NULL;
+	u32 addr = 0;		/* local ipv4 address */
+	u32 mask = 0;		/* local netmask */
+
+	if ((in_dev = lp->netdev->dev.ip_ptr) != NULL) {
+		/* take primary(first) address of interface */
+		struct in_ifaddr *ifa = in_dev->ifa_list;
+		if (ifa != NULL) {
+			addr = ifa->ifa_local;
+			mask = ifa->ifa_mask;
+		}
+	}
+
+	skb = isdn_net_ciscohdlck_alloc_skb(lp, 4 + 14);
+	if (!skb)
+		return;
+
+	p = skb_put(skb, 4 + 14);
+
+	/* cisco header */
+	p += put_u8 (p, CISCO_ADDR_UNICAST);
+	p += put_u8 (p, CISCO_CTRL);
+	p += put_u16(p, CISCO_TYPE_SLARP);
+
+	/* slarp reply, send own ip/netmask; if values are nonsense remote
+	 * should think we are unable to provide it with an address via SLARP */
+	p += put_u32(p, CISCO_SLARP_REPLY);
+	p += put_u32(p, addr);	// address
+	p += put_u32(p, mask);	// netmask
+	p += put_u16(p, 0);	// unused
 
 	isdn_net_write_super(lp, skb);
 }
@@ -2335,9 +2479,10 @@ static void
 isdn_net_ciscohdlck_slarp_in(isdn_net_local *lp, struct sk_buff *skb)
 {
 	unsigned char *p;
+	int period;
 	__u32 code;
-	__u32 my_seq;
-	__u32 your_seq;
+	__u32 my_seq, addr;
+	__u32 your_seq, mask;
 	__u16 unused;
 
 	if (skb->len < 14)
@@ -2348,16 +2493,35 @@ isdn_net_ciscohdlck_slarp_in(isdn_net_local *lp, struct sk_buff *skb)
 	
 	switch (code) {
 	case CISCO_SLARP_REQUEST:
+		lp->cisco_yourseq = 0;
 		isdn_net_ciscohdlck_slarp_send_reply(lp);
 		break;
 	case CISCO_SLARP_REPLY:
-		/* Ignore replies */
+		/* Ignore replies - at least for now */
+		if (lp->cisco_debserint) {
+			p += get_u32(p, &addr);
+			p += get_u32(p, &mask);
+			p += get_u16(p, &unused);
+			printk(KERN_DEBUG "%s: got slarp reply (%ul/%ul) - "
+				"ignored\n", lp->name, addr, mask);
+		}
 		break;
 	case CISCO_SLARP_KEEPALIVE:
+		period = (int)((jiffies - lp->cisco_last_slarp_in
+				+ HZ/2 - 1) / HZ);
+		if (lp->cisco_debserint &&
+				(period != lp->cisco_keepalive_period) &&
+				lp->cisco_last_slarp_in) {
+			printk(KERN_DEBUG "%s: Keepalive period mismatch - "
+				"is %d but should be %d.\n",
+				lp->name, period, lp->cisco_keepalive_period);
+		}
+		lp->cisco_last_slarp_in = jiffies;
 		p += get_u32(p, &my_seq);
 		p += get_u32(p, &your_seq);
 		p += get_u16(p, &unused);
 		lp->cisco_yourseq = my_seq;
+		lp->cisco_mineseen = your_seq;
 		break;
 	}
 }
@@ -2794,9 +2958,7 @@ isdn_net_init(struct net_device *ndev)
 	ndev->stop = &isdn_net_close;
 	ndev->get_stats = &isdn_net_get_stats;
 	ndev->rebuild_header = &isdn_net_rebuild_header;
-#ifdef CONFIG_ISDN_PPP
-	ndev->do_ioctl = isdn_ppp_dev_ioctl;
-#endif
+	ndev->do_ioctl = NULL;
 	return 0;
 }
 
@@ -3648,6 +3810,7 @@ isdn_net_setcfg(isdn_net_ioctl_cfg * cfg)
 #else
 			p->dev.type = ARPHRD_PPP;	/* change ARP type */
 			p->dev.addr_len = 0;
+			p->dev.do_ioctl = isdn_ppp_dev_ioctl;
 #endif
 			break;
 		case ISDN_NET_ENCAP_X25IFACE:
@@ -3659,6 +3822,9 @@ isdn_net_setcfg(isdn_net_ioctl_cfg * cfg)
 			p->dev.type = ARPHRD_X25;	/* change ARP type */
 			p->dev.addr_len = 0;
 #endif
+			break;
+		case ISDN_NET_ENCAP_CISCOHDLCK:
+			p->dev.do_ioctl = isdn_ciscohdlck_dev_ioctl;
 			break;
 		default:
 			if( cfg->p_encap >= 0 &&
