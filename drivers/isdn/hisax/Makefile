@@ -50,16 +50,21 @@ ifeq ($(CONFIG_HISAX_IX1MICROR2),y)
 	 HSCX_OBJ := hscx.o
 endif
 
+ifeq ($(CONFIG_HISAX_DIEHLDIVA),y)
+	 O_OBJS += diva.o
+	 ISAC_OBJ := isac.o
+	 HSCX_OBJ := hscx.o
+endif
+
 ifeq ($(CONFIG_HISAX_DYNALINK),y)
 	 O_OBJS += dynalink.o
 	 ISAC_OBJ := isac.o
 	 HSCX_OBJ := hscx.o
 endif
 
-ifeq ($(CONFIG_HISAX_DIEHLDIVA),y)
-	 O_OBJS += diva.o
+ifeq ($(CONFIG_HISAX_TELEINT),y)
+	 O_OBJS += teleint.o
 	 ISAC_OBJ := isac.o
-	 HSCX_OBJ := hscx.o
 endif
 
 O_OBJS += config.o $(ISAC_OBJ) $(HSCX_OBJ)
