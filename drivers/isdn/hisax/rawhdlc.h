@@ -6,6 +6,7 @@
  *
  */
 
+#ifndef RAWHDLC_H
 struct hdlc_state {
 	char insane_mode;
 	u_char state;
@@ -21,3 +22,5 @@ int make_raw_hdlc_data(u_char *src, u_int slen, u_char *dst, u_int dsize);
 void init_hdlc_state(struct hdlc_state *stateptr, int mode);
 int read_raw_hdlc_data(struct hdlc_state *saved_state,
                        u_char *src, u_int slen, u_char *dst, u_int dsize);
+#define RAWHDLC_H
+#endif

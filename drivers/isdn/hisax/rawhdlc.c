@@ -59,13 +59,16 @@
  *   Initializes hdlc_state structure before first call to read_raw_hdlc_data
  *
  *   mode = 0: Sane mode
- *   mode = 1: Insane mode; NETJet interleaves the two B channels together;
- *             first a byte of one; then a byte of the other.  "Insane mode"
- *             causes a double increment after reading each byte, so raw
- *             NETJet data can be processed.  Pass a source buffer twice
- *             the size of slen to read_raw_hdlc_data
+ *   mode = 1/2: 
+ *             Insane mode; NETJet use a shared unsigned int memory block (
+ * 	       with busmaster DMA), the bit pattern of every word is 
+ *  	       <8 B1> <8 B2> <8 Mon> <2 D> <4 C/I> <MX> <MR>
+ *	       according to Siemens IOM-2 interface, so we have to handle
+ *             the src buffer as unsigned int and have to shift/mask the
+ *             B-channel bytes.
+ *             mode 1 -> B1  mode 2  -> B2 data is used
  *
- * int read_raw_hdlc_data(struct hdlc_state *stateptr,
+ * int read_raw_hdlc_data(struct hdlc_state *saved_state,
  *                        u_char *src, u_int slen,
  *                        u_char *dst, u_int dsize)
  *
@@ -135,7 +138,8 @@
  * (ppp_crc16_table), but I don't want this code dependant on PPP
  */
 
-static __u16 fcstab[256] =
+// static 
+__u16 fcstab[256] =
 {
 	0x0000, 0x1189, 0x2312, 0x329b, 0x4624, 0x57ad, 0x6536, 0x74bf,
 	0x8c48, 0x9dc1, 0xaf5a, 0xbed3, 0xca6c, 0xdbe5, 0xe97e, 0xf8f7,
@@ -308,14 +312,17 @@ int read_raw_hdlc_data(struct hdlc_state *saved_state,
 	register u_int o_bitcnt = saved_state->o_bitcnt;
 	register u_int i_bitcnt = saved_state->i_bitcnt;
 	register u_int fcs    = saved_state->fcs;
+	register u_int *isrc = (u_int *) src;
         
 	/* Use i_bitcnt (bit offset into source buffer) to reload "val"
 	 * in case we're starting up again partway through a source buffer
 	 */
 
 	if ((i_bitcnt >> 3) < slen) {
-		if (saved_state->insane_mode) {
-			val = src[2 * (i_bitcnt >> 3)];
+		if (saved_state->insane_mode==1) {
+			val = isrc[(i_bitcnt >> 3)] & 0xff;
+		} else if (saved_state->insane_mode==2) {
+			val = (isrc[i_bitcnt >> 3] >>8) & 0xff;
 		} else {
 			val = src[i_bitcnt >> 3];
 		}
@@ -327,10 +334,11 @@ int read_raw_hdlc_data(struct hdlc_state *saved_state,
 	 */
 
 	while ((retval == 0) && ((i_bitcnt >> 3) < slen)) {
-
 		if ((i_bitcnt & 7) == 0) {
-			if (saved_state->insane_mode) {
-				val = src[2 * (i_bitcnt >> 3)];
+			if (saved_state->insane_mode==1) {
+				val = isrc[(i_bitcnt >> 3)] & 0xff;
+			} else if (saved_state->insane_mode==2) {
+				val = (isrc[i_bitcnt >> 3] >>8) & 0xff;
 			} else {
 				val = src[i_bitcnt >> 3];
 			}
