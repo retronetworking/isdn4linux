@@ -25,6 +25,7 @@
 #include "hscx.h"
 #include "isdnl1.h"
 #include <linux/pci.h>
+#include <linux/isdn_compat.h>
 #include <linux/serial.h>
 #include <linux/serial_reg.h>
 

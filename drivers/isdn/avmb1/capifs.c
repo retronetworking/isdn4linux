@@ -6,6 +6,11 @@
  * Heavily based on devpts filesystem from H. Peter Anvin
  * 
  * $Log$
+ * Revision 1.17  2001/03/15 09:03:33  kai
+ * spelling fixes from KERNEL_2_4
+ * compilation warning fixes from KERNEL_2_4
+ * sedlbauer PCMCIA support module
+ *
  * Revision 1.16  2000/11/28 11:42:19  kai
  * merged MODULE_DEV_TABLE changes
  *
@@ -88,9 +93,9 @@
 #include <linux/major.h>
 #include <linux/slab.h>
 #include <linux/ctype.h>
+#include <linux/isdn_compat.h>
 #include <asm/bitops.h>
 #include <asm/uaccess.h>
-#include <linux/isdn_compat.h>
 
 MODULE_AUTHOR("Carsten Paeth <calle@calle.de>");
 

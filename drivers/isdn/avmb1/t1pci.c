@@ -6,6 +6,11 @@
  * (c) Copyright 1999 by Carsten Paeth (calle@calle.in-berlin.de)
  * 
  * $Log$
+ * Revision 1.21  2001/03/15 09:03:33  kai
+ * spelling fixes from KERNEL_2_4
+ * compilation warning fixes from KERNEL_2_4
+ * sedlbauer PCMCIA support module
+ *
  * Revision 1.20  2001/01/22 10:26:03  calle
  * - Didn't compile with 2.2.X (pci_resource_start not defined).
  *
@@ -103,9 +108,9 @@
 #include <linux/interrupt.h>
 #include <linux/ioport.h>
 #include <linux/pci.h>
+#include <linux/isdn_compat.h>
 #include <linux/capi.h>
 #include <linux/init.h>
-#include <linux/isdn_compat.h>
 #include <asm/io.h>
 #include "capicmd.h"
 #include "capiutil.h"

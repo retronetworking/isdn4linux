@@ -242,6 +242,9 @@ typedef struct wait_queue *wait_queue_head_t;
 #define PCI_SUBDEVICE_ID_HYPERCOPE_CHAMP2       0x0108
 #define PCI_SUBDEVICE_ID_HYPERCOPE_PLEXUS       0x0109
 
+#define PCI_VENDOR_ID_ABOCOM            0x13D1
+#define PCI_DEVICE_ID_ABOCOM_2BD1       0x2BD1
+
 #endif /* COMPAT_NEED_PCI_IDS */
 
 #endif /* __KERNEL__ */

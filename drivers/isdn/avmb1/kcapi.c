@@ -6,6 +6,11 @@
  * (c) Copyright 1999 by Carsten Paeth (calle@calle.in-berlin.de)
  * 
  * $Log$
+ * Revision 1.23  2001/03/15 09:03:33  kai
+ * spelling fixes from KERNEL_2_4
+ * compilation warning fixes from KERNEL_2_4
+ * sedlbauer PCMCIA support module
+ *
  * Revision 1.22  2000/12/11 00:10:33  kai
  * add the tq_scheduler -> schedule_task change from 2.4
  *
@@ -122,11 +127,11 @@
 #include <linux/proc_fs.h>
 #include <linux/skbuff.h>
 #include <linux/tqueue.h>
+#include <linux/isdn_compat.h>
 #include <linux/capi.h>
 #include <linux/kernelcapi.h>
 #include <linux/locks.h>
 #include <linux/init.h>
-#include <linux/isdn_compat.h>
 #include <asm/uaccess.h>
 #include "capicmd.h"
 #include "capiutil.h"

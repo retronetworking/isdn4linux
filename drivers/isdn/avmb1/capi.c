@@ -6,6 +6,11 @@
  * Copyright 1996 by Carsten Paeth (calle@calle.in-berlin.de)
  *
  * $Log$
+ * Revision 1.50  2001/03/15 09:03:32  kai
+ * spelling fixes from KERNEL_2_4
+ * compilation warning fixes from KERNEL_2_4
+ * sedlbauer PCMCIA support module
+ *
  * Revision 1.49  2001/01/29 13:13:44  calle
  * - added compile info to revision output.
  *
@@ -238,6 +243,7 @@
 #include <linux/smp_lock.h>
 #include <linux/timer.h>
 #include <linux/wait.h>
+#include <linux/isdn_compat.h>
 #ifdef CONFIG_ISDN_CAPI_MIDDLEWARE
 #include <linux/tty.h>
 #ifdef CONFIG_PPP
@@ -256,7 +262,6 @@
 #include <linux/capi.h>
 #include <linux/kernelcapi.h>
 #include <linux/init.h>
-#include <linux/isdn_compat.h>
 #ifdef HAVE_DEVFS_FS
 #include <linux/devfs_fs_kernel.h>
 #endif /* HAVE_DEVFS_FS */

@@ -6,6 +6,11 @@
  * Copyright 1997 by Carsten Paeth (calle@calle.in-berlin.de)
  *
  * $Log$
+ * Revision 1.40  2001/03/15 09:03:32  kai
+ * spelling fixes from KERNEL_2_4
+ * compilation warning fixes from KERNEL_2_4
+ * sedlbauer PCMCIA support module
+ *
  * Revision 1.39  2000/11/23 20:45:14  kai
  * fixed module_init/exit stuff
  * Note: compiled-in kernel doesn't work pre 2.2.18 anymore.
@@ -215,7 +220,6 @@
 #include <linux/init.h>
 #include <asm/segment.h>
 
-#include <linux/isdn_compat.h>
 #include "capiutil.h"
 #include "capicmd.h"
 #include "capidrv.h"

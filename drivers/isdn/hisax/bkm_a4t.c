@@ -20,11 +20,13 @@
 #include "jade.h"
 #include "isdnl1.h"
 #include <linux/pci.h>
+#include <linux/isdn_compat.h>
 #include "bkm_ax.h"
 
 extern const char *CardType[];
 
 const char *bkm_a4t_revision = "$Revision$";
+
 
 static inline u_char
 readreg(unsigned int ale, unsigned int adr, u_char off)
