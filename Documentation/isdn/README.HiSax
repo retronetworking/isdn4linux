@@ -191,7 +191,6 @@ Card types:
    37	HFC 2BDS0 S+, SP         irq,io 
    38	NETspider U PCI card     none
    39	HFC 2BDS0 SP/PCMCIA      irq,io (set with cardmgr)
-   40   HFC-USB isdn TA          specify no type, card is USB auto detected
 
 At the moment IRQ sharing is only possible with PCI cards. Please make sure
 that your IRQ is free and enabled for ISA use.

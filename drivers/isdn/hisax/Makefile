@@ -10,7 +10,7 @@ export-objs	  := config.o fsm.o hisax_isac.o
 
 # Multipart objects.
 
-list-multi	  := hisax.o st5481_mod.o
+list-multi	  := hisax.o hisax_st5481.o
 hisax-objs	  := config.o isdnl1.o tei.o isdnl2.o isdnl3.o \
 		     lmgr.o q931.o callc.o fsm.o cert.o
 hisax_st5481-objs := st5481_init.o st5481_usb.o st5481_d.o st5481_b.o \

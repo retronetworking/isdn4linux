@@ -438,6 +438,7 @@ void __init HiSaxVersion(void)
 }
 
 #ifndef MODULE
+#ifdef COMPAT_HAS_NEW_SETUP
 #define MAX_ARG	(HISAX_MAX_CARDS*5)
 static int __init HiSax_setup(char *line)
 {
@@ -446,6 +447,11 @@ static int __init HiSax_setup(char *line)
 	char *str;
 
 	str = get_options(line, MAX_ARG, ints);
+#else
+void __init HiSax_setup(char *str, int *ints)
+{
+	int i, j, argc;
+#endif
 	argc = ints[0];
 	printk(KERN_DEBUG "HiSax_setup: argc(%d) str(%s)\n", argc, str);
 	i = 0;
@@ -485,11 +491,15 @@ static int __init HiSax_setup(char *line)
 		strcpy(HiSaxID, "HiSax");
 		HiSax_id = HiSaxID;
 	}
+#ifdef COMPAT_HAS_NEW_SETUP
 	return 1;
 }
 
 __setup("hisax=", HiSax_setup);
-#endif				/* MODULES */
+#else
+}
+#endif /* COMPAT_HAS_NEW_SETUP */
+#endif /* MODULES */
 
 #if CARD_TELES0
 extern int setup_teles0(struct IsdnCard *card);
@@ -1927,9 +1937,10 @@ static void hisax_d_l1l2(struct hisax_if *ifc, int pr, void *arg)
 		}
 		clear_bit(FLG_L1_DBUSY, &cs->HW_Flags);
 		for (st = cs->stlist; st; st = st->next) {
-			if (test_and_clear_bit(FLG_L1_PULL_REQ, &st->l1.Flags))
+			if (test_and_clear_bit(FLG_L1_PULL_REQ, &st->l1.Flags)) {
 				st->l1.l1l2(st, PH_PULL | CONFIRM, NULL);
-			break;
+				break;
+			}
 		}
 		break;
 	case PH_DATA_E | INDICATION:
@@ -1968,9 +1979,12 @@ static void hisax_b_l1l2(struct hisax_if *ifc, int pr, void *arg)
 			bcs->st->lli.l1writewakeup(bcs->st, (int) arg);
 		skb = skb_dequeue(&bcs->squeue);
 		if (skb) {
-			b_if->ifc.l2l1((struct hisax_if *) b_if, PH_DATA | REQUEST, skb);
-		} else {
-			clear_bit(BC_FLG_BUSY, &bcs->Flag);
+			B_L2L1(b_if, PH_DATA | REQUEST, skb);
+			break;
+		}
+		clear_bit(BC_FLG_BUSY, &bcs->Flag);
+		if (test_and_clear_bit(FLG_L1_PULL_REQ, &st->l1.Flags)) {
+			st->l1.l1l2(st, PH_PULL | CONFIRM, NULL);
 		}
 		break;
 	default:
@@ -2029,13 +2043,16 @@ static void hisax_b_l2l1(struct PStack *st, int pr, void *arg)
 	case PH_PULL | INDICATION:
 		// FIXME lock?
 		if (!test_and_set_bit(BC_FLG_BUSY, &bcs->Flag)) {
-			B_L2L1(b_if, pr, arg);
+			B_L2L1(b_if, PH_DATA | REQUEST, arg);
 		} else {
 			skb_queue_tail(&bcs->squeue, arg);
 		}
 		break;
 	case PH_PULL | REQUEST:
-		set_bit(FLG_L1_PULL_REQ, &st->l1.Flags);
+		if (!test_bit(BC_FLG_BUSY, &bcs->Flag))
+			st->l1.l1l2(st, PH_PULL | CONFIRM, NULL);
+		else
+			set_bit(FLG_L1_PULL_REQ, &st->l1.Flags);
 		break;
 	default:
 		B_L2L1(b_if, pr, arg);
