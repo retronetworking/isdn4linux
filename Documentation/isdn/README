@@ -355,9 +355,24 @@ README for the ISDN-subsystem
       the charge-info during and after the connection):
        isdnctrl chargehup isdn0 on
 
-   i) Enable autodial for the interface:
-       isdnctrl status isdn0 on
-      Default is "off", and means that you cannot make any connection.
+   i) Set the dial mode of the interface:
+       isdnctrl dialmode isdn0 auto
+      "off" means that you (or the system) cannot make any connection
+        (neither incoming or outgoing connections are possible). Use
+        this if you want to be sure that no connections will be made.
+      "auto" means that the interface is in auto-dial mode, and will
+        attempt to make a connection whenever a network data packet needs
+        the interface's link. Note that this can cause unexpected dialouts,
+        and lead to a high phone bill! Some daemons or other pc's that use
+        this interface can cause this.
+        Incoming connections are also possible.
+      "manual" is a dial mode created to prevent the unexpected dialouts.
+        In this mode, the interface will never make any connections on its
+        own. You must explicitly initiate a connection with "isdnctrl dial
+        isdn0". You _must_ also hangup the line explicitly as well! There
+        is NO timeout in this mode. Use "isdnctrl hangup isdn0" to end the
+        connection.
+        "manual" is the default.
 
    j) Setup the interface with ifconfig as usual, and set a route to it.
 

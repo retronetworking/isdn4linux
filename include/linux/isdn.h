@@ -21,6 +21,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.58  1998/10/23 10:10:06  fritz
+ * Test-Checkin
+ *
  * Revision 1.57  1998/08/31 21:10:01  he
  * new ioctl IIOCNETGPN for /dev/isdninfo (get network interface'
  *     peer phone number)
@@ -362,8 +365,14 @@ typedef struct {
   int  triggercps;   /* BogoCPS needed for triggering slave   */
   int  dialtimeout;  /* Dial-Timeout                          */
   int  dialwait;     /* Time to wait after failed dial        */
-  int  stopped;      /* Flag: Stopped                         */
+  int  dialmode;     /* Flag: off / on / auto                 */
 } isdn_net_ioctl_cfg;
+
+#define ISDN_NET_DIALMODE_MASK 0xC0  /* bits for status                   */
+#define  ISDN_NET_DM_OFF	0x00    /* this interface is stopped      */
+#define  ISDN_NET_DM_MANUAL	0x40    /* this interface is on (manual)  */
+#define  ISDN_NET_DM_AUTO	0x80    /* this interface is autodial     */
+#define ISDN_NET_DIALMODE(x) ((&(x))->flags & ISDN_NET_DIALMODE_MASK)
 
 #ifdef __KERNEL__
 
@@ -480,8 +489,6 @@ typedef struct {
 #define ISDN_NET_TMP        0x10       /* tmp interface until getting an IP */
 #define ISDN_NET_DYNAMIC    0x20       /* this link is dynamically allocated */
 #endif
-
-#define ISDN_NET_STOPPED    0x40       /* this interface is stopped         */
 
 #define ISDN_NET_MAGIC      0x49344C02 /* for paranoia-checking             */
 

@@ -19,6 +19,10 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.2  1998/03/07 23:17:30  fritz
+ * Added RCS keywords
+ * Bugfix: Did not compile without isdn_dumppkt beeing enabled.
+ *
  */
 
 /*
@@ -104,7 +108,7 @@ isdn_net_budget(int type, struct device *ndev) {
 
 /*
 		if(ret)
-			lp->flags |= ISDN_NET_STOPPED;
+			lp->flags |= ISDN_NET_DM_OFF;
 */
 		for(i = 0; i < ISDN_BUDGET_NUM_BUDGET; i++) {
 			if(ret & (1 << i) && ! lp->budget [i] .notified) {
