@@ -21,6 +21,10 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.24  1997/02/18 09:42:45  fritz
+ * Bugfix: Increased ISDN_MODEM_ANZREG.
+ * Increased TTY_DV.
+ *
  * Revision 1.23  1997/02/10 22:07:13  fritz
  * Added 2 modem registers for numbering plan and screening info.
  *
@@ -611,6 +615,7 @@ struct ippp_struct {
   struct slcompress *slcomp;
 #endif
   unsigned long debug;
+  struct isdn_ppp_compressor *compressor;
 };
 
 #endif
