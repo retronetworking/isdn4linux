@@ -6,6 +6,9 @@
  *  Layermanagement module
  *
  * $Log$
+ * Revision 1.1.2.4  1998/05/27 18:06:15  keil
+ * HiSax 3.0
+ *
  * Revision 1.1.2.3  1998/03/07 23:15:37  tsbogend
  * made HiSax working on Linux/Alpha
  *
@@ -40,17 +43,15 @@ error_handling_dchan(struct PStack *st, int Error)
 static void
 hisax_manager(struct PStack *st, int pr, void *arg)
 {
-	char tm[32], str[256];
 	long Code;
 
 	switch (pr) {
 		case (MDL_ERROR | INDICATION):
 			Code = (long) arg;
-			jiftime(tm, jiffies);
-			sprintf(str, "%s manager: MDL_ERROR %c %s\n", tm,
-				(char)Code, test_bit(FLG_LAPD, &st->l2.flag) ?
+			HiSax_putstatus(st->l1.hardware, "manager: MDL_ERROR",
+				"%c %s\n", (char)Code, 
+				test_bit(FLG_LAPD, &st->l2.flag) ?
 				"D-channel" : "B-channel");
-			HiSax_putstatus(st->l1.hardware, str);
 			if (test_bit(FLG_LAPD, &st->l2.flag))
 				error_handling_dchan(st, Code);
 			break;

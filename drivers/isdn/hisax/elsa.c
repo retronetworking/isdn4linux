@@ -2,7 +2,11 @@
 
  * elsa.c     low level stuff for Elsa isdn cards
  *
- * Author     Karsten Keil (keil@temic-ech.spacenet.de)
+ * Author     Karsten Keil (keil@isdn4linux.de)
+ *
+ *		This file is (c) under GNU PUBLIC LICENSE
+ *		For changes and modifications please read
+ *		../../../Documentation/isdn/HiSax.cert
  *
  * Thanks to    Elsa GmbH for documents and informations
  *
@@ -11,6 +15,9 @@
  *
  *
  * $Log$
+ * Revision 1.14.2.14  1998/10/25 19:43:58  fritz
+ * Removed a compiler warning
+ *
  * Revision 1.14.2.13  1998/10/25 17:47:48  fritz
  * Line power status only valid for ISA cards.
  *
@@ -342,7 +349,6 @@ elsa_interrupt(int intno, void *dev_id, struct pt_regs *regs)
 {
 	struct IsdnCardState *cs = dev_id;
 	u_char val;
-	u_char tmp[32];
 	int icnt=20;
 
 	if (!cs) {
@@ -359,8 +365,7 @@ elsa_interrupt(int intno, void *dev_id, struct pt_regs *regs)
 	if (cs->hw.elsa.MFlag) {
 		val = serial_inp(cs, UART_IIR);
 		if (!(val & UART_IIR_NO_INT)) {
-			sprintf(tmp,"IIR %02x", val);
-			debugl1(cs, tmp);
+			debugl1(cs,"IIR %02x", val);
 			rs_interrupt_elsa(intno, cs);
 		}
 	}
@@ -421,7 +426,6 @@ elsa_interrupt_ipac(int intno, void *dev_id, struct pt_regs *regs)
 {
 	struct IsdnCardState *cs = dev_id;
 	u_char ista,val;
-	char   tmp[64];
 	int icnt=20;
 
 	if (!cs) {
@@ -435,18 +439,15 @@ elsa_interrupt_ipac(int intno, void *dev_id, struct pt_regs *regs)
 	if (cs->hw.elsa.MFlag) {
 		val = serial_inp(cs, UART_IIR);
 		if (!(val & UART_IIR_NO_INT)) {
-			sprintf(tmp,"IIR %02x", val);
-			debugl1(cs, tmp);
+			debugl1(cs,"IIR %02x", val);
 			rs_interrupt_elsa(intno, cs);
 		}
 	}
 #endif
 	ista = readreg(cs->hw.elsa.ale, cs->hw.elsa.isac, IPAC_ISTA);
 Start_IPAC:
-	if (cs->debug & L1_DEB_IPAC) {
-		sprintf(tmp, "IPAC ISTA %02X", ista);
-		debugl1(cs, tmp);
-	}
+	if (cs->debug & L1_DEB_IPAC)
+		debugl1(cs, "IPAC ISTA %02X", ista);
 	if (ista & 0x0f) {
 		val = readreg(cs->hw.elsa.ale, cs->hw.elsa.hscx, HSCX_ISTA + 0x40);
 		if (ista & 0x01)
@@ -568,10 +569,8 @@ init_arcofi(struct IsdnCardState *cs) {
 static void
 set_arcofi(struct IsdnCardState *cs, int bc) {
 	long flags;
-	char tmp[32];
 	
-	sprintf(tmp,"set_arcofi bc=%d", bc);
-	debugl1(cs, tmp);
+	debugl1(cs,"set_arcofi bc=%d", bc);
 	save_flags(flags);
 	sti();
 	send_arcofi(cs, ARCOFI_XOP_0, bc, 0);
@@ -592,8 +591,7 @@ set_arcofi(struct IsdnCardState *cs, int bc) {
 	udelay(ARCDEL);
 	send_arcofi(cs, ARCOFI_XOP_F, bc, 0);
 	restore_flags(flags);
-	sprintf(tmp,"end set_arcofi bc=%d", bc);
-	debugl1(cs, tmp);
+	debugl1(cs,"end set_arcofi bc=%d", bc);
 }
 
 static int
@@ -614,8 +612,7 @@ check_arcofi(struct IsdnCardState *cs)
 	send_arcofi(cs, ARCOFI_VERSION, 0, 1);
 	if (test_and_clear_bit(HW_MON1_TX_END, &cs->HW_Flags)) {
 		if (test_and_clear_bit(HW_MON1_RX_END, &cs->HW_Flags)) {
-			sprintf(tmp, "Arcofi response received %d bytes", cs->mon_rxp);
-			debugl1(cs, tmp);
+			debugl1(cs, "Arcofi response received %d bytes", cs->mon_rxp);
 			p = cs->mon_rx;
 			t = tmp;
 			t += sprintf(tmp, "Arcofi data");
@@ -644,8 +641,7 @@ check_arcofi(struct IsdnCardState *cs)
 			cs->mon_rxp = 0;
 		}
 	} else if (cs->mon_tx) {
-		sprintf(tmp, "Arcofi not detected");
-		debugl1(cs, tmp);
+		debugl1(cs, "Arcofi not detected");
 	}
 	if (arcofi_present) {
 		if (cs->subtyp==ELSA_QS1000) {

@@ -1,6 +1,9 @@
 /* $Id$
 
  * $Log$
+ * Revision 1.3.2.2  1998/05/27 18:06:02  keil
+ * HiSax 3.0
+ *
  * Revision 1.3.2.1  1997/10/17 22:14:08  keil
  * update to last hisax version
  *
@@ -38,7 +41,8 @@ struct stateentry {
 	void (*rout) (struct l3_process *, u_char, void *);
 };
 
-extern void l3_debug(struct PStack *st, const char *fmt, ...);
+#define l3_debug(st, fmt, args...) HiSax_putstatus(st->l1.hardware, "l3 ", fmt, ## args)
+
 extern void newl3state(struct l3_process *pc, int state);
 extern void L3InitTimer(struct l3_process *pc, struct L3Timer *t);
 extern void L3DelTimer(struct L3Timer *t);

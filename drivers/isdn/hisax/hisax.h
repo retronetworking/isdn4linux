@@ -3,6 +3,10 @@
  *   Basic declarations, defines and prototypes
  *
  * $Log$
+ * Revision 1.13.2.17  1998/10/11 19:33:48  niemann
+ * Added new IPAC based cards.
+ * Code cleanup and simplified (sedlbauer.c)
+ *
  * Revision 1.13.2.16  1998/10/04 23:04:54  keil
  * ISAR works now
  *
@@ -188,6 +192,8 @@
 #define MAX_HEADER_LEN	4
 #define MAX_WINDOW	8
 #define MAX_MON_FRAME	32
+#define MAX_DLOG_SPACE	2048
+#define MAX_BLOG_SPACE	256
 
 /* #define I4L_IRQ_FLAG SA_INTERRUPT */
 #define I4L_IRQ_FLAG    0
@@ -212,7 +218,7 @@ struct FsmInst {
 	int debug;
 	void *userdata;
 	int userint;
-	void (*printdebug) (struct FsmInst *, char *);
+	void (*printdebug) (struct FsmInst *, char *, ...);
 };
 
 struct FsmNode {
@@ -297,7 +303,7 @@ struct Layer2 {
 	struct FsmTimer t200, t203;
 	int T200, N200, T203;
 	int debug;
-	char debug_id[32];
+	char debug_id[16];
 };
 
 struct Layer3 {
@@ -309,7 +315,7 @@ struct Layer3 {
 	struct l3_process *global;
 	int N303;
 	int debug;
-	char debug_id[32];
+	char debug_id[8];
 };
 
 struct LLInterface {
@@ -458,6 +464,7 @@ struct BCState {
 	struct sk_buff_head rqueue;	/* B-Channel receive Queue */
 	struct sk_buff_head squeue;	/* B-Channel send Queue */
 	struct PStack *st;
+	u_char *blog;
 	struct timer_list transbusy;
 	struct tq_struct tqueue;
 	int event;
@@ -702,8 +709,7 @@ struct IsdnCardState {
 	struct sk_buff_head rq, sq; /* D-channel queues */
 	int ph_state;
 	int cardnr;
-	int dlogflag;
-	char *dlogspace;
+	char *dlog;
 	int debug;
 	u_char *mon_tx;
 	u_char *mon_rx;
@@ -971,6 +977,26 @@ struct IsdnCardState {
 #endif
 #endif
 
+/* L1 Debug */
+#define	L1_DEB_WARN		0x01
+#define	L1_DEB_INTSTAT		0x02
+#define	L1_DEB_ISAC		0x04
+#define	L1_DEB_ISAC_FIFO	0x08
+#define	L1_DEB_HSCX		0x10
+#define	L1_DEB_HSCX_FIFO	0x20
+#define	L1_DEB_LAPD	        0x40
+#define	L1_DEB_IPAC	        0x80
+#define	L1_DEB_RECEIVE_FRAME    0x100
+#define L1_DEB_MONITOR		0x200
+#define DEB_DLOG_HEX		0x400
+#define DEB_DLOG_VERBOSE	0x800
+
+#define L2FRAME_DEBUG
+
+#ifdef L2FRAME_DEBUG
+extern void Logl2Frame(struct IsdnCardState *cs, struct sk_buff *skb, char *buf, int dir);
+#endif
+
 struct IsdnCard {
 	int typ;
 	int protocol;		/* EDSS1 or 1TR6 */
@@ -978,8 +1004,7 @@ struct IsdnCard {
 	struct IsdnCardState *cs;
 };
 
-int HiSax_inithardware(int *);
-void HiSax_closecard(int cardnr);
+void init_bcstate(struct IsdnCardState *cs, int bc);
 
 void setstack_HiSax(struct PStack *st, struct IsdnCardState *cs);
 unsigned int random_ri(void);
@@ -1014,15 +1039,16 @@ int FsmAddTimer(struct FsmTimer *ft, int millisec, int event,
 void FsmRestartTimer(struct FsmTimer *ft, int millisec, int event,
 	void *arg, int where);
 void FsmDelTimer(struct FsmTimer *ft, int where);
-void jiftime(char *s, long mark);
+int jiftime(char *s, long mark);
 
 int HiSax_command(isdn_ctrl * ic);
 int HiSax_writebuf_skb(int id, int chan, struct sk_buff *skb);
-void HiSax_putstatus(struct IsdnCardState *csta, char *buf);
+void HiSax_putstatus(struct IsdnCardState *cs, char *head, char *fmt, ...);
+void VHiSax_putstatus(struct IsdnCardState *cs, char *head, char *fmt, va_list args);
 void HiSax_reportcard(int cardnr);
 int QuickHex(char *txt, u_char * p, int cnt);
-void LogFrame(struct IsdnCardState *sp, u_char * p, int size);
-void dlogframe(struct IsdnCardState *sp, u_char * p, int size, char *comment);
+void LogFrame(struct IsdnCardState *cs, u_char * p, int size);
+void dlogframe(struct IsdnCardState *cs, struct sk_buff *skb, int dir);
 void iecpy(u_char * dest, u_char * iestart, int ieoffset);
 int discard_queue(struct sk_buff_head *q);
 #ifdef ISDN_CHIP_ISAC
@@ -1032,20 +1058,21 @@ void setstack_isac(struct PStack *st, struct IsdnCardState *cs);
 
 #define HZDELAY(jiffs) {int tout = jiffs; while (tout--) udelay(1000000/HZ);}
 
-int ll_run(struct IsdnCardState *csta);
-void ll_stop(struct IsdnCardState *csta);
+int ll_run(struct IsdnCardState *cs);
+void ll_stop(struct IsdnCardState *cs);
 void CallcNew(void);
 void CallcFree(void);
-int CallcNewChan(struct IsdnCardState *csta);
-void CallcFreeChan(struct IsdnCardState *csta);
+int CallcNewChan(struct IsdnCardState *cs);
+void CallcFreeChan(struct IsdnCardState *cs);
 void Isdnl1New(void);
 void Isdnl1Free(void);
 void Isdnl2New(void);
 void Isdnl2Free(void);
 void Isdnl3New(void);
 void Isdnl3Free(void);
-void init_tei(struct IsdnCardState *sp, int protocol);
-void release_tei(struct IsdnCardState *sp);
+void init_tei(struct IsdnCardState *cs, int protocol);
+void release_tei(struct IsdnCardState *cs);
 char *HiSax_getrev(const char *revision);
 void TeiNew(void);
 void TeiFree(void);
+int certification_check(int output);

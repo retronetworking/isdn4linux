@@ -4,8 +4,15 @@
  *
  * Author       Karsten Keil (keil@temic-ech.spacenet.de)
  *
+ *		This file is (c) under GNU PUBLIC LICENSE
+ *		For changes and modifications please read
+ *		../../../Documentation/isdn/HiSax.cert
+ *
  *
  * $Log$
+ * Revision 1.11.2.5  1998/10/25 18:16:21  fritz
+ * Replaced some read-only variables by defines.
+ *
  * Revision 1.11.2.4  1998/09/27 13:06:42  keil
  * Apply most changes from 2.1.X (HiSax 3.1)
  *

@@ -14,6 +14,9 @@
  *
  *
  * $Log$
+ * Revision 1.5.2.2  1998/10/25 18:16:32  fritz
+ * Replaced some read-only variables by defines.
+ *
  * Revision 1.5.2.1  1997/10/17 22:14:20  keil
  * update to last hisax version
  *
@@ -965,39 +968,92 @@ QuickHex(char *txt, u_char * p, int cnt)
 }
 
 void
-LogFrame(struct IsdnCardState *sp, u_char * buf, int size)
+LogFrame(struct IsdnCardState *cs, u_char * buf, int size)
 {
 	char *dp;
 
 	if (size < 1)
 		return;
-	dp = sp->dlogspace;
-	if (size < 4096 / 3 - 10) {
-		dp += sprintf(dp, "HEX:");
+	dp = cs->dlog;
+	if (size < MAX_DLOG_SPACE / 3 - 10) {
+		*dp++ = 'H';
+		*dp++ = 'E';
+		*dp++ = 'X';
+		*dp++ = ':';
 		dp += QuickHex(dp, buf, size);
 		dp--;
 		*dp++ = '\n';
 		*dp = 0;
+		HiSax_putstatus(cs, NULL, cs->dlog);
 	} else
-		sprintf(dp, "LogFrame: warning Frame too big (%d)\n",
-			size);
-	HiSax_putstatus(sp, sp->dlogspace);
+		HiSax_putstatus(cs, "LogFrame: ", "warning Frame too big (%d)", size);
 }
 
 void
-dlogframe(struct IsdnCardState *sp, u_char * buf, int size, char *comment)
+dlogframe(struct IsdnCardState *cs, struct sk_buff *skb, int dir)
 {
-	u_char *bend = buf + size;
+	u_char *bend, *buf;
 	char *dp;
 	unsigned char pd, cr_l, cr, mt;
-	int i, cs = 0, cs_old = 0, cs_fest = 0;
+	unsigned char sapi, tei, ftyp;
+	int i, cset = 0, cs_old = 0, cs_fest = 0;
+	int size, finish = 0;
 
-	if (size < 1)
+	if (skb->len < 3)
 		return;
 	/* display header */
-	dp = sp->dlogspace;
-	dp += sprintf(dp, "%s\n", comment);
-
+	dp = cs->dlog;
+	dp += jiftime(dp, jiffies);
+	*dp++ = ' ';
+	sapi = skb->data[0] >> 2;
+	tei  = skb->data[1] >> 1;
+	ftyp = skb->data[2];
+	buf = skb->data;
+	dp += sprintf(dp, "frame %s ", dir ? "network->user" : "user->network");
+	size = skb->len;
+	
+	if (tei == GROUP_TEI) {
+		if (sapi == CTRL_SAPI) { /* sapi 0 */
+			if (ftyp == 3) {
+				dp += sprintf(dp, "broadcast\n");
+				buf += 3;
+				size -= 3;
+			} else {
+				dp += sprintf(dp, "no UI broadcast\n");
+				finish = 1;
+			}
+		} else if (sapi == TEI_SAPI) {
+			dp += sprintf(dp, "tei managment\n");
+			finish = 1;
+		} else {
+			dp += sprintf(dp, "unknown sapi %d broadcast\n", sapi);
+			finish = 1;
+		}
+	} else {
+		if (sapi == CTRL_SAPI) {
+			if (!(ftyp & 1)) { /* IFrame */
+				dp += sprintf(dp, "with tei %d\n", tei);
+				buf += 4;
+				size -= 4;
+			} else {
+				dp += sprintf(dp, "SFrame with tei %d\n", tei);
+				finish = 1;
+			}
+		} else {
+			dp += sprintf(dp, "unknown sapi %d tei %d\n", sapi, tei);
+			finish = 1;
+		}
+	}
+	bend = skb->data + skb->len;
+	if (buf >= bend) {
+		dp += sprintf(dp, "frame too short\n");
+		finish = 1;
+	}
+	if (finish) {
+		*dp = 0;
+		HiSax_putstatus(cs, NULL, cs->dlog);
+		return;
+	}
 	if ((0xfe & buf[0]) == PROTO_DIS_N0) {	/* 1TR6 */
 		/* locate message type */
 		pd = *buf++;
@@ -1042,8 +1098,8 @@ dlogframe(struct IsdnCardState *sp, u_char * buf, int size, char *comment)
 				switch ((*buf >> 4) & 7) {
 					case 1:
 						dp += sprintf(dp, "  Shift %x\n", *buf & 0xf);
-						cs_old = cs;
-						cs = *buf & 7;
+						cs_old = cset;
+						cset = *buf & 7;
 						cs_fest = *buf & 8;
 						break;
 					case 3:
@@ -1067,7 +1123,7 @@ dlogframe(struct IsdnCardState *sp, u_char * buf, int size, char *comment)
 				continue;
 			}
 			/* No, locate it in the table */
-			if (cs == 0) {
+			if (cset == 0) {
 				for (i = 0; i < WE_0_LEN; i++)
 					if (*buf == we_0[i].nr)
 						break;
@@ -1077,8 +1133,8 @@ dlogframe(struct IsdnCardState *sp, u_char * buf, int size, char *comment)
 					dp += sprintf(dp, "  %s\n", we_0[i].descr);
 					dp += we_0[i].f(dp, buf);
 				} else
-					dp += sprintf(dp, "  Codeset %d attribute %x attribute size %d\n", cs, *buf, buf[1]);
-			} else if (cs == 6) {
+					dp += sprintf(dp, "  Codeset %d attribute %x attribute size %d\n", cset, *buf, buf[1]);
+			} else if (cset == 6) {
 				for (i = 0; i < WE_6_LEN; i++)
 					if (*buf == we_6[i].nr)
 						break;
@@ -1088,12 +1144,12 @@ dlogframe(struct IsdnCardState *sp, u_char * buf, int size, char *comment)
 					dp += sprintf(dp, "  %s\n", we_6[i].descr);
 					dp += we_6[i].f(dp, buf);
 				} else
-					dp += sprintf(dp, "  Codeset %d attribute %x attribute size %d\n", cs, *buf, buf[1]);
+					dp += sprintf(dp, "  Codeset %d attribute %x attribute size %d\n", cset, *buf, buf[1]);
 			} else
-				dp += sprintf(dp, "  Unknown Codeset %d attribute %x attribute size %d\n", cs, *buf, buf[1]);
+				dp += sprintf(dp, "  Unknown Codeset %d attribute %x attribute size %d\n", cset, *buf, buf[1]);
 			/* Skip to next element */
 			if (cs_fest == 8) {
-				cs = cs_old;
+				cset = cs_old;
 				cs_old = 0;
 				cs_fest = 0;
 			}
@@ -1171,6 +1227,6 @@ dlogframe(struct IsdnCardState *sp, u_char * buf, int size, char *comment)
 	} else {
 		dp += sprintf(dp, "Unknown protocol %x!", buf[0]);
 	}
-	dp += sprintf(dp, "\n");
-	HiSax_putstatus(sp, sp->dlogspace);
+	*dp = 0;
+	HiSax_putstatus(cs, NULL, cs->dlog);
 }

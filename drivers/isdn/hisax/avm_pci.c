@@ -3,10 +3,13 @@
  * avm_pci.c    low level stuff for AVM Fritz!PCI isdn cards
  *              Thanks to AVM, Berlin for informations
  *
- * Author       Karsten Keil (keil@temic-ech.spacenet.de)
+ * Author       Karsten Keil (keil@isdn4linux.de)
  *
  *
  * $Log$
+ * Revision 1.1.2.6  1998/10/16 12:46:03  keil
+ * fix pci detection for more as one card
+ *
  * Revision 1.1.2.5  1998/10/13 18:38:50  keil
  * Fix PCI detection
  *
@@ -205,12 +208,9 @@ modehdlc(struct BCState *bcs, int mode, int bc)
 	struct IsdnCardState *cs = bcs->cs;
 	int hdlc = bcs->channel;
 
-	if (cs->debug & L1_DEB_HSCX) {
-		char tmp[40];
-		sprintf(tmp, "hdlc %c mode %d ichan %d",
+	if (cs->debug & L1_DEB_HSCX)
+		debugl1(cs, "hdlc %c mode %d ichan %d",
 			'A' + hdlc, mode, bc);
-		debugl1(cs, tmp);
-	}
 	bcs->mode = mode;
 	bcs->channel = bc;
 	switch (mode) {
@@ -246,11 +246,8 @@ hdlc_empty_fifo(struct BCState *bcs, int count)
 	int cnt=0;
 	struct IsdnCardState *cs = bcs->cs;
 
-	if ((cs->debug & L1_DEB_HSCX) && !(cs->debug & L1_DEB_HSCX_FIFO)) {
-		u_char tmp[32];
-		sprintf(tmp, "hdlc_empty_fifo %d", count);
-		debugl1(cs, tmp);
-	}
+	if ((cs->debug & L1_DEB_HSCX) && !(cs->debug & L1_DEB_HSCX_FIFO))
+		debugl1(cs, "hdlc_empty_fifo %d", count);
 	if (bcs->hw.hdlc.rcvidx + count > HSCX_BUFMAX) {
 		if (cs->debug & L1_DEB_WARN)
 			debugl1(cs, "hdlc_empty_fifo: incoming packet too large");
@@ -301,11 +298,8 @@ hdlc_fill_fifo(struct BCState *bcs)
 		if (bcs->mode != L1_MODE_TRANS)
 			bcs->hw.hdlc.ctrl |= HDLC_CMD_XME;
 	}
-	if ((cs->debug & L1_DEB_HSCX) && !(cs->debug & L1_DEB_HSCX_FIFO)) {
-		u_char tmp[32];
-		sprintf(tmp, "hdlc_fill_fifo %d/%ld", count, bcs->tx_skb->len);
-		debugl1(cs, tmp);
-	}
+	if ((cs->debug & L1_DEB_HSCX) && !(cs->debug & L1_DEB_HSCX_FIFO))
+		debugl1(cs, "hdlc_fill_fifo %d/%ld", count, bcs->tx_skb->len);
 	ptr = (u_int *) p = bcs->tx_skb->data;
 	skb_pull(bcs->tx_skb, count);
 	bcs->tx_cnt -= count;
@@ -342,22 +336,17 @@ fill_hdlc(struct BCState *bcs)
 
 static inline void
 HDLC_irq(struct BCState *bcs, u_int stat) {
-	u_char tmp[32];
 	int len;
 	struct sk_buff *skb;
 	
-	if (bcs->cs->debug & L1_DEB_HSCX) {
-		sprintf(tmp, "ch%d stat %#x", bcs->channel, stat);
-		debugl1(bcs->cs, tmp);
-	}	
+	if (bcs->cs->debug & L1_DEB_HSCX)
+		debugl1(bcs->cs, "ch%d stat %#x", bcs->channel, stat);
 	if (stat & HDLC_INT_RPR) {
 		if (stat & HDLC_STAT_RDO) {
-			if (bcs->cs->debug & L1_DEB_HSCX) {
+			if (bcs->cs->debug & L1_DEB_HSCX)
 				debugl1(bcs->cs, "RDO");
-			} else {
-				sprintf(tmp, "ch%d stat %#x", bcs->channel, stat);
-				debugl1(bcs->cs, tmp);
-			}
+			else
+				debugl1(bcs->cs, "ch%d stat %#x", bcs->channel, stat);
 			bcs->hw.hdlc.ctrl &= ~HDLC_STAT_RML_MASK;
 			bcs->hw.hdlc.ctrl |= HDLC_CMD_RRS;
 			WriteHDLC(bcs->cs, bcs->channel, HDLC_STATUS, bcs->hw.hdlc.ctrl);
@@ -381,12 +370,10 @@ HDLC_irq(struct BCState *bcs, u_int stat) {
 					bcs->hw.hdlc.rcvidx = 0;
 					hdlc_sched_event(bcs, B_RCVBUFREADY);
 				} else {
-					if (bcs->cs->debug & L1_DEB_HSCX) {
+					if (bcs->cs->debug & L1_DEB_HSCX)
 						debugl1(bcs->cs, "invalid frame");
-					} else {
-						sprintf(tmp, "ch%d invalid frame %#x", bcs->channel, stat);
-						debugl1(bcs->cs, tmp);
-					}
+					else
+						debugl1(bcs->cs, "ch%d invalid frame %#x", bcs->channel, stat);
 					bcs->hw.hdlc.rcvidx = 0;
 				} 
 			}
@@ -401,12 +388,10 @@ HDLC_irq(struct BCState *bcs, u_int stat) {
 			bcs->tx_cnt += bcs->hw.hdlc.count;
 			bcs->hw.hdlc.count = 0;
 //			hdlc_sched_event(bcs, B_XMTBUFREADY);
-			sprintf(tmp, "ch%d XDU", bcs->channel);
-		} else {
-			sprintf(tmp, "ch%d XDU without skb", bcs->channel);
-		}
-		if (bcs->cs->debug & L1_DEB_WARN)
-			debugl1(bcs->cs, tmp);
+			if (bcs->cs->debug & L1_DEB_WARN)
+				debugl1(bcs->cs, "ch%d XDU", bcs->channel);
+		} else if (bcs->cs->debug & L1_DEB_WARN)
+			debugl1(bcs->cs, "ch%d XDU without skb", bcs->channel);
 		bcs->hw.hdlc.ctrl &= ~HDLC_STAT_RML_MASK;
 		bcs->hw.hdlc.ctrl |= HDLC_CMD_XRS;
 		WriteHDLC(bcs->cs, bcs->channel, HDLC_STATUS, bcs->hw.hdlc.ctrl);
@@ -578,14 +563,11 @@ HISAX_INITFUNC(void
 clear_pending_hdlc_ints(struct IsdnCardState *cs))
 {
 	int val;
-	char tmp[64];
 
 	val = ReadHDLC(cs, 0, HDLC_STATUS);
-	sprintf(tmp, "HDLC 1 STA %x", val);
-	debugl1(cs, tmp);
+	debugl1(cs, "HDLC 1 STA %x", val);
 	val = ReadHDLC(cs, 1, HDLC_STATUS);
-	sprintf(tmp, "HDLC 2 STA %x", val);
-	debugl1(cs, tmp);
+	debugl1(cs, "HDLC 2 STA %x", val);
 }
 
 HISAX_INITFUNC(void 

@@ -16,6 +16,9 @@
  *            Edgar Toernig
  *
  * $Log$
+ * Revision 1.1.2.14  1998/10/30 22:51:41  niemann
+ * Added new card, Sedlbauer speed pci works now.
+ *
  * Revision 1.1.2.13  1998/10/16 12:46:06  keil
  * fix pci detection for more as one card
  *
@@ -357,7 +360,6 @@ sedlbauer_interrupt_ipac(int intno, void *dev_id, struct pt_regs *regs)
 {
 	struct IsdnCardState *cs = dev_id;
 	u_char ista, val, icnt = 20;
-	char   tmp[64];
 
 	if (!cs) {
 		printk(KERN_WARNING "Sedlbauer: Spurious interrupt!\n");
@@ -365,10 +367,8 @@ sedlbauer_interrupt_ipac(int intno, void *dev_id, struct pt_regs *regs)
 	}
 	ista = readreg(cs->hw.sedl.adr, cs->hw.sedl.isac, IPAC_ISTA);
 Start_IPAC:
-	if (cs->debug & L1_DEB_IPAC) {
-		sprintf(tmp, "IPAC ISTA %02X", ista);
-		debugl1(cs, tmp);
-	}
+	if (cs->debug & L1_DEB_IPAC)
+		debugl1(cs, "IPAC ISTA %02X", ista);
 	if (ista & 0x0f) {
 		val = readreg(cs->hw.sedl.adr, cs->hw.sedl.hscx, HSCX_ISTA + 0x40);
 		if (ista & 0x01)

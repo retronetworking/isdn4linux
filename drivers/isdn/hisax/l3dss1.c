@@ -5,10 +5,17 @@
  * Author       Karsten Keil (keil@temic-ech.spacenet.de)
  *              based on the teles driver from Jan den Ouden
  *
+ *		This file is (c) under GNU PUBLIC LICENSE
+ *		For changes and modifications please read
+ *		../../../Documentation/isdn/HiSax.cert
+ *
  * Thanks to    Jan den Ouden
  *              Fritz Elfert
  *
  * $Log$
+ * Revision 1.16.2.7  1998/10/25 18:16:25  fritz
+ * Replaced some read-only variables by defines.
+ *
  * Revision 1.16.2.6  1998/10/23 15:00:56  fritz
  * Eliminated a compiler warning.
  *
@@ -191,6 +198,7 @@ l3dss1_parse_facility(struct l3_process *pc, u_char * p)
 					case 0x22:	/* during */
 						FOO1("1A", 0x30, FOO1("1C", 0xA1, FOO1("1D", 0x30, FOO1("1E", 0x02, ( {
 							       ident = 0;
+							nlen = (nlen)?nlen:0; /* Make gcc happy */
 							while (ilen > 0) {
 														     ident = (ident << 8) | *p++;
 								  ilen--;
@@ -213,6 +221,7 @@ l3dss1_parse_facility(struct l3_process *pc, u_char * p)
 					case 0x24:	/* final */
 						FOO1("2A", 0x30, FOO1("2B", 0x30, FOO1("2C", 0xA1, FOO1("2D", 0x30, FOO1("2E", 0x02, ( {
 							       ident = 0;
+							nlen = (nlen)?nlen:0; /* Make gcc happy */
 							while (ilen > 0) {
 																      ident = (ident << 8) | *p++;
 								  ilen--;

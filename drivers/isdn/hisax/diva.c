@@ -2,12 +2,15 @@
 
  * diva.c     low level stuff for Eicon.Diehl Diva Family ISDN cards
  *
- * Author     Karsten Keil (keil@temic-ech.spacenet.de)
+ * Author     Karsten Keil (keil@isdn4linux.de)
  *
  * Thanks to Eicon Technology Diehl GmbH & Co. oHG for documents and informations
  *
  *
  * $Log$
+ * Revision 1.1.2.9  1998/06/27 21:58:34  keil
+ * fix release of diva 2.01
+ *
  * Revision 1.1.2.8  1998/05/27 18:05:11  keil
  * HiSax 3.0
  *
@@ -260,7 +263,6 @@ diva_interrupt_ipac(int intno, void *dev_id, struct pt_regs *regs)
 {
 	struct IsdnCardState *cs = dev_id;
 	u_char ista,val;
-	char   tmp[64];
 	int icnt=20;
 
 	if (!cs) {
@@ -269,10 +271,8 @@ diva_interrupt_ipac(int intno, void *dev_id, struct pt_regs *regs)
 	}
 	ista = readreg(cs->hw.diva.isac_adr, cs->hw.diva.isac, IPAC_ISTA);
 Start_IPAC:
-	if (cs->debug & L1_DEB_IPAC) {
-		sprintf(tmp, "IPAC ISTA %02X", ista);
-		debugl1(cs, tmp);
-	}
+	if (cs->debug & L1_DEB_IPAC)
+		debugl1(cs, "IPAC ISTA %02X", ista);
 	if (ista & 0x0f) {
 		val = readreg(cs->hw.diva.isac_adr, cs->hw.diva.isac, HSCX_ISTA + 0x40);
 		if (ista & 0x01)
