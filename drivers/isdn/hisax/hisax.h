@@ -3,6 +3,9 @@
  *   Basic declarations, defines and prototypes
  *
  * $Log$
+ * Revision 1.8  1997/01/27 16:02:37  keil
+ * new cards, callc timers, HZDELAY macro, HiSax_getrev prototype
+ *
  * Revision 1.7  1997/01/21 22:22:14  keil
  * changes for 2.0; Elsa Quickstep support
  *
@@ -503,6 +506,7 @@ unsigned int randomces(void);
 void setstack_isdnl3(struct PStack *st, int chan);
 void HiSax_addlist(struct IsdnCardState *sp, struct PStack *st);
 void releasestack_isdnl2(struct PStack *st);
+void releasestack_isdnl3(struct PStack *st);
 void HiSax_rmlist(struct IsdnCardState *sp, struct PStack *st);
 void newcallref(struct PStack *st);
 
