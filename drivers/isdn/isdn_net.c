@@ -21,6 +21,10 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.60  1998/04/14 16:28:49  he
+ * Fixed user space access with interrupts off and remaining
+ * copy_{to,from}_user() -> -EFAULT return codes
+ *
  * Revision 1.59  1998/03/07 22:37:33  fritz
  * Bugfix: restore_flags missing.
  *
@@ -1920,6 +1924,9 @@ isdn_net_init(struct device *ndev)
 	ndev->flags = IFF_NOARP|IFF_POINTOPOINT;
 	ndev->type = ARPHRD_ETHER;
 	ndev->addr_len = ETH_ALEN;
+	
+	/* for clients with MPPP maybe higher values better */
+	ndev->tx_queue_len = 5;
 
 	for (i = 0; i < ETH_ALEN; i++)
 		ndev->broadcast[i] = 0xff;
