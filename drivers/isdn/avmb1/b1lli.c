@@ -6,6 +6,9 @@
  * (c) Copyright 1997 by Carsten Paeth (calle@calle.in-berlin.de)
  * 
  * $Log$
+ * Revision 1.1.2.5  1998/02/13 16:28:28  calle
+ * first step for T1
+ *
  * Revision 1.1.2.4  1998/01/27 16:12:51  calle
  * Support for PCMCIA B1/M1/M2 ready.
  *
@@ -83,6 +86,8 @@
 #define SEND_CONFIG		0x21    /*
                                          */
 
+#define SEND_POLLACK		0x73    /* T1 Watchdog */
+
 /*
  * LLI Messages from the ISDN-ControllerISDN Controller 
  */
@@ -142,6 +147,8 @@
 #define B1_ANALYSE		0x04
 
 /* Hema card T1 */
+
+#define T1_INITBASE		0x150
 
 #define T1_FASTLINK		0x00
 #define T1_SLOWLINK		0x08
@@ -332,22 +339,22 @@ int B1_valid_irq(unsigned irq, int cardtype)
 	}
 }
 
-unsigned char B1_assign_irq(unsigned short base, unsigned irq, int cardtype)
+void B1_setinterrupt(unsigned short base,
+			         unsigned irq, int cardtype)
 {
 	switch (cardtype) {
 	   case AVM_CARDTYPE_T1:
-	      return b1outp(base, T1_IRQMASTER, 0x08);
+              t1outp(base, B1_INSTAT, 0x00);
+              t1outp(base, B1_INSTAT, 0x02);
+	      t1outp(base, T1_IRQMASTER, 0x08);
 	   default:
 	   case AVM_CARDTYPE_M1:
 	   case AVM_CARDTYPE_M2:
 	   case AVM_CARDTYPE_B1:
-	      return b1outp(base, B1_RESET, irq_table[irq]);
+	      b1outp(base, B1_INSTAT, 0x00);
+	      b1outp(base, B1_RESET, irq_table[irq]);
+	      b1outp(base, B1_INSTAT, 0x02);
 	 }
-}
-
-unsigned char B1_enable_irq(unsigned short base)
-{
-	return b1outp(base, B1_INSTAT, 0x02);
 }
 
 unsigned char B1_disable_irq(unsigned short base)
@@ -428,23 +435,23 @@ int T1_detectandinit(unsigned short base, unsigned irq, int cardnr)
 	cregs[2] = 0x05; /* fast link 20MBit, slow link 20 MBit */
 	cregs[3] = 0;
 	cregs[4] = 0x11; /* zero wait state */
-	cregs[5] = hema_irq_table[irq & 0xf] != 0;
+	cregs[5] = hema_irq_table[irq & 0xf];
 	cregs[6] = 0;
 	cregs[7] = 0;
 
 	save_flags(flags);
 	cli();
 	/* board reset */
-	t1outp(0x150, T1_RESETBOARD, 0xf);
+	t1outp(T1_INITBASE, T1_RESETBOARD, 0xf);
 	udelay(100 * 1000);
 	dummy = t1inp(base, T1_FASTLINK+T1_OUTSTAT); /* first read */
 	/* write config */
 	dummy = (base >> 4) & 0xff;
 	for (i=1;i<=0xf;i++) t1outp(base, i, dummy);
-	b1outp(base, HEMA_PAL_ID & 0xf, dummy);
-	b1outp(base, HEMA_PAL_ID >> 4, cregs[0]);
+	t1outp(base, HEMA_PAL_ID & 0xf, dummy);
+	t1outp(base, HEMA_PAL_ID >> 4, cregs[0]);
 	for(i=1;i<7;i++) t1outp(base, 0, cregs[i]);
-	t1outp(base, (base >> 4) & 0x3, cregs[7]);
+	t1outp(base, ((base >> 4)) & 0x3, cregs[7]);
 	restore_flags(flags);
 
 	udelay(100 * 1000);
@@ -833,6 +840,10 @@ void B1_handle_interrupt(avmb1_card * card)
 		break;
 
 	case RECEIVE_START:
+                if (card->cardtype == AVM_CARDTYPE_T1) {
+	           B1_put_byte(card->port, SEND_POLLACK);
+		   /* printk(KERN_DEBUG "b1lli: T1 watchdog\n"); */
+                }
 		if (card->blocked)
 			printk(KERN_DEBUG "b1lli: RESTART\n");
 		card->blocked = 0;

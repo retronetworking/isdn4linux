@@ -6,6 +6,9 @@
  * (c) Copyright 1997 by Carsten Paeth (calle@calle.in-berlin.de)
  * 
  * $Log$
+ * Revision 1.4.2.12  1998/02/24 17:58:25  calle
+ * changes for T1.
+ *
  * Revision 1.4.2.11  1998/01/27 16:12:49  calle
  * Support for PCMCIA B1/M1/M2 ready.
  *
@@ -95,7 +98,7 @@ int loaddebug = 0;
 
 #ifdef HAS_NEW_SYMTAB
 MODULE_AUTHOR("Carsten Paeth <calle@calle.in-berlin.de>");
-MODULE_PARM(showcapimsgs, "0-3i");
+MODULE_PARM(showcapimsgs, "0-5i");
 MODULE_PARM(loaddebug, "0-1i");
 #endif
 
@@ -717,8 +720,6 @@ static __u16 capi_release(__u16 applid)
 	struct sk_buff *skb;
 	int i;
 
-	if (ncards == 0)
-		return CAPI_REGNOTINSTALLED;
 	if (!VALID_APPLID(applid) || APPL(applid)->releasing)
 		return CAPI_ILLAPPNR;
 	while ((skb = skb_dequeue(&APPL(applid)->recv_queue)) != 0)
@@ -874,8 +875,15 @@ static int capi_manufacturer(unsigned int cmd, void *data)
 
                 if (cdef.cardtype == AVM_CARDTYPE_T1) {
 			rc = T1_detectandinit(cdef.port,cdef.irq,cdef.cardnr);
-			if (rc)
+			if (rc) {
+			        printk(KERN_NOTICE "b1capi: NO HEMA-card-%d at 0x%x (%d)\n",
+					  cdef.cardnr, cdef.port, rc);
 				return -EIO;
+                        }
+#if 0
+			printk(KERN_NOTICE "b1capi: HEMA-card-%d at 0x%x\n",
+				  cdef.cardnr, cdef.port);
+#endif
 		}
 
 		if ((rc = avmb1_probecard(cdef.port, cdef.irq, cdef.cardtype)) != 0)
@@ -962,8 +970,7 @@ static int capi_manufacturer(unsigned int cmd, void *data)
 		card->cardstate = CARD_INITSTATE;
 		save_flags(flags);
 		cli();
-		B1_assign_irq(card->port, card->irq, card->cardtype);
-		B1_enable_irq(card->port);
+		B1_setinterrupt(card->port, card->irq, card->cardtype);
 		restore_flags(flags);
 
 		if (loaddebug) {
@@ -1017,6 +1024,19 @@ static int capi_manufacturer(unsigned int cmd, void *data)
 			return rc;
 
 		return 0;
+	case AVMB1_REMOVECARD:
+		if ((rc = copy_from_user((void *) &rdef, data,
+					 sizeof(avmb1_resetdef))))
+			return rc;
+		if (!VALID_CARD(rdef.contr))
+			return -ESRCH;
+
+		card = CARD(rdef.contr);
+
+		if (card->cardstate != CARD_DETECTED)
+			return -EBUSY;
+
+		return avmb1_unregistercard(rdef.contr, 1);
 	}
 	return -EINVAL;
 }

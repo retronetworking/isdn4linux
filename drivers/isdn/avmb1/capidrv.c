@@ -6,6 +6,9 @@
  * Copyright 1997 by Carsten Paeth (calle@calle.in-berlin.de)
  *
  * $Log$
+ * Revision 1.3.2.6  1998/02/02 19:51:13  calle
+ * Fixed vbox (audio) acceptb.
+ *
  * Revision 1.3.2.5  1997/10/29 09:35:29  calle
  * correct byteorder problem with new isdnlog interface.
  *
@@ -1716,7 +1719,7 @@ static void enable_dchannel_trace(capidrv_contr *card)
 	avmversion[1] |= (version.minormanuversion >> 4) & 0x0f;
 	avmversion[2] |= version.minormanuversion & 0x0f;
 
-        if (avmversion[0] > 3 || (avmversion[0] == 3 && avmversion[1] > 5)) {
+        if (avmversion[0] > 3 || (avmversion[0] == 3 && avmversion[1] > 6)) {
 		printk(KERN_INFO "%s: D2 trace enabled\n", card->name);
 		capi_fill_MANUFACTURER_REQ(&cmdcmsg, global.appid,
 					   card->msgid++,
@@ -1818,7 +1821,8 @@ static int capidrv_addcontr(__u16 contr, struct capi_profile *profp)
 	printk(KERN_INFO "%s: now up (%d B channels)\n",
 		card->name, card->nbchan);
 
-        enable_dchannel_trace(card);
+        if (card->nbchan == 2)  /* no T1 */
+        	enable_dchannel_trace(card);
 
 	return 0;
 }
