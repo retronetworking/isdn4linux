@@ -6,6 +6,11 @@
  * Copyright 1998,99 by Armin Schindler (mac@melware.de)
  * Copyright 1999    Cytronics & Melware (info@melware.de)
  *
+ * Thanks to	Deutsche Mailbox Saar-Lor-Lux GmbH
+ *		for sponsoring and testing fax
+ *		capabilities with Diva Server cards.
+ *		(dor@deutschemailbox.de)
+ *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation; either version 2, or (at your option)
@@ -21,6 +26,11 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.22  1999/10/08 22:09:33  armin
+ * Some fixes of cards interface handling.
+ * Bugfix of NULL pointer occurence.
+ * Changed a few log outputs.
+ *
  * Revision 1.21  1999/09/26 14:17:53  armin
  * Improved debug and log via readstat()
  *
@@ -1030,110 +1040,1126 @@ idi_bc2si(unsigned char *bc, unsigned char *hlc, unsigned char *si1, unsigned ch
 int
 idi_fill_in_T30(eicon_chan *chan, unsigned char *buffer)
 {
+	eicon_t30_s	*t30 = (eicon_t30_s *) buffer;
 
-	/* TODO , code follows */
+	if (!chan->fax) {
+		eicon_log(NULL, 1,"idi_T30: fill_in with NULL fax struct, ERROR\n");
+		return 0;
+	}
+	memset(t30, 0, sizeof(eicon_t30_s));
+	t30->station_id_len = EICON_FAXID_LEN;
+	memcpy(&t30->station_id[0], &chan->fax->id[0], EICON_FAXID_LEN);
+	t30->resolution = chan->fax->resolution;
+	t30->rate = chan->fax->rate + 1;	/* eicon rate starts with 1 */
+	t30->format = T30_FORMAT_SFF;
+	t30->pages_low = 0;
+	t30->pages_high = 0;
+	t30->atf = 1;				/* optimised for AT+F command set */
+	t30->code = 0;
+	t30->feature_bits_low = 0;
+	t30->feature_bits_high = 0;
+	t30->control_bits_low = 0;
+	t30->control_bits_high = 0;
 
-	return(0);
+	if (chan->fax->nbc) {
+		/* set compression by DCC value */
+  	  switch(chan->fax->compression) {
+		case (0):	/* 1-D modified */
+			break;
+		case (1):	/* 2-D modified Read */
+			t30->control_bits_low |= T30_CONTROL_BIT_ENABLE_2D_CODING;
+			t30->feature_bits_low |= T30_FEATURE_BIT_2D_CODING;
+			break;
+		case (2):	/* 2-D uncompressed */
+			t30->control_bits_low |= T30_CONTROL_BIT_ENABLE_UNCOMPR;
+			t30->control_bits_low |= T30_CONTROL_BIT_ENABLE_2D_CODING;
+			t30->feature_bits_low |= T30_FEATURE_BIT_UNCOMPR_ENABLED;
+			t30->feature_bits_low |= T30_FEATURE_BIT_2D_CODING;
+			break;
+		case (3):	/* 2-D modified Read */
+			t30->control_bits_low |= T30_CONTROL_BIT_ENABLE_T6_CODING;
+			t30->control_bits_low |= T30_CONTROL_BIT_ENABLE_2D_CODING;
+			t30->control_bits_low |= T30_CONTROL_BIT_ENABLE_UNCOMPR;
+			t30->feature_bits_low |= T30_FEATURE_BIT_UNCOMPR_ENABLED;
+			t30->feature_bits_low |= T30_FEATURE_BIT_T6_CODING;
+			t30->feature_bits_low |= T30_FEATURE_BIT_2D_CODING;
+			t30->control_bits_low |= T30_CONTROL_BIT_ENABLE_ECM;
+			t30->feature_bits_low |= T30_FEATURE_BIT_ECM;
+			break;
+	  }
+	} else {
+		/* set compression to best */
+		t30->control_bits_low |= T30_CONTROL_BIT_ENABLE_T6_CODING;
+		t30->control_bits_low |= T30_CONTROL_BIT_ENABLE_2D_CODING;
+		t30->control_bits_low |= T30_CONTROL_BIT_ENABLE_UNCOMPR;
+		t30->feature_bits_low |= T30_FEATURE_BIT_UNCOMPR_ENABLED;
+		t30->feature_bits_low |= T30_FEATURE_BIT_T6_CODING;
+		t30->feature_bits_low |= T30_FEATURE_BIT_2D_CODING;
+		t30->control_bits_low |= T30_CONTROL_BIT_ENABLE_ECM;
+		t30->feature_bits_low |= T30_FEATURE_BIT_ECM;
+	}
+	switch(chan->fax->ecm) {
+		case (0):	/* disable ECM */
+			break;
+		case (1):
+			t30->control_bits_low |= T30_CONTROL_BIT_ENABLE_ECM;
+			t30->control_bits_low |= T30_CONTROL_BIT_ECM_64_BYTES;
+			t30->feature_bits_low |= T30_FEATURE_BIT_ECM;
+			t30->feature_bits_low |= T30_FEATURE_BIT_ECM_64_BYTES;
+			break;
+		case (2):
+			t30->control_bits_low |= T30_CONTROL_BIT_ENABLE_ECM;
+			t30->feature_bits_low |= T30_FEATURE_BIT_ECM;
+			break;
+	}
+
+	if (DebugVar & 128) {
+		char st[40];
+		eicon_log(NULL, 128, "sT30:code = %x\n", t30->code);
+		eicon_log(NULL, 128, "sT30:rate = %x\n", t30->rate);
+		eicon_log(NULL, 128, "sT30:res  = %x\n", t30->resolution);
+		eicon_log(NULL, 128, "sT30:format = %x\n", t30->format);
+		eicon_log(NULL, 128, "sT30:pages_low = %x\n", t30->pages_low);
+		eicon_log(NULL, 128, "sT30:pages_high = %x\n", t30->pages_high);
+		eicon_log(NULL, 128, "sT30:atf  = %x\n", t30->atf);
+		eicon_log(NULL, 128, "sT30:control_bits_low = %x\n", t30->control_bits_low);
+		eicon_log(NULL, 128, "sT30:control_bits_high = %x\n", t30->control_bits_high);
+		eicon_log(NULL, 128, "sT30:feature_bits_low = %x\n", t30->feature_bits_low);
+		eicon_log(NULL, 128, "sT30:feature_bits_high = %x\n", t30->feature_bits_high);
+		//eicon_log(NULL, 128, "sT30:universal_5 = %x\n", t30->universal_5);
+		//eicon_log(NULL, 128, "sT30:universal_6 = %x\n", t30->universal_6);
+		//eicon_log(NULL, 128, "sT30:universal_7 = %x\n", t30->universal_7);
+		eicon_log(NULL, 128, "sT30:station_id_len = %x\n", t30->station_id_len);
+		eicon_log(NULL, 128, "sT30:head_line_len = %x\n", t30->head_line_len);
+		strncpy(st, t30->station_id, t30->station_id_len);
+		st[t30->station_id_len] = 0;
+		eicon_log(NULL, 128, "sT30:station_id = <%s>\n", st);
+	}
+	return(sizeof(eicon_t30_s));
 }
 
 /* send fax struct */
 int
 idi_send_edata(eicon_card *card, eicon_chan *chan)
 {
+	struct sk_buff *skb;
+	struct sk_buff *skb2;
+	eicon_REQ *reqbuf;
+	eicon_chan_ptr *chan2;
 
-	/* TODO , code follows */
+	if ((chan->fsm_state == EICON_STATE_NULL) || (chan->fsm_state == EICON_STATE_LISTEN)) {
+		eicon_log(card, 1, "idi_snd: Ch%d: send edata on state %d !\n", chan->No, chan->fsm_state);
+		return -ENODEV;
+	}
+	eicon_log(card, 128, "idi_snd: Ch%d: edata (fax)\n", chan->No);
 
+	skb = alloc_skb(sizeof(eicon_REQ) + sizeof(eicon_t30_s), GFP_ATOMIC);
+	skb2 = alloc_skb(sizeof(eicon_chan_ptr), GFP_ATOMIC);
+
+	if ((!skb) || (!skb2)) {
+		eicon_log(card, 1, "idi_err: Ch%d: alloc_skb failed in send_edata()\n", chan->No);
+		if (skb) 
+			dev_kfree_skb(skb);
+		if (skb2) 
+			dev_kfree_skb(skb2);
+		return -ENOMEM;
+	}
+
+	chan2 = (eicon_chan_ptr *)skb_put(skb2, sizeof(eicon_chan_ptr));
+	chan2->ptr = chan;
+
+	reqbuf = (eicon_REQ *)skb_put(skb, sizeof(eicon_t30_s) + sizeof(eicon_REQ));
+
+	reqbuf->Req = IDI_N_EDATA;
+	reqbuf->ReqCh = 0;
+	reqbuf->ReqId = 1;
+
+	reqbuf->XBuffer.length = idi_fill_in_T30(chan, reqbuf->XBuffer.P);
+	reqbuf->Reference = 1; /* Net Entity */
+
+	skb_queue_tail(&chan->e.X, skb);
+	skb_queue_tail(&card->sndq, skb2);
+	eicon_schedule_tx(card);
 	return (0);
 }
 
 void
 idi_parse_edata(eicon_card *ccard, eicon_chan *chan, unsigned char *buffer, int len)
 {
+	eicon_t30_s *p = (eicon_t30_s *)buffer;
+	int i;
 
-	/* TODO , code follows */
+	if (DebugVar & 128) {
+		char st[40];
+		eicon_log(ccard, 128, "rT30:len %d , size %d\n", len, sizeof(eicon_t30_s));
+		eicon_log(ccard, 128, "rT30:code = %x\n", p->code);
+		eicon_log(ccard, 128, "rT30:rate = %x\n", p->rate);
+		eicon_log(ccard, 128, "rT30:res  = %x\n", p->resolution);
+		eicon_log(ccard, 128, "rT30:format = %x\n", p->format);
+		eicon_log(ccard, 128, "rT30:pages_low = %x\n", p->pages_low);
+		eicon_log(ccard, 128, "rT30:pages_high = %x\n", p->pages_high);
+		eicon_log(ccard, 128, "rT30:atf  = %x\n", p->atf);
+		eicon_log(ccard, 128, "rT30:control_bits_low = %x\n", p->control_bits_low);
+		eicon_log(ccard, 128, "rT30:control_bits_high = %x\n", p->control_bits_high);
+		eicon_log(ccard, 128, "rT30:feature_bits_low = %x\n", p->feature_bits_low);
+		eicon_log(ccard, 128, "rT30:feature_bits_high = %x\n", p->feature_bits_high);
+		//eicon_log(ccard, 128, "rT30:universal_5 = %x\n", p->universal_5);
+		//eicon_log(ccard, 128, "rT30:universal_6 = %x\n", p->universal_6);
+		//eicon_log(ccard, 128, "rT30:universal_7 = %x\n", p->universal_7);
+		eicon_log(ccard, 128, "rT30:station_id_len = %x\n", p->station_id_len);
+		eicon_log(ccard, 128, "rT30:head_line_len = %x\n", p->head_line_len);
+		strncpy(st, p->station_id, p->station_id_len);
+		st[p->station_id_len] = 0;
+		eicon_log(ccard, 128, "rT30:station_id = <%s>\n", st);
+	}
+	if (!chan->fax) {
+		eicon_log(ccard, 1, "idi_edata: parse to NULL fax struct, ERROR\n");
+		return;
+	}
+	chan->fax->code = p->code;
+	i = (p->station_id_len < FAXIDLEN) ? p->station_id_len : (FAXIDLEN - 1);
+	memcpy(chan->fax->r_id, p->station_id, i);
+	chan->fax->r_id[i] = 0;
+	chan->fax->r_resolution = p->resolution;
+	chan->fax->r_rate = p->rate - 1;
+	chan->fax->r_binary = 0; /* no binary support */
+	chan->fax->r_width = 0;
+	chan->fax->r_length = 2;
+	chan->fax->r_scantime = 0;
+	chan->fax->r_compression = 0;
+	chan->fax->r_ecm = 0;
+	if (p->feature_bits_low & T30_FEATURE_BIT_2D_CODING) {
+		chan->fax->r_compression = 1;
+		if (p->feature_bits_low & T30_FEATURE_BIT_UNCOMPR_ENABLED) {
+			chan->fax->r_compression = 2;
+		}
+	}
+	if (p->feature_bits_low & T30_FEATURE_BIT_T6_CODING) {
+		chan->fax->r_compression = 3;
+	}
 
+	if (p->feature_bits_low & T30_FEATURE_BIT_ECM) {
+		chan->fax->r_ecm = 2;
+		if (p->feature_bits_low & T30_FEATURE_BIT_ECM_64_BYTES)
+			chan->fax->r_ecm = 1;
+	}
 }
 
 void
 idi_fax_send_header(eicon_card *card, eicon_chan *chan, int header)
 {
+	static __u16 wd2sff[] = {
+		1728, 2048, 2432, 1216, 864
+	};
+	static __u16 ln2sff[2][3] = {
+		{ 1143, 1401, 0 } , { 2287, 2802, 0 }
+	};
+	struct sk_buff *skb;
+	eicon_sff_dochead *doc;
+	eicon_sff_pagehead *page;
+	u_char *docp;
 
-	/* TODO , code follows */
+	if (!chan->fax) {
+		eicon_log(card, 1, "idi_fax: send head with NULL fax struct, ERROR\n");
+		return;
+	}
+	if (header == 2) { /* DocHeader + PageHeader */
+		skb = alloc_skb(sizeof(eicon_sff_dochead) + sizeof(eicon_sff_pagehead), GFP_ATOMIC);
+	} else {
+		skb = alloc_skb(sizeof(eicon_sff_pagehead), GFP_ATOMIC);
+	}
+	if (!skb) {
+		eicon_log(card, 1, "idi_err: Ch%d: alloc_skb failed in fax_send_header()\n", chan->No);
+		return;
+	}
 
+	if (header == 2) { /* DocHeader + PageHeader */
+		docp = skb_put(skb, sizeof(eicon_sff_dochead) + sizeof(eicon_sff_pagehead));
+		doc = (eicon_sff_dochead *) docp;
+		page = (eicon_sff_pagehead *) (docp + sizeof(eicon_sff_dochead));
+		memset(docp, 0,sizeof(eicon_sff_dochead)  + sizeof(eicon_sff_pagehead));
+		doc->id = 0x66666653;
+		doc->version = 0x01;
+		doc->off1pagehead = sizeof(eicon_sff_dochead);
+	} else {
+		page = (eicon_sff_pagehead *)skb_put(skb, sizeof(eicon_sff_pagehead));
+		memset(page, 0, sizeof(eicon_sff_pagehead));
+	}
+
+	switch(header) {
+		case 1:	/* PageHeaderEnd */
+			page->pageheadid = 254;
+			page->pageheadlen = 0; 
+			break;
+		case 0: /* PageHeader */
+		case 2: /* DocHeader + PageHeader */
+			page->pageheadid = 254;
+			page->pageheadlen = sizeof(eicon_sff_pagehead) - 2;
+			page->resvert = chan->fax->resolution;
+			page->reshoriz = 0; /* always 203 dpi */
+			page->coding = 0; /* always 1D */
+			page->linelength = wd2sff[chan->fax->width];
+			page->pagelength = ln2sff[chan->fax->resolution][chan->fax->length]; 
+			eicon_log(card, 128, "sSFF-Head: linelength = %d\n", page->linelength);
+			eicon_log(card, 128, "sSFF-Head: pagelength = %d\n", page->pagelength);
+			break;
+	}
+	idi_send_data(card, chan, 0, skb, 0);
 }
 
 void
 idi_fax_cmd(eicon_card *card, eicon_chan *chan) 
 {
+	isdn_ctrl cmd;
 
-	/* TODO , code follows */
+	if ((!card) || (!chan))
+		return;
 
+	if (!chan->fax) {
+		eicon_log(card, 1, "idi_fax: cmd with NULL fax struct, ERROR\n");
+		return;
+	}
+	switch (chan->fax->code) {
+		case ISDN_TTY_FAX_DT:
+			if (chan->fax->phase == ISDN_FAX_PHASE_B) {
+				idi_send_edata(card, chan);
+				break;
+			}
+			if (chan->fax->phase == ISDN_FAX_PHASE_D) {
+				idi_send_edata(card, chan);
+				break;
+			}
+			break;
+
+		case ISDN_TTY_FAX_DR:
+			if (chan->fax->phase == ISDN_FAX_PHASE_B) {
+				idi_send_edata(card, chan);
+
+				cmd.driver = card->myid;
+				cmd.command = ISDN_STAT_FAXIND;
+				cmd.arg = chan->No;
+				chan->fax->r_code = ISDN_TTY_FAX_CFR;
+				card->interface.statcallb(&cmd);
+
+				cmd.driver = card->myid;
+				cmd.command = ISDN_STAT_FAXIND;
+				cmd.arg = chan->No;
+				chan->fax->r_code = ISDN_TTY_FAX_RID;
+				card->interface.statcallb(&cmd);
+
+				/* telling 1-D compression */
+				chan->fax->r_compression = 0;
+				cmd.driver = card->myid;
+				cmd.command = ISDN_STAT_FAXIND;
+				cmd.arg = chan->No;
+				chan->fax->r_code = ISDN_TTY_FAX_DCS;
+				card->interface.statcallb(&cmd);
+
+				chan->fax2.NextObject = FAX_OBJECT_DOCU;
+				chan->fax2.PrevObject = FAX_OBJECT_DOCU;
+
+				break;
+			}
+			if (chan->fax->phase == ISDN_FAX_PHASE_D) {
+				idi_send_edata(card, chan);
+				break;
+			}
+			break;
+
+		case ISDN_TTY_FAX_ET:
+				switch(chan->fax->fet) {
+					case 0:
+					case 1:
+						idi_fax_send_header(card, chan, 0);
+						break;
+					case 2:
+						idi_fax_send_header(card, chan, 1);
+						break;
+				}
+			break;
+	}
 }
 
 void
 idi_edata_rcveop(eicon_card *card, eicon_chan *chan)
 {
+	isdn_ctrl cmd;
 
-	/* TODO , code follows */
-
+	if (!chan->fax) {
+		eicon_log(card, 1, "idi_edata: rcveop with NULL fax struct, ERROR\n");
+		return;
+	}
+	cmd.driver = card->myid;
+	cmd.command = ISDN_STAT_FAXIND;
+	cmd.arg = chan->No;
+	chan->fax->r_code = ISDN_TTY_FAX_ET;
+	card->interface.statcallb(&cmd);
 }
 
 void
 idi_reset_fax_stat(eicon_chan *chan)
 {
-
-	/* TODO , code follows */
-
+	chan->fax2.LineLen = 0;
+	chan->fax2.LineData = 0;
+	chan->fax2.LineDataLen = 0;
+	chan->fax2.NullByteExist = 0;
+	chan->fax2.Dle = 0;
+	chan->fax2.PageCount = 0;
+	chan->fax2.Eop = 0;
 }
 
 void
 idi_edata_action(eicon_card *ccard, eicon_chan *chan, char *buffer, int len)
 {
+	isdn_ctrl cmd;
 
-	/* TODO , code follows */
+	if (!chan->fax) {
+		eicon_log(ccard, 1, "idi_edata: action with NULL fax struct, ERROR\n");
+		return;
+	}
+	if (chan->fax->direction == ISDN_TTY_FAX_CONN_OUT) {
+		idi_parse_edata(ccard, chan, buffer, len);
 
+		if (chan->fax->phase == ISDN_FAX_PHASE_A) {
+			idi_reset_fax_stat(chan);
+
+			chan->fsm_state = EICON_STATE_ACTIVE;
+			cmd.driver = ccard->myid;
+			cmd.command = ISDN_STAT_BCONN;
+			cmd.arg = chan->No;
+			ccard->interface.statcallb(&cmd);
+
+			cmd.driver = ccard->myid;
+			cmd.command = ISDN_STAT_FAXIND;
+			cmd.arg = chan->No;
+			chan->fax->r_code = ISDN_TTY_FAX_FCON;
+			ccard->interface.statcallb(&cmd);
+
+			cmd.driver = ccard->myid;
+			cmd.command = ISDN_STAT_FAXIND;
+			cmd.arg = chan->No;
+			chan->fax->r_code = ISDN_TTY_FAX_RID;
+			ccard->interface.statcallb(&cmd);
+
+			cmd.driver = ccard->myid;
+			cmd.command = ISDN_STAT_FAXIND;
+			cmd.arg = chan->No;
+			chan->fax->r_code = ISDN_TTY_FAX_DIS;
+			ccard->interface.statcallb(&cmd);
+
+			if (chan->fax->r_compression != 0) {
+			/* telling fake compression in second DIS message */
+				chan->fax->r_compression = 0;
+				cmd.driver = ccard->myid;
+				cmd.command = ISDN_STAT_FAXIND;
+				cmd.arg = chan->No;
+				chan->fax->r_code = ISDN_TTY_FAX_DIS;
+				ccard->interface.statcallb(&cmd);
+			}
+
+			cmd.driver = ccard->myid;
+			cmd.command = ISDN_STAT_FAXIND;
+			cmd.arg = chan->No;
+			chan->fax->r_code = ISDN_TTY_FAX_SENT; /* OK message */
+			ccard->interface.statcallb(&cmd);
+		} else
+		if (chan->fax->phase == ISDN_FAX_PHASE_D) {
+
+			if ((chan->fax->code == EDATA_T30_MCF) &&
+			    (chan->fax->fet != 2)) {
+				cmd.driver = ccard->myid;
+				cmd.command = ISDN_STAT_FAXIND;
+				cmd.arg = chan->No;
+				chan->fax->r_code = ISDN_TTY_FAX_PTS;
+				ccard->interface.statcallb(&cmd);
+			}
+
+			switch(chan->fax->fet) {
+				case 0:	/* new page */
+					/* stay in phase D , wait on cmd +FDT */
+					break;
+				case 1:	/* new document */
+					/* link-level switch to phase B */
+					break;
+				case 2:	/* session end */
+				default:
+					/* idi_send_edata(ccard, chan); */
+					break;
+			}
+		}
+	}
+
+	if (chan->fax->direction == ISDN_TTY_FAX_CONN_IN) {
+		idi_parse_edata(ccard, chan, buffer, len);
+
+		if ((chan->fax->code == EDATA_T30_DCS) &&
+		    (chan->fax->phase == ISDN_FAX_PHASE_A)) {
+			idi_reset_fax_stat(chan);
+
+			cmd.driver = ccard->myid;
+			cmd.command = ISDN_STAT_BCONN;
+			cmd.arg = chan->No;
+			ccard->interface.statcallb(&cmd);
+
+			cmd.driver = ccard->myid;
+			cmd.command = ISDN_STAT_FAXIND;
+			cmd.arg = chan->No;
+			chan->fax->r_code = ISDN_TTY_FAX_FCON_I;
+			ccard->interface.statcallb(&cmd);
+		} else
+		if ((chan->fax->code == EDATA_T30_TRAIN_OK) &&
+		    (chan->fax->phase == ISDN_FAX_PHASE_A)) {
+			cmd.driver = ccard->myid;
+			cmd.command = ISDN_STAT_FAXIND;
+			cmd.arg = chan->No;
+			chan->fax->r_code = ISDN_TTY_FAX_RID;
+			ccard->interface.statcallb(&cmd);
+
+			cmd.driver = ccard->myid;
+			cmd.command = ISDN_STAT_FAXIND;
+			cmd.arg = chan->No;
+			chan->fax->r_code = ISDN_TTY_FAX_TRAIN_OK;
+			ccard->interface.statcallb(&cmd);
+		} else
+		if ((chan->fax->code == EDATA_T30_TRAIN_OK) &&
+		    (chan->fax->phase == ISDN_FAX_PHASE_B)) {
+			cmd.driver = ccard->myid;
+			cmd.command = ISDN_STAT_FAXIND;
+			cmd.arg = chan->No;
+			chan->fax->r_code = ISDN_TTY_FAX_TRAIN_OK;
+			ccard->interface.statcallb(&cmd);
+		} else
+		if (chan->fax->phase == ISDN_FAX_PHASE_C) {
+			switch(chan->fax->code) {
+				case EDATA_T30_TRAIN_OK:
+					idi_send_edata(ccard, chan);
+					break;
+				case EDATA_T30_MPS:
+					chan->fax->fet = 0;
+					idi_edata_rcveop(ccard, chan);
+					break;
+				case EDATA_T30_EOM:
+					chan->fax->fet = 1;
+					idi_edata_rcveop(ccard, chan);
+					break;
+				case EDATA_T30_EOP:
+					chan->fax->fet = 2;
+					idi_edata_rcveop(ccard, chan);
+					break;
+			}
+		}
+	}
 }
 
 void
 fax_put_rcv(eicon_card *ccard, eicon_chan *chan, u_char *Data, int len)
 {
-
-	/* TODO , code follows */
-
+	struct sk_buff *skb;
+	
+        skb = alloc_skb(len + MAX_HEADER_LEN, GFP_ATOMIC);
+	if (!skb) {
+		eicon_log(ccard, 1, "idi_err: Ch%d: alloc_skb failed in fax_put_rcv()\n", chan->No);
+		return;
+	}
+	skb_reserve(skb, MAX_HEADER_LEN);
+	memcpy(skb_put(skb, len), Data, len);
+	ccard->interface.rcvcallb_skb(ccard->myid, chan->No, skb);
 }
 
 void
 idi_faxdata_rcv(eicon_card *ccard, eicon_chan *chan, struct sk_buff *skb)
 {
+	eicon_OBJBUFFER InBuf;
+	eicon_OBJBUFFER LineBuf;
+	unsigned int Length = 0;
+	unsigned int aLength = 0;
+	unsigned int ObjectSize = 0;
+	unsigned int ObjHeadLen = 0;
+	unsigned int ObjDataLen = 0;
+	__u8 Recordtype;
+	__u8 PageHeaderLen;	
+	__u8 Event;
+	eicon_sff_pagehead *ob_page;
 
-	/* TODO , code follows */
+	__u16 Cl2Eol = 0x8000;
 
+#	define EVENT_NONE	0
+#	define EVENT_NEEDDATA	1
+
+	if (!chan->fax) {
+		eicon_log(ccard, 1, "idi_fax: rcvdata with NULL fax struct, ERROR\n");
+		return;
+	}
+
+#if 0 
+	eicon_sff_dochead *doc = (eicon_sff_dochead *)skb->data;
+	eicon_sff_pagehead *page = (eicon_sff_pagehead *)skb->data + sizeof(eicon_sff_dochead);
+
+	printk(KERN_DEBUG"SFF: doc %d / page %d (skb : %d)\n", 
+		sizeof(eicon_sff_dochead), 
+		sizeof(eicon_sff_pagehead), skb->len);
+
+	if (skb->len >= sizeof(eicon_sff_dochead)) {
+		printk(KERN_DEBUG"SFF: id = 0x%x\n", doc->id);
+		printk(KERN_DEBUG"SFF: version = 0x%x\n", doc->version);
+		printk(KERN_DEBUG"SFF: reserved1 = 0x%x\n", doc->reserved1);
+		printk(KERN_DEBUG"SFF: userinfo = 0x%x\n", doc->userinfo);
+		printk(KERN_DEBUG"SFF: pagecount = 0x%x\n", doc->pagecount);
+		printk(KERN_DEBUG"SFF: off1pagehead = 0x%x\n", doc->off1pagehead);
+		printk(KERN_DEBUG"SFF: offnpagehead = 0x%x\n", doc->offnpagehead);
+		printk(KERN_DEBUG"SFF: offdocend = 0x%x\n", doc->offdocend);
+	}
+	if (skb->len >= (sizeof(eicon_sff_dochead) + sizeof(eicon_sff_pagehead))) {
+		printk(KERN_DEBUG"SFFp: id = 0x%x\n", page->pageheadid);
+		printk(KERN_DEBUG"SFFp: len = 0x%x\n", page->pageheadlen);
+		printk(KERN_DEBUG"SFFp: resvert = 0x%x\n", page->resvert);
+		printk(KERN_DEBUG"SFFp: reshoriz = 0x%x\n", page->reshoriz);
+		printk(KERN_DEBUG"SFFp: coding = 0x%x\n", page->coding);
+		printk(KERN_DEBUG"SFFp: reserved2 = 0x%x\n", page->reserved2);
+		printk(KERN_DEBUG"SFFp: linelength = 0x%x\n", page->linelength);
+		printk(KERN_DEBUG"SFFp: pagelength = 0x%x\n", page->pagelength);
+		printk(KERN_DEBUG"SFFp: offprevpage = 0x%x\n", page->offprevpage);
+		printk(KERN_DEBUG"SFFp: offnextpage = 0x%x\n", page->offnextpage);
+	}
+#endif
+
+	
+	if (chan->fax->direction == ISDN_TTY_FAX_CONN_IN) {
+		InBuf.Data = skb->data;
+		InBuf.Size = skb->len;
+		InBuf.Len  = 0;
+		InBuf.Next = InBuf.Data;
+		LineBuf.Data = chan->fax2.abLine;
+		LineBuf.Size = sizeof(chan->fax2.abLine);
+		LineBuf.Len  = chan->fax2.LineLen;
+		LineBuf.Next = LineBuf.Data + LineBuf.Len;
+
+		Event = EVENT_NONE;
+		while (Event == EVENT_NONE) {
+			switch(chan->fax2.NextObject) {
+				case FAX_OBJECT_DOCU:
+						Length = LineBuf.Len + (InBuf.Size - InBuf.Len);
+						if (Length < sizeof(eicon_sff_dochead)) {
+							Event = EVENT_NEEDDATA;
+							break;
+						}
+						ObjectSize = sizeof(eicon_sff_dochead);
+						Length = ObjectSize;
+						if (LineBuf.Len < Length) {
+							Length -= LineBuf.Len;
+							LineBuf.Len = 0;
+							LineBuf.Next = LineBuf.Data;
+							InBuf.Len += Length;
+							InBuf.Next += Length;
+						} else {
+							LineBuf.Len -= Length;
+							LineBuf.Next = LineBuf.Data + LineBuf.Len;
+							memmove(LineBuf.Data, LineBuf.Data + Length, LineBuf.Len);
+						}
+						chan->fax2.PrevObject = FAX_OBJECT_DOCU;
+						chan->fax2.NextObject = FAX_OBJECT_PAGE;
+					break;
+
+				case FAX_OBJECT_PAGE:
+						Length = LineBuf.Len + (InBuf.Size - InBuf.Len);
+						if (Length < 2) {
+							Event = EVENT_NEEDDATA;
+							break;
+						}
+						if (LineBuf.Len == 0) {
+							*LineBuf.Next++ = *InBuf.Next++;
+							LineBuf.Len++;
+							InBuf.Len++;
+						}
+						if (LineBuf.Len == 1) {
+							*LineBuf.Next++ = *InBuf.Next++;
+							LineBuf.Len++;
+							InBuf.Len++;
+						}
+						PageHeaderLen = *(LineBuf.Data + 1);
+						ObjectSize = (PageHeaderLen == 0) ? 2 : sizeof(eicon_sff_pagehead);
+						if (Length < ObjectSize) {
+							Event = EVENT_NEEDDATA;
+							break;
+						}
+						Length = ObjectSize;
+						/* extract page dimensions */
+						if (LineBuf.Len < Length) {
+							aLength = Length - LineBuf.Len;
+							memcpy(LineBuf.Next, InBuf.Next, aLength);
+							LineBuf.Next += aLength;
+							InBuf.Next += aLength;
+							LineBuf.Len += aLength;
+							InBuf.Len += aLength;
+						}
+						if (Length > 2) {
+							ob_page = (eicon_sff_pagehead *)LineBuf.Data;
+							switch(ob_page->linelength) {
+								case 2048:
+									chan->fax->r_width = 1;
+									break;
+								case 2432:
+									chan->fax->r_width = 2;
+									break;
+								case 1216:
+									chan->fax->r_width = 3;
+									break;
+								case 864:
+									chan->fax->r_width = 4;
+									break;
+								case 1728:
+								default:
+									chan->fax->r_width = 0;
+							}
+							switch(ob_page->pagelength) {
+								case 1143:
+								case 2287:
+									chan->fax->r_length = 0;
+									break;
+								case 1401:
+								case 2802:
+									chan->fax->r_length = 1;
+									break;
+								default:
+									chan->fax->r_length = 2;
+							}
+							eicon_log(ccard, 128, "rSFF-Head: linelength = %d\n", ob_page->linelength);
+							eicon_log(ccard, 128, "rSFF-Head: pagelength = %d\n", ob_page->pagelength);
+						}
+						LineBuf.Len -= Length;
+						LineBuf.Next = LineBuf.Data + LineBuf.Len;
+						memmove(LineBuf.Data, LineBuf.Data + Length, LineBuf.Len);
+
+						chan->fax2.PrevObject = FAX_OBJECT_PAGE;
+						chan->fax2.NextObject = FAX_OBJECT_LINE;
+					break;
+
+				case FAX_OBJECT_LINE:
+						Length = LineBuf.Len + (InBuf.Size - InBuf.Len);
+						if (Length < 1) {
+							Event = EVENT_NEEDDATA;
+							break;
+						}
+						if (LineBuf.Len == 0) {
+							*LineBuf.Next++ = *InBuf.Next++;
+							LineBuf.Len++;
+							InBuf.Len++;
+						}
+						Recordtype = *LineBuf.Data;
+						if (Recordtype == 0) {
+							/* recordtype pixel row (2 byte length) */
+							ObjHeadLen = 3;
+							if (Length < ObjHeadLen) {
+								Event = EVENT_NEEDDATA;
+								break;
+							}
+							while (LineBuf.Len < ObjHeadLen) {
+								*LineBuf.Next++ = *InBuf.Next++;
+								LineBuf.Len++;
+								InBuf.Len++;
+							}
+							ObjDataLen = *((__u16*) (LineBuf.Data + 1));
+							ObjectSize = ObjHeadLen + ObjDataLen;
+							if (Length < ObjectSize) {
+								Event = EVENT_NEEDDATA;
+								break;
+							}
+						} else
+						if ((Recordtype >= 1) && (Recordtype <= 216)) {
+							/* recordtype pixel row (1 byte length) */
+							ObjHeadLen = 1;
+							ObjDataLen = Recordtype;
+							ObjectSize = ObjHeadLen + ObjDataLen;
+							if (Length < ObjectSize) {
+								Event = EVENT_NEEDDATA;
+								break;
+							}
+						} else
+						if ((Recordtype >= 217) && (Recordtype <= 253)) {
+							/* recordtype empty lines */
+							ObjHeadLen = 1;
+							ObjDataLen = 0;
+							ObjectSize = ObjHeadLen + ObjDataLen;
+							LineBuf.Len--;
+							LineBuf.Next = LineBuf.Data + LineBuf.Len;
+							memmove(LineBuf.Data, LineBuf.Data + 1, LineBuf.Len);
+							break;
+						} else
+						if (Recordtype == 254) {
+							/* recordtype page header */
+							chan->fax2.PrevObject = FAX_OBJECT_LINE;
+							chan->fax2.NextObject = FAX_OBJECT_PAGE;
+							break;
+						} else {
+							/* recordtype user information */
+							ObjHeadLen = 2;
+							if (Length < ObjHeadLen) {
+								Event = EVENT_NEEDDATA;
+								break;
+							}
+							while (LineBuf.Len < ObjHeadLen) {
+								*LineBuf.Next++ = *InBuf.Next++;
+								LineBuf.Len++;
+								InBuf.Len++;
+							}
+							ObjDataLen = *(LineBuf.Data + 1);
+							ObjectSize = ObjHeadLen + ObjDataLen;
+							if (ObjDataLen == 0) {
+								/* illegal line coding */
+								LineBuf.Len -= ObjHeadLen;
+								LineBuf.Next = LineBuf.Data + LineBuf.Len;
+								memmove(LineBuf.Data, LineBuf.Data + ObjHeadLen, LineBuf.Len);
+								break;
+							} else {
+								/* user information */
+								if (Length < ObjectSize) {
+									Event = EVENT_NEEDDATA;
+									break;
+								}
+								Length = ObjectSize;
+								if (LineBuf.Len < Length) {
+									Length -= LineBuf.Len;
+									LineBuf.Len = 0;
+									LineBuf.Next = LineBuf.Data;
+									InBuf.Len += Length;
+									InBuf.Next += Length;
+								} else {
+									LineBuf.Len -= Length;
+									LineBuf.Next = LineBuf.Data + LineBuf.Len;
+									memmove(LineBuf.Data, LineBuf.Data + Length, LineBuf.Len);
+								}
+							}
+							break;	
+						}
+						Length = ObjectSize;
+						if (LineBuf.Len > ObjHeadLen) {
+							fax_put_rcv(ccard, chan, LineBuf.Data + ObjHeadLen,
+									(LineBuf.Len - ObjHeadLen));
+						}
+						Length -= LineBuf.Len;
+						LineBuf.Len = 0;
+						LineBuf.Next = LineBuf.Data;
+						if (Length > 0) {
+							fax_put_rcv(ccard, chan, InBuf.Next, Length);
+							InBuf.Len += Length;
+							InBuf.Next += Length;
+						}
+						fax_put_rcv(ccard, chan, (__u8 *)&Cl2Eol, sizeof(Cl2Eol));
+					break;
+			} /* end of switch (chan->fax2.NextObject) */
+		} /* end of while (Event==EVENT_NONE) */
+		if (InBuf.Len < InBuf.Size) {
+			Length = InBuf.Size - InBuf.Len;
+			if ((LineBuf.Len + Length) > LineBuf.Size) {
+				eicon_log(ccard, 1, "idi_fax: Ch%d: %d bytes dropping, small buffer\n", chan->No,
+					Length);
+				} else {
+					memcpy(LineBuf.Next, InBuf.Next, Length);
+					LineBuf.Len += Length;
+				}
+		}
+		chan->fax2.LineLen = LineBuf.Len;
+	} else { /* CONN_OUT */
+		/* On CONN_OUT we do not need incoming data, drop it */
+		/* maybe later for polling */
+	}
+
+#	undef EVENT_NONE
+#	undef EVENT_NEEDDATA
+
+	return;
 }
 
 int
 idi_fax_send_outbuf(eicon_card *ccard, eicon_chan *chan, eicon_OBJBUFFER *OutBuf)
 {
+	struct sk_buff *skb;
 
-	/* TODO , code follows */
+	skb = alloc_skb(OutBuf->Len, GFP_ATOMIC);
+	if (!skb) {
+		eicon_log(ccard, 1, "idi_err: Ch%d: alloc_skb failed in fax_send_outbuf()\n", chan->No);
+		return(-1);
+	}
+	memcpy(skb_put(skb, OutBuf->Len), OutBuf->Data, OutBuf->Len);
 
-	return(0);
+	OutBuf->Len = 0;
+	OutBuf->Next = OutBuf->Data;
+
+	return(idi_send_data(ccard, chan, 0, skb, 1));
 }
 
 int
 idi_faxdata_send(eicon_card *ccard, eicon_chan *chan, struct sk_buff *skb)
 {
+	isdn_ctrl cmd;
+	eicon_OBJBUFFER InBuf;
+	__u8 InData;
+	__u8 InMask;
+	eicon_OBJBUFFER OutBuf;
+	eicon_OBJBUFFER LineBuf;
+	__u32 LineData;
+	unsigned int LineDataLen;
+	__u8 Byte;
+	__u8 Event;
+	int ret = 1;
 
-	/* TODO , code follows */
+#	define EVENT_NONE	0
+#	define EVENT_EOD	1
+#	define EVENT_EOL 	2
+#	define EVENT_EOP 	3
 
-	return(0);
+	if ((!ccard) || (!chan))
+		return -1;
+
+	if (!chan->fax) {
+		eicon_log(ccard, 1, "idi_fax: senddata with NULL fax struct, ERROR\n");
+		return -1;
+	}
+
+	if (chan->fax->direction == ISDN_TTY_FAX_CONN_IN) {
+		/* Simply ignore any data written in data mode when receiving a fax.    */
+		/* This is not completely correct because only XON's should come here.  */
+        	dev_kfree_skb(skb);
+		return 1;
+	}
+
+	if (chan->fax->phase != ISDN_FAX_PHASE_C) {
+        	dev_kfree_skb(skb);
+		return 1;
+	}
+
+        if (chan->queued + skb->len > 1200)
+                return 0;
+
+	InBuf.Data = skb->data;
+	InBuf.Size = skb->len;
+	InBuf.Len  = 0;
+	InBuf.Next = InBuf.Data;
+	InData = 0;
+	InMask = 0;
+
+	LineBuf.Data = chan->fax2.abLine;
+	LineBuf.Size = sizeof(chan->fax2.abLine);
+	LineBuf.Len  = chan->fax2.LineLen;
+	LineBuf.Next = LineBuf.Data + LineBuf.Len;
+	LineData = chan->fax2.LineData;
+	LineDataLen = chan->fax2.LineDataLen;
+
+	OutBuf.Data = chan->fax2.abFrame;
+	OutBuf.Size = sizeof(chan->fax2.abFrame);
+	OutBuf.Len = 0;
+	OutBuf.Next = OutBuf.Data;
+
+	Event = EVENT_NONE;
+
+	chan->fax2.Eop = 0;
+
+	for (;;) {
+	  for (;;) {
+		if (InMask == 0) {
+			if (InBuf.Len >= InBuf.Size) {
+				Event = EVENT_EOD;
+				break;
+			}
+			if ((chan->fax2.Dle != _DLE_) && *InBuf.Next == _DLE_) {
+				chan->fax2.Dle = _DLE_;
+				InBuf.Next++;
+				InBuf.Len++;
+				if (InBuf.Len >= InBuf.Size) {
+					Event = EVENT_EOD;
+					break;
+				}
+			}
+			if (chan->fax2.Dle == _DLE_) {
+				chan->fax2.Dle = 0;
+				if (*InBuf.Next == _ETX_) {
+					Event = EVENT_EOP;
+					break;
+				} else
+				if (*InBuf.Next == _DLE_) {
+					/* do nothing */
+				} else {
+					eicon_log(ccard, 1,
+						"idi_err: Ch%d: unknown DLE escape %02x found\n",
+							chan->No, *InBuf.Next);
+					InBuf.Next++;
+					InBuf.Len++;
+					if (InBuf.Len >= InBuf.Size) {
+						Event = EVENT_EOD;
+						break;
+					}
+				}
+			}
+			InBuf.Len++;
+			InData = *InBuf.Next++;
+			InMask = (chan->fax->bor) ? 0x80 : 0x01;
+		}
+		while (InMask) {
+			LineData >>= 1;
+			LineDataLen++;
+			if (InData & InMask)
+				LineData |= 0x80000000;
+			if (chan->fax->bor)
+				InMask >>= 1;
+			else
+				InMask <<= 1;
+
+			if ((LineDataLen >= T4_EOL_BITSIZE) &&
+			   ((LineData & T4_EOL_MASK_DWORD) == T4_EOL_DWORD)) {
+				Event = EVENT_EOL;
+				if (LineDataLen > T4_EOL_BITSIZE) {
+					Byte = (__u8)
+						((LineData & ~T4_EOL_MASK_DWORD) >>
+						(32 - LineDataLen));
+					if (Byte == 0) {
+						if (! chan->fax2.NullByteExist) {
+							chan->fax2.NullBytesPos = LineBuf.Len;
+							chan->fax2.NullByteExist = 1;
+						}
+					} else {
+						chan->fax2.NullByteExist = 0;
+					}
+					if (LineBuf.Len < LineBuf.Size) {
+						*LineBuf.Next++  = Byte;
+						LineBuf.Len++;
+					}
+				}
+				LineDataLen = 0;
+				break;
+			}
+			if (LineDataLen >= T4_EOL_BITSIZE + 8) {
+				Byte = (__u8)
+					((LineData & ~T4_EOL_MASK_DWORD) >>
+					(32 - T4_EOL_BITSIZE - 8));
+				LineData &= T4_EOL_MASK_DWORD;
+				LineDataLen = T4_EOL_BITSIZE;
+				if (Byte == 0) {
+					if (! chan->fax2.NullByteExist) {
+						chan->fax2.NullBytesPos = LineBuf.Len;
+						chan->fax2.NullByteExist = 1;
+					}
+				} else {
+					chan->fax2.NullByteExist = 0;
+				}
+				if (LineBuf.Len < LineBuf.Size) {
+					*LineBuf.Next++  = Byte; 
+					LineBuf.Len++;
+				}
+			}
+		}
+		if (Event != EVENT_NONE)
+			break;
+	  }
+
+		if ((Event != EVENT_EOL) && (Event != EVENT_EOP))
+			break;
+
+		if ((Event == EVENT_EOP) && (LineDataLen > 0)) {
+			LineData >>= 32 - LineDataLen;
+			LineDataLen = 0;
+			while (LineData != 0) {
+				Byte = (__u8) LineData;
+				LineData >>= 8;
+				if (Byte == 0) {
+					if (! chan->fax2.NullByteExist) {
+						chan->fax2.NullBytesPos = LineBuf.Len;
+						chan->fax2.NullByteExist = 1;
+					}
+				} else {
+					chan->fax2.NullByteExist = 0;
+				}
+				if (LineBuf.Len < LineBuf.Size) {
+					*LineBuf.Next++  = Byte;
+					LineBuf.Len++;
+				}
+				
+			}
+		}
+		if (chan->fax2.NullByteExist) {
+			if (chan->fax2.NullBytesPos == 0) {
+				LineBuf.Len = 0;
+			} else {
+				LineBuf.Len = chan->fax2.NullBytesPos + 1;
+			}
+		}
+		if (LineBuf.Len > 0) {
+			if (OutBuf.Len + LineBuf.Len + SFF_LEN_FLD_SIZE > OutBuf.Size) {
+				ret = idi_fax_send_outbuf(ccard, chan, &OutBuf);
+			}
+			if (LineBuf.Len <= 216) {
+				*OutBuf.Next++ = (__u8) LineBuf.Len;
+				OutBuf.Len++;
+			} else {
+				*OutBuf.Next++ = 0;
+				*((__u16 *) OutBuf.Next)++ = (__u16) LineBuf.Len;
+				OutBuf.Len += 3;
+			}
+			memcpy(OutBuf.Next, LineBuf.Data, LineBuf.Len);
+			OutBuf.Next += LineBuf.Len;
+			OutBuf.Len  += LineBuf.Len;
+		}
+		LineBuf.Len = 0;
+		LineBuf.Next = LineBuf.Data;
+		chan->fax2.NullByteExist = 0;
+		if (Event == EVENT_EOP)
+			break;
+
+		Event = EVENT_NONE;
+	}
+
+	if (Event == EVENT_EOP) {
+		chan->fax2.Eop = 1;
+		chan->fax2.PageCount++;
+		cmd.driver = ccard->myid;
+		cmd.command = ISDN_STAT_FAXIND;
+		cmd.arg = chan->No;
+		chan->fax->r_code = ISDN_TTY_FAX_EOP;
+		ccard->interface.statcallb(&cmd);
+	}
+	if (OutBuf.Len > 0) {
+		ret = idi_fax_send_outbuf(ccard, chan, &OutBuf);
+	}
+
+	chan->fax2.LineLen = LineBuf.Len;
+	chan->fax2.LineData = LineData;
+	chan->fax2.LineDataLen = LineDataLen;
+
+#	undef EVENT_NONE
+#	undef EVENT_EOD
+#	undef EVENT_EOL
+#	undef EVENT_EOP
+
+	if (ret >= 0)
+	        dev_kfree_skb(skb);
+	if (ret == 0)
+		ret = 1;
+	return(ret);
 }
 
 void
 idi_fax_hangup(eicon_card *ccard, eicon_chan *chan)
 {
+	isdn_ctrl cmd;
 
-	/* TODO , code follows */
-
+	if (!chan->fax) {
+		eicon_log(ccard, 1, "idi_fax: hangup with NULL fax struct, ERROR\n");
+		return;
+	}
+	if ((chan->fax->direction == ISDN_TTY_FAX_CONN_OUT) &&
+	    (chan->fax->code == 0)) {
+		cmd.driver = ccard->myid;
+		cmd.command = ISDN_STAT_FAXIND;
+		cmd.arg = chan->No;
+		chan->fax->r_code = ISDN_TTY_FAX_PTS;
+		ccard->interface.statcallb(&cmd);
+	}
+	if ((chan->fax->code > 1) && (chan->fax->code < 120))
+		chan->fax->code += 120;
+	chan->fax->r_code = ISDN_TTY_FAX_HNG;
+	cmd.driver = ccard->myid;
+	cmd.command = ISDN_STAT_FAXIND;
+	cmd.arg = chan->No;
+	ccard->interface.statcallb(&cmd);
 }
 
 #endif	/******** FAX ********/
@@ -1299,7 +2325,7 @@ idi_handle_ind(eicon_card *ccard, struct sk_buff *skb)
   		dev_kfree_skb(skb);
 		return;
 	}
-
+	
 	if (ind->Ind != 8)
 		dlev = 144;
 	else

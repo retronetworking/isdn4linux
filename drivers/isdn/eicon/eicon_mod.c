@@ -11,6 +11,11 @@
  *
  *              Deutsche Telekom AG for S2M support.
  *
+ *		Deutsche Mailbox Saar-Lor-Lux GmbH
+ *		for sponsoring and testing fax
+ *		capabilities with Diva Server cards.
+ *		(dor@deutschemailbox.de)
+ *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation; either version 2, or (at your option)
@@ -26,6 +31,11 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.17  1999/10/08 22:09:34  armin
+ * Some fixes of cards interface handling.
+ * Bugfix of NULL pointer occurence.
+ * Changed a few log outputs.
+ *
  * Revision 1.16  1999/09/26 14:17:53  armin
  * Improved debug and log via readstat()
  *
@@ -1151,7 +1161,7 @@ eicon_alloccard(int Type, int membase, int irq, char *id)
 					ISDN_FEATURE_L2_V11019 |
 					ISDN_FEATURE_L2_V11038 |
 					ISDN_FEATURE_L2_MODEM |
-					/* ISDN_FEATURE_L2_FAX | */ 
+					ISDN_FEATURE_L2_FAX | 
 					ISDN_FEATURE_L3_TRANSDSP |
 					ISDN_FEATURE_L3_FAX;
                                 card->hwif.pci.card = (void *)card;
@@ -1175,7 +1185,7 @@ eicon_alloccard(int Type, int membase, int irq, char *id)
 					ISDN_FEATURE_L2_V11019 |
 					ISDN_FEATURE_L2_V11038 |
 					ISDN_FEATURE_L2_MODEM |
-					/* ISDN_FEATURE_L2_FAX | */
+					ISDN_FEATURE_L2_FAX |
 					ISDN_FEATURE_L3_TRANSDSP |
 					ISDN_FEATURE_L3_FAX;
                                 card->hwif.pci.card = (void *)card;
