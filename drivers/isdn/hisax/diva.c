@@ -4,10 +4,17 @@
  *
  * Author     Karsten Keil (keil@isdn4linux.de)
  *
- * Thanks to Eicon Technology Diehl GmbH & Co. oHG for documents and informations
+ *		This file is (c) under GNU PUBLIC LICENSE
+ *		For changes and modifications please read
+ *		../../../Documentation/isdn/HiSax.cert
+ *
+ * Thanks to Eicon Technology for documents and informations
  *
  *
  * $Log$
+ * Revision 1.13  1999/07/21 14:46:07  keil
+ * changes from EICON certification
+ *
  * Revision 1.12  1999/07/12 21:05:04  keil
  * fix race in IRQ handling
  * added watchdog for lost IRQs
