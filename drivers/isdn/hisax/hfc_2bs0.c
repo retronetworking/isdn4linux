@@ -6,6 +6,9 @@
  *
  *
  * $Log$
+ * Revision 1.6  1998/08/13 23:36:28  keil
+ * HiSax 3.1 - don't work stable with current LinkLevel
+ *
  * Revision 1.5  1998/05/25 12:57:54  keil
  * HiSax golden code from certification, Don't use !!!
  * No leased lines, no X75, but many changes.
@@ -563,6 +566,7 @@ setstack_hfc(struct PStack *st, struct BCState *bcs)
 	st->l2.l2l1 = hfc_l2l1;
 	setstack_manager(st);
 	bcs->st = st;
+	setstack_l1_B(st);
 	return (0);
 }
 

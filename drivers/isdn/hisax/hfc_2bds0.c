@@ -6,6 +6,9 @@
  *
  *
  * $Log$
+ * Revision 1.6  1998/08/13 23:36:26  keil
+ * HiSax 3.1 - don't work stable with current LinkLevel
+ *
  * Revision 1.5  1998/06/27 22:52:58  keil
  * make 16.3c working with 3.0
  *
@@ -638,6 +641,7 @@ setstack_2b(struct PStack *st, struct BCState *bcs)
 	st->l2.l2l1 = hfc_l2l1;
 	setstack_manager(st);
 	bcs->st = st;
+	setstack_l1_B(st);
 	return (0);
 }
 

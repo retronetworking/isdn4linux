@@ -8,6 +8,9 @@
  *
  *
  * $Log$
+ * Revision 1.6  1998/08/13 23:36:54  keil
+ * HiSax 3.1 - don't work stable with current LinkLevel
+ *
  * Revision 1.5  1998/05/25 12:58:21  keil
  * HiSax golden code from certification, Don't use !!!
  * No leased lines, no X75, but many changes.
@@ -853,12 +856,12 @@ static int
 open_tigerstate(struct IsdnCardState *cs, struct BCState *bcs)
 {
 	if (!test_and_set_bit(BC_FLG_INIT, &bcs->Flag)) {
-		if (!(bcs->hw.tiger.rcvbuf = kmalloc(HSCX_BUFMAX, GFP_KERNEL))) {
+		if (!(bcs->hw.tiger.rcvbuf = kmalloc(HSCX_BUFMAX, GFP_ATOMIC))) {
 			printk(KERN_WARNING
 			       "HiSax: No memory for tiger.rcvbuf\n");
 			return (1);
 		}
-		if (!(bcs->hw.tiger.sendbuf = kmalloc(RAW_BUFMAX, GFP_KERNEL))) {
+		if (!(bcs->hw.tiger.sendbuf = kmalloc(RAW_BUFMAX, GFP_ATOMIC))) {
 			printk(KERN_WARNING
 			       "HiSax: No memory for tiger.sendbuf\n");
 			return (1);
@@ -884,6 +887,7 @@ setstack_tiger(struct PStack *st, struct BCState *bcs)
 	st->l2.l2l1 = tiger_l2l1;
 	setstack_manager(st);
 	bcs->st = st;
+	setstack_l1_B(st);
 	return (0);
 }
 
