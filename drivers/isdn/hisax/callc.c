@@ -7,6 +7,9 @@
  *              Fritz Elfert
  *
  * $Log$
+ * Revision 1.28  1997/04/21 13:42:25  keil
+ * Remove unneeded debug
+ *
  * Revision 1.27  1997/04/16 14:21:01  keil
  * remove unused variable
  *
@@ -1583,7 +1586,6 @@ lldata_handler(struct PStack *st, int pr, void *arg)
 {
 	struct Channel *chanp = (struct Channel *) st->l4.userdata;
 	struct sk_buff *skb = arg;
-	char tmp[64];
 
 	switch (pr) {
 		case (DL_DATA):
