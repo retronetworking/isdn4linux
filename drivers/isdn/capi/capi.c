@@ -927,8 +927,8 @@ capi_ioctl(struct inode *inode, struct file *file,
 			if ((mp = nccip->minorp) != 0) {
 				count += atomic_read(&mp->ttyopencount);
 			}
-			up(&cdev->ncci_list_sem);
 #endif /* CONFIG_ISDN_CAPI_MIDDLEWARE */
+			up(&cdev->ncci_list_sem);
 			return count;
 		}
 		return 0;
