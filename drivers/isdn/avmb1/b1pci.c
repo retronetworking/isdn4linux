@@ -6,6 +6,10 @@
  * (c) Copyright 1999 by Carsten Paeth (calle@calle.in-berlin.de)
  * 
  * $Log$
+ * Revision 1.21  2000/04/03 13:29:24  calle
+ * make Tim Waugh happy (module unload races in 2.3.99-pre3).
+ * no real problem there, but now it is much cleaner ...
+ *
  * Revision 1.20  2000/02/02 18:36:03  calle
  * - Modules are now locked while init_module is running
  * - fixed problem with memory mapping if address is not aligned
@@ -516,6 +520,12 @@ int b1pci_init(void)
 		strncpy(driver->revision, p + 1, sizeof(driver->revision));
 		p = strchr(driver->revision, '$');
 		*p = 0;
+#ifdef CONFIG_ISDN_DRV_AVMB1_B1PCIV4
+	        p = strchr(revision, ':');
+		strncpy(driverv4->revision, p + 1, sizeof(driverv4->revision));
+		p = strchr(driverv4->revision, '$');
+		*p = 0;
+#endif
 	}
 
 	printk(KERN_INFO "%s: revision %s\n", driver->name, driver->revision);
