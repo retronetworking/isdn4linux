@@ -21,6 +21,10 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.4  1999/03/29 11:19:44  armin
+ * I/O stuff now in seperate file (eicon_io.c)
+ * Old ISA type cards (S,SX,SCOM,Quadro,S2M) implemented.
+ *
  * Revision 1.3  1999/03/02 12:37:45  armin
  * Added some important checks.
  * Analog Modem with DSP.
@@ -228,6 +232,12 @@ typedef struct {
   __u8 B[1];                            /* buffer space for Req,Ind and Rc */
 } eicon_pr_ram;
 
+typedef struct {
+	__u8		*Data;
+	unsigned int	Size;
+	unsigned int	Len;
+	__u8		*Next;
+} eicon_OBJBUFFER;
 
 extern int idi_do_req(eicon_card *card, eicon_chan *chan, int cmd, int layer);
 extern int idi_hangup(eicon_card *card, eicon_chan *chan);
@@ -239,6 +249,7 @@ extern int idi_connect_req(eicon_card *card, eicon_chan *chan, char *phone,
 extern void idi_handle_ack(eicon_card *card, struct sk_buff *skb);
 extern void idi_handle_ind(eicon_card *card, struct sk_buff *skb);
 extern int eicon_idi_manage(eicon_card *card, eicon_manifbuf *mb);
-extern int idi_send_data(eicon_card *card, eicon_chan *chan, int ack, struct sk_buff *skb);
+extern int idi_send_data(eicon_card *card, eicon_chan *chan, int ack, struct sk_buff *skb, int que);
+extern void idi_audio_cmd(eicon_card *ccard, eicon_chan *chan, int cmd, u_char *value);
 
 #endif

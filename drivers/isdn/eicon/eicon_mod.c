@@ -26,6 +26,10 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.6  1999/06/09 19:31:26  armin
+ * Wrong PLX size for request_region() corrected.
+ * Added first MCA code from Erik Weber.
+ *
  * Revision 1.5  1999/04/01 12:48:35  armin
  * Changed some log outputs.
  *
@@ -649,11 +653,6 @@ eicon_command(eicon_card * card, isdn_ctrl * c)
 		case ISDN_CMD_SETL3:
 			if (!card->flags & EICON_FLAGS_RUNNING)
 				return -ENODEV;
-			if ((c->arg >> 8) != ISDN_PROTO_L3_TRANS) {
-				if (DebugVar & 1)
-					printk(KERN_WARNING "L3 protocol unknown\n");
-				return -1;
-			}
 			if (!(chan = find_channel(card, c->arg & 0x1f)))
 				break;
 			chan->l3prot = (c->arg >> 8);
@@ -687,6 +686,13 @@ eicon_command(eicon_card * card, isdn_ctrl * c)
 			return 0;
 		case ISDN_CMD_UNLOCK:
 			MOD_DEC_USE_COUNT;
+			return 0;
+		case ISDN_CMD_AUDIO:
+			if (!card->flags & EICON_FLAGS_RUNNING)
+				return -ENODEV;
+			if (!(chan = find_channel(card, c->arg & 0x1f)))
+				break;
+			idi_audio_cmd(card, chan, c->arg >> 8, c->parm.num);
 			return 0;
         }
 	
@@ -763,6 +769,10 @@ if_sendbuf(int id, int channel, int ack, struct sk_buff *skb)
 {
         eicon_card *card = eicon_findcard(id);
 	eicon_chan *chan;
+	int ret = 0;
+	int len;
+
+	len = skb->len;
 	
         if (card) {
                 if (!card->flags & EICON_FLAGS_RUNNING) {
@@ -773,9 +783,10 @@ if_sendbuf(int id, int channel, int ack, struct sk_buff *skb)
 			dev_kfree_skb(skb);
 			return -ENODEV;
 		}
-		if (chan->fsm_state == EICON_STATE_ACTIVE)
-			return (idi_send_data(card, chan, ack, skb));
-		else {
+		if (chan->fsm_state == EICON_STATE_ACTIVE) {
+				ret = idi_send_data(card, chan, ack, skb, 1);
+			return (ret);
+		} else {
 			dev_kfree_skb(skb);
 			return -ENODEV;
 		}
@@ -905,7 +916,10 @@ eicon_alloccard(int Type, int membase, int irq, char *id)
 					ISDN_FEATURE_L2_V11096 |
 					ISDN_FEATURE_L2_V11019 |
 					ISDN_FEATURE_L2_V11038 |
-					ISDN_FEATURE_L2_MODEM;
+					ISDN_FEATURE_L2_MODEM |
+					ISDN_FEATURE_L2_FAX |
+					ISDN_FEATURE_L3_TRANSDSP |
+					ISDN_FEATURE_L3_FAX;
                                 card->hwif.pci.card = (void *)card;
 				card->hwif.pci.PCIreg = pcic->PCIreg;
 				card->hwif.pci.PCIcfg = pcic->PCIcfg;
@@ -926,7 +940,10 @@ eicon_alloccard(int Type, int membase, int irq, char *id)
 					ISDN_FEATURE_L2_V11096 |
 					ISDN_FEATURE_L2_V11019 |
 					ISDN_FEATURE_L2_V11038 |
-					ISDN_FEATURE_L2_MODEM;
+					ISDN_FEATURE_L2_MODEM |
+					ISDN_FEATURE_L2_FAX |
+					ISDN_FEATURE_L3_TRANSDSP |
+					ISDN_FEATURE_L3_FAX;
                                 card->hwif.pci.card = (void *)card;
                                 card->hwif.pci.shmem = (eicon_pci_shmem *)pcic->shmem;
 				card->hwif.pci.PCIreg = pcic->PCIreg;

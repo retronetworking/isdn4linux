@@ -21,6 +21,10 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.6  1999/06/09 19:31:24  armin
+ * Wrong PLX size for request_region() corrected.
+ * Added first MCA code from Erik Weber.
+ *
  * Revision 1.5  1999/03/29 11:19:41  armin
  * I/O stuff now in seperate file (eicon_io.c)
  * Old ISA type cards (S,SX,SCOM,Quadro,S2M) implemented.
@@ -341,9 +345,9 @@ typedef struct {
 	unsigned short callref;          /* Call Reference              */
 	unsigned short fsm_state;        /* Current D-Channel state     */
 	unsigned short eazmask;          /* EAZ-Mask for this Channel   */
-	unsigned int   queued;           /* User-Data Bytes in TX queue */
-	unsigned int   waitq;            /* User-Data Bytes in wait queue */
-	unsigned int   waitpq;           /* User-Data Bytes in packet queue */
+	int		queued;          /* User-Data Bytes in TX queue */
+	int		waitq;           /* User-Data Bytes in wait queue */
+	int		waitpq;          /* User-Data Bytes in packet queue */
 	unsigned short plci;
 	unsigned short ncci;
 	unsigned char  l2prot;           /* Layer 2 protocol            */

@@ -21,6 +21,10 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.9  1999/03/29 11:19:42  armin
+ * I/O stuff now in seperate file (eicon_io.c)
+ * Old ISA type cards (S,SX,SCOM,Quadro,S2M) implemented.
+ *
  * Revision 1.8  1999/03/02 12:37:43  armin
  * Added some important checks.
  * Analog Modem with DSP.
@@ -87,6 +91,9 @@ int
 idi_assign_req(eicon_REQ *reqbuf, int signet, eicon_chan *chan)
 {
 	int l = 0;
+	int tmp;
+
+	tmp = 0;
   if (!signet) {
 	/* Signal Layer */
 	reqbuf->XBuffer.P[l++] = CAI;
@@ -205,6 +212,12 @@ idi_call_res_req(eicon_REQ *reqbuf, eicon_chan *chan)
 			reqbuf->XBuffer.P[5] = 0;
 			reqbuf->XBuffer.P[6] = 128;
 			reqbuf->XBuffer.P[7] = 0;
+			break;
+		case ISDN_PROTO_L2_TRANS:
+			switch(chan->l3prot) {
+				case ISDN_PROTO_L3_TRANSDSP:
+					reqbuf->XBuffer.P[2] = 22; /* DTMF, audio events on */
+			}
 			break;
 	}
 	reqbuf->XBuffer.P[8] = 0;
@@ -468,6 +481,12 @@ idi_connect_req(eicon_card *card, eicon_chan *chan, char *phone,
 			reqbuf->XBuffer.P[l-2] = 128;
 			reqbuf->XBuffer.P[l-1] = 0;
                         break;
+		case ISDN_PROTO_L2_TRANS:
+			switch(chan->l3prot) {
+				case ISDN_PROTO_L3_TRANSDSP:
+					reqbuf->XBuffer.P[l-6] = 22; /* DTMF, audio events on */
+			}
+			break;
         }
 	
 	reqbuf->XBuffer.P[l++] = 0; /* end */
@@ -809,6 +828,76 @@ idi_bc2si(unsigned char *bc, unsigned char *hlc, unsigned char *si1, unsigned ch
   }
 }
 
+int
+idi_send_udata(eicon_card *card, eicon_chan *chan, int UReq, u_char *buffer, int len)
+{
+	struct sk_buff *skb;
+	struct sk_buff *skb2;
+	eicon_REQ *reqbuf;
+	eicon_chan_ptr *chan2;
+
+	if ((chan->fsm_state == EICON_STATE_NULL) || (chan->fsm_state == EICON_STATE_LISTEN)) {
+		if (DebugVar & 1)
+			printk(KERN_DEBUG"idi_snd: Ch%d: send udata on state %d !\n", chan->No, chan->fsm_state);
+		return -ENODEV;
+	}
+	if (DebugVar & 8)
+		printk(KERN_DEBUG"idi_snd: Ch%d: udata 0x%x: %d %d %d %d\n", chan->No,
+				UReq, buffer[0], buffer[1], buffer[2], buffer[3]);
+
+	skb = alloc_skb(sizeof(eicon_REQ) + len + 1, GFP_ATOMIC);
+	skb2 = alloc_skb(sizeof(eicon_chan_ptr), GFP_ATOMIC);
+
+	if ((!skb) || (!skb2)) {
+		if (DebugVar & 1)
+			printk(KERN_WARNING "idi_err: Ch%d: alloc_skb failed\n", chan->No);
+			return -ENOMEM;
+	}
+
+	chan2 = (eicon_chan_ptr *)skb_put(skb2, sizeof(eicon_chan_ptr));
+	chan2->ptr = chan;
+
+	reqbuf = (eicon_REQ *)skb_put(skb, 1 + len + sizeof(eicon_REQ));
+
+	reqbuf->Req = IDI_N_UDATA;
+	reqbuf->ReqCh = 0;
+	reqbuf->ReqId = 1;
+
+	reqbuf->XBuffer.length = len + 1;
+	reqbuf->XBuffer.P[0] = UReq;
+	memcpy(&reqbuf->XBuffer.P[1], buffer, len);
+	reqbuf->Reference = 1; /* Net Entity */
+
+	skb_queue_tail(&chan->e.X, skb);
+	skb_queue_tail(&card->sndq, skb2);
+	eicon_schedule_tx(card);
+	return (0);
+}
+
+void
+idi_audio_cmd(eicon_card *ccard, eicon_chan *chan, int cmd, u_char *value)
+{
+	u_char buf[6];
+	struct enable_dtmf_s *dtmf_buf = (struct enable_dtmf_s *)buf;
+
+	memset(buf, 0, 6);
+	switch(cmd) {
+		case ISDN_AUDIO_SETDD:
+			if (value[0]) {
+				dtmf_buf->tone = (__u16) (value[1] * 5);
+				dtmf_buf->gap = (__u16) (value[1] * 5);
+				idi_send_udata(ccard, chan,
+					DSP_UDATA_REQUEST_ENABLE_DTMF_RECEIVER,
+					buf, 4);
+			} else {
+				idi_send_udata(ccard, chan,
+					DSP_UDATA_REQUEST_DISABLE_DTMF_RECEIVER,
+					buf, 0);
+			}
+			break;
+	}
+}
+
 void
 idi_parse_udata(eicon_card *ccard, eicon_chan *chan, unsigned char *buffer, int len)
 {
@@ -818,6 +907,9 @@ idi_parse_udata(eicon_card *ccard, eicon_chan *chan, unsigned char *buffer, int 
         {"", "V.21", "V.23", "V.22", "V.22bis", "V.32bis", "V.34",
          "V.8", "Bell 212A", "Bell 103", "V.29 Leased", "V.33 Leased", "V.90",
          "V.21 CH2", "V.27ter", "V.29", "V.33", "V.17"};
+	static u_char dtmf_code[] = {
+	'1','4','7','*','2','5','8','0','3','6','9','#','A','B','C','D'
+	};
 
 	switch (buffer[0]) {
 		case DSP_UDATA_INDICATION_SYNC:
@@ -858,6 +950,17 @@ idi_parse_udata(eicon_card *ccard, eicon_chan *chan, unsigned char *buffer, int 
 		case DSP_UDATA_INDICATION_DISCONNECT:
 			if (DebugVar & 8)
   				printk(KERN_DEBUG"idi_ind: Ch%d: UDATA_DISCONNECT cause %d\n", chan->No, buffer[1]);
+			break;
+		case DSP_UDATA_INDICATION_DTMF_DIGITS_RECEIVED:
+			if (DebugVar & 8)
+  				printk(KERN_DEBUG"idi_ind: Ch%d: UDATA_DTMF_REC '%c'\n", chan->No,
+					dtmf_code[buffer[1]]);
+			cmd.driver = ccard->myid;
+			cmd.command = ISDN_STAT_AUDIO;
+			cmd.parm.num[0] = ISDN_AUDIO_DTMF;
+			cmd.parm.num[1] = dtmf_code[buffer[1]];
+			cmd.arg = chan->No;
+			ccard->interface.statcallb(&cmd);
 			break;
 		default:
 			if (DebugVar & 8)
@@ -992,7 +1095,7 @@ idi_handle_ind(eicon_card *ccard, struct sk_buff *skb)
 					ccard->interface.statcallb(&cmd);
 					idi_do_req(ccard, chan, IDI_N_CONNECT, 1);
 				} else
-				idi_hangup(ccard, chan);
+					idi_hangup(ccard, chan);
 				break;
 			case CALL_CON:
 				if (DebugVar & 8)
@@ -1102,89 +1205,116 @@ idi_handle_ind(eicon_card *ccard, struct sk_buff *skb)
 }
 
 void
+idi_handle_ack_ok(eicon_card *ccard, eicon_chan *chan, eicon_RC *ack)
+{
+	isdn_ctrl cmd;
+
+	if (ack->RcId != ((chan->e.ReqCh) ? chan->e.B2Id : chan->e.D3Id)) {
+		/* I dont know why this happens, just ignoring this RC */
+		if (DebugVar & 16)
+			printk(KERN_DEBUG "idi_ack: Ch%d: RcId %d not equal to last %d\n", chan->No, 
+				ack->RcId, (chan->e.ReqCh) ? chan->e.B2Id : chan->e.D3Id);
+		return;
+	}
+
+	/* Management Interface */	
+	if (chan->No == ccard->nchannels) {
+		/* Managementinterface: changing state */
+		if (chan->e.Req == 0x04)
+			chan->fsm_state = 1;
+	}
+
+	/* Remove an Id */
+	if (chan->e.Req == REMOVE) {
+		if (ack->Reference == chan->e.ref) {
+			ccard->IdTable[ack->RcId] = NULL;
+			if (DebugVar & 16)
+				printk(KERN_DEBUG "idi_ack: Ch%d: Removed : Id=%d Ch=%d (%s)\n", chan->No,
+					ack->RcId, ack->RcCh, (chan->e.ReqCh)? "Net":"Sig");
+			if (!chan->e.ReqCh) 
+				chan->e.D3Id = 0;
+			else
+				chan->e.B2Id = 0;
+		}
+		else {
+			if (DebugVar & 1)
+				printk(KERN_DEBUG "idi_ack: Ch%d: Rc-Ref %d not equal to stored %d\n", chan->No,
+					ack->Reference, chan->e.ref);
+		}
+		return;
+	}
+
+	/* Signal layer */
+	if (!chan->e.ReqCh) {
+		if (DebugVar & 16)
+			printk(KERN_DEBUG "idi_ack: Ch%d: RC OK Id=%d Ch=%d (ref:%d)\n", chan->No,
+				ack->RcId, ack->RcCh, ack->Reference);
+	} else {
+	/* Network layer */
+		switch(chan->e.Req & 0x0f) {
+			case IDI_N_MDATA:
+			case IDI_N_DATA:
+				if ((chan->e.Req & 0x0f) == IDI_N_DATA) {
+					if (chan->queued) {
+						cmd.driver = ccard->myid;
+						cmd.command = ISDN_STAT_BSENT;
+						cmd.arg = chan->No;
+						cmd.parm.length = chan->waitpq;
+						ccard->interface.statcallb(&cmd);
+					}
+					chan->waitpq = 0;
+				}
+				chan->queued -= chan->waitq;
+				if (chan->queued < 0) chan->queued = 0;
+				break;
+			default:
+				if (DebugVar & 16)
+					printk(KERN_DEBUG "idi_ack: Ch%d: RC OK Id=%d Ch=%d (ref:%d)\n", chan->No,
+						ack->RcId, ack->RcCh, ack->Reference);
+		}
+	}
+}
+
+void
 idi_handle_ack(eicon_card *ccard, struct sk_buff *skb)
 {
 	int j;
         eicon_RC *ack = (eicon_RC *)skb->data;
 	eicon_chan *chan;
 	isdn_ctrl cmd;
+	int dCh = -1;
 
-	if ((ack->Rc != ASSIGN_OK) && (ack->Rc != OK)) {
-		if ((chan = ccard->IdTable[ack->RcId]) != NULL) {
-			chan->e.busy = 0;
-			if (DebugVar & 24)
-				printk(KERN_ERR "eicon_ack: Ch%d: Not OK: Rc=%d Id=%d Ch=%d\n", chan->No, 
-					ack->Rc, ack->RcId, ack->RcCh);
-			if (chan->No == ccard->nchannels) { /* Management */
-				chan->fsm_state = 2;
-			} else {	/* any other channel */
-					/* card reports error: we hangup */
-				idi_hangup(ccard, chan);
-				cmd.driver = ccard->myid;
-				cmd.command = ISDN_STAT_DHUP;
-				cmd.arg = chan->No;
-				ccard->interface.statcallb(&cmd);
-			}
-		}
-	} 
-	else {
-		if ((chan = ccard->IdTable[ack->RcId]) != NULL) {
-			if (ack->RcId != ((chan->e.ReqCh) ? chan->e.B2Id : chan->e.D3Id)) {
-				if (DebugVar & 16)
-					printk(KERN_DEBUG "idi_ack: Ch%d: RcId %d not equal to last %d\n", chan->No, 
-						ack->RcId, (chan->e.ReqCh) ? chan->e.B2Id : chan->e.D3Id);
-			} else {	
-				if (chan->No == ccard->nchannels) { /* Management */
-					if (chan->e.Req == 0x04) chan->fsm_state = 1;
-				}
-				if (chan->e.ReqCh) {
-					switch(chan->e.Req & 0x0f) {
-						case IDI_N_MDATA:
-						case IDI_N_DATA:
-							chan->queued -= chan->waitq;
-							if (chan->queued < 0) chan->queued = 0;
-							if ((chan->e.Req & 0x0f) == IDI_N_DATA) {
-								cmd.driver = ccard->myid;
-								cmd.command = ISDN_STAT_BSENT;
-								cmd.arg = chan->No;
-								cmd.parm.length = chan->waitpq;
-								chan->waitpq = 0;
-								ccard->interface.statcallb(&cmd);
-							}
-							break;
-						default:
-							if (DebugVar & 16)
-								printk(KERN_DEBUG "idi_ack: Ch%d: RC OK Id=%d Ch=%d (ref:%d)\n", chan->No,
-									ack->RcId, ack->RcCh, ack->Reference);
-					}
-				} 
-				else {
-					if (DebugVar & 16)
-						printk(KERN_DEBUG "idi_ack: Ch%d: RC OK Id=%d Ch=%d (ref:%d)\n", chan->No,
-							ack->RcId, ack->RcCh, ack->Reference);
-				}
+	if ((chan = ccard->IdTable[ack->RcId]) != NULL)
+		dCh = chan->No;
+	
 
-				if (chan->e.Req == REMOVE) {
-					if (ack->Reference == chan->e.ref) {
-						ccard->IdTable[ack->RcId] = NULL;
-						if (DebugVar & 16)
-							printk(KERN_DEBUG "idi_ack: Ch%d: Removed : Id=%d Ch=%d (%s)\n", chan->No,
-								ack->RcId, ack->RcCh, (chan->e.ReqCh)? "Net":"Sig");
-						if (!chan->e.ReqCh) 
-							chan->e.D3Id = 0;
-						else
-							chan->e.B2Id = 0;
-					}
-					else {
-						if (DebugVar & 16)
-							printk(KERN_DEBUG "idi_ack: Ch%d: Rc-Ref %d not equal to stored %d\n", chan->No,
-								ack->Reference, chan->e.ref);
-					}
-				}
-				chan->e.busy = 0;
+	switch (ack->Rc) {
+		case OK_FC:
+		case N_FLOW_CONTROL:
+		case ASSIGN_RC:
+			if (DebugVar & 1)
+				printk(KERN_ERR "idi_ack: Ch%d: unhandled RC 0x%x\n",
+					dCh, ack->Rc);
+		case READY_INT:
+		case TIMER_INT:
+			/* we do nothing here */
+			break;
+
+		case OK:
+			if (!chan) {
+				if (DebugVar & 1)
+					printk(KERN_ERR "idi_ack: Ch%d: OK on chan without Id\n", dCh);
+				break;
 			}
-		}
-		else {
+			idi_handle_ack_ok(ccard, chan, ack);
+			break;
+
+		case ASSIGN_OK:
+			if (chan) {
+				if (DebugVar & 1)
+					printk(KERN_ERR "idi_ack: Ch%d: ASSIGN-OK on chan already assigned (%d,%d)\n",
+						chan->No, chan->e.D3Id, chan->e.B2Id);
+			}
 			for(j = 0; j < ccard->nchannels + 1; j++) {
 				if (ccard->bch[j].e.ref == ack->Reference) {
 					if (!ccard->bch[j].e.ReqCh) 
@@ -1205,14 +1335,40 @@ idi_handle_ack(eicon_card *ccard, struct sk_buff *skb)
 					printk(KERN_DEBUG"idi_ack: Ch??: ref %d not found for Id %d\n", 
 						ack->Reference, ack->RcId);
 			}
-		}
+			break;
+
+		case OUT_OF_RESOURCES:
+		case UNKNOWN_COMMAND:
+		case WRONG_COMMAND:
+		case WRONG_ID:
+		case WRONG_CH:
+		case UNKNOWN_IE:
+		case WRONG_IE:
+		default:
+			chan->e.busy = 0;
+			if (DebugVar & 24)
+				printk(KERN_ERR "eicon_ack: Ch%d: Not OK: Rc=%d Id=%d Ch=%d\n", dCh, 
+					ack->Rc, ack->RcId, ack->RcCh);
+			if (dCh == ccard->nchannels) { /* Management */
+				chan->fsm_state = 2;
+			} else if (dCh >= 0) {
+					/* any other channel */
+					/* card reports error: we hangup */
+				idi_hangup(ccard, chan);
+				cmd.driver = ccard->myid;
+				cmd.command = ISDN_STAT_DHUP;
+				cmd.arg = chan->No;
+				ccard->interface.statcallb(&cmd);
+			}
 	}
-  dev_kfree_skb(skb);
-  eicon_schedule_tx(ccard);
+	if (chan)
+		chan->e.busy = 0;
+	dev_kfree_skb(skb);
+	eicon_schedule_tx(ccard);
 }
 
 int
-idi_send_data(eicon_card *card, eicon_chan *chan, int ack, struct sk_buff *skb)
+idi_send_data(eicon_card *card, eicon_chan *chan, int ack, struct sk_buff *skb, int que)
 {
         struct sk_buff *xmit_skb;
         struct sk_buff *skb2;
@@ -1236,6 +1392,7 @@ idi_send_data(eicon_card *card, eicon_chan *chan, int ack, struct sk_buff *skb)
 		return 0;
 	if (DebugVar & 128)
 		printk(KERN_DEBUG"idi_snd: Ch%d: %d bytes\n", chan->No, len);
+
 	save_flags(flags);
 	cli();
 	while(offset < len) {
@@ -1274,7 +1431,8 @@ idi_send_data(eicon_card *card, eicon_chan *chan, int ack, struct sk_buff *skb)
 
 		offset += plen;
 	}
-	chan->queued += len;
+	if (que)
+		chan->queued += len;
 	restore_flags(flags);
 	eicon_schedule_tx(card);
         dev_kfree_skb(skb);

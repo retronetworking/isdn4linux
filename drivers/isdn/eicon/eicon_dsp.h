@@ -21,13 +21,17 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.2  1999/03/29 11:19:42  armin
+ * I/O stuff now in seperate file (eicon_io.c)
+ * Old ISA type cards (S,SX,SCOM,Quadro,S2M) implemented.
+ *
  * Revision 1.1  1999/03/02 12:18:54  armin
  * First checkin of DSP defines for audio features.
  *
  *
  */
 
-#ifndef DSP_H
+#ifndef DSP_H 
 #define DSP_H
 
 #define DSP_UDATA_REQUEST_RECONFIGURE           0
@@ -260,6 +264,10 @@ parameters:
   <word> tone duration (ms)
   <word> gap duration (ms)
 */
+typedef struct enable_dtmf_s {
+	__u16 tone;
+	__u16 gap;
+} enable_dtmf_s;
 
 #define DSP_UDATA_REQUEST_DISABLE_DTMF_RECEIVER 18
 /*
