@@ -6,6 +6,9 @@
  * (c) Copyright 1997 by Carsten Paeth (calle@calle.in-berlin.de)
  * 
  * $Log$
+ * Revision 1.4.2.2  1997/10/19 14:44:36  calle
+ * fixed capi_get_version.
+ *
  * Revision 1.4.2.1  1997/07/12 08:18:59  calle
  * Correct bug in CARD_NR macro, so now more than one card will work.
  * Allow card reset, even if card is in running state.
@@ -56,15 +59,11 @@ static char *revision = "$Revision$";
 
 /* ------------------------------------------------------------- */
 
-int portbase = 0x150;
-int irq = 15;
 int showcapimsgs = 0;		/* used in lli.c */
 int loaddebug = 0;
 
 #ifdef HAS_NEW_SYMTAB
 MODULE_AUTHOR("Carsten Paeth <calle@calle.in-berlin.de>");
-MODULE_PARM(portbase, "i");
-MODULE_PARM(irq, "2-15i");
 MODULE_PARM(showcapimsgs, "0-3i");
 MODULE_PARM(loaddebug, "0-1i");
 #endif
@@ -460,7 +459,7 @@ static void avmb1_card_down(avmb1_card * card)
 
 /* ------------------------------------------------------------- */
 
-int avmb1_addcard(int port, int irq)
+int avmb1_addcard(int port, int irq, int cardtype)
 {
 	struct avmb1_card *card;
 	int irqval;
@@ -482,30 +481,42 @@ int avmb1_addcard(int port, int irq)
 	card->cnr = ncards;
 	card->port = port;
 	card->irq = irq;
+	card->cardtype = cardtype;
 	card->cardstate = CARD_DETECTED;
 	return 0;
 }
 
-int avmb1_probecard(int port, int irq)
+int avmb1_probecard(int port, int irq, int cardtype)
 {
 	int rc;
 
 	if (check_region((unsigned short) port, AVMB1_PORTLEN)) {
 		printk(KERN_WARNING
 		       "b1capi: ports 0x%03x-0x%03x in use.\n",
-		       portbase, portbase + AVMB1_PORTLEN);
+		       port, port + AVMB1_PORTLEN);
 		return -EIO;
 	}
-	if (!B1_valid_irq(irq)) {
+	if (!B1_valid_irq(irq, cardtype)) {
 		printk(KERN_WARNING "b1capi: irq %d not valid.\n", irq);
 		return -EIO;
 	}
-	if ((rc = B1_detect(port)) != 0) {
+	if ((rc = B1_detect(port, cardtype)) != 0) {
 		printk(KERN_NOTICE "b1capi: NO card at 0x%x (%d)\n", port, rc);
 		return -EIO;
 	}
 	B1_reset(port);
-	printk(KERN_NOTICE "b1capi: AVM-B1-Controller detected at 0x%x\n", port);
+	switch (cardtype) {
+	   	default:
+	   	case AVM_CARDTYPE_B1:
+	    		printk(KERN_NOTICE "b1capi: AVM-B1-Controller detected at 0x%x\n", port);
+			break;
+	   	case AVM_CARDTYPE_M1:
+	    		printk(KERN_NOTICE "b1capi: AVM-M1-Controller detected at 0x%x\n", port);
+			break;
+	   	case AVM_CARDTYPE_T1:
+	    		printk(KERN_NOTICE "b1capi: AVM-T1-Controller may be at 0x%x\n", port);
+			break;
+	}
 
 	return 0;
 }
@@ -698,30 +709,47 @@ static __u16 capi_get_profile(__u16 contr, struct capi_profile *profp)
 static int capi_manufacturer(unsigned int cmd, void *data)
 {
 	unsigned long flags;
-	avmb1_loaddef ldef;
-	avmb1_carddef cdef;
+	avmb1_loadandconfigdef ldef;
+	avmb1_extcarddef cdef;
 	avmb1_resetdef rdef;
 	avmb1_card *card;
 	int rc;
 
 	switch (cmd) {
 	case AVMB1_ADDCARD:
-		if ((rc = copy_from_user((void *) &cdef, data,
-					 sizeof(avmb1_carddef))))
-			return rc;
-		if (!B1_valid_irq(cdef.irq))
+	case AVMB1_ADDCARD_WITH_TYPE:
+		if (cmd == AVMB1_ADDCARD) {
+		   if ((rc = copy_from_user((void *) &cdef, data,
+					    sizeof(avmb1_carddef))))
+			   return rc;
+		   cdef.cardtype = AVM_CARDTYPE_B1;
+		} else {
+		   if ((rc = copy_from_user((void *) &cdef, data,
+					    sizeof(avmb1_extcarddef))))
+			   return rc;
+		}
+		if (!B1_valid_irq(cdef.irq, cdef.cardtype))
 			return -EINVAL;
 
-		if ((rc = avmb1_probecard(cdef.port, cdef.irq)) != 0)
+		if ((rc = avmb1_probecard(cdef.port, cdef.irq, cdef.cardtype)) != 0)
 			return rc;
 
-		return avmb1_addcard(cdef.port, cdef.irq);
+		return avmb1_addcard(cdef.port, cdef.irq, cdef.cardtype);
 
 	case AVMB1_LOAD:
+	case AVMB1_LOAD_AND_CONFIG:
 
-		if ((rc = copy_from_user((void *) &ldef, data,
-					 sizeof(avmb1_loaddef))))
-			return rc;
+		if (cmd == AVMB1_LOAD) {
+			if ((rc = copy_from_user((void *) &ldef, data,
+						sizeof(avmb1_loaddef))))
+				return rc;
+			ldef.t4config.len = 0;
+			ldef.t4config.data = 0;
+		} else {
+			if ((rc = copy_from_user((void *) &ldef, data,
+					    	sizeof(avmb1_loadandconfigdef))))
+				return rc;
+		}
 		if (!VALID_CARD(ldef.contr) || ldef.t4file.len <= 0) {
 			if (loaddebug)
 				printk(KERN_DEBUG "b1capi: load: invalid parameter contr=%d len=%d\n", ldef.contr, ldef.t4file.len);
@@ -753,6 +781,20 @@ static int capi_manufacturer(unsigned int cmd, void *data)
 			return rc;
 		}
 		B1_disable_irq(card->port);
+
+		if (ldef.t4config.len > 0) { /* load config */
+		        if (loaddebug) {
+				printk(KERN_DEBUG "b1capi: loading config to contr %d\n",
+				   			ldef.contr);
+		   	}
+			if ((rc = B1_load_config(card->port, &ldef.t4file))) {
+				B1_reset(card->port);
+				printk(KERN_ERR "b1capi: failed to load config!!\n");
+				card->cardstate = CARD_DETECTED;
+				return rc;
+			}
+		}
+
 		if (loaddebug) {
 			printk(KERN_DEBUG "b1capi: load: ready contr %d: checking\n",
 				ldef.contr);
@@ -770,7 +812,7 @@ static int capi_manufacturer(unsigned int cmd, void *data)
 		card->cardstate = CARD_INITSTATE;
 		save_flags(flags);
 		cli();
-		B1_assign_irq(card->port, card->irq);
+		B1_assign_irq(card->port, card->irq, card->cardtype);
 		B1_enable_irq(card->port);
 		restore_flags(flags);
 
@@ -799,6 +841,7 @@ static int capi_manufacturer(unsigned int cmd, void *data)
 				return -EINTR;
 		}
 		return 0;
+
 	case AVMB1_RESETCARD:
 		if ((rc = copy_from_user((void *) &rdef, data,
 					 sizeof(avmb1_resetdef))))
@@ -933,15 +976,7 @@ int avmb1_init(void)
 		strcpy(rev, " ??? ");
 
 #ifdef MODULE
-	if (portbase) {
-	        int rc;
-		if ((rc = avmb1_probecard(portbase, irq)) != 0)
-			return rc;
-		if ((rc = avmb1_addcard(portbase, irq)) != 0)
-			return rc;
-	} else {
-		printk(KERN_NOTICE "AVM-B1-CAPI-driver Rev%s: loaded\n", rev);
-	}
+        printk(KERN_NOTICE "AVM-B1-CAPI-driver Rev%s: loaded\n", rev);
 #else
 	printk(KERN_NOTICE "AVM-B1-CAPI-driver Rev%s: started\n", rev);
 #endif
