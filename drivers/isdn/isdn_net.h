@@ -21,6 +21,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.15  2000/03/19 15:27:53  kai
+ * no known bugs left...
+ *
  * Revision 1.14  2000/03/18 16:20:25  kai
  * cosmetics / renaming
  *
@@ -138,8 +141,6 @@ extern void isdn_net_autohup(void);
 extern int isdn_net_force_hangup(char *);
 extern int isdn_net_force_dial(char *);
 extern isdn_net_dev *isdn_net_findif(char *);
-extern int isdn_net_send_skb(struct net_device *, isdn_net_local *,
-			     struct sk_buff *);
 extern int isdn_net_rcv_skb(int, struct sk_buff *);
 extern void isdn_net_slarp_out(void);
 extern int isdn_net_dial_req(isdn_net_local *);
