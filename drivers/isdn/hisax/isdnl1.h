@@ -1,6 +1,9 @@
 /* $Id$
  *
  * $Log$
+ * Revision 1.1  1996/10/13 20:03:47  keil
+ * Initial revision
+ *
  *
  *
  */
@@ -23,6 +26,8 @@
 #define HSCX_XMTBUFREADY 1
 
 extern void debugl1(struct IsdnCardState *sp, char *msg);
+extern char *HscxVersion(byte v);
+extern char *ISACVersion(byte v);
 extern void hscx_sched_event(struct HscxState *hsp, int event);
 extern void isac_sched_event(struct IsdnCardState *sp, int event);
 extern void isac_new_ph(struct IsdnCardState *sp);
