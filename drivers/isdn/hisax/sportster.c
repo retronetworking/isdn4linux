@@ -7,6 +7,9 @@
  * Thanks to Christian "naddy" Weisgerber (3Com, US Robotics) for documentation
  *
  * $Log$
+ * Revision 1.1.2.3  1998/01/27 22:37:31  keil
+ * fast io
+ *
  * Revision 1.1.2.2  1997/11/15 18:50:57  keil
  * new common init function
  *
@@ -180,12 +183,10 @@ Sportster_card_msg(struct IsdnCardState *cs, int mt, void *arg)
 			return(request_irq(cs->irq, &sportster_interrupt,
 					I4L_IRQ_FLAG, "HiSax", cs));
 		case CARD_INIT:
-			clear_pending_isac_ints(cs);
-			clear_pending_hscx_ints(cs);
-			initisac(cs);
-			inithscx(cs);
+			inithscxisac(cs, 1);
 			cs->hw.spt.res_irq |= SPORTSTER_INTE; /* IRQ On */
 			byteout(cs->hw.spt.cfg_reg + SPORTSTER_RES_IRQ, cs->hw.spt.res_irq);
+			inithscxisac(cs, 2);
 			return(0);
 		case CARD_TEST:
 			return(0);

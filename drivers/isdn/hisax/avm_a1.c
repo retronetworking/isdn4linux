@@ -6,6 +6,9 @@
  *
  *
  * $Log$
+ * Revision 1.6.2.8  1998/01/27 22:37:49  keil
+ * fast io
+ *
  * Revision 1.6.2.7  1998/01/13 23:06:11  keil
  * really disable internal timer
  *
@@ -211,10 +214,10 @@ AVM_card_msg(struct IsdnCardState *cs, int mt, void *arg)
 			return(request_irq(cs->irq, &avm_a1_interrupt,
 					I4L_IRQ_FLAG, "HiSax", cs));
 		case CARD_INIT:
-			clear_pending_isac_ints(cs);
-			clear_pending_hscx_ints(cs);
-			initisac(cs);
-			inithscx(cs);
+			inithscxisac(cs, 1);
+			byteout(cs->hw.avm.cfg_reg, 0x16);
+			byteout(cs->hw.avm.cfg_reg, 0x1E);
+			inithscxisac(cs, 2);
 			return(0);
 		case CARD_TEST:
 			return(0);

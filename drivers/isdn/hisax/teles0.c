@@ -10,6 +10,9 @@
  *              Beat Doebeli
  *
  * $Log$
+ * Revision 1.8.2.8  1998/03/07 23:15:40  tsbogend
+ * made HiSax working on Linux/Alpha
+ *
  * Revision 1.8.2.7  1998/02/03 23:17:16  keil
  * IRQ 9
  *
@@ -285,10 +288,7 @@ Teles_card_msg(struct IsdnCardState *cs, int mt, void *arg)
 			return(request_irq(cs->irq, &teles0_interrupt,
 					I4L_IRQ_FLAG, "HiSax", cs));
 		case CARD_INIT:
-			clear_pending_isac_ints(cs);
-			clear_pending_hscx_ints(cs);
-			initisac(cs);
-			inithscx(cs);
+			inithscxisac(cs, 3);
 			return(0);
 		case CARD_TEST:
 			return(0);

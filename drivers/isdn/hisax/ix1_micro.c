@@ -11,6 +11,9 @@
  *              Beat Doebeli
  *
  * $Log$
+ * Revision 1.3.2.7  1998/02/11 14:21:01  keil
+ * cosmetic fixes
+ *
  * Revision 1.3.2.6  1998/01/27 22:37:33  keil
  * fast io
  *
@@ -271,10 +274,7 @@ ix1_card_msg(struct IsdnCardState *cs, int mt, void *arg)
 			return(request_irq(cs->irq, &ix1micro_interrupt,
 					I4L_IRQ_FLAG, "HiSax", cs));
 		case CARD_INIT:
-			clear_pending_isac_ints(cs);
-			clear_pending_hscx_ints(cs);
-			initisac(cs);
-			inithscx(cs);
+			inithscxisac(cs, 3);
 			return(0);
 		case CARD_TEST:
 			return(0);
