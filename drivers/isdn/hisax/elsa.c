@@ -865,7 +865,7 @@ probe_elsa(struct IsdnCardState *cs)
 static 	struct pci_dev *dev_qs1000 __devinitdata = NULL;
 static 	struct pci_dev *dev_qs3000 __devinitdata = NULL;
 
-#if defined(CONFIG_ISAPNP) || defined(CONFIG_ISAPNP_MODULE)
+#ifdef __ISAPNP__
 static struct isapnp_device_id elsa_ids[] __initdata = {
 	{ ISAPNP_VENDOR('E', 'L', 'S'), ISAPNP_FUNCTION(0x0133),
 	  ISAPNP_VENDOR('E', 'L', 'S'), ISAPNP_FUNCTION(0x0133), 
@@ -956,7 +956,7 @@ setup_elsa(struct IsdnCard *card)
 			return (0);
 		}
 	} else if (cs->typ == ISDN_CTYPE_ELSA_PNP) {
-#if defined(CONFIG_ISAPNP) || defined(CONFIG_ISAPNP_MODULE)
+#ifdef __ISAPNP__
 		if (!card->para[1] && isapnp_present()) {
 			struct pci_bus *pb;
 			struct pci_dev *pd;

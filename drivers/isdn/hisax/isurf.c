@@ -196,7 +196,7 @@ isurf_auxcmd(struct IsdnCardState *cs, isdn_ctrl *ic) {
 	return(isar_auxcmd(cs, ic));
 }
 
-#if defined(CONFIG_ISAPNP) || defined(CONFIG_ISAPNP_MODULE)
+#ifdef __ISAPNP__
 static struct pci_bus *pnp_surf __devinitdata = NULL;
 #endif
 
@@ -217,7 +217,7 @@ setup_isurf(struct IsdnCard *card)
 		cs->hw.isurf.phymem = card->para[2];
 		cs->irq = card->para[0];
 	} else {
-#if defined(CONFIG_ISAPNP) || defined(CONFIG_ISAPNP_MODULE)
+#ifdef __ISAPNP__
 		struct pci_bus *pb;
 		struct pci_dev *pd;
 

@@ -219,7 +219,7 @@ ix1_card_msg(struct IsdnCardState *cs, int mt, void *arg)
 	return(0);
 }
 
-#if defined(CONFIG_ISAPNP) || defined(CONFIG_ISAPNP_MODULE)
+#ifdef __ISAPNP__
 static struct isapnp_device_id itk_ids[] __initdata = {
 	{ ISAPNP_VENDOR('I', 'T', 'K'), ISAPNP_FUNCTION(0x25),
 	  ISAPNP_VENDOR('I', 'T', 'K'), ISAPNP_FUNCTION(0x25), 
@@ -246,7 +246,7 @@ setup_ix1micro(struct IsdnCard *card)
 	if (cs->typ != ISDN_CTYPE_IX1MICROR2)
 		return (0);
 
-#if defined(CONFIG_ISAPNP) || defined(CONFIG_ISAPNP_MODULE)
+#ifdef __ISAPNP__
 	if (!card->para[1] && isapnp_present()) {
 		struct pci_bus *pb;
 		struct pci_dev *pd;

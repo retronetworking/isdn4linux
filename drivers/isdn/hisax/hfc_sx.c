@@ -1486,7 +1486,7 @@ hfcsx_card_msg(struct IsdnCardState *cs, int mt, void *arg)
 	return (0);
 }
 
-#if defined(CONFIG_ISAPNP) || defined(CONFIG_ISAPNP_MODULE)
+#ifdef __ISAPNP__
 static struct isapnp_device_id hfc_ids[] __initdata = {
 	{ ISAPNP_VENDOR('T', 'A', 'G'), ISAPNP_FUNCTION(0x2620),
 	  ISAPNP_VENDOR('T', 'A', 'G'), ISAPNP_FUNCTION(0x2620), 
@@ -1507,7 +1507,7 @@ setup_hfcsx(struct IsdnCard *card)
 
 	strcpy(tmp, hfcsx_revision);
 	printk(KERN_INFO "HiSax: HFC-SX driver Rev. %s\n", HiSax_getrev(tmp));
-#if defined(CONFIG_ISAPNP) || defined(CONFIG_ISAPNP_MODULE)
+#ifdef __ISAPNP__
 	if (!card->para[1] && isapnp_present()) {
 		struct pci_bus *pb;
 		struct pci_dev *pd;

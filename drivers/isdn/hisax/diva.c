@@ -914,7 +914,7 @@ static struct pci_dev *dev_diva_u __initdata = NULL;
 static struct pci_dev *dev_diva201 __initdata = NULL;
 static struct pci_dev *dev_diva202 __initdata = NULL;
 
-#if defined(CONFIG_ISAPNP) || defined(CONFIG_ISAPNP_MODULE)
+#ifdef __ISAPNP__
 static struct isapnp_device_id diva_ids[] __initdata = {
 	{ ISAPNP_VENDOR('G', 'D', 'I'), ISAPNP_FUNCTION(0x51),
 	  ISAPNP_VENDOR('G', 'D', 'I'), ISAPNP_FUNCTION(0x51), 
@@ -979,7 +979,7 @@ setup_diva(struct IsdnCard *card)
 		}
 		cs->irq = card->para[0];
 	} else {
-#if defined(CONFIG_ISAPNP) || defined(CONFIG_ISAPNP_MODULE)
+#ifdef __ISAPNP__
 		if (isapnp_present()) {
 			struct pci_bus *pb;
 			struct pci_dev *pd;

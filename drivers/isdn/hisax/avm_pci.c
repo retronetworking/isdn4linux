@@ -765,7 +765,7 @@ AVM_card_msg(struct IsdnCardState *cs, int mt, void *arg)
 }
 
 static struct pci_dev *dev_avm __initdata = NULL;
-#if defined(CONFIG_ISAPNP) || defined(CONFIG_ISAPNP_MODULE)
+#ifdef __ISAPNP__
 static struct pci_bus *bus_avm __initdata = NULL;
 static struct pci_dev *pnp_avm __initdata = NULL;
 #endif
@@ -787,7 +787,7 @@ setup_avm_pcipnp(struct IsdnCard *card)
 		cs->irq = card->para[0];
 		cs->subtyp = AVM_FRITZ_PNP;
 	} else {
-#if defined(CONFIG_ISAPNP) || defined(CONFIG_ISAPNP_MODULE)
+#ifdef __ISAPNP__
 		if (isapnp_present()) {
 			struct pci_bus *ba;
 			if ((ba = isapnp_find_card(

@@ -240,7 +240,7 @@ niccy_card_msg(struct IsdnCardState *cs, int mt, void *arg)
 }
 
 static struct pci_dev *niccy_dev __initdata = NULL;
-#if defined(CONFIG_ISAPNP) || defined(CONFIG_ISAPNP_MODULE)
+#ifdef __ISAPNP__
 static struct pci_bus *pnp_c __devinitdata = NULL;
 #endif
 
@@ -254,7 +254,7 @@ setup_niccy(struct IsdnCard *card)
 	printk(KERN_INFO "HiSax: Niccy driver Rev. %s\n", HiSax_getrev(tmp));
 	if (cs->typ != ISDN_CTYPE_NICCY)
 		return (0);
-#if defined(CONFIG_ISAPNP) || defined(CONFIG_ISAPNP_MODULE)
+#ifdef __ISAPNP__
 	if (!card->para[1] && isapnp_present()) {
 		struct pci_bus *pb;
 		struct pci_dev *pd;

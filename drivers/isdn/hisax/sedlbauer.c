@@ -534,7 +534,7 @@ Sedl_card_msg(struct IsdnCardState *cs, int mt, void *arg)
 
 static struct pci_dev *dev_sedl __devinitdata = NULL;
 
-#if defined(CONFIG_ISAPNP) || defined(CONFIG_ISAPNP_MODULE)
+#ifdef __ISAPNP__
 static struct isapnp_device_id sedl_ids[] __initdata = {
 	{ ISAPNP_VENDOR('S', 'A', 'G'), ISAPNP_FUNCTION(0x01),
 	  ISAPNP_VENDOR('S', 'A', 'G'), ISAPNP_FUNCTION(0x01), 
@@ -584,7 +584,7 @@ setup_sedlbauer(struct IsdnCard *card)
 			bytecnt = 16;
 		}
 	} else {
-#if defined(CONFIG_ISAPNP) || defined(CONFIG_ISAPNP_MODULE)
+#ifdef __ISAPNP__
 		if (isapnp_present()) {
 			struct pci_bus *pb;
 			struct pci_dev *pd;
