@@ -11,6 +11,9 @@
  *
  *
  * $Log$
+ * Revision 1.15.2.8  1998/03/07 23:15:26  tsbogend
+ * made HiSax working on Linux/Alpha
+ *
  * Revision 1.15.2.7  1998/02/11 14:23:14  keil
  * support for Dr Neuhaus Niccy PnP and PCI
  *
@@ -219,6 +222,24 @@ static inline struct IsdnCardState
 	return (NULL);
 }
 
+/*
+ *  Debug the wrong driver id
+ */
+void
+hisax_debug_driver_id(int driverid)
+{
+	int i;
+
+	printk(KERN_ERR"HiSax: nrcards=%d\n", nrcards);
+	for (i = 0; i < nrcards; i++) {
+		if (cards[i].cs) {
+			printk(KERN_ERR"HiSax: card %d cs=%lx id=%d\n",
+				i, (long)cards[i].cs, cards[i].cs->myid);
+		} else
+			printk(KERN_ERR"HiSax: card %d cs=00000000\n",i);
+	}
+}
+
 int
 HiSax_readstatus(u_char * buf, int len, int user, int id, int channel)
 {
@@ -238,7 +259,8 @@ HiSax_readstatus(u_char * buf, int len, int user, int id, int channel)
 		return count;
 	} else {
 		printk(KERN_ERR
-		 "HiSax: if_readstatus called with invalid driverId!\n");
+		 "HiSax: if_readstatus called with invalid driverId %d!\n", id);
+		hisax_debug_driver_id(id);
 		return -ENODEV;
 	}
 }

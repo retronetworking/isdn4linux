@@ -7,6 +7,9 @@
  *              Fritz Elfert
  *
  * $Log$
+ * Revision 1.30.2.6  1998/03/07 23:15:02  tsbogend
+ * made HiSax working on Linux/Alpha
+ *
  * Revision 1.30.2.5  1998/02/09 11:24:17  keil
  * New leased line support (Read README.HiSax!)
  *
@@ -1958,6 +1961,8 @@ distr_debug(struct IsdnCardState *csta, int debugflags)
 	csta->dlogflag = debugflags & 4;
 }
 
+extern void hisax_debug_driver_id(int);
+
 int
 HiSax_command(isdn_ctrl * ic)
 {
@@ -1971,6 +1976,7 @@ HiSax_command(isdn_ctrl * ic)
 		printk(KERN_ERR
 		"HiSax: if_command %d called with invalid driverId %d!\n",
 		       ic->command, ic->driver);
+		hisax_debug_driver_id(ic->driver);
 		return -ENODEV;
 	}
 	switch (ic->command) {
