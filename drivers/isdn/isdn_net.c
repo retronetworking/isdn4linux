@@ -21,6 +21,16 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.51  1997/10/09 21:28:50  fritz
+ * New HL<->LL interface:
+ *   New BSENT callback with nr. of bytes included.
+ *   Sending without ACK.
+ *   New L1 error status (not yet in use).
+ *   Cleaned up obsolete structures.
+ * Implemented Cisco-SLARP.
+ * Changed local net-interface data to be dynamically allocated.
+ * Removed old 2.0 compatibility stuff.
+ *
  * Revision 1.50  1997/10/01 09:20:32  fritz
  * Removed old compatibility stuff for 2.0.X kernels.
  * From now on, this code is for 2.1.X ONLY!
@@ -217,10 +227,15 @@
 #include <linux/if_arp.h>
 #include <net/arp.h>
 #include <net/icmp.h>
+#include <linux/poll.h>
 #include "isdn_common.h"
 #include "isdn_net.h"
 #ifdef CONFIG_ISDN_PPP
 #include "isdn_ppp.h"
+#endif
+#ifndef DEV_NUMBUFFS
+#include <net/pkt_sched.h>
+#include <linux/inetdevice.h>
 #endif
 
 /* Prototypes */
@@ -229,7 +244,9 @@ int isdn_net_force_dial_lp(isdn_net_local *);
 static int isdn_net_wildmat(char *s, char *p);
 static int isdn_net_start_xmit(struct sk_buff *, struct device *);
 static int isdn_net_xmit(struct device *, isdn_net_local *, struct sk_buff *);
+#ifdef DEV_NUMBUFFS
 static void dev_purge_queues(struct device *dev);	/* move this to net/core/dev.c */
+#endif
 
 char *isdn_net_revision = "$Revision$";
 
@@ -269,7 +286,7 @@ isdn_net_open(struct device *dev)
 	/* Fill in the MAC-level header. */
 	for (i = 0; i < ETH_ALEN - sizeof(u32); i++)
 		dev->dev_addr[i] = 0xfc;
-	memcpy(&(dev->dev_addr[i]), &dev->pa_addr, sizeof(u32));
+	memset(&(dev->dev_addr[i]), 0, sizeof(u32));
 
 	/* If this interface has slaves, start them also */
 
@@ -319,8 +336,18 @@ isdn_net_unbind_channel(isdn_net_local * lp)
 		dev_kfree_skb(lp->sav_skb, FREE_WRITE);
 		lp->sav_skb = NULL;
 	}
+#ifdef DEV_NUMBUFFS
 	if (!lp->master)        /* purge only for master device */
 		dev_purge_queues(&lp->netdev->dev);
+#else
+        if (!lp->master) {      /* reset only master device */
+                /* Moral equivalent of dev_purge_queues():
+                   BEWARE! This chunk of code cannot be called from hardware
+                   interrupt handler. I hope it is true. --ANK
+                 */
+                qdisc_reset(lp->netdev->dev.qdisc);
+        }
+#endif
 	lp->dialstate = 0;
 	dev->rx_netdev[isdn_dc2minor(lp->isdn_device, lp->isdn_channel)] = NULL;
 	dev->st_netdev[isdn_dc2minor(lp->isdn_device, lp->isdn_channel)] = NULL;
@@ -1011,9 +1038,9 @@ isdn_net_start_xmit(struct sk_buff *skb, struct device *ndev)
 		ndev->trans_start = jiffies;
 	}
 	if (skb == NULL) {
-		dev_tint(ndev);
 		return 0;
 	}
+
 	/* Avoid timer-based retransmission conflicts. */
 	if (test_and_set_bit(0, (void *) &ndev->tbusy) != 0)
 		printk(KERN_WARNING
@@ -1220,9 +1247,20 @@ isdn_net_slarp_send(isdn_net_local *lp, int is_reply)
 	ch->type = htons(CISCO_TYPE_SLARP);
 	s = (cisco_slarp *)skb_put(skb, sizeof(cisco_slarp));
 	if (is_reply) {
+		struct in_device *in_dev;
+		__u32 pa_addr, pa_mask;
+		pa_addr = 0xc0a80001;
+		pa_mask = 0xffffff00;
 		s->code = htonl(CISCO_SLARP_REPLY);
-		memcpy(&s->slarp.reply.ifaddr, &lp->netdev->dev.pa_addr, sizeof(__u32));
-		memcpy(&s->slarp.reply.netmask, &lp->netdev->dev.pa_mask, sizeof(__u32));
+		if (lp->netdev->dev.ip_ptr) {
+		   in_dev = lp->netdev->dev.ip_ptr;
+		   if (in_dev->ifa_list) {
+		      pa_addr = in_dev->ifa_list->ifa_address;
+		      pa_mask = in_dev->ifa_list->ifa_mask;
+		   }
+		}
+		memcpy(&s->slarp.reply.ifaddr, &pa_addr, sizeof(__u32));
+		memcpy(&s->slarp.reply.netmask, &pa_mask, sizeof(__u32));
 	} else {
 		lp->cisco_myseq++;
 		s->code = htonl(CISCO_SLARP_KEEPALIVE);
@@ -1578,20 +1616,19 @@ isdn_net_init(struct device *ndev)
 	ndev->hard_header_cache = NULL;
 	ndev->header_cache_update = NULL;
 	ndev->mtu = 1500;
-	ndev->flags = IFF_NOARP;
-	ndev->family = AF_INET;
+	ndev->flags = IFF_NOARP|IFF_POINTOPOINT;
 	ndev->type = ARPHRD_ETHER;
 	ndev->addr_len = ETH_ALEN;
-	ndev->pa_addr = 0;
-	ndev->pa_brdaddr = 0;
-	ndev->pa_mask = 0;
-	ndev->pa_alen = 4;
 
 	for (i = 0; i < ETH_ALEN; i++)
 		ndev->broadcast[i] = 0xff;
 
+#ifdef DEV_NUMBUFFS
 	for (i = 0; i < DEV_NUMBUFFS; i++)
 		skb_queue_head_init(&ndev->buffs[i]);
+#else
+        dev_init_buffers(ndev);
+#endif
 
 	/* The ISDN-specific entries in the device structure. */
 	ndev->open = &isdn_net_open;
@@ -2700,6 +2737,7 @@ isdn_net_rmall(void)
 	return 0;
 }
 
+#ifdef DEV_NUMBUFFS
 /*
  * helper function to flush device queues
  * the better place would be net/core/dev.c
@@ -2713,5 +2751,5 @@ dev_purge_queues(struct device *dev)
 		while ((skb = skb_dequeue(&dev->buffs[i])))
 			dev_kfree_skb(skb, FREE_WRITE);
 	}
-
 }
+#endif

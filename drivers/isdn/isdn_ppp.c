@@ -19,6 +19,16 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.31  1997/10/09 21:29:01  fritz
+ * New HL<->LL interface:
+ *   New BSENT callback with nr. of bytes included.
+ *   Sending without ACK.
+ *   New L1 error status (not yet in use).
+ *   Cleaned up obsolete structures.
+ * Implemented Cisco-SLARP.
+ * Changed local net-interface data to be dynamically allocated.
+ * Removed old 2.0 compatibility stuff.
+ *
  * Revision 1.30  1997/10/01 09:20:38  fritz
  * Removed old compatibility stuff for 2.0.X kernels.
  * From now on, this code is for 2.1.X ONLY!
@@ -143,7 +153,7 @@
 #include <linux/module.h>
 #include <linux/version.h>
 #include <linux/isdn.h>
-#include <asm/poll.h>
+#include <linux/poll.h>
 #include "isdn_common.h"
 #include "isdn_ppp.h"
 #include "isdn_net.h"
