@@ -3,6 +3,9 @@
  *   Basic declarations, defines and prototypes
  *
  * $Log$
+ * Revision 1.1  1996/10/13 20:03:46  keil
+ * Initial revision
+ *
  *
  *
  */
@@ -355,6 +358,7 @@ struct IsdnCardState {
 	char           *dlogspace;
 	int             debug;
 	int             releasebuf;
+	unsigned int	CallFlags;
 };
 
 #define  ISDN_CTYPE_16_0	1
@@ -500,7 +504,6 @@ struct Channel {
 	int             data_open;
 	int             outcallref;
 	int             impair;
-	struct FsmTimer icall_timer;
 };
 
 #define PART_SIZE(order,bpps) (( (PAGE_SIZE<<order) -\
