@@ -21,6 +21,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.88  1999/10/02 00:39:26  he
+ * Fixed a 2.3.x wait queue initialization (was causing panics)
+ *
  * Revision 1.87  1999/09/12 16:19:39  detabc
  * added abc features
  * low cost routing for net-interfaces (only the HL side).
@@ -371,6 +374,7 @@
 #include <linux/module.h>
 #include <linux/version.h>
 #include <linux/poll.h>
+#include <linux/vmalloc.h>
 #include <linux/isdn.h>
 #include "isdn_common.h"
 #include "isdn_tty.h"
@@ -2545,8 +2549,7 @@ isdn_init(void)
 	int i;
 	char tmprev[50];
 
-	sti();
-	if (!(dev = (isdn_dev *) kmalloc(sizeof(isdn_dev), GFP_KERNEL))) {
+	if (!(dev = (isdn_dev *) vmalloc(sizeof(isdn_dev)))) {
 		printk(KERN_WARNING "isdn: Could not allocate device-struct.\n");
 		return -EIO;
 	}
@@ -2571,7 +2574,7 @@ isdn_init(void)
 	}
 	if (register_chrdev(ISDN_MAJOR, "isdn", &isdn_fops)) {
 		printk(KERN_WARNING "isdn: Could not register control devices\n");
-		kfree(dev);
+		vfree(dev);
 		return -EIO;
 	}
 	if ((i = isdn_tty_modem_init()) < 0) {
@@ -2580,7 +2583,7 @@ isdn_init(void)
 			tty_unregister_driver(&dev->mdm.cua_modem);
 		if (i <= -2)
 			tty_unregister_driver(&dev->mdm.tty_modem);
-		kfree(dev);
+		vfree(dev);
 		unregister_chrdev(ISDN_MAJOR, "isdn");
 		return -EIO;
 	}
@@ -2592,7 +2595,7 @@ isdn_init(void)
 		for (i = 0; i < ISDN_MAX_CHANNELS; i++)
 			kfree(dev->mdm.info[i].xmit_buf - 4);
 		unregister_chrdev(ISDN_MAJOR, "isdn");
-		kfree(dev);
+		vfree(dev);
 		return -EIO;
 	}
 #endif                          /* CONFIG_ISDN_PPP */
@@ -2664,7 +2667,7 @@ cleanup_module(void)
 		printk(KERN_WARNING "isdn: controldevice busy, remove cancelled\n");
 	} else {
 		del_timer(&dev->timer);
-		kfree(dev);
+		vfree(dev);
 		printk(KERN_NOTICE "ISDN-subsystem unloaded\n");
 	}
 	restore_flags(flags);
