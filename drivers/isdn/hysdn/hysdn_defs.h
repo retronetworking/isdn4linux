@@ -20,6 +20,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.2  2000/05/17 11:41:30  ualbrecht
+ * CAPI 2.0 support added
+ *
  * Revision 1.1  2000/02/10 19:44:30  werner
  *
  * Initial release
@@ -171,20 +174,6 @@
 #define ERRLOG_STATE_START 2	/* start error logging */
 #define ERRLOG_STATE_STOP  3	/* stop error logging */
 
-#ifdef CONFIG_HYSDN_CAPI
-/***************************************************/
-/* Internal structure for application-management.  */
-/* Makes it possible to restore application-infos  */
-/* after a reboot of the card.                     */
-/***************************************************/
-typedef struct __applrec {
-	struct __applrec *next;
-	__u16 app_id;
-	capi_register_params rp;
-	struct sk_buff *listen_req;
-} appl_rec;
-#endif /* CONFIG_HYSDN_CAPI */
-
 /*******************************/
 /* data structure for one card */
 /*******************************/
@@ -258,7 +247,6 @@ typedef struct HYSDN_CARD {
 		int in_idx, out_idx;	/* indexes to buffer ring */
 		int sk_count;		/* number of buffers currently in ring */
 		struct sk_buff *tx_skb;	/* buffer for tx operation */
-		appl_rec _appl; /* Root-node for application-infos */
 	} *hyctrlinfo;
 #endif /* CONFIG_HYSDN_CAPI */
 } hysdn_card;
