@@ -107,13 +107,13 @@ config ISDN_DIVERSION
 endmenu
 
 comment "ISDN4Linux hardware drivers"
-	depends on NET && ISDN_BOOL && ISDN
+	depends on NET && ISDN && ISDN_I4L
 
 source "drivers/isdn/hisax/Kconfig"
 
 
 menu "Active cards"
-	depends on NET && ISDN_BOOL && ISDN!=n
+	depends on NET && ISDN && ISDN_I4L!=n
 
 source "drivers/isdn/icn/Kconfig"
 

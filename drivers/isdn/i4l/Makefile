@@ -2,7 +2,7 @@
 
 # Each configuration option enables a list of files.
 
-obj-$(CONFIG_ISDN)		+= isdn.o
+obj-$(CONFIG_ISDN_I4L)		+= isdn.o
 obj-$(CONFIG_ISDN_PPP_BSDCOMP)	+= isdn_bsdcomp.o
 
 # Multipart objects.
