@@ -11,6 +11,9 @@
  *
  *
  * $Log$
+ * Revision 2.29  1998/09/27 23:54:43  keil
+ * cosmetics
+ *
  * Revision 2.28  1998/09/27 12:52:23  keil
  * Fix against segfault, if the driver cannot allocate an IRQ channel
  *
@@ -1582,5 +1585,6 @@ setstack_l1_B(struct PStack *st)
 	st->l1.l1m.userdata = st;
 	st->l1.l1m.userint = 0;
 	st->l1.l1m.printdebug = l1m_debug;
+	st->l1.Flags = 0;
 	FsmInitTimer(&st->l1.l1m, &st->l1.timer);
 }
