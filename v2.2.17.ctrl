@@ -7,7 +7,6 @@
 #define pci_resource_start_mem(pdev,nr)	pdev->base_address[nr] & PCI_BASE_ADDRESS_MEM_MASK
 #define pci_get_sub_vendor(pdev, id)	pci_read_config_word(pdev, PCI_SUBSYSTEM_VENDOR_ID, &id)
 #define pci_get_sub_system(pdev, id)	pci_read_config_word(pdev, PCI_SUBSYSTEM_ID, &id)
-#define FILEOP_HAS_FLUSH
 #undef COMPAT_HAS_NEW_WAITQ
 #undef COMPAT_HAS_NEW_SETUP
 #undef BIG_PHONE_NUMBERS

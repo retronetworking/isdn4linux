@@ -36,14 +36,6 @@
 #define pci_get_sub_system(pdev, id)	pci_read_config_word(pdev, PCI_SUBSYSTEM_ID, &id)
 #endif
 
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,1,118)
-#define FILEOP_HAS_FLUSH
-#endif
-
-#if LINUX_VERSION_CODE < KERNEL_VERSION(2,1,127)
-#define schedule_timeout(a) current->timeout = jiffies + (a); schedule ();
-#endif
-
 #if LINUX_VERSION_CODE > KERNEL_VERSION(2,3,0)
 #define COMPAT_HAS_NEW_WAITQ
 #define BIG_PHONE_NUMBERS

@@ -4,7 +4,6 @@
 #define pci_resource_start_mem(pdev,nr)	pci_resource_start(pdev,nr)
 #define pci_get_sub_vendor(pdev, id)	id = pdev->subsystem_vendor
 #define pci_get_sub_system(pdev, id)	id = pdev->subsystem_device
-#define FILEOP_HAS_FLUSH
 #define COMPAT_HAS_NEW_WAITQ
 #define COMPAT_HAS_NEW_SETUP
 #define COMPAT_HAS_ISA_IOREMAP
