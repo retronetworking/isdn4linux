@@ -2319,15 +2319,6 @@ register_isdn(isdn_if * i)
  *****************************************************************************
  */
 
-/* dummy isdn_init for the time being. remove when not called
-   from drivers/char/mem.c anymore
-*/
-
-int isdn_init(void)
-{
-	return 0;
-}
-
 static char *
 isdn_getrev(const char *revision)
 {
@@ -2438,7 +2429,7 @@ static void isdn_cleanup_devfs(void)
 /*
  * Allocate and initialize all data, register modem-devices
  */
-static int __init init_isdn(void)
+static int __init isdn_init(void)
 {
 	int i;
 	char tmprev[50];
@@ -2525,7 +2516,7 @@ static int __init init_isdn(void)
 /*
  * Unload module
  */
-static void __exit exit_isdn(void)
+static void __exit isdn_exit(void)
 {
 	int flags;
 	int i;
@@ -2575,5 +2566,5 @@ static void __exit exit_isdn(void)
 #endif
 }
 
-module_init(init_isdn);
-module_exit(exit_isdn);
+module_init(isdn_init);
+module_exit(isdn_exit);

@@ -6,6 +6,9 @@
  * Copyright 1996 by Carsten Paeth (calle@calle.in-berlin.de)
  *
  * $Log$
+ * Revision 1.44.6.3  2000/12/17 22:45:08  kai
+ * That's hopefully it for test13-4
+ *
  * Revision 1.44.6.2  2000/12/14 23:04:12  kai
  * Makefile changes and the like for 2.4.0-test13-pre1
  * No compatiblity code for older kernels yet, but note the branch
@@ -220,7 +223,7 @@
 #include <linux/kernel.h>
 #include <linux/major.h>
 #include <linux/sched.h>
-#include <linux/malloc.h>
+#include <linux/slab.h>
 #include <linux/fcntl.h>
 #include <linux/fs.h>
 #include <linux/signal.h>
