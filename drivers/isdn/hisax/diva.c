@@ -8,6 +8,9 @@
  *
  *
  * $Log$
+ * Revision 1.1.2.8  1998/05/27 18:05:11  keil
+ * HiSax 3.0
+ *
  * Revision 1.1.2.7  1998/04/24 13:37:13  keil
  * Support for DIVA 2.01 IPAC
  *
@@ -313,7 +316,7 @@ release_io_diva(struct IsdnCardState *cs)
 		if (cs->hw.diva.cfg_reg)
 			byteout(cs->hw.diva.ctrl, 0); /* LED off, Reset */
 	}
-	if ((cs->subtyp == DIVA_ISA) || (cs->subtyp != DIVA_IPAC_ISA))
+	if ((cs->subtyp == DIVA_ISA) || (cs->subtyp == DIVA_IPAC_ISA))
 		bytecnt = 8;
 	else
 		bytecnt = 32;
