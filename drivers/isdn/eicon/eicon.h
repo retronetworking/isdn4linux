@@ -20,86 +20,6 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
- * $Log$
- * Revision 1.19  2000/01/23 21:21:23  armin
- * Added new trace capability and some updates.
- * DIVA Server BRI now supports data for ISDNLOG.
- *
- * Revision 1.18  1999/11/25 11:43:27  armin
- * Fixed statectrl and connect message.
- * X.75 fix and HDLC/transparent with autoconnect.
- * Minor cleanup.
- *
- * Revision 1.17  1999/10/26 21:15:33  armin
- * using define for checking phone number len to avoid buffer overflow.
- *
- * Revision 1.16  1999/10/08 22:09:33  armin
- * Some fixes of cards interface handling.
- * Bugfix of NULL pointer occurence.
- * Changed a few log outputs.
- *
- * Revision 1.15  1999/09/26 14:17:53  armin
- * Improved debug and log via readstat()
- *
- * Revision 1.14  1999/09/08 20:17:31  armin
- * Added microchannel patch from Erik Weber.
- *
- * Revision 1.13  1999/09/06 07:29:35  fritz
- * Changed my mail-address.
- *
- * Revision 1.12  1999/09/04 06:20:05  keil
- * Changes from kernel set_current_state()
- *
- * Revision 1.11  1999/08/29 17:23:44  armin
- * New setup compat.
- * Bugfix if compile as not module.
- *
- * Revision 1.10  1999/08/22 20:26:41  calle
- * backported changes from kernel 2.3.14:
- * - several #include "config.h" gone, others come.
- * - "struct device" changed to "struct net_device" in 2.3.14, added a
- *   define in isdn_compat.h for older kernel versions.
- *
- * Revision 1.9  1999/08/18 20:16:57  armin
- * Added XLOG function for all cards.
- * Bugfix of alloc_skb NULL pointer.
- *
- * Revision 1.8  1999/07/25 15:12:01  armin
- * fix of some debug logs.
- * enabled ISA-cards option.
- *
- * Revision 1.7  1999/07/11 17:16:23  armin
- * Bugfixes in queue handling.
- * Added DSP-DTMF decoder functions.
- * Reorganized ack_handler.
- *
- * Revision 1.6  1999/06/09 19:31:24  armin
- * Wrong PLX size for request_region() corrected.
- * Added first MCA code from Erik Weber.
- *
- * Revision 1.5  1999/03/29 11:19:41  armin
- * I/O stuff now in seperate file (eicon_io.c)
- * Old ISA type cards (S,SX,SCOM,Quadro,S2M) implemented.
- *
- * Revision 1.4  1999/03/02 12:37:42  armin
- * Added some important checks.
- * Analog Modem with DSP.
- * Channels will be added to Link-Level after loading firmware.
- *
- * Revision 1.3  1999/01/24 20:14:07  armin
- * Changed and added debug stuff.
- * Better data sending. (still problems with tty's flip buffer)
- *
- * Revision 1.2  1999/01/10 18:46:04  armin
- * Bug with wrong values in HLC fixed.
- * Bytes to send are counted and limited now.
- *
- * Revision 1.1  1999/01/01 18:09:41  armin
- * First checkin of new eicon driver.
- * DIVA-Server BRI/PCI and PRI/PCI are supported.
- * Old diehl code is obsolete.
- *
- *
  */
 
 
@@ -312,6 +232,7 @@ typedef struct {
 	unsigned short statectrl;	 /* State controling bits	*/
 	unsigned short eazmask;          /* EAZ-Mask for this Channel   */
 	int		queued;          /* User-Data Bytes in TX queue */
+	int		pqueued;         /* User-Data Packets in TX queue */
 	int		waitq;           /* User-Data Bytes in wait queue */
 	int		waitpq;          /* User-Data Bytes in packet queue */
 	struct sk_buff *tskb1;           /* temp skb 1			*/
