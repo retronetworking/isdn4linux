@@ -6,6 +6,13 @@
  * Copyright 1997 by Carsten Paeth (calle@calle.in-berlin.de)
  *
  * $Log$
+ * Revision 1.31  2000/04/06 15:01:25  calle
+ * Bugfix: crash in capidrv.c when reseting a capi controller.
+ * - changed code order on remove of controller.
+ * - using tq_schedule for notifier in kcapi.c.
+ * - now using spin_lock_irqsave() and spin_unlock_irqrestore().
+ * strange: sometimes even MP hang on unload of isdn.o ...
+ *
  * Revision 1.30  2000/03/03 15:50:42  calle
  * - kernel CAPI:
  *   - Changed parameter "param" in capi_signal from __u32 to void *.
@@ -2360,7 +2367,7 @@ static int capidrv_delcontr(__u16 contr)
 		cmd.arg = card->nbchan-1;
 	        cmd.parm.num[0] = 0;
 		if (debugmode)
-			printk(KERN_DEBUG "capidrv-%d: id=%d disable chan=%d\n",
+			printk(KERN_DEBUG "capidrv-%d: id=%d disable chan=%ld\n",
 					card->contrnr, card->myid, cmd.arg);
 		card->interface.statcallb(&cmd);
 
@@ -2554,7 +2561,6 @@ int capidrv_init(void)
 #ifdef MODULE
 void cleanup_module(void)
 {
-	isdn_ctrl cmd;
 	char rev[10];
 	char *p;
 
