@@ -8,6 +8,9 @@
  *
  *
  * $Log$
+ * Revision 1.2  1997/10/29 18:55:55  keil
+ * changes for 2.1.60 (irq2dev_map)
+ *
  * Revision 1.1  1997/09/18 17:11:20  keil
  * first version
  *
@@ -134,9 +137,9 @@ WriteHSCX(struct IsdnCardState *cs, int hscx, u_char offset, u_char value)
 #include "hscx_irq.c"
 
 static void
-diva_interrupt(int intno, void *para, struct pt_regs *regs)
+diva_interrupt(int intno, void *dev_id, struct pt_regs *regs)
 {
-	struct IsdnCardState *cs = para;
+	struct IsdnCardState *cs = dev_id;
 	u_char val, sval, stat = 0;
 	int cnt=8;
 
@@ -211,8 +214,8 @@ reset_diva(struct IsdnCardState *cs)
 	byteout(cs->hw.diva.ctrl, cs->hw.diva.ctrl_reg);
 }
 
-int
-initdiva(struct IsdnCardState *cs)
+__initfunc(int
+initdiva(struct IsdnCardState *cs))
 {
 	int ret, irq_cnt, cnt = 3;
 	long flags;
@@ -239,7 +242,7 @@ initdiva(struct IsdnCardState *cs)
 			       "Diva: IRQ(%d) getting no interrupts during init %d\n",
 			       cs->irq, 4 - cnt);
 			if (cnt == 1) {
-				free_irq(cs->irq, NULL);
+				free_irq(cs->irq, cs);
 				return (0);
 			} else {
 				reset_diva(cs);
@@ -324,17 +327,17 @@ Diva_card_msg(struct IsdnCardState *cs, int mt, void *arg)
 
 
 
-static 	int pci_index = 0;
+static 	int pci_index __initdata = 0;
 
-int
-setup_diva(struct IsdnCard *card)
+__initfunc(int
+setup_diva(struct IsdnCard *card))
 {
 	int bytecnt;
 	struct IsdnCardState *cs = card->cs;
 	char tmp[64];
 
 	strcpy(tmp, Diva_revision);
-	printk(KERN_NOTICE "HiSax: Eicon.Diehl Diva driver Rev. %s\n", HiSax_getrev(tmp));
+	printk(KERN_INFO "HiSax: Eicon.Diehl Diva driver Rev. %s\n", HiSax_getrev(tmp));
 	if (cs->typ != ISDN_CTYPE_DIEHLDIVA)
 		return(0);
 	cs->hw.diva.status = 0;

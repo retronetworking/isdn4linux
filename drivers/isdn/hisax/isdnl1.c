@@ -11,6 +11,9 @@
  *
  *
  * $Log$
+ * Revision 2.8  1997/10/29 19:00:05  keil
+ * new layer1,changes for 2.1
+ *
  * Revision 2.7  1997/10/10 20:56:50  fritz
  * New HL interface.
  *
@@ -545,14 +548,6 @@ get_irq(int cardnr, void *routine)
 }
 
 static void
-release_irq(int cardnr)
-{
-	struct IsdnCard *card = cards + cardnr;
-
-	free_irq(card->cs->irq, NULL);
-}
-
-static void
 closecard(int cardnr)
 {
 	struct IsdnCardState *csta = cards[cardnr].cs;
@@ -651,8 +646,8 @@ closecard(int cardnr)
 	ll_unload(csta);
 }
 
-static int
-checkcard(int cardnr, char *id)
+HISAX_INITFUNC(static int
+checkcard(int cardnr, char *id, int *busy_flag))
 {
 	long flags;
 	int ret = 0;
@@ -673,6 +668,7 @@ checkcard(int cardnr, char *id)
 	cs->cardnr = cardnr;
 	cs->debug = L1_DEB_WARN;
 	cs->HW_Flags = 0;
+	cs->busy_flag = busy_flag;
 #if TEI_PER_CARD
 #else
 	test_and_set_bit(FLG_TWO_DCHAN, &cs->HW_Flags);
@@ -743,7 +739,7 @@ checkcard(int cardnr, char *id)
 	cs->iif.readstat = HiSax_readstatus;
 	register_isdn(&cs->iif);
 	cs->myid = cs->iif.channels;
-	printk(KERN_NOTICE
+	printk(KERN_INFO
 	       "HiSax: Card %d Protocol %s Id=%s (%d)\n", cardnr + 1,
 	       (card->protocol == ISDN_PTYPE_1TR6) ? "1TR6" :
 	       (card->protocol == ISDN_PTYPE_EURO) ? "EDSS1" :
@@ -920,8 +916,8 @@ checkcard(int cardnr, char *id)
 	return (1);
 }
 
-void
-HiSax_shiftcards(int idx)
+HISAX_INITFUNC(void
+HiSax_shiftcards(int idx))
 {
 	int i;
 
@@ -929,8 +925,8 @@ HiSax_shiftcards(int idx)
 		memcpy(&cards[i], &cards[i + 1], sizeof(cards[i]));
 }
 
-int
-HiSax_inithardware(void)
+HISAX_INITFUNC(int
+HiSax_inithardware(int *busy_flag))
 {
 	int foundcards = 0;
 	int i = 0;
@@ -960,7 +956,7 @@ HiSax_inithardware(void)
 			else
 				sprintf(ids, "%s%d", id, i);
 		}
-		if (checkcard(i, ids)) {
+		if (checkcard(i, ids, busy_flag)) {
 			foundcards++;
 			i++;
 		} else {
@@ -987,8 +983,8 @@ HiSax_closehardware(void)
 		if (cards[i].cs) {
 			ll_stop(cards[i].cs);
 			release_tei(cards[i].cs);
-			release_irq(i);
 			closecard(i);
+			free_irq(cards[i].cs->irq, cards[i].cs);
 			kfree((void *) cards[i].cs);
 			cards[i].cs = NULL;
 		}
@@ -996,7 +992,7 @@ HiSax_closehardware(void)
 	TeiFree();
 	Isdnl2Free();
 	CallcFree();
-	restore_flags(flags);
+ 	restore_flags(flags);
 }
 
 void
@@ -1261,7 +1257,7 @@ l1_activate(struct FsmInst *fi, int event, void *arg)
 	cs->l1cmd(cs, PH_RESET_REQ, NULL);
 }
 
-static struct FsmNode L1FnList[] =
+static struct FsmNode L1FnList[] HISAX_INITDATA =
 {
 	{ST_L1_F3, EV_PH_ACTIVATE, l1_activate},
 	{ST_L1_F3, EV_RESET_IND, l1_reset},
@@ -1309,7 +1305,7 @@ static struct FsmNode L1FnList[] =
 
 #define L1_FN_COUNT (sizeof(L1FnList)/sizeof(struct FsmNode))
 
-void Isdnl1New(void)
+HISAX_INITFUNC(void Isdnl1New(void))
 {
 	l1fsm.state_count = L1_STATE_COUNT;
 	l1fsm.event_count = L1_EVENT_COUNT;

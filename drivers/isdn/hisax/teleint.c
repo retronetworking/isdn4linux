@@ -6,6 +6,9 @@
  *
  *
  * $Log$
+ * Revision 1.2  1997/10/29 18:55:53  keil
+ * changes for 2.1.60 (irq2dev_map)
+ *
  * Revision 1.1  1997/09/11 17:32:32  keil
  * new
  *
@@ -172,9 +175,9 @@ WriteHFC(struct IsdnCardState *cs, int data, u_char reg, u_char value)
 }
 
 static void
-TeleInt_interrupt(int intno, void *para, struct pt_regs *regs)
+TeleInt_interrupt(int intno, void *dev_id, struct pt_regs *regs)
 {
-	struct IsdnCardState *cs = para;
+	struct IsdnCardState *cs = dev_id;
 	u_char val, stat = 0;
 
 	if (!cs) {
@@ -246,8 +249,8 @@ reset_TeleInt(struct IsdnCardState *cs)
 	restore_flags(flags);
 }
 
-int
-initTeleInt(struct IsdnCardState *cs)
+__initfunc(int
+initTeleInt(struct IsdnCardState *cs))
 {
 	int ret, irq_cnt, cnt = 3;
 
@@ -266,7 +269,7 @@ initTeleInt(struct IsdnCardState *cs)
 			       "TeleInt: IRQ(%d) getting no interrupts during init %d\n",
 			       cs->irq, 4 - cnt);
 			if (cnt == 1) {
-				free_irq(cs->irq, NULL);
+				free_irq(cs->irq, cs);
 				return (0);
 			} else {
 				reset_TeleInt(cs);
@@ -286,14 +289,14 @@ TeleInt_card_msg(struct IsdnCardState *cs, int mt, void *arg)
 {
 }
 
-int
-setup_TeleInt(struct IsdnCard *card)
+__initfunc(int
+setup_TeleInt(struct IsdnCard *card))
 {
 	struct IsdnCardState *cs = card->cs;
 	char tmp[64];
 
 	strcpy(tmp, TeleInt_revision);
-	printk(KERN_NOTICE "HiSax: TeleInt driver Rev. %s\n", HiSax_getrev(tmp));
+	printk(KERN_INFO "HiSax: TeleInt driver Rev. %s\n", HiSax_getrev(tmp));
 	if (cs->typ != ISDN_CTYPE_TELEINT)
 		return (0);
 

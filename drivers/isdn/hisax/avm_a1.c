@@ -6,6 +6,9 @@
  *
  *
  * $Log$
+ * Revision 2.2  1997/10/29 18:55:48  keil
+ * changes for 2.1.60 (irq2dev_map)
+ *
  * Revision 2.1  1997/07/27 21:47:13  keil
  * new interface structures
  *
@@ -121,9 +124,9 @@ WriteHSCX(struct IsdnCardState *cs, int hscx, u_char offset, u_char value)
 #include "hscx_irq.c"
 
 static void
-avm_a1_interrupt(int intno, void *para, struct pt_regs *regs)
+avm_a1_interrupt(int intno, void *dev_id, struct pt_regs *regs)
 {
-	struct IsdnCardState *cs = para;
+	struct IsdnCardState *cs = dev_id;
 	u_char val, sval, stat = 0;
 	char tmp[32];
 
@@ -196,11 +199,12 @@ AVM_card_msg(struct IsdnCardState *cs, int mt, void *arg)
 {
 }
 
-int
-initavm_a1(struct IsdnCardState *cs)
+__initfunc(int
+initavm_a1(struct IsdnCardState *cs))
 {
 	int ret;
 	int loop = 0;
+	long flags;
 	char tmp[40];
 
 	cs->hw.avm.counter = kstat.interrupts[cs->irq];
@@ -212,6 +216,8 @@ initavm_a1(struct IsdnCardState *cs)
 		clear_pending_hscx_ints(cs);
 		initisac(cs);
 		inithscx(cs);
+		save_flags(flags);
+		sti();
 		while (loop++ < 10) {
 			/* At least 1-3 irqs must happen
 			 * (one from HSCX A, one from HSCX B, 3rd from ISAC)
@@ -222,6 +228,7 @@ initavm_a1(struct IsdnCardState *cs)
 			current->timeout = jiffies + 1;
 			schedule();
 		}
+		restore_flags(flags);
 		sprintf(tmp, "IRQ %d count %d", cs->irq,
 			kstat.interrupts[cs->irq]);
 		debugl1(cs, tmp);
@@ -229,15 +236,15 @@ initavm_a1(struct IsdnCardState *cs)
 			printk(KERN_WARNING
 			       "AVM A1: IRQ(%d) getting no interrupts during init\n",
 			       cs->irq);
-			free_irq(cs->irq, NULL);
+			free_irq(cs->irq, cs);
 			return (0);
 		}
 	}
 	return (ret);
 }
 
-int
-setup_avm_a1(struct IsdnCard *card)
+__initfunc(int
+setup_avm_a1(struct IsdnCard *card))
 {
 	u_char val;
 	struct IsdnCardState *cs = card->cs;
@@ -245,7 +252,7 @@ setup_avm_a1(struct IsdnCard *card)
 	char tmp[64];
 
 	strcpy(tmp, avm_revision);
-	printk(KERN_NOTICE "HiSax: AVM driver Rev. %s\n", HiSax_getrev(tmp));
+	printk(KERN_INFO "HiSax: AVM driver Rev. %s\n", HiSax_getrev(tmp));
 	if (cs->typ != ISDN_CTYPE_A1)
 		return (0);
 
@@ -362,15 +369,15 @@ setup_avm_a1(struct IsdnCard *card)
 	printk(KERN_INFO "AVM A1: Byte at %x is %x\n",
 	       cs->hw.avm.cfg_reg, val);
 
-	printk(KERN_NOTICE
-	       "HiSax: %s config irq:%d cfg:%x\n",
+	printk(KERN_INFO
+	       "HiSax: %s config irq:%d cfg:0x%X\n",
 	       CardType[cs->typ], cs->irq,
 	       cs->hw.avm.cfg_reg);
-	printk(KERN_NOTICE
-	       "HiSax: isac:%x/%x\n",
+	printk(KERN_INFO
+	       "HiSax: isac:0x%X/0x%X\n",
 	       cs->hw.avm.isac + 32, cs->hw.avm.isacfifo);
-	printk(KERN_NOTICE
-	       "HiSax: hscx A:%x/%x  hscx B:%x/%x\n",
+	printk(KERN_INFO
+	       "HiSax: hscx A:0x%X/0x%X  hscx B:0x%X/0x%X\n",
 	       cs->hw.avm.hscx[0] + 32, cs->hw.avm.hscxfifo[0],
 	       cs->hw.avm.hscx[1] + 32, cs->hw.avm.hscxfifo[1]);
 

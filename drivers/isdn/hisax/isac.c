@@ -6,6 +6,9 @@
  *
  *
  * $Log$
+ * Revision 1.8  1997/10/29 19:00:03  keil
+ * new layer1,changes for 2.1
+ *
  * Revision 1.7  1997/10/01 09:21:37  fritz
  * Removed old compatibility stuff for 2.0.X kernels.
  * From now on, this code is for 2.1.X ONLY!
@@ -38,7 +41,7 @@
 #define DBUSY_TIMER_VALUE 80
 #define ARCOFI_USE 1
 
-static char *ISACVer[] =
+static char *ISACVer[] HISAX_INITDATA =
 {"2086/2186 V1.1", "2085 B1", "2085 B2",
  "2085 V2.3"};
 
@@ -595,8 +598,8 @@ dbusy_timer_handler(struct IsdnCardState *cs)
 	}
 }
 
-void
-initisac(struct IsdnCardState *cs)
+HISAX_INITFUNC(void
+initisac(struct IsdnCardState *cs))
 {
 	cs->tqueue.routine = (void *) (void *) isac_bh;
 	cs->l1cmd = isac_l1cmd;
@@ -625,8 +628,8 @@ initisac(struct IsdnCardState *cs)
 	cs->writeisac(cs, ISAC_MASK, 0x0);
 }
 
-void
-clear_pending_isac_ints(struct IsdnCardState *cs)
+HISAX_INITFUNC(void
+clear_pending_isac_ints(struct IsdnCardState *cs))
 {
 	int val;
 	char tmp[64];

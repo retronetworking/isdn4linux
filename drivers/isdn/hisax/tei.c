@@ -7,6 +7,9 @@
  *              Fritz Elfert
  *
  * $Log$
+ * Revision 2.4  1997/10/29 19:04:46  keil
+ * changes for 2.1
+ *
  * Revision 2.3  1997/10/01 09:21:43  fritz
  * Removed old compatibility stuff for 2.0.X kernels.
  * From now on, this code is for 2.1.X ONLY!
@@ -443,7 +446,7 @@ release_tei(struct IsdnCardState *cs)
 	}
 }
 
-static struct FsmNode TeiFnList[] =
+static struct FsmNode TeiFnList[] HISAX_INITDATA =
 {
 	{ST_TEI_NOP, EV_IDREQ, tei_id_request},
 	{ST_TEI_NOP, EV_VERIFY, tei_id_verify},
@@ -459,8 +462,8 @@ static struct FsmNode TeiFnList[] =
 
 #define TEI_FN_COUNT (sizeof(TeiFnList)/sizeof(struct FsmNode))
 
-void
-TeiNew(void)
+HISAX_INITFUNC(void
+TeiNew(void))
 {
 	teifsm.state_count = TEI_STATE_COUNT;
 	teifsm.event_count = TEI_EVENT_COUNT;

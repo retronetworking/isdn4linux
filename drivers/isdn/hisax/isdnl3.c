@@ -7,6 +7,9 @@
  *              Fritz Elfert
  *
  * $Log$
+ * Revision 2.3  1997/10/29 19:07:53  keil
+ * changes for 2.1
+ *
  * Revision 2.2  1997/10/01 09:21:41  fritz
  * Removed old compatibility stuff for 2.0.X kernels.
  * From now on, this code is for 2.1.X ONLY!
@@ -297,7 +300,7 @@ setstack_isdnl3(struct PStack *st, struct Channel *chanp)
 	if (st->protocol == ISDN_PTYPE_LEASED) {
 		st->lli.l4l3 = no_l3_proto;
 		st->l2.l2l3 = no_l3_proto;
-		printk(KERN_NOTICE "HiSax: Leased line mode\n");
+		printk(KERN_INFO "HiSax: Leased line mode\n");
 	} else {
 		st->lli.l4l3 = no_l3_proto;
 		st->l2.l2l3 = no_l3_proto;

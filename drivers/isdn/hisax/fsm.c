@@ -7,6 +7,9 @@
  *              Fritz Elfert
  *
  * $Log$
+ * Revision 1.6  1997/07/27 21:42:25  keil
+ * proof Fsm routines
+ *
  * Revision 1.5  1997/06/26 11:10:05  keil
  * Restart timer function added
  *
@@ -29,9 +32,9 @@
 
 #define FSM_TIMER_DEBUG 0
 
-void
+HISAX_INITFUNC(void
 FsmNew(struct Fsm *fsm,
-       struct FsmNode *fnlist, int fncount)
+       struct FsmNode *fnlist, int fncount))
 {
 	int i;
 

@@ -6,6 +6,9 @@
  *
  *
  * $Log$
+ * Revision 1.4  1997/10/29 19:01:06  keil
+ * changes for 2.1
+ *
  * Revision 1.3  1997/07/27 21:38:34  keil
  * new B-channel interface
  *
@@ -21,12 +24,12 @@
 #include "isdnl1.h"
 #include <linux/interrupt.h>
 
-static char *HSCXVer[] =
+static char *HSCXVer[] HISAX_INITDATA =
 {"A1", "?1", "A2", "?3", "A3", "V2.1", "?6", "?7",
  "?8", "?9", "?10", "?11", "?12", "?13", "?14", "???"};
 
-int
-HscxVersion(struct IsdnCardState *cs, char *s)
+HISAX_INITFUNC(int
+HscxVersion(struct IsdnCardState *cs, char *s))
 {
 	int verA, verB;
 
@@ -224,8 +227,8 @@ setstack_hscx(struct PStack *st, struct BCState *bcs)
 	return (0);
 }
 
-void
-clear_pending_hscx_ints(struct IsdnCardState *cs)
+HISAX_INITFUNC(void
+clear_pending_hscx_ints(struct IsdnCardState *cs))
 {
 	int val;
 	char tmp[64];
@@ -257,8 +260,8 @@ clear_pending_hscx_ints(struct IsdnCardState *cs)
 	cs->BC_Write_Reg(cs, 1, HSCX_MASK, 0);
 }
 
-void 
-inithscx(struct IsdnCardState *cs)
+HISAX_INITFUNC(void 
+inithscx(struct IsdnCardState *cs))
 {
 	cs->bcs[0].BC_SetStack = setstack_hscx;
 	cs->bcs[1].BC_SetStack = setstack_hscx;

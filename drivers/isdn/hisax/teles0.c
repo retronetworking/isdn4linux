@@ -10,6 +10,9 @@
  *              Beat Doebeli
  *
  * $Log$
+ * Revision 2.2  1997/10/29 18:55:57  keil
+ * changes for 2.1.60 (irq2dev_map)
+ *
  * Revision 2.1  1997/07/27 21:47:10  keil
  * new interface structures
  *
@@ -153,9 +156,9 @@ WriteHSCX(struct IsdnCardState *cs, int hscx, u_char offset, u_char value)
 #include "hscx_irq.c"
 
 static void
-telesS0_interrupt(int intno, void *para, struct pt_regs *regs)
+telesS0_interrupt(int intno, void *dev_id, struct pt_regs *regs)
 {
-	struct IsdnCardState *cs = para;
+	struct IsdnCardState *cs = dev_id;
 	u_char val, stat = 0;
 	int count = 0;
 
@@ -258,12 +261,13 @@ reset_teles(struct IsdnCardState *cs)
 	restore_flags(flags);
 }
 
-int
-initteles0(struct IsdnCardState *cs)
+__initfunc(int
+initteles0(struct IsdnCardState *cs))
 {
 	int ret;
 	int loop, counter, cnt = 3;
 	char tmp[40];
+	long flags;
 
 	counter = kstat.interrupts[cs->irq];
 	sprintf(tmp, "IRQ %d count %d", cs->irq, counter);
@@ -274,6 +278,8 @@ initteles0(struct IsdnCardState *cs)
 		clear_pending_hscx_ints(cs);
 		initisac(cs);
 		inithscx(cs);
+		save_flags(flags);
+		sti();
 		loop = 0;
 		while (loop++ < 10) {
 			/* At least 1-3 irqs must happen
@@ -285,6 +291,7 @@ initteles0(struct IsdnCardState *cs)
 			current->timeout = jiffies + 1;
 			schedule();
 		}
+		restore_flags(flags);
 		sprintf(tmp, "IRQ %d count %d", cs->irq,
 			kstat.interrupts[cs->irq]);
 		debugl1(cs, tmp);
@@ -293,7 +300,7 @@ initteles0(struct IsdnCardState *cs)
 			       "Teles0: IRQ(%d) getting no interrupts during init %d\n",
 			       cs->irq, 4 - cnt);
 			if (!(--cnt)) {
-				free_irq(cs->irq, NULL);
+				free_irq(cs->irq, cs);
 				return (0);
 			} else
 				reset_teles(cs);
@@ -308,15 +315,15 @@ Teles_card_msg(struct IsdnCardState *cs, int mt, void *arg)
 {
 }
 
-int
-setup_teles0(struct IsdnCard *card)
+__initfunc(int
+setup_teles0(struct IsdnCard *card))
 {
 	u_char val;
 	struct IsdnCardState *cs = card->cs;
 	char tmp[64];
 
 	strcpy(tmp, teles0_revision);
-	printk(KERN_NOTICE "HiSax: Teles 8.0/16.0 driver Rev. %s\n", HiSax_getrev(tmp));
+	printk(KERN_INFO "HiSax: Teles 8.0/16.0 driver Rev. %s\n", HiSax_getrev(tmp));
 	if ((cs->typ != ISDN_CTYPE_16_0) && (cs->typ != ISDN_CTYPE_8_0))
 		return (0);
 
@@ -371,8 +378,8 @@ setup_teles0(struct IsdnCard *card)
 	}
 	/* 16.0 and 8.0 designed for IOM1 */
 	test_and_set_bit(HW_IOM1, &cs->HW_Flags);
-	printk(KERN_NOTICE
-	       "HiSax: %s config irq:%d mem:%x cfg:%x\n",
+	printk(KERN_INFO
+	       "HiSax: %s config irq:%d mem:0x%X cfg:0x%X\n",
 	       CardType[cs->typ], cs->irq,
 	       cs->hw.teles0.membase, cs->hw.teles0.cfg_reg);
 	reset_teles(cs);

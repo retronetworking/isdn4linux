@@ -7,6 +7,9 @@
  * Thanks to Christian "naddy" Weisgerber (3Com, US Robotics) for documentation
  *
  * $Log$
+ * Revision 1.2  1997/10/29 18:51:18  keil
+ * New files
+ *
  * Revision 1.1.2.1  1997/10/17 22:10:58  keil
  * new files on 2.0
  *
@@ -93,9 +96,9 @@ WriteHSCX(struct IsdnCardState *cs, int hscx, u_char offset, u_char value)
 #include "hscx_irq.c"
 
 static void
-sportster_interrupt(int intno, void *para, struct pt_regs *regs)
+sportster_interrupt(int intno, void *dev_id, struct pt_regs *regs)
 {
-	struct IsdnCardState *cs = para;
+	struct IsdnCardState *cs = dev_id;
 	u_char val;
 
 	if (!cs) {
@@ -163,10 +166,11 @@ Sportster_card_msg(struct IsdnCardState *cs, int mt, void *arg)
 {
 }
 
-int
-initsportster(struct IsdnCardState *cs)
+__initfunc(int
+initsportster(struct IsdnCardState *cs))
 {
 	int ret, irq_cnt, cnt = 3;
+	long flags;
 
 	irq_cnt = kstat.interrupts[cs->irq];
 	printk(KERN_INFO "Sportster: IRQ %d count %d\n", cs->irq, irq_cnt);
@@ -178,6 +182,13 @@ initsportster(struct IsdnCardState *cs)
 		clear_pending_hscx_ints(cs);
 		initisac(cs);
 		inithscx(cs);
+		save_flags(flags);
+		sti();
+		current->state = TASK_INTERRUPTIBLE;
+		/* Timeout 10ms */
+		current->timeout = jiffies + (10 * HZ) / 1000;	
+		schedule();
+		restore_flags(flags);
 		printk(KERN_INFO "Sportster: IRQ %d count %d\n", cs->irq,
 		       kstat.interrupts[cs->irq]);
 		if (kstat.interrupts[cs->irq] == irq_cnt) {
@@ -185,7 +196,7 @@ initsportster(struct IsdnCardState *cs)
 			       "Sportster: IRQ(%d) getting no interrupts during init %d\n",
 			       cs->irq, 4 - cnt);
 			if (cnt == 1) {
-				free_irq(cs->irq, NULL);
+				free_irq(cs->irq, cs);
 				return (0);
 			} else {
 				reset_sportster(cs);
@@ -197,8 +208,8 @@ initsportster(struct IsdnCardState *cs)
 	return (ret);
 }
 
-int
-get_io_range(struct IsdnCardState *cs)
+__initfunc(int
+get_io_range(struct IsdnCardState *cs))
 {
 	int i, j, adr;
 	
@@ -223,14 +234,14 @@ get_io_range(struct IsdnCardState *cs)
 	}
 }
 
-int
-setup_sportster(struct IsdnCard *card)
+__initfunc(int
+setup_sportster(struct IsdnCard *card))
 {
 	struct IsdnCardState *cs = card->cs;
 	char tmp[64];
 
 	strcpy(tmp, sportster_revision);
-	printk(KERN_NOTICE "HiSax: USR Sportster driver Rev. %s\n", HiSax_getrev(tmp));
+	printk(KERN_INFO "HiSax: USR Sportster driver Rev. %s\n", HiSax_getrev(tmp));
 	if (cs->typ != ISDN_CTYPE_SPORTSTER)
 		return (0);
 
@@ -261,8 +272,8 @@ setup_sportster(struct IsdnCard *card)
 			return(0);
 	}
 	reset_sportster(cs);
-	printk(KERN_NOTICE
-	       "HiSax: %s config irq:%d cfg:%x\n",
+	printk(KERN_INFO
+	       "HiSax: %s config irq:%d cfg:0x%X\n",
 	       CardType[cs->typ], cs->irq,
 	       cs->hw.spt.cfg_reg);
 

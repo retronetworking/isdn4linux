@@ -6,6 +6,9 @@
  *
  *
  * $Log$
+ * Revision 1.2  1997/10/29 19:04:47  keil
+ * changes for 2.1
+ *
  * Revision 1.1  1997/09/11 17:31:33  keil
  * Common part for HFC 2BS0 based cards
  *
@@ -564,8 +567,8 @@ setstack_hfc(struct PStack *st, struct BCState *bcs)
 	return (0);
 }
 
-void
-init_send(struct BCState *bcs)
+__initfunc(void
+init_send(struct BCState *bcs))
 {
 	int i;
 
@@ -578,8 +581,8 @@ init_send(struct BCState *bcs)
 		bcs->hw.hfc.send[i] = 0x1fff;
 }
 
-void
-inithfc(struct IsdnCardState *cs)
+__initfunc(void
+inithfc(struct IsdnCardState *cs))
 {
 	init_send(&cs->bcs[0]);
 	init_send(&cs->bcs[1]);

@@ -11,6 +11,9 @@
  *              Beat Doebeli
  *
  * $Log$
+ * Revision 2.2  1997/10/29 18:55:51  keil
+ * changes for 2.1.60 (irq2dev_map)
+ *
  * Revision 2.1  1997/07/27 21:47:09  keil
  * new interface structures
  *
@@ -180,9 +183,9 @@ WriteHSCX(struct IsdnCardState *cs, int hscx, u_char offset, u_char value)
 #include "hscx_irq.c"
 
 static void
-ix1micro_interrupt(int intno, void *para, struct pt_regs *regs)
+ix1micro_interrupt(int intno, void *dev_id, struct pt_regs *regs)
 {
-	struct IsdnCardState *cs = para;
+	struct IsdnCardState *cs = dev_id;
 	u_char val, stat = 0;
 
 	if (!cs) {
@@ -250,8 +253,8 @@ ix1_reset(struct IsdnCardState *cs)
 	restore_flags(flags);
 }
 
-int
-initix1micro(struct IsdnCardState *cs)
+__initfunc(int
+initix1micro(struct IsdnCardState *cs))
 {
 	int ret;
 	int loop, counter, cnt = 3;
@@ -285,7 +288,7 @@ initix1micro(struct IsdnCardState *cs)
 			       "ix1-Micro: IRQ(%d) getting no interrupts during init %d\n",
 			       cs->irq, 4 - cnt);
 			if (!(--cnt)) {
-				free_irq(cs->irq, NULL);
+				free_irq(cs->irq, cs);
 				return (0);
 			} else
 				ix1_reset(cs);
@@ -301,14 +304,14 @@ ix1_card_msg(struct IsdnCardState *cs, int mt, void *arg)
 }
 
 
-int
-setup_ix1micro(struct IsdnCard *card)
+__initfunc(int
+setup_ix1micro(struct IsdnCard *card))
 {
 	struct IsdnCardState *cs = card->cs;
 	char tmp[64];
 
 	strcpy(tmp, ix1_revision);
-	printk(KERN_NOTICE "HiSax: ITK IX1 driver Rev. %s\n", HiSax_getrev(tmp));
+	printk(KERN_INFO "HiSax: ITK IX1 driver Rev. %s\n", HiSax_getrev(tmp));
 	if (cs->typ != ISDN_CTYPE_IX1MICROR2)
 		return (0);
 
@@ -330,8 +333,8 @@ setup_ix1micro(struct IsdnCard *card)
 		} else
 			request_region(cs->hw.ix1.cfg_reg, 4, "ix1micro cfg");
 	}
-	printk(KERN_NOTICE
-	       "HiSax: %s config irq:%d io:0x%x\n",
+	printk(KERN_INFO
+	       "HiSax: %s config irq:%d io:0x%X\n",
 	       CardType[cs->typ], cs->irq,
 	       cs->hw.ix1.cfg_reg);
 	ix1_reset(cs);

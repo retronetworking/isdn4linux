@@ -8,6 +8,9 @@
  *
  *
  * $Log$
+ * Revision 1.4  1997/10/29 18:55:49  keil
+ * changes for 2.1.60 (irq2dev_map)
+ *
  * Revision 1.3  1997/08/01 11:16:33  keil
  * cosmetics
  *
@@ -137,9 +140,9 @@ WriteHSCX(struct IsdnCardState *cs, int hscx, u_char offset, u_char value)
 #include "hscx_irq.c"
 
 static void
-dynalink_interrupt(int intno, void *para, struct pt_regs *regs)
+dynalink_interrupt(int intno, void *dev_id, struct pt_regs *regs)
 {
-	struct IsdnCardState *cs = para;
+	struct IsdnCardState *cs = dev_id;
 	u_char val, stat = 0;
 
 	if (!cs) {
@@ -209,10 +212,11 @@ reset_dynalink(struct IsdnCardState *cs)
 	restore_flags(flags);
 }
 
-int
-initdynalink(struct IsdnCardState *cs)
+__initfunc(int
+initdynalink(struct IsdnCardState *cs))
 {
 	int ret, irq_cnt, cnt = 3;
+	long flags;
 
 	irq_cnt = kstat.interrupts[cs->irq];
 	printk(KERN_INFO "ISDNLink: IRQ %d count %d\n", cs->irq, irq_cnt);
@@ -222,6 +226,13 @@ initdynalink(struct IsdnCardState *cs)
 		clear_pending_hscx_ints(cs);
 		initisac(cs);
 		inithscx(cs);
+		save_flags(flags);
+		sti();
+		current->state = TASK_INTERRUPTIBLE;
+		/* Timeout 10ms */
+		current->timeout = jiffies + (10 * HZ) / 1000;	
+		schedule();
+		restore_flags(flags);
 		printk(KERN_INFO "ISDNLink: IRQ %d count %d\n", cs->irq,
 		       kstat.interrupts[cs->irq]);
 		if (kstat.interrupts[cs->irq] == irq_cnt) {
@@ -229,7 +240,7 @@ initdynalink(struct IsdnCardState *cs)
 			       "ISDNLink: IRQ(%d) getting no interrupts during init %d\n",
 			       cs->irq, 4 - cnt);
 			if (cnt == 1) {
-				free_irq(cs->irq, NULL);
+				free_irq(cs->irq, cs);
 				return (0);
 			} else {
 				reset_dynalink(cs);
@@ -246,15 +257,15 @@ Dyna_card_msg(struct IsdnCardState *cs, int mt, void *arg)
 {
 }
 
-int
-setup_dynalink(struct IsdnCard *card)
+__initfunc(int
+setup_dynalink(struct IsdnCard *card))
 {
 	int bytecnt;
 	struct IsdnCardState *cs = card->cs;
 	char tmp[64];
 
 	strcpy(tmp, Dynalink_revision);
-	printk(KERN_NOTICE "HiSax: ISDNLink driver Rev. %s\n", HiSax_getrev(tmp));
+	printk(KERN_INFO "HiSax: ISDNLink driver Rev. %s\n", HiSax_getrev(tmp));
 	if (cs->typ != ISDN_CTYPE_DYNALINK)
 		return (0);
 

@@ -7,6 +7,9 @@
  *              Fritz Elfert
  *
  * $Log$
+ * Revision 2.9  1997/10/29 19:01:58  keil
+ * new LL interface
+ *
  * Revision 2.8  1997/10/10 20:56:44  fritz
  * New HL interface.
  *
@@ -1035,7 +1038,7 @@ lli_got_dlrl(struct FsmInst *fi, int event, void *arg)
 	chanp->cs->cardmsg(chanp->cs, MDL_INFO_REL, (void *) chanp->chan);
 }
 /* *INDENT-OFF* */
-static struct FsmNode fnlist[] =
+static struct FsmNode fnlist[] HISAX_INITDATA =
 {
 	{ST_NULL,		EV_DIAL,		lli_prep_dialout},
 	{ST_NULL,		EV_SETUP_IND,		lli_deliver_call},
@@ -1237,7 +1240,7 @@ lc_l1_deactivated(struct FsmInst *fi, int event, void *arg)
 	lf->lccall(lf, LC_RELEASE, NULL);
 }
 /* *INDENT-OFF* */
-static struct FsmNode LcFnList[] =
+static struct FsmNode LcFnList[] HISAX_INITDATA =
 {
 	{ST_LC_NULL,  		EV_LC_ESTABLISH,	lc_activate_l1},
 	{ST_LC_NULL,  		EV_LC_PH_ACTIVATE,	lc_activated_from_l1},
@@ -1268,8 +1271,8 @@ static struct FsmNode LcFnList[] =
 
 #define LC_FN_COUNT (sizeof(LcFnList)/sizeof(struct FsmNode))
 
-void
-CallcNew(void)
+HISAX_INITFUNC(void
+CallcNew(void))
 {
 	callcfsm.state_count = STATE_COUNT;
 	callcfsm.event_count = EVENT_COUNT;

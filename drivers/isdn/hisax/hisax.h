@@ -3,6 +3,9 @@
  *   Basic declarations, defines and prototypes
  *
  * $Log$
+ * Revision 2.8  1997/10/29 19:04:13  keil
+ * new L1; changes for 2.1
+ *
  * Revision 2.7  1997/10/10 20:56:47  fritz
  * New HL interface.
  *
@@ -31,8 +34,8 @@
  * old changes removed KKe
  *
  */
-#include <linux/module.h>
 #include <linux/config.h>
+#include <linux/module.h>
 #include <linux/version.h>
 #include <linux/errno.h>
 #include <linux/fs.h>
@@ -50,6 +53,7 @@
 #include <linux/wait.h>
 #include <linux/isdnif.h>
 #include <linux/tty.h>
+#include <linux/init.h>
 
 #define PH_ACTIVATE_REQ	0x0010
 #define PH_ACTIVATE_CNF	0x0011
@@ -517,6 +521,7 @@ struct IsdnCardState {
 	int protocol;
 	unsigned int irq;
 	int HW_Flags; 
+	int *busy_flag;
 	union {
 		struct elsa_hw elsa;
 		struct teles0_hw teles0;
@@ -599,6 +604,8 @@ struct IsdnCardState {
 #undef ISDN_CHIP_ISAC
 #endif
 
+#define HISAX_INITFUNC(__arginit) __initfunc(__arginit)
+#define HISAX_INITDATA __initdata
 
 #ifdef	CONFIG_HISAX_16_0
 #define  CARD_TELES0 (1<< ISDN_CTYPE_16_0) | (1<< ISDN_CTYPE_8_0)
@@ -634,6 +641,10 @@ struct IsdnCardState {
 #ifndef ISDN_CHIP_ISAC
 #define ISDN_CHIP_ISAC 1
 #endif
+#undef HISAX_INITFUNC
+#define HISAX_INITFUNC(__arginit) __arginit
+#undef HISAX_INITDATA
+#define HISAX_INITDATA
 #else
 #define  CARD_ELSA  0
 #endif
@@ -739,7 +750,7 @@ struct IsdnCard {
 };
 
 void setstack_isdnl2(struct PStack *st, char *debug_id);
-int HiSax_inithardware(void);
+int HiSax_inithardware(int *);
 void HiSax_closehardware(void);
 
 void setstack_HiSax(struct PStack *st, struct IsdnCardState *cs);

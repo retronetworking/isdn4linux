@@ -7,6 +7,9 @@
  *              Fritz Elfert
  *
  * $Log$
+ * Revision 2.4  1997/10/29 19:02:01  keil
+ * new LL interface
+ *
  * Revision 2.3  1997/10/01 09:21:39  fritz
  * Removed old compatibility stuff for 2.0.X kernels.
  * From now on, this code is for 2.1.X ONLY!
@@ -1294,7 +1297,7 @@ l2_persistant_da(struct FsmInst *fi, int event, void *arg)
 	}
 }
 
-static struct FsmNode L2FnList[] =
+static struct FsmNode L2FnList[] HISAX_INITDATA =
 {
 	{ST_L2_1, EV_L2_MDL_NOTEIPROC, l2_no_tei},
 	{ST_L2_1, EV_L2_DL_ESTABLISH, l2_dl_establish},
@@ -1537,8 +1540,8 @@ releasestack_transl2(struct PStack *st)
 {
 }
 
-void
-Isdnl2New(void)
+HISAX_INITFUNC(void
+Isdnl2New(void))
 {
 	l2fsm.state_count = L2_STATE_COUNT;
 	l2fsm.event_count = L2_EVENT_COUNT;

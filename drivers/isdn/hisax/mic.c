@@ -8,6 +8,9 @@
  *
  *
  * $Log$
+ * Revision 1.2  1997/10/29 18:51:17  keil
+ * New files
+ *
  * Revision 1.1.2.1  1997/10/17 22:10:54  keil
  * new files on 2.0
  *
@@ -132,9 +135,9 @@ WriteHSCX(struct IsdnCardState *cs, int hscx, u_char offset, u_char value)
 #include "hscx_irq.c"
 
 static void
-mic_interrupt(int intno, void *para, struct pt_regs *regs)
+mic_interrupt(int intno, void *dev_id, struct pt_regs *regs)
 {
-	struct IsdnCardState *cs = para;
+	struct IsdnCardState *cs = dev_id;
 	u_char val, stat = 0;
 
 	if (!cs) {
@@ -191,10 +194,11 @@ reset_mic(struct IsdnCardState *cs)
 {
 }
 
-int
-initmic(struct IsdnCardState *cs)
+__initfunc(int
+initmic(struct IsdnCardState *cs))
 {
 	int ret, irq_cnt, cnt = 3;
+	long flags;
 
 	irq_cnt = kstat.interrupts[cs->irq];
 	printk(KERN_INFO "mic: IRQ %d count %d\n", cs->irq, irq_cnt);
@@ -204,6 +208,13 @@ initmic(struct IsdnCardState *cs)
 		clear_pending_hscx_ints(cs);
 		initisac(cs);
 		inithscx(cs);
+		save_flags(flags);
+		sti();
+		current->state = TASK_INTERRUPTIBLE;
+		/* Timeout 10ms */
+		current->timeout = jiffies + (10 * HZ) / 1000;	
+		schedule();
+		restore_flags(flags);
 		printk(KERN_INFO "mic: IRQ %d count %d\n", cs->irq,
 		       kstat.interrupts[cs->irq]);
 		if (kstat.interrupts[cs->irq] == irq_cnt) {
@@ -211,7 +222,7 @@ initmic(struct IsdnCardState *cs)
 			       "mic: IRQ(%d) getting no interrupts during init %d\n",
 			       cs->irq, 4 - cnt);
 			if (cnt == 1) {
-				free_irq(cs->irq, NULL);
+				free_irq(cs->irq, cs);
 				return (0);
 			} else {
 				reset_mic(cs);
@@ -228,15 +239,15 @@ mic_card_msg(struct IsdnCardState *cs, int mt, void *arg)
 {
 }
 
-int
-setup_mic(struct IsdnCard *card)
+__initfunc(int
+setup_mic(struct IsdnCard *card))
 {
 	int bytecnt;
 	struct IsdnCardState *cs = card->cs;
 	char tmp[64];
 
 	strcpy(tmp, mic_revision);
-	printk(KERN_NOTICE "HiSax: mic driver Rev. %s\n", HiSax_getrev(tmp));
+	printk(KERN_INFO "HiSax: mic driver Rev. %s\n", HiSax_getrev(tmp));
 	if (cs->typ != ISDN_CTYPE_MIC)
 		return (0);
 
