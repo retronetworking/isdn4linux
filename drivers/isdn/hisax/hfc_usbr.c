@@ -182,6 +182,7 @@ hfcusb_b_l1l2(void *cs1, int chan, int pr, void *arg)
 			break;
 
 		case (PH_DATA | CONFIRM):
+		    return;
 			if (!bcs)
 				return;
 			bcs->tx_cnt -= bcs->tx_skb->len;

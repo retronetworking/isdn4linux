@@ -311,6 +311,7 @@ fill_tx_urb(usb_fifo * fifo)
 	long flags;
 	int i, ii = 0;
 
+	fifo->urb.dev = fifo->hfc->dev;
 	if ((fifo->buff)
 	    && (fifo->urb.transfer_buffer_length < fifo->usb_maxlen)) {
 		switch (fifo->fifonum) {
@@ -392,7 +393,6 @@ fill_tx_urb(usb_fifo * fifo)
 	if (i)
 		memcpy(fifo->buffer + ii, fifo->act_ptr, i);
 	fifo->urb.transfer_buffer_length = i + ii;
-
 }				/* fill_tx_urb */
 
 /************************************************/
@@ -404,7 +404,7 @@ tx_complete(purb_t urb)
 	usb_fifo *fifo = (usb_fifo *) urb->context;	/* pointer to our fifo */
 
 	fifo->hfc->service_request &= ~fifo->fifo_mask;	/* no further handling */
-	fifo->framenum = usb_get_current_frame_number(fifo->urb.dev);
+	fifo->framenum = usb_get_current_frame_number(fifo->hfc->dev);
 
 	/* check for deactivation or error */
 	if ((!fifo->active) || (urb->status)) {
@@ -416,7 +416,6 @@ tx_complete(purb_t urb)
 		fifo->buff = NULL;
 		return;
 	}
-
 	fifo->act_ptr += (urb->transfer_buffer_length - 1);	/* adjust pointer */
 	fill_tx_urb(fifo);	/* refill the urb */
 	fifo->hfc->threshold_mask |= fifo->fifo_mask;	/* assume threshold reached */
@@ -642,6 +641,7 @@ ctrl_complete(purb_t urb)
 {
 	hfcusb_data *hfc = (hfcusb_data *) urb->context;
 
+	urb->dev = hfc->dev;
 	if (hfc->ctrl_cnt) {
 		switch (hfc->ctrl_buff[hfc->ctrl_out_idx].hfc_reg) {
 			case HFCUSB_FIFO:
