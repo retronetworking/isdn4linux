@@ -211,9 +211,10 @@ while getopts :dhk:uc:vt a ; do
 done
 shift `expr $OPTIND - 1`
 
+calc_ctrl_file
+
 if $UNIQUE ; then
 	DOCP=docpuni
-	calc_ctrl_file
 fi
 
 echo -n "Using $DOCP"
