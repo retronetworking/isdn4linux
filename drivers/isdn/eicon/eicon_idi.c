@@ -21,6 +21,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.17  1999/09/07 12:35:39  armin
+ * Better checking and channel Id handling.
+ *
  * Revision 1.16  1999/09/04 13:44:19  armin
  * Fix of V.42 analog Modem negotiation handling.
  *
@@ -464,6 +467,7 @@ idi_connect_req(eicon_card *card, eicon_chan *chan, char *phone,
 	int l = 0;
 	int i;
 	unsigned char tmp;
+	unsigned char *sub, *sp;
 	unsigned char bc[5];
 	unsigned char hlc[5];
         struct sk_buff *skb;
@@ -492,18 +496,52 @@ idi_connect_req(eicon_card *card, eicon_chan *chan, char *phone,
 	reqbuf->ReqCh = 0;
 	reqbuf->ReqId = 1;
 
+	sub = NULL;
+	sp = phone;
+	while (*sp) {
+		if (*sp == '.') {
+			sub = sp + 1;
+			*sp = 0;
+		} else
+			sp++;
+	}
 	reqbuf->XBuffer.P[l++] = CPN;
 	reqbuf->XBuffer.P[l++] = strlen(phone) + 1;
 	reqbuf->XBuffer.P[l++] = 0x81;
 	for(i=0; i<strlen(phone);i++) 
-		reqbuf->XBuffer.P[l++] = phone[i];
+		reqbuf->XBuffer.P[l++] = phone[i] & 0x7f;
+	if (sub) {
+		reqbuf->XBuffer.P[l++] = DSA;
+		reqbuf->XBuffer.P[l++] = strlen(sub) + 2;
+		reqbuf->XBuffer.P[l++] = 0x80; /* NSAP coded */
+		reqbuf->XBuffer.P[l++] = 0x50; /* local IDI format */
+		while (*sub)
+			reqbuf->XBuffer.P[l++] = *sub++ & 0x7f;
+	}
 
+	sub = NULL;
+	sp = eazmsn;
+	while (*sp) {
+		if (*sp == '.') {
+			sub = sp + 1;
+			*sp = 0;
+		} else
+			sp++;
+	}
 	reqbuf->XBuffer.P[l++] = OAD;
 	reqbuf->XBuffer.P[l++] = strlen(eazmsn) + 2;
 	reqbuf->XBuffer.P[l++] = 0x01;
 	reqbuf->XBuffer.P[l++] = 0x80;
 	for(i=0; i<strlen(eazmsn);i++) 
-		reqbuf->XBuffer.P[l++] = eazmsn[i];
+		reqbuf->XBuffer.P[l++] = eazmsn[i] & 0x7f;
+	if (sub) {
+		reqbuf->XBuffer.P[l++] = OSA;
+		reqbuf->XBuffer.P[l++] = strlen(sub) + 2;
+		reqbuf->XBuffer.P[l++] = 0x80; /* NSAP coded */
+		reqbuf->XBuffer.P[l++] = 0x50; /* local IDI format */
+		while (*sub)
+			reqbuf->XBuffer.P[l++] = *sub++ & 0x7f;
+	}
 
 	if ((tmp = idi_si2bc(si1, si2, bc, hlc)) > 0) {
 		reqbuf->XBuffer.P[l++] = BC;
@@ -517,6 +555,7 @@ idi_connect_req(eicon_card *card, eicon_chan *chan, char *phone,
 				reqbuf->XBuffer.P[l++] = hlc[i];
 		}
 	}
+
         reqbuf->XBuffer.P[l++] = CAI;
         reqbuf->XBuffer.P[l++] = 6;
         reqbuf->XBuffer.P[l++] = 0x09;
@@ -677,15 +716,15 @@ idi_IndParse(eicon_card *ccard, eicon_chan *chan, idi_ind_message *message, unsi
 						(__u8)message->cpn[0], message->cpn + 1);
 				break;
 			case DSA:
-				pos++;
-				for(i=0; i < wlen-1; i++) 
+				pos += 2;
+				for(i=0; i < wlen-2; i++) 
 					message->dsa[i] = buffer[pos++];
 				if (DebugVar & 2)
 					printk(KERN_DEBUG"idi_inf: Ch%d: DSA=%s\n", chan->No, message->dsa);
 				break;
 			case OSA:
-				pos++;
-				for(i=0; i < wlen-1; i++) 
+				pos += 2;
+				for(i=0; i < wlen-2; i++) 
 					message->osa[i] = buffer[pos++];
 				if (DebugVar & 2)
 					printk(KERN_DEBUG"idi_inf: Ch%d: OSA=%s\n", chan->No, message->osa);
@@ -1252,6 +1291,10 @@ idi_handle_ind(eicon_card *ccard, struct sk_buff *skb)
 					strcat(chan->cpn, message.dsa);
 				}
 				strcpy(chan->oad, message.oad);
+				if (strlen(message.osa)) {
+					strcat(chan->oad, ".");
+					strcat(chan->oad, message.osa);
+				}
 				try_stat_icall_again: 
 				cmd.driver = ccard->myid;
 				cmd.command = ISDN_STAT_ICALL;
