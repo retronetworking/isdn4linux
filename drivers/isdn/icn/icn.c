@@ -19,6 +19,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.37  1997/02/10 22:43:20  fritz
+ * Added plan and screen elements on ISDN_STAT_ICALL
+ *
  * Revision 1.36  1997/02/10 21:31:20  fritz
  * Changed setup-interface (incoming and outgoing).
  *
@@ -495,6 +498,7 @@ typedef struct icn_stat {
 	int command;
 	int action;
 } icn_stat;
+
 /* *INDENT-OFF* */
 static icn_stat icn_stat_table[] =
 {
@@ -515,8 +519,6 @@ static icn_stat icn_stat_table[] =
 	{NULL, 0, -1}
 };
 /* *INDENT-ON* */
-
-
 
 /*
  * Check Statusqueue-Pointer from isdn-cards.
@@ -566,19 +568,19 @@ icn_parse_status(u_char * status, int channel, icn_card * card)
 			break;
 		case 3:
 			{
-				char *s = strtok(status+6, ",");
+				char *s = strtok(status + 6, ",");
 				strncpy(cmd.parm.setup.phone, s, sizeof(cmd.parm.setup.phone));
-				s = strtok(NULL,",");
+				s = strtok(NULL, ",");
 				if (!strlen(s))
 					cmd.parm.setup.si1 = 0;
 				else
-					cmd.parm.setup.si1 = simple_strtoul(s,NULL,10);
-				s = strtok(NULL,",");
+					cmd.parm.setup.si1 = simple_strtoul(s, NULL, 10);
+				s = strtok(NULL, ",");
 				if (!strlen(s))
 					cmd.parm.setup.si2 = 0;
 				else
-					cmd.parm.setup.si2 = simple_strtoul(s,NULL,10);
-				s = strtok(NULL,",");
+					cmd.parm.setup.si2 = simple_strtoul(s, NULL, 10);
+				s = strtok(NULL, ",");
 				strncpy(cmd.parm.setup.eazmsn, s, sizeof(cmd.parm.setup.eazmsn));
 			}
 			cmd.parm.setup.plan = 0;
@@ -586,7 +588,7 @@ icn_parse_status(u_char * status, int channel, icn_card * card)
 			break;
 		case 4:
 			sprintf(cmd.parm.setup.phone, "LEASED%d", card->myid);
-			sprintf(cmd.parm.setup.eazmsn, "%d", channel+1);
+			sprintf(cmd.parm.setup.eazmsn, "%d", channel + 1);
 			cmd.parm.setup.si1 = 7;
 			cmd.parm.setup.si2 = 0;
 			cmd.parm.setup.plan = 0;
@@ -1331,7 +1333,7 @@ icn_command(isdn_ctrl * c, icn_card * card)
 							}
 							current->timeout = jiffies + ICN_BOOT_TIMEOUT1;
 							schedule();
-							sprintf(cbuf, "00;FV2ON\n01;EAZ1\n02;EAZ1\n");
+							sprintf(cbuf, "00;FV2ON\n01;EAZ1\n02;EAZ2\n");
 							i = icn_writecmd(cbuf, strlen(cbuf), 0, card);
 							printk(KERN_INFO
 							       "icn: (%s) Leased-line mode enabled\n",
@@ -1382,7 +1384,7 @@ icn_command(isdn_ctrl * c, icn_card * card)
 				strcpy(dial, p);
 				sprintf(cbuf, "%02d;D%s_R%s,%02d,%02d,%s\n", (int) (a + 1),
 					dcode, dial, c->parm.setup.si1,
-					c->parm.setup.si2, c->parm.setup.eazmsn);
+				c->parm.setup.si2, c->parm.setup.eazmsn);
 				i = icn_writecmd(cbuf, strlen(cbuf), 0, card);
 			}
 			break;
@@ -1442,7 +1444,7 @@ icn_command(isdn_ctrl * c, icn_card * card)
 				a = c->arg + 1;
 				if (card->ptype == ISDN_PTYPE_EURO) {
 					sprintf(cbuf, "%02d;MS%s%s\n", (int) a,
-					c->parm.num[0] ? "N" : "ALL", c->parm.num);
+						c->parm.num[0] ? "N" : "ALL", c->parm.num);
 				} else
 					sprintf(cbuf, "%02d;EAZ%s\n", (int) a,
 						c->parm.num[0] ? c->parm.num : "0123456789");
