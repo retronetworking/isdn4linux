@@ -20,6 +20,10 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.18  1996/06/07 11:17:33  tsbogend
+ * added missing #ifdef CONFIG_ISDN_AUDIO to make compiling without
+ * audio support possible
+ *
  * Revision 1.17  1996/06/06 14:55:47  fritz
  * Changed to support DTMF decoding on audio playback also.
  * Bugfix: Added check for invalid info->isdn_driver in
@@ -587,6 +591,9 @@ void isdn_tty_modem_hup(modem_info * info)
 
         if (!info)
                 return;
+#ifdef ISDN_DEBUG_MODEM_HUP
+        printk(KERN_DEBUG "Mhup ttyI%d\n", info->line);
+#endif
         info->rcvsched = 0;
         info->online = 0;
         isdn_tty_flush_buffer(info->tty);
@@ -892,13 +899,20 @@ static int isdn_tty_chars_in_buffer(struct tty_struct *tty)
 
 static void isdn_tty_flush_buffer(struct tty_struct *tty)
 {
-	modem_info *info = (modem_info *) tty->driver_data;
+	modem_info *info;
         unsigned long flags;
 
-	if (isdn_tty_paranoia_check(info, tty->device, "isdn_tty_flush_buffer"))
-		return;
         save_flags(flags);
         cli();
+        if (!tty) {
+                restore_flags(flags);
+                return;
+        }
+        info =  (modem_info *) tty->driver_data;
+	if (isdn_tty_paranoia_check(info, tty->device, "isdn_tty_flush_buffer")) {
+                restore_flags(flags);
+		return;
+        }
         isdn_tty_cleanup_xmit(info);
         info->xmit_count = 0;
         restore_flags(flags);
@@ -2320,6 +2334,10 @@ static int isdn_tty_cmd_PLUSV(char **p, modem_info * info)
                         /* AT+VRX - Start recording */
                         if (!m->vpar[0])
                                 PARSE_ERROR1;
+                        if (info->online != 1) {
+                                isdn_tty_modem_result(8, info);
+                                return 1;
+                        }
                         info->dtmf_state = isdn_audio_dtmf_init(info->dtmf_state);
                         if (!info->dtmf_state) {
                                 printk(KERN_WARNING "isdn_tty: Couldn't malloc dtmf state\n");
@@ -2426,6 +2444,10 @@ static int isdn_tty_cmd_PLUSV(char **p, modem_info * info)
                         /* AT+VTX - Start sending */
                         if (!m->vpar[0])
                                 PARSE_ERROR1;
+                        if (info->online != 1) {
+                                isdn_tty_modem_result(8, info);
+                                return 1;
+                        }
                         info->dtmf_state = isdn_audio_dtmf_init(info->dtmf_state);
                         if (!info->dtmf_state) {
                                 printk(KERN_WARNING "isdn_tty: Couldn't malloc dtmf state\n");
