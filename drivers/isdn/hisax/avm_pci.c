@@ -758,7 +758,7 @@ AVM_card_msg(struct IsdnCardState *cs, int mt, void *arg)
 	return(0);
 }
 
-static struct pci_dev *dev_avm __initdata;
+static struct pci_dev *dev_avm __initdata = NULL;
 
 int __init
 setup_avm_pcipnp(struct IsdnCard *card)

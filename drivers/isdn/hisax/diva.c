@@ -820,9 +820,9 @@ Diva_card_msg(struct IsdnCardState *cs, int mt, void *arg)
 	return(0);
 }
 
-static 	struct pci_dev *dev_diva __initdata;
-static 	struct pci_dev *dev_diva_u __initdata;
-static 	struct pci_dev *dev_diva201 __initdata;
+static struct pci_dev *dev_diva __initdata = NULL;
+static struct pci_dev *dev_diva_u __initdata = NULL;
+static struct pci_dev *dev_diva201 __initdata = NULL;
 
 int __init
 setup_diva(struct IsdnCard *card)

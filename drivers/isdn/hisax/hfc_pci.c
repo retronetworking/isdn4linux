@@ -1653,7 +1653,7 @@ hfcpci_card_msg(struct IsdnCardState *cs, int mt, void *arg)
 
 
 /* this variable is used as card index when more than one cards are present */
-static struct pci_dev *dev_hfcpci __initdata;
+static struct pci_dev *dev_hfcpci __initdata = NULL;
 
 #endif				/* CONFIG_PCI */
 

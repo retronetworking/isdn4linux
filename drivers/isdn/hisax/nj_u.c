@@ -142,7 +142,7 @@ NETjet_U_card_msg(struct IsdnCardState *cs, int mt, void *arg)
 	return(0);
 }
 
-static struct pci_dev *dev_netjet __initdata;
+static struct pci_dev *dev_netjet __initdata = NULL;
 
 int __init
 setup_netjet_u(struct IsdnCard *card)

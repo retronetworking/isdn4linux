@@ -544,7 +544,7 @@ setup_gazelisa(struct IsdnCard *card, struct IsdnCardState *cs)
 	return (0);
 }
 
-static struct pci_dev *dev_tel __initdata;
+static struct pci_dev *dev_tel __initdata = NULL;
 
 static int
 setup_gazelpci(struct IsdnCardState *cs)
