@@ -19,6 +19,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.15  1996/05/02 04:01:57  fritz
+ * Removed ICN_MAXCARDS
+ *
  * Revision 1.14  1996/05/02 00:40:29  fritz
  * Major rewrite to support more than one card
  * with a single module.
@@ -194,17 +197,6 @@ typedef union {
 } icn_shmem;
 
 /*
- * Sendbuffer queue-element
- */
-typedef struct {
-        char *next;             /* pointer to next queue element   */
-        short length;           /* length of data buffer           */
-        short size;             /* actual size of struct in memory */
-        u_char *rptr;           /* read pointer for fragmentation  */
-        u_char buffer[1];       /* the data itself                 */
-} pqueue;
-
-/*
  * Per card driver data
  */
 typedef struct icn_card {
@@ -233,7 +225,8 @@ typedef struct icn_card {
         char *msg_buf_read;           /* Readpointer for statusbuffer     */
         char *msg_buf_end;            /* Pointer to end of statusbuffer   */
         int sndcount[ICN_BCH];        /* Byte-counters for B-Ch.-send     */
-        pqueue *spqueue[ICN_BCH];     /* Pointers to start of Sendqueue   */
+        struct sk_buff_head
+                spqueue[ICN_BCH];     /* Sendqueue                        */
         char regname[35];             /* Name used for request_region     */
 #ifdef DEBUG_RCVCALLBACK
         int akt_pending[ICN_BCH];
