@@ -6,6 +6,10 @@
  * Copyright 1996 by Carsten Paeth (calle@calle.in-berlin.de)
  *
  * $Log$
+ * Revision 1.13  1998/08/28 04:32:25  calle
+ * Added patch send by Michael.Mueller4@post.rwth-aachen.de, to get AVM B1
+ * driver running with 2.1.118.
+ *
  * Revision 1.12  1998/05/26 22:39:34  he
  * sync'ed with 2.1.102 where appropriate (CAPABILITY changes)
  * concap typo
@@ -424,11 +428,8 @@ static int capi_open(struct inode *inode, struct file *file)
 		MOD_INC_USE_COUNT;
 
 	} else {
-
-		if (!capidevs[minor].is_open) {
-			capidevs[minor].is_open = 1;
-			MOD_INC_USE_COUNT;
-		}
+		capidevs[minor].is_open++;
+		MOD_INC_USE_COUNT;
 	}
 
 
@@ -458,8 +459,10 @@ capi_release(struct inode *inode, struct file *file)
 
 		while ((skb = skb_dequeue(&cdev->recv_queue)) != 0)
 			kfree_skb(skb);
+		cdev->is_open = 0;
+	} else {
+		cdev->is_open--;
 	}
-	cdev->is_open = 0;
 
 	MOD_DEC_USE_COUNT;
 	return 0;
