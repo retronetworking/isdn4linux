@@ -21,6 +21,18 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.48.2.7  1998/04/26 11:24:08  detabc
+ * add abc_delayed_hangup (only with a spezial udp-packet)
+ * move abc-compress and -crypt from start of transmit to the
+ * isdn_net_send_skb() function (better for TIMRU and the work is much easyer).
+ *
+ * added the abc_tx_queue's in the isdn_net_send_skb().
+ * give small-packets a high priority.
+ * transmit small packest first.
+ * NOTE: NOTE: NOTE:
+ * At now with the ABC-EXTENSION will be deliver the pakets in RANDOM-ORDER.
+ * Please let me know if this a problem.
+ *
  * Revision 1.48.2.6  1998/04/18 17:55:09  detabc
  * dropp packets if call's are disabled (only abc-extension)
  * add secure callback (only abc-extension)
@@ -1012,7 +1024,7 @@ isdn_net_dial(void)
 					isdn_net_hangup(&p->dev);
 					break;
 				}
-#ifndef CONFIG_ISDN_WITH_ABC
+#ifdef CONFIG_ISDN_WITH_ABC
 				abc_clear_tx_que(&p->local);
 				p->local.abc_delayed_hangup = 0;
 #endif
