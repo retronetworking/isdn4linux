@@ -19,6 +19,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.11  1996/06/16 17:46:05  tsbogend
+ * changed unsigned long to u32 to make Alpha people happy
+ *
  * Revision 1.10  1996/06/11 14:50:29  hipp
  * Lot of changes and bugfixes.
  * New scheme to resend packets to busy LL devices.
@@ -99,10 +102,13 @@ extern int isdn_net_force_dial_lp(isdn_net_local *);
 int isdn_ppp_free(isdn_net_local *lp)
 {
 	isdn_net_local *master_lp=lp;
+	unsigned long flags;
 
 	if (lp->ppp_minor < 0)
 		return 0;
 
+	save_flags(flags);
+	cli();
 #ifdef CONFIG_ISDN_MPP
 	if(lp->master)
 		master_lp = (isdn_net_local *) lp->master->priv;
@@ -127,7 +133,7 @@ int isdn_ppp_free(isdn_net_local *lp)
 
 	ippp_table[lp->ppp_minor]->lp = NULL;	/* link is down .. set lp to NULL */
 	lp->ppp_minor = -1;			/* is this OK ?? */
-
+	restore_flags(flags);
 	return 0;
 }
 
@@ -1357,8 +1363,8 @@ static int isdn_ppp_dev_ioctl_stats(int minor,struct ifreq *ifr,struct device *d
 			t.vj.vjs_uncompressedin = slcomp->sls_i_uncompressed;
 			t.vj.vjs_compressedin = slcomp->sls_i_compressed;
 		}
-	}
 #endif
+	}
 	memcpy_tofs (res, &t, sizeof (struct ppp_stats));
 	return 0;
 
