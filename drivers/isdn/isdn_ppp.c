@@ -391,36 +391,28 @@ isdn_ppp_frame_log(char *info, char *data, int len, int maxlen,int unit,int slot
 int
 isdn_ppp_free(isdn_net_local * lp)
 {
-#ifdef CONFIG_ISDN_MPP
 	isdn_net_local *master_lp = lp;
-#endif
 	unsigned long flags;
 	struct ippp_struct *is;
 
 	if (lp->ppp_slot < 0 || lp->ppp_slot > ISDN_MAX_CHANNELS)
 		return 0;
 
-	is = ippp_table[lp->ppp_slot];
-
 	save_flags(flags);
 	cli();
-#ifdef CONFIG_ISDN_MPP
-	if (lp->master)
-		master_lp = (isdn_net_local *) lp->master->priv;
 
-	lp->last->next = lp->next;
-	lp->next->last = lp->last;
-	if (master_lp->netdev->queue == lp) {
-		master_lp->netdev->queue = lp->next;
-		if (lp->next == lp) {	/* last link in queue? */
-			master_lp->netdev->ib.bundled = 0;
-			isdn_ppp_free_mpqueue(master_lp->netdev);
-			isdn_ppp_free_sqqueue(master_lp->netdev);
-		}
+#ifdef CONFIG_ISDN_MPP
+	if (lp->next == lp) {	/* last link in queue? */
+		master_lp->netdev->ib.bundled = 0;
+		isdn_ppp_free_mpqueue(master_lp->netdev);
+		isdn_ppp_free_sqqueue(master_lp->netdev);
 	}
-	lp->next = lp->last = lp;	/* (re)set own pointers */
 #endif
 
+	isdn_net_rm_from_bundle(lp);
+
+	is = ippp_table[lp->ppp_slot];
+	
 	if ((is->state & IPPP_CONNECT))
 		isdn_ppp_closewait(lp->ppp_slot);	/* force wakeup on ippp device */
 	else if (is->state & IPPP_ASSIGNED)
@@ -431,6 +423,7 @@ isdn_ppp_free(isdn_net_local * lp)
 
 	is->lp = NULL;          /* link is down .. set lp to NULL */
 	lp->ppp_slot = -1;      /* is this OK ?? */
+
 	restore_flags(flags);
 
 	return 0;
@@ -446,9 +439,6 @@ isdn_ppp_bind(isdn_net_local * lp)
 	int unit = 0;
 	long flags;
 	struct ippp_struct *is;
-
-	if (lp->p_encap != ISDN_NET_ENCAP_SYNCPPP)
-		return -1;
 
 	save_flags(flags);
 	cli();
@@ -1525,18 +1515,13 @@ static unsigned char *isdn_ppp_skb_push(struct sk_buff **skb_p,int len)
 int
 isdn_ppp_xmit(struct sk_buff *skb, struct net_device *netdev)
 {
-	struct net_device *mdev = ((isdn_net_local *) (netdev->priv))->master;	/* get master (for redundancy) */
 	isdn_net_local *lp,*mlp;
 	isdn_net_dev *nd;
 	unsigned int proto = PPP_IP;     /* 0x21 */
 	struct ippp_struct *ipt,*ipts;
 
-	if (mdev)
-		mlp = (isdn_net_local *) (mdev->priv);
-	else {
-		mdev = netdev;
-		mlp = (isdn_net_local *) (netdev->priv);
-	}
+	mlp = (isdn_net_local *) (netdev->priv);
+
 	nd = mlp->netdev;       /* get master lp */
 	ipts = ippp_table[mlp->ppp_slot];
 
@@ -1560,16 +1545,12 @@ isdn_ppp_xmit(struct sk_buff *skb, struct net_device *netdev)
 			return 0;
 	}
 
-	lp = nd->queue;         /* get lp on top of queue */
-	/* find a non-busy device */
-	while (isdn_net_lp_busy(nd->queue)) {
-		nd->queue = nd->queue->next;
-		if (nd->queue == lp) { /* not found -- should never happen */
-			printk(KERN_WARNING "%s: all channels busy!\n", lp->name);
-			return 1;
-		}
+	lp = isdn_net_get_locked_lp(nd);
+	if (!lp) {
+		printk(KERN_WARNING "%s: all channels busy - requeuing!\n", lp->name);
+		return 1;
 	}
-	lp = nd->queue;
+	/* we have our lp locked from now on */
 
 	ipt = ippp_table[lp->ppp_slot];
 	lp->huptimer = 0;
@@ -1653,11 +1634,10 @@ isdn_ppp_xmit(struct sk_buff *skb, struct net_device *netdev)
 		/* we get mp_seqno from static isdn_net_local */
 		long mp_seqno = ipts->mp_seqno;
 		ipts->mp_seqno++;
-		nd->queue = nd->queue->next;
 		if (ipt->mpppcfg & SC_OUT_SHORT_SEQ) {
 			unsigned char *data = isdn_ppp_skb_push(&skb, 3);
 			if(!data)
-				return 0;
+				goto unlock;
 			mp_seqno &= 0xfff;
 			data[0] = MP_BEGIN_FRAG | MP_END_FRAG | ((mp_seqno >> 8) & 0xf);	/* (B)egin & (E)ndbit .. */
 			data[1] = mp_seqno & 0xff;
@@ -1665,7 +1645,7 @@ isdn_ppp_xmit(struct sk_buff *skb, struct net_device *netdev)
 		} else {
 			unsigned char *data = isdn_ppp_skb_push(&skb, 5);
 			if(!data)
-				return 0;
+				goto unlock;
 			data[0] = MP_BEGIN_FRAG | MP_END_FRAG;	/* (B)egin & (E)ndbit .. */
 			data[1] = (mp_seqno >> 16) & 0xff;	/* sequence number: 24bit */
 			data[2] = (mp_seqno >> 8) & 0xff;
@@ -1685,20 +1665,20 @@ isdn_ppp_xmit(struct sk_buff *skb, struct net_device *netdev)
 	if( (ipt->pppcfg & SC_COMP_PROT) && (proto <= 0xff) ) {
 		unsigned char *data = isdn_ppp_skb_push(&skb,1);
 		if(!data)
-			return 0;
+			goto unlock;
 		data[0] = proto & 0xff;
 	}
 	else {
 		unsigned char *data = isdn_ppp_skb_push(&skb,2);
 		if(!data)
-			return 0;
+			goto unlock;
 		data[0] = (proto >> 8) & 0xff;
 		data[1] = proto & 0xff;
 	}
 	if(!(ipt->pppcfg & SC_COMP_AC)) {
 		unsigned char *data = isdn_ppp_skb_push(&skb,2);
 		if(!data)
-			return 0;
+			goto unlock;
 		data[0] = 0xff;    /* All Stations */
 		data[1] = 0x03;    /* Unnumbered information */
 	}
@@ -1711,6 +1691,9 @@ isdn_ppp_xmit(struct sk_buff *skb, struct net_device *netdev)
 	}
 	
 	isdn_net_writebuf_skb(lp, skb);
+
+ unlock:
+	spin_unlock_bh(&lp->xmit_lock);
 	return 0;
 }
 
@@ -1764,28 +1747,21 @@ isdn_ppp_bundle(struct ippp_struct *is, int unit)
 	char ifn[IFNAMSIZ + 1];
 	long flags;
 	isdn_net_dev *p;
-	isdn_net_local *lp,
-	*nlp;
+	isdn_net_local *lp, *nlp;
 
 	sprintf(ifn, "ippp%d", unit);
 	p = isdn_net_findif(ifn);
 	if (!p)
 		return -1;
 
-	isdn_timer_ctrl(ISDN_TIMER_IPPP, 1);	/* enable timer for ippp/MP */
-
 	save_flags(flags);
 	cli();
+	isdn_timer_ctrl(ISDN_TIMER_IPPP, 1);	/* enable timer for ippp/MP */
 
 	nlp = is->lp;
-
 	lp = p->queue;
+	isdn_net_add_to_bundle(p, nlp);
 	p->ib.bundled = 1;
-	nlp->last = lp->last;
-	lp->last->next = nlp;
-	lp->last = nlp;
-	nlp->next = lp;
-	p->queue = nlp;
 
 	ippp_table[nlp->ppp_slot]->unit = ippp_table[lp->ppp_slot]->unit;
 /* maybe also SC_CCP stuff */
@@ -1800,7 +1776,6 @@ isdn_ppp_bundle(struct ippp_struct *is, int unit)
 		       ippp_table[nlp->ppp_slot]->mpppcfg, ippp_table[lp->ppp_slot]->mpppcfg);
 	}
 #endif
-
 	restore_flags(flags);
 	return 0;
 }

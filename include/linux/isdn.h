@@ -21,6 +21,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.99  2000/03/18 16:20:26  kai
+ * cosmetics / renaming
+ *
  * Revision 1.98  2000/03/17 18:20:47  kai
  * moved to frame_cnt based flow control
  * some races still need to be fixed
@@ -758,7 +761,6 @@ typedef struct isdn_net_local_s {
   ulong                  sqfull_stamp; /* Start-Time of overload           */
   ulong                  slavedelay;   /* Dynamic bundling delaytime       */
   int                    triggercps;   /* BogoCPS needed for trigger slave */
-  struct net_device      *srobin;      /* Ptr to Master device for slaves  */
   isdn_net_phone         *phone[2];    /* List of remote-phonenumbers      */
 				       /* phone[0] = Incoming Numbers      */
 				       /* phone[1] = Outgoing Numbers      */
@@ -768,12 +770,14 @@ typedef struct isdn_net_local_s {
   struct isdn_net_local_s *next;       /* Ptr to next link in bundle       */
   struct isdn_net_local_s *last;       /* Ptr to last link in bundle       */
   struct isdn_net_dev_s  *netdev;      /* Ptr to netdev                    */
-  struct sk_buff         *first_skb;   /* Ptr to skb that triggers dialing */
   struct sk_buff_head    super_tx_queue; /* List of supervisory frames to  */
 	                               /* be transmitted asap              */
   atomic_t frame_cnt;                  /* number of frames currently       */
                         	       /* queued in HL driver              */    
                                        /* Ptr to orig. hard_header_cache   */
+  spinlock_t             xmit_lock;    /* used to protect the xmit path of */
+                                       /* a particular channel (including  */
+                                       /* the frame_cnt                    */
 
   int                    (*org_hhc)(
 				    struct neighbour *neigh,
@@ -834,8 +838,11 @@ typedef struct isdn_net_local_s {
 /* the interface itself */
 typedef struct isdn_net_dev_s {
   isdn_net_local *local;
-  isdn_net_local *queue;
-  void           *next;                /* Pointer to next isdn-interface   */
+  isdn_net_local *queue;               /* circular list of all bundled
+					  channels, which are currently
+					  online                           */
+  spinlock_t queue_lock;               /* lock to protect queue            */
+  void *next;                          /* Pointer to next isdn-interface   */
   struct net_device dev;               /* interface to upper levels        */
 #ifdef CONFIG_ISDN_PPP
   struct mpqueue *mp_last; 

@@ -21,6 +21,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.120  2000/03/18 16:20:25  kai
+ * cosmetics / renaming
+ *
  * Revision 1.118  2000/03/17 18:20:46  kai
  * moved to frame_cnt based flow control
  * some races still need to be fixed
@@ -576,26 +579,28 @@ static __inline__ void isdn_net_device_stop_queue(isdn_net_local *lp)
  */
 static __inline__ int isdn_net_device_busy(isdn_net_local *lp)
 {
+	isdn_net_local *nlp;
+	isdn_net_dev *nd;
+	unsigned long flags;
+
 	if (!isdn_net_lp_busy(lp))
 		return 0;
-	/* multilink raw-ip and syncppp need to be handled differently */
-	if (lp->p_encap == ISDN_NET_ENCAP_SYNCPPP) {
-		isdn_net_local *nlp = lp->next;
-		while (nlp != lp) {
-			if (!isdn_net_lp_busy(lp))
-				return 0;
-			nlp = nlp->next;
+
+	if (lp->master)
+		nd = ((isdn_net_local *) lp->master->priv)->netdev;
+	else
+		nd = lp->netdev;
+	
+	spin_lock_irqsave(&nd->queue_lock, flags);
+	nlp = lp->next;
+	while (nlp != lp) {
+		if (!isdn_net_lp_busy(nlp)) {
+			spin_unlock_irqrestore(&nd->queue_lock, flags);
+			return 0;
 		}
-	} else {
-		if (lp->master)
-			lp = lp->master->priv;
-		while (lp->flags & ISDN_NET_CONNECTED && lp->dialstate == 0) {
-			if (!isdn_net_lp_busy(lp))
-				return 0;
-			if (!lp->slave) break;
-			lp = lp->slave->priv;
-		}
+		nlp = nlp->next;
 	}
+	spin_unlock_irqrestore(&nd->queue_lock, flags);
 	return 1;
 }
 
@@ -606,13 +611,14 @@ static __inline__ void isdn_net_inc_frame_cnt(isdn_net_local *lp)
 		isdn_net_device_stop_queue(lp);
 #if 0
 	printk(KERN_DEBUG "%s: inc_frame_cnt now %d\n", lp->name, 
-	      atomic_read(&p->frame_cnt));
+	      atomic_read(&lp->frame_cnt));
 #endif
 }
 
 static __inline__ void isdn_net_dec_frame_cnt(isdn_net_local *lp)
 {
 	atomic_dec(&lp->frame_cnt);
+
 	if (!(isdn_net_device_busy(lp))) {
 		if (!skb_queue_empty(&lp->super_tx_queue)) {
 			queue_task(&lp->tqueue, &tq_immediate);
@@ -622,7 +628,7 @@ static __inline__ void isdn_net_dec_frame_cnt(isdn_net_local *lp)
        }                                                                      
 #if 0
 	printk(KERN_DEBUG "%s: dec_frame_cnt now %d\n", lp->name, 
-	       atomic_read(&p->frame_cnt));
+	       atomic_read(&lp->frame_cnt));
 #endif
 }
 
@@ -656,7 +662,6 @@ static __inline__ void isdn_net_zero_frame_cnt(isdn_net_local *lp)
 int isdn_net_force_dial_lp(isdn_net_local *);
 #endif
 static int isdn_net_start_xmit(struct sk_buff *, struct net_device *);
-static int isdn_net_xmit(struct net_device *, isdn_net_local *, struct sk_buff *);
 
 char *isdn_net_revision = "$Revision$";
 
@@ -849,10 +854,6 @@ isdn_net_unbind_channel(isdn_net_local * lp)
 	lp->dw_abc_inuse_secure = 0;
 	dwabc_bsd_free(lp);
 #endif
-	if (lp->first_skb) {
-		dev_kfree_skb(lp->first_skb);
-		lp->first_skb = NULL;
-	}
 	while ((skb = skb_dequeue(&lp->super_tx_queue))) {
 		kfree_skb(skb);
 	}
@@ -978,6 +979,11 @@ isdn_net_autohup()
 	isdn_timer_ctrl(ISDN_TIMER_NETHANGUP, anymore);
 }
 
+static void isdn_net_lp_disconnected(isdn_net_local *lp)
+{
+	isdn_net_rm_from_bundle(lp);
+}
+
 /*
  * Handle status-messages from ISDN-interfacecard.
  * This function is called from within the main-status-dispatcher
@@ -1040,6 +1046,7 @@ isdn_net_stat_callback(int idx, isdn_ctrl *c)
 #ifdef CONFIG_ISDN_PPP
 					isdn_ppp_free(lp);
 #endif
+					isdn_net_lp_disconnected(lp);
 					isdn_all_eaz(lp->isdn_device, lp->isdn_channel);
 					printk(KERN_INFO "%s: remote hangup\n", lp->name);
 					printk(KERN_INFO "%s: Chargesum is %d\n", lp->name,
@@ -1104,6 +1111,12 @@ isdn_net_stat_callback(int idx, isdn_ctrl *c)
 						isdn_timer_ctrl(ISDN_TIMER_NETHANGUP, 1);
 						if (lp->p_encap == ISDN_NET_ENCAP_CISCOHDLCK)
 							isdn_timer_ctrl(ISDN_TIMER_KEEPALIVE, 1);
+						if (lp->p_encap != ISDN_NET_ENCAP_SYNCPPP) {
+							if (lp->master) { /* is lp a slave? */
+								isdn_net_dev *nd = ((isdn_net_local *)lp->master->priv)->netdev;
+								isdn_net_add_to_bundle(nd, lp);
+							}
+						}
 						printk(KERN_INFO "isdn_net: %s connected\n", lp->name);
 #ifdef CONFIG_ISDN_WITH_ABC
 						if(!dwabc_bsd_init(lp)) dwabc_bsd_first_gen(lp);
@@ -1122,8 +1135,6 @@ isdn_net_stat_callback(int idx, isdn_ctrl *c)
 						 * we correct the timestamp here.
 						 */
 						lp->chargetime = jiffies;
-						printk(KERN_DEBUG "isdn_net: chargetime of %s now %lu\n",
-						lp->name, lp->chargetime);
 
 						/* reset dial-timeout */
 						lp->dialstarted = 0;
@@ -1139,13 +1150,9 @@ isdn_net_stat_callback(int idx, isdn_ctrl *c)
 							if( pops->connect_ind)
 								pops->connect_ind(cprot);
 #endif /* CONFIG_ISDN_X25 */
-						/* Immediately send first skb to speed up arp */
-						if (lp->first_skb) {
-
-							if (!(isdn_net_xmit(&p->dev, lp, lp->first_skb)))
-								lp->first_skb = NULL;
-						}
-						if(! lp->first_skb) isdn_net_device_wake_queue(lp);
+						/* ppp needs to do negotiations first */
+						if (lp->p_encap != ISDN_NET_ENCAP_SYNCPPP)
+							isdn_net_device_wake_queue(lp);
 						return 1;
 				}
 				break;
@@ -1346,7 +1353,7 @@ isdn_net_dial(void)
 						s = "dial suppressed: isdn system stopped";
 					else
 						s = "dial suppressed: dialmode `off'";
-					isdn_net_unreachable(&p->dev, lp->first_skb, s);
+					isdn_net_unreachable(&p->dev, 0, s);
 					isdn_net_hangup(&p->dev);
 					break;
 				}
@@ -1379,7 +1386,7 @@ isdn_net_dial(void)
 							restore_flags(flags);
 							lp->dialwait_timer = jiffies + lp->dialwait;
 							lp->dialstarted = 0;
-							isdn_net_unreachable(&p->dev, lp->first_skb, "dial: timed out");
+							isdn_net_unreachable(&p->dev, 0, "dial: timed out");
 							isdn_net_hangup(&p->dev);
 							break;
 						}
@@ -1397,7 +1404,7 @@ isdn_net_dial(void)
 							if (lp->dialtimeout == 0) {
 								lp->dialwait_timer = jiffies + lp->dialwait;
 								lp->dialstarted = 0;
-								isdn_net_unreachable(&p->dev, lp->first_skb, "dial: tried all numbers dialmax times");
+								isdn_net_unreachable(&p->dev, 0, "dial: tried all numbers dialmax times");
 							}
 							isdn_net_hangup(&p->dev);
 							break;
@@ -1615,6 +1622,7 @@ isdn_net_hangup(struct net_device *d)
 #ifdef CONFIG_ISDN_PPP
 		isdn_ppp_free(lp);
 #endif
+		isdn_net_lp_disconnected(lp);
 #ifdef CONFIG_ISDN_X25
 		/* try if there are generic encap protocol
 		   receiver routines and signal the closure of
@@ -1759,11 +1767,18 @@ isdn_net_log_skb(struct sk_buff * skb, isdn_net_local * lp)
  */
 void isdn_net_write_super(isdn_net_local *lp, struct sk_buff *skb)
 {
+	if (in_interrupt()) {
+		printk("isdn BUG at %s:%d!\n", __FILE__, __LINE__);
+		return;
+	}
+
+	spin_lock_bh(&lp->xmit_lock);
 	if (!isdn_net_lp_busy(lp)) {
 		isdn_net_writebuf_skb(lp, skb);
 	} else {
 		skb_queue_tail(&lp->super_tx_queue, skb);
 	}
+	spin_unlock_bh(&lp->xmit_lock);
 }
 
 /*
@@ -1774,32 +1789,40 @@ isdn_net_softint(void *private)
 {
 	isdn_net_local *lp = private;
 	struct sk_buff *skb;
-	
+
+	spin_lock_bh(&lp->xmit_lock);
 	while (!isdn_net_lp_busy(lp)) {
 		skb = skb_dequeue(&lp->super_tx_queue);
 		if (!skb)
 			break;
 		isdn_net_writebuf_skb(lp, skb);                                
 	}
+	spin_unlock_bh(&lp->xmit_lock);
 }
 
 /* 
  * all frames sent from the (net) LL to a HL driver should go via this function
+ * it's serialized by the caller holding the lp->xmit_lock spinlock
  */
 void isdn_net_writebuf_skb(isdn_net_local *lp, struct sk_buff *skb)
 {
 	int ret;
 	int len = skb->len;     /* save len */
 
+	/* before obtaining the lock the caller should have checked that
+	   the lp isn't busy */
 	if (isdn_net_lp_busy(lp)) {
-		/* we should never get here */
-		printk(KERN_WARNING "%s: frame_cnt %d too large\n", lp->name, 
-		       atomic_read(&lp->frame_cnt));
+		printk("isdn BUG at %s:%d!\n", __FILE__, __LINE__);
+		goto error;
+	}
+
+	if (!(lp->flags & ISDN_NET_CONNECTED)) {
+		printk("isdn BUG at %s:%d!\n", __FILE__, __LINE__);
 		goto error;
 	}
 	ret = isdn_writebuf_skb_stub(lp->isdn_device, lp->isdn_channel, 1, skb);
 	if (ret != len) {
-		/* we should never get here either */
+		/* we should never get here */
 		printk(KERN_WARNING "%s: HL driver queue full\n", lp->name);
 		goto error;
 	}
@@ -1811,6 +1834,7 @@ void isdn_net_writebuf_skb(isdn_net_local *lp, struct sk_buff *skb)
  error:
 	dev_kfree_skb(skb);
 	lp->stats.tx_errors++;
+
 }
 
 #ifdef CONFIG_ISDN_WITH_ABC
@@ -1956,9 +1980,17 @@ int isdn_net_send_skb(struct net_device *ndev, isdn_net_local * lp,struct sk_buf
  */
 
 static int
-isdn_net_xmit(struct net_device *ndev, isdn_net_local * lp, struct sk_buff *skb)
+isdn_net_xmit(struct net_device *ndev, struct sk_buff *skb)
 {
-	int ret;
+	isdn_net_dev *nd;
+	isdn_net_local *slp;
+	isdn_net_local *lp = (isdn_net_local *) ndev->priv;
+
+	if (((isdn_net_local *) (ndev->priv))->master) {
+		printk("isdn BUG at %s:%d!\n", __FILE__, __LINE__);
+		dev_kfree_skb(skb);
+		return 0;
+	}
 
 	/* For the other encaps the header has already been built */
 #ifdef CONFIG_ISDN_PPP
@@ -1966,8 +1998,53 @@ isdn_net_xmit(struct net_device *ndev, isdn_net_local * lp, struct sk_buff *skb)
 		return isdn_ppp_xmit(skb, ndev);
 	}
 #endif
+	
+	nd = ((isdn_net_local *) ndev->priv)->netdev;
+
+	lp = isdn_net_get_locked_lp(nd);
+	if (!lp) {
+		printk(KERN_WARNING "%s: all channels busy - requeuing!\n", lp->name);
+		return 1;
+	}
+	/* we have our lp locked from now on */
+
 	/* Reset hangup-timeout */
-	lp->huptimer = 0;
+	lp->huptimer = 0; // FIXME?
+	isdn_net_writebuf_skb(lp, skb);
+	spin_unlock_bh(&lp->xmit_lock);
+
+	/* the following stuff is here for backwards compatibility.
+	 * in future, start-up and hangup of slaves (based on current load)
+	 * should move to userspace and get based on an overall cps
+	 * calculation
+	 */
+	if (lp->cps > lp->triggercps) {
+		if (lp->slave) {
+			if (!lp->sqfull) {
+				/* First time overload: set timestamp only */
+				lp->sqfull = 1;
+				lp->sqfull_stamp = jiffies;
+			} else {
+				/* subsequent overload: if slavedelay exceeded, start dialing */
+				if ((jiffies - lp->sqfull_stamp) > lp->slavedelay) {
+					slp = lp->slave->priv;
+					if (!(slp->flags & ISDN_NET_CONNECTED)) {
+						isdn_net_force_dial_lp((isdn_net_local *) lp->slave->priv);
+					}
+				}
+			}
+		}
+	} else {
+		if (lp->sqfull && ((jiffies - lp->sqfull_stamp) > (lp->slavedelay + (10 * HZ)))) {
+			lp->sqfull = 0;
+		}
+		/* this is a hack to allow auto-hangup for slaves on moderate loads */
+		nd->queue = nd->local;
+	}
+
+	return 0;
+
+#if 0
 	if (lp->cps > lp->triggercps) {
 		/* Device overloaded */
 
@@ -1975,28 +2052,28 @@ isdn_net_xmit(struct net_device *ndev, isdn_net_local * lp, struct sk_buff *skb)
 		 * Packet-delivery via round-robin over master
 		 * and all connected slaves.
 		 */
-		if (lp->master)
+		if (lp->master) {
 			/* Slaves always deliver themselves */
-			ret = isdn_net_send_skb(ndev, lp, skb);
-		else {
-			isdn_net_local *slp = (isdn_net_local *) (lp->srobin->priv);
-			int safe = 0;
-			/* we need a non-busy channel */
-			while (isdn_net_lp_busy(slp)) {
-				lp->srobin = (slp->slave) ? slp->slave : ndev;
-				if (!((slp->flags & ISDN_NET_CONNECTED) && (slp->dialstate == 0)))
-					lp->srobin = ndev;
-				slp = (isdn_net_local *) (lp->srobin->priv);
-				if (safe++ > 100) {
-					printk("isdn_net: should never happen\n");
-					return 1;
-				}
+			spin_lock_bh(&lp->xmit_lock);
+			if (!isdn_net_lp_busy(lp)) {
+				isdn_net_writebuf_skb(lp, skb);
+				ret = 0;
+			} else {
+				isdn_net_device_stop_queue(lp);
+				ret = 1;
 			}
+			ret = isdn_net_send_skb(ndev, lp, skb);
+			spin_unlock_bh(&lp->xmit_lock);
+		} else {
+			isdn_net_local *slp = (isdn_net_local *) (lp->srobin->priv);
 			/* Master delivers via srobin and maintains srobin */
-			if (lp->srobin == ndev)
+			if (lp->srobin == ndev) {
+				spin_lock_bh(&lp->xmit_lock);
 				ret = isdn_net_send_skb(ndev, lp, skb);
-			else
+				spin_unlock_bh(&lp->xmit_lock);
+			} else {
 				ret = isdn_net_start_xmit(skb, lp->srobin);
+			}
 			lp->srobin = (slp->slave) ? slp->slave : ndev;
 			slp = (isdn_net_local *) (lp->srobin->priv);
 			if (!((slp->flags & ISDN_NET_CONNECTED) && (slp->dialstate == 0)))
@@ -2016,11 +2093,20 @@ isdn_net_xmit(struct net_device *ndev, isdn_net_local * lp, struct sk_buff *skb)
 		}
 	} else {
 		/* Not overloaded, deliver locally */
-		ret = isdn_net_send_skb(ndev, lp, skb);
+		spin_lock_bh(&lp->xmit_lock);
+		if (!isdn_net_lp_busy(lp)) {
+			isdn_net_writebuf_skb(lp, skb);
+			ret = 0;
+		} else {
+			isdn_net_device_stop_queue(lp);
+			ret = 1;
+		}
+		spin_unlock_bh(&lp->xmit_lock);
 		if (lp->sqfull && ((jiffies - lp->sqfull_stamp) > (lp->slavedelay + (10 * HZ))))
 			lp->sqfull = 0;
 	}
 	return ret;
+#endif
 }
 
 static void
@@ -2267,19 +2353,11 @@ isdn_net_start_xmit(struct sk_buff *skb, struct net_device *ndev)
 					return 1;	/* let upper layer requeue skb packet */
 				}
 #endif
-				/* remember first skb to speed up arp
-				 * when using encap ETHER
-				 */
-				if (lp->first_skb) {
-					printk(KERN_WARNING "isdn_net_start_xmit: First skb already set!\n");
-					dev_kfree_skb(lp->first_skb);
-					lp->first_skb = NULL;
-				}
-				lp->first_skb = skb;
 				/* Initiate dialing */
 				restore_flags(flags);
 				isdn_net_dial();
-				return 0;
+				isdn_net_device_stop_queue(lp);
+				return 1;
 			} else {
 				isdn_net_unreachable(ndev, skb,
 						     "No phone number");
@@ -2292,14 +2370,7 @@ isdn_net_start_xmit(struct sk_buff *skb, struct net_device *ndev)
 			if (!lp->dialstate) {
 				/* ISDN connection is established, try sending */
 				int ret;
-				if (lp->first_skb) {
-					if (isdn_net_xmit(ndev, lp, lp->first_skb)){
-						netif_stop_queue(ndev);
-						return 1;
-}
-					lp->first_skb = NULL;
-				}
-				ret = (isdn_net_xmit(ndev, lp, skb));
+				ret = (isdn_net_xmit(ndev, skb));
 				if(ret) netif_stop_queue(ndev);
 				return ret;
 			} else
@@ -3413,6 +3484,7 @@ isdn_net_find_icall(int di, int ch, int idx, setup_parm setup)
 						if (lp->p_encap == ISDN_NET_ENCAP_SYNCPPP)
 							isdn_ppp_free(lp);
 #endif
+						isdn_net_lp_disconnected(lp);
 						isdn_free_channel(lp->isdn_device, lp->isdn_channel,
 							 ISDN_USAGE_NET);
 					}
@@ -3622,6 +3694,8 @@ isdn_net_new(char *name, struct net_device *master)
 	netdev->ib.last = NULL;
 #endif
 	netdev->queue = netdev->local;
+	spin_lock_init(&netdev->queue_lock);
+
 	netdev->local->last = netdev->local;
 	netdev->local->netdev = netdev;
 	netdev->local->next = netdev->local;
@@ -3629,6 +3703,7 @@ isdn_net_new(char *name, struct net_device *master)
 	memset(&netdev->local->tqueue, 0, sizeof(struct tq_struct));
 	netdev->local->tqueue.routine = isdn_net_softint;
 	netdev->local->tqueue.data = netdev->local;
+	spin_lock_init(&netdev->local->xmit_lock);
 
 	netdev->local->isdn_device = -1;
 	netdev->local->isdn_channel = -1;
@@ -3638,12 +3713,10 @@ isdn_net_new(char *name, struct net_device *master)
 	netdev->local->ppp_slot = -1;
 	netdev->local->pppbind = -1;
 	skb_queue_head_init(&netdev->local->super_tx_queue);
-	netdev->local->first_skb = NULL;
 	netdev->local->l2_proto = ISDN_PROTO_L2_X75I;
 	netdev->local->l3_proto = ISDN_PROTO_L3_TRANS;
 	netdev->local->triggercps = 6000;
 	netdev->local->slavedelay = 10 * HZ;
-	netdev->local->srobin = &netdev->dev;
 	netdev->local->hupflags = ISDN_INHUP;	/* Do hangup even on incoming calls */
 	netdev->local->onhtime = 10;	/* Default hangup-time for saving costs
 	   of those who forget configuring this */
