@@ -79,6 +79,19 @@ discard_queue(struct sk_buff_head *q)
 #define LL_DEB_WARN      0x10000000
 
 static void
+ll_debug(int level, struct IsdnCardState *cs, char *fmt, ...)
+{
+	va_list args;
+
+	if (!(cs->c_if->channel[0].debug & level))
+		return;
+
+	va_start(args, fmt);
+	VHiSax_putstatus(cs, "LL ", fmt, args);
+	va_end(args);
+}
+
+static void
 link_debug(int level, struct Channel *chanp, int direction, char *fmt, ...)
 {
 	va_list args;
@@ -92,6 +105,68 @@ link_debug(int level, struct Channel *chanp, int direction, char *fmt, ...)
 		direction ? "LL->HL" : "HL->LL");
 	VHiSax_putstatus(chanp->cs, tmp, fmt, args);
 	va_end(args);
+}
+
+static inline int 
+statcallb(struct IsdnCardState *cs, int command, isdn_ctrl *ic)
+{
+	switch (command) {
+	case ISDN_STAT_RUN:
+		ll_debug(LL_DEB_INFO, cs, "STAT_RUN");
+		break;
+	case ISDN_STAT_STOP:
+		ll_debug(LL_DEB_INFO, cs, "STAT_STOP");
+		break;
+	case ISDN_STAT_UNLOAD:
+		ll_debug(LL_DEB_INFO, cs, "STAT_UNLOAD");
+		break;
+	case ISDN_STAT_DISCH:
+		ll_debug(LL_DEB_INFO, cs, "STAT_DISCH");
+		break;
+	}
+
+	ic->driver = cs->myid;
+	ic->command = command;
+	return cs->iif.statcallb(ic);
+}
+ 
+static inline int
+HL_LL(struct Channel *chanp, int command, isdn_ctrl *ic)
+{
+	int ret;
+
+	switch (command) {
+	case ISDN_STAT_ICALL:
+		link_debug(LL_DEB_INFO, chanp, 0, "STAT_ICALL");
+		break;
+	case ISDN_STAT_ICALLW:
+		link_debug(LL_DEB_INFO, chanp, 0, "STAT_ICALLW");
+		break;			       
+	case ISDN_STAT_DCONN:		       
+		link_debug(LL_DEB_INFO, chanp, 0, "STAT_DCONN");
+		break;			       
+	case ISDN_STAT_DHUP:		       
+		link_debug(LL_DEB_INFO, chanp, 0, "STAT_DHUP");
+		break;			       
+	case ISDN_STAT_CAUSE:		       
+		link_debug(LL_DEB_INFO, chanp, 0, "STAT_CAUSE");
+		break;			       
+	case ISDN_STAT_BCONN:		       
+		link_debug(LL_DEB_INFO, chanp, 0, "STAT_BCONN %s", ic->parm.num);
+		break;			       
+	case ISDN_STAT_BHUP:		       
+		link_debug(LL_DEB_INFO, chanp, 0, "STAT_BHUP");
+		break;			       
+	case ISDN_STAT_BSENT:		       
+		link_debug(LL_DEB_INFO, chanp, 0, "STAT_BSENT");
+		break;
+	}
+	ic->arg = chanp->chan;
+	ret = statcallb(chanp->cs, command, ic);
+	if (command == ISDN_STAT_ICALL || command == ISDN_STAT_ICALLW) {
+		link_debug(LL_DEB_INFO, chanp, 0, "ret = %d", ret);
+	}
+	return ret;
 }
 
 enum {
@@ -186,17 +261,6 @@ static char *strEvent[] =
 };
 
 static inline void
-HL_LL(struct Channel *chanp, int command)
-{
-	isdn_ctrl ic;
-
-	ic.driver = chanp->cs->myid;
-	ic.command = command;
-	ic.arg = chanp->chan;
-	chanp->cs->iif.statcallb(&ic);
-}
-
-static inline void
 lli_deliver_cause(struct Channel *chanp)
 {
 	isdn_ctrl ic;
@@ -262,10 +326,10 @@ static void
 lli_init_bchan_out(struct FsmInst *fi, int event, void *arg)
 {
 	struct Channel *chanp = fi->userdata;
+	isdn_ctrl ic;
 
 	FsmChangeState(fi, ST_WAIT_BCONN);
-	link_debug(LL_DEB_INFO, chanp, 0, "STAT_DCONN");
-	HL_LL(chanp, ISDN_STAT_DCONN);
+	HL_LL(chanp, ISDN_STAT_DCONN, &ic);
 	init_b_st(chanp, 0);
 	chanp->b_st->lli.l4l3(chanp->b_st, DL_ESTABLISH | REQUEST, NULL);
 }
@@ -423,10 +487,10 @@ static void
 lli_init_bchan_in(struct FsmInst *fi, int event, void *arg)
 {
 	struct Channel *chanp = fi->userdata;
+	isdn_ctrl ic;
 
 	FsmChangeState(fi, ST_WAIT_BCONN);
-	link_debug(LL_DEB_INFO, chanp, 0, "STAT_DCONN");
-	HL_LL(chanp, ISDN_STAT_DCONN);
+	HL_LL(chanp, ISDN_STAT_DCONN, &ic);
 	chanp->l2_active_protocol = chanp->l2_protocol;
 	chanp->incoming = !0;
 	init_b_st(chanp, !0);
@@ -466,13 +530,9 @@ lli_leased_hup(struct FsmInst *fi, struct Channel *chanp)
 {
 	isdn_ctrl ic;
 
-	ic.driver = chanp->cs->myid;
-	ic.command = ISDN_STAT_CAUSE;
-	ic.arg = chanp->chan;
 	sprintf(ic.parm.num, "L0010");
-	chanp->cs->iif.statcallb(&ic);
-	link_debug(LL_DEB_INFO, chanp, 0, "STAT_DHUP");
-	HL_LL(chanp, ISDN_STAT_DHUP);
+	HL_LL(chanp, ISDN_STAT_CAUSE, &ic);
+	HL_LL(chanp, ISDN_STAT_DHUP, &ic);
 	lli_close(fi);
 }
 
@@ -510,13 +570,13 @@ static void
 lli_dhup_close(struct FsmInst *fi, int event, void *arg)
 {
 	struct Channel *chanp = fi->userdata;
+	isdn_ctrl ic;
 
 	if (chanp->leased) {
 		lli_leased_hup(fi, chanp);
 	} else {
-		link_debug(LL_DEB_INFO, chanp, 0, "STAT_DHUP");
 		lli_deliver_cause(chanp);
-		HL_LL(chanp, ISDN_STAT_DHUP);
+		HL_LL(chanp, ISDN_STAT_DHUP, &ic);
 		lli_close(fi);
 	}
 }
@@ -576,9 +636,9 @@ static void
 lli_bhup_disc(struct FsmInst *fi, int event, void *arg)
 {
 	struct Channel *chanp = fi->userdata;
+	isdn_ctrl ic;
  
-	link_debug(LL_DEB_INFO, chanp, 0, "STAT_BHUP");
-	HL_LL(chanp, ISDN_STAT_BHUP);
+	HL_LL(chanp, ISDN_STAT_BHUP, &ic);
 	lli_rel_b_disc(fi, event, arg);
 }
 
@@ -586,11 +646,11 @@ static void
 lli_bhup_rel_b(struct FsmInst *fi, int event, void *arg)
 {
 	struct Channel *chanp = fi->userdata;
+	isdn_ctrl ic;
 
 	FsmChangeState(fi, ST_WAIT_DCOMMAND);
 	chanp->data_open = 0;
-	link_debug(LL_DEB_INFO, chanp, 0, "STAT_BHUP");
-	HL_LL(chanp, ISDN_STAT_BHUP);
+	HL_LL(chanp, ISDN_STAT_BHUP, &ic);
 	release_b_st(chanp);
 }
 
@@ -618,9 +678,9 @@ static void
 lli_bhup_dhup(struct FsmInst *fi, int event, void *arg)
 {
 	struct Channel *chanp = fi->userdata;
+	isdn_ctrl ic;
 
-	link_debug(LL_DEB_INFO, chanp, 0, "STAT_BHUP");
-	HL_LL(chanp, ISDN_STAT_BHUP);
+	HL_LL(chanp, ISDN_STAT_BHUP, &ic);
 	lli_rel_b_dhup(fi, event, arg);
 }
 
@@ -661,9 +721,9 @@ static void
 lli_bhup_release_req(struct FsmInst *fi, int event, void *arg)
 {
 	struct Channel *chanp = fi->userdata;
+	isdn_ctrl ic;
  
-	link_debug(LL_DEB_INFO, chanp, 0, "STAT_BHUP");
-	HL_LL(chanp, ISDN_STAT_BHUP);
+	HL_LL(chanp, ISDN_STAT_BHUP, &ic);
 	lli_rel_b_release_req(fi, event, arg);
 }
 
@@ -688,18 +748,18 @@ static void
 lli_dchan_not_ready(struct FsmInst *fi, int event, void *arg)
 {
 	struct Channel *chanp = fi->userdata;
+	isdn_ctrl ic;
 
-	link_debug(LL_DEB_INFO, chanp, 0, "STAT_DHUP");
-	HL_LL(chanp, ISDN_STAT_DHUP); 
+	HL_LL(chanp, ISDN_STAT_DHUP, &ic); 
 }
 
 static void
 lli_no_setup_rsp(struct FsmInst *fi, int event, void *arg)
 {
 	struct Channel *chanp = fi->userdata;
+	isdn_ctrl ic;
 
-	link_debug(LL_DEB_INFO, chanp, 0, "STAT_DHUP");
-	HL_LL(chanp, ISDN_STAT_DHUP);
+	HL_LL(chanp, ISDN_STAT_DHUP, &ic);
 	lli_close(fi); 
 }
 
@@ -716,12 +776,9 @@ lli_failure_l(struct FsmInst *fi, int event, void *arg)
 	isdn_ctrl ic;
 
 	FsmChangeState(fi, ST_NULL);
-	ic.driver = chanp->cs->myid;
-	ic.command = ISDN_STAT_CAUSE;
-	ic.arg = chanp->chan;
 	sprintf(ic.parm.num, "L%02X%02X", 0, 0x2f);
-	chanp->cs->iif.statcallb(&ic);
-	HL_LL(chanp, ISDN_STAT_DHUP);
+	HL_LL(chanp, ISDN_STAT_CAUSE, &ic);
+	HL_LL(chanp, ISDN_STAT_DHUP, &ic);
 	chanp->Flags = 0;
 	chanp->cs->cardmsg(chanp->cs, MDL_INFO_REL, (void *) (long)chanp->chan);
 }
@@ -739,9 +796,9 @@ static void
 lli_bhup_fail(struct FsmInst *fi, int event, void *arg)
 {
 	struct Channel *chanp = fi->userdata;
+	isdn_ctrl ic;
 
-	link_debug(LL_DEB_INFO, chanp, 0, "STAT_BHUP");
-	HL_LL(chanp, ISDN_STAT_BHUP);
+	HL_LL(chanp, ISDN_STAT_BHUP, &ic);
 	lli_rel_b_fail(fi, event, arg);
 }
 
@@ -982,12 +1039,9 @@ dchan_l3l4(struct PStack *st, int pr, void *arg)
 		case (CC_REDIR | INDICATION):
 			stat_redir_result(cs, chanp->chan, pc->redir_result); 
 			break;
-			default:
-			if (chanp->debug & LL_DEB_WARN) {
-				HiSax_putstatus(chanp->cs, "Ch",
-					"%d L3->L4 unknown primitiv %#x",
-					chanp->chan, pr);
-			}
+		default:
+			ll_debug(LL_DEB_WARN, chanp->cs, 
+				 "Ch %d L3->L4 unknown primitive %#x", chanp->chan, pr);
 	}
 }
 
