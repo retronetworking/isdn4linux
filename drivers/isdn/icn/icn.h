@@ -3,24 +3,26 @@
  * ISDN lowlevel-module for the ICN active ISDN-Card.
  *
  * Copyright 1994 by Fritz Elfert (fritz@wuemaus.franken.de)
- * Copyright 1995 Thinking Objects Software GmbH Wuerzburg 
  *
- * This file is part of Isdn4Linux.
- * 
- * Isdn4Linux is distributed with NO WARRANTY OF ANY KIND.  No author
- * or distributor accepts any responsibility for the consequences of using it,
- * or for whether it serves any particular purpose or works at all, unless he
- * or she says so in writing.  Refer to the Isdn4Linux Free Public
- * License (the "License") for full details.
- * 
- * Every copy of Isdn4Linux must include a copy of the License,
- * normally in a plain ASCII text file named LICENSE.  The License grants you
- * the right to copy, modify and redistribute Isdn4Linux, but only
- * under certain conditions described in the License.  Among other things, the
- * License requires that the copyright notice and this notice be preserved on
- * all copies.
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 2, or (at your option)
+ * any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.11  1995/12/18  18:25:00  fritz
+ * Support for ICN-2B Cards.
+ * Change for supporting user-setable service-octet.
+ *
  * Revision 1.10  1995/10/29  21:43:10  fritz
  * Added support for leased lines.
  *
@@ -73,10 +75,6 @@
 /* Kernel includes */
 
 #include <linux/config.h>
-#ifdef CONFIG_MODVERSIONS
-#define MODVERSIONS
-#include <linux/modversions.h>
-#endif
 #include <linux/module.h>
 #include <linux/version.h>
 #include <linux/errno.h>
@@ -92,17 +90,19 @@
 #include <linux/ioport.h>
 #include <linux/timer.h>
 #include <linux/wait.h>
-#include <isdnif.h>
+#include <linux/isdnif.h>
 
+#ifdef MODULE
 #ifdef DEF_VERSION
 char kernel_version[] = UTS_RELEASE;
 #endif
+#endif
 
-#endif /* __KERNEL__ */
+#endif				/* __KERNEL__ */
 
 /* some useful macros for debugging */
 #ifdef ICN_DEBUG_PORT
-#define OUTB_P(v,p) {printk("icn: outb_p(0x%02x,0x%03x)\n",v,p); outb_p(v,p);}
+#define OUTB_P(v,p) {printk(KERN_DEBUG "icn: outb_p(0x%02x,0x%03x)\n",v,p); outb_p(v,p);}
 #else
 #define OUTB_P outb
 #endif
@@ -118,124 +118,126 @@ char kernel_version[] = UTS_RELEASE;
 #define ICN_RUN    (dev->port+2)
 #define ICN_BANK   (dev->port+3)
 
-#define ICN_FLAGS_B1ACTIVE 1     /* B-Channel-1 is open                 */
-#define ICN_FLAGS_B2ACTIVE 2     /* B-Channel-2 is open                 */
-#define ICN_FLAGS_RBTIMER  8     /* cyclic scheduling of B-Channel-poll */
+#define ICN_FLAGS_B1ACTIVE 1	/* B-Channel-1 is open                 */
+#define ICN_FLAGS_B2ACTIVE 2	/* B-Channel-2 is open                 */
+#define ICN_FLAGS_RBTIMER  8	/* cyclic scheduling of B-Channel-poll */
 
-#define ICN_BOOT_TIMEOUT1  100   /* Delay for Boot-download (jiffies)   */
-#define ICN_CHANLOCK_DELAY  10   /* Delay for Channel-mapping (jiffies) */
+#define ICN_BOOT_TIMEOUT1  100	/* Delay for Boot-download (jiffies)   */
+#define ICN_CHANLOCK_DELAY  10	/* Delay for Channel-mapping (jiffies) */
 
-#define ICN_TIMER_BCREAD 3       /* B-Channel poll-cycle                */
-#define ICN_TIMER_DCREAD 50      /* D-Channel poll-cycle                */
+#define ICN_TIMER_BCREAD 3	/* B-Channel poll-cycle                */
+#define ICN_TIMER_DCREAD 50	/* D-Channel poll-cycle                */
 
-#define ICN_CODE_STAGE1 4096     /* Size of bootcode                    */
-#define ICN_CODE_STAGE2 65536    /* Size of protocol-code               */
+#define ICN_CODE_STAGE1 4096	/* Size of bootcode                    */
+#define ICN_CODE_STAGE2 65536	/* Size of protocol-code               */
 
-#define ICN_MAX_SQUEUE 65536     /* Max. outstanding send-data          */
-#define ICN_FRAGSIZE (250)       /* Max. size of send-fragments         */
-#define ICN_BCH 2                /* Number of supported channels        */
+#define ICN_MAX_SQUEUE 65536	/* Max. outstanding send-data          */
+#define ICN_FRAGSIZE (250)	/* Max. size of send-fragments         */
+#define ICN_BCH 2		/* Number of supported channels        */
 
 /* type-definitions for accessing the mmap-io-areas */
 
-#define SHM_DCTL_OFFSET (0)      /* Offset to data-controlstructures in shm */
-#define SHM_CCTL_OFFSET (0x1d2)  /* Offset to comm-controlstructures in shm */
-#define SHM_CBUF_OFFSET (0x200)  /* Offset to comm-buffers in shm           */
-#define SHM_DBUF_OFFSET (0x2000) /* Offset to data-buffers in shm           */
+#define SHM_DCTL_OFFSET (0)	/* Offset to data-controlstructures in shm */
+#define SHM_CCTL_OFFSET (0x1d2)	/* Offset to comm-controlstructures in shm */
+#define SHM_CBUF_OFFSET (0x200)	/* Offset to comm-buffers in shm           */
+#define SHM_DBUF_OFFSET (0x2000)	/* Offset to data-buffers in shm           */
 
 typedef struct {
-  unsigned char length;              /* Bytecount of fragment (max 250)     */
-  unsigned char endflag;             /* 0=last frag., 0xff=frag. continued  */
-  unsigned char data[ICN_FRAGSIZE]; /* The data                            */
-  /* Fill to 256 bytes */
-  char          unused[0x100-ICN_FRAGSIZE-2];
+	unsigned char length;	/* Bytecount of fragment (max 250)     */
+	unsigned char endflag;	/* 0=last frag., 0xff=frag. continued  */
+	unsigned char data[ICN_FRAGSIZE];	/* The data                            */
+	/* Fill to 256 bytes */
+	char unused[0x100 - ICN_FRAGSIZE - 2];
 } frag_buf;
 
 typedef union {
-  struct {
-    unsigned char  scns;             /* Index to free SendFrag.             */
-    unsigned char  scnr;             /* Index to active SendFrag   READONLY */
-    unsigned char  ecns;             /* Index to free RcvFrag.     READONLY */
-    unsigned char  ecnr;             /* Index to valid RcvFrag              */
-    char           unused[6];
-    unsigned short fuell1;           /* Internal Buf Bytecount              */ 
-  } data_control;
-  struct {
-    char           unused[SHM_CCTL_OFFSET];
-    unsigned char  iopc_i;            /* Read-Ptr Status-Queue      READONLY */
-    unsigned char  iopc_o;            /* Write-Ptr Status-Queue              */
-    unsigned char  pcio_i;            /* Write-Ptr Command-Queue             */
-    unsigned char  pcio_o;            /* Read-Ptr Command Queue     READONLY */
-  } comm_control;
-  struct {
-    char           unused[SHM_CBUF_OFFSET];
-    unsigned char  pcio_buf[0x100];   /* Ring-Buffer Command-Queue           */
-    unsigned char  iopc_buf[0x100];   /* Ring-Buffer Status-Queue            */
-  } comm_buffers;
-  struct {
-    char           unused[SHM_DBUF_OFFSET];
-    frag_buf       receive_buf[0x10];
-    frag_buf       send_buf[0x10];
-  } data_buffers;
+	struct {
+		unsigned char scns;	/* Index to free SendFrag.             */
+		unsigned char scnr;	/* Index to active SendFrag   READONLY */
+		unsigned char ecns;	/* Index to free RcvFrag.     READONLY */
+		unsigned char ecnr;	/* Index to valid RcvFrag              */
+		char unused[6];
+		unsigned short fuell1;	/* Internal Buf Bytecount              */
+	} data_control;
+	struct {
+		char unused[SHM_CCTL_OFFSET];
+		unsigned char iopc_i;	/* Read-Ptr Status-Queue      READONLY */
+		unsigned char iopc_o;	/* Write-Ptr Status-Queue              */
+		unsigned char pcio_i;	/* Write-Ptr Command-Queue             */
+		unsigned char pcio_o;	/* Read-Ptr Command Queue     READONLY */
+	} comm_control;
+	struct {
+		char unused[SHM_CBUF_OFFSET];
+		unsigned char pcio_buf[0x100];	/* Ring-Buffer Command-Queue           */
+		unsigned char iopc_buf[0x100];	/* Ring-Buffer Status-Queue            */
+	} comm_buffers;
+	struct {
+		char unused[SHM_DBUF_OFFSET];
+		frag_buf receive_buf[0x10];
+		frag_buf send_buf[0x10];
+	} data_buffers;
 } icn_shmem;
 
 /* Sendbuffer-queue-element */
 typedef struct {
-  char   *next;
-  short   length;
-  short   size;
-  u_char *rptr;
-  u_char  buffer[1];
+	char *next;
+	short length;
+	short size;
+	u_char *rptr;
+	u_char buffer[1];
 } pqueue;
 
 typedef struct {
-  unsigned short   port;                /* Base-port-adress                 */
-  icn_shmem        *shmem;              /* Pointer to memory-mapped-buffers */
-  int              myid;                /* Driver-Nr. assigned by linklevel */
-  int              rvalid;              /* IO-portregion has been requested */
-  int              leased;              /* Flag: This Adapter is connected  */
-				        /*       to a leased line           */
-  unsigned short   flags;               /* Statusflags                      */
-  int              doubleS0;            /* Flag: Double-S0-Card             */
-  int              secondhalf;          /* Flag: Second half of a doubleS0  */
-  int              ptype;               /* Protocoltype (1TR6 or Euro)      */
-  struct timer_list st_timer;           /* Timer for Status-Polls           */
-  struct timer_list rb_timer;           /* Timer for B-Channel-Polls        */
-  int              channel;             /* Currently mapped Channel         */
-  int              chanlock;            /* Semaphore for Channel-Mapping    */
-  u_char           rcvbuf[ICN_BCH][4096]; /* B-Channel-Receive-Buffers      */
-  int              rcvidx[ICN_BCH];     /* Index for above buffers          */
-  int              l2_proto[ICN_BCH];   /* Current layer-2-protocol         */
-  isdn_if          interface;           /* Interface to upper layer         */
-  int              iptr;                /* Index to imsg-buffer             */
-  char             imsg[40];            /* Internal buf for status-parsing  */
-  char             msg_buf[2048];       /* Buffer for status-messages       */
-  char             *msg_buf_write;      /* Writepointer for statusbuffer    */
-  char             *msg_buf_read;       /* Readpointer for statusbuffer     */
-  char             *msg_buf_end;        /* Pointer to end of statusbuffer   */
-  int              sndcount[ICN_BCH];   /* Byte-counters for B-Ch.-send     */
-  pqueue           *spqueue[ICN_BCH];   /* Pointers to start of Send-Queue  */
+	unsigned short port;	/* Base-port-adress                 */
+	icn_shmem *shmem;	/* Pointer to memory-mapped-buffers */
+	int myid;		/* Driver-Nr. assigned by linklevel */
+	int rvalid;		/* IO-portregion has been requested */
+	int mvalid;		/* IO-shmem has been requested      */
+	int leased;		/* Flag: This Adapter is connected  */
+	/*       to a leased line           */
+	unsigned short flags;	/* Statusflags                      */
+	int doubleS0;		/* Flag: Double-S0-Card             */
+	int secondhalf;		/* Flag: Second half of a doubleS0  */
+	int ptype;		/* Protocoltype (1TR6 or Euro)      */
+	struct timer_list st_timer;	/* Timer for Status-Polls           */
+	struct timer_list rb_timer;	/* Timer for B-Channel-Polls        */
+	int channel;		/* Currently mapped Channel         */
+	int chanlock;		/* Semaphore for Channel-Mapping    */
+	u_char rcvbuf[ICN_BCH][4096];	/* B-Channel-Receive-Buffers      */
+	int rcvidx[ICN_BCH];	/* Index for above buffers          */
+	int l2_proto[ICN_BCH];	/* Current layer-2-protocol         */
+	isdn_if interface;	/* Interface to upper layer         */
+	int iptr;		/* Index to imsg-buffer             */
+	char imsg[40];		/* Internal buf for status-parsing  */
+	char msg_buf[2048];	/* Buffer for status-messages       */
+	char *msg_buf_write;	/* Writepointer for statusbuffer    */
+	char *msg_buf_read;	/* Readpointer for statusbuffer     */
+	char *msg_buf_end;	/* Pointer to end of statusbuffer   */
+	int sndcount[ICN_BCH];	/* Byte-counters for B-Ch.-send     */
+	pqueue *spqueue[ICN_BCH];	/* Pointers to start of Send-Queue  */
 #ifdef DEBUG_RCVCALLBACK
-  int              akt_pending[ICN_BCH];
-  int              max_pending[ICN_BCH];
+	int akt_pending[ICN_BCH];
+	int max_pending[ICN_BCH];
 #endif
 } icn_dev;
 
 typedef icn_dev *icn_devptr;
 
 #ifdef __KERNEL__
-static icn_dev *dev  = (icn_dev *)0;
-static icn_dev *dev2 = (icn_dev *)0;
+static icn_dev *dev = (icn_dev *) 0;
+static icn_dev *dev2 = (icn_dev *) 0;
 
 /* With modutils >= 1.1.67 Integers can be changed while loading a
  * module. For this reason define the Port-Base an Shmem-Base as
  * integers.
  */
-static int   portbase = ICN_BASEADDR;
-static int   membase  = ICN_MEMADDR;
-static char* id       = "\0";
-static char* id2      = "\0";
+int portbase = ICN_BASEADDR;
+int membase = ICN_MEMADDR;
+char *icn_id = "\0";
+char *icn_id2 = "\0";
+static char regname[35];	/* Name used for port/mem-registration */
 
-#endif /* __KERNEL__ */
+#endif				/* __KERNEL__ */
 
 /* Utility-Macros */
 
@@ -284,24 +286,13 @@ static char* id2      = "\0";
 #define MIN(a,b) ((a<b)?a:b)
 #define MAX(a,b) ((a>b)?a:b)
 
-#endif /* defined(__KERNEL__) || defined(__DEBUGVAR__) */
-#endif /* icn_h */
+/* Hopefully, a separate resource-registration-scheme for shared-memory
+ * will be introduced into the kernel. Until then, we use the normal
+ * routines, designed for port-registration.
+ */
+#define check_shmem   check_region
+#define release_shmem release_region
+#define request_shmem request_region
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+#endif				/* defined(__KERNEL__) || defined(__DEBUGVAR__) */
+#endif				/* icn_h */

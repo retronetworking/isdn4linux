@@ -1,26 +1,27 @@
-/* $Id$
-
+/* $Id icn.c,v 1.15 1996/01/10 20:57:39 fritz Exp fritz $
+ *
  * ISDN low-level module for the ICN active ISDN-Card.
  *
- * Copyright 1994 by Fritz Elfert (fritz@wuemaus.franken.de)
- * Copyright 1995 Thinking Objects Software GmbH Wuerzburg
+ * Copyright 1994,95,96 by Fritz Elfert (fritz@wuemaus.franken.de)
  *
- * This file is part of Isdn4Linux.
- * 
- * Isdn4Linux is distributed with NO WARRANTY OF ANY KIND.  No author
- * or distributor accepts any responsibility for the consequences of using it,
- * or for whether it serves any particular purpose or works at all, unless he
- * or she says so in writing.  Refer to the Isdn4Linux Free Public
- * License (the "License") for full details.
- * 
- * Every copy of Isdn4Linux must include a copy of the License,
- * normally in a plain ASCII text file named LICENSE.  The License grants you
- * the right to copy, modify and redistribute Isdn4Linux, but only
- * under certain conditions described in the License.  Among other things, the
- * License requires that the copyright notice and this notice be preserved on
- * all copies.
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 2, or (at your option)
+ * any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.15  1996/01/10 20:57:39  fritz
+ * Bugfix: Loading firmware twice caused the device stop working.
+ *
  * Revision 1.14  1995/12/18  18:23:37  fritz
  * Support for ICN-2B Cards.
  * Change for supporting user-setable service-octet.
@@ -587,6 +588,7 @@ static void icn_pollit(icn_dev * dev)
 				} else {
 					p = dev->imsg;
 					if (!strncmp(p, "DRV1.", 5)) {
+                                                printk(KERN_INFO "icn: %s\n",p);
 						if (!strncmp(p + 7, "TC", 2)) {
 							dev->ptype = ISDN_PTYPE_1TR6;
 							dev->interface.features |= ISDN_FEATURE_P_1TR6;
@@ -1325,12 +1327,14 @@ static int if_readstatus2(u_char * buf, int len, int user)
 	return (icn_readstatus(buf, len, user, dev2));
 }
 
-static int if_sendbuf1(int channel, const u_char * buffer, int len, int user)
+static int if_sendbuf1(int id, int channel, const u_char * buffer, int len,
+		       int user)
 {
 	return (icn_sendbuf(channel, buffer, len, user, dev));
 }
 
-static int if_sendbuf2(int channel, const u_char * buffer, int len, int user)
+static int if_sendbuf2(int id, int channel, const u_char * buffer, int len,
+		       int user)
 {
 	return (icn_sendbuf(channel, buffer, len, user, dev2));
 }
@@ -1350,11 +1354,11 @@ void icn_setup(char *str, int *ints)
 		membase  = ints[2];
 	if (strlen(str)) {
 		strcpy(sid,str);
-		id = sid;
+		icn_id = sid;
 		if ((p = strchr(sid,','))) {
 			*p++ = 0;
 			strcpy(sid2,p);
-			id2 = sid2;
+			icn_id2 = sid2;
 		}
 	}
 }
@@ -1376,7 +1380,7 @@ int icn_init(void)
 	memset((char *) dev, 0, sizeof(icn_dev));
 	dev->port = portbase;
 	dev->shmem = (icn_shmem *) (membase & 0x0ffc000);
-	if (strlen(id2))
+	if (strlen(icn_id2))
 		dev->doubleS0 = 1;
 	dev->interface.channels = ICN_BCH;
 	dev->interface.maxbufsize = 4000;
@@ -1385,18 +1389,16 @@ int icn_init(void)
 	dev->interface.writecmd = if_writecmd1;
 	dev->interface.readstat = if_readstatus1;
 	dev->interface.features = ISDN_FEATURE_L2_X75I |
-#ifdef HDLC_FIRMWARE
-	    ISDN_FEATURE_L2_HDLC |
-#endif
-	    ISDN_FEATURE_L3_TRANS |
-	    ISDN_FEATURE_P_UNKNOWN;
+                ISDN_FEATURE_L2_HDLC |
+                ISDN_FEATURE_L3_TRANS |
+                ISDN_FEATURE_P_UNKNOWN;
 	dev->ptype = ISDN_PTYPE_UNKNOWN;
-	strncpy(dev->interface.id, id, sizeof(dev->interface.id) - 1);
+	strncpy(dev->interface.id, icn_id, sizeof(dev->interface.id) - 1);
 	dev->msg_buf_write = dev->msg_buf;
 	dev->msg_buf_read = dev->msg_buf;
 	dev->msg_buf_end = &dev->msg_buf[sizeof(dev->msg_buf) - 1];
 	memset((char *) dev->l2_proto, ISDN_PROTO_L2_X75I, sizeof(dev->l2_proto));
-	if (strlen(id2)) {
+	if (strlen(icn_id2)) {
 		if (!(dev2 = (icn_devptr) kmalloc(sizeof(icn_dev), GFP_KERNEL))) {
 			printk(KERN_WARNING "icn: Could not allocate device-struct.\n");
 			kfree(dev);
@@ -1408,7 +1410,8 @@ int icn_init(void)
 		dev2->interface.writebuf = if_sendbuf2;
 		dev2->interface.writecmd = if_writecmd2;
 		dev2->interface.readstat = if_readstatus2;
-		strncpy(dev2->interface.id, id2, sizeof(dev->interface.id) - 1);
+		strncpy(dev2->interface.id, icn_id2,
+                        sizeof(dev->interface.id) - 1);
 		dev2->msg_buf_write = dev2->msg_buf;
 		dev2->msg_buf_read = dev2->msg_buf;
 		dev2->msg_buf_end = &dev2->msg_buf[sizeof(dev2->msg_buf) - 1];
@@ -1438,6 +1441,10 @@ int icn_init(void)
 		}
 		dev2->myid = dev2->interface.channels;
 	}
+	
+	/* No symbols to export, hide all symbols */
+	register_symtab(NULL);
+
 	if ((p = strchr(revision, ':'))) {
 		strcpy(rev, p + 1);
 		p = strchr(rev, '$');
