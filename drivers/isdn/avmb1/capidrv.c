@@ -6,6 +6,9 @@
  * Copyright 1997 by Carsten Paeth (calle@calle.in-berlin.de)
  *
  * $Log$
+ * Revision 1.9  1998/01/31 11:14:45  calle
+ * merged changes to 2.0 tree, prepare 2.1.82 to work.
+ *
  * Revision 1.8  1997/11/04 06:12:09  calle
  * capi.c: new read/write in file_ops since 2.1.60
  * capidrv.c: prepared isdnlog interface for d2-trace in newer firmware.
@@ -202,9 +205,8 @@ static inline __u32 b2prot(int l2, int l3)
 	default:
 		return 0;
 	case ISDN_PROTO_L2_HDLC:
-		return 1;
 	case ISDN_PROTO_L2_TRANS:
-		return 0;
+		return 1;
 	}
 }
 
