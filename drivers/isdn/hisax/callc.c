@@ -7,6 +7,9 @@
  *              Fritz Elfert
  *
  * $Log$
+ * Revision 1.27  1997/04/16 14:21:01  keil
+ * remove unused variable
+ *
  * Revision 1.26  1997/04/13 19:55:21  keil
  * Changes in debugging code
  *
@@ -1584,10 +1587,6 @@ lldata_handler(struct PStack *st, int pr, void *arg)
 
 	switch (pr) {
 		case (DL_DATA):
-			if ((chanp->debug & 1) && skb) {
-				sprintf(tmp, "lldata: %ld bytes", skb->len);
-				link_debug(chanp, tmp, 1);
-			}
 			if (chanp->data_open)
 				chanp->sp->iif.rcvcallb_skb(chanp->sp->myid, chanp->chan, skb);
 			else {
