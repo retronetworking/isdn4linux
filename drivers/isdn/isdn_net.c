@@ -21,6 +21,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.19  1996/08/12 16:24:32  hipp
+ * removed some (now) obsolete functions for syncPPP in rebuild_header etc.
+ *
  * Revision 1.18  1996/07/03 13:48:51  hipp
  * bugfix: Call dev_purge_queues() only for master device
  *
@@ -837,7 +840,7 @@ isdn_net_start_xmit(struct sk_buff *skb, struct device *ndev)
 	isdn_net_local *lp = (isdn_net_local *) ndev->priv;
 
 	if (ndev->tbusy) {
-		if (jiffies - ndev->trans_start < 20)
+		if (jiffies - ndev->trans_start < (2 * HZ))
 			return 1;
                 if (!lp->dialstate)
                         lp->stats.tx_errors++;
@@ -2406,8 +2409,7 @@ void dev_purge_queues(struct device *dev)
 	for(i=0;i<DEV_NUMBUFFS;i++) {
 		struct sk_buff *skb;
 		while((skb=skb_dequeue(&dev->buffs[i])))
-			if(skb->free)
-				kfree_skb(skb,FREE_WRITE);
+				dev_kfree_skb(skb,FREE_WRITE);
         }
 	
 }
