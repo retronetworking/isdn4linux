@@ -948,27 +948,26 @@ HiSax_inithardware(int *busy_flag))
 }
 
 void
-HiSax_closehardware(void)
+HiSax_closecard(int cardnr)
 {
-	int i;
-	long flags;
-
-	save_flags(flags);
-	cli();
-	for (i = 0; i < nrcards; i++)
-		if (cards[i].cs) {
-			ll_stop(cards[i].cs);
-			release_tei(cards[i].cs);
-			closecard(i);
-			free_irq(cards[i].cs->irq, cards[i].cs);
-			kfree((void *) cards[i].cs);
-			cards[i].cs = NULL;
-		}
-	Isdnl1Free();
-	TeiFree();
-	Isdnl2Free();
-	CallcFree();
-	restore_flags(flags);
+	int 	i,last=nrcards - 1;
+	
+	if (cardnr>last)
+		return;
+	if (cards[cardnr].cs) {
+		ll_stop(cards[cardnr].cs);
+		release_tei(cards[cardnr].cs);
+		closecard(cardnr);
+		free_irq(cards[cardnr].cs->irq, cards[cardnr].cs);
+		kfree((void *) cards[cardnr].cs);
+		cards[cardnr].cs = NULL;
+	}
+	i = cardnr;
+	while (i!=last) {
+		cards[i] = cards[i+1];
+		i++;
+	}
+	nrcards--;
 }
 
 void
@@ -1325,11 +1324,11 @@ dch_manl1(struct PStack *st, int pr,
 			}
 			break;
 		case PH_TESTLOOP_REQ:
-			if (1 & (long) arg)
+			if (1 & (int) arg)
 				debugl1(cs, "PH_TEST_LOOP B1");
-			if (2 & (long) arg)
+			if (2 & (int) arg)
 				debugl1(cs, "PH_TEST_LOOP B2");
-			if (!(3 & (long) arg))
+			if (!(3 & (int) arg))
 				debugl1(cs, "PH_TEST_LOOP DISABLED");
 			cs->l1cmd(cs, PH_TESTLOOP_REQ, arg);
 			break;

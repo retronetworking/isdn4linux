@@ -5,6 +5,9 @@
  *
  *
  * $Log$
+ * Revision 2.12  1998/02/11 17:28:02  keil
+ * Niccy PnP/PCI support
+ *
  * Revision 2.11  1998/02/09 21:26:13  keil
  * fix export module for 2.1
  *
@@ -421,8 +424,8 @@ HiSax_init(void))
 	}
 #endif
 #endif
-	HiSaxVersion();
 	nrcards = 0;
+	HiSaxVersion();
 #ifdef MODULE
 	if (id)			/* If id= string used */
 		HiSax_id = id;
@@ -526,7 +529,18 @@ HiSax_init(void))
 void
 cleanup_module(void)
 {
-	HiSax_closehardware();
+	int cardnr = nrcards -1;
+	long flags;
+
+	save_flags(flags);
+	cli();
+	while(cardnr>=0)
+		HiSax_closecard(cardnr--);
+	Isdnl1Free();
+	TeiFree();
+	Isdnl2Free();
+	CallcFree();
+	restore_flags(flags);
 	printk(KERN_INFO "HiSax module removed\n");
 }
 

@@ -202,14 +202,14 @@
  */
 
 struct Fsm {
-	long *jumpmatrix;
-	long state_count, event_count;
+	int *jumpmatrix;
+	int state_count, event_count;
 	char **strEvent, **strState;
 };
 
 struct FsmInst {
 	struct Fsm *fsm;
-	long state;
+	int state;
 	int debug;
 	void *userdata;
 	int userint;
@@ -217,7 +217,7 @@ struct FsmInst {
 };
 
 struct FsmNode {
-	long state, event;
+	int state, event;
 	void (*routine) (struct FsmInst *, int, void *);
 };
 
@@ -419,6 +419,7 @@ struct amd7930_hw {
 #define L1_MODE_NULL	0
 #define L1_MODE_TRANS	1
 #define L1_MODE_HDLC	2
+#define L1_MODE_MODEM	7
 
 struct BCState {
 	int channel;
@@ -904,7 +905,7 @@ struct IsdnCard {
 
 void setstack_isdnl2(struct PStack *st, char *debug_id);
 int HiSax_inithardware(int *);
-void HiSax_closehardware(void);
+void HiSax_closecard(int cardnr);
 
 void setstack_HiSax(struct PStack *st, struct IsdnCardState *cs);
 unsigned int random_ri(void);
