@@ -19,6 +19,13 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.26  1996/06/24 17:20:35  fritz
+ * Bugfixes in pollbchan_send():
+ *   - Using lock field of skbuff breaks networking.
+ *   - Added channel locking
+ *   - changed dequeuing scheme.
+ * Eliminated misc. compiler warnings.
+ *
  * Revision 1.25  1996/06/11 22:53:35  tsbogend
  * fixed problem with large array on stack
  * made the driver working on Linux/alpha
@@ -1450,7 +1457,7 @@ static int if_sendbuf(int id, int channel, struct sk_buff *skb)
                 return (icn_sendbuf(channel, skb, card));
         }
         printk(KERN_ERR
-               "icn: if_readstatus called with invalid driverId!\n");
+               "icn: if_sendbuf called with invalid driverId!\n");
         return -ENODEV;
 }
 
