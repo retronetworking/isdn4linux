@@ -1,4 +1,3 @@
-
 /* $Id$
 
  * Linux ISDN subsystem, abc-extension releated funktions.
@@ -23,6 +22,11 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ *
+ * Revision 1.16  2000/02/06 21:49:59  detabc
+ * add rewriting of socket's and frame's saddr for udp-ipv4 dynip-connections.
+ * Include checksum-recompute of ip- and udp-header's.
+ *
  * Revision 1.15  2000/02/05 22:11:33  detabc
  * Add rewriting of socket's and frame's saddr adressfield for
  * dynip-connections.  Only for tcp/ipv4 and switchable per interface.
@@ -1126,11 +1130,8 @@ static void isdn_tcp_keepalive_done(void)
 }
 #endif
 
-#if CONFIG_ISDN_WITH_ABC_IPV4_DYNADDR
-#endif
-
 #if CONFIG_ISDN_WITH_ABC_IPV4_TCP_KEEPALIVE || CONFIG_ISDN_WITH_ABC_IPV4_DYNADDR
-int isdn_dw_abc_ip4_keepalive_test(struct net_device *ndev,struct sk_buff *skb)
+struct sk_buff *isdn_dw_abc_ip4_keepalive_test(struct net_device *ndev,struct sk_buff *skb)
 {
 	int rklen;
 	struct iphdr *ip;
@@ -1138,12 +1139,12 @@ int isdn_dw_abc_ip4_keepalive_test(struct net_device *ndev,struct sk_buff *skb)
 
 	if(ndev == NULL) {
 #ifndef CONFIG_ISDN_WITH_ABC_IPV4_TCP_KEEPALIVE
-		return(0);
+		return(skb);
 #endif
 	} else lp = (isdn_net_local *)ndev->priv;
 
 	if (skb == NULL)
-		return (0);
+		return(skb);
 
 	if(ntohs(skb->protocol) != ETH_P_IP) {
 
@@ -1151,8 +1152,7 @@ int isdn_dw_abc_ip4_keepalive_test(struct net_device *ndev,struct sk_buff *skb)
 		if(VERBLEVEL)
 			printk(KERN_WARNING "ip_isdn_keepalive: protocol != ETH_P_IP\n");
 #endif
-
-		return(0);
+		return(skb);
 	}
 
 	rklen = skb->len;
@@ -1170,7 +1170,7 @@ int isdn_dw_abc_ip4_keepalive_test(struct net_device *ndev,struct sk_buff *skb)
 			printk(KERN_WARNING "ip_isdn_keepalive: len %d < iphdr\n",
 			rklen);
 #endif
-		return (0);
+		return (skb);
 	}
 
 	rklen -= sizeof(struct iphdr);
@@ -1182,7 +1182,7 @@ int isdn_dw_abc_ip4_keepalive_test(struct net_device *ndev,struct sk_buff *skb)
 				"ip_isdn_keepalive: ipversion %d != 4\n",
 				ip->version);
 #endif
-		return(0);
+		return(skb);
 	}
 
 #ifdef CONFIG_ISDN_WITH_ABC_IPV4_DYNADDR
@@ -1214,29 +1214,30 @@ int isdn_dw_abc_ip4_keepalive_test(struct net_device *ndev,struct sk_buff *skb)
 				struct udphdr *udp;
 				char *drpmsg = "isdn_dynaddr drop";
 				char isudp = ip->protocol == IPPROTO_UDP;
+				struct sk_buff *newskb = NULL;
 
 				if(isudp) {
 #ifndef CONFIG_ISDN_WITH_ABC_IPV4_RWUDP_SOCKADDR 
 					isdn_net_log_skb_dwabc(skb,lp,drpmsg);
-					return(1);
+					return(NULL);
 #else
 					if(!(lp->dw_abc_flags & ISDN_DW_ABC_FLAG_RWUDP_SOCKADDR) ||
 						(rklen < sizeof(*udp))) {
 
 						isdn_net_log_skb_dwabc(skb,lp,drpmsg);
-						return(1);
+						return(NULL);
 					}
 #endif
 				} else {
 #ifndef CONFIG_ISDN_WITH_ABC_IPV4_RW_SOCKADDR
 					isdn_net_log_skb_dwabc(skb,lp,drpmsg);
-					return(1);
+					return(NULL);
 #else
 					if(!(lp->dw_abc_flags & ISDN_DW_ABC_FLAG_RW_SOCKADDR) ||
 						(rklen < sizeof(*tcp))) {
 
 						isdn_net_log_skb_dwabc(skb,lp,drpmsg);
-						return(1);
+						return(NULL);
 					}
 #endif
 				}
@@ -1247,7 +1248,7 @@ int isdn_dw_abc_ip4_keepalive_test(struct net_device *ndev,struct sk_buff *skb)
 					sk->prot->hash == NULL			) {
 
 					isdn_net_log_skb_dwabc(skb,lp,drpmsg);
-					return(1);
+					return(NULL);
 				} 
 
 				if(sk->saddr != ipaddr && sk->saddr != 0) {
@@ -1277,54 +1278,70 @@ int isdn_dw_abc_ip4_keepalive_test(struct net_device *ndev,struct sk_buff *skb)
 					restore_flags(flags);
 				} 
 
-				tcp = (struct tcphdr *) (((u_char *) ip) + (ip->ihl << 2));
-				udp = (struct udphdr *)tcp;
-				
-				if(dev->net_verbose > 1) {
+				if((newskb = skb_copy(skb,GFP_ATOMIC)) == NULL) {
 
 					printk(KERN_DEBUG 
-						"%s rewriting %s-frame->saddr %s->%s:%hu->%s:%hu\n",
-						lp->name,
-						(isudp) ? "UDP" : "TCP",
-						ipnr2buf(ip->saddr),
-						ipnr2buf(ipaddr),
-						(isudp) ? ntohs(udp->source) : ntohs(tcp->source),
-						ipnr2buf(ip->daddr),
-						(isudp) ? ntohs(udp->source) : ntohs(tcp->dest));
-				}
+						"%s dynaddr-rewrite-frame skb_copy failed\n",
+						lp->name);
 
-				{
-					struct PSH XXSTORE;
-					struct PSH *psh;
-					u_char p = ip->protocol;
-					ushort l = ntohs(ip->tot_len) - (ip->ihl << 2);
-					ulong da = ip->daddr;
+				} else {
 
-					psh = (struct PSH *) (((u_char *) tcp) - sizeof(*psh));
-					memcpy(&XXSTORE,psh,sizeof(*psh));
-					memset(psh,0,sizeof(*psh));
-					psh->daddr = da;
-					psh->saddr = ipaddr;
-					psh->zp[1] = p;
-					psh->len = htons(l);
+					skb = newskb;
+					ip = (struct iphdr *)skb->data;
 
-					if(isudp) {
-						udp->check = 0;
-						udp->check = ip_compute_csum((void *) psh,l+sizeof(*psh));
-					} else {
-						tcp->check = 0;
-						tcp->check = ip_compute_csum((void *) psh,l+sizeof(*psh));
+					if (skb->nh.raw > skb->data && skb->nh.raw < skb->tail) 
+						ip = (struct iphdr *)skb->nh.raw;
+
+					tcp = (struct tcphdr *) (((u_char *) ip) + (ip->ihl << 2));
+					udp = (struct udphdr *)tcp;
+					
+					if(dev->net_verbose > 1) {
+
+						printk(KERN_DEBUG 
+							"%s rewriting %s-frame->saddr %s->%s:%hu->%s:%hu\n",
+							lp->name,
+							(isudp) ? "UDP" : "TCP",
+							ipnr2buf(ip->saddr),
+							ipnr2buf(ipaddr),
+							(isudp) ? ntohs(udp->source) : ntohs(tcp->source),
+							ipnr2buf(ip->daddr),
+							(isudp) ? ntohs(udp->source) : ntohs(tcp->dest));
 					}
 
-					memcpy(psh,&XXSTORE,sizeof(*psh));
-				}
+					{
+						struct PSH XXSTORE;
+						struct PSH *psh;
+						u_char p = ip->protocol;
+						ushort l = ntohs(ip->tot_len) - (ip->ihl << 2);
+						ulong da = ip->daddr;
 
-				ip->check = 0;
-				ip->saddr = ipaddr;
-				ip->check = ip_fast_csum((unsigned char *)ip,ip->ihl);
+						psh = (struct PSH *) (((u_char *) tcp) - sizeof(*psh));
+						memcpy(&XXSTORE,psh,sizeof(*psh));
+						memset(psh,0,sizeof(*psh));
+						psh->daddr = da;
+						psh->saddr = ipaddr;
+						psh->zp[1] = p;
+						psh->len = htons(l);
+
+						if(isudp) {
+							udp->check = 0;
+							udp->check = ip_compute_csum((void *) psh,l+sizeof(*psh));
+						} else {
+							tcp->check = 0;
+							tcp->check = ip_compute_csum((void *) psh,l+sizeof(*psh));
+						}
+
+						memcpy(psh,&XXSTORE,sizeof(*psh));
+					}
+
+					ip->check = 0;
+					ip->saddr = ipaddr;
+					ip->check = ip_fast_csum((unsigned char *)ip,ip->ihl);
+					return(skb);
+				}
 #else
 				isdn_net_log_skb_dwabc(skb,lp,"isdn_dynaddr drop");
-				return(1);
+				return(NULL);
 #endif
 			}
 		}
@@ -1332,15 +1349,15 @@ int isdn_dw_abc_ip4_keepalive_test(struct net_device *ndev,struct sk_buff *skb)
 #endif
 
 #ifdef CONFIG_ISDN_WITH_ABC_IPV4_TCP_KEEPALIVE
-	if(lp != NULL && (lp->dw_abc_flags & ISDN_DW_ABC_FLAG_NO_TCP_KEEPALIVE))
-		return(0);
+	if(lp != NULL && (lp->dw_abc_flags & ISDN_DW_ABC_FLAG_NO_TCP_KEEPALIVE)) 
+		return(skb);
 
 	if (rklen < sizeof(struct tcphdr)) {
 #ifdef KEEPALIVE_VERBOSE
 			if(VERBLEVEL)
 				printk(KERN_WARNING "ip_isdn_keepalive: len %d < \n",skb->len);
 #endif
-		return (0);
+		return (skb);
 	}
 
 	if(ip->protocol != IPPROTO_TCP) {
@@ -1350,7 +1367,7 @@ int isdn_dw_abc_ip4_keepalive_test(struct net_device *ndev,struct sk_buff *skb)
 				"ip_isdn_keepalive: ip->proto %d != IPPROTO_TCP\n",
 				ip->protocol);
 #endif
-		return(0);
+		return(skb);
 	}
 
 	if(deadloop) {
@@ -1360,7 +1377,7 @@ int isdn_dw_abc_ip4_keepalive_test(struct net_device *ndev,struct sk_buff *skb)
 			deadloop++;
 		}
 
-		return(0);
+		return(skb);
 	}
 
 	{
@@ -1368,10 +1385,11 @@ int isdn_dw_abc_ip4_keepalive_test(struct net_device *ndev,struct sk_buff *skb)
 		TKAL_LOCK;
 		retw = isdn_tcpipv4_test(ndev,ip,skb);
 		TKAL_ULOCK;
-		return(retw);
+
+		return(retw ? NULL : skb);
 	}
 #else
-	return(0);
+	return(skb);
 #endif
 }
 #endif

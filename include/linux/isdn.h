@@ -21,6 +21,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.94  2000/02/26 00:29:40  keil
+ * more softnet changes
+ *
  * Revision 1.93  2000/02/25 11:29:17  paul
  * changed chargetime to ulong from int (after about 20 days the "chargetime of
  * ipppX is now 1234" message displays a negative number on alpha).
@@ -1135,7 +1138,7 @@ extern void isdn_dw_abc_free_lch_with_pch(int,int);
 extern int dw_abc_udp_test(struct sk_buff *skb,struct net_device *ndev); 
 #endif
 #if CONFIG_ISDN_WITH_ABC_IPV4_TCP_KEEPALIVE || CONFIG_ISDN_WITH_ABC_IPV4_DYNADDR
-int isdn_dw_abc_ip4_keepalive_test(struct net_device *ndev,struct sk_buff *skb);
+struct sk_buff *isdn_dw_abc_ip4_keepalive_test(struct net_device *ndev,struct sk_buff *skb);
 #endif
 #ifdef CONFIG_ISDN_WITH_ABC_ICALL_BIND 
 extern int isdn_dwabc_check_icall_bind(isdn_net_local *,int,int);
