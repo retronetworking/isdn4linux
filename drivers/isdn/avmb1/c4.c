@@ -1,11 +1,14 @@
 /*
  * $Id$
  * 
- * Module for AVM C4 card.
+ * Module for AVM C4 & C2 card.
  * 
  * (c) Copyright 1999 by Carsten Paeth (calle@calle.in-berlin.de)
  * 
  * $Log$
+ * Revision 1.32  2001/04/18 12:26:15  calle
+ * support for AVM ISDN Controller C2 added.
+ *
  * Revision 1.31  2001/03/20 13:14:50  calle
  * - the revision strings in 2.4.3-pre4 get to long, changed handling
  *   to support revision strings > 9 ...
@@ -648,7 +651,7 @@ static void c4_handle_rx(avmcard *card)
 		MsgLen = _get_slice(&p, card->msgbuf);
 		DataB3Len = _get_slice(&p, card->databuf);
 		cidx = CAPIMSG_CONTROLLER(card->msgbuf)-card->cardnr;
-		if (cidx > 3) cidx = 0;
+		if (cidx >= card->nlogcontr) cidx = 0;
 		ctrl = card->ctrlinfo[cidx].capi_ctrl;
 
 		if (MsgLen < 30) { /* not CAPI 64Bit */
@@ -671,7 +674,7 @@ static void c4_handle_rx(avmcard *card)
 		ApplId = (unsigned) _get_word(&p);
 		MsgLen = _get_slice(&p, card->msgbuf);
 		cidx = CAPIMSG_CONTROLLER(card->msgbuf)-card->cardnr;
-		if (cidx > 3) cidx = 0;
+		if (cidx >= card->nlogcontr) cidx = 0;
 		ctrl = card->ctrlinfo[cidx].capi_ctrl;
 
 		if (!(skb = alloc_skb(MsgLen, GFP_ATOMIC))) {
@@ -689,7 +692,7 @@ static void c4_handle_rx(avmcard *card)
 		NCCI = _get_word(&p);
 		WindowSize = _get_word(&p);
 		cidx = (NCCI&0x7f) - card->cardnr;
-		if (cidx > 3) cidx = 0;
+		if (cidx >= card->nlogcontr) cidx = 0;
 		ctrl = card->ctrlinfo[cidx].capi_ctrl;
 
 		ctrl->new_ncci(ctrl, ApplId, NCCI, WindowSize);
@@ -703,13 +706,15 @@ static void c4_handle_rx(avmcard *card)
 
 		if (NCCI != 0xffffffff) {
 			cidx = (NCCI&0x7f) - card->cardnr;
-			if (cidx > 3) cidx = 0;
+			if (cidx >= card->nlogcontr) cidx = 0;
 			ctrl = card->ctrlinfo[cidx].capi_ctrl;
-			ctrl->free_ncci(ctrl, ApplId, NCCI);
+			if (ctrl)
+				ctrl->free_ncci(ctrl, ApplId, NCCI);
 		} else {
 			for (cidx=0; cidx < 4; cidx++) {
 				ctrl = card->ctrlinfo[cidx].capi_ctrl;
-				ctrl->appl_released(ctrl, ApplId);
+				if (ctrl)
+					ctrl->appl_released(ctrl, ApplId);
 			}
 		}
 		break;
@@ -722,20 +727,28 @@ static void c4_handle_rx(avmcard *card)
 			queue_pollack(card);
 		for (cidx=0; cidx < 4; cidx++) {
 			ctrl = card->ctrlinfo[cidx].capi_ctrl;
-			ctrl->resume_output(ctrl);
+			if (ctrl)
+				ctrl->resume_output(ctrl);
 		}
 		break;
 
 	case RECEIVE_STOP:
 		for (cidx=0; cidx < 4; cidx++) {
 			ctrl = card->ctrlinfo[cidx].capi_ctrl;
-			ctrl->suspend_output(ctrl);
+			if (ctrl)
+				ctrl->suspend_output(ctrl);
 		}
 		break;
 
 	case RECEIVE_INIT:
 
-	        cidx = card->nlogcontr++;
+	        cidx = card->nlogcontr;
+		if (cidx >= 4 || !card->ctrlinfo[cidx].capi_ctrl) {
+			printk(KERN_ERR "%s: card with %d controllers ??\n",
+					card->name, cidx+1);
+			break;
+		}
+	        card->nlogcontr++;
 	        cinfo = &card->ctrlinfo[cidx];
 		ctrl = cinfo->capi_ctrl;
 		cinfo->versionlen = _get_slice(&p, cinfo->versionbuf);
@@ -1179,6 +1192,7 @@ static int c4_read_proc(char *page, char **start, off_t off,
 	case avm_t1isa: s = "T1 ISA (HEMA)"; break;
 	case avm_t1pci: s = "T1 PCI"; break;
 	case avm_c4: s = "C4"; break;
+	case avm_c2: s = "C2"; break;
 	default: s = "???"; break;
 	}
 	len += sprintf(page+len, "%-16s %s\n", "type", s);
@@ -1226,7 +1240,9 @@ static int c4_read_proc(char *page, char **start, off_t off,
 
 /* ------------------------------------------------------------- */
 
-static int c4_add_card(struct capi_driver *driver, struct capicardparams *p)
+static int c4_add_card(struct capi_driver *driver,
+		       struct capicardparams *p,
+		       int nr)
 {
 	avmctrl_info *cinfo;
 	avmcard *card;
@@ -1265,11 +1281,11 @@ static int c4_add_card(struct capi_driver *driver, struct capicardparams *p)
 		cinfo = &card->ctrlinfo[i];
 		cinfo->card = card;
 	}
-	sprintf(card->name, "c4-%x", p->port);
+	sprintf(card->name, "%s-%x", driver->name, p->port);
 	card->port = p->port;
 	card->irq = p->irq;
 	card->membase = p->membase;
-	card->cardtype = avm_c4;
+	card->cardtype = nr == 4 ? avm_c4 : avm_c2;
 
 	if (check_region(card->port, AVMB1_PORTLEN)) {
 		printk(KERN_WARNING
@@ -1320,7 +1336,7 @@ static int c4_add_card(struct capi_driver *driver, struct capicardparams *p)
 		return -EBUSY;
 	}
 
-	for (i=0; i < 4; i++) {
+	for (i=0; i < nr ; i++) {
 		cinfo = &card->ctrlinfo[i];
 		cinfo->card = card;
 		cinfo->capi_ctrl = di->attach_ctr(driver, card->name, cinfo);
@@ -1347,8 +1363,8 @@ static int c4_add_card(struct capi_driver *driver, struct capicardparams *p)
 	skb_queue_head_init(&card->dma->send_queue);
 
 	printk(KERN_INFO
-		"%s: AVM C4 at i/o %#x, irq %d, mem %#lx\n",
-		driver->name, card->port, card->irq, card->membase);
+		"%s: AVM C%d at i/o %#x, irq %d, mem %#lx\n",
+		driver->name, nr, card->port, card->irq, card->membase);
 
 	return 0;
 }
@@ -1438,7 +1454,7 @@ static int __init search_cards(struct capi_driver * driver,
 		printk(KERN_INFO
 			"%s: PCI BIOS reports AVM-C%d at i/o %#x, irq %d, mem %#x\n",
 			driver->name, nr, param.port, param.irq, param.membase);
-		retval = c4_add_card(driver, &param);
+		retval = c4_add_card(driver, &param, nr);
 		if (retval != 0) {
 		        printk(KERN_ERR
 			"%s: no AVM-C%d at i/o %#x, irq %d detected, mem %#x\n",
@@ -1452,8 +1468,6 @@ static int __init search_cards(struct capi_driver * driver,
 
 static int __init c4_init(void)
 {
-	struct capi_driver *driver = &c4_driver;
-	struct pci_dev *dev = NULL;
 	int retval;
 
 	MOD_INC_USE_COUNT;
