@@ -4,8 +4,11 @@
  *
  * Author	Karsten Keil (keil@temic-ech.spacenet.de)
  *
- * 
+ *
  * $Log$
+ * Revision 1.1  1996/10/13 20:03:48  keil
+ * Initial revision
+ *
  *
 */
 

@@ -4,8 +4,11 @@
  *
  * Author	Karsten Keil (keil@temic-ech.spacenet.de)
  *
- * 
+ *
  * $Log$
+ * Revision 1.3  1996/12/08 19:48:34  keil
+ * adding Monitor channel registers
+ *
  * Revision 1.2  1996/10/27 22:24:00  keil
  * HSCX version code removed
  *

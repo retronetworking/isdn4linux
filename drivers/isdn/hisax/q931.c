@@ -1,19 +1,22 @@
 /* $Id$
  *
  * q931.c	code to decode ITU Q.931 call control messages
- * 
- * Author       Jan den Ouden
- * 
- * Changelog
- * 
- * Pauline Middelink    general improvements
- * 
- * Beat Doebeli         cause texts, display information element
- * 
- * Karsten Keil         cause texts, display information element for 1TR6 
  *
- * 
+ * Author       Jan den Ouden
+ *
+ * Changelog
+ *
+ * Pauline Middelink    general improvements
+ *
+ * Beat Doebeli         cause texts, display information element
+ *
+ * Karsten Keil         cause texts, display information element for 1TR6
+ *
+ *
  * $Log$
+ * Revision 1.2  1996/10/27 22:12:45  keil
+ * reporting unknown level 3 protocol ids
+ *
  * Revision 1.1  1996/10/13 20:04:56  keil
  * Initial revision
  *
@@ -255,7 +258,7 @@ int fac_1tr6_len = (sizeof(fac_1tr6) / sizeof(struct MessageType));
 
 
 
-static int 
+static int
 prbits(char *dest, byte b, int start, int len)
 {
 	char           *dp = dest;
@@ -577,7 +580,7 @@ struct MessageType cause_1tr6[] =
 int cause_1tr6_len = (sizeof(cause_1tr6) / sizeof(struct MessageType));
 
 static int
-prcause_1tr6(char *dest, byte * p) 
+prcause_1tr6(char *dest, byte * p)
 {
 	char           *dp = dest;
 	int i, cause;
@@ -751,7 +754,7 @@ prcharge(char *dest, byte * p) {
 		*dp++ = *p++;
 	*dp++ = '\n';
 	return (dp - dest);
-} 
+}
 static int
 prtext(char *dest, byte * p) {
 	char *dp = dest;
@@ -963,7 +966,7 @@ static struct InformationElement we_6[] =
 };
 static int we_6_len = (sizeof(we_6) / sizeof(struct InformationElement));
 
-int QuickHex(char *txt, byte *p, int cnt) 
+int QuickHex(char *txt, byte *p, int cnt)
 {
 	register int  i;
 	register char *t=txt;
@@ -994,7 +997,7 @@ LogFrame(struct IsdnCardState *sp, byte * buf, int size) {
 		dp--;
 		*dp++ = '\n';
 		*dp=0;
-	} else 
+	} else
 		sprintf(dp, "LogFrame: warning Frame too big (%d)\n",
 			size);
 	HiSax_putstatus(sp->dlogspace);
@@ -1004,6 +1007,7 @@ void
 dlogframe(struct IsdnCardState *sp, byte * buf, int size, char *comment) {
 	byte           *bend = buf + size;
 	char           *dp;
+	unsigned char   pd, cr_l, cr, mt;
 	int i, cs = 0, cs_old = 0, cs_fest = 0;
 
 	if (size<1) return;
@@ -1013,30 +1017,42 @@ dlogframe(struct IsdnCardState *sp, byte * buf, int size, char *comment) {
 
 	if ((0xfe & buf[0]) == PROTO_DIS_N0) {	/* 1TR6 */
 		/* locate message type */
-		if (buf[0] == PROTO_DIS_N0) {	/* N0 */
+		pd = *buf++;
+		cr_l = *buf++;
+		if (cr_l)
+			cr = *buf++;
+		else
+			cr = 0;
+		mt = *buf++;
+		if (pd == PROTO_DIS_N0) {	/* N0 */
 			for (i = 0; i < mt_n0_len; i++)
-				if (mt_n0[i].nr == buf[3])
+				if (mt_n0[i].nr == mt)
 					break;
-			/* display message type iff it exists */
+			/* display message type if it exists */
 			if (i == mt_n0_len)
-				dp += sprintf(dp, "Unknown message type N0 %x!\n", buf[3]);
+				dp += sprintf(dp, "callref %d %s size %d unknown message type N0 %x!\n",
+					cr & 0x7f, (cr & 0x80)?"called":"caller",
+					size, mt);
 			else
-				dp += sprintf(dp, "call reference %d size %d message type %s\n",
-					      buf[2], size, mt_n0[i].descr);
+				dp += sprintf(dp, "callref %d %s size %d message type %s\n",
+					cr & 0x7f, (cr & 0x80)?"called":"caller",
+					size, mt_n0[i].descr);
 		} else {	/* N1 */
 			for (i = 0; i < mt_n1_len; i++)
-				if (mt_n1[i].nr == buf[3])
+				if (mt_n1[i].nr == mt)
 					break;
-			/* display message type iff it exists */
+			/* display message type if it exists */
 			if (i == mt_n1_len)
-				dp += sprintf(dp, "Unknown message type N1 %x!\n", buf[3]);
+				dp += sprintf(dp, "callref %d %s size %d unknown message type N1 %x!\n",
+					cr & 0x7f, (cr & 0x80)?"called":"caller",
+					size, mt);
 			else
-				dp += sprintf(dp, "call reference %d size %d message type %s\n",
-					      buf[2], size, mt_n1[i].descr);
+				dp += sprintf(dp, "callref %d %s size %d message type %s\n",
+					cr & 0x7f, (cr & 0x80)?"called":"caller",
+					size, mt_n1[i].descr);
 		}
 
 		/* display each information element */
-		buf += 4;
 		while (buf < bend) {
 			/* Is it a single octet information element? */
 			if (*buf & 0x80) {
@@ -1102,19 +1118,28 @@ dlogframe(struct IsdnCardState *sp, byte * buf, int size, char *comment) {
 		}
 	} else if (buf[0] == 8) {	/* EURO */
 		/* locate message type */
+		buf++;
+		cr_l = *buf++;
+		if (cr_l)
+			cr = *buf++;
+		else
+			cr = 0;
+		mt = *buf++;
 		for (i = 0; i < MTSIZE; i++)
-			if (mtlist[i].nr == buf[3])
+			if (mtlist[i].nr == mt)
 				break;
 
-		/* display message type iff it exists */
+		/* display message type if it exists */
 		if (i == MTSIZE)
-			dp += sprintf(dp, "Unknown message type %x!\n", buf[3]);
+			dp += sprintf(dp, "callref %d %s size %d unknown message type %x!\n",
+				cr & 0x7f, (cr & 0x80)?"called":"caller",
+				size, mt);
 		else
-			dp += sprintf(dp, "call reference %d size %d message type %s\n",
-		buf[2], size, mtlist[i].descr);
+			dp += sprintf(dp, "callref %d %s size %d message type %s\n",
+				cr & 0x7f, (cr & 0x80)?"called":"caller",
+				size, mtlist[i].descr);
 
 		/* display each information element */
-		buf += 4;
 		while (buf < bend) {
 			/* Is it a single octet information element? */
 			if (*buf & 0x80) {

@@ -2,14 +2,17 @@
  *
  * teles0.c     low level stuff for Teles Memory IO isdn cards
  *              based on the teles driver from Jan den Ouden
- * 
+ *
  * Author	Karsten Keil (keil@temic-ech.spacenet.de)
  *
  * Thanks to	Jan den Ouden
- *	        Fritz Elfert	
+ *	        Fritz Elfert
  * 	        Beat Doebeli
- * 
+ *
  * $Log$
+ * Revision 1.4  1996/11/05 19:41:27  keil
+ * more changes for 2.1
+ *
  * Revision 1.3  1996/10/30 10:22:58  keil
  * Changes for 2.1 kernels
  *
@@ -69,7 +72,7 @@ read_fifo_isac(unsigned int adr, byte * data, int size)
 	for (i=0;i<size;i++)
 	    data[i] = readb(ad);
 }
-        
+
 static void
 write_fifo_isac(unsigned int adr, byte * data, int size)
 {
@@ -87,7 +90,7 @@ read_fifo_hscx(unsigned int adr, int hscx, byte * data, int size)
 	for (i=0;i<size;i++)
 	    data[i] =  readb(ad);
 }
-        
+
 static inline void
 write_fifo_hscx(unsigned int adr, int hscx, byte * data, int size)
 {
@@ -109,7 +112,7 @@ waitforCEC(int adr, int hscx)
 		printk(KERN_WARNING "Teles0: waitforCEC timeout\n");
 }
 
-    
+
 static inline void
 waitforXFW(int adr, int hscx)
 {
@@ -194,10 +197,10 @@ hscx_empty_fifo(struct HscxState *hsp, int count)
 	if (sp->debug & L1_DEB_HSCX_FIFO) {
 		char	tmp[128];
 		char	*t=tmp;
-		
+
 		t += sprintf(t,"hscx_empty_fifo %c cnt %d",
 			hsp->hscx?'B':'A',count);
-		QuickHex(t,ptr,count);        
+		QuickHex(t,ptr,count);
 		debugl1(sp, tmp);
 	}
 }
@@ -240,10 +243,10 @@ hscx_fill_fifo(struct HscxState *hsp)
 	if (sp->debug & L1_DEB_HSCX_FIFO) {
 		char	tmp[128];
 		char	*t=tmp;
-		
+
 		t += sprintf(t,"hscx_fill_fifo %c cnt %d",
 			hsp->hscx?'B':'A', count);
-		QuickHex(t,ptr,count);        
+		QuickHex(t,ptr,count);
 		debugl1(sp, tmp);
 	}
 }
@@ -266,7 +269,7 @@ hscx_interrupt(struct IsdnCardState *sp, byte val, byte hscx)
 			if (!r & 0x80)
 				if (sp->debug & L1_DEB_WARN)
 					debugl1(sp, "HSCX invalid frame");
-			if ((r & 0x40) && hsp->mode) 
+			if ((r & 0x40) && hsp->mode)
 				if (sp->debug & L1_DEB_WARN) {
 					sprintf(tmp, "HSCX RDO mode=%d",
 						hsp->mode);
@@ -309,7 +312,7 @@ hscx_interrupt(struct IsdnCardState *sp, byte val, byte hscx)
 			else
 				err=BufPoolGet(&hsp->rcvibh, &hsp->rbufpool,
 					GFP_ATOMIC, (void *)1, 2);
-			
+
 			if (err) {
 				if (sp->debug & L1_DEB_WARN)
                                        debugl1(sp, "HSCX RPF out of buffers");
@@ -318,7 +321,7 @@ hscx_interrupt(struct IsdnCardState *sp, byte val, byte hscx)
 			} else
 				hsp->rcvptr = 0;
 		}
-		
+
 		hscx_empty_fifo(hsp, 32);
                 if (hsp->mode == 1) {
                         /* receive audio data */
@@ -327,7 +330,7 @@ hscx_interrupt(struct IsdnCardState *sp, byte val, byte hscx)
                         hsp->rcvibh = NULL;
                         hscx_sched_event(hsp, HSCX_RCVBUFREADY);
                 }
-                
+
 	}
       afterRPF:
 	if (val & 0x10) {	/* XPR */
@@ -364,13 +367,13 @@ isac_empty_fifo(struct IsdnCardState *sp, int count)
 	long			flags;
 
 	if ((sp->debug & L1_DEB_ISAC) && !(sp->debug & L1_DEB_ISAC_FIFO))
-        	debugl1(sp, "isac_empty_fifo"); 
+        	debugl1(sp, "isac_empty_fifo");
 
 	if (sp->rcvptr >= 3072) {
 		if (sp->debug & L1_DEB_WARN) {
 			char		 tmp[40];
 			sprintf(tmp, "isac_empty_fifo rcvptr %d", sp->rcvptr);
-        		debugl1(sp, tmp); 
+        		debugl1(sp, tmp);
 		}
 		return;
 	}
@@ -386,9 +389,9 @@ isac_empty_fifo(struct IsdnCardState *sp, int count)
 	if (sp->debug & L1_DEB_ISAC_FIFO) {
 		char	tmp[128];
 		char	*t=tmp;
-		
+
 		t += sprintf(t,"isac_empty_fifo cnt %d", count);
-		QuickHex(t,ptr,count);        
+		QuickHex(t,ptr,count);
 		debugl1(sp, tmp);
 	}
 }
@@ -402,7 +405,7 @@ isac_fill_fifo(struct IsdnCardState *sp)
 	long			flags;
 
 	if ((sp->debug & L1_DEB_ISAC) && !(sp->debug & L1_DEB_ISAC_FIFO))
-        	debugl1(sp, "isac_fill_fifo"); 
+        	debugl1(sp, "isac_fill_fifo");
 
 	ibh = sp->xmtibh;
 	if (!ibh)
@@ -431,9 +434,9 @@ isac_fill_fifo(struct IsdnCardState *sp)
 	if (sp->debug & L1_DEB_ISAC_FIFO) {
 		char	tmp[128];
 		char	*t=tmp;
-		
+
 		t += sprintf(t,"isac_fill_fifo cnt %d", count);
-		QuickHex(t,ptr,count);        
+		QuickHex(t,ptr,count);
 		debugl1(sp, tmp);
 	}
 }
@@ -445,7 +448,7 @@ ph_command(struct IsdnCardState *sp, unsigned int command)
 		char	tmp[32];
 		sprintf(tmp, "ph_command %d", command);
         	debugl1(sp, tmp);
-        } 
+        }
 	writeisac(sp->membase, ISAC_CIX0, (command << 2) | 3);
 }
 
@@ -453,11 +456,11 @@ static inline void
 isac_interrupt(struct IsdnCardState *sp, byte val) {
 	byte		exval;
 	unsigned int    count;
-	char		tmp[32];    
+	char		tmp[32];
 
 	if (sp->debug & L1_DEB_ISAC) {
 		sprintf(tmp, "ISAC interrupt %x", val);
-        	debugl1(sp, tmp); 
+        	debugl1(sp, tmp);
         }
 	if (val & 0x80) {	/* RME */
 		exval = readisac(sp->membase, ISAC_RSTA);
@@ -530,7 +533,7 @@ isac_interrupt(struct IsdnCardState *sp, byte val) {
 	}
 	afterXPR:
 	if (val & 0x04) {	/* CISQ */
-		sp->ph_state = (readisac(sp->membase, ISAC_CIX0) >> 2) 
+		sp->ph_state = (readisac(sp->membase, ISAC_CIX0) >> 2)
 				& 0xf;
 		if (sp->debug & L1_DEB_ISAC) {
         		sprintf(tmp, "l1state %d", sp->ph_state);
@@ -544,7 +547,7 @@ isac_interrupt(struct IsdnCardState *sp, byte val) {
         		debugl1(sp, "ISAC SIN interrupt");
 	}
 	if (val & 0x01) {	/* EXI */
-		exval = readisac(sp->membase, ISAC_EXIR); 
+		exval = readisac(sp->membase, ISAC_EXIR);
 		if (sp->debug & L1_DEB_WARN) {
         		sprintf(tmp, "ISAC EXIR %02x", exval);
         		debugl1(sp, tmp);
@@ -559,8 +562,8 @@ hscx_int_main(struct IsdnCardState *sp, byte val) {
 	byte    		exval;
 	struct HscxState	*hsp;
 	char			tmp[32];
-	
-		
+
+
 	if (val & 0x01) {
 		hsp = sp->hs + 1;
         	exval = readhscx(sp->membase, 1, HSCX_EXIR);
@@ -575,19 +578,19 @@ hscx_int_main(struct IsdnCardState *sp, byte val) {
 				writehscxCMDR(sp->membase, hsp->hscx, 0x01);
 				if (sp->debug & L1_DEB_WARN) {
 					sprintf(tmp, "HSCX B EXIR %x Lost TX", exval);
-        				debugl1(sp, tmp); 
+        				debugl1(sp, tmp);
         			}
                         }
                 } else
 			if (sp->debug & L1_DEB_HSCX) {
 				sprintf(tmp, "HSCX B EXIR %x", exval);
-        			debugl1(sp, tmp); 
+        			debugl1(sp, tmp);
         		}
 	}
 	if (val & 0xf8) {
 		if (sp->debug & L1_DEB_HSCX) {
 			sprintf(tmp, "HSCX B interrupt %x", val);
-        		debugl1(sp, tmp); 
+        		debugl1(sp, tmp);
         	}
 		hscx_interrupt(sp, val, 1);
 	}
@@ -605,20 +608,20 @@ hscx_int_main(struct IsdnCardState *sp, byte val) {
 				writehscxCMDR(sp->membase, hsp->hscx,0x01);
 				if (sp->debug & L1_DEB_WARN) {
 					sprintf(tmp, "HSCX A EXIR %x Lost TX", exval);
-        				debugl1(sp, tmp); 
+        				debugl1(sp, tmp);
         			}
         		}
-		} else 
+		} else
 			if (sp->debug & L1_DEB_HSCX) {
 				sprintf(tmp, "HSCX A EXIR %x", exval);
-        			debugl1(sp, tmp); 
+        			debugl1(sp, tmp);
         		}
 	}
         if (val & 0x04) {
                 exval = readhscx(sp->membase, 0, HSCX_ISTA);
 		if (sp->debug & L1_DEB_HSCX) {
 			sprintf(tmp, "HSCX A interrupt %x", exval);
-        		debugl1(sp, tmp); 
+        		debugl1(sp, tmp);
         	}
         	hscx_interrupt(sp, exval, 0);
 	}
@@ -631,12 +634,12 @@ telesS0_interrupt(int intno, void *dev_id, struct pt_regs *regs)
 	byte                 val, stat=0;
 
 	sp = (struct IsdnCardState *) irq2dev_map[intno];
-	
+
 	if (!sp) {
 		printk(KERN_WARNING "Teles0: Spurious interrupt!\n");
 		return;
 	}
-	
+
 	val = readhscx(sp->membase, 1, HSCX_ISTA);
 	Start_HSCX:
 	if (val) {
@@ -645,21 +648,21 @@ telesS0_interrupt(int intno, void *dev_id, struct pt_regs *regs)
 	}
 	val = readisac(sp->membase, ISAC_ISTA);
 	Start_ISAC:
-	if (val) { 
+	if (val) {
 		isac_interrupt(sp,val);
 		stat |= 2;
 	}
 
 	val = readhscx(sp->membase, 1, HSCX_ISTA);
 	if (val) {
-		if (sp->debug & L1_DEB_HSCX) 
-        		debugl1(sp, "HSCX IntStat after IntRoutine"); 
+		if (sp->debug & L1_DEB_HSCX)
+        		debugl1(sp, "HSCX IntStat after IntRoutine");
 		goto Start_HSCX;
 	}
 	val = readisac(sp->membase, ISAC_ISTA);
 	if (val) {
-		if (sp->debug & L1_DEB_ISAC) 
-        		debugl1(sp, "ISAC IntStat after IntRoutine"); 
+		if (sp->debug & L1_DEB_ISAC)
+        		debugl1(sp, "ISAC IntStat after IntRoutine");
 		goto Start_ISAC;
 	}
 	if (stat & 1) {
@@ -680,7 +683,7 @@ static void
 initisac(struct IsdnCardState    *sp)
 {
 	unsigned int	adr=sp->membase;
-	
+
 	/* 16.0 IOM 1 Mode */
 	writeisac(adr, ISAC_MASK, 0xff);
 	writeisac(adr, ISAC_ADF2, 0x0);
@@ -705,7 +708,7 @@ modehscx(struct HscxState *hs, int mode, int ichan)
 		sprintf(tmp, "hscx %c mode %d ichan %d",
 	        	'A'+hscx, mode, ichan);
         	debugl1(sp, tmp);
-        } 
+        }
         hs->mode = mode;
         writehscx(sp->membase, hscx, HSCX_CCR1, 0x85);
         writehscx(sp->membase, hscx, HSCX_XAD1, 0xFF);
@@ -765,7 +768,7 @@ modehscx(struct HscxState *hs, int mode, int ichan)
 }
 
 void release_io_teles0(struct IsdnCard *card) {
-	if (card->sp->cfg_reg) 
+	if (card->sp->cfg_reg)
 		release_region(card->sp->cfg_reg, 8);
 }
 
@@ -774,7 +777,7 @@ clear_pending_ints(struct IsdnCardState *sp)
 {
 	int	val;
 	char	tmp[64];
-	
+
         val = readhscx(sp->membase, 1, HSCX_ISTA);
         sprintf(tmp, "HSCX B ISTA %x", val);
 	debugl1(sp, tmp);
@@ -826,8 +829,8 @@ initteles0(struct IsdnCardState *sp)
 {
 	int	ret;
 	char  tmp[40];
-	
-	sp->counter = kstat.interrupts[sp->irq]; 
+
+	sp->counter = kstat.interrupts[sp->irq];
 	sprintf(tmp, "IRQ %d count %d", sp->irq, sp->counter);
 	debugl1(sp, tmp);
 	clear_pending_ints(sp);
@@ -840,12 +843,12 @@ initteles0(struct IsdnCardState *sp)
 			kstat.interrupts[sp->irq]);
         	debugl1(sp, tmp);
         	if (kstat.interrupts[sp->irq]==sp->counter) {
-        		printk(KERN_WARNING 
+        		printk(KERN_WARNING
         		"Teles0: IRQ(%d) getting no interrupts during init\n",
         		sp->irq);
         		irq2dev_map[sp->irq] = NULL;
         		free_irq(sp->irq, NULL);
-        		return(0); 
+        		return(0);
         	}
 	}
 	return(ret);
@@ -857,15 +860,15 @@ setup_teles0(struct IsdnCard *card)
 	int			timout;
 	byte			cfval, val, verA, verB;
 	struct IsdnCardState 	*sp = card->sp;
-        
-	if ((sp->typ != ISDN_CTYPE_16_0) && (sp->typ != ISDN_CTYPE_8_0)) 
+
+	if ((sp->typ != ISDN_CTYPE_16_0) && (sp->typ != ISDN_CTYPE_8_0))
 		return(0);
-		
-        if (sp->typ == ISDN_CTYPE_16_0) 
+
+        if (sp->typ == ISDN_CTYPE_16_0)
           	sp->cfg_reg = card->para[2];
         else /* 8.0 */
         	sp->cfg_reg = 0;
-        	
+
         if (card->para[1] < 0x10000) {
         	card->para[1] <<= 4;
                 printk(KERN_INFO
@@ -885,7 +888,7 @@ setup_teles0(struct IsdnCard *card)
         	} else {
                 	request_region(sp->cfg_reg, 8, "teles cfg");
 		}
-	} 
+	}
         switch (sp->irq) {
                 case 2:
                         cfval = 0x00;
@@ -952,7 +955,7 @@ setup_teles0(struct IsdnCard *card)
 	}
         printk(KERN_NOTICE
         	"HiSax: %s found,irq:%d mem:%x cfg:%x\n",
-                CardType[sp->typ], sp->irq,              
+                CardType[sp->typ], sp->irq,
                 sp->membase,sp->cfg_reg);
         verA=readhscx(sp->membase, 0,HSCX_VSTR) & 0xf;
         verB=readhscx(sp->membase, 1,HSCX_VSTR) & 0xf;
@@ -963,7 +966,7 @@ setup_teles0(struct IsdnCard *card)
         	ISACVersion(val));
 
 	if ((verA==0) | (verA==0xf) | (verB==0) | (verB==0xf)) {
-        	printk(KERN_WARNING 
+        	printk(KERN_WARNING
         		"Teles0: wrong HSCX versions check IO/MEM addresses\n");
 		release_io_teles0(card);
                 return (0);
@@ -978,7 +981,7 @@ setup_teles0(struct IsdnCard *card)
         timout = jiffies + (HZ / 5) + 1;
         sti();
         while (jiffies <= timout);
-        
+
         sp->modehscx       = &modehscx;
         sp->ph_command     = &ph_command;
         sp->hscx_fill_fifo = &hscx_fill_fifo;
