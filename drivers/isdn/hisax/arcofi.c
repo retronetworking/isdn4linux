@@ -7,6 +7,9 @@
  *
  *
  * $Log$
+ * Revision 1.4  1998/08/20 13:50:24  keil
+ * More support for hybrid modem (not working yet)
+ *
  * Revision 1.3  1998/05/25 12:57:38  keil
  * HiSax golden code from certification, Don't use !!!
  * No leased lines, no X75, but many changes.
@@ -27,7 +30,6 @@
 int
 send_arcofi(struct IsdnCardState *cs, const u_char *msg, int bc, int receive) {
 	u_char val;
-	char tmp[32];
 	long flags;
 	int cnt=30;
 	
