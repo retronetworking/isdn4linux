@@ -440,10 +440,6 @@ static int
 reserve_regions(struct IsdnCard *card, struct IsdnCardState *cs)
 {
 	unsigned int i, base = 0, adr = 0, len = 0;
-	long flags;
-
-	save_flags(flags);
-	cli();
 
 	switch (cs->subtyp) {
 		case R647:
@@ -488,11 +484,9 @@ reserve_regions(struct IsdnCard *card, struct IsdnCardState *cs)
 			break;
 	}
 
-	restore_flags(flags);
 	return 0;
 
       error:
-	restore_flags(flags);
 	printk(KERN_WARNING "Gazel: %s io ports 0x%x-0x%x already in use\n",
 	       CardType[cs->typ], adr, adr + len);
 	return 1;
