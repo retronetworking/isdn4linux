@@ -80,15 +80,15 @@ discard_queue(struct sk_buff_head *q)
 #define LL_DEB_WARN      0x10000000
 
 static void
-ll_debug(int level, struct IsdnCardState *cs, char *fmt, ...)
+ll_debug(int level, struct CallcIf *c_if, char *fmt, ...)
 {
 	va_list args;
 
-	if (!(cs->c_if->channel[0].debug & level))
+	if (!(c_if->channel[0].debug & level))
 		return;
 
 	va_start(args, fmt);
-	VHiSax_putstatus(cs, "LL ", fmt, args);
+	VHiSax_putstatus(c_if->cs, "LL ", fmt, args);
 	va_end(args);
 }
 
@@ -109,26 +109,26 @@ link_debug(int level, struct Channel *chanp, int direction, char *fmt, ...)
 }
 
 static inline int 
-statcallb(struct IsdnCardState *cs, int command, isdn_ctrl *ic)
+statcallb(struct CallcIf *c_if, int command, isdn_ctrl *ic)
 {
 	switch (command) {
 	case ISDN_STAT_RUN:
-		ll_debug(LL_DEB_INFO, cs, "STAT_RUN");
+		ll_debug(LL_DEB_INFO, c_if, "STAT_RUN");
 		break;
 	case ISDN_STAT_STOP:
-		ll_debug(LL_DEB_INFO, cs, "STAT_STOP");
+		ll_debug(LL_DEB_INFO, c_if, "STAT_STOP");
 		break;
 	case ISDN_STAT_UNLOAD:
-		ll_debug(LL_DEB_INFO, cs, "STAT_UNLOAD");
+		ll_debug(LL_DEB_INFO, c_if, "STAT_UNLOAD");
 		break;
 	case ISDN_STAT_DISCH:
-		ll_debug(LL_DEB_INFO, cs, "STAT_DISCH");
+		ll_debug(LL_DEB_INFO, c_if, "STAT_DISCH");
 		break;
 	}
 
-	ic->driver = cs->c_if->myid;
+	ic->driver = c_if->myid;
 	ic->command = command;
-	return cs->c_if->iif.statcallb(ic);
+	return c_if->iif.statcallb(ic);
 }
  
 static inline int
@@ -163,7 +163,7 @@ HL_LL(struct Channel *chanp, int command, isdn_ctrl *ic)
 		break;
 	}
 	ic->arg = chanp->chan;
-	ret = statcallb(chanp->cs, command, ic);
+	ret = statcallb(chanp->c_if, command, ic);
 	if (command == ISDN_STAT_ICALL || command == ISDN_STAT_ICALLW) {
 		link_debug(LL_DEB_INFO, chanp, 0, "ret = %d", ret);
 	}
@@ -938,12 +938,12 @@ struct Channel
 	return (NULL);
 }
 
-static void stat_redir_result(struct IsdnCardState *cs, int chan, ulong result)
+static void stat_redir_result(struct CallcIf *c_if, int chan, ulong result)
 {
 	isdn_ctrl ic;
   
 	(ulong)(ic.parm.num[0]) = result;
-	HL_LL(cs->c_if->channel + chan, ISDN_STAT_REDIR, &ic);
+	HL_LL(c_if->channel + chan, ISDN_STAT_REDIR, &ic);
 }
 
 static void
@@ -1017,10 +1017,10 @@ dchan_l3l4(struct PStack *st, int pr, void *arg)
 		case (CC_NOTIFY | INDICATION):
 			break;
 		case (CC_REDIR | INDICATION):
-			stat_redir_result(cs, chanp->chan, pc->redir_result); 
+			stat_redir_result(cs->c_if, chanp->chan, pc->redir_result); 
 			break;
 		default:
-			ll_debug(LL_DEB_WARN, chanp->cs, 
+			ll_debug(LL_DEB_WARN, chanp->c_if, 
 				 "Ch %d L3->L4 unknown primitive %#x", chanp->chan, pr);
 	}
 }
@@ -1171,7 +1171,7 @@ lldata_handler(struct PStack *st, int pr, void *arg)
 	switch (pr) {
 		case (DL_DATA  | INDICATION):
 			if (chanp->data_open)
-				chanp->cs->c_if->iif.rcvcallb_skb(chanp->cs->c_if->myid, chanp->chan, skb);
+				chanp->c_if->iif.rcvcallb_skb(chanp->c_if->myid, chanp->chan, skb);
 			else {
 				idev_kfree_skb(skb, FREE_READ);
 			}
@@ -1325,10 +1325,10 @@ leased_l1l2(struct PStack *st, int pr, void *arg)
 }
 
 static void
-distr_debug(struct IsdnCardState *csta, int debugflags)
+distr_debug(struct CallcIf *c_if, int debugflags)
 {
 	int i;
-	struct Channel *chanp = csta->c_if->channel;
+	struct Channel *chanp = c_if->channel;
 
 	for (i = 0; i < (2 + MAX_WAITING_CALLS) ; i++) {
 		chanp[i].debug = debugflags | LL_DEB_WARN;
@@ -1345,9 +1345,9 @@ distr_debug(struct IsdnCardState *csta, int debugflags)
 		chanp[i].b_st->l1.l1m.debug = debugflags & 0x2000;
 	}
 	if (debugflags & 4)
-		csta->debug |= DEB_DLOG_HEX;
+		c_if->cs->debug |= DEB_DLOG_HEX;
 	else
-		csta->debug &= ~DEB_DLOG_HEX;
+		c_if->cs->debug &= ~DEB_DLOG_HEX;
 }
 
 static char tmpbuf[256];
@@ -1427,13 +1427,13 @@ set_channel_limit(struct IsdnCardState *cs, int chanmax)
 int
 HiSax_command(isdn_ctrl * ic)
 {
-	struct IsdnCardState *csta = findCallcIf(ic->driver)->cs;
+	struct CallcIf *c_if = findCallcIf(ic->driver);
 	struct PStack *st;
 	struct Channel *chanp;
 	int i;
 	u_int num;
 
-	if (!csta) {
+	if (!c_if) {
 		printk(KERN_ERR
 		"HiSax: if_command %d called with invalid driverId %d!\n",
 			ic->command, ic->driver);
@@ -1441,22 +1441,22 @@ HiSax_command(isdn_ctrl * ic)
 	}
 	switch (ic->command) {
 		case (ISDN_CMD_SETEAZ):
-			chanp = csta->c_if->channel + ic->arg;
+			chanp = c_if->channel + ic->arg;
 			break;
 		case (ISDN_CMD_SETL2):
-			chanp = csta->c_if->channel + (ic->arg & 0xff);
+			chanp = c_if->channel + (ic->arg & 0xff);
 			link_debug(LL_DEB_INFO, chanp, 1, "SETL2 card %d %ld",
-				   csta->cardnr + 1, ic->arg >> 8);
+				   c_if->cs->cardnr + 1, ic->arg >> 8);
 			chanp->l2_protocol = ic->arg >> 8;
 			break;
 		case (ISDN_CMD_SETL3):
-			chanp = csta->c_if->channel + (ic->arg & 0xff);
+			chanp = c_if->channel + (ic->arg & 0xff);
 			link_debug(LL_DEB_INFO, chanp, 1, "SETL3 card %d %ld",
-				   csta->cardnr + 1, ic->arg >> 8);
+				   c_if->cs->cardnr + 1, ic->arg >> 8);
 			chanp->l3_protocol = ic->arg >> 8;
 			break;
 		case (ISDN_CMD_DIAL):
-			chanp = csta->c_if->channel + (ic->arg & 0xff);
+			chanp = c_if->channel + (ic->arg & 0xff);
 			link_debug(LL_DEB_INFO, chanp, 1, "DIAL %s -> %s (%d,%d)",
 				   ic->parm.setup.eazmsn, ic->parm.setup.phone,
 				   ic->parm.setup.si1, ic->parm.setup.si2);
@@ -1473,22 +1473,22 @@ HiSax_command(isdn_ctrl * ic)
 			}
 			break;
 		case (ISDN_CMD_ACCEPTB):
-			chanp = csta->c_if->channel + ic->arg;
+			chanp = c_if->channel + ic->arg;
 			link_debug(LL_DEB_INFO, chanp, 1, "ACCEPTB");
 			FsmEvent(&chanp->fi, EV_ACCEPTB, NULL);
 			break;
 		case (ISDN_CMD_ACCEPTD):
-			chanp = csta->c_if->channel + ic->arg;
+			chanp = c_if->channel + ic->arg;
 			link_debug(LL_DEB_INFO, chanp, 1, "ACCEPTD");
 			FsmEvent(&chanp->fi, EV_ACCEPTD, NULL);
 			break;
 		case (ISDN_CMD_HANGUP):
-			chanp = csta->c_if->channel + ic->arg;
+			chanp = c_if->channel + ic->arg;
 			link_debug(LL_DEB_INFO, chanp, 1, "HANGUP");
 			FsmEvent(&chanp->fi, EV_HANGUP, NULL);
 			break;
 		case (CAPI_PUT_MESSAGE):
-			chanp = csta->c_if->channel + ic->arg;
+			chanp = c_if->channel + ic->arg;
 			if (chanp->debug & 1)
 				capi_debug(chanp, &ic->parm.cmsg);
 			if (ic->parm.cmsg.Length < 8)
@@ -1500,63 +1500,63 @@ HiSax_command(isdn_ctrl * ic)
 					break;
 				case CAPI_MANUFACTURER:
 					if (ic->parm.cmsg.Subcommand == CAPI_REQ)
-						lli_got_manufacturer(chanp, csta, &ic->parm.cmsg);
+						lli_got_manufacturer(chanp, c_if->cs, &ic->parm.cmsg);
 					break;
 				default:
 					break;
 			}
 			break;
 		case (ISDN_CMD_LOCK):
-			HiSax_mod_inc_use_count(csta);
+			HiSax_mod_inc_use_count(c_if->cs);
 			break;
 		case (ISDN_CMD_UNLOCK):
-			HiSax_mod_dec_use_count(csta);
+			HiSax_mod_dec_use_count(c_if->cs);
 			break;
 		case (ISDN_CMD_IOCTL):
 			switch (ic->arg) {
 				case (0):
 					num = *(unsigned int *) ic->parm.num;
-					HiSax_reportcard(csta->cardnr, num);
+					HiSax_reportcard(c_if->cs->cardnr, num);
 					break;
 				case (1):
 					num = *(unsigned int *) ic->parm.num;
-					distr_debug(csta, num);
+					distr_debug(c_if, num);
 					printk(KERN_DEBUG "HiSax: debugging flags card %d set to %x\n",
-						csta->cardnr + 1, num);
-					HiSax_putstatus(csta, "debugging flags ",
-						"card %d set to %x", csta->cardnr + 1, num);
+					       c_if->cs->cardnr + 1, num);
+					HiSax_putstatus(c_if->cs, "debugging flags ",
+						"card %d set to %x", c_if->cs->cardnr + 1, num);
 					break;
 				case (2):
 					num = *(unsigned int *) ic->parm.num;
-					csta->c_if->channel[0].b_st->l1.delay = num;
-					csta->c_if->channel[1].b_st->l1.delay = num;
-					HiSax_putstatus(csta, "delay ", "card %d set to %d ms",
-						csta->cardnr + 1, num);
+					c_if->channel[0].b_st->l1.delay = num;
+					c_if->channel[1].b_st->l1.delay = num;
+					HiSax_putstatus(c_if->cs, "delay ", "card %d set to %d ms",
+						c_if->cs->cardnr + 1, num);
 					printk(KERN_DEBUG "HiSax: delay card %d set to %d ms\n",
-						csta->cardnr + 1, num);
+						c_if->cs->cardnr + 1, num);
 					break;
 				case (3):
 					for (i = 0; i < *(unsigned int *) ic->parm.num; i++)
-						HiSax_mod_dec_use_count(csta);
+						HiSax_mod_dec_use_count(c_if->cs);
 					break;
 				case (4):
 					for (i = 0; i < *(unsigned int *) ic->parm.num; i++)
-						HiSax_mod_inc_use_count(csta);
+						HiSax_mod_inc_use_count(c_if->cs);
 					break;
 				case (5):	/* set card in leased mode */
 					num = *(unsigned int *) ic->parm.num;
 					if ((num <1) || (num > 2)) {
-						HiSax_putstatus(csta, "Set LEASED ",
+						HiSax_putstatus(c_if->cs, "Set LEASED ",
 							"wrong channel %d", num);
 						printk(KERN_WARNING "HiSax: Set LEASED wrong channel %d\n",
 							num);
 					} else {
 						num--;
-						chanp = csta->c_if->channel +num;
+						chanp = c_if->channel +num;
 						chanp->leased = 1;
-						HiSax_putstatus(csta, "Card",
+						HiSax_putstatus(c_if->cs, "Card",
 							"%d channel %d set leased mode\n",
-							csta->cardnr + 1, num + 1);
+							c_if->cs->cardnr + 1, num + 1);
 						chanp->d_st->l1.l1l2 = leased_l1l2;
 						chanp->d_st->lli.l4l3 = leased_l4l3;
 						chanp->d_st->lli.l4l3(chanp->d_st,
@@ -1565,43 +1565,43 @@ HiSax_command(isdn_ctrl * ic)
 					break;
 				case (6):	/* set B-channel test loop */
 					num = *(unsigned int *) ic->parm.num;
-					if (csta->stlist)
-						csta->stlist->l2.l2l1(csta->stlist,
+					if (c_if->cs->stlist)
+						c_if->cs->stlist->l2.l2l1(c_if->cs->stlist,
 							PH_TESTLOOP | REQUEST, (void *) (long)num);
 					break;
 				case (7):	/* set card in PTP mode */
 					num = *(unsigned int *) ic->parm.num;
-					if (test_bit(FLG_TWO_DCHAN, &csta->HW_Flags)) {
+					if (test_bit(FLG_TWO_DCHAN, &c_if->cs->HW_Flags)) {
 						printk(KERN_ERR "HiSax PTP mode only with one TEI possible\n");
 					} else if (num) {
-						test_and_set_bit(FLG_PTP, &csta->c_if->channel[0].d_st->l2.flag);
-						test_and_set_bit(FLG_FIXED_TEI, &csta->c_if->channel[0].d_st->l2.flag);
-						csta->c_if->channel[0].d_st->l2.tei = 0;
-						HiSax_putstatus(csta, "set card ", "in PTP mode");
+						test_and_set_bit(FLG_PTP, &c_if->channel[0].d_st->l2.flag);
+						test_and_set_bit(FLG_FIXED_TEI, &c_if->channel[0].d_st->l2.flag);
+						c_if->channel[0].d_st->l2.tei = 0;
+						HiSax_putstatus(c_if->cs, "set card ", "in PTP mode");
 						printk(KERN_DEBUG "HiSax: set card in PTP mode\n");
 						printk(KERN_INFO "LAYER2 WATCHING ESTABLISH\n");
-						csta->c_if->channel[0].d_st->lli.l4l3(csta->c_if->channel[0].d_st,
+						c_if->channel[0].d_st->lli.l4l3(c_if->channel[0].d_st,
 							DL_ESTABLISH | REQUEST, NULL);
 					} else {
-						test_and_clear_bit(FLG_PTP, &csta->c_if->channel[0].d_st->l2.flag);
-						test_and_clear_bit(FLG_FIXED_TEI, &csta->c_if->channel[0].d_st->l2.flag);
-						HiSax_putstatus(csta, "set card ", "in PTMP mode");
+						test_and_clear_bit(FLG_PTP, &c_if->channel[0].d_st->l2.flag);
+						test_and_clear_bit(FLG_FIXED_TEI, &c_if->channel[0].d_st->l2.flag);
+						HiSax_putstatus(c_if->cs, "set card ", "in PTMP mode");
 						printk(KERN_DEBUG "HiSax: set card in PTMP mode\n");
 					}
 					break;
 				case (8):	/* set card in FIXED TEI mode */
 					num = *(unsigned int *) ic->parm.num;
-					chanp = csta->c_if->channel + (num & 1);
+					chanp = c_if->channel + (num & 1);
 					num = num >>1;
 					if (num == 127) {
 						test_and_clear_bit(FLG_FIXED_TEI, &chanp->d_st->l2.flag);
 						chanp->d_st->l2.tei = -1;
-						HiSax_putstatus(csta, "set card ", "in VAR TEI mode");
+						HiSax_putstatus(c_if->cs, "set card ", "in VAR TEI mode");
 						printk(KERN_DEBUG "HiSax: set card in VAR TEI mode\n");
 					} else {
 						test_and_set_bit(FLG_FIXED_TEI, &chanp->d_st->l2.flag);
 						chanp->d_st->l2.tei = num;
-						HiSax_putstatus(csta, "set card ", "in FIXED TEI (%d) mode", num);
+						HiSax_putstatus(c_if->cs, "set card ", "in FIXED TEI (%d) mode", num);
 						printk(KERN_DEBUG "HiSax: set card in FIXED TEI (%d) mode\n",
 							num);
 					}
@@ -1609,30 +1609,30 @@ HiSax_command(isdn_ctrl * ic)
 						DL_ESTABLISH | REQUEST, NULL);
 					break;
 				case (11):
-					num = csta->debug & DEB_DLOG_HEX;
-					csta->debug = *(unsigned int *) ic->parm.num;
-					csta->debug |= num;
-					HiSax_putstatus(csta, "l1 debugging ",
+					num = c_if->cs->debug & DEB_DLOG_HEX;
+					c_if->cs->debug = *(unsigned int *) ic->parm.num;
+					c_if->cs->debug |= num;
+					HiSax_putstatus(c_if->cs, "l1 debugging ",
 						"flags card %d set to %x",
-						csta->cardnr + 1, csta->debug);
+						c_if->cs->cardnr + 1, c_if->cs->debug);
 					printk(KERN_DEBUG "HiSax: l1 debugging flags card %d set to %x\n",
-						csta->cardnr + 1, csta->debug);
+						c_if->cs->cardnr + 1, c_if->cs->debug);
 					break;
 				case (13):
-					csta->c_if->channel[0].d_st->l3.debug = *(unsigned int *) ic->parm.num;
-					csta->c_if->channel[1].d_st->l3.debug = *(unsigned int *) ic->parm.num;
-					HiSax_putstatus(csta, "l3 debugging ",
-						"flags card %d set to %x\n", csta->cardnr + 1,
+					c_if->channel[0].d_st->l3.debug = *(unsigned int *) ic->parm.num;
+					c_if->channel[1].d_st->l3.debug = *(unsigned int *) ic->parm.num;
+					HiSax_putstatus(c_if->cs, "l3 debugging ",
+						"flags card %d set to %x\n", c_if->cs->cardnr + 1,
 						*(unsigned int *) ic->parm.num);
 					printk(KERN_DEBUG "HiSax: l3 debugging flags card %d set to %x\n",
-						csta->cardnr + 1, *(unsigned int *) ic->parm.num);
+						c_if->cs->cardnr + 1, *(unsigned int *) ic->parm.num);
 					break;
 				case (10):
 					i = *(unsigned int *) ic->parm.num;
-					return(set_channel_limit(csta, i));
+					return(set_channel_limit(c_if->cs, i));
 			        default:
-					if (csta->auxcmd)
-						return(csta->auxcmd(csta, ic));
+					if (c_if->cs->auxcmd)
+						return(c_if->cs->auxcmd(c_if->cs, ic));
 					printk(KERN_DEBUG "HiSax: invalid ioclt %d\n",
 						(int) ic->arg);
 					return (-EINVAL);
@@ -1640,19 +1640,19 @@ HiSax_command(isdn_ctrl * ic)
 			break;
 		
 	        case (ISDN_CMD_PROCEED):
-			chanp = csta->c_if->channel + ic->arg;
+			chanp = c_if->channel + ic->arg;
 			link_debug(LL_DEB_INFO, chanp, 1, "PROCEED");
 			FsmEvent(&chanp->fi, EV_PROCEED, NULL);
 			break;
 
 		case (ISDN_CMD_ALERT):
-			chanp = csta->c_if->channel + ic->arg;
+			chanp = c_if->channel + ic->arg;
 			link_debug(LL_DEB_INFO, chanp, 1, "ALERT");
 			FsmEvent(&chanp->fi, EV_ALERT, NULL);
 			break;
 
 		case (ISDN_CMD_REDIR):
-			chanp = csta->c_if->channel + ic->arg;
+			chanp = c_if->channel + ic->arg;
 			link_debug(LL_DEB_INFO, chanp, 1, "REDIR");
 			chanp->setup = ic->parm.setup;
 			FsmEvent(&chanp->fi, EV_REDIR, NULL);
@@ -1660,14 +1660,14 @@ HiSax_command(isdn_ctrl * ic)
 
 		/* protocol specific io commands */
 		case (ISDN_CMD_PROT_IO):
-			for (st = csta->stlist; st; st = st->next)
+			for (st = c_if->cs->stlist; st; st = st->next)
 				if (st->protocol == (ic->arg & 0xFF))
 					return(st->lli.l4l3_proto(st, ic));
 			return(-EINVAL);
 			break;
 		default:
-			if (csta->auxcmd)
-				return(csta->auxcmd(csta, ic));
+			if (c_if->cs->auxcmd)
+				return(c_if->cs->auxcmd(c_if->cs, ic));
 			return(-EINVAL);
 	}
 	return (0);
@@ -1676,19 +1676,19 @@ HiSax_command(isdn_ctrl * ic)
 int
 HiSax_writebuf_skb(int id, int chan, int ack, struct sk_buff *skb)
 {
-	struct IsdnCardState *csta = findCallcIf(id)->cs;
+	struct CallcIf *c_if = findCallcIf(id);
 	struct Channel *chanp;
 	struct PStack *st;
 	int len = skb->len;
 	unsigned long flags;
 	struct sk_buff *nskb;
 
-	if (!csta) {
+	if (!c_if) {
 		printk(KERN_ERR
 			"HiSax: if_sendbuf called with invalid driverId!\n");
 		return -ENODEV;
 	}
-	chanp = csta->c_if->channel + chan;
+	chanp = c_if->channel + chan;
 	st = chanp->b_st;
 	if (!chanp->data_open) {
 		link_debug(LL_DEB_WARN, chanp, 1, "writebuf: channel not open");
@@ -1832,7 +1832,7 @@ callcIfDestr(struct CallcIf *c_if)
 
 	// unregister from LL
 
-	statcallb(c_if->cs, ISDN_STAT_UNLOAD, &ic);
+	statcallb(c_if, ISDN_STAT_UNLOAD, &ic);
 
 	// status ring buffer
 
@@ -1860,7 +1860,7 @@ callcIfRun(struct CallcIf *c_if)
 	save_flags(flags);
 	cli();
 	c_if->iif.features = c_if->cs->features;
-	statcallb(c_if->cs, ISDN_STAT_RUN, &ic);
+	statcallb(c_if, ISDN_STAT_RUN, &ic);
 	restore_flags(flags);
 }
 
@@ -1872,7 +1872,7 @@ callcIfStop(struct CallcIf *c_if)
 
 	// signal to LL
 
-	statcallb(c_if->cs, ISDN_STAT_STOP, &ic);
+	statcallb(c_if, ISDN_STAT_STOP, &ic);
 
 	// release Channels
 
@@ -1909,7 +1909,7 @@ callcIfPutStatus(struct CallcIf *c_if, char *msg)
 		c_if->status_write += len;
 	}
 	ic.arg = count;
-	statcallb(c_if->cs, ISDN_STAT_STAVAIL, &ic);
+	statcallb(c_if, ISDN_STAT_STAVAIL, &ic);
 }
 
 struct CallcIf *
