@@ -22,41 +22,13 @@
 
 #include <linux/config.h>
 
-#ifdef CONFIG_ISDN_DRV_ICN
-extern void icn_init(void);
-#endif
-
-#ifdef CONFIG_ISDN_DRV_HISAX
-extern void HiSax_init(void);
-#endif
-
-#ifdef CONFIG_ISDN_DRV_PCBIT
-extern void pcbit_init(void);
-#endif
-
 #ifdef CONFIG_ISDN_DRV_EICON
 extern void eicon_init(void);
-#endif
-
-#ifdef CONFIG_ISDN_DRV_ACT2000
-extern void act2000_init(void);
 #endif
 
 void
 isdn_cards_init(void)
 {
-#ifdef CONFIG_ISDN_DRV_ICN
-	icn_init();
-#endif
-#ifdef CONFIG_ISDN_DRV_HISAX
-	HiSax_init();
-#endif
-#ifdef CONFIG_ISDN_DRV_PCBIT
-	pcbit_init();
-#endif
-#ifdef CONFIG_ISDN_DRV_ACT2000
-	act2000_init();
-#endif
 #ifdef CONFIG_ISDN_DRV_EICON
 	eicon_init();
 #endif

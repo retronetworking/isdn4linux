@@ -24,6 +24,7 @@
 #include "act2000.h"
 #include "act2000_isa.h"
 #include "capi.h"
+#include <linux/init.h>
 
 static unsigned short act2000_isa_ports[] =
 {
@@ -824,12 +825,7 @@ act2000_addcard(int bus, int port, int irq, char *id)
 
 #define DRIVERNAME "IBM Active 2000 ISDN driver"
 
-#ifdef MODULE
-#define act2000_init init_module
-#endif
-
-int
-act2000_init(void)
+static int __init act2000_init(void)
 {
         printk(KERN_INFO "%s\n", DRIVERNAME);
         if (!cards)
@@ -841,9 +837,7 @@ act2000_init(void)
         return 0;
 }
 
-#ifdef MODULE
-void
-cleanup_module(void)
+static void __exit act2000_exit(void)
 {
         act2000_card *card = cards;
         act2000_card *last;
@@ -862,7 +856,8 @@ cleanup_module(void)
         printk(KERN_INFO "%s unloaded\n", DRIVERNAME);
 }
 
-#else
+#if 0
+#ifndef MODULE
 void
 act2000_setup(char *str, int *ints)
 {
@@ -893,3 +888,7 @@ act2000_setup(char *str, int *ints)
 		}
 }
 #endif
+#endif
+
+module_init(act2000_init);
+module_exit(act2000_exit);

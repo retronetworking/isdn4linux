@@ -64,8 +64,6 @@ extern char *eicon_idi_revision;
 extern int do_ioctl(struct inode *pDivasInode, struct file *pDivasFile,
 			unsigned int command, unsigned long arg);
 extern void eicon_pci_init_conf(eicon_card *card);
-void mod_inc_use_count(void);
-void mod_dec_use_count(void);
 extern char *file_check(void);
 
 #ifdef MODULE
@@ -377,7 +375,7 @@ eicon_command(eicon_card * card, isdn_ctrl * c)
 #ifdef MODULE
 				case EICON_IOCTL_FREEIT:
 					while (MOD_USE_COUNT > 0) MOD_DEC_USE_COUNT;
-					mod_inc_use_count();
+					MOD_INC_USE_COUNT;
 					return 0;
 #endif
 				case EICON_IOCTL_LOADPCI:
@@ -573,14 +571,10 @@ eicon_command(eicon_card * card, isdn_ctrl * c)
 			eicon_log(card, 1, "eicon CMD_GETSIL not implemented\n");
 			return 0;
 		case ISDN_CMD_LOCK:
-#ifdef MODULE
-			mod_inc_use_count();
-#endif
+			MOD_INC_USE_COUNT;
 			return 0;
 		case ISDN_CMD_UNLOCK:
-#ifdef MODULE
-			mod_dec_use_count();
-#endif
+			MOD_DEC_USE_COUNT;
 			return 0;
 #ifdef CONFIG_ISDN_TTY_FAX
 		case ISDN_CMD_FAXCMD:
@@ -1189,8 +1183,7 @@ eicon_registercard(eicon_card * card)
         return 0;
 }
 
-#ifdef MODULE
-static void
+static void __exit
 unregister_card(eicon_card * card)
 {
         isdn_ctrl cmd;
@@ -1216,7 +1209,6 @@ unregister_card(eicon_card * card)
 			break;
         }
 }
-#endif /* MODULE */
 
 static void
 eicon_freecard(eicon_card *card) {
@@ -1323,11 +1315,7 @@ eicon_addcard(int Type, int membase, int irq, char *id, int card_id)
 }
 
 
-#ifdef MODULE
-#define eicon_init init_module
-#endif
-
-int
+static int __init
 eicon_init(void)
 {
 	int card_count = 0;
@@ -1403,19 +1391,6 @@ eicon_init(void)
         return 0;
 }
 
-
-#ifdef MODULE
-
-void mod_inc_use_count(void)
-{
-        MOD_INC_USE_COUNT;
-}
-
-void mod_dec_use_count(void)
-{
-        MOD_DEC_USE_COUNT;
-}
-
 #ifdef CONFIG_ISDN_DRV_EICON_PCI
 void DIVA_DIDD_Write(DESCRIPTOR *, int);
 EXPORT_SYMBOL_NOVERS(DIVA_DIDD_Read);
@@ -1426,8 +1401,8 @@ int DivasCardNext;
 card_t DivasCards[1];
 #endif
 
-void
-cleanup_module(void)
+static void __exit
+eicon_exit(void)
 {
 #if CONFIG_PCI	
 #ifdef CONFIG_ISDN_DRV_EICON_PCI
@@ -1511,7 +1486,7 @@ cleanup_module(void)
         printk(KERN_INFO "%s unloaded\n", DRIVERNAME);
 }
 
-#else /* no module */
+#ifndef MODULE
 
 #ifdef COMPAT_HAS_NEW_SETUP
 static int __init
@@ -1735,3 +1710,5 @@ int eicon_mca_probe(int slot,  /* slot-nr where the card was detected         */
 #endif /* CONFIG_MCA */
 #endif /* CONFIG_ISDN_DRV_EICON_ISA */
 
+module_init(eicon_init);
+module_exit(eicon_exit);

@@ -21,6 +21,7 @@
  */
 
 #include "icn.h"
+#include <linux/init.h>
 
 /*
  * Verbose bootcode- and protocol-downloading.
@@ -1638,11 +1639,8 @@ icn_addcard(int port, char *id1, char *id2)
 	return 0;
 }
 
-#ifdef MODULE
-#define icn_init init_module
-#else
+#ifndef MODULE
 #ifdef COMPAT_HAS_NEW_SETUP
-#include <linux/init.h>
 static int __init
 icn_setup(char *line)
 {
@@ -1680,10 +1678,9 @@ __setup("icn=", icn_setup);
 #else
 }
 #endif
-#endif /* MODULES */
+#endif /* MODULE */
 
-int
-icn_init(void)
+static int __init icn_init(void)
 {
 	char *p;
 	char rev[10];
@@ -1693,9 +1690,6 @@ icn_init(void)
 	dev.channel = -1;
 	dev.mcard = NULL;
 	dev.firstload = 1;
-
-	/* No symbols to export, hide all symbols */
-	EXPORT_NO_SYMBOLS;
 
 	if ((p = strchr(revision, ':'))) {
 		strcpy(rev, p + 1);
@@ -1708,9 +1702,7 @@ icn_init(void)
 	return (icn_addcard(portbase, icn_id, icn_id2));
 }
 
-#ifdef MODULE
-void
-cleanup_module(void)
+static void __exit icn_exit(void)
 {
 	isdn_ctrl cmd;
 	icn_card *card = cards;
@@ -1744,4 +1736,6 @@ cleanup_module(void)
 		release_shmem((ulong) dev.shmem, 0x4000);
 	printk(KERN_NOTICE "ICN-ISDN-driver unloaded\n");
 }
-#endif
+
+module_init(icn_init);
+module_exit(icn_exit);

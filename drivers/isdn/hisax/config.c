@@ -1380,8 +1380,7 @@ HiSax_reportcard(int cardnr, int sel)
 #endif
 }
 
-int __init
-HiSax_init(void)
+static int __init HiSax_init(void)
 {
 	int i,j;
 	int nzproto = 0;
@@ -1551,11 +1550,7 @@ HiSax_init(void)
 	}
 }
 
-#ifdef MODULE
-int init_module(void) { return HiSax_init(); }
-
-void
-cleanup_module(void)
+static void __exit HiSax_exit(void)
 {
 	int cardnr = nrcards -1;
 	long flags;
@@ -1572,7 +1567,6 @@ cleanup_module(void)
 	restore_flags(flags);
 	printk(KERN_INFO "HiSax module removed\n");
 }
-#endif
 
 #ifdef CONFIG_HISAX_ELSA
 int elsa_init_pcmcia(void *pcm_iob, int pcm_irq, int *busy_flag, int prot)
@@ -1826,3 +1820,6 @@ static struct pci_device_id hisax_pci_tbl[] __initdata = {
 
 MODULE_DEVICE_TABLE(pci, hisax_pci_tbl);
 #endif
+
+module_init(HiSax_init);
+module_exit(HiSax_exit);

@@ -32,6 +32,7 @@
 #include <linux/kernel.h>
 
 #include <linux/module.h>
+#include <linux/init.h>
 #include <linux/pci.h>
 #include <linux/ioport.h>
 #include <linux/malloc.h>
@@ -46,17 +47,13 @@ void DIVA_DIDD_Write(DESCRIPTOR *, int);
 EXPORT_SYMBOL_NOVERS(DIVA_DIDD_Read);
 EXPORT_SYMBOL_NOVERS(DIVA_DIDD_Write);
 EXPORT_SYMBOL_NOVERS(DivasPrintf);
-#define Divas_init init_module
-#else
-#define Divas_init eicon_init
 #endif
 
 extern char *file_check(void);
 
 int DivasCardsDiscover(void);
 
-int
-Divas_init(void)
+static int __init Divas_init(void)
 {
 	printk(KERN_DEBUG "DIVA Server Driver - initialising\n");
 	
@@ -85,9 +82,7 @@ Divas_init(void)
     return 0;
 }
 
-#ifdef MODULE
-void
-cleanup_module(void)
+static void __exit Divas_exit(void)
 {
 	card_t *pCard;
 	word wCardIndex;
@@ -156,15 +151,6 @@ cleanup_module(void)
 	unregister_chrdev(Divas_major, "Divas");
 }
 
-void mod_inc_use_count(void)
-{
-	MOD_INC_USE_COUNT;
-}
-
-void mod_dec_use_count(void)
-{
-	MOD_DEC_USE_COUNT;
-}
-
-#endif
+module_init(Divas_init);
+module_exit(Divas_exit);
 
