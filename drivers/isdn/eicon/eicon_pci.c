@@ -26,6 +26,10 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.5  1999/03/29 11:19:49  armin
+ * I/O stuff now in seperate file (eicon_io.c)
+ * Old ISA type cards (S,SX,SCOM,Quadro,S2M) implemented.
+ *
  * Revision 1.4  1999/03/02 12:37:48  armin
  * Added some important checks.
  * Analog Modem with DSP.
@@ -107,13 +111,13 @@ int eicon_pci_find_card(char *ID)
      if (NoMorePCICards)
         {
            if (pci_cards < 1) {
-           printk(KERN_INFO "eicon_pci: No supported PCI cards found.\n");
+           printk(KERN_INFO "Eicon: No supported PCI cards found.\n");
 	   kfree(aparms);	
            return 0;
            }
            else
            {
-           printk(KERN_INFO "eicon_pci: %d PCI card%s registered.\n",
+           printk(KERN_INFO "Eicon: %d PCI card%s registered.\n",
 			pci_cards, (pci_cards > 1) ? "s":"");
 	   kfree(aparms);	
            return (pci_cards);
@@ -124,7 +128,7 @@ int eicon_pci_find_card(char *ID)
    switch(pci_type)
    {
     case PCI_MAESTRA:
-         printk(KERN_INFO "eicon_pci: DIVA Server BRI/PCI detected !\n");
+         printk(KERN_INFO "Eicon: DIVA Server BRI/PCI detected !\n");
           aparms->type = EICON_CTYPE_MAESTRA;
 
           aparms->irq = pdev->irq;
@@ -141,13 +145,13 @@ int eicon_pci_find_card(char *ID)
 
     case PCI_MAESTRAQ:
     case PCI_MAESTRAQ_U:
-         printk(KERN_ERR "eicon_pci: DIVA Server 4BRI/PCI detected but not supported !\n");
+         printk(KERN_ERR "Eicon: DIVA Server 4BRI/PCI detected but not supported !\n");
          pci_cards--;
 	 pci_akt = 0;
          break;
 
     case PCI_MAESTRAP:
-         printk(KERN_INFO "eicon_pci: DIVA Server PRI/PCI detected !\n");
+         printk(KERN_INFO "Eicon: DIVA Server PRI/PCI detected !\n");
           aparms->type = EICON_CTYPE_MAESTRAP; /*includes 9M,30M*/
           aparms->irq = pdev->irq;
           pram = pdev->base_address[0] & 0xfffff000;
@@ -214,7 +218,7 @@ int eicon_pci_find_card(char *ID)
 	
 			sprintf(did, "%s%d", (strlen(ID) < 1) ? "eicon":ID, pci_cards);
 
-			printk(KERN_INFO "eicon_pci: DriverID: '%s'\n", did);
+			printk(KERN_INFO "%s: DriverID: '%s'\n",eicon_ctype_name[aparms->type] , did);
 
 			if (!(eicon_addcard(aparms->type, (int) aparms, aparms->irq, did))) {
 				printk(KERN_ERR "eicon_pci: Card could not be added !\n");
@@ -455,7 +459,7 @@ int eicon_pci_print_hdr(unsigned char *code, int offset)
      i++;
    }
    hdr[i] = '\0';
-   printk(KERN_DEBUG "eicon_pci: loading %s\n", hdr);
+   printk(KERN_DEBUG "Eicon: loading %s\n", hdr);
    if (GetProtFeatureValue(hdr, &fvalue)) return(fvalue);
     else return(0);
 }
@@ -572,7 +576,7 @@ eicon_pci_load_bri(eicon_pci_card *card, eicon_pci_codebuf *cb) {
             } while (offset < size);
 
 #ifdef EICON_PCI_DEBUG
-	printk(KERN_DEBUG "eicon_pci: %d bytes loaded.\n", offset);
+	printk(KERN_DEBUG "Eicon: %d bytes loaded.\n", offset);
 #endif
 	offp += size;
 	}
@@ -642,8 +646,8 @@ eicon_pci_load_bri(eicon_pci_card *card, eicon_pci_codebuf *cb) {
 	outw(0x3f6, reg + M_ADDR);
         card->channels = inw(reg + M_DATA);
         card->serial = (u32)inw(cfg + 0x22) << 16 | (u32)inw(cfg + 0x26);
-        printk(KERN_INFO "eicon_pci: Supported channels : %d\n", card->channels);
-        printk(KERN_INFO "eicon_pci: Card serial no. = %lu\n", card->serial);
+        printk(KERN_INFO "Eicon: Supported channels : %d\n", card->channels);
+        printk(KERN_INFO "Eicon: Card serial no. = %lu\n", card->serial);
 
         /* test interrupt */
         card->irqprobe = 1;
@@ -689,7 +693,7 @@ eicon_pci_load_bri(eicon_pci_card *card, eicon_pci_codebuf *cb) {
                 ((eicon_card *)card->card)->bch[j].fsm_state = EICON_STATE_NULL;
    }
 
-   printk(KERN_INFO "eicon_pci: Card successfully started\n");
+   printk(KERN_INFO "Eicon: Card successfully started\n");
 
  return 0;
 }
@@ -880,8 +884,8 @@ eicon_pci_load_pri(eicon_pci_card *card, eicon_pci_codebuf *cb) {
 	/* get serial number and number of channels supported by card */
         card->channels = readb(&ram[0x3f6]);
         card->serial = readl(&ram[0x3f0]);
-        printk(KERN_INFO "eicon_pci: Supported channels : %d\n", card->channels);
-        printk(KERN_INFO "eicon_pci: Card serial no. = %lu\n", card->serial);
+        printk(KERN_INFO "Eicon: Supported channels : %d\n", card->channels);
+        printk(KERN_INFO "Eicon: Card serial no. = %lu\n", card->serial);
 
 	/* test interrupt */
 	readb(&ram[0x3fe]);
@@ -935,7 +939,7 @@ eicon_pci_load_pri(eicon_pci_card *card, eicon_pci_codebuf *cb) {
                 ((eicon_card *)card->card)->bch[j].fsm_state = EICON_STATE_NULL;
    }
 
-   printk(KERN_INFO "eicon_pci: Card successfully started\n");
+   printk(KERN_INFO "Eicon: Card successfully started\n");
 
  return 0;
 }

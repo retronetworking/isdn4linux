@@ -22,6 +22,10 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.4  1999/03/29 11:19:46  armin
+ * I/O stuff now in seperate file (eicon_io.c)
+ * Old ISA type cards (S,SX,SCOM,Quadro,S2M) implemented.
+ *
  * Revision 1.3  1999/03/02 12:37:45  armin
  * Added some important checks.
  * Analog Modem with DSP.
@@ -87,7 +91,7 @@ eicon_isa_printpar(eicon_isa_card *card) {
 		case EICON_CTYPE_SCOM:
 		case EICON_CTYPE_QUADRO:
 		case EICON_CTYPE_S2M:
-			printk(KERN_INFO "eicon_isa: Eicon %s at 0x%lx, irq %d\n",
+			printk(KERN_INFO "Eicon %s at 0x%lx, irq %d\n",
 			       eicon_ctype_name[card->type],
 			       (unsigned long)card->shmem,
 			       card->irq);
@@ -120,13 +124,13 @@ eicon_isa_find_card(int Mem, int Irq, char * Id)
 	writew(0, Mem + 0x402);
 	if (readw(Mem + 0x402) != 0) primary = 0;
 
-	printk(KERN_INFO "eicon_isa: Driver-ID: %s\n", Id);
+	printk(KERN_INFO "Eicon: Driver-ID: %s\n", Id);
 	if (primary) {
-		printk(KERN_INFO "eicon_isa: assuming pri card at 0x%x\n", Mem);
+		printk(KERN_INFO "Eicon: assuming pri card at 0x%x\n", Mem);
 		writeb(0, Mem + 0x3ffe);
 		return EICON_CTYPE_ISAPRI;
 	} else {
-		printk(KERN_INFO "eicon_isa: assuming bri card at 0x%x\n", Mem);
+		printk(KERN_INFO "Eicon: assuming bri card at 0x%x\n", Mem);
 		writeb(0, Mem + 0x400);
 		return EICON_CTYPE_ISABRI;
 	}
@@ -264,11 +268,11 @@ eicon_isa_bootload(eicon_isa_card *card, eicon_isa_codebuf *cb) {
 		eicon_isa_release_shmem(card);
                 return -EIO;
         }
-	printk(KERN_INFO "eicon_isa: %s: startup-code loaded\n", eicon_ctype_name[card->type]); 
+	printk(KERN_INFO "%s: startup-code loaded\n", eicon_ctype_name[card->type]); 
 	if ((card->type == EICON_CTYPE_QUADRO) && (card->master)) {
 		tmp = eicon_addcard(card->type, (unsigned long)card->shmem, card->irq, 
 					((eicon_card *)card->card)->regname);
-		printk(KERN_INFO "eicon_isa: %d adapters added\n", tmp);
+		printk(KERN_INFO "Eicon: %d adapters added\n", tmp);
 	}
 	return 0;
 }
@@ -331,7 +335,7 @@ eicon_isa_load(eicon_isa_card *card, eicon_isa_codebuf *cb) {
 	eicon_isa_printpar(card);
 
 	/* Download firmware */
-	printk(KERN_INFO "eicon_isa: %s %dkB, loading firmware ...\n", 
+	printk(KERN_INFO "%s %dkB, loading firmware ...\n", 
 	       eicon_ctype_name[card->type],
 	       tmp * 16);
 	tmp = cbuf.firmware_len >> 8;
@@ -416,8 +420,8 @@ eicon_isa_load(eicon_isa_card *card, eicon_isa_codebuf *cb) {
 		((eicon_card *)card->card)->bch[j].fsm_state = EICON_STATE_NULL;
 	}
 
-	printk(KERN_INFO "eicon_isa: Supported channels: %d\n", card->channels); 
-	printk(KERN_INFO "eicon_isa: %s successfully started\n", eicon_ctype_name[card->type]);
+	printk(KERN_INFO "Eicon: Supported channels: %d\n", card->channels); 
+	printk(KERN_INFO "%s successfully started\n", eicon_ctype_name[card->type]);
 
 	/* Enable normal IRQ processing */
 	card->irqprobe = 0;

@@ -26,6 +26,10 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.4  1999/03/29 11:19:47  armin
+ * I/O stuff now in seperate file (eicon_io.c)
+ * Old ISA type cards (S,SX,SCOM,Quadro,S2M) implemented.
+ *
  * Revision 1.3  1999/03/02 12:37:47  armin
  * Added some important checks.
  * Analog Modem with DSP.
@@ -93,6 +97,23 @@ char *eicon_ctype_name[] = {
         "DIVA Server 4BRI/PCI",
         "DIVA Server PRI/PCI"
 };
+
+static int
+getrel(char *p)
+{
+        int v = 0;
+	char *tmp = 0;
+
+	if ((tmp = strchr(p, '.')))
+		p = tmp + 1;
+        while (p[0] >= '0' && p[0] <= '9') {
+                v = ((v < 0) ? 0 : (v * 10)) + (int) (p[0] - '0');
+		p++;
+	}
+        return v;
+
+
+}
 
 static char *
 eicon_getrev(const char *revision)
@@ -506,7 +527,7 @@ eicon_command(eicon_card * card, isdn_ctrl * c)
 					return 0;
 				case EICON_IOCTL_DEBUGVAR:
 					DebugVar = a;
-					printk(KERN_DEBUG"eicon: Debug Value set to %ld\n", DebugVar);
+					printk(KERN_DEBUG"Eicon: Debug Value set to %ld\n", DebugVar);
 					return 0;
 #ifdef MODULE
 				case EICON_IOCTL_FREEIT:
@@ -820,7 +841,7 @@ eicon_alloccard(int Type, int membase, int irq, char *id)
 					sprintf(qid, "_%c",'2' + i);
 					strcat(card->interface.id, qid);
 				}
-				printk(KERN_INFO "eicon_isa: Quadro: Driver-Id %s added.\n",
+				printk(KERN_INFO "Eicon: Quadro: Driver-Id %s added.\n",
 					card->interface.id);
 				if (i == 0) {
 					eicon_card *p = cards;
@@ -1086,6 +1107,7 @@ eicon_addcard(int Type, int membase, int irq, char *id)
 }
 
 #define DRIVERNAME "Eicon active ISDN driver"
+#define DRIVERRELEASE "1"
 
 #ifdef MODULE
 #define eicon_init init_module
@@ -1095,6 +1117,7 @@ __initfunc(int
 eicon_init(void))
 {
 	int tmp = 0;
+	int release = 0;
 	char tmprev[50];
 
 	DebugVar = 1;
@@ -1102,12 +1125,19 @@ eicon_init(void))
         printk(KERN_INFO "%s Rev: ", DRIVERNAME);
 	strcpy(tmprev, eicon_revision);
 	printk("%s/", eicon_getrev(tmprev));
+	release += getrel(tmprev);
 	strcpy(tmprev, eicon_pci_revision);
 	printk("%s/", eicon_getrev(tmprev));
+	release += getrel(tmprev);
 	strcpy(tmprev, eicon_isa_revision);
 	printk("%s/", eicon_getrev(tmprev));
+	release += getrel(tmprev);
 	strcpy(tmprev, eicon_idi_revision);
 	printk("%s\n", eicon_getrev(tmprev));
+	release += getrel(tmprev);
+	sprintf(tmprev,"%d", release);
+        printk(KERN_INFO "%s Release: %s.%s\n", DRIVERNAME,
+		DRIVERRELEASE, tmprev);
 
 	tmp = eicon_addcard(0, membase, irq, id);
 #if CONFIG_PCI
@@ -1115,12 +1145,12 @@ eicon_init(void))
 #endif
         if (!cards) {
 #ifdef MODULE
-                printk(KERN_INFO "eicon: No cards defined, driver not loaded !\n");
+                printk(KERN_INFO "Eicon: No cards defined, driver not loaded !\n");
 #endif
 		return -ENODEV;
 
 	} else
-		printk(KERN_INFO "eicon: %d card%s added\n", tmp, (tmp>1)?"s":"");
+		printk(KERN_INFO "Eicon: %d card%s added\n", tmp, (tmp>1)?"s":"");
         /* No symbols to export, hide all symbols */
         EXPORT_NO_SYMBOLS;
         return 0;
