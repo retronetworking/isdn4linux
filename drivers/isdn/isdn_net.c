@@ -21,6 +21,10 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.78  1998/10/26 18:20:46  he
+ * re-inserted p=p->next in isdn_net_find_icall() (fixes kernel lock up
+ * on incoming call not matching the first interface)
+ *
  * Revision 1.77  1998/10/23 10:18:44  paul
  * Implementation of "dialmode" (successor of "status")
  * You also need current isdnctrl for this!
@@ -2479,6 +2483,20 @@ isdn_net_force_dial_lp(isdn_net_local * lp)
 			return -EINVAL;
 	} else
 		return -EBUSY;
+}
+
+/*
+ * This is called from certain upper protocol layers (multilink ppp
+ * and x25iface encapsulation module) that want to initiate dialing
+ * themselves.
+ */
+int
+isdn_net_dial_req(isdn_net_local * lp)
+{
+	/* is there a better error code? */
+	if (!(ISDN_NET_DIALMODE(*lp) == ISDN_NET_DM_AUTO)) return -EBUSY;
+
+	return isdn_net_force_dial_lp(lp);
 }
 
 /*

@@ -19,6 +19,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.43  1998/10/29 17:23:54  hipp
+ * Minor MPPP fixes, verboser logging.
+ *
  * Revision 1.42  1998/07/20 11:30:07  hipp
  * Readded compression check
  *
@@ -250,8 +253,6 @@ char *isdn_ppp_revision = "$Revision$";
 
 static struct ippp_struct *ippp_table[ISDN_MAX_CHANNELS];
 static struct isdn_ppp_compressor *ipc_head = NULL;
-
-extern int isdn_net_force_dial_lp(isdn_net_local *);
 
 /*
  * frame log (debug)
@@ -2098,7 +2099,7 @@ isdn_ppp_dial_slave(char *name)
 	if (!sdev)
 		return 2;
 
-	isdn_net_force_dial_lp((isdn_net_local *) sdev->priv);
+	isdn_net_dial_req((isdn_net_local *) sdev->priv);
 	return 0;
 #else
 	return -1;

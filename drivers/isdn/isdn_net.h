@@ -21,6 +21,10 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.7  1998/08/31 21:09:55  he
+ * new ioctl IIOCNETGPN for /dev/isdninfo (get network interface'
+ *     peer phone number)
+ *
  * Revision 1.6  1997/10/09 21:28:54  fritz
  * New HL<->LL interface:
  *   New BSENT callback with nr. of bytes included.
@@ -112,3 +116,4 @@ extern int isdn_net_send_skb(struct device *, isdn_net_local *,
 			     struct sk_buff *);
 extern int isdn_net_rcv_skb(int, struct sk_buff *);
 extern void isdn_net_slarp_out(void);
+extern int isdn_net_dial_req(isdn_net_local *);

@@ -10,6 +10,11 @@
  * goes to another -- device related -- concap_proto support source file.
  *
  * $Log$
+ * Revision 1.4  1998/06/17 19:51:00  he
+ * merged with 2.1.10[34] (cosmetics and udelay() -> mdelay())
+ * brute force fix to avoid Ugh's in isdn_tty_write()
+ * cleaned up some dead code
+ *
  * Revision 1.3  1998/02/20 17:25:20  fritz
  * Changes for recent kernels.
  *
@@ -302,7 +307,12 @@ int isdn_x25iface_xmit(struct concap_proto *cprot, struct sk_buff *skb)
 	case 0x01: /* dl_connect request */
 		if( *state == WAN_DISCONNECTED ){
 			*state = WAN_CONNECTING;
-		        cprot -> dops -> connect_req(cprot);
+		        ret = cprot -> dops -> connect_req(cprot);
+			if(ret){
+				/* reset state and notify upper layer about
+				 * immidiatly failed attempts */
+				isdn_x25iface_disconn_ind(cprot);
+			}
 		} else {
 			illegal_state_warn( *state, firstbyte );
 		}

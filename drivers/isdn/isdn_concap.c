@@ -5,6 +5,11 @@
  * another -- protocol specific -- source file.
  *
  * $Log$
+ * Revision 1.3  1998/05/26 22:39:22  he
+ * sync'ed with 2.1.102 where appropriate (CAPABILITY changes)
+ * concap typo
+ * cleared dev.tbusy in isdn_net BCONN status callback
+ *
  * Revision 1.2  1998/01/31 22:49:21  keil
  * correct comments
  *
@@ -19,11 +24,6 @@
 #include "isdn_net.h"
 #include <linux/concap.h>
 #include "isdn_concap.h"
-
-/* The declaration of this (or a plublic variant thereof) should really go
-   in linux/isdn.h. But we really need it here (and isdn_ppp, like us, also
-   refers to that private function currently owned by isdn_net.c) */
-extern int isdn_net_force_dial_lp(isdn_net_local *);
 
 
 /* The following set of device service operations are for encapsulation
@@ -66,7 +66,7 @@ int isdn_concap_dl_connect_req(struct concap_proto *concap)
 	IX25DEBUG( "isdn_concap_dl_connect_req: %s \n", ndev -> name);
 
 	/* dial ... */
-	ret = isdn_net_force_dial_lp( lp );
+	ret = isdn_net_dial_req( lp );
 	if ( ret ) IX25DEBUG("dialing failed\n");
 	return 0;
 }
