@@ -42,6 +42,31 @@ docp() {
 	fi
     fi
 
+    # ABC extensions
+    if [ "$BASENAME" = "isdn_dwabc.c" -o "$BASENAME" = "isdn_dwabc.h" -o "$BASENAME" = "abcext_kernel.help" ]; then
+	if $UNIQUE; then
+	    if $VERBOSE; then
+		echo "skipped"
+	    fi
+	    return
+	fi
+    fi
+
+    # PCMCIA modules
+    if [ "$BASENAME" = "fcpcmcia_cs.c" ]; then
+	if $VERBOSE; then
+	    echo "skipped"
+	fi
+	return
+    fi
+    if [ "$BASENAME" = "avm_cs.c" -o "$BASENAME" = "sedlbauer_cs.c" ]; then
+	if ! [ $VERSION -gt 3 -o \( $VERSION -eq 2 -a $PATCHLEVEL -gt 3 \) ]; then
+	    if $VERBOSE; then
+		echo "skipped"
+	    fi
+	    return
+	fi
+    fi
     # Config.in
     if [ "$1" = "drivers/isdn/Config.in" ]; then
 	if ! [ $VERSION -gt 3 -o \( $VERSION -eq 2 -a $PATCHLEVEL -gt 3 \) ]; then
@@ -256,10 +281,10 @@ if [ $# != 0 ]; then
 	docp $i $KERNELDIR/$i
     done
 else
-    for i in `find drivers -type f | grep -v CVS`; do
+    for i in `find drivers -type f -name '*.[hc]' -o -name Makefile -o -name Config.in`; do
 	docp $i $KERNELDIR/$i
     done
-    for i in `find include -type f | grep -v CVS`; do
+    for i in `find include -type f -name '*.h'`; do
 	docp $i $KERNELDIR/$i
     done
     for i in `find Documentation -type f | grep -v CVS`; do
@@ -290,7 +315,4 @@ exit 0
       fi
     fi
   fi
-    if [ $VERSION -le 2 -o \( $VERSION -eq 2 -a $PATCHLEVEL -le 2 \) ]; then
-	docp drivers/isdn/Rules.make $KERNELDIR/drivers/isdn/Rules.make
-    fi
 fi
