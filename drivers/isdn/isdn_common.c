@@ -21,6 +21,16 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.47  1997/10/09 21:28:46  fritz
+ * New HL<->LL interface:
+ *   New BSENT callback with nr. of bytes included.
+ *   Sending without ACK.
+ *   New L1 error status (not yet in use).
+ *   Cleaned up obsolete structures.
+ * Implemented Cisco-SLARP.
+ * Changed local net-interface data to be dynamically allocated.
+ * Removed old 2.0 compatibility stuff.
+ *
  * Revision 1.46  1997/10/01 09:20:27  fritz
  * Removed old compatibility stuff for 2.0.X kernels.
  * From now on, this code is for 2.1.X ONLY!
@@ -854,14 +864,18 @@ isdn_info_update(void)
 	wake_up_interruptible(&(dev->info_waitq));
 }
 
-static long
-isdn_read(struct inode *inode, struct file *file, char *buf, unsigned long count)
+static ssize_t
+isdn_read(struct file *file, char *buf, size_t count, loff_t *ppos)
 {
+	struct inode *inode = file->f_dentry->d_inode;
 	uint minor = MINOR(inode->i_rdev);
 	int len = 0;
 	ulong flags;
 	int drvidx;
 	int chidx;
+
+	if (ppos != &file->f_pos)
+		return -ESPIPE;
 
 	if (minor == ISDN_MINOR_STATUS) {
 		char *p;
@@ -929,17 +943,21 @@ isdn_read(struct inode *inode, struct file *file, char *buf, unsigned long count
 }
 
 static long long
-isdn_lseek(struct inode *inode, struct file *file, long long offset, int orig)
+isdn_lseek(struct file *file, long long offset, int orig)
 {
 	return -ESPIPE;
 }
 
-static long
-isdn_write(struct inode *inode, struct file *file, const char *buf, unsigned long count)
+static ssize_t
+isdn_write(struct file *file, const char *buf, size_t count, loff_t *ppos)
 {
+	struct inode *inode = file->f_dentry->d_inode;
 	uint minor = MINOR(inode->i_rdev);
 	int drvidx;
 	int chidx;
+
+	if (ppos != &file->f_pos)
+		return -ESPIPE;
 
 	if (minor == ISDN_MINOR_STATUS)
 		return -EPERM;
