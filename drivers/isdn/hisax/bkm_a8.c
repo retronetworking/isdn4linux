@@ -7,6 +7,9 @@
  * Author       Roland Klabunde (R.Klabunde@Berkom.de)
  *
  * $Log$
+ * Revision 1.10  2000/05/16 20:56:41  keil
+ * Support all 4 BRI lines with one driver
+ *
  * Revision 1.9  1999/12/19 13:09:41  keil
  * changed TASK_INTERRUPTIBLE into TASK_UNINTERRUPTIBLE for
  * signal proof delays
@@ -46,11 +49,11 @@
 #include "ipac.h"
 #include "hscx.h"
 #include "isdnl1.h"
-#include "bkm_ax.h"
 #include <linux/pci.h>
 #ifndef COMPAT_HAS_NEW_PCI
 #include <linux/bios32.h>
 #endif
+#include "bkm_ax.h"
 
 #if CONFIG_PCI
 
@@ -319,7 +322,8 @@ static struct pci_dev *dev_a8 __initdata = NULL;
 #else
 static int pci_index __initdata = 0;
 #endif
-static u_int  sub_sys_id __initdata = 0;
+static u16  sub_vendor_id __initdata = 0;
+static u16  sub_sys_id __initdata = 0;
 static u_char pci_bus __initdata = 0;
 static u_char pci_device_fn __initdata = 0;
 static u_char pci_irq __initdata = 0;
@@ -351,8 +355,8 @@ setup_sct_quadro(struct IsdnCard *card))
 			CardType[card->typ]);
 		return (0);
 	}
-	if ((cs->subtyp != SCT_1) && (sub_sys_id != ((SCT_SUBSYS_ID << 16) |
-		SCT_SUBVEN_ID)))
+	if ((cs->subtyp != SCT_1) && ((sub_sys_id != SCT_SUBSYS_ID) ||
+		(sub_vendor_id != SCT_SUBVEN_ID)))
 		return (0);
 	if (cs->subtyp == SCT_1) {
 #ifdef COMPAT_HAS_NEW_PCI
@@ -360,12 +364,16 @@ setup_sct_quadro(struct IsdnCard *card))
 			printk(KERN_ERR "bkm_a4t: no PCI bus present\n");
 			return (0);
 		}
-		while ((dev_a8 = pci_find_device(PLX_VENDOR_ID, PLX_DEVICE_ID,
-			dev_a8))) {
-			pci_read_config_dword(dev_a8, PCI_SUBSYSTEM_VENDOR_ID,
-				&sub_sys_id);
-			if (sub_sys_id == ((SCT_SUBSYS_ID << 16) | SCT_SUBVEN_ID)) {
-				pci_ioaddr1 = get_pcibase(dev_a8, 1);
+		while ((dev_a8 = pci_find_device(PCI_VENDOR_ID_PLX,
+			PCI_DEVICE_ID_PLX_9050, dev_a8))) {
+			
+			pci_get_sub_vendor(dev_a8,sub_vendor_id);
+			pci_get_sub_system(dev_a8,sub_sys_id);
+			if ((sub_sys_id == SCT_SUBSYS_ID) &&
+				(sub_vendor_id == SCT_SUBVEN_ID)) {
+				if (pci_enable_device(dev_a8))
+					return(0);
+				pci_ioaddr1 = pci_resource_start_io(dev_a8, 1);
 				pci_irq = dev_a8->irq;
 				pci_bus = dev_a8->bus->number;
 				pci_device_fn = dev_a8->devfn;
@@ -375,9 +383,9 @@ setup_sct_quadro(struct IsdnCard *card))
 		}
 #else
 		for (; pci_index < 0xff; pci_index++) {
-			if (pcibios_find_device(PLX_VENDOR_ID, PLX_DEVICE_ID,
-				pci_index, &pci_bus, &pci_device_fn) ==
-				PCIBIOS_SUCCESSFUL) {
+			if (pcibios_find_device(PCI_VENDOR_ID_PLX,
+				PCI_DEVICE_ID_PLX_9050, pci_index, &pci_bus,
+				&pci_device_fn) == PCIBIOS_SUCCESSFUL) {
 				pcibios_read_config_dword(pci_bus,
 					pci_device_fn, PCI_SUBSYSTEM_VENDOR_ID,
 					&sub_sys_id);

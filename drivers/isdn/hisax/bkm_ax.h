@@ -4,6 +4,9 @@
  * Author     Roland Klabunde (R.Klabunde@Berkom.de)
  *
  * $Log$
+ * Revision 1.2  1999/07/01 08:07:55  keil
+ * Initial version
+ *
  *
  *
  */
@@ -20,13 +23,25 @@
 
 
 /* A4T																*/
-#define I20_DEVICE_ID       	0x6120  /* I20 PCI device ID */
-#define I20_VENDOR_ID       	0x11DE  /* I20 PCI vendor ID */
+#ifdef COMPAT_PCI_COMMON_ID
+#ifndef PCI_VENDOR_ID_ZORAN
+#define PCI_VENDOR_ID_ZORAN	0x11DE
+#endif
+#ifndef PCI_DEVICE_ID_ZORAN_36120
+#define PCI_DEVICE_ID_ZORAN_36120	0x6120
+#endif
+#endif /* COMPAT_PCI_COMMON_ID */
 #define	A4T_SUBVEN_ID		0x0871	
 #define	A4T_SUBSYS_ID		0xFFA4
 /* Scitel Quadro 																*/
-#define	PLX_DEVICE_ID		0x9050	/* Scitel Quadro PLX */
-#define	PLX_VENDOR_ID		0x10B5
+#ifdef COMPAT_PCI_COMMON_ID
+#ifndef PCI_VENDOR_ID_PLX
+#define PCI_VENDOR_ID_PLX	0x10B5
+#endif
+#ifndef PCI_DEVICE_ID_PLX_9050
+#define PCI_DEVICE_ID_PLX_9050	0x9050
+#endif
+#endif /* COMPAT_PCI_COMMON_ID */
 #define	SCT_SUBVEN_ID		0x0871
 #define	SCT_SUBSYS_ID		0xFFA8
 

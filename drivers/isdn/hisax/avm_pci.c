@@ -7,6 +7,9 @@
  *
  *
  * $Log$
+ * Revision 1.15  2000/02/26 00:35:12  keil
+ * Fix skb freeing in interrupt context
+ *
  * Revision 1.14  1999/12/19 13:09:41  keil
  * changed TASK_INTERRUPTIBLE into TASK_UNINTERRUPTIBLE for
  * signal proof delays
@@ -71,8 +74,14 @@ static const char *avm_pci_rev = "$Revision$";
 #define  AVM_FRITZ_PCI		1
 #define  AVM_FRITZ_PNP		2
 
-#define  PCI_VENDOR_AVM		0x1244
-#define  PCI_FRITZPCI_ID	0xa00
+#ifdef COMPAT_PCI_COMMON_ID
+#ifndef PCI_VENDOR_ID_AVM
+#define PCI_VENDOR_ID_AVM	0x1244
+#endif
+#ifndef PCI_DEVICE_ID_AVM_FRITZ
+#define PCI_DEVICE_ID_AVM_FRITZ	0xa00
+#endif
+#endif /* COMPAT_PCI_COMMON_ID */
 
 #define  HDLC_FIFO		0x0
 #define  HDLC_STATUS		0x4
@@ -342,7 +351,15 @@ hdlc_empty_fifo(struct BCState *bcs, int count)
 	if (cs->subtyp == AVM_FRITZ_PCI) {
 		outl(idx, cs->hw.avm.cfg_reg + 4);
 		while (cnt < count) {
+#ifdef __powerpc__
+#ifdef CONFIG_APUS
+			*ptr++ = in_le32((unsigned *)(cs->hw.avm.isac +_IO_BASE));
+#else
+			*ptr++ = in_be32((unsigned *)(cs->hw.avm.isac +_IO_BASE));
+#endif /* CONFIG_APUS */
+#else
 			*ptr++ = inl(cs->hw.avm.isac);
+#endif /* __powerpc__ */
 			cnt += 4;
 		}
 	} else {
@@ -398,7 +415,15 @@ hdlc_fill_fifo(struct BCState *bcs)
 	write_ctrl(bcs, 3);  /* sets the correct index too */
 	if (cs->subtyp == AVM_FRITZ_PCI) {
 		while (cnt<count) {
+#ifdef __powerpc__
+#ifdef CONFIG_APUS
+			out_le32((unsigned *)(cs->hw.avm.isac +_IO_BASE), *ptr++);
+#else
+			out_be32((unsigned *)(cs->hw.avm.isac +_IO_BASE), *ptr++);
+#endif /* CONFIG_APUS */
+#else
 			outl(*ptr++, cs->hw.avm.isac);
+#endif /* __powerpc__ */
 			cnt += 4;
 		}
 	} else {
@@ -821,15 +846,16 @@ setup_avm_pcipnp(struct IsdnCard *card))
 			printk(KERN_ERR "FritzPCI: no PCI bus present\n");
 			return(0);
 		}
-		if ((dev_avm = pci_find_device(PCI_VENDOR_AVM,
-			PCI_FRITZPCI_ID,  dev_avm))) {
+		if ((dev_avm = pci_find_device(PCI_VENDOR_ID_AVM,
+			PCI_DEVICE_ID_AVM_FRITZ,  dev_avm))) {
 			cs->irq = dev_avm->irq;
 			if (!cs->irq) {
 				printk(KERN_WARNING "FritzPCI: No IRQ for PCI card found\n");
 				return(0);
 			}
-			cs->hw.avm.cfg_reg = get_pcibase(dev_avm, 1) &
-				PCI_BASE_ADDRESS_IO_MASK; 
+			if (pci_enable_device(dev_avm))
+				return(0);
+			cs->hw.avm.cfg_reg = pci_resource_start_io(dev_avm, 1);
 			if (!cs->hw.avm.cfg_reg) {
 				printk(KERN_WARNING "FritzPCI: No IO-Adr for PCI card found\n");
 				return(0);
@@ -845,8 +871,8 @@ setup_avm_pcipnp(struct IsdnCard *card))
 			unsigned int ioaddr;
 			unsigned char irq;
 
-			if (pcibios_find_device (PCI_VENDOR_AVM,
-				PCI_FRITZPCI_ID, pci_index,
+			if (pcibios_find_device(PCI_VENDOR_ID_AVM,
+				PCI_DEVICE_ID_AVM_FRITZ, pci_index,
 				&pci_bus, &pci_device_fn) != 0) {
 				continue;
 			}

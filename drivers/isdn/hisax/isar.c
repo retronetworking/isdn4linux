@@ -6,6 +6,9 @@
  *
  *
  * $Log$
+ * Revision 1.13  2000/06/16 12:34:42  keil
+ * <DLE> escape also for receiving HDLC in FAX mode
+ *
  * Revision 1.12  2000/06/14 08:36:53  keil
  *
  * Reset ISAR statemachine after No More Data event in fax HDLC mode
@@ -282,6 +285,14 @@ isar_load_firmware(struct IsdnCardState *cs, u_char *buf)
 			printk(KERN_ERR"isar_load_firmware copy_from_user ret %d\n", ret);
 			goto reterror;
 		}
+#ifdef __BIG_ENDIAN
+		sadr = (blk_head.sadr & 0xff)*256 + blk_head.sadr/256;
+		blk_head.sadr = sadr;
+		sadr = (blk_head.len & 0xff)*256 + blk_head.len/256;
+		blk_head.len = sadr;
+		sadr = (blk_head.d_key & 0xff)*256 + blk_head.d_key/256;
+		blk_head.d_key = sadr;
+#endif /* __BIG_ENDIAN */
 		cnt += BLK_HEAD_SIZE;
 		p += BLK_HEAD_SIZE;
 		printk(KERN_DEBUG"isar firmware block (%#x,%5d,%#x)\n",
@@ -323,8 +334,13 @@ isar_load_firmware(struct IsdnCardState *cs, u_char *buf)
 #endif
 			sadr += noc;
 			while(noc) {
+#ifdef __BIG_ENDIAN
+				*mp++ = *sp % 256;
+				*mp++ = *sp / 256;
+#else
 				*mp++ = *sp / 256;
 				*mp++ = *sp % 256;
+#endif /* __BIG_ENDIAN */
 				sp++;
 				noc--;
 			}

@@ -7,6 +7,10 @@
  * Author       Roland Klabunde (R.Klabunde@Berkom.de)
  *
  * $Log$
+ * Revision 1.9  1999/12/19 13:09:41  keil
+ * changed TASK_INTERRUPTIBLE into TASK_UNINTERRUPTIBLE for
+ * signal proof delays
+ *
  * Revision 1.8  1999/09/04 06:20:05  keil
  * Changes from kernel set_current_state()
  *
@@ -43,11 +47,11 @@
 #include "hscx.h"
 #include "jade.h"
 #include "isdnl1.h"
-#include "bkm_ax.h"
 #include <linux/pci.h>
 #ifndef COMPAT_HAS_NEW_PCI
 #include <linux/bios32.h>
 #endif
+#include "bkm_ax.h"
 
 extern const char *CardType[];
 
@@ -323,21 +327,26 @@ __initfunc(int
 		printk(KERN_ERR "bkm_a4t: no PCI bus present\n");
 		return (0);
 	}
-	if ((dev_a4t = pci_find_device(I20_VENDOR_ID, I20_DEVICE_ID, dev_a4t))) {
-		u_int sub_sys_id = 0;
+	while ((dev_a4t = pci_find_device(PCI_VENDOR_ID_ZORAN,
+		PCI_DEVICE_ID_ZORAN_36120, dev_a4t))) {
+		u16 sub_sys;
+		u16 sub_vendor;
 
-		pci_read_config_dword(dev_a4t, PCI_SUBSYSTEM_VENDOR_ID,
-			&sub_sys_id);
-		if (sub_sys_id == ((A4T_SUBSYS_ID << 16) | A4T_SUBVEN_ID)) {
+		pci_get_sub_vendor(dev_a4t,sub_vendor);
+		pci_get_sub_system(dev_a4t,sub_sys);
+		if ((sub_sys == A4T_SUBSYS_ID) && (sub_vendor == A4T_SUBVEN_ID)) {
+			if (pci_enable_device(dev_a4t))
+				return(0);
 			found = 1;
-			pci_memaddr = get_pcibase(dev_a4t, 0);
+			pci_memaddr = pci_resource_start_mem(dev_a4t, 0);
 			cs->irq = dev_a4t->irq;
+			break;
 		}
 	}
 #else
 	for (; pci_index < 0xff; pci_index++) {
-		if (pcibios_find_device(I20_VENDOR_ID,
-				I20_DEVICE_ID,
+		if (pcibios_find_device(PCI_VENDOR_ID_ZORAN,
+				PCI_DEVICE_ID_ZORAN_36120,
 				pci_index,
 				&pci_bus,
 				&pci_device_fn) == PCIBIOS_SUCCESSFUL) {
@@ -352,6 +361,7 @@ __initfunc(int
 				cs->irq = pci_irq;
 				pcibios_read_config_dword(pci_bus, pci_device_fn,
 				       PCI_BASE_ADDRESS_0, &pci_memaddr);
+				pci_memaddr &= PCI_BASE_ADDRESS_MEM_MASK;
 				break;
 			}
 		}
@@ -372,7 +382,6 @@ __initfunc(int
 		printk(KERN_WARNING "HiSax: %s: No Memory base address\n", CardType[card->typ]);
 		return (0);
 	}
-	pci_memaddr &= PCI_BASE_ADDRESS_MEM_MASK;
 	cs->hw.ax.base = (u_int) ioremap(pci_memaddr, 4096);
 	/* Check suspecious address */
 	pI20_Regs = (I20_REGISTER_FILE *) (cs->hw.ax.base);

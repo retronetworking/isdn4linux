@@ -14,6 +14,10 @@
  *              for ELSA PCMCIA support
  *
  * $Log$
+ * Revision 2.20  1999/12/19 13:09:42  keil
+ * changed TASK_INTERRUPTIBLE into TASK_UNINTERRUPTIBLE for
+ * signal proof delays
+ *
  * Revision 2.19  1999/09/04 06:20:06  keil
  * Changes from kernel set_current_state()
  *
@@ -105,7 +109,7 @@ extern const char *CardType[];
 const char *Elsa_revision = "$Revision$";
 const char *Elsa_Types[] =
 {"None", "PC", "PCC-8", "PCC-16", "PCF", "PCF-Pro",
- "PCMCIA", "QS 1000", "QS 3000", "QS 1000 PCI", "QS 3000 PCI", 
+ "PCMCIA", "QS 1000", "QS 3000", "Microlink PCI", "QS 3000 PCI", 
  "PCMCIA-IPAC" };
 
 const char *ITACVer[] =
@@ -139,9 +143,17 @@ const char *ITACVer[] =
 #define ELSA_PCMCIA_IPAC 11
 
 /* PCI stuff */
-#define PCI_VENDOR_ELSA	0x1048
-#define PCI_QS1000_ID	0x1000
-#define PCI_QS3000_ID	0x3000
+#ifdef COMPAT_PCI_COMMON_ID
+#ifndef PCI_VENDOR_ID_ELSA
+#define PCI_VENDOR_ID_ELSA	0x1048
+#endif
+#ifndef PCI_DEVICE_ID_ELSA_MIRCOLINK
+#define PCI_DEVICE_ID_ELSA_MIRCOLINK	0x1000
+#endif
+#ifndef PCI_DEVICE_ID_ELSA_QS3000
+#define PCI_DEVICE_ID_ELSA_QS3000	0x3000
+#endif
+#endif /* COMPAT_PCI_COMMON_ID */
 #define ELSA_PCI_IRQ_MASK	0x04
 
 /* ITAC Registeradressen (only Microlink PC) */
@@ -1060,22 +1072,22 @@ setup_elsa(struct IsdnCard *card)
 			return(0);
 		}
 		cs->subtyp = 0;
-		if ((dev_qs1000 = pci_find_device(PCI_VENDOR_ELSA, PCI_QS1000_ID,
-			 dev_qs1000))) {
-				cs->subtyp = ELSA_QS1000PCI;
+		if ((dev_qs1000 = pci_find_device(PCI_VENDOR_ID_ELSA,
+			PCI_DEVICE_ID_ELSA_MIRCOLINK, dev_qs1000))) {
+			if (pci_enable_device(dev_qs1000))
+				return(0);
+			cs->subtyp = ELSA_QS1000PCI;
 			cs->irq = dev_qs1000->irq;
-			cs->hw.elsa.cfg = get_pcibase(dev_qs1000, 1) & 
-				PCI_BASE_ADDRESS_IO_MASK;
-			cs->hw.elsa.base = get_pcibase(dev_qs1000, 3) & 
-				PCI_BASE_ADDRESS_IO_MASK;
-		} else if ((dev_qs3000 = pci_find_device(PCI_VENDOR_ELSA,
-			PCI_QS3000_ID, dev_qs3000))) {
+			cs->hw.elsa.cfg = pci_resource_start_io(dev_qs1000, 1);
+			cs->hw.elsa.base = pci_resource_start_io(dev_qs1000, 3);
+		} else if ((dev_qs3000 = pci_find_device(PCI_VENDOR_ID_ELSA,
+			PCI_DEVICE_ID_ELSA_QS3000, dev_qs3000))) {
+			if (pci_enable_device(dev_qs3000))
+				return(0);
 			cs->subtyp = ELSA_QS3000PCI;
 			cs->irq = dev_qs3000->irq;
-			cs->hw.elsa.cfg = get_pcibase(dev_qs3000, 1) & 
-				PCI_BASE_ADDRESS_IO_MASK;
-			cs->hw.elsa.base = get_pcibase(dev_qs3000, 3) & 
-				PCI_BASE_ADDRESS_IO_MASK;
+			cs->hw.elsa.cfg = pci_resource_start_io(dev_qs3000, 1);
+			cs->hw.elsa.base = pci_resource_start_io(dev_qs3000, 3);
 		} else {
 			printk(KERN_WARNING "Elsa: No PCI card found\n");
 			return(0);
@@ -1105,13 +1117,13 @@ setup_elsa(struct IsdnCard *card)
 
 		cs->subtyp = 0;
 		for (; pci_index < 0xff; pci_index++) {
-			if (pcibios_find_device(PCI_VENDOR_ELSA,
-			   PCI_QS1000_ID, pci_index, &pci_bus, &pci_device_fn)
-			   == PCIBIOS_SUCCESSFUL)
+			if (pcibios_find_device(PCI_VENDOR_ID_ELSA,
+			   PCI_DEVICE_ID_ELSA_MIRCOLINK, pci_index, &pci_bus,
+			   &pci_device_fn) == PCIBIOS_SUCCESSFUL)
 				cs->subtyp = ELSA_QS1000PCI;
-			else if (pcibios_find_device(PCI_VENDOR_ELSA,
-			   PCI_QS3000_ID, pci_index, &pci_bus, &pci_device_fn)
-			   == PCIBIOS_SUCCESSFUL)
+			else if (pcibios_find_device(PCI_VENDOR_ID_ELSA,
+			   PCI_DEVICE_ID_ELSA_QS3000, pci_index, &pci_bus,
+			   &pci_device_fn) == PCIBIOS_SUCCESSFUL)
 				cs->subtyp = ELSA_QS3000PCI;
 			else
 				break;

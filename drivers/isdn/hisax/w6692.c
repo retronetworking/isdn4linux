@@ -8,6 +8,10 @@
  *              This file is (c) under GNU PUBLIC LICENSE
  *
  * $Log$
+ * Revision 1.4  2000/03/16 23:24:11  werner
+ *
+ * Fixed an additional location
+ *
  * Revision 1.3  2000/03/16 22:41:36  werner
  *
  * Tried to fix second B-channel problem (still not tested)
@@ -33,13 +37,20 @@
 #include <linux/bios32.h>
 #endif
 
-#define	PCI_VEND_ASUSCOM	0x675
-#define	PCI_DEV_ASUSCOMPCI1	0x1702
+#ifdef COMPAT_PCI_COMMON_ID
+#ifndef PCI_VENDOR_ID_ASUSCOM
+#define PCI_VENDOR_ID_ASUSCOM	0x675
+#endif
+#ifndef PCI_DEVICE_ID_ASUSCOM_TA1
+#define PCI_DEVICE_ID_ASUSCOM_TA1	0x1702
+#endif
 #ifndef PCI_VENDOR_ID_WINBOND2
 #define PCI_VENDOR_ID_WINBOND2	0x1050
 #endif
-#define	PCI_DEVICE_W6692	0x6692
-
+#ifndef PCI_DEVICE_ID_WINBOND_6692
+#define	PCI_DEVICE_ID_WINBOND_6692	0x6692
+#endif
+#endif /* COMPAT_PCI_COMMON_ID */
 /* table entry in the PCI devices list */
 typedef struct {
 	int vendor_id;
@@ -50,8 +61,8 @@ typedef struct {
 
 static const PCI_ENTRY id_list[] =
 {
-	{PCI_VEND_ASUSCOM, PCI_DEV_ASUSCOMPCI1, "AsusCom", "TA XXX"},
-	{PCI_VENDOR_ID_WINBOND2, PCI_DEVICE_W6692, "Winbond", "W6692"},
+	{PCI_VENDOR_ID_ASUSCOM, PCI_DEVICE_ID_ASUSCOM_TA1, "AsusCom", "TA XXX"},
+	{PCI_VENDOR_ID_WINBOND2, PCI_DEVICE_ID_WINBOND_6692, "Winbond", "W6692"},
 	{0, 0, NULL, NULL}
 };
 
@@ -1022,6 +1033,9 @@ __initfunc(int setup_w6692(struct IsdnCard *card))
 #endif
 	u_int pci_ioaddr = 0;
 
+#ifdef __BIG_ENDIAN
+#error "not running on big endian machines now"
+#endif
 	strcpy(tmp, w6692_revision);
 	printk(KERN_INFO "HiSax: W6692 driver Rev. %s\n", HiSax_getrev(tmp));
 	if (cs->typ != ISDN_CTYPE_W6692)
@@ -1036,8 +1050,11 @@ __initfunc(int setup_w6692(struct IsdnCard *card))
 		dev_w6692 = pci_find_device(id_list[id_idx].vendor_id,
 					    id_list[id_idx].device_id,
 					    dev_w6692);
-		if (dev_w6692)
+		if (dev_w6692) {
+			if (pci_enable_device(dev_w6692))
+				continue;
 			break;
+		}
 		id_idx++;
 	}
 	if (dev_w6692) {
@@ -1045,7 +1062,7 @@ __initfunc(int setup_w6692(struct IsdnCard *card))
 		pci_irq = dev_w6692->irq;
 		/* I think address 0 is allways the configuration area */
 		/* and address 1 is the real IO space KKe 03.09.99 */
-		pci_ioaddr = get_pcibase(dev_w6692, 1);
+		pci_ioaddr = pci_resource_start_io(dev_w6692, 1);
 	}
 #else
 	for (; pci_index < 0xff; pci_index++) {
@@ -1070,6 +1087,7 @@ __initfunc(int setup_w6692(struct IsdnCard *card))
 					 PCI_INTERRUPT_LINE, &pci_irq);
 		pcibios_read_config_dword(pci_bus, pci_device_fn,
 					PCI_BASE_ADDRESS_1, &pci_ioaddr);
+		pci_ioaddr &= PCI_BASE_ADDRESS_IO_MASK;
 		pci_index++;
 	}
 #endif				/* COMPAT_HAS_NEW_PCI */
@@ -1082,7 +1100,6 @@ __initfunc(int setup_w6692(struct IsdnCard *card))
 		printk(KERN_WARNING "W6692: No IRQ for PCI card found\n");
 		return (0);
 	}
-	pci_ioaddr &= PCI_BASE_ADDRESS_IO_MASK;
 	if (!pci_ioaddr) {
 		printk(KERN_WARNING "W6692: NO I/O Base Address found\n");
 		return (0);

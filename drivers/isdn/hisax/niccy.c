@@ -8,6 +8,9 @@
  * Thanks to Dr. Neuhaus and SAGEM for informations
  *
  * $Log$
+ * Revision 1.10  2000/04/11 11:12:39  keil
+ * cleanup
+ *
  * Revision 1.9  2000/04/09 19:09:19  keil
  * Bugfix: reset IRQ enable only valid for PCI version
  *
@@ -65,8 +68,14 @@ const char *niccy_revision = "$Revision$";
 #define NICCY_PCI	2
 
 /* PCI stuff */
-#define PCI_VENDOR_DR_NEUHAUS	0x1267
-#define PCI_NICCY_ID		0x1016
+#ifdef COMPAT_PCI_COMMON_ID
+#ifndef PCI_VENDOR_ID_SATSAGEM
+#define PCI_VENDOR_ID_SATSAGEM	0x1267
+#endif
+#ifndef PCI_DEVICE_ID_SATSAGEM_NICCY
+#define PCI_DEVICE_ID_SATSAGEM_NICCY	0x1016
+#endif
+#endif /* COMPAT_PCI_COMMON_ID */
 #define PCI_IRQ_CTRL_REG	0x38
 #define PCI_IRQ_ENABLE		0x1f00
 #define PCI_IRQ_DISABLE		0xff0000
@@ -316,24 +325,26 @@ setup_niccy(struct IsdnCard *card))
 			return(0);
 		}
 		cs->subtyp = 0;
-		if ((niccy_dev = pci_find_device(PCI_VENDOR_DR_NEUHAUS,
-			   PCI_NICCY_ID, niccy_dev))) {
+		if ((niccy_dev = pci_find_device(PCI_VENDOR_ID_SATSAGEM,
+			PCI_DEVICE_ID_SATSAGEM_NICCY, niccy_dev))) {
+			if (pci_enable_device(niccy_dev))
+				return(0);
 			/* get IRQ */
 			if (!niccy_dev->irq) {
 				printk(KERN_WARNING "Niccy: No IRQ for PCI card found\n");
 				return(0);
 			}
 			cs->irq = niccy_dev->irq;
-			if (!get_pcibase(niccy_dev, 0)) {
+			cs->hw.niccy.cfg_reg = pci_resource_start_io(niccy_dev, 0);
+			if (!cs->hw.niccy.cfg_reg) {
 				printk(KERN_WARNING "Niccy: No IO-Adr for PCI cfg found\n");
 				return(0);
 			}
-			cs->hw.niccy.cfg_reg = get_pcibase(niccy_dev, 0) & PCI_BASE_ADDRESS_IO_MASK;
-			if (!get_pcibase(niccy_dev, 1)) {
+			pci_ioaddr = pci_resource_start_io(niccy_dev, 1);
+			if (!pci_ioaddr) {
 				printk(KERN_WARNING "Niccy: No IO-Adr for PCI card found\n");
 				return(0);
 			}
-			pci_ioaddr = get_pcibase(niccy_dev, 1) & PCI_BASE_ADDRESS_IO_MASK;
 			cs->subtyp = NICCY_PCI;
 		} else {
 			printk(KERN_WARNING "Niccy: No PCI card found\n");
@@ -344,9 +355,9 @@ setup_niccy(struct IsdnCard *card))
 
 		cs->subtyp = 0;
 		for (; pci_index < 0xff; pci_index++) {
-			if (pcibios_find_device(PCI_VENDOR_DR_NEUHAUS,
-			   PCI_NICCY_ID, pci_index, &pci_bus, &pci_device_fn)
-			   == PCIBIOS_SUCCESSFUL)
+			if (pcibios_find_device(PCI_VENDOR_ID_SATSAGEM,
+			   PCI_DEVICE_ID_SATSAGEM_NICCY, pci_index, &pci_bus,
+			   &pci_device_fn) == PCIBIOS_SUCCESSFUL)
 				cs->subtyp = NICCY_PCI;
 			else
 				continue;

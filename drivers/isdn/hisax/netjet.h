@@ -12,10 +12,15 @@ extern const char *CardType[];
 #define byteout(addr,val) outb(val,addr)
 #define bytein(addr) inb(addr)
 
+#ifdef COMPAT_PCI_COMMON_ID
 /* PCI stuff */
-#define PCI_VENDOR_TRAVERSE_TECH 0xe159
-#define PCI_NETJET_ID	0x0001
-
+#ifndef PCI_VENDOR_ID_TIGERJET
+#define PCI_VENDOR_ID_TIGERJET	0xe159
+#endif
+#ifndef PCI_DEVICE_ID_TIGERJET_300
+#define PCI_DEVICE_ID_TIGERJET_300	0x0001
+#endif
+#endif /* COMPAT_PCI_COMMON_ID */
 #define NETJET_CTRL	0x00
 #define NETJET_DMACTRL	0x01
 #define NETJET_AUXCTRL	0x02

@@ -7,6 +7,9 @@
  *
  *
  * $Log$
+ * Revision 2.11  1999/12/23 15:09:32  keil
+ * change email
+ *
  * Revision 2.10  1999/11/15 14:20:05  keil
  * 64Bit compatibility
  *
@@ -60,6 +63,14 @@ const char *telespci_revision = "$Revision$";
 #define ZORAN_PO_GREG1	0x00010000
 #define ZORAN_PO_DMASK	0xFF
 
+#ifdef COMPAT_PCI_COMMON_ID
+#ifndef PCI_VENDOR_ID_ZORAN
+#define PCI_VENDOR_ID_ZORAN	0x11DE
+#endif
+#ifndef PCI_DEVICE_ID_ZORAN_36120
+#define PCI_DEVICE_ID_ZORAN_36120	0x6120
+#endif
+#endif /* COMPAT_PCI_COMMON_ID */
 #define WRITE_ADDR_ISAC	(ZORAN_PO_WR | ZORAN_PO_GID0 | ZORAN_PO_GREG0)
 #define READ_DATA_ISAC	(ZORAN_PO_GID0 | ZORAN_PO_GREG1)
 #define WRITE_DATA_ISAC	(ZORAN_PO_WR | ZORAN_PO_GID0 | ZORAN_PO_GREG1)
@@ -324,6 +335,9 @@ setup_telespci(struct IsdnCard *card))
 	u_char found = 0;
 #endif
 
+#ifdef __BIG_ENDIAN
+#error "not running on big endian machines now"
+#endif
 	strcpy(tmp, telespci_revision);
 	printk(KERN_INFO "HiSax: Teles/PCI driver Rev. %s\n", HiSax_getrev(tmp));
 	if (cs->typ != ISDN_CTYPE_TELESPCI)
@@ -334,23 +348,25 @@ setup_telespci(struct IsdnCard *card))
 		printk(KERN_ERR "TelesPCI: no PCI bus present\n");
 		return(0);
 	}
-	if ((dev_tel = pci_find_device (0x11DE, 0x6120, dev_tel))) {
+	if ((dev_tel = pci_find_device (PCI_VENDOR_ID_ZORAN, PCI_DEVICE_ID_ZORAN_36120, dev_tel))) {
+		if (pci_enable_device(dev_tel))
+			return(0);
 		cs->irq = dev_tel->irq;
 		if (!cs->irq) {
 			printk(KERN_WARNING "Teles: No IRQ for PCI card found\n");
 			return(0);
 		}
-		cs->hw.teles0.membase = (u_long) ioremap(get_pcibase(dev_tel, 0),
+		cs->hw.teles0.membase = (u_long) ioremap(pci_resource_start_mem(dev_tel, 0),
 			PAGE_SIZE);
 		printk(KERN_INFO "Found: Zoran, base-address: 0x%lx, irq: 0x%x\n",
-			get_pcibase(dev_tel, 0), dev_tel->irq);
+			pci_resource_start_mem(dev_tel, 0), dev_tel->irq);
 	} else {
 		printk(KERN_WARNING "TelesPCI: No PCI card found\n");
 		return(0);
 	}
 #else
 	for (; pci_index < 0xff; pci_index++) {
-		if (pcibios_find_device (0x11DE, 0x6120,
+		if (pcibios_find_device (PCI_VENDOR_ID_ZORAN, PCI_DEVICE_ID_ZORAN_36120,
 			pci_index, &pci_bus, &pci_device_fn)
 			== PCIBIOS_SUCCESSFUL) {
 			found = 1;

@@ -3,6 +3,10 @@
  *   Basic declarations, defines and prototypes
  *
  * $Log$
+ * Revision 2.44  2000/06/16 13:08:47  keil
+ * Support for U interface cards
+ * Support for NI1 D-channel protocol
+ *
  * Revision 2.43  2000/04/27 10:31:01  keil
  * implement overlap receiving
  *
@@ -535,10 +539,17 @@ struct isar_hw {
 };
 
 struct hdlc_stat_reg {
+#ifdef __BIG_ENDIAN
+	u_char fill __attribute__((packed));
+	u_char mode __attribute__((packed));
+	u_char xml  __attribute__((packed));
+	u_char cmd  __attribute__((packed));
+#else
 	u_char cmd  __attribute__((packed));
 	u_char xml  __attribute__((packed));
 	u_char mode __attribute__((packed));
 	u_char fill __attribute__((packed));
+#endif
 };
 
 struct hdlc_hw {
@@ -1526,3 +1537,18 @@ char *HiSax_getrev(const char *revision);
 void TeiNew(void);
 void TeiFree(void);
 int certification_check(int output);
+#ifdef COMPAT_HAS_2_2_PCI
+#ifdef __powerpc__
+inline int pci_enable_device(dev)
+{
+	u16 cmd;
+	pci_read_config_word(dev, PCI_COMMAND, &cmd);
+	cmd |= PCI_COMMAND_MEMORY | PCI_COMMAND_IO | PCI_COMMAND_SERR;
+	cmd &= ~PCI_COMMAND_FAST_BACK;
+	pci_write_config_word(dev, PCI_COMMAND, cmd);
+	return(0);
+}
+#else
+#define pci_enable_device(dev)	!dev
+#endif /* __powerpc__ */
+#endif /* COMPAT_HAS_2_2_PCI */

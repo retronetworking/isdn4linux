@@ -146,6 +146,9 @@ setup_netjet_s(struct IsdnCard *card))
 	u_int pci_ioaddr, found;
 #endif
 #endif
+#ifdef __BIG_ENDIAN
+#error "not running on big endian machines now"
+#endif
 	strcpy(tmp, NETjet_S_revision);
 	printk(KERN_INFO "HiSax: Traverse Tech. NETjet-S driver Rev. %s\n", HiSax_getrev(tmp));
 	if (cs->typ != ISDN_CTYPE_NETJET_S)
@@ -162,15 +165,16 @@ setup_netjet_s(struct IsdnCard *card))
 			printk(KERN_ERR "Netjet: no PCI bus present\n");
 			return(0);
 		}
-		if ((dev_netjet = pci_find_device(PCI_VENDOR_TRAVERSE_TECH,
-			PCI_NETJET_ID,  dev_netjet))) {
+		if ((dev_netjet = pci_find_device(PCI_VENDOR_ID_TIGERJET,
+			PCI_DEVICE_ID_TIGERJET_300,  dev_netjet))) {
+			if (pci_enable_device(dev_netjet))
+				return(0);
 			cs->irq = dev_netjet->irq;
 			if (!cs->irq) {
 				printk(KERN_WARNING "NETjet-S: No IRQ for PCI card found\n");
 				return(0);
 			}
-			cs->hw.njet.base = get_pcibase(dev_netjet, 0)
-				& PCI_BASE_ADDRESS_IO_MASK; 
+			cs->hw.njet.base = pci_resource_start_io(dev_netjet, 0);
 			if (!cs->hw.njet.base) {
 				printk(KERN_WARNING "NETjet-S: No IO-Adr for PCI card found\n");
 				return(0);

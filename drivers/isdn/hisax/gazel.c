@@ -6,6 +6,12 @@
  *              based on source code from Karsten Keil
  *
  * $Log$
+ * Revision 2.6  1999/08/22 20:27:03  calle
+ * backported changes from kernel 2.3.14:
+ * - several #include "config.h" gone, others come.
+ * - "struct device" changed to "struct net_device" in 2.3.14, added a
+ *   define in isdn_compat.h for older kernel versions.
+ *
  * Revision 2.5  1999/08/11 21:01:26  keil
  * new PCI codefix
  *
@@ -44,10 +50,20 @@ const char *gazel_revision = "$Revision$";
 #define R742      4
 
 /* Gazel R685 stuff */
-#define GAZEL_MANUFACTURER     0x10b5
-#define GAZEL_R685             0x1030
-#define GAZEL_R753             0x1152
-#define GAZEL_DJINN_ITOO       0x1151
+#ifdef COMPAT_PCI_COMMON_ID
+#ifndef PCI_VENDOR_ID_PLX
+#define PCI_VENDOR_ID_PLX	0x10b5
+#endif
+#ifndef PCI_DEVICE_ID_PLX_R685
+#define PCI_DEVICE_ID_PLX_R685	0x1030
+#endif
+#ifndef PCI_DEVICE_ID_PLX_R753
+#define PCI_DEVICE_ID_PLX_R753	0x1152
+#endif
+#ifndef PCI_DEVICE_ID_PLX_DJINN_ITOO
+#define PCI_DEVICE_ID_PLX_DJINN_ITOO	0x1151
+#endif
+#endif /* COMPAT_PCI_COMMON_ID */
 
 #define PLX_CNTRL    0x50	/* registre de controle PLX */
 #define RESET_GAZEL  0x4
@@ -589,21 +605,22 @@ setup_gazelpci(struct IsdnCardState *cs)
 		return 1;
 	}
 #endif
-	seekcard = GAZEL_R685;
+	seekcard = PCI_DEVICE_ID_PLX_R685;
 	for (nbseek = 0; nbseek < 3; nbseek++) {
 #ifdef COMPAT_HAS_NEW_PCI
-		if ((dev_tel = pci_find_device(GAZEL_MANUFACTURER, seekcard, dev_tel))) {
-
+		if ((dev_tel = pci_find_device(PCI_VENDOR_ID_PLX, seekcard, dev_tel))) {
+			if (pci_enable_device(dev_tel))
+				return 1;
 			pci_irq = dev_tel->irq;
-			pci_ioaddr0 = get_pcibase(dev_tel, 1);
-			pci_ioaddr1 = get_pcibase(dev_tel, 2);
+			pci_ioaddr0 = pci_resource_start_io(dev_tel, 1);
+			pci_ioaddr1 = pci_resource_start_io(dev_tel, 2);
 			found = 1;
 		}
 #else
 		for (; pci_index < 0xff; pci_index++) {
 			u_char pci_bus, pci_device_fn;
 			
-			if (pcibios_find_device(GAZEL_MANUFACTURER, seekcard,
+			if (pcibios_find_device(PCI_VENDOR_ID_PLX, seekcard,
 				pci_index, &pci_bus, &pci_device_fn)
 				!= PCIBIOS_SUCCESSFUL)
 				break;
@@ -623,11 +640,11 @@ setup_gazelpci(struct IsdnCardState *cs)
 			break;
 		else {
 			switch (seekcard) {
-				case GAZEL_R685:
-					seekcard = GAZEL_R753;
+				case PCI_DEVICE_ID_PLX_R685:
+					seekcard = PCI_DEVICE_ID_PLX_R753;
 					break;
-				case GAZEL_R753:
-					seekcard = GAZEL_DJINN_ITOO;
+				case PCI_DEVICE_ID_PLX_R753:
+					seekcard = PCI_DEVICE_ID_PLX_DJINN_ITOO;
 					break;
 			}
 #ifndef COMPAT_HAS_NEW_PCI
@@ -659,7 +676,7 @@ setup_gazelpci(struct IsdnCardState *cs)
 	cs->irq_flags |= SA_SHIRQ;
 
 	switch (seekcard) {
-		case GAZEL_R685:
+		case PCI_DEVICE_ID_PLX_R685:
 			printk(KERN_INFO "Gazel: Card PCI R685 found\n");
 			cs->subtyp = R685;
 			cs->dc.isac.adf2 = 0x87;
@@ -670,8 +687,8 @@ setup_gazelpci(struct IsdnCardState *cs)
 			       "Gazel: hscx A:0x%X  hscx B:0x%X\n",
 			     cs->hw.gazel.hscx[0], cs->hw.gazel.hscx[1]);
 			break;
-		case GAZEL_R753:
-		case GAZEL_DJINN_ITOO:
+		case PCI_DEVICE_ID_PLX_R753:
+		case PCI_DEVICE_ID_PLX_DJINN_ITOO:
 			printk(KERN_INFO "Gazel: Card PCI R753 found\n");
 			cs->subtyp = R753;
 			test_and_set_bit(HW_IPAC, &cs->HW_Flags);

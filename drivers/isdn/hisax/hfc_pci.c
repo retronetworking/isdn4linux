@@ -23,6 +23,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.28  2000/05/23 18:58:08  keil
+ * CLKDEL is different in NT and TE mode
+ *
  * Revision 1.27  2000/02/26 00:35:12  keil
  * Fix skb freeing in interrupt context
  *
@@ -1769,6 +1772,9 @@ __initfunc(int
 	struct pci_dev *tmp_hfcpci = NULL;
 #endif
 
+#ifdef __BIG_ENDIAN
+#error "not running on big endian machines now"
+#endif
 	strcpy(tmp, hfcpci_revision);
 	printk(KERN_INFO "HiSax: HFC-PCI driver Rev. %s\n", HiSax_getrev(tmp));
 #if CONFIG_PCI
@@ -1788,6 +1794,8 @@ __initfunc(int
 						     dev_hfcpci);
 			i++;
 			if (tmp_hfcpci) {
+				if (pci_enable_device(tmp_hfcpci))
+					continue;
 				if ((card->para[0]) && (card->para[0] != (get_pcibase(tmp_hfcpci, 0) & PCI_BASE_ADDRESS_IO_MASK)))
 					continue;
 				else

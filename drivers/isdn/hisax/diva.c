@@ -12,6 +12,9 @@
  *
  *
  * $Log$
+ * Revision 1.19  2000/02/26 00:35:12  keil
+ * Fix skb freeing in interrupt context
+ *
  * Revision 1.18  1999/12/19 13:09:41  keil
  * changed TASK_INTERRUPTIBLE into TASK_UNINTERRUPTIBLE for
  * signal proof delays
@@ -110,13 +113,21 @@ const char *Diva_revision = "$Revision$";
 #define DIVA_IPAC_ISA	3
 #define DIVA_IPAC_PCI	4
 
+#ifdef COMPAT_PCI_COMMON_ID
 /* PCI stuff */
-#define PCI_VENDOR_EICON_DIEHL	0x1133
-#define PCI_DIVA20PRO_ID	0xe001
-#define PCI_DIVA20_ID		0xe002
-#define PCI_DIVA20PRO_U_ID	0xe003
-#define PCI_DIVA20_U_ID		0xe004
-#define PCI_DIVA_201		0xe005
+#ifndef PCI_VENDOR_ID_EICON
+#define PCI_VENDOR_ID_EICON	0x1133
+#endif
+#ifndef PCI_DEVICE_ID_EICON_DIVA20
+#define PCI_DEVICE_ID_EICON_DIVA20	0xe002
+#endif
+#ifndef PCI_DEVICE_ID_EICON_DIVA20_U
+#define PCI_DEVICE_ID_EICON_DIVA20_U	0xe004
+#endif
+#ifndef PCI_DEVICE_ID_EICON_DIVA201
+#define PCI_DEVICE_ID_EICON_DIVA201	0xe005
+#endif
+#endif /* COMPAT_PCI_COMMON_ID */
 
 /* CTRL (Read) */
 #define DIVA_IRQ_STAT	0x01
@@ -134,10 +145,16 @@ const char *Diva_revision = "$Revision$";
 
 /* Siemens PITA */
 #define PITA_MISC_REG		0x1c
+#ifdef __BIG_ENDIAN
+#define PITA_PARA_SOFTRESET	0x00000001
+#define PITA_PARA_MPX_MODE	0x00000004
+#define PITA_INT0_ENABLE	0x00000200
+#else
 #define PITA_PARA_SOFTRESET	0x01000000
 #define PITA_PARA_MPX_MODE	0x04000000
 #define PITA_INT0_ENABLE	0x00020000
-#define PITA_INT0_STATUS	0x00000002
+#endif
+#define PITA_INT0_STATUS	0x02
 
 static inline u_char
 readreg(unsigned int ale, unsigned int adr, u_char off)
@@ -186,7 +203,7 @@ writefifo(unsigned int ale, unsigned int adr, u_char off, u_char *data, int size
 static inline u_char
 memreadreg(unsigned long adr, u_char off)
 {
-	return(0xff & *((unsigned int *)
+	return(*((unsigned char *)
 		(((unsigned int *)adr) + off)));
 }
 
@@ -941,28 +958,30 @@ setup_diva(struct IsdnCard *card))
 		}
 
 		cs->subtyp = 0;
-		if ((dev_diva = pci_find_device(PCI_VENDOR_EICON_DIEHL,
-			PCI_DIVA20_ID, dev_diva))) {
+		if ((dev_diva = pci_find_device(PCI_VENDOR_ID_EICON,
+			PCI_DEVICE_ID_EICON_DIVA20, dev_diva))) {
+			if (pci_enable_device(dev_diva))
+				return(0);
 			cs->subtyp = DIVA_PCI;
 			cs->irq = dev_diva->irq;
-			cs->hw.diva.cfg_reg = get_pcibase(dev_diva, 2)
-				& PCI_BASE_ADDRESS_IO_MASK;
-		} else if ((dev_diva_u = pci_find_device(PCI_VENDOR_EICON_DIEHL,
-			PCI_DIVA20_U_ID, dev_diva_u))) {
+			cs->hw.diva.cfg_reg = pci_resource_start_io(dev_diva, 2);
+		} else if ((dev_diva_u = pci_find_device(PCI_VENDOR_ID_EICON,
+			PCI_DEVICE_ID_EICON_DIVA20_U, dev_diva_u))) {
+			if (pci_enable_device(dev_diva_u))
+				return(0);
 			cs->subtyp = DIVA_PCI;
 			cs->irq = dev_diva_u->irq;
-			cs->hw.diva.cfg_reg = get_pcibase(dev_diva_u, 2)
-				& PCI_BASE_ADDRESS_IO_MASK;
-		} else if ((dev_diva201 = pci_find_device(PCI_VENDOR_EICON_DIEHL,
-			PCI_DIVA_201, dev_diva201))) {
+			cs->hw.diva.cfg_reg = pci_resource_start_io(dev_diva_u, 2);
+		} else if ((dev_diva201 = pci_find_device(PCI_VENDOR_ID_EICON,
+			PCI_DEVICE_ID_EICON_DIVA201, dev_diva201))) {
+			if (pci_enable_device(dev_diva201))
+				return(0);
 			cs->subtyp = DIVA_IPAC_PCI;
 			cs->irq = dev_diva201->irq;
 			cs->hw.diva.pci_cfg =
-				(ulong) ioremap((get_pcibase(dev_diva201, 0)
-					& PCI_BASE_ADDRESS_IO_MASK), 4096);
+				(ulong) ioremap(pci_resource_start_mem(dev_diva201, 0), 4096);
 			cs->hw.diva.cfg_reg =
-				(ulong) ioremap((get_pcibase(dev_diva201, 1)
-					& PCI_BASE_ADDRESS_IO_MASK), 4096);
+				(ulong) ioremap(pci_resource_start_mem(dev_diva201, 1), 4096);
 		} else {
 			printk(KERN_WARNING "Diva: No PCI card found\n");
 			return(0);
@@ -983,17 +1002,17 @@ setup_diva(struct IsdnCard *card))
 
 		cs->subtyp = 0;
 		for (; pci_index < 0xff; pci_index++) {
-			if (pcibios_find_device(PCI_VENDOR_EICON_DIEHL,
-			   PCI_DIVA20_ID, pci_index, &pci_bus, &pci_device_fn)
-			   == PCIBIOS_SUCCESSFUL)
+			if (pcibios_find_device(PCI_VENDOR_ID_EICON,
+			   PCI_DEVICE_ID_EICON_DIVA20, pci_index, &pci_bus,
+			   &pci_device_fn) == PCIBIOS_SUCCESSFUL)
 				cs->subtyp = DIVA_PCI;
-			else if (pcibios_find_device(PCI_VENDOR_EICON_DIEHL,
-			   PCI_DIVA20_U_ID, pci_index, &pci_bus, &pci_device_fn)
-			   == PCIBIOS_SUCCESSFUL)
+			else if (pcibios_find_device(PCI_VENDOR_ID_EICON,
+			   PCI_DEVICE_ID_EICON_DIVA20_U, pci_index, &pci_bus,
+			   &pci_device_fn) == PCIBIOS_SUCCESSFUL)
 			   	cs->subtyp = DIVA_PCI;
-			else if (pcibios_find_device(PCI_VENDOR_EICON_DIEHL,
-			   PCI_DIVA_201, pci_index, &pci_bus, &pci_device_fn)
-			   == PCIBIOS_SUCCESSFUL)
+			else if (pcibios_find_device(PCI_VENDOR_ID_EICON,
+			   PCI_DEVICE_ID_EICON_DIVA201, pci_index, &pci_bus,
+			   &pci_device_fn) == PCIBIOS_SUCCESSFUL)
 			   	cs->subtyp = DIVA_IPAC_PCI;
 			else
 				break;

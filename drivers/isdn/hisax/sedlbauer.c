@@ -17,6 +17,9 @@
  *            Edgar Toernig
  *
  * $Log$
+ * Revision 1.21  2000/05/23 18:59:13  keil
+ * support for the upcomming speedfax+ PCI
+ *
  * Revision 1.20  2000/01/20 19:47:45  keil
  * Add Fax Class 1 support
  *
@@ -656,17 +659,14 @@ setup_sedlbauer(struct IsdnCard *card))
 		}
 		if ((dev_sedl = pci_find_device(PCI_VENDOR_ID_TIGERJET,
 				PCI_DEVICE_ID_TIGERJET_100, dev_sedl))) {
+			if (pci_enable_device(dev_sedl))
+				return(0);
 			cs->irq = dev_sedl->irq;
 			if (!cs->irq) {
 				printk(KERN_WARNING "Sedlbauer: No IRQ for PCI card found\n");
 				return(0);
 			}
-			cs->hw.sedl.cfg_reg = get_pcibase(dev_sedl, 0) &
-				PCI_BASE_ADDRESS_IO_MASK; 
-			pci_read_config_word(dev_sedl, PCI_SUBSYSTEM_VENDOR_ID,
-				&sub_vendor_id);
-			pci_read_config_word(dev_sedl, PCI_SUBSYSTEM_ID,
-				&sub_id);
+			cs->hw.sedl.cfg_reg = pci_resource_start_io(dev_sedl, 0);
 		} else {
 			printk(KERN_WARNING "Sedlbauer: No PCI card found\n");
 			return(0);
@@ -686,10 +686,6 @@ setup_sedlbauer(struct IsdnCard *card))
 				PCI_INTERRUPT_LINE, &irq);
 			pcibios_read_config_dword(pci_bus, pci_device_fn,
 				PCI_BASE_ADDRESS_0, &ioaddr);
-			pcibios_read_config_word(pci_bus, pci_device_fn,
-				PCI_SUBSYSTEM_VENDOR_ID, &sub_vendor_id);
-			pcibios_read_config_word(pci_bus, pci_device_fn,
-				PCI_SUBSYSTEM_ID, &sub_id);
 			cs->irq = irq;
 			cs->hw.sedl.cfg_reg = ioaddr & PCI_BASE_ADDRESS_IO_MASK; 
 			if (!cs->hw.sedl.cfg_reg) {
@@ -706,6 +702,8 @@ setup_sedlbauer(struct IsdnCard *card))
 #endif /* COMPAT_HAS_NEW_PCI */
 		cs->irq_flags |= SA_SHIRQ;
 		cs->hw.sedl.bus = SEDL_BUS_PCI;
+		pci_get_sub_vendor(dev_sedl,sub_vendor_id);
+		pci_get_sub_system(dev_sedl,sub_id);
 		printk(KERN_INFO "Sedlbauer: PCI subvendor:%x subid %x\n",
 			sub_vendor_id, sub_id);
 		printk(KERN_INFO "Sedlbauer: PCI base adr %#x\n",
