@@ -6,6 +6,9 @@
  * (c) Copyright 1997 by Carsten Paeth (calle@calle.in-berlin.de)
  * 
  * $Log$
+ * Revision 1.8  1998/10/25 14:39:00  fritz
+ * Backported from MIPS (Cobalt).
+ *
  * Revision 1.7  1998/03/29 16:06:00  calle
  * changes from 2.0 tree merged.
  *
@@ -264,7 +267,7 @@ static inline int B1_rx_full(unsigned int base)
 static inline unsigned char B1_get_byte(unsigned int base)
 {
 	unsigned long i = jiffies + 1 * HZ;	/* maximum wait time 1 sec */
-	while (!B1_rx_full(base) && i > jiffies);
+	while (!B1_rx_full(base) && time_before(jiffies, i));
 	if (B1_rx_full(base))
 		return inb(base + B1_READ);
 	printk(KERN_CRIT "b1lli(0x%x): rx not full after 1 second\n", base);
@@ -767,7 +770,7 @@ int B1_loaded(unsigned int base)
 
 	if (loaddebug)
 		printk(KERN_DEBUG "b1capi: loaded: wait 1 ..\n");
-	for (i = jiffies + 10 * HZ; i > jiffies;) {
+	for (i = jiffies + 10 * HZ; time_before(jiffies, i);) {
 		if (B1_tx_empty(base))
 			break;
 	}
@@ -777,7 +780,7 @@ int B1_loaded(unsigned int base)
 	}
 	B1_put_byte(base, SEND_POLL);
 	printk(KERN_DEBUG "b1capi: loaded: wait 2 ..\n");
-	for (i = jiffies + 10 * HZ; i > jiffies;) {
+	for (i = jiffies + 10 * HZ; time_before(jiffies, i);) {
 		if (B1_rx_full(base)) {
 			if ((ans = B1_get_byte(base)) == RECEIVE_POLL) {
 				if (loaddebug)
