@@ -13,6 +13,9 @@
  *              Fritz Elfert
  *
  * $Log$
+ * Revision 2.27  2000/06/16 13:13:56  keil
+ * Support NI1 (US D-channel protocol)
+ *
  * Revision 2.26  2000/05/19 18:40:57  keil
  * implement codeset shift procedure for IE checking
  *
@@ -3239,7 +3242,7 @@ dss1down(struct PStack *st, int pr, void *arg)
 		if ((proc = dss1_new_l3_process(st, cr))) {
 			proc->chan = chan;
 			chan->proc = proc;
-			proc->para.setup = chan->setup;
+			memcpy(&proc->para.setup, &chan->setup, sizeof(setup_parm));
 			proc->callref = cr;
 		}
 	} else {

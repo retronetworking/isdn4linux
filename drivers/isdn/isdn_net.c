@@ -2544,7 +2544,7 @@ isdn_net_swap_usage(int i1, int i2)
  *                   would eventually match if CID was longer.
  */
 int
-isdn_net_find_icall(int di, int ch, int idx, setup_parm setup)
+isdn_net_find_icall(int di, int ch, int idx, setup_parm *setup)
 {
 	char *eaz;
 	int si1;
@@ -2564,19 +2564,19 @@ isdn_net_find_icall(int di, int ch, int idx, setup_parm setup)
 	/* Search name in netdev-chain */
 	save_flags(flags);
 	cli();
-	if (!setup.phone[0]) {
+	if (!setup->phone[0]) {
 		nr[0] = '0';
 		nr[1] = '\0';
 		printk(KERN_INFO "isdn_net: Incoming call without OAD, assuming '0'\n");
 	} else
-		strcpy(nr, setup.phone);
-	si1 = (int) setup.si1;
-	si2 = (int) setup.si2;
-	if (!setup.eazmsn[0]) {
+		strcpy(nr, setup->phone);
+	si1 = (int) setup->si1;
+	si2 = (int) setup->si2;
+	if (!setup->eazmsn[0]) {
 		printk(KERN_WARNING "isdn_net: Incoming call without CPN, assuming '0'\n");
 		eaz = "0";
 	} else
-		eaz = setup.eazmsn;
+		eaz = setup->eazmsn;
 	if (dev->net_verbose > 1)
 		printk(KERN_INFO "isdn_net: call from %s,%d,%d -> %s\n", nr, si1, si2, eaz);
 	/* Accept only calls with Si1 = 7 (Data-Transmission) */

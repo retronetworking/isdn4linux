@@ -2219,7 +2219,7 @@ isdn_tty_match_icall(char *cid, atemu *emu, int di)
  *      CID is longer.
  */
 int
-isdn_tty_find_icall(int di, int ch, setup_parm setup)
+isdn_tty_find_icall(int di, int ch, setup_parm *setup)
 {
 	char *eaz;
 	int i;
@@ -2230,18 +2230,18 @@ isdn_tty_find_icall(int di, int ch, setup_parm setup)
 	char *nr;
 	ulong flags;
 
-	if (!setup.phone[0]) {
+	if (!setup->phone[0]) {
 		nr = "0";
 		printk(KERN_INFO "isdn_tty: Incoming call without OAD, assuming '0'\n");
 	} else
-		nr = setup.phone;
-	si1 = (int) setup.si1;
-	si2 = (int) setup.si2;
-	if (!setup.eazmsn[0]) {
+		nr = setup->phone;
+	si1 = (int) setup->si1;
+	si2 = (int) setup->si2;
+	if (!setup->eazmsn[0]) {
 		printk(KERN_WARNING "isdn_tty: Incoming call without CPN, assuming '0'\n");
 		eaz = "0";
 	} else
-		eaz = setup.eazmsn;
+		eaz = setup->eazmsn;
 #ifdef ISDN_DEBUG_MODEM_ICALL
 	printk(KERN_DEBUG "m_fi: eaz=%s si1=%d si2=%d\n", eaz, si1, si2);
 #endif
@@ -2283,8 +2283,8 @@ isdn_tty_find_icall(int di, int ch, setup_parm setup)
 					strcpy(dev->num[idx], nr);
 					strcpy(info->emu.cpn, eaz);
 					info->emu.mdmreg[REG_SI1I] = si2bit[si1];
-					info->emu.mdmreg[REG_PLAN] = setup.plan;
-					info->emu.mdmreg[REG_SCREEN] = setup.screen;
+					info->emu.mdmreg[REG_PLAN] = setup->plan;
+					info->emu.mdmreg[REG_SCREEN] = setup->screen;
 					isdn_info_update();
 					restore_flags(flags);
 					printk(KERN_INFO "isdn_tty: call from %s, -> RING on ttyI%d\n", nr,

@@ -11,6 +11,9 @@
  *              Fritz Elfert
  *
  * $Log$
+ * Revision 2.45  2000/06/16 13:12:21  keil
+ * Support for SPID used by NI1
+ *
  * Revision 2.44  2000/05/23 20:45:05  keil
  * debug for wakeup callback
  *
@@ -530,7 +533,7 @@ lli_deliver_call(struct FsmInst *fi, int event, void *arg)
 		 * No need to return "unknown" for calls without OAD,
 		 * cause that's handled in linklevel now (replaced by '0')
 		 */
-		ic.parm.setup = chanp->proc->para.setup;
+		memcpy(&ic.parm.setup, &chanp->proc->para.setup, sizeof(setup_parm));
 		ret = chanp->cs->iif.statcallb(&ic);
 		if (chanp->debug & 1)
 			link_debug(chanp, 1, "statcallb ret=%d", ret);
@@ -547,7 +550,7 @@ lli_deliver_call(struct FsmInst *fi, int event, void *arg)
 				FsmChangeState(fi, ST_IN_PROCEED_SEND);
 				chanp->d_st->lli.l4l3(chanp->d_st, CC_PROCEED_SEND | REQUEST, chanp->proc);
 				if (ret == 5) {
-					chanp->setup = ic.parm.setup;
+					memcpy(&chanp->setup, &ic.parm.setup, sizeof(setup_parm));
 					chanp->d_st->lli.l4l3(chanp->d_st, CC_REDIR | REQUEST, chanp->proc);
 				}
 				break;
@@ -1686,7 +1689,7 @@ HiSax_command(isdn_ctrl * ic)
 				link_debug(chanp, 1, "DIAL %s -> %s (%d,%d)",
 					ic->parm.setup.eazmsn, ic->parm.setup.phone,
 					ic->parm.setup.si1, ic->parm.setup.si2);
-			chanp->setup = ic->parm.setup;
+			memcpy(&chanp->setup, &ic->parm.setup, sizeof(setup_parm));
 			if (!strcmp(chanp->setup.eazmsn, "0"))
 				chanp->setup.eazmsn[0] = '\0';
 			/* this solution is dirty and may be change, if
@@ -1706,7 +1709,7 @@ HiSax_command(isdn_ctrl * ic)
 			break;
 		case (ISDN_CMD_ACCEPTD):
 			chanp = csta->channel + ic->arg;
-			chanp->setup = ic->parm.setup;
+			memcpy(&chanp->setup, &ic->parm.setup, sizeof(setup_parm));
 			if (chanp->debug & 1)
 				link_debug(chanp, 1, "ACCEPTD");
 			FsmEvent(&chanp->fi, EV_ACCEPTD, NULL);
@@ -1903,7 +1906,7 @@ HiSax_command(isdn_ctrl * ic)
 			chanp = csta->channel + ic->arg;
 			if (chanp->debug & 1)
 				link_debug(chanp, 1, "REDIR");
-			chanp->setup = ic->parm.setup;
+			memcpy(&chanp->setup, &ic->parm.setup, sizeof(setup_parm));
 			FsmEvent(&chanp->fi, EV_REDIR, NULL);
 			break;
 

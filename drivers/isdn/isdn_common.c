@@ -494,7 +494,7 @@ isdn_status_callback(isdn_ctrl * c)
 				return 0;
 			}
 			/* Try to find a network-interface which will accept incoming call */
-			r = ((c->command == ISDN_STAT_ICALLW) ? 0 : isdn_net_find_icall(di, c->arg, i, c->parm.setup));
+			r = ((c->command == ISDN_STAT_ICALLW) ? 0 : isdn_net_find_icall(di, c->arg, i, &c->parm.setup));
 			switch (r) {
 				case 0:
 					/* No network-device replies.
@@ -503,7 +503,7 @@ isdn_status_callback(isdn_ctrl * c)
 					 * 3 on eventually match, if CID is longer.
 					 */
                                         if (c->command == ISDN_STAT_ICALL)
-					  if ((retval = isdn_tty_find_icall(di, c->arg, c->parm.setup))) return(retval);
+					  if ((retval = isdn_tty_find_icall(di, c->arg, &c->parm.setup))) return(retval);
 #ifdef CONFIG_ISDN_DIVERSION 
                                          if (divert_if)
                  	                  if ((retval = divert_if->stat_callback(c))) 
