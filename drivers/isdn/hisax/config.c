@@ -5,6 +5,10 @@
  *
  *
  * $Log$
+ * Revision 2.16  1998/05/25 14:10:03  keil
+ * HiSax 3.0
+ * X.75 and leased are working again.
+ *
  * Revision 2.15  1998/05/25 12:57:43  keil
  * HiSax golden code from certification, Don't use !!!
  * No leased lines, no X75, but many changes.
@@ -97,6 +101,8 @@
  *   22 Sedlbauer Speed Star    p0=irq p1=iobase
  *   23 reserved
  *   24 Dr Neuhaus Niccy PnP/PCI card p0=irq p1=IO0 p2=IO1 (PnP only)
+ *   25 Teles S0Box             p0=irq p1=iobase (from isapnp setup)
+ *   26 AVM A1 PCMCIA (Fritz)   p0=irq p1=iobase
  *
  *
  * protocol can be either ISDN_PTYPE_EURO or ISDN_PTYPE_1TR6 or ISDN_PTYPE_NI1
@@ -115,6 +121,26 @@ EXPORT_SYMBOL(elsa_init_pcmcia);
 #undef DEFAULT_CFG
 #define DEFAULT_CARD ISDN_CTYPE_A1
 #define DEFAULT_CFG {10,0x340,0,0}
+#endif
+
+#ifdef CONFIG_HISAX_AVM_A1_PCMCIA
+#undef DEFAULT_CARD
+#undef DEFAULT_CFG
+#define DEFAULT_CARD ISDN_CTYPE_A1_PCMCIA
+#define DEFAULT_CFG {11,0x170,0,0}
+int avm_a1_init_pcmcia(void*, int, int*, int);
+void HiSax_closecard(int cardnr);
+#ifdef MODULE
+static struct symbol_table hisax_syms_avm_a1= {
+#include <linux/symtab_begin.h>
+	X(avm_a1_init_pcmcia),
+	X(HiSax_closecard),
+#include <linux/symtab_end.h>
+};
+void register_avm_a1_symbols(void) {
+	register_symtab(&hisax_syms_avm_a1);
+}
+#endif
 #endif
 #ifdef CONFIG_HISAX_16_3
 #undef DEFAULT_CARD
@@ -434,6 +460,13 @@ HiSax_init(void))
 		return 0;
 	}
 #endif
+#ifdef CONFIG_HISAX_AVM_A1_PCMCIA
+	if (type[0] == ISDN_CTYPE_A1_PCMCIA) {
+		/* we have to export  and return in this case */
+		register_avm_a1_symbols();
+		return 0;
+	}
+#endif
 #endif
 	nrcards = 0;
 	HiSaxVersion();
@@ -478,6 +511,7 @@ HiSax_init(void))
 			case ISDN_CTYPE_16_3:
 			case ISDN_CTYPE_TELESPCMCIA:
 			case ISDN_CTYPE_A1:
+			case ISDN_CTYPE_A1_PCMCIA:
 			case ISDN_CTYPE_ELSA_PNP:
 			case ISDN_CTYPE_ELSA_PCMCIA:
 			case ISDN_CTYPE_IX1MICROR2:
@@ -634,6 +668,54 @@ int sedl_init_pcmcia(void *pcm_iob, int pcm_irq, int *busy_flag, int prot)
 	cards[0].para[1] = (int)pcm_iob;
 	cards[0].protocol = prot;
 	cards[0].typ = ISDN_CTYPE_SEDLBAUER_PCMCIA;
+	nzproto = 1;
+
+	if (!HiSax_id)
+		HiSax_id = HiSaxID;
+	if (!HiSaxID[0])
+		strcpy(HiSaxID, "HiSax");
+	for (i = 0; i < HISAX_MAX_CARDS; i++)
+		if (cards[i].typ > 0)
+			nrcards++;
+	printk(KERN_DEBUG "HiSax: Total %d card%s defined\n",
+	       nrcards, (nrcards > 1) ? "s" : "");
+
+	Isdnl1New();
+	CallcNew();
+	Isdnl2New();
+	TeiNew();
+	HiSax_inithardware(busy_flag);
+	printk(KERN_NOTICE "HiSax: module installed\n");
+	return (0);
+}
+#endif
+
+#ifdef CONFIG_HISAX_AVM_A1_PCMCIA
+int avm_a1_init_pcmcia(void *pcm_iob, int pcm_irq, int *busy_flag, int prot)
+{
+	int i;
+	int nzproto = 0;
+
+	nrcards = 0;
+	HiSaxVersion();
+	if (id)			/* If id= string used */
+		HiSax_id = id;
+	/* Initialize all 16 structs, even though we only accept
+	   two pcmcia cards
+	   */
+	for (i = 0; i < 16; i++) {
+		cards[i].para[0] = irq[i];
+		cards[i].para[1] = io[i];
+		cards[i].typ = type[i];
+		if (protocol[i]) {
+			cards[i].protocol = protocol[i];
+			nzproto++;
+		}
+	}
+	cards[0].para[0] = pcm_irq;
+	cards[0].para[1] = (int)pcm_iob;
+	cards[0].protocol = prot;
+	cards[0].typ = ISDN_CTYPE_A1_PCMCIA;
 	nzproto = 1;
 
 	if (!HiSax_id)

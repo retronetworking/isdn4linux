@@ -11,6 +11,10 @@
  *
  *
  * $Log$
+ * Revision 2.25  1998/05/25 14:10:09  keil
+ * HiSax 3.0
+ * X.75 and leased are working again.
+ *
  * Revision 2.24  1998/05/25 12:58:04  keil
  * HiSax golden code from certification, Don't use !!!
  * No leased lines, no X75, but many changes.
@@ -124,6 +128,10 @@ extern int setup_telespci(struct IsdnCard *card);
 extern int setup_avm_a1(struct IsdnCard *card);
 #endif
 
+#if CARD_AVM_A1_PCMCIA
+extern int setup_avm_a1_pcmcia(struct IsdnCard *card);
+#endif
+
 #if CARD_ELSA
 extern int setup_elsa(struct IsdnCard *card);
 #endif
@@ -183,7 +191,7 @@ const char *CardType[] =
  "Elsa PCMCIA", "Eicon.Diehl Diva", "ISDNLink", "TeleInt", "Teles 16.3c", 
  "Sedlbauer Speed Card", "USR Sportster", "ith mic Linux", "Elsa PCI",
  "Compaq ISA", "NETjet", "Teles PCI", "Sedlbauer Speed Star (PCMCIA)",
- "AMD 7930", "NICCY", "S0Box"
+ "AMD 7930", "NICCY", "S0Box", "AVM A1 (PCMCIA)"
 };
 
 extern struct IsdnCard cards[];
@@ -676,6 +684,7 @@ HISAX_INITFUNC(static int init_card(struct IsdnCardState *cs))
 	if (cs->cardmsg(cs, CARD_SETIRQ, NULL)) {
 		printk(KERN_WARNING "HiSax: couldn't get interrupt %d\n",
 			cs->irq);
+		restore_flags(flags);
 		return(1);
 	}
 	while (cnt) {
@@ -837,6 +846,11 @@ checkcard(int cardnr, char *id, int *busy_flag))
 #if CARD_AVM_A1
 		case ISDN_CTYPE_A1:
 			ret = setup_avm_a1(card);
+			break;
+#endif
+#if CARD_AVM_A1_PCMCIA
+		case ISDN_CTYPE_A1_PCMCIA:
+			ret = setup_avm_a1_pcmcia(card);
 			break;
 #endif
 #if CARD_ELSA
