@@ -1,6 +1,9 @@
 /* $Id$
  *
  * $Log$
+ * Revision 1.14  1996/10/22 23:14:14  fritz
+ * Changes for compatibility to 2.0.X and 2.1.X kernels.
+ *
  * Revision 1.13  1996/06/24 17:15:55  fritz
  * corrected return code of teles_writebuf()
  *
@@ -1233,7 +1236,7 @@ init_ds(int chan, int incoming)
         st->l2.laptype = LAPB;
         st->l2.orig = !incoming;
         st->l2.t200 = 1000;        /* 1000 milliseconds */
-        st->l2.window = 3;
+        st->l2.window = 7;
         st->l2.n200 = 4;           /* try 4 times       */
         st->l2.t203 = 5000;        /* 5000 milliseconds */
 
