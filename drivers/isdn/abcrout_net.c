@@ -31,6 +31,9 @@
  *
  *
  * $Log$
+ * Revision 1.7  1998/05/06 08:35:00  detabc
+ * fixed a wrong response-message in udp-control-packets
+ *
  * Revision 1.6  1998/04/27 12:00:23  detabc
  * *** empty log message ***
  *
@@ -885,6 +888,7 @@ int abc_keep_senden(struct device *ndev,isdn_net_local *lp)
 	}
 
 	abc_put_tx_que(lp,0,0,skb);
+	lp->abc_nextkeep = jiffies + HZ * 20;
 			
 	if(dev->net_verbose > 5)
 		printk(KERN_DEBUG " %s abc_keepal_send retw %d len %d\n",
@@ -960,6 +964,9 @@ int abc_test_rcvq(struct device *ndev)
 
 	if((a = skb_queue_len(&abc_receive_q)) < 1)
 		return(0);
+
+	if(dev->net_verbose > 1)
+		printk(KERN_DEBUG "abc_test_rcvq queue_len == %d\n",a);
 
 	for(a++;a > 0 && (skb = skb_dequeue(&abc_receive_q)) != NULL;a--) {
 
@@ -2596,6 +2603,8 @@ void abc_clear_tx_que(isdn_net_local *lp)
 
 		struct sk_buff_head *tq = lp->abc_tx_que;
 		struct sk_buff_head *etq = lp->abc_tx_que + ABC_ANZ_TX_QUE;
+
+		lp->abc_delayed_hangup = 0;
 
 		for(;tq < etq;tq++) {
 
