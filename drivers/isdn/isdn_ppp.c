@@ -19,6 +19,11 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.28.2.2  1998/11/03 14:31:23  fritz
+ * Reduced stack usage in various functions.
+ * Adapted statemachine to work with certified HiSax.
+ * Some fixes in callback handling.
+ *
  * Revision 1.28.2.1  1998/03/16 09:56:02  cal
  * Merged in TimRu-patches. Still needs validation in conjunction with ABC-patches.
  *
@@ -244,7 +249,7 @@ isdn_ppp_free(isdn_net_local * lp)
 	if ((is->state & IPPP_CONNECT))
 		isdn_ppp_closewait(lp->ppp_slot);	/* force wakeup on ippp device */
 	else if (is->state & IPPP_ASSIGNED)
-		is->state = IPPP_OPEN;	/* fallback to 'OPEN but not ASSIGEND' staet */
+		is->state = IPPP_OPEN;	/* fallback to 'OPEN but not ASSIGNED' state */
 
 
 	if (is->debug & 0x1)
@@ -298,7 +303,8 @@ isdn_ppp_bind(isdn_net_local * lp)
 		}
 	} else {
 		for (i = 0; i < ISDN_MAX_CHANNELS; i++)
-			if (ippp_table[i]->minor == lp->pppbind && ippp_table[i]->state == IPPP_OPEN)
+			if (ippp_table[i]->minor == lp->pppbind &&
+			    (ippp_table[i]->state & IPPP_OPEN) == IPPP_OPEN)
 				break;
 	}
 
