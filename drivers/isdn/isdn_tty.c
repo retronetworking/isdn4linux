@@ -20,6 +20,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.74  1999/09/04 06:20:04  keil
+ * Changes from kernel set_current_state()
+ *
  * Revision 1.73  1999/08/28 21:56:27  keil
  * misplaced #endif caused ttyI crash in 2.3.X
  *
@@ -3115,16 +3118,18 @@ static void
 isdn_tty_getdial(char *p, char *q,int cnt)
 {
 	int first = 1;
-	int limit=39;	/* MUST match the size in isdn_tty_parse to avoid
+	int limit = 31;	/* MUST match the size of interface var to avoid
 				buffer overflow */
 
 	while (strchr(" 0123456789,#.*WPTS-", *p) && *p && --cnt>0) {
 		if ((*p >= '0' && *p <= '9') || ((*p == 'S') && first) ||
-		    (*p == '*') || (*p == '#'))
+		    (*p == '*') || (*p == '#')) {
 			*q++ = *p;
-		p++;
-		if(!--limit)
+			limit--;
+		}
+		if(!limit)
 			break;
+		p++;
 		first = 0;
 	}
 	*q = 0;

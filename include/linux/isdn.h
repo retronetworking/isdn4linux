@@ -21,6 +21,12 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.77  1999/09/23 22:22:42  detabc
+ * added tcp-keepalive-detect with local response (ipv4 only)
+ * added host-only-interface support
+ * (source ipaddr == interface ipaddr) (ipv4 only)
+ * ok with kernel 2.3.18 and 2.2.12
+ *
  * Revision 1.76  1999/09/14 10:16:21  keil
  * change ABC include
  *
@@ -378,7 +384,7 @@ extern void isdn_dw_abc_release_func(void);
 #define ISDN_USAGE_OUTGOING 128 /* This bit is set, if channel is outgoing  */
 
 #define ISDN_MODEM_ANZREG    24        /* Number of Modem-Registers        */
-#define ISDN_MSNLEN          20
+#define ISDN_MSNLEN          32
 #define ISDN_LMSNLEN         255 /* Length of tty's Listen-MSN string */
 #define ISDN_CMSGLEN	     50	 /* Length of CONNECT-Message to add for Modem */
 
