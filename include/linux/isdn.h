@@ -21,6 +21,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.27  1997/03/05 21:11:49  fritz
+ * Minor fixes.
+ *
  * Revision 1.26  1997/02/28 02:37:53  fritz
  * Added some comments.
  *
@@ -475,6 +478,7 @@ typedef struct isdn_net_dev_s {
 #define ISDN_SERIAL_TYPE_NORMAL            1
 #define ISDN_SERIAL_TYPE_CALLOUT           2
 
+#ifdef CONFIG_ISDN_AUDIO
 /* For using sk_buffs with audio we need some private variables
  * within each sk_buff. For this purpose, we declare a struct here,
  * and put it always at skb->head. A few macros help accessing the
@@ -488,6 +492,7 @@ typedef struct isdn_audio_skb {
 
 #define ISDN_AUDIO_SKB_DLECOUNT(skb) (((isdn_audio_skb*)skb->head)->dle_count)
 #define ISDN_AUDIO_SKB_LOCK(skb) (((isdn_audio_skb*)skb->head)->lock)
+#endif
 
 /* Private data of AT-command-interpreter */
 typedef struct atemu {
@@ -495,11 +500,13 @@ typedef struct atemu {
   u_char              mdmreg[ISDN_MODEM_ANZREG];  /* Modem-Registers       */
   char                pmsn[ISDN_MSNLEN]; /* EAZ/MSNs Profile 0             */
   char                msn[ISDN_MSNLEN];/* EAZ/MSN                          */
+#ifdef CONFIG_ISDN_AUDIO
   u_char              vpar[10];        /* Voice-parameters                 */
+  int                 lastDLE;         /* Flag for voice-coding: DLE seen  */
+#endif
   int                 mdmcmdl;         /* Length of Modem-Commandbuffer    */
   int                 pluscount;       /* Counter for +++ sequence         */
   int                 lastplus;        /* Timestamp of last +              */
-  int                 lastDLE;         /* Flag for voice-coding: DLE seen  */
   char                mdmcmd[255];     /* Modem-Commandbuffer              */
 } atemu;
 
@@ -518,10 +525,6 @@ typedef struct modem_info {
   long			pgrp;		 /* pgrp of opening process        */
   int                   online;          /* 1 = B-Channel is up, drop data */
 					 /* 2 = B-Channel is up, deliver d.*/
-  int                   vonline;         /* Voice-channel status           */
-					 /* Bit 0 = recording              */
-					 /* Bit 1 = playback               */
-					 /* Bit 2 = playback, DLE-ETX seen */
   int                   dialing;         /* Dial in progress               */
   int                   rcvsched;        /* Receive needs schedule         */
   int                   isdn_driver;	 /* Index to isdn-driver           */
@@ -541,12 +544,18 @@ typedef struct modem_info {
   int                   xmit_count;      /* # of chars in xmit_buf         */
   unsigned char         *xmit_buf;       /* transmit buffer                */
   struct sk_buff_head   xmit_queue;      /* transmit queue                 */
+#ifdef CONFIG_ISDN_AUDIO
+  int                   vonline;         /* Voice-channel status           */
+					 /* Bit 0 = recording              */
+					 /* Bit 1 = playback               */
+					 /* Bit 2 = playback, DLE-ETX seen */
   struct sk_buff_head   dtmf_queue;      /* queue for dtmf results         */
-  struct tty_struct 	*tty;            /* Pointer to corresponding tty   */
-  atemu                 emu;             /* AT-emulator data               */
   void                  *adpcms;         /* state for adpcm decompression  */
   void                  *adpcmr;         /* state for adpcm compression    */
   void                  *dtmf_state;     /* state for dtmf decoder         */
+#endif
+  struct tty_struct 	*tty;            /* Pointer to corresponding tty   */
+  atemu                 emu;             /* AT-emulator data               */
   struct termios	normal_termios;  /* For saving termios structs     */
   struct termios	callout_termios;
   struct wait_queue	*open_wait;
@@ -654,7 +663,9 @@ typedef struct {
   isdn_if            *interface;        /* Interface to driver              */
   int                *rcverr;           /* Error-counters for B-Ch.-receive */
   int                *rcvcount;         /* Byte-counters for B-Ch.-receive  */
+#ifdef CONFIG_ISDN_AUDIO
   unsigned long      DLEflag;           /* Flags: Insert DLE at next read   */
+#endif
   struct sk_buff_head *rpqueue;         /* Pointers to start of Rcv-Queue   */
   struct wait_queue  **rcv_waitq;       /* Wait-Queues for B-Channel-Reads  */
   struct wait_queue  **snd_waitq;       /* Wait-Queue for B-Channel-Send's  */

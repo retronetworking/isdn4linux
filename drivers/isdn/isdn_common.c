@@ -21,6 +21,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.38  1997/03/05 21:15:02  fritz
+ * Fix: reduced stack usage of isdn_ioctl() and isdn_set_allcfg()
+ *
  * Revision 1.37  1997/03/02 14:29:18  fritz
  * More ttyI related cleanup.
  *
@@ -673,6 +676,7 @@ isdn_readbchan(int di, int channel, u_char * buf, u_char * fp, int len, int user
 	while (left) {
 		if (!(skb = skb_peek(&dev->drv[di]->rpqueue[channel])))
 			break;
+#ifdef CONFIG_ISDN_AUDIO
 		if (ISDN_AUDIO_SKB_LOCK(skb))
 			break;
 		ISDN_AUDIO_SKB_LOCK(skb) = 1;
@@ -706,6 +710,7 @@ isdn_readbchan(int di, int channel, u_char * buf, u_char * fp, int len, int user
 			if (count_pull >= skb->len)
 				dflag = 1;
 		} else {
+#endif
 			/* No DLE's in buff, so simply copy it */
 			dflag = 1;
 			if ((count_pull = skb->len) > left) {
@@ -719,7 +724,9 @@ isdn_readbchan(int di, int channel, u_char * buf, u_char * fp, int len, int user
 				memcpy(cp, skb->data, count_put);
 			cp += count_put;
 			left -= count_put;
+#ifdef CONFIG_ISDN_AUDIO
 		}
+#endif
 		count += count_put;
 		if (fp) {
 			memset(fp, 0, count_put);
@@ -731,7 +738,9 @@ isdn_readbchan(int di, int channel, u_char * buf, u_char * fp, int len, int user
 			 */
 			if (fp)
 				*(fp - 1) = 0xff;
+#ifdef CONFIG_ISDN_AUDIO
 			ISDN_AUDIO_SKB_LOCK(skb) = 0;
+#endif
 			skb = skb_dequeue(&dev->drv[di]->rpqueue[channel]);
 			isdn_trash_skb(skb, FREE_READ);
 		} else {
@@ -740,7 +749,9 @@ isdn_readbchan(int di, int channel, u_char * buf, u_char * fp, int len, int user
 			 * but we pull off the data we got until now.
 			 */
 			skb_pull(skb, count_pull);
+#ifdef CONFIG_ISDN_AUDIO
 			ISDN_AUDIO_SKB_LOCK(skb) = 0;
+#endif
 		}
 		dev->drv[di]->rcvcount[channel] -= count_put;
 	}
