@@ -21,6 +21,12 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.13  1999/08/22 20:26:44  calle
+ * backported changes from kernel 2.3.14:
+ * - several #include "config.h" gone, others come.
+ * - "struct device" changed to "struct net_device" in 2.3.14, added a
+ *   define in isdn_compat.h for older kernel versions.
+ *
  * Revision 1.12  1999/08/18 20:16:59  armin
  * Added XLOG function for all cards.
  * Bugfix of alloc_skb NULL pointer.
@@ -463,14 +469,14 @@ idi_connect_req(eicon_card *card, eicon_chan *chan, char *phone,
 
 	reqbuf->XBuffer.P[l++] = CPN;
 	reqbuf->XBuffer.P[l++] = strlen(phone) + 1;
-	reqbuf->XBuffer.P[l++] = 0xc1;
+	reqbuf->XBuffer.P[l++] = 0x81;
 	for(i=0; i<strlen(phone);i++) 
 		reqbuf->XBuffer.P[l++] = phone[i];
 
 	reqbuf->XBuffer.P[l++] = OAD;
 	reqbuf->XBuffer.P[l++] = strlen(eazmsn) + 2;
 	reqbuf->XBuffer.P[l++] = 0x01;
-	reqbuf->XBuffer.P[l++] = 0x81;
+	reqbuf->XBuffer.P[l++] = 0x80;
 	for(i=0; i<strlen(eazmsn);i++) 
 		reqbuf->XBuffer.P[l++] = eazmsn[i];
 
