@@ -78,7 +78,7 @@ if [ $# != 0 ]; then
 		dodiff $i $KERNELDIR/$i
 	done
 else
-	for i in drivers/isdn/abc_*.[ch] ; do
+	for i in drivers/isdn/abc*.[ch] ; do
 		dodiff $i $KERNELDIR/$i
 	done
 	for i in drivers/isdn/isdn_*.[ch] ; do
