@@ -7,6 +7,9 @@
  *              Fritz Elfert
  *
  * $Log$
+ * Revision 1.30  1997/05/29 10:40:43  keil
+ * chanp->impair was uninitialised
+ *
  * Revision 1.29  1997/04/23 20:09:49  fritz
  * Removed tmp, used by removed debugging code.
  *
@@ -120,9 +123,9 @@ static int init_ds(struct Channel *chanp, int incoming);
 static void release_ds(struct Channel *chanp);
 
 static struct Fsm callcfsm =
-{NULL, 0, 0};
+{NULL, 0, 0, NULL, NULL};
 static struct Fsm lcfsm =
-{NULL, 0, 0};
+{NULL, 0, 0, NULL, NULL};
 
 static int chancount = 0;
 
@@ -389,8 +392,9 @@ static void
 l4_do_dialout(struct FsmInst *fi, int event, void *arg)
 {
 	struct Channel *chanp = fi->userdata;
-
+	
 	FsmChangeState(fi, ST_OUT_DIAL);
+	chanp->sp->cardmsg(chanp->sp, MDL_INFO_SETUP, (void *) chanp->chan);
 	if (chanp->leased) {
 		chanp->para.bchannel = (chanp->chan & 1) + 1;
 		FsmEvent(&chanp->fi, EV_SETUP_CNF, NULL);
@@ -440,6 +444,7 @@ l4_go_active(struct FsmInst *fi, int event, void *arg)
 	ic.command = ISDN_STAT_BCONN;
 	ic.arg = chanp->chan;
 	chanp->sp->iif.statcallb(&ic);
+	chanp->sp->cardmsg(chanp->sp, MDL_INFO_CONN, (void *) chanp->chan);
 }
 
 /* incomming call */
@@ -467,6 +472,7 @@ l4_deliver_call(struct FsmInst *fi, int event, void *arg)
 	int ret;
 	char txt[32];
 
+	chanp->sp->cardmsg(chanp->sp, MDL_INFO_SETUP, (void *) chanp->chan);
 	/*
 	 * Report incoming calls only once to linklevel, use CallFlags
 	 * which is set to 3 with each broadcast message in isdnl1.c
@@ -507,6 +513,7 @@ l4_deliver_call(struct FsmInst *fi, int event, void *arg)
 			case 0:	/* OK, nobody likes this call */
 			default:	/* statcallb problems */
 				chanp->is.l4.l4l3(&chanp->is, CC_IGNORE, NULL);
+				chanp->sp->cardmsg(chanp->sp, MDL_INFO_REL, (void *) chanp->chan);
 				FsmChangeState(fi, ST_NULL);
 				chanp->Flags = FLG_ESTAB_D;
 				FsmAddTimer(&chanp->drel_timer, DREL_TIMER_VALUE, EV_SHUTDOWN_D, NULL, 61);
@@ -514,6 +521,7 @@ l4_deliver_call(struct FsmInst *fi, int event, void *arg)
 		}
 	} else {
 		chanp->is.l4.l4l3(&chanp->is, CC_IGNORE, NULL);
+		chanp->sp->cardmsg(chanp->sp, MDL_INFO_REL, (void *) chanp->chan);
 		FsmChangeState(fi, ST_NULL);
 		chanp->Flags = FLG_ESTAB_D;
 		FsmAddTimer(&chanp->drel_timer, DREL_TIMER_VALUE, EV_SHUTDOWN_D, NULL, 62);
@@ -631,6 +639,7 @@ l4_timeout_d(struct FsmInst *fi, int event, void *arg)
 	FsmChangeState(fi, ST_NULL);
 	chanp->Flags = FLG_ESTAB_D;
 	FsmAddTimer(&chanp->drel_timer, DREL_TIMER_VALUE, EV_SHUTDOWN_D, NULL, 60);
+	chanp->sp->cardmsg(chanp->sp, MDL_INFO_REL, (void *) chanp->chan);
 }
 
 static void
@@ -641,6 +650,7 @@ l4_go_null(struct FsmInst *fi, int event, void *arg)
 	FsmChangeState(fi, ST_NULL);
 	chanp->Flags = 0;
 	FsmDelTimer(&chanp->drel_timer, 63);
+	chanp->sp->cardmsg(chanp->sp, MDL_INFO_REL, (void *) chanp->chan);
 }
 
 static void
@@ -659,7 +669,6 @@ l4_send_d_disc(struct FsmInst *fi, int event, void *arg)
 {
 	struct Channel *chanp = fi->userdata;
 	isdn_ctrl ic;
-
 
 	if (chanp->Flags & (FLG_DISC_REC | FLG_REL_REC))
 		return;
@@ -1003,6 +1012,7 @@ l4_active_dlrl(struct FsmInst *fi, int event, void *arg)
 	chanp->Flags = 0;
 	chanp->is.l4.l4l3(&chanp->is, CC_DLRL, NULL);
 	FsmEvent(&chanp->lc_d.lcfi, EV_LC_RELEASE, NULL);
+	chanp->sp->cardmsg(chanp->sp, MDL_INFO_REL, (void *) chanp->chan);
 }
 /* *INDENT-OFF* */
 static struct FsmNode fnlist[] =
@@ -1078,9 +1088,6 @@ static struct FsmNode fnlist[] =
 	{ST_WAIT_DSHUTDOWN,	EV_SETUP_IND,		l4_start_dchan},
 };
 /* *INDENT-ON* */
-
-
-
 
 #define FNCOUNT (sizeof(fnlist)/sizeof(struct FsmNode))
 
@@ -1188,6 +1195,7 @@ lc_r5(struct FsmInst *fi, int event, void *arg)
 	lf->st->ma.manl1(lf->st, PH_DEACTIVATE, NULL);
 	lf->lccall(lf, LC_RELEASE, NULL);
 }
+
 /* *INDENT-OFF* */
 static struct FsmNode LcFnList[] =
 {
@@ -1208,15 +1216,6 @@ static struct FsmNode LcFnList[] =
 	{ST_LC_ESTABLISH_WAIT,	EV_LC_DL_RELEASE,	lc_r5},
 };
 /* *INDENT-ON* */
-
-
-
-
-
-
-
-
-
 
 #define LC_FN_COUNT (sizeof(LcFnList)/sizeof(struct FsmNode))
 
@@ -1394,7 +1393,7 @@ ll_handler(struct PStack *st, int pr, void *arg)
 }
 
 static void
-init_is(struct Channel *chanp, unsigned int ces)
+init_is(struct Channel *chanp)
 {
 	struct PStack *st = &chanp->is;
 	struct IsdnCardState *sp = chanp->sp;
@@ -1403,11 +1402,9 @@ init_is(struct Channel *chanp, unsigned int ces)
 	setstack_HiSax(st, sp);
 	st->l2.sap = 0;
 	st->l2.tei = 255;
-	st->l2.ces = ces;
-	st->l2.extended = !0;
-	st->l2.laptype = LAPD;
+	st->l2.ces = chanp->chan;
+	st->l2.flag = FLG_MOD128 | FLG_LAPD | FLG_ORIG;
 	st->l2.window = 1;
-	st->l2.orig = !0;
 	st->l2.t200 = 1000;	/* 1000 milliseconds  */
 	if (st->protocol == ISDN_PTYPE_1TR6) {
 		st->l2.n200 = 3;	/* try 3 times        */
@@ -1492,8 +1489,7 @@ lccall_b(struct LcFsm *lf, int pr, void *arg)
 }
 
 static void
-init_chan(int chan, struct IsdnCardState *csta, int hscx,
-	  unsigned int ces)
+init_chan(int chan, struct IsdnCardState *csta, int hscx)
 {
 	struct Channel *chanp = csta->channel + chan;
 
@@ -1504,8 +1500,8 @@ init_chan(int chan, struct IsdnCardState *csta, int hscx,
 	chanp->debug = 0;
 	chanp->Flags = 0;
 	chanp->leased = 0;
-	chanp->impair = 0;
-	init_is(chanp, ces);
+	chanp->ds.next = NULL;
+	init_is(chanp);
 
 	chanp->fi.fsm = &callcfsm;
 	chanp->fi.state = ST_NULL;
@@ -1547,13 +1543,9 @@ init_chan(int chan, struct IsdnCardState *csta, int hscx,
 int
 CallcNewChan(struct IsdnCardState *csta)
 {
-	int ces;
-
 	chancount += 2;
-	ces = randomces();
-	init_chan(0, csta, 1, ces++);
-	ces %= 0xffff;
-	init_chan(1, csta, 0, ces++);
+	init_chan(0, csta, 1);
+	init_chan(1, csta, 0);
 	printk(KERN_INFO "HiSax: 2 channels added\n");
 	return (2);
 }
@@ -1596,7 +1588,6 @@ lldata_handler(struct PStack *st, int pr, void *arg)
 			if (chanp->data_open)
 				chanp->sp->iif.rcvcallb_skb(chanp->sp->myid, chanp->chan, skb);
 			else {
-				SET_SKB_FREE(skb);
 				dev_kfree_skb(skb, FREE_READ);
 			}
 			break;
@@ -1618,7 +1609,6 @@ lltrans_handler(struct PStack *st, int pr, void *arg)
 			if (chanp->data_open)
 				chanp->sp->iif.rcvcallb_skb(chanp->sp->myid, chanp->chan, skb);
 			else {
-				SET_SKB_FREE(skb);
 				dev_kfree_skb(skb, FREE_READ);
 			}
 			break;
@@ -1656,9 +1646,7 @@ init_ds(struct Channel *chanp, int incoming)
 	if (setstack_hscx(st, hsp))
 		return (-1);
 
-	st->l2.extended = 0;
-	st->l2.laptype = LAPB;
-	st->l2.orig = !incoming;
+	st->l2.flag = FLG_LAPB | (incoming ? 0 : FLG_ORIG);
 	st->l2.t200 = 1000;	/* 1000 milliseconds */
 	st->l2.window = 7;
 	st->l2.n200 = 4;	/* try 4 times       */
@@ -1725,6 +1713,7 @@ distr_debug(struct IsdnCardState *csta, int debugflags)
 	}
 	csta->dlogflag = debugflags & 4;
 	csta->teistack->l2.l2m.debug = debugflags & 512;
+	csta->teistack->l3.debug = debugflags & 512;
 }
 
 int
@@ -1847,18 +1836,6 @@ HiSax_command(isdn_ctrl * ic)
 						csta->cardnr + 1, num);
 					HiSax_putstatus(csta, tmp);
 					printk(KERN_DEBUG "HiSax: %s", tmp);
-					break;
-				case (2):
-					num = *(unsigned int *) ic->parm.num;
-					i = num >> 8;
-					if (i >= 2)
-						break;
-					chanp = csta->channel + i;
-					chanp->impair = num & 0xff;
-					if (chanp->debug & 1) {
-						sprintf(tmp, "IMPAIR %x", chanp->impair);
-						link_debug(chanp, tmp, 1);
-					}
 					break;
 				case (3):
 					for (i = 0; i < *(unsigned int *) ic->parm.num; i++)
