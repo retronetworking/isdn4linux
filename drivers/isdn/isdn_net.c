@@ -21,6 +21,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.48.2.5  1998/04/16 19:24:51  keil
+ * Fix from vger (tx max qlength)
+ *
  * Revision 1.48.2.4  1998/03/20 12:17:27  detabc
  * merge abc-extension with timru-time-rules
  * christian please check my changes in the CONFIG_ISDN_TIMEOUT_RULES sources
@@ -281,9 +284,16 @@ isdn_net_unreachable(struct device *dev, struct sk_buff *skb, char *reason)
  
 		} else skb = nskb = abc_get_uncomp(skb);
 	}
-#endif
+
+	if(reason != NULL) {
+
+		printk(KERN_DEBUG "isdn_net: %s: %s, send ICMP\n",
+	       dev->name, reason);
+	}
+#else
 	printk(KERN_DEBUG "isdn_net: %s: %s, send ICMP\n",
 	       dev->name, reason);
+#endif
 	icmp_send(skb, ICMP_DEST_UNREACH, ICMP_HOST_UNREACH, 0
 #if (LINUX_VERSION_CODE < 0x02010f)	/* 2.1.15 */
 		  ,dev
@@ -456,54 +466,65 @@ isdn_net_autohup()
 			anymore = 1;
 			l->huptimer++;
 #ifdef CONFIG_ISDN_WITH_ABC
-			if((l->abc_flags & ABC_ABCROUTER)) {
+
+			if(l->abc_flags & (ABC_ABCROUTER | ABC_MUST_DISCON)) {
 
 				ulong flags;
 				int must_hangup = 0;
 
-				save_flags(flags);
-				cli();
+				if(l->abc_flags & ABC_MUST_DISCON) {
 
-				if(l->abc_rem_disconnect != 0 && 
-					l->abc_rem_disconnect < jiffies) {
-
+					l->abc_flags &= ~ABC_MUST_DISCON;
 					must_hangup = 1;
-
-				} else if(l->abc_life_to != 0 && l->abc_life_to < jiffies) {
-
-					printk(KERN_DEBUG "%s: dataprot to remote lost (hangup)\n", 
-							l->name);
-
-					must_hangup = 1;
-
-				} else {
-
-					if(l->abc_nextkeep < jiffies)
-						l->abc_flags |= ABC_MUSTKEEP;
-
-					if(l->abc_flags & ABC_MUSTFIRST) {
-
-						restore_flags(flags);
-						abc_first_senden(&p->dev,l);
-						cli();
-					}
-
-					if((l->flags & ISDN_NET_CONNECTED) && (!l->dialstate)) {
-
-						if( (!(l->abc_flags & ABC_MUSTFIRST) &&
-							(l->abc_flags & ABC_MUSTKEEP))) {
-
-							restore_flags(flags);
-							abc_keep_senden(&p->dev,l);
-							cli();
-						}
-					}
 				}
 
-				if ((jiffies - p->dev.trans_start) < (10 * HZ)) 
-					p->dev.tbusy = 0;
+				if( l->abc_flags && ABC_ABCROUTER)  {
 
-				restore_flags(flags);
+					save_flags(flags);
+					cli();
+
+					if(l->abc_rem_disconnect != 0 && 
+						l->abc_rem_disconnect < jiffies) {
+
+						must_hangup = 1;
+
+					} else if(l->abc_life_to != 0 && l->abc_life_to < jiffies) {
+
+						printk(KERN_DEBUG 
+							"%s: dataprot to remote lost (hangup)\n", 
+								l->name);
+
+						must_hangup = 1;
+
+					} else {
+
+						if(l->abc_nextkeep < jiffies)
+							l->abc_flags |= ABC_MUSTKEEP;
+
+						if(l->abc_flags & ABC_MUSTFIRST) {
+
+							restore_flags(flags);
+							abc_first_senden(&p->dev,l);
+							cli();
+						}
+
+						if((l->flags & ISDN_NET_CONNECTED) && (!l->dialstate)) {
+
+							if( (!(l->abc_flags & ABC_MUSTFIRST) &&
+								(l->abc_flags & ABC_MUSTKEEP))) {
+
+								restore_flags(flags);
+								abc_keep_senden(&p->dev,l);
+								cli();
+							}
+						}
+					}
+
+					if ((jiffies - p->dev.trans_start) < (10 * HZ)) 
+						p->dev.tbusy = 0;
+
+					restore_flags(flags);
+				}
 
 				if(must_hangup) {
 
@@ -623,7 +644,6 @@ isdn_net_stat_callback(int idx, int cmd)
 						lp->name,lp->dialstate);
 				}
 
-				lp->abc_callback_retry = 0;
 				lp->abc_call_disabled = 0;
 
 				if(lp->abc_flags & ABC_ABCROUTER) {
@@ -807,7 +827,6 @@ isdn_net_stat_callback(int idx, int cmd)
 				/* No D-Channel avail. */
 #ifdef CONFIG_ISDN_WITH_ABC
 abc_next_dchannel:;
-				lp->abc_callback_retry = 0;
 
 				if(dev->abc_not_avail_jiffies[idx]  < jiffies) 
 					dev->abc_not_avail_jiffies[idx] = jiffies + HZ * 10;
@@ -1013,7 +1032,7 @@ isdn_net_dial(void)
 				anymore = 1;
 				p->local.dialstate++;
 #ifdef CONFIG_ISDN_WITH_ABC
-				p->local.abc_flags &= ~ABC_NODCHAN;
+				p->local.abc_flags &= ~(ABC_NODCHAN | ABC_MUST_DISCON);
 #endif
 				/* Falls through */
 			case 3:
@@ -1173,9 +1192,6 @@ isdn_net_dial(void)
 					       p->local.isdn_channel);
 #endif
 					dev->drv[p->local.isdn_device]->interface->command(&cmd);
-#ifdef CONFIG_ISDN_WITH_ABC
-					p->local.abc_callback_retry++;
-#endif
 				}
 				p->local.huptimer = 0;
 				p->local.outgoing = 1;
@@ -1190,10 +1206,6 @@ isdn_net_dial(void)
 				p->local.dialstate =
 				    (p->local.cbdelay &&
 				     (p->local.flags & ISDN_NET_CBOUT)) ? 12 : 4;
-#ifdef CONFIG_ISDN_WITH_ABC_AND_NOW_UNUSED
-				if(p->local.abc_callback_retry & 32)
-				p->local.dialstate = 4;
-#endif
 				break;
 			case 4:
 				/* Wait for D-Channel-connect.
@@ -1213,6 +1225,33 @@ isdn_net_dial(void)
 				p->local.dtimer = 0;
 				p->local.dialstate++;
 				dev->drv[p->local.isdn_device]->interface->command(&cmd);
+#ifdef CONFIG_ISDN_WITH_ABC
+/******************************************************************
+				printk(KERN_INFO "%s: get D-CHAN conn %d %d %d\n",
+						p->local.name,
+						!!(p->local.flags & ISDN_NET_CALLBACK),
+						!!(p->local.flags & ISDN_NET_CBOUT),
+						p->local.outgoing);
+******************************************************************/
+				p->local.abc_flags &= ~ABC_MUST_DISCON;
+
+				if((p->local.flags & ISDN_NET_CBOUT) && p->local.outgoing) {
+
+					/*
+					** I dont wont a connected callback->out
+					** (secure callback)
+					** in this case a call to the remote 
+					** will be disabled for 4 hours
+					*/
+
+					p->local.abc_cbout_secure = jiffies + 3600 * 4 * HZ;
+					p->local.abc_flags |= ABC_MUST_DISCON;
+
+					printk(KERN_INFO 
+		"%s: Config-Error: A Callback out is connected with a outcoing call\n",
+						p->local.name);
+				} 
+#endif
 				break;
 			case 6:
 				/* Wait for B- or D-Channel-connect. If timeout,
@@ -1241,6 +1280,7 @@ isdn_net_dial(void)
 				cmd.command = ISDN_CMD_SETL3;
 				cmd.arg = p->local.isdn_channel + (p->local.l3_proto << 8);
 				dev->drv[p->local.isdn_device]->interface->command(&cmd);
+
 				if (p->local.dtimer++ > ISDN_TIMER_DTIMEOUT15)
 					isdn_net_hangup(&p->dev);
 				else {
@@ -1715,12 +1755,10 @@ isdn_net_start_xmit(struct sk_buff *skb, struct device *ndev)
 	if (ndev->tbusy) {
 		if (jiffies - ndev->trans_start < (2 * HZ))
 			return 1;
-#ifdef CONFIG_ISDN_WITH_ABC
-		if (!lp->dialstate && (lp->flags & ISDN_NET_CONNECTED))
-#else
+
 		if (!lp->dialstate)
-#endif
 			lp->stats.tx_errors++;
+
 		ndev->tbusy = 0;
 		ndev->trans_start = jiffies;
 	}
@@ -1748,7 +1786,6 @@ isdn_net_start_xmit(struct sk_buff *skb, struct device *ndev)
 #ifndef CONFIG_ISDN_WITH_ABC
 #ifdef CONFIG_ISDN_TIMEOUT_RULES
 				/*
-				** detlef
 				** this call is moved to the 
 				** isdn_abc_net_start_xmit() function
 				** only at that point the paket is in uncompressed and
@@ -1793,33 +1830,46 @@ printk("reject: jiffies=%ld, started=%ld, timeout=%d, wait=%ld, timer=%ld\n", ji
 				/* Grab a free ISDN-Channel */
 #ifdef CONFIG_ISDN_WITH_ABC
 
-				if(lp->abc_call_disabled > jiffies ||
-					lp->abc_icall_disabled > jiffies) {
+				if(lp->abc_call_disabled > jiffies 		||
+					lp->abc_icall_disabled > jiffies	||
+					lp->abc_cbout_secure > jiffies) {
 
 					u_long mn = lp->abc_call_disabled;
 
-					ndev->tbusy = 1;
-					ndev->trans_start = jiffies;
+					isdn_net_unreachable(ndev,skb,NULL);
+					ndev->tbusy = 0;
 					restore_flags(flags);
 
 					if(mn < lp->abc_icall_disabled)
 						mn = lp->abc_icall_disabled;
 
-					if(mn > jiffies) {
+					if( lp->abc_last_disp_disabled >= jiffies ||
+						(jiffies - lp->abc_last_disp_disabled) / HZ > 20) {
 
-						ulong n = (mn - jiffies) / HZ;
+						lp->abc_last_disp_disabled = jiffies;
 
-						if(n > 2) {
+						if(lp->abc_cbout_secure > jiffies) {
 
-							printk(KERN_WARNING
-					"isdn_net_start_xmit: %s abc_call_disabled %ld sek left\n",
+							if(mn < lp->abc_cbout_secure)
+								mn = lp->abc_cbout_secure;
+
+							printk(KERN_INFO
+					"isdn_net_start_xmit: %s configerror callback out\n",
+								ndev->name);
+						}
+
+
+						if(mn > (jiffies + HZ * 2)) {
+
+							printk(KERN_INFO
+"isdn_net_start_xmit: %s abc_call_disabled %ld sek left (packet dropped)\n",
 							ndev->name,
-							n);
+							(mn - jiffies) / HZ);
 						}
 					}
 
 					lp->abc_last_dlcon = jiffies;
-					return(1);
+					return(0);
 				}
 #endif
 				if ((chi =
@@ -2823,17 +2873,9 @@ isdn_net_find_icall(int di, int ch, int idx, setup_parm setup)
 					continue;
 				}
 
-
-				if ((lp->flags & ISDN_NET_CALLBACK) 
-#ifdef ABC_NOW_UNUSED
-					&&
-					!(lp->abc_callback_retry++ & 32)
+				lp->abc_flags &= ~ABC_MUST_DISCON;
 #endif
-					)
-#else
-				if (lp->flags & ISDN_NET_CALLBACK)
-#endif
-				{
+				if (lp->flags & ISDN_NET_CALLBACK) {
 					int chi;
 					printk(KERN_DEBUG "%s: call from %s -> %s, start callback\n",
 					       lp->name, nr, eaz);
