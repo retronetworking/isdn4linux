@@ -1424,7 +1424,7 @@ isdn_net_xmit(struct net_device *ndev, struct sk_buff *skb)
 
 	lp = isdn_net_get_locked_lp(nd);
 	if (!lp) {
-		printk(KERN_WARNING "%s: all channels busy - requeuing!\n", lp->name);
+		printk(KERN_WARNING "%s: all channels busy - requeuing!\n", ndev->name);
 		return 1;
 	}
 	/* we have our lp locked from now on */
