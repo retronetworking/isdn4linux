@@ -20,6 +20,11 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.19  1996/06/12 15:53:56  fritz
+ * Bugfix: AT+VTX and AT+VRX could be executed without
+ *         having a connection.
+ *         Missing check for NULL tty in isdn_tty_flush_buffer().
+ *
  * Revision 1.18  1996/06/07 11:17:33  tsbogend
  * added missing #ifdef CONFIG_ISDN_AUDIO to make compiling without
  * audio support possible
@@ -262,10 +267,13 @@ void isdn_tty_cleanup_xmit(modem_info *info)
 static void isdn_tty_tint(modem_info *info)
 {
         struct sk_buff *skb = skb_dequeue(&info->xmit_queue);
+        int len, slen;
 
         if (!skb)
                 return;
-        if (isdn_writebuf_skb_stub(info->isdn_driver, info->isdn_channel, skb) > 0) {
+        len = skb->len;
+        if ((slen = isdn_writebuf_skb_stub(info->isdn_driver,
+                                         info->isdn_channel, skb)) == len) {
                 struct tty_struct *tty = info->tty;
                 info->send_outstanding++;
                 info->msr |= UART_MSR_CTS;
@@ -276,6 +284,8 @@ static void isdn_tty_tint(modem_info *info)
                 wake_up_interruptible(&tty->write_wait);
                 return;
         }
+        if (slen > 0)
+                skb_pull(skb,slen);
         skb_queue_head(&info->xmit_queue, skb);
 }
 
