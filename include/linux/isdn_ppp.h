@@ -1,4 +1,5 @@
 extern int isdn_ppp_dial_slave(char *);
+extern int isdn_ppp_hangup_slave(char *);
 
 struct pppinfo
 {
