@@ -18,6 +18,7 @@ ifeq ($(CONFIG_HISAX_1TR6),y)
 endif
 
 ISAC_OBJ :=
+ARCOFI_OBJ :=
 HSCX_OBJ :=
 HFC_OBJ :=
 
@@ -43,6 +44,7 @@ ifeq ($(CONFIG_HISAX_ELSA),y)
 	 O_OBJS += elsa.o
 	 ISAC_OBJ := isac.o
 	 HSCX_OBJ := hscx.o
+	 ARCOFI_OBJ := arcofi.o
 endif
 
 ifeq ($(CONFIG_HISAX_IX1MICROR2),y)
@@ -75,8 +77,20 @@ ifeq ($(CONFIG_HISAX_SEDLBAUER),y)
 	 HSCX_OBJ := hscx.o
 endif
 
+ifeq ($(CONFIG_HISAX_SPORTSTER),y)
+	 O_OBJS += sportster.o
+	 ISAC_OBJ := isac.o
+	 HSCX_OBJ := hscx.o
+endif
 
-O_OBJS += config.o $(ISAC_OBJ) $(HSCX_OBJ) $(HFC_OBJ)
+ifeq ($(CONFIG_HISAX_MIC),y)
+	 O_OBJS += mic.o
+	 ISAC_OBJ := isac.o
+	 HSCX_OBJ := hscx.o
+endif
+
+
+O_OBJS += config.o $(ISAC_OBJ) $(HSCX_OBJ) $(HFC_OBJ) $(ARCOFI_OBJ)
 
 O_TARGET :=
 

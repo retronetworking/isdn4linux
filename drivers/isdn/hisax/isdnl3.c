@@ -7,6 +7,11 @@
  *              Fritz Elfert
  *
  * $Log$
+ * Revision 2.2  1997/10/01 09:21:41  fritz
+ * Removed old compatibility stuff for 2.0.X kernels.
+ * From now on, this code is for 2.1.X ONLY!
+ * Old stuff is still in the separate branch.
+ *
  * Revision 2.1  1997/08/03 14:36:32  keil
  * Implement RESTART procedure
  *
@@ -202,8 +207,7 @@ extern void setstack_1tr6(struct PStack *st);
 #endif
 
 struct l3_process
-*
-getl3proc(struct PStack *st, int cr)
+*getl3proc(struct PStack *st, int cr)
 {
 	struct l3_process *p = st->l3.proc;
 
@@ -214,9 +218,9 @@ getl3proc(struct PStack *st, int cr)
 			p = p->next;
 	return (NULL);
 }
+
 struct l3_process
-*
-new_l3_process(struct PStack *st, int cr)
+*new_l3_process(struct PStack *st, int cr)
 {
 	struct l3_process *p, *np;
 
@@ -236,6 +240,7 @@ new_l3_process(struct PStack *st, int cr)
 	p->debug = L3_DEB_WARN;
 	p->callref = cr;
 	p->state = 0;
+	p->chan = NULL;
 	p->st = st;
 	p->N303 = st->l3.N303;
 	L3InitTimer(p, &p->timer);

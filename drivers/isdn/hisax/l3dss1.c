@@ -9,6 +9,9 @@
  *              Fritz Elfert
  *
  * $Log$
+ * Revision 2.2  1997/08/07 17:44:36  keil
+ * Fix RESTART
+ *
  * Revision 2.1  1997/08/03 14:36:33  keil
  * Implement RESTART procedure
  *
@@ -39,6 +42,44 @@ const char *dss1_revision = "$Revision$";
 	*ptr++ = 0x1; \
 	*ptr++ = cref^0x80; \
 	*ptr++ = mty
+
+
+static int 
+l3dss1_check_messagetype_validity(int mt) {
+/* verify if a message type exists */
+	switch(mt) {
+		case MT_ALERTING:
+		case MT_CALL_PROCEEDING:
+		case MT_CONNECT:
+		case MT_CONNECT_ACKNOWLEDGE:
+		case MT_PROGRESS:
+		case MT_SETUP:
+		case MT_SETUP_ACKNOWLEDGE:
+		case MT_RESUME:
+		case MT_RESUME_ACKNOWLEDGE:
+		case MT_RESUME_REJECT:
+		case MT_SUSPEND:
+		case MT_SUSPEND_ACKNOWLEDGE:
+		case MT_SUSPEND_REJECT:
+		case MT_USER_INFORMATION:
+		case MT_DISCONNECT:
+		case MT_RELEASE:
+		case MT_RELEASE_COMPLETE:
+		case MT_RESTART:
+		case MT_RESTART_ACKNOWLEDGE:
+		case MT_SEGMENT:
+		case MT_CONGESTION_CONTROL:
+		case MT_INFORMATION:
+		case MT_FACILITY:
+		case MT_NOTIFY:
+		case MT_STATUS:
+		case MT_STATUS_ENQUIRY:
+			return(1);
+		default:
+			return(0);
+	}
+	return(0);
+}
 
 static void
 l3dss1_message(struct l3_process *pc, u_char mt)
@@ -96,6 +137,8 @@ l3dss1_setup_req(struct l3_process *pc, u_char pr,
 	u_char screen = 0x80;
 	u_char *teln;
 	u_char *msn;
+	u_char *sub;
+	u_char *sp;
 	int l;
 
 	MsgHead(p, pc->callref, MT_SETUP);
@@ -159,6 +202,15 @@ l3dss1_setup_req(struct l3_process *pc, u_char pr,
 		*p++ = channel;
 	}
 	msn = pc->para.setup.eazmsn;
+	sub = NULL;
+	sp = msn;
+	while (*sp) { 
+		if ('.' == *sp) {
+			sub = sp;
+			*sp = 0;
+		} else 
+			sp++;
+	}
 	if (*msn) {
 		*p++ = 0x6c;
 		*p++ = strlen(msn) + (screen ? 2 : 1);
@@ -171,13 +223,40 @@ l3dss1_setup_req(struct l3_process *pc, u_char pr,
 		while (*msn)
 			*p++ = *msn++ & 0x7f;
 	}
+	if (sub) {
+		*sub++ = '.';
+		*p++ = 0x6d; /* Calling party subaddress */
+ 		*p++ = strlen(sub) + 2;
+		*p++ = 0x80;	/* NSAP coded */
+		*p++ = 0x50;	/* local IDI format */
+ 		while (*sub)
+			*p++ = *sub++ & 0x7f;
+	}
+	sub = NULL;
+	sp = teln;
+	while (*sp) { 
+		if ('.' == *sp) {
+			sub = sp;
+			*sp = 0;
+		} else 
+			sp++;
+	}
 	*p++ = 0x70;
 	*p++ = strlen(teln) + 1;
 	/* Classify as AnyPref. */
 	*p++ = 0x81;		/* Ext = '1'B, Type = '000'B, Plan = '0001'B. */
-
 	while (*teln)
 		*p++ = *teln++ & 0x7f;
+
+	if (sub) {
+		*sub++ = '.';
+		*p++ = 0x71; /* Called party subaddress */
+ 		*p++ = strlen(sub) + 2;
+		*p++ = 0x80;	/* NSAP coded */
+		*p++ = 0x50;	/* local IDI format */
+ 		while (*sub)
+			*p++ = *sub++ & 0x7f;
+	}
 
 	l = p - tmp;
 	if (!(skb = l3_alloc_skb(l)))
@@ -274,14 +353,73 @@ l3dss1_alerting(struct l3_process *pc, u_char pr, void *arg)
 }
 
 static void
+l3dss1_msg_without_setup(struct l3_process *pc, u_char pr, void *arg)
+{
+  /* This routine is called if here was no SETUP made (checks in dss1up and in
+   * l3dss1_setup) and a RELEASE_COMPLETE have to be sent with an error code
+   * It is called after it is veryfied that Layer2 is up.
+   * The cause value is allready in pc->para.cause
+   * MT_STATUS_ENQUIRE in the NULL state is handled too
+   */
+	u_char tmp[16];
+	u_char *p=tmp;
+	int l;
+	struct sk_buff *skb;
+
+	switch (pc->para.cause) {
+	  case  81: /* 0x51 invalid callreference */
+	  case  96: /* 0x60 mandory IE missing */
+	  case 101: /* 0x65 incompatible Callstate */
+	  	MsgHead(p, pc->callref, MT_RELEASE_COMPLETE);
+		*p++ = IE_CAUSE;
+		*p++ = 0x2;
+		*p++ = 0x80;
+		*p++ = pc->para.cause | 0x80;
+		break;
+	  default:
+	  	printk(KERN_ERR "HiSax internal error l3dss1_msg_without_setup\n");
+	  	return;
+	}	
+	l = p - tmp;
+	if (!(skb = l3_alloc_skb(l)))
+		return;
+	memcpy(skb_put(skb, l), tmp, l);
+	pc->st->l3.l3l2(pc->st, DL_DATA, skb);
+	release_l3_process(pc);
+}
+
+static void
 l3dss1_setup(struct l3_process *pc, u_char pr, void *arg)
 {
-	u_char *p;
+        u_char *p, *ptmp[8];
+	int i;
 	int bcfound = 0;
 	char tmp[80];
 	struct sk_buff *skb = arg;
 
+	/* ETS 300-104 1.3.4 and 1.3.5
+	 * we need to detect unknown inform. element from 0 to 7
+	 */	
 	p = skb->data;
+	for(i = 0; i < 8; i++)
+		ptmp[i] = skb->data;
+	if (findie(ptmp[1], skb->len, 0x01, 0)
+	    || findie(ptmp[2], skb->len, 0x02, 0)
+	    || findie(ptmp[3], skb->len, 0x03, 0)
+	    || findie(ptmp[5], skb->len, 0x05, 0)
+	    || findie(ptmp[6], skb->len, 0x06, 0)
+	    || findie(ptmp[7], skb->len, 0x07, 0)) {
+	  	/* if ie is < 8 and not 0 nor 4, send RELEASE_COMPLETE 
+	  	 * cause 0x60
+	  	 */
+	  	pc->para.cause = 0x60;
+		dev_kfree_skb(skb, FREE_READ);
+		if (pc->state == 0)
+			pc->st->l3.l3l4(pc, CC_ESTABLISH, NULL);
+		else
+			l3dss1_msg_without_setup(pc, pr, NULL);
+		return;
+	}
 
 	/*
 	 * Channel Identification
@@ -328,8 +466,18 @@ l3dss1_setup(struct l3_process *pc, u_char pr, void *arg)
 			default:
 				pc->para.setup.si1 = 0;
 		}
-	} else if (pc->debug & L3_DEB_WARN)
-		l3_debug(pc->st, "setup without bearer capabilities");
+	} else {
+		if (pc->debug & L3_DEB_WARN)
+			l3_debug(pc->st, "setup without bearer capabilities");
+		/* ETS 300-104 1.3.3 */
+	  	pc->para.cause = 0x60;
+		dev_kfree_skb(skb, FREE_READ);
+		if (pc->state == 0)
+			pc->st->l3.l3l4(pc, CC_ESTABLISH, NULL);
+		else
+			l3dss1_msg_without_setup(pc, pr, NULL);
+		return;
+	}
 
 	p = skb->data;
 	if ((p = findie(p, skb->len, 0x70, 0)))
@@ -337,6 +485,16 @@ l3dss1_setup(struct l3_process *pc, u_char pr, void *arg)
 	else
 		pc->para.setup.eazmsn[0] = 0;
 
+	p = skb->data;
+	if ((p = findie(p, skb->len, 0x71, 0))) {
+		/* Called party subaddress */
+		if ((p[1]>=2) && (p[2]==0x80) && (p[3]==0x50)) {
+			tmp[0]='.';
+			iecpy(&tmp[1], p, 2);
+			strcat(pc->para.setup.eazmsn, tmp);
+		} else if (pc->debug & L3_DEB_WARN)
+			l3_debug(pc->st, "wrong called subaddress");
+	}
 	p = skb->data;
 	if ((p = findie(p, skb->len, 0x6c, 0))) {
 		pc->para.setup.plan = p[2];
@@ -352,13 +510,23 @@ l3dss1_setup(struct l3_process *pc, u_char pr, void *arg)
 		pc->para.setup.plan = 0;
 		pc->para.setup.screen = 0;
 	}
+	p = skb->data;
+	if ((p = findie(p, skb->len, 0x6d, 0))) {
+		/* Calling party subaddress */
+		if ((p[1]>=2) && (p[2]==0x80) && (p[3]==0x50)) {
+			tmp[0]='.';
+			iecpy(&tmp[1], p, 2);
+			strcat(pc->para.setup.phone, tmp);
+		} else if (pc->debug & L3_DEB_WARN)
+			l3_debug(pc->st, "wrong calling subaddress");
+	}
+
 	dev_kfree_skb(skb, FREE_READ);
 
 	if (bcfound) {
 		if ((pc->para.setup.si1 != 7) && (pc->debug & L3_DEB_WARN)) {
 			sprintf(tmp, "non-digital call: %s -> %s",
-				pc->para.setup.phone,
-				pc->para.setup.eazmsn);
+				pc->para.setup.phone, pc->para.setup.eazmsn);
 			l3_debug(pc->st, tmp);
 		}
 		newl3state(pc, 6);
@@ -513,6 +681,61 @@ l3dss1_status_enq(struct l3_process *pc, u_char pr, void *arg)
 }
 
 static void
+l3dss1_status_req(struct l3_process *pc, u_char pr, void *arg)
+{
+  /* ETS 300-104 7.4.1, 8.4.1, 10.3.1, 11.4.1, 12.4.1, 13.4.1, 14.4.1...
+     if setup has been made and a non expected message type is received, we must send MT_STATUS cause 0x62  */
+        u_char tmp[16];
+	u_char *p = tmp;
+	int l;
+	struct sk_buff *skb = arg;
+
+	dev_kfree_skb(skb, FREE_READ);
+
+	MsgHead(p, pc->callref, MT_STATUS);
+
+	*p++ = IE_CAUSE;
+	*p++ = 0x2;
+	*p++ = 0x80;
+	*p++ = 0x62 | 0x80;		/* status sending */
+
+	*p++ = 0x14;		/* CallState */
+	*p++ = 0x1;
+	*p++ = pc->state & 0x3f;
+
+	l = p - tmp;
+	if (!(skb = l3_alloc_skb(l)))
+		return;
+	memcpy(skb_put(skb, l), tmp, l);
+	pc->st->l3.l3l2(pc->st, DL_DATA, skb);
+}
+
+static void
+l3dss1_release_ind(struct l3_process *pc, u_char pr, void *arg)
+{
+	u_char *p;
+	struct sk_buff *skb = arg;
+	int callState = 0;
+	p = skb->data;
+
+	if ((p = findie(p, skb->len, IE_CALL_STATE, 0))) {
+		p++;
+		if (1== *p++)
+			callState = *p;
+	}
+	if(callState == 0) {
+		/* ETS 300-104 7.6.1, 8.6.1, 10.6.1... and 16.1
+		 * set down layer 3 without sending any message
+		 */
+		pc->st->l3.l3l4(pc, CC_RELEASE_IND, NULL);
+		newl3state(pc, 0);
+		release_l3_process(pc);
+	} else {
+		pc->st->l3.l3l4(pc, CC_IGNORE, NULL);
+	}
+}
+
+static void
 l3dss1_t303(struct l3_process *pc, u_char pr, void *arg)
 {
 	if (pc->N303 > 0) {
@@ -547,7 +770,7 @@ l3dss1_t305(struct l3_process *pc, u_char pr, void *arg)
 
 	L3DelTimer(&pc->timer);
 	if (pc->para.cause > 0)
-		cause = pc->para.cause;
+		cause = pc->para.cause | 0x80;
 
 	MsgHead(p, pc->callref, MT_RELEASE);
 
@@ -615,15 +838,19 @@ l3dss1_status(struct l3_process *pc, u_char pr, void *arg)
 	char tmp[64], *t;
 	int l;
 	struct sk_buff *skb = arg;
-	
+	int cause, callState;
+
+	cause = callState = -1;
 	p = skb->data;
 	t = tmp;
 	if ((p = findie(p, skb->len, IE_CAUSE, 0))) {
 		p++;
 		l = *p++;
 		t += sprintf(t,"Status CR %x Cause:", pc->callref);
-		while (l--)
+		while (l--) {
+		        cause = *p;
 			t += sprintf(t," %2x",*p++);
+		}
 	} else
 		sprintf(t,"Status CR %x no Cause", pc->callref);
 	l3_debug(pc->st, tmp);
@@ -632,14 +859,23 @@ l3dss1_status(struct l3_process *pc, u_char pr, void *arg)
 	t += sprintf(t,"Status state %x ", pc->state);
 	if ((p = findie(p, skb->len, IE_CALL_STATE, 0))) {
 		p++;
-		if (1== *p++)
+		if (1== *p++) {
+		        callState = *p;
 			t += sprintf(t,"peer state %x" , *p);
+		}
 		else
 			t += sprintf(t,"peer state len error");
 	} else
 		sprintf(t,"no peer state");
 	l3_debug(pc->st, tmp);
-	dev_kfree_skb(skb, FREE_READ);
+	if(((cause & 0x7f) == 0x6f) && (callState == 0)) {
+		/* ETS 300-104 7.6.1, 8.6.1, 10.6.1... 
+		 * if received MT_STATUS with cause == 0x6f and call 
+		 * state == 0, then we must set down layer 3
+		 */
+		l3dss1_release_ind(pc, pr, arg);
+	} else
+		dev_kfree_skb(skb, FREE_READ);
 }
 
 static void
@@ -701,6 +937,8 @@ l3dss1_global_restart(struct l3_process *pc, u_char pr, void *arg)
 static struct stateentry downstatelist[] =
 {
 	{SBIT(0),
+	 CC_ESTABLISH, l3dss1_msg_without_setup},
+	{SBIT(0),
 	 CC_SETUP_REQ, l3dss1_setup_req},
 	{SBIT(1) | SBIT(2) | SBIT(3) | SBIT(4) | SBIT(6) | SBIT(7) | SBIT(8) | SBIT(10),
 	 CC_DISCONNECT_REQ, l3dss1_disconnect_req},
@@ -741,28 +979,45 @@ static struct stateentry datastatelist[] =
 {
 	{ALL_STATES,
 	 MT_STATUS_ENQUIRY, l3dss1_status_enq},
+	{SBIT(19),
+	 MT_STATUS, l3dss1_release_ind},
 	{ALL_STATES,
 	 MT_STATUS, l3dss1_status},
 	{SBIT(0) | SBIT(6),
 	 MT_SETUP, l3dss1_setup},
 	{SBIT(1) | SBIT(2),
 	 MT_CALL_PROCEEDING, l3dss1_call_proc},
+	{SBIT(3) | SBIT(4) | SBIT(8) | SBIT(10) | SBIT(11) | SBIT(19),
+	 MT_CALL_PROCEEDING, l3dss1_status_req},
 	{SBIT(1),
 	 MT_SETUP_ACKNOWLEDGE, l3dss1_setup_ack},
+	{SBIT(2) | SBIT(3) | SBIT(4) | SBIT(8) | SBIT(10) | SBIT(11) | SBIT(19),
+	 MT_SETUP_ACKNOWLEDGE, l3dss1_status_req},
 	{SBIT(1) | SBIT(2) | SBIT(3),
 	 MT_ALERTING, l3dss1_alerting},
+	{SBIT(4) | SBIT(8) | SBIT(10) | SBIT(11) | SBIT(19),
+	 MT_ALERTING, l3dss1_status_req},
 	{SBIT(0) | SBIT(1) | SBIT(2) | SBIT(3) | SBIT(4) | SBIT(7) | SBIT(8) | SBIT(10) |
 	 SBIT(11) | SBIT(12) | SBIT(15) | SBIT(17) | SBIT(19),
 	 MT_RELEASE_COMPLETE, l3dss1_release_cmpl},
-	{SBIT(0) | SBIT(1) | SBIT(2) | SBIT(3) | SBIT(4) | SBIT(7) | SBIT(8) | SBIT(10) |
-	 SBIT(11) | SBIT(12) | SBIT(15) | SBIT(17) | SBIT(19),
+	{SBIT(1) | SBIT(2) | SBIT(3) | SBIT(4) | SBIT(7) | SBIT(8) | SBIT(10) |
+	 SBIT(11) | SBIT(12) | SBIT(15) | SBIT(17) /*| SBIT(19)*/,
 	 MT_RELEASE, l3dss1_release},
+	{SBIT(19),  MT_RELEASE, l3dss1_release_ind},
 	{SBIT(1) | SBIT(2) | SBIT(3) | SBIT(4) | SBIT(7) | SBIT(8) | SBIT(10),
 	 MT_DISCONNECT, l3dss1_disconnect},
+	{SBIT(11),
+	 MT_DISCONNECT, l3dss1_release_req},
 	{SBIT(1) | SBIT(2) | SBIT(3) | SBIT(4),
 	 MT_CONNECT, l3dss1_connect},
+	{SBIT(8) | SBIT(10) | SBIT(11) | SBIT(19),
+	 MT_CONNECT, l3dss1_status_req},
+	{SBIT(1) | SBIT(2) | SBIT(3) | SBIT(4) | SBIT(11) | SBIT(19),
+	 MT_CONNECT_ACKNOWLEDGE, l3dss1_status_req},
 	{SBIT(8),
 	 MT_CONNECT_ACKNOWLEDGE, l3dss1_connect_ack},
+	{SBIT(1) | SBIT(2) | SBIT(3) | SBIT(4) | SBIT(8) | SBIT(10) | SBIT(11) | SBIT(19),
+	 MT_INVALID, l3dss1_status_req},
 };
 
 static int datasllen = sizeof(datastatelist) / sizeof(struct stateentry);
@@ -824,14 +1079,15 @@ global_handler(struct PStack *st, int mt, struct sk_buff *skb)
 static void
 dss1up(struct PStack *st, int pr, void *arg)
 {
-	int i, mt, cr;
+	int i, mt, cr, cause, callState;
+	char *ptr;
 	struct sk_buff *skb = arg;
 	struct l3_process *proc;
 	char tmp[80];
 
 	if (skb->data[0] != PROTO_DIS_EURO) {
 		if (st->l3.debug & L3_DEB_PROTERR) {
-			sprintf(tmp, "dss1up%sunexpected discriminator %x message len %ld",
+			sprintf(tmp, "dss1up%sunexpected discriminator %x message len %d",
 				(pr == DL_DATA) ? " " : "(broadcast) ",
 				skb->data[0], skb->len);
 			l3_debug(st, tmp);
@@ -848,16 +1104,79 @@ dss1up(struct PStack *st, int pr, void *arg)
 		dev_kfree_skb(skb, FREE_READ);
 		return;
 	} else if (!(proc = getl3proc(st, cr))) {
+		/* No transaction process exist, that means no call with
+		 * this callreference is active
+		 */
 		if (mt == MT_SETUP) {
+		/* Setup creates a new transaction process */
 			if (!(proc = new_l3_process(st, cr))) {
+				/* May be to answer with RELEASE_COMPLETE and
+				 * CAUSE 0x2f "Resource unavailable", but this
+				 * need a new_l3_process too ... arghh
+				 */
 				dev_kfree_skb(skb, FREE_READ);
 				return;
 			}
-		} else {
+		} else if (mt == MT_STATUS) {
+			cause = 0;
+			if((ptr = findie(skb->data, skb->len, IE_CAUSE, 0)) != NULL) {
+				  ptr++;
+				  if (*ptr++ == 2)
+				  	ptr++;
+				  cause = *ptr & 0x7f;
+			}
+			callState = 0;
+			if((ptr = findie(skb->data, skb->len, IE_CALL_STATE, 0)) != NULL) {
+				ptr++;
+				if (*ptr++ == 2)
+					ptr++;
+				callState = *ptr;
+			}
+			if (callState == 0) {
+				/* ETS 300-104 part 2.4.1
+				 * if setup has not been made and a message type
+				 * MT_STATUS is received with call state == 0,
+				 * we must send nothing
+				 */
+				dev_kfree_skb(skb, FREE_READ);
+				return;
+			} else {
+				/* ETS 300-104 part 2.4.2
+				 * if setup has not been made and a message type 
+				 * MT_STATUS is received with call state != 0,
+				 * we must send MT_RELEASE_COMPLETE cause 101
+				 */
+				dev_kfree_skb(skb, FREE_READ);
+				if ((proc = new_l3_process(st, cr))) {
+					proc->para.cause = 0x65; /* 101 */
+					proc->st->l3.l3l4(proc, CC_ESTABLISH, NULL);
+				}
+				return;
+			}
+		} else if (mt == MT_RELEASE_COMPLETE){
 			dev_kfree_skb(skb, FREE_READ);
 			return;
+		} else {
+			/* ETS 300-104 part 2
+			 * if setup has not been made and a message type 
+			 * (except MT_SETUP and RELEASE_COMPLETE) is received,
+			 * we must send MT_RELEASE_COMPLETE cause 81 */
+			dev_kfree_skb(skb, FREE_READ);
+			if ((proc = new_l3_process(st, cr))) {
+				proc->para.cause = 0x51; /* 81 */
+				proc->st->l3.l3l4(proc, CC_ESTABLISH, NULL);
+			}
+			return;
 		}
+	} else if (!l3dss1_check_messagetype_validity(mt)) {
+		/* ETS 300-104 7.4.2, 8.4.2, 10.3.2, 11.4.2, 12.4.2, 13.4.2,
+		 * 14.4.2...
+		 * if setup has been made and invalid message type is received,
+		 * we must send MT_STATUS cause 0x62
+		 */
+		mt = MT_INVALID;  /* sorry, not clean, but do the right thing ;-) */
 	}
+
 	for (i = 0; i < datasllen; i++)
 		if ((mt == datastatelist[i].primitive) &&
 		    ((1 << proc->state) & datastatelist[i].state))
@@ -894,9 +1213,7 @@ dss1down(struct PStack *st, int pr, void *arg)
 		chan = arg;
 		cr = newcallref();
 		cr |= 0x80;
-		if (!(proc = new_l3_process(st, cr))) {
-			return;
-		} else {
+		if ((proc = new_l3_process(st, cr))) {
 			proc->chan = chan;
 			chan->proc = proc;
 			proc->para.setup = chan->setup;
@@ -904,6 +1221,10 @@ dss1down(struct PStack *st, int pr, void *arg)
 		}
 	} else {
 		proc = arg;
+	}
+	if (!proc) {
+		printk(KERN_ERR "HiSax internal error dss1down without proc\n");
+		return;
 	}
 	for (i = 0; i < downsllen; i++)
 		if ((pr == downstatelist[i].primitive) &&

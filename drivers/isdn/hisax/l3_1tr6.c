@@ -6,6 +6,9 @@
  *
  *
  * $Log$
+ * Revision 2.1  1997/08/03 15:28:09  keil
+ * release L3 empty processes
+ *
  * Revision 2.0  1997/07/27 21:15:45  keil
  * New Callref based layer3
  *
@@ -45,6 +48,65 @@ l3_1TR6_message(struct l3_process *pc, u_char mt, u_char pd)
 	p = skb_put(skb, 4);
 	MsgHead(p, pc->callref, mt, pd);
 	pc->st->l3.l3l2(pc->st, DL_DATA, skb);
+}
+
+static int
+l31tr6_check_messagetype_validity(int mt, int pd) {
+/* verify if a message type exists */
+
+	if (pd == PROTO_DIS_N0)
+		switch(mt) {
+		   case MT_N0_REG_IND:
+		   case MT_N0_CANC_IND:
+		   case MT_N0_FAC_STA:
+		   case MT_N0_STA_ACK:
+		   case MT_N0_STA_REJ:
+		   case MT_N0_FAC_INF:
+		   case MT_N0_INF_ACK:
+		   case MT_N0_INF_REJ:
+		   case MT_N0_CLOSE:
+		   case MT_N0_CLO_ACK:
+			return(1);
+		   default:
+			return(0);
+		}
+	else if (pd == PROTO_DIS_N1)
+		switch(mt) {
+		   case MT_N1_ESC:
+		   case MT_N1_ALERT:
+		   case MT_N1_CALL_SENT:
+		   case MT_N1_CONN:
+		   case MT_N1_CONN_ACK:
+		   case MT_N1_SETUP:
+		   case MT_N1_SETUP_ACK:
+		   case MT_N1_RES:
+		   case MT_N1_RES_ACK:
+		   case MT_N1_RES_REJ:
+		   case MT_N1_SUSP:
+		   case MT_N1_SUSP_ACK:
+		   case MT_N1_SUSP_REJ:
+		   case MT_N1_USER_INFO:
+		   case MT_N1_DET:
+		   case MT_N1_DISC:
+		   case MT_N1_REL:
+		   case MT_N1_REL_ACK:
+		   case MT_N1_CANC_ACK:
+		   case MT_N1_CANC_REJ:
+		   case MT_N1_CON_CON:
+		   case MT_N1_FAC:
+		   case MT_N1_FAC_ACK:
+		   case MT_N1_FAC_CAN:
+		   case MT_N1_FAC_REG:
+		   case MT_N1_FAC_REJ:
+		   case MT_N1_INFO:
+		   case MT_N1_REG_ACK:
+		   case MT_N1_REG_REJ:
+		   case MT_N1_STAT:
+		   	return (1);
+		   default:
+		   	return(0);
+		}
+	return(0);
 }
 
 static void
@@ -661,9 +723,17 @@ up1tr6(struct PStack *st, int pr, void *arg)
 	struct sk_buff *skb = arg;
 	char tmp[80];
 
+	if (skb->len < 4) {
+		if (st->l3.debug & L3_DEB_PROTERR) {
+			sprintf(tmp, "up1tr6 len only %d", skb->len);
+			l3_debug(st, tmp);
+		}
+		dev_kfree_skb(skb, FREE_READ);
+		return;
+	}
 	if ((skb->data[0] & 0xfe) != PROTO_DIS_N0) {
 		if (st->l3.debug & L3_DEB_PROTERR) {
-			sprintf(tmp, "up1tr6%sunexpected discriminator %x message len %ld",
+			sprintf(tmp, "up1tr6%sunexpected discriminator %x message len %d",
 				(pr == DL_DATA) ? " " : "(broadcast) ",
 				skb->data[0], skb->len);
 			l3_debug(st, tmp);
@@ -671,8 +741,16 @@ up1tr6(struct PStack *st, int pr, void *arg)
 		dev_kfree_skb(skb, FREE_READ);
 		return;
 	}
-	cr = getcallref(skb->data);
-	mt = skb->data[skb->data[1] + 2];
+	if (skb->data[1] != 1) {
+		if (st->l3.debug & L3_DEB_PROTERR) {
+			sprintf(tmp, "up1tr6 CR len not 1");
+			l3_debug(st, tmp);
+		}
+		dev_kfree_skb(skb, FREE_READ);
+		return;
+	}
+	cr = skb->data[2];
+	mt = skb->data[3];
 	if (skb->data[0] == PROTO_DIS_N0) {
 		dev_kfree_skb(skb, FREE_READ);
 		if (st->l3.debug & L3_DEB_STATE) {
@@ -682,8 +760,12 @@ up1tr6(struct PStack *st, int pr, void *arg)
 		}
 	} else if (skb->data[0] == PROTO_DIS_N1) {
 		if (!(proc = getl3proc(st, cr))) {
-			if (mt == MT_N1_SETUP) {
+			if ((mt == MT_N1_SETUP) && (cr < 128)) {
 				if (!(proc = new_l3_process(st, cr))) {
+					if (st->l3.debug & L3_DEB_PROTERR) {
+						sprintf(tmp, "up1tr6 no roc mem");
+						l3_debug(st, tmp);
+					}
 					dev_kfree_skb(skb, FREE_READ);
 					return;
 				}

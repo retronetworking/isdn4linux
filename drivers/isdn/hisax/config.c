@@ -5,6 +5,11 @@
  *
  *
  * $Log$
+ * Revision 2.3  1997/10/01 09:21:33  fritz
+ * Removed old compatibility stuff for 2.0.X kernels.
+ * From now on, this code is for 2.1.X ONLY!
+ * Old stuff is still in the separate branch.
+ *
  * Revision 2.2  1997/09/11 17:24:46  keil
  * Add new cards
  *
@@ -146,15 +151,29 @@
 #ifdef CONFIG_HISAX_TELEINT
 #undef DEFAULT_CARD
 #undef DEFAULT_CFG
-#define DEFAULT_CARD ISDN_CTYPE_DYNALINK
+#define DEFAULT_CARD ISDN_CTYPE_TELEINT
 #define DEFAULT_CFG {5,0x300,0}
 #endif
 
 #ifdef CONFIG_HISAX_SEDLBAUER
 #undef DEFAULT_CARD
 #undef DEFAULT_CFG
-#define DEFAULT_CARD ISDN_CTYPE_DYNALINK
+#define DEFAULT_CARD ISDN_CTYPE_SEDLBAUER
 #define DEFAULT_CFG {11,0x270,0}
+#endif
+
+#ifdef CONFIG_HISAX_SPORTSTER
+#undef DEFAULT_CARD
+#undef DEFAULT_CFG
+#define DEFAULT_CARD ISDN_CTYPE_SPORTSTER
+#define DEFAULT_CFG {5,0x268,0}
+#endif
+
+#ifdef CONFIG_HISAX_MIC
+#undef DEFAULT_CARD
+#undef DEFAULT_CFG
+#define DEFAULT_CARD ISDN_CTYPE_MIC
+#define DEFAULT_CFG {12,0x3e0,0}
 #endif
 
 #ifdef CONFIG_HISAX_1TR6
@@ -355,7 +374,7 @@ HiSax_init(void)
 	r += sprintf(r, "%s", HiSax_getrev(tmp));
 
 	printk(KERN_NOTICE "HiSax: Driver for Siemens chip set ISDN cards\n");
-	printk(KERN_NOTICE "HiSax: Version 2.4\n");
+	printk(KERN_NOTICE "HiSax: Version 2.6\n");
 	printk(KERN_NOTICE "HiSax: Revisions %s\n", rev);
 
 #ifdef MODULE
@@ -399,8 +418,12 @@ HiSax_init(void)
 			case ISDN_CTYPE_DYNALINK:
 			case ISDN_CTYPE_TELEINT:
 			case ISDN_CTYPE_SEDLBAUER:
+			case ISDN_CTYPE_SPORTSTER:
+			case ISDN_CTYPE_MIC:
 				cards[i].para[0] = irq[i];
 				cards[i].para[1] = io[i];
+				break;
+			case ISDN_CTYPE_ELSA_PCI:
 				break;
 		}
 	}
@@ -423,6 +446,7 @@ HiSax_init(void)
 	CallcNew();
 	Isdnl2New();
 	TeiNew();
+	Isdnl1New();
 	if (HiSax_inithardware()) {
 		/* Install only, if at least one card found */
 		/* No symbols to export, hide all symbols */
@@ -433,6 +457,7 @@ HiSax_init(void)
 #endif
 		return (0);
 	} else {
+		Isdnl1Free();
 		TeiFree();
 		Isdnl2Free();
 		CallcFree();
