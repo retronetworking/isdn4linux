@@ -5,6 +5,9 @@
  *
  *
  * $Log$
+ * Revision 1.15.2.17  1998/10/11 19:31:31  niemann
+ * Fixed problems with CONFIG_MODVERSIONS for sedlbauer cards
+ *
  * Revision 1.15.2.16  1998/09/27 13:05:48  keil
  * Apply most changes from 2.1.X (HiSax 3.1)
  *
@@ -109,7 +112,7 @@
  *   25 Teles S0Box             p0=irq p1=iobase (from isapnp setup)
  *   26 AVM A1 PCMCIA (Fritz)   p0=irq p1=iobase
  *   27 AVM PCI (Fritz!PCI)     no parameter
- *   28 Sedlbauer Speed Fax+ 	p0=irq p1=iobase
+ *   28 Sedlbauer Speed Fax+ 	p0=irq p1=iobase (from isapnp setup)
  *
  * protocol can be either ISDN_PTYPE_EURO or ISDN_PTYPE_1TR6 or ISDN_PTYPE_NI1
  *
@@ -393,7 +396,7 @@ HiSaxVersion(void))
 	char tmp[64];
 
 	printk(KERN_INFO "HiSax: Linux Driver for passive ISDN cards\n");
-	printk(KERN_INFO "HiSax: Version 3.0\n");
+	printk(KERN_INFO "HiSax: Version 3.0b\n");
 	strcpy(tmp, l1_revision);
 	printk(KERN_INFO "HiSax: Layer1 Revision %s\n", HiSax_getrev(tmp)); 
 	strcpy(tmp, l2_revision);

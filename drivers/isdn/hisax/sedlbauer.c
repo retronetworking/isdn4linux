@@ -16,6 +16,10 @@
  *            Edgar Toernig
  *
  * $Log$
+ * Revision 1.1.2.10  1998/10/11 19:33:52  niemann
+ * Added new IPAC based cards.
+ * Code cleanup and simplified (sedlbauer.c)
+ *
  * Revision 1.1.2.9  1998/10/04 23:05:03  keil
  * ISAR works now
  *
@@ -603,7 +607,7 @@ setup_sedlbauer(struct IsdnCard *card))
 			byteout(cs->hw.sedl.cfg_reg+ 2, 0xdd);
 			byteout(cs->hw.sedl.cfg_reg+ 5, 0x02);
 		}	
-		if (pci_index == 8) {
+		if (pci_index == 255) {
 			printk(KERN_WARNING "Sedlbauer: No PCI card found\n");
 			return(0);
 		}
