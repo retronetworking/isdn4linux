@@ -58,6 +58,7 @@ Dr. Neuhaus Niccy PnP/PCI
 Siemens I-Surf
 Acer P10
 HST Saphir
+HFC-2BDS0 PCI based cards 
 
 Note: PCF, PCF-Pro: up to now, only the ISDN part is supported
       PCC-8: not tested yet
@@ -172,6 +173,7 @@ Card types:
    29   Siemens I-Surf           irq, io, mem (from isapnp setup)
    30   Acer P10                 irq, io (from isapnp setup)
    31   HST Saphir               irq, io
+   34   HFC-2BDS0 PCI            no parameter
 
 
 At the moment IRQ sharing is only possible with PCI cards. Please make sure
