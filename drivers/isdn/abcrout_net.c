@@ -31,6 +31,10 @@
  *
  *
  * $Log$
+ * Revision 1.8  1998/05/07 19:58:48  detabc
+ * bugfix in abc_delayed_hangup
+ * optimize keepalive-tests for abc_rawip
+ *
  * Revision 1.7  1998/05/06 08:35:00  detabc
  * fixed a wrong response-message in udp-control-packets
  *
@@ -116,7 +120,7 @@ struct TCP_CONMERK	{
 	u_short	tm_dstport;			/*	destination portnummer				*/
 	u_short	tm_window;			
 	u_short tm_hashnr;
-
+ 	struct  device *tm_dev;     /* device for clear-entry wich unreach  */
 };
 
 #define HASH_MAX 256
@@ -526,6 +530,7 @@ int abc_first_senden(struct device *ndev,isdn_net_local *lp)
 		printk(KERN_DEBUG "abc_send_first no space for new skb\n");
 		return(-1);
 	}
+	skb->protocol = htons(ETH_P_IP);
 	skb_reserve(skb,dev->abc_max_hdrlen);
 	skb->pkt_type = PACKET_HOST;
 	p = skb_put(skb,len);
@@ -862,6 +867,7 @@ struct sk_buff *abc_get_keep_skb()
 		return NULL;
 	}
 	
+	skb->protocol = htons(ETH_P_IP);
 	skb_reserve(skb,dev->abc_max_hdrlen);
 	buf = skb_put(skb,2);
 	skb->pkt_type = PACKET_HOST;
@@ -917,6 +923,8 @@ struct sk_buff *abc_snd_data(struct device *ndev,struct sk_buff *skb)
 		return(NULL);
 
 	} else skb_reserve(ns,dev->abc_max_hdrlen);
+
+	ns->protocol = skb->protocol;
 
 	if(	skb->len > 10 &&
 		(nlen = abcgmbh_pack((u_char *)skb->data,ns->data,skb->len)) > 0 &&
@@ -1590,7 +1598,7 @@ static int  free_all_tm(void)
 
 
 
-static void tcp_merk_police(void)
+static void tcp_merk_police(struct device *ndev)
 {
 	struct TCP_CONMERK *nb = tcp_c_first;
 
@@ -1601,7 +1609,8 @@ static void tcp_merk_police(void)
 		nb = nb->tm_snext;
 
 		if(b->tm_time > jiffies || 
-			((jiffies - b->tm_time) > (HZ * 3600 * 12))) {
+			((jiffies - b->tm_time) > (HZ * 3600 * 12)) ||
+			(ndev != NULL && ndev == b->tm_dev)) {
 
 			free_used_tm(b);
 		}
@@ -1799,8 +1808,16 @@ int abcgmbh_tcp_test(struct device *ndev,struct sk_buff *sp)
 	**
 	*/
 
-	if(sp == NULL)
+	if(sp == NULL) {
+
+		if(!test_and_set_bit(0,(void *)&tcp_inuse)) {
+
+			tcp_merk_police(ndev);
+			tcp_inuse = 0;
+		}
+
 		return(0);
+	}
 
 	if(ntohs(sp->protocol) != ETH_P_IP) {
 
@@ -1867,7 +1884,7 @@ int abcgmbh_tcp_test(struct device *ndev,struct sk_buff *sp)
 			tcp_merk_disable_to = 0;
 
 			if(tcp_next_police < jiffies || tcp_last_police > jiffies)
-				tcp_merk_police();
+				tcp_merk_police(NULL);
 
 			/*
 			** tcp protkoll
