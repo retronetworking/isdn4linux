@@ -579,7 +579,8 @@ isdn_net_stat_callback(int idx, isdn_ctrl *c)
 #endif /* CONFIG_ISDN_X25 */
 				if ((!lp->dialstate) && (lp->flags & ISDN_NET_CONNECTED)) {
 #ifdef CONFIG_ISDN_PPP
-					isdn_ppp_free(lp);
+					if (lp->p_encap == ISDN_NET_ENCAP_SYNCPPP)
+						isdn_ppp_free(lp);
 #endif
 					isdn_net_lp_disconnected(lp);
 					isdn_all_eaz(lp->isdn_device, lp->isdn_channel);
@@ -1149,9 +1150,19 @@ isdn_net_hangup(struct net_device *d)
 #endif
 
 	if (lp->flags & ISDN_NET_CONNECTED) {
+		if (lp->slave != NULL) {
+			isdn_net_local *slp = (isdn_net_local *)lp->slave->priv;
+			if (slp->flags & ISDN_NET_CONNECTED) {
+				printk(KERN_INFO
+					"isdn_net: hang up slave %s before %s\n",
+					slp->name, lp->name);
+				isdn_net_hangup(lp->slave);
+			}
+		}
 		printk(KERN_INFO "isdn_net: local hangup %s\n", lp->name);
 #ifdef CONFIG_ISDN_PPP
-		isdn_ppp_free(lp);
+		if (lp->p_encap == ISDN_NET_ENCAP_SYNCPPP)
+			isdn_ppp_free(lp);
 #endif
 		isdn_net_lp_disconnected(lp);
 #ifdef CONFIG_ISDN_X25
