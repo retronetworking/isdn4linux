@@ -19,13 +19,6 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
- * $Log$
- * Revision 1.2  1998/11/05 22:12:43  fritz
- * Changed mail-address.
- *
- * Revision 1.1  1997/09/23 18:00:07  fritz
- * New driver for IBM Active 2000.
- *
  */
 
 #ifndef act2000_isa_h
