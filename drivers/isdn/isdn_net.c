@@ -21,6 +21,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.48.2.12  1998/05/21 09:23:56  detabc
+ * speedup abc-no-dchannel-redial
+ *
  * Revision 1.48.2.11  1998/05/07 19:54:53  detabc
  * bugfix in abc_delayed_hangup
  * optimize keepalive-tests for abc_rawip
@@ -310,21 +313,28 @@ isdn_net_unreachable(struct device *dev, struct sk_buff *skb, char *reason)
 #endif
 
 	if(skb != NULL) {
+	
+		u_short proto = ntohs(skb->protocol);
 
-		printk(KERN_DEBUG "isdn_net: %s: %s, send ICMP !\n",
-			   dev->name, (reason != NULL) ? reason : "reason unknown");
+		printk(KERN_DEBUG "isdn_net: %s: %s, send ICMP %s\n",
+			   dev->name,
+			   (reason != NULL) ? reason : "reason unknown",
+			   (proto != ETH_P_IP) ? "Protcol != ETH_P_IP" : "" );
 
-		icmp_send(skb, ICMP_DEST_UNREACH,
+		if(proto == ETH_P_IP) {
+
+			icmp_send(skb, ICMP_DEST_UNREACH,
 #ifdef CONFIG_ISDN_WITH_ABC
-			ICMP_NET_UNKNOWN,
+				ICMP_NET_UNKNOWN,
 #else
-			ICMP_HOST_UNREACH,
+				ICMP_HOST_UNREACH,
 #endif
-			0
+				0
 #if (LINUX_VERSION_CODE < 0x02010f)	/* 2.1.15 */
-			,dev
+				,dev
 #endif
-			);
+				);
+		}
 	}
 
 #ifndef CONFIG_ISDN_WITH_ABC
@@ -332,11 +342,13 @@ isdn_net_unreachable(struct device *dev, struct sk_buff *skb, char *reason)
 		struct sk_buff *skb;
 
 		while((skb = skb_dequeue(&dev->buffs[i]))) {
-				icmp_send(skb, ICMP_DEST_UNREACH, ICMP_HOST_UNREACH, 0
+				if(ntohs(skb->protocol) == ETH_P_IP) {
+					icmp_send(skb, ICMP_DEST_UNREACH, ICMP_HOST_UNREACH, 0
 #if (LINUX_VERSION_CODE < 0x02010f)	/* 2.1.15 */
-				, dev
+					, dev
 #endif
-				);
+					);
+				}
 				dev_kfree_skb(skb, FREE_WRITE);
         	}
 	}
@@ -347,6 +359,7 @@ isdn_net_unreachable(struct device *dev, struct sk_buff *skb, char *reason)
 		lp->abc_unreached_jiffies = jiffies + lp->dialwait;
 		lp->abc_max_unreached_jiffies = jiffies + lp->dialwait * 6;
 		abc_clear_tx_que(lp);
+		abcgmbh_tcp_test(dev,NULL);
 		clear_bit(0, (void *) &(dev->tbusy));
 	}
 #endif
@@ -968,10 +981,9 @@ abc_nodchan_redial:;
 							lp->pre_device,
 							lp->pre_channel)) < 0) {
 
-							isdn_net_unreachable(&p->dev, 
-								p->local.first_skb, 
-								"ABC_REDIAL: No free channel");
-
+						isdn_net_unreachable(&p->dev, 
+							p->local.first_skb, 
+							"ABC_REDIAL: No free channel");
 
 					} else {
 
@@ -1163,7 +1175,9 @@ abc_nodchan_redial:;
 								p->local.first_skb = skb;
 								restore_flags(flags);
 								p->local.abc_call_disabled = 0;
+								p->local.dialwait_timer = 0;
 								p->local.abc_flags |= ABC_NODCHAN;
+								anymore = 1;
 
 								/*
 								** try once more with a new channel (redial)
@@ -1762,14 +1776,18 @@ isdn_net_start_xmit(struct sk_buff *skb, struct device *ndev)
 
 			abc_clear_tx_que(lp);
 
-			icmp_send(skb, ICMP_DEST_UNREACH, ICMP_NET_UNKNOWN, 0
+			if(ntohs(skb->protocol) == ETH_P_IP) {
+
+				icmp_send(skb, ICMP_DEST_UNREACH, ICMP_NET_UNKNOWN, 0
 #if (LINUX_VERSION_CODE < 0x02010f)	/* 2.1.15 */
 				,ndev
 #endif
 				);
+			}
 
 			dev_kfree_skb(skb, FREE_WRITE);
 			lp->abc_unreached_jiffies = jiffies + lp->dialwait;
+			abcgmbh_tcp_test(ndev,NULL);
 			clear_bit(0, (void *) &(ndev->tbusy));
 
 			if(dev->net_verbose > 6)
