@@ -20,9 +20,16 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
- * detlef@abcbtx.de
- * detlef wengorz
+ * Fa. abc Agentur fuer
+ * Bildschirm-Communication GmbH
+ * Mercedesstrasse 14
+ * 71063 Sindelfingen
+ * Germany
+ *
  * $Log$
+ * Revision 1.1.2.6  1998/04/26 19:53:24  detabc
+ * remove unused code
+ *
  * Revision 1.1.2.5  1998/04/26 11:26:47  detabc
  * add abc_tx_queues support.
  * remove some now unused code.
