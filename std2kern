@@ -257,6 +257,12 @@ else
   for i in drivers/isdn/divert/*.[ch] drivers/isdn/divert/Makefile ; do
     $DOCP $i $KERNELDIR/$i
   done
+  if [ ! -d $KERNELDIR/drivers/isdn/hysdn ] ; then
+    mkdir $KERNELDIR/drivers/isdn/hysdn
+  fi
+  for i in drivers/isdn/hysdn/*.[ch] drivers/isdn/hysdn/Makefile ; do
+    $DOCP $i $KERNELDIR/$i
+  done
   if [ -f $KERNELDIR/Documentation/Configure.help ] ; then
     grep -q CONFIG_ISDN_DIVERSION $KERNELDIR/Documentation/Configure.help
     if [ $? != 0 ] ; then
