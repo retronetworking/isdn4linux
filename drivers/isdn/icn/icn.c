@@ -19,6 +19,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.41  1997/02/24 23:34:29  fritz
+ * Bugfix in Layer1 error-recovery.
+ *
  * Revision 1.40  1997/02/23 23:34:45  fritz
  * Minor bugfixes in debugging code.
  *
@@ -182,17 +185,20 @@ static char
 static int icn_addcard(int, char *, char *);
 
 /*
- * Free queue completely.
+ * Free send-queue completely.
  * Parameter:
- *   queue = pointer to queue-head
+ *   card   = pointer to card struct
+ *   channel = channel number
  */
 static void
-icn_free_queue(struct sk_buff_head *queue)
+icn_free_queue(icn_card * card, int channel)
 {
+	struct sk_buff_head *queue = &card->spqueue[channel];
 	struct sk_buff *skb;
 
 	while ((skb = skb_dequeue(queue)))
 		dev_kfree_skb(skb, FREE_WRITE);
+	card->sndcount[channel] = 0;
 }
 
 /* Put a value into a shift-register, highest bit first.
@@ -569,7 +575,7 @@ icn_parse_status(u_char * status, int channel, icn_card * card)
 		case 2:
 			card->flags &= ~((channel) ?
 				ICN_FLAGS_B2ACTIVE : ICN_FLAGS_B1ACTIVE);
-			icn_free_queue(&card->spqueue[channel]);
+			icn_free_queue(card, channel);
 			save_flags(flags);
 			cli();
 			card->rcvidx[channel] = 0;
@@ -626,7 +632,7 @@ icn_parse_status(u_char * status, int channel, icn_card * card)
 		case 8:
 			dflag = 3;
 			card->flags &= ~ICN_FLAGS_B1ACTIVE;
-			icn_free_queue(&card->spqueue[0]);
+			icn_free_queue(card, 0);
 			save_flags(flags);
 			cli();
 			card->rcvidx[0] = 0;
@@ -640,7 +646,7 @@ icn_parse_status(u_char * status, int channel, icn_card * card)
 			card->interface.statcallb(&cmd);
 			cmd.command = ISDN_STAT_BHUP;
 			card->flags &= ~ICN_FLAGS_B2ACTIVE;
-			icn_free_queue(&card->spqueue[1]);
+			icn_free_queue(card, 1);
 			save_flags(flags);
 			cli();
 			card->rcvidx[1] = 0;
@@ -1798,7 +1804,7 @@ cleanup_module(void)
 				card->rvalid = 0;
 			}
 			for (i = 0; i < ICN_BCH; i++)
-				icn_free_queue(&card->spqueue[i]);
+				icn_free_queue(card, i);
 		}
 		card = card->next;
 	}
