@@ -7,6 +7,9 @@
  *              Fritz Elfert
  *
  * $Log$
+ * Revision 1.1  1996/10/13 20:04:54  keil
+ * Initial revision
+ *
  *
  *
  */
@@ -320,7 +323,7 @@ l2s12(struct FsmInst *fi, int event, void *arg)
 
 	if (BufPoolGet(&ibh, st->l1.smallpool, GFP_ATOMIC, (void *) st, 10))
 		return;
-	i = sethdraddr(&(st->l2), ibh, 0);
+	i = sethdraddr(&(st->l2), ibh, !0);
 	ptr = DATAPTR(ibh);
 	ptr += i;
 	*ptr = 0x73;
