@@ -19,6 +19,10 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.17  1996/02/11 02:39:04  fritz
+ * Increased Buffer for status-messages.
+ * Removed conditionals for HDLC-firmware.
+ *
  * Revision 1.16  1996/01/22 05:01:55  fritz
  * Revert to GPL.
  *
@@ -27,10 +31,10 @@
  *
  * Revision 1.14  1995/12/18  18:23:37  fritz
  * Support for ICN-2B Cards.
- * Change for supporting user-setable service-octet.
+ * Change for supporting user-settable service-octet.
  *
  * Revision 1.13  1995/10/29  21:41:07  fritz
- * Added support for DriverId's, added Jan's patches for Kernelversions.
+ * Added support for DriverId's, added Jan's patches for Kernel versions.
  *
  * Revision 1.12  1995/04/29  13:07:35  fritz
  * Added support for new Euro-ISDN-firmware
@@ -47,7 +51,7 @@
  *
  * Revision 1.8  1995/03/15  12:49:44  fritz
  * Added support for SPV's
- * Splitted pollbchan_work ifor calling send-routine directly
+ * Split pollbchan_work for calling send-routine directly
  *
  * Revision 1.7  1995/02/20  03:48:03  fritz
  * Added support of new request_region-function.
@@ -462,7 +466,10 @@ static void icn_pollit(icn_dev * dev)
 			save_flags(flags);
 			cli();
 			*dev->msg_buf_write++ = (c == 0xff) ? '\n' : c;
-			/* No checks for buffer overflow for raw-status-device */
+                        if (dev->msg_buf_write == dev->msg_buf_read) {
+                                if (++dev->msg_buf_read > dev->msg_buf_end)
+                                        dev->msg_buf_read = dev->msg_buf;
+                        }
 			if (dev->msg_buf_write > dev->msg_buf_end)
 				dev->msg_buf_write = dev->msg_buf;
 			restore_flags(flags);
@@ -638,7 +645,7 @@ static void icn_pollit(icn_dev * dev)
 /*
  * Check Statusqueue-Pointer from isdn-card.
  * If there are new status-replies from the interface, check
- * them against B-Channel-connects/disconnects and set flags arrcordingly.
+ * them against B-Channel-connects/disconnects and set flags accordingly.
  * Wake-Up any processes, who are reading the status-device.
  * If there are B-Channels open, initiate a timer-callback to
  * icn_pollbchan().
@@ -790,8 +797,8 @@ static int icn_loadboot(u_char * buffer, icn_dev * dev)
 		dev->mvalid = 1;
 	}
 	restore_flags(flags);
-	OUTB_P(0, ICN_RUN);	/* Reset Controler */
-	OUTB_P(0, ICN_MAPRAM);	/* Disable RAM     */
+	OUTB_P(0, ICN_RUN);	/* Reset Controller */
+	OUTB_P(0, ICN_MAPRAM);	/* Disable RAM      */
 	icn_shiftout(ICN_CFG, 0x0f, 3, 4);	/* Windowsize= 16k */
 	icn_shiftout(ICN_CFG, (unsigned long) dev->shmem, 23, 10);	/* Set RAM-Addr.   */
 #ifdef BOOT_DEBUG
@@ -943,6 +950,8 @@ static int icn_readstatus(u_char * buf, int len, int user, icn_dev * dev)
 	u_char *p;
 
 	for (p = buf, count = 0; count < len; p++, count++) {
+                if (dev->msg_buf_read == dev->msg_buf_write)
+                        return count;
 		if (user)
 			put_fs_byte(*dev->msg_buf_read++, p);
 		else
@@ -1480,7 +1489,7 @@ void cleanup_module(void)
 		dev2->interface.statcallb(&cmd);
 	}
 	if (dev->rvalid) {
-		OUTB_P(0, ICN_RUN);	/* Reset Controler      */
+		OUTB_P(0, ICN_RUN);	/* Reset Controller     */
 		OUTB_P(0, ICN_MAPRAM);	/* Disable RAM          */
 		release_region(dev->port, ICN_PORTLEN);
 	}
