@@ -3,6 +3,9 @@
  *   Basic declarations, defines and prototypes
  *
  * $Log$
+ * Revision 1.3  1996/11/05 19:37:23  keil
+ * using config.h
+ *
  * Revision 1.2  1996/10/27 22:21:52  keil
  * CallFlags for broadcast messages
  *
@@ -332,7 +335,10 @@ struct IsdnCardState {
 #ifdef DEBUG_MAGIC
 	int             magic;
 #endif
-	int		typ;
+	unsigned char	typ;
+	unsigned char	subtyp;
+	unsigned char	mask1;
+	unsigned char	mask2;
 	int		protocol;
 	unsigned int	irq;
 	unsigned int    cfg_reg;
