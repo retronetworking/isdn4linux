@@ -119,6 +119,8 @@ README for the ISDN-subsystem
                AT&X0	BTX-mode off (default)
 	       AT&X1    BTX-mode on. (S13.1=1, S14=0, S16=7, S18=7, S19=0)
 
+           For voice-mode commands refer to README.audio
+
 	   1.3.2 Escape sequence:
                During a connection, the emulation reacts just like
                a normal modem to the escape sequence <DELAY>+++<DELAY>.
@@ -168,18 +170,34 @@ README for the ISDN-subsystem
                                       1 = Direct tty-send.
                             Bit 1:    0 = T.70 protocol (Only for BTX!) off
                                       1 = T.70 protocol (Only for BTX!) on
-	     14   0         Layer-2 protocol: (with the ICN-driver 
-                                                currently always 0)
+	     14   0         Layer-2 protocol:
 				      0 = X75/LAPB with I-frames
 				      1 = X75/LAPB with UI-frames
                                       2 = X75/LAPB with BUI-frames
                                       3 = HDLC
+                                      4 = Transparent (audio)
              15   0         Layer-3 protocol: (at the moment always 0)
                                       0 = transparent
 	     16   250       Send-Packet-size/16
              17   8         Window-size for Teles-driver (not yet implemented)
-             18   7         Service-Octet-1
+             18   4         Bit coded register, Service-Octet-1 to accept,
+                            or to be used on dialout:
+                            Bit 0:    Service 1 (audio) when set.
+                            Bit 1:    Service 5 (BTX) when set.
+                            Bit 2:    Service 7 (data) when set.
+                            Note: It is possible to set more than one
+                                  bit. In this case, on incoming calls
+                                  the selected services are accepted,
+                                  and if the service is "audio", the
+                                  Layer-2-protocol is automatically
+                                  changed to 4 regardless of the setting
+                                  of register 14. On outgoing calls,
+                                  the most significant 1-bit is choosen to
+                                  select the outgoing service octet.
              19   0         Service-Octet-2
+             20   0         Bit coded register (readonly)
+                            Service-Octet-1 of last call.
+                            Bit mapping is the same like register 18
 
   Last but not least a (at the moment fairly primitive) device to request
   the line-status (/dev/isdninfo) is made available.

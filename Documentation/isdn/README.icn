@@ -16,7 +16,8 @@ The card communicates with the PC by two interfaces:
   2. A memory window with 16KB-256KB size, which can be setup in 16k steps
      over the whole range of 16MB. Isdn4linux only uses a 16k window.
      The base address of the window can be configured when loading
-     the lowlevel-module (see README).
+     the lowlevel-module (see README). If using more than one card,
+     all cards are mapped to the same window and activated as needed.
 
 Setting up the IO-address dipswitches for the ICN-ISDN-card:
 
