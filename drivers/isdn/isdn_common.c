@@ -21,6 +21,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.6  1996/04/30 20:57:21  fritz
+ * Commit test
+ *
  * Revision 1.5  1996/04/20 16:19:07  fritz
  * Changed slow timer handlers to increase accuracy.
  * Added statistic information for usage by xisdnload.
@@ -460,6 +463,7 @@ static int isdn_status_callback(isdn_ctrl * c)
                         /* Find any network-device, waiting for D-channel setup */
                         if (isdn_net_stat_callback(i, c->command))
                                 break;
+
 			if ((mi = dev->m_idx[i]) >= 0)
 				/* If any tty has just dialed-out, setup B-Channel */
 				if (dev->mdm.info[mi].flags &
@@ -501,7 +505,6 @@ static int isdn_status_callback(isdn_ctrl * c)
 					printk(KERN_DEBUG "Mhup in ISDN_STAT_DHUP\n");
 #endif
 					isdn_tty_modem_hup(&dev->mdm.info[mi]);
-					dev->mdm.msr[mi] &= ~(UART_MSR_DCD | UART_MSR_RI);
 					return 0;
 				}
 			}
@@ -529,9 +532,9 @@ static int isdn_status_callback(isdn_ctrl * c)
 					if (dev->mdm.dialing[mi])
 						dev->mdm.dialing[mi] = 0;
 					dev->mdm.rcvsched[mi] = 1;
-                                        if (USG_MODEM(dev->usage[mi]))
+                                        if (USG_MODEM(dev->usage[i]))
                                           isdn_tty_modem_result(5, &dev->mdm.info[mi]);
-                                        if (USG_VOICE(dev->usage[mi]))
+                                        if (USG_VOICE(dev->usage[i]))
                                           isdn_tty_modem_result(11, &dev->mdm.info[mi]);
 				}
 			}
@@ -1847,6 +1850,9 @@ int register_isdn(isdn_if * i)
 		sprintf(i->id, "line%d", drvidx);
 	save_flags(flags);
 	cli();
+        for (j = 0; j < drvidx; j++)
+                if (!strcmp(i->id,dev->drvid[j]))
+                    sprintf(i->id, "line%d", drvidx);                    
 	for (j = 0; j < n; j++)
 		for (k = 0; k < ISDN_MAX_CHANNELS; k++)
 			if (dev->chanmap[k] < 0) {
