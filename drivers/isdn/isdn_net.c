@@ -21,6 +21,16 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.48.2.4  1998/03/20 12:17:27  detabc
+ * merge abc-extension with timru-time-rules
+ * christian please check my changes in the CONFIG_ISDN_TIMEOUT_RULES sources
+ * please ! think about:
+ * behind the function isdn_abc_net_start_xmit(), is the first one behind
+ * the kernel-driver, the paket will be compressed an/or crypted. In this
+ * case no information availible in the skb->data area.
+ *
+ * Fritz !! Please read my remarks in the funktion isdn_net_unreachable() !
+ *
  * Revision 1.48.2.3  1998/03/16 09:55:51  cal
  * Merged in TimRu-patches. Still needs validation in conjunction with ABC-patches.
  *
@@ -2326,9 +2336,6 @@ isdn_net_init(struct device *ndev)
 #endif
 	ndev->header_cache_update = NULL;
 	ndev->mtu = 1500;
-#ifdef CONFIG_ISDN_WITH_ABC
-	ndev->mtu                 = 1500;
-#endif
 	ndev->flags = IFF_NOARP;
 	ndev->family = AF_INET;
 	ndev->type = ARPHRD_ETHER;
@@ -2337,6 +2344,9 @@ isdn_net_init(struct device *ndev)
 	ndev->pa_brdaddr = 0;
 	ndev->pa_mask = 0;
 	ndev->pa_alen = 4;
+
+	/* for clients with MPPP maybe higher values better */
+	ndev->tx_queue_len = 5;
 
 	for (i = 0; i < ETH_ALEN; i++)
 		ndev->broadcast[i] = 0xff;
