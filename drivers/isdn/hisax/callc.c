@@ -7,6 +7,9 @@
  *              Fritz Elfert
  *
  * $Log$
+ * Revision 1.1  1996/10/13 20:04:50  keil
+ * Initial revision
+ *
  *
  */
 #define __NO_VERSION__
@@ -668,6 +671,7 @@ static struct FsmNode fnlist[] =
         {ST_OUT,              EV_RELEASE_IND,         r20},
         {ST_OUT,              EV_RELEASE_CNF,         r20},
         {ST_OUT,              EV_DLRL,                r2_2},
+        {ST_OUT_W_HANGUP,     EV_RELEASE_CNF,         r2_2},
         {ST_OUT_W_HANGUP,     EV_RELEASE_IND,         r2_2},
         {ST_OUT_W_HANGUP,     EV_DLRL,                r20},
         {ST_CLEAR,            EV_RELEASE_CNF,         r3},
@@ -1352,17 +1356,21 @@ HiSax_command(isdn_ctrl * ic)
                   break;
           case (ISDN_CMD_LOCK):
                   HiSax_mod_inc_use_count();
+#ifdef MODULE
 		  jiftime(tmp, jiffies);
 		  i=strlen(tmp);
                   sprintf(tmp+i, "   LOCK modcnt %lx\n",mod_use_count_);
 		  HiSax_putstatus(tmp);
+#endif MODULE
                   break;
           case (ISDN_CMD_UNLOCK):
                   HiSax_mod_dec_use_count();
+#ifdef MODULE
 		  jiftime(tmp, jiffies);
 		  i=strlen(tmp);
                   sprintf(tmp+i, " UNLOCK modcnt %lx\n",mod_use_count_);
 		  HiSax_putstatus(tmp);
+#endif MODULE
                   break;
           case (ISDN_CMD_IOCTL):
                   switch (ic->arg) {
