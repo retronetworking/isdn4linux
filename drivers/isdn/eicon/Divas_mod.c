@@ -47,6 +47,8 @@ EXPORT_SYMBOL_NOVERS(DIVA_DIDD_Read);
 EXPORT_SYMBOL_NOVERS(DIVA_DIDD_Write);
 EXPORT_SYMBOL_NOVERS(DivasPrintf);
 #define Divas_init init_module
+#else
+#define Divas_init eicon_init
 #endif
 
 extern char *file_check(void);
@@ -164,9 +166,5 @@ void mod_dec_use_count(void)
 	MOD_DEC_USE_COUNT;
 }
 
-#else
-Divas_setup(char *str, int *ints)
-{
-}
 #endif
 
