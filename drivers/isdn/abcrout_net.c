@@ -23,6 +23,10 @@
  * detlef@abcbtx.de
  * detlef wengorz
  * $Log$
+ * Revision 1.1.2.5  1998/04/26 11:26:47  detabc
+ * add abc_tx_queues support.
+ * remove some now unused code.
+ *
  * Revision 1.1.2.4  1998/04/21 17:56:34  detabc
  * added code to reset secure-counter with a spezial udp-packets
  *
@@ -985,69 +989,6 @@ void abc_free_receive(void)
 		skb->dev = NULL;
 		kfree_skb(skb,FREE_READ);
 	}
-}
-
-struct sk_buff *abc_get_uncomp(struct sk_buff *skb)
-{
-
-	struct sk_buff *nskb = NULL;
-	char *p = skb->data;
-	u_short k = 0;
-	int len;
-	int nlen;
-
-	if((len = skb->len) < 2) 
-		return(NULL);
-
-	k = *(p++) & 0xFF;
-	k |= (*(p++) & 0xFF) << 8;
-	len -= 2;
-	nlen = k & ABCR_MAXBYTES;
-
-	if(len > 1550 || len < 1) 
-		return(NULL);
-
-	if(!(k & ABCR_BYTECOMP)) {
-
-		if((nskb = dev_alloc_skb(len + dev->abc_max_hdrlen)) != NULL) {
-
-			void *i;
-
-			skb_reserve(nskb,dev->abc_max_hdrlen);
-			nskb->pkt_type = PACKET_HOST;
-			SET_SKB_FREE(nskb);
-
-			memcpy(i=(void *)skb_put(nskb,len),(void *)p,len);
-			nskb->ip_hdr = (struct iphdr *)i;
-		}
-
-		return(nskb);
-	}
-
-	if(nlen > 1550 || nlen < 1) 
-		return(NULL);
-
-	if((nskb = dev_alloc_skb(nlen + dev->abc_max_hdrlen)) != NULL) {
-
-		int r;
-		void *i;
-
-		skb_reserve(nskb,dev->abc_max_hdrlen);
-		nskb->pkt_type = PACKET_HOST;
-		SET_SKB_FREE(nskb);
-
-		r = abcgmbh_depack(p,len,i = skb_put(nskb,nlen),nlen);
-
-		if(r < nlen) {
-
-			kfree_skb(nskb,FREE_READ);
-			nskb = NULL;
-		}
-
-		nskb->ip_hdr = (struct iphdr *)i;
-	}
-
-	return(nskb);
 }
 
 
