@@ -21,6 +21,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.23  1997/02/10 22:07:13  fritz
+ * Added 2 modem registers for numbering plan and screening info.
+ *
  * Revision 1.22  1997/02/03 23:42:08  fritz
  * Added ISDN_TIMER_RINGING
  * Misc. changes for Kernel 2.1.X compatibility
@@ -173,7 +176,7 @@
 #define ISDN_USAGE_EXCLUSIVE 64 /* This bit is set, if channel is exclusive */
 #define ISDN_USAGE_OUTGOING 128 /* This bit is set, if channel is outgoing  */
 
-#define ISDN_MODEM_ANZREG    22        /* Number of Modem-Registers        */
+#define ISDN_MODEM_ANZREG    23        /* Number of Modem-Registers        */
 #define ISDN_MSNLEN          20
 
 typedef struct {
@@ -194,7 +197,7 @@ typedef struct {
 } isdn_net_ioctl_phone;
 
 #define NET_DV 0x02 /* Data version for net_cfg     */
-#define TTY_DV 0x03 /* Data version for iprofd etc. */
+#define TTY_DV 0x04 /* Data version for iprofd etc. */
 
 typedef struct {
   char name[10];     /* Name of interface                     */
