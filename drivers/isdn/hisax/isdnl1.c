@@ -11,6 +11,9 @@
  *
  *
  * $Log$
+ * Revision 2.1  1997/07/27 21:35:38  keil
+ * new layer1 interface
+ *
  * Revision 2.0  1997/06/26 11:02:53  keil
  * New Layer and card interface
  *
@@ -234,7 +237,7 @@ L1activated(struct IsdnCardState *cs)
 	}
 }
 
-static void
+void
 L1deactivated(struct IsdnCardState *cs)
 {
 	struct PStack *st;

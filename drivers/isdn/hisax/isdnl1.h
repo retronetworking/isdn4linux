@@ -1,6 +1,9 @@
 /* $Id$
 
  * $Log$
+ * Revision 2.1  1997/07/27 21:43:58  keil
+ * new l1 interface
+ *
  * Revision 2.0  1997/06/26 11:02:55  keil
  * New Layer and card interface
  *
@@ -44,6 +47,7 @@
 extern void debugl1(struct IsdnCardState *sp, char *msg);
 extern get_irq(int cardnr, void *routine);
 extern void L1activated(struct IsdnCardState *cs);
+extern void L1deactivated(struct IsdnCardState *cs);
 extern int L1act_wanted(struct IsdnCardState *cs);
 
 
