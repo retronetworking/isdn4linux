@@ -112,6 +112,12 @@ ifeq ($(CONFIG_HISAX_AMD7930),y)
 	 RAWHDLC_OBJ := rawhdlc.o
 endif
 
+ifeq ($(CONFIG_HISAX_NICCY),y)
+	 O_OBJS += niccy.o
+	 ISAC_OBJ := isac.o
+	 HSCX_OBJ := hscx.o
+endif
+
 O_OBJS += $(ISAC_OBJ) $(HSCX_OBJ) $(HFC_OBJ) $(ARCOFI_OBJ) $(HFC_2BDS0) $(RAWHDLC_OBJ)
 OX_OBJS += config.o
 

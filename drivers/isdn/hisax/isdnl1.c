@@ -11,6 +11,9 @@
  *
  *
  * $Log$
+ * Revision 2.16  1998/02/09 18:46:08  keil
+ * Support for Sedlbauer PCMCIA (Marcus Niemann)
+ *
  * Revision 2.15  1998/02/09 10:54:51  keil
  * fixes for leased mode
  *
@@ -137,6 +140,10 @@ extern int setup_t163c(struct IsdnCard *card);
 
 #if CARD_AMD7930
 extern int setup_amd7930(struct IsdnCard *card);
+#endif
+
+#if CARD_NICCY
+extern int setup_niccy(struct IsdnCard *card);
 #endif
 
 #define HISAX_STATUS_BUFSIZE 4096
@@ -823,6 +830,11 @@ checkcard(int cardnr, char *id, int *busy_flag))
 #if CARD_TELES3C
 		case ISDN_CTYPE_TELES3C:
 			ret = setup_t163c(card);
+			break;
+#endif
+#if CARD_NICCY
+		case ISDN_CTYPE_NICCY:
+			ret = setup_niccy(card);
 			break;
 #endif
 #if CARD_AMD7930

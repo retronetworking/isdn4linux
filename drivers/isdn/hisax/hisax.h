@@ -3,6 +3,9 @@
  *   Basic declarations, defines and prototypes
  *
  * $Log$
+ * Revision 2.13  1998/02/09 18:46:02  keil
+ * Support for Sedlbauer PCMCIA (Marcus Niemann)
+ *
  * Revision 2.12  1998/02/03 23:31:30  keil
  * add AMD7930 support
  *
@@ -633,6 +636,7 @@ struct IsdnCardState {
 		struct mic_hw mic;
 		struct njet_hw njet;
 		struct hfcD_hw hfcD;
+		struct ix1_hw niccy;
 	} hw;
 	int myid;
 	isdn_if iif;
@@ -840,11 +844,21 @@ struct IsdnCardState {
 #define CARD_AMD7930 0
 #endif
 
+#ifdef	CONFIG_HISAX_NICCY
+#define	CARD_NICCY (1 << ISDN_CTYPE_NICCY)
+#ifndef ISDN_CHIP_ISAC
+#define ISDN_CHIP_ISAC 1
+#endif
+#else
+#define CARD_NICCY 0
+#endif
+
 
 #define  SUPORTED_CARDS  (CARD_TELES0 | CARD_TELES3 | CARD_AVM_A1 | CARD_ELSA \
 			 | CARD_IX1MICROR2 | CARD_DIEHLDIVA | CARD_ASUSCOM \
 			 | CARD_TELEINT | CARD_SEDLBAUER | CARD_SPORTSTER \
-			 | CARD_MIC | CARD_NETJET | CARD_TELES3C | CARD_AMD7930)
+			 | CARD_MIC | CARD_NETJET | CARD_TELES3C | CARD_AMD7930 \
+			 | CARD_NICCY)
 
 #define TEI_PER_CARD 0
 

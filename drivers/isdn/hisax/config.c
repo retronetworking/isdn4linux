@@ -5,6 +5,9 @@
  *
  *
  * $Log$
+ * Revision 2.11  1998/02/09 21:26:13  keil
+ * fix export module for 2.1
+ *
  * Revision 2.10  1998/02/09 18:46:05  keil
  * Support for Sedlbauer PCMCIA (Marcus Niemann)
  *
@@ -77,8 +80,11 @@
  *   18 ELSA Quickstep 1000PCI  no parameter
  *   19 Compaq ISDN S0 ISA card p0=irq  p1=IO0 (HSCX)  p2=IO1 (ISAC) p3=IO2
  *   20 Travers Technologies NETjet PCI card
- *   21 reserved
+ *   21 reserved TELES PCI
  *   22 Sedlbauer Speed Star    p0=irq p1=iobase
+ *   23 reserved
+ *   24 Dr Neuhaus Niccy PnP/PCI card p0=irq p1=IO0 p2=IO1 (PnP only)
+ *
  *
  * protocol can be either ISDN_PTYPE_EURO or ISDN_PTYPE_1TR6 or ISDN_PTYPE_NI1
  *
@@ -182,6 +188,13 @@ EXPORT_SYMBOL(sedl_init_pcmcia);
 #define DEFAULT_CFG {12,0x3e0,0,0}
 #endif
 
+#ifdef CONFIG_HISAX_NICCY
+#undef DEFAULT_CARD
+#undef DEFAULT_CFG
+#define DEFAULT_CARD ISDN_CTYPE_NICCY
+#define DEFAULT_CFG {0,0x0,0,0}
+#endif
+
 #ifdef CONFIG_HISAX_1TR6
 #define DEFAULT_PROTO ISDN_PTYPE_1TR6
 #define DEFAULT_PROTO_NAME "1TR6"
@@ -248,7 +261,15 @@ static int protocol[] HISAX_INITDATA =
 {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
 static int io[] HISAX_INITDATA =
 {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
-#ifdef CONFIG_HISAX_16_3	/* For Creatix/Teles PnP */
+#undef IO0_IO1
+#ifdef CONFIG_HISAX_16_3
+#define IO0_IO1
+#endif
+#ifdef CONFIG_HISAX_NICCY
+#undef IO0_IO1
+#define IO0_IO1
+#endif
+#ifdef IO0_IO1
 static int io0[] HISAX_INITDATA =
 {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
 static int io1[] HISAX_INITDATA =
@@ -423,8 +444,9 @@ HiSax_init(void))
 				cards[i].para[1] = mem[i];
 				break;
 
-#ifdef CONFIG_HISAX_16_3	/* For Creatix/Teles PnP */
+#ifdef IO0_IO1
 			case ISDN_CTYPE_PNP:
+			case ISDN_CTYPE_NICCY:
 				cards[i].para[0] = irq[i];
 				cards[i].para[1] = io0[i];
 				cards[i].para[2] = io1[i];
