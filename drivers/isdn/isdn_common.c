@@ -21,6 +21,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.39  1997/03/07 01:32:54  fritz
+ * Added proper ifdef's for CONFIG_ISDN_AUDIO
+ *
  * Revision 1.38  1997/03/05 21:15:02  fritz
  * Fix: reduced stack usage of isdn_ioctl() and isdn_set_allcfg()
  *
@@ -1174,12 +1177,12 @@ isdn_ioctl(struct inode *inode, struct file *file, uint cmd, ulong arg)
 	char *p;
 	char *s;
 	union iocpar {
-	  char name[10];
-	  char bname[22];
-	  isdn_ioctl_struct iocts;
-	  isdn_net_ioctl_phone phone;
-	  isdn_net_ioctl_cfg cfg;
-	} iocpar ;
+		char name[10];
+		char bname[22];
+		isdn_ioctl_struct iocts;
+		isdn_net_ioctl_phone phone;
+		isdn_net_ioctl_cfg cfg;
+	} iocpar;
 
 #define name  iocpar.name
 #define bname iocpar.bname
@@ -1245,9 +1248,9 @@ isdn_ioctl(struct inode *inode, struct file *file, uint cmd, ulong arg)
 			case IIOCNETASL:
 				/* Add a slave to a network-interface */
 				if (arg) {
-					if ((ret = verify_area(VERIFY_READ, (void *) arg, sizeof(bname)-1)))
+					if ((ret = verify_area(VERIFY_READ, (void *) arg, sizeof(bname) - 1)))
 						return ret;
-					copy_from_user(bname, (char *) arg, sizeof(bname)-1);
+					copy_from_user(bname, (char *) arg, sizeof(bname) - 1);
 				} else
 					return -EINVAL;
 				if ((s = isdn_net_newslave(bname))) {
@@ -1465,8 +1468,8 @@ isdn_ioctl(struct inode *inode, struct file *file, uint cmd, ulong arg)
 				if (arg) {
 
 					if ((ret = copy_from_user((char *) &iocts,
-								  (char *) arg,
-								  sizeof(isdn_ioctl_struct))))
+							    (char *) arg,
+					     sizeof(isdn_ioctl_struct))))
 						return ret;
 					if (strlen(iocts.drvid)) {
 						drvidx = -1;
@@ -1482,7 +1485,7 @@ isdn_ioctl(struct inode *inode, struct file *file, uint cmd, ulong arg)
 					if (cmd == IIOCSETMAP) {
 						int loop = 1;
 
-						p = (char *)iocts.arg;
+						p = (char *) iocts.arg;
 						i = 0;
 						while (loop) {
 							int j = 0;
@@ -1490,17 +1493,18 @@ isdn_ioctl(struct inode *inode, struct file *file, uint cmd, ulong arg)
 							while (1) {
 								if ((ret = verify_area(VERIFY_READ, p, 1)))
 									return ret;
-								GET_USER(bname[j],p++);
+								GET_USER(bname[j], p++);
 								switch (bname[j]) {
 									case '\0':
 										loop = 0;
 										/* Fall through */
 									case ',':
-										if (j) {
-											bname[j] = '\0';
-											strcpy(dev->drv[drvidx]->msn2eaz[i], bname);
-										}
+										bname[j] = '\0';
+										strcpy(dev->drv[drvidx]->msn2eaz[i], bname);
 										j = ISDN_MSNLEN;
+										break;
+									default:
+										j++;
 								}
 								if (j >= ISDN_MSNLEN)
 									break;
@@ -1515,7 +1519,7 @@ isdn_ioctl(struct inode *inode, struct file *file, uint cmd, ulong arg)
 								strlen(dev->drv[drvidx]->msn2eaz[i]) ?
 								dev->drv[drvidx]->msn2eaz[i] : "-",
 								(i < 9) ? "," : "\0");
-							if ((ret = copy_to_user(p, bname, strlen(bname)+1)))
+							if ((ret = copy_to_user(p, bname, strlen(bname) + 1)))
 								return ret;
 							p += strlen(bname);
 						}
