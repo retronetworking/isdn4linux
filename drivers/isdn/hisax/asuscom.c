@@ -341,7 +341,7 @@ setup_asuscom(struct IsdnCard *card)
 	cs->cardmsg = &Asus_card_msg;
 	val = readreg(cs->hw.asus.cfg_reg + ASUS_IPAC_ALE, 
 		cs->hw.asus.cfg_reg + ASUS_IPAC_DATA, IPAC_ID);
-	if (val == 1) {
+	if ((val == 1) || (val == 2)) {
 		cs->subtyp = ASUS_IPAC;
 		cs->hw.asus.adr  = cs->hw.asus.cfg_reg + ASUS_IPAC_ALE;
 		cs->hw.asus.isac = cs->hw.asus.cfg_reg + ASUS_IPAC_DATA;
