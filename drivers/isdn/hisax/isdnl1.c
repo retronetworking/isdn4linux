@@ -11,6 +11,9 @@
  *            
  * 
  * $Log$
+ * Revision 1.3  1996/11/18 15:34:47  keil
+ * fix HSCX version code
+ *
  * Revision 1.2  1996/10/27 22:16:54  keil
  * ISAC/HSCX version lookup
  *
@@ -48,7 +51,7 @@ const	char	*l1_revision        = "$Revision$";
 #include <linux/interrupt.h>
 
 const   char    *CardType[] =  {"No Card","Teles 16.0","Teles 8.0","Teles 16.3",
-				"Creatix PNP","AVM A1","Elsa ML PCC16"};
+				"Creatix PnP","AVM A1","Elsa ML PCC16"};
 
 static	char	*HSCXVer[] = {"A1","?1","A2","?3","A3","V2.1","?6","?7",
 			      "?8","?9","?10","?11","?12","?13","?14","???"};
@@ -234,6 +237,10 @@ process_rcv(struct IsdnCardState *sp)
 	char             tmp[64];
 
 	while (!BufQueueUnlink(&ibh, &sp->rq)) {
+#ifdef L2FRAME_DEBUG /* psa */
+	        if(sp->debug & L1_DEB_LAPD)
+		        Logl2Frame(sp,ibh,"PH_DATA",1);
+#endif
 		stptr = sp->stlist;
 		ptr = DATAPTR(ibh);
 		broadc = (ptr[1] >> 1) == 127;
@@ -311,13 +318,22 @@ l2l1(struct PStack *st, int pr,
 
 	switch (pr) {
 	  case (PH_DATA):
-		  if (sp->xmtibh)
+	          if (sp->xmtibh) {
 			  BufQueueLink(&sp->sq, ibh);
+#ifdef L2FRAME_DEBUG /* psa */
+			  if(sp->debug & L1_DEB_LAPD)
+			        Logl2Frame(sp,ibh,"PH_DATA Queued",0);
+#endif
+		  }
 		  else {
 			  sp->xmtibh = ibh;
 			  sp->sendptr = 0;
 			  sp->releasebuf = !0;
 			  sp->isac_fill_fifo(sp);
+#ifdef L2FRAME_DEBUG /* psa */
+			  if(sp->debug & L1_DEB_LAPD)
+			        Logl2Frame(sp,ibh,"PH_DATA",0);
+#endif
 		  }
 		  break;
 	  case (PH_DATA_PULLED):
@@ -330,8 +346,16 @@ l2l1(struct PStack *st, int pr,
 		  sp->sendptr = 0;
 		  sp->releasebuf = 0;
 		  sp->isac_fill_fifo(sp);
+#ifdef L2FRAME_DEBUG /* psa */
+		  if(sp->debug & L1_DEB_LAPD)
+		          Logl2Frame(sp,ibh,"PH_DATA_PULLED",0);
+#endif
 		  break;
 	  case (PH_REQUEST_PULL):
+#ifdef L2FRAME_DEBUG /* psa */
+		  if(sp->debug & L1_DEB_LAPD)
+		          debugl1(sp,"-> PH_REQUEST_PULL");
+#endif
 		  if (!sp->xmtibh) {
 			  st->l1.requestpull = 0;
 			  st->l1.l1l2(st, PH_PULL_ACK, NULL);
@@ -685,11 +709,16 @@ checkcard(int cardnr)
 		    ISAC_SMALLBUF_MAXPAGES);
 
 	
-	sp->rcvibh = NULL;
-	sp->rcvptr = 0;
-	sp->xmtibh = NULL;
+	sp->rcvibh  = NULL;
+	sp->rcvptr  = 0;
+	sp->xmtibh  = NULL;
 	sp->sendptr = 0;
-	sp->event = 0;
+	sp->mon_rx  = NULL;
+	sp->mon_rxp = 0;
+	sp->mon_tx  = NULL;
+	sp->mon_txp = 0;
+	sp->mon_flg = 0;
+	sp->event   = 0;
 	sp->tqueue.next = 0;
 	sp->tqueue.sync = 0;
 	sp->tqueue.routine = (void *) (void *) isac_bh;
@@ -699,12 +728,9 @@ checkcard(int cardnr)
 	BufQueueInit(&sp->sq);
 
 	sp->stlist = NULL;
-
 	sp->ph_active = 0;
-
 	sp->dlogflag = 0;
-	sp->debug = 0xff;
-
+	sp->debug = L1_DEB_WARN;
 	sp->releasebuf = 0;
 #ifdef DEBUG_MAGIC
 	sp->magic = 301271;
@@ -940,3 +966,88 @@ HiSax_reportcard(int cardnr)
 	if (sp->debug) sp->debug =0;
 	else sp->debug =0xff;
 }
+
+#ifdef L2FRAME_DEBUG /* psa */
+
+char *l2cmd(byte cmd)
+{
+  switch(cmd & ~0x10) {
+  case 1:
+    return "RR";
+  case 5:
+    return "RNR";
+  case 9:
+    return "REJ";
+  case 0x6f:
+    return "SABME";
+  case 0x0f:
+    return "DM";
+  case 3:
+    return "UI";
+  case 0x43:
+    return "DISC";
+  case 0x63:
+    return "UA";
+  case 0x87:
+    return "FRMR";
+  case 0xaf:
+    return "XID";
+  default:
+    if(!(cmd & 1))
+      return "I";
+    else
+      return "invalid command";
+  }
+}
+
+static char tmp[20];
+
+char *l2frames(byte *ptr)
+{
+  switch(ptr[2] & ~0x10) {
+  case 1:
+  case 5:
+  case 9:
+    sprintf(tmp, "%s[%d](nr %d)", l2cmd(ptr[2]), ptr[3] & 1, ptr[3] >> 1);
+    break;
+  case 0x6f:
+  case 0x0f:
+  case 3:
+  case 0x43:
+  case 0x63:
+  case 0x87:
+  case 0xaf:
+    sprintf(tmp, "%s[%d]", l2cmd(ptr[2]), (ptr[2] & 0x10) >> 4);
+    break;
+  default:
+    if(!(ptr[2] & 1)) {
+      sprintf(tmp, "I[%d](ns %d, nr %d)", ptr[3] & 1, ptr[2] >> 1,ptr[3] >> 1);
+      break;
+    }
+    else
+      return "invalid command";
+  }
+
+
+  return tmp;
+}
+
+void
+Logl2Frame(struct IsdnCardState *sp, struct BufHeader *ibh, char *buf, int dir)
+{
+  char tmp[132];
+  byte *ptr;
+
+  ptr = DATAPTR(ibh);
+
+  if(ptr[0] & 1 || !(ptr[1] & 1))
+    debugl1(sp,"Addres not LAPD");
+  else {
+    sprintf(tmp,"%s %s: %s%c (sapi %d, tei %d)",
+	    (dir?"<-":"->"), buf, l2frames(ptr),
+	    ((ptr[0] & 2) >> 1) == dir?'C':'R', ptr[0] >> 2, ptr[1] >> 1);
+    debugl1(sp, tmp);
+  }
+}
+
+#endif
