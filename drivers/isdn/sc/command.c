@@ -33,7 +33,7 @@
 #include "card.h"
 #include "scioc.h"
 
-int dial(int card, unsigned long channel, char *number);
+int dial(int card, unsigned long channel, setup_parm setup);
 int hangup(int card, unsigned long channel);
 int answer(int card, unsigned long channel);
 int clreaz(int card, unsigned long channel);
@@ -135,7 +135,7 @@ int command(isdn_ctrl *cmd)
 		scs_ioctl	ioc;
 		int		err;
 
-		memcpy(&cmdptr, cmd->num, sizeof(unsigned long));
+		memcpy(&cmdptr, cmd->parm.num, sizeof(unsigned long));
 		if((err = verify_area(VERIFY_READ, 
 			(scs_ioctl *) cmdptr, sizeof(scs_ioctl)))) {
 			pr_debug("%s: Failed to verify user space 0x%x\n",
@@ -148,7 +148,7 @@ int command(isdn_ctrl *cmd)
 		return sc_ioctl(card, &ioc);
 	}
 	case ISDN_CMD_DIAL:
-		return dial(card, cmd->arg, cmd->num);
+		return dial(card, cmd->arg, cmd->parm.setup);
 	case ISDN_CMD_HANGUP:
 		return hangup(card, cmd->arg);
 	case ISDN_CMD_ACCEPTD:
@@ -158,13 +158,13 @@ int command(isdn_ctrl *cmd)
 	case ISDN_CMD_CLREAZ:
 		return clreaz(card, cmd->arg);
 	case ISDN_CMD_SETEAZ:
-		return seteaz(card, cmd->arg, cmd->num);
+		return seteaz(card, cmd->arg, cmd->parm.num);
 	case ISDN_CMD_GETEAZ:
-		return geteaz(card, cmd->arg, cmd->num);
+		return geteaz(card, cmd->arg, cmd->parm.num);
 	case ISDN_CMD_SETSIL:
-		return setsil(card, cmd->arg, cmd->num);
+		return setsil(card, cmd->arg, cmd->parm.num);
 	case ISDN_CMD_GETSIL:
-		return getsil(card, cmd->arg, cmd->num);
+		return getsil(card, cmd->arg, cmd->parm.num);
 	case ISDN_CMD_SETL2:
 		return setl2(card, cmd->arg);
 	case ISDN_CMD_GETL2:
@@ -267,7 +267,7 @@ int loadproc(int card, char *data)
 /*
  * Dials the number passed in 
  */
-int dial(int card, unsigned long channel, char *dn) 
+int dial(int card, unsigned long channel, setup_parm setup) 
 {
 	int status;
 	char Phone[48];
@@ -278,7 +278,7 @@ int dial(int card, unsigned long channel, char *dn)
 	}
 
 	/*extract ISDN number to dial from eaz/msn string*/ 
-	pullphone(dn,Phone); 
+	strcpy(Phone,setup.phone); 
 
 	/*send the connection message*/
 	status = sendmessage(card, CEPID,ceReqTypePhy,

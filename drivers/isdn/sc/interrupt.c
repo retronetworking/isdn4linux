@@ -124,7 +124,7 @@ void interrupt_handler(int interrupt, void * cardptr, struct pt_regs *regs ) {
 		if (IS_CE_MESSAGE(rcvmsg, Phy, 1, Connect)) 
 		{
 			unsigned int callid;
-			unsigned char data[50];	
+			setup_parm setup;	
 			pr_debug("%s: Connect message: line %d: status %d: cause 0x%x\n",
 						adapter[card]->devicename,
 						rcvmsg.phy_link_no,
@@ -142,9 +142,14 @@ void interrupt_handler(int interrupt, void * cardptr, struct pt_regs *regs ) {
 			else if(callid>=0x0000 && callid<=0x7FFF)
 			{
 				pr_debug("%s: Got Incomming Call\n", adapter[card]->devicename);	
-				sprintf(data, "%s,7,0,%s",&(rcvmsg.msg_data.byte_array[4]),
-					adapter[card]->channel[rcvmsg.phy_link_no-1].dn);
-				indicate_status(card, ISDN_STAT_ICALL,(unsigned long)rcvmsg.phy_link_no-1,data);
+				strcpy(setup.phone,&(rcvmsg.msg_data.byte_array[4]));
+				strcpy(setup.eazmsn,adapter[card]->channel[rcvmsg.phy_link_no-1].dn);
+				setup.si1 = 7;
+				setup.si2 = 0;
+				setup.plan = 0;
+				setup.screen = 0;
+
+				indicate_status(card, ISDN_STAT_ICALL,(unsigned long)rcvmsg.phy_link_no-1,(char *)&setup);
 				indicate_status(card, ISDN_STAT_DCONN,(unsigned long)rcvmsg.phy_link_no-1,NULL);
 			}
 			continue;
