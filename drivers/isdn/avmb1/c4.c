@@ -6,6 +6,9 @@
  * (c) Copyright 1999 by Carsten Paeth (calle@calle.in-berlin.de)
  * 
  * $Log$
+ * Revision 1.9  2000/05/19 15:43:22  calle
+ * added calls to pci_device_start().
+ *
  * Revision 1.8  2000/04/03 16:38:05  calle
  * made suppress_pollack static.
  *
@@ -46,6 +49,7 @@
 #include <linux/ioport.h>
 #include <linux/pci.h>
 #include <linux/capi.h>
+#include <linux/isdn.h>
 #include <asm/io.h>
 #include <asm/uaccess.h>
 #include "capicmd.h"

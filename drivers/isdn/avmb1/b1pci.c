@@ -6,6 +6,9 @@
  * (c) Copyright 1999 by Carsten Paeth (calle@calle.in-berlin.de)
  * 
  * $Log$
+ * Revision 1.24  2000/05/19 15:43:22  calle
+ * added calls to pci_device_start().
+ *
  * Revision 1.23  2000/05/06 00:52:36  kai
  * merged changes from kernel tree
  * fixed timer and net_device->name breakage
@@ -81,7 +84,7 @@
 #include <linux/pci.h>
 #include <linux/capi.h>
 #include <asm/io.h>
-#include <linux/isdn_compat.h>
+#include <linux/isdn.h>
 #include "capicmd.h"
 #include "capiutil.h"
 #include "capilli.h"
