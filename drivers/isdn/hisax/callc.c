@@ -7,6 +7,9 @@
  *              Fritz Elfert
  *
  * $Log$
+ * Revision 2.16  1998/04/10 10:35:17  paul
+ * fixed (silly?) warnings from egcs on Alpha.
+ *
  * Revision 2.15  1998/03/19 13:18:37  keil
  * Start of a CAPI like interface for supplementary Service
  * first service: SUSPEND
@@ -122,6 +125,7 @@ static int chancount = 0;
 #define  FLG_DO_HANGUP	13
 #define  FLG_DO_CONNECT	14
 #define  FLG_DO_ESTAB	15
+#define  FLG_RESUME	16
 
 /*
  * Because of callback it's a good idea to delay the shutdown of the d-channel
@@ -396,6 +400,8 @@ lli_prep_dialout(struct FsmInst *fi, int event, void *arg)
 		FsmEvent(fi, EV_DLEST, NULL);
 	} else {
 		chanp->Flags = 0;
+		if (EV_RESUME == event)
+			test_and_set_bit(FLG_RESUME, &chanp->Flags);
 		test_and_set_bit(FLG_START_D, &chanp->Flags);
 		if (chanp->leased) {
 			chanp->lc_d->l2_establish = 0;
@@ -408,14 +414,19 @@ static void
 lli_do_dialout(struct FsmInst *fi, int event, void *arg)
 {
 	struct Channel *chanp = fi->userdata;
+	int ev;
 
 	FsmChangeState(fi, ST_OUT_DIAL);
 	chanp->cs->cardmsg(chanp->cs, MDL_INFO_SETUP, (void *) (long)chanp->chan);
+	if (test_and_clear_bit(FLG_RESUME, &chanp->Flags))
+		ev = CC_RESUME_REQ;
+	else
+		ev = CC_SETUP_REQ;
 	if (chanp->leased) {
 		FsmEvent(&chanp->fi, EV_SETUP_CNF, NULL);
 	} else {
 		test_and_set_bit(FLG_ESTAB_D, &chanp->Flags);
-		chanp->d_st->lli.l4l3(chanp->d_st, CC_SETUP_REQ, chanp);
+		chanp->d_st->lli.l4l3(chanp->d_st, ev, chanp);
 		test_and_set_bit(FLG_CALL_SEND, &chanp->Flags);
 	}
 }
@@ -457,6 +468,10 @@ lli_go_active(struct FsmInst *fi, int event, void *arg)
 	chanp->cs->iif.statcallb(&ic);
 	chanp->cs->cardmsg(chanp->cs, MDL_INFO_CONN, (void *) (long)chanp->chan);
 }
+
+/*
+ * RESUME
+ */
 
 /* incomming call */
 
@@ -1129,6 +1144,7 @@ lli_got_dlrl(struct FsmInst *fi, int event, void *arg)
 static struct FsmNode fnlist[] HISAX_INITDATA =
 {
 	{ST_NULL,		EV_DIAL,		lli_prep_dialout},
+	{ST_NULL,		EV_RESUME,		lli_prep_dialout},
 	{ST_NULL,		EV_SETUP_IND,		lli_deliver_call},
 	{ST_NULL,		EV_SHUTDOWN_D,		lli_shutdown_d},
 	{ST_NULL,		EV_DLRL,		lli_go_null},
@@ -1214,6 +1230,7 @@ static struct FsmNode fnlist[] HISAX_INITDATA =
 	{ST_WAIT_DSHUTDOWN,	EV_DLRL,		lli_go_null},
 	{ST_WAIT_DSHUTDOWN,	EV_DLEST,		lli_d_established},
 	{ST_WAIT_DSHUTDOWN,	EV_DIAL,		lli_prep_dialout},
+	{ST_WAIT_DSHUTDOWN,	EV_RESUME,		lli_prep_dialout},
 	{ST_WAIT_DSHUTDOWN,	EV_SETUP_IND,		lli_deliver_call},
 };
 /* *INDENT-ON* */
@@ -1554,6 +1571,12 @@ ll_handler(struct l3_process *pc, int pr, void *arg)
 			FsmEvent(&chanp->fi, EV_RELEASE_CNF, NULL);
 			break;
 		case (CC_SUSPEND_ACK):
+			FsmEvent(&chanp->fi, EV_RELEASE_CNF, NULL);
+			break;
+		case (CC_RESUME_ACK):
+			FsmEvent(&chanp->fi, EV_SETUP_CNF, NULL);
+			break;
+		case (CC_RESUME_ERR):
 			FsmEvent(&chanp->fi, EV_RELEASE_CNF, NULL);
 			break;
 		case (CC_RELEASE_IND):
@@ -2012,6 +2035,17 @@ lli_got_fac_req(struct Channel *chanp, capi_msg *cm) {
 			if (cm->para[5]) {
 				strncpy(chanp->setup.phone, &cm->para[5], cm->para[5] +1);
 				FsmEvent(&chanp->fi, EV_SUSPEND, cm);
+			}
+			break;
+		case 5: /* Resume */
+			if (cm->para[5]) {
+				strncpy(chanp->setup.phone, &cm->para[5], cm->para[5] +1);
+				if (chanp->fi.state == ST_NULL) {
+					FsmEvent(&chanp->fi, EV_RESUME, cm);
+				} else {
+					FsmDelTimer(&chanp->dial_timer, 72);
+					FsmAddTimer(&chanp->dial_timer, 80, EV_RESUME, cm, 73);
+				}
 			}
 			break;
 	}
