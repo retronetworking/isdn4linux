@@ -7,6 +7,9 @@
  * This is an include file for fast inline IRQ stuff
  *
  * $Log$
+ * Revision 1.13  1999/10/14 20:25:28  keil
+ * add a statistic for error monitoring
+ *
  * Revision 1.12  1999/07/01 08:11:42  keil
  * Common HiSax version for 2.0, 2.1, 2.2 and 2.3 kernel
  *
@@ -249,7 +252,7 @@ hscx_interrupt(struct IsdnCardState *cs, u_char val, u_char hscx)
 				if (bcs->st->lli.l1writewakeup &&
 					(PACKET_NOACK != bcs->tx_skb->pkt_type))
 					bcs->st->lli.l1writewakeup(bcs->st, bcs->hw.hscx.count);
-				idev_kfree_skb(bcs->tx_skb, FREE_WRITE);
+				idev_kfree_skb_irq(bcs->tx_skb, FREE_WRITE);
 				bcs->hw.hscx.count = 0; 
 				bcs->tx_skb = NULL;
 			}

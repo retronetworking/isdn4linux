@@ -5,6 +5,9 @@
  * Author   Roland Klabunde (R.Klabunde@Berkom.de)
  *
  * $Log$
+ * Revision 1.2  1999/07/01 08:07:59  keil
+ * Initial version
+ *
  *
  */
 
@@ -191,7 +194,7 @@ jade_interrupt(struct IsdnCardState *cs, u_char val, u_char jade)
 				if (bcs->st->lli.l1writewakeup &&
 					(PACKET_NOACK != bcs->tx_skb->pkt_type))
 					bcs->st->lli.l1writewakeup(bcs->st, bcs->hw.hscx.count);
-				idev_kfree_skb(bcs->tx_skb, FREE_WRITE);
+				idev_kfree_skb_irq(bcs->tx_skb, FREE_WRITE);
 				bcs->hw.hscx.count = 0;
 				bcs->tx_skb = NULL;
 			}

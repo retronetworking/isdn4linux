@@ -3,6 +3,10 @@
  *   Basic declarations, defines and prototypes
  *
  * $Log$
+ * Revision 2.40  2000/01/20 19:51:46  keil
+ * Fix AddTimer message
+ * Change CONFIG defines
+ *
  * Revision 2.39  1999/11/18 00:00:43  werner
  *
  * Added support for HFC-S+ and HFC-SP cards
@@ -153,8 +157,11 @@
 #include <linux/isdnif.h>
 #include <linux/tty.h>
 #include <linux/serial_reg.h>
+#ifndef COMPAT_NO_SOFTNET
+#include <linux/netdevice.h>
+#endif
 
-#undef ERROR_STATISTIC
+#define ERROR_STATISTIC
 
 #define REQUEST		0
 #define CONFIRM		1

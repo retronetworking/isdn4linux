@@ -23,6 +23,10 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.26  2000/02/09 20:22:55  werner
+ *
+ * Updated PCI-ID table
+ *
  * Revision 1.25  1999/12/19 13:09:42  keil
  * changed TASK_INTERRUPTIBLE into TASK_UNINTERRUPTIBLE for
  * signal proof delays
@@ -638,7 +642,7 @@ hfcpci_fill_dfifo(struct IsdnCardState *cs)
 	df->f1 = new_f1;	/* next frame */
 	restore_flags(flags);
 
-	idev_kfree_skb(cs->tx_skb, FREE_WRITE);
+	idev_kfree_skb_any(cs->tx_skb, FREE_WRITE);
 	cs->tx_skb = NULL;
 	return;
 }
@@ -712,7 +716,7 @@ hfcpci_fill_fifo(struct BCState *bcs)
 				debugl1(cs, "hfcpci_fill_fifo_trans %d frame length %d discarded",
 					bcs->channel, bcs->tx_skb->len);
 
-			idev_kfree_skb(bcs->tx_skb, FREE_WRITE);
+			idev_kfree_skb_any(bcs->tx_skb, FREE_WRITE);
 			cli();
 			bcs->tx_skb = skb_dequeue(&bcs->squeue);	/* fetch next data */
 			sti();
@@ -780,7 +784,7 @@ hfcpci_fill_fifo(struct BCState *bcs)
 	bz->f1 = new_f1;	/* next frame */
 	restore_flags(flags);
 
-	idev_kfree_skb(bcs->tx_skb, FREE_WRITE);
+	idev_kfree_skb_any(bcs->tx_skb, FREE_WRITE);
 	bcs->tx_skb = NULL;
 	test_and_clear_bit(BC_FLG_BUSY, &bcs->Flag);
 	return;
@@ -1132,7 +1136,7 @@ hfcpci_interrupt(int intno, void *dev_id, struct pt_regs *regs)
 					}
 					goto afterXPR;
 				} else {
-					idev_kfree_skb(cs->tx_skb, FREE_WRITE);
+					idev_kfree_skb_irq(cs->tx_skb, FREE_WRITE);
 					cs->tx_cnt = 0;
 					cs->tx_skb = NULL;
 				}
@@ -1538,7 +1542,7 @@ close_hfcpci(struct BCState *bcs)
 		discard_queue(&bcs->rqueue);
 		discard_queue(&bcs->squeue);
 		if (bcs->tx_skb) {
-			idev_kfree_skb(bcs->tx_skb, FREE_WRITE);
+			idev_kfree_skb_any(bcs->tx_skb, FREE_WRITE);
 			bcs->tx_skb = NULL;
 			test_and_clear_bit(BC_FLG_BUSY, &bcs->Flag);
 		}

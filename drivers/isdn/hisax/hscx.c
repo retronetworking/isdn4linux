@@ -6,6 +6,9 @@
  *
  *
  * $Log$
+ * Revision 1.17  1999/07/01 08:11:41  keil
+ * Common HiSax version for 2.0, 2.1, 2.2 and 2.3 kernel
+ *
  * Revision 1.16  1998/11/15 23:54:48  keil
  * changes from 2.0
  *
@@ -216,7 +219,7 @@ close_hscxstate(struct BCState *bcs)
 		discard_queue(&bcs->rqueue);
 		discard_queue(&bcs->squeue);
 		if (bcs->tx_skb) {
-			idev_kfree_skb(bcs->tx_skb, FREE_WRITE);
+			idev_kfree_skb_any(bcs->tx_skb, FREE_WRITE);
 			bcs->tx_skb = NULL;
 			test_and_clear_bit(BC_FLG_BUSY, &bcs->Flag);
 		}

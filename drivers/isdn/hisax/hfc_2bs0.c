@@ -6,6 +6,9 @@
  *
  *
  * $Log$
+ * Revision 1.12  1999/12/19 14:17:12  keil
+ * fix compiler warning
+ *
  * Revision 1.11  1999/11/21 12:41:18  werner
  *
  * Implemented full audio support
@@ -247,7 +250,7 @@ hfc_empty_fifo(struct BCState *bcs, int count)
 		if (idx != count) {
 			debugl1(cs, "RFIFO BUSY error");
 			printk(KERN_WARNING "HFC FIFO channel %d BUSY Error\n", bcs->channel);
-			idev_kfree_skb(skb, FREE_READ);
+			idev_kfree_skb_any(skb, FREE_READ);
 			if (bcs->mode != L1_MODE_TRANS) {
 			  WaitNoBusy(cs);
 			  stat = cs->BC_Read_Reg(cs, HFC_DATA, HFC_CIP | HFC_F2_INC | HFC_REC |
@@ -268,7 +271,7 @@ hfc_empty_fifo(struct BCState *bcs, int count)
 			    bcs->channel, chksum, stat);
 		  if (stat) {
 		    debugl1(cs, "FIFO CRC error");
-		    idev_kfree_skb(skb, FREE_READ);
+		    idev_kfree_skb_any(skb, FREE_READ);
 		    skb = NULL;
 #ifdef ERROR_STATISTIC
 		    bcs->err_crc++;
@@ -357,7 +360,7 @@ hfc_fill_fifo(struct BCState *bcs)
 		bcs->tx_cnt -= count;
 		if (PACKET_NOACK == bcs->tx_skb->pkt_type)
 			count = -1;
-		idev_kfree_skb(bcs->tx_skb, FREE_WRITE);
+		idev_kfree_skb_any(bcs->tx_skb, FREE_WRITE);
 		bcs->tx_skb = NULL;
 		if (bcs->mode != L1_MODE_TRANS) {
 		  WaitForBusy(cs);
@@ -571,7 +574,7 @@ close_hfcstate(struct BCState *bcs)
 		discard_queue(&bcs->rqueue);
 		discard_queue(&bcs->squeue);
 		if (bcs->tx_skb) {
-			idev_kfree_skb(bcs->tx_skb, FREE_WRITE);
+			idev_kfree_skb_any(bcs->tx_skb, FREE_WRITE);
 			bcs->tx_skb = NULL;
 			test_and_clear_bit(BC_FLG_BUSY, &bcs->Flag);
 		}

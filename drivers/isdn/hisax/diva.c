@@ -12,6 +12,10 @@
  *
  *
  * $Log$
+ * Revision 1.18  1999/12/19 13:09:41  keil
+ * changed TASK_INTERRUPTIBLE into TASK_UNINTERRUPTIBLE for
+ * signal proof delays
+ *
  * Revision 1.17  1999/09/04 06:20:06  keil
  * Changes from kernel set_current_state()
  *
@@ -586,7 +590,7 @@ Memhscx_interrupt(struct IsdnCardState *cs, u_char val, u_char hscx)
 				if (bcs->st->lli.l1writewakeup &&
 					(PACKET_NOACK != bcs->tx_skb->pkt_type))
 					bcs->st->lli.l1writewakeup(bcs->st, bcs->hw.hscx.count);
-				idev_kfree_skb(bcs->tx_skb, FREE_WRITE);
+				idev_kfree_skb_irq(bcs->tx_skb, FREE_WRITE);
 				bcs->hw.hscx.count = 0; 
 				bcs->tx_skb = NULL;
 			}

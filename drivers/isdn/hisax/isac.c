@@ -9,6 +9,9 @@
  *		../../../Documentation/isdn/HiSax.cert
  *
  * $Log$
+ * Revision 1.24  1999/10/14 20:25:28  keil
+ * add a statistic for error monitoring
+ *
  * Revision 1.23  1999/08/25 16:50:52  keil
  * Fix bugs which cause 2.3.14 hangs (waitqueue init)
  *
@@ -336,7 +339,7 @@ isac_interrupt(struct IsdnCardState *cs, u_char val)
 				isac_fill_fifo(cs);
 				goto afterXPR;
 			} else {
-				idev_kfree_skb(cs->tx_skb, FREE_WRITE);
+				idev_kfree_skb_irq(cs->tx_skb, FREE_WRITE);
 				cs->tx_cnt = 0;
 				cs->tx_skb = NULL;
 			}
@@ -625,7 +628,7 @@ ISAC_l1hw(struct PStack *st, int pr, void *arg)
 			discard_queue(&cs->rq);
 			discard_queue(&cs->sq);
 			if (cs->tx_skb) {
-				idev_kfree_skb(cs->tx_skb, FREE_WRITE);
+				idev_kfree_skb_any(cs->tx_skb, FREE_WRITE);
 				cs->tx_skb = NULL;
 			}
 			if (test_and_clear_bit(FLG_DBUSY_TIMER, &cs->HW_Flags))
@@ -681,7 +684,7 @@ dbusy_timer_handler(struct IsdnCardState *cs)
 			/* discard frame; reset transceiver */
 			test_and_clear_bit(FLG_DBUSY_TIMER, &cs->HW_Flags);
 			if (cs->tx_skb) {
-				idev_kfree_skb(cs->tx_skb, FREE_WRITE);
+				idev_kfree_skb_any(cs->tx_skb, FREE_WRITE);
 				cs->tx_cnt = 0;
 				cs->tx_skb = NULL;
 			} else {

@@ -22,6 +22,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.3  2000/01/20 19:49:36  keil
+ * Support teles 13.3c vendor version 2.1
+ *
  * Revision 1.2  1999/12/19 13:09:42  keil
  * changed TASK_INTERRUPTIBLE into TASK_UNINTERRUPTIBLE for
  * signal proof delays
@@ -327,7 +330,7 @@ read_fifo(struct IsdnCardState *cs, u_char fifo, int trans_max)
 	      Read_hfc(cs, HFCSX_FIF_DRD); /* CRC 1 */
 	      Read_hfc(cs, HFCSX_FIF_DRD); /* CRC 2 */
 	      if (Read_hfc(cs, HFCSX_FIF_DRD)) {
-		idev_kfree_skb(skb, FREE_READ);
+		idev_kfree_skb_irq(skb, FREE_READ);
 		if (cs->debug & L1_DEB_ISAC_FIFO)
 		  debugl1(cs, "hfcsx_read_fifo %d crc error", fifo);
 		skb = NULL;
@@ -600,7 +603,7 @@ hfcsx_fill_dfifo(struct IsdnCardState *cs)
 		return;
 
 	if (write_fifo(cs, cs->tx_skb, HFCSX_SEL_D_TX, 0)) {
-	  idev_kfree_skb(cs->tx_skb, FREE_WRITE);
+	  idev_kfree_skb_any(cs->tx_skb, FREE_WRITE);
 	  cs->tx_skb = NULL;
 	}
 	return;
@@ -633,7 +636,7 @@ hfcsx_fill_fifo(struct BCState *bcs)
 	  if (bcs->st->lli.l1writewakeup &&
 	      (PACKET_NOACK != bcs->tx_skb->pkt_type))
 	    bcs->st->lli.l1writewakeup(bcs->st, bcs->tx_skb->len);
-	  idev_kfree_skb(bcs->tx_skb, FREE_WRITE);
+	  idev_kfree_skb_any(bcs->tx_skb, FREE_WRITE);
 	  bcs->tx_skb = NULL;
 	  test_and_clear_bit(BC_FLG_BUSY, &bcs->Flag);
 	}
@@ -777,7 +780,7 @@ receive_emsg(struct IsdnCardState *cs)
 	      } else
 		HiSax_putstatus(cs, "LogEcho: ", "warning Frame too big (%d)", skb->len);
 	    }
-	    idev_kfree_skb(skb, FREE_READ);
+	    idev_kfree_skb_any(skb, FREE_READ);
 	  }
 	} while (--count && skb);
 
@@ -931,7 +934,7 @@ hfcsx_interrupt(int intno, void *dev_id, struct pt_regs *regs)
 					}
 					goto afterXPR;
 				} else {
-					idev_kfree_skb(cs->tx_skb, FREE_WRITE);
+					idev_kfree_skb_irq(cs->tx_skb, FREE_WRITE);
 					cs->tx_cnt = 0;
 					cs->tx_skb = NULL;
 				}
@@ -1319,7 +1322,7 @@ close_hfcsx(struct BCState *bcs)
 		discard_queue(&bcs->rqueue);
 		discard_queue(&bcs->squeue);
 		if (bcs->tx_skb) {
-			idev_kfree_skb(bcs->tx_skb, FREE_WRITE);
+			idev_kfree_skb_any(bcs->tx_skb, FREE_WRITE);
 			bcs->tx_skb = NULL;
 			test_and_clear_bit(BC_FLG_BUSY, &bcs->Flag);
 		}

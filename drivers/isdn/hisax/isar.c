@@ -6,6 +6,9 @@
  *
  *
  * $Log$
+ * Revision 1.9  2000/01/20 19:47:45  keil
+ * Add Fax Class 1 support
+ *
  * Revision 1.8  1999/12/19 13:00:56  keil
  * Fix races in setting a new mode
  *
@@ -776,7 +779,7 @@ send_frames(struct BCState *bcs)
 					}
 				}
 			}
-			idev_kfree_skb(bcs->tx_skb, FREE_WRITE);
+			idev_kfree_skb_any(bcs->tx_skb, FREE_WRITE);
 			bcs->hw.isar.txcnt = 0; 
 			bcs->tx_skb = NULL;
 		}
@@ -1633,7 +1636,7 @@ close_isarstate(struct BCState *bcs)
 		discard_queue(&bcs->rqueue);
 		discard_queue(&bcs->squeue);
 		if (bcs->tx_skb) {
-			idev_kfree_skb(bcs->tx_skb, FREE_WRITE);
+			idev_kfree_skb_any(bcs->tx_skb, FREE_WRITE);
 			bcs->tx_skb = NULL;
 			test_and_clear_bit(BC_FLG_BUSY, &bcs->Flag);
 			if (bcs->cs->debug & L1_DEB_HSCX)
