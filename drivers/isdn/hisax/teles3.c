@@ -11,6 +11,9 @@
  *              Beat Doebeli
  *
  * $Log$
+ * Revision 1.7  1997/01/28 22:48:33  keil
+ * fixes for Teles PCMCIA (Christof Petig)
+ *
  * Revision 1.6  1997/01/27 15:52:55  keil
  * SMP proof,cosmetics, PCMCIA added
  *
@@ -985,8 +988,9 @@ setup_teles3(struct IsdnCard *card)
 		val = bytein(sp->cfg_reg + 2);	/* 0x1e=without AB
 						   * 0x1f=with AB
 						   * 0x1c 16.3 ???
+						   * 0x46 16.3 with AB + Video (Teles-Vision)
 						 */
-		if (val != 0x1c && val != 0x1e && val != 0x1f) {
+		if (val != 0x46 && val != 0x1c && val != 0x1e && val != 0x1f) {
 			printk(KERN_WARNING "Teles: 16.3 Byte at %x is %x\n",
 			       sp->cfg_reg + 2, val);
 			release_io_teles3(card);
