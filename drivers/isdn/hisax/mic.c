@@ -8,6 +8,9 @@
  *
  *
  * $Log$
+ * Revision 1.1.2.3  1998/01/27 22:37:25  keil
+ * fast io
+ *
  * Revision 1.1.2.2  1997/11/15 18:50:54  keil
  * new common init function
  *
@@ -207,6 +210,7 @@ mic_card_msg(struct IsdnCardState *cs, int mt, void *arg)
 			return(request_irq(cs->irq, &mic_interrupt,
 					I4L_IRQ_FLAG, "HiSax", cs));
 		case CARD_INIT:
+			inithscx(cs); /* /RTSA := ISAC RST */
 			clear_pending_isac_ints(cs);
 			clear_pending_hscx_ints(cs);
 			initisac(cs);
