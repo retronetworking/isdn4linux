@@ -6,6 +6,9 @@
  *
  *
  * $Log$
+ * Revision 1.7  1999/10/14 20:25:29  keil
+ * add a statistic for error monitoring
+ *
  * Revision 1.6  1999/08/31 11:20:20  paul
  * various spelling corrections (new checksums may be needed, Karsten!)
  *
@@ -917,11 +920,9 @@ setup_pump(struct BCState *bcs) {
 			}
 			break;
 	}
-	if (!sendmsg(cs, dps | ISAR_HIS_PSTREQ, 0, 0, NULL)) {
-		if (cs->debug)
-			debugl1(cs, "isar pump status req dp%d failed",
-				bcs->hw.isar.dpath);
-	}
+	udelay(1000);
+	sendmsg(cs, dps | ISAR_HIS_PSTREQ, 0, 0, NULL);
+	udelay(1000);
 }
 
 static void
@@ -965,11 +966,9 @@ setup_sart(struct BCState *bcs) {
 			}
 			break;
 	}
-	if (!sendmsg(cs, dps | ISAR_HIS_BSTREQ, 0, 0, NULL)) {
-		if (cs->debug)
-			debugl1(cs, "isar buf stat req dp%d failed",
-				bcs->hw.isar.dpath);
-	}
+	udelay(1000);
+	sendmsg(cs, dps | ISAR_HIS_BSTREQ, 0, 0, NULL);
+	udelay(1000);
 }
 
 static void
@@ -994,15 +993,10 @@ setup_iom2(struct BCState *bcs) {
 			cmsb |= IOM_CTRL_ALAW | IOM_CTRL_RCV;
 			break;
 	}
-	if (!sendmsg(cs, dps | ISAR_HIS_IOM2CFG, cmsb, 5, msg)) {
-		if (cs->debug)
-			debugl1(cs, "isar iom2 dp%d failed", bcs->hw.isar.dpath);
-	}
-	if (!sendmsg(cs, dps | ISAR_HIS_IOM2REQ, 0, 0, NULL)) {
-		if (cs->debug)
-			debugl1(cs, "isar IOM2 cfg req dp%d failed",
-				bcs->hw.isar.dpath);
-	}
+	sendmsg(cs, dps | ISAR_HIS_IOM2CFG, cmsb, 5, msg);
+	udelay(1000);
+	sendmsg(cs, dps | ISAR_HIS_IOM2REQ, 0, 0, NULL);
+	udelay(1000);
 }
 
 int
