@@ -21,6 +21,15 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.5  1996/04/20 16:19:07  fritz
+ * Changed slow timer handlers to increase accuracy.
+ * Added statistic information for usage by xisdnload.
+ * Fixed behaviour of isdnctrl-device on non-blocked io.
+ * Fixed all io to go through generic writebuf-function without
+ * bypassing. Same for incoming data.
+ * Fixed bug: Last channel had been unusable.
+ * Fixed kfree of tty xmit_buf on ppp initialization failure.
+ *
  * Revision 1.4  1996/02/11 02:33:26  fritz
  * Fixed bug in main timer-dispatcher.
  * Bugfix: Lot of tty-callbacks got called regardless of the events already
@@ -39,9 +48,7 @@
  *
  */
 
-#ifndef STANDALONE
 #include <linux/config.h>
-#endif
 #include <linux/module.h>
 #include <linux/version.h>
 #ifndef __GENKSYMS__      /* Don't want genksyms report unneeded structs */
@@ -51,9 +58,10 @@
 #include "isdn_tty.h"
 #include "isdn_net.h"
 #include "isdn_ppp.h"
+#ifdef CONFIG_ISDN_AUDIO
+#include "isdn_audio.h"
+#endif
 #include "isdn_cards.h"
-
-DEF_VERSION
 
 /* Debugflags */
 #undef  ISDN_DEBUG_STATCALLB
@@ -183,7 +191,7 @@ static void isdn_timer_funct(ulong dummy)
 		cli();
 		del_timer(&dev->timer);
 		dev->timer.function = isdn_timer_funct;
-		dev->timer.expires = RUN_AT(ISDN_TIMER_RES);
+		dev->timer.expires = jiffies + ISDN_TIMER_RES;
 		add_timer(&dev->timer);
 		restore_flags(flags);
 	}
@@ -207,7 +215,7 @@ void isdn_timer_ctrl(int tf, int onoff)
 	if (dev->tflags) {
 		del_timer(&dev->timer);
 		dev->timer.function = isdn_timer_funct;
-		dev->timer.expires = RUN_AT(ISDN_TIMER_RES);
+		dev->timer.expires = jiffies + ISDN_TIMER_RES;
 		add_timer(&dev->timer);
 	}
 	restore_flags(flags);
@@ -243,6 +251,12 @@ static void isdn_receive_callback(int di, int channel, u_char * buf, int len)
 		save_flags(flags);
 		cli();
                 midx = dev->m_idx[i];
+                if ((dev->mdm.online[midx]<2) &&
+                    (dev->mdm.vonline[midx]!=1)) {
+                        /* If Modem not listening, drop data */
+                        restore_flags(flags);
+                        return;
+                }
                 if (dev->mdm.atmodem[midx].mdmreg[13] & 2)
                         /* T.70 decoding: Simply throw away the T.70 header (4 bytes) */
                         if ((buf[0] == 1) && ((buf[1] == 0) || (buf[1] == 1))) {
@@ -255,6 +269,33 @@ static void isdn_receive_callback(int di, int channel, u_char * buf, int len)
                                 isdn_dumppkt("T70strip2:", buf, len, len);
 #endif
                         }
+#ifdef CONFIG_ISDN_AUDIO
+                if (dev->mdm.vonline[midx] == 1) {
+                        /* voice conversion/compression */
+                        switch (dev->mdm.atmodem[midx].vpar[3]) {
+                                case 1:
+                                case 2:
+                                        /* adpcm
+                                         * Since compressed data takes less
+                                         * space, we can overwrite the buffer.
+                                         */
+                                        isdn_audio_a2l(buf,len);
+                                        len = isdn_audio_lin2adpcm(dev->mdm.atmodem[midx].adpcms,
+                                                                   buf,
+                                                                   buf,
+                                                                   len);
+                                        break;
+                                case 3:
+                                        /* linear */
+                                        isdn_audio_a2l(buf,len);
+                                        break;
+                                case 4:
+                                        /* a-law */
+                                        break;
+                        }
+                        len = isdn_tty_handleDLEup(buf,len);
+                }
+#endif
                 /* Try to deliver directly via tty-flip-buf if queue is empty */
                 if (!dev->drv[di]->rpqueue[channel])
                         if (isdn_tty_try_read(midx, buf, len)) {
@@ -488,7 +529,10 @@ static int isdn_status_callback(isdn_ctrl * c)
 					if (dev->mdm.dialing[mi])
 						dev->mdm.dialing[mi] = 0;
 					dev->mdm.rcvsched[mi] = 1;
-					isdn_tty_modem_result(5, &dev->mdm.info[mi]);
+                                        if (USG_MODEM(dev->usage[mi]))
+                                          isdn_tty_modem_result(5, &dev->mdm.info[mi]);
+                                        if (USG_VOICE(dev->usage[mi]))
+                                          isdn_tty_modem_result(11, &dev->mdm.info[mi]);
 				}
 			}
                         break;
@@ -775,7 +819,8 @@ static int isdn_read(struct inode *inode, struct file *file, char *buf, int coun
                 }
 		if (dev->drv[drvidx]->interface->readstat)
 			len = dev->drv[drvidx]->interface->
-			    readstat(buf, MIN(count, dev->drv[drvidx]->stavail), 1);
+			    readstat(buf, MIN(count, dev->drv[drvidx]->stavail),
+				     1, drvidx, isdn_minor2chan(minor));
 		else
 			len = 0;
 		save_flags(flags);
@@ -800,7 +845,7 @@ static int isdn_lseek(struct inode *inode, struct file *file, off_t offset, int 
 	return -ESPIPE;
 }
 
-static int isdn_write(struct inode *inode, struct file *file, FOPS_CONST char *buf, int count)
+static int isdn_write(struct inode *inode, struct file *file, const char *buf, int count)
 {
 	uint minor = MINOR(inode->i_rdev);
 	int drvidx;
@@ -833,7 +878,8 @@ static int isdn_write(struct inode *inode, struct file *file, FOPS_CONST char *b
 		 return -ENODEV;
 		 */
 		if (dev->drv[drvidx]->interface->writecmd)
-			return (dev->drv[drvidx]->interface->writecmd(buf, count, 1));
+			return (dev->drv[drvidx]->interface->
+				writecmd(buf, count, 1, drvidx, isdn_minor2chan(minor)));
 		else
 			return count;
 	}
@@ -847,6 +893,7 @@ static int isdn_write(struct inode *inode, struct file *file, FOPS_CONST char *b
 static int isdn_select(struct inode *inode, struct file *file, int type, select_table * st)
 {
 	uint minor = MINOR(inode->i_rdev);
+        int drvidx  = isdn_minor2drv(minor - ISDN_MINOR_CTRL);
 
 	if (minor == ISDN_MINOR_STATUS) {
 		if (file->private_data)
@@ -858,6 +905,15 @@ static int isdn_select(struct inode *inode, struct file *file, int type, select_
 		}
 	}
 	if (minor <= ISDN_MINOR_CTRLMAX)
+		if (drvidx < 0)
+			return -ENODEV;
+		if (dev->drv[drvidx]->stavail)
+                        return 1;
+                else {
+                        if (st)
+                                select_wait(&(dev->drv[drvidx]->st_waitq), st);
+                        return 0;
+                }
 		return 1;
 #ifdef CONFIG_ISDN_PPP
 	if (minor <= ISDN_MINOR_PPPMAX)
@@ -1596,7 +1652,8 @@ void isdn_free_channel(int di, int ch, int usage)
                         dev->ibytes[i] = 0;
                         dev->obytes[i] = 0;
 			isdn_info_update();
-			restore_flags(flags);
+                        isdn_free_queue(&dev->drv[di]->rpqueue[ch]);
+                        restore_flags(flags);
 			return;
 		}
 	restore_flags(flags);
@@ -1895,11 +1952,10 @@ int isdn_init(void)
         if (!has_exported)
                 isdn_export_syms();
 
-	printk(KERN_NOTICE "ISDN subsystem Rev: %s/%s/%s/%s",
-	       isdn_getrev(isdn_revision),
-	       isdn_getrev(isdn_tty_revision),
-	       isdn_getrev(isdn_net_revision),
-	       isdn_getrev(isdn_ppp_revision));
+	printk(KERN_NOTICE "ISDN subsystem Rev: %s/", isdn_getrev(isdn_revision));
+        printk("%s/", isdn_getrev(isdn_tty_revision));
+        printk("%s/", isdn_getrev(isdn_net_revision));
+        printk("%s", isdn_getrev(isdn_ppp_revision));
 
 #ifdef MODULE
 	printk(" loaded\n");
