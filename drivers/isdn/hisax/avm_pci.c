@@ -7,6 +7,9 @@
  *
  *
  * $Log$
+ * Revision 1.1.2.3  1998/09/27 23:52:57  keil
+ * Fix error handling
+ *
  * Revision 1.1.2.2  1998/09/27 13:03:16  keil
  * Fix segfaults on connect
  *
@@ -706,7 +709,7 @@ setup_avm_pci(struct IsdnCard *card))
 		}
 		cs->hw.avm.isac = cs->hw.avm.cfg_reg + 0x10;
 	}	
-	if (pci_index == 8) {
+	if (pci_index == 255) {
 		printk(KERN_WARNING "FritzPCI: No PCI card found\n");
 		return(0);
         }
