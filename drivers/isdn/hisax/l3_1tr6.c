@@ -6,6 +6,9 @@
  *
  *
  * $Log$
+ * Revision 1.8  1997/01/27 23:20:21  keil
+ * report revision only ones
+ *
  * Revision 1.7  1997/01/21 22:30:07  keil
  * new statemachine; L3 timers
  *
@@ -74,37 +77,37 @@ l3_1tr6_setup_req(struct PStack *st, byte pr, void *arg)
 
 	MsgHead(p, st->l3.callref, MT_N1_SETUP, PROTO_DIS_N1);
 
-	if ('S' == (st->pa->called[0] & 0x5f)) {	/* SPV ??? */
+	if ('S' == (st->pa->setup.phone[0] & 0x5f)) {	/* SPV ? */
 		/* NSF SPV */
 		*p++ = WE0_netSpecFac;
 		*p++ = 4;	/* Laenge */
 		*p++ = 0;
 		*p++ = FAC_SPV;	/* SPV */
-		*p++ = st->pa->info;	/* 0 for all Services */
-		*p++ = st->pa->info2;	/* 0 for all Services */
+		*p++ = st->pa->setup.si1;	/* 0 for all Services */
+		*p++ = st->pa->setup.si2;	/* 0 for all Services */
 		*p++ = WE0_netSpecFac;
 		*p++ = 4;	/* Laenge */
 		*p++ = 0;
 		*p++ = FAC_Activate;	/* aktiviere SPV (default) */
-		*p++ = st->pa->info;	/* 0 for all Services */
-		*p++ = st->pa->info2;	/* 0 for all Services */
+		*p++ = st->pa->setup.si1;	/* 0 for all Services */
+		*p++ = st->pa->setup.si2;	/* 0 for all Services */
 	}
-	if (st->pa->calling[0] != '\0') {
+	if (st->pa->setup.eazmsn[0] != '\0') {
 		*p++ = WE0_origAddr;
-		*p++ = strlen(st->pa->calling) + 1;
+		*p++ = strlen(st->pa->setup.eazmsn) + 1;
 		/* Classify as AnyPref. */
 		*p++ = 0x81;	/* Ext = '1'B, Type = '000'B, Plan = '0001'B. */
-		teln = st->pa->calling;
+		teln = st->pa->setup.eazmsn;
 		while (*teln)
 			*p++ = *teln++ & 0x7f;
 	}
 	*p++ = WE0_destAddr;
-	teln = st->pa->called;
-	if ('S' != (st->pa->called[0] & 0x5f)) {	/* Keine SPV ??? */
-		*p++ = strlen(st->pa->called) + 1;
+	teln = st->pa->setup.phone;
+	if ('S' != (st->pa->setup.phone[0] & 0x5f)) {	/* Keine SPV */
+		*p++ = strlen(st->pa->setup.phone) + 1;
 		st->pa->spv = 0;
 	} else {		/* SPV */
-		*p++ = strlen(st->pa->called);
+		*p++ = strlen(st->pa->setup.phone);
 		teln++;		/* skip S */
 		st->pa->spv = 1;
 	}
@@ -117,8 +120,8 @@ l3_1tr6_setup_req(struct PStack *st, byte pr, void *arg)
 	/* Codesatz 6 fuer Service */
 	*p++ = WE6_serviceInd;
 	*p++ = 2;		/* len=2 info,info2 */
-	*p++ = st->pa->info;
-	*p++ = st->pa->info2;
+	*p++ = st->pa->setup.si1;
+	*p++ = st->pa->setup.si2;
 
 	dibh->datasize = p - DATAPTR(dibh);
 
@@ -154,24 +157,24 @@ l3_1tr6_setup(struct PStack *st, byte pr, void *arg)
 	p = DATAPTR(ibh);
 
 	if ((p = findie(p + st->l2.uihsize, ibh->datasize - st->l2.uihsize, WE6_serviceInd, 6))) {
-		st->pa->info = p[2];
-		st->pa->info2 = p[3];
+		st->pa->setup.si1 = p[2];
+		st->pa->setup.si2 = p[3];
 	} else if (st->l3.debug & L3_DEB_WARN)
 		l3_debug(st, "setup without service indicator");
 
 	p = DATAPTR(ibh);
 	if ((p = findie(p + st->l2.uihsize, ibh->datasize - st->l2.uihsize,
 			WE0_destAddr, 0)))
-		iecpy(st->pa->called, p, 1);
+		iecpy(st->pa->setup.eazmsn, p, 1);
 	else
-		strcpy(st->pa->called, "");
+		st->pa->setup.eazmsn[0] = 0;
 
 	p = DATAPTR(ibh);
 	if ((p = findie(p + st->l2.uihsize, ibh->datasize - st->l2.uihsize,
 			WE0_origAddr, 0))) {
-		iecpy(st->pa->calling, p, 1);
+		iecpy(st->pa->setup.phone, p, 1);
 	} else
-		strcpy(st->pa->calling, "");
+		st->pa->setup.phone[0] = 0;
 
 	p = DATAPTR(ibh);
 	st->pa->spv = 0;
@@ -184,10 +187,10 @@ l3_1tr6_setup(struct PStack *st, byte pr, void *arg)
 
 	/* Signal all services, linklevel takes care of Service-Indicator */
 	if (bcfound) {
-		if ((st->pa->info != 7) && (st->l3.debug & L3_DEB_WARN)) {
+		if ((st->pa->setup.si1 != 7) && (st->l3.debug & L3_DEB_WARN)) {
 			sprintf(tmp, "non-digital call: %s -> %s",
-				st->pa->calling,
-				st->pa->called);
+				st->pa->setup.phone,
+				st->pa->setup.eazmsn);
 			l3_debug(st, tmp);
 		}
 		newl3state(st, 6);
@@ -300,7 +303,23 @@ static void
 l3_1tr6_rel(struct PStack *st, byte pr, void *arg)
 {
 	struct BufHeader *ibh = arg;
-
+	byte *p;
+	
+	p = DATAPTR(ibh);
+	if ((p = findie(p + st->l2.ihsize, ibh->datasize - st->l2.ihsize,
+			WE0_cause, 0))) {
+		if (p[1] > 0) {
+			st->pa->cause = p[2];
+			if (p[1] > 1)
+				st->pa->loc = p[3];
+			else
+				st->pa->loc = 0;
+		} else {
+			st->pa->cause = 0;
+			st->pa->loc = 0;
+		}
+	} else 
+		st->pa->cause = -1;
 	BufPoolRelease(ibh);
 	StopAllL3Timer(st);
 	newl3state(st, 0);
@@ -316,6 +335,7 @@ l3_1tr6_rel_ack(struct PStack *st, byte pr, void *arg)
 	BufPoolRelease(ibh);
 	StopAllL3Timer(st);
 	newl3state(st, 0);
+	st->pa->cause = -1;
 	st->l3.l3l4(st, CC_RELEASE_CNF, NULL);
 }
 
@@ -353,12 +373,19 @@ l3_1tr6_disc(struct PStack *st, byte pr, void *arg)
 			WE0_cause, 0))) {
 		if (p[1] > 0) {
 			st->pa->cause = p[2];
+			if (p[1] > 1)
+				st->pa->loc = p[3];
+			else
+				st->pa->loc = 0;
 		} else {
 			st->pa->cause = 0;
+			st->pa->loc = 0;
 		}
-	} else if (st->l3.debug & L3_DEB_WARN)
-		l3_debug(st, "cause not found");
-
+	} else {
+		if (st->l3.debug & L3_DEB_WARN)
+			l3_debug(st, "cause not found");
+		st->pa->cause = -1;
+	}
 	BufPoolRelease(ibh);
 	newl3state(st, 12);
 	st->l3.l3l4(st, CC_DISCONNECT_IND, NULL);
@@ -396,20 +423,20 @@ l3_1tr6_setup_rsp(struct PStack *st, byte pr,
 	p = DATAPTR(dibh);
 	p += st->l2.ihsize;
 	MsgHead(p, st->l3.callref, MT_N1_CONN, PROTO_DIS_N1);
-	if (st->pa->spv) {	/* SPV ??? */
+	if (st->pa->spv) {	/* SPV ? */
 		/* NSF SPV */
 		*p++ = WE0_netSpecFac;
 		*p++ = 4;	/* Laenge */
 		*p++ = 0;
 		*p++ = FAC_SPV;	/* SPV */
-		*p++ = st->pa->info;
-		*p++ = st->pa->info2;
+		*p++ = st->pa->setup.si1;
+		*p++ = st->pa->setup.si2;
 		*p++ = WE0_netSpecFac;
 		*p++ = 4;	/* Laenge */
 		*p++ = 0;
 		*p++ = FAC_Activate;	/* aktiviere SPV */
-		*p++ = st->pa->info;
-		*p++ = st->pa->info2;
+		*p++ = st->pa->setup.si1;
+		*p++ = st->pa->setup.si2;
 	}
 	newl3state(st, 8);
 	dibh->datasize = p - DATAPTR(dibh);
@@ -565,9 +592,9 @@ static struct stateentry downstl[] =
 {
 	{SBIT(0),
 	 CC_SETUP_REQ, l3_1tr6_setup_req},
-   {SBIT(1) | SBIT(2) | SBIT(3) | SBIT(4) | SBIT(6) | SBIT(7) | SBIT(8) |
-    SBIT(10),
-    CC_DISCONNECT_REQ, l3_1tr6_disconnect_req},
+   	{SBIT(1) | SBIT(2) | SBIT(3) | SBIT(4) | SBIT(6) | SBIT(7) | SBIT(8) |
+    	 SBIT(10),
+    	 CC_DISCONNECT_REQ, l3_1tr6_disconnect_req},
 	{SBIT(12),
 	 CC_RELEASE_REQ, l3_1tr6_release_req},
 	{ALL_STATES,

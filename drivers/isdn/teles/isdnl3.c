@@ -1,6 +1,9 @@
 /* $Id$
  *
  * $Log$
+ * Revision 1.11  1996/09/29 19:41:58  fritz
+ * Bugfix: ignore unknown frames.
+ *
  * Revision 1.10  1996/09/25 18:32:43  keil
  * response for STATUS_ENQ message added
  *
@@ -132,7 +135,7 @@ l3s5(struct PStack *st, byte pr,
 	/*
          * Set Bearer Capability, Map info from 1TR6-convention to EDSS1
          */
-	switch (st->pa->info) {
+	switch (st->pa->setup.si1) {
 	  case 1:		/* Telephony                               */
 		  *p++ = 0x4;	/* BC-IE-code                              */
 		  *p++ = 0x3;	/* Length                                  */
@@ -152,21 +155,21 @@ l3s5(struct PStack *st, byte pr,
 	/*
 	 * What about info2? Mapping to High-Layer-Compatibility?
 	 */
-	if (st->pa->calling[0] != '\0') {
+	if (st->pa->setup.eazmsn[0] != '\0') {
 		*p++ = 0x6c;
-		*p++ = strlen(st->pa->calling) + 1;
+		*p++ = strlen(st->pa->setup.eazmsn) + 1;
 		/* Classify as AnyPref. */
 		*p++ = 0x81;	/* Ext = '1'B, Type = '000'B, Plan = '0001'B. */
-		teln = st->pa->calling;
+		teln = st->pa->setup.eazmsn;
 		while (*teln)
 			*p++ = *teln++ & 0x7f;
 	}
 	*p++ = 0x70;
-	*p++ = strlen(st->pa->called) + 1;
+	*p++ = strlen(st->pa->setup.phone) + 1;
 	/* Classify as AnyPref. */
 	*p++ = 0x81;		/* Ext = '1'B, Type = '000'B, Plan = '0001'B. */
 
-	teln = st->pa->called;
+	teln = st->pa->setup.phone;
 	while (*teln)
 		*p++ = *teln++ & 0x7f;
 
@@ -252,8 +255,8 @@ l3s12(struct PStack *st, byte pr, void *arg)
 	p = DATAPTR(ibh);
 	if (st->protocol == ISDN_PTYPE_1TR6) {
 		if ((p = findie(p + st->l2.uihsize, ibh->datasize - st->l2.uihsize, 0x01, 6))) {
-			st->pa->info = p[2];
-			st->pa->info2 = p[3];
+			st->pa->setup.si1 = p[2];
+			st->pa->setup.si2 = p[3];
 		} else
 			printk(KERN_WARNING "l3s12(1TR6): ServiceIndicator not found\n");
 	} else {
@@ -266,26 +269,26 @@ l3s12(struct PStack *st, byte pr, void *arg)
                                   /* Speech */
 			  case 0x10:
                                   /* 3.1 Khz audio */
-				  st->pa->info = 1;
+				  st->pa->setup.si1 = 1;
 				  break;
 			  case 0x08:
                                   /* Unrestricted digital information */
-				  st->pa->info = 7;
+				  st->pa->setup.si1 = 7;
 				  break;
 			  case 0x09:
                                   /* Restricted digital information */
-				  st->pa->info = 2;
+				  st->pa->setup.si1 = 2;
 				  break;
 			  case 0x11:
                                   /* Unrestr. digital information  with tones/announcements */
-				  st->pa->info = 3;
+				  st->pa->setup.si1 = 3;
 				  break;
 			  case 0x18:
                                   /* Video */
-				  st->pa->info = 4;
+				  st->pa->setup.si1 = 4;
 				  break;
 			  default:
-				  st->pa->info = 0;
+				  st->pa->setup.si1 = 0;
 			}
 		} else
 			printk(KERN_WARNING "l3s12: Bearer capabilities not found\n");
@@ -294,26 +297,29 @@ l3s12(struct PStack *st, byte pr, void *arg)
 	p = DATAPTR(ibh);
 	if ((p = findie(p + st->l2.uihsize, ibh->datasize - st->l2.uihsize,
 			0x70, 0)))
-		iecpy(st->pa->called, p, 1);
+		iecpy(st->pa->setup.eazmsn, p, 1);
 	else
-		strcpy(st->pa->called, "");
+		strcpy(st->pa->setup.eazmsn, "");
 
 	p = DATAPTR(ibh);
 	if ((p = findie(p + st->l2.uihsize, ibh->datasize - st->l2.uihsize,
 			0x6c, 0))) {
-		if (st->protocol == ISDN_PTYPE_1TR6)
-			iecpy(st->pa->calling, p, 1);
-		else
-			iecpy(st->pa->calling, p, 2);
+		st->pa->setup.plan = p[2];
+		if (st->protocol == ISDN_PTYPE_1TR6) {
+			iecpy(st->pa->setup.phone, p, 1);
+		} else {
+			st->pa->setup.screen = p[3];
+			iecpy(st->pa->setup.phone, p, 2);
+		}
 	} else
-		strcpy(st->pa->calling, "");
+		strcpy(st->pa->setup.phone, "");
 	BufPoolRelease(ibh);
 
         if (bcfound) {
-                if (st->pa->info != 7) {
+                if (st->pa->setup.si1 != 7) {
                         printk(KERN_DEBUG "non-digital call: %s -> %s\n",
-                               st->pa->calling,
-                               st->pa->called);
+                               st->pa->setup.phone,
+                               st->pa->setup.eazmsn);
                 }
                 newl3state(st, 6);
                 st->l3.l3l4(st, CC_SETUP_IND, NULL);

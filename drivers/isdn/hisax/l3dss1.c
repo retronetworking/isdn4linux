@@ -9,6 +9,9 @@
  *              Fritz Elfert
  *
  * $Log$
+ * Revision 1.9  1997/01/27 23:20:52  keil
+ * report revision only ones
+ *
  * Revision 1.8  1997/01/21 22:29:41  keil
  * new statemachine; L3 timers
  *
@@ -86,9 +89,8 @@ l3dss1_release_cmpl(struct PStack *st, byte pr, void *arg)
 	if ((p = findie(p + st->l2.ihsize, ibh->datasize - st->l2.ihsize,
 			IE_CAUSE, 0))) {
 		p++;
-		if (*p == 2)
-			p++;
-		p++;
+		if (*p++ == 2) 
+			st->pa->loc = *p++;
 		cause = *p & 0x7f;
 	}
 	BufPoolRelease(ibh);
@@ -117,7 +119,7 @@ l3dss1_setup_req(struct PStack *st, byte pr,
 	 * Set Bearer Capability, Map info from 1TR6-convention to EDSS1
 	 */
 	*p++ = 0xa1;
-	switch (st->pa->info) {
+	switch (st->pa->setup.si1) {
 	case 1:		/* Telephony                               */
 		*p++ = 0x4;	/* BC-IE-code                              */
 		*p++ = 0x3;	/* Length                                  */
@@ -137,21 +139,21 @@ l3dss1_setup_req(struct PStack *st, byte pr,
 	/*
 	 * What about info2? Mapping to High-Layer-Compatibility?
 	 */
-	if (st->pa->calling[0] != '\0') {
+	if (st->pa->setup.eazmsn[0]) {
 		*p++ = 0x6c;
-		*p++ = strlen(st->pa->calling) + 1;
+		*p++ = strlen(st->pa->setup.eazmsn) + 1;
 		/* Classify as AnyPref. */
 		*p++ = 0x81;	/* Ext = '1'B, Type = '000'B, Plan = '0001'B. */
-		teln = st->pa->calling;
+		teln = st->pa->setup.eazmsn;
 		while (*teln)
 			*p++ = *teln++ & 0x7f;
 	}
 	*p++ = 0x70;
-	*p++ = strlen(st->pa->called) + 1;
+	*p++ = strlen(st->pa->setup.phone) + 1;
 	/* Classify as AnyPref. */
 	*p++ = 0x81;		/* Ext = '1'B, Type = '000'B, Plan = '0001'B. */
 
-	teln = st->pa->called;
+	teln = st->pa->setup.phone;
 	while (*teln)
 		*p++ = *teln++ & 0x7f;
 
@@ -219,8 +221,8 @@ l3dss1_disconnect(struct PStack *st, byte pr, void *arg)
 	if ((p = findie(p + st->l2.ihsize, ibh->datasize - st->l2.ihsize,
 			IE_CAUSE, 0))) {
 		p++;
-		if (*p == 2)
-			p++;
+		if (*p++ == 2)
+			st->pa->loc = *p++;
 		p++;
 		cause = *p & 0x7f;
 	}
@@ -291,26 +293,26 @@ l3dss1_setup(struct PStack *st, byte pr, void *arg)
 			/* Speech */
 		case 0x10:
 			/* 3.1 Khz audio */
-			st->pa->info = 1;
+			st->pa->setup.si1 = 1;
 			break;
 		case 0x08:
 			/* Unrestricted digital information */
-			st->pa->info = 7;
+			st->pa->setup.si1 = 7;
 			break;
 		case 0x09:
 			/* Restricted digital information */
-			st->pa->info = 2;
+			st->pa->setup.si1 = 2;
 			break;
 		case 0x11:
 			/* Unrestr. digital information  with tones/announcements */
-			st->pa->info = 3;
+			st->pa->setup.si1 = 3;
 			break;
 		case 0x18:
 			/* Video */
-			st->pa->info = 4;
+			st->pa->setup.si1 = 4;
 			break;
 		default:
-			st->pa->info = 0;
+			st->pa->setup.si1 = 0;
 		}
 	} else if (st->l3.debug & L3_DEB_WARN)
 		l3_debug(st, "setup without bearer capabilities");
@@ -318,26 +320,33 @@ l3dss1_setup(struct PStack *st, byte pr, void *arg)
 	p = DATAPTR(ibh);
 	if ((p = findie(p + st->l2.uihsize, ibh->datasize - st->l2.uihsize,
 			0x70, 0)))
-		iecpy(st->pa->called, p, 1);
+		iecpy(st->pa->setup.eazmsn, p, 1);
 	else
-		strcpy(st->pa->called, "");
+		st->pa->setup.eazmsn[0] = 0;
 
 	p = DATAPTR(ibh);
 	if ((p = findie(p + st->l2.uihsize, ibh->datasize - st->l2.uihsize,
-			0x6c, 0)))
-		if (p[2] & 0x80)
-			iecpy(st->pa->calling, p, 1);
-		else
-			iecpy(st->pa->calling, p, 2);
-	else
-		strcpy(st->pa->calling, "");
+			0x6c, 0))) {
+		st->pa->setup.plan = p[2];
+		if (p[2] & 0x80) {
+			iecpy(st->pa->setup.phone, p, 1);
+			st->pa->setup.screen = 0;
+		} else {
+			iecpy(st->pa->setup.phone, p, 2);
+			st->pa->setup.screen = p[3];
+		}
+	} else {
+		st->pa->setup.phone[0] = 0;
+		st->pa->setup.plan = 0;
+		st->pa->setup.screen = 0;
+	}
 	BufPoolRelease(ibh);
 
 	if (bcfound) {
-		if ((st->pa->info != 7) && (st->l3.debug & L3_DEB_WARN)) {
+		if ((st->pa->setup.si1 != 7) && (st->l3.debug & L3_DEB_WARN)) {
 			sprintf(tmp, "non-digital call: %s -> %s",
-				st->pa->calling,
-				st->pa->called);
+				st->pa->setup.phone,
+				st->pa->setup.eazmsn);
 			l3_debug(st, tmp);
 		}
 		newl3state(st, 6);
@@ -439,8 +448,8 @@ l3dss1_release(struct PStack *st, byte pr, void *arg)
 	if ((p = findie(p + st->l2.ihsize, ibh->datasize - st->l2.ihsize,
 			IE_CAUSE, 0))) {
 		p++;
-		if (*p == 2)
-			p++;
+		if (*p++ == 2)
+			st->pa->loc = *p++;
 		p++;
 		cause = *p & 0x7f;
 	}

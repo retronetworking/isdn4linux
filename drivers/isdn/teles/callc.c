@@ -1,6 +1,9 @@
 /* $Id$
  *
  * $Log$
+ * Revision 1.15  1996/11/23 11:32:20  keil
+ * windowsize = 7 X.75 bugfix Thanks to Martin Maurer
+ *
  * Revision 1.14  1996/10/22 23:14:14  fritz
  * Changes for compatibility to 2.0.X and 2.1.X kernels.
  *
@@ -60,7 +63,6 @@ extern void     teles_mod_inc_use_count(void);
 
 static int      init_ds(int chan, int incoming);
 static void     release_ds(int chan);
-static char    *strcpyupto(char *dest, char *src, char upto);
 
 static struct Fsm callcfsm =
 {NULL, 0, 0},   lcfsm =
@@ -221,19 +223,6 @@ static char    *strLcEvent[] =
 #define LC_D  0
 #define LC_B  1
 
-static int
-my_atoi(char *s)
-{
-        int             i, n;
-
-        n = 0;
-        if (!s)
-                return -1;
-        for (i = 0; *s >= '0' && *s <= '9'; i++, s++)
-                n = 10 * n + (*s - '0');
-        return n;
-}
-
 /*
  * Dial out
  */
@@ -242,23 +231,10 @@ r1(struct FsmInst *fi, int event, void *arg)
 {
         isdn_ctrl      *ic = arg;
         struct Channel *chanp = fi->userdata;
-        char           *ptr;
-        char            sis[3];
 
-        /* Destination Phone-Number */
-        ptr = strcpyupto(chanp->para.called, ic->num, ',');
-        /* Source Phone-Number */
-        ptr = strcpyupto(chanp->para.calling, ptr + 1, ',');
-        if (!strcmp(chanp->para.calling, "0"))
-                chanp->para.calling[0] = '\0';
-
-        /* Service-Indicator 1 */
-        ptr = strcpyupto(sis, ptr + 1, ',');
-        chanp->para.info = my_atoi(sis);
-
-        /* Service-Indicator 2 */
-        ptr = strcpyupto(sis, ptr + 1, '\0');
-        chanp->para.info2 = my_atoi(sis);
+	chanp->para.setup = ic->parm.setup;
+	if (!strcmp(chanp->para.setup.eazmsn, "0"))
+		chanp->para.setup.eazmsn[0] = '\0';
 
         chanp->l2_active_protocol = chanp->l2_protocol;
         chanp->incoming = 0;
@@ -416,8 +392,7 @@ r7(struct FsmInst *fi, int event, void *arg)
                  * No need to return "unknown" for calls without OAD,
                  * cause that's handled in linklevel now (replaced by '0')
                  */
-                sprintf(ic.num, "%s,%d,0,%s", chanp->para.calling, chanp->para.info,
-                        chanp->para.called);
+		ic.parm.setup = chanp->para.setup;
                 iif.statcallb(&ic);
         } else {
                 chanp->is.l4.l4l3(&chanp->is,CC_DLRL,NULL);
@@ -672,7 +647,7 @@ r26(struct FsmInst *fi, int event, void *arg)
         ic.driver = drid;
         ic.command = ISDN_STAT_CINF;
         ic.arg = chanp->chan;
-        sprintf(ic.num, "%d", chanp->para.chargeinfo);
+        sprintf(ic.parm.num, "%d", chanp->para.chargeinfo);
         iif.statcallb(&ic);
 }
 
@@ -1329,7 +1304,9 @@ teles_command(isdn_ctrl * ic)
           case (ISDN_CMD_DIAL):
                   chanp = chanlist + (ic->arg & 0xff);
                   if (chanp->debug & 1) {
-                          sprintf(tmp, "DIAL %s", ic->num);
+		  	  sprintf(tmp, "DIAL %s -> %s (%d,%d)",
+				ic->parm.setup.eazmsn, ic->parm.setup.phone,
+				ic->parm.setup.si1, ic->parm.setup.si2);
                           command_debug(chanp, tmp);
                   }
                   FsmEvent(&chanp->fi, EV_DIAL, ic);
@@ -1355,7 +1332,7 @@ teles_command(isdn_ctrl * ic)
           case (ISDN_CMD_SUSPEND):
                   chanp = chanlist + ic->arg;
                   if (chanp->debug & 1) {
-                          sprintf(tmp, "SUSPEND %s", ic->num);
+                          sprintf(tmp, "SUSPEND %s", ic->parm.num);
                           command_debug(chanp, tmp);
                   }
                  FsmEvent(&chanp->fi, EV_SUSPEND, ic);
@@ -1363,7 +1340,7 @@ teles_command(isdn_ctrl * ic)
           case (ISDN_CMD_RESUME):
                   chanp = chanlist + ic->arg;
                   if (chanp->debug & 1) {
-                          sprintf(tmp, "RESUME %s", ic->num);
+                          sprintf(tmp, "RESUME %s", ic->parm.num);
                           command_debug(chanp, tmp);
                   }
                   FsmEvent(&chanp->fi, EV_RESUME, ic);
@@ -1384,14 +1361,14 @@ teles_command(isdn_ctrl * ic)
                                     channel_report(i);
                             break;
                     case (1):
-                            debugflags = *(unsigned int *) ic->num;
+                            debugflags = *(unsigned int *) ic->parm.num;
                             distr_debug();
                             sprintf(tmp, "debugging flags set to %x\n", debugflags);
                             teles_putstatus(tmp);
 			    printk(KERN_DEBUG "%s", tmp);
                             break;
                     case (2):
-                            num = *(unsigned int *) ic->num;
+                            num = *(unsigned int *) ic->parm.num;
                             i = num >> 8;
                             if (i >= chancount)
                                     break;
@@ -1470,13 +1447,4 @@ teles_writebuf(int id, int chan, const u_char * buf, int count, int user)
                 return (0);
         }
 
-}
-
-static char    *
-strcpyupto(char *dest, char *src, char upto)
-{
-        while (*src && (*src != upto) && (*src != '\0'))
-                *dest++ = *src++;
-        *dest = '\0';
-        return (src);
 }
