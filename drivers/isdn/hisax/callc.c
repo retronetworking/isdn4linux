@@ -11,6 +11,10 @@
  *              Fritz Elfert
  *
  * $Log$
+ * Revision 2.33  1999/08/25 17:00:09  keil
+ * Make ISAR V32bis modem running
+ * Make LL->HL interface open for additional commands
+ *
  * Revision 2.32  1999/08/22 20:27:01  calle
  * backported changes from kernel 2.3.14:
  * - several #include "config.h" gone, others come.
@@ -504,12 +508,12 @@ lli_deliver_call(struct FsmInst *fi, int event, void *arg)
 				FsmChangeState(fi, ST_IN_ALERT_SENT);
 				chanp->d_st->lli.l4l3(chanp->d_st, CC_ALERTING | REQUEST, chanp->proc);
 				break;
-	      	        case 4: /* direct redirect */
-		        case 3: /* Proceeding desired */
+	      	        case 5: /* direct redirect */
+		        case 4: /* Proceeding desired */
 				FsmDelTimer(&chanp->drel_timer, 61);
 				FsmChangeState(fi, ST_IN_PROCEED_SEND);
                                 chanp->d_st->lli.l4l3(chanp->d_st, CC_PROCEED_SEND | REQUEST, chanp->proc);
-                                if (ret == 4)
+                                if (ret == 5)
 				 { chanp->setup = ic.parm.setup;
 				   chanp->d_st->lli.l4l3(chanp->d_st, CC_REDIR | REQUEST, chanp->proc);
                                  }   

@@ -544,12 +544,15 @@ Description of the Interface between Linklevel and Hardwarelevel
       1           = At least one device matching this call (RING on ttyI).
                     HL-driver may send ALERTING on the D-channel in this case.
       2           = Call will be rejected.
-      3	          = Call will be held in a proceeding state 
+      3           = Incoming called party number is currently incomplete.
+                    Additional digits are required. 
+                    Used for signalling with PtP connections.
+      4	          = Call will be held in a proceeding state 
                     (HL driver sends PROCEEDING)
                     Used when a user space prog needs time to interpret a call
 		    para.setup.eazmsn may be filled with an uus1 message of
 		    30 octets maximum. Empty string if no uus. 
-      4           = Call will be actively deflected to another party
+      5           = Call will be actively deflected to another party
                     Only available in DSS1/EURO protocol
 		    para.setup.phone must be set to destination party number
 		    para.setup.eazmsn may be filled with an uus1 message of
