@@ -1,62 +1,50 @@
 I4LVERSION=2.0.28
 
-.EXPORT_ALL_VARIABLES:
-
-#
-# SMP = 1
-# SMP_PROF = 1
-#
-ARCH      = i386
 KERNELDIR = /usr/src/linux
-MODDEST   = /lib/modules/`uname -r`/misc
 
 ######### NOTHING TO CHANGE BELOW ################
+.EXPORT_ALL_VARIABLES:
 
 CONFIG_SHELL := $(shell if [ -x "$$BASH" ]; then echo $$BASH; \
 	else if [ -x /bin/bash ]; then echo /bin/bash; \
 	else echo sh; fi ; fi)
 KCONFIG         = $(KERNELDIR)/.config
-ARCHMAKE        = $(KERNELDIR)/arch/$(ARCH)/Makefile
 
-TOPDIR  := $(shell if [ "$$PWD" != "" ]; then echo $$PWD; else pwd; fi)
+TOPDIR   := $(shell if [ "$$PWD" != "" ]; then echo $$PWD; else pwd; fi)
 ISDNINC  := $(ISDNTOP)/include
 
-HPATH			= $(KERNELDIR)/include
+#
+# Get VERSION, PATCHLEVEL, SUBLEVEL, ARCH, SMP and SMP_PROF from Kerneltree
+#
+VERSION    = $(shell head -9 $(KERNELDIR)/Makefile |grep VERSION |awk '{print $$3}')
+PATCHLEVEL = $(shell head -9 $(KERNELDIR)/Makefile |grep PATCHLEVEL |awk '{print $$3}')
+SUBLEVEL   = $(shell head -9 $(KERNELDIR)/Makefile |grep SUBLEVEL |awk '{print $$3}')
+ARCH       = $(shell head -9 $(KERNELDIR)/Makefile |grep ARCH |awk '{print $$3}')
+ifneq ("$(shell egrep '^ *SMP *=.*' $(KERNELDIR)/Makefile)","")
+	SMP = 1
+endif
+ifneq ("$(shell egrep '^ *SMP_PROF *=.*' $(KERNELDIR)/Makefile)","")
+	SMP_PROF = 1
+endif
+ARCHMAKE        := $(KERNELDIR)/arch/$(ARCH)/Makefile
+MODDEST			=/lib/modules/$(VERSION).$(PATCHLEVEL).$(SUBLEVEL)/misc
+HPATH			=$(KERNELDIR)/include
 HOSTCC			=gcc -I$(HPATH) -I$(ISDNINC)
 HOSTCFLAGS		=-O2 -fomit-frame-pointer
-
 CROSS_COMPILE	=
-
-AS      =$(CROSS_COMPILE)as
-LD      =$(CROSS_COMPILE)ld
-CC      =$(CROSS_COMPILE)gcc -g -D__KERNEL__ -I$(HPATH)
-CPP     =$(CC) -E
-AR      =$(CROSS_COMPILE)ar
-NM      =$(CROSS_COMPILE)nm
-STRIP   =$(CROSS_COMPILE)strip
-MAKE    =make
+AS				=$(CROSS_COMPILE)as
+LD				=$(CROSS_COMPILE)ld
+CC				=$(CROSS_COMPILE)gcc -g -D__KERNEL__ -I$(HPATH)
+CPP				=$(CC) -E
+AR				=$(CROSS_COMPILE)ar
+NM				=$(CROSS_COMPILE)nm
+STRIP			=$(CROSS_COMPILE)strip
+MAKE			=make
 
 ifeq ($(KCONFIG),$(wildcard $(KCONFIG)))
 include $(KCONFIG)
-ifeq ($(CONFIG_MODULES),y)
-CONFIG_ISDN=m
-CONFIG_ISDN_PPP=y
-CONFIG_ISDN_PPP_VJ=y
-CONFIG_ISDN_MPP=y
-CONFIG_ISDN_AUDIO=y
-CONFIG_ISDN_DRV_ICN=m
-CONFIG_ISDN_DRV_PCBIT=m
-CONFIG_ISDN_DRV_TELES=m
-CONFIG_ISDN_DRV_HISAX=m
-CONFIG_HISAX_16_0=y
-CONFIG_HISAX_16_3=y
-CONFIG_HISAX_AVM_A1=y
-CONFIG_HISAX_ELSA_PCC=y
-CONFIG_HISAX_IX1MICROR2=y
-CONFIG_HISAX_EURO=y
-CONFIG_HISAX_1TR6=y
-CONFIG_ISDN_DRV_SC=m
-CONFIG_ISDN_DRV_AVMB1=m
+ifeq ($(CONFIG_ISDN),m)
+include .config
 do-it-all: modules
 else
 do-it-all: modconf-error
@@ -123,11 +111,12 @@ rootperm:
 		exit 1; \
 	fi
 
-kinstall: rootperm
+modules_install: rootperm
 	@set -e; \
 	for i in $(SUBDIRS); do \
-		$(MAKE) -C $$i kinstall; \
+		$(MAKE) -C $$i modules_install; \
 	done
+	depmod -a $(VERSION).$(PATCHLEVEL).$(SUBLEVEL)
 
 clean:
 	rm -f `find . -name '*.[iso]' -print`

@@ -96,5 +96,15 @@ else
   endif
 endif
 
+ifeq ($(CONFIG_ISDN_DRV_LOOP),y)
+  L_OBJS += isdnloop/isdnloop.o
+  SUB_DIRS += isdnloop
+  MOD_SUB_DIRS += isdnloop
+else
+  ifeq ($(CONFIG_ISDN_DRV_LOOP),m)
+    MOD_SUB_DIRS += isdnloop
+  endif
+endif
+
 include $(TOPDIR)/Rules.make
 
