@@ -235,6 +235,59 @@ Sel_BCS(struct IsdnCardState *cs, int channel)
 		return (NULL);
 }
 
+/***************************************/
+/* clear the desired B-channel rx fifo */
+/***************************************/
+static void hfcpci_clear_fifo_rx(struct IsdnCardState *cs, int fifo)
+{       u_char fifo_state;
+        bzfifo_type *bzr;
+
+	if (fifo) {
+	        bzr = &((fifo_area *) (cs->hw.hfcpci.fifos))->b_chans.rxbz_b2;
+		fifo_state = cs->hw.hfcpci.fifo_en & HFCPCI_FIFOEN_B2RX;
+	} else {
+	        bzr = &((fifo_area *) (cs->hw.hfcpci.fifos))->b_chans.rxbz_b1;
+		fifo_state = cs->hw.hfcpci.fifo_en & HFCPCI_FIFOEN_B1RX;
+	}
+	if (fifo_state)
+	        cs->hw.hfcpci.fifo_en ^= fifo_state;
+	Write_hfc(cs, HFCPCI_FIFO_EN, cs->hw.hfcpci.fifo_en);
+	cs->hw.hfcpci.last_bfifo_cnt[fifo] = 0;
+	bzr->za[MAX_B_FRAMES].z1 = B_FIFO_SIZE + B_SUB_VAL - 1;
+	bzr->za[MAX_B_FRAMES].z2 = bzr->za[MAX_B_FRAMES].z1;
+	bzr->f1 = MAX_B_FRAMES;
+	bzr->f2 = bzr->f1;	/* init F pointers to remain constant */
+	if (fifo_state)
+	        cs->hw.hfcpci.fifo_en |= fifo_state;
+	Write_hfc(cs, HFCPCI_FIFO_EN, cs->hw.hfcpci.fifo_en);
+}   
+
+/***************************************/
+/* clear the desired B-channel tx fifo */
+/***************************************/
+static void hfcpci_clear_fifo_tx(struct IsdnCardState *cs, int fifo)
+{       u_char fifo_state;
+        bzfifo_type *bzt;
+
+	if (fifo) {
+	        bzt = &((fifo_area *) (cs->hw.hfcpci.fifos))->b_chans.txbz_b2;
+		fifo_state = cs->hw.hfcpci.fifo_en & HFCPCI_FIFOEN_B2TX;
+	} else {
+	        bzt = &((fifo_area *) (cs->hw.hfcpci.fifos))->b_chans.txbz_b1;
+		fifo_state = cs->hw.hfcpci.fifo_en & HFCPCI_FIFOEN_B1TX;
+	}
+	if (fifo_state)
+	        cs->hw.hfcpci.fifo_en ^= fifo_state;
+	Write_hfc(cs, HFCPCI_FIFO_EN, cs->hw.hfcpci.fifo_en);
+	bzt->za[MAX_B_FRAMES].z1 = B_FIFO_SIZE + B_SUB_VAL - 1;
+	bzt->za[MAX_B_FRAMES].z2 = bzt->za[MAX_B_FRAMES].z1;
+	bzt->f1 = MAX_B_FRAMES;
+	bzt->f2 = bzt->f1;	/* init F pointers to remain constant */
+	if (fifo_state)
+	        cs->hw.hfcpci.fifo_en |= fifo_state;
+	Write_hfc(cs, HFCPCI_FIFO_EN, cs->hw.hfcpci.fifo_en);
+}   
+
 /*********************************************/
 /* read a complete B-frame out of the buffer */
 /*********************************************/
@@ -428,7 +481,7 @@ main_rec_hfcpci(struct BCState *bcs)
 {
 	long flags;
 	struct IsdnCardState *cs = bcs->cs;
-	int rcnt;
+	int rcnt, real_fifo;
 	int receive, count = 5;
 	struct sk_buff *skb;
 	bzfifo_type *bz;
@@ -440,9 +493,11 @@ main_rec_hfcpci(struct BCState *bcs)
 	if ((bcs->channel) && (!cs->hw.hfcpci.bswapped)) {
 		bz = &((fifo_area *) (cs->hw.hfcpci.fifos))->b_chans.rxbz_b2;
 		bdata = ((fifo_area *) (cs->hw.hfcpci.fifos))->b_chans.rxdat_b2;
+		real_fifo = 1;
 	} else {
 		bz = &((fifo_area *) (cs->hw.hfcpci.fifos))->b_chans.rxbz_b1;
 		bdata = ((fifo_area *) (cs->hw.hfcpci.fifos))->b_chans.rxdat_b1;
+		real_fifo = 0;
 	}
       Begin:
 	count--;
@@ -475,6 +530,11 @@ main_rec_hfcpci(struct BCState *bcs)
 		rcnt = bz->f1 - bz->f2;
 		if (rcnt < 0)
 			rcnt += MAX_B_FRAMES + 1;
+		if (cs->hw.hfcpci.last_bfifo_cnt[real_fifo] > rcnt + 1) {
+		        rcnt = 0;
+			hfcpci_clear_fifo_rx(cs, real_fifo);
+		}
+		cs->hw.hfcpci.last_bfifo_cnt[real_fifo] = rcnt;
 		if (rcnt > 1)
 			receive = 1;
 		else
@@ -1267,7 +1327,6 @@ void
 mode_hfcpci(struct BCState *bcs, int mode, int bc)
 {
 	struct IsdnCardState *cs = bcs->cs;
-	bzfifo_type *bzr, *bzt;
 	int flags, fifo2;
 
 	if (cs->debug & L1_DEB_HSCX)
@@ -1314,6 +1373,8 @@ mode_hfcpci(struct BCState *bcs, int mode, int bc)
 			}
 			break;
 		case (L1_MODE_TRANS):
+		        hfcpci_clear_fifo_rx(cs, fifo2);
+		        hfcpci_clear_fifo_tx(cs, fifo2);
 			if (bc) {
 				cs->hw.hfcpci.sctrl |= SCTRL_B2_ENA;
 				cs->hw.hfcpci.sctrl_r |= SCTRL_B2_ENA;
@@ -1326,26 +1387,16 @@ mode_hfcpci(struct BCState *bcs, int mode, int bc)
 				cs->hw.hfcpci.int_m1 |= (HFCPCI_INTS_B2TRANS + HFCPCI_INTS_B2REC);
 				cs->hw.hfcpci.ctmt |= 2;
 				cs->hw.hfcpci.conn &= ~0x18;
-				bzr = &((fifo_area *) (cs->hw.hfcpci.fifos))->b_chans.rxbz_b2;
-				bzt = &((fifo_area *) (cs->hw.hfcpci.fifos))->b_chans.txbz_b2;
 			} else {
 				cs->hw.hfcpci.fifo_en |= HFCPCI_FIFOEN_B1;
 				cs->hw.hfcpci.int_m1 |= (HFCPCI_INTS_B1TRANS + HFCPCI_INTS_B1REC);
 				cs->hw.hfcpci.ctmt |= 1;
 				cs->hw.hfcpci.conn &= ~0x03;
-				bzr = &((fifo_area *) (cs->hw.hfcpci.fifos))->b_chans.rxbz_b1;
-				bzt = &((fifo_area *) (cs->hw.hfcpci.fifos))->b_chans.txbz_b1;
 			}
-			bzr->za[MAX_B_FRAMES].z1 = B_FIFO_SIZE + B_SUB_VAL - 1;
-			bzr->za[MAX_B_FRAMES].z2 = bzr->za[MAX_B_FRAMES].z1;
-			bzr->f1 = MAX_B_FRAMES;
-			bzr->f2 = bzr->f1;	/* init F pointers to remain constant */
-			bzt->za[MAX_B_FRAMES].z1 = B_FIFO_SIZE + B_SUB_VAL - 1;
-			bzt->za[MAX_B_FRAMES].z2 = bzt->za[MAX_B_FRAMES].z1;
-			bzt->f1 = MAX_B_FRAMES;
-			bzt->f2 = bzt->f1;	/* init F pointers to remain constant */
 			break;
 		case (L1_MODE_HDLC):
+		        hfcpci_clear_fifo_rx(cs, fifo2);
+		        hfcpci_clear_fifo_tx(cs, fifo2);
 			if (bc) {
 				cs->hw.hfcpci.sctrl |= SCTRL_B2_ENA;
 				cs->hw.hfcpci.sctrl_r |= SCTRL_B2_ENA;
@@ -1354,11 +1405,13 @@ mode_hfcpci(struct BCState *bcs, int mode, int bc)
 				cs->hw.hfcpci.sctrl_r |= SCTRL_B1_ENA;
 			}
 			if (fifo2) {
+			        cs->hw.hfcpci.last_bfifo_cnt[1] = 0;  
 				cs->hw.hfcpci.fifo_en |= HFCPCI_FIFOEN_B2;
 				cs->hw.hfcpci.int_m1 |= (HFCPCI_INTS_B2TRANS + HFCPCI_INTS_B2REC);
 				cs->hw.hfcpci.ctmt &= ~2;
 				cs->hw.hfcpci.conn &= ~0x18;
 			} else {
+			        cs->hw.hfcpci.last_bfifo_cnt[0] = 0;  
 				cs->hw.hfcpci.fifo_en |= HFCPCI_FIFOEN_B1;
 				cs->hw.hfcpci.int_m1 |= (HFCPCI_INTS_B1TRANS + HFCPCI_INTS_B1REC);
 				cs->hw.hfcpci.ctmt &= ~1;
