@@ -635,7 +635,7 @@ setup_sedlbauer(struct IsdnCard *card)
 	
 	/* In case of the sedlbauer pcmcia card, this region is in use,
 	 * reserved for us by the card manager. So we do not check it
-	* here, it would fail.
+	 * here, it would fail.
 	 */
 	if (cs->hw.sedl.bus != SEDL_BUS_PCMCIA &&
 		check_region((cs->hw.sedl.cfg_reg), bytecnt)) {
