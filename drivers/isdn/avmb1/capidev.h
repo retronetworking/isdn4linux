@@ -6,6 +6,17 @@
  * (c) Copyright 1996 by Carsten Paeth (calle@calle.in-berlin.de)
  *
  * $Log$
+ * Revision 1.5  2000/03/03 15:50:42  calle
+ * - kernel CAPI:
+ *   - Changed parameter "param" in capi_signal from __u32 to void *.
+ *   - rewrote notifier handling in kcapi.c
+ *   - new notifier NCCI_UP and NCCI_DOWN
+ * - User CAPI:
+ *   - /dev/capi20 is now a cloning device.
+ *   - middleware extentions prepared.
+ * - capidrv.c
+ *   - locking of list operations and module count updates.
+ *
  * Revision 1.4  1999/07/01 15:26:32  calle
  * complete new version (I love it):
  * + new hardware independed "capi_driver" interface that will make it easy to:
@@ -47,11 +58,7 @@ struct capidev {
 	unsigned int    minor;
 
 	struct sk_buff_head recv_queue;
-#ifdef COMPAT_HAS_NEW_WAITQ
 	wait_queue_head_t recv_wait;
-#else
-	struct wait_queue *recv_wait;
-#endif
 
 	/* Statistic */
 	unsigned long	nrecvctlpkt;

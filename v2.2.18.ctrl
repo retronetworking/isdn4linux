@@ -1,4 +1,5 @@
-#delete #include <linux/isdn_compat.h>
+#define ISDN_COMPAT_NOT_GENERIC
+
 #define dev_kfree_skb_irq(a,b) dev_kfree_skb(a)
 #define dev_kfree_skb_any(a,b) dev_kfree_skb(a)
 #define COMPAT_HAS_2_2_PCI
@@ -7,7 +8,7 @@
 #define pci_resource_start_mem(pdev,nr)	pdev->base_address[nr] & PCI_BASE_ADDRESS_MEM_MASK
 #define pci_get_sub_vendor(pdev, id)	pci_read_config_word(pdev, PCI_SUBSYSTEM_VENDOR_ID, &id)
 #define pci_get_sub_system(pdev, id)	pci_read_config_word(pdev, PCI_SUBSYSTEM_ID, &id)
-#undef COMPAT_HAS_NEW_WAITQ
+#define COMPAT_HAS_NEW_WAITQ
 #undef COMPAT_HAS_NEW_SETUP
 #undef BIG_PHONE_NUMBERS
 #undef COMPAT_HAS_ISA_IOREMAP

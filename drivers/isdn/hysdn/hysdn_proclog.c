@@ -56,11 +56,7 @@ struct procdata {
 	int if_used;		/* open count for interface */
 	int volatile del_lock;	/* lock for delete operations */
 	uchar logtmp[LOG_MAX_LINELEN];
-#ifdef COMPAT_HAS_NEW_WAITQ
 	wait_queue_head_t rd_queue;
-#else
-	struct wait_queue *rd_queue;	/* wait queue structure */
-#endif
 };
 
 
@@ -478,9 +474,7 @@ hysdn_proclog_init(hysdn_card * card)
 #endif
 		}
 
-#ifdef COMPAT_HAS_NEW_WAITQ
 		init_waitqueue_head(&(pd->rd_queue));
-#endif
 
 		card->proclog = (void *) pd;	/* remember procfs structure */
 	}

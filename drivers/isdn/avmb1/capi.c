@@ -6,6 +6,10 @@
  * Copyright 1996 by Carsten Paeth (calle@calle.in-berlin.de)
  *
  * $Log$
+ * Revision 1.43  2000/11/23 20:45:14  kai
+ * fixed module_init/exit stuff
+ * Note: compiled-in kernel doesn't work pre 2.2.18 anymore.
+ *
  * Revision 1.42  2000/11/19 17:03:55  kai
  * compatibility cleanup - part 5
  *
@@ -302,13 +306,8 @@ struct capiminor {
 
 	/* for raw device */
 	struct sk_buff_head recvqueue;
-#ifdef COMPAT_HAS_NEW_WAITQ
 	wait_queue_head_t recvwait;
 	wait_queue_head_t sendwait;
-#else
-	struct wait_queue *recvwait;
-	struct wait_queue *sendwait;
-#endif
 	
 	/* transmit path */
 	struct datahandle_queue {
@@ -344,11 +343,7 @@ struct capidev {
 	unsigned        userflags;
 
 	struct sk_buff_head recvqueue;
-#ifdef COMPAT_HAS_NEW_WAITQ
 	wait_queue_head_t recvwait;
-#else
-	struct wait_queue *recvwait;
-#endif
 
 	/* Statistic */
 	unsigned long	nrecvctlpkt;
@@ -470,10 +465,8 @@ struct capiminor *capiminor_alloc(__u16 applid, __u32 ncci)
 	skb_queue_head_init(&mp->outqueue);
 
 	skb_queue_head_init(&mp->recvqueue);
-#ifdef COMPAT_HAS_NEW_WAITQ
 	init_waitqueue_head(&mp->recvwait);
 	init_waitqueue_head(&mp->sendwait);
-#endif
 
 	for (pp = &minors; *pp; pp = &(*pp)->next) {
 		if ((*pp)->minor < minor)
@@ -652,9 +645,7 @@ static struct capidev *capidev_alloc(struct file *file)
 	cdev->minor = MINOR(file->f_dentry->d_inode->i_rdev);
 
 	skb_queue_head_init(&cdev->recvqueue);
-#ifdef COMPAT_HAS_NEW_WAITQ
 	init_waitqueue_head(&cdev->recvwait);
-#endif
 	pp=&capidev_openlist;
 	while (*pp) pp = &(*pp)->next;
 	*pp = cdev;
@@ -1623,10 +1614,8 @@ int capinc_tty_open(struct tty_struct * tty, struct file * file)
 		return -EBUSY;
 
 	skb_queue_head_init(&mp->recvqueue);
-#ifdef COMPAT_HAS_NEW_WAITQ
 	init_waitqueue_head(&mp->recvwait);
 	init_waitqueue_head(&mp->sendwait);
-#endif
 	tty->driver_data = (void *)mp;
 #ifdef _DEBUG_REFCOUNT
 	printk(KERN_DEBUG "capi_tty_open %d\n", GET_USE_COUNT(THIS_MODULE));

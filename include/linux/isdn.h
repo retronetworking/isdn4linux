@@ -648,12 +648,7 @@ typedef struct modem_info {
   atemu                 emu;             /* AT-emulator data               */
   struct termios	normal_termios;  /* For saving termios structs     */
   struct termios	callout_termios;
-#ifdef COMPAT_HAS_NEW_WAITQ
   wait_queue_head_t	open_wait, close_wait;
-#else
-  struct wait_queue	*open_wait;
-  struct wait_queue	*close_wait;
-#endif
   struct semaphore      write_sem;
 } modem_info;
 
@@ -731,11 +726,7 @@ typedef struct {
 	ulong               flags;            /* Misc driver Flags                */
 	int                 locks;            /* Number of locks for this driver  */
 	int                 channels;         /* Number of channels               */
-#ifdef COMPAT_HAS_NEW_WAITQ
 	wait_queue_head_t   st_waitq;         /* Wait-Queue for status-read's     */
-#else
-	struct wait_queue  *st_waitq;         /* Wait-Queue for status-read's     */
-#endif
 	int                 maxbufsize;       /* Maximum Buffersize supported     */
 	unsigned long       pktcount;         /* Until now: unused                */
 	int                 stavail;          /* Chars avail on Status-device     */
@@ -746,13 +737,8 @@ typedef struct {
 	unsigned long      DLEflag;           /* Flags: Insert DLE at next read   */
 #endif
 	struct sk_buff_head *rpqueue;         /* Pointers to start of Rcv-Queue   */
-#ifdef COMPAT_HAS_NEW_WAITQ
 	wait_queue_head_t  *rcv_waitq;       /* Wait-Queues for B-Channel-Reads  */
 	wait_queue_head_t  *snd_waitq;       /* Wait-Queue for B-Channel-Send's  */
-#else
-	struct wait_queue  **rcv_waitq;       /* Wait-Queues for B-Channel-Reads  */
-	struct wait_queue  **snd_waitq;       /* Wait-Queue for B-Channel-Send's  */
-#endif
 	char               msn2eaz[10][ISDN_MSNLEN];  /* Mapping-Table MSN->EAZ   */
 #ifdef CONFIG_ISDN_WITH_ABC_ICALL_BIND
 	u_char   dwabc_lchmap[ISDN_DW_ABC_MAX_CH_P_RIVER]; /* locically channelmap */
@@ -772,11 +758,7 @@ typedef struct isdn_devt {
 	/*  see ISDN_TIMER_..defines  */
 	int               global_flags;
 	infostruct        *infochain;                /* List of open info-devs.    */
-#ifdef COMPAT_HAS_NEW_WAITQ
 	wait_queue_head_t info_waitq;               /* Wait-Queue for isdninfo    */
-#else
-	struct wait_queue *info_waitq;               /* Wait-Queue for isdninfo    */
-#endif
 	struct timer_list timer;		       /* Misc.-function Timer       */
 	int               chanmap[ISDN_MAX_CHANNELS];/* Map minor->device-channel  */
 	int               drvmap[ISDN_MAX_CHANNELS]; /* Map minor->driver-index    */
@@ -859,49 +841,8 @@ extern int dwabc_isdn_get_net_free_channel(isdn_net_local *);
 #endif
 #endif
 
-
 /* Utility-Macros */
 #define MIN(a,b) ((a<b)?a:b)
 #define MAX(a,b) ((a>b)?a:b)
-#ifdef COMPAT_NO_SOFTNET
-/*
- * Tell upper layers that the network device is ready to xmit more frames.
- */
-static void __inline__ netif_wake_queue(struct net_device * dev)
-{
-	dev->tbusy = 0;
-	mark_bh(NET_BH);
-}
-
-/*
- * called during net_device open()
- */
-static void __inline__ netif_start_queue(struct net_device * dev)
-{
-	dev->tbusy = 0;
-	/* actually, we never use the interrupt flag at all */
-	dev->interrupt = 0;
-	dev->start = 1;
-}
-
-/*
- * Ask upper layers to temporarily cease passing us more xmit frames.
- */
-static void __inline__ netif_stop_queue(struct net_device * dev)
-{
-	dev->tbusy = 1;
-}
-
-#endif /* COMPAT_NO_SOFTNET */
-#ifdef COMPAT_HAS_2_2_PCI 
-
-struct pci_dev;
-
-static int __inline__ pci_enable_device(struct pci_dev * pdev)
-{
-	return 0;
-}
-#endif
-
 #endif /* __KERNEL__ */
 #endif /* isdn_h */

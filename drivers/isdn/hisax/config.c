@@ -1384,7 +1384,7 @@ HiSax_reportcard(int cardnr, int sel)
 #define HiSax_init init_module
 #endif
 
-static int __init
+int __init
 HiSax_init(void)
 {
 	int i,j;

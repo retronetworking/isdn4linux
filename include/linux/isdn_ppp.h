@@ -204,11 +204,7 @@ struct ippp_struct {
   struct ippp_buf_queue rq[NUM_RCV_BUFFS]; /* packet queue for isdn_ppp_read() */
   struct ippp_buf_queue *first;  /* pointer to (current) first packet */
   struct ippp_buf_queue *last;   /* pointer to (current) last used packet in queue */
-#ifdef COMPAT_HAS_NEW_WAITQ
   wait_queue_head_t wq;
-#else
-  struct wait_queue *wq;
-#endif
   struct task_struct *tk;
   unsigned int mpppcfg;
   unsigned int pppcfg;

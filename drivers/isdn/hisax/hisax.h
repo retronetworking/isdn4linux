@@ -790,13 +790,8 @@ struct te_hw {
 	unsigned char *sfifo_e;
 	int sfifo_cnt;
 	unsigned int stat;
-#ifdef COMPAT_HAS_NEW_WAITQ
 	wait_queue_head_t rwaitq;
 	wait_queue_head_t swaitq;
-#else
-	struct wait_queue *rwaitq;
-	struct wait_queue *swaitq;
-#endif
 };
 #endif
 
@@ -816,11 +811,7 @@ struct isac_chip {
 	int mon_rxp;
 	struct arcofi_msg *arcofi_list;
 	struct timer_list arcofitimer;
-#ifdef COMPAT_HAS_NEW_WAITQ
 	wait_queue_head_t arcofi_wait;
-#else
-	struct wait_queue *arcofi_wait;
-#endif
 	u_char arcofi_bc;
 	u_char arcofi_state;
 	u_char mocr;
@@ -852,11 +843,7 @@ struct icc_chip {
 	int mon_rxp;
 	struct arcofi_msg *arcofi_list;
 	struct timer_list arcofitimer;
-#ifdef COMPAT_HAS_NEW_WAITQ
 	wait_queue_head_t arcofi_wait;
-#else
-	struct wait_queue *arcofi_wait;
-#endif
 	u_char arcofi_bc;
 	u_char arcofi_state;
 	u_char mocr;
@@ -1364,19 +1351,3 @@ char *HiSax_getrev(const char *revision);
 void TeiNew(void);
 void TeiFree(void);
 int certification_check(int output);
-#ifdef COMPAT_HAS_2_2_PCI
-#ifdef __powerpc__
-#include <linux/pci.h>
-static inline int pci_enable_device(struct pci_dev *dev)
-{
-	u16 cmd;
-	pci_read_config_word(dev, PCI_COMMAND, &cmd);
-	cmd |= PCI_COMMAND_MEMORY | PCI_COMMAND_IO | PCI_COMMAND_SERR;
-	cmd &= ~PCI_COMMAND_FAST_BACK;
-	pci_write_config_word(dev, PCI_COMMAND, cmd);
-	return(0);
-}
-#else
-#define pci_enable_device(dev)	!dev
-#endif /* __powerpc__ */
-#endif /* COMPAT_HAS_2_2_PCI */
