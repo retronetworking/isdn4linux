@@ -49,15 +49,13 @@ EXPORT_SYMBOL_NOVERS(DIVA_DIDD_Write);
 EXPORT_SYMBOL_NOVERS(DivasPrintf);
 #endif
 
-extern char *file_check(void);
-
 int DivasCardsDiscover(void);
 
 static int __init Divas_init(void)
 {
 	printk(KERN_DEBUG "DIVA Server Driver - initialising\n");
 	
-	printk(KERN_DEBUG "DIVA Server Driver - Version 2.0.15 (%s)\n",file_check());
+	printk(KERN_DEBUG "DIVA Server Driver - Version 2.1.1\n");
 
 
 #if !defined(CONFIG_PCI)

@@ -31,8 +31,8 @@
  */
 
 #define DRIVERNAME "Eicon active ISDN driver"
-#define DRIVERRELEASE "2.0"
-#define DRIVERPATCH ".15"
+#define DRIVERRELEASE "2.1"
+#define DRIVERPATCH ".1"
 
 
 #include <linux/config.h>
@@ -64,7 +64,6 @@ extern char *eicon_idi_revision;
 extern int do_ioctl(struct inode *pDivasInode, struct file *pDivasFile,
 			unsigned int command, unsigned long arg);
 extern void eicon_pci_init_conf(eicon_card *card);
-extern char *file_check(void);
 
 #ifdef MODULE
 #define MOD_USE_COUNT (GET_USE_COUNT (&__this_module))
@@ -1341,8 +1340,8 @@ eicon_init(void)
 #endif
 	strcpy(tmprev, eicon_idi_revision);
 	printk("%s\n", eicon_getrev(tmprev));
-        printk(KERN_INFO "%s Release: %s%s (%s)\n", DRIVERNAME,
-		DRIVERRELEASE, DRIVERPATCH, file_check());
+        printk(KERN_INFO "%s Release: %s%s\n", DRIVERNAME,
+		DRIVERRELEASE, DRIVERPATCH);
 
 #ifdef CONFIG_ISDN_DRV_EICON_ISA
 #ifdef CONFIG_MCA

@@ -192,7 +192,6 @@ else
 	for i in Documentation/isdn/CREDITS Documentation/isdn/README* \
 		Documentation/isdn/*.FAQ \
 		Documentation/isdn/INTERFACE Documentation/isdn/HiSax* \
-		drivers/isdn/eicon/md5sums.asc \
 		drivers/isdn/hisax/md5sums.asc ; do
 		dodiff $i $KERNELDIR/$i
 	done
