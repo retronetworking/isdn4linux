@@ -3,6 +3,9 @@
  *   Basic declarations, defines and prototypes
  *
  * $Log$
+ * Revision 2.24  1998/08/20 13:50:39  keil
+ * More support for hybrid modem (not working yet)
+ *
  * Revision 2.23  1998/08/13 23:36:31  keil
  * HiSax 3.1 - don't work stable with current LinkLevel
  *
@@ -376,6 +379,13 @@ struct hscx_hw {
 	u_char *rcvbuf;         /* B-Channel receive Buffer */
 };
 
+struct isar_hw {
+	int dpath;
+	int rcvidx;
+	int txcnt;
+	u_char *rcvbuf;         /* B-Channel receive Buffer */
+};
+
 struct hdlc_hw {
 	u_int ctrl;
 	u_int stat;
@@ -454,6 +464,7 @@ struct BCState {
 	union {
 		struct hscx_hw hscx;
 		struct hdlc_hw hdlc;
+		struct isar_hw isar;
 		struct hfcB_hw hfc;
 		struct tiger_hw tiger;
 		struct amd7930_hw  amd7930;
@@ -576,6 +587,11 @@ struct sedl_hw {
 	unsigned int isar;
 	unsigned int reset_on;
 	unsigned int reset_off;
+	volatile u_char bstat;
+	volatile u_char iis;
+	volatile u_char cmsb;
+	volatile u_char clsb;
+	volatile u_char par[8];
 };
 
 struct spt_hw {
