@@ -11,6 +11,10 @@
  *              Fritz Elfert
  *
  * $Log$
+ * Revision 2.27  1999/07/05 23:51:38  werner
+ * Allow limiting of available HiSax B-chans per card. Controlled by hisaxctrl
+ * hisaxctrl id 10 <nr. of chans 0-2>
+ *
  * Revision 2.26  1999/07/01 08:11:21  keil
  * Common HiSax version for 2.0, 2.1, 2.2 and 2.3 kernel
  *
@@ -1075,7 +1079,7 @@ dchan_l3l4(struct PStack *st, int pr, void *arg)
 		default:
 			if (chanp->debug & 0x800) {
 				HiSax_putstatus(chanp->cs, "Ch",
-					"%d L3->L4 unknown primitiv %x",
+					"%d L3->L4 unknown primitiv %#x",
 					chanp->chan, pr);
 			}
 	}
@@ -1261,7 +1265,7 @@ lldata_handler(struct PStack *st, int pr, void *arg)
 			FsmEvent(&chanp->fi, EV_BC_REL, NULL);
 			break;
 		default:
-			printk(KERN_WARNING "lldata_handler unknown primitive %x\n",
+			printk(KERN_WARNING "lldata_handler unknown primitive %#x\n",
 			       pr);
 			break;
 	}
@@ -1291,7 +1295,7 @@ lltrans_handler(struct PStack *st, int pr, void *arg)
 			FsmEvent(&chanp->fi, EV_BC_REL, NULL);
 			break;
 		default:
-			printk(KERN_WARNING "lltrans_handler unknown primitive %x\n",
+			printk(KERN_WARNING "lltrans_handler unknown primitive %#x\n",
 			       pr);
 			break;
 	}
@@ -1390,7 +1394,7 @@ leased_l4l3(struct PStack *st, int pr, void *arg)
 		case (DL_RELEASE | REQUEST):
 			break;
 		default:
-			printk(KERN_WARNING "transd_l4l3 unknown primitive %x\n",
+			printk(KERN_WARNING "transd_l4l3 unknown primitive %#x\n",
 			       pr);
 			break;
 	}
@@ -1425,7 +1429,7 @@ leased_l1l2(struct PStack *st, int pr, void *arg)
 			break;
 		default:
 			printk(KERN_WARNING
-				"transd_l1l2 unknown primitive %x\n", pr);
+				"transd_l1l2 unknown primitive %#x\n", pr);
 			break;
 	}
 }
