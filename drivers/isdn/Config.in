@@ -28,6 +28,7 @@ if [ "$CONFIG_EXPERIMENTAL" != "n" ]; then
 		bool '  Drop frames s_addr != iface_addr  (ip4 only)' CONFIG_ISDN_WITH_ABC_IPV4_DYNADDR
 		if [ "$CONFIG_ISDN_WITH_ABC_IPV4_DYNADDR" != "n" ]; then
 		bool '    Rewrite socket and frame saddr-field (tcp-ip4 only and very experimental)' CONFIG_ISDN_WITH_ABC_IPV4_RW_SOCKADDR
+		bool '    Rewrite socket and frame saddr-field (udp-ip4 only and very experimental)' CONFIG_ISDN_WITH_ABC_IPV4_RWUDP_SOCKADDR
 		fi
 		bool '  RX dont reset hanguptimeout' CONFIG_ISDN_WITH_ABC_RCV_NO_HUPTIMER
 		bool '  Support (device-channel)<->(bind-groups)' CONFIG_ISDN_WITH_ABC_ICALL_BIND 

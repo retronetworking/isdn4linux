@@ -21,6 +21,11 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.89  2000/02/05 22:11:33  detabc
+ * Add rewriting of socket's and frame's saddr adressfield for
+ * dynip-connections.  Only for tcp/ipv4 and switchable per interface.
+ * Include checksum-recompute of ip- and tcp-header's.
+ *
  * Revision 1.88  2000/01/20 19:59:43  keil
  * Add FAX Class 1 support
  *
@@ -377,6 +382,7 @@
 #undef CONFIG_ISDN_WITH_ABC_RAWIPCOMPRESS
 #undef CONFIG_ISDN_WITH_ABC_FRAME_LIMIT
 #undef CONFIG_ISDN_WITH_ABC_IPV4_RW_SOCKADDR 
+#undef CONFIG_ISDN_WITH_ABC_IPV4_RWUDP_SOCKADDR 
 #else
 #include <linux/isdn_dwabc.h>
 
@@ -391,6 +397,7 @@
 #define ISDN_DW_ABC_FLAG_BSD_COMPRESS		0x00000100L
 #define ISDN_DW_ABC_FLAG_NO_LCR				0x00000200L
 #define ISDN_DW_ABC_FLAG_RW_SOCKADDR		0x00000400L
+#define ISDN_DW_ABC_FLAG_RWUDP_SOCKADDR		0x00000800L
 
 #define ISDN_DW_ABC_IFFLAG_NODCHAN			0x00000001L
 #define ISDN_DW_ABC_IFFLAG_BSDAKTIV			0x00000002L

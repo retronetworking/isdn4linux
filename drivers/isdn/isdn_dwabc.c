@@ -23,6 +23,11 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.15  2000/02/05 22:11:33  detabc
+ * Add rewriting of socket's and frame's saddr adressfield for
+ * dynip-connections.  Only for tcp/ipv4 and switchable per interface.
+ * Include checksum-recompute of ip- and tcp-header's.
+ *
  * Revision 1.14  2000/01/25 22:37:14  detabc
  * modify changes from Karsten ( MSN == - ) for bind-groups
  *
@@ -1168,6 +1173,18 @@ int isdn_dw_abc_ip4_keepalive_test(struct net_device *ndev,struct sk_buff *skb)
 		return (0);
 	}
 
+	rklen -= sizeof(struct iphdr);
+	
+	if(ip->version != 4 ) {
+#ifdef KEEPALIVE_VERBOSE
+		if(VERBLEVEL)
+			printk(KERN_WARNING
+				"ip_isdn_keepalive: ipversion %d != 4\n",
+				ip->version);
+#endif
+		return(0);
+	}
+
 #ifdef CONFIG_ISDN_WITH_ABC_IPV4_DYNADDR
 
 	if(ndev != NULL && ndev->ip_ptr != NULL && (lp->dw_abc_flags & ISDN_DW_ABC_FLAG_DYNADDR)) {
@@ -1190,32 +1207,64 @@ int isdn_dw_abc_ip4_keepalive_test(struct net_device *ndev,struct sk_buff *skb)
 					ipnr2buf(ipaddr));
 #endif
 			if((ip->saddr ^ ipaddr)) {
-#ifdef CONFIG_ISDN_WITH_ABC_IPV4_RW_SOCKADDR
+#if CONFIG_ISDN_WITH_ABC_IPV4_RW_SOCKADDR || CONFIG_ISDN_WITH_ABC_IPV4_RWUDP_SOCKADDR 
+
 				struct sock *sk = skb->sk;
-				struct tcphdr  *tcp;
+				struct tcphdr *tcp;
+				struct udphdr *udp;
+				char *drpmsg = "isdn_dynaddr drop";
+				char isudp = ip->protocol == IPPROTO_UDP;
 
-				if(	!(lp->dw_abc_flags & ISDN_DW_ABC_FLAG_RW_SOCKADDR) ||
-					ip->protocol != IPPROTO_TCP	||
-					sk == NULL					||
-					sk->prot == NULL			||
-					sk->prot->unhash == NULL	||
-					sk->prot->hash == NULL		) {
-
-					isdn_net_log_skb_dwabc(skb,lp,"isdn_dynaddr drop");
+				if(isudp) {
+#ifndef CONFIG_ISDN_WITH_ABC_IPV4_RWUDP_SOCKADDR 
+					isdn_net_log_skb_dwabc(skb,lp,drpmsg);
 					return(1);
+#else
+					if(!(lp->dw_abc_flags & ISDN_DW_ABC_FLAG_RWUDP_SOCKADDR) ||
+						(rklen < sizeof(*udp))) {
 
-				} else if(sk->saddr != ipaddr) {
+						isdn_net_log_skb_dwabc(skb,lp,drpmsg);
+						return(1);
+					}
+#endif
+				} else {
+#ifndef CONFIG_ISDN_WITH_ABC_IPV4_RW_SOCKADDR
+					isdn_net_log_skb_dwabc(skb,lp,drpmsg);
+					return(1);
+#else
+					if(!(lp->dw_abc_flags & ISDN_DW_ABC_FLAG_RW_SOCKADDR) ||
+						(rklen < sizeof(*tcp))) {
+
+						isdn_net_log_skb_dwabc(skb,lp,drpmsg);
+						return(1);
+					}
+#endif
+				}
+
+				if(	sk == NULL						||
+					sk->prot == NULL				||
+					sk->prot->unhash == NULL		||
+					sk->prot->hash == NULL			) {
+
+					isdn_net_log_skb_dwabc(skb,lp,drpmsg);
+					return(1);
+				} 
+
+				if(sk->saddr != ipaddr && sk->saddr != 0) {
 
 					ulong flags;
 
 					if(dev->net_verbose > 0) {
 
 						printk(KERN_DEBUG 
-							"%s rewriting socket->saddr %s->%s->%s rcv_saddr %s\n",
+							"%s rewriting %s-socket->saddr %s->%s:%hu->%s:%hu rcv_saddr %s\n",
 							lp->name,
+							(isudp) ? "UDP" : "TCP",
 							ipnr2buf(sk->saddr),
 							ipnr2buf(ipaddr),
+							sk->num,
 							ipnr2buf(sk->daddr),
+							ntohs(sk->dport),
 							ipnr2buf(sk->rcv_saddr));
 					}
 
@@ -1226,18 +1275,23 @@ int isdn_dw_abc_ip4_keepalive_test(struct net_device *ndev,struct sk_buff *skb)
 					sk->prot->unhash(sk);
 					sk->prot->hash(sk);
 					restore_flags(flags);
-
-				} else if(dev->net_verbose > 0) {
-
-					printk(KERN_DEBUG 
-						"%s rewriting frame->saddr %s->%s->%s\n",
-						lp->name,
-						ipnr2buf(ip->saddr),
-						ipnr2buf(ipaddr),
-						ipnr2buf(ip->daddr));
-				}
+				} 
 
 				tcp = (struct tcphdr *) (((u_char *) ip) + (ip->ihl << 2));
+				udp = (struct udphdr *)tcp;
+				
+				if(dev->net_verbose > 1) {
+
+					printk(KERN_DEBUG 
+						"%s rewriting %s-frame->saddr %s->%s:%hu->%s:%hu\n",
+						lp->name,
+						(isudp) ? "UDP" : "TCP",
+						ipnr2buf(ip->saddr),
+						ipnr2buf(ipaddr),
+						(isudp) ? ntohs(udp->source) : ntohs(tcp->source),
+						ipnr2buf(ip->daddr),
+						(isudp) ? ntohs(udp->source) : ntohs(tcp->dest));
+				}
 
 				{
 					struct PSH XXSTORE;
@@ -1253,8 +1307,15 @@ int isdn_dw_abc_ip4_keepalive_test(struct net_device *ndev,struct sk_buff *skb)
 					psh->saddr = ipaddr;
 					psh->zp[1] = p;
 					psh->len = htons(l);
-					tcp->check = 0;
-					tcp->check = ip_compute_csum((void *) psh,l+sizeof(*psh));
+
+					if(isudp) {
+						udp->check = 0;
+						udp->check = ip_compute_csum((void *) psh,l+sizeof(*psh));
+					} else {
+						tcp->check = 0;
+						tcp->check = ip_compute_csum((void *) psh,l+sizeof(*psh));
+					}
+
 					memcpy(psh,&XXSTORE,sizeof(*psh));
 				}
 
@@ -1271,12 +1332,10 @@ int isdn_dw_abc_ip4_keepalive_test(struct net_device *ndev,struct sk_buff *skb)
 #endif
 
 #ifdef CONFIG_ISDN_WITH_ABC_IPV4_TCP_KEEPALIVE
-
 	if(lp != NULL && (lp->dw_abc_flags & ISDN_DW_ABC_FLAG_NO_TCP_KEEPALIVE))
 		return(0);
 
-	if (rklen < (sizeof(struct iphdr) + sizeof(struct tcphdr))) {
-
+	if (rklen < sizeof(struct tcphdr)) {
 #ifdef KEEPALIVE_VERBOSE
 			if(VERBLEVEL)
 				printk(KERN_WARNING "ip_isdn_keepalive: len %d < \n",skb->len);
@@ -1284,27 +1343,13 @@ int isdn_dw_abc_ip4_keepalive_test(struct net_device *ndev,struct sk_buff *skb)
 		return (0);
 	}
 
-	if(ip->version != 4 ) {
-
-#ifdef KEEPALIVE_VERBOSE
-		if(VERBLEVEL)
-			printk(KERN_WARNING
-				"ip_isdn_keepalive: ipversion %d != 4\n",
-				ip->version);
-#endif
-
-		return(0);
-	}
-
 	if(ip->protocol != IPPROTO_TCP) {
-
 #ifdef KEEPALIVE_VERBOSE
 		if(VERBLEVEL)
 			printk(KERN_WARNING
 				"ip_isdn_keepalive: ip->proto %d != IPPROTO_TCP\n",
 				ip->protocol);
 #endif
-
 		return(0);
 	}
 
@@ -1393,6 +1438,9 @@ void isdn_dw_abc_init_func(void)
 		"CONFIG_ISDN_WITH_ABC_IPV4_DYNADDR\n"
 #ifdef CONFIG_ISDN_WITH_ABC_IPV4_RW_SOCKADDR
 		"CONFIG_ISDN_WITH_ABC_IPV4_RW_SOCKADDR\n"
+#endif
+#ifdef CONFIG_ISDN_WITH_ABC_IPV4_RWUDP_SOCKADDR
+		"CONFIG_ISDN_WITH_ABC_IPV4_RWUDP_SOCKADDR\n"
 #endif
 #endif
 #ifdef CONFIG_ISDN_WITH_ABC_RCV_NO_HUPTIMER
@@ -1493,7 +1541,8 @@ void isdn_dwabc_test_phone(isdn_net_local *lp)
 				case 'X':	lp->dw_abc_flags |= ISDN_DW_ABC_FLAG_RCV_NO_HUPTIMER;		break;
 
 				case 'D':	lp->dw_abc_flags |= ISDN_DW_ABC_FLAG_DYNADDR;				break;
-				case 'R':	lp->dw_abc_flags |= ISDN_DW_ABC_FLAG_RW_SOCKADDR;			break;
+				case 'T':	lp->dw_abc_flags |= ISDN_DW_ABC_FLAG_RW_SOCKADDR;			break;
+				case 'U':	lp->dw_abc_flags |= ISDN_DW_ABC_FLAG_RWUDP_SOCKADDR;		break;
 				case 'B':	lp->dw_abc_flags |= ISDN_DW_ABC_FLAG_BSD_COMPRESS;			break;
 
 				case '"':

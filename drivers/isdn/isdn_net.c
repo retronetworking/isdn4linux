@@ -21,6 +21,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.103  2000/01/23 18:45:37  keil
+ * Change EAZ mapping to forbit the use of cards (insert a "-" for the MSN)
+ *
  * Revision 1.102  2000/01/09 20:43:14  detabc
  * exand logical bind-group's for both call's (in and out).
  * add first part of kernel-config-help for abc-extension.
@@ -1891,11 +1894,9 @@ isdn_net_start_xmit(struct sk_buff *skb, struct net_device *ndev)
 #endif
 #ifdef CONFIG_ISDN_WITH_ABC
 #if CONFIG_ISDN_WITH_ABC_IPV4_TCP_KEEPALIVE || CONFIG_ISDN_WITH_ABC_IPV4_DYNADDR
-	if(!(lp->dw_abc_flags & ISDN_DW_ABC_FLAG_NO_TCP_KEEPALIVE)) {
-		if(isdn_dw_abc_ip4_keepalive_test(ndev,skb)) {
-			dev_kfree_skb(skb);
-			return(0);
-		}
+	if(isdn_dw_abc_ip4_keepalive_test(ndev,skb)) {
+		dev_kfree_skb(skb);
+		return(0);
 	}
 #endif
 #ifdef CONFIG_ISDN_WITH_ABC_UDP_CHECK
