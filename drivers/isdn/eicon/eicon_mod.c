@@ -31,6 +31,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.19  1999/11/12 13:21:44  armin
+ * Bugfix of undefined reference with CONFIG_MCA
+ *
  * Revision 1.18  1999/10/11 18:13:25  armin
  * Added fax capabilities for Eicon Diva Server cards.
  *
@@ -43,7 +46,7 @@
  * Improved debug and log via readstat()
  *
  * Revision 1.15  1999/09/08 20:17:31  armin
- * Added microchannel patch from Erik Weber.
+ * Added microchannel patch from Erik Weber (exrz73@ibm.net).
  *
  * Revision 1.14  1999/09/06 07:29:35  fritz
  * Changed my mail-address.
@@ -1215,6 +1218,7 @@ eicon_alloccard(int Type, int membase, int irq, char *id)
 				card->bus = EICON_BUS_ISA;
 				card->hwif.isa.card = (void *)card;
 				card->hwif.isa.shmem = (eicon_isa_shmem *)membase;
+				card->hwif.isa.physmem = (unsigned long)membase;
 				card->hwif.isa.master = 1;
 				card->hwif.isa.irq = irq;
 				card->hwif.isa.type = Type;
@@ -1229,6 +1233,7 @@ eicon_alloccard(int Type, int membase, int irq, char *id)
                                 card->bus = EICON_BUS_ISA;
 				card->hwif.isa.card = (void *)card;
 				card->hwif.isa.shmem = (eicon_isa_shmem *)membase;
+				card->hwif.isa.physmem = (unsigned long)membase;
 				card->hwif.isa.master = 1;
 				card->hwif.isa.irq = irq;
 				card->hwif.isa.type = Type;

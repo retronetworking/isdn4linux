@@ -21,6 +21,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.6  1999/11/15 19:37:04  keil
+ * need config.h
+ *
  * Revision 1.5  1999/09/08 20:17:31  armin
  * Added microchannel patch from Erik Weber.
  *
@@ -113,6 +116,7 @@ typedef union {
 typedef struct {
 	int               ramsize;
 	int               irq;	    /* IRQ                        */
+	unsigned long	  physmem;  /* physical memory address	  */
 #ifdef CONFIG_MCA
 	int		  io;	    /* IO-port for MCA brand      */
 #endif /* CONFIG_MCA */

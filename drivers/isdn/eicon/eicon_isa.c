@@ -22,6 +22,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.9  1999/09/08 20:17:31  armin
+ * Added microchannel patch from Erik Weber (exrz73@ibm.net).
+ *
  * Revision 1.8  1999/09/06 07:29:35  fritz
  * Changed my mail-address.
  *
@@ -84,8 +87,14 @@ static int eicon_isa_valid_irq[] = {
 
 static void
 eicon_isa_release_shmem(eicon_isa_card *card) {
-	if (card->mvalid)
+	if (card->mvalid) {
+#ifdef COMPAT_HAS_ISA_IOREMAP
+		iounmap(card->shmem);
+		release_mem_region(card->physmem, card->ramsize);
+#else
 		release_shmem((unsigned long)card->shmem, card->ramsize);
+#endif
+	}
 	card->mvalid = 0;
 }
 
@@ -114,7 +123,7 @@ eicon_isa_printpar(eicon_isa_card *card) {
 		case EICON_CTYPE_S2M:
 			printk(KERN_INFO "Eicon %s at 0x%lx, irq %d.\n",
 			       eicon_ctype_name[card->type],
-			       (unsigned long)card->shmem,
+			       card->physmem,
 			       card->irq);
 	}
 }
@@ -123,6 +132,7 @@ int
 eicon_isa_find_card(int Mem, int Irq, char * Id)
 {
 	int primary = 1;
+	unsigned long amem;
 
 	if (!strlen(Id))
 		return -1;
@@ -135,24 +145,39 @@ eicon_isa_find_card(int Mem, int Irq, char * Id)
 			 Mem, Id);
 		return -1;
 	}
+#ifdef COMPAT_HAS_ISA_IOREMAP
+	if (check_mem_region(Mem, RAMSIZE)) {
+#else
 	if (check_shmem(Mem, RAMSIZE)) {
+#endif
 		printk(KERN_WARNING "eicon_isa_boot: memory at 0x%x already in use.\n", Mem);
 		return -1;
 	}
 
-        writew(0x55aa, Mem + 0x402);
-        if (readw(Mem + 0x402) != 0x55aa) primary = 0;
-	writew(0, Mem + 0x402);
-	if (readw(Mem + 0x402) != 0) primary = 0;
+#ifdef COMPAT_HAS_ISA_IOREMAP
+	amem = (unsigned long) ioremap(Mem, RAMSIZE);
+#else
+	amem = (unsigned long) Mem;
+#endif
+        writew(0x55aa, amem + 0x402);
+        if (readw(amem + 0x402) != 0x55aa) primary = 0;
+	writew(0, amem + 0x402);
+	if (readw(amem + 0x402) != 0) primary = 0;
 
 	printk(KERN_INFO "Eicon: Driver-ID: %s\n", Id);
 	if (primary) {
 		printk(KERN_INFO "Eicon: assuming pri card at 0x%x\n", Mem);
-		writeb(0, Mem + 0x3ffe);
+		writeb(0, amem + 0x3ffe);
+#ifdef COMPAT_HAS_ISA_IOREMAP
+		iounmap((unsigned char *)amem);
+#endif
 		return EICON_CTYPE_ISAPRI;
 	} else {
 		printk(KERN_INFO "Eicon: assuming bri card at 0x%x\n", Mem);
-		writeb(0, Mem + 0x400);
+		writeb(0, amem + 0x400);
+#ifdef COMPAT_HAS_ISA_IOREMAP
+		iounmap((unsigned char *)amem);
+#endif
 		return EICON_CTYPE_ISABRI;
 	}
 	return -1;
@@ -184,29 +209,21 @@ eicon_isa_bootload(eicon_isa_card *card, eicon_isa_codebuf *cb) {
 		return -EFAULT;
 	}
 
-	switch(card->type) {
-		case EICON_CTYPE_S:
-		case EICON_CTYPE_SX:
-		case EICON_CTYPE_SCOM:
-		case EICON_CTYPE_QUADRO:
-		case EICON_CTYPE_ISABRI:
-			card->ramsize  = RAMSIZE;
-			card->intack   = (__u8 *)card->shmem + INTACK;
-			card->startcpu = (__u8 *)card->shmem + STARTCPU;
-			card->stopcpu  = (__u8 *)card->shmem + STOPCPU;
-			break;
-		case EICON_CTYPE_S2M:
-		case EICON_CTYPE_ISAPRI:
-			card->ramsize  = RAMSIZE_P;
-			card->intack   = (__u8 *)card->shmem + INTACK_P;
-			card->startcpu = (__u8 *)card->shmem + STARTCPU_P;
-			card->stopcpu  = (__u8 *)card->shmem + STOPCPU_P;
-			break;
-		default:
-			printk(KERN_WARNING "eicon_isa_boot: Invalid card type %d\n", card->type);
-			return -EINVAL;
-	}
+	if (card->type == EICON_CTYPE_ISABRI)
+		card->ramsize  = RAMSIZE;
+	else
+		card->ramsize  = RAMSIZE_P;
 
+#ifdef COMPAT_HAS_ISA_IOREMAP
+	if (check_mem_region(card->physmem, card->ramsize)) {
+		printk(KERN_WARNING "eicon_isa_boot: memory at 0x%lx already in use.\n",
+			card->physmem);
+		kfree(code);
+		return -EBUSY;
+	}
+	request_mem_region(card->physmem, card->ramsize, "Eicon ISA ISDN");
+	card->shmem = (eicon_isa_shmem *) ioremap(card->physmem, card->ramsize);
+#else
 	/* Register shmem */
 	if (check_shmem((unsigned long)card->shmem, card->ramsize)) {
 		printk(KERN_WARNING "eicon_isa_boot: memory at 0x%lx already in use.\n",
@@ -215,10 +232,34 @@ eicon_isa_bootload(eicon_isa_card *card, eicon_isa_codebuf *cb) {
 		return -EBUSY;
 	}
 	request_shmem((unsigned long)card->shmem, card->ramsize, "Eicon ISA ISDN");
+#endif
 #ifdef EICON_MCA_DEBUG
 	printk(KERN_INFO "eicon_isa_boot: card->ramsize = %d.\n", card->ramsize);
 #endif
 	card->mvalid = 1;
+
+	switch(card->type) {
+		case EICON_CTYPE_S:
+		case EICON_CTYPE_SX:
+		case EICON_CTYPE_SCOM:
+		case EICON_CTYPE_QUADRO:
+		case EICON_CTYPE_ISABRI:
+			card->intack   = (__u8 *)card->shmem + INTACK;
+			card->startcpu = (__u8 *)card->shmem + STARTCPU;
+			card->stopcpu  = (__u8 *)card->shmem + STOPCPU;
+			break;
+		case EICON_CTYPE_S2M:
+		case EICON_CTYPE_ISAPRI:
+			card->intack   = (__u8 *)card->shmem + INTACK_P;
+			card->startcpu = (__u8 *)card->shmem + STARTCPU_P;
+			card->stopcpu  = (__u8 *)card->shmem + STOPCPU_P;
+			break;
+		default:
+			printk(KERN_WARNING "eicon_isa_boot: Invalid card type %d\n", card->type);
+			eicon_isa_release_shmem(card);
+			kfree(code);
+			return -EINVAL;
+	}
 
 	/* clear any pending irq's */
 	readb(card->intack);
@@ -228,6 +269,7 @@ eicon_isa_bootload(eicon_isa_card *card, eicon_isa_codebuf *cb) {
 	}
 	else {
 		printk(KERN_WARNING "eicon_isa_boot: Card type yet not supported.\n");
+		eicon_isa_release_shmem(card);
 		return -EINVAL;
 	};
 
@@ -317,7 +359,7 @@ eicon_isa_bootload(eicon_isa_card *card, eicon_isa_codebuf *cb) {
         }
 	printk(KERN_INFO "%s: startup-code loaded\n", eicon_ctype_name[card->type]); 
 	if ((card->type == EICON_CTYPE_QUADRO) && (card->master)) {
-		tmp = eicon_addcard(card->type, (unsigned long)card->shmem, card->irq, 
+		tmp = eicon_addcard(card->type, card->physmem, card->irq, 
 					((eicon_card *)card->card)->regname);
 		printk(KERN_INFO "Eicon: %d adapters added\n", tmp);
 	}
