@@ -272,9 +272,8 @@ README for the ISDN-subsystem
        Due to limited hardware-capabilities, there is no way to check the
        existence of a card. Therefore you need to be sure your card's setup
        is correct. Also there are bugs in the printed manual of some newer
-       16.3 cards. The manual tells the port has to be 0x180. THIS IS WRONG!!
-       0xd80 is the correct value! Have a look to the kernel-syslog. With
-       most of the cards, you should see a line "HSCX version A:5 B:5" there.
+       16.3 cards. Have a look to the kernel-syslog. With most of the cards,
+       you should see a line "HSCX version A:5 B:5" there.
        
      3.1.2 ICN driver.
 
@@ -292,9 +291,10 @@ README for the ISDN-subsystem
        When using the ICN double card, you MUST define TWO idstrings.
        idstring must start with a character!
 
-       The ICN driver supports only one card at the moment. If you like to
-       use more than one card, build the modularized version, loading it
-       more than one time, each module driving a single card.
+       If you like to use more than one card, you can use the program
+       "icnctrl" from the utility-package to configure additional cards.
+       You need to configure shared memory only once, since the icn-driver
+       maps all cards into the same address-space.
 
        Using the "icnctrl"-utility, portbase and shared memory can also be
        changed during runtime.
@@ -335,12 +335,8 @@ README for the ISDN-subsystem
        When using the ICN double card, you MUST define TWO idstrings.
        idstring must start with a character!
 
-       The ICN driver supports only one card at the moment. If you like to
-       use more than one card, build the modularized version, loading it
-       more than one time, each module driving a single card.
-
-       Using the "icnctrl"-utility, portbase and shared memory can also be
-       changed during runtime.
+       Using the "icnctrl"-utility, the same features apply to the modularized
+       version like to the kernel-builtin one.
 
        The D-channel protocol is configured by loading different firmware
        into the card's memory using the "icnctrl"-utility.
@@ -365,12 +361,15 @@ README for the ISDN-subsystem
      For Euro-ISDN:
        icnctrl [-d IDstring] load download/loadpg.bin download/pc_eu_ca.bin
 
-     When using the ICN-2B, the protocol-software for the second half of
+     When using the ICN-4B, the protocol-software for the second half of
      the card must be appended to the command line.
 
-     -> The two LEDs at the back cover of the card (ICN-2B: 4 LEDs) must be
+     -> The two LEDs at the back cover of the card (ICN-4B: 4 LEDs) must be
         blinking intermittently now. If a connection is up, the corresponding
         led is lit continuously.
+
+     For loading pcbit-firmware, refer to Documentation/isdn/README.pcbit
+     and the pcbit manpage, included in the utility-package.
 
    b) If you only intend to use ttys, you are nearly ready now.
 
