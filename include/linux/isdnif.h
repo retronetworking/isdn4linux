@@ -22,6 +22,11 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.3  1996/04/29 22:57:54  fritz
+ * Added driverId and channel parameters to
+ * writecmd() and readstat().
+ * Added constant for voice-support.
+ *
  * Revision 1.2  1996/04/20 17:02:40  fritz
  * Changes to support skbuffs for Lowlevel-Drivers.
  * Misc. typos
@@ -113,6 +118,7 @@
 #define ISDN_FEATURE_L2_X75UI   (0x0001 << ISDN_PROTO_L2_X75UI)
 #define ISDN_FEATURE_L2_X75BUI  (0x0001 << ISDN_PROTO_L2_X75BUI)
 #define ISDN_FEATURE_L2_HDLC    (0x0001 << ISDN_PROTO_L2_HDLC)
+#define ISDN_FEATURE_L2_TRANS   (0x0001 << ISDN_PROTO_L2_TRANS)
 
 /* Layer 3 */
 #define ISDN_FEATURE_L3_TRANS   (0x0100 << ISDN_PROTO_L3_TRANS)
