@@ -1,6 +1,11 @@
 /* $Id$
  *
  * $Log$
+ * Revision 1.2  1996/04/20 16:45:05  fritz
+ * Changed to report all incoming calls to Linklevel, not just those
+ * with Service 7.
+ * Misc. typos
+ *
  * Revision 1.1  1996/04/13 10:24:45  fritz
  * Initial revision
  *
@@ -470,11 +475,6 @@ l3up(struct PStack *st,
 		ptr = DATAPTR(ibh);
 		ptr += st->l2.ihsize;
 		size = ibh->datasize - st->l2.ihsize;
-		if (DEBUG_1TR6 > 6) {
-			printk(KERN_INFO "isdnl3/l3up DL_DATA size=%d\n", size);
-			for (i = 0; i < size; i++)
-				printk(KERN_INFO "l3up data %x\n", ptr[i]);
-		}
 		mt = ptr[3];
 		switch (ptr[0]) {
 #ifdef P_1TR6
@@ -489,8 +489,8 @@ l3up(struct PStack *st,
 			  if (i == datasl_1tr6t_len) {
 				  BufPoolRelease(ibh);
 				  if (DEBUG_1TR6 > 0)
-					  printk(KERN_INFO "isdnl3up unhandled 1tr6 state %d MT %s\n",
-						 st->l3.state, mt_trans(PROTO_DIS_N1, mt));
+					  printk(KERN_INFO "isdnl3up unhandled 1tr6 state %d MT %x\n",
+						 st->l3.state, mt);
 			  } else
 				  datastatelist_1tr6t[i].rout(st, pr, ibh);
 			  break;
@@ -502,6 +502,9 @@ l3up(struct PStack *st,
 					  break;
 			  if (i == datasllen) {
 				  BufPoolRelease(ibh);
+				  if (DEBUG_1TR6 > 0)
+			  	  	printk(KERN_INFO "isdnl3up unhandled E-DSS1 state %d MT %x\n",
+				 		st->l3.state, mt);
 			  } else
 				  datastatelist[i].rout(st, pr, ibh);
 		}
@@ -509,11 +512,6 @@ l3up(struct PStack *st,
 		ptr = DATAPTR(ibh);
 		ptr += st->l2.uihsize;
 		size = ibh->datasize - st->l2.uihsize;
-		if (DEBUG_1TR6 > 6) {
-			printk(KERN_INFO "isdnl3/l3up DL_UNIT_DATA size=%d\n", size);
-			for (i = 0; i < size; i++)
-				printk(KERN_INFO "l3up data %x\n", ptr[i]);
-		}
 		mt = ptr[3];
 		switch (ptr[0]) {
 #ifdef P_1TR6
@@ -527,8 +525,8 @@ l3up(struct PStack *st,
 					  break;
 			  if (i == datasl_1tr6t_len) {
 				  if (DEBUG_1TR6 > 0) {
-					  printk(KERN_INFO "isdnl3up unhandled 1tr6 state %d MT %s\n"
-						 ,st->l3.state, mt_trans(PROTO_DIS_N1, mt));
+					  printk(KERN_INFO "isdnl3up unhandled 1tr6 state %d MT %x\n"
+						 ,st->l3.state, mt);
 				  }
 				  BufPoolRelease(ibh);
 			  } else
@@ -542,6 +540,9 @@ l3up(struct PStack *st,
 					  break;
 			  if (i == datasllen) {
 				  BufPoolRelease(ibh);
+				  if (DEBUG_1TR6 > 0)
+			  	  	printk(KERN_INFO "isdnl3up unhandled E-DSS1 state %d MT %x\n",
+				 		st->l3.state, mt);
 			  } else
 				  datastatelist[i].rout(st, pr, ibh);
 		}
@@ -576,6 +577,9 @@ l3down(struct PStack *st,
 			      (pr == downstatelist[i].primitive))
 				  break;
 		  if (i == downsllen) {
+			  if (DEBUG_1TR6 > 0) {
+				  printk(KERN_INFO "isdnl3down unhandled E-DSS1 state %d primitiv %x\n", st->l3.state, pr);
+			  }
 		  } else
 			  downstatelist[i].rout(st, pr, ibh);
 	}
