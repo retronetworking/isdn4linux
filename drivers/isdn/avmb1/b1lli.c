@@ -6,6 +6,9 @@
  * (c) Copyright 1997 by Carsten Paeth (calle@calle.in-berlin.de)
  * 
  * $Log$
+ * Revision 1.10  1999/04/15 19:49:31  calle
+ * fix fuer die B1-PCI. Jetzt geht z.B. auch IRQ 17 ...
+ *
  * Revision 1.9  1999/01/05 18:33:23  he
  * merged remaining 2.2pre{1,2} changes (jiffies and Config)
  *
@@ -269,8 +272,8 @@ static inline int B1_rx_full(unsigned int base)
 
 static inline unsigned char B1_get_byte(unsigned int base)
 {
-	unsigned long i = jiffies + 1 * HZ;	/* maximum wait time 1 sec */
-	while (!B1_rx_full(base) && time_before(jiffies, i));
+	unsigned long stop = jiffies + 1 * HZ;	/* maximum wait time 1 sec */
+	while (!B1_rx_full(base) && time_before(jiffies, stop));
 	if (B1_rx_full(base))
 		return inb(base + B1_READ);
 	printk(KERN_CRIT "b1lli(0x%x): rx not full after 1 second\n", base);
@@ -296,6 +299,15 @@ static inline void B1_put_byte(unsigned int base, unsigned char val)
 {
 	while (!B1_tx_empty(base));
 	b1outp(base, B1_WRITE, val);
+}
+
+static inline int B1_save_put_byte(unsigned int base, unsigned char val)
+{
+	unsigned long stop = jiffies + 2 * HZ;
+	while (!B1_tx_empty(base) && time_before(jiffies,stop));
+	if (!B1_tx_empty(base)) return -1;
+	b1outp(base, B1_WRITE, val);
+	return 0;
 }
 
 static inline void B1_put_word(unsigned int base, unsigned int val)
@@ -701,7 +713,11 @@ int B1_load_t4file(unsigned int base, avmb1_t4file * t4file)
 		if (loaddebug)
 			printk(KERN_DEBUG "b1capi: loading: %d bytes ..", sizeof(buf));
 		for (i = 0; i < sizeof(buf); i++)
-			B1_put_byte(base, buf[i]);
+			if (B1_save_put_byte(base, buf[i]) < 0) {
+			        if (loaddebug) printk("failed\n");
+				printk(KERN_ERR "b1lli(0x%x): corrupted t4 file ?\n", base);
+				return -EIO;
+			}
 		if (loaddebug)
 		   printk("ok\n");
 		left -= sizeof(buf);
@@ -714,7 +730,11 @@ int B1_load_t4file(unsigned int base, avmb1_t4file * t4file)
 		if (loaddebug)
 			printk(KERN_DEBUG "b1capi: loading: %d bytes ..", left);
 		for (i = 0; i < left; i++)
-			B1_put_byte(base, buf[i]);
+			if (B1_save_put_byte(base, buf[i]) < 0) {
+			        if (loaddebug) printk("failed\n");
+				printk(KERN_ERR "b1lli(0x%x): corrupted t4 file ?\n", base);
+				return -EIO;
+			}
 		if (loaddebug)
 		   printk("ok\n");
 	}
@@ -779,34 +799,35 @@ int B1_load_config(unsigned int base, avmb1_t4file * config)
 
 int B1_loaded(unsigned int base)
 {
-	int i;
+	unsigned long stop;
 	unsigned char ans;
+	unsigned long tout = 2;
 
 	if (loaddebug)
-		printk(KERN_DEBUG "b1capi: loaded: wait 1 ..\n");
-	for (i = jiffies + 10 * HZ; time_before(jiffies, i);) {
+		printk(KERN_DEBUG "b1capi: loaded: wait tx empty (%lu sec) ..\n", tout);
+	for (stop = jiffies + tout * HZ; time_before(jiffies, stop);) {
 		if (B1_tx_empty(base))
 			break;
 	}
 	if (!B1_tx_empty(base)) {
-		printk(KERN_ERR "b1lli(0x%x): B1_loaded: timeout tx\n", base);
+		printk(KERN_ERR "b1lli(0x%x): tx err, corrupted t4 file ?\n", base);
 		return 0;
 	}
 	B1_put_byte(base, SEND_POLL);
-	printk(KERN_DEBUG "b1capi: loaded: wait 2 ..\n");
-	for (i = jiffies + 10 * HZ; time_before(jiffies, i);) {
+	printk(KERN_DEBUG "b1capi: loaded: wait rx full (%lu sec) ..\n", tout);
+	for (stop = jiffies + tout * HZ; time_before(jiffies, stop);) {
 		if (B1_rx_full(base)) {
 			if ((ans = B1_get_byte(base)) == RECEIVE_POLL) {
 				if (loaddebug)
 					printk(KERN_DEBUG "b1capi: loaded: ok\n");
 				return 1;
 			}
-			printk(KERN_ERR "b1lli(0x%x): B1_loaded: got 0x%x ???\n",
+			printk(KERN_ERR "b1lli(0x%x): got 0x%x, firmware not running\n",
 				base, ans);
 			return 0;
 		}
 	}
-	printk(KERN_ERR "b1lli(0x%x): B1_loaded: timeout rx\n", base);
+	printk(KERN_ERR "b1lli(0x%x): firmware not running\n", base);
 	return 0;
 }
 
