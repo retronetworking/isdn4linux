@@ -7,6 +7,9 @@
  *
  *
  * $Log$
+ * Revision 1.1.2.2  1998/09/27 13:03:16  keil
+ * Fix segfaults on connect
+ *
  * Revision 1.1.2.1  1998/08/25 14:01:24  calle
  * Ported driver for AVM Fritz!Card PCI from the 2.1 tree.
  * I could not test it.
@@ -346,6 +349,11 @@ HDLC_irq(struct BCState *bcs, u_int stat) {
 				sprintf(tmp, "ch%d stat %#x", bcs->channel, stat);
 				debugl1(bcs->cs, tmp);
 			}
+			bcs->hw.hdlc.ctrl &= ~HDLC_STAT_RML_MASK;
+			bcs->hw.hdlc.ctrl |= HDLC_CMD_RRS;
+			WriteHDLC(bcs->cs, bcs->channel, HDLC_STATUS, bcs->hw.hdlc.ctrl);
+			bcs->hw.hdlc.ctrl &= ~HDLC_CMD_RRS;
+			WriteHDLC(bcs->cs, bcs->channel, HDLC_STATUS, bcs->hw.hdlc.ctrl);
 			bcs->hw.hdlc.rcvidx = 0;
 		} else {
 			if (!(len = (stat & HDLC_STAT_RML_MASK)>>8))
@@ -383,17 +391,19 @@ HDLC_irq(struct BCState *bcs, u_int stat) {
 			skb_push(bcs->tx_skb, bcs->hw.hdlc.count);
 			bcs->tx_cnt += bcs->hw.hdlc.count;
 			bcs->hw.hdlc.count = 0;
-			bcs->hw.hdlc.ctrl &= ~HDLC_STAT_RML_MASK;
-			bcs->hw.hdlc.ctrl |= HDLC_CMD_XRS;
-			WriteHDLC(bcs->cs, bcs->channel, HDLC_STATUS, bcs->hw.hdlc.ctrl);
-			bcs->hw.hdlc.ctrl &= ~HDLC_CMD_XRS;
-			hdlc_sched_event(bcs, B_XMTBUFREADY);
-			sprintf(tmp, "ch%d XDO", bcs->channel);
+//			hdlc_sched_event(bcs, B_XMTBUFREADY);
+			sprintf(tmp, "ch%d XDU", bcs->channel);
 		} else {
-			sprintf(tmp, "ch%d XDO without skb", bcs->channel);
+			sprintf(tmp, "ch%d XDU without skb", bcs->channel);
 		}
 		if (bcs->cs->debug & L1_DEB_WARN)
 			debugl1(bcs->cs, tmp);
+		bcs->hw.hdlc.ctrl &= ~HDLC_STAT_RML_MASK;
+		bcs->hw.hdlc.ctrl |= HDLC_CMD_XRS;
+		WriteHDLC(bcs->cs, bcs->channel, HDLC_STATUS, bcs->hw.hdlc.ctrl);
+		bcs->hw.hdlc.ctrl &= ~HDLC_CMD_XRS;
+		WriteHDLC(bcs->cs, bcs->channel, HDLC_STATUS, bcs->hw.hdlc.ctrl);
+		hdlc_fill_fifo(bcs);
 	} else if (stat & HDLC_INT_XPR) {
 		if (bcs->tx_skb) {
 			if (bcs->tx_skb->len) {
