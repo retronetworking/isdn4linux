@@ -5,21 +5,25 @@
  * Copyright 1994 by Fritz Elfert (fritz@wuemaus.franken.de)
  * Copyright 1995 Thinking Objects Software GmbH Wuerzburg 
  *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2, or (at your option)
- * any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
+ * This file is part of Isdn4Linux.
+ * 
+ * Isdn4Linux is distributed with NO WARRANTY OF ANY KIND.  No author
+ * or distributor accepts any responsibility for the consequences of using it,
+ * or for whether it serves any particular purpose or works at all, unless he
+ * or she says so in writing.  Refer to the Isdn4Linux Free Public
+ * License (the "License") for full details.
+ * 
+ * Every copy of Isdn4Linux must include a copy of the License,
+ * normally in a plain ASCII text file named LICENSE.  The License grants you
+ * the right to copy, modify and redistribute Isdn4Linux, but only
+ * under certain conditions described in the License.  Among other things, the
+ * License requires that the copyright notice and this notice be preserved on
+ * all copies.
  *
  * $Log$
+ * Revision 1.10  1995/10/29  21:43:10  fritz
+ * Added support for leased lines.
+ *
  * Revision 1.9  1995/04/23  13:42:10  fritz
  * Added some constants for distingushing 1TR6 and DSS1
  *
@@ -60,11 +64,19 @@
 #define ICN_IOCTL_LOADBOOT  4
 #define ICN_IOCTL_LOADPROTO 5
 #define ICN_IOCTL_LEASEDCFG 6
+#define ICN_IOCTL_GETDOUBLE 7
+#define ICN_IOCTL_DEBUGVAR  8
+
+#if defined(__KERNEL__) || defined(__DEBUGVAR__)
 
 #ifdef __KERNEL__
 /* Kernel includes */
 
 #include <linux/config.h>
+#ifdef CONFIG_MODVERSIONS
+#define MODVERSIONS
+#include <linux/modversions.h>
+#endif
 #include <linux/module.h>
 #include <linux/version.h>
 #include <linux/errno.h>
@@ -82,7 +94,11 @@
 #include <linux/wait.h>
 #include <isdnif.h>
 
+#ifdef DEF_VERSION
 char kernel_version[] = UTS_RELEASE;
+#endif
+
+#endif /* __KERNEL__ */
 
 /* some useful macros for debugging */
 #ifdef ICN_DEBUG_PORT
@@ -102,12 +118,9 @@ char kernel_version[] = UTS_RELEASE;
 #define ICN_RUN    (dev->port+2)
 #define ICN_BANK   (dev->port+3)
 
-#define ICN_TYPE_1TR6 1
-#define ICN_TYPE_EURO 2
-
 #define ICN_FLAGS_B1ACTIVE 1     /* B-Channel-1 is open                 */
 #define ICN_FLAGS_B2ACTIVE 2     /* B-Channel-2 is open                 */
-#define ICN_FLAGS_RBTIMER  4     /* cyclic scheduling of B-Channel-poll */
+#define ICN_FLAGS_RBTIMER  8     /* cyclic scheduling of B-Channel-poll */
 
 #define ICN_BOOT_TIMEOUT1  100   /* Delay for Boot-download (jiffies)   */
 #define ICN_CHANLOCK_DELAY  10   /* Delay for Channel-mapping (jiffies) */
@@ -182,6 +195,8 @@ typedef struct {
   int              leased;              /* Flag: This Adapter is connected  */
 				        /*       to a leased line           */
   unsigned short   flags;               /* Statusflags                      */
+  int              doubleS0;            /* Flag: Double-S0-Card             */
+  int              secondhalf;          /* Flag: Second half of a doubleS0  */
   int              ptype;               /* Protocoltype (1TR6 or Euro)      */
   struct timer_list st_timer;           /* Timer for Status-Polls           */
   struct timer_list rb_timer;           /* Timer for B-Channel-Polls        */
@@ -207,7 +222,9 @@ typedef struct {
 
 typedef icn_dev *icn_devptr;
 
-static icn_dev *dev = (icn_dev *)0;
+#ifdef __KERNEL__
+static icn_dev *dev  = (icn_dev *)0;
+static icn_dev *dev2 = (icn_dev *)0;
 
 /* With modutils >= 1.1.67 Integers can be changed while loading a
  * module. For this reason define the Port-Base an Shmem-Base as
@@ -216,6 +233,9 @@ static icn_dev *dev = (icn_dev *)0;
 static int   portbase = ICN_BASEADDR;
 static int   membase  = ICN_MEMADDR;
 static char* id       = "\0";
+static char* id2      = "\0";
+
+#endif /* __KERNEL__ */
 
 /* Utility-Macros */
 
@@ -264,7 +284,7 @@ static char* id       = "\0";
 #define MIN(a,b) ((a<b)?a:b)
 #define MAX(a,b) ((a>b)?a:b)
 
-#endif /* __KERNEL__ */
+#endif /* defined(__KERNEL__) || defined(__DEBUGVAR__) */
 #endif /* icn_h */
 
 

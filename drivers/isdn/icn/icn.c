@@ -5,21 +5,25 @@
  * Copyright 1994 by Fritz Elfert (fritz@wuemaus.franken.de)
  * Copyright 1995 Thinking Objects Software GmbH Wuerzburg
  *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2, or (at your option)
- * any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
+ * This file is part of Isdn4Linux.
+ * 
+ * Isdn4Linux is distributed with NO WARRANTY OF ANY KIND.  No author
+ * or distributor accepts any responsibility for the consequences of using it,
+ * or for whether it serves any particular purpose or works at all, unless he
+ * or she says so in writing.  Refer to the Isdn4Linux Free Public
+ * License (the "License") for full details.
+ * 
+ * Every copy of Isdn4Linux must include a copy of the License,
+ * normally in a plain ASCII text file named LICENSE.  The License grants you
+ * the right to copy, modify and redistribute Isdn4Linux, but only
+ * under certain conditions described in the License.  Among other things, the
+ * License requires that the copyright notice and this notice be preserved on
+ * all copies.
  *
  * $Log$
+ * Revision 1.13  1995/10/29  21:41:07  fritz
+ * Added support for DriverId's, added Jan's patches for Kernelversions.
+ *
  * Revision 1.12  1995/04/29  13:07:35  fritz
  * Added support for new Euro-ISDN-firmware
  *
@@ -76,6 +80,11 @@
  */
 #undef BOOT_DEBUG
 
+/*
+ * Verbose Shmem-Mapping.
+ */
+#undef MAP_DEBUG
+
 /* If defined, no bootcode- and protocol-downloading is supported and
  * you must use an external loader
  */
@@ -83,6 +92,8 @@
 
 static char
 *revision = "$Revision$";
+
+static void pollcard(unsigned long dummy);
 
 /* Try to allocate a new buffer, link it into queue. */
 static  u_char*
@@ -145,17 +156,23 @@ shiftout (unsigned short port,
 }
 
 /*
- * Map Cannel0 (Bank0) or Channel1 (Bank4)
+ * Map Cannel0 (Bank0/Bank8) or Channel1 (Bank4/Bank12)
  */
 static void
 map_channel(int channel) {
   static u_char chan2bank[] = {0,4,8,12};
 
+#ifdef MAP_DEBUG
+  printk(KERN_DEBUG "map_channel %d %d\n",dev->channel,channel);
+#endif
   if (channel == dev->channel) return;
   OUTB_P(0,ICN_MAPRAM);                           /* Disable RAM          */
   shiftout(ICN_BANK,chan2bank[channel],3,4);      /* Select Bank          */
   OUTB_P(0xff,ICN_MAPRAM);                        /* Enable RAM           */
   dev->channel = channel;
+#ifdef MAP_DEBUG
+  printk(KERN_DEBUG "map_channel done\n");
+#endif
 }
 
 static int
@@ -163,12 +180,23 @@ lock_channel(int channel) {
   register int retval;
   ulong flags;
 
+#ifdef MAP_DEBUG
+  printk(KERN_DEBUG "lock_channel %d\n",channel);
+#endif
   save_flags(flags);
   cli();
   if (dev->channel==channel) {
     dev->chanlock++;
     retval = 1;
-  } else retval = 0;
+#ifdef MAP_DEBUG
+    printk(KERN_DEBUG "lock_channel %d OK\n",channel);
+#endif
+  } else {
+    retval = 0;
+#ifdef MAP_DEBUG
+    printk(KERN_DEBUG "lock_channel %d FAILED, dc=%d\n",channel,dev->channel);
+#endif
+  }
   restore_flags(flags);
   return retval;
 }
@@ -177,6 +205,9 @@ static void
 release_channel() {
   ulong flags;
 
+#ifdef MAP_DEBUG
+  printk(KERN_DEBUG "release_channel l=%d\n",dev->chanlock);
+#endif
   save_flags(flags);
   cli();
   if (dev->chanlock) dev->chanlock--;
@@ -189,13 +220,23 @@ trymaplock_channel(int channel) {
 
   save_flags(flags);
   cli();
+#ifdef MAP_DEBUG
+  printk(KERN_DEBUG "trymaplock c=%d dc=%d l=%d\n",channel,dev->channel,
+	 dev->chanlock);
+#endif
   if ((!dev->chanlock) || (dev->channel == channel)) {
     dev->chanlock++;
     map_channel(channel);
     restore_flags(flags);
+#ifdef MAP_DEBUG
+  printk(KERN_DEBUG "trymaplock %d OK\n",channel);
+#endif
     return 1;
   }
   restore_flags(flags);
+#ifdef MAP_DEBUG
+  printk(KERN_DEBUG "trymaplock %d FAILED\n",channel);
+#endif
   return 0;
 }
 
@@ -205,6 +246,9 @@ maprelease_channel(int channel) {
 
   save_flags(flags);
   cli();
+#ifdef MAP_DEBUG
+  printk(KERN_DEBUG "map_release c=%d l=%d\n",channel,dev->chanlock);
+#endif
   if (dev->chanlock) dev->chanlock--;
   if (!dev->chanlock) map_channel(channel);
   restore_flags(flags);
@@ -221,7 +265,8 @@ static int max_pending[2] = {0,0};
 #endif
 
 static void
-pollbchan_receive(int channel) {
+pollbchan_receive(int channel, icn_dev *dev) {
+  int mch = channel+((dev->secondhalf)?2:0);
   int eflag;
   int cnt;
   int flags;
@@ -231,7 +276,7 @@ pollbchan_receive(int channel) {
   int akt_pending;
 #endif
 
-  if (trymaplock_channel(channel)) {
+  if (trymaplock_channel(mch)) {
     while (rbavl) {
       cnt = rbuf_l;
       if ((dev->rcvidx[channel]+cnt)>4000) {
@@ -245,7 +290,7 @@ pollbchan_receive(int channel) {
         eflag = rbuf_f;
       }
       rbnext;
-      maprelease_channel(0);
+      maprelease_channel(mch&2);
       if (!eflag) {
 	save_flags(flags);
 	cli();
@@ -271,9 +316,9 @@ pollbchan_receive(int channel) {
 #endif
 	restore_flags(flags);
       }
-      if (!trymaplock_channel(channel)) break;
+      if (!trymaplock_channel(mch)) break;
     }
-    maprelease_channel(0);
+    maprelease_channel(mch&2);
   }
 }
 
@@ -285,7 +330,8 @@ pollbchan_receive(int channel) {
  */
 
 static void
-pollbchan_send(int channel) {
+pollbchan_send(int channel, icn_dev *dev) {
+  int mch = channel+((dev->secondhalf)?2:0);
   int eflag = 0;
   int cnt;
   int left;
@@ -295,7 +341,7 @@ pollbchan_send(int channel) {
 
   if (!dev->sndcount[channel])
     return;
-  if (trymaplock_channel(channel)) {
+  if (trymaplock_channel(mch)) {
     while (sbfree && dev->sndcount[channel]) {
       left = dev->spqueue[channel]->length;
       cnt = 
@@ -303,7 +349,7 @@ pollbchan_send(int channel) {
 	 (left>ICN_FRAGSIZE)?((sbuf_f=0xff),ICN_FRAGSIZE):((sbuf_f=0),left));
       memcpy(sbuf_d,dev->spqueue[channel]->rptr,cnt);
       sbnext;                             /* switch to next buffer        */
-      maprelease_channel(0);
+      maprelease_channel(mch&2);
       dev->spqueue[channel]->rptr += cnt;
       eflag = ((dev->spqueue[channel]->length -= cnt) == 0);
       save_flags(flags);
@@ -315,9 +361,9 @@ pollbchan_send(int channel) {
       restore_flags(flags);
       if (eflag)
 	kfree_s(p,p->size);
-      if (!trymaplock_channel(channel)) break;
+      if (!trymaplock_channel(mch)) break;
     }
-    maprelease_channel(0);
+    maprelease_channel(mch&2);
   }
   if (eflag) {
     cmd.command = ISDN_STAT_BSENT;
@@ -338,12 +384,22 @@ pollbchan(unsigned long dummy) {
 
   dev->flags |= ICN_FLAGS_RBTIMER;
   if (dev->flags & ICN_FLAGS_B1ACTIVE) {
-    pollbchan_receive(0);
-    pollbchan_send(0);
+    pollbchan_receive(0,dev);
+    pollbchan_send(0,dev);
   }
   if (dev->flags & ICN_FLAGS_B2ACTIVE) {
-    pollbchan_receive(1);
-    pollbchan_send(1);
+    pollbchan_receive(1,dev);
+    pollbchan_send(1,dev);
+  }
+  if (dev->doubleS0) {
+    if (dev2->flags & ICN_FLAGS_B1ACTIVE) {
+      pollbchan_receive(0,dev2);
+      pollbchan_send(0,dev2);
+    }
+    if (dev2->flags & ICN_FLAGS_B2ACTIVE) {
+      pollbchan_receive(1,dev2);
+      pollbchan_send(1,dev2);
+    }
   }
   if (dev->flags & (ICN_FLAGS_B1ACTIVE | ICN_FLAGS_B2ACTIVE)) {
     /* schedule b-channel polling again */
@@ -355,34 +411,35 @@ pollbchan(unsigned long dummy) {
     add_timer(&dev->rb_timer);
     restore_flags(flags);
   } else dev->flags &= ~ICN_FLAGS_RBTIMER;
+  if (dev->doubleS0) {
+    if (dev2->flags & (ICN_FLAGS_B1ACTIVE | ICN_FLAGS_B2ACTIVE)) {
+      /* schedule b-channel polling again */
+      save_flags(flags);
+      cli();
+      del_timer(&dev2->rb_timer);
+      dev2->rb_timer.function = pollbchan;
+      dev2->rb_timer.expires  = RUN_AT(ICN_TIMER_BCREAD);
+      add_timer(&dev2->rb_timer);
+      restore_flags(flags);
+    } else dev2->flags &= ~ICN_FLAGS_RBTIMER;
+  }
 }
 
-/*
- * Check Statusqueue-Pointer from isdn-card.
- * If there are new status-replies from the interface, check
- * them against B-Channel-connects/disconnects and set flags arrcordingly.
- * Wake-Up any processes, who are reading the status-device.
- * If there are B-Channels open, initiate a timer-callback to
- * pollbchan().
- * This routine is called periodically via timer.
- */
-
 static void
-pollcard(unsigned long dummy) {
+pollit(icn_dev *dev) {
+  int mch   = dev->secondhalf?2:0;
   int avail = 0;
   int dflag = 0;
-  int i;
   int left;
+  u_char c;
   int ch;
   int flags;
-  int avsub;
+  int i;
   u_char *p;
-  u_char c;
   isdn_ctrl cmd;
 
-  if (lock_channel(0)) {
+  if (trymaplock_channel(mch)) {
     avail = msg_avail;
-    avsub = 0;
     for (left=avail,i=msg_o;left>0;i++,left--) {
       c = dev->shmem->comm_buffers.iopc_buf[i & 0xff];
       save_flags(flags);
@@ -394,7 +451,7 @@ pollcard(unsigned long dummy) {
       restore_flags(flags);
       if (c==0xff) {
 	dev->imsg[dev->iptr] = 0;
-	dev->iptr=0;
+	dev->iptr = 0;
 	if (dev->imsg[0]=='0' && dev->imsg[1]>='0' &&
 	    dev->imsg[1]<='2' && dev->imsg[2]==';') {
 	  ch = dev->imsg[1]-'0';
@@ -515,11 +572,13 @@ pollcard(unsigned long dummy) {
 	  p = dev->imsg;
 	  if (!strncmp(p,"DRV1.",5)) {
 	    if (!strncmp(p+7,"TC",2)) {
-	      dev->ptype = ICN_TYPE_1TR6;
+	      dev->ptype = ISDN_PTYPE_1TR6;
+	      dev->interface.features |= ISDN_FEATURE_P_1TR6;
 	      printk(KERN_INFO "icn: 1TR6-Protocol loaded and running\n");
 	    }
 	    if (!strncmp(p+7,"EC",2)) {
-	      dev->ptype = ICN_TYPE_EURO;
+	      dev->ptype = ISDN_PTYPE_EURO;
+	      dev->interface.features |= ISDN_FEATURE_P_EURO;
 	      printk(KERN_INFO "icn: Euro-Protocol loaded and running\n");
 	    }
 	    continue;
@@ -555,6 +614,25 @@ pollcard(unsigned long dummy) {
       add_timer(&dev->rb_timer);
       restore_flags(flags);
     }
+}
+
+/*
+ * Check Statusqueue-Pointer from isdn-card.
+ * If there are new status-replies from the interface, check
+ * them against B-Channel-connects/disconnects and set flags arrcordingly.
+ * Wake-Up any processes, who are reading the status-device.
+ * If there are B-Channels open, initiate a timer-callback to
+ * pollbchan().
+ * This routine is called periodically via timer.
+ */
+
+static void
+pollcard(unsigned long dummy) {
+  ulong flags;
+
+  pollit(dev);
+  if (dev->doubleS0)
+    pollit(dev2);
   /* schedule again */
   save_flags(flags);
   cli();
@@ -575,8 +653,9 @@ pollcard(unsigned long dummy) {
  * Return:
  *        Number of bytes transferred, -E??? on error
  */
+
 static int
-sendbuf(int channel, u_char *buffer, int len, int user) {
+sendbuf(int channel, u_char *buffer, int len, int user, icn_dev *dev) {
   register u_char *p;
   int flags;
 
@@ -597,13 +676,44 @@ sendbuf(int channel, u_char *buffer, int len, int user) {
       memcpy(p,buffer,len);
     }
     dev->sndcount[channel] += len;
-    pollbchan_send(channel);
+    pollbchan_send(channel,dev);
     restore_flags(flags);
   }
   return len;
 }
 
 #ifndef LOADEXTERN
+static int
+check_loader(int cardnumber) {
+  int timer = 0;
+
+  while (1) {
+#ifdef BOOT_DEBUG
+    printk(KERN_DEBUG "Loader %d ?\n",cardnumber);
+#endif
+    if (dev->shmem->data_control.scns || 
+	dev->shmem->data_control.scnr) {
+      if (timer++ > 5) {
+	printk(KERN_WARNING "icn: Boot-Loader %d timed out.\n",cardnumber);
+	release_channel();
+	return -EIO;
+      }
+#ifdef BOOT_DEBUG
+      printk(KERN_DEBUG "Loader %d TO?\n",cardnumber);
+#endif
+      current->state = TASK_INTERRUPTIBLE;
+      current->timeout = jiffies + ICN_BOOT_TIMEOUT1;
+      schedule();
+    } else {
+#ifdef BOOT_DEBUG
+      printk(KERN_DEBUG "Loader %d OK\n",cardnumber);
+#endif
+      release_channel();
+      return 0;
+    }
+  }
+}
+
 /* Load the boot-code into the interface-card's memory and start it.
  * Always called from user-process.
  * 
@@ -614,13 +724,12 @@ sendbuf(int channel, u_char *buffer, int len, int user) {
  */
 
 static int
-loadboot(u_char *buffer) {
-  int timer;
+loadboot(u_char *buffer, icn_dev *dev) {
   int ret;
   ulong flags;
 
 #ifdef BOOT_DEBUG
-    printk(KERN_DEBUG "loadboot called, buffaddr=%08lx\n",buffer);
+    printk(KERN_DEBUG "loadboot called, buffaddr=%08lx\n",(ulong)buffer);
 #endif
   if ((ret = verify_area(VERIFY_READ,(void*)buffer,ICN_CODE_STAGE1)))
     return ret;
@@ -639,38 +748,38 @@ loadboot(u_char *buffer) {
   OUTB_P(0,ICN_MAPRAM);                              /* Disable RAM     */
   shiftout(ICN_CFG,0x0f,3,4);                        /* Windowsize= 16k */
   shiftout(ICN_CFG,(unsigned long)dev->shmem,23,10); /* Set RAM-Addr.   */
-  shiftout(ICN_BANK,0,3,4);                          /* Select Bank 0   */
-  OUTB_P(0xff,ICN_MAPRAM);                           /* Enable  RAM     */
+  save_flags(flags);
+  cli();
+  dev->channel = 1;                                  /* Force Mapping   */
+  map_channel(0);                                    /* Select Bank 0   */
+  lock_channel(0);                                   /* Lock Bank 0     */
+  restore_flags(flags);
   memcpy_fromfs(dev->shmem,buffer,ICN_CODE_STAGE1);  /* Copy code       */
-  OUTB_P(0xff,ICN_RUN);                              /* Start Boot-Code */
-  timer = 0;
-  while (1) {
-#ifdef BOOT_DEBUG
-    printk(KERN_DEBUG "Loader?\n");
-#endif
-    if (dev->shmem->data_control.scns || 
-	dev->shmem->data_control.scnr) {
-      if (timer++ > 5) {
-	printk(KERN_WARNING "icn: Boot-Loader timed out.\n");
-	return -EIO;
-      }
-#ifdef BOOT_DEBUG
-      printk(KERN_DEBUG "Loader TO?\n");
-#endif
-      current->state = TASK_INTERRUPTIBLE;
-      current->timeout = jiffies + ICN_BOOT_TIMEOUT1;
-      schedule();
-    } else {
-#ifdef BOOT_DEBUG
-      printk(KERN_DEBUG "Loader OK\n");
-#endif
-      return 0;
-    }
+  if (dev->doubleS0) {
+    save_flags(flags);
+    cli();
+    release_channel();
+    map_channel(2);                                  /* Select Bank 8   */
+    lock_channel(2);                                 /* Lock Bank 8     */
+    restore_flags(flags);
+    memcpy_fromfs(dev->shmem,buffer,ICN_CODE_STAGE1);  /* Copy code       */
   }
+  OUTB_P(0xff,ICN_RUN);                              /* Start Boot-Code */
+  if ((ret = check_loader(dev->doubleS0?2:1)))
+    return ret;
+  if (!dev->doubleS0)
+    return 0;
+  /* reached only, if we have a Double-S0-Card */
+  save_flags(flags);
+  cli();
+  map_channel(0);                                    /* Select Bank 0   */
+  lock_channel(0);                                   /* Lock Bank 0     */
+  restore_flags(flags);
+  return(check_loader(1));
 }
 
 static int
-loadproto(u_char *buffer) {
+loadproto(u_char *buffer, icn_dev *ldev) {
   register u_char *p = buffer;
   uint  left  = ICN_CODE_STAGE2;
   uint  cnt;
@@ -679,11 +788,21 @@ loadproto(u_char *buffer) {
   unsigned long flags;
 
 #ifdef BOOT_DEBUG
-      printk(KERN_DEBUG "loadproto called\n");
+  printk(KERN_DEBUG "loadproto called\n");
 #endif
   if ((ret = verify_area(VERIFY_READ,(void*)buffer, ICN_CODE_STAGE2)))
     return ret;
   timer = 0;
+  save_flags(flags);
+  cli();
+  if (ldev->secondhalf) {
+    map_channel(2);
+    lock_channel(2);
+  } else {
+    map_channel(0);
+    lock_channel(0);
+  }
+  restore_flags(flags);
   while (left) {
     if (sbfree) {                   /* If there is a free buffer...  */
       cnt = MIN(256,left);
@@ -696,8 +815,10 @@ loadproto(u_char *buffer) {
 #ifdef BOOT_DEBUG
       printk(KERN_DEBUG "boot 2 !sbfree\n");
 #endif
-      if (timer++ > 5)
+      if (timer++ > 5) {
+	maprelease_channel(0);
 	return -EIO;
+      }
       current->state = TASK_INTERRUPTIBLE;
       current->timeout = jiffies + 10;
       schedule();
@@ -715,6 +836,7 @@ loadproto(u_char *buffer) {
 #ifdef BOOT_DEBUG
 	printk(KERN_DEBUG "Proto TO!\n");
 #endif
+	maprelease_channel(0);
 	return -EIO;
       }
 #ifdef BOOT_DEBUG
@@ -724,13 +846,20 @@ loadproto(u_char *buffer) {
       current->timeout = jiffies + ICN_BOOT_TIMEOUT1;
       schedule();
     } else {
-      save_flags(flags);
-      cli();
-      init_timer(&dev->st_timer);
-      dev->st_timer.expires  = RUN_AT(ICN_TIMER_DCREAD);
-      dev->st_timer.function = pollcard;
-      add_timer(&dev->st_timer);
-      restore_flags(flags);
+      if ((ldev->secondhalf) || (!dev->doubleS0)) {
+	save_flags(flags);
+	cli();
+#ifdef BOOT_DEBUG
+	printk(KERN_DEBUG "Proto loaded, install poll-timer %d\n",
+	       ldev->secondhalf);
+#endif
+	init_timer(&dev->st_timer);
+	dev->st_timer.expires  = RUN_AT(ICN_TIMER_DCREAD);
+	dev->st_timer.function = pollcard;
+	add_timer(&dev->st_timer);
+	restore_flags(flags);
+      }
+      maprelease_channel(0);
       return 0;
     }
   }
@@ -739,7 +868,7 @@ loadproto(u_char *buffer) {
 
 /* Read the Status-replies from the Interface */
 static int
-readstatus(u_char *buf, int len, int user) {
+readstatus(u_char *buf, int len, int user, icn_dev *dev) {
   int count;
   u_char *p;
 
@@ -756,7 +885,8 @@ readstatus(u_char *buf, int len, int user) {
 
 /* Put command-strings into the command-queue of the Interface */
 static int
-writecmd (u_char *buf, int len, int user) {
+writecmd (u_char *buf, int len, int user, icn_dev *dev, int waitflg) {
+  int mch = dev->secondhalf?2:0;
   int avail;
   int pp;
   int i;
@@ -766,62 +896,81 @@ writecmd (u_char *buf, int len, int user) {
   u_char *p;
   isdn_ctrl cmd;
   u_char msg[0x100];
-  
-  if (lock_channel(0)) {
-    avail = cmd_free;
-    count = MIN(avail,len);
-    if (user)
-      memcpy_fromfs(msg,buf,count);
-    else
-      memcpy(msg,buf,count);
-    save_flags(flags);
-    cli();
-    ocount = 1;
-    *dev->msg_buf_write++ = '>';
-    if (dev->msg_buf_write>dev->msg_buf_end)
+
+  while (1) {
+    if (trymaplock_channel(mch)) {
+      avail = cmd_free;
+      count = MIN(avail,len);
+      if (user)
+	memcpy_fromfs(msg,buf,count);
+      else
+	memcpy(msg,buf,count);
+      save_flags(flags);
+      cli();
+      ocount = 1;
+      *dev->msg_buf_write++ = '>';
+      if (dev->msg_buf_write>dev->msg_buf_end)
       dev->msg_buf_write = dev->msg_buf;
-    for (p=msg,pp=cmd_i,i=count;i>0;i--,p++,pp++) {
-      dev->shmem->comm_buffers.pcio_buf[pp & 0xff] = (*p=='\n')?0xff:*p;
-      *dev->msg_buf_write++ = *p;
-      if ((*p == '\n') && (i>1)) {
-	*dev->msg_buf_write++ = '>';
+      for (p=msg,pp=cmd_i,i=count;i>0;i--,p++,pp++) {
+	dev->shmem->comm_buffers.pcio_buf[pp & 0xff] = (*p=='\n')?0xff:*p;
+	*dev->msg_buf_write++ = *p;
+	if ((*p == '\n') && (i>1)) {
+	  *dev->msg_buf_write++ = '>';
+	  if (dev->msg_buf_write>dev->msg_buf_end)
+	    dev->msg_buf_write = dev->msg_buf;
+	  ocount++;
+	}
+	/* No checks for buffer overflow of raw-status-device*/
 	if (dev->msg_buf_write>dev->msg_buf_end)
 	  dev->msg_buf_write = dev->msg_buf;
 	ocount++;
       }
-      /* No checks for buffer overflow of raw-status-device*/
-      if (dev->msg_buf_write>dev->msg_buf_end)
-	dev->msg_buf_write = dev->msg_buf;
-      ocount++;
-    }
-    restore_flags(flags);
-    cmd.command = ISDN_STAT_STAVAIL;
-    cmd.driver  = dev->myid;
-    cmd.arg     = ocount;
-    dev->interface.statcallb(&cmd);
-    cmd_i = (cmd_i+count) & 0xff;
-    release_channel();
-  } else count = 0;
+      restore_flags(flags);
+      cmd.command = ISDN_STAT_STAVAIL;
+      cmd.driver  = dev->myid;
+      cmd.arg     = ocount;
+      dev->interface.statcallb(&cmd);
+      cmd_i = (cmd_i+count) & 0xff;
+      release_channel();
+      waitflg = 0;
+    } else count = 0;
+    if (!waitflg)
+      break;
+    current->timeout = jiffies + 10;
+    schedule();
+  }
   return count;
 }
 
 static void
-stopdriver(void) {
+stopdriver(icn_dev *ldev) {
   unsigned long flags;
   isdn_ctrl cmd;
 
   save_flags(flags);
   cli();
   del_timer(&dev->st_timer);
-  del_timer(&dev->rb_timer);
+  del_timer(&ldev->rb_timer);
   cmd.command = ISDN_STAT_STOP;
-  cmd.driver = dev->myid;
-  dev->interface.statcallb(&cmd);
+  cmd.driver = ldev->myid;
+  ldev->interface.statcallb(&cmd);
   restore_flags(flags);
 }
 
 static int
-command (isdn_ctrl *c) {
+my_atoi(char *s) {
+  int i,n;
+  
+  n = 0;
+  if (!s)
+    return -1;
+  for (i=0;*s>='0' && *s<='9';i++,s++)
+    n = 10*n+(*s - '0');
+  return n;
+}
+
+static int
+command (isdn_ctrl *c, icn_dev *ldev) {
   ulong a;
   ulong flags;
   int   i;
@@ -834,8 +983,12 @@ command (isdn_ctrl *c) {
       switch (c->arg) {
 	case ICN_IOCTL_SETMMIO:
 	  if ((unsigned long)dev->shmem != (a & 0x0ffc000)) {
-	    stopdriver();
-	    dev->shmem = (icn_shmem *)(a & 0x0ffc000);
+	    stopdriver(dev);
+	    if (dev->doubleS0)
+	      stopdriver(dev2);
+	    dev->shmem  = (icn_shmem *)(a & 0x0ffc000);
+	    if (dev->doubleS0)
+	      dev2->shmem = (icn_shmem *)(a & 0x0ffc000);
 	    printk(KERN_INFO "icn: mmio set to 0x%08lx\n",
 		   (unsigned long)dev->shmem);
 	  }
@@ -853,13 +1006,19 @@ command (isdn_ctrl *c) {
 		       (int)a,(int)a+ICN_PORTLEN);
 		return -EINVAL;
 	      }
-	      stopdriver();
+	      stopdriver(dev);
+	      if (dev->doubleS0)
+		stopdriver(dev2);
 	      save_flags(flags);
 	      cli();
 	      if (dev->rvalid)
 		release_region(dev->port,ICN_PORTLEN);
 	      dev->port = (unsigned short)a;
 	      dev->rvalid = 0;
+	      if (dev->doubleS0) {
+		dev2->port = (unsigned short)a;
+		dev2->rvalid = 0;
+	      }
 	      restore_flags(flags);
 	      printk(KERN_INFO "icn: port set to 0x%03x\n",dev->port);
 	    }
@@ -868,42 +1027,54 @@ command (isdn_ctrl *c) {
 	  break;
 	case ICN_IOCTL_GETPORT:
 	  return (int)dev->port;
+	case ICN_IOCTL_GETDOUBLE:
+	  return (int)dev->doubleS0;
+	case ICN_IOCTL_DEBUGVAR:
+	  return (ulong)ldev;
 #ifndef LOADEXTERN
 	case ICN_IOCTL_LOADBOOT:
-	  stopdriver();
-	  return(loadboot((u_char*)a));
+	  stopdriver(dev);
+	  if (dev->doubleS0)
+	    stopdriver(dev2);
+	  return(loadboot((u_char*)a,dev));
 	case ICN_IOCTL_LOADPROTO:
-	  stopdriver();
-	  return(loadproto((u_char*)a));
+	  stopdriver(dev);
+	  if (dev->doubleS0)
+	    stopdriver(dev2);
+	  if ((i = (loadproto((u_char*)a,dev))))
+	    return i;
+	  if (dev->doubleS0)
+	    i = loadproto((u_char*)(a+ICN_CODE_STAGE2),dev2);
+	  return i;
 #endif
 	case ICN_IOCTL_LEASEDCFG:
 	  if (a) {
-	    if (!dev->leased) {
-	      dev->leased = 1;
-	      while (!dev->ptype) {
+	    if (!ldev->leased) {
+	      ldev->leased = 1;
+	      while (ldev->ptype==ISDN_PTYPE_UNKNOWN) {
 		current->timeout = jiffies + ICN_BOOT_TIMEOUT1;
 		schedule();
 	      }
 	      current->timeout = jiffies + ICN_BOOT_TIMEOUT1;
 	      schedule();
 	      sprintf(cbuf,"00;FV2ON\n01;EAZ1\n");
-	      i = writecmd(cbuf,strlen(cbuf),0);
+	      i = writecmd(cbuf,strlen(cbuf),0,ldev,1);
 	      printk(KERN_INFO "icn: Leased-line mode enabled\n");
 	      cmd.command = ISDN_STAT_RUN;
-	      cmd.driver  = dev->myid;
+	      cmd.driver  = ldev->myid;
 	      cmd.arg     = 0;
-	      dev->interface.statcallb(&cmd);
+	      ldev->interface.statcallb(&cmd);
 	    }
 	  } else {
-	    if (dev->leased) {
-	      dev->leased = 0;
+	    if (ldev->leased) {
+	      ldev->leased = 0;
 	      sprintf(cbuf,"00;FV2OFF\n");
-	      i = writecmd(cbuf,strlen(cbuf),0);
+	      i = writecmd(cbuf,strlen(cbuf),0,ldev,1);
 	      printk(KERN_INFO "icn: Leased-line mode disabled\n");
 	      cmd.command = ISDN_STAT_RUN;
-	      cmd.driver  = dev->myid;
+	      cmd.driver  = ldev->myid;
 	      cmd.arg     = 0;
-	      dev->interface.statcallb(&cmd);
+	      ldev->interface.statcallb(&cmd);
 	    }
 	  }
 	  return 0;
@@ -912,13 +1083,24 @@ command (isdn_ctrl *c) {
       }
       break;
     case ISDN_CMD_DIAL:
-      if (dev->leased)
+      if (ldev->leased)
 	break;
       if ((c->arg & 255)<ICN_BCH) {
-	char *p = c->num;
+	char *p;
+	char *p2;
 	char dial[50];
+	char sis[50];
         char dcode[4];
+        int  si1, si2;
+
 	a = c->arg;
+	strcpy(sis,c->num);
+	p = strrchr(sis,',');
+        *p++ = '\0';
+        si2 = my_atoi(p);
+	p = strrchr(sis,',') + 1;
+        si1 = my_atoi(p);
+	p = c->num;
 	if (*p == 's' || *p == 'S') {
 	  /* Dial for SPV */
 	  p++;
@@ -929,53 +1111,56 @@ command (isdn_ctrl *c) {
 	strcpy(dial,p);
 	p = strchr(dial,',');
 	*p++ = '\0';
-	sprintf(cbuf,"%02d;D%s_R%s,07,00,%s\n",(int)(a&255)+1,dcode,dial,p);
-	i = writecmd(cbuf,strlen(cbuf),0);
+	p2 = strchr(p,',');
+	*p2 = '\0';
+	sprintf(cbuf,"%02d;D%s_R%s,%02d,%02d,%s\n",(int)(a+1),dcode,dial,si1,
+	        si2,p);
+	i = writecmd(cbuf,strlen(cbuf),0,ldev,1);
       }
       break;
     case ISDN_CMD_ACCEPTD:
       if (c->arg<ICN_BCH) {
 	a = c->arg+1;
 	sprintf(cbuf,"%02d;DCON_R\n",(int)a);
-	i = writecmd(cbuf,strlen(cbuf),0);
+	i = writecmd(cbuf,strlen(cbuf),0,ldev,1);
       }
       break;
     case ISDN_CMD_ACCEPTB:
       if (c->arg<ICN_BCH) {
 	a = c->arg+1;
 	sprintf(cbuf,"%02d;BCON_R\n",(int)a);
-	i = writecmd(cbuf,strlen(cbuf),0);
+	i = writecmd(cbuf,strlen(cbuf),0,ldev,1);
       }
       break;
     case ISDN_CMD_HANGUP:
       if (c->arg<ICN_BCH) {
 	a = c->arg+1;
 	sprintf(cbuf,"%02d;BDIS_R\n%02d;DDIS_R\n",(int)a,(int)a);
-	i = writecmd(cbuf,strlen(cbuf),0);
+	i = writecmd(cbuf,strlen(cbuf),0,ldev,1);
       }
       break;
     case ISDN_CMD_SETEAZ:
-      if (dev->leased)
+      if (ldev->leased)
 	break;
       if (c->arg<ICN_BCH) {
 	a = c->arg+1;
-	if (dev->ptype == ICN_TYPE_EURO) {
+	if (ldev->ptype == ISDN_PTYPE_EURO) {
 	  sprintf(cbuf,"%02d;MS%s%s\n",(int)a,c->num[0]?"N":"ALL",c->num);
 	} else
 	  sprintf(cbuf,"%02d;EAZ%s\n",(int)a,c->num[0]?c->num:"0123456789");
-	i = writecmd(cbuf,strlen(cbuf),0);
+	i = writecmd(cbuf,strlen(cbuf),0,ldev,1);
       }
       break;
     case ISDN_CMD_CLREAZ:
-      if (dev->leased)
+      if (ldev->leased)
 	break;
       if (c->arg<ICN_BCH) {
 	a = c->arg+1;
-	if (dev->ptype == ICN_TYPE_EURO)
+	if (ldev->ptype == ISDN_PTYPE_EURO)
 	  sprintf(cbuf,"%02d;MSNC\n",(int)a);
 	else
 	  sprintf(cbuf,"%02d;EAZC\n",(int)a);
-	i = writecmd(cbuf,strlen(cbuf),0);
+	i = writecmd(cbuf,strlen(cbuf),0,ldev,1);
       }
       break;
     case ISDN_CMD_SETL2:
@@ -992,14 +1177,14 @@ command (isdn_ctrl *c) {
 	  default:
 	    return -EINVAL;
 	}
-	i = writecmd(cbuf,strlen(cbuf),0);
-	dev->l2_proto[a&255] = (a >> 8);
+	i = writecmd(cbuf,strlen(cbuf),0,ldev,1);
+	ldev->l2_proto[a&255] = (a >> 8);
       }
 #endif
       break;
     case ISDN_CMD_GETL2:
       if ((c->arg & 255)<ICN_BCH)
-	return dev->l2_proto[c->arg&255];
+	return ldev->l2_proto[c->arg&255];
       else
 	return -ENODEV;
     case ISDN_CMD_SETL3:
@@ -1027,12 +1212,56 @@ command (isdn_ctrl *c) {
   return 0;
 }
 
+/*
+ * For second half of doubleS0-Card add channel-offset.
+ */
+static int
+if_command1 (isdn_ctrl *c) {
+  return(command(c,dev));
+}
+
+static int
+if_command2 (isdn_ctrl *c) {
+  return(command(c,dev2));
+}
+
+static int
+if_writecmd1 (u_char *buf, int len, int user) {
+  return(writecmd(buf, len, user, dev,0));
+}
+
+static int
+if_writecmd2 (u_char *buf, int len, int user) {
+  return(writecmd(buf, len, user, dev2,0));
+}
+
+static int
+if_readstatus1(u_char *buf, int len, int user) {
+  return(readstatus(buf, len, user, dev));
+}
+
+static int
+if_readstatus2(u_char *buf, int len, int user) {
+  return(readstatus(buf, len, user, dev2));
+}
+
+static int
+if_sendbuf1(int channel, u_char *buffer, int len, int user) {
+  return(sendbuf(channel, buffer, len, user, dev));
+}
+
+static int
+if_sendbuf2(int channel, u_char *buffer, int len, int user) {
+  return(sendbuf(channel, buffer, len, user, dev2));
+}
+
 int
 init_module( void) {
 #ifdef LOADEXTERN
   unsigned long flags;
 #endif
   char *p;
+  isdn_ctrl cmd;
   char rev[10];
 
   if (!(dev = (icn_devptr)kmalloc(sizeof(icn_dev),GFP_KERNEL))) {
@@ -1042,28 +1271,67 @@ init_module( void) {
   memset((char *)dev,0,sizeof(icn_dev));
   dev->port                 = portbase;
   dev->shmem                = (icn_shmem *)(membase & 0x0ffc000);
+  if (strlen(id2))
+    dev->doubleS0           = 1;
   dev->interface.channels   = ICN_BCH;
   dev->interface.maxbufsize = 4000;
-  dev->interface.command    = command;
-  dev->interface.writebuf   = sendbuf;
-  dev->interface.writecmd   = writecmd;
-  dev->interface.readstat   = readstatus;
+  dev->interface.command    = if_command1;
+  dev->interface.writebuf   = if_sendbuf1;
+  dev->interface.writecmd   = if_writecmd1;
+  dev->interface.readstat   = if_readstatus1;
   dev->interface.features   = ISDN_FEATURE_L2_X75I |
 #ifdef HDLC_FIRMWARE
                               ISDN_FEATURE_L2_HDLC |
 #endif
-                              ISDN_FEATURE_L3_TRANS ;
+                              ISDN_FEATURE_L3_TRANS |
+			      ISDN_FEATURE_P_UNKNOWN ;
+  dev->ptype                = ISDN_PTYPE_UNKNOWN;
   strncpy(dev->interface.id,id,sizeof(dev->interface.id)-1);
   dev->msg_buf_write        = dev->msg_buf;
   dev->msg_buf_read         = dev->msg_buf;
   dev->msg_buf_end          = &dev->msg_buf[sizeof(dev->msg_buf)-1];
   memset((char *)dev->l2_proto,ISDN_PROTO_L2_X75I,sizeof(dev->l2_proto));
+  if (strlen(id2)) {
+    if (!(dev2 = (icn_devptr)kmalloc(sizeof(icn_dev),GFP_KERNEL))) {
+      printk(KERN_WARNING "icn: Could not allocate device-struct.\n");
+      kfree(dev);
+      kfree(dev2);
+      return -EIO;
+    }
+    memcpy((char *)dev2,(char *)dev,sizeof(icn_dev));
+    dev2->interface.command    = if_command2;
+    dev2->interface.writebuf   = if_sendbuf2;
+    dev2->interface.writecmd   = if_writecmd2;
+    dev2->interface.readstat   = if_readstatus2;
+    strncpy(dev2->interface.id,id2,sizeof(dev->interface.id)-1);
+    dev2->msg_buf_write        = dev2->msg_buf;
+    dev2->msg_buf_read         = dev2->msg_buf;
+    dev2->msg_buf_end          = &dev2->msg_buf[sizeof(dev2->msg_buf)-1];
+    dev2->secondhalf = 1;
+  } 
   if (!register_isdn(&dev->interface)) {
     printk(KERN_WARNING "icn: Unable to register\n");
     kfree(dev);
+    if (dev->doubleS0)
+      kfree(dev2);
     return -EIO;
   }
   dev->myid = dev->interface.channels;
+  if (dev->doubleS0) {
+    if (!register_isdn(&dev2->interface)) {
+      printk(KERN_WARNING "icn: Unable to register\n");
+      kfree(dev2);
+      if (dev->doubleS0) {
+	stopdriver(dev);
+	cmd.command = ISDN_STAT_UNLOAD;
+	cmd.driver = dev->myid;
+	dev->interface.statcallb(&cmd);
+	kfree(dev);
+      }
+      return -EIO;
+    }
+    dev2->myid = dev2->interface.channels;
+  }
   if ((p = strchr(revision,':'))) {
     strcpy(rev,p+1);
     p = strchr(rev,'$');
@@ -1085,7 +1353,7 @@ init_module( void) {
 }
 
 void
-cleanup_module( void) {
+cleanup_module(void) {
   isdn_ctrl cmd;
   int i;
 
@@ -1093,14 +1361,25 @@ cleanup_module( void) {
     printk(KERN_WARNING "icn: device busy, remove cancelled\n");
     return;
   }
-  stopdriver();
+  stopdriver(dev);
   cmd.command = ISDN_STAT_UNLOAD;
   cmd.driver = dev->myid;
   dev->interface.statcallb(&cmd);
+  if (dev->doubleS0) {
+    stopdriver(dev2);
+    cmd.command = ISDN_STAT_UNLOAD;
+    cmd.driver = dev2->myid;
+    dev2->interface.statcallb(&cmd);
+  }
   if (dev->rvalid) {
     OUTB_P(0,ICN_RUN);                              /* Reset Controler      */
     OUTB_P(0,ICN_MAPRAM);                           /* Disable RAM          */
     release_region(dev->port,ICN_PORTLEN);
+  }
+  if (dev->doubleS0) {
+    for (i=0;i<ICN_BCH;i++)
+      free_queue(&dev2->spqueue[1]);
+    kfree(dev2);
   }
   for (i=0;i<ICN_BCH;i++)
     free_queue(&dev->spqueue[1]);
