@@ -19,6 +19,11 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.48  1997/10/10 15:56:14  fritz
+ * New HL<->LL interface:
+ *   New BSENT callback with nr. of bytes included.
+ *   Sending without ACK.
+ *
  * Revision 1.47  1997/10/01 09:21:51  fritz
  * Removed old compatibility stuff for 2.0.X kernels.
  * From now on, this code is for 2.1.X ONLY!
@@ -219,7 +224,7 @@ icn_free_queue(icn_card * card, int channel)
 	unsigned long flags;
 
 	while ((skb = skb_dequeue(queue)))
-		dev_kfree_skb(skb, FREE_WRITE);
+		dev_kfree_skb(skb);
 	save_flags(flags);
 	cli();
 	card->xlen[channel] = 0;
@@ -227,7 +232,7 @@ icn_free_queue(icn_card * card, int channel)
 	if (card->xskb[channel]) {
 		card->xskb[channel] = NULL;
 		restore_flags(flags);
-		dev_kfree_skb(card->xskb[channel], FREE_WRITE);
+		dev_kfree_skb(card->xskb[channel]);
 	} else
 		restore_flags(flags);
 }
@@ -511,7 +516,7 @@ icn_pollbchan_send(int channel, icn_card * card)
 				if (card->xskb[channel]) {
 					card->xskb[channel] = NULL;
 					restore_flags(flags);
-					dev_kfree_skb(skb, FREE_WRITE);
+					dev_kfree_skb(skb);
 				} else
 					restore_flags(flags);
 				if (card->xlen[channel]) {
@@ -868,7 +873,7 @@ icn_sendbuf(int channel, int ack, struct sk_buff *skb, icn_card * card)
 			 */
 			*(skb_push(nskb, 1)) = ack?1:0;
 			skb_queue_tail(&card->spqueue[channel], nskb);
-			dev_kfree_skb(skb, FREE_WRITE);
+			dev_kfree_skb(skb);
 		} else
 			len = 0;
 		card->sndcount[channel] += len;
