@@ -55,7 +55,7 @@ findCallcIf(int driverid)
 
 	for (i = 0; i < HISAX_MAX_CARDS; i++)
 		if (c_ifs[i])
-			if (c_ifs[i]->cs->myid == driverid)
+			if (c_ifs[i]->myid == driverid)
 				return c_ifs[i];
 	return 0;
 }
@@ -124,9 +124,9 @@ statcallb(struct IsdnCardState *cs, int command, isdn_ctrl *ic)
 		break;
 	}
 
-	ic->driver = cs->myid;
+	ic->driver = cs->c_if->myid;
 	ic->command = command;
-	return cs->iif.statcallb(ic);
+	return cs->c_if->iif.statcallb(ic);
 }
  
 static inline int
@@ -266,16 +266,13 @@ lli_deliver_cause(struct Channel *chanp)
 
 	if (chanp->proc->para.cause == NO_CAUSE)
 		return;
-	ic.driver = chanp->cs->myid;
-	ic.command = ISDN_STAT_CAUSE;
-	ic.arg = chanp->chan;
 	if (chanp->cs->protocol == ISDN_PTYPE_EURO)
 		sprintf(ic.parm.num, "E%02X%02X", chanp->proc->para.loc & 0x7f,
 			chanp->proc->para.cause & 0x7f);
 	else
 		sprintf(ic.parm.num, "%02X%02X", chanp->proc->para.loc & 0x7f,
 			chanp->proc->para.cause & 0x7f);
-	chanp->cs->iif.statcallb(&ic);
+	HL_LL(chanp, ISDN_STAT_CAUSE, &ic);
 }
 
 static inline void
@@ -300,17 +297,13 @@ lli_leased_in(struct FsmInst *fi, int event, void *arg)
 	chanp->cs->cardmsg(chanp->cs, MDL_INFO_SETUP, (void *) (long)chanp->chan);
 	FsmChangeState(fi, ST_IN_WAIT_LL);
 	link_debug(LL_DEB_INFO, chanp, 0, "STAT_ICALL_LEASED");
-	ic.driver = chanp->cs->myid;
-	ic.command = ((chanp->chan < 2) ? ISDN_STAT_ICALL : ISDN_STAT_ICALLW);
-	ic.arg = chanp->chan;
 	ic.parm.setup.si1 = 7;
 	ic.parm.setup.si2 = 0;
 	ic.parm.setup.plan = 0;
 	ic.parm.setup.screen = 0;
 	sprintf(ic.parm.setup.eazmsn,"%d", chanp->chan + 1);
-	sprintf(ic.parm.setup.phone,"LEASED%d", chanp->cs->myid);
-	ret = chanp->cs->iif.statcallb(&ic);
-	link_debug(LL_DEB_INFO, chanp, 1, "statcallb ret=%d", ret);
+	sprintf(ic.parm.setup.phone,"LEASED%d", chanp->cs->c_if->myid);
+	ret = HL_LL(chanp, (chanp->chan < 2) ? ISDN_STAT_ICALL : ISDN_STAT_ICALLW, &ic);
 	if (!ret) {
 		chanp->cs->cardmsg(chanp->cs, MDL_INFO_REL, (void *) (long)chanp->chan);
 		FsmChangeState(fi, ST_NULL);
@@ -382,11 +375,7 @@ lli_go_active(struct FsmInst *fi, int event, void *arg)
 		strcpy(ic.parm.num, chanp->bcs->conmsg);
 	else
 		ic.parm.num[0] = 0;
-	link_debug(LL_DEB_INFO, chanp, 0, "STAT_BCONN %s", ic.parm.num);
-	ic.driver = chanp->cs->myid;
-	ic.command = ISDN_STAT_BCONN;
-	ic.arg = chanp->chan;
-	chanp->cs->iif.statcallb(&ic);
+	HL_LL(chanp, ISDN_STAT_BCONN, &ic);
 	chanp->cs->cardmsg(chanp->cs, MDL_INFO_CONN, (void *) (long)chanp->chan);
 }
 
@@ -412,17 +401,12 @@ lli_deliver_call(struct FsmInst *fi, int event, void *arg)
 	 */
 	if (1) { /* for only one TEI */
 		FsmChangeState(fi, ST_IN_WAIT_LL);
-		link_debug(LL_DEB_INFO, chanp, 0, (chanp->chan < 2) ? "STAT_ICALL" : "STAT_ICALLW");
-		ic.driver = chanp->cs->myid;
-		ic.command = ((chanp->chan < 2) ? ISDN_STAT_ICALL : ISDN_STAT_ICALLW);
-
-		ic.arg = chanp->chan;
 		/*
 		 * No need to return "unknown" for calls without OAD,
 		 * cause that's handled in linklevel now (replaced by '0')
 		 */
 		ic.parm.setup = chanp->proc->para.setup;
-		ret = chanp->cs->iif.statcallb(&ic);
+		ret = HL_LL(chanp, (chanp->chan < 2) ? ISDN_STAT_ICALL : ISDN_STAT_ICALLW, &ic);
 		link_debug(LL_DEB_INFO, chanp, 1, "statcallb ret=%d", ret);
 
 		switch (ret) {
@@ -734,11 +718,8 @@ lli_charge_info(struct FsmInst *fi, int event, void *arg)
 	struct Channel *chanp = fi->userdata;
 	isdn_ctrl ic;
 
-	ic.driver = chanp->cs->myid;
-	ic.command = ISDN_STAT_CINF;
-	ic.arg = chanp->chan;
 	sprintf(ic.parm.num, "%d", chanp->proc->para.chargeinfo);
-	chanp->cs->iif.statcallb(&ic);
+	HL_LL(chanp, ISDN_STAT_CINF, &ic);
 }
 
 /* error procedures */
@@ -956,14 +937,12 @@ struct Channel
 }
 
 static void stat_redir_result(struct IsdnCardState *cs, int chan, ulong result)
-{	isdn_ctrl ic;
+{
+	isdn_ctrl ic;
   
-	ic.driver = cs->myid;
-	ic.command = ISDN_STAT_REDIR;
-	ic.arg = chan; 
 	(ulong)(ic.parm.num[0]) = result;
-	cs->iif.statcallb(&ic);
-} /* stat_redir_result */
+	HL_LL(cs->c_if->channel + chan, ISDN_STAT_REDIR, &ic);
+}
 
 static void
 dchan_l3l4(struct PStack *st, int pr, void *arg)
@@ -1203,12 +1182,8 @@ ll_writewakeup(struct Channel *chanp, int len)
 {
 	isdn_ctrl ic;
 
-	link_debug(LL_DEB_INFO, chanp, 0, "STAT_BSENT");
-	ic.driver = chanp->cs->myid;
-	ic.command = ISDN_STAT_BSENT;
-	ic.arg = chanp->chan;
 	ic.parm.length = len;
-	chanp->cs->iif.statcallb(&ic);
+	HL_LL(chanp, ISDN_STAT_BSENT, &ic);
 }
 
 static void
@@ -1220,7 +1195,7 @@ lldata_handler(struct PStack *st, int pr, void *arg)
 	switch (pr) {
 		case (DL_DATA  | INDICATION):
 			if (chanp->data_open)
-				chanp->cs->iif.rcvcallb_skb(chanp->cs->myid, chanp->chan, skb);
+				chanp->cs->c_if->iif.rcvcallb_skb(chanp->cs->c_if->myid, chanp->chan, skb);
 			else {
 				idev_kfree_skb(skb, FREE_READ);
 			}
@@ -1461,14 +1436,11 @@ set_channel_limit(struct IsdnCardState *cs, int chanmax)
 		return(-EINVAL);
 	cs->chanlimit = 0;
 	for (ii = 0; ii < 2; ii++) {
-		ic.driver = cs->myid;
-		ic.command = ISDN_STAT_DISCH;
-		ic.arg = ii;
 		if (ii >= chanmax)
 			ic.parm.num[0] = 0; /* disabled */
 		else
 			ic.parm.num[0] = 1; /* enabled */
-		i = cs->iif.statcallb(&ic); 
+		i = HL_LL(cs->c_if->channel + ii, ISDN_STAT_DISCH, &ic);
 		if (i) return(-EINVAL);
 		if (ii < chanmax) 
 			cs->chanlimit++;

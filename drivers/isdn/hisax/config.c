@@ -667,7 +667,7 @@ static inline struct IsdnCardState
 
 	for (i = 0; i < nrcards; i++)
 		if (cards[i].cs)
-			if (cards[i].cs->myid == driverid)
+			if (cards[i].cs->c_if->myid == driverid)
 				return (cards[i].cs);
 	return (NULL);
 }
@@ -819,9 +819,9 @@ VHiSax_putstatus(struct IsdnCardState *cs, char *head, char *fmt, va_list args)
 	restore_flags(flags);
 	if (count) {
 		ic.command = ISDN_STAT_STAVAIL;
-		ic.driver = cs->myid;
+		ic.driver = cs->c_if->myid;
 		ic.arg = count;
-		cs->iif.statcallb(&ic);
+		cs->c_if->iif.statcallb(&ic);
 	}
 }
 
@@ -843,10 +843,10 @@ ll_run(struct IsdnCardState *cs, int addfeatures)
 
 	save_flags(flags);
 	cli();
-	ic.driver = cs->myid;
+	ic.driver = cs->c_if->myid;
 	ic.command = ISDN_STAT_RUN;
-	cs->iif.features |= addfeatures;
-	cs->iif.statcallb(&ic);
+	cs->c_if->iif.features |= addfeatures;
+	cs->c_if->iif.statcallb(&ic);
 	restore_flags(flags);
 	return 0;
 }
@@ -857,8 +857,8 @@ ll_stop(struct IsdnCardState *cs)
 	isdn_ctrl ic;
 
 	ic.command = ISDN_STAT_STOP;
-	ic.driver = cs->myid;
-	cs->iif.statcallb(&ic);
+	ic.driver = cs->c_if->myid;
+	cs->c_if->iif.statcallb(&ic);
 	CallcFreeChan(cs);
 }
 
@@ -868,8 +868,8 @@ ll_unload(struct IsdnCardState *cs)
 	isdn_ctrl ic;
 
 	ic.command = ISDN_STAT_UNLOAD;
-	ic.driver = cs->myid;
-	cs->iif.statcallb(&ic);
+	ic.driver = cs->c_if->myid;
+	cs->c_if->iif.statcallb(&ic);
 	if (cs->status_buf)
 		kfree(cs->status_buf);
 	cs->status_read = NULL;
@@ -1013,11 +1013,11 @@ checkcard(int cardnr, char *id, int *busy_flag))
 		cs->status_write = cs->status_buf;
 		cs->status_end = cs->status_buf + HISAX_STATUS_BUFSIZE - 1;
 		cs->typ = card->typ;
-		strcpy(cs->iif.id, id);
-		cs->iif.channels = 2;
-		cs->iif.maxbufsize = MAX_DATA_SIZE;
-		cs->iif.hl_hdrlen = MAX_HEADER_LEN;
-		cs->iif.features =
+		strcpy(cs->c_if->iif.id, id);
+		cs->c_if->iif.channels = 2;
+		cs->c_if->iif.maxbufsize = MAX_DATA_SIZE;
+		cs->c_if->iif.hl_hdrlen = MAX_HEADER_LEN;
+		cs->c_if->iif.features =
 			ISDN_FEATURE_L2_X75I |
 			ISDN_FEATURE_L2_HDLC |
 			ISDN_FEATURE_L2_TRANS |
@@ -1033,19 +1033,19 @@ checkcard(int cardnr, char *id, int *busy_flag))
 #endif
 			0;
 
-		cs->iif.command = HiSax_command;
-		cs->iif.writecmd = NULL;
-		cs->iif.writebuf_skb = HiSax_writebuf_skb;
-		cs->iif.readstat = HiSax_readstatus;
-		register_isdn(&cs->iif);
-		cs->myid = cs->iif.channels;
+		cs->c_if->iif.command = HiSax_command;
+		cs->c_if->iif.writecmd = NULL;
+		cs->c_if->iif.writebuf_skb = HiSax_writebuf_skb;
+		cs->c_if->iif.readstat = HiSax_readstatus;
+		register_isdn(&cs->c_if->iif);
+		cs->c_if->myid = cs->c_if->iif.channels;
 		printk(KERN_INFO
 			"HiSax: Card %d Protocol %s Id=%s (%d)\n", cardnr + 1,
 			(card->protocol == ISDN_PTYPE_1TR6) ? "1TR6" :
 			(card->protocol == ISDN_PTYPE_EURO) ? "EDSS1" :
 			(card->protocol == ISDN_PTYPE_LEASED) ? "LEASED" :
 			(card->protocol == ISDN_PTYPE_NI1) ? "NI1" :
-			"NONE", cs->iif.id, cs->myid);
+			"NONE", cs->c_if->iif.id, cs->c_if->myid);
 		switch (card->typ) {
 #if CARD_TELES0
 			case ISDN_CTYPE_16_0:

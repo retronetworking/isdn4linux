@@ -860,8 +860,6 @@ struct IsdnCardState {
 		struct gazel_hw gazel;
 		struct w6692_hw w6692;
 	} hw;
-	int myid;
-	isdn_if iif;
 	u_char *status_buf;
 	u_char *status_read;
 	u_char *status_write;

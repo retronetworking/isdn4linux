@@ -902,11 +902,11 @@ ll_deliver_faxstat(struct BCState *bcs, u_char status)
 	struct Channel *chanp = (struct Channel *) bcs->st->lli.userdata;
  
 	debugl1(L1_DEB_HSCX, bcs->cs, "HL->LL FAXIND %x", status);
-	ic.driver = bcs->cs->myid;
+	ic.driver = bcs->cs->c_if->myid;
 	ic.command = ISDN_STAT_FAXIND;
 	ic.arg = chanp->chan;
 	ic.parm.aux.cmd = status;
-	bcs->cs->iif.statcallb(&ic);
+	bcs->cs->c_if->iif.statcallb(&ic);
 }
 
 static void
@@ -1618,13 +1618,13 @@ isar_auxcmd(struct IsdnCardState *cs, isdn_ctrl *ic) {
 							"%d", bcs->hw.isar.mod);
 						ic->command = ISDN_STAT_FAXIND;
 						ic->parm.aux.cmd = ISDN_FAX_CLASS1_QUERY;
-						cs->iif.statcallb(ic);
+						cs->c_if->iif.statcallb(ic);
 						return(0);
 					} else if (ic->parm.aux.subcmd == AT_EQ_QUERY) {
 						strcpy(ic->parm.aux.para, faxmodulation_s);
 						ic->command = ISDN_STAT_FAXIND;
 						ic->parm.aux.cmd = ISDN_FAX_CLASS1_QUERY;
-						cs->iif.statcallb(ic);
+						cs->c_if->iif.statcallb(ic);
 						return(0);
 					} else if (ic->parm.aux.subcmd == AT_EQ_VALUE) {
 						for(i=0;i<FAXMODCNT;i++)
@@ -1643,7 +1643,7 @@ isar_auxcmd(struct IsdnCardState *cs, isdn_ctrl *ic) {
 				default:
 					ic->command = ISDN_STAT_FAXIND;
 					ic->parm.aux.cmd = ISDN_FAX_CLASS1_ERROR;
-					cs->iif.statcallb(ic);
+					cs->c_if->iif.statcallb(ic);
 			}
 			break;
 		case (ISDN_CMD_IOCTL):

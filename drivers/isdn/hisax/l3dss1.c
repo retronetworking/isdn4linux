@@ -16,6 +16,7 @@
  */
 
 #include "hisax.h"
+#include "callc.h" // FIXME
 #include "isdnl3.h"
 #include "l3dss1.h"
 #include <linux/ctype.h>
@@ -141,7 +142,7 @@ l3dss1_dummy_return_result(struct PStack *st, int id, u_char *p, u_char nlen)
    { L3DelTimer(&pc->timer); /* remove timer */
 
      cs = pc->st->l1.hardware;
-     ic.driver = cs->myid;
+     ic.driver = cs->c_if->myid;
      ic.command = ISDN_STAT_PROT;
      ic.arg = DSS1_STAT_INVOKE_RES;
      ic.parm.dss1_io.hl_id = pc->prot.dss1.invoke_id;
@@ -153,7 +154,7 @@ l3dss1_dummy_return_result(struct PStack *st, int id, u_char *p, u_char nlen)
      free_invoke_id(pc->st, pc->prot.dss1.invoke_id);
      pc->prot.dss1.invoke_id = 0; /* reset id */
 
-     cs->iif.statcallb(&ic);
+     cs->c_if->iif.statcallb(&ic);
      dss1_release_l3_process(pc); 
    }
   else
@@ -174,7 +175,7 @@ l3dss1_dummy_error_return(struct PStack *st, int id, ulong error)
    { L3DelTimer(&pc->timer); /* remove timer */
 
      cs = pc->st->l1.hardware;
-     ic.driver = cs->myid;
+     ic.driver = cs->c_if->myid;
      ic.command = ISDN_STAT_PROT;
      ic.arg = DSS1_STAT_INVOKE_ERR;
      ic.parm.dss1_io.hl_id = pc->prot.dss1.invoke_id;
@@ -186,7 +187,7 @@ l3dss1_dummy_error_return(struct PStack *st, int id, ulong error)
      free_invoke_id(pc->st, pc->prot.dss1.invoke_id);
      pc->prot.dss1.invoke_id = 0; /* reset id */
 
-     cs->iif.statcallb(&ic);
+     cs->c_if->iif.statcallb(&ic);
      dss1_release_l3_process(pc); 
    }
   else
@@ -208,7 +209,7 @@ l3dss1_dummy_invoke(struct PStack *st, int cr, int id,
   if (cr >= -1) return; /* ignore local data */
 
   cs = st->l1.hardware;
-  ic.driver = cs->myid;
+  ic.driver = cs->c_if->myid;
   ic.command = ISDN_STAT_PROT;
   ic.arg = DSS1_STAT_INVOKE_BRD;
   ic.parm.dss1_io.hl_id = id;
@@ -218,7 +219,7 @@ l3dss1_dummy_invoke(struct PStack *st, int cr, int id,
   ic.parm.dss1_io.datalen = nlen;
   ic.parm.dss1_io.data = p;
 
-  cs->iif.statcallb(&ic);
+  cs->c_if->iif.statcallb(&ic);
 } /* l3dss1_dummy_invoke */
 
 static void
@@ -1923,9 +1924,9 @@ l3dss1_deliver_display(struct l3_process *pc, int pr, u_char *infp)
 	*p = '\0';
 	ic.command = ISDN_STAT_DISPLAY;
 	cs = pc->st->l1.hardware;
-	ic.driver = cs->myid;
+	ic.driver = cs->c_if->myid;
 	ic.arg = pc->chan->chan; 
-	cs->iif.statcallb(&ic);
+	cs->c_if->iif.statcallb(&ic);
 } /* l3dss1_deliver_display */
 
 
@@ -2224,7 +2225,7 @@ l3dss1_io_timer(struct l3_process *pc)
 
   L3DelTimer(&pc->timer); /* remove timer */
 
-  ic.driver = cs->myid;
+  ic.driver = cs->c_if->myid;
   ic.command = ISDN_STAT_PROT;
   ic.arg = DSS1_STAT_INVOKE_ERR;
   ic.parm.dss1_io.hl_id = pc->prot.dss1.invoke_id;
@@ -2236,7 +2237,7 @@ l3dss1_io_timer(struct l3_process *pc)
   free_invoke_id(pc->st, pc->prot.dss1.invoke_id);
   pc->prot.dss1.invoke_id = 0; /* reset id */
 
-  cs->iif.statcallb(&ic);
+  cs->c_if->iif.statcallb(&ic);
 
   dss1_release_l3_process(pc); 
 } /* l3dss1_io_timer */
