@@ -7,6 +7,10 @@
  *              Fritz Elfert
  *
  * $Log$
+ * Revision 1.2  1996/10/16 21:29:45  keil
+ * compile bug as "not module"
+ * Callback with euro
+ *
  * Revision 1.1  1996/10/13 20:04:50  keil
  * Initial revision
  *
@@ -1485,7 +1489,7 @@ HiSax_writebuf(int id, int chan, const u_char * buf, int count, int user)
         ptr += i;
 
         if (user)
-                memcpy_fromfs(ptr, buf, count);
+                copy_from_user(ptr, buf, count);
         else
                 memcpy(ptr, buf, count);
         ibh->datasize = count + i;
