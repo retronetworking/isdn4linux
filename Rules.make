@@ -105,9 +105,9 @@ ifdef MOD_SUB_DIRS
 	set -e; for i in $(MOD_SUB_DIRS); do $(MAKE) -C $$i modules; done
 endif
 
-kinstall: $(ALL_MOBJS) dummy
+modules_install: $(ALL_MOBJS) dummy
 ifdef MOD_SUB_DIRS
-	set -e; for i in $(MOD_SUB_DIRS); do $(MAKE) -C $$i kinstall; done
+	set -e; for i in $(MOD_SUB_DIRS); do $(MAKE) -C $$i modules_install; done
 endif
 ifneq "$(strip $(ALL_MOBJS))" ""
 	mkdir -p $(MODDEST)
