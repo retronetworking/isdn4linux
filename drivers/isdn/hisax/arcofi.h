@@ -7,8 +7,11 @@
  *
  *
  * $Log$
+ * Revision 1.1  1997/10/29 18:51:20  keil
+ * New files
+ *
  */
  
 #define ARCOFI_USE	1
 
-extern int send_arcofi(struct IsdnCardState *cs, const u_char *msg);
+extern int send_arcofi(struct IsdnCardState *cs, const u_char *msg, int bc);
