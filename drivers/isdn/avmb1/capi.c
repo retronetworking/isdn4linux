@@ -6,6 +6,12 @@
  * Copyright 1996 by Carsten Paeth (calle@calle.in-berlin.de)
  *
  * $Log$
+ * Revision 1.28  2000/03/08 17:06:33  calle
+ * - changes for devfs and 2.3.49
+ * - capifs now configurable (no need with devfs)
+ * - New Middleware ioctl CAPI_NCCI_GETUNIT
+ * - Middleware again tested with 2.2.14 and 2.3.49 (with and without devfs)
+ *
  * Revision 1.27  2000/03/06 18:00:23  calle
  * - Middleware extention now working with 2.3.49 (capifs).
  * - Fixed typos in debug section of capi.c
@@ -2271,7 +2277,6 @@ void cleanup_module(void)
 	devfs_unregister_chrdev(capi_rawmajor, "capi/r%d");
 #ifdef HAVE_DEVFS_FS
 	for (j = 0; j < CAPINC_NR_PORTS; j++) {
-		devfs_handle_t handle;
 		char devname[32];
 		sprintf(devname, "capi/r%u", j);
 		devfs_unregister(devfs_find_handle(NULL, devname, 0, capi_rawmajor, j, DEVFS_SPECIAL_CHR, 0));
