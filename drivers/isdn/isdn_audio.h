@@ -2,7 +2,7 @@
 
  * Linux ISDN subsystem, audio conversion and compression (linklevel).
  *
- * Copyright 1994,95,96 by Fritz Elfert (fritz@wuemaus.franken.de)
+ * Copyright 1994-1998 by Fritz Elfert (fritz@isdn4linux.de)
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -19,6 +19,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.5.2.1  1998/08/22 16:43:06  armin
+ * Added silence detection in audio receive mode (AT+VSD).
+ *
  * Revision 1.5  1997/02/03 22:45:21  fritz
  * Reformatted according CodingStyle
  *

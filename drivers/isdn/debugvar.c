@@ -2,7 +2,7 @@
 
  * Variable-debugging for isdn4linux.
  *
- * Copyright 1994 by Fritz Elfert (fritz@wuemaus.franken.de)
+ * Copyright 1998 by Fritz Elfert (fritz@isdn4linux.de)
  * Copyright 1995 Thinking Objects Software GmbH Wuerzburg
  *
  * This file is part of Isdn4Linux.
@@ -22,6 +22,11 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.5.2.1  1998/11/03 14:30:53  fritz
+ * Reduced stack usage in various functions.
+ * Adapted statemachine to work with certified HiSax.
+ * Some fixes in callback handling.
+ *
  * Revision 1.5  1997/02/03 23:34:51  fritz
  * Reformatted
  *

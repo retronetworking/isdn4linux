@@ -2,7 +2,7 @@
 
  * ISDN lowlevel-module for the ICN active ISDN-Card.
  *
- * Copyright 1994 by Fritz Elfert (fritz@wuemaus.franken.de)
+ * Copyright 1994-1998 by Fritz Elfert (fritz@isdn4linux.de)
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -19,6 +19,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.26  1997/02/14 12:23:16  fritz
+ * Added support for new insmod parameter handling.
+ *
  * Revision 1.25  1997/02/10 10:10:31  fritz
  * Changes for Kernel 2.1.X compatibility.
  * Enhanced initialization, can recover from

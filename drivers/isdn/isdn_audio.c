@@ -2,7 +2,7 @@
 
  * Linux ISDN subsystem, audio conversion and compression (linklevel).
  *
- * Copyright 1994,95,96 by Fritz Elfert (fritz@wuemaus.franken.de)
+ * Copyright 1994-1998 by Fritz Elfert (fritz@isdn4linux.de)
  * DTMF code (c) 1996 by Christian Mock (cm@kukuruz.ping.at)
  * Silence detection (c) 1998 by Armin Schindler (mac@gismo.telekom.de)
  *
@@ -21,6 +21,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.8.2.1  1998/08/22 16:43:04  armin
+ * Added silence detection in audio receive mode (AT+VSD).
+ *
  * Revision 1.8  1997/03/02 14:29:16  fritz
  * More ttyI related cleanup.
  *

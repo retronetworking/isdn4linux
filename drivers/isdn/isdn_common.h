@@ -2,7 +2,7 @@
 
  * header for Linux ISDN subsystem, common used functions and debugging-switches (linklevel).
  *
- * Copyright 1994,95,96 by Fritz Elfert (fritz@wuemaus.franken.de)
+ * Copyright 1994-1998  by Fritz Elfert (fritz@isdn4linux.de)
  * Copyright 1995,96    by Thinking Objects Software GmbH Wuerzburg
  * Copyright 1995,96    by Michael Hipp (Michael.Hipp@student.uni-tuebingen.de)
  *
@@ -21,6 +21,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.6.2.2  1998/10/25 15:48:10  fritz
+ * Misc bugfixes and adaptions to new HiSax
+ *
  * Revision 1.6.2.1  1998/03/16 09:55:48  cal
  * Merged in TimRu-patches. Still needs validation in conjunction with ABC-patches.
  *

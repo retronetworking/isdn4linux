@@ -2,7 +2,7 @@
 
  * Linux ISDN subsystem, initialization for non-modularized drivers.
  *
- * Copyright 1994,95,96 by Fritz Elfert (fritz@wuemaus.franken.de)
+ * Copyright 1994-1998 by Fritz Elfert (fritz@isdn4linux.de)
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -19,6 +19,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.6  1997/04/23 18:56:03  fritz
+ * Old Teles driver removed, Changed doc and scripts accordingly.
+ *
  * Revision 1.5  1997/03/30 17:10:36  calle
  * added support for AVM-B1-PCI card.
  *

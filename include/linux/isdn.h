@@ -2,7 +2,7 @@
  *
  * Main header for the Linux ISDN subsystem (linklevel).
  *
- * Copyright 1994,95,96 by Fritz Elfert (fritz@wuemaus.franken.de)
+ * Copyright 1994-1998  by Fritz Elfert (fritz@isdn4linux.de)
  * Copyright 1995,96    by Thinking Objects Software GmbH Wuerzburg
  * Copyright 1995,96    by Michael Hipp (Michael.Hipp@student.uni-tuebingen.de)
  * 
@@ -21,6 +21,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.31.2.16  1998/11/04 17:22:53  fritz
+ * Replaced broken lowlevel-driver locking.
+ *
  * Revision 1.31.2.15  1998/11/03 14:31:57  fritz
  * Reduced stack usage in various functions.
  * Adapted statemachine to work with certified HiSax.

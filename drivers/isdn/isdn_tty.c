@@ -2,7 +2,7 @@
 
  * Linux ISDN subsystem, tty functions and AT-command emulator (linklevel).
  *
- * Copyright 1994,95,96 by Fritz Elfert (fritz@wuemaus.franken.de)
+ * Copyright 1994-1998  by Fritz Elfert (fritz@isdn4linux.de)
  * Copyright 1995,96    by Thinking Objects Software GmbH Wuerzburg
  *
  * This program is free software; you can redistribute it and/or modify
@@ -20,6 +20,11 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.41.2.10  1998/11/03 14:31:35  fritz
+ * Reduced stack usage in various functions.
+ * Adapted statemachine to work with certified HiSax.
+ * Some fixes in callback handling.
+ *
  * Revision 1.41.2.9  1998/10/25 15:48:32  fritz
  * Misc bugfixes and adaptions to new HiSax
  *

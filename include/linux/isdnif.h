@@ -4,7 +4,7 @@
  *
  * Definition of the interface between the subsystem and its low-level drivers.
  *
- * Copyright 1994,95,96 by Fritz Elfert (fritz@wuemaus.franken.de)
+ * Copyright 1994-1998  by Fritz Elfert (fritz@isdn4linux.de)
  * Copyright 1995,96    Thinking Objects Software GmbH Wuerzburg
  * 
  * This program is free software; you can redistribute it and/or modify
@@ -22,6 +22,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.20.2.1  1998/03/07 23:00:50  tsbogend
+ * added defines for Linux/Alpha 2.0.x with alpha-patches
+ *
  * Revision 1.20  1997/05/27 15:18:06  fritz
  * Added changes for recent 2.1.x kernels:
  *   changed return type of isdn_close

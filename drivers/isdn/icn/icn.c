@@ -2,7 +2,7 @@
 
  * ISDN low-level module for the ICN active ISDN-Card.
  *
- * Copyright 1994,95,96 by Fritz Elfert (fritz@wuemaus.franken.de)
+ * Copyright 1994-1998 by Fritz Elfert (fritz@isdn4linux.de)
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -19,6 +19,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.45.2.3  1998/06/07 13:32:04  fritz
+ * Minor bugfixes for broken Switches.
+ *
  * Revision 1.45.2.2  1998/03/07 23:35:36  detabc
  * added the abc-extension to the linux isdn-kernel
  * for kernel-version 2.0.xx

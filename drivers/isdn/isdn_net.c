@@ -2,7 +2,7 @@
 
  * Linux ISDN subsystem, network interfaces and related functions (linklevel).
  *
- * Copyright 1994,95,96 by Fritz Elfert (fritz@wuemaus.franken.de)
+ * Copyright 1994-1998  by Fritz Elfert (fritz@isdn4linux.de)
  * Copyright 1995,96    by Thinking Objects Software GmbH Wuerzburg
  * Copyright 1995,96    by Michael Hipp (Michael.Hipp@student.uni-tuebingen.de)
  *
@@ -21,6 +21,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.48.2.26  1998/11/03 14:54:39  fritz
+ * Applied callback-patch fur bundled RAW-IP by gvz@popocate.hamburg.pop.de
+ *
  * Revision 1.48.2.25  1998/11/03 14:31:05  fritz
  * Reduced stack usage in various functions.
  * Adapted statemachine to work with certified HiSax.

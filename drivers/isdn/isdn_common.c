@@ -2,7 +2,7 @@
 
  * Linux ISDN subsystem, common used functions (linklevel).
  *
- * Copyright 1994,95,96 by Fritz Elfert (fritz@wuemaus.franken.de)
+ * Copyright 1994-1998  by Fritz Elfert (fritz@isdn4linux.de)
  * Copyright 1995,96    Thinking Objects Software GmbH Wuerzburg
  * Copyright 1995,96    by Michael Hipp (Michael.Hipp@student.uni-tuebingen.de)
  *
@@ -21,6 +21,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.44.2.7  1998/11/04 17:22:40  fritz
+ * Replaced broken lowlevel-driver locking.
+ *
  * Revision 1.44.2.6  1998/11/03 14:30:56  fritz
  * Reduced stack usage in various functions.
  * Adapted statemachine to work with certified HiSax.
