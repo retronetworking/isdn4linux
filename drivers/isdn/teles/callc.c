@@ -1,6 +1,9 @@
 /* $Id$
  *
  * $Log$
+ * Revision 1.11  1996/06/07 12:32:20  fritz
+ * More changes to support suspend/resume.
+ *
  * Revision 1.10  1996/06/06 21:24:21  fritz
  * Started adding support for suspend/resume.
  *
@@ -1294,8 +1297,10 @@ distr_debug(void)
                 chanlist[i].ds.l2.l2m.debug = debugflags & 16;
         }
         for (i = 0; i < nrcards; i++)
-                if (cards[i].sp)
+                if (cards[i].sp) {
                         cards[i].sp->dlogflag = debugflags & 4;
+                        cards[i].sp->debug = debugflags & 32;
+                }
 }
 
 int
