@@ -6,6 +6,9 @@
  * Copyright 1997 by Carsten Paeth (calle@calle.in-berlin.de)
  *
  * $Log$
+ * Revision 1.27  1999/09/16 15:13:04  calle
+ * forgot to change paramter type of contr for lower_callback ...
+ *
  * Revision 1.26  1999/08/06 07:41:16  calle
  * Added the "vbox patch". if (si1 == 1) si2 = 0;
  *
@@ -714,8 +717,6 @@ static struct plcistatechange plcitable[] =
   /* P-0.1 */
   {ST_PLCI_OUTGOING, ST_PLCI_NONE, EV_PLCI_CONNECT_CONF_ERROR, p0},
   {ST_PLCI_OUTGOING, ST_PLCI_ALLOCATED, EV_PLCI_CONNECT_CONF_OK, 0},
-  {ST_PLCI_OUTGOING, ST_PLCI_DISCONNECTING, EV_PLCI_DISCONNECT_REQ, 0},
-  {ST_PLCI_OUTGOING, ST_PLCI_DISCONNECTING, EV_PLCI_FACILITY_IND_DOWN, 0},
   /* P-1 */
   {ST_PLCI_ALLOCATED, ST_PLCI_ACTIVE, EV_PLCI_CONNECT_ACTIVE_IND, 0},
   {ST_PLCI_ALLOCATED, ST_PLCI_DISCONNECTING, EV_PLCI_DISCONNECT_REQ, 0},
@@ -1855,14 +1856,19 @@ static int capidrv_command(isdn_ctrl * c, capidrv_contr * card)
 			);
 			ncci_change_state(card, bchan->nccip, EV_NCCI_DISCONNECT_B3_REQ);
 			send_message(card, &cmdcmsg);
+			return 0;
 		} else if (bchan->plcip) {
-			bchan->disconnecting = 1;
 			if (bchan->plcip->state == ST_PLCI_INCOMING) {
-				/* just ignore, we a called from isdn_status_callback(),
-				 * which will return 0 or 2, this is handled by the
-				 * CONNECT_IND handler
+				/*
+				 * just ignore, we a called from
+				 * isdn_status_callback(),
+				 * which will return 0 or 2, this is handled
+				 * by the CONNECT_IND handler
 				 */
-			} else {
+				bchan->disconnecting = 1;
+				return 0;
+			} else if (bchan->plcip->plci) {
+				bchan->disconnecting = 1;
 				capi_fill_DISCONNECT_REQ(&cmdcmsg,
 							 global.appid,
 							 card->msgid++,
@@ -1874,8 +1880,18 @@ static int capidrv_command(isdn_ctrl * c, capidrv_contr * card)
 				);
 				plci_change_state(card, bchan->plcip, EV_PLCI_DISCONNECT_REQ);
 				send_message(card, &cmdcmsg);
+				return 0;
+			} else {
+				printk(KERN_ERR "capidrv-%d: chan %ld disconnect request while waiting for CONNECT_CONF\n",
+				       card->contrnr,
+				       c->arg);
+				return -EINVAL;
 			}
 		}
+		printk(KERN_ERR "capidrv-%d: chan %ld disconnect request on free channel\n",
+				       card->contrnr,
+				       c->arg);
+		return -EINVAL;
 /* ready */
 
 	case ISDN_CMD_SETL2:
