@@ -21,6 +21,16 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.6  1997/10/09 21:28:54  fritz
+ * New HL<->LL interface:
+ *   New BSENT callback with nr. of bytes included.
+ *   Sending without ACK.
+ *   New L1 error status (not yet in use).
+ *   Cleaned up obsolete structures.
+ * Implemented Cisco-SLARP.
+ * Changed local net-interface data to be dynamically allocated.
+ * Removed old 2.0 compatibility stuff.
+ *
  * Revision 1.5  1997/02/10 20:12:47  fritz
  * Changed interface for reporting incoming calls.
  *
@@ -89,6 +99,7 @@ extern int isdn_net_setcfg(isdn_net_ioctl_cfg *);
 extern int isdn_net_getcfg(isdn_net_ioctl_cfg *);
 extern int isdn_net_addphone(isdn_net_ioctl_phone *);
 extern int isdn_net_getphones(isdn_net_ioctl_phone *, char *);
+extern int isdn_net_getpeer(isdn_net_ioctl_phone *, isdn_net_ioctl_phone *);
 extern int isdn_net_delphone(isdn_net_ioctl_phone *);
 extern int isdn_net_find_icall(int, int, int, setup_parm);
 extern void isdn_net_hangup(struct device *);

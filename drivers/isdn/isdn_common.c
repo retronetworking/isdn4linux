@@ -21,6 +21,11 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.67  1998/06/26 15:12:21  fritz
+ * Added handling of STAT_ICALL with incomplete CPN.
+ * Added AT&L for ttyI emulator.
+ * Added more locking stuff in tty_write.
+ *
  * Revision 1.66  1998/06/17 19:50:41  he
  * merged with 2.1.10[34] (cosmetics and udelay() -> mdelay())
  * brute force fix to avoid Ugh's in isdn_tty_write()
@@ -1333,6 +1338,17 @@ isdn_ioctl(struct inode *inode, struct file *file, uint cmd, ulong arg)
 				} else
 					return -EINVAL;
 				break;
+#ifdef CONFIG_NETDEVICES
+			case IIOCNETGPN:
+				/* Get peer phone number of a connected 
+				 * isdn network interface */
+				if (arg) {
+					if (copy_from_user((char *) &phone, (char *) arg, sizeof(phone)))
+						return -EFAULT;
+					return isdn_net_getpeer(&phone, (isdn_net_ioctl_phone *) arg);
+				} else
+					return -EINVAL;
+#endif
 			default:
 				return -EINVAL;
 		}

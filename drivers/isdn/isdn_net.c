@@ -21,6 +21,10 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.74  1998/07/30 11:28:32  paul
+ * printk message only appeared when status is off and interface is rawIP,
+ * which is confusing for people who don't know about "isdnctrl status <if> on".
+ *
  * Revision 1.73  1998/06/26 22:01:37  keil
  * tx_queue_len = 5 was too small
  *
@@ -2906,9 +2910,36 @@ isdn_net_getphones(isdn_net_ioctl_phone * phone, char *phones)
 }
 
 /*
+ * Copy a string containing the peer's phone number of a connected interface
+ * to user space.
+ */
+int
+isdn_net_getpeer(isdn_net_ioctl_phone *name, isdn_net_ioctl_phone *peer)
+{
+	isdn_net_dev *p = isdn_net_findif(name->name);
+	int ch, dv, idx;
+
+	if (!p) return -ENODEV;
+	/*
+	 * Theoretical race: while this executes, the remote number might
+	 * become invalid (hang up) or change (new connection), resulting
+         * in (partially) wrong number copied to user. This race
+	 * currently ignored.
+	 */
+	ch = p->local->isdn_channel;
+	dv = p->local->isdn_device;
+	if(ch<0 && dv<0) return -ENOTCONN;
+	idx = isdn_dc2minor(dv, ch);
+	if (idx<0) return -ENODEV;
+	/* for pre-bound channels, we need this extra check */
+	if ( strncmp(dev->num[idx],"???",3) == 0 ) return -ENOTCONN;
+	if ( copy_to_user(peer->phone,dev->num[idx],ISDN_MSNLEN) )
+		return -EFAULT;
+	return 0;
+}
+/*
  * Delete a phone-number from an interface.
  */
-
 int
 isdn_net_delphone(isdn_net_ioctl_phone * phone)
 {

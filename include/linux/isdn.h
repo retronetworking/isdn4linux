@@ -21,6 +21,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.56  1998/07/26 18:46:52  armin
+ * Added silence detection in voice receive mode.
+ *
  * Revision 1.55  1998/06/26 15:13:17  fritz
  * Added handling of STAT_ICALL with incomplete CPN.
  * Added AT&L for ttyI emulator.
@@ -253,8 +256,8 @@
 #define IIOCNETANM  _IO('I',5)
 #define IIOCNETDNM  _IO('I',6)
 #define IIOCNETGNM  _IO('I',7)
-#define IIOCGETSET  _IO('I',8)
-#define IIOCSETSET  _IO('I',9)
+#define IIOCGETSET  _IO('I',8) /* no longer supported */
+#define IIOCSETSET  _IO('I',9) /* no longer supported */
 #define IIOCSETVER  _IO('I',10)
 #define IIOCNETHUP  _IO('I',11)
 #define IIOCSETGST  _IO('I',12)
@@ -276,6 +279,8 @@
 
 #define IIOCNETALN  _IO('I',32)
 #define IIOCNETDLN  _IO('I',33)
+
+#define IIOCNETGPN  _IO('I',34)
 
 #define IIOCDBGVAR  _IO('I',127)
 
@@ -861,9 +866,5 @@ extern isdn_dev *dev;
 /* Utility-Macros */
 #define MIN(a,b) ((a<b)?a:b)
 #define MAX(a,b) ((a>b)?a:b)
-
-#if (LINUX_VERSION_CODE < 0x020159) /* 2.1.89 */
-#define poll_wait(f,wq,w) poll_wait((wq),(w))
-#endif
 #endif /* __KERNEL__ */
 #endif /* isdn_h */
