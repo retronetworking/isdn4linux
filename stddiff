@@ -2,7 +2,9 @@
 
 KERNELDIR=/usr/src/linux
 
+PATCHLEVEL=`head -3 $KERNELDIR/Makefile | grep PATCHLEVEL | awk '{print $3}'`
 KERNFIRST=no
+
 if [ "$1" = "-r" ]; then
   KERNFIRST=yes
   shift
@@ -30,17 +32,25 @@ else
   for i in drivers/isdn/teles/*.[ch] ; do
     dodiff $i $KERNELDIR/$i
   done
-  for i in drivers/isdn/hisax/*.[ch] ; do
-    dodiff $i $KERNELDIR/$i
-  done
+  if [ $PATCHLEVEL -gt 0 ] ; then
+    for i in drivers/isdn/hisax/*.[ch] ; do
+      dodiff $i $KERNELDIR/$i
+    done
+    for i in drivers/isdn/sc/*.[ch] ; do
+      dodiff $i $KERNELDIR/$i
+    done
+  fi
   for i in drivers/isdn/pcbit/*.[ch] ; do
     dodiff $i $KERNELDIR/$i
   done
   for i in include/linux/isdn*.h ; do
     dodiff $i $KERNELDIR/$i
   done
-  for i in Documentation/isdn/CREDITS Documentation/isdn/README* \
-           Documentation/isdn/*.FAQ Documentation/isdn/INTERFACE ; do
+  README=Documentation/isdn/README*
+  if [ $PATCHLEVEL -eq 0 ] ; then
+    README=`echo Documentation/isdn/README* | grep -v '.sc'`
+  fi
+  for i in Documentation/isdn/CREDITS $README Documentation/isdn/*.FAQ Documentation/isdn/INTERFACE ; do
     dodiff $i $KERNELDIR/$i
   done
   for i in drivers/isdn/Config.in ; do
