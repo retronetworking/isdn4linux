@@ -5,6 +5,9 @@
  *
  *
  * $Log$
+ * Revision 2.20  1998/11/15 23:54:28  keil
+ * changes from 2.0
+ *
  * Revision 2.19  1998/08/13 23:36:18  keil
  * HiSax 3.1 - don't work stable with current LinkLevel
  *
@@ -394,9 +397,9 @@ HiSaxVersion(void))
 
 	printk(KERN_INFO "HiSax: Linux Driver for passive ISDN cards\n");
 #ifdef MODULE
-	printk(KERN_INFO "HiSax: Version 3.1 (module)\n");
+	printk(KERN_INFO "HiSax: Version 3.1a (module)\n");
 #else
-	printk(KERN_INFO "HiSax: Version 3.1 (kernel)\n");
+	printk(KERN_INFO "HiSax: Version 3.1a (kernel)\n");
 #endif
 	strcpy(tmp, l1_revision);
 	printk(KERN_INFO "HiSax: Layer1 Revision %s\n", HiSax_getrev(tmp));
@@ -566,15 +569,14 @@ static inline struct IsdnCardState
 int
 HiSax_readstatus(u_char * buf, int len, int user, int id, int channel)
 {
-	int count;
+	int count,cnt;
 	u_char *p = buf;
 	struct IsdnCardState *cs = hisax_findcard(id);
 
 	if (cs) {
 		if (len > HISAX_STATUS_BUFSIZE) {
-			printk(KERN_WARNING "HiSax: status overflow readstat %d/%d",
+			printk(KERN_WARNING "HiSax: status overflow readstat %d/%d\n",
 				len, HISAX_STATUS_BUFSIZE);
-			return -ENODEV;
 		}
 		count = cs->status_end - cs->status_read +1;
 		if (count >= len)
@@ -588,12 +590,18 @@ HiSax_readstatus(u_char * buf, int len, int user, int id, int channel)
 			cs->status_read = cs->status_buf;
 		p += count;
 		count = len - count;
-		if (count) {
-			if (user)
-				copy_to_user(p, cs->status_read, count);
+		while (count) {
+			if (count > HISAX_STATUS_BUFSIZE)
+				cnt = HISAX_STATUS_BUFSIZE;
 			else
-				memcpy(p, cs->status_read, count);
-			cs->status_read += count;
+				cnt = count;
+			if (user)
+				copy_to_user(p, cs->status_read, cnt);
+			else
+				memcpy(p, cs->status_read, cnt);
+			p += cnt;
+			cs->status_read += cnt % HISAX_STATUS_BUFSIZE;
+			count -= cnt;
 		}
 		return len;
 	} else {
