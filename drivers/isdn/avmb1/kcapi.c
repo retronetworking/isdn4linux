@@ -6,6 +6,10 @@
  * (c) Copyright 1999 by Carsten Paeth (calle@calle.in-berlin.de)
  * 
  * $Log$
+ * Revision 1.14  2000/04/03 13:29:25  calle
+ * make Tim Waugh happy (module unload races in 2.3.99-pre3).
+ * no real problem there, but now it is much cleaner ...
+ *
  * Revision 1.13  2000/03/03 15:50:42  calle
  * - kernel CAPI:
  *   - Changed parameter "param" in capi_signal from __u32 to void *.
@@ -595,8 +599,12 @@ static int notify_push(unsigned int cmd, __u32 controller,
 	np->applid = applid;
 	np->ncci = ncci;
 	notify_enqueue(np);
-	queue_task(&tq_state_notify, &tq_immediate);
-	mark_bh(IMMEDIATE_BH);
+	/*
+	 * The notifier will result in adding/deleteing
+	 * of devices. Devices can only removed in
+	 * user process, not in bh.
+	 */
+	queue_task(&tq_state_notify, &tq_scheduler);
 	return 0;
 }
 
