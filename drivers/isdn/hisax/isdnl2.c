@@ -7,6 +7,9 @@
  *              Fritz Elfert
  *
  * $Log$
+ * Revision 1.5  1997/01/04 13:47:06  keil
+ * handling of MDL_REMOVE added (Thanks to Sim Yskes)
+ *
  * Revision 1.4  1996/12/08 19:51:51  keil
  * many fixes from Pekka Sarnila
  *
@@ -27,6 +30,8 @@
 #include "isdnl2.h"
 
 #define TIMER_1 2000
+
+const	char	*l2_revision        = "$Revision$";
 
 static void     l2m_debug(struct FsmInst *fi, char *s);
 
@@ -583,21 +588,10 @@ l2s7(struct FsmInst *fi, int event, void *arg)
 	struct BufHeader *ibh = arg;
 	int             i;
 	byte           *ptr;
-	struct IsdnCardState *sp = st->l1.hardware;
-	char            str[64];
 
 	i = sethdraddr(&st->l2, ibh, CMD);
 	ptr = DATAPTR(ibh);
-
-	if (st->l2.laptype == LAPD)
-		if (sp->dlogflag) {
-			LogFrame(sp, ptr, ibh->datasize);
-			sprintf(str, "Q.931 frame user->network tei %d", st->l2.tei);
-			dlogframe(sp, ptr + st->l2.ihsize, ibh->datasize - st->l2.ihsize,
-				  str);
-		}
 	BufQueueLink(&st->l2.i_queue, ibh);
-
 	st->l2.l2l1(st, PH_REQUEST_PULL, NULL);
 }
 
@@ -847,6 +841,7 @@ l2s20(struct FsmInst *fi, int event, void *arg)
 
 	if (st->l2.rc == st->l2.n200) {
 		FsmChangeState(fi, ST_L2_4);
+		st->l2.l2tei(st, MDL_VERIFY, (void *)st->l2.tei);
 		st->l2.l2man(st, DL_RELEASE, NULL);
 	} else {
 		st->l2.rc++;
