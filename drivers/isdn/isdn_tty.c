@@ -20,6 +20,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.23  1996/10/22 23:14:02  fritz
+ * Changes for compatibility to 2.0.X and 2.1.X kernels.
+ *
  * Revision 1.22  1996/10/19 18:56:43  fritz
  * ATZ did not change the xmitbuf size.
  *
@@ -167,9 +170,9 @@ int isdn_tty_try_read(modem_info *info, struct sk_buff *skb)
 		if ((tty = info->tty)) {
 			if (info->mcr & UART_MCR_RTS) {
 				c = TTY_FLIPBUF_SIZE - tty->flip.count;
-                                len = skb->len + skb->users;
+                                len = skb->len + ISDN_AUDIO_SKB_DLECOUNT(skb);
 				if (c >= len) {
-                                        if (skb->users)
+                                        if (ISDN_AUDIO_SKB_DLECOUNT(skb))
                                                 while (skb->len--) {
                                                         if (*skb->data == DLE)
                                                                 tty_insert_flip_char(tty, DLE, 0);
@@ -573,6 +576,8 @@ static void isdn_tty_dial(char *n, modem_info * info, atemu * m)
                 info->drv_index = i;
                 dev->m_idx[i] = info->line;
                 dev->usage[i] |= ISDN_USAGE_OUTGOING;
+		info->last_dir = 1;
+		strcpy(info->last_num, n);
                 isdn_info_update();
                 restore_flags(flags);
                 cmd.driver = info->isdn_driver;
@@ -585,6 +590,7 @@ static void isdn_tty_dial(char *n, modem_info * info, atemu * m)
                 dev->drv[info->isdn_driver]->interface->command(&cmd);
                 cmd.driver = info->isdn_driver;
                 cmd.command = ISDN_CMD_SETL2;
+		info->last_l2 = l2;
                 cmd.arg = info->isdn_channel + (l2 << 8);
                 dev->drv[info->isdn_driver]->interface->command(&cmd);
                 cmd.driver = info->isdn_driver;
@@ -607,7 +613,7 @@ static void isdn_tty_dial(char *n, modem_info * info, atemu * m)
  * ISDN-line (hangup). The usage-status is cleared
  * and some cleanup is done also.
  */
-void isdn_tty_modem_hup(modem_info * info)
+void isdn_tty_modem_hup(modem_info * info, int local)
 {
 	isdn_ctrl cmd;
         int usage;
@@ -619,6 +625,8 @@ void isdn_tty_modem_hup(modem_info * info)
 #endif
         info->rcvsched = 0;
         info->online = 0;
+	if (info->online || info->vonline)
+		info->last_lhup = local;
         isdn_tty_flush_buffer(info->tty);
         if (info->vonline & 1) {
                 /* voice-recording, add DLE-ETX */
@@ -714,7 +722,7 @@ static void isdn_tty_change_speed(modem_info * info)
                         if (info->online)
                                 info->ncarrier = 1;
                         isdn_tty_modem_reset_regs(info, 0);
-                        isdn_tty_modem_hup(info);
+                        isdn_tty_modem_hup(info, 1);
                 }
                 return;
 	}
@@ -792,7 +800,7 @@ static void isdn_tty_shutdown(modem_info * info)
 #ifdef ISDN_DEBUG_MODEM_HUP
                         printk(KERN_DEBUG "Mhup in isdn_tty_shutdown\n");
 #endif
-                        isdn_tty_modem_hup(info);
+                        isdn_tty_modem_hup(info, 1);
                 }
 	}
 	if (info->tty)
@@ -869,7 +877,10 @@ static int isdn_tty_write(struct tty_struct *tty, int from_user, const u_char * 
                         info->msr |= UART_MSR_CTS;
                         info->lsr |= UART_LSR_TEMT;
 #ifdef CONFIG_ISDN_AUDIO
-                        if (info->vonline & 1) {
+                        if ((info->vonline & 3) == 1) {
+				/* Do NOT handle Ctrl-Q or Ctrl-S
+				 * when in full-duplex audio mode.
+				 */
                                 if (isdn_tty_end_vrx(buf, c, from_user)) {
                                         info->vonline &= ~1;
                                         isdn_tty_at_cout("\020\003\r\nVCON\r\n", info);
@@ -882,7 +893,7 @@ static int isdn_tty_write(struct tty_struct *tty, int from_user, const u_char * 
                                         printk(KERN_DEBUG "Mhup in isdn_tty_write\n");
 #endif
                                         isdn_tty_modem_result(3, info);
-                                        isdn_tty_modem_hup(info);
+                                        isdn_tty_modem_hup(info, 1);
                                 } else
                                         c = isdn_tty_edit_at(buf, c, info, from_user);
 		}
@@ -1077,7 +1088,7 @@ static int isdn_tty_set_modem_info(modem_info * info, uint cmd, uint * value)
 #endif
                                         if (info->online)
                                                 info->ncarrier = 1;
-                                        isdn_tty_modem_hup(info);
+                                        isdn_tty_modem_hup(info, 1);
                                 }
                         }
                         break;
@@ -1098,7 +1109,7 @@ static int isdn_tty_set_modem_info(modem_info * info, uint cmd, uint * value)
 #endif
                                                 if (info->online)
                                                         info->ncarrier = 1;
-                                                isdn_tty_modem_hup(info);
+                                                isdn_tty_modem_hup(info, 1);
                                         }
                                 } else
                                         isdn_tty_modem_ncarrier(info);
@@ -1627,6 +1638,12 @@ int isdn_tty_modem_init(void)
 	}
 	for (i = 0; i < ISDN_MAX_CHANNELS; i++) {
 		info = &m->info[i];
+		sprintf(info->last_cause,"0000");
+		sprintf(info->last_num,"none");
+		info->last_dir = 0;
+		info->last_lhup = 1;
+		info->last_l2 = 0;
+		info->last_si = 0;
 		isdn_tty_reset_profile(&info->emu);
 		isdn_tty_modem_reset_regs(info, 1);
 		info->magic = ISDN_ASYNC_MAGIC;
@@ -1810,7 +1827,7 @@ static void isdn_tty_on_hook(modem_info * info)
 		printk(KERN_DEBUG "Mhup in isdn_tty_on_hook\n");
 #endif
 		isdn_tty_modem_result(3, info);
-		isdn_tty_modem_hup(info);
+		isdn_tty_modem_hup(info, 1);
 	}
 }
 
@@ -1885,7 +1902,7 @@ void isdn_tty_modem_result(int code, modem_info * info)
 	 "CONNECT 64000", "NO DIALTONE", "BUSY", "NO ANSWER",
 	 "RINGING", "NO MSN/EAZ", "VCON"};
 	ulong flags;
-	char s[4];
+	char s[10];
 
 	switch (code) {
                 case 2:
@@ -1919,10 +1936,12 @@ void isdn_tty_modem_result(int code, modem_info * info)
                         break;
                 case 1:
                 case 5:
+			sprintf(info->last_cause,"0000");
                         if (!info->online)
                                 info->online = 2;
                         break;
                 case 11:
+			sprintf(info->last_cause,"0000");
                         if (!info->online)
                                 info->online = 1;
                         break;
@@ -1941,11 +1960,23 @@ void isdn_tty_modem_result(int code, modem_info * info)
 				isdn_tty_at_cout("\r\n", info);
 			}
 			isdn_tty_at_cout(msg[code], info);
-			if (code == 5) {
-				/* Append Protocol to CONNECT message */
-				isdn_tty_at_cout((m->mdmreg[14] != 3) ? "/X.75" : "/HDLC", info);
-				if (m->mdmreg[13] & 2)
-					isdn_tty_at_cout("/T.70", info);
+			switch (code) {
+				case 3:
+				case 6:
+				case 7:
+				case 8:
+					/* Append Cause-Message if enabled */
+					if (m->mdmreg[13] & 8) {
+						sprintf(s,"/%s",info->last_cause);
+						isdn_tty_at_cout(s, info);
+					}
+					break;
+				case 5:
+					/* Append Protocol to CONNECT message */
+					isdn_tty_at_cout((m->mdmreg[14] != 3) ? "/X.75" : "/HDLC", info);
+					if (m->mdmreg[13] & 2)
+						isdn_tty_at_cout("/T.70", info);
+					break;
 			}
 		}
 		isdn_tty_at_cout("\r\n", info);
@@ -2007,6 +2038,60 @@ static void isdn_tty_getdial(char *p, char *q)
 
 #define PARSE_ERROR { isdn_tty_modem_result(4, info); return; }
 #define PARSE_ERROR1 { isdn_tty_modem_result(4, info); return 1; }
+
+static void isdn_tty_report(modem_info * info)
+{
+	atemu *m = &info->emu;
+	char s[80];
+
+	isdn_tty_at_cout("\r\nStatistics of last connection:\r\n\r\n", info);
+	sprintf(s,"    Remote Number:    %s\r\n",info->last_num);
+	isdn_tty_at_cout(s, info);
+	sprintf(s,"    Direction:        %s\r\n",info->last_dir?"outgoing":"incoming");
+	isdn_tty_at_cout(s, info);
+	isdn_tty_at_cout("    Layer-2 Protocol: ", info);
+	switch (info->last_l2) {
+		case ISDN_PROTO_L2_X75I:
+			isdn_tty_at_cout("x75i", info);
+			break;
+		case ISDN_PROTO_L2_X75UI:
+			isdn_tty_at_cout("x75ui", info);
+			break;
+		case ISDN_PROTO_L2_X75BUI:
+			isdn_tty_at_cout("x75bui", info);
+			break;
+		case ISDN_PROTO_L2_HDLC:
+			isdn_tty_at_cout("hdlc", info);
+			break;
+		case ISDN_PROTO_L2_TRANS:
+			isdn_tty_at_cout("transparent", info);
+			break;
+		default:
+			isdn_tty_at_cout("unknown", info);
+			break;
+	}
+	isdn_tty_at_cout((m->mdmreg[13] & 2)?"/t.70\r\n":"\r\n", info);
+	isdn_tty_at_cout("    Service:          ", info);
+	switch (info->last_si) {
+		case 1:
+			isdn_tty_at_cout("audio\r\n", info);
+			break;
+		case 5:
+			isdn_tty_at_cout("btx\r\n", info);
+			break;
+		case 7:
+			isdn_tty_at_cout("data\r\n", info);
+			break;
+		default:
+			sprintf(s,"%d\r\n", info->last_si);
+			isdn_tty_at_cout(s, info);
+			break;
+	}
+	sprintf(s,"    Hangup location:  %s\r\n",info->last_lhup?"local":"remote");
+	isdn_tty_at_cout(s, info);
+	sprintf(s,"    Last cause:       %s\r\n", info->last_cause);
+	isdn_tty_at_cout(s, info);
+}
 
 /*
  * Parse AT&.. commands.
@@ -2180,6 +2265,8 @@ static void isdn_tty_cmd_ATA(modem_info * info)
 
         if (info->msr & UART_MSR_RI) {
                 /* Accept incoming call */
+		info->last_dir = 0;
+		strcpy(info->last_num, dev->num[info->drv_index]);
                 m->mdmreg[1] = 0;
                 info->msr &= ~UART_MSR_RI;
                 l2 = m->mdmreg[14];
@@ -2191,6 +2278,7 @@ static void isdn_tty_cmd_ATA(modem_info * info)
                 cmd.driver = info->isdn_driver;
                 cmd.command = ISDN_CMD_SETL2;
                 cmd.arg = info->isdn_channel + (l2 << 8);
+		info->last_l2 = l2;
                 dev->drv[info->isdn_driver]->interface->command(&cmd);
                 cmd.driver = info->isdn_driver;
                 cmd.command = ISDN_CMD_SETL3;
@@ -2378,7 +2466,7 @@ static int isdn_tty_cmd_PLUSV(char **p, modem_info * info)
                         }
                         info->vonline = 1;
                         isdn_tty_modem_result(1, info);
-                        return 1;
+                        return 0;
                         break;
                 case 4:
                         /* AT+VSD - Silence detection */
@@ -2489,7 +2577,7 @@ static int isdn_tty_cmd_PLUSV(char **p, modem_info * info)
                         m->lastDLE = 0;
                         info->vonline = 2;
                         isdn_tty_modem_result(1, info);
-                        return 1;
+                        return 0;
                         break;
                 default:
                         PARSE_ERROR1;
@@ -2569,6 +2657,10 @@ static void isdn_tty_parse_at(modem_info * info)
                                         case '1':
                                                 p++;
                                                 break;
+					case '2':
+						p++;
+						isdn_tty_report(info);
+						break;
                                         default:
                                 }
                                 break;

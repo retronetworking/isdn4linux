@@ -21,6 +21,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.29  1997/01/12 23:33:03  fritz
+ * Made isdn_all_eaz foolproof.
+ *
  * Revision 1.28  1996/11/13 02:33:19  fritz
  * Fixed a race condition.
  *
@@ -346,18 +349,20 @@ static void isdn_receive_skb_callback(int di, int channel, struct sk_buff *skb)
                 if (info->emu.mdmreg[13] & 2)
                         /* T.70 decoding: Simply throw away the T.70 header (4 bytes) */
                         if ((skb->data[0] == 1) && ((skb->data[1] == 0) || (skb->data[1] == 1)))
-                                skb_pull(skb,4);
-                /* The users field of an sk_buff is used in a special way
-                 * with tty's incoming data:
-                 *   users is set to the number of DLE codes when in audio mode.
-                 */
-                skb->users = 0;
+				skb_pull(skb,4);
+		if (skb_headroom(skb) < sizeof(isdn_audio_skb)) {
+			printk(KERN_WARNING
+			       "isdn_audio: insufficient skb_headroom, dropping\n");
+			isdn_trash_skb(skb, FREE_READ);
+			return;
+		}
+		ISDN_AUDIO_SKB_DLECOUNT(skb) = 0;
 #ifdef CONFIG_ISDN_AUDIO
                 if (info->vonline & 1) {
                         /* voice conversion/compression */
                         switch (info->emu.vpar[3]) {
-                                case 2:
-                                case 3:
+				case 2:
+				case 3:
                                 case 4:
                                         /* adpcm
                                          * Since compressed data takes less
@@ -380,7 +385,8 @@ static void isdn_receive_skb_callback(int di, int channel, struct sk_buff *skb)
                                                 isdn_audio_alaw2ulaw(skb->data,skb->len);
                                         break;
                         }
-                        skb->users = isdn_tty_countDLE(skb->data,skb->len);
+			ISDN_AUDIO_SKB_DLECOUNT(skb) =
+				isdn_tty_countDLE(skb->data,skb->len);
                 }
 #endif
                 /* Try to deliver directly via tty-flip-buf if queue is empty */
@@ -395,7 +401,8 @@ static void isdn_receive_skb_callback(int di, int channel, struct sk_buff *skb)
                  * Queue up for later dequeueing via timer-irq.
                  */
                 __skb_queue_tail(&dev->drv[di]->rpqueue[channel], skb);
-                dev->drv[di]->rcvcount[channel] += (skb->len + skb->users);
+                dev->drv[di]->rcvcount[channel] +=
+			(skb->len + ISDN_AUDIO_SKB_DLECOUNT(skb));
                 restore_flags(flags);
                 /* Schedule dequeuing */
                 if ((dev->modempoll) && (info->rcvsched))
@@ -544,6 +551,11 @@ static int isdn_status_callback(isdn_ctrl * c)
                         printk(KERN_DEBUG "CAUSE: %ld %s\n", c->arg, c->num);
 #endif
                         printk(KERN_INFO "isdn: cause: %s\n", c->num);
+			if ((mi = dev->m_idx[i]) >= 0) {
+				/* Signal cause to tty-device */
+                                info = &dev->mdm.info[mi];
+				strncpy(info->last_cause,c->num,5);
+			}
                         break;
                 case ISDN_STAT_DCONN:
 			if (i<0)
@@ -600,7 +612,7 @@ static int isdn_status_callback(isdn_ctrl * c)
 #ifdef ISDN_DEBUG_MODEM_HUP
 					printk(KERN_DEBUG "Mhup in ISDN_STAT_DHUP\n");
 #endif
-					isdn_tty_modem_hup(info);
+					isdn_tty_modem_hup(info, 0);
 					return 0;
 				}
 			}
@@ -626,8 +638,11 @@ static int isdn_status_callback(isdn_ctrl * c)
 				if (info->flags &
 				    (ISDN_ASYNC_NORMAL_ACTIVE | ISDN_ASYNC_CALLOUT_ACTIVE)) {
 					info->msr |= UART_MSR_DCD;
-					if (info->dialing)
+					if (info->dialing) {
 						info->dialing = 0;
+						info->last_dir = 1;
+					} else
+						info->last_dir = 0;
 					info->rcvsched = 1;
                                         if (USG_MODEM(dev->usage[i]))
                                           isdn_tty_modem_result(5, info);
@@ -657,7 +672,7 @@ static int isdn_status_callback(isdn_ctrl * c)
 #ifdef ISDN_DEBUG_MODEM_HUP
 					printk(KERN_DEBUG "Mhup in ISDN_STAT_BHUP\n");
 #endif
-					isdn_tty_modem_hup(info);
+					isdn_tty_modem_hup(info, 0);
 				}
 			}
                         break;
@@ -677,6 +692,9 @@ static int isdn_status_callback(isdn_ctrl * c)
 				    (ISDN_ASYNC_NORMAL_ACTIVE | ISDN_ASYNC_CALLOUT_ACTIVE)) {
 					if (info->dialing) {
 						info->dialing = 0;
+						info->last_l2 = -1;
+						info->last_si = 0;
+						sprintf(info->last_cause,"0000");
 						isdn_tty_modem_result(6, info);
 					}
 					info->msr &= ~UART_MSR_DCD;
@@ -705,7 +723,7 @@ static int isdn_status_callback(isdn_ctrl * c)
                                         info->isdn_channel = -1;
                                         if (info->online) {
                                                 isdn_tty_modem_result(3, info);
-                                                isdn_tty_modem_hup(info);
+                                                isdn_tty_modem_hup(info, 1);
                                         }
                                 }
                         }
@@ -772,13 +790,10 @@ int isdn_readbchan(int di, int channel, u_char * buf, u_char * fp, int len, int 
 	while (left) {
                 if (!(skb = skb_peek(&dev->drv[di]->rpqueue[channel])))
                         break;
-                if (skb->lock)
+                if (ISDN_AUDIO_SKB_LOCK(skb))
                         break;
-                skb->lock = 1;
-                if (skb->users) {
-                        /* users is the count of DLE's in
-                         * this buff when in voice mode.
-                         */
+                ISDN_AUDIO_SKB_LOCK(skb) = 1;
+                if (ISDN_AUDIO_SKB_DLECOUNT(skb)) {
                         char *p = skb->data;
                         unsigned long DLEmask = (1 << channel);
 
@@ -793,12 +808,12 @@ int isdn_readbchan(int di, int channel, u_char * buf, u_char * fp, int len, int 
                                         dev->drv[di]->DLEflag &= ~DLEmask;
                                 } else {
                                         if (user)
-                                                put_user(*p,cp++);
+                                                put_user(*p, cp++);
                                         else
                                                 *cp++ = *p;
                                         if (*p == DLE) {
                                                 dev->drv[di]->DLEflag |= DLEmask;
-                                                skb->users--;
+						(ISDN_AUDIO_SKB_DLECOUNT(skb))--;
                                         }
                                         p++;
                                         count_pull++;
@@ -833,7 +848,7 @@ int isdn_readbchan(int di, int channel, u_char * buf, u_char * fp, int len, int 
                          */
 			if (fp)
 				*(fp - 1) = 0xff;
-                        skb->lock = 0;
+                        ISDN_AUDIO_SKB_LOCK(skb) = 0;
                         skb = skb_dequeue(&dev->drv[di]->rpqueue[channel]);
                         isdn_trash_skb(skb, FREE_READ);
 		} else {
@@ -842,7 +857,7 @@ int isdn_readbchan(int di, int channel, u_char * buf, u_char * fp, int len, int 
                          * but we pull off the data we got until now.
                          */
 			skb_pull(skb,count_pull);
-                        skb->lock = 0;
+                        ISDN_AUDIO_SKB_LOCK(skb) = 0;
                 }
 		dev->drv[di]->rcvcount[channel] -= count_put;
 	}
