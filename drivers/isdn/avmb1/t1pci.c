@@ -6,6 +6,13 @@
  * (c) Copyright 1999 by Carsten Paeth (calle@calle.in-berlin.de)
  * 
  * $Log$
+ * Revision 1.2  1999/11/05 16:38:02  calle
+ * Cleanups before kernel 2.4:
+ * - Changed all messages to use card->name or driver->name instead of
+ *   constant string.
+ * - Moved some data from struct avmcard into new struct avmctrl_info.
+ *   Changed all lowlevel capi driver to match the new structur.
+ *
  * Revision 1.1  1999/10/26 15:31:42  calle
  * Added driver for T1-PCI card.
  *
@@ -23,7 +30,7 @@
 #include <linux/pci.h>
 #include <linux/capi.h>
 #include <asm/io.h>
-#include "compat.h"
+#include <linux/isdn_compat.h>
 #include "capicmd.h"
 #include "capiutil.h"
 #include "capilli.h"
