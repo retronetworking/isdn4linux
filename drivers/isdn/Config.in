@@ -18,9 +18,14 @@ if [ "$CONFIG_ISDN_DRV_HISAX" != "n" ]; then
     bool 'HiSax Support for Teles 16.0/8.0' CONFIG_HISAX_16_0
     bool 'HiSax Support for Teles 16.3 or PNP or PCMCIA' CONFIG_HISAX_16_3
     bool 'HiSax Support for AVM A1 (Fritz)' CONFIG_HISAX_AVM_A1
-    bool 'HiSax Support for Elsa ISA cards' CONFIG_HISAX_ELSA_PCC
-    bool 'HiSax Support for Elsa PCMCIA card' CONFIG_HISAX_ELSA_PCMCIA
+    bool 'HiSax Support for Elsa cards' CONFIG_HISAX_ELSA
     bool 'HiSax Support for ITK ix1-micro Revision 2' CONFIG_HISAX_IX1MICROR2
+    bool 'HiSax Support for Eicon.Diehl Diva cards' CONFIG_HISAX_DIEHLDIVA
+    bool 'HiSax Support for ASUSCOM cards' CONFIG_HISAX_DYNALINK
+    bool 'HiSax Support for TELEINT cards' CONFIG_HISAX_TELEINT
+    bool 'HiSax Support for Sedlbauer speed card' CONFIG_HISAX_SEDLBAUER
+    bool 'HiSax Support for USR Sportster internal TA' CONFIG_HISAX_SPORTSTER
+    bool 'HiSax Support for MIC card' CONFIG_HISAX_MIC
 fi
 if [ "$CONFIG_EXPERIMENTAL" != "n" ]; then
 	dep_tristate 'Spellcaster support (EXPERIMENTAL)' CONFIG_ISDN_DRV_SC $CONFIG_ISDN
