@@ -21,6 +21,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.15  1999/09/26 14:17:53  armin
+ * Improved debug and log via readstat()
+ *
  * Revision 1.14  1999/09/08 20:17:31  armin
  * Added microchannel patch from Erik Weber.
  *
@@ -126,7 +129,7 @@
 
 #define MAX_HEADER_LEN 10
 
-#define MAX_STATUS_BUFFER	100
+#define MAX_STATUS_BUFFER	150
 
 /* Struct for adding new cards */
 typedef struct eicon_cdef {
@@ -482,7 +485,6 @@ typedef struct {
 
 typedef struct {
 	int	       No;		 /* Channel Number	        */
-	unsigned short callref;          /* Call Reference              */
 	unsigned short fsm_state;        /* Current D-Channel state     */
 	unsigned short eazmask;          /* EAZ-Mask for this Channel   */
 	int		queued;          /* User-Data Bytes in TX queue */
@@ -499,9 +501,13 @@ typedef struct {
 	entity		e;		 /* Entity  			*/
 	char		cpn[32];	 /* remember cpn		*/
 	char		oad[32];	 /* remember oad		*/
+	char		dsa[32];	 /* remember dsa		*/
+	char		osa[32];	 /* remember osa		*/
 	unsigned char   cause[2];	 /* Last Cause			*/
 	unsigned char	si1;
 	unsigned char	si2;
+	unsigned char	plan;
+	unsigned char	screen;
 } eicon_chan;
 
 typedef struct {
@@ -537,7 +543,7 @@ typedef struct {
 #define EICON_STATE_LISTEN  15
 #define EICON_STATE_WMCONN  16
 
-#define EICON_MAX_QUEUED  8000 /* 2 * maxbuff */
+#define EICON_MAX_QUEUE  2138
 
 #define EICON_LOCK_TX 0
 #define EICON_LOCK_RX 1

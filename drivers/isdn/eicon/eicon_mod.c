@@ -26,6 +26,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.16  1999/09/26 14:17:53  armin
+ * Improved debug and log via readstat()
+ *
  * Revision 1.15  1999/09/08 20:17:31  armin
  * Added microchannel patch from Erik Weber.
  *
@@ -649,7 +652,6 @@ eicon_command(eicon_card * card, isdn_ctrl * c)
 			else
 				tmp[0] = c->parm.setup.eazmsn[0];
 			chan->fsm_state = EICON_STATE_OCALL;
-			chan->callref = 0xffff;
 			restore_flags(flags);
 			
 			ret = idi_connect_req(card, chan, c->parm.setup.phone,
@@ -898,14 +900,11 @@ if_sendbuf(int id, int channel, int ack, struct sk_buff *skb)
 	len = skb->len;
 	
         if (card) {
-                if (!card->flags & EICON_FLAGS_RUNNING) {
-			dev_kfree_skb(skb);
+                if (!card->flags & EICON_FLAGS_RUNNING)
                         return -ENODEV;
-		}
-        	if (!(chan = find_channel(card, channel))) {
-			dev_kfree_skb(skb);
+        	if (!(chan = find_channel(card, channel)))
 			return -ENODEV;
-		}
+
 		if (chan->fsm_state == EICON_STATE_ACTIVE) {
 #ifdef CONFIG_ISDN_TTY_FAX
 			if (chan->l2prot == ISDN_PROTO_L2_FAX) {
@@ -917,13 +916,11 @@ if_sendbuf(int id, int channel, int ack, struct sk_buff *skb)
 				ret = idi_send_data(card, chan, ack, skb, 1);
 			return (ret);
 		} else {
-			dev_kfree_skb(skb);
 			return -ENODEV;
 		}
         }
         printk(KERN_ERR
                "eicon: if_sendbuf called with invalid driverId!\n");
-	dev_kfree_skb(skb);
         return -ENODEV;
 }
 

@@ -24,6 +24,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.7  1999/09/26 14:17:53  armin
+ * Improved debug and log via readstat()
+ *
  * Revision 1.6  1999/09/21 20:35:43  armin
  * added more error checking.
  *
@@ -63,7 +66,7 @@ eicon_io_rcv_dispatch(eicon_card *ccard) {
         eicon_chan *chan;
 
         if (!ccard) {
-	        eicon_log(ccard, 1, "eicon_io_rcv_dispatch: NULL card!\n");
+	        eicon_log(ccard, 1, "eicon_err: NULL card in rcv_dispatch !\n");
                 return;
         }
 
@@ -156,7 +159,7 @@ eicon_io_ack_dispatch(eicon_card *ccard) {
         struct sk_buff *skb;
 
         if (!ccard) {
-		eicon_log(ccard, 1, "eicon_io_ack_dispatch: NULL card!\n");
+		eicon_log(ccard, 1, "eicon_err: NULL card in ack_dispatch!\n");
                 return;
         }
 	while((skb = skb_dequeue(&ccard->rackq))) {
