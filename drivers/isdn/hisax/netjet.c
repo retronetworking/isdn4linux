@@ -8,6 +8,9 @@
  *
  *
  * $Log$
+ * Revision 1.1.2.2  1997/11/27 12:32:01  keil
+ * Working netjet driver
+ *
  * Revision 1.1.2.1  1997/11/15 18:58:13  keil
  * new card
  *
@@ -330,7 +333,7 @@ static void got_frame(struct BCState *bcs, int count) {
 	queue_task(&bcs->tqueue, &tq_immediate);
 	mark_bh(IMMEDIATE_BH);
 	
-	if (bcs->cs->debug & L1_DEB_HSCX_FIFO)
+	if (bcs->cs->debug & L1_DEB_RECEIVE_FRAME)
 		printframe(bcs->cs, bcs->hw.tiger.rcvbuf, count, "rec");
 }
 
@@ -841,9 +844,9 @@ inittiger(struct IsdnCardState *cs))
 	debugl1(cs, tmp);
 	outl_p((u_int)cs->bcs[0].hw.tiger.send,
 		cs->hw.njet.base + NETJET_DMA_READ_START);
-	outl_p((u_int)(cs->bcs[0].hw.tiger.send + NETJET_DMA_SIZE/2 - 1),
+	outl_p((u_int)(cs->bcs[0].hw.tiger.s_irq),
 		cs->hw.njet.base + NETJET_DMA_READ_IRQ);
-	outl_p((u_int)(cs->bcs[0].hw.tiger.send + NETJET_DMA_SIZE - 1),
+	outl_p((u_int)(cs->bcs[0].hw.tiger.s_end),
 		cs->hw.njet.base + NETJET_DMA_READ_END);
 	if (!(cs->bcs[0].hw.tiger.rec = kmalloc(NETJET_DMA_SIZE * sizeof(unsigned int),
 		GFP_ATOMIC | GFP_DMA))) {
@@ -932,9 +935,9 @@ netjet_interrupt(int intno, void *dev_id, struct pt_regs *regs)
 			debugl1(cs, tmp);
 		}
 		cs->hw.njet.last_is0 = cs->hw.njet.irqstat0;
-		cs->hw.njet.irqmask0 = ((0x0f & cs->hw.njet.irqstat0) ^ 0x0f) | 0x30;
-		byteout(cs->hw.njet.base + NETJET_IRQMASK0, cs->hw.njet.irqmask0);
-/*		byteout(cs->hw.njet.base + NETJET_IRQSTAT0, 0);
+/*		cs->hw.njet.irqmask0 = ((0x0f & cs->hw.njet.irqstat0) ^ 0x0f) | 0x30;
+*/		byteout(cs->hw.njet.base + NETJET_IRQSTAT0, cs->hw.njet.irqstat0);
+/*		byteout(cs->hw.njet.base + NETJET_IRQMASK0, cs->hw.njet.irqmask0);
 */		if (cs->hw.njet.irqstat0 & 0x0c)
 			read_tiger(cs);
 		if (cs->hw.njet.irqstat0 & 0x03)
@@ -964,7 +967,7 @@ reset_netjet(struct IsdnCardState *cs)
 	current->state = TASK_INTERRUPTIBLE;
 	current->timeout = jiffies + (10 * HZ) / 1000;	/* Timeout 10ms */
 	schedule();
-	cs->hw.njet.ctrl_reg = 0x40;  /* Reset Off and status read clear */
+	cs->hw.njet.ctrl_reg = 0x00;  /* Reset Off and status read clear */
 	byteout(cs->hw.njet.base + NETJET_CTRL, cs->hw.njet.ctrl_reg);
 	current->state = TASK_INTERRUPTIBLE;
 	current->timeout = jiffies + (10 * HZ) / 1000;	/* Timeout 10ms */
