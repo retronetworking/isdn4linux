@@ -6,6 +6,9 @@
  *
  *
  * $Log$
+ * Revision 1.6.2.5  1997/11/15 18:50:41  keil
+ * new common init function
+ *
  * Revision 1.6.2.4  1997/10/17 22:13:29  keil
  * update to last hisax version
  *
@@ -138,8 +141,7 @@ avm_a1_interrupt(int intno, void *dev_id, struct pt_regs *regs)
 	}
 	while (((sval = bytein(cs->hw.avm.cfg_reg)) & 0xf) != 0x7) {
 		if (!(sval & AVM_A1_STAT_TIMER)) {
-			byteout(cs->hw.avm.cfg_reg, 0x14);
-			byteout(cs->hw.avm.cfg_reg, 0x18);
+			byteout(cs->hw.avm.cfg_reg, 0x1C);
 			sval = bytein(cs->hw.avm.cfg_reg);
 		} else if (cs->debug & L1_DEB_INTSTAT) {
 			sprintf(tmp, "avm IntStatus %x", sval);
@@ -334,8 +336,7 @@ setup_avm_a1(struct IsdnCard *card))
 	val = bytein(cs->hw.avm.cfg_reg + 2);
 	printk(KERN_INFO "AVM A1: Byte at %x is %x\n",
 	       cs->hw.avm.cfg_reg + 2, val);
-	byteout(cs->hw.avm.cfg_reg, 0x14);
-	byteout(cs->hw.avm.cfg_reg, 0x18);
+	byteout(cs->hw.avm.cfg_reg, 0x1C);
 	val = bytein(cs->hw.avm.cfg_reg);
 	printk(KERN_INFO "AVM A1: Byte at %x is %x\n",
 	       cs->hw.avm.cfg_reg, val);
