@@ -6,6 +6,10 @@
  * (c) Copyright 1999 by Carsten Paeth (calle@calle.in-berlin.de)
  * 
  * $Log$
+ * Revision 1.8  2000/05/06 00:52:36  kai
+ * merged changes from kernel tree
+ * fixed timer and net_device->name breakage
+ *
  * Revision 1.7  2000/04/07 15:26:55  calle
  * better error message if cabel not connected or T1 has no power.
  *
@@ -311,7 +315,17 @@ int t1pci_init(void)
  		param.irq = dev->irq;
 		param.membase = pci_resource_start_mem(dev, 0);
 
-		pci_enable_device (dev); /* XXX check return */
+		retval = pci_enable_device (dev);
+		if (retval != 0) {
+		        printk(KERN_ERR
+			"%s: failed to enable AVM-T1-PCI at i/o %#x, irq %d, mem %#x err=%d\n",
+			driver->name, param.port, param.irq, param.membase, retval);
+#ifdef MODULE
+			cleanup_module();
+#endif
+			MOD_DEC_USE_COUNT;
+			return -EIO;
+		}
 
 		printk(KERN_INFO
 			"%s: PCI BIOS reports AVM-T1-PCI at i/o %#x, irq %d, mem %#x\n",

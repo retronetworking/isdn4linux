@@ -6,6 +6,10 @@
  * (c) Copyright 1999 by Carsten Paeth (calle@calle.in-berlin.de)
  * 
  * $Log$
+ * Revision 1.23  2000/05/06 00:52:36  kai
+ * merged changes from kernel tree
+ * fixed timer and net_device->name breakage
+ *
  * Revision 1.22  2000/04/21 13:01:33  calle
  * Revision in b1pciv4 driver was missing.
  *
@@ -477,6 +481,19 @@ static int add_card(struct pci_dev *dev)
 		param.membase = pci_resource_start_mem(dev, 0);
 		param.port = pci_resource_start_io(dev, 2);
 		param.irq = dev->irq;
+
+		retval = pci_enable_device (dev);
+		if (retval != 0) {
+		        printk(KERN_ERR
+			"%s: failed to enable AVM-B1 V4 at i/o %#x, irq %d, mem %#x err=%d\n",
+			driver->name, param.port, param.irq, param.membase, retval);
+#ifdef MODULE
+			cleanup_module();
+#endif
+			MOD_DEC_USE_COUNT;
+			return -EIO;
+		}
+
 		printk(KERN_INFO
 		"%s: PCI BIOS reports AVM-B1 V4 at i/o %#x, irq %d, mem %#x\n",
 		driver->name, param.port, param.irq, param.membase);
@@ -494,6 +511,18 @@ static int add_card(struct pci_dev *dev)
 		param.membase = 0;
 		param.port = pci_resource_start_io(dev, 1);
 		param.irq = dev->irq;
+
+		retval = pci_enable_device (dev);
+		if (retval != 0) {
+		        printk(KERN_ERR
+			"%s: failed to enable AVM-B1 at i/o %#x, irq %d, err=%d\n",
+			driver->name, param.port, param.irq, retval);
+#ifdef MODULE
+			cleanup_module();
+#endif
+			MOD_DEC_USE_COUNT;
+			return -EIO;
+		}
 		printk(KERN_INFO
 		"%s: PCI BIOS reports AVM-B1 at i/o %#x, irq %d\n",
 		driver->name, param.port, param.irq);

@@ -6,6 +6,9 @@
  * (c) Copyright 1999 by Carsten Paeth (calle@calle.in-berlin.de)
  * 
  * $Log$
+ * Revision 1.8  2000/04/03 16:38:05  calle
+ * made suppress_pollack static.
+ *
  * Revision 1.7  2000/04/03 13:29:24  calle
  * make Tim Waugh happy (module unload races in 2.3.99-pre3).
  * no real problem there, but now it is much cleaner ...
@@ -1352,9 +1355,21 @@ int c4_init(void)
 			PCI_VENDOR_ID_AVM, PCI_DEVICE_ID_AVM_C4, dev))) {
 		struct capicardparams param;
 
-		param.port = get_pcibase(dev, 1) & PCI_BASE_ADDRESS_IO_MASK;
+		param.port = pci_resource_start_io(dev, 1);
 		param.irq = dev->irq;
-		param.membase = get_pcibase(dev, 0) & PCI_BASE_ADDRESS_MEM_MASK;
+		param.membase = pci_resource_start_mem(dev, 0);
+
+		retval = pci_enable_device (dev);
+		if (retval != 0) {
+		        printk(KERN_ERR
+			"%s: failed to enable AVM-C4 at i/o %#x, irq %d, mem %#x err=%d\n",
+			driver->name, param.port, param.irq, param.membase, retval);
+#ifdef MODULE
+			cleanup_module();
+#endif
+			MOD_DEC_USE_COUNT;
+			return -EIO;
+		}
 
 		printk(KERN_INFO
 			"%s: PCI BIOS reports AVM-C4 at i/o %#x, irq %d, mem %#x\n",
