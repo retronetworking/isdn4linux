@@ -201,7 +201,6 @@ typedef struct {
 #undef CONFIG_ISDN_WITH_ABC_UDP_CHECK_DIAL
 #undef CONFIG_ISDN_WITH_ABC_OUTGOING_EAZ
 #undef CONFIG_ISDN_WITH_ABC_LCR_SUPPORT
-#undef CONFIG_ISDN_WITH_ABC_IPV4_DYNADDR
 #undef CONFIG_ISDN_WITH_ABC_RCV_NO_HUPTIMER
 #undef CONFIG_ISDN_WITH_ABC_CH_EXTINUSE
 #undef CONFIG_ISDN_WITH_ABC_CONN_ERROR
@@ -232,7 +231,7 @@ extern DWABCJIFFIES isdn_dwabc_jiffies;
 #define ISDN_DW_ABC_FLAG_NO_UDP_CHECK		0x00000002L
 #define ISDN_DW_ABC_FLAG_NO_UDP_HANGUP		0x00000004L
 #define ISDN_DW_ABC_FLAG_NO_UDP_DIAL		0x00000008L
-#define ISDN_DW_ABC_FLAG_DYNADDR			0x00000010L
+#define ISDN_DW_ABC_FLAG_UNUSED00010		0x00000010L
 #define ISDN_DW_ABC_FLAG_RCV_NO_HUPTIMER	0x00000020L
 #define ISDN_DW_ABC_FLAG_NO_CH_EXTINUSE		0x00000040L
 #define ISDN_DW_ABC_FLAG_NO_CONN_ERROR		0x00000080L
@@ -461,7 +460,6 @@ typedef struct isdn_net_local_s {
   ulong 	dw_abc_flags;
   ulong 	dw_abc_if_flags;
   int   	dw_abc_inuse_secure;
-  ulong 	dw_abc_comhd_last_send;
   ulong 	dw_abc_dialstart;
   int   	dw_abc_old_onhtime;
   int 		dw_abc_remote_version;
@@ -779,9 +777,6 @@ extern void isdn_dw_abc_lcr_ulock(void);
 #endif
 #ifdef CONFIG_ISDN_WITH_ABC_UDP_CHECK
 extern int dw_abc_udp_test(struct sk_buff *skb,struct net_device *ndev); 
-#endif
-#if CONFIG_ISDN_WITH_ABC_IPV4_DYNADDR
-struct sk_buff *isdn_dw_abc_ip4_keepalive_test(struct net_device *ndev,struct sk_buff *skb);
 #endif
 #endif
 

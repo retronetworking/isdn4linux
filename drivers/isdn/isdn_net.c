@@ -1318,15 +1318,22 @@ void isdn_net_write_super(isdn_net_local *lp, struct sk_buff *skb)
 	}
 
 	spin_lock_bh(&lp->xmit_lock);
-#ifdef CONFIG_ISDN_WITH_ABC
-	if(skb_queue_empty(&lp->super_tx_queue) && !isdn_net_lp_busy(lp)) {
-#else
+
 	if (!isdn_net_lp_busy(lp)) {
+#ifdef CONFIG_ISDN_WITH_ABC
+		if(!skb_queue_empty(&lp->super_tx_queue)) {
+			/*
+			** don't reverse the frame flow
+			** compression need frames in order and maybe other's too
+			*/
+			skb_queue_tail(&lp->super_tx_queue, skb); 
+			skb = skb_dequeue(&lp->super_tx_queue);
+		}
 #endif
 		isdn_net_writebuf_skb(lp, skb);
-	} else {
-		skb_queue_tail(&lp->super_tx_queue, skb);
-	}
+
+	} else skb_queue_tail(&lp->super_tx_queue, skb);
+
 	spin_unlock_bh(&lp->xmit_lock);
 }
 
@@ -1374,7 +1381,6 @@ void isdn_net_writebuf_skb(isdn_net_local *lp, struct sk_buff *skb)
 		printk(KERN_WARNING "%s: HL driver queue full\n", lp->name);
 		goto error;
 	}
-	
 	lp->transcount += len;
 	isdn_net_inc_frame_cnt(lp);
 	return;
@@ -1382,7 +1388,6 @@ void isdn_net_writebuf_skb(isdn_net_local *lp, struct sk_buff *skb)
  error:
 	dev_kfree_skb(skb);
 	lp->stats.tx_errors++;
-
 }
 
 #if 0
@@ -1439,70 +1444,51 @@ isdn_net_xmit(struct net_device *ndev, struct sk_buff *skb)
 	/* Reset hangup-timeout */
 	lp->huptimer = 0; // FIXME?
 #ifdef CONFIG_ISDN_WITH_ABC
-#ifdef CONFIG_ISDN_WITH_ABC_RAWIPCOMPRESS
-	if(	(lp->dw_abc_flags & ISDN_DW_ABC_FLAG_LEASED_LINE) 	&&
-		(lp->dw_abc_flags & ISDN_DW_ABC_FLAG_BSD_COMPRESS)	&&
-		(dwsjiffies - lp->dw_abc_comhd_last_send) > 1800	&&
-		lp->dw_abc_bsd_compressor != NULL					) {
 
-		dwabc_bsd_first_gen(lp);
-	}
-#endif
-  
-	{
-		struct sk_buff *t_skb = NULL;
+	if(test_and_set_bit(ISDN_DW_ABC_BITLOCK_SEND,&lp->dw_abc_bitlocks)) {
 
-		while (!isdn_net_lp_busy(lp) && (t_skb = skb_dequeue(&lp->super_tx_queue)) != NULL) 
-			isdn_net_writebuf_skb(lp, t_skb);                                
+		if(dev->net_verbose > 2)
+			printk(KERN_INFO "%s: isdn_net_xmit  called recursivly\n",lp->name);
+
+		spin_unlock_bh(&lp->xmit_lock);
+		return(1);
 	}
 
-	if(isdn_net_lp_busy(lp)) retv = 1; 
-	else {
-	
-		if(test_and_set_bit(ISDN_DW_ABC_BITLOCK_SEND,&lp->dw_abc_bitlocks)) {
+	if (!skb_queue_empty(&lp->super_tx_queue)) {
 
-			if(dev->net_verbose > 2)
-				printk(KERN_INFO "%s: isdn_net_xmit  called recursivly\n",lp->name);
+		isdn_net_writebuf_skb(lp,skb_dequeue(&lp->super_tx_queue));
+		retv = 1;
 
-			spin_unlock_bh(&lp->xmit_lock);
-			return(1);
-		}
+	} else if(skb != NULL) {
 
-		if(skb != NULL) {
+		int l = skb->len;
+		int nl = l;
 
-			int l = skb->len;
-			int nl = l;
-
-			if(	lp->p_encap == ISDN_NET_ENCAP_RAWIP &&
+		if(	lp->p_encap == ISDN_NET_ENCAP_RAWIP &&
 				(lp->dw_abc_if_flags & ISDN_DW_ABC_IFFLAG_BSDAKTIV)) {
 
-				if((skb = dwabc_bsd_compress(lp,skb,ndev)) != NULL) {
+			if((skb = dwabc_bsd_compress(lp,skb,ndev)) != NULL) {
 
-					int r = 0;
-					nl = skb->len;
+				int r = 0;
+				nl = skb->len;
 
-					if(l != nl && (r = isdn_dc2minor(lp->isdn_device,lp->isdn_channel)) >= 0) {
+				if(l != nl && (r = isdn_dc2minor(lp->isdn_device,lp->isdn_channel)) >= 0) {
 
-						dev->obytes[r] += l - nl;
-						lp->stats.tx_bytes += l - nl;
-					}
+					dev->obytes[r] += l - nl;
+					lp->stats.tx_bytes += l - nl;
 				}
-			} 
-
-			if(lp->p_encap == ISDN_NET_ENCAP_RAWIP) {
-
-				lp->dw_abc_bsd_snd += l;
-				lp->dw_abc_bsd_bsd_snd += nl;
 			}
 		} 
 
-		clear_bit(ISDN_DW_ABC_BITLOCK_SEND,&lp->dw_abc_bitlocks);
-		isdn_net_writebuf_skb(lp, skb);
-	}
+		if(lp->p_encap == ISDN_NET_ENCAP_RAWIP) {
 
-#else
-	isdn_net_writebuf_skb(lp, skb);
+			lp->dw_abc_bsd_snd += l;
+			lp->dw_abc_bsd_bsd_snd += nl;
+		}
+	}
+	clear_bit(ISDN_DW_ABC_BITLOCK_SEND,&lp->dw_abc_bitlocks);
 #endif
+	isdn_net_writebuf_skb(lp, skb);
 	spin_unlock_bh(&lp->xmit_lock);
 
 	/* the following stuff is here for backwards compatibility.
@@ -1669,26 +1655,7 @@ static int isdn_net_start_xmit(struct sk_buff *skb, struct net_device *ndev)
 		}
 	}
 #endif
-#if CONFIG_ISDN_WITH_ABC_IPV4_TCP_KEEPALIVE || CONFIG_ISDN_WITH_ABC_IPV4_DYNADDR
-	{
-		struct sk_buff *myskb = NULL;
-
-		if((myskb = isdn_dw_abc_ip4_keepalive_test(ndev,skb)) == skb)
-			return(dwabc_isdn_net_start_xmit(skb,ndev));
-
-		dev_kfree_skb(skb);
-
-		if(myskb != NULL) {
-		
-			if(dwabc_isdn_net_start_xmit(myskb,ndev))
-				dev_kfree_skb(myskb);
-		}
-
-		return(0);
-	}
-#else
 	return(dwabc_isdn_net_start_xmit(skb,ndev));
-#endif
 }
 
 
@@ -2850,7 +2817,11 @@ isdn_net_init(struct net_device *ndev)
 	ndev->addr_len = ETH_ALEN;
 
 	/* for clients with MPPP maybe higher values better */
+#ifdef CONFIG_ISDN_WITH_ABC
+	ndev->tx_queue_len = 256;
+#else
 	ndev->tx_queue_len = 30;
+#endif
 
 	for (i = 0; i < ETH_ALEN; i++)
 		ndev->broadcast[i] = 0xff;

@@ -29,12 +29,6 @@ static char *dwabcrevison = "$Revision$";
 
 #include <linux/skbuff.h>
 
-#if CONFIG_ISDN_WITH_ABC_IPV4_DYNADDR
-#include <net/ip.h>
-#include <net/tcp.h>
-#include <linux/inetdevice.h>
-#endif
-
 #include <net/udp.h>
 #include <net/checksum.h>
 #include <linux/isdn_dwabc.h>
@@ -52,11 +46,7 @@ extern struct isdn_ppp_compressor *isdn_ippp_comp_head;
 #define NBYTEORDER_30BYTES      0x1e00 
 #define DWABC_TMRES (HZ / 10)
 
-#define DYNADDR_VERBOSE	 1
 #define VERBLEVEL (dev->net_verbose > 2)
-
-static void dw_nfw_dlink(isdn_net_local *lp,struct sk_buff *skb,char *msg);
-static int dwisdn_nfw_rw_sock(isdn_net_local *,struct sk_buff *);
 
 static struct timer_list dw_abc_timer;
 
@@ -501,84 +491,6 @@ static void dw_abc_timer_func(u_long dont_need_yet)
 }
 
 
-#if CONFIG_ISDN_WITH_ABC_IPV4_DYNADDR
-
-static char    *ipnr2buf(u_long ipadr)
-{
-	static char     buf[8][16];
-	static u_char   bufp = 0;
-	char           *p = buf[bufp = (bufp + 1) & 7];
-	u_char         *up = (u_char *) & ipadr;
-
-	sprintf(p, "%d.%d.%d.%d", up[0], up[1], up[2], up[3]);
-	return (p);
-}
-
-struct sk_buff *isdn_dw_abc_ip4_keepalive_test(struct net_device *ndev,struct sk_buff *skb)
-{
-	int rklen;
-	struct iphdr *ip;
-	isdn_net_local *lp = NULL;
-
-	if(ndev == NULL || skb == NULL)
-		return(skb);
-
-	lp = (isdn_net_local *)ndev->priv;
-
-	if(ntohs(skb->protocol) != ETH_P_IP)
-		return(skb);
-
-	rklen = skb->len;
-	ip = (struct iphdr *)skb->data;
-
-	if (skb->nh.raw > skb->data && skb->nh.raw < skb->tail) {
-
-		rklen -= (char *)skb->nh.raw - (char *)skb->data;
-		ip = (struct iphdr *)skb->nh.raw;
-	}
-
-	if (rklen < sizeof(struct iphdr))
-		return (skb);
-
-	rklen -= sizeof(struct iphdr);
-	
-	if(ip->version != 4 ) 
-		return(skb);
-
-	if(ndev->ip_ptr != NULL && (lp->dw_abc_flags & ISDN_DW_ABC_FLAG_DYNADDR)) {
-
-		struct in_device *indev = (struct in_device *)ndev->ip_ptr;
-		struct in_ifaddr *ifaddr = NULL;
-
-		if((ifaddr = indev->ifa_list) != NULL) {
-
-			ulong ipaddr = ifaddr->ifa_local;
-
-#ifdef DYNADDR_VERBOSE
-			if(VERBLEVEL)
-				printk(KERN_DEBUG 
-					"isdn_dynaddr: %s syncpp %d %s->%s %s\n",
-					lp->name,
-					lp->p_encap == ISDN_NET_ENCAP_SYNCPPP,
-					ipnr2buf(ip->saddr),
-					ipnr2buf(ip->daddr),
-					ipnr2buf(ipaddr));
-#endif
-			if((ip->saddr ^ ipaddr)) {
-
-				if(skb->sk == NULL || dwisdn_nfw_rw_sock(lp,skb)) {
-
-					dw_nfw_dlink(lp,skb,NULL);
-					return(NULL);
-				}
-			}
-		}
-	}
-
-	return(skb);
-}
-#endif
-
 void isdn_dw_abc_init_func(void)
 {
 
@@ -607,9 +519,6 @@ void isdn_dw_abc_init_func(void)
 #endif
 #ifdef CONFIG_ISDN_WITH_ABC_LCR_SUPPORT
 		"CONFIG_ISDN_WITH_ABC_LCR_SUPPORT\n"
-#endif
-#ifdef CONFIG_ISDN_WITH_ABC_IPV4_DYNADDR
-		"CONFIG_ISDN_WITH_ABC_IPV4_DYNADDR\n"
 #endif
 #ifdef CONFIG_ISDN_WITH_ABC_RCV_NO_HUPTIMER
 		"CONFIG_ISDN_WITH_ABC_RCV_NO_HUPTIMER\n"
@@ -698,7 +607,6 @@ void isdn_dwabc_test_phone(isdn_net_local *lp)
 				case 'x':
 				case 'X':	lp->dw_abc_flags |= ISDN_DW_ABC_FLAG_RCV_NO_HUPTIMER;		break;
 
-				case 'D':	lp->dw_abc_flags |= ISDN_DW_ABC_FLAG_DYNADDR;				break;
 				case 'B':	lp->dw_abc_flags |= ISDN_DW_ABC_FLAG_BSD_COMPRESS;			break;
 				case 'L': 	lp->dw_abc_flags |= ISDN_DW_ABC_FLAG_LEASED_LINE;			break;
 
@@ -715,8 +623,6 @@ void isdn_dwabc_test_phone(isdn_net_local *lp)
 		}
 
 		if(lp->dw_abc_flags & ISDN_DW_ABC_FLAG_LEASED_LINE) {
-
-			lp->dw_abc_flags &= ~ISDN_DW_ABC_FLAG_DYNADDR;
 
 			lp->dw_abc_flags |= 
 					ISDN_DW_ABC_FLAG_NO_UDP_CHECK		|
@@ -791,7 +697,6 @@ void dwabc_bsd_first_gen(isdn_net_local *lp)
 		for(;p < ep;p++)	*(p++) = 0;
 
 		isdn_net_write_super(lp, skb);
-		lp->dw_abc_comhd_last_send = dwsjiffies;
 
 		if(dev->net_verbose > 2)
 			printk(KERN_INFO "%s: dwabc: sending comm-header version 0x%x\n",lp->name,DWBSD_VERSION);
@@ -1145,157 +1050,4 @@ struct sk_buff *dwabc_bsd_compress(isdn_net_local *lp,struct sk_buff *skb,struct
 struct sk_buff *dwabc_bsd_rx_pkt(isdn_net_local *lp,struct sk_buff *skb,struct net_device *ndev)
 { return(skb); }
 #endif
-
-
-
-
-static void dw_nfw_dlink(isdn_net_local *lp,struct sk_buff *skb,char *msg)
-{
-	if(skb != NULL) {
-
-		if(dev->net_verbose > 0 && lp != NULL) {
-
-			isdn_net_log_skb_dwabc(skb,lp,
-				(msg != NULL) ? msg :
-					"frame's-saddr != if-saddr sent dst_link_failure");
-		}
-
-		dst_link_failure(skb);
-	}
-}
-
-
-
-static int dwisdn_nfw_rw_sock(	isdn_net_local *lp, struct sk_buff *skb)
-/******************************************************************
-
-	0	==	addr rewritten or rewrite possible
-	1	==	addr not rewritable 
-			
-*******************************************************************/
-{
-#if !defined(CONFIG_ISDN_WITH_ABC_IPV4_DYNADDR) || !defined(CONFIG_ISDN_WITH_ABC_IPV4_RW_SOCKADDR)
-	return(0);
-#else
-	int retw = 0;
-	struct sock *sk;
-
-	if(	skb != NULL && 
-		(sk = skb->sk) != NULL && skb->len >= sizeof(struct iphdr)) {
-	
-		struct net_device *ndev = &lp->netdev->dev;
-		struct in_device *indev = (struct in_device *)ndev->ip_ptr;
-		struct in_ifaddr *ifaddr = (indev != NULL) ? indev->ifa_list :NULL;
-		ulong ipaddr = (ifaddr != NULL) ? ifaddr->ifa_local : 0;
-		struct iphdr *ip = skb->nh.iph;
-		int len = skb->len;
-
-		if(	ipaddr != 0 && (ip->saddr ^ ipaddr)) {
-			/*!(ip->frag_off & ~IP_DF) && */
-
-			if(sk->dead || (sk->shutdown == SHUTDOWN_MASK))
-				return(1);
-
-			len -= ip->ihl * 4;
-
-			if(ip->protocol == IPPROTO_TCP) {
-
-				if(len < sizeof(struct tcphdr))
-					return(0);
-
-				lock_sock(sk);
-
-				if(sk->saddr != 0 && sk->saddr != ipaddr) {
-
-					retw = 1;
-
-					if(sk->prot != NULL) {
-
-						if(	sk->prot->unhash != NULL	&&
-							sk->prot->hash != NULL		){
-
-							sk->saddr = ipaddr;
-							sk->rcv_saddr = ipaddr;
-							sk->prot->unhash(sk);
-							sk->prot->hash(sk);
-							retw = 0;
-						}
-					}
-
-					if(!retw && dev->net_verbose > 2)
-						isdn_net_log_skb_dwabc(skb,lp,"rewrite sock-addr for");
-				}
-
-				release_sock(sk);
-
-
-			} else if(ip->protocol == IPPROTO_UDP) {
-
-				if(len < sizeof(struct udphdr))
-					return(0);
-
-				if(sk->saddr && (sk->saddr != ipaddr))
-					retw = 1;
-
-				if(sk->rcv_saddr && (sk->rcv_saddr != ipaddr))
-					retw = 1;
-
-			} else if(ip->protocol != IPPROTO_ICMP) {
-
-				retw = 1;
-			}
-
-
-			if(!retw) {
-
-				if(dev->net_verbose > 2)
-					isdn_net_log_skb_dwabc(skb,lp,"rewrite frame's saddr");
-
-				ip->check = 0;
-				ip->saddr = ipaddr;
-				ip->check = ip_fast_csum((unsigned char *)ip,ip->ihl);
-
-				switch(ip->protocol) {
-				case IPPROTO_UDP:
-
-					{
-						ushort l = ntohs(ip->tot_len) - (ip->ihl << 2);
-
-						struct udphdr *udp = (struct udphdr *)
-											(((u_char *) ip) + (ip->ihl << 2));
-
-						udp->check = 0;
-						udp->check = csum_tcpudp_magic(
-											ip->saddr, ip->daddr,
-											l,IPPROTO_UDP,
-											csum_partial((char *)udp,l,0));
-					}
-
-					break;
-
-				case IPPROTO_TCP:
-
-					{
-						ushort l = ntohs(ip->tot_len) - (ip->ihl << 2);
-
-						struct tcphdr *tcp = (struct tcphdr *) 
-									(((u_char *) ip) + (ip->ihl << 2));
-
-						tcp->check = 0;
-						tcp->check = csum_tcpudp_magic(
-										ip->saddr, ip->daddr,
-										l,IPPROTO_TCP,
-										csum_partial((char *)tcp,l,0));
-					}
-
-					break;
-				}
-			}
-		}
-	}
-
-	return(retw);
-#endif
-}
-
 #endif

@@ -28,11 +28,7 @@ if [ "$CONFIG_ISDN_WITH_ABC" != "n" ]; then
 	bool '  Enable Outgoing-EAZ-Support' CONFIG_ISDN_WITH_ABC_OUTGOING_EAZ
 	bool '  Enable LCR-Support (need isdnlog)' CONFIG_ISDN_WITH_ABC_LCR_SUPPORT
 	bool '  RX dont reset hanguptimeout' CONFIG_ISDN_WITH_ABC_RCV_NO_HUPTIMER
-	bool '  Drop frames with s_addr != iface_addr  (ip4 only)' CONFIG_ISDN_WITH_ABC_IPV4_DYNADDR
 	if [ "$CONFIG_EXPERIMENTAL" != "n" ]; then
-		if [ "$CONFIG_ISDN_WITH_ABC_IPV4_DYNADDR" != "n" ]; then
-			bool '    Rewrite socket and frame saddr-field (ipv4 only)' CONFIG_ISDN_WITH_ABC_IPV4_RW_SOCKADDR
-		fi
 		bool '  Enable UDP-Info-Support' CONFIG_ISDN_WITH_ABC_UDP_CHECK
 		if [ "$CONFIG_ISDN_WITH_ABC_UDP_CHECK" != "n" ]; then
 			bool '    Enable Hangup-Support with UDP-INFO' CONFIG_ISDN_WITH_ABC_UDP_CHECK_HANGUP
