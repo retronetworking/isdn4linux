@@ -21,6 +21,10 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.15  1996/06/15 14:56:57  fritz
+ * Added version signatures for data structures used
+ * by userlevel programs.
+ *
  * Revision 1.14  1996/06/06 21:24:23  fritz
  * Started adding support for suspend/resume.
  *
@@ -315,7 +319,7 @@ typedef struct isdn_net_local_s {
   struct enet_statistics stats;        /* Ethernet Statistics              */
   int                    isdn_device;  /* Index to isdn-device             */
   int                    isdn_channel; /* Index to isdn-channel            */
-  int			 ppp_minor;    /* PPPD device minor number         */
+  int			 ppp_slot;     /* PPPD device slot number          */
   int                    pre_device;   /* Preselected isdn-device          */
   int                    pre_channel;  /* Preselected isdn-channel         */
   int                    exclusive;    /* If non-zero idx to reserved chan.*/
@@ -545,6 +549,7 @@ struct ippp_struct {
   unsigned int maxcid;
   isdn_net_local *lp;
   int unit; 
+  int minor;
   long last_link_seqno;
   long mp_seqno;
   long range;
