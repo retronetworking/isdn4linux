@@ -20,6 +20,10 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.50  1998/03/08 13:14:28  detabc
+ * abc-extension support for kernels > 2.1.x
+ * first try (sorry experimental)
+ *
  * Revision 1.49  1998/03/08 00:01:59  fritz
  * Bugfix: Lowlevel module usage and channel usage were not
  *         reset on NO DCHANNEL.
@@ -1473,9 +1477,6 @@ isdn_tty_set_modem_info(modem_info * info, uint cmd, uint * value)
 				char *ep = NULL;
 				char *s = info->last_num;
 
-				if((error = verify_area(VERIFY_WRITE,(void *) arg,need)) != 0)
-					return error;
-
 				ep = p = n_buf;
 				ep += 1 + ISDN_MSNLEN;
 
@@ -1488,7 +1489,9 @@ isdn_tty_set_modem_info(modem_info * info, uint cmd, uint * value)
 					*(p++) = *(s++);
 
 				*p = 0;
-				memcpy_tofs((void *)arg,n_buf,need);
+
+				if(copy_to_user((void *)arg,n_buf,need))
+					return -EFAULT;
 			}
 
 			break;
@@ -1934,19 +1937,7 @@ isdn_tty_reset_profile(atemu * m)
 	m->profile[13] = 4;
 	m->profile[14] = ISDN_PROTO_L2_X75I;
 	m->profile[15] = ISDN_PROTO_L3_TRANS;
-#ifdef CONFIG_ISDN_WITH_ABC
 	m->profile[16] = ISDN_SERIAL_XMIT_SIZE / 16;
-
-	if(m->profile[16] > 64) {
-		/*
-		** this is better for WFW95 with Z-MODEM
-		** my default is 1024 bytes/block
-		*/
-		m->profile[16] = 64;
-	}
-#else
-	m->profile[16] = ISDN_SERIAL_XMIT_SIZE / 16;
-#endif
 	m->profile[17] = ISDN_MODEM_WINSIZE;
 	m->profile[18] = 4;
 	m->profile[19] = 0;

@@ -28,6 +28,10 @@
  *
  *
  * $Log$
+ * Revision 1.2  1998/03/08 13:14:23  detabc
+ * abc-extension support for kernels > 2.1.x
+ * first try (sorry experimental)
+ *
  * Revision 1.1.2.2  1998/03/08 11:35:06  detabc
  * Add cvs header-controls an remove unused funktions
  *
@@ -508,7 +512,6 @@ int abc_first_senden(struct device *ndev,isdn_net_local *lp)
 	skb_reserve(skb,dev->abc_max_hdrlen);
 	skb->pkt_type = PACKET_HOST;
 	p = skb_put(skb,len);
-	SET_SKB_FREE(skb);
 
 	*(p++) = ABCR_FIRST_REQ & 0xFF;
 	*(p++) = (ABCR_FIRST_REQ >> 8) & 0xFF;
@@ -529,7 +532,7 @@ int abc_first_senden(struct device *ndev,isdn_net_local *lp)
 
 	} else {
 
-		kfree_skb(skb);
+		dev_kfree_skb(skb);
 		retw = 1;
 	} 
 
@@ -857,7 +860,6 @@ struct sk_buff *abc_get_keep_skb()
 	skb_reserve(skb,dev->abc_max_hdrlen);
 	buf = skb_put(skb,2);
 	skb->pkt_type = PACKET_HOST;
-	SET_SKB_FREE(skb);
 	buf[0] =  ABCR_KEEPALIVE & 0xFF;
 	buf[1] =  (ABCR_KEEPALIVE >> 8) & 0xFF;
 
@@ -962,7 +964,6 @@ struct sk_buff *abc_snd_data(struct device *ndev,struct sk_buff *skb)
 	} else {
 
 		skb_reserve(ns,dev->abc_max_hdrlen);
-		SET_SKB_FREE(ns);
 	}
 
 	if(	skb->len > 10 &&
@@ -1016,10 +1017,9 @@ int abc_test_rcvq(struct device *ndev)
 
 		if(ndev == skb->dev) {
 
-			SET_SKB_FREE(skb);
 			skb->protocol = 0;
 			skb->dev = NULL;
-			kfree_skb(skb);
+			dev_kfree_skb(skb);
 
 		} else abc_test_receive(NULL,skb);
 	}
@@ -1042,10 +1042,9 @@ void abc_free_receive(void)
 
 	for(a++;a > 0 && (skb = skb_dequeue(&abc_receive_q)) != NULL;a--) {
 
-		SET_SKB_FREE(skb);
 		skb->protocol = 0;
 		skb->dev = NULL;
-		kfree_skb(skb);
+		dev_kfree_skb(skb);
 	}
 }
 
@@ -1077,7 +1076,6 @@ struct sk_buff *abc_get_uncomp(struct sk_buff *skb)
 
 			skb_reserve(nskb,dev->abc_max_hdrlen);
 			nskb->pkt_type = PACKET_HOST;
-			SET_SKB_FREE(nskb);
 
 			memcpy(i=(void *)skb_put(nskb,len),(void *)p,len);
 			nskb->ip_hdr = (struct iphdr *)i;
@@ -1096,13 +1094,12 @@ struct sk_buff *abc_get_uncomp(struct sk_buff *skb)
 
 		skb_reserve(nskb,dev->abc_max_hdrlen);
 		nskb->pkt_type = PACKET_HOST;
-		SET_SKB_FREE(nskb);
 
 		r = abcgmbh_depack(p,len,i = skb_put(nskb,nlen),nlen);
 
 		if(r < nlen) {
 
-			kfree_skb(nskb);
+			dev_kfree_skb(nskb);
 			nskb = NULL;
 		}
 
@@ -1147,9 +1144,8 @@ struct sk_buff *abc_test_receive(struct device *ndev, struct sk_buff *skb)
 				"%s: received eot\n", lp->name);
 		}
 
-		SET_SKB_FREE(skb);
 		skb->protocol = 0;
-		kfree_skb(skb);
+		dev_kfree_skb(skb);
 		return(NULL);
 	}
 
@@ -1167,9 +1163,8 @@ struct sk_buff *abc_test_receive(struct device *ndev, struct sk_buff *skb)
 		if(lp != NULL)
 			lp->abc_life_to = ABC_DST_LIFETIME;
 
-		SET_SKB_FREE(skb);
 		skb->protocol = 0;
-		kfree_skb(skb);
+		dev_kfree_skb(skb);
 		return(NULL);
 	}
 
@@ -1187,9 +1182,8 @@ struct sk_buff *abc_test_receive(struct device *ndev, struct sk_buff *skb)
 				len,
 				sizeof(struct ABCR_FIRST_DATA));
 
-			SET_SKB_FREE(skb);
 			skb->protocol = 0;
-			kfree_skb(skb);
+			dev_kfree_skb(skb);
 			return(NULL);
 		}
 
@@ -1210,9 +1204,8 @@ struct sk_buff *abc_test_receive(struct device *ndev, struct sk_buff *skb)
 			}
 		}
 
-		SET_SKB_FREE(skb);
 		skb->protocol = 0;
-		kfree_skb(skb);
+		dev_kfree_skb(skb);
 		return(NULL);
 	}
 
@@ -1231,9 +1224,8 @@ struct sk_buff *abc_test_receive(struct device *ndev, struct sk_buff *skb)
 			}
 
 /******************************
-			SET_SKB_FREE(skb);
 			skb->protocol = 0;
-			kfree_skb(skb);
+			dev_kfree_skb(skb);
 			return(NULL);
 
 			
@@ -1260,10 +1252,9 @@ struct sk_buff *abc_test_receive(struct device *ndev, struct sk_buff *skb)
 					len,nlen,!!(k & ABCR_ISDATA),k);
 		}
 
-		SET_SKB_FREE(skb);
 		skb->protocol = 0;
 		skb->dev = NULL;
-		kfree_skb(skb);
+		dev_kfree_skb(skb);
 		return(NULL);
 	}
 
@@ -1301,8 +1292,7 @@ struct sk_buff *abc_test_receive(struct device *ndev, struct sk_buff *skb)
 					}
 
 					skb_queue_tail(&abc_receive_q,skb);
-					SET_SKB_FREE(nskb);
-					kfree_skb(nskb);
+					dev_kfree_skb(nskb);
 
 					if(is_tcp_keep)
 						return(NULL);
@@ -1317,10 +1307,8 @@ struct sk_buff *abc_test_receive(struct device *ndev, struct sk_buff *skb)
 							"abc_test_receivce  depack-error\n");
 					}
 
-					SET_SKB_FREE(nskb);
-					kfree_skb(nskb);
-					SET_SKB_FREE(skb);
-					kfree_skb(skb);
+					dev_kfree_skb(nskb);
+					dev_kfree_skb(skb);
 					return(NULL);
 				}
 
@@ -1336,11 +1324,10 @@ struct sk_buff *abc_test_receive(struct device *ndev, struct sk_buff *skb)
 			}
 		}
 
-		SET_SKB_FREE(skb);
 		skb->dev = NULL;
 		skb->protocol = 0;
 		skb->dev = NULL;
-		kfree_skb(skb);
+		dev_kfree_skb(skb);
 
 		if((skb = nskb) != NULL) {
 
@@ -2680,8 +2667,20 @@ udp_ausgang:;
 			return(0);
 		}
 
-		mynet = ndev->pa_addr & (maske = ndev->pa_mask);
-		dnet = ip->daddr & maske;
+		{
+			struct in_device *in_dev =   ndev->ip_ptr ;
+			struct in_ifaddr *ifa = in_dev->ifa_list;
+
+			if(ifa != NULL) {
+				mynet = ifa->ifa_local & (maske = ifa->ifa_mask);
+			} else {
+
+				maske = ~maske;
+			}
+
+			dnet = ip->daddr & maske;
+		}
+
 
 		if(dnet != mynet) 
 			return(0);
