@@ -18,6 +18,15 @@
 +  CD should work in all countries if this service has been sub-
 +  scribed.
 +
++HiSax driver for HFC-S+, HFC-SP and HFC-PCMCIA cards
++CONFIG_HISAX_HFC_SX
++  This option allows you to add support for for ISDN-cards supplied
++  with CCDs HFC-S+, HFC-SP and HFC-PCMCIA-cards with the SP chip.
++  Drivers for the very old HFC-S chip and the new busmaster HFC-PCI
++  are separate selectable drivers and not covered by this option.
++  Due to problems with cards only equipped with 8K of RAM this driver
++  only supports cards equipped with 32K RAM like CCD recommends.
++
  ICN 2B and 4B support
  CONFIG_ISDN_DRV_ICN
    This enables support for two kinds of ISDN-cards made by a German
