@@ -25,8 +25,10 @@
 #ifndef isdn_h
 #define isdn_h
 
+#ifdef __KERNEL__
 #include <linux/isdn_compat.h>
 #include <linux/config.h>
+#endif
 #include <linux/ioctl.h>
 
 #define ISDN_TTY_MAJOR    43
