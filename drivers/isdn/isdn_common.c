@@ -21,6 +21,17 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.81  1999/07/11 17:14:09  armin
+ * Added new layer 2 and 3 protocols for Fax and DSP functions.
+ * Moved "Add CPN to RING message" to new register S23,
+ * "Display message" is now correct on register S13 bit 7.
+ * New audio command AT+VDD implemented (deactivate DTMF decoder and
+ * activate possible existing hardware/DSP decoder).
+ * Moved some tty defines to .h file.
+ * Made whitespace possible in AT command line.
+ * Some AT-emulator output bugfixes.
+ * First Fax G3 implementations.
+ *
  * Revision 1.80  1999/07/07 10:14:00  detabc
  * remove unused messages
  *
@@ -2296,10 +2307,11 @@ isdn_add_channels(driver *d, int drvidx, int n, int adding)
 				dev->drvmap[k] = drvidx;
 				break;
 			}
-	for (k = m; k < ISDN_MAX_CHANNELS; k++) { 
-	  dev->chanmap[k] = -1;
-	  dev->drvmap[k] = -1;
-	}  
+	if (n < 0)
+	  for (k = m; k < ISDN_MAX_CHANNELS; k++) { 
+	    dev->chanmap[k] = -1;
+	    dev->drvmap[k] = -1;
+	  }  
 	restore_flags(flags);
 	d->channels = m;
 	return 0;
