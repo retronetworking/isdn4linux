@@ -6,6 +6,9 @@
  *
  * 
  * $Log$
+ * Revision 1.1  1996/10/12 21:39:39  keil
+ * Initial revision
+ *
  *
 */
 
@@ -51,6 +54,3 @@
 #define HSCX_VSTR 0xe
 #define HSCX_RLCR 0xe
 #define HSCX_MASK 0x0
-
-static const char *HscxVersion[] = {"A1","?1","A2","?3","A3","V2.3","?6","?7",
-			     "?8","?9","?10","?11","?12","?13","?14","???"};	
