@@ -21,6 +21,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.57  1998/03/07 18:21:01  cal
+ * Dynamic Timeout-Rule-Handling vs. 971110 included
+ *
  * Revision 1.56  1998/02/25 17:49:38  he
  * Changed return codes caused be failing copy_{to,from}_user to -EFAULT
  *
@@ -2066,11 +2069,55 @@ isdn_writebuf_skb_stub(int drvidx, int chan, int ack, struct sk_buff *skb)
 	return ret;
 }
 
+int
+register_isdn_module(isdn_module *m) {
+#if 0
+	isdn_module_list **pp = &dev->modules;
+	isdn_module *new = kmalloc(sizeof(isdn_module_list), GFP_KERNEL);
+
+	if (!new) {
+		printk(KERN_WARNING "isdn: Out of memory in register_isdn_module\n");
+		return -1;
+	}
+	while (*pp && (*pp)->orig != m)
+		pp = &(*pp)->next;
+	if (*pp != NULL) {
+		printk(KERN_WARNING "isdn: Module %s already registered\n", m->name);
+		return -1;
+	}
+	while (*pp && ((*pp)->module.priority < m->priority))
+		pp = &(*pp)->next;
+	new->next = *pp;
+	new->orig = m;
+	new->module = *m;
+ 
+	*pp = new;
+#endif
+	return 0;
+}
+
+int
+unregister_isdn_module(isdn_module *m) {
+#if 0
+	isdn_module_list **pp = &dev->modules;
+
+	while (*pp && *pp != m)
+		pp = &(*pp)->next;
+	if (*pp == NULL) {
+		printk(KERN_WARNING "isdn: Module %s not found\n", m->name);
+		return -1;
+	}
+#endif
+	return 0;
+}
+
 /*
  * Low-level-driver registration
  */
 
 EXPORT_SYMBOL(register_isdn);
+EXPORT_SYMBOL(register_isdn_module);
+EXPORT_SYMBOL(unregister_isdn_module);
 
 int
 register_isdn(isdn_if * i)
