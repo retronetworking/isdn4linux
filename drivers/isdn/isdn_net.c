@@ -21,6 +21,10 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.48.2.19  1998/07/30 11:29:32  paul
+ * printk message only appeared when status is off and interface is rawIP,
+ * which is confusing for people who don't know about "isdnctrl status <if> on".
+ *
  * Revision 1.48.2.18  1998/06/29 17:08:20  cal
  * applied small TimRu-patch by Oliver Lauer
  *
@@ -2582,7 +2586,11 @@ isdn_net_setcfg(isdn_net_ioctl_cfg * cfg)
 					p->dev.hard_header_cache = NULL;
 #endif
 					p->dev.header_cache_update = NULL;
-					p->dev.flags = IFF_NOARP;
+					/*
+					 * paul: IFF_SOFTHEADERS was added in
+					 * 2.0.33?? Does this make sense?
+					 */
+					p->dev.flags = IFF_NOARP /* | IFF_SOFTHEADERS */;
 				}
 			}
 		}
