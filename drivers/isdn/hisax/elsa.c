@@ -14,6 +14,10 @@
  *              for ELSA PCMCIA support
  *
  * $Log$
+ * Revision 2.21  2000/06/18 16:15:55  keil
+ * - 2.4 PCI changes
+ * - Changes for Power PC with BIG ENDIAN
+ *
  * Revision 2.20  1999/12/19 13:09:42  keil
  * changed TASK_INTERRUPTIBLE into TASK_UNINTERRUPTIBLE for
  * signal proof delays
@@ -808,7 +812,8 @@ Elsa_card_msg(struct IsdnCardState *cs, int mt, void *arg)
 				cs->hw.elsa.status &= ~ELSA_TIMER_AKTIV;
 				printk(KERN_INFO "Elsa: %d timer tics in 110 msek\n",
 				       cs->hw.elsa.counter);
-				if (abs(cs->hw.elsa.counter - 13) < 3) {
+				if ((cs->hw.elsa.counter > 10) &&
+					(cs->hw.elsa.counter < 16)) {
 					printk(KERN_INFO "Elsa: timer and irq OK\n");
 					ret = 0;
 				} else {
