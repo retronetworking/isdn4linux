@@ -7,6 +7,9 @@
  *              Fritz Elfert
  *
  * $Log$
+ * Revision 1.8  1997/04/07 22:59:08  keil
+ * GFP_KERNEL --> GFP_ATOMIC
+ *
  * Revision 1.7  1997/04/06 22:54:03  keil
  * Using SKB's
  *
@@ -78,6 +81,7 @@ mdl_unit_data_res(struct PStack *st, unsigned int ri, u_char mt, u_char ai)
 		printk(KERN_WARNING "HiSax: No skb for TEI manager\n");
 		return;
 	}
+	SET_SKB_FREE(skb);
 	skb_reserve(skb, MAX_HEADER_LEN);
 	bp = skb_put(skb, 5);
 	bp[0] = 0xf;
@@ -229,7 +233,6 @@ tei_handler(struct PStack *st,
 				printk(KERN_WARNING "tei handler wrong entity id %x\n", bp[0]);
 			} else
 				mdl_unit_data_ind(st, (bp[1] << 8) | bp[2], bp[3], bp[4] >> 1);
-			SET_SKB_FREE(skb);
 			dev_kfree_skb(skb, FREE_READ);
 			break;
 		default:

@@ -11,6 +11,9 @@
  *              Beat Doebeli
  *
  * $Log$
+ * Revision 1.3  1997/04/13 19:54:02  keil
+ * Change in IRQ check delay for SMP
+ *
  * Revision 1.2  1997/04/06 22:54:21  keil
  * Using SKB's
  *
@@ -359,7 +362,6 @@ hscx_interrupt(struct IsdnCardState *sp, u_char val, u_char hscx)
 				hscx_fill_fifo(hsp);
 				return;
 			} else {
-				SET_SKB_FREE(hsp->tx_skb);
 				dev_kfree_skb(hsp->tx_skb, FREE_WRITE);
 				hsp->count = 0;
 				if (hsp->st->l4.l1writewakeup)
@@ -500,6 +502,7 @@ isac_interrupt(struct IsdnCardState *sp, u_char val)
 				if (!(skb = alloc_skb(count, GFP_ATOMIC)))
 					printk(KERN_WARNING "IX1: D receive out of memory\n");
 				else {
+					SET_SKB_FREE(skb);
 					memcpy(skb_put(skb, count), sp->rcvbuf, count);
 					skb_queue_tail(&sp->rq, skb);
 				}
@@ -522,7 +525,6 @@ isac_interrupt(struct IsdnCardState *sp, u_char val)
 				isac_fill_fifo(sp);
 				goto afterXPR;
 			} else {
-				SET_SKB_FREE(sp->tx_skb);
 				dev_kfree_skb(sp->tx_skb, FREE_WRITE);
 				sp->tx_cnt = 0;
 				sp->tx_skb = NULL;

@@ -11,6 +11,9 @@
  *              Beat Doebeli
  *
  * $Log$
+ * Revision 1.11  1997/04/13 19:54:05  keil
+ * Change in IRQ check delay for SMP
+ *
  * Revision 1.10  1997/04/06 22:54:05  keil
  * Using SKB's
  *
@@ -269,7 +272,7 @@ hscx_interrupt(struct IsdnCardState *sp, u_char val, u_char hscx)
 			hscx_empty_fifo(hsp, count);
 			if ((count = hsp->rcvidx - 1) > 0) {
 				if (!(skb = dev_alloc_skb(count)))
-					printk(KERN_WARNING "AVM: receive out of memory\n");
+					printk(KERN_WARNING "teles3: receive out of memory\n");
 				else {
 					memcpy(skb_put(skb, count), hsp->rcvbuf, count);
 					skb_queue_tail(&hsp->rqueue, skb);
@@ -284,7 +287,7 @@ hscx_interrupt(struct IsdnCardState *sp, u_char val, u_char hscx)
 		if (hsp->mode == 1) {
 			/* receive audio data */
 			if (!(skb = dev_alloc_skb(32)))
-				printk(KERN_WARNING "AVM: receive out of memory\n");
+				printk(KERN_WARNING "teles3: receive out of memory\n");
 			else {
 				memcpy(skb_put(skb, 32), hsp->rcvbuf, 32);
 				skb_queue_tail(&hsp->rqueue, skb);
@@ -299,7 +302,6 @@ hscx_interrupt(struct IsdnCardState *sp, u_char val, u_char hscx)
 				hscx_fill_fifo(hsp);
 				return;
 			} else {
-				SET_SKB_FREE(hsp->tx_skb);
 				dev_kfree_skb(hsp->tx_skb, FREE_WRITE);
 				hsp->count = 0;
 				if (hsp->st->l4.l1writewakeup)
@@ -439,6 +441,7 @@ isac_interrupt(struct IsdnCardState *sp, u_char val)
 				if (!(skb = alloc_skb(count, GFP_ATOMIC)))
 					printk(KERN_WARNING "AVM: D receive out of memory\n");
 				else {
+					SET_SKB_FREE(skb);
 					memcpy(skb_put(skb, count), sp->rcvbuf, count);
 					skb_queue_tail(&sp->rq, skb);
 				}
@@ -461,7 +464,6 @@ isac_interrupt(struct IsdnCardState *sp, u_char val)
 				isac_fill_fifo(sp);
 				goto afterXPR;
 			} else {
-				SET_SKB_FREE(sp->tx_skb);
 				dev_kfree_skb(sp->tx_skb, FREE_WRITE);
 				sp->tx_cnt = 0;
 				sp->tx_skb = NULL;

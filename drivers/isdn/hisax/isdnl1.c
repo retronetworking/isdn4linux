@@ -11,6 +11,13 @@
  *
  *
  * $Log$
+ * Revision 1.15  1997/05/27 15:17:55  fritz
+ * Added changes for recent 2.1.x kernels:
+ *   changed return type of isdn_close
+ *   queue_task_* -> queue_task
+ *   clear/set_bit -> test_and_... where apropriate.
+ *   changed type of hard_header_cache parameter.
+ *
  * Revision 1.14  1997/04/07 23:00:08  keil
  * GFP_KERNEL ---> GFP_ATOMIC
  *
@@ -705,10 +712,8 @@ HiSax_l2l1discardq(struct PStack *st, int pr,
 	}
 #endif
 
-	while ((skb = skb_dequeue(&sp->sq))) {
-		SET_SKB_FREE(skb);
+	while ((skb = skb_dequeue(&sp->sq)))
 		dev_kfree_skb(skb, FREE_WRITE);
-	}
 }
 
 void
@@ -795,12 +800,9 @@ close_hscxstate(struct HscxState *hs)
 			SET_SKB_FREE(skb);
 			dev_kfree_skb(skb, FREE_READ);
 		}
-		while ((skb = skb_dequeue(&hs->squeue))) {
-			SET_SKB_FREE(skb);
+		while ((skb = skb_dequeue(&hs->squeue)))
 			dev_kfree_skb(skb, FREE_WRITE);
-		}
 		if (hs->tx_skb) {
-			SET_SKB_FREE(hs->tx_skb);
 			dev_kfree_skb(hs->tx_skb, FREE_WRITE);
 			hs->tx_skb = NULL;
 		}
@@ -825,12 +827,9 @@ closecard(int cardnr)
 		SET_SKB_FREE(skb);
 		dev_kfree_skb(skb, FREE_READ);
 	}
-	while ((skb = skb_dequeue(&csta->sq))) {
-		SET_SKB_FREE(skb);
+	while ((skb = skb_dequeue(&csta->sq)))
 		dev_kfree_skb(skb, FREE_WRITE);
-	}
 	if (csta->tx_skb) {
-		SET_SKB_FREE(csta->tx_skb);
 		dev_kfree_skb(csta->tx_skb, FREE_WRITE);
 		csta->tx_skb = NULL;
 	}
@@ -1212,10 +1211,8 @@ hscx_l2l1discardq(struct PStack *st, int pr, void *heldby,
 	}
 #endif
 
-	while ((skb = skb_dequeue(&hsp->squeue))) {
-		SET_SKB_FREE(skb);
+	while ((skb = skb_dequeue(&hsp->squeue)))
 		dev_kfree_skb(skb, FREE_WRITE);
-	}
 }
 
 static int

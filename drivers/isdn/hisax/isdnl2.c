@@ -7,6 +7,13 @@
  *              Fritz Elfert
  *
  * $Log$
+ * Revision 1.10  1997/05/06 09:38:13  keil
+ * Bugfixes: - clear ack queue entries after resend
+ *           - acknowlege each frame to linklevel
+ *           - UA for SABM is Response, not command
+ *           - only RR was send as supervisor frame (X.75 hangs after a
+ *             sequence error)
+ *
  * Revision 1.9  1997/04/07 23:02:11  keil
  * missing braces
  *
@@ -140,7 +147,6 @@ ReleaseWin(struct Layer2 *l2)
 	for (i = 0; i < MAX_WINDOW; i++) {
 		if (l2->windowar[i]) {
 			cnt++;
-			SET_SKB_FREE(l2->windowar[i]);
 			dev_kfree_skb(l2->windowar[i], FREE_WRITE);
 			l2->windowar[i] = NULL;
 		}
@@ -240,7 +246,6 @@ setva(struct PStack *st, int nr)
 	if (l2->va != nr) {
 		while (l2->va != nr) {
 			l2->va = (l2->va + 1) % (l2->extended ? 128 : 8);
-			SET_SKB_FREE(l2->windowar[l2->sow]);
 			dev_kfree_skb(l2->windowar[l2->sow], FREE_WRITE);
 			l2->windowar[l2->sow] = NULL;
 			l2->sow = (l2->sow + 1) % l2->window;
@@ -296,6 +301,7 @@ send_uframe(struct PStack *st, u_char cmd, u_char cr)
 		printk(KERN_WARNING "isdl2 can't alloc sbbuff for send_uframe\n");
 		return;
 	}
+	SET_SKB_FREE(skb);
 	memcpy(skb_put(skb, i), tmp, i);
 	enqueue_super(st, skb);
 }
@@ -504,6 +510,7 @@ enquiry_cr(struct PStack *st, u_char typ, u_char cr, u_char pf)
 		printk(KERN_WARNING "isdl2 can't alloc sbbuff for enquiry_cr\n");
 		return;
 	}
+	SET_SKB_FREE(skb);
 	memcpy(skb_put(skb, i), tmp, i);
 	enqueue_super(st, skb);
 }
@@ -858,7 +865,6 @@ l2_pull_iqueue(struct FsmInst *fi, int event, void *arg)
 	if (l2->windowar[p1]) {
 		printk(KERN_WARNING "isdnl2 try overwrite ack queue entry %d\n",
 		       p1);
-		SET_SKB_FREE(l2->windowar[p1]);
 		dev_kfree_skb(l2->windowar[p1], FREE_WRITE);
 	}
 	l2->windowar[p1] = skb_clone(skb, GFP_ATOMIC);
@@ -1201,13 +1207,11 @@ isdnl2_l3l2(struct PStack *st, int pr, void *arg)
 	switch (pr) {
 		case (DL_DATA):
 			if (FsmEvent(&st->l2.l2m, EV_L2_DL_DATA, arg)) {
-				SET_SKB_FREE(((struct sk_buff *) arg));
 				dev_kfree_skb((struct sk_buff *) arg, FREE_READ);
 			}
 			break;
 		case (DL_UNIT_DATA):
 			if (FsmEvent(&st->l2.l2m, EV_L2_DL_UNIT_DATA, arg)) {
-				SET_SKB_FREE(((struct sk_buff *) arg));
 				dev_kfree_skb((struct sk_buff *) arg, FREE_READ);
 			}
 			break;
