@@ -11,6 +11,9 @@
  *
  *
  * $Log$
+ * Revision 2.21  1998/04/10 10:35:28  paul
+ * fixed (silly?) warnings from egcs on Alpha.
+ *
  * Revision 2.20  1998/03/09 23:19:27  keil
  * Changes for PCMCIA
  *
@@ -93,14 +96,20 @@ const char *l1_revision = "$Revision$";
 #define kstat_irqs( PAR ) kstat.interrupts( (PAR) )
 #endif
 
-
-
 #if CARD_TELES0
 extern int setup_teles0(struct IsdnCard *card);
 #endif
 
 #if CARD_TELES3
 extern int setup_teles3(struct IsdnCard *card);
+#endif
+
+#if CARD_S0BOX
+extern int setup_s0box(struct IsdnCard *card);
+#endif
+
+#if CARD_TELESPCI
+extern int setup_telespci(struct IsdnCard *card);
 #endif
 
 #if CARD_AVM_A1
@@ -166,7 +175,7 @@ const char *CardType[] =
  "Elsa PCMCIA", "Eicon.Diehl Diva", "ISDNLink", "TeleInt", "Teles 16.3c", 
  "Sedlbauer Speed Card", "USR Sportster", "ith mic Linux", "Elsa PCI",
  "Compaq ISA", "NETjet", "Teles PCI", "Sedlbauer Speed Star (PCMCIA)",
- "AMD 7930", "NICCY"
+ "AMD 7930", "NICCY", "S0Box"
 };
 
 extern struct IsdnCard cards[];
@@ -782,6 +791,16 @@ checkcard(int cardnr, char *id, int *busy_flag))
 			ret = setup_teles3(card);
 			break;
 #endif
+#if CARD_S0BOX
+		case ISDN_CTYPE_S0BOX:
+			ret = setup_s0box(card);
+			break;
+#endif
+#if CARD_TELESPCI
+		case ISDN_CTYPE_TELESPCI:
+			ret = setup_telespci(card);
+			break;
+#endif
 #if CARD_AVM_A1
 		case ISDN_CTYPE_A1:
 			ret = setup_avm_a1(card);
@@ -1054,7 +1073,7 @@ l2cmd(u_char cmd)
 	}
 }
 
-static char tmp[20];
+static char tmp[24];
 
 char *
 l2frames(u_char * ptr)
