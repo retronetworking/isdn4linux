@@ -655,3 +655,21 @@ Description of the Interface between Linklevel and Hardwarelevel
       arg         = channel-number, locally to the driver. (starting with 0)
       para.errcode= ISDN_STAT_L1ERR_SEND:     Packet lost while sending.
 		    ISDN_STAT_L1ERR_RECV:     Packet lost while receiving.
+  ISDN_STAT_DISCH:
+
+    With this call, the HL-driver signals the LL to disable or enable the
+    use of supplied channel and driver.
+    The call may be used to reduce the available number of B-channels after
+    loading the driver. The LL has to ignore a disabled channel when searching
+    for free channels. The HL driver itself never delivers STAT callbacks for
+    disabled channels. 	    
+    The LL returns a nonzero code if the operation was not successfull or the
+    selected channel is actually regarded as busy.
+
+    Parameter:
+      driver      = driver-Id
+      command     = ISDN_STAT_DISCH
+      arg         = channel-number, locally to the driver. (starting with 0)
+      parm.num[0] = 0 if channel shall be disabled, else enabled.
+    
+
