@@ -6,6 +6,9 @@
  *
  *
  * $Log$
+ * Revision 1.2  1995/01/02  02:14:45  fritz
+ * Misc Bugfixes
+ *
  * Revision 1.1  1994/12/14  17:56:06  fritz
  * Initial revision
  *
@@ -14,7 +17,7 @@
 #include "icn.h"
 
 /* Use external Loader. Undefine this when loadprot() is debugged */
-#define LOADEXTERN 
+#undef LOADEXTERN
 #ifdef LOADEXTERN
 #define ICN_BOOTSTART 4
 #else
@@ -165,7 +168,7 @@ pollbchan_work(int channel) {
     while (rbavl) {
       cnt = rbuf_l;
       if ((dev->rcvidx[channel]+cnt)>4000) {
-        printk("icn: packet too long on ch%d, dropping.\n",channel+1);
+        printk("icn: bogus packet on ch%d, dropping.\n",channel+1);
         dev->rcvidx[channel] = 0;
         eflag = 0;
       } else {
@@ -446,8 +449,7 @@ sendbuf(int channel, u_char *buffer, int len, int user) {
  *        Number of bytes transferred
  */
 
-#define BOOT_DEBUG
-#define BOOT_DEBUG3
+#undef BOOT_DEBUG
 
 static int
 loadproto(u_char *buffer, int len) {
@@ -456,9 +458,6 @@ loadproto(u_char *buffer, int len) {
   uint  left  = len;
   uint  cnt;
   unsigned long flags;
-#ifdef BOOT_DEBUG3
-  u_char cmpbuf[256];
-#endif
 
   while (left) {
     switch (dev->bootstate) {
@@ -509,9 +508,7 @@ loadproto(u_char *buffer, int len) {
 		dev->shmem->data_control.scnr) {
 	      if (dev->timer1 > 5) {
 		dev->bootstate = 0;
-#ifdef BOOT_DEBUG
-		printk("Loader TO!\n");
-#endif
+		printk("icn: Boot-Loader timed out.\n");
 		return -EIO;
 	      }
 	      dev->timer1++;
@@ -532,27 +529,16 @@ loadproto(u_char *buffer, int len) {
 	}
 	break;
       case 2:
-	if (sbfree) {                  /* If there is a free buffer... */
+	if (sbfree) {                   /* If there is a free buffer...  */
 	  cnt = MIN(256,left);
-#ifdef BOOT_DEBUG2
-	  printk("sbd=%08lx sbl=%08lx\n",(ulong)sbuf_d,(ulong)&sbuf_l);
-#endif
-#ifdef BOOT_DEBUG3
-	  memcpy_fromfs(cmpbuf,p,cnt);   /* copy data                     */
-#endif
 	  memcpy_fromfs(&sbuf_l,p,cnt); /* copy data                     */
-	  current->state = TASK_INTERRUPTIBLE;
-	  current->timeout = jiffies + 10;
-	  schedule();
-#ifdef BOOT_DEBUG3
-	  printk("cmp=%d\n",memcmp(cmpbuf,&sbuf_l,cnt));
-#endif
 	  sbnext;                       /* switch to next buffer         */
 	  p += cnt;
 	  total += cnt;
 	  left  -= cnt;
 	  dev->codelen += cnt;
 	  if (dev->codelen >= ICN_CODE_STAGE2) {
+	    sbuf_n = 0x20;
 	    total += left;
 	    left = 0;
 	    dev->timer1 = 0;
@@ -594,7 +580,7 @@ loadproto(u_char *buffer, int len) {
 	  printk("boot 2 !sbfree\n");
 #endif
 	  current->state = TASK_INTERRUPTIBLE;
-	  current->timeout = jiffies + 100;
+	  current->timeout = jiffies + 10;
 	  schedule();
 	}
 	break;
@@ -803,8 +789,8 @@ init_module( void) {
   }
   memset((char *)dev,0,sizeof(icn_dev));
   dev->bootstate           = ICN_BOOTSTART;
-  dev->port                = ICN_BASEADDR;
-  dev->shmem               = (icn_shmem *)(ICN_MEMADDR & 0x0ffc000);
+  dev->port                = portbase;
+  dev->shmem               = (icn_shmem *)(membase & 0x0ffc000);
   dev->interface.channels  = ICN_BCH;
   dev->interface.loadproto = loadproto;
   dev->interface.command   = command;
