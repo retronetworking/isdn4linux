@@ -19,6 +19,10 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.57  1999/10/05 22:47:17  he
+ * Removed dead ISDN_SYNCPPP_READDRESS code (obsoleted by sysctl_ip_dynaddr
+ * and network address translation)
+ *
  * Revision 1.56  1999/09/29 16:01:06  he
  * replaced dev_alloc_skb() for downstream skbs by equivalent alloc_skb()
  *
@@ -1550,7 +1554,13 @@ isdn_ppp_xmit(struct sk_buff *skb, struct net_device *netdev)
 		 * sk_buff. old call to dev_alloc_skb only reserved
 		 * 16 bytes, now we are looking what the driver want.
 		 */
-		hl = dev->drv[lp->isdn_device]->interface->hl_hdrlen;
+		hl = dev->drv[lp->isdn_device]->interface->hl_hdrlen + IPPP_MAX_HEADER;
+		/* 
+		 * Note: hl might still be insufficient because the method
+		 * above does not account for a possibible MPPP slave channel
+		 * which had larger HL header space requirements than the
+		 * master.
+		 */
 		new_skb = alloc_skb(hl+skb->len, GFP_ATOMIC);
 		if (new_skb) {
 			u_char *buf;
@@ -2692,9 +2702,11 @@ static struct sk_buff *isdn_ppp_compress(struct sk_buff *skb_in,int *proto,
 	}
 
 	/* Allow for at least 150 % expansion (for now) */
-	skb_out = alloc_skb(skb_in->len + skb_in->len/2 + 48,GFP_ATOMIC);
+	skb_out = alloc_skb(skb_in->len + skb_in->len/2 + 48 +
+		skb_headroom(skb_in), GFP_ATOMIC);
 	if(!skb_out)
 		return skb_in;
+	skb_reserve(skb_out, skb_headroom(skb_in));
 
 	ret = (compressor->compress)(stat,skb_in,skb_out,*proto);
 	if(!ret) {
