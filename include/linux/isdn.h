@@ -21,6 +21,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.6  1996/05/06 11:38:27  hipp
+ * minor change in ippp struct
+ *
  * Revision 1.5  1996/04/30 11:03:16  fritz
  * Added Michael's ippp-bind patch.
  *
@@ -386,50 +389,17 @@ typedef struct isdn_net_dev_s {
 #define ISDN_ASYNC_PGRP_LOCKOUT       0x0200 /* Lock cua opens on pgrp       */
 #define ISDN_ASYNC_CALLOUT_NOHUP      0x0400 /* No hangup for cui            */
 #define ISDN_ASYNC_SPLIT_TERMIOS      0x0008 /* Sep. termios for dialin/out  */
-#define ISDN_PORT_16550A                   4 /* Type of faked Hardware       */
 #define ISDN_SERIAL_XMIT_SIZE           4000 /* Maximum bufsize for write    */
-#define ISDN_SERIAL_TYPE_NORMAL	           1 /* tty-type                     */
-#define ISDN_SERIAL_TYPE_CALLOUT           2 /* cua-type                     */
-
-/* Private data (similar to async_struct in <linux/serial.h>) */
-typedef struct {
-  int			magic;
-  int			flags;		 /* defined in tty.h               */
-  int			type;		 /* UART type                      */
-  struct tty_struct 	*tty;
-  int			x_char;		 /* xon/xoff character             */
-  int			close_delay;
-  int			MCR;		 /* Modem control register         */
-  int			line;
-  int			count;		 /* # of fd on device              */
-  int			blocked_open;	 /* # of blocked opens             */
-  long			session;	 /* Session of opening process     */
-  long			pgrp;		 /* pgrp of opening process        */
-  int                   isdn_driver;	 /* Index to isdn-driver           */
-  int                   isdn_channel;    /* Index to isdn-channel          */
-  int                   drv_index;       /* Index to dev->usage            */
-#if FUTURE
-  int                   send_outstanding;/* # of outstanding send-requests */
-#endif
-  int                   xmit_size;       /* max. # of chars in xmit_buf    */
-  int                   xmit_count;      /* # of chars in xmit_buf         */
-  u_char                *xmit_buf;       /* transmit-buffer                */
-  struct termios	normal_termios;
-  struct termios	callout_termios;
-  struct wait_queue	*open_wait;
-  struct wait_queue	*close_wait;
-} modem_info;
-
-#define ISDN_MODEM_WINSIZE 8
+#define ISDN_SERIAL_TYPE_NORMAL            1
+#define ISDN_SERIAL_TYPE_CALLOUT           2
 
 /* Private data of AT-command-interpreter */
-typedef struct {
+typedef struct atemu {
   u_char              profile[ISDN_MODEM_ANZREG]; /* Modem-Regs. Profile 0 */
   u_char              mdmreg[ISDN_MODEM_ANZREG];  /* Modem-Registers       */
-  u_char              vpar[10];        /* Voice-parameters                 */
-  void                *adpcms;         /* state for adpcm compression      */
   char                pmsn[ISDN_MSNLEN]; /* EAZ/MSNs Profile 0             */
   char                msn[ISDN_MSNLEN];/* EAZ/MSN                          */
+  u_char              vpar[10];        /* Voice-parameters                 */
   int                 mdmcmdl;         /* Length of Modem-Commandbuffer    */
   int                 pluscount;       /* Counter for +++ sequence         */
   int                 lastplus;        /* Timestamp of last +              */
@@ -437,23 +407,56 @@ typedef struct {
   char                mdmcmd[255];     /* Modem-Commandbuffer              */
 } atemu;
 
+/* Private data (similar to async_struct in <linux/serial.h>) */
+typedef struct modem_info {
+  int			magic;
+  int			flags;		 /* defined in tty.h               */
+  int			x_char;		 /* xon/xoff character             */
+  int			mcr;		 /* Modem control register         */
+  int                   msr;             /* Modem status register          */
+  int                   lsr;             /* Line status register           */
+  int			line;
+  int			count;		 /* # of fd on device              */
+  int			blocked_open;	 /* # of blocked opens             */
+  long			session;	 /* Session of opening process     */
+  long			pgrp;		 /* pgrp of opening process        */
+  int                   online;          /* B-Channel is up                */
+  int                   vonline;         /* Voice-channel status           */
+  int                   dialing;         /* Dial in progress               */
+  int                   rcvsched;        /* Receive needs schedule         */
+  int                   isdn_driver;	 /* Index to isdn-driver           */
+  int                   isdn_channel;    /* Index to isdn-channel          */
+  int                   drv_index;       /* Index to dev->usage            */
+  int                   ncarrier;        /* Flag: schedule NO CARRIER      */
+  struct timer_list     nc_timer;        /* Timer for delayed NO CARRIER   */
+#define FUTURE 1
+#if FUTURE
+  int                   send_outstanding;/* # of outstanding send-requests */
+#endif
+  int                   xmit_size;       /* max. # of chars in xmit_buf    */
+  int                   xmit_count;      /* # of chars in xmit_buf         */
+  struct tty_struct 	*tty;            /* Pointer to corresponding tty   */
+  atemu                 emu;             /* AT-emulator data               */
+  void                  *adpcms;         /* state for adpcm decompression  */
+  void                  *adpcmr;         /* state for adpcm compression    */
+  struct termios	normal_termios;  /* For saving termios structs     */
+  struct termios	callout_termios;
+  struct wait_queue	*open_wait;
+  struct wait_queue	*close_wait;
+  u_char                *xmit_buf;       /* transmit-buffer                */
+} modem_info;
+
+#define ISDN_MODEM_WINSIZE 8
+
 /* Description of one ISDN-tty */
 typedef struct {
-  int                msr[ISDN_MAX_CHANNELS];	  /* Modem-statusregister   */
-  int                mlr[ISDN_MAX_CHANNELS];	  /* Line-statusregister    */
-  int                refcount;			  /* Number of opens        */
-  int                online[ISDN_MAX_CHANNELS];	  /* B-Channel is up        */
-  int                vonline[ISDN_MAX_CHANNELS];  /* Voice-channel status   */
-  int                dialing[ISDN_MAX_CHANNELS];  /* Dial in progress       */
-  int                rcvsched[ISDN_MAX_CHANNELS]; /* Receive needs schedule */
-  int                ncarrier[ISDN_MAX_CHANNELS]; /* Output NO CARRIER      */
-  struct tty_driver  tty_modem;			  /* tty-device             */
-  struct tty_driver  cua_modem;			  /* cua-device             */
+  int                refcount;			   /* Number of opens        */
+  struct tty_driver  tty_modem;			   /* tty-device             */
+  struct tty_driver  cua_modem;			   /* cua-device             */
   struct tty_struct  *modem_table[ISDN_MAX_CHANNELS]; /* ?? copied from Orig */
-  struct termios     *modem_termios[ISDN_MAX_CHANNELS];
-  struct termios     *modem_termios_locked[ISDN_MAX_CHANNELS];
-  atemu              atmodem[ISDN_MAX_CHANNELS];  /* AT-Command-parser      */
-  modem_info         info[ISDN_MAX_CHANNELS];	  /* Private data           */
+  struct termios     modem_termios[ISDN_MAX_CHANNELS];
+  struct termios     modem_termios_locked[ISDN_MAX_CHANNELS];
+  modem_info         info[ISDN_MAX_CHANNELS];	   /* Private data           */
 } modem;
 
 /*======================= End of ISDN-tty stuff ============================*/
