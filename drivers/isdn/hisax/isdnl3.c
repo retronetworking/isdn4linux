@@ -7,6 +7,9 @@
  *              Fritz Elfert
  *
  * $Log$
+ * Revision 1.4  1997/01/27 23:17:44  keil
+ * delete timers while unloading
+ *
  * Revision 1.3  1997/01/21 22:31:12  keil
  * new statemachine; L3 timers
  *
@@ -33,7 +36,7 @@ l3_debug(struct PStack *st, char *s)
 
 	jiftime(tm, jiffies);
 	sprintf(str, "%s Channel %d l3 %s\n", tm, st->l3.channr, s);
-	HiSax_putstatus(str);
+	HiSax_putstatus(st->l1.hardware, str);
 }
 
 
@@ -117,13 +120,12 @@ extern void setstack_1tr6(struct PStack *st);
 #endif
 
 void
-setstack_isdnl3(struct PStack *st, int chan)
+setstack_isdnl3(struct PStack *st, struct Channel *chanp)
 {
 	char tmp[64];
 
-
 	st->l3.debug = L3_DEB_WARN;
-	st->l3.channr = chan;
+	st->l3.channr = chanp->chan;
 	L3InitTimer(st, &st->l3.timer);
 
 #ifdef	CONFIG_HISAX_EURO
@@ -136,12 +138,16 @@ setstack_isdnl3(struct PStack *st, int chan)
 		setstack_1tr6(st);
 	} else
 #endif
-	{
-		sprintf(tmp, "protocol %s not supported",
-		    (st->protocol == ISDN_PTYPE_1TR6) ? "1tr6" : "euro");
-		l3_debug(st, tmp);
+	if (st->protocol == ISDN_PTYPE_LEASED) {
 		st->l4.l4l3 = no_l3_proto;
 		st->l2.l2l3 = no_l3_proto;
+		printk(KERN_NOTICE "HiSax: Leased line mode\n");
+	} else {
+		sprintf(tmp, "protocol %s not supported",
+			(st->protocol == ISDN_PTYPE_1TR6) ? "1tr6" :
+			(st->protocol == ISDN_PTYPE_EURO) ? "euro" :
+			"unknown");
+		l3_debug(st, tmp);
 		st->protocol = -1;
 	}
 	st->l3.state = 0;
