@@ -7,10 +7,15 @@
  *              Fritz Elfert
  *
  * $Log$
+ * Revision 1.1  1996/10/13 20:04:52  keil
+ * Initial revision
+ *
  *
  */
 #define __NO_VERSION__
 #include "hisax.h"
+
+#define FSM_TIMER_DEBUG 0
 
 void
 FsmNew(struct Fsm *fsm,
@@ -76,6 +81,13 @@ FsmChangeState(struct FsmInst *fi, int newstate)
 static void
 FsmExpireTimer(struct FsmTimer *ft)
 {
+#if FSM_TIMER_DEBUG
+	if (ft->fi->debug) {
+		char str[40];
+		sprintf(str, "FsmExpireTimer %lx", (long)ft);
+		ft->fi->printdebug(ft->fi, str);
+	}
+#endif
 	FsmEvent(ft->fi, ft->event, ft->arg);
 }
 
@@ -85,6 +97,13 @@ FsmInitTimer(struct FsmInst *fi, struct FsmTimer *ft)
 	ft->fi = fi;
 	ft->tl.function = (void *) FsmExpireTimer;
 	ft->tl.data = (long) ft;
+#if FSM_TIMER_DEBUG
+	if (ft->fi->debug) {
+		char str[40];
+		sprintf(str, "FsmInitTimer %lx", (long)ft);
+		ft->fi->printdebug(ft->fi, str);
+	}
+#endif
 	init_timer(&ft->tl);
 }
 
@@ -93,13 +112,13 @@ FsmDelTimer(struct FsmTimer *ft, int where)
 {
 	long            flags;
 
-#if 0
+#if FSM_TIMER_DEBUG
 	if (ft->fi->debug) {
-		sprintf(str, "FsmDelTimer %lx %d", ft, where);
+		char str[40];
+		sprintf(str, "FsmDelTimer %lx %d", (long)ft, where);
 		ft->fi->printdebug(ft->fi, str);
 	}
 #endif
-
 	save_flags(flags);
 	cli();
 	if (ft->tl.next)
@@ -112,15 +131,17 @@ FsmAddTimer(struct FsmTimer *ft,
 	    int millisec, int event, void *arg, int where)
 {
 
-#if 0
+#if FSM_TIMER_DEBUG
 	if (ft->fi->debug) {
-		sprintf(str, "FsmAddTimer %lx %d %d", ft, millisec, where);
+		char str[40];
+		sprintf(str, "FsmAddTimer %lx %d %d", (long)ft, millisec, where);
 		ft->fi->printdebug(ft->fi, str);
 	}
 #endif
 
 	if (ft->tl.next) {
 		printk(KERN_WARNING "FsmAddTimer: timer already active!\n");
+		ft->fi->printdebug(ft->fi, "FsmAddTimer already active!");
 		return -1;
 	}
 	init_timer(&ft->tl);
