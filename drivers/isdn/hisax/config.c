@@ -5,6 +5,9 @@
  *
  *
  * $Log$
+ * Revision 1.9  1997/02/10 11:45:09  fritz
+ * More changes for Kernel 2.1.X compatibility.
+ *
  * Revision 1.8  1997/02/09 00:28:05  keil
  * new interface handling, one interface per card
  * default protocol now works again
@@ -271,7 +274,7 @@ HiSax_init(void)
 	r += sprintf(r, "%s", HiSax_getrev(tmp));
 
 	printk(KERN_NOTICE "HiSax: Driver for Siemens chip set ISDN cards\n");
-	printk(KERN_NOTICE "HiSax: Version 2.0.beta\n");
+	printk(KERN_NOTICE "HiSax: Version 2.0\n");
 	printk(KERN_NOTICE "HiSax: Revisions %s\n", rev);
 
 #ifdef MODULE
