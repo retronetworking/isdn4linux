@@ -264,7 +264,6 @@ isdn_dc2minor(int di, int ch)
 static int isdn_timer_cnt1 = 0;
 static int isdn_timer_cnt2 = 0;
 static int isdn_timer_cnt3 = 0;
-static int isdn_timer_cnt4 = 0;
 
 static void
 isdn_timer_funct(ulong dummy)
@@ -288,15 +287,10 @@ isdn_timer_funct(ulong dummy)
 			isdn_timer_cnt2 = 0;
 			if (tf & ISDN_TIMER_NETHANGUP)
 				isdn_net_autohup();
-			if (++isdn_timer_cnt3 > ISDN_TIMER_RINGING) {
+			if (++isdn_timer_cnt3 >= ISDN_TIMER_RINGING) {
 				isdn_timer_cnt3 = 0;
 				if (tf & ISDN_TIMER_MODEMRING)
 					isdn_tty_modem_ring();
-			}
-			if (++isdn_timer_cnt4 > ISDN_TIMER_KEEPINT) {
-				isdn_timer_cnt4 = 0;
-				if (tf & ISDN_TIMER_KEEPALIVE)
-					isdn_net_slarp_out();
 			}
 			if (tf & ISDN_TIMER_CARRIER)
 				isdn_tty_carrier_timeout();

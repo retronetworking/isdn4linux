@@ -4,6 +4,9 @@
  * Copyright 1999 by Carsten Paeth (calle@calle.in-berlin.de)
  *
  * $Log$
+ * Revision 1.8  2000/10/10 17:44:19  kai
+ * changes from/for 2.2.18
+ *
  * Revision 1.7  2000/01/25 14:33:38  calle
  * - Added Support AVM B1 PCI V4.0 (tested with prototype)
  *   - splitted up t1pci.c into b1dma.c for common function with b1pciv4
@@ -80,7 +83,8 @@ enum avmcardtype {
 	avm_m2,
 	avm_t1isa,
 	avm_t1pci,
-	avm_c4
+	avm_c4,
+	avm_c2
 };
 
 typedef struct avmcard_dmainfo {
