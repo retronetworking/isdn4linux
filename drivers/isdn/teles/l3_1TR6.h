@@ -1,8 +1,13 @@
 /* $Id$
  *
  * $Log$
+ * Revision 1.1  1996/04/13 10:25:42  fritz
+ * Initial revision
+ *
  *
  */
+/* Karsten Keil */
+
 #ifndef l3_1TR6
 #define l3_1TR6
 
