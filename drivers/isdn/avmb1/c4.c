@@ -6,6 +6,10 @@
  * (c) Copyright 1999 by Carsten Paeth (calle@calle.in-berlin.de)
  * 
  * $Log$
+ * Revision 1.7  2000/04/03 13:29:24  calle
+ * make Tim Waugh happy (module unload races in 2.3.99-pre3).
+ * no real problem there, but now it is much cleaner ...
+ *
  * Revision 1.6  2000/03/17 12:21:08  calle
  * send patchvalues now working.
  *
@@ -71,7 +75,7 @@ static char *revision = "$Revision$";
 
 /* ------------------------------------------------------------- */
 
-int suppress_pollack = 0;
+static int suppress_pollack = 0;
 
 MODULE_AUTHOR("Carsten Paeth <calle@calle.in-berlin.de>");
 

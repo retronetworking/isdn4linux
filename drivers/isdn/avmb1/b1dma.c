@@ -6,6 +6,9 @@
  * (c) Copyright 2000 by Carsten Paeth (calle@calle.in-berlin.de)
  * 
  * $Log$
+ * Revision 1.3  2000/02/26 01:00:53  keil
+ * changes from 2.3.47
+ *
  * Revision 1.2  2000/01/25 14:44:47  calle
  * typo in b1pciv4_detect().
  *
@@ -40,7 +43,7 @@ static char *revision = "$Revision$";
 
 MODULE_AUTHOR("Carsten Paeth <calle@calle.in-berlin.de>");
 
-int suppress_pollack = 0;
+static int suppress_pollack = 0;
 MODULE_PARM(suppress_pollack, "0-1i");
 
 /* ------------------------------------------------------------- */
