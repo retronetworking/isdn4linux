@@ -11,6 +11,9 @@
  *
  *
  * $Log$
+ * Revision 1.15.2.16  1998/09/27 13:06:22  keil
+ * Apply most changes from 2.1.X (HiSax 3.1)
+ *
  * Revision 1.15.2.15  1998/09/12 18:44:00  niemann
  * Added new card: Sedlbauer ISDN-Controller PC/104
  *
@@ -552,7 +555,6 @@ BChannel_proc_xmt(struct BCState *bcs)
 
 	if (test_bit(BC_FLG_BUSY, &bcs->Flag)) {
 		debugl1(bcs->cs, "BC_BUSY Error");
-		printk(KERN_WARNING "HiSax: BC_BUSY Error\n");
 		return;
 	}
 
