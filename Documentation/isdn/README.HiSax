@@ -8,9 +8,13 @@ for Linux written by Fritz Elfert.
 Supported Cards
 ---------------
 
-Teles 8.0/16.0/16.3 PNP and compatible
+Teles 8.0/16.0/16.3 (not PNP) and compatible
+Creatix PNP S0
 AVM A1 (Fritz)
-ELSA Microlink PCC-16 (PCC-8)
+ELSA Microlink PCC-16 PCF PCF-Pro PCC-8
+
+Note: PCF PCF-Pro only the ISDN part is supported yet
+      PCC-8 not tested yet
 
 If you know other passive cards with Siemens chipset, please let me know.
 To use the PNP cards you need the isapnptools.
@@ -56,10 +60,23 @@ where
     3 	Teles 16.3      pa=irq	pb=iobase
     4 	Creatix PNP     pa=irq	pb=IO0 (ISAC)	pc=IO1 (HSCX)
     5 	AVM A1 (Fritz)  pa=irq	pb=iobase
-    6 	ELSA PCC16      pa=iobase or nothing for autodetect
+    6 	ELSA Cards      pa=iobase or nothing for autodetect (the iobase is
+                           only required, if you have more as one ELSA card
+			   in your PC)
 	
+If you use more as one card set unused parameter to zero.
 In the moment is no IRQ sharing possible.
-Please be shure that you IRQ is free and enabled for ISA use.
+Please be sure that you IRQ is free and enabled for ISA use.
+
+Examples for module loading
+1. Teles 16.3 Euro ISDN Jumper 280 hex IRQ 10
+modprobe hisax io=3,2,10,0x280
+
+2. Teles 16.0 1TR6 ISDN Jumper d80 hex IRQ 5 Memory d0000 hex
+modprobe hisax io=1,1,5,0xd0000,0xd80
+
+3. Fritzcard Jumper EURO 340 hex IRQ 10 und ELSA PCF EURO
+modprobe hisax io=5,2,10,0x340,0,6,2
 
 Running
 -------
@@ -69,11 +86,11 @@ boottime) a few lines should appear in your syslog. Look for something like:
 
 Oct 13 20:46:39 kke01 kernel: ISDN subsystem Rev: 1.23/1.21/1.18/1.13/none loaded
 Oct 13 20:46:41 kke01 kernel: HiSax: Driver for Siemens Chipset ISDN cards
-Oct 13 20:46:41 kke01 kernel: HiSax: Revision (1.1)
+Oct 13 20:46:41 kke01 kernel: HiSax: Revision (1.3)
 Oct 13 20:46:41 kke01 kernel: HiSax: Total 1 card defined
 Oct 13 20:46:41 kke01 kernel: HiSax: Card 1 Protocol EDSS1
 ...
-Oct 13 20:46:41 kke01 kernel: Elsa: Mircolink PCC16 found at 0x360 Rev.:B IRQ 9
+Oct 13 20:46:41 kke01 kernel: Elsa: PCC16 found at 0x360 Rev.:B IRQ 9
 ...
 Oct 13 20:46:41 kke01 kernel: HiSax: 2 channels available
 Oct 13 20:46:41 kke01 kernel: HiSax: module installed
@@ -103,7 +120,7 @@ options you wish enabled:
 	4   D channel Q.931 (call control messages)
 	8   D channel Q.921 
 	16  B channel X.75
-	32  discarded
+	32  unused
 	64  LOCK debug in callc.c
 
 For example 'telesctrl line0 1 31' enables full debugging.
@@ -112,8 +129,8 @@ For example 'telesctrl line0 1 31' enables full debugging.
 
 Warning
 -------
-HiSax is a work in progress and may crash your machine. It has not 
-been certified and therefore operation on your PTT's ISDN network is probably 
+HiSax is a work in progress and may crash your machine. It has not been
+certified and therefore operation on your PTT's ISDN network is probably
 illegal.
 
 Limitations
