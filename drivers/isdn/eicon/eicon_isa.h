@@ -21,6 +21,10 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.8  2000/01/23 21:21:23  armin
+ * Added new trace capability and some updates.
+ * DIVA Server BRI now supports data for ISDNLOG.
+ *
  * Revision 1.7  1999/11/18 21:14:30  armin
  * New ISA memory mapped IO
  *
@@ -134,7 +138,6 @@ typedef struct {
 	unsigned char     mvalid;   /* Flag: Memory is valid      */
 	unsigned char     ivalid;   /* Flag: IRQ is valid         */
 	unsigned char     master;   /* Flag: Card ist Quadro 1/4  */
-	void*             generic;  /* Ptr to generic card struct */
 } eicon_isa_card;
 
 /* Offsets for special locations on standard cards */
