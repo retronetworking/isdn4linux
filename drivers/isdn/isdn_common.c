@@ -1717,7 +1717,7 @@ isdn_open(struct inode *ino, struct file *filep)
 	int chidx;
 	int retval = -ENODEV;
 
-#ifndef COMPAT_HAS_FILEOP_OWNER
+#ifdef COMPAT_USE_MODCOUNT_LOCK
 	MOD_INC_USE_COUNT;
 #endif
 
@@ -1773,7 +1773,7 @@ isdn_open(struct inode *ino, struct file *filep)
 	}
 #endif
  out:
-#ifndef COMPAT_HAS_FILEOP_OWNER
+#ifdef COMPAT_USE_MODCOUNT_LOCK
 	if (retval)
 		MOD_DEC_USE_COUNT;
 #endif
@@ -1785,7 +1785,7 @@ isdn_close(struct inode *ino, struct file *filep)
 {
 	uint minor = MINOR(ino->i_rdev);
 
-#ifdef COMPAT_HAS_FILEOP_OWNER
+#ifndef COMPAT_USE_MODCOUNT_LOCK
 	lock_kernel();
 #endif
 	if (minor == ISDN_MINOR_STATUS) {
@@ -1827,10 +1827,9 @@ isdn_close(struct inode *ino, struct file *filep)
 #endif
 
  out:
-#ifndef COMPAT_HAS_FILEOP_OWNER
+#ifdef COMPAT_USE_MODCOUNT_LOCK
 	MOD_DEC_USE_COUNT;
-#endif
-#ifdef COMPAT_HAS_FILEOP_OWNER
+#else
 	unlock_kernel();
 #endif
 	return 0;

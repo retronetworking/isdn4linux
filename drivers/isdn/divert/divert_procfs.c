@@ -20,6 +20,10 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.8  2000/03/03 16:37:11  kai
+ * incorporated some cosmetic changes from the official kernel tree back
+ * into CVS
+ *
  * Revision 1.7  2000/03/02 00:11:06  werner
  *
  * Changes related to procfs for 2.3.48
@@ -51,6 +55,9 @@
 #include <linux/module.h>
 #include <linux/version.h>
 #include <linux/poll.h>
+#ifndef COMPAT_USE_MODCOUNT_LOCK
+#include <linux/smp_lock.h>
+#endif
 #ifdef CONFIG_PROC_FS
 #include <linux/proc_fs.h>
 #else
@@ -176,7 +183,11 @@ isdn_divert_open(struct inode *ino, struct file *filep)
 {
 	int flags;
 
+#ifdef COMPAT_USE_MODCOUNT_LOCK
 	MOD_INC_USE_COUNT;
+#else
+	lock_kernel();
+#endif
 	save_flags(flags);
 	cli();
 	if_used++;
@@ -186,6 +197,9 @@ isdn_divert_open(struct inode *ino, struct file *filep)
 		(struct divert_info **) filep->private_data = &divert_info_head;
 	restore_flags(flags);
 	/*  start_divert(); */
+#ifndef COMPAT_USE_MODCOUNT_LOCK
+	unlock_kernel();
+#endif
 	return (0);
 }				/* isdn_divert_open */
 
@@ -198,6 +212,9 @@ isdn_divert_close(struct inode *ino, struct file *filep)
 	struct divert_info *inf;
 	int flags;
 
+#ifndef COMPAT_USE_MODCOUNT_LOCK
+	lock_kernel();
+#endif
 	save_flags(flags);
 	cli();
 	if_used--;
@@ -213,7 +230,11 @@ isdn_divert_close(struct inode *ino, struct file *filep)
 			divert_info_head = divert_info_head->next;
 			kfree(inf);
 		}
+#ifdef COMPAT_USE_MODCOUNT_LOCK
 	MOD_DEC_USE_COUNT;
+#else
+	unlock_kernel();
+#endif
 	return (0);
 }				/* isdn_divert_close */
 
@@ -356,7 +377,10 @@ divert_dev_init(void)
 	isdn_divert_entry->ops = &divert_file_inode_operations;
 #else
 	isdn_divert_entry->proc_fops = &isdn_fops; 
+#ifdef COMPAT_HAS_FILEOP_OWNER
+	isdn_divert_entry->owner = THIS_MODULE; 
 #endif
+#endif  /* COMPAT_NO_SOFTNET */
 #endif	/* CONFIG_PROC_FS */
 
 	return (0);
