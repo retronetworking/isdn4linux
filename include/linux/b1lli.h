@@ -6,6 +6,9 @@
  * Copyright 1996 by Carsten Paeth (calle@calle.in-berlin.de)
  *
  * $Log$
+ * Revision 1.1.2.2  1997/11/26 16:57:26  calle
+ * more changes for B1/M1/T1.
+ *
  * Revision 1.1.2.1  1997/11/26 10:47:01  calle
  * prepared for M1 (Mobile) and T1 (PMX) cards.
  * prepared to set configuration after load to support other D-channel
@@ -84,7 +87,7 @@ typedef struct avmb1_extcarddef {
  * card states for startup
  */
 
-#define CARD_NONE	0
+#define CARD_FREE	0
 #define CARD_DETECTED	1
 #define CARD_LOADING	2
 #define CARD_INITSTATE	4
@@ -167,6 +170,9 @@ void avmb1_card_ready(avmb1_card * card);
 
 int avmb1_addcard(int port, int irq, int cardtype);
 int avmb1_probecard(int port, int irq, int cardtype);
+
+int avmb1_releasecard(int cardnr);
+int avmb1_resetcard(int cardnr);
 
 #endif				/* __KERNEL__ */
 
