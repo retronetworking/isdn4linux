@@ -3,6 +3,9 @@
  *   Basic declarations, defines and prototypes
  *
  * $Log$
+ * Revision 1.13.2.28  1999/07/15 13:17:14  keil
+ * sync to 2.2
+ *
  * Revision 1.13.2.27  1999/07/12 21:01:29  keil
  * fix race in IRQ handling
  * added watchdog for lost IRQs
@@ -520,6 +523,7 @@ struct amd7930_hw {
 #define L1_MODE_NULL	0
 #define L1_MODE_TRANS	1
 #define L1_MODE_HDLC	2
+#define L1_MODE_EXTRN   3
 #define L1_MODE_MODEM	7
 
 struct BCState {
