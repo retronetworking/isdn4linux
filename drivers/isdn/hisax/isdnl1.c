@@ -15,6 +15,9 @@
  *
  *
  * $Log$
+ * Revision 2.32  1999/07/01 08:11:47  keil
+ * Common HiSax version for 2.0, 2.1, 2.2 and 2.3 kernel
+ *
  * Revision 2.31  1998/11/15 23:54:56  keil
  * changes from 2.0
  *
@@ -259,7 +262,6 @@ L1deactivated(struct IsdnCardState *cs)
 
 	st = cs->stlist;
 	while (st) {
-		printk(KERN_WARNING"st %d %lx\n",i++,(ulong)st);
 		if (test_bit(FLG_L1_DBUSY, &cs->HW_Flags))
 			st->l1.l1l2(st, PH_PAUSE | CONFIRM, NULL);
 		st->l1.l1l2(st, PH_DEACTIVATE | INDICATION, NULL);
