@@ -21,6 +21,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.48.2.9  1998/05/03 17:48:22  detabc
+ * remove unused dev->tbusy = 1 line (only abc-extension)
+ *
  * Revision 1.48.2.8  1998/04/28 15:11:55  detabc
  * fixed the wrong #ifndef CONFIG_ISDN_WITH_ABC define
  *
@@ -290,20 +293,29 @@ char *isdn_net_revision = "$Revision$";
 static void
 isdn_net_unreachable(struct device *dev, struct sk_buff *skb, char *reason)
 {
+#ifndef CONFIG_ISDN_WITH_ABC
 	int i ;
+#endif
 
 	if(skb != NULL) {
 
 		printk(KERN_DEBUG "isdn_net: %s: %s, send ICMP\n",
 			   dev->name, (reason != NULL) ? reason : "reason unknown");
 
-		icmp_send(skb, ICMP_DEST_UNREACH, ICMP_HOST_UNREACH, 0
+		icmp_send(skb, ICMP_DEST_UNREACH,
+#ifdef CONFIG_ISDN_WITH_ABC
+			ICMP_NET_UNREACH,
+#else
+			ICMP_HOST_UNREACH,
+#endif
+			0
 #if (LINUX_VERSION_CODE < 0x02010f)	/* 2.1.15 */
-			  ,dev
+			,dev
 #endif
 			);
 	}
 
+#ifndef CONFIG_ISDN_WITH_ABC
 	for(i = 0; i < DEV_NUMBUFFS; i++) {
 		struct sk_buff *skb;
 
@@ -316,6 +328,16 @@ isdn_net_unreachable(struct device *dev, struct sk_buff *skb, char *reason)
 				dev_kfree_skb(skb, FREE_WRITE);
         	}
 	}
+#else
+	if(dev != NULL) {
+
+		isdn_net_local *lp = (isdn_net_local *) dev->priv;
+		lp->abc_unreached_jiffies = jiffies + lp->dialwait;
+		lp->abc_max_unreached_jiffies = jiffies + lp->dialwait * 6;
+		abc_clear_tx_que(lp);
+		clear_bit(0, (void *) &(dev->tbusy));
+	}
+#endif
 }
 
 static void
@@ -1518,24 +1540,28 @@ isdn_net_send_skb(struct device *ndev, isdn_net_local * lp,
 
 	if(skb != NULL) {
 
-		u_int l = (u_int)skb->len;
+		if(lp->abc_flags & ABC_ABCROUTER) {
 
-		qnr  = 1;
+			u_int l = (u_int)skb->len;
 
-		if(l > 64) 
-			qnr++;
+			qnr  = 1;
 
-		if(l > 128) 
-			qnr++;
+			if(l > 64) 
+				qnr++;
 
-		if(l > 512) 
-			qnr++;
-		
-		if(l > 1024) 
-			qnr++;
+			if(l > 128) 
+				qnr++;
 
-		if(qnr >= ABC_ANZ_TX_QUE) 
-			qnr  = ABC_ANZ_TX_QUE - 1;
+			if(l > 512) 
+				qnr++;
+			
+			if(l > 1024) 
+				qnr++;
+
+			if(qnr >= ABC_ANZ_TX_QUE) 
+				qnr  = ABC_ANZ_TX_QUE - 1;
+
+		} else qnr = 1;
 
 		abc_put_tx_que(lp,qnr,0,skb);
 	}
@@ -1705,8 +1731,32 @@ isdn_net_start_xmit(struct sk_buff *skb, struct device *ndev)
 			if(dev->net_verbose > 10)
 				printk(KERN_DEBUG " abc_start_xmit  calling udp_test\n");
 
-			if(abcgmbh_udp_test(ndev,skb)) 
+			if(abcgmbh_udp_test(ndev,skb)) {
+
+				clear_bit(0, (void *) &(ndev->tbusy));
 				return(0);
+			}
+		}
+
+		if(lp->abc_unreached_jiffies > jiffies && 
+			lp->abc_max_unreached_jiffies > jiffies) {
+
+			abc_clear_tx_que(lp);
+
+			icmp_send(skb, ICMP_DEST_UNREACH, ICMP_NET_UNREACH, 0
+#if (LINUX_VERSION_CODE < 0x02010f)	/* 2.1.15 */
+				,ndev
+#endif
+				);
+
+			dev_kfree_skb(skb, FREE_WRITE);
+			lp->abc_unreached_jiffies = jiffies + lp->dialwait;
+			clear_bit(0, (void *) &(ndev->tbusy));
+
+			if(dev->net_verbose > 6)
+				printk(KERN_DEBUG "%s: ABC_ICMP_DEST_UNREACH \n",ndev->name);
+
+			return(0);
 		}
 
 		if(lp->abc_flags & ABC_WITH_TCP) {
@@ -1714,8 +1764,11 @@ isdn_net_start_xmit(struct sk_buff *skb, struct device *ndev)
 			if(dev->net_verbose > 7)
 				printk(KERN_DEBUG " abc_start_xmit  calling tcp_test\n");
 
-			if(abcgmbh_tcp_test(ndev,skb)) 
+			if(abcgmbh_tcp_test(ndev,skb)) {
+
+				clear_bit(0, (void *) &(ndev->tbusy));
 				return(0);
+			}
 		}
 	}
 
