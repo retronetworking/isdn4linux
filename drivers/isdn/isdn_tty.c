@@ -20,6 +20,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.2  1996/01/22 05:12:25  fritz
+ * replaced my_atoi by simple_strtoul
+ *
  * Revision 1.1  1996/01/09 04:13:18  fritz
  * Initial revision
  *
@@ -311,7 +314,6 @@ static int isdn_tty_startup(modem_info * info)
 #if FUTURE
 	info->send_outstanding = 0;
 #endif
-	isdn_MOD_INC_USE_COUNT();
 	restore_flags(flags);
 	return 0;
 }
@@ -345,7 +347,6 @@ static void isdn_tty_shutdown(modem_info * info)
 		set_bit(TTY_IO_ERROR, &info->tty->flags);
 
 	info->flags &= ~ISDN_ASYNC_INITIALIZED;
-	isdn_MOD_DEC_USE_COUNT();
 	restore_flags(flags);
 }
 
@@ -766,17 +767,18 @@ static void isdn_tty_set_termios(struct tty_struct *tty, struct termios *old_ter
  */
 static int isdn_tty_block_til_ready(struct tty_struct *tty, struct file *filp, modem_info * info)
 {
-	struct wait_queue wait =
-	{current, NULL};
+	struct wait_queue wait = {current, NULL};
 	int do_clocal = 0;
+	unsigned long flags;
 	int retval;
 
 	/*
 	 * If the device is in the middle of being closed, then block
 	 * until it's done, and then try again.
 	 */
-	if (info->flags & ISDN_ASYNC_CLOSING) {
-		interruptible_sleep_on(&info->close_wait);
+	if (tty_hung_up_p(filp) ||
+	    (info->flags & ISDN_ASYNC_CLOSING)) {
+                interruptible_sleep_on(&info->close_wait);
 #ifdef MODEM_DO_RESTART
 		if (info->flags & ISDN_ASYNC_HUP_NOTIFY)
 			return -EAGAIN;
@@ -834,7 +836,11 @@ static int isdn_tty_block_til_ready(struct tty_struct *tty, struct file *filp, m
 	printk(KERN_DEBUG "isdn_tty_block_til_ready before block: ttyi%d, count = %d\n",
 	       info->line, info->count);
 #endif
-	info->count--;
+        save_flags(flags);
+        cli();
+        if (!(tty_hung_up_p(filp)))
+                info->count--;
+        restore_flags(flags);
 	info->blocked_open++;
 	while (1) {
 		current->state = TASK_INTERRUPTIBLE;
