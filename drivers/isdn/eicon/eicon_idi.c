@@ -26,6 +26,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.24  1999/10/26 21:15:33  armin
+ * using define for checking phone number len to avoid buffer overflow.
+ *
  * Revision 1.23  1999/10/11 18:13:25  armin
  * Added fax capabilities for Eicon Diva Server cards.
  *
@@ -2659,7 +2662,8 @@ idi_handle_ack_ok(eicon_card *ccard, eicon_chan *chan, eicon_RC *ack)
 	isdn_ctrl cmd;
 
 	if (ack->RcId != ((chan->e.ReqCh) ? chan->e.B2Id : chan->e.D3Id)) {
-		/* I dont know why this happens, just ignoring this RC */
+		/* I dont know why this happens, should not ! */
+		/* just ignoring this RC */
 		eicon_log(ccard, 16, "idi_ack: Ch%d: RcId %d not equal to last %d\n", chan->No, 
 			ack->RcId, (chan->e.ReqCh) ? chan->e.B2Id : chan->e.D3Id);
 		return 1;
@@ -2675,9 +2679,9 @@ idi_handle_ack_ok(eicon_card *ccard, eicon_chan *chan, eicon_RC *ack)
 	/* Remove an Id */
 	if (chan->e.Req == REMOVE) {
 		if (ack->Reference != chan->e.ref) {
+			/* This should not happen anymore */
 			eicon_log(ccard, 16, "idi_ack: Ch%d: Rc-Ref %d not equal to stored %d\n", chan->No,
 				ack->Reference, chan->e.ref);
-			return 0;
 		}
 		save_flags(flags);
 		cli();
