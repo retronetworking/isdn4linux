@@ -1,6 +1,9 @@
 /* $Id$
  *
  * $Log$
+ * Revision 1.7  1996/05/17 03:40:37  fritz
+ * General cleanup.
+ *
  * Revision 1.6  1996/05/10 22:42:07  fritz
  * Added entry for EV_RELEASE_CNF in ST_OUT (if no D-Channel avail.)
  *
@@ -1384,7 +1387,7 @@ teles_writebuf(int id, int chan, const u_char * buf, int count, int user)
 
         err = BufPoolGet(&ibh, st->l1.sbufpool, GFP_ATOMIC, st, 21);
         if (err)
-                return (0);
+                return -ENOMEM;
 
         ptr = DATAPTR(ibh);
         if (chanp->lc_b.l2_establish)
