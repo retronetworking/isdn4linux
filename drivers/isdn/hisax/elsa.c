@@ -8,6 +8,9 @@
  *
  *
  * $Log$
+ * Revision 1.8  1997/01/27 15:51:48  keil
+ * SMP proof,cosmetics
+ *
  * Revision 1.7  1997/01/21 22:20:48  keil
  * Elsa Quickstep support
  *
@@ -45,8 +48,12 @@ extern const char *CardType[];
 
 const char *Elsa_revision = "$Revision$";
 const char *Elsa_Types[] =
-{"None", "PCC-8", "PCF-Pro", "PCC-16", "PCF",
- "QS 1000"};
+{"None", "PC", "PCC-8", "PCC-16", "PCF", "PCF-Pro",
+ "PCMCIA", "QS 1000", "QS 3000"};
+
+const char *ITACVer[] =
+{"?0?", "?1?", "?2?", "?3?", "?4?", "V2.2",
+ "B1", "A1"};
 
 #define byteout(addr,val) outb_p(val,addr)
 #define bytein(addr) inb_p(addr)
@@ -140,6 +147,32 @@ write_fifo_isac(unsigned int adr, byte * data, int size)
 	outsb(adr, data, size);
 }
 
+static inline byte
+readitac(unsigned int adr, byte off)
+{
+	register byte ret;
+	long flags;
+
+	save_flags(flags);
+	cli();
+	byteout(adr + CARD_ALE, off);
+	ret = bytein(adr + CARD_ITAC);
+	restore_flags(flags);
+	return (ret);
+}
+
+static inline void
+writeitac(unsigned int adr, byte off, byte data)
+{
+	long flags;
+
+	save_flags(flags);
+	cli();
+	byteout(adr + CARD_ALE, off);
+	byteout(adr + CARD_ITAC, data);
+	restore_flags(flags);
+}
+
 static inline int
 TimerRun(struct IsdnCardState *sp)
 {
@@ -148,7 +181,9 @@ TimerRun(struct IsdnCardState *sp)
 	val = bytein(sp->cfg_reg + CARD_CONFIG);
 	if (sp->subtyp == ELSA_QS1000)
 		return (0 == (val & TIMER_RUN));
-	return ((val & TIMER_RUN));
+	else if (sp->subtyp == ELSA_PCC8)
+		return (val & TIMER_RUN_PCC8);
+	return (val & TIMER_RUN);
 }
 
 static inline void
@@ -875,7 +910,7 @@ elsa_interrupt(int intno, void *dev_id, struct pt_regs *regs)
       INT_RESTART:
 	if (!TimerRun(sp)) {
 		/* Timer Restart */
-		bytein(sp->cfg_reg + CARD_START_TIMER);
+		byteout(sp->cfg_reg + CARD_START_TIMER, 0);
 		if (!(sp->counter++ & 0x3f)) {
 			/* Call LEDs all 64 tics */
 			elsa_led_handler(sp);
@@ -919,7 +954,7 @@ elsa_interrupt(int intno, void *dev_id, struct pt_regs *regs)
 		writeisac(sp->cfg_reg, ISAC_MASK, 0xFF);
 		writeisac(sp->cfg_reg, ISAC_MASK, 0x0);
 	}
-	byteout(sp->cfg_reg + 7, 0xff);
+	byteout(sp->cfg_reg + CARD_TRIG_IRQ, 0xff);
 }
 
 
@@ -1094,7 +1129,7 @@ initelsa(struct IsdnCardState *sp)
 		sp->counter = 0;
 		sti();
 		byteout(sp->cfg_reg + CARD_CONTROL, ISDN_RESET | ENABLE_TIM_INT);
-		bytein(sp->cfg_reg + CARD_START_TIMER);
+		byteout(sp->cfg_reg + CARD_START_TIMER, 0);
 		HZDELAY(11);	/* Warte 110 ms */
 		restore_flags(flags);
 		printk(KERN_INFO "Elsa: %d timer tics in 110 msek\n",
@@ -1125,8 +1160,8 @@ initelsa(struct IsdnCardState *sp)
 static unsigned char
 probe_elsa_adr(unsigned int adr)
 {
-	int i, in1, in2, p16_1 = 0, p16_2 = 0, pcc_1 = 0, pcc_2 = 0,
-	 pfp_1 = 0, pfp_2 = 0;
+	int i, in1, in2, p16_1 = 0, p16_2 = 0, p8_1 = 0, p8_2 = 0,
+	 pc_1 = 0, pc_2 = 0, pfp_1 = 0, pfp_2 = 0;
 	long flags;
 
 	if (check_region(adr, 8)) {
@@ -1142,8 +1177,10 @@ probe_elsa_adr(unsigned int adr)
 		in2 = inb(adr + CARD_CONFIG);	/* jedem Zugriff */
 		p16_1 += 0x04 & in1;
 		p16_2 += 0x04 & in2;
-		pcc_1 += 0x01 & in1;
-		pcc_2 += 0x01 & in2;
+		p8_1 += 0x02 & in1;
+		p8_2 += 0x02 & in2;
+		pc_1 += 0x01 & in1;
+		pc_2 += 0x01 & in2;
 		pfp_1 += 0x40 & in1;
 		pfp_2 += 0x40 & in2;
 	}
@@ -1151,13 +1188,16 @@ probe_elsa_adr(unsigned int adr)
 	printk(KERN_INFO "Elsa: Probing IO 0x%x", adr);
 	if (65 == ++p16_1 * ++p16_2) {
 		printk(" PCC-16/PCF found\n");
-		return (3);
+		return (ELSA_PCC16);
 	} else if (1025 == ++pfp_1 * ++pfp_2) {
 		printk(" PCF-Pro found\n");
-		return (2);
-	} else if (17 == ++pcc_1 * ++pcc_2) {
+		return (ELSA_PCFPRO);
+	} else if (33 == ++p8_1 * ++p8_2) {
 		printk(" PCC8 found\n");
-		return (1);
+		return (ELSA_PCC8);
+	} else if (17 == ++pc_1 * ++pc_2) {
+		printk(" PC found\n");
+		return (ELSA_PC);
 	} else {
 		printk(" failed\n");
 		return (0);
@@ -1191,11 +1231,11 @@ setup_elsa(struct IsdnCard *card)
 	printk(KERN_NOTICE "HiSax: Elsa driver Rev. %s\n", HiSax_getrev(tmp));
 	if (sp->typ == ISDN_CTYPE_ELSA) {
 		sp->cfg_reg = card->para[0];
-		printk(KERN_INFO "Elsa: Mircolink IO probing\n");
+		printk(KERN_INFO "Elsa: Microlink IO probing\n");
 		if (sp->cfg_reg) {
 			if (!(sp->subtyp = probe_elsa_adr(sp->cfg_reg))) {
 				printk(KERN_WARNING
-				     "Elsa: no Elsa Mircolink at 0x%x\n",
+				     "Elsa: no Elsa Microlink at 0x%x\n",
 				       sp->cfg_reg);
 				return (0);
 			}
@@ -1203,14 +1243,18 @@ setup_elsa(struct IsdnCard *card)
 			sp->cfg_reg = probe_elsa(sp);
 		if (sp->cfg_reg) {
 			val = bytein(sp->cfg_reg + CARD_CONFIG);
-			if (sp->subtyp == ELSA_PCC) {
+			if (sp->subtyp == ELSA_PC) {
 				const byte CARD_IrqTab[8] =
 				{7, 3, 5, 9, 0, 0, 0, 0};
-				sp->irq = CARD_IrqTab[(val & 0x0c) >> 2];
+				sp->irq = CARD_IrqTab[(val & IRQ_INDEX_PC) >> 2];
+			} else if (sp->subtyp == ELSA_PCC8) {
+				const byte CARD_IrqTab[8] =
+				{7, 3, 5, 9, 0, 0, 0, 0};
+				sp->irq = CARD_IrqTab[(val & IRQ_INDEX_PCC8) >> 4];
 			} else {
 				const byte CARD_IrqTab[8] =
 				{15, 10, 15, 3, 11, 5, 11, 9};
-				sp->irq = CARD_IrqTab[(val & 0x38) >> 3];
+				sp->irq = CARD_IrqTab[(val & IRQ_INDEX) >> 3];
 			}
 			val = bytein(sp->cfg_reg + CARD_ALE) & 0x7;
 			if (val < 3)
@@ -1228,10 +1272,10 @@ setup_elsa(struct IsdnCard *card)
 			val = bytein(sp->cfg_reg + CARD_ALE) & 0x08;
 			if (val)
 				printk(KERN_WARNING
-				   "Elsa: Mircolink S0 bus power bad\n");
+				   "Elsa: Microlink S0 bus power bad\n");
 		} else {
 			printk(KERN_WARNING
-			       "No Elsa Mircolink found\n");
+			       "No Elsa Microlink found\n");
 			return (0);
 		}
 	} else if (sp->typ == ISDN_CTYPE_ELSA_QS1000) {
@@ -1242,7 +1286,10 @@ setup_elsa(struct IsdnCard *card)
 		return (0);
 
 	switch (sp->subtyp) {
-	case ELSA_PCC:
+	case ELSA_PC:
+		bytecnt = 8;
+		break;
+	case ELSA_PCC8:
 		bytecnt = 8;
 		break;
 	case ELSA_PCFPRO:
@@ -1275,9 +1322,10 @@ setup_elsa(struct IsdnCard *card)
 	}
 
 	/* Teste Timer */
-	bytein(sp->cfg_reg + CARD_START_TIMER);
+	byteout(sp->cfg_reg + CARD_TRIG_IRQ, 0xff);
+	byteout(sp->cfg_reg + CARD_START_TIMER, 0);
 	if (!TimerRun(sp)) {
-		bytein(sp->cfg_reg + CARD_START_TIMER);		/* 2. Versuch */
+		byteout(sp->cfg_reg + CARD_START_TIMER, 0);		/* 2. Versuch */
 		if (!TimerRun(sp)) {
 			printk(KERN_WARNING
 			       "Elsa: timer do not start\n");
@@ -1296,17 +1344,18 @@ setup_elsa(struct IsdnCard *card)
 	}
 	printk(KERN_INFO "Elsa: timer OK; resetting card\n");
 	/* Wait 1 Timer */
-	bytein(sp->cfg_reg + CARD_START_TIMER);
+	byteout(sp->cfg_reg + CARD_START_TIMER, 0);
 	while (TimerRun(sp));
 	byteout(sp->cfg_reg + CARD_CONTROL, 0x00);	/* Reset On */
 	/* Wait 1 Timer */
-	bytein(sp->cfg_reg + CARD_START_TIMER);
+	byteout(sp->cfg_reg + CARD_START_TIMER, 0);
 	while (TimerRun(sp));
 	byteout(sp->cfg_reg + CARD_CONTROL, ISDN_RESET);	/* Reset Off */
 	/* Wait 1 Timer */
-	bytein(sp->cfg_reg + CARD_START_TIMER);
+	byteout(sp->cfg_reg + CARD_START_TIMER, 0);
 	while (TimerRun(sp));
-
+	byteout(sp->cfg_reg + CARD_TRIG_IRQ, 0xff);
+	
 	verA = readhscx(sp->cfg_reg, 0, HSCX_VSTR) & 0xf;
 	verB = readhscx(sp->cfg_reg, 1, HSCX_VSTR) & 0xf;
 	printk(KERN_INFO "Elsa: HSCX version A: %s  B: %s\n",
@@ -1314,6 +1363,16 @@ setup_elsa(struct IsdnCard *card)
 	val = readisac(sp->cfg_reg, ISAC_RBCH);
 	printk(KERN_INFO "Elsa: ISAC %s\n",
 	       ISACVersion(val));
+	       
+	if (sp->subtyp == ELSA_PC) {
+		val = readitac(sp->cfg_reg, ITAC_SYS);
+		printk(KERN_INFO "Elsa: ITAC version %s\n", ITACVer[val & 7]);
+		writeitac(sp->cfg_reg, ITAC_ISEN, 0);
+		writeitac(sp->cfg_reg, ITAC_RFIE, 0);
+		writeitac(sp->cfg_reg, ITAC_XFIE, 0);
+		writeitac(sp->cfg_reg, ITAC_SCIE, 0);
+		writeitac(sp->cfg_reg, ITAC_STIE, 0);
+	}
 
 	sp->modehscx = &modehscx;
 	sp->ph_command = &ph_command;
