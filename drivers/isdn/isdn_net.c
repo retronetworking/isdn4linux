@@ -21,6 +21,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.48.2.15  1998/06/07 13:47:51  fritz
+ * ABC cleanup
+ *
  * Revision 1.48.2.13  1998/05/22 10:13:07  detabc
  * in case of a icmp-unreach condition the tcp-keepalive-entrys
  * will be dropped from the internal double-link-list (only abc-extension).
@@ -2324,7 +2327,7 @@ isdn_net_new(char *name, struct device *master)
 	netdev->local.onhtime = 10;	/* Default hangup-time for saving costs
 	   of those who forget configuring this */
 	netdev->local.dialmax = 1;
-	netdev->local.flags = ISDN_NET_CBHUP;	/* Hangup before Callback */
+	netdev->local.flags = ISDN_NET_CBHUP | ISDN_NET_STOPPED;	/* Hangup before Callback, Autodial initially suppressed */
 	netdev->local.cbdelay = 25;	/* Wait 5 secs before Callback */
 	netdev->local.dialtimeout = -1;  /* Infinite Dial-Timeout */
 	netdev->local.dialwait = 5 * HZ; /* Wait 5 sec. after failed dial */
