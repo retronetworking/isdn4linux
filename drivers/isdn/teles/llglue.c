@@ -1,6 +1,9 @@
 /* $Id$
  *
  * $Log$
+ * Revision 1.1  1996/04/13 10:26:29  fritz
+ * Initial revision
+ *
  *
  */
 #define __NO_VERSION__
@@ -22,7 +25,7 @@ static byte    *teles_status_write = NULL;
 static byte    *teles_status_end = NULL;
 
 int
-teles_readstatus(byte * buf, int len, int user)
+teles_readstatus(byte * buf, int len, int user, int id, int channel)
 {
 	int             count;
 	byte           *p;
