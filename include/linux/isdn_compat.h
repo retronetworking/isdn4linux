@@ -26,6 +26,9 @@
 #if LINUX_VERSION_CODE < KERNEL_VERSION(2,4,0)
 #define pci_get_sub_vendor(pdev, id)	pci_read_config_word(pdev, PCI_SUBSYSTEM_VENDOR_ID, &id)
 #define pci_get_sub_system(pdev, id)	pci_read_config_word(pdev, PCI_SUBSYSTEM_ID, &id)
+#else
+#define pci_get_sub_vendor(pdev, id)    id = pdev->subsystem_vendor
+#define pci_get_sub_system(pdev, id)    id = pdev->subsystem_device
 #endif
 
 #if LINUX_VERSION_CODE > KERNEL_VERSION(2,3,0)
@@ -82,9 +85,13 @@
 #define i_count_inc(ic)  atomic_inc(&ic)
 #endif
 
-#if LINUX_VERSION_CODE > KERNEL_VERSION(2,4,0)
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,4,0)
 #define COMPAT_HAS_FILEOP_OWNER
 #define COMPAT_HAVE_NEW_FILLDIR
+#define COMPAT_HAS_pci_find_subsys
+#define COMPAT_has_fileops_in_inode
+#define COMPAT_d_alloc_root_one_parameter
+#define COMPAT_HAS_init_special_inode
 #else
 #define COMPAT_USE_MODCOUNT_LOCK
 #endif
