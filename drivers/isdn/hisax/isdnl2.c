@@ -11,6 +11,9 @@
  *              Fritz Elfert
  *
  * $Log$
+ * Revision 2.19  1999/08/05 20:40:26  keil
+ * Fix interlayer communication
+ *
  * Revision 2.18  1999/07/21 14:46:16  keil
  * changes from EICON certification
  *
@@ -1744,7 +1747,7 @@ isdnl2_l1l2(struct PStack *st, int pr, void *arg)
 			}
 			if(c) {
 				FreeSkb(skb);
-				FsmEvent(&st->l2.l2m, EV_L2_FRAME_ERROR, (void *) c);
+				FsmEvent(&st->l2.l2m, EV_L2_FRAME_ERROR, (void *)(long)c);
 				ret = 0;
 			}
 			if (ret)
