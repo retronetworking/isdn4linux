@@ -87,6 +87,9 @@ else
 	for i in drivers/isdn/hisax/*.[ch] ; do
 		dodiff $i $KERNELDIR/$i
 	done
+	for i in drivers/isdn/avmb1/*.[ch] ; do
+		dodiff $i $KERNELDIR/$i
+	done
 	for i in drivers/isdn/sc/*.[ch] ; do
 		dodiff $i $KERNELDIR/$i
 	done
@@ -105,6 +108,8 @@ else
 		dodiff $i $KERNELDIR/$i
 	done
 	for i in drivers/isdn/Makefile drivers/isdn/icn/Makefile \
+		drivers/isdn/sc/Makefile \
+		drivers/isdn/avmb1/Makefile \
 		drivers/isdn/hisax/Makefile \
 		drivers/isdn/pcbit/Makefile ; do
 		if [ -f $i.kernel ] ; then
