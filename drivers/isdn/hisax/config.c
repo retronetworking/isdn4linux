@@ -69,6 +69,7 @@
  *   36 Winbond 6692 PCI        none
  *   37 HFC 2BDS0 S+/SP         p0=irq p1=iobase
  *   38 Travers Technologies NETspider-U PCI card
+ *   39 HFC 2BDS0-SP PCMCIA     p0=irq p1=iobase
  *
  * protocol can be either ISDN_PTYPE_EURO or ISDN_PTYPE_1TR6 or ISDN_PTYPE_NI1
  *
@@ -84,7 +85,7 @@ const char *CardType[] =
  "AMD 7930", "NICCY", "S0Box", "AVM A1 (PCMCIA)", "AVM Fritz PnP/PCI",
  "Sedlbauer Speed Fax +", "Siemens I-Surf", "Acer P10", "HST Saphir",
  "Telekom A4T", "Scitel Quadro", "Gazel", "HFC 2BDS0 PCI", "Winbond 6692",
- "HFC 2BDS0 SX", "NETspider-U",
+ "HFC 2BDS0 SX", "NETspider-U", "HFC-2BDS0-SP PCMCIA",
 };
 
 void HiSax_closecard(int cardnr);
@@ -248,6 +249,16 @@ static struct symbol_table hisax_syms_sedl= {
 #undef DEFAULT_CFG
 #define DEFAULT_CARD ISDN_CTYPE_HFC_SX
 #define DEFAULT_CFG {5,0x2E0,0,0}
+int hfc_init_pcmcia(void*, int, int*, int);
+#ifdef COMPAT_HAS_NEW_SYMTAB
+EXPORT_SYMBOL(hfc_init_pcmcia);
+#else
+static struct symbol_table hisax_syms_hfc = {
+#include <linux/symtab_begin.h>
+	X(hfc_init_pcmcia),
+#include <linux/symtab_end.h>
+};
+#endif /* COMPAT_HAS_NEW_SYMTAB */
 #endif
 
 
@@ -1468,6 +1479,15 @@ HiSax_init(void))
 		return 0;
 	}
 #endif
+#ifdef CONFIG_HISAX_HFC_SX
+	if (type[0] == ISDN_CTYPE_HFC_SP_PCMCIA) {
+		/* we have to export  and return in this case */
+#ifndef COMPAT_HAS_NEW_SYMTAB
+		register_symtab(&hisax_syms_hfc);
+#endif
+		return 0;
+	}
+#endif
 #endif
 	nrcards = 0;
 	HiSaxVersion();
@@ -1532,6 +1552,7 @@ HiSax_init(void))
 			case ISDN_CTYPE_HSTSAPHIR:
 			case ISDN_CTYPE_GAZEL:
 		        case ISDN_CTYPE_HFC_SX:
+		        case ISDN_CTYPE_HFC_SP_PCMCIA:
 				cards[j].para[0] = irq[i];
 				cards[j].para[1] = io[i];
 				break;
@@ -1656,6 +1677,55 @@ int elsa_init_pcmcia(void *pcm_iob, int pcm_irq, int *busy_flag, int prot)
 	cards[0].para[1] = (int)pcm_iob;
 	cards[0].protocol = prot;
 	cards[0].typ = 10;
+	nzproto = 1;
+
+	if (!HiSax_id)
+		HiSax_id = HiSaxID;
+	if (!HiSaxID[0])
+		strcpy(HiSaxID, "HiSax");
+	for (i = 0; i < HISAX_MAX_CARDS; i++)
+		if (cards[i].typ > 0)
+			nrcards++;
+	printk(KERN_DEBUG "HiSax: Total %d card%s defined\n",
+	       nrcards, (nrcards > 1) ? "s" : "");
+
+	Isdnl1New();
+	CallcNew();
+	Isdnl3New();
+	Isdnl2New();
+	TeiNew();
+	HiSax_inithardware(busy_flag);
+	printk(KERN_NOTICE "HiSax: module installed\n");
+#endif
+	return (0);
+}
+#endif
+
+#ifdef CONFIG_HISAX_HFC_SX
+int hfc_init_pcmcia(void *pcm_iob, int pcm_irq, int *busy_flag, int prot)
+{
+#ifdef MODULE
+	int i;
+	int nzproto = 0;
+
+	nrcards = 0;
+	HiSaxVersion();
+	/* Initialize all structs, even though we only accept
+	   two pcmcia cards
+	   */
+	for (i = 0; i < HISAX_MAX_CARDS; i++) {
+		cards[i].para[0] = irq[i];
+		cards[i].para[1] = io[i];
+		cards[i].typ = type[i];
+		if (protocol[i]) {
+			cards[i].protocol = protocol[i];
+			nzproto++;
+		}
+	}
+	cards[0].para[0] = pcm_irq;
+	cards[0].para[1] = (int)pcm_iob;
+	cards[0].protocol = prot;
+	cards[0].typ = ISDN_CTYPE_HFC_SP_PCMCIA;
 	nzproto = 1;
 
 	if (!HiSax_id)

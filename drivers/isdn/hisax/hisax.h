@@ -1002,7 +1002,8 @@ struct IsdnCardState {
 #define  ISDN_CTYPE_W6692	36
 #define  ISDN_CTYPE_HFC_SX      37
 #define  ISDN_CTYPE_NETJET_U	38
-#define  ISDN_CTYPE_COUNT	38
+#define  ISDN_CTYPE_HFC_SP_PCMCIA      39
+#define  ISDN_CTYPE_COUNT	39
 
 
 #ifdef ISDN_CHIP_ISAC
