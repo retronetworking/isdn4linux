@@ -6,6 +6,9 @@
  * Heavily based on devpts filesystem from H. Peter Anvin
  * 
  * $Log$
+ * Revision 1.10  2000/10/12 10:12:35  calle
+ * Bugfix: second iput(inode) on umount, destroies a foreign inode.
+ *
  * Revision 1.9  2000/08/20 07:30:13  keil
  * changes for 2.4
  *
@@ -57,15 +60,12 @@
 #include <linux/param.h>
 #include <linux/module.h>
 #include <linux/string.h>
-#include <linux/fs.h>
 #include <linux/init.h>
 #include <linux/kdev_t.h>
 #include <linux/kernel.h>
 #include <linux/locks.h>
 #include <linux/major.h>
 #include <linux/malloc.h>
-#include <linux/stat.h>
-#include <linux/tty.h>
 #include <linux/ctype.h>
 #include <asm/bitops.h>
 #include <asm/uaccess.h>
