@@ -96,7 +96,7 @@ if [ "$CONFIG_ISDN_DRV_EICON" != "n" ]; then
    fi
    if [ "$CONFIG_ISDN_DRV_EICON_DIVAS" != "y" ]; then
       dep_tristate '  Legacy Eicon driver' CONFIG_ISDN_DRV_EICON_OLD $CONFIG_ISDN
-      if [ "$CONFIG_ISDN_DRV_EICON_OLD" != "n" ]; then 
+      if [ "$CONFIG_ISDN_DRV_EICON_OLD" != "n" ]; then
          dep_bool  '    Eicon PCI DIVA Server BRI/PRI/4BRI support' CONFIG_ISDN_DRV_EICON_PCI $CONFIG_PCI
          bool      '    Eicon S,SX,SCOM,Quadro,S2M support' CONFIG_ISDN_DRV_EICON_ISA
       fi
@@ -116,7 +116,7 @@ if [ "$CONFIG_ISDN_CAPI" != "n" ]; then
 	 define_tristate CONFIG_ISDN_CAPI_CAPIFS $CONFIG_ISDN_CAPI_CAPI20
       else
 	 define_tristate CONFIG_ISDN_CAPI_CAPIFS n
-      fi	
+      fi
    fi
    dep_tristate    '  CAPI2.0 capidrv interface support' CONFIG_ISDN_CAPI_CAPIDRV $CONFIG_ISDN_CAPI $CONFIG_ISDN
 fi

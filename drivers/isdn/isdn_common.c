@@ -2362,7 +2362,7 @@ register_isdn(isdn_if * i)
    from drivers/char/mem.c anymore
 */
 
-int isdn_init(void) 
+int isdn_init(void)
 {
 	return 0;
 }
