@@ -11,6 +11,9 @@
  *
  *
  * $Log$
+ * Revision 1.14.2.12  1998/09/27 13:05:53  keil
+ * Apply most changes from 2.1.X (HiSax 3.1)
+ *
  * Revision 1.14.2.11  1998/05/27 18:05:14  keil
  * HiSax 3.0
  *
@@ -841,11 +844,13 @@ Elsa_card_msg(struct IsdnCardState *cs, int mt, void *arg)
 			}
 			break;
 	}
-	pwr = bytein(cs->hw.elsa.ale);
-	if (pwr & 0x08)
-		cs->hw.elsa.status |= ELSA_BAD_PWR;
-	else
-		cs->hw.elsa.status &= ~ELSA_BAD_PWR;
+	if (cs->typ == ISDN_CTYPE_ELSA) {
+		pwr = bytein(cs->hw.elsa.ale);
+		if (pwr & 0x08)
+			cs->hw.elsa.status |= ELSA_BAD_PWR;
+		else
+			cs->hw.elsa.status &= ~ELSA_BAD_PWR;
+	}
 	elsa_led_handler(cs);
 	return(ret);
 }
