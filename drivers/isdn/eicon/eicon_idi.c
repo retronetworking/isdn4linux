@@ -21,6 +21,10 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.15  1999/08/28 21:32:50  armin
+ * Prepared for fax related functions.
+ * Now compilable without errors/warnings.
+ *
  * Revision 1.14  1999/08/28 20:24:40  armin
  * Corrected octet 3/3a in CPN/OAD information element.
  * Thanks to John Simpson <xfl23@dial.pipex.com>
@@ -158,8 +162,13 @@ idi_assign_req(eicon_REQ *reqbuf, int signet, eicon_chan *chan)
 			reqbuf->XBuffer.P[l++] = 5; 
 			break;
 		case ISDN_PROTO_L2_TRANS:
-		case ISDN_PROTO_L2_MODEM:
 			reqbuf->XBuffer.P[l++] = 2;
+			break;
+		case ISDN_PROTO_L2_MODEM:
+  			if (chan->fsm_state == EICON_STATE_IWAIT)
+				reqbuf->XBuffer.P[l++] = 9; /* V.42 incoming */
+			else
+				reqbuf->XBuffer.P[l++] = 10; /* V.42 */
 			break;
 		case ISDN_PROTO_L2_FAX:
   			if (chan->fsm_state == EICON_STATE_IWAIT)
@@ -1285,15 +1294,19 @@ idi_handle_ind(eicon_card *ccard, struct sk_buff *skb)
 					cmd.command = ISDN_STAT_DCONN;
 					cmd.arg = chan->No;
 					ccard->interface.statcallb(&cmd);
-					if (chan->l2prot != ISDN_PROTO_L2_FAX) {
-						idi_do_req(ccard, chan, IDI_N_CONNECT, 1);
-					}
+					switch(chan->l2prot) {
+						case ISDN_PROTO_L2_FAX:
 #ifdef CONFIG_ISDN_TTY_FAX
-					else {
-						if (chan->fax)
-							chan->fax->phase = ISDN_FAX_PHASE_A;
-					}
+							if (chan->fax)
+								chan->fax->phase = ISDN_FAX_PHASE_A;
 #endif
+							break;
+						case ISDN_PROTO_L2_MODEM:
+							/* do nothing, wait for connect */
+							break;
+						default:
+							idi_do_req(ccard, chan, IDI_N_CONNECT, 1);
+					}
 				} else
 					idi_hangup(ccard, chan);
 				break;
