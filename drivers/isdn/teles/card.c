@@ -438,7 +438,7 @@ hscx_interrupt(struct IsdnCardState *sp, byte val, byte hscx)
 			if (!r & 0x80)
 				printk(KERN_WARNING
                                        "Teles: HSCX invalid frame\n");
-			if ((r & 0x40) && mode)
+			if ((r & 0x40) && hsp->mode)
 				printk(KERN_WARNING "Teles: HSCX RDO mode=%d\n",hsp->mode);
 			if (!r & 0x20)
 				printk(KERN_WARNING "Teles: HSCX CRC error\n");
