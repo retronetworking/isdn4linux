@@ -6,6 +6,11 @@
  * Copyright 1996 by Carsten Paeth (calle@calle.in-berlin.de)
  *
  * $Log$
+ * Revision 1.3  1997/05/18 09:24:14  calle
+ * added verbose disconnect reason reporting to avmb1.
+ * some fixes in capi20 interface.
+ * changed info messages for B1-PCI
+ *
  * Revision 1.2  1997/03/05 21:17:59  fritz
  * Added capi_poll for compiling under 2.1.27
  *
@@ -436,7 +441,8 @@ static int capi_open(struct inode *inode, struct file *file)
 	return 0;
 }
 
-static void capi_release(struct inode *inode, struct file *file)
+static CLOSETYPE
+capi_release(struct inode *inode, struct file *file)
 {
 	unsigned int minor = MINOR(inode->i_rdev);
 	struct capidev *cdev;
@@ -444,7 +450,7 @@ static void capi_release(struct inode *inode, struct file *file)
 
 	if (minor >= CAPI_MAXMINOR || !capidevs[minor].is_open) {
 		printk(KERN_ERR "capi20: release minor %d ???\n", minor);
-		return;
+		return CLOSEVAL;
 	}
 	cdev = &capidevs[minor];
 
@@ -462,6 +468,7 @@ static void capi_release(struct inode *inode, struct file *file)
 	cdev->is_open = 0;
 
 	MOD_DEC_USE_COUNT;
+	return CLOSEVAL;
 }
 
 static struct file_operations capi_fops =

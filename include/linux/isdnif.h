@@ -22,6 +22,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.19  1997/03/25 23:13:56  keil
+ * NI-1 US protocol
+ *
  * Revision 1.18  1997/03/04 22:09:18  calle
  * Change macros copy_from_user and copy_to_user in inline function.
  * These are now correct replacements of the functions for 2.1.xx
@@ -376,7 +379,6 @@ static inline unsigned long copy_to_user(void *to, const void *from, unsigned lo
 #define LSTYPE int
 #define RWARG int
 #define LSARG off_t
-#define SET_SKB_FREE(x) ( x->free = 1 )
 #else
 #include <asm/uaccess.h>
 #define GET_USER get_user
@@ -385,11 +387,25 @@ static inline unsigned long copy_to_user(void *to, const void *from, unsigned lo
 #define LSTYPE long long
 #define RWARG unsigned long
 #define LSARG long long
+#endif
+
 #if (LINUX_VERSION_CODE < 0x02010F)
 #define SET_SKB_FREE(x) ( x->free = 1 )
 #else
 #define SET_SKB_FREE(x)
 #endif
+
+#if (LINUX_VERSION_CODE < 0x02011F)
+#define CLOSETYPE void
+#define CLOSEVAL
+#else
+#define CLOSETYPE int
+#define CLOSEVAL (0)
+#endif
+
+#if (LINUX_VERSION_CODE < 0x020125)
+#define test_and_clear_bit clear_bit
+#define test_and_set_bit set_bit
 #endif
 
 #endif /* __KERNEL__ */

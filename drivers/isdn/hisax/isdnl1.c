@@ -11,6 +11,9 @@
  *
  *
  * $Log$
+ * Revision 1.14  1997/04/07 23:00:08  keil
+ * GFP_KERNEL ---> GFP_ATOMIC
+ *
  * Revision 1.13  1997/04/06 22:55:50  keil
  * Using SKB's
  *
@@ -482,11 +485,11 @@ isac_bh(struct IsdnCardState *sp)
 	if (!sp)
 		return;
 
-	if (clear_bit(ISAC_PHCHANGE, &sp->event))
+	if (test_and_clear_bit(ISAC_PHCHANGE, &sp->event))
 		process_new_ph(sp);
-	if (clear_bit(ISAC_RCVBUFREADY, &sp->event))
+	if (test_and_clear_bit(ISAC_RCVBUFREADY, &sp->event))
 		process_rcv(sp);
-	if (clear_bit(ISAC_XMTBUFREADY, &sp->event))
+	if (test_and_clear_bit(ISAC_XMTBUFREADY, &sp->event))
 		process_xmt(sp);
 }
 
@@ -596,9 +599,9 @@ hscx_bh(struct HscxState *hsp)
 	if (!hsp)
 		return;
 
-	if (clear_bit(HSCX_RCVBUFREADY, &hsp->event))
+	if (test_and_clear_bit(HSCX_RCVBUFREADY, &hsp->event))
 		hscx_process_rcv(hsp);
-	if (clear_bit(HSCX_XMTBUFREADY, &hsp->event))
+	if (test_and_clear_bit(HSCX_XMTBUFREADY, &hsp->event))
 		hscx_process_xmt(hsp);
 
 }

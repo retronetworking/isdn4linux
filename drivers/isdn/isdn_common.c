@@ -21,6 +21,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.43  1997/03/31 14:09:43  fritz
+ * Fixed memory leak in isdn_close().
+ *
  * Revision 1.42  1997/03/30 16:51:08  calle
  * changed calls to copy_from_user/copy_to_user and removed verify_area
  * were possible.
@@ -1632,7 +1635,7 @@ isdn_open(struct inode *ino, struct file *filep)
 	return -ENODEV;
 }
 
-static void
+static CLOSETYPE
 isdn_close(struct inode *ino, struct file *filep)
 {
 	uint minor = MINOR(ino->i_rdev);
@@ -1650,38 +1653,39 @@ isdn_close(struct inode *ino, struct file *filep)
 				else
 					dev->infochain = (infostruct *) (p->next);
 				kfree(p);
-				return;
+				return CLOSEVAL;
 			}
 			q = p;
 			p = (infostruct *) (p->next);
 		}
 		printk(KERN_WARNING "isdn: No private data while closing isdnctrl\n");
-		return;
+		return CLOSEVAL;
 	}
 	if (minor < ISDN_MINOR_CTRL) {
 		drvidx = isdn_minor2drv(minor);
 		if (drvidx < 0)
-			return;
+			return CLOSEVAL;
 		c.command = ISDN_CMD_UNLOCK;
 		c.driver = drvidx;
 		(void) dev->drv[drvidx]->interface->command(&c);
-		return;
+		return CLOSEVAL;
 	}
 	if (minor <= ISDN_MINOR_CTRLMAX) {
 		drvidx = isdn_minor2drv(minor - ISDN_MINOR_CTRL);
 		if (drvidx < 0)
-			return;
+			return CLOSEVAL;
 		if (dev->profd == current)
 			dev->profd = NULL;
 		c.command = ISDN_CMD_UNLOCK;
 		c.driver = drvidx;
 		(void) dev->drv[drvidx]->interface->command(&c);
-		return;
+		return CLOSEVAL;
 	}
 #ifdef CONFIG_ISDN_PPP
 	if (minor <= ISDN_MINOR_PPPMAX)
 		isdn_ppp_release(minor - ISDN_MINOR_PPP, filep);
 #endif
+	return CLOSEVAL;
 }
 
 static struct file_operations isdn_fops =

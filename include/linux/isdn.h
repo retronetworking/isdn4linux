@@ -21,6 +21,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.28  1997/03/07 01:33:01  fritz
+ * Added proper ifdef's for CONFIG_ISDN_AUDIO
+ *
  * Revision 1.27  1997/03/05 21:11:49  fritz
  * Minor fixes.
  *
@@ -422,10 +425,17 @@ typedef struct isdn_net_local_s {
                                     unsigned short, 
 				    __u32);
 #else
+#if (LINUX_VERSION_CODE < 0x2011E)
                                        /* Ptr to orig. hard_header_cache   */
   int                    (*org_hhc)(struct dst_entry *dst,
 				    struct dst_entry *neigh,
 				    struct hh_cache *hh);
+#else
+                                       /* Ptr to orig. hard_header_cache   */
+  int                    (*org_hhc)(struct dst_entry *dst,
+				    struct neighbour *neigh,
+				    struct hh_cache *hh);
+#endif
 #endif
                                        /* Ptr to orig. header_cache_update */
   void                   (*org_hcu)(struct hh_cache *,

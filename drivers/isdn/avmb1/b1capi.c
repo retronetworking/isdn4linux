@@ -6,6 +6,11 @@
  * (c) Copyright 1997 by Carsten Paeth (calle@calle.in-berlin.de)
  * 
  * $Log$
+ * Revision 1.3  1997/05/18 09:24:09  calle
+ * added verbose disconnect reason reporting to avmb1.
+ * some fixes in capi20 interface.
+ * changed info messages for B1-PCI
+ *
  * Revision 1.2  1997/03/05 21:20:41  fritz
  * Removed include of config.h (mkdep stated this is unneded).
  *
@@ -317,7 +322,7 @@ void avmb1_handle_capimsg(avmb1_card * card, __u16 appl, struct sk_buff *skb)
 		return;
 	}
 	skb_queue_tail(&recv_queue, skb);
-	queue_task_irq(&tq_recv_notify, &tq_immediate);
+	queue_task(&tq_recv_notify, &tq_immediate);
 	mark_bh(IMMEDIATE_BH);
 	return;
 
@@ -375,10 +380,10 @@ static void notify_handler(void *dummy)
 	__u16 contr;
 
 	for (contr=1; VALID_CARD(contr); contr++)
-		 if (clear_bit(contr, &notify_up_set))
+		 if (test_and_clear_bit(contr, &notify_up_set))
 			 notify_up(contr);
 	for (contr=1; VALID_CARD(contr); contr++)
-		 if (clear_bit(contr, &notify_down_set))
+		 if (test_and_clear_bit(contr, &notify_down_set))
 			 notify_down(contr);
 }
 

@@ -20,6 +20,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.40  1997/03/24 22:55:27  fritz
+ * Added debug code for status callbacks.
+ *
  * Revision 1.39  1997/03/21 18:25:56  fritz
  * Corrected CTS handling.
  *
@@ -264,7 +267,7 @@ isdn_tty_try_read(modem_info * info, struct sk_buff *skb)
 #endif
 					if (info->emu.mdmreg[12] & 128)
 						tty->flip.flag_buf_ptr[len - 1] = 0xff;
-					queue_task_irq_off(&tty->flip.tqueue, &tq_timer);
+					queue_task(&tty->flip.tqueue, &tq_timer);
 					SET_SKB_FREE(skb);
 					kfree_skb(skb, FREE_READ);
 					return 1;
@@ -315,7 +318,7 @@ isdn_tty_readmodem(void)
 							tty->flip.flag_buf_ptr += r;
 							tty->flip.char_buf_ptr += r;
 							if (r)
-								queue_task_irq_off(&tty->flip.tqueue, &tq_timer);
+								queue_task(&tty->flip.tqueue, &tq_timer);
 							restore_flags(flags);
 						}
 					} else

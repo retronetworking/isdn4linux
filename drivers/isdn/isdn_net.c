@@ -21,6 +21,10 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.43  1997/03/30 16:51:13  calle
+ * changed calls to copy_from_user/copy_to_user and removed verify_area
+ * were possible.
+ *
  * Revision 1.42  1997/03/11 08:43:51  fritz
  * Perform a hangup if number is deleted while dialing.
  *
@@ -402,7 +406,7 @@ isdn_net_stat_callback(int idx, int cmd)
 							return 1;
 						}
 					}
-					if (clear_bit(0, (void *) &(p->dev.tbusy)))
+					if (test_and_clear_bit(0, (void *) &(p->dev.tbusy)))
 						mark_bh(NET_BH);
 				}
 				return 1;
@@ -983,7 +987,7 @@ isdn_net_start_xmit(struct sk_buff *skb, struct device *ndev)
 		return 0;
 	}
 	/* Avoid timer-based retransmission conflicts. */
-	if (set_bit(0, (void *) &ndev->tbusy) != 0)
+	if (test_and_set_bit(0, (void *) &ndev->tbusy) != 0)
 		printk(KERN_WARNING
 		       "%s: Transmitter access conflict.\n",
 		       ndev->name);
