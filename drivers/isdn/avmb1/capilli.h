@@ -25,7 +25,7 @@ typedef struct capicardparams {
 	unsigned irq;
 	int cardtype;
 	int cardnr;
-	unisigned int membase;
+	unsigned int membase;
 } capicardparams;
 
 struct capi_driver;

@@ -6,6 +6,9 @@
  * (c) Copyright 1999 by Carsten Paeth (calle@calle.in-berlin.de)
  * 
  * $Log$
+ * Revision 1.5  1999/07/23 08:41:48  calle
+ * prepared for new AVM cards.
+ *
  * Revision 1.4  1999/07/09 15:05:38  keil
  * compat.h is now isdn_compat.h
  *
@@ -573,7 +576,7 @@ int b1ctl_read_proc(char *page, char **start, off_t off,
 	len += sprintf(page+len, "%-16s 0x%x\n", "io", card->port);
 	len += sprintf(page+len, "%-16s %d\n", "irq", card->irq);
 	if (card->cardtype == avm_t1pci)
-	   len += sprintf(page+len, "%-16s %d\n", "membase", card->membase);
+	   len += sprintf(page+len, "%-16s %ld\n", "membase", card->membase);
 	switch (card->cardtype) {
 	case avm_b1isa: s = "B1 ISA"; break;
 	case avm_b1pci: s = "B1 PCI"; break;
