@@ -1669,13 +1669,14 @@ static int isdn_net_start_xmit(struct sk_buff *skb, struct net_device *ndev)
 		if((myskb = isdn_dw_abc_ip4_keepalive_test(ndev,skb)) == skb)
 			return(dwabc_isdn_net_start_xmit(skb,ndev));
 
-		if(dwabc_isdn_net_start_xmit(myskb,ndev)) {
+		dev_kfree_skb(skb);
 
-			dev_kfree_skb(myskb);
-			return(1);
+		if(myskb != NULL) {
+		
+			if(dwabc_isdn_net_start_xmit(myskb,ndev))
+				dev_kfree_skb(myskb);
 		}
 
-		dev_kfree_skb(skb);
 		return(0);
 	}
 #else

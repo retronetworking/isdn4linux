@@ -227,15 +227,13 @@ void isdn_dw_abc_lcr_clear(isdn_net_local *lp)
 	if(lp != NULL) {
 
 		u_long flags;
+		void *a,*b;
 
 		save_flags(flags);
 		cli();
 
-		if(lp->dw_abc_lcr_cmd != NULL) 
-			kfree(lp->dw_abc_lcr_cmd);
-
-		if(lp->dw_abc_lcr_io != NULL) 
-			kfree(lp->dw_abc_lcr_io);
+		a = lp->dw_abc_lcr_cmd;  
+		b = lp->dw_abc_lcr_io;
 
 		lp->dw_abc_lcr_io = NULL;
 		lp->dw_abc_lcr_cmd = NULL;
@@ -245,6 +243,9 @@ void isdn_dw_abc_lcr_clear(isdn_net_local *lp)
 		lp->dw_abc_lcr_end_request = 0;
 
 		restore_flags(flags);
+		
+		if(a) kfree(a);
+		if(b) kfree(b);
 	}
 }
 
@@ -1123,48 +1124,53 @@ struct sk_buff *isdn_dw_abc_ip4_keepalive_test(struct net_device *ndev,struct sk
 #endif
 			if((ip->saddr ^ ipaddr)) {
 #if CONFIG_ISDN_WITH_ABC_IPV4_RW_SOCKADDR || CONFIG_ISDN_WITH_ABC_IPV4_RWUDP_SOCKADDR 
-
 				struct sock *sk = skb->sk;
 				struct tcphdr *tcp;
 				struct udphdr *udp;
 				char *drpmsg = "isdn_dynaddr drop";
-				char isudp = ip->protocol == IPPROTO_UDP;
+				char isudp = 0;
 				struct sk_buff *newskb = NULL;
-
-				if(isudp) {
-#ifndef CONFIG_ISDN_WITH_ABC_IPV4_RWUDP_SOCKADDR 
-					isdn_net_log_skb_dwabc(skb,lp,drpmsg);
-					return(NULL);
-#else
-					if(!(lp->dw_abc_flags & ISDN_DW_ABC_FLAG_RWUDP_SOCKADDR) ||
-						(rklen < sizeof(*udp))) {
-
-						isdn_net_log_skb_dwabc(skb,lp,drpmsg);
-						return(NULL);
-					}
-#endif
-				} else {
-#ifndef CONFIG_ISDN_WITH_ABC_IPV4_RW_SOCKADDR
-					isdn_net_log_skb_dwabc(skb,lp,drpmsg);
-					return(NULL);
-#else
-					if(!(lp->dw_abc_flags & ISDN_DW_ABC_FLAG_RW_SOCKADDR) ||
-						(rklen < sizeof(*tcp))) {
-
-						isdn_net_log_skb_dwabc(skb,lp,drpmsg);
-						return(NULL);
-					}
-#endif
-				}
 
 				if(	sk == NULL						||
 					sk->prot == NULL				||
 					sk->prot->unhash == NULL		||
 					sk->prot->hash == NULL			) {
 
+					isdn_net_log_skb_dwabc(skb,lp,
+						"isdn_dynaddr no socket (drop)");
+					return(NULL);
+				}
+
+				switch(ip->protocol) {
+				default:
 					isdn_net_log_skb_dwabc(skb,lp,drpmsg);
 					return(NULL);
-				} 
+#ifdef CONFIG_ISDN_WITH_ABC_IPV4_RWUDP_SOCKADDR 
+				case IPPROTO_UDP:
+
+					if(!(lp->dw_abc_flags & ISDN_DW_ABC_FLAG_RWUDP_SOCKADDR) ||
+						(rklen < sizeof(*udp))) {
+
+						isdn_net_log_skb_dwabc(skb,lp,drpmsg);
+						return(NULL);
+					}
+
+					isudp = 1;
+					break;
+#endif
+#ifdef CONFIG_ISDN_WITH_ABC_IPV4_RW_SOCKADDR
+				case IPPROTO_TCP:
+
+					if(!(lp->dw_abc_flags & ISDN_DW_ABC_FLAG_RW_SOCKADDR) ||
+						(rklen < sizeof(*tcp))) {
+
+						isdn_net_log_skb_dwabc(skb,lp,drpmsg);
+						return(NULL);
+					}
+
+					break;
+#endif
+				}
 
 				if(sk->saddr != ipaddr && sk->saddr != 0) {
 
