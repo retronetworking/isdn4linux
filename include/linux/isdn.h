@@ -21,6 +21,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.18  1996/11/06 17:37:50  keil
+ * more changes for 2.1.X
+ *
  * Revision 1.17  1996/09/07 12:53:57  hipp
  * moved a few isdn_ppp.c specific defines to drives/isdn/isdn_ppp.h
  *
@@ -432,6 +435,20 @@ typedef struct isdn_net_dev_s {
 #define ISDN_SERIAL_TYPE_NORMAL            1
 #define ISDN_SERIAL_TYPE_CALLOUT           2
 
+/* For using sk_buffs with audio we need some private variables
+ * within each sk_buff. For this purpose, we declare a struct here,
+ * and put it always at skb->head. A few macros help accessing the
+ * variables. Of course, we need to check skb_headroom prior to
+ * any access.
+ */
+typedef struct isdn_audio_skb {
+  unsigned short dle_count;
+  unsigned char  lock;
+} isdn_audio_skb;
+
+#define ISDN_AUDIO_SKB_DLECOUNT(skb) (((isdn_audio_skb*)skb->head)->dle_count)
+#define ISDN_AUDIO_SKB_LOCK(skb) (((isdn_audio_skb*)skb->head)->lock)
+
 /* Private data of AT-command-interpreter */
 typedef struct atemu {
   u_char              profile[ISDN_MODEM_ANZREG]; /* Modem-Regs. Profile 0 */
@@ -467,6 +484,12 @@ typedef struct modem_info {
   int                   isdn_channel;    /* Index to isdn-channel          */
   int                   drv_index;       /* Index to dev->usage            */
   int                   ncarrier;        /* Flag: schedule NO CARRIER      */
+  unsigned char         last_cause[8];   /* Last cause message             */
+  unsigned char         last_num[20];    /* Last phone-number              */
+  unsigned char         last_l2;         /* Last layer-2 protocol          */
+  unsigned char         last_si;         /* Last service                   */
+  unsigned char         last_lhup;       /* Last hangup local?             */
+  unsigned char         last_dir;        /* Last direction (in or out)     */
   struct timer_list     nc_timer;        /* Timer for delayed NO CARRIER   */
   int                   send_outstanding;/* # of outstanding send-requests */
   int                   xmit_size;       /* max. # of chars in xmit_buf    */
