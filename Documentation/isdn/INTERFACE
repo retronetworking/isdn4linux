@@ -399,7 +399,7 @@ Description of the Interface between Linklevel and Hardwarelevel
                     protocol-Id is one of the constants ISDN_PROTO_L3...
       parm.fax    = Pointer to T30_s fax struct. (fax usage only)
 
-  ISDN_CMD_GETL3: (currently unused)
+  ISDN_CMD_GETL2: (currently unused)
 
     With this command, the HL-driver is told to return the current
     setting of the Layer-3-protocol.
@@ -735,7 +735,7 @@ Description of the Interface between Linklevel and Hardwarelevel
       driver      = driver-Id
       command     = ISDN_STAT_PROT
       arg         = The lower 8 Bits define the addressed protocol as defined
-                    in ISDN_PTYPE..., the upper bits are used to differenciate
+                    in ISDN_PTYPE..., the upper bits are used to differentiate
                     the protocol specific STAT.  
       
       para        = protocol and function specific. See isdnif.h for detail.
@@ -780,23 +780,4 @@ Description of the Interface between Linklevel and Hardwarelevel
       command     = ISDN_STAT_FAXIND
       arg         = channel-number, locally to the driver. (starting with 0)
       parm        = unused.
-
-  ISDN_STAT_ALERT:
-
-    With this call, the HL-driver signals the receive of an ALERTING message to the LL.
-
-    Parameter:
-      driver      = driver-Id
-      command     = ISDN_STAT_ALERT
-      arg         = channel-number, locally to the driver. (starting with 0)
-
-  ISDN_STAT_PROCEED:
-
-    With this call, the HL-driver signals the receive of an CALL PROCEEDING message
-    to the LL.
-
-    Parameter:
-      driver      = driver-Id
-      command     = ISDN_STAT_PROCEED
-      arg         = channel-number, locally to the driver. (starting with 0)
 
