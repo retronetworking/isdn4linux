@@ -21,6 +21,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.73  1998/06/26 22:01:37  keil
+ * tx_queue_len = 5 was too small
+ *
  * Revision 1.72  1998/06/26 15:12:31  fritz
  * Added handling of STAT_ICALL with incomplete CPN.
  * Added AT&L for ttyI emulator.
@@ -350,11 +353,16 @@ isdn_net_unreachable(struct device *dev, struct sk_buff *skb, char *reason)
 		printk(KERN_DEBUG "isdn_net: %s: %s, send ICMP %s\n",
 	       dev->name,
 		   (reason != NULL) ? reason : "unknown",
-		   (proto != ETH_P_IP) ? "Protcol != ETH_P_IP" : "");
+		   (proto != ETH_P_IP) ? "Protocol != ETH_P_IP" : "");
 
 		if(proto == ETH_P_IP) {
 			icmp_send(skb, ICMP_DEST_UNREACH, ICMP_HOST_UNREACH, 0);
 		}
+	}
+	else {  /* dial not triggered by rawIP packet */
+		printk(KERN_DEBUG "isdn_net: %s: %s\n",
+			   dev->name,
+			   (reason != NULL) ? reason : "reason unknown");
 	}
 #if 0
 	{
