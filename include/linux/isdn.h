@@ -27,6 +27,10 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.46  1998/04/14 16:28:59  he
+ * Fixed user space access with interrupts off and remaining
+ * copy_{to,from}_user() -> -EFAULT return codes
+ *
  * Revision 1.45  1998/03/24 16:33:12  hipp
  * More CCP changes. BSD compression now "works" on a local loopback link.
  * Moved some isdn_ppp stuff from isdn.h to isdn_ppp.h
@@ -586,6 +590,8 @@ typedef struct isdn_net_local_s {
 	u_long  abc_rcv_real_bytes;
 	u_long  abc_last_dlcon;
 	u_long  abc_dlcon_cnt;
+	u_long  abc_cbout_secure;
+	u_long  abc_last_disp_disabled;
 	u_char  abc_rx_key[ISDN_MSNLEN];
 	u_char  abc_out_msn[ISDN_MSNLEN];  /* MSNs/EAZs for outgoing calls */
 #endif
@@ -868,6 +874,7 @@ extern int abc_test_incall(u_char *number);
 #define ABC_WITH_TCP    0x00000010
 #define ABC_NODCHAN     0x00000020
 #define ABC_WRONG_DSP   0x00000040
+#define ABC_MUST_DISCON 0x00000080
 
 extern int isdn_abc_net_send_skb(   struct device *, isdn_net_local *, struct sk_buff *);
 extern int abcgmbh_pack(u_char *src,u_char *dstpoin,int bytes);
