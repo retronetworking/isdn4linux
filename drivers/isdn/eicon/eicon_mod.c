@@ -32,7 +32,7 @@
 
 #define DRIVERNAME "Eicon active ISDN driver"
 #define DRIVERRELEASE "2.0"
-#define DRIVERPATCH ".15"
+#define DRIVERPATCH ".16"
 
 
 #include <linux/config.h>
@@ -66,7 +66,6 @@ extern int do_ioctl(struct inode *pDivasInode, struct file *pDivasFile,
 extern void eicon_pci_init_conf(eicon_card *card);
 void mod_inc_use_count(void);
 void mod_dec_use_count(void);
-extern char *file_check(void);
 
 #ifdef MODULE
 #define MOD_USE_COUNT (GET_USE_COUNT (&__this_module))
@@ -1189,8 +1188,7 @@ eicon_registercard(eicon_card * card)
         return 0;
 }
 
-#ifdef MODULE
-static void
+static void 
 unregister_card(eicon_card * card)
 {
         isdn_ctrl cmd;
@@ -1216,7 +1214,6 @@ unregister_card(eicon_card * card)
 			break;
         }
 }
-#endif /* MODULE */
 
 static void
 eicon_freecard(eicon_card *card) {
@@ -1323,11 +1320,7 @@ eicon_addcard(int Type, int membase, int irq, char *id, int card_id)
 }
 
 
-#ifdef MODULE
-#define eicon_init init_module
-#endif
-
-int
+static int __init
 eicon_init(void)
 {
 	int card_count = 0;
@@ -1353,8 +1346,8 @@ eicon_init(void)
 #endif
 	strcpy(tmprev, eicon_idi_revision);
 	printk("%s\n", eicon_getrev(tmprev));
-        printk(KERN_INFO "%s Release: %s%s (%s)\n", DRIVERNAME,
-		DRIVERRELEASE, DRIVERPATCH, file_check());
+        printk(KERN_INFO "%s Release: %s%s\n", DRIVERNAME,
+		DRIVERRELEASE, DRIVERPATCH);
 
 #ifdef CONFIG_ISDN_DRV_EICON_ISA
 #ifdef CONFIG_MCA
@@ -1404,8 +1397,6 @@ eicon_init(void)
 }
 
 
-#ifdef MODULE
-
 void mod_inc_use_count(void)
 {
         MOD_INC_USE_COUNT;
@@ -1426,8 +1417,8 @@ int DivasCardNext;
 card_t DivasCards[1];
 #endif
 
-void
-cleanup_module(void)
+static void __exit
+eicon_exit(void)
 {
 #if CONFIG_PCI	
 #ifdef CONFIG_ISDN_DRV_EICON_PCI
@@ -1511,7 +1502,7 @@ cleanup_module(void)
         printk(KERN_INFO "%s unloaded\n", DRIVERNAME);
 }
 
-#else /* no module */
+#ifndef MODULE
 
 #ifdef COMPAT_HAS_NEW_SETUP
 static int __init
@@ -1564,6 +1555,9 @@ __setup("eicon=", eicon_setup);
 #endif
 
 #endif /* MODULE */
+
+module_init(eicon_init);
+module_exit(eicon_exit);
 
 #ifdef CONFIG_ISDN_DRV_EICON_ISA
 #ifdef CONFIG_MCA

@@ -101,7 +101,6 @@ void    DIVA_DIDD_Read( DESCRIPTOR *table, int tablelength )
 	return;
 }
 
-static
 void 	DIVA_DIDD_Write(DESCRIPTOR *table, int tablelength)
 {
         if (tablelength > sizeof(DIDD_Table))

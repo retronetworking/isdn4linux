@@ -289,15 +289,8 @@ else
       fi
     fi
   fi
-  for i in drivers/isdn/eicon/*.[ch] drivers/isdn/eicon/md5sums.asc ; do
-	if [ "$i" = "drivers/isdn/eicon/md5sums.asc" -a \
-	     "$UNIQUE" = "true" ] ; then
-		if $VERBOSE ; then
-			echo "$i skipped"
-		fi
-	else
-		$DOCP $i $KERNELDIR/$i
-	fi
+  for i in drivers/isdn/eicon/*.[ch] ; do
+    $DOCP $i $KERNELDIR/$i
   done
   COPY_COMPAT=false
   if [ -n "$CTRLNAME" ] ; then
