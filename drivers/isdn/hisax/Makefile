@@ -25,7 +25,6 @@ ifeq ($(CONFIG_HISAX_1TR6),y)
 endif
 
 ISAC_OBJ :=
-ARCOFI_OBJ :=
 HSCX_OBJ :=
 ISAR_OBJ :=
 HFC_OBJ :=
@@ -77,7 +76,6 @@ ifeq ($(CONFIG_HISAX_ELSA),y)
 	 O_OBJS += elsa.o
 	 ISAC_OBJ := isac.o
 	 HSCX_OBJ := hscx.o
-	 ARCOFI_OBJ := arcofi.o
 endif
 
 ifeq ($(CONFIG_HISAX_IX1MICROR2),y)
@@ -128,8 +126,8 @@ ifeq ($(CONFIG_HISAX_NETJET),y)
 	 ISAC_OBJ := isac.o
 endif
 
-ifeq ($(CONFIG_HISAX_TELES3C),y)
-	 O_OBJS += teles3c.o
+ifeq ($(CONFIG_HISAX_HFCS),y)
+	 O_OBJS += hfcscard.o
 	 HFC_2BDS0 := hfc_2bds0.o
 endif
 
@@ -145,7 +143,21 @@ ifeq ($(CONFIG_HISAX_ISURF),y)
 	 ISAR_OBJ := isar.o
 endif
 
-O_OBJS += $(ISAC_OBJ) $(HSCX_OBJ) $(ISAR_OBJ) $(ARCOFI_OBJ) 
+ifeq ($(CONFIG_HISAX_HSTSAPHIR),y)
+	 O_OBJS += saphir.o
+	 ISAC_OBJ := isac.o
+	 HSCX_OBJ := hscx.o
+endif
+
+# ifeq ($(CONFIG_HISAX_TESTEMU),y)
+#	 O_OBJS += testemu.o
+# endif
+
+ifeq ($(ISAC_OBJ), isac.o)
+	ISAC_OBJ += arcofi.o
+endif
+
+O_OBJS += $(ISAC_OBJ) $(HSCX_OBJ) $(ISAR_OBJ)
 O_OBJS += $(HFC_OBJ) $(HFC_2BDS0)
 OX_OBJS += config.o
 

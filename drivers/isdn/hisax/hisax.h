@@ -3,6 +3,9 @@
  *   Basic declarations, defines and prototypes
  *
  * $Log$
+ * Revision 1.13.2.21  1999/04/22 21:10:41  werner
+ * Added support for dss1 diversion services
+ *
  *
  * Revision 1.13.2.20  1998/11/29 15:34:12  keil
  * add Siemens I-Surf
@@ -315,10 +318,10 @@ struct Layer2 {
 	int sap;
 	int maxlen;
 	unsigned int flag;
-	int vs, va, vr;
+	unsigned int vs, va, vr;
 	int rc;
-	int window;
-	int sow;
+	unsigned int window;
+	unsigned int sow;
 	struct sk_buff *windowar[MAX_WINDOW];
 	struct sk_buff_head i_queue;
 	struct sk_buff_head ui_queue;

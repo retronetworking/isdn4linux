@@ -5,6 +5,9 @@
  *
  *
  * $Log$
+ * Revision 1.15.2.28  1999/04/22 21:10:17  werner
+ * Added support for dss1 diversion services
+ *
  * Revision 1.15.2.25  1998/11/29 15:34:07  keil
  * add Siemens I-Surf
  *
@@ -621,6 +624,10 @@ extern int setup_isurf(struct IsdnCard *card);
 extern int setup_saphir(struct IsdnCard *card);
 #endif
 
+#if CARD_TESTEMU
+extern int setup_testemu(struct IsdnCard *card);
+#endif
+
 /*
  * Find card with given driverId
  */
@@ -633,6 +640,18 @@ static inline struct IsdnCardState
 		if (cards[i].cs)
 			if (cards[i].cs->myid == driverid)
 				return (cards[i].cs);
+	return (NULL);
+}
+
+/*
+ * Find card with given card number
+ */
+struct IsdnCardState
+*hisax_get_card(int cardnr)
+{
+	if ((cardnr <= nrcards) && (cardnr>0))
+		if (cards[cardnr-1].cs)
+			return (cards[cardnr-1].cs);
 	return (NULL);
 }
 
@@ -863,6 +882,8 @@ HISAX_INITFUNC(static int init_card(struct IsdnCardState *cs))
 	int irq_cnt, cnt = 3;
 	long flags;
 
+	if (!cs->irq)
+		return(cs->cardmsg(cs, CARD_INIT, NULL));
 	save_flags(flags);
 	cli();
 	irq_cnt = kstat_irqs(cs->irq);
@@ -1105,6 +1126,11 @@ checkcard(int cardnr, char *id, int *busy_flag))
 				ret = setup_saphir(card);
 				break;
 #endif
+#if CARD_TESTEMU
+			case ISDN_CTYPE_TESTEMU:
+				ret = setup_testemu(card);
+				break;
+#endif
 		default:
 			printk(KERN_WARNING
 				"HiSax: Support for %s Card not selected\n",
@@ -1224,7 +1250,8 @@ HiSax_closecard(int cardnr)
 		ll_stop(cards[cardnr].cs);
 		release_tei(cards[cardnr].cs);
 		closecard(cardnr);
-		free_irq(cards[cardnr].cs->irq, cards[cardnr].cs);
+		if (cards[cardnr].cs->irq)
+			free_irq(cards[cardnr].cs->irq, cards[cardnr].cs);
 		kfree((void *) cards[cardnr].cs);
 		cards[cardnr].cs = NULL;
 	}
