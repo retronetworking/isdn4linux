@@ -1,6 +1,9 @@
 /* $Id$
 
  * $Log$
+ * Revision 1.4.2.2  1997/11/15 18:50:40  keil
+ * new common init function
+ *
  * Revision 1.4.2.1  1997/10/17 22:13:58  keil
  * update to last hisax version
  *
@@ -29,7 +32,7 @@
 #define	L1_DEB_HSCX_FIFO	0x20
 #define	L1_DEB_LAPD	        0x40
 #define	L1_DEB_IPAC	        0x80
-
+#define L1_DEB_RECEIVE_FRAME	0x100
 
 #define D_RCVBUFREADY	0
 #define D_XMTBUFREADY	1
