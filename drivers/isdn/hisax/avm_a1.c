@@ -6,6 +6,9 @@
  *
  *
  * $Log$
+ * Revision 2.4  1997/11/08 21:35:42  keil
+ * new l1 init
+ *
  * Revision 2.3  1997/11/06 17:13:32  keil
  * New 2.1 init code
  *
@@ -141,8 +144,7 @@ avm_a1_interrupt(int intno, void *dev_id, struct pt_regs *regs)
 	}
 	while (((sval = bytein(cs->hw.avm.cfg_reg)) & 0xf) != 0x7) {
 		if (!(sval & AVM_A1_STAT_TIMER)) {
-			byteout(cs->hw.avm.cfg_reg, 0x14);
-			byteout(cs->hw.avm.cfg_reg, 0x18);
+			byteout(cs->hw.avm.cfg_reg, 0x1C);
 			sval = bytein(cs->hw.avm.cfg_reg);
 		} else if (cs->debug & L1_DEB_INTSTAT) {
 			sprintf(tmp, "avm IntStatus %x", sval);
@@ -337,8 +339,7 @@ setup_avm_a1(struct IsdnCard *card))
 	val = bytein(cs->hw.avm.cfg_reg + 2);
 	printk(KERN_INFO "AVM A1: Byte at %x is %x\n",
 	       cs->hw.avm.cfg_reg + 2, val);
-	byteout(cs->hw.avm.cfg_reg, 0x14);
-	byteout(cs->hw.avm.cfg_reg, 0x18);
+	byteout(cs->hw.avm.cfg_reg, 0x1C);
 	val = bytein(cs->hw.avm.cfg_reg);
 	printk(KERN_INFO "AVM A1: Byte at %x is %x\n",
 	       cs->hw.avm.cfg_reg, val);
