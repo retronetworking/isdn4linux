@@ -21,6 +21,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.40  1997/03/05 21:16:08  fritz
+ * Fix: did not compile with 2.1.27
+ *
  * Revision 1.39  1997/03/04 21:36:52  fritz
  * Added sending ICMP messages when no connetion is possible.
  *
@@ -203,10 +206,10 @@ isdn_net_unreachable(struct device *dev, struct sk_buff *skb, char *reason)
 	printk(KERN_DEBUG "isdn_net: %s: %s, send ICMP\n",
 	       dev->name, reason);
 	icmp_send(skb, ICMP_DEST_UNREACH, ICMP_HOST_UNREACH, 0
-#if (LINUX_VERSION_CODE < 0x02010f) /* 2.1.15 */
-		  , dev
+#if (LINUX_VERSION_CODE < 0x02010f)	/* 2.1.15 */
+		  ,dev
 #endif
-);
+	    );
 }
 
 static void
@@ -532,6 +535,7 @@ isdn_net_dial(void)
 	isdn_net_dev *p = dev->netdev;
 	int anymore = 0;
 	int i;
+	int flags;
 	isdn_ctrl cmd;
 
 	while (p) {
@@ -547,7 +551,16 @@ isdn_net_dial(void)
 				/* Initiate dialout. Set phone-number-pointer to first number
 				 * of interface.
 				 */
+				save_flags(flags);
+				cli();
 				p->local.dial = p->local.phone[1];
+				restore_flags(flags);
+				if (!p->local.dial) {
+					printk(KERN_WARNING "%s: phone number deleted?\n",
+					       p->local.name);
+					p->local.dialstate = 0;
+					break;
+				}
 				anymore = 1;
 				p->local.dialstate++;
 				/* Fall through */
@@ -579,6 +592,48 @@ isdn_net_dial(void)
 				dev->drv[p->local.isdn_device]->interface->command(&cmd);
 				cmd.driver = p->local.isdn_device;
 				cmd.arg = p->local.isdn_channel;
+				save_flags(flags);
+				cli();
+				if (!p->local.dial) {
+					restore_flags(flags);
+					printk(KERN_WARNING "%s: phone number deleted?\n",
+					       p->local.name);
+					p->local.dialstate = 0;
+					break;
+				}
+				if (!strcmp(p->local.dial->num, "LEASED")) {
+					restore_flags(flags);
+					p->local.dialstate = 4;
+					printk(KERN_INFO "%s: Open leased line ...\n", p->local.name);
+				} else {
+					sprintf(cmd.parm.setup.phone, "%s", p->local.dial->num);
+					/*
+					 * Switch to next number or back to start if at end of list.
+					 */
+					if (!(p->local.dial = (isdn_net_phone *) p->local.dial->next)) {
+						p->local.dial = p->local.phone[1];
+						p->local.dialretry++;
+					}
+					restore_flags(flags);
+					cmd.command = ISDN_CMD_DIAL;
+					cmd.parm.setup.si1 = 7;
+					cmd.parm.setup.si2 = 0;
+					sprintf(cmd.parm.setup.eazmsn, "%s",
+						isdn_map_eaz2msn(p->local.msn, cmd.driver));
+					i = isdn_dc2minor(p->local.isdn_device, p->local.isdn_channel);
+					if (i >= 0) {
+						strcpy(dev->num[i], cmd.parm.setup.phone);
+						isdn_info_update();
+					}
+					printk(KERN_INFO "%s: dialing %d %s...\n", p->local.name,
+					       p->local.dialretry - 1, cmd.parm.setup.phone);
+					p->local.dtimer = 0;
+#ifdef ISDN_DEBUG_NET_DIAL
+					printk(KERN_DEBUG "dial: d=%d c=%d\n", p->local.isdn_device,
+					       p->local.isdn_channel);
+#endif
+					dev->drv[p->local.isdn_device]->interface->command(&cmd);
+				}
 				p->local.huptimer = 0;
 				p->local.outgoing = 1;
 				if (p->local.chargeint) {
@@ -587,37 +642,6 @@ isdn_net_dial(void)
 				} else {
 					p->local.hupflags |= ISDN_WAITCHARGE;
 					p->local.hupflags &= ~ISDN_HAVECHARGE;
-				}
-				if (!strcmp(p->local.dial->num, "LEASED")) {
-					p->local.dialstate = 4;
-					printk(KERN_INFO "%s: Open leased line ...\n", p->local.name);
-				} else {
-					cmd.command = ISDN_CMD_DIAL;
-					cmd.parm.setup.si1 = 7;
-					cmd.parm.setup.si2 = 0;
-					sprintf(cmd.parm.setup.phone, "%s", p->local.dial->num);
-					sprintf(cmd.parm.setup.eazmsn, "%s",
-						isdn_map_eaz2msn(p->local.msn, cmd.driver));
-					i = isdn_dc2minor(p->local.isdn_device, p->local.isdn_channel);
-					if (i >= 0) {
-						strcpy(dev->num[i], p->local.dial->num);
-						isdn_info_update();
-					}
-					printk(KERN_INFO "%s: dialing %d %s...\n", p->local.name,
-					       p->local.dialretry, p->local.dial->num);
-					/*
-					 * Switch to next number or back to start if at end of list.
-					 */
-					if (!(p->local.dial = (isdn_net_phone *) p->local.dial->next)) {
-						p->local.dial = p->local.phone[1];
-						p->local.dialretry++;
-					}
-					p->local.dtimer = 0;
-#ifdef ISDN_DEBUG_NET_DIAL
-					printk(KERN_DEBUG "dial: d=%d c=%d\n", p->local.isdn_device,
-					       p->local.isdn_channel);
-#endif
-					dev->drv[p->local.isdn_device]->interface->command(&cmd);
 				}
 				anymore = 1;
 				p->local.dialstate =
@@ -985,7 +1009,7 @@ isdn_net_start_xmit(struct sk_buff *skb, struct device *ndev)
 					return 1;
 #else
 					isdn_net_unreachable(ndev, skb,
-							     "No channel");
+							   "No channel");
 					dev_kfree_skb(skb, FREE_WRITE);
 					ndev->tbusy = 0;
 					return 0;
@@ -2355,12 +2379,17 @@ isdn_net_delphone(isdn_net_ioctl_phone * phone)
 	int inout = phone->outgoing & 1;
 	isdn_net_phone *n;
 	isdn_net_phone *m;
+	int flags;
 
 	if (p) {
+		save_flags(flags);
+		cli();
 		n = p->local.phone[inout];
 		m = NULL;
 		while (n) {
 			if (!strcmp(n->num, phone->phone)) {
+				if (p->local.dial == n)
+					p->local.dial = n->next;
 				if (m)
 					m->next = n->next;
 				else
@@ -2371,6 +2400,7 @@ isdn_net_delphone(isdn_net_ioctl_phone * phone)
 			m = n;
 			n = (isdn_net_phone *) n->next;
 		}
+		restore_flags(flags);
 		return -EINVAL;
 	}
 	return -ENODEV;
@@ -2398,6 +2428,7 @@ isdn_net_rmallphone(isdn_net_dev * p)
 		}
 		p->local.phone[i] = NULL;
 	}
+	p->local.dial = NULL;
 	restore_flags(flags);
 	return 0;
 }
