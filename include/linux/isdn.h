@@ -21,6 +21,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.60  1998/10/25 14:50:29  fritz
+ * Backported from MIPS (Cobalt).
+ *
  * Revision 1.59  1998/10/23 10:18:55  paul
  * Implementation of "dialmode" (successor of "status")
  * You also need current isdnctrl for this!
@@ -328,6 +331,7 @@
 #define ISDN_MODEM_ANZREG    23        /* Number of Modem-Registers        */
 #define ISDN_MSNLEN          20
 #define ISDN_LMSNLEN         255 /* Length of tty's Listen-MSN string */
+#define ISDN_CMSGLEN	     50	 /* Length of CONNECT-Message to add for Modem */
 
 typedef struct {
   char drvid[25];
@@ -473,10 +477,12 @@ typedef struct {
 #define ISDN_TIMER_NETHANGUP  32
 #define ISDN_TIMER_IPPP       64 
 #define ISDN_TIMER_KEEPALIVE 128 /* Cisco-Keepalive */
+#define ISDN_TIMER_CARRIER   256 /* Wait for Carrier */
 #define ISDN_TIMER_FAST      (ISDN_TIMER_MODEMREAD | ISDN_TIMER_MODEMPLUS | \
                               ISDN_TIMER_MODEMXMIT)
 #define ISDN_TIMER_SLOW      (ISDN_TIMER_MODEMRING | ISDN_TIMER_NETHANGUP | \
-                              ISDN_TIMER_NETDIAL | ISDN_TIMER_KEEPALIVE)
+                              ISDN_TIMER_NETDIAL | ISDN_TIMER_KEEPALIVE | \
+                              ISDN_TIMER_CARRIER)
 
 /* Timeout-Values for isdn_net_dial() */
 #define ISDN_TIMER_DTIMEOUT10 (10*HZ/(ISDN_TIMER_02SEC*(ISDN_TIMER_RES+1)))
@@ -694,6 +700,7 @@ typedef struct atemu {
 	char         plmsn[ISDN_LMSNLEN];        /* Listening MSNs Profile 0           */
 	char         lmsn[ISDN_LMSNLEN];         /* Listening MSNs                     */
 	char         cpn[ISDN_MSNLEN];           /* CalledPartyNumber on incoming call */
+	char         connmsg[ISDN_CMSGLEN];	 /* CONNECT-Msg from HL-Driver	       */
 #ifdef CONFIG_ISDN_AUDIO
 	u_char       vpar[10];                   /* Voice-parameters                   */
 	int          lastDLE;                    /* Flag for voice-coding: DLE seen    */
@@ -701,6 +708,7 @@ typedef struct atemu {
 	int          mdmcmdl;                    /* Length of Modem-Commandbuffer      */
 	int          pluscount;                  /* Counter for +++ sequence           */
 	int          lastplus;                   /* Timestamp of last +                */
+	int	     carrierwait;                /* Seconds of carrier waiting         */
 	char         mdmcmd[255];                /* Modem-Commandbuffer                */
 	unsigned int charge;                     /* Charge units of current connection */
 } atemu;
@@ -720,7 +728,7 @@ typedef struct modem_info {
   long			pgrp;		 /* pgrp of opening process        */
   int                   online;          /* 1 = B-Channel is up, drop data */
 					 /* 2 = B-Channel is up, deliver d.*/
-  int                   dialing;         /* Dial in progress               */
+  int                   dialing;         /* Dial in progress or ATA        */
   int                   rcvsched;        /* Receive needs schedule         */
   int                   isdn_driver;	 /* Index to isdn-driver           */
   int                   isdn_channel;    /* Index to isdn-channel          */
