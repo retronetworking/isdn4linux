@@ -12,13 +12,43 @@ bool '  Support audio via ISDN' CONFIG_ISDN_AUDIO
 if [ "$CONFIG_ISDN_AUDIO" != "n" ]; then
    bool '    Support AT-Fax Class 2 commands' CONFIG_ISDN_TTY_FAX
 fi
-bool '  Support isdn diversion services' CONFIG_ISDN_DIVERSION
 if [ "$CONFIG_X25" != "n" ]; then
    bool '  X.25 PLP on top of ISDN' CONFIG_ISDN_X25
 fi
-dep_tristate '  ICN 2B and 4B support' CONFIG_ISDN_DRV_ICN $CONFIG_ISDN
-dep_tristate '  isdnloop support' CONFIG_ISDN_DRV_LOOP $CONFIG_ISDN
-dep_tristate '  PCBIT-D support' CONFIG_ISDN_DRV_PCBIT $CONFIG_ISDN
+if [ "$CONFIG_EXPERIMENTAL" != "n" ]; then
+	bool '  Include isdn-abc-dw-extension' CONFIG_ISDN_WITH_ABC
+	if [ "$CONFIG_ISDN_WITH_ABC" != "n" ]; then
+		bool '    Use D-Channel-Callback with Channel in use check' CONFIG_ISDN_WITH_ABC_CALLB
+		bool '    Enable Outgoing-EAZ-Support' CONFIG_ISDN_WITH_ABC_OUTGOING_EAZ
+		bool '    Enable LCR-Support (need isdnlog)' CONFIG_ISDN_WITH_ABC_LCR_SUPPORT
+		bool '    TCP keepalive detect and response (ip4 only)' CONFIG_ISDN_WITH_ABC_IPV4_TCP_KEEPALIVE
+		bool '    Drop frames s_addr != iface_addr  (ip4 only)' CONFIG_ISDN_WITH_ABC_IPV4_DYNADDR
+		bool '    RX dont reset hanguptimeout' CONFIG_ISDN_WITH_ABC_RCV_NO_HUPTIMER
+		bool '    Support (device-channel)<->(bind-groups)' CONFIG_ISDN_WITH_ABC_ICALL_BIND 
+		bool '    Skip channel if used external (dial only)' CONFIG_ISDN_WITH_ABC_CH_EXTINUSE
+		bool '    Support interface-auto-disble if config-error' CONFIG_ISDN_WITH_ABC_CONN_ERROR
+		bool '    Enable UDP-Info-Support' CONFIG_ISDN_WITH_ABC_UDP_CHECK
+		if [ "$CONFIG_ISDN_WITH_ABC_UDP_CHECK" != "n" ]; then
+			bool '      Enable Hangup-Support with UDP-INFO' CONFIG_ISDN_WITH_ABC_UDP_CHECK_HANGUP
+			bool '      Enable Dial-Support with UDP-INFO' CONFIG_ISDN_WITH_ABC_UDP_CHECK_DIAL
+		fi
+		bool '    Limit on the line frames to 2' CONFIG_ISDN_WITH_ABC_FRAME_LIMIT
+		if [ "$CONFIG_ISDN_PPP" != "n" ]; then
+			bool '    Enable Compression with rawip and x75i' CONFIG_ISDN_WITH_ABC_RAWIPCOMPRESS
+		fi
+	fi
+fi
+
+mainmenu_option next_comment
+comment 'ISDN feature submodules'
+   dep_tristate 'isdnloop support' CONFIG_ISDN_DRV_LOOP $CONFIG_ISDN
+   bool 'Support isdn diversion services' CONFIG_ISDN_DIVERSION
+endmenu
+
+comment 'low-level hardware drivers'
+
+mainmenu_option next_comment
+comment 'Passive ISDN cards'
 dep_tristate '  HiSax SiemensChipSet driver support' CONFIG_ISDN_DRV_HISAX $CONFIG_ISDN
 if [ "$CONFIG_ISDN_DRV_HISAX" != "n" ]; then
    bool '    HiSax Support for EURO/DSS1' CONFIG_HISAX_EURO
@@ -62,11 +92,17 @@ if [ "$CONFIG_ISDN_DRV_HISAX" != "n" ]; then
       fi
    fi
 fi
+endmenu
+
+mainmenu_option next_comment
+comment 'Active ISDN cards'
+dep_tristate '  ICN 2B and 4B support' CONFIG_ISDN_DRV_ICN $CONFIG_ISDN
+dep_tristate '  PCBIT-D support' CONFIG_ISDN_DRV_PCBIT $CONFIG_ISDN
 if [ "$CONFIG_EXPERIMENTAL" != "n" ]; then
    dep_tristate '  Spellcaster support (EXPERIMENTAL)' CONFIG_ISDN_DRV_SC $CONFIG_ISDN
    dep_tristate '  IBM Active 2000 support (EXPERIMENTAL)' CONFIG_ISDN_DRV_ACT2000 $CONFIG_ISDN
 fi
-dep_tristate '  Eicon.Diehl active card support' CONFIG_ISDN_DRV_EICON $CONFIG_ISDN
+dep_tristate '  Eicon active card support' CONFIG_ISDN_DRV_EICON $CONFIG_ISDN
 if [ "$CONFIG_ISDN_DRV_EICON" != "n" ]; then
    bool '    Eicon S,SX,SCOM,Quadro,S2M support' CONFIG_ISDN_DRV_EICON_ISA
 fi
@@ -80,27 +116,5 @@ if [ "$CONFIG_ISDN_DRV_AVMB1" != "n" ]; then
    bool '    AVM C4 support' CONFIG_ISDN_DRV_AVMB1_C4
    bool '    Verbose reason code reporting (kernel size +=7K)' CONFIG_ISDN_DRV_AVMB1_VERBOSE_REASON
 fi
+endmenu
 
-if [ "$CONFIG_EXPERIMENTAL" != "n" ]; then
-	bool '  Include isdn-abc-dw-extension' CONFIG_ISDN_WITH_ABC
-	if [ "$CONFIG_ISDN_WITH_ABC" != "n" ]; then
-		bool '    Use D-Channel-Callback with Channel in use check' CONFIG_ISDN_WITH_ABC_CALLB
-		bool '    Enable Outgoing-EAZ-Support' CONFIG_ISDN_WITH_ABC_OUTGOING_EAZ
-		bool '    Enable LCR-Support (need isdnlog)' CONFIG_ISDN_WITH_ABC_LCR_SUPPORT
-		bool '    TCP keepalive detect and response (ip4 only)' CONFIG_ISDN_WITH_ABC_IPV4_TCP_KEEPALIVE
-		bool '    Drop frames s_addr != iface_addr  (ip4 only)' CONFIG_ISDN_WITH_ABC_IPV4_DYNADDR
-		bool '    RX dont reset hanguptimeout' CONFIG_ISDN_WITH_ABC_RCV_NO_HUPTIMER
-		bool '    Support (device-channel)<->(bind-groups)' CONFIG_ISDN_WITH_ABC_ICALL_BIND 
-		bool '    Skip channel if used external (dial only)' CONFIG_ISDN_WITH_ABC_CH_EXTINUSE
-		bool '    Support interface-auto-disble if config-error' CONFIG_ISDN_WITH_ABC_CONN_ERROR
-		bool '    Enable UDP-Info-Support' CONFIG_ISDN_WITH_ABC_UDP_CHECK
-		if [ "$CONFIG_ISDN_WITH_ABC_UDP_CHECK" != "n" ]; then
-			bool '      Enable Hangup-Support with UDP-INFO' CONFIG_ISDN_WITH_ABC_UDP_CHECK_HANGUP
-			bool '      Enable Dial-Support with UDP-INFO' CONFIG_ISDN_WITH_ABC_UDP_CHECK_DIAL
-		fi
-		bool '   Limit on the line frames to 2' CONFIG_ISDN_WITH_ABC_FRAME_LIMIT
-		if [ "$CONFIG_ISDN_PPP" != "n" ]; then
-			bool '      Enable Compression with rawip and x75i' CONFIG_ISDN_WITH_ABC_RAWIPCOMPRESS
-		fi
-	fi
-fi
