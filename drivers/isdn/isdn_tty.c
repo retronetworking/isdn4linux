@@ -20,6 +20,10 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.11  1996/05/18 01:37:03  fritz
+ * Added spelling corrections and some minor changes
+ * to stay in sync with kernel.
+ *
  * Revision 1.10  1996/05/17 03:51:49  fritz
  * Changed DLE handling for audio receive.
  *
@@ -1819,7 +1823,7 @@ static void isdn_tty_show_profile(int ridx, modem_info * info)
 {
 	char v[6];
 
-	sprintf(v, "%d\r\n", info->emu.mdmreg[ridx]);
+	sprintf(v, "\r\n%d", info->emu.mdmreg[ridx]);
 	isdn_tty_at_cout(v, info);
 }
 
@@ -1996,6 +2000,8 @@ static int isdn_tty_cmd_ATS(char **p, modem_info * info)
 #endif
                                         info->xmit_size = mval * 16;
                                         break;
+                                case 20:
+                                        PARSE_ERROR1;
                         }
                         m->mdmreg[mreg] = mval;
                         break;
@@ -2352,6 +2358,7 @@ static void isdn_tty_parse_at(modem_info * info)
                                 p++;
                                 if (isdn_tty_cmd_ATS(&p, info))
                                         return;
+                                break;
                         case 'V':
                                 /* V - Numeric or ASCII Emulator-messages */
                                 p++;
