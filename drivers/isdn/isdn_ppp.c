@@ -19,6 +19,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.50  1999/08/16 07:11:41  hipp
+ * Additional VJ decomp-buffer-size increased from 40 to 128
+ *
  * Revision 1.49  1999/07/06 07:47:11  calle
  * bugfix: dev_alloc_skb only reserve 16 bytes. We need to look at the
  *  	hdrlen the driver want. So I changed dev_alloc_skb calls
@@ -1415,9 +1418,17 @@ static unsigned char *isdn_ppp_skb_push(struct sk_buff **skb_p,int len)
 	struct sk_buff *skb = *skb_p;
 
 	if(skb_headroom(skb) < len) {
-		printk(KERN_ERR "isdn_ppp_skb_push:under %d %d\n",skb_headroom(skb),len);
+		struct sk_buff *nskb = skb_realloc_headroom(skb, len);
+
+		if (!nskb) {
+			printk(KERN_ERR "isdn_ppp_skb_push: can't realloc headroom!\n");
+			dev_kfree_skb(skb);
+			return NULL;
+		}
+		printk(KERN_DEBUG "isdn_ppp_skb_push:under %d %d\n",skb_headroom(skb),len);
 		dev_kfree_skb(skb);
-		return NULL;
+		*skb_p = nskb;
+		return skb_push(nskb, len);
 	}
 	return skb_push(skb,len);
 }
