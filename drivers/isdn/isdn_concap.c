@@ -5,6 +5,9 @@
  * another -- protocol specific -- source file.
  *
  * $Log$
+ * Revision 1.4  1998/10/30 17:55:24  he
+ * dialmode for x25iface and multulink ppp
+ *
  * Revision 1.3  1998/05/26 22:39:22  he
  * sync'ed with 2.1.102 where appropriate (CAPABILITY changes)
  * concap typo
@@ -68,7 +71,7 @@ int isdn_concap_dl_connect_req(struct concap_proto *concap)
 	/* dial ... */
 	ret = isdn_net_dial_req( lp );
 	if ( ret ) IX25DEBUG("dialing failed\n");
-	return 0;
+	return ret;
 }
 
 int isdn_concap_dl_disconn_req(struct concap_proto *concap)
