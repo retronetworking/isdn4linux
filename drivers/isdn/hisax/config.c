@@ -5,6 +5,9 @@
  *
  *
  * $Log$
+ * Revision 1.15.2.6  1998/02/09 11:21:19  keil
+ * Sedlbauer PCMCIA support from Marcus Niemann
+ *
  * Revision 1.15.2.5  1998/01/27 23:28:48  keil
  * v2.8
  *
@@ -66,8 +69,11 @@
  *   18 ELSA Quickstep 1000PCI  no parameter
  *   19 Compaq ISDN S0 ISA card p0=irq  p1=IO0 (HSCX)  p2=IO1 (ISAC) p3=IO2
  *   20 Travers Technologies NETjet PCI card
- *   21 reserved
+ *   21 reserved TELES PCI
  *   22 Sedlbauer Speed Star    p0=irq p1=iobase
+ *   23 reserved
+ *   24 Dr Neuhaus Niccy PnP/PCI card p0=irq p1=IO0 p2=IO1 (PnP only)
+ *
  *
  * protocol can be either ISDN_PTYPE_EURO or ISDN_PTYPE_1TR6 or ISDN_PTYPE_NI1
  *
@@ -79,13 +85,13 @@
 #define DEFAULT_CFG {0,0,0,0}
 int elsa_init_pcmcia(void*, int, int*, int);
 #ifdef MODULE
-static struct symbol_table hisax_syms = {
+static struct symbol_table hisax_syms_elsa = {
 #include <linux/symtab_begin.h>
 	X(elsa_init_pcmcia),
 #include <linux/symtab_end.h>
 };
 void register_elsa_symbols(void) {
-	register_symtab(&hisax_syms);
+	register_symtab(&hisax_syms_elsa);
 }
 #endif
 #endif
@@ -143,13 +149,13 @@ void register_elsa_symbols(void) {
 #define DEFAULT_CFG {11,0x270,0,0}
 int sedl_init_pcmcia(void*, int, int*, int);
 #ifdef MODULE
-static struct symbol_table hisax_syms = {
+static struct symbol_table hisax_syms_sedl= {
 #include <linux/symtab_begin.h>
 	X(sedl_init_pcmcia),
 #include <linux/symtab_end.h>
 };
 void register_sedl_symbols(void) {
-	register_symtab(&hisax_syms);
+	register_symtab(&hisax_syms_sedl);
 }
 #endif
 #endif
@@ -180,6 +186,13 @@ void register_sedl_symbols(void) {
 #undef DEFAULT_CFG
 #define DEFAULT_CARD ISDN_CTYPE_TELES3C
 #define DEFAULT_CFG {5,0x500,0,0}
+#endif
+
+#ifdef CONFIG_HISAX_NiCCY
+#undef DEFAULT_CARD
+#undef DEFAULT_CFG
+#define DEFAULT_CARD ISDN_CTYPE_NICCY
+#define DEFAULT_CFG {0,0x0,0,0}
 #endif
 
 #ifdef CONFIG_HISAX_1TR6
@@ -248,7 +261,15 @@ int protocol[] HISAX_INITDATA =
 {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
 int io[] HISAX_INITDATA =
 {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
-#ifdef CONFIG_HISAX_16_3	/* For Creatix/Teles PnP */
+#undef IO0_IO1
+#ifdef CONFIG_HISAX_16_3
+#define IO0_IO1
+#endif
+#ifdef CONFIG_HISAX_16_3
+#undef IO0_IO1
+#define IO0_IO1
+#endif
+#ifdef IO0_IO1
 int io0[] HISAX_INITDATA =
 {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
 int io1[] HISAX_INITDATA =
@@ -427,8 +448,9 @@ HiSax_init(void))
 				cards[i].para[1] = mem[i];
 				break;
 
-#ifdef CONFIG_HISAX_16_3	/* For Creatix/Teles PnP */
+#ifdef IO0_IO1
 			case ISDN_CTYPE_PNP:
+			case ISDN_CTYPE_NICCY:
 				cards[i].para[0] = irq[i];
 				cards[i].para[1] = io0[i];
 				cards[i].para[2] = io1[i];

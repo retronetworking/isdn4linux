@@ -32,6 +32,7 @@ if [ "$CONFIG_ISDN_DRV_HISAX" != "n" ]; then
     bool 'HiSax Support for USR Sportster internal TA' CONFIG_HISAX_SPORTSTER
     bool 'HiSax Support for MIC card' CONFIG_HISAX_MIC
     bool 'HiSax Support for NETjet card' CONFIG_HISAX_NETJET
+    bool 'HiSax Support for Niccy PnP/PCI card' CONFIG_HISAX_NICCY
 fi
 if [ "$CONFIG_EXPERIMENTAL" != "n" ]; then
 	dep_tristate 'Spellcaster support (EXPERIMENTAL)' CONFIG_ISDN_DRV_SC $CONFIG_ISDN

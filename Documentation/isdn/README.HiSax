@@ -44,11 +44,12 @@ Sedlbauer Speed Star (PCMCIA)
 USR Sportster internal TA (compatible Stollmann tina-pp V3)
 ith Kommunikationstechnik GmbH MIC 16 ISA card 
 Traverse Technologie NETjet PCI S0 card
+Dr. Neuhaus Niccy PnP/PCI
 
 Note: PCF, PCF-Pro: up to now, only the ISDN part is supported
       PCC-8: not tested yet
       Teles PCMCIA is EXPERIMENTAL
-      Teles 16.3c is not supported
+      Teles 16.3c is EXPERIMENTAL
       Eicon.Diehl Diva U interface not tested
 
 If you know other passive cards with the Siemens chipset, please let me know.
@@ -143,6 +144,10 @@ Card types:
    19   Compaq ISDN S0 ISA card  irq, io0, io1, io (from isapnp setup io=IO2)
    20   NETjet PCI card          no parameter
    22   Sedlbauer Speed Star (PCMCIA) irq, io (set with card manager)
+   24   Dr. Neuhaus Niccy PnP    irq, io0, io1 (from isapnp setup)
+   24   Dr. Neuhaus Niccy PCI    no parameter
+
+
         
 At the moment IRQ sharing is not possible. Please make sure that your IRQ
 is free and enabled for ISA use.

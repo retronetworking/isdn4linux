@@ -11,6 +11,9 @@
  *
  *
  * $Log$
+ * Revision 1.15.2.6  1998/02/09 11:24:11  keil
+ * New leased line support (Read README.HiSax!)
+ *
  * Revision 1.15.2.5  1998/01/27 22:33:55  keil
  * dynalink ----> asuscom
  *
@@ -115,6 +118,10 @@ extern int setup_netjet(struct IsdnCard *card);
 extern int setup_t163c(struct IsdnCard *card);
 #endif
 
+#if CARD_NICCY
+extern int setup_niccy(struct IsdnCard *card);
+#endif
+
 #define HISAX_STATUS_BUFSIZE 4096
 #define ISDN_CTRL_DEBUG 1
 #define INCLUDE_INLINE_FUNCS
@@ -125,7 +132,8 @@ const char *CardType[] =
  "AVM A1", "Elsa ML", "Elsa Quickstep", "Teles PCMCIA", "ITK ix1-micro Rev.2",
  "Elsa PCMCIA", "Eicon.Diehl Diva", "ISDNLink", "TeleInt", "Teles 16.3c", 
  "Sedlbauer Speed Card", "USR Sportster", "ith mic Linux", "Elsa PCI",
- "Compaq ISA", "NETjet","Reserved21","Sedlbauer Speed Star (PCMCIA)"
+ "Compaq ISA", "NETjet", "Teles PCI", "Sedlbauer Speed Star (PCMCIA)",
+ "AMD 7930", "NICCY"
 };
 
 extern struct IsdnCard cards[];
@@ -798,6 +806,11 @@ checkcard(int cardnr, char *id, int *busy_flag))
 #if CARD_TELES3C
 		case ISDN_CTYPE_TELES3C:
 			ret = setup_t163c(card);
+			break;
+#endif
+#if CARD_NICCY
+		case ISDN_CTYPE_NICCY:
+			ret = setup_niccy(card);
 			break;
 #endif
 		default:

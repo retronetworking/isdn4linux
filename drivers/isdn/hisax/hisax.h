@@ -3,6 +3,9 @@
  *   Basic declarations, defines and prototypes
  *
  * $Log$
+ * Revision 1.13.2.7  1998/02/09 11:21:22  keil
+ * Sedlbauer PCMCIA support from Marcus Niemann
+ *
  * Revision 1.13.2.6  1998/02/03 23:16:12  keil
  * german AOC
  *
@@ -619,6 +622,7 @@ struct IsdnCardState {
 		struct mic_hw mic;
 		struct njet_hw njet;
 		struct hfcD_hw hfcD;
+		struct ix1_hw niccy;
 	} hw;
 	int myid;
 	isdn_if iif;
@@ -685,10 +689,12 @@ struct IsdnCardState {
 #define  ISDN_CTYPE_ELSA_PCI	18
 #define  ISDN_CTYPE_COMPAQ_ISA	19
 #define  ISDN_CTYPE_NETJET	20
-#define  ISDN_CTYPE_RESERVED21	21
+#define  ISDN_CTYPE_TELESPCI	21
 #define  ISDN_CTYPE_SEDLBAUER_PCMCIA	22
+#define  ISDN_CTYPE_AMD7930	23
+#define  ISDN_CTYPE_NICCY	24
 
-#define  ISDN_CTYPE_COUNT	22
+#define  ISDN_CTYPE_COUNT	24
 
 #ifdef ISDN_CHIP_ISAC
 #undef ISDN_CHIP_ISAC
@@ -826,10 +832,18 @@ struct IsdnCardState {
 #define  CARD_TELES3C  0
 #endif
 
+#ifdef	CONFIG_HISAX_NICCY
+#define	CARD_NICCY (1 << ISDN_CTYPE_NICCY)
+#ifndef ISDN_CHIP_ISAC
+#define ISDN_CHIP_ISAC 1
+#endif
+#else
+#define CARD_NICCY 0
+#endif
 #define  SUPORTED_CARDS  (CARD_TELES0 | CARD_TELES3 | CARD_AVM_A1 | CARD_ELSA \
 			 | CARD_IX1MICROR2 | CARD_DIEHLDIVA | CARD_ASUSCOM \
 			 | CARD_TELEINT | CARD_SEDLBAUER | CARD_SPORTSTER \
-			 | CARD_MIC | CARD_NETJET | CARD_TELES3C)
+			 | CARD_MIC | CARD_NETJET | CARD_TELES3C | CARD_NICCY)
 
 #define TEI_PER_CARD 0
 

@@ -100,6 +100,12 @@ ifeq ($(CONFIG_HISAX_TELES3C),y)
 	 HFC_2BDS0 := hfc_2bds0.o
 endif
 
+ifeq ($(CONFIG_HISAX_NICCY),y)
+	 O_OBJS += niccy.o
+	 ISAC_OBJ := isac.o
+	 HSCX_OBJ := hscx.o
+endif
+
 O_OBJS += $(ISAC_OBJ) $(HSCX_OBJ) $(HFC_OBJ) $(HFC_2BDS0) $(ARCOFI_OBJ)
 OX_OBJS += config.o
 
