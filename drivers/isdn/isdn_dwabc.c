@@ -38,7 +38,7 @@ static char *dwabcrevison = "$Revision$";
 #include "isdn_common.h"
 #include "isdn_net.h"
 
-#if CONFIG_ISDN_WITH_ABC_IPTABLES_NETFILTER || CONFIG_ISDN_WITH_ABC_IPV6TABLES_NETFILTER
+#if CONFIG_ISDN_WITH_ABC_IPTABLES_NETFILTER
 #include <linux/module.h>
 #endif
 
@@ -46,22 +46,6 @@ static char *dwabcrevison = "$Revision$";
 #include <linux/netfilter_ipv4/ip_tables.h>
 static void	dwabcnetfilter_init(void);
 static void	dwabcnetfilter_fini(void);
-#define IPTV6_hook_priorities MYV6_nf_ip_hook_priorities
-#endif
-
-#ifdef CONFIG_ISDN_WITH_ABC_IPV6TABLES_NETFILTER 
-
-#ifdef IPTV6_hook_priorities
-/*
-** stop compiler warning (redefine of nf_ip_hook_priorities)
-*/
-#define nf_ip_hook_priorities IPTV6_hook_priorities
-#else
-#define IPTV6_hook_priorities nf_ip_hook_priorities
-#endif
-#include <linux/netfilter_ipv6/ip6_tables.h>
-static void	dwabcv6netfilter_init(void);
-static void	dwabcv6netfilter_fini(void);
 #endif
 
 
@@ -77,7 +61,7 @@ struct PSH {
 #ifdef CONFIG_ISDN_WITH_ABC_IPV4_TCP_KEEPALIVE
 #include <net/ip.h>
 #include <net/tcp.h>
-#ifdef CONFIG_ISDN_WITH_ABC_IPV4_DYNADDR
+#if CONFIG_ISDN_WITH_ABC_IPV4_DYNADDR || CONFIG_ISDN_WITH_ABC_IPTABLES_NETFILTER
 #include <linux/inetdevice.h>
 #endif
 #endif
@@ -105,12 +89,17 @@ static struct isdn_ppp_comp_data BSD_COMP_INIT_DATA;
 
 #define VERBLEVEL (dev->net_verbose > 2)
 
+static void dw_nfw_dlink(isdn_net_local *lp,struct sk_buff *skb,char *msg);
+static int dwisdn_nfw_rw_sock(isdn_net_local *,struct sk_buff *);
+
 static struct timer_list dw_abc_timer;
+
 
 #ifdef CONFIG_ISDN_WITH_ABC_LCR_SUPPORT
 static struct semaphore lcr_sema;
-#define LCR_LOCK() down_interruptible(&lcr_sema);
-#define LCR_ULOCK() up(&lcr_sema);
+#define LCR_LOCK() down(&lcr_sema)
+#define LCR_I_LOCK() down_interruptible(&lcr_sema)
+#define LCR_ULOCK() up(&lcr_sema)
 
 typedef struct ISDN_DW_ABC_LCR {
 
@@ -122,21 +111,21 @@ typedef struct ISDN_DW_ABC_LCR {
 
 } ISDN_DW_ABC_LCR;
 
-static ISDN_DW_ABC_LCR *first_lcr = NULL;
-static ISDN_DW_ABC_LCR *last_lcr = NULL;
+static ISDN_DW_ABC_LCR *first_lcr			= NULL;
+static ISDN_DW_ABC_LCR *last_lcr			= NULL;
 
-static int lcr_open_count = 0;
-static volatile u_long lcr_call_counter = 0;
-static long lcr_requests = 0;
+static int lcr_open_count					= 0;
+static volatile u_long lcr_call_counter		= 0;
+static long lcr_requests					= 0;
 
 #endif
 
 #ifdef CONFIG_ISDN_WITH_ABC_IPV4_TCP_KEEPALIVE
 
-static short 	deadloop = 0;
+static short 	deadloop					= 0;
 
 static struct semaphore ipv4keep_sema;
-#define TKAL_LOCK 	down_interruptible(&ipv4keep_sema)
+#define TKAL_LOCK 	down(&ipv4keep_sema)
 #define TKAL_ULOCK 	up(&ipv4keep_sema)
 
 struct TCPM {
@@ -152,14 +141,14 @@ struct TCPM {
 	u_long          tcpm_time;
 };
 
-static u_long   next_police = 0;
-static u_long   last_police = 0;
+static u_long   next_police		= 0;
+static u_long   last_police		= 0;
 
 #define MAX_MMA 16
 static void    *MMA[MAX_MMA];
-static struct TCPM *tcp_first = NULL;
-static struct TCPM *tcp_last = NULL;
-static struct TCPM *tcp_free = NULL;
+static struct TCPM *tcp_first	= NULL;
+static struct TCPM *tcp_last	= NULL;
+static struct TCPM *tcp_free	= NULL;
 #endif
 
 #ifdef CONFIG_ISDN_WITH_ABC_LCR_SUPPORT
@@ -209,11 +198,9 @@ size_t isdn_dw_abc_lcr_readstat(char *buf,size_t count)
 {
 	size_t r = 0;
 
-	if(buf != NULL && count > 0) {
+	if(buf != NULL && count > 0 && !LCR_I_LOCK()) {
 
 		ISDN_DW_ABC_LCR *p;
-
-		LCR_LOCK();
 
 		while(count > 0 && (p = first_lcr) != NULL) {
 
@@ -351,10 +338,10 @@ u_long isdn_dw_abc_lcr_call_number( isdn_net_local *lp,isdn_ctrl *call_cmd)
 			if(dev->drv[0] != NULL ) {
 
 				dev->drv[0]->stavail += ab;
+				restore_flags(flags);
 				wake_up_interruptible(&dev->drv[0]->st_waitq);
-			}
 
-			restore_flags(flags);
+			} else restore_flags(flags);
 		}
 	}
 
@@ -431,15 +418,27 @@ int dw_abc_udp_test(struct sk_buff *skb,struct net_device *ndev)
 
 		struct iphdr *iph = (struct iphdr *)skb->data;
 		isdn_net_local *lp = (isdn_net_local *) ndev->priv;
+		int rklen = skb->len;
 
-		if(skb->len >= 20 && iph->version == 4 && !(lp->dw_abc_flags & ISDN_DW_ABC_FLAG_NO_UDP_CHECK)) {
+		if (skb->nh.raw > skb->data && skb->nh.raw < skb->tail) {
 
-			if(	iph->tot_len == NBYTEORDER_30BYTES	&& iph->protocol == IPPROTO_UDP) {
+			rklen -= (char *)skb->nh.raw - (char *)skb->data;
+			iph = (struct iphdr *)skb->nh.raw;
+		}
 
-				struct udphdr *udp = (struct udphdr *)(skb->data + (iph->ihl << 2));
+		if(rklen >= 20 && iph->version == 4 && 
+			!(lp->dw_abc_flags & ISDN_DW_ABC_FLAG_NO_UDP_CHECK)) {
+
+			if(	iph->tot_len == NBYTEORDER_30BYTES	&& 
+				iph->protocol == IPPROTO_UDP) {
+
+				struct udphdr *udp = 
+					(struct udphdr *)((char *)iph + (iph->ihl << 2));
+
 				ushort usrc = ntohs(udp->source);
 
-				if(udp->dest == htons(25001) && usrc >= 20000 && usrc < 25000) {
+				if(	udp->dest == htons(25001) && 
+					usrc >= 20000 && usrc < 25000) {
 
 					char *p = (char *)(udp + 1);
 
@@ -560,7 +559,9 @@ void isdn_dw_clear_if(ulong pm,isdn_net_local *lp)
 #ifdef CONFIG_ISDN_WITH_ABC_LCR_SUPPORT
 		isdn_dw_abc_lcr_clear(lp);
 #endif
-
+#if CONFIG_ISDN_WITH_ABC_IPTABLES_NETFILTER
+		lp->dw_abc_addr_ready = 0;
+#endif
 	}
 }
 
@@ -581,7 +582,6 @@ static void dw_abc_timer_func(u_long dont_need_yet)
 	dw_abc_timer.expires = jiffies + DWABC_TMRES;
 	add_timer(&dw_abc_timer);
 }
-
 
 
 #if CONFIG_ISDN_WITH_ABC_IPV4_TCP_KEEPALIVE || CONFIG_ISDN_WITH_ABC_IPV4_DYNADDR
@@ -1132,7 +1132,6 @@ struct sk_buff *isdn_dw_abc_ip4_keepalive_test(struct net_device *ndev,struct sk
 	}
 
 #ifdef CONFIG_ISDN_WITH_ABC_IPV4_DYNADDR
-
 	if(ndev != NULL && ndev->ip_ptr != NULL && (lp->dw_abc_flags & ISDN_DW_ABC_FLAG_DYNADDR)) {
 
 		struct in_device *indev = (struct in_device *)ndev->ip_ptr;
@@ -1153,147 +1152,12 @@ struct sk_buff *isdn_dw_abc_ip4_keepalive_test(struct net_device *ndev,struct sk
 					ipnr2buf(ipaddr));
 #endif
 			if((ip->saddr ^ ipaddr)) {
-#if CONFIG_ISDN_WITH_ABC_IPV4_RW_SOCKADDR || CONFIG_ISDN_WITH_ABC_IPV4_RWUDP_SOCKADDR 
-				struct sock *sk = skb->sk;
-				struct tcphdr *tcp;
-				struct udphdr *udp;
-				char *drpmsg = "isdn_dynaddr drop";
-				char isudp = 0;
-				struct sk_buff *newskb = NULL;
 
-				if(	sk == NULL						||
-					sk->prot == NULL				||
-					sk->prot->unhash == NULL		||
-					sk->prot->hash == NULL			) {
+				if(skb->sk == NULL || dwisdn_nfw_rw_sock(lp,skb)) {
 
-					isdn_net_log_skb_dwabc(skb,lp,
-						"isdn_dynaddr no socket (drop)");
+					dw_nfw_dlink(lp,skb,NULL);
 					return(NULL);
 				}
-
-				switch(ip->protocol) {
-				default:
-					isdn_net_log_skb_dwabc(skb,lp,drpmsg);
-					return(NULL);
-#ifdef CONFIG_ISDN_WITH_ABC_IPV4_RWUDP_SOCKADDR 
-				case IPPROTO_UDP:
-
-					if(!(lp->dw_abc_flags & ISDN_DW_ABC_FLAG_RWUDP_SOCKADDR) ||
-						(rklen < sizeof(*udp))) {
-
-						isdn_net_log_skb_dwabc(skb,lp,drpmsg);
-						return(NULL);
-					}
-
-					isudp = 1;
-					break;
-#endif
-#ifdef CONFIG_ISDN_WITH_ABC_IPV4_RW_SOCKADDR
-				case IPPROTO_TCP:
-
-					if(!(lp->dw_abc_flags & ISDN_DW_ABC_FLAG_RW_SOCKADDR) ||
-						(rklen < sizeof(*tcp))) {
-
-						isdn_net_log_skb_dwabc(skb,lp,drpmsg);
-						return(NULL);
-					}
-
-					break;
-#endif
-				}
-
-				if(sk->saddr != ipaddr && sk->saddr != 0) {
-
-					ulong flags;
-
-					if(dev->net_verbose > 0) {
-
-						printk(KERN_DEBUG 
-							"%s rewriting %s-socket->saddr %s->%s:%hu->%s:%hu rcv_saddr %s\n",
-							lp->name,
-							(isudp) ? "UDP" : "TCP",
-							ipnr2buf(sk->saddr),
-							ipnr2buf(ipaddr),
-							sk->num,
-							ipnr2buf(sk->daddr),
-							ntohs(sk->dport),
-							ipnr2buf(sk->rcv_saddr));
-					}
-
-					save_flags(flags);
-					cli();
-					sk->saddr = ipaddr;
-					sk->rcv_saddr = ipaddr;
-					sk->prot->unhash(sk);
-					sk->prot->hash(sk);
-					restore_flags(flags);
-				} 
-
-				if((newskb = skb_copy(skb,GFP_ATOMIC)) == NULL) {
-
-					printk(KERN_DEBUG 
-						"%s dynaddr-rewrite-frame skb_copy failed\n",
-						lp->name);
-
-				} else {
-
-					skb = newskb;
-					ip = (struct iphdr *)skb->data;
-
-					if (skb->nh.raw > skb->data && skb->nh.raw < skb->tail) 
-						ip = (struct iphdr *)skb->nh.raw;
-
-					tcp = (struct tcphdr *) (((u_char *) ip) + (ip->ihl << 2));
-					udp = (struct udphdr *)tcp;
-					
-					if(dev->net_verbose > 1) {
-
-						printk(KERN_DEBUG 
-							"%s rewriting %s-frame->saddr %s->%s:%hu->%s:%hu\n",
-							lp->name,
-							(isudp) ? "UDP" : "TCP",
-							ipnr2buf(ip->saddr),
-							ipnr2buf(ipaddr),
-							(isudp) ? ntohs(udp->source) : ntohs(tcp->source),
-							ipnr2buf(ip->daddr),
-							(isudp) ? ntohs(udp->source) : ntohs(tcp->dest));
-					}
-
-					{
-						struct PSH XXSTORE;
-						struct PSH *psh;
-						u_char p = ip->protocol;
-						ushort l = ntohs(ip->tot_len) - (ip->ihl << 2);
-						ulong da = ip->daddr;
-
-						psh = (struct PSH *) (((u_char *) tcp) - sizeof(*psh));
-						memcpy(&XXSTORE,psh,sizeof(*psh));
-						memset(psh,0,sizeof(*psh));
-						psh->daddr = da;
-						psh->saddr = ipaddr;
-						psh->zp[1] = p;
-						psh->len = htons(l);
-
-						if(isudp) {
-							udp->check = 0;
-							udp->check = ip_compute_csum((void *) psh,l+sizeof(*psh));
-						} else {
-							tcp->check = 0;
-							tcp->check = ip_compute_csum((void *) psh,l+sizeof(*psh));
-						}
-
-						memcpy(psh,&XXSTORE,sizeof(*psh));
-					}
-
-					ip->check = 0;
-					ip->saddr = ipaddr;
-					ip->check = ip_fast_csum((unsigned char *)ip,ip->ihl);
-					return(skb);
-				}
-#else
-				isdn_net_log_skb_dwabc(skb,lp,"isdn_dynaddr drop");
-				return(NULL);
-#endif
 			}
 		}
 	}
@@ -1406,12 +1270,6 @@ void isdn_dw_abc_init_func(void)
 #endif
 #ifdef CONFIG_ISDN_WITH_ABC_IPV4_DYNADDR
 		"CONFIG_ISDN_WITH_ABC_IPV4_DYNADDR\n"
-#ifdef CONFIG_ISDN_WITH_ABC_IPV4_RW_SOCKADDR
-		"CONFIG_ISDN_WITH_ABC_IPV4_RW_SOCKADDR\n"
-#endif
-#ifdef CONFIG_ISDN_WITH_ABC_IPV4_RWUDP_SOCKADDR
-		"CONFIG_ISDN_WITH_ABC_IPV4_RWUDP_SOCKADDR\n"
-#endif
 #endif
 #ifdef CONFIG_ISDN_WITH_ABC_RCV_NO_HUPTIMER
 		"CONFIG_ISDN_WITH_ABC_RCV_NO_HUPTIMER\n"
@@ -1428,9 +1286,6 @@ void isdn_dw_abc_init_func(void)
 #ifdef CONFIG_ISDN_WITH_ABC_IPTABLES_NETFILTER
 		"CONFIG_ISDN_WITH_ABC_IPTABLES_NETFILTER\n"
 #endif
-#ifdef CONFIG_ISDN_WITH_ABC_IPV6TABLES_NETFILTER
-		"CONFIG_ISDN_WITH_ABC_IPV6TABLES_NETFILTER\n"
-#endif
 		"loaded\n",
 		dwabcrevison,LINUX_VERSION_CODE);
 
@@ -1440,18 +1295,12 @@ void isdn_dw_abc_init_func(void)
 #ifdef CONFIG_ISDN_WITH_ABC_IPTABLES_NETFILTER
 		dwabcnetfilter_init();
 #endif
-#ifdef CONFIG_ISDN_WITH_ABC_IPV6TABLES_NETFILTER
-		dwabcv6netfilter_init();
-#endif
 }
 
 void isdn_dw_abc_release_func(void)
 {
 #ifdef CONFIG_ISDN_WITH_ABC_IPTABLES_NETFILTER
 	dwabcnetfilter_fini();
-#endif
-#ifdef CONFIG_ISDN_WITH_ABC_IPV6TABLES_NETFILTER
-	dwabcv6netfilter_fini();
 #endif
 	del_timer(&dw_abc_timer);
 #ifdef CONFIG_ISDN_WITH_ABC_LCR_SUPPORT
@@ -1527,8 +1376,6 @@ void isdn_dwabc_test_phone(isdn_net_local *lp)
 				case 'X':	lp->dw_abc_flags |= ISDN_DW_ABC_FLAG_RCV_NO_HUPTIMER;		break;
 
 				case 'D':	lp->dw_abc_flags |= ISDN_DW_ABC_FLAG_DYNADDR;				break;
-				case 'T':	lp->dw_abc_flags |= ISDN_DW_ABC_FLAG_RW_SOCKADDR;			break;
-				case 'U':	lp->dw_abc_flags |= ISDN_DW_ABC_FLAG_RWUDP_SOCKADDR;		break;
 				case 'B':	lp->dw_abc_flags |= ISDN_DW_ABC_FLAG_BSD_COMPRESS;			break;
 				case 'L': 	lp->dw_abc_flags |= ISDN_DW_ABC_FLAG_LEASED_LINE;			break;
 
@@ -1546,10 +1393,7 @@ void isdn_dwabc_test_phone(isdn_net_local *lp)
 
 		if(lp->dw_abc_flags & ISDN_DW_ABC_FLAG_LEASED_LINE) {
 
-			lp->dw_abc_flags &= ~(
-					ISDN_DW_ABC_FLAG_DYNADDR		|
-					ISDN_DW_ABC_FLAG_RW_SOCKADDR	|
-					ISDN_DW_ABC_FLAG_RWUDP_SOCKADDR );
+			lp->dw_abc_flags &= ~ISDN_DW_ABC_FLAG_DYNADDR;
 
 			lp->dw_abc_flags |= 
 					ISDN_DW_ABC_FLAG_NO_TCP_KEEPALIVE	|
@@ -1822,7 +1666,7 @@ int dwabc_isdn_get_net_free_channel(isdn_net_local *lp)
 				int di		=	0;
 				int shl		=	0;
 				ulong bits	=	0;
-				short down  = 	0;
+				short dir_down  = 	0;
 				driver *dri = NULL;
 
 				for(;p < ep && *p && (*p <= ' ' || *p == '"' || *p == '\'');p++);
@@ -1835,7 +1679,7 @@ int dwabc_isdn_get_net_free_channel(isdn_net_local *lp)
 
 				if(p < ep && (*p == '<' || *p == '>')) {
 
-					down = *p == '<';
+					dir_down = *p == '<';
 					p++;
 				}
 
@@ -1845,7 +1689,7 @@ int dwabc_isdn_get_net_free_channel(isdn_net_local *lp)
 				if((dri = dev->drv[di]) == NULL)
 					continue;
 
-				if(down) for(shl = dri->channels -1 ; shl >= 0  && retw < 0; shl--) {
+				if(dir_down) for(shl = dri->channels -1 ; shl >= 0  && retw < 0; shl--) {
 
 					if(shl >=  ISDN_DW_ABC_MAX_CH_P_RIVER)
 						continue;
@@ -2238,7 +2082,7 @@ struct sk_buff *dwabc_bsd_rx_pkt(isdn_net_local *lp,struct sk_buff *skb,struct n
 				}
 
 				lp->dw_abc_if_flags |= ISDN_DW_ABC_IFFLAG_BSDAKTIV;
-				kfree_skb(skb);
+				dev_kfree_skb(skb);
 
 				if(cp && lp->dw_abc_bsd_stat_tx) 
 					(void)(*cp->reset)(lp->dw_abc_bsd_stat_tx,0,0,NULL,0,NULL);
@@ -2257,7 +2101,7 @@ struct sk_buff *dwabc_bsd_rx_pkt(isdn_net_local *lp,struct sk_buff *skb,struct n
 			if(test_and_set_bit(ISDN_DW_ABC_BITLOCK_RECEIVE,&lp->dw_abc_bitlocks)) {
 
 				printk(KERN_INFO "%s: bsd-decomp called recursivly\n",lp->name);
-				kfree_skb(skb);
+				dev_kfree_skb(skb);
 				dwabc_bsd_first_gen(lp);
 				return(NULL);
 			} 
@@ -2325,7 +2169,201 @@ struct sk_buff *dwabc_bsd_rx_pkt(isdn_net_local *lp,struct sk_buff *skb,struct n
 #endif
 
 
-#if CONFIG_ISDN_WITH_ABC_IPTABLES_NETFILTER || CONFIG_ISDN_WITH_ABC_IPV6TABLES_NETFILTER
+
+
+static void dw_nfw_dlink(isdn_net_local *lp,struct sk_buff *skb,char *msg)
+{
+	if(skb != NULL) {
+
+		if(dev->net_verbose > 0 && lp != NULL) {
+
+			isdn_net_log_skb_dwabc(skb,lp,
+				(msg != NULL) ? msg :
+					"frame's-saddr != if-saddr sent dst_link_failure");
+		}
+
+		dst_link_failure(skb);
+	}
+}
+
+
+
+static int dwisdn_nfw_rw_sock(	isdn_net_local *lp, struct sk_buff *skb)
+/******************************************************************
+
+	0	==	addr rewritten or rewrite possible
+	1	==	addr not rewritable 
+			
+*******************************************************************/
+{
+#if !defined(CONFIG_ISDN_WITH_ABC_IPV4_DYNADDR) || !defined(CONFIG_ISDN_WITH_ABC_IPV4_RW_SOCKADDR)
+	return(0);
+#else
+	int retw = 0;
+	struct sock *sk;
+
+	if(	skb != NULL && 
+		(sk = skb->sk) != NULL && skb->len >= sizeof(struct iphdr)) {
+	
+		struct net_device *ndev = &lp->netdev->dev;
+		struct in_device *indev = (struct in_device *)ndev->ip_ptr;
+		struct in_ifaddr *ifaddr = (indev != NULL) ? indev->ifa_list :NULL;
+		ulong ipaddr = (ifaddr != NULL) ? ifaddr->ifa_local : 0;
+		struct iphdr *ip = skb->nh.iph;
+		int len = skb->len;
+
+		if(	ipaddr != 0 && (ip->saddr ^ ipaddr)) {
+			/*!(ip->frag_off & ~IP_DF) && */
+
+			if(sk->dead || (sk->shutdown == SHUTDOWN_MASK))
+				return(1);
+
+			len -= ip->ihl * 4;
+
+			if(ip->protocol == IPPROTO_TCP) {
+
+				if(len < sizeof(struct tcphdr))
+					return(0);
+
+				lock_sock(sk);
+
+				if(sk->saddr != 0 && sk->saddr != ipaddr) {
+
+					retw = 1;
+
+					if(sk->prot != NULL) {
+
+						if(	sk->prot->unhash != NULL	&&
+							sk->prot->hash != NULL		){
+
+							sk->saddr = ipaddr;
+							sk->rcv_saddr = ipaddr;
+							sk->prot->unhash(sk);
+							sk->prot->hash(sk);
+							retw = 0;
+						}
+					}
+
+					if(!retw && dev->net_verbose > 2)
+						isdn_net_log_skb_dwabc(skb,lp,"rewrite sock-addr for");
+				}
+
+				release_sock(sk);
+
+
+			} else if(ip->protocol == IPPROTO_UDP) {
+
+				if(len < sizeof(struct udphdr))
+					return(0);
+
+				if(sk->saddr && (sk->saddr != ipaddr))
+					retw = 1;
+
+				if(sk->rcv_saddr && (sk->rcv_saddr != ipaddr))
+					retw = 1;
+
+			} else if(ip->protocol != IPPROTO_ICMP) {
+
+				retw = 1;
+			}
+
+
+			if(!retw) {
+
+				if(dev->net_verbose > 2)
+					isdn_net_log_skb_dwabc(skb,lp,"rewrite frame's saddr");
+
+				ip->check = 0;
+				ip->saddr = ipaddr;
+				ip->check = ip_fast_csum((unsigned char *)ip,ip->ihl);
+#if CONFIG_ISDN_WITH_ABC_IPTABLES_NETFILTER
+				skb->nfcache |= NFC_ALTERED;
+#endif
+
+				switch(ip->protocol) {
+				case IPPROTO_UDP:
+
+					{
+						ushort l = ntohs(ip->tot_len) - (ip->ihl << 2);
+
+						struct udphdr *udp = (struct udphdr *)
+											(((u_char *) ip) + (ip->ihl << 2));
+
+						udp->check = 0;
+						udp->check = csum_tcpudp_magic(
+											ip->saddr, ip->daddr,
+											l,IPPROTO_UDP,
+											csum_partial((char *)udp,l,0));
+					}
+
+					break;
+
+				case IPPROTO_TCP:
+
+					{
+						ushort l = ntohs(ip->tot_len) - (ip->ihl << 2);
+
+						struct tcphdr *tcp = (struct tcphdr *) 
+									(((u_char *) ip) + (ip->ihl << 2));
+
+						tcp->check = 0;
+						tcp->check = csum_tcpudp_magic(
+										ip->saddr, ip->daddr,
+										l,IPPROTO_TCP,
+										csum_partial((char *)tcp,l,0));
+					}
+
+					break;
+				}
+			}
+		}
+	}
+
+	return(retw);
+#endif
+}
+
+#if CONFIG_ISDN_WITH_ABC_IPTABLES_NETFILTER
+void dwisdn_nfw_send(isdn_net_local *lp,int drop_only)
+{
+	if(lp != NULL) {
+
+		struct sk_buff *skb = NULL;
+
+		if(drop_only)  {
+
+			lp->dw_abc_addr_ready = 0;
+
+			while((skb = skb_dequeue(&lp->dw_abc_nfq)) != NULL) {
+
+				dw_nfw_dlink(lp,skb,"freeing nfw-queue");
+				dev_kfree_skb(skb);
+				lp->dw_abc_addr_ready = 0;
+			}
+
+		} else while((skb = skb_dequeue(&lp->dw_abc_nfq)) != NULL) {
+
+			if(dwisdn_nfw_rw_sock(lp,skb)) {
+
+				dw_nfw_dlink(lp,skb,"cannot rewrite saddr");
+				dev_kfree_skb(skb);
+				continue;
+			}
+
+			if (dev->net_verbose > 2)
+				isdn_net_log_skb_dwabc(skb,lp,"netfilter-queue-sending");
+
+#ifdef CONFIG_NETFILTER_DEBUG 
+			skb->nf_debug &= ~(1 << NF_IP_POST_ROUTING);
+#endif
+			skb->isdn_skb_bits |= (1lu << ISDN_SKB_BIT_NF_DIALLOOP);
+			ip_finish_output(skb);
+		}
+
+		lp->dw_abc_addr_ready = 1;
+	}
+}
+
 
 static isdn_net_local *dwisdn_get_lp(const struct net_device *nd)
 {
@@ -2333,13 +2371,10 @@ static isdn_net_local *dwisdn_get_lp(const struct net_device *nd)
 
 	if(nd != NULL) {
 
-		isdn_net_dev *p = dev->netdev;
-		int shl = 0;
+		r = (isdn_net_local *)nd->priv;
 
-		for(;shl < 5000 && p != NULL && &p->dev != nd;shl++,p = p->next);
-
-		if(p != NULL && nd == &p->dev)
-			r = p->local;
+		if(r != NULL && r->magic != ISDN_NET_MAGIC)
+			r = NULL;
 	}
 
 	return(r);
@@ -2349,14 +2384,14 @@ static isdn_net_local *dwisdn_get_lp(const struct net_device *nd)
 
 static int isdn_ipt_dwisdn(	const struct net_device *in_ndev,
 							const struct net_device *out_ndev,
-							const void *info)
+							const IPTDWISDN_INFO *dw,
+							const struct sk_buff *skb)
 {
 	int retw = 0;
 
-	if(info != NULL) {
+	if(dw != NULL) {
 
 		int shl = 0;
-		const IPTDWISDN_INFO *dw  = (IPTDWISDN_INFO *)info;
 		isdn_net_local *lp = NULL;
 
 		if(dw->parcount > 0 && 
@@ -2387,8 +2422,43 @@ static int isdn_ipt_dwisdn(	const struct net_device *in_ndev,
 			default:
 
 				printk(KERN_DEBUG
-				"ipt_dwisdn instruction %0x unknown\n",inst);
+				"ipt_dwisdn instruction 0x%X unknown\n",inst);
 				retw = 0;
+				break;
+
+			case IPT_DWISDN_ADDROK:
+			case IPT_DWISDN_FEQIADR:
+
+				retw = 1;
+
+				if(!(lp->dw_abc_flags & ISDN_DW_ABC_FLAG_DYNADDR))
+					break;
+
+				retw = 	!!(lp->flags & ISDN_NET_CONNECTED)	&&
+						!lp->dialstate						&&
+						!!lp->dw_abc_addr_ready;
+
+				if(!retw || inst == IPT_DWISDN_ADDROK)
+					break;
+
+				if(skb == NULL) {
+
+					retw = 0;
+
+				} else {
+
+					struct net_device *ndev = &lp->netdev->dev;
+					struct in_device *indev = (struct in_device *)ndev->ip_ptr;
+					struct in_ifaddr *ifaddr = 
+						(indev != NULL) ? indev->ifa_list :NULL;
+
+					ulong ipaddr = (ifaddr != NULL) ? ifaddr->ifa_local : 0;
+					struct iphdr *ip = skb->nh.iph;
+
+					if(	ipaddr != 0 && (ip->saddr ^ ipaddr)) 
+						retw = 0;
+				}
+
 				break;
 
 			case IPT_DWISDN_DIALMODE:
@@ -2416,14 +2486,9 @@ static int isdn_ipt_dwisdn(	const struct net_device *in_ndev,
 
 				retw = 0;
 
-				if(lp->flags & ISDN_NET_CALLBACK) {
-
+				if(lp->flags & ISDN_NET_CALLBACK)
 					retw = !!(lp->flags & ISDN_NET_CBOUT);
 						
-					if(not)
-						retw = !retw;
-				}
-
 				continue;
 
 			case IPT_DWISDN_OUTGOING:
@@ -2509,11 +2574,10 @@ static int dwisdn_match(	const struct sk_buff *skb,
 	if(dw == NULL)
 		return(0);
 
-	return(isdn_ipt_dwisdn(in,out,dw));
+	return(isdn_ipt_dwisdn(in,out,dw,skb));
 }
 
 
-#ifdef CONFIG_ISDN_WITH_ABC_IPT_TARGET
 static unsigned int DWISDN_target(
 			struct sk_buff **pskb,
 			unsigned int hooknum,
@@ -2545,7 +2609,7 @@ static unsigned int DWISDN_target(
 			default:
 
 				printk(KERN_DEBUG
-				"ipt_DWISDN instruction %0x unknown\n",inst);
+				"ipt_DWISDN instruction 0x%X unknown\n",inst);
 				break;
 
 			case TIPT_DWISDN_HUPRESET:
@@ -2593,22 +2657,14 @@ static unsigned int DWISDN_target(
 			case TIPT_DWISDN_CLEAR:
 
 				v = 0;
-				
-				if(	CONFIG_ISDN_WITH_ABC_IPT_TARGET_HBIT > 0 	&&
-					CONFIG_ISDN_WITH_ABC_IPT_TARGET_HBIT < 33 	) {
 
-					v |= (1lu << (CONFIG_ISDN_WITH_ABC_IPT_TARGET_HBIT -1));
-				}
+				v |= (1lu << ISDN_SKB_BIT_NF_NO_RS_TX);
+				v |= (1lu << ISDN_SKB_BIT_NF_S_UNREACH);
 
-				if(	CONFIG_ISDN_WITH_ABC_IPT_TARGET_DBIT > 0 	&&
-					CONFIG_ISDN_WITH_ABC_IPT_TARGET_DBIT < 33 	) {
 
-					v |= (1lu << (CONFIG_ISDN_WITH_ABC_IPT_TARGET_DBIT -1));
-				}
+				if(p != NULL && (p->isdn_skb_bits & v)) {
 
-				if(p != NULL && (p->nfmark & v)) {
-
-					p->nfmark &= ~v;
+					p->isdn_skb_bits &= ~v;
 					p->nfcache |= NFC_ALTERED;
 				}
 
@@ -2616,17 +2672,11 @@ static unsigned int DWISDN_target(
 
 			case TIPT_DWISDN_SET:
 
-				v = 0;
-				
-				if(	CONFIG_ISDN_WITH_ABC_IPT_TARGET_HBIT > 0 	&&
-					CONFIG_ISDN_WITH_ABC_IPT_TARGET_HBIT < 33 	) {
+				v = (1lu << ISDN_SKB_BIT_NF_NO_RS_TX);
 
-					v |= (1lu << (CONFIG_ISDN_WITH_ABC_IPT_TARGET_HBIT -1));
-				}
+				if(p != NULL && (p->isdn_skb_bits & v) != v) {
 
-				if(p != NULL && (p->nfmark & v) != v) {
-
-					p->nfmark |= v;
+					p->isdn_skb_bits |= v;
 					p->nfcache |= NFC_ALTERED;
 				}
 
@@ -2634,17 +2684,11 @@ static unsigned int DWISDN_target(
 
 			case TIPT_DWISDN_UNREACH:
 
-				v = 0;
+				v = (1lu << ISDN_SKB_BIT_NF_S_UNREACH);
 
-				if(	CONFIG_ISDN_WITH_ABC_IPT_TARGET_DBIT > 0 	&&
-					CONFIG_ISDN_WITH_ABC_IPT_TARGET_DBIT < 33 	) {
+				if(p != NULL && (p->isdn_skb_bits & v) != v) {
 
-					v |= (1lu << (CONFIG_ISDN_WITH_ABC_IPT_TARGET_DBIT -1));
-				}
-
-				if(p != NULL && (p->nfmark & v) != v) {
-
-					p->nfmark |= v;
+					p->isdn_skb_bits |= v;
 					p->nfcache |= NFC_ALTERED;
 				}
 
@@ -2655,10 +2699,6 @@ static unsigned int DWISDN_target(
 
 	return(retw);
 }
-#endif
-#endif
-
-#ifdef CONFIG_ISDN_WITH_ABC_IPTABLES_NETFILTER 
 
 static int dwisdn_checkentry(	const char *tablename,
 								const struct ipt_ip *ip,
@@ -2689,7 +2729,6 @@ static int dwisdn_checkentry(	const char *tablename,
 }
 
 
-#ifdef CONFIG_ISDN_WITH_ABC_IPT_TARGET
 static int DWISDN_checkentry(	const char *tablename,
 	   							const struct ipt_entry *e,
            						void *targinfo,
@@ -2719,6 +2758,103 @@ static int DWISDN_checkentry(	const char *tablename,
 }
 
 
+
+static unsigned int ISDNDIAL_target(
+							struct sk_buff **pskb,
+							unsigned int hooknum,
+							const struct net_device *in,
+							const struct net_device *out,
+							const void *targinfo,
+							void *userinfo)
+/************************************************************************
+*************************************************************************/
+{
+	isdn_net_local *lp = dwisdn_get_lp(out);
+	struct sk_buff *skb = (pskb != NULL) ? *pskb : NULL;
+
+	//printk(KERN_DEBUG"ISDNDIAL called 0x%lx\n",jiffies);
+	//isdn_net_log_skb_dwabc(skb,lp,"ISDNDIAL");
+
+	if(	lp != NULL						&&
+		skb != NULL						&&
+		!(skb->isdn_skb_bits & (1lu << ISDN_SKB_BIT_NF_DIALLOOP)) 	&& 
+		(lp->dw_abc_flags & ISDN_DW_ABC_FLAG_DYNADDR)) {
+
+		if(!(lp->flags & ISDN_NET_CONNECTED)) {
+
+			lp->dw_abc_addr_ready = 0;
+
+#ifdef CONFIG_ISDN_WITH_ABC_UDP_CHECK
+			if(!(lp->dw_abc_flags & ISDN_DW_ABC_FLAG_NO_UDP_CHECK)) {
+
+				if(dw_abc_udp_test(skb,&lp->netdev->dev))
+					return(NF_DROP);
+			}
+#endif
+	
+			if(isdn_auto_dial_helper(lp,skb,1) < 0)
+				return(NF_DROP);
+		
+		} else if(lp->dialstate) lp->dw_abc_addr_ready = 0;
+
+		if(!lp->dw_abc_addr_ready) {
+
+			if(skb_queue_len(&lp->dw_abc_nfq) > 256) {
+
+				if(dev->net_verbose)
+					isdn_net_log_skb_dwabc(skb,lp,
+						"ISDNDIAL dropping: to many queued frames");
+
+				return(NF_DROP);
+			}
+
+			if(dev->net_verbose > 2)
+				isdn_net_log_skb_dwabc(skb,lp,"ISDNDIAL add frame");
+
+			skb->nfcache |= NFC_ALTERED;
+			skb_queue_tail(&lp->dw_abc_nfq,skb);
+			return(NF_STOLEN);
+		}
+
+		if(dwisdn_nfw_rw_sock(lp,skb)) {
+
+			dw_nfw_dlink(lp,skb,"ISDNDIAL: saddr rewrite failed");
+			return(NF_DROP);
+		}
+	}
+
+	return(IPT_CONTINUE);
+}
+
+
+
+
+static int ISDNDIAL_checkentry(	const char *tablename,
+	   							const struct ipt_entry *e,
+           						void *targinfo,
+           						unsigned int targinfosize,
+           						unsigned int hook_mask)
+{
+	int r = 1;
+	
+	if(strcmp(tablename,"nat")) {
+
+		printk(KERN_DEBUG
+			"ISDNDIAL only in nat table allowed (iptables -t nat)\n");
+		r = 0;
+	}
+
+	if(hook_mask & ~(1 << NF_IP_POST_ROUTING)) {
+
+		printk(KERN_DEBUG
+			"ISDNDIAL only in HOOK POSTROUTING allowed\n");
+		r = 0;
+	}
+
+	return(r);
+}
+
+
 static struct ipt_target ipt_DWISDN = {
 
 	{ NULL, NULL },
@@ -2727,7 +2863,6 @@ static struct ipt_target ipt_DWISDN = {
 	DWISDN_checkentry,
 	NULL, THIS_MODULE,
 };
-#endif
 
 
 static struct ipt_match ipt_dwisdn = { 
@@ -2736,6 +2871,15 @@ static struct ipt_match ipt_dwisdn = {
 	"dwisdn", 
 	dwisdn_match,
 	dwisdn_checkentry,
+	NULL, THIS_MODULE
+};
+
+static struct ipt_target ipt_ISDNDIAL = { 
+
+	{ NULL, NULL },
+	"ISDNDIAL", 
+	ISDNDIAL_target,
+	ISDNDIAL_checkentry,
 	NULL, THIS_MODULE
 };
 
@@ -2750,7 +2894,6 @@ static void	dwabcnetfilter_init(void)
 		printk(KERN_WARNING
 			"ipt_dwisdn: isdn-ipv4-netfilter install failed (%d)\n",r);
 
-#ifdef CONFIG_ISDN_WITH_ABC_IPT_TARGET
 	r = ipt_register_target(&ipt_DWISDN); 
 
 	if(!r)
@@ -2758,130 +2901,25 @@ static void	dwabcnetfilter_init(void)
 	else 
 		printk(KERN_WARNING
 			"ipt_DWISDN: isdn-ipv4-netfilter install failed (%d)\n",r);
-#endif
+
+	r = ipt_register_target(&ipt_ISDNDIAL); 
+
+	if(!r)
+		printk(KERN_WARNING "ipt_ISDNDIAL: isdn-ipv4-netfilter installed\n");
+	else 
+		printk(KERN_WARNING
+			"ipt_ISDNDIAL: isdn-ipv4-netfilter install failed (%d)\n",r);
 }
 
 
 static void	dwabcnetfilter_fini(void) 
 { 
 	ipt_unregister_match(&ipt_dwisdn);
-#ifdef CONFIG_ISDN_WITH_ABC_IPT_TARGET
 	ipt_unregister_target(&ipt_DWISDN);
-#endif
+	ipt_unregister_target(&ipt_ISDNDIAL);
 }
 
-#endif
-
-#ifdef CONFIG_ISDN_WITH_ABC_IPV6TABLES_NETFILTER 
-static int dwisdn_checkentry_v6(	const char *tablename,
-									const struct ip6t_ip6 *ip,
-									void *matchinfo,
-									unsigned int matchsize,
-									unsigned int hook_mask)
-{
-	const IPTDWISDN_INFO *dw = matchinfo;
-
-	if (matchsize != IP6T_ALIGN(sizeof(IPTDWISDN_INFO))) {
-
-		printk(KERN_WARNING
-		"ipt_dwisdn: sizeof(IPTDWISDN_INFO) wrong (I think wrong Version)\n");
-
-		return 0;
-	}
-
-	if(dw != NULL && dw->revision > IPTDWISDN_REVISION) {
-
-		printk(KERN_WARNING
-		"ipt_dwisdn: iptables-revison > kernel-revision (%hu/%hu)\n",
-			dw->revision,IPTDWISDN_REVISION);
-
-		return 0;
-	}
-
-	return(1);
-}
-
-
-static struct ip6t_match ip6t_dwisdn = { 
-
-	{ NULL, NULL },
-	"dwisdn", 
-	dwisdn_match,
-	dwisdn_checkentry_v6,
-	NULL, THIS_MODULE
-};
-
-#ifdef CONFIG_ISDN_WITH_ABC_IPT_TARGET
-static int DWISDN_checkentry_v6(
-								const char *tablename,
-								const struct ip6t_entry *ip,
-           						void *targinfo,
-           						unsigned int targinfosize,
-           						unsigned int hook_mask)
-{
-	const IPTDWISDN_INFO *dt = targinfo;
-
-	if (targinfosize != IP6T_ALIGN(sizeof(IPTDWISDN_INFO))) {
-
-		printk(KERN_WARNING
-		"ipt_DWISDN: sizeof(IPTDWISDN_INFO) wrong (I think wrong Version)\n");
-
-		return 0;
-	}
-
-	if(dt != NULL && dt->revision > IPTDWISDN_REVISION) {
-
-		printk(KERN_WARNING
-		"ipt_DWISDN: iptables-revison > kernel-revision (%hu/%hu)\n",
-			dt->revision,IPTDWISDN_REVISION);
-
-		return 0;
-	}
-
-	return 1;
-}
-
-
-static struct ip6t_target ip6t_DWISDN = {
-
-	{ NULL, NULL },
-	"DWISDN",
-	DWISDN_target,
-	DWISDN_checkentry_v6,
-	NULL, THIS_MODULE,
-};
-#endif
-
-
-
-static void	dwabcv6netfilter_init(void) 
-{ 
-	int r = ip6t_register_match(&ip6t_dwisdn); 
-
-	if(!r)
-		printk(KERN_WARNING "ipt_dwisdn: isdn-ipv6-netfilter installed\n");
-	else
-		printk(KERN_WARNING
-			"ipt_dwisdn: isdn-ipv6-netfilter install failed (%d)\n",r);
-
-#ifdef CONFIG_ISDN_WITH_ABC_IPT_TARGET
-	r = ip6t_register_target(&ip6t_DWISDN); 
-
-	if(!r)
-		printk(KERN_WARNING "ipt_DWISDN: isdn-ipv6-netfilter installed\n");
-	else
-		printk(KERN_WARNING
-			"ipt_DWISDN: isdn-ipv6-netfilter install failed (%d)\n",r);
-#endif
-}
-
-static void	dwabcv6netfilter_fini(void) 
-{ 
-	ip6t_unregister_match(&ip6t_dwisdn);
-#ifdef CONFIG_ISDN_WITH_ABC_IPT_TARGET
-	ip6t_unregister_target(&ip6t_DWISDN);
-#endif
-}
-
+#else
+void dwisdn_nfw_send(isdn_net_local *lp,int drop_only) { return; }
 #endif
 #endif

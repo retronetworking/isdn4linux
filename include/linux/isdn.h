@@ -68,11 +68,7 @@
 #undef CONFIG_ISDN_WITH_ABC_CH_EXTINUSE
 #undef CONFIG_ISDN_WITH_ABC_CONN_ERROR
 #undef CONFIG_ISDN_WITH_ABC_RAWIPCOMPRESS
-#undef CONFIG_ISDN_WITH_ABC_IPV4_RW_SOCKADDR 
-#undef CONFIG_ISDN_WITH_ABC_IPV4_RWUDP_SOCKADDR 
 #undef CONFIG_ISDN_WITH_ABC_IPTABLES_NETFILTER
-#undef CONFIG_ISDN_WITH_ABC_IPV6TABLES_NETFILTER
-#undef CONFIG_ISDN_WITH_ABC_IPT_TARGET
 #else
 #include <linux/isdn_dwabc.h>
 
@@ -92,6 +88,13 @@ typedef struct DWABCJIFFIES {
 
 } DWABCJIFFIES;
 
+enum ISDN_SKB_BITS {
+
+	ISDN_SKB_BIT_NF_NO_RS_TX = 0,	/* don't reset huptimer on tx			*/
+	ISDN_SKB_BIT_NF_S_UNREACH,		/* send dest-unreach in offline case	*/
+	ISDN_SKB_BIT_NF_DIALLOOP,		/* ISDNDIAL target deadloop detection	*/
+};
+
 #ifdef CONFIG_ISDN_WITH_ABC_NEED_DWSJIFFIES
 DWABCJIFFIES isdn_dwabc_jiffies;
 #else
@@ -110,8 +113,6 @@ extern DWABCJIFFIES isdn_dwabc_jiffies;
 #define ISDN_DW_ABC_FLAG_NO_CONN_ERROR		0x00000080L
 #define ISDN_DW_ABC_FLAG_BSD_COMPRESS		0x00000100L
 #define ISDN_DW_ABC_FLAG_NO_LCR				0x00000200L
-#define ISDN_DW_ABC_FLAG_RW_SOCKADDR		0x00000400L
-#define ISDN_DW_ABC_FLAG_RWUDP_SOCKADDR		0x00000800L
 #define ISDN_DW_ABC_FLAG_LEASED_LINE		0x00001000L
 
 #define ISDN_DW_ABC_IFFLAG_NODCHAN			0x00000001L
@@ -508,6 +509,10 @@ typedef struct isdn_net_local_s {
   ulong	dw_abc_bsd_bsd_snd;
   ulong	dw_abc_bsd_rcv;
   ulong	dw_abc_bsd_bsd_rcv;
+#if CONFIG_ISDN_WITH_ABC_IPTABLES_NETFILTER || CONFIG_ISDN_WITH_ABC_IPV6TABLES_NETFILTER
+  struct sk_buff_head dw_abc_nfq;
+  short  dw_abc_addr_ready;
+#endif
 #endif
 } isdn_net_local;
 
@@ -816,6 +821,8 @@ typedef struct isdn_devt {
 extern isdn_dev *dev;
 
 #ifdef CONFIG_ISDN_WITH_ABC
+extern int isdn_auto_dial_helper(isdn_net_local *,struct sk_buff *,int);
+extern void dwisdn_nfw_send(isdn_net_local *lp,int drop_only);
 extern void isdn_net_unreachable(struct net_device *,struct sk_buff *,char *);
 extern void isdn_net_log_skb_dwabc(struct sk_buff *,isdn_net_local *,char *);
 extern void isdn_net_hangup(struct net_device *d);

@@ -46,13 +46,15 @@ struct ISDN_DWABC_LCR_IOCTL {
 
 
 enum iptdwisdn {
-	IPT_DWISDN_NOT		= 0x800,
+	IPT_DWISDN_NOT		= 0x80,
 	IPT_DWISDN_CON		= 1,
 	IPT_DWISDN_IDEV		= 2,
 	IPT_DWISDN_CHARGE	= 3,
 	IPT_DWISDN_OUTGOING	= 4,
 	IPT_DWISDN_CBOUT	= 5,
 	IPT_DWISDN_DIALMODE	= 6,
+	IPT_DWISDN_ADDROK	= 7,
+	IPT_DWISDN_FEQIADR	= 8,
 };
 
 
@@ -64,7 +66,7 @@ enum iptdwisdn_constat {
 };
 
 enum tiptdwisdn {
-	TIPT_DWISDN_NOT			= 0x800,
+	TIPT_DWISDN_NOT			= 0x80,
 	TIPT_DWISDN_CLEAR		= 1,
 	TIPT_DWISDN_SET			= 2,
 	TIPT_DWISDN_DIAL		= 3,
@@ -87,6 +89,8 @@ static struct option IPT_dwisdn_opts[] = {
 	{"outgoing",	0,0,IPT_DWISDN_OUTGOING	},
 	{"cbout",		0,0,IPT_DWISDN_CBOUT	},
 	{"dialmode",	1,0,IPT_DWISDN_DIALMODE	},
+	{"addr_ok",		0,0,IPT_DWISDN_ADDROK	},
+	{"f_eq_iadr",	0,0,IPT_DWISDN_FEQIADR	},
 	{0},
 };
 #define IPTDWISDN_ANZOPS ((sizeof(IPT_dwisdn_opts)/sizeof(*IPT_dwisdn_opts))-1)
@@ -109,7 +113,7 @@ static struct option TIPT_dwisdn_opts[] = {
 #endif
 
 #define IPTDWISDN_MAXOPS 	16
-#define IPTDWISDN_REVISION	(u_short)2
+#define IPTDWISDN_REVISION	(u_short)3
 
 
 typedef struct IPTDWISDN_INFO {

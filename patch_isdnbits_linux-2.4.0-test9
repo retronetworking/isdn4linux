@@ -1,0 +1,36 @@
+diff -urN --minimal linux-2.4.0-test9/include/linux/skbuff.h linux/include/linux/skbuff.h
+--- linux-2.4.0-test9/include/linux/skbuff.h	Sat Sep  9 08:34:22 2000
++++ linux/include/linux/skbuff.h	Wed Oct 18 15:52:43 2000
+@@ -146,6 +146,9 @@
+ #ifdef CONFIG_NET_SCHED
+        __u32           tc_index;               /* traffic control index */
+ #endif
++#if defined(CONFIG_ISDN) || defined(CONFIG_ISDN_MODULE)
++       unsigned short   isdn_skb_bits;         /* isdn netfilter support */
++#endif
+ };
+ 
+ #define SK_WMEM_MAX	65535
+diff -urN --minimal linux-2.4.0-test9/net/core/skbuff.c linux/net/core/skbuff.c
+--- linux-2.4.0-test9/net/core/skbuff.c	Mon May 22 16:50:55 2000
++++ linux/net/core/skbuff.c	Wed Oct 18 15:51:51 2000
+@@ -246,6 +246,9 @@
+ #endif
+ 	memset(skb->cb, 0, sizeof(skb->cb));
+ 	skb->priority = 0;
++#if defined(CONFIG_ISDN) || defined(CONFIG_ISDN_MODULE)
++	skb->isdn_skb_bits = 0;
++#endif
+ }
+ 
+ /*
+@@ -375,6 +378,9 @@
+ #endif
+ #ifdef CONFIG_NET_SCHED
+ 	new->tc_index = old->tc_index;
++#endif
++#if defined(CONFIG_ISDN) || defined(CONFIG_ISDN_MODULE)
++	new->isdn_skb_bits = old->isdn_skb_bits;
+ #endif
+ }
+ 

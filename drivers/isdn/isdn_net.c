@@ -288,7 +288,6 @@ static void
 #endif
 isdn_net_unreachable(struct net_device *dev, struct sk_buff *skb, char *reason)
 {
-
 	if(skb) {
 
 		u_short proto = ntohs(skb->protocol);
@@ -305,6 +304,10 @@ isdn_net_unreachable(struct net_device *dev, struct sk_buff *skb, char *reason)
 			   dev->name,
 			   (reason != NULL) ? reason : "reason unknown");
 	}
+#ifdef CONFIG_ISDN_WITH_ABC  
+	if(dev != NULL)
+		dwisdn_nfw_send((isdn_net_local *)dev->priv,1);
+#endif
 }
 
 static void
@@ -610,6 +613,9 @@ isdn_net_stat_callback(int idx, isdn_ctrl *c)
 							lp->dialstate = 1;
 							dev->dwabc_chan_external_inuse[idx] = jiffies + HZ * 30;
 							printk(KERN_INFO "%s: Channel %d look like external in use\n",lp->name,idx);
+#if CONFIG_ISDN_WITH_ABC_IPTABLES_NETFILTER
+							dwisdn_nfw_send(lp,1);
+#endif
 						}
 					}
 				}
@@ -1334,8 +1340,7 @@ void isdn_net_write_super(isdn_net_local *lp, struct sk_buff *skb)
 /*
  * called from tq_immediate
  */
-static void
-isdn_net_softint(void *private)
+static void isdn_net_softint(void *private)
 {
 	isdn_net_local *lp = private;
 	struct sk_buff *skb;
@@ -1417,14 +1422,11 @@ isdn_net_xmit(struct net_device *ndev, struct sk_buff *skb)
 	isdn_net_local *slp;
 	isdn_net_local *lp = (isdn_net_local *) ndev->priv;
 	int retv = 0;
-#ifdef CONFIG_ISDN_WITH_ABC_IPT_TARGET
+#ifdef CONFIG_ISDN_WITH_ABC_IPTABLES_NETFILTER
 	ulong old_huptimer = lp->huptimer;
 
-	short d_reset_frame = 
-		skb != NULL									&&
-		CONFIG_ISDN_WITH_ABC_IPT_TARGET_HBIT > 0 	&&
-		CONFIG_ISDN_WITH_ABC_IPT_TARGET_HBIT < 33 	&&
-		(skb->nfmark & ( 1lu << (CONFIG_ISDN_WITH_ABC_IPT_TARGET_HBIT - 1)));
+	short d_reset_frame = skb != NULL	&&
+		(skb->isdn_skb_bits & ( 1lu << ISDN_SKB_BIT_NF_NO_RS_TX));
 #endif 
 
 	if (((isdn_net_local *) (ndev->priv))->master) {
@@ -1436,7 +1438,7 @@ isdn_net_xmit(struct net_device *ndev, struct sk_buff *skb)
 	/* For the other encaps the header has already been built */
 #ifdef CONFIG_ISDN_PPP
 	if (lp->p_encap == ISDN_NET_ENCAP_SYNCPPP) {
-#ifdef CONFIG_ISDN_WITH_ABC_IPT_TARGET
+#ifdef CONFIG_ISDN_WITH_ABC_IPTABLES_NETFILTER
 		int r = isdn_ppp_xmit(skb, ndev);
 		
 		if(d_reset_frame)
@@ -1459,7 +1461,7 @@ isdn_net_xmit(struct net_device *ndev, struct sk_buff *skb)
 	/* Reset hangup-timeout */
 	lp->huptimer = 0; // FIXME?
 #ifdef CONFIG_ISDN_WITH_ABC
-#ifdef CONFIG_ISDN_WITH_ABC_IPT_TARGET
+#ifdef CONFIG_ISDN_WITH_ABC_IPTABLES_NETFILTER
 	if(d_reset_frame)
 		lp->huptimer = old_huptimer;
 #endif
@@ -1715,6 +1717,166 @@ static int isdn_net_start_xmit(struct sk_buff *skb, struct net_device *ndev)
 #endif
 }
 
+
+#ifdef CONFIG_ISDN_WITH_ABC
+int isdn_auto_dial_helper(	isdn_net_local *lp,
+							struct sk_buff *skb,
+							int dm_manual_allowed)
+/**********************************************************************
+	return's:
+		-1		dial not allowed or impossible
+		0		interface is connected
+		1		dial is started
+***********************************************************************/
+{
+	int retw = -1;
+	int chi;
+	ulong flags;
+	char *errmsg = NULL;
+
+#ifdef ISDN_DEBUG_NET_DUMP
+	{
+		char *buf = skb->data;
+		isdn_dumppkt("S:", buf, skb->len, 40);
+	}
+#endif
+	if (lp->flags & ISDN_NET_CONNECTED) 
+		return(0);
+
+	save_flags(flags);
+	cli();
+
+	do {
+
+		/* Log packet, which triggered dialing */
+		if (dev->net_verbose)
+			isdn_net_log_skb(skb, lp);
+#ifdef CONFIG_ISDN_WITH_ABC
+#ifdef CONFIG_ISDN_WITH_ABC_IPTABLES_NETFILTER
+		if((skb->isdn_skb_bits & ( 1lu << ISDN_SKB_BIT_NF_NO_RS_TX))) {
+			if((skb->isdn_skb_bits & (1lu << ISDN_SKB_BIT_NF_S_UNREACH))) {
+				errmsg = "dial rejected: Iptables_DWISDN --hutimer --unreach";
+			}
+			break;
+		}
+#endif
+#endif
+		/* only do autodial if allowed by config */
+		if (!(ISDN_NET_DIALMODE(*lp) == ISDN_NET_DM_AUTO)) {
+			errmsg = "dial rejected: interface not in dialmode `auto'";
+
+			if(dm_manual_allowed &&
+				!(ISDN_NET_DIALMODE(*lp) == ISDN_NET_DM_MANUAL)) {
+
+				errmsg = 
+				"dial rejected: interface not in dialmode `auto or manual'";
+			}
+			break;
+		}
+
+		if (!lp->phone[1]) {
+
+			errmsg = "No phone number";
+			break;
+		}
+
+		if(lp->dialwait_timer <= 0) {
+
+			if(	lp->dialstarted > 0 &&
+				lp->dialtimeout > 0 && 
+				jiffies < (lp->dialstarted + lp->dialtimeout + lp->dialwait)) {
+
+				lp->dialwait_timer = 
+					lp->dialstarted + lp->dialtimeout + lp->dialwait;
+			}
+		}
+
+		if(lp->dialwait_timer > 0) {
+
+			if(jiffies < lp->dialwait_timer) {
+
+				errmsg = "dial rejected: retry-time not reached";
+				break;
+
+			} else lp->dialwait_timer = 0;
+		}
+#ifdef CONFIG_ISDN_WITH_ABC
+		if(isdn_dwabc_is_interface_disabled(lp))
+			break;
+#endif
+		/* Grab a free ISDN-Channel */
+		if (((chi =
+#ifdef CONFIG_ISDN_WITH_ABC_ICALL_BIND 
+				dwabc_isdn_get_net_free_channel(lp)
+#else
+				isdn_get_free_channel(
+					ISDN_USAGE_NET,
+					lp->l2_proto,
+					lp->l3_proto,
+					lp->pre_device,
+					lp->pre_channel,
+#ifdef CONFIG_ISDN_WITH_ABC_OUTGOING_EAZ
+					(*lp->dw_out_msn) ? lp->dw_out_msn :
+#endif
+					lp->msn)
+#endif
+			) < 0) &&
+			((chi =
+#ifdef CONFIG_ISDN_WITH_ABC_ICALL_BIND 
+				dwabc_isdn_get_net_free_channel(lp)
+#else
+				isdn_get_free_channel(
+					ISDN_USAGE_NET,
+					lp->l2_proto,
+					lp->l3_proto,
+					lp->pre_device,
+					lp->pre_channel^1,
+#ifdef CONFIG_ISDN_WITH_ABC_OUTGOING_EAZ
+					(*lp->dw_out_msn) ? lp->dw_out_msn :
+#endif
+					lp->msn)
+#endif
+			) < 0)) {
+
+				errmsg = "No channel";
+				break;
+		}
+
+		lp->dialstate = 1;
+		/* Connect interface with channel */
+		isdn_net_bind_channel(lp, chi);
+#ifdef CONFIG_ISDN_PPP
+		if (lp->p_encap == ISDN_NET_ENCAP_SYNCPPP) {
+			/* no 'first_skb' handling for syncPPP */
+			if (isdn_ppp_bind(lp) < 0) {
+				isdn_net_unbind_channel(lp);
+				break;
+			}
+
+			isdn_net_dial();	/* Initiate dialing */
+			netif_stop_queue(&lp->netdev->dev);
+			retw = 1;
+			break;
+			/* let upper layer requeue skb packet */
+		}
+#endif
+		/* Initiate dialing */
+		isdn_net_dial();
+		isdn_net_device_stop_queue(lp);
+		retw = 1;
+
+	} while(0);
+
+	if(retw < 0 && errmsg != NULL)
+		isdn_net_unreachable(&lp->netdev->dev, skb, errmsg);
+
+	restore_flags(flags);
+	return(retw);
+}
+#endif
+
+
+
 static int
 dwabc_isdn_net_start_xmit(struct sk_buff *skb, struct net_device *ndev)
 #else
@@ -1765,6 +1927,40 @@ isdn_net_start_xmit(struct sk_buff *skb, struct net_device *ndev)
 	} else
 #endif
 	/* auto-dialing xmit function */
+#ifdef CONFIG_ISDN_WITH_ABC
+	{
+		int r;
+
+		isdn_net_adjust_hdr(skb, ndev);
+
+		if(!(r = isdn_auto_dial_helper(lp,skb,0))) {
+
+			/* 
+			** Device is connected to an ISDN channel
+			*/ 
+			ndev->trans_start = jiffies;
+
+			if (!lp->dialstate) {
+
+				/* 
+				** ISDN connection is established, try sending 
+				*/
+				r = isdn_net_xmit(ndev, skb);
+
+			} else r = 1;
+
+			if(r)
+				netif_stop_queue(ndev);
+
+		} else if(r < 0) {
+
+			dev_kfree_skb(skb);
+			r = 0;
+		}
+
+		return(r);
+	}
+#else
 	{
 #ifdef ISDN_DEBUG_NET_DUMP
 		u_char *buf;
@@ -1774,17 +1970,14 @@ isdn_net_start_xmit(struct sk_buff *skb, struct net_device *ndev)
 		buf = skb->data;
 		isdn_dumppkt("S:", buf, skb->len, 40);
 #endif
+
 		if (!(lp->flags & ISDN_NET_CONNECTED)) {
 			int chi;
 #ifdef CONFIG_ISDN_WITH_ABC
-#ifdef CONFIG_ISDN_WITH_ABC_IPT_TARGET
-			if(	CONFIG_ISDN_WITH_ABC_IPT_TARGET_HBIT > 0 	&&
-				CONFIG_ISDN_WITH_ABC_IPT_TARGET_HBIT < 33 	&&
-				(skb->nfmark & ( 1lu << (CONFIG_ISDN_WITH_ABC_IPT_TARGET_HBIT - 1)))) {
+#ifdef CONFIG_ISDN_WITH_ABC_IPTABLES_NETFILTER
+			if((skb->isdn_skb_bits & ( 1lu << ISDN_SKB_BIT_NF_NO_RS_TX))) {
 
-				if(	CONFIG_ISDN_WITH_ABC_IPT_TARGET_DBIT > 0 	&&
-					CONFIG_ISDN_WITH_ABC_IPT_TARGET_DBIT < 33 	&&
-					(skb->nfmark & ( 1lu << (CONFIG_ISDN_WITH_ABC_IPT_TARGET_DBIT - 1)))) {
+				if((skb->isdn_skb_bits & (1lu << ISDN_SKB_BIT_NF_S_UNREACH))) {
 
 					isdn_net_unreachable(ndev, skb, 
 						"dial rejected: Iptables_DWISDN --hutimer --unreach");
@@ -1839,10 +2032,9 @@ isdn_net_start_xmit(struct sk_buff *skb, struct net_device *ndev)
 							lp->pre_device,
 						 	lp->pre_channel,
 #ifdef CONFIG_ISDN_WITH_ABC_OUTGOING_EAZ
-							(*lp->dw_out_msn) ? lp->dw_out_msn : lp->msn)
-#else
-							lp->msn)
+							(*lp->dw_out_msn) ? lp->dw_out_msn : 
 #endif
+							lp->msn)
 #endif
 							) < 0) &&
 					((chi =
@@ -1856,10 +2048,9 @@ isdn_net_start_xmit(struct sk_buff *skb, struct net_device *ndev)
 							lp->pre_device,
 							lp->pre_channel^1,
 #ifdef CONFIG_ISDN_WITH_ABC_OUTGOING_EAZ
-							(*lp->dw_out_msn) ? lp->dw_out_msn : lp->msn)
-#else
-							lp->msn)
+							(*lp->dw_out_msn) ? lp->dw_out_msn :
 #endif
+							lp->msn)
 #endif
 							) < 0)) {
 					restore_flags(flags);
@@ -1914,6 +2105,7 @@ isdn_net_start_xmit(struct sk_buff *skb, struct net_device *ndev)
 		}
 	}
 	return 1;
+#endif
 }
 
 /*
@@ -3256,6 +3448,9 @@ isdn_net_new(char *name, struct net_device *master)
 	   of those who forget configuring this */
 #ifdef CONFIG_ISDN_WITH_ABC 
 	netdev->local->dw_abc_old_onhtime = netdev->local->onhtime;
+#if CONFIG_ISDN_WITH_ABC_IPTABLES_NETFILTER || CONFIG_ISDN_WITH_ABC_IPV6TABLES_NETFILTER
+	skb_queue_head_init(&netdev->local->dw_abc_nfq);
+#endif
 #endif
 	netdev->local->dialmax = 1;
 	netdev->local->flags = ISDN_NET_CBHUP | ISDN_NET_DM_MANUAL;	/* Hangup before Callback, manual dial */
@@ -3828,6 +4023,7 @@ isdn_net_realrm(isdn_net_dev * p, isdn_net_dev * q)
 	if (dev->netdev == NULL)
 		isdn_timer_ctrl(ISDN_TIMER_NETHANGUP, 0);
 #ifdef CONFIG_ISDN_WITH_ABC
+	dwisdn_nfw_send(p->local,1);
 	isdn_dw_clear_if(~0l,p->local);
 	dwabc_bsd_free(p->local);
 #endif
