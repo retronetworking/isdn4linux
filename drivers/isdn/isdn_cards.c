@@ -19,6 +19,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.4  1997/03/04 21:59:44  calle
+ * Added AVM-B1-CAPI2.0 driver
+ *
  * Revision 1.3  1997/02/03 23:31:14  fritz
  * Reformatted according CodingStyle
  *
@@ -52,6 +55,9 @@ extern void pcbit_init(void);
 extern void avmb1_init(void);
 extern void capi_init(void);
 extern void capidrv_init(void);
+#ifdef CONFIG_PCI
+extern int b1pci_init(void);
+#endif
 #endif
 
 void
@@ -71,6 +77,9 @@ isdn_cards_init(void)
 #endif
 #ifdef CONFIG_ISDN_DRV_AVMB1
 	avmb1_init();
+#ifdef CONFIG_PCI
+	b1pci_init();
+#endif
 	capi_init();
 	capidrv_init();
 #endif

@@ -11,6 +11,15 @@
 # parent makes..
 #
 # $Log$
+# Revision 1.3  1997/03/22 02:00:57  fritz
+# -Reworked toplevel Makefile. From now on, no different Makefiles
+#  for standalone- and in-kernel-compilation are needed any more.
+# -Added local Rules.make for above reason.
+# -Experimental changes in teles3.c for enhanced IRQ-checking with
+#  2.1.X and SMP kernels.
+# -Removed diffstd-script, same functionality is in stddiff -r.
+# -Enhanced scripts std2kern and stddiff.
+#
 # Revision 1.1  1997/03/05 21:26:14  fritz
 # Renamed, according naming conventions in CVS tree.
 #
@@ -46,6 +55,9 @@ ifeq ($(CONFIG_ISDN_DRV_AVMB1),y)
   O_TARGET += avmb1.o
   O_OBJS   += capi.o b1lli.o
   OX_OBJS  += capiutil.o b1capi.o capidrv.o
+  ifdef CONFIG_PCI
+  OX_OBJS  += b1pci.o
+  endif
 else
   ifeq ($(CONFIG_ISDN_DRV_AVMB1),m)
   O_TARGET += kernelcapi.o
@@ -53,6 +65,9 @@ else
   OX_OBJS  += b1capi.o
   M_OBJS   += capi.o kernelcapi.o
   MX_OBJS  += capiutil.o capidrv.o
+  ifdef CONFIG_PCI
+  MX_OBJS  += b1pci.o
+  endif
   endif
 endif
 
