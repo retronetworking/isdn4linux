@@ -11,6 +11,9 @@
  *              Fritz Elfert
  *
  * $Log$
+ * Revision 1.30.2.14  1999/04/22 21:10:00  werner
+ * Added support for dss1 diversion services
+ *
  *
  * Revision 1.30.2.13  1998/11/05 21:13:32  keil
  * minor fixes
@@ -254,9 +257,9 @@ enum {
 	EV_SETUP_ERR,		/* 21 */
 	EV_CONNECT_ERR,		/* 22 */
 	EV_RELEASE_ERR,		/* 23 */
-        EV_PROCEED,             /* 24 */
-        EV_ALERT,               /* 25 */ 
-        EV_REDIR,               /* 26 */ 
+	EV_PROCEED,		/* 24 */
+	EV_ALERT,		/* 25 */ 
+	EV_REDIR,		/* 26 */ 
 };
 
 #define EVENT_COUNT (EV_REDIR + 1)
@@ -287,9 +290,9 @@ static char *strEvent[] =
 	"EV_SETUP_ERR",
 	"EV_CONNECT_ERR",
 	"EV_RELEASE_ERR",
-        "EV_PROCEED",
-        "EV_ALERT",
-        "EV_REDIR",
+	"EV_PROCEED",
+	"EV_ALERT",
+	"EV_REDIR",
 };
 
 static inline void
@@ -1140,7 +1143,7 @@ static struct FsmNode fnlist[] HISAX_INITDATA =
 	{ST_IN_WAIT_LL,		EV_DLEST,		lli_d_established},
 	{ST_IN_WAIT_LL,		EV_DLRL,		lli_d_released},
 	{ST_IN_WAIT_LL,		EV_ACCEPTD,		lli_start_dchan},
-        {ST_IN_WAIT_LL,         EV_PROCEED,             lli_start_dchan},  
+	{ST_IN_WAIT_LL,		EV_PROCEED,		lli_start_dchan},  
 	{ST_IN_WAIT_LL,		EV_HANGUP,		lli_start_dchan},
 	{ST_IN_WAIT_LL,		EV_DISCONNECT_IND,	lli_received_d_disc},
 	{ST_IN_WAIT_LL,		EV_RELEASE_IND,		lli_received_d_rel},
@@ -1152,10 +1155,10 @@ static struct FsmNode fnlist[] HISAX_INITDATA =
 	{ST_IN_ALERT_SEND,	EV_RELEASE_IND,		lli_received_d_rel},
 	{ST_IN_ALERT_SEND,	EV_RELEASE_CNF,		lli_received_d_relcnf},
 	{ST_IN_ALERT_SEND,	EV_DLRL,		lli_got_dlrl},
-        {ST_IN_ALERT_SEND,      EV_REDIR,               lli_send_redir},
-        {ST_IN_PROCEED_SEND,    EV_REDIR,               lli_send_redir},
-        {ST_IN_PROCEED_SEND,    EV_ALERT,               lli_send_alert},
-        {ST_IN_PROCEED_SEND,    EV_ACCEPTD,             lli_send_dconnect},
+	{ST_IN_ALERT_SEND,	EV_REDIR,		lli_send_redir},
+	{ST_IN_PROCEED_SEND,	EV_REDIR,		lli_send_redir},
+	{ST_IN_PROCEED_SEND,	EV_ALERT,		lli_send_alert},
+	{ST_IN_PROCEED_SEND,	EV_ACCEPTD,		lli_send_dconnect},
 	{ST_IN_PROCEED_SEND,	EV_HANGUP,		lli_send_d_disc},
 	{ST_IN_PROCEED_SEND,	EV_DISCONNECT_IND,	lli_received_d_disc},
 	{ST_IN_PROCEED_SEND,	EV_RELEASE_IND,		lli_received_d_rel},
@@ -1301,13 +1304,13 @@ is_activ(struct PStack *st)
 }
 
 static void stat_redir_result(struct IsdnCardState *cs, int chan, ulong result)
-{ isdn_ctrl ic;
+{	isdn_ctrl ic;
   
-  ic.driver = cs->myid;
-  ic.command = ISDN_STAT_REDIR;
-  ic.arg = chan; 
-  (ulong)(ic.parm.num[0]) = result;
-  cs->iif.statcallb(&ic);
+	ic.driver = cs->myid;
+	ic.command = ISDN_STAT_REDIR;
+	ic.arg = chan; 
+	(ulong)(ic.parm.num[0]) = result;
+	cs->iif.statcallb(&ic);
 } /* stat_redir_result */
 
 static void
@@ -1396,18 +1399,18 @@ dchan_l3l4(struct PStack *st, int pr, void *arg)
 		case (CC_RELEASE_ERR):
 			FsmEvent(&chanp->fi, EV_RELEASE_ERR, NULL);
 			break;
-	        case (CC_PROCEED_SEND | INDICATION):
-                        if (test_bit(FLG_DO_REDIR, &chanp->Flags))
-			  FsmEvent(&chanp->fi, EV_REDIR, NULL); 
-                        break; 
+		case (CC_PROCEED_SEND | INDICATION):
+			if (test_bit(FLG_DO_REDIR, &chanp->Flags))
+			FsmEvent(&chanp->fi, EV_REDIR, NULL); 
+			break; 
 		case (CC_PROCEEDING | INDICATION):
 		case (CC_ALERTING | INDICATION):
 		case (CC_PROGRESS | INDICATION):
 		case (CC_NOTIFY | INDICATION):
 			break;
-	        case (CC_REDIR | INDICATION):
-                        stat_redir_result(cs, chanp->chan, pc->redir_result); 
-                        break;                         
+		case (CC_REDIR | INDICATION):
+			stat_redir_result(cs, chanp->chan, pc->redir_result); 
+			break;                         
 		default:
 			if (chanp->debug & 0x800) {
 				HiSax_putstatus(chanp->cs, "Ch",
@@ -1523,11 +1526,11 @@ CallcNewChan(struct IsdnCardState *csta)
 	init_chan(0, csta);
 	init_chan(1, csta);
 	printk(KERN_INFO "HiSax: 2 channels added\n");
-        
-        for (i = 0; i < MAX_WAITING_CALLS; i++) 
-          init_chan(i+2,csta);
-        printk(KERN_INFO "HiSax: MAX_WAITING_CALLS added\n");        
-  
+
+	for (i = 0; i < MAX_WAITING_CALLS; i++) 
+		init_chan(i+2,csta);
+	printk(KERN_INFO "HiSax: MAX_WAITING_CALLS added\n");        
+
 	if (test_bit(FLG_PTP, &csta->channel->d_st->l2.flag)) {
 		printk(KERN_INFO "LAYER2 WATCHING ESTABLISH\n");
 		test_and_set_bit(FLG_START_D, &csta->channel->Flags);
@@ -1857,7 +1860,7 @@ int
 HiSax_command(isdn_ctrl * ic)
 {
 	struct IsdnCardState *csta = hisax_findcard(ic->driver);
-        struct PStack *st;
+	struct PStack *st;
 	struct Channel *chanp;
 	int i;
 	u_int num;
@@ -2113,11 +2116,11 @@ HiSax_command(isdn_ctrl * ic)
 
 		/* protocol specific io commands */
 	        case (ISDN_CMD_PROT_IO):
-		        for (st = csta->stlist; st; st = st->next)
-                          if (st->protocol == (ic->arg & 0xFF))
-			    return(st->lli.l4l3_proto(st, ic));
-                        return(-EINVAL);                     
-                        break;
+			for (st = csta->stlist; st; st = st->next)
+				if (st->protocol == (ic->arg & 0xFF))
+					return(st->lli.l4l3_proto(st, ic));
+			return(-EINVAL);                     
+			break;
 		default:
 			break;
 	}
