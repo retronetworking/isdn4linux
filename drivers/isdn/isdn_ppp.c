@@ -19,6 +19,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.41  1998/07/08 16:50:57  hipp
+ * Compression changes
+ *
  * Revision 1.40  1998/04/06 19:07:27  hipp
  * added check, whether compression is enabled.
  *
@@ -1519,7 +1522,8 @@ isdn_ppp_xmit(struct sk_buff *skb, struct device *dev)
 	/*
 	 * normal (single link) or bundle compression
 	 */
-	skb = isdn_ppp_compress(skb,&proto,ipt,ipts,0);
+	if(ipts->compflags & SC_COMP_ON)
+		skb = isdn_ppp_compress(skb,&proto,ipt,ipts,0);
 
 	if (ipt->debug & 0x24)
 		printk(KERN_DEBUG "xmit2 skb, len %d, proto %04x\n", (int) skb->len, proto);
@@ -1555,7 +1559,8 @@ isdn_ppp_xmit(struct sk_buff *skb, struct device *dev)
 	/*
 	 * 'link in bundle' compression  ...
 	 */
-	skb = isdn_ppp_compress(skb,&proto,ipt,ipts,1);
+	if(ipt->compflags & SC_LINK_COMP_ON)
+		skb = isdn_ppp_compress(skb,&proto,ipt,ipts,1);
 
 	if( (ipt->pppcfg & SC_COMP_PROT) && (proto <= 0xff) ) {
 		unsigned char *data = isdn_ppp_skb_push(&skb,1);
