@@ -6,6 +6,10 @@
  * (c) Copyright 1999 by Carsten Paeth (calle@calle.in-berlin.de)
  * 
  * $Log$
+ * Revision 1.20  2000/11/23 20:45:14  kai
+ * fixed module_init/exit stuff
+ * Note: compiled-in kernel doesn't work pre 2.2.18 anymore.
+ *
  * Revision 1.19  2000/11/19 17:02:47  kai
  * compatibility cleanup - part 3
  *
@@ -102,24 +106,6 @@ static char *revision = "$Revision$";
 
 #undef CONFIG_C4_DEBUG
 #undef CONFIG_C4_POLLDEBUG
-
-/* ------------------------------------------------------------- */
-
-#ifndef PCI_VENDOR_ID_DEC
-#define PCI_VENDOR_ID_DEC	0x1011
-#endif
-
-#ifndef PCI_DEVICE_ID_DEC_21285
-#define PCI_DEVICE_ID_DEC_21285	0x1065
-#endif
-
-#ifndef PCI_VENDOR_ID_AVM
-#define PCI_VENDOR_ID_AVM	0x1244
-#endif
-
-#ifndef PCI_DEVICE_ID_AVM_C4
-#define PCI_DEVICE_ID_AVM_C4	0x0800
-#endif
 
 /* ------------------------------------------------------------- */
 

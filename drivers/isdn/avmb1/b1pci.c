@@ -6,6 +6,10 @@
  * (c) Copyright 1999 by Carsten Paeth (calle@calle.in-berlin.de)
  * 
  * $Log$
+ * Revision 1.29  2000/11/23 20:45:14  kai
+ * fixed module_init/exit stuff
+ * Note: compiled-in kernel doesn't work pre 2.2.18 anymore.
+ *
  * Revision 1.28  2000/11/01 14:05:02  calle
  * - use module_init/module_exit from linux/init.h.
  * - all static struct variables are initialized with "membername:" now.
@@ -107,16 +111,6 @@
 #include "avmcard.h"
 
 static char *revision = "$Revision$";
-
-/* ------------------------------------------------------------- */
-
-#ifndef PCI_VENDOR_ID_AVM
-#define PCI_VENDOR_ID_AVM	0x1244
-#endif
-
-#ifndef PCI_DEVICE_ID_AVM_B1
-#define PCI_DEVICE_ID_AVM_B1	0x700
-#endif
 
 /* ------------------------------------------------------------- */
 

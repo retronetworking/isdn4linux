@@ -45,16 +45,16 @@ static struct {
 } pci_subid_map[] = {
 
 	{
-		PCI_SUB_ID_METRO, BD_METRO
+		PCI_SUBDEVICE_ID_HYPERCOPE_METRO, BD_METRO
 	},
 	{
-		PCI_SUB_ID_CHAMP2, BD_CHAMP2
+		PCI_SUBDEVICE_ID_HYPERCOPE_CHAMP2, BD_CHAMP2
 	},
 	{
-		PCI_SUB_ID_ERGO, BD_ERGO
+		PCI_SUBDEVICE_ID_HYPERCOPE_ERGO, BD_ERGO
 	},
 	{
-		PCI_SUB_ID_OLD_ERGO, BD_ERGO
+		PCI_SUBDEVICE_ID_HYPERCOPE_OLD_ERGO, BD_ERGO
 	},
 	{
 		0, 0
@@ -75,7 +75,7 @@ search_cards(void)
 
 	card_root = NULL;
 	card_last = NULL;
-	while ((akt_pcidev = pci_find_device(PCI_VENDOR_ID_HYPERCOPE, PCI_DEVICE_ID_PLX,
+	while ((akt_pcidev = pci_find_device(PCI_VENDOR_ID_HYPERCOPE, PCI_DEVICE_ID_HYPERCOPE_PLX,
 					     akt_pcidev)) != NULL) {
 #ifndef COMPAT_HAS_2_2_PCI
 		if (pci_enable_device(akt_pcidev))

@@ -1379,11 +1379,6 @@ HiSax_reportcard(int cardnr, int sel)
 #endif
 }
 
-
-#ifdef MODULE
-#define HiSax_init init_module
-#endif
-
 int __init
 HiSax_init(void)
 {
@@ -1556,6 +1551,8 @@ HiSax_init(void)
 }
 
 #ifdef MODULE
+int init_module(void) { return HiSax_init(); }
+
 void
 cleanup_module(void)
 {

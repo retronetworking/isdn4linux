@@ -116,21 +116,6 @@
 #define PROC_CONF_BASENAME "cardconf"
 #define PROC_LOG_BASENAME "cardlog"
 
-/************************/
-/* PCI constant defines */
-/************************/
-#define PCI_VENDOR_ID_HYPERCOPE 0x1365
-#define PCI_DEVICE_ID_PLX 0x9050	/* all DPRAM cards use the same id */
-
-/*****************************/
-/* sub ids determining cards */
-/*****************************/
-#define PCI_SUB_ID_OLD_ERGO 0x0104
-#define PCI_SUB_ID_ERGO     0x0106
-#define PCI_SUB_ID_METRO    0x0107
-#define PCI_SUB_ID_CHAMP2   0x0108
-#define PCI_SUB_ID_PLEXUS   0x0109
-
 /***********************************/
 /* PCI 32 bit parms for IO and MEM */
 /***********************************/
