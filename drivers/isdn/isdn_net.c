@@ -21,6 +21,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.86  1999/06/09 10:12:05  paul
+ * thinko in previous patch
+ *
  * Revision 1.85  1999/06/07 19:42:39  paul
  * isdn_net_getpeer() fixed to return correct `outgoing' flag
  *
@@ -1556,7 +1559,7 @@ static void
 isdn_net_slarp_send(isdn_net_local *lp, int is_reply)
 {
 	unsigned short hl = dev->drv[lp->isdn_device]->interface->hl_hdrlen;
-	struct sk_buff *skb = dev_alloc_skb(hl + sizeof(cisco_hdr) + sizeof(cisco_slarp));
+	struct sk_buff *skb = alloc_skb(hl + sizeof(cisco_hdr) + sizeof(cisco_slarp), GFP_ATOMIC);
 	unsigned long t = (jiffies / HZ * 1000000);
 	int len;
 	cisco_hdr *ch;
