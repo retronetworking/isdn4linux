@@ -25,6 +25,7 @@ Supported cards
 Teles 8.0/16.0/16.3 and compatible ones (no 16.3c)
 Teles S0/PCMCIA
 Creatix PnP S0 
+Compaq ISDN S0 ISA card
 AVM A1 (Fritz, Teledat 150)
 ELSA Microlink PCC-16, PCF, PCF-Pro, PCC-8
 ELSA Quickstep 1000
@@ -135,6 +136,8 @@ Card types:
    16   USR Sportster internal   irq, io  
    17   MIC card                 irq, io  
    18   ELSA Quickstep 1000PCI   no parameter
+   19   Compaq ISDN S0 ISA card  irq, io0, io1, io (from isapnp setup io=IO2)
+   20   NETjet PCI card          no parameter
         
 At the moment IRQ sharing is not possible. Please make sure that your IRQ
 is free and enabled for ISA use.
@@ -217,6 +220,8 @@ Card types:
    16   USR Sportster internal  pa=irq  pb=io
    17   MIC card                pa=irq  pb=io
    18   ELSA Quickstep 1000PCI  no parameter
+   19   Compaq ISDN S0 ISA card ONLY WORKS AS A MODULE !
+   20   NETjet PCI card         no parameter
 
 Running the driver
 ------------------
