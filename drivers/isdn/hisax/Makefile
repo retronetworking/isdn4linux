@@ -21,6 +21,7 @@ ISAC_OBJ :=
 ARCOFI_OBJ :=
 HSCX_OBJ :=
 HFC_OBJ :=
+HFC_2BDS0 :=
 
 ifeq ($(CONFIG_HISAX_16_0),y)
 	 O_OBJS += teles0.o
@@ -94,7 +95,12 @@ ifeq ($(CONFIG_HISAX_NETJET),y)
 	 ISAC_OBJ := isac.o
 endif
 
-O_OBJS += $(ISAC_OBJ) $(HSCX_OBJ) $(HFC_OBJ) $(ARCOFI_OBJ)
+ifeq ($(CONFIG_HISAX_TELES3C),y)
+	 O_OBJS += teles3c.o
+	 HFC_2BDS0 := hfc_2bds0.o
+endif
+
+O_OBJS += $(ISAC_OBJ) $(HSCX_OBJ) $(HFC_OBJ) $(HFC_2BDS0) $(ARCOFI_OBJ)
 OX_OBJS += config.o
 
 O_TARGET :=
