@@ -20,6 +20,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.47  1998/02/22 19:44:14  fritz
+ * Bugfixes and improvements regarding V.110, V.110 now running.
+ *
  * Revision 1.46  1998/02/20 17:23:08  fritz
  * Changes for recent kernels.
  * Merged in contributions by Thomas Pfeiffer (V.110 T.70+ Extended FAX stuff)
@@ -1356,7 +1359,7 @@ isdn_tty_get_lsr_info(modem_info * info, uint * value)
 	status = info->lsr;
 	restore_flags(flags);
 	result = ((status & UART_LSR_TEMT) ? TIOCSER_TEMT : 0);
-	put_user(result, (ulong *) value);
+	put_user(result, (uint *) value);
 	return 0;
 }
 
@@ -1380,7 +1383,7 @@ isdn_tty_get_modem_info(modem_info * info, uint * value)
 	    | ((status & UART_MSR_RI) ? TIOCM_RNG : 0)
 	    | ((status & UART_MSR_DSR) ? TIOCM_DSR : 0)
 	    | ((status & UART_MSR_CTS) ? TIOCM_CTS : 0);
-	put_user(result, (ulong *) value);
+	put_user(result, (uint *) value);
 	return 0;
 }
 
