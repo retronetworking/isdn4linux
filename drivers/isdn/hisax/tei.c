@@ -7,6 +7,9 @@
  *              Fritz Elfert
  *
  * $Log$
+ * Revision 1.1  1996/10/13 20:04:57  keil
+ * Initial revision
+ *
  *
  *
  */
@@ -206,7 +209,7 @@ init_tei(struct IsdnCardState *sp, int protocol)
 	st->l2.sap = 63;
 	st->l2.tei = 127;
 
-	sprintf(tmp, "Card %d tei ", sp->cardnr);
+	sprintf(tmp, "Card %d tei ", sp->cardnr+1);
 	setstack_isdnl2(st, tmp);
 	st->l2.debug = 0;
 	st->l3.debug = 0;
