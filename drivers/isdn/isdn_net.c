@@ -21,6 +21,15 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.5  1996/04/20 16:28:38  fritz
+ * Made more parameters of the dial statemachine user-configurable and
+ * added hangup after dial for more reliability using callback.
+ * Changed all io going through generic routines in isdn_common.c
+ * Added missing call to dev_free_skb on failed dialing.
+ * Added uihdlc encapsulation.
+ * Fixed isdn_net_setcfg not to destroy interface-flags anymore.
+ * Misc. typos.
+ *
  * Revision 1.4  1996/02/19 15:23:38  fritz
  * Bugfix: Sync-PPP packets got compressed twice, when resent due to
  *         send-queue-full reject.
@@ -46,9 +55,7 @@
  *
  */
 
-#ifndef STANDALONE
 #include <linux/config.h>
-#endif
 #define __NO_VERSION__
 #include <linux/module.h>
 #include <linux/isdn.h>

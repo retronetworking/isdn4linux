@@ -19,6 +19,10 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.5  1996/04/20 16:32:32  fritz
+ * Changed ippp_table to an array of pointers, allocating each part
+ * separately.
+ *
  * Revision 1.4  1996/02/19 15:25:50  fritz
  * Bugfix: Sync-PPP packets got compressed twice, when resent due to
  * send-queue-full reject.
@@ -39,9 +43,7 @@
 
 /* TODO: right tbusy handling when using MP */
 
-#ifndef STANDALONE
 #include <linux/config.h>
-#endif
 #define __NO_VERSION__
 #include <linux/module.h>
 #include <linux/isdn.h>
