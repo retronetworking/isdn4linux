@@ -19,6 +19,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.25  1997/02/12 20:37:35  hipp
+ * New ioctl() PPPIOCGCALLINFO, minor cleanup
+ *
  * Revision 1.24  1997/02/11 18:32:56  fritz
  * Bugfix in isdn_ppp_free_mpqueue().
  *
@@ -135,6 +138,7 @@ static int isdn_ppp_closewait(int slot);
 static void isdn_ppp_push_higher(isdn_net_dev * net_dev, isdn_net_local * lp,
 				 struct sk_buff *skb, int proto);
 static int isdn_ppp_if_get_unit(char *namebuf);
+static int isdn_ppp_set_compressor(struct ippp_struct *is,int num);
 
 #ifdef CONFIG_ISDN_MPP
 static int isdn_ppp_bundle(struct ippp_struct *, int unit);
@@ -150,6 +154,7 @@ static void isdn_ppp_free_mpqueue(isdn_net_dev *);
 char *isdn_ppp_revision = "$Revision$";
 
 static struct ippp_struct *ippp_table[ISDN_MAX_CHANNELS];
+static struct isdn_ppp_compressor *ipc_head = NULL;
 
 extern int isdn_net_force_dial_lp(isdn_net_local *);
 
@@ -368,6 +373,7 @@ isdn_ppp_open(int min, struct file *file)
 	if (is->debug & 0x1)
 		printk(KERN_DEBUG "ippp, open, slot: %d, minor: %d, state: %04x\n", slot, min, is->state);
 
+	is->compressor = NULL;
 	is->lp = NULL;
 	is->mp_seqno = 0;       /* MP sequence number */
 	is->pppcfg = 0;         /* ppp configuration */
@@ -480,7 +486,7 @@ int
 isdn_ppp_ioctl(int min, struct file *file, unsigned int cmd, unsigned long arg)
 {
 	unsigned long val;
-	int r;
+	int num,r;
 	struct ippp_struct *is;
 	isdn_net_local *lp;
 
@@ -589,16 +595,22 @@ isdn_ppp_ioctl(int min, struct file *file, unsigned int cmd, unsigned long arg)
 				return r;
 			is->debug = val;
 			break;
-		case PPPIOCSCOMPRESS:
-#if 0
+		case PPPIOCGCOMPRESSORS:
 			{
-				struct ppp_option_data pod;
-				r = get_arg((void *) arg, &pod, sizeof(struct ppp_option_data));
-				if (r)
+				unsigned long protos = 0;
+				struct isdn_ppp_compressor *ipc = ipc_head;
+				while(ipc) {
+					protos |= (0x1<<ipc->num);
+					ipc = ipc->next;
+				}
+				if ((r = set_arg((void *) arg, protos, 0)))
 					return r;
-				ippp_set_compression(is, &pod);
 			}
-#endif
+			break;
+		case PPPIOCSCOMPRESSOR:
+			if ((r = get_arg((void *) arg, &num, sizeof(int))))
+				return r;
+			return isdn_ppp_set_compressor(is, num);
 			break;
 		case PPPIOCGCALLINFO:
 			{
@@ -1206,7 +1218,7 @@ isdn_ppp_xmit(struct sk_buff *skb, struct device *dev)
 	isdn_net_local *lp,
 	*mlp;
 	isdn_net_dev *nd;
-	int proto = PPP_IP;     /* 0x21 */
+	unsigned int proto = PPP_IP;     /* 0x21 */
 	struct ippp_struct *ipt,
 	*ipts;
 
@@ -1237,7 +1249,8 @@ isdn_ppp_xmit(struct sk_buff *skb, struct device *dev)
 			if (ipts->old_pa_addr != mdev->pa_addr) {
 				struct iphdr *ipfr;
 				ipfr = (struct iphdr *) skb->data;
-				printk(KERN_DEBUG "IF-address changed from %lx to %lx\n", ipts->old_pa_addr, mdev->pa_addr);
+				if(ipts->debug & 0x4)
+					printk(KERN_DEBUG "IF-address changed from %lx to %lx\n", ipts->old_pa_addr, mdev->pa_addr);
 				if (ipfr->version == 4) {
 					if (ipfr->saddr == ipts->old_pa_addr) {
 						printk(KERN_DEBUG "readdressing %lx to %lx\n", ipfr->saddr, mdev->pa_addr);
@@ -1245,7 +1258,7 @@ isdn_ppp_xmit(struct sk_buff *skb, struct device *dev)
 					}
 				}
 			}
-			/* dstaddr change not so improtant */
+			/* dstaddr change not so important */
 #endif
 			break;
 		case ETH_P_IPX:
@@ -1328,27 +1341,36 @@ isdn_ppp_xmit(struct sk_buff *skb, struct device *dev)
 		ipts->mp_seqno++;
 		nd->queue = nd->queue->next;
 		if (ipt->mpppcfg & SC_OUT_SHORT_SEQ) {
-			skb_push(skb, 3);
+			unsigned char *data = skb_push(skb, 3);
 			mp_seqno &= 0xfff;
-			skb->data[0] = MP_BEGIN_FRAG | MP_END_FRAG | (mp_seqno >> 8);	/* (B)egin & (E)ndbit .. */
-			skb->data[1] = mp_seqno & 0xff;
-			skb->data[2] = proto;	/* PID compression */
+			data[0] = MP_BEGIN_FRAG | MP_END_FRAG | (mp_seqno >> 8);	/* (B)egin & (E)ndbit .. */
+			data[1] = mp_seqno & 0xff;
+			data[2] = proto;	/* PID compression */
 		} else {
-			skb_push(skb, 5);
-			skb->data[0] = MP_BEGIN_FRAG | MP_END_FRAG;	/* (B)egin & (E)ndbit .. */
-			skb->data[1] = (mp_seqno >> 16) & 0xff;	/* sequence number: 24bit */
-			skb->data[2] = (mp_seqno >> 8) & 0xff;
-			skb->data[3] = (mp_seqno >> 0) & 0xff;
-			skb->data[4] = proto;	/* PID compression */
+			unsigned char *data = skb_push(skb, 5);
+			data[0] = MP_BEGIN_FRAG | MP_END_FRAG;	/* (B)egin & (E)ndbit .. */
+			data[1] = (mp_seqno >> 16) & 0xff;	/* sequence number: 24bit */
+			data[2] = (mp_seqno >> 8) & 0xff;
+			data[3] = (mp_seqno >> 0) & 0xff;
+			data[4] = proto;	/* PID compression */
 		}
 		proto = PPP_MP; /* MP Protocol, 0x003d */
 	}
 #endif
-	skb_push(skb, 4);
-	skb->data[0] = 0xff;    /* All Stations */
-	skb->data[1] = 0x03;    /* Unnumbered information */
-	skb->data[2] = proto >> 8;
-	skb->data[3] = proto & 0xff;
+	if( (ipt->pppcfg & SC_COMP_PROT) && (proto <= 0xff) ) {
+		unsigned char *data = skb_push(skb,1);
+		data[0] = proto & 0xff;
+	}
+	else {
+		unsigned char *data = skb_push(skb,2);
+		data[0] = (proto >> 8) & 0xff;
+		data[1] = proto & 0xff;
+	}
+	if(!(ipt->pppcfg & SC_COMP_AC)) {
+		unsigned char *data = skb_push(skb,2);
+		data[0] = 0xff;    /* All Stations */
+		data[1] = 0x03;    /* Unnumbered information */
+	}
 
 	/* tx-stats are now updated via BSENT-callback */
 
@@ -1879,6 +1901,45 @@ isdn_ppp_hangup_slave(char *name)
 #endif
 }
 
+
+int isdn_ppp_register_compressor(struct isdn_ppp_compressor *ipc)
+{
+	ipc->next = ipc_head;
+	ipc->prev = NULL;
+	if(ipc_head) {
+		ipc_head->prev = ipc;
+	}
+	ipc_head = ipc;
+	return 0;
+}
+
+int isdn_ppp_unregister_compressor(struct isdn_ppp_compressor *ipc)
+{
+	if(ipc->prev)
+		ipc->prev->next = ipc->next;
+	else
+		ipc_head = ipc->next;
+	if(ipc->next)
+		ipc->next->prev = ipc->prev;
+	ipc->prev = ipc->next = NULL;
+	return 0;
+}
+
+static int isdn_ppp_set_compressor(struct ippp_struct *is,int num)
+{
+	struct isdn_ppp_compressor *ipc = ipc_head;
+
+	while(ipc) {
+		if(ipc->num == num) {
+			return 0;	
+			is->compressor = ipc;
+		}
+		ipc = ipc->next;
+	}
+	return -EINVAL;
+}
+
+
 #if 0
 static struct symbol_table isdn_ppp_syms =
 {
@@ -1888,3 +1949,7 @@ static struct symbol_table isdn_ppp_syms =
 #include <linux/symtab_end.h>
 };
 #endif
+
+
+
+
