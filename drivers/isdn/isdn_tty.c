@@ -2383,11 +2383,21 @@ isdn_tty_stat_callback(int i, isdn_ctrl *c)
 #ifdef ISDN_TTY_STAT_DEBUG
 				printk(KERN_DEBUG "tty_STAT_BCONN ttyI%d\n", info->line);
 #endif
+				/* Wake up any processes waiting
+				 * for incoming call of this device when
+				 * DCD follow the state of incoming carrier
+				 */
+				if (info->blocked_open &&
+				   (info->emu.mdmreg[REG_DCD] & BIT_DCD)) {
+					wake_up_interruptible(&info->open_wait);
+				}
+
 				/* Schedule CONNECT-Message to any tty
 				 * waiting for it and
 				 * set DCD-bit of its modem-status.
 				 */
-				if (TTY_IS_ACTIVE(info)) {
+				if (TTY_IS_ACTIVE(info) ||
+				    (info->blocked_open && (info->emu.mdmreg[REG_DCD] & BIT_DCD))) {
 					info->msr |= UART_MSR_DCD;
 					info->emu.charge = 0;
 					if (info->dialing & 0xf)
