@@ -6,6 +6,9 @@
  * (c) Copyright 1997 by Carsten Paeth (calle@calle.in-berlin.de)
  * 
  * $Log$
+ * Revision 1.4.2.13  1998/02/27 15:40:41  calle
+ * T1 running with slow link. bugfix in capi_release.
+ *
  * Revision 1.4.2.12  1998/02/24 17:58:25  calle
  * changes for T1.
  *
@@ -315,7 +318,7 @@ void avmb1_handle_free_ncci(avmb1_card * card,
 			}
 		}
 		APPL(appl)->releasing--;
-		if (APPL(appl)->releasing == 0) {
+		if (APPL(appl)->releasing <= 0) {
 	                APPL(appl)->signal = 0;
 			APPL_MARK_FREE(appl);
 			printk(KERN_INFO "b1capi: appl %d down\n", appl);
@@ -595,12 +598,16 @@ int avmb1_detectcard(int port, int irq, int cardtype)
 				irq, cardtype2str(cardtype));
 		return -EIO;
 	}
+	if (!B1_valid_port(port, cardtype)) {
+		printk(KERN_WARNING "b1capi: port 0x%x not valid for %s-card.\n",
+				irq, cardtype2str(cardtype));
+		return -EIO;
+	}
 	if ((rc = B1_detect(port, cardtype)) != 0) {
 		printk(KERN_NOTICE "b1capi: NO %s-card at 0x%x (%d)\n",
 					  cardtype2str(cardtype), port, rc);
 		return -EIO;
 	}
-	B1_reset(port);
 	switch (cardtype) {
 		default:
 	   	case AVM_CARDTYPE_M1:
@@ -609,7 +616,6 @@ int avmb1_detectcard(int port, int irq, int cardtype)
 	    		printk(KERN_NOTICE "b1capi: AVM-%s-Controller detected at 0x%x\n", cardtype2str(cardtype), port);
 			break;
 	   	case AVM_CARDTYPE_T1:
-	    		printk(KERN_NOTICE "b1capi: AVM-%s-Controller may be at 0x%x\n", cardtype2str(cardtype), port);
 			break;
 	}
 
@@ -633,10 +639,15 @@ int avmb1_unregistercard(int cnr, int freeio)
    	if (!VALID_CARD(cnr)) 
 		return -ESRCH;
 	card = CARD(cnr);
+
 	if (card->cardstate == CARD_FREE)
 		return -ESRCH;
 	if (card->cardstate == CARD_RUNNING)
 		avmb1_card_down(card, freeio);
+
+	if (card->cardstate != CARD_FREE)
+		if (card->cardtype == AVM_CARDTYPE_T1)
+			T1_reset(card->port);
 
 	free_irq(card->irq, card);
 	if (freeio)
@@ -731,7 +742,7 @@ static __u16 capi_release(__u16 applid)
 		APPL(applid)->releasing++;
 		B1_send_release(cards[i].port, applid);
 	}
-	if (APPL(applid)->releasing == 0) {
+	if (APPL(applid)->releasing <= 0) {
 	        APPL(applid)->signal = 0;
 		APPL_MARK_FREE(applid);
 		printk(KERN_INFO "b1capi: appl %d down\n", applid);
@@ -873,21 +884,19 @@ static int capi_manufacturer(unsigned int cmd, void *data)
 			   return rc;
 		}
 
+		if ((rc = avmb1_probecard(cdef.port, cdef.irq, cdef.cardtype)) != 0)
+			return rc;
+
                 if (cdef.cardtype == AVM_CARDTYPE_T1) {
 			rc = T1_detectandinit(cdef.port,cdef.irq,cdef.cardnr);
 			if (rc) {
-			        printk(KERN_NOTICE "b1capi: NO HEMA-card-%d at 0x%x (%d)\n",
+			        printk(KERN_NOTICE "b1capi: NO T1-HEMA-card-%d at 0x%x (%d)\n",
 					  cdef.cardnr, cdef.port, rc);
 				return -EIO;
                         }
-#if 0
-			printk(KERN_NOTICE "b1capi: HEMA-card-%d at 0x%x\n",
+			printk(KERN_NOTICE "b1capi: T1-HEMA-card-%d at 0x%x\n",
 				  cdef.cardnr, cdef.port);
-#endif
 		}
-
-		if ((rc = avmb1_probecard(cdef.port, cdef.irq, cdef.cardtype)) != 0)
-			return rc;
 
 		return avmb1_addcard(cdef.port, cdef.irq, cdef.cardtype);
 
@@ -938,7 +947,9 @@ static int capi_manufacturer(unsigned int cmd, void *data)
 			card->cardstate = CARD_DETECTED;
 			return rc;
 		}
-		B1_disable_irq(card->port);
+		if (card->cardtype == AVM_CARDTYPE_T1)
+			T1_disable_irq(card->port);
+		else B1_disable_irq(card->port);
 
 		if (ldef.t4config.len > 0) { /* load config */
 		        if (loaddebug) {
@@ -1074,6 +1085,7 @@ struct capi_interface *attach_capi_interface(struct capi_interface_user *userp)
 	userp->next = capi_users;
 	capi_users = userp;
 	MOD_INC_USE_COUNT;
+	printk(KERN_NOTICE "b1capi: %s attached\n", userp->name);
 
 	return &avmb1_interface;
 }
@@ -1087,6 +1099,7 @@ int detach_capi_interface(struct capi_interface_user *userp)
 			*pp = userp->next;
 			userp->next = 0;
 			MOD_DEC_USE_COUNT;
+			printk(KERN_NOTICE "b1capi: %s detached\n", userp->name);
 			return 0;
 		}
 	}

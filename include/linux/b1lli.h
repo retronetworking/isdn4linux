@@ -6,6 +6,9 @@
  * Copyright 1996 by Carsten Paeth (calle@calle.in-berlin.de)
  *
  * $Log$
+ * Revision 1.1.2.7  1998/02/27 15:38:29  calle
+ * T1 running with slow link.
+ *
  * Revision 1.1.2.6  1998/02/24 17:57:36  calle
  * changes for T1.
  *
@@ -160,12 +163,15 @@ typedef struct avmb1_card {
 int B1_detect(unsigned short base, int cardtype);
 int T1_detectandinit(unsigned short base, unsigned irq, int cardnr);
 void B1_reset(unsigned short base);
+void T1_reset(unsigned short base);
 int B1_load_t4file(unsigned short base, avmb1_t4file * t4file);
 int B1_load_config(unsigned short base, avmb1_t4file * config);
 int B1_loaded(unsigned short base);
 void B1_setinterrupt(unsigned short base, unsigned irq, int cardtype);
 unsigned char B1_disable_irq(unsigned short base);
+void T1_disable_irq(unsigned short base);
 int B1_valid_irq(unsigned irq, int cardtype);
+int B1_valid_port(unsigned port, int cardtype);
 void B1_handle_interrupt(avmb1_card * card);
 void B1_send_init(unsigned short port,
 	    unsigned int napps, unsigned int nncci, unsigned int cardnr);
