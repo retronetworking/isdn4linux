@@ -19,6 +19,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.1  1996/01/10 21:39:10  fritz
+ * Initial revision
+ *
  */
 
 extern void isdn_ppp_timer_timeout(void);
@@ -30,9 +33,12 @@ extern void isdn_ppp_cleanup(void);
 extern int  isdn_ppp_free(isdn_net_local *);
 extern int  isdn_ppp_bind(isdn_net_local *);
 extern int  isdn_ppp_xmit(struct sk_buff *, struct device *);
-extern void isdn_ppp_receive(isdn_net_dev *, isdn_net_local *, u_char *, int);
+extern void isdn_ppp_receive(isdn_net_dev *, isdn_net_local *, struct sk_buff *);
 extern int  isdn_ppp_dev_ioctl(struct device *, struct ifreq *, int);
 extern void isdn_ppp_free_mpqueue(isdn_net_dev *);
 extern int  isdn_ppp_select(int, struct file *, int, select_table *);
 extern int  isdn_ppp_ioctl(int, struct file *, unsigned int, unsigned long);
 extern void isdn_ppp_release(int, struct file *);
+extern int  isdn_ppp_dial_slave(char *);
+
+extern struct ippp_struct *ippp_table[ISDN_MAX_CHANNELS];
