@@ -1384,15 +1384,28 @@ HiSax_reportcard(int cardnr, int sel)
 
 static int __init HiSax_init(void)
 {
-	int i,j;
+	int i, retval;
+#ifdef MODULE 
+	int j;
 	int nzproto = 0;
+#endif
 
 	HiSaxVersion();
-	CallcNew();
-	Isdnl3New();
-	Isdnl2New();
-	TeiNew();
-	Isdnl1New();
+	retval = CallcNew();
+	if (retval)
+		goto out;
+	retval = Isdnl3New();
+	if (retval)
+		goto out_callc;
+	retval = Isdnl2New();
+	if (retval)
+		goto out_isdnl3;
+	retval = TeiNew();
+	if (retval)
+		goto out_isdnl2;
+	retval = Isdnl1New();
+	if (retval)
+		goto out_tei;
 
 #ifdef MODULE
 	if (!type[0]) {
@@ -1539,17 +1552,26 @@ static int __init HiSax_init(void)
 	printk(KERN_DEBUG "HiSax: Total %d card%s defined\n",
 	       nrcards, (nrcards > 1) ? "s" : "");
 
-	if (HiSax_inithardware(NULL)) {
-		/* Install only, if at least one card found */
-		return (0);
-	} else {
-		Isdnl1Free();
-		TeiFree();
-		Isdnl2Free();
-		Isdnl3Free();
-		CallcFree();
-		return -EIO;
+	/* Install only, if at least one card found */
+	if (!HiSax_inithardware(NULL)) {
+		retval = -EIO;
+		goto out_isdnl1;
 	}
+	
+	return 0;
+
+ out_isdnl1:
+	Isdnl1Free();
+ out_tei:
+	TeiFree();
+ out_isdnl2:
+	Isdnl2Free();
+ out_isdnl3:
+	Isdnl3Free();
+ out_callc:
+	CallcFree();
+ out:
+	return retval;
 }
 
 static void __exit HiSax_exit(void)

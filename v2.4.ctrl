@@ -9,6 +9,7 @@
 #define COMPAT_HAS_ISA_IOREMAP
 #define COMPAT_HAS_pci_find_subsys
 #define COMPAT_HAS_kmem_cache
+#define COMPAT_VFS_2_4
 #define COMPAT_d_alloc_root_one_parameter
 #define COMPAT_HAS_init_special_inode
 #define COMPAT_has_fileops_in_inode

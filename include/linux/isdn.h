@@ -22,9 +22,10 @@
  *
  */
 
-#ifndef isdn_h
-#define isdn_h
+#ifndef __ISDN_H__
+#define __ISDN_H__
 
+#include <linux/isdn_compat.h>
 #include <linux/ioctl.h>
 
 /* New ioctl-codes */
@@ -177,7 +178,6 @@ typedef struct {
 #include <linux/etherdevice.h>
 #include <linux/skbuff.h>
 #include <linux/tcp.h>
-#include <linux/isdn_compat.h>
 
 #define ISDN_TTY_MAJOR    43
 #define ISDN_TTYAUX_MAJOR 44
@@ -828,4 +828,5 @@ extern int dwabc_isdn_get_net_free_channel(isdn_net_local *);
 #define MIN(a,b) ((a<b)?a:b)
 #define MAX(a,b) ((a>b)?a:b)
 #endif /* __KERNEL__ */
-#endif /* isdn_h */
+
+#endif /* __ISDN_H__ */

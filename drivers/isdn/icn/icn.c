@@ -834,7 +834,6 @@ icn_loadboot(u_char * buffer, icn_card * card)
 			card->other->rvalid = 1;
 	}
 	if (!dev.mvalid) {
-#ifdef COMPAT_HAS_ISA_IOREMAP
 		if (check_mem_region(dev.memaddr, 0x4000)) {
 			printk(KERN_WARNING
 			       "icn: memory at 0x%08lx in use.\n", dev.memaddr);
@@ -843,16 +842,6 @@ icn_loadboot(u_char * buffer, icn_card * card)
 		}
 		request_mem_region(dev.memaddr, 0x4000, "icn-isdn (all cards)");
 		dev.shmem = ioremap(dev.memaddr, 0x4000);
-#else
-		if (check_region(dev.memaddr, 0x4000)) {
-			printk(KERN_WARNING
-			       "icn: memory at 0x%08lx in use.\n", dev.memaddr);
-			restore_flags(flags);
-			return -EBUSY;
-		}
-		request_region(dev.memaddr, 0x4000, "icn-isdn (all cards)");
-		dev.shmem = (icn_shmem *)dev.memaddr;
-#endif
 		dev.mvalid = 1;
 	}
 	OUTB_P(0, ICN_RUN);     /* Reset Controller */
@@ -1180,31 +1169,18 @@ icn_command(isdn_ctrl * c, icn_card * card)
 			switch (c->arg) {
 				case ICN_IOCTL_SETMMIO:
 					if (dev.memaddr != (a & 0x0ffc000)) {
-#ifdef COMPAT_HAS_ISA_IOREMAP
 						if (check_mem_region(a & 0x0ffc000, 0x4000)) {
 							printk(KERN_WARNING
 							       "icn: memory at 0x%08lx in use.\n",
 							       a & 0x0ffc000);
 							return -EINVAL;
 						}
-#else
-						if (check_region(a & 0x0ffc000, 0x4000)) {
-							printk(KERN_WARNING
-							       "icn: memory at 0x%08lx in use.\n",
-							       a & 0x0ffc000);
-							return -EINVAL;
-						}
-#endif
 						icn_stopallcards();
 						save_flags(flags);
 						cli();
 						if (dev.mvalid) {
-#ifdef COMPAT_HAS_ISA_IOREMAP
 							iounmap(dev.shmem);
 							release_mem_region(dev.memaddr, 0x4000);
-#else
-							release_region(dev.memaddr, 0x4000);
-#endif
 						}
 						dev.mvalid = 0;
 						dev.memaddr = a & 0x0ffc000;
@@ -1743,12 +1719,8 @@ static void __exit icn_exit(void)
 		kfree(last);
 	}
 	if (dev.mvalid) {
-#ifdef COMPAT_HAS_ISA_IOREMAP
 		iounmap(dev.shmem);
 		release_mem_region(dev.memaddr, 0x4000);
-#else
-		release_region(dev.memaddr, 0x4000);
-#endif
 	}
 	printk(KERN_NOTICE "ICN-ISDN-driver unloaded\n");
 }

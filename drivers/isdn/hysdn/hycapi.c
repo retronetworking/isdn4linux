@@ -734,7 +734,7 @@ hycapi_cleanup(void)
 	struct capi_driver *driver;
 	driver = &hycapi_driver;
 	if (!hy_di) {
-		printk(KERN_ERR "HYSDN: no capi-driver to detach (???)\n");
+		printk(KERN_ERR "HYSDN: no capi-driver to detach (?)\n");
 		return;
 	}
 	printk(KERN_NOTICE "HYSDN: Detaching capi-driver\n");
