@@ -3,6 +3,9 @@
  *   Basic declarations, defines and prototypes
  *
  * $Log$
+ * Revision 1.6  1997/01/04 13:48:28  keil
+ * primitiv for MDL_REMOVE added
+ *
  * Revision 1.5  1996/12/08 19:49:19  keil
  * Monitor channel support
  *
@@ -97,10 +100,29 @@
 
 #define PH_REQUEST_PULL        49
 #define PH_PULL_ACK            50
-#define PH_DATA_PULLED	       51
+#define	PH_DATA_PULLED	       51
 #define CC_INFO_CHARGE         52
 
-#define MDL_REMOVE             60
+#define CC_MORE_INFO           53
+#define CC_IGNORE              54
+
+#define MDL_REMOVE             56
+#define MDL_VERIFY             57
+
+#define CC_T303                60
+#define CC_T304                61
+#define CC_T305                62
+#define CC_T308_1              64
+#define CC_T308_2              65
+#define CC_T310                66
+#define CC_T313                67
+#define CC_T318                68
+#define CC_T319                69
+
+#define CC_NOSETUP_RSP_ERR     70
+#define CC_SETUP_ERR           71
+#define CC_CONNECT_ERR         72
+#define CC_RELEASE_ERR         73
 
 /*
  * Message-Types
@@ -206,6 +228,12 @@ struct FsmTimer {
 	void           *arg;
 };
 
+struct L3Timer {
+        struct PStack     *st;
+        struct timer_list  tl;
+        int                event;
+};
+
 struct BufHeader {
 #ifdef DEBUG_MAGIC
 	int             magic;
@@ -279,6 +307,9 @@ struct Layer3 {
 	void            (*l3l4) (struct PStack *, int, struct BufHeader *);
         void            (*l3l2) (struct PStack *, int, void *);
 	int             state, callref;
+	struct L3Timer	timer;
+	int		t303, t304, t305, t308, t310, t313, t318, t319;
+	int		n_t303;
 	int             debug;
 	int		channr;
 };
@@ -346,8 +377,6 @@ struct IsdnCardState {
 #endif
 	unsigned char	typ;
 	unsigned char	subtyp;
-	unsigned char	mask1;
-	unsigned char	mask2;
 	int		protocol;
 	unsigned int	irq;
 	unsigned int    cfg_reg;
@@ -369,11 +398,10 @@ struct IsdnCardState {
 	struct tq_struct tqueue;
 	int             ph_active;
 	struct BufQueue rq, sq;
-
-	int             cardnr, ph_state;
+	int             cardnr;
+	int		ph_state;
 	struct PStack  *teistack;
 	struct HscxState hs[2];
-
 	int             dlogflag;
 	char           *dlogspace;
 	int             debug;
@@ -392,8 +420,9 @@ struct IsdnCardState {
 #define  ISDN_CTYPE_PNP		4
 #define  ISDN_CTYPE_A1		5
 #define  ISDN_CTYPE_ELSA	6
+#define  ISDN_CTYPE_ELSA_QS1000	7
 
-#define  ISDN_CTYPE_COUNT	6
+#define  ISDN_CTYPE_COUNT	7
 
 #ifdef	CONFIG_HISAX_16_0
 #define  CARD_TELES0 (1<< ISDN_CTYPE_16_0) | (1<< ISDN_CTYPE_8_0)
@@ -414,7 +443,7 @@ struct IsdnCardState {
 #endif
 
 #ifdef	CONFIG_HISAX_ELSA_PCC
-#define  CARD_ELSA (1<< ISDN_CTYPE_ELSA)
+#define  CARD_ELSA (1<< ISDN_CTYPE_ELSA) | (1<< ISDN_CTYPE_ELSA_QS1000)
 #else
 #define  CARD_ELSA  0
 #endif
@@ -425,6 +454,7 @@ struct IsdnCard {
 	int    		typ;
         int             protocol;	/* EDSS1 or 1TR6 */
 	unsigned int	para[3];
+	int		id;
 	struct IsdnCardState *sp;
 };
 
@@ -529,7 +559,10 @@ struct Channel {
 	int             data_open;
 	int             outcallref;
 	int             impair;
+	int             Flags; /* for remembering action done in l4 */
+	int		leased;
 };
+
 
 #define PART_SIZE(order,bpps) (( (PAGE_SIZE<<order) -\
   sizeof(void *))/bpps)
