@@ -27,6 +27,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.49  1998/05/03 17:45:00  detabc
+ * Add Item to send icmp-host-unreach to all packets
+ *
  * Revision 1.48  1998/04/26 19:58:14  detabc
  * include the new abc-extension-items from 2.0.xx kernels
  * remove some unused code
@@ -593,7 +596,8 @@ typedef struct isdn_net_local_s {
 	u_long  abc_nextkeep;           /* nextkeep at jiffies              */
 	u_long  abc_anz_wrong_data_prot;
 	u_long  abc_rem_disconnect;
-	short   abc_first_disp;         /* gesetzt wenn first pak displayed */
+	short   abc_first_disp;        
+	short 	abc_short_reserve;
 	u_long  abc_snd_want_bytes;
 	u_long  abc_snd_real_bytes;
 	u_long  abc_rcv_want_bytes;
@@ -606,7 +610,8 @@ typedef struct isdn_net_local_s {
 	u_long  abc_delayed_hangup;
 	u_char  abc_rx_key[ISDN_MSNLEN];
 	u_char  abc_out_msn[ISDN_MSNLEN];  /* MSNs/EAZs for outgoing calls */
-	struct sk_buff_head abc_tx_que[ABC_ANZ_TX_QUE];
+	struct	sk_buff_head abc_tx_que[ABC_ANZ_TX_QUE];
+	u_long 	abc_max_unreached_jiffies;
 	u_long	abc_unreached_jiffies;
 #endif
 } isdn_net_local;
