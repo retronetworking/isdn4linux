@@ -7,6 +7,9 @@
  *              Fritz Elfert
  *
  * $Log$
+ * Revision 2.5  1997/11/06 17:09:12  keil
+ * New 2.1 init code
+ *
  * Revision 2.4  1997/10/29 19:04:46  keil
  * changes for 2.1
  *
@@ -389,7 +392,7 @@ tei_l2tei(struct PStack *st, int pr, void *arg)
 				sprintf(tmp, "fixed assign tei %d", TEI_FIXED);
 				st->ma.tei_m.printdebug(&st->ma.tei_m, tmp);
 			}
-			st->ma.manl2(st, MDL_ASSIGN, (void *) (int) TEI_FIXED);
+			st->ma.manl2(st, MDL_ASSIGN_REQ, (void *) (int) TEI_FIXED);
 #else
 			FsmEvent(&st->ma.tei_m, EV_IDREQ, arg);
 #endif
