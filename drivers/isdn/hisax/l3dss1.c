@@ -15,6 +15,8 @@
  *
  */
 
+const char *dss1_revision = "$Revision$";
+
 #include "hisax.h"
 #include "callc.h" // FIXME
 #include "isdnl3.h"
@@ -22,8 +24,10 @@
 #include <linux/ctype.h>
 #include <linux/config.h>
 
+static void
+dss1down_proc(struct l3_process *pc, int pr, void *arg);
+
 extern char *HiSax_getrev(const char *revision);
-const char *dss1_revision = "$Revision$";
 
 #define EXT_BEARER_CAPS 1
 
@@ -93,6 +97,8 @@ static struct l3_process
 
    if (!(proc = new_l3_process(st, cr))) 
      return(NULL);
+
+   proc->l4l3 = dss1down_proc;
 
    proc->prot.dss1.invoke_id = 0;
    proc->prot.dss1.remote_operation = 0;
@@ -2662,9 +2668,9 @@ l3dss1_global_restart(struct l3_process *pc, u_char pr, void *arg)
 	up = pc->st->l3.proc;
 	while (up) {
 		if ((ri & 7) == 7)
-			up->st->lli.l4l3(up->st, CC_RESTART | REQUEST, up);
+			up->l4l3(up, CC_RESTART | REQUEST, 0);
 		else if (up->para.bchannel == chan)
-			up->st->lli.l4l3(up->st, CC_RESTART | REQUEST, up);
+			up->l4l3(up, CC_RESTART | REQUEST, 0);
 		up = up->next;
 	}
 	p = tmp;
@@ -3082,16 +3088,44 @@ dss1up(struct PStack *st, int pr, void *arg)
 }
 
 static void
+dss1down_proc(struct l3_process *pc, int pr, void *arg)
+{
+	int i;
+
+	if (pr == (CC_TDSS1_IO | REQUEST)) {
+		l3dss1_io_timer(pc);
+		return;
+	}  
+	for (i = 0; i < DOWNSLLEN; i++)
+		if ((pr == downstatelist[i].primitive) &&
+		    ((1 << pc->state) & downstatelist[i].state))
+			break;
+	if (i == DOWNSLLEN) {
+		if (pc->debug & L3_DEB_STATE) {
+			l3_debug(pc->st, "dss1down state %d prim %#x unhandled",
+				 pc->state, pr);
+		}
+	} else {
+		if (pc->debug & L3_DEB_STATE) {
+			l3_debug(pc->st, "dss1down state %d prim %#x",
+				 pc->state, pr);
+		}
+		downstatelist[i].rout(pc, pr, arg);
+	}
+}
+
+static void
 dss1down(struct PStack *st, int pr, void *arg)
 {
-	int i, cr;
+	int cr;
 	struct l3_process *proc;
 	struct Channel *chan;
 
-	if ((DL_ESTABLISH | REQUEST) == pr) {
+	switch (pr) {
+	case DL_ESTABLISH | REQUEST:
 		l3_msg(st, pr, NULL);
-		return;
-	} else if (pr == (CC_NEW_CR | REQUEST)) {
+		break;
+	case CC_NEW_CR | REQUEST:
 		chan = arg;
 		cr = newcallref();
 		cr |= 0x80;
@@ -3101,34 +3135,9 @@ dss1down(struct PStack *st, int pr, void *arg)
 			proc->para.setup = chan->setup;
 			proc->callref = cr;
 		}
-	} else {
-		proc = arg;
-	}
-	if (!proc) {
-		printk(KERN_ERR "HiSax dss1down without proc pr=%04x\n", pr);
-		return;
-	}
-
-	if ( pr == (CC_TDSS1_IO | REQUEST)) {
-		l3dss1_io_timer(proc); /* timer expires */ 
-		return;
-	}  
-
-	for (i = 0; i < DOWNSLLEN; i++)
-		if ((pr == downstatelist[i].primitive) &&
-		    ((1 << proc->state) & downstatelist[i].state))
-			break;
-	if (i == DOWNSLLEN) {
-		if (st->l3.debug & L3_DEB_STATE) {
-			l3_debug(st, "dss1down state %d prim %#x unhandled",
-				proc->state, pr);
-		}
-	} else {
-		if (st->l3.debug & L3_DEB_STATE) {
-			l3_debug(st, "dss1down state %d prim %#x",
-				proc->state, pr);
-		}
-		downstatelist[i].rout(proc, pr, arg);
+		break;
+	default:
+		int_error();
 	}
 }
 

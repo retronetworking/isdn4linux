@@ -313,6 +313,7 @@ struct PStack {
 struct l3_process {
 	int callref;
 	int state;
+	void (*l4l3)(struct l3_process *pc, int pr, void *arg);
 	struct L3Timer timer;
 	int N303;
 	int debug;

@@ -10,6 +10,8 @@
  *
  */
 
+const char *l3_1tr6_revision = "$Revision$";
+
 #include "hisax.h"
 #include "callc.h" // FIXME
 #include "l3_1tr6.h"
@@ -17,13 +19,27 @@
 #include <linux/ctype.h>
 
 extern char *HiSax_getrev(const char *revision);
-const char *l3_1tr6_revision = "$Revision$";
+
+static void
+down1tr6_proc(struct l3_process *pc, int pr, void *arg);
 
 #define MsgHead(ptr, cref, mty, dis) \
 	*ptr++ = dis; \
 	*ptr++ = 0x1; \
 	*ptr++ = cref ^ 0x80; \
 	*ptr++ = mty
+
+static struct l3_process *
+l3_1TR6_new_l3_process(struct PStack *st, int cr)
+{  
+	struct l3_process *proc;
+
+	if (!(proc = new_l3_process(st, cr))) 
+		return 0;
+
+	proc->l4l3 = down1tr6_proc;
+	return proc;
+}
 
 static void
 l3_1TR6_message(struct l3_process *pc, u_char mt, u_char pd)
@@ -809,7 +825,7 @@ up1tr6(struct PStack *st, int pr, void *arg)
 		if (!(proc = getl3proc(st, cr))) {
 			if (mt == MT_N1_SETUP) { 
 				if (cr < 128) {
-					if (!(proc = new_l3_process(st, cr))) {
+					if (!(proc = l3_1TR6_new_l3_process(st, cr))) {
 						if (st->l3.debug & L3_DEB_PROTERR) {
 							sprintf(tmp, "up1tr6 no roc mem");
 							l3_debug(st, tmp);
@@ -829,7 +845,7 @@ up1tr6(struct PStack *st, int pr, void *arg)
 				idev_kfree_skb(skb, FREE_READ);
 				return;
 			} else {
-				if (!(proc = new_l3_process(st, cr))) {
+				if (!(proc = l3_1TR6_new_l3_process(st, cr))) {
 					if (st->l3.debug & L3_DEB_PROTERR) {
 						sprintf(tmp, "up1tr6 no roc mem");
 						l3_debug(st, tmp);
@@ -866,49 +882,52 @@ up1tr6(struct PStack *st, int pr, void *arg)
 }
 
 static void
+down1tr6_proc(struct l3_process *pc, int pr, void *arg)
+{
+	int i;
+
+	for (i = 0; i < DOWNSTL_LEN; i++)
+		if ((pr == downstl[i].primitive) &&
+		    ((1 << pc->state) & downstl[i].state))
+			break;
+	if (i == DOWNSTL_LEN) {
+		if (pc->debug & L3_DEB_STATE) {
+			l3_debug(pc->st, "down1tr6 state %d prim %d unhandled",
+				pc->state, pr);
+		}
+	} else {
+		if (pc->debug & L3_DEB_STATE) {
+			l3_debug(pc->st, "down1tr6 state %d prim %d",
+				pc->state, pr);
+		}
+		downstl[i].rout(pc, pr, arg);
+	}
+}
+
+static void
 down1tr6(struct PStack *st, int pr, void *arg)
 {
-	int i, cr;
+	int cr;
 	struct l3_process *proc;
 	struct Channel *chan;
-	char tmp[80];
 
-	if ((DL_ESTABLISH | REQUEST)== pr) {
+	switch (pr) {
+	case DL_ESTABLISH | REQUEST:
 		l3_msg(st, pr, NULL);
-		return;
-	} else if ((CC_SETUP | REQUEST) == pr) {
+		break;
+	case CC_NEW_CR | REQUEST:
 		chan = arg;
 		cr = newcallref();
 		cr |= 0x80;
-		if (!(proc = new_l3_process(st, cr))) {
-			return;
-		} else {
+		if ((proc = l3_1TR6_new_l3_process(st, cr))) {
 			proc->chan = chan;
 			chan->proc = proc;
 			proc->para.setup = chan->setup;
 			proc->callref = cr;
 		}
-	} else {
-		proc = arg;
-	}
-
-	for (i = 0; i < DOWNSTL_LEN; i++)
-		if ((pr == downstl[i].primitive) &&
-		    ((1 << proc->state) & downstl[i].state))
-			break;
-	if (i == DOWNSTL_LEN) {
-		if (st->l3.debug & L3_DEB_STATE) {
-			sprintf(tmp, "down1tr6 state %d prim %d unhandled",
-				proc->state, pr);
-			l3_debug(st, tmp);
-		}
-	} else {
-		if (st->l3.debug & L3_DEB_STATE) {
-			sprintf(tmp, "down1tr6 state %d prim %d",
-				proc->state, pr);
-			l3_debug(st, tmp);
-		}
-		downstl[i].rout(proc, pr, arg);
+		break;
+	default:
+		int_error();
 	}
 }
 

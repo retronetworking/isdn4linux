@@ -160,7 +160,7 @@ newl3state(struct l3_process *pc, int state)
 static void
 L3ExpireTimer(struct L3Timer *t)
 {
-	t->pc->st->lli.l4l3(t->pc->st, t->event, t->pc);
+	t->pc->l4l3(t->pc, t->event, 0);
 }
 
 void
@@ -274,6 +274,7 @@ struct l3_process
 		np->next = p;
 	}
 	p->next = NULL;
+	p->l4l3 = NULL;
 	p->debug = st->l3.debug;
 	p->callref = cr;
 	p->state = 0;
