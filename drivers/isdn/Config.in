@@ -76,6 +76,7 @@ if [ "$CONFIG_ISDN_DRV_AVMB1" != "n" ]; then
    bool '    AVM T1/T1-B ISA support' CONFIG_ISDN_DRV_AVMB1_T1ISA
    bool '    AVM B1/M1/M2 PCMCIA support' CONFIG_ISDN_DRV_AVMB1_B1PCMCIA
    bool '    AVM T1/T1-B PCI support' CONFIG_ISDN_DRV_AVMB1_T1PCI
+   bool '    AVM C4 support' CONFIG_ISDN_DRV_AVMB1_C4
    bool '    Verbose reason code reporting (kernel size +=7K)' CONFIG_ISDN_DRV_AVMB1_VERBOSE_REASON
 fi
 
