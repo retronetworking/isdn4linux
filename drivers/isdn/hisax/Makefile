@@ -6,16 +6,16 @@ O_TARGET	:= vmlinux-obj.o
 
 # Objects that export symbols.
 
-export-objs	:= config.o
+export-objs	:= config.o hfc_usbr.o
 
 # Multipart objects.
 
-list-multi	:= hisax.o hfc_usb.o
+list-multi	:= hisax.o
 hisax-objs	:= config.o isdnl1.o tei.o isdnl2.o isdnl3.o \
 		   lmgr.o q931.o callc.o fsm.o cert.o
 
 # Optional parts of multipart objects.
-hfc_usb-objs := hfc_usb_l1.o
+hfcusb-mods-$(CONFIG_HISAX_HFC_USB) := hfc_usb.o
 
 hisax-objs-$(CONFIG_HISAX_EURO) += l3dss1.o
 hisax-objs-$(CONFIG_HISAX_NI1) += l3ni1.o
@@ -54,10 +54,14 @@ hisax-objs-$(CONFIG_HISAX_W6692) += w6692.o
 
 hisax-objs += $(sort $(hisax-objs-y))
 
+# insert hfc usb module into obj-m
+
+obj-m += $(hfcusb-mods-y)	
+multi-m += $(hfcusb-mods-y)
+
 # Each configuration option enables a list of files.
 
 obj-$(CONFIG_ISDN_DRV_HISAX)	+= hisax.o
-obj-$(CONFIG_HISAX_HFC_USB)	+= hfc_usb.o
 obj-$(CONFIG_HISAX_SEDLBAUER_CS)	+= sedlbauer_cs.o
 obj-$(CONFIG_HISAX_ELSA_CS)	+= elsa_cs.o
 
@@ -71,11 +75,11 @@ include $(TOPDIR)/drivers/isdn/Rules.make
 
 # Link rules for multi-part drivers.
 
+hfc_usb.o: hfc_usb_l1.o
+	$(LD) -r -o $@ hfc_usb_l1.o
+
 hisax.o: $(hisax-objs)
 	$(LD) -r -o $@ $(hisax-objs)
-
-hfc_usb.o: $(hfc_usb-objs)
-	$(LD) -r -o $@ $(hfc_usb-objs)
 
 MD5FILES += isac.c isdnl1.c isdnl2.c isdnl3.c \
 	    tei.c callc.c cert.c l3dss1.c l3_1tr6.c \
