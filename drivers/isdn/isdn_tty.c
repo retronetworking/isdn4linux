@@ -20,6 +20,12 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.37  1997/03/07 01:37:34  fritz
+ * Bugfix: Did not compile with CONFIG_ISDN_AUDIO disabled.
+ * Bugfix: isdn_tty_tint() did not handle lowlevel errors correctly.
+ * Bugfix: conversion was wrong when sending ulaw audio.
+ * Added proper ifdef's for CONFIG_ISDN_AUDIO
+ *
  * Revision 1.36  1997/03/04 21:41:55  fritz
  * Fix: Excessive stack usage of isdn_tty_senddown()
  *      and isdn_tty_end_vrx() could lead to problems.
@@ -660,13 +666,13 @@ isdn_tty_senddown(modem_info * info)
 				/* adpcm, compatible to ZyXel 1496 modem
 				 * with ROM revision 6.01
 				 */
-				skb_trim(skb,
-					 isdn_audio_adpcm2xlaw(info->adpcms,
-							       ifmt,
-							       skb->data,
-						 skb_put(skb, audio_len),
-							       buflen));
+				audio_len = isdn_audio_adpcm2xlaw(info->adpcms,
+								  ifmt,
+								  skb->data,
+						    skb_put(skb, audio_len),
+								  buflen);
 				skb_pull(skb, buflen);
+				skb_trim(skb, audio_len);
 				break;
 			case 5:
 				/* a-law */
@@ -689,8 +695,8 @@ isdn_tty_senddown(modem_info * info)
 		memcpy(skb_push(skb, 4), "\1\0\1\0", 4);
 	skb_queue_tail(&info->xmit_queue, skb);
 	if ((info->emu.mdmreg[12] & 0x10) != 0)
-		info->msr &= UART_MSR_CTS;
-	info->lsr &= UART_LSR_TEMT;
+		info->msr &= ~UART_MSR_CTS;
+	info->lsr &= ~UART_LSR_TEMT;
 }
 
 /************************************************************
