@@ -22,7 +22,7 @@ Description of the Interface between Linklevel and Hardwarelevel
   got a separate version number. These numbers are shown at initialization,
   separated by slashes:
 
-     c.c/t.t/n.n/p.p/a.a
+     c.c/t.t/n.n/p.p/a.a/v.v
 
   where
 
@@ -31,6 +31,7 @@ Description of the Interface between Linklevel and Hardwarelevel
    n.n is the revision of the network related code.
    p.p is the revision of the ppp related code.
    a.a is the revision of the audio related code.
+   v.v is the revision of the V.110 related code.
 
   Changes in this document are marked with '***CHANGEx' where x representing
   the version number. If that number starts with 0, it refers to the old,
@@ -66,7 +67,7 @@ Description of the Interface between Linklevel and Hardwarelevel
 
   unsigned short hl_hdrlen;
 
-    ***CHANGED.7.4: New field.
+    ***CHANGE0.7.4: New field.
 
     To be preset by the HL-driver, if it supports sk_buff's. The driver
     should put here the amount of additional space needed in sk-buff's for
@@ -75,7 +76,7 @@ Description of the Interface between Linklevel and Hardwarelevel
 
   void (*rcvcallb_skb)(int, int, struct sk_buff *)
 
-    ***CHANGED.7.4: New field.
+    ***CHANGE0.7.4: New field.
 
     This field will be set by LL. The HL-driver delivers received data-
     packets by calling this function. Upon calling, the HL-driver must
@@ -125,7 +126,7 @@ Description of the Interface between Linklevel and Hardwarelevel
 
   int (*writebuf_skb)(int, int, int, struct sk_buff *)
 
-    ***CHANGED.7.4: New field.
+    ***CHANGE0.7.4: New field.
     ***CHANGEI.1.21: New field.
 
     This field has to be preset by the HL-driver. The given function will
@@ -133,7 +134,7 @@ Description of the Interface between Linklevel and Hardwarelevel
 
  
     Parameter:
-      int              driver-Id ***CHANGE.7.4: New parameter.
+      int              driver-Id ***CHANGE0.7.4: New parameter.
       int              channel-number locally to the HL-driver. (starts with 0)
       int	       ack ***ChangeI1.21: New parameter
 		       If this is !0, the driver has to signal the delivery
@@ -165,7 +166,7 @@ Description of the Interface between Linklevel and Hardwarelevel
       int     driver-Id.
       int     channel-number locally to the HL-driver. (starts with 0)
 
-***CHANGED1.14: The driver-Id and channel-number are new since this revision.
+***CHANGEI1.14: The driver-Id and channel-number are new since this revision.
 
     Returnvalue:
       Length of data accepted on success, else error-code (-EINVAL etc.)
@@ -189,7 +190,7 @@ Description of the Interface between Linklevel and Hardwarelevel
       int     driver-Id.
       int     channel-number locally to the HL-driver. (starts with 0)
 
-***CHANGED1.14: The driver-Id and channel-number are new since this revision.
+***CHANGEI1.14: The driver-Id and channel-number are new since this revision.
 
     Returnvalue:
       Length of data on success, else error-code (-EINVAL etc.)
@@ -215,7 +216,7 @@ Description of the Interface between Linklevel and Hardwarelevel
 
    Until now, the following commands are defined:
 
-***CHANGED1.34: The parameter "num" has been replaced by a union "para" containing
+***CHANGEI1.34: The parameter "num" has been replaced by a union "para" containing
                 the old "num" and a new setup_type struct used for ISDN_CMD_DIAL
                 and ISDN_STAT_ICALL callback.
 
