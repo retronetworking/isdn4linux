@@ -23,6 +23,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.17  2000/03/04 16:20:41  detabc
+ * copy frames before rewriting frame's saddr
+ *
  * Revision 1.16  2000/02/06 21:49:59  detabc
  * add rewriting of socket's and frame's saddr for udp-ipv4 dynip-connections.
  * Include checksum-recompute of ip- and udp-header's.
@@ -120,6 +123,7 @@ static char *dwabcrevison = "$Revision$";
 #include <asm/semaphore.h>
 #include <linux/isdn.h>
 #include "isdn_common.h"
+#include "isdn_net.h"
 
 struct PSH { 
 	u_long saddr;
@@ -1473,9 +1477,6 @@ void isdn_dw_abc_init_func(void)
 #ifdef CONFIG_ISDN_WITH_ABC_RAWIPCOMPRESS
 		"CONFIG_ISDN_WITH_ABC_RAWIPCOMPRESS\n"
 #endif
-#ifdef CONFIG_ISDN_WITH_ABC_FRAME_LIMIT
-		"CONFIG_ISDN_WITH_ABC_FRAME_LIMIT\n"
-#endif
 		"loaded\n",
 		dwabcrevison);
 
@@ -2016,12 +2017,6 @@ void dwabc_bsd_first_gen(isdn_net_local *lp)
 		char *p = NULL;
 		char *ep = NULL;
 
-		if(lp->dw_abc_next_skb != NULL)
-			dev_kfree_skb(lp->dw_abc_next_skb);
-
-		lp->dw_abc_next_skb = NULL;
-		lp->dw_abc_if_flags &= ~ISDN_DW_ABC_IFFLAG_RSTREMOTE;
-
 		if((skb =(struct sk_buff *)dev_alloc_skb(128)) == NULL) {
 
 			printk(KERN_INFO "%s: dwabc: alloc-skb failed for 128 bytes\n",lp->name);
@@ -2035,7 +2030,8 @@ void dwabc_bsd_first_gen(isdn_net_local *lp)
 		*(p++) = DWBSD_PKT_SWITCH;
 		*(p++) = DWBSD_VERSION;
 		for(;p < ep;p++)	*(p++) = 0;
-		lp->dw_abc_next_skb = skb;
+
+		isdn_net_write_super(lp, skb);
 
 		if(dev->net_verbose > 2)
 			printk(KERN_INFO "%s: dwabc: sending comm-header version 0x%x\n",lp->name,DWBSD_VERSION);
@@ -2092,13 +2088,6 @@ void dwabc_bsd_free(isdn_net_local *lp)
 		lp->dw_abc_bsd_bsd_rcv	=
 		lp->dw_abc_bsd_snd 		=
 		lp->dw_abc_bsd_bsd_snd 	= 0;
-		atomic_set(&lp->dw_abc_pkt_onl,0);
-
-		if(lp->dw_abc_next_skb) {
-
-			dev_kfree_skb(lp->dw_abc_next_skb);
-			lp->dw_abc_next_skb = NULL;
-		}
 	}
 }
 
@@ -2283,7 +2272,7 @@ struct sk_buff *dwabc_bsd_rx_pkt(isdn_net_local *lp,struct sk_buff *skb,struct n
 
 				printk(KERN_INFO "%s: bsd-decomp called recursivly\n",lp->name);
 				kfree_skb(skb);
-				lp->dw_abc_if_flags |= ISDN_DW_ABC_IFFLAG_RSTREMOTE;
+				dwabc_bsd_first_gen(lp);
 				return(NULL);
 			} 
 			
@@ -2307,7 +2296,7 @@ struct sk_buff *dwabc_bsd_rx_pkt(isdn_net_local *lp,struct sk_buff *skb,struct n
 					dev_kfree_skb(nskb);
 					dev_kfree_skb(skb);
 					nskb = NULL;
-					lp->dw_abc_if_flags |= ISDN_DW_ABC_IFFLAG_RSTREMOTE;
+					dwabc_bsd_first_gen(lp);
 
 				} else {
 
@@ -2326,7 +2315,7 @@ struct sk_buff *dwabc_bsd_rx_pkt(isdn_net_local *lp,struct sk_buff *skb,struct n
 
 				printk(KERN_INFO "%s: PANIC abc-decomp no memory\n",lp->name);
 				dev_kfree_skb(skb);
-				lp->dw_abc_if_flags |= ISDN_DW_ABC_IFFLAG_RSTREMOTE;
+				dwabc_bsd_first_gen(lp);
 			}
 
 			clear_bit(ISDN_DW_ABC_BITLOCK_RECEIVE,&lp->dw_abc_bitlocks);

@@ -141,18 +141,6 @@
 +   See "linux/Documentation/isdn/dw-abc-extension-howto.txt" 
 +   for more Information
 +   
-+Limit on the line frames to two
-+CONFIG_ISDN_WITH_ABC_FRAME_LIMIT
-+
-+   This Option enables support for sending only 2 Pakets on
-+   the Fly to the ISDN Driver. It is very usefull when you
-+   will use the new RAW-IP Compression. Because of sending
-+   Only 2 Pakets on the Fly makes the risk of overflowing
-+   the ISDN Driver very smaller.
-+
-+   See "linux/Documentation/isdn/dw-abc-extension-howto.txt" 
-+   for more Information
-+
 +Compression with RAWIP and X75I
 +CONFIG_ISDN_WITH_ABC_RAWIPCOMPRESS
 +

@@ -21,6 +21,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.100  2000/03/19 15:27:53  kai
+ * no known bugs left...
+ *
  * Revision 1.99  2000/03/18 16:20:26  kai
  * cosmetics / renaming
  *
@@ -416,7 +419,6 @@
 #undef CONFIG_ISDN_WITH_ABC_CH_EXTINUSE
 #undef CONFIG_ISDN_WITH_ABC_CONN_ERROR
 #undef CONFIG_ISDN_WITH_ABC_RAWIPCOMPRESS
-#undef CONFIG_ISDN_WITH_ABC_FRAME_LIMIT
 #undef CONFIG_ISDN_WITH_ABC_IPV4_RW_SOCKADDR 
 #undef CONFIG_ISDN_WITH_ABC_IPV4_RWUDP_SOCKADDR 
 #else
@@ -437,7 +439,6 @@
 
 #define ISDN_DW_ABC_IFFLAG_NODCHAN		0x00000001L
 #define ISDN_DW_ABC_IFFLAG_BSDAKTIV		0x00000002L
-#define ISDN_DW_ABC_IFFLAG_RSTREMOTE		0x00000004L
 
 #define ISDN_DW_ABC_BITLOCK_SEND		0
 #define ISDN_DW_ABC_BITLOCK_RECEIVE		1
@@ -806,7 +807,6 @@ typedef struct isdn_net_local_s {
   volatile atomic_t dw_abc_pkt_onl;
   ulong 	dw_abc_dialstart;
   int   	dw_abc_old_onhtime;
-  struct sk_buff *dw_abc_next_skb;
   int 		dw_abc_remote_version;
   int		dw_abc_bitlocks;
 #ifdef CONFIG_ISDN_WITH_ABC_OUTGOING_EAZ
