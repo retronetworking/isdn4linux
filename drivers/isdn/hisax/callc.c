@@ -11,6 +11,10 @@
  *              Fritz Elfert
  *
  * $Log$
+ * Revision 2.40  1999/12/19 12:59:56  keil
+ * fix leased line handling
+ * and cosmetics
+ *
  * Revision 2.39  1999/10/14 20:25:28  keil
  * add a statistic for error monitoring
  *
@@ -350,6 +354,8 @@ lli_deliver_cause(struct Channel *chanp)
 {
 	isdn_ctrl ic;
 
+	if (!chanp->proc)
+		return;
 	if (chanp->proc->para.cause == NO_CAUSE)
 		return;
 	ic.driver = chanp->cs->myid;
@@ -642,7 +648,8 @@ lli_disconnect_req(struct FsmInst *fi, int event, void *arg)
 		lli_leased_hup(fi, chanp);
 	} else {
 		FsmChangeState(fi, ST_WAIT_DRELEASE);
-		chanp->proc->para.cause = 0x10;	/* Normal Call Clearing */
+		if (chanp->proc)
+			chanp->proc->para.cause = 0x10;	/* Normal Call Clearing */
 		chanp->d_st->lli.l4l3(chanp->d_st, CC_DISCONNECT | REQUEST,
 			chanp->proc);
 	}
@@ -657,7 +664,8 @@ lli_disconnect_reject(struct FsmInst *fi, int event, void *arg)
 		lli_leased_hup(fi, chanp);
 	} else {
 		FsmChangeState(fi, ST_WAIT_DRELEASE);
-		chanp->proc->para.cause = 0x15;	/* Call Rejected */
+		if (chanp->proc)
+			chanp->proc->para.cause = 0x15;	/* Call Rejected */
 		chanp->d_st->lli.l4l3(chanp->d_st, CC_DISCONNECT | REQUEST,
 			chanp->proc);
 	}
@@ -689,7 +697,8 @@ lli_reject_req(struct FsmInst *fi, int event, void *arg)
 		return;
 	}
 #ifndef ALERT_REJECT
-	chanp->proc->para.cause = 0x15;	/* Call Rejected */
+	if (chanp->proc)
+		chanp->proc->para.cause = 0x15;	/* Call Rejected */
 	chanp->d_st->lli.l4l3(chanp->d_st, CC_REJECT | REQUEST, chanp->proc);
 	lli_dhup_close(fi, event, arg);
 #else
