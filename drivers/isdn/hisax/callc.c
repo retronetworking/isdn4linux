@@ -7,6 +7,9 @@
  *              Fritz Elfert
  *
  * $Log$
+ * Revision 2.4  1997/08/03 14:37:58  keil
+ * Activate Layer2 in PtP mode
+ *
  * Revision 2.3  1997/07/31 19:23:40  keil
  * LAYER2_WATCHING for PtP
  *
@@ -426,7 +429,7 @@ lli_deliver_call(struct FsmInst *fi, int event, void *arg)
 	 * which is set to 3 with each broadcast message in isdnl1.c
 	 * and resetted if a interface  answered the STAT_ICALL.
 	 */
-	if ((chanp->cs) && (chanp->cs->CallFlags == 3)) {
+	if (((chanp->cs) && (chanp->cs->CallFlags == 3)) || !(chanp->cs->HW_Flags & FLG_TWO_DCHAN)) {
 		FsmChangeState(fi, ST_IN_WAIT_LL);
 		SETBIT(chanp->Flags, FLG_CALL_REC);
 		if (chanp->debug & 1)
@@ -1606,7 +1609,8 @@ CallcNewChan(struct IsdnCardState *csta)
 	printk(KERN_INFO "HiSax: 2 channels added\n");
 #ifdef LAYER2_WATCHING
 	printk(KERN_INFO "LAYER2 ESTABLISH\n");
-	csta->channel->d_st->ma.manl2(csta->channel->d_st, DL_ESTABLISH, NULL);	
+	SETBIT(csta->channel->Flags, FLG_START_D);
+	FsmEvent(&csta->channel->lc_d->lcfi, EV_LC_ESTABLISH, NULL);
 #endif
 	return (2);
 }
