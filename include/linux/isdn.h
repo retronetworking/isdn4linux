@@ -21,6 +21,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.75  1999/09/13 23:25:17  he
+ * serialized xmitting frames from isdn_ppp and BSENT statcallb
+ *
  * Revision 1.74  1999/09/12 16:19:39  detabc
  * added abc features
  * low cost routing for net-interfaces (only the HL side).
@@ -294,7 +297,6 @@
 #define ISDN_MINOR_STATUS   255
 
 #ifndef CONFIG_ISDN_WITH_ABC
-#include <linux/isdn_dwabc.h>
 #undef CONFIG_ISDN_WITH_ABC_CALLB
 #undef CONFIG_ISDN_WITH_ABC_UDP_CHECK
 #undef CONFIG_ISDN_WITH_ABC_UDP_CHECK_HANGUP
@@ -302,6 +304,7 @@
 #undef CONFIG_ISDN_WITH_ABC_CALL_CHECK_SYNCRO
 #undef CONFIG_ISDN_WITH_ABC_LCR_SUPPORT
 #else
+#include <linux/isdn_dwabc.h>
 extern void isdn_dw_abc_init_func(void);
 extern void isdn_dw_abc_release_func(void);
 #endif
@@ -330,7 +333,7 @@ extern void isdn_dw_abc_release_func(void);
 #define IIOCNETDIL  _IO('I',20)
 #define IIOCGETCPS  _IO('I',21)
 #define IIOCGETDVR  _IO('I',22)
-#define IIOCNETLCR	_IO('I',23) /* dwabc ioctl for LCR from isdnlog */
+#define IIOCNETLCR  _IO('I',23) /* dwabc ioctl for LCR from isdnlog */
 
 #define IIOCNETALN  _IO('I',32)
 #define IIOCNETDLN  _IO('I',33)

@@ -1,4 +1,3 @@
-
 /* $Id$
  *
  * Header for the Linux ISDN abc-extension.
@@ -20,10 +19,21 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.1  1999/09/12 16:19:40  detabc
+ * added abc features
+ * low cost routing for net-interfaces (only the HL side).
+ * need more implementation in the isdnlog-utility
+ * udp info support (first part).
+ * different EAZ on outgoing call's.
+ * more checks on D-Channel callbacks (double use of channels).
+ * tested and running with kernel 2.3.17
+ *
  */
 
 #ifndef ISDN_DWABC_H
 #define ISDN_DWABC_H
+
+#include <linux/types.h>
 
 #define DWABC_LCR_FLG_NEWNUMBER		0x00000001L
 #define DWABC_LCR_FLG_DISABLE		0x00000002L
@@ -32,11 +42,11 @@
 
 struct ISDN_DWABC_LCR_IOCTL {
 
-	int 	lcr_ioctl_sizeof;	/* mustbe sizeof(ISDN_DWABC_LCR_IOCTL)		*/
-	u_short lcr_ioctl_onhtime;	/* new hanguptime							*/
-	u_long 	lcr_ioctl_callid;	/* callid from lcr-subsystem				*/
-	u_long 	lcr_ioctl_flags;	/* see above								*/
-	char 	lcr_ioctl_nr[32];	/* new destination phonenumber				*/
+	int 	lcr_ioctl_sizeof;	/* mustbe sizeof(ISDN_DWABC_LCR_IOCTL)	*/
+	u_short lcr_ioctl_onhtime;	/* new hanguptime			*/
+	u_long 	lcr_ioctl_callid;	/* callid from lcr-subsystem		*/
+	u_long 	lcr_ioctl_flags;	/* see above				*/
+	char 	lcr_ioctl_nr[32];	/* new destination phonenumber		*/
 
 };
 
