@@ -6,6 +6,13 @@
  * (c) Copyright 1997 by Carsten Paeth (calle@calle.in-berlin.de)
  * 
  * $Log$
+ * Revision 1.2.2.2  1998/01/23 16:49:30  calle
+ * added functions for pcmcia cards,
+ * avmb1_addcard returns now the controller number.
+ *
+ * Revision 1.6  1998/02/25 09:15:36  fritz
+ * apply Martin's pci driver patch to isdn drivers (vgerCVS)
+ *
  * Revision 1.5  1998/01/31 11:14:43  calle
  * merged changes to 2.0 tree, prepare 2.1.82 to work.
  *
