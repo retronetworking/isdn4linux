@@ -6,6 +6,9 @@
  * (c) Copyright 1997 by Carsten Paeth (calle@calle.in-berlin.de)
  * 
  * $Log$
+ * Revision 1.4.2.10  1998/01/26 14:53:30  calle
+ * interface change for pcmcia cards
+ *
  * Revision 1.4.2.9  1998/01/23 16:49:27  calle
  * added functions for pcmcia cards,
  * avmb1_addcard returns now the controller number.
@@ -151,6 +154,17 @@ static struct tq_struct tq_state_notify;
 static struct tq_struct tq_recv_notify;
 
 /* -------- util functions ------------------------------------ */
+
+static char *cardtype2str(int cardtype)
+{
+	switch (cardtype) {
+		default:
+		case AVM_CARDTYPE_B1: return "B1";
+		case AVM_CARDTYPE_M1: return "M1";
+		case AVM_CARDTYPE_M2: return "M2";
+		case AVM_CARDTYPE_T1: return "T1";
+	}
+}
 
 static inline int capi_cmd_valid(__u8 cmd)
 {
@@ -461,7 +475,7 @@ void avmb1_card_ready(avmb1_card * card)
 
         flag = ((__u8 *)(profp->manu))[1];
         switch (flag) {
-	case 0: cardname = "B1 ISA"; break;
+	case 0: cardname = cardtype2str(card->cardtype); break;
 	case 3: cardname = "PCMCIA B"; break;
 	case 4: cardname = "PCMCIA M1"; break;
 	case 5: cardname = "PCMCIA M2"; break;
@@ -523,15 +537,6 @@ static void avmb1_card_down(avmb1_card * card, int notify)
 
 /* ------------------------------------------------------------- */
 
-static char *cardtype2str(int cardtype)
-{
-	switch (cardtype) {
-		default:
-		case AVM_CARDTYPE_B1: return "B1";
-		case AVM_CARDTYPE_M1: return "M1";
-		case AVM_CARDTYPE_T1: return "T1";
-	}
-}
 
 int avmb1_registercard(int port, int irq, int cardtype, int allocio)
 {
@@ -593,6 +598,7 @@ int avmb1_detectcard(int port, int irq, int cardtype)
 	switch (cardtype) {
 		default:
 	   	case AVM_CARDTYPE_M1:
+	   	case AVM_CARDTYPE_M2:
 	   	case AVM_CARDTYPE_B1:
 	    		printk(KERN_NOTICE "b1capi: AVM-%s-Controller detected at 0x%x\n", cardtype2str(cardtype), port);
 			break;

@@ -6,6 +6,9 @@
  * (c) Copyright 1997 by Carsten Paeth (calle@calle.in-berlin.de)
  * 
  * $Log$
+ * Revision 1.1.2.3  1998/01/15 15:33:37  calle
+ * print cardtype, d2 protocol and linetype after load.
+ *
  * Revision 1.1.2.2  1997/11/26 10:46:55  calle
  * prepared for M1 (Mobile) and T1 (PMX) cards.
  * prepared to set configuration after load to support other D-channel
@@ -267,6 +270,7 @@ int B1_valid_irq(unsigned irq, int cardtype)
 	switch (cardtype) {
 	   default:
 	   case AVM_CARDTYPE_M1:
+	   case AVM_CARDTYPE_M2:
 	   case AVM_CARDTYPE_B1:
 	   	return irq_table[irq] != 0;
 	   case AVM_CARDTYPE_T1:
@@ -281,6 +285,7 @@ unsigned char B1_assign_irq(unsigned short base, unsigned irq, int cardtype)
 	      return b1outp(base, B1_IRQ_MASTER, 0x08);
 	   default:
 	   case AVM_CARDTYPE_M1:
+	   case AVM_CARDTYPE_M2:
 	   case AVM_CARDTYPE_B1:
 	      return b1outp(base, B1_RESET, irq_table[irq]);
 	 }
