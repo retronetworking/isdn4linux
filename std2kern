@@ -2,14 +2,19 @@
 
 KERNELDIR=/usr/src/linux
 DOCP=docpd
+PREPARSER="./preparser"
+UNIQUE=false
+VERBOSE=false
 
 docpd() {
   if ! cmp -s $1 $2 ; then
     echo Copying $1 ...
 	mkdir -p `dirname $2`
     cp $1 $2
-#  else
-#    echo $2 is up to date, NOT converted
+  else
+    if $VERBOSE ; then
+	    echo $2 is up to date, NOT converted
+    fi
   fi
 }
 
@@ -18,10 +23,59 @@ docp() {
     echo Copying $1 ...
 	mkdir -p `dirname $2`
     cp $1 $2
-#  else
-#    echo $2 is up to date, NOT converted
+  else
+    if $VERBOSE ; then
+	    echo $2 is up to date, NOT converted
+    fi
   fi
 }
+
+docpuni() {
+    if $VERBOSE ; then
+    	echo -n "Processing $1 ... "
+    fi
+    TMPNAME=/tmp/`basename $1`.$$
+    $PREPARSER -c $CTRLNAME $1 $TMPNAME
+    RES=$?
+    if [ "$RES" -eq "0" ] ; then 
+	if ! cmp -s $1 $2 ; then
+		if $VERBOSE ; then
+			echo copying original
+		else
+			echo "Processing $1 ... copying original"
+		fi
+		mkdir -p `dirname $2`
+		cp $1 $2
+	else
+		if $VERBOSE ; then
+			echo original file is up to date
+		fi
+	fi
+	rm $TMPNAME
+	return 0
+    fi
+    if [ "$RES" -eq "2" ] ; then
+	if ! cmp -s $TMPNAME $2 ; then
+		if $VERBOSE ; then
+			echo copying modified
+		else
+			echo "Processing $1 ... copying modified"
+		fi
+		mkdir -p `dirname $2`
+		cp $TMPNAME $2
+	else
+		if $VERBOSE ; then
+			echo modified file is up to date
+		fi
+	fi 
+	rm $TMPNAME
+	return 0
+    fi
+    echo
+    echo "problem with $PREPARSER retcode $RES"
+    exit 1
+}
+
 
 #
 # Print usage and exit
@@ -32,13 +86,17 @@ usage() {
 	std2kern is used for updating your kernel-tree from within
 	this directory.
 
-	std2kern [-d] [-h] [-k DIR] [files ...]
+	std2kern [-d] [-h] [-k DIR] [-v] [-u] [-c FILE] [files ...]
 
 	Options:
 
 	-h	This Text.
 	-d	Copy depends on modification date instead of file-compare.
 	-k DIR	Kerneltree is in DIR instead of /usr/src/linux
+        -v      More mesages about processing
+	-u      Make a diff for a unique kernel-tree 
+                (preprocessing with $PREPARSER)
+	-c FILE	Use FILE as control file for $PREPARSER (only with -u)
 
 	Without any files given, within the whole tree, the "right"
 	files are copied. When any files are given in the commandline,
@@ -61,7 +119,31 @@ checkkernel() {
 	exit 1
 }
 
-while getopts :dhk: a ; do
+#
+# Determine a control file name
+#
+calc_ctrl_file() {
+	eval `sed -n 's/^\([A-Z]*\) = \([0-9]*\)$/\1=\2/p' $KERNELDIR/Makefile`
+	echo "Current kernel version is $VERSION.$PATCHLEVEL.$SUBLEVEL"
+	if [ -z "$CTRLNAME" ] ; then
+		CTRLNAME=v$VERSION.$PATCHLEVEL.$SUBLEVEL.ctrl
+		if [ -f $CTRLNAME ] ; then
+			return 0
+		fi
+		CTRLNAME=v$VERSION.$PATCHLEVEL.ctrl
+		if [ -f $CTRLNAME ] ; then
+			return 0
+		fi
+		CTRLNAME=default.ctrl
+	fi
+	if [ -f $CTRLNAME ] ; then
+		return 0
+	fi
+	echo "No control file found"
+	exit 1
+}
+
+while getopts :dhk:uc:v a ; do
 	case $a in
 		\?)	case $OPTARG in
 				k)	echo "-k requires Kernel directory parameter"
@@ -75,6 +157,12 @@ while getopts :dhk: a ; do
 		k)	checkkernel $OPTARG
 			KERNELDIR=$OPTARG
 			;;
+		c)	CTRLNAME=$OPTARG
+			;;
+		u)	UNIQUE=true
+			;;
+		v)	VERBOSE=true
+			;;
 		d)	DOCP=docp
 			;;
 		h)	usage
@@ -82,6 +170,19 @@ while getopts :dhk: a ; do
 	esac
 done
 shift `expr $OPTIND - 1`
+
+if $UNIQUE ; then
+	DOCP=docpuni
+	calc_ctrl_file
+fi
+
+echo -n "Using $DOCP"
+
+if $UNIQUE ; then
+	echo " with controlfile $CTRLNAME"
+else
+	echo
+fi
 
 if [ $# != 0 ]; then
   for i in $* ; do
@@ -98,7 +199,14 @@ else
     $DOCP $i $KERNELDIR/$i
   done
   for i in drivers/isdn/hisax/*.[ch] drivers/isdn/hisax/md5sums.asc ; do
-    $DOCP $i $KERNELDIR/$i
+	if [ "$i" == "drivers/isdn/hisax/md5sums.asc" -a \
+	     "$UNIQUE" == "true" ] ; then
+		if $VERBOSE ; then
+			echo "$i skipped"
+		fi
+	else
+		$DOCP $i $KERNELDIR/$i
+	fi
   done
   for i in drivers/isdn/sc/*.[ch] ; do
     $DOCP $i $KERNELDIR/$i
@@ -130,20 +238,34 @@ else
       patch -d $KERNELDIR/Documentation < Documentation/Configure.help.eicon.diff
     fi
   fi
-  mkdir -p -m 755 $KERNELDIR/drivers/isdn/eicon
   for i in drivers/isdn/eicon/*.[ch] ; do
     $DOCP $i $KERNELDIR/$i
   done
   for i in include/linux/*.h ; do
-    $DOCP $i $KERNELDIR/$i
+	if [ "$i" == "include/linux/isdn_compat.h" -a \
+	     "$UNIQUE" == "true" ] ; then
+		if $VERBOSE ; then
+			echo "$i skipped"
+		fi
+	else
+		$DOCP $i $KERNELDIR/$i
+	fi
   done
   for i in Documentation/isdn/CREDITS Documentation/isdn/README* \
            Documentation/isdn/*.FAQ Documentation/isdn/INTERFACE* \
            Documentation/isdn/HiSax* Documentation/isdn/00-INDEX ; do
-    $DOCP $i $KERNELDIR/$i
+	if $UNIQUE ; then
+		docpd $i $KERNELDIR/$i
+	else
+		$DOCP $i $KERNELDIR/$i
+	fi
   done
   for i in drivers/isdn/Config.in ; do
-    $DOCP $i $KERNELDIR/$i
+	if $UNIQUE ; then
+		docpd $i $KERNELDIR/$i
+	else
+		$DOCP $i $KERNELDIR/$i
+	fi
   done
   for i in drivers/isdn/Makefile drivers/isdn/icn/Makefile \
            drivers/isdn/hisax/Makefile \
@@ -151,11 +273,20 @@ else
            drivers/isdn/act2000/Makefile \
            drivers/isdn/isdnloop/Makefile \
            drivers/isdn/eicon/Makefile \
+           drivers/isdn/divert/Makefile \
            drivers/isdn/avmb1/Makefile; do
 	if [ -f $i.kernel ] ; then
-    	$DOCP $i.kernel $KERNELDIR/$i
+		if $UNIQUE ; then
+			docpd $i.kernel $KERNELDIR/$i
+		else
+			$DOCP $i.kernel $KERNELDIR/$i
+		fi
 	else
-    	$DOCP $i $KERNELDIR/$i
+		if $UNIQUE ; then
+			docpd $i $KERNELDIR/$i
+		else
+			$DOCP $i $KERNELDIR/$i
+		fi
 	fi
   done
 fi
