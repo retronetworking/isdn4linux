@@ -492,6 +492,7 @@ isdn_status_callback(isdn_ctrl * c)
 			dev->drv[di]->flags &= ~DRV_FLAG_RUNNING;
 			break;
 		case ISDN_STAT_ICALL:
+		case ISDN_STAT_ICALLW:
 			if (i < 0)
 				return -1;
 #ifdef ISDN_DEBUG_STATCALLB
@@ -2315,6 +2316,7 @@ int DIVERT_REG_NAME(isdn_divert_if *i_div)
         i_div->ll_cmd = isdn_command; /* set command function */
         i_div->drv_to_name = map_drvname; 
         i_div->name_to_drv = map_namedrv; 
+        i_div->dial_net_name = isdn_net_force_dial; 
         MOD_INC_USE_COUNT;
         divert_if = i_div; /* remember interface */
         return(DIVERT_NO_ERR);
