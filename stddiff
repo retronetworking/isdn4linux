@@ -96,7 +96,7 @@ else
 	for i in drivers/isdn/pcbit/*.[ch] ; do
 		dodiff $i $KERNELDIR/$i
 	done
-	for i in include/linux/isdn*.h ; do
+	for i in include/linux/*.h ; do
 		dodiff $i $KERNELDIR/$i
 	done
 	README=`echo Documentation/isdn/README* | grep -v '.sc'`
