@@ -20,6 +20,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.8  1996/05/10 08:49:43  fritz
+ * Checkin before major changes of tty-code.
+ *
  * Revision 1.7  1996/05/07 09:15:09  fritz
  * Reorganized and general cleanup.
  * Bugfixes:
@@ -59,7 +62,7 @@
 #include "isdn_tty.h"
 #ifdef CONFIG_ISDN_AUDIO
 #include "isdn_audio.h"
-#define VBUF 256
+#define VBUF 0x300
 #define VBUFX (VBUF/16)
 #endif
 
@@ -90,7 +93,7 @@ char *isdn_tty_revision        = "$Revision$";
  *  0 = Failure, data has to be bufferd and later processed by
  *      isdn_tty_readmodem().
  */
-int isdn_tty_try_read(modem_info *info, u_char * buf, int len)
+int isdn_tty_try_read(modem_info *info, struct sk_buff *skb)
 {
         int c;
         struct tty_struct *tty;
@@ -99,18 +102,20 @@ int isdn_tty_try_read(modem_info *info, u_char * buf, int len)
 		if ((tty = info->tty)) {
 			if (info->mcr & UART_MCR_RTS) {
 				c = TTY_FLIPBUF_SIZE - tty->flip.count - 1;
-				if (c >= len) {
-					if (len > 1) {
-						memcpy(tty->flip.char_buf_ptr, buf, len);
-						tty->flip.count += len;
-						memset(tty->flip.flag_buf_ptr, 0, len);
+				if (c >= skb->len) {
+					if (skb->len > 1) {
+						memcpy(tty->flip.char_buf_ptr, skb->data, skb->len);
+						tty->flip.count += skb->len;
+						memset(tty->flip.flag_buf_ptr, 0, skb->len);
 						if (info->emu.mdmreg[12] & 128)
-							tty->flip.flag_buf_ptr[len - 1] = 0xff;
-						tty->flip.flag_buf_ptr += len;
-						tty->flip.char_buf_ptr += len;
+							tty->flip.flag_buf_ptr[skb->len - 1] = 0xff;
+						tty->flip.flag_buf_ptr += skb->len;
+						tty->flip.char_buf_ptr += skb->len;
 					} else
-						tty_insert_flip_char(tty, buf[0], 0);
+						tty_insert_flip_char(tty, skb->data[0], 0);
 					queue_task_irq_off(&tty->flip.tqueue, &tq_timer);
+                                        skb->free = 1;
+                                        kfree_skb(skb, FREE_READ);
 					return 1;
 				}
 			}
@@ -174,86 +179,99 @@ void isdn_tty_readmodem(void)
 		isdn_timer_ctrl(ISDN_TIMER_MODEMREAD, 0);
 }
 
-/* isdn_tty_senddow() is called either directly from within isdn_tty_write()
+void isdn_tty_cleanup_xmit(modem_info *info)
+{
+        struct sk_buff *skb;
+        unsigned long flags;
+
+        save_flags(flags);
+        cli();
+        if (info->xmit_buf->qlen)
+                while ((skb = skb_dequeue(info->xmit_buf))) {
+                        skb->free = 1;
+                        kfree_skb(skb,FREE_WRITE);
+                }
+        restore_flags(flags);
+}
+
+/* isdn_tty_senddown() is called either directly from within isdn_tty_write()
  * or via timer-interrupt from within isdn_tty_modem_xmit(). It pulls
  * outgoing data from the tty's xmit-buffer, handles voice-decompression or
  * T.70 if necessary, and finally sends it out via isdn_writebuf_stub.
  */
-static void isdn_tty_senddown(modem_info * info, int midx)
+static void isdn_tty_senddown(modem_info * info)
 {
         struct tty_struct *tty = info->tty;
-        char *bufptr = info->xmit_buf;
-        int buflen = info->xmit_count;
+        struct sk_buff *skb = skb_dequeue(info->xmit_buf);
 
-        if (!buflen)
+        if (!skb)
                 return;
+        if (skb->free > 1) {
+                /* Post processing only once, if skb->free > 1 */
 #ifdef CONFIG_ISDN_AUDIO
-        if (info->vonline==2) {
-                /* For now, ifmt is fixed to 1 (alaw), since this
-                 * is used with ISDN everywhere in the world, except
-                 * US, Canadia and Japan.
-                 * Later, when US-ISDN protocols are implemented,
-                 * this setting will depend on the Layer-3 protocol.
-                 */
-                int ifmt = 1;
-                /* voice conversion/decompression */
-#if 0
-printk("vcode %d %d\n",info->emu.vpar[3],buflen);
-#endif
-                switch (info->emu.vpar[3]) {
-                        case 2:
-                        case 3:
-                        case 4:
-                                /* adpcm, compatible to ZyXel 1496 modem
-                                 * with ROM revision 6.01
-                                 * xmit_size is limited to VBUF bytes
-                                 * so we take the rest of the buffer
-                                 * for decompressed data.
-                                 */
-                                buflen = isdn_audio_adpcm2xlaw(info->adpcms,
-                                                               ifmt,
-                                                               bufptr,
-                                                               bufptr+VBUF,
-                                                               buflen);
-                                bufptr += VBUF;
-                                break;
-                        case 5:
-                                /* a-law */
-                                if (!ifmt)
-                                        isdn_audio_alaw2ulaw(bufptr,buflen);
-                                break;
-                        case 6:
-                                /* u-law */
-                                if (ifmt)
-                                        isdn_audio_ulaw2alaw(bufptr,buflen);
-                                break;
+                if (info->vonline==2) {
+                        char *ptr = skb->data;
+                        int len = skb->len;
+
+                        /* For now, ifmt is fixed to 1 (alaw), since this
+                         * is used with ISDN everywhere in the world, except
+                         * US, Canadia and Japan.
+                         * Later, when US-ISDN protocols are implemented,
+                         * this setting will depend on the D-channel protocol.
+                         */
+                        int ifmt = 1;
+                        /* voice conversion/decompression */
+                        switch (info->emu.vpar[3]) {
+                                case 4:
+                                        skb_put(skb, len);
+                                        /* fall through */
+                                case 3:
+                                        skb_put(skb, len);
+                                        /* fall through */
+                                case 2:
+                                        skb_put(skb, len * 2);
+                                        /* adpcm, compatible to ZyXel 1496 modem
+                                         * with ROM revision 6.01
+                                         */
+                                        skb_pull(skb, len);
+                                        skb_trim(skb, isdn_audio_adpcm2xlaw(info->adpcms,
+                                                                       ifmt,
+                                                                       ptr,
+                                                                       skb->data,
+                                                                       len));
+                                        break;
+                                case 5:
+                                        /* a-law */
+                                        if (!ifmt)
+                                                isdn_audio_alaw2ulaw(ptr,len);
+                                        break;
+                                case 6:
+                                        /* u-law */
+                                        if (ifmt)
+                                                isdn_audio_ulaw2alaw(ptr,len);
+                                        break;
+                        }
                 }
+#endif          /* CONFIG_ISDN_AUDIO */
+                if (info->emu.mdmreg[13] & 2)
+                        /* Add T.70 simplified header */
+                        memcpy(skb_push(skb,4), "\1\0\1\0", 4);
+                /* Mark skb post-processed */
+                skb->free = 1;
         }
-#endif        /* CONFIG_ISDN_AUDIO */
-        if (info->emu.mdmreg[13] & 2) {
-                /* Add T.70 simplified header */
-#ifdef ISDN_DEBUG_MODEM_DUMP
-                isdn_dumppkt("T70pack3:", bufptr, buflen, 40);
-#endif
-                bufptr -= 4;
-                buflen += 4;
-                memcpy(bufptr, "\1\0\1\0", 4);
-#ifdef ISDN_DEBUG_MODEM_DUMP
-                isdn_dumppkt("T70pack4:", bufptr, buflen, 40);
-#endif
-        }
-        if (isdn_writebuf_stub(info->isdn_driver, info->isdn_channel,
-                               bufptr, buflen, 0) > 0) {
-                info->xmit_count = 0;
-                info->xmit_size = info->emu.mdmreg[16] * 16;
-                info->send_outstanding++;
-                info->msr &= ~UART_MSR_CTS;
+        if (isdn_writebuf_skb_stub(info->isdn_driver, info->isdn_channel,
+                                   skb) > 0) {
+                if (skb_queue_empty(info->xmit_buf))
+                        info->xmit_count = 0;
+                if ((info->send_outstanding++) > 10)
+                        info->msr &= ~UART_MSR_CTS;
                 info->lsr |= UART_LSR_TEMT;
                 if ((tty->flags & (1 << TTY_DO_WRITE_WAKEUP)) &&
                     tty->ldisc.write_wakeup)
                         (tty->ldisc.write_wakeup) (tty);
                 wake_up_interruptible(&tty->write_wait);
-        }
+        } else
+                skb_queue_head(info->xmit_buf,skb);
 }
 
 /************************************************************
@@ -310,7 +328,6 @@ static void isdn_tty_dial(char *n, modem_info * info, atemu * m)
                         break;
                 }
 #ifdef CONFIG_ISDN_AUDIO
-        if ((m->mdmreg[18] & (1<<j)) != (1<<j))
                 if (si == 1) {
                         l2 = 4;
                         usg = ISDN_USAGE_VOICE;
@@ -372,6 +389,7 @@ void isdn_tty_modem_hup(modem_info * info)
                 return;
         info->rcvsched = 0;
         info->online = 0;
+        isdn_tty_cleanup_xmit(info);
         switch (info->vonline) {
                 case 1:
                         /* voice-recording, add DLE-ETX */
@@ -576,9 +594,10 @@ int isdn_tty_handleDLEup(unsigned char *buf, int len)
 /* This routine is called wrom within isdn_tty_write() to perform
  * DLE-decoding when sending audio-data.
  */
-static int isdn_tty_handleDLEdown(modem_info *info, atemu *m, int len, int midx)
+static int isdn_tty_handleDLEdown(modem_info *info, atemu *m, struct sk_buff *skb)
 {
-        unsigned char *p = &(info->xmit_buf[info->xmit_count]);
+        unsigned char *p = skb->data;
+        int len = skb->len;
         int count = 0;
 
         while (len>0) {
@@ -588,6 +607,9 @@ static int isdn_tty_handleDLEdown(modem_info *info, atemu *m, int len, int midx)
                                 case DLE:
                                         /* Escape code */
                                         printk(KERN_DEBUG "dledown: DLE-DLE\n");
+                                        if (len>1)
+                                                memmove(p,p+1,len-1);
+                                        p--;
                                         count++;
                                         break;
                                 case ETX:
@@ -618,6 +640,7 @@ static int isdn_tty_handleDLEdown(modem_info *info, atemu *m, int len, int midx)
                 printk(KERN_WARNING "isdn_tty: len<0 in DLEdown\n");
                 return 0;
         }
+        skb_trim(skb,count);
         return count;
 }
 
@@ -660,9 +683,9 @@ static int isdn_tty_end_vrx(const char *buf, int c, int from_user)
 static int isdn_tty_write(struct tty_struct *tty, int from_user, const u_char * buf, int count)
 {
 	int c, total = 0;
-	modem_info *info = (modem_info *) tty->driver_data;
 	ulong flags;
-	int i;
+	modem_info *info = (modem_info *) tty->driver_data;
+        struct sk_buff *skb;
 
 	if (isdn_tty_paranoia_check(info, tty->device, "isdn_tty_write"))
 		return 0;
@@ -672,13 +695,10 @@ static int isdn_tty_write(struct tty_struct *tty, int from_user, const u_char * 
 	cli();
 	while (1) {
 		c = MIN(count, info->xmit_size - info->xmit_count);
-		if (info->isdn_driver >= 0) {
-			i = dev->drv[info->isdn_driver]->maxbufsize;
-			c = MIN(c, i);
-		}
+		if (info->isdn_driver >= 0)
+			c = MIN(c, dev->drv[info->isdn_driver]->maxbufsize);
 		if (c <= 0)
 			break;
-		i = info->line;
                 if ((info->online > 1) ||
                     (info->vonline == 2)) {
                         atemu *m = &info->emu;
@@ -688,13 +708,20 @@ static int isdn_tty_write(struct tty_struct *tty, int from_user, const u_char * 
                                                    &(m->pluscount),
                                                    &(m->lastplus),
                                                    from_user);
-			if (from_user)
-				memcpy_fromfs(&(info->xmit_buf[info->xmit_count]), buf, c);
-			else
-				memcpy(&(info->xmit_buf[info->xmit_count]), buf, c);
+                        if ((skb = alloc_skb(((info->vonline == 2)?
+                                                  (c+(c<<2)):c)+16,GFP_ATOMIC))==NULL) {
+                                printk(KERN_WARNING "isdn_tty: Cannot alloc skb in tty_write\n");
+                                restore_flags(flags);
+                                return total;
+                        }
+                        skb_reserve(skb, 4); /* For T.70 header */
+                        if (from_user)
+                                memcpy_fromfs(skb_put(skb, c), buf, c);
+                        else
+                                memcpy(skb_put(skb, c), buf, c);
 #ifdef CONFIG_ISDN_AUDIO
                         if (info->vonline == 2) {
-                                int cc = isdn_tty_handleDLEdown(info,m,c,i);
+                                int cc = isdn_tty_handleDLEdown(info,m,skb);
                                 info->xmit_count += cc;
                                 if ((cc==0) && (c > 0)) {
                                         /* If DLE decoding results in zero-transmit, but
@@ -708,9 +735,12 @@ static int isdn_tty_write(struct tty_struct *tty, int from_user, const u_char * 
                         } else
 #endif
                                 info->xmit_count += c;
-                                
-			if (m->mdmreg[13] & 1)
-                                isdn_tty_senddown(info,i);
+                        skb->users = c;
+                        skb_queue_tail(info->xmit_buf,skb);
+			if (m->mdmreg[13] & 1) {
+                                sti();
+                                isdn_tty_senddown(info);
+                        }
 		} else {
                         info->msr |= UART_MSR_CTS;
                         info->lsr |= UART_LSR_TEMT;
@@ -736,7 +766,7 @@ static int isdn_tty_write(struct tty_struct *tty, int from_user, const u_char * 
 		count -= c;
 		total += c;
 	}
-	if (info->xmit_count)
+	if (total)
 		isdn_timer_ctrl(ISDN_TIMER_MODEMXMIT, 1);
 	restore_flags(flags);
 	return total;
@@ -769,14 +799,11 @@ static int isdn_tty_chars_in_buffer(struct tty_struct *tty)
 static void isdn_tty_flush_buffer(struct tty_struct *tty)
 {
 	modem_info *info = (modem_info *) tty->driver_data;
-	uint flags;
 
 	if (isdn_tty_paranoia_check(info, tty->device, "isdn_tty_flush_buffer"))
 		return;
-	save_flags(flags);
-	cli();
-	info->xmit_count = 0;
-	restore_flags(flags);
+        isdn_tty_cleanup_xmit(info);
+        info->xmit_count = 0;
 	wake_up_interruptible(&tty->write_wait);
 	if ((tty->flags & (1 << TTY_DO_WRITE_WAKEUP)) &&
 	    tty->ldisc.write_wakeup)
@@ -789,7 +816,7 @@ static void isdn_tty_flush_chars(struct tty_struct *tty)
 
 	if (isdn_tty_paranoia_check(info, tty->device, "isdn_tty_flush_chars"))
 		return;
-	if (info->xmit_count > 0)
+	if (skb_queue_len(info->xmit_buf))
 		isdn_timer_ctrl(ISDN_TIMER_MODEMXMIT, 1);
 }
 
@@ -1472,11 +1499,11 @@ int isdn_tty_modem_init(void)
 		info->isdn_channel = -1;
 		info->drv_index = -1;
 		info->xmit_size = ISDN_SERIAL_XMIT_SIZE;
-		if (!(info->xmit_buf = kmalloc(ISDN_SERIAL_XMIT_SIZE + 5, GFP_KERNEL))) {
+		if (!(info->xmit_buf = kmalloc(sizeof(struct sk_buff_head), GFP_KERNEL))) {
 			printk(KERN_ERR "Could not allocate modem xmit-buffer\n");
 			return -3;
 		}
-		info->xmit_buf += 4;	/* Make room for T.70 header */
+                skb_queue_head_init(info->xmit_buf);
 	}
 	return 0;
 }
@@ -1966,6 +1993,7 @@ static int isdn_tty_cmd_ATS(char **p, modem_info * info)
                                         if ((m->mdmreg[18] & 1) && (mval > VBUFX))
                                                 PARSE_ERROR1;
 #endif
+                                        info->xmit_size = mval * 16;
                                         break;
                         }
                         m->mdmreg[mreg] = mval;
@@ -2552,14 +2580,10 @@ void isdn_tty_modem_xmit(void)
                                 modem_info *info = &dev->mdm.info[midx];
 				if ((info->online > 1) ||
                                     (info->vonline ==2 )) {
-					ulong flags;
-					save_flags(flags);
-					cli();
-					if (info->xmit_count > 0) {
+					if (skb_queue_len(info->xmit_buf)) {
 						ton = 1;
-                                                isdn_tty_senddown(info,midx);
+                                                isdn_tty_senddown(info);
 					}
-					restore_flags(flags);
 				}
                         }
 	isdn_timer_ctrl(ISDN_TIMER_MODEMXMIT, ton);

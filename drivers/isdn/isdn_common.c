@@ -21,6 +21,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.10  1996/05/10 08:49:16  fritz
+ * Checkin before major changes of tty-code.
+ *
  * Revision 1.9  1996/05/07 09:19:41  fritz
  * Adapted to changes in isdn_tty.c
  *
@@ -116,45 +119,19 @@ void isdn_dumppkt(char *s, u_char * p, int len, int dumplen)
 }
 #endif
 
-/* Try to allocate a new buffer, link it into queue. */
-u_char *
- isdn_new_buf(pqueue ** queue, int length)
+static void isdn_free_queue(struct sk_buff_head *queue)
 {
-	pqueue *p;
-	pqueue *q;
+        struct sk_buff *skb;
+        unsigned long flags;
 
-	if ((p = *queue)) {
-		while (p) {
-			q = p;
-			p = (pqueue *) p->next;
-		}
-		p = (pqueue *) kmalloc(sizeof(pqueue) + length, GFP_ATOMIC);
-		q->next = (u_char *) p;
-	} else
-		p = *queue = (pqueue *) kmalloc(sizeof(pqueue) + length, GFP_ATOMIC);
-	if (p) {
-		p->size = sizeof(pqueue) + length;
-		p->length = length;
-		p->next = NULL;
-		p->rptr = p->buffer;
-		return p->buffer;
-	} else {
-		return (u_char *) NULL;
-	}
-}
-
-static void isdn_free_queue(pqueue ** queue)
-{
-	pqueue *p;
-	pqueue *q;
-
-	p = *queue;
-	while (p) {
-		q = p;
-		p = (pqueue *) p->next;
-		kfree_s(q, q->size);
-	}
-	*queue = (pqueue *) 0;
+        save_flags(flags);
+        cli();
+        if (skb_queue_len(queue))
+                while ((skb = skb_dequeue(queue))) {
+                        skb->free = 1;
+                        kfree_skb(skb,FREE_READ);
+                }
+        restore_flags(flags);
 }
 
 int isdn_dc2minor(int di, int ch)
@@ -236,57 +213,56 @@ void isdn_timer_ctrl(int tf, int onoff)
 	restore_flags(flags);
 }
 
-/* Receive a packet from B-Channel. (Called from low-level-module)
- * Parameters:
- *
- * di      = Driver-Index.
- * channel = Number of B-Channel (0...)
- * buf     = pointer to packet-data
- * len     = Length of packet-data
- *
+/*
+ * Receive a packet from B-Channel. (Called from low-level-module)
  */
-static void isdn_receive_callback(int di, int channel, u_char * buf, int len)
+static void isdn_receive_skb_callback(int di, int channel, struct sk_buff *skb)
 {
 	ulong flags;
-	char *p;
+        int len;
 	int i;
         int midx;
 	modem_info *info;
-
-	if (dev->global_flags & ISDN_GLOBAL_STOPPED)
+        
+	if (dev->global_flags & ISDN_GLOBAL_STOPPED) {
+                skb->free = 1;
+                kfree_skb(skb, FREE_READ);
 		return;
-        if ((i = isdn_dc2minor(di,channel))==-1)
+        }
+        if ((i = isdn_dc2minor(di,channel))==-1) {
+                skb->free = 1;
+                kfree_skb(skb, FREE_READ);
                 return;
+        }
 	/* Update statistics */
-        dev->ibytes[i] += len;
+        dev->ibytes[i] += skb->len;
 	/* First, try to deliver data to network-device */
-	if (isdn_net_receive_callback(i, buf, len))
+	if (isdn_net_rcv_skb(i, skb))
 		return;
 	/* No network-device found, deliver to tty or raw-channel */
-	if (len) {
-		save_flags(flags);
-		cli();
+	if (skb->len) {
                 if ((midx = dev->m_idx[i])<0) {
-                        restore_flags(flags);
+                        skb->free = 1;
+                        kfree_skb(skb, FREE_READ);
                         return;
                 }
                 info  = &dev->mdm.info[midx];
                 if ((info->online < 2) &&
                     (info->vonline != 1)) {
                         /* If Modem not listening, drop data */
-                        restore_flags(flags);
+                        skb->free = 1;
+                        kfree_skb(skb, FREE_READ);
                         return;
                 }
                 if (info->emu.mdmreg[13] & 2)
                         /* T.70 decoding: Simply throw away the T.70 header (4 bytes) */
-                        if ((buf[0] == 1) && ((buf[1] == 0) || (buf[1] == 1))) {
+                        if ((skb->data[0] == 1) && ((skb->data[1] == 0) || (skb->data[1] == 1))) {
 #ifdef ISDN_DEBUG_MODEM_DUMP
-                                isdn_dumppkt("T70strip1:", buf, len, len);
+                                isdn_dumppkt("T70strip1:", skb->data, skb->len, skb->len);
 #endif
-                                buf += 4;
-                                len -= 4;
+                                skb_pull(skb,4);
 #ifdef ISDN_DEBUG_MODEM_DUMP
-                                isdn_dumppkt("T70strip2:", buf, len, len);
+                                isdn_dumppkt("T70strip2:", skb->data, skb->len, skb->len);
 #endif
                         }
 #ifdef CONFIG_ISDN_AUDIO
@@ -303,49 +279,46 @@ static void isdn_receive_callback(int di, int channel, u_char * buf, int len)
                                          */
                                         len = isdn_audio_xlaw2adpcm(info->adpcmr,
 								    ifmt,
-								    buf,
-								    buf,
-								    len);
+								    skb->data,
+								    skb->data,
+								    skb->len);
                                         break;
                                 case 5:
                                         /* a-law */
                                         if (!ifmt)
-                                                isdn_audio_ulaw2alaw(buf,len);
+                                                isdn_audio_ulaw2alaw(skb->data,skb->len);
                                         break;
                                 case 6:
                                         /* u-law */
                                         if (ifmt)
-                                                isdn_audio_alaw2ulaw(buf,len);
+                                                isdn_audio_alaw2ulaw(skb->data,skb->len);
                                         break;
                         }
-                        len = isdn_tty_handleDLEup(buf,len);
+                        isdn_tty_handleDLEup(skb->data,skb->len);
                 }
 #endif
                 /* Try to deliver directly via tty-flip-buf if queue is empty */
-                if (!dev->drv[di]->rpqueue[channel])
-                        if (isdn_tty_try_read(info, buf, len)) {
+                save_flags(flags);
+                cli();
+                if (skb_queue_empty(&dev->drv[di]->rpqueue[channel]))
+                        if (isdn_tty_try_read(info, skb)) {
                                 restore_flags(flags);
                                 return;
                         }
                 /* Direct deliver failed or queue wasn't empty.
                  * Queue up for later dequeueing via timer-irq.
                  */
-                p = isdn_new_buf(&dev->drv[di]->rpqueue[channel], len);
-                if (!p) {
-                        printk(KERN_WARNING "isdn: malloc of rcvbuf failed, dropping.\n");
-                        dev->drv[di]->rcverr[channel]++;
-                        restore_flags(flags);
-                        return;
-                } else {
-                        memcpy(p, buf, len);
-                        dev->drv[di]->rcvcount[channel] += len;
-                }
+                __skb_queue_tail(&dev->drv[di]->rpqueue[channel], skb);
+                dev->drv[di]->rcvcount[channel] += skb->len;
+                restore_flags(flags);
                 /* Schedule dequeuing */
                 if ((dev->modempoll) && (info->rcvsched))
                         isdn_timer_ctrl(ISDN_TIMER_MODEMREAD, 1);
                 wake_up_interruptible(&dev->drv[di]->rcv_waitq[channel]);
-		restore_flags(flags);
-	}
+	} else {
+                skb->free = 1;
+                kfree_skb(skb, FREE_READ);
+        }
 }
 
 void isdn_all_eaz(int di, int ch)
@@ -633,6 +606,7 @@ static int isdn_status_callback(isdn_ctrl * c)
                         kfree(dev->drv[di]->rcvcount);
                         for (i = 0; i < dev->drv[di]->channels; i++)
                                 isdn_free_queue(&dev->drv[di]->rpqueue[i]);
+                        kfree(dev->drv[di]->rpqueue);
                         kfree(dev->drv[di]->rcv_waitq);
                         kfree(dev->drv[di]->snd_waitq);
                         kfree(dev->drv[di]);
@@ -667,17 +641,17 @@ int isdn_readbchan(int di, int channel, u_char * buf, u_char * fp, int len, int 
 	int copy_l;
 	int dflag;
 	int flags;
-	pqueue *p;
+        struct sk_buff *skb;
 	u_char *cp;
 
-	if (!dev->drv[di]->rpqueue[channel]) {
+	if (!dev->drv[di])
+		return 0;
+	if (skb_queue_empty(&dev->drv[di]->rpqueue[channel])) {
 		if (user)
 			interruptible_sleep_on(&dev->drv[di]->rcv_waitq[channel]);
 		else
 			return 0;
 	}
-	if (!dev->drv[di])
-		return 0;
 	save_flags(flags);
 	cli();
 	avail = dev->drv[di]->rcvcount[channel];
@@ -686,16 +660,17 @@ int isdn_readbchan(int di, int channel, u_char * buf, u_char * fp, int len, int 
 	cp = buf;
 	count = 0;
 	while (left) {
-		if ((copy_l = dev->drv[di]->rpqueue[channel]->length) > left) {
+                if (!(skb = skb_peek(&dev->drv[di]->rpqueue[channel])))
+                        break;
+		if ((copy_l = skb->len) > left) {
 			copy_l = left;
 			dflag = 0;
 		} else
 			dflag = 1;
-		p = dev->drv[di]->rpqueue[channel];
 		if (user)
-			memcpy_tofs(cp, p->rptr, copy_l);
+			memcpy_tofs(cp, skb->data, copy_l);
 		else
-			memcpy(cp, p->rptr, copy_l);
+			memcpy(cp, skb->data, copy_l);
 		if (fp) {
 			memset(fp, 0, copy_l);
 			fp += copy_l;
@@ -706,15 +681,11 @@ int isdn_readbchan(int di, int channel, u_char * buf, u_char * fp, int len, int 
 		if (dflag) {
 			if (fp)
 				*(fp - 1) = 0xff;
-			save_flags(flags);
-			cli();
-			dev->drv[di]->rpqueue[channel] = (pqueue *) p->next;
-			kfree_s(p, p->size);
-			restore_flags(flags);
-		} else {
-			p->rptr += copy_l;
-			p->length -= copy_l;
-		}
+                        skb = skb_dequeue(&dev->drv[di]->rpqueue[channel]);
+                        skb->free = 1;
+                        kfree_skb(skb, FREE_READ);
+		} else
+			skb_pull(skb,copy_l);
 		save_flags(flags);
 		cli();
 		dev->drv[di]->rcvcount[channel] -= copy_l;
@@ -1720,31 +1691,35 @@ void isdn_unexclusive_channel(int di, int ch)
 }
 
 /*
- *  receive callback handler for drivers supporting sk_buff's.
+ * receive callback handler for drivers not supporting sk_buff's.
+ * Parameters:
+ *
+ * di      = Driver-Index.
+ * channel = Number of B-Channel (0...)
+ * buf     = pointer to packet-data
+ * len     = Length of packet-data
+ *
  */
-
-void isdn_receive_skb_callback(int drvidx, int chan, struct sk_buff *skb) 
+void isdn_receive_callback(int drvidx, int chan, u_char *buf, int len) 
 {
-        int i, len;
+        int i;
+        struct sk_buff *skb;
 
 	if (dev->global_flags & ISDN_GLOBAL_STOPPED)
 		return;
         if ((i = isdn_dc2minor(drvidx,chan))==-1)
                 return;
-        len = skb->len;
-	if (isdn_net_rcv_skb(i, skb) == 0) {
-		isdn_receive_callback(drvidx, chan, skb->data, skb->len);
-		skb->free = 1;
-		kfree_skb(skb, FREE_READ);
-	} else
-                /* Update statistics */
-                dev->ibytes[i] += len;
+        skb = alloc_skb(len+16, GFP_ATOMIC);
+        if (skb) {
+                memcpy(skb_put(skb, len), buf, len);
+                skb->free = 1;
+                isdn_receive_skb_callback(drvidx, chan, skb);
+        }
 }
 
 /*
  *  writebuf replacement for SKB_ABLE drivers
  */
-
 int isdn_writebuf_stub(int drvidx, int chan, const u_char *buf, int len, 
 		       int user)
 {
@@ -1846,14 +1821,17 @@ int register_isdn(isdn_if * i)
 		return 0;
 	}
 	memset((char *) d->rcvcount, 0, sizeof(int) * n);
-	if (!(d->rpqueue = (pqueue **) kmalloc(sizeof(pqueue *) * n, GFP_KERNEL))) {
-		printk(KERN_WARNING "register_isdn: Could not alloc rpqueue\n");
-		kfree(d->rcvcount);
-		kfree(d->rcverr);
-		kfree(d);
-		return 0;
-	}
-	memset((char *) d->rpqueue, 0, sizeof(pqueue *) * n);
+        if (!(d->rpqueue =
+              (struct sk_buff_head *) kmalloc(sizeof(struct sk_buff_head) * n, GFP_KERNEL))) {
+                printk(KERN_WARNING "register_isdn: Could not alloc rpqueue\n");
+                kfree(d->rcvcount);
+                kfree(d->rcverr);
+                kfree(d);
+                return 0;
+        }
+        for (j = 0; j < n; j++) {
+                skb_queue_head_init(&d->rpqueue[j]);
+        }
 	if (!(d->rcv_waitq = (struct wait_queue **)
 	      kmalloc(sizeof(struct wait_queue *) * n, GFP_KERNEL))) {
 		printk(KERN_WARNING "register_isdn: Could not alloc rcv_waitq\n");
@@ -1993,7 +1971,7 @@ int isdn_init(void)
 		tty_unregister_driver(&dev->mdm.tty_modem);
 		tty_unregister_driver(&dev->mdm.cua_modem);
 		for (i = 0; i < ISDN_MAX_CHANNELS; i++)
-			kfree(dev->mdm.info[i].xmit_buf - 4);
+			kfree(dev->mdm.info[i].xmit_buf);
 		unregister_chrdev(ISDN_MAJOR, "isdn");
 		kfree(dev);
 		return -EIO;
@@ -2047,8 +2025,10 @@ void cleanup_module(void)
 		restore_flags(flags);
 		return;
 	}
-	for (i = 0; i < ISDN_MAX_CHANNELS; i++)
-		kfree(dev->mdm.info[i].xmit_buf - 4);
+	for (i = 0; i < ISDN_MAX_CHANNELS; i++) {
+                isdn_tty_cleanup_xmit(&dev->mdm.info[i]);
+		kfree(dev->mdm.info[i].xmit_buf);
+        }
 	if (unregister_chrdev(ISDN_MAJOR, "isdn") != 0) {
 		printk(KERN_WARNING "isdn: controldevice busy, remove cancelled\n");
 	} else {
