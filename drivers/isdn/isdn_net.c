@@ -21,6 +21,11 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.54  1998/02/20 17:15:07  fritz
+ * Changes for recent kernels.
+ * Ugly workaround for adjusting Ethernet frames with recent kernels.
+ * replaced direct calls to lowlevel-driver command by common hook.
+ *
  * Revision 1.53  1998/01/31 22:05:54  keil
  * Lots of changes for X.25 support:
  * Added generic support for connection-controlling encapsulation protocols
@@ -2406,7 +2411,8 @@ isdn_net_setcfg(isdn_net_ioctl_cfg * cfg)
 		isdn_net_local *lp = p->local;
 
 		/* See if any registered driver supports the features we want */
-		features = (1 << cfg->l2_proto) | (256 << cfg->l3_proto);
+		features = ((1 << cfg->l2_proto) << ISDN_FEATURE_L2_SHIFT) |
+			((1 << cfg->l3_proto) << ISDN_FEATURE_L3_SHIFT);
 		for (i = 0; i < ISDN_MAX_DRIVERS; i++)
 			if (dev->drv[i])
 				if ((dev->drv[i]->interface->features & features) == features)
