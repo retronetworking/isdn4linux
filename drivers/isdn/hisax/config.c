@@ -5,6 +5,10 @@
  *
  *
  * $Log$
+ * Revision 1.15.2.19  1998/11/03 00:06:05  keil
+ * certification related changes
+ * fixed logging for smaller stack use
+ *
  * Revision 1.15.2.18  1998/10/13 10:27:26  keil
  * New cards, minor fixes
  *
@@ -142,7 +146,6 @@ const char *CardType[] =
 #define DEFAULT_CARD ISDN_CTYPE_ELSA
 #define DEFAULT_CFG {0,0,0,0}
 int elsa_init_pcmcia(void*, int, int*, int);
-#ifdef MODULE
 static struct symbol_table hisax_syms_elsa = {
 #include <linux/symtab_begin.h>
 	X(elsa_init_pcmcia),
@@ -151,7 +154,6 @@ static struct symbol_table hisax_syms_elsa = {
 void register_elsa_symbols(void) {
 	register_symtab(&hisax_syms_elsa);
 }
-#endif
 #endif
 #ifdef CONFIG_HISAX_AVM_A1
 #undef DEFAULT_CARD
@@ -167,7 +169,6 @@ void register_elsa_symbols(void) {
 #define DEFAULT_CFG {11,0x170,0,0}
 int avm_a1_init_pcmcia(void*, int, int*, int);
 void HiSax_closecard(int cardnr);
-#ifdef MODULE
 static struct symbol_table hisax_syms_avm_a1= {
 #include <linux/symtab_begin.h>
 	X(avm_a1_init_pcmcia),
@@ -177,7 +178,6 @@ static struct symbol_table hisax_syms_avm_a1= {
 void register_avm_a1_symbols(void) {
 	register_symtab(&hisax_syms_avm_a1);
 }
-#endif
 #endif
 #ifdef CONFIG_HISAX_FRITZPCI
 #undef DEFAULT_CARD
@@ -1238,6 +1238,7 @@ HiSax_init(void))
 #ifdef CONFIG_HISAX_ELSA
 	if (type[0] == ISDN_CTYPE_ELSA_PCMCIA) {
 		/* we have exported  and return in this case */
+		register_elsa_symbols();
 		return 0;
 	}
 #endif
@@ -1383,10 +1384,12 @@ cleanup_module(void)
 	restore_flags(flags);
 	printk(KERN_INFO "HiSax module removed\n");
 }
+#endif
 
 #ifdef CONFIG_HISAX_ELSA
 int elsa_init_pcmcia(void *pcm_iob, int pcm_irq, int *busy_flag, int prot)
 {
+#ifdef MODULE
 	int i;
 	int nzproto = 0;
 
@@ -1429,9 +1432,9 @@ int elsa_init_pcmcia(void *pcm_iob, int pcm_irq, int *busy_flag, int prot)
 	TeiNew();
 	HiSax_inithardware(busy_flag);
 	printk(KERN_NOTICE "HiSax: module installed\n");
+#endif
 	return (0);
 }
-#endif
 #endif
 
 #ifdef CONFIG_HISAX_SEDLBAUER
@@ -1485,10 +1488,10 @@ int sedl_init_pcmcia(void *pcm_iob, int pcm_irq, int *busy_flag, int prot)
 }
 #endif
 
-#ifdef MODULE
 #ifdef CONFIG_HISAX_AVM_A1_PCMCIA
 int avm_a1_init_pcmcia(void *pcm_iob, int pcm_irq, int *busy_flag, int prot)
 {
+#ifdef MODULE
 	int i;
 	int nzproto = 0;
 
@@ -1531,7 +1534,7 @@ int avm_a1_init_pcmcia(void *pcm_iob, int pcm_irq, int *busy_flag, int prot)
 	TeiNew();
 	HiSax_inithardware(busy_flag);
 	printk(KERN_NOTICE "HiSax: module installed\n");
+#endif
 	return (0);
 }
-#endif
 #endif 
