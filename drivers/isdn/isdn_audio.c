@@ -20,6 +20,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.5  1996/06/05 02:24:08  fritz
+ * Added DTMF decoder for audio mode.
+ *
  * Revision 1.4  1996/05/17 03:48:01  fritz
  * Removed some test statements.
  * Added revision string.
@@ -329,7 +332,7 @@ static int bitmask[9] = {
 }; 
 
 static int
-isdn_audio_get_bits (audio_state *s, unsigned char **in, int *len)
+isdn_audio_get_bits (adpcm_state *s, unsigned char **in, int *len)
 {
         while( s->nleft < s->nbits) {
                 int d = *((*in)++);
@@ -342,7 +345,7 @@ isdn_audio_get_bits (audio_state *s, unsigned char **in, int *len)
 }
 
 static void
-isdn_audio_put_bits (int data, int nbits, audio_state *s,
+isdn_audio_put_bits (int data, int nbits, adpcm_state *s,
                      unsigned char **out, int *len)
 {
         s->word = (s->word << nbits) | (data & bitmask[nbits]);
@@ -355,20 +358,29 @@ isdn_audio_put_bits (int data, int nbits, audio_state *s,
         }
 }
 
-audio_state *
-isdn_audio_state_init(int nbits)
+adpcm_state *
+isdn_audio_adpcm_init(adpcm_state *s, int nbits)
 {
-static audio_state *s;
-
-        s = (audio_state *) kmalloc(sizeof(audio_state), GFP_ATOMIC);
+        if (!s)
+                s = (adpcm_state *) kmalloc(sizeof(adpcm_state), GFP_ATOMIC);
         if (s) {
                 s->a     = 0;
                 s->d     = 5;
                 s->word  = 0;
                 s->nleft = 0;
                 s->nbits = nbits;
-                s->dtmf_last = ' ';
-                s->dtmf_idx  = 0;
+        }
+        return s;
+}
+
+dtmf_state *
+isdn_audio_dtmf_init(dtmf_state *s)
+{
+        if (!s)
+                s = (dtmf_state *) kmalloc(sizeof(dtmf_state), GFP_ATOMIC);
+        if (s) {
+                s->idx   = 0;
+                s->last  = ' ';
         }
         return s;
 }
@@ -379,7 +391,7 @@ static audio_state *s;
  */
  
 int
-isdn_audio_adpcm2xlaw (audio_state *s, int fmt, unsigned char *in,
+isdn_audio_adpcm2xlaw (adpcm_state *s, int fmt, unsigned char *in,
                       unsigned char *out, int len)
 {
         int a = s->a;
@@ -414,7 +426,7 @@ isdn_audio_adpcm2xlaw (audio_state *s, int fmt, unsigned char *in,
 }
 
 int
-isdn_audio_2adpcm_flush (audio_state *s, unsigned char *out)
+isdn_audio_2adpcm_flush (adpcm_state *s, unsigned char *out)
 {
 	int olen = 0;
 
@@ -424,7 +436,7 @@ isdn_audio_2adpcm_flush (audio_state *s, unsigned char *out)
 }
 
 int
-isdn_audio_xlaw2adpcm (audio_state *s, int fmt, unsigned char *in,
+isdn_audio_xlaw2adpcm (adpcm_state *s, int fmt, unsigned char *in,
                       unsigned char *out, int len)
 {
         int a = s->a;
@@ -511,7 +523,7 @@ isdn_audio_eval_dtmf(modem_info *info)
 {
         struct sk_buff *skb;
         int *result;
-        audio_state *s;
+        dtmf_state *s;
         int silence;
         int i;
         int di;
@@ -523,7 +535,7 @@ isdn_audio_eval_dtmf(modem_info *info)
 
         while ((skb = skb_dequeue(&info->dtmf_queue))) {
                 result = (int *)skb->data;
-                s = info->audio_sr;
+                s = info->dtmf_state;
                 grp[LOGRP] = grp[HIGRP] = -2;
                 silence = 0;
                 for(i = 0; i < 8; i++) {
@@ -540,12 +552,13 @@ isdn_audio_eval_dtmf(modem_info *info)
                 else {
                         if((grp[LOGRP] >= 0) && (grp[HIGRP] >= 0)) {
                                 what = dtmf_matrix[grp[LOGRP]][grp[HIGRP] - 4];
-                                if(s->dtmf_last != ' ' && s->dtmf_last != '.')
-                                        s->dtmf_last = what;  /* min. 1 non-DTMF between DTMF */
+                                if(s->last != ' ' && s->last != '.')
+                                        s->last = what;  /* min. 1 non-DTMF between DTMF */
                         } else
                                 what = '.';
                 }
-                if ((what != s->dtmf_last) && (what != ' ') && (what != '.')) {
+                if ((what != s->last) && (what != ' ') && (what != '.')) {
+                        printk(KERN_DEBUG "dtmf: tt='%c'\n", what);
                         p = skb->data;
                         *p++ = 0x10;
                         *p = what;
@@ -563,7 +576,7 @@ isdn_audio_eval_dtmf(modem_info *info)
                         wake_up_interruptible(&dev->drv[di]->rcv_waitq[ch]);
                 } else
                         kfree_skb(skb, FREE_READ);
-                s->dtmf_last = what;
+                s->last = what;
         }
 }
 
@@ -579,26 +592,28 @@ isdn_audio_eval_dtmf(modem_info *info)
 void
 isdn_audio_calc_dtmf(modem_info *info, unsigned char *buf, int len, int fmt)
 {
-        audio_state *s = info->audio_sr;
+        dtmf_state *s = info->dtmf_state;
         int i;
         int c;
 
         while (len) {
-                c = MIN(len, (DTMF_NPOINTS - s->dtmf_idx));
+                c = MIN(len, (DTMF_NPOINTS - s->idx));
                 if (c <= 0)
                         break;
                 for (i = 0; i < c; i++) {
                         if (fmt)
-                                s->dtmf_buf[s->dtmf_idx++] =
+                                s->buf[s->idx++] =
                                         isdn_audio_alaw_to_s16[*buf++] >> (15 - AMP_BITS);
                         else
-                                s->dtmf_buf[s->dtmf_idx++] =
+                                s->buf[s->idx++] =
                                         isdn_audio_ulaw_to_s16[*buf++] >> (15 - AMP_BITS);
                 }
-                if (s->dtmf_idx == DTMF_NPOINTS) {
-                        isdn_audio_goertzel(s->dtmf_buf, info);
-                        s->dtmf_idx = 0;
+                if (s->idx == DTMF_NPOINTS) {
+                        isdn_audio_goertzel(s->buf, info);
+                        s->idx = 0;
                 }
                 len -= c;
         }
 }
+
+
