@@ -6,6 +6,9 @@
  * Heavily based on devpts filesystem from H. Peter Anvin
  * 
  * $Log$
+ * Revision 1.7  2000/06/18 16:09:54  keil
+ * more changes for 2.4
+ *
  * Revision 1.6  2000/04/03 13:29:25  calle
  * make Tim Waugh happy (module unload races in 2.3.99-pre3).
  * no real problem there, but now it is much cleaner ...
@@ -60,6 +63,7 @@
 #include <linux/ctype.h>
 #include <asm/bitops.h>
 #include <asm/uaccess.h>
+#include <linux/isdn_compat.h>
 
 MODULE_AUTHOR("Carsten Paeth <calle@calle.de>");
 
