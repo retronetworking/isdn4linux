@@ -27,6 +27,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.44  1998/03/22 18:50:56  hipp
+ * Added BSD Compression for syncPPP .. UNTESTED at the moment
+ *
  * Revision 1.43  1998/03/09 17:46:44  he
  * merged in 2.1.89 changes
  *
@@ -584,18 +587,6 @@ typedef struct isdn_net_local_s {
 #endif
 } isdn_net_local;
 
-#ifdef CONFIG_ISDN_PPP
-struct ippp_bundle {
-  int mp_mrru;                        /* unused                             */
-  struct mpqueue *last;               /* currently defined in isdn_net_dev  */
-  int min;                            /* currently calculated 'on the fly'  */
-  long next_num;                      /* we wanna see this seq.-number next */
-  struct sqqueue *sq;
-  int modify:1;                       /* set to 1 while modifying sqqueue   */
-  int bundled:1;                      /* bundle active ?                    */
-};
-#endif
-
 /* the interface itself */
 typedef struct isdn_net_dev_s {
   isdn_net_local *local;
@@ -732,71 +723,6 @@ typedef struct {
 } modem;
 
 /*======================= End of ISDN-tty stuff ============================*/
-
-/*======================= Start of sync-ppp stuff ==========================*/
-
-
-#define NUM_RCV_BUFFS     64
-#define PPP_HARD_HDR_LEN 4
-
-#ifdef CONFIG_ISDN_PPP
-
-struct sqqueue {
-  struct sqqueue *next;
-  long sqno_start;
-  long sqno_end;
-  struct sk_buff *skb;
-  long timer;
-};
-  
-struct mpqueue {
-  struct mpqueue *next;
-  struct mpqueue *last;
-  long sqno;
-  struct sk_buff *skb;
-  int BEbyte;
-  unsigned long time;
-}; 
-
-struct ippp_buf_queue {
-  struct ippp_buf_queue *next;
-  struct ippp_buf_queue *last;
-  char *buf;                 /* NULL here indicates end of queue */
-  int len;
-};
-
-struct ippp_struct {
-  struct ippp_struct *next_link;
-  int state;
-  struct ippp_buf_queue rq[NUM_RCV_BUFFS]; /* packet queue for isdn_ppp_read() */
-  struct ippp_buf_queue *first;  /* pointer to (current) first packet */
-  struct ippp_buf_queue *last;   /* pointer to (current) last used packet in queue */
-  struct wait_queue *wq;
-  struct task_struct *tk;
-  unsigned int mpppcfg;
-  unsigned int pppcfg;
-  unsigned int mru;
-  unsigned int mpmru;
-  unsigned int mpmtu;
-  unsigned int maxcid;
-  isdn_net_local *lp;
-  int unit; 
-  int minor;
-  long last_link_seqno;
-  long mp_seqno;
-  long range;
-#ifdef CONFIG_ISDN_PPP_VJ
-  unsigned char *cbuf;
-  struct slcompress *slcomp;
-#endif
-  unsigned long debug;
-  struct isdn_ppp_compressor *compressor,*decompressor;
-  void *decomp_stat,*comp_stat,*link_decomp_stat,*link_comp_stat;
-};
-
-#endif
-
-/*======================== End of sync-ppp stuff ===========================*/
 
 /*======================== Start of V.110 stuff ============================*/
 #define V110_BUFSIZE 1024

@@ -99,6 +99,8 @@
 
 #define BSD_CURRENT_VERSION	1
 
+#define DEBUG 1
+
 /*
  * A dictionary for doing BSD compress.
  */
@@ -271,7 +273,7 @@ static void bsd_reset (void *state)
 static void bsd_free (void *state)
 {
 	struct bsd_db *db = (struct bsd_db *) state;
-    
+
 	if (db) {
 		/*
 		 * Release the dictionary
@@ -333,10 +335,10 @@ static void *bsd_alloc (struct isdn_ppp_comp_data *data)
 	if (!db)
 		return NULL;
 
+	memset (db, 0, sizeof(struct bsd_db));
+
 	db->xmit = data->xmit;
 	decomp = db->xmit ? 0 : 1;
-
-	memset (db, 0, sizeof(struct bsd_db));
 
 	/*
 	 * Allocate space for the dictionary. This may be more than one page in
@@ -356,12 +358,11 @@ static void *bsd_alloc (struct isdn_ppp_comp_data *data)
 	 */
 	if (!decomp)
 		db->lens = NULL;
-
 	else {
 		db->lens = (unsigned short *) vmalloc ((maxmaxcode + 1) *
 			sizeof (db->lens[0]));
 		if (!db->lens) {
-			bsd_free (db);
+			bsd_free (db); /* calls MOD_DEC_USE_COUNT; */
 			return (NULL);
 		}
 	}
@@ -385,14 +386,22 @@ static int bsd_init (void *state, struct isdn_ppp_comp_data *data, int unit, int
 {
 	struct bsd_db *db = state;
 	int indx;
+	int decomp;
 
-	int decomp = db->xmit ? 0 : 1;
+	if(!state || !data) {
+		printk(KERN_ERR "isdn_bsd_init: [%d] ERR, state %lx data %lx\n",unit,(long)state,(long)data);
+		return 0;
+	}
+
+	decomp = db->xmit ? 0 : 1;
     
 	if (data->optlen != 1 || data->num != CI_BSD_COMPRESS
 		|| (BSD_VERSION(data->options[0]) != BSD_CURRENT_VERSION)
 		|| (BSD_NBITS(data->options[0]) != db->maxbits)
-		|| (decomp && db->lens == NULL))
+		|| (decomp && db->lens == NULL)) {
+		printk(KERN_ERR "isdn_bsd: %d %d %d %d %lx\n",data->optlen,data->num,data->options[0],decomp,(unsigned long)db->lens);
 		return 0;
+	}
 
 	if (decomp)
 		for(indx=LAST;indx>=0;indx--)
@@ -407,10 +416,7 @@ static int bsd_init (void *state, struct isdn_ppp_comp_data *data, int unit, int
 	db->unit = unit;
 	db->mru  = 0;
 
-#ifndef DEBUG
-	if (debug)
-#endif
-		db->debug = 1;
+	db->debug = 1;
     
 	bsd_reset(db);
     
@@ -484,9 +490,9 @@ static int bsd_compress (void *state, struct sk_buff *skb_in, struct sk_buff *sk
 	 * just return without compressing the packet.  If it is,
 	 * the protocol becomes the first byte to compress.
 	 */
+	printk(KERN_DEBUG "bsd_compress called with %x\n",proto);
 	
 	ent = proto;
-
 	if (proto < 0x21 || proto > 0xf9 || !(proto & 0x1) )
 		return 0;
 
@@ -499,19 +505,14 @@ static int bsd_compress (void *state, struct sk_buff *skb_in, struct sk_buff *sk
 	mxcode  = MAXCODE (n_bits);
 	
 	/* This is the PPP header information */
-	if(skb_out && skb_tailroom(skb_out) > 6) {
-		char *v = skb_put(skb_out,6);
-		v[0] = PPP_ADDRESS(rptr);
-		v[1] = PPP_CONTROL(rptr);
-		v[2] = 0;
-		v[3] = PPP_COMP;
-		v[4] = db->seqno >> 8;
-		v[5] = db->seqno;
+	if(skb_out && skb_tailroom(skb_out) >= 2) {
+		char *v = skb_put(skb_out,2);
+		/* we only push our own data on the header,
+		  AC,PC and protos is pushed by caller  */
+		v[0] = db->seqno >> 8;
+		v[1] = db->seqno;
 	}
 
-	/* Skip the input header */
-	rptr  += PPP_HDRLEN;
-	isize -= PPP_HDRLEN;
 	ilen   = ++isize; /* This is off by one, but that is what is in draft! */
 
 	while (--ilen > 0) {
@@ -586,7 +587,8 @@ nomatch:
     
 	OUTPUT(ent);		/* output the last code */
 
-	db->bytes_out    += skb_out->len; /* Do not count bytes from here */
+	if(skb_out)
+		db->bytes_out    += skb_out->len; /* Do not count bytes from here */
 	db->uncomp_bytes += isize;
 	db->in_count     += isize;
 	++db->uncomp_count;
@@ -617,7 +619,7 @@ nomatch:
 		db->n_bits++;
 
 	/* If output length is too large then this is an incompressible frame. */
-	if (!skb_out || skb_out->len >= skb_in->len ) {
+	if (!skb_out || (skb_out && skb_out->len >= skb_in->len) ) {
 		++db->incomp_count;
 		db->incomp_bytes += isize;
 		return 0;
@@ -635,9 +637,9 @@ nomatch:
  * Update the "BSD Compress" dictionary on the receiver for
  * incompressible data by pretending to compress the incoming data.
  */
-static void bsd_incomp (void *state, struct sk_buff *skb_in)
+static void bsd_incomp (void *state, struct sk_buff *skb_in,int proto)
 {
-	bsd_compress (state, skb_in, NULL, 0);
+	bsd_compress (state, skb_in, NULL, proto);
 }
 
 /*
@@ -667,14 +669,22 @@ static int bsd_decompress (void *state, struct sk_buff *skb_in, struct sk_buff *
 	bitno    = 32;		/* 1st valid bit in accm */
 	n_bits   = db->n_bits;
 	tgtbitno = 32 - n_bits;	/* bitno when we have a code */
+
+	printk(KERN_DEBUG "bsd_decompress called\n");
+
+	if(!skb_in || !skb_out) {
+		printk(KERN_ERR "bsd_decompress called with NULL parameter\n");
+		return DECOMP_ERROR;
+	}
     
 	/*
-	 * Save the address/control from the PPP header
-	 * and then get the sequence number.
+	 * Get the sequence number.
 	 */
-
-	seq   = (skb_in->data[0] << 8) + skb_in->data[1];
-	skb_pull(skb_in,2);
+	if( (p = skb_pull(skb_in,2)) == NULL) {
+		return DECOMP_ERROR;
+	}
+	p-=2;
+	seq   = (p[0] << 8) + p[1];
 	ilen  = skb_in->len;
 	ibuf = skb_in->data;
 
@@ -693,12 +703,10 @@ static int bsd_decompress (void *state, struct sk_buff *skb_in, struct sk_buff *
 	++db->seqno;
 	db->bytes_out += ilen;
 
-	/*
-	 * Fill in the ppp header, but not the last byte of the protocol
-	 * (that comes from the decompressed data).
-	 */
-
-	*(skb_put(skb_out,1)) = 0;
+	if(skb_tailroom(skb_out) > 0)
+		*(skb_put(skb_out,1)) = 0;
+	else
+		return DECOMP_NOROOM;
     
 	oldcode = CLEAR;
 
@@ -779,6 +787,7 @@ static int bsd_decompress (void *state, struct sk_buff *skb_in, struct sk_buff *
 		 */
 
 		p     = skb_put(skb_out,codelen);
+		p += codelen;
 		while (finchar > LAST) {
 			struct bsd_dict *dictp2 = dict_ptr (db, finchar);
 	    
