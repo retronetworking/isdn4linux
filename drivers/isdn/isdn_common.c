@@ -21,6 +21,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.19  1996/06/11 14:52:04  hipp
+ * minor bugfix in isdn_writebuf_skb_stub()
+ *
  * Revision 1.18  1996/06/06 14:51:51  fritz
  * Changed to support DTMF decoding on audio playback also.
  *
@@ -599,9 +602,9 @@ static int isdn_status_callback(isdn_ctrl * c)
                                 info = &dev->mdm.info[mi];
 				if (info->flags &
 				    (ISDN_ASYNC_NORMAL_ACTIVE | ISDN_ASYNC_CALLOUT_ACTIVE)) {
-					info->msr &= ~(UART_MSR_DCD | UART_MSR_RI);
-					if (info->online)
+					if (info->msr & UART_MSR_DCD)
 						isdn_tty_modem_result(3, info);
+					info->msr &= ~(UART_MSR_DCD | UART_MSR_RI);
 #ifdef ISDN_DEBUG_MODEM_HUP
 					printk(KERN_DEBUG "Mhup in ISDN_STAT_BHUP\n");
 #endif
