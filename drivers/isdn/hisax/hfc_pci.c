@@ -23,6 +23,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.2  1999/07/01 08:07:51  keil
+ * Initial version
+ *
  *
  *
  */
@@ -91,11 +94,9 @@ reset_hfcpci(struct IsdnCardState *cs)
 	sti();
 	current->state = TASK_INTERRUPTIBLE;
 	schedule_timeout((30 * HZ) / 1000);	/* Timeout 30ms */
-	schedule();
 	Write_hfc(cs, HFCPCI_CIRM, 0);	/* Reset Off */
 	current->state = TASK_INTERRUPTIBLE;
 	schedule_timeout((20 * HZ) / 1000);	/* Timeout 20ms */
-	schedule();
 	if (Read_hfc(cs, HFCPCI_STATUS) & 2)
 		printk(KERN_WARNING "HFC-PCI init bit busy\n");
 
@@ -1165,7 +1166,6 @@ hfcpci_card_msg(struct IsdnCardState *cs, int mt, void *arg)
 			sti();
 			current->state = TASK_INTERRUPTIBLE;
 			schedule_timeout((80 * HZ) / 1000);	/* Timeout 80ms */
-			schedule();
 			/* now switch timer interrupt off */
 			cs->hw.hfcpci.int_m1 &= ~HFCPCI_INTS_TIMER;
 			Write_hfc(cs, HFCPCI_INT_M1, cs->hw.hfcpci.int_m1);
