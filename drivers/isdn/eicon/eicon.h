@@ -137,7 +137,6 @@ typedef struct {
 #include <linux/major.h>
 #include <asm/segment.h>
 #include <asm/io.h>
-#include <asm/spinlock.h>
 #include <linux/kernel.h>
 #include <linux/signal.h>
 #include <linux/malloc.h>
