@@ -24,6 +24,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.4  2000/04/23 14:18:36  kai
+ * merge changes from main tree
+ *
  * Revision 1.3  2000/02/14 19:24:12  werner
  *
  * Removed superflous file
@@ -408,7 +411,11 @@ hysdn_net_create(hysdn_card * card)
 	dev->base_addr = card->iobase;	/* IO address */
 	dev->irq = card->irq;	/* irq */
 	dev->init = net_init;	/* the init function of the device */
+#ifdef COMPAT_NO_SOFTNET
 	dev->name = ((struct net_local *) dev)->dev_name;	/* device name */
+#else
+	strcpy(dev->name, ((struct net_local *) dev)->dev_name);
+#endif
 	if ((i = register_netdev(dev))) {
 		printk(KERN_WARNING "HYSDN: unable to create network device\n");
 		kfree(dev);

@@ -11,6 +11,10 @@
  *              Fritz Elfert
  *
  * $Log$
+ * Revision 2.11  2000/04/12 16:41:01  kai
+ * fix max iframe size
+ * fix bug in multicasting DL_RELEASE_IND
+ *
  * Revision 2.10  1999/07/21 14:46:19  keil
  * changes from EICON certification
  *
@@ -234,7 +238,7 @@ int
 L3AddTimer(struct L3Timer *t,
 	   int millisec, int event)
 {
-	if (t->tl.next || t->tl.prev) {
+	if (timer_pending(&t->tl)) {
 		printk(KERN_WARNING "L3AddTimer: timer already active!\n");
 		return -1;
 	}

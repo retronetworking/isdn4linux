@@ -8,6 +8,10 @@
  *
  *
  * $Log$
+ * Revision 1.5  1999/12/19 13:09:42  keil
+ * changed TASK_INTERRUPTIBLE into TASK_UNINTERRUPTIBLE for
+ * signal proof delays
+ *
  * Revision 1.4  1999/09/04 06:20:06  keil
  * Changes from kernel set_current_state()
  *
@@ -169,11 +173,9 @@ saphir_interrupt(int intno, void *dev_id, struct pt_regs *regs)
 		goto Start_ISAC;
 	}
 	/* Watchdog */
-	if (cs->hw.saphir.timer.function) {
-		del_timer(&cs->hw.saphir.timer);
-		cs->hw.saphir.timer.expires = jiffies + 1*HZ;
-		add_timer(&cs->hw.saphir.timer);
-	} else
+	if (cs->hw.saphir.timer.function) 
+		mod_timer(&cs->hw.saphir.timer, jiffies+1*HZ);
+	else
 		printk(KERN_WARNING "saphir: Spurious timer!\n");
 	writereg(cs->hw.saphir.ale, cs->hw.saphir.hscx, HSCX_MASK, 0xFF);
 	writereg(cs->hw.saphir.ale, cs->hw.saphir.hscx, HSCX_MASK + 0x40, 0xFF);
@@ -188,9 +190,7 @@ SaphirWatchDog(struct IsdnCardState *cs)
 {
         /* 5 sec WatchDog, so read at least every 4 sec */
 	cs->readisac(cs, ISAC_RBCH);
-	del_timer(&cs->hw.saphir.timer);
-	cs->hw.saphir.timer.expires = jiffies + 1*HZ;
-	add_timer(&cs->hw.saphir.timer);
+	mod_timer(&cs->hw.saphir.timer, jiffies+1*HZ);
 }
 
 void

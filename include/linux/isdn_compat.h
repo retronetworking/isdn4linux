@@ -109,8 +109,13 @@ static inline unsigned long copy_to_user(void *to, const void *from, unsigned lo
 #if LINUX_VERSION_CODE > KERNEL_VERSION(2,1,91)
 #define COMPAT_HAS_NEW_PCI
 #if LINUX_VERSION_CODE < KERNEL_VERSION(2,3,13)
+#define COMPAT_HAS_2_2_PCI
 #define get_pcibase(ps, nr) ps->base_address[nr]
+#define pci_resource_start_io(pdev, nr) ((pdev)->base_address[nr] & PCI_BASE_ADDRESS_IO_MASK)
+#define pci_resource_start_mem(pdev, nr) ((pdev)->base_address[nr] & PCI_BASE_ADDRESS_MEM_MASK)
 #else
+#define pci_resource_start_io(pdev, nr) pci_resource_start(pdev, nr)
+#define pci_resource_start_mem(pdev, nr) pci_resource_start(pdev, nr)
 #define get_pcibase(ps, nr) ps->resource[nr].start
 #endif
 #endif

@@ -21,6 +21,11 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.101  2000/04/07 14:50:34  calle
+ * Bugfix: on my system 2.3.99-pre3 Dual PII 350, unload of module isdn.o
+ *         hangs if vfree is called with interrupt disabled. After moving
+ * 	restore_flags in front of vfree it doesn't hang.
+ *
  * Revision 1.100  2000/03/03 16:37:11  kai
  * incorporated some cosmetic changes from the official kernel tree back
  * into CVS
@@ -684,9 +689,7 @@ isdn_timer_funct(ulong dummy)
 
 		save_flags(flags);
 		cli();
-		del_timer(&dev->timer);
-		dev->timer.expires = jiffies + ISDN_TIMER_RES;
-		add_timer(&dev->timer);
+		mod_timer(&dev->timer, jiffies+ISDN_TIMER_RES);
 		restore_flags(flags);
 	}
 }
@@ -707,11 +710,8 @@ isdn_timer_ctrl(int tf, int onoff)
 		dev->tflags |= tf;
 	else
 		dev->tflags &= ~tf;
-	if (dev->tflags) {
-		if (!del_timer(&dev->timer))	/* del_timer is 1, when active */
-			dev->timer.expires = jiffies + ISDN_TIMER_RES;
-		add_timer(&dev->timer);
-	}
+	if (dev->tflags)
+		mod_timer(&dev->timer, jiffies+ISDN_TIMER_RES);
 	restore_flags(flags);
 }
 

@@ -21,6 +21,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.102  2000/04/05 21:25:55  detabc
+ * add leased-line support to abc-stuff
+ *
  * Revision 1.101  2000/03/20 22:37:47  detabc
  * modify abc-extension to work together with the new LL.
  * remove abc frame-counter (is obsolete now).
@@ -1216,5 +1219,15 @@ static void __inline__ netif_stop_queue(struct net_device * dev)
 	dev->tbusy = 1;
 }
 #endif /* COMPAT_NO_SOFTNET */
+
+#ifdef COMPAT_HAS_2_2_PCI 
+struct pci_dev;
+
+static int __inline__ pci_enable_device(struct pci_dev * pdev)
+{
+	return 0;
+}
+#endif
+
 #endif /* __KERNEL__ */
 #endif /* isdn_h */

@@ -6,6 +6,9 @@
  * Copyright 1997 by Carsten Paeth (calle@calle.in-berlin.de)
  *
  * $Log$
+ * Revision 1.32  2000/04/07 15:19:58  calle
+ * remove warnings
+ *
  * Revision 1.31  2000/04/06 15:01:25  calle
  * Bugfix: crash in capidrv.c when reseting a capi controller.
  * - changed code order on remove of controller.
@@ -2165,6 +2168,7 @@ static void enable_dchannel_trace(capidrv_contr *card)
 	send_message(card, &cmdcmsg);
 }
 
+#if 0
 static void disable_dchannel_trace(capidrv_contr *card)
 {
         __u8 manufacturer[CAPI_MANUFACTURER_LEN];
@@ -2209,6 +2213,7 @@ static void disable_dchannel_trace(capidrv_contr *card)
 				   (_cstruct)"\004\000\000\000\000");
 	send_message(card, &cmdcmsg);
 }
+#endif
 
 static void send_listen(capidrv_contr *card)
 {

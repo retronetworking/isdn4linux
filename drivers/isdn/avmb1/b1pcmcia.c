@@ -6,6 +6,10 @@
  * (c) Copyright 1999 by Carsten Paeth (calle@calle.in-berlin.de)
  * 
  * $Log$
+ * Revision 1.9  2000/04/03 13:29:24  calle
+ * make Tim Waugh happy (module unload races in 2.3.99-pre3).
+ * no real problem there, but now it is much cleaner ...
+ *
  * Revision 1.8  2000/03/06 18:00:23  calle
  * - Middleware extention now working with 2.3.49 (capifs).
  * - Fixed typos in debug section of capi.c
@@ -60,7 +64,6 @@
  *
  */
 
-#include <linux/config.h>
 #include <linux/module.h>
 #include <linux/kernel.h>
 #include <linux/skbuff.h>

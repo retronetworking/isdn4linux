@@ -6,6 +6,9 @@
  * (c) Copyright 1999 by Carsten Paeth (calle@calle.in-berlin.de)
  * 
  * $Log$
+ * Revision 1.7  2000/04/07 15:26:55  calle
+ * better error message if cabel not connected or T1 has no power.
+ *
  * Revision 1.6  2000/04/03 13:29:25  calle
  * make Tim Waugh happy (module unload races in 2.3.99-pre3).
  * no real problem there, but now it is much cleaner ...
@@ -47,6 +50,7 @@
 #include <linux/capi.h>
 #include <asm/io.h>
 #include <linux/isdn_compat.h>
+#include <linux/isdn.h>
 #include "capicmd.h"
 #include "capiutil.h"
 #include "capilli.h"
@@ -303,9 +307,11 @@ int t1pci_init(void)
 	while ((dev = pci_find_device(PCI_VENDOR_ID_AVM, PCI_DEVICE_ID_AVM_T1, dev))) {
 		struct capicardparams param;
 
-		param.port = get_pcibase(dev, 1) & PCI_BASE_ADDRESS_IO_MASK;
-		param.irq = dev->irq;
-		param.membase = get_pcibase(dev, 0) & PCI_BASE_ADDRESS_MEM_MASK;
+		param.port = pci_resource_start_io(dev, 1);
+ 		param.irq = dev->irq;
+		param.membase = pci_resource_start_mem(dev, 0);
+
+		pci_enable_device (dev); /* XXX check return */
 
 		printk(KERN_INFO
 			"%s: PCI BIOS reports AVM-T1-PCI at i/o %#x, irq %d, mem %#x\n",

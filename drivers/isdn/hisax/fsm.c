@@ -7,6 +7,9 @@
  *              Fritz Elfert
  *
  * $Log$
+ * Revision 1.11  1999/12/23 15:09:32  keil
+ * change email
+ *
  * Revision 1.10  1998/11/15 23:54:39  keil
  * changes from 2.0
  *
@@ -153,7 +156,7 @@ FsmAddTimer(struct FsmTimer *ft,
 			(long) ft, millisec, where);
 #endif
 
-	if (ft->tl.next || ft->tl.prev) {
+	if (timer_pending(&ft->tl)) {
 		printk(KERN_WARNING "FsmAddTimer: timer already active!\n");
 		ft->fi->printdebug(ft->fi, "FsmAddTimer already active!");
 		return -1;
@@ -177,7 +180,7 @@ FsmRestartTimer(struct FsmTimer *ft,
 			(long) ft, millisec, where);
 #endif
 
-	if (ft->tl.next || ft->tl.prev)
+	if (timer_pending(&ft->tl))
 		del_timer(&ft->tl);
 	init_timer(&ft->tl);
 	ft->event = event;

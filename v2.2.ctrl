@@ -15,7 +15,10 @@
 #define CLOSEVAL (0)
 #define MINOR_PART(f)   MINOR(f->f_dentry->d_inode->i_rdev)
 #define COMPAT_HAS_NEW_PCI
+#define COMPAT_HAS_2_2_PCI
 #define get_pcibase(ps,nr) ps->base_address[nr]
+#define pci_resource_start_io(pdev,nr) ((pdev)->base_address[nr] & PCI_BASE_ADDRESS_IO_MASK)
+#define pci_resource_start_mem(pdev,nr) ((pdev)->base_address[nr] & PCI_BASE_ADDRESS_MEM_MASK)
 #define FILEOP_HAS_FLUSH
 #undef COMPAT_HAS_NEW_WAITQ
 #undef COMPAT_HAS_NEW_SETUP
@@ -57,3 +60,5 @@
 
 #define spin_lock_bh(lock)
 #define spin_unlock_bh(lock)
+
+

@@ -6,6 +6,9 @@
  * (c) Copyright 1999 by Carsten Paeth (calle@calle.in-berlin.de)
  * 
  * $Log$
+ * Revision 1.22  2000/04/21 13:01:33  calle
+ * Revision in b1pciv4 driver was missing.
+ *
  * Revision 1.21  2000/04/03 13:29:24  calle
  * make Tim Waugh happy (module unload races in 2.3.99-pre3).
  * no real problem there, but now it is much cleaner ...
@@ -467,12 +470,12 @@ static int add_card(struct pci_dev *dev)
 	struct capicardparams param;
 	int retval;
 
-	if (get_pcibase(dev, 2) & PCI_BASE_ADDRESS_IO_MASK) { /* B1 PCI V4 */
+	if (pci_resource_start_io(dev, 2)) { /* B1 PCI V4 */
 #ifdef CONFIG_ISDN_DRV_AVMB1_B1PCIV4
 		driver = &b1pciv4_driver;
 #endif
-		param.membase = get_pcibase(dev, 0) & PCI_BASE_ADDRESS_MEM_MASK;
-		param.port = get_pcibase(dev, 2) & PCI_BASE_ADDRESS_IO_MASK;
+		param.membase = pci_resource_start_mem(dev, 0);
+		param.port = pci_resource_start_io(dev, 2);
 		param.irq = dev->irq;
 		printk(KERN_INFO
 		"%s: PCI BIOS reports AVM-B1 V4 at i/o %#x, irq %d, mem %#x\n",
@@ -489,7 +492,7 @@ static int add_card(struct pci_dev *dev)
 		}
 	} else {
 		param.membase = 0;
-		param.port = get_pcibase(dev, 1) & PCI_BASE_ADDRESS_IO_MASK;
+		param.port = pci_resource_start_io(dev, 1);
 		param.irq = dev->irq;
 		printk(KERN_INFO
 		"%s: PCI BIOS reports AVM-B1 at i/o %#x, irq %d\n",

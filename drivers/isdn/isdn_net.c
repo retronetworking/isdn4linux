@@ -21,6 +21,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.125  2000/04/05 21:25:55  detabc
+ * add leased-line support to abc-stuff
+ *
  * Revision 1.124  2000/04/03 21:07:22  detabc
  * change write_super handling for abc-stuff
  *
@@ -3611,7 +3614,11 @@ isdn_net_new(char *name, struct net_device *master)
 		strcpy(netdev->local->name, "         ");
 	else
 		strcpy(netdev->local->name, name);
+#ifdef COMPAT_NO_SOFTNET
 	netdev->dev.name = netdev->local->name;
+#else
+	strcpy(netdev->dev.name, netdev->local->name);
+#endif
 	netdev->dev.priv = netdev->local;
 	netdev->dev.init = isdn_net_init;
 	netdev->local->p_encap = ISDN_NET_ENCAP_RAWIP;
