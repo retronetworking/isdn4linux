@@ -8,6 +8,9 @@
  * Thanks to Dr. Neuhaus and SAGEM for informations
  *
  * $Log$
+ * Revision 1.3  1998/04/15 16:42:59  keil
+ * new init code
+ *
  * Revision 1.2  1998/02/11 17:31:04  keil
  * new file
  *
@@ -15,6 +18,7 @@
 
 
 #define __NO_VERSION__
+#include <linux/config.h>
 #include "hisax.h"
 #include "isac.h"
 #include "hscx.h"
