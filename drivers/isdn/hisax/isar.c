@@ -6,6 +6,9 @@
  *
  *
  * $Log$
+ * Revision 1.11  2000/04/09 19:02:44  keil
+ * retry pump modulation settings if it fails
+ *
  * Revision 1.10  2000/02/26 00:35:13  keil
  * Fix skb freeing in interrupt context
  *
@@ -658,6 +661,17 @@ isar_rcv_frame(struct IsdnCardState *cs, struct BCState *bcs)
 					isar_sched_event(bcs, B_LL_OK);
 				}
 			}
+		}
+		if (ireg->cmsb & SART_NMD) { /* ABORT */
+			if (cs->debug & L1_DEB_WARN)
+				debugl1(cs, "isar_rcv_frame: no more data");
+			cs->BC_Write_Reg(cs, 1, ISAR_IIA, 0);
+			bcs->hw.isar.rcvidx = 0;
+			send_DLE_ETX(bcs);
+			sendmsg(cs, SET_DPS(bcs->hw.isar.dpath) |
+				ISAR_HIS_PUMPCTRL, PCTRL_CMD_ESC, 0, NULL);
+			bcs->hw.isar.state = STFAX_ESCAPE;
+			isar_sched_event(bcs, B_LL_NOCARRIER);
 		}
 		break;
 	default:
