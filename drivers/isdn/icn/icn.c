@@ -19,6 +19,10 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.18  1996/04/20 16:50:26  fritz
+ * Fixed status-buffer overrun.
+ * Misc. typos
+ *
  * Revision 1.17  1996/02/11 02:39:04  fritz
  * Increased Buffer for status-messages.
  * Removed conditionals for HDLC-firmware.
@@ -552,6 +556,15 @@ static void icn_pollit(icn_dev * dev)
 						dev->interface.statcallb(&cmd);
 						continue;
 					}
+					if (!strncmp(p, "AOC", 3)) {
+						cmd.command = ISDN_STAT_CINF;
+						cmd.arg = ch - 1;
+						sprintf(cmd.num,"%d",
+                                                        (int)simple_strtoul(p + 7,NULL,16));
+						cmd.driver = dev->myid;
+						dev->interface.statcallb(&cmd);
+						continue;
+					}
 					if (!strncmp(p, "CAU", 3)) {
 						cmd.command = ISDN_STAT_CAUSE;
 						cmd.arg = ch - 1;
@@ -595,6 +608,9 @@ static void icn_pollit(icn_dev * dev)
 				} else {
 					p = dev->imsg;
 					if (!strncmp(p, "DRV1.", 5)) {
+                                                u_char vstr[10];
+                                                u_char *q = vstr;
+
                                                 printk(KERN_INFO "icn: %s\n",p);
 						if (!strncmp(p + 7, "TC", 2)) {
 							dev->ptype = ISDN_PTYPE_1TR6;
@@ -606,7 +622,18 @@ static void icn_pollit(icn_dev * dev)
 							dev->interface.features |= ISDN_FEATURE_P_EURO;
 							printk(KERN_INFO "icn: Euro-Protocol loaded and running\n");
 						}
+                                                p = strstr(dev->imsg,"BRV") + 3;
+                                                while (*p) {
+                                                        if (*p>='0' && *p<='9')
+                                                                *q++ = *p;
+                                                        p++;
+                                                }
+                                                *q = '\0';
+                                                strcat(vstr,"000");
+                                                vstr[3] = '\0';
+                                                dev->fw_rev = (int)simple_strtoul(vstr,NULL,10);
 						continue;
+                                                
 					}
 				}
 			} else {
@@ -1037,18 +1064,6 @@ static void icn_stopdriver(icn_dev * ldev)
 	restore_flags(flags);
 }
 
-static int my_atoi(char *s)
-{
-	int i, n;
-
-	n = 0;
-	if (!s)
-		return -1;
-	for (i = 0; *s >= '0' && *s <= '9'; i++, s++)
-		n = 10 * n + (*s - '0');
-	return n;
-}
-
 static int icn_command(isdn_ctrl * c, icn_dev * ldev)
 {
 	ulong a;
@@ -1188,9 +1203,9 @@ static int icn_command(isdn_ctrl * c, icn_dev * ldev)
 			strcpy(sis, c->num);
 			p = strrchr(sis, ',');
 			*p++ = '\0';
-			si2 = my_atoi(p);
+			si2 = simple_strtoul(p,NULL,10);
 			p = strrchr(sis, ',') + 1;
-			si1 = my_atoi(p);
+			si1 = simple_strtoul(p,NULL,10);
 			p = c->num;
 			if (*p == 's' || *p == 'S') {
 				/* Dial for SPV */
@@ -1212,6 +1227,17 @@ static int icn_command(isdn_ctrl * c, icn_dev * ldev)
 	case ISDN_CMD_ACCEPTD:
 		if (c->arg < ICN_BCH) {
 			a = c->arg + 1;
+                        if (ldev->fw_rev >= 300) {
+                                switch (ldev->l2_proto[a-1]) {
+                                        case ISDN_PROTO_L2_X75I:
+                                                sprintf(cbuf, "%02d;BX75\n", (int) a);
+                                                break;
+                                        case ISDN_PROTO_L2_HDLC:
+                                                sprintf(cbuf, "%02d;BTRA\n", (int) a);
+                                                break;
+                                }
+                                i = icn_writecmd(cbuf, strlen(cbuf), 0, ldev, 1);
+                        }
 			sprintf(cbuf, "%02d;DCON_R\n", (int) a);
 			i = icn_writecmd(cbuf, strlen(cbuf), 0, ldev, 1);
 		}
@@ -1219,7 +1245,17 @@ static int icn_command(isdn_ctrl * c, icn_dev * ldev)
 	case ISDN_CMD_ACCEPTB:
 		if (c->arg < ICN_BCH) {
 			a = c->arg + 1;
-			sprintf(cbuf, "%02d;BCON_R\n", (int) a);
+                        if (ldev->fw_rev >= 300)
+                                switch (ldev->l2_proto[a-1]) {
+                                        case ISDN_PROTO_L2_X75I:
+                                                sprintf(cbuf, "%02d;BCON_R,BX75\n", (int) a);
+                                                break;
+                                        case ISDN_PROTO_L2_HDLC:
+                                                sprintf(cbuf, "%02d;BCON_R,BTRA\n", (int) a);
+                                                break;
+                                }
+                        else
+                                sprintf(cbuf, "%02d;BCON_R\n", (int) a);
 			i = icn_writecmd(cbuf, strlen(cbuf), 0, ldev, 1);
 		}
 		break;
@@ -1236,9 +1272,11 @@ static int icn_command(isdn_ctrl * c, icn_dev * ldev)
 		if (c->arg < ICN_BCH) {
 			a = c->arg + 1;
 			if (ldev->ptype == ISDN_PTYPE_EURO) {
-				sprintf(cbuf, "%02d;MS%s%s\n", (int) a, c->num[0] ? "N" : "ALL", c->num);
+				sprintf(cbuf, "%02d;MS%s%s\n", (int) a,
+                                        c->num[0] ? "N" : "ALL", c->num);
 			} else
-				sprintf(cbuf, "%02d;EAZ%s\n", (int) a, c->num[0] ? c->num : "0123456789");
+				sprintf(cbuf, "%02d;EAZ%s\n", (int) a,
+                                        c->num[0] ? c->num : "0123456789");
 			i = icn_writecmd(cbuf, strlen(cbuf), 0, ldev, 1);
 		}
 		break;
