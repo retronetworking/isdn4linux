@@ -74,3 +74,4 @@
 #undef COMPAT_HAS_SCHEDULE_TASK
 
 #define in_irq(dummy) (local_irq_count[smp_processor_id()] != 0)
+#define COMPAT_NEED_ISAPNP_DRIVER

@@ -69,3 +69,4 @@
 #define in_irq(dummy) (local_irq_count[smp_processor_id()] != 0)
 
 #define PCI_DEVICE_ID_AVM_C2 0x1100
+#define COMPAT_NEED_ISAPNP_DRIVER
