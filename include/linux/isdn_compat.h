@@ -13,14 +13,6 @@
 #define dev_kfree_skb_any(a) dev_kfree_skb(a)
 #endif
 
-#if LINUX_VERSION_CODE < KERNEL_VERSION(2,1,81)
-#define kstat_irqs( PAR ) kstat.interrupts[PAR]
-#endif
-
-#if LINUX_VERSION_CODE < KERNEL_VERSION(2,1,89)
-#define poll_wait(f,wq,w) poll_wait((wq),(w))
-#endif
-
 #if LINUX_VERSION_CODE < KERNEL_VERSION(2,3,13)
 #define COMPAT_HAS_2_2_PCI
 #define get_pcibase(ps, nr) ps->base_address[nr]
