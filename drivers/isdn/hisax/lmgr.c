@@ -6,6 +6,10 @@
  *  Layermanagement module
  *
  * $Log$
+ * Revision 1.1.2.5  1998/11/03 00:07:21  keil
+ * certification related changes
+ * fixed logging for smaller stack use
+ *
  * Revision 1.1.2.4  1998/05/27 18:06:15  keil
  * HiSax 3.0
  *
@@ -49,7 +53,7 @@ hisax_manager(struct PStack *st, int pr, void *arg)
 		case (MDL_ERROR | INDICATION):
 			Code = (long) arg;
 			HiSax_putstatus(st->l1.hardware, "manager: MDL_ERROR",
-				"%c %s\n", (char)Code, 
+				" %c %s", (char)Code, 
 				test_bit(FLG_LAPD, &st->l2.flag) ?
 				"D-channel" : "B-channel");
 			if (test_bit(FLG_LAPD, &st->l2.flag))
