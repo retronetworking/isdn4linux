@@ -925,7 +925,7 @@ checkcard(int cardnr, char *id, int *busy_flag)
 
 	save_flags(flags);
 	cli();
-	cs = kmalloc(sizeof(struct IsdnCardState), GFP_ATOMIC)
+	cs = kmalloc(sizeof(struct IsdnCardState), GFP_ATOMIC);
 	if (!cs) {
 		printk(KERN_WARNING
 		       "HiSax: No memory for IsdnCardState(card %d)\n",
