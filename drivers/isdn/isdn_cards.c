@@ -19,6 +19,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.6  1997/04/23 18:56:03  fritz
+ * Old Teles driver removed, Changed doc and scripts accordingly.
+ *
  * Revision 1.5  1997/03/30 17:10:36  calle
  * added support for AVM-B1-PCI card.
  *
@@ -78,5 +81,8 @@ isdn_cards_init(void)
 #endif
 	capi_init();
 	capidrv_init();
+#endif
+#if CONFIG_ISDN_DRV_ACT2000
+	act2000_init();
 #endif
 }
