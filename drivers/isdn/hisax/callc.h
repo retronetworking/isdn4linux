@@ -10,7 +10,6 @@ struct Channel {
 	struct PStack *b_st, *d_st;
 	struct CallcIf *c_if;
 	struct IsdnCardState *cs;
-	struct BCState *bcs;
 	int chan;
 	int tx_cnt;
 	int incoming;

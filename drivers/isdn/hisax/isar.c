@@ -1600,7 +1600,7 @@ isar_auxcmd(struct IsdnCardState *cs, isdn_ctrl *ic) {
 	debugl1(L1_DEB_HSCX, cs, "isar_auxcmd cmd/ch %x/%d", ic->command, ic->arg);
 	switch (ic->command) {
 		case (ISDN_CMD_FAXCMD):
-			bcs = cs->c_if->channel[ic->arg].bcs;
+			bcs = cs->c_if->channel[ic->arg].b_st->l1.bcs;
 			debugl1(L1_DEB_HSCX, cs, "isar_auxcmd cmd/subcmd %d/%d",
 				ic->parm.aux.cmd, ic->parm.aux.subcmd);
 			switch(ic->parm.aux.cmd) {

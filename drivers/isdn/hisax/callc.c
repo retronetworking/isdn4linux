@@ -395,8 +395,8 @@ lli_go_active(struct FsmInst *fi, int event, void *arg)
 
 	FsmChangeState(fi, ST_ACTIVE);
 	chanp->data_open = !0;
-	if (chanp->bcs->conmsg)
-		strcpy(ic.parm.num, chanp->bcs->conmsg);
+	if (chanp->b_st->l1.bcs->conmsg)
+		strcpy(ic.parm.num, chanp->b_st->l1.bcs->conmsg);
 	else
 		ic.parm.num[0] = 0;
 	HL_LL(chanp, ISDN_STAT_BCONN, &ic);
@@ -904,7 +904,7 @@ release_b_st(struct Channel *chanp)
 	struct PStack *st = chanp->b_st;
 
 	if(test_and_clear_bit(FLG_START_B, &chanp->Flags)) {
-		chanp->bcs->BC_Close(chanp->bcs);
+		chanp->b_st->l1.bcs->BC_Close(chanp->b_st->l1.bcs);
 		switch (chanp->l2_active_protocol) {
 			case (ISDN_PROTO_L2_X75I):
 				releasestack_isdnl2(st);
@@ -1072,6 +1072,29 @@ init_PStack(struct PStack **stp) {
 	(*stp)->ma.layer = dummy_pstack;
 }
 
+static int
+init_st_1(struct PStack *st, struct IsdnCardState *cs, int bchannel)
+{
+	st->l1.hardware = cs;
+	switch (bchannel) {
+	case -1: // D-Channel
+		HiSax_addlist(cs, st);
+		setstack_HiSax(st, cs);
+		break;
+	case 0:
+	case 1:
+		st->l1.bc = bchannel;
+		if (cs->bcs[bchannel].BC_SetStack(st, &cs->bcs[bchannel]))
+			return -1;
+		st->l1.bcs->conmsg = NULL;
+		break;
+	default:
+		int_error();
+		return -1;
+	}
+	return 0;
+}
+
 static void
 init_d_st(struct Channel *chanp)
 {
@@ -1079,11 +1102,10 @@ init_d_st(struct Channel *chanp)
 	struct IsdnCardState *cs = chanp->cs;
 	char tmp[16];
 
-	init_PStack(&chanp->d_st);
 	st = chanp->d_st;
 	st->next = NULL;
-	HiSax_addlist(cs, st);
-	setstack_HiSax(st, cs);
+
+	init_st_1(st, cs, -1);
 	st->l2.sap = 0;
 	st->l2.tei = -1;
 	st->l2.flag = 0;
@@ -1125,12 +1147,12 @@ channelConstr(struct Channel *chanp, struct CallcIf *c_if, int chan)
 	chanp->c_if = c_if;
 	chanp->l4pc.priv = chanp;
 	chanp->l4pc.l3l4 = dchan_l3l4proc;
-	chanp->bcs = &c_if->cs->bcs[chan];
 	chanp->chan = chan;
 	chanp->incoming = 0;
 	chanp->Flags = 0;
 	chanp->leased = 0;
 	init_PStack(&chanp->b_st);
+	init_PStack(&chanp->d_st);
 	chanp->b_st->l1.delay = DEFAULT_B_DELAY;
 	chanp->fi.fsm = &callcfsm;
 	chanp->fi.state = ST_NULL;
@@ -1232,11 +1254,7 @@ init_b_st(struct Channel *chanp, int incoming)
 	char tmp[16];
 
 	chanp->tx_cnt = 0;
-	st->l1.hardware = cs;
-	if (chanp->leased)
-		st->l1.bc = chanp->chan & 1;
-	else
-		st->l1.bc = chanp->l4pc.l3pc->para.bchannel - 1;
+	init_st_1(st, cs, chanp->leased ? chanp->chan & 1 : chanp->l4pc.l3pc->para.bchannel - 1);
 	switch (chanp->l2_active_protocol) {
 		case (ISDN_PROTO_L2_X75I):
 		case (ISDN_PROTO_L2_HDLC):
@@ -1252,9 +1270,6 @@ init_b_st(struct Channel *chanp, int incoming)
 			st->l1.mode = B1_MODE_FAX;
 			break;
 	}
-	chanp->bcs->conmsg = NULL;
-	if (chanp->bcs->BC_SetStack(st, chanp->bcs))
-		return (-1);
 	st->l2.flag = 0;
 	test_and_set_bit(FLG_LAPB, &st->l2.flag);
 	st->l2.AddressA = 0x03;
