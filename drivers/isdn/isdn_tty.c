@@ -2,8 +2,8 @@
  *
  * Linux ISDN subsystem, tty functions and AT-command emulator (linklevel).
  *
- * Copyright 1994 by Fritz Elfert (fritz@wuemaus.franken.de)
- * Copyright 1995 Thinking Objects Software GmbH Wuerzburg
+ * Copyright 1994,95,96 by Fritz Elfert (fritz@wuemaus.franken.de)
+ * Copyright 1995,96    by Thinking Objects Software GmbH Wuerzburg
  * 
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -20,11 +20,17 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.1  1996/01/09 04:13:18  fritz
+ * Initial revision
+ *
  */
 
+#include <linux/config.h>
+#define __NO_VERSION__
+#include <linux/module.h>
 #include <linux/isdn.h>
 #include "isdn_common.h"
-/* #include "isdn_tty.h" */
+#include "isdn_tty.h"
 
 /* Prototypes */
 
@@ -38,7 +44,7 @@ static void isdn_tty_modem_reset_regs(atemu *, int);
 
 static char *isdn_ttyname_ttyI = "ttyI";
 static char *isdn_ttyname_cui  = "cui";
-static char *isdn_tty_revision = "$Revision$";
+char *isdn_tty_revision        = "$Revision$";
 
 int isdn_tty_try_read(int i, u_char * buf, int len)
 {
@@ -343,7 +349,7 @@ static void isdn_tty_shutdown(modem_info * info)
 	restore_flags(flags);
 }
 
-static int isdn_tty_write(struct tty_struct *tty, int from_user, const u_char * buf, int count)
+static int isdn_tty_write(struct tty_struct *tty, int from_user, FOPS_CONST u_char * buf, int count)
 {
 	int c, total = 0;
 	modem_info *info = (modem_info *) tty->driver_data;
@@ -406,7 +412,7 @@ static int isdn_tty_write(struct tty_struct *tty, int from_user, const u_char * 
 #endif
 				}
 				if (dev->drv[info->isdn_driver]->interface->
-				    writebuf(info->isdn_channel, bufptr, buflen, 0) > 0) {
+				    writebuf(info->isdn_driver, info->isdn_channel, bufptr, buflen, 0) > 0) {
 					info->xmit_count = 0;
 					info->xmit_size = dev->mdm.atmodem[i].mdmreg[16] * 16;
 #if FUTURE
@@ -1224,7 +1230,7 @@ int isdn_tty_find_icall(int di, int ch, char *num)
 		restore_flags(flags);
 		return -1;
 	}
-	si1 = isdn_my_atoi(s);
+	si1 = (int)simple_strtoul(s,NULL,10);
 	s = strtok(NULL, ",");
 	if (!s) {
 		printk(KERN_WARNING "isdn: Incoming callinfo garbled, ignored: %s\n",
@@ -1232,7 +1238,7 @@ int isdn_tty_find_icall(int di, int ch, char *num)
 		restore_flags(flags);
 		return -1;
 	}
-	si2 = isdn_my_atoi(s);
+	si2 = (int)simple_strtoul(s,NULL,10);
 	eaz = strtok(NULL, ",");
 	if (!eaz) {
 		printk(KERN_WARNING "isdn: Incoming call without CPN, assuming '0'\n");
@@ -2005,7 +2011,7 @@ void isdn_tty_modem_xmit(void)
 #endif
 						}
 						if (dev->drv[info->isdn_driver]->interface->
-						    writebuf(info->isdn_channel, bufptr, buflen, 0) > 0) {
+						    writebuf(info->isdn_driver, info->isdn_channel, bufptr, buflen, 0) > 0) {
 							info->xmit_count = 0;
 							info->xmit_size = dev->mdm.atmodem[midx].mdmreg[16] * 16;
 #if FUTURE
