@@ -1,0 +1,76 @@
+#define ISDN_COMPAT_NOT_GENERIC
+
+#define dev_kfree_skb_irq(a,b) dev_kfree_skb(a)
+#define dev_kfree_skb_any(a,b) dev_kfree_skb(a)
+#define COMPAT_HAS_2_2_PCI
+#define get_pcibase(ps,nr) ps->base_address[nr]
+#define pci_resource_start_io(pdev,nr)	pdev->base_address[nr] & PCI_BASE_ADDRESS_IO_MASK
+#define pci_resource_start_mem(pdev,nr)	pdev->base_address[nr] & PCI_BASE_ADDRESS_MEM_MASK
+#define pci_get_sub_vendor(pdev, id)	pci_read_config_word(pdev, PCI_SUBSYSTEM_VENDOR_ID, &id)
+#define pci_get_sub_system(pdev, id)	pci_read_config_word(pdev, PCI_SUBSYSTEM_ID, &id)
+#undef COMPAT_HAS_NEW_WAITQ
+#undef COMPAT_HAS_NEW_SETUP
+#undef BIG_PHONE_NUMBERS
+#undef COMPAT_HAS_ISA_IOREMAP
+#define net_device device
+#define set_current_state(sta) current->state = sta
+#undef COMPAT_HAS_kmem_cache
+#undef COMPAT_d_alloc_root_one_parameter
+#undef COMPAT_HAS_init_special_inode
+#undef COMPAT_has_fileops_in_inode
+#undef COMPAT_has_generic_read_dir
+#define THIS_MODULE	&__this_module
+
+#undef CAPI_PPP_ON_RAW_DEVICE
+#define ISDN_TTY_FCLASS1
+#undef CONFIG_ISDN_WITH_ABC
+#undef CONFIG_ISDN_WITH_ABC_CALLB
+#undef CONFIG_ISDN_WITH_ABC_UDP_CHECK
+#undef CONFIG_ISDN_WITH_ABC_UDP_CHECK_HANGUP
+#undef CONFIG_ISDN_WITH_ABC_UDP_CHECK_DIAL
+#undef CONFIG_ISDN_WITH_ABC_OUTGOING_EAZ
+#undef CONFIG_ISDN_WITH_ABC_LCR_SUPPORT
+#undef CONFIG_ISDN_WITH_ABC_IPV4_TCP_KEEPALIVE
+#undef CONFIG_ISDN_WITH_ABC_IPV4_DYNADDR
+#undef CONFIG_ISDN_WITH_ABC_IPV4_RW_SOCKADDR
+#undef CONFIG_ISDN_WITH_ABC_RCV_NO_HUPTIMER
+#undef CONFIG_ISDN_WITH_ABC_ICALL_BIND
+#undef CONFIG_ISDN_WITH_ABC_CH_EXTINUSE
+#undef CONFIG_ISDN_WITH_ABC_CONN_ERROR
+#undef CONFIG_ISDN_WITH_ABC_RAWIPCOMPRESS
+#undef CONFIG_ISDN_WITH_ABC_FRAME_LIMIT
+#undef CONFIG_ISDN_WITH_ABC_IPTABLES_NETFILTER
+#undef CONFIG_ISDN_WITH_ABC_IPT_TARGET
+#define COMPAT_NO_SOFTNET
+#undef HAVE_DEVFS_FS
+#define devfs_register_chrdev(m,n,f) register_chrdev(m,n,f)
+#define devfs_unregister_chrdev(m,n) unregister_chrdev(m,n)
+
+#define COMPAT_NEED_MPPP_DEFS
+
+#define spin_lock_bh(lock)
+#define spin_unlock_bh(lock)
+
+#define COMPAT_HAVE_READ_LOCK_KERNEL
+#define COMPAT_HAVE_WRITE_LOCK_KERNEL
+#define COMPAT_HAVE_POLL_LOCK_KERNEL  
+#define i_count_read(ic) ic
+#define i_count_inc(ic)  ic++
+#undef COMPAT_HAS_FILEOP_OWNER
+#define COMPAT_USE_MODCOUNT_LOCK
+#undef COMPAT_HAVE_NEW_FILLDIR
+
+#define module_init(x)	int init_module(void) { return x(); }
+#define module_exit(x)	void cleanup_module(void) { x(); }
+#define __exit
+#define __devinit
+#define __devinitdata
+#define BUG(dummy) do { printk("kernel BUG at %s:%d!\n", __FILE__, __LINE__); *(int *)0 = 0; } while (0)
+
+#define init_MUTEX(x) *(x)=MUTEX
+#define init_MUTEX_LOCKED(x) *(x)=MUTEX_LOCKED
+
+#define COMPAT_NEED_PCI_IDS
+#undef COMPAT_HAS_SCHEDULE_TASK
+
+#define in_irq(dummy) (local_irq_count[smp_processor_id()] != 0)
