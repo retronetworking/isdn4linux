@@ -159,45 +159,40 @@ newl3state(struct l3_process *pc, int state)
 }
 
 static void
-L3ExpireTimer(struct L3Timer *t)
+l3pc_expiretimer(struct L3Timer *t)
 {
 	t->pc->l4l3(t->pc, t->event, 0);
 }
 
 void
-L3InitTimer(struct l3_process *pc, struct L3Timer *t)
+l3pc_inittimer(struct l3_process *pc)
 {
+	struct L3Timer *t = &pc->timer;
 	t->pc = pc;
-	t->tl.function = (void *) L3ExpireTimer;
+	t->tl.function = (void *)l3pc_expiretimer;
 	t->tl.data = (long) t;
 	init_timer(&t->tl);
 }
 
 void
-L3DelTimer(struct L3Timer *t)
+l3pc_deltimer(struct l3_process *pc)
 {
-	del_timer(&t->tl);
+	del_timer(&pc->timer.tl);
 }
 
-int
-L3AddTimer(struct L3Timer *t,
-	   int millisec, int event)
+void
+l3pc_addtimer(struct l3_process *pc, int millisec, int event)
 {
+	struct L3Timer *t = &pc->timer;
+
 	if (t->tl.next || t->tl.prev) {
 		printk(KERN_WARNING "L3AddTimer: timer already active!\n");
-		return -1;
+		return;
 	}
 	init_timer(&t->tl);
 	t->event = event;
 	t->tl.expires = jiffies + (millisec * HZ) / 1000;
 	add_timer(&t->tl);
-	return 0;
-}
-
-void
-StopAllL3Timer(struct l3_process *pc)
-{
-	L3DelTimer(&pc->timer);
 }
 
 struct sk_buff *
@@ -282,7 +277,7 @@ struct l3_process
 	p->l4pc = NULL;
 	p->st = st;
 	p->N303 = st->l3.N303;
-	L3InitTimer(p, &p->timer);
+	l3pc_inittimer(p);
 	return (p);
 };
 
@@ -296,7 +291,7 @@ release_l3_process(struct l3_process *p)
 	np = p->st->l3.proc;
 	while (np) {
 		if (np == p) {
-			StopAllL3Timer(p);
+			l3pc_deltimer(p);
 			if (pp)
 				pp->next = np->next;
 			else if (!(p->st->l3.proc = np->next) &&
@@ -388,7 +383,7 @@ releasestack_l3cc(struct PStack *st)
 	while (st->l3.proc)
 		release_l3_process(st->l3.proc);
 	if (st->l3.global) {
-		StopAllL3Timer(st->l3.global);
+		l3pc_deltimer(st->l3.global);
 		kfree(st->l3.global);
 		st->l3.global = NULL;
 	}

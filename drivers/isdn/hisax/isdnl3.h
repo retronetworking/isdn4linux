@@ -77,15 +77,16 @@ struct l3_process {
 
 #define l3_debug(st, fmt, args...) HiSax_putstatus(st->l1.hardware, "l3 ", fmt, ## args)
 
-extern void newl3state(struct l3_process *pc, int state);
-extern void L3InitTimer(struct l3_process *pc, struct L3Timer *t);
-extern void L3DelTimer(struct L3Timer *t);
-extern int L3AddTimer(struct L3Timer *t, int millisec, int event);
-extern void StopAllL3Timer(struct l3_process *pc);
-extern struct sk_buff *l3_alloc_skb(int len);
 extern struct l3_process *new_l3_process(struct PStack *st, int cr);
 extern void release_l3_process(struct l3_process *p);
 extern struct l3_process *getl3proc(struct PStack *st, int cr);
+
+extern void l3pc_newstate(struct l3_process *pc, int state);
+extern void l3pc_inittimer(struct l3_process *pc);
+extern void l3pc_deltimer(struct l3_process *pc);
+extern void l3pc_addtimer(struct l3_process *pc, int millisec, int event);
+
+extern struct sk_buff *l3_alloc_skb(int len);
 extern void l3_msg(struct PStack *st, int pr, void *arg);
 
 #endif
