@@ -28,6 +28,10 @@
  *
  *
  * $Log$
+ * Revision 1.3  1998/03/08 14:26:06  detabc
+ * change kfree_skb to dev_kfree_skb
+ * remove SET_SKB_FREE
+ *
  * Revision 1.2  1998/03/08 13:14:23  detabc
  * abc-extension support for kernels > 2.1.x
  * first try (sorry experimental)
@@ -44,6 +48,7 @@
 #include <linux/isdn.h>
 #include <linux/udp.h>
 #include <linux/icmp.h>
+#include <linux/inetdevice.h>
 
 #include "isdn_common.h"
 #include "isdn_net.h"
@@ -522,7 +527,7 @@ int abc_first_senden(struct device *ndev,isdn_net_local *lp)
 	fd.fd_flags =   ABCR_ALLE ;
 	memcpy(p,(void *)&fd,sizeof(struct ABCR_FIRST_DATA));
 
-	retw = isdn_writebuf_skb_stub(lp->isdn_device,lp->isdn_channel,skb);
+	retw = isdn_writebuf_skb_stub(lp->isdn_device,lp->isdn_channel,0,skb);
 
 	if(retw == len) {
 
@@ -889,7 +894,7 @@ int abc_keep_senden(struct device *ndev,isdn_net_local *lp)
 		return -1;
 	}
 			
-	retw = isdn_writebuf_skb_stub(lp->isdn_device,lp->isdn_channel,skb);
+	retw = isdn_writebuf_skb_stub(lp->isdn_device,lp->isdn_channel,0,skb);
 
 	if(retw == len) {
 
@@ -972,7 +977,7 @@ struct sk_buff *abc_snd_data(struct device *ndev,struct sk_buff *skb)
 
 		if(dev->net_verbose > 9)
 			printk(KERN_DEBUG
-			"abc_snd: packbytes %ld -> %d\n",skb->len,nlen);
+			"abc_snd: packbytes %d -> %d\n",skb->len,nlen);
 
 		p = skb_put(ns,nlen);
 		k |= ABCR_BYTECOMP;
@@ -984,7 +989,7 @@ struct sk_buff *abc_snd_data(struct device *ndev,struct sk_buff *skb)
 
 		if(dev->net_verbose > 9)
 			printk(KERN_DEBUG
-				"abc_snd: no pack %ld \n",skb->len);
+				"abc_snd: no pack %d \n",skb->len);
 	}
 
 	p = skb_push(ns,2);
@@ -1078,7 +1083,6 @@ struct sk_buff *abc_get_uncomp(struct sk_buff *skb)
 			nskb->pkt_type = PACKET_HOST;
 
 			memcpy(i=(void *)skb_put(nskb,len),(void *)p,len);
-			nskb->ip_hdr = (struct iphdr *)i;
 		}
 
 		return(nskb);
@@ -1102,8 +1106,6 @@ struct sk_buff *abc_get_uncomp(struct sk_buff *skb)
 			dev_kfree_skb(nskb);
 			nskb = NULL;
 		}
-
-		nskb->ip_hdr = (struct iphdr *)i;
 	}
 
 	return(nskb);
@@ -1337,6 +1339,11 @@ struct sk_buff *abc_test_receive(struct device *ndev, struct sk_buff *skb)
 				lp->abc_first_disp = 1;
 			}
 
+#ifdef CONFIG_ISDN_TIMEOUT_RULES
+			isdn_net_recalc_timeout(ISDN_TIMRU_KEEPUP_IN,
+				ISDN_TIMRU_PACKET_SKB, ndev, skb, 0);
+#endif
+
 			netif_rx(skb);
 		}
 
@@ -1355,6 +1362,10 @@ struct sk_buff *abc_test_receive(struct device *ndev, struct sk_buff *skb)
 			lp->abc_first_disp = 1;
 		}
 
+#ifdef CONFIG_ISDN_TIMEOUT_RULES
+		isdn_net_recalc_timeout(ISDN_TIMRU_KEEPUP_IN,
+			ISDN_TIMRU_PACKET_SKB, ndev, skb, 0);
+#endif
 		netif_rx(skb);
 	}
 		
@@ -1497,7 +1508,7 @@ int abc_clean_up_memory(void )
 	int max_shl;
 	ulong flags;
 
-	if(set_bit(0,(void *)&tcp_inuse) != 0) {
+	if(test_and_set_bit(0,(void *)&tcp_inuse) != 0) {
 
 		/*
 		** listen werden bereits verwendet
@@ -1663,7 +1674,7 @@ static int  free_all_tm(void)
 {
 	struct TCP_CONMERK *nb;
 
-	if(set_bit(0,(void *)&tcp_inuse) != 0) {
+	if(test_and_set_bit(0,(void *)&tcp_inuse) != 0) {
 
 		/*
 		** listen werden bereits verwendet
@@ -1947,7 +1958,7 @@ int abcgmbh_tcp_test(struct device *ndev,struct sk_buff *sp)
 			int 		tcp_hdr_len;
 			u_long 		tcp_seqnr;		/* seqnummer in host-byte-order */
 
-			if(set_bit(0,(void *)&tcp_inuse) != 0) {
+			if(test_and_set_bit(0,(void *)&tcp_inuse) != 0) {
 
 				/*
 				** listen werden bereits verwendet
@@ -2534,21 +2545,6 @@ int abcgmbh_udp_test(struct device *ndev,struct sk_buff *sp)
 						if( free_all_tm())
 							return(1);
 
-					} else if( udata[0] == 0x2e) {
-
-						/*
-						** hier die verbindung trennen,
-						** aber ACHTUNG: erst nach dem dieses
-						** paket transferriert wurde.
-						**
-						** das dient dazu, dass alle router
-						** einer verbindungskette die verbindung
-						** SOFORT abbauen.
-						**
-						** dieses paket wird dann am zielrechner
-						** einfach verworfen
-						*/
-
 					} else if( udata[0] == 0x28) {
 
 						transbuf[0] = transbuf[1] = 0x29;
@@ -2568,9 +2564,25 @@ int abcgmbh_udp_test(struct device *ndev,struct sk_buff *sp)
 							transbuf,
 							2);
 
-					} else if( udata[0] == 0x2c) {
+					} else if( *udata == 0x2c || *udata == 0x2e ) {
 
-						transbuf[0] = transbuf[1] = 0x2d;
+						if(*udata == 0x2e) {
+
+							lp->abc_call_disabled = 0;
+							lp->abc_icall_disabled = 0;
+							lp->abc_cbout_secure = 0;
+							lp->abc_last_disp_disabled = 0;
+							lp->abc_dlcon_cnt = 0;
+							transbuf[0] = transbuf[1] = 0x2f;
+
+							if(dev->net_verbose > 1) {
+
+								printk(KERN_DEBUG
+									"%s: resetting abc_disable counters\n",
+									lp->name);
+							}
+
+						} else transbuf[0] = transbuf[1] = 0x2d;
 
 						/*
 						** verbindung soll wenn diese seite der caller ist
@@ -2647,9 +2659,6 @@ udp_ausgang:;
 
 		u_char *dpoin = ((u_char *)sp->data);
 		struct iphdr *ip = (struct iphdr *)dpoin;
-		u_long mynet;
-		u_long maske;
-		u_long dnet;
 
 		if(ip->version != 4) {
 
@@ -2668,41 +2677,44 @@ udp_ausgang:;
 		}
 
 		{
-			struct in_device *in_dev =   ndev->ip_ptr ;
-			struct in_ifaddr *ifa = in_dev->ifa_list;
+			struct in_device *in_dev 	= ndev->ip_ptr ;
+			struct in_ifaddr *ifa 		= in_dev->ifa_list;
+			struct in_ifaddr *first_ifa = in_dev->ifa_list;
+			int secure = 0;
+			u_long mynet = 0;
+			u_long maske = 0;
+			u_long dnet = 0;
 
-			if(ifa != NULL) {
-				mynet = ifa->ifa_local & (maske = ifa->ifa_mask);
-			} else {
+			for(; secure < 100 && ifa != NULL && ifa != first_ifa; 
+				secure++,ifa = ifa->ifa_next) {
 
-				maske = ~maske;
-			}
+				maske = ifa->ifa_mask;
+				mynet = ifa->ifa_local & maske;
+				dnet = ip->daddr & maske;
 
-			dnet = ip->daddr & maske;
-		}
+				if(dnet == mynet) {
 
+					u_long host_mask = ~maske;
+					u_long host_nr = ip->daddr & maske;
 
-		if(dnet != mynet) 
-			return(0);
+					if(!host_nr || host_nr == host_mask) {
 
-		maske = ~maske;
-		mynet = ip->daddr & maske;
+						if(dev->net_verbose > 4) {
 
-		if(!mynet || mynet == maske) {
-
-			if(dev->net_verbose > 5) {
-
-				printk(KERN_DEBUG 
+							printk(KERN_DEBUG 
 	"abc_is_broadcast called ipver %d ipproto %d %s->%s len %d dropped\n",
-				ip->version,
-				ip->protocol,
-				abc_h_ipnr(ip->saddr),
-				abc_h_ipnr(ip->daddr),
-				ntohs(ip->tot_len));
-			}
+								ip->version,
+								ip->protocol,
+								abc_h_ipnr(ip->saddr),
+								abc_h_ipnr(ip->daddr),
+								ntohs(ip->tot_len));
+						}
 
-			dev_kfree_skb(sp);
-			return(1);
+						dev_kfree_skb(sp);
+						return(1);
+					}
+				}
+			}
 		}
 	}
 
