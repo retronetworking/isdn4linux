@@ -6,6 +6,10 @@
  *
  *
  * $Log$
+ * Revision 1.12  2000/06/14 08:36:53  keil
+ *
+ * Reset ISAR statemachine after No More Data event in fax HDLC mode
+ *
  * Revision 1.11  2000/04/09 19:02:44  keil
  * retry pump modulation settings if it fails
  *
@@ -565,8 +569,9 @@ isar_rcv_frame(struct IsdnCardState *cs, struct BCState *bcs)
 			rcv_mbox(cs, ireg, ptr);
 			if (ireg->cmsb & HDLC_FED) {
 				if (bcs->hw.isar.rcvidx < 3) { /* last 2 bytes are the FCS */
-					printk(KERN_WARNING "ISAR: HDLC frame too short(%d)\n",
-						bcs->hw.isar.rcvidx);
+					if (cs->debug & L1_DEB_WARN)
+						debugl1(cs, "isar frame to short %d",
+							bcs->hw.isar.rcvidx);
 				} else if (!(skb = dev_alloc_skb(bcs->hw.isar.rcvidx-2))) {
 					printk(KERN_WARNING "ISAR: receive out of memory\n");
 				} else {
@@ -576,6 +581,7 @@ isar_rcv_frame(struct IsdnCardState *cs, struct BCState *bcs)
 					skb_queue_tail(&bcs->rqueue, skb);
 					isar_sched_event(bcs, B_RCVBUFREADY);
 				}
+				bcs->hw.isar.rcvidx = 0;
 			}
 		}
 		break;
@@ -645,14 +651,17 @@ isar_rcv_frame(struct IsdnCardState *cs, struct BCState *bcs)
 			bcs->hw.isar.rcvidx += ireg->clsb;
 			rcv_mbox(cs, ireg, ptr);
 			if (ireg->cmsb & HDLC_FED) {
+				int len = bcs->hw.isar.rcvidx +
+					dle_count(bcs->hw.isar.rcvbuf, bcs->hw.isar.rcvidx);
 				if (bcs->hw.isar.rcvidx < 3) { /* last 2 bytes are the FCS */
-					printk(KERN_WARNING "ISAR: HDLC frame too short(%d)\n",
-						bcs->hw.isar.rcvidx);
+					if (cs->debug & L1_DEB_WARN)
+						debugl1(cs, "isar frame to short %d",
+							bcs->hw.isar.rcvidx);
 				} else if (!(skb = dev_alloc_skb(bcs->hw.isar.rcvidx))) {
 					printk(KERN_WARNING "ISAR: receive out of memory\n");
 				} else {
 					SET_SKB_FREE(skb);
-					memcpy(skb_put(skb, bcs->hw.isar.rcvidx),
+					insert_dle((u_char *)skb_put(skb, len),
 						bcs->hw.isar.rcvbuf,
 						bcs->hw.isar.rcvidx);
 					skb_queue_tail(&bcs->rqueue, skb);
@@ -660,6 +669,7 @@ isar_rcv_frame(struct IsdnCardState *cs, struct BCState *bcs)
 					send_DLE_ETX(bcs);
 					isar_sched_event(bcs, B_LL_OK);
 				}
+				bcs->hw.isar.rcvidx = 0;
 			}
 		}
 		if (ireg->cmsb & SART_NMD) { /* ABORT */
@@ -1095,6 +1105,9 @@ isar_pump_statev_fax(struct BCState *bcs, u_char devt) {
 				debugl1(cs, "pump stev RSP_DISC");
 			if (bcs->hw.isar.state == STFAX_ESCAPE) {
 				switch(bcs->hw.isar.newcmd) {
+					case 0:
+						bcs->hw.isar.state = STFAX_READY;
+						break;
 					case PCTRL_CMD_FTH:
 					case PCTRL_CMD_FTM:
 						p1 = 10;
