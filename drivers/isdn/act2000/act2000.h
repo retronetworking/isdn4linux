@@ -20,6 +20,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.2  1997/09/24 19:44:12  fritz
+ * Added MSN mapping support, some cleanup.
+ *
  * Revision 1.1  1997/09/23 18:00:05  fritz
  * New driver for IBM Active 2000.
  *
@@ -150,6 +153,19 @@ typedef struct msn_entry {
         struct msn_entry * next;
 } msn_entry;
 
+typedef struct irq_data_isa {
+	__u8           *rcvptr;
+	__u16           rcvidx;
+	__u16           rcvlen;
+	struct sk_buff *rcvskb;
+	__u8            rcvignore;
+	__u8            rcvhdr[8];
+} irq_data_isa;
+
+typedef union irq_data {
+	irq_data_isa isa;
+} irq_data;
+
 /*
  * Per card driver data
  */
@@ -170,15 +186,17 @@ typedef struct act2000_card {
 	struct timer_list ptimer;        /* Poll timer                       */
 	struct tq_struct snd_tq;         /* Task struct for xmit bh          */
 	struct tq_struct rcv_tq;         /* Task struct for rcv bh           */
+	struct tq_struct poll_tq;        /* Task struct for polled rcv bh    */
 	msn_entry *msn_list;
-	unsigned short msgnum;           /* Message number fur sending      */
-	act2000_chan bch[ACT2000_BCH];   /* B-Channel status/control        */
-	char   status_buf[256];          /* Buffer for status messages      */
+	unsigned short msgnum;           /* Message number fur sending       */
+	act2000_chan bch[ACT2000_BCH];   /* B-Channel status/control         */
+	char   status_buf[256];          /* Buffer for status messages       */
 	char   *status_buf_read;
 	char   *status_buf_write;
 	char   *status_buf_end;
-        isdn_if interface;               /* Interface to upper layer        */
-        char regname[35];                /* Name used for request_region    */
+	irq_data idat;                   /* Data used for IRQ handler        */
+        isdn_if interface;               /* Interface to upper layer         */
+        char regname[35];                /* Name used for request_region     */
 } act2000_card;
 
 extern act2000_card *cards;
@@ -192,6 +210,12 @@ extern __inline__ void act2000_schedule_tx(act2000_card *card)
 extern __inline__ void act2000_schedule_rx(act2000_card *card)
 {
         queue_task(&card->rcv_tq, &tq_immediate);
+        mark_bh(IMMEDIATE_BH);
+}
+
+extern __inline__ void act2000_schedule_poll(act2000_card *card)
+{
+        queue_task(&card->poll_tq, &tq_immediate);
         mark_bh(IMMEDIATE_BH);
 }
 

@@ -20,6 +20,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.2  1997/09/24 19:44:17  fritz
+ * Added MSN mapping support, some cleanup.
+ *
  * Revision 1.1  1997/09/23 18:00:13  fritz
  * New driver for IBM Active 2000.
  *
@@ -240,12 +243,11 @@ act2000_poll(unsigned long data)
 	act2000_card * card = (act2000_card *)data;
 	unsigned long flags;
 
-	act2000_transmit(card);
 	act2000_receive(card);
         save_flags(flags);
         cli();
         del_timer(&card->ptimer);
-        card->ptimer.expires = jiffies + (HZ/10);
+        card->ptimer.expires = jiffies + 3;
         add_timer(&card->ptimer);
         restore_flags(flags);
 }
@@ -271,16 +273,12 @@ act2000_command(act2000_card * card, isdn_ctrl * c)
 									   (act2000_ddef *)a);
 							if (!ret) {
 								card->flags |= ACT2000_FLAGS_LOADED;
-#if 0
 								if (!(card->flags & ACT2000_FLAGS_IVALID)) {
-#endif
 									card->ptimer.expires = jiffies + 3;
 									card->ptimer.function = act2000_poll;
 									card->ptimer.data = (unsigned long)card;
 									add_timer(&card->ptimer);
-#if 0
 								}
-#endif
 								actcapi_manufacturer_req_errh(card);
 							}
 							break;
@@ -308,8 +306,6 @@ act2000_command(act2000_card * card, isdn_ctrl * c)
 				case ACT2000_IOCTL_TEST:
 					if (!(card->flags & ACT2000_FLAGS_RUNNING))
 						return -ENODEV;
-					card->bch[a & 1].eazmask = (a >> 1);
-					actcapi_listen_req(card);
 					return 0;
 				default:
 					return -EINVAL;
@@ -654,6 +650,8 @@ act2000_alloccard(int bus, int port, int irq, char *id)
 	card->snd_tq.data = card;
 	card->rcv_tq.routine = (void *) (void *) actcapi_dispatch;
 	card->rcv_tq.data = card;
+	card->poll_tq.routine = (void *) (void *) act2000_receive;
+	card->poll_tq.data = card;
 	init_timer(&card->ptimer);
         card->interface.channels = ACT2000_BCH;
         card->interface.maxbufsize = 4000;
@@ -664,7 +662,10 @@ act2000_alloccard(int bus, int port, int irq, char *id)
         card->interface.features =
 		ISDN_FEATURE_L2_X75I |
 		ISDN_FEATURE_L2_HDLC |
+#if 0
+/* Not yet! New Firmware is on the way ... */
 		ISDN_FEATURE_L2_TRANS |
+#endif
 		ISDN_FEATURE_L3_TRANS |
 		ISDN_FEATURE_P_UNKNOWN;
         card->interface.hl_hdrlen = 20;
@@ -782,7 +783,7 @@ act2000_init(void)
                         /* no port defined, perform autoprobing */
                         for (i = 0; i < ISA_NRPORTS; i++)
                                 if (isa_detect(isa_ports[i])) {
-                                        act2000_alloccard(act_bus, isa_ports[i], -1, "\0");
+                                        act2000_alloccard(act_bus, isa_ports[i], act_irq, "\0");
                                         printk(KERN_INFO
                                                "act2000: Detected ISA card at port 0x%x\n",
                                                isa_ports[i]);
@@ -807,12 +808,8 @@ act2000_init(void)
 					if (isa_config_irq(p, p->irq)) {
 						printk(KERN_INFO
 						       "act2000: Could not request irq\n");
-#if 0
-						unregister_card(p);
-						break;
-#else
+						/* Fall back to polled operation */
 						p->irq = 0;
-#endif
 					}
 					printk(KERN_INFO
 					       "act2000: ISA"

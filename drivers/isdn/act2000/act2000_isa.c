@@ -20,6 +20,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.1  1997/09/23 18:00:05  fritz
+ * New driver for IBM Active 2000.
+ *
  */
 
 #define __NO_VERSION__
@@ -109,13 +112,9 @@ isa_interrupt(int irq, void *dev_id, struct pt_regs *regs)
         if (istatus & ISA_ISR_OUT) {
                 /* RX fifo has data */
 		istatus &= ISA_ISR_OUT_MASK;
-#if 0
 		outb(0, ISA_PORT_SIS);
-#endif
 		isa_receive(card);
-#if 0
 		outb(ISA_SIS_INT, ISA_PORT_SIS);
-#endif
         }
         if (istatus & ISA_ISR_ERR) {
                 /* Error Interrupt */
@@ -258,7 +257,7 @@ isa_release(act2000_card * card)
 static int
 isa_writeb(act2000_card * card, u_char data)
 {
-        u_char timeout = 10;
+        u_char timeout = 40;
 
         while (timeout) {
                 if (inb(ISA_PORT_SOS) & ISA_SOS_READY) {
@@ -275,7 +274,7 @@ isa_writeb(act2000_card * card, u_char data)
 static int
 isa_readb(act2000_card * card, u_char * data)
 {
-        u_char timeout = 10;
+        u_char timeout = 40;
 
         while (timeout) {
                 if (inb(ISA_PORT_SIS) & ISA_SIS_READY) {
@@ -289,64 +288,65 @@ isa_readb(act2000_card * card, u_char * data)
         return 1;
 }
 
-static __u8            isa_rcvhdr[8];
-static __u16           isa_rcvidx = 0;
-static __u16           isa_rcvlen = 0;
-static __u8           *isa_rcvptr = NULL;
-static __u8            isa_rcvignore = 0;
-static struct sk_buff *isa_rcvskb = NULL;
-
 void
 isa_receive(act2000_card *card)
 {
+	u_char c;
+
         if (test_and_set_bit(ACT2000_LOCK_RX, (void *) &card->ilock) != 0)
 		return;
-	while (inb(ISA_PORT_SIS) & ISA_SIS_READY) {
-		if (isa_rcvidx < 8) {
-                        isa_rcvhdr[isa_rcvidx++] = inb(ISA_PORT_SDI);
-			if (isa_rcvidx == 8) {
-				int valid = actcapi_chkhdr(card, (actcapi_msghdr *)&isa_rcvhdr);
+	while (!isa_readb(card, &c)) {
+		if (card->idat.isa.rcvidx < 8) {
+                        card->idat.isa.rcvhdr[card->idat.isa.rcvidx++] = c;
+			if (card->idat.isa.rcvidx == 8) {
+				int valid = actcapi_chkhdr(card, (actcapi_msghdr *)&card->idat.isa.rcvhdr);
 
 				if (valid) {
-					isa_rcvlen = ((actcapi_msghdr *)&isa_rcvhdr)->len;
-					isa_rcvskb = dev_alloc_skb(isa_rcvlen);
-					if (isa_rcvskb == NULL) {
-						isa_rcvignore = 1;
+					card->idat.isa.rcvlen = ((actcapi_msghdr *)&card->idat.isa.rcvhdr)->len;
+					card->idat.isa.rcvskb = dev_alloc_skb(card->idat.isa.rcvlen);
+					if (card->idat.isa.rcvskb == NULL) {
+						card->idat.isa.rcvignore = 1;
 						printk(KERN_WARNING
 						       "isa_receive: no memory\n");
 						test_and_clear_bit(ACT2000_LOCK_RX, (void *) &card->ilock);
 						return;
 					}
-					memcpy(skb_put(isa_rcvskb, 8), isa_rcvhdr, 8);
-					isa_rcvptr = skb_put(isa_rcvskb, isa_rcvlen - 8);
+					memcpy(skb_put(card->idat.isa.rcvskb, 8), card->idat.isa.rcvhdr, 8);
+					card->idat.isa.rcvptr = skb_put(card->idat.isa.rcvskb, card->idat.isa.rcvlen - 8);
 				} else {
-					isa_rcvidx = 0;
+					card->idat.isa.rcvidx = 0;
 					printk(KERN_WARNING
 					       "isa_receive: Invalid CAPI msg\n");
 					{
 						int i; __u8 *p; __u8 *c; __u8 tmp[30];
-						for (i = 0, p = (__u8 *)&isa_rcvhdr, c = tmp; i < 8; i++)
+						for (i = 0, p = (__u8 *)&card->idat.isa.rcvhdr, c = tmp; i < 8; i++)
 							c += sprintf(c, "%02x ", *(p++));
 						printk(KERN_WARNING "isa_receive: %s\n", tmp);
 					}
 				}
 			}
 		} else {
-			if (isa_rcvignore)
-				(void)inb(ISA_PORT_SDI);
-			else
-				*isa_rcvptr++ = inb(ISA_PORT_SDI);
-			if (++isa_rcvidx >= isa_rcvlen) {
-				if (!isa_rcvignore) {
-					skb_queue_tail(&card->rcvq, isa_rcvskb);
+			if (!card->idat.isa.rcvignore)
+				*card->idat.isa.rcvptr++ = c;
+			if (++card->idat.isa.rcvidx >= card->idat.isa.rcvlen) {
+				if (!card->idat.isa.rcvignore) {
+					skb_queue_tail(&card->rcvq, card->idat.isa.rcvskb);
 					act2000_schedule_rx(card);
 				}
-				isa_rcvidx = 0;
-				isa_rcvignore = 0;
-				isa_rcvskb = NULL;
-				isa_rcvptr = isa_rcvhdr;
+				card->idat.isa.rcvidx = 0;
+				card->idat.isa.rcvlen = 8;
+				card->idat.isa.rcvignore = 0;
+				card->idat.isa.rcvskb = NULL;
+				card->idat.isa.rcvptr = card->idat.isa.rcvhdr;
 			}
 		}
+	}
+	if (!(card->flags & ACT2000_FLAGS_IVALID)) {
+		/* In polling mode, schedule myself */
+		if ((card->idat.isa.rcvidx) &&
+		    (card->idat.isa.rcvignore ||
+		     (card->idat.isa.rcvidx < card->idat.isa.rcvlen)))
+			act2000_schedule_poll(card);
 	}
 	test_and_clear_bit(ACT2000_LOCK_RX, (void *) &card->ilock);
 }
@@ -369,6 +369,7 @@ isa_send(act2000_card * card)
 		}
 		restore_flags(flags);
 		if (!(card->sbuf)) {
+			/* No more data to send */
 			test_and_clear_bit(ACT2000_LOCK_TX, (void *) &card->ilock);
 			return;
 		}
@@ -376,10 +377,12 @@ isa_send(act2000_card * card)
 		l = 0;
 		while (skb->len) {
 			if (isa_writeb(card, *(skb->data))) {
+				/* Fifo is full, but more data to send */
 #if 0
 				printk(KERN_DEBUG "isa_send: %d bytes\n", l);
 #endif
 				test_and_clear_bit(ACT2000_LOCK_TX, (void *) &card->ilock);
+				/* Schedule myself */
 				act2000_schedule_tx(card);
 				return;
 			}
