@@ -31,6 +31,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.25.2.3  2000/04/02 14:46:40  armin
+ * Added spinlocks.
+ *
  * Revision 1.25.2.2  2000/03/26 12:43:32  armin
  * Fixed wrong range of io region.
  *
@@ -1478,7 +1481,6 @@ void mod_dec_use_count(void)
         MOD_DEC_USE_COUNT;
 }
 
-#ifdef CONFIG_PCI
 #ifdef CONFIG_ISDN_DRV_EICON_PCI
 void EtdM_DIDD_Write(DESCRIPTOR *, int);
 EXPORT_SYMBOL_NOVERS(EtdM_DIDD_Read);
@@ -1487,7 +1489,6 @@ EXPORT_SYMBOL_NOVERS(DivasPrintf);
 #else
 int DivasCardNext;
 card_t DivasCards[1];
-#endif
 #endif
 
 void
