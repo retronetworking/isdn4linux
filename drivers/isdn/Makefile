@@ -1,18 +1,8 @@
-#
 # Makefile for the kernel ISDN subsystem and device drivers.
-#
-
-# Subdirs.
-
-SUB_DIRS	:=
-MOD_SUB_DIRS	:= 
-ALL_SUB_DIRS	:= icn pcbit hisax avmb1 act2000 eicon divert hysdn
 
 # The target object and module list name.
 
 O_TARGET	:= isdn.a
-M_OBJS		:=
-O_OBJS		:=
 
 # Objects that export symbols.
 
@@ -40,69 +30,44 @@ obj-m	:=
 obj-n	:=
 obj-	:=
 
+# Ordering constraints: isdn.o first, rest doesn't matter
+
+# Each configuration option enables a list of files.
+
+obj-$(CONFIG_ISDN)			+= isdn.o
+obj-$(CONFIG_ISDN_PPP_BSDCOMP)		+= isdn_bsdcomp.o
+
 # Object files in subdirectories
 
 subdir-$(CONFIG_ISDN_DIVERSION)		+= divert
 subdir-$(CONFIG_ISDN_DRV_HISAX)		+= hisax
 subobj-$(CONFIG_ISDN_DRV_HISAX)		+= hisax/hisax_drv.o
 subdir-$(CONFIG_ISDN_DRV_ICN)		+= icn
-subobj-$(CONFIG_ISDN_DRV_ICN)		+= icn/icn_obj.o
+subobj-$(CONFIG_ISDN_DRV_ICN)		+= icn/icn_drv.o
 subdir-$(CONFIG_ISDN_DRV_PCBIT)		+= pcbit
-subobj-$(CONFIG_ISDN_DRV_PCBIT)		+= pcbit/pcbit.o
+subobj-$(CONFIG_ISDN_DRV_PCBIT)		+= pcbit/pcbit_drv.o
 subdir-$(CONFIG_ISDN_DRV_SC)		+= sc
-subobj-$(CONFIG_ISDN_DRV_SC)		+= sc/sc.o
+subobj-$(CONFIG_ISDN_DRV_SC)		+= sc/sc_drv.o
 subdir-$(CONFIG_ISDN_CAPI)		+= avmb1
 subobj-$(CONFIG_ISDN_CAPI)		+= avmb1/avmb1.o
 subdir-$(CONFIG_ISDN_DRV_LOOP)		+= isdnloop
-subobj-$(CONFIG_ISDN_DRV_LOOP)		+= isdnloop/isdnloop.o
+subobj-$(CONFIG_ISDN_DRV_LOOP)		+= isdnloop/isdnloop_drv.o
 subdir-$(CONFIG_ISDN_DRV_ACT2000)	+= act2000
-subobj-$(CONFIG_ISDN_DRV_ACT2000)	+= act2000/act2000.o
-subdir-$(CONFIG_ISDN_DRV_EICON)		+= eicon
-subobj-$(CONFIG_ISDN_DRV_EICON)		+= eicon/eicon.o
+subobj-$(CONFIG_ISDN_DRV_ACT2000)	+= act2000/act2000_drv.o
+subdir-$(CONFIG_ISDN_DRV_EICON_OLD)	+= eicon
+subobj-$(CONFIG_ISDN_DRV_EICON_OLD)	+= eicon/eicon_drv.o
+subdir-$(CONFIG_ISDN_DRV_EICON_DIVAS)	+= eicon
+subobj-$(CONFIG_ISDN_DRV_EICON_DIVAS)	+= eicon/eicon_drv.o
 subdir-$(CONFIG_HYSDN)			+= hysdn
-subobj-$(CONFIG_HYSDN)			+= hysdn/hysdn.o
+subobj-$(CONFIG_HYSDN)			+= hysdn/hysdn_drv.o
 
-SUB_DIRS	+= $(subdir-y)
-MOD_SUB_DIRS	+= $(subdir-m)
-
-# Each configuration option enables a list of files.
-
-obj-$(CONFIG_ISDN)			+= isdn.o
-obj-$(CONFIG_ISDN_PPP_BSDCOMP)		+= isdn_bsdcomp.o
 obj-y					+= $(subobj-y)
-
-# Extract lists of the multi-part drivers.
-# The 'int-*' lists are the intermediate files used to build the multi's.
-
-multi-y		:= $(filter $(list-multi), $(obj-y))
-multi-m		:= $(filter $(list-multi), $(obj-m))
-int-y		:= $(sort $(foreach m, $(multi-y), $($(basename $(m))-objs)))
-int-m		:= $(sort $(foreach m, $(multi-m), $($(basename $(m))-objs)))
-
-# Files that are both resident and modular: remove from modular.
-
-obj-m		:= $(filter-out $(obj-y), $(obj-m))
-int-m		:= $(filter-out $(int-y), $(int-m))
-
-# Take multi-part drivers out of obj-y and put components in.
-
-obj-y		:= $(filter-out $(list-multi), $(obj-y)) $(int-y)
-
-# Translate to Rules.make lists.
-
-O_OBJS		:= $(sort $(filter-out $(export-objs), $(obj-y)))
-OX_OBJS		:= $(sort $(filter     $(export-objs), $(obj-y)))
-M_OBJS		:= $(sort $(filter-out $(export-objs), $(obj-m)))
-MX_OBJS		:= $(sort $(filter     $(export-objs), $(obj-m)))
-MI_OBJS		:= $(sort $(filter-out $(export-objs), $(int-m)))
-MIX_OBJS	:= $(sort $(filter     $(export-objs), $(int-m)))
 
 # The global Rules.make.
 
-include $(TOPDIR)/Rules.make
+include $(TOPDIR)/drivers/isdn/Rules.make
 
 # Link rules for multi-part drivers.
 
 isdn.o: $(isdn-objs)
 	$(LD) -r -o $@ $(isdn-objs)
-

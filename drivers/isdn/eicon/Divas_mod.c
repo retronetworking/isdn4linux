@@ -26,6 +26,7 @@
 
 
 #include <linux/config.h>
+#include <linux/init.h>
 #include <linux/fs.h>
 #undef N_DATA
 
@@ -51,7 +52,8 @@ EXPORT_SYMBOL_NOVERS(DivasPrintf);
 
 int DivasCardsDiscover(void);
 
-static int __init Divas_init(void)
+static int __init
+divas_init(void)
 {
 	printk(KERN_DEBUG "DIVA Server Driver - initialising\n");
 	
@@ -80,7 +82,8 @@ static int __init Divas_init(void)
     return 0;
 }
 
-static void __exit Divas_exit(void)
+static void __exit
+divas_exit(void)
 {
 	card_t *pCard;
 	word wCardIndex;
@@ -149,6 +152,6 @@ static void __exit Divas_exit(void)
 	unregister_chrdev(Divas_major, "Divas");
 }
 
-module_init(Divas_init);
-module_exit(Divas_exit);
+module_init(divas_init);
+module_exit(divas_exit);
 

@@ -6,6 +6,11 @@
  * (c) Copyright 1999 by Carsten Paeth (calle@calle.in-berlin.de)
  * 
  * $Log$
+ * Revision 1.35  2000/12/10 22:51:05  kai
+ * add pci_set_master
+ * ioremap is handling unaligned regions since
+ * at least 2.2.0
+ *
  * Revision 1.34  2000/12/07 00:09:53  kai
  * setup dependency on CONFIG_PCI for the PCI drivers
  * in Config.in
@@ -582,7 +587,6 @@ static int __init b1pci_init(void)
 #endif
 	struct pci_dev *dev = NULL;
 	char *p;
-	int retval;
 
 	MOD_INC_USE_COUNT;
 

@@ -21,6 +21,7 @@
  */
 
 #include <linux/config.h>
+#include <linux/init.h>
 #include "isdnloop.h"
 
 static char
@@ -1534,22 +1535,7 @@ isdnloop_addcard(char *id1)
 	return 0;
 }
 
-#ifdef MODULE
-#define isdnloop_init init_module
-#else
-void
-isdnloop_setup(char *str, int *ints)
-{
-	static char sid[20];
-
-	if (strlen(str)) {
-		strcpy(sid, str);
-		isdnloop_id = sid;
-	}
-}
-#endif
-
-int
+static int __init
 isdnloop_init(void)
 {
 	char *p;
@@ -1568,9 +1554,8 @@ isdnloop_init(void)
 	return (isdnloop_addcard(isdnloop_id));
 }
 
-#ifdef MODULE
-void
-cleanup_module(void)
+static void __exit
+isdnloop_exit(void)
 {
 	isdn_ctrl cmd;
 	isdnloop_card *card = cards;
@@ -1598,4 +1583,6 @@ cleanup_module(void)
 	}
 	printk(KERN_NOTICE "isdnloop-ISDN-driver unloaded\n");
 }
-#endif
+
+module_init(isdnloop_init);
+module_exit(isdnloop_exit);

@@ -176,7 +176,6 @@ stop_cards(void)
 /* image becomes smaller and the driver code is only loaded when needed.    */
 /* Additionally newer versions may be activated without rebooting.          */
 /****************************************************************************/
-#ifdef CONFIG_MODULES
 
 /******************************************************/
 /* extract revision number from string for log output */
@@ -204,8 +203,8 @@ hysdn_getrev(const char *revision)
 /* and the module is added to the list in /proc/modules, otherwise an error */
 /* is assumed and the module will not be kept in memory.                    */
 /****************************************************************************/
-int
-init_module(void)
+static int __init
+hysdn_init(void)
 {
 	char tmp[50];
 
@@ -244,8 +243,8 @@ init_module(void)
 /* cated as after the return from this function the module code will   */
 /* be removed from memory.                                             */
 /***********************************************************************/
-void
-cleanup_module(void)
+static void __exit
+hysdn_exit(void)
 {
 #ifdef CONFIG_HYSDN_CAPI
 	hysdn_card *card;
@@ -264,4 +263,5 @@ cleanup_module(void)
 	printk(KERN_NOTICE "HYSDN: module unloaded\n");
 }				/* cleanup_module */
 
-#endif				/* CONFIG_MODULES */
+module_init(hysdn_init);
+module_exit(hysdn_exit);

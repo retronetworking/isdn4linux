@@ -2509,7 +2509,6 @@ static int __init init_isdn(void)
 	printk(" loaded\n");
 #else
 	printk("\n");
-	isdn_cards_init();
 #endif
 	isdn_info_update();
 #ifdef CONFIG_ISDN_WITH_ABC
