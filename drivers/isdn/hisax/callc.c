@@ -11,6 +11,9 @@
  *              Fritz Elfert
  *
  * $Log$
+ * Revision 2.42  2000/04/27 10:31:01  keil
+ * implement overlap receiving
+ *
  * Revision 2.41  2000/03/17 07:07:42  kai
  * fixed oops when dialing out without l3 protocol selected
  *
@@ -1340,9 +1343,12 @@ lldata_handler(struct PStack *st, int pr, void *arg)
 
 	switch (pr) {
 		case (DL_DATA  | INDICATION):
-			if (chanp->data_open)
+			if (chanp->data_open) {
+				if (chanp->debug & 0x800)
+					link_debug(chanp, 0, "lldata: %d bytes", skb->len);
 				chanp->cs->iif.rcvcallb_skb(chanp->cs->myid, chanp->chan, skb);
-			else {
+			} else {
+				link_debug(chanp, 0, "lldata: channel not open");
 				idev_kfree_skb(skb, FREE_READ);
 			}
 			break;
@@ -1369,10 +1375,12 @@ lltrans_handler(struct PStack *st, int pr, void *arg)
 
 	switch (pr) {
 		case (PH_DATA | INDICATION):
-			if (chanp->data_open)
+			if (chanp->data_open) {
+				if (chanp->debug & 0x800)
+					link_debug(chanp, 0, "lltrans: %d bytes", skb->len);
 				chanp->cs->iif.rcvcallb_skb(chanp->cs->myid, chanp->chan, skb);
-			else {
-				link_debug(chanp, 0, "channel not open");
+			} else {
+				link_debug(chanp, 0, "lltrans: channel not open");
 				idev_kfree_skb(skb, FREE_READ);
 			}
 			break;
