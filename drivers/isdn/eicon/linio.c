@@ -42,7 +42,6 @@ int log_on;
 
 int		Divasdevflag = 0;
 
-spinlock_t diva_lock = SPIN_LOCK_UNLOCKED;
 
 static
 ux_diva_card_t card_pool[MAX_CARDS];
@@ -689,14 +688,15 @@ int UxCardLock(ux_diva_card_t *card)
 {
 	unsigned long flags;
 
-	spin_lock_irqsave(&diva_lock, flags);
+	save_flags(flags);
+	cli();
 
 	return flags;
 }
 
 void UxCardUnlock(ux_diva_card_t *card, int ipl)
 {
-	spin_unlock_irqrestore(&diva_lock, ipl);
+	restore_flags(ipl);
 }
 
 dword UxTimeGet(void)
