@@ -333,7 +333,7 @@ l3ml3p(struct PStack *st, int pr)
 }
 
 void
-setstack_l3dc(struct PStack *st, struct Channel *chanp, int b3_mode)
+setstack_l3cc(struct PStack *st, int b3_mode)
 {
 	st->l3.proc   = NULL;
 	st->l3.global = NULL;
@@ -383,8 +383,13 @@ setstack_l3dc(struct PStack *st, struct Channel *chanp, int b3_mode)
 }
 
 void
-isdnl3_trans(struct PStack *st, int pr, void *arg) {
+l3trans_l4l3(struct PStack *st, int pr, void *arg) {
 	st->l3.l3l2(st, pr, arg);
+}
+
+void
+l3trans_l2l3(struct PStack *st, int pr, void *arg) {
+	st->l3.l3l4(st, pr, arg);
 }
 
 void
@@ -402,9 +407,9 @@ releasestack_isdnl3(struct PStack *st)
 }
 
 void
-setstack_l3bc(struct PStack *st, struct Channel *chanp)
+setstack_l3trans(struct PStack *st)
 {
-
+	st->l3.debug  = 0;
 	st->l3.proc   = NULL;
 	st->l3.global = NULL;
 	skb_queue_head_init(&st->l3.squeue);
@@ -415,7 +420,8 @@ setstack_l3bc(struct PStack *st, struct Channel *chanp)
 	st->l3.l3m.userint = 0;
 	st->l3.l3m.printdebug = l3m_debug;
 	strcpy(st->l3.debug_id, "L3BC ");
-	st->lli.l4l3 = isdnl3_trans;
+	st->lli.l4l3 = l3trans_l4l3;
+	st->l2.l2l3 = l3trans_l2l3;
 }
 
 #define DREL_TIMER_VALUE 40000

@@ -432,6 +432,12 @@ struct amd7930_hw {
 #define B1_MODE_EXTRN	  0x101
 #define B1_MODE_NULL	  0x1000
 
+#define B2_MODE_X75SLP    0
+#define B2_MODE_TRANS     1
+#define B2_MODE_LAPD_X31  4
+#define B2_MODE_LAPD      12
+#define B2_MODE_NULL      0x1000
+
 #define B3_MODE_TRANS     0
 #define B3_MODE_CC        (0x100) // isdnif values are shifted by this value
 #define B3_MODE_1TR6      (B3_MODE_CC + ISDN_PTYPE_1TR6)
@@ -439,6 +445,12 @@ struct amd7930_hw {
 #define B3_MODE_LEASED    (B3_MODE_CC + ISDN_PTYPE_LEASED)
 #define B3_MODE_NI1       (B3_MODE_CC + ISDN_PTYPE_NI1)
 #define B3_MODE_NULL      (0x1000)
+
+struct StackParams {
+	int b1_mode;
+	int b2_mode;
+	int b3_mode;
+};
 
 struct BCState {
 	int channel;
@@ -1239,8 +1251,8 @@ void releasestack_transl2(struct PStack *st);
 
 struct Channel;
 
-void setstack_l3dc(struct PStack *st, struct Channel *chanp, int b3_mode);
-void setstack_l3bc(struct PStack *st, struct Channel *chanp);
+void setstack_l3cc(struct PStack *st, int b3_mode);
+void setstack_l3trans(struct PStack *st);
 void releasestack_isdnl3(struct PStack *st);
 
 u_char *findie(u_char * p, int size, u_char ie, int wanted_set);

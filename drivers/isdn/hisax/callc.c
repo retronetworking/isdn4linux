@@ -23,6 +23,7 @@ const char *lli_revision = "$Revision$";
 
 static struct CallcIf *c_ifs[HISAX_MAX_CARDS] = { 0, };
 
+static void lldata_handler(struct PStack *st, int pr, void *arg);
 static int init_b_st(struct Channel *chanp, int incoming);
 static void release_b_st(struct Channel *chanp);
 
@@ -1077,8 +1078,12 @@ init_PStack(struct PStack **stp) {
 	(*stp)->ma.layer = dummy_pstack;
 }
 
+#define CHANNEL_D  -1
+#define CHANNEL_B1  0
+#define CHANNEL_B2  1
+
 static int
-init_st_1(struct PStack *st, struct IsdnCardState *cs, int bchannel)
+init_st_1(struct PStack *st, int b1_mode, struct IsdnCardState *cs, int bchannel)
 {
 	st->l1.hardware = cs;
 	switch (bchannel) {
@@ -1089,6 +1094,7 @@ init_st_1(struct PStack *st, struct IsdnCardState *cs, int bchannel)
 	case 0:
 	case 1:
 		st->l1.bc = bchannel;
+		st->l1.mode = b1_mode;
 		if (cs->bcs[bchannel].BC_SetStack(st, &cs->bcs[bchannel]))
 			return -1;
 		st->l1.bcs->conmsg = NULL;
@@ -1100,36 +1106,142 @@ init_st_1(struct PStack *st, struct IsdnCardState *cs, int bchannel)
 	return 0;
 }
 
+static int
+init_st_2(struct PStack *st, int b2_mode, int incoming)
+{
+	switch (b2_mode) {
+	case B2_MODE_LAPD:
+		st->l2.sap = 0;
+		st->l2.tei = -1;
+		st->l2.flag = 0;
+		test_and_set_bit(FLG_MOD128, &st->l2.flag);
+		test_and_set_bit(FLG_LAPD, &st->l2.flag);
+		test_and_set_bit(FLG_ORIG, &st->l2.flag);
+		st->l2.maxlen = MAX_DFRAME_LEN;
+		st->l2.window = 1;
+		st->l2.T200 = 1000;	/* 1000 milliseconds  */
+		st->l2.N200 = 3;	/* try 3 times        */
+		st->l2.T203 = 10000;	/* 10000 milliseconds */
+		setstack_isdnl2(st, "DCh Q.921 ");
+		break;
+	case B2_MODE_X75SLP:
+		st->l2.flag = 0;
+		test_and_set_bit(FLG_LAPB, &st->l2.flag);
+		st->l2.AddressA = 0x03;
+		st->l2.AddressB = 0x01;
+		st->l2.maxlen = MAX_DATA_SIZE;
+		if (!incoming)
+			test_and_set_bit(FLG_ORIG, &st->l2.flag);
+		st->l2.T200 = 1000;	/* 1000 milliseconds */
+		st->l2.window = 7;
+		st->l2.N200 = 4;	/* try 4 times       */
+		st->l2.T203 = 5000;	/* 5000 milliseconds */
+		setstack_isdnl2(st, "X.75 ");
+		break;
+	case B2_MODE_TRANS:
+		setstack_transl2(st);
+		break;
+	default:
+		int_error();
+		return -EINVAL;
+	}
+	return 0;
+}
+
+static int
+init_st_3(struct PStack *st, int b3_mode)
+{
+	switch (b3_mode) {
+	case B3_MODE_DSS1:
+	case B3_MODE_1TR6:
+	case B3_MODE_LEASED:
+	case B3_MODE_NI1:
+		setstack_l3cc(st, b3_mode);
+		break;
+	case B3_MODE_TRANS:
+		setstack_l3trans(st);
+		break;
+	}
+	return 0;
+}
+
+static int
+init_st(struct PStack *st, struct IsdnCardState *cs, struct StackParams *sp, 
+	int bchannel, int incoming, struct Channel *chanp, 
+	void (*l3l4)(struct PStack *st, int pr, void *arg))
+{
+	int ret;
+
+	ret = init_st_1(st, sp->b1_mode, cs, bchannel);
+	if (ret) return ret;
+	ret = init_st_2(st, sp->b2_mode, incoming);
+	if (ret) return ret;
+	ret = init_st_3(st, sp->b3_mode);
+	if (ret) return ret;
+	st->lli.userdata = chanp;
+	st->l3.l3l4 = l3l4;
+	return 0;
+}
+
+static int
+init_b_st(struct Channel *chanp, int incoming)
+{
+	struct PStack *st = chanp->b_st;
+	struct IsdnCardState *cs = chanp->cs;
+	struct StackParams sp;
+	int bchannel;
+
+	chanp->tx_cnt = 0;
+	switch (chanp->l2_active_protocol) {
+	case (ISDN_PROTO_L2_X75I):
+		sp.b1_mode = B1_MODE_HDLC;
+		sp.b2_mode = B2_MODE_X75SLP;
+		break;
+	case (ISDN_PROTO_L2_HDLC):
+		sp.b1_mode = B1_MODE_HDLC;
+		sp.b2_mode = B2_MODE_TRANS;
+		break;
+	case (ISDN_PROTO_L2_TRANS):
+		sp.b1_mode = B1_MODE_TRANS;
+		sp.b2_mode = B2_MODE_TRANS;
+		break;
+	case (ISDN_PROTO_L2_MODEM):
+		sp.b1_mode = B1_MODE_MODEM;
+		sp.b2_mode = B2_MODE_TRANS;
+		break;
+	case (ISDN_PROTO_L2_FAX):
+		sp.b1_mode = B1_MODE_FAX;
+		sp.b2_mode = B2_MODE_TRANS;
+		break;
+	default:
+		int_error();
+		return -EINVAL;
+	}
+	sp.b3_mode = B3_MODE_TRANS;
+	bchannel = chanp->leased ? chanp->chan & 1 : chanp->l4pc.l3pc->para.bchannel - 1;
+	init_st(st, cs, &sp, bchannel, incoming, chanp, lldata_handler);
+
+	st->l2.l2m.debug = chanp->debug & 16;
+	st->l2.debug = chanp->debug & 64;
+
+	test_and_set_bit(FLG_START_B, &chanp->Flags);
+	return 0;
+}
+
 static void
 init_d_st(struct Channel *chanp)
 {
 	struct PStack *st;
 	struct IsdnCardState *cs = chanp->cs;
-	char tmp[16];
+	struct StackParams sp;
 
 	st = chanp->d_st;
 	st->next = NULL;
 
-	init_st_1(st, cs, -1);
-	st->l2.sap = 0;
-	st->l2.tei = -1;
-	st->l2.flag = 0;
-	test_and_set_bit(FLG_MOD128, &st->l2.flag);
-	test_and_set_bit(FLG_LAPD, &st->l2.flag);
-	test_and_set_bit(FLG_ORIG, &st->l2.flag);
-	st->l2.maxlen = MAX_DFRAME_LEN;
-	st->l2.window = 1;
-	st->l2.T200 = 1000;	/* 1000 milliseconds  */
-	st->l2.N200 = 3;	/* try 3 times        */
-	st->l2.T203 = 10000;	/* 10000 milliseconds */
-	if (test_bit(FLG_TWO_DCHAN, &cs->HW_Flags))
-		sprintf(tmp, "DCh%d Q.921 ", chanp->chan);
-	else
-		sprintf(tmp, "DCh Q.921 ");
-	setstack_isdnl2(st, tmp);
-	setstack_l3dc(st, chanp, chanp->c_if->b3_mode);
-	st->lli.userdata = chanp;
-	st->l3.l3l4 = dchan_l3l4;
+	sp.b1_mode = B1_MODE_HDLC;
+	sp.b2_mode = B2_MODE_LAPD;
+	sp.b3_mode = chanp->c_if->b3_mode;
+	init_st(st, cs, &sp, CHANNEL_D, 0, chanp, dchan_l3l4);
 }
 
 static void
@@ -1249,63 +1361,6 @@ lldata_handler(struct PStack *st, int pr, void *arg)
 				pr);
 			break;
 	}
-}
-
-static int
-init_b_st(struct Channel *chanp, int incoming)
-{
-	struct PStack *st = chanp->b_st;
-	struct IsdnCardState *cs = chanp->cs;
-	char tmp[16];
-
-	chanp->tx_cnt = 0;
-	init_st_1(st, cs, chanp->leased ? chanp->chan & 1 : chanp->l4pc.l3pc->para.bchannel - 1);
-	switch (chanp->l2_active_protocol) {
-		case (ISDN_PROTO_L2_X75I):
-		case (ISDN_PROTO_L2_HDLC):
-			st->l1.mode = B1_MODE_HDLC;
-			break;
-		case (ISDN_PROTO_L2_TRANS):
-			st->l1.mode = B1_MODE_TRANS;
-			break;
-		case (ISDN_PROTO_L2_MODEM):
-			st->l1.mode = B1_MODE_MODEM;
-			break;
-		case (ISDN_PROTO_L2_FAX):
-			st->l1.mode = B1_MODE_FAX;
-			break;
-	}
-	st->l2.flag = 0;
-	test_and_set_bit(FLG_LAPB, &st->l2.flag);
-	st->l2.AddressA = 0x03;
-	st->l2.AddressB = 0x01;
-	st->l2.maxlen = MAX_DATA_SIZE;
-	if (!incoming)
-		test_and_set_bit(FLG_ORIG, &st->l2.flag);
-	st->l2.T200 = 1000;	/* 1000 milliseconds */
-	st->l2.window = 7;
-	st->l2.N200 = 4;	/* try 4 times       */
-	st->l2.T203 = 5000;	/* 5000 milliseconds */
-	st->l3.debug = 0;
-	switch (chanp->l2_active_protocol) {
-		case (ISDN_PROTO_L2_X75I):
-			setstack_isdnl2(st, tmp);
-			sprintf(tmp, "Ch%d X.75", chanp->chan);
-			st->l2.l2m.debug = chanp->debug & 16;
-			st->l2.debug = chanp->debug & 64;
-			break;
-		case (ISDN_PROTO_L2_HDLC):
-		case (ISDN_PROTO_L2_TRANS):
-		case (ISDN_PROTO_L2_MODEM):
-		case (ISDN_PROTO_L2_FAX):
-			setstack_transl2(st);
-			break;
-	}
-	st->l2.l2l3 = lldata_handler;
-	st->lli.userdata = chanp;
-	test_and_set_bit(FLG_START_B, &chanp->Flags);
-	setstack_l3bc(st, chanp);
-	return (0);
 }
 
 static void
