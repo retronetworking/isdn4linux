@@ -1661,7 +1661,9 @@ int __init
 setup_hfcpci(struct IsdnCard *card)
 {
 	struct IsdnCardState *cs = card->cs;
+#if 0
 	unsigned short cmd;
+#endif
 	char tmp[64];
 	int i;
 	struct pci_dev *tmp_hfcpci = NULL;
@@ -1713,6 +1715,8 @@ setup_hfcpci(struct IsdnCard *card)
 			return (0);
 		}
 		if (((int) cs->hw.hfcpci.pci_io & (PAGE_SIZE - 1))) {
+			printk(KERN_WARNING "HFC-PCI shared mem address is %p\n", cs->hw.hfcpci.pci_io);
+#if 0
 			printk(KERN_WARNING "HFC-PCI shared mem address will be corrected\n");
 			pcibios_write_config_word(cs->hw.hfcpci.pci_bus,
 					     cs->hw.hfcpci.pci_device_fn,
@@ -1744,6 +1748,7 @@ setup_hfcpci(struct IsdnCard *card)
 				return (0);
 			}
 			dev_hfcpci->resource[1].start = (int) cs->hw.hfcpci.pci_io;
+#endif
 		}
 		if (!cs->hw.hfcpci.pci_io) {
 			printk(KERN_WARNING "HFC-PCI: No IO-Mem for PCI card found\n");
