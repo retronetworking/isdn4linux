@@ -21,6 +21,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.31.2.10  1998/06/07 13:48:30  fritz
+ * ABC cleanup
+ *
  * Revision 1.31.2.9  1998/06/02 12:12:49  detabc
  * wegen einer einstweiliger verfuegung gegen DW ist zur zeit
  * die abc-extension bis zur klaerung der rechtslage nicht verfuegbar
@@ -253,6 +256,7 @@
 
 #define ISDN_MODEM_ANZREG    23        /* Number of Modem-Registers        */
 #define ISDN_MSNLEN          20
+#define ISDN_LMSNLEN         255 /* Length of tty's Listen-MSN string */
 
 typedef struct {
   char drvid[25];
@@ -273,6 +277,7 @@ typedef struct {
 
 #define NET_DV 0x04 /* Data version for net_cfg     */
 #define TTY_DV 0x04 /* Data version for iprofd etc. */
+#define INF_DV 0x01 /* Data version for /dev/isdninfo */
 
 typedef struct {
   char name[10];     /* Name of interface                     */
