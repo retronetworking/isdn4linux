@@ -21,6 +21,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.18  1999/09/07 12:48:05  armin
+ * Prepared for sub-address usage.
+ *
  * Revision 1.17  1999/09/07 12:35:39  armin
  * Better checking and channel Id handling.
  *
@@ -372,6 +375,9 @@ idi_do_req(eicon_card *card, eicon_chan *chan, int cmd, int layer)
 int
 eicon_idi_listen_req(eicon_card *card, eicon_chan *chan)
 {
+	if ((!card) || (!chan))
+		return 1;
+
 	if (DebugVar & 16)
 		printk(KERN_DEBUG"idi_req: Ch%d: Listen_Req eazmask=0x%x\n",chan->No, chan->eazmask);
 	if (!chan->e.D3Id) {
@@ -427,6 +433,9 @@ idi_si2bc(int si1, int si2, char *bc, char *hlc)
 int
 idi_hangup(eicon_card *card, eicon_chan *chan)
 {
+	if ((!card) || (!chan))
+		return 1;
+
 	if ((chan->fsm_state == EICON_STATE_ACTIVE) ||
 	    (chan->fsm_state == EICON_STATE_WMCONN)) {
   		if (chan->e.B2Id) idi_do_req(card, chan, IDI_N_DISC, 1);
@@ -445,6 +454,9 @@ idi_hangup(eicon_card *card, eicon_chan *chan)
 int
 idi_connect_res(eicon_card *card, eicon_chan *chan)
 {
+	if ((!card) || (!chan))
+		return 1;
+
 	chan->fsm_state = EICON_STATE_IWAIT;
 	idi_do_req(card, chan, CALL_RES, 0);
 	
@@ -474,6 +486,9 @@ idi_connect_req(eicon_card *card, eicon_chan *chan, char *phone,
         struct sk_buff *skb2;
 	eicon_REQ *reqbuf;
 	eicon_chan_ptr *chan2;
+
+	if ((!card) || (!chan))
+		return 1;
 
         skb = alloc_skb(270 + sizeof(eicon_REQ), GFP_ATOMIC);
         skb2 = alloc_skb(sizeof(eicon_chan_ptr), GFP_ATOMIC);
@@ -1128,6 +1143,9 @@ idi_audio_cmd(eicon_card *ccard, eicon_chan *chan, int cmd, u_char *value)
 	u_char buf[6];
 	struct enable_dtmf_s *dtmf_buf = (struct enable_dtmf_s *)buf;
 
+	if ((!ccard) || (!chan))
+		return;
+
 	memset(buf, 0, 6);
 	switch(cmd) {
 		case ISDN_AUDIO_SETDD:
@@ -1158,6 +1176,9 @@ idi_parse_udata(eicon_card *ccard, eicon_chan *chan, unsigned char *buffer, int 
 	static u_char dtmf_code[] = {
 	'1','4','7','*','2','5','8','0','3','6','9','#','A','B','C','D'
 	};
+
+	if ((!ccard) || (!chan))
+		return;
 
 	switch (buffer[0]) {
 		case DSP_UDATA_INDICATION_SYNC:
@@ -1226,6 +1247,9 @@ idi_handle_ind(eicon_card *ccard, struct sk_buff *skb)
 	eicon_chan *chan;
 	idi_ind_message message;
 	isdn_ctrl cmd;
+
+	if (!ccard)
+		return;
 
 	if ((chan = ccard->IdTable[ind->IndId]) == NULL) {
   		dev_kfree_skb(skb);
@@ -1645,6 +1669,9 @@ idi_handle_ack(eicon_card *ccard, struct sk_buff *skb)
 	isdn_ctrl cmd;
 	int dCh = -1;
 
+	if (!ccard)
+		return;
+
 	if ((chan = ccard->IdTable[ack->RcId]) != NULL)
 		dCh = chan->No;
 	
@@ -1709,8 +1736,13 @@ idi_handle_ack(eicon_card *ccard, struct sk_buff *skb)
 		case WRONG_IE:
 		default:
 			if (DebugVar & 1)
-				printk(KERN_ERR "eicon_ack: Ch%d: Not OK !!: Rc=%d Id=%x Ch=%d\n", dCh, 
-					ack->Rc, ack->RcId, ack->RcCh);
+				printk(KERN_ERR "eicon_ack: Ch%d: Not OK !!: Rc=%d Id=%x Ch=%d Req=%d\n",
+					dCh, ack->Rc, ack->RcId, ack->RcCh, (chan) ? chan->e.Req : -1);
+			if (!chan) {
+				if (DebugVar & 1)
+					printk(KERN_ERR "idi_ack: Ch%d: Not OK !! on chan without Id\n", dCh);
+				break;
+			}
 			if (dCh == ccard->nchannels) { /* Management */
 				chan->fsm_state = 2;
 			} else if (dCh >= 0) {
@@ -1738,6 +1770,9 @@ idi_send_data(eicon_card *card, eicon_chan *chan, int ack, struct sk_buff *skb, 
         eicon_chan_ptr *chan2;
         int len, plen = 0, offset = 0;
 	unsigned long flags;
+
+	if ((!card) || (!chan))
+		return -1;
 
         if (chan->fsm_state != EICON_STATE_ACTIVE) {
 		if (DebugVar & 1)
