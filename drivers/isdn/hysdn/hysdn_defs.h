@@ -19,15 +19,6 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
- * $Log$
- * Revision 1.2  2000/05/17 11:41:30  ualbrecht
- * CAPI 2.0 support added
- *
- * Revision 1.1  2000/02/10 19:44:30  werner
- *
- * Initial release
- *
- *
  */
 
 #ifndef HYSDN_DEFS_H

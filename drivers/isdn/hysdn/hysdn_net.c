@@ -23,30 +23,6 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
- * $Log$
- * Revision 1.6  2000/05/17 11:43:03  ualbrecht
- * Fixed a NULL-pointer kernel-oops assigning the device-name
- *
- * Revision 1.5  2000/05/06 00:52:38  kai
- * merged changes from kernel tree
- * fixed timer and net_device->name breakage
- *
- * Revision 1.4  2000/04/23 14:18:36  kai
- * merge changes from main tree
- *
- * Revision 1.3  2000/02/14 19:24:12  werner
- *
- * Removed superflous file
- *
- * Revision 1.2  2000/02/13 17:32:19  werner
- *
- * Added support for new network layer of 2.3.43 and 44 kernels and tested driver.
- *
- * Revision 1.1  2000/02/10 19:45:18  werner
- *
- * Initial release
- *
- *
  */
 
 #define __NO_VERSION__

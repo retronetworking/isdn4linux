@@ -1093,16 +1093,15 @@ isdn_ppp_push_higher(isdn_net_dev * net_dev, isdn_net_local * lp, struct sk_buff
 	lp->dw_abc_bchan_errcnt = 0;
 #endif
 
- 	skb->dev = dev;
- 	skb->mac.raw = skb->data;
- 	netif_rx(skb);
- 	/* net_dev->local->stats.rx_packets++; done in isdn_net.c */
-  	return;
-	
- drop_packet:
- 	net_dev->local->stats.rx_dropped++;
-	kfree_skb(skb);
+	skb->dev = dev;
+	skb->mac.raw = skb->data;
 	netif_rx(skb);
+	/* net_dev->local->stats.rx_packets++; done in isdn_net.c */
+	return;
+
+ drop_packet:
+	net_dev->local->stats.rx_dropped++;
+	kfree_skb(skb);
 }
 
 /*

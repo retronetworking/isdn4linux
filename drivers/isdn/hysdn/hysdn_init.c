@@ -19,21 +19,6 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
- * $Log$
- * Revision 1.4  2000/06/18 16:08:18  keil
- * 2.4 PCI changes and some cosmetics
- *
- * Revision 1.3  2000/06/13 09:15:07  ualbrecht
- * Module will now unload more gracefully.
- *
- * Revision 1.2  2000/05/17 11:41:30  ualbrecht
- * CAPI 2.0 support added
- *
- * Revision 1.1  2000/02/10 19:45:18  werner
- *
- * Initial release
- *
- *
  */
 
 #include <linux/config.h>

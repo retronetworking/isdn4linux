@@ -19,30 +19,6 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
- * $Log$
- * Revision 1.6  2000/06/18 16:08:18  keil
- * 2.4 PCI changes and some cosmetics
- *
- * Revision 1.5  2000/04/23 14:18:36  kai
- * merge changes from main tree
- *
- * Revision 1.4  2000/03/03 16:37:12  kai
- * incorporated some cosmetic changes from the official kernel tree back
- * into CVS
- *
- * Revision 1.3  2000/03/02 00:11:07  werner
- *
- * Changes related to procfs for 2.3.48
- *
- * Revision 1.2  2000/02/14 19:23:03  werner
- *
- * Changed handling of proc filesystem tables to a more portable version
- *
- * Revision 1.1  2000/02/10 19:45:18  werner
- *
- * Initial release
- *
- *
  */
 
 #define __NO_VERSION__

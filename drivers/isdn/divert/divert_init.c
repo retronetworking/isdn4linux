@@ -19,16 +19,6 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
- * $Log$
- * Revision 1.3  1999/07/05 20:21:39  werner
- * changes to use diversion sources for all kernel versions.
- * removed static device, only proc filesystem used
- *
- * Revision 1.2  1999/07/04 21:37:30  werner
- * Ported from kernel version 2.0
- *
- *
- *
  */
 
 #include <linux/module.h>

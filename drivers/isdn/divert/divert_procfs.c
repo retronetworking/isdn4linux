@@ -19,35 +19,6 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
- * $Log$
- * Revision 1.8  2000/03/03 16:37:11  kai
- * incorporated some cosmetic changes from the official kernel tree back
- * into CVS
- *
- * Revision 1.7  2000/03/02 00:11:06  werner
- *
- * Changes related to procfs for 2.3.48
- *
- * Revision 1.6  2000/02/14 19:23:03  werner
- *
- * Changed handling of proc filesystem tables to a more portable version
- *
- * Revision 1.5  1999/09/14 20:31:01  werner
- *
- * Removed obsoleted functions for proc fs and synced with new ones.
- *
- * Revision 1.4  1999/08/06 07:42:48  calle
- * Added COMPAT_HAS_NEW_WAITQ for rd_queue for newer kernels.
- *
- * Revision 1.3  1999/07/05 20:21:41  werner
- * changes to use diversion sources for all kernel versions.
- * removed static device, only proc filesystem used
- *
- * Revision 1.2  1999/07/04 21:37:31  werner
- * Ported from kernel version 2.0
- *
- *
- *
  */
 
 #include <linux/config.h>
