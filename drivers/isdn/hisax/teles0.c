@@ -10,6 +10,9 @@
  *              Beat Doebeli
  *
  * $Log$
+ * Revision 1.8.2.6  1998/01/27 22:37:43  keil
+ * fast io
+ *
  * Revision 1.8.2.5  1997/11/15 18:51:00  keil
  * new common init function
  *
@@ -222,6 +225,7 @@ reset_teles0(struct IsdnCardState *cs)
 	if (cs->hw.teles0.cfg_reg) {
 		switch (cs->irq) {
 			case 2:
+			case 9:
 				cfval = 0x00;
 				break;
 			case 3:
