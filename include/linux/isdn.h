@@ -21,6 +21,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.69  1999/07/13 20:47:53  werner
+ * added channel bit ISDN_USAGE_DISABLED for limiting b-channel access.
+ *
  * Revision 1.68  1999/07/11 17:07:37  armin
  * Added tty modem register S23.
  * Added new layer 2 and 3 protocols for Fax and DSP functions.
@@ -728,6 +731,10 @@ typedef struct modem_info {
   void                  *adpcmr;         /* state for adpcm compression    */
   void                  *dtmf_state;     /* state for dtmf decoder         */
   void                  *silence_state;  /* state for silence detection    */
+#endif
+#ifdef CONFIG_ISDN_TTY_FAX
+  struct T30_s		*fax;		 /* T30 Fax Group 3 data/interface */
+  int			faxonline;	 /* Fax-channel status             */
 #endif
   struct tty_struct 	*tty;            /* Pointer to corresponding tty   */
   atemu                 emu;             /* AT-emulator data               */

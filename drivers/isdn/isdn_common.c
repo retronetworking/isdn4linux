@@ -21,6 +21,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.85  1999/07/29 16:58:35  armin
+ * Bugfix: DLE handling in isdn_readbchan()
+ *
  * Revision 1.84  1999/07/25 16:21:10  keil
  * fix number matching
  *
@@ -1046,6 +1049,11 @@ isdn_status_callback(isdn_ctrl * c)
 			break;
 		case CAPI_PUT_MESSAGE:
 			return(isdn_capi_rec_hl_msg(&c->parm.cmsg));
+#ifdef CONFIG_ISDN_TTY_FAX
+		case ISDN_STAT_FAXIND:
+			isdn_tty_stat_callback(i, c);
+			break;
+#endif
 #ifdef CONFIG_ISDN_AUDIO
 		case ISDN_STAT_AUDIO:
 			isdn_tty_stat_callback(i, c);
@@ -2610,6 +2618,9 @@ cleanup_module(void)
 	for (i = 0; i < ISDN_MAX_CHANNELS; i++) {
 		isdn_tty_cleanup_xmit(&dev->mdm.info[i]);
 		kfree(dev->mdm.info[i].xmit_buf - 4);
+#ifdef CONFIG_ISDN_TTY_FAX
+		kfree(dev->mdm.info[i].fax);
+#endif
 	}
 	if (unregister_chrdev(ISDN_MAJOR, "isdn") != 0) {
 		printk(KERN_WARNING "isdn: controldevice busy, remove cancelled\n");

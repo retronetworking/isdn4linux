@@ -20,6 +20,17 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.14  1999/07/11 17:14:15  armin
+ * Added new layer 2 and 3 protocols for Fax and DSP functions.
+ * Moved "Add CPN to RING message" to new register S23,
+ * "Display message" is now correct on register S13 bit 7.
+ * New audio command AT+VDD implemented (deactivate DTMF decoder and
+ * activate possible existing hardware/DSP decoder).
+ * Moved some tty defines to .h file.
+ * Made whitespace possible in AT command line.
+ * Some AT-emulator output bugfixes.
+ * First Fax G3 implementations.
+ *
  * Revision 1.13  1999/04/12 12:33:46  fritz
  * Changes from 2.0 tree.
  *
@@ -146,3 +157,9 @@ extern int isdn_tty_stat_callback(int, isdn_ctrl *);
 extern int isdn_tty_rcv_skb(int, int, int, struct sk_buff *);
 extern int isdn_tty_capi_facility(capi_msg *cm); 
 extern void isdn_tty_at_cout(char *, modem_info *);
+extern void isdn_tty_modem_hup(modem_info *, int);
+#ifdef CONFIG_ISDN_TTY_FAX
+extern int isdn_tty_cmd_PLUSF_FAX(char **, modem_info *);
+extern int isdn_tty_fax_command(modem_info *);
+extern void isdn_tty_fax_bitorder(modem_info *, struct sk_buff *);
+#endif

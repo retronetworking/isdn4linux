@@ -124,6 +124,12 @@ else
       patch -d $KERNELDIR/Documentation < Documentation/Configure.help.divert.diff
     fi
   fi
+  if [ -f $KERNELDIR/Documentation/Configure.help ] ; then
+    grep -q CONFIG_ISDN_DRV_EICON $KERNELDIR/Documentation/Configure.help
+    if [ $? != 0 ] ; then
+      patch -d $KERNELDIR/Documentation < Documentation/Configure.help.eicon.diff
+    fi
+  fi
   mkdir -p -m 755 $KERNELDIR/drivers/isdn/eicon
   for i in drivers/isdn/eicon/*.[ch] ; do
     $DOCP $i $KERNELDIR/$i
