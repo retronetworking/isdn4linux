@@ -23,6 +23,10 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.22  1999/10/10 20:14:27  werner
+ *
+ * Correct B2-chan usage in conjuntion with echo mode. First implementation of NT-leased line mode.
+ *
  * Revision 1.21  1999/10/02 17:47:49  werner
  *
  * Changed init order, added correction for page alignment with shared mem
@@ -1893,7 +1897,7 @@ __initfunc(int
 				return (0);
 			}
 #ifdef COMPAT_HAS_NEW_PCI
-			dev_hfcpci->base_address[1] = (int) cs->hw.hfcpci.pci_io;
+			get_pcibase(dev_hfcpci,1) = (int) cs->hw.hfcpci.pci_io;
 #endif
 		}
 		if (!cs->hw.hfcpci.pci_io) {
