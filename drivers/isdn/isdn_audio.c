@@ -183,9 +183,9 @@ static char isdn_audio_ulaw_to_alaw[] =
 };
 
 #define NCOEFF           16     /* number of frequencies to be analyzed       */
-#define DTMF_TRESH    50000     /* above this is dtmf                         */
-#define SILENCE_TRESH   100     /* below this is silence                      */
-#define H2_TRESH      10000     /* 2nd harmonic                               */
+#define DTMF_TRESH    25000     /* above this is dtmf                         */
+#define SILENCE_TRESH   200     /* below this is silence                      */
+#define H2_TRESH      20000     /* 2nd harmonic                               */
 #define AMP_BITS          9     /* bits per sample, reduced to avoid overflow */
 #define LOGRP             0
 #define HIGRP             1
