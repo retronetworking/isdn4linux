@@ -20,6 +20,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.5  1996/04/30 21:05:25  fritz
+ * Test commit
+ *
  * Revision 1.4  1996/04/20 16:39:54  fritz
  * Changed all io to go through generic routines in isdn_common.c
  * Fixed a real ugly bug in modem-emulator: 'ATA' had been accepted
@@ -214,33 +217,33 @@ static void isdn_tty_senddown(modem_info * info, int midx)
 
 static void isdn_tty_dial(char *n, modem_info * info, atemu * m)
 {
+        int usg = ISDN_USAGE_MODEM;
+        int si = 7;
+        int l2 = m->mdmreg[14];
 	isdn_ctrl cmd;
 	ulong flags;
 	int i;
+        int j;
 
+        for (j=7;j>=0;j--)
+                if (m->mdmreg[18] & (1<<j)) {
+                        si = bit2si[j];
+                        break;
+                }
+#ifdef CONFIG_ISDN_AUDIO
+        if ((m->mdmreg[18] & (1<<j)) != (1<<j))
+                if (si == 1) {
+                        l2 = 4;
+                        usg = ISDN_USAGE_VOICE;
+                }
+#endif
 	save_flags(flags);
 	cli();
-	i = isdn_get_free_channel(ISDN_USAGE_MODEM, m->mdmreg[14], m->mdmreg[15], -1, -1);
+	i = isdn_get_free_channel(usg, l2, m->mdmreg[15], -1, -1);
 	if (i < 0) {
 		restore_flags(flags);
 		isdn_tty_modem_result(6, info);
 	} else {
-                int j, si,l2;
-                
-                si = 7;
-                l2 = m->mdmreg[14];
-                for (j=7;j>=0;j--)
-                        if (m->mdmreg[18] & (1<<j)) {
-                                si = bit2si[j];
-                                break;
-                        }
-                if ((m->mdmreg[18] & (1<<j)) != (1<<j))
-#ifdef CONFIG_ISDN_AUDIO
-                        if (si == 1) {
-                                l2 = 4;
-                                dev->usage[i] = ISDN_USAGE_VOICE;
-                        }
-#endif
                 info->isdn_driver = dev->drvmap[i];
                 info->isdn_channel = dev->chanmap[i];
                 info->drv_index = i;
@@ -289,6 +292,7 @@ void isdn_tty_modem_hup(modem_info * info)
                 dev->mdm.vonline[info->line] = 0;
                 kfree(dev->mdm.atmodem[info->line].adpcms);
         }
+        dev->mdm.msr[info->line] &= ~(UART_MSR_DCD | UART_MSR_RI);
 	if (info->isdn_driver >= 0) {
 		cmd.driver = info->isdn_driver;
 		cmd.command = ISDN_CMD_HANGUP;
@@ -348,13 +352,13 @@ static void isdn_tty_change_speed(modem_info * info)
 	if (quot) {
 		info->MCR |= UART_MCR_DTR;
 	} else {
-		info->MCR &= ~UART_MCR_DTR;
-		isdn_tty_modem_reset_regs(&dev->mdm.atmodem[info->line], 0);
 #ifdef ISDN_DEBUG_MODEM_HUP
                 printk(KERN_DEBUG "Mhup in changespeed\n");
 #endif
 		if (dev->mdm.online[info->line])
-			isdn_tty_modem_result(3, info);
+			isdn_tty_modem_result(3, info);                
+		info->MCR &= ~UART_MCR_DTR;
+		isdn_tty_modem_reset_regs(&dev->mdm.atmodem[info->line], 0);
                 isdn_tty_modem_hup(info);
 		return;
 	}
@@ -567,9 +571,11 @@ static int isdn_tty_write(struct tty_struct *tty, int from_user, const u_char * 
                     (dev->mdm.vonline[i]==2)) {
                         atemu *m = &dev->mdm.atmodem[i];
 
+#if 0
                         printk(KERN_INFO "tty_write: %d to isdn o=%d vo=%d\n",c,
                                dev->mdm.online[i],
                                dev->mdm.vonline[i]);
+#endif
                         if (dev->mdm.vonline[i]!=2)
                                 isdn_tty_check_esc(buf, m->mdmreg[2], c,
                                                    &(m->pluscount),
@@ -1503,17 +1509,17 @@ static void isdn_tty_at_cout(char *msg, modem_info * info)
 	tty = info->tty;
 	for (p = msg; *p; p++) {
 		switch (*p) {
-		case '\r':
-			c = m->mdmreg[3];
-			break;
-		case '\n':
-			c = m->mdmreg[4];
-			break;
-		case '\b':
-			c = m->mdmreg[5];
-			break;
-		default:
-			c = *p;
+                        case '\r':
+                                c = m->mdmreg[3];
+                                break;
+                        case '\n':
+                                c = m->mdmreg[4];
+                                break;
+                        case '\b':
+                                c = m->mdmreg[5];
+                                break;
+                        default:
+                                c = *p;
 		}
 		if ((info->flags & ISDN_ASYNC_CLOSING) || (!tty)) {
 			restore_flags(flags);
@@ -1523,8 +1529,8 @@ static void isdn_tty_at_cout(char *msg, modem_info * info)
 			break;
 		tty_insert_flip_char(tty, c, 0);
 	}
+	queue_task_irq_off(&tty->flip.tqueue, &tq_timer);
 	restore_flags(flags);
-	queue_task(&tty->flip.tqueue, &tq_timer);
 }
 
 /*
@@ -1625,7 +1631,11 @@ void isdn_tty_modem_result(int code, modem_info * info)
                         /* NO CARRIER */
                         save_flags(flags);
                         cli();
-                        dev->mdm.msr[info->line] &= ~(UART_MSR_DCD | UART_MSR_RI);
+#ifdef ISDN_DEBUG_MODEM_HUP
+                        printk(KERN_DEBUG "modem_result: NO CARRIER %d %d\n",
+                               (info->flags & ISDN_ASYNC_CLOSING),
+                               (!info->tty));
+#endif
                         if ((info->flags & ISDN_ASYNC_CLOSING) || (!info->tty)) {
                                 restore_flags(flags);
                                 return;
@@ -1674,8 +1684,9 @@ void isdn_tty_modem_result(int code, modem_info * info)
 		}
 		if ((info->flags & ISDN_ASYNC_CHECK_CD) &&
 		    (!((info->flags & ISDN_ASYNC_CALLOUT_ACTIVE) &&
-		       (info->flags & ISDN_ASYNC_CALLOUT_NOHUP))))
+		       (info->flags & ISDN_ASYNC_CALLOUT_NOHUP)))) {
 			tty_hangup(info->tty);
+                }
 		restore_flags(flags);
 	}
 }
