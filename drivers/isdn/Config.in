@@ -14,6 +14,7 @@ if [ "$CONFIG_INET" != "n" ]; then
   bool 'Support budget-accounting' CONFIG_ISDN_BUDGET
 fi
 bool 'Support audio via ISDN' CONFIG_ISDN_AUDIO
+bool 'Support isdn diversion services' CONFIG_ISDN_DIVERSION
 dep_tristate 'ICN 2B and 4B support' CONFIG_ISDN_DRV_ICN $CONFIG_ISDN
 dep_tristate 'isdnloop support' CONFIG_ISDN_DRV_LOOP $CONFIG_ISDN
 dep_tristate 'PCBIT-D support' CONFIG_ISDN_DRV_PCBIT $CONFIG_ISDN
