@@ -1276,22 +1276,7 @@ struct IsdnCardState {
 #define CARD_NETJET_U 0
 #endif
 
-#define TEI_PER_CARD 0
-
-#ifdef CONFIG_HISAX_1TR6
-#undef TEI_PER_CARD
 #define TEI_PER_CARD 1
-#endif
-
-#ifdef CONFIG_HISAX_EURO
-#undef TEI_PER_CARD
-#define TEI_PER_CARD 1
-#endif
-
-#ifdef CONFIG_HISAX_NI1
-#undef TEI_PER_CARD
-#define TEI_PER_CARD 0
-#endif
 
 /* L1 Debug */
 #define	L1_DEB_WARN		0x01

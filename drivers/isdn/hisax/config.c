@@ -318,17 +318,17 @@ static struct symbol_table hisax_syms_sedl= {
 #define DEFAULT_PROTO ISDN_PTYPE_1TR6
 #define DEFAULT_PROTO_NAME "1TR6"
 #endif
-#ifdef CONFIG_HISAX_EURO
-#undef DEFAULT_PROTO
-#define DEFAULT_PROTO ISDN_PTYPE_EURO
-#undef DEFAULT_PROTO_NAME
-#define DEFAULT_PROTO_NAME "EURO"
-#endif
 #ifdef CONFIG_HISAX_NI1
 #undef DEFAULT_PROTO
 #define DEFAULT_PROTO ISDN_PTYPE_NI1
 #undef DEFAULT_PROTO_NAME
 #define DEFAULT_PROTO_NAME "NI1"
+#endif
+#ifdef CONFIG_HISAX_EURO
+#undef DEFAULT_PROTO
+#define DEFAULT_PROTO ISDN_PTYPE_EURO
+#undef DEFAULT_PROTO_NAME
+#define DEFAULT_PROTO_NAME "EURO"
 #endif
 #ifndef DEFAULT_PROTO
 #define DEFAULT_PROTO ISDN_PTYPE_UNKNOWN
@@ -987,6 +987,8 @@ checkcard(int cardnr, char *id, int *busy_flag))
 	cs->busy_flag = busy_flag;
 	cs->irq_flags = I4L_IRQ_FLAG;
 #if TEI_PER_CARD
+	if (card->protocol == ISDN_PTYPE_NI1)
+		test_and_set_bit(FLG_TWO_DCHAN, &cs->HW_Flags);
 #else
 	test_and_set_bit(FLG_TWO_DCHAN, &cs->HW_Flags);
 #endif
