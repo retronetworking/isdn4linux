@@ -22,6 +22,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.14  1997/02/03 23:43:00  fritz
+ * Misc changes for Kernel 2.1.X compatibility.
+ *
  * Revision 1.13  1996/11/13 02:39:59  fritz
  * More compatibility changes.
  *
@@ -76,6 +79,7 @@
 #define ISDN_PTYPE_UNKNOWN   0   /* Protocol undefined   */
 #define ISDN_PTYPE_1TR6      1   /* german 1TR6-protocol */
 #define ISDN_PTYPE_EURO      2   /* EDSS1-protocol       */
+#define ISDN_PTYPE_LEASED    3   /* for leased lines     */
 
 /*
  * Values for Layer-2-protocol-selection
