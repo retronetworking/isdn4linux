@@ -21,6 +21,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.6  1998/02/12 23:06:50  keil
+ * change for 2.1.86 (removing FREE_READ/FREE_WRITE from [dev]_kfree_skb()
+ *
  * Revision 1.5  1997/10/09 22:23:02  fritz
  * New HL<->LL interface:
  *   New BSENT callback with nr. of bytes included.
@@ -622,7 +625,7 @@ handle_ack(act2000_card *card, act2000_chan *chan, __u8 blocknr) {
 	struct sk_buff *skb;
 	struct sk_buff *tmp;
 	struct actcapi_msg *m;
-	int ret;
+	int ret = 0;
 
 	save_flags(flags);
 	cli();

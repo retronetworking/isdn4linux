@@ -21,6 +21,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.54  1998/02/22 19:44:19  fritz
+ * Bugfixes and improvements regarding V.110, V.110 now running.
+ *
  * Revision 1.53  1998/02/20 17:18:05  fritz
  * Changes for recent kernels.
  * Added common stub for sending commands to lowlevel.
@@ -1954,7 +1957,7 @@ int
 isdn_writebuf_skb_stub(int drvidx, int chan, int ack, struct sk_buff *skb)
 {
 	int ret;
-	struct sk_buff *nskb;
+	struct sk_buff *nskb = NULL;
 	int v110_ret = skb->len;
 	int idx = isdn_dc2minor(drvidx, chan);
 
