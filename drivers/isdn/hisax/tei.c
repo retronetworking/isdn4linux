@@ -7,6 +7,9 @@
  *              Fritz Elfert
  *
  * $Log$
+ * Revision 1.6  1997/02/09 00:25:12  keil
+ * new interface handling, one interface per card
+ *
  * Revision 1.5  1997/01/27 15:57:51  keil
  * cosmetics
  *
@@ -63,26 +66,27 @@ findtei(struct PStack *st, int tei)
 }
 
 static void
-mdl_unit_data_res(struct PStack *st, unsigned int ri, byte mt, byte ai)
+mdl_unit_data_res(struct PStack *st, unsigned int ri, u_char mt, u_char ai)
 {
-	struct BufHeader *ibh;
-	byte *bp;
+	struct sk_buff *skb;
+	u_char *bp;
 
-	if (BufPoolGet(&ibh, st->l1.smallpool, GFP_ATOMIC, (void *) st, 7))
+	if (!(skb = alloc_skb(6 + MAX_HEADER_LEN, GFP_ATOMIC))) {
+		printk(KERN_WARNING "HiSax: No skb for TEI manager\n");
 		return;
-	bp = DATAPTR(ibh);
-	bp += 3;
+	}
+	skb_reserve(skb, MAX_HEADER_LEN);
+	bp = skb_put(skb, 5);
 	bp[0] = 0xf;
 	bp[1] = ri >> 8;
 	bp[2] = ri & 0xff;
 	bp[3] = mt;
 	bp[4] = (ai << 1) | 1;
-	ibh->datasize = 8;
-	st->l3.l3l2(st, DL_UNIT_DATA, ibh);
+	st->l3.l3l2(st, DL_UNIT_DATA, skb);
 }
 
 static void
-mdl_unit_data_ind(struct PStack *st, unsigned int ri, byte mt, byte ai)
+mdl_unit_data_ind(struct PStack *st, unsigned int ri, u_char mt, u_char ai)
 {
 	unsigned int tces;
 	struct PStack *otsp, *ptr;
@@ -191,15 +195,15 @@ mdl_unit_data_ind(struct PStack *st, unsigned int ri, byte mt, byte ai)
 
 void
 tei_handler(struct PStack *st,
-	    byte pr, struct BufHeader *ibh)
+	    u_char pr, struct sk_buff *skb)
 {
-	byte *bp;
+	u_char *bp;
 	unsigned int data;
 	char tmp[32];
 
 	switch (pr) {
 		case (MDL_ASSIGN):
-			data = (unsigned int) ibh;
+			data = (unsigned int) skb;
 			if (st->l3.debug) {
 				sprintf(tmp, "ces %d assign request", data);
 				st->l2.l2m.printdebug(&st->l2.l2m, tmp);
@@ -207,7 +211,7 @@ tei_handler(struct PStack *st,
 			mdl_unit_data_res(st, data, 1, 127);
 			break;
 		case (MDL_VERIFY):
-			data = (unsigned int) ibh;
+			data = (unsigned int) skb;
 			if (st->l3.debug) {
 				sprintf(tmp, "%d id verify request", data);
 				st->l2.l2m.printdebug(&st->l2.l2m, tmp);
@@ -215,17 +219,15 @@ tei_handler(struct PStack *st,
 			mdl_unit_data_res(st, 0, 7, data);
 			break;
 		case (DL_UNIT_DATA):
-			bp = DATAPTR(ibh);
-			bp += 3;
+			bp = skb->data;
 			if (bp[0] != 0xf) {
 				/* wrong management entity identifier, ignore */
 				/* shouldn't ibh be released??? */
 				printk(KERN_WARNING "tei handler wrong entity id %x\n", bp[0]);
-				BufPoolRelease(ibh);
-				break;
-			}
-			mdl_unit_data_ind(st, (bp[1] << 8) | bp[2], bp[3], bp[4] >> 1);
-			BufPoolRelease(ibh);
+			} else
+				mdl_unit_data_ind(st, (bp[1] << 8) | bp[2], bp[3], bp[4] >> 1);
+			SET_SKB_FREE(skb);
+			dev_kfree_skb(skb, FREE_READ);
 			break;
 		default:
 			break;
@@ -267,8 +269,7 @@ init_tei(struct IsdnCardState *sp, int protocol)
 	struct PStack *st;
 	char tmp[128];
 
-	st = (struct PStack *) Smalloc(sizeof(struct PStack), GFP_KERNEL,
-				       "struct PStack");
+	st = (struct PStack *) kmalloc(sizeof(struct PStack), GFP_KERNEL);
 	setstack_HiSax(st, sp);
 	st->l2.extended = !0;
 	st->l2.laptype = LAPD;
@@ -278,7 +279,6 @@ init_tei(struct IsdnCardState *sp, int protocol)
 /*
  * the following is not necessary for tei mng. (broadcast only)
  */
-
 	st->l2.t200 = 500;	/* 500 milliseconds */
 	st->l2.n200 = 4;	/* try 4 times */
 
@@ -307,5 +307,5 @@ release_tei(struct IsdnCardState *sp)
 	struct PStack *st = sp->teistack;
 
 	HiSax_rmlist(sp, st);
-	Sfree((void *) st);
+	kfree((void *) st);
 }

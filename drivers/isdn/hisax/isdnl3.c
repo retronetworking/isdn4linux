@@ -7,6 +7,9 @@
  *              Fritz Elfert
  *
  * $Log$
+ * Revision 1.9  1997/03/25 23:11:25  keil
+ * US NI-1 protocol
+ *
  * Revision 1.8  1997/03/21 18:53:44  keil
  * Report no protocol error to syslog too
  *
@@ -108,14 +111,29 @@ StopAllL3Timer(struct PStack *st)
 	L3DelTimer(&st->l3.timer);
 }
 
+struct sk_buff *
+l3_alloc_skb(int len)
+{
+	struct sk_buff *skb;
+
+	if (!(skb = alloc_skb(len + MAX_HEADER_LEN, GFP_ATOMIC))) {
+		printk(KERN_WARNING "HiSax: No skb for D-channel\n");
+		return (NULL);
+	}
+	skb_reserve(skb, MAX_HEADER_LEN);
+	return (skb);
+}
+
 static void
 no_l3_proto(struct PStack *st, int pr, void *arg)
 {
-	struct BufHeader *ibh = arg;
+	struct sk_buff *skb = arg;
 
 	l3_debug(st, "no protocol");
-	if (ibh)
-		BufPoolRelease(ibh);
+	if (skb) {
+		SET_SKB_FREE(skb);
+		dev_kfree_skb(skb, FREE_READ);
+	}
 }
 
 #ifdef	CONFIG_HISAX_EURO
@@ -145,9 +163,9 @@ setstack_isdnl3(struct PStack *st, struct Channel *chanp)
 	} else
 #endif
 #ifdef        CONFIG_HISAX_NI1
-      if (st->protocol == ISDN_PTYPE_NI1) {
-              setstack_ni1(st);
-      } else
+	if (st->protocol == ISDN_PTYPE_NI1) {
+		setstack_ni1(st);
+	} else
 #endif
 #ifdef	CONFIG_HISAX_1TR6
 	if (st->protocol == ISDN_PTYPE_1TR6) {
@@ -164,7 +182,7 @@ setstack_isdnl3(struct PStack *st, struct Channel *chanp)
 		sprintf(tmp, "protocol %s not supported",
 			(st->protocol == ISDN_PTYPE_1TR6) ? "1tr6" :
 			(st->protocol == ISDN_PTYPE_EURO) ? "euro" :
-                      (st->protocol == ISDN_PTYPE_NI1) ? "ni1" :
+			(st->protocol == ISDN_PTYPE_NI1) ? "ni1" :
 			"unknown");
 		printk(KERN_WARNING "HiSax: %s\n", tmp);
 		l3_debug(st, tmp);

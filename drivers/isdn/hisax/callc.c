@@ -7,6 +7,10 @@
  *              Fritz Elfert
  *
  * $Log$
+ * Revision 1.24  1997/03/05 11:28:03  keil
+ * fixed undefined l2tei procedure
+ * a layer1 release delete now the drel timer
+ *
  * Revision 1.23  1997/03/04 23:07:42  keil
  * bugfix dial parameter
  *
@@ -1061,6 +1065,7 @@ static struct FsmNode fnlist[] =
 /* *INDENT-ON* */
 
 
+
 #define FNCOUNT (sizeof(fnlist)/sizeof(struct FsmNode))
 
 static void
@@ -1195,6 +1200,7 @@ static struct FsmNode LcFnList[] =
 
 
 
+
 #define LC_FN_COUNT (sizeof(LcFnList)/sizeof(struct FsmNode))
 
 void
@@ -1321,8 +1327,7 @@ l2tei_dummy(struct PStack *st, int pr, void *arg)
 }
 
 static void
-ll_handler(struct PStack *st, int pr,
-	   struct BufHeader *ibh)
+ll_handler(struct PStack *st, int pr, void *arg)
 {
 	struct Channel *chanp = (struct Channel *) st->l4.userdata;
 	char tmp[64], tm[32];
@@ -1540,7 +1545,6 @@ release_is(struct Channel *chanp)
 	releasestack_isdnl2(st);
 	releasestack_isdnl3(st);
 	HiSax_rmlist(st->l1.hardware, st);
-	BufQueueRelease(&st->l2.i_queue);
 }
 
 void
@@ -1561,23 +1565,24 @@ CallcFreeChan(struct IsdnCardState *csta)
 }
 
 static void
-lldata_handler(struct PStack *st, int pr,
-	       void *arg)
+lldata_handler(struct PStack *st, int pr, void *arg)
 {
 	struct Channel *chanp = (struct Channel *) st->l4.userdata;
-	byte *ptr;
-	int size;
-	struct BufHeader *ibh = arg;
+	struct sk_buff *skb = arg;
+	char tmp[64];
 
 	switch (pr) {
 		case (DL_DATA):
-			if (chanp->data_open) {
-				ptr = DATAPTR(ibh);
-				ptr += chanp->ds.l2.ihsize;
-				size = ibh->datasize - chanp->ds.l2.ihsize;
-				chanp->sp->iif.rcvcallb(chanp->sp->myid, chanp->chan, ptr, size);
+			if ((chanp->debug & 1) && skb) {
+				sprintf(tmp, "lldata: %ld bytes", skb->len);
+				link_debug(chanp, tmp, 1);
 			}
-			BufPoolRelease(ibh);
+			if (chanp->data_open)
+				chanp->sp->iif.rcvcallb_skb(chanp->sp->myid, chanp->chan, skb);
+			else {
+				SET_SKB_FREE(skb);
+				dev_kfree_skb(skb, FREE_READ);
+			}
 			break;
 		default:
 			printk(KERN_WARNING "lldata_handler unknown primitive %d\n",
@@ -1587,19 +1592,19 @@ lldata_handler(struct PStack *st, int pr,
 }
 
 static void
-lltrans_handler(struct PStack *st, int pr,
-		struct BufHeader *ibh)
+lltrans_handler(struct PStack *st, int pr, void *arg)
 {
 	struct Channel *chanp = (struct Channel *) st->l4.userdata;
-	byte *ptr;
+	struct sk_buff *skb = arg;
 
 	switch (pr) {
 		case (PH_DATA):
-			if (chanp->data_open) {
-				ptr = DATAPTR(ibh);
-				chanp->sp->iif.rcvcallb(chanp->sp->myid, chanp->chan, ptr, ibh->datasize);
+			if (chanp->data_open)
+				chanp->sp->iif.rcvcallb_skb(chanp->sp->myid, chanp->chan, skb);
+			else {
+				SET_SKB_FREE(skb);
+				dev_kfree_skb(skb, FREE_READ);
 			}
-			BufPoolRelease(ibh);
 			break;
 		default:
 			printk(KERN_WARNING "lltrans_handler unknown primitive %d\n",
@@ -1631,7 +1636,6 @@ init_ds(struct Channel *chanp, int incoming)
 	st->l1.hardware = sp;
 
 	hsp->mode = 2;
-	hsp->transbufsize = 4000;
 
 	if (setstack_hscx(st, hsp))
 		return (-1);
@@ -1894,14 +1898,15 @@ HiSax_command(isdn_ctrl * ic)
 }
 
 int
-HiSax_writebuf(int id, int chan, const u_char * buf, int count, int user)
+HiSax_writebuf_skb(int id, int chan, struct sk_buff *skb)
 {
 	struct IsdnCardState *csta = hisax_findcard(id);
 	struct Channel *chanp;
 	struct PStack *st;
-	struct BufHeader *ibh;
-	int err, i;
-	byte *ptr;
+	int len = skb->len;
+	unsigned long flags;
+	struct sk_buff *nskb;
+	int i;
 	char tmp[64];
 
 	if (!csta) {
@@ -1915,16 +1920,38 @@ HiSax_writebuf(int id, int chan, const u_char * buf, int count, int user)
 		link_debug(chanp, "writebuf: channel not open", 1);
 		return -EIO;
 	}
-	err = BufPoolGet(&ibh, st->l1.sbufpool, GFP_ATOMIC, st, 21);
-	if (err) {
-		/* Must return 0 here, since this is not an error
-		 * but a temporary lack of resources.
-		 */
-		if (chanp->debug & 1) {
-			sprintf(tmp, "writebuf: no buffers for %d bytes", count);
-			link_debug(chanp, tmp, 1);
+	if (len > MAX_DATA_SIZE) {
+		sprintf(tmp, "writebuf: packet too large (%d bytes)", len);
+		printk(KERN_WARNING "HiSax_%s !\n", tmp);
+		link_debug(chanp, tmp, 1);
+		return -EINVAL;
+	}
+	if (len) {
+		if ((len + csta->hs[chanp->hscx].tx_cnt) > MAX_DATA_MEM) {
+			/* Must return 0 here, since this is not an error
+			 * but a temporary lack of resources.
+			 */
+			if (chanp->debug & 1) {
+				sprintf(tmp, "writebuf: no buffers for %d bytes", len);
+				link_debug(chanp, tmp, 1);
+			}
+			return 0;
 		}
-		return 0;
+		i = 0;
+		save_flags(flags);
+		cli();
+		nskb = skb_clone(skb, GFP_ATOMIC);
+		if (nskb) {
+			if (chanp->lc_b.l2_establish) {
+				chanp->ds.l3.l3l2(&chanp->ds, DL_DATA, nskb);
+				i = st->l2.ihsize;
+			} else
+				chanp->ds.l2.l2l1(&chanp->ds, PH_DATA, nskb);
+			dev_kfree_skb(skb, FREE_WRITE);
+		} else
+			len = 0;
+		csta->hs[chanp->hscx].tx_cnt += len + i;
+		restore_flags(flags);
 	}
 #if 0
 	if (chanp->debug & 1) {
@@ -1932,34 +1959,5 @@ HiSax_writebuf(int id, int chan, const u_char * buf, int count, int user)
 		link_debug(chanp, tmp, 1);
 	}
 #endif
-	ptr = DATAPTR(ibh);
-	if (chanp->lc_b.l2_establish)
-		i = st->l2.ihsize;
-	else
-		i = 0;
-
-	if ((count + i) > BUFFER_SIZE(HSCX_SBUF_ORDER, HSCX_SBUF_BPPS)) {
-		sprintf(tmp, "writebuf: packet too large (%d bytes)", count + i);
-		printk(KERN_WARNING "HiSax_%s !\n", tmp);
-		link_debug(chanp, tmp, 1);
-		return (-EINVAL);
-	}
-	ptr += i;
-
-	if (user)
-		copy_from_user(ptr, buf, count);
-	else
-		memcpy(ptr, buf, count);
-	ibh->datasize = count + i;
-
-	if (chanp->data_open) {
-		if (chanp->lc_b.l2_establish)
-			chanp->ds.l3.l3l2(&chanp->ds, DL_DATA, ibh);
-		else
-			chanp->ds.l2.l2l1(&chanp->ds, PH_DATA, ibh);
-		return (count);
-	} else {
-		BufPoolRelease(ibh);
-		return (0);
-	}
+	return (len);
 }

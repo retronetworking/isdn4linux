@@ -1,6 +1,9 @@
 /* $Id$
  *
  * $Log$
+ * Revision 1.2  1997/01/21 22:31:28  keil
+ * new statemachine; L3 timers
+ *
  * Revision 1.1  1996/10/13 20:03:47  keil
  * Initial revision
  *
@@ -18,9 +21,9 @@
 #define	L3_DEB_CHARGE	0x08
 
 struct stateentry {
-	int             state;
-	byte            primitive;
-	void            (*rout) (struct PStack *, byte, void *);
+	int	state;
+	u_char	primitive;
+	void	(*rout) (struct PStack *, u_char, void *);
 };
 
 extern void l3_debug(struct PStack *st, char *s);
@@ -29,3 +32,4 @@ extern void L3InitTimer(struct PStack *st, struct L3Timer *t);
 extern void L3DelTimer(struct L3Timer *t);
 extern int  L3AddTimer(struct L3Timer *t, int millisec, int event);
 extern void StopAllL3Timer(struct PStack *st);
+extern struct sk_buff *l3_alloc_skb(int len);
