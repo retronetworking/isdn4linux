@@ -7,6 +7,9 @@
  *              Fritz Elfert
  *
  * $Log$
+ * Revision 1.30.2.3  1998/01/11 23:21:03  keil
+ * Missing callc state
+ *
  * Revision 1.30.2.2  1997/11/15 18:54:31  keil
  * cosmetics
  *
@@ -72,6 +75,17 @@ static int chancount = 0;
 
 /* experimental REJECT after ALERTING for CALLBACK to beat the 4s delay */ 
 #define ALERT_REJECT 1
+
+/* Value to delay the sending of the first B-channel paket after CONNECT
+ * here is no value given by ITU, but experience shows that 300 ms will
+ * work on many networks, if you or your other side is behind local exchanges
+ * a greater value may be recommented. If the delay is to short the first paket
+ * will be lost and autodetect on many comercial routers goes wrong !
+ * You can adjust this value on runtime with 
+ * hisaxctrl <id> 2 <value>
+ * value is in milliseconds
+ */
+#define DEFAULT_B_DELAY	300
 
 /* Flags for remembering action done in lli */
 
@@ -1655,7 +1669,7 @@ init_chan(int chan, struct IsdnCardState *csta)
 	chanp->lc_b->lcfi.userdata = chanp->lc_b;
 	chanp->lc_b->lcfi.printdebug = dlc_debug;
 	chanp->lc_b->type = LC_B;
-	chanp->lc_b->delay = 250;
+	chanp->lc_b->delay = DEFAULT_B_DELAY;
 	chanp->lc_b->ch = chanp;
 	chanp->lc_b->st = chanp->b_st;
 	chanp->lc_b->l2_establish = !0;
@@ -2001,6 +2015,15 @@ HiSax_command(isdn_ctrl * ic)
 					num = *(unsigned int *) ic->parm.num;
 					distr_debug(csta, num);
 					sprintf(tmp, "debugging flags card %d set to %x\n",
+						csta->cardnr + 1, num);
+					HiSax_putstatus(csta, tmp);
+					printk(KERN_DEBUG "HiSax: %s", tmp);
+					break;
+				case (2):
+					num = *(unsigned int *) ic->parm.num; 
+					csta->channel[0].lc_b->delay = num;
+					csta->channel[1].lc_b->delay = num;
+					sprintf(tmp, "delay card %d set to %d ms\n",
 						csta->cardnr + 1, num);
 					HiSax_putstatus(csta, tmp);
 					printk(KERN_DEBUG "HiSax: %s", tmp);
