@@ -2900,17 +2900,8 @@ isdn_net_init(struct net_device *ndev)
 {
 	ushort max_hlhdr_len = 0;
 	isdn_net_local *lp = (isdn_net_local *) ndev->priv;
-	int drvidx,
-	 i;
+	int drvidx, i;
 
-	if (ndev == NULL) {
-		printk(KERN_WARNING "isdn_net_init: dev = NULL!\n");
-		return -ENODEV;
-	}
-	if (ndev->priv == NULL) {
-		printk(KERN_WARNING "isdn_net_init: dev->priv = NULL!\n");
-		return -ENODEV;
-	}
 	ether_setup(ndev);
 	lp->org_hhc = ndev->hard_header_cache;
 	lp->org_hcu = ndev->header_cache_update;
