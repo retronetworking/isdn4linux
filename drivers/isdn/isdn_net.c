@@ -3432,7 +3432,7 @@ isdn_net_new(char *name, struct net_device *master)
 	netdev->local->netdev = netdev;
 	netdev->local->next = netdev->local;
 
-	memset(&netdev->local->tqueue, 0, sizeof(struct tq_struct));
+	netdev->local->tqueue.sync = 0;
 	netdev->local->tqueue.routine = isdn_net_softint;
 	netdev->local->tqueue.data = netdev->local;
 	spin_lock_init(&netdev->local->xmit_lock);

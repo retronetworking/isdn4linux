@@ -343,7 +343,6 @@ init_bcstate(struct IsdnCardState *cs,
 
 	bcs->cs = cs;
 	bcs->channel = bc;
-	bcs->tqueue.next = 0;
 	bcs->tqueue.sync = 0;
 	bcs->tqueue.routine = (void *) (void *) BChannel_bh;
 	bcs->tqueue.data = bcs;
