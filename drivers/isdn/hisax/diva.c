@@ -8,6 +8,9 @@
  *
  *
  * $Log$
+ * Revision 1.1.2.11  1998/11/05 21:13:51  keil
+ * minor fixes
+ *
  * Revision 1.1.2.10  1998/11/03 00:06:10  keil
  * certification related changes
  * fixed logging for smaller stack use
@@ -517,7 +520,7 @@ setup_diva(struct IsdnCard *card))
 			   == PCIBIOS_SUCCESSFUL)
 				cs->subtyp = DIVA_PCI;
 			else if (pcibios_find_device(PCI_VENDOR_EICON_DIEHL,
-			   PCI_DIVA20_ID, pci_index, &pci_bus, &pci_device_fn)
+			   PCI_DIVA20_U_ID, pci_index, &pci_bus, &pci_device_fn)
 			   == PCIBIOS_SUCCESSFUL)
 			   	cs->subtyp = DIVA_PCI;
 			else
