@@ -34,10 +34,6 @@ static char *revision = "$Revision$";
 #undef CONFIG_C4_POLLDEBUG
 
 /* ------------------------------------------------------------- */
-#ifndef PCI_DEVICE_ID_AVM_C2
-#define PCI_DEVICE_ID_AVM_C2	0x1100
-#endif
-/* ------------------------------------------------------------- */
 
 static int suppress_pollack;
 
