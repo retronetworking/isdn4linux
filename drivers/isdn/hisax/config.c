@@ -5,6 +5,9 @@
  *
  *
  * $Log$
+ * Revision 1.3  1996/10/23 17:23:28  keil
+ * default config changes
+ *
  * Revision 1.2  1996/10/23 11:58:48  fritz
  * Changed default setup to reflect user's selection of supported
  * cards/protocols.
@@ -18,6 +21,7 @@
 #include <linux/types.h>
 #include <linux/stddef.h>
 #include <linux/timer.h>
+#include <linux/config.h>
 #include "hisax.h"
 
 /*
@@ -217,7 +221,7 @@ HiSax_init(void)
 
 	nrcards = 0;
 
-	printk(KERN_NOTICE "HiSax: Driver for Siemens Chipset ISDN cards\n");
+	printk(KERN_NOTICE "HiSax: Driver for Siemens chip set ISDN cards\n");
 	printk(KERN_NOTICE "HiSax: Revision (");
 	strcpy(tmp,l1_revision);
 	printk("%s)\n",HiSax_getrev(tmp));
