@@ -11,6 +11,9 @@
  *              Beat Doebeli
  *
  * $Log$
+ * Revision 2.3  1997/11/06 17:09:35  keil
+ * New 2.1 init code
+ *
  * Revision 2.2  1997/10/29 18:55:51  keil
  * changes for 2.1.60 (irq2dev_map)
  *
@@ -64,11 +67,9 @@
 
 #define __NO_VERSION__
 #include "hisax.h"
-#include "ix1_micro.h"
 #include "isac.h"
 #include "hscx.h"
 #include "isdnl1.h"
-#include <linux/kernel_stat.h>
 
 extern const char *CardType[];
 const char *ix1_revision = "$Revision$";
@@ -229,10 +230,10 @@ ix1micro_interrupt(int intno, void *dev_id, struct pt_regs *regs)
 }
 
 void
-release_io_ix1micro(struct IsdnCard *card)
+release_io_ix1micro(struct IsdnCardState *cs)
 {
-	if (card->cs->hw.ix1.cfg_reg)
-		release_region(card->cs->hw.ix1.cfg_reg, 4);
+	if (cs->hw.ix1.cfg_reg)
+		release_region(cs->hw.ix1.cfg_reg, 4);
 }
 
 static void
@@ -253,54 +254,29 @@ ix1_reset(struct IsdnCardState *cs)
 	restore_flags(flags);
 }
 
-__initfunc(int
-initix1micro(struct IsdnCardState *cs))
-{
-	int ret;
-	int loop, counter, cnt = 3;
-	char tmp[40];
-
-	counter = kstat.interrupts[cs->irq];
-	sprintf(tmp, "IRQ %d count %d", cs->irq, counter);
-	debugl1(cs, tmp);
-	ret = get_irq(cs->cardnr, &ix1micro_interrupt);
-	while (ret && cnt) {
-		clear_pending_isac_ints(cs);
-		clear_pending_hscx_ints(cs);
-		initisac(cs);
-		inithscx(cs);
-		loop = 0;
-		while (loop++ < 10) {
-			/* At least 1-3 irqs must happen
-			 * (one from HSCX A, one from HSCX B, 3rd from ISAC)
-			 */
-			if (kstat.interrupts[cs->irq] > counter)
-				break;
-			current->state = TASK_INTERRUPTIBLE;
-			current->timeout = jiffies + 1;
-			schedule();
-		}
-		sprintf(tmp, "IRQ %d count %d", cs->irq,
-			kstat.interrupts[cs->irq]);
-		debugl1(cs, tmp);
-		if (kstat.interrupts[cs->irq] == counter) {
-			printk(KERN_WARNING
-			       "ix1-Micro: IRQ(%d) getting no interrupts during init %d\n",
-			       cs->irq, 4 - cnt);
-			if (!(--cnt)) {
-				free_irq(cs->irq, cs);
-				return (0);
-			} else
-				ix1_reset(cs);
-		} else
-			cnt = 0;
-	}
-	return (ret);
-}
-
-static void
+static int
 ix1_card_msg(struct IsdnCardState *cs, int mt, void *arg)
 {
+	switch (mt) {
+		case CARD_RESET:
+			ix1_reset(cs);
+			return(0);
+		case CARD_RELEASE:
+			release_io_ix1micro(cs);
+			return(0);
+		case CARD_SETIRQ:
+			return(request_irq(cs->irq, &ix1micro_interrupt,
+					I4L_IRQ_FLAG, "HiSax", cs));
+		case CARD_INIT:
+			clear_pending_isac_ints(cs);
+			clear_pending_hscx_ints(cs);
+			initisac(cs);
+			inithscx(cs);
+			return(0);
+		case CARD_TEST:
+			return(0);
+	}
+	return(0);
 }
 
 
@@ -350,7 +326,7 @@ setup_ix1micro(struct IsdnCard *card))
 	if (HscxVersion(cs, "Diva:")) {
 		printk(KERN_WARNING
 		    "ix1-Micro: wrong HSCX versions check IO address\n");
-		release_io_ix1micro(card);
+		release_io_ix1micro(cs);
 		return (0);
 	}
 	return (1);

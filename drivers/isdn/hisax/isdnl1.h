@@ -1,6 +1,9 @@
 /* $Id$
 
  * $Log$
+ * Revision 2.3  1997/10/29 19:07:53  keil
+ * changes for 2.1
+ *
  * Revision 2.2  1997/07/30 17:11:09  keil
  * L1deactivated exported
  *
@@ -41,7 +44,6 @@
 #define B_XMTBUFREADY 1
 
 extern void debugl1(struct IsdnCardState *sp, char *msg);
-extern get_irq(int cardnr, void *routine);
 extern void DChannel_proc_xmt(struct IsdnCardState *cs);
 extern void DChannel_proc_rcv(struct IsdnCardState *cs);
 

@@ -5,6 +5,9 @@
  *
  *
  * $Log$
+ * Revision 2.5  1997/11/06 17:15:08  keil
+ * New 2.1 init; PCMCIA wrapper changes
+ *
  * Revision 2.4  1997/10/29 19:07:52  keil
  * changes for 2.1
  *
@@ -53,9 +56,10 @@
  *   12 Dynalink         p0=irq p1=iobase
  *   13 Teleint          p0=irq p1=iobase
  *   15 Sedlbauer speed  p0=irq p1=iobase
- *   16 USR Sportster internal  p0=irq  p0=iobase
- *   17 MIC card                p0=irq  pb=iobase
+ *   16 USR Sportster internal  p0=irq  p1=iobase
+ *   17 MIC card                p0=irq  p1=iobase
  *   18 ELSA Quickstep 1000PCI  no parameter
+ *   19 Compaq ISDN S0 ISA card p0=irq  p1=IO0 (HSCX)  p2=IO1 (ISAC) p3=IO2
  *
  *
  * protocol can be either ISDN_PTYPE_EURO or ISDN_PTYPE_1TR6 or ISDN_PTYPE_NI1
@@ -270,7 +274,7 @@ HiSaxVersion(void))
 	r += sprintf(r, "%s", HiSax_getrev(tmp));
 
 	printk(KERN_INFO "HiSax: Driver for Siemens chip set ISDN cards\n");
-	printk(KERN_INFO "HiSax: Version 2.6\n");
+	printk(KERN_INFO "HiSax: Version 2.7\n");
 	printk(KERN_INFO "HiSax: Revisions %s\n", rev);
 }
 
@@ -377,6 +381,12 @@ HiSax_init(void))
 				cards[i].para[0] = irq[i];
 				cards[i].para[1] = io0[i];
 				cards[i].para[2] = io1[i];
+				break;
+			case ISDN_CTYPE_COMPAQ_ISA:
+				cards[i].para[0] = irq[i];
+				cards[i].para[1] = io0[i];
+				cards[i].para[2] = io1[i];
+				cards[i].para[3] = io[i];
 				break;
 #endif
 			case ISDN_CTYPE_ELSA:

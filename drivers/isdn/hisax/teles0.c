@@ -10,6 +10,9 @@
  *              Beat Doebeli
  *
  * $Log$
+ * Revision 2.3  1997/11/06 17:09:31  keil
+ * New 2.1 init code
+ *
  * Revision 2.2  1997/10/29 18:55:57  keil
  * changes for 2.1.60 (irq2dev_map)
  *
@@ -30,11 +33,9 @@
  */
 #define __NO_VERSION__
 #include "hisax.h"
-#include "teles0.h"
 #include "isdnl1.h"
 #include "isac.h"
 #include "hscx.h"
-#include <linux/kernel_stat.h>
 
 extern const char *CardType[];
 
@@ -156,7 +157,7 @@ WriteHSCX(struct IsdnCardState *cs, int hscx, u_char offset, u_char value)
 #include "hscx_irq.c"
 
 static void
-telesS0_interrupt(int intno, void *dev_id, struct pt_regs *regs)
+teles0_interrupt(int intno, void *dev_id, struct pt_regs *regs)
 {
 	struct IsdnCardState *cs = dev_id;
 	u_char val, stat = 0;
@@ -204,14 +205,14 @@ telesS0_interrupt(int intno, void *dev_id, struct pt_regs *regs)
 }
 
 void
-release_io_teles0(struct IsdnCard *card)
+release_io_teles0(struct IsdnCardState *cs)
 {
-	if (card->cs->hw.teles0.cfg_reg)
-		release_region(card->cs->hw.teles0.cfg_reg, 8);
+	if (cs->hw.teles0.cfg_reg)
+		release_region(cs->hw.teles0.cfg_reg, 8);
 }
 
-static void
-reset_teles(struct IsdnCardState *cs)
+static int
+reset_teles0(struct IsdnCardState *cs)
 {
 	u_char cfval;
 	long flags;
@@ -245,8 +246,7 @@ reset_teles(struct IsdnCardState *cs)
 				cfval = 0x0E;
 				break;
 			default:
-				cfval = 0x00;
-				break;
+				return(1);
 		}
 		cfval |= ((cs->hw.teles0.membase >> 9) & 0xF0);
 		byteout(cs->hw.teles0.cfg_reg + 4, cfval);
@@ -259,60 +259,32 @@ reset_teles(struct IsdnCardState *cs)
 	writeb(1, cs->hw.teles0.membase + 0x80);
 	HZDELAY(HZ / 5 + 1);
 	restore_flags(flags);
+	return(0);
 }
 
-__initfunc(int
-initteles0(struct IsdnCardState *cs))
-{
-	int ret;
-	int loop, counter, cnt = 3;
-	char tmp[40];
-	long flags;
-
-	counter = kstat.interrupts[cs->irq];
-	sprintf(tmp, "IRQ %d count %d", cs->irq, counter);
-	debugl1(cs, tmp);
-	ret = get_irq(cs->cardnr, &telesS0_interrupt);
-	while (ret && cnt) {
-		clear_pending_isac_ints(cs);
-		clear_pending_hscx_ints(cs);
-		initisac(cs);
-		inithscx(cs);
-		save_flags(flags);
-		sti();
-		loop = 0;
-		while (loop++ < 10) {
-			/* At least 1-3 irqs must happen
-			 * (one from HSCX A, one from HSCX B, 3rd from ISAC)
-			 */
-			if (kstat.interrupts[cs->irq] > counter)
-				break;
-			current->state = TASK_INTERRUPTIBLE;
-			current->timeout = jiffies + 1;
-			schedule();
-		}
-		restore_flags(flags);
-		sprintf(tmp, "IRQ %d count %d", cs->irq,
-			kstat.interrupts[cs->irq]);
-		debugl1(cs, tmp);
-		if (kstat.interrupts[cs->irq] == counter) {
-			printk(KERN_WARNING
-			       "Teles0: IRQ(%d) getting no interrupts during init %d\n",
-			       cs->irq, 4 - cnt);
-			if (!(--cnt)) {
-				free_irq(cs->irq, cs);
-				return (0);
-			} else
-				reset_teles(cs);
-		} else
-			cnt = 0;
-	}
-	return (ret);
-}
-
-static void
+static int
 Teles_card_msg(struct IsdnCardState *cs, int mt, void *arg)
 {
+	switch (mt) {
+		case CARD_RESET:
+			reset_teles0(cs);
+			return(0);
+		case CARD_RELEASE:
+			release_io_teles0(cs);
+			return(0);
+		case CARD_SETIRQ:
+			return(request_irq(cs->irq, &teles0_interrupt,
+					I4L_IRQ_FLAG, "HiSax", cs));
+		case CARD_INIT:
+			clear_pending_isac_ints(cs);
+			clear_pending_hscx_ints(cs);
+			initisac(cs);
+			inithscx(cs);
+			return(0);
+		case CARD_TEST:
+			return(0);
+	}
+	return(0);
 }
 
 __initfunc(int
@@ -382,7 +354,11 @@ setup_teles0(struct IsdnCard *card))
 	       "HiSax: %s config irq:%d mem:0x%X cfg:0x%X\n",
 	       CardType[cs->typ], cs->irq,
 	       cs->hw.teles0.membase, cs->hw.teles0.cfg_reg);
-	reset_teles(cs);
+	if (reset_teles0(cs)) {
+		printk(KERN_WARNING "Teles0: wrong IRQ\n");
+		release_io_teles0(cs);
+		return (0);
+	}
 	cs->readisac = &ReadISAC;
 	cs->writeisac = &WriteISAC;
 	cs->readisacfifo = &ReadISACfifo;
@@ -395,7 +371,7 @@ setup_teles0(struct IsdnCard *card))
 	if (HscxVersion(cs, "Teles0:")) {
 		printk(KERN_WARNING
 		 "Teles0: wrong HSCX versions check IO/MEM addresses\n");
-		release_io_teles0(card);
+		release_io_teles0(cs);
 		return (0);
 	}
 	return (1);

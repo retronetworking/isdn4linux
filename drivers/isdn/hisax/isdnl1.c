@@ -11,6 +11,9 @@
  *
  *
  * $Log$
+ * Revision 2.9  1997/11/06 17:09:18  keil
+ * New 2.1 init code
+ *
  * Revision 2.8  1997/10/29 19:00:05  keil
  * new layer1,changes for 2.1
  *
@@ -55,53 +58,51 @@ const char *l1_revision = "$Revision$";
 #include <linux/config.h>
 #include "hisax.h"
 #include "isdnl1.h"
+#include <linux/kernel_stat.h>
 
 #if CARD_TELES0
-#include "teles0.h"
+extern int setup_teles0(struct IsdnCard *card);
 #endif
 
 #if CARD_TELES3
-#include "teles3.h"
+extern int setup_teles3(struct IsdnCard *card);
 #endif
 
 #if CARD_AVM_A1
-#include "avm_a1.h"
+extern int setup_avm_a1(struct IsdnCard *card);
 #endif
 
 #if CARD_ELSA
-#include "elsa.h"
+extern int setup_elsa(struct IsdnCard *card);
 #endif
 
 #if CARD_IX1MICROR2
-#include "ix1_micro.h"
+extern int setup_ix1micro(struct IsdnCard *card);
 #endif
 
 #if CARD_DIEHLDIVA
-#include "diva.h"
+extern	int  setup_diva(struct IsdnCard *card);
 #endif
 
 #if CARD_DYNALINK
-#include "dynalink.h"
+extern int setup_dynalink(struct IsdnCard *card);
 #endif
 
 #if CARD_TELEINT
-#include "teleint.h"
+extern int setup_TeleInt(struct IsdnCard *card);
 #endif
 
 #if CARD_SEDLBAUER
-#include "sedlbauer.h"
+extern int setup_sedlbauer(struct IsdnCard *card);
 #endif
 
 #if CARD_SPORTSTER
-#include "sportster.h"
+extern int setup_sportster(struct IsdnCard *card);
 #endif
 
 #if CARD_MIC
-#include "mic.h"
+extern int setup_mic(struct IsdnCard *card);
 #endif
-
-/* #define I4L_IRQ_FLAG SA_INTERRUPT */
-#define I4L_IRQ_FLAG    0
 
 #define HISAX_STATUS_BUFSIZE 4096
 #define ISDN_CTRL_DEBUG 1
@@ -112,7 +113,8 @@ const char *CardType[] =
 {"No Card", "Teles 16.0", "Teles 8.0", "Teles 16.3", "Creatix/Teles PnP",
  "AVM A1", "Elsa ML", "Elsa Quickstep", "Teles PCMCIA", "ITK ix1-micro Rev.2",
  "Elsa PCMCIA", "Eicon.Diehl Diva", "ISDNLink", "TeleInt", "Teles 16.3c", 
- "Sedlbauer Speed Card", "USR Sportster", "ith mic Linux", "Elsa PCI"
+ "Sedlbauer Speed Card", "USR Sportster", "ith mic Linux", "Elsa PCI",
+ "Compaq ISA"
 };
 
 extern struct IsdnCard cards[];
@@ -528,25 +530,6 @@ init_bcstate(struct IsdnCardState *cs,
 	bcs->Flag = 0;
 }
 
-int
-get_irq(int cardnr, void *routine)
-{
-	struct IsdnCard *card = cards + cardnr;
-	long flags;
-
-	save_flags(flags);
-	cli();
-	if (request_irq(card->cs->irq, routine,
-			I4L_IRQ_FLAG, "HiSax", card->cs)) {
-		printk(KERN_WARNING "HiSax: couldn't get interrupt %d\n",
-		       card->cs->irq);
-		restore_flags(flags);
-		return (0);
-	}
-	restore_flags(flags);
-	return (1);
-}
-
 static void
 closecard(int cardnr)
 {
@@ -578,73 +561,56 @@ closecard(int cardnr)
 		kfree(csta->mon_tx);
 		csta->mon_tx = NULL;
 	}
-	switch (csta->typ) {
-#if CARD_TELES0
-		case ISDN_CTYPE_16_0:
-		case ISDN_CTYPE_8_0:
-			release_io_teles0(cards + cardnr);
-			break;
-#endif
-#if CARD_TELES3
-		case ISDN_CTYPE_PNP:
-		case ISDN_CTYPE_16_3:
-		case ISDN_CTYPE_TELESPCMCIA:
-			release_io_teles3(cards + cardnr);
-			break;
-#endif
-#if CARD_AVM_A1
-		case ISDN_CTYPE_A1:
-			release_io_avm_a1(cards + cardnr);
-			break;
-#endif
-#if CARD_ELSA
-		case ISDN_CTYPE_ELSA:
-		case ISDN_CTYPE_ELSA_PNP:
-		case ISDN_CTYPE_ELSA_PCMCIA:
-		case ISDN_CTYPE_ELSA_PCI:
-			release_io_elsa(cards + cardnr);
-			break;
-#endif
-#if CARD_IX1MICROR2
-		case ISDN_CTYPE_IX1MICROR2:
-			release_io_ix1micro(cards + cardnr);
-			break;
-#endif
-#if CARD_DIEHLDIVA
-		case ISDN_CTYPE_DIEHLDIVA:
-			release_io_diva(cards + cardnr);
-			break;
-#endif
-#if CARD_DYNALINK
-		case ISDN_CTYPE_DYNALINK:
-			release_io_dynalink(cards + cardnr);
-			break;
-#endif
-#if CARD_TELEINT
-		case ISDN_CTYPE_TELEINT:
-			release_io_TeleInt(cards + cardnr);
-			break;
-#endif
-#if CARD_SEDLBAUER
-		case ISDN_CTYPE_SEDLBAUER:
-			release_io_sedlbauer(cards + cardnr);
-			break;
-#endif
-#if CARD_SPORTSTER
-		case ISDN_CTYPE_SPORTSTER:
-			release_io_sportster(cards + cardnr);
-			break;
-#endif
-#if CARD_MIC
-		case ISDN_CTYPE_MIC:
-			release_io_mic(cards + cardnr);
-			break;
-#endif
-		default:
-			break;
-	}
+	csta->cardmsg(csta, CARD_RELEASE, NULL);
 	ll_unload(csta);
 }
+
+HISAX_INITFUNC(static int init_card(struct IsdnCardState *cs))
+{
+	int irq_cnt, cnt = 3;
+	long flags;
+
+	save_flags(flags);
+	cli();
+	irq_cnt = kstat.interrupts[cs->irq];
+	printk(KERN_INFO "%s: IRQ %d count %d\n", CardType[cs->typ], cs->irq,
+		irq_cnt);
+	if (cs->cardmsg(cs, CARD_SETIRQ, NULL)) {
+		printk(KERN_WARNING "HiSax: couldn't get interrupt %d\n",
+			cs->irq);
+		return(1);
+	}
+	while (cnt) {
+		cs->cardmsg(cs, CARD_INIT, NULL);
+		sti();
+		current->state = TASK_INTERRUPTIBLE;
+		/* Timeout 10ms */
+		current->timeout = jiffies + (10 * HZ) / 1000;
+		schedule();
+		restore_flags(flags);
+		printk(KERN_INFO "%s: IRQ %d count %d\n", CardType[cs->typ],
+			cs->irq, kstat.interrupts[cs->irq]);
+		if (kstat.interrupts[cs->irq] == irq_cnt) {
+			printk(KERN_WARNING
+			       "%s: IRQ(%d) getting no interrupts during init %d\n",
+			       CardType[cs->typ], cs->irq, 4 - cnt);
+			if (cnt == 1) {
+				free_irq(cs->irq, cs);
+				return (2);
+			} else {
+				cs->cardmsg(cs, CARD_RESET, NULL);
+				cnt--;
+			}
+		} else {
+			cs->cardmsg(cs, CARD_TEST, NULL);
+			return(0);
+		}
+	}
+	restore_flags(flags);
+	return(3);
+}
+
+
 
 HISAX_INITFUNC(static int
 checkcard(int cardnr, char *id, int *busy_flag))
@@ -838,73 +804,8 @@ checkcard(int cardnr, char *id, int *busy_flag))
 
 	init_bcstate(cs, 0);
 	init_bcstate(cs, 1);
-	switch (card->typ) {
-#if CARD_TELES0
-		case ISDN_CTYPE_16_0:
-		case ISDN_CTYPE_8_0:
-			ret = initteles0(cs);
-			break;
-#endif
-#if CARD_TELES3
-		case ISDN_CTYPE_16_3:
-		case ISDN_CTYPE_PNP:
-		case ISDN_CTYPE_TELESPCMCIA:
-			ret = initteles3(cs);
-			break;
-#endif
-#if CARD_AVM_A1
-		case ISDN_CTYPE_A1:
-			ret = initavm_a1(cs);
-			break;
-#endif
-#if CARD_ELSA
-		case ISDN_CTYPE_ELSA:
-		case ISDN_CTYPE_ELSA_PNP:
-		case ISDN_CTYPE_ELSA_PCMCIA:
-		case ISDN_CTYPE_ELSA_PCI:
-			ret = initelsa(cs);
-			break;
-#endif
-#if CARD_IX1MICROR2
-		case ISDN_CTYPE_IX1MICROR2:
-			ret = initix1micro(cs);
-			break;
-#endif
-#if CARD_DIEHLDIVA
-		case ISDN_CTYPE_DIEHLDIVA:
-			ret = initdiva(cs);
-			break;
-#endif
-#if CARD_DYNALINK
-		case ISDN_CTYPE_DYNALINK:
-			ret = initdynalink(cs);
-			break;
-#endif
-#if CARD_TELEINT
-		case ISDN_CTYPE_TELEINT:
-			ret = initTeleInt(cs);
-			break;
-#endif
-#if CARD_SEDLBAUER
-		case ISDN_CTYPE_SEDLBAUER:
-			ret = initsedlbauer(cs);
-			break;
-#endif
-#if CARD_SPORTSTER
-		case ISDN_CTYPE_SPORTSTER:
-			ret = initsportster(cs);
-			break;
-#endif
-#if CARD_MIC
-		case ISDN_CTYPE_MIC:
-			ret = initmic(cs);
-			break;
-#endif
-		default:
-			ret = 0;
-			break;
-	}
-	if (!ret) {
+	ret = init_card(cs);
+	if (ret) {
 		closecard(cardnr);
 		restore_flags(flags);
 		return (0);

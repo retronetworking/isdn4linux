@@ -8,6 +8,9 @@
  *
  *
  * $Log$
+ * Revision 1.3  1997/11/06 17:13:33  keil
+ * New 2.1 init code
+ *
  * Revision 1.2  1997/10/29 18:55:55  keil
  * changes for 2.1.60 (irq2dev_map)
  *
@@ -23,10 +26,8 @@
 #include "isac.h"
 #include "hscx.h"
 #include "isdnl1.h"
-#include <linux/kernel_stat.h>
 #include <linux/pci.h>
 #include <linux/bios32.h>
-#include "diva.h"
 
 extern const char *CardType[];
 
@@ -34,6 +35,40 @@ const char *Diva_revision = "$Revision$";
 
 #define byteout(addr,val) outb_p(val,addr)
 #define bytein(addr) inb_p(addr)
+
+#define DIVA_HSCX_DATA		0
+#define DIVA_HSCX_ADR		4
+#define DIVA_ISA_ISAC_DATA	2
+#define DIVA_ISA_ISAC_ADR	6
+#define DIVA_ISA_CTRL		7
+
+#define DIVA_PCI_ISAC_DATA	8
+#define DIVA_PCI_ISAC_ADR	0xc
+#define DIVA_PCI_CTRL		0x10
+
+/* SUB Types */
+#define DIVA_ISA	1
+#define DIVA_PCI	2
+
+/* PCI stuff */
+#define PCI_VENDOR_EICON_DIEHL	0x1133
+#define PCI_DIVA20PRO_ID	0xe001
+#define PCI_DIVA20_ID		0xe002
+#define PCI_DIVA20PRO_U_ID	0xe003
+#define PCI_DIVA20_U_ID		0xe004
+
+/* CTRL (Read) */
+#define DIVA_IRQ_STAT	0x01
+#define DIVA_EEPROM_SDA	0x02
+/* CTRL (Write) */
+#define DIVA_IRQ_REQ	0x01
+#define DIVA_RESET	0x08
+#define DIVA_EEPROM_CLK	0x40
+#define DIVA_PCI_LED_A	0x10
+#define DIVA_PCI_LED_B	0x20
+#define DIVA_ISA_LED_A	0x20
+#define DIVA_ISA_LED_B	0x40
+#define DIVA_IRQ_CLR	0x80
 
 static inline u_char
 readreg(unsigned int ale, unsigned int adr, u_char off)
@@ -175,18 +210,18 @@ diva_interrupt(int intno, void *dev_id, struct pt_regs *regs)
 }
 
 void
-release_io_diva(struct IsdnCard *card)
+release_io_diva(struct IsdnCardState *cs)
 {
 	int bytecnt;
 	
-	del_timer(&card->cs->hw.diva.tl);
-	if (card->cs->subtyp == DIVA_ISA)
+	del_timer(&cs->hw.diva.tl);
+	if (cs->subtyp == DIVA_ISA)
 		bytecnt = 8;
 	else
 		bytecnt = 32;
-	if (card->cs->hw.diva.cfg_reg) {
-		byteout(card->cs->hw.diva.ctrl, 0); /* LED off, Reset */
-		release_region(card->cs->hw.diva.cfg_reg, bytecnt);
+	if (cs->hw.diva.cfg_reg) {
+		byteout(cs->hw.diva.ctrl, 0); /* LED off, Reset */
+		release_region(cs->hw.diva.cfg_reg, bytecnt);
 	}
 }
 
@@ -212,47 +247,6 @@ reset_diva(struct IsdnCardState *cs)
 	else
 		cs->hw.diva.ctrl_reg |= DIVA_PCI_LED_A;
 	byteout(cs->hw.diva.ctrl, cs->hw.diva.ctrl_reg);
-}
-
-__initfunc(int
-initdiva(struct IsdnCardState *cs))
-{
-	int ret, irq_cnt, cnt = 3;
-	long flags;
-
-	irq_cnt = kstat.interrupts[cs->irq];
-	printk(KERN_INFO "Diva: IRQ %d count %d\n", cs->irq, irq_cnt);
-	ret = get_irq(cs->cardnr, &diva_interrupt);
-	while (ret && cnt) {
-		clear_pending_isac_ints(cs);
-		clear_pending_hscx_ints(cs);
-		initisac(cs);
-		inithscx(cs);
-		save_flags(flags);
-		sti();
-		current->state = TASK_INTERRUPTIBLE;
-		current->timeout = jiffies + (20 * HZ) / 1000;		/* Timeout 110ms */
-		schedule();
-		restore_flags(flags);
-
-		printk(KERN_INFO "Diva: IRQ %d count %d\n", cs->irq,
-		       kstat.interrupts[cs->irq]);
-		if (kstat.interrupts[cs->irq] == irq_cnt) {
-			printk(KERN_WARNING
-			       "Diva: IRQ(%d) getting no interrupts during init %d\n",
-			       cs->irq, 4 - cnt);
-			if (cnt == 1) {
-				free_irq(cs->irq, cs);
-				return (0);
-			} else {
-				reset_diva(cs);
-				cnt--;
-			}
-		} else {
-			cnt = 0;
-		}
-	}
-	return (ret);
 }
 
 #define DIVA_ASSIGN 1
@@ -290,39 +284,57 @@ diva_led_handler(struct IsdnCardState *cs)
 	}
 }
 
-static void
+static int
 Diva_card_msg(struct IsdnCardState *cs, int mt, void *arg)
 {
 	switch (mt) {
-	  case MDL_REMOVE_REQ:
-	  	cs->hw.diva.status = 0;
-		break;
-	  case MDL_ASSIGN_REQ:
-		cs->hw.diva.status |= DIVA_ASSIGN;
-		break;
-	  case MDL_INFO_SETUP:
-	  	if ((int)arg) 
-			cs->hw.diva.status |=  0x0200;
-		else
-			cs->hw.diva.status |=  0x0100;
-		break;
-	  case MDL_INFO_CONN:
-	  	if ((int)arg) 
-			cs->hw.diva.status |=  0x2000;
-		else
-			cs->hw.diva.status |=  0x1000;
-		break;
-	  case MDL_INFO_REL:
-	  	if ((int)arg) {
-			cs->hw.diva.status &=  ~0x2000;
-			cs->hw.diva.status &=  ~0x0200;
-		} else {
-			cs->hw.diva.status &=  ~0x1000;
-			cs->hw.diva.status &=  ~0x0100;
-		}
-		break;
+		case CARD_RESET:
+			reset_diva(cs);
+			return(0);
+		case CARD_RELEASE:
+			release_io_diva(cs);
+			return(0);
+		case CARD_SETIRQ:
+			return(request_irq(cs->irq, &diva_interrupt,
+					I4L_IRQ_FLAG, "HiSax", cs));
+		case CARD_INIT:
+			clear_pending_isac_ints(cs);
+			clear_pending_hscx_ints(cs);
+			initisac(cs);
+			inithscx(cs);
+			return(0);
+		case CARD_TEST:
+			return(0);
+		case MDL_REMOVE_REQ:
+			cs->hw.diva.status = 0;
+			break;
+		case MDL_ASSIGN_REQ:
+			cs->hw.diva.status |= DIVA_ASSIGN;
+			break;
+		case MDL_INFO_SETUP:
+			if ((int)arg) 
+				cs->hw.diva.status |=  0x0200;
+			else
+				cs->hw.diva.status |=  0x0100;
+			break;
+		case MDL_INFO_CONN:
+			if ((int)arg) 
+				cs->hw.diva.status |=  0x2000;
+			else
+				cs->hw.diva.status |=  0x1000;
+			break;
+		case MDL_INFO_REL:
+			if ((int)arg) {
+				cs->hw.diva.status &=  ~0x2000;
+				cs->hw.diva.status &=  ~0x0200;
+			} else {
+				cs->hw.diva.status &=  ~0x1000;
+				cs->hw.diva.status &=  ~0x0100;
+			}
+			break;
 	}
 	diva_led_handler(cs);
+	return(0);
 }
 
 
@@ -440,7 +452,7 @@ setup_diva(struct IsdnCard *card))
 	if (HscxVersion(cs, "Diva:")) {
 		printk(KERN_WARNING
 		       "Diva: wrong HSCX versions check IO address\n");
-		release_io_diva(card);
+		release_io_diva(cs);
 		return (0);
 	}
 	return (1);

@@ -8,6 +8,9 @@
  *
  *
  * $Log$
+ * Revision 1.3  1997/11/06 17:09:11  keil
+ * New 2.1 init code
+ *
  * Revision 1.2  1997/10/29 18:51:17  keil
  * New files
  *
@@ -19,11 +22,9 @@
 
 #define __NO_VERSION__
 #include "hisax.h"
-#include "mic.h"
 #include "isac.h"
 #include "hscx.h"
 #include "isdnl1.h"
-#include <linux/kernel_stat.h>
 
 extern const char *CardType[];
 
@@ -31,6 +32,13 @@ const char *mic_revision = "$Revision$";
 
 #define byteout(addr,val) outb_p(val,addr)
 #define bytein(addr) inb_p(addr)
+
+#define MIC_ISAC	2
+#define MIC_HSCX	1
+#define MIC_ADR		7
+
+/* CARD_ADR (Write) */
+#define MIC_RESET      0x3	/* same as DOS driver */
 
 static inline u_char
 readreg(unsigned int ale, unsigned int adr, u_char off)
@@ -181,62 +189,36 @@ mic_interrupt(int intno, void *dev_id, struct pt_regs *regs)
 }
 
 void
-release_io_mic(struct IsdnCard *card)
+release_io_mic(struct IsdnCardState *cs)
 {
 	int bytecnt = 8;
 
-	if (card->cs->hw.mic.cfg_reg)
-		release_region(card->cs->hw.mic.cfg_reg, bytecnt);
+	if (cs->hw.mic.cfg_reg)
+		release_region(cs->hw.mic.cfg_reg, bytecnt);
 }
 
-static void
-reset_mic(struct IsdnCardState *cs)
-{
-}
-
-__initfunc(int
-initmic(struct IsdnCardState *cs))
-{
-	int ret, irq_cnt, cnt = 3;
-	long flags;
-
-	irq_cnt = kstat.interrupts[cs->irq];
-	printk(KERN_INFO "mic: IRQ %d count %d\n", cs->irq, irq_cnt);
-	ret = get_irq(cs->cardnr, &mic_interrupt);
-	while (ret && cnt) {
-		clear_pending_isac_ints(cs);
-		clear_pending_hscx_ints(cs);
-		initisac(cs);
-		inithscx(cs);
-		save_flags(flags);
-		sti();
-		current->state = TASK_INTERRUPTIBLE;
-		/* Timeout 10ms */
-		current->timeout = jiffies + (10 * HZ) / 1000;	
-		schedule();
-		restore_flags(flags);
-		printk(KERN_INFO "mic: IRQ %d count %d\n", cs->irq,
-		       kstat.interrupts[cs->irq]);
-		if (kstat.interrupts[cs->irq] == irq_cnt) {
-			printk(KERN_WARNING
-			       "mic: IRQ(%d) getting no interrupts during init %d\n",
-			       cs->irq, 4 - cnt);
-			if (cnt == 1) {
-				free_irq(cs->irq, cs);
-				return (0);
-			} else {
-				reset_mic(cs);
-				cnt--;
-			}
-		} else
-			cnt = 0;
-	}
-	return (ret);
-}
-
-static void
+static int
 mic_card_msg(struct IsdnCardState *cs, int mt, void *arg)
 {
+	switch (mt) {
+		case CARD_RESET:
+			return(0);
+		case CARD_RELEASE:
+			release_io_mic(cs);
+			return(0);
+		case CARD_SETIRQ:
+			return(request_irq(cs->irq, &mic_interrupt,
+					I4L_IRQ_FLAG, "HiSax", cs));
+		case CARD_INIT:
+			clear_pending_isac_ints(cs);
+			clear_pending_hscx_ints(cs);
+			initisac(cs);
+			inithscx(cs);
+			return(0);
+		case CARD_TEST:
+			return(0);
+	}
+	return(0);
 }
 
 __initfunc(int
@@ -273,8 +255,6 @@ setup_mic(struct IsdnCard *card))
 	       "mic: defined at 0x%x IRQ %d\n",
 	       cs->hw.mic.cfg_reg,
 	       cs->irq);
-	printk(KERN_INFO "mic: resetting card\n");
-	reset_mic(cs);
 	cs->readisac = &ReadISAC;
 	cs->writeisac = &WriteISAC;
 	cs->readisacfifo = &ReadISACfifo;
@@ -287,7 +267,7 @@ setup_mic(struct IsdnCard *card))
 	if (HscxVersion(cs, "mic:")) {
 		printk(KERN_WARNING
 		    "mic: wrong HSCX versions check IO address\n");
-		release_io_mic(card);
+		release_io_mic(cs);
 		return (0);
 	}
 	return (1);

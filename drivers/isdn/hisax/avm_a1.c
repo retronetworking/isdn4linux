@@ -6,6 +6,9 @@
  *
  *
  * $Log$
+ * Revision 2.3  1997/11/06 17:13:32  keil
+ * New 2.1 init code
+ *
  * Revision 2.2  1997/10/29 18:55:48  keil
  * changes for 2.1.60 (irq2dev_map)
  *
@@ -37,14 +40,16 @@
  */
 #define __NO_VERSION__
 #include "hisax.h"
-#include "avm_a1.h"
 #include "isac.h"
 #include "hscx.h"
 #include "isdnl1.h"
-#include <linux/kernel_stat.h>
 
 extern const char *CardType[];
 const char *avm_revision = "$Revision$";
+
+#define	 AVM_A1_STAT_ISAC	0x01
+#define	 AVM_A1_STAT_HSCX	0x02
+#define	 AVM_A1_STAT_TIMER	0x04
 
 #define byteout(addr,val) outb_p(val,addr)
 #define bytein(addr) inb_p(addr)
@@ -171,76 +176,45 @@ avm_a1_interrupt(int intno, void *dev_id, struct pt_regs *regs)
 }
 
 inline static void
-release_ioregs(struct IsdnCard *card, int mask)
+release_ioregs(struct IsdnCardState *cs, int mask)
 {
-	release_region(card->cs->hw.avm.cfg_reg, 8);
+	release_region(cs->hw.avm.cfg_reg, 8);
 	if (mask & 1)
-		release_region(card->cs->hw.avm.isac + 32, 32);
+		release_region(cs->hw.avm.isac + 32, 32);
 	if (mask & 2)
-		release_region(card->cs->hw.avm.isacfifo, 1);
+		release_region(cs->hw.avm.isacfifo, 1);
 	if (mask & 4)
-		release_region(card->cs->hw.avm.hscx[0] + 32, 32);
+		release_region(cs->hw.avm.hscx[0] + 32, 32);
 	if (mask & 8)
-		release_region(card->cs->hw.avm.hscxfifo[0], 1);
+		release_region(cs->hw.avm.hscxfifo[0], 1);
 	if (mask & 0x10)
-		release_region(card->cs->hw.avm.hscx[1] + 32, 32);
+		release_region(cs->hw.avm.hscx[1] + 32, 32);
 	if (mask & 0x20)
-		release_region(card->cs->hw.avm.hscxfifo[1], 1);
+		release_region(cs->hw.avm.hscxfifo[1], 1);
 }
 
-void
-release_io_avm_a1(struct IsdnCard *card)
-{
-	release_ioregs(card, 0x3f);
-}
-
-static void
+static int
 AVM_card_msg(struct IsdnCardState *cs, int mt, void *arg)
 {
-}
-
-__initfunc(int
-initavm_a1(struct IsdnCardState *cs))
-{
-	int ret;
-	int loop = 0;
-	long flags;
-	char tmp[40];
-
-	cs->hw.avm.counter = kstat.interrupts[cs->irq];
-	sprintf(tmp, "IRQ %d count %d", cs->irq, cs->hw.avm.counter);
-	debugl1(cs, tmp);
-	ret = get_irq(cs->cardnr, &avm_a1_interrupt);
-	if (ret) {
-		clear_pending_isac_ints(cs);
-		clear_pending_hscx_ints(cs);
-		initisac(cs);
-		inithscx(cs);
-		save_flags(flags);
-		sti();
-		while (loop++ < 10) {
-			/* At least 1-3 irqs must happen
-			 * (one from HSCX A, one from HSCX B, 3rd from ISAC)
-			 */
-			if (kstat.interrupts[cs->irq] > cs->hw.avm.counter)
-				break;
-			current->state = TASK_INTERRUPTIBLE;
-			current->timeout = jiffies + 1;
-			schedule();
-		}
-		restore_flags(flags);
-		sprintf(tmp, "IRQ %d count %d", cs->irq,
-			kstat.interrupts[cs->irq]);
-		debugl1(cs, tmp);
-		if (kstat.interrupts[cs->irq] == cs->hw.avm.counter) {
-			printk(KERN_WARNING
-			       "AVM A1: IRQ(%d) getting no interrupts during init\n",
-			       cs->irq);
-			free_irq(cs->irq, cs);
-			return (0);
-		}
+	switch (mt) {
+		case CARD_RESET:
+			return(0);
+		case CARD_RELEASE:
+			release_ioregs(cs, 0x3f);
+			return(0);
+		case CARD_SETIRQ:
+			return(request_irq(cs->irq, &avm_a1_interrupt,
+					I4L_IRQ_FLAG, "HiSax", cs));
+		case CARD_INIT:
+			clear_pending_isac_ints(cs);
+			clear_pending_hscx_ints(cs);
+			initisac(cs);
+			inithscx(cs);
+			return(0);
+		case CARD_TEST:
+			return(0);
 	}
-	return (ret);
+	return(0);
 }
 
 __initfunc(int
@@ -280,7 +254,7 @@ setup_avm_a1(struct IsdnCard *card))
 		       CardType[cs->typ],
 		       cs->hw.avm.isac + 32,
 		       cs->hw.avm.isac + 64);
-		release_ioregs(card, 0);
+		release_ioregs(cs, 0);
 		return (0);
 	} else {
 		request_region(cs->hw.avm.isac + 32, 32, "HiSax isac");
@@ -290,7 +264,7 @@ setup_avm_a1(struct IsdnCard *card))
 		       "HiSax: %s isac fifo port %x already in use\n",
 		       CardType[cs->typ],
 		       cs->hw.avm.isacfifo);
-		release_ioregs(card, 1);
+		release_ioregs(cs, 1);
 		return (0);
 	} else {
 		request_region(cs->hw.avm.isacfifo, 1, "HiSax isac fifo");
@@ -301,7 +275,7 @@ setup_avm_a1(struct IsdnCard *card))
 		       CardType[cs->typ],
 		       cs->hw.avm.hscx[0] + 32,
 		       cs->hw.avm.hscx[0] + 64);
-		release_ioregs(card, 3);
+		release_ioregs(cs, 3);
 		return (0);
 	} else {
 		request_region(cs->hw.avm.hscx[0] + 32, 32, "HiSax hscx A");
@@ -311,7 +285,7 @@ setup_avm_a1(struct IsdnCard *card))
 		       "HiSax: %s hscx A fifo port %x already in use\n",
 		       CardType[cs->typ],
 		       cs->hw.avm.hscxfifo[0]);
-		release_ioregs(card, 7);
+		release_ioregs(cs, 7);
 		return (0);
 	} else {
 		request_region(cs->hw.avm.hscxfifo[0], 1, "HiSax hscx A fifo");
@@ -322,7 +296,7 @@ setup_avm_a1(struct IsdnCard *card))
 		       CardType[cs->typ],
 		       cs->hw.avm.hscx[1] + 32,
 		       cs->hw.avm.hscx[1] + 64);
-		release_ioregs(card, 0xf);
+		release_ioregs(cs, 0xf);
 		return (0);
 	} else {
 		request_region(cs->hw.avm.hscx[1] + 32, 32, "HiSax hscx B");
@@ -332,7 +306,7 @@ setup_avm_a1(struct IsdnCard *card))
 		       "HiSax: %s hscx B fifo port %x already in use\n",
 		       CardType[cs->typ],
 		       cs->hw.avm.hscxfifo[1]);
-		release_ioregs(card, 0x1f);
+		release_ioregs(cs, 0x1f);
 		return (0);
 	} else {
 		request_region(cs->hw.avm.hscxfifo[1], 1, "HiSax hscx B fifo");
@@ -393,7 +367,7 @@ setup_avm_a1(struct IsdnCard *card))
 	if (HscxVersion(cs, "AVM A1:")) {
 		printk(KERN_WARNING
 		       "AVM A1: wrong HSCX versions check IO address\n");
-		release_io_avm_a1(card);
+		release_ioregs(cs, 0x3f);
 		return (0);
 	}
 	return (1);

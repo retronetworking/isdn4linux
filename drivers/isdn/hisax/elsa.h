@@ -8,6 +8,9 @@
  *
  *
  * $Log$
+ * Revision 2.1  1997/10/29 19:08:41  keil
+ * PCI support
+ *
  * Revision 2.0  1997/06/26 11:02:43  keil
  * New Layer and card interface
  *
@@ -92,6 +95,3 @@
 #define ELSA_BAD_PWR     2
 #define ELSA_ASSIGN      4
 
-extern void release_io_elsa(struct IsdnCard *card);
-extern int setup_elsa(struct IsdnCard *card);
-extern int initelsa(struct IsdnCardState *cs);
