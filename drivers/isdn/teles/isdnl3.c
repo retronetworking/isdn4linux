@@ -1,6 +1,10 @@
 /* $Id$
  *
  * $Log$
+ * Revision 1.9  1996/06/06 14:22:27  fritz
+ * Changed level of "non-digital call..." message, since
+ * with audio support, this is quite normal.
+ *
  * Revision 1.8  1996/06/03 20:35:04  fritz
  * Fixed typos.
  *
@@ -387,6 +391,42 @@ l3s20(struct PStack *st, byte pr,
 	newl3state(st, 7);
 }
 
+static void
+l3s21(struct PStack *st, byte pr, void *arg)
+{
+	struct BufHeader *dibh=arg;
+	byte           *p;
+	int             size;
+
+	BufPoolRelease(dibh);
+	
+	BufPoolGet(&dibh, st->l1.sbufpool, GFP_ATOMIC, (void *) st, 20);
+	p = DATAPTR(dibh);
+	p += st->l2.ihsize;
+	size = st->l2.ihsize;
+
+	*p++ = 0x8;
+	*p++ = 0x1;
+	*p++ = st->l3.callref;
+	*p++ = MT_STATUS;
+	size += 4;
+
+	*p++ = IE_CAUSE;
+	*p++ = 0x2;
+	*p++ = 0x80;
+	*p++ = 0x9E; /* answer status enquire */
+	size += 4;
+
+	*p++ = 0x14; /* CallState */
+	*p++ = 0x1;
+	*p++ = st->l3.state & 0x3f; /* ISO L3 CallState */
+	size += 3;
+
+	dibh->datasize = size;
+	i_down(st, dibh);
+
+}
+
 struct stateentry {
 	int             state;
 	byte            primitive;
@@ -428,34 +468,44 @@ sizeof(struct stateentry);
 
 static struct stateentry datastatelist[] =
 {
+        {0,MT_STATUS_ENQUIRY,l3s21},
         {0,MT_SETUP,l3s12},
+        {1,MT_STATUS_ENQUIRY,l3s21},
         {1,MT_CALL_PROCEEDING,l3s6},
         {1,MT_SETUP_ACKNOWLEDGE,l3s6},
         {1,MT_RELEASE_COMPLETE,l3s4},
         {1,MT_RELEASE,l3s19},
         {1,MT_DISCONNECT,l3s7},
+        {3,MT_STATUS_ENQUIRY,l3s21},
         {3,MT_DISCONNECT,l3s7},
         {3,MT_CONNECT,l3s8},
         {3,MT_ALERTING,l3s11},
         {3,MT_RELEASE,l3s19},
         {3,MT_RELEASE_COMPLETE,l3s4},
+        {4,MT_STATUS_ENQUIRY,l3s21},
         {4,MT_CONNECT,l3s8},
         {4,MT_DISCONNECT,l3s7},
         {4,MT_RELEASE,l3s19},
         {4,MT_RELEASE_COMPLETE,l3s4},
+        {8,MT_STATUS_ENQUIRY,l3s21},
         {6,MT_SETUP,l3s12},
+        {8,MT_STATUS_ENQUIRY,l3s21},
         {7,MT_RELEASE,l3s19},
         {7,MT_RELEASE_COMPLETE,l3s4_1},
         {7,MT_DISCONNECT,l3s7},
+        {8,MT_STATUS_ENQUIRY,l3s21},
         {8,MT_RELEASE,l3s19},
         {8,MT_CONNECT_ACKNOWLEDGE,l3s17},
         {8,MT_DISCONNECT,l3s7},
         {8,MT_RELEASE_COMPLETE,l3s4_1},
+        {10,MT_STATUS_ENQUIRY,l3s21},
         {10,MT_DISCONNECT,l3s7},
         {10,MT_RELEASE,l3s19},
         {10,MT_RELEASE_COMPLETE,l3s4_1},
+        {11,MT_STATUS_ENQUIRY,l3s21},
         {11,MT_RELEASE,l3s19},
         {11,MT_RELEASE_COMPLETE,l3s4},
+        {19,MT_STATUS_ENQUIRY,l3s21},
         {19,MT_RELEASE_COMPLETE,l3s4},
 };
 
