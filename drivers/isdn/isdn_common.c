@@ -21,6 +21,11 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.44.2.6  1998/11/03 14:30:56  fritz
+ * Reduced stack usage in various functions.
+ * Adapted statemachine to work with certified HiSax.
+ * Some fixes in callback handling.
+ *
  * Revision 1.44.2.5  1998/10/25 15:48:04  fritz
  * Misc bugfixes and adaptions to new HiSax
  *
@@ -260,13 +265,33 @@ static int isdn_writebuf_stub(int, int, const u_char *, int, int);
 void
 isdn_MOD_INC_USE_COUNT(void)
 {
+	int i;
+
 	MOD_INC_USE_COUNT;
+	for (i = 0; i < dev->drivers; i++) {
+		isdn_ctrl cmd;
+
+		cmd.driver = i;
+		cmd.arg = 0;
+		cmd.command = ISDN_CMD_LOCK;
+		isdn_command(&cmd);
+	}
 }
 
 void
 isdn_MOD_DEC_USE_COUNT(void)
 {
+	int i;
+
 	MOD_DEC_USE_COUNT;
+	for (i = 0; i < dev->drivers; i++) {
+		isdn_ctrl cmd;
+
+		cmd.driver = i;
+		cmd.arg = 0;
+		cmd.command = ISDN_CMD_UNLOCK;
+		isdn_command(&cmd);
+	}
 }
 
 #if defined(ISDN_DEBUG_NET_DUMP) || defined(ISDN_DEBUG_MODEM_DUMP) || defined(CONFIG_ISDN_TIMEOUT_RULES)
@@ -492,10 +517,6 @@ isdn_status_callback(isdn_ctrl * c)
 				return 0;
 			}
 			/* Try to find a network-interface which will accept incoming call */
-			cmd.driver = di;
-			cmd.arg = c->arg;
-			cmd.command = ISDN_CMD_LOCK;
-			isdn_command(&cmd);
 			r = isdn_net_find_icall(di, c, i);
 			switch (r) {
 				case 0:
@@ -536,12 +557,6 @@ isdn_status_callback(isdn_ctrl * c)
 					/* ... then start callback. */
 					isdn_net_dial();
 					break;
-			}
-			if (retval != 1) {
-				cmd.driver = di;
-				cmd.arg = c->arg;
-				cmd.command = ISDN_CMD_UNLOCK;
-				isdn_command(&cmd);
 			}
 			return retval;
 			break;
@@ -1559,7 +1574,6 @@ isdn_open(struct inode *ino, struct file *filep)
 	uint minor = MINOR(ino->i_rdev);
 	int drvidx;
 	int chidx;
-	isdn_ctrl c;
 
 	if (minor == ISDN_MINOR_STATUS) {
 		infostruct *p;
@@ -1586,27 +1600,21 @@ isdn_open(struct inode *ino, struct file *filep)
 			return -ENODEV;
 		if (!(dev->drv[drvidx]->online & (1 << chidx)))
 			return -ENODEV;
-		c.command = ISDN_CMD_LOCK;
-		c.driver = drvidx;
-		isdn_command(&c);
-		MOD_INC_USE_COUNT;
+		isdn_MOD_INC_USE_COUNT();
 		return 0;
 	}
 	if (minor <= ISDN_MINOR_CTRLMAX) {
 		drvidx = isdn_minor2drv(minor - ISDN_MINOR_CTRL);
 		if (drvidx < 0)
 			return -ENODEV;
-		c.command = ISDN_CMD_LOCK;
-		c.driver = drvidx;
-		MOD_INC_USE_COUNT;
-		isdn_command(&c);
+		isdn_MOD_INC_USE_COUNT();
 		return 0;
 	}
 #ifdef CONFIG_ISDN_PPP
 	if (minor <= ISDN_MINOR_PPPMAX) {
 		int ret;
 		if (!(ret = isdn_ppp_open(minor - ISDN_MINOR_PPP, filep)))
-			MOD_INC_USE_COUNT;
+			isdn_MOD_INC_USE_COUNT();
 		return ret;
 	}
 #endif
@@ -1617,13 +1625,13 @@ static CLOSETYPE
 isdn_close(struct inode *ino, struct file *filep)
 {
 	uint minor = MINOR(ino->i_rdev);
-	int drvidx;
-	isdn_ctrl c;
 
-	MOD_DEC_USE_COUNT;
 	if (minor == ISDN_MINOR_STATUS) {
 		infostruct *p = dev->infochain;
 		infostruct *q = NULL;
+
+
+		MOD_DEC_USE_COUNT;
 		while (p) {
 			if (p->private == (char *) &(filep->private_data)) {
 				if (q)
@@ -1639,24 +1647,12 @@ isdn_close(struct inode *ino, struct file *filep)
 		printk(KERN_WARNING "isdn: No private data while closing isdnctrl\n");
 		return CLOSEVAL;
 	}
-	if (minor < ISDN_MINOR_CTRL) {
-		drvidx = isdn_minor2drv(minor);
-		if (drvidx < 0)
-			return CLOSEVAL;
-		c.command = ISDN_CMD_UNLOCK;
-		c.driver = drvidx;
-		isdn_command(&c);
+	isdn_MOD_DEC_USE_COUNT();
+	if (minor < ISDN_MINOR_CTRL)
 		return CLOSEVAL;
-	}
 	if (minor <= ISDN_MINOR_CTRLMAX) {
-		drvidx = isdn_minor2drv(minor - ISDN_MINOR_CTRL);
-		if (drvidx < 0)
-			return CLOSEVAL;
 		if (dev->profd == current)
 			dev->profd = NULL;
-		c.command = ISDN_CMD_UNLOCK;
-		c.driver = drvidx;
-		isdn_command(&c);
 		return CLOSEVAL;
 	}
 #ifdef CONFIG_ISDN_PPP
@@ -1710,7 +1706,6 @@ isdn_get_free_channel(int usage, int l2_proto, int l3_proto, int pre_dev
 	int i;
 	ulong flags;
 	ulong features;
-	isdn_ctrl cmd;
 
 	save_flags(flags);
 	cli();
@@ -1728,10 +1723,6 @@ isdn_get_free_channel(int usage, int l2_proto, int l3_proto, int pre_dev
 						dev->usage[i] &= ISDN_USAGE_EXCLUSIVE;
 						dev->usage[i] |= usage;
 						isdn_info_update();
-						cmd.driver = d;
-						cmd.arg = 0;
-						cmd.command = ISDN_CMD_LOCK;
-						isdn_command(&cmd);
 						restore_flags(flags);
 						return i;
 					} else {
@@ -1739,10 +1730,6 @@ isdn_get_free_channel(int usage, int l2_proto, int l3_proto, int pre_dev
 							dev->usage[i] &= ISDN_USAGE_EXCLUSIVE;
 							dev->usage[i] |= usage;
 							isdn_info_update();
-							cmd.driver = d;
-							cmd.arg = 0;
-							cmd.command = ISDN_CMD_LOCK;
-							isdn_command(&cmd);
 							restore_flags(flags);
 							return i;
 						}
@@ -1781,15 +1768,9 @@ isdn_free_channel(int di, int ch, int usage)
 			cmd.command = ISDN_CMD_HANGUP;
 			restore_flags(flags);
 			isdn_command(&cmd);
-			cmd.driver = di;
-			cmd.arg = ch;
-			cmd.command = ISDN_CMD_UNLOCK;
-			isdn_command(&cmd);
 			return;
 		}
-if (i == ISDN_MAX_CHANNELS) {
 	printk(KERN_DEBUG "Unmatched free_channel d=%d c=%d u=%d\n", di, ch, usage);
-}
 	restore_flags(flags);
 }
 

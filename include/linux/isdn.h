@@ -21,6 +21,11 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.31.2.15  1998/11/03 14:31:57  fritz
+ * Reduced stack usage in various functions.
+ * Adapted statemachine to work with certified HiSax.
+ * Some fixes in callback handling.
+ *
  * Revision 1.31.2.14  1998/10/25 14:37:37  fritz
  * Backported from MIPS (Cobalt).
  *
@@ -809,6 +814,7 @@ typedef struct {
 typedef struct {
   ulong               online;           /* Channel-Online flags             */
   ulong               flags;            /* Misc driver flags                */
+  int                 locks;            /* Number of locks for this driver  */
   int                 channels;         /* Number of channels               */
   struct wait_queue  *st_waitq;         /* Wait-Queue for status-read's     */
   int                 maxbufsize;       /* Maximum Buffersize supported     */
