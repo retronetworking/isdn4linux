@@ -6,7 +6,7 @@
 // Author       Matt Henderson & Guy Ellis - Traverse Tecnologies Pty Ltd
 //              www.traverse.com.au
 //
-// 1999.6.25 Initial implementation of routines for Seimens ISDN
+// 1999.6.25 Initial implementation of routines for Siemens ISDN
 // Communication Controler PEB 2070 based on the ISAC routines
 // written by Karsten Keil.
 //

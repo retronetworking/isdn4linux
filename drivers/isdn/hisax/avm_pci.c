@@ -801,14 +801,14 @@ setup_avm_pcipnp(struct IsdnCard *card))
 			PCI_DEVICE_ID_AVM_FRITZ,  dev_avm))) {
 			cs->irq = dev_avm->irq;
 			if (!cs->irq) {
-				printk(KERN_WARNING "FritzPCI: No IRQ for PCI card found\n");
+				printk(KERN_ERR "FritzPCI: No IRQ for PCI card found\n");
 				return(0);
 			}
 			if (pci_enable_device(dev_avm))
 				return(0);
 			cs->hw.avm.cfg_reg = pci_resource_start_io(dev_avm, 1);
 			if (!cs->hw.avm.cfg_reg) {
-				printk(KERN_WARNING "FritzPCI: No IO-Adr for PCI card found\n");
+				printk(KERN_ERR "FritzPCI: No IO-Adr for PCI card found\n");
 				return(0);
 			}
 			cs->subtyp = AVM_FRITZ_PCI;
@@ -834,7 +834,7 @@ setup_avm_pcipnp(struct IsdnCard *card))
 			cs->irq = irq;
 			cs->hw.avm.cfg_reg = ioaddr & PCI_BASE_ADDRESS_IO_MASK;
 			if (!cs->hw.avm.cfg_reg) {
-				printk(KERN_WARNING "FritzPCI: No IO-Adr for PCI card found\n");
+				printk(KERN_ERR "FritzPCI: No IO-Adr for PCI card found\n");
 				return(0);
 			}
 			cs->subtyp = AVM_FRITZ_PCI;
