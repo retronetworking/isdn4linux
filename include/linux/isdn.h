@@ -21,6 +21,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.30  1997/06/17 13:07:23  hipp
+ * compression changes , MP changes
+ *
  * Revision 1.29  1997/05/27 15:18:02  fritz
  * Added changes for recent 2.1.x kernels:
  *   changed return type of isdn_close
@@ -219,7 +222,7 @@ typedef struct {
   int  outgoing;
 } isdn_net_ioctl_phone;
 
-#define NET_DV 0x02 /* Data version for net_cfg     */
+#define NET_DV 0x03 /* Data version for net_cfg     */
 #define TTY_DV 0x04 /* Data version for iprofd etc. */
 
 typedef struct {
@@ -236,6 +239,7 @@ typedef struct {
   int  exclusive;    /* Channel, if bound exclusive           */
   int  dialmax;      /* Dial Retry-Counter                    */
   int  slavedelay;   /* Delay until slave starts up           */
+  int  triggercps;   /* BogoCPS needed for triggering slave   */
   int  cbdelay;      /* Delay before Callback                 */
   int  chargehup;    /* Flag: Charge-Hangup                   */
   int  ihup;         /* Flag: Hangup-Timeout on incoming line */
@@ -413,6 +417,7 @@ typedef struct isdn_net_local_s {
   int                    sqfull;       /* Flag: netdev-queue overloaded    */
   ulong                  sqfull_stamp; /* Start-Time of overload           */
   ulong                  slavedelay;   /* Dynamic bundling delaytime       */
+  int                    triggercps;   /* BogoCPS needed for trigger slave */
   struct device          *srobin;      /* Ptr to Master device for slaves  */
   isdn_net_phone         *phone[2];    /* List of remote-phonenumbers      */
 				       /* phone[0] = Incoming Numbers      */

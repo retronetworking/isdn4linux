@@ -21,6 +21,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.47  1997/06/21 10:52:05  fritz
+ * Removed wrong SET_SKB_FREE in isdn_net_send_skb()
+ *
  * Revision 1.46  1997/06/17 13:05:24  hipp
  * Applied Eric's underflow-patches (slightly modified)
  *
@@ -933,7 +936,7 @@ isdn_net_xmit(struct device *ndev, isdn_net_local * lp, struct sk_buff *skb)
 #endif
 	/* Reset hangup-timeout */
 	lp->huptimer = 0;
-	if (lp->cps > 7000) {
+	if (lp->cps > lp->triggercps) {
 		/* Device overloaded */
 
 		/*
@@ -2061,6 +2064,7 @@ isdn_net_new(char *name, struct device *master)
 	netdev->local.first_skb = NULL;
 	netdev->local.l2_proto = ISDN_PROTO_L2_X75I;
 	netdev->local.l3_proto = ISDN_PROTO_L3_TRANS;
+	netdev->local.triggercps = 6000;
 	netdev->local.slavedelay = 10 * HZ;
 	netdev->local.srobin = &netdev->dev;
 	netdev->local.hupflags = ISDN_INHUP;	/* Do hangup even on incoming calls */
@@ -2213,6 +2217,7 @@ isdn_net_setcfg(isdn_net_ioctl_cfg * cfg)
 		p->local.l3_proto = cfg->l3_proto;
 		p->local.cbdelay = cfg->cbdelay;
 		p->local.dialmax = cfg->dialmax;
+		p->local.triggercps = cfg->triggercps;
 		p->local.slavedelay = cfg->slavedelay * HZ;
 		p->local.pppbind = cfg->pppbind;
 		if (cfg->secure)
@@ -2317,6 +2322,7 @@ isdn_net_getcfg(isdn_net_ioctl_cfg * cfg)
 		cfg->ihup = (p->local.hupflags & 8) ? 1 : 0;
 		cfg->cbdelay = p->local.cbdelay;
 		cfg->dialmax = p->local.dialmax;
+		cfg->triggercps = p->local.triggercps;
 		cfg->slavedelay = p->local.slavedelay / HZ;
 		cfg->chargeint = (p->local.hupflags & ISDN_CHARGEHUP) ?
 		    (p->local.chargeint / HZ) : 0;
