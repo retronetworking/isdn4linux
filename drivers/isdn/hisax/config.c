@@ -5,6 +5,9 @@
  *
  *
  * $Log$
+ * Revision 2.21  1999/02/04 10:48:52  keil
+ * Fix readstat bug
+ *
  * Revision 2.20  1998/11/15 23:54:28  keil
  * changes from 2.0
  *
@@ -667,7 +670,7 @@ VHiSax_putstatus(struct IsdnCardState *cs, char *head, char *fmt, va_list args)
 		return;
 	}
 	if (len > HISAX_STATUS_BUFSIZE) {
-		printk(KERN_WARNING "HiSax: status overflow %d/%d",
+		printk(KERN_WARNING "HiSax: status overflow %d/%d\n",
 			len, HISAX_STATUS_BUFSIZE);
 		restore_flags(flags);
 		return;
