@@ -11,6 +11,9 @@
  *            
  * 
  * $Log$
+ * Revision 1.2  1996/10/27 22:16:54  keil
+ * ISAC/HSCX version lookup
+ *
  * Revision 1.1  1996/10/13 20:04:53  keil
  * Initial revision
  *
@@ -47,7 +50,7 @@ const	char	*l1_revision        = "$Revision$";
 const   char    *CardType[] =  {"No Card","Teles 16.0","Teles 8.0","Teles 16.3",
 				"Creatix PNP","AVM A1","Elsa ML PCC16"};
 
-static	char	*HSCXVer[] = {"A1","?1","A2","?3","A3","V2.3","?6","?7",
+static	char	*HSCXVer[] = {"A1","?1","A2","?3","A3","V2.1","?6","?7",
 			      "?8","?9","?10","?11","?12","?13","?14","???"};
 
 static  char    *ISACVer[] = {"2086/2186 V1.1","2085 B1","2085 B2",
