@@ -1,5 +1,5 @@
 /* $Id$
-
+ *
  * Linux ISDN subsystem, functions for synchronous PPP (linklevel).
  *
  * Copyright 1995,96 by Michael Hipp (Michael.Hipp@student.uni-tuebingen.de)
@@ -19,6 +19,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.24  1997/02/11 18:32:56  fritz
+ * Bugfix in isdn_ppp_free_mpqueue().
+ *
  * Revision 1.23  1997/02/10 11:12:19  fritz
  * More changes for Kernel 2.1.X compatibility.
  *
@@ -139,9 +142,9 @@ static void isdn_ppp_mask_queue(isdn_net_dev * dev, long mask);
 static void isdn_ppp_cleanup_mpqueue(isdn_net_dev * dev, long min);
 static void isdn_ppp_cleanup_sqqueue(isdn_net_dev * dev, isdn_net_local *, long min);
 static void isdn_ppp_free_sqqueue(isdn_net_dev *);
-static void isdn_ppp_free_mpqueue(isdn_net_dev *);
 static int isdn_ppp_fill_mpqueue(isdn_net_dev *, struct sk_buff **skb,
 				 int BEbyte, long *sqno, int min_sqno);
+static void isdn_ppp_free_mpqueue(isdn_net_dev *);
 #endif
 
 char *isdn_ppp_revision = "$Revision$";
@@ -365,7 +368,7 @@ isdn_ppp_open(int min, struct file *file)
 	if (is->debug & 0x1)
 		printk(KERN_DEBUG "ippp, open, slot: %d, minor: %d, state: %04x\n", slot, min, is->state);
 
-	is->lp = 0;
+	is->lp = NULL;
 	is->mp_seqno = 0;       /* MP sequence number */
 	is->pppcfg = 0;         /* ppp configuration */
 	is->mpppcfg = 0;        /* mppp configuration */
@@ -479,8 +482,10 @@ isdn_ppp_ioctl(int min, struct file *file, unsigned int cmd, unsigned long arg)
 	unsigned long val;
 	int r;
 	struct ippp_struct *is;
+	isdn_net_local *lp;
 
-	is = file->private_data;
+	is = (struct ippp_struct *) file->private_data;
+	lp = is->lp;
 
 	if (is->debug & 0x1)
 		printk(KERN_DEBUG "isdn_ppp_ioctl: minor: %d cmd: %x state: %x\n", min, cmd, is->state);
@@ -524,7 +529,6 @@ isdn_ppp_ioctl(int min, struct file *file, unsigned int cmd, unsigned long arg)
 				return r;
 			}
 			if (val & SC_ENABLE_IP && !(is->pppcfg & SC_ENABLE_IP) && (is->state & IPPP_CONNECT)) {
-				isdn_net_local *lp = is->lp;
 				if (lp) {
 					lp->netdev->dev.tbusy = 0;
 					mark_bh(NET_BH);	/* OK .. we are ready to send buffers */
@@ -537,9 +541,9 @@ isdn_ppp_ioctl(int min, struct file *file, unsigned int cmd, unsigned long arg)
 			break;
 #endif
 		case PPPIOCGIDLE:	/* get idle time information */
-			if (is->lp) {
+			if (lp) {
 				struct ppp_idle pidle;
-				pidle.xmit_idle = pidle.recv_idle = is->lp->huptimer;
+				pidle.xmit_idle = pidle.recv_idle = lp->huptimer;
 				if ((r = set_arg((void *) arg, sizeof(struct ppp_idle), &pidle)))
 					 return r;
 			}
@@ -596,6 +600,26 @@ isdn_ppp_ioctl(int min, struct file *file, unsigned int cmd, unsigned long arg)
 			}
 #endif
 			break;
+		case PPPIOCGCALLINFO:
+			{
+				struct pppcallinfo pci;
+				memset((char *) &pci,0,sizeof(struct pppcallinfo));
+				if(lp)
+				{
+					strncpy(pci.local_num,lp->msn,63);
+					if(lp->dial) {
+						strncpy(pci.remote_num,lp->dial->num,63);
+					}
+					pci.charge_units = lp->charge;
+					if(lp->outgoing)
+						pci.calltype = CALLTYPE_OUTGOING;
+					else
+						pci.calltype = CALLTYPE_INCOMING;
+					if(lp->flags & ISDN_NET_CALLBACK)
+						pci.calltype |= CALLTYPE_CALLBACK;
+				}
+				return set_arg((void *)arg,sizeof(struct pppcallinfo),&pci);
+			}
 		default:
 			break;
 	}
@@ -650,8 +674,8 @@ unsigned int
 isdn_ppp_poll(struct file *file, poll_table * wait)
 {
 	unsigned int mask;
-	struct ippp_buf_queue *bf,
-	*bl;
+	struct ippp_buf_queue *bf;
+	struct ippp_buf_queue *bl;
 	unsigned long flags;
 	struct ippp_struct *is;
 
@@ -684,6 +708,7 @@ isdn_ppp_poll(struct file *file, poll_table * wait)
 	return mask;
 }
 #endif
+
 
 /*
  *  fill up isdn_ppp_read() queue ..
@@ -831,7 +856,7 @@ isdn_ppp_write(int min, struct file *file, const char *buf, int count)
 			SET_SKB_FREE(skb);
 			copy_from_user(skb_put(skb, count), buf, count);
 			if (is->debug & 0x40) {
-				printk(KERN_DEBUG "ppp xmit: len %d\n", skb->len);
+				printk(KERN_DEBUG "ppp xmit: len %d\n", (int) skb->len);
 				isdn_ppp_frame_log("xmit", skb->data, skb->len, 32);
 			}
 			if ((cnt = isdn_writebuf_skb_stub(lp->isdn_device, lp->isdn_channel, skb)) != count) {
@@ -899,7 +924,7 @@ isdn_ppp_receive(isdn_net_dev * net_dev, isdn_net_local * lp, struct sk_buff *sk
 	is = ippp_table[lp->ppp_slot];
 
 	if (is->debug & 0x4) {
-		printk(KERN_DEBUG "ippp_receive: len: %d\n", skb->len);
+		printk(KERN_DEBUG "ippp_receive: len: %d\n", (int) skb->len);
 		isdn_ppp_frame_log("receive", skb->data, skb->len, 32);
 	}
 	if (net_dev->local.master) {
@@ -985,7 +1010,7 @@ isdn_ppp_receive(isdn_net_dev * net_dev, isdn_net_local * lp, struct sk_buff *sk
 			}
 			if ((BEbyte & (MP_BEGIN_FRAG | MP_END_FRAG)) != (MP_BEGIN_FRAG | MP_END_FRAG)) {
 				static int dmes = 0;
-				if (!dmes) {
+				if( !dmes ) {
 					printk(KERN_DEBUG "ippp: trying ;) to fill mp_queue %d .. UNTESTED!!\n", lp->ppp_slot);
 					dmes = 1;
 				}
@@ -1080,7 +1105,7 @@ isdn_ppp_push_higher(isdn_net_dev * net_dev, isdn_net_local * lp, struct sk_buff
 		}
 	}
 	if (is->debug & 0x10) {
-		printk(KERN_DEBUG "push, skb %d %04x\n", skb->len, proto);
+		printk(KERN_DEBUG "push, skb %d %04x\n", (int) skb->len, proto);
 		isdn_ppp_frame_log("rpush", skb->data, skb->len, 32);
 	}
 	switch (proto) {
@@ -1252,7 +1277,7 @@ isdn_ppp_xmit(struct sk_buff *skb, struct device *dev)
 	 */
 
 	if (ipt->debug & 0x4)
-		printk(KERN_DEBUG "xmit skb, len %d\n", skb->len);
+		printk(KERN_DEBUG "xmit skb, len %d\n", (int) skb->len);
 
 #ifdef CONFIG_ISDN_PPP_VJ
 	if (proto == PPP_IP && ipts->pppcfg & SC_COMP_TCP) {	/* ipts here? probably yes .. but this check again */
@@ -1294,7 +1319,7 @@ isdn_ppp_xmit(struct sk_buff *skb, struct device *dev)
 #endif
 
 	if (ipt->debug & 0x24)
-		printk(KERN_DEBUG "xmit2 skb, len %d, proto %04x\n", skb->len, proto);
+		printk(KERN_DEBUG "xmit2 skb, len %d, proto %04x\n", (int) skb->len, proto);
 
 #ifdef CONFIG_ISDN_MPP
 	if (ipt->mpppcfg & SC_MP_PROT) {
@@ -1328,7 +1353,7 @@ isdn_ppp_xmit(struct sk_buff *skb, struct device *dev)
 	/* tx-stats are now updated via BSENT-callback */
 
 	if (ipts->debug & 0x40) {
-		printk(KERN_DEBUG "skb xmit: len: %d\n", skb->len);
+		printk(KERN_DEBUG "skb xmit: len: %d\n", (int) skb->len);
 		isdn_ppp_frame_log("xmit", skb->data, skb->len, 32);
 	}
 	if (isdn_net_send_skb(dev, lp, skb)) {
@@ -1361,14 +1386,14 @@ isdn_ppp_free_sqqueue(isdn_net_dev * p)
 
 }
 
-static void
+static void 
 isdn_ppp_free_mpqueue(isdn_net_dev * p)
 {
-	struct mpqueue *ql,
-	*q = p->mp_last;
+	struct mpqueue *q = p->mp_last;
 	p->mp_last = NULL;
+
 	while (q) {
-		ql = q->next;
+		struct mpqueue *ql = q->next;
 		SET_SKB_FREE(q->skb);
 		dev_kfree_skb(q->skb, 0 /* FREE_READ */ );
 		kfree(q);
@@ -1469,7 +1494,7 @@ isdn_ppp_fill_mpqueue(isdn_net_dev * dev, struct sk_buff **skb, int BEbyte, long
 		q1->last = NULL;
 		isdn_ppp_cleanup_mpqueue(dev, min_sqno);	/* not necessary */
 		restore_flags(flags);
-		return -1;
+		return -1;	/* -1 is not an error. Just says, that this fragment hasn't complete a full frame */
 	}
 	for (;;) {              /* the faster way would be to step from the queue-end to the start */
 		if (sqno > q->sqno) {
