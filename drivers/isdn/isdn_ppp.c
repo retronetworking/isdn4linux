@@ -19,6 +19,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.62.2.4  2000/03/15 08:32:53  kai
+ * works so far, but not finished
+ *
  * Revision 1.62.2.2  2000/03/13 19:51:38  kai
  * use a skb_queue instead of sav_skb
  *
@@ -1552,7 +1555,7 @@ isdn_ppp_xmit(struct sk_buff *skb, struct net_device *netdev)
 	while (atomic_read(&nd->queue->frame_cnt) >= ISDN_NET_MAX_QUEUE_LENGTH) {
 		nd->queue = nd->queue->next;
 		if (nd->queue == lp) { /* not found -- should never happen */
-			printk(KERN_WARNING "%s: all channels busy!", lp->name);
+			printk(KERN_WARNING "%s: all channels busy!\n", lp->name);
 			return 1;
 		}
 	}
