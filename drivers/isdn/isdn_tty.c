@@ -20,6 +20,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.68  1999/07/11 17:51:51  armin
+ * Bugfix, "-" was missing for AT&L settings.
+ *
  * Revision 1.67  1999/07/11 17:14:12  armin
  * Added new layer 2 and 3 protocols for Fax and DSP functions.
  * Moved "Add CPN to RING message" to new register S23,
@@ -2618,6 +2621,8 @@ isdn_tty_at_cout(char *msg, modem_info * info)
 	char *p;
 	char c;
 	ulong flags;
+	struct sk_buff *skb = 0;
+	char *sp = 0;
 
 	if (!msg) {
 		printk(KERN_WARNING "isdn_tty: Null-Message in isdn_tty_at_cout\n");
@@ -2626,6 +2631,28 @@ isdn_tty_at_cout(char *msg, modem_info * info)
 	save_flags(flags);
 	cli();
 	tty = info->tty;
+	if ((info->flags & ISDN_ASYNC_CLOSING) || (!tty)) {
+		restore_flags(flags);
+		return;
+	}
+
+	/* use queue instead of direct flip, if online and */
+	/* data is in queue or flip buffer is full */
+	if ((info->online) && (((tty->flip.count + strlen(msg)) >= TTY_FLIPBUF_SIZE) ||
+	    (!skb_queue_empty(&dev->drv[info->isdn_driver]->rpqueue[info->isdn_channel])))) {
+		skb = alloc_skb(strlen(msg) + sizeof(isdn_audio_skb), GFP_ATOMIC);
+		if (!skb) {
+			restore_flags(flags);
+			return;
+		}
+		skb_reserve(skb, sizeof(isdn_audio_skb));
+		sp = skb_put(skb, strlen(msg));
+#ifdef CONFIG_ISDN_AUDIO
+		ISDN_AUDIO_SKB_DLECOUNT(skb) = 0;
+		ISDN_AUDIO_SKB_LOCK(skb) = 0;
+#endif
+	}
+
 	for (p = msg; *p; p++) {
 		switch (*p) {
 			case '\r':
@@ -2640,16 +2667,26 @@ isdn_tty_at_cout(char *msg, modem_info * info)
 			default:
 				c = *p;
 		}
-		if ((info->flags & ISDN_ASYNC_CLOSING) || (!tty)) {
-			restore_flags(flags);
-			return;
+		if (skb) {
+			*sp++ = c;
+		} else {
+			if (tty->flip.count >= TTY_FLIPBUF_SIZE)
+				break;
+			tty_insert_flip_char(tty, c, 0);
 		}
-		if (tty->flip.count >= TTY_FLIPBUF_SIZE)
-			break;
-		tty_insert_flip_char(tty, c, 0);
 	}
-	restore_flags(flags);
-	queue_task(&tty->flip.tqueue, &tq_timer);
+	if (skb) {
+		__skb_queue_tail(&dev->drv[info->isdn_driver]->rpqueue[info->isdn_channel], skb);
+		dev->drv[info->isdn_driver]->rcvcount[info->isdn_channel] += skb->len;
+		restore_flags(flags);
+		/* Schedule dequeuing */
+		if ((dev->modempoll) && (info->rcvsched))
+			isdn_timer_ctrl(ISDN_TIMER_MODEMREAD, 1);
+
+	} else {
+		restore_flags(flags);
+		queue_task(&tty->flip.tqueue, &tq_timer);
+	}
 }
 
 /*
