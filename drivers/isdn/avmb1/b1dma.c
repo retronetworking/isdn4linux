@@ -6,6 +6,9 @@
  * (c) Copyright 2000 by Carsten Paeth (calle@calle.in-berlin.de)
  * 
  * $Log$
+ * Revision 1.4  2000/04/03 16:38:05  calle
+ * made suppress_pollack static.
+ *
  * Revision 1.3  2000/02/26 01:00:53  keil
  * changes from 2.3.47
  *
@@ -31,6 +34,9 @@
 #include <linux/isdn_compat.h>
 #ifdef COMPAT_NEED_UACCESS
 #include <asm/uaccess.h>
+#endif
+#ifndef COMPAT_NO_SOFTNET
+#include <linux/netdevice.h>
 #endif
 #include "capilli.h"
 #include "avmcard.h"
@@ -430,7 +436,7 @@ static void b1dma_dispatch_tx(avmcard *card)
 		b1dmaoutmeml(card->mbase+AMCC_INTCSR, card->csr);
 
 	restore_flags(flags);
-	dev_kfree_skb(skb);
+	idev_kfree_skb_any(skb, FREE_WRITE);
 }
 
 /* ------------------------------------------------------------- */

@@ -6,6 +6,11 @@
  * (c) Copyright 1999 by Carsten Paeth (calle@calle.in-berlin.de)
  * 
  * $Log$
+ * Revision 1.13  2000/01/25 14:33:38  calle
+ * - Added Support AVM B1 PCI V4.0 (tested with prototype)
+ *   - splitted up t1pci.c into b1dma.c for common function with b1pciv4
+ *   - support for revision register
+ *
  * Revision 1.12  1999/11/05 16:38:01  calle
  * Cleanups before kernel 2.4:
  * - Changed all messages to use card->name or driver->name instead of
@@ -83,6 +88,9 @@
 #include <linux/isdn_compat.h>
 #ifdef COMPAT_NEED_UACCESS
 #include <asm/uaccess.h>
+#endif
+#ifndef COMPAT_NO_SOFTNET
+#include <linux/netdevice.h>
 #endif
 #include "capilli.h"
 #include "avmcard.h"
@@ -418,7 +426,7 @@ void b1_send_message(struct capi_ctr *ctrl, struct sk_buff *skb)
 		b1_put_slice(port, skb->data, len);
 	}
 	restore_flags(flags);
-	dev_kfree_skb(skb);
+	idev_kfree_skb_any(skb, FREE_WRITE);
 }
 
 /* ------------------------------------------------------------- */

@@ -6,6 +6,10 @@
  * (c) Copyright 1999 by Carsten Paeth (calle@calle.in-berlin.de)
  * 
  * $Log$
+ * Revision 1.11  2000/06/19 15:11:24  keil
+ * avoid use of freed structs
+ * changes from 2.4.0-ac21
+ *
  * Revision 1.10  2000/05/29 12:29:18  keil
  * make pci_enable_dev compatible to 2.2 kernel versions
  *
@@ -517,7 +521,7 @@ static void c4_dispatch_tx(avmcard *card)
 	c4outmeml(card->mbase+DOORBELL, DBELL_DOWN_ARM);
 
 	restore_flags(flags);
-	dev_kfree_skb(skb);
+	idev_kfree_skb_any(skb, FREE_WRITE);
 }
 
 /* ------------------------------------------------------------- */
