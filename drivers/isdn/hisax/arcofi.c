@@ -7,6 +7,9 @@
  *
  *
  * $Log$
+ * Revision 1.1.2.1  1997/11/15 18:57:37  keil
+ * ARCOFI 2165 support
+ *
  *
  */
  
@@ -16,15 +19,21 @@
 #include "isac.h"
 
 int
-send_arcofi(struct IsdnCardState *cs, const u_char *msg) {
+send_arcofi(struct IsdnCardState *cs, const u_char *msg, int bc) {
 	u_char val;
 	char tmp[32];
 	long flags;
-	int cnt=2;
+	int cnt=20;
 	
 	cs->mon_txp = 0;
 	cs->mon_txc = msg[0];
 	memcpy(cs->mon_tx, &msg[1], cs->mon_txc);
+	switch(bc) {
+		case 1: break;
+		case 2: cs->mon_tx[1] |= 0x40;
+			break;
+		default: break;
+	}
 	cs->mocr &= 0x0f;
 	cs->mocr |= 0xa0;
 	test_and_clear_bit(HW_MON1_TX_END, &cs->HW_Flags);
