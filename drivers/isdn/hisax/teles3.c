@@ -11,6 +11,9 @@
  *              Beat Doebeli
  *
  * $Log$
+ * Revision 1.11.2.9  1998/04/08 21:58:52  keil
+ * New init code
+ *
  * Revision 1.11.2.8  1998/01/27 22:37:46  keil
  * fast io
  *
@@ -211,7 +214,7 @@ void
 release_io_teles3(struct IsdnCardState *cs)
 {
 	if (cs->typ == ISDN_CTYPE_TELESPCMCIA)
-		release_region(cs->hw.teles3.cfg_reg, 97);
+		release_region(cs->hw.teles3.hscx[0], 97);
 	else {
 		if (cs->hw.teles3.cfg_reg)
 			if (cs->typ == ISDN_CTYPE_COMPAQ_ISA) {
@@ -335,7 +338,7 @@ setup_teles3(struct IsdnCard *card))
 		cs->hw.teles3.hscx[0] = cs->hw.teles3.cfg_reg - 0xc20;
 		cs->hw.teles3.hscx[1] = cs->hw.teles3.cfg_reg - 0x820;
 	} else if (cs->typ == ISDN_CTYPE_TELESPCMCIA) {
-		cs->hw.teles3.cfg_reg = card->para[1];
+		cs->hw.teles3.cfg_reg = 0;
 		cs->hw.teles3.hscx[0] = card->para[1] - 0x20;
 		cs->hw.teles3.hscx[1] = card->para[1];
 		cs->hw.teles3.isac = card->para[1] + 0x20;
@@ -355,12 +358,12 @@ setup_teles3(struct IsdnCard *card))
 	cs->hw.teles3.hscxfifo[0] = cs->hw.teles3.hscx[0] + 0x3e;
 	cs->hw.teles3.hscxfifo[1] = cs->hw.teles3.hscx[1] + 0x3e;
 	if (cs->typ == ISDN_CTYPE_TELESPCMCIA) {
-		if (check_region((cs->hw.teles3.cfg_reg), 97)) {
+		if (check_region((cs->hw.teles3.hscx[0]), 97)) {
 			printk(KERN_WARNING
 			       "HiSax: %s ports %x-%x already in use\n",
 			       CardType[cs->typ],
-			       cs->hw.teles3.cfg_reg,
-			       cs->hw.teles3.cfg_reg + 96);
+			       cs->hw.teles3.hscx[0],
+			       cs->hw.teles3.hscx[0] + 96);
 			return (0);
 		} else
 			request_region(cs->hw.teles3.hscx[0], 97, "HiSax Teles PCMCIA");
