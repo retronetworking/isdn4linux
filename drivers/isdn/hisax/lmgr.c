@@ -6,6 +6,9 @@
  *  Layermanagement module
  *
  * $Log$
+ * Revision 1.1  1997/06/26 11:17:25  keil
+ * first version
+ *
  *
  */
 
@@ -20,7 +23,7 @@ error_handling_dchan(struct PStack *st, int Error)
 		case 'D':
 		case 'G':
 		case 'H':
-			st->l2.l2tei(st, MDL_VERIFY, NULL);
+			st->l2.l2tei(st, MDL_ERROR_REQ, NULL);
 			break;
 	}
 }
@@ -32,14 +35,14 @@ hisax_manager(struct PStack *st, int pr, void *arg)
 	int Code;
 
 	switch (pr) {
-		case MDL_ERROR:
+		case MDL_ERROR_IND:
 			Code = (int) arg;
 			jiftime(tm, jiffies);
 			sprintf(str, "%s manager: MDL_ERROR %c %s\n", tm,
-				Code, (st->l2.flag & FLG_LAPD) ?
+				Code, test_bit(FLG_LAPD, &st->l2.flag) ?
 				"D-channel" : "B-channel");
 			HiSax_putstatus(st->l1.hardware, str);
-			if (st->l2.flag & FLG_LAPD)
+			if (test_bit(FLG_LAPD, &st->l2.flag))
 				error_handling_dchan(st, Code);
 			break;
 	}

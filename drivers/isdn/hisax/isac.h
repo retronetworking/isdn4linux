@@ -6,6 +6,9 @@
  *
  *
  * $Log$
+ * Revision 1.3  1997/07/27 21:37:41  keil
+ * T3 implemented; supervisor l1timer; B-channel TEST_LOOP
+ *
  * Revision 1.2  1997/06/26 11:16:16  keil
  * first version
  *
@@ -48,6 +51,7 @@
 #define ISAC_CMD_ARL	0xA
 #define ISAC_CMD_DUI	0xF
 
+#define ISAC_IND_RS	0x1
 #define ISAC_IND_PU	0x7
 #define ISAC_IND_DR	0x0
 #define ISAC_IND_SD	0x2
