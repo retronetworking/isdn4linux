@@ -11,6 +11,9 @@
  *              Beat Doebeli
  *
  * $Log$
+ * Revision 2.8  1998/04/15 16:44:30  keil
+ * new init code
+ *
  * Revision 2.7  1998/02/02 13:29:48  keil
  * fast io
  *
@@ -338,7 +341,7 @@ setup_teles3(struct IsdnCard *card))
 		cs->hw.teles3.hscx[0] = cs->hw.teles3.cfg_reg - 0xc20;
 		cs->hw.teles3.hscx[1] = cs->hw.teles3.cfg_reg - 0x820;
 	} else if (cs->typ == ISDN_CTYPE_TELESPCMCIA) {
-		cs->hw.teles3.cfg_reg = card->para[1];
+		cs->hw.teles3.cfg_reg = 0;
 		cs->hw.teles3.hscx[0] = card->para[1] - 0x20;
 		cs->hw.teles3.hscx[1] = card->para[1];
 		cs->hw.teles3.isac = card->para[1] + 0x20;
