@@ -11,6 +11,9 @@
  * 	        Beat Doebeli
  * 
  * $Log$
+ * Revision 1.2  1996/10/27 22:09:15  keil
+ * cosmetic changes
+ *
  * Revision 1.1  1996/10/13 20:04:59  keil
  * Initial revision
  *
@@ -975,7 +978,7 @@ setup_teles3(struct IsdnCard *card)
         printk(KERN_INFO "Teles3: HSCX version A: %s  B: %s\n",
         	HscxVersion(verA), HscxVersion(verB));
         val = readreg(sp->isac, ISAC_RBCH);
-        printk(KERN_INFO "Teles0: ISAC %s\n",
+        printk(KERN_INFO "Teles3: ISAC %s\n",
         	ISACVersion(val));
 	if ((verA==0) | (verA==0xf) | (verB==0) | (verB==0xf)) {
         	printk(KERN_WARNING 
