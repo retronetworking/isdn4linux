@@ -1,9 +1,9 @@
 /* $Id$
 
  * sedlbauer.c  low level stuff for Sedlbauer cards
- *              includes support for the Sedlbauer speed star (speed star II)
- *              and support for the Sedlbauer ISDN-Controller PC/104
- *		with beginning support for the Sedlbauer speed pci
+ *              includes support for the Sedlbauer speed star (speed star II),
+ *              support for the Sedlbauer ISDN-Controller PC/104 and
+ *		support for the Sedlbauer speed pci
  *              derived from the original file asuscom.c from Karsten Keil
  *
  * Copyright (C) 1997,1998 Marcus Niemann (for the modifications to
@@ -16,6 +16,9 @@
  *            Edgar Toernig
  *
  * $Log$
+ * Revision 1.1.2.13  1998/10/16 12:46:06  keil
+ * fix pci detection for more as one card
+ *
  * Revision 1.1.2.12  1998/10/13 18:38:53  keil
  * Fix PCI detection
  *
@@ -69,10 +72,10 @@
  * Speed Win2	IPAC		ISAPNP
  * ISDN PC/104	IPAC		DIP-SWITCH
  * Speed Star2	IPAC		CARDMGR
- * Speed PCI	IPAC		PNP		#not ready#
+ * Speed PCI	IPAC		PNP		
 */
 
-#undef SEDLBAUER_PCI
+#define SEDLBAUER_PCI 1
 
 #define __NO_VERSION__
 #include <linux/config.h>
@@ -94,8 +97,8 @@ const char *Sedlbauer_Types[] =
 	"speed win II / ISDN PC/104", "speed star II", "speed pci"};
 
 #ifdef SEDLBAUER_PCI
-#define PCI_VENDOR_SEDLBAUER	0x0000
-#define PCI_SPEEDPCI_ID	0x00
+#define PCI_VENDOR_SEDLBAUER	0xe159
+#define PCI_SPEEDPCI_ID	0x02
 #endif
  
 #define SEDL_SPEED_CARD_WIN	1
@@ -597,7 +600,7 @@ setup_sedlbauer(struct IsdnCard *card))
 			pcibios_read_config_byte(pci_bus, pci_device_fn,
 					PCI_INTERRUPT_LINE, &irq);
 			pcibios_read_config_dword(pci_bus, pci_device_fn,
-					PCI_BASE_ADDRESS_1, &ioaddr);
+					PCI_BASE_ADDRESS_0, &ioaddr);
 			cs->irq = irq;
 			cs->hw.sedl.cfg_reg = ioaddr & PCI_BASE_ADDRESS_IO_MASK; 
 			if (!cs->hw.sedl.cfg_reg) {
@@ -606,7 +609,7 @@ setup_sedlbauer(struct IsdnCard *card))
 			}
 			cs->hw.sedl.bus = SEDL_BUS_PCI;
 			cs->hw.sedl.chip = SEDL_CHIP_IPAC;
-			cs->hw.sedl.subtyp = SEDL_SPEED_PCI;
+			cs->subtyp = SEDL_SPEED_PCI;
 			bytecnt = 256;
 			byteout(cs->hw.sedl.cfg_reg, 0xff);
 			byteout(cs->hw.sedl.cfg_reg, 0x00);
