@@ -6,6 +6,10 @@
  * (c) Copyright 1999 by Carsten Paeth (calle@calle.in-berlin.de)
  * 
  * $Log$
+ * Revision 1.34  2000/12/07 00:09:53  kai
+ * setup dependency on CONFIG_PCI for the PCI drivers
+ * in Config.in
+ *
  * Revision 1.33  2000/12/05 19:15:44  kai
  * o call pci_enable_device() first of all, because this may change/assign
  *   resources we use afterwards.
@@ -348,7 +352,7 @@ static void b1pciv4_remove_ctr(struct capi_ctr *ctrl)
 
 	div4->detach_ctr(ctrl);
 	free_irq(card->irq, card);
-	iounmap((void *) (((unsigned long) card->mbase) & PAGE_MASK));
+	iounmap(card->mbase);
 	release_region(card->port, AVMB1_PORTLEN);
 	ctrl->driverdata = 0;
 	kfree(card->ctrlinfo);
@@ -379,7 +383,6 @@ static char *b1pciv4_procinfo(struct capi_ctr *ctrl)
 
 static int b1pciv4_add_card(struct capi_driver *driver, struct capicardparams *p)
 {
-	unsigned long base, page_offset;
 	avmcard *card;
 	avmctrl_info *cinfo;
 	int retval;
@@ -430,12 +433,8 @@ static int b1pciv4_add_card(struct capi_driver *driver, struct capicardparams *p
 		return -EBUSY;
 	}
 
-	base = card->membase & PAGE_MASK;
-	page_offset = card->membase - base;
-	card->mbase = ioremap_nocache(base, page_offset + 64);
-	if (card->mbase) {
-		card->mbase += page_offset;
-	} else {
+	card->mbase = ioremap_nocache(card->membase, 64);
+	if (!card->mbase) {
 		printk(KERN_NOTICE "%s: can't remap memory at 0x%lx\n",
 					driver->name, card->membase);
 	        kfree(card->ctrlinfo);
@@ -450,7 +449,7 @@ static int b1pciv4_add_card(struct capi_driver *driver, struct capicardparams *p
 	if ((retval = b1pciv4_detect(card)) != 0) {
 		printk(KERN_NOTICE "%s: NO card at 0x%x (%d)\n",
 					driver->name, card->port, retval);
-                iounmap((void *) (((unsigned long) card->mbase) & PAGE_MASK));
+                iounmap(card->mbase);
 	        kfree(card->ctrlinfo);
 		kfree(card->dma);
 		kfree(card);
@@ -466,7 +465,7 @@ static int b1pciv4_add_card(struct capi_driver *driver, struct capicardparams *p
 	if (retval) {
 		printk(KERN_ERR "%s: unable to get IRQ %d.\n",
 				driver->name, card->irq);
-                iounmap((void *) (((unsigned long) card->mbase) & PAGE_MASK));
+                iounmap(card->mbase);
 		release_region(card->port, AVMB1_PORTLEN);
 	        kfree(card->ctrlinfo);
 		kfree(card->dma);
@@ -478,7 +477,7 @@ static int b1pciv4_add_card(struct capi_driver *driver, struct capicardparams *p
 	cinfo->capi_ctrl = div4->attach_ctr(driver, card->name, cinfo);
 	if (!cinfo->capi_ctrl) {
 		printk(KERN_ERR "%s: attach controller failed.\n", driver->name);
-                iounmap((void *) (((unsigned long) card->mbase) & PAGE_MASK));
+                iounmap(card->mbase);
 		free_irq(card->irq, card);
 		release_region(card->port, AVMB1_PORTLEN);
 	        kfree(card->ctrlinfo);
@@ -539,6 +538,8 @@ static int add_card(struct pci_dev *dev)
 	if (pci_resource_start_io(dev, 2)) { /* B1 PCI V4 */
 #ifdef CONFIG_ISDN_DRV_AVMB1_B1PCIV4
 		driver = &b1pciv4_driver;
+
+		pci_set_master(dev);
 #endif
 		param.membase = pci_resource_start_mem(dev, 0);
 		param.port = pci_resource_start_io(dev, 2);

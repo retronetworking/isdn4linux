@@ -6,6 +6,10 @@
  * (c) Copyright 1999 by Carsten Paeth (calle@calle.in-berlin.de)
  * 
  * $Log$
+ * Revision 1.26  2000/12/07 00:09:53  kai
+ * setup dependency on CONFIG_PCI for the PCI drivers
+ * in Config.in
+ *
  * Revision 1.25  2000/12/07 00:03:55  kai
  * move compatibility stuff to isdn_compat.h
  *
@@ -1031,7 +1035,7 @@ static void c4_remove_ctr(struct capi_ctr *ctrl)
 	}
 
 	free_irq(card->irq, card);
-	iounmap((void *) (((unsigned long) card->mbase) & PAGE_MASK));
+	iounmap(card->mbase);
 	release_region(card->port, AVMB1_PORTLEN);
 	ctrl->driverdata = 0;
 	kfree(card->ctrlinfo);
@@ -1213,7 +1217,6 @@ static int c4_read_proc(char *page, char **start, off_t off,
 
 static int c4_add_card(struct capi_driver *driver, struct capicardparams *p)
 {
-	unsigned long base, page_offset;
 	avmctrl_info *cinfo;
 	avmcard *card;
 	int retval;
@@ -1268,9 +1271,7 @@ static int c4_add_card(struct capi_driver *driver, struct capicardparams *p)
 		return -EBUSY;
 	}
 
-	base = card->membase & PAGE_MASK;
-	page_offset = card->membase - base;
-	card->mbase = ioremap_nocache(base, page_offset + 128);
+	card->mbase = ioremap_nocache(card->membase, 128);
 	if (card->mbase) {
 		card->mbase += page_offset;
 	} else {
@@ -1286,7 +1287,7 @@ static int c4_add_card(struct capi_driver *driver, struct capicardparams *p)
 	if ((retval = c4_detect(card)) != 0) {
 		printk(KERN_NOTICE "%s: NO card at 0x%x (%d)\n",
 					driver->name, card->port, retval);
-                iounmap((void *) (((unsigned long) card->mbase) & PAGE_MASK));
+                iounmap(card->mbase);
 	        kfree(card->ctrlinfo);
 		kfree(card->dma);
 		kfree(card);
@@ -1301,7 +1302,7 @@ static int c4_add_card(struct capi_driver *driver, struct capicardparams *p)
 	if (retval) {
 		printk(KERN_ERR "%s: unable to get IRQ %d.\n",
 				driver->name, card->irq);
-                iounmap((void *) (((unsigned long) card->mbase) & PAGE_MASK));
+                iounmap(card->mbase);
 		release_region(card->port, AVMB1_PORTLEN);
 	        kfree(card->ctrlinfo);
 		kfree(card->dma);
@@ -1321,7 +1322,7 @@ static int c4_add_card(struct capi_driver *driver, struct capicardparams *p)
 				cinfo = &card->ctrlinfo[i];
 				di->detach_ctr(cinfo->capi_ctrl);
 			}
-                	iounmap((void *) (((unsigned long) card->mbase) & PAGE_MASK));
+                	iounmap(card->mbase);
 			free_irq(card->irq, card);
 			release_region(card->port, AVMB1_PORTLEN);
 	        	kfree(card->dma);
@@ -1399,6 +1400,7 @@ static int __init c4_init(void)
 			       driver->name);
 			continue;
 		}
+		pci_set_master(dev);
 
 		param.port = pci_resource_start(dev, 1);
 		param.irq = dev->irq;
