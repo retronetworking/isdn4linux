@@ -21,6 +21,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.48.2.8  1998/04/28 15:11:55  detabc
+ * fixed the wrong #ifndef CONFIG_ISDN_WITH_ABC define
+ *
  * Revision 1.48.2.7  1998/04/26 11:24:08  detabc
  * add abc_delayed_hangup (only with a spezial udp-packet)
  * move abc-compress and -crypt from start of transmit to the
@@ -1818,7 +1821,7 @@ printk("reject: jiffies=%ld, started=%ld, timeout=%d, wait=%ld, timer=%ld\n", ji
 								ndev->name);
 						}
 
-						if(mn > (jiffies + HZ * 2)) {
+						if(mn > (jiffies + HZ)) {
 
 							char buf[128];
 
@@ -2818,15 +2821,9 @@ isdn_net_find_icall(int di, int ch, int idx, setup_parm setup)
 							   n);
 					}
 
-					if(!lp->master) {
-
-						p->dev.tbusy = 1;
-						p->dev.trans_start = jiffies;
-					}
-
 					icall_must_rejected = 1;
-					p = (isdn_net_dev *) p->next;
 					lp->abc_last_dlcon = jiffies;
+					p = (isdn_net_dev *) p->next;
 					continue;
 				}
 
