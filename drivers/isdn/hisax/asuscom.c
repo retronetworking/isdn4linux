@@ -8,6 +8,10 @@
  *
  *
  * $Log$
+ * Revision 1.1.2.6  1999/07/12 21:00:52  keil
+ * fix race in IRQ handling
+ * added watchdog for lost IRQs
+ *
  * Revision 1.1.2.5  1999/07/01 10:29:19  keil
  * Version is the same as outside isdn4kernel_2_0 branch,
  * only version numbers are different
@@ -288,13 +292,13 @@ reset_asuscom(struct IsdnCardState *cs)
 		byteout(cs->hw.asus.adr, ASUS_RESET);	/* Reset On */
 	save_flags(flags);
 	sti();
-	current->state = TASK_INTERRUPTIBLE;
+	set_current_state(TASK_INTERRUPTIBLE);
 	schedule_timeout((10*HZ)/1000);
 	if (cs->subtyp == ASUS_IPAC)
 		writereg(cs->hw.asus.adr, cs->hw.asus.isac, IPAC_POTA2, 0x0);
 	else
 		byteout(cs->hw.asus.adr, 0);	/* Reset Off */
-	current->state = TASK_INTERRUPTIBLE;
+	set_current_state(TASK_INTERRUPTIBLE);
 	schedule_timeout((10*HZ)/1000);
 	if (cs->subtyp == ASUS_IPAC) {
 		writereg(cs->hw.asus.adr, cs->hw.asus.isac, IPAC_CONF, 0x0);

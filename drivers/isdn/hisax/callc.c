@@ -11,6 +11,9 @@
  *              Fritz Elfert
  *
  * $Log$
+ * Revision 1.30.2.21  1999/08/30 19:47:24  keil
+ * resync hisax for 2.0 to 2.2/2.3 stuff
+ *
  * Revision 1.30.2.20  1999/07/18 21:39:44  werner
  * Sync with 2.2 (for limiting b-channel and E-channel logging)
  *
@@ -123,7 +126,6 @@
  *
  */
 
-#include <linux/config.h>
 #define __NO_VERSION__
 #include "hisax.h"
 #include "../avmb1/capicmd.h"  /* this should be moved in a common place */

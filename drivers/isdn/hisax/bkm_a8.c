@@ -7,6 +7,9 @@
  * Author       Roland Klabunde (R.Klabunde@Berkom.de)
  *
  * $Log$
+ * Revision 1.1.2.5  1999/08/30 19:47:21  keil
+ * resync hisax for 2.0 to 2.2/2.3 stuff
+ *
  * Revision 1.1.2.4  1999/07/14 11:42:18  keil
  * correct PCI_SUBSYSTEM_VENDOR_ID
  *
@@ -290,13 +293,13 @@ reset_bkm(struct IsdnCardState *cs)
 
 			save_flags(flags);
 			sti();
-			current->state = TASK_INTERRUPTIBLE;
+			set_current_state(TASK_INTERRUPTIBLE);
 			schedule_timeout((10 * HZ) / 1000);
 
 			/* Remove the soft reset */
 			wordout(cs->hw.ax.plx_adr + 0x50, (wordin(cs->hw.ax.plx_adr + 0x50) | 4));
 
-			current->state = TASK_INTERRUPTIBLE;
+			set_current_state(TASK_INTERRUPTIBLE);
 			schedule_timeout((10 * HZ) / 1000);
 			restore_flags(flags);
 		}

@@ -8,6 +8,9 @@
  *
  *
  * $Log$
+ * Revision 1.1.2.14  1999/08/30 19:49:35  keil
+ * resync hisax for 2.0 to 2.2/2.3 stuff
+ *
  * Revision 1.1.2.13  1999/07/12 21:01:43  keil
  * fix race in IRQ handling
  * added watchdog for lost IRQs
@@ -1021,11 +1024,11 @@ reset_netjet(struct IsdnCardState *cs)
 	sti();
 	cs->hw.njet.ctrl_reg = 0xff;  /* Reset On */
 	byteout(cs->hw.njet.base + NETJET_CTRL, cs->hw.njet.ctrl_reg);
-	current->state = TASK_INTERRUPTIBLE;
+	set_current_state(TASK_INTERRUPTIBLE);
 	schedule_timeout((10*HZ)/1000);	/* Timeout 10ms */
 	cs->hw.njet.ctrl_reg = 0x00;  /* Reset Off and status read clear */
 	byteout(cs->hw.njet.base + NETJET_CTRL, cs->hw.njet.ctrl_reg);
-	current->state = TASK_INTERRUPTIBLE;
+	set_current_state(TASK_INTERRUPTIBLE);
 	schedule_timeout((10*HZ)/1000);	/* Timeout 10ms */
 	restore_flags(flags);
 	cs->hw.njet.auxd = 0;

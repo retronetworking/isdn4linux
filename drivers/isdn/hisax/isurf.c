@@ -5,6 +5,9 @@
  * Author     Karsten Keil (keil@isdn4linux.de)
  *
  * $Log$
+ * Revision 1.1.2.4  1999/08/30 19:48:56  keil
+ * resync hisax for 2.0 to 2.2/2.3 stuff
+ *
  * Revision 1.1.2.3  1999/07/12 21:01:38  keil
  * fix race in IRQ handling
  * added watchdog for lost IRQs
@@ -148,10 +151,10 @@ reset_isurf(struct IsdnCardState *cs, u_char chips)
 	byteout(cs->hw.isurf.reset, chips); /* Reset On */
 	save_flags(flags);
 	sti();
-	current->state = TASK_INTERRUPTIBLE;
+	set_current_state(TASK_INTERRUPTIBLE);
 	schedule_timeout((10*HZ)/1000);
 	byteout(cs->hw.isurf.reset, ISURF_ISAR_EA); /* Reset Off */
-	current->state = TASK_INTERRUPTIBLE;
+	set_current_state(TASK_INTERRUPTIBLE);
 	schedule_timeout((10*HZ)/1000);
 	restore_flags(flags);
 }

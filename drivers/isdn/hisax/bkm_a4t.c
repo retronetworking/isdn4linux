@@ -7,6 +7,9 @@
  * Author       Roland Klabunde (R.Klabunde@Berkom.de)
  *
  * $Log$
+ * Revision 1.1.2.5  1999/08/30 19:47:19  keil
+ * resync hisax for 2.0 to 2.2/2.3 stuff
+ *
  * Revision 1.1.2.4  1999/07/14 11:42:16  keil
  * correct PCI_SUBSYSTEM_VENDOR_ID
  *
@@ -223,11 +226,11 @@ reset_bkm(struct IsdnCardState *cs)
 		sti();
 		/* Issue the I20 soft reset     */
 		pI20_Regs->i20SysControl = 0xFF;	/* all in */
-		current->state = TASK_INTERRUPTIBLE;
+		set_current_state(TASK_INTERRUPTIBLE);
 		schedule_timeout((10 * HZ) / 1000);
 		/* Remove the soft reset */
 		pI20_Regs->i20SysControl = sysRESET | 0xFF;
-		current->state = TASK_INTERRUPTIBLE;
+		set_current_state(TASK_INTERRUPTIBLE);
 		schedule_timeout((10 * HZ) / 1000);
 		/* Set our configuration */
 		pI20_Regs->i20SysControl = sysRESET | sysCFG;
@@ -238,14 +241,14 @@ reset_bkm(struct IsdnCardState *cs)
 		    g_A4T_ISAC_RES |
 		    g_A4T_JADE_BOOTR |
 		    g_A4T_ISAR_BOOTR;
-		current->state = TASK_INTERRUPTIBLE;
+		set_current_state(TASK_INTERRUPTIBLE);
 		schedule_timeout((10 * HZ) / 1000);
 
 		/* Remove RESET state from ISDN */
 		pI20_Regs->i20GuestControl &= ~(g_A4T_ISAC_RES |
 						g_A4T_JADE_RES |
 						g_A4T_ISAR_RES);
-		current->state = TASK_INTERRUPTIBLE;
+		set_current_state(TASK_INTERRUPTIBLE);
 		schedule_timeout((10 * HZ) / 1000);
 		restore_flags(flags);
 	}

@@ -7,6 +7,9 @@
  *
  *
  * $Log$
+ * Revision 1.1.2.12  1999/08/30 19:47:16  keil
+ * resync hisax for 2.0 to 2.2/2.3 stuff
+ *
  * Revision 1.1.2.11  1999/07/12 21:00:58  keil
  * fix race in IRQ handling
  * added watchdog for lost IRQs
@@ -732,11 +735,11 @@ reset_avmpcipnp(struct IsdnCardState *cs)
 	save_flags(flags);
 	sti();
 	outb(AVM_STATUS0_RESET | AVM_STATUS0_DIS_TIMER, cs->hw.avm.cfg_reg + 2);
-	current->state = TASK_INTERRUPTIBLE;
+	set_current_state(TASK_INTERRUPTIBLE);
 	schedule_timeout((10*HZ)/1000); /* Timeout 10ms */
 	outb(AVM_STATUS0_DIS_TIMER | AVM_STATUS0_RES_TIMER | AVM_STATUS0_ENA_IRQ, cs->hw.avm.cfg_reg + 2);
 	outb(AVM_STATUS1_ENA_IOM | cs->irq, cs->hw.avm.cfg_reg + 3);
-	current->state = TASK_INTERRUPTIBLE;
+	set_current_state(TASK_INTERRUPTIBLE);
 	schedule_timeout((10*HZ)/1000); /* Timeout 10ms */
 	printk(KERN_INFO "AVM PCI/PnP: S1 %x\n", inb(cs->hw.avm.cfg_reg + 3));
 }

@@ -20,6 +20,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.41.2.15  1999/07/07 10:30:08  detabc
+ * remove unused messages
+ *
  * Revision 1.41.2.14  1999/07/04 21:04:11  werner
  * Changed display register enable bit from 5 to 7 (for 2.2 compatibility)
  *
@@ -1598,7 +1601,7 @@ isdn_tty_block_til_ready(struct tty_struct *tty, struct file *filp, modem_info *
 	restore_flags(flags);
 	info->blocked_open++;
 	while (1) {
-		current->state = TASK_INTERRUPTIBLE;
+		set_current_state(TASK_INTERRUPTIBLE);
 		if (tty_hung_up_p(filp) ||
 		    !(info->flags & ISDN_ASYNC_INITIALIZED)) {
 #ifdef MODEM_DO_RESTART
@@ -1771,7 +1774,7 @@ isdn_tty_close(struct tty_struct *tty, struct file *filp)
 		 */
 		timeout = jiffies + HZ;
 		while (!(info->lsr & UART_LSR_TEMT)) {
-			current->state = TASK_INTERRUPTIBLE;
+			set_current_state(TASK_INTERRUPTIBLE);
 			current->timeout = jiffies + 20;
 			schedule();
 			if (jiffies > timeout)
@@ -1788,7 +1791,7 @@ isdn_tty_close(struct tty_struct *tty, struct file *filp)
 	info->ncarrier = 0;
 	tty->closing = 0;
 	if (info->blocked_open) {
-		current->state = TASK_INTERRUPTIBLE;
+		set_current_state(TASK_INTERRUPTIBLE);
 		current->timeout = jiffies + 50;
 		schedule();
 		wake_up_interruptible(&info->open_wait);

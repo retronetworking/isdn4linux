@@ -7,6 +7,10 @@
  * Thanks to Christian "naddy" Weisgerber (3Com, US Robotics) for documentation
  *
  * $Log$
+ * Revision 1.1.2.6  1999/07/12 21:01:56  keil
+ * fix race in IRQ handling
+ * added watchdog for lost IRQs
+ *
  * Revision 1.1.2.5  1999/07/01 10:31:52  keil
  * Version is the same as outside isdn4kernel_2_0 branch,
  * only version numbers are different
@@ -177,11 +181,11 @@ reset_sportster(struct IsdnCardState *cs)
 	byteout(cs->hw.spt.cfg_reg + SPORTSTER_RES_IRQ, cs->hw.spt.res_irq);
 	save_flags(flags);
 	sti();
-	current->state = TASK_INTERRUPTIBLE;
+	set_current_state(TASK_INTERRUPTIBLE);
 	schedule_timeout((10*HZ)/1000);
 	cs->hw.spt.res_irq &= ~SPORTSTER_RESET; /* Reset Off */
 	byteout(cs->hw.spt.cfg_reg + SPORTSTER_RES_IRQ, cs->hw.spt.res_irq);
-	current->state = TASK_INTERRUPTIBLE;
+	set_current_state(TASK_INTERRUPTIBLE);
 	schedule_timeout((10*HZ)/1000);
 	restore_flags(flags);
 }

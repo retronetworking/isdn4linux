@@ -8,6 +8,10 @@
  *
  *
  * $Log$
+ * Revision 1.1.2.3  1999/07/12 21:01:51  keil
+ * fix race in IRQ handling
+ * added watchdog for lost IRQs
+ *
  * Revision 1.1.2.2  1999/07/01 10:31:47  keil
  * Version is the same as outside isdn4kernel_2_0 branch,
  * only version numbers are different
@@ -234,10 +238,10 @@ saphir_reset(struct IsdnCardState *cs)
 	save_flags(flags);
 	sti();
 	byteout(cs->hw.saphir.cfg_reg + RESET_REG, 1);
-	current->state = TASK_INTERRUPTIBLE;
+	set_current_state(TASK_INTERRUPTIBLE);
 	schedule_timeout((30*HZ)/1000);	/* Timeout 30ms */
 	byteout(cs->hw.saphir.cfg_reg + RESET_REG, 0);
-	current->state = TASK_INTERRUPTIBLE;
+	set_current_state(TASK_INTERRUPTIBLE);
 	schedule_timeout((30*HZ)/1000);	/* Timeout 30ms */
 	restore_flags(flags);
 	byteout(cs->hw.saphir.cfg_reg + IRQ_REG, irq_val);

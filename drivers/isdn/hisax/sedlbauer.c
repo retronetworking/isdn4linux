@@ -17,6 +17,9 @@
  *            Edgar Toernig
  *
  * $Log$
+ * Revision 1.1.2.19  1999/08/30 19:49:48  keil
+ * resync hisax for 2.0 to 2.2/2.3 stuff
+ *
  * Revision 1.1.2.18  1999/07/12 21:01:52  keil
  * fix race in IRQ handling
  * added watchdog for lost IRQs
@@ -461,10 +464,10 @@ reset_sedlbauer(struct IsdnCardState *cs)
 			writereg(cs->hw.sedl.adr, cs->hw.sedl.isac, IPAC_POTA2, 0x20);
 			save_flags(flags);
 			sti();
-			current->state = TASK_INTERRUPTIBLE;
+			set_current_state(TASK_INTERRUPTIBLE);
 			schedule_timeout((10*HZ)/1000);
 			writereg(cs->hw.sedl.adr, cs->hw.sedl.isac, IPAC_POTA2, 0x0);
-			current->state = TASK_INTERRUPTIBLE;
+			set_current_state(TASK_INTERRUPTIBLE);
 			schedule_timeout((10*HZ)/1000);
 			writereg(cs->hw.sedl.adr, cs->hw.sedl.isac, IPAC_CONF, 0x0);
 			writereg(cs->hw.sedl.adr, cs->hw.sedl.isac, IPAC_ACFG, 0xff);
@@ -476,10 +479,10 @@ reset_sedlbauer(struct IsdnCardState *cs)
 			byteout(cs->hw.sedl.reset_on, SEDL_RESET);	/* Reset On */
 			save_flags(flags);
 			sti();
-			current->state = TASK_INTERRUPTIBLE;
+			set_current_state(TASK_INTERRUPTIBLE);
 			schedule_timeout((10*HZ)/1000);
 			byteout(cs->hw.sedl.reset_off, 0);	/* Reset Off */
-			current->state = TASK_INTERRUPTIBLE;
+			set_current_state(TASK_INTERRUPTIBLE);
 			schedule_timeout((10*HZ)/1000);
 			restore_flags(flags);
 		}

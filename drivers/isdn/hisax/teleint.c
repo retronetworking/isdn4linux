@@ -6,6 +6,10 @@
  *
  *
  * $Log$
+ * Revision 1.1.2.9  1999/07/12 21:01:57  keil
+ * fix race in IRQ handling
+ * added watchdog for lost IRQs
+ *
  * Revision 1.1.2.8  1999/07/01 10:31:56  keil
  * Version is the same as outside isdn4kernel_2_0 branch,
  * only version numbers are different
@@ -254,11 +258,11 @@ reset_TeleInt(struct IsdnCardState *cs)
 	byteout(cs->hw.hfc.addr | 1, cs->hw.hfc.cirm);	/* Reset On */
 	save_flags(flags);
 	sti();
-	current->state = TASK_INTERRUPTIBLE;
+	set_current_state(TASK_INTERRUPTIBLE);
 	schedule_timeout((30*HZ)/1000);
 	cs->hw.hfc.cirm &= ~HFC_RESET;
 	byteout(cs->hw.hfc.addr | 1, cs->hw.hfc.cirm);	/* Reset Off */
-	current->state = TASK_INTERRUPTIBLE;
+	set_current_state(TASK_INTERRUPTIBLE);
 	schedule_timeout((10*HZ)/1000);
 	restore_flags(flags);
 }

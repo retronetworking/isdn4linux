@@ -15,6 +15,9 @@
  *
  *
  * $Log$
+ * Revision 1.14.2.20  1999/08/30 19:47:55  keil
+ * resync hisax for 2.0 to 2.2/2.3 stuff
+ *
  * Revision 1.14.2.19  1999/07/12 21:01:16  keil
  * fix race in IRQ handling
  * added watchdog for lost IRQs
@@ -568,10 +571,10 @@ reset_elsa(struct IsdnCardState *cs)
 		save_flags(flags);
 		sti();
 		writereg(cs->hw.elsa.ale, cs->hw.elsa.isac, IPAC_POTA2, 0x20);
-		current->state = TASK_INTERRUPTIBLE;
+		set_current_state(TASK_INTERRUPTIBLE);
 		schedule_timeout((10*HZ)/1000); /* Timeout 10ms */
 		writereg(cs->hw.elsa.ale, cs->hw.elsa.isac, IPAC_POTA2, 0x00);
-		current->state = TASK_INTERRUPTIBLE;
+		set_current_state(TASK_INTERRUPTIBLE);
 		writereg(cs->hw.elsa.ale, cs->hw.elsa.isac, IPAC_MASK, 0xc0);
 		schedule_timeout((10*HZ)/1000); /* Timeout 10ms */
 		restore_flags(flags);
@@ -775,7 +778,7 @@ Elsa_card_msg(struct IsdnCardState *cs, int mt, void *arg)
 				cs->hw.elsa.status |= ELSA_TIMER_AKTIV;
 				byteout(cs->hw.elsa.ctrl, cs->hw.elsa.ctrl_reg);
 				byteout(cs->hw.elsa.timer, 0);
-				current->state = TASK_INTERRUPTIBLE;
+				set_current_state(TASK_INTERRUPTIBLE);
 				schedule_timeout((110*HZ)/1000);
 				restore_flags(flags);
 				cs->hw.elsa.ctrl_reg &= ~ELSA_ENA_TIMER_INT;

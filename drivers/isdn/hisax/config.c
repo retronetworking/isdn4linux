@@ -5,6 +5,9 @@
  *
  *
  * $Log$
+ * Revision 1.15.2.36  1999/08/30 19:47:44  keil
+ * resync hisax for 2.0 to 2.2/2.3 stuff
+ *
  * Revision 1.15.2.35  1999/07/15 13:17:02  keil
  * sync to 2.2
  *
@@ -702,11 +705,11 @@ extern int setup_saphir(struct IsdnCard *card);
 extern int setup_testemu(struct IsdnCard *card);
 #endif
 
-#if	CARD_BKM_A4T
+#if CARD_BKM_A4T
 extern int setup_bkm_a4t(struct IsdnCard *card);
 #endif
 
-#if	CARD_SCT_QUADRO
+#if CARD_SCT_QUADRO
 extern int setup_sct_quadro(struct IsdnCard *card);
 #endif
 
@@ -985,7 +988,7 @@ HISAX_INITFUNC(static int init_card(struct IsdnCardState *cs))
 	while (cnt) {
 		cs->cardmsg(cs, CARD_INIT, NULL);
 		sti();
-		current->state = TASK_INTERRUPTIBLE;
+		set_current_state(TASK_INTERRUPTIBLE);
 		/* Timeout 10ms */
 		schedule_timeout((10*HZ)/1000);
 		restore_flags(flags);
