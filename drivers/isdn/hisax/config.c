@@ -5,6 +5,9 @@
  *
  *
  * $Log$
+ * Revision 2.46  2000/05/23 20:46:19  keil
+ * generic PCMCIA interface
+ *
  * Revision 2.45  2000/05/16 20:56:41  keil
  * Support all 4 BRI lines with one driver
  *
@@ -205,7 +208,7 @@
  *   17 MIC card                p0=irq  p1=iobase
  *   18 ELSA Quickstep 1000PCI  no parameter
  *   19 Compaq ISDN S0 ISA card p0=irq  p1=IO0 (HSCX)  p2=IO1 (ISAC) p3=IO2
- *   20 Travers Technologies NETjet PCI card
+ *   20 Travers Technologies NETjet-S PCI card
  *   21 TELES PCI               no parameter
  *   22 Sedlbauer Speed Star    p0=irq p1=iobase
  *   23 reserved
@@ -223,6 +226,7 @@
  *   35 HFC 2BDS0 PCI           none
  *   36 Winbond 6692 PCI        none
  *   37 HFC 2BDS0 S+/SP         p0=irq p1=iobase
+ *   38 Travers Technologies NETjet-U PCI card
  *
  * protocol can be either ISDN_PTYPE_EURO or ISDN_PTYPE_1TR6 or ISDN_PTYPE_NI1
  *
@@ -234,11 +238,11 @@ const char *CardType[] =
  "AVM A1", "Elsa ML", "Elsa Quickstep", "Teles PCMCIA", "ITK ix1-micro Rev.2",
  "Elsa PCMCIA", "Eicon.Diehl Diva", "ISDNLink", "TeleInt", "Teles 16.3c",
  "Sedlbauer Speed Card", "USR Sportster", "ith mic Linux", "Elsa PCI",
- "Compaq ISA", "NETjet", "Teles PCI", "Sedlbauer Speed Star (PCMCIA)",
+ "Compaq ISA", "NETjet-S", "Teles PCI", "Sedlbauer Speed Star (PCMCIA)",
  "AMD 7930", "NICCY", "S0Box", "AVM A1 (PCMCIA)", "AVM Fritz PnP/PCI",
  "Sedlbauer Speed Fax +", "Siemens I-Surf", "Acer P10", "HST Saphir",
  "Telekom A4T", "Scitel Quadro", "Gazel", "HFC 2BDS0 PCI", "Winbond 6692",
- "HFC 2BDS0 SX",
+ "HFC 2BDS0 SX", "NETjet-U",
 };
 
 void HiSax_closecard(int cardnr);
@@ -379,7 +383,7 @@ static struct symbol_table hisax_syms_sedl= {
 #ifdef CONFIG_HISAX_NETJET
 #undef DEFAULT_CARD
 #undef DEFAULT_CFG
-#define DEFAULT_CARD ISDN_CTYPE_NETJET
+#define DEFAULT_CARD ISDN_CTYPE_NETJET_S
 #define DEFAULT_CFG {0,0,0,0}
 #endif
 
@@ -458,6 +462,13 @@ static struct symbol_table hisax_syms_sedl= {
 #undef DEFAULT_CARD
 #undef DEFAULT_CFG
 #define DEFAULT_CARD ISDN_CTYPE_W6692
+#define DEFAULT_CFG {0,0,0,0}
+#endif
+
+#ifdef CONFIG_HISAX_NETJET_U
+#undef DEFAULT_CARD
+#undef DEFAULT_CFG
+#define DEFAULT_CARD ISDN_CTYPE_NETJET_U
 #define DEFAULT_CFG {0,0,0,0}
 #endif
 
@@ -753,8 +764,8 @@ extern int setup_sportster(struct IsdnCard *card);
 extern int setup_mic(struct IsdnCard *card);
 #endif
 
-#if CARD_NETJET
-extern int setup_netjet(struct IsdnCard *card);
+#if CARD_NETJET_S
+extern int setup_netjet_s(struct IsdnCard *card);
 #endif
 
 #if CARD_HFCS
@@ -803,6 +814,10 @@ extern int setup_gazel(struct IsdnCard *card);
 
 #if CARD_W6692
 extern int setup_w6692(struct IsdnCard *card);
+#endif
+
+#if CARD_NETJET_U
+extern int setup_netjet_u(struct IsdnCard *card);
 #endif
 
 /*
@@ -1007,7 +1022,7 @@ ll_stop(struct IsdnCardState *cs)
 	ic.command = ISDN_STAT_STOP;
 	ic.driver = cs->myid;
 	cs->iif.statcallb(&ic);
-	CallcFreeChan(cs);
+//	CallcFreeChan(cs);
 }
 
 static void
@@ -1274,9 +1289,9 @@ checkcard(int cardnr, char *id, int *busy_flag))
 				ret = setup_mic(card);
 				break;
 #endif
-#if CARD_NETJET
-			case ISDN_CTYPE_NETJET:
-				ret = setup_netjet(card);
+#if CARD_NETJET_S
+			case ISDN_CTYPE_NETJET_S:
+				ret = setup_netjet_s(card);
 				break;
 #endif
 #if CARD_HFCS
@@ -1339,6 +1354,11 @@ checkcard(int cardnr, char *id, int *busy_flag))
 		case ISDN_CTYPE_W6692:
 			ret = setup_w6692(card);
 			break;
+#endif
+#if CARD_NETJET_U
+			case ISDN_CTYPE_NETJET_U:
+				ret = setup_netjet_u(card);
+				break;
 #endif
 		default:
 			printk(KERN_WARNING
@@ -1459,6 +1479,9 @@ HiSax_closecard(int cardnr)
 	if (cards[cardnr].cs) {
 		ll_stop(cards[cardnr].cs);
 		release_tei(cards[cardnr].cs);
+		
+		CallcFreeChan(cards[cardnr].cs);
+		
 		closecard(cardnr);
 		if (cards[cardnr].cs->irq)
 			free_irq(cards[cardnr].cs->irq, cards[cardnr].cs);
@@ -1562,9 +1585,6 @@ HiSax_init(void))
 
 #ifdef MODULE
 	int nzproto = 0;
-
-	nrcards = 0;
-	HiSaxVersion();
 #ifndef COMPAT_HAS_NEW_SYMTAB
 	register_symtab(&hisax_syms_pcmcia);
 #endif
@@ -1677,10 +1697,11 @@ HiSax_init(void))
 				cards[j].para[2] = mem[i];
 				break;
 			case ISDN_CTYPE_ELSA_PCI:
-			case ISDN_CTYPE_NETJET:
+			case ISDN_CTYPE_NETJET_S:
 			case ISDN_CTYPE_AMD7930:
 			case ISDN_CTYPE_TELESPCI:
 			case ISDN_CTYPE_W6692:
+			case ISDN_CTYPE_NETJET_U:
 				break;
 			case ISDN_CTYPE_BKM_A4T:
 	  			break;

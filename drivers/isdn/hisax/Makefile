@@ -31,6 +31,7 @@ HFC_OBJ :=
 HFC_2BDS0 :=
 JADE_OBJ :=
 W6692_OBJ :=
+ICC_OBJ :=
 
 ifeq ($(CONFIG_HISAX_16_0),y)
 	 O_OBJS += teles0.o
@@ -124,8 +125,13 @@ ifeq ($(CONFIG_HISAX_MIC),y)
 endif
 
 ifeq ($(CONFIG_HISAX_NETJET),y)
-	 O_OBJS += netjet.o
+	 O_OBJS += nj_s.o netjet.o
 	 ISAC_OBJ := isac.o
+endif
+
+ifeq ($(CONFIG_HISAX_NETJET_U),y)
+	 O_OBJS += nj_u.o
+	 ICC_OBJ := icc.o
 endif
 
 ifeq ($(CONFIG_HISAX_HFCS),y)
@@ -189,7 +195,7 @@ ifeq ($(ISAC_OBJ), isac.o)
 endif
 
 O_OBJS += $(ISAC_OBJ) $(HSCX_OBJ) $(ISAR_OBJ) $(JADE_OBJ)
-O_OBJS += $(HFC_OBJ) $(HFC_2BDS0) $(W6692_OBJ)
+O_OBJS += $(HFC_OBJ) $(HFC_2BDS0) $(W6692_OBJ) $(ICC_OBJ)
 OX_OBJS += config.o
 
 O_TARGET :=
