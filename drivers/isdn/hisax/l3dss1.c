@@ -9,6 +9,9 @@
  *              Fritz Elfert
  *
  * $Log$
+ * Revision 1.16.2.3  1998/02/03 23:16:06  keil
+ * german AOC
+ *
  * Revision 1.16.2.2  1997/11/15 18:54:15  keil
  * cosmetics
  *
@@ -43,6 +46,8 @@
 extern char *HiSax_getrev(const char *revision);
 const char *dss1_revision = "$Revision$";
 
+#define EXT_BEARER_CAPS 1
+
 #define	MsgHead(ptr, cref, mty) \
 	*ptr++ = 0x8; \
 	*ptr++ = 0x1; \
@@ -55,7 +60,6 @@ static void
 l3dss1_parse_facility(struct l3_process *pc, u_char *p)
 {
 	int qd_len = 0;
-	char tmp[32];
 
 	p++;
 	qd_len = *p++;
@@ -176,16 +180,13 @@ l3dss1_parse_facility(struct l3_process *pc, u_char *p)
 				    }
 				    if (ident > pc->para.chargeinfo) {
 					    pc->para.chargeinfo = ident;
-					    pc->st->l3.l3l4(pc, CC_INFO_CHARGE, NULL);
+					    pc->st->l3.l3l4(pc->st, CC_CHARGE | INDICATION, pc);
 				    }
 				    if (pc->st->l3.debug & L3_DEB_CHARGE) {
 					    if (*(p+2) == 0) {
-						    sprintf(tmp, "charging info during %d", pc->para.chargeinfo);
-						    l3_debug(pc->st, tmp);
-					    }
-					    else {
-					    sprintf(tmp, "charging info final %d", pc->para.chargeinfo);
-					    l3_debug(pc->st, tmp);
+						    l3_debug(pc->st, "charging info during %d", pc->para.chargeinfo);
+					    } else {
+						    l3_debug(pc->st, "charging info final %d", pc->para.chargeinfo);
 					    }
 				    }
 			    })))))
@@ -199,11 +200,10 @@ l3dss1_parse_facility(struct l3_process *pc, u_char *p)
 				    }
 				    if (ident > pc->para.chargeinfo) {
 					    pc->para.chargeinfo = ident;
-					    pc->st->l3.l3l4(pc, CC_INFO_CHARGE, NULL);
+					    pc->st->l3.l3l4(pc->st, CC_CHARGE | INDICATION, pc);
 				    }
 				    if (pc->st->l3.debug & L3_DEB_CHARGE) {
-					    sprintf(tmp, "charging info final %d", pc->para.chargeinfo);
-					    l3_debug(pc->st, tmp);
+					    l3_debug(pc->st, "charging info final %d", pc->para.chargeinfo);
 				    }
 			    }))))))
 		    break;
@@ -272,7 +272,7 @@ l3dss1_message(struct l3_process *pc, u_char mt)
 		return;
 	p = skb_put(skb, 4);
 	MsgHead(p, pc->callref, mt);
-	pc->st->l3.l3l2(pc->st, DL_DATA, skb);
+	l3_msg(pc->st, DL_DATA | REQUEST, skb);
 }
 
 static void
@@ -303,9 +303,169 @@ l3dss1_release_cmpl(struct l3_process *pc, u_char pr, void *arg)
 	StopAllL3Timer(pc);
 	pc->para.cause = cause;
 	newl3state(pc, 0);
-	pc->st->l3.l3l4(pc, CC_RELEASE_CNF, NULL);
+	pc->st->l3.l3l4(pc->st, CC_RELEASE | CONFIRM, pc);
 	release_l3_process(pc);
 }
+
+#ifdef EXT_BEARER_CAPS
+
+u_char *EncodeASyncParams(u_char *p, u_char si2)
+{ // 7c 06 88  90 21 42 00 bb
+
+  p[0] = p[1] = 0; p[2] = 0x80;
+  if (si2 & 32) // 7 data bits
+    p[2] += 16;
+  else          // 8 data bits
+    p[2] +=24;
+
+  if (si2 & 16) // 2 stop bits
+    p[2] += 96;
+  else          // 1 stop bit
+    p[2] = 32;
+
+  if (si2 & 8)  // even parity
+    p[2] += 2;
+  else          // no parity
+    p[2] += 3;
+
+  switch (si2 & 0x07)
+  {
+    case 0:     p[0] = 66;      // 1200 bit/s
+                break;
+    case 1:     p[0] = 88;      // 1200/75 bit/s
+                break;
+    case 2:     p[0] = 87;      // 75/1200 bit/s
+                break;
+    case 3:     p[0] = 67;      // 2400 bit/s
+                break;
+    case 4:     p[0] = 69;      // 4800 bit/s
+                break;
+    case 5:     p[0] = 72;      // 9600 bit/s
+                break;
+    case 6:     p[0] = 73;      // 14400 bit/s
+                break;
+    case 7:     p[0] = 75;      // 19200 bit/s
+                break;
+  }
+  return p+3;
+}
+
+u_char EncodeSyncParams(u_char si2, u_char ai)
+{
+
+  switch (si2)
+  {
+    case 0:     return ai + 2;  // 1200 bit/s
+    case 1:     return ai + 24; // 1200/75 bit/s
+    case 2:     return ai + 23; // 75/1200 bit/s
+    case 3:     return ai + 3;  // 2400 bit/s
+    case 4:     return ai + 5;  // 4800 bit/s
+    case 5:     return ai + 8;  // 9600 bit/s
+    case 6:     return ai + 9;  // 14400 bit/s
+    case 7:     return ai + 11; // 19200 bit/s
+    case 8:     return ai + 14; // 48000 bit/s
+    case 9:     return ai + 15; // 56000 bit/s
+    case 15:    return ai + 40; // negotiate bit/s
+    default:    break;
+  }
+  return ai;
+}
+
+
+static u_char DecodeASyncParams(u_char si2, u_char *p)
+{ u_char info;
+
+  switch (p[5])
+  {
+    case 66: // 1200 bit/s
+             break; // si2 bleibt gleich
+    case 88: // 1200/75 bit/s
+             si2 += 1;
+             break;
+    case 87: // 75/1200 bit/s
+             si2 += 2;
+             break;
+    case 67: // 2400 bit/s
+             si2 += 3;
+             break;
+    case 69: // 4800 bit/s
+             si2 += 4;
+             break;
+    case 72: // 9600 bit/s
+             si2 += 5;
+             break;
+    case 73: // 14400 bit/s
+             si2 += 6;
+             break;
+    case 75: // 19200 bit/s
+             si2 += 7;
+             break;
+  }
+
+  info = p[7] & 0x7f;
+  if ((info & 16) && (!(info & 8)))   // 7 data bits
+    si2 += 32;                        // else 8 data bits
+  if ((info & 96) == 96)              // 2 stop bits
+    si2 += 16;                        // else 1 stop bit
+  if ((info & 2) && (!(info & 1)))    // even parity
+    si2 += 8;                         // else no parity
+
+  return si2;
+}
+
+
+static u_char DecodeSyncParams(u_char si2, u_char info)
+{
+  info &= 0x7f;
+  switch (info)
+  {
+    case 40: // bit/s aushandeln  --- hat nicht geklappt, ai wird 165 statt 175!
+      return si2 + 15;
+    case 15: // 56000 bit/s --- hat nicht geklappt, ai wird 0 statt 169 !
+      return si2 + 9;
+    case 14: // 48000 bit/s
+      return si2 + 8;
+    case 11: // 19200 bit/s
+      return si2 + 7;
+    case 9:  // 14400 bit/s
+      return si2 + 6;
+    case 8:  // 9600  bit/s
+      return si2 + 5;
+    case 5:  // 4800  bit/s
+      return si2 + 4;
+    case 3:  // 2400  bit/s
+      return si2 + 3;
+    case 23: // 75/1200 bit/s
+      return si2 + 2;
+    case 24: // 1200/75 bit/s
+      return si2 + 1;
+    default: // 1200 bit/s
+      return si2;
+  }
+}
+
+static u_char DecodeSI2(struct sk_buff *skb)
+{ u_char *p; //, *pend=skb->data + skb->len;
+
+        if ((p = findie(skb->data, skb->len, 0x7c, 0)))
+        {
+          switch (p[4] & 0x0f)
+          {
+            case 0x01:  if (p[1] == 0x04) // sync. Bitratenadaption
+                          return DecodeSyncParams(160, p[5]); // V.110/X.30
+                        else if (p[1] == 0x06) // async. Bitratenadaption
+                          return DecodeASyncParams(192, p);   // V.110/X.30
+                        break;
+            case 0x08:  // if (p[5] == 0x02) // sync. Bitratenadaption
+                          return DecodeSyncParams(176, p[5]); // V.120
+                        break;
+          }
+        }
+        return 0;
+}
+
+#endif
+
 
 static void
 l3dss1_setup_req(struct l3_process *pc, u_char pr,
@@ -441,6 +601,26 @@ l3dss1_setup_req(struct l3_process *pc, u_char pr,
 			*p++ = *sub++ & 0x7f;
 	}
 
+#ifdef EXT_BEARER_CAPS
+        if ((pc->para.setup.si2 >= 160) && (pc->para.setup.si2 <= 175))
+        { // sync. Bitratenadaption, V.110/X.30
+          *p++ = 0x7c; *p++ = 0x04; *p++ = 0x88; *p++ = 0x90; *p++ = 0x21;
+          *p++ = EncodeSyncParams(pc->para.setup.si2 - 160, 0x80);
+        }
+        else if ((pc->para.setup.si2 >= 176) && (pc->para.setup.si2 <= 191))
+        { // sync. Bitratenadaption, V.120
+          *p++ = 0x7c; *p++ = 0x05; *p++ = 0x88; *p++ = 0x90; *p++ = 0x28;
+          *p++ = EncodeSyncParams(pc->para.setup.si2 - 176, 0);
+          *p++ = 0x82;
+        }
+        else if (pc->para.setup.si2 >= 192)
+        { // async. Bitratenadaption, V.110/X.30
+          *p++ = 0x7c; *p++ = 0x06; *p++ = 0x88; *p++ = 0x90; *p++ = 0x21;
+          p = EncodeASyncParams(p, pc->para.setup.si2 - 192);
+        } else {
+		*p++ = 0x7c; *p++ = 0x02; *p++ = 0x88; *p++ = 0x90;
+        }
+#endif
 	l = p - tmp;
 	if (!(skb = l3_alloc_skb(l)))
 		return;
@@ -448,7 +628,7 @@ l3dss1_setup_req(struct l3_process *pc, u_char pr,
 	L3DelTimer(&pc->timer);
 	L3AddTimer(&pc->timer, T303, CC_T303);
 	newl3state(pc, 1);
-	pc->st->l3.l3l2(pc->st, DL_DATA, skb);
+	l3_msg(pc->st, DL_DATA | REQUEST, skb);
 }
 
 static void
@@ -468,7 +648,7 @@ l3dss1_call_proc(struct l3_process *pc, u_char pr, void *arg)
 	dev_kfree_skb(skb, FREE_READ);
 	newl3state(pc, 3);
 	L3AddTimer(&pc->timer, T310, CC_T310);
-	pc->st->l3.l3l4(pc, CC_PROCEEDING_IND, NULL);
+	pc->st->l3.l3l4(pc->st, CC_PROCEEDING | INDICATION, pc);
 }
 
 static void
@@ -488,7 +668,7 @@ l3dss1_setup_ack(struct l3_process *pc, u_char pr, void *arg)
 	dev_kfree_skb(skb, FREE_READ);
 	newl3state(pc, 2);
 	L3AddTimer(&pc->timer, T304, CC_T304);
-	pc->st->l3.l3l4(pc, CC_MORE_INFO, NULL);
+	pc->st->l3.l3l4(pc->st, CC_MORE_INFO | INDICATION, pc);
 }
 
 static void
@@ -510,7 +690,7 @@ l3dss1_disconnect(struct l3_process *pc, u_char pr, void *arg)
 	dev_kfree_skb(skb, FREE_READ);
 	newl3state(pc, 12);
 	pc->para.cause = cause;
-	pc->st->l3.l3l4(pc, CC_DISCONNECT_IND, NULL);
+	pc->st->l3.l3l4(pc->st, CC_DISCONNECT | INDICATION, pc);
 }
 
 static void
@@ -522,7 +702,7 @@ l3dss1_connect(struct l3_process *pc, u_char pr, void *arg)
 	L3DelTimer(&pc->timer);	/* T310 */
 	newl3state(pc, 10);
 	pc->para.chargeinfo = 0;
-	pc->st->l3.l3l4(pc, CC_SETUP_CNF, NULL);
+	pc->st->l3.l3l4(pc->st, CC_SETUP | CONFIRM, pc);
 }
 
 static void
@@ -533,7 +713,7 @@ l3dss1_alerting(struct l3_process *pc, u_char pr, void *arg)
 	dev_kfree_skb(skb, FREE_READ);
 	L3DelTimer(&pc->timer);	/* T304 */
 	newl3state(pc, 4);
-	pc->st->l3.l3l4(pc, CC_ALERTING_IND, NULL);
+	pc->st->l3.l3l4(pc->st, CC_ALERTING | INDICATION, pc);
 }
 
 static void
@@ -541,8 +721,6 @@ l3dss1_msg_without_setup(struct l3_process *pc, u_char pr, void *arg)
 {
   /* This routine is called if here was no SETUP made (checks in dss1up and in
    * l3dss1_setup) and a RELEASE_COMPLETE have to be sent with an error code
-   * It is called after it is veryfied that Layer2 is up.
-   * The cause value is allready in pc->para.cause
    * MT_STATUS_ENQUIRE in the NULL state is handled too
    */
 	u_char tmp[16];
@@ -552,6 +730,7 @@ l3dss1_msg_without_setup(struct l3_process *pc, u_char pr, void *arg)
 
 	switch (pc->para.cause) {
 	  case  81: /* 0x51 invalid callreference */
+	  case  88: /* 0x58 incomp destination */
 	  case  96: /* 0x60 mandory IE missing */
 	  case 101: /* 0x65 incompatible Callstate */
 	  	MsgHead(p, pc->callref, MT_RELEASE_COMPLETE);
@@ -568,7 +747,7 @@ l3dss1_msg_without_setup(struct l3_process *pc, u_char pr, void *arg)
 	if (!(skb = l3_alloc_skb(l)))
 		return;
 	memcpy(skb_put(skb, l), tmp, l);
-	pc->st->l3.l3l2(pc->st, DL_DATA, skb);
+	l3_msg(pc->st, DL_DATA | REQUEST, skb);
 	release_l3_process(pc);
 }
 
@@ -598,9 +777,6 @@ l3dss1_setup(struct l3_process *pc, u_char pr, void *arg)
 	  	 */
 	  	pc->para.cause = 0x60;
 		dev_kfree_skb(skb, FREE_READ);
-		if (pc->state == 0)
-			pc->st->l3.l3l4(pc, CC_ESTABLISH, NULL);
-		else
 			l3dss1_msg_without_setup(pc, pr, NULL);
 		return;
 	}
@@ -615,9 +791,14 @@ l3dss1_setup(struct l3_process *pc, u_char pr, void *arg)
 			bcfound++;
 		else if (pc->debug & L3_DEB_WARN)
 			l3_debug(pc->st, "setup without bchannel");
-	} else if (pc->debug & L3_DEB_WARN)
+	} else {
+		if (pc->debug & L3_DEB_WARN)
 		l3_debug(pc->st, "setup without bchannel");
-
+	  	pc->para.cause = 0x60;
+		dev_kfree_skb(skb, FREE_READ);
+		l3dss1_msg_without_setup(pc, pr, NULL);
+		return;
+	}
 	/*
 	   * Bearer Capabilities
 	 */
@@ -634,6 +815,12 @@ l3dss1_setup(struct l3_process *pc, u_char pr, void *arg)
 			case 0x08:
 				/* Unrestricted digital information */
 				pc->para.setup.si1 = 7;
+/* JIM, 05.11.97 I wanna set service indicator 2 */
+#ifdef EXT_BEARER_CAPS
+                                pc->para.setup.si2 = DecodeSI2(skb);
+                                printk(KERN_DEBUG "HiSax: SI=%d, AI=%d\n",
+                                       pc->para.setup.si1, pc->para.setup.si2);
+#endif
 				break;
 			case 0x09:
 				/* Restricted digital information */
@@ -656,9 +843,6 @@ l3dss1_setup(struct l3_process *pc, u_char pr, void *arg)
 		/* ETS 300-104 1.3.3 */
 	  	pc->para.cause = 0x60;
 		dev_kfree_skb(skb, FREE_READ);
-		if (pc->state == 0)
-			pc->st->l3.l3l4(pc, CC_ESTABLISH, NULL);
-		else
 			l3dss1_msg_without_setup(pc, pr, NULL);
 		return;
 	}
@@ -709,12 +893,17 @@ l3dss1_setup(struct l3_process *pc, u_char pr, void *arg)
 
 	if (bcfound) {
 		if ((pc->para.setup.si1 != 7) && (pc->debug & L3_DEB_WARN)) {
-			sprintf(tmp, "non-digital call: %s -> %s",
+			l3_debug(pc->st, "non-digital call: %s -> %s",
 				pc->para.setup.phone, pc->para.setup.eazmsn);
-			l3_debug(pc->st, tmp);
+		}
+		if ((pc->para.setup.si1 != 7) &&
+			test_bit(FLG_PTP, &pc->st->l2.flag)) {
+		  	pc->para.cause = 0x58;
+			l3dss1_msg_without_setup(pc, pr, NULL);
+			return;
 		}
 		newl3state(pc, 6);
-		pc->st->l3.l3l4(pc, CC_SETUP_IND, NULL);
+		pc->st->l3.l3l4(pc->st, CC_SETUP | INDICATION, pc);
 	} else
 		release_l3_process(pc);
 }
@@ -743,7 +932,7 @@ l3dss1_connect_ack(struct l3_process *pc, u_char pr, void *arg)
 	dev_kfree_skb(skb, FREE_READ);
 	newl3state(pc, 10);
 	L3DelTimer(&pc->timer);
-	pc->st->l3.l3l4(pc, CC_SETUP_COMPLETE_IND, NULL);
+	pc->st->l3.l3l4(pc->st, CC_SETUP_COMPL | INDICATION, pc);
 }
 
 static void
@@ -772,7 +961,7 @@ l3dss1_disconnect_req(struct l3_process *pc, u_char pr, void *arg)
 		return;
 	memcpy(skb_put(skb, l), tmp, l);
 	newl3state(pc, 11);
-	pc->st->l3.l3l2(pc->st, DL_DATA, skb);
+	l3_msg(pc->st, DL_DATA | REQUEST, skb);
 	L3AddTimer(&pc->timer, T305, CC_T305);
 }
 
@@ -799,8 +988,8 @@ l3dss1_reject_req(struct l3_process *pc, u_char pr, void *arg)
 	if (!(skb = l3_alloc_skb(l)))
 		return;
 	memcpy(skb_put(skb, l), tmp, l);
-	pc->st->l3.l3l2(pc->st, DL_DATA, skb);
-	pc->st->l3.l3l4(pc, CC_RELEASE_IND, NULL);
+	l3_msg(pc->st, DL_DATA | REQUEST, skb);
+	pc->st->l3.l3l4(pc->st, CC_RELEASE | INDICATION, pc);
 	newl3state(pc, 0);
 	release_l3_process(pc);
 }
@@ -831,7 +1020,7 @@ l3dss1_release(struct l3_process *pc, u_char pr, void *arg)
 	StopAllL3Timer(pc);
 	pc->para.cause = cause;
 	l3dss1_message(pc, MT_RELEASE_COMPLETE);
-	pc->st->l3.l3l4(pc, CC_RELEASE_IND, NULL);
+	pc->st->l3.l3l4(pc->st, CC_RELEASE | INDICATION, pc);
 	newl3state(pc, 0);
 	release_l3_process(pc);
 }
@@ -869,7 +1058,7 @@ l3dss1_status_enq(struct l3_process *pc, u_char pr, void *arg)
 	if (!(skb = l3_alloc_skb(l)))
 		return;
 	memcpy(skb_put(skb, l), tmp, l);
-	pc->st->l3.l3l2(pc->st, DL_DATA, skb);
+	l3_msg(pc->st, DL_DATA | REQUEST, skb);
 }
 
 static void
@@ -899,7 +1088,7 @@ l3dss1_status_req(struct l3_process *pc, u_char pr, void *arg)
 	if (!(skb = l3_alloc_skb(l)))
 		return;
 	memcpy(skb_put(skb, l), tmp, l);
-	pc->st->l3.l3l2(pc->st, DL_DATA, skb);
+	l3_msg(pc->st, DL_DATA | REQUEST, skb);
 }
 
 static void
@@ -919,11 +1108,11 @@ l3dss1_release_ind(struct l3_process *pc, u_char pr, void *arg)
 		/* ETS 300-104 7.6.1, 8.6.1, 10.6.1... and 16.1
 		 * set down layer 3 without sending any message
 		 */
-		pc->st->l3.l3l4(pc, CC_RELEASE_IND, NULL);
+		pc->st->l3.l3l4(pc->st, CC_RELEASE | INDICATION, pc);
 		newl3state(pc, 0);
 		release_l3_process(pc);
 	} else {
-		pc->st->l3.l3l4(pc, CC_IGNORE, NULL);
+		pc->st->l3.l3l4(pc->st, CC_IGNORE | INDICATION, pc);
 	}
 }
 
@@ -936,7 +1125,7 @@ l3dss1_t303(struct l3_process *pc, u_char pr, void *arg)
 		l3dss1_setup_req(pc, pr, arg);
 	} else {
 		L3DelTimer(&pc->timer);
-		pc->st->l3.l3l4(pc, CC_NOSETUP_RSP_ERR, NULL);
+		pc->st->l3.l3l4(pc->st, CC_NOSETUP_RSP, pc);
 		release_l3_process(pc);
 	}
 }
@@ -947,7 +1136,7 @@ l3dss1_t304(struct l3_process *pc, u_char pr, void *arg)
 	L3DelTimer(&pc->timer);
 	pc->para.cause = 0xE6;
 	l3dss1_disconnect_req(pc, pr, NULL);
-	pc->st->l3.l3l4(pc, CC_SETUP_ERR, NULL);
+	pc->st->l3.l3l4(pc->st, CC_SETUP_ERR, pc);
 
 }
 
@@ -976,7 +1165,7 @@ l3dss1_t305(struct l3_process *pc, u_char pr, void *arg)
 		return;
 	memcpy(skb_put(skb, l), tmp, l);
 	newl3state(pc, 19);
-	pc->st->l3.l3l2(pc->st, DL_DATA, skb);
+	l3_msg(pc->st, DL_DATA | REQUEST, skb);
 	L3AddTimer(&pc->timer, T308, CC_T308_1);
 }
 
@@ -986,7 +1175,7 @@ l3dss1_t310(struct l3_process *pc, u_char pr, void *arg)
 	L3DelTimer(&pc->timer);
 	pc->para.cause = 0xE6;
 	l3dss1_disconnect_req(pc, pr, NULL);
-	pc->st->l3.l3l4(pc, CC_SETUP_ERR, NULL);
+	pc->st->l3.l3l4(pc->st, CC_SETUP_ERR, pc);
 }
 
 static void
@@ -995,7 +1184,7 @@ l3dss1_t313(struct l3_process *pc, u_char pr, void *arg)
 	L3DelTimer(&pc->timer);
 	pc->para.cause = 0xE6;
 	l3dss1_disconnect_req(pc, pr, NULL);
-	pc->st->l3.l3l4(pc, CC_CONNECT_ERR, NULL);
+	pc->st->l3.l3l4(pc->st, CC_CONNECT_ERR, pc);
 }
 
 static void
@@ -1011,15 +1200,37 @@ static void
 l3dss1_t308_2(struct l3_process *pc, u_char pr, void *arg)
 {
 	L3DelTimer(&pc->timer);
-	pc->st->l3.l3l4(pc, CC_RELEASE_ERR, NULL);
+	pc->st->l3.l3l4(pc->st, CC_RELEASE_ERR, pc);
 	release_l3_process(pc);
+}
+
+static void
+l3dss1_t318(struct l3_process *pc, u_char pr, void *arg)
+{
+	L3DelTimer(&pc->timer);
+	pc->para.cause = 0x66; /* Timer expiry */
+	pc->para.loc = 0; /* local */
+	pc->st->l3.l3l4(pc->st, CC_RESUME_ERR, pc);
+	newl3state(pc, 19);
+	l3dss1_message(pc, MT_RELEASE);
+	L3AddTimer(&pc->timer, T308, CC_T308_1);
+}
+
+static void
+l3dss1_t319(struct l3_process *pc, u_char pr, void *arg)
+{
+	L3DelTimer(&pc->timer);
+	pc->para.cause = 0x66; /* Timer expiry */
+	pc->para.loc = 0; /* local */
+	pc->st->l3.l3l4(pc->st, CC_SUSPEND_ERR, pc);
+	newl3state(pc, 10);
 }
 
 static void
 l3dss1_restart(struct l3_process *pc, u_char pr, void *arg)
 {
 	L3DelTimer(&pc->timer);
-	pc->st->l3.l3l4(pc, CC_DLRL, NULL);
+	pc->st->l3.l3l4(pc->st, CC_DLRL | INDICATION, pc);
 	release_l3_process(pc);
 }
 
@@ -1054,8 +1265,7 @@ l3dss1_status(struct l3_process *pc, u_char pr, void *arg)
 		if (1== *p++) {
 		        callState = *p;
 			t += sprintf(t,"peer state %x" , *p);
-		}
-		else
+		} else
 			t += sprintf(t,"peer state len error");
 	} else
 		sprintf(t,"no peer state");
@@ -1086,14 +1296,147 @@ l3dss1_facility(struct l3_process *pc, u_char pr, void *arg)
 	}
 }
 
+static void
+l3dss1_suspend_req(struct l3_process *pc, u_char pr, void *arg)
+{
+	struct sk_buff *skb;
+	u_char tmp[32];
+	u_char *p = tmp;
+	u_char i,l;
+	u_char *msg = pc->chan->setup.phone;
 
+	MsgHead(p, pc->callref, MT_SUSPEND);
+	
+	*p++ = IE_CALLID;
+	l = *msg++;
+	if (l && (l<=10)) { /* Max length 10 octets */
+		*p++ = l;
+		for (i=0;i<l;i++)
+			*p++ = *msg++;
+	} else {
+		l3_debug(pc->st, "SUS wrong CALLID len %d", l);
+		return;
+        }
+	l = p - tmp;
+	if (!(skb = l3_alloc_skb(l)))
+		return;
+	memcpy(skb_put(skb, l), tmp, l);
+	l3_msg(pc->st, DL_DATA | REQUEST, skb);
+	newl3state(pc, 15);
+	L3AddTimer(&pc->timer, T319, CC_T319);
+}
+
+static void
+l3dss1_suspend_ack(struct l3_process *pc, u_char pr, void *arg)
+{
+	struct sk_buff *skb = arg;
+
+	L3DelTimer(&pc->timer);
+	newl3state(pc, 0);
+	dev_kfree_skb(skb, FREE_READ);
+	pc->para.cause = -1;
+	pc->st->l3.l3l4(pc->st, CC_SUSPEND | CONFIRM, pc);
+	release_l3_process(pc);
+}
+
+static void
+l3dss1_suspend_rej(struct l3_process *pc, u_char pr, void *arg)
+{
+	u_char *p;
+	struct sk_buff *skb = arg;
+	int cause = -1;
+
+	L3DelTimer(&pc->timer);
+	p = skb->data;
+	if ((p = findie(p, skb->len, IE_CAUSE, 0))) {
+		p++;
+		if (*p++ == 2)
+			pc->para.loc = *p++;
+		cause = *p & 0x7f;
+	}
+	dev_kfree_skb(skb, FREE_READ);
+	pc->para.cause = cause;
+	pc->st->l3.l3l4(pc->st, CC_SUSPEND_ERR, pc);
+	newl3state(pc, 10);
+}
+
+static void
+l3dss1_resume_req(struct l3_process *pc, u_char pr, void *arg)
+{
+	struct sk_buff *skb;
+	u_char tmp[32];
+	u_char *p = tmp;
+	u_char i,l;
+	u_char *msg = pc->para.setup.phone;
+
+	MsgHead(p, pc->callref, MT_RESUME);
+	
+	*p++ = IE_CALLID;
+	l = *msg++;
+	if (l && (l<=10)) { /* Max length 10 octets */
+		*p++ = l;
+		for (i=0;i<l;i++)
+			*p++ = *msg++;
+	} else {
+		l3_debug(pc->st, "RES wrong CALLID len %d", l);
+		return;
+        }
+	l = p - tmp;
+	if (!(skb = l3_alloc_skb(l)))
+		return;
+	memcpy(skb_put(skb, l), tmp, l);
+	l3_msg(pc->st, DL_DATA | REQUEST, skb);
+	newl3state(pc, 17);
+	L3AddTimer(&pc->timer, T319, CC_T319);
+}
+
+static void
+l3dss1_resume_ack(struct l3_process *pc, u_char pr, void *arg)
+{
+	u_char *p;
+	struct sk_buff *skb = arg;
+
+	L3DelTimer(&pc->timer);
+	p = skb->data;
+	if ((p = findie(p, skb->len, IE_CHANNEL_ID, 0))) {
+		pc->para.bchannel = p[2] & 0x3;
+		if ((!pc->para.bchannel) && (pc->debug & L3_DEB_WARN))
+			l3_debug(pc->st, "resume ack without bchannel");
+	} else if (pc->debug & L3_DEB_WARN)
+		l3_debug(pc->st, "resume ack without bchannel");
+	dev_kfree_skb(skb, FREE_READ);
+	pc->st->l3.l3l4(pc->st, CC_RESUME | CONFIRM, pc);
+	newl3state(pc, 10);
+}
+
+static void
+l3dss1_resume_rej(struct l3_process *pc, u_char pr, void *arg)
+{
+	u_char *p;
+	struct sk_buff *skb = arg;
+	int cause = -1;
+
+	L3DelTimer(&pc->timer);
+	p = skb->data;
+	if ((p = findie(p, skb->len, IE_CAUSE, 0))) {
+		p++;
+		if (*p++ == 2)
+			pc->para.loc = *p++;
+		cause = *p & 0x7f;
+	}
+	dev_kfree_skb(skb, FREE_READ);
+	pc->para.cause = cause;
+	newl3state(pc, 0);
+	pc->st->l3.l3l4(pc->st, CC_RESUME_ERR, pc);
+	release_l3_process(pc);
+}
 	
 static void
 l3dss1_global_restart(struct l3_process *pc, u_char pr, void *arg)
 {
 	u_char tmp[32];
 	u_char *p;
-	u_char ri, chan=0;
+	u_char ri, ch=0, chan=0;
 	int l;
 	struct sk_buff *skb = arg;
 	struct l3_process *up;
@@ -1103,26 +1446,26 @@ l3dss1_global_restart(struct l3_process *pc, u_char pr, void *arg)
 	p = skb->data;
 	if ((p = findie(p, skb->len, IE_RESTART_IND, 0))) {
 	        ri = p[2];
-	        sprintf(tmp, "Restart %x", ri);
+	        	l3_debug(pc->st, "Restart %x", ri);
 	} else {
-		sprintf(tmp, "Restart without restart IE");
+		l3_debug(pc->st, "Restart without restart IE");
 		ri = 0x86;
 	}
-	l3_debug(pc->st, tmp);
 	p = skb->data;
 	if ((p = findie(p, skb->len, IE_CHANNEL_ID, 0))) {
 		chan = p[2] & 3;
-		sprintf(tmp, "Restart for channel %d", chan);
-		l3_debug(pc->st, tmp);
+		ch = p[2];
+	        if (pc->st->l3.debug)
+			l3_debug(pc->st, "Restart for channel %d", chan);
 	}
 	dev_kfree_skb(skb, FREE_READ);
 	newl3state(pc, 2);
 	up = pc->st->l3.proc;
 	while (up) {
 		if ((ri & 7)==7)
-			up->st->lli.l4l3(up->st, CC_RESTART, up);
+			up->st->lli.l4l3(up->st, CC_RESTART | REQUEST, up);
 		else if (up->para.bchannel == chan)
-				up->st->lli.l4l3(up->st, CC_RESTART, up);
+				up->st->lli.l4l3(up->st, CC_RESTART | REQUEST, up);
 		up = up->next;
 	}
 	p = tmp;
@@ -1130,7 +1473,7 @@ l3dss1_global_restart(struct l3_process *pc, u_char pr, void *arg)
 	if (chan) {
 		*p++ = IE_CHANNEL_ID;
 		*p++ = 1;
-		*p++ = chan | 0x80;
+		*p++ = ch | 0x80;
 	}
 	*p++ = 0x79; /* RESTART Ind */
 	*p++ = 1;
@@ -1140,32 +1483,34 @@ l3dss1_global_restart(struct l3_process *pc, u_char pr, void *arg)
 		return;
 	memcpy(skb_put(skb, l), tmp, l);
 	newl3state(pc, 0);
-	pc->st->l3.l3l2(pc->st, DL_DATA, skb);
+	l3_msg(pc->st, DL_DATA | REQUEST, skb);
 }
 
 /* *INDENT-OFF* */
 static struct stateentry downstatelist[] =
 {
 	{SBIT(0),
-	 CC_ESTABLISH, l3dss1_msg_without_setup},
+	 CC_SETUP | REQUEST, l3dss1_setup_req},
 	{SBIT(0),
-	 CC_SETUP_REQ, l3dss1_setup_req},
+	 CC_RESUME | REQUEST, l3dss1_resume_req},
 	{SBIT(1) | SBIT(2) | SBIT(3) | SBIT(4) | SBIT(6) | SBIT(7) | SBIT(8) | SBIT(10),
-	 CC_DISCONNECT_REQ, l3dss1_disconnect_req},
+	 CC_DISCONNECT | REQUEST, l3dss1_disconnect_req},
 	{SBIT(12),
-	 CC_RELEASE_REQ, l3dss1_release_req},
+	 CC_RELEASE | REQUEST, l3dss1_release_req},
 	{ALL_STATES,
-	 CC_DLRL, l3dss1_reset},
+	 CC_DLRL | REQUEST, l3dss1_reset},
 	{ALL_STATES,
-	 CC_RESTART, l3dss1_restart},
+	 CC_RESTART | REQUEST, l3dss1_restart},
 	{SBIT(6),
-	 CC_IGNORE, l3dss1_reset},
+	 CC_IGNORE | REQUEST, l3dss1_reset},
 	{SBIT(6),
-	 CC_REJECT_REQ, l3dss1_reject_req},
+	 CC_REJECT | REQUEST, l3dss1_reject_req},
 	{SBIT(6),
-	 CC_ALERTING_REQ, l3dss1_alert_req},
+	 CC_ALERTING | REQUEST, l3dss1_alert_req},
 	{SBIT(6) | SBIT(7),
-	 CC_SETUP_RSP, l3dss1_setup_rsp},
+	 CC_SETUP | RESPONSE, l3dss1_setup_rsp},
+	{SBIT(10),
+	 CC_SUSPEND | REQUEST, l3dss1_suspend_req},
 	{SBIT(1),
 	 CC_T303, l3dss1_t303},
 	{SBIT(2),
@@ -1176,6 +1521,10 @@ static struct stateentry downstatelist[] =
 	 CC_T313, l3dss1_t313},
 	{SBIT(11),
 	 CC_T305, l3dss1_t305},
+	{SBIT(15),
+	 CC_T319, l3dss1_t319},
+	{SBIT(17),
+	 CC_T318, l3dss1_t318},
 	{SBIT(19),
 	 CC_T308_1, l3dss1_t308_1},
 	{SBIT(19),
@@ -1213,10 +1562,10 @@ static struct stateentry datastatelist[] =
 	 SBIT(11) | SBIT(12) | SBIT(15) | SBIT(17) | SBIT(19),
 	 MT_RELEASE_COMPLETE, l3dss1_release_cmpl},
 	{SBIT(1) | SBIT(2) | SBIT(3) | SBIT(4) | SBIT(7) | SBIT(8) | SBIT(10) |
-	 SBIT(11) | SBIT(12) | SBIT(15) | SBIT(17) /*| SBIT(19)*/,
+	 SBIT(11) | SBIT(12) | SBIT(15) /* | SBIT(17) | SBIT(19)*/,
 	 MT_RELEASE, l3dss1_release},
 	{SBIT(19),  MT_RELEASE, l3dss1_release_ind},
-	{SBIT(1) | SBIT(2) | SBIT(3) | SBIT(4) | SBIT(7) | SBIT(8) | SBIT(10),
+	{SBIT(1) | SBIT(2) | SBIT(3) | SBIT(4) | SBIT(7) | SBIT(8) | SBIT(10) | SBIT(15),
 	 MT_DISCONNECT, l3dss1_disconnect},
 	{SBIT(11),
 	 MT_DISCONNECT, l3dss1_release_req},
@@ -1228,7 +1577,15 @@ static struct stateentry datastatelist[] =
 	 MT_CONNECT_ACKNOWLEDGE, l3dss1_status_req},
 	{SBIT(8),
 	 MT_CONNECT_ACKNOWLEDGE, l3dss1_connect_ack},
-	{SBIT(1) | SBIT(2) | SBIT(3) | SBIT(4) | SBIT(8) | SBIT(10) | SBIT(11) | SBIT(19),
+	{SBIT(15),
+	 MT_SUSPEND_ACKNOWLEDGE, l3dss1_suspend_ack},
+	{SBIT(15),
+	 MT_SUSPEND_REJECT, l3dss1_suspend_rej},
+	{SBIT(17),
+	 MT_RESUME_ACKNOWLEDGE, l3dss1_resume_ack},
+	{SBIT(17),
+	 MT_RESUME_REJECT, l3dss1_resume_rej},
+	{SBIT(1) | SBIT(2) | SBIT(3) | SBIT(4) | SBIT(8) | SBIT(10) | SBIT(11) | SBIT(15) | SBIT(17) | SBIT(19),
 	 MT_INVALID, l3dss1_status_req},
 };
 
@@ -1250,9 +1607,9 @@ static int globalm_len = sizeof(globalmes_list) / sizeof(struct stateentry);
 static struct stateentry globalcmd_list[] =
 {
 	{ALL_STATES,
-         CC_STATUS, l3dss1_status_req},
+         CC_STATUS | REQUEST, l3dss1_status_req},
 	{SBIT(0),
-	 CC_RESTART, l3dss1_restart_req},
+	 CC_RESTART | REQUEST, l3dss1_restart_req},
 };
 
 static int globalc_len = sizeof(globalcmd_list) / sizeof(struct stateentry);
@@ -1263,7 +1620,6 @@ static void
 global_handler(struct PStack *st, int mt, struct sk_buff *skb)
 {
 	int i;
-	char tmp[64];
 	struct l3_process *proc = st->l3.global;
 	
 	for (i = 0; i < globalm_len; i++)
@@ -1273,16 +1629,14 @@ global_handler(struct PStack *st, int mt, struct sk_buff *skb)
 	if (i == globalm_len) {
 		dev_kfree_skb(skb, FREE_READ);
 		if (st->l3.debug & L3_DEB_STATE) {
-			sprintf(tmp, "dss1 global state %d mt %x unhandled",
+			l3_debug(st, "dss1 global state %d mt %x unhandled",
 				proc->state, mt);
-			l3_debug(st, tmp);
 		}
 		return;
 	} else {
 		if (st->l3.debug & L3_DEB_STATE) {
-			sprintf(tmp, "dss1 global %d mt %x",
+			l3_debug(st, "dss1 global %d mt %x",
 				proc->state, mt);
-			l3_debug(st, tmp);
 		}
 		globalmes_list[i].rout(proc, mt, skb);
 	}
@@ -1295,14 +1649,24 @@ dss1up(struct PStack *st, int pr, void *arg)
 	char *ptr;
 	struct sk_buff *skb = arg;
 	struct l3_process *proc;
-	char tmp[80];
 
+	switch (pr) {
+		case (DL_DATA | INDICATION):
+		case (DL_UNIT_DATA | INDICATION):
+			break;
+		case (DL_ESTABLISH | CONFIRM):
+		case (DL_ESTABLISH | INDICATION):
+		case (DL_RELEASE | INDICATION):
+		case (DL_RELEASE | CONFIRM):
+			l3_msg(st, pr, arg);
+			return;
+			break;
+	}
 	if (skb->data[0] != PROTO_DIS_EURO) {
 		if (st->l3.debug & L3_DEB_PROTERR) {
-			sprintf(tmp, "dss1up%sunexpected discriminator %x message len %ld",
-				(pr == DL_DATA) ? " " : "(broadcast) ",
+			l3_debug(st, "dss1up%sunexpected discriminator %x message len %d",
+				(pr == (DL_DATA | INDICATION)) ? " " : "(broadcast) ",
 				skb->data[0], skb->len);
-			l3_debug(st, tmp);
 		}
 		dev_kfree_skb(skb, FREE_READ);
 		return;
@@ -1361,7 +1725,7 @@ dss1up(struct PStack *st, int pr, void *arg)
 				dev_kfree_skb(skb, FREE_READ);
 				if ((proc = new_l3_process(st, cr))) {
 					proc->para.cause = 0x65; /* 101 */
-					proc->st->l3.l3l4(proc, CC_ESTABLISH, NULL);
+					l3dss1_msg_without_setup(proc, 0, NULL);
 				}
 				return;
 			}
@@ -1376,7 +1740,7 @@ dss1up(struct PStack *st, int pr, void *arg)
 			dev_kfree_skb(skb, FREE_READ);
 			if ((proc = new_l3_process(st, cr))) {
 				proc->para.cause = 0x51; /* 81 */
-				proc->st->l3.l3l4(proc, CC_ESTABLISH, NULL);
+				l3dss1_msg_without_setup(proc, 0, NULL);
 			}
 			return;
 		}
@@ -1396,18 +1760,16 @@ dss1up(struct PStack *st, int pr, void *arg)
 	if (i == datasllen) {
 		dev_kfree_skb(skb, FREE_READ);
 		if (st->l3.debug & L3_DEB_STATE) {
-			sprintf(tmp, "dss1up%sstate %d mt %x unhandled",
-				(pr == DL_DATA) ? " " : "(broadcast) ",
+			l3_debug(st, "dss1up%sstate %d mt %x unhandled",
+				(pr == (DL_DATA | INDICATION)) ? " " : "(broadcast) ",
 				proc->state, mt);
-			l3_debug(st, tmp);
 		}
 		return;
 	} else {
 		if (st->l3.debug & L3_DEB_STATE) {
-			sprintf(tmp, "dss1up%sstate %d mt %x",
-				(pr == DL_DATA) ? " " : "(broadcast) ",
+			l3_debug(st, "dss1up%sstate %d mt %x",
+				(pr == (DL_DATA | INDICATION)) ? " " : "(broadcast) ",
 				proc->state, mt);
-			l3_debug(st, tmp);
 		}
 		datastatelist[i].rout(proc, pr, skb);
 	}
@@ -1419,9 +1781,11 @@ dss1down(struct PStack *st, int pr, void *arg)
 	int i, cr;
 	struct l3_process *proc;
 	struct Channel *chan;
-	char tmp[80];
 
-	if (CC_SETUP_REQ == pr) {
+	if (((DL_ESTABLISH | REQUEST)== pr) || ((DL_RELEASE | REQUEST)== pr)) {
+		l3_msg(st, pr, NULL);
+		return;
+	} else if (((CC_SETUP | REQUEST) == pr) || ((CC_RESUME | REQUEST) == pr)) {
 		chan = arg;
 		cr = newcallref();
 		cr |= 0x80;
@@ -1435,7 +1799,7 @@ dss1down(struct PStack *st, int pr, void *arg)
 		proc = arg;
 	}
 	if (!proc) {
-		printk(KERN_ERR "HiSax internal error dss1down without proc\n");
+		printk(KERN_ERR "HiSax dss1down without proc pr=%04x\n", pr);
 		return;
 	}
 	for (i = 0; i < downsllen; i++)
@@ -1444,15 +1808,13 @@ dss1down(struct PStack *st, int pr, void *arg)
 			break;
 	if (i == downsllen) {
 		if (st->l3.debug & L3_DEB_STATE) {
-			sprintf(tmp, "dss1down state %d prim %d unhandled",
+			l3_debug(st, "dss1down state %d prim %d unhandled",
 				proc->state, pr);
-			l3_debug(st, tmp);
 		}
 	} else {
 		if (st->l3.debug & L3_DEB_STATE) {
-			sprintf(tmp, "dss1down state %d prim %d",
+			l3_debug(st, "dss1down state %d prim %d",
 				proc->state, pr);
-			l3_debug(st, tmp);
 		}
 		downstatelist[i].rout(proc, pr, arg);
 	}

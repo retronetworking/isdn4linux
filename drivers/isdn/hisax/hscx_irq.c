@@ -7,6 +7,9 @@
  * This is an include file for fast inline IRQ stuff
  *
  * $Log$
+ * Revision 1.5.2.1  1997/10/17 22:10:46  keil
+ * new files on 2.0
+ *
  * Revision 1.4  1997/08/15 17:48:02  keil
  * cosmetic
  *
@@ -210,17 +213,19 @@ hscx_interrupt(struct IsdnCardState *cs, u_char val, u_char hscx)
 		}
 	}
 	if (val & 0x10) {	/* XPR */
-		if (bcs->hw.hscx.tx_skb)
+		if (bcs->hw.hscx.tx_skb) {
 			if (bcs->hw.hscx.tx_skb->len) {
 				hscx_fill_fifo(bcs);
 				return;
 			} else {
+				if (bcs->st->lli.l1writewakeup &&
+					(PACKET_NOACK != bcs->hw.hscx.tx_skb->pkt_type))
+					bcs->st->lli.l1writewakeup(bcs->st, bcs->hw.hscx.count);
 				dev_kfree_skb(bcs->hw.hscx.tx_skb, FREE_WRITE);
 				bcs->hw.hscx.count = 0;
-				if (bcs->st->lli.l1writewakeup)
-					bcs->st->lli.l1writewakeup(bcs->st);
 				bcs->hw.hscx.tx_skb = NULL;
 			}
+		}
 		if ((bcs->hw.hscx.tx_skb = skb_dequeue(&bcs->squeue))) {
 			bcs->hw.hscx.count = 0;
 			test_and_set_bit(BC_FLG_BUSY, &bcs->Flag);

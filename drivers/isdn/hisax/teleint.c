@@ -6,6 +6,9 @@
  *
  *
  * $Log$
+ * Revision 1.1.2.5  1998/04/08 21:58:48  keil
+ * New init code
+ *
  * Revision 1.1.2.4  1998/04/04 21:58:27  keil
  * fix HFC BUSY on ISAC fifos
  *
@@ -279,8 +282,8 @@ TeleInt_card_msg(struct IsdnCardState *cs, int mt, void *arg)
 			inithfc(cs);
 			clear_pending_isac_ints(cs);
 			initisac(cs);
+			/* Reenable all IRQ */
 			cs->writeisac(cs, ISAC_MASK, 0);
-			/* RESET Receiver and Transmitter */
 			cs->writeisac(cs, ISAC_CMDR, 0x41);
 			cs->hw.hfc.timer.expires = jiffies + 1;
 			add_timer(&cs->hw.hfc.timer);

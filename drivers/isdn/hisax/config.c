@@ -5,6 +5,9 @@
  *
  *
  * $Log$
+ * Revision 1.15.2.10  1998/04/11 18:43:13  keil
+ * New cards
+ *
  * Revision 1.15.2.9  1998/03/07 23:15:12  tsbogend
  * made HiSax working on Linux/Alpha
  *
@@ -211,6 +214,13 @@ void register_sedl_symbols(void) {
 #define DEFAULT_CFG {5,0x500,0,0}
 #endif
 
+#ifdef CONFIG_HISAX_AMD7930
+#undef DEFAULT_CARD
+#undef DEFAULT_CFG
+#define DEFAULT_CARD ISDN_CTYPE_AMD7930
+#define DEFAULT_CFG {12,0x3e0,0,0}
+#endif
+
 #ifdef CONFIG_HISAX_NICCY
 #undef DEFAULT_CARD
 #undef DEFAULT_CFG
@@ -261,29 +271,20 @@ struct IsdnCard cards[] =
 	EMPTY_CARD,
 	EMPTY_CARD,
 	EMPTY_CARD,
-	EMPTY_CARD,
-	EMPTY_CARD,
-	EMPTY_CARD,
-	EMPTY_CARD,
-	EMPTY_CARD,
-	EMPTY_CARD,
-	EMPTY_CARD,
-	EMPTY_CARD,
 };
 
-static char HiSaxID[96] HISAX_INITDATA = "\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0" \
+static char HiSaxID[64] HISAX_INITDATA = "\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0" \
 "\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0" \
-"\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0" \
-"\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0";
+"\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0";
 char *HiSax_id HISAX_INITDATA = HiSaxID;
 #ifdef MODULE
 /* Variables for insmod */
-int type[] HISAX_INITDATA =
-{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
-int protocol[] HISAX_INITDATA =
-{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
-int io[] HISAX_INITDATA =
-{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+static int type[] HISAX_INITDATA =
+{0, 0, 0, 0, 0, 0, 0, 0};
+static int protocol[] HISAX_INITDATA =
+{0, 0, 0, 0, 0, 0, 0, 0};
+static int io[] HISAX_INITDATA =
+{0, 0, 0, 0, 0, 0, 0, 0};
 #undef IO0_IO1
 #ifdef CONFIG_HISAX_16_3
 #define IO0_IO1
@@ -293,32 +294,31 @@ int io[] HISAX_INITDATA =
 #define IO0_IO1
 #endif
 #ifdef IO0_IO1
-int io0[] HISAX_INITDATA =
-{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
-int io1[] HISAX_INITDATA =
-{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+static int io0[] HISAX_INITDATA =
+{0, 0, 0, 0, 0, 0, 0, 0};
+static int io1[] HISAX_INITDATA =
+{0, 0, 0, 0, 0, 0, 0, 0};
 #endif
-int irq[] HISAX_INITDATA =
-{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
-int mem[] HISAX_INITDATA =
-{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
-char *id HISAX_INITDATA = HiSaxID;
+static int irq[] HISAX_INITDATA =
+{0, 0, 0, 0, 0, 0, 0, 0};
+static int mem[] HISAX_INITDATA =
+{0, 0, 0, 0, 0, 0, 0, 0};
+static char *id HISAX_INITDATA = HiSaxID;
 
 #if (LINUX_VERSION_CODE > 0x020111)
 MODULE_AUTHOR("Karsten Keil");
-MODULE_PARM(type, "1-16i");
-MODULE_PARM(protocol, "1-16i");
-MODULE_PARM(io, "1-16i");
-MODULE_PARM(irq, "1-16i");
-MODULE_PARM(mem, "1-16i");
+MODULE_PARM(type, "1-8i");
+MODULE_PARM(protocol, "1-8i");
+MODULE_PARM(io, "1-8i");
+MODULE_PARM(irq, "1-8i");
+MODULE_PARM(mem, "1-8i");
 MODULE_PARM(id, "s");
 #ifdef CONFIG_HISAX_16_3	/* For Creatix/Teles PnP */
-MODULE_PARM(io0, "1-16i");
-MODULE_PARM(io1, "1-16i");
-#endif
-#endif
-
-#endif
+MODULE_PARM(io0, "1-8i");
+MODULE_PARM(io1, "1-8i");
+#endif /* CONFIG_HISAX_16_3 */
+#endif /* (LINUX_VERSION_CODE > 0x020111) */
+#endif /* MODULE */
 
 int nrcards;
 
@@ -346,23 +346,20 @@ HiSax_getrev(const char *revision))
 HISAX_INITFUNC(void
 HiSaxVersion(void))
 {
-	char tmp[64], rev[64];
-	char *r = rev;
+	char tmp[64];
 
+	printk(KERN_INFO "HiSax: Linux Driver for passive ISDN cards\n");
+	printk(KERN_INFO "HiSax: Version 3.0\n");
 	strcpy(tmp, l1_revision);
-	r += sprintf(r, "%s/", HiSax_getrev(tmp));
+	printk(KERN_INFO "HiSax: Layer1 Revision %s\n", HiSax_getrev(tmp)); 
 	strcpy(tmp, l2_revision);
-	r += sprintf(r, "%s/", HiSax_getrev(tmp));
-	strcpy(tmp, l3_revision);
-	r += sprintf(r, "%s/", HiSax_getrev(tmp));
-	strcpy(tmp, lli_revision);
-	r += sprintf(r, "%s/", HiSax_getrev(tmp));
+	printk(KERN_INFO "HiSax: Layer2 Revision %s\n", HiSax_getrev(tmp)); 
 	strcpy(tmp, tei_revision);
-	r += sprintf(r, "%s", HiSax_getrev(tmp));
-
-	printk(KERN_INFO "HiSax: Driver for Siemens chip set ISDN cards\n");
-	printk(KERN_INFO "HiSax: Version 2.9\n");
-	printk(KERN_INFO "HiSax: Revisions %s\n", rev);
+	printk(KERN_INFO "HiSax: TeiMgr Revision %s\n", HiSax_getrev(tmp)); 
+	strcpy(tmp, l3_revision);
+	printk(KERN_INFO "HiSax: Layer3 Revision %s\n", HiSax_getrev(tmp)); 
+	strcpy(tmp, lli_revision);
+	printk(KERN_INFO "HiSax: LinkLayer Revision %s\n", HiSax_getrev(tmp)); 
 }
 
 void
@@ -388,7 +385,7 @@ HiSax_setup(char *str, int *ints))
 	argc = ints[0];
 	i = 0;
 	j = 1;
-	while (argc && (i < 16)) {
+	while (argc && (i < HISAX_MAX_CARDS)) {
 		if (argc) {
 			cards[i].typ = ints[j];
 			j++;
@@ -435,25 +432,23 @@ HiSax_init(void))
 	int nzproto = 0;
 #ifdef CONFIG_HISAX_ELSA
 	if (type[0] == ISDN_CTYPE_ELSA_PCMCIA) {
-		/* we have to export  and return in this case */
-		register_elsa_symbols();
+		/* we have exported  and return in this case */
 		return 0;
 	}
 #endif
 #ifdef CONFIG_HISAX_SEDLBAUER
 	if (type[0] == ISDN_CTYPE_SEDLBAUER_PCMCIA) {
 		/* we have to export  and return in this case */
-		register_sedl_symbols();
 		return 0;
 	}
 #endif
 #endif
-	HiSaxVersion();
 	nrcards = 0;
+	HiSaxVersion();
 #ifdef MODULE
 	if (id)			/* If id= string used */
 		HiSax_id = id;
-	for (i = 0; i < 16; i++) {
+	for (i = 0; i < HISAX_MAX_CARDS; i++) {
 		cards[i].typ = type[i];
 		if (protocol[i]) {
 			cards[i].protocol = protocol[i];
@@ -508,6 +503,7 @@ HiSax_init(void))
 				break;
 			case ISDN_CTYPE_ELSA_PCI:
 			case ISDN_CTYPE_NETJET:
+			case ISDN_CTYPE_AMD7930:
 			case ISDN_CTYPE_TELESPCI:
 				break;
 		}
@@ -522,13 +518,14 @@ HiSax_init(void))
 		HiSax_id = HiSaxID;
 	if (!HiSaxID[0])
 		strcpy(HiSaxID, "HiSax");
-	for (i = 0; i < 16; i++)
+	for (i = 0; i < HISAX_MAX_CARDS; i++)
 		if (cards[i].typ > 0)
 			nrcards++;
 	printk(KERN_DEBUG "HiSax: Total %d card%s defined\n",
 	       nrcards, (nrcards > 1) ? "s" : "");
 
 	CallcNew();
+	Isdnl3New();
 	Isdnl2New();
 	TeiNew();
 	Isdnl1New();
@@ -537,11 +534,7 @@ HiSax_init(void))
 		/* No symbols to export, hide all symbols */
 
 #ifdef MODULE
-#if (LINUX_VERSION_CODE < 0x020111)
 		register_symtab(NULL);
-#else
-		EXPORT_NO_SYMBOLS;
-#endif
 		printk(KERN_INFO "HiSax: module installed\n");
 #endif
 		return (0);
@@ -549,6 +542,7 @@ HiSax_init(void))
 		Isdnl1Free();
 		TeiFree();
 		Isdnl2Free();
+		Isdnl3Free();
 		CallcFree();
 		return -EIO;
 	}
@@ -558,7 +552,19 @@ HiSax_init(void))
 void
 cleanup_module(void)
 {
-	HiSax_closehardware();
+	int cardnr = nrcards -1;
+	long flags;
+
+	save_flags(flags);
+	cli();
+	while(cardnr>=0)
+		HiSax_closecard(cardnr--);
+	Isdnl1Free();
+	TeiFree();
+	Isdnl2Free();
+	Isdnl3Free();
+	CallcFree();
+	restore_flags(flags);
 	printk(KERN_INFO "HiSax module removed\n");
 }
 
@@ -572,10 +578,10 @@ int elsa_init_pcmcia(void *pcm_iob, int pcm_irq, int *busy_flag, int prot)
 	HiSaxVersion();
 	if (id)			/* If id= string used */
 		HiSax_id = id;
-	/* Initialize all 16 structs, even though we only accept
+	/* Initialize all 8 structs, even though we only accept
 	   two pcmcia cards
 	   */
-	for (i = 0; i < 16; i++) {
+	for (i = 0; i < HISAX_MAX_CARDS; i++) {
 		cards[i].para[0] = irq[i];
 		cards[i].para[1] = io[i];
 		cards[i].typ = type[i];
@@ -585,7 +591,7 @@ int elsa_init_pcmcia(void *pcm_iob, int pcm_irq, int *busy_flag, int prot)
 		}
 	}
 	cards[0].para[0] = pcm_irq;
-	cards[0].para[1] = (long)pcm_iob;
+	cards[0].para[1] = (int)pcm_iob;
 	cards[0].protocol = prot;
 	cards[0].typ = 10;
 	nzproto = 1;
@@ -594,7 +600,7 @@ int elsa_init_pcmcia(void *pcm_iob, int pcm_irq, int *busy_flag, int prot)
 		HiSax_id = HiSaxID;
 	if (!HiSaxID[0])
 		strcpy(HiSaxID, "HiSax");
-	for (i = 0; i < 16; i++)
+	for (i = 0; i < HISAX_MAX_CARDS; i++)
 		if (cards[i].typ > 0)
 			nrcards++;
 	printk(KERN_DEBUG "HiSax: Total %d card%s defined\n",
@@ -602,6 +608,7 @@ int elsa_init_pcmcia(void *pcm_iob, int pcm_irq, int *busy_flag, int prot)
 
 	Isdnl1New();
 	CallcNew();
+	Isdnl3New();
 	Isdnl2New();
 	TeiNew();
 	HiSax_inithardware(busy_flag);
@@ -619,10 +626,10 @@ int sedl_init_pcmcia(void *pcm_iob, int pcm_irq, int *busy_flag, int prot)
 	HiSaxVersion();
 	if (id)			/* If id= string used */
 		HiSax_id = id;
-	/* Initialize all 16 structs, even though we only accept
+	/* Initialize all 8 structs, even though we only accept
 	   two pcmcia cards
 	   */
-	for (i = 0; i < 16; i++) {
+	for (i = 0; i < HISAX_MAX_CARDS; i++) {
 		cards[i].para[0] = irq[i];
 		cards[i].para[1] = io[i];
 		cards[i].typ = type[i];
@@ -641,7 +648,7 @@ int sedl_init_pcmcia(void *pcm_iob, int pcm_irq, int *busy_flag, int prot)
 		HiSax_id = HiSaxID;
 	if (!HiSaxID[0])
 		strcpy(HiSaxID, "HiSax");
-	for (i = 0; i < 16; i++)
+	for (i = 0; i < HISAX_MAX_CARDS; i++)
 		if (cards[i].typ > 0)
 			nrcards++;
 	printk(KERN_DEBUG "HiSax: Total %d card%s defined\n",
@@ -649,6 +656,7 @@ int sedl_init_pcmcia(void *pcm_iob, int pcm_irq, int *busy_flag, int prot)
 
 	Isdnl1New();
 	CallcNew();
+	Isdnl3New();
 	Isdnl2New();
 	TeiNew();
 	HiSax_inithardware(busy_flag);

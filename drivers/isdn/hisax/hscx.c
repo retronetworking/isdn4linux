@@ -6,6 +6,10 @@
  *
  *
  * $Log$
+ * Revision 1.3.2.4  1998/04/08 21:57:04  keil
+ * Fix "lltrans ..." message
+ * New init code to fix problems during init if S0 is allready activ
+ *
  * Revision 1.3.2.3  1997/11/27 12:30:55  keil
  * cosmetic changes
  *
@@ -63,7 +67,8 @@ modehscx(struct BCState *bcs, int mode, int bc)
 		debugl1(cs, tmp);
 	}
 	bcs->mode = mode;
-	cs->BC_Write_Reg(cs, hscx, HSCX_CCR1, 0x85);
+	cs->BC_Write_Reg(cs, hscx, HSCX_CCR1, 
+		test_bit(HW_IPAC, &cs->HW_Flags) ? 0x82 : 0x85);
 	cs->BC_Write_Reg(cs, hscx, HSCX_XAD1, 0xFF);
 	cs->BC_Write_Reg(cs, hscx, HSCX_XAD2, 0xFF);
 	cs->BC_Write_Reg(cs, hscx, HSCX_RAH2, 0xFF);
@@ -112,14 +117,14 @@ hscx_sched_event(struct BCState *bcs, int event)
 	mark_bh(IMMEDIATE_BH);
 }
 
-static void
+void
 hscx_l2l1(struct PStack *st, int pr, void *arg)
 {
 	struct sk_buff *skb = arg;
 	long flags;
 
 	switch (pr) {
-		case (PH_DATA_REQ):
+		case (PH_DATA | REQUEST):
 			save_flags(flags);
 			cli();
 			if (st->l1.bcs->hw.hscx.tx_skb) {
@@ -133,7 +138,7 @@ hscx_l2l1(struct PStack *st, int pr, void *arg)
 				st->l1.bcs->cs->BC_Send_Data(st->l1.bcs);
 			}
 			break;
-		case (PH_PULL_IND):
+		case (PH_PULL | INDICATION):
 			if (st->l1.bcs->hw.hscx.tx_skb) {
 				printk(KERN_WARNING "hscx_l2l1: this shouldn't happen\n");
 				break;
@@ -143,34 +148,42 @@ hscx_l2l1(struct PStack *st, int pr, void *arg)
 			st->l1.bcs->hw.hscx.count = 0;
 			st->l1.bcs->cs->BC_Send_Data(st->l1.bcs);
 			break;
-		case (PH_PULL_REQ):
+		case (PH_PULL | REQUEST):
 			if (!st->l1.bcs->hw.hscx.tx_skb) {
 				test_and_clear_bit(FLG_L1_PULL_REQ, &st->l1.Flags);
-				st->l1.l1l2(st, PH_PULL_CNF, NULL);
+				st->l1.l1l2(st, PH_PULL | CONFIRM, NULL);
 			} else
 				test_and_set_bit(FLG_L1_PULL_REQ, &st->l1.Flags);
 			break;
+		case (PH_ACTIVATE | REQUEST):
+			test_and_set_bit(BC_FLG_ACTIV, &st->l1.bcs->Flag);
+			modehscx(st->l1.bcs, st->l1.mode, st->l1.bc);
+			l1_msg_b(st, pr, arg);
+			break;
+		case (PH_DEACTIVATE | REQUEST):
+			l1_msg_b(st, pr, arg);
+			break;
+		case (PH_DEACTIVATE | CONFIRM):
+			test_and_clear_bit(BC_FLG_ACTIV, &st->l1.bcs->Flag);
+			if (!test_bit(BC_FLG_BUSY, &st->l1.bcs->Flag)) {
+				modehscx(st->l1.bcs, 0, st->l1.bc);
+				st->l1.l1l2(st, PH_DEACTIVATE | CONFIRM, NULL);
+			}
+			break;
 	}
-
 }
 
 void
 close_hscxstate(struct BCState *bcs)
 {
-	struct sk_buff *skb;
-
 	modehscx(bcs, 0, 0);
 	if (test_and_clear_bit(BC_FLG_INIT, &bcs->Flag)) {
 		if (bcs->hw.hscx.rcvbuf) {
 			kfree(bcs->hw.hscx.rcvbuf);
 			bcs->hw.hscx.rcvbuf = NULL;
 		}
-		while ((skb = skb_dequeue(&bcs->rqueue))) {
-			dev_kfree_skb(skb, FREE_READ);
-		}
-		while ((skb = skb_dequeue(&bcs->squeue))) {
-			dev_kfree_skb(skb, FREE_WRITE);
-		}
+		discard_queue(&bcs->rqueue);
+		discard_queue(&bcs->squeue);
 		if (bcs->hw.hscx.tx_skb) {
 			dev_kfree_skb(bcs->hw.hscx.tx_skb, FREE_WRITE);
 			bcs->hw.hscx.tx_skb = NULL;
@@ -179,7 +192,7 @@ close_hscxstate(struct BCState *bcs)
 	}
 }
 
-static int
+int
 open_hscxstate(struct IsdnCardState *cs,
 	       int bc)
 {
@@ -202,24 +215,6 @@ open_hscxstate(struct IsdnCardState *cs,
 	return (0);
 }
 
-static void
-hscx_manl1(struct PStack *st, int pr,
-	   void *arg)
-{
-	switch (pr) {
-		case (PH_ACTIVATE_REQ):
-			test_and_set_bit(BC_FLG_ACTIV, &st->l1.bcs->Flag);
-			modehscx(st->l1.bcs, st->l1.mode, st->l1.bc);
-			st->l1.l1man(st, PH_ACTIVATE_CNF, NULL);
-			break;
-		case (PH_DEACTIVATE_REQ):
-			if (!test_bit(BC_FLG_BUSY, &st->l1.bcs->Flag))
-				modehscx(st->l1.bcs, 0, st->l1.bc);
-			test_and_clear_bit(BC_FLG_ACTIV, &st->l1.bcs->Flag);
-			break;
-	}
-}
-
 int
 setstack_hscx(struct PStack *st, struct BCState *bcs)
 {
@@ -227,10 +222,9 @@ setstack_hscx(struct PStack *st, struct BCState *bcs)
 		return (-1);
 	st->l1.bcs = bcs;
 	st->l2.l2l1 = hscx_l2l1;
-	st->ma.manl1 = hscx_manl1;
 	setstack_manager(st);
 	bcs->st = st;
-	st->l1.Flags = 0;
+	setstack_l1_B(st);
 	return (0);
 }
 

@@ -6,6 +6,9 @@
  *
  *
  * $Log$
+ * Revision 1.6.2.9  1998/04/08 21:58:39  keil
+ * New init code
+ *
  * Revision 1.6.2.8  1998/01/27 22:37:49  keil
  * fast io
  *
@@ -345,7 +348,6 @@ setup_avm_a1(struct IsdnCard *card))
 	val = bytein(cs->hw.avm.cfg_reg + 2);
 	printk(KERN_INFO "AVM A1: Byte at %x is %x\n",
 	       cs->hw.avm.cfg_reg + 2, val);
-	byteout(cs->hw.avm.cfg_reg, 0x1E);
 	val = bytein(cs->hw.avm.cfg_reg);
 	printk(KERN_INFO "AVM A1: Byte at %x is %x\n",
 	       cs->hw.avm.cfg_reg, val);

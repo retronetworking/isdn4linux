@@ -8,6 +8,9 @@
  *
  *
  * $Log$
+ * Revision 1.1.2.7  1998/04/24 13:37:13  keil
+ * Support for DIVA 2.01 IPAC
+ *
  * Revision 1.1.2.6  1998/04/08 22:05:21  keil
  * Forgot PCI fix
  *
@@ -417,10 +420,10 @@ Diva_card_msg(struct IsdnCardState *cs, int mt, void *arg)
 			return(0);
 		case CARD_TEST:
 			return(0);
-		case MDL_REMOVE_REQ:
+		case (MDL_REMOVE | REQUEST):
 			cs->hw.diva.status = 0;
 			break;
-		case MDL_ASSIGN_REQ:
+		case (MDL_ASSIGN | REQUEST):
 			cs->hw.diva.status |= DIVA_ASSIGN;
 			break;
 		case MDL_INFO_SETUP:

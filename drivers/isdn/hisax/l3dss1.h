@@ -3,6 +3,9 @@
  *  DSS1 (Euro) D-channel protocol defines
  *
  * $Log$
+ * Revision 1.3.2.2  1998/02/03 23:16:10  keil
+ * german AOC
+ *
  * Revision 1.3.2.1  1997/10/17 22:10:52  keil
  * new files on 2.0
  *
@@ -60,8 +63,9 @@
 
 #define MT_INVALID             0xff
 
-#define IE_CAUSE               0x08
 #define IE_BEARER              0x04
+#define IE_CAUSE               0x08
+#define IE_CALLID              0x10
 #define IE_FACILITY            0x1c
 #define IE_CALL_STATE          0x14
 #define IE_CHANNEL_ID          0x18

@@ -8,6 +8,9 @@
  *
  *
  * $Log$
+ * Revision 1.1.2.6  1998/04/08 22:05:23  keil
+ * Forgot PCI fix
+ *
  * Revision 1.1.2.5  1998/04/08 21:49:29  keil
  * New init; fix PCI for more as one card
  *
@@ -35,9 +38,15 @@
 #include <linux/pci.h>
 #include <linux/bios32.h>
 #include <linux/interrupt.h>
-#define fcstab  ppp_crc16_table
 #include <linux/ppp_defs.h>
-extern __u16 ppp_crc16_table[256]; /* from ppp code */
+
+#ifndef bus_to_virt
+#define bus_to_virt (u_int *)
+#endif
+
+#ifndef virt_to_bus
+#define virt_to_bus (u_int)
+#endif
 
 extern const char *CardType[];
 
@@ -70,6 +79,12 @@ const char *NETjet_revision = "$Revision$";
 
 #define NETJET_ISAC_OFF	0xc0
 #define NETJET_ISACIRQ	0x10
+#define NETJET_IRQM0_READ	0x0c
+#define NETJET_IRQM0_READ_1	0x04
+#define NETJET_IRQM0_READ_2	0x08
+#define NETJET_IRQM0_WRITE	0x03
+#define NETJET_IRQM0_WRITE_1	0x01
+#define NETJET_IRQM0_WRITE_2	0x02
 
 #define NETJET_DMA_SIZE 512
 
@@ -122,6 +137,42 @@ ReadISACfifo(struct IsdnCardState *cs, u_char *data, int size)
 	byteout(cs->hw.njet.auxa, cs->hw.njet.auxd);
 	insb(cs->hw.njet.isac, data, size);
 }
+
+__u16 fcstab[256] =
+{
+	0x0000, 0x1189, 0x2312, 0x329b, 0x4624, 0x57ad, 0x6536, 0x74bf,
+	0x8c48, 0x9dc1, 0xaf5a, 0xbed3, 0xca6c, 0xdbe5, 0xe97e, 0xf8f7,
+	0x1081, 0x0108, 0x3393, 0x221a, 0x56a5, 0x472c, 0x75b7, 0x643e,
+	0x9cc9, 0x8d40, 0xbfdb, 0xae52, 0xdaed, 0xcb64, 0xf9ff, 0xe876,
+	0x2102, 0x308b, 0x0210, 0x1399, 0x6726, 0x76af, 0x4434, 0x55bd,
+	0xad4a, 0xbcc3, 0x8e58, 0x9fd1, 0xeb6e, 0xfae7, 0xc87c, 0xd9f5,
+	0x3183, 0x200a, 0x1291, 0x0318, 0x77a7, 0x662e, 0x54b5, 0x453c,
+	0xbdcb, 0xac42, 0x9ed9, 0x8f50, 0xfbef, 0xea66, 0xd8fd, 0xc974,
+	0x4204, 0x538d, 0x6116, 0x709f, 0x0420, 0x15a9, 0x2732, 0x36bb,
+	0xce4c, 0xdfc5, 0xed5e, 0xfcd7, 0x8868, 0x99e1, 0xab7a, 0xbaf3,
+	0x5285, 0x430c, 0x7197, 0x601e, 0x14a1, 0x0528, 0x37b3, 0x263a,
+	0xdecd, 0xcf44, 0xfddf, 0xec56, 0x98e9, 0x8960, 0xbbfb, 0xaa72,
+	0x6306, 0x728f, 0x4014, 0x519d, 0x2522, 0x34ab, 0x0630, 0x17b9,
+	0xef4e, 0xfec7, 0xcc5c, 0xddd5, 0xa96a, 0xb8e3, 0x8a78, 0x9bf1,
+	0x7387, 0x620e, 0x5095, 0x411c, 0x35a3, 0x242a, 0x16b1, 0x0738,
+	0xffcf, 0xee46, 0xdcdd, 0xcd54, 0xb9eb, 0xa862, 0x9af9, 0x8b70,
+	0x8408, 0x9581, 0xa71a, 0xb693, 0xc22c, 0xd3a5, 0xe13e, 0xf0b7,
+	0x0840, 0x19c9, 0x2b52, 0x3adb, 0x4e64, 0x5fed, 0x6d76, 0x7cff,
+	0x9489, 0x8500, 0xb79b, 0xa612, 0xd2ad, 0xc324, 0xf1bf, 0xe036,
+	0x18c1, 0x0948, 0x3bd3, 0x2a5a, 0x5ee5, 0x4f6c, 0x7df7, 0x6c7e,
+	0xa50a, 0xb483, 0x8618, 0x9791, 0xe32e, 0xf2a7, 0xc03c, 0xd1b5,
+	0x2942, 0x38cb, 0x0a50, 0x1bd9, 0x6f66, 0x7eef, 0x4c74, 0x5dfd,
+	0xb58b, 0xa402, 0x9699, 0x8710, 0xf3af, 0xe226, 0xd0bd, 0xc134,
+	0x39c3, 0x284a, 0x1ad1, 0x0b58, 0x7fe7, 0x6e6e, 0x5cf5, 0x4d7c,
+	0xc60c, 0xd785, 0xe51e, 0xf497, 0x8028, 0x91a1, 0xa33a, 0xb2b3,
+	0x4a44, 0x5bcd, 0x6956, 0x78df, 0x0c60, 0x1de9, 0x2f72, 0x3efb,
+	0xd68d, 0xc704, 0xf59f, 0xe416, 0x90a9, 0x8120, 0xb3bb, 0xa232,
+	0x5ac5, 0x4b4c, 0x79d7, 0x685e, 0x1ce1, 0x0d68, 0x3ff3, 0x2e7a,
+	0xe70e, 0xf687, 0xc41c, 0xd595, 0xa12a, 0xb0a3, 0x8238, 0x93b1,
+	0x6b46, 0x7acf, 0x4854, 0x59dd, 0x2d62, 0x3ceb, 0x0e70, 0x1ff9,
+	0xf78f, 0xe606, 0xd49d, 0xc514, 0xb1ab, 0xa022, 0x92b9, 0x8330,
+	0x7bc7, 0x6a4e, 0x58d5, 0x495c, 0x3de3, 0x2c6a, 0x1ef1, 0x0f78
+};
 
 static void 
 WriteISACfifo(struct IsdnCardState *cs, u_char *data, int size)
@@ -274,7 +325,7 @@ static void printframe(struct IsdnCardState *cs, u_char *buf, int count, char *s
 			val >>= 1;\
 		}
 
-static void make_raw_data(struct BCState *bcs) {
+static int make_raw_data(struct BCState *bcs) {
 	register u_int i,s_cnt=0;
 	register u_char j;
 	register u_char val;
@@ -284,7 +335,10 @@ static void make_raw_data(struct BCState *bcs) {
 	u_int fcs;
 	char tmp[64];
 	
-	
+	if (!bcs->hw.tiger.tx_skb) {
+		debugl1(bcs->cs, "tiger make_raw: NULL skb");
+		return(1);
+	}
 	bcs->hw.tiger.sendbuf[s_cnt++] = HDLC_FLAG_VALUE;
 	fcs = PPP_INITFCS;
 	for (i=0; i<bcs->hw.tiger.tx_skb->len; i++) {
@@ -326,6 +380,7 @@ static void make_raw_data(struct BCState *bcs) {
 	bcs->hw.tiger.sendcnt = s_cnt;
 	bcs->tx_cnt -= bcs->hw.tiger.tx_skb->len;
 	bcs->hw.tiger.sp = bcs->hw.tiger.sendbuf;
+	return(0);
 }
 
 static void got_frame(struct BCState *bcs, int count) {
@@ -517,8 +572,18 @@ static void read_raw(struct BCState *bcs, u_int *buf, int cnt){
 static void read_tiger(struct IsdnCardState *cs) {
 	u_int *p;
 	int cnt = NETJET_DMA_SIZE/2;
+	char tmp[64];
 	
-	if (cs->hw.njet.irqstat0 & 4)
+	if ((cs->hw.njet.irqstat0 & cs->hw.njet.last_is0) & NETJET_IRQM0_READ) {
+		sprintf(tmp,"tiger warn read double dma %x/%x",
+			cs->hw.njet.irqstat0, cs->hw.njet.last_is0);
+		debugl1(cs, tmp);
+		return;
+	} else {
+		cs->hw.njet.last_is0 &= ~NETJET_IRQM0_READ;
+		cs->hw.njet.last_is0 |= (cs->hw.njet.irqstat0 & NETJET_IRQM0_READ);
+	}	
+	if (cs->hw.njet.irqstat0 & NETJET_IRQM0_READ_1)
 		p = cs->bcs[0].hw.tiger.rec + NETJET_DMA_SIZE - 1;
 	else
 		p = cs->bcs[0].hw.tiger.rec + cnt - 1;
@@ -526,7 +591,7 @@ static void read_tiger(struct IsdnCardState *cs) {
 		read_raw(cs->bcs, p, cnt);
 	if (cs->bcs[1].mode == L1_MODE_HDLC)
 		read_raw(cs->bcs + 1, p, cnt);
-	cs->hw.njet.irqstat0 &= 0xf3;
+	cs->hw.njet.irqstat0 &= ~NETJET_IRQM0_READ;
 }
 
 static void write_raw(struct BCState *bcs, u_int *buf, int cnt);
@@ -546,7 +611,8 @@ static void fill_dma(struct BCState *bcs)
 	}
 	if (test_and_set_bit(BC_FLG_BUSY, &bcs->Flag))
 		return;
-	make_raw_data(bcs);
+	if (make_raw_data(bcs))
+		return;		
 	if (bcs->cs->debug & L1_DEB_HSCX) {
 		sprintf(tmp,"tiger fill_dma2: c%d %4x", bcs->channel,
 			bcs->Flag);
@@ -555,7 +621,7 @@ static void fill_dma(struct BCState *bcs)
 	if (test_and_clear_bit(BC_FLG_NOFRAME, &bcs->Flag)) {
 		write_raw(bcs, bcs->hw.tiger.sendp, bcs->hw.tiger.free);
 	} else if (test_and_clear_bit(BC_FLG_HALF, &bcs->Flag)) {
-		p = (u_int *) inl(bcs->cs->hw.njet.base + NETJET_DMA_READ_ADR);
+		p = bus_to_virt(inl(bcs->cs->hw.njet.base + NETJET_DMA_READ_ADR));
 		sp = bcs->hw.tiger.sendp;
 		if (p == bcs->hw.tiger.s_end)
 			p = bcs->hw.tiger.send -1;
@@ -576,7 +642,7 @@ static void fill_dma(struct BCState *bcs)
 			write_raw(bcs, p, bcs->hw.tiger.free - cnt);
 		}
 	} else if (test_and_clear_bit(BC_FLG_EMPTY, &bcs->Flag)) {
-		p = (u_int *) inl(bcs->cs->hw.njet.base + NETJET_DMA_READ_ADR);
+		p = bus_to_virt(inl(bcs->cs->hw.njet.base + NETJET_DMA_READ_ADR));
 		cnt = bcs->hw.tiger.s_end - p;
 		if (cnt < 2) {
 			p = bcs->hw.tiger.send + 1;
@@ -637,10 +703,16 @@ static void write_raw(struct BCState *bcs, u_int *buf, int cnt) {
 		bcs->hw.tiger.sp += s_cnt;
 		bcs->hw.tiger.sendp = p;
 		if (!bcs->hw.tiger.sendcnt) {
-			dev_kfree_skb(bcs->hw.tiger.tx_skb, FREE_WRITE);
+			if (!bcs->hw.tiger.tx_skb) {
+				sprintf(tmp,"tiger write_raw: NULL skb s_cnt %d", s_cnt);
+				debugl1(bcs->cs, tmp);
+			} else {
+				if (bcs->st->lli.l1writewakeup &&
+					(PACKET_NOACK != bcs->hw.tiger.tx_skb->pkt_type))
+					bcs->st->lli.l1writewakeup(bcs->st, bcs->hw.tiger.tx_skb->len);
+				dev_kfree_skb(bcs->hw.tiger.tx_skb, FREE_WRITE);
 			bcs->hw.tiger.tx_skb = NULL;
-			if (bcs->st->lli.l1writewakeup)
-				bcs->st->lli.l1writewakeup(bcs->st);
+			}
 			test_and_clear_bit(BC_FLG_BUSY, &bcs->Flag);
 			bcs->hw.tiger.free = cnt - s_cnt;
 			if (bcs->hw.tiger.free > (NETJET_DMA_SIZE/2))
@@ -690,8 +762,18 @@ static void write_raw(struct BCState *bcs, u_int *buf, int cnt) {
 
 static void write_tiger(struct IsdnCardState *cs) {
 	u_int *p, cnt = NETJET_DMA_SIZE/2;
+	char tmp[64];
 	
-	if (cs->hw.njet.irqstat0  & 1)
+	if ((cs->hw.njet.irqstat0 & cs->hw.njet.last_is0) & NETJET_IRQM0_WRITE) {
+		sprintf(tmp,"tiger warn write double dma %x/%x",
+			cs->hw.njet.irqstat0, cs->hw.njet.last_is0);
+		debugl1(cs, tmp);
+		return;
+	} else {
+		cs->hw.njet.last_is0 &= ~NETJET_IRQM0_WRITE;
+		cs->hw.njet.last_is0 |= (cs->hw.njet.irqstat0 & NETJET_IRQM0_WRITE);
+	}	
+	if (cs->hw.njet.irqstat0  & NETJET_IRQM0_WRITE_1)
 		p = cs->bcs[0].hw.tiger.send + NETJET_DMA_SIZE - 1;
 	else
 		p = cs->bcs[0].hw.tiger.send + cnt - 1;
@@ -699,7 +781,7 @@ static void write_tiger(struct IsdnCardState *cs) {
 		write_raw(cs->bcs, p, cnt);
 	if (cs->bcs[1].mode == L1_MODE_HDLC)
 		write_raw(cs->bcs + 1, p, cnt);
-	cs->hw.njet.irqstat0 &= 0xfc;
+	cs->hw.njet.irqstat0 &= ~NETJET_IRQM0_WRITE;
 }
 
 static void
@@ -709,7 +791,7 @@ tiger_l2l1(struct PStack *st, int pr, void *arg)
 	long flags;
 
 	switch (pr) {
-		case (PH_DATA_REQ):
+		case (PH_DATA | REQUEST):
 			save_flags(flags);
 			cli();
 			if (st->l1.bcs->hw.tiger.tx_skb) {
@@ -721,7 +803,7 @@ tiger_l2l1(struct PStack *st, int pr, void *arg)
 				restore_flags(flags);
 			}
 			break;
-		case (PH_PULL_IND):
+		case (PH_PULL | INDICATION):
 			if (st->l1.bcs->hw.tiger.tx_skb) {
 				printk(KERN_WARNING "tiger_l2l1: this shouldn't happen\n");
 				break;
@@ -732,21 +814,30 @@ tiger_l2l1(struct PStack *st, int pr, void *arg)
 			st->l1.bcs->cs->BC_Send_Data(st->l1.bcs);
 			restore_flags(flags);
 			break;
-		case (PH_PULL_REQ):
+		case (PH_PULL | REQUEST):
 			if (!st->l1.bcs->hw.tiger.tx_skb) {
 				test_and_clear_bit(FLG_L1_PULL_REQ, &st->l1.Flags);
-				st->l1.l1l2(st, PH_PULL_CNF, NULL);
+				st->l1.l1l2(st, PH_PULL | CONFIRM, NULL);
 			} else
 				test_and_set_bit(FLG_L1_PULL_REQ, &st->l1.Flags);
+			break;
+		case (PH_ACTIVATE | REQUEST):
+			test_and_set_bit(BC_FLG_ACTIV, &st->l1.bcs->Flag);
+			mode_tiger(st->l1.bcs, st->l1.mode, st->l1.bc);
+			st->l1.l1l2(st, PH_ACTIVATE | CONFIRM, NULL);
+			break;
+		case (PH_DEACTIVATE | REQUEST):
+			if (!test_bit(BC_FLG_BUSY, &st->l1.bcs->Flag))
+				mode_tiger(st->l1.bcs, 0, 0);
+			test_and_clear_bit(BC_FLG_ACTIV, &st->l1.bcs->Flag);
 			break;
 	}
 }
 
+
 void
 close_tigerstate(struct BCState *bcs)
 {
-	struct sk_buff *skb;
-
 	mode_tiger(bcs, 0, 0);
 	if (test_and_clear_bit(BC_FLG_INIT, &bcs->Flag)) {
 		if (bcs->hw.tiger.rcvbuf) {
@@ -757,12 +848,8 @@ close_tigerstate(struct BCState *bcs)
 			kfree(bcs->hw.tiger.sendbuf);
 			bcs->hw.tiger.sendbuf = NULL;
 		}
-		while ((skb = skb_dequeue(&bcs->rqueue))) {
-			dev_kfree_skb(skb, FREE_READ);
-		}
-		while ((skb = skb_dequeue(&bcs->squeue))) {
-			dev_kfree_skb(skb, FREE_WRITE);
-		}
+		discard_queue(&bcs->rqueue);
+		discard_queue(&bcs->squeue);
 		if (bcs->hw.tiger.tx_skb) {
 			dev_kfree_skb(bcs->hw.tiger.tx_skb, FREE_WRITE);
 			bcs->hw.tiger.tx_skb = NULL;
@@ -777,12 +864,12 @@ open_tigerstate(struct IsdnCardState *cs, int bc)
 	struct BCState *bcs = cs->bcs + bc;
 
 	if (!test_and_set_bit(BC_FLG_INIT, &bcs->Flag)) {
-		if (!(bcs->hw.tiger.rcvbuf = kmalloc(HSCX_BUFMAX, GFP_ATOMIC))) {
+		if (!(bcs->hw.tiger.rcvbuf = kmalloc(HSCX_BUFMAX, GFP_KERNEL))) {
 			printk(KERN_WARNING
 			       "HiSax: No memory for tiger.rcvbuf\n");
 			return (1);
 		}
-		if (!(bcs->hw.tiger.sendbuf = kmalloc(RAW_BUFMAX, GFP_ATOMIC))) {
+		if (!(bcs->hw.tiger.sendbuf = kmalloc(RAW_BUFMAX, GFP_KERNEL))) {
 			printk(KERN_WARNING
 			       "HiSax: No memory for tiger.sendbuf\n");
 			return (1);
@@ -798,24 +885,6 @@ open_tigerstate(struct IsdnCardState *cs, int bc)
 	return (0);
 }
 
-static void
-tiger_manl1(struct PStack *st, int pr,
-	  void *arg)
-{
-	switch (pr) {
-		case (PH_ACTIVATE_REQ):
-			test_and_set_bit(BC_FLG_ACTIV, &st->l1.bcs->Flag);
-			mode_tiger(st->l1.bcs, st->l1.mode, st->l1.bc);
-			st->l1.l1man(st, PH_ACTIVATE_CNF, NULL);
-			break;
-		case (PH_DEACTIVATE_REQ):
-			if (!test_bit(BC_FLG_BUSY, &st->l1.bcs->Flag))
-				mode_tiger(st->l1.bcs, 0, 0);
-			test_and_clear_bit(BC_FLG_ACTIV, &st->l1.bcs->Flag);
-			break;
-	}
-}
-
 int
 setstack_tiger(struct PStack *st, struct BCState *bcs)
 {
@@ -823,10 +892,8 @@ setstack_tiger(struct PStack *st, struct BCState *bcs)
 		return (-1);
 	st->l1.bcs = bcs;
 	st->l2.l2l1 = tiger_l2l1;
-	st->ma.manl1 = tiger_manl1;
 	setstack_manager(st);
 	bcs->st = st;
-	st->l1.Flags = 0;
 	return (0);
 }
 
@@ -837,7 +904,7 @@ inittiger(struct IsdnCardState *cs))
 	char tmp[128];
 
 	if (!(cs->bcs[0].hw.tiger.send = kmalloc(NETJET_DMA_SIZE * sizeof(unsigned int),
-		GFP_ATOMIC | GFP_DMA))) {
+		GFP_KERNEL | GFP_DMA))) {
 		printk(KERN_WARNING
 		       "HiSax: No memory for tiger.send\n");
 		return;
@@ -852,14 +919,14 @@ inittiger(struct IsdnCardState *cs))
 	sprintf(tmp, "tiger: send buf %x - %x", (u_int)cs->bcs[0].hw.tiger.send,
 		(u_int)(cs->bcs[0].hw.tiger.send + NETJET_DMA_SIZE - 1));
 	debugl1(cs, tmp);
-	outl((u_int)cs->bcs[0].hw.tiger.send,
+	outl(virt_to_bus(cs->bcs[0].hw.tiger.send),
 		cs->hw.njet.base + NETJET_DMA_READ_START);
-	outl((u_int)(cs->bcs[0].hw.tiger.s_irq),
+	outl(virt_to_bus(cs->bcs[0].hw.tiger.s_irq),
 		cs->hw.njet.base + NETJET_DMA_READ_IRQ);
-	outl((u_int)(cs->bcs[0].hw.tiger.s_end),
+	outl(virt_to_bus(cs->bcs[0].hw.tiger.s_end),
 		cs->hw.njet.base + NETJET_DMA_READ_END);
 	if (!(cs->bcs[0].hw.tiger.rec = kmalloc(NETJET_DMA_SIZE * sizeof(unsigned int),
-		GFP_ATOMIC | GFP_DMA))) {
+		GFP_KERNEL | GFP_DMA))) {
 		printk(KERN_WARNING
 		       "HiSax: No memory for tiger.rec\n");
 		return;
@@ -869,11 +936,11 @@ inittiger(struct IsdnCardState *cs))
 	debugl1(cs, tmp);
 	cs->bcs[1].hw.tiger.rec = cs->bcs[0].hw.tiger.rec;
 	memset(cs->bcs[0].hw.tiger.rec, 0xff, NETJET_DMA_SIZE * sizeof(unsigned int));
-	outl((u_int)cs->bcs[0].hw.tiger.rec,
+	outl(virt_to_bus(cs->bcs[0].hw.tiger.rec),
 		cs->hw.njet.base + NETJET_DMA_WRITE_START);
-	outl((u_int)(cs->bcs[0].hw.tiger.rec + NETJET_DMA_SIZE/2 - 1),
+	outl(virt_to_bus(cs->bcs[0].hw.tiger.rec + NETJET_DMA_SIZE/2 - 1),
 		cs->hw.njet.base + NETJET_DMA_WRITE_IRQ);
-	outl((u_int)(cs->bcs[0].hw.tiger.rec + NETJET_DMA_SIZE - 1),
+	outl(virt_to_bus(cs->bcs[0].hw.tiger.rec + NETJET_DMA_SIZE - 1),
 		cs->hw.njet.base + NETJET_DMA_WRITE_END);
 	sprintf(tmp, "tiger: dmacfg  %x/%x  pulse=%d",
 		inl(cs->hw.njet.base + NETJET_DMA_WRITE_ADR),
@@ -910,8 +977,9 @@ static void
 netjet_interrupt(int intno, void *dev_id, struct pt_regs *regs)
 {
 	struct IsdnCardState *cs = dev_id;
-	u_char val, sval, stat = 1;
+	u_char val, sval;
 	char tmp[128];
+	long flags;
 
 	if (!cs) {
 		printk(KERN_WARNING "NETjet: Spurious interrupt!\n");
@@ -926,10 +994,19 @@ netjet_interrupt(int intno, void *dev_id, struct pt_regs *regs)
 		}
 		if (val) {
 			isac_interrupt(cs, val);
-			stat |= 2;
+			WriteISAC(cs, ISAC_MASK, 0xFF);
+			WriteISAC(cs, ISAC_MASK, 0x0);
 		}
 	}
-	if ((cs->hw.njet.irqstat0 = bytein(cs->hw.njet.base + NETJET_IRQSTAT0))) {
+	save_flags(flags);
+	cli();
+	if ((sval = bytein(cs->hw.njet.base + NETJET_IRQSTAT0))) {
+		if (test_and_set_bit(FLG_LOCK_ATOMIC, &cs->HW_Flags)) {
+			restore_flags(flags);
+			return;
+		}
+		cs->hw.njet.irqstat0 = sval;
+		restore_flags(flags);
 /*		sprintf(tmp, "tiger: ist0 %x  %x %x  %x/%x  pulse=%d",
 			sval, 
 			bytein(cs->hw.njet.base + NETJET_DMACTRL),
@@ -939,30 +1016,24 @@ netjet_interrupt(int intno, void *dev_id, struct pt_regs *regs)
 			bytein(cs->hw.njet.base + NETJET_PULSE_CNT));
 		debugl1(cs, tmp);
 */
-		if (cs->hw.njet.last_is0 & cs->hw.njet.irqstat0 & 0xf) {
-			sprintf(tmp, "tiger: ist0 %x->%x irq lost",
-				cs->hw.njet.last_is0, cs->hw.njet.irqstat0);
-			debugl1(cs, tmp);
-		}
-		cs->hw.njet.last_is0 = cs->hw.njet.irqstat0;
 /*		cs->hw.njet.irqmask0 = ((0x0f & cs->hw.njet.irqstat0) ^ 0x0f) | 0x30;
 */		byteout(cs->hw.njet.base + NETJET_IRQSTAT0, cs->hw.njet.irqstat0);
 /*		byteout(cs->hw.njet.base + NETJET_IRQMASK0, cs->hw.njet.irqmask0);
-*/		if (cs->hw.njet.irqstat0 & 0x0c)
+*/		if (cs->hw.njet.irqstat0 & NETJET_IRQM0_READ)
 			read_tiger(cs);
-		if (cs->hw.njet.irqstat0 & 0x03)
+		if (cs->hw.njet.irqstat0 & NETJET_IRQM0_WRITE)
 			write_tiger(cs);
-	}
+		test_and_clear_bit(FLG_LOCK_ATOMIC, &cs->HW_Flags);
+	} else
+		restore_flags(flags);
+
 /*	if (!testcnt--) {
 		cs->hw.njet.dmactrl = 0;
 		byteout(cs->hw.njet.base + NETJET_DMACTRL,
 			cs->hw.njet.dmactrl);
 		byteout(cs->hw.njet.base + NETJET_IRQMASK0, 0);
 	}
-*/	if (stat & 2) {
-		WriteISAC(cs, ISAC_MASK, 0xFF);
-		WriteISAC(cs, ISAC_MASK, 0x0);
-	}
+*/
 }
 
 static void
@@ -1012,14 +1083,13 @@ NETjet_card_msg(struct IsdnCardState *cs, int mt, void *arg)
 			return(0);
 		case CARD_SETIRQ:
 			return(request_irq(cs->irq, &netjet_interrupt,
-					I4L_IRQ_FLAG, "HiSax", cs));
+					I4L_IRQ_FLAG | SA_SHIRQ, "HiSax", cs));
 		case CARD_INIT:
 			inittiger(cs);
 			clear_pending_isac_ints(cs);
 			initisac(cs);
+			/* Reenable all IRQ */
 			cs->writeisac(cs, ISAC_MASK, 0);
-			/* RESET Receiver and Transmitter */
-			cs->writeisac(cs, ISAC_CMDR, 0x41);
 			return(0);
 		case CARD_TEST:
 			return(0);

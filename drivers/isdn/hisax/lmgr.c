@@ -6,6 +6,9 @@
  *  Layermanagement module
  *
  * $Log$
+ * Revision 1.1.2.3  1998/03/07 23:15:37  tsbogend
+ * made HiSax working on Linux/Alpha
+ *
  * Revision 1.1.2.2  1997/11/15 18:54:19  keil
  * cosmetics
  *
@@ -29,7 +32,7 @@ error_handling_dchan(struct PStack *st, int Error)
 		case 'D':
 		case 'G':
 		case 'H':
-			st->l2.l2tei(st, MDL_ERROR_REQ, NULL);
+			st->l2.l2tei(st, MDL_ERROR | REQUEST, NULL);
 			break;
 	}
 }
@@ -41,7 +44,7 @@ hisax_manager(struct PStack *st, int pr, void *arg)
 	long Code;
 
 	switch (pr) {
-		case MDL_ERROR_IND:
+		case (MDL_ERROR | INDICATION):
 			Code = (long) arg;
 			jiftime(tm, jiffies);
 			sprintf(str, "%s manager: MDL_ERROR %c %s\n", tm,
