@@ -11,6 +11,7 @@
 // driver written by Karsten Keil et al.  Thanks also for the 
 // code provided by Ragnar Paulson.
 //
+//
 // This file is (c) under GNU PUBLIC LICENSE
 //
 //-----------------------------------------------------------------------------
@@ -29,7 +30,7 @@
 #define T313	4000
 #define T318	4000
 #define T319	4000
-#define TSPID	2000
+#define TSPID	5000 /* was 2000 - Guy Ellis */
 
 /*
  * Message-Types
