@@ -21,6 +21,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.89  1999/10/16 14:46:47  keil
+ * replace kmalloc with vmalloc for the big dev struct
+ *
  * Revision 1.88  1999/10/02 00:39:26  he
  * Fixed a 2.3.x wait queue initialization (was causing panics)
  *
@@ -2101,7 +2104,11 @@ isdn_get_free_channel(int usage, int l2_proto, int l3_proto, int pre_dev
 						restore_flags(flags);
 						return i;
 					} else {
+#ifdef CONFIG_ISDN_WITH_ABC
+						if ((pre_dev == d) && ((pre_chan == dev->chanmap[i]) || pre_chan > 1000)) {
+#else
 						if ((pre_dev == d) && (pre_chan == dev->chanmap[i])) {
+#endif
 							dev->usage[i] &= ISDN_USAGE_EXCLUSIVE;
 							dev->usage[i] |= usage;
 							isdn_info_update();

@@ -21,6 +21,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.16  1999/07/01 08:29:54  keil
+ * compatibility to 2.3 kernel
+ *
  * Revision 1.15  1999/04/18 14:06:50  fritz
  * Removed TIMRU stuff.
  *
@@ -103,6 +106,9 @@
 #undef  ISDN_DEBUG_NET_DIAL
 #undef  ISDN_DEBUG_NET_ICALL
 
+#ifdef CONFIG_ISDN_WITH_ABC
+int isdn_net_force_dial_lp(isdn_net_local *);
+#endif
 /* Prototypes */
 extern void isdn_MOD_INC_USE_COUNT(void);
 extern void isdn_MOD_DEC_USE_COUNT(void);

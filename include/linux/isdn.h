@@ -21,6 +21,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.80  1999/10/26 21:09:29  armin
+ * New bufferlen for phonenumber only with kernel 2.3.x
+ *
  * Revision 1.79  1999/10/16 17:52:38  keil
  * Changing the MSN length need new data versions
  *
@@ -321,16 +324,21 @@
 #undef CONFIG_ISDN_WITH_ABC_LCR_SUPPORT
 #undef CONFIG_ISDN_WITH_ABC_IPV4_TCP_KEEPALIVE
 #undef CONFIG_ISDN_WITH_ABC_IPV4_DYNADDR
+#undef CONFIG_ISDN_WITH_ABC_RCV_NO_HUPTIMER
+#undef CONFIG_ISDN_WITH_ABC_ICALL_BIND
 #else
 #include <linux/isdn_dwabc.h>
+
 #define ISDN_DW_ABC_FLAG_NO_TCP_KEEPALIVE	0x00000001L
 #define ISDN_DW_ABC_FLAG_NO_UDP_CHECK		0x00000002L
 #define ISDN_DW_ABC_FLAG_NO_UDP_HANGUP		0x00000004L
 #define ISDN_DW_ABC_FLAG_NO_UDP_DIAL		0x00000008L
 #define ISDN_DW_ABC_FLAG_DYNADDR			0x00000010L
+#define ISDN_DW_ABC_FLAG_RCV_NO_HUPTIMER	0x00000020L
 
 extern void isdn_dw_abc_init_func(void);
 extern void isdn_dw_abc_release_func(void);
+
 #endif
 
 
@@ -971,6 +979,7 @@ extern isdn_dev *dev;
 
 #ifdef CONFIG_ISDN_WITH_ABC
 extern void	isdn_net_unreachable(struct net_device *,struct sk_buff *,char *);
+extern void isdn_net_log_skb_dwabc(struct sk_buff *,isdn_net_local *,char *);
 extern void isdn_net_hangup(struct net_device *d);
 extern void isdn_dw_clear_if(ulong pm,isdn_net_local *);
 extern void	isdn_dwabc_test_phone(isdn_net_local *);
@@ -989,6 +998,10 @@ extern int dw_abc_udp_test(struct sk_buff *skb,struct net_device *ndev);
 #endif
 #if CONFIG_ISDN_WITH_ABC_IPV4_TCP_KEEPALIVE || CONFIG_ISDN_WITH_ABC_IPV4_DYNADDR
 int isdn_dw_abc_ip4_keepalive_test(struct net_device *ndev,struct sk_buff *skb);
+#endif
+#ifdef CONFIG_ISDN_WITH_ABC_ICALL_BIND 
+extern int isdn_dwabc_check_icall_bind(isdn_net_local *,int,int);
+extern int dwabc_isdn_get_net_free_channel(isdn_net_local *);
 #endif
 #endif
 

@@ -87,6 +87,8 @@ if [ "$CONFIG_EXPERIMENTAL" != "n" ]; then
 		bool 'Enable LCR-Support (need isdnlog)'    				CONFIG_ISDN_WITH_ABC_LCR_SUPPORT
 		bool 'TCP keepalive detect and response (ip4 only)'			CONFIG_ISDN_WITH_ABC_IPV4_TCP_KEEPALIVE
 		bool 'Drop frames s_addr != iface_addr  (ip4 only)'			CONFIG_ISDN_WITH_ABC_IPV4_DYNADDR
+		bool 'RX dont reset hanguptimeout'							CONFIG_ISDN_WITH_ABC_RCV_NO_HUPTIMER
+		bool 'Support (device-channel)<->(bind-groups)'				CONFIG_ISDN_WITH_ABC_ICALL_BIND 
 
 		bool 'Enable UDP-Info-Support' 								CONFIG_ISDN_WITH_ABC_UDP_CHECK
 

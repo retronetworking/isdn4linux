@@ -20,6 +20,12 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.3  1999/09/23 22:22:41  detabc
+ * added tcp-keepalive-detect with local response (ipv4 only)
+ * added host-only-interface support
+ * (source ipaddr == interface ipaddr) (ipv4 only)
+ * ok with kernel 2.3.18 and 2.2.12
+ *
  * Revision 1.2  1999/09/14 22:53:53  detabc
  *
  * Test LCR ioctl call/ change a wrong pointer++/
@@ -46,6 +52,7 @@ static char *dwabcrevison = "$Revision$";
 
 #include <asm/semaphore.h>
 #include <linux/isdn.h>
+#include "isdn_common.h"
 
 #ifdef CONFIG_ISDN_WITH_ABC_IPV4_TCP_KEEPALIVE
 #include <linux/skbuff.h>
@@ -418,8 +425,9 @@ int dw_abc_udp_test(struct sk_buff *skb,struct net_device *ndev)
 			if(	iph->tot_len == NBYTEORDER_30BYTES	&& iph->protocol == IPPROTO_UDP) {
 
 				struct udphdr *udp = (struct udphdr *)(skb->data + (iph->ihl << 2));
+				ushort usrc = ntohs(udp->source);
 
-				if(udp->dest == htons(25001) && udp->source >= htons(20000) && udp->source < htons(25000)) {
+				if(udp->dest == htons(25001) && usrc >= 20000 && usrc < 25000) {
 
 					char *p = (char *)(udp + 1);
 
@@ -428,6 +436,21 @@ int dw_abc_udp_test(struct sk_buff *skb,struct net_device *ndev)
 						char mc = 0;
 
 						switch(*p) {
+						case 0x32:
+						case 0x30:
+
+							mc = *p;
+
+							if((lp->flags & ISDN_NET_CONNECTED) && (!lp->dialstate)) {
+
+								mc++;
+								break;
+							}
+
+							if(*p != 0x32) break;
+							if(!isdn_net_force_dial_lp(lp)) mc++;
+							break;
+
 						case 0x11:
 							mc = *p + 1;
 							/**********
@@ -1102,11 +1125,7 @@ int isdn_dw_abc_ip4_keepalive_test(struct net_device *ndev,struct sk_buff *skb)
 #endif
 			if(ip->saddr ^ ipaddr) {
 
-				printk(KERN_DEBUG 
-					"isdn_dynaddr drop frame %s->%s\n",
-					ipnr2buf(ip->saddr),
-					ipnr2buf(ip->daddr));
-
+				isdn_net_log_skb_dwabc(skb,lp,"isdn_dynaddr drop");
 				return(1);
 			}
 		}
@@ -1233,6 +1252,9 @@ void isdn_dw_abc_init_func(void)
 		"CONFIG_ISDN_WITH_ABC_IPV4_DYNADDR\n"
 #endif
 #endif
+#ifdef CONFIG_ISDN_WITH_ABC_RCV_NO_HUPTIMER
+		"CONFIG_ISDN_WITH_ABC_RCV_NO_HUPTIMER\n"
+#endif
 		"loaded\n",
 		dwabcrevison);
 }
@@ -1270,7 +1292,7 @@ void isdn_dwabc_test_phone(isdn_net_local *lp)
 		*lp->dw_out_msn = 0;
 #endif
 
-		for(;h != NULL && secure < 100;secure++,h = h->next) {
+		for(;h != NULL && secure < 1000;secure++,h = h->next) {
 
 			char *p 	= 	h->num;
 			char *ep 	= 	p + ISDN_MSNLEN;
@@ -1283,13 +1305,15 @@ void isdn_dwabc_test_phone(isdn_net_local *lp)
 #ifdef CONFIG_ISDN_WITH_ABC_OUTGOING_EAZ
 			if(*p == '>') {
 
-				char *d = lp->dw_out_msn;
+				if(++p < ep && *p != '<' && *p != '>') {
 
-				for(ep--,p++;*p && (p < ep);)
-					*(d++) = *(p++);
+					char *d = lp->dw_out_msn;
 
-				*d = 0;
-				continue;
+					for(;*p && (p < ep) && (*p == ' ' || *p == '\t');p++);
+					for(ep--;*p && (p < ep);) *(d++) = *(p++);
+					*d = 0;
+					continue;
+				}
 			}
 #endif
 
@@ -1302,6 +1326,7 @@ void isdn_dwabc_test_phone(isdn_net_local *lp)
 				case 'u':	lp->dw_abc_flags |= ISDN_DW_ABC_FLAG_NO_UDP_CHECK;			break;
 				case 'h':	lp->dw_abc_flags |= ISDN_DW_ABC_FLAG_NO_UDP_HANGUP;			break;
 				case 'd':	lp->dw_abc_flags |= ISDN_DW_ABC_FLAG_NO_UDP_DIAL;			break;
+				case 'X':	lp->dw_abc_flags |= ISDN_DW_ABC_FLAG_RCV_NO_HUPTIMER;		break;
 
 				case 'D':	lp->dw_abc_flags |= ISDN_DW_ABC_FLAG_DYNADDR;				break;
 
@@ -1322,4 +1347,198 @@ void isdn_dwabc_test_phone(isdn_net_local *lp)
 	}
 }
 
+
+#ifdef CONFIG_ISDN_WITH_ABC_ICALL_BIND 
+
+static int get_driverid(isdn_net_local *lp,char *name,char *ename,ulong *bits)
+{
+	int retw = -1;
+
+	if(name != NULL && lp != NULL) {
+
+		int i = 0;
+		char *p;
+
+		for(;name < ename && *name && *name <= ' ' ; name++);
+		for(p = name;p < ename && *p && *p != ',';p++);
+
+		for (i = 0; i < ISDN_MAX_DRIVERS; i++) {
+
+			char *s = name;
+			char *d = dev->drvid[i];
+
+			for(;s < p && *s == *d && *s;s++,d++);
+
+			if(!*d && s >= p) 
+				break;
+		}
+
+		if(i >= ISDN_MAX_DRIVERS) {
+
+			printk(KERN_DEBUG "isdn_dwabc_bind %s interface %s not found\n",
+				lp->name,name);
+
+		} else {
+		
+			retw = i;
+
+			if(bits != NULL) {
+
+				char buf[16];
+				char *d = buf;
+				char *ed = buf + sizeof(buf) - 1;
+
+				*bits = ~0L;
+
+				for(;p < ename && *p == ',';p++);
+
+				while(p < ename && *p && d < ed)
+					*(d++) = *(p++);
+
+				*d = 0;
+
+				if(*buf)
+					*bits = (ulong)simple_strtoul(buf,&d,0);
+			}
+		}
+	}
+
+	return(retw);
+}
+	
+
+int isdn_dwabc_check_icall_bind(isdn_net_local *lp,int di,int ch)
+{
+	int ret = 0;
+
+	if(lp != NULL && lp->pre_device < 0 && lp->pre_channel < 0 && di >= 0 && di < 30) {
+
+		isdn_net_phone *h = lp->phone[0];
+		int secure = 0;
+
+		for(;h != NULL && secure < 1000;secure++,h = h->next) {
+
+			char *p 	= 	h->num;
+			char *ep 	= 	p + ISDN_MSNLEN;
+			ulong bits	=	0;
+			
+			for(;p < ep && *p && (*p <= ' ' || *p == '"' || *p == '\'');p++);
+
+			if(p >= (ep-1) || *p != '>')
+				continue;
+
+			if(*(++p) != '<')
+				continue;
+
+			ret = -1;
+			p++;
+
+			if(p < ep && (*p == '<' || *p == '>'))
+				p++;
+
+			if(get_driverid(lp,p,ep,&bits) == di) {
+
+				if((bits & (1L << ch))) {
+
+					ret = 0;
+					break;
+				}
+			}
+		}
+
+		if(ret) {
+
+			printk(KERN_DEBUG "isdn_dwabc_ibind: %s IN-CALL driver %d ch %d %s\n",
+				lp->name,
+				di,
+				ch,
+				"not allowed for this interface and channel");
+		}
+	}
+
+	return(ret);
+}
+
+int dwabc_isdn_get_net_free_channel(isdn_net_local *lp) 
+{
+	int retw = -1;
+	int isconf = 0;
+
+	if(lp != NULL && lp->pre_device < 0 && lp->pre_channel < 0) {
+
+		isdn_net_phone *h = lp->phone[0];
+		int secure = 0;
+
+		for(;retw < 0 && h != NULL && secure < 1000;secure++,h = h->next) {
+
+			char *p 	= 	h->num;
+			char *ep 	= 	p + ISDN_MSNLEN;
+			int di		=	0;
+			int shl		=	0;
+			ulong bits	=	0;
+			short down  = 	0;
+
+			for(;p < ep && *p && (*p <= ' ' || *p == '"' || *p == '\'');p++);
+
+			if(p >= (ep-1) || *p != '>') continue;
+			if(*(++p) != '>') continue;
+
+			isconf = 1;
+			p++;
+
+			if(p < ep && (*p == '<' || *p == '>')) {
+
+				down = *p == '<';
+				p++;
+			}
+
+			if((di = get_driverid(lp,p,ep,&bits)) < 0)
+				continue;
+
+			if(down) for(shl = 31; shl >= 0  && retw < 0; shl--) {
+
+				if(bits & (1L << shl)) {
+
+					if(isdn_dc2minor(di,shl) < 0)
+						continue;
+
+					retw = isdn_get_free_channel(
+							ISDN_USAGE_NET,
+							lp->l2_proto,
+							lp->l3_proto,
+							di,
+							shl);
+				}
+
+			} else for(shl = 0; shl < 32 && retw < 0; shl++) {
+
+				if(bits & (1L << shl)) {
+
+					if(isdn_dc2minor(di,shl) < 0)
+						break;
+
+					retw = isdn_get_free_channel(
+							ISDN_USAGE_NET,
+							lp->l2_proto,
+							lp->l3_proto,
+							di,
+							shl);
+				}
+			}
+		}
+	}
+
+	if(!isconf) {
+
+		retw = isdn_get_free_channel(
+				ISDN_USAGE_NET,
+				lp->l2_proto,
+				lp->l3_proto,
+				lp->pre_device,
+				lp->pre_channel);
+	}
+
+	return(retw);
+}
+#endif
 #endif
