@@ -6,6 +6,9 @@
  * (c) Copyright 1997 by Carsten Paeth (calle@calle.in-berlin.de)
  * 
  * $Log$
+ * Revision 1.5  1998/01/31 11:14:41  calle
+ * merged changes to 2.0 tree, prepare 2.1.82 to work.
+ *
  * Revision 1.4  1997/12/10 20:00:48  calle
  * get changes from 2.0 version
  *
@@ -606,7 +609,7 @@ void B1_send_message(unsigned short port, struct sk_buff *skb)
 		B1_put_slice(port, skb->data, len);
 		restore_flags(flags);
 	}
-	dev_kfree_skb(skb, FREE_WRITE);
+	dev_kfree_skb(skb);
 }
 
 /*

@@ -6,6 +6,9 @@
  * (c) Copyright 1997 by Carsten Paeth (calle@calle.in-berlin.de)
  * 
  * $Log$
+ * Revision 1.9  1998/01/31 11:14:39  calle
+ * merged changes to 2.0 tree, prepare 2.1.82 to work.
+ *
  * Revision 1.8  1997/12/10 20:00:46  calle
  * get changes from 2.0 version
  *
@@ -327,13 +330,13 @@ static void recv_handler(void *dummy)
 		if (!VALID_APPLID(appl)) {
 			printk(KERN_ERR "b1capi: recv_handler: applid %d ? (%s)\n",
 			       appl, capi_message2str(skb->data));
-			kfree_skb(skb, FREE_READ);
+			kfree_skb(skb);
 			continue;
 		}
 		if (APPL(appl)->signal == 0) {
 			printk(KERN_ERR "b1capi: recv_handler: applid %d has no signal function\n",
 			       appl);
-			kfree_skb(skb, FREE_READ);
+			kfree_skb(skb);
 			continue;
 		}
 		if (   CAPIMSG_COMMAND(skb->data) == CAPI_DATA_B3
@@ -363,7 +366,7 @@ void avmb1_handle_capimsg(avmb1_card * card, __u16 appl, struct sk_buff *skb)
 	return;
 
       error:
-	kfree_skb(skb, FREE_READ);
+	kfree_skb(skb);
 }
 
 void avmb1_interrupt(int interrupt, void *devptr, struct pt_regs *regs)
@@ -704,7 +707,7 @@ static __u16 capi_release(__u16 applid)
 	if (!VALID_APPLID(applid) || APPL(applid)->releasing)
 		return CAPI_ILLAPPNR;
 	while ((skb = skb_dequeue(&APPL(applid)->recv_queue)) != 0)
-		kfree_skb(skb, FREE_READ);
+		kfree_skb(skb);
 	for (i = 0; i < CAPI_MAXCONTR; i++) {
 		if (cards[i].cardstate != CARD_RUNNING) {
 			continue;

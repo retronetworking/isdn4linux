@@ -6,6 +6,9 @@
  * Copyright 1996 by Carsten Paeth (calle@calle.in-berlin.de)
  *
  * $Log$
+ * Revision 1.9  1998/01/31 11:14:44  calle
+ * merged changes to 2.0 tree, prepare 2.1.82 to work.
+ *
  * Revision 1.8  1997/11/04 06:12:08  calle
  * capi.c: new read/write in file_ops since 2.1.60
  * capidrv.c: prepared isdnlog interface for d2-trace in newer firmware.
@@ -161,7 +164,7 @@ static ssize_t capi_read(struct file *file, char *buf,
 	copied = skb->len;
 
 
-	kfree_skb(skb, FREE_READ);
+	kfree_skb(skb);
 
 	return copied;
 }
@@ -189,7 +192,7 @@ static ssize_t capi_write(struct file *file, const char *buf,
 	skb = alloc_skb(count, GFP_USER);
 
 	if ((retval = copy_from_user(skb_put(skb, count), buf, count))) {
-		dev_kfree_skb(skb, FREE_WRITE);
+		dev_kfree_skb(skb);
 		return retval;
 	}
 	cmd = CAPIMSG_COMMAND(skb->data);
@@ -198,11 +201,11 @@ static ssize_t capi_write(struct file *file, const char *buf,
 	if (cmd == CAPI_DATA_B3 && subcmd == CAPI_REQ) {
 		__u16 dlen = CAPIMSG_DATALEN(skb->data);
 		if (mlen + dlen != count) {
-			dev_kfree_skb(skb, FREE_WRITE);
+			dev_kfree_skb(skb);
 			return -EINVAL;
 		}
 	} else if (mlen != count) {
-		dev_kfree_skb(skb, FREE_WRITE);
+		dev_kfree_skb(skb);
 		return -EINVAL;
 	}
 	CAPIMSG_SETAPPID(skb->data, cdev->applid);
@@ -210,7 +213,7 @@ static ssize_t capi_write(struct file *file, const char *buf,
 	cdev->errcode = (*capifuncs->capi_put_message) (cdev->applid, skb);
 
 	if (cdev->errcode) {
-		dev_kfree_skb(skb, FREE_WRITE);
+		dev_kfree_skb(skb);
 		return -EIO;
 	}
 	return count;
@@ -440,7 +443,7 @@ capi_release(struct inode *inode, struct file *file)
 		cdev->applid = 0;
 
 		while ((skb = skb_dequeue(&cdev->recv_queue)) != 0)
-			kfree_skb(skb, FREE_READ);
+			kfree_skb(skb);
 	}
 	cdev->is_open = 0;
 

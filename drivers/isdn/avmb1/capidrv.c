@@ -6,6 +6,9 @@
  * Copyright 1997 by Carsten Paeth (calle@calle.in-berlin.de)
  *
  * $Log$
+ * Revision 1.10  1998/02/02 19:52:23  calle
+ * Fixed vbox (audio) acceptb.
+ *
  * Revision 1.9  1998/01/31 11:14:45  calle
  * merged changes to 2.0 tree, prepare 2.1.82 to work.
  *
@@ -1290,7 +1293,7 @@ static void handle_data(_cmsg * cmsg, struct sk_buff *skb)
 		printk(KERN_ERR "capidrv: %s: ncci 0x%x not found\n",
 		       capi_cmd2str(cmsg->Command, cmsg->Subcommand),
 		       cmsg->adr.adrNCCI);
-		kfree_skb(skb, FREE_READ);
+		kfree_skb(skb);
 		return;
 	}
 	(void) skb_pull(skb, CAPIMSG_LEN(skb->data));
@@ -1315,7 +1318,7 @@ static void capidrv_signal(__u16 applid, __u32 dummy)
 			handle_data(&s_cmsg, skb);
 			continue;
 		}
-		kfree_skb(skb, FREE_READ);
+		kfree_skb(skb);
 		if ((s_cmsg.adr.adrController & 0xffffff00) == 0)
 			handle_controller(&s_cmsg);
 		else if ((s_cmsg.adr.adrPLCI & 0xffff0000) == 0)
@@ -1697,12 +1700,12 @@ static int if_sendbuf(int id, int channel, int doack, struct sk_buff *skb)
 		memcpy(skb_put(nskb, skb->len), skb->data, skb->len);
 		errcode = (*capifuncs->capi_put_message) (global.appid, nskb);
 		if (errcode == CAPI_NOERROR) {
-			dev_kfree_skb(skb, FREE_WRITE);
+			dev_kfree_skb(skb);
 			nccip->datahandle++;
 			return len;
 		}
 	        (void)capidrv_del_ack(nccip, datahandle);
-	        dev_kfree_skb(nskb, FREE_WRITE);
+	        dev_kfree_skb(nskb);
 		return errcode == CAPI_SENDQUEUEFULL ? 0 : -1;
 	} else {
 		memcpy(skb_push(skb, msglen), sendcmsg.buf, msglen);
