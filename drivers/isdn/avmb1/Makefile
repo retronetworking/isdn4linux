@@ -11,6 +11,14 @@
 # parent makes..
 #
 # $Log$
+# Revision 1.10  2000/03/03 16:48:38  calle
+# - Added CAPI2.0 Middleware support (CONFIG_ISDN_CAPI)
+#   It is now possible to create a connection with a CAPI2.0 applikation
+#   and than to handle the data connection from /dev/capi/ (capifs) and also
+#   using async or sync PPP on this connection.
+#   The two major device number 190 and 191 are not confirmed yet,
+#   but I want to save the code in cvs, before I go on.
+#
 # Revision 1.9  2000/03/03 15:50:42  calle
 # - kernel CAPI:
 #   - Changed parameter "param" in capi_signal from __u32 to void *.
@@ -98,7 +106,7 @@ ifeq ($(CONFIG_ISDN_CAPI),y)
   OX_OBJS  += kcapi.o
   O_OBJS   += capi.o
   ifdef CONFIG_ISDN_CAPI_MIDDLEWARE
-  	O_OBJS   += capifs.o
+  	OX_OBJS   += capifs.o
   endif
   ifdef CONFIG_ISDN_DRV_AVMB1_B1ISA
   	O_OBJS   += b1isa.o
@@ -110,7 +118,7 @@ ifeq ($(CONFIG_ISDN_CAPI),y)
   	O_OBJS   += t1isa.o
   endif
   ifdef CONFIG_ISDN_DRV_AVMB1_B1PCMCIA
-  	OX_OBJS   += b1pcmcia.o
+  	O_OBJS   += b1pcmcia.o
   endif
   ifdef CONFIG_ISDN_DRV_AVMB1_T1PCI
   	O_OBJS   += t1pci.o
@@ -125,7 +133,7 @@ else
   	OX_OBJS  += kcapi.o
   	M_OBJS   += capi.o kernelcapi.o
   	ifdef CONFIG_ISDN_CAPI_MIDDLEWARE
-  		M_OBJS   += capifs.o
+  		MX_OBJS   += capifs.o
   	endif
   	ifdef CONFIG_ISDN_DRV_AVMB1_B1ISA
   		M_OBJS   += b1isa.o
@@ -137,7 +145,7 @@ else
   		M_OBJS   += t1isa.o
   	endif
   	ifdef CONFIG_ISDN_DRV_AVMB1_B1PCMCIA
-  		MX_OBJS  += b1pcmcia.o
+  		M_OBJS  += b1pcmcia.o
   	endif
   	ifdef CONFIG_ISDN_DRV_AVMB1_T1PCI
   		M_OBJS   += t1pci.o

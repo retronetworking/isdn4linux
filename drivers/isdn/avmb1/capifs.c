@@ -6,6 +6,14 @@
  * Heavily based on devpts filesystem from H. Peter Anvin
  * 
  * $Log$
+ * Revision 1.1  2000/03/03 16:48:38  calle
+ * - Added CAPI2.0 Middleware support (CONFIG_ISDN_CAPI)
+ *   It is now possible to create a connection with a CAPI2.0 applikation
+ *   and than to handle the data connection from /dev/capi/ (capifs) and also
+ *   using async or sync PPP on this connection.
+ *   The two major device number 190 and 191 are not confirmed yet,
+ *   but I want to save the code in cvs, before I go on.
+ *
  *
  */
 
@@ -69,16 +77,15 @@ static struct dentry *capifs_root_lookup(struct inode *,struct dentry *);
 static int capifs_revalidate(struct dentry *, int);
 
 static struct file_operations capifs_root_operations = {
-	NULL,                   /* llseek */
-	NULL,                   /* read */
-	NULL,                   /* write */
-	capifs_root_readdir,    /* readdir */
+	read:		generic_read_dir,
+	readdir:	capifs_root_readdir,
 };
 
 struct inode_operations capifs_root_inode_operations = {
+#ifndef COMPAT_has_fileops_in_inode
 	&capifs_root_operations, /* file operations */
-	NULL,                   /* create */
-	capifs_root_lookup,     /* lookup */
+#endif
+	lookup: capifs_root_lookup,
 };
 
 static struct dentry_operations capifs_dentry_operations = {
@@ -230,16 +237,10 @@ static void capifs_read_inode(struct inode *inode);
 static void capifs_write_inode(struct inode *inode);
 
 static struct super_operations capifs_sops = {
-	capifs_read_inode,
-	capifs_write_inode,
-	NULL,			/* put_inode */
-	NULL,			/* delete_inode */
-	NULL,			/* notify_change */
-	capifs_put_super,
-	NULL,			/* write_super */
-	capifs_statfs,
-	NULL,			/* remount_fs */
-	NULL,			/* clear_inode */
+	read_inode:	capifs_read_inode,
+	write_inode:	capifs_write_inode,
+	put_super:	capifs_put_super,
+	statfs:		capifs_statfs,
 };
 
 static int capifs_parse_options(char *options, struct capifs_sb_info *sbi)
@@ -446,6 +447,9 @@ static void capifs_read_inode(struct inode *inode)
 	if ( ino == 1 ) {
 		inode->i_mode = S_IFDIR | S_IRUGO | S_IXUGO | S_IWUSR;
 		inode->i_op = &capifs_root_inode_operations;
+#ifdef COMPAT_has_fileops_in_inode
+		inode->i_fop = &capifs_root_operations;
+#endif
 		inode->i_nlink = 2;
 		return;
 	} 
