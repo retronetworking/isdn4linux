@@ -27,6 +27,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.37  1998/02/22 19:45:24  fritz
+ * Some changes regarding V.110
+ *
  * Revision 1.36  1998/02/20 17:35:55  fritz
  * Added V.110 stuff.
  *
@@ -206,6 +209,11 @@
 #define IIOCNETDIL  _IO('I',20)
 #define IIOCGETCPS  _IO('I',21)
 #define IIOCGETDVR  _IO('I',22)
+#define IIOCNETARU  _IO('I',23)
+#define IIOCNETDRU  _IO('I',24)
+#define IIOCNETGRU  _IO('I',25)
+
+#define IIOCNETBUD  _IO('I',26)
 
 #define IIOCNETALN  _IO('I',32)
 #define IIOCNETDLN  _IO('I',33)
@@ -281,6 +289,9 @@ typedef struct {
   int  pppbind;      /* ippp device for bindings              */
   int  chargeint;    /* Use fixed charge interval length      */
   int  triggercps;   /* BogoCPS needed for triggering slave   */
+  int  dialtimeout;  /* Dial-Timeout                          */
+  int  dialwait;     /* Time to wait after failed dial        */
+  int  stopped;      /* Flag: Stopped                         */
 } isdn_net_ioctl_cfg;
 
 #ifdef __KERNEL__
@@ -397,6 +408,9 @@ typedef struct {
 #define ISDN_NET_TMP        0x10       /* tmp interface until getting an IP */
 #define ISDN_NET_DYNAMIC    0x20       /* this link is dynamically allocated */
 #endif
+
+#define ISDN_NET_STOPPED    0x40       /* this interface is stopped         */
+
 #define ISDN_NET_MAGIC      0x49344C02 /* for paranoia-checking             */
 
 /* Phone-list-element */
@@ -404,6 +418,28 @@ typedef struct {
   void *next;
   char num[ISDN_MSNLEN];
 } isdn_net_phone;
+
+#ifdef CONFIG_ISDN_TIMEOUT_RULES
+#include <linux/isdn_timru.h>
+
+struct isdn_timeout_rules {
+	isdn_timeout_rule	*timru[ISDN_TIMRU_NUM_CHECK][ISDN_TIMRU_NUM_PROTFAM];
+	int			defaults[ISDN_TIMRU_NUM_CHECK];
+};
+#endif
+
+#ifdef CONFIG_ISDN_BUDGET
+#include <linux/isdn_budget.h>
+
+typedef struct {
+	int		amount,			/* usable amount */
+			used,			/* used so far */
+			period,			/* length of period */
+			notified;		/* flag: notified user about low budget */
+	time_t	period_started,	/* when did the current period start? */
+			last_check;		/* last time checked */
+}	isdn_budget;
+#endif
 
 /*
    Principles when extending structures for generic encapsulation protocol
@@ -487,6 +523,17 @@ typedef struct isdn_net_local_s {
 				    struct device *,
                                     unsigned char *);
   int  pppbind;                        /* ippp device for bindings         */
+  int					dialtimeout;	/* How long shall we try on dialing? (jiffies) */
+  int					dialwait;		/* How long shall we wait after failed attempt? (jiffies) */
+  ulong					dialstarted;	/* jiffies of first dialing-attempt */
+  ulong					dialwait_timer;	/* jiffies of earliest next dialing-attempt */
+  int					huptimeout;		/* How long will the connection be up? (seconds) */
+#ifdef CONFIG_ISDN_TIMEOUT_RULES
+  struct isdn_timeout_rules	*timeout_rules;
+#endif
+#ifdef CONFIG_ISDN_BUDGET
+  isdn_budget	budget [ISDN_BUDGET_NUM_BUDGET];
+#endif
 #ifdef CONFIG_ISDN_X25
   struct concap_device_ops *dops;      /* callbacks used by encapsulator   */
 #endif

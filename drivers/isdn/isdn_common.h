@@ -21,6 +21,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.9  1998/02/20 17:19:01  fritz
+ * Added common stub for sending commands to lowlevel.
+ *
  * Revision 1.8  1997/10/09 21:28:49  fritz
  * New HL<->LL interface:
  *   New BSENT callback with nr. of bytes included.
@@ -87,6 +90,6 @@ extern int isdn_readbchan(int, int, u_char *, u_char *, int, int);
 extern int isdn_get_free_channel(int, int, int, int, int);
 extern int isdn_writebuf_skb_stub(int, int, int, struct sk_buff *);
 extern int register_isdn(isdn_if * i);
-#if defined(ISDN_DEBUG_NET_DUMP) || defined(ISDN_DEBUG_MODEM_DUMP)
+#if defined(ISDN_DEBUG_NET_DUMP) || defined(ISDN_DEBUG_MODEM_DUMP) || defined(CONFIG_ISDN_TIMEOUT_RULES)
 extern void isdn_dumppkt(char *, u_char *, int, int);
 #endif
