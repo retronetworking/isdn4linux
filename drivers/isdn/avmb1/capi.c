@@ -6,6 +6,9 @@
  * Copyright 1996 by Carsten Paeth (calle@calle.in-berlin.de)
  *
  * $Log$
+ * Revision 1.52  2001/03/15 21:16:22  kai
+ * more small fixes...
+ *
  * Revision 1.51  2001/03/15 15:48:04  kai
  * compatibility changes from KERNEL_2_4
  *
@@ -1079,6 +1082,8 @@ capi_write(struct file *file, const char *buf, size_t count, loff_t *ppos)
 		return -ENODEV;
 
 	skb = alloc_skb(count, GFP_USER);
+	if (!skb)
+		return -ENOMEM;
 
 	if ((retval = copy_from_user(skb_put(skb, count), buf, count))) {
 		kfree_skb(skb);
@@ -1498,6 +1503,8 @@ capinc_raw_write(struct file *file, const char *buf, size_t count, loff_t *ppos)
 		return -EINVAL;
 
 	skb = alloc_skb(CAPI_DATA_B3_REQ_LEN+count, GFP_USER);
+	if (!skb)
+		return -ENOMEM;
 
 	skb_reserve(skb, CAPI_DATA_B3_REQ_LEN);
 	if ((retval = copy_from_user(skb_put(skb, count), buf, count))) {
