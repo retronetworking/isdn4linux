@@ -473,7 +473,11 @@ static int bsd_compress (void *state, struct sk_buff *skb_in, struct sk_buff *sk
 	int hval,disp,ilen,mxcode;
 	unsigned char *rptr = skb_in->data;
 	int isize = skb_in->len;
+#ifdef CONFIG_ISDN_WITH_ABC
+	long secure = 0;
+#endif
 
+#ifndef CONFIG_ISDN_WITH_ABC
 #define OUTPUT(ent)			\
   {					\
     bitno -= n_bits;			\
@@ -483,19 +487,47 @@ static int bsd_compress (void *state, struct sk_buff *skb_in, struct sk_buff *sk
       		*(skb_put(skb_out,1)) = (unsigned char) (accm>>24); \
 	accm <<= 8;			\
 	bitno += 8;			\
-    } while (bitno <= 24);		\
+	} while (bitno <= 24);		\
   }
+#else
+#define OUTPUT(ent)			\
+  {					\
+  	secure = 0;					\
+    bitno -= n_bits;			\
+    accm |= ((ent) << bitno);		\
+    do	{				\
+        if(skb_out && skb_tailroom(skb_out) > 0) 	\
+      		*(skb_put(skb_out,1)) = (unsigned char) (accm>>24); \
+	accm <<= 8;			\
+	bitno += 8;			\
+	} while (bitno <= 24 && ++secure < 10000);		\
+	if(secure >= 10000) {							\
+		printk(KERN_DEBUG "BSD in OUTPUT secure counter reached\n");	\
+		return 0;									\
+	}												\
+  }
+#endif
 
 	/*
 	 * If the protocol is not in the range we're interested in,
 	 * just return without compressing the packet.  If it is,
 	 * the protocol becomes the first byte to compress.
 	 */
+#ifdef CONFIG_ISDN_WITH_ABC
+	ent = proto;
+
+	if (proto < 0x21 || proto > 0xf9 || !(proto & 0x1) ) {
+
+		printk(KERN_DEBUG "bsd_compress called with %x\n",proto);
+		return 0;
+	}
+#else
 	printk(KERN_DEBUG "bsd_compress called with %x\n",proto);
 	
 	ent = proto;
 	if (proto < 0x21 || proto > 0xf9 || !(proto & 0x1) )
 		return 0;
+#endif
 
 	db      = (struct bsd_db *) state;
 	hshift  = db->hshift;
@@ -533,7 +565,9 @@ static int bsd_compress (void *state, struct sk_buff *skb_in, struct sk_buff *sk
 	
 		/* continue probing until a match or invalid entry */
 		disp = (hval == 0) ? 1 : hval;
-
+#ifdef CONFIG_ISDN_WITH_ABC
+		secure = 0;
+#endif
 		do {
 			hval += disp;
 			if (hval >= db->hsize)
@@ -541,7 +575,16 @@ static int bsd_compress (void *state, struct sk_buff *skb_in, struct sk_buff *sk
 			dictp = dict_ptr (db, hval);
 			if (dictp->codem1 >= max_ent)
 				goto nomatch;
-		} while (dictp->fcode != fcode);
+		}
+#ifndef CONFIG_ISDN_WITH_ABC
+		while (dictp->fcode != fcode);
+#else
+		while (dictp->fcode != fcode && ++secure < 100000);
+		if(secure >= 100000) {
+			printk(KERN_DEBUG "BSD: compress while dictp->fcode != fcode secure-counter reached\n");
+			return 0;
+		}
+#endif
 
 		ent = dictp->codem1 + 1;	/* finally found (prefix,suffix) */
 		continue;
@@ -664,6 +707,9 @@ static int bsd_decompress (void *state, struct sk_buff *skb_in, struct sk_buff *
 	int ilen;
 	int codelen;
 	int extra;
+#ifdef CONFIG_ISDN_WITH_ABC
+	unsigned long secure = 0;
+#endif
 
 	db       = (struct bsd_db *) state;
 	max_ent  = db->max_ent;
@@ -672,7 +718,9 @@ static int bsd_decompress (void *state, struct sk_buff *skb_in, struct sk_buff *
 	n_bits   = db->n_bits;
 	tgtbitno = 32 - n_bits;	/* bitno when we have a code */
 
+#ifndef CONFIG_ISDN_WITH_ABC
 	printk(KERN_DEBUG "bsd_decompress called\n");
+#endif
 
 	if(!skb_in || !skb_out) {
 		printk(KERN_ERR "bsd_decompress called with NULL parameter\n");
@@ -790,7 +838,12 @@ static int bsd_decompress (void *state, struct sk_buff *skb_in, struct sk_buff *
 
 		p     = skb_put(skb_out,codelen);
 		p += codelen;
-		while (finchar > LAST) {
+#ifdef CONFIG_ISDN_WITH_ABC
+		for(secure = 0; finchar > LAST && secure < 50000;secure++)
+#else
+		while (finchar > LAST) 
+#endif
+		{
 			struct bsd_dict *dictp2 = dict_ptr (db, finchar);
 	    
 			dictp = dict_ptr (db, dictp2->cptr);
@@ -817,6 +870,12 @@ static int bsd_decompress (void *state, struct sk_buff *skb_in, struct sk_buff *
 			}
 		}
 		*--p = finchar;
+#ifdef CONFIG_ISDN_WITH_ABC
+		if(secure >= 50000) {
+			printk(KERN_DEBUG "BSD: decompress secure-counter reached\n");
+			return DECOMP_FATALERROR;
+		}
+#endif
 	
 #ifdef DEBUG
 		if (--codelen != 0)
@@ -846,12 +905,24 @@ static int bsd_decompress (void *state, struct sk_buff *skb_in, struct sk_buff *
 			/* look for a free hash table entry */
 			if (dictp->codem1 < max_ent) {
 				disp = (hval == 0) ? 1 : hval;
+#ifdef CONFIG_ISDN_WITH_ABC
+				secure = 0;
+#endif
 				do {
 					hval += disp;
 					if (hval >= db->hsize)
 						hval -= db->hsize;
 					dictp = dict_ptr (db, hval);
-				} while (dictp->codem1 < max_ent);
+				} 
+#ifndef CONFIG_ISDN_WITH_ABC
+				while (dictp->codem1 < max_ent);
+#else
+				while (dictp->codem1 < max_ent && ++secure < 50000);
+				if(secure >= 50000) {
+					printk(KERN_DEBUG "BSD: decomp while (dictp->codem1 < max_ent) secure-counter reached\n");
+					return DECOMP_FATALERROR;
+				}
+#endif
 			}
 	    
 			/*
@@ -890,11 +961,21 @@ static int bsd_decompress (void *state, struct sk_buff *skb_in, struct sk_buff *
 	db->comp_bytes   += skb_in->len - BSD_OVHD;
 	db->uncomp_bytes += skb_out->len;
 
+#ifndef CONFIG_ISDN_WITH_ABC
+	/*
+	** bsd_check will call bsd_clear 
+	** and so on the internal tables will be cleared.
+	**
+	** I think that's not what we will at this point ?????
+	** For me at works without bsd_check.
+	*/
+
 	if (bsd_check(db)) {
 		if (db->debug)
 			printk(KERN_DEBUG "bsd_decomp%d: peer should have cleared dictionary on %d\n",
 				db->unit, db->seqno - 1);
 	}
+#endif
 	return skb_out->len;
 }
 
