@@ -42,7 +42,6 @@
 #undef COMPAT_HAVE_WRITE_LOCK_KERNEL
 #undef COMPAT_HAVE_POLL_LOCK_KERNEL
 #undef COMPAT_HAS_2_2_PCI
-#define COMPAT_PCI_COMMON_ID
 #define i_count_read(ic) atomic_read(&ic)
 #define i_count_inc(ic)  atomic_inc(&ic)
 #define COMPAT_HAS_FILEOP_OWNER

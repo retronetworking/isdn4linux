@@ -38,14 +38,12 @@ const char *niccy_revision = "$Revision$";
 #define NICCY_PCI	2
 
 /* PCI stuff */
-#ifdef COMPAT_PCI_COMMON_ID
 #ifndef PCI_VENDOR_ID_SATSAGEM
 #define PCI_VENDOR_ID_SATSAGEM	0x1267
 #endif
 #ifndef PCI_DEVICE_ID_SATSAGEM_NICCY
 #define PCI_DEVICE_ID_SATSAGEM_NICCY	0x1016
 #endif
-#endif /* COMPAT_PCI_COMMON_ID */
 #define PCI_IRQ_CTRL_REG	0x38
 #define PCI_IRQ_ENABLE		0x1f00
 #define PCI_IRQ_DISABLE		0xff0000

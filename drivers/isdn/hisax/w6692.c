@@ -17,7 +17,6 @@
 #include <linux/interrupt.h>
 #include <linux/pci.h>
 
-#ifdef COMPAT_PCI_COMMON_ID
 #ifndef PCI_VENDOR_ID_ASUSCOM
 #define PCI_VENDOR_ID_ASUSCOM	0x675
 #endif
@@ -30,7 +29,6 @@
 #ifndef PCI_DEVICE_ID_WINBOND_6692
 #define	PCI_DEVICE_ID_WINBOND_6692	0x6692
 #endif
-#endif /* COMPAT_PCI_COMMON_ID */
 /* table entry in the PCI devices list */
 typedef struct {
 	int vendor_id;

@@ -66,7 +66,6 @@ const char *ITACVer[] =
 #define ELSA_PCMCIA_IPAC 11
 
 /* PCI stuff */
-#ifdef COMPAT_PCI_COMMON_ID
 #ifndef PCI_VENDOR_ID_ELSA
 #define PCI_VENDOR_ID_ELSA	0x1048
 #endif
@@ -76,7 +75,6 @@ const char *ITACVer[] =
 #ifndef PCI_DEVICE_ID_ELSA_QS3000
 #define PCI_DEVICE_ID_ELSA_QS3000	0x3000
 #endif
-#endif /* COMPAT_PCI_COMMON_ID */
 #define ELSA_PCI_IRQ_MASK	0x04
 
 /* ITAC Registeradressen (only Microlink PC) */

@@ -22,14 +22,12 @@ static const char *avm_pci_rev = "$Revision$";
 #define  AVM_FRITZ_PCI		1
 #define  AVM_FRITZ_PNP		2
 
-#ifdef COMPAT_PCI_COMMON_ID
 #ifndef PCI_VENDOR_ID_AVM
 #define PCI_VENDOR_ID_AVM	0x1244
 #endif
 #ifndef PCI_DEVICE_ID_AVM_FRITZ
 #define PCI_DEVICE_ID_AVM_FRITZ	0xa00
 #endif
-#endif /* COMPAT_PCI_COMMON_ID */
 
 #define  HDLC_FIFO		0x0
 #define  HDLC_STATUS		0x4

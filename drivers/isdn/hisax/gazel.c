@@ -26,7 +26,6 @@ const char *gazel_revision = "$Revision$";
 #define R742      4
 
 /* Gazel R685 stuff */
-#ifdef COMPAT_PCI_COMMON_ID
 #ifndef PCI_VENDOR_ID_PLX
 #define PCI_VENDOR_ID_PLX	0x10b5
 #endif
@@ -39,7 +38,6 @@ const char *gazel_revision = "$Revision$";
 #ifndef PCI_DEVICE_ID_PLX_DJINN_ITOO
 #define PCI_DEVICE_ID_PLX_DJINN_ITOO	0x1151
 #endif
-#endif /* COMPAT_PCI_COMMON_ID */
 
 #define PLX_CNTRL    0x50	/* registre de controle PLX */
 #define RESET_GAZEL  0x4
