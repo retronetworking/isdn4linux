@@ -11,6 +11,9 @@
  *
  *
  * $Log$
+ * Revision 2.14  1998/02/03 23:31:31  keil
+ * add AMD7930 support
+ *
  * Revision 2.13  1998/02/02 13:33:02  keil
  * New card support
  *
@@ -285,7 +288,7 @@ HiSax_putstatus(struct IsdnCardState *csta, char *buf)
 }
 #else
 #define KDEBUG_DEF
-#include "kdebug.h"
+#include "../kdebug.h"
 
 static int DbgLineNr=0,DbgSequenzNr=1;
 
@@ -861,6 +864,7 @@ checkcard(int cardnr, char *id, int *busy_flag))
 	init_tei(cs, cs->protocol);
 	CallcNewChan(cs);
 	ll_run(cs);
+	cs->l1cmd(cs, PH_RESET_REQ, NULL);
 	restore_flags(flags);
 	return (1);
 }
@@ -1154,7 +1158,7 @@ l1_info4_ind(struct FsmInst *fi, int event, void *arg)
 	cs->l1cmd(cs, PH_INFO3_REQ, NULL);
 	if (test_and_clear_bit(FLG_L1_DEACTTIMER, &st->l1.Flags))
 		FsmDelTimer(&st->l1.timer, 4);
-	else {
+	if (!test_bit(FLG_L1_ACTIVATED, &st->l1.Flags)) {
 		if (test_and_clear_bit(FLG_L1_T3RUN, &st->l1.Flags))
 			FsmDelTimer(&st->l1.timer, 3);
 		FsmAddTimer(&st->l1.timer, 110, EV_TIMER_ACT, NULL, 2);

@@ -6,6 +6,9 @@
  *
  *
  * $Log$
+ * Revision 1.10  1998/02/02 13:37:37  keil
+ * new init
+ *
  * Revision 1.9  1997/11/06 17:09:07  keil
  * New 2.1 init code
  *
@@ -659,9 +662,12 @@ clear_pending_isac_ints(struct IsdnCardState *cs))
 		val = cs->readisac(cs, ISAC_CIR0);
 		sprintf(tmp, "ISAC CIR0 %x", val);
 		debugl1(cs, tmp);
+		cs->ph_state = (val >> 2) & 0xf;
+	} else {
+		cs->ph_state = (cs->readisac(cs, ISAC_CIX0) >> 2) & 0xf;
 	}
+	isac_sched_event(cs, D_L1STATECHANGE);
 	cs->writeisac(cs, ISAC_MASK, 0xFF);
 	cs->writeisac(cs, ISAC_MASK, 0);
 	cs->writeisac(cs, ISAC_CMDR, 0x41);
 }
-
