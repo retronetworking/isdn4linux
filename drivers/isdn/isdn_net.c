@@ -21,6 +21,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.82  1999/01/17 00:55:58  he
+ * added mark_bh in BCONN statcallb and cleaned up some dead code
+ *
  * Revision 1.81  1999/01/15 16:36:52  he
  * replaced icmp_send() by dst_link_failure()
  *
@@ -460,6 +463,7 @@ isdn_net_bind_channel(isdn_net_local * lp, int idx)
 
 	save_flags(flags);
 	cli();
+	lp->flags |= ISDN_NET_CONNECTED;
 	lp->isdn_device = dev->drvmap[idx];
 	lp->isdn_channel = dev->chanmap[idx];
 	dev->rx_netdev[idx] = lp->netdev;
@@ -660,17 +664,6 @@ isdn_net_stat_callback(int idx, isdn_ctrl *c)
 					pops -> disconn_ind(cprot);
 #endif /* CONFIG_ISDN_X25 */
 				if ((!lp->dialstate) && (lp->flags & ISDN_NET_CONNECTED)) {
-					lp->flags &= ~ISDN_NET_CONNECTED;
-					if (lp->first_skb) {
-						dev_kfree_skb(lp->first_skb);
-						lp->first_skb = NULL;
-					}
-					if (lp->sav_skb) {
-						dev_kfree_skb(lp->sav_skb);
-						lp->sav_skb = NULL;
-					}
-					isdn_free_channel(lp->isdn_device, lp->isdn_channel,
-							  ISDN_USAGE_NET);
 #ifdef CONFIG_ISDN_PPP
 					isdn_ppp_free(lp);
 #endif
@@ -678,10 +671,7 @@ isdn_net_stat_callback(int idx, isdn_ctrl *c)
 					printk(KERN_INFO "%s: remote hangup\n", lp->name);
 					printk(KERN_INFO "%s: Chargesum is %d\n", lp->name,
 					       lp->charge);
-					lp->isdn_device = -1;
-					lp->isdn_channel = -1;
-					dev->st_netdev[idx] = NULL;
-					dev->rx_netdev[idx] = NULL;
+					isdn_net_unbind_channel(lp);
 					return 1;
 				}
 				break;
@@ -1108,7 +1098,6 @@ isdn_net_hangup(struct device *d)
 #endif
 
 	if (lp->flags & ISDN_NET_CONNECTED) {
-		lp->flags &= ~ISDN_NET_CONNECTED;
 		printk(KERN_INFO "isdn_net: local hangup %s\n", lp->name);
 #ifdef CONFIG_ISDN_PPP
 		isdn_ppp_free(lp);
@@ -1427,12 +1416,18 @@ isdn_net_start_xmit(struct sk_buff *skb, struct device *ndev)
 				}
 
 				/* Grab a free ISDN-Channel */
-				if ((chi =
+				if (((chi =
 				     isdn_get_free_channel(ISDN_USAGE_NET,
 							   lp->l2_proto,
 							   lp->l3_proto,
 							   lp->pre_device,
-						 lp->pre_channel)) < 0) {
+						 lp->pre_channel)) < 0) &&
+					((chi =
+				     isdn_get_free_channel(ISDN_USAGE_NET,
+							   lp->l2_proto,
+							   lp->l3_proto,
+							   lp->pre_device,
+						 lp->pre_channel^1)) < 0)) {
 					restore_flags(flags);
 					isdn_net_unreachable(ndev, skb,
 							   "No channel");
@@ -1444,7 +1439,6 @@ isdn_net_start_xmit(struct sk_buff *skb, struct device *ndev)
 				if (dev->net_verbose)
 					isdn_net_log_skb(skb, lp);
 				lp->dialstate = 1;
-				lp->flags |= ISDN_NET_CONNECTED;
 				/* Connect interface with channel */
 				isdn_net_bind_channel(lp, chi);
 #ifdef CONFIG_ISDN_PPP
@@ -2253,8 +2247,6 @@ isdn_net_find_icall(int di, int ch, int idx, setup_parm setup)
 #ifdef ISDN_DEBUG_NET_ICALL
 						printk(KERN_DEBUG "n_fi: already on 2nd channel\n");
 #endif
-						p = (isdn_net_dev *) p->next;
-						continue;
 					}
 				}
 			}
@@ -2348,7 +2340,6 @@ isdn_net_find_icall(int di, int ch, int idx, setup_parm setup)
 						/* Setup dialstate. */
 						lp->dtimer = 0;
 						lp->dialstate = 11;
-						lp->flags |= ISDN_NET_CONNECTED;
 						/* Connect interface with channel */
 						isdn_net_bind_channel(lp, chi);
 #ifdef CONFIG_ISDN_PPP
@@ -2457,7 +2448,6 @@ isdn_net_force_dial_lp(isdn_net_local * lp)
 				return -EAGAIN;
 			}
 			lp->dialstate = 1;
-			lp->flags |= ISDN_NET_CONNECTED;
 			/* Connect interface with channel */
 			isdn_net_bind_channel(lp, chi);
 #ifdef CONFIG_ISDN_PPP

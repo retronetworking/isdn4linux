@@ -2,7 +2,7 @@
 
  * Linux ISDN subsystem, tty functions and AT-command emulator (linklevel).
  *
- * Copyright 1994,95,96 by Fritz Elfert (fritz@wuemaus.franken.de)
+ * Copyright 1994-1999  by Fritz Elfert (fritz@isdn4linux.de)
  * Copyright 1995,96    by Thinking Objects Software GmbH Wuerzburg
  *
  * This program is free software; you can redistribute it and/or modify
@@ -20,6 +20,17 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.62  1999/03/02 12:04:48  armin
+ * -added ISDN_STAT_ADDCH to increase supported channels after
+ *  register_isdn().
+ * -ttyI now goes on-hook on ATZ when B-Ch is connected.
+ * -added timer-function for register S7 (Wait for Carrier).
+ * -analog modem (ISDN_PROTO_L2_MODEM) implementations.
+ * -on L2_MODEM a string will be appended to the CONNECT-Message,
+ *  which is provided by the HL-Driver in parm.num in ISDN_STAT_BCONN.
+ * -variable "dialing" used for ATA also, for interrupting call
+ *  establishment and register S7.
+ *
  * Revision 1.61  1999/01/27 22:53:11  he
  * minor updates (spellings, jiffies wrap around in isdn_tty)
  *
@@ -2440,7 +2451,7 @@ isdn_tty_find_icall(int di, int ch, setup_parm setup)
 	}
 	restore_flags(flags);
 	printk(KERN_INFO "isdn_tty: call from %s -> %s %s\n", nr, eaz,
-	       (dev->drv[di]->reject_bus && (wret != 2))? "rejected" : "ignored");
+	       ((dev->drv[di]->flags & DRV_FLAG_REJBUS) && (wret != 2))? "rejected" : "ignored");
 	return (wret == 2)?3:0;
 }
 

@@ -2,7 +2,7 @@
 
  * Linux ISDN subsystem, initialization for non-modularized drivers.
  *
- * Copyright 1994,95,96 by Fritz Elfert (fritz@wuemaus.franken.de)
+ * Copyright 1994-1999 by Fritz Elfert (fritz@isdn4linux.de)
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -19,6 +19,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.2  1997/02/03 23:31:55  fritz
+ * Reformatted according CodingStyle
+ *
  * Revision 1.1  1996/04/20 16:04:03  fritz
  * Initial revision
  *

@@ -19,6 +19,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.54  1999/01/05 18:29:39  he
+ * merged remaining schedule_timeout() changes from 2.1.127
+ *
  * Revision 1.53  1998/06/17 19:51:28  he
  * merged with 2.1.10[34] (cosmetics and udelay() -> mdelay())
  * brute force fix to avoid Ugh's in isdn_tty_write()
@@ -1588,7 +1591,7 @@ icn_command(isdn_ctrl * c, icn_card * card)
 						c->parm.num[0] ? "N" : "ALL", c->parm.num);
 				} else
 					sprintf(cbuf, "%02d;EAZ%s\n", (int) a,
-						c->parm.num[0] ? c->parm.num : "0123456789");
+						c->parm.num[0] ? (char)(c->parm.num) : "0123456789");
 				i = icn_writecmd(cbuf, strlen(cbuf), 0, card);
 			}
 			break;

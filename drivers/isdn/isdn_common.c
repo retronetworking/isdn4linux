@@ -2,7 +2,7 @@
 
  * Linux ISDN subsystem, common used functions (linklevel).
  *
- * Copyright 1994,95,96 by Fritz Elfert (fritz@wuemaus.franken.de)
+ * Copyright 1994-1999  by Fritz Elfert (fritz@isdn4linux.de)
  * Copyright 1995,96    Thinking Objects Software GmbH Wuerzburg
  * Copyright 1995,96    by Michael Hipp (Michael.Hipp@student.uni-tuebingen.de)
  *
@@ -21,6 +21,17 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.72  1999/03/02 12:04:44  armin
+ * -added ISDN_STAT_ADDCH to increase supported channels after
+ *  register_isdn().
+ * -ttyI now goes on-hook on ATZ when B-Ch is connected.
+ * -added timer-function for register S7 (Wait for Carrier).
+ * -analog modem (ISDN_PROTO_L2_MODEM) implementations.
+ * -on L2_MODEM a string will be appended to the CONNECT-Message,
+ *  which is provided by the HL-Driver in parm.num in ISDN_STAT_BCONN.
+ * -variable "dialing" used for ATA also, for interrupting call
+ *  establishment and register S7.
+ *
  * Revision 1.71  1999/01/28 09:10:43  armin
  * Fixed bad while-loop in isdn_readbch().
  *
@@ -344,13 +355,36 @@ static int isdn_writebuf_stub(int, int, const u_char *, int, int);
 void
 isdn_MOD_INC_USE_COUNT(void)
 {
+	int i;
+
 	MOD_INC_USE_COUNT;
+	for (i = 0; i < dev->drivers; i++) {
+		isdn_ctrl cmd;
+
+		cmd.driver = i;
+		cmd.arg = 0;
+		cmd.command = ISDN_CMD_LOCK;
+		isdn_command(&cmd);
+		dev->drv[i]->locks++;
+	}
 }
 
 void
 isdn_MOD_DEC_USE_COUNT(void)
 {
+	int i;
+
 	MOD_DEC_USE_COUNT;
+	for (i = 0; i < dev->drivers; i++)
+		if (dev->drv[i]->locks > 0) {
+			isdn_ctrl cmd;
+
+			cmd.driver = i;
+			cmd.arg = 0;
+			cmd.command = ISDN_CMD_UNLOCK;
+			isdn_command(&cmd);
+			dev->drv[i]->locks--;
+		}
 }
 
 #if defined(ISDN_DEBUG_NET_DUMP) || defined(ISDN_DEBUG_MODEM_DUMP) || defined(CONFIG_ISDN_TIMEOUT_RULES)
@@ -695,13 +729,13 @@ isdn_status_callback(isdn_ctrl * c)
 			wake_up_interruptible(&dev->drv[di]->st_waitq);
 			break;
 		case ISDN_STAT_RUN:
-			dev->drv[di]->running = 1;
+			dev->drv[di]->flags |= DRV_FLAG_RUNNING;
 			for (i = 0; i < ISDN_MAX_CHANNELS; i++)
 				if (dev->drvmap[i] == di)
 					isdn_all_eaz(di, dev->chanmap[i]);
 			break;
 		case ISDN_STAT_STOP:
-			dev->drv[di]->running = 0;
+			dev->drv[di]->flags &= ~DRV_FLAG_RUNNING;
 			break;
 		case ISDN_STAT_ICALL:
 			if (i < 0)
@@ -717,10 +751,6 @@ isdn_status_callback(isdn_ctrl * c)
 				return 0;
 			}
 			/* Try to find a network-interface which will accept incoming call */
-			cmd.driver = di;
-			cmd.arg = c->arg;
-			cmd.command = ISDN_CMD_LOCK;
-			isdn_command(&cmd);
 			r = isdn_net_find_icall(di, c->arg, i, c->parm.setup);
 			switch (r) {
 				case 0:
@@ -730,7 +760,7 @@ isdn_status_callback(isdn_ctrl * c)
 					 * 3 on eventually match, if CID is longer.
 					 */
 					retval = isdn_tty_find_icall(di, c->arg, c->parm.setup);
-					if ((!retval) && dev->drv[di]->reject_bus) {
+					if ((!retval) && (dev->drv[di]->flags & DRV_FLAG_REJBUS)) {
 						/* No tty responding */
 						cmd.driver = di;
 						cmd.arg = c->arg;
@@ -767,12 +797,6 @@ isdn_status_callback(isdn_ctrl * c)
 					/* Number would eventually match, if longer */
 					retval = 3;
 					break;
-			}
-			if (retval != 1) {
-				cmd.driver = di;
-				cmd.arg = c->arg;
-				cmd.command = ISDN_CMD_UNLOCK;
-				isdn_command(&cmd);
 			}
 #ifdef ISDN_DEBUG_STATCALLB
 			printk(KERN_DEBUG "ICALL: ret=%d\n", retval);
@@ -828,7 +852,7 @@ isdn_status_callback(isdn_ctrl * c)
 #endif
 			if (dev->global_flags & ISDN_GLOBAL_STOPPED)
 				return 0;
-			dev->drv[di]->flags &= ~(1 << (c->arg));
+			dev->drv[di]->online &= ~(1 << (c->arg));
 			isdn_info_update();
 			/* Signal hangup to network-devices */
 			if (isdn_net_stat_callback(i, c))
@@ -846,7 +870,7 @@ isdn_status_callback(isdn_ctrl * c)
 			/* Signal B-channel-connect to network-devices */
 			if (dev->global_flags & ISDN_GLOBAL_STOPPED)
 				return 0;
-			dev->drv[di]->flags |= (1 << (c->arg));
+			dev->drv[di]->online |= (1 << (c->arg));
 			isdn_info_update();
 			if (isdn_net_stat_callback(i, c))
 				break;
@@ -862,7 +886,7 @@ isdn_status_callback(isdn_ctrl * c)
 #endif
 			if (dev->global_flags & ISDN_GLOBAL_STOPPED)
 				return 0;
-			dev->drv[di]->flags &= ~(1 << (c->arg));
+			dev->drv[di]->online &= ~(1 << (c->arg));
 			isdn_info_update();
 #ifdef CONFIG_ISDN_X25
 			/* Signal hangup to network-devices */
@@ -1099,7 +1123,7 @@ isdn_statstr(void)
 	p = istatbuf + strlen(istatbuf);
 	for (i = 0; i < ISDN_MAX_DRIVERS; i++) {
 		if (dev->drv[i]) {
-			sprintf(p, "%ld ", dev->drv[i]->flags);
+			sprintf(p, "%ld ", dev->drv[i]->online);
 			p = istatbuf + strlen(istatbuf);
 		} else {
 			sprintf(p, "? ");
@@ -1165,7 +1189,7 @@ isdn_read(struct file *file, char *buf, size_t count, loff_t * off)
 		drvidx = isdn_minor2drv(minor);
 		if (drvidx < 0)
 			return -ENODEV;
-		if (!dev->drv[drvidx]->running)
+		if (!(dev->drv[drvidx]->flags & DRV_FLAG_RUNNING))
 			return -ENODEV;
 		chidx = isdn_minor2chan(minor);
 		if(  ! (p = kmalloc(count,GFP_KERNEL))  ) return -ENOMEM;
@@ -1235,7 +1259,7 @@ isdn_write(struct file *file, const char *buf, size_t count, loff_t * off)
 		drvidx = isdn_minor2drv(minor);
 		if (drvidx < 0)
 			return -ENODEV;
-		if (!dev->drv[drvidx]->running)
+		if (!(dev->drv[drvidx]->flags & DRV_FLAG_RUNNING))
 			return -ENODEV;
 		chidx = isdn_minor2chan(minor);
 		while (isdn_writebuf_stub(drvidx, chidx, buf, count, 1) != count)
@@ -1249,7 +1273,7 @@ isdn_write(struct file *file, const char *buf, size_t count, loff_t * off)
 		/*
 		 * We want to use the isdnctrl device to load the firmware
 		 *
-		 if (!dev->drv[drvidx]->running)
+		 if (!(dev->drv[drvidx]->flags & DRV_FLAG_RUNNING))
 		 return -ENODEV;
 		 */
 		if (dev->drv[drvidx]->interface->writecmd)
@@ -1382,7 +1406,7 @@ isdn_ioctl(struct inode *inode, struct file *file, uint cmd, ulong arg)
 		if (drvidx < 0)
 			return -ENODEV;
 		chidx = isdn_minor2chan(minor);
-		if (!dev->drv[drvidx]->running)
+		if (!(dev->drv[drvidx]->flags & DRV_FLAG_RUNNING))
 			return -ENODEV;
 		return 0;
 	}
@@ -1619,7 +1643,10 @@ isdn_ioctl(struct inode *inode, struct file *file, uint cmd, ulong arg)
 				}
 				if (drvidx == -1)
 					return -ENODEV;
-				dev->drv[drvidx]->reject_bus = iocts.arg;
+				if (iocts.arg)
+					dev->drv[drvidx]->flags |= DRV_FLAG_REJBUS;
+				else
+					dev->drv[drvidx]->flags &= ~DRV_FLAG_REJBUS;
 				return 0;
 			case IIOCSIGPRF:
 				dev->profd = current;
@@ -1812,7 +1839,6 @@ isdn_open(struct inode *ino, struct file *filep)
 	uint minor = MINOR(ino->i_rdev);
 	int drvidx;
 	int chidx;
-	isdn_ctrl c;
 
 	if (minor == ISDN_MINOR_STATUS) {
 		infostruct *p;
@@ -1835,31 +1861,25 @@ isdn_open(struct inode *ino, struct file *filep)
 		if (drvidx < 0)
 			return -ENODEV;
 		chidx = isdn_minor2chan(minor);
-		if (!dev->drv[drvidx]->running)
+		if (!(dev->drv[drvidx]->flags & DRV_FLAG_RUNNING))
 			return -ENODEV;
-		if (!(dev->drv[drvidx]->flags & (1 << chidx)))
+		if (!(dev->drv[drvidx]->online & (1 << chidx)))
 			return -ENODEV;
-		c.command = ISDN_CMD_LOCK;
-		c.driver = drvidx;
-		isdn_command(&c);
-		MOD_INC_USE_COUNT;
+		isdn_MOD_INC_USE_COUNT();
 		return 0;
 	}
 	if (minor <= ISDN_MINOR_CTRLMAX) {
 		drvidx = isdn_minor2drv(minor - ISDN_MINOR_CTRL);
 		if (drvidx < 0)
 			return -ENODEV;
-		c.command = ISDN_CMD_LOCK;
-		c.driver = drvidx;
-		MOD_INC_USE_COUNT;
-		isdn_command(&c);
+		isdn_MOD_INC_USE_COUNT();
 		return 0;
 	}
 #ifdef CONFIG_ISDN_PPP
 	if (minor <= ISDN_MINOR_PPPMAX) {
 		int ret;
 		if (!(ret = isdn_ppp_open(minor - ISDN_MINOR_PPP, filep)))
-			MOD_INC_USE_COUNT;
+			isdn_MOD_INC_USE_COUNT();
 		return ret;
 	}
 #endif
@@ -1870,13 +1890,12 @@ static int
 isdn_close(struct inode *ino, struct file *filep)
 {
 	uint minor = MINOR(ino->i_rdev);
-	int drvidx;
-	isdn_ctrl c;
 
-	MOD_DEC_USE_COUNT;
 	if (minor == ISDN_MINOR_STATUS) {
 		infostruct *p = dev->infochain;
 		infostruct *q = NULL;
+
+		MOD_DEC_USE_COUNT;
 		while (p) {
 			if (p->private == (char *) &(filep->private_data)) {
 				if (q)
@@ -1892,24 +1911,12 @@ isdn_close(struct inode *ino, struct file *filep)
 		printk(KERN_WARNING "isdn: No private data while closing isdnctrl\n");
 		return 0;
 	}
-	if (minor < ISDN_MINOR_CTRL) {
-		drvidx = isdn_minor2drv(minor);
-		if (drvidx < 0)
-			return 0;
-		c.command = ISDN_CMD_UNLOCK;
-		c.driver = drvidx;
-		isdn_command(&c);
+	isdn_MOD_DEC_USE_COUNT();
+	if (minor < ISDN_MINOR_CTRL)
 		return 0;
-	}
 	if (minor <= ISDN_MINOR_CTRLMAX) {
-		drvidx = isdn_minor2drv(minor - ISDN_MINOR_CTRL);
-		if (drvidx < 0)
-			return 0;
 		if (dev->profd == current)
 			dev->profd = NULL;
-		c.command = ISDN_CMD_UNLOCK;
-		c.driver = drvidx;
-		isdn_command(&c);
 		return 0;
 	}
 #ifdef CONFIG_ISDN_PPP
@@ -1981,7 +1988,7 @@ isdn_get_free_channel(int usage, int l2_proto, int l3_proto, int pre_dev
 			if ((dev->usage[i] & ISDN_USAGE_EXCLUSIVE) &&
 			((pre_dev != d) || (pre_chan != dev->chanmap[i])))
 				continue;
-			if ((dev->drv[d]->running)) {
+			if (dev->drv[d]->flags & DRV_FLAG_RUNNING) {
 				if (((dev->drv[d]->interface->features & features) == features) ||
 				    (((dev->drv[d]->interface->features & vfeatures) == vfeatures) &&
 				     (dev->drv[d]->interface->features & ISDN_FEATURE_L2_TRANS))) {
@@ -1989,10 +1996,6 @@ isdn_get_free_channel(int usage, int l2_proto, int l3_proto, int pre_dev
 						dev->usage[i] &= ISDN_USAGE_EXCLUSIVE;
 						dev->usage[i] |= usage;
 						isdn_info_update();
-						cmd.driver = d;
-						cmd.arg = 0;
-						cmd.command = ISDN_CMD_LOCK;
-						isdn_command(&cmd);
 						restore_flags(flags);
 						return i;
 					} else {
@@ -2000,10 +2003,6 @@ isdn_get_free_channel(int usage, int l2_proto, int l3_proto, int pre_dev
 							dev->usage[i] &= ISDN_USAGE_EXCLUSIVE;
 							dev->usage[i] |= usage;
 							isdn_info_update();
-							cmd.driver = d;
-							cmd.arg = 0;
-							cmd.command = ISDN_CMD_LOCK;
-							isdn_command(&cmd);
 							restore_flags(flags);
 							return i;
 						}
@@ -2023,7 +2022,6 @@ isdn_free_channel(int di, int ch, int usage)
 {
 	int i;
 	ulong flags;
-	isdn_ctrl cmd;
 
 	save_flags(flags);
 	cli();
@@ -2037,12 +2035,6 @@ isdn_free_channel(int di, int ch, int usage)
 			dev->obytes[i] = 0;
 			isdn_info_update();
 			isdn_free_queue(&dev->drv[di]->rpqueue[ch]);
-			cmd.driver = di;
-			cmd.arg = ch;
-			cmd.command = ISDN_CMD_UNLOCK;
-			restore_flags(flags);
-			isdn_command(&cmd);
-			return;
 		}
 	restore_flags(flags);
 }
@@ -2190,7 +2182,7 @@ isdn_add_channels(driver *d, int drvidx, int n, int adding)
 	int j, k, m;
 	ulong flags;
 
-	if (d->running)
+	if (d->flags & DRV_FLAG_RUNNING)
 		return -1;
 	if (n < 1)
 		return 0;
@@ -2317,12 +2309,11 @@ register_isdn(isdn_if * i)
 	}
 	memset((char *) d, 0, sizeof(driver));
 
-	d->loaded = 1;
 	d->maxbufsize = i->maxbufsize;
 	d->pktcount = 0;
 	d->stavail = 0;
-	d->running = 0;
-	d->flags = 0;
+	d->flags = DRV_FLAG_LOADED;
+	d->online = 0;
 	d->interface = i;
 	d->channels = 0;
 	for (drvidx = 0; drvidx < ISDN_MAX_DRIVERS; drvidx++)

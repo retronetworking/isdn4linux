@@ -2,7 +2,7 @@
 
  * header for Linux ISDN subsystem, tty related functions (linklevel).
  *
- * Copyright 1994,95,96 by Fritz Elfert (fritz@wuemaus.franken.de)
+ * Copyright 1994-1999  by Fritz Elfert (fritz@isdn4linux.de)
  * Copyright 1995,96    by Thinking Objects Software GmbH Wuerzburg
  *
  * This program is free software; you can redistribute it and/or modify
@@ -20,6 +20,17 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.12  1999/03/02 12:04:51  armin
+ * -added ISDN_STAT_ADDCH to increase supported channels after
+ *  register_isdn().
+ * -ttyI now goes on-hook on ATZ when B-Ch is connected.
+ * -added timer-function for register S7 (Wait for Carrier).
+ * -analog modem (ISDN_PROTO_L2_MODEM) implementations.
+ * -on L2_MODEM a string will be appended to the CONNECT-Message,
+ *  which is provided by the HL-Driver in parm.num in ISDN_STAT_BCONN.
+ * -variable "dialing" used for ATA also, for interrupting call
+ *  establishment and register S7.
+ *
  * Revision 1.11  1998/03/19 13:18:27  keil
  * Start of a CAPI like interface for supplementary Service
  * first service: SUSPEND

@@ -2,7 +2,7 @@
 
  * header for Linux ISDN subsystem, network related functions (linklevel).
  *
- * Copyright 1994,95,96 by Fritz Elfert (fritz@wuemaus.franken.de)
+ * Copyright 1994-1999  by Fritz Elfert (fritz@isdn4linux.de)
  * Copyright 1995,96    by Thinking Objects Software GmbH Wuerzburg
  * Copyright 1995,96    by Michael Hipp (Michael.Hipp@student.uni-tuebingen.de)
  *
@@ -21,6 +21,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.8  1998/10/30 17:55:33  he
+ * dialmode for x25iface and multulink ppp
+ *
  * Revision 1.7  1998/08/31 21:09:55  he
  * new ioctl IIOCNETGPN for /dev/isdninfo (get network interface'
  *     peer phone number)

@@ -19,6 +19,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.45  1998/12/30 17:48:24  paul
+ * fixed syncPPP callback out
+ *
  * Revision 1.44  1998/10/30 17:55:34  he
  * dialmode for x25iface and multulink ppp
  *
@@ -963,7 +966,8 @@ isdn_ppp_write(int min, struct file *file, const char *buf, int count)
 		if (lp->isdn_device < 0 || lp->isdn_channel < 0)
 			return 0;
 
-		if (dev->drv[lp->isdn_device]->running && lp->dialstate == 0 &&
+		if ((dev->drv[lp->isdn_device]->flags & DRV_FLAG_RUNNING) &&
+			lp->dialstate == 0 &&
 		    (lp->flags & ISDN_NET_CONNECTED)) {
 			int cnt;
 			struct sk_buff *skb;
