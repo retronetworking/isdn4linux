@@ -20,6 +20,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.31  1997/02/21 13:05:57  fritz
+ * Bugfix: Remote hangup did not set location-info on ttyI's
+ *
  * Revision 1.30  1997/02/18 09:41:05  fritz
  * Added support for bitwise access to modem registers (ATSx.y=n, ATSx.y?).
  * Beautified output of AT&V.
@@ -2405,9 +2408,12 @@ isdn_tty_cmd_ATA(modem_info * info)
 		l2 = m->mdmreg[14];
 #ifdef CONFIG_ISDN_AUDIO
 		/* If more than one bit set in reg18, autoselect Layer2 */
-		if ((m->mdmreg[18] & m->mdmreg[20]) != m->mdmreg[18])
+		if ((m->mdmreg[18] & m->mdmreg[20]) != m->mdmreg[18]) {
 			if (m->mdmreg[20] == 1)
 				l2 = 4;
+			else
+				l2 = 0;
+		}
 #endif
 		cmd.driver = info->isdn_driver;
 		cmd.command = ISDN_CMD_SETL2;
