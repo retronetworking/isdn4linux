@@ -7,6 +7,9 @@
  *              Fritz Elfert
  *
  * $Log$
+ * Revision 2.5  1997/08/07 17:46:05  keil
+ * Fix Incomming Call without broadcast
+ *
  * Revision 2.4  1997/08/03 14:37:58  keil
  * Activate Layer2 in PtP mode
  *
@@ -1697,7 +1700,14 @@ lltrans_handler(struct PStack *st, int pr, void *arg)
 			if (chanp->data_open)
 				chanp->cs->iif.rcvcallb_skb(chanp->cs->myid, chanp->chan, skb);
 			else {
-				dev_kfree_skb(skb, FREE_READ);
+				if (chanp->lc_b->lcfi.state == ST_LC_DELAY)
+					FsmEvent(&chanp->lc_b->lcfi, EV_LC_DL_ESTABLISH, NULL);
+				if (chanp->data_open) {
+					link_debug(chanp, "channel now open", 0);
+					chanp->cs->iif.rcvcallb_skb(chanp->cs->myid,
+						chanp->chan, skb);
+				} else
+					dev_kfree_skb(skb, FREE_READ);
 			}
 			break;
 		default:
