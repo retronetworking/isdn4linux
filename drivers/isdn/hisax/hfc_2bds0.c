@@ -6,6 +6,10 @@
  *
  *
  * $Log$
+ * Revision 1.4  1998/05/25 12:57:52  keil
+ * HiSax golden code from certification, Don't use !!!
+ * No leased lines, no X75, but many changes.
+ *
  * Revision 1.3  1998/02/12 23:07:22  keil
  * change for 2.1.86 (removing FREE_READ/FREE_WRITE from [dev]_kfree_skb()
  *
@@ -1184,7 +1188,7 @@ HFCD_l1hw(struct PStack *st, int pr, void *arg)
 void
 setstack_hfcd(struct PStack *st, struct IsdnCardState *cs)
 {
-	st->l2.l2l1 = HFCD_l1hw;
+	st->l1.l1hw = HFCD_l1hw;
 }
 
 static void
