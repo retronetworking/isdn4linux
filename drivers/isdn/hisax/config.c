@@ -435,7 +435,7 @@ static int __init HiSax_setup(char *line)
 
 	str = get_options(line, MAX_ARG, ints);
 #else
-static void __init HiSax_setup(char *str, int *ints)
+void __init HiSax_setup(char *str, int *ints)
 {
 	int i, j, argc;
 #endif
