@@ -21,6 +21,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.27  1996/10/25 18:46:01  fritz
+ * Another bugfix in isdn_net_autohup()
+ *
  * Revision 1.26  1996/10/23 23:05:36  fritz
  * Bugfix: Divide by zero in isdn_net_autohup()
  *
@@ -2400,7 +2403,7 @@ static int isdn_net_realrm(isdn_net_dev * p, isdn_net_dev * q)
 		isdn_timer_ctrl(ISDN_TIMER_NETHANGUP, 0);
 	restore_flags(flags);
 
-#ifdef CONFIG_ISDN_PPP
+#ifdef CONFIG_ISDN_MPP
 	isdn_ppp_free_mpqueue(p);	/* still necessary? */
 #endif
 	kfree(p);
