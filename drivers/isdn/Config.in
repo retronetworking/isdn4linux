@@ -24,6 +24,8 @@ if [ "$CONFIG_ISDN_DRV_HISAX" != "n" ]; then
     bool 'HiSax Support for ASUSCOM cards' CONFIG_HISAX_DYNALINK
     bool 'HiSax Support for TELEINT cards' CONFIG_HISAX_TELEINT
     bool 'HiSax Support for Sedlbauer speed card' CONFIG_HISAX_SEDLBAUER
+    bool 'HiSax Support for USR Sportster internal TA' CONFIG_HISAX_SPORTSTER
+    bool 'HiSax Support for MIC card' CONFIG_HISAX_MIC
 fi
 if [ "$CONFIG_EXPERIMENTAL" != "n" ]; then
 	dep_tristate 'Spellcaster support (EXPERIMENTAL)' CONFIG_ISDN_DRV_SC $CONFIG_ISDN
