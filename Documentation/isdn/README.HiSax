@@ -58,7 +58,7 @@ insmod/modprobe  hisax.o \
 or, if several cards are installed:
 
 insmod/modprobe hisax.o \
-  io=iobase1,iobase2,... mem=membase1,membase2,... \
+  io=iobase1,iobase2,... irq=IRQ1,IRQ2,... mem=membase1,membase2,... \
   type=card_type1,card_type2,... \
   protocol=D_channel_protocol1,D_channel_protocol2,... \
   id=idstring1%idstring2 ...
