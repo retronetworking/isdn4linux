@@ -6,6 +6,9 @@
  *
  *
  * $Log$
+ * Revision 1.1  1996/10/13 20:04:55  keil
+ * Initial revision
+ *
  *
  */
 
@@ -434,7 +437,7 @@ static struct stateentry downstl[] =
 {
 	{SBIT(0),
 		CC_SETUP_REQ, l3_1tr6_setup},
-	{SBIT(1)| SBIT(2)| SBIT(3)| SBIT(4)| SBIT(7)| SBIT(8)|
+	{SBIT(1)| SBIT(2)| SBIT(3)| SBIT(4)| SBIT(6)| SBIT(7)| SBIT(8)|
 		SBIT(10),
 		CC_DISCONNECT_REQ, l3_1tr6_disconn_req},
 	{SBIT(1)| SBIT(2)| SBIT(3)| SBIT(4)| SBIT(6)| SBIT(7)| SBIT(8)|
