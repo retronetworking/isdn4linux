@@ -305,9 +305,12 @@ W6692B_interrupt(struct IsdnCardState *cs, u_char bchan)
 {
 	u_char val;
 	u_char r;
-	struct BCState *bcs = cs->bcs + bchan;
+	struct BCState *bcs = cs->bcs;
 	struct sk_buff *skb;
 	int count;
+
+	if (bcs->channel != bchan)
+	  bcs++; /* hardware bchan must match ! */
 
 	val = cs->BC_Read_Reg(cs, bchan, W_B_EXIR);
 	debugl1(L1_DEB_WARN, cs, "W6692B chan %d B_EXIR 0x%02X", bchan, val);
@@ -703,7 +706,9 @@ static void
 W6692Bmode(struct BCState *bcs, int mode, int bc)
 {
 	struct IsdnCardState *cs = bcs->cs;
-	int bchan = bcs->hw.w6692.bchan;
+	int bchan = bc;
+
+	bcs->hw.w6692.bchan = bc;
 
 	debugl1(L1_DEB_HSCX, cs, "w6692 %c mode %d ichan %d",
 		'1' + bchan, mode, bc);

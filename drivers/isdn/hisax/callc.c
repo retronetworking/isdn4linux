@@ -286,6 +286,8 @@ lli_deliver_cause(struct Channel *chanp)
 {
 	isdn_ctrl ic;
 
+	if (!chanp->l4pc.l3pc)
+		return;
 	if (chanp->l4pc.l3pc->para.cause == NO_CAUSE)
 		return;
 	if (chanp->c_if->b3_mode == B3_MODE_DSS1)
@@ -552,7 +554,8 @@ lli_disconnect_req(struct FsmInst *fi, int event, void *arg)
 		lli_leased_hup(fi, chanp);
 	} else {
 		FsmChangeState(fi, ST_WAIT_DRELEASE);
-		chanp->l4pc.l3pc->para.cause = 0x10;	/* Normal Call Clearing */
+		if (chanp->l4pc.l3pc)
+			chanp->l4pc.l3pc->para.cause = 0x10;	/* Normal Call Clearing */
 		Dp_L4L3(chanp, CC_DISCONNECT | REQUEST, 0);
 	}
 }
@@ -566,7 +569,8 @@ lli_disconnect_reject(struct FsmInst *fi, int event, void *arg)
 		lli_leased_hup(fi, chanp);
 	} else {
 		FsmChangeState(fi, ST_WAIT_DRELEASE);
-		chanp->l4pc.l3pc->para.cause = 0x15;	/* Call Rejected */
+		if (chanp->l4pc.l3pc)
+			chanp->l4pc.l3pc->para.cause = 0x15;	/* Call Rejected */
 		Dp_L4L3(chanp, CC_DISCONNECT | REQUEST, 0);
 	}
 }
@@ -596,7 +600,8 @@ lli_reject_req(struct FsmInst *fi, int event, void *arg)
 		return;
 	}
 #ifndef ALERT_REJECT
-	chanp->l4pc.l3pc->para.cause = 0x15;	/* Call Rejected */
+	if (chanp->l4pc.l3pc)
+		chanp->l4pc.l3pc->para.cause = 0x15;	/* Call Rejected */
 	Dp_L4L3(chanp, CC_REJECT | REQUEST, 0);
 	lli_dhup_close(fi, event, arg);
 #else
