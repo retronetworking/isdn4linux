@@ -1,6 +1,9 @@
 /* $Id$
 
  * $Log$
+ * Revision 2.4  1999/07/01 08:11:54  keil
+ * Common HiSax version for 2.0, 2.1, 2.2 and 2.3 kernel
+ *
  * Revision 2.3  1998/11/15 23:55:06  keil
  * changes from 2.0
  *
@@ -31,7 +34,7 @@
  */
 
 #define SBIT(state) (1<<state)
-#define ALL_STATES  0x00ffffff
+#define ALL_STATES  0x03ffffff
 
 #define PROTO_DIS_EURO	0x08
 

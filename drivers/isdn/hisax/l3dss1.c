@@ -13,6 +13,9 @@
  *              Fritz Elfert
  *
  * $Log$
+ * Revision 2.16  1999/07/21 14:46:23  keil
+ * changes from EICON certification
+ *
  * Revision 2.14  1999/07/09 08:30:08  keil
  * cosmetics
  *
@@ -2628,7 +2631,7 @@ l3dss1_resume_req(struct l3_process *pc, u_char pr, void *arg)
 	memcpy(skb_put(skb, l), tmp, l);
 	l3_msg(pc->st, DL_DATA | REQUEST, skb);
 	newl3state(pc, 17);
-	L3AddTimer(&pc->timer, T319, CC_T319);
+	L3AddTimer(&pc->timer, T318, CC_T318);
 }
 
 static void
@@ -2863,17 +2866,17 @@ static struct stateentry datastatelist[] =
 	{SBIT(2) | SBIT(3),
 	 MT_PROGRESS, l3dss1_progress},
 	{SBIT(2) | SBIT(3) | SBIT(4) | SBIT(7) | SBIT(8) | SBIT(9) | SBIT(10) |
-	 SBIT(11) | SBIT(12) | SBIT(15) | SBIT(17) | SBIT(19),
+	 SBIT(11) | SBIT(12) | SBIT(15) | SBIT(17) | SBIT(19) | SBIT(25),
 	 MT_INFORMATION, l3dss1_information},
 	{SBIT(10) | SBIT(11) | SBIT(15),
 	 MT_NOTIFY, l3dss1_notify},
 	{SBIT(0) | SBIT(1) | SBIT(2) | SBIT(3) | SBIT(4) | SBIT(7) | SBIT(8) | SBIT(10) |
-	 SBIT(11) | SBIT(12) | SBIT(15) | SBIT(17) | SBIT(19),
+	 SBIT(11) | SBIT(12) | SBIT(15) | SBIT(17) | SBIT(19) | SBIT(25),
 	 MT_RELEASE_COMPLETE, l3dss1_release_cmpl},
-	{SBIT(1) | SBIT(2) | SBIT(3) | SBIT(4) | SBIT(7) | SBIT(8) | SBIT(9) | SBIT(10) | SBIT(11) | SBIT(12) | SBIT(15) /* | SBIT(17) | SBIT(19)*/,
+	{SBIT(1) | SBIT(2) | SBIT(3) | SBIT(4) | SBIT(7) | SBIT(8) | SBIT(9) | SBIT(10) | SBIT(11) | SBIT(12) | SBIT(15) | SBIT(17) | SBIT(25),
 	 MT_RELEASE, l3dss1_release},
 	{SBIT(19),  MT_RELEASE, l3dss1_release_ind},
-	{SBIT(1) | SBIT(2) | SBIT(3) | SBIT(4) | SBIT(7) | SBIT(8) | SBIT(9) | SBIT(10) | SBIT(11) | SBIT(15),
+	{SBIT(1) | SBIT(2) | SBIT(3) | SBIT(4) | SBIT(7) | SBIT(8) | SBIT(9) | SBIT(10) | SBIT(11) | SBIT(15) | SBIT(17) | SBIT(25),
 	 MT_DISCONNECT, l3dss1_disconnect},
 //	{SBIT(11),
 //	 MT_DISCONNECT, l3dss1_release_req},
@@ -3253,8 +3256,3 @@ setstack_dss1(struct PStack *st)
 	strcpy(tmp, dss1_revision);
 	printk(KERN_INFO "HiSax: DSS1 Rev. %s\n", HiSax_getrev(tmp));
 }
-
-
-
-
-

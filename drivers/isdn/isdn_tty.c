@@ -20,6 +20,11 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.69  1999/07/25 12:56:15  armin
+ * isdn_tty_at_cout() now queues the message if online and
+ * data is in queue or flip buffer is full.
+ * needed for fax connections.
+ *
  * Revision 1.68  1999/07/11 17:51:51  armin
  * Bugfix, "-" was missing for AT&L settings.
  *
@@ -1140,11 +1145,11 @@ isdn_tty_resume(char *id, modem_info * info, atemu * m)
 		cmd.parm.cmsg.para[5] = l;
 		strncpy(&cmd.parm.cmsg.para[6], id, l);
 		cmd.command =CAPI_PUT_MESSAGE;
-/*		info->dialing = 1;
-		strcpy(dev->num[i], n);
+		info->dialing = 1;
+//		strcpy(dev->num[i], n);
 		isdn_info_update();
-*/
 		isdn_command(&cmd);
+		isdn_timer_ctrl(ISDN_TIMER_CARRIER, 1);
 	}
 }
 
@@ -2330,8 +2335,15 @@ isdn_tty_match_icall(char *cid, atemu *emu, int di)
 				break;
 		}
 		return ret;
-	} else
-		return isdn_wildmat(cid, isdn_map_eaz2msn(emu->msn, di));
+	} else {
+		int tmp;
+		tmp = isdn_wildmat(cid, isdn_map_eaz2msn(emu->msn, di));
+#ifdef ISDN_DEBUG_MODEM_ICALL
+			printk(KERN_DEBUG "m_fi: mmsn=%s -> tmp=%d\n",
+			       isdn_map_eaz2msn(emu->msn, di), tmp);
+#endif
+		return tmp;
+	}
 }
 
 /*
@@ -2383,7 +2395,7 @@ isdn_tty_find_icall(int di, int ch, setup_parm setup)
 		    (info->emu.mdmreg[REG_SI2] == si2))	{         /* SI2 is matching */
 			idx = isdn_dc2minor(di, ch);
 #ifdef ISDN_DEBUG_MODEM_ICALL
-			printk(KERN_DEBUG "m_fi: match1\n");
+			printk(KERN_DEBUG "m_fi: match1 wret=%d\n", wret);
 			printk(KERN_DEBUG "m_fi: idx=%d flags=%08lx drv=%d ch=%d usg=%d\n", idx,
 			       info->flags, info->isdn_driver, info->isdn_channel,
 			       dev->usage[idx]);
@@ -3993,8 +4005,10 @@ isdn_tty_parse_at(modem_info * info)
 						isdn_tty_suspend(ds, info, m);
 						break;
 					case 'R':	/* RESUME */
+						p++;
 						isdn_tty_get_msnstr(ds, &p);
 						isdn_tty_resume(ds, info, m);
+						break;
 					case 'M':	/* MESSAGE */
 						p++;
 						isdn_tty_send_msg(info, m, p);
