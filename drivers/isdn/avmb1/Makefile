@@ -11,6 +11,9 @@
 # parent makes..
 #
 # $Log$
+# Revision 1.15  2000/03/16 15:21:03  calle
+# Bugfix in c4_remove: loop 5 times instead of 4 :-(
+#
 # Revision 1.14  2000/03/13 17:50:55  calle
 # Added avm_cs.c for 2.3.x PCMCIA support.
 #
@@ -103,7 +106,7 @@
 
 SUB_DIRS     :=
 MOD_SUB_DIRS :=
-ALL_SUB_DIRS := fcpci fcclassic
+ALL_SUB_DIRS := # fcpci fcclassic
 #
 # Objects that don't export a symtab
 #
