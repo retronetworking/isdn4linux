@@ -21,6 +21,10 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.20  1996/06/12 16:01:49  fritz
+ * Bugfix: Remote B-channel hangup sometimes did not result
+ *         in a NO CARRIER on tty.
+ *
  * Revision 1.19  1996/06/11 14:52:04  hipp
  * minor bugfix in isdn_writebuf_skb_stub()
  *
@@ -810,6 +814,8 @@ static __inline int isdn_minor2chan(int minor)
 	return (dev->chanmap[minor]);
 }
 
+#define INF_DV 0x01 /* Data version for /dev/isdninfo */
+
 static char *
  isdn_statstr(void)
 {
@@ -1188,6 +1194,10 @@ static int isdn_ioctl(struct inode *inode, struct file *file, uint cmd, ulong ar
 
 	if (minor == ISDN_MINOR_STATUS) {
                 switch (cmd) {
+                        case IIOCGETDVR:
+                                return(TTY_DV +
+                                       (NET_DV << 8) +
+                                       (INF_DV << 16));
                         case IIOCGETCPS:
                                 if (arg) {
                                         ulong *p = (ulong *)arg;

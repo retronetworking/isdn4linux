@@ -21,6 +21,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.14  1996/06/06 21:24:23  fritz
+ * Started adding support for suspend/resume.
+ *
  * Revision 1.13  1996/06/05 02:18:20  fritz
  * Added DTMF decoding stuff.
  *
@@ -115,6 +118,7 @@
 #define IIOCNETASL  _IO('I',19)
 #define IIOCNETDIL  _IO('I',20)
 #define IIOCGETCPS  _IO('I',21)
+#define IIOCGETDVR  _IO('I',22)
 
 #define IIOCNETALN  _IO('I',32)
 #define IIOCNETDLN  _IO('I',33)
@@ -161,6 +165,9 @@ typedef struct {
   char phone[20];
   int  outgoing;
 } isdn_net_ioctl_phone;
+
+#define NET_DV 0x01 /* Data version for net_cfg     */
+#define TTY_DV 0x01 /* Data version for iprofd etc. */
 
 typedef struct {
   char name[10];     /* Name of interface                     */
