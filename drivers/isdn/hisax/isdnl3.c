@@ -149,7 +149,7 @@ newcallref(void)
 }
 
 void
-newl3state(struct l3_process *pc, int state)
+l3pc_newstate(struct l3_process *pc, int state)
 {
 	if (pc->debug & L3_DEB_STATE)
 		l3_debug(pc->st, "newstate cr %d %d --> %d", 

@@ -3039,7 +3039,6 @@ dss1up(struct PStack *st, int pr, void *arg)
 	struct sk_buff *skb = arg;
 	struct l3_process *proc;
 
-	hdebug();
 	switch (pr) {
 		case (DL_DATA | INDICATION):
 		case (DL_UNIT_DATA | INDICATION):
