@@ -19,6 +19,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.7  1995/03/15  12:52:06  fritz
+ * Some cleanup
+ *
  * Revision 1.6  1995/02/20  03:49:22  fritz
  * Fixed ICN_MAX_SQUEUE to correctly reflect outstanding bytes, not number
  * of buffers.
@@ -82,7 +85,7 @@ char kernel_version[] = UTS_RELEASE;
 
 /* Defaults for Port-Address and shared-memory */
 #define ICN_BASEADDR 0x320
-#define ICN_PORTLEN (0x08)
+#define ICN_PORTLEN (0x04)
 #define ICN_MEMADDR 0x0d0000
 
 /* Macros for accessing ports */
