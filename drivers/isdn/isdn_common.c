@@ -21,6 +21,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.34  1997/02/10 20:12:43  fritz
+ * Changed interface for reporting incoming calls.
+ *
  * Revision 1.33  1997/02/10 10:05:42  fritz
  * More changes for Kernel 2.1.X
  * Symbol information moved to isdn_syms.c
@@ -590,7 +593,8 @@ isdn_status_callback(isdn_ctrl * c)
 #ifdef ISDN_DEBUG_STATCALLB
 			printk(KERN_DEBUG "CAUSE: %ld %s\n", c->arg, c->num);
 #endif
-			printk(KERN_INFO "isdn: cause: %s\n", c->parm.num);
+			printk(KERN_INFO "isdn: %s,ch%ld cause: %s\n",
+					dev->drvid[di], c->arg, c->parm.num);
 			if ((mi = dev->m_idx[i]) >= 0) {
 				/* Signal cause to tty-device */
 				info = &dev->mdm.info[mi];
