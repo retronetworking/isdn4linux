@@ -15,6 +15,9 @@
  *
  *
  * $Log$
+ * Revision 1.15.2.23  1999/07/09 13:32:43  keil
+ * remove debug code
+ *
  * Revision 1.15.2.22  1999/07/01 10:30:46  keil
  * Version is the same as outside isdn4kernel_2_0 branch,
  * only version numbers are different
@@ -262,7 +265,6 @@ void
 L1deactivated(struct IsdnCardState *cs)
 {
 	struct PStack *st;
-	int i=0;
 
 	st = cs->stlist;
 	while (st) {
