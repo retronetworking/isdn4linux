@@ -6,6 +6,10 @@
  * Copyright 1996 by Carsten Paeth (calle@calle.in-berlin.de)
  *
  * $Log$
+ * Revision 1.31  2000/04/03 13:29:24  calle
+ * make Tim Waugh happy (module unload races in 2.3.99-pre3).
+ * no real problem there, but now it is much cleaner ...
+ *
  * Revision 1.30  2000/03/19 12:31:36  calle
  * PPP over CAPI raw driver disabled for now, ppp_generic has been changed.
  *
@@ -1971,7 +1975,7 @@ endloop:
 		*eof = 1;
 	if (off >= len+begin)
 		return 0;
-	*start = page + (begin-off);
+	*start = page + (off-begin);
 	return ((count < begin+len-off) ? count : begin+len-off);
 }
 

@@ -6,6 +6,13 @@
  * (c) Copyright 1999 by Carsten Paeth (calle@calle.in-berlin.de)
  * 
  * $Log$
+ * Revision 1.15  2000/04/06 15:01:25  calle
+ * Bugfix: crash in capidrv.c when reseting a capi controller.
+ * - changed code order on remove of controller.
+ * - using tq_schedule for notifier in kcapi.c.
+ * - now using spin_lock_irqsave() and spin_unlock_irqrestore().
+ * strange: sometimes even MP hang on unload of isdn.o ...
+ *
  * Revision 1.14  2000/04/03 13:29:25  calle
  * make Tim Waugh happy (module unload races in 2.3.99-pre3).
  * no real problem there, but now it is much cleaner ...
@@ -277,7 +284,7 @@ endloop:
 		*eof = 1;
 	if (off >= len+begin)
 		return 0;
-	*start = page + (begin-off);
+	*start = page + (off-begin);
 	return ((count < begin+len-off) ? count : begin+len-off);
 }
 
@@ -316,7 +323,7 @@ endloop:
 		*eof = 1;
 	if (off >= len+begin)
 		return 0;
-	*start = page + (begin-off);
+	*start = page + (off-begin);
 	return ((count < begin+len-off) ? count : begin+len-off);
 }
 
@@ -350,7 +357,7 @@ endloop:
 		*eof = 1;
 	if (off >= len+begin)
 		return 0;
-	*start = page + (begin-off);
+	*start = page + (off-begin);
 	return ((count < begin+len-off) ? count : begin+len-off);
 }
 
@@ -381,7 +388,7 @@ endloop:
 		*eof = 1;
 	if (off >= len+begin)
 		return 0;
-	*start = page + (begin-off);
+	*start = page + (off-begin);
 	return ((count < begin+len-off) ? count : begin+len-off);
 }
 
@@ -418,7 +425,7 @@ endloop:
 		*eof = 1;
 	if (off >= len+begin)
 		return 0;
-	*start = page + (begin-off);
+	*start = page + (off-begin);
 	return ((count < begin+len-off) ? count : begin+len-off);
 }
 
@@ -455,7 +462,7 @@ endloop:
 		*eof = 1;
 	if (off >= len+begin)
 		return 0;
-	*start = page + (begin-off);
+	*start = page + (off-begin);
 	return ((count < begin+len-off) ? count : begin+len-off);
 }
 
@@ -492,7 +499,7 @@ endloop:
 		*eof = 1;
 	if (off >= len+begin)
 		return 0;
-	*start = page + (begin-off);
+	*start = page + (off-begin);
 	return ((count < begin+len-off) ? count : begin+len-off);
 }
 
