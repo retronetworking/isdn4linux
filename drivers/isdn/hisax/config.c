@@ -5,6 +5,9 @@
  *
  *
  * $Log$
+ * Revision 2.10  1998/02/09 18:46:05  keil
+ * Support for Sedlbauer PCMCIA (Marcus Niemann)
+ *
  * Revision 2.9  1998/02/03 23:31:28  keil
  * add AMD7930 support
  *
@@ -141,16 +144,7 @@ EXPORT_SYMBOL(elsa_init_pcmcia);
 #define DEFAULT_CARD ISDN_CTYPE_SEDLBAUER
 #define DEFAULT_CFG {11,0x270,0,0}
 int sedl_init_pcmcia(void*, int, int*, int);
-#ifdef MODULE
-static struct symbol_table hisax_syms = {
-#include <linux/symtab_begin.h>
-	X(sedl_init_pcmcia),
-#include <linux/symtab_end.h>
-};
-void register_sedl_symbols(void) {
-	register_symtab(&hisax_syms);
-}
-#endif
+EXPORT_SYMBOL(sedl_init_pcmcia);
 #endif
 
 #ifdef CONFIG_HISAX_SPORTSTER
@@ -402,7 +396,6 @@ HiSax_init(void))
 #ifdef CONFIG_HISAX_SEDLBAUER
 	if (type[0] == ISDN_CTYPE_SEDLBAUER_PCMCIA) {
 		/* we have to export  and return in this case */
-		register_sedl_symbols();
 		return 0;
 	}
 #endif
