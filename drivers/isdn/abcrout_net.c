@@ -1,6 +1,7 @@
 
 
-/*
+/* $Id$
+
  *
  * Linux ISDN subsystem, network interfaces and related functions (linklevel).
  *
@@ -21,7 +22,7 @@
  *
  * detlef@abcbtx.de
  * detlef wengorz
- *
+ * $Log$
  */
 
 #include <linux/config.h>
@@ -36,12 +37,6 @@
 #include "isdn_net.h"
 
 char *abcrout_net_revision = "$Revision$";
-
-/*
-** ab version 4.0 ist die verschluesselung ok
-** ebenso das rejecten und disablen 
-** bei zu vielen in- oder outcall pro ziel oder nummer
-*/
 
 
 static struct INCALL_NUMTEST {
@@ -68,7 +63,6 @@ static void *icnt_mmm[4];
 /*
 ** 0 == ohne tcp keepalive-responds  != 0 mit tcp-responds
 */
-
 
 #define MAX_TCP_MERK 128
 
@@ -126,8 +120,7 @@ struct sk_buff_head abc_receive_q;
 #define ABCR_MAXBYTES	0x07FF
 
 
-#define ABCR_ALLE 	\
-		(ABCR_FIRST_REQ|ABCR_ISDATA|ABCR_FIRST_REQ|ABCR_KEEPALIVE)
+#define ABCR_ALLE 	(ABCR_FIRST_REQ|ABCR_ISDATA|ABCR_FIRST_REQ|ABCR_KEEPALIVE)
 
 struct ABCR_FIRST_DATA {
 
@@ -146,6 +139,13 @@ static char *abc_h_ipnr(u_long ipadr);
 
 
 static struct INCALL_NUMTEST *abc_icnt_find(u_char *number)
+/*
+** needed for incomig call to tty's
+** reason: to many call's in a short time must be a mistake !
+** wrong config in one or both sides.
+** 
+** I dont want pay for this reason !
+*/
 {
 	struct INCALL_NUMTEST *r = icnt_first;
 	long cnt = 0;
@@ -552,10 +552,30 @@ void abc_test_phone(isdn_net_local *lp)
 
 			if(*p == '>') {
 
+				/*
+				** for second MSN 
+				** use isdnctrl addphone isdnx in ">4711"
+				** Note: > must be escaped to shell
+				** this MSN will be use for outgoing call's only
+				*/
+
 				dp = (u_char *)lp->abc_out_msn;
 				p++;
 
 			} else {
+
+				/*
+				** needed for crypted connection
+				** use isdnctrl addphone in isdnx -keyword 
+				** for old cryptmode (slowly)
+				**
+				** or
+				**
+				** use isdnctrl addphone in isdnx _keyword 
+				** new crypt (quick)
+				**
+				** Note: both ends need the same key
+				*/
 
 				if(*p != '-' && *p != '_' )
 					continue;
@@ -571,6 +591,10 @@ void abc_test_phone(isdn_net_local *lp)
 
 
 void abc_simple_crypt(u_char *poin,int len,u_char *key)
+/*
+** slowly crypt-funktion
+** will be not supportet in future
+*/
 {
 	short art = 0;
 	int max_bits;
@@ -641,6 +665,10 @@ void abc_simple_crypt(u_char *poin,int len,u_char *key)
 
 
 void abc_simple_decrypt(u_char *poin,int len,u_char *key)
+/*
+** slowly de-crypt-funktion
+** will be not supportet in future
+*/
 {
 	short art = 0;
 	u_char *start_key = key;
@@ -724,6 +752,7 @@ void abc_simple_decrypt(u_char *poin,int len,u_char *key)
 
 static void  dwtblcrypt(int decrypt,u_char *buf,int bytes,u_char *key)
 /******************************************************************
+new quick crypt- decrypt funktion. I hope that will be OK
 *******************************************************************/
 {
 
@@ -965,47 +994,6 @@ struct sk_buff *abc_snd_data(struct device *ndev,struct sk_buff *skb)
 }
 
 
-#ifdef DONT_NEED
-
-int abc_printip(u_char *buf,int len,int zl)
-{
-	struct iphdr *ip = (struct iphdr *)buf;
-	u_char *p;
-	int iphlen;
-	int iptlen;
-	int datalen;
-	u_short dcheck;
-
-	iphlen = ip->ihl << 2;
-	iptlen = ntohs(ip->tot_len);
-	datalen = iptlen - iphlen;
-
-	if(abc_checksum(buf,iphlen >> 1)) {
-
-		printk(KERN_DEBUG "ip-header wrong checksum\n");
-		return(0);
-	}
-
-	p = buf + iphlen;
-	dcheck = abc_checksum(p,datalen >> 1);
-
-	printk(KERN_DEBUG "ip %d: %s->%s hlen %d tlen %d dlen %d %d proto %d check %u\n",
-		zl,
-		abc_h_ipnr(ip->saddr),
-		abc_h_ipnr(ip->daddr),
-		iphlen,
-		iptlen,
-		datalen,
-		len,
-		ip->protocol,
-		dcheck);
-
-	return(0);
-}
-
-		
-#endif
-
 
 int abc_test_rcvq(struct device *ndev)
 {
@@ -1240,7 +1228,7 @@ struct sk_buff *abc_test_receive(struct device *ndev, struct sk_buff *skb)
 			kfree_skb(skb,FREE_READ);
 			return(NULL);
 
-			zu testzwecken entfernt test bei icn karten
+			
 ********************************/
 		}
 	}
