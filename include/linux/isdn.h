@@ -21,6 +21,10 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.98  2000/03/17 18:20:47  kai
+ * moved to frame_cnt based flow control
+ * some races still need to be fixed
+ *
  * Revision 1.97  2000/03/17 16:22:55  kai
  * we keep track of outstanding packets (given to HL, but not confirmed yet)
  * now, but we don't use it for flow control yet.
@@ -770,6 +774,7 @@ typedef struct isdn_net_local_s {
   atomic_t frame_cnt;                  /* number of frames currently       */
                         	       /* queued in HL driver              */    
                                        /* Ptr to orig. hard_header_cache   */
+
   int                    (*org_hhc)(
 				    struct neighbour *neigh,
 				    struct hh_cache *hh);

@@ -19,6 +19,10 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.67  2000/03/17 18:20:46  kai
+ * moved to frame_cnt based flow control
+ * some races still need to be fixed
+ *
  * Revision 1.66  2000/03/17 17:01:00  kai
  * cleanup
  *
@@ -1558,7 +1562,7 @@ isdn_ppp_xmit(struct sk_buff *skb, struct net_device *netdev)
 
 	lp = nd->queue;         /* get lp on top of queue */
 	/* find a non-busy device */
-	while (atomic_read(&nd->queue->frame_cnt) >= ISDN_NET_MAX_QUEUE_LENGTH) {
+	while (isdn_net_lp_busy(nd->queue)) {
 		nd->queue = nd->queue->next;
 		if (nd->queue == lp) { /* not found -- should never happen */
 			printk(KERN_WARNING "%s: all channels busy!\n", lp->name);

@@ -529,7 +529,7 @@
  * Find out if the netdevice has been ifup-ed yet.
  * For slaves, look at the corresponding master.
  */
-static __inline__ int isdn_net_started(isdn_net_dev *n)
+static __inline__ int isdn_net_device_started(isdn_net_dev *n)
 {
 	isdn_net_local *lp = n->local;
 	struct net_device *dev;
@@ -549,7 +549,7 @@ static __inline__ int isdn_net_started(isdn_net_dev *n)
  * wake up the network -> net_device queue.
  * For slaves, wake the corresponding master interface.
  */
-static __inline__ void isdn_net_lp_xon(isdn_net_local * lp)
+static __inline__ void isdn_net_device_wake_queue(isdn_net_local *lp)
 {
 	if (lp->master) 
 		netif_wake_queue(lp->master);
@@ -561,7 +561,7 @@ static __inline__ void isdn_net_lp_xon(isdn_net_local * lp)
  * stop the network -> net_device queue.
  * For slaves, stop the corresponding master interface.
  */
-static __inline__ void isdn_net_lp_xoff(isdn_net_local * lp)
+static __inline__ void isdn_net_device_stop_queue(isdn_net_local *lp)
 {
 	if (lp->master)
 		netif_stop_queue(lp->master);
@@ -569,15 +569,20 @@ static __inline__ void isdn_net_lp_xoff(isdn_net_local * lp)
 		netif_stop_queue(&lp->netdev->dev);
 }
 
-static __inline__ int isdn_net_lp_busy(isdn_net_local *lp)
+/*
+ * find out if the net_device which this lp belongs to (lp can be
+ * master or slave) is busy. It's busy iff all (master and slave) 
+ * queues are busy
+ */
+static __inline__ int isdn_net_device_busy(isdn_net_local *lp)
 {
-	if (atomic_read(&lp->frame_cnt) < ISDN_NET_MAX_QUEUE_LENGTH)
+	if (!isdn_net_lp_busy(lp))
 		return 0;
 	/* multilink raw-ip and syncppp need to be handled differently */
 	if (lp->p_encap == ISDN_NET_ENCAP_SYNCPPP) {
 		isdn_net_local *nlp = lp->next;
 		while (nlp != lp) {
-			if (atomic_read(&nlp->frame_cnt) < ISDN_NET_MAX_QUEUE_LENGTH)
+			if (!isdn_net_lp_busy(lp))
 				return 0;
 			nlp = nlp->next;
 		}
@@ -585,7 +590,7 @@ static __inline__ int isdn_net_lp_busy(isdn_net_local *lp)
 		if (lp->master)
 			lp = lp->master->priv;
 		while (lp->flags & ISDN_NET_CONNECTED && lp->dialstate == 0) {
-			if (atomic_read(&lp->frame_cnt) < ISDN_NET_MAX_QUEUE_LENGTH)
+			if (!isdn_net_lp_busy(lp))
 				return 0;
 			if (!lp->slave) break;
 			lp = lp->slave->priv;
@@ -597,8 +602,8 @@ static __inline__ int isdn_net_lp_busy(isdn_net_local *lp)
 static __inline__ void isdn_net_inc_frame_cnt(isdn_net_local *lp)
 {
 	atomic_inc(&lp->frame_cnt);
-	if (isdn_net_lp_busy(lp))
-		isdn_net_lp_xoff(lp);
+	if (isdn_net_device_busy(lp))
+		isdn_net_device_stop_queue(lp);
 #if 0
 	printk(KERN_DEBUG "%s: inc_frame_cnt now %d\n", lp->name, 
 	      atomic_read(&p->frame_cnt));
@@ -608,11 +613,11 @@ static __inline__ void isdn_net_inc_frame_cnt(isdn_net_local *lp)
 static __inline__ void isdn_net_dec_frame_cnt(isdn_net_local *lp)
 {
 	atomic_dec(&lp->frame_cnt);
-	if (!(isdn_net_lp_busy(lp))) {
+	if (!(isdn_net_device_busy(lp))) {
 		if (!skb_queue_empty(&lp->super_tx_queue)) {
 			queue_task(&lp->tqueue, &tq_immediate);
 		} else {
-			isdn_net_lp_xon(lp);
+			isdn_net_device_wake_queue(lp);
 		}
        }                                                                      
 #if 0
@@ -1140,7 +1145,7 @@ isdn_net_stat_callback(int idx, isdn_ctrl *c)
 							if (!(isdn_net_xmit(&p->dev, lp, lp->first_skb)))
 								lp->first_skb = NULL;
 						}
-						if(! lp->first_skb) isdn_net_lp_xon(lp);
+						if(! lp->first_skb) isdn_net_device_wake_queue(lp);
 						return 1;
 				}
 				break;
@@ -1754,7 +1759,7 @@ isdn_net_log_skb(struct sk_buff * skb, isdn_net_local * lp)
  */
 void isdn_net_write_super(isdn_net_local *lp, struct sk_buff *skb)
 {
-	if (atomic_read(&lp->frame_cnt) < ISDN_NET_MAX_QUEUE_LENGTH) {
+	if (!isdn_net_lp_busy(lp)) {
 		isdn_net_writebuf_skb(lp, skb);
 	} else {
 		skb_queue_tail(&lp->super_tx_queue, skb);
@@ -1770,7 +1775,7 @@ isdn_net_softint(void *private)
 	isdn_net_local *lp = private;
 	struct sk_buff *skb;
 	
-	while (atomic_read(&lp->frame_cnt) < ISDN_NET_MAX_QUEUE_LENGTH) {
+	while (!isdn_net_lp_busy(lp)) {
 		skb = skb_dequeue(&lp->super_tx_queue);
 		if (!skb)
 			break;
@@ -1786,7 +1791,7 @@ void isdn_net_writebuf_skb(isdn_net_local *lp, struct sk_buff *skb)
 	int ret;
 	int len = skb->len;     /* save len */
 
-	if (atomic_read(&lp->frame_cnt) >= ISDN_NET_MAX_QUEUE_LENGTH) {
+	if (isdn_net_lp_busy(lp)) {
 		/* we should never get here */
 		printk(KERN_WARNING "%s: frame_cnt %d too large\n", lp->name, 
 		       atomic_read(&lp->frame_cnt));
@@ -1811,7 +1816,7 @@ void isdn_net_writebuf_skb(isdn_net_local *lp, struct sk_buff *skb)
 #ifdef CONFIG_ISDN_WITH_ABC
 static int dwabc_helper_isdn_net_send_skb(struct net_device *ndev, isdn_net_local * lp,struct sk_buff *skb)
 {
-	if (atomic_read(&lp->frame_cnt) >= ISDN_NET_MAX_QUEUE_LENGTH) {
+	if (isdn_net_lp_busy(lp)) {
 		printk(KERN_WARNING "dwabc_helper_isdn_net_send_skb: HL channel busy\n");
 		return 1;
 	}
@@ -1930,7 +1935,7 @@ once_more:;
 #else
 int isdn_net_send_skb(struct net_device *ndev, isdn_net_local * lp,struct sk_buff *skb)
 {
-	if (atomic_read(&lp->frame_cnt) >= ISDN_NET_MAX_QUEUE_LENGTH) {
+	if (isdn_net_lp_busy(lp)) {
 		printk(KERN_WARNING "isdn_net_send_skb: HL channel busy\n");
 		return 1;
 	}
@@ -1977,7 +1982,7 @@ isdn_net_xmit(struct net_device *ndev, isdn_net_local * lp, struct sk_buff *skb)
 			isdn_net_local *slp = (isdn_net_local *) (lp->srobin->priv);
 			int safe = 0;
 			/* we need a non-busy channel */
-			while (atomic_read(&slp->frame_cnt) >= ISDN_NET_MAX_QUEUE_LENGTH) {
+			while (isdn_net_lp_busy(slp)) {
 				lp->srobin = (slp->slave) ? slp->slave : ndev;
 				if (!((slp->flags & ISDN_NET_CONNECTED) && (slp->dialstate == 0)))
 					lp->srobin = ndev;
@@ -3258,7 +3263,7 @@ isdn_net_find_icall(int di, int ch, int idx, setup_parm setup)
 				 * Is the interface up?
 				 * If not, reject the call actively.
 				 */
-				if (!isdn_net_started(p)) {
+				if (!isdn_net_device_started(p)) {
 					restore_flags(flags);
 					printk(KERN_INFO "%s: incoming call, interface down -> rejected\n",
 					       lp->name);
@@ -3679,7 +3684,7 @@ isdn_net_newslave(char *parm)
 		if (n->local->master)
 			return NULL;
 		/* Master must not be started yet */
-		if (isdn_net_started(n)) 
+		if (isdn_net_device_started(n)) 
 			return NULL;
 		return (isdn_net_new(newname, &(n->dev)));
 	}
@@ -3722,7 +3727,7 @@ isdn_net_setcfg(isdn_net_ioctl_cfg * cfg)
 #ifdef CONFIG_ISDN_X25
 			struct concap_proto * cprot = p -> cprot;
 #endif
-			if (isdn_net_started(p)) {
+			if (isdn_net_device_started(p)) {
 				printk(KERN_WARNING "%s: cannot change encap when if is up\n",
 				       lp->name);
 				return -EBUSY;
@@ -4170,7 +4175,7 @@ isdn_net_realrm(isdn_net_dev * p, isdn_net_dev * q)
 
 	save_flags(flags);
 	cli();
-	if (isdn_net_started(p)) {
+	if (isdn_net_device_started(p)) {
 		restore_flags(flags);
 		return -EBUSY;
 	}

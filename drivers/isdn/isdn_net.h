@@ -21,6 +21,10 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.13  2000/03/17 18:20:46  kai
+ * moved to frame_cnt based flow control
+ * some races still need to be fixed
+ *
  * Revision 1.12  2000/03/17 17:01:00  kai
  * cleanup
  *
@@ -140,3 +144,15 @@ extern void isdn_net_writebuf_skb(isdn_net_local *lp, struct sk_buff *skb);
 extern void isdn_net_write_super(isdn_net_local *lp, struct sk_buff *skb);
 
 #define ISDN_NET_MAX_QUEUE_LENGTH 2
+
+/*
+ * is this particular channel busy?
+ */
+static __inline int isdn_net_lp_busy(isdn_net_local *lp)
+{
+	if (atomic_read(&lp->frame_cnt) < ISDN_NET_MAX_QUEUE_LENGTH)
+		return 0;
+	else 
+		return 1;
+}
+
