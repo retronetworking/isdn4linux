@@ -13,25 +13,6 @@
 #define dev_kfree_skb_any(a) dev_kfree_skb(a)
 #endif
 
-#if LINUX_VERSION_CODE < KERNEL_VERSION(2,1,31)
-#define CLOSETYPE void
-#define CLOSEVAL
-#else
-#define CLOSETYPE int
-#define CLOSEVAL (0)
-#endif
-
-#if LINUX_VERSION_CODE < KERNEL_VERSION(2,1,37)
-#define test_and_clear_bit clear_bit
-#define test_and_set_bit set_bit
-#endif
-
-#if LINUX_VERSION_CODE < KERNEL_VERSION(2,1,45)
-#define MINOR_PART(f)	MINOR(f->f_inode->i_rdev)
-#else
-#define MINOR_PART(f)   MINOR(f->f_dentry->d_inode->i_rdev)
-#endif
-
 #if LINUX_VERSION_CODE < KERNEL_VERSION(2,1,81)
 #define kstat_irqs( PAR ) kstat.interrupts[PAR]
 #endif

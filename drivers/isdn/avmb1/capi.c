@@ -6,6 +6,11 @@
  * Copyright 1996 by Carsten Paeth (calle@calle.in-berlin.de)
  *
  * $Log$
+ * Revision 1.41  2000/11/01 14:05:02  calle
+ * - use module_init/module_exit from linux/init.h.
+ * - all static struct variables are initialized with "membername:" now.
+ * - avm_cs.c, let it work with newer pcmcia-cs.
+ *
  * Revision 1.40  2000/10/24 15:15:04  calle
  * Workaround: pppd calls restoretty before reseting the ldisc and
  *   ldisc "ppp_sync" didn't support this. So we call n_tty_ioctl
@@ -641,7 +646,7 @@ static struct capidev *capidev_alloc(struct file *file)
 		return 0;
 	memset(cdev, 0, sizeof(struct capidev));
 	cdev->file = file;
-	cdev->minor = MINOR_PART(file);
+	cdev->minor = MINOR(file->f_dentry->d_inode->i_rdev);
 
 	skb_queue_head_init(&cdev->recvqueue);
 #ifdef COMPAT_HAS_NEW_WAITQ
@@ -1376,7 +1381,7 @@ capinc_raw_open(struct inode *inode, struct file *file)
 
 	if (file->private_data)
 		return -EEXIST;
-	if ((mp = capiminor_find(MINOR_PART(file))) == 0)
+	if ((mp = capiminor_find(MINOR(file->f_dentry->d_inode->i_rdev))) == 0)
 		return -ENXIO;
 	if (mp->nccip == 0)
 		return -ENXIO;
@@ -1607,7 +1612,7 @@ int capinc_tty_open(struct tty_struct * tty, struct file * file)
 {
 	struct capiminor *mp;
 
-	if ((mp = capiminor_find(MINOR_PART(file))) == 0)
+	if ((mp = capiminor_find(MINOR(file->f_dentry->d_inode->i_rdev))) == 0)
 		return -ENXIO;
 	if (mp->nccip == 0)
 		return -ENXIO;

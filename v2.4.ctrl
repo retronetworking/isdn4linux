@@ -1,7 +1,4 @@
 #delete #include <linux/isdn_compat.h>
-#define CLOSETYPE int
-#define CLOSEVAL (0)
-#define MINOR_PART(f)   MINOR(f->f_dentry->d_inode->i_rdev)
 #define COMPAT_HAS_NEW_PCI
 #define get_pcibase(ps, nr) ps->resource[nr].start
 #define pci_resource_start_io(pdev,nr)	pci_resource_start(pdev,nr)
