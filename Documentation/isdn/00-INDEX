@@ -18,4 +18,5 @@ README.teles
 	- info on driver for Teles compatible ISDN cards.
 syncPPP.FAQ
 	- frequently asked questions about running PPP over ISDN.
-
+README.avmb1
+	- info on driver for AVM-B1 ISDN card
