@@ -6,6 +6,9 @@
  * Copyright 1996 by Carsten Paeth (calle@calle.in-berlin.de)
  *
  * $Log$
+ * Revision 1.2  1997/12/10 19:38:42  calle
+ * get changes from 2.0 tree
+ *
  * Revision 1.1.2.2  1997/11/26 16:57:26  calle
  * more changes for B1/M1/T1.
  *
@@ -67,6 +70,7 @@ typedef struct avmb1_carddef {
 #define AVM_CARDTYPE_B1	0
 #define AVM_CARDTYPE_T1	1
 #define AVM_CARDTYPE_M1	2
+#define AVM_CARDTYPE_M2	3
 
 typedef struct avmb1_extcarddef {
 	int port;
@@ -87,7 +91,7 @@ typedef struct avmb1_extcarddef {
  * card states for startup
  */
 
-#define CARD_NONE	0
+#define CARD_FREE	0
 #define CARD_DETECTED	1
 #define CARD_LOADING	2
 #define CARD_INITSTATE	4
@@ -168,8 +172,17 @@ void avmb1_handle_free_ncci(avmb1_card * card,
 void avmb1_handle_capimsg(avmb1_card * card, __u16 appl, struct sk_buff *skb);
 void avmb1_card_ready(avmb1_card * card);
 
+/* standard calls, with check and allocation of resources */
 int avmb1_addcard(int port, int irq, int cardtype);
 int avmb1_probecard(int port, int irq, int cardtype);
+
+
+int avmb1_resetcard(int cardnr);
+
+/* calls for pcmcia driver */
+int avmb1_detectcard(int port, int irq, int cardtype);
+int avmb1_registercard(int port, int irq, int cardtype, int allocio);
+int avmb1_unregistercard(int cnr, int freeio);
 
 #endif				/* __KERNEL__ */
 
