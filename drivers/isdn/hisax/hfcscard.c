@@ -1,14 +1,11 @@
 /* $Id$
 
- * teles3c.c     low level stuff for teles 16.3c
+ * hfcscard.c     low level stuff for hfcs based cards (Teles3c, ACER P10)
  *
  * Author     Karsten Keil (keil@isdn4linux.de)
  *
  *
  * $Log$
- * Revision 1.2  1998/02/02 13:27:07  keil
- * New
- *
  *
  *
  */
@@ -20,32 +17,32 @@
 
 extern const char *CardType[];
 
-const char *teles163c_revision = "$Revision$";
+static const char *hfcs_revision = "$Revision$";
 
 static void
-t163c_interrupt(int intno, void *dev_id, struct pt_regs *regs)
+hfcs_interrupt(int intno, void *dev_id, struct pt_regs *regs)
 {
 	struct IsdnCardState *cs = dev_id;
 	u_char val, stat;
 
 	if (!cs) {
-		printk(KERN_WARNING "teles3c: Spurious interrupt!\n");
+		printk(KERN_WARNING "HFCS: Spurious interrupt!\n");
 		return;
 	}
 	if ((HFCD_ANYINT | HFCD_BUSY_NBUSY) & 
 		(stat = cs->BC_Read_Reg(cs, HFCD_DATA, HFCD_STAT))) {
 		val = cs->BC_Read_Reg(cs, HFCD_DATA, HFCD_INT_S1);
 		if (cs->debug & L1_DEB_ISAC)
-			debugl1(cs, "teles3c: stat(%02x) s1(%02x)", stat, val);
+			debugl1(cs, "HFCS: stat(%02x) s1(%02x)", stat, val);
 		hfc2bds0_interrupt(cs, val);
 	} else {
 		if (cs->debug & L1_DEB_ISAC)
-			debugl1(cs, "teles3c: irq_no_irq stat(%02x)", stat);
+			debugl1(cs, "HFCS: irq_no_irq stat(%02x)", stat);
 	}
 }
 
 static void
-t163c_Timer(struct IsdnCardState *cs)
+hfcs_Timer(struct IsdnCardState *cs)
 {
 	cs->hw.hfcD.timer.expires = jiffies + 75;
 	/* WD RESET */
@@ -55,7 +52,7 @@ t163c_Timer(struct IsdnCardState *cs)
 }
 
 void
-release_io_t163c(struct IsdnCardState *cs)
+release_io_hfcs(struct IsdnCardState *cs)
 {
 	release2bds0(cs);
 	del_timer(&cs->hw.hfcD.timer);
@@ -64,23 +61,30 @@ release_io_t163c(struct IsdnCardState *cs)
 }
 
 static void
-reset_t163c(struct IsdnCardState *cs)
+reset_hfcs(struct IsdnCardState *cs)
 {
 	long flags;
 
-	printk(KERN_INFO "teles3c: resetting card\n");
-	cs->hw.hfcD.cirm = HFCD_RESET | HFCD_MEM8K;
+	printk(KERN_INFO "HFCS: resetting card\n");
+	cs->hw.hfcD.cirm = HFCD_RESET;
+	if (cs->typ == ISDN_CTYPE_TELES3C)
+		cs->hw.hfcD.cirm |= HFCD_MEM8K;
 	cs->BC_Write_Reg(cs, HFCD_DATA, HFCD_CIRM, cs->hw.hfcD.cirm);	/* Reset On */
 	save_flags(flags);
 	sti();
 	current->state = TASK_INTERRUPTIBLE;
-	schedule_timeout(3);
-	cs->hw.hfcD.cirm = HFCD_MEM8K;
+	schedule_timeout((30*HZ)/1000);
+	cs->hw.hfcD.cirm = 0;
+	if (cs->typ == ISDN_CTYPE_TELES3C)
+		cs->hw.hfcD.cirm |= HFCD_MEM8K;
 	cs->BC_Write_Reg(cs, HFCD_DATA, HFCD_CIRM, cs->hw.hfcD.cirm);	/* Reset Off */
 	current->state = TASK_INTERRUPTIBLE;
-	schedule_timeout(1);
-	cs->hw.hfcD.cirm |= HFCD_INTB;
-	cs->BC_Write_Reg(cs, HFCD_DATA, HFCD_CIRM, cs->hw.hfcD.cirm);	/* INT B */
+	schedule_timeout((10*HZ)/1000);
+	if (cs->typ == ISDN_CTYPE_TELES3C)
+		cs->hw.hfcD.cirm |= HFCD_INTB;
+	else if (cs->typ == ISDN_CTYPE_ACERP10)
+		cs->hw.hfcD.cirm |= HFCD_INTA;
+	cs->BC_Write_Reg(cs, HFCD_DATA, HFCD_CIRM, cs->hw.hfcD.cirm);
 	cs->BC_Write_Reg(cs, HFCD_DATA, HFCD_CLKDEL, 0x0e);
 	cs->BC_Write_Reg(cs, HFCD_DATA, HFCD_TEST, HFCD_AUTO_AWAKE); /* S/T Auto awake */
 	cs->hw.hfcD.ctmt = HFCD_TIM25 | HFCD_AUTO_TIMER;
@@ -102,23 +106,23 @@ reset_t163c(struct IsdnCardState *cs)
 }
 
 static int
-t163c_card_msg(struct IsdnCardState *cs, int mt, void *arg)
+hfcs_card_msg(struct IsdnCardState *cs, int mt, void *arg)
 {
 	long flags;
 
 	if (cs->debug & L1_DEB_ISAC)
-		debugl1(cs, "teles3c: card_msg %x", mt);
+		debugl1(cs, "HFCS: card_msg %x", mt);
 	switch (mt) {
 		case CARD_RESET:
-			reset_t163c(cs);
+			reset_hfcs(cs);
 			return(0);
 		case CARD_RELEASE:
-			release_io_t163c(cs);
+			release_io_hfcs(cs);
 			return(0);
 		case CARD_SETIRQ:
 			cs->hw.hfcD.timer.expires = jiffies + 75;
 			add_timer(&cs->hw.hfcD.timer);
-			return(request_irq(cs->irq, &t163c_interrupt,
+			return(request_irq(cs->irq, &hfcs_interrupt,
 					I4L_IRQ_FLAG, "HiSax", cs));
 		case CARD_INIT:
 			init2bds0(cs);
@@ -138,16 +142,13 @@ t163c_card_msg(struct IsdnCardState *cs, int mt, void *arg)
 }
 
 __initfunc(int
-setup_t163c(struct IsdnCard *card))
+setup_hfcs(struct IsdnCard *card))
 {
 	struct IsdnCardState *cs = card->cs;
 	char tmp[64];
 
-	strcpy(tmp, teles163c_revision);
-	printk(KERN_INFO "HiSax: Teles 16.3c driver Rev. %s\n", HiSax_getrev(tmp));
-	if (cs->typ != ISDN_CTYPE_TELES3C)
-		return (0);
-	cs->debug = 0xff;
+	strcpy(tmp, hfcs_revision);
+	printk(KERN_INFO "HiSax: HFC-S driver Rev. %s\n", HiSax_getrev(tmp));
 	cs->hw.hfcD.addr = card->para[1] & 0xfffe;
 	cs->irq = card->para[0];
 	cs->hw.hfcD.cip = 0;
@@ -155,10 +156,15 @@ setup_t163c(struct IsdnCard *card))
 	cs->hw.hfcD.send = NULL;
 	cs->bcs[0].hw.hfc.send = NULL;
 	cs->bcs[1].hw.hfc.send = NULL;
-	cs->hw.hfcD.bfifosize = 1024 + 512;
 	cs->hw.hfcD.dfifosize = 512;
-	cs->ph_state = 0;
+	cs->dc.hfcd.ph_state = 0;
 	cs->hw.hfcD.fifo = 255;
+	if (cs->typ == ISDN_CTYPE_TELES3C) {
+		cs->hw.hfcD.bfifosize = 1024 + 512;
+	} else if (cs->typ == ISDN_CTYPE_ACERP10) {
+		cs->hw.hfcD.bfifosize = 7*1024 + 512;
+	} else
+		return (0);
 	if (check_region((cs->hw.hfcD.addr), 2)) {
 		printk(KERN_WARNING
 		       "HiSax: %s config port %x-%x already in use\n",
@@ -167,21 +173,26 @@ setup_t163c(struct IsdnCard *card))
 		       cs->hw.hfcD.addr + 2);
 		return (0);
 	} else {
-		request_region(cs->hw.hfcD.addr, 2, "teles3c isdn");
+		request_region(cs->hw.hfcD.addr, 2, "HFCS isdn");
 	}
-	/* Teles 16.3c IO ADR is 0x200 | YY0U (YY Bit 15/14 address) */
-	outb(0x00, cs->hw.hfcD.addr);
-	outb(0x56, cs->hw.hfcD.addr | 1);
 	printk(KERN_INFO
-	       "teles3c: defined at 0x%x IRQ %d HZ %d\n",
+	       "HFCS: defined at 0x%x IRQ %d HZ %d\n",
 	       cs->hw.hfcD.addr,
 	       cs->irq, HZ);
-
+	if (cs->typ == ISDN_CTYPE_TELES3C) {
+		/* Teles 16.3c IO ADR is 0x200 | YY0U (YY Bit 15/14 address) */
+		outb(0x00, cs->hw.hfcD.addr);
+		outb(0x56, cs->hw.hfcD.addr | 1);
+	} else if (cs->typ == ISDN_CTYPE_ACERP10) {
+		/* Acer P10 IO ADR is 0x300 */
+		outb(0x00, cs->hw.hfcD.addr);
+		outb(0x57, cs->hw.hfcD.addr | 1);
+	}
 	set_cs_func(cs);
-	cs->hw.hfcD.timer.function = (void *) t163c_Timer;
+	cs->hw.hfcD.timer.function = (void *) hfcs_Timer;
 	cs->hw.hfcD.timer.data = (long) cs;
 	init_timer(&cs->hw.hfcD.timer);
-	reset_t163c(cs);
-	cs->cardmsg = &t163c_card_msg;
+	reset_hfcs(cs);
+	cs->cardmsg = &hfcs_card_msg;
 	return (1);
 }
