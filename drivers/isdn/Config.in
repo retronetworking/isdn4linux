@@ -71,15 +71,13 @@ tristate           'CAPI2.0 support' CONFIG_ISDN_KCAPI
 if [ "$CONFIG_ISDN_KCAPI" != "n" ]; then
    bool            '  Verbose reason code reporting (kernel size += 7K)' CONFIG_ISDN_KCAPI_VERBOSE
    bool            '  Disable debug info code (kernel size -= 11K)' CONFIG_ISDN_KCAPI_NO_INFOSTR 
-   dep_bool        '  CAPI2.0 Middleware support (EXPERIMENTAL)' CONFIG_ISDN_KCAPI_MIDDLEWARE $CONFIG_EXPERIMENTAL
    dep_tristate    '  CAPI2.0 /dev/capi support' CONFIG_ISDN_KCAPI_CAPI20 $CONFIG_ISDN_KCAPI
+   dep_mbool       '  CAPI2.0 Middleware support (EXPERIMENTAL)' CONFIG_ISDN_KCAPI_MIDDLEWARE $CONFIG_EXPERIMENTAL $CONFIG_ISDN_KCAPI_CAPI20
    if [ "$CONFIG_ISDN_KCAPI_MIDDLEWARE" = "y" ]; then
-      dep_mbool    '    CAPI2.0 filesystem support' CONFIG_ISDN_KCAPI_CAPIFS_BOOL $CONFIG_ISDN_KCAPI_CAPI20
-      if [ "$CONFIG_ISDN_KCAPI_CAPIFS_BOOL" = "y" ]; then
-	 define_tristate CONFIG_ISDN_KCAPI_CAPIFS $CONFIG_ISDN_KCAPI_CAPI20
-      else
-	 define_tristate CONFIG_ISDN_KCAPI_CAPIFS n
-      fi
+      dep_tristate '    Legacy CAPI2.0 Middleware (BROKEN)' CONFIG_ISDN_KCAPI_LEGACY $CONFIG_ISDN_KCAPI_CAPI20	
+      dep_mbool    '      CAPI2.0 filesystem support' CONFIG_ISDN_KCAPI_CAPIFS_BOOL $CONFIG_ISDN_KCAPI_LEGACY
+      dep_tristate '    Support for pppcapiplugin' CONFIG_ISDN_KCAPI_PPPTTY $CONFIG_ISDN_KCAPI_CAPI20
+      dep_tristate '    Support for AT emulator on top of CAPI' CONFIG_ISDN_KCAPI_CAPITTY $CONFIG_ISDN_KCAPI_CAPI20
    fi
    dep_tristate    '  CAPI2.0 capidrv interface support' CONFIG_ISDN_KCAPI_CAPIDRV $CONFIG_ISDN_KCAPI $CONFIG_ISDN_MOD
 fi

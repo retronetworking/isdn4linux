@@ -69,6 +69,8 @@ typedef struct kcapi_conf_contrdef {
 
 #ifdef __KERNEL__
 
+#include <net/capi/capi.h>
+
 struct capi_interface {
 	__u16 (*capi_isinstalled) (void);
 

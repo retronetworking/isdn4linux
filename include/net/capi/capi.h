@@ -120,6 +120,8 @@ typedef union capi_ioctl_struct {
  * Middleware extension
  */
 
+#ifdef CONFIG_ISDN_KCAPI_LEGACY
+
 #define CAPIFLAG_HIGHJACKING	0x0001
 
 #define CAPI_GET_FLAGS		_IOR('C',0x23, unsigned)
@@ -129,5 +131,20 @@ typedef union capi_ioctl_struct {
 #define CAPI_NCCI_OPENCOUNT	_IOR('C',0x26, unsigned)
 
 #define CAPI_NCCI_GETUNIT	_IOR('C',0x27, unsigned)
+
+#endif /* CONFIG_ISDN_KCAPI_LEGACY */
+
+
+#define CAPI_NCCI_TYPE_TTYI     0x01
+#define CAPI_NCCI_TYPE_PPPTTY   0x02
+
+struct ncci_connect_data {
+	unsigned int ncci;
+	int type;
+	unsigned long data;
+};
+
+#define CAPI_NCCI_CONNECT       _IOWR('C',0x30, struct ncci_connect_data)
+#define CAPI_NCCI_DISCONNECT    _IOR ('C',0x31, unsigned int)
 
 #endif				/* __LINUX_CAPI_H__ */

@@ -1,33 +1,26 @@
 # Makefile for capi20.
 
-# The target object and module list name.
+O_TARGET		:= vmlinux-obj.o
 
-O_TARGET	:= capi_drv.o
+export-objs		:= capifs.o
 
-# Objects that export symbols.
+list-multi		:= capitty.o capi_legacy.o
 
-export-objs	:= capifs.o
+capi_legacy-objs	:= capiminor.o capiraw.o capinc_tty.o
+capi_legacy-objs-$(CONFIG_ISDN_KCAPI_CAPIFS) += capifs.o
+capi_legacy-objs	+= $(capi_legacy-objs-y)
 
-# Multipart objects.
-
-list-multi	:= 
-
-# Object file lists.
-
-obj-y	:=
-obj-m	:=
-obj-n	:=
-obj-	:=
-
-# Each configuration option enables a list of files.
-
-# Ordering constraints: kernelcapi.o first
+capitty-objs		:= capitty_dev.o capitty_tty.o
 
 obj-$(CONFIG_ISDN_KCAPI_CAPI20)		+= capi.o
-obj-$(CONFIG_ISDN_KCAPI_CAPIFS)		+= capifs.o
+obj-$(CONFIG_ISDN_KCAPI_LEGACY) 	+= capi_legacy.o
+obj-$(CONFIG_ISDN_KCAPI_PPPTTY) 	+= capi_ppptty.o
+obj-$(CONFIG_ISDN_KCAPI_CAPITTY)	+= capitty.o
 
-# The global Rules.make.
+include $(TOPDIR)/Rules.make
 
-include $(TOPDIR)/drivers/isdn/Rules.make
+capi_legacy.o: $(capi_legacy-objs)
+	$(LD) -r -o $@ $(capi_legacy-objs)
 
-
+capitty.o: $(capitty-objs)
+	$(LD) -r -o $@ $(capitty-objs)

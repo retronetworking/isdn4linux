@@ -151,13 +151,7 @@ else
 	for i in drivers/isdn/isdn_*.[ch] ; do
 		$DODIFF $i $KERNELDIR/$i
 	done
-	for i in drivers/isdn/kernelcapi/*.[ch] ; do
-		$DODIFF $i $KERNELDIR/$i
-	done
-	for i in drivers/isdn/capi20/*.[ch] ; do
-		$DODIFF $i $KERNELDIR/$i
-	done
-	for i in drivers/isdn/capidrv/*.[ch] ; do
+	for i in drivers/isdn/divert/*.[ch] ; do
 		$DODIFF $i $KERNELDIR/$i
 	done
 	for i in drivers/isdn/hysdn/*.[ch] ; do
@@ -187,12 +181,9 @@ else
 	for i in drivers/isdn/eicon/*.[ch] ; do
 		$DODIFF $i $KERNELDIR/$i
 	done
-	for i in include/net/capi/*.h ; do
-		$DODIFF $i $KERNELDIR/$i
-	done
 	for i in include/linux/*.h ; do
 		if [ "$i" = "include/linux/isdn_compat.h" -a \
-		     "$UNIQUE" = "true" ] ; then
+		     "$UNIQUE" = "true" -a ! -f $KERNELDIR/$i ] ; then
 			echo "$i skipped"
 		else
 			$DODIFF $i $KERNELDIR/$i
@@ -208,7 +199,6 @@ else
 		dodiff $i $KERNELDIR/$i
 	done
 	for i in drivers/isdn/Makefile drivers/isdn/icn/Makefile \
-		drivers/isdn/kernelcapi/Makefile \
 		drivers/isdn/divert/Makefile \
 		drivers/isdn/hysdn/Makefile \
 		drivers/isdn/isdnloop/Makefile \

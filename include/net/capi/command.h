@@ -17,6 +17,7 @@
 
 #define CAPI_MSG_BASELEN		8
 #define CAPI_DATA_B3_REQ_LEN		(CAPI_MSG_BASELEN+4+4+2+2+2)
+#define CAPI_DATA_B3_IND_LEN		(CAPI_MSG_BASELEN+4+4+2+2+2+8)
 #define CAPI_DATA_B3_RESP_LEN		(CAPI_MSG_BASELEN+4+2)
 
 /*----- CAPI commands -----*/
