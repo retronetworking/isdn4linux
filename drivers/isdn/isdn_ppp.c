@@ -19,6 +19,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.42  1998/07/20 11:30:07  hipp
+ * Readded compression check
+ *
  * Revision 1.41  1998/07/08 16:50:57  hipp
  * Compression changes
  *
@@ -254,7 +257,7 @@ extern int isdn_net_force_dial_lp(isdn_net_local *);
  * frame log (debug)
  */
 static void
-isdn_ppp_frame_log(char *info, char *data, int len, int maxlen,int unit)
+isdn_ppp_frame_log(char *info, char *data, int len, int maxlen,int unit,int slot)
 {
 	int cnt,
 	 j,
@@ -267,7 +270,7 @@ isdn_ppp_frame_log(char *info, char *data, int len, int maxlen,int unit)
 	for (i = 0, cnt = 0; cnt < maxlen; i++) {
 		for (j = 0; j < 16 && cnt < maxlen; j++, cnt++)
 			sprintf(buf + j * 3, "%02x ", (unsigned char) data[cnt]);
-		printk(KERN_DEBUG "[%d].%s[%d]: %s\n",unit, info, i, buf);
+		printk(KERN_DEBUG "[%d/%d].%s[%d]: %s\n",unit,slot, info, i, buf);
 	}
 }
 
@@ -380,6 +383,15 @@ isdn_ppp_bind(isdn_net_local * lp)
 		return -1;
 	}
 	lp->ppp_slot = i;
+
+	/* reset some values */
+	lp->netdev->ib.bundled = 0;
+	lp->netdev->ib.next_num = 0;
+	lp->netdev->ib.modify = 0;
+	lp->netdev->ib.last = NULL;
+	lp->netdev->ib.min = 0;
+	lp->netdev->ib.sq = NULL;
+
 	is = ippp_table[i];
 	is->lp = lp;
 	is->unit = unit;
@@ -958,7 +970,7 @@ isdn_ppp_write(int min, struct file *file, const char *buf, int count)
 				return -EFAULT;
 			if (is->debug & 0x40) {
 				printk(KERN_DEBUG "ppp xmit: len %d\n", (int) skb->len);
-				isdn_ppp_frame_log("xmit", skb->data, skb->len, 32,is->unit);
+				isdn_ppp_frame_log("xmit", skb->data, skb->len, 32,is->unit,lp->ppp_slot);
 			}
 
 #ifdef CONFIG_ISDN_TIMEOUT_RULES
@@ -1050,8 +1062,9 @@ void isdn_ppp_receive(isdn_net_dev * net_dev, isdn_net_local * lp, struct sk_buf
 	is = ippp_table[lp->ppp_slot];
 
 	if (is->debug & 0x4) {
-		printk(KERN_DEBUG "ippp_receive: len: %d\n", (int) skb->len);
-		isdn_ppp_frame_log("receive", skb->data, skb->len, 32,is->unit);
+		printk(KERN_DEBUG "ippp_receive: is:%08lx lp:%08lx slot:%d unit:%d len:%d\n",
+		       (long)is,(long)lp,lp->ppp_slot,is->unit,(int) skb->len);
+		isdn_ppp_frame_log("receive", skb->data, skb->len, 32,is->unit,lp->ppp_slot);
 	}
 	if (net_dev->local->master) {
 		printk(KERN_WARNING "isdn_ppp_receice: net_dev != master\n");
@@ -1147,7 +1160,8 @@ void isdn_ppp_receive(isdn_net_dev * net_dev, isdn_net_local * lp, struct sk_buf
 				}
 				min_sqno &= mask;
 				for (lpq = net_dev->queue;;) {
-					ippp_table[lpq->ppp_slot]->last_link_seqno &= mask;
+					if(ippp_table[lpq->ppp_slot]->last_link_seqno >= 0)
+						ippp_table[lpq->ppp_slot]->last_link_seqno &= mask;
 					lpq = lpq->next;
 					if (lpq == net_dev->queue)
 						break;
@@ -1242,7 +1256,7 @@ isdn_ppp_push_higher(isdn_net_dev * net_dev, isdn_net_local * lp, struct sk_buff
 
 	if (is->debug & 0x10) {
 		printk(KERN_DEBUG "push, skb %d %04x\n", (int) skb->len, proto);
-		isdn_ppp_frame_log("rpush", skb->data, skb->len, 32,is->unit);
+		isdn_ppp_frame_log("rpush", skb->data, skb->len, 32,is->unit,lp->ppp_slot);
 	}
 
 	if(proto == PPP_COMP) {
@@ -1259,7 +1273,7 @@ isdn_ppp_push_higher(isdn_net_dev * net_dev, isdn_net_local * lp, struct sk_buff
 		proto = isdn_ppp_strip_proto(skb);
 		if (is->debug & 0x10) {
 			printk(KERN_DEBUG "RPostDecomp, skb %d %04x\n", (int) skb->len, proto);
-			isdn_ppp_frame_log("R-Decomp", skb->data, skb->len, 32,is->unit);
+			isdn_ppp_frame_log("R-Decomp", skb->data, skb->len, 32,is->unit,lp->ppp_slot);
 		}
 	}
 	else if(is->compflags & SC_DECOMP_ON)  { /* If decomp is ON */
@@ -1479,7 +1493,7 @@ isdn_ppp_xmit(struct sk_buff *skb, struct device *dev)
 	if (ipt->debug & 0x4)
 		printk(KERN_DEBUG "xmit skb, len %d\n", (int) skb->len);
         if (ipts->debug & 0x40)
-                isdn_ppp_frame_log("xmit0", skb->data, skb->len, 32,ipts->unit);
+                isdn_ppp_frame_log("xmit0", skb->data, skb->len, 32,ipts->unit,lp->ppp_slot);
 
 #ifdef CONFIG_ISDN_PPP_VJ
 	if (proto == PPP_IP && ipts->pppcfg & SC_COMP_TCP) {	/* ipts here? probably yes, but check this again */
@@ -1587,7 +1601,7 @@ isdn_ppp_xmit(struct sk_buff *skb, struct device *dev)
 
 	if (ipts->debug & 0x40) {
 		printk(KERN_DEBUG "skb xmit: len: %d\n", (int) skb->len);
-		isdn_ppp_frame_log("xmit", skb->data, skb->len, 32,ipts->unit);
+		isdn_ppp_frame_log("xmit", skb->data, skb->len, 32,ipt->unit,lp->ppp_slot);
 	}
 	if (isdn_net_send_skb(dev, lp, skb)) {
 		if (lp->sav_skb) {	/* whole sav_skb processing with disabled IRQs ?? */
@@ -2213,7 +2227,7 @@ static void isdn_ppp_ccp_xmit_reset(struct ippp_struct *is, int proto,
 
 	/* skb is now ready for xmit */
 	printk(KERN_DEBUG "Sending CCP Frame:\n");
-	isdn_ppp_frame_log("ccp-xmit", skb->data, skb->len, 32, is->unit);
+	isdn_ppp_frame_log("ccp-xmit", skb->data, skb->len, 32, is->unit,lp->ppp_slot);
 
 	/* Just ripped from isdn_ppp_write. Dunno whether it makes sense,
 	   especially dunno what the sav_skb stuff is good for. */
@@ -2647,7 +2661,7 @@ static void isdn_ppp_receive_ccp(isdn_net_dev *net_dev, isdn_net_local *lp,
 	unsigned char rsdata[IPPP_RESET_MAXDATABYTES];	
 
 	printk(KERN_DEBUG "Received CCP frame from peer\n");
-	isdn_ppp_frame_log("ccp-rcv", skb->data, skb->len, 32, is->unit);
+	isdn_ppp_frame_log("ccp-rcv", skb->data, skb->len, 32, is->unit,lp->ppp_slot);
 
 	if(lp->master)
 		mis = ippp_table[((isdn_net_local *) (lp->master->priv))->ppp_slot];
@@ -2793,7 +2807,7 @@ static void isdn_ppp_send_ccp(isdn_net_dev *net_dev, isdn_net_local *lp, struct 
 		return;
 
 	printk(KERN_DEBUG "Received CCP frame from daemon:\n");
-	isdn_ppp_frame_log("ccp-xmit", skb->data, skb->len, 32, is->unit);
+	isdn_ppp_frame_log("ccp-xmit", skb->data, skb->len, 32, is->unit,lp->ppp_slot);
 
         if(lp->master)
                 mis = ippp_table[((isdn_net_local *) (lp->master->priv))->ppp_slot];
