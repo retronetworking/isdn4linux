@@ -6,6 +6,9 @@
  *
  *
  * $Log$
+ * Revision 1.1  1997/09/11 17:31:33  keil
+ * Common part for HFC 2BS0 based cards
+ *
  *
  */
 
@@ -314,7 +317,7 @@ hfc_fill_fifo(struct BCState *bcs)
 		cs->BC_Read_Reg(cs, HFC_DATA, HFC_CIP | HFC_F1_INC | HFC_SEND | HFC_CHANNEL(bcs->channel));
 		if (bcs->st->lli.l1writewakeup)
 			bcs->st->lli.l1writewakeup(bcs->st);
-		bcs->Flag &= ~BC_FLG_BUSY;
+		test_and_clear_bit(BC_FLG_BUSY, &bcs->Flag);
 	}
 	restore_flags(flags);
 	return;
@@ -376,16 +379,16 @@ main_irq_hfc(struct BCState *bcs)
 	cli();
 	if (bcs->hw.hfc.tx_skb) {
 		transmit = 1;
-		bcs->Flag |= BC_FLG_BUSY;
+		test_and_set_bit(BC_FLG_BUSY, &bcs->Flag);
 		hfc_fill_fifo(bcs);
-		if (bcs->Flag & BC_FLG_BUSY)
+		if (test_bit(BC_FLG_BUSY, &bcs->Flag))
 			transmit = 0;
 	} else {
 		if ((bcs->hw.hfc.tx_skb = skb_dequeue(&bcs->squeue))) {
 			transmit = 1;
-			bcs->Flag |= BC_FLG_BUSY;
+			test_and_set_bit(BC_FLG_BUSY, &bcs->Flag);
 			hfc_fill_fifo(bcs);
-			if (bcs->Flag & BC_FLG_BUSY)
+			if (test_bit(BC_FLG_BUSY, &bcs->Flag))
 				transmit = 0;
 		} else {
 			transmit = 0;
@@ -462,7 +465,7 @@ hfc_l2l1(struct PStack *st, int pr, void *arg)
 				restore_flags(flags);
 			} else {
 				st->l1.bcs->hw.hfc.tx_skb = skb;
-				st->l1.bcs->Flag |= BC_FLG_BUSY;
+				test_and_set_bit(BC_FLG_BUSY, &st->l1.bcs->Flag);
 				st->l1.bcs->cs->BC_Send_Data(st->l1.bcs);
 				restore_flags(flags);
 			}
@@ -474,7 +477,7 @@ hfc_l2l1(struct PStack *st, int pr, void *arg)
 			}
 			save_flags(flags);
 			cli();
-			st->l1.bcs->Flag |= BC_FLG_BUSY;
+			test_and_set_bit(BC_FLG_BUSY, &st->l1.bcs->Flag);
 			st->l1.bcs->hw.hfc.tx_skb = skb;
 			st->l1.bcs->cs->BC_Send_Data(st->l1.bcs);
 			restore_flags(flags);
@@ -495,7 +498,7 @@ close_hfcstate(struct BCState *bcs)
 	struct sk_buff *skb;
 
 	mode_hfc(bcs, 0, 0);
-	if (bcs->Flag & BC_FLG_INIT) {
+	if (test_bit(BC_FLG_INIT, &bcs->Flag)) {
 		while ((skb = skb_dequeue(&bcs->rqueue))) {
 			dev_kfree_skb(skb, FREE_READ);
 		}
@@ -505,10 +508,10 @@ close_hfcstate(struct BCState *bcs)
 		if (bcs->hw.hfc.tx_skb) {
 			dev_kfree_skb(bcs->hw.hfc.tx_skb, FREE_WRITE);
 			bcs->hw.hfc.tx_skb = NULL;
-			bcs->Flag &= ~BC_FLG_BUSY;
+			test_and_clear_bit(BC_FLG_BUSY, &bcs->Flag);
 		}
 	}
-	bcs->Flag &= ~BC_FLG_INIT;
+	test_and_clear_bit(BC_FLG_INIT, &bcs->Flag);
 }
 
 static int
@@ -517,13 +520,12 @@ open_hfcstate(struct IsdnCardState *cs,
 {
 	struct BCState *bcs = cs->bcs + bc;
 
-	if (!(bcs->Flag & BC_FLG_INIT)) {
+	if (!test_and_set_bit(BC_FLG_INIT, &bcs->Flag)) {
 		skb_queue_head_init(&bcs->rqueue);
 		skb_queue_head_init(&bcs->squeue);
 	}
-	bcs->Flag |= BC_FLG_INIT;
 	bcs->hw.hfc.tx_skb = NULL;
-	bcs->Flag &= ~BC_FLG_BUSY;
+	test_and_clear_bit(BC_FLG_BUSY, &bcs->Flag);
 	bcs->event = 0;
 	bcs->tx_cnt = 0;
 	return (0);
@@ -535,14 +537,14 @@ hfc_manl1(struct PStack *st, int pr,
 {
 	switch (pr) {
 		case (PH_ACTIVATE):
-			st->l1.bcs->Flag |= BC_FLG_ACTIV;
+			test_and_set_bit(BC_FLG_ACTIV, &st->l1.bcs->Flag);
 			mode_hfc(st->l1.bcs, st->l1.mode, st->l1.bc);
 			st->l1.l1man(st, PH_ACTIVATE, NULL);
 			break;
 		case (PH_DEACTIVATE):
-			if (!(st->l1.bcs->Flag & BC_FLG_BUSY))
+			if (!test_bit(BC_FLG_BUSY, &st->l1.bcs->Flag))
 				mode_hfc(st->l1.bcs, 0, 0);
-			st->l1.bcs->Flag &= ~BC_FLG_ACTIV;
+			test_and_clear_bit(BC_FLG_ACTIV, &st->l1.bcs->Flag);
 			break;
 	}
 }

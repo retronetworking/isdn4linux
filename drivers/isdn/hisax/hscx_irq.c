@@ -86,7 +86,7 @@ hscx_empty_fifo(struct BCState *bcs, int count)
 	WriteHSCXCMDR(cs, bcs->channel, 0x80);
 	restore_flags(flags);
 	if (cs->debug & L1_DEB_HSCX_FIFO) {
-		char tmp[128];
+		char tmp[256];
 		char *t = tmp;
 
 		t += sprintf(t, "hscx_empty_fifo %c cnt %d",
@@ -101,6 +101,7 @@ hscx_fill_fifo(struct BCState *bcs)
 {
 	struct IsdnCardState *cs = bcs->cs;
 	int more, count;
+	int fifo_size = test_bit(HW_IPAC, &cs->HW_Flags)? 64: 32;
 	u_char *ptr;
 	long flags;
 
@@ -114,9 +115,9 @@ hscx_fill_fifo(struct BCState *bcs)
 		return;
 
 	more = (bcs->mode == L1_MODE_TRANS) ? 1 : 0;
-	if (bcs->hw.hscx.tx_skb->len > 32) {
+	if (bcs->hw.hscx.tx_skb->len > fifo_size) {
 		more = !0;
-		count = 32;
+		count = fifo_size;
 	} else
 		count = bcs->hw.hscx.tx_skb->len;
 
@@ -131,7 +132,7 @@ hscx_fill_fifo(struct BCState *bcs)
 	WriteHSCXCMDR(cs, bcs->channel, more ? 0x8 : 0xa);
 	restore_flags(flags);
 	if (cs->debug & L1_DEB_HSCX_FIFO) {
-		char tmp[128];
+		char tmp[256];
 		char *t = tmp;
 
 		t += sprintf(t, "hscx_fill_fifo %c cnt %d",
@@ -147,10 +148,11 @@ hscx_interrupt(struct IsdnCardState *cs, u_char val, u_char hscx)
 	u_char r;
 	struct BCState *bcs = cs->bcs + hscx;
 	struct sk_buff *skb;
+	int fifo_size = test_bit(HW_IPAC, &cs->HW_Flags)? 64: 32;
 	int count;
 	char tmp[32];
 
-	if (!(bcs->Flag & BC_FLG_INIT))
+	if (!test_bit(BC_FLG_INIT, &bcs->Flag))
 		return;
 
 	if (val & 0x80) {	/* RME */
@@ -170,9 +172,10 @@ hscx_interrupt(struct IsdnCardState *cs, u_char val, u_char hscx)
 					debugl1(cs, "HSCX CRC error");
 			WriteHSCXCMDR(cs, hscx, 0x80);
 		} else {
-			count = READHSCX(cs, hscx, HSCX_RBCL) & 0x1f;
+			count = READHSCX(cs, hscx, HSCX_RBCL) & (
+				test_bit(HW_IPAC, &cs->HW_Flags)? 0x3f: 0x1f);
 			if (count == 0)
-				count = 32;
+				count = fifo_size;
 			hscx_empty_fifo(bcs, count);
 			if ((count = bcs->hw.hscx.rcvidx - 1) > 0) {
 				if (cs->debug & L1_DEB_HSCX_FIFO) {
@@ -182,6 +185,7 @@ hscx_interrupt(struct IsdnCardState *cs, u_char val, u_char hscx)
 				if (!(skb = dev_alloc_skb(count)))
 					printk(KERN_WARNING "HSCX: receive out of memory\n");
 				else {
+					SET_SKB_FREE(skb);
 					memcpy(skb_put(skb, count), bcs->hw.hscx.rcvbuf, count);
 					skb_queue_tail(&bcs->rqueue, skb);
 				}
@@ -191,13 +195,14 @@ hscx_interrupt(struct IsdnCardState *cs, u_char val, u_char hscx)
 		hscx_sched_event(bcs, B_RCVBUFREADY);
 	}
 	if (val & 0x40) {	/* RPF */
-		hscx_empty_fifo(bcs, 32);
+		hscx_empty_fifo(bcs, fifo_size);
 		if (bcs->mode == L1_MODE_TRANS) {
 			/* receive audio data */
-			if (!(skb = dev_alloc_skb(32)))
+			if (!(skb = dev_alloc_skb(fifo_size)))
 				printk(KERN_WARNING "HiSax: receive out of memory\n");
 			else {
-				memcpy(skb_put(skb, 32), bcs->hw.hscx.rcvbuf, 32);
+				SET_SKB_FREE(skb);
+				memcpy(skb_put(skb, fifo_size), bcs->hw.hscx.rcvbuf, fifo_size);
 				skb_queue_tail(&bcs->rqueue, skb);
 			}
 			bcs->hw.hscx.rcvidx = 0;
@@ -218,10 +223,10 @@ hscx_interrupt(struct IsdnCardState *cs, u_char val, u_char hscx)
 			}
 		if ((bcs->hw.hscx.tx_skb = skb_dequeue(&bcs->squeue))) {
 			bcs->hw.hscx.count = 0;
-			bcs->Flag |= BC_FLG_BUSY;
+			test_and_set_bit(BC_FLG_BUSY, &bcs->Flag);
 			hscx_fill_fifo(bcs);
 		} else {
-			bcs->Flag &= ~BC_FLG_BUSY;
+			test_and_clear_bit(BC_FLG_BUSY, &bcs->Flag);
 			hscx_sched_event(bcs, B_XMTBUFREADY);
 		}
 	}

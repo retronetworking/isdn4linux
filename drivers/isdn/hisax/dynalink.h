@@ -5,6 +5,9 @@
  * Author       Karsten Keil (keil@temic-ech.spacenet.de)
  *
  * $Log$
+ * Revision 1.2  1997/08/01 11:16:35  keil
+ * cosmetics
+ *
  * Revision 1.1  1997/06/26 11:21:41  keil
  * first version
  *

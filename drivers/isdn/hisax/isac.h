@@ -6,6 +6,9 @@
  *
  *
  * $Log$
+ * Revision 1.3  1997/07/27 21:37:41  keil
+ * T3 implemented; supervisor l1timer; B-channel TEST_LOOP
+ *
  * Revision 1.2  1997/06/26 11:16:16  keil
  * first version
  *

@@ -6,6 +6,9 @@
  *
  *
  * $Log$
+ * Revision 1.3  1997/07/27 21:38:34  keil
+ * new B-channel interface
+ *
  * Revision 1.2  1997/06/26 11:16:17  keil
  * first version
  *
@@ -61,14 +64,14 @@ modehscx(struct BCState *bcs, int mode, int bc)
 	cs->BC_Write_Reg(cs, hscx, HSCX_RCCR, 7);
 
 	/* Switch IOM 1 SSI */
-	if ((cs->HW_Flags & HW_IOM1) && (hscx == 0))
+	if (test_bit(HW_IOM1, &cs->HW_Flags) && (hscx == 0))
 		bc = 1 - bc;
 
 	if (bc == 0) {
 		cs->BC_Write_Reg(cs, hscx, HSCX_TSAX,
-			      (cs->HW_Flags & HW_IOM1) ? 0x7 : 0x2f);
+			      test_bit(HW_IOM1, &cs->HW_Flags) ? 0x7 : 0x2f);
 		cs->BC_Write_Reg(cs, hscx, HSCX_TSAR,
-			      (cs->HW_Flags & HW_IOM1) ? 0x7 : 0x2f);
+			      test_bit(HW_IOM1, &cs->HW_Flags) ? 0x7 : 0x2f);
 	} else {
 		cs->BC_Write_Reg(cs, hscx, HSCX_TSAX, 0x3);
 		cs->BC_Write_Reg(cs, hscx, HSCX_TSAR, 0x3);
@@ -114,7 +117,7 @@ hscx_l2l1(struct PStack *st, int pr, void *arg)
 				restore_flags(flags);
 			} else {
 				st->l1.bcs->hw.hscx.tx_skb = skb;
-				st->l1.bcs->Flag |= BC_FLG_BUSY;
+				test_and_set_bit(BC_FLG_BUSY, &st->l1.bcs->Flag);
 				st->l1.bcs->hw.hscx.count = 0;
 				restore_flags(flags);
 				st->l1.bcs->cs->BC_Send_Data(st->l1.bcs);
@@ -125,7 +128,7 @@ hscx_l2l1(struct PStack *st, int pr, void *arg)
 				printk(KERN_WARNING "hscx_l2l1: this shouldn't happen\n");
 				break;
 			}
-			st->l1.bcs->Flag |= BC_FLG_BUSY;
+			test_and_set_bit(BC_FLG_BUSY, &st->l1.bcs->Flag);
 			st->l1.bcs->hw.hscx.tx_skb = skb;
 			st->l1.bcs->hw.hscx.count = 0;
 			st->l1.bcs->cs->BC_Send_Data(st->l1.bcs);
@@ -147,7 +150,7 @@ close_hscxstate(struct BCState *bcs)
 	struct sk_buff *skb;
 
 	modehscx(bcs, 0, 0);
-	if (bcs->Flag & BC_FLG_INIT) {
+	if (test_bit(BC_FLG_INIT, &bcs->Flag)) {
 		if (bcs->hw.hscx.rcvbuf) {
 			kfree(bcs->hw.hscx.rcvbuf);
 			bcs->hw.hscx.rcvbuf = NULL;
@@ -161,10 +164,10 @@ close_hscxstate(struct BCState *bcs)
 		if (bcs->hw.hscx.tx_skb) {
 			dev_kfree_skb(bcs->hw.hscx.tx_skb, FREE_WRITE);
 			bcs->hw.hscx.tx_skb = NULL;
-			bcs->Flag &= ~BC_FLG_BUSY;
+			test_and_clear_bit(BC_FLG_BUSY, &bcs->Flag);
 		}
 	}
-	bcs->Flag &= ~BC_FLG_INIT;
+	test_and_clear_bit(BC_FLG_INIT, &bcs->Flag);
 }
 
 static int
@@ -173,7 +176,7 @@ open_hscxstate(struct IsdnCardState *cs,
 {
 	struct BCState *bcs = cs->bcs + bc;
 
-	if (!(bcs->Flag & BC_FLG_INIT)) {
+	if (!test_and_set_bit(BC_FLG_INIT, &bcs->Flag)) {
 		if (!(bcs->hw.hscx.rcvbuf = kmalloc(HSCX_BUFMAX, GFP_ATOMIC))) {
 			printk(KERN_WARNING
 			       "HiSax: No memory for hscx.rcvbuf\n");
@@ -182,9 +185,8 @@ open_hscxstate(struct IsdnCardState *cs,
 		skb_queue_head_init(&bcs->rqueue);
 		skb_queue_head_init(&bcs->squeue);
 	}
-	bcs->Flag |= BC_FLG_INIT;
 	bcs->hw.hscx.tx_skb = NULL;
-	bcs->Flag &= ~BC_FLG_BUSY;
+	test_and_clear_bit(BC_FLG_BUSY, &bcs->Flag);
 	bcs->event = 0;
 	bcs->hw.hscx.rcvidx = 0;
 	bcs->tx_cnt = 0;
@@ -197,14 +199,14 @@ hscx_manl1(struct PStack *st, int pr,
 {
 	switch (pr) {
 		case (PH_ACTIVATE):
-			st->l1.bcs->Flag |= BC_FLG_ACTIV;
+			test_and_set_bit(BC_FLG_ACTIV, &st->l1.bcs->Flag);
 			modehscx(st->l1.bcs, st->l1.mode, st->l1.bc);
 			st->l1.l1man(st, PH_ACTIVATE, NULL);
 			break;
 		case (PH_DEACTIVATE):
-			if (!(st->l1.bcs->Flag & BC_FLG_BUSY))
+			if (!test_bit(BC_FLG_BUSY, &st->l1.bcs->Flag))
 				modehscx(st->l1.bcs, 0, 0);
-			st->l1.bcs->Flag &= ~BC_FLG_ACTIV;
+			test_and_clear_bit(BC_FLG_ACTIV, &st->l1.bcs->Flag);
 			break;
 	}
 }

@@ -6,6 +6,9 @@
  *  Layermanagement module
  *
  * $Log$
+ * Revision 1.1  1997/06/26 11:17:25  keil
+ * first version
+ *
  *
  */
 
@@ -36,10 +39,10 @@ hisax_manager(struct PStack *st, int pr, void *arg)
 			Code = (int) arg;
 			jiftime(tm, jiffies);
 			sprintf(str, "%s manager: MDL_ERROR %c %s\n", tm,
-				Code, (st->l2.flag & FLG_LAPD) ?
+				Code, test_bit(FLG_LAPD, &st->l2.flag) ?
 				"D-channel" : "B-channel");
 			HiSax_putstatus(st->l1.hardware, str);
-			if (st->l2.flag & FLG_LAPD)
+			if (test_bit(FLG_LAPD, &st->l2.flag))
 				error_handling_dchan(st, Code);
 			break;
 	}

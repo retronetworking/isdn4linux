@@ -8,6 +8,9 @@
  *
  *
  * $Log$
+ * Revision 1.3  1997/08/01 11:16:33  keil
+ * cosmetics
+ *
  * Revision 1.2  1997/07/27 21:47:59  keil
  * new interface structures
  *
