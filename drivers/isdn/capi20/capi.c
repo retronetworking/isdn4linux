@@ -67,7 +67,6 @@ EXPORT_SYMBOL(capi_ppptty_connect); // FIXME name
 
 EXPORT_SYMBOL(capincci_hijack);
 EXPORT_SYMBOL(capincci_unhijack);
-EXPORT_SYMBOL(capincci_recv_ack);
 EXPORT_SYMBOL(capincci_send);
 
 #ifdef CONFIG_ISDN_KCAPI_MIDDLE
@@ -719,10 +718,45 @@ capincci_send(struct capincci *np, struct sk_buff *skb)
 	return len;
 }
 
+/*
+ * here we use the skb->destructor method to send a corresponding
+ * DATA_B3_RESP back to kcapi when an skb which was handed to a module
+ * via capincci->recv is kfree_skb'ed
+ */
+
+static void
+capincci_skb_destructor(struct sk_buff *skb)
+{
+	struct capincci *np = (struct capincci *) skb->sk;
+	unsigned char *p;
+	struct sk_buff *nskb;
+	u16 errcode;
+
+	nskb = alloc_skb(CAPI_DATA_B3_RESP_LEN, GFP_ATOMIC);
+	if (!nskb) {
+		HDEBUG;
+		return;
+	}
+	skb_push(skb, CAPI_DATA_B3_IND_LEN);
+	p = skb_put(nskb, CAPI_DATA_B3_RESP_LEN);
+	memcpy(p, skb->data, CAPI_DATA_B3_RESP_LEN); 
+	capimsg_setu16(p, 0, CAPI_DATA_B3_RESP_LEN);
+	capimsg_setu8 (p, 5, CAPI_RESP);
+	capimsg_setu16(p, 12, CAPIMSG_U16(skb->data, CAPIMSG_BASELEN+4+4+2)); // datahandle
+	
+	errcode = (*capifuncs->capi_put_message)(np->cdev->applid, nskb);
+	if (errcode != CAPI_NOERROR) {
+		printk(KERN_ERR "capi: send DATA_B3_RESP failed=%x\n",
+		       errcode);
+		kfree_skb(nskb);
+	}
+}
+
 static int
 capincci_recv_data_b3(struct capincci *np, struct sk_buff *skb)
 {
 	u16 datahandle;
+	int retval;
 
 	if (CAPIMSG_SUBCOMMAND(skb->data) == CAPI_IND) {
 		if (!np->recv)
@@ -732,7 +766,14 @@ capincci_recv_data_b3(struct capincci *np, struct sk_buff *skb)
 			BUG();
 
 		skb_pull(skb, CAPI_DATA_B3_IND_LEN);
-		return np->recv(np, skb);
+		if (skb->destructor || skb->sk)
+			BUG();
+		skb->destructor = capincci_skb_destructor;
+		skb->sk = (struct sock *) np;
+		retval = np->recv(np, skb);
+		if (retval < 0) 
+			skb->destructor = NULL;
+		return retval;
 	} 
 	if (CAPIMSG_SUBCOMMAND(skb->data) == CAPI_CONF) {
 		datahandle = CAPIMSG_U16(skb->data, CAPIMSG_BASELEN+4);
@@ -746,26 +787,6 @@ capincci_recv_data_b3(struct capincci *np, struct sk_buff *skb)
 		return 0;
 	} 
 	return -EINVAL;
-}
-
-void
-capincci_recv_ack(struct capincci *np, struct sk_buff *skb)
-{
-	unsigned char *p;
-	u16 errcode;
-
-	p = skb_push(skb, CAPI_DATA_B3_IND_LEN);
-	capimsg_setu16(p, 0, CAPI_DATA_B3_RESP_LEN);
-	capimsg_setu8 (p, 5, CAPI_RESP);
-	capimsg_setu16(p, 12, CAPIMSG_U16(skb->data, CAPIMSG_BASELEN+4+4+2)); // datahandle
-	skb_trim(skb, CAPI_DATA_B3_RESP_LEN);
-	
-	errcode = (*capifuncs->capi_put_message)(np->cdev->applid, skb);
-	if (errcode != CAPI_NOERROR) {
-		printk(KERN_ERR "capi: send DATA_B3_RESP failed=%x\n",
-		       errcode);
-		kfree_skb(skb);
-	}
 }
 
 void

@@ -253,7 +253,6 @@ capitty_tty_chars_in_buffer(struct tty_struct *tty)
 	}
 	rdev = &d->rdev;
 
-	// FIXME ?
 	return MAX_FRAME_SIZE * skb_queue_len(&rdev->read_queue);
 }
 
@@ -269,19 +268,19 @@ capitty_tty_ioctl(struct tty_struct *tty, struct file * file,
 	}
 
 	switch (cmd) {
-		// FIXME
-	case TCGETS: 
-	case TCSETS: 
-	case TCSETSW: 
-	case TCSETSF: 
-	case TCFLSH:
-		return -ENOIOCTLCMD;
 	case TIOCMGET:
 		return ctty_get_modem_info(d, (unsigned int *) arg);
 	case TIOCMBIS:
 	case TIOCMBIC:
 	case TIOCMSET:
 		return ctty_set_modem_info(d, cmd, (unsigned int *) arg);
+		// keep quiet about these FIXME
+	case TCGETS: 
+	case TCSETS: 
+	case TCSETSW: 
+	case TCSETSF: 
+	case TCFLSH:
+		return -ENOIOCTLCMD;
 	default:
 		printk(KERN_DEBUG "ioctl %#x\n", cmd);
 	}
@@ -420,19 +419,6 @@ done:
 	return ((count < begin+len-off) ? count : begin+len-off);
 }
 
-static void
-capitty_tty_hangup(struct tty_struct *tty)
-{
-	struct ctty_dev *d = tty->driver_data;
-
-	if (!d) {
-		HDEBUG;
-		return;
-	}
-	HDEBUG;
-	clear_bit(CTTY_HANGING_UP, &d->flags);
-}
-
 static struct tty_driver capitty_driver = {
 	magic:          TTY_DRIVER_MAGIC,
 	driver_name:    "capitty",
@@ -464,13 +450,13 @@ static struct tty_driver capitty_driver = {
 	set_termios:    capitty_tty_set_termios,
 	//	capitty_driver.stop = tty_dummy;
 	//	capitty_driver.start = tty_dummy;
-	hangup:         capitty_tty_hangup,
 	read_proc:      capitty_tty_read_proc,
 };
 
 /* ---------------------------------------------------------------------- */
 
-int capitty_tty_receive_buf(struct ctty_dev *d, char *buf, int len)
+static int
+capitty_tty_receive_buf(struct ctty_dev *d, char *buf, int len)
 {
 	struct tty_struct *tty = d->tty;
 
@@ -493,41 +479,30 @@ int capitty_tty_receive_buf(struct ctty_dev *d, char *buf, int len)
 	return 0;
 }
 
-void capitty_run_write_queue(struct ctty_dev *d)
+/*
+ * capitty_run_write_queue is called by the function which just queued a 
+ * frame on wdev, and by tty_unthrottle.
+ * It pushes pending frames to the tty layer.
+ */
+
+void
+capitty_run_write_queue(struct ctty_dev *d)
 {
 	struct tty_struct *tty = d->tty;
-	struct syncdev_w *wdev = &d->wdev;
 	struct sk_buff *skb;
 
 	if (tty && test_bit(TTY_THROTTLED, &tty->flags))
 		return;
 
-	while ((skb = syncdev_w_dequeue(wdev))) {
+	while ((skb = syncdev_w_dequeue(&d->wdev))) {
 		if (capitty_tty_receive_buf(d, skb->data, skb->len) < 0) {
+			// tty throttled
 			HDEBUG;
-			skb_queue_head(&wdev->write_queue, skb);
+			syncdev_w_queue_head(&d->wdev, skb);
 			return;
 		}
-		
-		if (skb->pkt_type == 1) { // CAPI message
-			capincci_recv_ack(&d->ncci, skb);
-		} else {
-			kfree_skb(skb);
-		}
+		kfree_skb(skb);
 	}
-}
-
-int capitty_recv(struct capincci *np, struct sk_buff *skb)
-{
-	struct ctty_dev *d = np->priv;
-
-	// we don't need to do flow control here,
-	// because it'll happen automatically (CAPI
-	// won't send more than 8 unacknowledged messages)
-	skb->pkt_type = 1; // CAPI message
-	syncdev_w_queue_tail(&d->wdev, skb);
-	capitty_run_write_queue(d);
-	return 0;
 }
 
 int __init capitty_tty_init(void)

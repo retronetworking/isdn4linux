@@ -148,6 +148,12 @@ syncdev_w_queue_tail(struct syncdev_w *wdev, struct sk_buff *skb)
 	skb_queue_tail(&wdev->write_queue, skb);
 }
 
+static inline void
+syncdev_w_queue_head(struct syncdev_w *wdev, struct sk_buff *skb)
+{
+	skb_queue_tail(&wdev->write_queue, skb);
+}
+
 static inline ssize_t
 syncdev_w_write(struct syncdev_w *wdev, struct file *file, 
 		const char *buf, size_t count, loff_t *ppos)

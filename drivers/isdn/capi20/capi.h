@@ -95,11 +95,13 @@ struct capidev {
  * ---------
  * For each DATA_B3_IND received, the recv callback will be called
  * with a skb which contains the actual data. When the module
- * is done with processing the skb, it shell not kfree_skb() the
- * skb, but hand it back to capincci_recv_ack instead. This will
- * generate the corresponding DATA_B3_RESP. That means the flow control
- * is taken care of automatically, because no more then 8 unacknowledged
+ * is done with processing the skb, it should kfree_skb(). We are
+ * using the skb->destructor mechanism to generate a corresponding 
+ * DATA_B3_RESP. That means the flow control is taken care of automatically, 
+ * because no more then 8 unacknowledged
  * frames will be given to the application.
+ * NOTE: The module must not change the skb (skb_push/put/...), because
+ * otherwise the destructor will produce unexpected behavior / crashes
  * 
  * sending
  * -------
@@ -148,7 +150,6 @@ struct capincci {
 };
 
 extern int capincci_send(struct capincci *np, struct sk_buff *skb);
-extern void capincci_recv_ack(struct capincci *np, struct sk_buff *skb);
 extern void capincci_hijack(struct capidev *cdev, struct capincci *np);
 extern void capincci_unhijack(struct capincci *np);
 

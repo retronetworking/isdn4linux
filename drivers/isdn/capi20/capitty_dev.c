@@ -19,16 +19,20 @@ static int
 ctty_set_MSR(struct ctty_dev *d, unsigned int MSR)
 {
 	unsigned int old_MSR = d->MSR;
+	struct tty_struct *tty;
 
 	d->MSR = MSR;
 	if (test_bit(CTTY_CHECK_CAR, &d->flags) && 
 	    (old_MSR ^ MSR) & TIOCM_CAR) {
 		if (MSR & TIOCM_CAR) {
+			// carrier set
 			wake_up_interruptible(&d->open_wait);
 		} else {
-			if (d->tty) {
-				set_bit(CTTY_HANGING_UP, &d->flags);
-				tty_hangup(d->tty);
+			// carrier cleared FIXME userspace?
+			tty = d->tty;
+			if (tty) {
+				d->tty = NULL;
+				tty_hangup(tty);
 			}
 		}
 	}
@@ -83,12 +87,14 @@ static int
 capitty_dev_release(struct inode *inode, struct file *file)
 {
 	struct ctty_dev *d = file->private_data;
-
+	struct tty_struct *tty;
+	
 	if (d->line != -1) {
 		ctty_dev_table[d->line] = NULL;
-		if (d->tty) {
-			d->tty->driver_data = NULL; // FIXME
-			tty_hangup(d->tty);
+		tty = d->tty;
+		if (tty) {
+			d->tty = NULL;
+			tty_hangup(tty);
 		}
 		syncdev_r_dtor(&d->rdev);
 		syncdev_w_dtor(&d->wdev);
@@ -130,12 +136,12 @@ capitty_dev_write(struct file *file, const char *buf, size_t count, loff_t *ppos
 	if (d->line == -1) 
 		return -EBUSY;
 
+	if (!d->tty) 
+		// discard frame FIXME? what about DTR
+		return count;
+
 	if (d->ncci.ncci)
 		return -EBUSY;
-
-	if (test_bit(CTTY_HANGING_UP, &d->flags))
-		// drop
-		return count;
 
 	retval = syncdev_w_write(wdev, file, buf, count, ppos);
 	if (retval < 0)
@@ -249,7 +255,19 @@ capitty_recv_stop_queue(struct capincci *np)
 	capitty_stop_queue(d);
 }
 
-// move hijacking from capi20.c?? FIXME
+static int
+capitty_recv(struct capincci *np, struct sk_buff *skb)
+{
+	struct ctty_dev *d = np->priv;
+
+	// we don't need to do flow control here,
+	// because it'll happen automatically (CAPI
+	// won't send more than 8 unacknowledged messages)
+
+	syncdev_w_queue_tail(&d->wdev, skb);
+	capitty_run_write_queue(d);
+	return 0;
+}
 
 static int
 ncci_connect(struct capidev *cdev, struct ncci_connect_data *data)

@@ -99,7 +99,7 @@ run_recv_queue(struct capi_ppptty *cp)
 			skb_queue_head(&cp->recv_queue, skb);
 			return;
 		}
-		capincci_recv_ack(&cp->ncci, skb);
+		kfree_skb(skb);
 	}
 }
 
