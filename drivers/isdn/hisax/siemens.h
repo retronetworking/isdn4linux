@@ -6,6 +6,9 @@
  *
  * 
  * $Log$
+ * Revision 1.2  1996/10/27 22:24:00  keil
+ * HSCX version code removed
+ *
  * Revision 1.1  1996/10/12 21:39:39  keil
  * Initial revision
  *
@@ -32,6 +35,12 @@
 #define ISAC_RBCL 0x5
 #define ISAC_TIMR 0x3
 #define ISAC_SQXR 0x1b
+#define ISAC_MOSR 0x1a
+#define ISAC_MOCR 0x1a
+#define ISAC_MOR0 0x12
+#define ISAC_MOX0 0x12
+#define ISAC_MOR1 0x14
+#define ISAC_MOX1 0x14
 
 #define HSCX_ISTA 0x0
 #define HSCX_CCR1 0xf
