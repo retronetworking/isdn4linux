@@ -6,6 +6,9 @@
  * (c) Copyright 1997 by Carsten Paeth (calle@calle.in-berlin.de)
  * 
  * $Log$
+ * Revision 1.4.2.11  1998/01/27 16:12:49  calle
+ * Support for PCMCIA B1/M1/M2 ready.
+ *
  * Revision 1.4.2.10  1998/01/26 14:53:30  calle
  * interface change for pcmcia cards
  *
@@ -867,6 +870,12 @@ static int capi_manufacturer(unsigned int cmd, void *data)
 		   if ((rc = copy_from_user((void *) &cdef, data,
 					    sizeof(avmb1_extcarddef))))
 			   return rc;
+		}
+
+                if (cdef.cardtype == AVM_CARDTYPE_T1) {
+			rc = T1_detectandinit(cdef.port,cdef.irq,cdef.cardnr);
+			if (rc)
+				return -EIO;
 		}
 
 		if ((rc = avmb1_probecard(cdef.port, cdef.irq, cdef.cardtype)) != 0)

@@ -6,6 +6,9 @@
  * Copyright 1996 by Carsten Paeth (calle@calle.in-berlin.de)
  *
  * $Log$
+ * Revision 1.1.2.5  1998/01/27 16:11:50  calle
+ * support for PCMCIA B1/M1/M2 ready.
+ *
  * Revision 1.1.2.4  1998/01/26 14:51:56  calle
  * interface change for pcmcia cards.
  *
@@ -79,6 +82,7 @@ typedef struct avmb1_extcarddef {
 	int port;
 	int irq;
         int cardtype;
+        int cardnr;  /* for HEMA/T1 */
 } avmb1_extcarddef;
 
 #define	AVMB1_LOAD		0	/* load image to card */
@@ -150,6 +154,7 @@ typedef struct avmb1_card {
 
 /* b1lli.c */
 int B1_detect(unsigned short base, int cardtype);
+int T1_detectandinit(unsigned short base, unsigned irq, int cardnr);
 void B1_reset(unsigned short base);
 int B1_load_t4file(unsigned short base, avmb1_t4file * t4file);
 int B1_load_config(unsigned short base, avmb1_t4file * config);
