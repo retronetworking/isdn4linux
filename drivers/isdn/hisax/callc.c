@@ -11,6 +11,9 @@
  *              Fritz Elfert
  *
  * $Log$
+ * Revision 2.43  2000/05/19 18:39:41  keil
+ * some debug for upstream packets
+ *
  * Revision 2.42  2000/04/27 10:31:01  keil
  * implement overlap receiving
  *
@@ -1345,7 +1348,7 @@ lldata_handler(struct PStack *st, int pr, void *arg)
 		case (DL_DATA  | INDICATION):
 			if (chanp->data_open) {
 				if (chanp->debug & 0x800)
-					link_debug(chanp, 0, "lldata: %d bytes", skb->len);
+					link_debug(chanp, 0, "lldata: %d", skb->len);
 				chanp->cs->iif.rcvcallb_skb(chanp->cs->myid, chanp->chan, skb);
 			} else {
 				link_debug(chanp, 0, "lldata: channel not open");
@@ -1377,7 +1380,7 @@ lltrans_handler(struct PStack *st, int pr, void *arg)
 		case (PH_DATA | INDICATION):
 			if (chanp->data_open) {
 				if (chanp->debug & 0x800)
-					link_debug(chanp, 0, "lltrans: %d bytes", skb->len);
+					link_debug(chanp, 0, "lltrans: %d", skb->len);
 				chanp->cs->iif.rcvcallb_skb(chanp->cs->myid, chanp->chan, skb);
 			} else {
 				link_debug(chanp, 0, "lltrans: channel not open");
@@ -1405,6 +1408,8 @@ ll_writewakeup(struct PStack *st, int len)
 	struct Channel *chanp = st->lli.userdata;
 	isdn_ctrl ic;
 
+	if (chanp->debug & 0x800)
+		link_debug(chanp, 0, "llwakeup: %d", len);
 	ic.driver = chanp->cs->myid;
 	ic.command = ISDN_STAT_BSENT;
 	ic.arg = chanp->chan;
