@@ -11,14 +11,15 @@ docpd() {
   BASENAME=`basename $2`; 
   if [ "$BASENAME" = "Makefile" ] ; then
     if [ $VERSION -gt 3 -o $PATCHLEVEL -gt 3 ]; then
-      cat $1 | sed -e "s/drivers\/isdn\/Rules\.make/Rules\.make/" > $2;
+      rm -f $2
+      cat $1 | sed -e "s/drivers\/isdn\/Rules\.make/Rules\.make/" > $2
     fi
   else
     if ! cmp -s $1 $2 ; then
       if $NOTEST ; then
           echo Copying $1 ...
 	  mkdir -p `dirname $2`
-  	  rm -rf $2 # unlink first
+  	  rm -f $2 # unlink first
           cp $1 $2
       else
           echo $1 was changed
@@ -36,7 +37,7 @@ docp() {
     if $NOTEST ; then
         echo Copying $1 ...
 	mkdir -p `dirname $2`
-	rm -rf $2 # unlink first
+	rm -f $2 # unlink first
         cp $1 $2
     else
         echo $1 was changed

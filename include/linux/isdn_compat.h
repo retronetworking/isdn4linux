@@ -162,9 +162,6 @@ typedef struct wait_queue *wait_queue_head_t;
 #define init_waitqueue_entry(q,p)		((q)->task)=(p)
 #endif /* COMPAT_HAS_NEW_WAITQ */
 
-#define PCI_VENDOR_ID_ABOCOM		0x13D1
-#define PCI_DEVICE_ID_ABOCOM_2BD1       0x2BD1
-
 #ifdef COMPAT_NEED_PCI_IDS
 
 #define PCI_ANY_ID (~0)

@@ -855,7 +855,6 @@ static void __exit act2000_exit(void)
         }
         printk(KERN_INFO "%s unloaded\n", DRIVERNAME);
 }
-
 #if 0
 #ifndef MODULE
 void
