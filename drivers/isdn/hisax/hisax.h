@@ -3,6 +3,10 @@
  *   Basic declarations, defines and prototypes
  *
  * $Log$
+ * Revision 1.13.2.26  1999/07/01 10:30:27  keil
+ * Version is the same as outside isdn4kernel_2_0 branch,
+ * only version numbers are different
+ *
  * Revision 2.27  1999/07/01 08:11:38  keil
  * Common HiSax version for 2.0, 2.1, 2.2 and 2.3 kernel
  *
@@ -133,7 +137,6 @@
 #define HW_RSYNC	0x0060
 #define HW_TESTLOOP	0x0070
 #define CARD_RESET	0x00F0
-#define CARD_SETIRQ	0x00F1
 #define CARD_INIT	0x00F2
 #define CARD_RELEASE	0x00F3
 #define CARD_TEST	0x00F4
@@ -837,6 +840,7 @@ struct IsdnCardState {
 	unsigned char subtyp;
 	int protocol;
 	unsigned int irq;
+	unsigned long irq_flags;
 	int HW_Flags;
 	int *busy_flag;
 	union {
@@ -879,6 +883,7 @@ struct IsdnCardState {
 	int    (*cardmsg) (struct IsdnCardState *, int, void *);
 	void   (*setstack_d) (struct PStack *, struct IsdnCardState *);
 	void   (*DC_Close) (struct IsdnCardState *);
+	void   (*irq_func) (int, void *, struct pt_regs *);
 	struct Channel channel[2+MAX_WAITING_CALLS];
 	struct BCState bcs[2+MAX_WAITING_CALLS];
 	struct PStack *stlist;

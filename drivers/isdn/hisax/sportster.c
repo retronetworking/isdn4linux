@@ -7,6 +7,10 @@
  * Thanks to Christian "naddy" Weisgerber (3Com, US Robotics) for documentation
  *
  * $Log$
+ * Revision 1.1.2.5  1999/07/01 10:31:52  keil
+ * Version is the same as outside isdn4kernel_2_0 branch,
+ * only version numbers are different
+ *
  * Revision 1.8  1999/07/01 08:12:10  keil
  * Common HiSax version for 2.0, 2.1, 2.2 and 2.3 kernel
  *
@@ -192,9 +196,6 @@ Sportster_card_msg(struct IsdnCardState *cs, int mt, void *arg)
 		case CARD_RELEASE:
 			release_io_sportster(cs);
 			return(0);
-		case CARD_SETIRQ:
-			return(request_irq(cs->irq, &sportster_interrupt,
-					I4L_IRQ_FLAG, "HiSax", cs));
 		case CARD_INIT:
 			inithscxisac(cs, 1);
 			cs->hw.spt.res_irq |= SPORTSTER_INTE; /* IRQ On */
@@ -285,6 +286,7 @@ setup_sportster(struct IsdnCard *card))
 	cs->BC_Write_Reg = &WriteHSCX;
 	cs->BC_Send_Data = &hscx_fill_fifo;
 	cs->cardmsg = &Sportster_card_msg;
+	cs->irq_func = &sportster_interrupt;
 	ISACVersion(cs, "Sportster:");
 	if (HscxVersion(cs, "Sportster:")) {
 		printk(KERN_WARNING

@@ -7,6 +7,10 @@
  *
  *
  * $Log$
+ * Revision 1.1.2.4  1999/07/01 10:32:03  keil
+ * Version is the same as outside isdn4kernel_2_0 branch,
+ * only version numbers are different
+ *
  * Revision 2.6  1999/07/01 08:12:15  keil
  * Common HiSax version for 2.0, 2.1, 2.2 and 2.3 kernel
  *
@@ -247,35 +251,27 @@ telespci_interrupt(int intno, void *dev_id, struct pt_regs *regs)
 {
 #define MAXCOUNT 20
 	struct IsdnCardState *cs = dev_id;
-	u_char val, stat = 0;
+	u_char val;
 
 	if (!cs) {
 		printk(KERN_WARNING "TelesPCI: Spurious interrupt!\n");
 		return;
 	}
 	val = readhscx(cs->hw.teles0.membase, 1, HSCX_ISTA);
-	if (val) {
+	if (val)
 		hscx_int_main(cs, val);
-		stat |= 1;
-	}
 	val = readisac(cs->hw.teles0.membase, ISAC_ISTA);
-	if (val) {
+	if (val)
 		isac_interrupt(cs, val);
-		stat |= 2;
-	}
 	/* Clear interrupt register for Zoran PCI controller */
 	writel(0x70000000, cs->hw.teles0.membase + 0x3C);
 
-	if (stat & 1) {
-		writehscx(cs->hw.teles0.membase, 0, HSCX_MASK, 0xFF);
-		writehscx(cs->hw.teles0.membase, 1, HSCX_MASK, 0xFF);
-		writehscx(cs->hw.teles0.membase, 0, HSCX_MASK, 0x0);
-		writehscx(cs->hw.teles0.membase, 1, HSCX_MASK, 0x0);
-	}
-	if (stat & 2) {
-		writeisac(cs->hw.teles0.membase, ISAC_MASK, 0xFF);
-		writeisac(cs->hw.teles0.membase, ISAC_MASK, 0x0);
-	}
+	writehscx(cs->hw.teles0.membase, 0, HSCX_MASK, 0xFF);
+	writehscx(cs->hw.teles0.membase, 1, HSCX_MASK, 0xFF);
+	writeisac(cs->hw.teles0.membase, ISAC_MASK, 0xFF);
+	writeisac(cs->hw.teles0.membase, ISAC_MASK, 0x0);
+	writehscx(cs->hw.teles0.membase, 0, HSCX_MASK, 0x0);
+	writehscx(cs->hw.teles0.membase, 1, HSCX_MASK, 0x0);
 }
 
 void
@@ -293,9 +289,6 @@ TelesPCI_card_msg(struct IsdnCardState *cs, int mt, void *arg)
 		case CARD_RELEASE:
 			release_io_telespci(cs);
 			return(0);
-		case CARD_SETIRQ:
-			return(request_irq(cs->irq, &telespci_interrupt,
-					I4L_IRQ_FLAG | SA_SHIRQ, "HiSax", cs));
 		case CARD_INIT:
 			inithscxisac(cs, 3);
 			return(0);
@@ -400,6 +393,8 @@ setup_telespci(struct IsdnCard *card))
 	cs->BC_Write_Reg = &WriteHSCX;
 	cs->BC_Send_Data = &hscx_fill_fifo;
 	cs->cardmsg = &TelesPCI_card_msg;
+	cs->irq_func = &telespci_interrupt;
+	cs->irq_flags |= SA_SHIRQ;
 	ISACVersion(cs, "TelesPCI:");
 	if (HscxVersion(cs, "TelesPCI:")) {
 		printk(KERN_WARNING

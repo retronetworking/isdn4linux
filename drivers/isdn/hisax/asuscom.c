@@ -8,6 +8,10 @@
  *
  *
  * $Log$
+ * Revision 1.1.2.5  1999/07/01 10:29:19  keil
+ * Version is the same as outside isdn4kernel_2_0 branch,
+ * only version numbers are different
+ *
  * Revision 1.6  1999/07/01 08:11:18  keil
  * Common HiSax version for 2.0, 2.1, 2.2 and 2.3 kernel
  *
@@ -184,7 +188,7 @@ static void
 asuscom_interrupt(int intno, void *dev_id, struct pt_regs *regs)
 {
 	struct IsdnCardState *cs = dev_id;
-	u_char val, stat = 0;
+	u_char val;
 
 	if (!cs) {
 		printk(KERN_WARNING "ISDNLink: Spurious interrupt!\n");
@@ -192,16 +196,12 @@ asuscom_interrupt(int intno, void *dev_id, struct pt_regs *regs)
 	}
 	val = readreg(cs->hw.asus.adr, cs->hw.asus.hscx, HSCX_ISTA + 0x40);
       Start_HSCX:
-	if (val) {
+	if (val)
 		hscx_int_main(cs, val);
-		stat |= 1;
-	}
 	val = readreg(cs->hw.asus.adr, cs->hw.asus.isac, ISAC_ISTA);
       Start_ISAC:
-	if (val) {
+	if (val)
 		isac_interrupt(cs, val);
-		stat |= 2;
-	}
 	val = readreg(cs->hw.asus.adr, cs->hw.asus.hscx, HSCX_ISTA + 0x40);
 	if (val) {
 		if (cs->debug & L1_DEB_HSCX)
@@ -214,23 +214,19 @@ asuscom_interrupt(int intno, void *dev_id, struct pt_regs *regs)
 			debugl1(cs, "ISAC IntStat after IntRoutine");
 		goto Start_ISAC;
 	}
-	if (stat & 1) {
-		writereg(cs->hw.asus.adr, cs->hw.asus.hscx, HSCX_MASK, 0xFF);
-		writereg(cs->hw.asus.adr, cs->hw.asus.hscx, HSCX_MASK + 0x40, 0xFF);
-		writereg(cs->hw.asus.adr, cs->hw.asus.hscx, HSCX_MASK, 0x0);
-		writereg(cs->hw.asus.adr, cs->hw.asus.hscx, HSCX_MASK + 0x40, 0x0);
-	}
-	if (stat & 2) {
-		writereg(cs->hw.asus.adr, cs->hw.asus.isac, ISAC_MASK, 0xFF);
-		writereg(cs->hw.asus.adr, cs->hw.asus.isac, ISAC_MASK, 0x0);
-	}
+	writereg(cs->hw.asus.adr, cs->hw.asus.hscx, HSCX_MASK, 0xFF);
+	writereg(cs->hw.asus.adr, cs->hw.asus.hscx, HSCX_MASK + 0x40, 0xFF);
+	writereg(cs->hw.asus.adr, cs->hw.asus.isac, ISAC_MASK, 0xFF);
+	writereg(cs->hw.asus.adr, cs->hw.asus.isac, ISAC_MASK, 0x0);
+	writereg(cs->hw.asus.adr, cs->hw.asus.hscx, HSCX_MASK, 0x0);
+	writereg(cs->hw.asus.adr, cs->hw.asus.hscx, HSCX_MASK + 0x40, 0x0);
 }
 
 static void
 asuscom_interrupt_ipac(int intno, void *dev_id, struct pt_regs *regs)
 {
 	struct IsdnCardState *cs = dev_id;
-	u_char ista, val, icnt = 20;
+	u_char ista, val, icnt = 5;
 
 	if (!cs) {
 		printk(KERN_WARNING "ISDNLink: Spurious interrupt!\n");
@@ -320,13 +316,6 @@ Asus_card_msg(struct IsdnCardState *cs, int mt, void *arg)
 		case CARD_RELEASE:
 			release_io_asuscom(cs);
 			return(0);
-		case CARD_SETIRQ:
-			if (cs->subtyp == ASUS_IPAC)
-				return(request_irq(cs->irq, &asuscom_interrupt_ipac,
-					I4L_IRQ_FLAG, "HiSax", cs));
-			else
-				return(request_irq(cs->irq, &asuscom_interrupt,
-					I4L_IRQ_FLAG, "HiSax", cs));
 		case CARD_INIT:
 			cs->debug |= L1_DEB_IPAC;
 			inithscxisac(cs, 3);
@@ -381,6 +370,7 @@ setup_asuscom(struct IsdnCard *card))
 		cs->writeisac = &WriteISAC_IPAC;
 		cs->readisacfifo = &ReadISACfifo_IPAC;
 		cs->writeisacfifo = &WriteISACfifo_IPAC;
+		cs->irq_func = &asuscom_interrupt_ipac;
 		printk(KERN_INFO "Asus: IPAC version %x\n", val);
 	} else {
 		cs->subtyp = ASUS_ISACHSCX;
@@ -393,6 +383,7 @@ setup_asuscom(struct IsdnCard *card))
 		cs->writeisac = &WriteISAC;
 		cs->readisacfifo = &ReadISACfifo;
 		cs->writeisacfifo = &WriteISACfifo;
+		cs->irq_func = &asuscom_interrupt;
 		ISACVersion(cs, "ISDNLink:");
 		if (HscxVersion(cs, "ISDNLink:")) {
 			printk(KERN_WARNING

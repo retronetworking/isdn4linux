@@ -17,6 +17,10 @@
  *            Edgar Toernig
  *
  * $Log$
+ * Revision 1.1.2.17  1999/07/01 10:31:49  keil
+ * Version is the same as outside isdn4kernel_2_0 branch,
+ * only version numbers are different
+ *
  * Revision 1.10  1999/07/01 08:12:09  keil
  * Common HiSax version for 2.0, 2.1, 2.2 and 2.3 kernel
  *
@@ -297,7 +301,7 @@ static void
 sedlbauer_interrupt(int intno, void *dev_id, struct pt_regs *regs)
 {
 	struct IsdnCardState *cs = dev_id;
-	u_char val, stat = 0;
+	u_char val;
 
 	if (!cs) {
 		printk(KERN_WARNING "Sedlbauer: Spurious interrupt!\n");
@@ -313,16 +317,12 @@ sedlbauer_interrupt(int intno, void *dev_id, struct pt_regs *regs)
 
 	val = readreg(cs->hw.sedl.adr, cs->hw.sedl.hscx, HSCX_ISTA + 0x40);
       Start_HSCX:
-	if (val) {
+	if (val)
 		hscx_int_main(cs, val);
-		stat |= 1;
-	}
 	val = readreg(cs->hw.sedl.adr, cs->hw.sedl.isac, ISAC_ISTA);
       Start_ISAC:
-	if (val) {
+	if (val)
 		isac_interrupt(cs, val);
-		stat |= 2;
-	}
 	val = readreg(cs->hw.sedl.adr, cs->hw.sedl.hscx, HSCX_ISTA + 0x40);
 	if (val) {
 		if (cs->debug & L1_DEB_HSCX)
@@ -335,23 +335,19 @@ sedlbauer_interrupt(int intno, void *dev_id, struct pt_regs *regs)
 			debugl1(cs, "ISAC IntStat after IntRoutine");
 		goto Start_ISAC;
 	}
-	if (stat & 1) {
-		writereg(cs->hw.sedl.adr, cs->hw.sedl.hscx, HSCX_MASK, 0xFF);
-		writereg(cs->hw.sedl.adr, cs->hw.sedl.hscx, HSCX_MASK + 0x40, 0xFF);
-		writereg(cs->hw.sedl.adr, cs->hw.sedl.hscx, HSCX_MASK, 0x0);
-		writereg(cs->hw.sedl.adr, cs->hw.sedl.hscx, HSCX_MASK + 0x40, 0x0);
-	}
-	if (stat & 2) {
-		writereg(cs->hw.sedl.adr, cs->hw.sedl.isac, ISAC_MASK, 0xFF);
-		writereg(cs->hw.sedl.adr, cs->hw.sedl.isac, ISAC_MASK, 0x0);
-	}
+	writereg(cs->hw.sedl.adr, cs->hw.sedl.hscx, HSCX_MASK, 0xFF);
+	writereg(cs->hw.sedl.adr, cs->hw.sedl.hscx, HSCX_MASK + 0x40, 0xFF);
+	writereg(cs->hw.sedl.adr, cs->hw.sedl.isac, ISAC_MASK, 0xFF);
+	writereg(cs->hw.sedl.adr, cs->hw.sedl.isac, ISAC_MASK, 0x0);
+	writereg(cs->hw.sedl.adr, cs->hw.sedl.hscx, HSCX_MASK, 0x0);
+	writereg(cs->hw.sedl.adr, cs->hw.sedl.hscx, HSCX_MASK + 0x40, 0x0);
 }
 
 static void
 sedlbauer_interrupt_ipac(int intno, void *dev_id, struct pt_regs *regs)
 {
 	struct IsdnCardState *cs = dev_id;
-	u_char ista, val, icnt = 20;
+	u_char ista, val, icnt = 5;
 
 	if (!cs) {
 		printk(KERN_WARNING "Sedlbauer: Spurious interrupt!\n");
@@ -398,7 +394,7 @@ sedlbauer_interrupt_isar(int intno, void *dev_id, struct pt_regs *regs)
 {
 	struct IsdnCardState *cs = dev_id;
 	u_char val;
-	int cnt = 20;
+	int cnt = 5;
 
 	if (!cs) {
 		printk(KERN_WARNING "Sedlbauer: Spurious interrupt!\n");
@@ -494,17 +490,6 @@ Sedl_card_msg(struct IsdnCardState *cs, int mt, void *arg)
 		case CARD_RELEASE:
 			release_io_sedlbauer(cs);
 			return(0);
-		case CARD_SETIRQ:
-			if (cs->hw.sedl.chip == SEDL_CHIP_ISAC_ISAR) {
-				return(request_irq(cs->irq, &sedlbauer_interrupt_isar,
-					I4L_IRQ_FLAG, "HiSax", cs));
-			} else if (cs->hw.sedl.chip == SEDL_CHIP_IPAC) {
-				return(request_irq(cs->irq, &sedlbauer_interrupt_ipac,
-					I4L_IRQ_FLAG, "HiSax", cs));
-			} else {
-				return(request_irq(cs->irq, &sedlbauer_interrupt,
-					I4L_IRQ_FLAG, "HiSax", cs));
-			}
 		case CARD_INIT:
 			if (cs->hw.sedl.chip == SEDL_CHIP_ISAC_ISAR) {
 				clear_pending_isac_ints(cs);
@@ -626,6 +611,7 @@ setup_sedlbauer(struct IsdnCard *card))
 		}
 		pci_index++;
 #endif /* COMPAT_HAS_NEW_PCI */
+		 cs->irq_flags |= SA_SHIRQ;
 		cs->hw.sedl.bus = SEDL_BUS_PCI;
 		cs->hw.sedl.chip = SEDL_CHIP_IPAC;
 		cs->subtyp = SEDL_SPEED_PCI;
@@ -713,6 +699,7 @@ setup_sedlbauer(struct IsdnCard *card))
                 cs->writeisac = &WriteISAC_IPAC;
                 cs->readisacfifo = &ReadISACfifo_IPAC;
                 cs->writeisacfifo = &WriteISACfifo_IPAC;
+                cs->irq_func = &sedlbauer_interrupt_ipac;
 
 		val = readreg(cs->hw.sedl.adr,cs->hw.sedl.isac, IPAC_ID);
                 printk(KERN_INFO "Sedlbauer: IPAC version %x\n", val);
@@ -732,6 +719,7 @@ setup_sedlbauer(struct IsdnCard *card))
 			cs->bcs[0].hw.isar.reg = &cs->hw.sedl.isar;
 			cs->bcs[1].hw.isar.reg = &cs->hw.sedl.isar;
 			test_and_set_bit(HW_ISAR, &cs->HW_Flags);
+			cs->irq_func = &sedlbauer_interrupt_isar;
 	
 			ISACVersion(cs, "Sedlbauer:");
 		
@@ -759,6 +747,7 @@ setup_sedlbauer(struct IsdnCard *card))
 				cs->hw.sedl.reset_on = cs->hw.sedl.cfg_reg + SEDL_HSCX_ISA_RESET_ON;
 				cs->hw.sedl.reset_off = cs->hw.sedl.cfg_reg + SEDL_HSCX_ISA_RESET_OFF;
 			}
+			cs->irq_func = &sedlbauer_interrupt;
 			ISACVersion(cs, "Sedlbauer:");
 		
 			if (HscxVersion(cs, "Sedlbauer:")) {

@@ -6,6 +6,10 @@
  *
  *
  * $Log$
+ * Revision 1.1.2.2  1999/07/01 10:30:26  keil
+ * Version is the same as outside isdn4kernel_2_0 branch,
+ * only version numbers are different
+ *
  * Revision 1.2  1999/07/01 08:16:03  keil
  * teles3c ---> hfcscard
  *
@@ -122,12 +126,9 @@ hfcs_card_msg(struct IsdnCardState *cs, int mt, void *arg)
 		case CARD_RELEASE:
 			release_io_hfcs(cs);
 			return(0);
-		case CARD_SETIRQ:
+		case CARD_INIT:
 			cs->hw.hfcD.timer.expires = jiffies + 75;
 			add_timer(&cs->hw.hfcD.timer);
-			return(request_irq(cs->irq, &hfcs_interrupt,
-					I4L_IRQ_FLAG, "HiSax", cs));
-		case CARD_INIT:
 			init2bds0(cs);
 			save_flags(flags);
 			sti();
@@ -197,5 +198,6 @@ setup_hfcs(struct IsdnCard *card))
 	init_timer(&cs->hw.hfcD.timer);
 	reset_hfcs(cs);
 	cs->cardmsg = &hfcs_card_msg;
+	cs->irq_func = &hfcs_interrupt;
 	return (1);
 }

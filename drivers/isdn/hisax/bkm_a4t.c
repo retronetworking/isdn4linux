@@ -7,6 +7,10 @@
  * Author       Roland Klabunde (R.Klabunde@Berkom.de)
  *
  * $Log$
+ * Revision 1.1.2.2  1999/07/01 10:29:27  keil
+ * Version is the same as outside isdn4kernel_2_0 branch,
+ * only version numbers are different
+ *
  * Revision 1.2  1999/07/01 08:07:53  keil
  * Initial version
  *
@@ -254,8 +258,6 @@ BKM_card_msg(struct IsdnCardState *cs, int mt, void *arg)
 			reset_bkm(cs);
 			release_io_bkm(cs);
 			return (0);
-		case CARD_SETIRQ:
-			return (request_irq(cs->irq, &bkm_interrupt, I4L_IRQ_FLAG | SA_SHIRQ, "HiSax", cs));
 		case CARD_INIT:
 			clear_pending_isac_ints(cs);
 			clear_pending_jade_ints(cs);
@@ -381,6 +383,8 @@ __initfunc(int
 	cs->BC_Write_Reg = &WriteJADE;
 	cs->BC_Send_Data = &jade_fill_fifo;
 	cs->cardmsg = &BKM_card_msg;
+	cs->irq_func = &bkm_interrupt;
+	cs->irq_flags |= SA_SHIRQ;
 	ISACVersion(cs, "Telekom A4T:");
 	/* Jade version */
 	JadeVersion(cs, "Telekom A4T:");

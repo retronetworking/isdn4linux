@@ -11,6 +11,10 @@
  *              Beat Doebeli
  *
  * $Log$
+ * Revision 1.11.2.11  1999/07/01 10:32:00  keil
+ * Version is the same as outside isdn4kernel_2_0 branch,
+ * only version numbers are different
+ *
  * Revision 2.11  1999/07/01 08:12:14  keil
  * Common HiSax version for 2.0, 2.1, 2.2 and 2.3 kernel
  *
@@ -163,9 +167,9 @@ WriteHSCX(struct IsdnCardState *cs, int hscx, u_char offset, u_char value)
 static void
 teles3_interrupt(int intno, void *dev_id, struct pt_regs *regs)
 {
-#define MAXCOUNT 20
+#define MAXCOUNT 5
 	struct IsdnCardState *cs = dev_id;
-	u_char val, stat = 0;
+	u_char val;
 	int count = 0;
 
 	if (!cs) {
@@ -174,16 +178,12 @@ teles3_interrupt(int intno, void *dev_id, struct pt_regs *regs)
 	}
 	val = readreg(cs->hw.teles3.hscx[1], HSCX_ISTA);
       Start_HSCX:
-	if (val) {
+	if (val)
 		hscx_int_main(cs, val);
-		stat |= 1;
-	}
 	val = readreg(cs->hw.teles3.isac, ISAC_ISTA);
       Start_ISAC:
-	if (val) {
+	if (val)
 		isac_interrupt(cs, val);
-		stat |= 2;
-	}
 	count++;
 	val = readreg(cs->hw.teles3.hscx[1], HSCX_ISTA);
 	if (val && count < MAXCOUNT) {
@@ -199,16 +199,12 @@ teles3_interrupt(int intno, void *dev_id, struct pt_regs *regs)
 	}
 	if (count >= MAXCOUNT)
 		printk(KERN_WARNING "Teles3: more than %d loops in teles3_interrupt\n", count);
-	if (stat & 1) {
-		writereg(cs->hw.teles3.hscx[0], HSCX_MASK, 0xFF);
-		writereg(cs->hw.teles3.hscx[1], HSCX_MASK, 0xFF);
-		writereg(cs->hw.teles3.hscx[0], HSCX_MASK, 0x0);
-		writereg(cs->hw.teles3.hscx[1], HSCX_MASK, 0x0);
-	}
-	if (stat & 2) {
-		writereg(cs->hw.teles3.isac, ISAC_MASK, 0xFF);
-		writereg(cs->hw.teles3.isac, ISAC_MASK, 0x0);
-	}
+	writereg(cs->hw.teles3.hscx[0], HSCX_MASK, 0xFF);
+	writereg(cs->hw.teles3.hscx[1], HSCX_MASK, 0xFF);
+	writereg(cs->hw.teles3.isac, ISAC_MASK, 0xFF);
+	writereg(cs->hw.teles3.isac, ISAC_MASK, 0x0);
+	writereg(cs->hw.teles3.hscx[0], HSCX_MASK, 0x0);
+	writereg(cs->hw.teles3.hscx[1], HSCX_MASK, 0x0);
 }
 
 inline static void
@@ -313,9 +309,6 @@ Teles_card_msg(struct IsdnCardState *cs, int mt, void *arg)
 		case CARD_RELEASE:
 			release_io_teles3(cs);
 			return(0);
-		case CARD_SETIRQ:
-			return(request_irq(cs->irq, &teles3_interrupt,
-					I4L_IRQ_FLAG, "HiSax", cs));
 		case CARD_INIT:
 			inithscxisac(cs, 3);
 			return(0);
@@ -501,6 +494,7 @@ setup_teles3(struct IsdnCard *card))
 	cs->BC_Write_Reg = &WriteHSCX;
 	cs->BC_Send_Data = &hscx_fill_fifo;
 	cs->cardmsg = &Teles_card_msg;
+	cs->irq_func = &teles3_interrupt;
 	ISACVersion(cs, "Teles3:");
 	if (HscxVersion(cs, "Teles3:")) {
 		printk(KERN_WARNING
