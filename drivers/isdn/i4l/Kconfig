@@ -2,25 +2,6 @@
 # Old ISDN4Linux config
 #
 
-config ISDN_NET_SIMPLE
-	bool '  Support raw-IP and other simple protocols'
-	depends on INET
-	help
-	  This options enables 'raw IP over ISDN', 'ethernet over ISDN',
-	  'raw IP with UI header' and 'IP + type field' encapsulations.
-	  
-	  If you never heard of any of those, you probably want to say N.
-
-config ISDN_NET_CISCO
-	bool '  Support CISCO router protocols'
-	depends on INET
-	help
-	  This options enables 'CISCO HDLC' encapsulation with
-	  optional support for CISCO keep-alive frames.
-	  
-	  Unless you want to connect to a Cisco Router in HDLC mode,
-	  you probably want to say N.
-
 config ISDN_PPP
 	bool "Support synchronous PPP"
 	depends on INET
@@ -85,7 +66,7 @@ config ISDN_TTY_FAX
 
 config ISDN_X25
 	bool "X.25 PLP on top of ISDN"
-	depends on X25 && BROKEN
+	depends on X25
 	help
 	  This feature provides the X.25 protocol over ISDN connections.
 	  See <file:Documentation/isdn/README.x25> for more information
