@@ -152,7 +152,7 @@ static inline unsigned long copy_to_user(void *to, const void *from, unsigned lo
 #define netif_running(d) test_bit(LINK_STATE_START, &d->state)
 #endif
 
-#if LINUX_VERSION_CODE > KERNEL_VERSION(2,3,45)
+#if (LINUX_VERSION_CODE > KERNEL_VERSION(2,3,45)) && defined(CONFIG_DEVFS_FS)
 #define HAVE_DEVFS_FS
 #else
 #define devfs_register_chrdev(m,n,f) register_chrdev(m,n,f)
