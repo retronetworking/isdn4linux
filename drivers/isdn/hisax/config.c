@@ -5,6 +5,10 @@
  *
  *
  * $Log$
+ * Revision 2.25  1999/07/05 23:51:44  werner
+ * Allow limiting of available HiSax B-chans per card. Controlled by hisaxctrl
+ * hisaxctrl id 10 <nr. of chans 0-2>
+ *
  * Revision 2.24  1999/07/01 08:11:26  keil
  * Common HiSax version for 2.0, 2.1, 2.2 and 2.3 kernel
  *
@@ -494,9 +498,9 @@ HiSaxVersion(void))
 
 	printk(KERN_INFO "HiSax: Linux Driver for passive ISDN cards\n");
 #ifdef MODULE
-	printk(KERN_INFO "HiSax: Version 3.1a (module)\n");
+	printk(KERN_INFO "HiSax: Version 3.2 (module)\n");
 #else
-	printk(KERN_INFO "HiSax: Version 3.1a (kernel)\n");
+	printk(KERN_INFO "HiSax: Version 3.2 (kernel)\n");
 #endif
 	strcpy(tmp, l1_revision);
 	printk(KERN_INFO "HiSax: Layer1 Revision %s\n", HiSax_getrev(tmp));
