@@ -21,6 +21,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.79  1999/10/16 17:52:38  keil
+ * Changing the MSN length need new data versions
+ *
  * Revision 1.78  1999/10/08 18:59:33  armin
  * Bugfix of too small MSN buffer and checking phone number
  * in isdn_tty_getdial()
@@ -388,9 +391,20 @@ extern void isdn_dw_abc_release_func(void);
 #define ISDN_USAGE_OUTGOING 128 /* This bit is set, if channel is outgoing  */
 
 #define ISDN_MODEM_ANZREG    24        /* Number of Modem-Registers        */
-#define ISDN_MSNLEN          32
 #define ISDN_LMSNLEN         255 /* Length of tty's Listen-MSN string */
 #define ISDN_CMSGLEN	     50	 /* Length of CONNECT-Message to add for Modem */
+
+#ifdef BIG_PHONE_NUMBERS
+#define ISDN_MSNLEN          32
+#define NET_DV 0x06  /* Data version for isdn_net_ioctl_cfg   */
+#define TTY_DV 0x06  /* Data version for iprofd etc.          */
+#else
+#define ISDN_MSNLEN          20
+#define NET_DV 0x05  /* Data version for isdn_net_ioctl_cfg   */
+#define TTY_DV 0x05  /* Data version for iprofd etc.          */
+#endif
+
+#define INF_DV 0x01  /* Data version for /dev/isdninfo        */
 
 typedef struct {
   char drvid[25];
@@ -408,10 +422,6 @@ typedef struct {
   char phone[ISDN_MSNLEN];
   int  outgoing;
 } isdn_net_ioctl_phone;
-
-#define NET_DV 0x06  /* Data version for isdn_net_ioctl_cfg   */
-#define TTY_DV 0x06  /* Data version for iprofd etc.          */
-#define INF_DV 0x01  /* Data version for /dev/isdninfo        */
 
 typedef struct {
   char name[10];     /* Name of interface                     */

@@ -14,3 +14,4 @@
 #define get_pcibase(ps, nr) ps->resource[nr].start
 #define COMPAT_HAS_NEW_WAITQ
 #define COMPAT_HAS_NEW_SETUP
+#define BIG_PHONE_NUMBERS

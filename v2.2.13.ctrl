@@ -15,6 +15,7 @@
 #define get_pcibase(ps,nr) ps->base_address[nr]
 #undef COMPAT_HAS_NEW_WAITQ
 #undef COMPAT_HAS_NEW_SETUP
+#undef BIG_PHONE_NUMBERS
 #define net_device device
 #define set_current_state(sta) current->state = sta
 

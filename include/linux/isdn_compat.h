@@ -102,6 +102,7 @@ static inline unsigned long copy_to_user(void *to, const void *from, unsigned lo
 
 #if LINUX_VERSION_CODE > KERNEL_VERSION(2,3,0)
 #define COMPAT_HAS_NEW_WAITQ
+#define BIG_PHONE_NUMBERS
 #endif
 
 #if LINUX_VERSION_CODE > KERNEL_VERSION(2,3,12)
