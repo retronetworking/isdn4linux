@@ -6,6 +6,9 @@
  * Copyright 1997 by Carsten Paeth (calle@calle.in-berlin.de)
  *
  * $Log$
+ * Revision 1.3.2.14  1999/07/01 10:45:11  keil
+ * added ack parameter in writebuf_skb (is only a dummy in 2.0 branch)
+ *
  * Revision 1.3.2.13  1999/05/31 11:47:39  calle
  * Bugfix: In if_sendbuf, skb_push'ed DATA_B3 header was not skb_pull'ed
  *         on failure, result in data block with DATA_B3 header transmitted
@@ -1333,13 +1336,18 @@ static void capidrv_signal(__u16 applid, __u32 dummy)
 			handle_data(&s_cmsg, skb);
 			continue;
 		}
-		kfree_skb(skb, FREE_READ);
 		if ((s_cmsg.adr.adrController & 0xffffff00) == 0)
 			handle_controller(&s_cmsg);
 		else if ((s_cmsg.adr.adrPLCI & 0xffff0000) == 0)
 			handle_plci(&s_cmsg);
 		else
 			handle_ncci(&s_cmsg);
+		/*
+		 * data of skb used in s_cmsg,
+		 * free data when s_cmsg is not used again
+		 * thanks to Lars Heete <hel@admin.de>
+		 */
+		kfree_skb(skb, FREE_READ);
 	}
 }
 
@@ -1839,11 +1847,10 @@ static int if_sendbuf(int id, int channel, int ack, struct sk_buff *skb)
 			dev_kfree_skb(skb, FREE_WRITE);
 			return len;
 		case CAPI_SENDQUEUEFULL:
-			skb_pull(skb, msglen);
 			dev_kfree_skb(nskb, FREE_WRITE);
 			return 0;
 		default:
-			skb_pull(skb, msglen);
+			dev_kfree_skb(nskb, FREE_WRITE);
 			return -1;
 		}
 	} else {
