@@ -6,6 +6,11 @@
  * Copyright 1997 by Carsten Paeth (calle@calle.in-berlin.de)
  *
  * $Log$
+ * Revision 1.5  1997/10/01 09:21:16  fritz
+ * Removed old compatibility stuff for 2.0.X kernels.
+ * From now on, this code is for 2.1.X ONLY!
+ * Old stuff is still in the separate branch.
+ *
  * Revision 1.4  1997/07/13 12:22:43  calle
  * bug fix for more than one controller in connect_req.
  * debugoutput now with contrnr.
@@ -118,6 +123,11 @@ struct capidrv_contr {
 				int oldstate;
 				/* */
 				__u16 datahandle;
+				struct ncci_datahandle_queue {
+				    struct ncci_datahandle_queue *next;
+				    __u16                         datahandle;
+				    int                           len;
+				} *ackqueue;
 			} *ncci_list;
 		} *plcip;
 		struct capidrv_ncci *nccip;
@@ -410,6 +420,42 @@ static void free_ncci(capidrv_contr * card, struct capidrv_ncci *nccip)
 	}
 	card->bchans[nccip->chan].nccip = 0;
 	kfree(nccip);
+}
+
+static int capidrv_add_ack(struct capidrv_ncci *nccip,
+		           __u16 datahandle, int len)
+{
+	struct ncci_datahandle_queue *n, **pp;
+
+	n = (struct ncci_datahandle_queue *)
+		kmalloc(sizeof(struct ncci_datahandle_queue), GFP_ATOMIC);
+	if (!n) {
+	   printk(KERN_ERR "capidrv: kmalloc ncci_datahandle failed\n");
+	   return -1;
+	}
+	n->next = 0;
+	n->datahandle = datahandle;
+	n->len = len;
+	for (pp = &nccip->ackqueue; *pp; pp = &(*pp)->next) ;
+	*pp = n;
+	return 0;
+}
+
+static int capidrv_del_ack(struct capidrv_ncci *nccip, __u16 datahandle)
+{
+	struct ncci_datahandle_queue **pp, *p;
+	int len;
+
+	for (pp = &nccip->ackqueue; *pp; pp = &(*pp)->next) {
+ 		if ((*pp)->datahandle == datahandle) {
+			p = *pp;
+			len = p->len;
+			*pp = (*pp)->next;
+		        kfree(p);
+			return len;
+		}
+	}
+	return -1;
 }
 
 /* -------- convert and send capi message ---------------------------- */
@@ -997,6 +1043,7 @@ static void handle_ncci(_cmsg * cmsg)
 	capidrv_plci *plcip;
 	capidrv_ncci *nccip;
 	isdn_ctrl cmd;
+	int len;
 
 	if (!card) {
 		printk(KERN_ERR "capidrv: %s from unknown controller 0x%x\n",
@@ -1094,11 +1141,14 @@ static void handle_ncci(_cmsg * cmsg)
 		if (!(nccip = find_ncci(card, cmsg->adr.adrNCCI)))
 			goto notfound;
 
-		cmd.command = ISDN_STAT_BSENT;
-		cmd.driver = card->myid;
-		cmd.arg = nccip->chan;
-		card->interface.statcallb(&cmd);
-
+		len = capidrv_del_ack(nccip, cmsg->DataHandle);
+		if (len < 0)
+			break;
+	        cmd.command = ISDN_STAT_BSENT;
+	        cmd.driver = card->myid;
+	        cmd.arg = nccip->chan;
+		cmd.parm.length = len;
+	        card->interface.statcallb(&cmd);
 		break;
 
 	case CAPI_DISCONNECT_B3_IND:	/* ncci */
@@ -1472,7 +1522,7 @@ static int if_command(isdn_ctrl * c)
 
 static _cmsg sendcmsg;
 
-static int if_sendbuf(int id, int channel, struct sk_buff *skb)
+static int if_sendbuf(int id, int channel, int doack, struct sk_buff *skb)
 {
 	capidrv_contr *card = findcontrbydriverid(id);
 	capidrv_bchan *bchan;
@@ -1480,6 +1530,7 @@ static int if_sendbuf(int id, int channel, struct sk_buff *skb)
 	int len = skb->len;
 	size_t msglen;
 	__u16 errcode;
+	__u16 datahandle;
 
 	if (!card) {
 		printk(KERN_ERR "capidrv: if_sendbuf called with invalid driverId %d!\n",
@@ -1493,19 +1544,25 @@ static int if_sendbuf(int id, int channel, struct sk_buff *skb)
 		       card->name, channel);
 		return 0;
 	}
+	datahandle = nccip->datahandle;
 	capi_fill_DATA_B3_REQ(&sendcmsg, global.appid, card->msgid++,
 			      nccip->ncci,	/* adr */
 			      (__u32) skb->data,	/* Data */
 			      skb->len,		/* DataLength */
-			      nccip->datahandle++,	/* DataHandle */
+			      datahandle,	/* DataHandle */
 			      0	/* Flags */
 	    );
+
+	if (capidrv_add_ack(nccip, datahandle, doack ? skb->len : -1) < 0)
+	   return 0;
+
 	capi_cmsg2message(&sendcmsg, sendcmsg.buf);
 	msglen = CAPIMSG_LEN(sendcmsg.buf);
 	if (skb_headroom(skb) < msglen) {
 		struct sk_buff *nskb = dev_alloc_skb(msglen + skb->len);
 		if (!nskb) {
 			printk(KERN_ERR "capidrv: if_sendbuf: no memory\n");
+		        (void)capidrv_del_ack(nccip, datahandle);
 			return 0;
 		}
 #if 0
@@ -1515,27 +1572,23 @@ static int if_sendbuf(int id, int channel, struct sk_buff *skb)
 		memcpy(skb_put(nskb, msglen), sendcmsg.buf, msglen);
 		memcpy(skb_put(nskb, skb->len), skb->data, skb->len);
 		errcode = (*capifuncs->capi_put_message) (global.appid, nskb);
-		switch (errcode) {
-		case CAPI_NOERROR:
+		if (errcode == CAPI_NOERROR) {
 			dev_kfree_skb(skb, FREE_WRITE);
+			nccip->datahandle++;
 			return len;
-		case CAPI_SENDQUEUEFULL:
-			dev_kfree_skb(nskb, FREE_WRITE);
-			return 0;
-		default:
-			return -1;
 		}
+	        (void)capidrv_del_ack(nccip, datahandle);
+	        dev_kfree_skb(nskb, FREE_WRITE);
+		return errcode == CAPI_SENDQUEUEFULL ? 0 : -1;
 	} else {
 		memcpy(skb_push(skb, msglen), sendcmsg.buf, msglen);
 		errcode = (*capifuncs->capi_put_message) (global.appid, skb);
-		switch (errcode) {
-		case CAPI_NOERROR:
+		if (errcode == CAPI_NOERROR) {
+			nccip->datahandle++;
 			return len;
-		case CAPI_SENDQUEUEFULL:
-			return 0;
-		default:
-			return -1;
 		}
+	        (void)capidrv_del_ack(nccip, datahandle);
+		return errcode == CAPI_SENDQUEUEFULL ? 0 : -1;
 	}
 }
 
