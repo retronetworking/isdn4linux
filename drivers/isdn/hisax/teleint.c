@@ -86,7 +86,6 @@ writefifo(unsigned int ale, unsigned int adr, u_char off, u_char * data, int siz
 	register int max_delay = 20000;
 	register int i;
 	
-	/* fifo write without cli because it's allready done  */
 	byteout(ale, off);
 	for (i = 0; i<size; i++) {
 		ret = HFC_BUSY & bytein(ale);

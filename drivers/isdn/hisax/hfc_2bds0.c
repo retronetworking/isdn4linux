@@ -613,7 +613,6 @@ int receive_dmsg(struct IsdnCardState *cs)
 			if (cs->debug & L1_DEB_WARN)
 				debugl1(cs, "empty_fifo d: incoming packet too large");
 			while (idx < rcnt) {
-				cli();
 				if (!(WaitNoBusy(cs)))
 					break;
 				ReadReg(cs, HFCD_DATA_NODEB, cip);

@@ -458,7 +458,6 @@ hfc_l2l1(struct PStack *st, int pr, void *arg)
 				bcs->tx_skb = skb;
 				test_and_set_bit(BC_FLG_BUSY, &bcs->Flag);
 				bcs->cs->BC_Send_Data(bcs);
-				restore_flags(flags);
 			}
 			spin_unlock_irqrestore(&bcs->cs->lock, flags);
 			break;
