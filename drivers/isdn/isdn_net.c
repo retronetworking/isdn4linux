@@ -21,6 +21,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.39  1997/03/04 21:36:52  fritz
+ * Added sending ICMP messages when no connetion is possible.
+ *
  * Revision 1.38  1997/02/23 23:41:14  fritz
  * Bugfix: Slave interfaces have to be hung up before master.
  *
@@ -199,7 +202,11 @@ isdn_net_unreachable(struct device *dev, struct sk_buff *skb, char *reason)
 {
 	printk(KERN_DEBUG "isdn_net: %s: %s, send ICMP\n",
 	       dev->name, reason);
-	icmp_send(skb, ICMP_DEST_UNREACH, ICMP_HOST_UNREACH, 0, dev);
+	icmp_send(skb, ICMP_DEST_UNREACH, ICMP_HOST_UNREACH, 0
+#if (LINUX_VERSION_CODE < 0x02010f) /* 2.1.15 */
+		  , dev
+#endif
+);
 }
 
 static void
