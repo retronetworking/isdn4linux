@@ -22,6 +22,10 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.27  1999/07/11 17:07:39  armin
+ * Added tty modem register S23.
+ * Added new layer 2 and 3 protocols for Fax and DSP functions.
+ *
  * Revision 1.26  1999/07/01 08:35:44  keil
  * compatibility to 2.3
  *
@@ -306,6 +310,7 @@ typedef struct
 #define ISDN_STAT_L1ERR   275    /* Signal Layer-1 Error                  */
 #define ISDN_STAT_FAXIND  276    /* FAX indications from HL-driver        */
 #define ISDN_STAT_AUDIO   277    /* DTMF, DSP indications                 */
+#define ISDN_STAT_DISCH   278    /* Disable/Enable channel usage          */
 
 /*
  * Audio commands
