@@ -145,7 +145,7 @@ reset_enpci(struct IsdnCardState *cs)
 	OutByte(cs->hw.njet.base + NETJET_CTRL, cs->hw.njet.ctrl_reg);
 	mdelay(20);
 	/* Reset off */
-	cs->hw.njet.ctrl_reg = 0x70;
+	cs->hw.njet.ctrl_reg = 0x30;
 	OutByte(cs->hw.njet.base + NETJET_CTRL, cs->hw.njet.ctrl_reg);
 	/* 20ms delay */
 	mdelay(20);
@@ -154,7 +154,6 @@ reset_enpci(struct IsdnCardState *cs)
 	OutByte(cs->hw.njet.base + NETJET_AUXCTRL, ~TJ_AMD_IRQ);
 	OutByte(cs->hw.njet.base + NETJET_IRQMASK1, TJ_AMD_IRQ);
 	OutByte(cs->hw.njet.auxa, cs->hw.njet.auxd); // LED off
-
 }
 
 
@@ -178,11 +177,10 @@ enpci_card_msg(struct IsdnCardState *cs, int mt, void *arg)
 			release_io_netjet(cs);
 			break;
 		case CARD_INIT:
-			spin_lock_irqsave(&cs->lock, flags);
-			inittiger(cs);
-			Amd7930_init(cs);
 			reset_enpci(cs);
-			spin_unlock_irqrestore(&cs->lock, flags);
+			inittiger(cs);
+			/* irq must be on here */
+			Amd7930_init(cs);
 			break;
 		case CARD_TEST:
 			break;
@@ -233,40 +231,49 @@ static irqreturn_t
 enpci_interrupt(int intno, void *dev_id, struct pt_regs *regs)
 {
 	struct IsdnCardState *cs = dev_id;
-	BYTE sval, ir;
+	BYTE s0val, s1val, ir;
 	u_long flags;
 
 	spin_lock_irqsave(&cs->lock, flags);
-	sval = InByte(cs->hw.njet.base + NETJET_IRQSTAT1);
+	s1val = InByte(cs->hw.njet.base + NETJET_IRQSTAT1);
 
         /* AMD threw an interrupt */
-	if (!(sval & TJ_AMD_IRQ)) {
+	if (!(s1val & TJ_AMD_IRQ)) {
                 /* read and clear interrupt-register */
 		ir = ReadByteAmd7930(cs, 0x00);
 		Amd7930_interrupt(cs, ir);
-	}
+		s1val = 1;
+	} else
+		s1val = 0;
+	s0val = InByte(cs->hw.njet.base + NETJET_IRQSTAT0);
+	if ((s0val | s1val)==0) { // shared IRQ
+		spin_unlock_irqrestore(&cs->lock, flags);
+		return IRQ_NONE;
+	} 
+	if (s0val)
+		OutByte(cs->hw.njet.base + NETJET_IRQSTAT0, s0val);
 
 	/* DMA-Interrupt: B-channel-stuff */
 	/* set bits in sval to indicate which page is free */
 	if (inl(cs->hw.njet.base + NETJET_DMA_WRITE_ADR) <
 		inl(cs->hw.njet.base + NETJET_DMA_WRITE_IRQ))
 		/* the 2nd write page is free */
-		sval = 0x08;
+		s0val = 0x08;
 	else	/* the 1st write page is free */
-		sval = 0x04;
+		s0val = 0x04;
 	if (inl(cs->hw.njet.base + NETJET_DMA_READ_ADR) <
 		inl(cs->hw.njet.base + NETJET_DMA_READ_IRQ))
 		/* the 2nd read page is free */
-		sval = sval | 0x02;
+		s0val = s0val | 0x02;
 	else	/* the 1st read page is free */
-		sval = sval | 0x01;
-	if (sval != cs->hw.njet.last_is0) /* we have a DMA interrupt */
+		s0val = s0val | 0x01;
+	if (s0val != cs->hw.njet.last_is0) /* we have a DMA interrupt */
 	{
 		if (test_and_set_bit(FLG_LOCK_ATOMIC, &cs->HW_Flags)) {
 			spin_unlock_irqrestore(&cs->lock, flags);
 			return IRQ_HANDLED;
 		}
-		cs->hw.njet.irqstat0 = sval;
+		cs->hw.njet.irqstat0 = s0val;
 		if ((cs->hw.njet.irqstat0 & NETJET_IRQM0_READ) !=
 			(cs->hw.njet.last_is0 & NETJET_IRQM0_READ))
 			/* we have a read dma int */
@@ -390,29 +397,3 @@ setup_enternow_pci(struct IsdnCard *card)
 
         return (1);
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
