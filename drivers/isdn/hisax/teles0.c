@@ -10,6 +10,9 @@
  * 	        Beat Doebeli
  * 
  * $Log$
+ * Revision 1.1  1996/10/13 20:04:58  keil
+ * Initial revision
+ *
  *
  *
 */
@@ -948,10 +951,10 @@ setup_teles0(struct IsdnCard *card)
         verA=readhscx(sp->membase, 0,HSCX_VSTR) & 0xf;
         verB=readhscx(sp->membase, 1,HSCX_VSTR) & 0xf;
         printk(KERN_INFO "Teles0: HSCX version A: %s  B: %s\n",
-        	HscxVersion[verA], HscxVersion[verB]);
+        	HscxVersion(verA), HscxVersion(verB));
         val = readisac(sp->membase, ISAC_RBCH);
-        printk(KERN_INFO "Teles0: ISAC version %d.%d\n",
-        	(val>>6)&1, (val>>5)&1);
+        printk(KERN_INFO "Teles0: ISAC %s\n",
+        	ISACVersion(val));
 
 	if ((verA==0) | (verA==0xf) | (verB==0) | (verB==0xf)) {
         	printk(KERN_WARNING 

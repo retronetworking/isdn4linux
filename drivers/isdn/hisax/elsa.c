@@ -8,6 +8,9 @@
  *
  * 
  * $Log$
+ * Revision 1.1  1996/10/13 20:04:52  keil
+ * Initial revision
+ *
  *
 */
 #define __NO_VERSION__
@@ -1095,10 +1098,10 @@ setup_elsa(struct IsdnCard *card)
         verA=readhscx(sp->cfg_reg, 0,HSCX_VSTR) & 0xf;
         verB=readhscx(sp->cfg_reg, 1,HSCX_VSTR) & 0xf;
         printk(KERN_INFO "Elsa: HSCX version A: %s  B: %s\n",
-        	HscxVersion[verA], HscxVersion[verB]);
+        	HscxVersion(verA), HscxVersion(verB));
         val = readisac(sp->cfg_reg, ISAC_RBCH);
-        printk(KERN_INFO "Elsa: ISAC version %d.%d\n",
-        	(val>>6)&1, (val>>5)&1);
+        printk(KERN_INFO "Elsa: ISAC %s\n",
+        	ISACVersion(val));
 
         sp->modehscx       = &modehscx;
         sp->ph_command     = &ph_command;

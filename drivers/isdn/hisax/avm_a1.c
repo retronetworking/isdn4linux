@@ -6,6 +6,9 @@
  *
  * 
  * $Log$
+ * Revision 1.1  1996/10/13 20:04:49  keil
+ * Initial revision
+ *
  *
 */
 #define __NO_VERSION__
@@ -953,10 +956,10 @@ setup_avm_a1(struct IsdnCard *card)
         verA = readreg(sp->hscx[0],HSCX_VSTR) & 0xf;
         verB = readreg(sp->hscx[1],HSCX_VSTR) & 0xf;
         printk(KERN_INFO "AVM A1: HSCX version A: %s  B: %s\n",
-        	HscxVersion[verA], HscxVersion[verB]);
+        	HscxVersion(verA), HscxVersion(verB));
         val = readreg(sp->isac, ISAC_RBCH);
-        printk(KERN_INFO "AVM A1: ISAC version %d.%d\n",
-        	(val>>6)&1, (val>>5)&1);
+        printk(KERN_INFO "AVM A1: ISAC %s\n",
+        	ISACVersion(val));
 	if ((verA==0) | (verA==0xf) | (verB==0) | (verB==0xf)) {
         	printk(KERN_WARNING 
         		"AVM A1: wrong HSCX versions check IO address\n");

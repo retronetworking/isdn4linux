@@ -11,6 +11,9 @@
  * 	        Beat Doebeli
  * 
  * $Log$
+ * Revision 1.1  1996/10/13 20:04:59  keil
+ * Initial revision
+ *
  *
  *
 */
@@ -970,10 +973,10 @@ setup_teles3(struct IsdnCard *card)
         verA = readreg(sp->hscx[0],HSCX_VSTR) & 0xf;
         verB = readreg(sp->hscx[1],HSCX_VSTR) & 0xf;
         printk(KERN_INFO "Teles3: HSCX version A: %s  B: %s\n",
-        	HscxVersion[verA], HscxVersion[verB]);
+        	HscxVersion(verA), HscxVersion(verB));
         val = readreg(sp->isac, ISAC_RBCH);
-        printk(KERN_INFO "Teles3: ISAC version %d.%d\n",
-        	(val>>6)&1, (val>>5)&1);
+        printk(KERN_INFO "Teles0: ISAC %s\n",
+        	ISACVersion(val));
 	if ((verA==0) | (verA==0xf) | (verB==0) | (verB==0xf)) {
         	printk(KERN_WARNING 
         		"Teles3: wrong HSCX versions check IO address\n");
