@@ -19,6 +19,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.9  1997/02/11 18:32:59  fritz
+ * Bugfix in isdn_ppp_free_mpqueue().
+ *
  * Revision 1.8  1997/02/10 10:11:33  fritz
  * More changes for Kernel 2.1.X compatibility.
  *
@@ -75,3 +78,7 @@ extern void isdn_ppp_wakeup_daemon(isdn_net_local *);
 #define IPPP_CLOSEWAIT	0x04
 #define IPPP_NOBLOCK	0x08
 #define IPPP_ASSIGNED	0x10
+
+#define IPPP_MAX_HEADER 10
+
+
