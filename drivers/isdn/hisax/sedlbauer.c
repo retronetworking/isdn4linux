@@ -2,8 +2,9 @@
 
  * sedlbauer.c  low level stuff for Sedlbauer cards
  *              includes support for the Sedlbauer speed star (speed star II),
+ *              support for the Sedlbauer speed fax+,
  *              support for the Sedlbauer ISDN-Controller PC/104 and
- *		support for the Sedlbauer speed pci
+ *              support for the Sedlbauer speed pci
  *              derived from the original file asuscom.c from Karsten Keil
  *
  * Copyright (C) 1997,1998 Marcus Niemann (for the modifications to
@@ -16,6 +17,10 @@
  *            Edgar Toernig
  *
  * $Log$
+ * Revision 1.1.2.15  1998/11/03 00:07:32  keil
+ * certification related changes
+ * fixed logging for smaller stack use
+ *
  * Revision 1.1.2.14  1998/10/30 22:51:41  niemann
  * Added new card, Sedlbauer speed pci works now.
  *
@@ -76,6 +81,11 @@
  * ISDN PC/104	IPAC		DIP-SWITCH
  * Speed Star2	IPAC		CARDMGR
  * Speed PCI	IPAC		PNP		
+ *
+ * Important:
+ * For the sedlbauer speed fax+ to work properly you have to download 
+ * the firmware onto the card.
+ * For example: hisaxctrl <DriverID> 9 ISAR.BIN
 */
 
 #define SEDLBAUER_PCI 1

@@ -5,6 +5,9 @@
  *
  *
  * $Log$
+ * Revision 1.15.2.21  1998/11/05 21:13:46  keil
+ * minor fixes
+ *
  * Revision 1.15.2.20  1998/11/04 11:50:32  fritz
  * Make compile with modversions enabled.
  *
@@ -116,6 +119,8 @@
  *   13 Teleint          p0=irq p1=iobase
  *   14 Teles 16.3c      p0=irq p1=iobase
  *   15 Sedlbauer speed  p0=irq p1=iobase
+ *   15 Sedlbauer PC/104	p0=irq p1=iobase
+ *   15 Sedlbauer speed pci	no parameter
  *   16 USR Sportster internal  p0=irq  p1=iobase
  *   17 MIC card                p0=irq  p1=iobase
  *   18 ELSA Quickstep 1000PCI  no parameter
