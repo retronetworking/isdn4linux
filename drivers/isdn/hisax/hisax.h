@@ -3,6 +3,10 @@
  *   Basic declarations, defines and prototypes
  *
  * $Log$
+ * Revision 2.39  1999/11/18 00:00:43  werner
+ *
+ * Added support for HFC-S+ and HFC-SP cards
+ *
  * Revision 2.38  1999/11/14 23:37:03  keil
  * new ISA memory mapped IO
  *
@@ -1345,19 +1349,6 @@ struct IsdnCardState {
 #ifdef CONFIG_HISAX_EURO
 #undef TEI_PER_CARD
 #define TEI_PER_CARD 1
-#define HISAX_EURO_SENDCOMPLETE 1
-#define EXT_BEARER_CAPS 1
-#define HISAX_SEND_STD_LLC_IE 1
-#ifdef	CONFIG_HISAX_NO_SENDCOMPLETE
-#undef HISAX_EURO_SENDCOMPLETE
-#endif
-#ifdef	CONFIG_HISAX_NO_LLC
-#undef HISAX_SEND_STD_LLC_IE
-#endif
-#undef HISAX_DE_AOC
-#ifdef CONFIG_DE_AOC
-#define HISAX_DE_AOC 1
-#endif
 #endif
 
 /* L1 Debug */

@@ -15,6 +15,9 @@
  *
  *
  * $Log$
+ * Revision 2.36  1999/08/25 16:50:57  keil
+ * Fix bugs which cause 2.3.14 hangs (waitqueue init)
+ *
  * Revision 2.35  1999/08/22 20:27:07  calle
  * backported changes from kernel 2.3.14:
  * - several #include "config.h" gone, others come.
@@ -359,7 +362,8 @@ DChannel_proc_rcv(struct IsdnCardState *cs)
 					stptr = stptr->next;
 			if (!found)
 				idev_kfree_skb(skb, FREE_READ);
-		}
+		} else
+			idev_kfree_skb(skb, FREE_READ);
 	}
 }
 
@@ -556,11 +560,8 @@ l1_deact_req(struct FsmInst *fi, int event, void *arg)
 	struct PStack *st = fi->userdata;
 
 	FsmChangeState(fi, ST_L1_F3);
-//	if (!test_bit(FLG_L1_T3RUN, &st->l1.Flags)) {
-		FsmDelTimer(&st->l1.timer, 1);
-		FsmAddTimer(&st->l1.timer, 550, EV_TIMER_DEACT, NULL, 2);
-		test_and_set_bit(FLG_L1_DEACTTIMER, &st->l1.Flags);
-//	}
+	FsmRestartTimer(&st->l1.timer, 550, EV_TIMER_DEACT, NULL, 2);
+	test_and_set_bit(FLG_L1_DEACTTIMER, &st->l1.Flags);
 }
 
 static void
@@ -571,8 +572,7 @@ l1_power_up(struct FsmInst *fi, int event, void *arg)
 	if (test_bit(FLG_L1_ACTIVATING, &st->l1.Flags)) {
 		FsmChangeState(fi, ST_L1_F4);
 		st->l1.l1hw(st, HW_INFO3 | REQUEST, NULL);
-		FsmDelTimer(&st->l1.timer, 1);
-		FsmAddTimer(&st->l1.timer, TIMER3_VALUE, EV_TIMER3, NULL, 2);
+		FsmRestartTimer(&st->l1.timer, TIMER3_VALUE, EV_TIMER3, NULL, 2);
 		test_and_set_bit(FLG_L1_T3RUN, &st->l1.Flags);
 	} else
 		FsmChangeState(fi, ST_L1_F3);
@@ -611,7 +611,7 @@ l1_info4_ind(struct FsmInst *fi, int event, void *arg)
 	if (!test_bit(FLG_L1_ACTIVATED, &st->l1.Flags)) {
 		if (test_and_clear_bit(FLG_L1_T3RUN, &st->l1.Flags))
 			FsmDelTimer(&st->l1.timer, 3);
-		FsmAddTimer(&st->l1.timer, 110, EV_TIMER_ACT, NULL, 2);
+		FsmRestartTimer(&st->l1.timer, 110, EV_TIMER_ACT, NULL, 2);
 		test_and_set_bit(FLG_L1_ACTTIMER, &st->l1.Flags);
 	}
 }
@@ -726,7 +726,7 @@ l1b_activate(struct FsmInst *fi, int event, void *arg)
 	struct PStack *st = fi->userdata;
 
 	FsmChangeState(fi, ST_L1_WAIT_ACT);
-	FsmAddTimer(&st->l1.timer, st->l1.delay, EV_TIMER_ACT, NULL, 2);
+	FsmRestartTimer(&st->l1.timer, st->l1.delay, EV_TIMER_ACT, NULL, 2);
 }
 
 static void
@@ -735,7 +735,7 @@ l1b_deactivate(struct FsmInst *fi, int event, void *arg)
 	struct PStack *st = fi->userdata;
 
 	FsmChangeState(fi, ST_L1_WAIT_DEACT);
-	FsmAddTimer(&st->l1.timer, 10, EV_TIMER_DEACT, NULL, 2);
+	FsmRestartTimer(&st->l1.timer, 10, EV_TIMER_DEACT, NULL, 2);
 }
 
 static void
