@@ -137,6 +137,7 @@ static inline unsigned long copy_to_user(void *to, const void *from, unsigned lo
 
 #if LINUX_VERSION_CODE < KERNEL_VERSION(2,3,43)
 #define COMPAT_NO_SOFTNET
+#include <linux/netdevice.h>
 
 /*
  * Tell upper layers that the network device is ready to xmit more frames.
