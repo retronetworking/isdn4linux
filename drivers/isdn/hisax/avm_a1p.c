@@ -8,6 +8,10 @@
  * Author       Carsten Paeth (calle@calle.in-berlin.de)
  *
  * $Log$
+ * Revision 2.4  1999/07/12 21:04:55  keil
+ * fix race in IRQ handling
+ * added watchdog for lost IRQs
+ *
  * Revision 2.3  1998/11/15 23:54:22  keil
  * changes from 2.0
  *
@@ -241,6 +245,7 @@ AVM_card_msg(struct IsdnCardState *cs, int mt, void *arg)
 			return 0;
 
 		case CARD_INIT:
+			byteout(cs->hw.avm.cfg_reg+ASL0_OFFSET,ASL0_W_TDISABLE|ASL0_W_TRESET|ASL0_W_IRQENABLE);
 			clear_pending_isac_ints(cs);
 			clear_pending_hscx_ints(cs);
 			inithscxisac(cs, 1);
