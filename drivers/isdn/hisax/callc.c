@@ -7,6 +7,9 @@
  *              Fritz Elfert
  *
  * $Log$
+ * Revision 1.5  1996/10/30 10:11:06  keil
+ * debugging LOCK changed;ST_REL_W EV_HANGUP added
+ *
  * Revision 1.4  1996/10/27 22:20:16  keil
  * alerting bugfixes
  * no static b-channel<->channel mapping
@@ -1246,7 +1249,7 @@ init_ds(int chan, int incoming)
         st->l2.laptype = LAPB;
         st->l2.orig = !incoming;
         st->l2.t200 = 1000;        /* 1000 milliseconds */
-        st->l2.window = 3;
+        st->l2.window = 7;
         st->l2.n200 = 4;           /* try 4 times       */
         st->l2.t203 = 5000;        /* 5000 milliseconds */
 
@@ -1463,6 +1466,8 @@ HiSax_command(isdn_ctrl * ic)
                                 HiSax_putstatus(tmp);
 			        printk(KERN_DEBUG "HiSax: %s", tmp);
                        	    }
+                    default:  
+                    	    return (-EINVAL);
                   }
                   break;
           case (ISDN_CMD_SETL2):
