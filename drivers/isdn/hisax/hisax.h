@@ -3,6 +3,9 @@
  *   Basic declarations, defines and prototypes
  *
  * $Log$
+ * Revision 2.41  2000/02/26 00:35:13  keil
+ * Fix skb freeing in interrupt context
+ *
  * Revision 2.40  2000/01/20 19:51:46  keil
  * Fix AddTimer message
  * Change CONFIG defines
@@ -499,6 +502,7 @@ struct isar_hw {
 	u_char mod;
 	u_char newcmd;
 	u_char newmod;
+	char try_mod;
 	struct timer_list ftimer;
 	u_char *rcvbuf;         /* B-Channel receive Buffer */
 	u_char conmsg[16];
