@@ -1238,6 +1238,8 @@ init_b_st(struct Channel *chanp, int incoming)
 		return (-1);
 	st->l2.flag = 0;
 	test_and_set_bit(FLG_LAPB, &st->l2.flag);
+	st->l2.AddressA = 0x03;
+	st->l2.AddressB = 0x01;
 	st->l2.maxlen = MAX_DATA_SIZE;
 	if (!incoming)
 		test_and_set_bit(FLG_ORIG, &st->l2.flag);

@@ -203,9 +203,9 @@ sethdraddr(struct Layer2 *l2, u_char * header, int rsp)
 		if (test_bit(FLG_ORIG, &l2->flag))
 			crbit = !crbit;
 		if (crbit)
-			*ptr++ = 1;
+			*ptr++ = l2->AddressB;
 		else
-			*ptr++ = 3;
+			*ptr++ = l2->AddressA;
 		return (1);
 	}
 }

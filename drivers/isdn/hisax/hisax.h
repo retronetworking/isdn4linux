@@ -226,6 +226,8 @@ struct Layer1 {
 struct Layer2 {
 	int tei;
 	int sap;
+	int AddressA;
+	int AddressB;
 	int maxlen;
 	unsigned int flag;
 	unsigned int vs, va, vr;
