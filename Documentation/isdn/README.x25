@@ -1,6 +1,6 @@
  
 X25 support within isdn4linux
-
+=============================
 
 This is experimental code. Use it completely on your own risk.
 As new versions appear, the stuff described here might suddenly change
@@ -14,13 +14,11 @@ Thus, be prepared to face problems related therefrom.
 
 - If you connect to an x25 neighbour not operated by yourself, ASK the
   other side first. Be prepared that bugs in the protocol implementation
-  might result in problems (even crashing the peer, however such ugly events
-  should only happen if your peer's protocol implementation has serious bugs).
+  might result in problems.
 
 - This implementation has never wiped out my whole hard disk yet. But as
-  this is experimental code, don't blame me if that happened to you. Take
-  appropriate actions (such as backing up important data) before
-  trying this code.
+  this is experimental code, don't blame me if that happened to you
+  Backing up important data will never harm.
 
 - Monitor your isdn connections while using this software. This should
   prevent you from undesired phone bills in case of driver problems.
@@ -29,7 +27,7 @@ Thus, be prepared to face problems related therefrom.
 
 
 How to configure the kernel
-
+===========================
  
 The ITU-T (former CCITT) X.25 network protocol layer has been implemented
 in the Linux source tree since version 2.1.16. The isdn subsystem might be 
@@ -47,13 +45,17 @@ compilation. You currently also need to enable
 "Code maturity level options" menu. For the x25trace utility to work
 you also need to enable "Packet socket".
 
-For local testing it is also recommended to choose the isdnloop driver
+For local testing it is also recommended to enable the isdnloop driver
 from the isdn subsystem's configuration menu.
+
+For testing, it is recommended that all isdn drivers and the x25 PLP
+protocol are compiled as loadable modules. Like this, you can recover
+from certain errors by simply unloading and reloading the modules.
 
 
 
 What's it for? How to use it?
-
+=============================
 
 X25 on top of isdn might be useful with two different scenarios:
 
@@ -63,11 +65,12 @@ X25 on top of isdn might be useful with two different scenarios:
   but connecting to x.25 network switches is currently untested. Testing
   needs to be done by somebody with access to such a switch.) 
 
-- Or you might want to operate certain ISDN teleservices on 
-  your linux box. A lot of those teleservices run on top of the ISO-8208 
-  network layer protocol. ISO-8208 is essentially the same as ITU-T X.25.
+- Or you might want to operate certain ISDN teleservices on your linux
+  box. A lot of those teleservices run on top of the ISO-8208
+  (DTE-DTE mode) network layer protocol. ISO-8208 is essentially the
+  same as ITU-T X.25.
 
-  Popular candidates of such teleservices are EUROFILE transfer or any
+  Popular candidates of such teleservices are EUROfile transfer or any
   teleservice applying ITU-T recommendation T.90 (i.e., AFAIK, G4 Fax).
 
 To use the X.25 protocol on top of isdn, just create an isdn network
@@ -121,8 +124,8 @@ tested this.
 
 
 
-How to use the test installation?
-
+How to set up a test installation?
+==================================
 
 To test x25 on top of isdn, you need to get
 
@@ -140,10 +143,6 @@ preprocessor will fetch the proper kernel header files of this kernel
 source tree. Either make /usr/include/linux a symbolic link pointing to 
 this kernel's include/linux directory or set the appropriate compiler flags.
 
-For testing, it is recommended that all isdn drivers and the x25 PLP
-protocol are compiled as loadable modules. Like this, you can recover
-from certain errors by simply unloading and reloading the modules.
-
 When all drivers and interfaces are loaded and configured you need to
 ifconfig the network interfaces up and add x25-routes to them. Use
 the usual ifconfig tool.
@@ -156,59 +155,27 @@ is needed to set up x25 routes. I.e.
 x25route add 01 <iface-name>
 
 will cause all x.25 connections to the destination x.25-address
-"01" beeing routed to your created isdn network interface.
+"01" being routed to your created isdn network interface.
 
 
 There are currently no real x25 applications available. However, for
 tests, the x25-utils package contains a modified version of telnet
-and telnetd that uses x25 sockets instead of tcp/ip sockets. Use
-this for your first tests. Furthermore, you might check
+and telnetd that uses x25 sockets instead of tcp/ip sockets. You can
+use those for your first tests. Furthermore, you might check
 ftp://ftp.hamburg.pop.de/pub/LOCAL/linux/i4l-eft/ which contains some
-experimental implementation of the EUROfile transfer protocol.
+experimental implementation ("eftp4linux") of the EUROfile transfer
+protocol.
 
-The eftp4linux test release also contains an "ix25test" script that
+The eftp4linux test releases also contains an "ix25test" script that
 simplifies the task of configuring a set of isdn network interfaces
-and x.25 routes for testing x.25 on top of isdn. Edit this script
-according to your local needs and then call it as
-
-ix25test start
-
-It is recommended that all other isdn drivers and the
-x25 module is unloaded before calling this script.
+and x.25 routes for testing x.25 on top of isdn. On the same site,
+you might also find a list of known problems and maybe patches and
+hints to work around some of them. 
 
 
 The x25-utility package also contains an x25trace tool that can be
 used to monitor x25 packets received by the network interfaces.
 The /proc/net/x25* files also contain useful information. 
-
-
-
-Known problems:
-
-
-The isdnloop HL driver apparently has problems to re-establish a
-connection that has been hang up from the outgoing device. You have to
-unload the isdnloop driver after the faked isdn-connection is closed
-and insmod it again. With the Hisax driver, this problem is not present.
-
-When an x.25 PLP connection is established, but the lower layer isdn
-B channel connection is closed this is signalled as a datalink
-disconnect to the X.25 packet layer. Now, if the socket is closed,
-the x25 PLP re-establishes the datalink (resulting in re-establishing
-an isdn connection), resets the X.25 PLP connection, and closes
-the X.25 PLP connection right after this. This seems to be protocol spec
-conforming, but you don't gain very much by this (well, your phone company
-gains, the additional call is charged to you). Thus, prefer to release the
-x.25 PLP connections before you close the isdn B channel.
- 
-isdn B channels are not closed automatically when the X.25 PLP
-connection is closed. If you are lucky, your peer does it. You might
-close the B channel connection by hand (using the "isdnctrl hangup"
-command) or rely on the isdn network interface's hangup timeout.
-
-Sometimes the x25 module cannot be unloaded (socket memory not zero
-because of orphaned sk_buff's).
-
 
 - Henner
 
