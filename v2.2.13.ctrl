@@ -55,5 +55,5 @@
 
 #define COMPAT_NEED_MPPP_DEFS
 
-#define spin_lock_bh spin_lock
-#define spin_unlock_bh spin_unlock
+#define spin_lock_bh(lock)
+#define spin_unlock_bh(lock)
