@@ -9,6 +9,9 @@
  *              Fritz Elfert
  *
  * $Log$
+ * Revision 1.11  1997/02/16 12:12:47  fritz
+ * Bugfix: SI2 was nont initialized on incoming calls.
+ *
  * Revision 1.10  1997/02/11 01:37:24  keil
  * Changed setup-interface (incoming and outgoing)
  *
@@ -226,7 +229,6 @@ l3dss1_disconnect(struct PStack *st, byte pr, void *arg)
 		p++;
 		if (*p++ == 2)
 			st->pa->loc = *p++;
-		p++;
 		cause = *p & 0x7f;
 	}
 	BufPoolRelease(ibh);
@@ -454,7 +456,6 @@ l3dss1_release(struct PStack *st, byte pr, void *arg)
 		p++;
 		if (*p++ == 2)
 			st->pa->loc = *p++;
-		p++;
 		cause = *p & 0x7f;
 	}
 	BufPoolRelease(ibh);
