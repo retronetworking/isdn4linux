@@ -184,6 +184,9 @@ README for the ISDN-subsystem
                                       1 = Extended response messages
                             Bit 4:    0 = CALLER NUMBER before every RING.
                                       1 = CALLER NUMBER after first RING.
+			    Bit 5:    0 = Don't show display messages from net
+                                      1 = Show display messages from net
+				          (S12 Bit 1 must be 0 too)      
              14   0         Layer-2 protocol:
                                       0 = X75/LAPB with I-frames
                                       1 = X75/LAPB with UI-frames
