@@ -1,8 +1,11 @@
 /* $Id$
- *
+
  *   Basic declarations, defines and prototypes
  *
  * $Log$
+ * Revision 1.7  1997/01/21 22:22:14  keil
+ * changes for 2.0; Elsa Quickstep support
+ *
  * Revision 1.6  1997/01/04 13:48:28  keil
  * primitiv for MDL_REMOVE added
  *
@@ -158,9 +161,9 @@
 #define IE_CAUSE               0x08
 
 struct HscxIoctlArg {
-	int             channel;
-	int             mode;
-	int             transbufsize;
+	int channel;
+	int mode;
+	int transbufsize;
 };
 
 #ifdef __KERNEL__
@@ -195,218 +198,217 @@ struct HscxIoctlArg {
 
 #define MAX_WINDOW 8
 
-byte           *Smalloc(int size, int pr, char *why);
-void            Sfree(byte * ptr);
+byte *Smalloc(int size, int pr, char *why);
+void Sfree(byte * ptr);
 
 /*
  * Statemachine
  */
 struct Fsm {
-	int            *jumpmatrix;
-	int             state_count, event_count;
-	char          **strEvent, **strState;
+	int *jumpmatrix;
+	int state_count, event_count;
+	char **strEvent, **strState;
 };
 
 struct FsmInst {
-	struct Fsm     *fsm;
-	int             state;
-	int             debug;
-	void           *userdata;
-	int             userint;
-	void            (*printdebug) (struct FsmInst *, char *);
+	struct Fsm *fsm;
+	int state;
+	int debug;
+	void *userdata;
+	int userint;
+	void (*printdebug) (struct FsmInst *, char *);
 };
 
 struct FsmNode {
-	int             state, event;
-	void            (*routine) (struct FsmInst *, int, void *);
+	int state, event;
+	void (*routine) (struct FsmInst *, int, void *);
 };
 
 struct FsmTimer {
 	struct FsmInst *fi;
 	struct timer_list tl;
-	int             event;
-	void           *arg;
+	int event;
+	void *arg;
 };
 
 struct L3Timer {
-        struct PStack     *st;
-        struct timer_list  tl;
-        int                event;
+	struct PStack *st;
+	struct timer_list tl;
+	int event;
 };
 
 struct BufHeader {
 #ifdef DEBUG_MAGIC
-	int             magic;
+	int magic;
 #endif
 	struct BufHeader *next;
 	struct BufPool *bp;
-	int             datasize;
-	byte            primitive, where;
-	void           *heldby;
+	int datasize;
+	byte primitive, where;
+	void *heldby;
 };
 
 struct Pages {
-	struct Pages   *next;
+	struct Pages *next;
 };
 
 struct BufPool {
 #ifdef DEBUG_MAGIC
-	int             magic;
+	int magic;
 #endif
 	struct BufHeader *freelist;
-	struct Pages   *pageslist;
-	int             pageorder;
-	int             pagescount;
-	int             bpps;
-	int             bufsize;
-	int             maxpages;
+	struct Pages *pageslist;
+	int pageorder;
+	int pagescount;
+	int bpps;
+	int bufsize;
+	int maxpages;
 };
 
 struct BufQueue {
 #ifdef DEBUG_MAGIC
-	int             magic;
+	int magic;
 #endif
 	struct BufHeader *head, *tail;
 };
 
 struct Layer1 {
-	void           *hardware;
-	int             hscx;
+	void *hardware;
+	int hscx;
 	struct BufPool *sbufpool, *rbufpool, *smallpool;
 	struct PStack **stlistp;
-	int             act_state;
-	void            (*l1l2) (struct PStack *, int, struct BufHeader *);
-        void            (*l1man) (struct PStack *, int, void *);
-	int             hscxmode, hscxchannel, requestpull;
+	int act_state;
+	void (*l1l2) (struct PStack *, int, struct BufHeader *);
+	void (*l1man) (struct PStack *, int, void *);
+	int hscxmode, hscxchannel, requestpull;
 };
 
 struct Layer2 {
-	int             sap, tei, ces;
-	int             extended, laptype;
-	int             uihsize, ihsize;
-	int             vs, va, vr;
+	int sap, tei, ces;
+	int extended, laptype;
+	int uihsize, ihsize;
+	int vs, va, vr;
 	struct BufQueue i_queue;
-	int             window, orig;
-	int             rejexp;
-	int             debug;
+	int window, orig;
+	int rejexp;
+	int debug;
 	struct BufHeader *windowar[MAX_WINDOW];
-	int             sow;
-	struct FsmInst  l2m;
-	void            (*l2l1) (struct PStack *, int, struct BufHeader *);
-        void            (*l2l1discardq) (struct PStack *, int, void *, int);
-        void            (*l2man) (struct PStack *, int, void *);
-	void            (*l2l3) (struct PStack *, int, void *);
-	void            (*l2tei) (struct PStack *, int, void *);
+	int sow;
+	struct FsmInst l2m;
+	void (*l2l1) (struct PStack *, int, struct BufHeader *);
+	void (*l2l1discardq) (struct PStack *, int, void *, int);
+	void (*l2man) (struct PStack *, int, void *);
+	void (*l2l3) (struct PStack *, int, void *);
+	void (*l2tei) (struct PStack *, int, void *);
 	struct FsmTimer t200_timer, t203_timer;
-	int             t200, n200, t203;
-	int             rc, t200_running;
-	char            debug_id[32];
+	int t200, n200, t203;
+	int rc, t200_running;
+	char debug_id[32];
 };
 
 struct Layer3 {
-	void            (*l3l4) (struct PStack *, int, struct BufHeader *);
-        void            (*l3l2) (struct PStack *, int, void *);
-	int             state, callref;
-	struct L3Timer	timer;
-	int		t303, t304, t305, t308, t310, t313, t318, t319;
-	int		n_t303;
-	int             debug;
-	int		channr;
+	void (*l3l4) (struct PStack *, int, struct BufHeader *);
+	void (*l3l2) (struct PStack *, int, void *);
+	int state, callref;
+	struct L3Timer timer;
+	int t303, t304, t305, t308, t310, t313, t318, t319;
+	int n_t303;
+	int debug;
+	int channr;
 };
 
 struct Layer4 {
-	void            (*l4l3) (struct PStack *, int, void *);
-	void           *userdata;
-	void            (*l1writewakeup) (struct PStack *);
-	void		(*l2writewakeup) (struct PStack *);
+	void (*l4l3) (struct PStack *, int, void *);
+	void *userdata;
+	void (*l1writewakeup) (struct PStack *);
+	void (*l2writewakeup) (struct PStack *);
 };
 
 struct Management {
-	void            (*manl1) (struct PStack *, int, void *);
-        void            (*manl2) (struct PStack *, int, void *);
-	void            (*teil2) (struct PStack *, int, void *);
+	void (*manl1) (struct PStack *, int, void *);
+	void (*manl2) (struct PStack *, int, void *);
+	void (*teil2) (struct PStack *, int, void *);
 };
 
 struct Param {
-	int             cause;
-	int             bchannel;
-	int             callref;     /* TEI-Number                      */
-	int             itc;
-	int             info;	     /* Service-Indicator               */
-	int             info2;	     /* Service-Indicator, second octet */
-	char            calling[40]; /* Called Id                       */
-	char            called[40];  /* Caller Id                       */
-	int             chargeinfo;  /* Charge Info - only for 1tr6 in
-				      * the moment
-				      */
-	int		spv;	     /* SPV Flag */
+	int cause;
+	int bchannel;
+	int callref;		/* Callreferenz Number             */
+	int info;		/* Service-Indicator               */
+	int info2;		/* Service-Indicator, second octet */
+	char calling[40];	/* Called Id                       */
+	char called[40];	/* Caller Id                       */
+	int chargeinfo;		/* Charge Info - only for 1tr6 in
+				 * the moment
+				 */
+	int spv;		/* SPV Flag */
 };
 
 struct PStack {
-	struct PStack  *next;
-	struct Layer1   l1;
-	struct Layer2   l2;
-	struct Layer3   l3;
-	struct Layer4   l4;
+	struct PStack *next;
+	struct Layer1 l1;
+	struct Layer2 l2;
+	struct Layer3 l3;
+	struct Layer4 l4;
 	struct Management ma;
-	struct Param   *pa;
-	int             protocol;     /* EDSS1 or 1TR6 */
+	struct Param *pa;
+	int protocol;		/* EDSS1 or 1TR6 */
 };
 
 struct HscxState {
-	int             inuse, init, active;
-	struct BufPool  sbufpool, rbufpool, smallpool;
+	int inuse, init, active;
+	struct BufPool sbufpool, rbufpool, smallpool;
 	struct IsdnCardState *sp;
-	int             hscx, mode;
-	int             transbufsize, receive;
+	int hscx, mode;
+	int transbufsize, receive;
 	struct BufHeader *rcvibh, *xmtibh;
-	int             rcvptr, sendptr;
-	struct PStack  *st;
+	int rcvptr, sendptr;
+	struct PStack *st;
 	struct tq_struct tqueue;
-	int             event;
+	int event;
 	struct BufQueue rq, sq;
-	int             releasebuf;
+	int releasebuf;
 #ifdef DEBUG_MAGIC
-	int             magic;	/* 301270 */
+	int magic;		/* 301270 */
 #endif
 };
 
 struct IsdnCardState {
 #ifdef DEBUG_MAGIC
-	int             magic;
+	int magic;
 #endif
-	unsigned char	typ;
-	unsigned char	subtyp;
-	int		protocol;
-	unsigned int	irq;
-	unsigned int    cfg_reg;
-	unsigned int	membase;
-	unsigned int    isac;
-	unsigned int	hscx[2];
-	unsigned int	counter;
+	unsigned char typ;
+	unsigned char subtyp;
+	int protocol;
+	unsigned int irq;
+	unsigned int cfg_reg;
+	unsigned int membase;
+	unsigned int isac;
+	unsigned int hscx[2];
+	unsigned int counter;
 	struct BufHeader *mon_rx, *mon_tx;
-	int		mon_rxp, mon_txp, mon_flg;
-	void            (*ph_command) (struct IsdnCardState *, unsigned int);
-	void		(*modehscx) (struct HscxState *, int, int);
-	void		(*hscx_fill_fifo) (struct HscxState *);
-	void		(*isac_fill_fifo) (struct IsdnCardState *);
-	struct BufPool  sbufpool, rbufpool, smallpool;
-	struct PStack   *stlist;
+	int mon_rxp, mon_txp, mon_flg;
+	void (*ph_command) (struct IsdnCardState *, unsigned int);
+	void (*modehscx) (struct HscxState *, int, int);
+	void (*hscx_fill_fifo) (struct HscxState *);
+	void (*isac_fill_fifo) (struct IsdnCardState *);
+	struct BufPool sbufpool, rbufpool, smallpool;
+	struct PStack *stlist;
 	struct BufHeader *xmtibh, *rcvibh;
-	int             rcvptr, sendptr;
-	int             event;
+	int rcvptr, sendptr;
+	int event;
 	struct tq_struct tqueue;
-	int             ph_active;
+	int ph_active;
 	struct BufQueue rq, sq;
-	int             cardnr;
-	int		ph_state;
-	struct PStack  *teistack;
+	int cardnr;
+	int ph_state;
+	struct PStack *teistack;
 	struct HscxState hs[2];
-	int             dlogflag;
-	char           *dlogspace;
-	int             debug;
-	int             releasebuf;
-	unsigned int	CallFlags;
+	int dlogflag;
+	char *dlogspace;
+	int debug;
+	int releasebuf;
+	unsigned int CallFlags;
 };
 
 #define  MON0_RX	1
@@ -421,8 +423,10 @@ struct IsdnCardState {
 #define  ISDN_CTYPE_A1		5
 #define  ISDN_CTYPE_ELSA	6
 #define  ISDN_CTYPE_ELSA_QS1000	7
+#define  ISDN_CTYPE_TELESPCMCIA	8
+#define  ISDN_CTYPE_IX1MICROR2	9
 
-#define  ISDN_CTYPE_COUNT	7
+#define  ISDN_CTYPE_COUNT	9
 
 #ifdef	CONFIG_HISAX_16_0
 #define  CARD_TELES0 (1<< ISDN_CTYPE_16_0) | (1<< ISDN_CTYPE_8_0)
@@ -431,7 +435,8 @@ struct IsdnCardState {
 #endif
 
 #ifdef	CONFIG_HISAX_16_3
-#define  CARD_TELES3 (1<< ISDN_CTYPE_16_3) | (1<< ISDN_CTYPE_PNP)
+#define  CARD_TELES3 (1<< ISDN_CTYPE_16_3) | (1<< ISDN_CTYPE_PNP) | \
+		     (1<< ISDN_CTYPE_TELESPCMCIA)
 #else
 #define  CARD_TELES3  0
 #endif
@@ -448,13 +453,20 @@ struct IsdnCardState {
 #define  CARD_ELSA  0
 #endif
 
-#define  SUPORTED_CARDS  (CARD_TELES0 | CARD_TELES3 | CARD_AVM_A1 | CARD_ELSA)
+#ifdef	CONFIG_HISAX_IX1MICROR2
+#define	CARD_IX1MICROR2 (1 << ISDN_CTYPE_IX1MICROR2)
+#else
+#define CARD_IX1MICROR2 0
+#endif
+
+#define  SUPORTED_CARDS  (CARD_TELES0 | CARD_TELES3 | CARD_AVM_A1 | CARD_ELSA \
+			 | CARD_IX1MICROR2)
 
 struct IsdnCard {
-	int    		typ;
-        int             protocol;	/* EDSS1 or 1TR6 */
-	unsigned int	para[3];
-	int		id;
+	int typ;
+	int protocol;		/* EDSS1 or 1TR6 */
+	unsigned int para[3];
+	int id;
 	struct IsdnCardState *sp;
 };
 
@@ -463,104 +475,105 @@ struct IsdnCard {
 #define LAPD 0
 #define LAPB 1
 
-void            BufPoolInit(struct BufPool *bp, int order, int bpps,
-			    int maxpages);
-int             BufPoolAdd(struct BufPool *bp, int priority);
-void            BufPoolFree(struct BufPool *bp);
-int             BufPoolGet(struct BufHeader **bh, struct BufPool *bp,
-			int priority, void *heldby, int where);
-void            BufPoolRelease(struct BufHeader *bh);
-void            BufQueueLink(struct BufQueue *bq, struct BufHeader *bh);
-int             BufQueueUnlink(struct BufHeader **bh, struct BufQueue *bq);
-void            BufQueueInit(struct BufQueue *bq);
-void            BufQueueRelease(struct BufQueue *bq);
-void            BufQueueDiscard(struct BufQueue *q, int pr, void *heldby,
-				int releasetoo);
-int             BufQueueLength(struct BufQueue *bq);
-void            BufQueueLinkFront(struct BufQueue *bq, struct BufHeader *bh);
+void BufPoolInit(struct BufPool *bp, int order, int bpps,
+		 int maxpages);
+int BufPoolAdd(struct BufPool *bp, int priority);
+void BufPoolFree(struct BufPool *bp);
+int BufPoolGet(struct BufHeader **bh, struct BufPool *bp,
+	       int priority, void *heldby, int where);
+void BufPoolRelease(struct BufHeader *bh);
+void BufQueueLink(struct BufQueue *bq, struct BufHeader *bh);
+int BufQueueUnlink(struct BufHeader **bh, struct BufQueue *bq);
+void BufQueueInit(struct BufQueue *bq);
+void BufQueueRelease(struct BufQueue *bq);
+void BufQueueDiscard(struct BufQueue *q, int pr, void *heldby,
+		     int releasetoo);
+int BufQueueLength(struct BufQueue *bq);
+void BufQueueLinkFront(struct BufQueue *bq, struct BufHeader *bh);
 
-void            l2down(struct PStack *st, byte pr, struct BufHeader *ibh);
-void            l2up(struct PStack *st, byte pr, struct BufHeader *ibh);
-void            acceptph(struct PStack *st, struct BufHeader *ibh);
-void            setstack_isdnl2(struct PStack *st, char *debug_id);
-int             HiSax_inithardware(void);
-void            HiSax_closehardware(void);
+void l2down(struct PStack *st, byte pr, struct BufHeader *ibh);
+void l2up(struct PStack *st, byte pr, struct BufHeader *ibh);
+void acceptph(struct PStack *st, struct BufHeader *ibh);
+void setstack_isdnl2(struct PStack *st, char *debug_id);
+int HiSax_inithardware(void);
+void HiSax_closehardware(void);
 
-void            setstack_HiSax(struct PStack *st, struct IsdnCardState *sp);
-unsigned int    randomces(void);
-void            setstack_isdnl3(struct PStack *st, int chan);
-void            HiSax_addlist(struct IsdnCardState *sp, struct PStack *st);
-void            releasestack_isdnl2(struct PStack *st);
-void            HiSax_rmlist(struct IsdnCardState *sp, struct PStack *st);
-void            newcallref(struct PStack *st);
+void setstack_HiSax(struct PStack *st, struct IsdnCardState *sp);
+unsigned int randomces(void);
+void setstack_isdnl3(struct PStack *st, int chan);
+void HiSax_addlist(struct IsdnCardState *sp, struct PStack *st);
+void releasestack_isdnl2(struct PStack *st);
+void HiSax_rmlist(struct IsdnCardState *sp, struct PStack *st);
+void newcallref(struct PStack *st);
 
-int             ll_init(void);
-void            ll_stop(void), ll_unload(void);
-int             setstack_hscx(struct PStack *st, struct HscxState *hs);
-byte           *findie(byte * p, int size, byte ie, int wanted_set);
-int             getcallref(byte * p);
+int ll_init(void);
+void ll_stop(void), ll_unload(void);
+int setstack_hscx(struct PStack *st, struct HscxState *hs);
+byte *findie(byte * p, int size, byte ie, int wanted_set);
+int getcallref(byte * p);
 
-void            FsmNew(struct Fsm *fsm, struct FsmNode *fnlist, int fncount);
-void            FsmFree(struct Fsm *fsm);
-int             FsmEvent(struct FsmInst *fi, int event, void *arg);
-void            FsmChangeState(struct FsmInst *fi,int newstate);
-void            FsmInitTimer(struct FsmInst *fi, struct FsmTimer *ft);
-int             FsmAddTimer(struct FsmTimer *ft, int millisec,
-			int event, void *arg, int where);
-void            FsmDelTimer(struct FsmTimer *ft, int where);
-int             FsmTimerRunning(struct FsmTimer *ft);
-void            jiftime(char *s, long mark);
+void FsmNew(struct Fsm *fsm, struct FsmNode *fnlist, int fncount);
+void FsmFree(struct Fsm *fsm);
+int FsmEvent(struct FsmInst *fi, int event, void *arg);
+void FsmChangeState(struct FsmInst *fi, int newstate);
+void FsmInitTimer(struct FsmInst *fi, struct FsmTimer *ft);
+int FsmAddTimer(struct FsmTimer *ft, int millisec,
+		int event, void *arg, int where);
+void FsmDelTimer(struct FsmTimer *ft, int where);
+int FsmTimerRunning(struct FsmTimer *ft);
+void jiftime(char *s, long mark);
 
-void            CallcNew(void);
-void            CallcFree(void);
-int             CallcNewChan(void);
-void            CallcFreeChan(void);
-int             HiSax_command(isdn_ctrl * ic);
-int             HiSax_writebuf(int id, int chan, const u_char * buf, int count, int user);
-void            HiSax_putstatus(char *buf);
-void            HiSax_reportcard(int cardnr);
-int             ListLength(struct BufHeader *ibh);
-int		QuickHex(char *txt, byte *p, int cnt);
-void            LogFrame(struct IsdnCardState *sp, byte * p, int size);
-void            dlogframe(struct IsdnCardState *sp, byte * p, int size, char *comment);
-void            iecpy(byte * dest, byte * iestart, int ieoffset);
-void            setstack_transl2(struct PStack *st);
-void            releasestack_transl2(struct PStack *st);
-void            close_hscxstate(struct HscxState *);
-void            setstack_tei(struct PStack *st);
+void CallcNew(void);
+void CallcFree(void);
+int CallcNewChan(void);
+void CallcFreeChan(void);
+int HiSax_command(isdn_ctrl * ic);
+int HiSax_writebuf(int id, int chan, const u_char * buf, int count, int user);
+void HiSax_putstatus(char *buf);
+void HiSax_reportcard(int cardnr);
+int ListLength(struct BufHeader *ibh);
+int QuickHex(char *txt, byte * p, int cnt);
+void LogFrame(struct IsdnCardState *sp, byte * p, int size);
+void dlogframe(struct IsdnCardState *sp, byte * p, int size, char *comment);
+void iecpy(byte * dest, byte * iestart, int ieoffset);
+void setstack_transl2(struct PStack *st);
+void releasestack_transl2(struct PStack *st);
+void close_hscxstate(struct HscxState *);
+void setstack_tei(struct PStack *st);
 
 struct LcFsm {
-	struct FsmInst  lcfi;
-	int             type;
+	struct FsmInst lcfi;
+	int type;
 	struct Channel *ch;
-	void            (*lccall) (struct LcFsm *, int, void *);
-	struct PStack  *st;
-	int             l2_establish;
-	int             l2_start;
+	void (*lccall) (struct LcFsm *, int, void *);
+	struct PStack *st;
+	int l2_establish;
+	int l2_start;
 	struct FsmTimer act_timer;
-	char            debug_id[32];
+	char debug_id[32];
 };
 
 struct Channel {
-	struct PStack   ds, is;
+	struct PStack ds, is;
 	struct IsdnCardState *sp;
-	int             hscx;
-	int             chan;
-	int             incoming;
-	struct FsmInst  fi;
-	struct LcFsm    lc_d, lc_b;
-	struct Param    para;
-	int             debug;
+	int hscx;
+	int chan;
+	int incoming;
+	struct FsmInst fi;
+	struct LcFsm lc_d, lc_b;
+	struct Param para;
+	struct FsmTimer drel_timer, dial_timer;
+	int debug;
 #ifdef DEBUG_MAGIC
-	int             magic;	/* 301272 */
+	int magic;		/* 301272 */
 #endif
-	int             l2_protocol, l2_active_protocol;
-	int             l2_primitive, l2_headersize;
-	int             data_open;
-	int             outcallref;
-	int             impair;
-	int             Flags; /* for remembering action done in l4 */
-	int		leased;
+	int l2_protocol, l2_active_protocol;
+	int l2_primitive, l2_headersize;
+	int data_open;
+	int outcallref;
+	int impair;
+	int Flags;		/* for remembering action done in l4 */
+	int leased;
 };
 
 
@@ -569,9 +582,12 @@ struct Channel {
 #define BUFFER_SIZE(order,bpps) (PART_SIZE(order,bpps)-\
   sizeof(struct BufHeader))
 
-#endif
+#endif				/* __KERNEL__ */
 
-void            Isdnl2New(void);
-void            Isdnl2Free(void);
-void            TeiNew(void);
-void            TeiFree(void);
+#define HZDELAY(jiffs) {int tout = jiffs; while (tout--) udelay(1000000/HZ);}
+
+void Isdnl2New(void);
+void Isdnl2Free(void);
+void TeiNew(void);
+void TeiFree(void);
+char *HiSax_getrev(const char *revision);
