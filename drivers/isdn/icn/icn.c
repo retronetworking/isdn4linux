@@ -806,6 +806,7 @@ icn_loadboot(u_char * buffer, icn_card * card)
 {
 	int ret;
 	u_char *codebuf;
+	unsigned long flags; // FIXME?
 
 #ifdef BOOT_DEBUG
 	printk(KERN_DEBUG "icn_loadboot called, buffaddr=%08lx\n", (ulong) buffer);
@@ -837,7 +838,6 @@ icn_loadboot(u_char * buffer, icn_card * card)
 		if (check_mem_region(dev.memaddr, 0x4000)) {
 			printk(KERN_WARNING
 			       "icn: memory at 0x%08lx in use.\n", dev.memaddr);
-			restore_flags(flags);
 			return -EBUSY;
 		}
 		request_mem_region(dev.memaddr, 0x4000, "icn-isdn (all cards)");

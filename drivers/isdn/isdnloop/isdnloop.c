@@ -1520,7 +1520,6 @@ isdnloop_initcard(char *id)
 static int
 isdnloop_addcard(char *id1)
 {
-	ulong flags;
 	isdnloop_card *card;
 
 	if (!(card = isdnloop_initcard(id1))) {
