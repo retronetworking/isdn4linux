@@ -21,6 +21,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.92  1999/10/31 15:59:50  he
+ * more skb headroom checks
+ *
  * Revision 1.91  1999/10/28 22:48:45  armin
  * Bugfix: isdn_free_channel() now frees the channel,
  * even when the usage of the ttyI has changed.
@@ -2155,6 +2158,12 @@ isdn_free_channel(int di, int ch, int usage)
 			strcpy(dev->num[i], "???");
 			dev->ibytes[i] = 0;
 			dev->obytes[i] = 0;
+// 20.10.99 JIM, try to reinitialize v110 !
+			dev->v110emu[i] = 0;
+			atomic_set(&(dev->v110use[i]), 0);
+			isdn_v110_close(dev->v110[i]);
+			dev->v110[i] = NULL;
+// 20.10.99 JIM, try to reinitialize v110 !
 			isdn_info_update();
 			isdn_free_queue(&dev->drv[di]->rpqueue[ch]);
 		}
