@@ -118,9 +118,6 @@ isdn_ppp_free(isdn_net_local * lp)
 	if (lp->ppp_slot < 0 || lp->ppp_slot > ISDN_MAX_CHANNELS)
 		return 0;
 
-#ifdef CONFIG_ISDN_WITH_ABC_IPTABLES_NETFILTER
-	dwisdn_nfw_send(lp,1);
-#endif
 	save_flags(flags);
 	cli();
 
@@ -359,9 +356,6 @@ isdn_ppp_release(int min, struct file *file)
 		 * removing the IPPP_CONNECT flag omits calling of isdn_ppp_wakeup_daemon()
 		 */
 		isdn_net_hangup(&p->dev);
-#ifdef CONFIG_ISDN_WITH_ABC_IPTABLES_NETFILTER
-		dwisdn_nfw_send(is->lp,1);
-#endif
 	}
 	for (i = 0; i < NUM_RCV_BUFFS; i++) {
 		if (is->rq[i].buf) {
@@ -492,9 +486,6 @@ isdn_ppp_ioctl(int min, struct file *file, unsigned int cmd, unsigned long arg)
 				if (lp) {
 					/* OK .. we are ready to send buffers */
 					netif_wake_queue(&lp->netdev->dev);
-#ifdef CONFIG_ISDN_WITH_ABC_IPTABLES_NETFILTER
-					dwisdn_nfw_send(lp,0);
-#endif
 				}
 			}
 			is->pppcfg = val;
@@ -1924,14 +1915,7 @@ isdn_ppp_hangup_slave(char *name)
 		return 1;
 	lp = ndev->local;
 	if (!(lp->flags & ISDN_NET_CONNECTED))
-#ifdef CONFIG_ISDN_WITH_ABC_IPTABLES_NETFILTER
-	{
-		dwisdn_nfw_send(lp,1);
 		return 5;
-	}
-#else
-		return 5;
-#endif
 
 	sdev = lp->slave;
 	while (sdev) {
@@ -1951,9 +1935,6 @@ isdn_ppp_hangup_slave(char *name)
 		return 2;
 
 	isdn_net_hangup(sdev);
-#ifdef CONFIG_ISDN_WITH_ABC_IPTABLES_NETFILTER
-	dwisdn_nfw_send(lp,1);
-#endif
 	return 0;
 #else
 	return -1;

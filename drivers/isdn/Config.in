@@ -34,11 +34,6 @@ if [ "$CONFIG_ISDN_WITH_ABC" != "n" ]; then
 		if [ "$CONFIG_ISDN_WITH_ABC_IPV4_DYNADDR" != "n" ]; then
 			bool '    Rewrite socket and frame saddr-field (ipv4 only)' CONFIG_ISDN_WITH_ABC_IPV4_RW_SOCKADDR
 		fi
-		if [ "$CONFIG_NETFILTER" != "n" ]; then
-			if [ "$CONFIG_IP_NF_IPTABLES" != "n" ]; then
-				bool '  Iptables-support (IPV4 kernel >= 2.4.0)' CONFIG_ISDN_WITH_ABC_IPTABLES_NETFILTER
-			fi
-		fi
 		bool '  Enable UDP-Info-Support' CONFIG_ISDN_WITH_ABC_UDP_CHECK
 		if [ "$CONFIG_ISDN_WITH_ABC_UDP_CHECK" != "n" ]; then
 			bool '    Enable Hangup-Support with UDP-INFO' CONFIG_ISDN_WITH_ABC_UDP_CHECK_HANGUP
@@ -46,7 +41,6 @@ if [ "$CONFIG_ISDN_WITH_ABC" != "n" ]; then
 		fi
 	fi
 
-	bool '  Support (device-channel)<->(bind-groups)' CONFIG_ISDN_WITH_ABC_ICALL_BIND 
 	bool '  Skip channel if used external (dial only)' CONFIG_ISDN_WITH_ABC_CH_EXTINUSE
 	bool '  Support interface-auto-disable if config-error' CONFIG_ISDN_WITH_ABC_CONN_ERROR
 	if [ "$CONFIG_ISDN_PPP" != "n" ]; then

@@ -204,17 +204,12 @@ typedef struct {
 #undef CONFIG_ISDN_WITH_ABC_IPV4_TCP_KEEPALIVE
 #undef CONFIG_ISDN_WITH_ABC_IPV4_DYNADDR
 #undef CONFIG_ISDN_WITH_ABC_RCV_NO_HUPTIMER
-#undef CONFIG_ISDN_WITH_ABC_ICALL_BIND
 #undef CONFIG_ISDN_WITH_ABC_CH_EXTINUSE
 #undef CONFIG_ISDN_WITH_ABC_CONN_ERROR
 #undef CONFIG_ISDN_WITH_ABC_RAWIPCOMPRESS
-#undef CONFIG_ISDN_WITH_ABC_IPTABLES_NETFILTER
 #else /* CONFIG_ISDN_WITH_ABC */
 #include <linux/isdn_dwabc.h>
 
-#ifndef CONFIG_NETFILTER
-#undef CONFIG_ISDN_WITH_ABC_IPTABLES_NETFILTER
-#endif
 
 typedef struct DWABCJIFFIES {
 
@@ -226,12 +221,6 @@ typedef struct DWABCJIFFIES {
 
 } DWABCJIFFIES;
 
-enum ISDN_SKB_BITS {
-
-	ISDN_SKB_BIT_NF_NO_RS_TX = 0,	/* don't reset huptimer on tx			*/
-	ISDN_SKB_BIT_NF_S_UNREACH,		/* send dest-unreach in offline case	*/
-	ISDN_SKB_BIT_NF_DIALLOOP,		/* ISDNDIAL target deadloop detection	*/
-};
 
 #ifdef CONFIG_ISDN_WITH_ABC_NEED_DWSJIFFIES
 DWABCJIFFIES isdn_dwabc_jiffies;
@@ -258,7 +247,6 @@ extern DWABCJIFFIES isdn_dwabc_jiffies;
 #define ISDN_DW_ABC_BITLOCK_SEND			0
 #define ISDN_DW_ABC_BITLOCK_RECEIVE			1
 
-#define ISDN_DW_ABC_MAX_CH_P_RIVER			(32)
 #endif /* CONFIG_ISDN_WITH_ABC */
 
 
@@ -502,10 +490,6 @@ typedef struct isdn_net_local_s {
   ulong	dw_abc_bsd_bsd_snd;
   ulong	dw_abc_bsd_rcv;
   ulong	dw_abc_bsd_bsd_rcv;
-#if CONFIG_ISDN_WITH_ABC_IPTABLES_NETFILTER || CONFIG_ISDN_WITH_ABC_IPV6TABLES_NETFILTER
-  struct sk_buff_head dw_abc_nfq;
-  short  dw_abc_addr_ready;
-#endif
 #endif
 } isdn_net_local;
 
@@ -716,10 +700,6 @@ typedef struct {
 	wait_queue_head_t  *rcv_waitq;       /* Wait-Queues for B-Channel-Reads  */
 	wait_queue_head_t  *snd_waitq;       /* Wait-Queue for B-Channel-Send's  */
 	char               msn2eaz[10][ISDN_MSNLEN];  /* Mapping-Table MSN->EAZ   */
-#ifdef CONFIG_ISDN_WITH_ABC_ICALL_BIND
-	u_char   dwabc_lchmap[ISDN_DW_ABC_MAX_CH_P_RIVER]; /* locically channelmap */
-	u_long 	dwabc_lch_use;				/* lasttime a locical chanelmap was set */
-#endif
 } driver;
 
 /* Main driver-data */
@@ -757,9 +737,6 @@ typedef struct isdn_devt {
 	isdn_v110_stream  *v110[ISDN_MAX_CHANNELS];  /* V.110 private data         */
 	struct semaphore  sem;                       /* serialize list access*/
 	unsigned long     global_features;
-#ifdef CONFIG_ISDN_WITH_ABC_ICALL_BIND
-	u_long	          dwabc_lch_check;           /* lasttime a locical chanelmap checked */
-#endif 
 #ifdef HAVE_DEVFS_FS
 #ifdef CONFIG_DEVFS_FS
 	devfs_handle_t devfs_handle_isdninfo;
@@ -806,11 +783,6 @@ extern int dw_abc_udp_test(struct sk_buff *skb,struct net_device *ndev);
 #endif
 #if CONFIG_ISDN_WITH_ABC_IPV4_TCP_KEEPALIVE || CONFIG_ISDN_WITH_ABC_IPV4_DYNADDR
 struct sk_buff *isdn_dw_abc_ip4_keepalive_test(struct net_device *ndev,struct sk_buff *skb);
-#endif
-#ifdef CONFIG_ISDN_WITH_ABC_ICALL_BIND 
-extern void isdn_dw_abc_free_lch_with_pch(int,int);
-extern int isdn_dwabc_check_icall_bind(isdn_net_local *,int,int);
-extern int dwabc_isdn_get_net_free_channel(isdn_net_local *);
 #endif
 #endif
 

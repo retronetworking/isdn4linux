@@ -2003,9 +2003,6 @@ isdn_free_channel(int di, int ch, int usage)
 
 	save_flags(flags);
 	cli();
-#ifdef CONFIG_ISDN_WITH_ABC_ICALL_BIND 
-	isdn_dw_abc_free_lch_with_pch(di,ch);
-#endif
 	for (i = 0; i < ISDN_MAX_CHANNELS; i++)
 		if (((!usage) || ((dev->usage[i] & ISDN_USAGE_MASK) == usage)) &&
 		    (dev->drvmap[i] == di) &&

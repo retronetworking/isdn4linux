@@ -298,10 +298,6 @@ isdn_net_unreachable(struct net_device *dev, struct sk_buff *skb, char *reason)
 			   dev->name,
 			   (reason != NULL) ? reason : "reason unknown");
 	}
-#ifdef CONFIG_ISDN_WITH_ABC  
-	if(dev != NULL)
-		dwisdn_nfw_send((isdn_net_local *)dev->priv,1);
-#endif
 }
 
 static void
@@ -607,9 +603,6 @@ isdn_net_stat_callback(int idx, isdn_ctrl *c)
 							lp->dialstate = 1;
 							dev->dwabc_chan_external_inuse[idx] = jiffies + HZ * 30;
 							printk(KERN_INFO "%s: Channel %d look like external in use\n",lp->name,idx);
-#if CONFIG_ISDN_WITH_ABC_IPTABLES_NETFILTER
-							dwisdn_nfw_send(lp,1);
-#endif
 						}
 					}
 				}
@@ -769,9 +762,6 @@ isdn_net_dial(void)
 
 					/* Grab a free ISDN-Channel */
 					if ((lsecure >= ISDN_MAX_CHANNELS ) || (chi = 
-#ifdef CONFIG_ISDN_WITH_ABC_ICALL_BIND 
-				     	dwabc_isdn_get_net_free_channel(lp)
-#else
 						isdn_get_free_channel(
 							ISDN_USAGE_NET,
 							lp->l2_proto,
@@ -782,7 +772,6 @@ isdn_net_dial(void)
 							(*lp->dw_out_msn) ? lp->dw_out_msn : lp->msn)
 #else
 							lp->msn)
-#endif
 #endif
 							) < 0) {
 
@@ -1426,12 +1415,6 @@ isdn_net_xmit(struct net_device *ndev, struct sk_buff *skb)
 	isdn_net_local *slp;
 	isdn_net_local *lp = (isdn_net_local *) ndev->priv;
 	int retv = 0;
-#ifdef CONFIG_ISDN_WITH_ABC_IPTABLES_NETFILTER
-	ulong old_huptimer = lp->huptimer;
-
-	short d_reset_frame = skb != NULL	&&
-		(skb->isdn_skb_bits & ( 1lu << ISDN_SKB_BIT_NF_NO_RS_TX));
-#endif 
 
 	if (((isdn_net_local *) (ndev->priv))->master) {
 		printk("isdn BUG at %s:%d!\n", __FILE__, __LINE__);
@@ -1442,16 +1425,7 @@ isdn_net_xmit(struct net_device *ndev, struct sk_buff *skb)
 	/* For the other encaps the header has already been built */
 #ifdef CONFIG_ISDN_PPP
 	if (lp->p_encap == ISDN_NET_ENCAP_SYNCPPP) {
-#ifdef CONFIG_ISDN_WITH_ABC_IPTABLES_NETFILTER
-		int r = isdn_ppp_xmit(skb, ndev);
-		
-		if(d_reset_frame)
-			lp->huptimer = old_huptimer;
-
-		return(r);
-#else
 		return isdn_ppp_xmit(skb, ndev);
-#endif
 	}
 #endif
 	nd = ((isdn_net_local *) ndev->priv)->netdev;
@@ -1465,10 +1439,6 @@ isdn_net_xmit(struct net_device *ndev, struct sk_buff *skb)
 	/* Reset hangup-timeout */
 	lp->huptimer = 0; // FIXME?
 #ifdef CONFIG_ISDN_WITH_ABC
-#ifdef CONFIG_ISDN_WITH_ABC_IPTABLES_NETFILTER
-	if(d_reset_frame)
-		lp->huptimer = old_huptimer;
-#endif
 #ifdef CONFIG_ISDN_WITH_ABC_RAWIPCOMPRESS
 	if(	(lp->dw_abc_flags & ISDN_DW_ABC_FLAG_LEASED_LINE) 	&&
 		(lp->dw_abc_flags & ISDN_DW_ABC_FLAG_BSD_COMPRESS)	&&
@@ -1755,16 +1725,6 @@ int isdn_auto_dial_helper(	isdn_net_local *lp,
 		/* Log packet, which triggered dialing */
 		if (dev->net_verbose)
 			isdn_net_log_skb(skb, lp);
-#ifdef CONFIG_ISDN_WITH_ABC
-#ifdef CONFIG_ISDN_WITH_ABC_IPTABLES_NETFILTER
-		if((skb->isdn_skb_bits & ( 1lu << ISDN_SKB_BIT_NF_NO_RS_TX))) {
-			if((skb->isdn_skb_bits & (1lu << ISDN_SKB_BIT_NF_S_UNREACH))) {
-				errmsg = "dial rejected: Iptables_DWISDN --hutimer --unreach";
-			}
-			break;
-		}
-#endif
-#endif
 		/* only do autodial if allowed by config */
 		if (!(ISDN_NET_DIALMODE(*lp) == ISDN_NET_DM_AUTO)) {
 			errmsg = "dial rejected: interface not in dialmode `auto'";
@@ -1810,9 +1770,6 @@ int isdn_auto_dial_helper(	isdn_net_local *lp,
 #endif
 		/* Grab a free ISDN-Channel */
 		if (((chi =
-#ifdef CONFIG_ISDN_WITH_ABC_ICALL_BIND 
-				dwabc_isdn_get_net_free_channel(lp)
-#else
 				isdn_get_free_channel(
 					ISDN_USAGE_NET,
 					lp->l2_proto,
@@ -1823,12 +1780,8 @@ int isdn_auto_dial_helper(	isdn_net_local *lp,
 					(*lp->dw_out_msn) ? lp->dw_out_msn :
 #endif
 					lp->msn)
-#endif
 			) < 0) &&
 			((chi =
-#ifdef CONFIG_ISDN_WITH_ABC_ICALL_BIND 
-				dwabc_isdn_get_net_free_channel(lp)
-#else
 				isdn_get_free_channel(
 					ISDN_USAGE_NET,
 					lp->l2_proto,
@@ -1839,7 +1792,6 @@ int isdn_auto_dial_helper(	isdn_net_local *lp,
 					(*lp->dw_out_msn) ? lp->dw_out_msn :
 #endif
 					lp->msn)
-#endif
 			) < 0)) {
 
 				errmsg = "No channel";
@@ -1977,21 +1929,6 @@ isdn_net_start_xmit(struct sk_buff *skb, struct net_device *ndev)
 
 		if (!(lp->flags & ISDN_NET_CONNECTED)) {
 			int chi;
-#ifdef CONFIG_ISDN_WITH_ABC
-#ifdef CONFIG_ISDN_WITH_ABC_IPTABLES_NETFILTER
-			if((skb->isdn_skb_bits & ( 1lu << ISDN_SKB_BIT_NF_NO_RS_TX))) {
-
-				if((skb->isdn_skb_bits & (1lu << ISDN_SKB_BIT_NF_S_UNREACH))) {
-
-					isdn_net_unreachable(ndev, skb, 
-						"dial rejected: Iptables_DWISDN --hutimer --unreach");
-				}
-
-				dev_kfree_skb(skb);
-				return 0;
-			}
-#endif
-#endif
 			/* only do autodial if allowed by config */
 			if (!(ISDN_NET_DIALMODE(*lp) == ISDN_NET_DM_AUTO)) {
 				isdn_net_unreachable(ndev, skb, "dial rejected: interface not in dialmode `auto'");
@@ -2026,9 +1963,6 @@ isdn_net_start_xmit(struct sk_buff *skb, struct net_device *ndev)
 #endif
 				/* Grab a free ISDN-Channel */
 				if (((chi =
-#ifdef CONFIG_ISDN_WITH_ABC_ICALL_BIND 
-				     dwabc_isdn_get_net_free_channel(lp)
-#else
 				     isdn_get_free_channel(
 					 		ISDN_USAGE_NET,
 							lp->l2_proto,
@@ -2039,12 +1973,8 @@ isdn_net_start_xmit(struct sk_buff *skb, struct net_device *ndev)
 							(*lp->dw_out_msn) ? lp->dw_out_msn : 
 #endif
 							lp->msn)
-#endif
 							) < 0) &&
 					((chi =
-#ifdef CONFIG_ISDN_WITH_ABC_ICALL_BIND 
-				     dwabc_isdn_get_net_free_channel(lp)
-#else
 				     isdn_get_free_channel(
 					 		ISDN_USAGE_NET,
 							lp->l2_proto,
@@ -2055,7 +1985,6 @@ isdn_net_start_xmit(struct sk_buff *skb, struct net_device *ndev)
 							(*lp->dw_out_msn) ? lp->dw_out_msn :
 #endif
 							lp->msn)
-#endif
 							) < 0)) {
 					restore_flags(flags);
 					isdn_net_unreachable(ndev, skb,
@@ -3333,9 +3262,6 @@ isdn_net_find_icall(int di, int ch, int idx, setup_parm *setup)
 					if (lp->phone[1]) {
 						/* Grab a free ISDN-Channel */
 						if ((chi = 
-#ifdef CONFIG_ISDN_WITH_ABC_ICALL_BIND 
-						    dwabc_isdn_get_net_free_channel(lp)
-#else
 							isdn_get_free_channel(
 								ISDN_USAGE_NET,
 								lp->l2_proto,
@@ -3343,7 +3269,6 @@ isdn_net_find_icall(int di, int ch, int idx, setup_parm *setup)
 							  	lp->pre_device,
 						 		lp->pre_channel,
 						 		lp->msn)
-#endif
 								) < 0) {
 
 							printk(KERN_WARNING "isdn_net_find_icall: No channel for %s\n", lp->name);
@@ -3411,14 +3336,6 @@ isdn_net_find_icall(int di, int ch, int idx, setup_parm *setup)
 						restore_flags(flags);
 						return 3;
 					}}
-#endif
-#ifdef CONFIG_ISDN_WITH_ABC
-#ifdef CONFIG_ISDN_WITH_ABC_ICALL_BIND 
-					if(isdn_dwabc_check_icall_bind(lp,di,ch)) {
-						restore_flags(flags);
-						return 3;
-					}
-#endif
 #endif
 					printk(KERN_DEBUG "%s: call from %s -> %s accepted\n", lp->name, nr,
 					       eaz);
@@ -3503,9 +3420,6 @@ isdn_net_force_dial_lp(isdn_net_local * lp)
 
 			/* Grab a free ISDN-Channel */
 			if ((chi = 
-#ifdef CONFIG_ISDN_WITH_ABC_ICALL_BIND 
-				     	dwabc_isdn_get_net_free_channel(lp)
-#else
 						isdn_get_free_channel(
 							ISDN_USAGE_NET,
 							lp->l2_proto,
@@ -3516,7 +3430,6 @@ isdn_net_force_dial_lp(isdn_net_local * lp)
 							(*lp->dw_out_msn) ? lp->dw_out_msn : lp->msn)
 #else
 							lp->msn)
-#endif
 #endif
 							) < 0) {
 				printk(KERN_WARNING "isdn_net_force_dial: No channel for %s\n", lp->name);
@@ -3667,9 +3580,6 @@ isdn_net_new(char *name, struct net_device *master)
 	   of those who forget configuring this */
 #ifdef CONFIG_ISDN_WITH_ABC 
 	netdev->local->dw_abc_old_onhtime = netdev->local->onhtime;
-#if CONFIG_ISDN_WITH_ABC_IPTABLES_NETFILTER || CONFIG_ISDN_WITH_ABC_IPV6TABLES_NETFILTER
-	skb_queue_head_init(&netdev->local->dw_abc_nfq);
-#endif
 #endif
 	netdev->local->dialmax = 1;
 	netdev->local->flags = ISDN_NET_CBHUP | ISDN_NET_DM_MANUAL;	/* Hangup before Callback, manual dial */
@@ -4246,7 +4156,6 @@ isdn_net_realrm(isdn_net_dev * p, isdn_net_dev * q)
 	if (dev->netdev == NULL)
 		isdn_timer_ctrl(ISDN_TIMER_NETHANGUP, 0);
 #ifdef CONFIG_ISDN_WITH_ABC
-	dwisdn_nfw_send(p->local,1);
 	isdn_dw_clear_if(~0l,p->local);
 	dwabc_bsd_free(p->local);
 #endif
