@@ -1,36 +1,53 @@
 #!/bin/sh
 BACKUP=false
-if [ "$1" = "-b" ] ; then
-	BACKUP=true
-	shift
-fi
+CHECK=false
+case "$1" in
+	-b)
+		BACKUP=true
+		shift
+		;;
+	-c)
+		CHECK=true
+		BACKUP=false
+		shift
+		;;
+esac
 
 formatiere() {
-cp $1 $1\~
-cat $1\~ | indent -kr -i8 -cli8 -psl -lp | \
-sed -e 's/^        /	/g' \
-    -e 's/^\(	\+\)        /\1	/g' \
-    -e 's/^\(	\+\)        /\1	/g' \
-    -e 's/^\(	\+\)        /\1	/g' \
-    -e 's/^\(	\+\)        /\1	/g' \
-    -e 's/^\(	\+\)        /\1	/g' \
-    -e 's/^\(	\+\)        /\1	/g' \
-    -e 's/^\(	\+\)        /\1	/g' \
-    -e 's/^\(	\+\)        /\1	/g' \
-    -e 's/^\(	\+\)        /\1	/g' \
-    -e 's/^\(	\+\)        /\1	/g' \
-    -e 's/^\(	\+\)        /\1	/g' \
-    -e 's/^\(	\+\)        /\1	/g' \
-    -e 's/^\(	\+\)        /\1	/g' \
-    -e 's/^\(	\+\)        /\1	/g' \
-    -e 's/^\(	\+\)        /\1	/g' \
-    -e 's/^\(	\+\)        /\1	/g' \
-    -e 's/^\(	\+\)        /\1	/g' \
-    -e 's/^\(	\+\)        /\1	/g' \
-    -e 's/[ 	]\+$//g' > $1
-if ! $BACKUP ; then
-	rm $1\~
-fi
+	if $CHECK ; then
+		OUT=$1.idout
+	else
+		OUT=$1
+	fi
+	cp $1 $1\~
+	cat $1\~ | indent -kr -i8 -cli8 -psl -lp | \
+	sed -e 's/^        /	/g' \
+    	-e 's/^\(	\+\)        /\1	/g' \
+    	-e 's/^\(	\+\)        /\1	/g' \
+    	-e 's/^\(	\+\)        /\1	/g' \
+    	-e 's/^\(	\+\)        /\1	/g' \
+    	-e 's/^\(	\+\)        /\1	/g' \
+    	-e 's/^\(	\+\)        /\1	/g' \
+    	-e 's/^\(	\+\)        /\1	/g' \
+    	-e 's/^\(	\+\)        /\1	/g' \
+    	-e 's/^\(	\+\)        /\1	/g' \
+    	-e 's/^\(	\+\)        /\1	/g' \
+    	-e 's/^\(	\+\)        /\1	/g' \
+    	-e 's/^\(	\+\)        /\1	/g' \
+    	-e 's/^\(	\+\)        /\1	/g' \
+    	-e 's/^\(	\+\)        /\1	/g' \
+    	-e 's/^\(	\+\)        /\1	/g' \
+    	-e 's/^\(	\+\)        /\1	/g' \
+    	-e 's/^\(	\+\)        /\1	/g' \
+    	-e 's/^\(	\+\)        /\1	/g' \
+    	-e 's/[ 	]\+$//g' > $OUT
+	if $CHECK ; then
+		diff -u $1\~ $OUT
+		rm $OUT
+	fi
+	if ! $BACKUP ; then
+		rm $1\~
+	fi
 }
 
 for f in $* ; do
