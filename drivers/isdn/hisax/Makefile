@@ -53,6 +53,12 @@ ifeq ($(CONFIG_HISAX_AVM_A1),y)
 	 HSCX_OBJ := hscx.o
 endif
 
+ifeq ($(CONFIG_HISAX_AVM_A1_PCMCIA),y)
+	 O_OBJS += avm_a1p.o
+	 ISAC_OBJ := isac.o
+	 HSCX_OBJ := hscx.o
+endif
+
 ifeq ($(CONFIG_HISAX_ELSA),y)
 	 O_OBJS += elsa.o
 	 ISAC_OBJ := isac.o

@@ -3,6 +3,9 @@
  *   Basic declarations, defines and prototypes
  *
  * $Log$
+ * Revision 1.13.2.11  1998/05/27 18:05:30  keil
+ * HiSax 3.0
+ *
  * Revision 1.13.2.10  1998/04/11 18:43:16  keil
  * New cards
  *
@@ -693,8 +696,9 @@ struct IsdnCardState {
 #define  ISDN_CTYPE_AMD7930	23
 #define  ISDN_CTYPE_NICCY	24
 #define  ISDN_CTYPE_S0BOX	25
+#define  ISDN_CTYPE_A1_PCMCIA	26
 
-#define  ISDN_CTYPE_COUNT	25
+#define  ISDN_CTYPE_COUNT	26
 
 #ifdef ISDN_CHIP_ISAC
 #undef ISDN_CHIP_ISAC
@@ -746,6 +750,15 @@ struct IsdnCardState {
 #endif
 #else
 #define  CARD_AVM_A1  0
+#endif
+
+#ifdef	CONFIG_HISAX_AVM_A1_PCMCIA
+#define  CARD_AVM_A1_PCMCIA (1<< ISDN_CTYPE_A1_PCMCIA)
+#ifndef ISDN_CHIP_ISAC 
+#define ISDN_CHIP_ISAC 1
+#endif
+#else
+#define  CARD_AVM_A1_PCMCIA  0
 #endif
 
 #ifdef	CONFIG_HISAX_ELSA
@@ -869,6 +882,7 @@ struct IsdnCardState {
 			 | CARD_IX1MICROR2 | CARD_DIEHLDIVA | CARD_ASUSCOM \
 			 | CARD_TELEINT | CARD_SEDLBAUER | CARD_SPORTSTER \
 			 | CARD_MIC | CARD_NETJET | CARD_TELES3C | CARD_AMD7930 \
+			 | CARD_AVM_A1_PCMCIA \
 			 | CARD_NICCY | CARD_S0BOX | CARD_TELESPCI)
 
 #define TEI_PER_CARD 0
