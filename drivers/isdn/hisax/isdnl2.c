@@ -7,6 +7,9 @@
  *              Fritz Elfert
  *
  * $Log$
+ * Revision 1.4  1996/12/08 19:51:51  keil
+ * many fixes from Pekka Sarnila
+ *
  * Revision 1.3  1996/11/05 19:39:12  keil
  * X.75 bugfixes Thank to Martin Maurer
  *
@@ -65,6 +68,7 @@ enum {
 	EV_L2_DL_DATA,
 	EV_L2_DL_ESTABLISH,
 	EV_L2_MDL_ASSIGN,
+	EV_L2_MDL_REMOVE,
 	EV_L2_DL_UNIT_DATA,
 	EV_L2_DL_RELEASE,
 	EV_L2_MDL_NOTEIPROC,
@@ -89,6 +93,7 @@ static char    *strL2Event[] =
 	"EV_L2_DL_DATA",
 	"EV_L2_DL_ESTABLISH",
 	"EV_L2_MDL_ASSIGN",
+	"EV_L2_MDL_REMOVE",
 	"EV_L2_DL_UNIT_DATA",
 	"EV_L2_DL_RELEASE",
 	"EV_L2_MDL_NOTEIPROC",
@@ -722,7 +727,7 @@ l2s8(struct FsmInst *fi, int event, void *arg)
 	}
 	else
 	      nrerrorrecovery(fi);
-  
+
 	if (wasok)
 	        st->l2.l2l3(st, DL_DATA, ibh);
 }
@@ -743,7 +748,7 @@ l2s8_1(struct FsmInst *fi, int event, void *arg)
 	}
 	else
 	      nrerrorrecovery(fi);
-  
+
 	if (wasok)
 	        st->l2.l2l3(st, DL_DATA, ibh);
 }
@@ -1161,6 +1166,31 @@ l2s28(struct FsmInst *fi, int event, void *arg)
 	BufPoolRelease(ibh);
 }
 
+static void
+l2s30(struct FsmInst *fi, int event, void *arg)
+{
+	struct PStack  *st = fi->userdata;
+
+/*TODO
+	if( DL_RELEASE.req outstanding ) {
+		... issue DL_RELEASE.confirm
+	} else {
+	    if( fi->state != ST_L2_4 ) {
+		... issue DL_RELEASE.indication
+	    }
+        }
+TODO*/
+	discard_i_queue(st);  /* There is no UI queue in layer 2 */
+	st->l2.tei = 255;
+	if (st->l2.t200_running) {
+		FsmDelTimer(&st->l2.t200_timer, 18);
+		st->l2.t200_running = 0;
+	}
+	FsmDelTimer(&st->l2.t203_timer, 19);
+	st->l2.l2man(st, DL_RELEASE, NULL);	/* TEMP */
+	FsmChangeState(fi, ST_L2_1);
+}
+
 static int
 IsUI(byte * data, int ext)
 {
@@ -1260,6 +1290,15 @@ static struct FsmNode L2FnList[] =
 	{ST_L2_7, EV_L2_T200, l2s23},
 	{ST_L2_7, EV_L2_T203, l2s25},
 	{ST_L2_8, EV_L2_T200, l2s26},
+
+	{ST_L2_1, EV_L2_MDL_REMOVE, l2s30 },
+/*	{ST_L2_2, EV_L2_MDL_REMOVE, l2s30 }, */
+	{ST_L2_3, EV_L2_MDL_REMOVE, l2s30 },
+	{ST_L2_4, EV_L2_MDL_REMOVE, l2s30 },
+	{ST_L2_5, EV_L2_MDL_REMOVE, l2s30 },
+	{ST_L2_6, EV_L2_MDL_REMOVE, l2s30 },
+	{ST_L2_7, EV_L2_MDL_REMOVE, l2s30 },
+	{ST_L2_8, EV_L2_MDL_REMOVE, l2s30 },
 };
 
 #define L2_FN_COUNT (sizeof(L2FnList)/sizeof(struct FsmNode))
@@ -1350,6 +1389,9 @@ isdnl2_teil2(struct PStack *st, int pr,
 	switch (pr) {
 	  case (MDL_ASSIGN):
 		  FsmEvent(&st->l2.l2m, EV_L2_MDL_ASSIGN, arg);
+		  break;
+	  case (MDL_REMOVE):
+		  FsmEvent(&st->l2.l2m, EV_L2_MDL_REMOVE, arg);
 		  break;
 	}
 }
