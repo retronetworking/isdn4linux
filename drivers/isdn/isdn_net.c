@@ -21,6 +21,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.80  1998/12/01 13:06:22  paul
+ * Also huptimeout with dialmode == manual
+ *
  * Revision 1.79  1998/10/30 17:55:27  he
  * dialmode for x25iface and multulink ppp
  *
@@ -340,7 +343,7 @@
 #include <linux/module.h>
 #include <linux/isdn.h>
 #include <net/arp.h>
-#include <net/icmp.h>
+#include <net/dst.h>
 #include <net/pkt_sched.h>
 #include <linux/inetdevice.h>
 #include "isdn_common.h"
@@ -373,14 +376,12 @@ isdn_net_unreachable(struct device *dev, struct sk_buff *skb, char *reason)
 
 		u_short proto = ntohs(skb->protocol);
 
-		printk(KERN_DEBUG "isdn_net: %s: %s, send ICMP %s\n",
-	       dev->name,
-		   (reason != NULL) ? reason : "unknown",
-		   (proto != ETH_P_IP) ? "Protocol != ETH_P_IP" : "");
-
-		if(proto == ETH_P_IP) {
-			icmp_send(skb, ICMP_DEST_UNREACH, ICMP_HOST_UNREACH, 0);
-		}
+		printk(KERN_DEBUG "isdn_net: %s: %s, signalling dst_link_failure %s\n",
+		       dev->name,
+		       (reason != NULL) ? reason : "unknown",
+		       (proto != ETH_P_IP) ? "Protocol != ETH_P_IP" : "");
+		
+		dst_link_failure(skb);
 	}
 	else {  /* dial not triggered by rawIP packet */
 		printk(KERN_DEBUG "isdn_net: %s: %s\n",
