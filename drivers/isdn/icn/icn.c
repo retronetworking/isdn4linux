@@ -19,6 +19,10 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.5  1995/01/29  23:34:59  fritz
+ * Added stopdriver() and appropriate calls.
+ * Changed printk-statements to support loglevels.
+ *
  * Revision 1.4  1995/01/09  07:40:46  fritz
  * Added GPL-Notice
  *
@@ -42,6 +46,9 @@
  * you must use an external loader
  */
 #undef LOADEXTERN
+
+static char
+*revision = "$Revision$";
 
 /* Try to allocate a new buffer, link it into queue. */
 static  u_char*
@@ -358,6 +365,14 @@ pollcard(unsigned long dummy) {
 	  }
 	  if (!strncmp(p,"CIF",3)) {
 	    cmd.command = ISDN_STAT_CINF;
+	    cmd.arg     = ch-1;
+	    strcpy(cmd.num,p+3);
+	    cmd.driver  = dev->myid;
+	    dev->interface.statcallb(&cmd);
+	    continue;
+	  }
+	  if (!strncmp(p,"CAU",3)) {
+	    cmd.command = ISDN_STAT_CAUSE;
 	    cmd.arg     = ch-1;
 	    strcpy(cmd.num,p+3);
 	    cmd.driver  = dev->myid;
@@ -713,9 +728,10 @@ command (isdn_ctrl *c) {
       }
       break;
     case ISDN_CMD_DIAL:
-      if (c->arg<ICN_BCH) {
-	a = c->arg+1;
-	sprintf(cbuf,"%02d;DCAL_R%s,07,00\n",(int)a,c->num);
+      if ((c->arg & 255)<ICN_BCH) {
+	a = c->arg;
+	sprintf(cbuf,"%02d;DCAL_R%s,07,00,%d\n",(int)(a&255)+1,c->num,
+	(int)(a>>8));
 	i = writecmd(cbuf,strlen(cbuf),0);
       }
       break;
@@ -777,6 +793,8 @@ init_module( void) {
 #ifdef LOADEXTERN
   unsigned long flags;
 #endif
+  char *p;
+  char rev[10];
 
   if (!(dev = (icn_devptr)kmalloc(sizeof(icn_dev),GFP_KERNEL))) {
     printk(KERN_WARNING "icn: Could not allocate device-struct.\n");
@@ -801,8 +819,14 @@ init_module( void) {
     return -EIO;
   }
   dev->myid = dev->interface.channels;
-  printk(KERN_INFO "ICN-ISDN-driver port=0x%03x mmio=0x%08x\n",dev->port,
-	 (uint)dev->shmem);
+  if ((p = strchr(revision,':'))) {
+    strcpy(rev,p+1);
+    p = strchr(rev,'$');
+    *p = 0;
+  } else
+    strcpy(rev," ??? ");
+  printk(KERN_INFO "ICN-ISDN-driver Rev%sport=0x%03x mmio=0x%08x\n",rev,
+	 dev->port,(uint)dev->shmem);
 #ifdef LOADEXTERN
   save_flags(flags);
   cli();
