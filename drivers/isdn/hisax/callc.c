@@ -7,6 +7,9 @@
  *              Fritz Elfert
  *
  * $Log$
+ * Revision 1.23  1997/03/04 23:07:42  keil
+ * bugfix dial parameter
+ *
  * Revision 1.22  1997/02/27 13:51:55  keil
  * Reset B-channel (dlc) statemachine in every release
  *
@@ -616,8 +619,9 @@ l4_go_null(struct FsmInst *fi, int event, void *arg)
 {
 	struct Channel *chanp = fi->userdata;
 
-	chanp->Flags = 0;
 	FsmChangeState(fi, ST_NULL);
+	chanp->Flags = 0;
+	FsmDelTimer(&chanp->drel_timer, 63);
 }
 
 static void
@@ -987,6 +991,7 @@ static struct FsmNode fnlist[] =
 	{ST_NULL,		EV_DIAL,		l4_prep_dialout},
 	{ST_NULL,		EV_SETUP_IND,		l4_start_dchan},
 	{ST_NULL,		EV_SHUTDOWN_D,		l4_shutdown_d},
+	{ST_NULL,		EV_DLRL,		l4_go_null},
 	{ST_OUT_WAIT_D,		EV_DLEST,		l4_do_dialout},
 	{ST_OUT_WAIT_D,		EV_DLRL,		l4_no_dchan},
 	{ST_OUT_WAIT_D,		EV_HANGUP,		l4_no_dchan},
@@ -1302,6 +1307,17 @@ dcc_l2man(struct PStack *st, int pr, void *arg)
 			FsmEvent(&chanp->lc_b.lcfi, EV_LC_DL_RELEASE, NULL);
 			break;
 	}
+}
+
+static void
+l2tei_dummy(struct PStack *st, int pr, void *arg)
+{
+	struct Channel *chanp = (struct Channel *) st->l4.userdata;
+	char tmp[64], tm[32];
+
+	jiftime(tm, jiffies);
+	sprintf(tmp, "%s Channel %d Warning! Dummy l2tei called pr=%d\n", tm, chanp->chan, pr);
+	HiSax_putstatus(chanp->sp, tmp);
 }
 
 static void
@@ -1636,6 +1652,7 @@ init_ds(struct Channel *chanp, int incoming)
 			st->l2.l2l3 = lldata_handler;
 			st->l1.l1man = dcc_l1man;
 			st->l2.l2man = dcc_l2man;
+			st->l2.l2tei = l2tei_dummy;
 			st->l4.userdata = chanp;
 			st->l4.l1writewakeup = NULL;
 			st->l4.l2writewakeup = ll_writewakeup;
