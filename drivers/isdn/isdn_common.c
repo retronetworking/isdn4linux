@@ -21,6 +21,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.28  1996/11/13 02:33:19  fritz
+ * Fixed a race condition.
+ *
  * Revision 1.27  1996/10/27 22:02:41  keil
  * return codes for ISDN_STAT_ICALL
  *
@@ -406,6 +409,8 @@ void isdn_all_eaz(int di, int ch)
 {
 	isdn_ctrl cmd;
 
+	if (di < 0)
+		return;
 	cmd.driver = di;
 	cmd.arg = ch;
 	cmd.command = ISDN_CMD_SETEAZ;
