@@ -534,7 +534,9 @@ Description of the Interface between Linklevel and Hardwarelevel
       driver      = driver-Id
       command     = ISDN_STAT_BCONN
       arg         = channel-number, locally to the driver. (starting with 0)
-      para        = unused.
+      para.num    = ASCII-String, containing type of connection (for analog
+		    modem only). This will be appended to the CONNECT message
+		    e.g. 14400/V.32bis
 
   ISDN_STAT_DHUP:
 
