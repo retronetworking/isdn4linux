@@ -21,6 +21,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.6  1999/08/28 21:04:29  werner
+ * Implemented full audio support (transparent mode)
+ *
  * Revision 1.5  1999/08/09 19:13:34  werner
  * moved constant pci ids to pci id table
  *
@@ -126,7 +129,7 @@
 
 /* bits in CTMT (Write) */
 #define HFCPCI_CLTIMER    0x80
-#define HFCPCI_TIM3_125   0x00
+#define HFCPCI_TIM3_125   0x04
 #define HFCPCI_TIM25      0x10
 #define HFCPCI_TIM50      0x14
 #define HFCPCI_TIM400     0x18
