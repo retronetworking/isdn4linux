@@ -21,6 +21,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.68  1998/06/07 00:20:05  fritz
+ * abc cleanup.
+ *
  * Revision 1.67  1998/06/02 12:10:08  detabc
  * wegen einer einstweiliger verfuegung gegen DW ist zur zeit
  * die abc-extension bis zur klaerung der rechtslage nicht verfuegbar
@@ -2564,7 +2567,7 @@ isdn_net_new(char *name, struct device *master)
 	netdev->local->onhtime = 10;	/* Default hangup-time for saving costs
 	   of those who forget configuring this */
 	netdev->local->dialmax = 1;
-	netdev->local->flags = ISDN_NET_CBHUP;	/* Hangup before Callback */
+	netdev->local->flags = ISDN_NET_CBHUP | ISDN_NET_STOPPED;	/* Hangup before Callback, autodial suppressed */
 	netdev->local->cbdelay = 25;	/* Wait 5 secs before Callback */
 	netdev->local->dialtimeout = -1;  /* Infinite Dial-Timeout */
 	netdev->local->dialwait = 5 * HZ; /* Wait 5 sec. after failed dial */
