@@ -20,11 +20,7 @@
 #endif
 
 extern const char *CardType[];
-<<<<<<< niccy.c
 const char *niccy_revision = "$Revision$";
-=======
-const char *niccy_revision = "$Revision$";
->>>>>>> 1.9
 
 #define byteout(addr,val) outb(val,addr)
 #define bytein(addr) inb(addr)

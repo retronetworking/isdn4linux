@@ -899,7 +899,7 @@ static inline void
 ll_deliver_faxstat(struct BCState *bcs, u_char status)
 {
         isdn_ctrl ic;
-	struct Channel *chanp = (struct Channel *) bcs->st->lli.userdata;
+	struct Channel *chanp = (struct Channel *) bcs->st->l4;
  
 	debugl1(L1_DEB_HSCX, bcs->cs, "HL->LL FAXIND %x", status);
 	ic.driver = bcs->cs->c_if->myid;
@@ -1054,13 +1054,9 @@ isar_pump_statev_fax(struct BCState *bcs, u_char devt) {
 			debugl1(L1_DEB_HSCX, cs, "pump stev RSP_SILOFF");
 			break;
 		case PSEV_RSP_FCERR:
-<<<<<<< isar.c
-			debugl1(L1_DEB_HSCX, cs, "pump stev RSP_FCERR");
-=======
 			if (bcs->hw.isar.state == STFAX_LINE) {
-				if (cs->debug & L1_DEB_HSCX)
-					debugl1(cs, "pump stev RSP_FCERR try %d",
-						bcs->hw.isar.try_mod);
+				debugl1(L1_DEB_HSCX, cs, "pump stev RSP_FCERR try %d",
+					bcs->hw.isar.try_mod);
 				if (bcs->hw.isar.try_mod--) {
 					sendmsg(cs, dps | ISAR_HIS_PUMPCTRL,
 						bcs->hw.isar.cmd, 1,
@@ -1068,9 +1064,7 @@ isar_pump_statev_fax(struct BCState *bcs, u_char devt) {
 					break;
 				}
 			}
-			if (cs->debug & L1_DEB_HSCX)
-				debugl1(cs, "pump stev RSP_FCERR");
->>>>>>> 1.11
+			debugl1(L1_DEB_HSCX, cs, "pump stev RSP_FCERR");
 			bcs->hw.isar.state = STFAX_ESCAPE;
 			sendmsg(cs, dps | ISAR_HIS_PUMPCTRL, PCTRL_CMD_ESC, 0, NULL);
 			ll_deliver_faxstat(bcs, ISDN_FAX_CLASS1_FCERROR);
@@ -1622,7 +1616,7 @@ isar_auxcmd(struct IsdnCardState *cs, isdn_ctrl *ic) {
 	debugl1(L1_DEB_HSCX, cs, "isar_auxcmd cmd/ch %x/%d", ic->command, ic->arg);
 	switch (ic->command) {
 		case (ISDN_CMD_FAXCMD):
-			bcs = cs->c_if->channel[ic->arg].b_st->l1.bcs;
+			bcs = cs->c_if->channel[ic->arg].l4.st->l1.bcs;
 			debugl1(L1_DEB_HSCX, cs, "isar_auxcmd cmd/subcmd %d/%d",
 				ic->parm.aux.cmd, ic->parm.aux.subcmd);
 			switch(ic->parm.aux.cmd) {

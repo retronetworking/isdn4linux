@@ -427,7 +427,7 @@ static void
 lli_resume(struct FsmInst *fi, int event, void *arg)
 {
 	struct Channel *chanp = fi->userdata;
-	setup_parm *setup = (setup_parm *arg);
+	setup_parm *setup = (setup_parm *)arg;
 
 	chanp->l2_active_protocol = chanp->l2_protocol;
 	chanp->cs->cardmsg(chanp->cs, MDL_INFO_SETUP, (void *) (long)chanp->chan);
