@@ -20,6 +20,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.35  1997/03/02 19:05:52  fritz
+ * Bugfix: Avoid recursion.
+ *
  * Revision 1.34  1997/03/02 14:29:22  fritz
  * More ttyI related cleanup.
  *
@@ -532,28 +535,22 @@ isdn_tty_handleDLEdown(modem_info * info, atemu * m, int len)
 static int
 isdn_tty_end_vrx(const char *buf, int c, int from_user)
 {
-	char tmpbuf[VBUF];
-	char *p;
+	char ch;
 
-	if (c > VBUF) {
-		printk(KERN_ERR "isdn_tty: (end_vrx) BUFFER OVERFLOW!!!\n");
-		return 1;
-	}
-	if (from_user) {
-		copy_from_user(tmpbuf, buf, c);
-		p = tmpbuf;
-	} else
-		p = (char *) buf;
 	while (c--) {
-		if ((*p != 0x11) && (*p != 0x13))
+		if (from_user)
+			GET_USER(ch, buf);
+		else
+			ch = *buf;
+		if ((ch != 0x11) && (ch != 0x13))
 			return 1;
-		p++;
+		buf++;
 	}
 	return 0;
 }
 
 static int voice_cf[7] =
-{1, 1, 4, 3, 2, 1, 1};
+{0, 0, 4, 3, 2, 0, 0};
 
 #endif                          /* CONFIG_ISDN_AUDIO */
 
@@ -565,9 +562,9 @@ static int voice_cf[7] =
 static void
 isdn_tty_senddown(modem_info * info)
 {
-	unsigned char *buf = info->xmit_buf;
 	int buflen;
 	int skb_res;
+	int audio_len;
 	struct sk_buff *skb;
 	unsigned long flags;
 
@@ -594,6 +591,22 @@ isdn_tty_senddown(modem_info * info)
 		return;
 	}
 	skb_res = dev->drv[info->isdn_driver]->interface->hl_hdrlen + 4;
+	if (info->vonline & 2)
+		audio_len = buflen * voice_cf[info->emu.vpar[3]];
+	else
+		audio_len = 0;
+	skb = dev_alloc_skb(skb_res + buflen + audio_len);
+	if (!skb) {
+		restore_flags(flags);
+		printk(KERN_WARNING
+		       "isdn_tty: Out of memory in ttyI%d senddown\n",
+		       info->line);
+		return;
+	}
+	skb_reserve(skb, skb_res);
+	memcpy(skb_put(skb, buflen), info->xmit_buf, buflen);
+	info->xmit_count = 0;
+	restore_flags(flags);
 #ifdef CONFIG_ISDN_AUDIO
 	if (info->vonline & 2) {
 		/* For now, ifmt is fixed to 1 (alaw), since this
@@ -603,21 +616,8 @@ isdn_tty_senddown(modem_info * info)
 		 * this setting will depend on the D-channel protocol.
 		 */
 		int ifmt = 1;
-		int skb_len;
-		unsigned char hbuf[VBUF];
 
-		memcpy(hbuf, info->xmit_buf, buflen);
-		info->xmit_count = 0;
-		restore_flags(flags);
 		/* voice conversion/decompression */
-		skb_len = buflen * voice_cf[info->emu.vpar[3]];
-		skb = dev_alloc_skb(skb_len + skb_res);
-		if (!skb) {
-			printk(KERN_WARNING
-			       "isdn_tty: Out of memory in ttyI%d senddown\n", info->line);
-			return;
-		}
-		skb_reserve(skb, skb_res);
 		switch (info->emu.vpar[3]) {
 			case 2:
 			case 3:
@@ -625,42 +625,29 @@ isdn_tty_senddown(modem_info * info)
 				/* adpcm, compatible to ZyXel 1496 modem
 				 * with ROM revision 6.01
 				 */
-				buflen = isdn_audio_adpcm2xlaw(info->adpcms,
+				skb_trim(skb,
+					 isdn_audio_adpcm2xlaw(info->adpcms,
 							       ifmt,
-							       hbuf,
-						   skb_put(skb, skb_len),
-							       buflen);
-				skb_trim(skb, buflen);
+							       skb->data,
+						 skb_put(skb, audio_len),
+							       buflen));
+				skb_pull(skb, buflen);
 				break;
 			case 5:
 				/* a-law */
 				if (!ifmt)
-					isdn_audio_alaw2ulaw(hbuf, buflen);
-				memcpy(skb_put(skb, buflen), hbuf, buflen);
+					isdn_audio_alaw2ulaw(skb->data,
+							     buflen);
 				break;
 			case 6:
 				/* u-law */
 				if (ifmt)
-					isdn_audio_ulaw2alaw(hbuf, buflen);
-				memcpy(skb_put(skb, buflen), hbuf, buflen);
+					isdn_audio_alaw2ulaw(skb->data,
+							     buflen);
 				break;
 		}
-	} else {
-#endif                          /* CONFIG_ISDN_AUDIO */
-		skb = dev_alloc_skb(buflen + skb_res);
-		if (!skb) {
-			printk(KERN_WARNING
-			       "isdn_tty: Out of memory in ttyI%d senddown\n", info->line);
-			restore_flags(flags);
-			return;
-		}
-		skb_reserve(skb, skb_res);
-		memcpy(skb_put(skb, buflen), buf, buflen);
-		info->xmit_count = 0;
-		restore_flags(flags);
-#ifdef CONFIG_ISDN_AUDIO
 	}
-#endif
+#endif                          /* CONFIG_ISDN_AUDIO */
 	SET_SKB_FREE(skb);
 	if (info->emu.mdmreg[13] & 2)
 		/* Add T.70 simplified header */
