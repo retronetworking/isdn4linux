@@ -94,15 +94,7 @@ void HiSax_closecard(int cardnr);
 #define DEFAULT_CARD ISDN_CTYPE_ELSA
 #define DEFAULT_CFG {0,0,0,0}
 int elsa_init_pcmcia(void*, int, int*, int);
-#ifdef COMPAT_HAS_NEW_SYMTAB
 EXPORT_SYMBOL(elsa_init_pcmcia);
-#else
-static struct symbol_table hisax_syms_elsa = {
-#include <linux/symtab_begin.h>
-	X(elsa_init_pcmcia),
-#include <linux/symtab_end.h>
-};
-#endif /* COMPAT_HAS_NEW_SYMTAB */
 #endif /* CONFIG_HISAX_ELSA */
 
 #ifdef CONFIG_HISAX_AVM_A1
@@ -118,15 +110,7 @@ static struct symbol_table hisax_syms_elsa = {
 #define DEFAULT_CARD ISDN_CTYPE_A1_PCMCIA
 #define DEFAULT_CFG {11,0x170,0,0}
 int avm_a1_init_pcmcia(void*, int, int*, int);
-#ifdef COMPAT_HAS_NEW_SYMTAB
 EXPORT_SYMBOL(avm_a1_init_pcmcia);
-#else
-static struct symbol_table hisax_syms_avm_a1= {
-#include <linux/symtab_begin.h>
-	X(avm_a1_init_pcmcia),
-#include <linux/symtab_end.h>
-};
-#endif /* COMPAT_HAS_NEW_SYMTAB */
 #endif /* CONFIG_HISAX_AVM_A1_PCMCIA */
 
 #ifdef CONFIG_HISAX_FRITZPCI
@@ -198,15 +182,7 @@ static struct symbol_table hisax_syms_avm_a1= {
 #define DEFAULT_CARD ISDN_CTYPE_SEDLBAUER
 #define DEFAULT_CFG {11,0x270,0,0}
 int sedl_init_pcmcia(void*, int, int*, int);
-#ifdef COMPAT_HAS_NEW_SYMTAB
 EXPORT_SYMBOL(sedl_init_pcmcia);
-#else
-static struct symbol_table hisax_syms_sedl= {
-#include <linux/symtab_begin.h>
-	X(sedl_init_pcmcia),
-#include <linux/symtab_end.h>
-};
-#endif /* COMPAT_HAS_NEW_SYMTAB */
 #endif /* CONFIG_HISAX_SEDLBAUER */
 
 #ifdef CONFIG_HISAX_SPORTSTER
@@ -250,15 +226,7 @@ static struct symbol_table hisax_syms_sedl= {
 #define DEFAULT_CARD ISDN_CTYPE_HFC_SX
 #define DEFAULT_CFG {5,0x2E0,0,0}
 int hfc_init_pcmcia(void*, int, int*, int);
-#ifdef COMPAT_HAS_NEW_SYMTAB
 EXPORT_SYMBOL(hfc_init_pcmcia);
-#else
-static struct symbol_table hisax_syms_hfc = {
-#include <linux/symtab_begin.h>
-	X(hfc_init_pcmcia),
-#include <linux/symtab_end.h>
-};
-#endif /* COMPAT_HAS_NEW_SYMTAB */
 #endif
 
 
@@ -350,17 +318,8 @@ static struct symbol_table hisax_syms_hfc = {
 #endif
 
 int hisax_init_pcmcia(void *, int *, struct IsdnCard *);
-#ifdef COMPAT_HAS_NEW_SYMTAB
 EXPORT_SYMBOL(hisax_init_pcmcia);
 EXPORT_SYMBOL(HiSax_closecard);
-#else
-static struct symbol_table hisax_syms_pcmcia = {
-#include <linux/symtab_begin.h>
-	X(hisax_init_pcmcia),
-	X(HiSax_closecard),
-#include <linux/symtab_end.h>
-};
-#endif /* COMPAT_HAS_NEW_SYMTAB */
 
 #define FIRST_CARD { \
 	DEFAULT_CARD, \
@@ -415,7 +374,6 @@ static int mem[] HISAX_INITDATA =
 {0, 0, 0, 0, 0, 0, 0, 0};
 static char *id HISAX_INITDATA = HiSaxID;
 
-#ifdef COMPAT_HAS_NEW_SYMTAB
 MODULE_AUTHOR("Karsten Keil");
 MODULE_PARM(type, "1-8i");
 MODULE_PARM(protocol, "1-8i");
@@ -427,7 +385,6 @@ MODULE_PARM(id, "s");
 MODULE_PARM(io0, "1-8i");
 MODULE_PARM(io1, "1-8i");
 #endif /* IO0_IO1 */
-#endif /* COMPAT_HAS_NEW_SYMTAB */
 #endif /* MODULE */
 
 int nrcards;
@@ -1441,9 +1398,6 @@ HiSax_init(void))
 
 #ifdef MODULE
 	int nzproto = 0;
-#ifndef COMPAT_HAS_NEW_SYMTAB
-	register_symtab(&hisax_syms_pcmcia);
-#endif
 	if (!type[0]) {
 		/* We 'll register drivers later, but init basic functions*/
 		CallcNew();
@@ -1456,36 +1410,24 @@ HiSax_init(void))
 #ifdef CONFIG_HISAX_ELSA
 	if (type[0] == ISDN_CTYPE_ELSA_PCMCIA) {
 		/* we have exported  and return in this case */
-#ifndef COMPAT_HAS_NEW_SYMTAB
-		register_symtab(&hisax_syms_elsa);
-#endif
 		return 0;
 	}
 #endif
 #ifdef CONFIG_HISAX_SEDLBAUER
 	if (type[0] == ISDN_CTYPE_SEDLBAUER_PCMCIA) {
 		/* we have to export  and return in this case */
-#ifndef COMPAT_HAS_NEW_SYMTAB
-		register_symtab(&hisax_syms_sedl);
-#endif
 		return 0;
 	}
 #endif
 #ifdef CONFIG_HISAX_AVM_A1_PCMCIA
 	if (type[0] == ISDN_CTYPE_A1_PCMCIA) {
 		/* we have to export  and return in this case */
-#ifndef COMPAT_HAS_NEW_SYMTAB
-		register_symtab(&hisax_syms_avm_a1);
-#endif
 		return 0;
 	}
 #endif
 #ifdef CONFIG_HISAX_HFC_SX
 	if (type[0] == ISDN_CTYPE_HFC_SP_PCMCIA) {
 		/* we have to export  and return in this case */
-#ifndef COMPAT_HAS_NEW_SYMTAB
-		register_symtab(&hisax_syms_hfc);
-#endif
 		return 0;
 	}
 #endif
@@ -1615,11 +1557,6 @@ HiSax_init(void))
 	if (HiSax_inithardware(NULL)) {
 		/* Install only, if at least one card found */
 #ifdef MODULE
-#ifndef COMPAT_HAS_NEW_SYMTAB
-		/* No symbols to export, hide all symbols */
-		register_symtab(NULL);
-		printk(KERN_INFO "HiSax: module installed\n");
-#endif /* COMPAT_HAS_NEW_SYMTAB */
 #endif /* MODULE */
 		return (0);
 	} else {

@@ -1,7 +1,6 @@
 #delete #include <linux/isdn_compat.h>
 #define dev_kfree_skb_irq(a,b) dev_kfree_skb(a)
 #define dev_kfree_skb_any(a,b) dev_kfree_skb(a)
-#define COMPAT_HAS_NEW_SYMTAB
 #define CLOSETYPE int
 #define CLOSEVAL (0)
 #define MINOR_PART(f)   MINOR(f->f_dentry->d_inode->i_rdev)

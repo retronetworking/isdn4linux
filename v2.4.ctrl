@@ -1,5 +1,4 @@
 #delete #include <linux/isdn_compat.h>
-#define COMPAT_HAS_NEW_SYMTAB
 #define CLOSETYPE int
 #define CLOSEVAL (0)
 #define MINOR_PART(f)   MINOR(f->f_dentry->d_inode->i_rdev)

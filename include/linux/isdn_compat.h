@@ -13,10 +13,6 @@
 #define dev_kfree_skb_any(a) dev_kfree_skb(a)
 #endif
 
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,1,18)
-#define COMPAT_HAS_NEW_SYMTAB
-#endif
-
 #if LINUX_VERSION_CODE < KERNEL_VERSION(2,1,31)
 #define CLOSETYPE void
 #define CLOSEVAL

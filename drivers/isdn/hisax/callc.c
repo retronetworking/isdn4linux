@@ -16,12 +16,7 @@
 #include "../avmb1/capicmd.h"  /* this should be moved in a common place */
 
 #ifdef MODULE
-#ifdef COMPAT_HAS_NEW_SYMTAB
 #define MOD_USE_COUNT ( GET_USE_COUNT (&__this_module))
-#else
-extern long mod_use_count_;
-#define MOD_USE_COUNT mod_use_count_
-#endif /* COMPAT_HAS_NEW_SYMTAB */
 #endif	/* MODULE */
 
 const char *lli_revision = "$Revision$";
