@@ -11,6 +11,9 @@
  *              Fritz Elfert
  *
  * $Log$
+ * Revision 2.26  1999/07/01 08:11:21  keil
+ * Common HiSax version for 2.0, 2.1, 2.2 and 2.3 kernel
+ *
  * Revision 2.25  1999/01/02 11:17:20  keil
  * Changes for 2.2
  *
@@ -965,12 +968,24 @@ struct Channel
            chanp += 2;
          }
 
-	while (i < ((bch) ? 2 : (2 + MAX_WAITING_CALLS))) {
+	while (i < ((bch) ? cs->chanlimit : (2 + MAX_WAITING_CALLS))) {
 		if (chanp->fi.state == ST_NULL)
 			return (chanp);
 		chanp++;
 		i++;
 	}
+
+        if (bch) /* number of channels is limited */ 
+         { i = 2; /* virtual channel */
+           chanp = st->lli.userdata;
+	   chanp += i;
+	   while (i < (2 + MAX_WAITING_CALLS)) {
+		if (chanp->fi.state == ST_NULL)
+			return (chanp);
+		chanp++;
+		i++;
+	   }
+         }
 	return (NULL);
 }
 
@@ -1499,6 +1514,42 @@ lli_got_manufacturer(struct Channel *chanp, struct IsdnCardState *cs, capi_msg *
 	}
 }
 
+
+/***************************************************************/
+/* Limit the available number of channels for the current card */
+/***************************************************************/
+static int 
+set_channel_limit(struct IsdnCardState *cs, int chanmax)
+{ long l;
+  struct Channel *chanp;
+  isdn_ctrl ic;
+  int i;
+  
+  if ((chanmax < 0) || (chanmax > 2))
+    return(-EINVAL);
+  for (i = 0; i < 2 + MAX_WAITING_CALLS; i++) {
+    chanp = cs->channel + i;
+    if (chanp->fi.state != ST_NULL) 
+      return(-EINVAL); /* card busy */
+  }
+  l = chanmax - cs->chanlimit; /* chan difference */
+  if (l) {
+    ic.driver = cs->myid;
+    ic.command = ISDN_STAT_STOP;
+    cs->iif.statcallb(&ic);
+    ic.command = ISDN_STAT_ADDCH;
+    ((long)ic.arg) = l;
+    i = cs->iif.statcallb(&ic); 
+    if (!i) cs->chanlimit = chanmax;
+    ic.command = ISDN_STAT_RUN;
+    cs->iif.statcallb(&ic);
+    if (i) return(-EINVAL);
+  }  
+    
+  return(0);
+} /* set_channel_limit */
+
+
 int
 HiSax_command(isdn_ctrl * ic)
 {
@@ -1724,6 +1775,12 @@ HiSax_command(isdn_ctrl * ic)
 					printk(KERN_DEBUG "HiSax: l3 debugging flags card %d set to %x\n",
 						csta->cardnr + 1, *(unsigned int *) ic->parm.num);
 					break;
+			        case  (10):
+				        i = *(unsigned int *) ic->parm.num;
+					if ((i < 0) || (i > 2))
+					  return(-EINVAL); /* invalid number */
+					return(set_channel_limit(csta, i));
+				        break;
 				default:
 					printk(KERN_DEBUG "HiSax: invalid ioclt %d\n",
 					       (int) ic->arg);

@@ -21,6 +21,10 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.78  1999/07/05 20:21:15  werner
+ * changes to use diversion sources for all kernel versions.
+ * removed static device, only proc filesystem used
+ *
  * Revision 1.77  1999/07/01 08:29:50  keil
  * compatibility to 2.3 kernel
  *
@@ -961,7 +965,7 @@ isdn_status_callback(isdn_ctrl * c)
 				break;
 			break;
 		case ISDN_STAT_ADDCH:
-			if (isdn_add_channels(dev->drv[di], di, c->arg, 1))
+			if (isdn_add_channels(dev->drv[di], di, ((long)(c->arg)), 1))
 				return -1;
 			isdn_info_update();
 			break;
@@ -2192,8 +2196,7 @@ isdn_add_channels(driver *d, int drvidx, int n, int adding)
 #endif
 	if (d->flags & DRV_FLAG_RUNNING)
 		return -1;
-	if (n < 1)
-		return 0;
+	/*	if (n < 1) return 0;*/
 
 	m = (adding) ? d->channels + n : n;
 
@@ -2291,6 +2294,10 @@ isdn_add_channels(driver *d, int drvidx, int n, int adding)
 				dev->drvmap[k] = drvidx;
 				break;
 			}
+	for (k = m; k < ISDN_MAX_CHANNELS; k++) { 
+	  dev->chanmap[k] = -1;
+	  dev->drvmap[k] = -1;
+	}  
 	restore_flags(flags);
 	d->channels = m;
 	return 0;

@@ -5,6 +5,9 @@
  *
  *
  * $Log$
+ * Revision 2.24  1999/07/01 08:11:26  keil
+ * Common HiSax version for 2.0, 2.1, 2.2 and 2.3 kernel
+ *
  * Revision 2.23  1999/02/17 10:53:02  cpetig
  * Added Hisax_closecard to exported symbols.
  * As indicated by Oliver Schoett <os@sdm.de>.
@@ -989,6 +992,7 @@ checkcard(int cardnr, char *id, int *busy_flag))
 	}
 	memset(cs, 0, sizeof(struct IsdnCardState));
 	card->cs = cs;
+	cs->chanlimit = 2; /* maximum B-channel number */
 	cs->cardnr = cardnr;
 	cs->debug = L1_DEB_WARN;
 	cs->HW_Flags = 0;

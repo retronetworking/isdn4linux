@@ -3,6 +3,9 @@
  *   Basic declarations, defines and prototypes
  *
  * $Log$
+ * Revision 2.27  1999/07/01 08:11:38  keil
+ * Common HiSax version for 2.0, 2.1, 2.2 and 2.3 kernel
+ *
  * Revision 2.26  1998/11/15 23:54:45  keil
  * changes from 2.0
  *
@@ -836,6 +839,7 @@ struct IsdnCardState {
 	unsigned int irq;
 	int HW_Flags;
 	int *busy_flag;
+        int chanlimit; /* limited number of B-chans to use */
 	union {
 		struct elsa_hw elsa;
 		struct teles0_hw teles0;
