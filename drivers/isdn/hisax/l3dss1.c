@@ -9,6 +9,9 @@
  *              Fritz Elfert
  *
  * $Log$
+ * Revision 1.3  1996/10/30 10:18:01  keil
+ * bugfixes in debugging output
+ *
  * Revision 1.2  1996/10/27 22:15:16  keil
  * bugfix reject handling
  *
@@ -96,7 +99,7 @@ l3s5(struct PStack *st, byte pr,
 	  case 1:		/* Telephony                               */
 		  *p++ = 0x4;	/* BC-IE-code                              */
 		  *p++ = 0x3;	/* Length                                  */
-		  *p++ = 0x90;	/* Coding Std. national, 3.1 kHz audio     */
+		  *p++ = 0x90;	/* Coding Std. CCITT, 3.1 kHz audio     */
 		  *p++ = 0x90;	/* Circuit-Mode 64kbps                     */
 		  *p++ = 0xa3;	/* A-Law Audio                             */
 		  break;
@@ -105,8 +108,8 @@ l3s5(struct PStack *st, byte pr,
 	  default:
 		  *p++ = 0x4;	/* BC-IE-code                              */
 		  *p++ = 0x2;	/* Length                                  */
-		  *p++ = 0x88;	/* Coding Std. nat., unrestr. dig. Inform. */
-		  *p++ = 0x90;	/* Packet-Mode 64kbps                      */
+		  *p++ = 0x88;	/* Coding Std. CCITT, unrestr. dig. Inform. */
+		  *p++ = 0x90;	/* Circuit-Mode 64kbps                      */
 		  break;
 	}
 	/*
