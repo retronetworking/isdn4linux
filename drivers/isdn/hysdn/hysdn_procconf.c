@@ -20,6 +20,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.5  2000/04/23 14:18:36  kai
+ * merge changes from main tree
+ *
  * Revision 1.4  2000/03/03 16:37:12  kai
  * incorporated some cosmetic changes from the official kernel tree back
  * into CVS
@@ -335,7 +338,7 @@ hysdn_conf_open(struct inode *ino, struct file *filep)
 		*cp++ = '\n';
 
 		/* and now the data */
-		sprintf(cp, "%d  %3d %4d %4d %3d 0x%04x 0x%08x %7d %9d %3d   %s",
+		sprintf(cp, "%d  %3d %4d %4d %3d 0x%04x 0x%08lx %7d %9d %3d   %s",
 			card->myid,
 			card->bus,
 			PCI_SLOT(card->devfn),

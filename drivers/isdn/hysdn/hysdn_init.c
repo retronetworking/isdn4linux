@@ -20,6 +20,10 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.1  2000/02/10 19:45:18  werner
+ *
+ * Initial release
+ *
  *
  */
 
@@ -214,6 +218,14 @@ init_module(void)
 		free_resources();	/* proc file_sys not created */
 		return (-1);
 	}
+#ifdef CONFIG_HYSDN_CAPI
+	if(cardmax > 0) {
+		if(hycapi_init()) {
+			printk(KERN_ERR "HYCAPI: init failed\n");
+			return(-1);
+		}
+	}
+#endif /* CONFIG_HYSDN_CAPI */
 	return (0);		/* no error */
 }				/* init_module */
 
@@ -231,9 +243,18 @@ cleanup_module(void)
 {
 
 	stop_cards();
+#ifdef CONFIG_HYSDN_CAPI
+	hycapi_cleanup();
+#endif /* CONFIG_HYSDN_CAPI */
 	hysdn_procconf_release();
 	free_resources();
 	printk(KERN_NOTICE "HYSDN: module unloaded\n");
 }				/* cleanup_module */
 
 #endif				/* CONFIG_MODULES */
+
+
+
+
+
+

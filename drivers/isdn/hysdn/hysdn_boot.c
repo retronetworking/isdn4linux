@@ -21,6 +21,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.2  2000/04/23 14:18:36  kai
+ * merge changes from main tree
+ *
  * Revision 1.1  2000/02/10 19:45:18  werner
  *
  * Initial release
@@ -260,7 +263,6 @@ pof_write_buffer(hysdn_card * card, int datlen)
 			}
 			if ((boot->last_error = pof_handle_data(card, datlen)) < 0)
 				return (boot->last_error);	/* an error occured */
-
 			boot->pof_recoffset += datlen;
 			if (boot->pof_recoffset >= boot->pof_reclen) {
 				boot->pof_state = POF_READ_TAG_HEAD;	/* now start with single tags */
