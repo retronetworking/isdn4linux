@@ -19,6 +19,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.3  1996/05/10 08:48:11  fritz
+ * Corrected adpcm bugs.
+ *
  * Revision 1.2  1996/04/30 09:31:17  fritz
  * General rewrite.
  *
@@ -27,15 +30,12 @@
  *
  */
 
-#ifndef ATEST
 #define __NO_VERSION__
 #include <linux/module.h>
 #include <linux/isdn.h>
-#else
-#include <stdio.h>
-#include <malloc.h>
-#endif
 #include "isdn_audio.h"
+
+char *isdn_audio_revision        = "$Revision$";
 
 /*
  * Misc. lookup-tables.
