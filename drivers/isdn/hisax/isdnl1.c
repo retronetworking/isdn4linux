@@ -15,6 +15,10 @@
  *
  *
  * $Log$
+ * Revision 1.15.2.22  1999/07/01 10:30:46  keil
+ * Version is the same as outside isdn4kernel_2_0 branch,
+ * only version numbers are different
+ *
  * Revision 2.32  1999/07/01 08:11:47  keil
  * Common HiSax version for 2.0, 2.1, 2.2 and 2.3 kernel
  *
@@ -262,7 +266,6 @@ L1deactivated(struct IsdnCardState *cs)
 
 	st = cs->stlist;
 	while (st) {
-		printk(KERN_WARNING"st %d %lx\n",i++,(ulong)st);
 		if (test_bit(FLG_L1_DBUSY, &cs->HW_Flags))
 			st->l1.l1l2(st, PH_PAUSE | CONFIRM, NULL);
 		st->l1.l1l2(st, PH_DEACTIVATE | INDICATION, NULL);
