@@ -325,7 +325,7 @@ isdn_timer_ctrl(int tf, int onoff)
 		isdn_timer_cnt1 = 0;
 		isdn_timer_cnt2 = 0;
 	}
-	old_tflags = tflags;
+	old_tflags = dev->tflags;
 	if (onoff)
 		dev->tflags |= tf;
 	else
@@ -1138,7 +1138,7 @@ isdn_write(struct file *file, const char *buf, size_t count, loff_t * off)
 #ifndef COMPAT_HAVE_WRITE_LOCK_KERNEL
 	lock_kernel();
 #endif
-	if (minor < ISDN_MINOR_BMAX) {
+	if (minor <= ISDN_MINOR_BMAX) {
 		printk(KERN_WARNING "isdn_write minor %d obsolete!\n", minor);
 		drvidx = isdn_minor2drv(minor);
 		if (drvidx < 0) {
