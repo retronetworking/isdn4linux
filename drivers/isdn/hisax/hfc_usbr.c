@@ -182,7 +182,6 @@ hfcusb_b_l1l2(void *cs1, int chan, int pr, void *arg)
 			break;
 
 		case (PH_DATA | CONFIRM):
-		    return;
 			if (!bcs)
 				return;
 			bcs->tx_cnt -= bcs->tx_skb->len;
@@ -192,7 +191,7 @@ hfcusb_b_l1l2(void *cs1, int chan, int pr, void *arg)
 							   bcs->tx_skb->
 							   len);
 			dev_kfree_skb_any(bcs->tx_skb);
-			bcs->tx_skb = NULL;
+			bcs->tx_skb = skb_dequeue(&bcs->squeue);
 			break;
 
 		case (PH_ACTIVATE | INDICATION):

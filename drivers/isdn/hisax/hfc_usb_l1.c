@@ -387,12 +387,13 @@ fill_tx_urb(usb_fifo * fifo)
 	/* fillup the send buffer */
 	i = fifo->buff->len - (fifo->act_ptr - fifo->buff->data);	/* remaining length */
 	fifo->buffer[0] = !fifo->transmode;	/* not eof */
-	if (i > fifo->usb_maxlen - ii) {
+	if (i > (fifo->usb_maxlen - ii)) {
 		i = fifo->usb_maxlen - ii;
 	}
 	if (i)
 		memcpy(fifo->buffer + ii, fifo->act_ptr, i);
 	fifo->urb.transfer_buffer_length = i + ii;
+        fifo->rx_offset = ii;
 }				/* fill_tx_urb */
 
 /************************************************/
@@ -416,7 +417,7 @@ tx_complete(purb_t urb)
 		fifo->buff = NULL;
 		return;
 	}
-	fifo->act_ptr += (urb->transfer_buffer_length - 1);	/* adjust pointer */
+	fifo->act_ptr += (urb->transfer_buffer_length - fifo->rx_offset);	/* adjust pointer */
 	fill_tx_urb(fifo);	/* refill the urb */
 	fifo->hfc->threshold_mask |= fifo->fifo_mask;	/* assume threshold reached */
 	if (fifo->buff)
@@ -461,7 +462,7 @@ rx_complete(purb_t urb)
 		     hfc->service_request & hfc->active_fifos & ~hfc->
 		     threshold_mask)) {
 			currcnt =
-			    usb_get_current_frame_number(fifo->urb.dev);
+			    usb_get_current_frame_number(hfc->dev);
 			txfifo = hfc->fifos + HFCUSB_B1_TX;
 			ii = 3;
 			while (ii--) {
@@ -478,6 +479,7 @@ rx_complete(purb_t urb)
 				txfifo += 2;
 			}
 		}
+
 		/* handle l1 events */
 		if ((fifo->buffer[0] >> 4) != hfc->l1_state) {
 			last_state = hfc->l1_state;
