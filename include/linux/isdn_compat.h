@@ -72,7 +72,6 @@
 #define COMPAT_has_fileops_in_inode
 #define COMPAT_HAS_init_special_inode
 #define COMPAT_d_alloc_root_one_parameter
-#define COMPAT_HAS_pci_find_subsys
 #define HAVE_DEVFS_FS
 
 #endif
@@ -96,7 +95,25 @@ static inline int pci_enable_device(struct pci_dev *dev)
 {
 	return 0;
 }
-#endif
+#endif /* __powerpc__ */
+
+#define PCI_ANY_ID (~0)
+
+static struct pci_dev * pci_find_subsys(unsigned int vendor, unsigned int device,
+					unsigned int ss_vendor, unsigned int ss_device,
+					struct pci_dev *from)
+{
+	unsigned short subsystem_vendor, subsystem_device;
+
+	while ((from = pci_find_device(vendor, device, from))) {
+		pci_read_config_word(from, PCI_SUBSYSTEM_VENDOR_ID, &subsystem_vendor);
+		pci_read_config_word(from, PCI_SUBSYSTEM_ID, &subsystem_device);
+		if ((ss_vendor == PCI_ANY_ID || subsystem_vendor == ss_vendor) &&
+		    (ss_device == PCI_ANY_ID || subsystem_device == ss_device))
+			return from;
+	}
+	return NULL;
+}
 #endif
 
 #ifdef COMPAT_NO_SOFTNET

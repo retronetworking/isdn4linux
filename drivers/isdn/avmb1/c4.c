@@ -6,6 +6,12 @@
  * (c) Copyright 1999 by Carsten Paeth (calle@calle.in-berlin.de)
  * 
  * $Log$
+ * Revision 1.24  2000/12/05 19:15:44  kai
+ * o call pci_enable_device() first of all, because this may change/assign
+ *   resources we use afterwards.
+ * o #ifndef COMPAT_HAS_2_2_PCI is not necessary, because for 2.2
+ *   pci_enable_device is defined to (0)
+ *
  * Revision 1.23  2000/11/28 14:26:46  calle
  * But the #ifndef PCI_DEVICE_ID_AVM* back, and let it compile again.
  * Please always check if 2.2.14-2.2.18 compile after a "std2kern -u"
@@ -103,9 +109,6 @@
 #include <linux/pci.h>
 #include <linux/capi.h>
 #include <linux/init.h>
-#ifdef COMPAT_HAS_2_2_PCI
-#include <linux/isdn.h>
-#endif
 #include <asm/io.h>
 #include <asm/uaccess.h>
 #ifndef COMPAT_NO_SOFTNET
@@ -1355,29 +1358,6 @@ static struct capi_driver c4_driver = {
 
     add_card: 0, /* no add_card function */
 };
-
-#ifndef COMPAT_HAS_pci_find_subsys
-#ifndef PCI_ANY_ID
-#define PCI_ANY_ID (~0)
-#endif
-
-static struct pci_dev *
-pci_find_subsys(unsigned int vendor, unsigned int device,
-		unsigned int ss_vendor, unsigned int ss_device,
-		struct pci_dev *from)
-{
-	unsigned short subsystem_vendor, subsystem_device;
-
-	while ((from = pci_find_device(vendor, device, from))) {
-		pci_read_config_word(from, PCI_SUBSYSTEM_VENDOR_ID, &subsystem_vendor);
-		pci_read_config_word(from, PCI_SUBSYSTEM_ID, &subsystem_device);
-		if ((ss_vendor == PCI_ANY_ID || subsystem_vendor == ss_vendor) &&
-		    (ss_device == PCI_ANY_ID || subsystem_device == ss_device))
-			return from;
-	}
-	return NULL;
-}
-#endif
 
 static int ncards = 0;
 
