@@ -6,6 +6,9 @@
  * (c) Copyright 1997 by Carsten Paeth (calle@calle.in-berlin.de)
  * 
  * $Log$
+ * Revision 1.1.2.7  1998/03/04 17:33:50  calle
+ * Changes for T1.
+ *
  * Revision 1.1.2.6  1998/02/27 15:40:44  calle
  * T1 running with slow link. bugfix in capi_release.
  *
@@ -134,6 +137,10 @@
 					 */
 #define RECEIVE_RELEASE		0x26	/*
 					   * int32 AppllID int32 0xffffffff 
+					 */
+#define RECEIVE_TASK_READY	0x31	/*
+					   * int32 tasknr
+					   * int32 Length Taskname ...
 					 */
 
 #define WRITE_REGISTER		0x00
@@ -480,7 +487,6 @@ unsigned char B1_disable_irq(unsigned short base)
 
 void T1_disable_irq(unsigned short base)
 {
-      t1outp(base, B1_INSTAT, 0x00);
       t1outp(base, T1_IRQMASTER, 0x00);
 }
 
@@ -498,7 +504,13 @@ void B1_reset(unsigned short base)
 
 void T1_reset(unsigned short base)
 {
-        T1_disable_irq(base);
+        /* reset T1 Controller */
+        B1_reset(base);
+        /* disable irq on HEMA */
+        t1outp(base, B1_INSTAT, 0x00);
+        t1outp(base, B1_OUTSTAT, 0x00);
+        t1outp(base, T1_IRQMASTER, 0x00);
+        /* reset HEMA board configuration */
 	t1outp(base, T1_RESETBOARD, 0xf);
 }
 
@@ -995,6 +1007,13 @@ t1retry:
 		       card->version[VER_CARDTYPE],
 		       card->version[VER_DRIVER]);
 		avmb1_card_ready(card);
+		break;
+        case RECEIVE_TASK_READY:
+		ApplId = (unsigned) B1_get_word(card->port);
+		MsgLen = B1_get_slice(card->port, card->msgbuf);
+		card->msgbuf[MsgLen] = 0;
+		printk(KERN_INFO "b1lli(0x%x): Task %d \"%s\" ready.\n",
+				card->port, ApplId, card->msgbuf);
 		break;
 	default:
 		printk(KERN_ERR "b1lli(0x%x): B1_handle_interrupt: 0x%x ???\n",

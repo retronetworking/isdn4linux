@@ -6,6 +6,9 @@
  * (c) Copyright 1997 by Carsten Paeth (calle@calle.in-berlin.de)
  * 
  * $Log$
+ * Revision 1.4.2.14  1998/03/04 17:33:47  calle
+ * Changes for T1.
+ *
  * Revision 1.4.2.13  1998/02/27 15:40:41  calle
  * T1 running with slow link. bugfix in capi_release.
  *
@@ -608,6 +611,7 @@ int avmb1_detectcard(int port, int irq, int cardtype)
 					  cardtype2str(cardtype), port, rc);
 		return -EIO;
 	}
+	B1_reset(port);
 	switch (cardtype) {
 		default:
 	   	case AVM_CARDTYPE_M1:
@@ -941,15 +945,20 @@ static int capi_manufacturer(unsigned int cmd, void *data)
 		}
 
 		B1_reset(card->port);
+
+		if (loaddebug) {
+			printk(KERN_DEBUG "b1capi: loading contr %d\n",
+				ldef.contr);
+		}
+
 		if ((rc = B1_load_t4file(card->port, &ldef.t4file))) {
 			B1_reset(card->port);
 			printk(KERN_ERR "b1capi: failed to load t4file!!\n");
 			card->cardstate = CARD_DETECTED;
 			return rc;
 		}
-		if (card->cardtype == AVM_CARDTYPE_T1)
-			T1_disable_irq(card->port);
-		else B1_disable_irq(card->port);
+
+		B1_disable_irq(card->port);
 
 		if (ldef.t4config.len > 0) { /* load config */
 		        if (loaddebug) {
