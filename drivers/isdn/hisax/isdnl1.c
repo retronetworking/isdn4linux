@@ -11,6 +11,9 @@
  *
  *
  * $Log$
+ * Revision 1.15.2.3  1997/11/15 18:50:34  keil
+ * new common init function
+ *
  * Revision 1.15.2.2  1997/10/17 22:13:54  keil
  * update to last hisax version
  *
@@ -100,6 +103,10 @@ extern int setup_mic(struct IsdnCard *card);
 
 #if CARD_NETJET
 extern int setup_netjet(struct IsdnCard *card);
+#endif
+
+#if CARD_TELES3C
+extern int setup_t163c(struct IsdnCard *card);
 #endif
 
 #define HISAX_STATUS_BUFSIZE 4096
@@ -525,6 +532,8 @@ init_bcstate(struct IsdnCardState *cs,
 	bcs->tqueue.sync = 0;
 	bcs->tqueue.routine = (void *) (void *) BChannel_bh;
 	bcs->tqueue.data = bcs;
+	bcs->BC_SetStack = NULL;
+	bcs->BC_Close = NULL;
 	bcs->Flag = 0;
 }
 
@@ -533,9 +542,11 @@ closecard(int cardnr)
 {
 	struct IsdnCardState *csta = cards[cardnr].cs;
 	struct sk_buff *skb;
-
-	csta->bcs->BC_Close(csta->bcs + 1);
-	csta->bcs->BC_Close(csta->bcs);
+	
+	if (csta->bcs->BC_Close != NULL) { 
+		csta->bcs->BC_Close(csta->bcs + 1);
+		csta->bcs->BC_Close(csta->bcs);
+	}
 
 	if (csta->rcvbuf) {
 		kfree(csta->rcvbuf);
@@ -560,6 +571,7 @@ closecard(int cardnr)
 		csta->mon_tx = NULL;
 	}
 	csta->cardmsg(csta, CARD_RELEASE, NULL);
+	del_timer(&csta->dbusytimer);
 	ll_unload(csta);
 }
 
@@ -590,8 +602,8 @@ HISAX_INITFUNC(static int init_card(struct IsdnCardState *cs))
 			cs->irq, kstat.interrupts[cs->irq]);
 		if (kstat.interrupts[cs->irq] == irq_cnt) {
 			printk(KERN_WARNING
-			       "%s: IRQ(%d) getting no interrupts during init %d\n",
-			       CardType[cs->typ], cs->irq, 4 - cnt);
+				"%s: IRQ(%d) getting no interrupts during init %d\n",
+				CardType[cs->typ], cs->irq, 4 - cnt);
 			if (cnt == 1) {
 				free_irq(cs->irq, cs);
 				return (2);
@@ -607,8 +619,6 @@ HISAX_INITFUNC(static int init_card(struct IsdnCardState *cs))
 	restore_flags(flags);
 	return(3);
 }
-
-
 
 HISAX_INITFUNC(static int
 checkcard(int cardnr, char *id, int *busy_flag))
@@ -776,6 +786,11 @@ checkcard(int cardnr, char *id, int *busy_flag))
 #if CARD_NETJET
 		case ISDN_CTYPE_NETJET:
 			ret = setup_netjet(card);
+			break;
+#endif
+#if CARD_TELES3C
+		case ISDN_CTYPE_TELES3C:
+			ret = setup_t163c(card);
 			break;
 #endif
 		default:
@@ -1151,6 +1166,7 @@ l1_timer_deact(struct FsmInst *fi, int event, void *arg)
 	test_and_clear_bit(FLG_L1_DEACTTIMER, &st->l1.Flags);
 	test_and_clear_bit(FLG_L1_ACTIVATED, &st->l1.Flags);
 	L1deactivated(cs);
+	cs->l1cmd(cs, PH_DEACT_ACK, NULL);
 }
 
 static void
@@ -1306,12 +1322,8 @@ setstack_HiSax(struct PStack *st, struct IsdnCardState *cs)
 	FsmInitTimer(&st->l1.l1m, &st->l1.timer);
 	setstack_tei(st);
 	setstack_manager(st);
-
 	st->l1.stlistp = &(cs->stlist);
 	st->ma.manl1 = dch_manl1;
 	st->l1.Flags = 0;
-#ifdef ISDN_CHIP_ISAC
-	setstack_isac(st, cs);
-#endif
+	cs->setstack_d(st, cs);
 }
-

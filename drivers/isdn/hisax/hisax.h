@@ -3,6 +3,9 @@
  *   Basic declarations, defines and prototypes
  *
  * $Log$
+ * Revision 1.13.2.3  1997/11/27 12:31:59  keil
+ * Working netjet driver
+ *
  * Revision 1.13.2.2  1997/11/15 18:55:43  keil
  * New init, new cards
  *
@@ -63,6 +66,7 @@
 #define PH_DEACT_REQ	0x0024
 #define PH_DEACT_CNF	0x0025
 #define PH_DEACT_IND	0x0026
+#define PH_DEACT_ACK	0x0027
 #define PH_TESTLOOP_REQ	0x0030
 #define PH_PAUSE_CNF	0x0035
 #define PH_PAUSE_IND	0x0036
@@ -553,6 +557,26 @@ struct njet_hw {
 	unsigned char last_is0;
 };
 
+struct hfcD_hw {
+	unsigned int addr;
+	unsigned int bfifosize;
+	unsigned int dfifosize;
+	unsigned char cirm;
+	unsigned char ctmt;
+	unsigned char cip;
+	unsigned char conn;
+	unsigned char mst_m;
+	unsigned char int_m1;
+	unsigned char int_m2;
+	unsigned char int_s1;
+	unsigned char sctrl;
+	unsigned char stat;
+	unsigned char f1;
+	unsigned char f2;
+	unsigned int *send;
+	struct timer_list timer;
+};
+
 #define HW_IOM1		0
 #define HW_IPAC		1
 #define FLG_TWO_DCHAN	4
@@ -583,6 +607,7 @@ struct IsdnCardState {
 		struct spt_hw spt;
 		struct mic_hw mic;
 		struct njet_hw njet;
+		struct hfcD_hw hfcD;
 	} hw;
 	int myid;
 	isdn_if iif;
@@ -621,6 +646,7 @@ struct IsdnCardState {
 	int mon_txc;
 	int mon_rxp;
 	u_char mocr;
+	void   (*setstack_d) (struct PStack *, struct IsdnCardState *);
 };
 
 #define  MON0_RX	1
@@ -641,7 +667,7 @@ struct IsdnCardState {
 #define  ISDN_CTYPE_DIEHLDIVA   11
 #define  ISDN_CTYPE_DYNALINK    12
 #define  ISDN_CTYPE_TELEINT	13
-#define  ISDN_CTYPE_16_3C	14
+#define  ISDN_CTYPE_TELES3C	14
 #define  ISDN_CTYPE_SEDLBAUER	15
 #define  ISDN_CTYPE_SPORTSTER	16
 #define  ISDN_CTYPE_MIC		17
@@ -781,10 +807,16 @@ struct IsdnCardState {
 #define CARD_NETJET 0
 #endif
 
+#ifdef	CONFIG_HISAX_TELES3C
+#define  CARD_TELES3C (1<< ISDN_CTYPE_TELES3C)
+#else
+#define  CARD_TELES3C  0
+#endif
+
 #define  SUPORTED_CARDS  (CARD_TELES0 | CARD_TELES3 | CARD_AVM_A1 | CARD_ELSA \
 			 | CARD_IX1MICROR2 | CARD_DIEHLDIVA | CARD_DYNALINK \
 			 | CARD_TELEINT | CARD_SEDLBAUER | CARD_SPORTSTER \
-			 | CARD_MIC | CARD_NETJET)
+			 | CARD_MIC | CARD_NETJET | CARD_TELES3C)
 
 #define TEI_PER_CARD 0
 

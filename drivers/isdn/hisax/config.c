@@ -5,6 +5,9 @@
  *
  *
  * $Log$
+ * Revision 1.15.2.2  1997/11/15 18:55:46  keil
+ * New init, new cards
+ *
  * Revision 1.15.2.1  1997/10/17 22:13:40  keil
  * update to last hisax version
  *
@@ -47,6 +50,7 @@
  *   11 Eicon.Diehl Diva p0=irq p1=iobase
  *   12 Dynalink         p0=irq p1=iobase
  *   13 Teleint          p0=irq p1=iobase
+ *   14 Teles 16.3c      p0=irq p1=iobase
  *   15 Sedlbauer speed  p0=irq p1=iobase
  *   16 USR Sportster internal  p0=irq  p1=iobase
  *   17 MIC card                p0=irq  p1=iobase
@@ -148,6 +152,13 @@ void register_elsa_symbols(void) {
 #undef DEFAULT_CFG
 #define DEFAULT_CARD ISDN_CTYPE_NETJET
 #define DEFAULT_CFG {0,0,0,0}
+#endif
+
+#ifdef CONFIG_HISAX_TELES3C
+#undef DEFAULT_CARD
+#undef DEFAULT_CFG
+#define DEFAULT_CARD ISDN_CTYPE_TELES3C
+#define DEFAULT_CFG {5,0x500,0,0}
 #endif
 
 #ifdef CONFIG_HISAX_1TR6
@@ -416,6 +427,7 @@ HiSax_init(void))
 			case ISDN_CTYPE_SEDLBAUER:
 			case ISDN_CTYPE_SPORTSTER:
 			case ISDN_CTYPE_MIC:
+			case ISDN_CTYPE_TELES3C:
 				cards[i].para[0] = irq[i];
 				cards[i].para[1] = io[i];
 				break;
