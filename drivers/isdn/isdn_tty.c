@@ -20,6 +20,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.39  1997/03/21 18:25:56  fritz
+ * Corrected CTS handling.
+ *
  * Revision 1.38  1997/03/07 12:13:35  fritz
  * Bugfix: Send audio in adpcm format was broken.
  * Bugfix: CTS handling was wrong.
@@ -172,6 +175,7 @@
  * Initial revision
  *
  */
+#undef ISDN_TTY_STAT_DEBUG
 
 #define __NO_VERSION__
 #include <linux/config.h>
@@ -2022,6 +2026,9 @@ isdn_tty_stat_callback(int i, isdn_ctrl * c)
 		info = &dev->mdm.info[mi];
 		switch (c->command) {
 			case ISDN_STAT_BSENT:
+#ifdef ISDN_TTY_STAT_DEBUG
+				printk(KERN_DEBUG "tty_STAT_BSENT ttyI%d\n", info->line);
+#endif
 				if ((info->isdn_driver == c->driver) &&
 				    (info->isdn_channel == c->arg)) {
 					info->msr |= UART_MSR_CTS;
@@ -2033,10 +2040,16 @@ isdn_tty_stat_callback(int i, isdn_ctrl * c)
 				}
 				break;
 			case ISDN_STAT_CAUSE:
+#ifdef ISDN_TTY_STAT_DEBUG
+				printk(KERN_DEBUG "tty_STAT_CAUSE ttyI%d\n", info->line);
+#endif
 				/* Signal cause to tty-device */
 				strncpy(info->last_cause, c->parm.num, 5);
 				return 1;
 			case ISDN_STAT_DCONN:
+#ifdef ISDN_TTY_STAT_DEBUG
+				printk(KERN_DEBUG "tty_STAT_DCONN ttyI%d\n", info->line);
+#endif
 				if (TTY_IS_ACTIVE(info)) {
 					if (info->dialing == 1) {
 						info->dialing = 2;
@@ -2045,6 +2058,9 @@ isdn_tty_stat_callback(int i, isdn_ctrl * c)
 				}
 				break;
 			case ISDN_STAT_DHUP:
+#ifdef ISDN_TTY_STAT_DEBUG
+				printk(KERN_DEBUG "tty_STAT_DHUP ttyI%d\n", info->line);
+#endif
 				if (TTY_IS_ACTIVE(info)) {
 					if (info->dialing == 1) {
 						info->dialing = 0;
@@ -2058,6 +2074,9 @@ isdn_tty_stat_callback(int i, isdn_ctrl * c)
 				}
 				break;
 			case ISDN_STAT_BCONN:
+#ifdef ISDN_TTY_STAT_DEBUG
+				printk(KERN_DEBUG "tty_STAT_BCONN ttyI%d\n", info->line);
+#endif
 				/* Schedule CONNECT-Message to any tty
 				 * waiting for it and
 				 * set DCD-bit of its modem-status.
@@ -2078,6 +2097,9 @@ isdn_tty_stat_callback(int i, isdn_ctrl * c)
 				}
 				break;
 			case ISDN_STAT_BHUP:
+#ifdef ISDN_TTY_STAT_DEBUG
+				printk(KERN_DEBUG "tty_STAT_BHUP ttyI%d\n", info->line);
+#endif
 				if (TTY_IS_ACTIVE(info)) {
 #ifdef ISDN_DEBUG_MODEM_HUP
 					printk(KERN_DEBUG "Mhup in ISDN_STAT_BHUP\n");
@@ -2087,6 +2109,9 @@ isdn_tty_stat_callback(int i, isdn_ctrl * c)
 				}
 				break;
 			case ISDN_STAT_NODCH:
+#ifdef ISDN_TTY_STAT_DEBUG
+				printk(KERN_DEBUG "tty_STAT_NODCH ttyI%d\n", info->line);
+#endif
 				if (TTY_IS_ACTIVE(info)) {
 					if (info->dialing) {
 						info->dialing = 0;
@@ -2104,6 +2129,9 @@ isdn_tty_stat_callback(int i, isdn_ctrl * c)
 				}
 				break;
 			case ISDN_STAT_UNLOAD:
+#ifdef ISDN_TTY_STAT_DEBUG
+				printk(KERN_DEBUG "tty_STAT_UNLOAD ttyI%d\n", info->line);
+#endif
 				for (i = 0; i < ISDN_MAX_CHANNELS; i++) {
 					info = &dev->mdm.info[i];
 					if (info->isdn_driver == c->driver) {
