@@ -21,6 +21,19 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.48.2.2  1998/03/07 23:35:09  detabc
+ * added the abc-extension to the linux isdn-kernel
+ * for kernel-version 2.0.xx
+ * DO NOT USE FOR HIGHER KERNELS-VERSIONS
+ * all source-lines are switched with the define  CONFIG_ISDN_WITH_ABC
+ * (make config and answer ABC-Ext. Support (Compress,TCP-Keepalive ...) with yes
+ *
+ * you need also a modified isdnctrl-source the switch on the
+ * features of the abc-extension
+ *
+ * please use carefully. more detail will be follow.
+ * thanks
+ *
  * Revision 1.48.2.1  1997/08/21 15:56:07  fritz
  * Synchronized 2.0.X branch with 2.0.31-pre7
  *
@@ -236,6 +249,8 @@ char *isdn_net_revision = "$Revision$";
 static void
 isdn_net_unreachable(struct device *dev, struct sk_buff *skb, char *reason)
 {
+	int	i;
+
 #ifdef CONFIG_ISDN_WITH_ABC
 	isdn_net_local *lp = (isdn_net_local *) dev->priv;
 	struct sk_buff *nskb = NULL;
@@ -262,7 +277,22 @@ isdn_net_unreachable(struct device *dev, struct sk_buff *skb, char *reason)
 #ifdef CONFIG_ISDN_WITH_ABC
 	if(nskb != NULL)
 		kfree_skb(nskb,FREE_READ);
+#else
+	/* FIXME: do we have to decompress and/or decrypt the other queued skbs ? */
+
+	for(i = 0; i < DEV_NUMBUFFS; i++) {
+		struct sk_buff *skb;
+
+		while((skb = skb_dequeue(&dev->buffs[i]))) {
+				icmp_send(skb, ICMP_DEST_UNREACH, ICMP_HOST_UNREACH, 0
+#if (LINUX_VERSION_CODE < 0x02010f)	/* 2.1.15 */
+				, dev
 #endif
+				);
+				dev_kfree_skb(skb, FREE_WRITE);
+        	}
+	}
+#endif /* CONFIG_ISDN_WITH_ABC */
 }
 
 static void
@@ -491,6 +521,17 @@ isdn_net_autohup()
 						isdn_net_hangup(&p->dev);
 				} else if (l->hupflags & ISDN_INHUP)
 					isdn_net_hangup(&p->dev);
+
+#ifdef CONFIG_ISDN_BUDGET
+			if(isdn_net_budget(ISDN_BUDGET_CHECK_ONLINE, &p->dev)) {
+				isdn_net_hangup(&p->dev);
+			}
+#endif
+
+			if(dev->global_flags & ISDN_GLOBAL_STOPPED || p->local.flags & ISDN_NET_STOPPED) {
+				isdn_net_hangup(&p->dev);
+				break;
+			}
 		}
 		p = (isdn_net_dev *) p->next;
 	}
@@ -724,6 +765,13 @@ isdn_net_stat_callback(int idx, int cmd)
 							if (!(isdn_net_xmit(&p->dev, lp, lp->first_skb)))
 								lp->first_skb = NULL;
 						}
+#ifdef CONFIG_ISDN_TIMEOUT_RULES
+						else {
+							/* recalc initial huptimeout,
+							   there is no packet to match the rules. */
+							isdn_net_recalc_timeout(ISDN_TIMRU_BRINGUP, ISDN_TIMRU_PACKET_NONE, &p->dev, NULL, 0);
+						}
+#endif
 						return 1;
 				}
 				break;
@@ -777,6 +825,11 @@ abc_next_dchannel:;
 				lp->chargetime = jiffies;
 				printk(KERN_DEBUG "isdn_net: Got CINF chargetime of %s now %d\n",
 				       lp->name, lp->chargetime);
+#ifdef CONFIG_ISDN_BUDGET
+				if(isdn_net_budget(ISDN_BUDGET_CHECK_CHARGE, &p->dev)) {
+					isdn_net_hangup(&p->dev);
+				}
+#endif
 				return 1;
 		}
 	}
@@ -898,6 +951,13 @@ isdn_net_dial(void)
 					break;
 				}
 				anymore = 1;
+
+				if(p->local.dialtimeout > 0)
+					if(p->local.dialstarted == 0 || jiffies > (p->local.dialstarted + p->local.dialtimeout + p->local.dialwait)) {
+						p->local.dialstarted = jiffies;
+						p->local.dialwait_timer = 0;
+					}
+
 				p->local.dialstate++;
 				/* Fall through */
 			case 2:
@@ -933,6 +993,12 @@ isdn_net_dial(void)
 				 * If list of phone-numbers is exhausted, increment
 				 * retry-counter.
 				 */
+				if(dev->global_flags & ISDN_GLOBAL_STOPPED || p->local.flags & ISDN_NET_STOPPED) {
+					isdn_net_unreachable(&p->dev, p->local.first_skb, "dial suppressed: isdn stopped");
+					isdn_net_hangup(&p->dev);
+					break;
+				}
+
 				cmd.driver = p->local.isdn_device;
 				cmd.command = ISDN_CMD_SETL2;
 				cmd.arg = p->local.isdn_channel + (p->local.l2_proto << 8);
@@ -957,6 +1023,24 @@ isdn_net_dial(void)
 					p->local.dialstate = 4;
 					printk(KERN_INFO "%s: Open leased line ...\n", p->local.name);
 				} else {
+#ifdef CONFIG_ISDN_BUDGET
+					if(isdn_net_budget(ISDN_BUDGET_CHECK_DIAL, &p->dev)) {
+						restore_flags(flags);
+						isdn_net_unreachable(&p->dev, p->local.first_skb, "dial: budget(s) used up");
+						isdn_net_hangup(&p->dev);
+						break;
+					}
+#endif
+					if(p->local.dialtimeout > 0)
+						if(jiffies > (p->local.dialstarted + p->local.dialtimeout)) {
+							restore_flags(flags);
+							p->local.dialwait_timer = jiffies + p->local.dialwait;
+							p->local.dialstarted = 0;
+							isdn_net_unreachable(&p->dev, p->local.first_skb, "dial: timed out");
+							isdn_net_hangup(&p->dev);
+							break;
+						}
+
 					sprintf(cmd.parm.setup.phone, "%s", p->local.dial->num);
 					/*
 					 * Switch to next number or back to start if at end of list.
@@ -964,6 +1048,60 @@ isdn_net_dial(void)
 					if (!(p->local.dial = (isdn_net_phone *) p->local.dial->next)) {
 						p->local.dial = p->local.phone[1];
 						p->local.dialretry++;
+
+						if (p->local.dialretry > p->local.dialmax) {
+							restore_flags(flags);
+							if (p->local.dialtimeout == 0) {
+								p->local.dialwait_timer = jiffies + p->local.dialwait;
+								p->local.dialstarted = 0;
+								isdn_net_unreachable(&p->dev, p->local.first_skb, "dial: tried all numbers dialmax times");
+							}
+#ifndef CONFIG_ISDN_WITH_ABC
+							isdn_net_hangup(&p->dev);
+#else
+							if(!p->local.master 		&& 
+								p->local.outgoing == 1	&&
+								!(p->local.abc_flags & ABC_NODCHAN)) {
+
+								struct sk_buff *skb;
+
+								u_long flags;
+								save_flags(flags);
+								cli();
+								skb = p->local.first_skb;
+								p->local.first_skb = NULL;
+								restore_flags(flags);
+
+								if(skb != NULL) {
+
+									isdn_net_unreachable(&p->dev, skb,
+							   	  	"Destination out of Order");
+
+									dev_kfree_skb(skb, FREE_WRITE);
+								} 
+							}
+
+							if(p->local.abc_flags & ABC_NODCHAN) {
+
+								u_long flags;
+								struct sk_buff *skb;
+
+								skb = p->local.first_skb;
+								p->local.first_skb = NULL;
+
+								isdn_net_hangup(&p->dev);
+
+								save_flags(flags);
+								cli();
+								p->local.first_skb = skb;
+								restore_flags(flags);
+								p->local.abc_call_disabled = 0;
+
+							} else isdn_net_hangup(&p->dev);
+
+#endif
+							break;
+						}
 					}
 					restore_flags(flags);
 					cmd.command = ISDN_CMD_DIAL;
@@ -999,7 +1137,7 @@ isdn_net_dial(void)
 						p->local.dtimer = ISDN_TIMER_DTIMEOUT10 + 10;
 #else
 					printk(KERN_INFO "%s: dialing %d %s...\n", p->local.name,
-					       p->local.dialretry - 1, cmd.parm.setup.phone);
+					       p->local.dialretry, cmd.parm.setup.phone);
 					p->local.dtimer = 0;
 #endif
 #ifdef ISDN_DEBUG_NET_DIAL
@@ -1031,62 +1169,11 @@ isdn_net_dial(void)
 				break;
 			case 4:
 				/* Wait for D-Channel-connect.
-				 * If timeout and max retries not
-				 * reached, switch back to state 3.
+				 * If timeout, switch back to state 3.
+				 * Dialmax-handling moved to state 3.
 				 */
 				if (p->local.dtimer++ > ISDN_TIMER_DTIMEOUT10)
-					if (p->local.dialretry < p->local.dialmax) {
-						p->local.dialstate = 3;
-					} else
-#ifdef CONFIG_ISDN_WITH_ABC
-						{
-						if(!p->local.master 		&& 
-							p->local.outgoing == 1	&&
-							!(p->local.abc_flags & ABC_NODCHAN)) {
-
-							struct sk_buff *skb;
-
-							u_long flags;
-							save_flags(flags);
-							cli();
-							skb = p->local.first_skb;
-							p->local.first_skb = NULL;
-							restore_flags(flags);
-
-							if(skb != NULL) {
-
-								isdn_net_unreachable(&p->dev, skb,
-							   	  "Destination out of Order");
-
-								dev_kfree_skb(skb, FREE_WRITE);
-							} 
-						}
-
-						if(p->local.abc_flags & ABC_NODCHAN) {
-
-							u_long flags;
-							struct sk_buff *skb;
-
-							save_flags(flags);
-							cli();
-							skb = p->local.first_skb;
-							p->local.first_skb = NULL;
-							restore_flags(flags);
-
-							isdn_net_hangup(&p->dev);
-
-							save_flags(flags);
-							cli();
-							p->local.first_skb = skb;
-							restore_flags(flags);
-							p->local.abc_call_disabled = 0;
-
-						} else isdn_net_hangup(&p->dev);
-
-						}
-#else
-						isdn_net_hangup(&p->dev);
-#endif
+					p->local.dialstate = 3;
 				anymore = 1;
 				break;
 			case 5:
@@ -1102,6 +1189,7 @@ isdn_net_dial(void)
 			case 6:
 				/* Wait for B- or D-Channel-connect. If timeout,
 				 * switch back to state 3.
+				 * Dialmax-handling moved to state 3.
 				 */
 #ifdef ISDN_DEBUG_NET_DIAL
 				printk(KERN_DEBUG "dialtimer2: %d\n", p->local.dtimer);
@@ -1275,6 +1363,12 @@ isdn_net_log_packet(u_char * buf, isdn_net_local * lp)
 			proto = ntohs(*(unsigned short *) &buf[2]);
 			p = &buf[4];
 			break;
+#ifdef CONFIG_ISDN_PPP
+		case ISDN_NET_ENCAP_SYNCPPP:
+			/* jump over fake header. */
+			p = &buf[IPPP_MAX_HEADER];
+			break;
+#endif
 	}
 	data_ofs = ((p[0] & 15) * 4);
 	switch (proto) {
@@ -1391,6 +1485,11 @@ isdn_net_xmit(struct device *ndev, isdn_net_local * lp, struct sk_buff *skb)
 {
 	int ret;
 
+#if CONFIG_ISDN_TIMEOUT_RULES
+	(void)isdn_net_recalc_timeout(ISDN_TIMRU_KEEPUP_OUT,
+		ISDN_TIMRU_PACKET_SKB, ndev, skb, 0);
+#endif
+
 	/* For the other encaps the header has already been built */
 #ifdef CONFIG_ISDN_PPP
 	if (lp->p_encap == ISDN_NET_ENCAP_SYNCPPP) {
@@ -1401,7 +1500,9 @@ isdn_net_xmit(struct device *ndev, isdn_net_local * lp, struct sk_buff *skb)
 #ifdef CONFIG_ISDN_WITH_ABC
     abc_hup_snd_test(lp,skb);
 #else
+#ifndef CONFIG_ISDN_TIMEOUT_RULES
 	lp->huptimer = 0;
+#endif
 #endif
 	if (lp->cps > lp->triggercps) {
 		/* Device overloaded */
@@ -1585,6 +1686,43 @@ isdn_net_start_xmit(struct sk_buff *skb, struct device *ndev)
 				ulong flags;
 				save_flags(flags);
 				cli();
+
+#ifdef CONFIG_ISDN_TIMEOUT_RULES
+				if(isdn_net_recalc_timeout(ISDN_TIMRU_BRINGUP,
+					ISDN_TIMRU_PACKET_SKB, ndev, skb, 0) <= 0) {
+					/*
+					printk(KERN_WARNING "isdn_net: Dial rejected %s, packet may not bring up connection, packet dropped\n",
+						ndev->name);
+					*/
+					isdn_net_unreachable(ndev, skb, "dial rejected: packet may not bring up connection");
+					dev_kfree_skb(skb, FREE_WRITE);
+					ndev->tbusy = 0;
+					restore_flags(flags);
+					return 0;
+				}
+#endif
+				if(lp->dialwait_timer <= 0)
+					if(lp->dialstarted > 0 && lp->dialtimeout > 0 && jiffies < lp->dialstarted + lp->dialtimeout + lp->dialwait)
+						lp->dialwait_timer = lp->dialstarted + lp->dialtimeout + lp->dialwait;
+
+				if(lp->dialwait_timer > 0) {
+					if(jiffies < lp->dialwait_timer) {
+/*
+printk("reject: jiffies=%ld, started=%ld, timeout=%d, wait=%ld, timer=%ld\n", jiffies, lp->dialstarted, lp->dialtimeout, lp->dialwait, lp->dialwait_timer);
+*/
+						/*
+						printk(KERN_WARNING "isdn_net: Dial rejected %s, packet dropped\n",
+							ndev->name);
+						*/
+						isdn_net_unreachable(ndev, skb, "dial rejected: retry-time not reached");
+						dev_kfree_skb(skb, FREE_WRITE);
+						ndev->tbusy = 0;
+						restore_flags(flags);
+						return 0;
+					} else
+						lp->dialwait_timer = 0;
+				}
+
 				/* Grab a free ISDN-Channel */
 #ifdef CONFIG_ISDN_WITH_ABC
 
@@ -1803,7 +1941,9 @@ isdn_net_receive(struct device *ndev, struct sk_buff *skb)
 #endif
 #ifdef CONFIG_ISDN_PPP
 	isdn_net_local *olp = lp;	/* original 'lp' */
+#ifndef CONFIG_ISDN_TIMEOUT_RULES
 	int proto = PPP_PROTOCOL(skb->data);
+#endif
 #endif
 
 	lp->transcount += skb->len;
@@ -1812,6 +1952,7 @@ isdn_net_receive(struct device *ndev, struct sk_buff *skb)
 	abc_lp = lp;
 	abc_huptimer = lp->huptimer;
 #endif
+#ifndef CONFIG_ISDN_TIMEOUT_RULES
 #ifdef CONFIG_ISDN_PPP
 	/*
 	 * If encapsulation is syncppp, don't reset
@@ -1821,6 +1962,7 @@ isdn_net_receive(struct device *ndev, struct sk_buff *skb)
 	    (lp->p_encap == ISDN_NET_ENCAP_SYNCPPP && proto != PPP_LCP))
 #endif
 		lp->huptimer = 0;
+#endif
 
 	if (lp->master) {
 		/* Bundling: If device is a slave-device, deliver to master, also
@@ -1832,6 +1974,7 @@ isdn_net_receive(struct device *ndev, struct sk_buff *skb)
 #ifdef CONFIG_ISDN_WITH_ABC
 		abc_master_hup = lp->huptimer;
 #endif
+#ifndef CONFIG_ISDN_TIMEOUT_RULES
 #ifdef CONFIG_ISDN_PPP
 		/*
 		 * If encapsulation is syncppp, don't reset
@@ -1841,6 +1984,7 @@ isdn_net_receive(struct device *ndev, struct sk_buff *skb)
 		    (lp->p_encap == ISDN_NET_ENCAP_SYNCPPP && proto != PPP_LCP))
 #endif
 			lp->huptimer = 0;
+#endif
 	}
 	skb->dev = ndev;
 	skb->pkt_type = PACKET_HOST;
@@ -1897,6 +2041,11 @@ isdn_net_receive(struct device *ndev, struct sk_buff *skb)
 			kfree_skb(skb, FREE_READ);
 			return;
 	}
+
+#ifdef CONFIG_ISDN_TIMEOUT_RULES
+	isdn_net_recalc_timeout(ISDN_TIMRU_KEEPUP_IN,
+		ISDN_TIMRU_PACKET_SKB, ndev, skb, 0);
+#endif
 	netif_rx(skb);
 	return;
 }
@@ -2903,6 +3052,26 @@ isdn_net_new(char *name, struct device *master)
 	netdev->local.dialmax = 1;
 	netdev->local.flags = ISDN_NET_CBHUP;	/* Hangup before Callback */
 	netdev->local.cbdelay = 25;	/* Wait 5 secs before Callback */
+	netdev->local.dialtimeout = -1;  /* Infinite Dial-Timeout */
+	netdev->local.dialwait = 5 * HZ; /* Wait 5 sec. after failed dial */
+	netdev->local.dialstarted = 0;   /* Jiffies of last dial-start */
+	netdev->local.dialwait_timer = 0;  /* Jiffies of earliest next dial-start */
+
+#ifdef CONFIG_ISDN_TIMEOUT_RULES
+	netdev->local.timeout_rules = NULL;
+	/*
+	if(isdn_timru_alloc_timeout_rules(&netdev->dev) != 0) {
+		printk(KERN_WARNING "isdn_net: Could not allocate timeout-rules\n");
+		kfree(netdev);
+		return NULL;
+	}
+	*/
+#endif
+
+#ifdef CONFIG_ISDN_BUDGET
+	(void)isdn_net_budget(ISDN_BUDGET_INIT, &netdev->dev);
+#endif
+
 	/* Put into to netdev-chain */
 	netdev->next = (void *) dev->netdev;
 	dev->netdev = netdev;
@@ -3103,6 +3272,8 @@ isdn_net_setcfg(isdn_net_ioctl_cfg * cfg)
 		p->local.triggercps = cfg->triggercps;
 		p->local.slavedelay = cfg->slavedelay * HZ;
 		p->local.pppbind = cfg->pppbind;
+		p->local.dialtimeout = cfg->dialtimeout >= 0 ? cfg->dialtimeout * HZ : -1;
+		p->local.dialwait    = cfg->dialwait * HZ;
 		if (cfg->secure)
 			p->local.flags |= ISDN_NET_SECURE;
 		else
@@ -3124,6 +3295,10 @@ isdn_net_setcfg(isdn_net_ioctl_cfg * cfg)
 				p->local.flags &= ~ISDN_NET_CALLBACK;
 				break;
 		}
+		if (cfg->stopped)
+			p->local.flags |= ISDN_NET_STOPPED;
+		else
+			p->local.flags &= ~ISDN_NET_STOPPED;
 		if (cfg->chargehup)
 			p->local.hupflags |= ISDN_CHARGEHUP;
 		else
@@ -3201,6 +3376,7 @@ isdn_net_getcfg(isdn_net_ioctl_cfg * cfg)
 		if (p->local.flags & ISDN_NET_CBOUT)
 			cfg->callback = 2;
 		cfg->cbhup = (p->local.flags & ISDN_NET_CBHUP) ? 1 : 0;
+		cfg->stopped = (p->local.flags & ISDN_NET_STOPPED) ? 1 : 0;
 		cfg->chargehup = (p->local.hupflags & 4) ? 1 : 0;
 		cfg->ihup = (p->local.hupflags & 8) ? 1 : 0;
 		cfg->cbdelay = p->local.cbdelay;
@@ -3210,6 +3386,8 @@ isdn_net_getcfg(isdn_net_ioctl_cfg * cfg)
 		cfg->chargeint = (p->local.hupflags & ISDN_CHARGEHUP) ?
 		    (p->local.chargeint / HZ) : 0;
 		cfg->pppbind = p->local.pppbind;
+		cfg->dialtimeout = p->local.dialtimeout >= 0 ? p->local.dialtimeout / HZ : -1;
+		cfg->dialwait = p->local.dialwait / HZ;
 		if (p->local.slave)
 			strcpy(cfg->slave, ((isdn_net_local *) p->local.slave->priv)->name);
 		else

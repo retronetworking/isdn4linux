@@ -19,6 +19,13 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.28  1997/06/17 13:05:57  hipp
+ * Applied Eric's underflow-patches (slightly modified)
+ * more compression changes (but disabled at the moment)
+ * changed one copy_to_user() to run with enabled IRQs
+ * a few MP changes
+ * changed 'proto' handling in the isdn_ppp receive code
+ *
  * Revision 1.27  1997/03/30 16:51:17  calle
  * changed calls to copy_from_user/copy_to_user and removed verify_area
  * were possible.
@@ -850,8 +857,10 @@ isdn_ppp_write(int min, struct file *file, const char *buf, int count)
 {
 	isdn_net_local *lp;
 	struct ippp_struct *is;
+#ifndef CONFIG_ISDN_TIMEOUT_RULES
 	int proto;
 	unsigned char protobuf[4];
+#endif
 
 	is = file->private_data;
 
@@ -865,6 +874,7 @@ isdn_ppp_write(int min, struct file *file, const char *buf, int count)
 	if (!lp)
 		printk(KERN_DEBUG "isdn_ppp_write: lp == NULL\n");
 	else {
+#ifndef CONFIG_ISDN_TIMEOUT_RULES
 		/*
 		 * Don't reset huptimer for
 		 * LCP packets. (Echo requests).
@@ -874,6 +884,7 @@ isdn_ppp_write(int min, struct file *file, const char *buf, int count)
 		proto = PPP_PROTOCOL(protobuf);
 		if (proto != PPP_LCP)
 			lp->huptimer = 0;
+#endif
 
 		if (lp->isdn_device < 0 || lp->isdn_channel < 0)
 			return 0;
@@ -894,6 +905,12 @@ isdn_ppp_write(int min, struct file *file, const char *buf, int count)
 				printk(KERN_DEBUG "ppp xmit: len %d\n", (int) skb->len);
 				isdn_ppp_frame_log("xmit", skb->data, skb->len, 32);
 			}
+
+#ifdef CONFIG_ISDN_TIMEOUT_RULES
+			(void)isdn_net_recalc_timeout(ISDN_TIMRU_KEEPUP_OUT,
+				ISDN_TIMRU_PACKET_PPP, &lp->netdev->dev, skb->data, 0);
+#endif
+		
 			if ((cnt = isdn_writebuf_skb_stub(lp->isdn_device, lp->isdn_channel, skb)) != count) {
 				if (lp->sav_skb) {
 					dev_kfree_skb(lp->sav_skb, FREE_WRITE);
@@ -1251,16 +1268,25 @@ isdn_ppp_push_higher(isdn_net_dev * net_dev, isdn_net_local * lp, struct sk_buff
 			isdn_ppp_receive_ccp(net_dev,lp,skb);
 			/* fall through */
 		default:
+#ifdef CONFIG_ISDN_TIMEOUT_RULES
+			(void)isdn_net_recalc_timeout(ISDN_TIMRU_KEEPUP_IN,
+				ISDN_TIMRU_PACKET_PPP_NO_HEADER, dev, skb->data, proto);
+#endif
 			isdn_ppp_fill_rq(skb->data, skb->len, proto, lp->ppp_slot);	/* push data to pppd device */
 			SET_SKB_FREE(skb);
 			dev_kfree_skb(skb, 0 /* FREE_READ */ );
 			return;
 	}
 
-	netif_rx(skb);
-	/* net_dev->local.stats.rx_packets++; *//* done in isdn_net.c */
+#ifdef CONFIG_ISDN_TIMEOUT_RULES
+	(void)isdn_net_recalc_timeout(ISDN_TIMRU_KEEPUP_IN,
+		ISDN_TIMRU_PACKET_SKB, dev, skb, 0);
+#else
 	/* Reset hangup-timer */
 	lp->huptimer = 0;
+#endif
+	netif_rx(skb);
+	/* net_dev->local.stats.rx_packets++; *//* done in isdn_net.c */
 
 	return;
 }
@@ -1362,7 +1388,9 @@ isdn_ppp_xmit(struct sk_buff *skb, struct device *dev)
 	}
 	ipt = ippp_table[lp->ppp_slot];
 
+#ifndef CONFIG_ISDN_TIMEOUT_RULES
 	lp->huptimer = 0;
+#endif
 
 	/*
 	 * after this line .. requeueing in the device queue is no longer allowed!!!

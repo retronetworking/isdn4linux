@@ -1,4 +1,4 @@
-/* $Id$
+/* isdn_budget.c
  *
  * Linux ISDN subsystem, budget-accounting for network interfaces.
  *
@@ -19,6 +19,7 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ *
  */
 
 /*
@@ -160,18 +161,18 @@ isdn_budget_ioctl(isdn_ioctl_budget *iocmd) {
 			if(iocmd->amount < 0)
 				iocmd->amount = -1;
 
-			p->local->budget [iocmd->budget] .amount = iocmd->amount;
-			p->local->budget [iocmd->budget] .period = iocmd->period;
+			p->local.budget [iocmd->budget] .amount = iocmd->amount;
+			p->local.budget [iocmd->budget] .period = iocmd->period;
 
 			if(iocmd->used <= 0)
-				p->local->budget [iocmd->budget] .used = 0;
+				p->local.budget [iocmd->budget] .used = 0;
 			else
-				p->local->budget [iocmd->budget] .used = iocmd->used;
+				p->local.budget [iocmd->budget] .used = iocmd->used;
 
 			if(iocmd->period_started == (time_t)0)
-				p->local->budget [iocmd->budget] .period_started = CURRENT_TIME;
+				p->local.budget [iocmd->budget] .period_started = CURRENT_TIME;
 			else
-				p->local->budget [iocmd->budget] .period_started = iocmd->period_started;
+				p->local.budget [iocmd->budget] .period_started = iocmd->period_started;
 
 			return(0);
 			break;
@@ -180,10 +181,10 @@ isdn_budget_ioctl(isdn_ioctl_budget *iocmd) {
 			if(iocmd->budget < 0 || iocmd->budget > ISDN_BUDGET_NUM_BUDGET)
 				return(-EINVAL);
 
-			iocmd->amount = p->local->budget [iocmd->budget] .amount;
-			iocmd->used = p->local->budget [iocmd->budget] .used;
-			iocmd->period = p->local->budget [iocmd->budget] .period;
-			iocmd->period_started = p->local->budget [iocmd->budget] .period_started;
+			iocmd->amount = p->local.budget [iocmd->budget] .amount;
+			iocmd->used = p->local.budget [iocmd->budget] .used;
+			iocmd->period = p->local.budget [iocmd->budget] .period;
+			iocmd->period_started = p->local.budget [iocmd->budget] .period_started;
 
 			return(0);
 			break;
