@@ -7,6 +7,10 @@
  *              Fritz Elfert
  *
  * $Log$
+ * Revision 1.4  1996/10/27 22:20:16  keil
+ * alerting bugfixes
+ * no static b-channel<->channel mapping
+ *
  * Revision 1.2  1996/10/16 21:29:45  keil
  * compile bug as "not module"
  * Callback with euro
@@ -694,6 +698,7 @@ static struct FsmNode fnlist[] =
         {ST_OUT_W_HANGUP,     EV_DLRL,                r20},
         {ST_CLEAR,            EV_RELEASE_CNF,         r3},
         {ST_CLEAR,            EV_DLRL,                r20},
+        {ST_REL_W,            EV_HANGUP,              r4},
         {ST_REL_W,            EV_DLRL,                r4},
         {ST_NULL,             EV_SETUP_IND,           r6},
         {ST_IN_W,             EV_DLEST,               r7},
@@ -1376,19 +1381,23 @@ HiSax_command(isdn_ctrl * ic)
           case (ISDN_CMD_LOCK):
                   HiSax_mod_inc_use_count();
 #ifdef MODULE
-		  jiftime(tmp, jiffies);
-		  i=strlen(tmp);
-                  sprintf(tmp+i, "   LOCK modcnt %lx\n",mod_use_count_);
-		  HiSax_putstatus(tmp);
+		  if (debugflags & 0x64) {
+		  	jiftime(tmp, jiffies);
+		  	i=strlen(tmp);
+                  	sprintf(tmp+i, "   LOCK modcnt %lx\n",mod_use_count_);
+		  	HiSax_putstatus(tmp);
+		  }
 #endif MODULE
                   break;
           case (ISDN_CMD_UNLOCK):
                   HiSax_mod_dec_use_count();
 #ifdef MODULE
-		  jiftime(tmp, jiffies);
-		  i=strlen(tmp);
-                  sprintf(tmp+i, " UNLOCK modcnt %lx\n",mod_use_count_);
-		  HiSax_putstatus(tmp);
+		  if (debugflags & 0x64) {
+		  	jiftime(tmp, jiffies);
+		  	i=strlen(tmp);
+                  	sprintf(tmp+i, " UNLOCK modcnt %lx\n",mod_use_count_);
+		  	HiSax_putstatus(tmp);
+		  }
 #endif MODULE
                   break;
           case (ISDN_CMD_IOCTL):
@@ -1420,10 +1429,12 @@ HiSax_command(isdn_ctrl * ic)
                             }
                             break;
                     case (3):
-                 	    HiSax_mod_dec_use_count();
+                    	    for (i = 0; i < *(unsigned int *)ic->num; i++)
+                 	    	HiSax_mod_dec_use_count();
                  	    break;
                     case (4):
-                 	    HiSax_mod_inc_use_count();
+                    	    for (i = 0; i < *(unsigned int *)ic->num; i++)
+                 	    	HiSax_mod_inc_use_count();
                  	    break;
                     case (11):
                     	    num=0;
