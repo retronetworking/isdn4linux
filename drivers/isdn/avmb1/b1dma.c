@@ -6,6 +6,9 @@
  * (c) Copyright 2000 by Carsten Paeth (calle@calle.in-berlin.de)
  * 
  * $Log$
+ * Revision 1.1  2000/01/25 14:36:43  calle
+ * common function for  T1 PCI and B1 PCI V4.
+ *
  *
  */
 
@@ -334,7 +337,7 @@ int b1pciv4_detect(avmcard *card)
 			return 7;
 	}
 	for (i=0; i < 5 ; i++) {
-		if (WriteReg(card, 0x80A00000, 0x29) != 0)
+		if (WriteReg(card, 0x80A00000, 0x20) != 0)
 			return 8;
 		if ((ReadReg(card, 0x80A00000) & 0x01) != 0x00)
 			return 9;
