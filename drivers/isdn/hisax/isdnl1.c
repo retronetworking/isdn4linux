@@ -11,6 +11,9 @@
  *
  *
  * $Log$
+ * Revision 1.5  1997/01/10 12:51:19  keil
+ * cleanup; set newversion
+ *
  * Revision 1.4  1996/12/08 19:44:53  keil
  * L2FRAME_DEBUG and other changes from Pekka Sarnila
  *
@@ -54,7 +57,7 @@ const	char	*l1_revision        = "$Revision$";
 #include <linux/interrupt.h>
 
 const   char    *CardType[] =  {"No Card","Teles 16.0","Teles 8.0","Teles 16.3",
-				"Creatix PnP","AVM A1","Elsa ML PCC16"};
+				"Creatix PnP","AVM A1","Elsa ML", "Elsa Quickstep"};
 
 static	char	*HSCXVer[] = {"A1","?1","A2","?3","A3","V2.1","?6","?7",
 			      "?8","?9","?10","?11","?12","?13","?14","???"};
@@ -135,8 +138,14 @@ isac_new_ph(struct IsdnCardState *sp)
 	enq = act_wanted(sp);
 
 	switch (sp->ph_state) {
-	  case (0):
 	  case (6):
+		  sp->ph_command(sp, 15);
+		  break;
+	  case (15):
+		  if (enq)
+			  sp->ph_command(sp, 0);
+		  break;
+	  case (0):
 		  if (enq)
 			  sp->ph_command(sp, 0);
 		  else
@@ -170,7 +179,7 @@ isac_new_ph(struct IsdnCardState *sp)
 	  case (8):
 		  break;
 	  default:
-		  sp->ph_active = 0;
+ 		  sp->ph_active = 0;
 		  break;
 	}
 }
@@ -249,12 +258,14 @@ process_rcv(struct IsdnCardState *sp)
 		broadc = (ptr[1] >> 1) == 127;
 
 		if (broadc) {
-			if (sp->dlogflag && (!(ptr[0] >> 2))) {
-				LogFrame(sp, ptr, ibh->datasize);
-				dlogframe(sp, ptr + 3, ibh->datasize - 3,
-					"Q.931 frame network->user broadcast");
+			if (!(ptr[0] >> 2)) { /* sapi 0 */
+				sp->CallFlags = 3;
+				if (sp->dlogflag) {
+					LogFrame(sp, ptr, ibh->datasize);
+					dlogframe(sp, ptr + 3, ibh->datasize - 3,
+						"Q.931 frame network->user broadcast");
+				}
 			}
-			sp->CallFlags = 3;
 			while (stptr != NULL) {
 				if ((ptr[0] >> 2) == stptr->l2.sap)
 					if (!BufPoolGet(&cibh, &sp->rbufpool, GFP_ATOMIC,
@@ -317,54 +328,66 @@ l2l1(struct PStack *st, int pr,
 	   struct BufHeader *ibh)
 {
 	struct IsdnCardState *sp = (struct IsdnCardState *) st->l1.hardware;
-
+	byte	*ptr = DATAPTR(ibh);
+	char	str[64];
 
 	switch (pr) {
 	  case (PH_DATA):
-	          if (sp->xmtibh) {
-			  BufQueueLink(&sp->sq, ibh);
+	        if (sp->xmtibh) {
+			BufQueueLink(&sp->sq, ibh);
 #ifdef L2FRAME_DEBUG /* psa */
-			  if(sp->debug & L1_DEB_LAPD)
-			        Logl2Frame(sp,ibh,"PH_DATA Queued",0);
+			if(sp->debug & L1_DEB_LAPD)
+				Logl2Frame(sp,ibh,"PH_DATA Queued",0);
 #endif
-		  }
-		  else {
-			  sp->xmtibh = ibh;
-			  sp->sendptr = 0;
-			  sp->releasebuf = !0;
-			  sp->isac_fill_fifo(sp);
+		} else {
+			if ((sp->dlogflag) && (!(ptr[2]&1))) { /* I-FRAME */
+				LogFrame(sp, ptr, ibh->datasize);
+				sprintf(str, "Q.931 frame user->network tei %d", st->l2.tei);
+				dlogframe(sp, ptr + st->l2.ihsize, ibh->datasize - st->l2.ihsize,
+				  str);
+			}
+			sp->xmtibh = ibh;
+			sp->sendptr = 0;
+			sp->releasebuf = !0;
+			sp->isac_fill_fifo(sp);
 #ifdef L2FRAME_DEBUG /* psa */
-			  if(sp->debug & L1_DEB_LAPD)
-			        Logl2Frame(sp,ibh,"PH_DATA",0);
+			if(sp->debug & L1_DEB_LAPD)
+				Logl2Frame(sp,ibh,"PH_DATA",0);
 #endif
-		  }
-		  break;
+		}
+		break;
 	  case (PH_DATA_PULLED):
-		  if (sp->xmtibh) {
-			  if (sp->debug & L1_DEB_WARN)
+		if (sp->xmtibh) {
+			if (sp->debug & L1_DEB_WARN)
         			debugl1(sp, " l2l1 xmtibh exist this shouldn't happen");
-			  break;
-		  }
-		  sp->xmtibh = ibh;
-		  sp->sendptr = 0;
-		  sp->releasebuf = 0;
-		  sp->isac_fill_fifo(sp);
+			break;
+		}
+		if ((sp->dlogflag) && (!(ptr[2]&1))) { /* I-FRAME */
+			LogFrame(sp, ptr, ibh->datasize);
+			sprintf(str, "Q.931 frame user->network tei %d", st->l2.tei);
+			dlogframe(sp, ptr + st->l2.ihsize, ibh->datasize - st->l2.ihsize,
+				str);
+		}
+		sp->xmtibh = ibh;
+		sp->sendptr = 0;
+		sp->releasebuf = 0;
+		sp->isac_fill_fifo(sp);
 #ifdef L2FRAME_DEBUG /* psa */
-		  if(sp->debug & L1_DEB_LAPD)
-		          Logl2Frame(sp,ibh,"PH_DATA_PULLED",0);
+		if(sp->debug & L1_DEB_LAPD)
+			Logl2Frame(sp,ibh,"PH_DATA_PULLED",0);
 #endif
-		  break;
+		break;
 	  case (PH_REQUEST_PULL):
 #ifdef L2FRAME_DEBUG /* psa */
-		  if(sp->debug & L1_DEB_LAPD)
-		          debugl1(sp,"-> PH_REQUEST_PULL");
+		if(sp->debug & L1_DEB_LAPD)
+			debugl1(sp,"-> PH_REQUEST_PULL");
 #endif
-		  if (!sp->xmtibh) {
-			  st->l1.requestpull = 0;
-			  st->l1.l1l2(st, PH_PULL_ACK, NULL);
-		  } else
-			  st->l1.requestpull = !0;
-		  break;
+		if (!sp->xmtibh) {
+			st->l1.requestpull = 0;
+			st->l1.l1l2(st, PH_PULL_ACK, NULL);
+		} else
+			st->l1.requestpull = !0;
+		break;
 	}
 }
 
@@ -465,11 +488,16 @@ HiSax_manl1(struct PStack *st, int pr,
 	    void *arg)
 {
 	struct IsdnCardState *sp = (struct IsdnCardState *)
-	st->l1.hardware;
+		st->l1.hardware;
 	long            flags;
+	char	tmp[32];
 
 	switch (pr) {
 	  case (PH_ACTIVATE):
+		  if (sp->debug) {
+		  	sprintf(tmp, "PH_ACT ph_active %d", sp->ph_active);
+		  	debugl1(sp, tmp);
+		  }
 		  save_flags(flags);
 		  cli();
 		  if (sp->ph_active == 5) {
@@ -485,6 +513,10 @@ HiSax_manl1(struct PStack *st, int pr,
 		  break;
 	  case (PH_DEACTIVATE):
 		  st->l1.act_state = 0;
+		  if (sp->debug) {
+		  	sprintf(tmp, "PH_DEACT ph_active %d", sp->ph_active);
+		  	debugl1(sp, tmp);
+		  }
 		  check_ph_act(sp);
 		  break;
 	}
@@ -625,6 +657,7 @@ closecard(int cardnr)
 #endif
 #if CARD_ELSA
           case ISDN_CTYPE_ELSA:
+          case ISDN_CTYPE_ELSA_QS1000:
 		release_io_elsa(&cards[cardnr]);
                 break;
 #endif
@@ -691,6 +724,7 @@ checkcard(int cardnr)
 #endif
 #if CARD_ELSA
           case ISDN_CTYPE_ELSA:
+          case ISDN_CTYPE_ELSA_QS1000:
                 ret=setup_elsa(card);
                 break;
 #endif
@@ -762,6 +796,7 @@ checkcard(int cardnr)
 #endif
 #if CARD_ELSA
           case ISDN_CTYPE_ELSA:
+          case ISDN_CTYPE_ELSA_QS1000:
                 ret=initelsa(sp);
                 break;
 #endif
