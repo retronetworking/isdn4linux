@@ -21,6 +21,11 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.70  1998/06/17 19:50:49  he
+ * merged with 2.1.10[34] (cosmetics and udelay() -> mdelay())
+ * brute force fix to avoid Ugh's in isdn_tty_write()
+ * cleaned up some dead code
+ *
  * Revision 1.69  1998/06/09 12:27:37  cal
  * Changed default of local netdev flags: ISDN_NET_STOPPED is default now,
  * so autodial is suppressed for that device until it is switched on using
@@ -1994,6 +1999,9 @@ isdn_net_init(struct device *ndev)
 	ndev->stop = &isdn_net_close;
 	ndev->get_stats = &isdn_net_get_stats;
 	ndev->rebuild_header = &isdn_net_rebuild_header;
+#ifdef CONFIG_ISDN_PPP
+	ndev->do_ioctl = isdn_ppp_dev_ioctl;
+#endif
 	return 0;
 }
 
