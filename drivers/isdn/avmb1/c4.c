@@ -6,6 +6,9 @@
  * (c) Copyright 1999 by Carsten Paeth (calle@calle.in-berlin.de)
  * 
  * $Log$
+ * Revision 1.5  2000/03/16 15:21:03  calle
+ * Bugfix in c4_remove: loop 5 times instead of 4 :-(
+ *
  * Revision 1.4  2000/02/02 18:36:03  calle
  * - Modules are now locked while init_module is running
  * - fixed problem with memory mapping if address is not aligned
@@ -770,45 +773,78 @@ static void c4_send_init(avmcard *card)
 	c4_dispatch_tx(card);
 }
 
-static int c4_send_config(avmcard *card, capiloaddatapart * config)
+static int queue_sendconfigword(avmcard *card, __u32 val)
 {
 	struct sk_buff *skb;
-	__u8 val[sizeof(__u32)];
 	void *p;
-	unsigned char *dp;
-	int left, retval;
-	
-	skb = alloc_skb(12 + ((config->len+3)/4)*5, GFP_ATOMIC);
+
+	skb = alloc_skb(3+4, GFP_ATOMIC);
 	if (!skb) {
-		printk(KERN_CRIT "%s: no memory, can't send config.\n",
+		printk(KERN_CRIT "%s: no memory, send config\n",
 					card->name);
-		return	-ENOMEM;
+		return -ENOMEM;
 	}
 	p = skb->data;
 	_put_byte(&p, 0);
 	_put_byte(&p, 0);
 	_put_byte(&p, SEND_CONFIG);
-	_put_word(&p, 1);
+	_put_word(&p, val);
+	skb_put(skb, (__u8 *)p - (__u8 *)skb->data);
+
+	skb_queue_tail(&card->dma->send_queue, skb);
+	c4_dispatch_tx(card);
+	return 0;
+}
+
+static int queue_sendconfig(avmcard *card, char cval[4])
+{
+	struct sk_buff *skb;
+	void *p;
+
+	skb = alloc_skb(3+4, GFP_ATOMIC);
+	if (!skb) {
+		printk(KERN_CRIT "%s: no memory, send config\n",
+					card->name);
+		return -ENOMEM;
+	}
+	p = skb->data;
+	_put_byte(&p, 0);
+	_put_byte(&p, 0);
 	_put_byte(&p, SEND_CONFIG);
-	_put_word(&p, config->len);	/* 12 */
+	_put_byte(&p, cval[0]);
+	_put_byte(&p, cval[1]);
+	_put_byte(&p, cval[2]);
+	_put_byte(&p, cval[3]);
+	skb_put(skb, (__u8 *)p - (__u8 *)skb->data);
+
+	skb_queue_tail(&card->dma->send_queue, skb);
+	c4_dispatch_tx(card);
+	return 0;
+}
+
+static int c4_send_config(avmcard *card, capiloaddatapart * config)
+{
+	__u8 val[4];
+	unsigned char *dp;
+	int left, retval;
+	
+	if ((retval = queue_sendconfigword(card, 1)) != 0)
+		return retval;
+	if ((retval = queue_sendconfigword(card, config->len)) != 0)
+		return retval;
 
 	dp = config->data;
 	left = config->len;
 	while (left >= sizeof(__u32)) {
 	        if (config->user) {
 			retval = copy_from_user(val, dp, sizeof(val));
-			if (retval) {
-				dev_kfree_skb(skb);
+			if (retval)
 				return -EFAULT;
-			}
 		} else {
 			memcpy(val, dp, sizeof(val));
 		}
-		_put_byte(&p, SEND_CONFIG);
-		_put_byte(&p, val[0]);
-		_put_byte(&p, val[1]);
-		_put_byte(&p, val[2]);
-		_put_byte(&p, val[3]);
+		if ((retval = queue_sendconfig(card, val)) != 0)
+			return retval;
 		left -= sizeof(val);
 		dp += sizeof(val);
 	}
@@ -816,24 +852,14 @@ static int c4_send_config(avmcard *card, capiloaddatapart * config)
 		memset(val, 0, sizeof(val));
 		if (config->user) {
 			retval = copy_from_user(&val, dp, left);
-			if (retval) {
-				dev_kfree_skb(skb);
+			if (retval)
 				return -EFAULT;
-			}
 		} else {
 			memcpy(&val, dp, left);
 		}
-		_put_byte(&p, SEND_CONFIG);
-		_put_byte(&p, val[0]);
-		_put_byte(&p, val[1]);
-		_put_byte(&p, val[2]);
-		_put_byte(&p, val[3]);
+		if ((retval = queue_sendconfig(card, val)) != 0)
+			return retval;
 	}
-
-	skb_put(skb, (__u8 *)p - (__u8 *)skb->data);
-
-	skb_queue_tail(&card->dma->send_queue, skb);
-	c4_dispatch_tx(card);
 
 	return 0;
 }
@@ -871,8 +897,15 @@ static int c4_load_firmware(struct capi_ctr *ctrl, capiloaddata *data)
 	c4outmeml(card->mbase+DOORBELL, DBELL_UP_ARM);
 	restore_flags(flags);
 
-	if (data->configuration.len > 0 && data->configuration.data)
-		c4_send_config(card, &data->configuration);
+	if (data->configuration.len > 0 && data->configuration.data) {
+		retval = c4_send_config(card, &data->configuration);
+		if (retval) {
+			printk(KERN_ERR "%s: failed to set config!!\n",
+					card->name);
+			c4_reset(card);
+			return retval;
+		}
+	}
 
         c4_send_init(card);
 
