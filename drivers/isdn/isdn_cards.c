@@ -38,26 +38,26 @@ extern void pcbit_init(void);
 extern void eicon_init(void);
 #endif
 
-#if CONFIG_ISDN_DRV_ACT2000
+#ifdef CONFIG_ISDN_DRV_ACT2000
 extern void act2000_init(void);
 #endif
 
 void
 isdn_cards_init(void)
 {
-#if CONFIG_ISDN_DRV_ICN
+#ifdef CONFIG_ISDN_DRV_ICN
 	icn_init();
 #endif
 #ifdef CONFIG_ISDN_DRV_HISAX
 	HiSax_init();
 #endif
-#if CONFIG_ISDN_DRV_PCBIT
+#ifdef CONFIG_ISDN_DRV_PCBIT
 	pcbit_init();
 #endif
-#if CONFIG_ISDN_DRV_ACT2000
+#ifdef CONFIG_ISDN_DRV_ACT2000
 	act2000_init();
 #endif
-#if CONFIG_ISDN_DRV_EICON
+#ifdef CONFIG_ISDN_DRV_EICON
 	eicon_init();
 #endif
 }

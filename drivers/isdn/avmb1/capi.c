@@ -6,6 +6,9 @@
  * Copyright 1996 by Carsten Paeth (calle@calle.in-berlin.de)
  *
  * $Log$
+ * Revision 1.44  2000/11/25 17:00:59  kai
+ * compatibility cleanup - final part for the time being
+ *
  * Revision 1.43  2000/11/23 20:45:14  kai
  * fixed module_init/exit stuff
  * Note: compiled-in kernel doesn't work pre 2.2.18 anymore.
@@ -240,9 +243,9 @@
 #include <linux/init.h>
 #include "capiutil.h"
 #include "capicmd.h"
-#ifdef CONFIG_ISDN_CAPI_MIDDLEWARE
+#if defined(CONFIG_ISDN_CAPI_CAPIFS) || defined(CONFIG_ISDN_CAPI_CAPIFS_MODULE)
 #include "capifs.h"
-#endif /* CONFIG_ISDN_CAPI_MIDDLEWARE */
+#endif
 #ifdef COMPAT_HAS_kmem_cache
 #include <linux/slab.h>
 #endif
@@ -556,7 +559,7 @@ static struct capincci *capincci_alloc(struct capidev *cdev, __u32 ncci)
 #ifdef _DEBUG_REFCOUNT
 		printk(KERN_DEBUG "set mp->nccip\n");
 #endif
-#ifdef CONFIG_ISDN_CAPIFS
+#if defined(CONFIG_ISDN_CAPI_CAPIFS) || defined(CONFIG_ISDN_CAPI_CAPIFS_MODULE)
 		kdev = MKDEV(capi_rawmajor, mp->minor);
 		capifs_new_ncci('r', mp->minor, kdev);
 		kdev = MKDEV(capi_ttymajor, mp->minor);
@@ -581,7 +584,7 @@ static void capincci_free(struct capidev *cdev, __u32 ncci)
 			*pp = (*pp)->next;
 #ifdef CONFIG_ISDN_CAPI_MIDDLEWARE
 			if ((mp = np->minorp) != 0) {
-#ifdef CONFIG_ISDN_CAPIFS
+#if defined(CONFIG_ISDN_CAPI_CAPIFS) || defined(CONFIG_ISDN_CAPI_CAPIFS_MODULE)
 				capifs_free_ncci('r', mp->minor);
 				capifs_free_ncci(0, mp->minor);
 #endif
