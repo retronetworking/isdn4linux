@@ -11,6 +11,9 @@
  *
  *
  * $Log$
+ * Revision 1.8  1997/02/09 00:24:31  keil
+ * new interface handling, one interface per card
+ *
  * Revision 1.7  1997/01/27 15:56:03  keil
  * PCMCIA Teles card and ITK ix1 micro added
  *
@@ -61,6 +64,9 @@ const char *l1_revision = "$Revision$";
 #if CARD_IX1MICROR2
 #include "ix1_micro.h"
 #endif
+
+/* #define I4L_IRQ_FLAG	SA_INTERRUPT */
+#define I4L_IRQ_FLAG    0
 
 #define HISAX_STATUS_BUFSIZE 4096
 
@@ -734,7 +740,7 @@ get_irq(int cardnr, void *routine)
 	save_flags(flags);
 	cli();
 	if (request_irq(card->sp->irq, routine,
-			SA_INTERRUPT, "HiSax", NULL)) {
+			I4L_IRQ_FLAG, "HiSax", NULL)) {
 		printk(KERN_WARNING "HiSax: couldn't get interrupt %d\n",
 		       card->sp->irq);
 		restore_flags(flags);
