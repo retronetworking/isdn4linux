@@ -2,21 +2,22 @@
 HiSax is a Linux hardware level driver for passive ISDN cards with Siemens
 chipset (ISAC_S 2085/2086/2186 HSCX SAB 82525). It is based on the Teles
 driver from Jan den Ouden.
-It is meant to be used with isdn4isdn4linux, an ISDN Link-level module 
-for Linux written by Fritz Elfert.
+It is meant to be used with isdn4linux, an ISDN Link-level module for Linux 
+written by Fritz Elfert.
 
 Supported Cards
 ---------------
 
-Teles 8.0/16.0/16.3 (not PNP) and compatible
-Creatix PNP S0
+Teles 8.0/16.0/16.3 and compatible
+Creatix PnP S0
 AVM A1 (Fritz)
 ELSA Microlink PCC-16 PCF PCF-Pro PCC-8
+ELSA Quickstep 1000
 
 Note: PCF PCF-Pro only the ISDN part is supported yet
       PCC-8 not tested yet
 
-If you know other passive cards with Siemens chipset, please let me know.
+If you know other passive cards with the Siemens chipset, please let me know.
 To use the PNP cards you need the isapnptools.
 
 
@@ -24,59 +25,111 @@ Configuring the Driver
 ----------------------
 
 The driver can be build direct into the kernel or as module.
-The HiSax driver can be configured using the commandline-feature
-while loading the kernel with LILO or LOADLIN or if build as module
+The HiSax driver can be configured using the command line feature
+while loading the kernel with LILO or LOADLIN or, if built as a module,
 using insmod/modprobe with parameters.
 
-LILO/LOADLIN:
+As Module
+---------
+
+insmod/modprobe  hisax.o \
+  io=iobase irq=IRQ mem=membase type=card_type \
+  protocol=D_channel_protocol id=idstring
+
+or, if several cards are installed:
+
+insmod/modprobe hisax.o \
+  io=iobase1,iobase2,... mem=membase1,membase2,... \
+  type=card_type1,card_type2,... \
+  protocol=D_channel_protocol1,D_channel_protocol2,... id=idstring
+
+where iobaseN = io base address of the Nth card, membaseN = memory
+base address of the Nth card, etc.
+
+The parameters can be specified in any order. For example, the io
+parameter can precede the irq parameter, or vice versa. If several
+cards are installed the ordering within the comma separated parameter
+lists must be consistent, of course.
+
+Only parameters applicable to the card type need be specified. For
+example, the Teles 16.3 card is not memory mapped, so the mem
+parameter may be omitted for a Teles 16.3. Sometimes it is necessary
+to specify a dummy parameter, however. This is the case when there is
+a card of a different type later in the list that needs a parameter
+which the preceding card does not. For instance, if a Teles 16.0 card
+is listed after a Teles 16.3 card, a dummy mem=0 parameter must be
+specified for the 16.3. Instead of a dummy value, the parameter can
+also be skipped by simply omitting the value. For example:
+mem=,0xd0000. See example 4 below.
+
+The Creatix/Teles PnP cards uses io1= and io2= instead of io= for specifying 
+the I/O addresses of the ISAC and HSCX chips, respectively.
+
+Card types:
+
+    Type                Required parameters (in addition to type and protocol)
+
+    1   Teles 16.0               irq, mem, io
+    2   Teles  8.0               irq, mem
+    3   Teles 16.3 (non PnP)     irq, io
+    4   Creatix/Teles PnP        irq, io0 (ISAC), io1 (HSCX)
+    5   AVM A1 (Fritz)           irq, io
+    6   ELSA PCC/PCF cards       io or nothing for autodetect (the iobase is
+                                 only required, if you have more than one ELSA
+                                 card in your PC)
+    7   ELSA Quickstep 1000	 io, irq  (from isapnp setup)
+        
+At the moment IRQ sharing is not possible. Please make sure that your IRQ
+is free and enabled for ISA use.
+
+Examples for module loading
+
+1. Teles 16.3, Euro ISDN, I/O base 280 hex, IRQ 10
+modprobe hisax type=3 protocol=2 io=0x280 irq=10
+
+2. Teles 16.0, 1TR6 ISDN, I/O base d80 hex, IRQ 5, Memory d0000 hex
+modprobe hisax protocol=1 type=1 io=0xd80 mem=0xd0000 irq=5
+
+3. Fritzcard, Euro ISDN, I/O base 340 hex, IRQ 10 and ELSA PCF, Euro ISDN
+modprobe hisax type=5,6 protocol=2,2 io=0x340 irq=10
+
+4. Any ELSA  PCC/PCF card  Euro ISDN
+modprobe hisax type=6 protocol=2
+
+5. Teles 16.3 PnP, Euro ISDN, with isapnp configured 
+isapnp config:  (INT 0 (IRQ 10 (MODE +E)))
+		(IO 0 (BASE 0x0580))
+                (IO 1 (BASE 0x0180))
+modprobe hisax type=4 protocol=2 io0=0x580 io1=0x180
+
+6. Teles 16.3, Euro ISDN, I/O base 280 hex, IRQ 12 and
+   Teles 16.0, 1TR6, IRQ 5, Memory d0000 hex
+modprobe hisax type=3,1 protocol=2,1 io=0x280 mem=0,0xd0000
+
+Please note the dummy 0 memory address for the Teles 16.3 in the last
+example as placeholder.
+
+
+LILO/LOADLIN with driver compiled direct into the kernel:
 
 hisax=typ1,dp1,pa_1,pb_1,pc_1[,typ2,dp2,pa_2 ... ,pa_n,pb_n,pc_n][,idstring]
 
-insmod/modprobe
-
-insmod hisax.o \
-  io=typ1,dp1,pa_1,pb_1,pc_1[,typ2,dp2,pa_2 ... ,pa_n,pb_n,pc_n] \
-     [HiSax_id=idstring]
-
 where
-     typ1 = Cardtype of 1st card. (default: 1 = Teles 16.0)
+     typ1 = Cardtype of 1st card. (default: depends on kernel settings)
      dp1  = D-channel protocol of 1st card. 1=1TR6, 2=EDSS1 (default: 2)
      pa_1 = 1. parameter (depend on the cardtype) (default: 15 (irq))
-     pb_1 = 2. parameter (depend on the cardtype) (default: 0xD0000)					
-     pc_1 = 3. parameter (depend on the cardtype) (default: 0xD80)					
+     pb_1 = 2. parameter (depend on the cardtype) (default: 0xD0000)                                    
+     pc_1 = 3. parameter (depend on the cardtype) (default: 0xD80)                                      
 
      typ2,dp2,pa_2,pb_2,pc_2 = Parameters of second card   (defaults: none)
      typn,dpn,pa_n,pb_n,pc_n = Parameters of n'th card (up to 16 cards are supported)
 
      idstring = Driver-Id for accessing with utilities and identification
-                when using a Line-monitor. (default: none)
+                when using a Line-monitor. (default: HiSax)
                 idstring must start with a character!
 
-     Cardtypes:
-
-   typ  
-    1 	Teles 16.0      pa=irq	pb=membase	pc=iobase
-    2 	Teles  8.0      pa=irq	pb=membase
-    3 	Teles 16.3      pa=irq	pb=iobase
-    4 	Creatix PNP     pa=irq	pb=IO0 (ISAC)	pc=IO1 (HSCX)
-    5 	AVM A1 (Fritz)  pa=irq	pb=iobase
-    6 	ELSA Cards      pa=iobase or nothing for autodetect (the iobase is
-                           only required, if you have more as one ELSA card
-			   in your PC)
-	
-If you use more as one card set unused parameter to zero.
-In the moment is no IRQ sharing possible.
-Please be sure that you IRQ is free and enabled for ISA use.
-
-Examples for module loading
-1. Teles 16.3 Euro ISDN Jumper 280 hex IRQ 10
-modprobe hisax io=3,2,10,0x280
-
-2. Teles 16.0 1TR6 ISDN Jumper d80 hex IRQ 5 Memory d0000 hex
-modprobe hisax io=1,1,5,0xd0000,0xd80
-
-3. Fritzcard Jumper EURO 340 hex IRQ 10 und ELSA PCF EURO
-modprobe hisax io=5,2,10,0x340,0,6,2
+Card types: see under Modules.
+       
 
 Running
 -------
@@ -108,22 +161,48 @@ At this point you can run a 'cat /dev/isdnctrl0' and view debugging
 messages. 
 In the moment debugging messages are enabled with the telesctrl tool : 
 
-    telesctrl <DriverId> 1 <debugging_flags>  
+    telesctrl <DriverId> DebugCmd <debugging_flags>  
 
-<DriverId> default is line0, if you didn't specified one.
+<DriverId> default is HiSax, if you didn't specified one.
+
+DebugCmd is 1   for generic Debug
+            11  for Layer 1 development Debug
+            13  for Layer 3 development Debug
 
 where <debugging_flags> is the integer sum of the following debugging
 options you wish enabled:
 
-	1   Link-level <--> Hardware-level communication
-	2   Top state machine 
-	4   D channel Q.931 (call control messages)
-	8   D channel Q.921 
-	16  B channel X.75
-	32  unused
-	64  LOCK debug in callc.c
+With DebugCmd 1 is
 
-For example 'telesctrl line0 1 31' enables full debugging.
+        1   Link-level <--> Hardware-level communication
+        2   Top state machine 
+        4   D channel Q.931 (call control messages)
+        8   D channel Q.921 
+        16  B channel X.75
+        32  unused
+        64  LOCK debug in callc.c
+       128  D-Channel link state debug
+       256  B-Channel link state debug
+       512  Tei debug
+
+With DebugCmd 11 is
+
+         1  Warnings (default on)
+         2  Irq Status
+         4  Isac
+         8  Isac fifo
+        16  Hscx
+        32  Hscx fifo (attention full B-channel output)
+        64  D-channel LAPD frame types
+
+With DebugCmd 13 is
+
+         1  Warnings (default on)
+         2  l3 protocol discriptor errors
+         4  l3 stat machine
+         8  charge info debug (1TR6)
+
+For example 'telesctrl HiSax 1 0x3ff' enables full generic debugging.
 
 
 
@@ -145,15 +224,15 @@ Thanks
 ------
 Special thanks to:
 
-	Emil Stephan for the name HiSax which is a mix of HSCX and ISAC.
+        Emil Stephan for the name HiSax which is a mix of HSCX and ISAC.
 
-	Fritz Elfert, Jan den Ouden, Michael Hipp, Michael Wein, 
-	Andreas Kool 
-	and more people, who are hunting bugs
+        Fritz Elfert, Jan den Ouden, Michael Hipp, Michael Wein, 
+        Andreas Kool, Pekka Sarnila, Sim Yskes, Johan Myrre'en 
+        and more people, who are hunting bugs
 
-	Firma ELSA GmbH
-	
-	My girl friend and partner in life Ute for her patience with me
+        Firma ELSA GmbH
+        
+        My girl friend and partner in life Ute for her patience with me
 
 
 Enjoy,
