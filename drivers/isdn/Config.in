@@ -15,6 +15,7 @@ if [ "$CONFIG_INET" != "n" ]; then
 fi
 bool 'Support audio via ISDN' CONFIG_ISDN_AUDIO
 dep_tristate 'ICN 2B and 4B support' CONFIG_ISDN_DRV_ICN $CONFIG_ISDN
+dep_tristate 'isdnloop support' CONFIG_ISDN_DRV_LOOP $CONFIG_ISDN
 dep_tristate 'PCBIT-D support' CONFIG_ISDN_DRV_PCBIT $CONFIG_ISDN
 dep_tristate 'HiSax SiemensChipSet driver support' CONFIG_ISDN_DRV_HISAX $CONFIG_ISDN
 if [ "$CONFIG_ISDN_DRV_HISAX" != "n" ]; then
