@@ -3,11 +3,7 @@
  *
  * Author     Roland Klabunde (R.Klabunde@Berkom.de)
  *
- * $Log$
- * Revision 1.2  1999/07/01 08:07:55  keil
- * Initial version
- *
- *
+ * This file is (c) under GNU PUBLIC LICENSE
  *
  */
 

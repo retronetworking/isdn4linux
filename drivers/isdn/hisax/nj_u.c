@@ -1,3 +1,8 @@
+/* $Id$ 
+ *
+ * This file is (c) under GNU PUBLIC LICENSE
+ *
+ */
 #define __NO_VERSION__
 #include <linux/config.h>
 #include "hisax.h"

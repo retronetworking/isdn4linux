@@ -7,26 +7,7 @@
  *
  * Author       Carsten Paeth (calle@calle.in-berlin.de)
  *
- * $Log$
- * Revision 2.4  1999/07/12 21:04:55  keil
- * fix race in IRQ handling
- * added watchdog for lost IRQs
- *
- * Revision 2.3  1998/11/15 23:54:22  keil
- * changes from 2.0
- *
- * Revision 2.2  1998/08/13 23:36:13  keil
- * HiSax 3.1 - don't work stable with current LinkLevel
- *
- * Revision 2.1  1998/07/15 15:01:23  calle
- * Support for AVM passive PCMCIA cards:
- *    A1 PCMCIA, FRITZ!Card PCMCIA and FRITZ!Card PCMCIA 2.0
- *
- * Revision 1.1.2.1  1998/07/15 14:43:26  calle
- * Support for AVM passive PCMCIA cards:
- *    A1 PCMCIA, FRITZ!Card PCMCIA and FRITZ!Card PCMCIA 2.0
- *
- *
+ *  This file is (c) under GNU PUBLIC LICENSE
  */
 #define __NO_VERSION__
 #include "hisax.h"

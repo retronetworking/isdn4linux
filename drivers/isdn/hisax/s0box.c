@@ -1,9 +1,10 @@
 /* $Id$
-
+ *
  * s0box.c      low level stuff for Creatix S0BOX
  *
  * Author       S0BOX specific stuff: Enrik Berkhan (enrik@starfleet.inka.de)
  *
+ * This file is (c) under GNU PUBLIC LICENSE
  *
  */
 #define __NO_VERSION__

@@ -1,34 +1,12 @@
 /* $Id$
-
+ *
  * mic.c  low level stuff for mic cards
  *
  * Copyright (C) 1997 
  *
  * Author  Stephan von Krawczynski <skraw@ithnet.com>
  *
- *
- * $Log$
- * Revision 1.7  1998/04/15 16:44:32  keil
- * new init code
- *
- * Revision 1.6  1998/02/17 15:39:57  keil
- * fix reset problem
- *
- * Revision 1.5  1998/02/02 13:29:43  keil
- * fast io
- *
- * Revision 1.4  1997/11/08 21:35:51  keil
- * new l1 init
- *
- * Revision 1.3  1997/11/06 17:09:11  keil
- * New 2.1 init code
- *
- * Revision 1.2  1997/10/29 18:51:17  keil
- * New files
- *
- * Revision 1.1.2.1  1997/10/17 22:10:54  keil
- * new files on 2.0
- *
+ * This file is (c) under GNU PUBLIC LICENSE
  *
  */
 

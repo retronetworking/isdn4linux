@@ -1,14 +1,10 @@
 /* $Id$
-
+ *
  *  specific defines for CCD's HFC 2BS0
  *
  * Author       Karsten Keil (keil@isdn4linux.de)
  *
- *
- * $Log$
- * Revision 1.1  1997/09/11 17:31:34  keil
- * Common part for HFC 2BS0 based cards
- *
+ * This file is (c) under GNU PUBLIC LICENSE
  *
  */
 

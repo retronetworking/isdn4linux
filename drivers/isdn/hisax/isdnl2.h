@@ -1,4 +1,10 @@
-/* isdnl2.h */
+/* $Id$
+ *
+ * Layer 2 defines
+ *
+ * This file is (c) under GNU PUBLIC LICENSE
+ *
+ */
 
 #define RR     0x01
 #define RNR    0x05

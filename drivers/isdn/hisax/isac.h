@@ -1,24 +1,10 @@
 /* $Id$
-
+ *
  * isac.h   ISAC specific defines
  *
  * Author       Karsten Keil (keil@isdn4linux.de)
  *
- *
- * $Log$
- * Revision 1.5  1998/05/25 12:58:03  keil
- * HiSax golden code from certification, Don't use !!!
- * No leased lines, no X75, but many changes.
- *
- * Revision 1.4  1997/10/29 19:09:34  keil
- * new L1
- *
- * Revision 1.3  1997/07/27 21:37:41  keil
- * T3 implemented; supervisor l1timer; B-channel TEST_LOOP
- *
- * Revision 1.2  1997/06/26 11:16:16  keil
- * first version
- *
+ * This file is (c) under GNU PUBLIC LICENSE
  *
  */
 

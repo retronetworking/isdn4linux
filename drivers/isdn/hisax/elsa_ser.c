@@ -1,3 +1,10 @@
+/* $Id$
+ *
+ * stuff for the serial modem on ELSA cards
+ *
+ * This file is (c) under GNU PUBLIC LICENSE
+ *
+ */
 #include <linux/config.h>
 #include <linux/serial.h>
 #include <linux/serial_reg.h>

@@ -1,34 +1,10 @@
 /* $Id$
-
+ *
  * isurf.c  low level stuff for Siemens I-Surf/I-Talk cards
  *
  * Author     Karsten Keil (keil@isdn4linux.de)
  *
- * $Log$
- * Revision 1.7  1999/11/14 23:37:03  keil
- * new ISA memory mapped IO
- *
- * Revision 1.6  1999/09/04 06:20:06  keil
- * Changes from kernel set_current_state()
- *
- * Revision 1.5  1999/08/25 17:00:02  keil
- * Make ISAR V32bis modem running
- * Make LL->HL interface open for additional commands
- *
- * Revision 1.4  1999/08/22 20:27:09  calle
- * backported changes from kernel 2.3.14:
- * - several #include "config.h" gone, others come.
- * - "struct device" changed to "struct net_device" in 2.3.14, added a
- *   define in isdn_compat.h for older kernel versions.
- *
- * Revision 1.3  1999/07/12 21:05:18  keil
- * fix race in IRQ handling
- * added watchdog for lost IRQs
- *
- * Revision 1.2  1999/07/01 08:07:56  keil
- * Initial version
- *
- *
+ * This file is (c) under GNU PUBLIC LICENSE
  *
  */
 

@@ -3,8 +3,7 @@
  *
  * Author   Roland Klabunde (R.Klabunde@Berkom.de)
  *
- *
- * $Log$
+ * This file is (c) under GNU PUBLIC LICENSE
  *
  */
 

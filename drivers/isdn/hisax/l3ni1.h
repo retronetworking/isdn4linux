@@ -1,3 +1,4 @@
+// $Id$
 //-----------------------------------------------------------------------------
 //
 // NI1 D-channel protocol
@@ -9,6 +10,8 @@
 // Layer 3 protocol based on the EURO/DSS1 D-channel protocol 
 // driver written by Karsten Keil et al.  Thanks also for the 
 // code provided by Ragnar Paulson.
+//
+// This file is (c) under GNU PUBLIC LICENSE
 //
 //-----------------------------------------------------------------------------
 

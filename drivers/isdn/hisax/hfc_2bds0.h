@@ -1,15 +1,10 @@
 /* $Id$
-
+ *
  *  specific defines for CCD's HFC 2BDS0
  *
  * Author       Karsten Keil (keil@isdn4linux.de)
  *
- *
- * $Log$
- * Revision 1.2  1998/02/02 13:26:15  keil
- * New
- *
- *
+ * This file is (c) under GNU PUBLIC LICENSE
  *
  */
 

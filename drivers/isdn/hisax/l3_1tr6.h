@@ -2,12 +2,7 @@
  *
  *  German 1TR6 D-channel protocol defines
  *
- * $Log$
- * Revision 2.0  1997/07/27 21:15:47  keil
- * New Callref based layer3
- *
- * Revision 1.1  1996/10/13 20:03:48  keil
- * Initial revision
+ * This file is (c) under GNU PUBLIC LICENSE
  *
  */
 #ifndef l3_1tr6

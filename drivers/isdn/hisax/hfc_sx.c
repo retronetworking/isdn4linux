@@ -21,24 +21,6 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
- * $Log$
- * Revision 1.4  2000/02/26 00:35:12  keil
- * Fix skb freeing in interrupt context
- *
- * Revision 1.3  2000/01/20 19:49:36  keil
- * Support teles 13.3c vendor version 2.1
- *
- * Revision 1.2  1999/12/19 13:09:42  keil
- * changed TASK_INTERRUPTIBLE into TASK_UNINTERRUPTIBLE for
- * signal proof delays
- *
- * Revision 1.1  1999/11/18 00:09:18  werner
- *
- * Initial release of files for HFC-S+ and HFC-SP cards with 32K-RAM.
- * Audio and Echo are supported.
- *
- *
- *
  */
 
 #define __NO_VERSION__

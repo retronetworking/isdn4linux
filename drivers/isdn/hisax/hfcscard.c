@@ -1,25 +1,10 @@
 /* $Id$
-
+ *
  * hfcscard.c     low level stuff for hfcs based cards (Teles3c, ACER P10)
  *
  * Author     Karsten Keil (keil@isdn4linux.de)
  *
- *
- * $Log$
- * Revision 1.5  1999/09/04 06:20:06  keil
- * Changes from kernel set_current_state()
- *
- * Revision 1.4  1999/08/09 18:59:59  keil
- * Fix S0 init - Thanks to Stefan Gybas
- *
- * Revision 1.3  1999/07/12 21:05:12  keil
- * fix race in IRQ handling
- * added watchdog for lost IRQs
- *
- * Revision 1.2  1999/07/01 08:16:03  keil
- * teles3c ---> hfcscard
- *
- *
+ * This file is (c) under GNU PUBLIC LICENSE
  *
  */
 

@@ -1,9 +1,12 @@
+// $Id$
 //-----------------------------------------------------------------------------
 //
 // NETjet common header file
 //
 // Author       Kerstern Keil repackaged by
 //              Matt Henderson - Traverse Technologies P/L www.traverse.com.au
+//
+// This file is (c) under GNU PUBLIC LICENSE
 //
 //-----------------------------------------------------------------------------
 

@@ -4,18 +4,6 @@
  *
  * Author       Brent Baccala (baccala@FreeSoft.org)
  *
- *
- *
- * $Log$
- * Revision 1.2  1998/02/12 23:07:10  keil
- * change for 2.1.86 (removing FREE_READ/FREE_WRITE from [dev]_kfree_skb()
- *
- * Revision 1.1  1998/02/03 23:20:51  keil
- * New files for SPARC isdn support
- *
- * Revision 1.1  1998/01/08 04:17:12  baccala
- * ISDN comes to the Sparc.  Key points:
- *
  *    - Existing ISDN HiSax driver provides all the smarts
  *    - it compiles, runs, talks to an isolated phone switch, connects
  *      to a Cisco, pings go through
@@ -26,6 +14,7 @@
  *
  * The code is unreliable enough to be consider alpha
  *
+ * This file is (c) under GNU PUBLIC LICENSE
  *
  * Advanced Micro Devices' Am79C30A is an ISDN/audio chip used in the
  * SparcStation 1+.  The chip provides microphone and speaker interfaces

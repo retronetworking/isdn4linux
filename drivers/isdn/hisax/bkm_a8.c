@@ -6,39 +6,7 @@
  *
  * Author       Roland Klabunde (R.Klabunde@Berkom.de)
  *
- * $Log$
- * Revision 1.10  2000/05/16 20:56:41  keil
- * Support all 4 BRI lines with one driver
- *
- * Revision 1.9  1999/12/19 13:09:41  keil
- * changed TASK_INTERRUPTIBLE into TASK_UNINTERRUPTIBLE for
- * signal proof delays
- *
- * Revision 1.8  1999/09/04 06:20:05  keil
- * Changes from kernel set_current_state()
- *
- * Revision 1.7  1999/08/22 20:26:58  calle
- * backported changes from kernel 2.3.14:
- * - several #include "config.h" gone, others come.
- * - "struct device" changed to "struct net_device" in 2.3.14, added a
- *   define in isdn_compat.h for older kernel versions.
- *
- * Revision 1.6  1999/08/11 21:01:24  keil
- * new PCI codefix
- *
- * Revision 1.5  1999/08/10 16:01:48  calle
- * struct pci_dev changed in 2.3.13. Made the necessary changes.
- *
- * Revision 1.4  1999/07/14 11:43:15  keil
- * correct PCI_SUBSYSTEM_VENDOR_ID
- *
- * Revision 1.3  1999/07/12 21:04:59  keil
- * fix race in IRQ handling
- * added watchdog for lost IRQs
- *
- * Revision 1.2  1999/07/01 08:07:54  keil
- * Initial version
- *
+ * This file is (c) under GNU PUBLIC LICENSE
  *
  */
 #define __NO_VERSION__

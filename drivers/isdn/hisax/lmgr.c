@@ -1,27 +1,10 @@
 /* $Id$
-
- * Author       Karsten Keil (keil@isdn4linux.de)
  *
+ * Author       Karsten Keil (keil@isdn4linux.de)
  *
  *  Layermanagement module
  *
- * $Log$
- * Revision 1.5  1998/11/15 23:55:12  keil
- * changes from 2.0
- *
- * Revision 1.4  1998/05/25 12:58:19  keil
- * HiSax golden code from certification, Don't use !!!
- * No leased lines, no X75, but many changes.
- *
- * Revision 1.3  1998/03/07 22:57:06  tsbogend
- * made HiSax working on Linux/Alpha
- *
- * Revision 1.2  1997/10/29 19:09:34  keil
- * new L1
- *
- * Revision 1.1  1997/06/26 11:17:25  keil
- * first version
- *
+ * This file is (c) under GNU PUBLIC LICENSE
  *
  */
 

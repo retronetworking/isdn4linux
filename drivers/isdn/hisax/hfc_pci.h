@@ -1,5 +1,5 @@
 /* $Id$
-
+ *
  *  specific defines for CCD's HFC 2BDS0 PCI chips
  *
  * Author     Werner Cornelius (werner@isdn4linux.de)      
@@ -19,24 +19,6 @@
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
- *
- * $Log$
- * Revision 1.6  1999/08/28 21:04:29  werner
- * Implemented full audio support (transparent mode)
- *
- * Revision 1.5  1999/08/09 19:13:34  werner
- * moved constant pci ids to pci id table
- *
- * Revision 1.4  1999/08/08 10:17:33  werner
- * added new PCI vendor and card ids for Manufacturer 0x1043
- *
- * Revision 1.3  1999/07/14 12:39:34  werner
- * Added changes for echo handling.
- *
- * Revision 1.2  1999/07/01 08:07:52  keil
- * Initial version
- *
- *
  *
  */
 
