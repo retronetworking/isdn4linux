@@ -23,6 +23,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.6  1999/07/13 21:08:08  werner
+ * added echo channel logging feature.
+ *
  * Revision 1.5  1999/07/12 21:05:10  keil
  * fix race in IRQ handling
  * added watchdog for lost IRQs
@@ -640,7 +643,7 @@ static void receive_emsg(struct IsdnCardState *cs)
 	        if ((rcnt > 256 + 3) || (count < 4) ||
 		    (*(bdata + (zp->z1 - B_SUB_VAL)))) {
 		  if (cs->debug & L1_DEB_WARN)
-			debugl1(cs, "hfcpci_empty_echan: incoming packet invalid length %d or crc", count);
+			debugl1(cs, "hfcpci_empty_echan: incoming packet invalid length %d or crc", rcnt);
 		  bz->za[new_f2].z2 = new_z2;
 		  bz->f2 = new_f2;	/* next buffer */
 		} else {
@@ -649,7 +652,7 @@ static void receive_emsg(struct IsdnCardState *cs)
 		    ptr = e_buffer;
 
 		    if (zp->z1 >= zp->z2)
-			maxlen = count;		/* complete transfer */
+			maxlen = rcnt;		/* complete transfer */
 		    else
 			maxlen = B_FIFO_SIZE + B_SUB_VAL - zp->z2;	/* maximum */
 
@@ -966,7 +969,7 @@ HFCPCI_l1hw(struct PStack *st, int pr, void *arg)
 			Write_hfc(cs, HFCPCI_STATES, HFCPCI_ACTIVATE | HFCPCI_DO_ACTION);
 			break;
 		case (HW_DEACTIVATE | REQUEST):
-			cs->hw.hfcpci.mst_m &= ~HFCPCI_MASTER;
+      			cs->hw.hfcpci.mst_m &= ~HFCPCI_MASTER;
 			Write_hfc(cs, HFCPCI_MST_MODE, cs->hw.hfcpci.mst_m);
 			break;
 		case (HW_INFO3 | REQUEST):
