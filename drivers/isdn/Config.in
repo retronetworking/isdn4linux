@@ -2,6 +2,7 @@
 # ISDN device configuration
 #
 if [ "$CONFIG_INET" != "n" ]; then
+	bool 'ABC-Ext. Support (experimental for 2.1.x DONT USE' CONFIG_ISDN_WITH_ABC
   bool 'Support synchronous PPP' CONFIG_ISDN_PPP
   if [ "$CONFIG_ISDN_PPP" != "n" ]; then
     bool 'Use VJ-compression with synchronous PPP' CONFIG_ISDN_PPP_VJ

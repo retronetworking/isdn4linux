@@ -27,6 +27,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.40  1998/03/08 01:08:29  fritz
+ * Increased NET_DV because of TIMRU
+ *
  * Revision 1.39  1998/03/07 22:42:49  fritz
  * Starting generic module support (Nothing usable yet).
  *
@@ -546,6 +549,29 @@ typedef struct isdn_net_local_s {
   int  cisco_loop;                     /* Loop counter for Cisco-SLARP     */
   ulong cisco_myseq;                   /* Local keepalive seq. for Cisco   */
   ulong cisco_yourseq;                 /* Remote keepalive seq. for Cisco  */
+#ifdef CONFIG_ISDN_WITH_ABC
+	u_long  abc_last_charge_time;
+	u_long  abc_dial_start;
+	u_long  abc_one_charge;
+	u_long  abc_flags;
+	u_long  abc_life_to;            /* ziel am leben bis zum jiffies    */
+	u_long  abc_call_disabled;      /* call disdabled to jiffies        */
+	u_long  abc_icall_disabled;     /* incoming call disdabled to s     */
+	u_long  abc_nextkeep;           /* nextkeep at jiffies              */
+	u_long  abc_anz_wrong_data_prot;
+	u_long  abc_callback_retry;
+	u_long  abc_rem_disconnect;
+	short   abc_bchan_is_up;
+	short   abc_first_disp;         /* gesetzt wenn first pak displayed */
+	u_long  abc_snd_want_bytes;
+	u_long  abc_snd_real_bytes;
+	u_long  abc_rcv_want_bytes;
+	u_long  abc_rcv_real_bytes;
+	u_long  abc_last_dlcon;
+	u_long  abc_dlcon_cnt;
+	u_char  abc_rx_key[ISDN_MSNLEN];
+	u_char  abc_out_msn[ISDN_MSNLEN];  /* MSNs/EAZs for outgoing calls */
+#endif
 } isdn_net_local;
 
 #ifdef CONFIG_ISDN_PPP
@@ -871,6 +897,47 @@ typedef struct isdn_devt {
 } isdn_dev;
 
 extern isdn_dev *dev;
+
+#ifdef CONFIG_ISDN_WITH_ABC
+#define ABC_DST_LIFETIME (jiffies + HZ * 60)
+extern int abcgmbh_tcp_test(struct device *ndev,struct sk_buff *sp);
+extern int abcgmbh_udp_test(struct device *ndev,struct sk_buff *sp);
+extern struct sk_buff *abc_test_receive(struct device *,struct sk_buff *);
+extern struct sk_buff *abc_snd_data(struct device *,struct sk_buff *);
+extern void abc_free_receive(void);
+extern int abc_test_rcvq(struct device *ndev);
+extern struct sk_buff *abc_get_uncomp(struct sk_buff *);
+extern int abcgmbh_getpack_mem(void);
+extern int abc_clean_up_memory(void);
+extern int abcgmbh_depack(u_char *,int,u_char *,int);
+extern int abcgmbh_pack(u_char *,u_char *,int);
+extern void abc_insert_incall(u_char *number);
+extern int abc_test_incall(u_char *number);
+
+#define ABC_MUSTFIRST   0x00000001
+#define ABC_MUSTKEEP    0x00000002
+#define ABC_ABCROUTER   0x00000004
+#define ABC_WITH_UDP    0x00000008
+#define ABC_WITH_TCP    0x00000010
+#define ABC_NODCHAN     0x00000020
+#define ABC_WRONG_DSP   0x00000040
+
+extern int isdn_abc_net_send_skb(   struct device *, isdn_net_local *, struct sk_buff *);
+extern int abcgmbh_pack(u_char *src,u_char *dstpoin,int bytes);
+extern int abc_first_senden(struct device *,isdn_net_local *lp);
+extern int abc_keep_senden(struct device *,isdn_net_local *lp);
+extern int abc_eot_senden(struct device *,isdn_net_local *lp);
+extern int abcgmbh_freepack_mem(void);
+extern struct sk_buff *abc_get_keep_skb(void);
+extern void abc_hup_snd_test(isdn_net_local *lp,struct sk_buff *skb);
+extern int abcgmbh_tcp_test(struct device *ndev,struct sk_buff *sp);
+extern void isdn_net_log_packet(u_char * buf, isdn_net_local * lp);
+extern void abc_pack_statistik(isdn_net_local *lp);
+extern void abc_test_phone(isdn_net_local *lp);
+extern void abc_simple_decrypt(u_char *poin,int len,u_char *key);
+extern void abc_simple_crypt(u_char *poin,int len,u_char *key);
+#endif
+
 
 /* Utility-Macros */
 #define MIN(a,b) ((a<b)?a:b)

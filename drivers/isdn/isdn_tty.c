@@ -20,6 +20,10 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.49  1998/03/08 00:01:59  fritz
+ * Bugfix: Lowlevel module usage and channel usage were not
+ *         reset on NO DCHANNEL.
+ *
  * Revision 1.48  1998/03/07 12:28:15  tsbogend
  * fixed kernel unaligned traps on Linux/Alpha
  *
@@ -1453,6 +1457,42 @@ isdn_tty_set_modem_info(modem_info * info, uint cmd, uint * value)
 					isdn_tty_modem_ncarrier(info);
 			}
 			break;
+#ifdef CONFIG_ISDN_WITH_ABC
+		case (('.' << 16L ) | 4711):
+			/*
+			** internal ioctl to get the phone-number over a filedesc
+			** returns
+			**
+			** <NUMBER  (incoming call and number. if any)
+			** >NUMBER  (outgoing call and number. if any)
+			**/
+			{
+				int need = ISDN_MSNLEN + 2;
+				char n_buf[ISDN_MSNLEN + 2];
+				char *p = NULL;
+				char *ep = NULL;
+				char *s = info->last_num;
+
+				if((error = verify_area(VERIFY_WRITE,(void *) arg,need)) != 0)
+					return error;
+
+				ep = p = n_buf;
+				ep += 1 + ISDN_MSNLEN;
+
+				if(info->last_dir)
+					*(p++) = '>';
+				else
+					*(p++) = '<';
+
+				while(p < ep && *s != 0)
+					*(p++) = *(s++);
+
+				*p = 0;
+				memcpy_tofs((void *)arg,n_buf,need);
+			}
+
+			break;
+#endif
 		default:
 			return -EINVAL;
 	}
@@ -1648,6 +1688,9 @@ isdn_tty_block_til_ready(struct tty_struct *tty, struct file *filp, modem_info *
 		info->count--;
 	restore_flags(flags);
 	info->blocked_open++;
+#ifdef CONFIG_ISDN_WITH_ABC
+    info->flags |= ISDN_ASYNC_NORMAL_ACTIVE;
+#endif
 	while (1) {
 		current->state = TASK_INTERRUPTIBLE;
 		if (tty_hung_up_p(filp) ||
@@ -1891,12 +1934,29 @@ isdn_tty_reset_profile(atemu * m)
 	m->profile[13] = 4;
 	m->profile[14] = ISDN_PROTO_L2_X75I;
 	m->profile[15] = ISDN_PROTO_L3_TRANS;
+#ifdef CONFIG_ISDN_WITH_ABC
 	m->profile[16] = ISDN_SERIAL_XMIT_SIZE / 16;
+
+	if(m->profile[16] > 64) {
+		/*
+		** this is better for WFW95 with Z-MODEM
+		** my default is 1024 bytes/block
+		*/
+		m->profile[16] = 64;
+	}
+#else
+	m->profile[16] = ISDN_SERIAL_XMIT_SIZE / 16;
+#endif
 	m->profile[17] = ISDN_MODEM_WINSIZE;
 	m->profile[18] = 4;
 	m->profile[19] = 0;
 	m->profile[20] = 0;
-	m->pmsn[0] = '\0';
+#ifdef CONFIG_ISDN_WITH_ABC
+	m->pmsn[0] = '0';
+	m->pmsn[1] = '\0';
+#else
+    m->pmsn[0] = '\0';
+#endif
 }
 
 #ifdef CONFIG_ISDN_AUDIO
@@ -2207,6 +2267,10 @@ isdn_tty_stat_callback(int i, isdn_ctrl * c)
 						isdn_tty_modem_result(5, info);
 					if (USG_VOICE(dev->usage[i]))
 						isdn_tty_modem_result(11, info);
+#ifdef CONFIG_ISDN_WITH_ABC
+					if (info->blocked_open)
+						wake_up_interruptible(&info->open_wait);
+#endif
 					return 1;
 				}
 				break;
