@@ -156,29 +156,35 @@ divasa_xdi_driver_entry(void)
   return  (current == 1);
 }
 
+static diva_os_xdi_adapter_t*
+get_and_remove_from_queue(void)
+{
+  diva_os_spin_lock_magic_t old_irql;
+  diva_os_xdi_adapter_t* a;
+
+  diva_os_enter_spin_lock (&adapter_lock, &old_irql, "driver_unload");
+
+  if((a = (diva_os_xdi_adapter_t*)diva_q_get_head(&adapter_queue)))
+    diva_q_remove (&adapter_queue, &a->link);
+
+  diva_os_leave_spin_lock (&adapter_lock, &old_irql, "driver_unload");
+  return(a);
+}
+
 /*
 ** Called on driver unload FINIT, finit, Unload
 */
 void
 divasa_xdi_driver_unload(void)
 {
-  diva_os_spin_lock_magic_t old_irql;
   diva_os_xdi_adapter_t* a;
 
-  diva_os_enter_spin_lock (&adapter_lock, &old_irql, "driver_unload");
-  a = (diva_os_xdi_adapter_t*)diva_q_get_head(&adapter_queue);
-  while (a) {
-    diva_q_remove (&adapter_queue, &a->link);
-
+  while ((a = get_and_remove_from_queue())) {
     if (a->interface.cleanup_adapter_proc) {
       (*(a->interface.cleanup_adapter_proc))(a);
     }
-
     diva_os_free (0, a);
-
-    a = (diva_os_xdi_adapter_t*)diva_q_get_head(&adapter_queue);
   }
-  diva_os_leave_spin_lock (&adapter_lock, &old_irql, "driver_unload");
   diva_os_destroy_spin_lock (&adapter_lock, "adapter");
 }
 
@@ -230,13 +236,15 @@ divas_found_pci_card (int handle, unsigned char bus, unsigned char func, void* p
   */
   diva_os_enter_spin_lock (&adapter_lock, &old_irql, "found_pci_card");
   diva_q_add_tail (&adapter_queue, &a->link);
+  diva_os_leave_spin_lock (&adapter_lock, &old_irql, "found_pci_card");
 
   if ((*(pI->init_card))(a)) {
+    diva_os_enter_spin_lock (&adapter_lock, &old_irql, "found_pci_card");
     diva_q_remove (&adapter_queue, &a->link);
+    diva_os_leave_spin_lock (&adapter_lock, &old_irql, "found_pci_card");
     diva_os_free (0, a);
     DBG_ERR(("A: can't get adapter resources"));
   }
-  diva_os_leave_spin_lock (&adapter_lock, &old_irql, "found_pci_card");
 }
 
 /*

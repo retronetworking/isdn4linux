@@ -4,7 +4,7 @@
 
 # The target object and module list name.
 
-O_TARGET        := divas_drv.o
+O_TARGET        := vmlinux-obj.o
 M_OBJS          :=
 O_OBJS          :=
 
