@@ -43,7 +43,9 @@ extern void kcapi_init(void);
 extern void capi_init(void);
 extern void capidrv_init(void);
 #endif
+#if CONFIG_ISDN_DRV_ACT2000
 extern void act2000_init(void);
+#endif
 
 void
 isdn_cards_init(void)

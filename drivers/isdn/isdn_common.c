@@ -48,7 +48,7 @@
 /* Debugflags */
 #undef ISDN_DEBUG_STATCALLB
 
-isdn_dev *dev = (isdn_dev *) 0;
+isdn_dev *dev;
 
 static char *isdn_revision = "$Revision$";
 
@@ -67,7 +67,7 @@ static char *isdn_audio_revision = ": none $";
 extern char *isdn_v110_revision;
 
 #ifdef CONFIG_ISDN_DIVERSION
-isdn_divert_if *divert_if = NULL; /* interface to diversion module */
+isdn_divert_if *divert_if; /* interface to diversion module */
 #endif CONFIG_ISDN_DIVERSION
 
 
@@ -2416,7 +2416,7 @@ isdn_getrev(const char *revision)
 #ifdef HAVE_DEVFS_FS
 #ifdef CONFIG_DEVFS_FS
 
-static devfs_handle_t devfs_handle = NULL;
+static devfs_handle_t devfs_handle;
 
 static void isdn_register_devfs(int k)
 {
