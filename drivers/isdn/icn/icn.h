@@ -19,6 +19,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.22  1996/11/13 02:37:33  fritz
+ * Added delay include.
+ *
  * Revision 1.21  1996/08/29 20:35:57  fritz
  * Speed up B-Channel polling interval.
  *
@@ -157,11 +160,11 @@ typedef struct icn_cdef {
 #define ICN_FLAGS_RUNNING  4     /* Cards driver activated                  */
 #define ICN_FLAGS_RBTIMER  8     /* cyclic scheduling of B-Channel-poll     */
 
-#define ICN_BOOT_TIMEOUT1  100   /* Delay for Boot-download (jiffies)       */
-#define ICN_CHANLOCK_DELAY  10   /* Delay for Channel-mapping (jiffies)     */
+#define ICN_BOOT_TIMEOUT1  (HZ)    /* Delay for Boot-download (jiffies)       */
+#define ICN_CHANLOCK_DELAY (HZ/10) /* Delay for Channel-mapping (jiffies)     */
 
-#define ICN_TIMER_BCREAD 1       /* B-Channel poll-cycle                    */
-#define ICN_TIMER_DCREAD 50      /* D-Channel poll-cycle                    */
+#define ICN_TIMER_BCREAD (HZ/100) /* B-Channel poll-cycle                    */
+#define ICN_TIMER_DCREAD (HZ/2)   /* D-Channel poll-cycle                    */
 
 #define ICN_CODE_STAGE1 4096     /* Size of bootcode                        */
 #define ICN_CODE_STAGE2 65536    /* Size of protocol-code                   */
