@@ -6,6 +6,9 @@
  * (c) Copyright 1999 by Carsten Paeth (calle@calle.in-berlin.de)
  * 
  * $Log$
+ * Revision 1.10  2000/05/29 12:29:18  keil
+ * make pci_enable_dev compatible to 2.2 kernel versions
+ *
  * Revision 1.9  2000/05/19 15:43:22  calle
  * added calls to pci_device_start().
  *
@@ -953,8 +956,10 @@ static void c4_remove_ctr(struct capi_ctr *ctrl)
 
         for (i=0; i < 4; i++) {
 		cinfo = &card->ctrlinfo[i];
-		if (cinfo->capi_ctrl)
+		if (cinfo->capi_ctrl) {
 			di->detach_ctr(cinfo->capi_ctrl);
+			cinfo->capi_ctrl = NULL;
+		}
 	}
 
 	free_irq(card->irq, card);
@@ -1167,7 +1172,6 @@ static int c4_add_card(struct capi_driver *driver, struct capicardparams *p)
         cinfo = (avmctrl_info *) kmalloc(sizeof(avmctrl_info)*4, GFP_ATOMIC);
 	if (!cinfo) {
 		printk(KERN_WARNING "%s: no memory.\n", driver->name);
-	        kfree(card->ctrlinfo);
 		kfree(card->dma);
 		kfree(card);
 	        MOD_DEC_USE_COUNT;

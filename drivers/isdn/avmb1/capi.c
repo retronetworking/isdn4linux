@@ -6,6 +6,9 @@
  * Copyright 1996 by Carsten Paeth (calle@calle.in-berlin.de)
  *
  * $Log$
+ * Revision 1.34  2000/06/18 16:09:54  keil
+ * more changes for 2.4
+ *
  * Revision 1.33  2000/05/18 16:35:43  calle
  * Uaaahh. Bad memory leak fixed.
  *
@@ -1311,7 +1314,8 @@ capi_release(struct inode *inode, struct file *file)
 
 	capincci_free(cdev, 0xffffffff);
 	capidev_free(cdev);
-
+	file->private_data = NULL;
+	
 	MOD_DEC_USE_COUNT;
 #ifdef _DEBUG_REFCOUNT
 	printk(KERN_DEBUG "capi_release %d\n", GET_USE_COUNT(THIS_MODULE));
@@ -1321,6 +1325,9 @@ capi_release(struct inode *inode, struct file *file)
 
 static struct file_operations capi_fops =
 {
+#ifdef COMPAT_HAS_FILEOP_OWNER
+	owner:		THIS_MODULE,
+#endif
 	llseek:		capi_llseek,
 	read:		capi_read,
 	write:		capi_write,
@@ -1537,8 +1544,10 @@ capinc_raw_release(struct inode *inode, struct file *file)
 
 	if (mp) {
 		mp->file = 0;
-		if (mp->nccip == 0)
+		if (mp->nccip == 0) {
 			capiminor_free(mp);
+			file->private_data = NULL;
+		}
 	}
 
 #ifdef _DEBUG_REFCOUNT
@@ -1549,6 +1558,9 @@ capinc_raw_release(struct inode *inode, struct file *file)
 
 static struct file_operations capinc_raw_fops =
 {
+#ifdef COMPAT_HAS_FILEOP_OWNER
+	owner:		THIS_MODULE,
+#endif
 	llseek:		capinc_raw_llseek,
 	read:		capinc_raw_read,
 	write:		capinc_raw_write,

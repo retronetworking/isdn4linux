@@ -6,6 +6,9 @@
  * Copyright 1997 by Carsten Paeth (calle@calle.in-berlin.de)
  *
  * $Log$
+ * Revision 1.34  2000/06/19 13:13:55  calle
+ * Added Modemsupport!
+ *
  * Revision 1.33  2000/05/06 00:52:36  kai
  * merged changes from kernel tree
  * fixed timer and net_device->name breakage
@@ -2417,9 +2420,9 @@ static int capidrv_delcontr(__u16 contr)
 	}
 	spin_unlock_irqrestore(&global_lock, flags);
 
-	kfree(card);
-
 	printk(KERN_INFO "%s: now down.\n", card->name);
+
+	kfree(card);
 
 	MOD_DEC_USE_COUNT;
 
