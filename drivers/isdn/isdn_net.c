@@ -21,6 +21,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.55  1998/02/23 19:38:22  fritz
+ * Corrected check for modified feature-flags.
+ *
  * Revision 1.54  1998/02/20 17:15:07  fritz
  * Changes for recent kernels.
  * Ugly workaround for adjusting Ethernet frames with recent kernels.
@@ -2698,7 +2701,6 @@ isdn_net_getphones(isdn_net_ioctl_phone * phone, char *phones)
 	int count = 0;
 	isdn_net_phone *n;
 	int flags;
-	int ret;
 
 	if (!p)
 		return -ENODEV;
@@ -2710,9 +2712,9 @@ isdn_net_getphones(isdn_net_ioctl_phone * phone, char *phones)
 			put_user(' ', phones++);
 			count++;
 		}
-		if ((ret = copy_to_user(phones, n->num, strlen(n->num) + 1))) {
+		if (copy_to_user(phones, n->num, strlen(n->num) + 1)) {
 			restore_flags(flags);
-			return ret;
+			return -EFAULT;
 		}
 		phones += strlen(n->num);
 		count += strlen(n->num);
