@@ -21,6 +21,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.17  1996/06/25 18:37:37  fritz
+ * Fixed return count for empty return string in isdn_net_getphones().
+ *
  * Revision 1.16  1996/06/24 17:48:08  fritz
  * Bugfixes:
  *   - Did not free channel on unbinding.
@@ -199,7 +202,8 @@ isdn_net_unbind_channel(isdn_net_local * lp)
                 dev_kfree_skb(lp->sav_skb,FREE_WRITE);
 		lp->sav_skb = NULL;
 	}
-	dev_purge_queues(&lp->netdev->dev);
+	if(!lp->master) /* purge only for master device */
+		dev_purge_queues(&lp->netdev->dev);
 	lp->dialstate = 0;
 	dev->rx_netdev[isdn_dc2minor(lp->isdn_device,lp->isdn_channel)] = NULL;
 	dev->st_netdev[isdn_dc2minor(lp->isdn_device,lp->isdn_channel)] = NULL;
