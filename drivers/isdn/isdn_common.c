@@ -21,6 +21,10 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * $Log$
+ * Revision 1.100  2000/03/03 16:37:11  kai
+ * incorporated some cosmetic changes from the official kernel tree back
+ * into CVS
+ *
  * Revision 1.99  2000/02/26 01:00:52  keil
  * changes from 2.3.47
  *
@@ -2921,15 +2925,17 @@ cleanup_module(void)
 	}
 	if (devfs_unregister_chrdev(ISDN_MAJOR, "isdn") != 0) {
 		printk(KERN_WARNING "isdn: controldevice busy, remove cancelled\n");
+		restore_flags(flags);
 	} else {
 #ifdef HAVE_DEVFS_FS
 		isdn_cleanup_devfs();
 #endif /* HAVE_DEVFS_FS */
 		del_timer(&dev->timer);
+		restore_flags(flags);
+		/* call vfree with interrupts enabled, else it will hang */
 		vfree(dev);
 		printk(KERN_NOTICE "ISDN-subsystem unloaded\n");
 	}
-	restore_flags(flags);
 #ifdef CONFIG_ISDN_WITH_ABC
 	isdn_dw_abc_release_func();
 #endif
