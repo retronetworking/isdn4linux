@@ -164,7 +164,6 @@ int pcbit_init_dev(int board, int mem_base, int irq)
 			    ISDN_FEATURE_L2_HDLC | ISDN_FEATURE_L2_TRANS );
 
 	dev_if->writebuf_skb = pcbit_xmit;
-	dev_if->writebuf  = NULL;
 	dev_if->hl_hdrlen = 10;
 
 	dev_if->maxbufsize = MAXBUFSIZE;
