@@ -21,6 +21,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.21  1997/01/17 01:19:10  fritz
+ * Applied chargeint patch.
+ *
  * Revision 1.20  1997/01/17 00:41:19  fritz
  * Increased TTY_DV.
  *
@@ -287,6 +290,7 @@ typedef struct {
 #define ISDN_TIMER_RES       3                     /* Main Timer-Resolution  */
 #define ISDN_TIMER_02SEC     (HZ/(ISDN_TIMER_RES+1)/5) /* Slow-Timer1 .2 sec */
 #define ISDN_TIMER_1SEC      (HZ/(ISDN_TIMER_RES+1)) /* Slow-Timer2 1 sec   */
+#define ISDN_TIMER_RINGING   5 /* tty RINGs = ISDN_TIMER_1SEC * this factor */
 #define ISDN_TIMER_MODEMREAD 1
 #define ISDN_TIMER_MODEMPLUS 2
 #define ISDN_TIMER_MODEMRING 4
@@ -391,11 +395,21 @@ typedef struct isdn_net_local_s {
   struct isdn_net_dev_s  *netdev;      /* Ptr to netdev                    */
   struct sk_buff         *first_skb;   /* Ptr to skb that triggers dialing */
   struct sk_buff         *sav_skb;     /* Ptr to skb, rejected by LL-driver*/
+#if (LINUX_VERSION_CODE < 0x02010F)
                                        /* Ptr to orig. header_cache_bind   */
-  void                   (*org_hcb)(struct hh_cache **, struct device *,
-                                    unsigned short, __u32);
+  void                   (*org_hcb)(struct hh_cache **,
+				    struct device *,
+                                    unsigned short, 
+				    __u32);
+#else
+                                       /* Ptr to orig. hard_header_cache   */
+  int                    (*org_hhc)(struct dst_entry *dst,
+				    struct dst_entry *neigh,
+				    struct hh_cache *hh);
+#endif
                                        /* Ptr to orig. header_cache_update */
-  void                   (*org_hcu)(struct hh_cache *, struct device *,
+  void                   (*org_hcu)(struct hh_cache *,
+				    struct device *,
                                     unsigned char *);
   int  pppbind;                        /* ippp device for bindings         */
 } isdn_net_local;
