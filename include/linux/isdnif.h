@@ -22,6 +22,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.4  1996/05/01 11:38:40  fritz
+ * Added ISDN_FEATURE_L2_TRANS
+ *
  * Revision 1.3  1996/04/29 22:57:54  fritz
  * Added driverId and channel parameters to
  * writecmd() and readstat().
@@ -38,10 +41,6 @@
 
 #ifndef isdnif_h
 #define isdnif_h
-
-#ifdef STANDALONE
-#include <linux/k_compat.h>
-#endif
 
 /*
  * Values for general protocol-selection
