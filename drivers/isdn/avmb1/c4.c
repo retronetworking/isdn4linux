@@ -6,6 +6,9 @@
  * (c) Copyright 1999 by Carsten Paeth (calle@calle.in-berlin.de)
  * 
  * $Log$
+ * Revision 1.22  2000/11/28 11:42:19  kai
+ * merged MODULE_DEV_TABLE changes
+ *
  * Revision 1.20.2.2  2000/11/26 17:47:53  kai
  * added PCI_DEV_TABLE for 2.4
  *
@@ -115,6 +118,18 @@ static char *revision = "$Revision$";
 #undef CONFIG_C4_POLLDEBUG
 
 /* ------------------------------------------------------------- */
+#ifndef PCI_VENDOR_ID_DEC
+#define PCI_VENDOR_ID_DEC      0x1011
+#endif
+#ifndef PCI_DEVICE_ID_DEC_21285
+#define PCI_DEVICE_ID_DEC_21285        0x1065
+#endif
+#ifndef PCI_VENDOR_ID_AVM
+#define PCI_VENDOR_ID_AVM      0x1244
+#endif
+#ifndef PCI_DEVICE_ID_AVM_C4
+#define PCI_DEVICE_ID_AVM_C4   0x0800
+#endif
 
 static int suppress_pollack;
 

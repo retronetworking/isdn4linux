@@ -6,6 +6,9 @@
  * (c) Copyright 1999 by Carsten Paeth (calle@calle.in-berlin.de)
  * 
  * $Log$
+ * Revision 1.15  2000/11/28 11:42:19  kai
+ * merged MODULE_DEV_TABLE changes
+ *
  * Revision 1.13.2.2  2000/11/26 17:47:53  kai
  * added PCI_DEV_TABLE for 2.4
  *
@@ -92,6 +95,12 @@ static char *revision = "$Revision$";
 #undef CONFIG_T1PCI_POLLDEBUG
 
 /* ------------------------------------------------------------- */
+#ifndef PCI_VENDOR_ID_AVM
+#define PCI_VENDOR_ID_AVM      0x1244
+#endif
+#ifndef PCI_DEVICE_ID_AVM_T1
+#define PCI_DEVICE_ID_AVM_T1   0x1200
+#endif
 
 #ifndef COMPAT_HAS_2_2_PCI
 static struct pci_device_id t1pci_pci_tbl[] __initdata = {

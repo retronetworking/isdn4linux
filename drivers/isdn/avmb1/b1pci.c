@@ -6,6 +6,9 @@
  * (c) Copyright 1999 by Carsten Paeth (calle@calle.in-berlin.de)
  * 
  * $Log$
+ * Revision 1.31  2000/11/28 11:42:19  kai
+ * merged MODULE_DEV_TABLE changes
+ *
  * Revision 1.30  2000/11/28 11:28:28  kai
  * *** empty log message ***
  *
@@ -123,6 +126,13 @@
 static char *revision = "$Revision$";
 
 /* ------------------------------------------------------------- */
+
+#ifndef PCI_VENDOR_ID_AVM
+#define PCI_VENDOR_ID_AVM      0x1244
+#endif
+#ifndef PCI_DEVICE_ID_AVM_B1
+#define PCI_DEVICE_ID_AVM_B1   0x700
+#endif
 
 #ifndef COMPAT_HAS_2_2_PCI
 static struct pci_device_id b1pci_pci_tbl[] __initdata = {
