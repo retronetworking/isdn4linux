@@ -6,6 +6,10 @@
  * Copyright 1996 by Carsten Paeth (calle@calle.in-berlin.de)
  *
  * $Log$
+ * Revision 1.1.2.9  1998/03/20 14:30:02  calle
+ * added cardnr to detect if you try to add same T1 to different io address.
+ * change number of nccis depending on number of channels.
+ *
  * Revision 1.1.2.8  1998/03/04 17:32:33  calle
  * Changes for T1.
  *
@@ -131,7 +135,7 @@ typedef struct avmb1_extcarddef {
 typedef struct avmb1_card {
 	struct avmb1_card *next;
 	int cnr;
-	unsigned short port;
+	unsigned int port;
 	unsigned irq;
 	int cardtype;
 	int cardnr; /* for T1-HEMA */
@@ -162,26 +166,26 @@ typedef struct avmb1_card {
 
 
 /* b1lli.c */
-int B1_detect(unsigned short base, int cardtype);
-int T1_detectandinit(unsigned short base, unsigned irq, int cardnr);
-void B1_reset(unsigned short base);
-void T1_reset(unsigned short base);
-int B1_load_t4file(unsigned short base, avmb1_t4file * t4file);
-int B1_load_config(unsigned short base, avmb1_t4file * config);
-int B1_loaded(unsigned short base);
-void B1_setinterrupt(unsigned short base, unsigned irq, int cardtype);
-unsigned char B1_disable_irq(unsigned short base);
-void T1_disable_irq(unsigned short base);
+int B1_detect(unsigned int base, int cardtype);
+int T1_detectandinit(unsigned int base, unsigned irq, int cardnr);
+void B1_reset(unsigned int base);
+void T1_reset(unsigned int base);
+int B1_load_t4file(unsigned int base, avmb1_t4file * t4file);
+int B1_load_config(unsigned int base, avmb1_t4file * config);
+int B1_loaded(unsigned int base);
+void B1_setinterrupt(unsigned int base, unsigned irq, int cardtype);
+unsigned char B1_disable_irq(unsigned int base);
+void T1_disable_irq(unsigned int base);
 int B1_valid_irq(unsigned irq, int cardtype);
 int B1_valid_port(unsigned port, int cardtype);
 void B1_handle_interrupt(avmb1_card * card);
-void B1_send_init(unsigned short port,
+void B1_send_init(unsigned int port,
 	    unsigned int napps, unsigned int nncci, unsigned int cardnr);
-void B1_send_register(unsigned short port,
+void B1_send_register(unsigned int port,
 		      __u16 appid, __u32 nmsg,
 		      __u32 nb3conn, __u32 nb3blocks, __u32 b3bsize);
-void B1_send_release(unsigned short port, __u16 appid);
-void B1_send_message(unsigned short port, struct sk_buff *skb);
+void B1_send_release(unsigned int port, __u16 appid);
+void B1_send_message(unsigned int port, struct sk_buff *skb);
 
 /* b1capi.c */
 void avmb1_handle_new_ncci(avmb1_card * card,

@@ -21,6 +21,10 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.31.2.13  1998/10/23 10:14:25  paul
+ * Implementation of "dialmode" (successor of "status")
+ * You also need current isdnctrl for this!
+ *
  * Revision 1.31.2.12  1998/08/22 16:41:25  armin
  * Added silence detection in audio receive mode (AT+VSD).
  *
@@ -183,6 +187,7 @@
 #ifndef isdn_h
 #define isdn_h
 
+#include <linux/config.h>
 #include <linux/ioctl.h>
 
 #define ISDN_TTY_MAJOR    43
@@ -194,14 +199,20 @@
  * the correspondent code in isdn.c
  */
 
+#ifdef CONFIG_COBALT_MICRO_SERVER
+/* Save memory */
+#define ISDN_MAX_DRIVERS    2
+#define ISDN_MAX_CHANNELS   8
+#else
 #define ISDN_MAX_DRIVERS    32
 #define ISDN_MAX_CHANNELS   64
+#endif
 #define ISDN_MINOR_B        0
 #define ISDN_MINOR_BMAX     (ISDN_MAX_CHANNELS-1)
-#define ISDN_MINOR_CTRL     ISDN_MAX_CHANNELS
-#define ISDN_MINOR_CTRLMAX  (2*ISDN_MAX_CHANNELS-1)
-#define ISDN_MINOR_PPP      (2*ISDN_MAX_CHANNELS)
-#define ISDN_MINOR_PPPMAX   (3*ISDN_MAX_CHANNELS-1)
+#define ISDN_MINOR_CTRL     64
+#define ISDN_MINOR_CTRLMAX  (64 + (ISDN_MAX_CHANNELS-1))
+#define ISDN_MINOR_PPP      128
+#define ISDN_MINOR_PPPMAX   (128 + (ISDN_MAX_CHANNELS-1))
 #define ISDN_MINOR_STATUS   255
 
 /* New ioctl-codes */
@@ -409,6 +420,7 @@ typedef struct {
 /* Timeout-Values for isdn_net_dial() */
 #define ISDN_TIMER_DTIMEOUT10 (10*HZ/(ISDN_TIMER_02SEC*(ISDN_TIMER_RES+1)))
 #define ISDN_TIMER_DTIMEOUT15 (15*HZ/(ISDN_TIMER_02SEC*(ISDN_TIMER_RES+1)))
+#define ISDN_TIMER_DTIMEOUT60 (60*HZ/(ISDN_TIMER_02SEC*(ISDN_TIMER_RES+1)))
 
 /* GLOBAL_FLAGS */
 #define ISDN_GLOBAL_STOPPED 1
