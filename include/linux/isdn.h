@@ -21,6 +21,10 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.78  1999/10/08 18:59:33  armin
+ * Bugfix of too small MSN buffer and checking phone number
+ * in isdn_tty_getdial()
+ *
  * Revision 1.77  1999/09/23 22:22:42  detabc
  * added tcp-keepalive-detect with local response (ipv4 only)
  * added host-only-interface support
@@ -405,8 +409,8 @@ typedef struct {
   int  outgoing;
 } isdn_net_ioctl_phone;
 
-#define NET_DV 0x05  /* Data version for isdn_net_ioctl_cfg   */
-#define TTY_DV 0x05  /* Data version for iprofd etc.          */
+#define NET_DV 0x06  /* Data version for isdn_net_ioctl_cfg   */
+#define TTY_DV 0x06  /* Data version for iprofd etc.          */
 #define INF_DV 0x01  /* Data version for /dev/isdninfo        */
 
 typedef struct {
