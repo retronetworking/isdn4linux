@@ -19,6 +19,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.2.2.1  1998/03/16 09:55:41  cal
+ * Merged in TimRu-patches. Still needs validation in conjunction with ABC-patches.
+ *
  *
  */
 
@@ -105,7 +108,7 @@ isdn_net_budget(int type, struct device *ndev) {
 
 /*
 		if(ret)
-			lp->flags |= ISDN_NET_STOPPED;
+			lp->flags |= ISDN_NET_STATUS_STOPPED;
 */
 		for(i = 0; i < ISDN_BUDGET_NUM_BUDGET; i++) {
 			if(ret & (1 << i) && ! lp->budget [i] .notified) {
