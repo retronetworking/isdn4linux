@@ -5,6 +5,9 @@
  *
  *
  * $Log$
+ * Revision 1.11  1997/02/14 12:23:12  fritz
+ * Added support for new insmod parameter handling.
+ *
  * Revision 1.10  1997/02/14 09:22:09  keil
  * Final 2.0 version
  *
@@ -277,8 +280,9 @@ HiSax_init(void)
 	int i;
 	char tmp[64], rev[64];
 	char *r = rev;
+#ifdef MODULE
 	int nzproto = 0;
-
+#endif
 	nrcards = 0;
 	strcpy(tmp, l1_revision);
 	r += sprintf(r, "%s/", HiSax_getrev(tmp));
