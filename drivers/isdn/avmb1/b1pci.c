@@ -6,6 +6,22 @@
  * (c) Copyright 1999 by Carsten Paeth (calle@calle.in-berlin.de)
  * 
  * $Log$
+ * Revision 1.12  1999/07/01 15:26:29  calle
+ * complete new version (I love it):
+ * + new hardware independed "capi_driver" interface that will make it easy to:
+ *   - support other controllers with CAPI-2.0 (i.e. USB Controller)
+ *   - write a CAPI-2.0 for the passive cards
+ *   - support serial link CAPI-2.0 boxes.
+ * + wrote "capi_driver" for all supported cards.
+ * + "capi_driver" (supported cards) now have to be configured with
+ *   make menuconfig, in the past all supported cards where included
+ *   at once.
+ * + new and better informations in /proc/capi/
+ * + new ioctl to switch trace of capi messages per controller
+ *   using "avmcapictrl trace [contr] on|off|...."
+ * + complete testcircle with all supported cards and also the
+ *   PCMCIA cards (now patch for pcmcia-cs-3.0.13 needed) done.
+ *
  *
  */
 
@@ -166,6 +182,7 @@ static int b1pci_add_card(struct capi_driver *driver, struct capicardparams *p)
 
 static struct capi_driver b1pci_driver = {
     "b1pci",
+    "0.0",
     b1_load_firmware,
     b1_reset_ctr,
     b1pci_remove_ctr,
@@ -174,8 +191,10 @@ static struct capi_driver b1pci_driver = {
     b1_send_message,
 
     b1pci_procinfo,
+    b1ctl_read_proc,
+    0,	/* use standard driver_read_proc */
 
-    0 /* no add_card function */,
+    0, /* no add_card function */
 };
 
 #ifdef MODULE
@@ -187,31 +206,31 @@ static int ncards = 0;
 
 int b1pci_init(void)
 {
+	struct capi_driver *driver = &b1pci_driver;
 	struct pci_dev *dev = NULL;
 	char *p;
-	char rev[10];
 	int retval;
 
 	if ((p = strchr(revision, ':'))) {
-		strcpy(rev, p + 1);
-		p = strchr(rev, '$');
+		strncpy(driver->revision, p + 1, sizeof(driver->revision));
+		p = strchr(driver->revision, '$');
 		*p = 0;
-	} else
-		strcpy(rev, " ??? ");
+	}
 
-	printk(KERN_INFO "b1pci: revision %s\n", rev);
+	printk(KERN_INFO "%s: revision %s\n", driver->name, driver->revision);
 
-        di = attach_capi_driver(&b1pci_driver);
+        di = attach_capi_driver(driver);
 
 	if (!di) {
-		printk(KERN_ERR "b1pci: failed to attach capi_driver\n");
+		printk(KERN_ERR "%s: failed to attach capi_driver\n",
+				driver->name);
 		return -EIO;
 	}
 
 #ifdef CONFIG_PCI
 	if (!pci_present()) {
-		printk(KERN_ERR "b1pci: no PCI bus present\n");
-    		detach_capi_driver(&b1pci_driver);
+		printk(KERN_ERR "%s: no PCI bus present\n", driver->name);
+    		detach_capi_driver(driver);
 		return -EIO;
 	}
 
@@ -221,14 +240,13 @@ int b1pci_init(void)
 		param.port = dev->base_address[1] & PCI_BASE_ADDRESS_IO_MASK;
 		param.irq = dev->irq;
 		printk(KERN_INFO
-			"b1pci: PCI BIOS reports AVM-B1 at i/o %#x, irq %d\n",
-			param.port, param.irq);
-		retval = b1pci_add_card(&b1pci_driver, &param);
+			"%s: PCI BIOS reports AVM-B1 at i/o %#x, irq %d\n",
+			driver->name, param.port, param.irq);
+		retval = b1pci_add_card(driver, &param);
 		if (retval != 0) {
 		        printk(KERN_ERR
-			"b1pci: no AVM-B1 at i/o %#x, irq %d detected\n",
-			param.port, param.irq);
-    			/* detach_capi_driver(&b1pci_driver); */
+			"%s: no AVM-B1 at i/o %#x, irq %d detected\n",
+			driver->name, param.port, param.irq);
 #ifdef MODULE
 			cleanup_module();
 #endif
@@ -236,8 +254,13 @@ int b1pci_init(void)
 		}
 		ncards++;
 	}
-	printk(KERN_INFO "b1pci: %d B1-PCI card(s) detected\n", ncards);
-	return 0;
+	if (ncards) {
+		printk(KERN_INFO "%s: %d B1-PCI card(s) detected\n",
+				driver->name, ncards);
+		return 0;
+	}
+	printk(KERN_ERR "%s: NO B1-PCI card detected\n", driver->name);
+	return -ESRCH;
 #else
 	printk(KERN_ERR "b1pci: kernel not compiled with PCI.\n");
 	return -EIO;

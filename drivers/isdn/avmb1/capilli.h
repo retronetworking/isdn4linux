@@ -54,17 +54,21 @@ struct capi_ctr {
         void (*handle_capimsg)(struct capi_ctr * card,
 			   	__u16 appl, struct sk_buff *skb);
 	void (*appl_registered)(struct capi_ctr * card, __u16 appl);
-	void (*appl_release)(struct capi_ctr * card, __u16 appl);
+	void (*appl_released)(struct capi_ctr * card, __u16 appl);
 
         void (*new_ncci)(struct capi_ctr * card,
 			   	__u16 appl, __u32 ncci, __u32 winsize);
         void (*free_ncci)(struct capi_ctr * card, __u16 appl, __u32 ncci);
 
-        /* statistic */
+	/* management information for kcapi */
+
 	unsigned long nrecvctlpkt;
 	unsigned long nrecvdatapkt;
 	unsigned long nsentctlpkt;
 	unsigned long nsentdatapkt;
+
+	struct proc_dir_entry *procent;
+        char procfn[128];
 };
 
 struct capi_driver_interface {
@@ -74,6 +78,7 @@ struct capi_driver_interface {
 
 struct capi_driver {
      char name[32];				/* driver name */
+     char revision[32];
      int (*load_firmware)(struct capi_ctr *, capiloaddata *);
      void (*reset_ctr)(struct capi_ctr *);
      void (*remove_ctr)(struct capi_ctr *);
@@ -83,6 +88,10 @@ struct capi_driver {
      void (*send_message)(struct capi_ctr *, struct sk_buff *skb);
 
      char *(*procinfo)(struct capi_ctr *);
+     int (*ctr_read_proc)(char *page, char **start, off_t off,
+			       int count, int *eof, struct capi_ctr *card);
+     int (*driver_read_proc)(char *page, char **start, off_t off,
+		               int count, int *eof, struct capi_driver *driver);
 
      int (*add_card)(struct capi_driver *driver, capicardparams *data);
 
@@ -90,6 +99,8 @@ struct capi_driver {
      struct capi_ctr	*controller;		/* list of controllers */
      struct capi_driver *next;
      int ncontroller;
+     struct proc_dir_entry *procent;
+     char procfn[128];
 };
 
 struct capi_driver_interface *attach_capi_driver(struct capi_driver *driver);

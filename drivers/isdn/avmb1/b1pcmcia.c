@@ -6,6 +6,22 @@
  * (c) Copyright 1999 by Carsten Paeth (calle@calle.in-berlin.de)
  * 
  * $Log$
+ * Revision 1.1  1999/07/01 15:26:30  calle
+ * complete new version (I love it):
+ * + new hardware independed "capi_driver" interface that will make it easy to:
+ *   - support other controllers with CAPI-2.0 (i.e. USB Controller)
+ *   - write a CAPI-2.0 for the passive cards
+ *   - support serial link CAPI-2.0 boxes.
+ * + wrote "capi_driver" for all supported cards.
+ * + "capi_driver" (supported cards) now have to be configured with
+ *   make menuconfig, in the past all supported cards where included
+ *   at once.
+ * + new and better informations in /proc/capi/
+ * + new ioctl to switch trace of capi messages per controller
+ *   using "avmcapictrl trace [contr] on|off|...."
+ * + complete testcircle with all supported cards and also the
+ *   PCMCIA cards (now patch for pcmcia-cs-3.0.13 needed) done.
+ *
  *
  */
 
@@ -152,6 +168,7 @@ static char *b1pcmcia_procinfo(struct capi_ctr *ctrl)
 
 static struct capi_driver b1pcmcia_driver = {
     "b1pcmcia",
+    "0.0",
     b1_load_firmware,
     b1_reset_ctr,
     b1pcmcia_remove_ctr,
@@ -160,6 +177,8 @@ static struct capi_driver b1pcmcia_driver = {
     b1_send_message,
 
     b1pcmcia_procinfo,
+    b1ctl_read_proc,
+    0,	/* use standard driver_read_proc */
 
     0,
 };
@@ -210,22 +229,22 @@ void cleanup_module(void);
 
 int b1pcmcia_init(void)
 {
+	struct capi_driver *driver = &b1pcmcia_driver;
 	char *p;
-	char rev[10];
 
 	if ((p = strchr(revision, ':'))) {
-		strcpy(rev, p + 1);
-		p = strchr(rev, '$');
+		strncpy(driver->revision, p + 1, sizeof(driver->revision));
+		p = strchr(driver->revision, '$');
 		*p = 0;
-	} else
-		strcpy(rev, " ??? ");
+	}
 
-	printk(KERN_INFO "b1pcmcia: revision %s\n", rev);
+	printk(KERN_INFO "%s: revision %s\n", driver->name, driver->revision);
 
-        di = attach_capi_driver(&b1pcmcia_driver);
+        di = attach_capi_driver(driver);
 
 	if (!di) {
-		printk(KERN_ERR "b1pcmcia: failed to attach capi_driver\n");
+		printk(KERN_ERR "%s: failed to attach capi_driver\n",
+				driver->name);
 		return -EIO;
 	}
 	return 0;

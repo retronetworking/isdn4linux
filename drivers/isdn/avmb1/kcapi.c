@@ -6,6 +6,22 @@
  * (c) Copyright 1999 by Carsten Paeth (calle@calle.in-berlin.de)
  * 
  * $Log$
+ * Revision 1.1  1999/07/01 15:26:42  calle
+ * complete new version (I love it):
+ * + new hardware independed "capi_driver" interface that will make it easy to:
+ *   - support other controllers with CAPI-2.0 (i.e. USB Controller)
+ *   - write a CAPI-2.0 for the passive cards
+ *   - support serial link CAPI-2.0 boxes.
+ * + wrote "capi_driver" for all supported cards.
+ * + "capi_driver" (supported cards) now have to be configured with
+ *   make menuconfig, in the past all supported cards where included
+ *   at once.
+ * + new and better informations in /proc/capi/
+ * + new ioctl to switch trace of capi messages per controller
+ *   using "avmcapictrl trace [contr] on|off|...."
+ * + complete testcircle with all supported cards and also the
+ *   PCMCIA cards (now patch for pcmcia-cs-3.0.13 needed) done.
+ *
  */
 #define CONFIG_AVMB1_COMPAT
 
@@ -252,8 +268,10 @@ static int proc_driver_read_proc(char *page, char **start, off_t off,
 	off_t begin = 0;
 
 	for (driver = drivers; driver; driver = driver->next) {
-		len += sprintf(page+len, "%-32s %d\n",
-					driver->name, driver->ncontroller);
+		len += sprintf(page+len, "%-32s %d %s\n",
+					driver->name,
+					driver->ncontroller,
+					driver->revision);
 		if (len+begin > off+count)
 			goto endloop;
 		if (len+begin < off) {
@@ -420,11 +438,13 @@ static struct procfsentries {
    { "capi",		  S_IFDIR, 0 },
    { "capi/applications", 0	 , proc_applications_read_proc },
    { "capi/ncci", 	  0	 , proc_ncci_read_proc },
-   { "capi/driver", 	  0	 , proc_driver_read_proc },
+   { "capi/driver",       0	 , proc_driver_read_proc },
    { "capi/users", 	  0	 , proc_users_read_proc },
    { "capi/controller",   0	 , proc_controller_read_proc },
    { "capi/applstats",    0	 , proc_applstats_read_proc },
    { "capi/contrstats",   0	 , proc_contrstats_read_proc },
+   { "capi/drivers",	  S_IFDIR, 0 },
+   { "capi/controllers",  S_IFDIR, 0 },
 };
 
 static void proc_capi_init(void)
@@ -508,7 +528,7 @@ static void controllercb_appl_registered(struct capi_ctr * card, __u16 appl)
 {
 }
 
-static void controllercb_appl_release(struct capi_ctr * card, __u16 appl)
+static void controllercb_appl_released(struct capi_ctr * card, __u16 appl)
 {
 	struct capi_ncci **pp, **nextpp;
 	for (pp = &APPL(appl)->nccilist; *pp; pp = nextpp) {
@@ -743,6 +763,11 @@ static void controllercb_reseted(struct capi_ctr * card)
 
         card->cardstate = CARD_DETECTED;
 
+	memset(card->manu, 0, sizeof(card->manu));
+	memset(&card->version, 0, sizeof(card->version));
+	memset(&card->profile, 0, sizeof(card->profile));
+	memset(card->serial, 0, sizeof(card->serial));
+
 	for (appl = 1; appl <= CAPI_MAXAPPL; appl++) {
 		struct capi_ncci **pp, **nextpp;
 		for (pp = &APPL(appl)->nccilist; *pp; pp = nextpp) {
@@ -809,7 +834,7 @@ drivercb_attach_ctr(struct capi_driver *driver, char *name, void *driverdata)
         card->resume_output = controllercb_resume_output;
         card->handle_capimsg = controllercb_handle_capimsg;
 	card->appl_registered = controllercb_appl_registered;
-	card->appl_release = controllercb_appl_release;
+	card->appl_released = controllercb_appl_released;
         card->new_ncci = controllercb_new_ncci;
         card->free_ncci = controllercb_free_ncci;
 
@@ -817,6 +842,14 @@ drivercb_attach_ctr(struct capi_driver *driver, char *name, void *driverdata)
 	card->next = 0;
 	*pp = card;
 	driver->ncontroller++;
+	sprintf(card->procfn, "capi/controllers/%d", card->cnr);
+	card->procent = create_proc_entry(card->procfn, 0, 0);
+	if (card->procent) {
+	   card->procent->read_proc = 
+		(int (*)(char *,char **,off_t,int,int *,void *))
+			driver->ctr_read_proc;
+	   card->procent->data = card;
+	}
 
 	ncards++;
 	printk(KERN_NOTICE "kcapi: Controller %d: %s attached\n",
@@ -840,10 +873,34 @@ static int drivercb_detach_ctr(struct capi_ctr *card)
 	        	break;
 		}
 	}
+	if (card->procent) {
+	   remove_proc_entry(card->procfn, 0);
+	   card->procent = 0;
+	}
 	card->cardstate = CARD_FREE;
 	printk(KERN_NOTICE "kcapi: Controller %d: %s unregistered\n",
 			card->cnr, card->name);
 	return 0;
+}
+
+/* ------------------------------------------------------------- */
+
+/* fallback if no driver read_proc function defined by driver */
+
+static int driver_read_proc(char *page, char **start, off_t off,
+        		int count, int *eof, void *data)
+{
+	struct capi_driver *driver = (struct capi_driver *)data;
+	int len = 0;
+
+	len += sprintf(page+len, "name: %s\n", driver->name);
+	len += sprintf(page+len, "revision: %s\n", driver->revision);
+
+	if (len < off) 
+           return 0;
+	*eof = 1;
+	*start = page - off;
+	return ((count < len-off) ? count : len-off);
 }
 
 /* ------------------------------------------------------------- */
@@ -867,6 +924,18 @@ struct capi_driver_interface *attach_capi_driver(struct capi_driver *driver)
         if (strcmp(driver->name, "t1isa") == 0 && driver->add_card)
 		t1isa_driver = driver;
 #endif
+	sprintf(driver->procfn, "capi/drivers/%s", driver->name);
+	driver->procent = create_proc_entry(driver->procfn, 0, 0);
+	if (driver->procent) {
+	   if (driver->driver_read_proc) {
+		   driver->procent->read_proc = 
+	       		(int (*)(char *,char **,off_t,int,int *,void *))
+					driver->driver_read_proc;
+	   } else {
+		   driver->procent->read_proc = driver_read_proc;
+	   }
+	   driver->procent->data = driver;
+	}
 	return &di;
 }
 
@@ -883,6 +952,10 @@ void detach_capi_driver(struct capi_driver *driver)
 		printk(KERN_NOTICE "kcapi: driver %s detached\n", driver->name);
 	} else {
 		printk(KERN_ERR "kcapi: driver %s double detach ?\n", driver->name);
+	}
+	if (driver->procent) {
+	   remove_proc_entry(driver->procfn, 0);
+	   driver->procent = 0;
 	}
 }
 
@@ -1401,7 +1474,7 @@ int kcapi_init(void)
 		p = strchr(rev, '$');
 		*p = 0;
 	} else
-		strcpy(rev, " ??? ");
+		strcpy(rev, "1.0");
 
 #ifdef MODULE
         printk(KERN_NOTICE "CAPI-driver Rev%s: loaded\n", rev);
@@ -1422,7 +1495,7 @@ void cleanup_module(void)
 		p = strchr(rev, '$');
 		*p = 0;
 	} else {
-		strcpy(rev, " ??? ");
+		strcpy(rev, "1.0");
 	}
 
 	schedule(); /* execute queued tasks .... */

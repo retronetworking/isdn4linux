@@ -6,6 +6,22 @@
  * (c) Copyright 1999 by Carsten Paeth (calle@calle.in-berlin.de)
  * 
  * $Log$
+ * Revision 1.1  1999/07/01 15:26:44  calle
+ * complete new version (I love it):
+ * + new hardware independed "capi_driver" interface that will make it easy to:
+ *   - support other controllers with CAPI-2.0 (i.e. USB Controller)
+ *   - write a CAPI-2.0 for the passive cards
+ *   - support serial link CAPI-2.0 boxes.
+ * + wrote "capi_driver" for all supported cards.
+ * + "capi_driver" (supported cards) now have to be configured with
+ *   make menuconfig, in the past all supported cards where included
+ *   at once.
+ * + new and better informations in /proc/capi/
+ * + new ioctl to switch trace of capi messages per controller
+ *   using "avmcapictrl trace [contr] on|off|...."
+ * + complete testcircle with all supported cards and also the
+ *   PCMCIA cards (now patch for pcmcia-cs-3.0.13 needed) done.
+ *
  *
  */
 
@@ -189,7 +205,7 @@ static void t1_handle_interrupt(avmcard * card)
 
 			if (NCCI != 0xffffffff)
 				ctrl->free_ncci(ctrl, ApplId, NCCI);
-			else ctrl->appl_release(ctrl, ApplId);
+			else ctrl->appl_released(ctrl, ApplId);
 			break;
 
 		case RECEIVE_START:
@@ -322,6 +338,7 @@ void t1isa_reset_ctr(struct capi_ctr *ctrl)
 	b1_reset(port);
 	b1_reset(port);
 
+	memset(card->version, 0, sizeof(card->version));
 	ctrl->reseted(ctrl);
 }
 
@@ -464,6 +481,7 @@ static char *t1isa_procinfo(struct capi_ctr *ctrl)
 
 static struct capi_driver t1isa_driver = {
     "t1isa",
+    "0.0",
     t1isa_load_firmware,
     t1isa_reset_ctr,
     t1isa_remove_ctr,
@@ -472,6 +490,8 @@ static struct capi_driver t1isa_driver = {
     t1isa_send_message,
 
     t1isa_procinfo,
+    b1ctl_read_proc,
+    0,	/* use standard driver_read_proc */
 
     t1isa_add_card,
 };
@@ -483,22 +503,22 @@ void cleanup_module(void);
 
 int t1isa_init(void)
 {
+	struct capi_driver *driver = &t1isa_driver;
 	char *p;
-	char rev[10];
 
 	if ((p = strchr(revision, ':'))) {
-		strcpy(rev, p + 1);
-		p = strchr(rev, '$');
+		strncpy(driver->revision, p + 1, sizeof(driver->revision));
+		p = strchr(driver->revision, '$');
 		*p = 0;
-	} else
-		strcpy(rev, " ??? ");
+	}
 
-	printk(KERN_INFO "t1isa: revision %s\n", rev);
+	printk(KERN_INFO "%s: revision %s\n", driver->name, driver->revision);
 
-        di = attach_capi_driver(&t1isa_driver);
+        di = attach_capi_driver(driver);
 
 	if (!di) {
-		printk(KERN_ERR "t1isa: failed to attach capi_driver\n");
+		printk(KERN_ERR "%s: failed to attach capi_driver\n",
+				driver->name);
 		return -EIO;
 	}
 	return 0;

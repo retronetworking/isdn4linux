@@ -6,6 +6,22 @@
  * (c) Copyright 1999 by Carsten Paeth (calle@calle.in-berlin.de)
  * 
  * $Log$
+ * Revision 1.1  1999/07/01 15:26:23  calle
+ * complete new version (I love it):
+ * + new hardware independed "capi_driver" interface that will make it easy to:
+ *   - support other controllers with CAPI-2.0 (i.e. USB Controller)
+ *   - write a CAPI-2.0 for the passive cards
+ *   - support serial link CAPI-2.0 boxes.
+ * + wrote "capi_driver" for all supported cards.
+ * + "capi_driver" (supported cards) now have to be configured with
+ *   make menuconfig, in the past all supported cards where included
+ *   at once.
+ * + new and better informations in /proc/capi/
+ * + new ioctl to switch trace of capi messages per controller
+ *   using "avmcapictrl trace [contr] on|off|...."
+ * + complete testcircle with all supported cards and also the
+ *   PCMCIA cards (now patch for pcmcia-cs-3.0.13 needed) done.
+ *
  *
  */
 
@@ -272,6 +288,7 @@ void b1_reset_ctr(struct capi_ctr *ctrl)
 	b1_reset(port);
 	b1_reset(port);
 
+	memset(card->version, 0, sizeof(card->version));
 	ctrl->reseted(ctrl);
 }
 
@@ -475,7 +492,7 @@ void b1_handle_interrupt(avmcard * card)
 
 		if (NCCI != 0xffffffff)
 			ctrl->free_ncci(ctrl, ApplId, NCCI);
-		else ctrl->appl_release(ctrl, ApplId);
+		else ctrl->appl_released(ctrl, ApplId);
 		break;
 
 	case RECEIVE_START:
@@ -531,6 +548,75 @@ void b1_handle_interrupt(avmcard * card)
 }
 
 /* ------------------------------------------------------------- */
+int b1ctl_read_proc(char *page, char **start, off_t off,
+        		int count, int *eof, struct capi_ctr *ctrl)
+{
+	avmcard *card = (avmcard *)(ctrl->driverdata);
+	__u8 flag;
+	int len = 0;
+	char *s;
+
+	len += sprintf(page+len, "name: %s\n", card->name);
+	len += sprintf(page+len, "port: 0x%x\n", card->port);
+	len += sprintf(page+len, "irq: %d\n", card->irq);
+	switch (card->cardtype) {
+	case avm_b1isa: s = "B1 ISA"; break;
+	case avm_b1pci: s = "B1 PCI"; break;
+	case avm_b1pcmcia: s = "B1 PCMCIA"; break;
+	case avm_m1: s = "M1"; break;
+	case avm_m2: s = "M2"; break;
+	case avm_t1isa: s = "T1 ISA (HEMA)"; break;
+	case avm_t1pci: s = "T1 PCI"; break;
+	default: s = "???"; break;
+	}
+	len += sprintf(page+len, "type: %s\n", s);
+	if (card->cardtype == avm_t1isa)
+	   len += sprintf(page+len, "cardnr: %d\n", card->cardnr);
+	if ((s = card->version[VER_DRIVER]) != 0)
+	   len += sprintf(page+len, "ver_driver: %s\n", s);
+	if ((s = card->version[VER_CARDTYPE]) != 0)
+	   len += sprintf(page+len, "ver_cardtype: %s\n", s);
+	if ((s = card->version[VER_SERIAL]) != 0)
+	   len += sprintf(page+len, "ver_serial: %s\n", s);
+
+	if (card->cardtype != avm_m1) {
+        	flag = ((__u8 *)(ctrl->profile.manu))[3];
+        	if (flag)
+			len += sprintf(page+len, "protocol:%s%s%s%s%s%s%s\n",
+			(flag & 0x01) ? " DSS1" : "",
+			(flag & 0x02) ? " CT1" : "",
+			(flag & 0x04) ? " VN3" : "",
+			(flag & 0x08) ? " NI1" : "",
+			(flag & 0x10) ? " AUSTEL" : "",
+			(flag & 0x20) ? " ESS" : "",
+			(flag & 0x40) ? " 1TR6" : ""
+			);
+	}
+	if (card->cardtype != avm_m1) {
+        	flag = ((__u8 *)(ctrl->profile.manu))[5];
+		if (flag)
+			len += sprintf(page+len, "linetype:%s%s%s%s\n",
+			(flag & 0x01) ? " point to point" : "",
+			(flag & 0x02) ? " point to multipoint" : "",
+			(flag & 0x08) ? " leased line without D-channel" : "",
+			(flag & 0x04) ? " leased line with D-channel" : ""
+			);
+	}
+	len += sprintf(page+len, "cardname: %s\n", card->cardname);
+
+	if (len < off) 
+           return 0;
+	*eof = 1;
+	*start = page - off;
+	return ((count < len-off) ? count : len-off);
+	if (len < off) 
+           return 0;
+	*eof = 1;
+	*start = page - off;
+	return ((count < len-off) ? count : len-off);
+}
+
+/* ------------------------------------------------------------- */
 
 EXPORT_SYMBOL(b1_irq_table);
 
@@ -547,6 +633,8 @@ EXPORT_SYMBOL(b1_send_message);
 EXPORT_SYMBOL(b1_parse_version);
 EXPORT_SYMBOL(b1_handle_interrupt);
 
+EXPORT_SYMBOL(b1ctl_read_proc);
+
 #ifdef MODULE
 #define b1_init init_module
 void cleanup_module(void);
@@ -558,11 +646,11 @@ int b1_init(void)
 	char rev[10];
 
 	if ((p = strchr(revision, ':'))) {
-		strcpy(rev, p + 1);
+		strncpy(rev, p + 1, sizeof(rev));
 		p = strchr(rev, '$');
 		*p = 0;
 	} else
-		strcpy(rev, " ??? ");
+		strcpy(rev, "1.0");
 
 	printk(KERN_INFO "b1: revision %s\n", rev);
 
