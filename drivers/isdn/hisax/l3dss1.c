@@ -13,6 +13,10 @@
  *              Fritz Elfert
  *
  * $Log$
+ * Revision 2.21  1999/12/19 20:25:17  keil
+ * fixed LLC for outgoing analog calls
+ * IE Signal is valid on older local switches
+ *
  * Revision 2.20  1999/10/11 22:16:27  keil
  * Suspend/Resume is possible without explicit ID too
  *
@@ -91,6 +95,7 @@
 #include "isdnl3.h"
 #include "l3dss1.h"
 #include <linux/ctype.h>
+#include <linux/config.h>
 
 extern char *HiSax_getrev(const char *revision);
 const char *dss1_revision = "$Revision$";
@@ -694,8 +699,8 @@ static int ie_RESUME_REJECT[] = {IE_CAUSE | IE_MANDATORY, IE_DISPLAY, -1};
 static int ie_SETUP[] = {IE_COMPLETE, IE_BEARER  | IE_MANDATORY,
 		IE_CHANNEL_ID| IE_MANDATORY, IE_FACILITY, IE_PROGRESS,
 		IE_NET_FAC, IE_DISPLAY, IE_KEYPAD, IE_SIGNAL, IE_CALLING_PN,
-		IE_CALLING_SUB, IE_CALLED_PN, IE_CALLED_SUB, IE_LLC, IE_HLC,
-		IE_USER_USER, -1};
+		IE_CALLING_SUB, IE_CALLED_PN, IE_CALLED_SUB, IE_REDIR_NR,
+		IE_LLC, IE_HLC, IE_USER_USER, -1};
 static int ie_SETUP_ACKNOWLEDGE[] = {IE_CHANNEL_ID | IE_MANDATORY, IE_FACILITY,
 		IE_PROGRESS, IE_DISPLAY, IE_SIGNAL, -1};
 static int ie_STATUS[] = {IE_CAUSE | IE_MANDATORY, IE_CALL_STATE |
@@ -1274,6 +1279,7 @@ l3dss1_setup_req(struct l3_process *pc, u_char pr,
 	u_char tmp[128];
 	u_char *p = tmp;
 	u_char channel = 0;
+
         u_char send_keypad;
 	u_char screen = 0x80;
 	u_char *teln;
@@ -1285,14 +1291,18 @@ l3dss1_setup_req(struct l3_process *pc, u_char pr,
 	MsgHead(p, pc->callref, MT_SETUP);
 
 	teln = pc->para.setup.phone;
+#ifndef CONFIG_HISAX_NO_KEYPAD
         send_keypad = (strchr(teln,'*') || strchr(teln,'#')) ? 1 : 0; 
+#else
+	send_keypad = 0;
+#endif
+#ifndef CONFIG_HISAX_NO_SENDCOMPLETE
+	if (!send_keypad)
+		*p++ = 0xa1;		/* complete indicator */
+#endif
 	/*
 	 * Set Bearer Capability, Map info from 1TR6-convention to EDSS1
 	 */
-#if HISAX_EURO_SENDCOMPLETE
-	if (!send_keypad)
-	  *p++ = 0xa1;		/* complete indicator */
-#endif
         if (!send_keypad)
 	  switch (pc->para.setup.si1) {
 		case 1:	/* Telephony                               */
@@ -1454,7 +1464,7 @@ l3dss1_setup_req(struct l3_process *pc, u_char pr,
 		*p++ = 0x90;
 		*p++ = 0x21;
 		p = EncodeASyncParams(p, pc->para.setup.si2 - 192);
-#if HISAX_SEND_STD_LLC_IE
+#ifndef CONFIG_HISAX_NO_LLC
 	} else {
 	  switch (pc->para.setup.si1) {
 		case 1:	/* Telephony                               */
@@ -2753,6 +2763,7 @@ static void
 l3dss1_dl_reset(struct l3_process *pc, u_char pr, void *arg)
 {
         pc->para.cause = 0x29;          /* Temporary failure */
+        pc->para.loc = 0;
         l3dss1_disconnect_req(pc, pr, NULL);
         pc->st->l3.l3l4(pc->st, CC_SETUP_ERR, pc);
 }
@@ -2762,6 +2773,7 @@ l3dss1_dl_release(struct l3_process *pc, u_char pr, void *arg)
 {
         newl3state(pc, 0);
         pc->para.cause = 0x1b;          /* Destination out of order */
+        pc->para.loc = 0;
         pc->st->l3.l3l4(pc->st, CC_RELEASE | INDICATION, pc);
         release_l3_process(pc);
 }
