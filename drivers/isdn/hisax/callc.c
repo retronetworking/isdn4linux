@@ -7,6 +7,11 @@
  *              Fritz Elfert
  *
  * $Log$
+ * Revision 2.7  1997/10/01 09:21:28  fritz
+ * Removed old compatibility stuff for 2.0.X kernels.
+ * From now on, this code is for 2.1.X ONLY!
+ * Old stuff is still in the separate branch.
+ *
  * Revision 2.6  1997/09/11 17:26:58  keil
  * Open B-channel if here are incomming packets
  *
@@ -1984,7 +1989,7 @@ HiSax_command(isdn_ctrl * ic)
 }
 
 int
-HiSax_writebuf_skb(int id, int chan, struct sk_buff *skb)
+HiSax_writebuf_skb(int id, int chan, int ack, struct sk_buff *skb)
 {
 	struct IsdnCardState *csta = hisax_findcard(id);
 	struct Channel *chanp;

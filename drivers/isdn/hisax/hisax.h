@@ -3,6 +3,9 @@
  *   Basic declarations, defines and prototypes
  *
  * $Log$
+ * Revision 2.6  1997/09/11 17:25:51  keil
+ * Add new cards
+ *
  * Revision 2.5  1997/08/03 14:36:31  keil
  * Implement RESTART procedure
  *
@@ -653,7 +656,7 @@ void FsmDelTimer(struct FsmTimer *ft, int where);
 void jiftime(char *s, long mark);
 
 int HiSax_command(isdn_ctrl * ic);
-int HiSax_writebuf_skb(int id, int chan, struct sk_buff *skb);
+int HiSax_writebuf_skb(int id, int chan, int ack, struct sk_buff *skb);
 void HiSax_putstatus(struct IsdnCardState *csta, char *buf);
 void HiSax_reportcard(int cardnr);
 int QuickHex(char *txt, u_char * p, int cnt);

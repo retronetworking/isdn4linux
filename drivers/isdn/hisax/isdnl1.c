@@ -11,6 +11,9 @@
  *
  *
  * $Log$
+ * Revision 2.6  1997/09/12 10:05:16  keil
+ * ISDN_CTRL_DEBUG define
+ *
  * Revision 2.5  1997/09/11 17:24:45  keil
  * Add new cards
  *
@@ -704,7 +707,6 @@ checkcard(int cardnr, char *id)
 	    0;
 
 	cs->iif.command = HiSax_command;
-	cs->iif.writebuf = NULL;
 	cs->iif.writecmd = NULL;
 	cs->iif.writebuf_skb = HiSax_writebuf_skb;
 	cs->iif.readstat = HiSax_readstatus;
