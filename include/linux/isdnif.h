@@ -22,6 +22,10 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.18  1997/03/04 22:09:18  calle
+ * Change macros copy_from_user and copy_to_user in inline function.
+ * These are now correct replacements of the functions for 2.1.xx
+ *
  * Revision 1.17  1997/02/10 21:12:53  fritz
  * More setup-interface changes.
  *
@@ -89,6 +93,7 @@
 #define ISDN_PTYPE_1TR6      1   /* german 1TR6-protocol */
 #define ISDN_PTYPE_EURO      2   /* EDSS1-protocol       */
 #define ISDN_PTYPE_LEASED    3   /* for leased lines     */
+#define ISDN_PTYPE_NI1       4   /* US NI-1 protocol     */
 
 /*
  * Values for Layer-2-protocol-selection
@@ -169,6 +174,7 @@
 #define ISDN_FEATURE_P_UNKNOWN  (0x1000 << ISDN_PTYPE_UNKNOWN)
 #define ISDN_FEATURE_P_1TR6     (0x1000 << ISDN_PTYPE_1TR6)
 #define ISDN_FEATURE_P_EURO     (0x1000 << ISDN_PTYPE_EURO)
+#define ISDN_FEATURE_P_NI1      (0x1000 << ISDN_PTYPE_NI1)
 
 typedef struct setup_parm {
     char phone[32];         /* Remote Phone-Number */
