@@ -7,6 +7,9 @@
  *              Fritz Elfert
  *
  * $Log$
+ * Revision 1.10.2.5  1998/03/07 23:15:31  tsbogend
+ * made HiSax working on Linux/Alpha
+ *
  * Revision 1.10.2.4  1998/01/27 22:44:38  keil
  * fixed window size calculation
  *
@@ -1479,7 +1482,7 @@ isdnl2_manl2(struct PStack *st, int pr, void *arg)
 		case (MDL_REMOVE_REQ):
 			FsmEvent(&st->l2.l2m, EV_L2_MDL_REMOVE, arg);
 			break;
-		case (MDL_ERROR_REQ):
+		case (MDL_ERROR_IND):
 			FsmEvent(&st->l2.l2m, EV_L2_MDL_ERROR, arg);
 			break;
 	}
