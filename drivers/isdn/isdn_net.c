@@ -21,6 +21,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.25  1996/10/22 23:13:58  fritz
+ * Changes for compatibility to 2.0.X and 2.1.X kernels.
+ *
  * Revision 1.24  1996/10/11 13:57:40  fritz
  * Bugfix: Error in BogoCPS calculation.
  *
@@ -265,7 +268,10 @@ isdn_net_autohup()
         anymore = 0;
 	while (p) {
 		isdn_net_local *l = (isdn_net_local *) & (p->local);
-		l->cps = l->transcount / (jiffies - last_jiffies);
+		if ((jiffies - last_jiffies) == 0)
+			l->cps = 0;
+		else
+			l->cps = l->transcount / (jiffies - last_jiffies);
 		last_jiffies = jiffies;
 		l->transcount = 0;
 		if (dev->net_verbose > 3)
