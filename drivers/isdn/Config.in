@@ -47,6 +47,8 @@ if [ "$CONFIG_ISDN_DRV_HISAX" != "n" ]; then
     bool 'HiSax Support for Niccy PnP/PCI card' CONFIG_HISAX_NICCY
     bool 'HiSax Support for Siemens I-Surf card' CONFIG_HISAX_ISURF
     bool 'HiSax Support for HST Saphir card' CONFIG_HISAX_HSTSAPHIR
+    bool 'HiSax Support for Telekom A4T card' CONFIG_HISAX_BKM_A4T
+    bool 'HiSax Support for Scitel Quadro card' CONFIG_HISAX_SCT_QUADRO
 #   if [ "$CONFIG_EXPERIMENTAL" != "n" ]; then
 #	bool 'HiSax Support for TESTEMULATOR (EXPERIMENTAL)' CONFIG_HISAX_TESTEMU
 #   fi
