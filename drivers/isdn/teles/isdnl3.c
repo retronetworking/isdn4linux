@@ -1,6 +1,10 @@
 /* $Id$
  *
  * $Log$
+ * Revision 1.5  1996/05/18 01:37:16  fritz
+ * Added spelling corrections and some minor changes
+ * to stay in sync with kernel.
+ *
  * Revision 1.4  1996/05/17 03:46:16  fritz
  * General cleanup.
  *
@@ -417,6 +421,7 @@ static struct stateentry datastatelist[] =
 {
         {0,MT_SETUP,l3s12},
         {1,MT_CALL_PROCEEDING,l3s6},
+        {1,MT_SETUP_ACKNOWLEDGE,l3s6},
         {1,MT_RELEASE_COMPLETE,l3s4},
         {1,MT_RELEASE,l3s19},
         {1,MT_DISCONNECT,l3s7},
