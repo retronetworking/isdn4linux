@@ -3,8 +3,8 @@
  * ISDN lowlevel-module for Eicon.Diehl active cards.
  * 
  * Copyright 1997    by Fritz Elfert (fritz@wuemaus.franken.de)
- * Copyright 1998,99 by Armin Schindler (mac@topmail.de) 
- * Copyright 1999    Cytronics & Melware (cytronics-melware@topmail.de)
+ * Copyright 1998,99 by Armin Schindler (mac@melware.de) 
+ * Copyright 1999    Cytronics & Melware (info@melware.de)
  * 
  * Thanks to    Eicon Technology Diehl GmbH & Co. oHG for
  *              documents, informations and hardware.
@@ -26,6 +26,10 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.2  1999/01/24 20:14:21  armin
+ * Changed and added debug stuff.
+ * Better data sending. (still problems with tty's flip buffer)
+ *
  * Revision 1.1  1999/01/01 18:09:44  armin
  * First checkin of new eicon driver.
  * DIVA-Server BRI/PCI and PRI/PCI are supported.
@@ -377,13 +381,17 @@ diehl_command(diehl_card * card, isdn_ctrl * c)
 				case DIEHL_IOCTL_MANIF:
 					if (!card->flags & DIEHL_FLAGS_RUNNING)
 						return -ENODEV;
+					if (!card->Feature & PROTCAP_MANIF)
+						return -ENODEV;
 					ret = eicon_idi_manage(
 						card, 
 						(eicon_manifbuf *)a);
 					return ret;
 #if CONFIG_PCI 
 				case DIEHL_IOCTL_LOADPCI:
-                                                if (card->bus == DIEHL_BUS_PCI) {  
+						if (card->flags & DIEHL_FLAGS_RUNNING)
+							return -EBUSY;  
+                                                if (card->bus == DIEHL_BUS_PCI) {
 							switch(card->type) {
 								case DIEHL_CTYPE_MAESTRA:
                                                 		        ret = diehl_pci_load_bri(
@@ -400,6 +408,12 @@ diehl_command(diehl_card * card, isdn_ctrl * c)
                                                         if (!ret) {
                                                                 card->flags |= DIEHL_FLAGS_LOADED;
                                                                 card->flags |= DIEHL_FLAGS_RUNNING;
+								if (card->hwif.pci.channels > 1) {
+									cmd.command = ISDN_STAT_ADDCH;
+									cmd.driver = card->myid;
+									cmd.arg = card->hwif.pci.channels - 1;
+									card->interface.statcallb(&cmd);
+								}
 								cmd.command = ISDN_STAT_RUN;    
 								cmd.driver = card->myid;        
 								cmd.arg = 0;                    
@@ -757,6 +771,7 @@ diehl_alloccard(int type, int membase, int irq, char *id)
 				card->hwif.isa.irq = irq;
 				card->hwif.isa.type = type;
 				card->nchannels = 2;
+				card->interface.channels = 2;
 				break;
 			case DIEHL_CTYPE_PRI:
 				if (membase == -1)
@@ -770,6 +785,7 @@ diehl_alloccard(int type, int membase, int irq, char *id)
 				card->hwif.isa.irq = irq;
 				card->hwif.isa.type = type;
 				card->nchannels = 30;
+				card->interface.channels = 30;
 				break;
 #if CONFIG_PCI
 			case DIEHL_CTYPE_MAESTRA:
@@ -790,6 +806,7 @@ diehl_alloccard(int type, int membase, int irq, char *id)
                                 card->hwif.pci.type = type;
 				card->flags = 0;
                                 card->nchannels = 2;
+				card->interface.channels = 1;
 				break;
 
 			case DIEHL_CTYPE_MAESTRAP:
@@ -812,6 +829,7 @@ diehl_alloccard(int type, int membase, int irq, char *id)
                                 card->hwif.pci.type = type;
 				card->flags = 0;
                                 card->nchannels = 30;
+				card->interface.channels = 1;
 				break;
 #endif
 			default:
@@ -826,7 +844,6 @@ diehl_alloccard(int type, int membase, int irq, char *id)
 			kfree(card);
 			return;
 		}
-		card->interface.channels = card->nchannels;
 		for (j=0; j< (card->nchannels + 1); j++) {
 			memset((char *)&card->bch[j], 0, sizeof(diehl_chan));
 			card->bch[j].plci = 0x8000;

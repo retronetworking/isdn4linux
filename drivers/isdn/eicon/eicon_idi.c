@@ -3,8 +3,8 @@
  * ISDN lowlevel-module for Eicon.Diehl active cards.
  *        IDI interface 
  *
- * Copyright 1998,99 by Armin Schindler (mac@topmail.de)
- * Copyright 1999    Cytronics & Melware (cytronics-melware@topmail.de)
+ * Copyright 1998,99 by Armin Schindler (mac@melware.de)
+ * Copyright 1999    Cytronics & Melware (info@melware.de)
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -21,6 +21,11 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.7  1999/02/03 18:34:35  armin
+ * Channel selection for outgoing calls w/o CHI.
+ * Added channel # in debug messages.
+ * L2 Transparent should work with 800 byte/packet now.
+ *
  * Revision 1.6  1999/01/26 07:18:59  armin
  * Bug with wrong added CPN fixed.
  *
@@ -50,6 +55,7 @@
 #define __NO_VERSION__
 #include "eicon.h"
 #include "eicon_idi.h"
+#include "eicon_dsp.h"
 
 #undef EICON_FULL_SERVICE_OKTETT
 
@@ -334,7 +340,8 @@ idi_si2bc(int si1, int si2, char *bc, char *hlc)
 int
 idi_hangup(diehl_card *card, diehl_chan *chan)
 {
-	if (chan->fsm_state == DIEHL_STATE_ACTIVE) {
+	if ((chan->fsm_state == DIEHL_STATE_ACTIVE) ||
+	    (chan->fsm_state == DIEHL_STATE_WMCONN)) {
   		if (chan->e.B2Id) idi_do_req(card, chan, IDI_N_DISC, 1);
 	}
 	if (chan->e.B2Id) idi_do_req(card, chan, REMOVE, 1);
@@ -799,6 +806,63 @@ idi_bc2si(unsigned char *bc, unsigned char *hlc, unsigned char *si1, unsigned ch
 }
 
 void
+idi_parse_udata(diehl_pci_card *card, diehl_chan *chan, unsigned char *buffer, int len)
+{
+	isdn_ctrl cmd;
+	diehl_card *ccard = (diehl_card *) card->card;
+	eicon_dsp_ind *p = (eicon_dsp_ind *) (&buffer[1]);
+        static char *connmsg[] =
+        {"", "V.21", "V.23", "V.22", "V.22bis", "V.32bis", "V.34",
+         "V.8", "Bell 212A", "Bell 103", "V.29 Leased", "V.33 Leased", "V.90",
+         "V.21 CH2", "V.27ter", "V.29", "V.33", "V.17"};
+
+	switch (buffer[0]) {
+		case DSP_UDATA_INDICATION_SYNC:
+			if (DebugVar & 16)
+  				printk(KERN_DEBUG"idi_ind: Ch%d: UDATA_SYNC time %d\n", chan->No, p->time);
+			break;
+		case DSP_UDATA_INDICATION_DCD_OFF:
+			if (DebugVar & 8)
+  				printk(KERN_DEBUG"idi_ind: Ch%d: UDATA_DCD_OFF time %d\n", chan->No, p->time);
+			break;
+		case DSP_UDATA_INDICATION_DCD_ON:
+			if ((chan->l2prot == ISDN_PROTO_L2_MODEM) &&
+			    (chan->fsm_state == DIEHL_STATE_WMCONN)) {
+				chan->fsm_state = DIEHL_STATE_ACTIVE;
+				cmd.driver = ccard->myid;
+				cmd.command = ISDN_STAT_BCONN;
+				cmd.arg = chan->No;
+				sprintf(cmd.parm.num, "%d/%s", p->speed, connmsg[p->norm]);
+				ccard->interface.statcallb(&cmd);
+			}
+			if (DebugVar & 8) {
+  				printk(KERN_DEBUG"idi_ind: Ch%d: UDATA_DCD_ON time %d\n", chan->No, p->time);
+				printk(KERN_DEBUG"idi_ind: Ch%d: %d %d %d %d\n", chan->No,
+					    p->norm, p->options, p->speed, p->delay); 
+			    }
+			break;
+		case DSP_UDATA_INDICATION_CTS_OFF:
+			if (DebugVar & 8)
+  				printk(KERN_DEBUG"idi_ind: Ch%d: UDATA_CTS_OFF time %d\n", chan->No, p->time);
+			break;
+		case DSP_UDATA_INDICATION_CTS_ON:
+			if (DebugVar & 8) {
+  				printk(KERN_DEBUG"idi_ind: Ch%d: UDATA_CTS_ON time %d\n", chan->No, p->time);
+				printk(KERN_DEBUG"idi_ind: Ch%d: %d %d %d %d\n", chan->No,
+					    p->norm, p->options, p->speed, p->delay); 
+			}
+			break;
+		case DSP_UDATA_INDICATION_DISCONNECT:
+			if (DebugVar & 8)
+  				printk(KERN_DEBUG"idi_ind: Ch%d: UDATA_DISCONNECT cause %d\n", chan->No, buffer[1]);
+			break;
+		default:
+			if (DebugVar & 8)
+				printk(KERN_WARNING "idi_ind: Ch%d: UNHANDLED UDATA Indication 0x%02x\n", chan->No, buffer[0]);
+	}
+}
+
+void
 idi_handle_ind(diehl_pci_card *card, struct sk_buff *skb)
 {
 	int tmp;
@@ -851,6 +915,8 @@ idi_handle_ind(diehl_pci_card *card, struct sk_buff *skb)
 					ccard->interface.statcallb(&cmd);
 				}
 				chan->cause[0] = 0; 
+				cmd.driver = ccard->myid;
+				cmd.arg = chan->No;
 				cmd.command = ISDN_STAT_DHUP;
 				ccard->interface.statcallb(&cmd);
 				diehl_idi_listen_req(ccard, chan);
@@ -965,6 +1031,10 @@ idi_handle_ind(diehl_pci_card *card, struct sk_buff *skb)
 			case IDI_N_CONNECT_ACK:
 				if (DebugVar & 16)
   					printk(KERN_DEBUG"idi_ind: Ch%d: N_Connect_Ack\n", chan->No);
+				if (chan->l2prot == ISDN_PROTO_L2_MODEM) {
+					chan->fsm_state = DIEHL_STATE_WMCONN;
+					break;
+				}
 				chan->fsm_state = DIEHL_STATE_ACTIVE;
 				cmd.driver = ccard->myid;
 				cmd.command = ISDN_STAT_BCONN;
@@ -975,6 +1045,10 @@ idi_handle_ind(diehl_pci_card *card, struct sk_buff *skb)
 				if (DebugVar & 16)
   					printk(KERN_DEBUG"idi_ind: Ch%d: N_Connect\n", chan->No);
 				if (chan->e.B2Id) idi_do_req(ccard, chan, IDI_N_CONNECT_ACK, 1);
+				if (chan->l2prot == ISDN_PROTO_L2_MODEM) {
+					chan->fsm_state = DIEHL_STATE_WMCONN;
+					break;
+				}
 				chan->fsm_state = DIEHL_STATE_ACTIVE;
 				cmd.driver = ccard->myid;
 				cmd.command = ISDN_STAT_BCONN;
@@ -991,10 +1065,12 @@ idi_handle_ind(diehl_pci_card *card, struct sk_buff *skb)
 				chan->queued = 0;
 				chan->waitq = 0;
 				chan->waitpq = 0;
-				cmd.driver = ccard->myid;
-				cmd.command = ISDN_STAT_BHUP;
-				cmd.arg = chan->No;
-				ccard->interface.statcallb(&cmd);
+				if (chan->fsm_state == DIEHL_STATE_ACTIVE) {
+					cmd.driver = ccard->myid;
+					cmd.command = ISDN_STAT_BHUP;
+					cmd.arg = chan->No;
+					ccard->interface.statcallb(&cmd);
+				}
 				break; 
 			case IDI_N_DISC_ACK:
 				if (DebugVar & 16)
@@ -1010,6 +1086,9 @@ idi_handle_ind(diehl_pci_card *card, struct sk_buff *skb)
 					printk(KERN_DEBUG"idi_rcv: Ch%d: %d bytes\n", chan->No, skb->len);
 				ccard->interface.rcvcallb_skb(ccard->myid, chan->No, skb);
 				free_buff = 0; 
+				break; 
+			case IDI_N_UDATA:
+				idi_parse_udata(card, chan, ind->RBuffer.P, ind->RBuffer.length);
 				break; 
 			default:
 				if (DebugVar & 8)

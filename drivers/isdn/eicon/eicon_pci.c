@@ -3,8 +3,8 @@
  * ISDN low-level module for Eicon.Diehl active ISDN-Cards.
  * Hardware-specific code for PCI cards.
  *
- * Copyright 1998,99 by Armin Schindler (mac@topmail.de)
- * Copyright 1999    Cytronics & Melware (cytronics-melware@topmail.de)
+ * Copyright 1998,99 by Armin Schindler (mac@melware.de)
+ * Copyright 1999    Cytronics & Melware (info@melware.de)
  *
  * Thanks to	Eicon Technology Diehl GmbH & Co. oHG for 
  *		documents, informations and hardware. 
@@ -26,6 +26,10 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.3  1999/01/24 20:14:24  armin
+ * Changed and added debug stuff.
+ * Better data sending. (still problems with tty's flip buffer)
+ *
  * Revision 1.2  1999/01/10 18:46:06  armin
  * Bug with wrong values in HLC fixed.
  * Bytes to send are counted and limited now.
@@ -976,6 +980,7 @@ diehl_pci_load_bri(diehl_pci_card *card, diehl_pci_codebuf *cb) {
 				kfree(code);
 		                return -EFAULT;
 			}
+                	((diehl_card *)card->card)->Feature = FeatureValue;
 		}
 
 		if (diehl_upload(&dl_para, length, code, 1))
@@ -1096,7 +1101,7 @@ diehl_pci_load_bri(diehl_pci_card *card, diehl_pci_codebuf *cb) {
 
    /* initializing some variables */
    for(j=0; j<256; j++) card->IdTable[j] = NULL;
-   for(j=0; j< (((diehl_card *)card->card)->nchannels + 1); j++) {
+   for(j=0; j< (card->channels + 1); j++) {
                 ((diehl_card *)card->card)->bch[j].e.busy = 0;
                 ((diehl_card *)card->card)->bch[j].e.D3Id = 0;
                 ((diehl_card *)card->card)->bch[j].e.B2Id = 0;
@@ -1210,6 +1215,7 @@ diehl_pci_load_pri(diehl_pci_card *card, diehl_pci_codebuf *cb) {
 				kfree(code);
 		                return -EFAULT;
 			}
+                	((diehl_card *)card->card)->Feature = FeatureValue;
 		}
 
 		if (diehl_upload(&dl_para, length, code, 1))
@@ -1340,7 +1346,7 @@ diehl_pci_load_pri(diehl_pci_card *card, diehl_pci_codebuf *cb) {
 
    /* initializing some variables */
    for(j=0; j<256; j++) card->IdTable[j] = NULL;
-   for(j=0; j< (((diehl_card *)card->card)->nchannels + 1); j++) {
+   for(j=0; j< (card->channels + 1); j++) {
 		((diehl_card *)card->card)->bch[j].e.busy = 0;
 		((diehl_card *)card->card)->bch[j].e.D3Id = 0;
 		((diehl_card *)card->card)->bch[j].e.B2Id = 0;

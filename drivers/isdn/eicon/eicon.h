@@ -3,8 +3,8 @@
  * ISDN low-level module for Eicon.Diehl active ISDN-Cards.
  *
  * Copyright 1998    by Fritz Elfert (fritz@wuemaus.franken.de)
- * Copyright 1998,99 by Armin Schindler (mac@topmail.de) 
- * Copyright 1999    Cytronics & Melware (cytronics-melware@topmail.de)
+ * Copyright 1998,99 by Armin Schindler (mac@melware.de) 
+ * Copyright 1999    Cytronics & Melware (info@melware.de)
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -21,6 +21,10 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.3  1999/01/24 20:14:07  armin
+ * Changed and added debug stuff.
+ * Better data sending. (still problems with tty's flip buffer)
+ *
  * Revision 1.2  1999/01/10 18:46:04  armin
  * Bug with wrong values in HLC fixed.
  * Bytes to send are counted and limited now.
@@ -364,6 +368,7 @@ typedef struct {
 #define DIEHL_STATE_ACTIVE  13
 #define DIEHL_STATE_ICALLW  14
 #define DIEHL_STATE_LISTEN  15
+#define DIEHL_STATE_WMCONN  16
 
 #define EICON_MAX_QUEUED  8000 /* 2 * maxbuff */
 
@@ -413,6 +418,7 @@ typedef struct diehl_card {
         u_char ptype;                    /* Protocol type (1TR6 or Euro)     */
         u_char bus;                      /* Bustype (ISA, MCA, PCI)          */
         u_char type;                     /* Cardtype (DIEHL_CTYPE_...)       */
+        int Feature;                     /* Protocol Feature Value           */
         struct diehl_card *next;	 /* Pointer to next device struct    */
         int myid;                        /* Driver-Nr. assigned by linklevel */
         unsigned long flags;             /* Statusflags                      */
@@ -439,6 +445,29 @@ typedef struct diehl_card {
         char regname[35];                /* Name used for request_region     */
 } diehl_card;
 
+/* -----------------------------------------------------------**
+** The PROTOCOL_FEATURE_STRING                                **
+** defines capabilities and                                   **
+** features of the actual protocol code. It's used as a bit   **
+** mask.                                                      **
+** The following Bits are defined:                            **
+** -----------------------------------------------------------*/
+#define PROTCAP_TELINDUS  0x0001  /* Telindus Variant of protocol code   */
+#define PROTCAP_MANIF     0x0002  /* Management interface implemented    */
+#define PROTCAP_V_42      0x0004  /* V42 implemented                     */
+#define PROTCAP_V90D      0x0008  /* V.90D (implies up to 384k DSP code) */
+#define PROTCAP_EXTD_FAX  0x0010  /* Extended FAX (ECM, 2D, T6, Polling) */
+#define PROTCAP_FREE4     0x0020  /* not used                            */
+#define PROTCAP_FREE5     0x0040  /* not used                            */
+#define PROTCAP_FREE6     0x0080  /* not used                            */
+#define PROTCAP_FREE7     0x0100  /* not used                            */
+#define PROTCAP_FREE8     0x0200  /* not used                            */
+#define PROTCAP_FREE9     0x0400  /* not used                            */
+#define PROTCAP_FREE10    0x0800  /* not used                            */
+#define PROTCAP_FREE11    0x1000  /* not used                            */
+#define PROTCAP_FREE12    0x2000  /* not used                            */
+#define PROTCAP_FREE13    0x4000  /* not used                            */
+#define PROTCAP_EXTENSION 0x8000  /* used for future extentions          */
 
 #include "eicon_idi.h"
 

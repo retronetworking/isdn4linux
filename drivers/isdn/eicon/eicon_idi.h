@@ -3,8 +3,8 @@
  * ISDN lowlevel-module for the Eicon.Diehl active cards.
  * IDI-Interface
  *
- * Copyright 1998,99 by Armin Schindler (mac@topmail.de)
- * Copyright 1999    Cytronics & Melware (cytronics-melware@topmail.de)
+ * Copyright 1998,99 by Armin Schindler (mac@melware.de)
+ * Copyright 1999    Cytronics & Melware (info@melware.de)
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -21,6 +21,10 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.2  1999/01/24 20:14:18  armin
+ * Changed and added debug stuff.
+ * Better data sending. (still problems with tty's flip buffer)
+ *
  * Revision 1.1  1999/01/01 18:09:42  armin
  * First checkin of new eicon driver.
  * DIVA-Server BRI/PCI and PRI/PCI are supported.

@@ -3,7 +3,8 @@
  * ISDN low-level module for Eicon.Diehl active ISDN-Cards.
  *
  * Copyright 1998    by Fritz Elfert (fritz@wuemaus.franken.de)
- * Copyright 1998,99 by Armin Schindler (mac@topmail.de)
+ * Copyright 1998,99 by Armin Schindler (mac@melware.de)
+ * Copyright 1999    Cytronics & Melware (info@melware.de)
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -20,6 +21,11 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.1  1999/01/01 18:09:44  armin
+ * First checkin of new eicon driver.
+ * DIVA-Server BRI/PCI and PRI/PCI are supported.
+ * Old diehl code is obsolete.
+ *
  *
  */
 
@@ -27,8 +33,6 @@
 #define eicon_isa_h
 
 #ifdef __KERNEL__
-
-#include "eicon.h"
 
 /* Factory defaults for ISA-Cards */
 #define DIEHL_ISA_MEMBASE 0xd0000
