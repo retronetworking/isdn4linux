@@ -21,6 +21,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
  * $Log$
+ * Revision 1.13  1996/06/05 02:18:20  fritz
+ * Added DTMF decoding stuff.
+ *
  * Revision 1.12  1996/06/03 19:55:08  fritz
  * Fixed typos.
  *
@@ -457,8 +460,9 @@ typedef struct modem_info {
   struct sk_buff_head   dtmf_queue;      /* queue for dtmf results         */
   struct tty_struct 	*tty;            /* Pointer to corresponding tty   */
   atemu                 emu;             /* AT-emulator data               */
-  void                  *audio_ss;       /* state for adpcm and dtmf       */
-  void                  *audio_sr;       /* state for adpcm and dtmf       */
+  void                  *adpcms;         /* state for adpcm decompression  */
+  void                  *adpcmr;         /* state for adpcm compression    */
+  void                  *dtmf_state;     /* state for dtmf decoder         */
   struct termios	normal_termios;  /* For saving termios structs     */
   struct termios	callout_termios;
   struct wait_queue	*open_wait;

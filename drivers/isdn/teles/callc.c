@@ -1,6 +1,9 @@
 /* $Id$
  *
  * $Log$
+ * Revision 1.9  1996/05/31 12:23:57  jdenoud
+ * Jan: added channel open check to teles_writebuf
+ *
  * Revision 1.8  1996/05/31 01:00:38  fritz
  * Changed return code of teles_writebuf, when out of memory.
  *
@@ -1327,6 +1330,22 @@ teles_command(isdn_ctrl * ic)
                   if (chanp->debug & 1)
                           command_debug(chanp, "HANGUP");
                   FsmEvent(&chanp->fi, EV_HANGUP, NULL);
+                  break;
+          case (ISDN_CMD_SUSPEND):
+                  chanp = chanlist + ic->arg;
+                  if (chanp->debug & 1) {
+                          sprintf(tmp, "SUSPEND %s", ic->num);
+                          command_debug(chanp, tmp);
+                  }
+                 FsmEvent(&chanp->fi, EV_SUSPEND, ic);
+                  break;
+          case (ISDN_CMD_RESUME):
+                  chanp = chanlist + ic->arg;
+                  if (chanp->debug & 1) {
+                          sprintf(tmp, "RESUME %s", ic->num);
+                          command_debug(chanp, tmp);
+                  }
+                  FsmEvent(&chanp->fi, EV_RESUME, ic);
                   break;
           case (ISDN_CMD_LOCK):
                   teles_mod_inc_use_count();
