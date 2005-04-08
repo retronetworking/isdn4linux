@@ -45,7 +45,7 @@
 #include "hfc_usb.h"
 
 static const char *hfcusb_revision =
-    "Revision: 4.35 $ Date: 2005/04/07 15:27:59 $ ";
+    "Revision: 4.36 $ Date: 2005/04/08 09:55:13 $ ";
 
 /* Hisax debug support
 * use "modprobe debug=x" where x is bitfield of USB_DBG & ISDN_DBG
@@ -1401,10 +1401,6 @@ hfc_usb_probe(struct usb_interface *intf, const struct usb_device_id *id)
 	       ifnum, iface->desc.bAlternateSetting, intf->minor);
 
 	if (vend_idx != 0xffff) {
-#ifdef CONFIG_HISAX_DEBUG
-		DBG(USB_DBG, "HFC-S USB: found vendor idx:%d  name:%s",
-		    vend_idx, vdata[vend_idx].vend_name);
-#endif
 		/* if vendor and product ID is OK, start probing alternate settings */
 		alt_idx = 0;
 		small_match = 0xffff;
