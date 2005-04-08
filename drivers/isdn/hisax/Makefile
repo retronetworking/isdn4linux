@@ -10,12 +10,11 @@ export-objs	  := config.o fsm.o hisax_isac.o
 
 # Multipart objects.
 
-list-multi	  := hisax.o hisax_st5481.o hfc_usb.o
+list-multi	  := hisax.o hisax_st5481.o
 hisax-objs	  := config.o isdnl1.o tei.o isdnl2.o isdnl3.o \
 		     lmgr.o q931.o callc.o fsm.o cert.o
 hisax_st5481-objs := st5481_init.o st5481_usb.o st5481_d.o st5481_b.o \
 		     st5481_hdlc.o
-hfc_usb-objs      := hfc_usb.o
 
 # Optional parts of multipart objects.
 hisax-objs-$(CONFIG_HISAX_EURO) += l3dss1.o
@@ -58,7 +57,6 @@ hisax-objs += $(sort $(hisax-objs-y))
 obj-$(CONFIG_ISDN_DRV_HISAX)		+= hisax.o
 obj-$(CONFIG_HISAX_SEDLBAUER_CS)	+= sedlbauer_cs.o
 obj-$(CONFIG_HISAX_ELSA_CS)		+= elsa_cs.o
-obj-$(CONFIG_HISAX_HFC_USB_CS)		+= hfc_usb.o
 obj-$(CONFIG_HISAX_ST5481)		+= hisax_st5481.o
 obj-$(CONFIG_HISAX_FRITZ_PCIPNP)        += hisax_fcpcipnp.o hisax_isac.o
 
