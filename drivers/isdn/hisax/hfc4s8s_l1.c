@@ -1,5 +1,5 @@
 /*************************************************************************/
-/* Id: hfc4s8s_l1.c,v 1.10 2005/02/09 16:31:09 martinb1 Exp $            */
+/* $Id$           */
 /* HFC-4S/8S low layer interface for Cologne Chip HFC-4S/8S isdn chips   */
 /* The low layer (L1) is implemented as a loadable module for usage with */
 /* the HiSax isdn driver for passive cards.                              */
@@ -32,7 +32,7 @@
 #include "hisax_if.h"
 #include "hfc4s8s_l1.h"
 
-static const char hfc4s8s_rev[] = "Revision: 1.10";
+static const char hfc4s8s_rev[] = "Revision: 1.11";
 
 /***************************************************************/
 /* adjustable transparent mode fifo threshold                  */
@@ -873,7 +873,7 @@ rx_b_frame(struct hfc4s8s_btype *bch)
 			bch->rx_ptr += 4;
 			z1 -= 4;
 		}
-
+		
 		while (z1--)
 #ifdef CONFIG_HISAX_HFC4S8S_PCIMEM
 			*(bch->rx_ptr++) = Read_hfc8(l1->hw, A_FIFO_DATA0);
@@ -1062,7 +1062,7 @@ tx_b_frame(struct hfc4s8s_btype *bch)
 				Write_hfc8(l1->hw, A_INC_RES_FIFO, 1);
 			}
 			ack_len += skb->truesize;
-			bch->tx_skb = 0;
+			bch->tx_skb = NULL;
 			bch->tx_cnt = 0;
 			dev_kfree_skb(skb);
 		} else
@@ -1604,7 +1604,7 @@ hfc4s8s_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
 	hw->cardnum = card_cnt;
 	sprintf(hw->card_name, "hfc4s8s_%d", hw->cardnum);
 	printk(KERN_INFO "HFC-4S/8S: found adapter %s (%s) at %s\n",
-	       driver_data->device_name, hw->card_name, pci_name(pdev));
+	       driver_data->device_name, hw->card_name, pdev->slot_name);
 
 	spin_lock_init(&hw->lock);
 
@@ -1658,10 +1658,10 @@ hfc4s8s_remove(struct pci_dev *pdev)
 }
 
 static struct pci_driver hfc4s8s_driver = {
-      name:"hfc4s8s_l1",
-      probe:hfc4s8s_probe,
-      remove:__devexit_p(hfc4s8s_remove),
-      id_table:hfc4s8s_ids,
+      .name	= "hfc4s8s_l1",
+      .probe	= hfc4s8s_probe,
+      .remove	= __devexit_p(hfc4s8s_remove),
+      .id_table	= hfc4s8s_ids,
 };
 
 /**********************/
