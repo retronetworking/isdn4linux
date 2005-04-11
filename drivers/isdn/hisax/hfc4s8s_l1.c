@@ -1,5 +1,5 @@
 /*************************************************************************/
-/* $Id$        */
+/* $Id$         */
 /* HFC-4S/8S low layer interface for Colognechip HFC-4S/8S isdn chips    */
 /* The low layer (L1) is implemented as a loadable module for usage with */
 /* the HiSax isdn driver for passive cards.                              */
@@ -29,7 +29,7 @@
 #include "hisax_if.h"
 #include "hfc4s8s_l1.h"
 
-static const char hfc4s8s_rev[] = "$Revision$";
+static const char hfc4s8s_rev[] = "Revision: 1.6.2.1";
 
 /***************************************************************/
 /* adjustable transparent mode fifo threshold                  */
