@@ -87,6 +87,7 @@ if [ "$CONFIG_ISDN_DRV_HISAX" != "n" ]; then
    if [ "$CONFIG_HISAX_HFCUSB_CS" != "n" ]; then
       bool '  skip module usage counting (not recommended)' CONFIG_HFC_USB_SKIP_MOD_COUNTING
    fi
+   dep_tristate 'HFC-4S8S based cards (EXPERIMENTAL)' CONFIG_HISAX_HFC_4S8S $CONFIG_ISDN_DRV_HISAX $CONFIG_EXPERIMENTAL
 fi
 endmenu
 
