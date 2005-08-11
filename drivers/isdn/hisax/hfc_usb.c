@@ -56,7 +56,7 @@ static const char *hfcusb_revision =
 #include "hisax_debug.h"
 static u_int debug;
 module_param(debug, uint, 0);
-int hfc_debug;
+static int hfc_debug;
 #endif
 
 /* private vendor specific data */
@@ -229,7 +229,7 @@ symbolic(struct hfcusb_symbolic_list list[], const int num)
 	for (i = 0; list[i].name != NULL; i++)
 		if (list[i].num == num)
 			return (list[i].name);
-	return "<unkown>";
+	return "<unknown ERROR>";
 }
 
 
@@ -1087,7 +1087,7 @@ set_hfcmode(hfcusb_data * hfc, int channel, int mode)
 	}
 }
 
-void
+static void
 hfc_usb_l2l1(struct hisax_if *my_hisax_if, int pr, void *arg)
 {
 	usb_fifo *fifo = my_hisax_if->priv;
