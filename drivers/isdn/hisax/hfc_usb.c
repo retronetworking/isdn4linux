@@ -46,7 +46,7 @@
 
 
 static const char *hfcusb_revision =
-    "Revision: 4.29.2.5 $ Date: 2005/04/11 08:46:12 $ ";
+    "$Revision$ Date: 2005/04/11 08:46:12 $ ";
 
 
 /* Hisax debug support
