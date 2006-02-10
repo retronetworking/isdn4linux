@@ -236,9 +236,9 @@ ctrl_start_transfer(hfcusb_data * hfc)
 		hfc->ctrl_urb->transfer_buffer = NULL;
 		hfc->ctrl_urb->transfer_buffer_length = 0;
 		hfc->ctrl_write.wIndex =
-		    hfc->ctrl_buff[hfc->ctrl_out_idx].hfc_reg;
+		    cpu_to_le16(hfc->ctrl_buff[hfc->ctrl_out_idx].hfc_reg);
 		hfc->ctrl_write.wValue =
-		    hfc->ctrl_buff[hfc->ctrl_out_idx].reg_val;
+		    cpu_to_le16(hfc->ctrl_buff[hfc->ctrl_out_idx].reg_val);
 
 		usb_submit_urb(hfc->ctrl_urb, GFP_ATOMIC);	/* start transfer */
 	}
@@ -1283,7 +1283,7 @@ usb_init(hfcusb_data * hfc)
 	/* init the background machinery for control requests */
 	hfc->ctrl_read.bRequestType = 0xc0;
 	hfc->ctrl_read.bRequest = 1;
-	hfc->ctrl_read.wLength = 1;
+	hfc->ctrl_read.wLength = cpu_to_le16(1);
 	hfc->ctrl_write.bRequestType = 0x40;
 	hfc->ctrl_write.bRequest = 0;
 	hfc->ctrl_write.wLength = 0;
@@ -1374,9 +1374,8 @@ hfc_usb_probe(struct usb_interface *intf, const struct usb_device_id *id)
 
 	vend_idx = 0xffff;
 	for (i = 0; hfcusb_idtab[i].idVendor; i++) {
-		if (dev->descriptor.idVendor == hfcusb_idtab[i].idVendor
-		    && dev->descriptor.idProduct ==
-		    hfcusb_idtab[i].idProduct) {
+		if ((le16_to_cpu(dev->descriptor.idVendor) == hfcusb_idtab[i].idVendor)
+		    && (le16_to_cpu(dev->descriptor.idProduct) == hfcusb_idtab[i].idProduct)) {
 			vend_idx = i;
 			continue;
 		}
@@ -1517,8 +1516,7 @@ hfc_usb_probe(struct usb_interface *intf, const struct usb_device_id *id)
 							    usb_transfer_mode
 							    = USB_INT;
 							packet_size =
-							    ep->desc.
-							    wMaxPacketSize;
+							    le16_to_cpu(ep->desc.wMaxPacketSize);
 							break;
 						case USB_ENDPOINT_XFER_BULK:
 							if (ep_addr & 0x80)
@@ -1546,8 +1544,7 @@ hfc_usb_probe(struct usb_interface *intf, const struct usb_device_id *id)
 							    usb_transfer_mode
 							    = USB_BULK;
 							packet_size =
-							    ep->desc.
-							    wMaxPacketSize;
+							    le16_to_cpu(ep->desc.wMaxPacketSize);
 							break;
 						case USB_ENDPOINT_XFER_ISOC:
 							if (ep_addr & 0x80)
@@ -1575,8 +1572,7 @@ hfc_usb_probe(struct usb_interface *intf, const struct usb_device_id *id)
 							    usb_transfer_mode
 							    = USB_ISOC;
 							iso_packet_size =
-							    ep->desc.
-							    wMaxPacketSize;
+							    le16_to_cpu(ep->desc.wMaxPacketSize);
 							break;
 						default:
 							context->
@@ -1589,10 +1585,8 @@ hfc_usb_probe(struct usb_interface *intf, const struct usb_device_id *id)
 						    fifonum = cidx;
 						context->fifos[cidx].hfc =
 						    context;
-						context->fifos[cidx].
-						    usb_packet_maxlen =
-						    ep->desc.
-						    wMaxPacketSize;
+						context->fifos[cidx].usb_packet_maxlen =
+						    cpu_to_le16(ep->desc.wMaxPacketSize);
 						context->fifos[cidx].
 						    intervall =
 						    ep->desc.bInterval;
