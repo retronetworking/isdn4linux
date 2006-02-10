@@ -1586,7 +1586,7 @@ hfc_usb_probe(struct usb_interface *intf, const struct usb_device_id *id)
 						context->fifos[cidx].hfc =
 						    context;
 						context->fifos[cidx].usb_packet_maxlen =
-						    cpu_to_le16(ep->desc.wMaxPacketSize);
+						    le16_to_cpu(ep->desc.wMaxPacketSize);
 						context->fifos[cidx].
 						    intervall =
 						    ep->desc.bInterval;
