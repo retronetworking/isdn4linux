@@ -1710,12 +1710,12 @@ hfc_usb_disconnect(struct usb_interface
 /* our driver information structure */
 /************************************/
 static struct usb_driver hfc_drv = {
-	.owner = THIS_MODULE,
 	.name  = "hfc_usb",
 	.id_table = hfcusb_idtab,
 	.probe = hfc_usb_probe,
 	.disconnect = hfc_usb_disconnect,
 };
+
 static void __exit
 hfc_usb_exit(void)
 {
