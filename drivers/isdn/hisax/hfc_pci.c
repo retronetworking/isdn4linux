@@ -39,12 +39,6 @@ typedef struct {
 #define CLKDEL_TE	0x0e	/* CLKDEL in TE mode */
 #define CLKDEL_NT	0x6c	/* CLKDEL in NT mode */
 
-#ifndef PCI_VENDOR_ID_SITECOM
-#define PCI_VENDOR_ID_SITECOM           0x182d
-#endif
-#ifndef PCI_DEVICE_ID_SITECOM_DC105
-#define PCI_DEVICE_ID_SITECOM_DC105     0x3069
-#endif
 
 static const PCI_ENTRY id_list[] =
 {
@@ -58,6 +52,8 @@ static const PCI_ENTRY id_list[] =
 	{PCI_VENDOR_ID_CCD, PCI_DEVICE_ID_CCD_B00B, "Billion", "B00B"},
 	{PCI_VENDOR_ID_CCD, PCI_DEVICE_ID_CCD_B00C, "Billion", "B00C"},
 	{PCI_VENDOR_ID_CCD, PCI_DEVICE_ID_CCD_B100, "Seyeon", "B100"},
+	{PCI_VENDOR_ID_CCD, PCI_DEVICE_ID_CCD_B700, "Primux II S0", "B700"},
+	{PCI_VENDOR_ID_CCD, PCI_DEVICE_ID_CCD_B701, "Primux II S0 NT", "B701"},
 	{PCI_VENDOR_ID_ABOCOM, PCI_DEVICE_ID_ABOCOM_2BD1, "Abocom/Magitek", "2BD1"},
 	{PCI_VENDOR_ID_ASUSTEK, PCI_DEVICE_ID_ASUSTEK_0675, "Asuscom/Askey", "675"},
 	{PCI_VENDOR_ID_BERKOM, PCI_DEVICE_ID_BERKOM_T_CONCEPT, "German telekom", "T-Concept"},
@@ -68,7 +64,7 @@ static const PCI_ENTRY id_list[] =
 	{PCI_VENDOR_ID_DIGI, PCI_DEVICE_ID_DIGI_DF_M_E,"Digi International", "Digi DataFire Micro V (Europe)"},
 	{PCI_VENDOR_ID_DIGI, PCI_DEVICE_ID_DIGI_DF_M_IOM2_A,"Digi International", "Digi DataFire Micro V IOM2 (North America)"},
 	{PCI_VENDOR_ID_DIGI, PCI_DEVICE_ID_DIGI_DF_M_A,"Digi International", "Digi DataFire Micro V (North America)"},
-	{PCI_VENDOR_ID_SITECOM, PCI_DEVICE_ID_SITECOM_DC105,"Sitecom Connectivity", "DC-105 ISDN TA"},
+	{PCI_VENDOR_ID_SITECOM, PCI_DEVICE_ID_SITECOM_DC105V2,"Sitecom Connectivity", "DC-105 ISDN TA"},
 	{0, 0, NULL, NULL},
 };
 
