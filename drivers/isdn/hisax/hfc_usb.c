@@ -227,7 +227,7 @@ symbolic(struct hfcusb_symbolic_list list[], const int num)
 	for (i = 0; list[i].name != NULL; i++)
 		if (list[i].num == num)
 			return (list[i].name);
-	return "<unkown>";
+	return "<unknown>";
 }
 
 
@@ -243,9 +243,9 @@ ctrl_start_transfer(hfcusb_data * hfc)
 		hfc->ctrl_urb.transfer_buffer = NULL;
 		hfc->ctrl_urb.transfer_buffer_length = 0;
 		hfc->ctrl_write.wIndex =
-		    hfc->ctrl_buff[hfc->ctrl_out_idx].hfc_reg;
+		    cpu_to_le16(hfc->ctrl_buff[hfc->ctrl_out_idx].hfc_reg);
 		hfc->ctrl_write.wValue =
-		    hfc->ctrl_buff[hfc->ctrl_out_idx].reg_val;
+		    cpu_to_le16(hfc->ctrl_buff[hfc->ctrl_out_idx].reg_val);
 
 		usb_submit_urb(&hfc->ctrl_urb);	/* start transfer */
 	}
@@ -1323,7 +1323,7 @@ usb_init(hfcusb_data * hfc)
 	// init the background machinery for control requests
 	hfc->ctrl_read.bRequestType = 0xc0;
 	hfc->ctrl_read.bRequest = 1;
-	hfc->ctrl_read.wLength = 1;
+	hfc->ctrl_read.wLength = cpu_to_le16(1);
 	hfc->ctrl_write.bRequestType = 0x40;
 	hfc->ctrl_write.bRequest = 0;
 	hfc->ctrl_write.wLength = 0;
@@ -1416,9 +1416,8 @@ hfc_usb_probe(struct usb_device *dev, unsigned int interface,
 
 	vend_idx = 0xffff;
 	for (i = 0; hfcusb_idtab[i].idVendor; i++) {
-		if (dev->descriptor.idVendor == hfcusb_idtab[i].idVendor
-		    && dev->descriptor.idProduct ==
-		    hfcusb_idtab[i].idProduct) {
+		if ((le16_to_cpu(dev->descriptor.idVendor) == hfcusb_idtab[i].idVendor)
+		    && (le16_to_cpu(dev->descriptor.idProduct) == hfcusb_idtab[i].idProduct)) {
 			vend_idx = i;
 			continue;
 		}
@@ -1565,7 +1564,7 @@ hfc_usb_probe(struct usb_device *dev, unsigned int interface,
 							    fifos[cidx].
 							    usb_transfer_mode
 							    = USB_INT;
-							packet_size = epd->wMaxPacketSize;	// remember max packet size
+							packet_size = le16_to_cpu(epd->wMaxPacketSize);	// remember max packet size
 #ifdef CONFIG_HISAX_DEBUG
 							DBG(USB_DBG,
 							    "HFC-S USB: Interrupt-In Endpoint found %d ms(idx:%d cidx:%d)!",
@@ -1597,7 +1596,7 @@ hfc_usb_probe(struct usb_device *dev, unsigned int interface,
 							    fifos[cidx].
 							    usb_transfer_mode
 							    = USB_BULK;
-							packet_size = epd->wMaxPacketSize;	// remember max packet size
+							packet_size = le16_to_cpu(epd->wMaxPacketSize);	// remember max packet size
 #ifdef CONFIG_HISAX_DEBUG
 							DBG(USB_DBG,
 							    "HFC-S USB: Bulk Endpoint found (idx:%d cidx:%d)!",
@@ -1628,7 +1627,7 @@ hfc_usb_probe(struct usb_device *dev, unsigned int interface,
 							    fifos[cidx].
 							    usb_transfer_mode
 							    = USB_ISOC;
-							iso_packet_size = epd->wMaxPacketSize;	// remember max packet size
+							iso_packet_size = le16_to_cpu(epd->wMaxPacketSize);	// remember max packet size
 #ifdef CONFIG_HISAX_DEBUG
 							DBG(USB_DBG,
 							    "HFC-S USB: ISO Endpoint found (idx:%d cidx:%d)!",
@@ -1647,7 +1646,7 @@ hfc_usb_probe(struct usb_device *dev, unsigned int interface,
 						    context;
 						context->fifos[cidx].
 						    usb_packet_maxlen =
-						    epd->wMaxPacketSize;
+						    le16_to_cpu(epd->wMaxPacketSize);
 						context->fifos[cidx].
 						    intervall =
 						    epd->bInterval;
