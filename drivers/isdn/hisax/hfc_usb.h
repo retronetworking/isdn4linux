@@ -10,12 +10,6 @@
 #define DRIVER_AUTHOR   "Peter Sprenger (sprenger@moving-byters.de)"
 #define DRIVER_DESC     "HFC-S USB based HiSAX ISDN driver"
 
-#define VERBOSE_USB_DEBUG
-
-#define TRUE  1
-#define FALSE 0
-
-
 /***********/
 /* defines */
 /***********/
@@ -98,15 +92,17 @@
 /*******************/
 /* Debugging Flags */
 /*******************/
-#define USB_DBG   1
-#define ISDN_DBG  2
+#define HFCUSB_DBG_INIT		0x0001
+#define HFCUSB_DBG_STATES	0x0002
+#define HFCUSB_DBG_DCHANNEL	0x0080
+#define HFCUSB_DBG_FIFO_ERR	0x4000
+#define HFCUSB_DBG_VERBOSE_USB	0x8000
 
 
 /* *********************/
 /* USB related defines */
 /***********************/
 #define HFC_CTRL_BUFSIZE 32
-
 
 
 /*************************************************/
@@ -222,9 +218,6 @@ typedef struct {
 
 #define LED_NORMAL   0		// LEDs are normal
 #define LED_INVERTED 1		// LEDs are inverted
-
-/* time in ms to perform a Flashing LED when B-Channel has traffic */
-#define LED_TIME      250
 
 
 #endif				// __HFC_USB_H__

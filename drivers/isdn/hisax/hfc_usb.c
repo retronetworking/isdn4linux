@@ -40,6 +40,7 @@
 #include <linux/kernel.h>
 #include <linux/smp_lock.h>
 #include <linux/sched.h>
+#include <linux/moduleparam.h>
 #include "hisax.h"
 #include "hisax_if.h"
 #include "hfc_usb.h"
@@ -50,14 +51,12 @@ static const char *hfcusb_revision =
 /* Hisax debug support
 * use "modprobe debug=x" where x is bitfield of USB_DBG & ISDN_DBG
 */
-#ifdef CONFIG_HISAX_DEBUG
-#include <linux/moduleparam.h>
 #define __debug_variable hfc_debug
 #include "hisax_debug.h"
 static u_int debug;
 module_param(debug, uint, 0);
 static int hfc_debug;
-#endif
+
 
 /* private vendor specific data */
 typedef struct {
@@ -343,40 +342,34 @@ handle_led(hfcusb_data * hfc, int event)
 
 	switch (event) {
 		case LED_POWER_ON:
-			set_led_bit(hfc, driver_info->led_bits[0],
-				    0);
-			set_led_bit(hfc, driver_info->led_bits[1],
-				    1);
-			set_led_bit(hfc, driver_info->led_bits[2],
-				    1);
-			set_led_bit(hfc, driver_info->led_bits[3],
-				    1);
+			set_led_bit(hfc, driver_info->led_bits[0], 0);
+			set_led_bit(hfc, driver_info->led_bits[1], 1);
+			set_led_bit(hfc, driver_info->led_bits[2], 1);
+			set_led_bit(hfc, driver_info->led_bits[3], 1);
 			break;
-		case LED_POWER_OFF:	/* no Power off handling */
+		case LED_POWER_OFF:
+			set_led_bit(hfc, driver_info->led_bits[0], 1);
+			set_led_bit(hfc, driver_info->led_bits[1], 1);
+			set_led_bit(hfc, driver_info->led_bits[2], 1);
+			set_led_bit(hfc, driver_info->led_bits[3], 1);
 			break;
 		case LED_S0_ON:
-			set_led_bit(hfc, driver_info->led_bits[1],
-				    0);
+			set_led_bit(hfc, driver_info->led_bits[1], 0);
 			break;
 		case LED_S0_OFF:
-			set_led_bit(hfc, driver_info->led_bits[1],
-				    1);
+			set_led_bit(hfc, driver_info->led_bits[1], 1);
 			break;
 		case LED_B1_ON:
-			set_led_bit(hfc, driver_info->led_bits[2],
-				    0);
+			set_led_bit(hfc, driver_info->led_bits[2], 0);
 			break;
 		case LED_B1_OFF:
-			set_led_bit(hfc, driver_info->led_bits[2],
-				    1);
+			set_led_bit(hfc, driver_info->led_bits[2], 1);
 			break;
 		case LED_B2_ON:
-			set_led_bit(hfc, driver_info->led_bits[3],
-				    0);
+			set_led_bit(hfc, driver_info->led_bits[3], 0);
 			break;
 		case LED_B2_OFF:
-			set_led_bit(hfc, driver_info->led_bits[3],
-				    1);
+			set_led_bit(hfc, driver_info->led_bits[3], 1);
 			break;
 	}
 	write_led(hfc, hfc->led_state);
@@ -390,11 +383,11 @@ l1_timer_expire_t3(hfcusb_data * hfc)
 {
 	hfc->d_if.ifc.l1l2(&hfc->d_if.ifc, PH_DEACTIVATE | INDICATION,
 			   NULL);
-#ifdef CONFIG_HISAX_DEBUG
-	DBG(ISDN_DBG,
+
+	DBG(HFCUSB_DBG_STATES,
 	    "HFC-S USB: PH_DEACTIVATE | INDICATION sent (T3 expire)");
-#endif
-	hfc->l1_activated = FALSE;
+
+	hfc->l1_activated = 0;
 	handle_led(hfc, LED_S0_OFF);
 	/* deactivate : */
 	queue_control_request(hfc, HFCUSB_STATES, 0x10, 1);
@@ -409,11 +402,11 @@ l1_timer_expire_t4(hfcusb_data * hfc)
 {
 	hfc->d_if.ifc.l1l2(&hfc->d_if.ifc, PH_DEACTIVATE | INDICATION,
 			   NULL);
-#ifdef CONFIG_HISAX_DEBUG
-	DBG(ISDN_DBG,
+			   
+	DBG(HFCUSB_DBG_STATES,
 	    "HFC-S USB: PH_DEACTIVATE | INDICATION sent (T4 expire)");
-#endif
-	hfc->l1_activated = FALSE;
+	    
+	hfc->l1_activated = 0;
 	handle_led(hfc, LED_S0_OFF);
 }
 
@@ -429,38 +422,29 @@ state_handler(hfcusb_data * hfc, __u8 state)
 	if (state == old_state || state < 1 || state > 8)
 		return;
 
-#ifdef CONFIG_HISAX_DEBUG
-	DBG(ISDN_DBG, "HFC-S USB: new S0 state:%d old_state:%d", state,
-	    old_state);
-#endif
+	DBG(HFCUSB_DBG_STATES, "HFC-S USB: S0 statechange(%d -> %d)",
+	    old_state, state);
+
 	if (state < 4 || state == 7 || state == 8) {
 		if (timer_pending(&hfc->t3_timer))
 			del_timer(&hfc->t3_timer);
-#ifdef CONFIG_HISAX_DEBUG
-		DBG(ISDN_DBG, "HFC-S USB: T3 deactivated");
-#endif
+		DBG(HFCUSB_DBG_STATES, "HFC-S USB: T3 deactivated");
 	}
 	if (state >= 7) {
 		if (timer_pending(&hfc->t4_timer))
 			del_timer(&hfc->t4_timer);
-#ifdef CONFIG_HISAX_DEBUG
-		DBG(ISDN_DBG, "HFC-S USB: T4 deactivated");
-#endif
+		DBG(HFCUSB_DBG_STATES, "HFC-S USB: T4 deactivated");
 	}
 
 	if (state == 7 && !hfc->l1_activated) {
 		hfc->d_if.ifc.l1l2(&hfc->d_if.ifc,
 				   PH_ACTIVATE | INDICATION, NULL);
-#ifdef CONFIG_HISAX_DEBUG
-		DBG(ISDN_DBG, "HFC-S USB: PH_ACTIVATE | INDICATION sent");
-#endif
-		hfc->l1_activated = TRUE;
+		DBG(HFCUSB_DBG_STATES, "HFC-S USB: PH_ACTIVATE | INDICATION sent");
+		hfc->l1_activated = 1;
 		handle_led(hfc, LED_S0_ON);
 	} else if (state <= 3 /* && activated */ ) {
 		if (old_state == 7 || old_state == 8) {
-#ifdef CONFIG_HISAX_DEBUG
-			DBG(ISDN_DBG, "HFC-S USB: T4 activated");
-#endif
+			DBG(HFCUSB_DBG_STATES, "HFC-S USB: T4 activated");
 			if (!timer_pending(&hfc->t4_timer)) {
 				hfc->t4_timer.expires =
 				    jiffies + (HFC_TIMER_T4 * HZ) / 1000;
@@ -470,11 +454,9 @@ state_handler(hfcusb_data * hfc, __u8 state)
 			hfc->d_if.ifc.l1l2(&hfc->d_if.ifc,
 					   PH_DEACTIVATE | INDICATION,
 					   NULL);
-#ifdef CONFIG_HISAX_DEBUG
-			DBG(ISDN_DBG,
+			DBG(HFCUSB_DBG_STATES,
 			    "HFC-S USB: PH_DEACTIVATE | INDICATION sent");
-#endif
-			hfc->l1_activated = FALSE;
+			hfc->l1_activated = 0;
 			handle_led(hfc, LED_S0_OFF);
 		}
 	}
@@ -515,8 +497,8 @@ start_isoc_chain(usb_fifo * fifo, int num_packets_per_urb,
 {
 	int i, k, errcode;
 
-	printk(KERN_INFO "HFC-S USB: starting ISO-chain for Fifo %i\n",
-	       fifo->fifonum);
+	DBG(HFCUSB_DBG_INIT, "HFC-S USB: starting ISO-chain for Fifo %i",
+	    fifo->fifonum);
 
 	/* allocate Memory for Iso out Urbs */
 	for (i = 0; i < 2; i++) {
@@ -561,10 +543,9 @@ start_isoc_chain(usb_fifo * fifo, int num_packets_per_urb,
 
 		errcode = usb_submit_urb(fifo->iso[i].purb, GFP_KERNEL);
 		fifo->active = (errcode >= 0) ? 1 : 0;
-		if (errcode < 0) {
+		if (errcode < 0)
 			printk(KERN_INFO "HFC-S USB: %s  URB nr:%d\n",
 			       symbolic(urb_errlist, errcode), i);
-		};
 	}
 	return (fifo->active);
 }
@@ -577,11 +558,9 @@ stop_isoc_chain(usb_fifo * fifo)
 
 	for (i = 0; i < 2; i++) {
 		if (fifo->iso[i].purb) {
-#ifdef CONFIG_HISAX_DEBUG
-			DBG(USB_DBG,
+			DBG(HFCUSB_DBG_INIT, 
 			    "HFC-S USB: Stopping iso chain for fifo %i.%i",
 			    fifo->fifonum, i);
-#endif
 			usb_unlink_urb(fifo->iso[i].purb);
 			usb_free_urb(fifo->iso[i].purb);
 			fifo->iso[i].purb = NULL;
@@ -624,7 +603,7 @@ tx_iso_complete(struct urb *urb, struct pt_regs *regs)
 	if (fifo->active && !status) {
 		transp_mode = 0;
 		if (fifon < 4 && hfc->b_mode[fifon / 2] == L1_MODE_TRANS)
-			transp_mode = TRUE;
+			transp_mode = 1;
 
 		/* is FifoFull-threshold set for our channel? */
 		threshbit = threshtable[fifon] & hfc->threshold_mask;
@@ -642,7 +621,7 @@ tx_iso_complete(struct urb *urb, struct pt_regs *regs)
 			      tx_iso_complete, urb->context);
 		memset(context_iso_urb->buffer, 0,
 		       sizeof(context_iso_urb->buffer));
-		frame_complete = FALSE;
+		frame_complete = 0;
 		/* Generate next Iso Packets */
 		for (k = 0; k < num_isoc_packets; ++k) {
 			if (fifo->skbuff) {
@@ -668,7 +647,7 @@ tx_iso_complete(struct urb *urb, struct pt_regs *regs)
 						/* add 2 byte flags and 16bit CRC at end of ISDN frame */
 						fifo->bit_line += 32;
 					}
-					frame_complete = TRUE;
+					frame_complete = 1;
 				}
 
 				memcpy(context_iso_urb->buffer +
@@ -695,7 +674,7 @@ tx_iso_complete(struct urb *urb, struct pt_regs *regs)
 			}
 
 			if (frame_complete) {
-				fifo->delete_flg = TRUE;
+				fifo->delete_flg = 1;
 				fifo->hif->l1l2(fifo->hif,
 						PH_DATA | CONFIRM,
 						(void *) fifo->skbuff->
@@ -703,15 +682,15 @@ tx_iso_complete(struct urb *urb, struct pt_regs *regs)
 				if (fifo->skbuff && fifo->delete_flg) {
 					dev_kfree_skb_any(fifo->skbuff);
 					fifo->skbuff = NULL;
-					fifo->delete_flg = FALSE;
+					fifo->delete_flg = 0;
 				}
-				frame_complete = FALSE;
+				frame_complete = 0;
 			}
 		}
 		errcode = usb_submit_urb(urb, GFP_ATOMIC);
 		if (errcode < 0) {
 			printk(KERN_INFO
-			       "HFC-S USB: error submitting ISO URB: %d \n",
+			       "HFC-S USB: error submitting ISO URB: %d\n",
 			       errcode);
 		}
 	} else {
@@ -738,19 +717,13 @@ rx_iso_complete(struct urb *urb, struct pt_regs *regs)
 	unsigned int iso_status;
 	__u8 *buf;
 	static __u8 eof[8];
-#ifdef CONFIG_HISAX_DEBUG
-	__u8 i;
-#endif
 
 	fifon = fifo->fifonum;
 	status = urb->status;
 
 	if (urb->status == -EOVERFLOW) {
-#ifdef CONFIG_HISAX_DEBUG
-		DBG(USB_DBG,
-		    "HFC-USB: ignoring USB DATAOVERRUN  for fifo  %i \n",
-		    fifon);
-#endif
+		DBG(HFCUSB_DBG_VERBOSE_USB, 
+		    "HFC-USB: ignoring USB DATAOVERRUN fifo(%i)", fifon);
 		status = 0;
 	}
 	if (fifo->active && !status) {
@@ -761,30 +734,28 @@ rx_iso_complete(struct urb *urb, struct pt_regs *regs)
 			offset = urb->iso_frame_desc[k].offset;
 			buf = context_iso_urb->buffer + offset;
 			iso_status = urb->iso_frame_desc[k].status;
-#ifdef CONFIG_HISAX_DEBUG
+
 			if (iso_status && !hfc->disc_flag)
-				DBG(USB_DBG,
+				DBG(HFCUSB_DBG_VERBOSE_USB,
 				    "HFC-S USB: ISO packet failure - status:%x",
 				    iso_status);
 
-			if ((fifon == 5) && (debug > 1)) {
-				printk(KERN_INFO
+			if (fifon == HFCUSB_D_RX) {
+				DBG(HFCUSB_DBG_VERBOSE_USB,
 				       "HFC-S USB: ISO-D-RX lst_urblen:%2d "
-				       "act_urblen:%2d max-urblen:%2d "
-				       "EOF:0x%0x DATA: ",
+				       "act_urblen:%2d max-urblen:%2d EOF:0x%0x",
 				       fifo->last_urblen, len, maxlen,
 				       eof[5]);
-				for (i = 0; i < len; i++)
-					printk("%.2x ", buf[i]);
-				printk("\n");
+
+				DBG_PACKET(HFCUSB_DBG_VERBOSE_USB, buf, len);
 			}
-#endif
+
 			if (fifo->last_urblen != maxlen) {
 				/* the threshold mask is in the 2nd status byte */
 				hfc->threshold_mask = buf[1];
 				/* care for L1 state only for D-Channel
 				   to avoid overlapped iso completions */
-				if (fifon == 5) {
+				if (fifon == HFCUSB_D_RX) {
 					/* the S0 state is in the upper half
 					   of the 1st status byte */
 					state_handler(hfc, buf[0] >> 4);
@@ -793,8 +764,7 @@ rx_iso_complete(struct urb *urb, struct pt_regs *regs)
 				if (len > 2)
 					collect_rx_frame(fifo, buf + 2,
 							 len - 2,
-							 (len <
-							  maxlen) ?
+							 (len < maxlen) ?
 							 eof[fifon] : 0);
 			} else {
 				collect_rx_frame(fifo, buf, len,
@@ -811,13 +781,13 @@ rx_iso_complete(struct urb *urb, struct pt_regs *regs)
 			      rx_iso_complete, urb->context);
 		errcode = usb_submit_urb(urb, GFP_ATOMIC);
 		if (errcode < 0) {
-			printk(KERN_INFO
-			       "HFC-S USB: error submitting ISO URB: %d \n",
+			printk(KERN_ERR
+			       "HFC-S USB: error submitting ISO URB: %d\n",
 			       errcode);
 		}
 	} else {
 		if (status && !hfc->disc_flag) {
-			printk(KERN_INFO
+			printk(KERN_ERR
 			       "HFC-S USB: rx_iso_complete : "
 			       "urb->status %d, fifonum %d\n",
 			       status, fifon);
@@ -833,19 +803,17 @@ collect_rx_frame(usb_fifo * fifo, __u8 * data, int len, int finish)
 {
 	hfcusb_data *hfc = fifo->hfc;
 	int transp_mode, fifon;
-#ifdef CONFIG_HISAX_DEBUG
-	int i;
-#endif
+
 	fifon = fifo->fifonum;
 	transp_mode = 0;
 	if (fifon < 4 && hfc->b_mode[fifon / 2] == L1_MODE_TRANS)
-		transp_mode = TRUE;
+		transp_mode = 1;
 
 	if (!fifo->skbuff) {
 		fifo->skbuff = dev_alloc_skb(fifo->max_size + 3);
 		if (!fifo->skbuff) {
-			printk(KERN_INFO
-			       "HFC-S USB: cannot allocate buffer (dev_alloc_skb) fifo:%d\n",
+			printk(KERN_ERR
+			       "HFC-S USB: cannot allocate buffer fifo(%d)\n",
 			       fifon);
 			return;
 		}
@@ -854,17 +822,11 @@ collect_rx_frame(usb_fifo * fifo, __u8 * data, int len, int finish)
 		if (fifo->skbuff->len + len < fifo->max_size) {
 			memcpy(skb_put(fifo->skbuff, len), data, len);
 		} else {
-#ifdef CONFIG_HISAX_DEBUG
-			printk(KERN_INFO "HFC-S USB: ");
-			for (i = 0; i < 15; i++)
-				printk("%.2x ",
-				       fifo->skbuff->data[fifo->skbuff->
-							  len - 15 + i]);
-			printk("\n");
-#endif
-			printk(KERN_INFO
-			       "HCF-USB: got frame exceeded fifo->max_size:%d on fifo:%d\n",
+			DBG(HFCUSB_DBG_FIFO_ERR,
+			       "HCF-USB: got frame exceeded fifo->max_size(%d) fifo(%d)",
 			       fifo->max_size, fifon);
+			DBG_SKB(HFCUSB_DBG_VERBOSE_USB, fifo->skbuff);
+			skb_trim(fifo->skbuff, 0);           
 		}
 	}
 	if (transp_mode && fifo->skbuff->len >= 128) {
@@ -877,6 +839,13 @@ collect_rx_frame(usb_fifo * fifo, __u8 * data, int len, int finish)
 	if (finish) {
 		if ((!fifo->skbuff->data[fifo->skbuff->len - 1])
 		    && (fifo->skbuff->len > 3)) {
+
+			if (fifon == HFCUSB_D_RX) {
+				DBG(HFCUSB_DBG_DCHANNEL,
+				    "HFC-S USB: D-RX len(%d)", fifo->skbuff->len);
+				DBG_SKB(HFCUSB_DBG_DCHANNEL, fifo->skbuff);
+			}
+
 			/* remove CRC & status */
 			skb_trim(fifo->skbuff, fifo->skbuff->len - 3);
 			if (fifon == HFCUSB_PCM_RX) {
@@ -889,29 +858,10 @@ collect_rx_frame(usb_fifo * fifo, __u8 * data, int len, int finish)
 						fifo->skbuff);
 			fifo->skbuff = NULL;	/* buffer was freed from upper layer */
 		} else {
-			if (fifo->skbuff->len > 3) {
-				printk(KERN_INFO
-				       "HFC-S USB: got frame %d bytes but CRC ERROR on fifo:%d!!!\n",
-				       fifo->skbuff->len, fifon);
-#ifdef CONFIG_HISAX_DEBUG
-				if (debug > 1) {
-					printk(KERN_INFO "HFC-S USB: ");
-					for (i = 0; i < 15; i++)
-						printk("%.2x ",
-						       fifo->skbuff->
-						       data[fifo->skbuff->
-							    len - 15 + i]);
-					printk("\n");
-				}
-#endif
-			}
-#ifdef CONFIG_HISAX_DEBUG
-			else {
-				printk(KERN_INFO
-				       "HFC-S USB: frame to small (%d bytes)!!!\n",
-				       fifo->skbuff->len);
-			}
-#endif
+			DBG(HFCUSB_DBG_FIFO_ERR,
+			    "HFC-S USB: ERROR frame len(%d) fifo(%d)",
+			    fifo->skbuff->len, fifon);
+			DBG_SKB(HFCUSB_DBG_VERBOSE_USB, fifo->skbuff);
 			skb_trim(fifo->skbuff, 0);
 		}
 	}
@@ -921,7 +871,7 @@ collect_rx_frame(usb_fifo * fifo, __u8 * data, int len, int finish)
 /* receive completion routine for all rx fifos */
 /***********************************************/
 static void
-rx_complete(struct urb *urb, struct pt_regs *regs)
+rx_int_complete(struct urb *urb, struct pt_regs *regs)
 {
 	int len;
 	int status;
@@ -929,18 +879,14 @@ rx_complete(struct urb *urb, struct pt_regs *regs)
 	usb_fifo *fifo = (usb_fifo *) urb->context;
 	hfcusb_data *hfc = fifo->hfc;
 	static __u8 eof[8];
-#ifdef CONFIG_HISAX_DEBUG
-	__u8 i;
-#endif
 
 	urb->dev = hfc->dev;	/* security init */
 
 	fifon = fifo->fifonum;
 	if ((!fifo->active) || (urb->status)) {
-#ifdef CONFIG_HISAX_DEBUG
-		DBG(USB_DBG, "HFC-S USB: RX-Fifo %i is going down (%i)",
+		DBG(HFCUSB_DBG_INIT, "HFC-S USB: RX-Fifo %i is going down (%i)",
 		    fifon, urb->status);
-#endif
+
 		fifo->urb->interval = 0;	/* cancel automatic rescheduling */
 		if (fifo->skbuff) {
 			dev_kfree_skb_any(fifo->skbuff);
@@ -952,16 +898,14 @@ rx_complete(struct urb *urb, struct pt_regs *regs)
 	buf = fifo->buffer;
 	maxlen = fifo->usb_packet_maxlen;
 
-#ifdef CONFIG_HISAX_DEBUG
-	if ((fifon == 5) && (debug > 1)) {
-		printk(KERN_INFO
-		       "HFC-S USB: INT-D-RX lst_urblen:%2d act_urblen:%2d max-urblen:%2d EOF:0x%0x DATA: ",
-		       fifo->last_urblen, len, maxlen, eof[5]);
-		for (i = 0; i < len; i++)
-			printk("%.2x ", buf[i]);
-		printk("\n");
+	if (fifon == HFCUSB_D_RX) {
+		DBG(HFCUSB_DBG_VERBOSE_USB,
+		       "HFC-S USB: INT-D-RX lst_urblen:%2d "
+		       "act_urblen:%2d max-urblen:%2d EOF:0x%0x",
+		       fifo->last_urblen, len, maxlen,
+		       eof[5]);
+		DBG_PACKET(HFCUSB_DBG_VERBOSE_USB, buf, len);
 	}
-#endif
 
 	if (fifo->last_urblen != fifo->usb_packet_maxlen) {
 		/* the threshold mask is in the 2nd status byte */
@@ -982,7 +926,8 @@ rx_complete(struct urb *urb, struct pt_regs *regs)
 	status = usb_submit_urb(urb, GFP_ATOMIC);
 	if (status) {
 		printk(KERN_INFO
-		       "HFC-S USB: error resubmitting URN at rx_complete...\n");
+		       "HFC-S USB: %s error resubmitting URB fifo(%d)\n",
+		       __FUNCTION__, fifon);
 	}
 }				/* rx_complete */
 
@@ -994,7 +939,7 @@ start_int_fifo(usb_fifo * fifo)
 {
 	int errcode;
 
-	printk(KERN_INFO "HFC-S USB: starting intr IN fifo:%d\n",
+	printk(KERN_INFO "HFC-S USB: starting int IN fifo:%d\n",
 	       fifo->fifonum);
 
 	if (!fifo->urb) {
@@ -1004,11 +949,11 @@ start_int_fifo(usb_fifo * fifo)
 	}
 	usb_fill_int_urb(fifo->urb, fifo->hfc->dev, fifo->pipe,
 			 fifo->buffer, fifo->usb_packet_maxlen,
-			 rx_complete, fifo, fifo->intervall);
+			 rx_int_complete, fifo, fifo->intervall);
 	fifo->active = 1;	/* must be marked active */
 	errcode = usb_submit_urb(fifo->urb, GFP_KERNEL);
 	if (errcode) {
-		printk(KERN_INFO
+		printk(KERN_ERR
 		       "HFC-S USB: submit URB error(start_int_info): status:%i\n",
 		       errcode);
 		fifo->active = 0;
@@ -1027,10 +972,8 @@ set_hfcmode(hfcusb_data * hfc, int channel, int mode)
 	if (hfc->disc_flag) {
 		return;
 	}
-#ifdef CONFIG_HISAX_DEBUG
-	DBG(ISDN_DBG, "HFC-S USB: setting channel %d to mode %d", channel,
-	    mode);
-#endif
+	DBG(HFCUSB_DBG_STATES, "HFC-S USB: setting channel %d to mode %d",
+	    channel, mode);
 	hfc->b_mode[channel] = mode;
 
 	/* setup CON_HDLC */
@@ -1087,20 +1030,17 @@ hfc_usb_l2l1(struct hisax_if *my_hisax_if, int pr, void *arg)
 	switch (pr) {
 		case PH_ACTIVATE | REQUEST:
 			if (fifo->fifonum == HFCUSB_D_TX) {
-#ifdef CONFIG_HISAX_DEBUG
-				DBG(ISDN_DBG,
+				DBG(HFCUSB_DBG_STATES,
 				    "HFC_USB: hfc_usb_d_l2l1 D-chan: PH_ACTIVATE | REQUEST");
-#endif
+
 				if (hfc->l1_state != 3
 				    && hfc->l1_state != 7) {
 					hfc->d_if.ifc.l1l2(&hfc->d_if.ifc,
 							   PH_DEACTIVATE |
 							   INDICATION,
 							   NULL);
-#ifdef CONFIG_HISAX_DEBUG
-					DBG(ISDN_DBG,
+					DBG(HFCUSB_DBG_STATES,
 					    "HFC-S USB: PH_DEACTIVATE | INDICATION sent (not state 3 or 7)");
-#endif
 				} else {
 					if (hfc->l1_state == 7) {	/* l1 already active */
 						hfc->d_if.ifc.l1l2(&hfc->
@@ -1110,10 +1050,8 @@ hfc_usb_l2l1(struct hisax_if *my_hisax_if, int pr, void *arg)
 								   |
 								   INDICATION,
 								   NULL);
-#ifdef CONFIG_HISAX_DEBUG
-						DBG(ISDN_DBG,
+						DBG(HFCUSB_DBG_STATES,
 						    "HFC-S USB: PH_ACTIVATE | INDICATION sent again ;)");
-#endif
 					} else {
 						/* force sending sending INFO1 */
 						queue_control_request(hfc,
@@ -1139,10 +1077,8 @@ hfc_usb_l2l1(struct hisax_if *my_hisax_if, int pr, void *arg)
 					}
 				}
 			} else {
-#ifdef CONFIG_HISAX_DEBUG
-				DBG(ISDN_DBG,
-				    "HFC_USB: hfc_usb_d_l2l1 Bx-chan: PH_ACTIVATE | REQUEST");
-#endif
+				DBG(HFCUSB_DBG_STATES,
+				    "HFC_USB: hfc_usb_d_l2l1 B-chan: PH_ACTIVATE | REQUEST");
 				set_hfcmode(hfc,
 					    (fifo->fifonum ==
 					     HFCUSB_B1_TX) ? 0 : 1,
@@ -1154,17 +1090,11 @@ hfc_usb_l2l1(struct hisax_if *my_hisax_if, int pr, void *arg)
 			break;
 		case PH_DEACTIVATE | REQUEST:
 			if (fifo->fifonum == HFCUSB_D_TX) {
-#ifdef CONFIG_HISAX_DEBUG
-				DBG(ISDN_DBG,
+				DBG(HFCUSB_DBG_STATES,
 				    "HFC_USB: hfc_usb_d_l2l1 D-chan: PH_DEACTIVATE | REQUEST");
-#endif
-				printk(KERN_INFO
-				       "HFC-S USB: ISDN TE device should not deativate...\n");
 			} else {
-#ifdef CONFIG_HISAX_DEBUG
-				DBG(ISDN_DBG,
+				DBG(HFCUSB_DBG_STATES,
 				    "HFC_USB: hfc_usb_d_l2l1 Bx-chan: PH_DEACTIVATE | REQUEST");
-#endif
 				set_hfcmode(hfc,
 					    (fifo->fifonum ==
 					     HFCUSB_B1_TX) ? 0 : 1,
@@ -1178,14 +1108,13 @@ hfc_usb_l2l1(struct hisax_if *my_hisax_if, int pr, void *arg)
 			if (fifo->skbuff && fifo->delete_flg) {
 				dev_kfree_skb_any(fifo->skbuff);
 				fifo->skbuff = NULL;
-				fifo->delete_flg = FALSE;
+				fifo->delete_flg = 0;
 			}
 			fifo->skbuff = arg;	/* we have a new buffer */
 			break;
 		default:
-			printk(KERN_INFO
-			       "HFC_USB: hfc_usb_d_l2l1: unkown state : %#x\n",
-			       pr);
+			DBG(HFCUSB_DBG_STATES, 
+			       "HFC_USB: hfc_usb_d_l2l1: unkown state : %#x", pr);
 			break;
 	}
 }
@@ -1264,8 +1193,8 @@ usb_init(hfcusb_data * hfc)
 	hfc->b_mode[0] = L1_MODE_NULL;
 	hfc->b_mode[1] = L1_MODE_NULL;
 
-	hfc->l1_activated = FALSE;
-	hfc->disc_flag = FALSE;
+	hfc->l1_activated = 0;
+	hfc->disc_flag = 0;
 	hfc->led_state = 0;
 	hfc->led_new_data = 0;
 	hfc->old_led_state = 0;
@@ -1381,11 +1310,6 @@ hfc_usb_probe(struct usb_interface *intf, const struct usb_device_id *id)
 		}
 	}
 	
-#ifdef CONFIG_HISAX_DEBUG
-	DBG(USB_DBG,
-	    "HFC-USB: probing interface(%d) actalt(%d) minor(%d)\n", ifnum,
-	    iface->desc.bAlternateSetting, intf->minor);
-#endif
 	printk(KERN_INFO
 	       "HFC-S USB: probing interface(%d) actalt(%d) minor(%d)\n",
 	       ifnum, iface->desc.bAlternateSetting, intf->minor);
@@ -1406,15 +1330,11 @@ hfc_usb_probe(struct usb_interface *intf, const struct usb_device_id *id)
 
 			/* check for config EOL element */
 			while (validconf[cfg_used][0]) {
-				cfg_found = TRUE;
+				cfg_found = 1;
 				vcf = validconf[cfg_used];
 				/* first endpoint descriptor */
 				ep = iface->endpoint;
-#ifdef CONFIG_HISAX_DEBUG
-				DBG(USB_DBG,
-				    "HFC-S USB: (if=%d alt=%d cfg_used=%d)\n",
-				    ifnum, probe_alt_setting, cfg_used);
-#endif
+
 				memcpy(cmptbl, vcf, 16 * sizeof(int));
 
 				/* check for all endpoints in this alternate setting */
@@ -1428,7 +1348,7 @@ hfc_usb_probe(struct usb_interface *intf, const struct usb_device_id *id)
 						idx++;
 					attr = ep->desc.bmAttributes;
 					if (cmptbl[idx] == EP_NUL) {
-						cfg_found = FALSE;
+						cfg_found = 0;
 					}
 					if (attr == USB_ENDPOINT_XFER_INT
 					    && cmptbl[idx] == EP_INT)
@@ -1441,16 +1361,9 @@ hfc_usb_probe(struct usb_interface *intf, const struct usb_device_id *id)
 						cmptbl[idx] = EP_NUL;
 
 					/* check if all INT endpoints match minimum interval */
-					if (attr == USB_ENDPOINT_XFER_INT
-					    && ep->desc.bInterval <
-					    vcf[17]) {
-#ifdef CONFIG_HISAX_DEBUG
-						if (cfg_found)
-							DBG(USB_DBG,
-							    "HFC-S USB: Interrupt Endpoint interval < %d found - skipping config",
-							    vcf[17]);
-#endif
-						cfg_found = FALSE;
+					if ((attr == USB_ENDPOINT_XFER_INT)
+					    && (ep->desc.bInterval < vcf[17])) {
+						cfg_found = 0;
 					}
 					ep++;
 				}
@@ -1458,7 +1371,7 @@ hfc_usb_probe(struct usb_interface *intf, const struct usb_device_id *id)
 					/* all entries must be EP_NOP or EP_NUL for a valid config */
 					if (cmptbl[i] != EP_NOP
 					    && cmptbl[i] != EP_NUL)
-						cfg_found = FALSE;
+						cfg_found = 0;
 				}
 				if (cfg_found) {
 					if (cfg_used < small_match) {
@@ -1467,11 +1380,6 @@ hfc_usb_probe(struct usb_interface *intf, const struct usb_device_id *id)
 						    probe_alt_setting;
 						iface_used = iface;
 					}
-#ifdef CONFIG_HISAX_DEBUG
-					DBG(USB_DBG,
-					    "HFC-USB: small_match=%x %x\n",
-					    small_match, alt_used);
-#endif
 				}
 				cfg_used++;
 			}
@@ -1617,18 +1525,13 @@ hfc_usb_probe(struct usb_interface *intf, const struct usb_device_id *id)
 			    driver_info;
 			printk(KERN_INFO "HFC-S USB: detected \"%s\"\n",
 			       driver_info->vend_name);
-#ifdef CONFIG_HISAX_DEBUG
-			DBG(USB_DBG,
-			    "HFC-S USB: Endpoint-Config: %s (if=%d alt=%d)\n",
+
+			DBG(HFCUSB_DBG_INIT,
+			    "HFC-S USB: Endpoint-Config: %s (if=%d alt=%d), E-Channel(%d)",
 			    conf_str[small_match], context->if_used,
-			    context->alt_used);
-			printk(KERN_INFO
-			       "HFC-S USB: E-channel (\"ECHO:\") logging ");
-			if (validconf[small_match][18])
-				printk(" possible\n");
-			else
-				printk("NOT possible\n");
-#endif
+			    context->alt_used,
+			    validconf[small_match][18]);
+
 			/* init the chip and register the driver */
 			if (usb_init(context)) {
 				if (context->ctrl_urb) {
@@ -1658,8 +1561,12 @@ hfc_usb_disconnect(struct usb_interface
 {
 	hfcusb_data *context = usb_get_intfdata(intf);
 	int i;
+	
+	handle_led(context, LED_POWER_OFF);
+	schedule_timeout((10 * HZ) / 1000);
+	
 	printk(KERN_INFO "HFC-S USB: device disconnect\n");
-	context->disc_flag = TRUE;
+	context->disc_flag = 1;
 	usb_set_intfdata(intf, NULL);
 	if (!context)
 		return;
@@ -1667,25 +1574,22 @@ hfc_usb_disconnect(struct usb_interface
 		del_timer(&context->t3_timer);
 	if (timer_pending(&context->t4_timer))
 		del_timer(&context->t4_timer);
+		
 	/* tell all fifos to terminate */
 	for (i = 0; i < HFCUSB_NUM_FIFOS; i++) {
 		if (context->fifos[i].usb_transfer_mode == USB_ISOC) {
 			if (context->fifos[i].active > 0) {
 				stop_isoc_chain(&context->fifos[i]);
-#ifdef CONFIG_HISAX_DEBUG
-				DBG(USB_DBG,
-				    "HFC-S USB: hfc_usb_disconnect: stopping ISOC chain Fifo no %i",
-				    i);
-#endif
+				DBG(HFCUSB_DBG_INIT,
+				    "HFC-S USB: %s stopping ISOC chain Fifo(%i)",
+				    __FUNCTION__, i);
 			}
 		} else {
 			if (context->fifos[i].active > 0) {
 				context->fifos[i].active = 0;
-#ifdef CONFIG_HISAX_DEBUG
-				DBG(USB_DBG,
-				    "HFC-S USB: hfc_usb_disconnect: unlinking URB for Fifo no %i",
-				    i);
-#endif
+				DBG(HFCUSB_DBG_INIT,
+				    "HFC-S USB: %s unlinking URB for Fifo(%i)",
+				    __FUNCTION__, i);
 			}
 			if (context->fifos[i].urb) {
 				usb_unlink_urb(context->fifos[i].urb);
@@ -1719,9 +1623,6 @@ static struct usb_driver hfc_drv = {
 static void __exit
 hfc_usb_exit(void)
 {
-#ifdef CONFIG_HISAX_DEBUG
-	DBG(USB_DBG, "HFC-S USB: calling \"hfc_usb_exit\" ...");
-#endif
 	usb_deregister(&hfc_drv);	/* release our driver */
 	printk(KERN_INFO "HFC-S USB: module removed\n");
 }
@@ -1730,7 +1631,7 @@ static int __init
 hfc_usb_init(void)
 {
 #ifndef CONFIG_HISAX_DEBUG
-	unsigned int debug = -1;
+	hfc_debug = debug;
 #endif
 	char revstr[30], datestr[30], dummy[30];
 	sscanf(hfcusb_revision,
