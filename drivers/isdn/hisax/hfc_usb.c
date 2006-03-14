@@ -49,7 +49,7 @@ static const char *hfcusb_revision =
     "$Revision$ $Date$ ";
 
 /* Hisax debug support
-* use "modprobe debug=x" where x is bitfield of USB_DBG & ISDN_DBG
+*  debug flags defined in hfc_usb.h as HFCUSB_DBG_[*]
 */
 #define __debug_variable hfc_debug
 #include "hisax_debug.h"
@@ -163,7 +163,6 @@ typedef struct usb_fifo {
 	struct hisax_if *hif;	/* hisax interface */
 	int delete_flg;		/* only delete skbuff once */
 	int last_urblen;	/* remember length of last packet */
-
 } usb_fifo;
 
 /*********************************************/
@@ -171,7 +170,7 @@ typedef struct usb_fifo {
 /*********************************************/
 typedef struct hfcusb_data {
 	/* HiSax Interface for loadable Layer1 drivers */
-	struct hisax_d_if d_if;	/* see hisax_if.h */
+	struct hisax_d_if d_if;		/* see hisax_if.h */
 	struct hisax_b_if b_if[2];	/* see hisax_if.h */
 	int protocol;
 
@@ -179,7 +178,8 @@ typedef struct hfcusb_data {
 	int if_used;		/* used interface number */
 	int alt_used;		/* used alternate config */
 	int ctrl_paksize;	/* control pipe packet size */
-	int ctrl_in_pipe, ctrl_out_pipe;	/* handles for control pipe */
+	int ctrl_in_pipe,	/* handles for control pipe */
+	    ctrl_out_pipe;
 	int cfg_used;		/* configuration index used */
 	int vend_idx;		/* vendor found */
 	int b_mode[2];		/* B-channel mode */
