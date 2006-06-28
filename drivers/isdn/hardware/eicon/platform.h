@@ -214,10 +214,7 @@ void diva_os_free_message_buffer(diva_os_message_buffer_s *dmb);
 */
 static __inline__ void diva_os_sleep(dword mSec)
 {
-	unsigned long timeout = HZ * mSec / 1000 + 1;
-
-	set_current_state(TASK_UNINTERRUPTIBLE);
-	schedule_timeout(timeout);
+	msleep(mSec);
 }
 static __inline__ void diva_os_wait(dword mSec)
 {
