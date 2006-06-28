@@ -37,7 +37,7 @@ config ISDN_DRV_AVMB1_T1ISA
 
 config ISDN_DRV_AVMB1_B1PCMCIA
 	tristate "AVM B1/M1/M2 PCMCIA support"
-	depends on CAPI_AVM && ISDN_CAPI && BROKEN_ON_SMP
+	depends on CAPI_AVM && ISDN_CAPI
 	help
 	  Enable support for the PCMCIA version of the AVM B1 card.
 
