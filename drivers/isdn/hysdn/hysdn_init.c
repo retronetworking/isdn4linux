@@ -34,7 +34,7 @@ MODULE_AUTHOR("Werner Cornelius");
 MODULE_LICENSE("GPL");
 
 static char *hysdn_init_revision = "$Revision$";
-int cardmax;			/* number of found cards */
+static int cardmax;		/* number of found cards */
 hysdn_card *card_root = NULL;	/* pointer to first card */
 
 /**********************************************/

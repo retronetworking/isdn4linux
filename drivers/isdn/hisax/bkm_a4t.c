@@ -167,7 +167,7 @@ bkm_interrupt(int intno, void *dev_id, struct pt_regs *regs)
 	}
 }
 
-void
+static void
 release_io_bkm(struct IsdnCardState *cs)
 {
 	if (cs->hw.ax.base) {
