@@ -8,3 +8,5 @@ source "drivers/isdn/hardware/avm/Kconfig"
 
 source "drivers/isdn/hardware/eicon/Kconfig"
 
+source "drivers/isdn/hardware/mISDN/Kconfig"
+

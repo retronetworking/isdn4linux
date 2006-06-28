@@ -154,6 +154,9 @@ else
 	for i in drivers/isdn/divert/*.[ch] ; do
 		$DODIFF $i $KERNELDIR/$i
 	done
+	for i in drivers/isdn/gigaset/*.[ch] ; do
+		$DODIFF $i $KERNELDIR/$i
+	done
 	for i in drivers/isdn/hisax/*.[ch] ; do
 		$DODIFF $i $KERNELDIR/$i
 	done
