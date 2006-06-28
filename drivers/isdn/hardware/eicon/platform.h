@@ -195,9 +195,7 @@ static __inline__ void* diva_os_malloc (unsigned long flags, unsigned long size)
 }
 static __inline__ void  diva_os_free   (unsigned long flags, void* ptr)
 {
-	if (ptr) {
-		vfree(ptr);
-	}
+	vfree(ptr);
 }
 
 /*

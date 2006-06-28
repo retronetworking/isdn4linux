@@ -18,6 +18,7 @@
 #include <linux/smp_lock.h>
 #include <linux/poll.h>
 #include <linux/devfs_fs_kernel.h>
+#include <asm/uaccess.h>
 
 #include "platform.h"
 #include "di_defs.h"
@@ -33,10 +34,10 @@ MODULE_AUTHOR("Cytronics & Melware, Eicon Networks");
 MODULE_SUPPORTED_DEVICE("DIVA card driver");
 MODULE_LICENSE("GPL");
 
-int buffer_length = 128;
-MODULE_PARM(buffer_length, "i");
-unsigned long diva_dbg_mem = 0;
-MODULE_PARM(diva_dbg_mem, "l");
+static int buffer_length = 128;
+module_param(buffer_length, int, 0);
+static unsigned long diva_dbg_mem = 0;
+module_param(diva_dbg_mem, ulong, 0);
 
 static char *DRIVERNAME =
     "Eicon DIVA - MAINT module (http://www.melware.net)";

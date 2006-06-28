@@ -17,8 +17,8 @@
 #include "mi_pc.h"
 #include "dsrv4bri.h"
 
-void *diva_xdiLoadFileFile = NULL;
-dword diva_xdiLoadFileLength = 0;
+static void *diva_xdiLoadFileFile = NULL;
+static dword diva_xdiLoadFileLength = 0;
 
 /*
 **  IMPORTS
@@ -416,8 +416,8 @@ int diva_4bri_init_card(diva_os_xdi_adapter_t * a)
 		if (i) {
 			Slave->serialNo = ((dword) (Slave->ControllerNumber << 24)) |
 					a->xdi_adapter.serialNo;
-		Slave->cardType = a->xdi_adapter.cardType;
-	}
+			Slave->cardType = a->xdi_adapter.cardType;
+		}
 	}
 
 	/*

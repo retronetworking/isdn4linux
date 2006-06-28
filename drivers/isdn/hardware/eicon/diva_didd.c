@@ -140,7 +140,7 @@ static int DIVA_INIT_FUNCTION divadidd_init(void)
 	return (ret);
 }
 
-void DIVA_EXIT_FUNCTION divadidd_exit(void)
+static void DIVA_EXIT_FUNCTION divadidd_exit(void)
 {
 	diddfunc_finit();
 	remove_proc();

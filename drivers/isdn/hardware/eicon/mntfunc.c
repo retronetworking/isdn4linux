@@ -187,7 +187,7 @@ int maint_read_write(void __user *buf, int count)
 		if (!mask) {
 			ret = diva_set_trace_filter (1, "*");
 		} else if (mask < sizeof(data)) {
-			if (copy_from_user(data, (char __user *)buf+12, mask)) {
+			if (diva_os_copy_from_user(NULL, data, (char __user *)buf+12, mask)) {
 				ret = -EFAULT;
 			} else {
 				ret = diva_set_trace_filter ((int)mask, data);
@@ -199,7 +199,7 @@ int maint_read_write(void __user *buf, int count)
 
 	case DITRACE_READ_SELECTIVE_TRACE_FILTER:
 		if ((ret = diva_get_trace_filter (sizeof(data), data)) > 0) {
-			if (copy_to_user (buf, data, ret))
+			if (diva_os_copy_to_user (NULL, buf, data, ret))
 				ret = -EFAULT;
 		} else {
 			ret = -ENODEV;
