@@ -29,10 +29,11 @@
 #include <linux/timer.h>
 #include <linux/skbuff.h>
 #include <linux/wait.h>
+#include <asm/io.h>
 #include "hisax_if.h"
 #include "hfc4s8s_l1.h"
 
-static const char hfc4s8s_rev[] = "Revision: 1.11";
+static const char hfc4s8s_rev[] = "Revision: 1.10";
 
 /***************************************************************/
 /* adjustable transparent mode fifo threshold                  */
@@ -311,7 +312,7 @@ wait_busy(hfc4s8s_hw * a)
 /* function to read critical counter registers that   */
 /* may be udpated by the chip during read             */
 /******************************************************/
-static volatile u_char
+static u_char
 Read_hfc8_stable(hfc4s8s_hw * hw, int reg)
 {
 	u_char ref8;
@@ -323,7 +324,7 @@ Read_hfc8_stable(hfc4s8s_hw * hw, int reg)
 	return in8;
 }
 
-static volatile int
+static int
 Read_hfc16_stable(hfc4s8s_hw * hw, int reg)
 {
 	int ref16;
@@ -873,7 +874,7 @@ rx_b_frame(struct hfc4s8s_btype *bch)
 			bch->rx_ptr += 4;
 			z1 -= 4;
 		}
-		
+
 		while (z1--)
 #ifdef CONFIG_HISAX_HFC4S8S_PCIMEM
 			*(bch->rx_ptr++) = Read_hfc8(l1->hw, A_FIFO_DATA0);
@@ -1357,7 +1358,7 @@ chipreset(hfc4s8s_hw * hw)
 /********************************************/
 /* disable/enable hardware in nt or te mode */
 /********************************************/
-void
+static void
 hfc_hardware_enable(hfc4s8s_hw * hw, int enable, int nt_mode)
 {
 	u_long flags;
@@ -1464,7 +1465,7 @@ hfc_hardware_enable(hfc4s8s_hw * hw, int enable, int nt_mode)
 /******************************************/
 /* disable memory mapped ports / io ports */
 /******************************************/
-void
+static void
 release_pci_ports(hfc4s8s_hw * hw)
 {
 	pci_write_config_word(hw->pdev, PCI_COMMAND, 0);
@@ -1480,7 +1481,7 @@ release_pci_ports(hfc4s8s_hw * hw)
 /*****************************************/
 /* enable memory mapped ports / io ports */
 /*****************************************/
-void
+static void
 enable_pci_ports(hfc4s8s_hw * hw)
 {
 #ifdef CONFIG_HISAX_HFC4S8S_PCIMEM
@@ -1604,7 +1605,7 @@ hfc4s8s_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
 	hw->cardnum = card_cnt;
 	sprintf(hw->card_name, "hfc4s8s_%d", hw->cardnum);
 	printk(KERN_INFO "HFC-4S/8S: found adapter %s (%s) at %s\n",
-	       driver_data->device_name, hw->card_name, pdev->slot_name);
+	       driver_data->device_name, hw->card_name, pci_name(pdev));
 
 	spin_lock_init(&hw->lock);
 
