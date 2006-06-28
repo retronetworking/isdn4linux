@@ -998,7 +998,8 @@ static u16 diva_send_message(struct capi_ctr *ctrl,
 
       write_end:
 	diva_os_leave_spin_lock(&api_lock, &old_irql, "send message");
-	diva_os_free_message_buffer(dmb);
+	if (retval == CAPI_NOERROR)
+		diva_os_free_message_buffer(dmb);
 	return retval;
 }
 
