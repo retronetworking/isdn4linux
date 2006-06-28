@@ -762,7 +762,7 @@ static int __devinit fcpcipnp_setup(struct fritz_adapter *adapter)
 	adapter->isac.priv = adapter;
 	switch (adapter->type) {
 	case AVM_FRITZ_PCIV2:
-		adapter->isac.read_isac       = &fcpci2_read_isac;;
+		adapter->isac.read_isac       = &fcpci2_read_isac;
 		adapter->isac.write_isac      = &fcpci2_write_isac;
 		adapter->isac.read_isac_fifo  = &fcpci2_read_isac_fifo;
 		adapter->isac.write_isac_fifo = &fcpci2_write_isac_fifo;
@@ -771,7 +771,7 @@ static int __devinit fcpcipnp_setup(struct fritz_adapter *adapter)
 		adapter->write_ctrl           = &fcpci2_write_ctrl;
 		break;
 	case AVM_FRITZ_PCI:
-		adapter->isac.read_isac       = &fcpci_read_isac;;
+		adapter->isac.read_isac       = &fcpci_read_isac;
 		adapter->isac.write_isac      = &fcpci_write_isac;
 		adapter->isac.read_isac_fifo  = &fcpci_read_isac_fifo;
 		adapter->isac.write_isac_fifo = &fcpci_write_isac_fifo;
@@ -780,7 +780,7 @@ static int __devinit fcpcipnp_setup(struct fritz_adapter *adapter)
 		adapter->write_ctrl           = &fcpci_write_ctrl;
 		break;
 	case AVM_FRITZ_PNP:
-		adapter->isac.read_isac       = &fcpci_read_isac;;
+		adapter->isac.read_isac       = &fcpci_read_isac;
 		adapter->isac.write_isac      = &fcpci_write_isac;
 		adapter->isac.read_isac_fifo  = &fcpci_read_isac_fifo;
 		adapter->isac.write_isac_fifo = &fcpci_write_isac_fifo;
@@ -971,10 +971,10 @@ static void __devexit fcpnp_remove(struct pnp_dev *pdev)
 }
 
 static struct pnp_driver fcpnp_driver = {
-	name:     "fcpnp",
-	probe:    fcpnp_probe,
-	remove:   __devexit_p(fcpnp_remove),
-	id_table: fcpnp_ids,
+	.name		= "fcpnp",
+	.probe		= fcpnp_probe,
+	.remove		= __devexit_p(fcpnp_remove),
+	.id_table	= fcpnp_ids,
 };
 #endif
 
@@ -988,10 +988,10 @@ static void __devexit fcpci_remove(struct pci_dev *pdev)
 }
 
 static struct pci_driver fcpci_driver = {
-	name:     "fcpci",
-	probe:    fcpci_probe,
-	remove:   __devexit_p(fcpci_remove),
-	id_table: fcpci_ids,
+	.name		= "fcpci",
+	.probe		= fcpci_probe,
+	.remove		= __devexit_p(fcpci_remove),
+	.id_table	= fcpci_ids,
 };
 
 static int __init hisax_fcpcipnp_init(void)

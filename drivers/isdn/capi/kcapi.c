@@ -167,7 +167,7 @@ static void notify_up(u32 contr)
 	struct capi_ctr *card = get_capi_ctr_by_nr(contr);
 	struct capi20_appl *ap;
 	u16 applid;
-	
+
 	if (showcapimsgs & 1) {
 	        printk(KERN_DEBUG "kcapi: notify up contr %d\n", contr);
 	}
@@ -269,7 +269,7 @@ void capi_ctr_handle_message(struct capi_ctr * card, u16 appl, struct sk_buff *s
 		       card->cnr, capi_message2str(skb->data));
 		goto error;
 	}
-	
+
 	cmd = CAPIMSG_COMMAND(skb->data);
         subcmd = CAPIMSG_SUBCOMMAND(skb->data);
 	if (cmd == CAPI_DATA_B3 && subcmd == CAPI_IND) {
@@ -568,7 +568,7 @@ u16 capi20_release(struct capi20_appl *ap)
 		release_appl(capi_cards[i], ap->applid);
 	}
 	up(&controller_sem);
-	
+
 	flush_scheduled_work();
 	skb_queue_purge(&ap->recv_queue);
 
