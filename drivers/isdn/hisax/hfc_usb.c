@@ -470,7 +470,6 @@ fill_isoc_urb(struct urb *urb, struct usb_device *dev, unsigned int pipe,
 {
 	int k;
 
-	spin_lock_init(&urb->lock);
 	urb->dev = dev;
 	urb->pipe = pipe;
 	urb->complete = complete;
@@ -560,16 +559,15 @@ stop_isoc_chain(usb_fifo * fifo)
 			DBG(HFCUSB_DBG_INIT, 
 			    "HFC-S USB: Stopping iso chain for fifo %i.%i",
 			    fifo->fifonum, i);
-			usb_unlink_urb(fifo->iso[i].purb);
+			usb_kill_urb(fifo->iso[i].purb);
 			usb_free_urb(fifo->iso[i].purb);
 			fifo->iso[i].purb = NULL;
 		}
 	}
-	if (fifo->urb) {
-		usb_unlink_urb(fifo->urb);
-		usb_free_urb(fifo->urb);
-		fifo->urb = NULL;
-	}
+
+	usb_kill_urb(fifo->urb);
+	usb_free_urb(fifo->urb);
+	fifo->urb = NULL;	
 	fifo->active = 0;
 }
 
@@ -1237,7 +1235,11 @@ usb_init(hfcusb_data * hfc)
 	}
 	/* default Prot: EURO ISDN, should be a module_param */
 	hfc->protocol = 2;
-	hisax_register(&hfc->d_if, p_b_if, "hfc_usb", hfc->protocol);
+	i = hisax_register(&hfc->d_if, p_b_if, "hfc_usb", hfc->protocol);
+	if (i) {
+		printk(KERN_INFO "HFC-S USB: hisax_register -> %d\n", i);
+		return i;
+	}
 
 #ifdef CONFIG_HISAX_DEBUG
 	hfc_debug = debug;
@@ -1530,11 +1532,9 @@ hfc_usb_probe(struct usb_interface *intf, const struct usb_device_id *id)
 
 			/* init the chip and register the driver */
 			if (usb_init(context)) {
-				if (context->ctrl_urb) {
-					usb_unlink_urb(context->ctrl_urb);
-					usb_free_urb(context->ctrl_urb);
-					context->ctrl_urb = NULL;
-				}
+				usb_kill_urb(context->ctrl_urb);
+				usb_free_urb(context->ctrl_urb);
+				context->ctrl_urb = NULL;
 				kfree(context);
 				return (-EIO);
 			}
@@ -1587,21 +1587,15 @@ hfc_usb_disconnect(struct usb_interface
 				    "HFC-S USB: %s unlinking URB for Fifo(%i)",
 				    __FUNCTION__, i);
 			}
-			if (context->fifos[i].urb) {
-				usb_unlink_urb(context->fifos[i].urb);
-				usb_free_urb(context->fifos[i].urb);
-				context->fifos[i].urb = NULL;
-			}
+			usb_kill_urb(context->fifos[i].urb);
+			usb_free_urb(context->fifos[i].urb);
+			context->fifos[i].urb = NULL;
 		}
 		context->fifos[i].active = 0;
 	}
-	/* wait for all URBS to terminate */
-	mdelay(10);
-	if (context->ctrl_urb) {
-		usb_unlink_urb(context->ctrl_urb);
-		usb_free_urb(context->ctrl_urb);
-		context->ctrl_urb = NULL;
-	}
+	usb_kill_urb(context->ctrl_urb);
+	usb_free_urb(context->ctrl_urb);
+	context->ctrl_urb = NULL;
 	hisax_unregister(&context->d_if);
 	kfree(context);		/* free our structure again */
 }				/* hfc_usb_disconnect */
