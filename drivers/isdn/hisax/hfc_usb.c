@@ -542,8 +542,8 @@ start_isoc_chain(usb_fifo * fifo, int num_packets_per_urb,
 		errcode = usb_submit_urb(fifo->iso[i].purb, GFP_KERNEL);
 		fifo->active = (errcode >= 0) ? 1 : 0;
 		if (errcode < 0)
-			printk(KERN_INFO "HFC-S USB: %s  URB nr:%d\n",
-			       symbolic(urb_errlist, errcode), i);
+			printk(KERN_INFO "HFC-S USB: usb_submit_urb URB nr:%d, error(%i): '%s'\n",
+			       i, errcode, symbolic(urb_errlist, errcode));
 	}
 	return (fifo->active);
 }
@@ -693,9 +693,8 @@ tx_iso_complete(struct urb *urb)
 	} else {
 		if (status && !hfc->disc_flag) {
 			printk(KERN_INFO
-			       "HFC-S USB: tx_iso_complete : urb->status %s (%i), fifonum=%d\n",
-			       symbolic(urb_errlist, status), status,
-			       fifon);
+			       "HFC-S USB: tx_iso_complete: error(%i): '%s', fifonum=%d\n",
+			       status, symbolic(urb_errlist, status), fifon);
 		}
 	}
 }				/* tx_iso_complete */
