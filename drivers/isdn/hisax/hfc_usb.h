@@ -143,7 +143,7 @@ static struct hfcusb_symbolic_list urb_errlist[] = {
 #define EP_INT	5	// Interrupt endpoint mandatory at this position
 
 /*
- * List of all supported enpoints configiration sets, used to find the
+ * List of all supported endpoint configuration sets, used to find the
  * best matching endpoint configuration within a devices' USB descriptor.
  * We need at least 3 RX endpoints, and 3 TX endpoints, either
  * INT-in and ISO-out, or ISO-in and ISO-out)
