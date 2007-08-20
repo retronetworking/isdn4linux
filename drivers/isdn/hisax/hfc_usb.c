@@ -1579,10 +1579,10 @@ hfc_usb_mod_exit(void)
 static int __init
 hfc_usb_mod_init(void)
 {
+	char revstr[30], datestr[30], dummy[30];
 #ifndef CONFIG_HISAX_DEBUG
 	hfc_debug = debug;
 #endif
-	char revstr[30], datestr[30], dummy[30];
 	sscanf(hfcusb_revision,
 	       "%s %s $ %s %s %s $ ", dummy, revstr,
 	       dummy, datestr, dummy);
