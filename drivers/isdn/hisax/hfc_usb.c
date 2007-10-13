@@ -126,6 +126,12 @@ static struct usb_device_id hfcusb_idtab[] = {
 			  {LED_SCHEME1, {0x80, -64, -32, -16},
 			   "Twister ISDN TA"}),
 	},
+	{
+	 USB_DEVICE(0x071d, 0x1005),
+	 .driver_info = (unsigned long) &((hfcsusb_vdata)
+			  {LED_SCHEME1, {0x02, 0, 0x01, 0x04},
+			   "Eicon DIVA USB 4.0"}),
+	},
 	{ }
 };
 
@@ -187,7 +193,7 @@ typedef struct hfcusb_data {
 	struct usb_ctrlrequest ctrl_write;	/* buffer for control write request */
 	struct usb_ctrlrequest ctrl_read;	/* same for read request */
 
-	__u8 old_led_state, led_state, led_new_data, led_b_active;
+	__u8 old_led_state, led_state;
 
 	volatile __u8 threshold_mask;	/* threshold actually reported */
 	volatile __u8 bch_enables;	/* or mask for sctrl_r and sctrl register values */
@@ -263,7 +269,7 @@ ctrl_complete(struct urb *urb)
 
 		ctrl_start_transfer(hfc);	/* start next transfer */
 	}
-}				/* ctrl_complete */
+}
 
 /* write led data to auxport & invert if necessary */
 static void
@@ -276,18 +282,18 @@ write_led(hfcusb_data * hfc, __u8 led_state)
 }
 
 static void
-set_led_bit(hfcusb_data * hfc, signed short led_bits, int unset)
+set_led_bit(hfcusb_data * hfc, signed short led_bits, int on)
 {
-	if (unset) {
-		if (led_bits < 0)
-			hfc->led_state |= abs(led_bits);
-		else
-			hfc->led_state &= ~led_bits;
-	} else {
+	if (on) {
 		if (led_bits < 0)
 			hfc->led_state &= ~abs(led_bits);
 		else
 			hfc->led_state |= led_bits;
+	} else {
+		if (led_bits < 0)
+			hfc->led_state |= abs(led_bits);
+		else
+			hfc->led_state &= ~led_bits;
 	}
 }
 
@@ -304,34 +310,34 @@ handle_led(hfcusb_data * hfc, int event)
 
 	switch (event) {
 		case LED_POWER_ON:
-			set_led_bit(hfc, driver_info->led_bits[0], 0);
-			set_led_bit(hfc, driver_info->led_bits[1], 1);
-			set_led_bit(hfc, driver_info->led_bits[2], 1);
-			set_led_bit(hfc, driver_info->led_bits[3], 1);
-			break;
-		case LED_POWER_OFF:
 			set_led_bit(hfc, driver_info->led_bits[0], 1);
-			set_led_bit(hfc, driver_info->led_bits[1], 1);
-			set_led_bit(hfc, driver_info->led_bits[2], 1);
-			set_led_bit(hfc, driver_info->led_bits[3], 1);
-			break;
-		case LED_S0_ON:
 			set_led_bit(hfc, driver_info->led_bits[1], 0);
-			break;
-		case LED_S0_OFF:
-			set_led_bit(hfc, driver_info->led_bits[1], 1);
-			break;
-		case LED_B1_ON:
 			set_led_bit(hfc, driver_info->led_bits[2], 0);
-			break;
-		case LED_B1_OFF:
-			set_led_bit(hfc, driver_info->led_bits[2], 1);
-			break;
-		case LED_B2_ON:
 			set_led_bit(hfc, driver_info->led_bits[3], 0);
 			break;
-		case LED_B2_OFF:
+		case LED_POWER_OFF:
+			set_led_bit(hfc, driver_info->led_bits[0], 0);
+			set_led_bit(hfc, driver_info->led_bits[1], 0);
+			set_led_bit(hfc, driver_info->led_bits[2], 0);
+			set_led_bit(hfc, driver_info->led_bits[3], 0);
+			break;
+		case LED_S0_ON:
+			set_led_bit(hfc, driver_info->led_bits[1], 1);
+			break;
+		case LED_S0_OFF:
+			set_led_bit(hfc, driver_info->led_bits[1], 0);
+			break;
+		case LED_B1_ON:
+			set_led_bit(hfc, driver_info->led_bits[2], 1);
+			break;
+		case LED_B1_OFF:
+			set_led_bit(hfc, driver_info->led_bits[2], 0);
+			break;
+		case LED_B2_ON:
 			set_led_bit(hfc, driver_info->led_bits[3], 1);
+			break;
+		case LED_B2_OFF:
+			set_led_bit(hfc, driver_info->led_bits[3], 0);
 			break;
 	}
 	write_led(hfc, hfc->led_state);
@@ -1524,7 +1530,7 @@ hfc_usb_disconnect(struct usb_interface
 		return;
 
 	handle_led(context, LED_POWER_OFF);
-	schedule_timeout((10 * HZ) / 1000);
+	schedule_timeout(HZ / 100);
 
 	printk(KERN_INFO "HFC-S USB: device disconnect\n");
 	context->disc_flag = 1;
