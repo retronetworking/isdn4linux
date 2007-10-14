@@ -366,10 +366,10 @@ l1_timer_expire_t4(hfcusb_data * hfc)
 {
 	hfc->d_if.ifc.l1l2(&hfc->d_if.ifc, PH_DEACTIVATE | INDICATION,
 			   NULL);
-			   
+
 	DBG(HFCUSB_DBG_STATES,
 	    "HFC-S USB: PH_DEACTIVATE | INDICATION sent (T4 expire)");
-	    
+
 	hfc->l1_activated = 0;
 	handle_led(hfc, LED_S0_OFF);
 }
