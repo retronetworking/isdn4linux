@@ -519,7 +519,7 @@ stop_isoc_chain(usb_fifo * fifo)
 
 	for (i = 0; i < 2; i++) {
 		if (fifo->iso[i].purb) {
-			DBG(HFCUSB_DBG_INIT, 
+			DBG(HFCUSB_DBG_INIT,
 			    "HFC-S USB: Stopping iso chain for fifo %i.%i",
 			    fifo->fifonum, i);
 			usb_kill_urb(fifo->iso[i].purb);
@@ -530,7 +530,7 @@ stop_isoc_chain(usb_fifo * fifo)
 
 	usb_kill_urb(fifo->urb);
 	usb_free_urb(fifo->urb);
-	fifo->urb = NULL;	
+	fifo->urb = NULL;
 	fifo->active = 0;
 }
 
@@ -555,7 +555,7 @@ tx_iso_complete(struct urb *urb)
 	status = urb->status;
 
 	tx_offset = 0;
-	
+
 	/* ISO transfer only partially completed,
 	   look at individual frame status for details */
 	if (status == -EXDEV) {
@@ -597,7 +597,7 @@ tx_iso_complete(struct urb *urb)
 		memset(context_iso_urb->buffer, 0,
 		       sizeof(context_iso_urb->buffer));
 		frame_complete = 0;
-		
+
 		/* Generate next ISO Packets */
 		for (k = 0; k < num_isoc_packets; ++k) {
 			if (fifo->skbuff) {
@@ -694,7 +694,7 @@ rx_iso_complete(struct urb *urb)
 	status = urb->status;
 
 	if (urb->status == -EOVERFLOW) {
-		DBG(HFCUSB_DBG_VERBOSE_USB, 
+		DBG(HFCUSB_DBG_VERBOSE_USB,
 		    "HFC-USB: ignoring USB DATAOVERRUN fifo(%i)", fifon);
 		status = 0;
 	}
@@ -807,7 +807,7 @@ collect_rx_frame(usb_fifo * fifo, __u8 * data, int len, int finish)
 			       "HCF-USB: got frame exceeded fifo->max_size(%d) fifo(%d)",
 			       fifo->max_size, fifon);
 			DBG_SKB(HFCUSB_DBG_VERBOSE_USB, fifo->skbuff);
-			skb_trim(fifo->skbuff, 0);           
+			skb_trim(fifo->skbuff, 0);
 		}
 	}
 	if (transp_mode && fifo->skbuff->len >= 128) {
@@ -1086,7 +1086,7 @@ hfc_usb_l2l1(struct hisax_if *my_hisax_if, int pr, void *arg)
 			fifo->skbuff = arg;	/* we have a new buffer */
 			break;
 		default:
-			DBG(HFCUSB_DBG_STATES, 
+			DBG(HFCUSB_DBG_STATES,
 			       "HFC_USB: hfc_usb_d_l2l1: unkown state : %#x", pr);
 			break;
 	}
@@ -1165,7 +1165,6 @@ hfc_usb_init(hfcusb_data * hfc)
 	hfc->l1_activated = 0;
 	hfc->disc_flag = 0;
 	hfc->led_state = 0;
-	hfc->led_new_data = 0;
 	hfc->old_led_state = 0;
 
 	/* init the t3 timer */
@@ -1520,14 +1519,10 @@ hfc_usb_probe(struct usb_interface *intf, const struct usb_device_id *id)
 
 /* callback for unplugged USB device */
 static void
-hfc_usb_disconnect(struct usb_interface
-		   *intf)
+hfc_usb_disconnect(struct usb_interface *intf)
 {
 	hfcusb_data *context = usb_get_intfdata(intf);
 	int i;
-	
-	if (!context)
-		return;
 
 	handle_led(context, LED_POWER_OFF);
 	schedule_timeout(HZ / 100);
