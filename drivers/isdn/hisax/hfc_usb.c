@@ -219,7 +219,7 @@ symbolic(struct hfcusb_symbolic_list list[], const int num)
 	return "<unknown ERROR>";
 }
 
-static void
+static int
 ctrl_start_transfer(hfcusb_data * hfc)
 {
 	if (hfc->ctrl_cnt) {
@@ -232,8 +232,9 @@ ctrl_start_transfer(hfcusb_data * hfc)
 		hfc->ctrl_write.wValue =
 		    cpu_to_le16(hfc->ctrl_buff[hfc->ctrl_out_idx].reg_val);
 
-		usb_submit_urb(hfc->ctrl_urb, GFP_ATOMIC);	/* start transfer */
+		return usb_submit_urb(hfc->ctrl_urb, GFP_ATOMIC);	/* start transfer */
 	}
+	return 0;
 }				/* ctrl_start_transfer */
 
 static int
@@ -250,8 +251,8 @@ queue_control_request(hfcusb_data * hfc, __u8 reg, __u8 val, int action)
 	if (++hfc->ctrl_in_idx >= HFC_CTRL_BUFSIZE)
 		hfc->ctrl_in_idx = 0;	/* pointer wrap */
 	if (++hfc->ctrl_cnt == 1)
-		ctrl_start_transfer(hfc);
-	return (0);
+		return ctrl_start_transfer(hfc);
+	return 0;
 }
 
 static void
@@ -272,13 +273,14 @@ ctrl_complete(struct urb *urb)
 }
 
 /* write led data to auxport & invert if necessary */
-static void
+static int
 write_led(hfcusb_data * hfc, __u8 led_state)
 {
 	if (led_state != hfc->old_led_state) {
 		hfc->old_led_state = led_state;
-		queue_control_request(hfc, HFCUSB_P_DATA, led_state, 1);
+		return queue_control_request(hfc, HFCUSB_P_DATA, led_state, 1);
 	}
+	return 0;
 }
 
 static void
@@ -298,7 +300,7 @@ set_led_bit(hfcusb_data * hfc, signed short led_bits, int on)
 }
 
 /* handle LED requests */
-static void
+static int
 handle_led(hfcusb_data * hfc, int event)
 {
 	hfcsusb_vdata *driver_info =
@@ -306,7 +308,7 @@ handle_led(hfcusb_data * hfc, int event)
 
 	/* if no scheme -> no LED action */
 	if (driver_info->led_scheme == LED_OFF)
-		return;
+		return 0;
 
 	switch (event) {
 		case LED_POWER_ON:
@@ -340,7 +342,7 @@ handle_led(hfcusb_data * hfc, int event)
 			set_led_bit(hfc, driver_info->led_bits[3], 0);
 			break;
 	}
-	write_led(hfc, hfc->led_state);
+	return write_led(hfc, hfc->led_state);
 }
 
 /* ISDN l1 timer T3 expires */
@@ -1524,8 +1526,8 @@ hfc_usb_disconnect(struct usb_interface *intf)
 	hfcusb_data *context = usb_get_intfdata(intf);
 	int i;
 
-	handle_led(context, LED_POWER_OFF);
-	schedule_timeout(HZ / 100);
+	if (handle_led(context, LED_POWER_OFF) >= 0)
+		schedule_timeout(HZ / 100);
 
 	printk(KERN_INFO "HFC-S USB: device disconnect\n");
 	context->disc_flag = 1;
