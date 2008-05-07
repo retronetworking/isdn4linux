@@ -7,7 +7,7 @@
 #ifndef __HFC_USB_H__
 #define __HFC_USB_H__
 
-#define DRIVER_AUTHOR   "Peter Sprenger (sprenger@moving-byters.de)"
+#define DRIVER_AUTHOR   "Peter Sprenger (sprenger@moving-bytes.de)"
 #define DRIVER_DESC     "HFC-S USB based HiSAX ISDN driver"
 
 

@@ -132,6 +132,12 @@ static struct usb_device_id hfcusb_idtab[] = {
 			  {LED_SCHEME1, {0x02, 0, 0x01, 0x04},
 			   "Eicon DIVA USB 4.0"}),
 	},
+	{
+	 USB_DEVICE(0x0586, 0x0102),
+	 .driver_info = (unsigned long) &((hfcsusb_vdata)
+			  {LED_OFF, {0, 0, 0, 0},
+			   "Zyxel OMNI.NET USB II"}),
+	},
 	{ }
 };
 
