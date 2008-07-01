@@ -135,8 +135,8 @@ static struct usb_device_id hfcusb_idtab[] = {
 	{
 	 USB_DEVICE(0x0586, 0x0102),
 	 .driver_info = (unsigned long) &((hfcsusb_vdata)
-			  {LED_SCHEME1, {0x80, -64, -32, -16},
-			   "Zyxel OMNI.NET USB II"}),
+			  {LED_SCHEME1, {0x88, -64, -32, -16},
+			   "ZyXEL OMNI.NET USB II"}),
 	},
 	{ }
 };

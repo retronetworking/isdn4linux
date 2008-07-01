@@ -87,7 +87,6 @@
 typedef struct {
 	__u8 hfc_reg;		/* register number */
 	__u8 reg_val;		/* value to be written (or read) */
-	int action;		/* data for action handler */
 } ctrl_buft;
 
 /* Debugging Flags */
