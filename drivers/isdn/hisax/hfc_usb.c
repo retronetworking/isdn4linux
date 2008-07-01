@@ -135,7 +135,7 @@ static struct usb_device_id hfcusb_idtab[] = {
 	{
 	 USB_DEVICE(0x0586, 0x0102),
 	 .driver_info = (unsigned long) &((hfcsusb_vdata)
-			  {LED_OFF, {0, 0, 0, 0},
+			  {LED_SCHEME1, {0x80, -64, -32, -16},
 			   "Zyxel OMNI.NET USB II"}),
 	},
 	{ }
@@ -244,7 +244,7 @@ ctrl_start_transfer(hfcusb_data * hfc)
 }				/* ctrl_start_transfer */
 
 static int
-queue_control_request(hfcusb_data * hfc, __u8 reg, __u8 val, int action)
+queue_control_request(hfcusb_data * hfc, __u8 reg, __u8 val)
 {
 	ctrl_buft *buf;
 
@@ -253,7 +253,6 @@ queue_control_request(hfcusb_data * hfc, __u8 reg, __u8 val, int action)
 	buf = &hfc->ctrl_buff[hfc->ctrl_in_idx];	/* pointer to new index */
 	buf->hfc_reg = reg;
 	buf->reg_val = val;
-	buf->action = action;
 	if (++hfc->ctrl_in_idx >= HFC_CTRL_BUFSIZE)
 		hfc->ctrl_in_idx = 0;	/* pointer wrap */
 	if (++hfc->ctrl_cnt == 1)
@@ -284,7 +283,7 @@ write_led(hfcusb_data * hfc, __u8 led_state)
 {
 	if (led_state != hfc->old_led_state) {
 		hfc->old_led_state = led_state;
-		return queue_control_request(hfc, HFCUSB_P_DATA, led_state, 1);
+		return queue_control_request(hfc, HFCUSB_P_DATA, led_state);
 	}
 	return 0;
 }
@@ -364,8 +363,8 @@ l1_timer_expire_t3(hfcusb_data * hfc)
 	hfc->l1_activated = 0;
 	handle_led(hfc, LED_S0_OFF);
 	/* deactivate : */
-	queue_control_request(hfc, HFCUSB_STATES, 0x10, 1);
-	queue_control_request(hfc, HFCUSB_STATES, 3, 1);
+	queue_control_request(hfc, HFCUSB_STATES, 0x10);
+	queue_control_request(hfc, HFCUSB_STATES, 3);
 }
 
 /* ISDN l1 timer T4 expires */
@@ -965,29 +964,29 @@ setup_bchannel(hfcusb_data * hfc, int channel, int mode)
 		val |= 2;	/* set transparent bit */
 
 	/* set FIFO to transmit register */
-	queue_control_request(hfc, HFCUSB_FIFO, idx_table[channel], 1);
-	queue_control_request(hfc, HFCUSB_CON_HDLC, val, 1);
+	queue_control_request(hfc, HFCUSB_FIFO, idx_table[channel]);
+	queue_control_request(hfc, HFCUSB_CON_HDLC, val);
 	/* reset fifo */
-	queue_control_request(hfc, HFCUSB_INC_RES_F, 2, 1);
+	queue_control_request(hfc, HFCUSB_INC_RES_F, 2);
 	/* set FIFO to receive register */
-	queue_control_request(hfc, HFCUSB_FIFO, idx_table[channel] + 1, 1);
-	queue_control_request(hfc, HFCUSB_CON_HDLC, val, 1);
+	queue_control_request(hfc, HFCUSB_FIFO, idx_table[channel] + 1);
+	queue_control_request(hfc, HFCUSB_CON_HDLC, val);
 	/* reset fifo */
-	queue_control_request(hfc, HFCUSB_INC_RES_F, 2, 1);
+	queue_control_request(hfc, HFCUSB_INC_RES_F, 2);
 
 	val = 0x40;
 	if (hfc->b_mode[0])
 		val |= 1;
 	if (hfc->b_mode[1])
 		val |= 2;
-	queue_control_request(hfc, HFCUSB_SCTRL, val, 1);
+	queue_control_request(hfc, HFCUSB_SCTRL, val);
 
 	val = 0;
 	if (hfc->b_mode[0])
 		val |= 1;
 	if (hfc->b_mode[1])
 		val |= 2;
-	queue_control_request(hfc, HFCUSB_SCTRL_R, val, 1);
+	queue_control_request(hfc, HFCUSB_SCTRL_R, val);
 
 	if (mode == L1_MODE_NULL) {
 		if (channel)
@@ -1037,14 +1036,12 @@ hfc_usb_l2l1(struct hisax_if *my_hisax_if, int pr, void *arg)
 						/* force sending sending INFO1 */
 						queue_control_request(hfc,
 								      HFCUSB_STATES,
-								      0x14,
-								      1);
+								      0x14);
 						mdelay(1);
 						/* start l1 activation */
 						queue_control_request(hfc,
 								      HFCUSB_STATES,
-								      0x04,
-								      1);
+								      0x04);
 						if (!timer_pending
 						    (&hfc->t3_timer)) {
 							hfc->t3_timer.
