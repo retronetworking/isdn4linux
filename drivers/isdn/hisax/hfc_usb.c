@@ -1292,7 +1292,7 @@ hfc_usb_probe(struct usb_interface *intf, const struct usb_device_id *id)
 	if (vend_idx != 0xffff) {
 		/* if vendor and product ID is OK, start probing alternate settings */
 		alt_idx = 0;
-		small_match = 0xffff;
+		small_match = -1;
 
 		/* default settings */
 		iso_packet_size = 16;
@@ -1322,23 +1322,24 @@ hfc_usb_probe(struct usb_interface *intf, const struct usb_device_id *id)
 					if (ep_addr & 0x80)
 						idx++;
 					attr = ep->desc.bmAttributes;
-					if (cmptbl[idx] == EP_NUL) {
-						cfg_found = 0;
-					}
-					if (attr == USB_ENDPOINT_XFER_INT
-					    && cmptbl[idx] == EP_INT)
-						cmptbl[idx] = EP_NUL;
-					if (attr == USB_ENDPOINT_XFER_BULK
-					    && cmptbl[idx] == EP_BLK)
-						cmptbl[idx] = EP_NUL;
-					if (attr == USB_ENDPOINT_XFER_ISOC
-					    && cmptbl[idx] == EP_ISO)
-						cmptbl[idx] = EP_NUL;
 
-					/* check if all INT endpoints match minimum interval */
-					if ((attr == USB_ENDPOINT_XFER_INT)
-					    && (ep->desc.bInterval < vcf[17])) {
-						cfg_found = 0;
+					if (cmptbl[idx] != EP_NOP) {
+						if (cmptbl[idx] == EP_NUL)
+							cfg_found = 0;
+
+						if (attr == USB_ENDPOINT_XFER_INT
+						    && cmptbl[idx] == EP_INT)
+							cmptbl[idx] = EP_NUL;
+						if (attr == USB_ENDPOINT_XFER_BULK
+						    && cmptbl[idx] == EP_BLK)
+							cmptbl[idx] = EP_NUL;
+						if (attr == USB_ENDPOINT_XFER_ISOC
+						    && cmptbl[idx] == EP_ISO)
+							cmptbl[idx] = EP_NUL;
+
+						if ((attr == USB_ENDPOINT_XFER_INT)
+						    && (ep->desc.bInterval < vcf[17]))
+							cfg_found = 0;
 					}
 					ep++;
 				}
@@ -1349,7 +1350,7 @@ hfc_usb_probe(struct usb_interface *intf, const struct usb_device_id *id)
 						cfg_found = 0;
 				}
 				if (cfg_found) {
-					if (cfg_used < small_match) {
+					if (small_match < cfg_used) {
 						small_match = cfg_used;
 						alt_used =
 						    probe_alt_setting;
@@ -1362,7 +1363,7 @@ hfc_usb_probe(struct usb_interface *intf, const struct usb_device_id *id)
 		} /* (alt_idx < intf->num_altsetting) */
 
 		/* found a valid USB Ta Endpint config */
-		if (small_match != 0xffff) {
+		if (small_match != -1) {
 			iface = iface_used;
 			if (!(context = kzalloc(sizeof(hfcusb_data), GFP_KERNEL)))
 				return (-ENOMEM);	/* got no mem */
